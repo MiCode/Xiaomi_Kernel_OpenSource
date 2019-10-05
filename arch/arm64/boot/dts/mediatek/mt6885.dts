@@ -180,8 +180,7 @@ page_owner=on";
 		interrupt-parent = <&gic>;
 		interrupt-controller;
 		reg = <0 0x0c000000 0 0x40000>, // distributor
-		      <0 0x0c040000 0 0x200000>, // redistributor
-		      <0 0x0c53a650 0 0x50>; //INTPOL
+		      <0 0x0c040000 0 0x200000>; // redistributor
 		interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
