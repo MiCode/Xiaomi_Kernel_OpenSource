@@ -562,6 +562,11 @@ int ccu_power(struct ccu_power_s *power)
 		ccu_clock_enable();
 		LOG_DBG("CCU CG released\n");
 
+		#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+		(CONFIG_MTK_IOMMU_PGTABLE_EXT == 34)
+		ccu_write_reg_bit(ccu_base, CTRL, H2X_MSB, 1);
+		#endif
+
 		/*use user space buffer*/
 		ccu_write_reg(ccu_base, CCU_DATA_REG_LOG_BUF0,
 			power->workBuf.mva_log[0]);
