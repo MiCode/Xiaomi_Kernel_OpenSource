@@ -921,14 +921,14 @@ void cmdq_mdp_enable_clock(bool enable, enum CMDQ_ENG_ENUM engine)
 		cmdq_mdp_enable_clock_IMG0_IMG_DL_ASYNC1(enable);
 		break;
 	case CMDQ_ENG_MDP_RDMA0:
+		cmdq_mdp_enable_clock_MDP_RDMA0(enable);
 		if (enable)
 			config_port_34bit(CMDQ_ENG_MDP_RDMA0);
-		cmdq_mdp_enable_clock_MDP_RDMA0(enable);
 		break;
 	case CMDQ_ENG_MDP_RDMA1:
+		cmdq_mdp_enable_clock_MDP_RDMA1(enable);
 		if (enable)
 			config_port_34bit(CMDQ_ENG_MDP_RDMA1);
-		cmdq_mdp_enable_clock_MDP_RDMA1(enable);
 		break;
 	case CMDQ_ENG_MDP_RSZ0:
 		cmdq_mdp_enable_clock_MDP_RSZ0(enable);
@@ -937,14 +937,14 @@ void cmdq_mdp_enable_clock(bool enable, enum CMDQ_ENG_ENUM engine)
 		cmdq_mdp_enable_clock_MDP_RSZ1(enable);
 		break;
 	case CMDQ_ENG_MDP_WROT0:
+		cmdq_mdp_enable_clock_MDP_WROT0(enable);
 		if (enable)
 			config_port_34bit(CMDQ_ENG_MDP_WROT0);
-		cmdq_mdp_enable_clock_MDP_WROT0(enable);
 		break;
 	case CMDQ_ENG_MDP_WROT1:
+		cmdq_mdp_enable_clock_MDP_WROT1(enable);
 		if (enable)
 			config_port_34bit(CMDQ_ENG_MDP_WROT1);
-		cmdq_mdp_enable_clock_MDP_WROT1(enable);
 		break;
 	case CMDQ_ENG_MDP_TDSHP0:
 		cmdq_mdp_enable_clock_MDP_TDSHP0(enable);
