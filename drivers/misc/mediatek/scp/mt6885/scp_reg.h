@@ -14,16 +14,16 @@
 #ifndef __SCP_REG_H
 #define __SCP_REG_H
 
-#define SCP_TO_SPM_REG          (scpreg.cfg + 0x0020)
+#define SCP_SEMAPHORE			(scpreg.cfg  + 0x0018)
+#define SCP_SCP2SPM_VOL_LV		 (scpreg.cfg + 0x0020)
+
+#define SCP_TO_SPM_REG          (scpreg.cfg + 0x0024)
 #define SCP_GIPC_IN_REG		(scpreg.cfg + 0x0028)
 	#define HOST_TO_SCP_A       (1 << 0)
 	#define HOST_TO_SCP_B       (1 << 1)
 	/* scp awake lock definition*/
 	#define SCP_A_IPI_AWAKE_NUM		(2)
 	#define SCP_B_IPI_AWAKE_NUM		(3)
-
-#define SCP_SEMAPHORE			(scpreg.cfg + 0x0018)
-#define SCP_SCP2SPM_VOL_LV		(scpreg.cfg + 0x0094)
 
 #define R_GIPC_IN_SET			(scpreg.cfg + 0x0098)
 #define R_GIPC_IN_CLR			(scpreg.cfg + 0x009c)
@@ -116,9 +116,6 @@
 #define SCP_A_GENERAL_REG7		(scpreg.cfg_core0 + 0x005C)
 
 #define SCP_GPR_CORE1_REBOOT		(scpreg.cfg_core1 + 0x54)
-
-#define SCP_SEMAPHORE			(scpreg.cfg  + 0x0018)
-#define SCP_SCP2SPM_VOL_LV		 (scpreg.cfg + 0x0020)
 
 /* clk reg*/
 #define SCP_A_SLEEP_DEBUG_REG		(scpreg.clkctrl + 0x0028)
