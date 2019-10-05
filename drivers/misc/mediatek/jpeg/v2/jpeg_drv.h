@@ -100,12 +100,15 @@
 
 #define JPEG_ENC_DST_ADDR_OFFSET_MASK (0x0f)
 
+#define HW_CORE_NUMBER 3
+
 /* #ifdef CONFIG_OF */
 struct JpegDeviceStruct {
 
 	struct device *pDev;
 	long encRegBaseVA;	/* considering 64 bit kernel, use long */
 	long decRegBaseVA;
+	long hybriddecRegBaseVA[HW_CORE_NUMBER];
 	uint32_t encIrqId;
 	uint32_t decIrqId;
 
@@ -114,6 +117,11 @@ struct JpegDeviceStruct {
 const long jpeg_dev_get_encoder_base_VA(void);
 
 const long jpeg_dev_get_decoder_base_VA(void);
+
+const long jpeg_dev_get_hybrid_decoder_base_VA(int id);
+
+const int jpeg_dev_get_hybrid_decoder_id(unsigned int pa);
+
 /* #endif */
 
 #ifndef CONFIG_MTK_CLKMGR
@@ -421,7 +429,20 @@ struct JPEG_DEC_DRV_OUT {
 	unsigned int *result;
 
 };
+struct JPEG_DEC_DRV_HYBRID_IN {
+	long timeout;
+	unsigned int hwpa;
+};
 
+struct JPEG_DEC_DRV_HYBRID_OUT {
+	long timeout;
+	unsigned int *hwpa;
+};
+
+struct JPEG_DEC_DRV_HWINFO {
+	bool locked;
+	unsigned int hwpa;
+};
 
 struct JPEG_DEC_CONFIG_ROW {
 	unsigned int decRowBuf[3];	/* OK */
@@ -647,6 +668,12 @@ struct compat_JPEG_ENC_DRV_OUT {
 	_IOW(JPEG_IOCTL_MAGIC, 17, struct JPEG_DEC_CONFIG_CMDQ)
 #define JPEG_DEC_IOCTL_DUMP_REG \
 	_IO(JPEG_IOCTL_MAGIC, 30)
+#define JPEG_DEC_IOCTL_LOCK \
+	_IOWR(JPEG_IOCTL_MAGIC, 18, struct JPEG_DEC_DRV_HYBRID_OUT)
+#define JPEG_DEC_IOCTL_HYBRID_WAIT \
+	_IOWR(JPEG_IOCTL_MAGIC, 19, struct JPEG_DEC_DRV_HYBRID_IN)
+#define JPEG_DEC_IOCTL_UNLOCK \
+	_IOWR(JPEG_IOCTL_MAGIC, 20, struct JPEG_DEC_DRV_HYBRID_IN)
 
 /* /////////////////// JPEG ENC IOCTL ///////////////////////////////////// */
 
