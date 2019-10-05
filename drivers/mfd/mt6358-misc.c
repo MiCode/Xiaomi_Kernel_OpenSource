@@ -337,8 +337,8 @@ static int rtc_busy_wait(void)
 {
 	unsigned long long timeout = sched_clock() + 500000000;
 	int ret;
-	unsigned int bbpu;
-	u32 pwrkey1, pwrkey2, sec;
+	unsigned int bbpu = 0;
+	u32 pwrkey1 = 0, pwrkey2 = 0, sec = 0;
 
 	do {
 		ret = rtc_read(RTC_BBPU, &bbpu);
@@ -815,7 +815,7 @@ static void mtk_rtc_enable_k_eosc(void)
 static void mtk_rtc_spar_alarm_clear_wait(void)
 {
 	unsigned long long timeout = sched_clock() + 500000000;
-	u32 bbpu;
+	u32 bbpu = 0;
 	int ret;
 
 	do {
@@ -912,7 +912,7 @@ exit:
 static void mtk_rtc_lpsd_restore_al_mask(void)
 {
 	int ret;
-	u32 val;
+	u32 val = 0;
 
 	ret = rtc_update_bits(RTC_BBPU,
 					(RTC_BBPU_KEY | RTC_BBPU_RELOAD),
