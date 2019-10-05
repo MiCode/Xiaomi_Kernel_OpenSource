@@ -42,7 +42,7 @@ struct tee_wsm {
 	/* Pointer to associated cbuf, if relevant */
 	struct cbuf		*cbuf;
 	/* State of this WSM */
-	bool			in_use;
+	int			in_use;
 };
 
 struct tee_session {

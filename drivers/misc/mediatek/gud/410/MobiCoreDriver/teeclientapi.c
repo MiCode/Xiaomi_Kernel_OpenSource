@@ -21,7 +21,6 @@
 #include "public/mc_user.h"
 
 #include "main.h"
-#include "mci/gptci.h"	/* Needs stuff from tee_client_api.h or its includes */
 #include "mci/mcinq.h"	/* TA termination codes */
 #include "client.h"
 
