@@ -38,9 +38,6 @@ CFLAGS_KASAN_NOSANITIZE := -fno-builtin
 
 CFLAGS_KASAN += $(call cc-option, -Wno-format)
 CFLAGS_KASAN += $(call cc-option, -Wno-format-extra-args)
-CFLAGS_KASAN += $(call cc-option, -Wno-unused-variable)
-CFLAGS_KASAN += $(call cc-option, -Wno-unused-value)
-CFLAGS_KASAN += $(call cc-option, -Wno-uninitialized)
-CFLAGS_KASAN += $(call cc-option, -Wno-pointer-to-int-cast)
 CFLAGS_KASAN += $(call cc-option, -Wno-enum-compare)
+
 endif
