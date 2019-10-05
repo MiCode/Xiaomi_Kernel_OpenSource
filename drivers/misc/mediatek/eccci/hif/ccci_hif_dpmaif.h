@@ -52,16 +52,27 @@
 #define DPMAIF_BUF_PKT_SIZE     DPMAIF_PKT_SIZE
 #define DPMAIF_BUF_FRAG_SIZE    DPMAIF_FRG_SIZE
 
-#define DPMAIF_HW_CHK_PIT_NUM      6
-#define DPMAIF_HW_CHK_BAT_NUM      3
-#define DPMAIF_HW_CHK_FRG_NUM      3
+#ifdef MT6297
+#define DPMAIF_HW_CHK_BAT_NUM      62
+#define DPMAIF_HW_CHK_FRG_NUM      DPMAIF_HW_CHK_BAT_NUM
+#define DPMAIF_HW_CHK_PIT_NUM      (DPMAIF_HW_CHK_BAT_NUM*2)
+#define DPMAIF_HW_CHK_RB_PIT_NUM   64
+#else
+#define DPMAIF_HW_CHK_PIT_NUM      2
+#define DPMAIF_HW_CHK_BAT_NUM      1
+#define DPMAIF_HW_CHK_FRG_NUM      1
+#endif
 
 #define DPMAIF_DL_BAT_ENTRY_SIZE  1024 /* 128 */
 /* 2048*/ /* 256, 100pkts*2*10ms=2000*12B=>24k */
 #define DPMAIF_DL_PIT_ENTRY_SIZE  (DPMAIF_DL_BAT_ENTRY_SIZE * 2)
 #define DPMAIF_UL_DRB_ENTRY_SIZE  2048 /* from 512 */
 
+#ifdef MT6297
+#define DPMAIF_DL_PIT_BYTE_SIZE   16
+#else
 #define DPMAIF_DL_PIT_BYTE_SIZE   12
+#endif
 #define DPMAIF_DL_BAT_BYTE_SIZE   8
 #define DPMAIF_UL_DRB_BYTE_SIZE  8
 
@@ -78,6 +89,7 @@ unsigned int buf_len;
 /****************************************************************************
  * Structure of DL PIT
  ****************************************************************************/
+#if 0
 struct dpmaifq_normal_pit {
 	unsigned int    packet_type:1; /* 0-payload packet; 1-message packet */
 	unsigned int    c_bit:1;/* 1-1/n; 0-the last one */
@@ -88,6 +100,22 @@ struct dpmaifq_normal_pit {
 	unsigned int    data_addr_ext:8;
 	unsigned int    reserved:24;
 };
+#else
+struct dpmaifq_normal_pit {
+	unsigned int	packet_type:1;
+	unsigned int    c_bit:1;
+	unsigned int    buffer_type:1;
+	unsigned int    buffer_id:13;
+	unsigned int    data_len:16;
+	unsigned int	p_data_addr;
+	unsigned int	data_addr_ext;
+	unsigned int	pit_seq:16;
+	unsigned int	ig:1;
+	unsigned int	reserved2:7;
+	unsigned int	ulq_done:6;
+	unsigned int	dlq_done:2;
+};
+#endif
 /* packet_type */
 #define DES_PT_PD            0x00
 #define DES_PT_MSG           0x01
@@ -96,6 +124,7 @@ struct dpmaifq_normal_pit {
 /* buffer_type */
 #define PKT_BUF_FRAG    0x1
 
+#if 0
 struct dpmaifq_msg_pit {
 	unsigned int    packet_type:1;
 	unsigned int    c_bit:1;
@@ -111,7 +140,36 @@ struct dpmaifq_msg_pit {
 	unsigned int    reserved3:9;
 	unsigned int    reserved4;
 };
+#else
+struct dpmaifq_msg_pit {
+	unsigned int    packet_type:1;
+	unsigned int    c_bit:1;
+	unsigned int    check_sum:2;
+	unsigned int    error_bit:1;
+	unsigned int    src_qid:3;
+	unsigned int	reserved:8;
+	unsigned int    channel_id:8;
+	unsigned int	network_type:3;
+	unsigned int    reserved2:4;
+	unsigned int    dp:1;
 
+	unsigned int    count_l:16;
+	unsigned int    flow:5;
+	unsigned int    reserved3:3;
+	unsigned int    cmd:3;
+	unsigned int    reserved4:5;
+
+	unsigned int    reserved5:3;
+	unsigned int    vbid:13;
+	unsigned int    reserved6:16;
+
+	unsigned int    pit_seq:16;
+	unsigned int    ig:1;
+	unsigned int    reserved7:7;
+	unsigned int    ulq_done:6;
+	unsigned int    dlq_done:2;
+};
+#endif
 /****************************************************************************
  * Structure of DL BAT
  ****************************************************************************/
@@ -148,6 +206,10 @@ struct dpmaif_bat_request {
 	void *bat_skb_ptr;/* collect skb linked to bat */
 	unsigned int     skb_pkt_cnt;
 	unsigned int pkt_buf_sz;
+
+#if defined(_97_REORDER_BAT_PAGE_TABLE_)
+	unsigned char bid_btable[DPMAIF_DL_BAT_ENTRY_SIZE];
+#endif
 	/* for debug */
 	int check_bid_fail_cnt;
 };
@@ -301,6 +363,8 @@ struct hif_dpmaif_ctrl {
 	void __iomem *dpmaif_pd_misc_base;
 	void __iomem *dpmaif_pd_md_misc_base;
 	void __iomem *dpmaif_pd_sram_base;
+	void __iomem *dpmaif_pd_rdma_base;
+	void __iomem *dpmaif_pd_wdma_base;
 
 	unsigned int dpmaif_irq_id;
 	unsigned long dpmaif_irq_flags;

@@ -110,4 +110,11 @@ void dpmaif_mask_pitcnt_len_error_intr(unsigned char q_num);
 void dpmaif_mask_batcnt_len_error_intr(unsigned char q_num);
 #endif
 
+#ifdef MT6297
+void drv_dpmaif_dl_set_performance(void);
+void drv_dpmaif_dl_set_wdma(void);
+void drv_dpmaif_dl_set_chk_rbnum(unsigned char q_num, unsigned int cnt);
+void drv_dpmaif_common_hw_init(void);
+#endif
+
 #endif

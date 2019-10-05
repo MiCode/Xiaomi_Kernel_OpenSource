@@ -13,6 +13,7 @@
 
 #include "dpmaif_drv.h"
 #include "ccci_hif_dpmaif.h"
+#include "ccci_config.h"
 
 #define TAG "dpmaif"
 /* =======================================================
@@ -421,6 +422,15 @@ void drv_dpmaif_mask_dl_interrupt(unsigned char q_num)
 #ifndef DPMAIF_NOT_ACCESS_HW
 	unsigned int ui_que_done_mask;
 
+#ifdef MT6297
+	/* set mask register: bit1s */
+	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_APDL_L2TIMSR0, (
+#ifdef _E1_SB_SW_WORKAROUND_
+		DPMAIF_DL_INT_BATCNT_LEN_ERR(q_num) |
+		DPMAIF_DL_INT_PITCNT_LEN_ERR(q_num) |
+#endif
+		DPMAIF_DL_INT_QDONE_MSK));
+#else /*MT6297*/
 	/* set mask register: bit1s */
 	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_DL_L2TIMSR0, (
 #ifdef _E1_SB_SW_WORKAROUND_
@@ -428,6 +438,7 @@ void drv_dpmaif_mask_dl_interrupt(unsigned char q_num)
 		DPMAIF_DL_INT_PITCNT_LEN_ERR(q_num) |
 #endif
 		DPMAIF_DL_INT_QDONE_MSK));
+#endif /*MT6297*/
 
 	ui_que_done_mask = DPMA_READ_AO_DL(DPMAIF_AO_DL_RDY_CHK_THRES);
 	ui_que_done_mask |= DPMAIF_DL_INT_QDONE_MSK;
@@ -448,6 +459,15 @@ void drv_dpmaif_unmask_dl_interrupt(unsigned char q_num)
 {
 	unsigned int ui_que_done_mask = DPMAIF_DL_INT_QDONE_MSK;
 
+#ifdef MT6297
+	/* set unmask/clear_mask register: bit0s */
+	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_APDL_L2TIMCR0, (
+#ifdef _E1_SB_SW_WORKAROUND_
+		DPMAIF_DL_INT_BATCNT_LEN_ERR(q_num) |
+		DPMAIF_DL_INT_PITCNT_LEN_ERR(q_num) |
+#endif
+		DPMAIF_DL_INT_QDONE_MSK));
+#else /*MT6297*/
 	/* set unmask/clear_mask register: bit0s */
 	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_DL_L2TIMCR0, (
 #ifdef _E1_SB_SW_WORKAROUND_
@@ -455,6 +475,7 @@ void drv_dpmaif_unmask_dl_interrupt(unsigned char q_num)
 		DPMAIF_DL_INT_PITCNT_LEN_ERR(q_num) |
 #endif
 		DPMAIF_DL_INT_QDONE_MSK));
+#endif /*MT6297*/
 
 	ui_que_done_mask = DPMA_READ_AO_DL(DPMAIF_AO_DL_RDY_CHK_THRES);
 	ui_que_done_mask &= ~DPMAIF_DL_INT_QDONE_MSK;
@@ -580,7 +601,11 @@ void drv_dpmaif_mask_ul_que_interrupt(unsigned char q_num)
 
 	ui_que_done_mask = DPMAIF_UL_INT_DONE(q_num) & DPMAIF_UL_INT_QDONE_MSK;
 
+#ifdef MT6297
+	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_AP_L2TIMSR0, ui_que_done_mask);
+#else
 	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_UL_L2TISR0, ui_que_done_mask);
+#endif
 
 	/* check mask sts */
 	/* while ((DPMA_READ_PD_MISC(DPMAIF_PD_AP_UL_L2TIMR0) &
@@ -595,7 +620,12 @@ void drv_dpmaif_unmask_ul_interrupt(unsigned char q_num)
 	unsigned int ui_que_done_mask;
 
 	ui_que_done_mask = DPMAIF_UL_INT_DONE(q_num) & DPMAIF_UL_INT_QDONE_MSK;
+
+#ifdef MT6297
+	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_AP_L2TIMCR0, ui_que_done_mask);
+#else
 	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_UL_L2TICR0, ui_que_done_mask);
+#endif
 
 	/*check mask sts*/
 	/* while ((DPMA_READ_PD_MISC(DPMAIF_PD_AP_UL_L2TIMR0) &
@@ -607,8 +637,11 @@ unsigned int drv_dpmaif_ul_get_ridx(unsigned char q_num)
 {
 	unsigned int ridx;
 
+#ifdef MT6297
+	ridx = DPMA_READ_AO_UL(DPMAIF_ULQ_STA0_n(q_num)) & 0x0000ffff;
+#else
 	ridx = DPMA_READ_PD_UL(DPMAIF_ULQ_STA0_n(q_num)) & 0x0000ffff;
-
+#endif
 	return ridx;
 }
 
@@ -1004,6 +1037,62 @@ void drv_dpmaif_dl_set_ao_chksum_en(unsigned char q_num, bool enable)
 }
 #endif
 
+#ifdef MT6297
+void drv_dpmaif_dl_set_performance(void)
+{
+	unsigned int value;
+
+	/*BAT cache enable*/
+	value = DPMA_READ_PD_DL(NRL2_DPMAIF_DL_BAT_INIT_CON1);
+	value |= (1<<22);
+	DPMA_WRITE_PD_DL(NRL2_DPMAIF_DL_BAT_INIT_CON1, value);
+
+	/*PIT burst en*/
+	value = DPMA_READ_AO_DL(NRL2_DPMAIF_AO_DL_RDY_CHK_THRES);
+	value |= (1<<13);
+	DPMA_WRITE_AO_DL(DPMAIF_AO_DL_RDY_CHK_THRES, value);
+}
+
+void drv_dpmaif_dl_set_wdma(void)
+{
+	unsigned int value;
+
+	/*Set WDMA OSTD*/
+	value = DPMA_READ_WDMA(NRL2_DPMAIF_WDMA_WR_CHNL_CMD_CON3);
+	value &=
+		~(DPMAIF_DL_WDMA_CTRL_OSTD_MSK<<DPMAIF_DL_WDMA_CTRL_OSTD_OFST);
+	value |=
+	(DPMAIF_DL_WDMA_CTRL_OSTD_VALUE<<DPMAIF_DL_WDMA_CTRL_OSTD_OFST);
+	DPMA_WRITE_WDMA(NRL2_DPMAIF_WDMA_WR_CHNL_CMD_CON3, value);
+
+	/*Set CTRL_INTVAL/INTAL_MIN*/
+	value = DPMA_READ_WDMA(NRL2_DPMAIF_WDMA_WR_CMD_CON0);
+	value &= (0xFFFF0000);
+	DPMA_WRITE_WDMA(NRL2_DPMAIF_WDMA_WR_CMD_CON0, value);
+}
+
+void drv_dpmaif_dl_set_chk_rbnum(unsigned char q_num, unsigned int cnt)
+{
+	unsigned int value;
+
+	/* bit0~7: chk rb pit number */
+	value = DPMA_READ_AO_DL(DPMAIF_AO_DL_PKTINFO_CONO);
+
+	value &= ~(DPMAIF_CHK_RB_PITNUM_MSK);
+	value |= ((cnt) & DPMAIF_CHK_RB_PITNUM_MSK);
+
+	DPMA_WRITE_AO_DL(DPMAIF_AO_DL_PKTINFO_CONO, value);
+}
+
+void drv_dpmaif_common_hw_init(void)
+{
+	/*Set HW CG dis*/
+	DPMA_WRITE_PD_MISC(NRL2_DPMAIF_AP_MISC_CG_EN, 0x7F);
+	/*Set Wdma performance*/
+	drv_dpmaif_dl_set_wdma();
+}
+#endif
+
 /* =======================================================
  *
  * Descriptions: State part (1/3): Init(RX) -- tx hw init
@@ -1015,6 +1104,15 @@ void drv_dpmaif_init_ul_intr(void)
 {
 	/* 1. clear dummy sts*/
 	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_UL_L2TISAR0, 0xFFFFFFFF);
+#ifdef MT6297
+	/* 2. set interrupt enable mask*/
+	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_AP_L2TIMCR0, AP_UL_L2INTR_En_Msk);
+	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_AP_L2TIMSR0, ~(AP_UL_L2INTR_En_Msk));
+	/* 1. clear dummy sts*/
+	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_IP_BUSY, 0xFFFFFFFF);
+	/* 2. set IP busy unmask*/
+	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_AP_DL_UL_IP_BUSY_MASK, 0);
+#else
 	/* 2. set interrupt enable mask*/
 	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_UL_L2TICR0, AP_UL_L2INTR_En_Msk);
 	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_UL_L2TISR0, ~(AP_UL_L2INTR_En_Msk));
@@ -1022,6 +1120,7 @@ void drv_dpmaif_init_ul_intr(void)
 	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_IP_BUSY, 0xFFFFFFFF);
 	/* 2. set IP busy unmask*/
 	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_DLUL_IP_BUSY_MASK, 0);
+#endif
 }
 
 #define DPMAIF_UL_DRBSIZE_ADDRH_n(q_num)   \
@@ -1029,7 +1128,16 @@ void drv_dpmaif_init_ul_intr(void)
 void drv_dpmaif_ul_update_drb_size(unsigned char q_num, unsigned int size)
 {
 	unsigned int old_size, set_size;
+#ifdef MT6297
+	/* 1. bit 15~0: DRB count, in word(4 bytes) curr: 512*8/4 */
+	set_size = size/4;
+	old_size = DPMA_READ_AO_UL(DPMAIF_UL_DRBSIZE_ADDRH_n(q_num));
 
+	old_size &= ~DPMAIF_DRB_SIZE_MSK;
+	old_size |= (set_size & DPMAIF_DRB_SIZE_MSK);
+
+	DPMA_WRITE_AO_UL(DPMAIF_UL_DRBSIZE_ADDRH_n(q_num), old_size);
+#else
 	/* 1. bit 15~0: DRB count, in word(4 bytes) curr: 512*8/4 */
 	set_size = size/4;
 	old_size = DPMA_READ_PD_UL(DPMAIF_UL_DRBSIZE_ADDRH_n(q_num));
@@ -1038,6 +1146,7 @@ void drv_dpmaif_ul_update_drb_size(unsigned char q_num, unsigned int size)
 	old_size |= (set_size & DPMAIF_DRB_SIZE_MSK);
 
 	DPMA_WRITE_PD_UL(DPMAIF_UL_DRBSIZE_ADDRH_n(q_num), old_size);
+#endif
 }
 
 void drv_dpmaif_ul_update_drb_base_addr(unsigned char q_num,
@@ -1045,6 +1154,17 @@ void drv_dpmaif_ul_update_drb_base_addr(unsigned char q_num,
 {
 	unsigned int old_addr;
 
+#ifdef MT6297
+	/* 2 bit 31~0: drb base addr low 32bits, curr: lb_addr */
+	DPMA_WRITE_AO_UL(DPMAIF_ULQSAR_n(q_num), lb_addr);
+
+	old_addr = DPMA_READ_AO_UL(DPMAIF_UL_DRBSIZE_ADDRH_n(q_num));
+
+	old_addr &= ~DPMAIF_DRB_ADDRH_MSK;
+	old_addr |= ((hb_addr<<24) & DPMAIF_DRB_ADDRH_MSK);
+	/* 2. bit 31~24: drb base addr high 8bits, curr: hb_addr */
+	DPMA_WRITE_AO_UL(DPMAIF_UL_DRBSIZE_ADDRH_n(q_num), old_addr);
+#else
 	/* 2 bit 31~0: drb base addr low 32bits, curr: lb_addr */
 	DPMA_WRITE_PD_UL(DPMAIF_ULQSAR_n(q_num), lb_addr);
 
@@ -1054,6 +1174,7 @@ void drv_dpmaif_ul_update_drb_base_addr(unsigned char q_num,
 	old_addr |= ((hb_addr<<24) & DPMAIF_DRB_ADDRH_MSK);
 	/* 2. bit 31~24: drb base addr high 8bits, curr: hb_addr */
 	DPMA_WRITE_PD_UL(DPMAIF_UL_DRBSIZE_ADDRH_n(q_num), old_addr);
+#endif
 }
 
 
@@ -1061,41 +1182,66 @@ void drv_dpmaif_ul_rdy_en(unsigned char q_num, bool ready)
 {
 	unsigned int ul_rdy_en;
 
+#ifdef MT6297
+	ul_rdy_en = DPMA_READ_AO_UL(NRL2_DPMAIF_AO_UL_CHNL_ARB0);
+#else
 	ul_rdy_en = DPMA_READ_PD_UL(DPMAIF_PD_UL_CHNL_ARB0);
+#endif
 
 	if (ready == true)
 		ul_rdy_en |= (1<<q_num);
 	else
 		ul_rdy_en &= ~(1<<q_num);
 
+#ifdef MT6297
+	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_CHNL_ARB0, ul_rdy_en);
+#else
 	DPMA_WRITE_PD_UL(DPMAIF_PD_UL_CHNL_ARB0, ul_rdy_en);
+#endif
 }
 
 void drv_dpmaif_ul_arb_en(unsigned char q_num, bool enable)
 {
 	unsigned int ul_arb_en;
 
+#ifdef MT6297
+	ul_arb_en = DPMA_READ_AO_UL(NRL2_DPMAIF_AO_UL_CHNL_ARB0);
+#else
 	ul_arb_en = DPMA_READ_PD_UL(DPMAIF_PD_UL_CHNL_ARB0);
+#endif
 
 	if (enable == true)
 		ul_arb_en |= (1<<(q_num+8));
 	else
 		ul_arb_en &= ~(1<<(q_num+8));
 
+#ifdef MT6297
+	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_CHNL_ARB0, ul_arb_en);
+#else
 	DPMA_WRITE_PD_UL(DPMAIF_PD_UL_CHNL_ARB0, ul_arb_en);
+#endif
 }
 
 void drv_dpmaif_ul_all_queue_en(bool enable)
 {
 	unsigned long ul_arb_en;
 
+#ifdef MT6297
+	ul_arb_en = DPMA_READ_AO_UL(NRL2_DPMAIF_AO_UL_CHNL_ARB0);
+#else
 	ul_arb_en = DPMA_READ_PD_UL(DPMAIF_PD_UL_CHNL_ARB0);
+#endif
 
 	if (enable == true)
 		ul_arb_en |= DPMAIF_UL_ALL_QUE_ARB_EN;
 	else
 		ul_arb_en &= ~DPMAIF_UL_ALL_QUE_ARB_EN;
+
+#ifdef MT6297
+	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_CHNL_ARB0, ul_arb_en);
+#else
 	DPMA_WRITE_PD_UL(DPMAIF_PD_UL_CHNL_ARB0, ul_arb_en);
+#endif
 }
 
 unsigned int drv_dpmaif_ul_idle_check(void)
@@ -1123,6 +1269,40 @@ unsigned int drv_dpmaif_ul_idle_check(void)
  */
 void drv_dpmaif_intr_hw_init(void)
 {
+#ifdef MT6297
+	/* UL/TX interrupt init */
+	/* 1. clear dummy sts*/
+	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_UL_L2TISAR0, 0xFFFFFFFF);
+	/* 2. set interrupt enable mask*/
+	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_AP_L2TIMCR0, AP_UL_L2INTR_En_Msk);
+	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_AP_L2TIMSR0,
+				 ~(AP_UL_L2INTR_En_Msk));
+
+	/* 3. check mask sts*/
+	while ((DPMA_READ_AO_UL(NRL2_DPMAIF_AO_UL_AP_L2TIMR0) &
+		AP_UL_L2INTR_En_Msk) == AP_UL_L2INTR_En_Msk)
+		;
+
+	/*Set DL/RX interrupt*/
+	/* 1. clear dummy sts*/
+	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_DL_L2TISAR0, 0xFFFFFFFF);
+	/* 2. clear interrupt enable mask*/
+	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_APDL_L2TIMCR0, AP_DL_L2INTR_En_Msk);
+	/*set interrupt enable mask*/
+	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_APDL_L2TIMSR0,
+			~(AP_DL_L2INTR_En_Msk));
+	drv_dpmaif_set_dl_interrupt_mask(~(AP_DL_L2INTR_En_Msk));
+	/* 3. check mask sts*/
+	while ((DPMA_READ_AO_UL(NRL2_DPMAIF_AO_UL_APDL_L2TIMR0) &
+		AP_DL_L2INTR_En_Msk) == AP_DL_L2INTR_En_Msk)
+		;
+
+	/* Set AP IP busy */
+	/* 1. clear dummy sts*/
+	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_IP_BUSY, 0xFFFFFFFF);
+	/* 2. set IP busy unmask*/
+	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_AP_DL_UL_IP_BUSY_MASK, 0);
+#else
 	/* UL/TX interrupt init */
 	/* 1. clear dummy sts*/
 	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_UL_L2TISAR0, 0xFFFFFFFF);
@@ -1153,6 +1333,7 @@ void drv_dpmaif_intr_hw_init(void)
 	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_IP_BUSY, 0xFFFFFFFF);
 	/* 2. set IP busy unmask*/
 	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_DLUL_IP_BUSY_MASK, 0);
+#endif
 }
 
 /* =======================================================

@@ -19,6 +19,8 @@
 #define MD_PLATFORM_INFO    "6297"
 #define AP_PLATFORM_INFO    "MT6885"
 #define CCCI_DRIVER_VER     0x20110118
+#define MT6297
+#define _97_REORDER_BAT_PAGE_TABLE_
 
 /* buffer management customization */
 #define CCCI_MTU            (3584-128)

@@ -655,10 +655,7 @@ page_owner=on";
 	dpmaif:dpmaif@10014000 {
 		compatible = "mediatek,dpmaif";
 		reg = <0 0x10014000 0 0x1000>, /*AO_UL*/
-			<0 0x10014400 0 0x1000>, /*AO_DL*/
 			<0 0x1022D000 0 0x1000>, /*PD_UL*/
-			<0 0x1022D100 0 0x1000>, /*PD_DL*/
-			<0 0x1022D400 0 0x1000>, /*PD_MISC*/
 			<0 0x1022C000 0 0x1000>, /*PD_MD_MISC*/
 			<0 0x1022E000 0 0x1000>; /*SRAM*/
 		interrupts = <GIC_SPI 209 IRQ_TYPE_LEVEL_HIGH>; /*209+32=241*/
