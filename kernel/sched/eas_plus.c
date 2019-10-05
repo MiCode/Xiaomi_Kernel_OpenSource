@@ -661,8 +661,8 @@ hmp_fastest_idle_prefer_pull(int this_cpu, struct task_struct **p,
 
 			target_capacity = capacity_orig_of(cpu);
 			if (se && entity_is_task(se) &&
-			     (task_uclamped_min(task_of(se)) >=
-				target_capacity) &&
+			     (uclamp_task_effective_util(task_of(se),
+				UCLAMP_MIN) >= target_capacity) &&
 			     cpumask_test_cpu(this_cpu,
 					      &((task_of(se))->cpus_allowed))) {
 				selected = 1;
@@ -694,7 +694,7 @@ hmp_fastest_idle_prefer_pull(int this_cpu, struct task_struct **p,
 				se = __pick_first_entity(cfs_rq);
 				if (se && entity_is_task(se) &&
 					    cpumask_intersects(hmp_target_mask,
-					       tsk_cpus_allowed(task_of(se)))) {
+						&(task_of(se)->cpus_allowed))) {
 					backup_cpu = cpu;
 					/* get task and selection inside
 					 * rq lock
@@ -717,66 +717,45 @@ hmp_fastest_idle_prefer_pull(int this_cpu, struct task_struct **p,
 	}
 }
 
+/*
+ * rq: src rq
+ */
 static int
-migrate_runnable_task(struct task_struct *p, int target_cpu,
-					struct rq *busiest_rq)
+migrate_runnable_task(struct task_struct *p, int dst_cpu,
+					struct rq *rq)
 {
-	int busiest_cpu = cpu_of(busiest_rq);
-	struct rq *target_rq = cpu_rq(target_cpu);
-	struct sched_domain *sd;
+	struct rq_flags rf;
 	int moved = 0;
-	unsigned long flags;
+	int src_cpu = cpu_of(rq);
 
-	raw_spin_lock_irqsave(&busiest_rq->lock, flags);
-	/* Is there any task to move? */
-	if (busiest_rq->nr_running <= 1)
-		goto out_unlock;
+	raw_spin_lock(&p->pi_lock);
+	rq_lock(rq, &rf);
+
 	/* Are both target and busiest cpu online */
-	if (!cpu_online(busiest_cpu) || !cpu_online(target_cpu) ||
-		cpu_isolated(busiest_cpu) || cpu_isolated(target_cpu))
+	if (!cpu_online(src_cpu) || !cpu_online(dst_cpu) ||
+		cpu_isolated(src_cpu) || cpu_isolated(dst_cpu))
 		goto out_unlock;
+
 	/* Task has migrated meanwhile, abort forced migration */
-	if ((!p) || (task_rq(p) != busiest_rq))
+	/* can't migrate running task */
+	if (task_running(rq, p))
 		goto out_unlock;
+
 	/*
-	 * This condition is "impossible", if it occurs
-	 * we need to fix it. Originally reported by
-	 * Bjorn Helgaas on a 128-cpu setup.
+	 * If task_rq(p) != rq, it cannot be migrated here, because we're
+	 * holding rq->lock, if p->on_rq == 0 it cannot get enqueued because
+	 * we're holding p->pi_lock.
 	 */
-	WARN_ON(busiest_rq == target_rq);
-
-	if (task_running(busiest_rq, p))
-		goto out_unlock;
-
-	/* move a task from busiest_rq to target_rq */
-	double_lock_balance(busiest_rq, target_rq);
-
-	/* Search for an sd spanning us and the target CPU. */
-	rcu_read_lock();
-	for_each_domain(target_cpu, sd) {
-		if (cpumask_test_cpu(busiest_cpu, sched_domain_span(sd)))
-			break;
+	if (task_rq(p) == rq) {
+		if (task_on_rq_queued(p)) {
+			rq = __migrate_task(rq, &rf, p, dst_cpu);
+			moved = 1;
+		}
 	}
 
-	if (likely(sd)) {
-		struct lb_env env = {
-			.sd             = sd,
-			.dst_cpu        = target_cpu,
-			.dst_rq         = target_rq,
-			.src_cpu        = busiest_rq->cpu,
-			.src_rq         = busiest_rq,
-			.idle           = CPU_IDLE,
-		};
-
-		schedstat_inc(sd->alb_count);
-
-		moved = move_specific_task(&env, p);
-		trace_sched_hmp_migrate(p, env.dst_cpu, 3);
-	}
-	rcu_read_unlock();
-	double_unlock_balance(busiest_rq, target_rq);
 out_unlock:
-	raw_spin_unlock_irqrestore(&busiest_rq->lock, flags);
+	rq_unlock(rq, &rf);
+	raw_spin_unlock(&p->pi_lock);
 
 	return moved;
 }
@@ -786,6 +765,9 @@ static unsigned int aggressive_idle_pull(int this_cpu)
 	int moved = 0;
 	struct rq *target = NULL;
 	struct task_struct *p = NULL;
+
+	if (!sched_smp_initialized)
+		return 0;
 
 	if (!spin_trylock(&hmp_force_migration))
 		return 0;
