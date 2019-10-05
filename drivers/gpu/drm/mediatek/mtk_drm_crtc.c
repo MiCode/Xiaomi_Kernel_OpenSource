@@ -158,6 +158,9 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 		addon_path = mtk_addon_module_get_path(module);
 
 		for (j = 0; j < addon_path->path_len; j++) {
+			if (mtk_ddp_comp_get_type(addon_path->path[j])
+				== MTK_DISP_VIRTUAL)
+				continue;
 			comp = priv->ddp_comp[addon_path->path[j]];
 			mtk_dump_reg(comp);
 		}
@@ -195,6 +198,10 @@ void mtk_drm_crtc_analysis(struct drm_crtc *crtc)
 		addon_path = mtk_addon_module_get_path(module);
 
 		for (j = 0; j < addon_path->path_len; j++) {
+			if (mtk_ddp_comp_get_type(addon_path->path[j])
+				== MTK_DISP_VIRTUAL)
+				continue;
+
 			comp = priv->ddp_comp[addon_path->path[j]];
 			mtk_dump_analysis(comp);
 		}
@@ -576,7 +583,8 @@ static void _mtk_crtc_atmoic_addon_module_disconnect(
 		addon_config.config_type.type = addon_module->type;
 
 		if (addon_module->type == ADDON_BETWEEN &&
-		    addon_module->module == DISP_RSZ) {
+		    (addon_module->module == DISP_RSZ ||
+		    addon_module->module == DISP_RSZ_v2)) {
 			int w = crtc->state->adjusted_mode.hdisplay;
 			int h = crtc->state->adjusted_mode.vdisplay;
 			struct mtk_rect rsz_roi = {0, 0, w, h};
@@ -618,7 +626,8 @@ _mtk_crtc_atmoic_addon_module_connect(
 		addon_config.config_type.type = addon_module->type;
 
 		if (addon_module->type == ADDON_BETWEEN &&
-		    addon_module->module == DISP_RSZ) {
+		    (addon_module->module == DISP_RSZ ||
+		    addon_module->module == DISP_RSZ_v2)) {
 			struct mtk_crtc_state *state =
 				to_mtk_crtc_state(crtc->state);
 

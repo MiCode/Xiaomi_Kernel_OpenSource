@@ -281,6 +281,10 @@
 #define MT6885_DISP_RDMA0_RSZ0_SOUT_SEL	0xF40
 	#define	DISP_RDMA0_RSZ0_SOUT_SEL_TO_DSI0_SEL_IN		0x0
 	#define	DISP_RDMA0_RSZ0_SOUT_SEL_TO_DISP_COLOR0		0x1
+#define MT6885_MMSYS_OVL_CON	0xF4C
+	#define DISP_OVL0_TO_DISP_OVL0_BLENDOUT_SOUT			BIT(0)
+	#define DISP_OVL0_2L_TO_DISP_OVL0_2L_BLENDOUT_SOUT		BIT(2)
+	#define DISP_OVL0_2L_TO_DISP_OVL0_2L_OVL1_OVL1_2L_BGOUT_SEL	BIT(3)
 #define MT6885_DISP_DITHER0_MOUT_EN	0xF50
 	#define DISP_DITHER0_MOUT_EN_TO_DSI0_SEL	BIT(0)
 #define MT6885_DSI0_SEL_IN		0xF54
@@ -1761,7 +1765,18 @@ static int mtk_ddp_mout_en_MT6885(const struct mtk_mmsys_reg_data *data,
 {
 	int value;
 
-	if (cur == DDP_COMPONENT_OVL0_VIRTUAL0 &&
+	if (cur == DDP_COMPONENT_OVL0_2L && next == DDP_COMPONENT_OVL0) {
+		*addr = MT6885_MMSYS_OVL_CON;
+		value = DISP_OVL0_2L_TO_DISP_OVL0_2L_OVL1_OVL1_2L_BGOUT_SEL;
+	} else if (cur == DDP_COMPONENT_OVL0_2L &&
+		next == DDP_COMPONENT_OVL0_2L_VIRTUAL0) {
+		*addr = MT6885_MMSYS_OVL_CON;
+		value = DISP_OVL0_2L_TO_DISP_OVL0_2L_BLENDOUT_SOUT;
+	} else if (cur == DDP_COMPONENT_OVL0 &&
+		next == DDP_COMPONENT_OVL0_VIRTUAL0) {
+		*addr = MT6885_MMSYS_OVL_CON;
+		value = DISP_OVL0_TO_DISP_OVL0_BLENDOUT_SOUT;
+	} else if (cur == DDP_COMPONENT_OVL0_VIRTUAL0 &&
 		next == DDP_COMPONENT_RDMA0) {
 		*addr = MT6885_DISP_TOVL0_OUT1_MOUT_EN;
 		value = DISP_TOVL0_OUT1_MOUT_EN_TO_DISP_RDMA0_SEL;
@@ -3284,12 +3299,12 @@ void mmsys_config_dump_analysis_mt6885(void __iomem *config_regs)
 
 		pos = clock_on;
 
-		if ((valid2 & (1 << i)))
+		if ((valid3 & (1 << i)))
 			pos += sprintf(pos, "%s,", "v");
 		else
 			pos += sprintf(pos, "%s,", "n");
 
-		if ((ready2 & (1 << i)))
+		if ((ready3 & (1 << i)))
 			pos += sprintf(pos, "%s", "r");
 		else
 			pos += sprintf(pos, "%s", "n");
@@ -3306,12 +3321,12 @@ void mmsys_config_dump_analysis_mt6885(void __iomem *config_regs)
 
 		pos = clock_on;
 
-		if ((valid2 & (1 << i)))
+		if ((valid4 & (1 << i)))
 			pos += sprintf(pos, "%s,", "v");
 		else
 			pos += sprintf(pos, "%s,", "n");
 
-		if ((ready2 & (1 << i)))
+		if ((ready4 & (1 << i)))
 			pos += sprintf(pos, "%s", "r");
 		else
 			pos += sprintf(pos, "%s", "n");
@@ -3328,12 +3343,12 @@ void mmsys_config_dump_analysis_mt6885(void __iomem *config_regs)
 
 		pos = clock_on;
 
-		if ((valid2 & (1 << i)))
+		if ((valid5 & (1 << i)))
 			pos += sprintf(pos, "%s,", "v");
 		else
 			pos += sprintf(pos, "%s,", "n");
 
-		if ((ready2 & (1 << i)))
+		if ((ready5 & (1 << i)))
 			pos += sprintf(pos, "%s", "r");
 		else
 			pos += sprintf(pos, "%s", "n");

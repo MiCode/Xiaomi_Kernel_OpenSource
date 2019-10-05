@@ -89,6 +89,10 @@ static void mtk_addon_path_start(struct drm_crtc *crtc,
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 
 	for (i = 0; i < path_data->path_len; i++) {
+		if (mtk_ddp_comp_get_type(path_data->path[i])
+			== MTK_DISP_VIRTUAL)
+			continue;
+
 		add_comp = priv->ddp_comp[path_data->path[i]];
 		mtk_ddp_comp_start(add_comp, cmdq_handle);
 	}
@@ -103,6 +107,10 @@ static void mtk_addon_path_stop(struct drm_crtc *crtc,
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 
 	for (i = 0; i < path_data->path_len; i++) {
+		if (mtk_ddp_comp_get_type(path_data->path[i])
+			== MTK_DISP_VIRTUAL)
+			continue;
+
 		add_comp = priv->ddp_comp[path_data->path[i]];
 		mtk_ddp_comp_stop(add_comp, cmdq_handle);
 	}
