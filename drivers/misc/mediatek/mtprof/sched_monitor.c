@@ -426,7 +426,8 @@ inline void trace_hardirqs_on_time(void)
 		sched_mon_msg(output, "call trace:");
 		for (i = 0; i < trace->nr_entries; i++) {
 			snprintf(msg2, sizeof(msg2), "[<%p>] %pS",
-				 trace->entries[i], trace->entries[i]);
+				 (void *)trace->entries[i],
+				 (void *)trace->entries[i]);
 			sched_mon_msg(output, msg2);
 		}
 	}
