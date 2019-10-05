@@ -954,26 +954,24 @@ ssize_t mtk_devapc_dbg_write(struct file *file, const char __user *buffer,
 			return -EFAULT;
 		}
 
+		sys_index = 0xFFFFFFFF;
+		ctrl_index = 0xFFFFFFFF;
+		domain = DOMAIN_OTHERS;
+
 		/* Parse sys_index */
 		parm_str = strsep(&pinput, " ");
 		if (parm_str)
 			err = kstrtol(parm_str, 10, &sys_index);
-		else
-			sys_index = 0xFFFFFFFF;
 
 		/* Parse domain id */
 		parm_str = strsep(&pinput, " ");
 		if (parm_str)
 			err = kstrtol(parm_str, 10, &domain);
-		else
-			domain = DOMAIN_OTHERS;
 
 		/* Parse ctrl_index */
 		parm_str = strsep(&pinput, " ");
 		if (parm_str != NULL)
 			err = kstrtol(parm_str, 10, &ctrl_index);
-		else
-			ctrl_index = 0xFFFFFFFF;
 
 		pr_info(PFX "%s:0x%x, %s:0x%x, %s:0x%x, %s:0x%x\n",
 				"slave_type", slave_type,
