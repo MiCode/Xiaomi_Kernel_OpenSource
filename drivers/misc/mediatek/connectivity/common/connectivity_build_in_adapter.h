@@ -237,4 +237,6 @@ extern void gpio_dump_regs_range(int start, int end);
 void connectivity_export_dump_gpio_info(int start, int end);
 #endif
 
+int connectivity_export_gpio_get_tristate_input(unsigned int pin);
+
 #endif /* CONNECTIVITY_BUILD_IN_ADAPTER_H */
