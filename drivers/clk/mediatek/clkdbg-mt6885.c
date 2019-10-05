@@ -372,57 +372,68 @@ static const struct fmeter_clk fclks[] = {
 	FMCLK(CKGEN,	62, "camtg5_sel"),
 	FMCLK(CKGEN,	63, "camtg6_sel"),
 
-	FMCLK(ABIST,  1, "AD_WBG_DIG_CK_832M"),
-	FMCLK(ABIST,  2, "AD_WBG_DIG_CK_960M"),
-	FMCLK(ABIST,  3, "UFS_MP_CLK2FREQ"),
-	FMCLK(ABIST,  4, "AD_CSI0A_CDPHY_DELAYCAL_CK"),
-	FMCLK(ABIST,  5, "AD_CSI0B_CDPHY_DELAYCAL_CK"),
-	FMCLK(ABIST,  6, "AD_CSI1A_DPHY_DELAYCAL_CK"),
-	FMCLK(ABIST,  7, "AD_CSI1B_DPHY_DELAYCAL_CK"),
-	FMCLK(ABIST,  8, "AD_CSI2A_DPHY_DELAYCAL_CK"),
-	FMCLK(ABIST,  9, "AD_CSI2B_DPHY_DELAYCAL_CK"),
-	FMCLK(ABIST,  10, "AD_MDBPIPLL_CK"),
-	FMCLK(ABIST,  11, "AD_MDBRPPLL_CK"),
-	FMCLK(ABIST,  12, "AD_MDMCUPLL_CK"),
-	FMCLK(ABIST,  13, "AD_ADSPPLL_CK"),
-	FMCLK(ABIST,  14, "AD_MDVDSPPLL_CK"),
-	FMCLK(ABIST,  16, "AD_LTEPLL_FS26M_CK"),
-	FMCLK(ABIST,  20, "AD_ARMPLL_BL_CK"),
-	FMCLK(ABIST,  21, "AD_ARMPLL_BB_CK"),
-	FMCLK(ABIST,  22, "AD_ARMPLL_LL_CK"),
-	FMCLK(ABIST,  23, "AD_MAINPLL_1092M_CK"),
-	FMCLK(ABIST,  24, "AD_UNIVPLL_1248M_CK"),
-	FMCLK(ABIST,  25, "AD_MFGPLL_CK"),
-	FMCLK(ABIST,  26, "AD_MSDCPLL_CK"),
-	FMCLK(ABIST,  27, "AD_MMPLL_CK"),
-	FMCLK(ABIST,  28, "AD_APLL1_CK"),
-	FMCLK(ABIST,  29, "AD_APLL2_CK"),
-	FMCLK(ABIST,  30, "AD_APPLLGP_TST_CK"),
-	FMCLK(ABIST,  32, "AD_UNIV_192M_CK"),
-	FMCLK(ABIST,  34, "AD_TVDPLL_CK"),
-	FMCLK(ABIST,  35, "AD_DSI0_MPPLL_TST_CK"),
-	FMCLK(ABIST,  36, "AD_DSI0_LNTC_DSICLK"),
-	FMCLK(ABIST,  37, "AD_OSC_CK_2"),
-	FMCLK(ABIST,  38, "AD_OSC_CK"),
-	FMCLK(ABIST,  39, "rtc32k_ck_i"),
-	FMCLK(ABIST,  40, "mcusys_arm_clk_out_all"),
-	FMCLK(ABIST,  41, "AD_ULPOSC_SYNC_CK_2"),
-	FMCLK(ABIST,  42, "AD_ULPOSC_SYNC_CK"),
-	FMCLK(ABIST,  43, "msdc01_in_ck"),
-	FMCLK(ABIST,  44, "msdc02_in_ck"),
-	FMCLK(ABIST,  45, "msdc11_in_ck"),
-	FMCLK(ABIST,  46, "msdc12_in_ck"),
-	FMCLK(ABIST,  49, "AD_CCIPLL_CK"),
-	FMCLK(ABIST,  50, "AD_MPLL_208M_CK"),
-	FMCLK(ABIST,  51, "AD_WBG_DIG_CK_CK_416M"),
-	FMCLK(ABIST,  52, "AD_WBG_B_DIG_CK_64M"),
-	FMCLK(ABIST,  53, "AD_WBG_W_DIG_CK_64M"),
-	FMCLK(ABIST,  55, "DA_UNIV_48M_DIV_CK"),
-	FMCLK(ABIST,  57, "DA_MPLL_52M_DIV_CK"),
-	FMCLK(ABIST,  60, "ckmon1_ck"),
-	FMCLK(ABIST,  61, "ckmon2_ck"),
-	FMCLK(ABIST,  62, "ckmon3_ck"),
-	FMCLK(ABIST,  63, "ckmon4_ck"),
+	FMCLK(ABIST,	1,	"AD_ADSPPLL_CK"),
+	FMCLK(ABIST,	2,	"AD_APLL1_CK"),
+	FMCLK(ABIST,	3,	"AD_APLL2_CK"),
+	FMCLK(ABIST,	4,	"AD_APPLLGP_MON_FM_CK"),
+	FMCLK(ABIST,	5,	"AD_APUPLL_CK"),
+	FMCLK(ABIST,	6,	"AD_ARMPLL_BL0_CK"),
+	FMCLK(ABIST,	7,	"AD_ARMPLL_BL1_CK"),
+	FMCLK(ABIST,	8,	"AD_ARMPLL_BL2_CK"),
+	FMCLK(ABIST,	9,	"AD_ARMPLL_BL3_CK"),
+	FMCLK(ABIST,	10,	"AD_ARMPLL_LL_CK"),
+	FMCLK(ABIST,	11,	"AD_CCIPLL_CK"),
+	FMCLK(ABIST,	12,	"AD_CSI0A_CDPHY_DELAYCAL_CK"),
+	FMCLK(ABIST,	13,	"AD_CSI0B_CDPHY_DELAYCAL_CK"),
+	FMCLK(ABIST,	14,	"AD_CSI1A_DPHY_DELAYCAL_CK"),
+	FMCLK(ABIST,	15,	"AD_CSI1B_DPHY_DELAYCAL_CK"),
+	FMCLK(ABIST,	16,	"AD_CSI2A_DPHY_DELAYCAL_CK"),
+	FMCLK(ABIST,	17,	"AD_CSI2B_DPHY_DELAYCAL_CK"),
+	FMCLK(ABIST,	18,	"AD_CSI3A_DPHY_DELAYCAL_CK"),
+	FMCLK(ABIST,	19,	"AD_CSI3B_DPHY_DELAYCAL_CK"),
+	FMCLK(ABIST,	20,	"AD_DSI0_LNTC_DSICLK"),
+	FMCLK(ABIST,	21,	"AD_DSI0_MPPLL_TST_CK"),
+	FMCLK(ABIST,	22,	"AD_DSI1_LNTC_DSICLK"),
+	FMCLK(ABIST,	23,	"AD_DSI1_MPPLL_TST_CK"),
+	FMCLK(ABIST,	24,	"AD_MAINPLL_CK"),
+	FMCLK(ABIST,	25,	"AD_MDPLL1_FS26M_CK_guide"),
+	FMCLK(ABIST,	26,	"AD_MFGPLL_CK"),
+	FMCLK(ABIST,	27,	"AD_MMPLL_CK"),
+	FMCLK(ABIST,	28,	"AD_MMPLL_D3_CK"),
+	FMCLK(ABIST,	29,	"AD_MPLL_CK"),
+	FMCLK(ABIST,	30,	"AD_MSDCPLL_CK"),
+	FMCLK(ABIST,	31,	"AD_RCLRPLL_DIV4_CK_ch02"),
+	FMCLK(ABIST,	32,	"AD_RCLRPLL_DIV4_CK_ch13"),
+	FMCLK(ABIST,	33,	"AD_RPHYPLL_DIV4_CK_ch02"),
+	FMCLK(ABIST,	34,	"AD_RPHYPLL_DIV4_CK_ch13"),
+	FMCLK(ABIST,	35,	"AD_TVDPLL_CK"),
+	FMCLK(ABIST,	36,	"AD_ULPOSC2_CK"),
+	FMCLK(ABIST,	37,	"AD_ULPOSC_CK"),
+	FMCLK(ABIST,	38,	"AD_UNIVPLL_CK"),
+	FMCLK(ABIST,	39,	"AD_USB20_192M_CK"),
+	FMCLK(ABIST,	40,	"DA_MPLL_52M_DIV_CK"),
+	FMCLK(ABIST,	41,	"UFS_MP_CLK2FREQ"),
+	FMCLK(ABIST,	42,	"ad_wbg_dig_bpll_ck"),
+	FMCLK(ABIST,	43,	"ad_wbg_dig_wpll_ck960"),
+	FMCLK(ABIST,	44,	"fmem_ck_aft_dcm_ch0"),
+	FMCLK(ABIST,	45,	"fmem_ck_aft_dcm_ch1"),
+	FMCLK(ABIST,	46,	"fmem_ck_aft_dcm_ch2"),
+	FMCLK(ABIST,	47,	"fmem_ck_aft_dcm_ch3"),
+	FMCLK(ABIST,	48,	"fmem_ck_bfe_dcm_ch0"),
+	FMCLK(ABIST,	49,	"fmem_ck_bfe_dcm_ch1"),
+	FMCLK(ABIST,	50,	"hd_466m_fmem_ck_infrasys"),
+	FMCLK(ABIST,	51,	"mcusys_arm_clk_out_all"),
+	FMCLK(ABIST,	52,	"msdc01_in_ck"),
+	FMCLK(ABIST,	53,	"msdc02_in_ck"),
+	FMCLK(ABIST,	54,	"msdc11_in_ck"),
+	FMCLK(ABIST,	55,	"msdc12_in_ck"),
+	FMCLK(ABIST,	56,	"msdc21_in_ck"),
+	FMCLK(ABIST,	57,	"msdc22_in_ck"),
+	FMCLK(ABIST,	58,	"rtc32k_ck_i_vao"),
+	FMCLK(ABIST,	60,	"ckomo1_ck"),
+	FMCLK(ABIST,	61,	"ckmon2_ck"),
+	FMCLK(ABIST,	62,	"ckmon3_ck"),
+	FMCLK(ABIST,	63,	"ckmon4_ck"),
 	{}
 };
 
@@ -467,39 +478,6 @@ static struct devapc_vio_callbacks devapc_vio_handle = {
 	.debug_dump = devapc_dump_regs,
 };
 #endif
-
-#define PLL_HP_CON0			(rb[apmixed].virt + 0x014)
-#define PLL_TEST_CON1			(rb[apmixed].virt + 0x064)
-#define TEST_DBG_CTRL			(rb[topckgen].virt + 0x38)
-#define FREQ_MTR_CTRL_REG		(rb[topckgen].virt + 0x10)
-#define FREQ_MTR_CTRL_RDATA		(rb[topckgen].virt + 0x14)
-
-#define RG_FQMTR_CKDIV_GET(x)		(((x) >> 28) & 0x3)
-#define RG_FQMTR_CKDIV_SET(x)		(((x) & 0x3) << 28)
-#define RG_FQMTR_FIXCLK_SEL_GET(x)	(((x) >> 24) & 0x3)
-#define RG_FQMTR_FIXCLK_SEL_SET(x)	(((x) & 0x3) << 24)
-#define RG_FQMTR_MONCLK_SEL_GET(x)	(((x) >> 16) & 0x7f)
-#define RG_FQMTR_MONCLK_SEL_SET(x)	(((x) & 0x7f) << 16)
-#define RG_FQMTR_MONCLK_EN_GET(x)	(((x) >> 15) & 0x1)
-#define RG_FQMTR_MONCLK_EN_SET(x)	(((x) & 0x1) << 15)
-#define RG_FQMTR_MONCLK_RST_GET(x)	(((x) >> 14) & 0x1)
-#define RG_FQMTR_MONCLK_RST_SET(x)	(((x) & 0x1) << 14)
-#define RG_FQMTR_MONCLK_WINDOW_GET(x)	(((x) >> 0) & 0xfff)
-#define RG_FQMTR_MONCLK_WINDOW_SET(x)	(((x) & 0xfff) << 0)
-
-#define RG_FQMTR_CKDIV_DIV_2		0
-#define RG_FQMTR_CKDIV_DIV_4		1
-#define RG_FQMTR_CKDIV_DIV_8		2
-#define RG_FQMTR_CKDIV_DIV_16		3
-
-#define RG_FQMTR_FIXCLK_26MHZ		0
-#define RG_FQMTR_FIXCLK_32KHZ		2
-
-#define RG_FQMTR_EN     1
-#define RG_FQMTR_RST    1
-
-#define RG_FRMTR_WINDOW     519
-
 
 static const struct fmeter_clk *get_all_fmeter_clks(void)
 {
@@ -615,42 +593,41 @@ static const char * const *get_all_clk_names(void)
 /*
  * clkdbg pwr_status
  */
-
 static const char * const *get_pwr_names(void)
 {
 	static const char * const pwr_names[] = {
-		[0]  = "MD1",
-		[1]  = "CONN",
-		[2]  = "",
-		[3]  = "DISP",
-		[4]  = "MFG0",
-		[5]  = "ISP",
-		[6]  = "",
-		[7]  = "MFG1",
-		[8]  = "",
-		[9]  = "",
-		[10] = "",
-		[11] = "",
-		[12] = "",
-		[13] = "IPE",
-		[14] = "",
-		[15] = "",
-		[16] = "",
-		[17] = "",
-		[18] = "",
-		[19] = "",
-		[20] = "MFG2",
-		[21] = "VEN",
-		[22] = "MFG3",
-		[23] = "MFG4",
-		[24] = "AUDIO",
-		[25] = "CAM",
-		[26] = "APU_VCORE",
-		[27] = "APU_CONN",
-		[28] = "APU_CORE0",
-		[29] = "APU_CORE1",
-		[30] = "APU_CORE2",
-		[31] = "VDE",
+		[0] = "MD",
+		[1] = "CONN",
+		[2] = "MFG0",
+		[3] = "MFG1",
+		[4] = "MFG2",
+		[5] = "MFG3",
+		[6] = "MFG4",
+		[7] = "MFG5",
+		[8] = "MFG6",
+		[9] = "INFRA",
+		[10] = "SUB_INFRA",
+		[11] = "DDRPHY",
+		[12] = "ISP",
+		[13] = "ISP2",
+		[14] = "IPE",
+		[15] = "VDEC",
+		[16] = "VDEC2",
+		[17] = "VEN",
+		[18] = "VEN_CORE1",
+		[19] = "MDP",
+		[20] = "DISP",
+		[21] = "AUDIO",
+		[22] = "ADSP",
+		[23] = "CAM",
+		[24] = "CAM_RAWA",
+		[25] = "CAM_RAWB",
+		[26] = "CAM_RAWC",
+		[27] = "DP_TX",
+		[28] = "DDRPHY2",
+		[29] = "(Reserved)",
+		[30] = "(Reserved)",
+		[31] = "(Reserved)",
 	};
 
 	return pwr_names;

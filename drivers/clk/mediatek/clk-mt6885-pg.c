@@ -162,11 +162,8 @@ static void __iomem *ckgen_base;	/*ckgen*/
 #define DPY2_PWR_CON		SPM_REG(0x3C4)
 #define MD_EXT_BUCK_ISO_CON	SPM_REG(0x398)
 
-#define SPM_CROSS_WAKE_M00_REQ	SPM_REG(0x66C)
 #define SPM_CROSS_WAKE_M01_REQ	SPM_REG(0x670)	/* for MT6885 VPU wakeup src */
 #define APMCU_WAKEUP_APU	(0x1 << 0)
-#define APMCU_WAKEUP_APU_CHK	(0x1 << 4)
-
 
 /* for MT6885 DISP/MDP MTCMOS on/off APIs  */
 #define INFRA_TOPAXI_PROTECTEN				INFRACFG_REG(0x0220)
@@ -855,7 +852,7 @@ static struct subsys syss[] =	/* NR_SYSS */
 	[SYS_VPU] = {
 			.name = __stringify(SYS_VPU),
 			 /* MT6885: fixme: resident in OTHER_PWR_STATUS */
-			.sta_mask = 0,
+			.sta_mask = (0x1 << 5),
 			/* .ctl_addr = NULL,  */
 			.sram_pdn_bits = 0,
 			.sram_pdn_ack_bits = 0,
@@ -3979,8 +3976,8 @@ int spm_mtcmos_vpu(int state)
 			spm_read(SPM_CROSS_WAKE_M01_REQ) |
 						APMCU_WAKEUP_APU);
 
-		while (!(spm_read(SPM_CROSS_WAKE_M01_REQ) &
-						APMCU_WAKEUP_APU_CHK)) {
+		while (spm_read(OTHER_PWR_STATUS) & (0x1UL << 5) !=
+							(0x1UL << 5)) {
 			ram_console_update();
 		}
 		INCREASE_STEPS;
@@ -4679,8 +4676,8 @@ struct mtk_power_gate scp_clks[] __initdata = {
 	PGATE(SCP_SYS_VENC, "PG_VENC", "PG_DIS", "venc_sel", SYS_VEN),
 	PGATE(SCP_SYS_VENC_CORE1, "PG_VENC_C1", "PG_DIS", "venc_sel",
 								SYS_VEN_CORE1),
-	PGATE(SCP_SYS_AUDIO, "PG_AUDIO", NULL, NULL, SYS_AUDIO),
-	PGATE(SCP_SYS_ADSP, "PG_ADSP", NULL, NULL, SYS_ADSP),
+	PGATE(SCP_SYS_AUDIO, "PG_AUDIO", NULL, "audio_sel", SYS_AUDIO),
+	PGATE(SCP_SYS_ADSP, "PG_ADSP", NULL, "adsp_sel", SYS_ADSP),
 	PGATE(SCP_SYS_CAM, "PG_CAM", "PG_DIS", "cam_sel", SYS_CAM),
 	PGATE(SCP_SYS_CAM_RAWA, "PG_CAM_RAWA", "PG_CAM", NULL, SYS_CAM_RAWA),
 	PGATE(SCP_SYS_CAM_RAWB, "PG_CAM_RAWB", "PG_CAM", NULL, SYS_CAM_RAWB),
@@ -5006,11 +5003,11 @@ static void dump_cg_state(const char *clkname)
 }
 
 #endif
-
 void subsys_if_on(void)
 {
 	unsigned int sta = spm_read(PWR_STATUS);
 	unsigned int sta_s = spm_read(PWR_STATUS_2ND);
+	unsigned int other_sta = spm_read(OTHER_PWR_STATUS);
 	int ret = 0;
 
 	/* size_t cam_num, img_num, ipe_num, mm_num, venc_num, vdec_num = 0; */
@@ -5018,7 +5015,6 @@ void subsys_if_on(void)
 
 	/* const char * const *clks = get_all_clk_names(&num);*/
 	/* const char * const *cam_clks = get_cam_clk_names(&cam_num); */
-
 
 	if ((sta & MD1_PWR_STA_MASK) && (sta_s & MD1_PWR_STA_MASK)) {
 		pr_notice("suspend warning: MD1 is on!!\n");
@@ -5148,6 +5144,11 @@ void subsys_if_on(void)
 
 	if ((sta & DP_TX_PWR_STA_MASK) && (sta_s & DP_TX_PWR_STA_MASK)) {
 		pr_notice("suspend warning: DP_TX is on!!\n");
+		ret++;
+	}
+
+	if (other_sta & (0x1 << 5)) {
+		pr_notice("suspend warning: VPU is on!!\n");
 		ret++;
 	}
 
