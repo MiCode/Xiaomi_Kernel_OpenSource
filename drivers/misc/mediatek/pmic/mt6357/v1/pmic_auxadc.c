@@ -22,11 +22,11 @@
 #include <linux/kthread.h>
 
 #include <linux/iio/consumer.h>
+#include <linux/iio/adc/mt635x-auxadc-internal.h>
 
 #include "include/pmic.h"
 #include "include/pmic_auxadc.h"
-#include "include/mt635x-auxadc-internal.h"
-#if defined(CONFIG_MTK_SELINUX_AEE_WARNING)
+#ifdef CONFIG_MTK_AEE_FEATURE
 #include <mt-plat/aee.h>
 #endif
 #include <mt-plat/upmu_common.h>
@@ -41,6 +41,7 @@
 #include <mtk_battery_internal.h>
 #endif
 
+static struct device *pmic_auxadc_dev;
 static int auxadc_bat_temp_cali(int bat_temp, int precision_factor);
 
 /*********************************
@@ -68,14 +69,18 @@ void wk_auxadc_bgd_ctrl(unsigned char en)
 
 void pmic_auxadc_suspend(void)
 {
+#ifndef IPIMB
 	wk_auxadc_bgd_ctrl(0);
+#endif
 	/* special call to restore bat_temp_prev when enter suspend */
 	auxadc_bat_temp_cali(-1, -1);
 }
 
 void pmic_auxadc_resume(void)
 {
+#ifndef IPIMB
 	wk_auxadc_bgd_ctrl(1);
+#endif
 }
 
 void lockadcch3(void)
@@ -86,6 +91,18 @@ void lockadcch3(void)
 void unlockadcch3(void)
 {
 	mutex_unlock(&auxadc_ch3_mutex);
+}
+
+void wk_auxadc_reset(void)
+{
+	pmic_set_register_value(PMIC_RG_AUXADC_RST, 1);
+	pmic_set_register_value(PMIC_RG_AUXADC_RST, 0);
+	pmic_set_register_value(PMIC_BANK_AUXADC_SWRST, 1);
+	pmic_set_register_value(PMIC_BANK_AUXADC_SWRST, 0);
+	/* avoid GPS can't receive AUXADC ready after reset, request again */
+	pmic_set_register_value(PMIC_AUXADC_RQST_CH7, 1);
+	pmic_set_register_value(PMIC_AUXADC_RQST_DCXO_BY_GPS, 1);
+	pr_notice("reset AUXADC done\n");
 }
 
 /*********************************
@@ -99,18 +116,6 @@ struct pmic_adc_dbg_st {
 	unsigned short reg[DBG_REG_SIZE];
 };
 static unsigned int adc_dbg_addr[DBG_REG_SIZE];
-
-static void wk_auxadc_reset(void)
-{
-	pmic_set_register_value(PMIC_RG_AUXADC_RST, 1);
-	pmic_set_register_value(PMIC_RG_AUXADC_RST, 0);
-	pmic_set_register_value(PMIC_BANK_AUXADC_SWRST, 1);
-	pmic_set_register_value(PMIC_BANK_AUXADC_SWRST, 0);
-	/* avoid GPS can't receive AUXADC ready after reset, request again */
-	pmic_set_register_value(PMIC_AUXADC_RQST_CH7, 1);
-	pmic_set_register_value(PMIC_AUXADC_RQST_DCXO_BY_GPS, 1);
-	pr_notice("reset AUXADC done\n");
-}
 
 static void wk_auxadc_dbg_dump(void)
 {
@@ -187,14 +192,15 @@ static int wk_bat_temp_dbg(int bat_temp_prev, int bat_temp)
 	int is_charging = 0;
 #endif
 
-	vbif28 = auxadc_priv_read_channel(AUXADC_VBIF);
+	vbif28 = auxadc_priv_read_channel(pmic_auxadc_dev, AUXADC_VBIF);
 	pr_notice("BAT_TEMP_PREV:%d,BAT_TEMP:%d,VBIF28:%d\n",
 		bat_temp_prev, bat_temp, vbif28);
 	if (bat_temp < 200 || abs(bat_temp_prev - bat_temp) > 100) {
 		wk_auxadc_dbg_dump();
 		for (i = 0; i < 5; i++) {
 			arr_bat_temp[i] =
-				auxadc_priv_read_channel(AUXADC_BAT_TEMP);
+				auxadc_priv_read_channel(pmic_auxadc_dev,
+							 AUXADC_BAT_TEMP);
 		}
 		bat_temp_new = bat_temp_filter(arr_bat_temp, 5);
 		pr_notice("%d,%d,%d,%d,%d, BAT_TEMP_NEW:%d\n",
@@ -204,14 +210,16 @@ static int wk_bat_temp_dbg(int bat_temp_prev, int bat_temp)
 		/* Reset AuxADC to observe VBAT/IBAT/BAT_TEMP */
 		wk_auxadc_reset();
 		for (i = 0; i < 5; i++) {
-			bat = auxadc_priv_read_channel(AUXADC_BATADC);
+			bat = auxadc_priv_read_channel(pmic_auxadc_dev,
+						       AUXADC_BATADC);
 #if (CONFIG_MTK_GAUGE_VERSION == 30)
 			is_charging = gauge_get_current(&bat_cur);
 			if (is_charging == 0)
 				bat_cur = 0 - bat_cur;
 #endif
 			arr_bat_temp[i] =
-				auxadc_priv_read_channel(AUXADC_BAT_TEMP);
+				auxadc_priv_read_channel(pmic_auxadc_dev,
+							 AUXADC_BAT_TEMP);
 			pr_notice("[CH3_DBG] %d,%d,%d\n",
 				  bat, bat_cur, arr_bat_temp[i]);
 		}
@@ -389,7 +397,7 @@ static int mdrt_kthread(void *x)
 			}
 			if (polling_cnt >= 312) { /* 312 * 32ms ~= 10s*/
 				mdrt_reg_dump();
-#if defined(CONFIG_MTK_SELINUX_AEE_WARNING)
+#ifdef CONFIG_MTK_AEE_FEATURE
 				aee_kernel_warning("PMIC AUXADC:MDRT", "MDRT");
 #endif
 				break;
@@ -471,7 +479,7 @@ int pmic_get_auxadc_value(int list)
 		pr_notice("[%s] Invalid channel list(%d)\n", __func__, list);
 		return -EINVAL;
 	}
-	if (IS_ERR(legacy_auxadc[list].chan)) {
+	if (!(legacy_auxadc[list].chan) || IS_ERR(legacy_auxadc[list].chan)) {
 		pr_notice("[%s] iio channel consumer error(%s)\n",
 			__func__, legacy_auxadc[list].channel_name);
 		return PTR_ERR(legacy_auxadc[list].chan);
@@ -548,7 +556,7 @@ static int auxadc_bat_temp_cali(int bat_temp, int precision_factor)
 		/* dump debug log when BAT_TEMP being abnormal */
 		bat_temp = wk_bat_temp_dbg(bat_temp_prev, bat_temp);
 #if BAT_TEMP_AEE_DBG
-#if defined(CONFIG_MTK_SELINUX_AEE_WARNING)
+#ifdef CONFIG_MTK_AEE_FEATURE
 		if (aee_count < 2)
 			aee_kernel_warning("PMIC AUXADC:BAT_TEMP", "BAT_TEMP");
 #endif
@@ -563,110 +571,6 @@ out:
 	bat_temp_prev = bat_temp;
 	return bat_temp;
 }
-
-struct auxadc_regs_map {
-	int channel;
-	struct auxadc_regs regs;
-};
-
-static struct auxadc_regs_map pmic_auxadc_regs_map[] = {
-	{
-		.channel = AUXADC_BATADC,
-		.regs = {
-			PMIC_AUXADC_RQST_CH0,
-			PMIC_AUXADC_ADC_RDY_CH0_BY_AP,
-			PMIC_AUXADC_ADC_OUT_CH0_BY_AP
-		},
-	},
-	{
-		.channel = AUXADC_ISENSE,
-		.regs = {
-			PMIC_AUXADC_RQST_CH1,
-			PMIC_AUXADC_ADC_RDY_CH1_BY_AP,
-			PMIC_AUXADC_ADC_OUT_CH1_BY_AP
-		},
-	},
-	{
-		.channel = AUXADC_VCDT,
-		.regs = {
-			PMIC_AUXADC_RQST_CH2,
-			PMIC_AUXADC_ADC_RDY_CH2,
-			PMIC_AUXADC_ADC_OUT_CH2
-		},
-	},
-	{
-		.channel = AUXADC_BAT_TEMP,
-		.regs = {
-			PMIC_AUXADC_RQST_CH3,
-			PMIC_AUXADC_ADC_RDY_CH3,
-			PMIC_AUXADC_ADC_OUT_CH3
-		},
-	},
-	{
-		.channel = AUXADC_CHIP_TEMP,
-		.regs = {
-			PMIC_AUXADC_RQST_CH4,
-			PMIC_AUXADC_ADC_RDY_CH4,
-			PMIC_AUXADC_ADC_OUT_CH4
-		},
-	},
-	{
-		.channel = AUXADC_VCORE_TEMP,
-		.regs = {
-			PMIC_AUXADC_RQST_CH4_BY_THR1,
-			PMIC_AUXADC_ADC_RDY_CH4_BY_THR1,
-			PMIC_AUXADC_ADC_OUT_CH4_BY_THR1
-		},
-	},
-	{
-		.channel = AUXADC_VPROC_TEMP,
-		.regs = {
-			PMIC_AUXADC_RQST_CH4_BY_THR2,
-			PMIC_AUXADC_ADC_RDY_CH4_BY_THR2,
-			PMIC_AUXADC_ADC_OUT_CH4_BY_THR2
-		},
-	},
-	{
-		.channel = AUXADC_ACCDET,
-		.regs = {
-			PMIC_AUXADC_RQST_CH5,
-			PMIC_AUXADC_ADC_RDY_CH5,
-			PMIC_AUXADC_ADC_OUT_CH5
-		},
-	},
-	{
-		.channel = AUXADC_TSX_TEMP,
-		.regs = {
-			PMIC_AUXADC_RQST_CH7,
-			PMIC_AUXADC_ADC_RDY_CH7,
-			PMIC_AUXADC_ADC_OUT_CH7
-		},
-	},
-	{
-		.channel = AUXADC_HPOFS_CAL,
-		.regs = {
-			PMIC_AUXADC_RQST_CH9,
-			PMIC_AUXADC_ADC_RDY_CH9,
-			PMIC_AUXADC_ADC_OUT_CH9
-		},
-	},
-	{
-		.channel = AUXADC_DCXO_TEMP,
-		.regs = {
-			PMIC_AUXADC_RQST_CH4,
-			PMIC_AUXADC_ADC_RDY_DCXO_BY_AP,
-			PMIC_AUXADC_ADC_OUT_DCXO_BY_AP
-		},
-	},
-	{
-		.channel = AUXADC_VBIF,
-		.regs = {
-			PMIC_AUXADC_RQST_CH11,
-			PMIC_AUXADC_ADC_RDY_CH11,
-			PMIC_AUXADC_ADC_OUT_CH11
-		},
-	},
-};
 
 void pmic_auxadc_chip_timeout_handler(
 	struct device *dev, bool is_timeout, unsigned char ch_num)
@@ -698,16 +602,11 @@ void pmic_auxadc_chip_timeout_handler(
 int pmic_auxadc_chip_init(struct device *dev)
 {
 	int ret = 0;
-	unsigned short i;
 	struct iio_channel *chan_vbif;
 
 	HKLOG("%s\n", __func__);
+	pmic_auxadc_dev = dev;
 
-	for (i = 0; i < ARRAY_SIZE(pmic_auxadc_regs_map); i++) {
-		auxadc_set_regs(
-			pmic_auxadc_regs_map[i].channel,
-			&(pmic_auxadc_regs_map[i].regs));
-	}
 	auxadc_set_convert_fn(AUXADC_BATADC, auxadc_batadc_convert);
 	auxadc_set_convert_fn(AUXADC_BAT_TEMP, auxadc_bat_temp_convert);
 	auxadc_set_convert_fn(AUXADC_DCXO_TEMP, auxadc_dcxo_temp_convert);
