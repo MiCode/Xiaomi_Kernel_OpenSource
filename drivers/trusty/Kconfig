@@ -58,6 +58,27 @@ config MTK_ENABLE_GENIEZONE
 	  for irq routing to GenieZone.
 	  Irq work will be put to global queue when cpu dead.
 
+config MTK_NEBULA_VM_SUPPORT
+	tristate "Nebula VM OS Enable"
+	depends on MTK_ENABLE_GENIEZONE
+	default n
+	help
+	  This is used for MTK Geniezone to Support Nebula VM OS.
+	  Nebula's IRQ will be routed by Linux to Geniezone.
+	  Say Y if you would like to enable this feature.
+	  If unsure, say N.
+
+config GZ_SMC_CALL_REMAP
+	tristate "GZ Use Remapped SMC Calls"
+	depends on MTK_NEBULA_VM_SUPPORT
+	default y
+	help
+	  This is used for MTK Geniezone to use remapped SMC Calls.
+	  Nebula's IRQ will be routed by Linux to Geniezone.
+	  Trusty virtio will be connected to Nebula Guest OS directly.
+	  Say Y if you would like to enable this feature.
+	  If unsure, say N.
+
 config TRUSTY_WDT_FIQ_ARMV7_SUPPORT
 	tristate "Trusty WDT FIQ for arm"
 	depends on TRUSTY && MTK_NO_ATF && !MTK_KERNEL_IN_SECURE_MODE

@@ -35,5 +35,9 @@
 			compatible = "mediatek,trusty-mtee-v1";
 		};
 
+		gz_log {
+			compatible = "android,trusty-gz-log-v1";
+		};
+
 	};
 };
