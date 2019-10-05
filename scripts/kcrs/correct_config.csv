@@ -45,6 +45,7 @@ CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE,PLATFORM,chia-hao.hsu,,y,X,y,X,y,X,y,X,y,X
 CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE_NAMES,PROJECT,,,O,X,O,X,O,X,O,X,O,X,O,X,O
 CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE,PROJECT,chia-hao.hsu,,X,,X,,X,,X,,X,,X,,X
 CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES,PROJECT,,,,,,,,,,,,,,,
+CONFIG_BT,PLATFORM,yu-min.lin,,y,y,X,y,y,X,X,X,X,y,y,X,X
 CONFIG_CC_OPTIMIZE_FOR_SIZE,PROJECT,Johnson.Lin,new config in this commit 9367ac77e8f7c369c26aa3bed4955030064d9e3e,,,,,,,,,,,,,
 CONFIG_CC_STACKPROTECTOR_REGULAR,USER,my.chuang,,X,X,X,X,X,X,X,X,X,X,X,X,X
 CONFIG_CC_STACKPROTECTOR_STRONG,COMMON,my.chuang,,y,y,y,y,y,y,y,y,y,y,y,y,y
@@ -443,7 +444,7 @@ CONFIG_MTK_CMDQ,COMMON,dennis-yc.hsieh,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_CMDQ_MBOX,COMMON,dennis-yc.hsieh,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_COMBO,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_COMBO_ANT,PROJECT,zhiguo.niu,new config in this commit 3413d51500ed33e5696cbfe6286d5b8617867b35,,,,,,,,,,,,,
-CONFIG_MTK_COMBO_BT,PLATFORM,yu-min.lin,going to phase out,y,y,X,y,y,X,X,X,X,X,X,X,X
+CONFIG_MTK_COMBO_BT,PLATFORM,yu-min.lin,going to phase out,y,y,X,y,y,X,X,X,X,y,y,X,X
 CONFIG_MTK_COMBO_CHIP_CONSYS_6739,PLATFORM,robbin.chiu,,X,y,y,X,X,X,X,X,X,X,X,X,X
 CONFIG_MTK_COMBO_CHIP_CONSYS_6763,PLATFORM,robbin.chiu,,y,X,X,X,X,X,X,X,X,X,X,X,X
 CONFIG_MTK_COMBO_CHIP_CONSYS_6768,PLATFORM,tim.chang,,X,X,X,X,X,y,y,X,X,X,X,X,X
@@ -623,8 +624,8 @@ CONFIG_MTK_M4U,PROJECT,Cui.Zhang,,X,X,X,X,X,X,X,X,X,X,X,X,X
 CONFIG_MTK_MAGHUB,PROJECT,weiqi.fu,new config in this commit ddc5d59450d236e7d3732ebd43a19c5056787cc0,,,,,,,,,,,,,
 CONFIG_MTK_MC3410_I2C,PROJECT,ruixue.su,SS6,O,O,O,O,O,O,O,O,O,O,O,O,O
 CONFIG_MTK_MC3410_NEW,PROJECT,jy.lan,,X,X,X,X,X,X,X,X,X,X,X,X,X
-CONFIG_MTK_MCIF_WIFI_SUPPORT,PLATFORM,cheng-dao.lee,MCIF connect WiFi driver,,,,,,,,,
-CONFIG_MTK_MDDP_WH_SUPPORT,PROJECT,tj.chang,MDDP WiFi Hostpot,,,,,,,,,
+CONFIG_MTK_MCIF_WIFI_SUPPORT,PLATFORM,cheng-dao.lee,MCIF connect WiFi driver,,,,,,,,,,,,,
+CONFIG_MTK_MDDP_WH_SUPPORT,PROJECT,tj.chang,MDDP WiFi Hostpot,,,,,,,,,,,,,
 CONFIG_MTK_MD_DIRECT_TETHERING_SUPPORT,PROJECT,jun-quan.chen,,,,,,,,,,,,,,
 CONFIG_MTK_MD1_SUPPORT,PROJECT,yanbin.ren,,,,,,,,,,,,,,
 CONFIG_MTK_MD3_SUPPORT,PROJECT,yanbin.ren,,,,,,,,,,,,,,
