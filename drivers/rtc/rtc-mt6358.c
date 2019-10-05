@@ -367,7 +367,7 @@ exit:
 bool mtk_rtc_is_pwron_alarm(struct rtc_time *nowtm, struct rtc_time *tm)
 {
 	u32 pdn1;
-	u32 data[RTC_OFFSET_COUNT];
+	u32 data[RTC_OFFSET_COUNT] = {0};
 	int ret, i;
 
 	ret = rtc_read(RTC_PDN1, &pdn1);
