@@ -102,6 +102,7 @@
 #define PWRAP_CAP_ARB_V1	BIT(7)
 #define PWRAP_CAP_ARB_V2	BIT(8)
 #define PWRAP_CAP_ARB_V3	BIT(9)
+#define PWRAP_CAP_ULPOSC_CLK	BIT(10)
 
 /* defines for slave device wrapper registers */
 enum dew_regs {
@@ -1387,6 +1388,8 @@ struct pmic_wrapper {
 	const struct pwrap_slv_type *slave;
 	struct clk *clk_spi;
 	struct clk *clk_wrap;
+	struct clk *clk_ulposc;
+	struct clk *clk_ulposc_osc;
 	struct reset_control *rstc;
 
 	struct reset_control *rstc_bridge;
@@ -2934,7 +2937,7 @@ static struct pmic_wrapper_type pwrap_mt6885 = {
 	.spi_w = PWRAP_MAN_CMD_SPI_WRITE,
 	.wdt_src = PWRAP_WDT_SRC_MASK_ALL,
 	.has_bridge = 0,
-	.caps = PWRAP_CAP_ARB_V3,
+	.caps = PWRAP_CAP_ARB_V3 | PWRAP_CAP_ULPOSC_CLK,
 	.init_done = PWRAP_STATE_INIT_DONE0_V3,
 	.init_reg_clock = pwrap_common_init_reg_clock,
 	.init_soc_specific = NULL,
@@ -3142,6 +3145,22 @@ static int pwrap_probe(struct platform_device *pdev)
 		return PTR_ERR(wrp->clk_wrap);
 	}
 
+	if (HAS_CAP(wrp->master->caps, PWRAP_CAP_ULPOSC_CLK)) {
+		wrp->clk_ulposc = devm_clk_get(wrp->dev, "ulposc");
+		if (IS_ERR(wrp->clk_ulposc)) {
+			dev_dbg(wrp->dev, "failed to get clock: %ld\n",
+				PTR_ERR(wrp->clk_ulposc));
+			return PTR_ERR(wrp->clk_ulposc);
+		}
+
+		wrp->clk_ulposc_osc = devm_clk_get(wrp->dev, "ulposc_osc");
+		if (IS_ERR(wrp->clk_ulposc_osc)) {
+			dev_dbg(wrp->dev, "failed to get clock: %ld\n",
+				PTR_ERR(wrp->clk_ulposc_osc));
+			return PTR_ERR(wrp->clk_ulposc_osc);
+		}
+	}
+
 	/* Add priority adjust setting, it used to avoid starvation */
 	if (HAS_CAP(wrp->master->caps, PWRAP_CAP_PRIORITY_SEL)) {
 		pwrap_writel(wrp, 0x6543C210, PWRAP_PRIORITY_USER_SEL_0);
@@ -3157,6 +3176,16 @@ static int pwrap_probe(struct platform_device *pdev)
 	ret = clk_prepare_enable(wrp->clk_wrap);
 	if (ret)
 		goto err_out1;
+
+	if (HAS_CAP(wrp->master->caps, PWRAP_CAP_ULPOSC_CLK)) {
+		ret = clk_prepare_enable(wrp->clk_ulposc);
+		if (ret)
+			goto err_out_ulposc;
+
+		ret = clk_prepare_enable(wrp->clk_ulposc_osc);
+		if (ret)
+			goto err_out_ulposc_osc;
+	}
 
 	/*
 	 * add dcm capability check
@@ -3257,6 +3286,12 @@ static int pwrap_probe(struct platform_device *pdev)
 	return 0;
 
 err_out2:
+	if (HAS_CAP(wrp->master->caps, PWRAP_CAP_ULPOSC_CLK))
+		clk_disable_unprepare(wrp->clk_ulposc_osc);
+err_out_ulposc_osc:
+	if (HAS_CAP(wrp->master->caps, PWRAP_CAP_ULPOSC_CLK))
+		clk_disable_unprepare(wrp->clk_ulposc);
+err_out_ulposc:
 	clk_disable_unprepare(wrp->clk_wrap);
 err_out1:
 	clk_disable_unprepare(wrp->clk_spi);
