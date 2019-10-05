@@ -142,8 +142,8 @@ struct log_ctrl_s *adsp_logger_init(int mem_id)
 
 	ctrl->base = PLT_LOG_ENABLE; /* magic */
 	ctrl->enable = 0;
-	ctrl->size = sizeof(struct log_ctrl_s);
-	last_ofs += ALIGN(ctrl->size, 128);
+	ctrl->size = 6 * sizeof(unsigned int);
+	last_ofs += ALIGN(sizeof(struct log_ctrl_s), 128);
 
 	ctrl->info_ofs = last_ofs;
 	buf_info = (struct buffer_info_s *)(addr + ctrl->info_ofs);
