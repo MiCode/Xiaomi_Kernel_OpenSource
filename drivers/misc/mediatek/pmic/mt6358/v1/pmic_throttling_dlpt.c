@@ -55,6 +55,7 @@
  * PMIC related define
  ******************************************************************************/
 #define PMIC_THROTTLING_DLPT_UT	0
+#define UNIT_FGCURRENT     (381470)
 
 /*****************************************************************************
  * PMIC PT and DLPT UT
@@ -1789,12 +1790,11 @@ static void pmic_uvlo_init(void)
 
 int pmic_throttling_dlpt_init(void)
 {
-#ifdef CONFIG_MTK_GAUGE_VERSION
+#if (CONFIG_MTK_GAUGE_VERSION == 30)
 	struct device_node *np;
 	u32 val;
 	char *path;
 
-#if (CONFIG_MTK_GAUGE_VERSION == 30)
 	path = "/bat_gm30";
 	np = of_find_node_by_path(path);
 	if (of_property_read_u32(np, "CAR_TUNE_VALUE", &val) == 0) {
@@ -1816,19 +1816,7 @@ int pmic_throttling_dlpt_init(void)
 			, fg_cust_data.r_fg_value);
 	}
 	pr_info("Get default UNIT_FGCURRENT= %d\n", UNIT_FGCURRENT);
-#elif (CONFIG_MTK_GAUGE_VERSION == 20)
-	path = "/bus/BAT_METTER";
-	np = of_find_node_by_path(path);
-	if (of_property_read_u32(np, "car_tune_value", &val) == 0) {
-		batt_meter_cust_data.car_tune_value = (int)val;
-		PMICLOG("Get car_tune_value from DT: %d\n"
-			, batt_meter_cust_data.car_tune_value);
-	} else {
-		batt_meter_cust_data.car_tune_value = CAR_TUNE_VALUE;
-		PMICLOG("Get car_tune_value from cust header\n");
-	}
 #endif /* end of #if CONFIG_MTK_GAUGE_VERSION == 30 */
-#endif /* end of #ifdef CONFIG_MTK_GAUGE_VERSION */
 
 	wakeup_source_init(&ptim_wake_lock, "PTIM_wakelock");
 	mutex_init(&ptim_mutex);

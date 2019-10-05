@@ -539,7 +539,7 @@ static int pmic_mt_probe(struct platform_device *pdev)
 	mtk_regulator_init(pdev);
 	PMICLOG("[PMIC] mtk_regulator_init : done.\n");
 
-	/*pmic_throttling_dlpt_init(); TBD */
+	pmic_throttling_dlpt_init();
 
 	PMICLOG("[PMIC] pmic_throttling_dlpt_init : done.\n");
 
