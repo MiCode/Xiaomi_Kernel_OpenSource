@@ -18,14 +18,14 @@
 
 /* definition of slot size for OUT PINs */
 /* the following will use mbox 0 */
-#define IPIS_C_SPM_SUSPEND_OUT_SIZE    8
 #define IPIS_C_PPM_OUT_SIZE            7
 #define IPIS_C_QOS_OUT_SIZE            6
 #define IPIS_C_PMIC_OUT_SIZE           5
 #define IPIS_C_MET_OUT_SIZE            4
-/* the following will use mbox 1 */
 #define IPIS_C_THERMAL_OUT_SIZE        4
 #define IPIS_C_GPU_DVFS_OUT_SIZE       4
+#define IPIS_C_GPU_PM_OUT_SIZE         2
+/* the following will use mbox 1 */
 #define IPIS_C_PLATFORM_OUT_SIZE       3
 #define IPIS_C_SMI_OUT_SIZE            3
 #define IPIS_C_CM_OUT_SIZE             2
@@ -37,21 +37,21 @@
 
 /* definition of slot offset for OUT PINs */
 /* the following will use mbox 0 */
-#define IPIS_C_SPM_SUSPEND_OUT_OFFSET  0
-#define IPIS_C_PPM_OUT_OFFSET          (IPIS_C_SPM_SUSPEND_OUT_OFFSET \
-					+ IPIS_C_SPM_SUSPEND_OUT_SIZE)
+#define IPIS_C_PPM_OUT_OFFSET          0
 #define IPIS_C_QOS_OUT_OFFSET          (IPIS_C_PPM_OUT_OFFSET \
 					+ IPIS_C_PPM_OUT_SIZE)
 #define IPIS_C_PMIC_OUT_OFFSET         (IPIS_C_QOS_OUT_OFFSET \
 					+ IPIS_C_QOS_OUT_SIZE)
 #define IPIS_C_MET_OUT_OFFSET          (IPIS_C_PMIC_OUT_OFFSET \
 					+ IPIS_C_PMIC_OUT_SIZE)
-/* the following will use mbox 1 */
-#define IPIS_C_THERMAL_OUT_OFFSET      0
+#define IPIS_C_THERMAL_OUT_OFFSET      (IPIS_C_MET_OUT_OFFSET \
+					+ IPIS_C_MET_OUT_SIZE)
 #define IPIS_C_GPU_DVFS_OUT_OFFSET     (IPIS_C_THERMAL_OUT_OFFSET \
 					+ IPIS_C_THERMAL_OUT_SIZE)
-#define IPIS_C_PLATFORM_OUT_OFFSET     (IPIS_C_GPU_DVFS_OUT_OFFSET \
+#define IPIS_C_GPU_PM_OUT_OFFSET       (IPIS_C_GPU_DVFS_OUT_OFFSET \
 					+ IPIS_C_GPU_DVFS_OUT_SIZE)
+/* the following will use mbox 1 */
+#define IPIS_C_PLATFORM_OUT_OFFSET     0
 #define IPIS_C_SMI_OUT_OFFSET          (IPIS_C_PLATFORM_OUT_OFFSET \
 					+ IPIS_C_PLATFORM_OUT_SIZE)
 #define IPIS_C_CM_OUT_OFFSET           (IPIS_C_SMI_OUT_OFFSET \
@@ -74,13 +74,13 @@
 #define IPIR_C_GPU_DVFS_IN_SIZE        4
 #define IPIR_C_PLATFORM_IN_SIZE        3
 #define IPIR_C_SLBC_IN_SIZE            2
-#define IPIS_C_SPM_SUSPEND_IN_SIZE     1
 #define IPIS_C_PPM_IN_SIZE             1
 #define IPIS_C_QOS_IN_SIZE             1
 #define IPIS_C_PMIC_IN_SIZE            1
 #define IPIS_C_MET_IN_SIZE             1
 #define IPIS_C_THERMAL_IN_SIZE         1
 #define IPIS_C_GPU_DVFS_IN_SIZE        1
+#define IPIS_C_GPU_PM_IN_SIZE          1
 #define IPIS_C_PLATFORM_IN_SIZE        1
 #define IPIS_C_SMI_IN_SIZE             1
 #define IPIS_C_CM_IN_SIZE              1
@@ -97,10 +97,8 @@
 					+ IPIR_C_GPU_DVFS_IN_SIZE)
 #define IPIR_C_SLBC_IN_OFFSET          (IPIR_C_PLATFORM_IN_OFFSET \
 					+ IPIR_C_PLATFORM_IN_SIZE)
-#define IPIS_C_SPM_SUSPEND_IN_OFFSET   (IPIR_C_SLBC_IN_OFFSET \
+#define IPIS_C_PPM_IN_OFFSET           (IPIR_C_SLBC_IN_OFFSET \
 					+ IPIR_C_SLBC_IN_SIZE)
-#define IPIS_C_PPM_IN_OFFSET           (IPIS_C_SPM_SUSPEND_IN_OFFSET \
-					+ IPIS_C_SPM_SUSPEND_IN_SIZE)
 #define IPIS_C_QOS_IN_OFFSET           (IPIS_C_PPM_IN_OFFSET \
 					+ IPIS_C_PPM_IN_SIZE)
 #define IPIS_C_PMIC_IN_OFFSET          (IPIS_C_QOS_IN_OFFSET \
@@ -111,8 +109,10 @@
 					+ IPIS_C_MET_IN_SIZE)
 #define IPIS_C_GPU_DVFS_IN_OFFSET      (IPIS_C_THERMAL_IN_OFFSET \
 					+ IPIS_C_THERMAL_IN_SIZE)
-#define IPIS_C_PLATFORM_IN_OFFSET      (IPIS_C_GPU_DVFS_IN_OFFSET \
+#define IPIS_C_GPU_PM_IN_OFFSET        (IPIS_C_GPU_DVFS_IN_OFFSET \
 					+ IPIS_C_GPU_DVFS_IN_SIZE)
+#define IPIS_C_PLATFORM_IN_OFFSET      (IPIS_C_GPU_PM_IN_OFFSET \
+					+ IPIS_C_GPU_PM_IN_SIZE)
 #define IPIS_C_SMI_IN_OFFSET           (IPIS_C_PLATFORM_IN_OFFSET \
 					+ IPIS_C_PLATFORM_IN_SIZE)
 #define IPIS_C_CM_IN_OFFSET            (IPIS_C_SMI_IN_OFFSET \
