@@ -31,12 +31,10 @@
 #include <memory_ssmr.h>
 #endif
 
-#define PLAT_HEADER_MUST_BE_INCLUDED_BEFORE_OTHER_HEADERS
-#include "secmem_plat.h" PLAT_HEADER_MUST_BE_INCLUDED_BEFORE_OTHER_HEADERS
-
 #include "private/mld_helper.h"
 #include "private/tmem_error.h"
 #include "private/tmem_priv.h"
+#include "private/tmem_utils.h"
 #include "tee_impl/tee_priv.h"
 #include "tee_impl/tee_common.h"
 
@@ -45,18 +43,12 @@
 static struct trusted_mem_configs secmem_configs = {
 	.mock_peer_enable = false,
 	.mock_ssmr_enable = false,
-#if defined(SECMEM_TEE_SESSION_KEEP_ALIVE)
-	.session_keep_alive_enable = true,
-#endif
-	.minimal_chunk_size = SECMEM_MIN_ALLOC_CHUNK_SIZE,
-	.phys_mem_shift_bits = SECMEM_64BIT_PHYS_SHIFT,
-	.phys_limit_min_alloc_size = (1 << SECMEM_64BIT_PHYS_SHIFT),
-#if defined(SECMEM_MIN_SIZE_CHECK)
-	.min_size_check_enable = true,
-#endif
-#if defined(SECMEM_ALIGNMENT_CHECK)
+	.session_keep_alive_enable = false,
+	.minimal_chunk_size = SIZE_64K,
+	.phys_mem_shift_bits = 6,
+	.phys_limit_min_alloc_size = (1 << 6),
+	.min_size_check_enable = false,
 	.alignment_check_enable = true,
-#endif
 	.caps = 0,
 };
 
