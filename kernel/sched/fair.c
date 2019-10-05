@@ -7520,6 +7520,9 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 	unsigned long target_util = ULONG_MAX;
 	unsigned long best_active_util = ULONG_MAX;
 	unsigned long task_clamped_util = task_uclamped_min_w_ceiling(p);
+	unsigned long min_cpu_util = ULONG_MAX;
+	unsigned long backup_min_cpu_util = ULONG_MAX;
+	unsigned long min_target_capacity = ULONG_MAX;
 	int best_idle_cstate = INT_MAX;
 	struct sched_domain *sd;
 	struct sched_group *sg;
@@ -7527,6 +7530,8 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 	int best_idle_cpu = -1;
 	int target_cpu = -1;
 	int cpu, i;
+	int min_cpu = -1;
+	int backup_min_cpu = -1;
 	bool turning = false;
 
 	*backup_cpu = -1;
@@ -7645,16 +7650,41 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 				 * efficient CPU (i.e. smallest capacity_orig)
 				 */
 				if (idle_cpu(i)) {
-					if ((boosted || turning) &&
-					    capacity_orig < target_capacity)
-						continue;
-					if (!boosted  && !turning &&
-					    capacity_orig > target_capacity)
-						continue;
 					if (capacity_orig == target_capacity &&
 					    sysctl_sched_cstate_aware &&
 					    best_idle_cstate <= idle_idx)
 						continue;
+
+					/*
+					 * If little core will use frequency
+					 * higher than truning point, store it
+					 * as backup cpu.
+					 */
+					if (hmp_cpu_is_slowest(i) &&
+						freq_util(new_util) >
+							cpu_eff_tp &&
+						new_util <
+							backup_min_cpu_util) {
+						backup_min_cpu_util =
+							new_util;
+						backup_min_cpu = i;
+						continue;
+					}
+
+					/*
+					 * if we found an effcient cpu in L cpu,
+					 * it's no need to search B cpu.
+					 */
+					if (capacity_orig > min_target_capacity)
+						continue;
+
+					/* find the max spare capacity cpu */
+					if (new_util < min_cpu_util) {
+						min_target_capacity =
+							capacity_orig;
+						min_cpu_util = new_util;
+						min_cpu = i;
+					}
 
 					target_capacity = capacity_orig;
 					best_idle_cstate = idle_idx;
@@ -7847,6 +7877,13 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 	 *   a) ACTIVE CPU: target_cpu
 	 *   b) IDLE CPU: best_idle_cpu
 	 */
+
+	if (prefer_idle) {
+		if (backup_min_cpu != -1)
+			best_idle_cpu = backup_min_cpu;
+		if (min_cpu != -1)
+			best_idle_cpu = min_cpu;
+	}
 
 	if (prefer_idle && (best_idle_cpu != -1)) {
 		trace_sched_find_best_target(p, prefer_idle, min_util, cpu,
