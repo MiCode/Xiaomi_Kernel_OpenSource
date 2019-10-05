@@ -24,8 +24,15 @@
 #include "vpu_drv.h"
 #include "vpu_debug.h"
 
+#if (CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+#define VPU_IOVA_BANK (0x300000000ULL)
+#else
+#define VPU_IOVA_BANK (0x0ULL)
+#endif
+
 #define VPU_IOVA_START (0x7DA00000)
 #define VPU_IOVA_END   (0x82600000)
+
 #define VPU_MEM_ALLOC  (0xFFFFFFFF)
 
 static struct page **vpu_map_kva_to_sgt(
@@ -76,8 +83,8 @@ vpu_mem_alloc(struct platform_device *pdev,
 		goto out;
 	}
 
-	vpu_mem_debug("%s: size: 0x%x, given iova: 0x%lx (%s alloc)\n",
-		__func__, i->size, (unsigned long)given_iova,
+	vpu_mem_debug("%s: size: 0x%x, given iova: 0x%llx (%s alloc)\n",
+		__func__, i->size, (u64)given_iova,
 		(given_iova == VPU_IOVA_END) ? "dynamic" : "static");
 
 	kva = kvmalloc(i->size, GFP_KERNEL);
@@ -180,19 +187,23 @@ vpu_map_sg_to_iova(
 {
 	dma_addr_t mask;
 	dma_addr_t iova = 0;
+	bool dyn_alloc = false;
+	bool match = false;
 	int ret;
 
 	if (given_iova >= VPU_IOVA_END) {
-		mask = VPU_IOVA_END - 1;
-		vpu_mem_debug("%s: dev: %p, len: %lx, given_iova mask: %lx (dynamic alloc)\n",
+		dyn_alloc = true;
+		mask = (VPU_IOVA_END - 1) | VPU_IOVA_BANK;
+		given_iova |= VPU_IOVA_BANK;
+		vpu_mem_debug("%s: dev: %p, len: %zx, given_iova mask: %llx (dynamic alloc)\n",
 			__func__, &pdev->dev,
-			(unsigned long)len, (unsigned long)given_iova);
+			len, (u64)given_iova);
 	} else {
-		mask = given_iova + len - 1; // Eq. desired iova end
-		vpu_mem_debug("%s: dev: %p, len: %lx, given_iova start ~ end(mask): %lx ~ %lx\n",
+		mask = (given_iova + len - 1) | VPU_IOVA_BANK;
+		given_iova |= VPU_IOVA_BANK;
+		vpu_mem_debug("%s: dev: %p, len: %zx, given_iova start ~ end(mask): %llx ~ %llx\n",
 			__func__, &pdev->dev,
-			(unsigned long)len, (unsigned long)given_iova,
-			(unsigned long)mask);
+			len, (u64)given_iova, (u64)mask);
 	}
 
 	dma_set_mask_and_coherent(&pdev->dev, mask);
@@ -209,13 +220,16 @@ vpu_map_sg_to_iova(
 
 	iova = sg_dma_address(&sg[0]);
 
-	dev_info(&pdev->dev,
-		"%s: sg_dma_address: size: %lx, mapped iova: %lx %s\n",
-		__func__, len, (unsigned long)iova,
-		(given_iova == VPU_IOVA_END) ? "(dynamic alloc)" :
-		((iova == given_iova) ? "(static alloc)" : "(unexpected)"));
+	if (given_iova == iova)
+		match = true;
 
-	if ((given_iova != VPU_IOVA_END) && (given_iova != iova))
+	dev_info(&pdev->dev,
+		"%s: sg_dma_address: size: %lx, mapped iova: 0x%llx %s\n",
+		__func__, len, (u64)iova,
+		dyn_alloc ? "(dynamic alloc)" :
+		(match ? "(static alloc)" : "(unexpected)"));
+
+	if (!dyn_alloc && !match)
 		vpu_aee_warn("VPU", "iova mapping error");
 
 	return iova;
