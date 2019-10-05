@@ -29,6 +29,10 @@
 static bool dbg_log_en; /* module param to enable/disable debug log */
 module_param(dbg_log_en, bool, 0644);
 
+static const struct mt6360_ldo_platform_data def_platform_data = {
+	.sdcard_det_en = true,
+};
+
 struct mt6360_regulator_desc {
 	const struct regulator_desc desc;
 	unsigned int enst_reg;
@@ -313,6 +317,7 @@ static void mt6360_ldo_irq_register(struct mt6360_ldo_info *mli)
 static int mt6360_ldo_enable(struct regulator_dev *rdev)
 {
 	struct mt6360_ldo_info *mli = rdev_get_drvdata(rdev);
+	struct mt6360_ldo_platform_data *pdata = dev_get_platdata(mli->dev);
 	const struct regulator_desc *desc = rdev->desc;
 	int id = rdev_get_id(rdev), ret;
 
@@ -324,7 +329,7 @@ static int mt6360_ldo_enable(struct regulator_dev *rdev)
 		return ret;
 	}
 	/* when LDO5 enable, enable SDCARD_DET */
-	if (id == MT6360_LDO_LDO5) {
+	if (id == MT6360_LDO_LDO5 && pdata->sdcard_det_en) {
 		ret = mt6360_ldo_reg_update_bits(mli, MT6360_LDO_LDO5_CTRL0,
 						 0x40, 0xff);
 		if (ret < 0) {
@@ -339,6 +344,7 @@ static int mt6360_ldo_enable(struct regulator_dev *rdev)
 static int mt6360_ldo_disable(struct regulator_dev *rdev)
 {
 	struct mt6360_ldo_info *mli = rdev_get_drvdata(rdev);
+	struct mt6360_ldo_platform_data *pdata = dev_get_platdata(mli->dev);
 	const struct regulator_desc *desc = rdev->desc;
 	int id = rdev_get_id(rdev), ret;
 
@@ -350,7 +356,7 @@ static int mt6360_ldo_disable(struct regulator_dev *rdev)
 		return ret;
 	}
 	/* when LDO5 disable, disable SDCARD_DET */
-	if (id == MT6360_LDO_LDO5) {
+	if (id == MT6360_LDO_LDO5 && pdata->sdcard_det_en) {
 		ret = mt6360_ldo_reg_update_bits(mli, MT6360_LDO_LDO5_CTRL0,
 						 0x40, 0);
 		if (ret < 0) {
@@ -632,6 +638,7 @@ static int mt6360_ldo_apply_pdata(struct mt6360_ldo_info *mli,
 }
 
 static const struct mt6360_val_prop mt6360_val_props[] = {
+	MT6360_DT_VALPROP(sdcard_det_en, struct mt6360_ldo_platform_data),
 };
 
 static int mt6360_ldo_parse_dt_data(struct device *dev,
@@ -642,6 +649,7 @@ static int mt6360_ldo_parse_dt_data(struct device *dev,
 	int res_cnt, ret;
 
 	dev_dbg(dev, "%s ++\n", __func__);
+	memcpy(pdata, &def_platform_data, sizeof(*pdata));
 	mt6360_dt_parser_helper(np, (void *)pdata,
 				mt6360_val_props, ARRAY_SIZE(mt6360_val_props));
 	res_cnt = of_irq_count(np);
