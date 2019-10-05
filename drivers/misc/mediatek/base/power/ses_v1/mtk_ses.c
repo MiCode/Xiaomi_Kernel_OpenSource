@@ -52,7 +52,6 @@
 	#include <mt-plat/mtk_chip.h>
 	#include <mt-plat/mtk_devinfo.h>
 	#include <mcupm_ipi_id.h>
-	#include <mcupm_ipi_table.h>
 	#include <mcupm_driver.h>
 	#include <mtk_cpufreq_config.h>
 	#include <mtk_cpufreq_hybrid.h>
@@ -283,8 +282,13 @@ int mtk_ses_volt_ratio(unsigned int HiRatio,
 	cdvfs_d.u.set_fv.arg[1] = HiRatio;
 	cdvfs_d.u.set_fv.arg[2] = LoRatio;
 
-	ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_CPU_DVFS, IPI_SEND_WAIT,
-		&cdvfs_d, sizeof(cdvfs_d) / MCUPM_MBOX_SLOT_SIZE, 10);
+/* ret = mtk_ipi_send_compl(&mcupm_ipidev,
+ *		CH_S_CPU_DVFS,
+ *		IPI_SEND_WAIT,
+ *		&cdvfs_d,
+ *		sizeof(cdvfs_d) / MCUPM_MBOX_SLOT_SIZE,
+ *		10);
+ */
 
 	return ret;
 }
