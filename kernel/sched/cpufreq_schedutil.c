@@ -574,6 +574,9 @@ int schedutil_set_down_rate_limit_us(int cpu, unsigned int rate_limit_us)
 	if (!policy)
 		return -EINVAL;
 
+	if (policy->governor != &schedutil_gov)
+		return -ENOENT;
+
 	mutex_lock(&global_tunables_lock);
 	sg_policy = policy->governor_data;
 	if (!sg_policy) {
@@ -610,6 +613,9 @@ int schedutil_set_up_rate_limit_us(int cpu, unsigned int rate_limit_us)
 	policy = cpufreq_cpu_get(cpu);
 	if (!policy)
 		return -EINVAL;
+
+	if (policy->governor != &schedutil_gov)
+		return -ENOENT;
 
 	mutex_lock(&global_tunables_lock);
 	sg_policy = policy->governor_data;
