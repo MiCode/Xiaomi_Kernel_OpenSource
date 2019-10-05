@@ -49,11 +49,13 @@
 
 #ifdef __KERNEL__
 	#include <linux/topology.h>
-
-	/* local includes (kernel-4.4)*/
 	#include <mt-plat/mtk_chip.h>
-	/* #include <mt-plat/mtk_gpio.h> */
 	#include <mt-plat/mtk_devinfo.h>
+	#include <mcupm_ipi_id.h>
+	#include <mcupm_ipi_table.h>
+	#include <mcupm_driver.h>
+	#include <mtk_cpufreq_config.h>
+	#include <mtk_cpufreq_hybrid.h>
 	#include "mtk_ses.h"
 #endif
 
@@ -101,7 +103,8 @@
  * LOG
  ************************************************/
 #define SES_TAG	 "[CPU_SES] "
-#define ses_debug(fmt, args...)		pr_info(SES_TAG	fmt, ##args)
+#define ses_debug(fmt, args...)	\
+	pr_info(SES_TAG"(%d)" fmt, __LINE__, ##args)
 
 /************************************************
  * REG ACCESS
@@ -124,10 +127,20 @@
 /************************************************
  * static Variable
  ************************************************/
-static unsigned int sesNum = 9;
-#ifdef CONFIG_OF
-static unsigned int state;
+#define sesNum 9
+#define DEVINFO_IDX_0	50
+
+struct drp_ratio_type {
+	unsigned int HiCodeRatio;
+	unsigned int LoCodeRatio;
+};
+
+struct drp_ratio_type drp_ratio[sesNum];
+
 static unsigned int ses_ByteSel = 1;
+
+#if MTK_SES_ON
+static unsigned int state;
 static unsigned int ses0_reg3;
 static unsigned int ses1_reg3;
 static unsigned int ses2_reg3;
@@ -146,120 +159,185 @@ static unsigned int ses5_reg2;
 static unsigned int ses6_reg2;
 static unsigned int ses7_reg2;
 static unsigned int ses8_reg2;
-//static unsigned int ses0_drphipct;
-//static unsigned int ses1_drphipct;
-//static unsigned int ses2_drphipct;
-//static unsigned int ses3_drphipct;
-//static unsigned int ses4_drphipct;
-//static unsigned int ses5_drphipct;
-//static unsigned int ses6_drphipct;
-//static unsigned int ses7_drphipct;
-//static unsigned int ses8_drphipct;
-//static unsigned int ses0_drplopct;
-//static unsigned int ses1_drplopct;
-//static unsigned int ses2_drplopct;
-//static unsigned int ses3_drplopct;
-//static unsigned int ses4_drplopct;
-//static unsigned int ses5_drplopct;
-//static unsigned int ses6_drplopct;
-//static unsigned int ses7_drplopct;
-//static unsigned int ses8_drplopct;
+static unsigned int ses0_drphipct;
+static unsigned int ses1_drphipct;
+static unsigned int ses2_drphipct;
+static unsigned int ses3_drphipct;
+static unsigned int ses4_drphipct;
+static unsigned int ses5_drphipct;
+static unsigned int ses6_drphipct;
+static unsigned int ses7_drphipct;
+static unsigned int ses8_drphipct;
+static unsigned int ses0_drplopct;
+static unsigned int ses1_drplopct;
+static unsigned int ses2_drplopct;
+static unsigned int ses3_drplopct;
+static unsigned int ses4_drplopct;
+static unsigned int ses5_drplopct;
+static unsigned int ses6_drplopct;
+static unsigned int ses7_drplopct;
+static unsigned int ses8_drplopct;
 
 #endif
 
 /************************************************
  * Global function definition
  ************************************************/
-
-//int mtk_ses_feature_enabled_check(void)
-//{
-//	unsigned int status = 0, i = 0;
-//
-//	for (i = 0; i < sesNum; i++) {
-//		status |= (mt_secure_call_ses(
-//				MTK_SIP_KERNEL_SES_READ,
-//				SES_AO_REG_BASE + ((u64)0x200 * i),
-//				0,
-//				0,
-//				0) &
-//				0x01) <<
-//				i;
-//	}
-//
-//	return status;
-//}
-
 void mtk_ses_init(void)
 {
-	mt_secure_call_ses(MTK_SIP_KERNEL_SES_INIT,
-		0, 0, 0, 0);
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_SES_CONTROL,
+		MTK_SES_INIT, 0, 0, 0, 0, 0, 0, &res);
 }
 
 void mtk_ses_enable(unsigned int onOff,
 		unsigned int ses_node)
 {
-	mt_secure_call_ses(MTK_SIP_KERNEL_SES_ENABLE,
-		onOff, ses_node, 0, 0);
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_SES_CONTROL,
+		MTK_SES_ENABLE,
+		onOff,
+		ses_node, 0, 0, 0, 0, &res);
 }
 
 unsigned int mtk_ses_event_count(unsigned int ByteSel,
 		unsigned int ses_node)
 {
-	return mt_secure_call_ses(MTK_SIP_KERNEL_SES_COUNT,
-			ByteSel, ses_node, 0, 0);
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_SES_CONTROL,
+			MTK_SES_COUNT,
+			ByteSel,
+			ses_node, 0, 0, 0, 0, &res);
+	return res.a0;
 }
 
 void mtk_ses_hwgatepct(unsigned int HwGateSel,
 		unsigned int value,
 		unsigned int ses_node)
 {
-	mt_secure_call_ses(MTK_SIP_KERNEL_SES_HWGATEPCT,
-		HwGateSel, value, ses_node, 0);
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_SES_CONTROL,
+		MTK_SES_HWGATEPCT,
+		HwGateSel,
+		value,
+		ses_node, 0, 0, 0, &res);
 }
 
 void mtk_ses_stepstart(unsigned int HwGateSel,
 		unsigned int ses_node)
 {
-	mt_secure_call_ses(MTK_SIP_KERNEL_SES_STEPSTART,
-		HwGateSel, ses_node, 0, 0);
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_SES_CONTROL,
+		MTK_SES_STEPSTART,
+		HwGateSel,
+		ses_node, 0, 0, 0, 0, &res);
 }
 
 void mtk_ses_steptime(unsigned int value,
 		unsigned int ses_node)
 {
-	mt_secure_call_ses(MTK_SIP_KERNEL_SES_STEPTIME,
-		value, ses_node, 0, 0);
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_SES_CONTROL,
+		MTK_SES_STEPTIME,
+		value,
+		ses_node, 0, 0, 0, 0, &res);
 }
+
 void mtk_ses_dly_filt(unsigned int value,
 		unsigned int ses_node)
 {
-	mt_secure_call_ses(MTK_SIP_KERNEL_SES_DLYFILT,
-		value, ses_node, 0, 0);
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_SES_CONTROL,
+		MTK_SES_DLYFILT,
+		value,
+		ses_node, 0, 0, 0, 0, &res);
+}
+
+unsigned int mtk_ses_status(unsigned int value)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_SES_CONTROL,
+		MTK_SES_STATUS,
+		value,
+		0, 0, 0, 0, 0, &res);
+	return res.a0;
+}
+
+int mtk_ses_volt_ratio(unsigned int HiRatio,
+				unsigned int LoRatio,
+				unsigned int ses_node)
+{
+	struct cdvfs_data cdvfs_d;
+	int ret = 0;
+
+	/* cdvfs_d.cmd = IPI_SES_SET_VOLTAGE_DROP_RATIO; TBD */
+	cdvfs_d.u.set_fv.arg[0] = ses_node;
+	cdvfs_d.u.set_fv.arg[1] = HiRatio;
+	cdvfs_d.u.set_fv.arg[2] = LoRatio;
+
+	ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_CPU_DVFS, IPI_SEND_WAIT,
+		&cdvfs_d, sizeof(cdvfs_d) / MCUPM_MBOX_SLOT_SIZE, 10);
+
+	return ret;
 }
 
 
 /************************************************
  * set SES status by procfs interface
  ************************************************/
+static ssize_t ses_init_proc_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *pos)
+{
+	unsigned int init;
+	char *buf = (char *) __get_free_page(GFP_USER);
+
+	if (!buf)
+		return -ENOMEM;
+
+	if (count >= PAGE_SIZE)
+		goto out;
+
+	if (copy_from_user(buf, buffer, count))
+		goto out;
+
+	buf[count] = '\0';
+
+	if (kstrtoint(buf, 10, &init)) {
+		ses_debug("bad argument!! Should input 1 arguments.\n");
+		goto out;
+	}
+
+	if (init == 1)
+		mtk_ses_init();
+
+out:
+	free_page((unsigned long)buf);
+	return count;
+}
+
+static int ses_init_proc_show(struct seq_file *m, void *v)
+{
+	return 0;
+}
+
+
 static int ses_enable_proc_show(struct seq_file *m, void *v)
 {
 	unsigned int status = 0, value, ses_node = 0;
 
 	for (ses_node = 0; ses_node < sesNum-1; ses_node++) {
-		value = mt_secure_call_ses(
-			MTK_SIP_KERNEL_SES_STATUS,
-			SESV6_REG2 + (0x200 * ses_node),
-			0,
-			0,
-			0);
+		value = mtk_ses_status(SESV6_REG2 + (0x200 * ses_node));
 		status = status | ((value & 0x01) << ses_node);
 	}
-	value = mt_secure_call_ses(
-		MTK_SIP_KERNEL_SES_STATUS,
-		SESV6_DSU_REG2,
-		0,
-		0,
-		0);
+	value = mtk_ses_status(SESV6_DSU_REG2);
 	status = status | ((value & 0x01) << ses_node);
 
 	seq_printf(m, "%u\n", status);
@@ -344,12 +422,7 @@ static int ses_hwgatepct_proc_show(struct seq_file *m, void *v)
 	unsigned int ses_node = 0;
 
 	for (ses_node = 0; ses_node < sesNum-1; ses_node++) {
-		value = mt_secure_call_ses(
-			MTK_SIP_KERNEL_SES_STATUS,
-			SESV6_REG3 + (0x200 * ses_node),
-			0,
-			0,
-			0);
+		value = mtk_ses_status(SESV6_REG3 + (0x200 * ses_node));
 		seq_printf(m, "ses_%u, hwgatepct[0,1,2,3]= %x %x %x %x\n",
 			ses_node,
 			GET_BITS_VAL(11:9, value),
@@ -358,12 +431,7 @@ static int ses_hwgatepct_proc_show(struct seq_file *m, void *v)
 			GET_BITS_VAL(20:18, value));
 	}
 
-	value = mt_secure_call_ses(
-		MTK_SIP_KERNEL_SES_STATUS,
-		SESV6_DSU_REG3,
-		0,
-		0,
-		0);
+	value = mtk_ses_status(SESV6_DSU_REG3);
 	seq_printf(m, "ses_%u, hwgatepct[0,1,2,3]= %x %x %x %x\n",
 		ses_node,
 		GET_BITS_VAL(11:9, value),
@@ -409,24 +477,14 @@ static int ses_stepstart_proc_show(struct seq_file *m, void *v)
 	unsigned int ses_node = 0;
 
 	for (ses_node = 0; ses_node < sesNum-1; ses_node++) {
-		value = mt_secure_call_ses(
-			MTK_SIP_KERNEL_SES_STATUS,
-			SESV6_REG3 + (0x200 * ses_node),
-			0,
-			0,
-			0);
+		value = mtk_ses_status(SESV6_REG3 + (0x200 * ses_node));
 		seq_printf(m, "ses_%u, stepstart from hwgatepct[%x]\n",
 			ses_node,
 			GET_BITS_VAL(8:7, value));
 
 	}
 
-	value = mt_secure_call_ses(
-		MTK_SIP_KERNEL_SES_STATUS,
-		SESV6_DSU_REG3,
-		0,
-		0,
-		0);
+	value = mtk_ses_status(SESV6_DSU_REG3);
 	seq_printf(m, "ses_%u, stepstart from hwgatepct[%x]\n",
 		ses_node,
 		GET_BITS_VAL(8:7, value));
@@ -469,24 +527,14 @@ static int ses_steptime_proc_show(struct seq_file *m, void *v)
 	unsigned int value = 0, ses_node = 0;
 
 	for (ses_node = 0; ses_node < sesNum-1; ses_node++) {
-		value = mt_secure_call_ses(
-			MTK_SIP_KERNEL_SES_STATUS,
-			SESV6_REG3 + (0x200 * ses_node),
-			0,
-			0,
-			0);
+		value = mtk_ses_status(SESV6_REG3 + (0x200 * ses_node));
 		seq_printf(m, "ses_%u, steptime = %x\n",
 			ses_node,
 			GET_BITS_VAL(6:0, value));
 
 	}
 
-	value = mt_secure_call_ses(
-		MTK_SIP_KERNEL_SES_STATUS,
-		SESV6_DSU_REG3,
-		0,
-		0,
-		0);
+	value = mtk_ses_status(SESV6_DSU_REG3);
 	seq_printf(m, "ses_%u, steptime = %x\n",
 		ses_node,
 		GET_BITS_VAL(6:0, value));
@@ -529,12 +577,7 @@ static int ses_dly_filt_proc_show(struct seq_file *m, void *v)
 	unsigned int value = 0, ses_node = 0;
 
 	for (ses_node = 0; ses_node < sesNum-1; ses_node++) {
-		value = mt_secure_call_ses(
-			MTK_SIP_KERNEL_SES_STATUS,
-			SESV6_REG2 + (0x200 * ses_node),
-			0,
-			0,
-			0);
+		value = mtk_ses_status(SESV6_REG2 + (0x200 * ses_node));
 		seq_printf(m, "ses_%u, dly= %x, filt[hi:lo]= %x,%x\n",
 			ses_node,
 			GET_BITS_VAL(6:2, value),
@@ -542,12 +585,7 @@ static int ses_dly_filt_proc_show(struct seq_file *m, void *v)
 			GET_BITS_VAL(11:7, value));
 	}
 
-	value = mt_secure_call_ses(
-		MTK_SIP_KERNEL_SES_STATUS,
-		SESV6_DSU_REG2,
-		0,
-		0,
-		0);
+	value = mtk_ses_status(SESV6_DSU_REG2);
 	seq_printf(m, "ses_%u, dly= %x, filt[hi:lo]= %x,%x\n",
 		ses_node,
 		GET_BITS_VAL(6:2, value),
@@ -586,27 +624,84 @@ out:
 	return count;
 }
 
+static int ses_volt_ratio_proc_show(struct seq_file *m, void *v)
+{
+	unsigned int ses_node;
+
+	for (ses_node = 0; ses_node < sesNum; ses_node++) {
+		seq_printf(m, "ses_%u HiRatio = %u LoRatio = %u\n",
+					ses_node,
+					drp_ratio[ses_node].HiCodeRatio,
+					drp_ratio[ses_node].LoCodeRatio);
+	}
+	return 0;
+}
+
+
+static ssize_t ses_volt_ratio_proc_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *pos)
+{
+	unsigned int HiRatio = 0, LoRatio = 0, ses_node = 0;
+	char *buf = (char *) __get_free_page(GFP_USER);
+
+	if (!buf)
+		return -ENOMEM;
+
+	if (count >= PAGE_SIZE)
+		goto out;
+
+	if (copy_from_user(buf, buffer, count))
+		goto out;
+
+	buf[count] = '\0';
+
+	if (sscanf(buf, "%u %u %u", &HiRatio, &LoRatio, &ses_node) != 3) {
+		ses_debug("bad argument!! Should input 3 arguments.\n");
+		goto out;
+	}
+
+	drp_ratio[ses_node].HiCodeRatio = HiRatio;
+	drp_ratio[ses_node].LoCodeRatio = LoRatio;
+	mtk_ses_volt_ratio(HiRatio, LoRatio, ses_node);
+
+out:
+	free_page((unsigned long)buf);
+	return count;
+}
+
 
 
 static int ses_status_dump_proc_show(struct seq_file *m, void *v)
 {
 	unsigned int i, value[sesNum][5], ses_node = 0;
 
-	for (ses_node = 0; ses_node < sesNum; ses_node++) {
+	for (ses_node = 0; ses_node < (sesNum - 1) ; ses_node++) {
 		for (i = 0; i < 5; i++)
-			value[ses_node][i] = mt_secure_call_ses(
-				MTK_SIP_KERNEL_SES_STATUS,
-				SESV6_REG0 + (0x200 * ses_node) + (i * 4),
-				0,
-				0,
-				0);
-		seq_printf(m, "CPU(%d), ses_reg :", ses_node);
+			value[ses_node][i] = mtk_ses_status(
+				SESV6_REG0 + (0x200 * ses_node) + (i * 4));
+		seq_printf(m, "CPU(%u), ses_reg :", ses_node);
 		for (i = 0; i < 5; i++)
-			seq_printf(m, "\t0x%llx = 0x%x",
+			seq_printf(m, "\t0x%x = 0x%x",
 				SESV6_REG0 + (0x200 * ses_node) + (i * 4),
 				value[ses_node][i]);
 		seq_printf(m, "    .%u\n", i);
 	}
+
+	for (i = 0; i < 5; i++)
+		value[(sesNum - 1)][i] = mtk_ses_status(
+			SESV6_DSU_REG0 + (i * 4));
+	seq_printf(m, "DSU(%u), ses_reg :", (sesNum - 1));
+	for (i = 0; i < 5; i++)
+		seq_printf(m, "\t0x%x = 0x%x",
+			SESV6_DSU_REG0 + (i * 4),
+			value[(sesNum - 1)][i]);
+	seq_printf(m, "    .%u\n", i);
+
+	seq_puts(m, "BG, ses_reg :");
+	seq_printf(m, "\t0x%x = 0x%x",
+			SESV6_BG_CTRL,
+			mtk_ses_status(SESV6_BG_CTRL));
+
 	return 0;
 }
 
@@ -643,12 +738,14 @@ static int ses_status_dump_proc_show(struct seq_file *m, void *v)
 
 #define PROC_ENTRY(name)	{__stringify(name), &name ## _proc_fops}
 
+PROC_FOPS_RW(ses_init);
 PROC_FOPS_RW(ses_enable);
 PROC_FOPS_RW(ses_count);
 PROC_FOPS_RW(ses_hwgatepct);
 PROC_FOPS_RW(ses_stepstart);
 PROC_FOPS_RW(ses_steptime);
 PROC_FOPS_RW(ses_dly_filt);
+PROC_FOPS_RW(ses_volt_ratio);
 PROC_FOPS_RO(ses_status_dump);
 
 static int create_procfs(void)
@@ -662,12 +759,14 @@ static int create_procfs(void)
 	};
 
 	struct pentry ses_entries[] = {
+		PROC_ENTRY(ses_init),
 		PROC_ENTRY(ses_enable),
 		PROC_ENTRY(ses_count),
 		PROC_ENTRY(ses_hwgatepct),
 		PROC_ENTRY(ses_stepstart),
 		PROC_ENTRY(ses_steptime),
 		PROC_ENTRY(ses_dly_filt),
+		PROC_ENTRY(ses_volt_ratio),
 		PROC_ENTRY(ses_status_dump),
 	};
 
@@ -693,7 +792,7 @@ static int create_procfs(void)
 
 static int ses_probe(struct platform_device *pdev)
 {
-	#ifdef CONFIG_OF
+#if MTK_SES_ON
 	struct device_node *node = NULL;
 	int rc = 0;
 	unsigned int ses_node = 0;
@@ -706,7 +805,7 @@ static int ses_probe(struct platform_device *pdev)
 
 	rc = of_property_read_u32(node, "state", &state);
 	if (!rc) {
-		ses_debug("state from DTree; rc(%d) state(0x%x)\n",
+		ses_debug("[cpu_ses] state from DTree; rc(%d) state(0x%x)\n",
 			rc,
 			state);
 
@@ -716,7 +815,7 @@ static int ses_probe(struct platform_device *pdev)
 
 	rc = of_property_read_u32(node, "ses0_reg3", &ses0_reg3);
 	if (!rc) {
-		ses_debug("ses0_reg3 from DTree; rc(%d) ses0_reg3(0x%x)\n",
+		ses_debug("[cpu_ses] ses0_reg3 from DTree; rc(%d) ses0_reg3(0x%x)\n",
 			rc,
 			ses0_reg3);
 
@@ -732,7 +831,7 @@ static int ses_probe(struct platform_device *pdev)
 
 	rc = of_property_read_u32(node, "ses1_reg3", &ses1_reg3);
 	if (!rc) {
-		ses_debug("ses1_reg3 from DTree; rc(%d) ses1_reg3(0x%x)\n",
+		ses_debug("[cpu_ses] ses1_reg3 from DTree; rc(%d) ses1_reg3(0x%x)\n",
 			rc,
 			ses1_reg3);
 
@@ -748,7 +847,7 @@ static int ses_probe(struct platform_device *pdev)
 
 	rc = of_property_read_u32(node, "ses2_reg3", &ses2_reg3);
 	if (!rc) {
-		ses_debug("ses2_reg3 from DTree; rc(%d) ses2_reg3(0x%x)\n",
+		ses_debug("[cpu_ses] ses2_reg3 from DTree; rc(%d) ses2_reg3(0x%x)\n",
 			rc,
 			ses2_reg3);
 
@@ -764,7 +863,7 @@ static int ses_probe(struct platform_device *pdev)
 
 	rc = of_property_read_u32(node, "ses3_reg3", &ses3_reg3);
 	if (!rc) {
-		ses_debug("ses3_reg3 from DTree; rc(%d) ses3_reg3(0x%x)\n",
+		ses_debug("[cpu_ses] ses3_reg3 from DTree; rc(%d) ses3_reg3(0x%x)\n",
 			rc,
 			ses3_reg3);
 
@@ -780,7 +879,7 @@ static int ses_probe(struct platform_device *pdev)
 
 	rc = of_property_read_u32(node, "ses4_reg3", &ses4_reg3);
 	if (!rc) {
-		ses_debug("ses4_reg3 from DTree; rc(%d) ses4_reg3(0x%x)\n",
+		ses_debug("[cpu_ses] ses4_reg3 from DTree; rc(%d) ses4_reg3(0x%x)\n",
 			rc,
 			ses4_reg3);
 
@@ -796,7 +895,7 @@ static int ses_probe(struct platform_device *pdev)
 
 	rc = of_property_read_u32(node, "ses5_reg3", &ses5_reg3);
 	if (!rc) {
-		ses_debug("ses5_reg3 from DTree; rc(%d) ses5_reg3(0x%x)\n",
+		ses_debug("[cpu_ses] ses5_reg3 from DTree; rc(%d) ses5_reg3(0x%x)\n",
 			rc,
 			ses5_reg3);
 
@@ -812,7 +911,7 @@ static int ses_probe(struct platform_device *pdev)
 
 	rc = of_property_read_u32(node, "ses6_reg3", &ses6_reg3);
 	if (!rc) {
-		ses_debug("ses6_reg3 from DTree; rc(%d) ses6_reg3(0x%x)\n",
+		ses_debug("[cpu_ses] ses6_reg3 from DTree; rc(%d) ses6_reg3(0x%x)\n",
 			rc,
 			ses6_reg3);
 
@@ -828,7 +927,7 @@ static int ses_probe(struct platform_device *pdev)
 
 	rc = of_property_read_u32(node, "ses7_reg3", &ses7_reg3);
 	if (!rc) {
-		ses_debug("ses7_reg3 from DTree; rc(%d) ses7_reg3(0x%x)\n",
+		ses_debug("[cpu_ses] ses7_reg3 from DTree; rc(%d) ses7_reg3(0x%x)\n",
 			rc,
 			ses7_reg3);
 
@@ -844,7 +943,7 @@ static int ses_probe(struct platform_device *pdev)
 
 	rc = of_property_read_u32(node, "ses8_reg3", &ses8_reg3);
 	if (!rc) {
-		ses_debug("ses8_reg3 from DTree; rc(%d) ses8_reg3(0x%x)\n",
+		ses_debug("[cpu_ses] ses8_reg3 from DTree; rc(%d) ses8_reg3(0x%x)\n",
 			rc,
 			ses8_reg3);
 
@@ -860,7 +959,7 @@ static int ses_probe(struct platform_device *pdev)
 
 	rc = of_property_read_u32(node, "ses0_reg2", &ses0_reg2);
 	if (!rc) {
-		ses_debug("ses0_reg2 from DTree; rc(%d) ses0_reg2(0x%x)\n",
+		ses_debug("[cpu_ses] ses0_reg2 from DTree; rc(%d) ses0_reg2(0x%x)\n",
 			rc,
 			ses0_reg2);
 
@@ -870,7 +969,7 @@ static int ses_probe(struct platform_device *pdev)
 
 	rc = of_property_read_u32(node, "ses1_reg2", &ses1_reg2);
 	if (!rc) {
-		ses_debug("ses1_reg2 from DTree; rc(%d) ses1_reg2(0x%x)\n",
+		ses_debug("[cpu_ses] ses1_reg2 from DTree; rc(%d) ses1_reg2(0x%x)\n",
 			rc,
 			ses1_reg2);
 
@@ -880,7 +979,7 @@ static int ses_probe(struct platform_device *pdev)
 
 	rc = of_property_read_u32(node, "ses2_reg2", &ses2_reg2);
 	if (!rc) {
-		ses_debug("ses2_reg2 from DTree; rc(%d) ses2_reg2(0x%x)\n",
+		ses_debug("[cpu_ses] ses2_reg2 from DTree; rc(%d) ses2_reg2(0x%x)\n",
 			rc,
 			ses2_reg2);
 
@@ -890,7 +989,7 @@ static int ses_probe(struct platform_device *pdev)
 
 	rc = of_property_read_u32(node, "ses3_reg2", &ses3_reg2);
 	if (!rc) {
-		ses_debug("ses3_reg2 from DTree; rc(%d) ses3_reg2(0x%x)\n",
+		ses_debug("[cpu_ses] ses3_reg2 from DTree; rc(%d) ses3_reg2(0x%x)\n",
 			rc,
 			ses3_reg2);
 
@@ -900,7 +999,7 @@ static int ses_probe(struct platform_device *pdev)
 
 	rc = of_property_read_u32(node, "ses4_reg2", &ses4_reg2);
 	if (!rc) {
-		ses_debug("ses4_reg2 from DTree; rc(%d) ses4_reg2(0x%x)\n",
+		ses_debug("[cpu_ses] ses4_reg2 from DTree; rc(%d) ses4_reg2(0x%x)\n",
 			rc,
 			ses4_reg2);
 
@@ -911,7 +1010,7 @@ static int ses_probe(struct platform_device *pdev)
 
 	rc = of_property_read_u32(node, "ses5_reg2", &ses5_reg2);
 	if (!rc) {
-		ses_debug("ses5_reg2 from DTree; rc(%d) ses5_reg2(0x%x)\n",
+		ses_debug("[cpu_ses] ses5_reg2 from DTree; rc(%d) ses5_reg2(0x%x)\n",
 			rc,
 			ses5_reg2);
 
@@ -922,7 +1021,7 @@ static int ses_probe(struct platform_device *pdev)
 
 	rc = of_property_read_u32(node, "ses6_reg2", &ses6_reg2);
 	if (!rc) {
-		ses_debug("ses6_reg2 from DTree; rc(%d) ses6_reg2(0x%x)\n",
+		ses_debug("[cpu_ses] ses6_reg2 from DTree; rc(%d) ses6_reg2(0x%x)\n",
 			rc,
 			ses6_reg2);
 
@@ -933,7 +1032,7 @@ static int ses_probe(struct platform_device *pdev)
 
 	rc = of_property_read_u32(node, "ses7_reg2", &ses7_reg2);
 	if (!rc) {
-		ses_debug("ses7_reg2 from DTree; rc(%d) ses7_reg2(0x%x)\n",
+		ses_debug("[cpu_ses] ses7_reg2 from DTree; rc(%d) ses7_reg2(0x%x)\n",
 			rc,
 			ses7_reg2);
 
@@ -944,7 +1043,7 @@ static int ses_probe(struct platform_device *pdev)
 
 	rc = of_property_read_u32(node, "ses8_reg2", &ses8_reg2);
 	if (!rc) {
-		ses_debug("ses8_reg2 from DTree; rc(%d) ses8_reg2(0x%x)\n",
+		ses_debug("[cpu_ses] ses8_reg2 from DTree; rc(%d) ses8_reg2(0x%x)\n",
 			rc,
 			ses8_reg2);
 
@@ -952,13 +1051,116 @@ static int ses_probe(struct platform_device *pdev)
 			mtk_ses_dly_filt(GET_BITS_VAL(16:2, ses8_reg2), 8);
 	}
 
+	rc = of_property_read_u32(node, "ses0_drphipct", &ses0_drphipct);
+	if (!rc) {
+		rc = of_property_read_u32(node,
+			"ses0_drplopct",
+			&ses0_drplopct);
+		ses_debug("[cpu_ses]rc(%d) ses0 drphipct(%u) drphipct(%u)\n",
+			rc, ses0_drphipct, ses0_drplopct);
 
+		if (ses0_drphipct != 0 && ses0_drplopct != 0)
+			mtk_ses_volt_ratio(ses0_drphipct, ses0_drplopct, 0);
+	}
 
-	#endif
+	rc = of_property_read_u32(node, "ses1_drphipct", &ses1_drphipct);
+	if (!rc) {
+		rc = of_property_read_u32(node,
+			"ses1_drplopct",
+			&ses1_drplopct);
+		ses_debug("[cpu_ses]rc(%d) ses1 drphipct(%u) drphipct(%u)\n",
+			rc, ses1_drphipct, ses1_drplopct);
 
-	#ifdef CONFIG_MTK_RAM_CONSOLE
-	//_mt_ses_aee_init();
-	#endif
+		if (ses1_drphipct != 0 && ses1_drplopct != 0)
+			mtk_ses_volt_ratio(ses1_drphipct, ses1_drplopct, 1);
+	}
+
+	rc = of_property_read_u32(node, "ses2_drphipct", &ses2_drphipct);
+	if (!rc) {
+		rc = of_property_read_u32(node,
+			"ses2_drplopct",
+			&ses2_drplopct);
+		ses_debug("[cpu_ses]rc(%d) ses2 drphipct(%u) drphipct(%u)\n",
+			rc, ses2_drphipct, ses2_drplopct);
+
+		if (ses2_drphipct != 0 && ses2_drplopct != 0)
+			mtk_ses_volt_ratio(ses2_drphipct, ses2_drplopct, 2);
+	}
+
+	rc = of_property_read_u32(node, "ses3_drphipct", &ses3_drphipct);
+	if (!rc) {
+		rc = of_property_read_u32(node,
+			"ses3_drplopct",
+			&ses3_drplopct);
+		ses_debug("[cpu_ses]rc(%d) ses3 drphipct(%u) drphipct(%u)\n",
+			rc, ses3_drphipct, ses3_drplopct);
+
+		if (ses3_drphipct != 0 && ses3_drplopct != 0)
+			mtk_ses_volt_ratio(ses3_drphipct, ses3_drplopct, 3);
+	}
+
+	rc = of_property_read_u32(node, "ses4_drphipct", &ses4_drphipct);
+	if (!rc) {
+		rc = of_property_read_u32(node,
+			"ses4_drplopct",
+			&ses4_drplopct);
+		ses_debug("[cpu_ses]rc(%d) ses4 drphipct(%u) drphipct(%u)\n",
+			rc, ses4_drphipct, ses4_drplopct);
+
+		if (ses4_drphipct != 0 && ses4_drplopct != 0)
+			mtk_ses_volt_ratio(ses4_drphipct, ses4_drplopct, 4);
+	}
+
+	rc = of_property_read_u32(node, "ses5_drphipct", &ses5_drphipct);
+	if (!rc) {
+		rc = of_property_read_u32(node,
+			"ses5_drplopct",
+			&ses5_drplopct);
+		ses_debug("[cpu_ses]rc(%d) ses5 drphipct(%u) drphipct(%u)\n",
+			rc, ses5_drphipct, ses5_drplopct);
+
+		if (ses5_drphipct != 0 && ses5_drplopct != 0)
+			mtk_ses_volt_ratio(ses5_drphipct, ses5_drplopct, 5);
+	}
+
+	rc = of_property_read_u32(node, "ses6_drphipct", &ses6_drphipct);
+	if (!rc) {
+		rc = of_property_read_u32(node,
+			"ses6_drplopct",
+			&ses6_drplopct);
+		ses_debug("[cpu_ses]rc(%d) ses6 drphipct(%u) drphipct(%u)\n",
+			rc, ses6_drphipct, ses6_drplopct);
+
+		if (ses6_drphipct != 0 && ses6_drplopct != 0)
+			mtk_ses_volt_ratio(ses6_drphipct, ses6_drplopct, 6);
+	}
+
+	rc = of_property_read_u32(node, "ses7_drphipct", &ses7_drphipct);
+	if (!rc) {
+		rc = of_property_read_u32(node,
+			"ses7_drplopct",
+			&ses7_drplopct);
+		ses_debug("[cpu_ses]rc(%d) ses7 drphipct(%u) drphipct(%u)\n",
+			rc, ses7_drphipct, ses7_drplopct);
+
+		if (ses7_drphipct != 0 && ses7_drplopct != 0)
+			mtk_ses_volt_ratio(ses7_drphipct, ses7_drplopct, 7);
+	}
+
+	rc = of_property_read_u32(node, "ses8_drphipct", &ses8_drphipct);
+	if (!rc) {
+		rc = of_property_read_u32(node,
+			"ses8_drplopct",
+			&ses8_drplopct);
+		ses_debug("[cpu_ses]rc(%d) ses8 drphipct(%u) drphipct(%u)\n",
+			rc, ses8_drphipct, ses8_drplopct);
+
+		if (ses8_drphipct != 0 && ses8_drplopct != 0)
+			mtk_ses_volt_ratio(ses8_drphipct, ses8_drplopct, 8);
+	}
+
+#endif
+
 	ses_debug("ses probe ok!!\n");
 
 	return 0;
@@ -999,8 +1201,15 @@ static int __init ses_init(void)
 {
 	int err = 0;
 
-#ifdef MTK_SES_ON
-	mtk_ses_init();
+#if MTK_SES_ON
+	unsigned int ptp_ftpgm;
+
+	ptp_ftpgm = get_devinfo_with_index(DEVINFO_IDX_0) & 0xf;
+
+	if (ptp_ftpgm > 1)
+		mtk_ses_init();
+	else
+		ses_debug("[cpu_ses]PTPv%u, SES turn off.\n", ptp_ftpgm);
 #endif
 	create_procfs();
 
