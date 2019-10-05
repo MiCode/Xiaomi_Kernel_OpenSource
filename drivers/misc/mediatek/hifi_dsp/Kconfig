@@ -1,0 +1,5 @@
+config MTK_HIFIXDSP_SUPPORT
+	bool "Specifiy If Platform Support audio hifixdsp"
+	help
+	  AUDIO_DSP is a MediaTek in-house DSP which can do
+	  different audio process.
