@@ -18,7 +18,7 @@
 #include "upmu_hw.h"
 #include "apusys_power_reg.h"
 #include "apu_power_api.h"
-#include "../apu_log.h"
+#include "apu_log.h"
 
 /* regulator id */
 static struct regulator *vvpu_reg_id;

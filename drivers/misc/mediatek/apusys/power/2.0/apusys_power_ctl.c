@@ -23,6 +23,7 @@
 #include "apusys_power_ctl.h"
 #include "apusys_power_cust.h"
 #include "apusys_power.h"
+#include "apu_power_table.h"
 #include "hal_config_power.h"
 #include "apu_log.h"
 
@@ -31,7 +32,8 @@
 struct apusys_dvfs_opps apusys_opps;
 bool is_power_debug_lock;
 
-int32_t apusys_thermal_en_throttle_cb(enum DVFS_USER user, uint8_t opp)
+int32_t apusys_thermal_en_throttle_cb(enum DVFS_USER user,
+					enum APU_OPP_INDEX opp)
 {
 	// need to check constraint voltage, fixed me
 

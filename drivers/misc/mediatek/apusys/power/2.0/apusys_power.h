@@ -11,12 +11,15 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _APUSYS_POWER_DRIVER_H_
-#define _APUSYS_POWER_DRIVER_H_
+#ifndef _APUSYS_POWER_H_
+#define _APUSYS_POWER_H_
 
 #include "apusys_power_cust.h"
 
 
+/******************************************************
+ * for apusys power platform device API
+ ******************************************************/
 #ifndef BUILD_POLICY_TEST
 extern int apu_power_device_register(enum DVFS_USER, struct platform_device*);
 #endif
@@ -32,7 +35,5 @@ extern int apu_power_callback_device_register(enum POWER_CALLBACK_USER user,
 					void (*power_off_callback)(void *para));
 extern void apu_power_callback_device_unregister(enum POWER_CALLBACK_USER user);
 
-extern int32_t apusys_thermal_en_throttle_cb(enum DVFS_USER user, uint8_t opp);
-extern int32_t apusys_thermal_dis_throttle_cb(enum DVFS_USER user);
 
 #endif
