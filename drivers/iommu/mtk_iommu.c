@@ -129,11 +129,18 @@ struct mtk_iommu_domain {
 	struct io_pgtable_ops		*iop;
 
 	struct iommu_domain		domain;
-#ifdef CONFIG_ARM64
+
 #if (defined(CONFIG_MTK_PSEUDO_M4U) && defined(M4U_TEE_SERVICE_ENABLE))
 	unsigned int			sec_iova_size;
 #endif
-#endif
+};
+
+struct mtk_iommu_resv_iova_region {
+	unsigned long iova_base;
+	size_t iova_size;
+	enum iommu_resv_type type;
+	void (*get_resv_data)(unsigned long *base, size_t *size,
+			      struct mtk_iommu_data *data);
 };
 
 static struct iommu_ops mtk_iommu_ops;
@@ -403,11 +410,50 @@ static void mtk_iommu_domain_free(struct iommu_domain *domain)
 #ifndef CONFIG_ARM64
 static int mtk_iommu_reserve_region(struct mtk_iommu_data *data)
 {
-	if (arm_dma_reserve(data->dev->archdata.iommu,
-			IOVPU_RANGE_START, IOVPU_RANGE_LEN)) {
-		dev_err(data->dev, "reserve iova region 0x%x(+0x%x) failed\n",
-			IOVPU_RANGE_START, IOVPU_RANGE_LEN);
-		return -1;
+	struct iommu_domain *domain = &data->m4u_dom->domain;
+	unsigned int i, total_cnt = data->plat_data->spec_cnt;
+	const struct mtk_iommu_resv_iova_region *spec_data;
+	unsigned long base = 0;
+	size_t size = 0;
+	enum iommu_resv_type type;
+	int prot = (IOMMU_WRITE | IOMMU_READ);
+	int ret;
+
+	if (!total_cnt)
+		return 0;
+
+	spec_data = data->plat_data->spec_region;
+
+	for (i = 0; i < total_cnt; i++) {
+		size = 0;
+		if (spec_data[i].iova_size) {
+			base = spec_data[i].iova_base;
+			size = spec_data[i].iova_size;
+		} else if (spec_data[i].get_resv_data)
+			spec_data[i].get_resv_data(&base, &size, data);
+		if (!size)
+			continue;
+
+		type = spec_data[i].type;
+		ret = 0;
+		if (type == IOMMU_RESV_DIRECT)
+			ret = iommu_map(domain, base, (phys_addr_t)base,
+					size, prot);
+		else if (type == IOMMU_RESV_RESERVED)
+			ret = arm_dma_reserve(data->dev->archdata.iommu,
+					(dma_addr_t)base, size);
+
+		if (ret)
+			dev_err(data->dev, "%s iova 0x%x ~ 0x%x failed\n",
+				(type == IOMMU_RESV_DIRECT) ?
+				"dir map" : "reserve",
+				(unsigned int)base,
+				(unsigned int)(base + size - 1));
+
+		/* for debug */
+		dev_info(data->dev, "%s iova 0x%x ~ 0x%x\n",
+			(type == IOMMU_RESV_DIRECT) ? "dm" : "rsv",
+			(unsigned int)base, (unsigned int)(base + size - 1));
 	}
 
 	return 0;
@@ -640,49 +686,42 @@ static int mtk_iommu_of_xlate(struct device *dev, struct of_phandle_args *args)
 static void mtk_iommu_get_resv_regions(struct device *dev,
 				      struct list_head *head)
 {
+	struct mtk_iommu_data *data = mtk_iommu_get_m4u_data();
+	unsigned int i, total_cnt = data->plat_data->spec_cnt;
+	const struct mtk_iommu_resv_iova_region *spec_data;
 	struct iommu_resv_region *region;
+	unsigned long base = 0;
+	size_t size = 0;
 	int prot = IOMMU_WRITE | IOMMU_READ;
 
-#ifdef CONFIG_MTK_FB
-	{
-		unsigned long reserve_iova_dm_sa =
-				(unsigned long)mtkfb_get_fb_base();
-		size_t reserve_iova_dm_sz = (size_t)mtkfb_get_fb_size();
+	if (!total_cnt || !of_device_is_compatible(dev->of_node,
+				data->plat_data->spec_device_comp))
+		return;
 
-		region = iommu_alloc_resv_region(reserve_iova_dm_sa,
-					reserve_iova_dm_sz,
-					prot, IOMMU_RESV_DIRECT);
+	spec_data = data->plat_data->spec_region;
+
+	for (i = 0; i < total_cnt; i++) {
+		size = 0;
+		if (spec_data[i].iova_size) {
+			base = spec_data[i].iova_base;
+			size = spec_data[i].iova_size;
+		} else if (spec_data[i].get_resv_data)
+			spec_data[i].get_resv_data(&base, &size, data);
+		if (!size)
+			continue;
+
+		region = iommu_alloc_resv_region(base, size, prot,
+						 spec_data[i].type);
 		if (!region)
 			return;
 
 		list_add_tail(&region->list, head);
+
+		/* for debug */
+		dev_info(data->dev, "%s iova 0x%x ~ 0x%x\n",
+			(spec_data[i].type == IOMMU_RESV_DIRECT) ? "dm" : "rsv",
+			(unsigned int)base, (unsigned int)(base + size - 1));
 	}
-#endif
-
-#if (defined(CONFIG_MTK_PSEUDO_M4U) && defined(M4U_TEE_SERVICE_ENABLE))
-	{
-		struct mtk_iommu_data *data = mtk_iommu_get_m4u_data();
-		struct mtk_iommu_domain *dom = (data) ? data->m4u_dom : NULL;
-		unsigned int secsize;
-
-		if (!dom)
-			return;
-
-		if (!(dom->sec_iova_size))
-			dom->sec_iova_size = mtk_init_tz_m4u();
-
-		if (!(dom->sec_iova_size))
-			return;
-
-		secsize = PAGE_ALIGN(dom->sec_iova_size);
-		region = iommu_alloc_resv_region(0, secsize,
-				prot, IOMMU_RESV_RESERVED);
-		if (!region)
-			return;
-
-		list_add_tail(&region->list, head);
-	}
-#endif
 }
 
 static void mtk_iommu_put_resv_regions(struct device *dev,
@@ -694,6 +733,7 @@ static void mtk_iommu_put_resv_regions(struct device *dev,
 		kfree(entry);
 }
 #endif
+
 static struct iommu_ops mtk_iommu_ops = {
 	.domain_alloc	= mtk_iommu_domain_alloc,
 	.domain_free	= mtk_iommu_domain_free,
@@ -964,13 +1004,92 @@ static const struct mtk_iommu_plat_data mt2712_data = {
 	.has_4gb_mode = true,
 };
 
+static void mtk_get_disp_dm_region(unsigned long *base, size_t *size,
+				   struct mtk_iommu_data *data)
+{
+/*
+ * Display show fastlogo in lk. it is contiougous buffer. when entering kernel,
+ * the iommu HW will be enabled. Avoid the display show fastlogo smoothly,
+ * defautly map the fastlogo physicall address as the iova address.
+ * directly mapping (iova == pa).
+ *
+ * This pa for a project can be get by mtkfv_get_fb_xxx().
+ */
+#ifdef CONFIG_MTK_FB
+	*base = (unsigned long)mtkfb_get_fb_base();
+	*size = (size_t)mtkfb_get_fb_size();
+#else
+	*base = 0;
+	*size = 0;
+#endif
+}
+
+static void mtk_get_sec_rsv_region(unsigned long *base, size_t *size,
+				   struct mtk_iommu_data *data)
+{
+#if (defined(CONFIG_MTK_PSEUDO_M4U) && defined(M4U_TEE_SERVICE_ENABLE))
+	struct mtk_iommu_domain *dom = data->m4u_dom;
+
+	if (!dom) {
+		*size = 0;
+		*base = 0;
+		return;
+	}
+
+	if (!dom->sec_iova_size)
+		dom->sec_iova_size = mtk_init_tz_m4u();
+
+	*size = dom->sec_iova_size;
+#else
+	*size = 0;
+#endif
+	*base = 0;
+}
+
+static const struct mtk_iommu_resv_iova_region mt8167_iommu_rsv_list[2] = {
+	{	.iova_base = 0,
+		.iova_size = 0,
+		.type = IOMMU_RESV_DIRECT,
+		.get_resv_data = mtk_get_disp_dm_region,
+	},
+	{	.iova_base = 0,
+		.iova_size = 0,
+		.type = IOMMU_RESV_RESERVED,
+		.get_resv_data = mtk_get_sec_rsv_region,
+	},
+};
+
 static const struct mtk_iommu_plat_data mt8167_data = {
 	.m4u_plat = M4U_MT8167,
 	.has_4gb_mode = true,
+	.spec_device_comp = "mediatek,mtk-pseudo-m4u",
+	.spec_cnt = ARRAY_SIZE(mt8167_iommu_rsv_list),
+	.spec_region = &mt8167_iommu_rsv_list[0],
 };
+
+static const struct mtk_iommu_resv_iova_region mt8168_iommu_rsv_list[3] = {
+	{	.iova_base = 0,
+		.iova_size = 0,
+		.type = IOMMU_RESV_DIRECT,
+		.get_resv_data = mtk_get_disp_dm_region,
+	},
+	{	.iova_base = 0,
+		.iova_size = 0,
+		.type = IOMMU_RESV_RESERVED,
+		.get_resv_data = mtk_get_sec_rsv_region,
+	},
+	{	.iova_base = 0x7D100000,
+		.iova_size = 0x05500000,	/* s 9M + ns 76M */
+		.type = IOMMU_RESV_RESERVED,
+	},
+};
+
 static const struct mtk_iommu_plat_data mt8168_data = {
 	.m4u_plat = M4U_MT8168,
 	.has_4gb_mode = true,
+	.spec_device_comp = "mediatek,mtk-pseudo-m4u",
+	.spec_cnt = ARRAY_SIZE(mt8168_iommu_rsv_list),
+	.spec_region = &mt8168_iommu_rsv_list[0],
 };
 
 static const struct mtk_iommu_plat_data mt8173_data = {
