@@ -6686,11 +6686,6 @@ static int __init ISP_Init(void)
 		kfree(comp_str);
 	} while (0);
 #endif
-	node = of_find_compatible_node(NULL, NULL, "mediatek,mmsys_config");
-	if (!node) {
-		LOG_NOTICE("find mmsys_config node failed!!!\n");
-		return -ENODEV;
-	}
 
 	/* FIX-ME: linux-3.10 procfs API changed */
 	proc_create("driver/isp_reg", 0000, NULL, &fcameraisp_proc_fops);
@@ -6724,7 +6719,7 @@ static int __init ISP_Init(void)
 					return -ENOMEM;
 				}
 				memset(pBuf_kmalloc[j], 0x00, i);
-				Tbl_RTBuf_MMPSize[j] = i;
+				Tbl_RTBuf_MMPSize[j] = (i / PAGE_SIZE) + 2;
 			} else {
 				pBuf_kmalloc[j] = kmalloc(
 					(RT_BUF_TBL_NPAGES + 2) * PAGE_SIZE,
