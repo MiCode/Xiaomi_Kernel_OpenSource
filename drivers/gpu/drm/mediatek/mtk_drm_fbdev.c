@@ -15,15 +15,87 @@
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_fb_helper.h>
 #include <drm/drm_gem.h>
+#include <drm/drm_crtc.h>
 
 #include "mtk_drm_drv.h"
 #include "mtk_drm_fb.h"
 #include "mtk_drm_gem.h"
 #include "mtk_drm_fbdev.h"
 #include "mtk_drm_assert.h"
+#include "mtk_log.h"
+#include "mtk_drm_crtc.h"
+#include "mtk_drm_helper.h"
 
 #define to_drm_private(x) container_of(x, struct mtk_drm_private, fb_helper)
 #define ALIGN_TO_32(x) ALIGN_TO(x, 32)
+
+struct fb_info *debug_info;
+
+unsigned int mtk_drm_fb_fm_auto_test(struct fb_info *info)
+{
+	struct drm_fb_helper *fb_helper = info->par;
+	struct drm_device *drm_dev = fb_helper->dev;
+	struct drm_crtc *crtc;
+	struct mtk_drm_crtc *mtk_crtc;
+	struct mtk_drm_private *private;
+	int ret = 0;
+
+	/* this debug cmd only for crtc0 */
+	crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+			typeof(*crtc), head);
+	if (!crtc) {
+		DDPPR_ERR("find crtc fail\n");
+		return -1;
+	}
+
+	mtk_crtc = to_mtk_crtc(crtc);
+	if (!crtc->enabled || mtk_crtc->ddp_mode == DDP_NO_USE) {
+		DDPINFO("crtc 0 is already sleep, skip\n");
+		return 0;
+	}
+
+	private = drm_dev->dev_private;
+	if (mtk_drm_helper_get_opt(private->helper_opt,
+			MTK_DRM_OPT_IDLE_MGR)) {
+		mtk_drm_idlemgr_kick(__func__, crtc, 0);
+		mtk_drm_set_idlemgr(crtc, 0, 1);
+	}
+
+	ret = mtk_crtc_lcm_ATA(crtc);
+
+	if (mtk_drm_helper_get_opt(private->helper_opt,
+			MTK_DRM_OPT_IDLE_MGR))
+		mtk_drm_set_idlemgr(crtc, 1, 1);
+
+	if (ret == 0)
+		DDPPR_ERR("ATA LCM failed\n");
+	else
+		DDPPR_ERR("ATA LCM passed\n");
+
+	return ret;
+}
+
+static int mtk_drm_fb_ioctl(struct fb_info *info, unsigned int cmd,
+		       unsigned long arg)
+{
+	switch (cmd) {
+	case MTKFB_FACTORY_AUTO_TEST:
+	{
+		unsigned int result = 0;
+		void __user *argp = (void __user *)arg;
+
+		DDPMSG("factory mode: lcm auto test\n");
+		result = mtk_drm_fb_fm_auto_test(info);
+		return copy_to_user(argp, &result, sizeof(result)) ?
+					-EFAULT : 0;
+	}
+	default:
+		DDPINFO("%s: Not support:info=0x%p, cmd=0x%08x, arg=0x%08lx\n",
+			     __func__, info, (unsigned int)cmd, arg);
+		break;
+	}
+	return 0;
+}
 
 #define MTK_LEGACY_FB_MAP
 #ifndef MTK_LEGACY_FB_MAP
@@ -32,6 +104,7 @@ static int mtk_drm_fbdev_mmap(struct fb_info *info, struct vm_area_struct *vma)
 	struct drm_fb_helper *helper = info->par;
 	struct mtk_drm_private *private = helper->dev->dev_private;
 
+	debug_info = info;
 	return mtk_drm_gem_mmap_buf(private->fbdev_bo, vma);
 }
 #endif
@@ -48,6 +121,7 @@ static struct fb_ops mtk_fbdev_ops = {
 #ifndef MTK_LEGACY_FB_MAP
 	.fb_mmap = mtk_drm_fbdev_mmap,
 #endif
+	.fb_ioctl = mtk_drm_fb_ioctl,
 };
 
 bool mtk_drm_lcm_is_connect(void)

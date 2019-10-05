@@ -40,6 +40,7 @@ struct mtk_panel_funcs {
 		void *handle, unsigned int level);
 	int (*aod)(void *handle, int enter);
 	int (*reset)(struct drm_panel *panel, int on);
+	int (*ata_check)(struct drm_panel *panel);
 };
 
 enum MIPITX_PHY_PORT {

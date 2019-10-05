@@ -1449,22 +1449,59 @@ static int mtk_dsi_trigger(struct mtk_ddp_comp *comp, void *handle)
 
 	return 0;
 }
+
+int mtk_dsi_read_gce(struct mtk_ddp_comp *comp, void *handle,
+			struct DSI_T0_INS *t0, int i, uintptr_t slot)
+{
+	struct mtk_dsi *dsi = container_of(comp, struct mtk_dsi, ddp_comp);
+	dma_addr_t read_slot = (dma_addr_t)slot;
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_CMDQ0,
+		0x00013700, ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_CMDQ1,
+		AS_UINT32(t0), ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_CMDQ_SIZE,
+		0x2, ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_START,
+		0x0, ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_START,
+		0x1, ~0);
+
+	mtk_dsi_cmdq_poll(comp, handle, comp->regs_pa + DSI_INTSTA, 0x1, 0x1);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_INTSTA,
+		0x0, 0x1);
+
+	cmdq_pkt_mem_move(handle, comp->cmdq_base,
+		comp->regs_pa + DSI_RX_DATA0, read_slot + (i * 2) * 0x4,
+		CMDQ_THR_SPR_IDX1);
+	cmdq_pkt_mem_move(handle, comp->cmdq_base,
+		comp->regs_pa + DSI_RX_DATA1, read_slot + (i * 2 + 1) * 0x4,
+		CMDQ_THR_SPR_IDX1);
+	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_RACK,
+		0x1, 0x1);
+	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_INTSTA,
+		0x0, 0x1);
+
+	mtk_dsi_poll_for_idle(dsi, handle);
+
+	return 0;
+}
+
 int mtk_dsi_esd_read(struct mtk_ddp_comp *comp, void *handle, uintptr_t slot)
 {
 	int i;
 	struct DSI_T0_INS t0;
 	struct mtk_dsi *dsi = container_of(comp, struct mtk_dsi, ddp_comp);
 	struct mtk_panel_params *params;
-	dma_addr_t read_slot = (dma_addr_t)slot;
 
 	if (dsi->ext && dsi->ext->params)
 		params = dsi->ext->params;
 	else /* can't find panel ext information, stop esd read */
 		return 0;
 
-	for (i = 0; i < ESD_CHECK_NUM; i++) {
-		struct mtk_dsi *dsi =
-			container_of(comp, struct mtk_dsi, ddp_comp);
+	for (i = 0 ; i < ESD_CHECK_NUM ; i++) {
 
 		if (params->lcm_esd_check_table[i].cmd == 0)
 			break;
@@ -1476,38 +1513,7 @@ int mtk_dsi_esd_read(struct mtk_ddp_comp *comp, void *handle, uintptr_t slot)
 				     : DSI_GERNERIC_READ_LONG_PACKET_ID;
 		t0.Data1 = 0;
 
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			       comp->regs_pa + DSI_CMDQ0, 0x00013700, ~0);
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			       comp->regs_pa + DSI_CMDQ1, AS_UINT32(&t0), ~0);
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			       comp->regs_pa + DSI_CMDQ_SIZE, 0x2, ~0);
-
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			       comp->regs_pa + DSI_START, 0x0, ~0);
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			       comp->regs_pa + DSI_START, 0x1, ~0);
-
-		cmdq_pkt_poll_timeout(handle, 0x1, SUBSYS_NO_SUPPORT,
-				      comp->regs_pa + DSI_INTSTA, 0x1, 400,
-				      CMDQ_GPR_R06);
-
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			       comp->regs_pa + DSI_INTSTA, 0x0, 0x1);
-
-		cmdq_pkt_mem_move(handle, comp->cmdq_base,
-				  comp->regs_pa + DSI_RX_DATA0,
-				  read_slot + (i * 2) * 0x4, CMDQ_THR_SPR_IDX1);
-		cmdq_pkt_mem_move(
-			handle, comp->cmdq_base, comp->regs_pa + DSI_RX_DATA1,
-			read_slot + (i * 2 + 1) * 0x4, CMDQ_THR_SPR_IDX1);
-
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			       comp->regs_pa + DSI_RACK, 0x1, 0x1);
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			       comp->regs_pa + DSI_INTSTA, 0x0, 0x1);
-
-		mtk_dsi_poll_for_idle(dsi, handle);
+		mtk_dsi_read_gce(comp, handle, &t0, i, slot);
 	}
 
 	return 0;
@@ -2088,6 +2094,23 @@ static ssize_t mtk_dsi_host_send_cmd(struct mtk_dsi *dsi,
 	mtk_dsi_cmdq(dsi, msg);
 	mtk_dsi_start(dsi);
 
+	if (MTK_DSI_HOST_IS_READ(msg->type)) {
+		unsigned int loop_cnt = 0;
+		s32 tmp;
+
+		udelay(1);
+		while (loop_cnt < 100 * 1000) {
+			tmp = readl(dsi->regs + DSI_INTSTA);
+			if ((tmp & LPRX_RD_RDY_INT_FLAG))
+				break;
+			loop_cnt++;
+			usleep_range(100, 200);
+		}
+		DDPINFO("%s wait RXDY done\n", __func__);
+		mtk_dsi_mask(dsi, DSI_INTSTA, LPRX_RD_RDY_INT_FLAG, 0);
+		mtk_dsi_mask(dsi, DSI_RACK, RACK, RACK);
+	}
+
 	if (!mtk_dsi_wait_idle(dsi, flag, 2000, NULL))
 		return -ETIME;
 	else
@@ -2108,8 +2131,18 @@ static ssize_t mtk_dsi_host_transfer(struct mipi_dsi_host *host,
 		return -EINVAL;
 	}
 
-	if (MTK_DSI_HOST_IS_READ(msg->type))
+	if (MTK_DSI_HOST_IS_READ(msg->type)) {
+		struct mipi_dsi_msg set_rd_msg = {
+		.tx_buf = (u8 [1]) { msg->rx_len},
+		.tx_len = 0x1,
+		.type = MIPI_DSI_SET_MAXIMUM_RETURN_PACKET_SIZE,
+		};
+
+		if (mtk_dsi_host_send_cmd(dsi, &set_rd_msg, irq_flag) < 0)
+			DDPPR_ERR("RX mtk_dsi_host_send_cmd fail\n");
+
 		irq_flag |= LPRX_RD_RDY_INT_FLAG;
+	}
 
 	if (mtk_dsi_host_send_cmd(dsi, msg, irq_flag) < 0)
 		return -ETIME;
@@ -2280,6 +2313,19 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 					handle, *(int *)params);
 	}
 		break;
+	case LCM_ATA_CHECK:
+	{
+		struct mtk_dsi *dsi =
+			container_of(comp, struct mtk_dsi, ddp_comp);
+		int *val = (int *)params;
+
+		panel_ext = mtk_dsi_get_panel_ext(comp);
+		if (panel_ext && panel_ext->funcs
+			&& panel_ext->funcs->ata_check)
+			*val = panel_ext->funcs->ata_check(dsi->panel);
+	}
+		break;
+
 	default:
 		break;
 	}

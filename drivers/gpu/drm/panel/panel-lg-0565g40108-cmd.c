@@ -474,6 +474,31 @@ static int panel_ext_reset(struct drm_panel *panel, int on)
 	return 0;
 }
 
+static int panel_ata_check(struct drm_panel *panel)
+{
+	struct lg *ctx = panel_to_lg(panel);
+	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
+	unsigned char data[3];
+	unsigned char id[3] = {0x83, 0x11, 0x2b};
+	ssize_t ret;
+
+	ret = mipi_dsi_dcs_read(dsi, 0x4, data, 3);
+	if (ret < 0)
+		pr_err("%s error\n", __func__);
+
+	DDPINFO("ATA read data %x %x %x\n", data[0], data[1], data[2]);
+
+	if (data[0] == id[0] &&
+			data[1] == id[1] &&
+			data[2] == id[2])
+		return 1;
+
+	DDPINFO("ATA expect read data is %x %x %x\n",
+		id[0], id[1], id[2]);
+
+	return 0;
+}
+
 static struct mtk_panel_params ext_params = {
 	.esd_check_enable = 1,
 	.physical_width_um = 64152,
@@ -488,7 +513,9 @@ static struct mtk_panel_params ext_params = {
 };
 
 static struct mtk_panel_funcs ext_funcs = {
-	.aod = enter_aod, .reset = panel_ext_reset,
+	.aod = enter_aod,
+	.reset = panel_ext_reset,
+	.ata_check = panel_ata_check,
 };
 #endif
 

@@ -185,6 +185,7 @@ enum mtk_ddp_io_cmd {
 	BACKUP_INFO_CMP,
 	LCM_RESET,
 	DSI_SET_BL,
+	LCM_ATA_CHECK,
 };
 
 struct golden_setting_context {

@@ -40,4 +40,6 @@ int _parse_tag_videolfb(unsigned int *vramsize, phys_addr_t *fb_base,
 			unsigned int *fps);
 bool mtk_drm_lcm_is_connect(void);
 
+#define MTKFB_FACTORY_AUTO_TEST _IOR('O', 25, unsigned long)
+
 #endif /* MTK_DRM_FBDEV_H */

@@ -624,6 +624,7 @@ void mtk_crtc_check_trigger(struct mtk_drm_crtc *mtk_crtc, bool delay);
 
 bool mtk_crtc_is_dc_mode(struct drm_crtc *crtc);
 void mtk_crtc_hw_block_ready(struct drm_crtc *crtc);
+int mtk_crtc_lcm_ATA(struct drm_crtc *crtc);
 
 /********************** Legacy DISP API ****************************/
 unsigned int DISP_GetScreenWidth(void);

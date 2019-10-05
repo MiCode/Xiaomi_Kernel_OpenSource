@@ -4115,3 +4115,55 @@ unsigned int DISP_GetScreenHeight(void)
 	return pgc->mode.vdisplay;
 }
 
+int mtk_crtc_lcm_ATA(struct drm_crtc *crtc)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_ddp_comp *output_comp;
+	struct cmdq_pkt *cmdq_handle;
+	struct mtk_panel_params *panel_ext =
+		mtk_drm_get_lcm_ext_params(crtc);
+	int ret = 0;
+
+	DDPINFO("%s\n", __func__);
+
+	mutex_lock(&mtk_crtc->lock);
+
+	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+	if (unlikely(!output_comp)) {
+		DDPPR_ERR("%s:invalid output comp\n", __func__);
+		return -EINVAL;
+	}
+	if (unlikely(!panel_ext)) {
+		DDPPR_ERR("%s:invalid panel_ext\n", __func__);
+		return -EINVAL;
+	}
+
+	DDPINFO("[ATA_LCM]primary display path stop[begin]\n");
+	if (!mtk_crtc_is_frame_trigger_mode(crtc)) {
+		mtk_crtc_pkt_create(&cmdq_handle, crtc,
+			mtk_crtc->gce_obj.client[CLIENT_CFG]);
+		mtk_ddp_comp_io_cmd(output_comp,
+			cmdq_handle, DSI_STOP_VDO_MODE, NULL);
+		cmdq_pkt_flush(cmdq_handle);
+		cmdq_pkt_destroy(cmdq_handle);
+	}
+	DDPINFO("[ATA_LCM]primary display path stop[end]\n");
+
+	mtk_ddp_comp_io_cmd(output_comp, NULL, LCM_ATA_CHECK, &ret);
+
+	if (!mtk_crtc_is_frame_trigger_mode(crtc)) {
+		mtk_crtc_pkt_create(&cmdq_handle, crtc,
+			mtk_crtc->gce_obj.client[CLIENT_CFG]);
+		mtk_ddp_comp_io_cmd(output_comp,
+			cmdq_handle, DSI_START_VDO_MODE, NULL);
+		mtk_disp_mutex_trigger(mtk_crtc->mutex[0], cmdq_handle);
+		mtk_ddp_comp_io_cmd(output_comp, cmdq_handle, COMP_REG_START,
+				    NULL);
+		cmdq_pkt_flush(cmdq_handle);
+		cmdq_pkt_destroy(cmdq_handle);
+	}
+
+	mutex_unlock(&mtk_crtc->lock);
+	return ret;
+}
+
