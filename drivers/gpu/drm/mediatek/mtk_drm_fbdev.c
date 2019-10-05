@@ -195,6 +195,27 @@ found:
 	return 0;
 }
 
+static bool mtk_fbdev_get_width_height(struct drm_fb_helper *fb_helper,
+				 int *width, int *height)
+{
+	struct drm_fb_helper_connector *fb_helper_conn;
+	struct drm_display_mode *mode;
+	int i;
+
+	for (i = 0; i < fb_helper->connector_count; i++) {
+		fb_helper_conn = fb_helper->connector_info[i];
+
+		mode = drm_has_preferred_mode(fb_helper_conn, 4096, 4096);
+		if (mode->type & DRM_MODE_TYPE_PREFERRED) {
+			*width = mode->hdisplay;
+			*height = mode->vdisplay;
+			break;
+		}
+	}
+
+	return true;
+}
+
 static int mtk_fbdev_probe(struct drm_fb_helper *helper,
 			   struct drm_fb_helper_surface_size *sizes)
 {
@@ -222,6 +243,13 @@ static int mtk_fbdev_probe(struct drm_fb_helper *helper,
 		if (IS_ERR(mtk_gem))
 			return PTR_ERR(mtk_gem);
 	} else {
+		/* The surface width/height is the maximum value of all the
+		 * connector mode. MTK FB device is only used for CRTC0.
+		 * So here we use a trick way to get the primary panel
+		 * width/height
+		 */
+		mtk_fbdev_get_width_height(helper, &sizes->surface_width,
+			&sizes->surface_height);
 		mode.width = ALIGN_TO_32(sizes->surface_width);
 		/* LK pre-allocate triple buffer */
 		mode.height = ALIGN_TO_32(sizes->surface_height) * 3;

@@ -737,6 +737,15 @@ static const enum mtk_ddp_comp_id mt6885_mtk_ddp_main_minor_sub[] = {
 	DDP_COMPONENT_DSI0,     DDP_COMPONENT_PWM0,
 };
 
+static const enum mtk_ddp_comp_id mt6885_mtk_ddp_ext[] = {
+	/* TODO: DP interface */
+	DDP_COMPONENT_OVL2_2L, DDP_COMPONENT_RDMA4,
+};
+
+static const enum mtk_ddp_comp_id mt6885_mtk_ddp_third[] = {
+	DDP_COMPONENT_OVL2_2L, DDP_COMPONENT_WDMA0,
+};
+
 static const struct mtk_addon_module_data addon_rsz_data[] = {
 	{DISP_RSZ, ADDON_BETWEEN, DDP_COMPONENT_OVL0_2L},
 };
@@ -793,6 +802,17 @@ static const struct mtk_addon_scenario_data mt6885_addon_main[ADDON_SCN_NR] = {
 			},
 };
 
+static const struct mtk_addon_scenario_data mt6885_addon_ext[ADDON_SCN_NR] = {
+	[NONE] = {
+		.module_num = 0,
+		.hrt_type = HRT_TB_TYPE_GENERAL0,
+	},
+	[TRIPLE_DISP] = {
+		.module_num = 0,
+		.hrt_type = HRT_TB_TYPE_GENERAL0,
+	},
+};
+
 static const struct mtk_crtc_path_data mt6779_mtk_main_path_data = {
 	.path[DDP_MAJOR][0] = mt6779_mtk_ddp_main,
 	.path_len[DDP_MAJOR][0] = ARRAY_SIZE(mt6779_mtk_ddp_main),
@@ -834,6 +854,19 @@ static const struct mtk_crtc_path_data mt6885_mtk_main_path_data = {
 	.path_len[DDP_MINOR][1] = ARRAY_SIZE(mt6885_mtk_ddp_main_minor_sub),
 	.path_req_hrt[DDP_MINOR][1] = true,
 	.addon_data = mt6885_addon_main,
+};
+
+static const struct mtk_crtc_path_data mt6885_mtk_ext_path_data = {
+	.path[DDP_MAJOR][0] = mt6885_mtk_ddp_ext,
+	.path_len[DDP_MAJOR][0] = ARRAY_SIZE(mt6885_mtk_ddp_ext),
+	.path_req_hrt[DDP_MAJOR][0] = true,
+	.addon_data = mt6885_addon_ext,
+};
+
+static const struct mtk_crtc_path_data mt6885_mtk_third_path_data = {
+	.path[DDP_MAJOR][0] = mt6885_mtk_ddp_third,
+	.path_len[DDP_MAJOR][0] = ARRAY_SIZE(mt6885_mtk_ddp_third),
+	.addon_data = mt6885_addon_ext,
 };
 
 static const struct mtk_crtc_path_data mt2701_mtk_main_path_data = {
@@ -969,6 +1002,8 @@ static const struct mtk_mmsys_driver_data mt6779_mmsys_driver_data = {
 
 static const struct mtk_mmsys_driver_data mt6885_mmsys_driver_data = {
 	.main_path_data = &mt6885_mtk_main_path_data,
+	.ext_path_data = &mt6885_mtk_ext_path_data,
+	.third_path_data = &mt6885_mtk_third_path_data,
 	.fake_eng_data = &mt6885_fake_eng_data,
 	.mmsys_id = MMSYS_MT6885,
 	.mode_tb = mt6885_mode_tb,

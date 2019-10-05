@@ -3064,7 +3064,7 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 	int i, j, p_mode;
 	enum mtk_ddp_comp_id comp_id;
 
-	DDPINFO("%s+\n", __func__);
+	DDPMSG("%s+\n", __func__);
 
 	if (!path_data)
 		return 0;
@@ -3309,7 +3309,7 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 		wakeup_source_init(&mtk_crtc->wk_lock, mtk_crtc->wk_lock_name);
 	}
 
-	DDPINFO("%s-CRTC%d create successfully\n", __func__,
+	DDPMSG("%s-CRTC%d create successfully\n", __func__,
 		priv->num_pipes - 1);
 
 	return 0;
