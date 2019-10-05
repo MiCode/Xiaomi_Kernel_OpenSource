@@ -235,6 +235,7 @@ static int ion_get_domain_id(int from_kernel, int *port)
 	int domain_idx = 0;
 	unsigned int port_id = *port;
 
+#ifdef CONFIG_MTK_IOMMU_V2
 	if (port_id >= M4U_PORT_UNKNOWN) {
 #if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
 	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
@@ -244,7 +245,7 @@ static int ion_get_domain_id(int from_kernel, int *port)
 		return 0;
 #endif
 	}
-#ifdef CONFIG_MTK_IOMMU_V2
+
 	if (!from_kernel) {
 		*port =	m4u_user2kernel_port(port_id);
 		if (*port < 0 ||
@@ -267,8 +268,12 @@ static int ion_get_domain_id(int from_kernel, int *port)
 #endif //CONFIG_MTK_IOMMU_PGTABLE_EXT
 #else  //CONFIG_MTK_IOMMU_V2
 #if defined(CONFIG_MACH_MT6779) || defined(CONFIG_MACH_MT6785)
-	if (port_id >= M4U_PORT_VPU)
+	if (*port >= M4U_PORT_VPU)
 		domain_idx = 1;
+	else
+		domain_idx = 0;
+#else
+	domain_idx = 0;
 #endif
 #endif //CONFIG_MTK_IOMMU_V2
 
