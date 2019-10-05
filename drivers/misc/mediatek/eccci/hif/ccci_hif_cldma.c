@@ -141,6 +141,8 @@ static int normal_tx_ring2queue[NORMAL_TXQ_NUM] = {
 	&& ((1<<qno) & NET_RX_QUEUE_MASK))
 #endif
 
+#define UIDMASK 0x80000000
+
 #define TAG "cldma"
 
 /*for mt6763 ao_misc_cfg RW type set/clear register issue*/
@@ -2736,6 +2738,8 @@ static int cldma_gpd_bd_handle_tx_request(struct md_cd_queue *queue,
 #if MD_GENERATION >= (6293)
 	cldma_write8(&tgpd->netif, 0, ccci_h->data[0]);
 #endif
+	if (skb->mark & UIDMASK)
+		tgpd->psn = 0x1000;
 	tgpd->non_used = 1;
 	/* set HWO */
 	spin_lock(&md_ctrl->cldma_timeout_lock);
