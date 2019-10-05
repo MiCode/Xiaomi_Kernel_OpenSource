@@ -43,6 +43,11 @@
 #include "vpu_dvfs.h"
 #endif
 #endif
+#if defined(THERMAL_MDLA_SUPPORT)
+#if defined(CONFIG_MTK_MDLA_SUPPORT)
+#include "mdla_dvfs.h"
+#endif
+#endif
 /*=============================================================
  *Local variable definition
  *=============================================================
@@ -65,6 +70,10 @@ unsigned int static_gpu_power_limit = 0x7FFFFFFF;
 #if defined(THERMAL_VPU_SUPPORT)
 static unsigned int prv_stc_vpu_pwr_lim;
 unsigned int static_vpu_power_limit = 0x7FFFFFFF;
+#endif
+#if defined(THERMAL_MDLA_SUPPORT)
+static unsigned int prv_stc_mdla_pwr_lim;
+unsigned int static_mdla_power_limit = 0x7FFFFFFF;
 #endif
 static struct apthermolmt_user ap_dtm;
 static char *ap_dtm_log = "ap_dtm";
@@ -148,6 +157,23 @@ static void set_static_vpu_power_limit(unsigned int limit)
 
 		apthermolmt_set_vpu_power_limit(&ap_dtm,
 			static_vpu_power_limit);
+	}
+}
+#endif
+
+#if defined(THERMAL_MDLA_SUPPORT)
+static void set_static_mdla_power_limit(unsigned int limit)
+{
+	prv_stc_mdla_pwr_lim = static_mdla_power_limit;
+	static_mdla_power_limit = (limit != 0) ? limit : 0x7FFFFFFF;
+
+	if (prv_stc_mdla_pwr_lim != static_mdla_power_limit) {
+		tscpu_printk("%s %d\n", __func__,
+			(static_mdla_power_limit != 0x7FFFFFFF) ?
+						static_mdla_power_limit : 0);
+
+		apthermolmt_set_mdla_power_limit(&ap_dtm,
+					static_mdla_power_limit);
 	}
 }
 #endif
@@ -371,6 +397,82 @@ static void thermal_vpu_init(void)
 }
 #endif
 
+#if defined(THERMAL_MDLA_SUPPORT)
+static ssize_t clmdla_opp_proc_write(
+struct file *filp, const char __user *buf, size_t len, loff_t *data)
+{
+	int mdla_upper_opp = -1;
+	unsigned int mdla_power = 0;
+	char tmp[32] = {0};
+
+	len = (len < (sizeof(tmp) - 1)) ? len : (sizeof(tmp) - 1);
+
+	/* write data to the buffer */
+	if (copy_from_user(tmp, buf, len))
+		return -EFAULT;
+
+	if (kstrtoint(tmp, 10, &mdla_upper_opp) == 0) {
+#if defined(CONFIG_MTK_MDLA_SUPPORT)
+		if (mdla_upper_opp == -1)
+			mdla_power = 0;
+		else if (mdla_upper_opp >= MDLA_OPP_0 &&
+			mdla_upper_opp < MDLA_OPP_NUM)
+			mdla_power = mdla_power_table[mdla_upper_opp].power;
+		else
+#endif
+			mdla_power = 0;
+
+		set_static_mdla_power_limit(mdla_power);
+		tscpu_printk("[%s] = %d\n", __func__, mdla_power);
+		return len;
+	}
+
+	tscpu_dprintk("[%s] invalid input\n", __func__);
+
+	return -EINVAL;
+}
+
+static int clmdla_opp_proc_read(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%d,%d\n", prv_stc_mdla_pwr_lim, static_mdla_power_limit);
+
+	tscpu_dprintk("[%s] %d\n", __func__, static_mdla_power_limit);
+
+	return 0;
+}
+
+static int clmdla_opp_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, clmdla_opp_proc_read, PDE_DATA(inode));
+}
+
+static const struct file_operations clmdla_opp_fops = {
+	.owner = THIS_MODULE,
+	.open = clmdla_opp_proc_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.write = clmdla_opp_proc_write,
+	.release = single_release,
+};
+
+static void thermal_mdla_init(void)
+{
+	struct proc_dir_entry *dir_entry = NULL;
+	struct proc_dir_entry *entry = NULL;
+
+	dir_entry = mtk_thermal_get_proc_drv_therm_dir_entry();
+	if (!dir_entry)
+		tscpu_printk("[%s]: mkdir /proc/driver/thermal failed\n",
+				__func__);
+	else {
+		entry = proc_create("thermal_mdla_limit", 0664,
+			dir_entry, &clmdla_opp_fops);
+		if (entry)
+			proc_set_user(entry, uid, gid);
+	}
+}
+#endif
+
 /* Init local structure for AP coolers */
 static int init_cooler(void)
 {
@@ -423,6 +525,10 @@ static int __init mtk_cooler_dtm_init(void)
 
 #if defined(THERMAL_VPU_SUPPORT)
 	thermal_vpu_init();
+#endif
+
+#if defined(THERMAL_MDLA_SUPPORT)
+	thermal_mdla_init();
 #endif
 /*
  *	if (err) {

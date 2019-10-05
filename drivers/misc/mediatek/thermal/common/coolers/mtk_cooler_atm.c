@@ -54,6 +54,11 @@
 #include "vpu_dvfs.h"
 #endif
 #endif
+#if defined(THERMAL_MDLA_SUPPORT)
+#if defined(CONFIG_MTK_MDLA_SUPPORT)
+#include "mdla_dvfs.h"
+#endif
+#endif
 #if defined(CATM_TPCB_EXTEND)
 #include <mt-plat/mtk_devinfo.h>
 #endif
@@ -84,10 +89,16 @@ unsigned int adaptive_gpu_power_limit = 0x7FFFFFFF;
 #if defined(THERMAL_VPU_SUPPORT)
 unsigned int adaptive_vpu_power_limit = 0x7FFFFFFF;
 #endif
+#if defined(THERMAL_MDLA_SUPPORT)
+unsigned int adaptive_mdla_power_limit = 0x7FFFFFFF;
+#endif
 static unsigned int prv_adp_cpu_pwr_lim;
 static unsigned int prv_adp_gpu_pwr_lim;
 #if defined(THERMAL_VPU_SUPPORT)
 static unsigned int prv_adp_vpu_pwr_lim;
+#endif
+#if defined(THERMAL_MDLA_SUPPORT)
+static unsigned int prv_adp_mdla_pwr_lim;
 #endif
 unsigned int gv_cpu_power_limit = 0x7FFFFFFF;
 unsigned int gv_gpu_power_limit = 0x7FFFFFFF;
@@ -110,6 +121,10 @@ static int FIRST_STEP_TOTAL_POWER_BUDGET = 1750;
 static int MINIMUM_VPU_POWER = 300;
 static int MAXIMUM_VPU_POWER = 1000;
 #endif
+#if defined(THERMAL_MDLA_SUPPORT)
+static int MINIMUM_MDLA_POWER = 300;
+static int MAXIMUM_MDLA_POWER = 1000;
+#endif
 
 /* 1. MINIMUM_BUDGET_CHANGE = 0 ==> thermal equilibrium
  * maybe at higher than TARGET_TJ_HIGH
@@ -117,7 +132,7 @@ static int MAXIMUM_VPU_POWER = 1000;
 /* 2. Set MINIMUM_BUDGET_CHANGE > 0 if to keep Tj at TARGET_TJ */
 static int MINIMUM_BUDGET_CHANGE = 50;
 static int g_total_power;
-#if defined(THERMAL_VPU_SUPPORT)
+#if defined(THERMAL_VPU_SUPPORT) || defined(THERMAL_MDLA_SUPPORT)
 static int g_delta_power;
 #endif
 #endif
@@ -496,6 +511,9 @@ static DEFINE_MUTEX(atm_cpu_lmt_mutex);
 static DEFINE_MUTEX(atm_gpu_lmt_mutex);
 #if defined(THERMAL_VPU_SUPPORT)
 static DEFINE_MUTEX(atm_vpu_lmt_mutex);
+#endif
+#if defined(THERMAL_MDLA_SUPPORT)
+static DEFINE_MUTEX(atm_mdla_lmt_mutex);
 #endif
 
 static int atm_update_atm_param_to_sspm(void)
@@ -903,6 +921,43 @@ static void set_adaptive_vpu_power_limit(unsigned int limit)
 }
 #endif
 
+#if defined(THERMAL_MDLA_SUPPORT)
+static void set_adaptive_mdla_power_limit(unsigned int limit)
+{
+#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+#if THERMAL_ENABLE_TINYSYS_SSPM && CPT_ADAPTIVE_AP_COOLER &&	\
+	PRECISE_HYBRID_POWER_BUDGET && CONTINUOUS_TM
+		mutex_lock(&atm_mdla_lmt_mutex);
+#endif
+#endif
+
+	prv_adp_mdla_pwr_lim = adaptive_mdla_power_limit;
+	adaptive_mdla_power_limit = (limit != 0) ? limit : 0x7FFFFFFF;
+#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+#if THERMAL_ENABLE_TINYSYS_SSPM && CPT_ADAPTIVE_AP_COOLER &&	\
+	PRECISE_HYBRID_POWER_BUDGET && CONTINUOUS_TM
+	if (atm_sspm_enabled)
+		adaptive_mdla_power_limit = 0x7FFFFFFF;
+#endif
+#endif
+
+	if (prv_adp_mdla_pwr_lim != adaptive_mdla_power_limit) {
+		tscpu_dprintk("%s %d\n", __func__,
+		     (adaptive_mdla_power_limit != 0x7FFFFFFF) ?
+						adaptive_mdla_power_limit : 0);
+		apthermolmt_set_mdla_power_limit(&ap_atm,
+			adaptive_mdla_power_limit);
+	}
+
+#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+#if THERMAL_ENABLE_TINYSYS_SSPM && CPT_ADAPTIVE_AP_COOLER &&	\
+	PRECISE_HYBRID_POWER_BUDGET && CONTINUOUS_TM
+	mutex_unlock(&atm_mdla_lmt_mutex);
+#endif
+#endif
+}
+#endif
+
 #if CPT_ADAPTIVE_AP_COOLER
 int is_cpu_power_unlimit(void)
 {
@@ -1072,6 +1127,9 @@ static int P_adaptive(int total_power, unsigned int gpu_loading)
 #if defined(THERMAL_VPU_SUPPORT)
 	static int vpu_power, last_vpu_power;
 #endif
+#if defined(THERMAL_MDLA_SUPPORT)
+	static int mdla_power, last_mdla_power;
+#endif
 #if defined(DDR_STRESS_WORKAROUND)
 	static int opp0_cool;
 #endif
@@ -1081,12 +1139,18 @@ static int P_adaptive(int total_power, unsigned int gpu_loading)
 #if defined(THERMAL_VPU_SUPPORT)
 	last_vpu_power = vpu_power;
 #endif
+#if defined(THERMAL_MDLA_SUPPORT)
+	last_mdla_power = mdla_power;
+#endif
 	g_total_power = total_power;
 
 	if (total_power == 0) {
 		cpu_power = gpu_power = 0;
 #if defined(THERMAL_VPU_SUPPORT)
 		vpu_power = 0;
+#endif
+#if defined(THERMAL_MDLA_SUPPORT)
+		mdla_power = 0;
 #endif
 
 #if THERMAL_HEADROOM
@@ -1102,6 +1166,9 @@ static int P_adaptive(int total_power, unsigned int gpu_loading)
 		set_adaptive_gpu_power_limit(0);
 #if defined(THERMAL_VPU_SUPPORT)
 		set_adaptive_vpu_power_limit(0);
+#endif
+#if defined(THERMAL_MDLA_SUPPORT)
+		set_adaptive_mdla_power_limit(0);
 #endif
 #if (CONFIG_THERMAL_AEE_RR_REC == 1)
 			aee_rr_rec_thermal_ATM_status(ATM_DONE);
@@ -1218,12 +1285,24 @@ static int P_adaptive(int total_power, unsigned int gpu_loading)
 #endif
 #endif
 
+#if defined(THERMAL_VPU_SUPPORT) && defined(THERMAL_MDLA_SUPPORT)
+	g_delta_power = g_delta_power / 2;
+#endif
+
 #if defined(THERMAL_VPU_SUPPORT)
 	if (total_power <= MINIMUM_TOTAL_POWER)
 		vpu_power = MAX(last_vpu_power + g_delta_power,
 						MINIMUM_VPU_POWER);
 	else
 		vpu_power = MAXIMUM_VPU_POWER;
+#endif
+
+#if defined(THERMAL_MDLA_SUPPORT)
+	if (total_power <= MINIMUM_TOTAL_POWER)
+		mdla_power = MAX(last_mdla_power + g_delta_power,
+			MINIMUM_MDLA_POWER);
+	else
+		mdla_power = MAXIMUM_MDLA_POWER;
 #endif
 
 #if 0
@@ -1248,6 +1327,8 @@ static int P_adaptive(int total_power, unsigned int gpu_loading)
 			set_adaptive_gpu_power_limit(gpu_power);
 	}
 
+	tscpu_dprintk("%s cpu %d, gpu %d\n", __func__, cpu_power, gpu_power);
+
 #if defined(THERMAL_VPU_SUPPORT)
 	if (vpu_power != last_vpu_power) {
 		if (vpu_power >= MAXIMUM_VPU_POWER)
@@ -1255,10 +1336,18 @@ static int P_adaptive(int total_power, unsigned int gpu_loading)
 		else
 			set_adaptive_vpu_power_limit(vpu_power);
 	}
-	tscpu_dprintk("%s cpu %d, gpu %d, vpu %d\n",
-		__func__, cpu_power, gpu_power, vpu_power);
-#else
-	tscpu_dprintk("%s cpu %d, gpu %d\n", __func__, cpu_power, gpu_power);
+	tscpu_dprintk("%s vpu %d\n",
+		__func__, vpu_power);
+#endif
+#if defined(THERMAL_MDLA_SUPPORT)
+	if (mdla_power != last_mdla_power) {
+		if (mdla_power >= MAXIMUM_MDLA_POWER)
+			set_adaptive_mdla_power_limit(0);
+		else
+			set_adaptive_mdla_power_limit(mdla_power);
+	}
+	tscpu_dprintk("%s mdla %d\n",
+		__func__, mdla_power);
 #endif
 
 #if (CONFIG_THERMAL_AEE_RR_REC == 1)
@@ -1380,13 +1469,13 @@ static int phpb_calc_total(int prev_total_power, long curr_temp, long prev_temp)
 	 * calculated based on current opp
 	 */
 	int delta_power, total_power, curr_power;
-#if 0
+#if 0 /* Just use previous total power to avoid conflict with fpsgo */
 	int tt = TARGET_TJ - curr_temp;
 	int tp = prev_temp - curr_temp;
 #endif
 
 	delta_power = phpb_calc_delta(curr_temp, prev_temp);
-#if defined(THERMAL_VPU_SUPPORT)
+#if defined(THERMAL_VPU_SUPPORT) || defined(THERMAL_MDLA_SUPPORT)
 	g_delta_power = delta_power;
 #endif
 	if (delta_power == 0)
@@ -2020,6 +2109,10 @@ static ssize_t tscpu_write_atm_setting
 #if defined(THERMAL_VPU_SUPPORT)
 	MINIMUM_VPU_POWER = vpu_power_table[VPU_OPP_NUM - 1].power;
 	MAXIMUM_VPU_POWER = vpu_power_table[VPU_OPP_0].power;
+#endif
+#if defined(THERMAL_MDLA_SUPPORT) && defined(CONFIG_MTK_MDLA_SUPPORT)
+	MINIMUM_MDLA_POWER = mdla_power_table[MDLA_OPP_NUM - 1].power;
+	MAXIMUM_MDLA_POWER = mdla_power_table[MDLA_OPP_0].power;
 #endif
 
 	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
