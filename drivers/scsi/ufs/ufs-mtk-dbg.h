@@ -126,7 +126,7 @@ do {	\
 	} \
 } while (0)
 
-int ufs_mtk_debug_proc_init(void);
+int ufs_mtk_debug_proc_init(struct ufs_hba *hba);
 void ufs_mtk_dbg_add_trace(struct ufs_hba *hba,
 	enum ufs_trace_event event, u32 tag,
 	u8 lun, u32 transfer_len, sector_t lba, u8 opcode,

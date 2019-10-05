@@ -509,6 +509,53 @@ static ssize_t ufs_debug_proc_write(struct file *file, const char *buf,
 	return count;
 }
 
+static int ufs_perf_proc_show(struct seq_file *m, void *v)
+{
+	struct ufs_mtk_host *host = m->private;
+
+	seq_puts(m, "UFS Performance Mode\n");
+	seq_printf(m, "  - supported: %d\n", ufs_mtk_perf_is_supported(host));
+	seq_printf(m, "  - enabled: %d\n", host->perf_mode);
+	seq_printf(m, "  - crypto_vcore_opp: %d\n", host->crypto_vcore_opp);
+
+	return 0;
+}
+
+static ssize_t ufs_perf_proc_write(struct file *file, const char *ubuf,
+				   size_t count, loff_t *data)
+{
+	struct ufs_mtk_host *host = PDE_DATA(file->f_mapping->host);
+	unsigned long op;
+	char cmd[16] = {0};
+	loff_t buff_pos = 0;
+	int ret;
+
+	ret = simple_write_to_buffer(cmd, 16, &buff_pos, ubuf, count);
+	if (ret < 0) {
+		dev_info(host->hba->dev, "%s: failed to read user data\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	cmd[ret] = '\0';
+	if (kstrtoul(cmd, 10, &op))
+		return -EINVAL;
+
+	if (op == 1 && !host->perf_mode) {
+		ret = ufs_mtk_perf_setup_crypto_clk(host, true);
+		if (!ret)
+			host->perf_mode = true;
+	} else if (op == 0 && host->perf_mode) {
+		ret = ufs_mtk_perf_setup_crypto_clk(host, false);
+		if (!ret)
+			host->perf_mode = false;
+	} else
+		return -EINVAL;
+
+	return count;
+}
+
+
 static int ufs_proc_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, ufs_debug_proc_show, inode->i_private);
@@ -526,8 +573,22 @@ static int ufs_help_proc_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, ufs_help_proc_show, inode->i_private);
 }
+
 static const struct file_operations ufs_help_fops = {
 	.open = ufs_help_proc_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+static int ufs_perf_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, ufs_perf_proc_show, PDE_DATA(inode));
+}
+
+static const struct file_operations ufs_perf_fops = {
+	.open = ufs_perf_proc_open,
+	.write = ufs_perf_proc_write,
 	.read = seq_read,
 	.llseek = seq_lseek,
 	.release = single_release,
@@ -539,11 +600,19 @@ static const struct file_operations ufs_help_fops = {
 #define PROC_PERM		0440
 #endif
 
-int ufs_mtk_debug_proc_init(void)
+int ufs_mtk_debug_proc_init(struct ufs_hba *hba)
 {
+	struct ufs_mtk_host *host;
 	struct proc_dir_entry *prEntry;
 	kuid_t uid;
 	kgid_t gid;
+
+	if (!hba || !hba->priv) {
+		pr_info("%s: NULL host, exiting\n", __func__);
+		return -EINVAL;
+	}
+
+	host = hba->priv;
 
 	uid = make_kuid(&init_user_ns, 0);
 	gid = make_kgid(&init_user_ns, 1001);
@@ -553,12 +622,21 @@ int ufs_mtk_debug_proc_init(void)
 	if (prEntry)
 		proc_set_user(prEntry, uid, gid);
 	else
-		pr_info("[%s]: failed to create /proc/ufs_debug\n", __func__);
+		pr_info("%s: failed to create /proc/ufs_debug\n", __func__);
 
 	prEntry = proc_create("ufs_help", PROC_PERM, NULL, &ufs_help_fops);
 
 	if (!prEntry)
-		pr_info("[%s]: failed to create /proc/ufs_help\n", __func__);
+		pr_info("%s: failed to create /proc/ufs_help\n", __func__);
+
+	/* allow write permission in all builds */
+	prEntry = proc_create_data("ufs_perf", 0660, NULL, &ufs_perf_fops,
+				   host);
+
+	if (prEntry)
+		proc_set_user(prEntry, uid, gid);
+	else
+		pr_info("%s: failed to create /proc/ufs_perf\n", __func__);
 
 	return 0;
 }
