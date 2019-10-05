@@ -7509,6 +7509,7 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 	do {
 		for_each_cpu_and(i, &p->cpus_allowed, sched_group_span(sg)) {
 			unsigned long capacity_curr = capacity_curr_of(i);
+			unsigned long capacity = capacity_of(i);
 			unsigned long capacity_orig = capacity_orig_of(i);
 			unsigned long wake_util, new_util;
 			long spare_cap;
@@ -7539,7 +7540,7 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 			 * than the one required to boost the task.
 			 */
 			new_util = max(min_util, new_util);
-			if (new_util > capacity_orig)
+			if (new_util > capacity)
 				continue;
 
 			/*
@@ -7547,7 +7548,7 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 			 * to have available on this CPU once the task is
 			 * enqueued here.
 			 */
-			spare_cap = capacity_orig - new_util;
+			spare_cap = capacity - new_util;
 
 			if (idle_cpu(i))
 				idle_idx = idle_get_state_idx(cpu_rq(i));
@@ -7652,7 +7653,7 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 			 */
 			/*
 			if ((new_util * capacity_margin) >
-			    (capacity_orig * SCHED_CAPACITY_SCALE))
+			    (capacity * SCHED_CAPACITY_SCALE))
 				continue;
 			*/
 
@@ -7710,6 +7711,8 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 				    best_idle_cstate <= idle_idx)
 					continue;
 
+				/* Keep track of best idle CPU */
+				best_idle_min_cap_orig = capacity_orig;
 				target_capacity = capacity_orig;
 				best_idle_cstate = idle_idx;
 				best_idle_cpu = i;
