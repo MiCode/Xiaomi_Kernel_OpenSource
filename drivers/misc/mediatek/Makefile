@@ -46,3 +46,4 @@ obj-$(CONFIG_MTK_VIBRATOR) += vibrator/
 obj-$(CONFIG_MTK_BOOT) += boot/
 obj-$(CONFIG_MTK_BOOT_REASON) += boot_reason/
 obj-$(CONFIG_MTK_CHIP) += chip/
+obj-$(CONFIG_MTK_RAM_CONSOLE) += ram_console/
