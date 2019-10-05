@@ -2156,6 +2156,11 @@ enum {
 #define RG_RX_FIFO_ON_MASK                             0x1
 #define RG_RX_FIFO_ON_MASK_SFT                         (0x1 << 0)
 
+/* AFE_ADDA_MTKAIF_SYNCWORD_CFG */
+#define RG_ADDA6_MTKAIF_RX_SYNC_WORD2_DISABLE_SFT      23
+#define RG_ADDA6_MTKAIF_RX_SYNC_WORD2_DISABLE_MASK     0x1
+#define RG_ADDA6_MTKAIF_RX_SYNC_WORD2_DISABLE_MASK_SFT (0x1 << 23)
+
 /* AFE_ADDA_MTKAIF_RX_CFG0 */
 #define MTKAIF_RXIF_VOICE_MODE_SFT                     20
 #define MTKAIF_RXIF_VOICE_MODE_MASK                    0xf
