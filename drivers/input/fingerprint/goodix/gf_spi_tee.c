@@ -63,10 +63,10 @@
 #include "gf_fw.h"
 
 /**************************defination******************************/
-#define GF_DEV_NAME "goodix_fp"
+#define GF_DEV_NAME "mtk_fp"
 #define GF_DEV_MAJOR 0	/* assigned */
 
-#define GF_CLASS_NAME "goodix_fp"
+#define GF_CLASS_NAME "mtk_fp"
 #define GF_INPUT_NAME "gf-keys"
 
 #define GF_LINUX_VERSION "V1.01.04"
@@ -102,6 +102,7 @@ static LIST_HEAD(device_list);
 static DEFINE_MUTEX(device_list_lock);
 
 static unsigned int bufsiz = (25 * 1024);
+static char chipID_verify;
 module_param(bufsiz, uint, 0444);
 MODULE_PARM_DESC(bufsiz, "maximum data bytes for SPI message");
 
@@ -316,7 +317,7 @@ static int gf_get_gpio_dts_info(struct gf_device *gf_dev)
 	return 0;
 }
 
-static int gf_get_sensor_dts_info(void)
+static int gf_get_sensor_dts_info(struct gf_device *gf_dev)
 {
 	struct device_node *node = NULL;
 	int value;
@@ -326,12 +327,47 @@ static int gf_get_sensor_dts_info(void)
 		of_property_read_u32(node, "netlink-event", &value);
 		gf_debug(DEBUG_LOG, "%s, get netlink event[%d] from dts\n",
 				__func__, value);
+		of_property_read_u32(node, "power-type",
+			&gf_dev->power_type);
+		gf_debug(DEBUG_LOG, "%s, get power type[%d] from dts\n",
+				__func__, gf_dev->power_type);
 	} else {
 		gf_debug(ERR_LOG, "%s get device node failed\n", __func__);
 		return -ENODEV;
 	}
 
 	return 0;
+}
+
+static int mtk_fingerprint_power_init(struct gf_device *gf_dev)
+{
+	int ret = 0;
+
+	gf_debug(DEBUG_LOG, "%s, get regulator from dts\n", __func__);
+
+	gf_dev->fp_reg = regulator_get(gf_dev->device, "vfp");
+
+	if (IS_ERR(gf_dev->fp_reg)) {
+		gf_debug(ERR_LOG, "%s get regulator failed\n", __func__);
+		return IS_ERR(gf_dev->fp_reg);
+	}
+
+	ret = regulator_set_voltage(gf_dev->fp_reg, 2800000, 2800000);
+	if (ret) {
+		gf_debug(ERR_LOG, "%s regulator_set_voltage(%d)\n",
+			__func__, ret);
+		goto err;
+	}
+	ret = regulator_enable(gf_dev->fp_reg);
+	if (ret) {
+		gf_debug(ERR_LOG, "%s regulator enable failed(%d)\n",
+			__func__, ret);
+		goto err;
+	}
+
+err:
+	regulator_put(gf_dev->fp_reg);
+	return ret;
 }
 
 static void gf_hw_power_enable(struct gf_device *gf_dev, u8 onoff)
@@ -1082,9 +1118,9 @@ static long gf_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		mutex_destroy(&gf_dev->release_lock);
 #endif
 		break;
-	case GF_IOC_FTM:
+	case MTK_FP_IOC_FACTORY:
 		data = (void __user *) arg;
-		if (copy_to_user(data, id_buf, 7)) {
+		if (copy_to_user(data, &chipID_verify, 1)) {
 			retval = -EFAULT;
 			break;
 		}
@@ -2131,9 +2167,7 @@ static int gf_probe(struct spi_device *spi)
 {
 	struct gf_device *gf_dev = NULL;
 	int status = -EINVAL;
-#ifdef SUPPORT_REE_MILAN_A
-	u8 tmp_buf[2] = {0};
-#endif
+	u8 tmp_buf[4] = {0};
 
 	FUNC_ENTRY();
 
@@ -2160,6 +2194,7 @@ static int gf_probe(struct spi_device *spi)
 
 	/* Initialize the driver data */
 	gf_dev->spi = spi;
+	gf_dev->device = &spi->dev;
 
 	/* setup SPI parameters */
 	/* CPOL=CPHA=0, speed 1MHz */
@@ -2185,8 +2220,17 @@ static int gf_probe(struct spi_device *spi)
 
 	/* get gpio info from dts or defination */
 	gf_get_gpio_dts_info(gf_dev);
-	gf_get_sensor_dts_info();
+	gf_get_sensor_dts_info(gf_dev);
 
+	/* get power for pmic */
+	if (gf_dev->power_type == 1) {
+		status = mtk_fingerprint_power_init(gf_dev);
+		if (status) {
+			gf_debug(ERR_LOG, "%s, fingerprint_power_init failed.\n",
+				__func__);
+			goto err;
+		}
+	}
 #ifdef CONFIG_MTK_MT6306_GPIO_SUPPORT
 	if (rst_mt6306_support == 1 && rst_mt6306_gpio != -1)
 		mt6306_set_gpio_dir(rst_mt6306_gpio, MT6306_GPIO_DIR_OUT);
@@ -2372,9 +2416,35 @@ static int gf_probe(struct spi_device *spi)
 	gf_debug(INFO_LOG, "%s line:%d ChipID:0x%x  0x%x\n",
 			__func__, __LINE__, tmp_buf[0], tmp_buf[1]);
 	memcpy(id_buf, tmp_buf, 2);
+	if (tmp_buf[0] == 0x12 && (tmp_buf[1] == 0xa1 || tmp_buf[1] == 0xa4))
+		chipID_verify = CHIPID_VERIFY_SUCCESS;
+	else
+		chipID_verify = CHIPID_VERIFY_FAILED;
 #endif
 	/* delete spi clk handle because SPI will enable clk default */
 	/* gf_spi_clk_enable(gf_dev, 0); */
+
+	if (strncmp(CONFIG_MTK_FINGERPRINT_SELECT, "GF3658", 6) == 0) {
+		gf_spi_read_bytes_ree(gf_dev, 0x0, 4, tmp_buf);
+		gf_debug(ERR_LOG, "%s line:%d ChipID:0x%x  0x%x\n",
+			__func__, __LINE__, tmp_buf[3], tmp_buf[0]);
+		memcpy(id_buf, tmp_buf, 4);
+		if (tmp_buf[0] == 0x04 && tmp_buf[3] == 0x25)
+			chipID_verify = CHIPID_VERIFY_SUCCESS;
+		else
+			chipID_verify = CHIPID_VERIFY_FAILED;
+	}
+
+	if ((chipID_verify == CHIPID_VERIFY_FAILED) &&
+		(gf_dev->power_type == 1)) {
+		status = regulator_disable(gf_dev->fp_reg);
+		if (status) {
+			gf_debug(ERR_LOG, "%s regulator disable failed %d\n",
+				__func__, status);
+		}
+		regulator_put(gf_dev->fp_reg);
+		goto err;
+	}
 
 	FUNC_EXIT();
 	return 0;

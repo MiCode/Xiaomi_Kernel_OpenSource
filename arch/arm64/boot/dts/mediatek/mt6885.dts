@@ -4080,6 +4080,10 @@ page_owner=on";
 		ch_offset_ccu = <0x200>;
 	};
 
+	goodix_fp: fingerprint {
+		compatible = "mediatek,goodix-fp";
+	};
+
 	accdet: accdet {
 		compatible = "mediatek,pmic-accdet";
 	};

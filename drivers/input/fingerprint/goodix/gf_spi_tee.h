@@ -22,6 +22,7 @@
 #include <linux/netlink.h>
 #include <linux/cdev.h>
 #include <linux/input.h>
+#include <linux/regulator/consumer.h>
 #ifndef CONFIG_SPI_MT65XX
 #include "mtk_spi.h"
 #endif
@@ -155,6 +156,12 @@ struct gf_spi_cfg_t {
 	enum gf_spi_cpol cpha;
 };
 
+enum {
+	CHIPID_VERIFY_FAILED = 0,
+	CHIPID_VERIFY_SUCCESS = 1,
+};
+
+
 /* define commands */
 #define GF_IOC_INIT			_IOR(GF_IOC_MAGIC, 0, u8)
 #define GF_IOC_EXIT			_IO(GF_IOC_MAGIC, 1)
@@ -190,12 +197,13 @@ struct gf_spi_cfg_t {
 #define  GF_IOC_MAXNR    18  /* THIS MACRO IS NOT USED NOW... */
 
 /* SMT backup solution (just to get chip ID) */
-#define GF_IOC_FTM		_IOR(GF_IOC_MAGIC, 20, u8)
+#define MTK_FP_IOC_FACTORY		_IOR(GF_IOC_MAGIC, 20, u8)
 
 struct gf_device {
 	dev_t devno;
 	struct cdev cdev;
 	struct device *device;
+	struct regulator *fp_reg;
 	struct class *class;
 	struct spi_device *spi;
 	int device_count;
@@ -245,6 +253,8 @@ struct gf_device {
 	u32 irq_num;
 	u8  need_update;
 	u32 irq;
+	/* 0 fingerprint use system power, 1 pmic power */
+	u32 power_type;
 
 #ifdef CONFIG_OF
 	struct pinctrl *pinctrl_gpio;
@@ -267,7 +277,7 @@ struct gf_device {
 
 #ifdef SUPPORT_REE_SPI
 
-#define SUPPORT_REE_MILAN_A
+//#define SUPPORT_REE_MILAN_A
 
 #define HIGH_SPEED 6
 #define LOW_SPEED  1
