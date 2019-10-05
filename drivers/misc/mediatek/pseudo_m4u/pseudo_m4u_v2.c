@@ -1515,7 +1515,8 @@ int __pseudo_alloc_mva(struct m4u_client_t *client,
 	return 0;
 
 ERR_EXIT:
-	if (sg_phys(table->sgl) >= (1UL << MTK_PHYS_ADDR_BITS))
+	if (table &&
+	    sg_phys(table->sgl) >= (1UL << MTK_PHYS_ADDR_BITS))
 		ret = -ERANGE;
 	else
 		ret = -EINVAL;
