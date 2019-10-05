@@ -47,6 +47,9 @@
 #endif
 
 /* PMIC */
+#if defined(CONFIG_MTK_PMIC_CHIP_MT6359)
+#include <mtk_pmic_api_buck.h>
+#endif
 #include <upmu_common.h>
 
 /* MMC */
@@ -178,6 +181,14 @@ void connectivity_export_clk_buf_ctrl(enum clk_buf_id id, bool onoff)
 	clk_buf_ctrl(id, onoff);
 }
 EXPORT_SYMBOL(connectivity_export_clk_buf_ctrl);
+
+void connectivity_export_clk_buf_show_status_info(void)
+{
+#if defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT6785)
+	clk_buf_show_status_info();
+#endif
+}
+EXPORT_SYMBOL(connectivity_export_clk_buf_show_status_info);
 #endif
 
 /*******************************************************************************
@@ -242,6 +253,36 @@ void connectivity_export_upmu_set_reg_value(unsigned int reg,
 	upmu_set_reg_value(reg, reg_val);
 }
 EXPORT_SYMBOL(connectivity_export_upmu_set_reg_value);
+
+#if defined(CONFIG_MTK_PMIC_CHIP_MT6359)
+int connectivity_export_pmic_ldo_vcn13_lp(int user,
+		int op_mode, unsigned char op_en, unsigned char op_cfg)
+{
+	return pmic_ldo_vcn13_lp(user, op_mode, op_en, op_cfg);
+}
+EXPORT_SYMBOL(connectivity_export_pmic_ldo_vcn13_lp);
+
+int connectivity_export_pmic_ldo_vcn18_lp(int user,
+		int op_mode, unsigned char op_en, unsigned char op_cfg)
+{
+	return pmic_ldo_vcn18_lp(user, op_mode, op_en, op_cfg);
+}
+EXPORT_SYMBOL(connectivity_export_pmic_ldo_vcn18_lp);
+
+int connectivity_export_pmic_ldo_vcn33_1_lp(int user,
+		int op_mode, unsigned char op_en, unsigned char op_cfg)
+{
+	return pmic_ldo_vcn33_1_lp(user, op_mode, op_en, op_cfg);
+}
+EXPORT_SYMBOL(connectivity_export_pmic_ldo_vcn33_1_lp);
+
+int connectivity_export_pmic_ldo_vcn33_2_lp(int user,
+		int op_mode, unsigned char op_en, unsigned char op_cfg)
+{
+	return pmic_ldo_vcn33_2_lp(user, op_mode, op_en, op_cfg);
+}
+EXPORT_SYMBOL(connectivity_export_pmic_ldo_vcn33_2_lp);
+#endif
 /*******************************************************************************
  * MMC
  ******************************************************************************/
