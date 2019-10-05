@@ -88,7 +88,6 @@ static inline void ca_pmu_toggle_cpu_locked(int cpu, int enable)
 	int i;
 
 	events = per_cpu(ca_pmu_stats, cpu).events;
-	WARN_ON(1);
 
 	for (i = 0; i < NR_PMU_COUNTERS; i++) {
 		if (!events[i])

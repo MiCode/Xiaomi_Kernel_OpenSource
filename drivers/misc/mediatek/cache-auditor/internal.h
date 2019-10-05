@@ -84,7 +84,7 @@ struct pftch_environment {
 extern struct pftch_environment pftch_env;
 
 
-#define IS_BIG_CORE(cpu) (cpu == 6 || cpu == 7)
+#define IS_BIG_CORE(cpu) (cpu == 4 || cpu == 5 || cpu == 6 || cpu == 7)
 
 extern struct notifier_block nb;
 extern int sysctl_perf_event_paranoid;
