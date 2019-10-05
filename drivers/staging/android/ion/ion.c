@@ -1139,15 +1139,18 @@ static struct sg_table *ion_map_dma_buf(struct dma_buf_attachment *attachment,
 					      buffer,
 					      &addr,
 					      &len);
-		mutex_unlock(&buffer->lock);
 		if (ret) {
+			mutex_unlock(&buffer->lock);
 			IONMSG("%s, failed at get phys, ret:%d\n",
 			       __func__, ret);
 			return ERR_PTR(-ENOMEM);
 		}
 		table = a->table;
-		if (clone_sg_table(buffer->sg_table, table))
+		if (clone_sg_table(buffer->sg_table, table)) {
+			mutex_unlock(&buffer->lock);
 			return ERR_PTR(-EINVAL);
+		}
+		mutex_unlock(&buffer->lock);
 	}
     //pr_debug("%s, %d\n", __func__, __LINE__);
 

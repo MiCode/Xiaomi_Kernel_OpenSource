@@ -452,6 +452,7 @@ static int ion_mm_heap_allocate(struct ion_heap *heap,
 		struct page *page = info->page;
 
 		sg_set_page(sg, page, (1 << info->order) * PAGE_SIZE, 0);
+		sg_dma_len(sg) = sg->length;
 		sg = sg_next(sg);
 		list_del(&info->list);
 		kfree(info);
@@ -713,7 +714,7 @@ static void ion_buffer_dump(struct ion_buffer *buffer, struct seq_file *s)
 		val = bug_info->module_id;
 #if (DOMAIN_NUM == 1)
 	ION_DUMP(s,
-		 "0x%p %8zu %3d %3d %3d %3d %3d %3lu(%3lu) 0x%x, 0x%x, %5d(%5d) %16s 0x%x 0x%x 0x%x 0x%x %s\n",
+		 "0x%lx %8zu %3d %3d %3d %3d %3d %3lu(%3lu) 0x%x, 0x%x, %5d(%5d) %16s 0x%x 0x%x 0x%x 0x%x %s\n",
 		 buffer, buffer->size, buffer->kmap_cnt,
 		 atomic_read(&buffer->ref.refcount.refs),
 		 buffer->handle_count, val,
@@ -726,7 +727,7 @@ static void ion_buffer_dump(struct ion_buffer *buffer, struct seq_file *s)
 		 pdbg->dbg_name);
 #elif (DOMAIN_NUM == 2)
 	ION_DUMP(s,
-		 "0x%p %8zu %3d %3d %3d %3d %3d %3lu(%3lu) %3lu(%3lu) 0x%x, 0x%x, %5d(%5d) %16s 0x%x 0x%x 0x%x 0x%x %s\n",
+		 "0x%lx %8zu %3d %3d %3d %3d %3d %3lu(%3lu) %3lu(%3lu) 0x%x, 0x%x, %5d(%5d) %16s 0x%x 0x%x 0x%x 0x%x %s\n",
 		 buffer, buffer->size, buffer->kmap_cnt,
 		 atomic_read(&buffer->ref.refcount.refs),
 		 buffer->handle_count, val,
@@ -740,7 +741,7 @@ static void ion_buffer_dump(struct ion_buffer *buffer, struct seq_file *s)
 		 pdbg->dbg_name);
 #elif (DOMAIN_NUM == 4)
 	ION_DUMP(s,
-		 "0x%p %8zu %3d %3d %3d %3d %3d %d-%3lu %d-%3lu %d-%3lu %d-%3lu 0x%x, 0x%x, %5d(%5d) %16s 0x%x 0x%x 0x%x 0x%x %s\n",
+		 "0x%lx %8zu %3d %3d %3d %3d %3d %d-%3lu %d-%3lu %d-%3lu %d-%3lu 0x%x, 0x%x, %5d(%5d) %16s 0x%x 0x%x 0x%x 0x%x %s\n",
 		 buffer, buffer->size, buffer->kmap_cnt,
 		 atomic_read(&buffer->ref.refcount.refs),
 		 buffer->handle_count, val,
@@ -774,11 +775,12 @@ static int ion_mm_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 
 	if ((buffer_info->module_id == -1) &&
 	    (buffer_info->fix_module_id == -1)) {
-		IONMSG("[%s] warning. Buffer not configured.\n", __func__);
-#if 1 //defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
-	//(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+		IONMSG("[%s] warning. Buffer:0x%lx not configured.\n",
+		       __func__, buffer);
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 		ion_buffer_dump(buffer, NULL);
-#ifdef ION_DEBUG_IOMMU_34BIT_BUFFER
+#if 1 //def ION_DEBUG_IOMMU_34BIT_BUFFER
 		aee_kernel_warning_api(__FILE__, __LINE__,
 				       DB_OPT_DEFAULT |
 				       DB_OPT_NATIVE_BACKTRACE,
@@ -892,11 +894,11 @@ static int ion_mm_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 		buffer_info->port[domain_idx] = port_info.emoduleid;
 		IONDBG(
-		       "%d, port:%d, mva:0x%lx, fix:0x%lx, return:0x%lx, cnt=%d\n",
-		       __LINE__, buffer_info->port[domain_idx],
+		       "%d, iova mapping done, buffer:0x%lx, port:%d, mva:0x%lx, fix:0x%lx, return:0x%lx, cnt=%d, domain%d\n",
+		       __LINE__, buffer, buffer_info->port[domain_idx],
 		       buffer_info->MVA[domain_idx],
 		       buffer_info->FIXED_MVA[domain_idx],
-		       port_info.mva, buffer_info->mva_cnt);
+		       port_info.mva, buffer_info->mva_cnt, domain_idx);
 #endif
 
 #ifdef CONFIG_MTK_PSEUDO_M4U
@@ -911,6 +913,17 @@ static int ion_mm_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 					 == M4U_FLAGS_FIX_MVA) ?
 		    buffer_info->FIXED_MVA[domain_idx] :
 				buffer_info->MVA[domain_idx];
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+		buffer->sg_table = &buffer_info->table[domain_idx];
+		IONDBG(
+		       "%d, iova reuse done, module:%d, buffer:0x%lx, port:%d, mva:0x%lx, fix:0x%lx, return:0x%lx, cnt=%d, domain%d\n",
+		       __LINE__, buffer, buffer_info->module_id,
+		       buffer_info->port[domain_idx],
+		       buffer_info->MVA[domain_idx],
+		       buffer_info->FIXED_MVA[domain_idx],
+		       port_info.mva, buffer_info->mva_cnt, domain_idx);
+#endif
 	}
 
 	if (port_info.flags > 0) {
@@ -1010,7 +1023,7 @@ static int __do_dump_share_fd(const void *data, struct file *file,
 			pid = -1;
 #if (DOMAIN_NUM == 1)
 		ION_DUMP(s,
-			 "0x%p %9d %16s %5d %5d %16s %4d %8x(%8x) %8d\n",
+			 "0x%p %9d %16s %5d %5d %16s %4d 0x%8x(0x%8x) %8d\n",
 			 buffer, pid,
 			 buffer->alloc_dbg,
 			 p->pid, p->tgid,
@@ -1020,7 +1033,7 @@ static int __do_dump_share_fd(const void *data, struct file *file,
 			 block_nr[0]);
 #elif (DOMAIN_NUM == 2)
 		ION_DUMP(s,
-			 "0x%p %9d %16s %5d %5d %16s %4d %8x(%8x) %8d %8x(%8x) %8d\n",
+			 "0x%p %9d %16s %5d %5d %16s %4d 0x%8x(0x%8x) %8d 0x%8x(0x%8x) %8d\n",
 			 buffer, pid,
 			 buffer->alloc_dbg,
 			 p->pid, p->tgid,
@@ -1033,17 +1046,21 @@ static int __do_dump_share_fd(const void *data, struct file *file,
 			 block_nr[1]);
 #elif (DOMAIN_NUM == 4)
 		ION_DUMP(s,
-			 "0x%p %9d %16s %5d %5d %16s %4d %8x %8d %8x %8d %8x %8d %8x %8d\n",
+			 "0x%p %9d %16s %5d %5d %16s %4d %d:(0x%8x+%8d) %d:(0x%8x+%8d) %d:(0x%8x+%8d) %d:(0x%8x+%8d)\n",
 			 buffer, pid,
 			 buffer->alloc_dbg,
 			 p->pid, p->tgid,
 			 p->comm, fd,
+			 bug_info->port[0],
 			 bug_info->MVA[0],
 			 block_nr[0],
+			 bug_info->port[1],
 			 bug_info->MVA[1],
 			 block_nr[1],
+			 bug_info->port[2],
 			 bug_info->MVA[2],
 			 block_nr[2],
+			 bug_info->port[3],
 			 bug_info->MVA[3],
 			 block_nr[3]);
 #endif
@@ -1776,7 +1793,9 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 					buffer_info->module_id =
 					    param.config_buffer_param.module_id;
 				}
-			IONDBG("config done:%d(%d)-%d,%16.s\n",
+			IONDBG(
+			       "config, bf:0x%lx pt%d, dom:%d, tp:%d, clt:%16.s\n",
+			       buffer,
 			       param.config_buffer_param.module_id,
 			       domain_idx,
 			       buffer->heap->type, client->name);
