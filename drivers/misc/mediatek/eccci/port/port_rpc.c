@@ -71,13 +71,7 @@ static struct gpio_item gpio_mapping_table[] = {
 
 static int get_md_gpio_val(unsigned int num)
 {
-#ifdef CONFIG_PINCTRL_MTK_NO_UPSTREAM
-	return gpio_get_tristate_input(num);
-#elif defined CONFIG_PINCTRL_MTK
-	return __gpio_get_value(num);
-#else
-	return -1;
-#endif
+	return gpio_get_value(num);
 }
 
 static int get_md_adc_val(unsigned int num)
