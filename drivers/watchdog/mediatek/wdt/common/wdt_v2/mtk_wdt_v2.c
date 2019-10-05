@@ -48,6 +48,7 @@
 #ifndef __USING_DUMMY_WDT_DRV__
 #include <mt-plat/upmu_common.h>
 #endif
+#include <dbgtop.h>
 
 void __iomem *toprgu_base;
 int	wdt_irq_id;
@@ -575,9 +576,10 @@ void wdt_arch_reset(char mode)
 	 *   3: nested panic
 	 *   4: mrdump key
 	 */
-	if (!(mode & WD_SW_RESET_KEEP_DDR_RESERVE))
+	if (!(mode & WD_SW_RESET_KEEP_DDR_RESERVE)) {
 		mtk_rgu_dram_reserved(0);
-	else
+		mtk_dbgtop_dram_reserved(0);
+	} else
 		mtk_rgu_pause_dvfsrc(1);
 
 	udelay(100);

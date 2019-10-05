@@ -12,4 +12,5 @@
 #
 
 ccflags-y += -I$(srctree)/drivers/watchdog/mediatek/include
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/dbgtop
 obj-y += mtk_wdt_v2.o
