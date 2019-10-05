@@ -197,6 +197,18 @@ int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 		return -1;
 	}
 
+	/* Get spm sleep base */
+	node = of_find_compatible_node(NULL, NULL, "mediatek,sleep");
+	hw_info->spm_sleep_base = (unsigned long)of_iomap(node, 0);
+	if (!hw_info->spm_sleep_base) {
+		CCCI_ERROR_LOG(0, TAG,
+			"%s: spm_sleep_base of_iomap failed\n",
+			__func__);
+		return -1;
+	}
+	CCCI_INIT_LOG(-1, TAG, "spm_sleep_base:0x%lx\n",
+			(unsigned long)hw_info->spm_sleep_base);
+
 	CCCI_DEBUG_LOG(dev_cfg->index, TAG,
 		"dev_major:%d,minor_base:%d,capability:%d\n",
 		dev_cfg->major, dev_cfg->minor_base, dev_cfg->capability);
@@ -607,6 +619,27 @@ int md_start_platform(struct ccci_modem *md)
 	return 0;
 }
 
+
+static int mtk_ccci_cfg_srclken_o1_on(struct ccci_modem *md)
+{
+	unsigned int val;
+	struct md_hw_info *hw_info = md->hw_info;
+
+	if (hw_info->spm_sleep_base) {
+		ccci_write32(hw_info->spm_sleep_base, 0, 0x0B160001);
+		val = ccci_read32(hw_info->spm_sleep_base, 0);
+		CCCI_INIT_LOG(-1, TAG, "spm_sleep_base: val:0x%x\n", val);
+
+		val = ccci_read32(hw_info->spm_sleep_base, 8);
+		CCCI_INIT_LOG(-1, TAG, "spm_sleep_base+8: val:0x%x +\n", val);
+		val |= 0x1<<21;
+		ccci_write32(hw_info->spm_sleep_base, 8, val);
+		val = ccci_read32(hw_info->spm_sleep_base, 8);
+		CCCI_INIT_LOG(-1, TAG, "spm_sleep_base+8: val:0x%x -\n", val);
+	}
+	return 0;
+}
+
 int md_cd_power_on(struct ccci_modem *md)
 {
 	int ret = 0;
@@ -627,6 +660,7 @@ int md_cd_power_on(struct ccci_modem *md)
 		"%s: set md1_srcclkena bit(0x1000_0F0C)=0x%x\n",
 		__func__, ccci_read32(infra_ao_base, INFRA_AO_MD_SRCCLKENA));
 
+	mtk_ccci_cfg_srclken_o1_on(md);
 	/* steip 3: power on MD_INFRA and MODEM_TOP */
 	switch (md->index) {
 	case MD_SYS1:

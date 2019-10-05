@@ -38,6 +38,7 @@ struct md_hw_info {
 	unsigned long md_ccif_base;
 	unsigned int sram_size;
 	void __iomem *md_ccif4_base;
+	unsigned long spm_sleep_base;
 
 	/* HW info - Interrutpt ID */
 	unsigned int ap_ccif_irq0_id;
@@ -99,4 +100,5 @@ extern unsigned long infra_ao_base;
 extern unsigned int devapc_check_flag;
 extern void ccci_mem_dump(int md_id, void *start_addr, int len);
 extern void dump_emi_outstanding(void);
+
 #endif				/* __MD_SYS1_PLATFORM_H__ */
