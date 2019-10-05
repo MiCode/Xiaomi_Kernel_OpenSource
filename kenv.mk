@@ -51,8 +51,9 @@ ifneq ($(strip $(TARGET_NO_KERNEL)),true)
     TARGET_KERNEL_CLANG_COMPILE :=
     CC := $(TARGET_KERNEL_CROSS_COMPILE)gcc
     ifeq ($(strip $(TARGET_KERNEL_USE_CLANG)),true)
+      CLANG_PATH=$(KERNEL_ROOT_DIR)/prebuilts/clang/host/linux-x86/clang-r353983c
       TARGET_KERNEL_CLANG_COMPILE := CLANG_TRIPLE=aarch64-linux-gnu-
-      CC := $(KERNEL_ROOT_DIR)/prebuilts/clang/host/linux-x86/clang-r353983c/bin/clang
+      CC := $(CLANG_PATH)/bin/clang
     endif
   else
     TARGET_KERNEL_CROSS_COMPILE ?= $(KERNEL_ROOT_DIR)/prebuilts/gcc/$(HOST_PREBUILT_TAG)/arm/arm-linux-androideabi-4.9/bin/arm-linux-androidkernel-
@@ -120,6 +121,13 @@ ifneq ($(strip $(TARGET_NO_KERNEL)),true)
   endif
   ifdef KERNEL_HOSTCXX
     KERNEL_MAKE_OPTION += HOSTCXX=$(KERNEL_HOSTCXX)
+  endif
+  ifeq ($(KERNEL_TARGET_ARCH),arm64)
+      ifeq ($(strip $(TARGET_KERNEL_USE_CLANG)),true)
+          # for CONFIG_LTO_CLANG to find clang llvm-dis & llvm-ar & LLVMgold.so
+          KERNEL_MAKE_OPTION += LD_LIBRARY_PATH=$(CLANG_PATH)/lib64:$$LD_LIBRARY_PATH
+          KERNEL_MAKE_OPTION += PATH=$(CLANG_PATH)/bin/:$$PATH
+      endif
   endif
   else
     BUILT_KERNEL_TARGET := $(TARGET_PREBUILT_KERNEL)
