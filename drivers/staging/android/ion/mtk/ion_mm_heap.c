@@ -2167,6 +2167,7 @@ int ion_mm_heap_cache_allocate(struct ion_heap *heap,
 		struct page *page = info->page;
 
 		sg_set_page(sg, page, (1 << info->order) * PAGE_SIZE, 0);
+		sg_dma_len(sg) = sg->length;
 		sg = sg_next(sg);
 		list_del(&info->list);
 		kfree(info);
