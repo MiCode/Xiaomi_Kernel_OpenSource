@@ -1523,7 +1523,7 @@ static int _mt_cpufreq_pdrv_probe(struct platform_device *pdev)
 
 	cpufreq_register_driver(&_mt_cpufreq_driver);
 
-	hp_online = cpuhp_setup_state_nocalls_cpuslocked(CPUHP_AP_ONLINE_DYN,
+	hp_online = cpuhp_setup_state_nocalls(CPUHP_AP_ONLINE_DYN,
 						   "cpu_dvfs:online",
 						   cpuhp_cpufreq_online,
 						   cpuhp_cpufreq_offline);
@@ -1551,7 +1551,7 @@ static int _mt_cpufreq_pdrv_remove(struct platform_device *pdev)
 {
 	FUNC_ENTER(FUNC_LV_MODULE);
 
-	cpuhp_remove_state_nocalls_cpuslocked(hp_online);
+	cpuhp_remove_state_nocalls(hp_online);
 	cpufreq_unregister_driver(&_mt_cpufreq_driver);
 
 	FUNC_EXIT(FUNC_LV_MODULE);
