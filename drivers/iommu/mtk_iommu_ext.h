@@ -204,7 +204,7 @@ int mtk_iommu_get_iova_space(struct device *dev,
 		struct list_head *list);
 void mtk_iommu_put_iova_space(struct device *dev,
 		struct list_head *list);
-void mtk_iommu_dump_iova_space(void);
+void mtk_iommu_dump_iova_space(unsigned long target);
 unsigned int mtk_iommu_get_larb_port_count(unsigned int larb);
 int mtk_iommu_atf_call(unsigned int cmd, unsigned int m4u_id,
 		unsigned int bank);

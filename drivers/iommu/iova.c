@@ -781,7 +781,9 @@ EXPORT_SYMBOL_GPL(copy_reserved_iova);
 void iovad_scan_reserved_iova(void *arg,
 		struct iova_domain *iovad,
 		void (*f)(void *domain, unsigned long start,
-			unsigned long end, unsigned long size))
+			unsigned long end, unsigned long size,
+			unsigned long target),
+		unsigned long target)
 {
 	unsigned long flags;
 	struct rb_node *node;
@@ -794,7 +796,7 @@ void iovad_scan_reserved_iova(void *arg,
 		end = ((iova->pfn_hi + 1) << iova_shift(iovad)) - 1;
 		size = end - start + 1;
 
-		f(arg, start, end, size);
+		f(arg, start, end, size, target);
 	}
 	spin_unlock_irqrestore(&iovad->iova_rbtree_lock, flags);
 }

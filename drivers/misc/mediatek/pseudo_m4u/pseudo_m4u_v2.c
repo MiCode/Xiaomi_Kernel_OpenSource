@@ -1376,8 +1376,11 @@ EXPORT_SYMBOL(m4u_switch_acp);
  * dump the current status of pgtable
  * this is the runtime mapping result of IOVA and PA
  */
+#define MTK_PGTABLE_DUMP_RANGE SZ_16M
+#define MTK_PGTABLE_DUMP_LEVEL_FULL (1)
+#define MTK_PGTABLE_DUMP_LEVEL_ION (0)
 void __m4u_dump_pgtable(struct seq_file *s, unsigned int level,
-	bool lock)
+	bool lock, unsigned long target)
 {
 	struct m4u_client_t *client = ion_m4u_client;
 	struct list_head *pListHead;
@@ -1401,9 +1404,14 @@ void __m4u_dump_pgtable(struct seq_file *s, unsigned int level,
 		mutex_lock(&(client->dataMutex));
 	list_for_each(pListHead, &(client->mvaList)) {
 		pList = container_of(pListHead, struct m4u_buf_info_t, link);
+		start = pList->mva;
+		end = pList->mva + pList->size - 1;
+		if (target &&
+		    ((end <= target - MTK_PGTABLE_DUMP_RANGE) ||
+		    (start >= target + MTK_PGTABLE_DUMP_RANGE)))
+			continue;
+
 		dev = pseudo_get_larbdev(pList->port);
-		start = pList->mva,
-		end = pList->mva + pList->size - 1,
 		mtk_iommu_iova_to_pa(dev, start, &p_start);
 		mtk_iommu_iova_to_pa(dev, end, &p_end);
 		M4U_PRINT_SEQ(s,
@@ -1430,14 +1438,14 @@ void __m4u_dump_pgtable(struct seq_file *s, unsigned int level,
 	if (lock)
 		mutex_unlock(&(client->dataMutex));
 
-	if (level > 0)
-		mtk_iommu_dump_iova_space();
+	if (level == MTK_PGTABLE_DUMP_LEVEL_FULL)
+		mtk_iommu_dump_iova_space(target);
 }
 EXPORT_SYMBOL(__m4u_dump_pgtable);
 
-void m4u_dump_pgtable(unsigned int level)
+void m4u_dump_pgtable(unsigned int level, unsigned long target)
 {
-	__m4u_dump_pgtable(NULL, level, false);
+	__m4u_dump_pgtable(NULL, level, false, target);
 }
 EXPORT_SYMBOL(m4u_dump_pgtable);
 
@@ -1557,7 +1565,7 @@ int __pseudo_alloc_mva(struct m4u_client_t *client,
 			&dma_addr, size,
 			&paddr,
 			flags, table->nents, table->orig_nents);
-		__m4u_dump_pgtable(NULL, 1, false);
+		__m4u_dump_pgtable(NULL, 1, false, 0);
 		goto ERR_EXIT;
 	}
 	if (sg_table) {

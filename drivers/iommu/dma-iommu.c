@@ -1021,7 +1021,8 @@ void iommu_dma_map_msi_msg(int irq, struct msi_msg *msg)
 
 #ifdef CONFIG_MTK_IOMMU_V2
 void iommu_dma_dump_iova(void *domain, unsigned long start,
-	unsigned long end, unsigned long size)
+	unsigned long end, unsigned long size,
+	unsigned long target)
 {
 	phys_addr_t p_start, p_end;
 	struct iommu_dma_cookie *cookie =
@@ -1036,8 +1037,14 @@ void iommu_dma_dump_iova(void *domain, unsigned long start,
 	    (order_base_2(size >> iova_shift(iovad)) <
 	    IOVA_RANGE_CACHE_MAX_SIZE))
 		return;
+
+	if (target &&
+	    ((start >= target + SZ_16M) ||
+	    (end <= target - SZ_16M)))
+		return;
+
 	// the reserved region will not be managed in current domain
-	else if (!p_start)
+	if (!p_start)
 		pr_notice(">>>    iova:0x%lx~0x%lx, pa:0x%pa/0x%pa, size:0x%lx (reserved region, check the other domain?)\n",
 		  start, end, &p_start, &p_end, size);
 	else if (!p_end)
@@ -1048,18 +1055,19 @@ void iommu_dma_dump_iova(void *domain, unsigned long start,
 			  start, end, &p_start, &p_end, size);
 }
 
-void iommu_dma_dump_iovad(struct iommu_domain *domain)
+void iommu_dma_dump_iovad(struct iommu_domain *domain,
+	unsigned long target)
 {
 	struct iommu_dma_cookie *cookie = domain->iova_cookie;
 	struct iova_domain *iovad = &cookie->iovad;
 	unsigned long base = iovad->start_pfn << iova_shift(iovad);
 	unsigned long max = domain->geometry.aperture_end;
 
-	pr_notice("(0x%lx, 0x%lx) size:0x%lx\n",
-		  base, max, max - base + 1);
+	pr_notice("(0x%lx, 0x%lx) size:0x%lx, iova:0x%lx\n",
+		  base, max, max - base + 1, target);
 
 	iovad_scan_reserved_iova((void *)domain, iovad,
-		iommu_dma_dump_iova);
+		iommu_dma_dump_iova, target);
 }
 EXPORT_SYMBOL(iommu_dma_dump_iovad);
 

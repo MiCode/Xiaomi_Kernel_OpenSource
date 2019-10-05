@@ -850,7 +850,7 @@ static void __mtk_iommu_tlb_add_flush_nosync(
 }
 
 #if MTK_IOMMU_PAGE_TABLE_SHARE
-void mtk_iommu_dump_iova_space(void)
+void mtk_iommu_dump_iova_space(unsigned long target)
 {
 	struct mtk_iommu_domain *dom;
 	int i = 0;
@@ -865,7 +865,7 @@ void mtk_iommu_dump_iova_space(void)
 		  __func__, pgtable->domain_count);
 	list_for_each_entry(dom, &pgtable->m4u_dom, list) {
 		pr_notice("===== domain %d =====\n", dom->id);
-		iommu_dma_dump_iovad(&dom->domain);
+		iommu_dma_dump_iovad(&dom->domain, target);
 		if (++i >= pgtable->domain_count)
 			break;
 	}
@@ -920,7 +920,7 @@ static void mtk_iommu_tlb_sync(void *cookie)
 }
 
 #else
-void mtk_iommu_dump_iova_space(void)
+void mtk_iommu_dump_iova_space(unsigned long iova)
 {
 	struct mtk_iommu_domain *dom;
 	struct mtk_iommu_pgtable *pgtable;
@@ -933,7 +933,7 @@ void mtk_iommu_dump_iova_space(void)
 			continue;
 		list_for_each_entry(dom, &pgtable->m4u_dom, list) {
 			pr_notice("===== domain %d =====\n", dom->id);
-			iommu_dma_dump_iovad(dom->domain);
+			iommu_dma_dump_iovad(dom->domain, iova);
 			pr_notice("=====================\n");
 		}
 		pr_notice("<<<<<<<<<<<<>>>>>>>>>>>>\n");
@@ -1246,7 +1246,7 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 				fault_larb, fault_port, is_vpu,
 				layer, write ? "write" : "read");
 		}
-		m4u_dump_pgtable(1);
+		m4u_dump_pgtable(1, fault_iova);
 	}
 
 	if (int_state &
