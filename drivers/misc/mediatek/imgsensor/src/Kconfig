@@ -29,3 +29,9 @@ config IMGSENSOR_SUB2
 	depends on SPECIFY_IMGSENSOR
 	help
 	  Specify sub2 sensor.
+
+config IMGSENSOR_MAIN3
+	string "Custom main3 image sensor"
+	depends on SPECIFY_IMGSENSOR
+	help
+	  Specify main3 sensor.

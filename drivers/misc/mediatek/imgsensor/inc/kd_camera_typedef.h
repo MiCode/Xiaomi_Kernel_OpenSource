@@ -55,6 +55,9 @@
 #define NULL  (0)
 #endif
 
+/* enum boolean {false, true}; */
+enum { RX, TX, NONE };
+
 #ifndef BOOL
 #define BOOL unsigned char
 #endif

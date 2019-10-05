@@ -24,6 +24,8 @@ char *imgsensor_sensor_idx_name[IMGSENSOR_SENSOR_IDX_MAX_NUM] = {
 	IMGSENSOR_SENSOR_IDX_NAME_MAIN,
 	IMGSENSOR_SENSOR_IDX_NAME_SUB,
 	IMGSENSOR_SENSOR_IDX_NAME_MAIN2,
+	IMGSENSOR_SENSOR_IDX_NAME_SUB2,
+	IMGSENSOR_SENSOR_IDX_NAME_MAIN3
 };
 
 enum IMGSENSOR_RETURN imgsensor_hw_init(struct IMGSENSOR_HW *phw)
@@ -177,28 +179,44 @@ enum IMGSENSOR_RETURN imgsensor_hw_power(
 #if defined(CONFIG_IMGSENSOR_MAIN)  || \
 		defined(CONFIG_IMGSENSOR_SUB)   || \
 		defined(CONFIG_IMGSENSOR_MAIN2) || \
-		defined(CONFIG_IMGSENSOR_SUB2)
+		defined(CONFIG_IMGSENSOR_SUB2)  || \
+		defined(CONFIG_IMGSENSOR_MAIN3)
+
 	char *pcustomize_sensor = NULL;
 
 	switch (sensor_idx) {
+#ifdef CONFIG_IMGSENSOR_MAIN
 	case IMGSENSOR_SENSOR_IDX_MAIN:
 		pcustomize_sensor = IMGSENSOR_STRINGIZE(CONFIG_IMGSENSOR_MAIN);
 		break;
+#endif
+#ifdef CONFIG_IMGSENSOR_SUB
 	case IMGSENSOR_SENSOR_IDX_SUB:
 		pcustomize_sensor = IMGSENSOR_STRINGIZE(CONFIG_IMGSENSOR_SUB);
 		break;
+#endif
+#ifdef CONFIG_IMGSENSOR_MAIN2
 	case IMGSENSOR_SENSOR_IDX_MAIN2:
 		pcustomize_sensor = IMGSENSOR_STRINGIZE(CONFIG_IMGSENSOR_MAIN2);
 		break;
+#endif
+#ifdef CONFIG_IMGSENSOR_SUB2
 	case IMGSENSOR_SENSOR_IDX_SUB2:
 		pcustomize_sensor = IMGSENSOR_STRINGIZE(CONFIG_IMGSENSOR_SUB2);
 		break;
+#endif
+#ifdef CONFIG_IMGSENSOR_MAIN3
+	case IMGSENSOR_SENSOR_IDX_MAIN3:
+		pcustomize_sensor = IMGSENSOR_STRINGIZE(CONFIG_IMGSENSOR_MAIN3);
+		break;
+#endif
 	default:
 		break;
 	}
 
-	if (strlen(pcustomize_sensor) > 2 &&
-		!strstr(pcustomize_sensor, curr_sensor_name))
+	if (pcustomize_sensor &&
+			strlen(pcustomize_sensor) > 2 &&
+			!strstr(pcustomize_sensor, curr_sensor_name))
 		return IMGSENSOR_RETURN_ERROR;
 #endif
 
