@@ -85,3 +85,31 @@ config SND_SOC_MT8173_RT5650_RT5676
 	  with the RT5650 and RT5676 codecs.
 	  Select Y if you have such device.
 	  If unsure select "N".
+
+config MTK_SND_SOC_CODEC
+	string "String for Mediatek audio codec"
+	help
+	  Specify Mediatek audio codec.
+	  It depend on the string to choose the audio codec.
+	  Say "mt6351" if you have mt6351 audio codec.
+	  Say "mt6337" if you have mt6337 audio codec.
+	  Say "mt6355" if you have mt6355 audio codec.
+
+config SND_SOC_MTK_BTCVSD
+	bool "MTK BT CVSD ALSA ARICHITECTURE"
+	default n
+	help
+	  If you say Y, enable SND_SOC_MTK_BTCVSD.
+	  This is for software BTCVSD. This enable
+	  the function for transferring/receiving
+	  BT encoded data to/from BT firmware.
+
+config MTK_SND_SOC_NEW_ARCH
+	bool "Support new audio architecture"
+	select REGMAP_MMIO
+	help
+	  If you say Y, enable MTK_SND_SOC_NEW_ARCH.
+	  Only enable this when you use refactored audio driver architecture.
+	  If new chip after mt6757, we will enable this config.
+	  Audio driver refactor to common folder and platform folder.
+
