@@ -12,6 +12,7 @@
 #include <linux/string.h>
 #include <net/sock.h>
 #include <linux/workqueue.h>
+#include <linux/rcupdate.h>
 #include <linux/soc/qcom/qmi.h>
 
 static struct socket *qmi_sock_create(struct qmi_handle *qmi,
@@ -574,15 +575,11 @@ static void qmi_data_ready(struct sock *sk)
 	 * This will be NULL if we receive data while being in
 	 * qmi_handle_release()
 	 */
-	read_lock_bh(&sk->sk_callback_lock);
-	qmi = sk->sk_user_data;
-	if (!qmi) {
-		read_unlock_bh(&sk->sk_callback_lock);
-		return;
-	}
-
-	queue_work(qmi->wq, &qmi->work);
-	read_unlock_bh(&sk->sk_callback_lock);
+	rcu_read_lock();
+	qmi = rcu_dereference_sk_user_data(sk);
+	if (qmi)
+		queue_work(qmi->wq, &qmi->work);
+	rcu_read_unlock();
 }
 
 static struct socket *qmi_sock_create(struct qmi_handle *qmi,
@@ -602,7 +599,7 @@ static struct socket *qmi_sock_create(struct qmi_handle *qmi,
 		return ERR_PTR(ret);
 	}
 
-	sock->sk->sk_user_data = qmi;
+	rcu_assign_sk_user_data(sock->sk, qmi);
 	sock->sk->sk_data_ready = qmi_data_ready;
 	sock->sk->sk_error_report = qmi_data_ready;
 	sock->sk->sk_sndtimeo = HZ * 10;
@@ -708,9 +705,8 @@ void qmi_handle_release(struct qmi_handle *qmi)
 
 	mutex_lock(&qmi->sock_lock);
 	sock = qmi->sock;
-	write_lock_bh(&sock->sk->sk_callback_lock);
-	sock->sk->sk_user_data = NULL;
-	write_unlock_bh(&sock->sk->sk_callback_lock);
+	rcu_assign_sk_user_data(sock->sk, NULL);
+	synchronize_rcu();
 	sock_release(sock);
 	qmi->sock = NULL;
 	mutex_unlock(&qmi->sock_lock);
