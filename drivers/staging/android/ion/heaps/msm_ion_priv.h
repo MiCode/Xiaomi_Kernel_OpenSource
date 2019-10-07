@@ -12,6 +12,7 @@
 #include <linux/dma-direction.h>
 #include <linux/kref.h>
 #include <linux/mm_types.h>
+#include <linux/msm_ion.h>
 #include <linux/mutex.h>
 #include <linux/rbtree.h>
 #include <linux/sched.h>
@@ -78,18 +79,38 @@ struct ion_platform_heap {
 };
 
 /**
+ * struct msm_ion_heap_ops - defines a set of ops that are specific to the MSM
+ * ION heaps.
+ * @heap_prefetch:	called to asynchronously prefetch a certain amount of
+ *			memory for allocations from the heap.
+ * @heap_drain:		called to asynchronously drain a certain amount of
+ *			memory that was prefetched for the heap at an earlier
+ *			point in time.
+ * @debug_show:		called when the heap debug file is read to add any heap
+ *			specific debug info to output
+ */
+struct msm_ion_heap_ops {
+	int (*heap_prefetch)(struct ion_heap *heap,
+			     struct ion_prefetch_region *regions,
+			     int nr_regions);
+	int (*heap_drain)(struct ion_heap *heap,
+			  struct ion_prefetch_region *regions,
+			  int nr_regions);
+	int (*debug_show)(struct ion_heap *heap, struct seq_file *s,
+			  void *unused);
+};
+
+/**
  * struct msm_ion_heap - defines an ion heap, as well as additional information
  * relevant to the heap.
- * @dev:	the device structure associated with the heap
- * @debug_show: called when the heap debug file is read to add any heap specific
- *		debug info to output
- * @ion_heap:	ion heap
+ * @dev:		the device structure associated with the heap
+ * @msm_heap_ops:	the MSM ION specific heap ops for the heap
+ * @ion_heap:		ion heap
  *
  */
 struct msm_ion_heap {
 	struct device *dev;
-	int (*debug_show)(struct ion_heap *heap, struct seq_file *s,
-			  void *unused);
+	struct msm_ion_heap_ops *msm_heap_ops;
 	struct ion_heap ion_heap;
 };
 
