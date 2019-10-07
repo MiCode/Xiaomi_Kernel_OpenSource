@@ -430,6 +430,7 @@ static struct ion_platform_data *msm_ion_parse_dt(struct platform_device *pdev)
 	return pdata;
 
 free_heaps:
+	of_node_put(node);
 	release_reserved_memory_regions(pdata->heaps, idx);
 	free_pdata(pdata);
 	return ERR_PTR(ret);

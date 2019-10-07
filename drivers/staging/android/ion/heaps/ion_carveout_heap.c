@@ -405,6 +405,7 @@ ion_secure_carveout_heap_create(struct ion_platform_heap *heap_data)
 	return &manager->heap.ion_heap;
 
 err:
+	of_node_put(np);
 	ion_secure_carveout_heap_destroy(&manager->heap.ion_heap);
 	return ERR_PTR(-EINVAL);
 }
