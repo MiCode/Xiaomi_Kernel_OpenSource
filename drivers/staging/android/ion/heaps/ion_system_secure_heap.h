@@ -8,9 +8,6 @@
 #ifndef _ION_SYSTEM_SECURE_HEAP_H
 #define _ION_SYSTEM_SECURE_HEAP_H
 
-int ion_system_secure_heap_prefetch(struct ion_heap *heap, void *data);
-int ion_system_secure_heap_drain(struct ion_heap *heap, void *data);
-
 struct page *alloc_from_secure_pool_order(struct ion_system_heap *heap,
 					  struct ion_buffer *buffer,
 					  unsigned long order);
