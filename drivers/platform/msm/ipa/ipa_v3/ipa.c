@@ -6408,6 +6408,11 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	/* Enable ipa3_ctx->enable_napi_chain */
 	ipa3_ctx->enable_napi_chain = 1;
 
+	/* assume clock is on in virtual/emulation mode */
+	if (ipa3_ctx->ipa3_hw_mode == IPA_HW_MODE_VIRTUAL ||
+	    ipa3_ctx->ipa3_hw_mode == IPA_HW_MODE_EMULATION)
+		atomic_set(&ipa3_ctx->ipa_clk_vote, 1);
+
 	/* enable IPA clocks explicitly to allow the initialization */
 	ipa3_enable_clks();
 
