@@ -90,9 +90,7 @@ static const char *msm_ext_disp_name(enum msm_ext_disp_type type)
 static int msm_ext_disp_add_intf_data(struct msm_ext_disp *ext_disp,
 		struct msm_ext_disp_init_data *data)
 {
-	int count = 0;
 	struct msm_ext_disp_list *node;
-	struct list_head *pos = NULL;
 
 	if (!ext_disp || !data) {
 		pr_err("Invalid params\n");
@@ -105,11 +103,7 @@ static int msm_ext_disp_add_intf_data(struct msm_ext_disp *ext_disp,
 
 	node->data = data;
 
-	list_for_each(pos, &ext_disp->display_list)
-		count++;
-
 	list_add(&node->list, &ext_disp->display_list);
-
 
 	pr_debug("Added new display (%s) ctld (%d) stream (%d)\n",
 		msm_ext_disp_name(data->codec.type),
