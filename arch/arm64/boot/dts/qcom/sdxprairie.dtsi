@@ -40,10 +40,10 @@
 		#size-cells = <1>;
 		ranges;
 
-		mpss_adsp_mem: mpss_adsp_region@90c00000 {
+		mpss_adsp_mem: mpss_adsp_region@90800000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x90c00000 0xd400000>;
+			reg = <0x90800000 0xd800000>;
 			label = "mpss_adsp_mem";
 		};
 
