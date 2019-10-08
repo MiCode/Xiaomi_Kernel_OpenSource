@@ -4579,11 +4579,6 @@ int sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 	else
 		ln_cnt1 = -EINVAL;
 
-	/* update the qsync parameters for the current frame */
-	if (sde_enc->cur_master)
-		sde_connector_set_qsync_params(
-				sde_enc->cur_master->connector);
-
 	/* prepare for next kickoff, may include waiting on previous kickoff */
 	SDE_ATRACE_BEGIN("sde_encoder_prepare_for_kickoff");
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
@@ -4813,12 +4808,18 @@ void sde_encoder_prepare_commit(struct drm_encoder *drm_enc)
 	struct sde_encoder_phys *phys;
 	int i;
 	struct sde_hw_ctl *ctl;
+	int rc = 0;
 
 	if (!drm_enc) {
 		SDE_ERROR("invalid encoder\n");
 		return;
 	}
 	sde_enc = to_sde_encoder_virt(drm_enc);
+
+	/* update the qsync parameters for the current frame */
+	if (sde_enc->cur_master)
+		sde_connector_set_qsync_params(
+				sde_enc->cur_master->connector);
 
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		phys = sde_enc->phys_encs[i];
@@ -4835,6 +4836,16 @@ void sde_encoder_prepare_commit(struct drm_encoder *drm_enc)
 					ctl->ops.clear_pending_flush)
 				ctl->ops.clear_pending_flush(ctl);
 		}
+	}
+
+	if (sde_enc->cur_master && sde_enc->cur_master->connector) {
+		rc = sde_connector_prepare_commit(
+				  sde_enc->cur_master->connector);
+		if (rc)
+			SDE_ERROR_ENC(sde_enc,
+				      "prepare commit failed conn %d rc %d\n",
+				      sde_enc->cur_master->connector->base.id,
+				      rc);
 	}
 }
 
