@@ -130,6 +130,7 @@ struct cam_isp_bw_config_internal {
  * @bw_config:              BW config information
  * @bw_config_valid:        Flag indicating whether the bw_config at the index
  *                          is valid or not
+ * @fps:                    fps vaue which has been updated in hw
  *
  */
 struct cam_isp_prepare_hw_update_data {
@@ -137,40 +138,47 @@ struct cam_isp_prepare_hw_update_data {
 	struct cam_isp_bw_config_internal     bw_config[CAM_IFE_HW_NUM_MAX];
 	struct cam_isp_bw_config_internal_ab  bw_config_ab[CAM_IFE_HW_NUM_MAX];
 	bool                                bw_config_valid[CAM_IFE_HW_NUM_MAX];
+	uint32_t                            fps;
 };
 
 
 /**
  * struct cam_isp_hw_sof_event_data - Event payload for CAM_HW_EVENT_SOF
  *
- * @timestamp:   Time stamp for the sof event
- * @boot_time:   Boot time stamp for the sof event
+ * @timestamp:          Time stamp for the sof event
+ * @boot_time:          Boot time stamp for the sof event
+ * @irq_mono_boot_time: Time stamp till the execution of IRQ wrt event started
  *
  */
 struct cam_isp_hw_sof_event_data {
 	uint64_t       timestamp;
 	uint64_t       boot_time;
+	uint64_t       irq_mono_boot_time;
 };
 
 /**
  * struct cam_isp_hw_reg_update_event_data - Event payload for
  *                         CAM_HW_EVENT_REG_UPDATE
  *
- * @timestamp:     Time stamp for the reg update event
+ * @timestamp:          Time stamp for the reg update event
+ * @irq_mono_boot_time: Time stamp till the execution of IRQ wrt event started
  *
  */
 struct cam_isp_hw_reg_update_event_data {
 	uint64_t       timestamp;
+	uint64_t       irq_mono_boot_time;
 };
 
 /**
  * struct cam_isp_hw_epoch_event_data - Event payload for CAM_HW_EVENT_EPOCH
  *
- * @timestamp:     Time stamp for the epoch event
+ * @timestamp:          Time stamp for the epoch event
+ * @irq_mono_boot_time: Time stamp till the execution of this event started
  *
  */
 struct cam_isp_hw_epoch_event_data {
 	uint64_t       timestamp;
+	uint64_t       irq_mono_boot_time;
 };
 
 /**
@@ -179,6 +187,7 @@ struct cam_isp_hw_epoch_event_data {
  * @num_handles:           Number of resource handeles
  * @resource_handle:       Resource handle array
  * @timestamp:             Timestamp for the buf done event
+ * @irq_mono_boot_time:    Time stamp till the execution of this event started
  *
  */
 struct cam_isp_hw_done_event_data {
@@ -186,16 +195,19 @@ struct cam_isp_hw_done_event_data {
 	uint32_t             resource_handle[
 				CAM_NUM_OUT_PER_COMP_IRQ_MAX];
 	uint64_t       timestamp;
+	uint64_t       irq_mono_boot_time;
 };
 
 /**
  * struct cam_isp_hw_eof_event_data - Event payload for CAM_HW_EVENT_EOF
  *
  * @timestamp:             Timestamp for the eof event
+ * @irq_mono_boot_time:    Time stamp till the execution of this event started
  *
  */
 struct cam_isp_hw_eof_event_data {
 	uint64_t       timestamp;
+	uint64_t       irq_mono_boot_time;
 };
 
 /**
