@@ -16,6 +16,7 @@
 #define SYNX_STATE_ACTIVE                    1
 #define SYNX_STATE_SIGNALED_SUCCESS          2
 #define SYNX_STATE_SIGNALED_ERROR            3
+#define SYNX_STATE_SIGNALED_CANCEL           4
 
 #define SYNX_MAX_WAITING_SYNX                16
 
