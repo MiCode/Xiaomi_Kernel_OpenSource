@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
@@ -1307,6 +1307,10 @@ static int gmu_probe(struct kgsl_device *device, struct device_node *node)
 	gmu->load_mode = TCM_BOOT;
 
 	of_dma_configure(&gmu->pdev->dev, node, true);
+
+	dma_set_coherent_mask(&gmu->pdev->dev, DMA_BIT_MASK(64));
+	gmu->pdev->dev.dma_mask = &gmu->pdev->dev.coherent_dma_mask;
+	set_dma_ops(&gmu->pdev->dev, NULL);
 
 	/* Set up GMU regulators */
 	ret = gmu_regulators_probe(gmu, node);
