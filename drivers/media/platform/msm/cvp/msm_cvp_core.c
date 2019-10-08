@@ -290,6 +290,7 @@ void *msm_cvp_open(int core_id, int session_type)
 	pr_info(CVP_DBG_TAG "Opening cvp instance: %pK\n", "info", inst);
 	mutex_init(&inst->sync_lock);
 	mutex_init(&inst->lock);
+	mutex_init(&inst->fence_lock);
 	spin_lock_init(&inst->event_handler.lock);
 
 	INIT_MSM_CVP_LIST(&inst->persistbufs);
@@ -345,6 +346,7 @@ fail_init:
 	mutex_unlock(&core->lock);
 	mutex_destroy(&inst->sync_lock);
 	mutex_destroy(&inst->lock);
+	mutex_destroy(&inst->fence_lock);
 
 	DEINIT_MSM_CVP_LIST(&inst->persistbufs);
 	DEINIT_MSM_CVP_LIST(&inst->cvpcpubufs);
@@ -393,6 +395,7 @@ int msm_cvp_destroy(struct msm_cvp_inst *inst)
 
 	mutex_destroy(&inst->sync_lock);
 	mutex_destroy(&inst->lock);
+	mutex_destroy(&inst->fence_lock);
 
 	msm_cvp_debugfs_deinit_inst(inst);
 	_deinit_session_queue(inst);

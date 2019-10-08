@@ -1065,6 +1065,7 @@ static int msm_cvp_thread_fence_run(void *data)
 			}
 		}
 
+		mutex_lock(&inst->fence_lock);
 		rc = call_hfi_op(hdev, session_send,
 				(void *)inst->session, in_pkt);
 		if (rc) {
@@ -1085,6 +1086,7 @@ static int msm_cvp_thread_fence_run(void *data)
 				synx_state = SYNX_STATE_SIGNALED_ERROR;
 			}
 		}
+		mutex_unlock(&inst->fence_lock);
 
 		if (ica_enabled) {
 			rc = synx_import(fence[2], fence[3], &synx_obj);
@@ -1164,6 +1166,7 @@ static int msm_cvp_thread_fence_run(void *data)
 			}
 		}
 
+		mutex_lock(&inst->fence_lock);
 		rc = call_hfi_op(hdev, session_send,
 				(void *)inst->session, in_pkt);
 		if (rc) {
@@ -1184,6 +1187,7 @@ static int msm_cvp_thread_fence_run(void *data)
 				synx_state = SYNX_STATE_SIGNALED_ERROR;
 			}
 		}
+		mutex_unlock(&inst->fence_lock);
 
 		rc = synx_import(fence[2], fence[3], &synx_obj);
 		if (rc) {
@@ -1235,6 +1239,7 @@ static int msm_cvp_thread_fence_run(void *data)
 			}
 		}
 
+		mutex_lock(&inst->fence_lock);
 		rc = call_hfi_op(hdev, session_send,
 				(void *)inst->session, in_pkt);
 		if (rc) {
@@ -1255,6 +1260,7 @@ static int msm_cvp_thread_fence_run(void *data)
 				synx_state = SYNX_STATE_SIGNALED_ERROR;
 			}
 		}
+		mutex_unlock(&inst->fence_lock);
 
 		for (i = start_out; i <  start_out + out_fence_num; i++) {
 			if (fence[(i<<1)]) {
