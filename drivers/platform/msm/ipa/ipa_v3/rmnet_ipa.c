@@ -3099,7 +3099,7 @@ static int rmnet_ipa3_set_data_quota_wifi(struct wan_ioctl_set_data_quota *data)
 	IPAWANERR("iface name %s, quota %lu\n",
 		  data->interface_name, (unsigned long) data->quota_mbytes);
 
-	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5) {
+	if (ipa3_ctx_get_type(IPA_HW_TYPE) >= IPA_HW_v4_5) {
 		IPADBG("use ipa-uc for quota\n");
 		rc = ipa3_uc_quota_monitor(data->set_quota);
 	} else {
@@ -3829,11 +3829,11 @@ int rmnet_ipa3_query_tethering_stats_all(
 			data->upstreamIface);
 	} else if (upstream_type == IPA_UPSTEAM_WLAN) {
 		IPAWANDBG_LOW(" query wifi-backhaul stats\n");
-		if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5 ||
-			!ipa3_ctx->hw_stats.enabled) {
+		if (ipa3_ctx_get_type(IPA_HW_TYPE) < IPA_HW_v4_5 ||
+			!ipa3_ctx_get_flag(IPA_HW_STATS_EN)) {
 			IPAWANDBG("hw version %d,hw_stats.enabled %d\n",
-				ipa3_ctx->ipa_hw_type,
-				ipa3_ctx->hw_stats.enabled);
+				ipa3_ctx_get_type(IPA_HW_TYPE),
+				ipa3_ctx_get_flag(IPA_HW_STATS_EN));
 			rc = rmnet_ipa3_query_tethering_stats_wifi(
 				&tether_stats, data->reset_stats);
 			if (rc) {
