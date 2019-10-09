@@ -120,12 +120,12 @@ static const u32 crc_reg_val[] = {
 };
 
 static struct alpha_pll_config npu_cc_pll0_config = {
-	.l = 0x14,
+	.l = 0x1F,
 	.cal_l = 0x44,
-	.alpha = 0xD555,
+	.alpha = 0x4000,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
-	.config_ctl_hi1_val = 0x029A699C,
+	.config_ctl_hi1_val = 0x329A699C,
 	.user_ctl_val = 0x00000000,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x00000000,
@@ -184,7 +184,7 @@ static struct alpha_pll_config npu_cc_pll1_config = {
 	.alpha = 0x2000,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
-	.config_ctl_hi1_val = 0x029A699C,
+	.config_ctl_hi1_val = 0x329A699C,
 	.user_ctl_val = 0x00000000,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x00000000,
@@ -235,12 +235,12 @@ static struct clk_alpha_pll_postdiv npu_cc_pll1_out_even = {
 };
 
 static struct alpha_pll_config npu_q6ss_pll_config = {
-	.l = 0xD,
+	.l = 0xF,
 	.cal_l = 0x44,
-	.alpha = 0x555,
+	.alpha = 0xA000,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
-	.config_ctl_hi1_val = 0x029A699C,
+	.config_ctl_hi1_val = 0x329A699C,
 	.user_ctl_val = 0x00000000,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x00000000,
@@ -282,11 +282,20 @@ static struct clk_fixed_factor npu_cc_crc_div = {
 };
 
 static const struct freq_tbl ftbl_npu_cc_cal_hm0_clk_src[] = {
-	F(200000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
 	F(300000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
 	F(466000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
 	F(533000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
 	F(850000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
+	F(1000000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
+	{ }
+};
+
+static const struct freq_tbl ftbl_npu_cc_cal_hm0_clk_src_kona_v2[] = {
+	F(300000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
+	F(406000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
+	F(533000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
+	F(730000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
+	F(920000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
 	F(1000000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
 	{ }
 };
@@ -308,7 +317,6 @@ static struct clk_rcg2 npu_cc_cal_hm1_clk_src = {
 		.vdd_class = &vdd_cx,
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_MIN] = 200000000,
 			[VDD_LOWER] = 300000000,
 			[VDD_LOW] = 466000000,
 			[VDD_LOW_L1] = 533000000,
@@ -335,7 +343,6 @@ static struct clk_rcg2 npu_cc_cal_hm0_clk_src = {
 			.vdd_class = &vdd_cx,
 			.num_rate_max = VDD_NUM,
 			.rate_max = (unsigned long[VDD_NUM]) {
-				[VDD_MIN] = 200000000,
 				[VDD_LOWER] = 300000000,
 				[VDD_LOW] = 466000000,
 				[VDD_LOW_L1] = 533000000,
@@ -352,7 +359,6 @@ static struct clk_rcg2 npu_cc_cal_hm0_clk_src = {
 };
 
 static const struct freq_tbl ftbl_npu_cc_core_clk_src[] = {
-	F(60000000, P_GCC_NPU_GPLL0_DIV_CLK, 5, 0, 0),
 	F(100000000, P_GCC_NPU_GPLL0_DIV_CLK, 3, 0, 0),
 	F(200000000, P_GCC_NPU_GPLL0_CLK, 3, 0, 0),
 	F(333333333, P_NPU_CC_PLL1_OUT_EVEN, 4.5, 0, 0),
@@ -378,7 +384,6 @@ static struct clk_rcg2 npu_cc_core_clk_src = {
 		.vdd_class = &vdd_cx,
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_MIN] = 60000000,
 			[VDD_LOWER] = 100000000,
 			[VDD_LOW] = 200000000,
 			[VDD_LOW_L1] = 333333333,
@@ -388,7 +393,6 @@ static struct clk_rcg2 npu_cc_core_clk_src = {
 };
 
 static const struct freq_tbl ftbl_npu_cc_lmh_clk_src[] = {
-	F(60000000, P_GCC_NPU_GPLL0_DIV_CLK, 5, 0, 0),
 	F(100000000, P_GCC_NPU_GPLL0_DIV_CLK, 3, 0, 0),
 	F(200000000, P_GCC_NPU_GPLL0_CLK, 3, 0, 0),
 	F(214285714, P_NPU_CC_PLL1_OUT_EVEN, 7, 0, 0),
@@ -413,7 +417,6 @@ static struct clk_rcg2 npu_cc_lmh_clk_src = {
 		.vdd_class = &vdd_cx,
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_MIN] = 60000000,
 			[VDD_LOWER] = 100000000,
 			[VDD_LOW] = 200000000,
 			[VDD_LOW_L1] = 214285714,
@@ -441,7 +444,6 @@ static struct clk_rcg2 npu_cc_xo_clk_src = {
 };
 
 static const struct freq_tbl ftbl_npu_dsp_core_clk_src[] = {
-	F(250000000, P_NPU_Q6SS_PLL_OUT_MAIN, 1, 0, 0),
 	F(300000000, P_NPU_Q6SS_PLL_OUT_MAIN, 1, 0, 0),
 	F(400000000, P_NPU_Q6SS_PLL_OUT_MAIN, 1, 0, 0),
 	F(500000000, P_NPU_Q6SS_PLL_OUT_MAIN, 1, 0, 0),
@@ -467,7 +469,6 @@ static struct clk_rcg2 npu_dsp_core_clk_src = {
 		.vdd_class = &vdd_cx,
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_MIN] = 250000000,
 			[VDD_LOWER] = 300000000,
 			[VDD_LOW] = 400000000,
 			[VDD_LOW_L1] = 500000000,
@@ -1168,9 +1169,44 @@ static const struct qcom_cc_desc npu_qdsp6ss_pll_kona_desc = {
 
 static const struct of_device_id npu_cc_kona_match_table[] = {
 	{ .compatible = "qcom,npucc-kona" },
+	{ .compatible = "qcom,npucc-kona-v2" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, npu_cc_kona_match_table);
+
+static void npu_cc_kona_fixup_konav2(struct regmap *regmap)
+{
+	npu_cc_cal_hm0_clk_src.freq_tbl = ftbl_npu_cc_cal_hm0_clk_src_kona_v2;
+	npu_cc_cal_hm0_clk_src.clkr.hw.init->rate_max[VDD_LOW] = 406000000;
+	npu_cc_cal_hm0_clk_src.clkr.hw.init->rate_max[VDD_NOMINAL] = 730000000;
+	npu_cc_cal_hm0_clk_src.clkr.hw.init->rate_max[VDD_NOMINAL_L1] =
+		850000000;
+	npu_cc_cal_hm0_clk_src.clkr.hw.init->rate_max[VDD_HIGH] = 920000000;
+	npu_cc_cal_hm0_clk_src.clkr.hw.init->rate_max[VDD_HIGH_L1] = 1000000000;
+	npu_cc_cal_hm1_clk_src.freq_tbl = ftbl_npu_cc_cal_hm0_clk_src_kona_v2;
+	npu_cc_cal_hm1_clk_src.clkr.hw.init->rate_max[VDD_LOW] = 406000000;
+	npu_cc_cal_hm1_clk_src.clkr.hw.init->rate_max[VDD_NOMINAL] = 730000000;
+	npu_cc_cal_hm1_clk_src.clkr.hw.init->rate_max[VDD_NOMINAL_L1] =
+		850000000;
+	npu_cc_cal_hm1_clk_src.clkr.hw.init->rate_max[VDD_HIGH] = 920000000;
+	npu_cc_cal_hm1_clk_src.clkr.hw.init->rate_max[VDD_HIGH_L1] = 1000000000;
+}
+
+static int npu_cc_kona_fixup(struct platform_device *pdev,
+	struct regmap *regmap)
+{
+	const char *compat = NULL;
+	int compatlen = 0;
+
+	compat = of_get_property(pdev->dev.of_node, "compatible", &compatlen);
+	if (!compat || (compatlen <= 0))
+		return -EINVAL;
+
+	if (!strcmp(compat, "qcom,npucc-kona-v2"))
+		npu_cc_kona_fixup_konav2(regmap);
+
+	return 0;
+}
 
 static int npu_clocks_kona_probe(struct platform_device *pdev,
 				 const struct qcom_cc_desc *desc)
@@ -1203,6 +1239,10 @@ static int npu_clocks_kona_probe(struct platform_device *pdev,
 				ret);
 			return ret;
 		}
+
+		ret = npu_cc_kona_fixup(pdev, regmap);
+		if (ret)
+			return ret;
 	} else if (!strcmp("qdsp6ss_pll", desc->config->name)) {
 		clk_lucid_pll_configure(&npu_q6ss_pll, regmap,
 					&npu_q6ss_pll_config);
