@@ -174,7 +174,6 @@ static dma_addr_t __fast_smmu_alloc_iova(struct dma_fast_smmu_mapping *mapping,
 		nbits, align);
 	if (unlikely(bit > mapping->num_4k_pages)) {
 		/* try wrapping */
-		mapping->next_start = 0; /* TODO: SHOULD I REALLY DO THIS?!? */
 		bit = bitmap_find_next_zero_area(
 			mapping->bitmap, mapping->num_4k_pages, 0, nbits,
 			align);
