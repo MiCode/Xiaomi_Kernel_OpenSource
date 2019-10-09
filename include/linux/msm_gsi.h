@@ -17,6 +17,7 @@ enum gsi_ver {
 	GSI_VER_2_2 = 5,
 	GSI_VER_2_5 = 6,
 	GSI_VER_2_7 = 7,
+	GSI_VER_2_9 = 8,
 	GSI_VER_MAX,
 };
 
