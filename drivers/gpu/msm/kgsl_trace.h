@@ -286,6 +286,26 @@ TRACE_EVENT(kgsl_pwrlevel,
 	)
 );
 
+/*
+ * Tracepoint for kgsl gpu_frequency
+ */
+TRACE_EVENT(gpu_frequency,
+	TP_PROTO(unsigned int gpu_freq, unsigned int gpu_id),
+	TP_ARGS(gpu_freq, gpu_id),
+	TP_STRUCT__entry(
+		__field(unsigned int, gpu_freq)
+		__field(unsigned int, gpu_id)
+	),
+	TP_fast_assign(
+		__entry->gpu_freq = gpu_freq;
+		__entry->gpu_id = gpu_id;
+	),
+
+	TP_printk("gpu_freq=%luKhz gpu_id=%lu",
+		(unsigned long)__entry->gpu_freq,
+		(unsigned long)__entry->gpu_id)
+);
+
 TRACE_EVENT(kgsl_buslevel,
 
 	TP_PROTO(struct kgsl_device *device, unsigned int pwrlevel,
