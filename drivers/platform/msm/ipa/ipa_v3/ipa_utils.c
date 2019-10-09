@@ -661,33 +661,36 @@ enum ipa_qmb_instance_type {
 struct ipa_qmb_outstanding {
 	u16 ot_reads;
 	u16 ot_writes;
+	u16 ot_read_beats;
 };
+
+/*TODO: Update correct values of max_read_beats for all targets*/
 
 static const struct ipa_qmb_outstanding ipa3_qmb_outstanding
 		[IPA_VER_MAX][IPA_QMB_INSTANCE_MAX] = {
-	[IPA_3_0][IPA_QMB_INSTANCE_DDR]	= {8, 8},
-	[IPA_3_0][IPA_QMB_INSTANCE_PCIE]	= {8, 2},
-	[IPA_3_5][IPA_QMB_INSTANCE_DDR]	= {8, 8},
-	[IPA_3_5][IPA_QMB_INSTANCE_PCIE]	= {12, 4},
-	[IPA_3_5_MHI][IPA_QMB_INSTANCE_DDR]	= {8, 8},
-	[IPA_3_5_MHI][IPA_QMB_INSTANCE_PCIE]	= {12, 4},
-	[IPA_3_5_1][IPA_QMB_INSTANCE_DDR]	= {8, 8},
-	[IPA_3_5_1][IPA_QMB_INSTANCE_PCIE]	= {12, 4},
-	[IPA_4_0][IPA_QMB_INSTANCE_DDR]	= {12, 8},
-	[IPA_4_0][IPA_QMB_INSTANCE_PCIE]	= {12, 4},
-	[IPA_4_0_MHI][IPA_QMB_INSTANCE_DDR]	= {12, 8},
-	[IPA_4_0_MHI][IPA_QMB_INSTANCE_PCIE]	= {12, 4},
-	[IPA_4_1][IPA_QMB_INSTANCE_DDR]	= {12, 8},
-	[IPA_4_1][IPA_QMB_INSTANCE_PCIE]	= {12, 4},
-	[IPA_4_2][IPA_QMB_INSTANCE_DDR]	= {12, 8},
-	[IPA_4_5][IPA_QMB_INSTANCE_DDR]	= {16, 8},
-	[IPA_4_5][IPA_QMB_INSTANCE_PCIE]	= {12, 8},
-	[IPA_4_5_MHI][IPA_QMB_INSTANCE_DDR]	= {16, 8},
-	[IPA_4_5_MHI][IPA_QMB_INSTANCE_PCIE]	= {12, 8},
-	[IPA_4_5_APQ][IPA_QMB_INSTANCE_DDR]	= {16, 8},
-	[IPA_4_5_APQ][IPA_QMB_INSTANCE_PCIE]	= {12, 8},
-	[IPA_4_7][IPA_QMB_INSTANCE_DDR]	        = {13, 12},
-	[IPA_4_9][IPA_QMB_INSTANCE_DDR]	        = {16, 8},
+	[IPA_3_0][IPA_QMB_INSTANCE_DDR]		= {8, 8, 0},
+	[IPA_3_0][IPA_QMB_INSTANCE_PCIE]	= {8, 2, 0},
+	[IPA_3_5][IPA_QMB_INSTANCE_DDR]		= {8, 8, 0},
+	[IPA_3_5][IPA_QMB_INSTANCE_PCIE]	= {12, 4, 0},
+	[IPA_3_5_MHI][IPA_QMB_INSTANCE_DDR]	= {8, 8, 0},
+	[IPA_3_5_MHI][IPA_QMB_INSTANCE_PCIE]	= {12, 4, 0},
+	[IPA_3_5_1][IPA_QMB_INSTANCE_DDR]	= {8, 8, 0},
+	[IPA_3_5_1][IPA_QMB_INSTANCE_PCIE]	= {12, 4, 0},
+	[IPA_4_0][IPA_QMB_INSTANCE_DDR]		= {12, 8, 120},
+	[IPA_4_0][IPA_QMB_INSTANCE_PCIE]	= {12, 4, 0},
+	[IPA_4_0_MHI][IPA_QMB_INSTANCE_DDR]	= {12, 8, 0},
+	[IPA_4_0_MHI][IPA_QMB_INSTANCE_PCIE]	= {12, 4, 0},
+	[IPA_4_1][IPA_QMB_INSTANCE_DDR]		= {12, 8, 120},
+	[IPA_4_1][IPA_QMB_INSTANCE_PCIE]	= {12, 4, 0},
+	[IPA_4_2][IPA_QMB_INSTANCE_DDR]		= {12, 8, 0},
+	[IPA_4_5][IPA_QMB_INSTANCE_DDR]		= {16, 8, 120},
+	[IPA_4_5][IPA_QMB_INSTANCE_PCIE]	= {12, 8, 0},
+	[IPA_4_5_MHI][IPA_QMB_INSTANCE_DDR]	= {16, 8, 120},
+	[IPA_4_5_MHI][IPA_QMB_INSTANCE_PCIE]	= {12, 8, 0},
+	[IPA_4_5_APQ][IPA_QMB_INSTANCE_DDR]	= {16, 8, 120},
+	[IPA_4_5_APQ][IPA_QMB_INSTANCE_PCIE]	= {12, 8, 0},
+	[IPA_4_7][IPA_QMB_INSTANCE_DDR]	        = {13, 12, 120},
+	[IPA_4_9][IPA_QMB_INSTANCE_DDR]	        = {16, 8, 120},
 };
 
 struct ipa_ep_configuration {
@@ -4162,9 +4165,17 @@ static void ipa3_cfg_qsb(void)
 
 	hw_type_idx = ipa3_get_hw_type_index();
 
+	/*
+	 * Read the register values before writing to them to ensure
+	 * other values are not overwritten
+	 */
+	ipahal_read_reg_fields(IPA_QSB_MAX_WRITES, &max_writes);
+	ipahal_read_reg_fields(IPA_QSB_MAX_READS, &max_reads);
+
 	qmb_ot = &(ipa3_qmb_outstanding[hw_type_idx][IPA_QMB_INSTANCE_DDR]);
 	max_reads.qmb_0_max_reads = qmb_ot->ot_reads;
 	max_writes.qmb_0_max_writes = qmb_ot->ot_writes;
+	max_reads.qmb_0_max_read_beats = qmb_ot->ot_read_beats;
 
 	qmb_ot = &(ipa3_qmb_outstanding[hw_type_idx][IPA_QMB_INSTANCE_PCIE]);
 	max_reads.qmb_1_max_reads = qmb_ot->ot_reads;

@@ -358,8 +358,13 @@ struct ipahal_reg_timers_xo_clk_div_cfg {
  * @ipa_full_flush_wait_rsc_closure_en: relevant starting IPA4.5
  */
 struct ipahal_reg_comp_cfg {
+	bool gen_qmb_0_dynamic_asize;
+	bool gen_qmb_1_dynamic_asize;
 	bool ipa_full_flush_wait_rsc_closure_en;
 	u8 ipa_atomic_fetcher_arb_lock_dis;
+	bool gsi_if_out_of_buf_stop_reset_mask_enable;
+	bool genqmb_aooowr;
+	bool qmb_ram_rd_cache_disable;
 	bool ipa_qmb_select_by_address_global_en;
 	bool gsi_multi_axi_masters_dis;
 	bool gsi_snoc_cnoc_loop_protection_disable;
@@ -376,6 +381,7 @@ struct ipahal_reg_comp_cfg {
 	bool gen_qmb_1_snoc_bypass_dis;
 	bool gen_qmb_0_snoc_bypass_dis;
 	bool gsi_snoc_bypass_dis;
+	bool ram_arb_priority_client_samp_fix_disable;
 	bool enable;
 };
 
@@ -610,6 +616,10 @@ struct ipahal_reg_qsb_max_reads {
  * @dmaw_scnd_outsd_pred_en:
  * @pa_mask_en:
  * @dual_tx_enable: When 1 TX0 and TX1 are enabled. When 0 only TX0 is enabled
+ * @sspnd_pa_no_start_state: When 1 sspnd_req does not take inco account
+			     PA FSM state START.
+			     When 0 sspnd_req_ will not be answered
+			     on that state.
  *  Relevant starting IPA4.5
  */
 struct ipahal_reg_tx_cfg {
@@ -622,6 +632,7 @@ struct ipahal_reg_tx_cfg {
 	u32 dmaw_scnd_outsd_pred_en;
 	u32 pa_mask_en;
 	bool dual_tx_enable;
+	bool sspnd_pa_no_start_state;
 };
 
 /*
