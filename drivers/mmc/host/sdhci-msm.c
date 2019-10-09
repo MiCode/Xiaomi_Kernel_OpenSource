@@ -2278,7 +2278,7 @@ void sdhci_msm_cqe_enable(struct mmc_host *mmc)
 		host->desc_sz = 12;
 
 	sdhci_cqe_enable(mmc);
-	/* Set maximum timeout as per qcom spec */
+	/* Set maximum timeout as per qti spec */
 	sdhci_writeb(host, 0xF, SDHCI_TIMEOUT_CONTROL);
 }
 
@@ -5090,8 +5090,14 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	msm_host->pclk = devm_clk_get(&pdev->dev, "iface_clk");
 	if (!IS_ERR(msm_host->pclk)) {
 		ret = clk_prepare_enable(msm_host->pclk);
-		if (ret)
+		if (ret) {
+			dev_err(&pdev->dev, "Iface clk not enabled (%d)\n"
+					, ret);
 			goto bus_clk_disable;
+		}
+	} else {
+		ret = PTR_ERR(msm_host->pclk);
+		dev_err(&pdev->dev, "Iface clk get failed (%d)\n", ret);
 	}
 	atomic_set(&msm_host->controller_clock, 1);
 
@@ -5113,6 +5119,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	msm_host->clk = devm_clk_get(&pdev->dev, "core_clk");
 	if (IS_ERR(msm_host->clk)) {
 		ret = PTR_ERR(msm_host->clk);
+		dev_err(&pdev->dev, "Core clk get failed (%d)\n", ret);
 		goto bus_aggr_clk_disable;
 	}
 
@@ -5123,9 +5130,10 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		goto bus_aggr_clk_disable;
 	}
 	ret = clk_prepare_enable(msm_host->clk);
-	if (ret)
+	if (ret) {
+		dev_err(&pdev->dev, "Core clk not enabled (%d)\n", ret);
 		goto bus_aggr_clk_disable;
-
+	}
 	msm_host->clk_rate = sdhci_msm_get_min_clock(host);
 	atomic_set(&msm_host->clks_on, 1);
 

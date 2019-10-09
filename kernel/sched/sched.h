@@ -991,7 +991,6 @@ struct rq {
 	struct walt_sched_stats walt_stats;
 
 	u64			window_start;
-	s64			cum_window_start;
 	unsigned long		walt_flags;
 
 	u64			cur_irqload;

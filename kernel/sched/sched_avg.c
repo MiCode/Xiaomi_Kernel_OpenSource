@@ -25,14 +25,12 @@ static DEFINE_PER_CPU(u64, nr_max);
 static DEFINE_PER_CPU(spinlock_t, nr_lock) = __SPIN_LOCK_UNLOCKED(nr_lock);
 static s64 last_get_time;
 
-#ifdef CONFIG_SCHED_WALT
 unsigned int sysctl_sched_busy_hyst_enable_cpus;
 unsigned int sysctl_sched_busy_hyst;
 unsigned int sysctl_sched_coloc_busy_hyst_enable_cpus = 112;
 unsigned int sysctl_sched_coloc_busy_hyst = 39000000;
 unsigned int sysctl_sched_coloc_busy_hyst_max_ms = 5000;
 static DEFINE_PER_CPU(atomic64_t, busy_hyst_end_time) = ATOMIC64_INIT(0);
-#endif
 static DEFINE_PER_CPU(u64, hyst_time);
 
 #define NR_THRESHOLD_PCT		15
@@ -114,7 +112,6 @@ void sched_get_nr_running_avg(struct sched_avg_stats *stats)
 }
 EXPORT_SYMBOL(sched_get_nr_running_avg);
 
-#ifdef CONFIG_SCHED_WALT
 void sched_update_hyst_times(void)
 {
 	u64 std_time, rtgb_time;
@@ -156,12 +153,6 @@ static inline void update_busy_hyst_end_time(int cpu, bool dequeue,
 		atomic64_set(&per_cpu(busy_hyst_end_time, cpu),
 				curr_time + per_cpu(hyst_time, cpu));
 }
-#else
-static inline void update_busy_hyst_end_time(int cpu, bool dequeue,
-				unsigned long prev_nr_run, u64 curr_time)
-{
-}
-#endif
 
 /**
  * sched_update_nr_prod
@@ -215,10 +206,9 @@ unsigned int sched_get_cpu_util(int cpu)
 	util = rq->cfs.avg.util_avg;
 	capacity = capacity_orig_of(cpu);
 
-#ifdef CONFIG_SCHED_WALT
 	util = rq->prev_runnable_sum + rq->grp_time.prev_runnable_sum;
 	util = div64_u64(util, sched_ravg_window >> SCHED_CAPACITY_SHIFT);
-#endif
+
 	raw_spin_unlock_irqrestore(&rq->lock, flags);
 
 	util = (util >= capacity) ? capacity : util;
@@ -226,7 +216,6 @@ unsigned int sched_get_cpu_util(int cpu)
 	return busy;
 }
 
-#ifdef CONFIG_SCHED_WALT
 u64 sched_lpm_disallowed_time(int cpu)
 {
 	u64 now = sched_clock();
@@ -237,4 +226,3 @@ u64 sched_lpm_disallowed_time(int cpu)
 
 	return 0;
 }
-#endif

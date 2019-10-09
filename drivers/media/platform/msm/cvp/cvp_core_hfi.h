@@ -240,6 +240,7 @@ struct iris_hfi_device {
 	unsigned long scaled_rate;
 	struct msm_cvp_gov_data bus_vote;
 	bool power_enabled;
+	bool reg_dumped;
 	struct mutex lock;
 	msm_cvp_callback callback;
 	struct cvp_mem_addr iface_q_table;

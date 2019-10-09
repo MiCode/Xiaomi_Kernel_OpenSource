@@ -590,7 +590,7 @@ void a6xx_preemption_start(struct adreno_device *adreno_dev)
 }
 
 static int a6xx_preemption_ringbuffer_init(struct adreno_device *adreno_dev,
-	struct adreno_ringbuffer *rb, uint64_t counteraddr)
+	struct adreno_ringbuffer *rb)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	int ret;
@@ -636,7 +636,7 @@ static int a6xx_preemption_ringbuffer_init(struct adreno_device *adreno_dev,
 	kgsl_sharedmem_writeq(device, &rb->preemption_desc,
 		PREEMPT_RECORD(rbase), rb->buffer_desc.gpuaddr);
 	kgsl_sharedmem_writeq(device, &rb->preemption_desc,
-		PREEMPT_RECORD(counter), counteraddr);
+		PREEMPT_RECORD(counter), 0);
 
 	return 0;
 }
@@ -679,7 +679,6 @@ static void _preemption_close(struct adreno_device *adreno_dev)
 	unsigned int i;
 
 	del_timer(&preempt->timer);
-	kgsl_free_global(device, &preempt->counters);
 	a6xx_preemption_iommu_close(adreno_dev);
 
 	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
@@ -706,7 +705,6 @@ int a6xx_preemption_init(struct adreno_device *adreno_dev)
 	struct adreno_ringbuffer *rb;
 	int ret;
 	unsigned int i;
-	uint64_t addr;
 
 	/* We are dependent on IOMMU to make preemption go on the CP side */
 	if (kgsl_mmu_get_mmutype(device) != KGSL_MMU_TYPE_IOMMU)
@@ -716,23 +714,11 @@ int a6xx_preemption_init(struct adreno_device *adreno_dev)
 
 	timer_setup(&preempt->timer, _a6xx_preemption_timer, 0);
 
-	/* Allocate mem for storing preemption counters */
-	ret = kgsl_allocate_global(device, &preempt->counters,
-		adreno_dev->num_ringbuffers *
-		A6XX_CP_CTXRECORD_PREEMPTION_COUNTER_SIZE, 0, 0,
-		"preemption_counters");
-	if (ret)
-		goto err;
-
-	addr = preempt->counters.gpuaddr;
-
 	/* Allocate mem for storing preemption switch record */
 	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
-		ret = a6xx_preemption_ringbuffer_init(adreno_dev, rb, addr);
+		ret = a6xx_preemption_ringbuffer_init(adreno_dev, rb);
 		if (ret)
 			goto err;
-
-		addr += A6XX_CP_CTXRECORD_PREEMPTION_COUNTER_SIZE;
 	}
 
 	ret = a6xx_preemption_iommu_init(adreno_dev);

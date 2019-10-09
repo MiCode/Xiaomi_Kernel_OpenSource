@@ -305,6 +305,9 @@ static void __cqhci_enable(struct cqhci_host *cq_host)
 
 	cqhci_writel(cq_host, cq_host->rca, CQHCI_SSC2);
 
+	/* send QSR at lesser intervals than the default */
+	cqhci_writel(cq_host, SEND_QSR_INTERVAL, CQHCI_SSC1);
+
 	cqhci_set_irqs(cq_host, 0);
 
 	mmc->cqe_on = true;
@@ -675,6 +678,7 @@ static int cqhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		if (cq_host->ops->crypto_cfg) {
 			err = cq_host->ops->crypto_cfg(mmc, mrq, tag, &ice_ctx);
 			if (err) {
+				mmc->err_stats[MMC_ERR_ICE_CFG]++;
 				pr_err("%s: failed to configure crypto: err %d tag %d\n",
 						mmc_hostname(mmc), err, tag);
 				goto out;
@@ -689,7 +693,7 @@ static int cqhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		if (err) {
 			pr_err("%s: cqhci: failed to setup tx desc: %d\n",
 			       mmc_hostname(mmc), err);
-			return err;
+			goto end_crypto;
 		}
 		/* PM QoS */
 		sdhci_msm_pm_qos_irq_vote(host);
@@ -712,6 +716,10 @@ static int cqhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 
 	/* Ensure the task descriptor list is flushed before ringing doorbell */
 	wmb();
+	if (cqhci_readl(cq_host, CQHCI_TDBR) & (1 << tag)) {
+		cqhci_dumpregs(cq_host);
+		BUG();
+	}
 	mmc_log_string(mmc, "tag: %d\n", tag);
 	cqhci_writel(cq_host, 1 << tag, CQHCI_TDBR);
 	/* Commit the doorbell write immediately */
@@ -724,6 +732,20 @@ out_unlock:
 
 	if (err)
 		cqhci_post_req(mmc, mrq);
+
+	goto out;
+
+end_crypto:
+	if (cq_host->ops->crypto_cfg_end && mrq->data) {
+		err = cq_host->ops->crypto_cfg_end(mmc, mrq);
+		if (err)
+			pr_err("%s: failed to end ice config: err %d tag %d\n",
+					mmc_hostname(mmc), err, tag);
+	}
+	if (!(cq_host->caps & CQHCI_CAP_CRYPTO_SUPPORT) &&
+			cq_host->ops->crypto_cfg_reset && mrq->data)
+		cq_host->ops->crypto_cfg_reset(mmc, tag);
+
 out:
 	return err;
 }
@@ -1047,7 +1069,7 @@ static bool cqhci_halt(struct mmc_host *mmc, unsigned int timeout)
  * layers will need to send a STOP command), so we set the timeout based on a
  * generous command timeout.
  */
-#define CQHCI_START_HALT_TIMEOUT	5
+#define CQHCI_START_HALT_TIMEOUT	5000
 
 static void cqhci_recovery_start(struct mmc_host *mmc)
 {

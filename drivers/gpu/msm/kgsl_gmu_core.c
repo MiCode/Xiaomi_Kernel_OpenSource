@@ -315,6 +315,15 @@ void gmu_core_dev_snapshot(struct kgsl_device *device,
 		ops->snapshot(device, snapshot);
 }
 
+void gmu_core_dev_cooperative_reset(struct kgsl_device *device)
+{
+
+	struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
+
+	if (ops && ops->cooperative_reset)
+		ops->cooperative_reset(device);
+}
+
 bool gmu_core_dev_gx_is_on(struct kgsl_device *device)
 {
 	struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);

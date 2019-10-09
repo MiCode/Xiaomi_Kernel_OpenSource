@@ -1832,6 +1832,8 @@ extern int usb_string(struct usb_device *dev, int index,
 extern int usb_clear_halt(struct usb_device *dev, int pipe);
 extern int usb_reset_configuration(struct usb_device *dev);
 extern int usb_set_interface(struct usb_device *dev, int ifnum, int alternate);
+extern int usb_set_interface_timeout(struct usb_device *dev, int ifnum,
+		int alternate, unsigned long timeout);
 extern void usb_reset_endpoint(struct usb_device *dev, unsigned int epaddr);
 
 /* this request isn't really synchronous, but it belongs with the others */

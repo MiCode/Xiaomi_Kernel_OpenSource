@@ -894,6 +894,11 @@ static void ipa_pm_sys_pipe_cb(void *p, enum ipa_pm_cb_event event)
 			usleep_range(SUSPEND_MIN_SLEEP_RX,
 				SUSPEND_MAX_SLEEP_RX);
 			IPA_ACTIVE_CLIENTS_DEC_SPECIAL("PIPE_SUSPEND_ODL");
+		} else if (sys->ep->client == IPA_CLIENT_APPS_WAN_COAL_CONS) {
+			IPA_ACTIVE_CLIENTS_INC_SPECIAL("PIPE_SUSPEND_COAL");
+			usleep_range(SUSPEND_MIN_SLEEP_RX,
+				SUSPEND_MAX_SLEEP_RX);
+			IPA_ACTIVE_CLIENTS_DEC_SPECIAL("PIPE_SUSPEND_COAL");
 		} else
 			IPAERR("Unexpected event %d\n for client %d\n",
 				event, sys->ep->client);
@@ -1949,10 +1954,12 @@ static void ipa3_replenish_rx_page_recycle(struct ipa3_sys_context *sys)
 	u32 curr_wq;
 	int idx = 0;
 	struct page *cur_page;
+	u32 stats_i = 0;
 
 	/* start replenish only when buffers go lower than the threshold */
 	if (sys->rx_pool_sz - sys->len < IPA_REPL_XFER_THRESH)
 		return;
+	stats_i = (sys->ep->client == IPA_CLIENT_APPS_WAN_COAL_CONS) ? 0 : 1;
 
 	spin_lock_bh(&sys->spinlock);
 	rx_len_cached = sys->len;
@@ -1972,6 +1979,7 @@ static void ipa3_replenish_rx_page_recycle(struct ipa3_sys_context *sys)
 			 * Could not find idle page at curr index.
 			 * Allocate a new one.
 			 */
+			ipa3_ctx->stats.page_recycle_stats[stats_i].tmp_alloc++;
 			if (curr_wq == atomic_read(&sys->repl->tail_idx))
 				break;
 			rx_pkt = sys->repl->cache[curr_wq];
@@ -1992,6 +2000,7 @@ static void ipa3_replenish_rx_page_recycle(struct ipa3_sys_context *sys)
 		gsi_xfer_elem_array[idx].xfer_user_data = rx_pkt;
 		rx_len_cached++;
 		idx++;
+		ipa3_ctx->stats.page_recycle_stats[stats_i].total_replenished++;
 		/*
 		 * gsi_xfer_elem_buffer has a size of IPA_REPL_XFER_THRESH.
 		 * If this size is reached we need to queue the xfers.
@@ -2560,8 +2569,11 @@ static void ipa3_cleanup_rx(struct ipa3_sys_context *sys)
 	list_for_each_entry_safe(rx_pkt, r,
 				 &sys->rcycl_list, link) {
 		list_del(&rx_pkt->link);
-		dma_unmap_single(ipa3_ctx->pdev, rx_pkt->data.dma_addr,
-			sys->rx_buff_sz, DMA_FROM_DEVICE);
+		if (rx_pkt->data.dma_addr)
+			dma_unmap_single(ipa3_ctx->pdev, rx_pkt->data.dma_addr,
+				sys->rx_buff_sz, DMA_FROM_DEVICE);
+		else
+			IPADBG("DMA address already freed\n");
 		sys->free_skb(rx_pkt->data.skb);
 		kmem_cache_free(ipa3_ctx->rx_pkt_wrapper_cache, rx_pkt);
 	}

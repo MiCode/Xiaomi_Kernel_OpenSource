@@ -684,7 +684,9 @@ static int msm_ssphy_qmp_set_suspend(struct usb_phy *uphy, int suspend)
 		if (phy->cable_connected) {
 			msm_ssusb_qmp_enable_autonomous(phy, 1);
 		} else {
-			if (uphy->type  == USB_PHY_TYPE_USB3_AND_DP)
+			/* Reset phy mode to USB only if DP not connected */
+			if (uphy->type  == USB_PHY_TYPE_USB3_AND_DP &&
+				!(phy->phy.flags & PHY_USB_DP_CONCURRENT_MODE))
 				msm_ssphy_qmp_setmode(phy, USB3_MODE);
 			writel_relaxed(0x00,
 			phy->base + phy->phy_reg[USB3_PHY_POWER_DOWN_CONTROL]);

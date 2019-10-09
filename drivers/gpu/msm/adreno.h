@@ -107,6 +107,8 @@
 #define ADRENO_COOP_RESET BIT(19)
 /* Indicates that the specific target is no longer supported */
 #define ADRENO_DEPRECATED BIT(20)
+/* The target supports ringbuffer level APRIV */
+#define ADRENO_APRIV BIT(21)
 /*
  * Adreno GPU quirks - control bits for various workarounds
  */
@@ -404,6 +406,8 @@ enum gpu_coresight_sources {
  * @ft_policy: Defines the fault tolerance policy
  * @long_ib_detect: Long IB detection availability
  * @ft_pf_policy: Defines the fault policy for page faults
+ * @cooperative_reset: Indicates if graceful death handshake is enabled
+ * between GMU and GPU
  * @profile: Container for adreno profiler information
  * @dispatcher: Container for adreno GPU dispatcher
  * @pwron_fixup: Command buffer to run a post-power collapse shader workaround
@@ -481,6 +485,7 @@ struct adreno_device {
 	unsigned long ft_policy;
 	unsigned int long_ib_detect;
 	unsigned long ft_pf_policy;
+	bool cooperative_reset;
 	struct adreno_profile profile;
 	struct adreno_dispatcher dispatcher;
 	struct kgsl_memdesc pwron_fixup;
@@ -603,7 +608,6 @@ enum adreno_regs {
 	ADRENO_REG_CP_ME_RAM_DATA,
 	ADRENO_REG_CP_PFP_UCODE_DATA,
 	ADRENO_REG_CP_PFP_UCODE_ADDR,
-	ADRENO_REG_CP_WFI_PEND_CTR,
 	ADRENO_REG_CP_RB_BASE,
 	ADRENO_REG_CP_RB_BASE_HI,
 	ADRENO_REG_CP_RB_RPTR_ADDR_LO,
@@ -1812,4 +1816,5 @@ int adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
 	enum adreno_regs offset, unsigned int val,
 	unsigned int fence_mask);
 int adreno_clear_pending_transactions(struct kgsl_device *device);
+void adreno_gmu_send_nmi(struct adreno_device *adreno_dev);
 #endif /*__ADRENO_H */

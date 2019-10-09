@@ -333,6 +333,28 @@ void adreno_fault_detect_stop(struct adreno_device *adreno_dev)
 	adreno_dev->fast_hang_detect = 0;
 }
 
+#define GMU_CM3_CFG_NONMASKINTR_SHIFT	9
+
+/* Send an NMI to the GMU */
+void adreno_gmu_send_nmi(struct adreno_device *adreno_dev)
+{
+	/* Mask so there's no interrupt caused by NMI */
+	adreno_write_gmureg(adreno_dev,
+			ADRENO_REG_GMU_GMU2HOST_INTR_MASK, 0xFFFFFFFF);
+
+	/* Make sure the interrupt is masked before causing it */
+	wmb();
+	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
+		adreno_write_gmureg(adreno_dev,
+				ADRENO_REG_GMU_NMI_CONTROL_STATUS, 0);
+	adreno_write_gmureg(adreno_dev,
+			ADRENO_REG_GMU_CM3_CFG,
+			(1 << GMU_CM3_CFG_NONMASKINTR_SHIFT));
+
+	/* Make sure the NMI is invoked before we proceed*/
+	wmb();
+}
+
 /*
  * A workqueue callback responsible for actually turning on the GPU after a
  * touch event. kgsl_pwrctrl_change_state(ACTIVE) is used without any
@@ -1321,6 +1343,7 @@ static int adreno_probe(struct platform_device *pdev)
 	struct adreno_device *adreno_dev;
 	struct kgsl_device *device;
 	int status;
+	unsigned int priv;
 
 	of_id = of_match_device(adreno_match_table, &pdev->dev);
 	if (!of_id)
@@ -1405,6 +1428,18 @@ static int adreno_probe(struct platform_device *pdev)
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_IOCOHERENT))
 		device->mmu.features |= KGSL_MMU_IO_COHERENT;
 
+	/* Allocate the memstore for storing timestamps and other useful info */
+	priv = KGSL_MEMDESC_CONTIG;
+
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_APRIV))
+		priv |= KGSL_MEMDESC_PRIVILEGED;
+
+	status = kgsl_allocate_global(device, &device->memstore,
+		KGSL_MEMSTORE_SIZE, 0, priv, "memstore");
+
+	if (status)
+		goto out;
+
 	status = adreno_ringbuffer_probe(adreno_dev);
 	if (status)
 		goto out;
@@ -1456,6 +1491,7 @@ static int adreno_probe(struct platform_device *pdev)
 out:
 	if (status) {
 		adreno_ringbuffer_close(adreno_dev);
+		kgsl_free_global(device, &device->memstore);
 		kgsl_device_platform_remove(device);
 		device->pdev = NULL;
 	}
@@ -1535,6 +1571,8 @@ static int adreno_remove(struct platform_device *pdev)
 
 	if (efuse_base != NULL)
 		iounmap(efuse_base);
+
+	kgsl_free_global(device, &device->memstore);
 
 	kgsl_device_platform_remove(device);
 
@@ -1690,6 +1728,9 @@ static int adreno_init(struct kgsl_device *device)
 	adreno_perfcounter_init(adreno_dev);
 	adreno_fault_detect_init(adreno_dev);
 
+	adreno_dev->cooperative_reset = ADRENO_FEATURE(adreno_dev,
+							ADRENO_COOP_RESET);
+
 	/* Power down the device */
 	if (ADRENO_GPUREV(adreno_dev) < 600)
 		kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
@@ -1705,9 +1746,15 @@ static int adreno_init(struct kgsl_device *device)
 	 */
 
 	if (!adreno_is_a3xx(adreno_dev)) {
-		int r = kgsl_allocate_global(device,
+		unsigned int priv = 0;
+		int r;
+
+		if (ADRENO_FEATURE(adreno_dev, ADRENO_APRIV))
+			priv |= KGSL_MEMDESC_PRIVILEGED;
+
+		r = kgsl_allocate_global(device,
 			&adreno_dev->profile_buffer, PAGE_SIZE,
-			0, 0, "alwayson");
+			0, priv, "alwayson");
 
 		adreno_dev->profile_index = 0;
 
@@ -3019,11 +3066,12 @@ static void adreno_retry_rbbm_read(struct kgsl_device *device,
 	}
 }
 
-static bool adreno_is_rbbm_batch_reg(struct kgsl_device *device,
+static bool adreno_is_rbbm_batch_reg(struct adreno_device *adreno_dev,
 	unsigned int offsetwords)
 {
-	if (adreno_is_a650(ADRENO_DEVICE(device)) ||
-		adreno_is_a620v1(ADRENO_DEVICE(device))) {
+	if ((adreno_is_a650(adreno_dev) &&
+		ADRENO_CHIPID_PATCH(adreno_dev->chipid) < 2) ||
+		adreno_is_a620v1(adreno_dev)) {
 		if (((offsetwords >= 0x0) && (offsetwords <= 0x3FF)) ||
 		((offsetwords >= 0x4FA) && (offsetwords <= 0x53F)) ||
 		((offsetwords >= 0x556) && (offsetwords <= 0x5FF)) ||
@@ -3056,7 +3104,7 @@ static void adreno_regread(struct kgsl_device *device, unsigned int offsetwords,
 	rmb();
 
 	if ((*value == 0xdeafbead) &&
-		adreno_is_rbbm_batch_reg(device, offsetwords))
+		adreno_is_rbbm_batch_reg(ADRENO_DEVICE(device), offsetwords))
 		adreno_retry_rbbm_read(device, offsetwords, value);
 }
 

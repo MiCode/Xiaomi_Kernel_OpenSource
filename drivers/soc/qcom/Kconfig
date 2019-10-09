@@ -563,6 +563,18 @@ config QCOM_FORCE_WDOG_BITE_ON_PANIC
 	  kernel panic. On certain MSM SoCs, this provides us
 	  additional debugging information.
 
+
+config QCOM_WDOG_IPI_ENABLE
+	bool "Qcom WDT pet optimization"
+	depends on QCOM_WATCHDOG_V2
+	default n
+	help
+	  When this option is enabled, watchdog sends IPI to cores in low power
+	  mode also. For power optimizations, by default watchdog don't ping
+	  cores in low power mode at pettime.
+
+	  To track CPUs health on LPM, or on debug builds enable it.
+
 config QCOM_BUS_SCALING
 	bool "Bus scaling driver"
 	help

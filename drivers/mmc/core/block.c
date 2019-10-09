@@ -2327,7 +2327,11 @@ enum mmc_issued mmc_blk_mq_issue_rq(struct mmc_queue *mq, struct request *req)
 		}
 		if (!ret)
 			return MMC_REQ_STARTED;
-		return ret == -EBUSY ? MMC_REQ_BUSY : MMC_REQ_FAILED_TO_START;
+
+		if (ret == -EBUSY)
+			return MMC_REQ_BUSY;
+
+		return MMC_REQ_FAILED_TO_START;
 	default:
 		WARN_ON_ONCE(1);
 		return MMC_REQ_FAILED_TO_START;

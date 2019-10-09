@@ -14,6 +14,7 @@
 #include "rmnet_private.h"
 #include "rmnet_map.h"
 #include "rmnet_vnd.h"
+#include "rmnet_genl.h"
 #include "rmnet_trace.h"
 
 #include <soc/qcom/qmi_rmnet.h>
@@ -158,11 +159,23 @@ static u16 rmnet_vnd_select_queue(struct net_device *dev,
 				  struct net_device *sb_dev,
 				  select_queue_fallback_t fallback)
 {
+	u64 boost_period = 0;
+	int boost_trigger = 0;
 	struct rmnet_priv *priv = netdev_priv(dev);
 	int txq = 0;
 
 	if (priv->real_dev)
 		txq = qmi_rmnet_get_queue(dev, skb);
+
+	if (rmnet_core_userspace_connected) {
+		rmnet_update_pid_and_check_boost(task_pid_nr(current),
+						 skb->len,
+						 &boost_trigger,
+						 &boost_period);
+
+		if (boost_trigger)
+			set_task_boost(1, boost_period);
+	}
 
 	return (txq < dev->real_num_tx_queues) ? txq : 0;
 }

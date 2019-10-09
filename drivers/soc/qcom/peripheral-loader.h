@@ -34,6 +34,7 @@ struct pil_priv;
  * @modem_ssr: true if modem is restarting, false if booting for first time.
  * @clear_fw_region: Clear fw region on failure in loading.
  * @subsys_vmid: memprot id for the subsystem.
+ * @extra_size: extra memory allocated at the end of the image.
  */
 struct pil_desc {
 	const char *name;
@@ -63,6 +64,7 @@ struct pil_desc {
 	int *aux_minidump_ids;
 	int num_aux_minidump_ids;
 	bool minidump_as_elf32;
+	u32 extra_size;
 };
 
 /**

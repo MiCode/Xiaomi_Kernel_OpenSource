@@ -15,6 +15,7 @@
 #include "rmnet_private.h"
 #include "rmnet_map.h"
 #include "rmnet_descriptor.h"
+#include "rmnet_genl.h"
 #include <soc/qcom/rmnet_qmi.h>
 #include <soc/qcom/qmi_rmnet.h>
 
@@ -726,6 +727,8 @@ static int __init rmnet_init(void)
 		unregister_netdevice_notifier(&rmnet_dev_notifier);
 		return rc;
 	}
+	rmnet_core_genl_init();
+
 	return rc;
 }
 
@@ -733,6 +736,7 @@ static void __exit rmnet_exit(void)
 {
 	unregister_netdevice_notifier(&rmnet_dev_notifier);
 	rtnl_link_unregister(&rmnet_link_ops);
+	rmnet_core_genl_deinit();
 }
 
 module_init(rmnet_init)

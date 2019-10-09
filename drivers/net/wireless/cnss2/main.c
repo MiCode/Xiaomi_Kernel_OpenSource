@@ -7,9 +7,11 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/pm_wakeup.h>
+#include <linux/reboot.h>
 #include <linux/rwsem.h>
 #include <linux/suspend.h>
 #include <linux/timer.h>
+#include <soc/qcom/minidump.h>
 #include <soc/qcom/ramdump.h>
 #include <soc/qcom/subsystem_notif.h>
 
@@ -1049,6 +1051,12 @@ static int cnss_driver_recovery_hdlr(struct cnss_plat_data *plat_priv,
 		goto out;
 	}
 
+	if (test_bit(CNSS_IN_REBOOT, &plat_priv->driver_state)) {
+		cnss_pr_err("Reboot is in progress, ignore recovery\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
 	if (test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state)) {
 		cnss_pr_err("Recovery is already in progress\n");
 		ret = -EINVAL;
@@ -1551,6 +1559,25 @@ static void cnss_driver_event_work(struct work_struct *work)
 	cnss_pm_relax(plat_priv);
 }
 
+int cnss_va_to_pa(struct device *dev, size_t size, void *va, dma_addr_t dma,
+		  phys_addr_t *pa, unsigned long attrs)
+{
+	struct sg_table sgt;
+	int ret;
+
+	ret = dma_get_sgtable_attrs(dev, &sgt, va, dma, size, attrs);
+	if (ret) {
+		cnss_pr_err("Failed to get sgtable for va: 0x%pK, dma: %pa, size: 0x%zx, attrs: 0x%x\n",
+			    va, &dma, size, attrs);
+		return -EINVAL;
+	}
+
+	*pa = page_to_phys(sg_page(sgt.sgl));
+	sg_free_table(&sgt);
+
+	return 0;
+}
+
 int cnss_register_subsys(struct cnss_plat_data *plat_priv)
 {
 	int ret = 0;
@@ -1801,6 +1828,46 @@ void cnss_unregister_ramdump(struct cnss_plat_data *plat_priv)
 	}
 }
 
+int cnss_minidump_add_region(struct cnss_plat_data *plat_priv,
+			     enum cnss_fw_dump_type type, int seg_no,
+			     void *va, phys_addr_t pa, size_t size)
+{
+	struct md_region md_entry;
+	int ret;
+
+	switch (type) {
+	case CNSS_FW_IMAGE:
+		snprintf(md_entry.name, sizeof(md_entry.name), "FBC_%X",
+			 seg_no);
+		break;
+	case CNSS_FW_RDDM:
+		snprintf(md_entry.name, sizeof(md_entry.name), "RDDM_%X",
+			 seg_no);
+		break;
+	case CNSS_FW_REMOTE_HEAP:
+		snprintf(md_entry.name, sizeof(md_entry.name), "RHEAP_%X",
+			 seg_no);
+		break;
+	default:
+		cnss_pr_err("Unknown dump type ID: %d\n", type);
+		return -EINVAL;
+	}
+
+	md_entry.phys_addr = pa;
+	md_entry.virt_addr = (uintptr_t)va;
+	md_entry.size = size;
+	md_entry.id = MSM_DUMP_DATA_CNSS_WLAN;
+
+	cnss_pr_dbg("Mini dump region: %s, va: %pK, pa: %pa, size: 0x%zx\n",
+		    md_entry.name, va, &pa, size);
+
+	ret = msm_minidump_add_region(&md_entry);
+	if (ret)
+		cnss_pr_err("Failed to add mini dump region, err = %d\n", ret);
+
+	return ret;
+}
+
 static int cnss_register_bus_scale(struct cnss_plat_data *plat_priv)
 {
 	int ret = 0;
@@ -1922,6 +1989,19 @@ static void cnss_event_work_deinit(struct cnss_plat_data *plat_priv)
 	destroy_workqueue(plat_priv->event_wq);
 }
 
+static int cnss_reboot_notifier(struct notifier_block *nb,
+				unsigned long action,
+				void *data)
+{
+	struct cnss_plat_data *plat_priv =
+		container_of(nb, struct cnss_plat_data, reboot_nb);
+
+	set_bit(CNSS_IN_REBOOT, &plat_priv->driver_state);
+	cnss_pr_dbg("Reboot is in progress with action %d\n", action);
+
+	return NOTIFY_DONE;
+}
+
 static int cnss_misc_init(struct cnss_plat_data *plat_priv)
 {
 	int ret;
@@ -1929,7 +2009,15 @@ static int cnss_misc_init(struct cnss_plat_data *plat_priv)
 	timer_setup(&plat_priv->fw_boot_timer,
 		    cnss_bus_fw_boot_timeout_hdlr, 0);
 
-	register_pm_notifier(&cnss_pm_notifier);
+	ret = register_pm_notifier(&cnss_pm_notifier);
+	if (ret)
+		cnss_pr_err("Failed to register PM notifier, err = %d\n", ret);
+
+	plat_priv->reboot_nb.notifier_call = cnss_reboot_notifier;
+	ret = register_reboot_notifier(&plat_priv->reboot_nb);
+	if (ret)
+		cnss_pr_err("Failed to register reboot notifier, err = %d\n",
+			    ret);
 
 	ret = device_init_wakeup(&plat_priv->plat_dev->dev, true);
 	if (ret)
@@ -1952,6 +2040,7 @@ static void cnss_misc_deinit(struct cnss_plat_data *plat_priv)
 	complete_all(&plat_priv->cal_complete);
 	complete_all(&plat_priv->power_up_complete);
 	device_init_wakeup(&plat_priv->plat_dev->dev, false);
+	unregister_reboot_notifier(&plat_priv->reboot_nb);
 	unregister_pm_notifier(&cnss_pm_notifier);
 	del_timer(&plat_priv->fw_boot_timer);
 }

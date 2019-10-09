@@ -33,7 +33,8 @@
  *     M0 <--> M0
  *     M0 -> FW_DL_ERR
  *     M0 -> M3_ENTER -> M3 -> M3_EXIT --> M0
- * L1: SYS_ERR_DETECT -> SYS_ERR_PROCESS --> POR
+ * L1: DEVICE_ERR_DETECT -> SYS_ERR_DETECT
+ *     SYS_ERR_DETECT -> SYS_ERR_PROCESS --> POR
  * L2: SHUTDOWN_PROCESS -> LD_ERR_FATAL_DETECT
  *     SHUTDOWN_PROCESS -> DISABLE
  * L3: LD_ERR_FATAL_DETECT <--> LD_ERR_FATAL_DETECT
@@ -49,44 +50,53 @@ static struct mhi_pm_transitions const mhi_state_transitions[] = {
 	{
 		MHI_PM_POR,
 		MHI_PM_POR | MHI_PM_DISABLE | MHI_PM_M0 |
-		MHI_PM_SYS_ERR_DETECT | MHI_PM_SHUTDOWN_PROCESS |
-		MHI_PM_LD_ERR_FATAL_DETECT | MHI_PM_FW_DL_ERR |
-		MHI_PM_SHUTDOWN_NO_ACCESS
+		MHI_PM_DEVICE_ERR_DETECT | MHI_PM_SYS_ERR_DETECT |
+		MHI_PM_SHUTDOWN_PROCESS | MHI_PM_LD_ERR_FATAL_DETECT |
+		MHI_PM_FW_DL_ERR | MHI_PM_SHUTDOWN_NO_ACCESS
 	},
 	{
 		MHI_PM_M0,
 		MHI_PM_M0 | MHI_PM_M2 | MHI_PM_M3_ENTER |
-		MHI_PM_SYS_ERR_DETECT | MHI_PM_SHUTDOWN_PROCESS |
-		MHI_PM_LD_ERR_FATAL_DETECT | MHI_PM_FW_DL_ERR |
-		MHI_PM_SHUTDOWN_NO_ACCESS
+		MHI_PM_DEVICE_ERR_DETECT | MHI_PM_SYS_ERR_DETECT |
+		MHI_PM_SHUTDOWN_PROCESS | MHI_PM_LD_ERR_FATAL_DETECT |
+		MHI_PM_FW_DL_ERR | MHI_PM_SHUTDOWN_NO_ACCESS
 	},
 	{
 		MHI_PM_M2,
-		MHI_PM_M0 | MHI_PM_SYS_ERR_DETECT | MHI_PM_SHUTDOWN_PROCESS |
-		MHI_PM_LD_ERR_FATAL_DETECT | MHI_PM_SHUTDOWN_NO_ACCESS
-	},
-	{
-		MHI_PM_M3_ENTER,
-		MHI_PM_M3 | MHI_PM_SYS_ERR_DETECT | MHI_PM_SHUTDOWN_PROCESS |
-		MHI_PM_LD_ERR_FATAL_DETECT | MHI_PM_SHUTDOWN_NO_ACCESS
-	},
-	{
-		MHI_PM_M3,
-		MHI_PM_M3_EXIT | MHI_PM_SYS_ERR_DETECT |
-		MHI_PM_LD_ERR_FATAL_DETECT | MHI_PM_SHUTDOWN_NO_ACCESS
-	},
-	{
-		MHI_PM_M3_EXIT,
-		MHI_PM_M0 | MHI_PM_SYS_ERR_DETECT | MHI_PM_SHUTDOWN_PROCESS |
-		MHI_PM_LD_ERR_FATAL_DETECT | MHI_PM_SHUTDOWN_NO_ACCESS
-	},
-	{
-		MHI_PM_FW_DL_ERR,
-		MHI_PM_FW_DL_ERR | MHI_PM_SYS_ERR_DETECT |
+		MHI_PM_M0 | MHI_PM_DEVICE_ERR_DETECT | MHI_PM_SYS_ERR_DETECT |
 		MHI_PM_SHUTDOWN_PROCESS | MHI_PM_LD_ERR_FATAL_DETECT |
 		MHI_PM_SHUTDOWN_NO_ACCESS
 	},
+	{
+		MHI_PM_M3_ENTER,
+		MHI_PM_M3 | MHI_PM_DEVICE_ERR_DETECT | MHI_PM_SYS_ERR_DETECT |
+		MHI_PM_SHUTDOWN_PROCESS | MHI_PM_LD_ERR_FATAL_DETECT |
+		MHI_PM_SHUTDOWN_NO_ACCESS
+	},
+	{
+		MHI_PM_M3,
+		MHI_PM_M3_EXIT | MHI_PM_DEVICE_ERR_DETECT |
+		MHI_PM_SYS_ERR_DETECT | MHI_PM_LD_ERR_FATAL_DETECT |
+		MHI_PM_SHUTDOWN_NO_ACCESS
+	},
+	{
+		MHI_PM_M3_EXIT,
+		MHI_PM_M0 | MHI_PM_DEVICE_ERR_DETECT | MHI_PM_SYS_ERR_DETECT |
+		MHI_PM_SHUTDOWN_PROCESS | MHI_PM_LD_ERR_FATAL_DETECT |
+		MHI_PM_SHUTDOWN_NO_ACCESS
+	},
+	{
+		MHI_PM_FW_DL_ERR,
+		MHI_PM_FW_DL_ERR | MHI_PM_DEVICE_ERR_DETECT |
+		MHI_PM_SYS_ERR_DETECT | MHI_PM_SHUTDOWN_PROCESS |
+		MHI_PM_LD_ERR_FATAL_DETECT | MHI_PM_SHUTDOWN_NO_ACCESS
+	},
 	/* L1 States */
+	{
+		MHI_PM_DEVICE_ERR_DETECT,
+		MHI_PM_SYS_ERR_DETECT | MHI_PM_SHUTDOWN_PROCESS |
+		MHI_PM_LD_ERR_FATAL_DETECT | MHI_PM_SHUTDOWN_NO_ACCESS
+	},
 	{
 		MHI_PM_SYS_ERR_DETECT,
 		MHI_PM_SYS_ERR_PROCESS | MHI_PM_SHUTDOWN_PROCESS |
@@ -935,19 +945,24 @@ EXPORT_SYMBOL(mhi_async_power_up);
 /* Transition MHI into error state and notify critical clients */
 void mhi_control_error(struct mhi_controller *mhi_cntrl)
 {
-	enum MHI_PM_STATE cur_state;
+	enum MHI_PM_STATE cur_state, transition_state;
 
 	MHI_LOG("Enter with pm_state:%s MHI_STATE:%s\n",
 		to_mhi_pm_state_str(mhi_cntrl->pm_state),
 		TO_MHI_STATE_STR(mhi_cntrl->dev_state));
 
+	/* link is not down if device is in RDDM */
+	transition_state = (mhi_cntrl->ee == MHI_EE_RDDM) ?
+		MHI_PM_DEVICE_ERR_DETECT : MHI_PM_LD_ERR_FATAL_DETECT;
+
 	write_lock_irq(&mhi_cntrl->pm_lock);
-	cur_state = mhi_tryset_pm_state(mhi_cntrl, MHI_PM_LD_ERR_FATAL_DETECT);
+	cur_state = mhi_tryset_pm_state(mhi_cntrl, transition_state);
 	write_unlock_irq(&mhi_cntrl->pm_lock);
 
-	if (cur_state != MHI_PM_LD_ERR_FATAL_DETECT) {
+	/* proceed if we move to device error or are already in error state */
+	if (!MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state)) {
 		MHI_ERR("Failed to transition to state:%s from:%s\n",
-			to_mhi_pm_state_str(MHI_PM_LD_ERR_FATAL_DETECT),
+			to_mhi_pm_state_str(transition_state),
 			to_mhi_pm_state_str(cur_state));
 		goto exit_control_error;
 	}

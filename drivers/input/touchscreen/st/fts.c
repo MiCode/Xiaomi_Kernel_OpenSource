@@ -205,7 +205,7 @@ static ssize_t fts_fwupdate_store(struct device *dev,
 	}
 
 	fwD.data = NULL;
-	ret = getFWdata(PATH_FILE_FW, &orig_data, &orig_size, 0);
+	ret = getFWdata_nocheck(PATH_FILE_FW, &orig_data, &orig_size, 0);
 	if (ret < OK) {
 		logError(1, "%s %s: impossible retrieve FW... ERROR %08X\n",
 			tag, __func__, ERROR_MEMH_READ);

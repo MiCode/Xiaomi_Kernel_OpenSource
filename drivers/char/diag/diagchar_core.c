@@ -3682,19 +3682,24 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 	if (driver->data_ready[index] & MSG_MASKS_TYPE) {
 		/*Copy the type of data being passed*/
 		data_type = driver->data_ready[index] & MSG_MASKS_TYPE;
+		mutex_unlock(&driver->diagchar_mutex);
 		mutex_lock(&driver->md_session_lock);
 		session_info = diag_md_session_get_peripheral(DIAG_LOCAL_PROC,
 								APPS_DATA);
 		COPY_USER_SPACE_OR_ERR(buf, data_type, sizeof(int));
 		if (ret == -EFAULT) {
 			mutex_unlock(&driver->md_session_lock);
-			goto exit;
+			goto end;
 		}
+		if (!session_info)
+			mutex_unlock(&driver->md_session_lock);
 		write_len = diag_copy_to_user_msg_mask(buf + ret, count,
 						       session_info);
-		mutex_unlock(&driver->md_session_lock);
+		if (session_info)
+			mutex_unlock(&driver->md_session_lock);
 		if (write_len > 0)
 			ret += write_len;
+		mutex_lock(&driver->diagchar_mutex);
 		driver->data_ready[index] ^= MSG_MASKS_TYPE;
 		atomic_dec(&driver->data_ready_notif[index]);
 		goto exit;
@@ -3703,13 +3708,14 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 	if (driver->data_ready[index] & EVENT_MASKS_TYPE) {
 		/*Copy the type of data being passed*/
 		data_type = driver->data_ready[index] & EVENT_MASKS_TYPE;
+		mutex_unlock(&driver->diagchar_mutex);
 		mutex_lock(&driver->md_session_lock);
 		session_info = diag_md_session_get_peripheral(DIAG_LOCAL_PROC,
 								APPS_DATA);
 		COPY_USER_SPACE_OR_ERR(buf, data_type, 4);
 		if (ret == -EFAULT) {
 			mutex_unlock(&driver->md_session_lock);
-			goto exit;
+			goto end;
 		}
 		if (session_info && session_info->event_mask &&
 		    session_info->event_mask->ptr) {
@@ -3718,7 +3724,7 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 					session_info->event_mask->mask_len);
 			if (ret == -EFAULT) {
 				mutex_unlock(&driver->md_session_lock);
-				goto exit;
+				goto end;
 			}
 		} else {
 			COPY_USER_SPACE_OR_ERR(buf + sizeof(int),
@@ -3726,10 +3732,11 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 						event_mask.mask_len);
 			if (ret == -EFAULT) {
 				mutex_unlock(&driver->md_session_lock);
-				goto exit;
+				goto end;
 			}
 		}
 		mutex_unlock(&driver->md_session_lock);
+		mutex_lock(&driver->diagchar_mutex);
 		driver->data_ready[index] ^= EVENT_MASKS_TYPE;
 		atomic_dec(&driver->data_ready_notif[index]);
 		goto exit;
@@ -3738,20 +3745,24 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 	if (driver->data_ready[index] & LOG_MASKS_TYPE) {
 		/*Copy the type of data being passed*/
 		data_type = driver->data_ready[index] & LOG_MASKS_TYPE;
+		mutex_unlock(&driver->diagchar_mutex);
 		mutex_lock(&driver->md_session_lock);
 		session_info = diag_md_session_get_peripheral(DIAG_LOCAL_PROC,
 								APPS_DATA);
 		COPY_USER_SPACE_OR_ERR(buf, data_type, sizeof(int));
 		if (ret == -EFAULT) {
 			mutex_unlock(&driver->md_session_lock);
-			goto exit;
+			goto end;
 		}
-
+		if (!session_info)
+			mutex_unlock(&driver->md_session_lock);
 		write_len = diag_copy_to_user_log_mask(buf + ret, count,
 						       session_info);
-		mutex_unlock(&driver->md_session_lock);
+		if (session_info)
+			mutex_unlock(&driver->md_session_lock);
 		if (write_len > 0)
 			ret += write_len;
+		mutex_lock(&driver->diagchar_mutex);
 		driver->data_ready[index] ^= LOG_MASKS_TYPE;
 		atomic_dec(&driver->data_ready_notif[index]);
 		goto exit;

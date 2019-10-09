@@ -491,6 +491,7 @@ int __ipa_commit_flt_v3(enum ipa_ip_type ip)
 	u32 tbl_hdr_width;
 	struct ipa3_flt_tbl *tbl;
 	u16 entries;
+	struct ipahal_imm_cmd_register_write reg_write_coal_close;
 
 	tbl_hdr_width = ipahal_get_hw_tbl_hdr_width();
 	memset(&alloc_params, 0, sizeof(alloc_params));
@@ -567,12 +568,36 @@ int __ipa_commit_flt_v3(enum ipa_ip_type ip)
 		goto fail_size_valid;
 	}
 
-	/* +3: 2 for bodies (hashable and non-hashable) and 1 for flushing */
-	entries = (ipa3_ctx->ep_flt_num) * 2 + 3;
+	/* +4: 2 for bodies (hashable and non-hashable), 1 for flushing and 1
+	 * for closing the colaescing frame
+	 */
+	entries = (ipa3_ctx->ep_flt_num) * 2 + 4;
 
 	if (ipa_flt_alloc_cmd_buffers(ip, entries, &desc, &cmd_pyld)) {
 		rc = -ENOMEM;
 		goto fail_size_valid;
+	}
+
+	/* IC to close the coal frame before HPS Clear if coal is enabled */
+	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) != -1) {
+		i = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS);
+		reg_write_coal_close.skip_pipeline_clear = false;
+		reg_write_coal_close.pipeline_clear_options = IPAHAL_HPS_CLEAR;
+		reg_write_coal_close.offset = ipahal_get_reg_ofst(
+			IPA_AGGR_FORCE_CLOSE);
+		ipahal_get_aggr_force_close_valmask(i, &valmask);
+		reg_write_coal_close.value = valmask.val;
+		reg_write_coal_close.value_mask = valmask.mask;
+		cmd_pyld[num_cmd] = ipahal_construct_imm_cmd(
+			IPA_IMM_CMD_REGISTER_WRITE,
+			&reg_write_coal_close, false);
+		if (!cmd_pyld[num_cmd]) {
+			IPAERR("failed to construct coal close IC\n");
+			rc = -ENOMEM;
+			goto fail_reg_write_construct;
+		}
+		ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
+		++num_cmd;
 	}
 
 	/*
@@ -593,14 +618,14 @@ int __ipa_commit_flt_v3(enum ipa_ip_type ip)
 					IPA_FILT_ROUT_HASH_FLUSH);
 		reg_write_cmd.value = valmask.val;
 		reg_write_cmd.value_mask = valmask.mask;
-		cmd_pyld[0] = ipahal_construct_imm_cmd(
+		cmd_pyld[num_cmd] = ipahal_construct_imm_cmd(
 				IPA_IMM_CMD_REGISTER_WRITE, &reg_write_cmd,
 							false);
-		if (!cmd_pyld[0]) {
+		if (!cmd_pyld[num_cmd]) {
 			IPAERR(
 			"fail construct register_write imm cmd: IP %d\n", ip);
 			rc = -EFAULT;
-			goto fail_reg_write_construct;
+			goto fail_imm_cmd_construct;
 		}
 		ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
 		++num_cmd;

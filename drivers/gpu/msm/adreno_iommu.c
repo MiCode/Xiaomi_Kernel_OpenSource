@@ -11,42 +11,30 @@
 #include "adreno_pm4types.h"
 
 /*
- * _wait_reg() - make CP poll on a register
+ * a3xx_wait_reg() - make CP poll on a register
  * @cmds:	Pointer to memory where commands are to be added
  * @addr:	Register address to poll for
  * @val:	Value to poll for
  * @mask:	The value against which register value is masked
  * @interval:	wait interval
  */
-static unsigned int _wait_reg(struct adreno_device *adreno_dev,
+static unsigned int a3xx_wait_reg(struct adreno_device *adreno_dev,
 			unsigned int *cmds, unsigned int addr,
 			unsigned int val, unsigned int mask,
 			unsigned int interval)
 {
 	unsigned int *start = cmds;
 
-	if (adreno_is_a3xx(adreno_dev)) {
-		*cmds++ = cp_packet(adreno_dev, CP_WAIT_REG_EQ, 4);
-		*cmds++ = addr;
-		*cmds++ = val;
-		*cmds++ = mask;
-		*cmds++ = interval;
-	} else {
-		*cmds++ = cp_mem_packet(adreno_dev, CP_WAIT_REG_MEM, 5, 1);
-		*cmds++ = 0x3; /* Mem Space = Register,  Function = Equals */
-		cmds += cp_gpuaddr(adreno_dev, cmds, addr); /* Poll address */
-		*cmds++ = val; /* ref val */
-		*cmds++ = mask;
-		*cmds++ = interval;
-
-		/* WAIT_REG_MEM turns back on protected mode - push it off */
-		cmds += cp_protected_mode(adreno_dev, cmds, 0);
-	}
+	*cmds++ = cp_packet(adreno_dev, CP_WAIT_REG_EQ, 4);
+	*cmds++ = addr;
+	*cmds++ = val;
+	*cmds++ = mask;
+	*cmds++ = interval;
 
 	return cmds - start;
 }
 
-static unsigned int _vbif_lock(struct adreno_device *adreno_dev,
+static unsigned int a3xx_vbif_lock(struct adreno_device *adreno_dev,
 			unsigned int *cmds)
 {
 	unsigned int *start = cmds;
@@ -54,8 +42,7 @@ static unsigned int _vbif_lock(struct adreno_device *adreno_dev,
 	 * glue commands together until next
 	 * WAIT_FOR_ME
 	 */
-	cmds += _wait_reg(adreno_dev, cmds,
-			adreno_getreg(adreno_dev, ADRENO_REG_CP_WFI_PEND_CTR),
+	cmds += a3xx_wait_reg(adreno_dev, cmds, A3XX_CP_WFI_PEND_CTR,
 			1, 0xFFFFFFFF, 0xF);
 
 	/* MMU-500 VBIF stall */
@@ -67,14 +54,14 @@ static unsigned int _vbif_lock(struct adreno_device *adreno_dev,
 	*cmds++ = 0x1;
 
 	/* Wait for acknowledgment */
-	cmds += _wait_reg(adreno_dev, cmds,
+	cmds += a3xx_wait_reg(adreno_dev, cmds,
 			A3XX_VBIF_DDR_OUTPUT_RECOVERABLE_HALT_CTRL1,
 			1, 0xFFFFFFFF, 0xF);
 
 	return cmds - start;
 }
 
-static unsigned int _vbif_unlock(struct adreno_device *adreno_dev,
+static unsigned int a3xx_vbif_unlock(struct adreno_device *adreno_dev,
 				unsigned int *cmds)
 {
 	unsigned int *start = cmds;
@@ -95,7 +82,7 @@ static unsigned int _vbif_unlock(struct adreno_device *adreno_dev,
 #define A3XX_GPU_OFFSET 0xa000
 
 /* This function is only needed for A3xx targets */
-static unsigned int _cp_smmu_reg(struct adreno_device *adreno_dev,
+static unsigned int a3xx_cp_smmu_reg(struct adreno_device *adreno_dev,
 				unsigned int *cmds,
 				enum kgsl_iommu_reg_map reg,
 				unsigned int num)
@@ -110,20 +97,20 @@ static unsigned int _cp_smmu_reg(struct adreno_device *adreno_dev,
 }
 
 /* This function is only needed for A3xx targets */
-static unsigned int _tlbiall(struct adreno_device *adreno_dev,
+static unsigned int a3xx_tlbiall(struct adreno_device *adreno_dev,
 				unsigned int *cmds)
 {
 	unsigned int *start = cmds;
 	unsigned int tlbstatus = (A3XX_GPU_OFFSET +
 		kgsl_iommu_reg_list[KGSL_IOMMU_CTX_TLBSTATUS]) >> 2;
 
-	cmds += _cp_smmu_reg(adreno_dev, cmds, KGSL_IOMMU_CTX_TLBIALL, 1);
+	cmds += a3xx_cp_smmu_reg(adreno_dev, cmds, KGSL_IOMMU_CTX_TLBIALL, 1);
 	*cmds++ = 1;
 
-	cmds += _cp_smmu_reg(adreno_dev, cmds, KGSL_IOMMU_CTX_TLBSYNC, 1);
+	cmds += a3xx_cp_smmu_reg(adreno_dev, cmds, KGSL_IOMMU_CTX_TLBSYNC, 1);
 	*cmds++ = 0;
 
-	cmds += _wait_reg(adreno_dev, cmds, tlbstatus, 0,
+	cmds += a3xx_wait_reg(adreno_dev, cmds, tlbstatus, 0,
 			KGSL_IOMMU_CTX_TLBSTATUS_SACTIVE, 0xF);
 
 	return cmds - start;
@@ -163,6 +150,10 @@ static unsigned int adreno_iommu_set_apriv(struct adreno_device *adreno_dev,
 
 	/* adreno 3xx doesn't have the CP_CNTL.APRIV field */
 	if (adreno_is_a3xx(adreno_dev))
+		return 0;
+
+	/* Targets with apriv control do not need to explicitly set the bit */
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_APRIV))
 		return 0;
 
 	cmds += cp_wait_for_idle(adreno_dev, cmds);
@@ -205,17 +196,18 @@ static unsigned int _adreno_iommu_set_pt_v2_a3xx(struct kgsl_device *device,
 
 	cmds += _adreno_iommu_add_idle_cmds(adreno_dev, cmds);
 
-	cmds += _vbif_lock(adreno_dev, cmds);
+	cmds += a3xx_vbif_lock(adreno_dev, cmds);
 
-	cmds += _cp_smmu_reg(adreno_dev, cmds, KGSL_IOMMU_CTX_TTBR0, 2);
+	cmds += a3xx_cp_smmu_reg(adreno_dev, cmds, KGSL_IOMMU_CTX_TTBR0, 2);
 	*cmds++ = lower_32_bits(ttbr0);
 	*cmds++ = upper_32_bits(ttbr0);
-	cmds += _cp_smmu_reg(adreno_dev, cmds, KGSL_IOMMU_CTX_CONTEXTIDR, 1);
+	cmds += a3xx_cp_smmu_reg(adreno_dev, cmds, KGSL_IOMMU_CTX_CONTEXTIDR,
+		1);
 	*cmds++ = contextidr;
 
-	cmds += _vbif_unlock(adreno_dev, cmds);
+	cmds += a3xx_vbif_unlock(adreno_dev, cmds);
 
-	cmds += _tlbiall(adreno_dev, cmds);
+	cmds += a3xx_tlbiall(adreno_dev, cmds);
 
 	/* wait for me to finish the TLBI */
 	cmds += cp_wait_for_me(adreno_dev, cmds);
