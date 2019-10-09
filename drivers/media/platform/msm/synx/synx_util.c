@@ -739,14 +739,14 @@ struct bind_operations *synx_get_bind_ops(u32 type)
 	if (!is_valid_type(type))
 		return NULL;
 
-	mutex_lock(&synx_dev->table_lock);
+	mutex_lock(&synx_dev->vtbl_lock);
 	client_ops = &synx_dev->bind_vtbl[type];
 	if (!client_ops->valid) {
-		mutex_unlock(&synx_dev->table_lock);
+		mutex_unlock(&synx_dev->vtbl_lock);
 		return NULL;
 	}
 	pr_debug("found bind ops for %s\n", client_ops->name);
-	mutex_unlock(&synx_dev->table_lock);
+	mutex_unlock(&synx_dev->vtbl_lock);
 
 	return &client_ops->ops;
 }
