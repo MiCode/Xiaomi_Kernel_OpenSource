@@ -62,7 +62,7 @@ struct handle {
  * @bits: size of bit map in bits
  */
 struct cam_req_mgr_util_hdl_tbl {
-	struct handle hdl[CAM_REQ_MGR_MAX_HANDLES];
+	struct handle hdl[CAM_REQ_MGR_MAX_HANDLES_V2];
 	void *bitmap;
 	size_t bits;
 };
