@@ -1828,6 +1828,7 @@ int clk_lucid_5lpe_pll_configure(struct clk_alpha_pll *pll,
 
 	return ret ? -EIO : 0;
 }
+EXPORT_SYMBOL(clk_lucid_5lpe_pll_configure);
 
 static int alpha_pll_lucid_5lpe_enable(struct clk_hw *hw)
 {
