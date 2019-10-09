@@ -154,7 +154,7 @@
 				config {
 					pins = "gpio76", "gpio77";
 					drive-strength = <2>;
-					bias-disable;
+					bias-pull-up;
 				};
 			};
 
