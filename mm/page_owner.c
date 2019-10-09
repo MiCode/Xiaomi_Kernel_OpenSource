@@ -29,6 +29,7 @@ struct page_owner {
 	depot_stack_handle_t free_handle;
 	int pid;
 	u64 ts_nsec;
+	u64 free_ts_nsec;
 };
 
 static bool page_owner_enabled = IS_ENABLED(CONFIG_PAGE_OWNER_ENABLE_DEFAULT);
@@ -152,6 +153,7 @@ void __reset_page_owner(struct page *page, unsigned int order)
 	struct page_ext *page_ext;
 	depot_stack_handle_t handle = 0;
 	struct page_owner *page_owner;
+	u64 free_ts_nsec = local_clock();
 
 	handle = save_stack(GFP_NOWAIT | __GFP_NOWARN);
 
@@ -160,8 +162,12 @@ void __reset_page_owner(struct page *page, unsigned int order)
 		return;
 	for (i = 0; i < (1 << order); i++) {
 		__clear_bit(PAGE_EXT_OWNER_ALLOCATED, &page_ext->flags);
+#ifdef CONFIG_PAGE_EXTENSION_PAGE_FREE
+		__set_bit(PAGE_EXT_PG_FREE, &page_ext->flags);
+#endif
 		page_owner = get_page_owner(page_ext);
 		page_owner->free_handle = handle;
+		page_owner->free_ts_nsec = free_ts_nsec;
 		page_ext = page_ext_next(page_ext);
 	}
 }
@@ -181,8 +187,13 @@ static inline void __set_page_owner_handle(struct page *page,
 		page_owner->last_migrate_reason = -1;
 		page_owner->pid = current->pid;
 		page_owner->ts_nsec = local_clock();
+		page_owner->free_ts_nsec = 0;
+
 		__set_bit(PAGE_EXT_OWNER, &page_ext->flags);
 		__set_bit(PAGE_EXT_OWNER_ALLOCATED, &page_ext->flags);
+#ifdef CONFIG_PAGE_EXTENSION_PAGE_FREE
+		__clear_bit(PAGE_EXT_PG_FREE, &page_ext->flags);
+#endif
 
 		page_ext = page_ext_next(page_ext);
 	}
@@ -247,6 +258,7 @@ void __copy_page_owner(struct page *oldpage, struct page *newpage)
 	new_page_owner->handle = old_page_owner->handle;
 	new_page_owner->pid = old_page_owner->pid;
 	new_page_owner->ts_nsec = old_page_owner->ts_nsec;
+	new_page_owner->free_ts_nsec = old_page_owner->ts_nsec;
 
 	/*
 	 * We don't clear the bit on the oldpage as it's going to be freed
