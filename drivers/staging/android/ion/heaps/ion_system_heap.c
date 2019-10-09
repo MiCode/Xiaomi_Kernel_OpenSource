@@ -506,9 +506,8 @@ static struct ion_heap_ops system_heap_ops = {
 	.shrink = ion_system_heap_shrink,
 };
 
-static __maybe_unused int ion_system_heap_debug_show(struct ion_heap *heap,
-						     struct seq_file *s,
-						     void *unused)
+static int ion_system_heap_debug_show(struct ion_heap *heap,
+				      struct seq_file *s, void *unused)
 {
 	struct ion_system_heap *sys_heap;
 	bool use_seq = s;
@@ -711,6 +710,7 @@ struct ion_heap *ion_system_heap_create(struct ion_platform_heap *data)
 	if (!heap)
 		return ERR_PTR(-ENOMEM);
 	heap->heap.dev = data->priv;
+	heap->heap.debug_show = ion_system_heap_debug_show;
 	heap->heap.ion_heap.ops = &system_heap_ops;
 	heap->heap.ion_heap.buf_ops = msm_ion_dma_buf_ops;
 	heap->heap.ion_heap.type = ION_HEAP_TYPE_SYSTEM;
