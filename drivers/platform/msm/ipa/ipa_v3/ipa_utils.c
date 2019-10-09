@@ -8142,12 +8142,12 @@ do_prod:
 
 	return 0;
 undo_prod:
-	for (client; client <= IPA_CLIENT_MAX && client >= 0; client--)
+	for (; client <= IPA_CLIENT_MAX && client >= 0; client--)
 		if (IPA_CLIENT_IS_APPS_PROD(client))
 			_ipa_suspend_resume_pipe(client, !suspend);
 	client = IPA_CLIENT_MAX;
 undo_cons:
-	for (client; client <= IPA_CLIENT_MAX && client >= 0; client--)
+	for (; client <= IPA_CLIENT_MAX && client >= 0; client--)
 		if (IPA_CLIENT_IS_APPS_CONS(client))
 			_ipa_suspend_resume_pipe(client, !suspend);
 	return res;
@@ -8874,8 +8874,6 @@ int ipa3_ctx_get_type(enum ipa_type_mode type)
 bool ipa3_ctx_get_flag(enum ipa_flag flag)
 {
 	switch (flag) {
-	case IPA_PM_EN:
-		return ipa3_ctx->use_ipa_pm;
 	case IPA_ENDP_DELAY_WA_EN:
 		return ipa3_ctx->ipa_endp_delay_wa;
 	case IPA_HW_STATS_EN:

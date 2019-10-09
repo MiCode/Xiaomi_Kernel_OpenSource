@@ -437,7 +437,6 @@ enum ipa_type_mode {
 };
 
 enum ipa_flag {
-	IPA_PM_EN,
 	IPA_ENDP_DELAY_WA_EN,
 	IPA_HW_STATS_EN,
 	IPA_MHI_EN,
