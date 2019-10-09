@@ -179,8 +179,9 @@
 		qcom,dsi-phy = <&mdss_dsi_phy0>;
 
 		clocks = <&mdss_dsi0_pll BYTE0_MUX_CLK>,
-			 <&mdss_dsi0_pll PIX0_MUX_CLK>;
-		clock-names = "mux_byte_clk0", "mux_pixel_clk0";
+			 <&mdss_dsi0_pll PIX0_MUX_CLK>,
+			 <&clock_rpmh RPMH_CXO_CLK>;
+		clock-names = "mux_byte_clk0", "mux_pixel_clk0", "xo_clk";
 
 
 		qcom,dsi-display-list =

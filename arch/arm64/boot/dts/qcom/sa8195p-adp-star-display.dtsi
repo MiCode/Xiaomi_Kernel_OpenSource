@@ -228,9 +228,10 @@
 		clocks = <&mdss_dsi0_pll BYTECLK_MUX_0_CLK>,
 			 <&mdss_dsi0_pll PCLK_MUX_0_CLK>,
 			 <&mdss_dsi1_pll BYTECLK_MUX_1_CLK>,
-			 <&mdss_dsi1_pll PCLK_MUX_1_CLK>;
+			 <&mdss_dsi1_pll PCLK_MUX_1_CLK>,
+			 <&clock_rpmh RPMH_CXO_CLK>;
 		clock-names = "mux_byte_clk0", "mux_pixel_clk0",
-			      "mux_byte_clk1", "mux_pixel_clk1";
+			      "mux_byte_clk1", "mux_pixel_clk1", "xo_clk";
 
 		qcom,dsi-display-list =
 			<&dsi_anx_7625_1>;
@@ -258,9 +259,10 @@
 		clocks = <&mdss_dsi0_pll BYTECLK_MUX_0_CLK>,
 			 <&mdss_dsi0_pll PCLK_MUX_0_CLK>,
 			 <&mdss_dsi1_pll BYTECLK_MUX_1_CLK>,
-			 <&mdss_dsi1_pll PCLK_MUX_1_CLK>;
+			 <&mdss_dsi1_pll PCLK_MUX_1_CLK>,
+			 <&clock_rpmh RPMH_CXO_CLK>;
 		clock-names = "mux_byte_clk0", "mux_pixel_clk0",
-			      "mux_byte_clk1", "mux_pixel_clk1";
+			      "mux_byte_clk1", "mux_pixel_clk1", "xo_clk";
 
 		qcom,dsi-display-list =
 			<&dsi_anx_7625_2>;
