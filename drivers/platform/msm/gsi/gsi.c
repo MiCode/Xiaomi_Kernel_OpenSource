@@ -2105,7 +2105,7 @@ static void gsi_program_chan_ctx_qos(struct gsi_chan_props *props,
 		 GSI_EE_n_GSI_CH_k_QOS_MAX_PREFETCH_BMSK) |
 	((props->use_db_eng <<
 		GSI_EE_n_GSI_CH_k_QOS_USE_DB_ENG_SHFT) &
-		 GSI_EE_n_GSI_CH_k_QOS_USE_DB_ENG_BMSK));
+		GSI_EE_n_GSI_CH_k_QOS_USE_DB_ENG_BMSK));
 	if (gsi_ctx->per.ver >= GSI_VER_2_0)
 		val |= ((props->prefetch_mode <<
 			GSI_EE_n_GSI_CH_k_QOS_USE_ESCAPE_BUF_ONLY_SHFT)
@@ -2139,6 +2139,35 @@ static void gsi_program_chan_ctx_qos_v2_5(struct gsi_chan_props *props,
 
 	gsi_writel(val, gsi_ctx->base +
 			GSI_V2_5_EE_n_GSI_CH_k_QOS_OFFS(props->ch_id, ee));
+}
+
+static void gsi_program_chan_ctx_qos_v2_9(struct gsi_chan_props *props,
+	unsigned int ee)
+{
+	uint32_t val;
+
+	val =
+	(((props->low_weight <<
+		GSI_V2_9_EE_n_GSI_CH_k_QOS_WRR_WEIGHT_SHFT) &
+		GSI_V2_9_EE_n_GSI_CH_k_QOS_WRR_WEIGHT_BMSK) |
+	((props->max_prefetch <<
+		 GSI_V2_9_EE_n_GSI_CH_k_QOS_MAX_PREFETCH_SHFT) &
+		 GSI_V2_9_EE_n_GSI_CH_k_QOS_MAX_PREFETCH_BMSK) |
+	((props->use_db_eng <<
+		GSI_V2_9_EE_n_GSI_CH_k_QOS_USE_DB_ENG_SHFT) &
+		GSI_V2_9_EE_n_GSI_CH_k_QOS_USE_DB_ENG_BMSK) |
+	((props->prefetch_mode <<
+		GSI_V2_9_EE_n_GSI_CH_k_QOS_PREFETCH_MODE_SHFT) &
+		GSI_V2_9_EE_n_GSI_CH_k_QOS_PREFETCH_MODE_BMSK) |
+	((props->empty_lvl_threshold <<
+		GSI_V2_9_EE_n_GSI_CH_k_QOS_EMPTY_LVL_THRSHOLD_SHFT) &
+		GSI_V2_9_EE_n_GSI_CH_k_QOS_EMPTY_LVL_THRSHOLD_BMSK) |
+	((props->db_in_bytes <<
+		GSI_V2_9_EE_n_GSI_CH_k_QOS_DB_IN_BYTES_SHFT) &
+		GSI_V2_9_EE_n_GSI_CH_k_QOS_DB_IN_BYTES_BMSK));
+
+	gsi_writel(val, gsi_ctx->base +
+		GSI_V2_9_EE_n_GSI_CH_k_QOS_OFFS(props->ch_id, ee));
 }
 
 static void gsi_program_chan_ctx(struct gsi_chan_props *props, unsigned int ee,
@@ -2205,7 +2234,9 @@ static void gsi_program_chan_ctx(struct gsi_chan_props *props, unsigned int ee,
 	gsi_writel(val, gsi_ctx->base +
 			GSI_EE_n_GSI_CH_k_CNTXT_3_OFFS(props->ch_id, ee));
 
-	if (gsi_ctx->per.ver >= GSI_VER_2_5)
+	if (gsi_ctx->per.ver >= GSI_VER_2_9)
+		gsi_program_chan_ctx_qos_v2_9(props, ee);
+	else if (gsi_ctx->per.ver >= GSI_VER_2_5)
 		gsi_program_chan_ctx_qos_v2_5(props, ee);
 	else
 		gsi_program_chan_ctx_qos(props, ee);

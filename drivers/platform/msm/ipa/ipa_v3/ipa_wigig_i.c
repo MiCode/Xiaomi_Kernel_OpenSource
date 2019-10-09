@@ -683,6 +683,7 @@ static int ipa3_wigig_config_gsi(bool Rx,
 	channel_props.evt_ring_hdl = ep->gsi_evt_ring_hdl;
 	channel_props.xfer_cb = NULL;
 
+	channel_props.db_in_bytes = 0;
 	channel_props.use_db_eng = GSI_CHAN_DB_MODE;
 	channel_props.max_prefetch = GSI_ONE_PREFETCH_SEG;
 	channel_props.prefetch_mode = ep_gsi->prefetch_mode;

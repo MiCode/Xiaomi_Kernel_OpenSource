@@ -4481,6 +4481,7 @@ static int ipa_gsi_setup_transfer_ring(struct ipa3_ep_context *ep,
 		gsi_channel_props.low_weight = IPA_GSI_MAX_CH_LOW_WEIGHT;
 	else
 		gsi_channel_props.low_weight = 1;
+	gsi_channel_props.db_in_bytes = 1;
 	gsi_channel_props.prefetch_mode = gsi_ep_info->prefetch_mode;
 	gsi_channel_props.empty_lvl_threshold = gsi_ep_info->prefetch_threshold;
 	gsi_channel_props.chan_user_data = user_data;
@@ -4805,6 +4806,7 @@ int ipa_gsi_ch20_wa(void)
 	else
 		gsi_channel_props.use_db_eng = GSI_CHAN_DB_MODE;
 
+	gsi_channel_props.db_in_bytes = 1;
 	gsi_channel_props.max_prefetch = GSI_ONE_PREFETCH_SEG;
 	gsi_channel_props.low_weight = 1;
 	gsi_channel_props.err_cb = ipa_gsi_chan_err_cb;

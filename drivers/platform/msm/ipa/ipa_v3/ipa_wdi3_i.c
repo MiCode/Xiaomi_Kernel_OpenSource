@@ -151,6 +151,7 @@ static int ipa3_setup_wdi3_gsi_channel(u8 is_smmu_enabled,
 	} else
 		gsi_channel_props.ch_id = gsi_ep_info->ipa_gsi_chan_num;
 
+	gsi_channel_props.db_in_bytes = 0;
 	gsi_channel_props.evt_ring_hdl = ep->gsi_evt_ring_hdl;
 	gsi_channel_props.re_size = GSI_CHAN_RE_SIZE_16B;
 	gsi_channel_props.use_db_eng = GSI_CHAN_DB_MODE;
