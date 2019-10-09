@@ -2958,8 +2958,11 @@ static int cam_ife_mgr_start_hw(void *hw_mgr_priv, void *start_hw_args)
 	struct cam_isp_stop_args          stop_isp;
 	struct cam_ife_hw_mgr_ctx        *ctx;
 	struct cam_ife_hw_mgr_res        *hw_mgr_res;
+	struct cam_hw_intf               *hw_intf;
 	struct cam_isp_resource_node     *rsrc_node = NULL;
-	uint32_t                          i, camif_debug;
+	uint32_t                          i, j, camif_debug;
+	uint32_t                          enable_dmi_dump;
+	struct cam_isp_hw_get_cmd_update  cmd_update;
 
 	if (!hw_mgr_priv || !start_isp) {
 		CAM_ERR(CAM_ISP, "Invalid arguments");
@@ -3014,6 +3017,24 @@ static int cam_ife_mgr_start_hw(void *hw_mgr_priv, void *start_hw_args)
 					&camif_debug,
 					sizeof(camif_debug));
 			}
+		}
+	}
+
+	enable_dmi_dump = g_ife_hw_mgr.debug_cfg.enable_dmi_dump;
+	for (i = 0; i < CAM_IFE_HW_OUT_RES_MAX; i++) {
+		hw_mgr_res = &ctx->res_list_ife_out[i];
+		for (j = 0; j < CAM_ISP_HW_SPLIT_MAX; j++) {
+			if (!hw_mgr_res->hw_res[j])
+				continue;
+			hw_intf = hw_mgr_res->hw_res[j]->hw_intf;
+			cmd_update.res =  hw_mgr_res->hw_res[j];
+			cmd_update.cmd_type =
+				CAM_ISP_HW_CMD_SET_STATS_DMI_DUMP;
+			cmd_update.data = &enable_dmi_dump;
+			hw_intf->hw_ops.process_cmd(hw_intf->hw_priv,
+				CAM_ISP_HW_CMD_SET_STATS_DMI_DUMP,
+				&cmd_update,
+				sizeof(cmd_update));
 		}
 	}
 
@@ -6075,6 +6096,27 @@ DEFINE_SIMPLE_ATTRIBUTE(cam_ife_camif_debug,
 	cam_ife_get_camif_debug,
 	cam_ife_set_camif_debug, "%16llu");
 
+static int cam_ife_set_bus_dmi_debug(void *data, u64 val)
+{
+	g_ife_hw_mgr.debug_cfg.enable_dmi_dump = val;
+	CAM_DBG(CAM_ISP,
+		"Set bus enable_dmi_dump_status value :%lld", val);
+	return 0;
+}
+
+static int cam_ife_get_bus_dmi_debug(void *data, u64 *val)
+{
+	*val = g_ife_hw_mgr.debug_cfg.enable_dmi_dump;
+	CAM_DBG(CAM_ISP,
+		"Get bus enable_dmi_dump_status value :%lld",
+		g_ife_hw_mgr.debug_cfg.enable_dmi_dump);
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(cam_ife_bus_dmi_debug,
+	cam_ife_get_bus_dmi_debug,
+	cam_ife_set_bus_dmi_debug, "%16llu");
+
 static int cam_ife_hw_mgr_debug_register(void)
 {
 	g_ife_hw_mgr.debug_cfg.dentry = debugfs_create_dir("camera_ife",
@@ -6116,6 +6158,15 @@ static int cam_ife_hw_mgr_debug_register(void)
 		CAM_ERR(CAM_ISP, "failed to create cam_ife_camif_debug");
 		goto err;
 	}
+
+	if (!debugfs_create_file("ife_dmi_dump",
+		0644,
+		g_ife_hw_mgr.debug_cfg.dentry, NULL,
+		&cam_ife_bus_dmi_debug)) {
+		CAM_ERR(CAM_ISP, "failed to create cam_ife_dmi_dump");
+		goto err;
+	}
+
 	g_ife_hw_mgr.debug_cfg.enable_recovery = 0;
 
 	return 0;
