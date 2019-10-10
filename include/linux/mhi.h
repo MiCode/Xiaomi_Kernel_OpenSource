@@ -339,6 +339,7 @@ struct mhi_controller {
 
 	/* controller specific data */
 	const char *name;
+	bool power_down;
 	void *priv_data;
 	void *log_buf;
 	struct dentry *dentry;
