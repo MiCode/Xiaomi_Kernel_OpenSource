@@ -1434,7 +1434,7 @@ int synx_register_ops(const struct synx_register_params *params)
 		return -EINVAL;
 	}
 
-	mutex_lock(&synx_dev->table_lock);
+	mutex_lock(&synx_dev->vtbl_lock);
 	client_ops = &synx_dev->bind_vtbl[params->type];
 	if (!client_ops->valid) {
 		client_ops->valid = true;
@@ -1451,7 +1451,7 @@ int synx_register_ops(const struct synx_register_params *params)
 			client_ops->name);
 		rc = -EINVAL;
 	}
-	mutex_unlock(&synx_dev->table_lock);
+	mutex_unlock(&synx_dev->vtbl_lock);
 
 	return rc;
 }
@@ -1466,12 +1466,12 @@ int synx_deregister_ops(const struct synx_register_params *params)
 		return -EINVAL;
 	}
 
-	mutex_lock(&synx_dev->table_lock);
+	mutex_lock(&synx_dev->vtbl_lock);
 	client_ops = &synx_dev->bind_vtbl[params->type];
 	memset(client_ops, 0, sizeof(*client_ops));
 	pr_info("deregistered bind ops for %s\n",
 		params->name);
-	mutex_unlock(&synx_dev->table_lock);
+	mutex_unlock(&synx_dev->vtbl_lock);
 
 	return 0;
 }
@@ -1488,6 +1488,7 @@ static int __init synx_init(void)
 		return -ENOMEM;
 
 	mutex_init(&synx_dev->table_lock);
+	mutex_init(&synx_dev->vtbl_lock);
 
 	for (idx = 0; idx < SYNX_MAX_OBJS; idx++)
 		spin_lock_init(&synx_dev->row_spinlocks[idx]);
