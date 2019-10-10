@@ -204,6 +204,7 @@ static int mhi_arch_esoc_ops_power_on(void *priv, unsigned int flags)
 		return ret;
 	}
 
+	mhi_dev->mdm_state = (flags & ESOC_HOOK_MDM_CRASH);
 	return mhi_pci_probe(pci_dev, NULL);
 }
 
@@ -347,8 +348,9 @@ int mhi_arch_power_up(struct mhi_controller *mhi_cntrl)
 	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
 	struct arch_info *arch_info = mhi_dev->arch_info;
 
-	/* start a boot monitor */
-	arch_info->cookie = async_schedule(mhi_boot_monitor, mhi_cntrl);
+	/* start a boot monitor if not in crashed state */
+	if (!mhi_dev->mdm_state)
+		arch_info->cookie = async_schedule(mhi_boot_monitor, mhi_cntrl);
 
 	return 0;
 }
