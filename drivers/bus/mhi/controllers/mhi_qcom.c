@@ -545,8 +545,9 @@ static int mhi_qcom_power_up(struct mhi_controller *mhi_cntrl)
 			return -EIO;
 	}
 
-	/* when coming out of SSR, initial ee state is not valid */
+	/* when coming out of SSR, initial states are not valid */
 	mhi_cntrl->ee = 0;
+	mhi_cntrl->power_down = false;
 
 	ret = mhi_arch_power_up(mhi_cntrl);
 	if (ret)
