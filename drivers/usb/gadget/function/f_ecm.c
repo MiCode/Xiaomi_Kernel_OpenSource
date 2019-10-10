@@ -701,7 +701,7 @@ ecm_bind(struct usb_configuration *c, struct usb_function *f)
 	 */
 	if (!ecm_opts->bound) {
 		mutex_lock(&ecm_opts->lock);
-		ecm_opts->net = gether_setup_default();
+		ecm_opts->net = gether_setup_name_default("ecm");
 		if (IS_ERR(ecm_opts->net)) {
 			status = PTR_ERR(ecm_opts->net);
 			mutex_unlock(&ecm_opts->lock);
