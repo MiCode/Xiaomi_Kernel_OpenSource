@@ -46,7 +46,7 @@ config QCOM_GLINK_SSR
 
 config MSM_SPSS_UTILS
 	depends on MSM_PIL
-	bool "Secure Processor Utilities"
+	tristate "Secure Processor Utilities"
 	help
 	  spss-utils driver selects Secure Processor firmware file name.name
 	  The firmware file name for dev, test or production is selected
