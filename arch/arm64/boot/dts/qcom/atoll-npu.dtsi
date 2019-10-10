@@ -21,7 +21,7 @@
 		reg-names = "tcm", "core", "cc", "apss_shared";
 		interrupts = <GIC_SPI 583 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 585 IRQ_TYPE_EDGE_RISING>,
-			<GIC_SPI 587 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 588 IRQ_TYPE_EDGE_RISING>,
 			<GIC_SPI 584 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "error_irq", "wdg_bite_irq", "ipc_irq",
 			"general_irq";
@@ -60,6 +60,8 @@
 		qcom,proxy-reg-names ="vdd", "vdd_cx";
 		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
 		#cooling-cells = <2>;
+		qcom,npubw-devs = <&npu_npu_ddr_bw>;
+		qcom,npubw-dev-names = "ddr_bw";
 		qcom,src-dst-ports = <MSM_BUS_MASTER_NPU MSM_BUS_SLAVE_EBI_CH0>;
 		qcom,npu-pwrlevels {
 			#address-cells = <1>;

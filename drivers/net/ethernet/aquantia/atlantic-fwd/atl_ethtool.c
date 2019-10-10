@@ -8,6 +8,7 @@
  */
 
 #include <linux/ethtool.h>
+#include <linux/pm_runtime.h>
 
 #include "atl_common.h"
 #include "atl_ring.h"
@@ -168,8 +169,10 @@ static int atl_set_fixed_speed(struct atl_hw *hw, unsigned int speed)
 {
 	struct atl_link_state *lstate = &hw->link_state;
 	struct atl_link_type *type;
+	unsigned long tmp;
 	int i;
 
+	lstate->advertized &= ~ATL_EEE_MASK;
 	atl_for_each_rate(i, type)
 		if (type->speed == speed) {
 			if (!(lstate->supported & BIT(i)))
@@ -178,6 +181,14 @@ static int atl_set_fixed_speed(struct atl_hw *hw, unsigned int speed)
 			lstate->advertized = BIT(i);
 			break;
 		}
+
+	if (lstate->eee_enabled) {
+		atl_link_to_kernel(lstate->supported >> ATL_EEE_BIT_OFFT,
+				   &tmp, true);
+		/* advertize the supported links */
+		tmp = atl_kernel_to_link(&tmp, true);
+		lstate->advertized |= tmp << ATL_EEE_BIT_OFFT;
+	}
 
 	lstate->autoneg = false;
 	hw->mcp.ops->set_link(hw, false);
@@ -206,7 +217,6 @@ do {									\
 	}								\
 									\
 	lstate->autoneg = true;						\
-	(lstate)->advertized &= ATL_EEE_MASK;				\
 	(lstate)->advertized |= atl_kernel_to_link(advertise, legacy);	\
 									\
 	fc->req = 0;							\
@@ -610,7 +620,9 @@ static const struct atl_stat_desc eth_stat_descs[] = {
 static const char atl_priv_flags[][ETH_GSTRING_LEN] = {
 	ATL_PRIV_FLAG(PKTSystemLoopback, LPB_SYS_PB),
 	ATL_PRIV_FLAG(DMASystemLoopback, LPB_SYS_DMA),
-	/* ATL_PRIV_FLAG(DMANetworkLoopback, LPB_NET_DMA), */
+	ATL_PRIV_FLAG(DMANetworkLoopback, LPB_NET_DMA),
+	ATL_PRIV_FLAG(PHYInternalLoopback, LPB_INT_PHY),
+	ATL_PRIV_FLAG(PHYExternalLoopback, LPB_EXT_PHY),
 	ATL_PRIV_FLAG(RX_LPI_MAC, LPI_RX_MAC),
 	ATL_PRIV_FLAG(TX_LPI_MAC, LPI_TX_MAC),
 	ATL_PRIV_FLAG(RX_LPI_PHY, LPI_RX_PHY),
@@ -890,13 +902,14 @@ static int atl_set_priv_flags(struct net_device *ndev, uint32_t flags)
 		return -EINVAL;
 	}
 
+	nic->priv_flags = flags;
+
 	if (curr)
 		atl_set_loopback(nic, ffs(curr) - 1, false);
 
 	if (lpb)
 		atl_set_loopback(nic, ffs(lpb) - 1, true);
 
-	nic->priv_flags = flags;
 	return 0;
 }
 
@@ -1287,7 +1300,7 @@ static uint32_t atl_rxf_find_vid(struct atl_nic *nic, uint16_t vid,
 		if (!(cmd & ATL_RXF_EN)) {
 			if (free == ATL_RXF_VLAN_MAX) {
 				free = idx;
-				if (vid == -1)
+				if (vid == 0xffff)
 					break;
 			}
 			continue;
@@ -1320,7 +1333,7 @@ static uint16_t atl_rxf_vid(struct atl_rxf_vlan *vlan, int idx)
 {
 	uint32_t cmd = vlan->cmd[idx];
 
-	return cmd & ATL_RXF_EN ? cmd & ATL_VLAN_VID_MASK : -1;
+	return cmd & ATL_RXF_EN ? cmd & ATL_VLAN_VID_MASK : 0xffff;
 }
 
 static int atl_rxf_dup_vid(struct atl_rxf_vlan *vlan, int idx, uint16_t vid)
@@ -1360,7 +1373,7 @@ static int atl_rxf_set_vlan(const struct atl_rxf_flt_desc *desc,
 		}
 
 		old_vid = atl_rxf_vid(vlan, idx);
-		if (old_vid != -1 && vid != old_vid &&
+		if (old_vid != 0xffff && vid != old_vid &&
 			test_bit(old_vid, vlan->map)) {
 			atl_nic_err("Can't overwrite Linux VLAN filter @%d VID %hd with a different VID %hd\n",
 				idx, old_vid, vid);
@@ -2066,6 +2079,8 @@ static int atl_set_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
 	ret = device_set_wakeup_enable(&nic->hw.pdev->dev,
 		!!(nic->flags & ATL_FL_WOL));
 
+	if (ret == -EEXIST)
+		ret = 0;
 	if (ret) {
 		atl_nic_err("device_set_wakeup_enable failed: %d\n", -ret);
 		nic->flags &= ~ATL_FL_WOL;
@@ -2073,6 +2088,19 @@ static int atl_set_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
 	}
 
 	return ret;
+}
+
+static int atl_ethtool_begin(struct net_device *ndev)
+{
+	struct atl_nic *nic = netdev_priv(ndev);
+	pm_runtime_get_sync(&nic->hw.pdev->dev);
+	return 0;
+}
+
+static void atl_ethtool_complete(struct net_device *ndev)
+{
+	struct atl_nic *nic = netdev_priv(ndev);
+	pm_runtime_put(&nic->hw.pdev->dev);
 }
 
 const struct ethtool_ops atl_ethtool_ops = {
@@ -2110,4 +2138,6 @@ const struct ethtool_ops atl_ethtool_ops = {
 	.set_coalesce = atl_set_coalesce,
 	.get_wol = atl_get_wol,
 	.set_wol = atl_set_wol,
+	.begin = atl_ethtool_begin,
+	.complete = atl_ethtool_complete,
 };

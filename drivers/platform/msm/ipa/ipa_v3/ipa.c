@@ -2459,7 +2459,7 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				((struct ipa_ioc_mdfy_flt_rule_v2 *)
 				header)->rule_mdfy_size);
 		/* modify the rule pointer to the kernel pointer */
-		((struct ipa_ioc_add_flt_rule_after_v2 *)header)->rules =
+		((struct ipa_ioc_mdfy_flt_rule_v2 *)header)->rules =
 			(uintptr_t)kptr;
 		if (ipa3_mdfy_flt_rule_v2
 			((struct ipa_ioc_mdfy_flt_rule_v2 *)header)) {
@@ -2482,6 +2482,12 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		}
 		break;
 	case IPA_IOC_FNR_COUNTER_ALLOC:
+		if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
+			IPAERR("FNR stats not supported on IPA ver %d",
+				ipa3_ctx->ipa_hw_type);
+			retval = -EFAULT;
+			break;
+		}
 		if (copy_from_user(header, (const void __user *)arg,
 			sizeof(struct ipa_ioc_flt_rt_counter_alloc))) {
 			IPAERR("copy_from_user fails\n");
@@ -2525,6 +2531,12 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		break;
 
 	case IPA_IOC_FNR_COUNTER_DEALLOC:
+		if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
+			IPAERR("FNR stats not supported on IPA ver %d",
+				ipa3_ctx->ipa_hw_type);
+			retval = -EFAULT;
+			break;
+		}
 		hdl = (int)arg;
 		if (hdl < 0) {
 			IPAERR("IPA_FNR_COUNTER_DEALLOC failed: hdl %d\n",
@@ -2536,6 +2548,12 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		break;
 
 	case IPA_IOC_FNR_COUNTER_QUERY:
+		if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
+			IPAERR("FNR stats not supported on IPA ver %d",
+				ipa3_ctx->ipa_hw_type);
+			retval = -EFAULT;
+			break;
+		}
 		if (copy_from_user(header, (const void __user *)arg,
 			sizeof(struct ipa_ioc_flt_rt_query))) {
 			IPAERR_RL("copy_from_user fails\n");
@@ -6200,7 +6218,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	for (i = 0; i < IPA_HW_PROTOCOL_MAX; i++) {
 		ipa3_ctx->gsi_info[i].protocol = i;
 		/* initialize all to be not started */
-		for (j = 0; j < MAX_CH_STATS_SUPPORTED; j++)
+		for (j = 0; j < IPA_MAX_CH_STATS_SUPPORTED; j++)
 			ipa3_ctx->gsi_info[i].ch_id_info[j].ch_id =
 				0xFF;
 	}

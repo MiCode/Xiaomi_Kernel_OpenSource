@@ -31,7 +31,6 @@ struct mhi_buf_info;
  * @MHI_CB_EE_MISSION_MODE: MHI device entered Mission Mode ee
  * @MHI_CB_SYS_ERROR: MHI device enter error state (may recover)
  * @MHI_CB_FATAL_ERROR: MHI device entered fatal error
- * @MHI_CB_BW_REQ: Received a bandwidth switch request from device
  */
 enum MHI_CB {
 	MHI_CB_IDLE,
@@ -42,11 +41,10 @@ enum MHI_CB {
 	MHI_CB_EE_MISSION_MODE,
 	MHI_CB_SYS_ERROR,
 	MHI_CB_FATAL_ERROR,
-	MHI_CB_BW_REQ,
 };
 
 /**
- * enum MHI_DEBUG_LEVL - various debugging level
+ * enum MHI_DEBUG_LEVEL - various debugging level
  */
 enum MHI_DEBUG_LEVEL {
 	MHI_MSG_LVL_VERBOSE,
@@ -54,6 +52,7 @@ enum MHI_DEBUG_LEVEL {
 	MHI_MSG_LVL_ERROR,
 	MHI_MSG_LVL_CRITICAL,
 	MHI_MSG_LVL_MASK_ALL,
+	MHI_MSG_LVL_MAX,
 };
 
 /**
@@ -124,10 +123,12 @@ enum mhi_dev_state {
  * struct mhi_link_info - bw requirement
  * target_link_speed - as defined by TLS bits in LinkControl reg
  * target_link_width - as defined by NLW bits in LinkStatus reg
+ * sequence_num - used by device to track bw requests sent to host
  */
 struct mhi_link_info {
 	unsigned int target_link_speed;
 	unsigned int target_link_width;
+	int sequence_num;
 };
 
 #define MHI_VOTE_BUS BIT(0) /* do not disable the bus */
@@ -206,6 +207,7 @@ struct mhi_controller {
 	void __iomem *bhi;
 	void __iomem *bhie;
 	void __iomem *wake_db;
+	void __iomem *bw_scale_db;
 
 	/* device topology */
 	u32 dev_id;
@@ -306,6 +308,8 @@ struct mhi_controller {
 	void (*unmap_single)(struct mhi_controller *mhi_cntrl,
 			     struct mhi_buf_info *buf);
 	void (*tsync_log)(struct mhi_controller *mhi_cntrl, u64 remote_time);
+	int (*bw_scale)(struct mhi_controller *mhi_cntrl,
+			struct mhi_link_info *link_info);
 
 	/* channel to control DTR messaging */
 	struct mhi_device *dtr_dev;

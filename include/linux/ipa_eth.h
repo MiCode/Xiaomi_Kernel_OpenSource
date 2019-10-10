@@ -39,9 +39,13 @@
  *                - probe() and remove() offload bus ops are replaced by pair()
  *                  and unpair() callbacks respectively
  *           3    - Added .save_regs() callback for network and offload drivers
+ *           4    - Added ipa_eth_device_notify() interface for client drivers
+ *                  to notify of various device events.
+ *           5    - Removed ipa_eth_{gsi,uc}_iommu_*{} APIs that were used for
+ *                  mapping memory to GSI and IPA uC IOMMU CBs.
  */
 
-#define IPA_ETH_API_VER 3
+#define IPA_ETH_API_VER 5
 
 /**
  * enum ipa_eth_dev_features - Features supported by an ethernet device or
@@ -440,7 +444,7 @@ struct ipa_eth_channel {
  * @start_on_resume: Allow start upon driver resume
  * @start_on_timeout: Timeout in milliseconds after which @start is enabled
  * @start_timer: Timer associated with @start_on_timer
- * @state: Device state
+ * @flags: Device flags
  * @if_state: Interface state - one or more bit numbers IPA_ETH_IF_ST_*
  * @pm_handle: IPA PM client handle for the device
  * @bus_priv: Private field for use by offload subsystem bus layer
@@ -479,7 +483,7 @@ struct ipa_eth_device {
 	u32 start_on_timeout;
 	struct timer_list start_timer;
 
-	unsigned long state;
+	unsigned long flags;
 	unsigned long if_state;
 
 	u32 pm_handle;
@@ -490,6 +494,22 @@ struct ipa_eth_device {
 
 	struct work_struct refresh;
 };
+
+/**
+ * enum ipa_eth_device_event - Events related to device state
+ * @IPA_ETH_DEV_RESET_PREPARE: Device is entering reset and is requesting
+ *                             offload path to stop using the device
+ * @IPA_ETH_DEV_RESET_COMPLETE: Device has completed resetting and is
+ *                              requesting offload path to resume its operations
+ */
+enum ipa_eth_device_event {
+	IPA_ETH_DEV_RESET_PREPARE,
+	IPA_ETH_DEV_RESET_COMPLETE,
+	IPA_ETH_DEV_EVENT_COUNT,
+};
+
+int ipa_eth_device_notify(struct ipa_eth_device *eth_dev,
+	enum ipa_eth_device_event event, void *data);
 
 #ifdef IPA_ETH_NET_DRIVER
 
@@ -716,11 +736,11 @@ struct ipa_eth_net_ops {
 /**
  * struct ipa_eth_net_driver - Network driver to be registered with IPA offload
  *                             subsystem
+ * @driver_list: Entry in the offload sub-system network driver list
+ * @bus_driver_list: Entry in the bus specific driver list
+ * @ops: Network device operations
+ * @bus_priv: Bus private data
  * @name: Name of the network driver
- * @driver: Pointer to the device_driver object embedded within a PCI/plaform
- *          driver object used by the network driver
- * @events: Events supported by the network device
- * @features: Capabilities of the network device
  * @bus: Pointer to the bus object. Must use &pci_bus_type for PCI and
  *       &platform_bus_type for platform drivers. This property is used by the
  *       offload subsystem to deduce the network driver's original pci_driver
@@ -728,18 +748,25 @@ struct ipa_eth_net_ops {
  *       registration.
  *       Beyond registration, the bus type is also used to deduce a pci_dev or
  *       platform_device object from a `struct device` pointer.
- * @ops: Network device operations
+ * @driver: Pointer to the device_driver object embedded within a PCI/plaform
+ *          driver object used by the network driver
+ * @events: Events supported by the network device
+ * @features: Capabilities of the network device
  * @debugfs: Debugfs directory for the device
  */
 struct ipa_eth_net_driver {
+	struct list_head driver_list;
+	struct list_head bus_driver_list;
+
+	struct ipa_eth_net_ops *ops;
+	void *bus_priv;
+
 	const char *name;
+	struct bus_type *bus;
 	struct device_driver *driver;
 
 	unsigned long events;
 	unsigned long features;
-
-	struct bus_type *bus;
-	struct ipa_eth_net_ops *ops;
 
 	struct dentry *debugfs;
 };
@@ -912,12 +939,32 @@ struct ipa_eth_offload_ops {
 	 */
 	int (*save_regs)(struct ipa_eth_device *eth_dev,
 		void **regs, size_t *size);
+
+	/**
+	 * .prepare_reset() - Prepare offload path for netdev reset
+	 * @eth_dev: Offloaded device
+	 * @data: Private data the network driver has provided
+	 *
+	 * Return: 0 on success, errno otherwise.
+	 */
+	int (*prepare_reset)(struct ipa_eth_device *eth_dev, void *data);
+
+	/**
+	 * .complete_reset() - Netdev reset completed, offload path can resume
+	 * @eth_dev: Offloaded device
+	 * @data: Private data the network driver has provided
+	 *
+	 * Return: 0 on success, errno otherwise.
+	 */
+	int (*complete_reset)(struct ipa_eth_device *eth_dev, void *data);
+
 };
 
 /**
  * struct ipa_eth_offload_driver - Offload driver to be registered with the
  *                                 offload sub-system
  * @driver_list: Entry in the global offload driver list
+ * @mutex: Mutex to protect offload driver struct
  * @name: Name of the offload driver
  * @bus: Supported network device bus type
  * @ops: Offload operations
@@ -926,6 +973,7 @@ struct ipa_eth_offload_ops {
  */
 struct ipa_eth_offload_driver {
 	struct list_head driver_list;
+	struct mutex mutex;
 
 	const char *name;
 	struct bus_type *bus;
@@ -982,12 +1030,6 @@ int ipa_eth_gsi_ring_channel(struct ipa_eth_channel *ch, u64 value);
 int ipa_eth_gsi_start(struct ipa_eth_channel *ch);
 int ipa_eth_gsi_stop(struct ipa_eth_channel *ch);
 
-int ipa_eth_gsi_iommu_pamap(dma_addr_t daddr, phys_addr_t paddr,
-	size_t size, int prot, bool split);
-int ipa_eth_gsi_iommu_vamap(dma_addr_t daddr, void *vaddr,
-	size_t size, int prot, bool split);
-int ipa_eth_gsi_iommu_unmap(dma_addr_t daddr, size_t size, bool split);
-
 /* IPA uC interface for ethernet devices */
 
 enum ipa_eth_uc_op {
@@ -1019,12 +1061,6 @@ enum ipa_eth_uc_resp {
 
 int ipa_eth_uc_send_cmd(enum ipa_eth_uc_op op, u32 protocol,
 	const void *prot_data, size_t datasz);
-
-int ipa_eth_uc_iommu_pamap(dma_addr_t daddr, phys_addr_t paddr,
-	size_t size, int prot, bool split);
-int ipa_eth_uc_iommu_vamap(dma_addr_t daddr, void *vaddr,
-	size_t size, int prot, bool split);
-int ipa_eth_uc_iommu_unmap(dma_addr_t daddr, size_t size, bool split);
 
 #endif /* IPA_ETH_OFFLOAD_DRIVER */
 

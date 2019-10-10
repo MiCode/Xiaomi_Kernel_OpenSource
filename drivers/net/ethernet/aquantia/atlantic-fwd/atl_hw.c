@@ -8,6 +8,7 @@
  */
 
 #include <linux/interrupt.h>
+#include <linux/pm_runtime.h>
 
 #include "atl_common.h"
 #include "atl_hw.h"
@@ -100,6 +101,16 @@ static inline void atl_glb_soft_reset_full(struct atl_hw *hw)
 	atl_glb_soft_reset(hw);
 }
 
+static inline void atl_enable_dma_net_lpb_mode(struct atl_nic *nic)
+{
+	struct atl_hw *hw = &nic->hw;
+
+	atl_set_vlan_promisc(hw, 1);
+	atl_write_bit(hw, ATL_RX_FLT_CTRL1, 3, 1);
+	atl_write_bit(hw, ATL_TX_PBUF_CTRL1, 4, 0);
+	atl_write_bit(hw, ATL_TX_CTRL1, 4, 1);
+	atl_write_bit(hw, ATL_RX_CTRL1, 4, 1);
+}
 /* entered with fw lock held */
 static int atl_hw_reset_nonrbl(struct atl_hw *hw)
 {
@@ -138,11 +149,17 @@ static int atl_hw_reset_nonrbl(struct atl_hw *hw)
 	}
 	atl_dev_dbg("FLB kickstart took %d ms\n", tries);
 
-	atl_write(hw, 0x404, 0x80e0);
+	atl_write(hw, 0x404, 0x40e1);
 	mdelay(50);
 	atl_write(hw, 0x3a0, 1);
 
 	atl_glb_soft_reset_full(hw);
+
+	if (hw->mcp.ops)
+		hw->mcp.ops->restore_cfg(hw);
+
+	/* unstall FW*/
+	atl_write(hw, 0x404, 0x40e0);
 
 	ret = atl_fw_init(hw);
 
@@ -197,27 +214,17 @@ int atl_hw_reset(struct atl_hw *hw)
 
 	atl_glb_soft_reset_full(hw);
 
+	if (hw->mcp.ops)
+		hw->mcp.ops->restore_cfg(hw);
+
 	atl_write(hw, ATL_GLOBAL_CTRL2, 0x40e0);
 
 	for (tries = 0; tries < 10000; mdelay(1)) {
 		tries++;
 		reg = atl_read(hw, ATL_MCP_SCRATCH(RBL_STS)) & 0xffff;
 
-		if (!reg || reg == 0xdead)
-			continue;
-
-		/* if (reg != 0xf1a7) */
+		if (reg && reg != 0xdead)
 			break;
-
-		/* if (host_load_done) */
-		/* 	continue; */
-
-		/* ret = atl_load_mac_fw(hw); */
-		/* if (ret) { */
-		/* 	atl_dev_err("MAC FW host load failed\n"); */
-		/* 	return ret; */
-		/* } */
-		/* host_load_done = true; */
 	}
 
 	if (reg == 0xf1a7) {
@@ -320,13 +327,17 @@ void atl_refresh_link(struct atl_nic *nic)
 	link = hw->mcp.ops->check_link(hw);
 
 	if (link) {
-		if (link != prev_link)
+		if (link != prev_link) {
 			atl_nic_info("Link up: %s\n", link->name);
-		netif_carrier_on(nic->ndev);
+			netif_carrier_on(nic->ndev);
+			pm_runtime_get_sync(&nic->hw.pdev->dev);
+		}
 	} else {
-		if (link != prev_link)
+		if (link != prev_link) {
 			atl_nic_info("Link down\n");
-		netif_carrier_off(nic->ndev);
+			netif_carrier_off(nic->ndev);
+			pm_runtime_put_sync(&nic->hw.pdev->dev);
+		}
 	}
 	atl_rx_xoff_set(hw, !!(hw->link_state.fc.cur & atl_fc_rx));
 
@@ -488,6 +499,9 @@ void atl_start_hw_global(struct atl_nic *nic)
 
 	if (!test_and_clear_bit(ATL_ST_GLOBAL_CONF_NEEDED, &hw->state))
 		return;
+
+	if (nic->priv_flags & ATL_PF_BIT(LPB_NET_DMA))
+		atl_enable_dma_net_lpb_mode(nic);
 
 	/* Enable TPO2 */
 	atl_write(hw, 0x7040, 0x10000);
@@ -695,10 +709,17 @@ void atl_set_loopback(struct atl_nic *nic, int idx, bool on)
 		atl_write_bit(hw, ATL_TX_CTRL1, 7, on);
 		atl_write_bit(hw, ATL_RX_CTRL1, 8, on);
 		break;
-	/* case ATL_PF_LPB_NET_DMA: */
-	/* 	atl_write_bit(hw, ATL_TX_CTRL1, 4, on); */
-	/* 	atl_write_bit(hw, ATL_RX_CTRL1, 4, on); */
-	/* 	break; */
+	case ATL_PF_LPB_INT_PHY:
+	case ATL_PF_LPB_EXT_PHY:
+		hw->mcp.ops->set_phy_loopback(nic, idx);
+		break;
+	case ATL_PF_LPB_NET_DMA:
+		/* To switch DMANetworkLoopback mode
+		 * you need a reset datapath
+		 */
+		set_bit(ATL_ST_GLOBAL_CONF_NEEDED, &hw->state);
+		atl_reconfigure(nic);
+		break;
 	}
 }
 

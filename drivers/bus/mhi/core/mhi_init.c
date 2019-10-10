@@ -23,6 +23,14 @@
 #include <linux/mhi.h>
 #include "mhi_internal.h"
 
+const char * const mhi_log_level_str[MHI_MSG_LVL_MAX] = {
+	[MHI_MSG_LVL_VERBOSE] = "Verbose",
+	[MHI_MSG_LVL_INFO] = "Info",
+	[MHI_MSG_LVL_ERROR] = "Error",
+	[MHI_MSG_LVL_CRITICAL] = "Critical",
+	[MHI_MSG_LVL_MASK_ALL] = "Mask all",
+};
+
 const char * const mhi_ee_str[MHI_EE_MAX] = {
 	[MHI_EE_PBL] = "PBL",
 	[MHI_EE_SBL] = "SBL",
@@ -80,6 +88,38 @@ const char *to_mhi_pm_state_str(enum MHI_PM_STATE state)
 
 	return mhi_pm_state_str[index];
 }
+
+static ssize_t log_level_show(struct device *dev,
+			      struct device_attribute *attr,
+			      char *buf)
+{
+	struct mhi_device *mhi_dev = to_mhi_device(dev);
+	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
+
+	return snprintf(buf, PAGE_SIZE, "%s\n",
+			TO_MHI_LOG_LEVEL_STR(mhi_cntrl->log_lvl));
+}
+
+static ssize_t log_level_store(struct device *dev,
+			       struct device_attribute *attr,
+			       const char *buf,
+			       size_t count)
+{
+	struct mhi_device *mhi_dev = to_mhi_device(dev);
+	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
+	enum MHI_DEBUG_LEVEL log_level;
+
+	if (kstrtou32(buf, 0, &log_level) < 0)
+		return -EINVAL;
+
+	mhi_cntrl->log_lvl = log_level;
+
+	MHI_LOG("IPC log level changed to: %s\n",
+		TO_MHI_LOG_LEVEL_STR(log_level));
+
+	return count;
+}
+static DEVICE_ATTR_RW(log_level);
 
 static ssize_t bus_vote_show(struct device *dev,
 			     struct device_attribute *attr,
@@ -139,27 +179,28 @@ static ssize_t device_vote_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(device_vote);
 
-static struct attribute *mhi_vote_attrs[] = {
+static struct attribute *mhi_sysfs_attrs[] = {
+	&dev_attr_log_level.attr,
 	&dev_attr_bus_vote.attr,
 	&dev_attr_device_vote.attr,
 	NULL,
 };
 
-static const struct attribute_group mhi_vote_group = {
-	.attrs = mhi_vote_attrs,
+static const struct attribute_group mhi_sysfs_group = {
+	.attrs = mhi_sysfs_attrs,
 };
 
-int mhi_create_vote_sysfs(struct mhi_controller *mhi_cntrl)
+int mhi_create_sysfs(struct mhi_controller *mhi_cntrl)
 {
 	return sysfs_create_group(&mhi_cntrl->mhi_dev->dev.kobj,
-				  &mhi_vote_group);
+				  &mhi_sysfs_group);
 }
 
-void mhi_destroy_vote_sysfs(struct mhi_controller *mhi_cntrl)
+void mhi_destroy_sysfs(struct mhi_controller *mhi_cntrl)
 {
 	struct mhi_device *mhi_dev = mhi_cntrl->mhi_dev;
 
-	sysfs_remove_group(&mhi_dev->dev.kobj, &mhi_vote_group);
+	sysfs_remove_group(&mhi_dev->dev.kobj, &mhi_sysfs_group);
 
 	/* relinquish any pending votes for device */
 	while (atomic_read(&mhi_dev->dev_vote))
@@ -504,15 +545,18 @@ error_alloc_chan_ctxt:
 	return ret;
 }
 
-static int mhi_get_tsync_er_cfg(struct mhi_controller *mhi_cntrl)
+/* to be used only if a single event ring with the type is present */
+static int mhi_get_er_index(struct mhi_controller *mhi_cntrl,
+			    enum mhi_er_data_type type)
 {
 	int i;
 	struct mhi_event *mhi_event = mhi_cntrl->mhi_event;
 
-	/* find event ring with timesync support */
-	for (i = 0; i < mhi_cntrl->total_ev_rings; i++, mhi_event++)
-		if (mhi_event->data_type == MHI_ER_TSYNC_ELEMENT_TYPE)
+	/* find event ring for requested type */
+	for (i = 0; i < mhi_cntrl->total_ev_rings; i++, mhi_event++) {
+		if (mhi_event->data_type == type)
 			return mhi_event->er_index;
+	}
 
 	return -ENOENT;
 }
@@ -587,7 +631,7 @@ int mhi_init_timesync(struct mhi_controller *mhi_cntrl)
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 
 	/* get time-sync event ring configuration */
-	ret = mhi_get_tsync_er_cfg(mhi_cntrl);
+	ret = mhi_get_er_index(mhi_cntrl, MHI_ER_TSYNC_ELEMENT_TYPE);
 	if (ret < 0) {
 		MHI_LOG("Could not find timesync event ring\n");
 		return ret;
@@ -615,6 +659,36 @@ exit_timesync:
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 
 	return ret;
+}
+
+static int mhi_init_bw_scale(struct mhi_controller *mhi_cntrl)
+{
+	int ret, er_index;
+	u32 bw_cfg_offset;
+
+	/* controller doesn't support dynamic bw switch */
+	if (!mhi_cntrl->bw_scale)
+		return -ENODEV;
+
+	ret = mhi_get_capability_offset(mhi_cntrl, BW_SCALE_CAP_ID,
+					&bw_cfg_offset);
+	if (ret)
+		return ret;
+
+	/* No ER configured to support BW scale */
+	er_index = mhi_get_er_index(mhi_cntrl, MHI_ER_BW_SCALE_ELEMENT_TYPE);
+	if (ret < 0)
+		return er_index;
+
+	bw_cfg_offset += BW_SCALE_CFG_OFFSET;
+
+	MHI_LOG("BW_CFG OFFSET:0x%x\n", bw_cfg_offset);
+
+	/* advertise host support */
+	mhi_write_reg(mhi_cntrl, mhi_cntrl->regs, bw_cfg_offset,
+		      MHI_BW_SCALE_SETUP(er_index));
+
+	return 0;
 }
 
 int mhi_init_mmio(struct mhi_controller *mhi_cntrl)
@@ -713,6 +787,9 @@ int mhi_init_mmio(struct mhi_controller *mhi_cntrl)
 	mhi_write_reg(mhi_cntrl, mhi_cntrl->wake_db, 0, 0);
 	mhi_cntrl->wake_set = false;
 
+	/* setup bw scale db */
+	mhi_cntrl->bw_scale_db = base + val + (8 * MHI_BW_SCALE_CHAN_DB);
+
 	/* setup channel db addresses */
 	mhi_chan = mhi_cntrl->mhi_chan;
 	for (i = 0; i < mhi_cntrl->max_chan; i++, val += 8, mhi_chan++)
@@ -742,6 +819,9 @@ int mhi_init_mmio(struct mhi_controller *mhi_cntrl)
 		mhi_write_reg_field(mhi_cntrl, base, reg_info[i].offset,
 				    reg_info[i].mask, reg_info[i].shift,
 				    reg_info[i].val);
+
+	/* setup bandwidth scaling features */
+	mhi_init_bw_scale(mhi_cntrl);
 
 	return 0;
 }
@@ -959,6 +1039,9 @@ static int of_parse_ev_cfg(struct mhi_controller *mhi_cntrl,
 			break;
 		case MHI_ER_TSYNC_ELEMENT_TYPE:
 			mhi_event->process_event = mhi_process_tsync_event_ring;
+			break;
+		case MHI_ER_BW_SCALE_ELEMENT_TYPE:
+			mhi_event->process_event = mhi_process_bw_scale_ev_ring;
 			break;
 		}
 
@@ -1537,7 +1620,6 @@ static int mhi_driver_probe(struct device *dev)
 	struct mhi_event *mhi_event;
 	struct mhi_chan *ul_chan = mhi_dev->ul_chan;
 	struct mhi_chan *dl_chan = mhi_dev->dl_chan;
-	bool auto_start = false;
 	int ret;
 
 	/* bring device out of lpm */
@@ -1556,7 +1638,11 @@ static int mhi_driver_probe(struct device *dev)
 
 		ul_chan->xfer_cb = mhi_drv->ul_xfer_cb;
 		mhi_dev->status_cb = mhi_drv->status_cb;
-		auto_start = ul_chan->auto_start;
+		if (ul_chan->auto_start) {
+			ret = mhi_prepare_channel(mhi_cntrl, ul_chan);
+			if (ret)
+				goto exit_probe;
+		}
 	}
 
 	if (dl_chan) {
@@ -1580,15 +1666,22 @@ static int mhi_driver_probe(struct device *dev)
 
 		/* ul & dl uses same status cb */
 		mhi_dev->status_cb = mhi_drv->status_cb;
-		auto_start = (auto_start || dl_chan->auto_start);
 	}
 
 	ret = mhi_drv->probe(mhi_dev, mhi_dev->id);
+	if (ret)
+		goto exit_probe;
 
-	if (!ret && auto_start)
-		mhi_prepare_for_transfer(mhi_dev);
+	if (dl_chan && dl_chan->auto_start)
+		mhi_prepare_channel(mhi_cntrl, dl_chan);
+
+	mhi_device_put(mhi_dev, MHI_VOTE_DEVICE);
+
+	return ret;
 
 exit_probe:
+	mhi_unprepare_from_transfer(mhi_dev);
+
 	mhi_device_put(mhi_dev, MHI_VOTE_DEVICE);
 
 	return ret;

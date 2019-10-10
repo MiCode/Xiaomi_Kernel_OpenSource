@@ -95,3 +95,12 @@
 		};
 	};
 };
+
+&sdhc_2 {
+	/delete-property/ qcom,nonhotplug;
+
+	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on
+			&sdc2_wlan_on>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off
+			&sdc2_wlan_off>;
+};

@@ -1186,6 +1186,7 @@ struct sde_mdss_cfg {
 	bool has_line_insertion;
 	bool has_qos_fl_nocalc;
 	bool has_decimation;
+	bool has_base_layer;
 
 	bool sui_misr_supported;
 	u32 sui_block_xin_mask;

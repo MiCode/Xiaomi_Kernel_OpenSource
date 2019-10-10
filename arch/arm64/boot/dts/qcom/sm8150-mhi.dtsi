@@ -403,7 +403,7 @@
 				reg = <109>;
 				label = "RMNET_CTL";
 				mhi,num-elements = <128>;
-				mhi,event-ring = <12>;
+				mhi,event-ring = <13>;
 				mhi,chan-dir = <1>;
 				mhi,data-type = <1>;
 				mhi,doorbell-mode = <2>;
@@ -414,7 +414,7 @@
 				reg = <110>;
 				label = "RMNET_CTL";
 				mhi,num-elements = <128>;
-				mhi,event-ring = <13>;
+				mhi,event-ring = <14>;
 				mhi,chan-dir = <2>;
 				mhi,data-type = <0>;
 				mhi,doorbell-mode = <2>;
@@ -1005,7 +1005,7 @@
 				reg = <109>;
 				label = "RMNET_CTL";
 				mhi,num-elements = <128>;
-				mhi,event-ring = <12>;
+				mhi,event-ring = <13>;
 				mhi,chan-dir = <1>;
 				mhi,data-type = <1>;
 				mhi,doorbell-mode = <2>;
@@ -1016,7 +1016,7 @@
 				reg = <110>;
 				label = "RMNET_CTL";
 				mhi,num-elements = <128>;
-				mhi,event-ring = <13>;
+				mhi,event-ring = <14>;
 				mhi,chan-dir = <2>;
 				mhi,data-type = <0>;
 				mhi,doorbell-mode = <2>;

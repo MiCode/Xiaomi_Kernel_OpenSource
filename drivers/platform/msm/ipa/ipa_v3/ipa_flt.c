@@ -71,7 +71,7 @@ static int ipa3_generate_flt_hw_rule(enum ipa_ip_type ip,
 	}
 
 	gen_params.ipt = ip;
-	if (entry->rt_tbl)
+	if (entry->rt_tbl && (!ipa3_check_idr_if_freed(entry->rt_tbl)))
 		gen_params.rt_tbl_idx = entry->rt_tbl->idx;
 	else
 		gen_params.rt_tbl_idx = entry->rule.rt_tbl_idx;
@@ -1824,7 +1824,9 @@ int ipa3_reset_flt(enum ipa_ip_type ip, bool user_only)
 					entry->ipacm_installed) {
 				list_del(&entry->link);
 				entry->tbl->rule_cnt--;
-				if (entry->rt_tbl)
+				if (entry->rt_tbl &&
+					(!ipa3_check_idr_if_freed(
+						entry->rt_tbl)))
 					entry->rt_tbl->ref_cnt--;
 				/* if rule id was allocated from idr, remove */
 				rule_id = entry->rule_id;

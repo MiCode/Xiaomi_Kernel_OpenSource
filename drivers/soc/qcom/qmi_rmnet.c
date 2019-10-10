@@ -998,6 +998,9 @@ void qmi_rmnet_work_init(void *port)
 	rmnet_ps_wq = alloc_workqueue("rmnet_powersave_work",
 					WQ_MEM_RECLAIM | WQ_CPU_INTENSIVE, 1);
 
+	if (!rmnet_ps_wq)
+		return;
+
 	rmnet_work = kzalloc(sizeof(*rmnet_work), GFP_ATOMIC);
 	if (!rmnet_work) {
 		destroy_workqueue(rmnet_ps_wq);

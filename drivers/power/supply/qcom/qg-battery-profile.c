@@ -64,6 +64,8 @@ static struct tables table[] = {
 
 static struct qg_battery_data *the_battery;
 
+static void qg_battery_profile_free(void);
+
 static int qg_battery_data_open(struct inode *inode, struct file *file)
 {
 	struct qg_battery_data *battery = container_of(inode->i_cdev,
@@ -434,42 +436,56 @@ int qg_batterydata_init(struct device_node *profile_node)
 	int rc = 0;
 	struct qg_battery_data *battery;
 
-	battery = kzalloc(sizeof(*battery), GFP_KERNEL);
-	if (!battery)
-		return -ENOMEM;
+	/*
+	 * If a battery profile is already initialized, free the existing
+	 * profile data and re-allocate and load the new profile. This is
+	 * required for multi-profile load support.
+	 */
+	if (the_battery) {
+		battery = the_battery;
+		battery->profile_node = NULL;
+		qg_battery_profile_free();
+	} else {
+		battery = kzalloc(sizeof(*battery), GFP_KERNEL);
+		if (!battery)
+			return -ENOMEM;
+		/* char device to access battery-profile data */
+		rc = alloc_chrdev_region(&battery->dev_no, 0, 1,
+							"qg_battery");
+		if (rc < 0) {
+			pr_err("Failed to allocate chrdev rc=%d\n", rc);
+			goto free_battery;
+		}
+
+		cdev_init(&battery->battery_cdev, &qg_battery_data_fops);
+		rc = cdev_add(&battery->battery_cdev,
+						battery->dev_no, 1);
+		if (rc) {
+			pr_err("Failed to add battery_cdev rc=%d\n", rc);
+			goto unregister_chrdev;
+		}
+
+		battery->battery_class = class_create(THIS_MODULE,
+							"qg_battery");
+		if (IS_ERR_OR_NULL(battery->battery_class)) {
+			pr_err("Failed to create qg-battery class\n");
+			rc = -ENODEV;
+			goto delete_cdev;
+		}
+
+		battery->battery_device = device_create(
+						battery->battery_class,
+						NULL, battery->dev_no,
+						NULL, "qg_battery");
+		if (IS_ERR_OR_NULL(battery->battery_device)) {
+			pr_err("Failed to create battery_device device\n");
+			rc = -ENODEV;
+			goto delete_cdev;
+		}
+		the_battery = battery;
+	}
 
 	battery->profile_node = profile_node;
-
-	/* char device to access battery-profile data */
-	rc = alloc_chrdev_region(&battery->dev_no, 0, 1, "qg_battery");
-	if (rc < 0) {
-		pr_err("Failed to allocate chrdev rc=%d\n", rc);
-		goto free_battery;
-	}
-
-	cdev_init(&battery->battery_cdev, &qg_battery_data_fops);
-	rc = cdev_add(&battery->battery_cdev, battery->dev_no, 1);
-	if (rc) {
-		pr_err("Failed to add battery_cdev rc=%d\n", rc);
-		goto unregister_chrdev;
-	}
-
-	battery->battery_class = class_create(THIS_MODULE, "qg_battery");
-	if (IS_ERR_OR_NULL(battery->battery_class)) {
-		pr_err("Failed to create qg-battery class\n");
-		rc = -ENODEV;
-		goto delete_cdev;
-	}
-
-	battery->battery_device = device_create(battery->battery_class,
-					NULL, battery->dev_no,
-					NULL, "qg_battery");
-	if (IS_ERR_OR_NULL(battery->battery_device)) {
-		pr_err("Failed to create battery_device device\n");
-		rc = -ENODEV;
-		goto delete_cdev;
-	}
-
 	/* parse the battery profile */
 	rc = qg_parse_battery_profile(battery);
 	if (rc < 0) {
@@ -477,9 +493,7 @@ int qg_batterydata_init(struct device_node *profile_node)
 		goto destroy_device;
 	}
 
-	the_battery = battery;
-
-	pr_info("QG Battery-profile loaded, '/dev/qg_battery' created!\n");
+	pr_info("QG Battery-profile loaded\n");
 
 	return 0;
 
@@ -494,27 +508,31 @@ free_battery:
 	return rc;
 }
 
-void qg_batterydata_exit(void)
+static void qg_battery_profile_free(void)
 {
 	int i, j;
 
+	/* delete all the battery profile memory */
+	for (i = 0; i < TABLE_MAX; i++) {
+		kfree(the_battery->profile[i].name);
+		kfree(the_battery->profile[i].row_entries);
+		kfree(the_battery->profile[i].col_entries);
+		for (j = 0; j < the_battery->profile[i].rows; j++) {
+			if (the_battery->profile[i].data)
+				kfree(the_battery->profile[i].data[j]);
+		}
+		kfree(the_battery->profile[i].data);
+	}
+}
+
+void qg_batterydata_exit(void)
+{
 	if (the_battery) {
 		/* unregister the device node */
 		device_destroy(the_battery->battery_class, the_battery->dev_no);
 		cdev_del(&the_battery->battery_cdev);
 		unregister_chrdev_region(the_battery->dev_no, 1);
-
-		/* delete all the battery profile memory */
-		for (i = 0; i < TABLE_MAX; i++) {
-			kfree(the_battery->profile[i].name);
-			kfree(the_battery->profile[i].row_entries);
-			kfree(the_battery->profile[i].col_entries);
-			for (j = 0; j < the_battery->profile[i].rows; j++) {
-				if (the_battery->profile[i].data)
-					kfree(the_battery->profile[i].data[j]);
-			}
-			kfree(the_battery->profile[i].data);
-		}
+		qg_battery_profile_free();
 	}
 
 	kfree(the_battery);

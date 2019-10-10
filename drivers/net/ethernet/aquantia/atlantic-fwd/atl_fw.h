@@ -22,6 +22,7 @@ struct atl_mcp {
 	uint32_t req_high_mask;	/* Clears link rate-dependend bits */
 	uint32_t caps_low;
 	uint32_t caps_high;
+	uint32_t caps_ex;
 	struct mutex lock;
 	unsigned long next_wdog;
 	bool wdog_disabled;
@@ -59,6 +60,7 @@ enum atl_fw2_opts {
 	atl_define_bit(atl_fw2_asym_pause, 4)
 	atl_fw2_pause_mask = atl_fw2_pause | atl_fw2_asym_pause,
 	atl_define_bit(atl_fw2_wake_on_link, 16)
+	atl_define_bit(atl_fw2_wake_on_link_force, 17)
 	atl_define_bit(atl_fw2_phy_temp, 18)
 	atl_define_bit(atl_fw2_set_thermal, 21)
 	atl_define_bit(atl_fw2_link_drop, 22)
@@ -67,17 +69,29 @@ enum atl_fw2_opts {
 	atl_define_bit(atl_fw2_thermal_alarm, 29)
 };
 
+enum atl_fw2_ex_caps {
+	atl_define_bit(atl_fw2_ex_caps_wol_ex, 23)
+	atl_define_bit(atl_fw2_ex_caps_mac_heartbeat, 25)
+};
+
+enum atl_fw2_wol_ex {
+	atl_define_bit(atl_fw2_wol_ex_wake_on_link_keep_rate, 0)
+	atl_define_bit(atl_fw2_wol_ex_wake_on_magic_keep_rate, 1)
+};
+
 enum atl_fw2_stat_offt {
 	atl_fw2_stat_phy_hbeat = 0x4c,
 	atl_fw2_stat_temp = 0x50,
 	atl_fw2_stat_lcaps = 0x84,
-	atl_fw2_stat_settings_addr = 0x110,
-	atl_fw2_stat_settings_len = 0x114,
+	atl_fw2_stat_settings_addr = 0x10c,
+	atl_fw2_stat_settings_len = 0x110,
+	atl_fw2_stat_caps_ex = 0x114,
 };
 
 enum atl_fw2_settings_offt {
 	atl_fw2_setings_msm_opts = 0x90,
 	atl_fw2_setings_media_detect = 0x98,
+	atl_fw2_setings_wol_ex = 0x9c,
 };
 
 enum atl_fw2_msm_opts {
@@ -101,6 +115,12 @@ struct atl_fc_state {
 	enum atl_fc_mode req;
 	enum atl_fc_mode prev_req;
 	enum atl_fc_mode cur;
+};
+
+enum atl_wake_flags {
+	atl_fw_wake_on_link = WAKE_PHY,
+	atl_fw_wake_on_magic = WAKE_MAGIC,
+	atl_fw_wake_on_link_rtpm = BIT(10),
 };
 
 #define ATL_EEE_BIT_OFFT 16
@@ -133,8 +153,11 @@ struct atl_fw_ops {
 	int (*__get_link_caps)(struct atl_hw *hw);
 	int (*restart_aneg)(struct atl_hw *hw);
 	void (*set_default_link)(struct atl_hw *hw);
-	int (*enable_wol)(struct atl_hw *hw);
+	int (*enable_wol)(struct atl_hw *hw, unsigned int wol_mode);
 	int (*get_phy_temperature)(struct atl_hw *hw, int *temp);
+	int (*dump_cfg)(struct atl_hw *hw);
+	int (*restore_cfg)(struct atl_hw *hw);
+	int (*set_phy_loopback)(struct atl_nic *nic, u32 mode);
 	unsigned efuse_shadow_addr_reg;
 };
 

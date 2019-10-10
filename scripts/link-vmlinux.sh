@@ -455,5 +455,20 @@ if [ -n "${CONFIG_KALLSYMS}" ]; then
 	fi
 fi
 
+# Starting Android Q, the DTB's are part of dtb.img and not part
+# of the kernel image. RTIC DTS relies on the kernel environment
+# and could not build outside of the kernel. Generate RTIC DTS after
+# successful kernel build if MPGen is enabled. The DTB will be
+# generated with dtb.img in kernel_definitions.mk.
+if [ ! -z ${RTIC_MPGEN+x} ]; then
+	${RTIC_MPGEN} --objcopy="${OBJCOPY}" --objdump="${OBJDUMP}" \
+		--binpath="" --vmlinux="vmlinux" --config=${KCONFIG_CONFIG} \
+		--cc="${CC} ${KBUILD_AFLAGS}" --dts=rtic_mp.dts \
+		|| echo “RTIC MP DTS generation has failed”
+	# Echo statement above prints the error message in case above
+	# RTIC MP DTS generation command fails and it ensures rtic mp
+	# failure does not cause kernel compilation to fail.
+fi
+
 # We made a new kernel - delete old version file
 rm -f .old_version

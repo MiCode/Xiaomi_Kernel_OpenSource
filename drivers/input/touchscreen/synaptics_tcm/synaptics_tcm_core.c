@@ -68,7 +68,7 @@
 
 #define WATCHDOG_TRIGGER_COUNT 2
 
-#define WATCHDOG_DELAY_MS 5000
+#define WATCHDOG_DELAY_MS 50000
 
 #define MODE_SWITCH_DELAY_MS 100
 
@@ -2851,6 +2851,15 @@ static int syna_tcm_resume(struct device *dev)
 	if (!tcm_hcd->in_suspend)
 		return 0;
 
+	retval = pinctrl_select_state(
+			tcm_hcd->ts_pinctrl,
+			tcm_hcd->pinctrl_state_active);
+	if (retval < 0) {
+		LOGE(tcm_hcd->pdev->dev.parent,
+			"%s: Failed to select %s pinstate %d\n",
+			__func__, PINCTRL_STATE_ACTIVE, retval);
+	}
+
 	if (tcm_hcd->host_download_mode) {
 #ifndef WAKEUP_GESTURE
 		syna_tcm_check_hdl(tcm_hcd);
@@ -2940,6 +2949,13 @@ static int syna_tcm_suspend(struct device *dev)
 	if (tcm_hcd->in_suspend || !tcm_hcd->init_okay)
 		return 0;
 
+	if (pinctrl_select_state(
+			tcm_hcd->ts_pinctrl,
+			tcm_hcd->pinctrl_state_suspend))
+		LOGE(tcm_hcd->pdev->dev.parent,
+			"%s: Failed to select %s pinstate\n",
+			__func__, PINCTRL_STATE_RELEASE);
+
 	mutex_lock(&mod_pool.mutex);
 
 	if (!list_empty(&mod_pool.list)) {
@@ -2974,6 +2990,13 @@ static int syna_tcm_early_suspend(struct device *dev)
 
 	if (tcm_hcd->in_suspend || !tcm_hcd->init_okay)
 		return 0;
+
+	if (pinctrl_select_state(
+			tcm_hcd->ts_pinctrl,
+			tcm_hcd->pinctrl_state_suspend))
+		LOGE(tcm_hcd->pdev->dev.parent,
+			"%s: Failed to select %s pinstate\n",
+			__func__, PINCTRL_STATE_RELEASE);
 
 	tcm_hcd->update_watchdog(tcm_hcd, false);
 
@@ -3168,6 +3191,57 @@ static int syna_tcm_fb_notifier_cb(struct notifier_block *nb,
 }
 #endif
 
+static int synaptics_tcm_pinctrl_init(struct syna_tcm_hcd *tcm_hcd)
+{
+	int retval;
+
+	/* Get pinctrl if target uses pinctrl */
+	tcm_hcd->ts_pinctrl = devm_pinctrl_get((tcm_hcd->pdev->dev.parent));
+	if (IS_ERR_OR_NULL(tcm_hcd->ts_pinctrl)) {
+		retval = PTR_ERR(tcm_hcd->ts_pinctrl);
+		LOGE(tcm_hcd->pdev->dev.parent,
+			"Target does not use pinctrl %d\n", retval);
+		goto err_pinctrl_get;
+	}
+
+	tcm_hcd->pinctrl_state_active
+		= pinctrl_lookup_state(tcm_hcd->ts_pinctrl, "pmx_ts_active");
+	if (IS_ERR_OR_NULL(tcm_hcd->pinctrl_state_active)) {
+		retval = PTR_ERR(tcm_hcd->pinctrl_state_active);
+		LOGE(tcm_hcd->pdev->dev.parent,
+			"Can not lookup %s pinstate %d\n",
+			PINCTRL_STATE_ACTIVE, retval);
+		goto err_pinctrl_lookup;
+	}
+
+	tcm_hcd->pinctrl_state_suspend
+		= pinctrl_lookup_state(tcm_hcd->ts_pinctrl, "pmx_ts_suspend");
+	if (IS_ERR_OR_NULL(tcm_hcd->pinctrl_state_suspend)) {
+		retval = PTR_ERR(tcm_hcd->pinctrl_state_suspend);
+		LOGE(tcm_hcd->pdev->dev.parent,
+			"Can not lookup %s pinstate %d\n",
+			PINCTRL_STATE_SUSPEND, retval);
+		goto err_pinctrl_lookup;
+	}
+
+	tcm_hcd->pinctrl_state_release
+		= pinctrl_lookup_state(tcm_hcd->ts_pinctrl, "pmx_ts_release");
+	if (IS_ERR_OR_NULL(tcm_hcd->pinctrl_state_release)) {
+		retval = PTR_ERR(tcm_hcd->pinctrl_state_release);
+		LOGE(tcm_hcd->pdev->dev.parent,
+			"Can not lookup %s pinstate %d\n",
+			PINCTRL_STATE_RELEASE, retval);
+	}
+
+	return 0;
+
+err_pinctrl_lookup:
+	devm_pinctrl_put(tcm_hcd->ts_pinctrl);
+err_pinctrl_get:
+	tcm_hcd->ts_pinctrl = NULL;
+	return retval;
+}
+
 static int syna_tcm_probe(struct platform_device *pdev)
 {
 	int retval;
@@ -3295,6 +3369,18 @@ static int syna_tcm_probe(struct platform_device *pdev)
 				"Failed to configure GPIO's\n");
 		goto err_config_gpio;
 	}
+
+	retval = synaptics_tcm_pinctrl_init(tcm_hcd);
+		if (!retval && tcm_hcd->ts_pinctrl) {
+			retval = pinctrl_select_state(
+					tcm_hcd->ts_pinctrl,
+					tcm_hcd->pinctrl_state_active);
+			if (retval < 0) {
+				LOGE(tcm_hcd->pdev->dev.parent,
+					"%s: Failed to select %s pinstate %d\n",
+					__func__, PINCTRL_STATE_ACTIVE, retval);
+			}
+		}
 
 	sysfs_dir = kobject_create_and_add(PLATFORM_DRIVER_NAME,
 			&pdev->dev.kobj);

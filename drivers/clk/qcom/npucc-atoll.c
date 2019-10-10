@@ -37,9 +37,9 @@
 
 #define F(f, s, h, m, n) { (f), (s), (2 * (h) - 1), (m), (n) }
 
-#define CRC_SID_FSM_CTRL		0x100c
+#define CRC_SID_FSM_CTRL		0x11a0
 #define CRC_SID_FSM_CTRL_SETTING	0x800000
-#define CRC_MND_CFG			0x1010
+#define CRC_MND_CFG			0x11a4
 #define CRC_MND_CFG_SETTING		0x15011
 
 static DEFINE_VDD_REGULATORS(vdd_cx, VDD_NUM, 1, vdd_corner);
@@ -103,7 +103,7 @@ static const char * const npu_cc_parent_names_1[] = {
 
 static const struct parent_map npu_cc_parent_map_2[] = {
 	{ P_BI_TCXO, 0 },
-	{ P_NPU_Q6SS_PLL_OUT_MAIN, 1 },
+	{ P_NPU_Q6SS_PLL_OUT_MAIN, 2 },
 	{ P_CORE_BI_PLL_TEST_SE, 7 },
 };
 
@@ -118,7 +118,7 @@ static struct pll_vco fabia_vco[] = {
 	{ 125000000, 1000000000, 1 },
 };
 
-static const struct alpha_pll_config npu_cc_pll0_config = {
+static struct alpha_pll_config npu_cc_pll0_config = {
 	.l = 0x1C,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002067,
@@ -132,6 +132,7 @@ static struct clk_alpha_pll npu_cc_pll0 = {
 	.vco_table = fabia_vco,
 	.num_vco = ARRAY_SIZE(fabia_vco),
 	.type = FABIA_PLL,
+	.config = &npu_cc_pll0_config,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 			.name = "npu_cc_pll0",
@@ -169,7 +170,7 @@ static struct clk_alpha_pll_postdiv npu_cc_pll0_out_even = {
 	},
 };
 
-static const struct alpha_pll_config npu_cc_pll1_config = {
+static struct alpha_pll_config npu_cc_pll1_config = {
 	.l = 0xF,
 	.frac = 0xA000,
 	.config_ctl_val = 0x20485699,
@@ -184,6 +185,7 @@ static struct clk_alpha_pll npu_cc_pll1 = {
 	.vco_table = fabia_vco,
 	.num_vco = ARRAY_SIZE(fabia_vco),
 	.type = FABIA_PLL,
+	.config = &npu_cc_pll1_config,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 			.name = "npu_cc_pll1",
@@ -221,7 +223,7 @@ static struct clk_alpha_pll_postdiv npu_cc_pll1_out_even = {
 	},
 };
 
-static const struct alpha_pll_config npu_q6ss_pll_config = {
+static struct alpha_pll_config npu_q6ss_pll_config = {
 	.l = 0xD,
 	.frac = 0x555,
 	.config_ctl_val = 0x20485699,
@@ -236,6 +238,7 @@ static struct clk_alpha_pll npu_q6ss_pll = {
 	.vco_table = fabia_vco,
 	.num_vco = ARRAY_SIZE(fabia_vco),
 	.type = FABIA_PLL,
+	.config = &npu_q6ss_pll_config,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 			.name = "npu_q6ss_pll",
@@ -341,6 +344,7 @@ static const struct freq_tbl ftbl_npu_dsp_core_clk_src[] = {
 	F(300000000, P_NPU_Q6SS_PLL_OUT_MAIN, 1, 0, 0),
 	F(400000000, P_NPU_Q6SS_PLL_OUT_MAIN, 1, 0, 0),
 	F(500000000, P_NPU_Q6SS_PLL_OUT_MAIN, 1, 0, 0),
+	F(600000000, P_NPU_Q6SS_PLL_OUT_MAIN, 1, 0, 0),
 	F(660000000, P_NPU_Q6SS_PLL_OUT_MAIN, 1, 0, 0),
 	F(800000000, P_NPU_Q6SS_PLL_OUT_MAIN, 1, 0, 0),
 	{ }
@@ -352,6 +356,7 @@ static struct clk_rcg2 npu_dsp_core_clk_src = {
 	.hid_width = 5,
 	.parent_map = npu_cc_parent_map_2,
 	.freq_tbl = ftbl_npu_dsp_core_clk_src,
+	.enable_safe_config = true,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "npu_dsp_core_clk_src",
 		.parent_names = npu_cc_parent_names_2,
@@ -525,6 +530,10 @@ static struct clk_branch npu_cc_dsp_axi_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "npu_cc_dsp_axi_clk",
+			.parent_names = (const char *[]){
+				"gcc_npu_axi_clk"
+			},
+			.num_parents = 1,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -551,6 +560,10 @@ static struct clk_branch npu_cc_noc_axi_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "npu_cc_noc_axi_clk",
+			.parent_names = (const char *[]){
+				"gcc_npu_axi_clk"
+			},
+			.num_parents = 1,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -564,6 +577,10 @@ static struct clk_branch npu_cc_noc_dma_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "npu_cc_noc_dma_clk",
+			.parent_names = (const char *[]){
+				"gcc_npu_dma_clk"
+			},
+			.num_parents = 1,
 			.ops = &clk_branch2_ops,
 		},
 	},

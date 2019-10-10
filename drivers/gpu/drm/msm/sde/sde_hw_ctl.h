@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -255,10 +255,11 @@ struct sde_hw_ctl_ops {
 	/** update cwb  for ctl_path
 	 * @ctx       : ctl path ctx pointer
 	 * @cfg    : interface config structure pointer
+	 * @enable    : enable/disable the cwb hw block
 	 * @Return: error code
 	 */
 	int (*update_cwb_cfg)(struct sde_hw_ctl *ctx,
-		struct sde_hw_intf_cfg_v1 *cfg);
+		struct sde_hw_intf_cfg_v1 *cfg, bool enable);
 
 	/**
 	 * Setup ctl_path interface config for SDE_CTL_ACTIVE_CFG

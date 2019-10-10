@@ -15,30 +15,6 @@
 static LIST_HEAD(ipa_eth_offload_drivers);
 static DEFINE_MUTEX(ipa_eth_offload_drivers_lock);
 
-static struct dentry *ipa_eth_offload_debugfs;
-
-static void ipa_eth_offload_debugfs_cleanup(void)
-{
-	debugfs_remove_recursive(ipa_eth_offload_debugfs);
-}
-
-static int ipa_eth_offload_debugfs_init(struct dentry *dbgfs_root)
-{
-	if (!dbgfs_root)
-		return 0;
-
-	ipa_eth_offload_debugfs = debugfs_create_dir("offload", dbgfs_root);
-	if (IS_ERR_OR_NULL(ipa_eth_offload_debugfs)) {
-		int rc = ipa_eth_offload_debugfs ?
-			PTR_ERR(ipa_eth_offload_debugfs) : -EFAULT;
-
-		ipa_eth_offload_debugfs = NULL;
-		return rc;
-	}
-
-	return 0;
-}
-
 int ipa_eth_offload_init(struct ipa_eth_device *eth_dev)
 {
 	int rc;
@@ -137,77 +113,121 @@ static int __try_pair_device(struct ipa_eth_device *eth_dev,
 static int try_pair_device(struct ipa_eth_device *eth_dev,
 			   struct ipa_eth_offload_driver *od)
 {
+	int rc;
+
+	mutex_lock(&od->mutex);
+
 	if (od->bus != eth_dev->dev->bus) {
+		rc = -ENOTSUPP;
 		ipa_eth_dev_dbg(eth_dev,
 			"Offload driver %s is not a bus match for %s",
 			od->name, eth_dev->nd->name);
-
-		return -ENOTSUPP;
+	} else {
+		rc = __try_pair_device(eth_dev, od);
 	}
 
-	return __try_pair_device(eth_dev, od);
+	mutex_unlock(&od->mutex);
+
+	return rc;
 }
 
 int ipa_eth_offload_pair_device(struct ipa_eth_device *eth_dev)
 {
-	struct ipa_eth_offload_driver *od;
+	int rc = -ENODEV;
 
-	if (ipa_eth_offload_device_paired(eth_dev))
-		return 0;
+	mutex_lock(&ipa_eth_offload_drivers_lock);
 
-	list_for_each_entry(od, &ipa_eth_offload_drivers, driver_list) {
-		if (!try_pair_device(eth_dev, od))
-			return 0;
+	/* Check if device is already paired while holding the offload_drivers
+	 * mutex to ensure this API is re-entrant safe.
+	 */
+	if (!eth_dev->od) {
+		struct ipa_eth_offload_driver *od;
+
+		list_for_each_entry(od, &ipa_eth_offload_drivers, driver_list) {
+			if (!try_pair_device(eth_dev, od)) {
+				rc = 0;
+				break;
+			}
+		}
 	}
 
-	return -ENODEV;
+	mutex_unlock(&ipa_eth_offload_drivers_lock);
+
+	return rc;
 }
 
 void ipa_eth_offload_unpair_device(struct ipa_eth_device *eth_dev)
 {
-	struct ipa_eth_offload_driver *od = eth_dev->od;
+	mutex_lock(&ipa_eth_offload_drivers_lock);
 
-	if (!ipa_eth_offload_device_paired(eth_dev))
-		return;
+	/* Check if device is already unpaired while holding the offload_drivers
+	 * mutex to ensure this API is re-entrant safe.
+	 */
+	if (eth_dev->od) {
+		struct ipa_eth_offload_driver *od = eth_dev->od;
 
-	eth_dev->od = NULL;
+		mutex_lock(&od->mutex);
+		od->ops->unpair(eth_dev);
+		eth_dev->od = NULL;
+		mutex_unlock(&od->mutex);
+	}
 
-	od->ops->unpair(eth_dev);
+	mutex_unlock(&ipa_eth_offload_drivers_lock);
+}
+
+static bool ipa_eth_offload_check_ops(struct ipa_eth_offload_ops *ops)
+{
+	/* Following call backs are optional:
+	 *  - get_stats()
+	 *  - clear_stats()
+	 *  - save_regs()
+	 *  - prepare_reset()
+	 *  - complete_reset()
+	 */
+	return
+		ops &&
+		ops->pair &&
+		ops->unpair &&
+		ops->init_tx &&
+		ops->start_tx &&
+		ops->stop_tx &&
+		ops->deinit_tx &&
+		ops->init_rx &&
+		ops->start_rx &&
+		ops->stop_rx &&
+		ops->deinit_rx;
+}
+
+static bool ipa_eth_offload_check_driver(struct ipa_eth_offload_driver *od)
+{
+	return
+		od &&
+		od->bus &&
+		od->name &&
+		ipa_eth_offload_check_ops(od->ops);
 }
 
 int ipa_eth_offload_register_driver(struct ipa_eth_offload_driver *od)
 {
-	if (!od->bus) {
-		ipa_eth_err("Bus info missing for offload driver %s", od->name);
+	if (!ipa_eth_offload_check_driver(od)) {
+		ipa_eth_err("Offload driver validation failed");
 		return -EINVAL;
 	}
 
-	if (!od->ops || !od->ops->pair  || !od->ops->unpair) {
-		ipa_eth_err("Pair ops missing for offload driver %s", od->name);
-		return -EINVAL;
-	}
-
-	if (!od->debugfs && ipa_eth_offload_debugfs) {
-		od->debugfs =
-			debugfs_create_dir(od->name, ipa_eth_offload_debugfs);
-		if (IS_ERR_OR_NULL(od->debugfs)) {
-			int rc = od->debugfs ? PTR_ERR(od->debugfs) : -EFAULT;
-
-			od->debugfs = NULL;
-			return rc;
-		}
-	}
+	mutex_init(&od->mutex);
 
 	mutex_lock(&ipa_eth_offload_drivers_lock);
 	list_add(&od->driver_list, &ipa_eth_offload_drivers);
 	mutex_unlock(&ipa_eth_offload_drivers_lock);
+
+	(void) ipa_eth_debugfs_add_offload_driver(od);
 
 	return 0;
 }
 
 void ipa_eth_offload_unregister_driver(struct ipa_eth_offload_driver *od)
 {
-	debugfs_remove_recursive(od->debugfs);
+	ipa_eth_debugfs_remove_offload_driver(od);
 
 	mutex_lock(&ipa_eth_offload_drivers_lock);
 	list_del(&od->driver_list);
@@ -224,23 +244,22 @@ int ipa_eth_offload_save_regs(struct ipa_eth_device *eth_dev)
 	return 0;
 }
 
-int ipa_eth_offload_modinit(struct dentry *dbgfs_root)
+int ipa_eth_offload_prepare_reset(struct ipa_eth_device *eth_dev, void *data)
 {
-	int rc;
+	struct ipa_eth_offload_driver *od = eth_dev->od;
 
-	rc = ipa_eth_offload_debugfs_init(dbgfs_root);
-	if (rc) {
-		ipa_eth_err("Failed to init offload module debugfs");
-		return rc;
-	}
-
-	ipa_eth_log("Offload sub-system offload module init is complete");
+	if (od && od->ops->prepare_reset)
+		return eth_dev->od->ops->prepare_reset(eth_dev, data);
 
 	return 0;
 }
 
-void ipa_eth_offload_modexit(void)
+int ipa_eth_offload_complete_reset(struct ipa_eth_device *eth_dev, void *data)
 {
-	ipa_eth_log("De-initing offload sub-system offload module");
-	ipa_eth_offload_debugfs_cleanup();
+	struct ipa_eth_offload_driver *od = eth_dev->od;
+
+	if (od && od->ops->complete_reset)
+		return eth_dev->od->ops->complete_reset(eth_dev, data);
+
+	return 0;
 }

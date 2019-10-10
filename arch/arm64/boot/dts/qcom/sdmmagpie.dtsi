@@ -546,55 +546,55 @@
 		pil_modem_mem: modem_region@8b000000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x8b000000 0 0x7e00000>;
+			reg = <0 0x8b000000 0 0x8400000>;
 		};
 
-		pil_video_mem: pil_video_region@92e00000 {
+		pil_video_mem: pil_video_region@93400000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x92e00000 0 0x500000>;
+			reg = <0 0x93400000 0 0x500000>;
 		};
 
-		pil_cdsp_mem: cdsp_regions@93300000 {
+		pil_cdsp_mem: cdsp_regions@93900000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x93300000 0 0x1e00000>;
+			reg = <0 0x93900000 0 0x1e00000>;
 		};
 
-		pil_adsp_mem: pil_adsp_region@95100000 {
+		pil_adsp_mem: pil_adsp_region@95700000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x95100000 0 0x1e00000>;
+			reg = <0 0x95700000 0 0x1e00000>;
 		};
 
-		wlan_msa_mem: wlan_msa_region@96f00000 {
+		wlan_msa_mem: wlan_msa_region@97500000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x96f00000 0 0x180000>;
+			reg = <0 0x97500000 0 0x180000>;
 		};
 
-		npu_mem: npu_region@97080000 {
+		npu_mem: npu_region@97680000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x97080000 0 0x80000>;
+			reg = <0 0x97680000 0 0x80000>;
 		};
 
-		pil_ipa_fw_mem: ips_fw_region@97100000 {
+		pil_ipa_fw_mem: ips_fw_region@97700000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x97100000 0 0x10000>;
+			reg = <0 0x97700000 0 0x10000>;
 		};
 
-		pil_ipa_gsi_mem: ipa_gsi_region@97110000 {
+		pil_ipa_gsi_mem: ipa_gsi_region@97710000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x97110000 0 0x5000>;
+			reg = <0 0x97710000 0 0x5000>;
 		};
 
-		pil_gpu_mem: gpu_region@97115000 {
+		pil_gpu_mem: gpu_region@97715000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x97115000 0 0x2000>;
+			reg = <0 0x97715000 0 0x2000>;
 		};
 
 		qseecom_mem: qseecom_region@9e400000 {

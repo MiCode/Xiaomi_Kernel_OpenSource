@@ -18,9 +18,10 @@
 #include <linux/netdevice.h>
 #include <linux/moduleparam.h>
 
-#define ATL_VERSION "1.0.22"
+#define ATL_VERSION "1.0.25"
 
 struct atl_nic;
+enum atl_fwd_notify;
 
 #include "atl_compat.h"
 #include "atl_hw.h"
@@ -210,7 +211,7 @@ struct atl_fwd {
 	unsigned long ring_map[ATL_FWDIR_NUM];
 	struct atl_fwd_ring *rings[ATL_FWDIR_NUM][ATL_NUM_FWD_RINGS];
 	unsigned long msi_map;
-	void *private;
+	struct blocking_notifier_head nh_clients;
 };
 
 struct atl_nic {
@@ -255,7 +256,9 @@ enum atl_nic_flags {
 enum atl_priv_flags {
 	ATL_PF_LPB_SYS_PB,
 	ATL_PF_LPB_SYS_DMA,
-	/* ATL_PF_LPB_NET_DMA, */
+	ATL_PF_LPB_NET_DMA,
+	ATL_PF_LPB_INT_PHY,
+	ATL_PF_LPB_EXT_PHY,
 	ATL_PF_LPI_RX_MAC,
 	ATL_PF_LPI_TX_MAC,
 	ATL_PF_LPI_RX_PHY,
@@ -268,10 +271,13 @@ enum atl_priv_flags {
 enum atl_priv_flag_bits {
 	ATL_DEF_PF_BIT(LPB_SYS_PB),
 	ATL_DEF_PF_BIT(LPB_SYS_DMA),
-	/* ATL_DEF_PF_BIT(LPB_NET_DMA), */
+	ATL_DEF_PF_BIT(LPB_NET_DMA),
+	ATL_DEF_PF_BIT(LPB_INT_PHY),
+	ATL_DEF_PF_BIT(LPB_EXT_PHY),
 
-	ATL_PF_LPB_MASK = ATL_PF_BIT(LPB_SYS_DMA) | ATL_PF_BIT(LPB_SYS_PB)
-		/* | ATL_PF_BIT(LPB_NET_DMA) */,
+	ATL_PF_LPB_MASK = ATL_PF_BIT(LPB_SYS_DMA) | ATL_PF_BIT(LPB_SYS_PB) |
+			  ATL_PF_BIT(LPB_NET_DMA) | ATL_PF_BIT(LPB_INT_PHY) |
+			  ATL_PF_BIT(LPB_EXT_PHY),
 
 	ATL_DEF_PF_BIT(LPI_RX_MAC),
 	ATL_DEF_PF_BIT(LPI_TX_MAC),
@@ -400,8 +406,10 @@ void atl_adjust_eth_stats(struct atl_ether_stats *stats,
 	struct atl_ether_stats *base, bool add);
 void atl_fwd_release_rings(struct atl_nic *nic);
 #ifdef CONFIG_ATLFWD_FWD
+int atl_fwd_suspend_rings(struct atl_nic *nic);
 int atl_fwd_resume_rings(struct atl_nic *nic);
 #else
+static inline int atl_fwd_suspend_rings(struct atl_nic *nic) { return 0; }
 static inline int atl_fwd_resume_rings(struct atl_nic *nic) { return 0; }
 #endif
 int atl_get_lpi_timer(struct atl_nic *nic, uint32_t *lpi_delay);
