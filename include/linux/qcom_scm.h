@@ -56,6 +56,9 @@ extern int qcom_scm_restore_sec_cfg(u32 device_id, u32 spare);
 extern int qcom_scm_iommu_secure_ptbl_size(u32 spare, size_t *size);
 extern int qcom_scm_iommu_secure_ptbl_init(u64 addr, u32 size, u32 spare);
 extern int qcom_scm_mem_protect_region_id(phys_addr_t paddr, size_t size);
+extern int qcom_scm_mem_protect_lock_id2_flat(phys_addr_t list_addr,
+				size_t list_size, size_t chunk_size,
+				size_t memory_usage, int lock);
 extern int qcom_scm_iommu_secure_map(phys_addr_t sg_list_addr, size_t num_sg,
 				size_t sg_block_size, u64 sec_id, int cbndx,
 				unsigned long iova, size_t total_len);
@@ -65,6 +68,9 @@ extern int qcom_scm_assign_mem(phys_addr_t mem_addr, size_t mem_sz,
 			       unsigned int *src,
 			       const struct qcom_scm_vmperm *newvm,
 			       unsigned int dest_cnt);
+extern bool qcom_scm_kgsl_set_smmu_aperture_available(void);
+extern int qcom_scm_kgsl_set_smmu_aperture(
+				unsigned int num_context_bank);
 extern bool qcom_scm_hdcp_available(void);
 extern int qcom_scm_hdcp_req(struct qcom_scm_hdcp_req *req, u32 req_cnt,
 			     u32 *resp);
@@ -110,6 +116,9 @@ static inline int qcom_scm_iommu_secure_ptbl_init(u64 addr, u32 size, u32 spare)
 		{ return -ENODEV; }
 static inline int qcom_scm_mem_protect_region_id(phys_addr_t paddr, size_t size)
 		{ return -ENODEV; }
+static inline int qcom_scm_mem_protect_lock_id2_flat(phys_addr_t list_addr,
+		size_t list_size, size_t chunk_size, size_t memory_usage,
+		int lock) { return -ENODEV; }
 static inline int qcom_scm_iommu_secure_map(phys_addr_t sg_list_addr,
 		size_t num_sg, size_t sg_block_size, u64 sec_id, int cbndx,
 		unsigned long iova, size_t total_len) { return -ENODEV; }
@@ -119,6 +128,10 @@ static inline int qcom_scm_assign_mem(phys_addr_t mem_addr, size_t mem_sz,
 				      unsigned int *src,
 				      const struct qcom_scm_vmperm *newvm,
 				      unsigned int dest_cnt) { return -ENODEV; }
+static inline bool qcom_scm_kgsl_set_smmu_aperture_available(void)
+		{ return false; }
+static inline int qcom_scm_kgsl_set_smmu_aperture(
+		unsigned int num_context_bank) { return -ENODEV; }
 static inline bool qcom_scm_hdcp_available(void) { return false; }
 static inline int qcom_scm_hdcp_req(struct qcom_scm_hdcp_req *req, u32 req_cnt,
 				    u32 *resp) { return -ENODEV; }

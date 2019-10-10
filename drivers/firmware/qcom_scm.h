@@ -65,9 +65,11 @@ extern void __qcom_scm_mmu_sync(struct device *dev, bool sync);
 #define QCOM_SCM_MP_IOMMU_SECURE_PTBL_SIZE	0x03
 #define QCOM_SCM_MP_IOMMU_SECURE_PTBL_INIT	0x04
 #define QCOM_SCM_MP_MEM_PROTECT_REGION_ID	0x10
+#define QCOM_SCM_MP_MEM_PROTECT_LOCK_ID2_FLAT	0x11
 #define QCOM_SCM_MP_IOMMU_SECURE_MAP2_FLAT	0x12
 #define QCOM_SCM_MP_IOMMU_SECURE_UNMAP2_FLAT	0x13
 #define QCOM_SCM_MP_ASSIGN			0x16
+#define QCOM_SCM_MP_CP_SMMU_APERTURE_ID		0x1b
 extern int __qcom_scm_restore_sec_cfg(struct device *dev, u32 device_id,
 				      u32 spare);
 extern int __qcom_scm_iommu_secure_ptbl_size(struct device *dev, u32 spare,
@@ -76,6 +78,10 @@ extern int __qcom_scm_iommu_secure_ptbl_init(struct device *dev, u64 addr,
 					     u32 size, u32 spare);
 extern int __qcom_scm_mem_protect_region_id(struct device *dev,
 					phys_addr_t paddr, size_t size);
+extern int __qcom_scm_mem_protect_lock_id2_flat(struct device *dev,
+				phys_addr_t list_addr, size_t list_size,
+				size_t chunk_size, size_t memory_usage,
+				int lock);
 extern int __qcom_scm_iommu_secure_map(struct device *dev,
 				phys_addr_t sg_list_addr, size_t num_sg,
 				size_t sg_block_size, u64 sec_id, int cbndx,
@@ -87,7 +93,10 @@ extern int  __qcom_scm_assign_mem(struct device *dev,
 				  phys_addr_t mem_region, size_t mem_sz,
 				  phys_addr_t src, size_t src_sz,
 				  phys_addr_t dest, size_t dest_sz);
+extern int __qcom_scm_kgsl_set_smmu_aperture(struct device *dev,
+						unsigned int num_context_bank);
 #define QCOM_SCM_IOMMU_TLBINVAL_FLAG    0x00000001
+#define QCOM_SCM_CP_APERTURE_REG	0x0
 
 #define QCOM_SCM_SVC_HDCP			0x11
 #define QCOM_SCM_HDCP_INVOKE			0x01

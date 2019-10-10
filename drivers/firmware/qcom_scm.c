@@ -378,6 +378,15 @@ int qcom_scm_mem_protect_region_id(phys_addr_t paddr, size_t size)
 }
 EXPORT_SYMBOL(qcom_scm_mem_protect_region_id);
 
+int qcom_scm_mem_protect_lock_id2_flat(phys_addr_t list_addr,
+				size_t list_size, size_t chunk_size,
+				size_t memory_usage, int lock)
+{
+	return __qcom_scm_mem_protect_lock_id2_flat(__scm->dev, list_addr,
+				list_size, chunk_size, memory_usage, lock);
+}
+EXPORT_SYMBOL(qcom_scm_mem_protect_lock_id2_flat);
+
 int qcom_scm_iommu_secure_map(phys_addr_t sg_list_addr, size_t num_sg,
 				size_t sg_block_size, u64 sec_id, int cbndx,
 				unsigned long iova, size_t total_len)
@@ -476,6 +485,24 @@ int qcom_scm_assign_mem(phys_addr_t mem_addr, size_t mem_sz,
 	return 0;
 }
 EXPORT_SYMBOL(qcom_scm_assign_mem);
+
+bool qcom_scm_kgsl_set_smmu_aperture_available(void)
+{
+	int ret;
+
+	ret = __qcom_scm_is_call_available(__scm->dev, QCOM_SCM_SVC_MP,
+					QCOM_SCM_MP_CP_SMMU_APERTURE_ID);
+
+	return ret > 0;
+}
+EXPORT_SYMBOL(qcom_scm_kgsl_set_smmu_aperture_available);
+
+int qcom_scm_kgsl_set_smmu_aperture(unsigned int num_context_bank)
+{
+	return __qcom_scm_kgsl_set_smmu_aperture(__scm->dev,
+						num_context_bank);
+}
+EXPORT_SYMBOL(qcom_scm_kgsl_set_smmu_aperture);
 
 /**
  * qcom_scm_hdcp_available() - Check if secure environment supports HDCP.

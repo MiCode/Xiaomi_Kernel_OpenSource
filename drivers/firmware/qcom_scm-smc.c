@@ -1008,6 +1008,33 @@ int __qcom_scm_mem_protect_region_id(struct device *dev, phys_addr_t paddr,
 	return ret;
 }
 
+int __qcom_scm_mem_protect_lock_id2_flat(struct device *dev,
+				phys_addr_t list_addr, size_t list_size,
+				size_t chunk_size, size_t memory_usage,
+				int lock)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_MP,
+		.cmd = QCOM_SCM_MP_MEM_PROTECT_LOCK_ID2_FLAT,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.args[0] = list_addr;
+	desc.args[1] = list_size;
+	desc.args[2] = chunk_size;
+	desc.args[3] = memory_usage;
+	desc.args[4] = lock;
+	desc.args[5] = 0;
+
+	desc.arginfo = QCOM_SCM_ARGS(6, QCOM_SCM_RW, QCOM_SCM_VAL, QCOM_SCM_VAL,
+				QCOM_SCM_VAL, QCOM_SCM_VAL, QCOM_SCM_VAL);
+
+	ret = qcom_scm_call(dev, &desc);
+
+	return ret;
+}
+
 int __qcom_scm_iommu_secure_map(struct device *dev, phys_addr_t sg_list_addr,
 			size_t num_sg, size_t sg_block_size, u64 sec_id,
 			int cbndx, unsigned long iova, size_t total_len)
@@ -1086,6 +1113,28 @@ int __qcom_scm_assign_mem(struct device *dev, phys_addr_t mem_region,
 	ret = qcom_scm_call(dev, &desc);
 
 	return ret ? : desc.res[0];
+}
+
+int __qcom_scm_kgsl_set_smmu_aperture(struct device *dev,
+					unsigned int num_context_bank)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_MP,
+		.cmd = QCOM_SCM_MP_CP_SMMU_APERTURE_ID,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.args[0] = 0xffff0000 | ((QCOM_SCM_CP_APERTURE_REG & 0xff) << 8) |
+			(num_context_bank & 0xff);
+	desc.args[1] = 0xffffffff;
+	desc.args[2] = 0xffffffff;
+	desc.args[3] = 0xffffffff;
+	desc.arginfo = QCOM_SCM_ARGS(4);
+
+	ret = qcom_scm_call(dev, &desc);
+
+	return ret;
 }
 
 int __qcom_scm_hdcp_req(struct device *dev, struct qcom_scm_hdcp_req *req,
