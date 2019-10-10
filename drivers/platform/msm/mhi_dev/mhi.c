@@ -1686,9 +1686,6 @@ static int mhi_dev_abort(struct mhi_dev *mhi)
 	flush_workqueue(mhi->ring_init_wq);
 	flush_workqueue(mhi->pending_ring_wq);
 
-	/* Initiate MHI IPA reset */
-	ipa_mhi_destroy();
-
 	/* Clean up initialized channels */
 	rc = mhi_deinit(mhi);
 	if (rc) {
