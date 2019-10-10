@@ -1634,8 +1634,11 @@ static void handle_vdm_tx(struct usbpd *pd, enum pd_sop_type sop_type)
 	u32 vdm_hdr;
 	int ret;
 
-	if (!pd->vdm_tx)
+	mutex_lock(&pd->svid_handler_lock);
+	if (!pd->vdm_tx) {
+		mutex_unlock(&pd->svid_handler_lock);
 		return;
+	}
 
 	/* only send one VDM at a time */
 	vdm_hdr = pd->vdm_tx->data[0];
@@ -1649,6 +1652,7 @@ static void handle_vdm_tx(struct usbpd *pd, enum pd_sop_type sop_type)
 		pd->current_pr == PR_SRC && !in_src_ams(pd)) {
 		/* Set SinkTxNG and reschedule sm_work to send again */
 		start_src_ams(pd, true);
+		mutex_unlock(&pd->svid_handler_lock);
 		return;
 	}
 
@@ -1658,6 +1662,7 @@ static void handle_vdm_tx(struct usbpd *pd, enum pd_sop_type sop_type)
 		usbpd_err(&pd->dev, "Error (%d) sending VDM command %d\n",
 				ret, SVDM_HDR_CMD(pd->vdm_tx->data[0]));
 
+		mutex_unlock(&pd->svid_handler_lock);
 		/* retry when hitting PE_SRC/SNK_Ready again */
 		if (ret != -EBUSY && sop_type == SOP_MSG)
 			usbpd_set_state(pd, PE_SEND_SOFT_RESET);
@@ -1690,6 +1695,7 @@ static void handle_vdm_tx(struct usbpd *pd, enum pd_sop_type sop_type)
 	}
 
 	pd->vdm_tx = NULL;
+	mutex_unlock(&pd->svid_handler_lock);
 }
 
 static void reset_vdm_state(struct usbpd *pd)
@@ -1704,7 +1710,6 @@ static void reset_vdm_state(struct usbpd *pd)
 		}
 	}
 
-	mutex_unlock(&pd->svid_handler_lock);
 	pd->vdm_state = VDM_NONE;
 	kfree(pd->vdm_tx_retry);
 	pd->vdm_tx_retry = NULL;
@@ -1715,6 +1720,7 @@ static void reset_vdm_state(struct usbpd *pd)
 	pd->vdm_tx = NULL;
 	pd->ss_lane_svid = 0x0;
 	pd->vdm_in_suspend = false;
+	mutex_unlock(&pd->svid_handler_lock);
 }
 
 static void handle_get_src_cap_extended(struct usbpd *pd)
