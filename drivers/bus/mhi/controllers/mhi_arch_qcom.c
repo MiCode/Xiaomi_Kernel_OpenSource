@@ -327,7 +327,8 @@ static void mhi_boot_monitor(void *data, async_cookie_t cookie)
 
 	/* wait for device to enter boot stage */
 	wait_event_timeout(mhi_cntrl->state_event, mhi_cntrl->ee == MHI_EE_AMSS
-			   || mhi_cntrl->ee == MHI_EE_DISABLE_TRANSITION,
+			   || mhi_cntrl->ee == MHI_EE_DISABLE_TRANSITION
+			   || mhi_cntrl->power_down,
 			   timeout);
 
 	ipc_log_string(arch_info->boot_ipc_log, HLOG "Device current ee = %s\n",
