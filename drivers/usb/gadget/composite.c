@@ -458,7 +458,7 @@ static int usb_func_wakeup_int(struct usb_function *func)
 		return -EINVAL;
 
 	gadget = func->config->cdev->gadget;
-	if ((gadget->speed != USB_SPEED_SUPER) || !func->func_wakeup_allowed) {
+	if ((gadget->speed < USB_SPEED_SUPER) || !func->func_wakeup_allowed) {
 		DBG(func->config->cdev,
 			"Function Wakeup is not possible. speed=%u, func_wakeup_allowed=%u\n",
 			gadget->speed,

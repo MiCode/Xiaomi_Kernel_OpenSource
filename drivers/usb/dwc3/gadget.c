@@ -1933,7 +1933,7 @@ static int dwc3_gadget_wakeup_int(struct dwc3 *dwc)
 	case DWC3_LINK_STATE_U3:	/* in HS, means SUSPEND */
 		break;
 	case DWC3_LINK_STATE_U1:
-		if (dwc->gadget.speed != USB_SPEED_SUPER) {
+		if (dwc->gadget.speed < USB_SPEED_SUPER) {
 			link_recover_only = true;
 			break;
 		}
@@ -2042,7 +2042,7 @@ static int dwc_gadget_func_wakeup(struct usb_gadget *g, int interface_id)
 	int ret = 0;
 	struct dwc3 *dwc = gadget_to_dwc(g);
 
-	if (!g || (g->speed != USB_SPEED_SUPER))
+	if (!g || (g->speed < USB_SPEED_SUPER))
 		return -ENOTSUPP;
 
 	if (dwc3_gadget_is_suspended(dwc)) {
