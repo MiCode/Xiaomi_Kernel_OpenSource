@@ -1090,6 +1090,9 @@
 
 		reset-gpios = <&tlmm 203 GPIO_ACTIVE_LOW>;
 
+		resets = <&clock_gcc GCC_UFS_PHY_BCR>;
+		reset-names = "rst";
+
 		status = "disabled";
 	};
 
