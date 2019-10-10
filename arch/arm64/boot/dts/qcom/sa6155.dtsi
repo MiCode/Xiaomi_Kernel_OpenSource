@@ -87,11 +87,6 @@
 	vdd_mx-supply = <&VDD_CX_LEVEL>;
 };
 
-&sdhc_1 {
-	qcom,restore-after-cx-collapse;
-	status = "ok";
-};
-
 #include "sa6155-pcie.dtsi"
 
 &soc {
