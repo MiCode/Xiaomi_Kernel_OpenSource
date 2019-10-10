@@ -475,6 +475,7 @@ int qrtr_endpoint_post(struct qrtr_endpoint *ep, const void *data, size_t len)
 	struct qrtr_node *node = ep->node;
 	const struct qrtr_hdr_v1 *v1;
 	const struct qrtr_hdr_v2 *v2;
+	struct qrtr_ctrl_pkt *pkt;
 	struct qrtr_sock *ipc;
 	struct sk_buff *skb;
 	struct qrtr_cb *cb;
@@ -545,6 +546,10 @@ int qrtr_endpoint_post(struct qrtr_endpoint *ep, const void *data, size_t len)
 	skb_store_bits(skb, 0, data + hdrlen, size);
 
 	qrtr_node_assign(node, cb->src_node);
+	if (cb->type == QRTR_TYPE_NEW_SERVER) {
+		pkt = (void *)data + hdrlen;
+		qrtr_node_assign(node, le32_to_cpu(pkt->server.node));
+	}
 
 	if (cb->type == QRTR_TYPE_RESUME_TX) {
 		qrtr_tx_resume(node, skb);
