@@ -61,23 +61,23 @@ static void bcm_aggregate(struct qcom_icc_bcm *bcm)
 	for (bucket = 0; bucket < QCOM_ICC_NUM_BUCKETS; bucket++) {
 		for (i = 0; i < bcm->num_nodes; i++) {
 			temp = bcm->nodes[i]->sum_avg[bucket] *
-				bcm->aux_data.width;
+				le16_to_cpu(bcm->aux_data.width);
 			do_div(temp, bcm->nodes[i]->buswidth *
 				bcm->nodes[i]->channels);
 			agg_avg[bucket] = max(agg_avg[bucket], temp);
 
 			temp = bcm->nodes[i]->max_peak[bucket] *
-				bcm->aux_data.width;
+				le16_to_cpu(bcm->aux_data.width);
 			do_div(temp, bcm->nodes[i]->buswidth);
 			agg_peak[bucket] = max(agg_peak[bucket], temp);
 		}
 
 		temp = agg_avg[bucket] * 1000ULL;
-		do_div(temp, bcm->aux_data.unit);
+		do_div(temp, le32_to_cpu(bcm->aux_data.unit));
 		bcm->vote_x[bucket] = temp;
 
 		temp = agg_peak[bucket] * 1000ULL;
-		do_div(temp, bcm->aux_data.unit);
+		do_div(temp, le32_to_cpu(bcm->aux_data.unit));
 		bcm->vote_y[bucket] = temp;
 	}
 

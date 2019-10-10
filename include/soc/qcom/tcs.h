@@ -66,9 +66,9 @@ struct tcs_request {
 #define BCM_TCS_CMD(commit, valid, vote_x, vote_y)		\
 	(((commit) << BCM_TCS_CMD_COMMIT_SHFT) |		\
 	((valid) << BCM_TCS_CMD_VALID_SHFT) |			\
-	((cpu_to_le32(vote_x) &					\
+	((vote_x &						\
 	BCM_TCS_CMD_VOTE_MASK) << BCM_TCS_CMD_VOTE_X_SHFT) |	\
-	((cpu_to_le32(vote_y) &					\
+	((vote_y &						\
 	BCM_TCS_CMD_VOTE_MASK) << BCM_TCS_CMD_VOTE_Y_SHFT))
 
 #endif /* __SOC_QCOM_TCS_H__ */
