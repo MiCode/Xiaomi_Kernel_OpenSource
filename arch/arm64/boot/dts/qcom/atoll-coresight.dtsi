@@ -342,6 +342,7 @@
 		reg = <0x6804000 0x1000>;
 		reg-names = "tpdm-base";
 
+		status = "disabled";
 		coresight-name = "coresight-tpdm-modem-1";
 
 		clocks = <&clock_aop QDSS_CLK>;

@@ -563,9 +563,12 @@ skip_frags:
 	}
 
 	/* Handle csum offloading */
-	if (frag_desc->csum_valid) {
+	if (frag_desc->csum_valid && frag_desc->hdrs_valid) {
 		/* Set the partial checksum information */
 		rmnet_frag_partial_csum(head_skb, frag_desc);
+	} else if (frag_desc->csum_valid) {
+		/* Non-RSB/RSC/perf packet. The current checksum is fine */
+		head_skb->ip_summed = CHECKSUM_UNNECESSARY;
 	} else if (frag_desc->hdrs_valid &&
 		   (frag_desc->trans_proto == IPPROTO_TCP ||
 		    frag_desc->trans_proto == IPPROTO_UDP)) {

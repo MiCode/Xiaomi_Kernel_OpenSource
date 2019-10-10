@@ -1212,6 +1212,26 @@ int cnss_force_collect_rddm(struct device *dev)
 }
 EXPORT_SYMBOL(cnss_force_collect_rddm);
 
+int cnss_qmi_send_get(struct device *dev)
+{
+	return 0;
+}
+EXPORT_SYMBOL(cnss_qmi_send_get);
+
+int cnss_qmi_send_put(struct device *dev)
+{
+	return 0;
+}
+EXPORT_SYMBOL(cnss_qmi_send_put);
+
+int cnss_qmi_send(struct device *dev, int type, void *cmd,
+		  int cmd_len, void *cb_ctx,
+		  int (*cb)(void *ctx, void *event, int event_len))
+{
+	return -EINVAL;
+}
+EXPORT_SYMBOL(cnss_qmi_send);
+
 static int cnss_cold_boot_cal_start_hdlr(struct cnss_plat_data *plat_priv)
 {
 	int ret = 0;

@@ -428,6 +428,7 @@
 				1708800	1060
 				1843200	1298
 				1900800	1362
+				1996800	1562
 				2112000	1801
 				2208000	2000
 				2304000	2326
@@ -467,6 +468,7 @@
 				1708800	43
 				1843200	49
 				1900800	50
+				1996800	54
 				2112000	60
 				2208000	61
 				2304000	62
@@ -3355,7 +3357,7 @@
 		governor = "performance";
 		qcom,src-dst-ports = <MSM_BUS_MASTER_NPU MSM_BUS_SLAVE_EBI_CH0>;
 		operating-points-v2 = <&suspendable_ddr_bw_opp_table>;
-		status = "disabled";
+		status = "ok";
 	};
 
 	npudsp_npu_ddr_bwmon: qcom,npudsp-npu-ddr-bwmon@70300 {
@@ -3373,7 +3375,7 @@
 		qcom,hw-timer-hz = <19200000>;
 		qcom,target-dev = <&npudsp_npu_ddr_bw>;
 		qcom,count-unit = <0x10000>;
-		status = "disabled";
+		status = "ok";
 	};
 
 	/delete-node/gpu-bw-tbl;

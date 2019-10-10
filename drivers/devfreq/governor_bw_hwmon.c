@@ -691,11 +691,6 @@ static int gov_resume(struct devfreq *df)
 	if (!node->hw->resume_hwmon)
 		return -EPERM;
 
-	if (!node->resume_freq) {
-		dev_warn(df->dev.parent, "Governor already resumed!\n");
-		return -EBUSY;
-	}
-
 	mutex_lock(&df->lock);
 	update_devfreq(df);
 	mutex_unlock(&df->lock);
