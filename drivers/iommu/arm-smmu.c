@@ -29,7 +29,6 @@
 #include <linux/err.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
-#include <linux/io-64-nonatomic-hi-lo.h>
 #include <linux/iopoll.h>
 #include <linux/module.h>
 #include <linux/interconnect.h>
@@ -502,7 +501,7 @@ static int __find_legacy_master_phandle(struct device *dev, void *data)
 	int err;
 
 	of_for_each_phandle(it, err, dev->of_node, "mmu-masters",
-			    "#stream-id-cells", 0)
+			    "#stream-id-cells", -1)
 		if (it->node == np) {
 			*(void **)data = dev;
 			return 1;
@@ -1026,6 +1025,36 @@ static void arm_smmu_tlb_inv_range_s2(unsigned long iova, size_t size,
 	} while (size -= granule);
 }
 
+static void arm_smmu_tlb_inv_walk(unsigned long iova, size_t size,
+				  size_t granule, void *cookie)
+{
+	struct arm_smmu_domain *smmu_domain = cookie;
+	const struct arm_smmu_flush_ops *ops = smmu_domain->flush_ops;
+
+	ops->tlb_inv_range(iova, size, granule, false, cookie);
+	ops->tlb_sync(cookie);
+}
+
+static void arm_smmu_tlb_inv_leaf(unsigned long iova, size_t size,
+				  size_t granule, void *cookie)
+{
+	struct arm_smmu_domain *smmu_domain = cookie;
+	const struct arm_smmu_flush_ops *ops = smmu_domain->flush_ops;
+
+	ops->tlb_inv_range(iova, size, granule, true, cookie);
+	ops->tlb_sync(cookie);
+}
+
+static void arm_smmu_tlb_add_page(struct iommu_iotlb_gather *gather,
+				  unsigned long iova, size_t granule,
+				  void *cookie)
+{
+	struct arm_smmu_domain *smmu_domain = cookie;
+	const struct arm_smmu_flush_ops *ops = smmu_domain->flush_ops;
+
+	ops->tlb_inv_range(iova, granule, granule, true, cookie);
+}
+
 /*
  * On MMU-401 at least, the cost of firing off multiple TLBIVMIDs appears
  * almost negligible, but the benefit of getting the first one in as far ahead
@@ -1147,34 +1176,43 @@ static void arm_smmu_free_pages_exact(void *cookie, void *virt, size_t size)
 		arm_smmu_unprepare_pgtable(smmu_domain, virt, size);
 }
 
-static const struct msm_iommu_gather_ops arm_smmu_s1_tlb_ops = {
-	.alloc_pages_exact = arm_smmu_alloc_pages_exact,
-	.free_pages_exact = arm_smmu_free_pages_exact,
-	.tlb_ops = {
-		.tlb_flush_all	= arm_smmu_tlb_inv_context_s1,
-		.tlb_add_flush	= arm_smmu_tlb_inv_range_s1,
-		.tlb_sync	= arm_smmu_tlb_sync_context,
+#define ARM_SMMU_INIT_MSM_TLB_OPS(_tlb_flush_all) \
+	{\
+		.alloc_pages_exact = arm_smmu_alloc_pages_exact, \
+		.free_pages_exact = arm_smmu_free_pages_exact, \
+		.tlb_ops = { \
+			.tlb_flush_all = _tlb_flush_all, \
+			.tlb_flush_walk = arm_smmu_tlb_inv_walk, \
+			.tlb_flush_leaf = arm_smmu_tlb_inv_leaf, \
+			.tlb_add_page = arm_smmu_tlb_add_page, \
+		} \
 	}
+
+#define ARM_SMMU_MSM_TLB_OPS_S1	\
+	ARM_SMMU_INIT_MSM_TLB_OPS(arm_smmu_tlb_inv_context_s1)
+
+#define ARM_SMMU_MSM_TLB_OPS_S2_V2 \
+	ARM_SMMU_INIT_MSM_TLB_OPS(arm_smmu_tlb_inv_context_s2)
+
+#define ARM_SMMU_MSM_TLB_OPS_S2_V1 \
+	ARM_SMMU_INIT_MSM_TLB_OPS(arm_smmu_tlb_inv_context_s2)
+
+static const struct arm_smmu_flush_ops arm_smmu_s1_tlb_ops = {
+	.tlb			= ARM_SMMU_MSM_TLB_OPS_S1,
+	.tlb_inv_range		= arm_smmu_tlb_inv_range_s1,
+	.tlb_sync		= arm_smmu_tlb_sync_context,
 };
 
-static const struct msm_iommu_gather_ops arm_smmu_s2_tlb_ops_v2 = {
-	.alloc_pages_exact = arm_smmu_alloc_pages_exact,
-	.free_pages_exact = arm_smmu_free_pages_exact,
-	.tlb_ops = {
-		.tlb_flush_all	= arm_smmu_tlb_inv_context_s2,
-		.tlb_add_flush	= arm_smmu_tlb_inv_range_s2,
-		.tlb_sync	= arm_smmu_tlb_sync_context,
-	}
+static const struct arm_smmu_flush_ops arm_smmu_s2_tlb_ops_v2 = {
+	.tlb			= ARM_SMMU_MSM_TLB_OPS_S2_V2,
+	.tlb_inv_range		= arm_smmu_tlb_inv_range_s2,
+	.tlb_sync		= arm_smmu_tlb_sync_context,
 };
 
-static const struct msm_iommu_gather_ops arm_smmu_s2_tlb_ops_v1 = {
-	.alloc_pages_exact = arm_smmu_alloc_pages_exact,
-	.free_pages_exact = arm_smmu_free_pages_exact,
-	.tlb_ops = {
-		.tlb_flush_all	= arm_smmu_tlb_inv_context_s2,
-		.tlb_add_flush	= arm_smmu_tlb_inv_vmid_nosync,
-		.tlb_sync	= arm_smmu_tlb_sync_vmid,
-	}
+static const struct arm_smmu_flush_ops arm_smmu_s2_tlb_ops_v1 = {
+	.tlb			= ARM_SMMU_MSM_TLB_OPS_S2_V1,
+	.tlb_inv_range		= arm_smmu_tlb_inv_vmid_nosync,
+	.tlb_sync		= arm_smmu_tlb_sync_vmid,
 };
 
 static void print_ctx_regs(struct arm_smmu_device *smmu, struct arm_smmu_cfg
@@ -1878,7 +1916,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 			ias = min(ias, 32UL);
 			oas = min(oas, 32UL);
 		}
-		smmu_domain->tlb_ops = &arm_smmu_s1_tlb_ops.tlb_ops;
+		smmu_domain->flush_ops = &arm_smmu_s1_tlb_ops;
 		break;
 	case ARM_SMMU_DOMAIN_NESTED:
 		/*
@@ -1898,9 +1936,9 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 			oas = min(oas, 40UL);
 		}
 		if (smmu->version == ARM_SMMU_V2)
-			smmu_domain->tlb_ops = &arm_smmu_s2_tlb_ops_v2.tlb_ops;
+			smmu_domain->flush_ops = &arm_smmu_s2_tlb_ops_v2;
 		else
-			smmu_domain->tlb_ops = &arm_smmu_s2_tlb_ops_v1.tlb_ops;
+			smmu_domain->flush_ops = &arm_smmu_s2_tlb_ops_v1;
 		break;
 	default:
 		ret = -EINVAL;
@@ -1935,7 +1973,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		.ias		= ias,
 		.oas		= oas,
 		.coherent_walk	= smmu->features & ARM_SMMU_FEAT_COHERENT_WALK,
-		.tlb		= smmu_domain->tlb_ops,
+		.tlb		= &smmu_domain->flush_ops->tlb.tlb_ops,
 		.iommu_dev	= smmu->dev,
 	};
 
@@ -2327,7 +2365,7 @@ static void arm_smmu_domain_remove_master(struct arm_smmu_domain *smmu_domain,
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	struct arm_smmu_s2cr *s2cr = smmu->s2crs;
 	int i, idx;
-	const struct iommu_gather_ops *tlb;
+	const struct iommu_flush_ops *tlb;
 
 	tlb = smmu_domain->pgtbl_info.pgtbl_cfg.tlb;
 
@@ -2834,7 +2872,7 @@ static uint64_t arm_smmu_iova_to_pte(struct iommu_domain *domain,
 }
 
 static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
-			     size_t size)
+			     size_t size, struct iommu_iotlb_gather *gather)
 {
 	size_t ret;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
@@ -2853,7 +2891,7 @@ static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 
 	arm_smmu_rpm_get(smmu);
 	spin_lock_irqsave(&smmu_domain->cb_lock, flags);
-	ret = ops->unmap(ops, iova, size);
+	ret = ops->unmap(ops, iova, size, gather);
 	spin_unlock_irqrestore(&smmu_domain->cb_lock, flags);
 	arm_smmu_rpm_put(smmu);
 
@@ -2875,21 +2913,22 @@ static void arm_smmu_flush_iotlb_all(struct iommu_domain *domain)
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 
-	if (smmu_domain->tlb_ops) {
+	if (smmu_domain->flush_ops) {
 		arm_smmu_rpm_get(smmu);
-		smmu_domain->tlb_ops->tlb_flush_all(smmu_domain);
+		smmu_domain->flush_ops->tlb.tlb_ops.tlb_flush_all(smmu_domain);
 		arm_smmu_rpm_put(smmu);
 	}
 }
 
-static void arm_smmu_iotlb_sync(struct iommu_domain *domain)
+static void arm_smmu_iotlb_sync(struct iommu_domain *domain,
+				struct iommu_iotlb_gather *gather)
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 
-	if (smmu_domain->tlb_ops) {
+	if (smmu_domain->flush_ops) {
 		arm_smmu_rpm_get(smmu);
-		smmu_domain->tlb_ops->tlb_sync(smmu_domain);
+		smmu_domain->flush_ops->tlb_sync(smmu_domain);
 		arm_smmu_rpm_put(smmu);
 	}
 }
@@ -2967,7 +3006,7 @@ out:
 	arm_smmu_assign_table(smmu_domain);
 
 	if (size_to_unmap) {
-		arm_smmu_unmap(domain, __saved_iova_start, size_to_unmap);
+		arm_smmu_unmap(domain, __saved_iova_start, size_to_unmap, NULL);
 		iova = __saved_iova_start;
 	}
 	arm_smmu_secure_domain_unlock(smmu_domain);
@@ -3092,16 +3131,11 @@ static bool arm_smmu_capable(enum iommu_cap cap)
 	}
 }
 
-static int arm_smmu_match_node(struct device *dev, const void *data)
-{
-	return dev->fwnode == data;
-}
-
 static
 struct arm_smmu_device *arm_smmu_get_by_fwnode(struct fwnode_handle *fwnode)
 {
-	struct device *dev = driver_find_device(&arm_smmu_driver.driver, NULL,
-						fwnode, arm_smmu_match_node);
+	struct device *dev = driver_find_device_by_fwnode(&arm_smmu_driver.driver,
+							  fwnode);
 	put_device(dev);
 	return dev ? dev_get_drvdata(dev) : NULL;
 }
@@ -5307,7 +5341,7 @@ static void qsmmuv500_init_cb(struct arm_smmu_domain *smmu_domain,
 	struct qsmmuv500_group_iommudata *iommudata =
 		to_qsmmuv500_group_iommudata(dev->iommu_group);
 	int idx = smmu_domain->cfg.cbndx;
-	const struct iommu_gather_ops *tlb;
+	const struct iommu_flush_ops *tlb;
 
 	if (!iommudata->has_actlr)
 		return;

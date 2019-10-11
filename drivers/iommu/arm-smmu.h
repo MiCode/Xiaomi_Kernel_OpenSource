@@ -7,15 +7,16 @@
  * Author: Will Deacon <will.deacon@arm.com>
  */
 
-#ifndef _ARM_SMMU_REGS_H
-#define _ARM_SMMU_REGS_H
+#ifndef _ARM_SMMU_H
+#define _ARM_SMMU_H
 
 #include <linux/atomic.h>
 #include <linux/bits.h>
 #include <linux/clk.h>
 #include <linux/device.h>
-#include <linux/iommu.h>
+#include <linux/io-64-nonatomic-hi-lo.h>
 #include <linux/io-pgtable.h>
+#include <linux/iommu.h>
 #include <linux/mutex.h>
 #include <linux/spinlock.h>
 #include <linux/types.h>
@@ -386,11 +387,18 @@ enum arm_smmu_domain_stage {
 	ARM_SMMU_DOMAIN_BYPASS,
 };
 
+struct arm_smmu_flush_ops {
+	struct msm_iommu_flush_ops	tlb;
+	void (*tlb_inv_range)(unsigned long iova, size_t size, size_t granule,
+			      bool leaf, void *cookie);
+	void (*tlb_sync)(void *cookie);
+};
+
 struct arm_smmu_domain {
 	struct arm_smmu_device		*smmu;
 	struct device			*dev;
 	struct io_pgtable_ops		*pgtbl_ops;
-	const struct iommu_gather_ops	*tlb_ops;
+	const struct arm_smmu_flush_ops	*flush_ops;
 	struct arm_smmu_cfg		cfg;
 	enum arm_smmu_domain_stage	stage;
 	bool				non_strict;
@@ -485,4 +493,4 @@ static inline void arm_smmu_writeq(struct arm_smmu_device *smmu, int page,
 
 struct arm_smmu_device *arm_smmu_impl_init(struct arm_smmu_device *smmu);
 
-#endif /* _ARM_SMMU_REGS_H */
+#endif /* _ARM_SMMU_H */

@@ -6,6 +6,7 @@
 #include <linux/dma-contiguous.h>
 #include <linux/dma-mapping.h>
 #include <linux/dma-mapping-fast.h>
+#include <linux/dma-noncoherent.h>
 #include <linux/io-pgtable-fast.h>
 #include <linux/vmalloc.h>
 #include <asm/cacheflush.h>
@@ -32,7 +33,7 @@ static pgprot_t __get_dma_pgprot(unsigned long attrs, pgprot_t prot,
 
 static int __init fast_smmu_dma_init(void)
 {
-	return dma_atomic_pool_init(GFP_DMA32, __pgprot(PROT_NORMAL_NC));
+	return dma_atomic_pool_init();
 }
 arch_initcall(fast_smmu_dma_init);
 
@@ -44,7 +45,7 @@ static bool is_dma_coherent(struct device *dev, unsigned long attrs)
 		is_coherent = true;
 	else if (attrs & DMA_ATTR_FORCE_NON_COHERENT)
 		is_coherent = false;
-	else if (is_device_dma_coherent(dev))
+	else if (dev_is_dma_coherent(dev))
 		is_coherent = true;
 	else
 		is_coherent = false;
@@ -664,7 +665,7 @@ static void *fast_smmu_alloc(struct device *dev, size_t size,
 	sg_miter_stop(&miter);
 	spin_unlock_irqrestore(&mapping->lock, flags);
 
-	addr = dma_common_pages_remap(pages, size, VM_USERMAP, remap_prot,
+	addr = dma_common_pages_remap(pages, size, remap_prot,
 				      __builtin_return_address(0));
 	if (!addr) {
 		dev_err(dev, "no common pages\n");
@@ -709,7 +710,7 @@ static void fast_smmu_free(struct device *dev, size_t size,
 		return;
 
 	pages = area->pages;
-	dma_common_free_remap(vaddr, size, VM_USERMAP);
+	dma_common_free_remap(vaddr, size);
 no_remap:
 	spin_lock_irqsave(&mapping->lock, flags);
 	av8l_fast_unmap_public(mapping->pgtbl_ops, dma_handle, size);

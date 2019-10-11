@@ -264,6 +264,7 @@ struct qcom_smem {
 	struct smem_ptable_entry *global_partition_entry;
 	struct smem_ptable_entry *ptable_entries[SMEM_HOST_COUNT];
 	u32 item_count;
+	struct platform_device *socinfo;
 
 	unsigned num_regions;
 	struct smem_region regions[];
@@ -1035,11 +1036,19 @@ static int qcom_smem_probe(struct platform_device *pdev)
 
 	__smem = smem;
 
+	smem->socinfo = platform_device_register_data(&pdev->dev, "qcom-socinfo",
+						      PLATFORM_DEVID_NONE, NULL,
+						      0);
+	if (IS_ERR(smem->socinfo))
+		dev_dbg(&pdev->dev, "failed to register socinfo device\n");
+
 	return 0;
 }
 
 static int qcom_smem_remove(struct platform_device *pdev)
 {
+	platform_device_unregister(__smem->socinfo);
+
 	hwspin_lock_free(__smem->hwlock);
 	__smem = NULL;
 

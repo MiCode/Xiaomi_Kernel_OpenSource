@@ -316,7 +316,7 @@ void av8l_fast_unmap_public(struct io_pgtable_ops *ops, unsigned long iova,
 }
 
 static size_t av8l_fast_unmap(struct io_pgtable_ops *ops, unsigned long iova,
-			      size_t size)
+			      size_t size, struct iommu_iotlb_gather *gather)
 {
 	return __av8l_fast_unmap(ops, iova, size, false);
 }

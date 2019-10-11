@@ -84,7 +84,7 @@ void *io_pgtable_alloc_pages_exact(struct io_pgtable_cfg *cfg, void *cookie,
 				   size_t size, gfp_t gfp_mask)
 {
 	void *ret;
-	struct msm_iommu_gather_ops *ops = to_msm_iommu_gather_ops(cfg->tlb);
+	struct msm_iommu_flush_ops *ops = to_msm_iommu_flush_ops(cfg->tlb);
 
 	if (ops->alloc_pages_exact)
 		ret = ops->alloc_pages_exact(cookie, size, gfp_mask);
@@ -100,7 +100,7 @@ void *io_pgtable_alloc_pages_exact(struct io_pgtable_cfg *cfg, void *cookie,
 void io_pgtable_free_pages_exact(struct io_pgtable_cfg *cfg, void *cookie,
 				 void *virt, size_t size)
 {
-	struct msm_iommu_gather_ops *ops = to_msm_iommu_gather_ops(cfg->tlb);
+	struct msm_iommu_flush_ops *ops = to_msm_iommu_flush_ops(cfg->tlb);
 
 	if (ops->free_pages_exact)
 		ops->free_pages_exact(cookie, virt, size);

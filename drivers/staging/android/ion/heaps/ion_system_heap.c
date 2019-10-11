@@ -17,8 +17,8 @@
 #include <linux/scatterlist.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
-#include <linux/sched/types.h>
 #include <linux/sched.h>
+#include <uapi/linux/sched/types.h>
 #include <linux/seq_file.h>
 #include <soc/qcom/secure_buffer.h>
 #include "ion_system_heap.h"

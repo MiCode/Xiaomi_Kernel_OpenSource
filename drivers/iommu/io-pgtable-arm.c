@@ -12,7 +12,6 @@
 #include <linux/atomic.h>
 #include <linux/bitops.h>
 #include <linux/io-pgtable.h>
-#include <linux/iommu.h>
 #include <linux/kernel.h>
 #include <linux/scatterlist.h>
 #include <linux/sizes.h>
@@ -364,6 +363,7 @@ static void __arm_lpae_set_pte(arm_lpae_iopte *ptep, arm_lpae_iopte pte,
 }
 
 static size_t __arm_lpae_unmap(struct arm_lpae_io_pgtable *data,
+			       struct iommu_iotlb_gather *gather,
 			       unsigned long iova, size_t size, int lvl,
 			       arm_lpae_iopte *ptep);
 
@@ -758,6 +758,7 @@ static void arm_lpae_free_pgtable(struct io_pgtable *iop)
 }
 
 static size_t arm_lpae_split_blk_unmap(struct arm_lpae_io_pgtable *data,
+				       struct iommu_iotlb_gather *gather,
 				       unsigned long iova, size_t size,
 				       arm_lpae_iopte blk_pte, int lvl,
 				       arm_lpae_iopte *ptep)
@@ -809,15 +810,15 @@ static size_t arm_lpae_split_blk_unmap(struct arm_lpae_io_pgtable *data,
 
 		tablep = iopte_deref(pte, data);
 	} else if (unmap_idx >= 0) {
-		io_pgtable_tlb_add_flush(&data->iop, iova, size, size, true);
-		io_pgtable_tlb_sync(&data->iop);
+		io_pgtable_tlb_add_page(&data->iop, gather, iova, size);
 		return size;
 	}
 
-	return __arm_lpae_unmap(data, iova, size, lvl, tablep);
+	return __arm_lpae_unmap(data, gather, iova, size, lvl, tablep);
 }
 
 static size_t __arm_lpae_unmap(struct arm_lpae_io_pgtable *data,
+			       struct iommu_iotlb_gather *gather,
 			       unsigned long iova, size_t size, int lvl,
 			       arm_lpae_iopte *ptep)
 {
@@ -890,17 +891,17 @@ static size_t __arm_lpae_unmap(struct arm_lpae_io_pgtable *data,
 		 * Insert a table at the next level to map the old region,
 		 * minus the part we want to unmap
 		 */
-		return arm_lpae_split_blk_unmap(data, iova, size, pte,
+		return arm_lpae_split_blk_unmap(data, gather, iova, size, pte,
 						lvl + 1, ptep);
 	}
 
 	/* Keep on walkin' */
 	ptep = iopte_deref(pte, data);
-	return __arm_lpae_unmap(data, iova, size, lvl + 1, ptep);
+	return __arm_lpae_unmap(data, gather, iova, size, lvl + 1, ptep);
 }
 
 static size_t arm_lpae_unmap(struct io_pgtable_ops *ops, unsigned long iova,
-			size_t size)
+			     size_t size, struct iommu_iotlb_gather *gather)
 {
 	size_t unmapped = 0;
 	struct arm_lpae_io_pgtable *data = io_pgtable_ops_to_data(ops);
@@ -920,7 +921,8 @@ static size_t arm_lpae_unmap(struct io_pgtable_ops *ops, unsigned long iova,
 				size_to_unmap :
 				min_t(unsigned long, remaining,
 					(ALIGN(iova + 1, SZ_2M) - iova));
-		ret = __arm_lpae_unmap(data, iova, size_to_unmap, lvl, ptep);
+		ret = __arm_lpae_unmap(data, gather, iova, size_to_unmap, lvl,
+				       ptep);
 		if (ret == 0)
 			break;
 		unmapped += ret;
@@ -1430,21 +1432,23 @@ static void dummy_tlb_flush_all(void *cookie)
 	WARN_ON(cookie != cfg_cookie);
 }
 
-static void dummy_tlb_add_flush(unsigned long iova, size_t size,
-				size_t granule, bool leaf, void *cookie)
+static void dummy_tlb_flush(unsigned long iova, size_t size, size_t granule,
+			    void *cookie)
 {
 	WARN_ON(cookie != cfg_cookie);
 }
 
-static void dummy_tlb_sync(void *cookie)
+static void dummy_tlb_add_page(struct iommu_iotlb_gather *gather,
+			       unsigned long iova, size_t granule, void *cookie)
 {
-	WARN_ON(cookie != cfg_cookie);
+	dummy_tlb_flush(iova, granule, granule, cookie);
 }
 
-static const struct iommu_gather_ops dummy_tlb_ops __initconst = {
+static const struct iommu_flush_ops dummy_tlb_ops __initconst = {
 	.tlb_flush_all	= dummy_tlb_flush_all,
-	.tlb_add_flush	= dummy_tlb_add_flush,
-	.tlb_sync	= dummy_tlb_sync,
+	.tlb_flush_walk	= dummy_tlb_flush,
+	.tlb_flush_leaf	= dummy_tlb_flush,
+	.tlb_add_page	= dummy_tlb_add_page,
 };
 
 static void __init arm_lpae_dump_ops(struct io_pgtable_ops *ops)
@@ -1639,7 +1643,7 @@ static int __init arm_lpae_run_tests(struct io_pgtable_cfg *cfg)
 
 		/* Partial unmap */
 		size = 1UL << __ffs(cfg->pgsize_bitmap);
-		if (ops->unmap(ops, SZ_1G + size, size) != size)
+		if (ops->unmap(ops, SZ_1G + size, size, NULL) != size)
 			return __FAIL(ops, i);
 
 		if (arm_lpae_range_has_mapping(ops, SZ_1G + size, size))
@@ -1658,7 +1662,7 @@ static int __init arm_lpae_run_tests(struct io_pgtable_cfg *cfg)
 		for_each_set_bit(j, &cfg->pgsize_bitmap, BITS_PER_LONG) {
 			size = 1UL << j;
 
-			if (ops->unmap(ops, iova, size) != size)
+			if (ops->unmap(ops, iova, size, NULL) != size)
 				return __FAIL(ops, i);
 
 			if (ops->iova_to_phys(ops, iova + 42))
