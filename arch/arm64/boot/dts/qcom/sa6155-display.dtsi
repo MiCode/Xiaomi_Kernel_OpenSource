@@ -11,6 +11,7 @@
  */
 
 #include <dt-bindings/clock/mdss-14nm-pll-clk.h>
+#include <dt-bindings/clock/qcom,rpmh.h>
 #include "dsi-panel-ext-bridge-1080p.dtsi"
 
 &tlmm {
