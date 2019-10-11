@@ -20,6 +20,8 @@
 #include <linux/gpio/consumer.h>
 #include <linux/of.h>
 #include <linux/regmap.h>
+#include <linux/seq_file.h>
+#include <linux/uaccess.h>
 #include <linux/regulator/of_regulator.h>
 #include <linux/regulator/consumer.h>
 #include <linux/regulator/coupler.h>
@@ -4306,6 +4308,18 @@ int regulator_set_load(struct regulator *regulator, int uA_load)
 }
 EXPORT_SYMBOL_GPL(regulator_set_load);
 
+#ifdef CONFIG_REGULATOR_QTI_DEBUG
+static inline int regulator_open_offset(struct regulator_dev *rdev)
+{
+	return rdev->open_offset;
+}
+#else
+static inline int regulator_open_offset(struct regulator_dev *rdev)
+{
+	return 0;
+}
+#endif
+
 /**
  * regulator_allow_bypass - allow the regulator to go into bypass mode
  *
@@ -4333,7 +4347,8 @@ int regulator_allow_bypass(struct regulator *regulator, bool enable)
 	if (enable && !regulator->bypass) {
 		rdev->bypass_count++;
 
-		if (rdev->bypass_count == rdev->open_count) {
+		if (rdev->bypass_count == rdev->open_count -
+		    regulator_open_offset(rdev)) {
 			ret = rdev->desc->ops->set_bypass(rdev, enable);
 			if (ret != 0)
 				rdev->bypass_count--;
@@ -4342,7 +4357,8 @@ int regulator_allow_bypass(struct regulator *regulator, bool enable)
 	} else if (!enable && regulator->bypass) {
 		rdev->bypass_count--;
 
-		if (rdev->bypass_count != rdev->open_count) {
+		if (rdev->bypass_count != rdev->open_count -
+		    regulator_open_offset(rdev)) {
 			ret = rdev->desc->ops->set_bypass(rdev, enable);
 			if (ret != 0)
 				rdev->bypass_count++;
@@ -4758,6 +4774,379 @@ static void regulator_dev_release(struct device *dev)
 	kfree(rdev);
 }
 
+#ifdef CONFIG_REGULATOR_QTI_DEBUG
+
+static struct regulator *reg_debug_get_consumer(struct regulator_dev *rdev)
+{
+	struct regulator *regulator;
+
+	if (rdev->debug_consumer)
+		return rdev->debug_consumer;
+
+	regulator = regulator_get(NULL, rdev_get_name(rdev));
+	if (IS_ERR(regulator)) {
+		rdev_dbg(rdev, "debug consumer regulator get failed, ret=%ld\n",
+			PTR_ERR(regulator));
+		return NULL;
+	}
+	rdev->debug_consumer = regulator;
+	if (regulator)
+		rdev->open_offset = 1;
+
+	return regulator;
+}
+
+static int reg_debug_enable_set(void *data, u64 val)
+{
+	struct regulator_dev *rdev = data;
+	struct regulator *regulator = reg_debug_get_consumer(rdev);
+	int ret;
+
+	if (!regulator) {
+		rdev_err(rdev, "debug consumer missing\n");
+		return -ENODEV;
+	}
+
+	if (val) {
+		ret = regulator_enable(regulator);
+		if (ret)
+			rdev_err(rdev, "enable failed, ret=%d\n", ret);
+	} else {
+		ret = regulator_disable(regulator);
+		if (ret)
+			rdev_err(rdev, "disable failed, ret=%d\n", ret);
+	}
+
+	return ret;
+}
+
+static int reg_debug_enable_get(void *data, u64 *val)
+{
+	struct regulator_dev *rdev = data;
+	struct regulator *regulator = reg_debug_get_consumer(rdev);
+
+	if (!regulator) {
+		rdev_err(rdev, "debug consumer missing\n");
+		return -ENODEV;
+	}
+
+	*val = regulator_is_enabled(regulator);
+
+	return 0;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(reg_enable_fops, reg_debug_enable_get,
+			reg_debug_enable_set, "%llu\n");
+
+static int reg_debug_bypass_enable_get(void *data, u64 *val)
+{
+	struct regulator_dev *rdev = data;
+	struct ww_acquire_ctx ww_ctx;
+	bool enable = false;
+	int ret = 0;
+
+	regulator_lock_dependent(rdev, &ww_ctx);
+	if (rdev->desc->ops->get_bypass) {
+		ret = rdev->desc->ops->get_bypass(rdev, &enable);
+		if (ret)
+			rdev_err(rdev, "get_bypass() failed, ret=%d\n", ret);
+	} else {
+		enable = (rdev->bypass_count == rdev->open_count
+			  - rdev->open_offset);
+	}
+	regulator_unlock_dependent(rdev, &ww_ctx);
+
+	*val = enable;
+
+	return ret;
+}
+
+static int reg_debug_bypass_enable_set(void *data, u64 val)
+{
+	struct regulator_dev *rdev = data;
+	struct regulator *regulator = reg_debug_get_consumer(rdev);
+	struct ww_acquire_ctx ww_ctx;
+	int ret;
+
+	if (!regulator) {
+		rdev_err(rdev, "debug consumer missing\n");
+		return -ENODEV;
+	}
+
+	regulator_lock_dependent(rdev, &ww_ctx);
+	rdev->open_offset = 0;
+	regulator_unlock_dependent(rdev, &ww_ctx);
+
+	ret = regulator_allow_bypass(regulator, val);
+
+	return ret;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(reg_bypass_enable_fops, reg_debug_bypass_enable_get,
+			reg_debug_bypass_enable_set, "%llu\n");
+
+static int reg_debug_force_disable_set(void *data, u64 val)
+{
+	struct regulator_dev *rdev = data;
+	struct regulator *regulator = reg_debug_get_consumer(rdev);
+	int ret = 0;
+
+	if (!regulator) {
+		rdev_err(rdev, "debug consumer missing\n");
+		return -ENODEV;
+	}
+
+	if (val > 0) {
+		ret = regulator_force_disable(regulator);
+		if (ret)
+			rdev_err(rdev, "force_disable failed, ret=%d\n", ret);
+	}
+
+	return ret;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(reg_force_disable_fops, reg_debug_enable_get,
+			reg_debug_force_disable_set, "%llu\n");
+
+#define MAX_DEBUG_BUF_LEN 50
+
+static ssize_t reg_debug_voltage_write(struct file *file,
+			const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	struct regulator_dev *rdev = file->private_data;
+	struct regulator *regulator = reg_debug_get_consumer(rdev);
+	char buf[MAX_DEBUG_BUF_LEN];
+	int ret, filled;
+	int min_uV, max_uV = -1;
+
+	if (!regulator) {
+		rdev_err(rdev, "debug consumer missing\n");
+		return -ENODEV;
+	}
+
+	if (count < MAX_DEBUG_BUF_LEN) {
+		if (copy_from_user(buf, ubuf, count))
+			return -EFAULT;
+
+		buf[count] = '\0';
+		filled = sscanf(buf, "%d %d", &min_uV, &max_uV);
+
+		/* Check that both min and max voltage were specified. */
+		if (filled < 2 || min_uV < 0 || max_uV < min_uV) {
+			rdev_err(rdev, "incorrect values specified: \"%s\"; should be: \"min_uV max_uV\"\n",
+				buf);
+			return -EINVAL;
+		}
+
+		ret = regulator_set_voltage(regulator, min_uV, max_uV);
+		if (ret) {
+			rdev_err(rdev, "set voltage(%d, %d) failed, ret=%d\n",
+				min_uV, max_uV, ret);
+			return ret;
+		}
+	} else {
+		rdev_err(rdev, "voltage request string exceeds maximum buffer size\n");
+		return -EINVAL;
+	}
+
+	return count;
+}
+
+static ssize_t reg_debug_voltage_read(struct file *file, char __user *ubuf,
+					size_t count, loff_t *ppos)
+{
+	struct regulator_dev *rdev = file->private_data;
+	char buf[MAX_DEBUG_BUF_LEN];
+	struct ww_acquire_ctx ww_ctx;
+	int voltage, ret;
+
+	regulator_lock_dependent(rdev, &ww_ctx);
+	voltage = regulator_get_voltage_rdev(rdev);
+	regulator_unlock_dependent(rdev, &ww_ctx);
+
+	ret = snprintf(buf, MAX_DEBUG_BUF_LEN - 1, "%d\n", voltage);
+
+	return simple_read_from_buffer(ubuf, count, ppos, buf, ret);
+}
+
+static const struct file_operations reg_voltage_fops = {
+	.open	= simple_open,
+	.read	= reg_debug_voltage_read,
+	.write	= reg_debug_voltage_write,
+};
+
+static int reg_debug_mode_set(void *data, u64 val)
+{
+	struct regulator_dev *rdev = data;
+	struct regulator *regulator = reg_debug_get_consumer(rdev);
+	unsigned int mode = val;
+	int ret;
+
+	if (!regulator) {
+		rdev_err(rdev, "debug consumer missing\n");
+		return -ENODEV;
+	}
+
+	ret = regulator_set_mode(regulator, mode);
+	if (ret)
+		rdev_err(regulator->rdev, "set mode=%u failed, ret=%d\n",
+			mode, ret);
+
+	return ret;
+}
+
+static int reg_debug_mode_get(void *data, u64 *val)
+{
+	struct regulator_dev *rdev = data;
+	int mode;
+
+	mode = _regulator_get_mode(rdev);
+	if (mode < 0) {
+		rdev_err(rdev, "get mode failed, ret=%d\n", mode);
+		return mode;
+	}
+
+	*val = mode;
+
+	return 0;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(reg_mode_fops, reg_debug_mode_get, reg_debug_mode_set,
+			"%llu\n");
+
+static int reg_debug_set_load(void *data, u64 val)
+{
+	struct regulator_dev *rdev = data;
+	struct regulator *regulator = reg_debug_get_consumer(rdev);
+	int load = val;
+	int ret;
+
+	if (!regulator) {
+		rdev_err(rdev, "debug consumer missing\n");
+		return -ENODEV;
+	}
+
+	ret = regulator_set_load(regulator, load);
+	if (ret)
+		rdev_err(rdev, "set load=%d failed, ret=%d\n", load, ret);
+
+	return ret;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(reg_set_load_fops, reg_debug_mode_get,
+			reg_debug_set_load, "%llu\n");
+
+static void rdev_free_qti_debugfs(struct regulator_dev *rdev)
+{
+	if (!IS_ERR_OR_NULL(rdev)) {
+		if (rdev->debug_consumer)
+			rdev->debug_consumer->debugfs = NULL;
+		regulator_put(rdev->debug_consumer);
+	}
+}
+
+static void rdev_init_qti_debugfs(struct regulator_dev *rdev)
+{
+	const struct regulator_ops *ops;
+	mode_t mode;
+
+	rdev->debug_consumer = reg_debug_get_consumer(rdev);
+	ops = rdev->desc->ops;
+
+	debugfs_create_file_unsafe("enable", 0644, rdev->debugfs, rdev,
+				&reg_enable_fops);
+	if (ops->set_bypass)
+		debugfs_create_file_unsafe("bypass", 0644, rdev->debugfs, rdev,
+					&reg_bypass_enable_fops);
+
+	mode = 0;
+	if (ops->is_enabled)
+		mode |= 0444;
+	if (ops->disable)
+		mode |= 0200;
+	if (mode)
+		debugfs_create_file_unsafe("force_disable", mode, rdev->debugfs,
+					rdev, &reg_force_disable_fops);
+
+	mode = 0;
+	if (ops->get_voltage || ops->get_voltage_sel)
+		mode |= 0444;
+	if (ops->set_voltage || ops->set_voltage_sel)
+		mode |= 0200;
+	if (mode)
+		debugfs_create_file_unsafe("voltage", mode, rdev->debugfs, rdev,
+					&reg_voltage_fops);
+
+	mode = 0;
+	if (ops->get_mode)
+		mode |= 0444;
+	if (ops->set_mode)
+		mode |= 0200;
+	if (mode)
+		debugfs_create_file_unsafe("mode", mode, rdev->debugfs, rdev,
+					&reg_mode_fops);
+
+	mode = 0;
+	if (ops->get_mode)
+		mode |= 0444;
+	if (ops->set_load || (ops->get_optimum_mode && ops->set_mode))
+		mode |= 0200;
+	if (mode)
+		debugfs_create_file_unsafe("load", mode, rdev->debugfs, rdev,
+					&reg_set_load_fops);
+}
+
+#else
+
+static inline void rdev_free_qti_debugfs(struct regulator_dev *rdev)
+{
+}
+
+static inline void rdev_init_qti_debugfs(struct regulator_dev *rdev)
+{
+}
+
+#endif /* CONFIG_REGULATOR_QTI_DEBUG */
+
+static int reg_debug_consumers_show(struct seq_file *m, void *v)
+{
+	struct regulator_dev *rdev = m->private;
+	struct ww_acquire_ctx ww_ctx;
+	struct regulator *reg;
+	const char *supply_name;
+
+	regulator_lock_dependent(rdev, &ww_ctx);
+
+	/* Print a header if there are consumers. */
+	if (rdev->open_count)
+		seq_printf(m, "%-32s EN    Min_uV   Max_uV  load_uA\n",
+			"Device-Supply");
+
+	list_for_each_entry(reg, &rdev->consumer_list, list) {
+		if (reg->supply_name)
+			supply_name = reg->supply_name;
+		else
+			supply_name = "(null)-(null)";
+
+		seq_printf(m, "%-32s %c   %8d %8d %8d\n", supply_name,
+			(reg->enable_count ? 'Y' : 'N'),
+			reg->voltage[PM_SUSPEND_ON].min_uV,
+			reg->voltage[PM_SUSPEND_ON].max_uV,
+			reg->uA_load);
+	}
+
+	regulator_unlock_dependent(rdev, &ww_ctx);
+
+	return 0;
+}
+
+static int reg_debug_consumers_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, reg_debug_consumers_show, inode->i_private);
+}
+
+static const struct file_operations reg_consumers_fops = {
+	.open		= reg_debug_consumers_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+
 static void rdev_init_debugfs(struct regulator_dev *rdev)
 {
 	struct device *parent = rdev->dev.parent;
@@ -4783,6 +5172,10 @@ static void rdev_init_debugfs(struct regulator_dev *rdev)
 			   &rdev->open_count);
 	debugfs_create_u32("bypass_count", 0444, rdev->debugfs,
 			   &rdev->bypass_count);
+	debugfs_create_file("consumers", 0444, rdev->debugfs, rdev,
+			    &reg_consumers_fops);
+
+	rdev_init_qti_debugfs(rdev);
 }
 
 static int regulator_register_resolve_supply(struct device *dev, void *data)
@@ -5240,6 +5633,7 @@ void regulator_unregister(struct regulator_dev *rdev)
 	mutex_lock(&regulator_list_mutex);
 
 	debugfs_remove_recursive(rdev->debugfs);
+	rdev_free_qti_debugfs(rdev);
 	WARN_ON(rdev->open_count);
 	regulator_remove_coupling(rdev);
 	unset_regulator_supplies(rdev);
