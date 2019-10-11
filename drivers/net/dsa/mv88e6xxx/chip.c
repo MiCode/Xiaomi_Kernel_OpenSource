@@ -3846,6 +3846,8 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
 		mv88e6xxx_mdio_unregister(chip);
 		return err;
 	}
+	if (chip->reset)
+		usleep_range(1000, 2000);
 
 	return 0;
 }
