@@ -1510,6 +1510,26 @@ int __qcom_scm_ice_restore_cfg(struct device *dev)
 	return qcom_scm_call(dev, &desc);
 }
 
+int __qcom_scm_register_qsee_log_buf(struct device *dev, phys_addr_t buf,
+				     size_t len)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_QSEELOG,
+		.cmd = QCOM_SCM_QSEELOG_REGISTER,
+		.owner = ARM_SMCCC_OWNER_TRUSTED_OS
+	};
+
+
+	desc.args[0] = buf;
+	desc.args[1] = len;
+	desc.arginfo = QCOM_SCM_ARGS(2, QCOM_SCM_RW);
+
+	ret = qcom_scm_call(dev, &desc);
+
+	return ret ? : desc.res[0];
+}
+
 void __qcom_scm_init(void)
 {
 	__query_convention();

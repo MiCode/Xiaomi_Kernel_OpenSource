@@ -162,6 +162,12 @@ extern int __qcom_scm_qsmmu500_wait_safe_toggle(struct device *dev,
 #define QCOM_SCM_SMMU_CONFIG_ERRATA1_CLIENT_ALL	0x2
 
 // TOS Services and Function IDs
+#define QCOM_SCM_SVC_QSEELOG		0x01
+#define QCOM_SCM_QSEELOG_REGISTER	0x06
+extern int __qcom_scm_register_qsee_log_buf(struct device *dev, phys_addr_t buf,
+					   size_t len);
+#define QCOM_SCM_FEAT_LOG_ID		0x0a
+
 #define QCOM_SCM_SVC_KEYSTORE		0x05
 #define QCOM_SCM_ICE_RESTORE_KEY_ID	0x06
 extern int __qcom_scm_ice_restore_cfg(struct device *dev);

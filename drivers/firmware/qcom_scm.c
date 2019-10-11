@@ -678,6 +678,19 @@ int qcom_scm_ice_restore_cfg(void)
 }
 EXPORT_SYMBOL(qcom_scm_ice_restore_cfg);
 
+int qcom_scm_get_tz_log_feat_id(u64 *version)
+{
+	return __qcom_scm_get_feat_version(__scm->dev, QCOM_SCM_FEAT_LOG_ID,
+					   version);
+}
+EXPORT_SYMBOL(qcom_scm_get_tz_log_feat_id);
+
+int qcom_scm_register_qsee_log_buf(phys_addr_t buf, size_t len)
+{
+	return __qcom_scm_register_qsee_log_buf(__scm->dev, buf, len);
+}
+EXPORT_SYMBOL(qcom_scm_register_qsee_log_buf);
+
 /**
  * qcom_scm_is_available() - Checks if SCM is available
  */
