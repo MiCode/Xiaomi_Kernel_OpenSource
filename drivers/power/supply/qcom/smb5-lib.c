@@ -6212,11 +6212,11 @@ irqreturn_t dc_plugin_irq_handler(int irq, void *data)
 		if (chg->sec_cp_present) {
 			/*
 			 * If CP output topology is VBATT, limit main charger's
-			 * FCC share to 1 A and let the CPs handle the rest.
+			 * FCC share and let the CPs handle the rest.
 			 */
 			if (is_cp_topo_vbatt(chg))
 				vote(chg->fcc_main_votable,
-					WLS_PL_CHARGING_VOTER, true, 1000000);
+					WLS_PL_CHARGING_VOTER, true, 800000);
 
 			pval.intval = wireless_vout;
 			rc = smblib_set_prop_voltage_wls_output(chg, &pval);
