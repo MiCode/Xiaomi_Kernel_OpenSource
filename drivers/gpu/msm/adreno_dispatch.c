@@ -2120,8 +2120,11 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 		mutex_lock(&device->mutex);
 		adreno_readreg(adreno_dev, ADRENO_REG_RBBM_STATUS3, &val);
 		mutex_unlock(&device->mutex);
-		if (val & BIT(24))
-			return 0;
+		if (val & BIT(24)) {
+			dev_err(device->dev,
+				"SMMU is stalled without a pagefault\n");
+			return -EBUSY;
+		}
 	}
 
 	/* Turn off all the timers */
@@ -2386,6 +2389,12 @@ static void _adreno_dispatch_check_timeout(struct adreno_device *adreno_dev,
 		drawobj->context->id, drawobj->timestamp);
 
 	adreno_set_gpu_fault(adreno_dev, ADRENO_TIMEOUT_FAULT);
+
+	/*
+	 * This makes sure dispatcher doesn't run endlessly in cases where
+	 * we couldn't run recovery
+	 */
+	drawqueue->expires = jiffies + msecs_to_jiffies(adreno_drawobj_timeout);
 }
 
 static int adreno_dispatch_process_drawqueue(struct adreno_device *adreno_dev,
