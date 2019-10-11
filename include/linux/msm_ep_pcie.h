@@ -113,7 +113,7 @@ struct ep_pcie_hw {
 				u32 num_entries);
 	int (*get_msi_config)(struct ep_pcie_msi_config *cfg);
 	int (*trigger_msi)(u32 idx);
-	int (*wakeup_host)(void);
+	int (*wakeup_host)(enum ep_pcie_event event);
 	int (*enable_endpoint)(enum ep_pcie_options opt);
 	int (*disable_endpoint)(void);
 	int (*config_db_routing)(struct ep_pcie_db_config chdb_cfg,
@@ -231,12 +231,13 @@ int ep_pcie_trigger_msi(struct ep_pcie_hw *phandle, u32 idx);
 /*
  * ep_pcie_wakeup_host - wake up the host.
  * @phandle:	PCIe endpoint HW driver handle
+ * @event:	PCIe event of ep_pcie_event type
  *
  * This function asserts WAKE GPIO to wake up the host.
  *
  * Return: 0 on success, negative value on error
  */
-int ep_pcie_wakeup_host(struct ep_pcie_hw *phandle);
+int ep_pcie_wakeup_host(struct ep_pcie_hw *phandle, enum ep_pcie_event event);
 
 /*
  * ep_pcie_enable_endpoint - enable PCIe endpoint.
