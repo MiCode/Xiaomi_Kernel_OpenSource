@@ -263,9 +263,9 @@ static void rmnet_dellink(struct net_device *dev, struct list_head *head)
 	if (!port->nr_rmnet_devs)
 		qmi_rmnet_qmi_exit(port->qmi_info, port);
 
-	rmnet_unregister_real_device(real_dev, port);
+	unregister_netdevice(dev);
 
-	unregister_netdevice_queue(dev, head);
+	rmnet_unregister_real_device(real_dev, port);
 }
 
 static void rmnet_force_unassociate_device(struct net_device *dev)
@@ -295,7 +295,9 @@ static void rmnet_force_unassociate_device(struct net_device *dev)
 		synchronize_rcu();
 		kfree(ep);
 	}
-
+	/* Unregistering devices in context before freeing port.
+	 * If this API becomes non-context their order should switch.
+	 */
 	unregister_netdevice_many(&list);
 
 	rmnet_unregister_real_device(real_dev, port);
