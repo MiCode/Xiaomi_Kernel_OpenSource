@@ -1880,6 +1880,9 @@ static int qg_get_ttf_param(void *data, enum ttf_param param, int *val)
 	case TTF_CHG_STATUS:
 		*val = chip->charge_status;
 		break;
+	case TTF_CHG_DONE:
+		*val = chip->charge_done;
+		break;
 	default:
 		pr_err("Unsupported property %d\n", param);
 		rc = -EINVAL;

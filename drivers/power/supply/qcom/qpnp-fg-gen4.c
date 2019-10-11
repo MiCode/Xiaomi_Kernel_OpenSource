@@ -1273,6 +1273,9 @@ static int fg_gen4_get_ttf_param(void *data, enum ttf_param param, int *val)
 	case TTF_CHG_STATUS:
 		*val = fg->charge_status;
 		break;
+	case TTF_CHG_DONE:
+		*val = fg->charge_done;
+		break;
 	default:
 		pr_err_ratelimited("Unsupported parameter %d\n", param);
 		rc = -EINVAL;
