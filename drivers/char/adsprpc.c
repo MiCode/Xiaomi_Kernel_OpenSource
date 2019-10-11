@@ -1380,8 +1380,7 @@ static int context_alloc(struct fastrpc_file *fl, uint32_t kernel,
 		pr_err("adsprpc: out of context memory\n");
 		goto bail;
 	}
-	trace_fastrpc_context_alloc((uint64_t)ctx,
-		ctx->ctxid | fl->pd, ctx->handle, ctx->sc);
+
 	*po = ctx;
 bail:
 	if (ctx && err)
@@ -1425,8 +1424,7 @@ static void context_free(struct smq_invoke_ctx *ctx)
 		}
 	}
 	spin_unlock(&me->ctxlock);
-	trace_fastrpc_context_free((uint64_t)ctx,
-		ctx->msg.invoke.header.ctx, ctx->handle, ctx->sc);
+
 	kfree(ctx);
 }
 
@@ -1457,8 +1455,6 @@ static void context_notify_user(struct smq_invoke_ctx *ctx,
 	}
 	ctx->rspFlags = (enum fastrpc_response_flags)rspFlags;
 	fastrpc_pm_awake(ctx->fl->wake_enable, &ctx->pm_awake_voted);
-	trace_fastrpc_context_complete(ctx->fl->cid, (uint64_t)ctx, retval,
-		ctx->msg.invoke.header.ctx, ctx->handle, ctx->sc);
 	complete(&ctx->work);
 }
 
@@ -2026,7 +2022,7 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 		goto bail;
 	}
 	err = rpmsg_send(channel_ctx->rpdev->ept, (void *)msg, sizeof(*msg));
-	trace_fastrpc_rpmsg_send(fl->cid, (uint64_t)ctx, msg->invoke.header.ctx,
+	trace_fastrpc_rpmsg_send(channel_ctx->subsys, msg->invoke.header.ctx,
 		handle, ctx->sc, msg->invoke.page.addr, msg->invoke.page.size);
 	LOG_FASTRPC_GLINK_MSG(channel_ctx->ipc_log_ctx,
 		"sent pkt %pK (sz %d): ctx 0x%llx, handle 0x%x, sc 0x%x (rpmsg err %d)",
@@ -2226,7 +2222,7 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 		if (err)
 			goto bail;
 		if (ctx) {
-			trace_fastrpc_context_restore(cid, (uint64_t)ctx,
+			trace_fastrpc_context_restore(gcinfo[cid].subsys,
 				ctx->msg.invoke.header.ctx,
 				ctx->handle, ctx->sc);
 			goto wait;
@@ -2289,7 +2285,7 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 		goto bail;
  bail:
 	if (ctx && interrupted == -ERESTARTSYS) {
-		trace_fastrpc_context_interrupt(cid, (uint64_t)ctx,
+		trace_fastrpc_context_interrupt(gcinfo[cid].subsys,
 			ctx->msg.invoke.header.ctx, ctx->handle, ctx->sc);
 		context_save_interrupted(ctx);
 	}
@@ -3374,7 +3370,10 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 	struct smq_invoke_rspv2 *rspv2 = NULL;
 	struct fastrpc_apps *me = &gfa;
 	uint32_t index, rspFlags = 0, earlyWakeTime = 0;
-	int err = 0, cid = -1;
+	int err = 0;
+#if IS_ENABLED(CONFIG_ADSPRPC_DEBUG)
+	int cid = -1;
+#endif
 
 	VERIFY(err, (rsp && len >= sizeof(*rsp)));
 	if (err)
@@ -3387,10 +3386,11 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 		earlyWakeTime = rspv2->earlyWakeTime;
 		rspFlags = rspv2->flags;
 	}
-	cid = get_cid_from_rpdev(rpdev);
-	trace_fastrpc_rpmsg_response(cid, rsp->ctx,
-		rsp->retval, rspFlags, earlyWakeTime);
+	if (!IS_ERR_OR_NULL(rpdev))
+		trace_fastrpc_rpmsg_response(rpdev->dev.parent->of_node->name,
+			rsp->ctx, rsp->retval, rspFlags, earlyWakeTime);
 #if IS_ENABLED(CONFIG_ADSPRPC_DEBUG)
+	cid = get_cid_from_rpdev(rpdev);
 	if (cid >= 0 && cid < NUM_CHANNELS) {
 		LOG_FASTRPC_GLINK_MSG(gcinfo[cid].ipc_log_ctx,
 		"recvd pkt %pK (sz %d): ctx 0x%llx, retVal %d, flags %u, earlyWake %u",
@@ -4283,7 +4283,7 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 	ctx = container_of(nb, struct fastrpc_channel_ctx, nb);
 	cid = ctx - &me->channel[0];
 	if (code == SUBSYS_BEFORE_SHUTDOWN) {
-		pr_info("adsprpc: %s: %s subsystem is restarting\n",
+		pr_debug("adsprpc: %s: %s subsystem is restarting\n",
 			__func__, gcinfo[cid].subsys);
 		mutex_lock(&me->channel[cid].smd_mutex);
 		ctx->ssrcount++;
@@ -4298,10 +4298,10 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 				me->channel[RH_CID].ramdumpenabled = 1;
 			}
 		}
-		pr_info("adsprpc: %s: received RAMDUMP notification for %s\n",
+		pr_debug("adsprpc: %s: received RAMDUMP notification for %s\n",
 			__func__, gcinfo[cid].subsys);
 	} else if (code == SUBSYS_AFTER_POWERUP) {
-		pr_info("adsprpc: %s: %s subsystem is up\n",
+		pr_debug("adsprpc: %s: %s subsystem is up\n",
 			__func__, gcinfo[cid].subsys);
 		ctx->issubsystemup = 1;
 	}
@@ -4318,7 +4318,7 @@ static int fastrpc_pdr_notifier_cb(struct notifier_block *pdrnb,
 
 	spd = container_of(pdrnb, struct fastrpc_static_pd, pdrnb);
 	if (code == SERVREG_NOTIF_SERVICE_STATE_DOWN_V01) {
-		pr_info("adsprpc: %s: %s (%s) is down for PDR on %s\n",
+		pr_debug("adsprpc: %s: %s (%s) is down for PDR on %s\n",
 			__func__, spd->spdname, spd->servloc_name,
 			gcinfo[spd->cid].subsys);
 		mutex_lock(&me->channel[spd->cid].smd_mutex);
@@ -4336,11 +4336,11 @@ static int fastrpc_pdr_notifier_cb(struct notifier_block *pdrnb,
 				me->channel[RH_CID].ramdumpenabled = 1;
 			}
 		}
-		pr_info("adsprpc: %s: received %s RAMDUMP notification for %s (%s)\n",
+		pr_debug("adsprpc: %s: received %s RAMDUMP notification for %s (%s)\n",
 			__func__, gcinfo[spd->cid].subsys,
 			spd->spdname, spd->servloc_name);
 	} else if (code == SERVREG_NOTIF_SERVICE_STATE_UP_V01) {
-		pr_info("adsprpc: %s: %s (%s) is up on %s\n",
+		pr_debug("adsprpc: %s: %s (%s) is up on %s\n",
 			__func__, spd->spdname, spd->servloc_name,
 			gcinfo[spd->cid].subsys);
 		spd->ispdup = 1;
@@ -4406,12 +4406,12 @@ pdr_register:
 	}
 
 	if (curr_state == SERVREG_NOTIF_SERVICE_STATE_UP_V01) {
-		pr_info("adsprpc: %s: %s (%s) PDR service for %s is up\n",
+		pr_debug("adsprpc: %s: %s (%s) PDR service for %s is up\n",
 			__func__, spd->servloc_name, pdr->domain_list[i].name,
 			gcinfo[spd->cid].subsys);
 		spd->ispdup = 1;
 	} else if (curr_state == SERVREG_NOTIF_SERVICE_STATE_UNINIT_V01) {
-		pr_info("adsprpc: %s: %s (%s) PDR service for %s is uninitialized\n",
+		pr_debug("adsprpc: %s: %s (%s) PDR service for %s is uninitialized\n",
 			__func__, spd->servloc_name, pdr->domain_list[i].name,
 			gcinfo[spd->cid].subsys);
 	}
@@ -4670,7 +4670,7 @@ static int fastrpc_probe(struct platform_device *pdev)
 				__func__, ret, AUDIO_PDR_ADSP_SERVICE_NAME,
 				AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME);
 		else
-			pr_info("adsprpc: %s: service location enabled for %s (%s)\n",
+			pr_debug("adsprpc: %s: service location enabled for %s (%s)\n",
 				__func__, AUDIO_PDR_ADSP_SERVICE_NAME,
 				AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME);
 	}
@@ -4691,7 +4691,7 @@ static int fastrpc_probe(struct platform_device *pdev)
 				__func__, ret, SENSORS_PDR_SLPI_SERVICE_NAME,
 				SENSORS_PDR_ADSP_SERVICE_LOCATION_CLIENT_NAME);
 		else
-			pr_info("adsprpc: %s: service location enabled for %s (%s)\n",
+			pr_debug("adsprpc: %s: service location enabled for %s (%s)\n",
 				__func__, SENSORS_PDR_SLPI_SERVICE_NAME,
 				SENSORS_PDR_ADSP_SERVICE_LOCATION_CLIENT_NAME);
 	}
@@ -4712,7 +4712,7 @@ static int fastrpc_probe(struct platform_device *pdev)
 				__func__, ret, SENSORS_PDR_SLPI_SERVICE_NAME,
 				SENSORS_PDR_SLPI_SERVICE_LOCATION_CLIENT_NAME);
 		else
-			pr_info("adsprpc: %s: service location enabled for %s (%s)\n",
+			pr_debug("adsprpc: %s: service location enabled for %s (%s)\n",
 				__func__, SENSORS_PDR_SLPI_SERVICE_NAME,
 				SENSORS_PDR_SLPI_SERVICE_LOCATION_CLIENT_NAME);
 	}
