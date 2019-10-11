@@ -596,8 +596,9 @@ static int kvm_create_vm_debugfs(struct kvm *kvm, int fd)
 
 		stat_data->kvm = kvm;
 		stat_data->offset = p->offset;
+		stat_data->mode = p->mode ? p->mode : 0644;
 		kvm->debugfs_stat_data[p - debugfs_entries] = stat_data;
-		if (!debugfs_create_file(p->name, 0644,
+		if (!debugfs_create_file(p->name, stat_data->mode,
 					 kvm->debugfs_dentry,
 					 stat_data,
 					 stat_fops_per_vm[p->kind]))
@@ -3713,7 +3714,9 @@ static int kvm_debugfs_open(struct inode *inode, struct file *file,
 	if (!refcount_inc_not_zero(&stat_data->kvm->users_count))
 		return -ENOENT;
 
-	if (simple_attr_open(inode, file, get, set, fmt)) {
+	if (simple_attr_open(inode, file, get,
+			     stat_data->mode & S_IWUGO ? set : NULL,
+			     fmt)) {
 		kvm_put_kvm(stat_data->kvm);
 		return -ENOMEM;
 	}
@@ -3964,7 +3967,8 @@ static int kvm_init_debug(void)
 
 	kvm_debugfs_num_entries = 0;
 	for (p = debugfs_entries; p->name; ++p, kvm_debugfs_num_entries++) {
-		if (!debugfs_create_file(p->name, 0644, kvm_debugfs_dir,
+		int mode = p->mode ? p->mode : 0644;
+		if (!debugfs_create_file(p->name, mode, kvm_debugfs_dir,
 					 (void *)(long)p->offset,
 					 stat_fops[p->kind]))
 			goto out_dir;
