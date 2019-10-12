@@ -601,6 +601,13 @@ int qcom_mdf_assign_memory_to_subsys(u64 start_addr, u64 end_addr,
 }
 EXPORT_SYMBOL(qcom_mdf_assign_memory_to_subsys);
 
+int qcom_scm_get_feat_version_cp(u64 *version)
+{
+	return __qcom_scm_get_feat_version(__scm->dev, QCOM_SCM_MP_CP_FEAT_ID,
+						version);
+}
+EXPORT_SYMBOL(qcom_scm_get_feat_version_cp);
+
 /**
  * qcom_scm_dcvs_core_available() - check if core DCVS operations are available
  */

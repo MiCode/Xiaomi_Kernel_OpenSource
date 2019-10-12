@@ -380,7 +380,7 @@ config QCOM_SECURE_CHAN_MANAGER
 
 config QCOM_SECURE_BUFFER
 	tristate "Helper functions for secure buffers through TZ"
-	depends on QCOM_SECURE_CHAN_MANAGER
+	depends on QCOM_SCM
 	help
 	  Enable for targets that need to call into TZ to secure
 	  memory buffers. This ensures that only the correct clients can

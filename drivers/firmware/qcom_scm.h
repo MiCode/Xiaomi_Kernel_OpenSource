@@ -62,6 +62,7 @@ extern int __qcom_scm_is_call_available(struct device *dev, u32 svc_id,
 extern int __qcom_scm_get_feat_version(struct device *dev, u64 feat_id,
 					u64 *version);
 #define QCOM_SCM_TZ_DBG_ETM_FEAT_ID		0x08
+#define QCOM_SCM_MP_CP_FEAT_ID			0x0c
 
 #define QCOM_SCM_SVC_PWR			0x09
 #define QCOM_SCM_PWR_MMU_SYNC			0x08
