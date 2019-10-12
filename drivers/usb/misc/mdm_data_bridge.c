@@ -21,90 +21,50 @@
 #include <linux/ratelimit.h>
 #include <linux/usb/usb_bridge.h>
 
-#define MAX_RX_URBS			100
-#define RMNET_RX_BUFSIZE		2048
+#define MAX_RX_URBS			50
+#define RX_BUFSIZE			2048
+#define TX_URB_MULT			10
 
-#define STOP_SUBMIT_URB_LIMIT		500
-#define FLOW_CTRL_EN_THRESHOLD		500
-#define FLOW_CTRL_DISABLE		300
+#define STOP_SUBMIT_URB_LIMIT		100
+#define FLOW_CTRL_EN_THRESHOLD		100
+#define FLOW_CTRL_DISABLE		60
 #define FLOW_CTRL_SUPPORT		1
-
-#define BRIDGE_DATA_IDX		0
-#define BRIDGE_CTRL_IDX		1
-
-/*for xport : HSIC*/
-static const char * const serial_hsic_bridge_names[] = {
-	"serial_hsic_data",
-	"serial_hsic_ctrl",
-};
-
-static const char * const rmnet_hsic_bridge_names[] = {
-	"rmnet_hsic_data",
-	"rmnet_hsic_ctrl",
-};
-
-static const char * const qdss_hsic_bridge_names[] = {
-	"qdss_hsic_data",
-};
-
-/*for xport : HSUSB*/
-static const char * const serial_hsusb_bridge_names[] = {
-	"serial_hsusb_data",
-	"serial_hsusb_ctrl",
-};
-
-static const char * const rmnet_hsusb_bridge_names[] = {
-	"rmnet_hsusb_data",
-	"rmnet_hsusb_ctrl",
-};
-
-/* since driver supports multiple instances, on smp systems
- * probe might get called from multiple cores, hence use lock
- * to identify unclaimed bridge device instance
- */
-static DEFINE_MUTEX(brdg_claim_lock);
 
 static struct workqueue_struct	*bridge_wq;
 
-static unsigned int	fctrl_support = FLOW_CTRL_SUPPORT;
+static unsigned int fctrl_support = FLOW_CTRL_SUPPORT;
 module_param(fctrl_support, uint, 0644);
 
-static unsigned int	fctrl_en_thld = FLOW_CTRL_EN_THRESHOLD;
+static unsigned int fctrl_en_thld = FLOW_CTRL_EN_THRESHOLD;
 module_param(fctrl_en_thld, uint, 0644);
 
-static unsigned int	fctrl_dis_thld = FLOW_CTRL_DISABLE;
+static unsigned int fctrl_dis_thld = FLOW_CTRL_DISABLE;
 module_param(fctrl_dis_thld, uint, 0644);
 
-unsigned int	max_rx_urbs = MAX_RX_URBS;
+static unsigned int max_rx_urbs = MAX_RX_URBS;
 module_param(max_rx_urbs, uint, 0644);
 
-unsigned int	stop_submit_urb_limit = STOP_SUBMIT_URB_LIMIT;
+static unsigned int stop_submit_urb_limit = STOP_SUBMIT_URB_LIMIT;
 module_param(stop_submit_urb_limit, uint, 0644);
 
-static unsigned int tx_urb_mult = 20;
+static unsigned int tx_urb_mult = TX_URB_MULT;
 module_param(tx_urb_mult, uint, 0644);
 
-static unsigned int rx_rmnet_buffer_size = RMNET_RX_BUFSIZE;
-module_param(rx_rmnet_buffer_size, uint, 0644);
+static unsigned int rx_buffer_size = RX_BUFSIZE;
+module_param(rx_buffer_size, uint, 0644);
 
 #define TX_HALT   0
 #define RX_HALT   1
 #define SUSPENDED 2
-#define CLAIMED   3
 
 struct data_bridge {
 	struct usb_interface		*intf;
 	struct usb_device		*udev;
-	int				id;
 	char				*name;
 
 	unsigned int			bulk_in;
 	unsigned int			bulk_out;
 	int				err;
-
-	/* Support INT IN instead of BULK IN */
-	bool				use_int_in_pipe;
-	unsigned int			period;
 
 	/* keep track of in-flight URBs */
 	struct usb_anchor		tx_active;
@@ -138,48 +98,14 @@ struct data_bridge {
 	unsigned long long		rx_num_of_bytes;
 };
 
-static struct data_bridge	*__dev[MAX_BRIDGE_DEVICES];
+static struct data_bridge	*__mdm_dev[MAX_BRIDGE_DEVICES];
 
 static unsigned int get_timestamp(void);
 static void dbg_timestamp(char *, struct sk_buff *);
 static int submit_rx_urb(struct data_bridge *dev, struct urb *urb,
 		gfp_t flags);
 
-/* Find an unclaimed bridge device instance */
-static int get_bridge_dev_idx(void)
-{
-	struct data_bridge	*dev;
-	int			i;
-
-	mutex_lock(&brdg_claim_lock);
-	for (i = 0; i < MAX_BRIDGE_DEVICES; i++) {
-		dev = __dev[i];
-		if (!test_bit(CLAIMED, &dev->flags)) {
-			set_bit(CLAIMED, &dev->flags);
-			mutex_unlock(&brdg_claim_lock);
-			return i;
-		}
-	}
-	mutex_unlock(&brdg_claim_lock);
-
-	return -ENODEV;
-}
-
-static int get_data_bridge_chid(char *xport_name)
-{
-	struct data_bridge	*dev;
-	int			i;
-
-	for (i = 0; i < MAX_BRIDGE_DEVICES; i++) {
-		dev = __dev[i];
-		if (!strncmp(dev->name, xport_name, BRIDGE_NAME_MAX_LEN))
-			return i;
-	}
-
-	return -ENODEV;
-}
-
-static inline  bool rx_halted(struct data_bridge *dev)
+static inline bool rx_halted(struct data_bridge *dev)
 {
 	return test_bit(RX_HALT, &dev->flags);
 }
@@ -209,12 +135,16 @@ int data_bridge_unthrottle_rx(unsigned int id)
 {
 	struct data_bridge	*dev;
 
-	if (id >= MAX_BRIDGE_DEVICES)
+	if (id >= MAX_BRIDGE_DEVICES) {
+		pr_err("%s: Invalid device ID %d\n", __func__, id);
 		return -EINVAL;
+	}
 
-	dev = __dev[id];
-	if (!dev || !dev->brdg)
+	dev = __mdm_dev[id];
+	if (!dev->brdg) {
+		pr_err("%s: Bridge closed or device disconnected\n", __func__);
 		return -ENODEV;
+	}
 
 	dev->rx_unthrottled_cnt++;
 	queue_work(dev->wq, &dev->process_rx_w);
@@ -232,11 +162,12 @@ static void data_bridge_process_rx(struct work_struct *work)
 	struct timestamp_info	*info;
 	struct data_bridge	*dev =
 		container_of(work, struct data_bridge, process_rx_w);
-
 	struct bridge		*brdg = dev->brdg;
 
-	if (!brdg || !brdg->ops.send_pkt || rx_halted(dev))
+	if (!brdg || !brdg->ops.send_pkt || rx_halted(dev)) {
+		pr_err("%s: Bridge closed\n", __func__);
 		return;
+	}
 
 	while (!rx_throttled(brdg) && (skb = skb_dequeue(&dev->rx_done))) {
 		dev->to_host++;
@@ -245,7 +176,9 @@ static void data_bridge_process_rx(struct work_struct *work)
 		info->rx_done_sent = get_timestamp();
 		/* hand off sk_buff to client,they'll need to free it */
 		retval = brdg->ops.send_pkt(brdg->ctx, skb, skb->len);
-		if (retval == -ENOTCONN || retval == -EINVAL) {
+		if (retval == -ENOTCONN) {
+			dev_err(&dev->intf->dev, "%s: peripheral cable disconnected\n",
+								__func__);
 			return;
 		} else if (retval == -EBUSY) {
 			dev->rx_throttled_cnt++;
@@ -279,6 +212,8 @@ static void data_bridge_read_cb(struct urb *urb)
 	struct data_bridge	*dev = info->dev;
 	bool			queue = 0;
 
+	pr_debug("%s: dev:%pK\n", __func__, dev);
+
 	/*usb device disconnect*/
 	if (urb->dev->state == USB_STATE_NOTATTACHED)
 		urb->status = -ECONNRESET;
@@ -298,7 +233,7 @@ static void data_bridge_read_cb(struct urb *urb)
 	/*do not resubmit*/
 	case -EPIPE:
 		set_bit(RX_HALT, &dev->flags);
-		dev_err(&dev->intf->dev, "%s: epout halted\n", __func__);
+		dev_err(&dev->intf->dev, "%s: epin halted\n", __func__);
 		schedule_work(&dev->kevent);
 		/* FALLTHROUGH */
 	case -ESHUTDOWN:
@@ -335,7 +270,7 @@ static int submit_rx_urb(struct data_bridge *dev, struct urb *rx_urb,
 	unsigned int		created;
 
 	created = get_timestamp();
-	skb = alloc_skb(rx_rmnet_buffer_size, flags);
+	skb = alloc_skb(rx_buffer_size, flags);
 	if (!skb)
 		return -ENOMEM;
 
@@ -343,14 +278,8 @@ static int submit_rx_urb(struct data_bridge *dev, struct urb *rx_urb,
 	info->dev = dev;
 	info->created = created;
 
-	if (dev->use_int_in_pipe)
-		usb_fill_int_urb(rx_urb, dev->udev, dev->bulk_in,
-				skb->data, rx_rmnet_buffer_size,
-				data_bridge_read_cb, skb, dev->period);
-	else
-		usb_fill_bulk_urb(rx_urb, dev->udev, dev->bulk_in,
-				skb->data, rx_rmnet_buffer_size,
-				data_bridge_read_cb, skb);
+	usb_fill_bulk_urb(rx_urb, dev->udev, dev->bulk_in, skb->data,
+				rx_buffer_size, data_bridge_read_cb, skb);
 
 	if (test_bit(SUSPENDED, &dev->flags))
 		goto suspended;
@@ -404,17 +333,17 @@ int data_bridge_open(struct bridge *brdg)
 		return -EINVAL;
 	}
 
-	ch_id = get_data_bridge_chid(brdg->name);
-	if (ch_id < 0 || ch_id >= MAX_BRIDGE_DEVICES) {
+	ch_id = bridge_name_to_id(brdg->name);
+	if (ch_id < 0) {
 		pr_err("%s: %s dev not found\n", __func__, brdg->name);
 		return ch_id;
 	}
 
 	brdg->ch_id = ch_id;
 
-	dev = __dev[ch_id];
+	dev = __mdm_dev[ch_id];
 
-	dev_dbg(&dev->intf->dev, "%s: dev:%p\n", __func__, dev);
+	dev_dbg(&dev->intf->dev, "%s: dev:%pK\n", __func__, dev);
 
 	dev->brdg = brdg;
 	dev->err = 0;
@@ -441,12 +370,17 @@ void data_bridge_close(unsigned int id)
 	struct sk_buff		*skb;
 	unsigned long		flags;
 
-	if (id >= MAX_BRIDGE_DEVICES)
+	if (id >= MAX_BRIDGE_DEVICES) {
+		pr_err("%s: Invalid device ID %d\n", __func__, id);
 		return;
+	}
 
-	dev  = __dev[id];
-	if (!dev || !dev->brdg)
+	dev  = __mdm_dev[id];
+	if (!dev->brdg) {
+		pr_err("%s: Bridge already closed or device disconnected",
+						__func__);
 		return;
+	}
 
 	dev_dbg(&dev->intf->dev, "%s:\n", __func__);
 
@@ -461,6 +395,7 @@ void data_bridge_close(unsigned int id)
 		dev_kfree_skb_any(skb);
 	spin_unlock_irqrestore(&dev->rx_done.lock, flags);
 
+	dev->err = -ENODEV;
 	dev->brdg = NULL;
 }
 EXPORT_SYMBOL(data_bridge_close);
@@ -470,9 +405,6 @@ static void defer_kevent(struct work_struct *work)
 	int			status;
 	struct data_bridge	*dev =
 		container_of(work, struct data_bridge, kevent);
-
-	if (!dev)
-		return;
 
 	if (test_bit(TX_HALT, &dev->flags)) {
 		usb_unlink_anchored_urbs(&dev->tx_active);
@@ -524,7 +456,7 @@ static void data_bridge_write_cb(struct urb *urb)
 	struct bridge		*brdg = dev->brdg;
 	int			pending;
 
-	pr_debug("%s: dev:%p\n", __func__, dev);
+	pr_debug("%s: dev:%pK\n", __func__, dev);
 
 	switch (urb->status) {
 	case 0: /*success*/
@@ -580,27 +512,25 @@ int data_bridge_write(unsigned int id, struct sk_buff *skb)
 	int			pending;
 	struct urb		*txurb;
 	struct timestamp_info	*info = (struct timestamp_info *)skb->cb;
-	struct data_bridge	*dev = __dev[id];
+	struct data_bridge	*dev = __mdm_dev[id];
 	struct bridge		*brdg;
 
-	if (!dev || !dev->brdg || dev->err || !usb_get_intfdata(dev->intf))
+	if (!dev->brdg || dev->err) {
+		pr_err("%s: Bridge closed or device disconnected\n", __func__);
 		return -ENODEV;
-
-	brdg = dev->brdg;
-	if (!brdg)
-		return -ENODEV;
+	}
 
 	dev_dbg(&dev->intf->dev, "%s: write (%d bytes)\n", __func__, skb->len);
 
 	result = usb_autopm_get_interface(dev->intf);
 	if (result < 0) {
-		dev_dbg(&dev->intf->dev, "%s: resume failure\n", __func__);
+		dev_err(&dev->intf->dev, "%s: resume failure\n", __func__);
 		goto pm_error;
 	}
 
 	txurb = usb_alloc_urb(0, GFP_KERNEL);
 	if (!txurb) {
-		dev_err(&dev->intf->dev, "%s: error allocating read urb\n",
+		dev_err(&dev->intf->dev, "%s: error allocating write urb\n",
 			__func__);
 		result = -ENOMEM;
 		goto error;
@@ -612,8 +542,6 @@ int data_bridge_write(unsigned int id, struct sk_buff *skb)
 
 	usb_fill_bulk_urb(txurb, dev->udev, dev->bulk_out,
 			skb->data, skb->len, data_bridge_write_cb, skb);
-
-	txurb->transfer_flags |= URB_ZERO_PACKET;
 
 	pending = atomic_inc_return(&dev->pending_txurbs);
 	usb_anchor_urb(txurb, &dev->tx_active);
@@ -655,7 +583,6 @@ EXPORT_SYMBOL(data_bridge_write);
 
 static int bridge_resume(struct usb_interface *iface)
 {
-	int			retval = 0;
 	struct data_bridge	*dev = usb_get_intfdata(iface);
 
 	clear_bit(SUSPENDED, &dev->flags);
@@ -663,22 +590,15 @@ static int bridge_resume(struct usb_interface *iface)
 	if (dev->brdg)
 		queue_work(dev->wq, &dev->process_rx_w);
 
-	retval = ctrl_bridge_resume(dev->id);
-
-	return retval;
+	return 0;
 }
 
 static int bridge_suspend(struct usb_interface *intf, pm_message_t message)
 {
-	int			retval;
 	struct data_bridge	*dev = usb_get_intfdata(intf);
 
 	if (atomic_read(&dev->pending_txurbs))
 		return -EBUSY;
-
-	retval = ctrl_bridge_suspend(dev->id);
-	if (retval)
-		return retval;
 
 	set_bit(SUSPENDED, &dev->flags);
 	usb_kill_anchored_urbs(&dev->rx_active);
@@ -686,67 +606,10 @@ static int bridge_suspend(struct usb_interface *intf, pm_message_t message)
 	return 0;
 }
 
-static int data_bridge_probe(struct usb_interface *iface,
-		struct usb_host_endpoint *bulk_in,
-		struct usb_host_endpoint *bulk_out, char *name, int id)
-{
-	struct data_bridge	*dev;
-	int			retval;
-
-	dev = __dev[id];
-	if (!dev) {
-		pr_err("%s: device not found\n", __func__);
-		return -ENODEV;
-	}
-
-	dev->pdev = platform_device_alloc(name, -1);
-	if (!dev->pdev) {
-		pr_err("%s: unable to allocate platform device\n", __func__);
-		kfree(dev);
-		return -ENOMEM;
-	}
-
-	/*clear all bits except claimed bit*/
-	clear_bit(RX_HALT, &dev->flags);
-	clear_bit(TX_HALT, &dev->flags);
-	clear_bit(SUSPENDED, &dev->flags);
-
-	dev->id = id;
-	dev->name = name;
-	dev->udev = interface_to_usbdev(iface);
-	dev->intf = iface;
-
-	if (dev->use_int_in_pipe)
-		dev->bulk_in = usb_rcvintpipe(dev->udev,
-			bulk_in->desc.bEndpointAddress &
-			USB_ENDPOINT_NUMBER_MASK);
-	else
-		dev->bulk_in = usb_rcvbulkpipe(dev->udev,
-			bulk_in->desc.bEndpointAddress &
-			USB_ENDPOINT_NUMBER_MASK);
-
-	if (bulk_out)
-		dev->bulk_out = usb_sndbulkpipe(dev->udev,
-		bulk_out->desc.bEndpointAddress & USB_ENDPOINT_NUMBER_MASK);
-
-	usb_set_intfdata(iface, dev);
-
-	/*allocate list of rx urbs*/
-	retval = data_bridge_prepare_rx(dev);
-	if (retval) {
-		platform_device_put(dev->pdev);
-		return retval;
-	}
-
-	platform_device_add(dev->pdev);
-
-	return 0;
-}
-
 #if defined(CONFIG_DEBUG_FS)
 #define DEBUG_BUF_SIZE	4096
 
-static unsigned int	record_timestamp;
+static unsigned int record_timestamp;
 module_param(record_timestamp, uint, 0644);
 
 static struct timestamp_buf dbg_data = {
@@ -772,7 +635,7 @@ static unsigned int get_timestamp(void)
 
 static void dbg_inc(unsigned int *idx)
 {
-	*idx = (*idx + 1) & (DBG_DATA_MAX-1);
+	*idx = (*idx + 1) % (DBG_DATA_MAX-1);
 }
 
 /*
@@ -791,7 +654,7 @@ static void dbg_timestamp(char *event, struct sk_buff *skb)
 	write_lock_irqsave(&dbg_data.lck, flags);
 
 	scnprintf(dbg_data.buf[dbg_data.idx], DBG_DATA_MSG,
-		  "%p %u[%s] %u %u %u %u %u %u\n",
+		  "%pK %u[%s] %u %u %u %u %u %u\n",
 		  skb, skb->len, event, info->created, info->rx_queued,
 		  info->rx_done, info->rx_done_sent, info->tx_queued,
 		  get_timestamp());
@@ -837,7 +700,7 @@ static ssize_t show_timestamp(struct file *file, char __user *ubuf,
 	return ret;
 }
 
-const struct file_operations data_timestamp_ops = {
+static const struct file_operations data_timestamp_ops = {
 	.read = show_timestamp,
 };
 
@@ -855,12 +718,9 @@ static ssize_t data_bridge_read_stats(struct file *file, char __user *ubuf,
 		return -ENOMEM;
 
 	for (i = 0; i < MAX_BRIDGE_DEVICES; i++) {
-		dev = __dev[i];
-		if (!dev)
-			continue;
-
+		dev = __mdm_dev[i];
 		temp += scnprintf(buf + temp, DEBUG_BUF_SIZE - temp,
-				"\nName#%s dev %p\n"
+				"\nName#%s dev %pK\n"
 				"pending tx urbs:    %u\n"
 				"tx urb drp cnt:     %u\n"
 				"to host:            %lu\n"
@@ -909,10 +769,7 @@ static ssize_t data_bridge_reset_stats(struct file *file,
 	int			i;
 
 	for (i = 0; i < MAX_BRIDGE_DEVICES; i++) {
-		dev = __dev[i];
-		if (!dev)
-			continue;
-
+		dev = __mdm_dev[i];
 		dev->to_host = 0;
 		dev->to_modem = 0;
 		dev->txurb_drp_cnt = 0;
@@ -923,42 +780,47 @@ static ssize_t data_bridge_reset_stats(struct file *file,
 		dev->tx_num_of_bytes = 0;
 		dev->rx_num_of_bytes = 0;
 	}
+
 	return count;
 }
 
-const struct file_operations data_stats_ops = {
+static const struct file_operations data_stats_ops = {
 	.read = data_bridge_read_stats,
 	.write = data_bridge_reset_stats,
 };
 
 static struct dentry	*data_dent;
-static struct dentry	*data_dfile_stats;
-static struct dentry	*data_dfile_tstamp;
 
 static void data_bridge_debugfs_init(void)
 {
-	data_dent = debugfs_create_dir("data_hsic_bridge", 0);
+	struct dentry	*data_dfile_stats;
+	struct dentry	*data_dfile_tstamp;
+
+	data_dent = debugfs_create_dir("mdm_data_bridge", NULL);
 	if (IS_ERR(data_dent))
 		return;
 
-	data_dfile_stats = debugfs_create_file("status", 0644, data_dent, 0,
-				&data_stats_ops);
-	if (!data_dfile_stats || IS_ERR(data_dfile_stats)) {
-		debugfs_remove(data_dent);
-		return;
-	}
+	data_dfile_stats = debugfs_create_file("status", 0644, data_dent,
+				NULL, &data_stats_ops);
+	if (!data_dfile_stats || IS_ERR(data_dfile_stats))
+		goto error;
 
 	data_dfile_tstamp = debugfs_create_file("timestamp", 0644, data_dent,
-				0, &data_timestamp_ops);
+				NULL, &data_timestamp_ops);
 	if (!data_dfile_tstamp || IS_ERR(data_dfile_tstamp))
-		debugfs_remove(data_dent);
+		goto error;
+
+	return;
+
+error:
+	debugfs_remove_recursive(data_dent);
+	data_dent = NULL;
 }
 
 static void data_bridge_debugfs_exit(void)
 {
-	debugfs_remove(data_dfile_stats);
-	debugfs_remove(data_dfile_tstamp);
-	debugfs_remove(data_dent);
+	debugfs_remove_recursive(data_dent);
+	data_dent = NULL;
 }
 
 #else
@@ -976,219 +838,161 @@ static unsigned int get_timestamp(void)
 static int
 bridge_probe(struct usb_interface *iface, const struct usb_device_id *id)
 {
+	struct data_bridge		*dev;
 	struct usb_host_endpoint	*endpoint = NULL;
 	struct usb_host_endpoint	*bulk_in = NULL;
 	struct usb_host_endpoint	*bulk_out = NULL;
-	struct usb_host_endpoint	*int_in = NULL;
-	struct usb_host_endpoint	*data_int_in = NULL;
-	struct usb_device		*udev;
+	struct usb_device		*udev = interface_to_usbdev(iface);
 	int				i;
-	int				status = 0;
-	int				numends;
-	int				ch_id;
-	char				**bname = (char **)id->driver_info;
+	int				status;
+	int				num_eps;
+	char				*bname = (char *)id->driver_info;
+	int				devid;
+
+	pr_debug("%s: type: %s\n", __func__, bname);
 
 	if (iface->num_altsetting != 1) {
-		pr_err("%s invalid num_altsetting %u\n",
+		pr_err("%s: Invalid num_altsetting %u\n",
 				__func__, iface->num_altsetting);
 		return -EINVAL;
 	}
 
-	udev = interface_to_usbdev(iface);
-	usb_get_dev(udev);
+	devid = bridge_name_to_id(bname);
+	if (devid < 0) {
+		pr_err("%s: Invalid device ID\n", __func__);
+		return -EINVAL;
+	}
 
-	numends = iface->cur_altsetting->desc.bNumEndpoints;
-	for (i = 0; i < numends; i++) {
+	num_eps = iface->cur_altsetting->desc.bNumEndpoints;
+	for (i = 0; i < num_eps; i++) {
 		endpoint = iface->cur_altsetting->endpoint + i;
 		if (!endpoint) {
 			dev_err(&iface->dev, "%s: invalid endpoint %u\n",
 					__func__, i);
-			status = -EINVAL;
-			goto out;
+			return -EINVAL;
 		}
 
 		if (usb_endpoint_is_bulk_in(&endpoint->desc))
 			bulk_in = endpoint;
 		else if (usb_endpoint_is_bulk_out(&endpoint->desc))
 			bulk_out = endpoint;
-		else if (usb_endpoint_is_int_in(&endpoint->desc)) {
-			if (int_in != 0)
-				data_int_in = endpoint;
-			else
-				int_in = endpoint;
-		}
-	}
-	if (((numends == 3)
-	&& ((!bulk_in && !data_int_in) || !bulk_out || !int_in))
-	|| ((numends == 1) && !bulk_in)) {
-		dev_err(&iface->dev, "%s: invalid endpoints\n", __func__);
-		status = -EINVAL;
-		goto out;
 	}
 
-	ch_id = get_bridge_dev_idx();
-	if (ch_id < 0) {
-		pr_err("%s all bridge channels claimed. Probe failed\n",
-				__func__);
+	if ((num_eps != 1 && num_eps != 2) || ((num_eps == 1) && !bulk_in) ||
+	    ((num_eps == 2) && (!bulk_in || !bulk_out))) {
+		dev_err(&iface->dev, "%s: invalid endpoints\n", __func__);
+		return -EINVAL;
+	}
+
+	dev = __mdm_dev[devid];
+	if (dev->intf) {
+		pr_err("%s: Device %d already probed\n", __func__, devid);
 		return -ENODEV;
 	}
-	if (data_int_in) {
-		__dev[ch_id]->use_int_in_pipe = true;
-		__dev[ch_id]->period = data_int_in->desc.bInterval;
-		status = data_bridge_probe(iface, data_int_in, bulk_out,
-				bname[BRIDGE_DATA_IDX], ch_id);
-	} else {
-		status = data_bridge_probe(iface, bulk_in, bulk_out,
-			bname[BRIDGE_DATA_IDX], ch_id);
-	}
-	if (status < 0) {
-		dev_err(&iface->dev, "data_bridge_probe failed %d\n", status);
-		goto out;
+
+	dev->udev = usb_get_dev(udev);
+	dev->intf = usb_get_intf(iface);
+	dev->name = bname;
+	dev->bulk_in = usb_rcvbulkpipe(dev->udev,
+				bulk_in->desc.bEndpointAddress);
+	if (bulk_out)
+		dev->bulk_out = usb_sndbulkpipe(dev->udev,
+					bulk_out->desc.bEndpointAddress);
+
+	init_usb_anchor(&dev->tx_active);
+	init_usb_anchor(&dev->rx_active);
+	INIT_LIST_HEAD(&dev->rx_idle);
+	skb_queue_head_init(&dev->rx_done);
+	dev->wq = bridge_wq;
+	INIT_WORK(&dev->process_rx_w, data_bridge_process_rx);
+	INIT_WORK(&dev->kevent, defer_kevent);
+	/* clear all bits */
+	clear_bit(RX_HALT, &dev->flags);
+	clear_bit(TX_HALT, &dev->flags);
+	clear_bit(SUSPENDED, &dev->flags);
+
+	usb_set_intfdata(iface, dev);
+
+	dev->pdev = platform_device_alloc(dev->name, -1);
+	if (!dev->pdev) {
+		pr_err("%s: unable to allocate platform device\n", __func__);
+		status = -ENOMEM;
+		goto clean_dev;
 	}
 
-	status = ctrl_bridge_probe(iface,
-				int_in,
-				bname[BRIDGE_CTRL_IDX],
-				ch_id);
-	if (status < 0) {
-		dev_err(&iface->dev, "ctrl_bridge_probe failed %d\n",
-			status);
-		goto error;
+	/*allocate list of rx urbs*/
+	status = data_bridge_prepare_rx(dev);
+	if (status) {
+		pr_err("%s failed\n", __func__);
+		goto put_pdev;
 	}
+
+	status = platform_device_add(dev->pdev);
+	if (status) {
+		pr_err("%s: unable to add platform device\n", __func__);
+		goto free_rx_urbs;
+	}
+
+	dev_dbg(&dev->intf->dev, "%s: complete\n", __func__);
+
 	return 0;
 
-error:
-	platform_device_unregister(__dev[ch_id]->pdev);
-	free_rx_urbs(__dev[ch_id]);
+free_rx_urbs:
+	free_rx_urbs(dev);
+put_pdev:
+	platform_device_put(dev->pdev);
+clean_dev:
 	usb_set_intfdata(iface, NULL);
-out:
-	usb_put_dev(udev);
+	usb_put_intf(iface);
+	dev->intf = NULL;
+	usb_put_dev(dev->udev);
+	kfree(dev);
+	__mdm_dev[devid] = NULL;
 
 	return status;
 }
 
 static void bridge_disconnect(struct usb_interface *intf)
 {
-	struct data_bridge	*dev = usb_get_intfdata(intf);
+	struct data_bridge *dev = usb_get_intfdata(intf);
 
-	if (!dev) {
-		pr_err("%s: data device not found\n", __func__);
-		return;
-	}
+	dev_dbg(&dev->intf->dev, "%s\n", __func__);
 
-	/*set device name to none to get correct channel id
-	 * at the time of bridge open
-	 */
-	dev->name = "none";
-
-	ctrl_bridge_disconnect(dev->id);
 	platform_device_unregister(dev->pdev);
-	usb_set_intfdata(intf, NULL);
-
 	free_rx_urbs(dev);
-
+	usb_set_intfdata(intf, NULL);
+	usb_put_intf(intf);
+	dev->intf = NULL;
 	usb_put_dev(dev->udev);
-
-	clear_bit(CLAIMED, &dev->flags);
 }
 
-/*driver info stores data/ctrl bridge name used to match bridge xport name*/
+/*driver info stores data bridge name used to match bridge xport name*/
 static const struct usb_device_id bridge_ids[] = {
-	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9001, 2),
-	.driver_info = (unsigned long)serial_hsic_bridge_names,
-	},
-	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9001, 3),
-	.driver_info = (unsigned long)rmnet_hsic_bridge_names,
-	},
-	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9034, 2),
-	.driver_info = (unsigned long)serial_hsic_bridge_names,
-	},
-	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9034, 3),
-	.driver_info = (unsigned long)rmnet_hsic_bridge_names,
-	},
-	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9048, 3),
-	.driver_info = (unsigned long)serial_hsic_bridge_names,
-	},
-	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9048, 4),
-	.driver_info = (unsigned long)rmnet_hsic_bridge_names,
-	},
-	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x904c, 3),
-	.driver_info = (unsigned long)serial_hsic_bridge_names,
-	},
-	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x904c, 5),
-	.driver_info = (unsigned long)rmnet_hsic_bridge_names,
-	},
-	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9075, 3),
-	.driver_info = (unsigned long)serial_hsic_bridge_names,
-	},
-	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9075, 5),
-	.driver_info = (unsigned long)rmnet_hsic_bridge_names,
-	},
-	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9079, 3),
-	.driver_info = (unsigned long)serial_hsusb_bridge_names,
-	},
-	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9079, 4),
-	.driver_info = (unsigned long)rmnet_hsusb_bridge_names,
-	},
-	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x908A, 3),
-	.driver_info = (unsigned long)serial_hsic_bridge_names,
-	},
-	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x908A, 5),
-	.driver_info = (unsigned long)rmnet_hsic_bridge_names,
-	},
-	/* this PID supports QDSS-MDM trace*/
-	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x908E, 4),
-	.driver_info = (unsigned long)qdss_hsic_bridge_names,
-	},
-	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x908E, 5),
-	.driver_info = (unsigned long)serial_hsic_bridge_names,
-	},
-	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x908E, 7),
-	.driver_info = (unsigned long)rmnet_hsic_bridge_names,
-	},
-	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x909C, 3),
-	.driver_info = (unsigned long)serial_hsic_bridge_names,
-	},
-	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x909D, 3),
-	.driver_info = (unsigned long)serial_hsic_bridge_names,
-	},
-	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x909E, 5),
-	.driver_info = (unsigned long)serial_hsic_bridge_names,
-	},
-	/* this PID supports QDSS-MDM trace*/
-	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x909E, 4),
-	.driver_info = (unsigned long)qdss_hsic_bridge_names,
-	},
-	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x909F, 3),
-	.driver_info = (unsigned long)serial_hsic_bridge_names,
-	},
-	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x909F, 5),
-	.driver_info = (unsigned long)rmnet_hsic_bridge_names,
-	},
-	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x90A0, 3),
-	.driver_info = (unsigned long)serial_hsic_bridge_names,
-	},
-	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x90A0, 5),
-	.driver_info = (unsigned long)rmnet_hsic_bridge_names,
-	},
-	/* this PID supports QDSS-MDM trace*/
-	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x90A4, 4),
-	.driver_info = (unsigned long)qdss_hsic_bridge_names,
-	},
-	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x90A4, 5),
-	.driver_info = (unsigned long)serial_hsic_bridge_names,
-	},
-	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x90A4, 7),
-	.driver_info = (unsigned long)rmnet_hsic_bridge_names,
-	},
-
+	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6, 0x9102, 6),
+	.driver_info = (kernel_ulong_t)("qdss"), },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6, 0x9102, 7),
+	.driver_info = (kernel_ulong_t)("dpl"), },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6, 0x9103, 6),
+	.driver_info = (kernel_ulong_t)("dpl"), },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6, 0x9104, 1),
+	.driver_info = (kernel_ulong_t)("qdss"), },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6, 0x9104, 2),
+	.driver_info = (kernel_ulong_t)("dpl"), },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6, 0x9105, 1),
+	.driver_info = (kernel_ulong_t)("dpl"), },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6, 0x9106, 5),
+	.driver_info = (kernel_ulong_t)("qdss"), },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6, 0x9106, 6),
+	.driver_info = (kernel_ulong_t)("dpl"), },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6, 0x9107, 5),
+	.driver_info = (kernel_ulong_t)("dpl"), },
 
 	{ } /* Terminating entry */
 };
 MODULE_DEVICE_TABLE(usb, bridge_ids);
 
 static struct usb_driver bridge_driver = {
-	.name =			"mdm_bridge",
+	.name =			"mdm_data_bridge",
 	.probe =		bridge_probe,
 	.disconnect =		bridge_disconnect,
 	.id_table =		bridge_ids,
@@ -1200,82 +1004,64 @@ static struct usb_driver bridge_driver = {
 
 static int __init bridge_init(void)
 {
-	struct data_bridge	*dev;
-	int			ret;
-	int			i = 0;
-
-	ret = ctrl_bridge_init();
-	if (ret)
-		return ret;
-
-	bridge_wq  = create_singlethread_workqueue("mdm_bridge");
-	if (!bridge_wq) {
-		pr_err("%s: Unable to create workqueue:bridge\n", __func__);
-		ret = -ENOMEM;
-		goto free_ctrl;
-	}
+	struct data_bridge *dev;
+	int ret, i;
+	int num_instances = 0;
 
 	for (i = 0; i < MAX_BRIDGE_DEVICES; i++) {
-
 		dev = kzalloc(sizeof(*dev), GFP_KERNEL);
 		if (!dev) {
 			ret = -ENOMEM;
-			goto error;
+			goto dev_free;
 		}
 
-		dev->wq = bridge_wq;
+		num_instances++;
+		__mdm_dev[i] = dev;
+	}
 
-		/*transport name will be set during probe*/
-		dev->name = "none";
-
-		init_usb_anchor(&dev->tx_active);
-		init_usb_anchor(&dev->rx_active);
-
-		INIT_LIST_HEAD(&dev->rx_idle);
-
-		skb_queue_head_init(&dev->rx_done);
-
-		INIT_WORK(&dev->kevent, defer_kevent);
-		INIT_WORK(&dev->process_rx_w, data_bridge_process_rx);
-
-		__dev[i] = dev;
+	bridge_wq  = create_singlethread_workqueue("mdm_data_bridge");
+	if (!bridge_wq) {
+		pr_err("%s: Unable to create workqueue:bridge\n", __func__);
+		ret = -ENOMEM;
+		goto dev_free;
 	}
 
 	ret = usb_register(&bridge_driver);
 	if (ret) {
-		pr_err("%s: unable to register mdm_bridge driver", __func__);
-		goto error;
+		pr_err("%s: unable to register mdm_data_bridge driver",
+								__func__);
+		goto wq_free;
 	}
 
 	data_bridge_debugfs_init();
 
 	return 0;
 
-error:
-	while (--i >= 0) {
-		kfree(__dev[i]);
-		__dev[i] = NULL;
-	}
+wq_free:
 	destroy_workqueue(bridge_wq);
-free_ctrl:
-	ctrl_bridge_exit();
+dev_free:
+	for (i = 0; i < num_instances; i++) {
+		dev = __mdm_dev[i];
+		kfree(dev);
+		__mdm_dev[i] = NULL;
+	}
+
 	return ret;
 }
 
 static void __exit bridge_exit(void)
 {
-	int	i;
+	struct data_bridge *dev;
+	int i;
 
-	usb_deregister(&bridge_driver);
 	data_bridge_debugfs_exit();
+	usb_deregister(&bridge_driver);
 	destroy_workqueue(bridge_wq);
-
 	for (i = 0; i < MAX_BRIDGE_DEVICES; i++) {
-		kfree(__dev[i]);
-		__dev[i] = NULL;
+		dev = __mdm_dev[i];
+		kfree(dev);
+		__mdm_dev[i] = NULL;
 	}
-
-	ctrl_bridge_exit();
 }
 
 module_init(bridge_init);
