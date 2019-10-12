@@ -1649,7 +1649,7 @@ static ssize_t cser_rw_write(struct file *file, const char __user *ubuf,
 	port->debugfs_rw_enable = !!input;
 	if (port->debugfs_rw_enable) {
 		gadget = cser->func.config->cdev->gadget;
-		if (gadget->speed == USB_SPEED_SUPER &&
+		if (gadget->speed >= USB_SPEED_SUPER &&
 			func->func_is_suspended) {
 			pr_debug("Calling usb_func_wakeup\n");
 			ret = usb_func_wakeup(func);
