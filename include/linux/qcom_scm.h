@@ -97,6 +97,7 @@ extern int qcom_scm_create_shm_bridge(u64 pfn_and_ns_perm_flags,
 			u64 ns_vmids, u64 *handle);
 extern int qcom_scm_smmu_change_pgtbl_format(u64 dev_id, int cbndx);
 extern int qcom_scm_qsmmu500_wait_safe_toggle(bool en);
+extern int qcom_scm_qdss_invoke(phys_addr_t addr, size_t size, u64 *out);
 extern int qcom_scm_ice_restore_cfg(void);
 extern int qcom_scm_get_tz_log_feat_id(u64 *version);
 extern int qcom_scm_register_qsee_log_buf(phys_addr_t buf, size_t len);
@@ -189,6 +190,8 @@ static inline  int qcom_scm_smmu_change_pgtbl_format(u64 dev_id, int cbndx)
 		{ return -ENODEV; }
 static inline int qcom_scm_qsmmu500_wait_safe_toggle(bool en)
 		{ return -ENODEV; }
+static inline int qcom_scm_qdss_invoke(phys_addr_t data, size_t size, u64 *out)
+		{ return -EINVAL; }
 static inline int qcom_scm_ice_restore_cfg(void) { return -ENODEV; }
 static inline int qcom_scm_get_tz_log_feat_id(u64 *version)
 		{ return -ENODEV; }

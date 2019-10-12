@@ -1497,6 +1497,28 @@ int __qcom_scm_qsmmu500_wait_safe_toggle(struct device *dev, bool en)
 	return qcom_scm_call_atomic(dev, &desc);
 }
 
+int __qcom_scm_qdss_invoke(struct device *dev, phys_addr_t addr, size_t size,
+			   u64 *out)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_QDSS,
+		.cmd = QCOM_SCM_QDSS_INVOKE,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.args[0] = addr;
+	desc.args[1] = size;
+	desc.arginfo = QCOM_SCM_ARGS(2, QCOM_SCM_RO, QCOM_SCM_VAL);
+
+	ret = qcom_scm_call(dev, &desc);
+
+	if (out)
+		*out = desc.res[1];
+
+	return ret ? : desc.res[0];
+}
+
 int __qcom_scm_ice_restore_cfg(struct device *dev)
 {
 	struct qcom_scm_desc desc = {

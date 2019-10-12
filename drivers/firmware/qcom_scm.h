@@ -161,6 +161,11 @@ extern int __qcom_scm_qsmmu500_wait_safe_toggle(struct device *dev,
 						bool enable);
 #define QCOM_SCM_SMMU_CONFIG_ERRATA1_CLIENT_ALL	0x2
 
+#define QCOM_SCM_SVC_QDSS			0x16
+#define QCOM_SCM_QDSS_INVOKE			0x01
+extern int __qcom_scm_qdss_invoke(struct device *dev, phys_addr_t addr,
+				  size_t size, u64 *out);
+
 // TOS Services and Function IDs
 #define QCOM_SCM_SVC_QSEELOG		0x01
 #define QCOM_SCM_QSEELOG_REGISTER	0x06

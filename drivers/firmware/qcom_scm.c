@@ -672,6 +672,12 @@ int qcom_scm_qsmmu500_wait_safe_toggle(bool en)
 }
 EXPORT_SYMBOL(qcom_scm_qsmmu500_wait_safe_toggle);
 
+int qcom_scm_qdss_invoke(phys_addr_t paddr, size_t size, u64 *out)
+{
+	return __qcom_scm_qdss_invoke(__scm->dev, paddr, size, out);
+}
+EXPORT_SYMBOL(qcom_scm_qdss_invoke);
+
 int qcom_scm_ice_restore_cfg(void)
 {
 	return __qcom_scm_ice_restore_cfg(__scm->dev);
