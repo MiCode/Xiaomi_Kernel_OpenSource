@@ -602,10 +602,9 @@ static s32 smi_bwc_conf(const struct MTK_SMI_BWC_CONF *conf)
 			smi_drv.scen, smi_scen);
 		return 0;
 	}
-	for (i = 0; i < SMI_DEV_NUM; i++) {
+	for (i = 0; i < SMI_DEV_NUM; i++)
 		mtk_smi_conf_set(smi_dev[i], smi_scen);
-		smi_larb_port_set(smi_dev[i]);
-	}
+
 	SMIDBG("ioctl=%s:%s, curr=%s(%d), SMI_SCEN=%d\n",
 		smi_bwc_scen_name_get(conf->scen), conf->b_on ? "ON" : "OFF",
 		smi_bwc_scen_name_get(smi_drv.scen), smi_drv.scen, smi_scen);
