@@ -1198,76 +1198,78 @@ static char *strdup_s(const char *str)
 	return tmp;
 }
 
-/* Search tipc_virtio_dev by first word of port name. See tee_routing_config.h
- * for detail rules.
- */
-static struct tipc_virtio_dev *port_lookup_vds(struct tipc_cdev_node *cdn,
-					       const char *port)
+int port_lookup_tid(const char *port, enum tee_id_t *o_tid)
 {
-	struct tipc_virtio_dev *vds = NULL;
 	char *token, *str, *p;
 	const char *delim = ".";
 	u32 hash_val;
 	struct tee_routing_obj *tr_obj;
-	const enum  tee_id_t default_tee_id = tee_routing_config[0].tee_id;
+	const enum tee_id_t default_tee_id = tee_routing_config[0].tee_id;
 
-	if (cdn)
-		return dn_lookup_vds(cdn);
-
-	if (vdev_array[default_tee_id]) {
-		pr_debug("[%s] set default vds %d\n", __func__, default_tee_id);
-		vds = vdev_array[default_tee_id]->priv;
-	}
+	/* Set default value */
+	*o_tid = default_tee_id;
 
 	str = strdup_s(port);
-
 	if (IS_ERR(str))
-		goto err_default;
+		return -ENOMEM;
 
 	p = str;
 	token = strsep(&p, delim);
-
 	if (!token) {
 		/* we can not determine which vds to be delivered,
 		 * just take the default.
 		 */
 		WARN(1, "[%s] Service name error %s\n", __func__, port);
-		goto err_port_name;
+		return -EINVAL;
 	}
 
 	hash_val = hashlen_hash(hashlen_string(HASH_SALT, token));
 
 	hash_for_each_possible(tee_routing_htable, tr_obj, node, hash_val) {
-		if (strcmp(token, tr_obj->srv_name) == 0 &&
-		    vdev_array[tr_obj->tee_id]) {
-			vds = vdev_array[tr_obj->tee_id]->priv;
+		/* If hash table hit, set from tee_routing_config. */
+		if (strcmp(token, tr_obj->srv_name) == 0) {
+			*o_tid = tr_obj->tee_id;
+			pr_debug("[%s] find token %s, tid %d\n",
+				 __func__, token, *o_tid);
 			break;
 		}
 	}
 
-	if (unlikely(!vds)) {
-		pr_info("[%s] Can't find available tipc_virtio_dev\n",
-			__func__);
-		goto err_nodev;
+	return 0;
+}
+EXPORT_SYMBOL(port_lookup_tid);
+
+/* Search tipc_virtio_dev by first word of port name. See tee_routing_config.h
+ * for detail rules.
+ */
+static struct tipc_virtio_dev *port_lookup_vds(const char *port)
+{
+	struct tipc_virtio_dev *vds;
+	enum tee_id_t tee_id;
+	int ret;
+
+	ret = port_lookup_tid(port, &tee_id);
+
+	if (ret) {
+		pr_info("[%s] get tee_id failed %d ret %d, may cause failure\n",
+			__func__, tee_id, ret);
 	}
 
-	kref_get(&vds->refcount);
-
-err_port_name:
-err_nodev:
-	kfree(str);
-err_default:
-	return vds ? vds : ERR_PTR(-ENODEV);
+	if (vdev_array[tee_id]) {
+		vds = vdev_array[tee_id]->priv;
+		kref_get(&vds->refcount);
+		return vds;
+	} else
+		return ERR_PTR(-ENODEV);
 }
 
-static int tipc_open_channel(struct tipc_cdev_node *cdn,
-			     struct tipc_dn_chan **o_dn, const char *port)
+static int tipc_open_channel(struct tipc_dn_chan **o_dn, const char *port)
 {
 	int ret;
 	struct tipc_virtio_dev *vds;
 	struct tipc_dn_chan *dn;
 
-	vds = port_lookup_vds(cdn, port);
+	vds = port_lookup_vds(port);
 
 	if (IS_ERR(vds)) {
 		pr_info("[%s] ERROR: virtio device not found\n", __func__);
@@ -1312,7 +1314,7 @@ int tipc_k_connect(struct tipc_k_handle *h, const char *port)
 	int err;
 	struct tipc_dn_chan *dn = NULL;
 
-	err = tipc_open_channel(NULL, &dn, port);
+	err = tipc_open_channel(&dn, port);
 	if (err)
 		return err;
 
