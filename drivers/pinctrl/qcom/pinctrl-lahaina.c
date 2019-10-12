@@ -109,6 +109,17 @@
 		.intr_detection_bit = -1,		\
 		.intr_detection_width = -1,		\
 	}
+
+#define QUP_I3C(qup_mode, qup_offset)			\
+	{						\
+		.mode = qup_mode,			\
+		.offset = qup_offset,			\
+	}
+
+#define QUP_I3C_8_MODE_OFFSET	0xE6000
+#define QUP_I3C_14_MODE_OFFSET	0xE7000
+#define QUP_I3C_15_MODE_OFFSET	0xE8000
+
 static const struct pinctrl_pin_desc lahaina_pins[] = {
 	PINCTRL_PIN(0, "GPIO_0"),
 	PINCTRL_PIN(1, "GPIO_1"),
@@ -1842,6 +1853,12 @@ static const int lahaina_reserved_gpios[] = {
 	52, 53, 54, 55, 56, 57, 58, 59, -1
 };
 
+static struct pinctrl_qup lahaina_qup_regs[] = {
+	QUP_I3C(8, QUP_I3C_8_MODE_OFFSET),
+	QUP_I3C(14, QUP_I3C_14_MODE_OFFSET),
+	QUP_I3C(15, QUP_I3C_15_MODE_OFFSET),
+};
+
 static const struct msm_pinctrl_soc_data lahaina_pinctrl = {
 	.pins = lahaina_pins,
 	.npins = ARRAY_SIZE(lahaina_pins),
@@ -1851,6 +1868,8 @@ static const struct msm_pinctrl_soc_data lahaina_pinctrl = {
 	.ngroups = ARRAY_SIZE(lahaina_groups),
 	.reserved_gpios = lahaina_reserved_gpios,
 	.ngpios = 203,
+	.qup_regs = lahaina_qup_regs,
+	.nqup_regs = ARRAY_SIZE(lahaina_qup_regs),
 };
 
 static int lahaina_pinctrl_probe(struct platform_device *pdev)
