@@ -595,11 +595,11 @@ static int qcom_scm_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	qcom_scm_dev = &pdev->dev;
-
 #ifdef CONFIG_ARM64
 	ret = dma_set_mask(&pdev->dev, DMA_BIT_MASK(64));
 #endif
+	if (!ret)
+		qcom_scm_dev = &pdev->dev;
 
 	return ret;
 }
