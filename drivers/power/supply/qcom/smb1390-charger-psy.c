@@ -1387,7 +1387,7 @@ static int smb1390_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CP_ILIM:
 		if (chip->ilim_votable)
 			vote_override(chip->ilim_votable, CC_MODE_VOTER,
-							true, val->intval);
+					(val->intval > 0), val->intval);
 		break;
 	default:
 		smb1390_dbg(chip, PR_MISC, "charge pump power supply set prop %d not supported\n",
