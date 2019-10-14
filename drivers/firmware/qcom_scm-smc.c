@@ -1054,6 +1054,25 @@ int __qcom_scm_iommu_secure_ptbl_init(struct device *dev, u64 addr, u32 size,
 	return ret;
 }
 
+int __qcom_scm_mem_protect_video(struct device *dev,
+				u32 cp_start, u32 cp_size,
+				u32 cp_nonpixel_start, u32 cp_nonpixel_size)
+{
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_MP,
+		.cmd = QCOM_SCM_MP_MEM_PROTECT_VIDEO,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.args[0] = cp_start;
+	desc.args[1] = cp_size;
+	desc.args[2] = cp_nonpixel_start;
+	desc.args[3] = cp_nonpixel_size;
+	desc.arginfo = QCOM_SCM_ARGS(4);
+
+	return qcom_scm_call(dev, &desc);
+}
+
 int __qcom_scm_mem_protect_region_id(struct device *dev, phys_addr_t paddr,
 					size_t size)
 {

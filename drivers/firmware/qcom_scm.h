@@ -71,6 +71,7 @@ extern void __qcom_scm_mmu_sync(struct device *dev, bool sync);
 #define QCOM_SCM_MP_RESTORE_SEC_CFG		0x02
 #define QCOM_SCM_MP_IOMMU_SECURE_PTBL_SIZE	0x03
 #define QCOM_SCM_MP_IOMMU_SECURE_PTBL_INIT	0x04
+#define QCOM_SCM_MP_MEM_PROTECT_VIDEO		0x08
 #define QCOM_SCM_MP_MEM_PROTECT_REGION_ID	0x10
 #define QCOM_SCM_MP_MEM_PROTECT_LOCK_ID2_FLAT	0x11
 #define QCOM_SCM_MP_IOMMU_SECURE_MAP2_FLAT	0x12
@@ -87,6 +88,9 @@ extern int __qcom_scm_iommu_secure_ptbl_size(struct device *dev, u32 spare,
 					     size_t *size);
 extern int __qcom_scm_iommu_secure_ptbl_init(struct device *dev, u64 addr,
 					     u32 size, u32 spare);
+extern int __qcom_scm_mem_protect_video(struct device *dev,
+				u32 cp_start, u32 cp_size,
+				u32 cp_nonpixel_start, u32 cp_nonpixel_size);
 extern int __qcom_scm_mem_protect_region_id(struct device *dev,
 					phys_addr_t paddr, size_t size);
 extern int __qcom_scm_mem_protect_lock_id2_flat(struct device *dev,

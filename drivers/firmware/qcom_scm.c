@@ -388,6 +388,14 @@ int qcom_scm_iommu_secure_ptbl_init(u64 addr, u32 size, u32 spare)
 }
 EXPORT_SYMBOL(qcom_scm_iommu_secure_ptbl_init);
 
+int qcom_scm_mem_protect_video(u32 cp_start, u32 cp_size,
+			       u32 cp_nonpixel_start, u32 cp_nonpixel_size)
+{
+	return __qcom_scm_mem_protect_video(__scm->dev, cp_start, cp_size,
+					cp_nonpixel_start, cp_nonpixel_size);
+}
+EXPORT_SYMBOL(qcom_scm_mem_protect_video);
+
 int qcom_scm_mem_protect_region_id(phys_addr_t paddr, size_t size)
 {
 	return __qcom_scm_mem_protect_region_id(__scm->dev, paddr, size);
