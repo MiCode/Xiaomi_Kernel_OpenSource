@@ -4551,169 +4551,94 @@ static unsigned long _gpu_set_svm_region(struct kgsl_process_private *private,
 	return addr;
 }
 
-static unsigned long _gpu_find_svm(struct kgsl_process_private *private,
-		unsigned long start, unsigned long end, unsigned long len,
-		unsigned int align)
+static unsigned long get_align(struct kgsl_mem_entry *entry)
 {
-	uint64_t addr = kgsl_mmu_find_svm_region(private->pagetable,
-		(uint64_t) start, (uint64_t)end, (uint64_t) len, align);
+	int bit = kgsl_memdesc_get_align(&entry->memdesc);
 
-	WARN(!IS_ERR_VALUE((unsigned long)addr) && (addr > ULONG_MAX),
-		"Couldn't find range\n");
+	if (bit >= ilog2(SZ_2M))
+		return SZ_2M;
+	else if (bit >= ilog2(SZ_1M))
+		return SZ_1M;
+	else if (bit >= ilog2(SZ_64K))
+		return SZ_64K;
 
-	return (unsigned long) addr;
+	return SZ_4K;
 }
 
-/* Search top down in the CPU VM region for a free address */
-static unsigned long _cpu_get_unmapped_area(unsigned long bottom,
-		unsigned long top, unsigned long len, unsigned long align)
-{
-	struct vm_unmapped_area_info info;
-	unsigned long addr, err;
-
-	info.flags = VM_UNMAPPED_AREA_TOPDOWN;
-	info.low_limit = bottom;
-	info.high_limit = top;
-	info.length = len;
-	info.align_offset = 0;
-	info.align_mask = align - 1;
-
-	addr = vm_unmapped_area(&info);
-
-	if (IS_ERR_VALUE(addr))
-		return addr;
-
-	err = security_mmap_addr(addr);
-	return err ? err : addr;
-}
-
-static unsigned long _search_range(struct kgsl_process_private *private,
+static unsigned long set_svm_area(struct file *file,
 		struct kgsl_mem_entry *entry,
-		unsigned long start, unsigned long end,
-		unsigned long len, uint64_t align)
+		unsigned long addr, unsigned long len,
+		unsigned long flags)
 {
-	unsigned long cpu, gpu = end, result = -ENOMEM;
+	struct kgsl_device_private *dev_priv = file->private_data;
+	struct kgsl_process_private *private = dev_priv->process_priv;
+	unsigned long ret;
 
-	while (gpu > start) {
-		/* find a new empty spot on the CPU below the last one */
-		cpu = _cpu_get_unmapped_area(start, gpu, len,
-			(unsigned long) align);
-		if (IS_ERR_VALUE(cpu)) {
-			result = cpu;
-			break;
-		}
-		/* try to map it on the GPU */
-		result = _gpu_set_svm_region(private, entry, cpu, len);
-		if (!IS_ERR_VALUE(result))
-			break;
-
-		trace_kgsl_mem_unmapped_area_collision(entry, cpu, len);
-
-		if (cpu <= start) {
-			result = -ENOMEM;
-			break;
-		}
-
-		/* move downward to the next empty spot on the GPU */
-		gpu = _gpu_find_svm(private, start, cpu, len, align);
-		if (IS_ERR_VALUE(gpu)) {
-			result = gpu;
-			break;
-		}
-
-		/* Check that_gpu_find_svm doesn't put us in a loop */
-		if (gpu >= cpu) {
-			result = -ENOMEM;
-			break;
-		}
-
-		/* Break if the recommended GPU address is out of range */
-		if (gpu < start) {
-			result = -ENOMEM;
-			break;
-		}
-
-		/*
-		 * Add the length of the chunk to the GPU address to yield the
-		 * upper bound for the CPU search
-		 */
-		gpu += len;
-	}
-	return result;
-}
-
-static unsigned long _get_svm_area(struct kgsl_process_private *private,
-		struct kgsl_mem_entry *entry, unsigned long hint,
-		unsigned long len, unsigned long flags)
-{
-	uint64_t start, end;
-	int align_shift = kgsl_memdesc_get_align(&entry->memdesc);
-	uint64_t align;
-	unsigned long result;
-	unsigned long addr;
-
-	if (align_shift >= ilog2(SZ_2M))
-		align = SZ_2M;
-	else if (align_shift >= ilog2(SZ_1M))
-		align = SZ_1M;
-	else if (align_shift >= ilog2(SZ_64K))
-		align = SZ_64K;
-	else
-		align = SZ_4K;
-
-	align = max_t(uint64_t, align, PAGE_SIZE);
-
-	/* get the GPU pagetable's SVM range */
-	if (kgsl_mmu_svm_range(private->pagetable, &start, &end,
-				entry->memdesc.flags))
-		return -ERANGE;
-
-	/* now clamp the range based on the CPU's requirements */
-	start = max_t(uint64_t, start, mmap_min_addr);
-	end = min_t(uint64_t, end, current->mm->mmap_base);
-	if (start >= end)
-		return -ERANGE;
-
-	if (flags & MAP_FIXED) {
-		/* We must honor alignment requirements */
-		if (!IS_ALIGNED(hint, align))
-			return -EINVAL;
-
-		/* we must use addr 'hint' or fail */
-		return _gpu_set_svm_region(private, entry, hint, len);
-	} else if (hint != 0) {
-		struct vm_area_struct *vma;
-
-		/*
-		 * See if the hint is usable, if not we will use
-		 * it as the start point for searching.
-		 */
-		addr = clamp_t(unsigned long, hint & ~(align - 1),
-				start, (end - len) & ~(align - 1));
-
-		vma = find_vma(current->mm, addr);
-
-		if (vma == NULL || ((addr + len) <= vma->vm_start)) {
-			result = _gpu_set_svm_region(private, entry, addr, len);
-
-			/* On failure drop down to keep searching */
-			if (!IS_ERR_VALUE(result))
-				return result;
-		}
-	} else {
-		/* no hint, start search at the top and work down */
-		addr = end & ~(align - 1);
-	}
+	/* Make sure there isn't a vma conflict in the chosen range */
+	if (find_vma_intersection(current->mm, addr, addr + len - 1))
+		return -ENOMEM;
 
 	/*
-	 * Search downwards from the hint first. If that fails we
-	 * must try to search above it.
+	 * Do additoinal constraints checking on the address. Passing MAP_FIXED
+	 * ensures that the address we want gets checked
 	 */
-	result = _search_range(private, entry, start, addr, len, align);
-	if (IS_ERR_VALUE(result) && hint != 0)
-		result = _search_range(private, entry, addr, end, len, align);
+	ret = current->mm->get_unmapped_area(file, addr, len, 0,
+		flags & MAP_FIXED);
 
-	return result;
+	/* If it passes, attempt to set the region in the SVM */
+	if (!IS_ERR_VALUE(ret))
+		return _gpu_set_svm_region(private, entry, addr, len);
+
+	return ret;
+}
+
+static unsigned long get_svm_unmapped_area(struct file *file,
+		struct kgsl_mem_entry *entry,
+		unsigned long addr, unsigned long len,
+		unsigned long flags)
+{
+	struct kgsl_device_private *dev_priv = file->private_data;
+	struct kgsl_process_private *private = dev_priv->process_priv;
+	unsigned long align = get_align(entry);
+	unsigned long ret, iova;
+	u64 start = 0, end = 0;
+
+	if (flags & MAP_FIXED) {
+		/* Even fixed addresses need to obey alignment */
+		if (!IS_ALIGNED(addr, align))
+			return -EINVAL;
+
+		return set_svm_area(file, entry, addr, len, flags);
+	}
+
+	/* If a hint was provided, try to use that first */
+	if (addr) {
+		if (IS_ALIGNED(addr, align)) {
+			ret = set_svm_area(file, entry, addr, len, flags);
+			if (!IS_ERR_VALUE(ret))
+				return ret;
+		}
+	}
+
+	/* Get the SVM range for the current process */
+	if (kgsl_mmu_svm_range(private->pagetable, &start, &end,
+		entry->memdesc.flags))
+		return -ERANGE;
+
+	/* Find the first gap in the iova map */
+	iova = kgsl_mmu_find_svm_region(private->pagetable, start, end,
+		len, align);
+
+	while (!IS_ERR_VALUE(iova)) {
+		ret = set_svm_area(file, entry, iova, len, flags);
+		if (!IS_ERR_VALUE(ret))
+			return ret;
+
+		iova = kgsl_mmu_find_svm_region(private->pagetable,
+			start, iova - 1, len, align);
+	}
+
+	return -ENOMEM;
 }
 
 static unsigned long
@@ -4737,28 +4662,26 @@ kgsl_get_unmapped_area(struct file *file, unsigned long addr,
 
 	/* Do not allow CPU mappings for secure buffers */
 	if (kgsl_memdesc_is_secured(&entry->memdesc)) {
-		val = -EPERM;
-		goto put;
+		kgsl_mem_entry_put(entry);
+		return (unsigned long) -EPERM;
 	}
 
 	if (!kgsl_memdesc_use_cpu_map(&entry->memdesc)) {
-		val = get_unmapped_area(NULL, addr, len, 0, flags);
+		val = current->mm->get_unmapped_area(file, addr, len, 0, flags);
 		if (IS_ERR_VALUE(val))
 			dev_err_ratelimited(device->dev,
 					       "get_unmapped_area: pid %d addr %lx pgoff %lx len %ld failed error %d\n",
 					       private->pid, addr, pgoff, len,
 					       (int) val);
 	} else {
-		val = _get_svm_area(private, entry, addr, len, flags);
+		val = get_svm_unmapped_area(file, entry, addr, len, flags);
 		if (IS_ERR_VALUE(val))
 			dev_err_ratelimited(device->dev,
-					       "_get_svm_area: pid %d mmap_base %lx addr %lx pgoff %lx len %ld failed error %d\n",
-					       private->pid,
-					       current->mm->mmap_base, addr,
-					       pgoff, len, (int) val);
+					       "_get_svm_area: pid %d addr %lx pgoff %lx len %ld failed error %d\n",
+					       private->pid, addr, pgoff, len,
+					       (int) val);
 	}
 
-put:
 	kgsl_mem_entry_put(entry);
 	return val;
 }
