@@ -1618,6 +1618,8 @@ static int handle3_egress_format(struct net_device *dev,
 			rc = ipa3_qmi_set_aggr_info(DATA_AGGR_TYPE_QMAP_V01);
 		}
 		rmnet_ipa3_ctx->ipa_mhi_aggr_formet_set = true;
+		/* register Q6 indication */
+		rc = ipa3_qmi_req_ind();
 		return rc;
 	}
 
@@ -2147,35 +2149,16 @@ static int rmnet_ipa_send_coalesce_notification(uint8_t qmap_id,
 
 int ipa3_wwan_set_modem_state(struct wan_ioctl_notify_wan_state *state)
 {
-	uint32_t bw_mbps = 0;
 	int ret = 0;
 
 	if (!state)
 		return -EINVAL;
 
-	if (state->up) {
-		if (rmnet_ipa3_ctx->ipa_config_is_apq) {
-			bw_mbps = 5200;
-			ret = ipa3_vote_for_bus_bw(&bw_mbps);
-			if (ret) {
-				IPAERR("Failed to vote for bus BW (%u)\n",
-							bw_mbps);
-				return ret;
-			}
-		}
+	if (state->up)
 		ret = ipa_pm_activate_sync(rmnet_ipa3_ctx->q6_teth_pm_hdl);
-	} else {
-		if (rmnet_ipa3_ctx->ipa_config_is_apq) {
-			bw_mbps = 0;
-			ret = ipa3_vote_for_bus_bw(&bw_mbps);
-			if (ret) {
-				IPAERR("Failed to vote for bus BW (%u)\n",
-							bw_mbps);
-				return ret;
-			}
-		}
+	else
 		ret = ipa_pm_deactivate_sync(rmnet_ipa3_ctx->q6_teth_pm_hdl);
-	}
+
 	return ret;
 }
 

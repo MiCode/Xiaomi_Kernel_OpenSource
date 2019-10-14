@@ -584,17 +584,6 @@ s32 synx_create_handle(void *pObj)
 	return id;
 }
 
-struct synx_client *get_current_client(void)
-{
-	struct synx_client *client = NULL;
-
-	list_for_each_entry(client, &synx_dev->client_list, list) {
-		if (current->tgid == client->pid)
-			break;
-	}
-	return client;
-}
-
 int synx_generate_secure_key(struct synx_table_row *row)
 {
 	if (!row)

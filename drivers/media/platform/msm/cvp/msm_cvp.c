@@ -184,7 +184,7 @@ static int msm_cvp_map_buf_dsp(struct msm_cvp_inst *inst,
 		return -EINVAL;
 	}
 
-	cbuf = kmem_cache_zalloc(inst->internal_buf_cache, GFP_KERNEL);
+	cbuf = kmem_cache_zalloc(cvp_driver->internal_buf_cache, GFP_KERNEL);
 	if (!cbuf) {
 		return -ENOMEM;
 	}
@@ -228,7 +228,7 @@ static int msm_cvp_map_buf_dsp(struct msm_cvp_inst *inst,
 exit:
 	if (cbuf->smem.device_addr)
 		msm_cvp_smem_unmap_dma_buf(inst, &cbuf->smem);
-	kmem_cache_free(inst->internal_buf_cache, cbuf);
+	kmem_cache_free(cvp_driver->internal_buf_cache, cbuf);
 	cbuf = NULL;
 
 	return rc;
@@ -286,7 +286,7 @@ static int msm_cvp_unmap_buf_dsp(struct msm_cvp_inst *inst,
 	list_del(&cbuf->list);
 	mutex_unlock(&inst->cvpdspbufs.lock);
 
-	kmem_cache_free(inst->internal_buf_cache, cbuf);
+	kmem_cache_free(cvp_driver->internal_buf_cache, cbuf);
 	return rc;
 }
 
@@ -318,7 +318,7 @@ static int msm_cvp_map_buf_cpu_d(struct msm_cvp_inst *inst,
 		return -EINVAL;
 	}
 
-	cbuf = kmem_cache_zalloc(inst->internal_buf_cache, GFP_KERNEL);
+	cbuf = kmem_cache_zalloc(cvp_driver->internal_buf_cache, GFP_KERNEL);
 	if (!cbuf)
 		return -ENOMEM;
 
@@ -348,7 +348,7 @@ static int msm_cvp_map_buf_cpu_d(struct msm_cvp_inst *inst,
 exit:
 	if (cbuf->smem.device_addr)
 		msm_cvp_smem_unmap_dma_buf(inst, &cbuf->smem);
-	kmem_cache_free(inst->internal_buf_cache, cbuf);
+	kmem_cache_free(cvp_driver->internal_buf_cache, cbuf);
 	cbuf = NULL;
 
 	return rc;
@@ -477,7 +477,7 @@ static int msm_cvp_map_buf_cpu(struct msm_cvp_inst *inst,
 	if (!rc && *iova != 0)
 		return 0;
 
-	cbuf = kmem_cache_zalloc(inst->internal_buf_cache, GFP_KERNEL);
+	cbuf = kmem_cache_zalloc(cvp_driver->internal_buf_cache, GFP_KERNEL);
 	if (!cbuf)
 		return -ENOMEM;
 
@@ -511,7 +511,7 @@ static int msm_cvp_map_buf_cpu(struct msm_cvp_inst *inst,
 
 	*iova = cbuf->smem.device_addr + cbuf->buf.offset;
 
-	frame_buf = kmem_cache_zalloc(inst->frame_buf_cache, GFP_KERNEL);
+	frame_buf = kmem_cache_zalloc(cvp_driver->frame_buf_cache, GFP_KERNEL);
 	if (!frame_buf) {
 		rc = -ENOMEM;
 		goto exit2;
@@ -533,7 +533,7 @@ exit2:
 	list_del(&cbuf->list);
 	mutex_unlock(&inst->cvpcpubufs.lock);
 exit:
-	kmem_cache_free(inst->internal_buf_cache, cbuf);
+	kmem_cache_free(cvp_driver->internal_buf_cache, cbuf);
 	cbuf = NULL;
 
 	return rc;
@@ -559,7 +559,7 @@ static void __unmap_buf(struct msm_cvp_inst *inst,
 			list_del(&cbuf->list);
 			print_internal_buffer(CVP_DBG, "unmap", inst, cbuf);
 			msm_cvp_smem_unmap_dma_buf(inst, &cbuf->smem);
-			kmem_cache_free(inst->internal_buf_cache, cbuf);
+			kmem_cache_free(cvp_driver->internal_buf_cache, cbuf);
 			break;
 		}
 	}
@@ -589,12 +589,12 @@ void msm_cvp_unmap_buf_cpu(struct msm_cvp_inst *inst, u64 ktid)
 						&frame->bufs.list, list) {
 				list_del(&frame_buf->list);
 				__unmap_buf(inst, frame_buf);
-				kmem_cache_free(inst->frame_buf_cache,
+				kmem_cache_free(cvp_driver->frame_buf_cache,
 						frame_buf);
 			}
 			mutex_unlock(&frame->bufs.lock);
 			DEINIT_MSM_CVP_LIST(&frame->bufs);
-			kmem_cache_free(inst->frame_cache, frame);
+			kmem_cache_free(cvp_driver->frame_cache, frame);
 			break;
 		}
 	}
@@ -695,7 +695,7 @@ static int msm_cvp_session_receive_hfi(struct msm_cvp_inst *inst,
 
 		memcpy(out_pkt, &msg->pkt,
 			sizeof(struct cvp_hfi_msg_session_hdr));
-		kmem_cache_free(inst->session_queue.msg_cache, msg);
+		kmem_cache_free(cvp_driver->msg_cache, msg);
 	}
 
 exit:
@@ -778,7 +778,7 @@ static int msm_cvp_map_buf(struct msm_cvp_inst *inst,
 		cmd_hdr->client_data.kdata1 = (u32)ktid;
 		cmd_hdr->client_data.kdata2 = (u32)(ktid >> 32);
 
-		frame = kmem_cache_zalloc(inst->frame_cache, GFP_KERNEL);
+		frame = kmem_cache_zalloc(cvp_driver->frame_cache, GFP_KERNEL);
 		if (!frame)
 			return -ENOMEM;
 
@@ -833,11 +833,11 @@ static int msm_cvp_map_buf(struct msm_cvp_inst *inst,
 					list_del(&frame_buf->list);
 					__unmap_buf(inst, frame_buf);
 					kmem_cache_free(
-					inst->frame_buf_cache,
+					cvp_driver->frame_buf_cache,
 					frame_buf);
 				}
 				DEINIT_MSM_CVP_LIST(&frame->bufs);
-				kmem_cache_free(inst->frame_cache,
+				kmem_cache_free(cvp_driver->frame_cache,
 						frame);
 				return rc;
 			}
@@ -1065,6 +1065,7 @@ static int msm_cvp_thread_fence_run(void *data)
 			}
 		}
 
+		mutex_lock(&inst->fence_lock);
 		rc = call_hfi_op(hdev, session_send,
 				(void *)inst->session, in_pkt);
 		if (rc) {
@@ -1072,27 +1073,20 @@ static int msm_cvp_thread_fence_run(void *data)
 				"%s: Failed in call_hfi_op %d, %x\n",
 				__func__, in_pkt->pkt_data[0],
 				in_pkt->pkt_data[1]);
-
-			if (rc == -ECONNRESET)
-				goto exit;
-
 			synx_state = SYNX_STATE_SIGNALED_ERROR;
 		}
 
 		if (synx_state != SYNX_STATE_SIGNALED_ERROR) {
-			rc = wait_for_sess_signal_receipt(inst,
+			rc = wait_for_sess_signal_receipt_fence(inst,
 					HAL_SESSION_DME_FRAME_CMD_DONE);
 			if (rc) {
 				dprintk(CVP_ERR,
 				"%s: wait for signal failed, rc %d\n",
 				__func__, rc);
-
-				if (rc == -ECONNRESET)
-					goto exit;
-
 				synx_state = SYNX_STATE_SIGNALED_ERROR;
 			}
 		}
+		mutex_unlock(&inst->fence_lock);
 
 		if (ica_enabled) {
 			rc = synx_import(fence[2], fence[3], &synx_obj);
@@ -1107,13 +1101,7 @@ static int msm_cvp_thread_fence_run(void *data)
 					__func__);
 				goto exit;
 			}
-			if (synx_get_status(synx_obj) !=
-				SYNX_STATE_SIGNALED_SUCCESS) {
-				dprintk(CVP_ERR,
-					"%s: synx_get_status failed\n",
-					__func__);
-				goto exit;
-			}
+
 			rc = synx_release(synx_obj);
 			if (rc) {
 				dprintk(CVP_ERR, "%s: synx_release failed\n",
@@ -1178,6 +1166,7 @@ static int msm_cvp_thread_fence_run(void *data)
 			}
 		}
 
+		mutex_lock(&inst->fence_lock);
 		rc = call_hfi_op(hdev, session_send,
 				(void *)inst->session, in_pkt);
 		if (rc) {
@@ -1185,27 +1174,20 @@ static int msm_cvp_thread_fence_run(void *data)
 				"%s: Failed in call_hfi_op %d, %x\n",
 				__func__, in_pkt->pkt_data[0],
 				in_pkt->pkt_data[1]);
-
-			if (rc == -ECONNRESET)
-				goto exit;
-
 			synx_state = SYNX_STATE_SIGNALED_ERROR;
 		}
 
 		if (synx_state != SYNX_STATE_SIGNALED_ERROR) {
-			rc = wait_for_sess_signal_receipt(inst,
+			rc = wait_for_sess_signal_receipt_fence(inst,
 					HAL_SESSION_ICA_FRAME_CMD_DONE);
 			if (rc) {
 				dprintk(CVP_ERR,
 				"%s: wait for signal failed, rc %d\n",
 				__func__, rc);
-
-				if (rc == -ECONNRESET)
-					goto exit;
-
 				synx_state = SYNX_STATE_SIGNALED_ERROR;
 			}
 		}
+		mutex_unlock(&inst->fence_lock);
 
 		rc = synx_import(fence[2], fence[3], &synx_obj);
 		if (rc) {
@@ -1257,6 +1239,7 @@ static int msm_cvp_thread_fence_run(void *data)
 			}
 		}
 
+		mutex_lock(&inst->fence_lock);
 		rc = call_hfi_op(hdev, session_send,
 				(void *)inst->session, in_pkt);
 		if (rc) {
@@ -1264,27 +1247,20 @@ static int msm_cvp_thread_fence_run(void *data)
 				"%s: Failed in call_hfi_op %d, %x\n",
 				__func__, in_pkt->pkt_data[0],
 				in_pkt->pkt_data[1]);
-
-			if (rc == -ECONNRESET)
-				goto exit;
-
 			synx_state = SYNX_STATE_SIGNALED_ERROR;
 		}
 
 		if (synx_state != SYNX_STATE_SIGNALED_ERROR) {
-			rc = wait_for_sess_signal_receipt(inst,
+			rc = wait_for_sess_signal_receipt_fence(inst,
 					HAL_SESSION_FD_FRAME_CMD_DONE);
 			if (rc) {
 				dprintk(CVP_ERR,
 				"%s: wait for signal failed, rc %d\n",
 				__func__, rc);
-
-				if (rc == -ECONNRESET)
-					goto exit;
-
 				synx_state = SYNX_STATE_SIGNALED_ERROR;
 			}
 		}
+		mutex_unlock(&inst->fence_lock);
 
 		for (i = start_out; i <  start_out + out_fence_num; i++) {
 			if (fence[(i<<1)]) {
@@ -1323,7 +1299,7 @@ static int msm_cvp_thread_fence_run(void *data)
 	}
 
 exit:
-	kmem_cache_free(inst->fence_data_cache, fence_thread_data);
+	kmem_cache_free(cvp_driver->fence_data_cache, fence_thread_data);
 	inst->cur_cmd_type = 0;
 	cvp_put_inst(inst);
 	do_exit(rc);
@@ -1355,7 +1331,7 @@ static int msm_cvp_session_process_hfi_fence(
 		return -ECONNRESET;
 
 	inst->cur_cmd_type = CVP_KMD_SEND_FENCE_CMD_PKT;
-	fence_thread_data = kmem_cache_alloc(inst->fence_data_cache,
+	fence_thread_data = kmem_cache_alloc(cvp_driver->fence_data_cache,
 			GFP_KERNEL);
 	if (!fence_thread_data) {
 		dprintk(CVP_ERR, "%s: fence_thread_data alloc failed\n",
@@ -1388,7 +1364,7 @@ static int msm_cvp_session_process_hfi_fence(
 
 	rc = msm_cvp_map_buf(inst, in_pkt, offset, buf_num);
 	if (rc)
-		goto exit;
+		goto free_and_exit;
 
 	thread_num = thread_num + 1;
 	fence_thread_data->inst = inst;
@@ -1401,14 +1377,15 @@ static int msm_cvp_session_process_hfi_fence(
 	thread = kthread_run(msm_cvp_thread_fence_run,
 			fence_thread_data, thread_fence_name);
 	if (!thread) {
-		kmem_cache_free(inst->fence_data_cache, fence_thread_data);
 		dprintk(CVP_ERR, "%s fail to create kthread\n", __func__);
 		rc = -ECHILD;
-		goto exit;
+		goto free_and_exit;
 	}
 
 	return 0;
 
+free_and_exit:
+	kmem_cache_free(cvp_driver->fence_data_cache, fence_thread_data);
 exit:
 	inst->cur_cmd_type = 0;
 	cvp_put_inst(s);
@@ -1490,6 +1467,24 @@ static void aggregate_power_update(struct msm_cvp_core *core,
 		} else {
 			i = 1;
 		}
+		dprintk(CVP_PROF, "pwrUpdate %pK fdu %u od %u mpu %u ica %u\n",
+			inst->prop.fdu_cycles,
+			inst->prop.od_cycles,
+			inst->prop.mpu_cycles,
+			inst->prop.ica_cycles);
+
+		dprintk(CVP_PROF, "pwrUpdate fw %u fdu_o %u od_o %u mpu_o %u\n",
+			inst->prop.fw_cycles,
+			inst->prop.fdu_op_cycles,
+			inst->prop.od_op_cycles,
+			inst->prop.mpu_op_cycles);
+
+		dprintk(CVP_PROF, "pwrUpdate ica_o %u fw_o %u bw %u bw_o %u\n",
+			inst->prop.ica_op_cycles,
+			inst->prop.fw_op_cycles,
+			inst->prop.ddr_bw,
+			inst->prop.ddr_op_bw);
+
 		fdu_sum[i] += inst->prop.fdu_cycles;
 		od_sum[i] += inst->prop.od_cycles;
 		mpu_sum[i] += inst->prop.mpu_cycles;
@@ -1564,6 +1559,15 @@ static void aggregate_power_request(struct msm_cvp_core *core,
 		} else {
 			i = 1;
 		}
+		dprintk(CVP_PROF, "pwrReq sess %pK core %u ctl %u fw %u\n",
+			inst, inst->power.clock_cycles_a,
+			inst->power.clock_cycles_b,
+			inst->power.reserved[0]);
+		dprintk(CVP_PROF, "pwrReq op_core %u op_ctl %u op_fw %u\n",
+			inst->power.reserved[1],
+			inst->power.reserved[2],
+			inst->power.reserved[3]);
+
 		core_sum[i] += inst->power.clock_cycles_a;
 		ctlr_sum[i] += inst->power.clock_cycles_b;
 		fw_sum[i] += inst->power.reserved[0];
@@ -1623,7 +1627,7 @@ static int adjust_bw_freqs(void)
 	struct clock_info *cl;
 	struct allowed_clock_rates_table *tbl = NULL;
 	unsigned int tbl_size;
-	unsigned int cvp_min_rate, cvp_max_rate, max_bw;
+	unsigned int cvp_min_rate, cvp_max_rate, max_bw, min_bw;
 	struct cvp_power_level rt_pwr = {0}, nrt_pwr = {0};
 	unsigned long tmp, core_sum, op_core_sum, bw_sum;
 	int i, rc = 0;
@@ -1639,6 +1643,7 @@ static int adjust_bw_freqs(void)
 	cvp_max_rate = tbl[tbl_size - 1].clock_rate;
 	bus = &core->resources.bus_set.bus_tbl[1];
 	max_bw = bus->range[1];
+	min_bw = max_bw/10;
 
 	aggregate_power_request(core, &nrt_pwr, &rt_pwr, cvp_max_rate);
 	dprintk(CVP_DBG, "PwrReq nrt %u %u rt %u %u\n",
@@ -1674,10 +1679,10 @@ static int adjust_bw_freqs(void)
 	}
 
 	bw_sum = rt_pwr.bw_sum + nrt_pwr.bw_sum;
-	if (bw_sum > max_bw)
-		bw_sum = max_bw;
+	bw_sum = (bw_sum > max_bw) ? max_bw : bw_sum;
+	bw_sum = (bw_sum < min_bw) ? min_bw : bw_sum;
 
-	dprintk(CVP_DBG, "%s %lld %lld\n", __func__,
+	dprintk(CVP_PROF, "%s %lld %lld\n", __func__,
 		core_sum, bw_sum);
 	if (!cl->has_scaling) {
 		dprintk(CVP_ERR, "Cannot scale CVP clock\n");
@@ -2275,7 +2280,7 @@ int msm_cvp_session_deinit(struct msm_cvp_inst *inst)
 									cbuf);
 		msm_cvp_smem_unmap_dma_buf(inst, &cbuf->smem);
 		list_del(&cbuf->list);
-		kmem_cache_free(inst->internal_buf_cache, cbuf);
+		kmem_cache_free(cvp_driver->internal_buf_cache, cbuf);
 	}
 	mutex_unlock(&inst->cvpcpubufs.lock);
 
@@ -2295,7 +2300,7 @@ int msm_cvp_session_deinit(struct msm_cvp_inst *inst)
 
 		msm_cvp_smem_unmap_dma_buf(inst, &cbuf->smem);
 		list_del(&cbuf->list);
-		kmem_cache_free(inst->internal_buf_cache, cbuf);
+		kmem_cache_free(cvp_driver->internal_buf_cache, cbuf);
 	}
 	mutex_unlock(&inst->cvpdspbufs.lock);
 
@@ -2315,11 +2320,12 @@ int msm_cvp_session_deinit(struct msm_cvp_inst *inst)
 				buf->dbuf->name);
 
 			list_del(&frame_buf->list);
-			kmem_cache_free(inst->frame_buf_cache, frame_buf);
+			kmem_cache_free(cvp_driver->frame_buf_cache,
+					frame_buf);
 		}
 		mutex_unlock(&frame->bufs.lock);
 		DEINIT_MSM_CVP_LIST(&frame->bufs);
-		kmem_cache_free(inst->frame_cache, frame);
+		kmem_cache_free(cvp_driver->frame_cache, frame);
 	}
 	mutex_unlock(&inst->frames.lock);
 

@@ -508,7 +508,11 @@ static int kgsl_lock_sgt(struct sg_table *sgt, u64 size)
 	int ret;
 	int i;
 
-	ret = hyp_assign_table(sgt, &source_vm, 1, &dest_vm, &dest_perms, 1);
+	do {
+		ret = hyp_assign_table(sgt, &source_vm, 1, &dest_vm,
+					&dest_perms, 1);
+	} while (ret == -EAGAIN);
+
 	if (ret) {
 		/*
 		 * If returned error code is EADDRNOTAVAIL, then this
@@ -539,11 +543,17 @@ static int kgsl_unlock_sgt(struct sg_table *sgt)
 	int ret;
 	struct sg_page_iter sg_iter;
 
-	ret = hyp_assign_table(sgt, &source_vm, 1, &dest_vm, &dest_perms, 1);
+	do {
+		ret = hyp_assign_table(sgt, &source_vm, 1, &dest_vm,
+					&dest_perms, 1);
+	} while (ret == -EAGAIN);
+
+	if (ret)
+		return ret;
 
 	for_each_sg_page(sgt->sgl, &sg_iter, sgt->nents, 0)
 		ClearPagePrivate(sg_page_iter_page(&sg_iter));
-	return ret;
+	return 0;
 }
 
 static void kgsl_page_alloc_free(struct kgsl_memdesc *memdesc)
@@ -558,8 +568,15 @@ static void kgsl_page_alloc_free(struct kgsl_memdesc *memdesc)
 
 		ret = kgsl_unlock_sgt(memdesc->sgt);
 		if (ret) {
+			/*
+			 * Unlock of the secure buffer failed. This buffer will
+			 * be stuck in secure side forever and is unrecoverable.
+			 * Give up on the buffer and don't return it to the
+			 * pool.
+			 */
 			pr_err("kgsl: secure buf unlock failed: gpuaddr: %llx size: %llx ret: %d\n",
 					memdesc->gpuaddr, memdesc->size, ret);
+			return;
 		}
 
 		atomic_long_sub(memdesc->size, &kgsl_driver.stats.secure);
@@ -645,7 +662,7 @@ static void kgsl_cma_coherent_free(struct kgsl_memdesc *memdesc)
 				&kgsl_driver.stats.secure);
 
 			kgsl_cma_unlock_secure(memdesc);
-			attrs = (unsigned long)&memdesc->attrs;
+			attrs = memdesc->attrs;
 		} else
 			atomic_long_sub(memdesc->size,
 				&kgsl_driver.stats.coherent);

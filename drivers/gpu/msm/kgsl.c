@@ -5084,12 +5084,6 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	/* Initialize the memory pools */
 	kgsl_init_page_pools(device->pdev);
 
-	status = kgsl_allocate_global(device, &device->memstore,
-		KGSL_MEMSTORE_SIZE, 0, KGSL_MEMDESC_CONTIG, "memstore");
-
-	if (status != 0)
-		goto error_close_mmu;
-
 	/*
 	 * The default request type PM_QOS_REQ_ALL_CORES is
 	 * applicable to all CPU cores that are online and
@@ -5161,8 +5155,6 @@ void kgsl_device_platform_remove(struct kgsl_device *device)
 		pm_qos_remove_request(&device->pwrctrl.l2pc_cpus_qos);
 
 	idr_destroy(&device->context_idr);
-
-	kgsl_free_global(device, &device->memstore);
 
 	kgsl_mmu_close(device);
 

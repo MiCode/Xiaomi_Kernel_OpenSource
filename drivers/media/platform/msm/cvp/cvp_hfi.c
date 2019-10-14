@@ -1387,7 +1387,7 @@ static void cvp_dump_csr(struct iris_hfi_device *dev)
 
 	if (!dev)
 		return;
-	if (!dev->power_enabled)
+	if (!dev->power_enabled || dev->reg_dumped)
 		return;
 	reg = __read_register(dev, CVP_WRAPPER_CPU_STATUS);
 	dprintk(CVP_ERR, "CVP_WRAPPER_CPU_STATUS: %x\n", reg);
@@ -1395,16 +1395,19 @@ static void cvp_dump_csr(struct iris_hfi_device *dev)
 	dprintk(CVP_ERR, "CVP_CPU_CS_SCIACMDARG0: %x\n", reg);
 	reg = __read_register(dev, CVP_WRAPPER_CPU_CLOCK_CONFIG);
 	dprintk(CVP_ERR, "CVP_WRAPPER_CPU_CLOCK_CONFIG: %x\n", reg);
+	reg = __read_register(dev, CVP_WRAPPER_CORE_CLOCK_CONFIG);
+	dprintk(CVP_ERR, "CVP_WRAPPER_CORE_CLOCK_CONFIG: %x\n", reg);
 	reg = __read_register(dev, CVP_WRAPPER_INTR_STATUS);
 	dprintk(CVP_ERR, "CVP_WRAPPER_INTR_STATUS: %x\n", reg);
 	reg = __read_register(dev, CVP_CPU_CS_H2ASOFTINT);
 	dprintk(CVP_ERR, "CVP_CPU_CS_H2ASOFTINT: %x\n", reg);
 	reg = __read_register(dev, CVP_CPU_CS_A2HSOFTINT);
 	dprintk(CVP_ERR, "CVP_CPU_CS_A2HSOFTINT: %x\n", reg);
-	reg = __read_register(dev, CVP_CC_MVS0C_GDSCR);
-	dprintk(CVP_ERR, "CVP_CC_MVS0C_GDSCR: %x\n", reg);
 	reg = __read_register(dev, CVP_CC_MVS1C_GDSCR);
 	dprintk(CVP_ERR, "CVP_CC_MVS1C_GDSCR: %x\n", reg);
+	reg = __read_register(dev, CVP_CC_MVS1C_CBCR);
+	dprintk(CVP_ERR, "CVP_CC_MVS1C_CBCR: %x\n", reg);
+	dev->reg_dumped = true;
 }
 
 static int iris_hfi_flush_debug_queue(void *dev)
@@ -2231,6 +2234,7 @@ static int iris_hfi_core_init(void *device)
 	}
 
 	__set_state(dev, IRIS_STATE_INIT);
+	dev->reg_dumped = false;
 
 	dprintk(CVP_DBG, "Dev_Virt: %pa, Reg_Virt: %pK\n",
 		&dev->cvp_hal_data->firmware_base,
@@ -2315,7 +2319,7 @@ static int iris_hfi_core_release(void *dev)
 	}
 
 	mutex_lock(&device->lock);
-	dprintk(CVP_DBG, "Core releasing\n");
+	dprintk(CVP_WARN, "Core releasing\n");
 	if (device->res->pm_qos_latency_us &&
 		pm_qos_request_active(&device->qos))
 		pm_qos_remove_request(&device->qos);
@@ -4429,7 +4433,9 @@ err_tzbsp_suspend:
 
 static void power_off_iris2(struct iris_hfi_device *device)
 {
-	u32 lpi_status, reg_status = 0, count = 0, max_count = 10;
+	u32 lpi_status, reg_status = 0, count = 0, max_count = 1000;
+	u32 pc_ready, wfi_status, sbm_ln0_low;
+	u32 main_sbm_ln0_low, main_sbm_ln1_high;
 
 	if (!device->power_enabled)
 		return;
@@ -4448,18 +4454,26 @@ static void power_off_iris2(struct iris_hfi_device *device)
 			 __read_register(device,
 				CVP_AON_WRAPPER_MVP_NOC_LPI_STATUS);
 		reg_status = lpi_status & BIT(0);
-		dprintk(CVP_DBG,
-			"Noc: lpi_status %x noc_status %x (count %d)\n",
-			lpi_status, reg_status, count);
-
 		/* Wait for noc lpi status to be set */
 		usleep_range(50, 100);
 		count++;
 	}
+	dprintk(CVP_DBG,
+		"Noc: lpi_status %x noc_status %x (count %d)\n",
+		lpi_status, reg_status, count);
 	if (count == max_count) {
+		wfi_status = __read_register(device, CVP_WRAPPER_CPU_STATUS);
+		pc_ready = __read_register(device, CVP_CTRL_STATUS);
+		sbm_ln0_low =
+			__read_register(device, CVP_NOC_SBM_SENSELN0_LOW);
+		main_sbm_ln0_low = __read_register(device,
+				CVP_NOC_MAIN_SIDEBANDMANAGER_SENSELN0_LOW);
+		main_sbm_ln1_high = __read_register(device,
+				CVP_NOC_MAIN_SIDEBANDMANAGER_SENSELN1_HIGH);
 		dprintk(CVP_WARN,
-			"NOC not in qaccept status %x %x\n",
-			reg_status, lpi_status);
+			"NOC not in qaccept status %x %x %x %x %x %x %x\n",
+			reg_status, lpi_status, wfi_status, pc_ready,
+			sbm_ln0_low, main_sbm_ln0_low, main_sbm_ln1_high);
 	}
 
 	/* HPG 6.1.2 Step 3, debug bridge to low power */
@@ -4471,14 +4485,13 @@ static void power_off_iris2(struct iris_hfi_device *device)
 		lpi_status = __read_register(device,
 				 CVP_WRAPPER_DEBUG_BRIDGE_LPI_STATUS);
 		reg_status = lpi_status & 0x7;
-		dprintk(CVP_DBG,
-			"DBLP Set : lpi_status %d reg_status %d (count %d)\n",
-			lpi_status, reg_status, count);
-
 		/* Wait for debug bridge lpi status to be set */
 		usleep_range(50, 100);
 		count++;
 	}
+	dprintk(CVP_DBG,
+		"DBLP Set : lpi_status %d reg_status %d (count %d)\n",
+		lpi_status, reg_status, count);
 	if (count == max_count) {
 		dprintk(CVP_WARN,
 			"DBLP Set: status %x %x\n", reg_status, lpi_status);
@@ -4492,12 +4505,12 @@ static void power_off_iris2(struct iris_hfi_device *device)
 	while (lpi_status && count < max_count) {
 		lpi_status = __read_register(device,
 				 CVP_WRAPPER_DEBUG_BRIDGE_LPI_STATUS);
-		dprintk(CVP_DBG,
-			"DBLP Release: lpi_status %d(count %d)\n",
-			lpi_status, count);
 		usleep_range(50, 100);
 		count++;
 	}
+	dprintk(CVP_DBG,
+		"DBLP Release: lpi_status %d(count %d)\n",
+		lpi_status, count);
 	if (count == max_count) {
 		dprintk(CVP_WARN,
 			"DBLP Release: lpi_status %x\n", lpi_status);
@@ -4665,7 +4678,6 @@ static void __unload_fw(struct iris_hfi_device *device)
 	if (device->state != IRIS_STATE_DEINIT)
 		flush_workqueue(device->iris_pm_workq);
 
-	__vote_buses(device, NULL, 0);
 	subsystem_put(device->resources.fw.cookie);
 	__interface_queues_release(device);
 	call_iris_op(device, power_off, device);

@@ -1349,6 +1349,9 @@ static ssize_t gsi_ctrl_dev_write(struct file *fp, const char __user *buf,
 	struct gsi_inst_status *inst_cur = &inst_status[prot_id];
 	struct f_gsi *gsi;
 
+	if (prot_id == IPA_USB_DIAG)
+		return -EINVAL;
+
 	pr_debug("Enter %zu", count);
 
 	mutex_lock(&inst_cur->gsi_lock);

@@ -1221,6 +1221,8 @@ int ipa3_uc_setup_event_ring(void)
 		(u32) ((ring->phys_base & 0xFFFFFFFF00000000) >> 32);
 	ring_info->event.ring_size = IPA_UC_EVENT_RING_SIZE;
 
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+
 	res = ipa3_uc_send_cmd((u32)(cmd.phys_base),
 		IPA_CPU_2_HW_CMD_SETUP_EVENT_RING, 0,
 		false, 10 * HZ);
@@ -1250,6 +1252,7 @@ int ipa3_uc_setup_event_ring(void)
 free_cmd:
 	dma_free_coherent(ipa3_ctx->uc_pdev,
 		cmd.size, cmd.base, cmd.phys_base);
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 	return res;
 }
 
@@ -1299,6 +1302,7 @@ int ipa3_uc_quota_monitor(uint64_t quota)
 	quota_info->params.WdiQM.info.Interval =
 		IPA_UC_MON_INTERVAL;
 
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 	res = ipa3_uc_send_cmd((u32)(cmd.phys_base),
 		IPA_CPU_2_HW_CMD_QUOTA_MONITORING,
 		IPA_HW_2_CPU_OFFLOAD_CMD_STATUS_SUCCESS,
@@ -1319,6 +1323,7 @@ int ipa3_uc_quota_monitor(uint64_t quota)
 
 free_cmd:
 	dma_free_coherent(ipa3_ctx->uc_pdev, cmd.size, cmd.base, cmd.phys_base);
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return res;
 }
@@ -1418,6 +1423,8 @@ int ipa3_uc_bw_monitor(struct ipa_wdi_bw_info *info)
 	bw_info->params.WdiBw.info.Interval =
 		IPA_UC_MON_INTERVAL;
 
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+
 	res = ipa3_uc_send_cmd((u32)(cmd.phys_base),
 		IPA_CPU_2_HW_CMD_BW_MONITORING,
 			IPA_HW_2_CPU_OFFLOAD_CMD_STATUS_SUCCESS,
@@ -1432,6 +1439,7 @@ int ipa3_uc_bw_monitor(struct ipa_wdi_bw_info *info)
 
 free_cmd:
 	dma_free_coherent(ipa3_ctx->uc_pdev, cmd.size, cmd.base, cmd.phys_base);
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return res;
 }

@@ -16,6 +16,7 @@ enum cnss_mhi_state {
 	CNSS_MHI_INIT,
 	CNSS_MHI_DEINIT,
 	CNSS_MHI_POWER_ON,
+	CNSS_MHI_POWERING_OFF,
 	CNSS_MHI_POWER_OFF,
 	CNSS_MHI_FORCE_POWER_OFF,
 	CNSS_MHI_SUSPEND,
@@ -201,5 +202,9 @@ int cnss_pci_update_status(struct cnss_pci_data *pci_priv,
 int cnss_pcie_is_device_down(struct cnss_pci_data *pci_priv);
 int cnss_pci_suspend_bus(struct cnss_pci_data *pci_priv);
 int cnss_pci_resume_bus(struct cnss_pci_data *pci_priv);
+int cnss_pci_debug_reg_read(struct cnss_pci_data *pci_priv, u32 offset,
+			    u32 *val);
+int cnss_pci_debug_reg_write(struct cnss_pci_data *pci_priv, u32 offset,
+			     u32 val);
 
 #endif /* _CNSS_PCI_H */

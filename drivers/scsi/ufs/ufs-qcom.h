@@ -386,6 +386,7 @@ struct ufs_qcom_host {
 	bool is_ice_cfg_work_set;
 	struct request *req_pending;
 	struct ufs_vreg *vddp_ref_clk;
+	struct ufs_vreg *vccq_parent;
 	bool work_pending;
 	bool is_phy_pwr_on;
 };

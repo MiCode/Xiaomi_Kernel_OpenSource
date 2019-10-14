@@ -777,6 +777,9 @@ static int diag_mhi_probe(struct mhi_device *mhi_dev,
 	case MHI_DEV_ID_2:
 		dev_idx = 1;
 		break;
+	case MHI_DEV_ID_3:
+		dev_idx = 1;
+		break;
 	default:
 		return 0;
 	}

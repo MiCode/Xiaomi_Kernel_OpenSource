@@ -658,7 +658,7 @@ static int pil_mem_setup_trusted(struct pil_desc *pil, phys_addr_t addr,
 
 	desc.args[0] = d->pas_id;
 	desc.args[1] = addr;
-	desc.args[2] = size;
+	desc.args[2] = size + pil->extra_size;
 	desc.arginfo = SCM_ARGS(3);
 	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_PIL, PAS_MEM_SETUP_CMD),
 			&desc);
@@ -1197,6 +1197,10 @@ static int pil_tz_driver_probe(struct platform_device *pdev)
 		}
 		mask_scsr_irqs(d);
 
+		rc = of_property_read_u32(pdev->dev.of_node, "qcom,extra-size",
+						&d->desc.extra_size);
+		if (rc)
+			d->desc.extra_size = 0;
 	} else {
 		d->subsys_desc.err_fatal_handler =
 						subsys_err_fatal_intr_handler;

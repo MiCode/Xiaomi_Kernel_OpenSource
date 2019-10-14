@@ -119,6 +119,38 @@ int getFirmwareVersion(u16 *fw_vers, u16 *config_id)
 	return OK;
 }
 
+int getFWdata_nocheck(const char *pathToFile, u8 **data, int *size, int from)
+{
+	const struct firmware *fw = NULL;
+	struct device *dev = getDev();
+	int res;
+
+	if (dev == NULL)
+		return ERROR_OP_NOT_ALLOW;
+
+	logError(0, "%s Read FW from BIN file!\n", tag);
+
+	res = firmware_request_nowarn(&fw, pathToFile, dev);
+	if (res) {
+		logError(1, "%s %s:No File found! ERROR %08X\n",
+			tag, __func__, ERROR_FILE_NOT_FOUND);
+		return ERROR_FILE_NOT_FOUND;
+	}
+
+	*size = fw->size;
+	*data = (u8 *)kmalloc_array((*size), sizeof(u8), GFP_KERNEL);
+	if (*data == NULL) {
+		logError(1, "%s %s:Impossible to allocate! %08X\n", __func__);
+		release_firmware(fw);
+		return ERROR_ALLOC;
+	}
+	memcpy(*data, (u8 *)fw->data, (*size));
+	release_firmware(fw);
+
+	logError(0, "%s %s:Finshed!\n", tag, __func__);
+	return OK;
+}
+
 int getFWdata(const char *pathToFile, u8 **data, int *size, int from)
 {
 	const struct firmware *fw = NULL;
@@ -145,7 +177,7 @@ int getFWdata(const char *pathToFile, u8 **data, int *size, int from)
 	default:
 		logError(0, "%s Read FW from BIN file!\n", tag);
 
-		if (ftsInfo.u16_fwVer == FTS_LATEST_VERSION)
+		if (ftsInfo.u16_fwVer >= FTS_LATEST_VERSION)
 			return ERROR_FW_NO_UPDATE;
 
 		dev = getDev();

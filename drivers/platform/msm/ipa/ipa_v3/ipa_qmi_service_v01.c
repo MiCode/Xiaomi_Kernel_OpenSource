@@ -1350,6 +1350,16 @@ struct qmi_elem_info ipa3_indication_reg_req_msg_data_v01_ei[] = {
 				ipa_mhi_ready_ind_valid),
 	},
 	{
+		.data_type	= QMI_UNSIGNED_1_BYTE,
+		.elem_len	= 1,
+		.elem_size	= sizeof(u8),
+		.array_type	= NO_ARRAY,
+		.tlv_type	= 0x12,
+		.offset		= offsetof(
+			struct ipa_indication_reg_req_msg_v01,
+				ipa_mhi_ready_ind),
+	},
+	{
 		.data_type	= QMI_OPT_FLAG,
 		.elem_len	= 1,
 		.elem_size	= sizeof(u8),
@@ -1370,14 +1380,24 @@ struct qmi_elem_info ipa3_indication_reg_req_msg_data_v01_ei[] = {
 				endpoint_desc_ind),
 	},
 	{
+		.data_type	= QMI_OPT_FLAG,
+		.elem_len	= 1,
+		.elem_size	= sizeof(u8),
+		.array_type	= NO_ARRAY,
+		.tlv_type	= 0x14,
+		.offset		= offsetof(
+			struct ipa_indication_reg_req_msg_v01,
+				bw_change_ind_valid),
+	},
+	{
 		.data_type	= QMI_UNSIGNED_1_BYTE,
 		.elem_len	= 1,
 		.elem_size	= sizeof(u8),
 		.array_type	= NO_ARRAY,
-		.tlv_type	= 0x12,
+		.tlv_type	= 0x14,
 		.offset		= offsetof(
 			struct ipa_indication_reg_req_msg_v01,
-				ipa_mhi_ready_ind),
+				bw_change_ind),
 	},
 	{
 		.data_type	= QMI_EOTI,
@@ -5111,6 +5131,50 @@ struct qmi_elem_info ipa_remove_offload_connection_resp_msg_v01_ei[] = {
 			struct ipa_remove_offload_connection_resp_msg_v01,
 			resp),
 		.ei_array      = qmi_response_type_v01_ei,
+	},
+	{
+		.data_type      = QMI_EOTI,
+		.array_type       = NO_ARRAY,
+		.tlv_type       = QMI_COMMON_TLV_TYPE,
+	},
+};
+
+struct qmi_elem_info ipa_bw_change_ind_msg_v01_ei[] = {
+	{
+		.data_type      = QMI_OPT_FLAG,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u8),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x10,
+		.offset         = offsetof(struct ipa_bw_change_ind_msg_v01,
+					   peak_bw_ul_valid),
+	},
+	{
+		.data_type      = QMI_UNSIGNED_4_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u32),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x10,
+		.offset         = offsetof(struct ipa_bw_change_ind_msg_v01,
+					   peak_bw_ul),
+	},
+	{
+		.data_type      = QMI_OPT_FLAG,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u8),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x11,
+		.offset         = offsetof(struct ipa_bw_change_ind_msg_v01,
+					   peak_bw_dl_valid),
+	},
+	{
+		.data_type      = QMI_UNSIGNED_4_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u32),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x11,
+		.offset         = offsetof(struct ipa_bw_change_ind_msg_v01,
+					   peak_bw_dl),
 	},
 	{
 		.data_type      = QMI_EOTI,

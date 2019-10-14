@@ -271,6 +271,7 @@ static int _adreno_ringbuffer_probe(struct adreno_device *adreno_dev,
 {
 	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffers[id];
 	int ret;
+	unsigned int priv = 0;
 
 	rb->id = id;
 	kgsl_add_event_group(&rb->events, NULL, _rb_readtimestamp, rb,
@@ -294,9 +295,12 @@ static int _adreno_ringbuffer_probe(struct adreno_device *adreno_dev,
 	kgsl_allocate_global(KGSL_DEVICE(adreno_dev), &rb->profile_desc,
 		PAGE_SIZE, KGSL_MEMFLAGS_GPUREADONLY, 0, "profile_desc");
 
+	/* For targets that support it, make the ringbuffer privileged */
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_APRIV))
+		priv |= KGSL_MEMDESC_PRIVILEGED;
+
 	return kgsl_allocate_global(KGSL_DEVICE(adreno_dev), &rb->buffer_desc,
-			KGSL_RB_SIZE, KGSL_MEMFLAGS_GPUREADONLY,
-			0, "ringbuffer");
+		KGSL_RB_SIZE, KGSL_MEMFLAGS_GPUREADONLY, priv, "ringbuffer");
 }
 
 int adreno_ringbuffer_probe(struct adreno_device *adreno_dev)
@@ -307,8 +311,14 @@ int adreno_ringbuffer_probe(struct adreno_device *adreno_dev)
 	int status = -ENOMEM;
 
 	if (!adreno_is_a3xx(adreno_dev)) {
+		unsigned int priv = KGSL_MEMDESC_RANDOM;
+
+		/* For targets that support it, make the scratch privileged */
+		if (ADRENO_FEATURE(adreno_dev, ADRENO_APRIV))
+			priv |= KGSL_MEMDESC_PRIVILEGED;
+
 		status = kgsl_allocate_global(device, &device->scratch,
-				PAGE_SIZE, 0, KGSL_MEMDESC_RANDOM, "scratch");
+				PAGE_SIZE, 0, priv, "scratch");
 		if (status != 0)
 			return status;
 	}
@@ -478,7 +488,10 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	 * reserve space to temporarily turn off protected mode
 	 * error checking if needed
 	 */
-	total_sizedwords += flags & KGSL_CMD_FLAGS_PMODE ? 4 : 0;
+	if ((flags & KGSL_CMD_FLAGS_PMODE) &&
+		!ADRENO_FEATURE(adreno_dev, ADRENO_APRIV))
+		total_sizedwords += 4;
+
 	/* 2 dwords to store the start of command sequence */
 	total_sizedwords += 2;
 	/* internal ib command identifier for the ringbuffer */
@@ -600,15 +613,25 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	if (secured_ctxt)
 		ringcmds += cp_secure_mode(adreno_dev, ringcmds, 1);
 
-	/* disable protected mode error checking */
-	if (flags & KGSL_CMD_FLAGS_PMODE)
+	/*
+	 * For kernel commands disable protected mode. For user commands turn on
+	 * protected mode universally to avoid the possibility that somebody
+	 * managed to get this far with protected mode turned off.
+	 *
+	 * If the target supports apriv control then we don't need this step
+	 * since all the permisisons will already be managed for us
+	 */
+
+	if ((flags & KGSL_CMD_FLAGS_PMODE) &&
+		!ADRENO_FEATURE(adreno_dev, ADRENO_APRIV))
 		ringcmds += cp_protected_mode(adreno_dev, ringcmds, 0);
 
 	for (i = 0; i < sizedwords; i++)
 		*ringcmds++ = cmds[i];
 
 	/* re-enable protected mode error checking */
-	if (flags & KGSL_CMD_FLAGS_PMODE)
+	if ((flags & KGSL_CMD_FLAGS_PMODE) &&
+			!ADRENO_FEATURE(adreno_dev, ADRENO_APRIV))
 		ringcmds += cp_protected_mode(adreno_dev, ringcmds, 1);
 
 	/*
@@ -1033,7 +1056,12 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 			*cmds++ = cp_mem_packet(adreno_dev,
 					CP_INDIRECT_BUFFER_PFE, 2, 1);
 			cmds += cp_gpuaddr(adreno_dev, cmds, ib->gpuaddr);
-			*cmds++ = (unsigned int) ib->size >> 2;
+			/*
+			 * Never allow bit 20 (IB_PRIV) to be set. All IBs MUST
+			 * run at reduced privilege
+			 */
+			*cmds++ = (unsigned int) ((ib->size >> 2) & 0xfffff);
+
 			/* preamble is required on only for first command */
 			use_preamble = false;
 		}

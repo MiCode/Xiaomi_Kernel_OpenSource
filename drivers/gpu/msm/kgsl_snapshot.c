@@ -752,6 +752,9 @@ void kgsl_device_snapshot(struct kgsl_device *device,
 	dev_err(device->dev, "%s snapshot created at pa %pa++0x%zx\n",
 			gmu_fault ? "GMU" : "GPU", &pa, snapshot->size);
 
+	if (device->skip_ib_capture)
+		BUG_ON(device->force_panic);
+
 	sysfs_notify(&device->snapshot_kobj, NULL, "timestamp");
 
 	/*
@@ -956,6 +959,22 @@ static ssize_t force_panic_store(struct kgsl_device *device, const char *buf,
 	return count;
 }
 
+/* Show the break_ib request status */
+static ssize_t skip_ib_capture_show(struct kgsl_device *device, char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d\n", device->skip_ib_capture);
+}
+
+/* Store the panic request value to break_ib */
+static ssize_t skip_ib_capture_store(struct kgsl_device *device,
+						const char *buf, size_t count)
+{
+	int ret;
+
+	ret = kstrtobool(buf, &device->skip_ib_capture);
+	return ret ? ret : count;
+}
+
 /* Show the prioritize_unrecoverable status */
 static ssize_t prioritize_unrecoverable_show(
 		struct kgsl_device *device, char *buf)
@@ -1038,6 +1057,8 @@ static SNAPSHOT_ATTR(snapshot_crashdumper, 0644, snapshot_crashdumper_show,
 	snapshot_crashdumper_store);
 static SNAPSHOT_ATTR(snapshot_legacy, 0644, snapshot_legacy_show,
 	snapshot_legacy_store);
+static SNAPSHOT_ATTR(skip_ib_capture, 0644, skip_ib_capture_show,
+		skip_ib_capture_store);
 
 static ssize_t snapshot_sysfs_show(struct kobject *kobj,
 	struct attribute *attr, char *buf)
@@ -1083,6 +1104,7 @@ static const struct attribute *snapshot_attrs[] = {
 	&attr_prioritize_unrecoverable.attr,
 	&attr_snapshot_crashdumper.attr,
 	&attr_snapshot_legacy.attr,
+	&attr_skip_ib_capture.attr,
 	NULL,
 };
 
@@ -1308,5 +1330,6 @@ done:
 
 gmu_only:
 	complete_all(&snapshot->dump_gate);
-	BUG_ON(snapshot->device->force_panic);
+	BUG_ON(!snapshot->device->skip_ib_capture &
+				snapshot->device->force_panic);
 }

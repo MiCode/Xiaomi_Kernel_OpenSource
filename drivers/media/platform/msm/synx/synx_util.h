@@ -160,13 +160,6 @@ u32 synx_status(struct synx_table_row *row);
 u32 synx_status_locked(struct synx_table_row *row);
 
 /**
- * @brief: Function to return the current client (active process)
- *
- * @return The current client
- */
-struct synx_client *get_current_client(void);
-
-/**
  * @brief: Function to look up a synx handle
  *         It also verifies the authenticity of the request through
  *         the key provided.

@@ -3551,6 +3551,8 @@ static const struct i2c_algorithm drm_dp_mst_i2c_algo = {
  */
 static int drm_dp_mst_register_i2c_bus(struct drm_dp_aux *aux)
 {
+	int rc;
+
 	aux->ddc.algo = &drm_dp_mst_i2c_algo;
 	aux->ddc.algo_data = aux;
 	aux->ddc.retries = 3;
@@ -3563,7 +3565,11 @@ static int drm_dp_mst_register_i2c_bus(struct drm_dp_aux *aux)
 	strlcpy(aux->ddc.name, aux->name ? aux->name : dev_name(aux->dev),
 		sizeof(aux->ddc.name));
 
-	return i2c_add_adapter(&aux->ddc);
+	mutex_lock(&aux->i2c_mutex);
+	rc = i2c_add_adapter(&aux->ddc);
+	mutex_unlock(&aux->i2c_mutex);
+
+	return rc;
 }
 
 /**
@@ -3572,5 +3578,7 @@ static int drm_dp_mst_register_i2c_bus(struct drm_dp_aux *aux)
  */
 static void drm_dp_mst_unregister_i2c_bus(struct drm_dp_aux *aux)
 {
+	mutex_lock(&aux->i2c_mutex);
 	i2c_del_adapter(&aux->ddc);
+	mutex_unlock(&aux->i2c_mutex);
 }

@@ -3407,6 +3407,7 @@ static int smb5_probe(struct platform_device *pdev)
 	switch (chg->smb_version) {
 	case PM8150B_SUBTYPE:
 	case PM6150_SUBTYPE:
+	case PM7250B_SUBTYPE:
 		rc = smb5_init_dc_psy(chip);
 		if (rc < 0) {
 			pr_err("Couldn't initialize dc psy rc=%d\n", rc);

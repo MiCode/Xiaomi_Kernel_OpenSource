@@ -417,3 +417,37 @@ int cnss_bus_is_device_down(struct cnss_plat_data *plat_priv)
 		return 0;
 	}
 }
+
+int cnss_bus_debug_reg_read(struct cnss_plat_data *plat_priv, u32 offset,
+			    u32 *val)
+{
+	if (!plat_priv)
+		return -ENODEV;
+
+	switch (plat_priv->bus_type) {
+	case CNSS_BUS_PCI:
+		return cnss_pci_debug_reg_read(plat_priv->bus_priv, offset,
+					       val);
+	default:
+		cnss_pr_dbg("Unsupported bus type: %d\n",
+			    plat_priv->bus_type);
+		return 0;
+	}
+}
+
+int cnss_bus_debug_reg_write(struct cnss_plat_data *plat_priv, u32 offset,
+			     u32 val)
+{
+	if (!plat_priv)
+		return -ENODEV;
+
+	switch (plat_priv->bus_type) {
+	case CNSS_BUS_PCI:
+		return cnss_pci_debug_reg_write(plat_priv->bus_priv, offset,
+						val);
+	default:
+		cnss_pr_dbg("Unsupported bus type: %d\n",
+			    plat_priv->bus_type);
+		return 0;
+	}
+}

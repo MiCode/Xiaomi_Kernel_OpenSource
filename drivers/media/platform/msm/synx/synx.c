@@ -252,6 +252,13 @@ int synx_signal_core(struct synx_table_row *row, u32 status)
 
 	spin_lock_bh(&synx_dev->row_spinlocks[row->index]);
 
+	if (!row->index) {
+		spin_unlock_bh(&synx_dev->row_spinlocks[row->index]);
+		pr_err("object already cleaned up at %d\n",
+			row->index);
+		return -EINVAL;
+	}
+
 	if (synx_status_locked(row) != SYNX_STATE_ACTIVE) {
 		spin_unlock_bh(&synx_dev->row_spinlocks[row->index]);
 		pr_err("object already signaled synx at %d\n",
@@ -444,8 +451,13 @@ static int synx_release_core(struct synx_table_row *row)
 	 * be carefull while accessing the metadata
 	 */
 	fence = row->fence;
+	spin_lock_bh(&synx_dev->row_spinlocks[row->index]);
 	idx = row->index;
-	spin_lock_bh(&synx_dev->row_spinlocks[idx]);
+	if (!idx) {
+		spin_unlock_bh(&synx_dev->row_spinlocks[idx]);
+		pr_err("object already cleaned up at %d\n", idx);
+		return -EINVAL;
+	}
 	/*
 	 * we need to clear the metadata for merged synx obj upon synx_release
 	 * itself as it does not invoke the synx_fence_release function.
@@ -489,6 +501,15 @@ int synx_wait(s32 synx_obj, u64 timeout_ms)
 		pr_err("invalid synx: 0x%x\n", synx_obj);
 		return -EINVAL;
 	}
+
+	spin_lock_bh(&synx_dev->row_spinlocks[row->index]);
+	if (!row->index) {
+		spin_unlock_bh(&synx_dev->row_spinlocks[row->index]);
+		pr_err("object already cleaned up at %d\n",
+			row->index);
+		return -EINVAL;
+	}
+	spin_unlock_bh(&synx_dev->row_spinlocks[row->index]);
 
 	timeleft = dma_fence_wait_timeout(row->fence, (bool) 0,
 					msecs_to_jiffies(timeout_ms));
@@ -669,6 +690,13 @@ int synx_import(s32 synx_obj, u32 import_key, s32 *new_synx_obj)
 	}
 
 	spin_lock_bh(&synx_dev->row_spinlocks[row->index]);
+	if (!row->index) {
+		spin_unlock_bh(&synx_dev->row_spinlocks[row->index]);
+		pr_err("object already cleaned up at %d\n",
+			row->index);
+		kfree(obj_node);
+		return -EINVAL;
+	}
 	obj_node->synx_obj = id;
 	list_add(&obj_node->list, &row->synx_obj_list);
 	spin_unlock_bh(&synx_dev->row_spinlocks[row->index]);
@@ -890,7 +918,8 @@ static int synx_handle_wait(struct synx_private_ioctl_arg *k_ioctl)
 }
 
 static int synx_handle_register_user_payload(
-	struct synx_private_ioctl_arg *k_ioctl)
+	struct synx_private_ioctl_arg *k_ioctl,
+	struct synx_client *client)
 {
 	s32 synx_obj;
 	u32 state = SYNX_STATE_INVALID;
@@ -898,7 +927,6 @@ static int synx_handle_register_user_payload(
 	struct synx_cb_data *user_payload_kernel;
 	struct synx_cb_data *user_payload_iter, *temp;
 	struct synx_table_row *row = NULL;
-	struct synx_client *client = NULL;
 
 	pr_debug("Enter %s\n", __func__);
 
@@ -917,12 +945,8 @@ static int synx_handle_register_user_payload(
 		return -EINVAL;
 	}
 
-	mutex_lock(&synx_dev->table_lock);
-	client = get_current_client();
-	mutex_unlock(&synx_dev->table_lock);
-
 	if (!client) {
-		pr_err("couldn't find client for process %d\n", current->tgid);
+		pr_err("invalid client for process %d\n", current->pid);
 		return -EINVAL;
 	}
 
@@ -972,11 +996,11 @@ static int synx_handle_register_user_payload(
 }
 
 static int synx_handle_deregister_user_payload(
-	struct synx_private_ioctl_arg *k_ioctl)
+	struct synx_private_ioctl_arg *k_ioctl,
+	struct synx_client *client)
 {
 	s32 synx_obj;
 	u32 state = SYNX_STATE_INVALID;
-	struct synx_client *client = NULL;
 	struct synx_userpayload_info userpayload_info;
 	struct synx_cb_data *user_payload_kernel, *temp;
 	struct synx_table_row *row = NULL;
@@ -999,12 +1023,8 @@ static int synx_handle_deregister_user_payload(
 		return -EINVAL;
 	}
 
-	mutex_lock(&synx_dev->table_lock);
-	client = get_current_client();
-	mutex_unlock(&synx_dev->table_lock);
-
 	if (!client) {
-		pr_err("couldn't find client for process %d\n", current->tgid);
+		pr_err("invalid client for process %d\n", current->pid);
 		return -EINVAL;
 	}
 
@@ -1124,11 +1144,13 @@ static long synx_ioctl(struct file *filep,
 {
 	s32 rc = 0;
 	struct synx_device *synx_dev = NULL;
+	struct synx_client *client;
 	struct synx_private_ioctl_arg k_ioctl;
 
 	pr_debug("Enter %s\n", __func__);
 
 	synx_dev = get_synx_device(filep);
+	client = filep->private_data;
 
 	if (cmd != SYNX_PRIVATE_IOCTL_CMD) {
 		pr_err("invalid ioctl cmd\n");
@@ -1154,11 +1176,11 @@ static long synx_ioctl(struct file *filep,
 		break;
 	case SYNX_REGISTER_PAYLOAD:
 		rc = synx_handle_register_user_payload(
-			&k_ioctl);
+			&k_ioctl, client);
 		break;
 	case SYNX_DEREGISTER_PAYLOAD:
 		rc = synx_handle_deregister_user_payload(
-			&k_ioctl);
+			&k_ioctl, client);
 		break;
 	case SYNX_SIGNAL:
 		rc = synx_handle_signal(&k_ioctl);
@@ -1266,7 +1288,7 @@ static int synx_open(struct inode *inode, struct file *filep)
 	struct synx_device *synx_dev = NULL;
 	struct synx_client *client = NULL;
 
-	pr_debug("Enter %s from pid: %d\n", __func__, current->tgid);
+	pr_debug("Enter %s from pid: %d\n", __func__, current->pid);
 
 	synx_dev = container_of(inode->i_cdev, struct synx_device, cdev);
 
@@ -1275,7 +1297,6 @@ static int synx_open(struct inode *inode, struct file *filep)
 		return -ENOMEM;
 
 	client->device = synx_dev;
-	client->pid = current->tgid;
 	init_waitqueue_head(&client->wq);
 	INIT_LIST_HEAD(&client->eventq);
 	spin_lock_init(&client->eventq_lock);
@@ -1297,12 +1318,13 @@ static int synx_close(struct inode *inode, struct file *filep)
 	int rc = 0;
 	int i;
 	struct synx_device *synx_dev = NULL;
-	struct synx_client *client, *tmp_client;
+	struct synx_client *client;
 	struct synx_import_data *data, *tmp_data;
 
-	pr_debug("Enter %s\n", __func__);
+	pr_debug("Enter %s from pid: %d\n", __func__, current->pid);
 
 	synx_dev = get_synx_device(filep);
+	client = filep->private_data;
 
 	mutex_lock(&synx_dev->table_lock);
 
@@ -1377,17 +1399,8 @@ static int synx_close(struct inode *inode, struct file *filep)
 		}
 	}
 
-	list_for_each_entry_safe(client, tmp_client,
-		&synx_dev->client_list, list) {
-		if (current->tgid == client->pid) {
-			pr_debug("deleting client for process %d\n",
-				client->pid);
-			list_del_init(&client->list);
-			kfree(client);
-			break;
-		}
-	}
-
+	list_del_init(&client->list);
+	kfree(client);
 	mutex_unlock(&synx_dev->table_lock);
 
 	pr_debug("Exit %s\n", __func__);
