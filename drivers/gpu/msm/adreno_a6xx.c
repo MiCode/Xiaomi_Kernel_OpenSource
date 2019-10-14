@@ -938,7 +938,7 @@ static int _load_firmware(struct kgsl_device *device, const char *fwfile,
  * @adreno_dev: Pointer to the adreno device that has the GMU
  * @state: State to set: true is ON, false is OFF
  */
-static inline void a6xx_gpu_keepalive(struct adreno_device *adreno_dev,
+static void a6xx_gpu_keepalive(struct adreno_device *adreno_dev,
 		bool state)
 {
 	if (!gmu_core_isenabled(KGSL_DEVICE(adreno_dev)))

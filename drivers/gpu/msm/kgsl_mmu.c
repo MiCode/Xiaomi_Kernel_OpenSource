@@ -32,12 +32,6 @@ static void kgsl_destroy_pagetable(struct kref *kref)
 	kgsl_schedule_work(&pagetable->destroy_ws);
 }
 
-static inline void kgsl_put_pagetable(struct kgsl_pagetable *pagetable)
-{
-	if (pagetable)
-		kref_put(&pagetable->refcount, kgsl_destroy_pagetable);
-}
-
 struct kgsl_pagetable *
 kgsl_get_pagetable(unsigned long name)
 {
@@ -86,7 +80,7 @@ sysfs_show_entries(struct kobject *kobj,
 		ret += scnprintf(buf, PAGE_SIZE, "%d\n", val);
 	}
 
-	kgsl_put_pagetable(pt);
+	kref_put(&pt->refcount, kgsl_destroy_pagetable);
 	return ret;
 }
 
@@ -106,7 +100,7 @@ sysfs_show_mapped(struct kobject *kobj,
 		ret += scnprintf(buf, PAGE_SIZE, "%llu\n", val);
 	}
 
-	kgsl_put_pagetable(pt);
+	kref_put(&pt->refcount, kgsl_destroy_pagetable);
 	return ret;
 }
 
@@ -126,7 +120,7 @@ sysfs_show_max_mapped(struct kobject *kobj,
 		ret += scnprintf(buf, PAGE_SIZE, "%llu\n", val);
 	}
 
-	kgsl_put_pagetable(pt);
+	kref_put(&pt->refcount, kgsl_destroy_pagetable);
 	return ret;
 }
 
@@ -307,7 +301,8 @@ kgsl_mmu_createpagetableobject(struct kgsl_mmu *mmu, unsigned int name)
 
 void kgsl_mmu_putpagetable(struct kgsl_pagetable *pagetable)
 {
-	kgsl_put_pagetable(pagetable);
+	if (pagetable)
+		kref_put(&pagetable->refcount, kgsl_destroy_pagetable);
 }
 
 /**

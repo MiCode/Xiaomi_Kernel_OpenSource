@@ -109,18 +109,6 @@ static int rgmu_clocks_probe(struct rgmu_device *rgmu, struct device_node *node)
 	return 0;
 }
 
-static inline int rgmu_clk_set_rate(struct clk *grp_clk, unsigned int freq)
-{
-	int ret = clk_set_rate(grp_clk, freq);
-
-	if (ret)
-		pr_err("%s set freq %d failed:%d\n",
-				__clk_get_name(grp_clk), freq, ret);
-
-	return ret;
-}
-
-
 static void rgmu_disable_clks(struct kgsl_device *device)
 {
 	struct rgmu_device *rgmu = KGSL_RGMU_DEVICE(device);
@@ -168,16 +156,18 @@ static int rgmu_enable_clks(struct kgsl_device *device)
 			IS_ERR_OR_NULL(rgmu->gpu_clk))
 		return -EINVAL;
 
-	/* Let us set rgmu clk */
-	ret = rgmu_clk_set_rate(rgmu->rgmu_clk, RGMU_CLK_FREQ);
-	if (ret)
+	ret = clk_set_rate(rgmu->rgmu_clk, RGMU_CLK_FREQ);
+	if (ret) {
+		dev_err(&rgmu->pdev->dev, "Couldn't set the RGMU clock\n");
 		return ret;
+	}
 
-	/* Let us set gpu clk to default power level */
-	ret = rgmu_clk_set_rate(rgmu->gpu_clk,
-			rgmu->gpu_freqs[pwr->default_pwrlevel]);
-	if (ret)
+	ret = clk_set_rate(rgmu->gpu_clk,
+		rgmu->gpu_freqs[pwr->default_pwrlevel]);
+	if (ret) {
+		dev_err(&rgmu->pdev->dev, "Couldn't set the GPU clock\n");
 		return ret;
+	}
 
 	for (j = 0; j < ARRAY_SIZE(rgmu->clks); j++) {
 		ret = clk_prepare_enable(rgmu->clks[j]);
@@ -430,13 +420,16 @@ static int rgmu_dcvs_set(struct kgsl_device *device,
 		unsigned int pwrlevel, unsigned int bus_level)
 {
 	struct rgmu_device *rgmu = KGSL_RGMU_DEVICE(device);
+	int ret;
 
 	if (pwrlevel == INVALID_DCVS_IDX)
 		return -EINVAL;
 
-	return rgmu_clk_set_rate(rgmu->gpu_clk,
-			rgmu->gpu_freqs[pwrlevel]);
+	ret = clk_set_rate(rgmu->gpu_clk, rgmu->gpu_freqs[pwrlevel]);
+	if (ret)
+		dev_err(&rgmu->pdev->dev, "Couldn't set the GPU clock\n");
 
+	return ret;
 }
 
 static bool rgmu_regulator_isenabled(struct kgsl_device *device)

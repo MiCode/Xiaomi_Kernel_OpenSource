@@ -295,26 +295,7 @@ void adreno_drawctxt_invalidate(struct kgsl_device *device,
 	wake_up_all(&drawctxt->timeout);
 }
 
-/*
- * Set the priority of the context based on the flags passed into context
- * create.  If the priority is not set in the flags, then the kernel can
- * assign any priority it desires for the context.
- */
 #define KGSL_CONTEXT_PRIORITY_MED	0x8
-
-static inline void _set_context_priority(struct adreno_context *drawctxt)
-{
-	/* If the priority is not set by user, set it for them */
-	if ((drawctxt->base.flags & KGSL_CONTEXT_PRIORITY_MASK) ==
-			KGSL_CONTEXT_PRIORITY_UNDEF)
-		drawctxt->base.flags |= (KGSL_CONTEXT_PRIORITY_MED <<
-				KGSL_CONTEXT_PRIORITY_SHIFT);
-
-	/* Store the context priority */
-	drawctxt->base.priority =
-		(drawctxt->base.flags & KGSL_CONTEXT_PRIORITY_MASK) >>
-		KGSL_CONTEXT_PRIORITY_SHIFT;
-}
 
 /**
  * adreno_drawctxt_create - create a new adreno draw context
@@ -389,8 +370,17 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 	init_waitqueue_head(&drawctxt->waiting);
 	init_waitqueue_head(&drawctxt->timeout);
 
-	/* Set the context priority */
-	_set_context_priority(drawctxt);
+	/* If the priority is not set by user, set it for them */
+	if ((drawctxt->base.flags & KGSL_CONTEXT_PRIORITY_MASK) ==
+			KGSL_CONTEXT_PRIORITY_UNDEF)
+		drawctxt->base.flags |= (KGSL_CONTEXT_PRIORITY_MED <<
+				KGSL_CONTEXT_PRIORITY_SHIFT);
+
+	/* Store the context priority */
+	drawctxt->base.priority =
+		(drawctxt->base.flags & KGSL_CONTEXT_PRIORITY_MASK) >>
+		KGSL_CONTEXT_PRIORITY_SHIFT;
+
 	/* set the context ringbuffer */
 	drawctxt->rb = adreno_ctx_get_rb(adreno_dev, drawctxt);
 

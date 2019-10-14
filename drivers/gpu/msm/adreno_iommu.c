@@ -168,25 +168,6 @@ static unsigned int adreno_iommu_set_apriv(struct adreno_device *adreno_dev,
 	return cmds - cmds_orig;
 }
 
-static inline int _adreno_iommu_add_idle_indirect_cmds(
-			struct adreno_device *adreno_dev,
-			unsigned int *cmds, uint64_t nop_gpuaddr)
-{
-	unsigned int *start = cmds;
-	/*
-	 * Adding an indirect buffer ensures that the prefetch stalls until
-	 * the commands in indirect buffer have completed. We need to stall
-	 * prefetch with a nop indirect buffer when updating pagetables
-	 * because it provides stabler synchronization.
-	 */
-	cmds += cp_wait_for_me(adreno_dev, cmds);
-	*cmds++ = cp_mem_packet(adreno_dev, CP_INDIRECT_BUFFER_PFE, 2, 1);
-	cmds += cp_gpuaddr(adreno_dev, cmds, nop_gpuaddr);
-	*cmds++ = 2;
-	cmds += cp_wait_for_idle(adreno_dev, cmds);
-	return cmds - start;
-}
-
 static unsigned int _adreno_iommu_set_pt_v2_a3xx(struct kgsl_device *device,
 					unsigned int *cmds_orig,
 					u64 ttbr0, u32 contextidr)
@@ -306,9 +287,18 @@ unsigned int adreno_iommu_set_pt_generate_cmds(
 	contextidr = kgsl_mmu_pagetable_get_contextidr(pt);
 
 	cmds += adreno_iommu_set_apriv(adreno_dev, cmds, 1);
-
-	cmds += _adreno_iommu_add_idle_indirect_cmds(adreno_dev, cmds,
+	/*
+	 * Adding an indirect buffer ensures that the prefetch stalls until
+	 * the commands in indirect buffer have completed. We need to stall
+	 * prefetch with a nop indirect buffer when updating pagetables
+	 * because it provides stabler synchronization.
+	 */
+	cmds += cp_wait_for_me(adreno_dev, cmds);
+	*cmds++ = cp_mem_packet(adreno_dev, CP_INDIRECT_BUFFER_PFE, 2, 1);
+	cmds += cp_gpuaddr(adreno_dev, cmds,
 		iommu->setstate.gpuaddr + KGSL_IOMMU_SETSTATE_NOP_OFFSET);
+	*cmds++ = 2;
+	cmds += cp_wait_for_idle(adreno_dev, cmds);
 
 	if (adreno_is_a6xx(adreno_dev))
 		cmds += _adreno_iommu_set_pt_v2_a6xx(device, cmds,

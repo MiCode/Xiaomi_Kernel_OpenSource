@@ -168,22 +168,6 @@ unsigned int adreno_get_rptr(struct adreno_ringbuffer *rb)
 	return rptr;
 }
 
-/**
- * adreno_of_read_property() - Adreno read property
- * @node: Device node
- *
- * Read a u32 property.
- */
-static inline int adreno_of_read_property(struct device *dev,
-		struct device_node *node, const char *prop, unsigned int *ptr)
-{
-	int ret = of_property_read_u32(node, prop, ptr);
-
-	if (ret)
-		dev_err(dev, "%pOF: Unable to read '%s'\n", node, prop);
-	return ret;
-}
-
 static void __iomem *efuse_base;
 static size_t efuse_len;
 
@@ -259,18 +243,6 @@ static int _get_counter(struct adreno_device *adreno_dev,
 	return ret;
 }
 
-static inline void _put_counter(struct adreno_device *adreno_dev,
-		int group, int countable, unsigned int *lo,
-		unsigned int *hi)
-{
-	if (*lo != 0)
-		adreno_perfcounter_put(adreno_dev, group, countable,
-			PERFCOUNTER_FLAG_KERNEL);
-
-	*lo = 0;
-	*hi = 0;
-}
-
 /**
  * adreno_fault_detect_start() - Allocate performance counters
  * used for fast fault detection
@@ -319,11 +291,16 @@ void adreno_fault_detect_stop(struct adreno_device *adreno_dev)
 		return;
 
 	for (i = 0; i < gpudev->ft_perf_counters_count; i++) {
-		_put_counter(adreno_dev, gpudev->ft_perf_counters[i].counter,
-			 gpudev->ft_perf_counters[i].countable,
-			 &adreno_ft_regs[j + (i * 2)],
-			 &adreno_ft_regs[j + ((i * 2) + 1)]);
+		if (!adreno_ft_regs[j + (i * 2)])
+			continue;
 
+		adreno_perfcounter_put(adreno_dev,
+			gpudev->ft_perf_counters[i].counter,
+			gpudev->ft_perf_counters[i].countable,
+			PERFCOUNTER_FLAG_KERNEL);
+
+		adreno_ft_regs[j + (i * 2)] = 0;
+		adreno_ft_regs[(j + (i * 2)) + 1] = 0;
 	}
 
 	adreno_dev->fast_hang_detect = 0;
@@ -921,8 +898,11 @@ static int adreno_of_parse_pwrlevels(struct adreno_device *adreno_dev,
 		unsigned int index;
 		struct kgsl_pwrlevel *level;
 
-		if (adreno_of_read_property(device->dev, child, "reg", &index))
+		if (of_property_read_u32(child, "reg", &index)) {
+			dev_err(device->dev,
+				"%pOF: powerlevel index not found\n", child);
 			return -EINVAL;
+		}
 
 		if (index >= KGSL_MAX_PWRLEVELS) {
 			dev_err(device->dev,
@@ -936,9 +916,12 @@ static int adreno_of_parse_pwrlevels(struct adreno_device *adreno_dev,
 
 		level = &pwr->pwrlevels[index];
 
-		if (adreno_of_read_property(device->dev, child, "qcom,gpu-freq",
-			&level->gpu_freq))
+		if (of_property_read_u32(child, "qcom,gpu-freq",
+			&level->gpu_freq)) {
+			dev_err(device->dev,
+				"%pOF: Unable to read qcom,gpu-freq\n", child);
 			return -EINVAL;
+		}
 
 		of_property_read_u32(child, "qcom,acd-level",
 			&level->acd_level);
@@ -2227,27 +2210,6 @@ static int adreno_stop(struct kgsl_device *device)
 	return error;
 }
 
-static inline bool adreno_try_soft_reset(struct kgsl_device *device, int fault)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-
-	/*
-	 * Do not do soft reset for a IOMMU fault (because the IOMMU hardware
-	 * needs a reset too) and also for below gpu
-	 * A304: It can't do SMMU programming of any kind after a soft reset
-	 * A612: IPC protocol between RGMU and CP will not restart after reset
-	 * A610: An across chip issue with reset line in all 11nm chips,
-	 * resulting in recommendation to not use soft reset
-	 */
-
-	if ((fault & ADRENO_IOMMU_PAGE_FAULT) || adreno_is_a304(adreno_dev) ||
-			adreno_is_a612(adreno_dev) ||
-			adreno_is_a610(adreno_dev))
-		return false;
-
-	return true;
-}
-
 /**
  * adreno_reset() - Helper function to reset the GPU
  * @device: Pointer to the KGSL device structure for the GPU
@@ -2263,8 +2225,14 @@ int adreno_reset(struct kgsl_device *device, int fault)
 	int ret = -EINVAL;
 	int i = 0;
 
-	/* Try soft reset first */
-	if (adreno_try_soft_reset(device, fault)) {
+	/*
+	 * Try soft reset first Do not do soft reset for a IOMMU fault (because
+	 * the IOMMU hardware needs a reset too) or for the A304 because it
+	 * can't do SMMU programming of any kind after a soft reset
+	 */
+
+	if (!(fault & ADRENO_IOMMU_PAGE_FAULT) && !adreno_is_a304(adreno_dev)
+		&& !adreno_is_a612(adreno_dev) && !adreno_is_a610(adreno_dev)) {
 		/* Make sure VBIF is cleared before resetting */
 		ret = adreno_clear_pending_transactions(device);
 
@@ -3514,12 +3482,6 @@ static void adreno_device_private_destroy(struct kgsl_device_private *dev_priv)
 	kfree(adreno_priv);
 }
 
-static inline s64 adreno_ticks_to_us(u32 ticks, u32 freq)
-{
-	freq /= 1000000;
-	return ticks / freq;
-}
-
 /**
  * adreno_power_stats() - Reads the counters needed for freq decisions
  * @device: Pointer to device whose counters are read
@@ -3556,8 +3518,9 @@ static void adreno_power_stats(struct kgsl_device *device,
 		do_div(stats->busy_time, 192);
 	} else {
 		/* clock sourced from GFX3D */
-		stats->busy_time = adreno_ticks_to_us(gpu_busy,
-			kgsl_pwrctrl_active_freq(pwr));
+		s64 freq = kgsl_pwrctrl_active_freq(pwr) / 1000000;
+
+		stats->busy_time = gpu_busy / freq;
 	}
 
 	if (device->pwrctrl.bus_control) {
