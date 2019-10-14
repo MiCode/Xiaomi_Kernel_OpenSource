@@ -985,7 +985,7 @@ static void adreno_of_get_limits(struct adreno_device *adreno_dev,
 	pwrctrl->throttle_mask = GENMASK(pwrctrl->num_pwrlevels - 1,
 			pwrctrl->num_pwrlevels - 1 - throttle_level);
 
-	set_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag);
+	adreno_dev->lm_enabled = true;
 }
 
 static int adreno_of_get_legacy_pwrlevels(struct adreno_device *adreno_dev,
@@ -1362,13 +1362,6 @@ static void adreno_setup_device(struct adreno_device *adreno_dev)
 	adreno_dev->long_ib_detect = true;
 
 	INIT_WORK(&adreno_dev->input_work, adreno_input_work);
-
-	/*
-	 * Enable SPTP power collapse, throttling and hardware clock gating by
-	 * default where applicable
-	 */
-	adreno_dev->pwrctrl_flag = BIT(ADRENO_SPTP_PC_CTRL) |
-		BIT(ADRENO_THROTTLING_CTRL) | BIT(ADRENO_HWCG_CTRL);
 
 	INIT_LIST_HEAD(&adreno_dev->active_list);
 	spin_lock_init(&adreno_dev->active_list_lock);
@@ -3733,7 +3726,7 @@ static bool adreno_is_hwcg_on(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
-	return test_bit(ADRENO_HWCG_CTRL, &adreno_dev->pwrctrl_flag);
+	return adreno_dev->hwcg_enabled;
 }
 
 static int adreno_queue_cmds(struct kgsl_device_private *dev_priv,

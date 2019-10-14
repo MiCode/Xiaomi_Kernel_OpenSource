@@ -238,7 +238,7 @@ static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 	unsigned int value;
 	int i;
 
-	if (!test_bit(ADRENO_HWCG_CTRL, &adreno_dev->pwrctrl_flag))
+	if (!adreno_dev->hwcg_enabled)
 		on = false;
 
 	if (gmu_core_isenabled(device)) {
@@ -1021,8 +1021,7 @@ static int64_t a6xx_read_throttling_counters(struct adreno_device *adreno_dev)
 	u32 a, b, c;
 	struct adreno_busy_data *busy = &adreno_dev->busy_data;
 
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM) ||
-			!test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
+	if (!adreno_dev->lm_enabled)
 		return 0;
 
 	/* The counters are selected in a6xx_gmu_enable_lm() */
@@ -2280,6 +2279,8 @@ static struct adreno_perfcounters a6xx_perfcounters = {
 static void a6xx_platform_setup(struct adreno_device *adreno_dev)
 {
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+
+	adreno_dev->hwcg_enabled = true;
 
 	adreno_dev->preempt.preempt_level = 1;
 	adreno_dev->preempt.skipsaverestore = true;

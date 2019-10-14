@@ -1130,11 +1130,11 @@ static int gmu_aop_mailbox_init(struct kgsl_device *device,
 	if (IS_ERR(mailbox->channel))
 		return PTR_ERR(mailbox->channel);
 
-	set_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag);
+	adreno_dev->acd_enabled = true;
 	return 0;
 }
 
-static int gmu_acd_set(struct kgsl_device *device, unsigned int val)
+static int gmu_acd_set(struct kgsl_device *device, bool val)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
@@ -1143,7 +1143,7 @@ static int gmu_acd_set(struct kgsl_device *device, unsigned int val)
 		return -EINVAL;
 
 	/* Don't do any unneeded work if ACD is already in the correct state */
-	if (val == test_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag))
+	if (adreno_dev->acd_enabled == val)
 		return 0;
 
 	mutex_lock(&device->mutex);
@@ -1151,13 +1151,8 @@ static int gmu_acd_set(struct kgsl_device *device, unsigned int val)
 	/* Power down the GPU before enabling or disabling ACD */
 	kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
 
-	if (val) {
-		set_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag);
-		gmu_aop_send_acd_state(device, true);
-	} else {
-		clear_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag);
-		gmu_aop_send_acd_state(device, false);
-	}
+	adreno_dev->acd_enabled = val;
+	gmu_aop_send_acd_state(device, val);
 
 	kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
 
@@ -1562,8 +1557,7 @@ static int gmu_start(struct kgsl_device *device)
 
 	switch (device->state) {
 	case KGSL_STATE_INIT:
-		gmu_aop_send_acd_state(device, test_bit(ADRENO_ACD_CTRL,
-					&adreno_dev->pwrctrl_flag));
+		gmu_aop_send_acd_state(device, adreno_dev->acd_enabled);
 		/* Fall-thru */
 	case KGSL_STATE_SUSPEND:
 		WARN_ON(test_bit(GMU_CLK_ON, &device->gmu_core.flags));
@@ -1710,7 +1704,7 @@ static void gmu_remove(struct kgsl_device *device)
 	if (!IS_ERR_OR_NULL(gmu->mailbox.channel))
 		mbox_free_channel(gmu->mailbox.channel);
 
-	clear_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag);
+	adreno_dev->acd_enabled = false;
 
 	if (gmu->fw_image)
 		release_firmware(gmu->fw_image);

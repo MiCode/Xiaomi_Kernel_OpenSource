@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/sysfs.h>
@@ -139,19 +139,19 @@ static bool _ft_hang_intr_status_show(struct adreno_device *adreno_dev)
 	return true;
 }
 
-static int _pwrctrl_store(struct adreno_device *adreno_dev,
-		unsigned int val, unsigned int flag)
+static int pwrflag_store(struct adreno_device *adreno_dev,
+		unsigned int val, bool *flag)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
-	if (val == test_bit(flag, &adreno_dev->pwrctrl_flag))
+	if (*flag == val)
 		return 0;
 
 	mutex_lock(&device->mutex);
 
 	/* Power down the GPU before changing the state */
 	kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
-	change_bit(flag, &adreno_dev->pwrctrl_flag);
+	*flag = val;
 	kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
 
 	mutex_unlock(&device->mutex);
@@ -201,42 +201,51 @@ static bool _preemption_show(struct adreno_device *adreno_dev)
 
 static int _hwcg_store(struct adreno_device *adreno_dev, bool val)
 {
-	return _pwrctrl_store(adreno_dev, val, ADRENO_HWCG_CTRL);
+	return pwrflag_store(adreno_dev, val, &adreno_dev->hwcg_enabled);
 }
 
 static bool _hwcg_show(struct adreno_device *adreno_dev)
 {
-	return test_bit(ADRENO_HWCG_CTRL, &adreno_dev->pwrctrl_flag);
+	return adreno_dev->hwcg_enabled;
 }
 
 static int _throttling_store(struct adreno_device *adreno_dev, bool val)
 {
-	return _pwrctrl_store(adreno_dev, val, ADRENO_THROTTLING_CTRL);
+	if (!adreno_is_a540(adreno_dev))
+		return 0;
+
+	return pwrflag_store(adreno_dev, val, &adreno_dev->throttling_enabled);
 }
 
 static bool _throttling_show(struct adreno_device *adreno_dev)
 {
-	return test_bit(ADRENO_THROTTLING_CTRL, &adreno_dev->pwrctrl_flag);
+	return adreno_dev->throttling_enabled;
 }
 
 static int _sptp_pc_store(struct adreno_device *adreno_dev, bool val)
 {
-	return _pwrctrl_store(adreno_dev, val, ADRENO_SPTP_PC_CTRL);
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_SPTP_PC))
+		return 0;
+
+	return pwrflag_store(adreno_dev, val, &adreno_dev->sptp_pc_enabled);
 }
 
 static bool _sptp_pc_show(struct adreno_device *adreno_dev)
 {
-	return test_bit(ADRENO_SPTP_PC_CTRL, &adreno_dev->pwrctrl_flag);
+	return adreno_dev->sptp_pc_enabled;
 }
 
 static int _lm_store(struct adreno_device *adreno_dev, bool val)
 {
-	return _pwrctrl_store(adreno_dev, val, ADRENO_LM_CTRL);
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM))
+		return 0;
+
+	return pwrflag_store(adreno_dev, val, &adreno_dev->lm_enabled);
 }
 
 static bool _lm_show(struct adreno_device *adreno_dev)
 {
-	return test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag);
+	return adreno_dev->lm_enabled;
 }
 
 static int _ifpc_store(struct adreno_device *adreno_dev, bool val)
@@ -263,17 +272,12 @@ static unsigned int _preempt_count_show(struct adreno_device *adreno_dev)
 
 static bool _acd_show(struct adreno_device *adreno_dev)
 {
-	return test_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag);
+	return adreno_dev->acd_enabled;
 }
 
 static int _acd_store(struct adreno_device *adreno_dev, bool val)
 {
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-
-	if (test_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag) == val)
-		return 0;
-
-	return gmu_core_acd_set(device, val);
+	return gmu_core_acd_set(KGSL_DEVICE(adreno_dev), val);
 }
 
 static ssize_t _sysfs_store_u32(struct device *dev,

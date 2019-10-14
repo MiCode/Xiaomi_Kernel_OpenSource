@@ -89,7 +89,15 @@ static void a530_efuse_leakage(struct adreno_device *adreno_dev)
 
 static void a5xx_platform_setup(struct adreno_device *adreno_dev)
 {
-	set_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag);
+	adreno_dev->sptp_pc_enabled =
+		ADRENO_FEATURE(adreno_dev, ADRENO_SPTP_PC);
+
+	if (adreno_is_a540(adreno_dev))
+		adreno_dev->throttling_enabled = true;
+
+	adreno_dev->hwcg_enabled = true;
+	adreno_dev->lm_enabled =
+		ADRENO_FEATURE(adreno_dev, ADRENO_LM);
 
 	/* Set the GPU busy counter to use for frequency scaling */
 	adreno_dev->perfctr_pwr_lo = A5XX_RBBM_PERFCTR_RBBM_0_LO;
@@ -261,8 +269,7 @@ static bool a5xx_is_sptp_idle(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
 	/* If feature is not supported or enabled, no worry */
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_SPTP_PC) ||
-		!test_bit(ADRENO_SPTP_PC_CTRL, &adreno_dev->pwrctrl_flag))
+	if (!adreno_dev->sptp_pc_enabled)
 		return true;
 	kgsl_regread(device, A5XX_GPMU_SP_PWR_CLK_STATUS, &reg);
 	if (reg & BIT(20))
@@ -404,8 +411,7 @@ static void a5xx_regulator_disable(struct adreno_device *adreno_dev)
 		return;
 
 	/* If feature is not supported or not enabled */
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_SPTP_PC) ||
-		!test_bit(ADRENO_SPTP_PC_CTRL, &adreno_dev->pwrctrl_flag)) {
+	if (!adreno_dev->sptp_pc_enabled) {
 		/* Set the default register values; set SW_COLLAPSE to 1 */
 		kgsl_regwrite(device, A5XX_GPMU_SP_POWER_CNTL, 0x778001);
 		/*
@@ -456,8 +462,7 @@ static void a5xx_enable_pc(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_SPTP_PC) ||
-		!test_bit(ADRENO_SPTP_PC_CTRL, &adreno_dev->pwrctrl_flag))
+	if (!adreno_dev->sptp_pc_enabled)
 		return;
 
 	kgsl_regwrite(device, A5XX_GPMU_PWR_COL_INTER_FRAME_CTRL, 0x0000007F);
@@ -701,7 +706,7 @@ void a5xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 	const struct adreno_a5xx_core *a5xx_core = to_a5xx_core(adreno_dev);
 	int i;
 
-	if (!test_bit(ADRENO_HWCG_CTRL, &adreno_dev->pwrctrl_flag))
+	if (!adreno_dev->hwcg_enabled)
 		return;
 
 	for (i = 0; i < a5xx_core->hwcg_count; i++)
@@ -934,8 +939,7 @@ static void a530_lm_init(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	const struct adreno_a5xx_core *a5xx_core = to_a5xx_core(adreno_dev);
 
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM) ||
-		!test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
+	if (!adreno_dev->lm_enabled)
 		return;
 
 	/* If something was wrong with the sequence file, return */
@@ -985,8 +989,7 @@ static void a530_lm_enable(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM) ||
-		!test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
+	if (!adreno_dev->lm_enabled)
 		return;
 
 	/* If no sequence properly initialized, return */
@@ -1015,10 +1018,10 @@ static void a540_lm_init(struct adreno_device *adreno_dev)
 		<< AGC_GPU_VERSION_SHIFT);
 	unsigned int r;
 
-	if (!test_bit(ADRENO_THROTTLING_CTRL, &adreno_dev->pwrctrl_flag))
+	if (!adreno_dev->throttling_enabled)
 		agc_lm_config |= AGC_THROTTLE_DISABLE;
 
-	if (lm_on(adreno_dev)) {
+	if (adreno_dev->lm_enabled) {
 		agc_lm_config |=
 			AGC_LM_CONFIG_ENABLE_GPMU_ADAPTIVE |
 			AGC_LM_CONFIG_ISENSE_ENABLE;
@@ -1096,20 +1099,11 @@ static void a5xx_pwrlevel_change_settings(struct adreno_device *adreno_dev,
 				unsigned int prelevel, unsigned int postlevel,
 				bool post)
 {
-	int on = 0;
-
-	/* On pre A540 HW only call through if LMx is supported and enabled */
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_LM) &&
-		test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
-		on = ADRENO_LM;
-
-	/* On 540+ HW call through unconditionally as long as GPMU is enabled */
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_GPMU)) {
-		if (adreno_is_a540(adreno_dev))
-			on = ADRENO_GPMU;
-	}
-
-	if (!on)
+	/*
+	 * On pre A540 HW only call through if LMx is supported and enabled, and
+	 * always call through for a540
+	 */
+	if (!adreno_is_a540(adreno_dev) && !adreno_dev->lm_enabled)
 		return;
 
 	if (!post) {
@@ -1158,13 +1152,7 @@ static int64_t a5xx_read_throttling_counters(struct adreno_device *adreno_dev)
 	uint32_t th[ADRENO_GPMU_THROTTLE_COUNTERS];
 	struct adreno_busy_data *busy = &adreno_dev->busy_data;
 
-	if (!adreno_is_a540(adreno_dev))
-		return 0;
-
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_GPMU))
-		return 0;
-
-	if (!test_bit(ADRENO_THROTTLING_CTRL, &adreno_dev->pwrctrl_flag))
+	if (!adreno_dev->throttling_enabled)
 		return 0;
 
 	for (i = 0; i < ADRENO_GPMU_THROTTLE_COUNTERS; i++) {

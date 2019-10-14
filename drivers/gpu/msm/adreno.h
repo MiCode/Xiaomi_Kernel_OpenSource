@@ -206,12 +206,6 @@ enum adreno_gpurev {
 #define ADRENO_CTX_DETATCH_TIMEOUT_FAULT BIT(6)
 #define ADRENO_GMU_FAULT_SKIP_SNAPSHOT BIT(7)
 
-#define ADRENO_SPTP_PC_CTRL 0
-#define ADRENO_LM_CTRL      1
-#define ADRENO_HWCG_CTRL    2
-#define ADRENO_THROTTLING_CTRL 3
-#define ADRENO_ACD_CTRL 4
-
 /* VBIF,  GBIF halt request and ack mask */
 #define GBIF_HALT_REQUEST       0x1E0
 #define VBIF_RESET_ACK_MASK     0x00f0
@@ -411,7 +405,6 @@ struct adreno_gpu_core {
  * @halt: Atomic variable to check whether the GPU is currently halted
  * @pending_irq_refcnt: Atomic variable to keep track of running IRQ handlers
  * @ctx_d_debugfs: Context debugfs node
- * @pwrctrl_flag: Flag to hold adreno specific power attributes
  * @profile_buffer: Memdesc holding the drawobj profiling buffer
  * @profile_index: Index to store the start/stop ticks in the profiling
  * buffer
@@ -483,8 +476,16 @@ struct adreno_device {
 	atomic_t halt;
 	atomic_t pending_irq_refcnt;
 	struct dentry *ctx_d_debugfs;
-	unsigned long pwrctrl_flag;
-
+	/** @lm_enabled: True if limits management is enabled for this target */
+	bool lm_enabled;
+	/** @acd_enabled: True if acd is enabled for this target */
+	bool acd_enabled;
+	/** @hwcg_enabled: True if hardware clock gating is enabled */
+	bool hwcg_enabled;
+	/** @throttling_enabled: True if LM throttling is enabled on a5xx */
+	bool throttling_enabled;
+	/** @sptp_pc_enabled: True if SPTP power collapse is enabled on a5xx */
+	bool sptp_pc_enabled;
 	struct kgsl_memdesc *profile_buffer;
 	unsigned int profile_index;
 	struct kgsl_memdesc *pwrup_reglist;
