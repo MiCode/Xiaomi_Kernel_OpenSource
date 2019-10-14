@@ -111,8 +111,10 @@ static void a6xx_init(struct adreno_device *adreno_dev)
 
 	a6xx_crashdump_init(adreno_dev);
 
-	adreno_dev->pwrup_reglist = kgsl_allocate_global(device,
-		PAGE_SIZE, 0, KGSL_MEMDESC_PRIVILEGED, "powerup_register_list");
+	if (IS_ERR_OR_NULL(adreno_dev->pwrup_reglist))
+		adreno_dev->pwrup_reglist = kgsl_allocate_global(device,
+			PAGE_SIZE, 0, KGSL_MEMDESC_PRIVILEGED,
+			"powerup_register_list");
 }
 
 static void a6xx_protect_init(struct adreno_device *adreno_dev)
