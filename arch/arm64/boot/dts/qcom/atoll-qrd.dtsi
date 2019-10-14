@@ -480,3 +480,16 @@
 &dsi_rm69299_visionox_amoled_vid_display {
 	qcom,dsi-display-active;
 };
+
+&sde_dp{
+	pinctrl-names = "mdss_dp_active", "mdss_dp_sleep";
+	pinctrl-0 = <&sde_dp_aux_active &sde_dp_usbplug_cc_active>;
+	pinctrl-1 = <&sde_dp_aux_suspend &sde_dp_usbplug_cc_suspend>;
+	qcom,aux-en-gpio = <&tlmm 55 0>;
+	qcom,aux-sel-gpio = <&tlmm 33 0>;
+	qcom,dp-gpio-aux-switch;
+};
+
+&fsa4480{
+	status="disabled";
+};

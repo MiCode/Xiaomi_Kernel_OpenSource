@@ -296,3 +296,7 @@
 		};
 	};
 };
+
+&sde_dp {
+	 qcom,dp-aux-switch=<&fsa4480>;
+};
