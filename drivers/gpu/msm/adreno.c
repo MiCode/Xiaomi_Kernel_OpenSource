@@ -1340,21 +1340,38 @@ static bool adreno_is_gpu_disabled(struct adreno_device *adreno_dev)
 			pte_row0_msb[1] ? true : false;
 }
 
-static int adreno_read_speed_bin(struct platform_device *pdev,
-		struct adreno_device *adreno_dev)
+/* Read the efuse through the legacy method */
+static int adreno_read_speed_bin_legacy(struct platform_device *pdev)
+{
+	u32 bin[3];
+	u32 val;
+
+	if (of_property_read_u32_array(pdev->dev.of_node,
+		"qcom,gpu-speed-bin", bin, 3))
+		return 0;
+
+	if (adreno_efuse_map(pdev))
+		return 0;
+
+	adreno_efuse_read_u32(bin[0], &val);
+	adreno_efuse_unmap();
+
+	return (val & bin[1]) >> bin[2];
+}
+
+/* Read the efuse through the new and fancy nvmem method */
+static int adreno_read_speed_bin(struct platform_device *pdev)
 {
 	struct nvmem_cell *cell = nvmem_cell_get(&pdev->dev, "speed_bin");
 	int ret = PTR_ERR_OR_ZERO(cell);
 	void *buf;
+	int val = 0;
 	size_t len;
 
 	if (ret) {
-		/*
-		 * If the cell isn't defined enabled, then revert to
-		 * using the default bin
-		 */
+		/* If the nvmem node isn't there, try legacy */
 		if (ret == -ENOENT)
-			return 0;
+			return adreno_read_speed_bin_legacy(pdev);
 
 		return ret;
 	}
@@ -1362,13 +1379,13 @@ static int adreno_read_speed_bin(struct platform_device *pdev,
 	buf = nvmem_cell_read(cell, &len);
 	nvmem_cell_put(cell);
 
-	if (!IS_ERR(buf)) {
-		memcpy(&adreno_dev->speed_bin, buf,
-				min(len, sizeof(adreno_dev->speed_bin)));
-		kfree(buf);
-	}
+	if (IS_ERR(buf))
+		return PTR_ERR(buf);
 
-	return PTR_ERR_OR_ZERO(buf);
+	memcpy(&val, buf, min(len, sizeof(val)));
+	kfree(buf);
+
+	return val;
 }
 
 static void adreno_probe_llcc(struct adreno_device *adreno_dev,
@@ -1475,9 +1492,11 @@ static int adreno_bind(struct device *dev)
 
 	adreno_update_soc_hw_revision_quirks(adreno_dev, pdev);
 
-	status = adreno_read_speed_bin(pdev, adreno_dev);
-	if (status)
+	status = adreno_read_speed_bin(pdev);
+	if (status < 0)
 		return status;
+
+	adreno_dev->speed_bin = status;
 
 	/* Get the chip ID from the DT and set up target specific parameters */
 	if (adreno_identify_gpu(adreno_dev))

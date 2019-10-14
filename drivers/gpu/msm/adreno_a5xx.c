@@ -48,60 +48,23 @@ static void a530_efuse_leakage(struct adreno_device *adreno_dev)
 	unsigned int row0, row2;
 	unsigned int multiplier, gfx_active, leakage_pwr_on, coeff;
 
-	adreno_efuse_read_u32(A530_QFPROM_RAW_PTE_ROW0_MSB, &row0);
+	if (of_property_read_u32(device->pdev->dev.of_node,
+		"qcom,base-leakage-coefficient", &coeff))
+		return;
 
+	if (adreno_efuse_map(device->pdev))
+		return;
+
+	adreno_efuse_read_u32(A530_QFPROM_RAW_PTE_ROW0_MSB, &row0);
 	adreno_efuse_read_u32(A530_QFPROM_RAW_PTE_ROW2_MSB, &row2);
 
 	multiplier = (row0 >> 1) & 0x3;
 	gfx_active = (row2 >> 2) & 0xFF;
 
-	if (of_property_read_u32(device->pdev->dev.of_node,
-		"qcom,base-leakage-coefficient", &coeff))
-		return;
-
 	leakage_pwr_on = gfx_active * (1 << multiplier);
 
 	adreno_dev->lm_leakage = (leakage_pwr_on << 16) |
 		((leakage_pwr_on * coeff) / 100);
-}
-
-static void a530_efuse_speed_bin(struct adreno_device *adreno_dev)
-{
-	unsigned int val;
-	unsigned int speed_bin[3];
-	struct kgsl_device *device = &adreno_dev->dev;
-
-	if (of_property_read_u32_array(device->pdev->dev.of_node,
-		"qcom,gpu-speed-bin", speed_bin, 3))
-		return;
-
-	adreno_efuse_read_u32(speed_bin[0], &val);
-
-	adreno_dev->speed_bin = (val & speed_bin[1]) >> speed_bin[2];
-}
-
-static const struct {
-	int (*check)(struct adreno_device *adreno_dev);
-	void (*func)(struct adreno_device *adreno_dev);
-} a5xx_efuse_funcs[] = {
-	{ adreno_is_a530, a530_efuse_leakage },
-	{ adreno_is_a530, a530_efuse_speed_bin },
-	{ adreno_is_a505, a530_efuse_speed_bin },
-	{ adreno_is_a512, a530_efuse_speed_bin },
-	{ adreno_is_a508, a530_efuse_speed_bin },
-};
-
-static void a5xx_check_features(struct adreno_device *adreno_dev)
-{
-	unsigned int i;
-
-	if (adreno_efuse_map(KGSL_DEVICE(adreno_dev)->pdev))
-		return;
-
-	for (i = 0; i < ARRAY_SIZE(a5xx_efuse_funcs); i++) {
-		if (a5xx_efuse_funcs[i].check(adreno_dev))
-			a5xx_efuse_funcs[i].func(adreno_dev);
-	}
 
 	adreno_efuse_unmap();
 }
@@ -110,15 +73,14 @@ static void a5xx_platform_setup(struct adreno_device *adreno_dev)
 {
 	set_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag);
 
-	/* Setup defaults that might get changed by the fuse bits */
-	adreno_dev->lm_leakage = A530_DEFAULT_LEAKAGE;
-	adreno_dev->speed_bin = 0;
-
 	/* Set the GPU busy counter to use for frequency scaling */
 	adreno_dev->perfctr_pwr_lo = A5XX_RBBM_PERFCTR_RBBM_0_LO;
 
-	/* Check efuse bits for various capabilities */
-	a5xx_check_features(adreno_dev);
+	/* Setup defaults that might get changed by the fuse bits */
+	adreno_dev->lm_leakage = 0x4e001a;
+
+	if (adreno_is_a530(adreno_dev))
+		a530_efuse_leakage(adreno_dev);
 }
 
 static void _do_fixup(const struct adreno_critical_fixup *fixups, int count,

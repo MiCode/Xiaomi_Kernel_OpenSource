@@ -2226,42 +2226,6 @@ static struct adreno_perfcounters a6xx_perfcounters = {
 	ARRAY_SIZE(a6xx_perfcounter_groups),
 };
 
-static void a6xx_efuse_speed_bin(struct adreno_device *adreno_dev)
-{
-	unsigned int val;
-	unsigned int speed_bin[3];
-	struct kgsl_device *device = &adreno_dev->dev;
-
-	if (of_property_read_u32_array(device->pdev->dev.of_node,
-		"qcom,gpu-speed-bin", speed_bin, 3))
-		return;
-
-	adreno_efuse_read_u32(speed_bin[0], &val);
-
-	adreno_dev->speed_bin = (val & speed_bin[1]) >> speed_bin[2];
-}
-
-static const struct {
-	int (*check)(struct adreno_device *adreno_dev);
-	void (*func)(struct adreno_device *adreno_dev);
-} a6xx_efuse_funcs[] = {
-	{ adreno_is_a615_family, a6xx_efuse_speed_bin },
-	{ adreno_is_a612, a6xx_efuse_speed_bin },
-};
-
-static void a6xx_check_features(struct adreno_device *adreno_dev)
-{
-	unsigned int i;
-
-	if (adreno_efuse_map(KGSL_DEVICE(adreno_dev)->pdev))
-		return;
-	for (i = 0; i < ARRAY_SIZE(a6xx_efuse_funcs); i++) {
-		if (a6xx_efuse_funcs[i].check(adreno_dev))
-			a6xx_efuse_funcs[i].func(adreno_dev);
-	}
-
-	adreno_efuse_unmap();
-}
 static void a6xx_platform_setup(struct adreno_device *adreno_dev)
 {
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
@@ -2296,9 +2260,6 @@ static void a6xx_platform_setup(struct adreno_device *adreno_dev)
 	if (gmu_core_isenabled(KGSL_DEVICE(adreno_dev)))
 		adreno_dev->perfctr_ifpc_lo =
 			A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_4_L;
-
-	/* Check efuse bits for various capabilities */
-	a6xx_check_features(adreno_dev);
 }
 
 
