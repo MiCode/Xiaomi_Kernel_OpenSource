@@ -5,6 +5,8 @@
 #ifndef __KGSL_GMU_H
 #define __KGSL_GMU_H
 
+#include <linux/mailbox_client.h>
+
 #include "kgsl_gmu_core.h"
 #include "kgsl_hfi.h"
 
@@ -139,7 +141,7 @@ enum gmu_load_mode {
 };
 
 struct kgsl_mailbox {
-	struct mbox_client *client;
+	struct mbox_client client;
 	struct mbox_chan *channel;
 };
 
