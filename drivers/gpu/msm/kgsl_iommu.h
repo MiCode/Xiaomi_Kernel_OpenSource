@@ -80,7 +80,7 @@ enum kgsl_iommu_context_id {
 /*
  * struct kgsl_iommu_context - Structure holding data about an iommu context
  * bank
- * @dev: pointer to the iommu context's device
+ * @pdev: pointer to the iommu context's platform device
  * @name: context name
  * @id: The id of the context, used for deciding how it is used.
  * @cb_num: The hardware context bank number, used for calculating register
@@ -92,7 +92,7 @@ enum kgsl_iommu_context_id {
  *		it may be changed by self programming.
  */
 struct kgsl_iommu_context {
-	struct device *dev;
+	struct platform_device *pdev;
 	const char *name;
 	enum kgsl_iommu_context_id id;
 	unsigned int cb_num;
@@ -122,6 +122,8 @@ struct kgsl_iommu {
 	atomic_t clk_enable_count;
 	struct clk *clks[KGSL_IOMMU_MAX_CLKS];
 	struct kgsl_memdesc *smmu_info;
+	/** @pdev: Pointer to the platform device for the IOMMU device */
+	struct platform_device *pdev;
 };
 
 /*
