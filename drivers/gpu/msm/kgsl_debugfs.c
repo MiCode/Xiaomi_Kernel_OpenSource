@@ -65,6 +65,30 @@ static int _isdb_get(void *data, u64 *val)
 
 DEFINE_DEBUGFS_ATTRIBUTE(_isdb_fops, _isdb_get, _isdb_set, "%llu\n");
 
+static int globals_print(struct seq_file *s, void *unused)
+{
+	kgsl_print_global_pt_entries(s);
+	return 0;
+}
+
+static int globals_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, globals_print, NULL);
+}
+
+static int globals_release(struct inode *inode, struct file *file)
+{
+	return single_release(inode, file);
+}
+
+static const struct file_operations global_fops = {
+	.open = globals_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = globals_release,
+};
+
+
 void kgsl_device_debugfs_init(struct kgsl_device *device)
 {
 	struct dentry *snapshot_dir;
@@ -74,6 +98,10 @@ void kgsl_device_debugfs_init(struct kgsl_device *device)
 
 	device->d_debugfs = debugfs_create_dir(device->name,
 						       kgsl_debugfs_dir);
+
+	debugfs_create_file("globals", 0444, device->d_debugfs, device,
+		&global_fops);
+
 	snapshot_dir = debugfs_create_dir("snapshot", kgsl_debugfs_dir);
 	debugfs_create_file("break_isdb", 0644, snapshot_dir, device,
 		&_isdb_fops);
@@ -347,29 +375,6 @@ static const struct file_operations process_sparse_mem_fops = {
 	.release = process_mem_release,
 };
 
-static int globals_print(struct seq_file *s, void *unused)
-{
-	kgsl_print_global_pt_entries(s);
-	return 0;
-}
-
-static int globals_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, globals_print, NULL);
-}
-
-static int globals_release(struct inode *inode, struct file *file)
-{
-	return single_release(inode, file);
-}
-
-static const struct file_operations global_fops = {
-	.open = globals_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = globals_release,
-};
-
 /**
  * kgsl_process_init_debugfs() - Initialize debugfs for a process
  * @private: Pointer to process private structure created for the process
@@ -427,9 +432,6 @@ void kgsl_core_debugfs_init(void)
 	kgsl_debugfs_dir = debugfs_create_dir("kgsl", NULL);
 	if (IS_ERR_OR_NULL(kgsl_debugfs_dir))
 		return;
-
-	debugfs_create_file("globals", 0444, kgsl_debugfs_dir, NULL,
-		&global_fops);
 
 	debug_dir = debugfs_create_dir("debug", kgsl_debugfs_dir);
 
