@@ -208,18 +208,6 @@ static inline void parse_ib(struct kgsl_device *device,
 
 }
 
-static inline bool iommu_is_setstate_addr(struct kgsl_device *device,
-		uint64_t gpuaddr, uint64_t size)
-{
-	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
-
-	if (kgsl_mmu_get_mmutype(device) != KGSL_MMU_TYPE_IOMMU)
-		return false;
-
-	return kgsl_gpuaddr_in_memdesc(iommu->setstate, gpuaddr,
-			size);
-}
-
 static void dump_all_ibs(struct kgsl_device *device,
 			struct adreno_ringbuffer *rb,
 			struct kgsl_snapshot *snapshot)
@@ -227,6 +215,7 @@ static void dump_all_ibs(struct kgsl_device *device,
 	int index = 0;
 	unsigned int *rbptr;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
 
 	rbptr = rb->buffer_desc->hostptr;
 
@@ -248,7 +237,8 @@ static void dump_all_ibs(struct kgsl_device *device,
 			}
 
 			/* Don't parse known global IBs */
-			if (iommu_is_setstate_addr(device, ibaddr, ibsize))
+			if (kgsl_gpuaddr_in_memdesc(iommu->setstate,
+				ibaddr, ibsize))
 				continue;
 
 			if (kgsl_gpuaddr_in_memdesc(adreno_dev->pwron_fixup,
@@ -384,6 +374,7 @@ static void snapshot_rb_ibs(struct kgsl_device *device,
 			parse_ibs = 0;
 
 		if (parse_ibs && adreno_cmd_is_ib(adreno_dev, rbptr[index])) {
+			struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
 			uint64_t ibaddr;
 			uint64_t ibsize;
 
@@ -399,7 +390,8 @@ static void snapshot_rb_ibs(struct kgsl_device *device,
 			index = (index + 1) % KGSL_RB_DWORDS;
 
 			/* Don't parse known global IBs */
-			if (iommu_is_setstate_addr(device, ibaddr, ibsize))
+			if (kgsl_gpuaddr_in_memdesc(iommu->setstate,
+				ibaddr, ibsize))
 				continue;
 
 			if (kgsl_gpuaddr_in_memdesc(adreno_dev->pwron_fixup,

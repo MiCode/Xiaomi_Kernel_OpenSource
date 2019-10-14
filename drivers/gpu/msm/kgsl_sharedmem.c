@@ -812,7 +812,11 @@ kgsl_sharedmem_writel(struct kgsl_device *device,
 {
 	uint32_t *dst;
 
-	if (WARN_ON(memdesc == NULL || memdesc->hostptr == NULL))
+	/* Quietly return if the memdesc isn't valid */
+	if (IS_ERR_OR_NULL(memdesc))
+		return -EINVAL;
+
+	if (WARN_ON(memdesc->hostptr == NULL))
 		return -EINVAL;
 
 	WARN_ON(offsetbytes % sizeof(uint32_t) != 0);

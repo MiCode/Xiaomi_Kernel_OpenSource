@@ -360,30 +360,6 @@ static inline uint cp_wait_for_idle(struct adreno_device *adreno_dev,
 	return cmds - start;
 }
 
-/**
- * cp_invalidate_state - common function for invalidating cp
- * state
- * @adreno_dev: The adreno device
- * @cmds: command pointer to add gpuaddr
- */
-static inline uint cp_invalidate_state(struct adreno_device *adreno_dev,
-				uint *cmds)
-{
-	uint *start = cmds;
-
-	if (ADRENO_GPUREV(adreno_dev) < 500) {
-		*cmds++ = cp_type3_packet(CP_INVALIDATE_STATE, 1);
-		*cmds++ = 0x7fff;
-	} else {
-		*cmds++ = cp_type7_packet(CP_SET_DRAW_STATE, 3);
-		*cmds++ = 0x40000;
-		*cmds++ = 0;
-		*cmds++ = 0;
-	}
-
-	return cmds - start;
-}
-
 static inline u32 cp_protected_mode(struct adreno_device *adreno_dev,
 		u32 *cmds, int on)
 {

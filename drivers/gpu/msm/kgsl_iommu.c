@@ -1209,7 +1209,7 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
 	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
 	struct kgsl_iommu_context *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
-	int status;
+	int status = 0;
 
 	mmu->features |= KGSL_MMU_PAGED;
 
@@ -1235,13 +1235,6 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 			goto done;
 		}
 	}
-
-	iommu->setstate = kgsl_allocate_global(device, PAGE_SIZE,
-		KGSL_MEMFLAGS_GPUREADONLY, 0, "setstate");
-
-	status = PTR_ERR_OR_ZERO(iommu->setstate);
-	if (status)
-		goto done;
 
 	device->qdss_desc = kgsl_allocate_global_fixed(device,
 		"qcom,gpu-qdss-stm", "gpu-qdss");
