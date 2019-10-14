@@ -410,16 +410,18 @@ error_rgmu:
  * to index being used by GMU/RPMh.
  */
 static int rgmu_dcvs_set(struct kgsl_device *device,
-		unsigned int pwrlevel, unsigned int bus_level)
+		int pwrlevel, int bus_level)
 {
 	struct rgmu_device *rgmu = KGSL_RGMU_DEVICE(device);
 	int ret;
+	unsigned long rate;
 
 	if (pwrlevel == INVALID_DCVS_IDX)
 		return -EINVAL;
 
-	ret = clk_set_rate(rgmu->gpu_clk,
-		device->pwrctrl.pwrlevels[pwrlevel].gpu_freq);
+	rate = device->pwrctrl.pwrlevels[pwrlevel].gpu_freq;
+
+	ret = clk_set_rate(rgmu->gpu_clk, rate);
 	if (ret)
 		dev_err(&rgmu->pdev->dev, "Couldn't set the GPU clock\n");
 

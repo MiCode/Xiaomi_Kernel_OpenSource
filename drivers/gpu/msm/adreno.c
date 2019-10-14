@@ -842,7 +842,7 @@ static void adreno_of_get_ca_target_pwrlevel(struct adreno_device *adreno_dev,
 	of_property_read_u32(node, "qcom,ca-target-pwrlevel",
 		&ca_target_pwrlevel);
 
-	if (ca_target_pwrlevel > device->pwrctrl.num_pwrlevels - 2)
+	if (ca_target_pwrlevel >= device->pwrctrl.num_pwrlevels)
 		ca_target_pwrlevel = 1;
 
 	device->pwrscale.ctxt_aware_target_pwrlevel = ca_target_pwrlevel;
@@ -907,14 +907,26 @@ static int adreno_of_parse_pwrlevels(struct adreno_device *adreno_dev,
 	pwr->num_pwrlevels = 0;
 
 	for_each_child_of_node(node, child) {
-		unsigned int index;
+		unsigned int index, freq = 0;
 		struct kgsl_pwrlevel *level;
 
 		if (of_property_read_u32(child, "reg", &index)) {
 			dev_err(device->dev,
 				"%pOF: powerlevel index not found\n", child);
+			of_node_put(child);
 			return -EINVAL;
 		}
+
+		if (of_property_read_u32(child, "qcom,gpu-freq", &freq)) {
+			dev_err(device->dev,
+				"%pOF: Unable to read qcom,gpu-freq\n", child);
+			of_node_put(child);
+			return -EINVAL;
+		}
+
+		/* Ignore "zero" powerlevels */
+		if (!freq)
+			continue;
 
 		if (index >= KGSL_MAX_PWRLEVELS) {
 			dev_err(device->dev,
@@ -928,12 +940,7 @@ static int adreno_of_parse_pwrlevels(struct adreno_device *adreno_dev,
 
 		level = &pwr->pwrlevels[index];
 
-		if (of_property_read_u32(child, "qcom,gpu-freq",
-			&level->gpu_freq)) {
-			dev_err(device->dev,
-				"%pOF: Unable to read qcom,gpu-freq\n", child);
-			return -EINVAL;
-		}
+		level->gpu_freq = freq;
 
 		of_property_read_u32(child, "qcom,acd-level",
 			&level->acd_level);
@@ -944,6 +951,7 @@ static int adreno_of_parse_pwrlevels(struct adreno_device *adreno_dev,
 			dev_err(device->dev,
 				"%pOF: Couldn't read the bus frequency for power level %d\n",
 				child, index);
+			of_node_put(child);
 			return ret;
 		}
 
@@ -968,7 +976,7 @@ static void adreno_of_get_initial_pwrlevel(struct adreno_device *adreno_dev,
 
 	of_property_read_u32(node, "qcom,initial-pwrlevel", &init_level);
 
-	if (init_level < 0 || init_level > pwr->num_pwrlevels)
+	if (init_level < 0 || init_level >= pwr->num_pwrlevels)
 		init_level = 1;
 
 	pwr->active_pwrlevel = init_level;
