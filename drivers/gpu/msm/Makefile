@@ -37,7 +37,6 @@ msm_kgsl-y += \
 	adreno_a6xx_preempt.o \
 	adreno_a6xx_rgmu.o \
 	adreno_a6xx_snapshot.o \
-	adreno_coresight.o \
 	adreno_cp_parser.o \
 	adreno_dispatch.o \
 	adreno_drawctxt.o \
@@ -49,5 +48,6 @@ msm_kgsl-y += \
 	adreno_trace.o
 
 msm_kgsl-$(CONFIG_COMPAT) += adreno_compat.o
+msm_kgsl-$(CONFIG_QCOM_KGSL_CORESIGHT) += adreno_coresight.o
 msm_kgsl-$(CONFIG_DEBUG_FS) += adreno_debugfs.o adreno_profile.o
 msm_kgsl-$(CONFIG_ARM_SMMU) += adreno_iommu.o

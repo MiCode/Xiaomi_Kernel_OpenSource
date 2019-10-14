@@ -9,6 +9,11 @@
 
 #include "adreno.h"
 
+enum gpu_coresight_sources {
+	GPU_CORESIGHT_GX = 0,
+	GPU_CORESIGHT_CX = 1,
+};
+
 #define TO_ADRENO_CORESIGHT_ATTR(_attr) \
 	container_of(_attr, struct adreno_coresight_attr, attr)
 
@@ -129,18 +134,10 @@ out:
 	return size;
 }
 
-/**
- * adreno_coresight_disable() - Generic function to disable coresight debugging
- * @csdev: Pointer to coresight's device struct
- *
- * This is a generic function to disable coresight debug bus on adreno
- * devices. This should be used in all cases of disabling
- * coresight debug bus for adreno devices. This function in turn calls
- * the adreno device specific function through the gpudev hook.
- * This function is registered as the coresight disable function
- * with coresight driver. It should only be called through coresight driver
- * as that would ensure that the necessary setup required to be done on
- * coresight driver's part is also done.
+/*
+ * This is a generic function to disable coresight debug bus on Adreno
+ * devices. This function in turn calls the device specific function
+ * through the gpudev hook.
  */
 static void adreno_coresight_disable(struct coresight_device *csdev,
 					struct perf_event *event)
@@ -190,12 +187,6 @@ static void adreno_coresight_disable(struct coresight_device *csdev,
 	mutex_unlock(&device->mutex);
 }
 
-/**
- * _adreno_coresight_get_and_clear(): Save the current value of coresight
- * registers and clear the registers subsequently. Clearing registers
- * has the effect of disabling coresight.
- * @adreno_dev: Pointer to adreno device struct
- */
 static int _adreno_coresight_get_and_clear(struct adreno_device *adreno_dev,
 						int cs_id)
 {
@@ -254,17 +245,7 @@ static int _adreno_coresight_set(struct adreno_device *adreno_dev, int cs_id)
 	}
 	return 0;
 }
-/**
- * adreno_coresight_enable() - Generic function to enable coresight debugging
- * @csdev: Pointer to coresight's device struct
- *
- * This is a generic function to enable coresight debug bus on adreno
- * devices. This should be used in all cases of enabling
- * coresight debug bus for adreno devices. This function is registered as the
- * coresight enable function with coresight driver. It should only be called
- * through coresight driver as that would ensure that the necessary setup
- * required to be done on coresight driver's part is also done.
- */
+/* Generic function to enable coresight debug bus on adreno devices */
 static int adreno_coresight_enable(struct coresight_device *csdev,
 				struct perf_event *event, u32 mode)
 {
@@ -321,51 +302,22 @@ static int adreno_coresight_enable(struct coresight_device *csdev,
 	return ret;
 }
 
-/**
- * adreno_coresight_stop() - Reprogram coresight registers after power collapse
- * @adreno_dev: Pointer to the adreno device structure
- *
- * Cache the current coresight register values so they can be restored after
- * power collapse
- */
 void adreno_coresight_stop(struct adreno_device *adreno_dev)
 {
-	int i, adreno_dev_flag = -EINVAL;
+	if (test_bit(ADRENO_DEVICE_CORESIGHT, &adreno_dev->priv))
+		_adreno_coresight_get_and_clear(adreno_dev, GPU_CORESIGHT_GX);
 
-	for (i = 0; i < GPU_CORESIGHT_MAX; ++i) {
-		if (i == GPU_CORESIGHT_GX)
-			adreno_dev_flag = ADRENO_DEVICE_CORESIGHT;
-		else if (i == GPU_CORESIGHT_CX)
-			adreno_dev_flag = ADRENO_DEVICE_CORESIGHT_CX;
-		else
-			return;
-
-		if (test_bit(adreno_dev_flag, &adreno_dev->priv))
-			_adreno_coresight_get_and_clear(adreno_dev, i);
-	}
+	if (test_bit(ADRENO_DEVICE_CORESIGHT_CX, &adreno_dev->priv))
+		_adreno_coresight_get_and_clear(adreno_dev, GPU_CORESIGHT_CX);
 }
 
-/**
- * adreno_coresight_start() - Reprogram coresight registers after power collapse
- * @adreno_dev: Pointer to the adreno device structure
- *
- * Reprogram the cached values to the coresight registers on power up
- */
 void adreno_coresight_start(struct adreno_device *adreno_dev)
 {
-	int i, adreno_dev_flag = -EINVAL;
+	if (test_bit(ADRENO_DEVICE_CORESIGHT, &adreno_dev->priv))
+		_adreno_coresight_set(adreno_dev, GPU_CORESIGHT_GX);
 
-	for (i = 0; i < GPU_CORESIGHT_MAX; ++i) {
-		if (i == GPU_CORESIGHT_GX)
-			adreno_dev_flag = ADRENO_DEVICE_CORESIGHT;
-		else if (i == GPU_CORESIGHT_CX)
-			adreno_dev_flag = ADRENO_DEVICE_CORESIGHT_CX;
-		else
-			return;
-
-		if (test_bit(adreno_dev_flag, &adreno_dev->priv))
-			_adreno_coresight_set(adreno_dev, i);
-	}
+	if (test_bit(ADRENO_DEVICE_CORESIGHT_CX, &adreno_dev->priv))
+		_adreno_coresight_set(adreno_dev, GPU_CORESIGHT_CX);
 }
 
 static int adreno_coresight_trace_id(struct coresight_device *csdev)
@@ -396,12 +348,9 @@ void adreno_coresight_remove(struct adreno_device *adreno_dev)
 {
 	int i;
 
-	for (i = 0; i < ARRAY_SIZE(adreno_dev->csdev); i++) {
-		if (!IS_ERR_OR_NULL(adreno_dev->csdev[i])) {
+	for (i = 0; i < ARRAY_SIZE(adreno_dev->csdev); i++)
+		if (!IS_ERR_OR_NULL(adreno_dev->csdev[i]))
 			coresight_unregister(adreno_dev->csdev[i]);
-			adreno_dev->csdev[i] = NULL;
-		}
-	}
 }
 
 static struct coresight_device *
@@ -437,7 +386,6 @@ adreno_coresight_dev_probe(struct kgsl_device *device,
 
 void adreno_coresight_init(struct adreno_device *adreno_dev)
 {
-	int ret = 0;
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	int i = 0;
@@ -456,5 +404,4 @@ void adreno_coresight_init(struct adreno_device *adreno_dev)
 	}
 
 	of_node_put(node);
-	return ret;
 }

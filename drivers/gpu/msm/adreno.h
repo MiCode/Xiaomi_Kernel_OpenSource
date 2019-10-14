@@ -5,6 +5,7 @@
 #ifndef __ADRENO_H
 #define __ADRENO_H
 
+#include "adreno_coresight.h"
 #include "adreno_dispatch.h"
 #include "adreno_drawctxt.h"
 #include "adreno_perfcounter.h"
@@ -364,12 +365,6 @@ struct adreno_gpu_core {
 	u32 bus_width;
 };
 
-enum gpu_coresight_sources {
-	GPU_CORESIGHT_GX = 0,
-	GPU_CORESIGHT_CX = 1,
-	GPU_CORESIGHT_MAX,
-};
-
 /**
  * struct adreno_device - The mothership structure for all adreno related info
  * @dev: Reference to struct kgsl_device
@@ -520,7 +515,7 @@ struct adreno_device {
 	unsigned int highest_bank_bit;
 	unsigned int quirks;
 
-	struct coresight_device *csdev[GPU_CORESIGHT_MAX];
+	struct coresight_device *csdev[2];
 	uint32_t gpmu_throttle_counters[ADRENO_GPMU_THROTTLE_COUNTERS];
 	struct work_struct irq_storm_work;
 
@@ -733,53 +728,6 @@ struct adreno_vbif_snapshot_registers {
 	const int count;
 };
 
-/**
- * struct adreno_coresight_register - Definition for a coresight (tracebus)
- * debug register
- * @offset: Offset of the debug register in the KGSL mmio region
- * @initial: Default value to write when coresight is enabled
- * @value: Current shadow value of the register (to be reprogrammed after power
- * collapse)
- */
-struct adreno_coresight_register {
-	unsigned int offset;
-	unsigned int initial;
-	unsigned int value;
-};
-
-struct adreno_coresight_attr {
-	struct device_attribute attr;
-	struct adreno_coresight_register *reg;
-};
-
-ssize_t adreno_coresight_show_register(struct device *device,
-		struct device_attribute *attr, char *buf);
-
-ssize_t adreno_coresight_store_register(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t size);
-
-#define ADRENO_CORESIGHT_ATTR(_attrname, _reg) \
-	struct adreno_coresight_attr coresight_attr_##_attrname  = { \
-		__ATTR(_attrname, 0644, \
-		adreno_coresight_show_register, \
-		adreno_coresight_store_register), \
-		(_reg), }
-
-/**
- * struct adreno_coresight - GPU specific coresight definition
- * @registers - Array of GPU specific registers to configure trace bus output
- * @count - Number of registers in the array
- * @groups - Pointer to an attribute list of control files
- * @atid - The unique ATID value of the coresight device
- */
-struct adreno_coresight {
-	struct adreno_coresight_register *registers;
-	unsigned int count;
-	const struct attribute_group **groups;
-	unsigned int atid;
-};
-
-
 struct adreno_irq_funcs {
 	void (*func)(struct adreno_device *adreno_dev, int mask);
 };
@@ -819,7 +767,7 @@ struct adreno_gpudev {
 
 	struct adreno_perfcounters *perfcounters;
 
-	struct adreno_coresight *coresight[GPU_CORESIGHT_MAX];
+	struct adreno_coresight *coresight[2];
 
 	struct adreno_irq *irq;
 	int num_prio_levels;
@@ -987,13 +935,6 @@ int adreno_reset(struct kgsl_device *device, int fault);
 void adreno_fault_skipcmd_detached(struct adreno_device *adreno_dev,
 					 struct adreno_context *drawctxt,
 					 struct kgsl_drawobj *drawobj);
-
-void adreno_coresight_init(struct adreno_device *adreno_dev);
-
-void adreno_coresight_start(struct adreno_device *adreno_dev);
-void adreno_coresight_stop(struct adreno_device *adreno_dev);
-
-void adreno_coresight_remove(struct adreno_device *adreno_dev);
 
 bool adreno_hw_isidle(struct adreno_device *adreno_dev);
 
