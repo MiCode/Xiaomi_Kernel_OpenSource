@@ -425,7 +425,7 @@ static void ipa3_uc_wdi_event_handler(struct IpaHwSharedMemCommonMapping_t
  * @note Cannot be called from atomic context
  *
  */
-int ipa3_get_wdi_gsi_stats(struct ipa3_uc_dbg_ring_stats *stats)
+int ipa3_get_wdi_gsi_stats(struct ipa_uc_dbg_ring_stats *stats)
 {
 	int i;
 

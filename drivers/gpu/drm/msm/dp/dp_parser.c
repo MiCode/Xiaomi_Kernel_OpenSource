@@ -726,6 +726,8 @@ static int dp_parser_mst(struct dp_parser *parser)
 
 	parser->has_mst = of_property_read_bool(dev->of_node,
 			"qcom,mst-enable");
+	parser->no_mst_encoder = of_property_read_bool(dev->of_node,
+			"qcom,no-mst-encoder");
 	parser->has_mst_sideband = parser->has_mst;
 
 	pr_debug("mst parsing successful. mst:%d\n", parser->has_mst);

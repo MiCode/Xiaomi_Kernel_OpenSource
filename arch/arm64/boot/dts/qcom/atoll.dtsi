@@ -704,6 +704,33 @@
 		interrupt-controller;
 	};
 
+	qcom,memshare {
+		compatible = "qcom,memshare";
+
+		qcom,client_1 {
+			compatible = "qcom,memshare-peripheral";
+			qcom,peripheral-size = <0x0>;
+			qcom,client-id = <0>;
+			qcom,allocate-boot-time;
+			label = "modem";
+		};
+
+		qcom,client_2 {
+			compatible = "qcom,memshare-peripheral";
+			qcom,peripheral-size = <0x0>;
+			qcom,client-id = <2>;
+			label = "modem";
+		};
+
+		mem_client_3_size: qcom,client_3 {
+			compatible = "qcom,memshare-peripheral";
+			qcom,peripheral-size = <0x500000>;
+			qcom,client-id = <1>;
+			qcom,allocate-on-request;
+			label = "modem";
+		};
+	};
+
 	timer {
 		compatible = "arm,armv8-timer";
 		interrupts = <GIC_PPI 1 0xf08>,
@@ -1524,6 +1551,13 @@
 		qcom,signal-aop;
 		qcom,complete-ramdump;
 		qcom,minidump-as-elf32;
+
+		qcom,msm-bus,name = "pil-cdsp";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<MSM_BUS_MASTER_NPU MSM_BUS_SLAVE_CDSP_GEM_NOC 0 0>,
+			<MSM_BUS_MASTER_NPU MSM_BUS_SLAVE_CDSP_GEM_NOC 0 1>;
 
 		/* Inputs from turing */
 		interrupts-extended = <&pdc GIC_SPI 578 IRQ_TYPE_EDGE_RISING>,
@@ -3357,7 +3391,7 @@
 		governor = "performance";
 		qcom,src-dst-ports = <MSM_BUS_MASTER_NPU MSM_BUS_SLAVE_EBI_CH0>;
 		operating-points-v2 = <&suspendable_ddr_bw_opp_table>;
-		status = "ok";
+		status = "disabled";
 	};
 
 	npudsp_npu_ddr_bwmon: qcom,npudsp-npu-ddr-bwmon@70300 {
@@ -3375,7 +3409,7 @@
 		qcom,hw-timer-hz = <19200000>;
 		qcom,target-dev = <&npudsp_npu_ddr_bw>;
 		qcom,count-unit = <0x10000>;
-		status = "ok";
+		status = "disabled";
 	};
 
 	/delete-node/gpu-bw-tbl;

@@ -283,6 +283,7 @@ dtb-$(CONFIG_ARCH_SDXPRAIRIE) += sdxprairie-rumi.dtb \
 	sdxprairie-dsda-cdp.dtb \
 	sdxprairie-mtp.dtb \
 	sdxprairie-pcie-ep-mtp.dtb \
+	sdxprairie-v2-pcie-ep-mtp.dtb \
 	sdxprairie-mtp-cpe.dtb \
 	sdxprairie-cdp-cpe.dtb \
 	sdxprairie-mtp-le-cpe.dtb \

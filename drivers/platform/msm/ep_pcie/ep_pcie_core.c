@@ -566,7 +566,6 @@ static void ep_pcie_config_mmio(struct ep_pcie_dev_t *dev)
 	ep_pcie_write_reg(dev->mmio, PCIE20_MHIVER, 0x1000000);
 	ep_pcie_write_reg(dev->mmio, PCIE20_BHI_VERSION_LOWER, 0x2);
 	ep_pcie_write_reg(dev->mmio, PCIE20_BHI_VERSION_UPPER, 0x1);
-	ep_pcie_write_reg(dev->mmio, PCIE20_BHI_INTVEC, 0xffffffff);
 
 	dev->config_mmio_init = true;
 }

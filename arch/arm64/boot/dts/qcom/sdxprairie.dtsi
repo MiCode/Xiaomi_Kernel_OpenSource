@@ -49,7 +49,7 @@
 
 		tz_apps_mem: tz_apps_region@0x90000000 {
 			no-map;
-			reg = <0x90000000 0xc00000>;
+			reg = <0x90000000 0x500000>;
 			label = "tz_apps_mem";
 		};
 
@@ -106,7 +106,7 @@
 			compatible = "shared-dma-pool";
 			reusable;
 			alignment = <0x400000>;
-			size = <0x1000000>;
+			size = <0x400000>;
 		};
 
 		audio_mem: audio_region@0 {
@@ -685,7 +685,7 @@
 		};
 	};
 
-	qcom,mhi_dev_qrtr {
+	mhi_dev_qrtr: qcom,mhi_dev_qrtr {
 		compatible = "qcom,qrtr-mhi-dev";
 		qcom,net-id = <3>;
 	};
@@ -936,7 +936,7 @@
 
 	qcom_seecom: qseecom@90000000{
 		compatible = "qcom,qseecom";
-		reg = <0x90000000 0xc00000>;
+		reg = <0x90000000 0x500000>;
 		reg-names = "secapp-region";
 		memory-region = <&qseecom_mem>;
 		qcom,hlos-num-ce-hw-instances = <1>;
@@ -956,7 +956,7 @@
 
 	qcom_smcinvoke: smcinvoke@90000000{
 		compatible = "qcom,smcinvoke";
-		reg = <0x90000000 0xc00000>;
+		reg = <0x90000000 0x500000>;
 		reg-names = "secapp-region";
 	};
 
@@ -1357,7 +1357,6 @@
 
 	mhi_net_device: qcom,mhi_net_dev {
 		compatible = "qcom,msm-mhi-dev-net";
-		qcom,mhi-ethernet-interface;
 		status = "disabled";
 	};
 

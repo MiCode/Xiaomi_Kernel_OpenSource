@@ -12,7 +12,6 @@
 
 #include <linux/list.h>
 #include <linux/mutex.h>
-#include <linux/debugfs.h>
 
 #include <linux/pci.h>
 #include <linux/msm_pcie.h>
@@ -20,8 +19,6 @@
 #include "ipa_eth_i.h"
 
 struct ipa_eth_pci_driver {
-	struct list_head driver_list;
-
 	struct ipa_eth_net_driver *nd;
 
 	int (*probe_real)(struct pci_dev *dev, const struct pci_device_id *id);
@@ -32,67 +29,46 @@ struct ipa_eth_pci_driver {
 
 struct ipa_eth_pci_device {
 	struct ipa_eth_device *eth_dev;
-	struct ipa_eth_pci_driver *epci_drv;
+	struct ipa_eth_pci_driver *eth_pdrv;
 	struct msm_pcie_register_event pcie_event;
 };
 
-#define eth_dev_pm_ops(edev) \
-	(((struct ipa_eth_pci_device *)edev->bus_priv)->epci_drv->pm_ops_real)
+#define eth_dev_to_pdev(e) \
+	((struct ipa_eth_pci_device *)e->bus_priv)
 
-static LIST_HEAD(pci_drivers);
-static DEFINE_MUTEX(pci_drivers_mutex);
+#define eth_dev_pm_ops(e) \
+	(eth_dev_to_pdev(e)->eth_pdrv->pm_ops_real)
 
-static LIST_HEAD(pci_devices);
-static DEFINE_MUTEX(pci_devices_mutex);
+static LIST_HEAD(ipa_eth_pci_drivers);
+static DEFINE_MUTEX(ipa_eth_pci_drivers_mutex);
 
-static struct dentry *ipa_eth_pci_debugfs;
+static LIST_HEAD(ipa_eth_pci_devices);
+static DEFINE_MUTEX(ipa_eth_pci_devices_mutex);
 
 static bool ipa_eth_pci_is_ready;
 
-static void ipa_eth_pci_debugfs_cleanup(void)
+static struct ipa_eth_pci_driver *__lookup_eth_pdrv(
+					struct pci_driver *pdrv)
 {
-	debugfs_remove_recursive(ipa_eth_pci_debugfs);
-}
+	struct ipa_eth_net_driver *nd;
 
-static int ipa_eth_pci_debugfs_init(struct dentry *dbgfs_root)
-{
-	if (!dbgfs_root)
-		return 0;
-
-	ipa_eth_pci_debugfs = debugfs_create_dir("pci", dbgfs_root);
-	if (IS_ERR_OR_NULL(ipa_eth_pci_debugfs)) {
-		int rc = ipa_eth_pci_debugfs ?
-			PTR_ERR(ipa_eth_pci_debugfs) : -EFAULT;
-
-		ipa_eth_pci_debugfs = NULL;
-		return rc;
-	}
-
-	return 0;
-}
-
-static struct ipa_eth_pci_driver *__lookup_epci_driver(
-					struct pci_driver *pci_drv)
-{
-	struct ipa_eth_pci_driver *epci_drv;
-
-	list_for_each_entry(epci_drv, &pci_drivers, driver_list) {
-		if (epci_drv->nd->driver == &pci_drv->driver)
-			return epci_drv;
+	list_for_each_entry(nd, &ipa_eth_pci_drivers, bus_driver_list) {
+		if (nd->driver == &pdrv->driver)
+			return nd->bus_priv;
 	}
 
 	return NULL;
 }
 
-static struct ipa_eth_pci_driver *lookup_epci_driver(struct pci_driver *pci_drv)
+static struct ipa_eth_pci_driver *lookup_eth_pdrv(struct pci_driver *pdrv)
 {
-	struct ipa_eth_pci_driver *epci_drv;
+	struct ipa_eth_pci_driver *eth_pdrv;
 
-	mutex_lock(&pci_drivers_mutex);
-	epci_drv = __lookup_epci_driver(pci_drv);
-	mutex_unlock(&pci_drivers_mutex);
+	mutex_lock(&ipa_eth_pci_drivers_mutex);
+	eth_pdrv = __lookup_eth_pdrv(pdrv);
+	mutex_unlock(&ipa_eth_pci_drivers_mutex);
 
-	return epci_drv;
+	return eth_pdrv;
 }
 
 static struct ipa_eth_device *__lookup_eth_dev(struct pci_dev *pdev)
@@ -100,7 +76,7 @@ static struct ipa_eth_device *__lookup_eth_dev(struct pci_dev *pdev)
 	struct device *dev = &pdev->dev;
 	struct ipa_eth_device *eth_dev;
 
-	list_for_each_entry(eth_dev, &pci_devices, bus_device_list) {
+	list_for_each_entry(eth_dev, &ipa_eth_pci_devices, bus_device_list) {
 		if (eth_dev->dev == dev)
 			return eth_dev;
 	}
@@ -112,47 +88,168 @@ static struct ipa_eth_device *lookup_eth_dev(struct pci_dev *pdev)
 {
 	struct ipa_eth_device *eth_dev;
 
-	mutex_lock(&pci_devices_mutex);
+	mutex_lock(&ipa_eth_pci_devices_mutex);
 	eth_dev = __lookup_eth_dev(pdev);
-	mutex_unlock(&pci_devices_mutex);
+	mutex_unlock(&ipa_eth_pci_devices_mutex);
 
 	return eth_dev;
 }
 
-static void ipa_eth_pcie_event_cb(struct msm_pcie_notify *notify)
+static bool is_driver_used(struct ipa_eth_pci_driver *eth_pdrv)
 {
-	struct pci_dev *pdev = notify->user;
+	bool in_use = false;
 	struct ipa_eth_device *eth_dev;
 
+	list_for_each_entry(eth_dev, &ipa_eth_pci_devices, bus_device_list) {
+		if (eth_dev_to_pdev(eth_dev)->eth_pdrv == eth_pdrv) {
+			in_use = true;
+			break;
+		}
+	}
+
+	return in_use;
+}
+
+static void ipa_eth_pcie_event_wakeup(struct pci_dev *pdev)
+{
+	struct ipa_eth_device *eth_dev;
+
+	/* We are not expected to be re-entrant while processing wake up
+	 * event.
+	 */
 	eth_dev = __lookup_eth_dev(pdev);
 	if (!eth_dev) {
 		ipa_eth_bug("Failed to lookup eth device");
 		return;
 	}
 
-	ipa_eth_dev_log(eth_dev, "Received PCIe event %d", notify->event);
+	/* Just set the flag here. ipa_eth_pm_notifier_cb() will later
+	 * schedule global refresh.
+	 */
+	if (eth_dev->start_on_wakeup)
+		eth_dev->start = true;
+}
+
+static void ipa_eth_pcie_event_cb(struct msm_pcie_notify *notify)
+{
+	struct pci_dev *pdev = notify->user;
+
+	ipa_eth_log("Received PCIe event %d", notify->event);
 
 	switch (notify->event) {
 	case MSM_PCIE_EVENT_WAKEUP:
-		/* Just set the flag here. ipa_eth_pm_notifier_cb() will later
-		 * schedule global refresh.
-		 */
-		if (eth_dev->start_on_wakeup)
-			eth_dev->start = true;
+		ipa_eth_pcie_event_wakeup(pdev);
 		break;
 	default:
 		break;
 	}
 }
 
+static struct ipa_eth_device *ipa_eth_pci_alloc_device(
+	struct pci_dev *pdev,
+	struct ipa_eth_pci_driver *eth_pdrv)
+{
+	struct device *dev = &pdev->dev;
+	struct ipa_eth_device *eth_dev;
+	struct ipa_eth_pci_device *eth_pdev;
+
+	eth_pdev = devm_kzalloc(dev, sizeof(*eth_pdev), GFP_KERNEL);
+	if (!eth_pdev)
+		return NULL;
+
+	eth_dev = ipa_eth_alloc_device(dev, eth_pdrv->nd);
+	if (!eth_dev) {
+		ipa_eth_err("Failed to alloc eth device");
+		devm_kfree(dev, eth_pdev);
+		return NULL;
+	}
+
+	eth_pdev->eth_dev = eth_dev;
+	eth_pdev->eth_pdrv = eth_pdrv;
+
+	eth_pdev->pcie_event.events = MSM_PCIE_EVENT_WAKEUP;
+	eth_pdev->pcie_event.user = pdev;
+	eth_pdev->pcie_event.mode = MSM_PCIE_TRIGGER_CALLBACK;
+	eth_pdev->pcie_event.callback = ipa_eth_pcie_event_cb;
+
+	eth_dev->bus_priv = eth_pdev;
+
+	return eth_dev;
+}
+
+static void ipa_eth_pci_free_device(struct ipa_eth_device *eth_dev)
+{
+	struct device *dev = eth_dev->dev;
+	struct ipa_eth_pci_device *eth_pdev = eth_dev->bus_priv;
+
+	if (eth_pdev) {
+		memset(eth_pdev, 0, sizeof(*eth_pdev));
+		devm_kfree(dev, eth_pdev);
+	}
+
+	ipa_eth_free_device(eth_dev);
+}
+
+static int ipa_eth_pci_register_device(
+	struct pci_dev *pdev,
+	struct ipa_eth_pci_driver *eth_pdrv)
+{
+	int rc;
+	struct ipa_eth_device *eth_dev;
+
+	eth_dev = ipa_eth_pci_alloc_device(pdev, eth_pdrv);
+	if (!eth_dev) {
+		rc = -ENOMEM;
+		ipa_eth_err("Failed to alloc eth pci device");
+		goto err_alloc;
+	}
+
+	rc = ipa_eth_register_device(eth_dev);
+	if (rc) {
+		ipa_eth_dev_err(eth_dev, "Failed to register eth device");
+		goto err_register;
+	}
+
+	mutex_lock(&ipa_eth_pci_devices_mutex);
+	list_add(&eth_dev->bus_device_list, &ipa_eth_pci_devices);
+	mutex_unlock(&ipa_eth_pci_devices_mutex);
+
+	rc = msm_pcie_register_event(&eth_dev_to_pdev(eth_dev)->pcie_event);
+	if (rc) {
+		ipa_eth_dev_err(eth_dev, "Failed to register for PCIe event");
+		goto err_pcie_register;
+	}
+
+	return 0;
+
+err_pcie_register:
+	ipa_eth_unregister_device(eth_dev);
+err_register:
+	ipa_eth_pci_free_device(eth_dev);
+err_alloc:
+	return rc;
+}
+
+static void ipa_eth_pci_unregister_device(struct ipa_eth_device *eth_dev)
+{
+	/* Deregister event handler first to prevent possible race with
+	 * __lookup_eth_dev() while remove the device from devices list.
+	 */
+	msm_pcie_deregister_event(&eth_dev_to_pdev(eth_dev)->pcie_event);
+
+	mutex_lock(&ipa_eth_pci_devices_mutex);
+	list_del(&eth_dev->bus_device_list);
+	mutex_unlock(&ipa_eth_pci_devices_mutex);
+
+	ipa_eth_unregister_device(eth_dev);
+	ipa_eth_pci_free_device(eth_dev);
+}
+
 static int ipa_eth_pci_probe_handler(struct pci_dev *pdev,
 				     const struct pci_device_id *id)
 {
 	int rc = 0;
-	struct device *dev = &pdev->dev;
-	struct ipa_eth_device *eth_dev;
-	struct ipa_eth_pci_device *epci_dev;
-	struct ipa_eth_pci_driver *epci_drv;
+	struct ipa_eth_pci_driver *eth_pdrv;
 
 	ipa_eth_dbg("PCI probe called for %s driver with devfn %u",
 		    pdev->driver->name, pdev->devfn);
@@ -163,78 +260,36 @@ static int ipa_eth_pci_probe_handler(struct pci_dev *pdev,
 		return -EPROBE_DEFER;
 	}
 
-	epci_drv = lookup_epci_driver(pdev->driver);
-	if (!epci_drv) {
+	eth_pdrv = lookup_eth_pdrv(pdev->driver);
+	if (!eth_pdrv) {
 		ipa_eth_bug("Failed to lookup epci driver");
 		return -EFAULT;
 	}
 
-	rc = epci_drv->probe_real(pdev, id);
+	rc = eth_pdrv->probe_real(pdev, id);
 	if (rc) {
 		ipa_eth_err("Failed real PCI probe of devfn=%u");
 		goto err_probe;
 	}
 
-	eth_dev = devm_kzalloc(dev, sizeof(*eth_dev), GFP_KERNEL);
-	if (!eth_dev) {
-		rc = -ENOMEM;
-		goto err_alloc_edev;
-	}
-
-	eth_dev->dev = dev;
-	eth_dev->nd = epci_drv->nd;
-
-	epci_dev = devm_kzalloc(dev, sizeof(*epci_dev), GFP_KERNEL);
-	if (!epci_dev) {
-		rc = -ENOMEM;
-		goto err_alloc_epdev;
-	}
-
-	eth_dev->bus_priv = epci_dev;
-
-	epci_dev->eth_dev = eth_dev;
-	epci_dev->epci_drv = epci_drv;
-
-	epci_dev->pcie_event.events = MSM_PCIE_EVENT_WAKEUP;
-	epci_dev->pcie_event.user = pdev;
-	epci_dev->pcie_event.mode = MSM_PCIE_TRIGGER_CALLBACK;
-	epci_dev->pcie_event.callback = ipa_eth_pcie_event_cb;
-
-	rc = msm_pcie_register_event(&epci_dev->pcie_event);
+	rc = ipa_eth_pci_register_device(pdev, eth_pdrv);
 	if (rc) {
-		ipa_eth_dev_err(eth_dev, "Failed to register for PCIe event");
-		goto err_register_pcie;
-	}
-
-	rc = ipa_eth_register_device(eth_dev);
-	if (rc) {
-		ipa_eth_dev_err(eth_dev, "Failed to register PCI devfn=%u");
+		ipa_eth_err("Failed to register PCI eth device");
 		goto err_register;
 	}
-
-	mutex_lock(&pci_devices_mutex);
-	list_add(&eth_dev->bus_device_list, &pci_devices);
-	mutex_unlock(&pci_devices_mutex);
 
 	return 0;
 
 err_register:
-	msm_pcie_deregister_event(&epci_dev->pcie_event);
-err_register_pcie:
-	devm_kfree(dev, epci_dev);
-err_alloc_epdev:
-	devm_kfree(dev, eth_dev);
-err_alloc_edev:
-	epci_drv->remove_real(pdev);
+	eth_pdrv->remove_real(pdev);
 err_probe:
 	return rc;
 }
 
 static void ipa_eth_pci_remove_handler(struct pci_dev *pdev)
 {
-	struct device *dev = &pdev->dev;
 	struct ipa_eth_device *eth_dev = NULL;
-	struct ipa_eth_pci_device *epci_dev = NULL;
+	struct ipa_eth_pci_driver *eth_pdrv = NULL;
 
 	ipa_eth_dbg("PCI remove called for %s driver with devfn %u",
 		    pdev->driver->name, pdev->devfn);
@@ -245,22 +300,11 @@ static void ipa_eth_pci_remove_handler(struct pci_dev *pdev)
 		return;
 	}
 
-	mutex_lock(&pci_devices_mutex);
-	list_del(&eth_dev->bus_device_list);
-	mutex_unlock(&pci_devices_mutex);
+	eth_pdrv = eth_dev_to_pdev(eth_dev)->eth_pdrv;
 
-	epci_dev = eth_dev->bus_priv;
+	ipa_eth_pci_unregister_device(eth_dev);
 
-	ipa_eth_unregister_device(eth_dev);
-	msm_pcie_deregister_event(&epci_dev->pcie_event);
-
-	epci_dev->epci_drv->remove_real(pdev);
-
-	memset(epci_dev, 0, sizeof(*epci_dev));
-	devm_kfree(dev, epci_dev);
-
-	memset(eth_dev, 0, sizeof(*eth_dev));
-	devm_kfree(dev, eth_dev);
+	eth_pdrv->remove_real(pdev);
 }
 
 static int ipa_eth_pci_suspend_handler(struct device *dev)
@@ -349,75 +393,91 @@ static const struct dev_pm_ops ipa_eth_pci_pm_ops = {
 	.resume = ipa_eth_pci_resume_handler,
 };
 
-static int ipa_eth_pci_register_net_driver(struct ipa_eth_net_driver *nd)
+static bool ipa_eth_pci_check_driver(struct pci_driver *pdrv)
 {
-	struct pci_driver *pci_drv;
-	struct ipa_eth_pci_driver *epci_drv;
+	return
+		pdrv->name &&
+		pdrv->probe &&
+		pdrv->remove &&
+		pdrv->driver.pm &&
+		pdrv->driver.pm->suspend &&
+		pdrv->driver.pm->resume;
+}
 
-	if (!nd) {
-		ipa_eth_err("Network driver is NULL");
+static struct ipa_eth_pci_driver *ipa_eth_pci_setup_driver(
+	struct pci_driver *pdrv,
+	struct ipa_eth_net_driver *nd)
+{
+	struct ipa_eth_pci_driver *eth_pdrv;
+
+	eth_pdrv = kzalloc(sizeof(*eth_pdrv), GFP_KERNEL);
+	if (!eth_pdrv)
+		return NULL;
+
+	eth_pdrv->probe_real = pdrv->probe;
+	pdrv->probe = ipa_eth_pci_probe_handler;
+
+	eth_pdrv->remove_real = pdrv->remove;
+	pdrv->remove = ipa_eth_pci_remove_handler;
+
+	eth_pdrv->pm_ops_real = pdrv->driver.pm;
+	pdrv->driver.pm = &ipa_eth_pci_pm_ops;
+
+	eth_pdrv->nd = nd;
+	nd->bus_priv = eth_pdrv;
+
+	return eth_pdrv;
+}
+
+static void ipa_eth_pci_reset_driver(struct ipa_eth_net_driver *nd)
+{
+	struct pci_driver *pdrv = to_pci_driver(nd->driver);
+	struct ipa_eth_pci_driver *eth_pdrv = nd->bus_priv;
+
+	if (is_driver_used(eth_pdrv))
+		ipa_eth_bug("Driver is still being used by a device");
+
+	nd->bus_priv = NULL;
+
+	pdrv->probe = eth_pdrv->probe_real;
+	pdrv->remove = eth_pdrv->remove_real;
+	pdrv->driver.pm = eth_pdrv->pm_ops_real;
+
+	memset(eth_pdrv, 0, sizeof(*eth_pdrv));
+	kfree(eth_pdrv);
+}
+
+static int ipa_eth_pci_register_driver(struct ipa_eth_net_driver *nd)
+{
+	struct pci_driver *pdrv;
+	struct ipa_eth_pci_driver *eth_pdrv;
+
+	pdrv = to_pci_driver(nd->driver);
+
+	if (!ipa_eth_pci_check_driver(pdrv)) {
+		ipa_eth_err("PCI driver validation failed for %s", nd->name);
 		return -EINVAL;
 	}
 
-	pci_drv = to_pci_driver(nd->driver);
-
-	if (WARN_ON(!pci_drv->probe || !pci_drv->remove)) {
-		ipa_eth_err("PCI net driver %s lacking probe/remove callbacks",
-			nd->name);
-		return -EFAULT;
-	}
-
-	if (!pci_drv->driver.pm || !pci_drv->driver.pm->suspend ||
-			!pci_drv->driver.pm->resume) {
-		ipa_eth_err("PCI net driver %s does not support PM ops",
-			nd->name);
-		return -EFAULT;
-	}
-
-	epci_drv = kzalloc(sizeof(*epci_drv), GFP_KERNEL);
-	if (!epci_drv)
+	eth_pdrv = ipa_eth_pci_setup_driver(pdrv, nd);
+	if (!eth_pdrv)
 		return -ENOMEM;
 
-	epci_drv->probe_real = pci_drv->probe;
-	pci_drv->probe = ipa_eth_pci_probe_handler;
-
-	epci_drv->remove_real = pci_drv->remove;
-	pci_drv->remove = ipa_eth_pci_remove_handler;
-
-	epci_drv->pm_ops_real = pci_drv->driver.pm;
-	pci_drv->driver.pm = &ipa_eth_pci_pm_ops;
-
-	epci_drv->nd = nd;
-
-	mutex_lock(&pci_drivers_mutex);
-	list_add(&epci_drv->driver_list, &pci_drivers);
-	mutex_unlock(&pci_drivers_mutex);
+	mutex_lock(&ipa_eth_pci_drivers_mutex);
+	list_add(&nd->bus_driver_list, &ipa_eth_pci_drivers);
+	mutex_unlock(&ipa_eth_pci_drivers_mutex);
 
 	return 0;
-
 }
 
-static void ipa_eth_pci_unregister_net_driver(struct ipa_eth_net_driver *nd)
+static void ipa_eth_pci_unregister_driver(struct ipa_eth_net_driver *nd)
 {
-	struct pci_driver *pci_drv = to_pci_driver(nd->driver);
-	struct ipa_eth_pci_driver *epci_drv = lookup_epci_driver(pci_drv);
 
-	if (!epci_drv) {
-		ipa_eth_bug("Failed to lookup epci driver");
-		return;
-	}
+	mutex_lock(&ipa_eth_pci_drivers_mutex);
+	list_del(&nd->bus_driver_list);
+	mutex_unlock(&ipa_eth_pci_drivers_mutex);
 
-	mutex_lock(&pci_drivers_mutex);
-	list_del(&epci_drv->driver_list);
-	mutex_unlock(&pci_drivers_mutex);
-
-	pci_drv->probe = epci_drv->probe_real;
-	pci_drv->remove = epci_drv->remove_real;
-
-	pci_drv->driver.pm = epci_drv->pm_ops_real;
-
-	memset(epci_drv, 0, sizeof(*epci_drv));
-	kfree(epci_drv);
+	ipa_eth_pci_reset_driver(nd);
 }
 
 /**
@@ -476,22 +536,14 @@ static int ipa_eth_pci_disable_pc(struct ipa_eth_device *eth_dev)
 
 struct ipa_eth_bus ipa_eth_pci_bus = {
 	.bus = &pci_bus_type,
-	.register_net_driver = ipa_eth_pci_register_net_driver,
-	.unregister_net_driver = ipa_eth_pci_unregister_net_driver,
+	.register_driver = ipa_eth_pci_register_driver,
+	.unregister_driver = ipa_eth_pci_unregister_driver,
 	.enable_pc = ipa_eth_pci_enable_pc,
 	.disable_pc = ipa_eth_pci_disable_pc,
 };
 
-int ipa_eth_pci_modinit(struct dentry *dbgfs_root)
+int ipa_eth_pci_modinit(void)
 {
-	int rc;
-
-	rc = ipa_eth_pci_debugfs_init(dbgfs_root);
-	if (rc) {
-		ipa_eth_err("Unable to create debugfs root for pci bus");
-		return rc;
-	}
-
 	ipa_eth_pci_is_ready = true;
 
 	ipa_eth_log("Offload sub-system pci bus module init is complete");
@@ -507,6 +559,4 @@ void ipa_eth_pci_modexit(void)
 		return;
 
 	ipa_eth_pci_is_ready = false;
-
-	ipa_eth_pci_debugfs_cleanup();
 }

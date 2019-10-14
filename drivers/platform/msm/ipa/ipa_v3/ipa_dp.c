@@ -2496,8 +2496,11 @@ static void ipa3_cleanup_rx(struct ipa3_sys_context *sys)
 	list_for_each_entry_safe(rx_pkt, r,
 				 &sys->rcycl_list, link) {
 		list_del(&rx_pkt->link);
-		dma_unmap_single(ipa3_ctx->pdev, rx_pkt->data.dma_addr,
-			sys->rx_buff_sz, DMA_FROM_DEVICE);
+		if (rx_pkt->data.dma_addr)
+			dma_unmap_single(ipa3_ctx->pdev, rx_pkt->data.dma_addr,
+				sys->rx_buff_sz, DMA_FROM_DEVICE);
+		else
+			IPADBG("DMA address already freed\n");
 		sys->free_skb(rx_pkt->data.skb);
 		kmem_cache_free(ipa3_ctx->rx_pkt_wrapper_cache, rx_pkt);
 	}

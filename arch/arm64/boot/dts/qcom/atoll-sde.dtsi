@@ -511,7 +511,7 @@
 		qcom,aux-cfg8-settings = [40 bb];
 		qcom,aux-cfg9-settings = [44 03];
 
-		qcom,max-pclk-frequency-khz = <675000>;
+		qcom,max-pclk-frequency-khz = <337500>;
 		qcom,max-hdisplay = <2560>;
 		qcom,max-vdisplay = <1600>;
 		qcom,no-mst-encoder;

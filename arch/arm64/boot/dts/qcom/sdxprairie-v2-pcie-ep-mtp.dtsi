@@ -21,37 +21,8 @@
 	qcom,force-warm-reboot;
 };
 
-/* delete pm8150b nodes */
-&soc {
-	/delete-node/ thermal-zones;
-};
-
-&usb {
-	extcon = <&vbus_detect>;
-	qcom,smmu-s1-bypass;
-};
-
-&spmi_bus {
-	/delete-node/ qpnp,fg;
-	/delete-node/ bcl@1d00;
-	/delete-node/ qcom,usb-pdphy@1700;
-	/delete-node/ qcom,qpnp-smb5;
-	/delete-node/ adc_tm@3500;
-	/delete-node/ vadc@3100;
-	/delete-node/ qcom,pm8150b@2;
-	/delete-node/ qcom,pm8150b@3;
-};
-
-&qnand_1 {
-	status = "ok";
-};
-
-&blsp1_uart2b_hs {
-	status = "ok";
-};
-
-&vbus_detect {
-	status = "ok";
+&pcie0 {
+	status = "disabled";
 };
 
 &cnss_qca6390 {
@@ -60,10 +31,6 @@
 
 &ipa_hw {
 	qcom,use-ipa-in-mhi-mode;
-};
-
-&pcie0 {
-	status = "disabled";
 };
 
 &pcie_ep {
@@ -76,4 +43,8 @@
 
 &mhi_net_device {
 	status = "ok";
+};
+
+&mhi_dev_qrtr {
+	status = "disabled";
 };
