@@ -405,10 +405,6 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 
 	adreno_dev->irq_mask = A6XX_INT_MASK;
 
-	/* runtime adjust callbacks based on feature sets */
-	if (!gmu_core_isenabled(device))
-		/* Legacy idle management if gmu is disabled */
-		ADRENO_GPU_DEVICE(adreno_dev)->hw_isidle = NULL;
 	/* enable hardware clockgating */
 	a6xx_hwcg_set(adreno_dev, true);
 
@@ -986,17 +982,24 @@ static void a6xx_gpu_keepalive(struct adreno_device *adreno_dev,
 			ADRENO_REG_GMU_PWR_COL_KEEPALIVE, state);
 }
 
-/* Bitmask for GPU idle status check */
-#define GPUBUSYIGNAHB		BIT(23)
 static bool a6xx_hw_isidle(struct adreno_device *adreno_dev)
 {
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int reg;
 
-	gmu_core_regread(KGSL_DEVICE(adreno_dev),
-		A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS, &reg);
-	if (reg & GPUBUSYIGNAHB)
-		return false;
-	return true;
+	/* Non GMU devices monitor the RBBM status */
+	if (!gmu_core_isenabled(device)) {
+		kgsl_regread(device, A6XX_RBBM_STATUS, &reg);
+		if (reg & 0xfffffffe)
+			return false;
+
+		return adreno_irq_pending(adreno_dev) ? false : true;
+	}
+
+	gmu_core_regread(device, A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS, &reg);
+
+	/* Bit 23 is GPUBUSYIGNAHB */
+	return (reg & BIT(23)) ? false : true;
 }
 
 /*
@@ -2585,7 +2588,7 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.read_throttling_counters = a6xx_read_throttling_counters,
 	.microcode_read = a6xx_microcode_read,
 	.gpu_keepalive = a6xx_gpu_keepalive,
-	.hw_isidle = a6xx_hw_isidle, /* Replaced by NULL if GMU is disabled */
+	.hw_isidle = a6xx_hw_isidle,
 	.iommu_fault_block = a6xx_iommu_fault_block,
 	.reset = a6xx_reset,
 	.preemption_pre_ibsubmit = a6xx_preemption_pre_ibsubmit,

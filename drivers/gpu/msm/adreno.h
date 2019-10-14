@@ -340,7 +340,6 @@ struct adreno_reglist {
  * @gpudev: Pointer to the GPU family specific functions for this core
  * @gmem_base: Base address of binning memory (GMEM/OCMEM)
  * @gmem_size: Amount of binning memory (GMEM/OCMEM) to reserve for the core
- * @busy_mask: mask to check if GPU is busy in RBBM_STATUS
  * @bus_width: Bytes transferred in 1 cycle
  */
 struct adreno_gpu_core {
@@ -350,7 +349,6 @@ struct adreno_gpu_core {
 	struct adreno_gpudev *gpudev;
 	unsigned long gmem_base;
 	size_t gmem_size;
-	unsigned int busy_mask;
 	u32 bus_width;
 	/** @snapshot_size: Size of the static snapshot region in bytes */
 	u32 snapshot_size;
@@ -889,7 +887,6 @@ int adreno_switch_to_unsecure_mode(struct adreno_device *adreno_dev,
 void adreno_spin_idle_debug(struct adreno_device *adreno_dev, const char *str);
 int adreno_spin_idle(struct adreno_device *device, unsigned int timeout);
 int adreno_idle(struct kgsl_device *device);
-bool adreno_isidle(struct kgsl_device *device);
 
 int adreno_set_constraint(struct kgsl_device *device,
 				struct kgsl_context *context,
@@ -904,8 +901,6 @@ int adreno_reset(struct kgsl_device *device, int fault);
 void adreno_fault_skipcmd_detached(struct adreno_device *adreno_dev,
 					 struct adreno_context *drawctxt,
 					 struct kgsl_drawobj *drawobj);
-
-bool adreno_hw_isidle(struct adreno_device *adreno_dev);
 
 void adreno_fault_detect_start(struct adreno_device *adreno_dev);
 void adreno_fault_detect_stop(struct adreno_device *adreno_dev);
@@ -946,6 +941,13 @@ void adreno_rscc_regread(struct adreno_device *adreno_dev,
 void adreno_isense_regread(struct adreno_device *adreno_dev,
 		unsigned int offsetwords, unsigned int *value);
 
+/**
+ * adreno_irq_pending - Return true if an interrupt is pending
+ * @adreno_dev: An Adreno GPU device handle
+ *
+ * Returns: true if interrupts are pending on the device
+ */
+bool adreno_irq_pending(struct adreno_device *adreno_dev);
 
 #define ADRENO_TARGET(_name, _id) \
 static inline int adreno_is_##_name(struct adreno_device *adreno_dev) \

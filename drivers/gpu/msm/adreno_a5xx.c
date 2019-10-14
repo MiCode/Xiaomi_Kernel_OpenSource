@@ -2752,6 +2752,26 @@ static irqreturn_t a5xx_irq_handler(struct adreno_device *adreno_dev)
 	return ret;
 }
 
+static bool a5xx_hw_isidle(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	u32 status;
+
+	/*
+	 * Due to CRC idle throttling the GPU idle hysteresis on a540 can take
+	 * up to 5uS to expire
+	 */
+	if (adreno_is_a540(adreno_dev))
+		udelay(5);
+
+	kgsl_regread(device, A5XX_RBBM_STATUS, &status);
+
+	if (status & 0xfffffffe)
+		return false;
+
+	return adreno_irq_pending(adreno_dev) ? false : true;
+}
+
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT
 static struct adreno_coresight_register a5xx_coresight_registers[] = {
 	{ A5XX_RBBM_CFG_DBGBUS_SEL_A },
@@ -2978,4 +2998,5 @@ struct adreno_gpudev adreno_a5xx_gpudev = {
 	.preemption_schedule = a5xx_preemption_schedule,
 	.clk_set_options = a5xx_clk_set_options,
 	.read_alwayson = a5xx_read_alwayson,
+	.hw_isidle = a5xx_hw_isidle,
 };

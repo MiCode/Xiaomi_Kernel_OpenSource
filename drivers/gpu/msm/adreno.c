@@ -2740,7 +2740,7 @@ static int adreno_setproperty(struct kgsl_device_private *dev_priv,
  *
  * Returns true if interrupts are pending from device else 0.
  */
-inline unsigned int adreno_irq_pending(struct adreno_device *adreno_dev)
+bool adreno_irq_pending(struct adreno_device *adreno_dev)
 {
 	unsigned int status;
 
@@ -2755,48 +2755,9 @@ inline unsigned int adreno_irq_pending(struct adreno_device *adreno_dev)
 	 */
 	if ((status & adreno_dev->irq_mask) ||
 		atomic_read(&adreno_dev->pending_irq_refcnt))
-		return 1;
-	else
-		return 0;
-}
+		return true;
 
-
-/**
- * adreno_hw_isidle() - Check if the GPU core is idle
- * @adreno_dev: Pointer to the Adreno device structure for the GPU
- *
- * Return true if the RBBM status register for the GPU type indicates that the
- * hardware is idle
- */
-bool adreno_hw_isidle(struct adreno_device *adreno_dev)
-{
-	const struct adreno_gpu_core *gpucore = adreno_dev->gpucore;
-	unsigned int reg_rbbm_status;
-	struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
-
-	/* if hw driver implements idle check - use it */
-	if (gpudev->hw_isidle)
-		return gpudev->hw_isidle(adreno_dev);
-
-	if (adreno_is_a540(adreno_dev))
-		/**
-		 * Due to CRC idle throttling GPU
-		 * idle hysteresys can take up to
-		 * 3usec for expire - account for it
-		 */
-		udelay(5);
-
-	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_STATUS,
-		&reg_rbbm_status);
-
-	if (reg_rbbm_status & gpucore->busy_mask)
-		return false;
-
-	/* Don't consider ourselves idle if there is an IRQ pending */
-	if (adreno_irq_pending(adreno_dev))
-		return false;
-
-	return true;
+	return false;
 }
 
 /*
@@ -2884,20 +2845,13 @@ static int adreno_soft_reset(struct kgsl_device *device)
 	return ret;
 }
 
-/*
- * adreno_isidle() - return true if the GPU hardware is idle
- * @device: Pointer to the KGSL device structure for the GPU
- *
- * Return true if the GPU hardware is idle and there are no commands pending in
- * the ringbuffer
- */
-bool adreno_isidle(struct kgsl_device *device)
+static bool adreno_isidle(struct adreno_device *adreno_dev)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
 	struct adreno_ringbuffer *rb;
 	int i;
 
-	if (!kgsl_state_is_awake(device))
+	if (!kgsl_state_is_awake(KGSL_DEVICE(adreno_dev)))
 		return true;
 
 	/*
@@ -2916,7 +2870,7 @@ bool adreno_isidle(struct kgsl_device *device)
 			return false;
 	}
 
-	return adreno_hw_isidle(adreno_dev);
+	return gpudev->hw_isidle(adreno_dev);
 }
 
 /* Print some key registers if a spin-for-idle times out */
@@ -2977,7 +2931,7 @@ int adreno_spin_idle(struct adreno_device *adreno_dev, unsigned int timeout)
 		if (adreno_gpu_fault(adreno_dev) != 0)
 			return -EDEADLK;
 
-		if (adreno_isidle(KGSL_DEVICE(adreno_dev)))
+		if (adreno_isidle(adreno_dev))
 			return 0;
 
 	} while (time_before(jiffies, wait));
@@ -2990,7 +2944,7 @@ int adreno_spin_idle(struct adreno_device *adreno_dev, unsigned int timeout)
 	if (adreno_gpu_fault(adreno_dev) != 0)
 		return -EDEADLK;
 
-	if (adreno_isidle(KGSL_DEVICE(adreno_dev)))
+	if (adreno_isidle(adreno_dev))
 		return 0;
 
 	return -ETIMEDOUT;
@@ -3018,7 +2972,7 @@ int adreno_idle(struct kgsl_device *device)
 		return -EDEADLK;
 
 	/* Check if we are already idle before idling dispatcher */
-	if (adreno_isidle(device))
+	if (adreno_isidle(adreno_dev))
 		return 0;
 	/*
 	 * Wait for dispatcher to finish completing commands
@@ -3715,7 +3669,7 @@ static bool adreno_is_hw_collapsible(struct kgsl_device *device)
 			device->pwrctrl.ctrl_flags)
 		return false;
 
-	return adreno_isidle(device) && (gpudev->is_sptp_idle ?
+	return adreno_isidle(adreno_dev) && (gpudev->is_sptp_idle ?
 				gpudev->is_sptp_idle(adreno_dev) : true);
 }
 
@@ -3801,7 +3755,6 @@ static const struct kgsl_functable adreno_functable = {
 	.regread = adreno_regread,
 	.regwrite = adreno_regwrite,
 	.idle = adreno_idle,
-	.isidle = adreno_isidle,
 	.suspend_context = adreno_suspend_context,
 	.first_open = adreno_first_open,
 	.start = adreno_start,
