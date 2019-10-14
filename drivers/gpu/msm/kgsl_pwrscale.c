@@ -10,6 +10,13 @@
 #include "kgsl_pwrscale.h"
 #include "kgsl_trace.h"
 
+static struct devfreq_msm_adreno_tz_data adreno_tz_data = {
+	.bus = {
+		.max = 350,
+		.floating = true,
+	},
+};
+
 /**
  * struct kgsl_midframe_info - midframe power stats sampling info
  * @timer - midframe sampling timer
@@ -660,11 +667,19 @@ static void pwrscale_busmon_create(struct kgsl_device *device,
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct kgsl_pwrscale *pwrscale = &device->pwrscale;
 	struct device *dev = &pwrscale->busmondev;
+	struct msm_busmon_extended_profile *bus_profile;
 	struct devfreq *bus_devfreq;
 	int i;
 
-	pwrscale->bus_profile.profile.max_state = pwr->num_pwrlevels - 1;
-	pwrscale->bus_profile.profile.freq_table = table;
+	bus_profile = &pwrscale->bus_profile;
+	bus_profile->private_data = &adreno_tz_data;
+
+	bus_profile->profile.target = kgsl_busmon_target;
+	bus_profile->profile.get_dev_status = kgsl_busmon_get_dev_status;
+	bus_profile->profile.get_cur_freq = kgsl_busmon_get_cur_freq;
+
+	bus_profile->profile.max_state = pwr->num_pwrlevels - 1;
+	bus_profile->profile.freq_table = table;
 
 	dev->parent = &pdev->dev;
 
@@ -695,18 +710,25 @@ static void pwrscale_busmon_create(struct kgsl_device *device,
 int kgsl_pwrscale_init(struct kgsl_device *device, struct platform_device *pdev,
 		const char *governor)
 {
-	struct kgsl_pwrscale *pwrscale;
-	struct kgsl_pwrctrl *pwr;
+	struct kgsl_pwrscale *pwrscale = &device->pwrscale;
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct devfreq *devfreq;
 	struct msm_adreno_extended_profile *gpu_profile;
-	struct devfreq_dev_profile *profile;
-	struct devfreq_msm_adreno_tz_data *data;
 	int i, ret;
 
-	pwrscale = &device->pwrscale;
-	pwr = &device->pwrctrl;
+	pwrscale->enabled = true;
+
 	gpu_profile = &pwrscale->gpu_profile;
-	profile = &pwrscale->gpu_profile.profile;
+	gpu_profile->private_data = &adreno_tz_data;
+
+	gpu_profile->profile.target = kgsl_devfreq_target;
+	gpu_profile->profile.get_dev_status = kgsl_devfreq_get_dev_status;
+	gpu_profile->profile.get_cur_freq = kgsl_devfreq_get_cur_freq;
+
+	gpu_profile->profile.initial_freq =
+		pwr->pwrlevels[pwr->default_pwrlevel].gpu_freq;
+
+	gpu_profile->profile.polling_ms = 10;
 
 	pwr->nb.notifier_call = opp_notify;
 
@@ -714,39 +736,33 @@ int kgsl_pwrscale_init(struct kgsl_device *device, struct platform_device *pdev,
 
 	srcu_init_notifier_head(&pwrscale->nh);
 
-	profile->initial_freq =
-		pwr->pwrlevels[pwr->default_pwrlevel].gpu_freq;
-	/* Let's start with 10 ms and tune in later */
-	profile->polling_ms = 10;
 
 	/* do not include the 'off' level or duplicate freq. levels */
 	for (i = 0; i < (pwr->num_pwrlevels - 1); i++)
-		pwrscale->freq_table[out++] = pwr->pwrlevels[i].gpu_freq;
+		pwrscale->freq_table[i] = pwr->pwrlevels[i].gpu_freq;
 
 	/*
 	 * Max_state is the number of valid power levels.
 	 * The valid power levels range from 0 - (max_state - 1)
 	 */
-	profile->max_state = pwr->num_pwrlevels - 1;
+	gpu_profile->profile.max_state = pwr->num_pwrlevels - 1;
 	/* link storage array to the devfreq profile pointer */
-	profile->freq_table = pwrscale->freq_table;
+	gpu_profile->profile.freq_table = pwrscale->freq_table;
 
 	/* if there is only 1 freq, no point in running a governor */
-	if (profile->max_state == 1)
+	if (gpu_profile->profile.max_state == 1)
 		governor = "performance";
 
 	/* initialize msm-adreno-tz governor specific data here */
-	data = gpu_profile->private_data;
-
-	data->disable_busy_time_burst =
+	adreno_tz_data.disable_busy_time_burst =
 		of_property_read_bool(pdev->dev.of_node,
 		"qcom,disable-busy-time-burst");
 
 	if (pwrscale->ctxt_aware_enable) {
-		data->ctxt_aware_enable = pwrscale->ctxt_aware_enable;
-		data->bin.ctxt_aware_target_pwrlevel =
+		adreno_tz_data.ctxt_aware_enable = pwrscale->ctxt_aware_enable;
+		adreno_tz_data.bin.ctxt_aware_target_pwrlevel =
 			pwrscale->ctxt_aware_target_pwrlevel;
-		data->bin.ctxt_aware_busy_penalty =
+		adreno_tz_data.bin.ctxt_aware_busy_penalty =
 			pwrscale->ctxt_aware_busy_penalty;
 	}
 
@@ -771,18 +787,17 @@ int kgsl_pwrscale_init(struct kgsl_device *device, struct platform_device *pdev,
 	 * the bus bandwidth vote.
 	 */
 	if (pwr->bus_control) {
-		data->bus.num = pwr->bus_ibs_count;
-		data->bus.ib_mbps = pwr->bus_ibs;
-		data->bus.width = pwr->bus_width;
+		adreno_tz_data.bus.num = pwr->bus_ibs_count;
+		adreno_tz_data.bus.ib_mbps = pwr->bus_ibs;
+		adreno_tz_data.bus.width = pwr->bus_width;
 
 		if (!kgsl_of_property_read_ddrtype(device->pdev->dev.of_node,
-			"qcom,bus-accesses", &data->bus.max))
-			data->bus.floating = false;
-	} else
-		data->bus.num = 0;
+			"qcom,bus-accesses", &adreno_tz_data.bus.max))
+			adreno_tz_data.bus.floating = false;
+	}
 
-	devfreq = devfreq_add_device(&pdev->dev, &pwrscale->gpu_profile.profile,
-			governor, pwrscale->gpu_profile.private_data);
+	devfreq = devfreq_add_device(&pdev->dev, &gpu_profile->profile,
+			governor, &adreno_tz_data);
 	if (IS_ERR(devfreq)) {
 		device->pwrscale.enabled = false;
 		return PTR_ERR(devfreq);
@@ -796,7 +811,7 @@ int kgsl_pwrscale_init(struct kgsl_device *device, struct platform_device *pdev,
 
 	pwrscale->gpu_profile.bus_devfreq = NULL;
 
-	if (data->bus.num)
+	if (adreno_tz_data.bus.num)
 		pwrscale_busmon_create(device, pdev, pwrscale->freq_table);
 
 	ret = sysfs_create_link(&device->dev->kobj,

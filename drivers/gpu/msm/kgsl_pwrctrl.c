@@ -1643,6 +1643,8 @@ static u32 *kgsl_bus_get_table(struct platform_device *pdev, int *count)
 	return levels;
 }
 
+static void kgsl_idle_check(struct work_struct *work);
+
 int kgsl_pwrctrl_init(struct kgsl_device *device)
 {
 	int i, result, freq, levels_count;
@@ -1678,6 +1680,9 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 		dev_err(device->dev, "No power levels are defined\n");
 		return -EINVAL;
 	}
+
+	INIT_WORK(&device->idle_check_ws, kgsl_idle_check);
+	init_waitqueue_head(&device->active_cnt_wq);
 
 	/* Initialize the user and thermal clock constraints */
 
@@ -1786,15 +1791,12 @@ void kgsl_pwrctrl_close(struct kgsl_device *device)
 	pm_runtime_disable(&device->pdev->dev);
 }
 
-/**
- * kgsl_idle_check() - Work function for GPU interrupts and idle timeouts.
- * @device: The device
- *
+/*
  * This function is called for work that is queued by the interrupt
  * handler or the idle timer. It attempts to transition to a clocks
  * off state if the active_cnt is 0 and the hardware is idle.
  */
-void kgsl_idle_check(struct work_struct *work)
+static void kgsl_idle_check(struct work_struct *work)
 {
 	struct kgsl_device *device = container_of(work, struct kgsl_device,
 							idle_check_ws);

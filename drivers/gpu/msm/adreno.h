@@ -13,8 +13,6 @@
 #include "adreno_ringbuffer.h"
 #include "kgsl_sharedmem.h"
 
-#define DEVICE_3D0_NAME "kgsl-3d0"
-
 /* ADRENO_DEVICE - Given a kgsl_device return the adreno device struct */
 #define ADRENO_DEVICE(device) \
 		container_of(device, struct adreno_device, dev)
@@ -476,7 +474,7 @@ struct adreno_device {
 	struct adreno_ringbuffer *prev_rb;
 	unsigned int fast_hang_detect;
 	unsigned long ft_policy;
-	unsigned int long_ib_detect;
+	bool long_ib_detect;
 	unsigned long ft_pf_policy;
 	bool cooperative_reset;
 	struct adreno_profile profile;
@@ -839,13 +837,13 @@ struct adreno_gpudev {
  */
 enum kgsl_ft_policy_bits {
 	KGSL_FT_OFF = 0,
-	KGSL_FT_REPLAY = 1,
-	KGSL_FT_SKIPIB = 2,
-	KGSL_FT_SKIPFRAME = 3,
-	KGSL_FT_DISABLE = 4,
-	KGSL_FT_TEMP_DISABLE = 5,
-	KGSL_FT_THROTTLE = 6,
-	KGSL_FT_SKIPCMD = 7,
+	KGSL_FT_REPLAY,
+	KGSL_FT_SKIPIB,
+	KGSL_FT_SKIPFRAME,
+	KGSL_FT_DISABLE,
+	KGSL_FT_TEMP_DISABLE,
+	KGSL_FT_THROTTLE,
+	KGSL_FT_SKIPCMD,
 	/* KGSL_FT_MAX_BITS is used to calculate the mask */
 	KGSL_FT_MAX_BITS,
 	/* Internal bits - set during GFT */
@@ -854,11 +852,6 @@ enum kgsl_ft_policy_bits {
 };
 
 #define KGSL_FT_POLICY_MASK GENMASK(KGSL_FT_MAX_BITS - 1, 0)
-
-#define  KGSL_FT_DEFAULT_POLICY \
-	(BIT(KGSL_FT_REPLAY) | \
-	 BIT(KGSL_FT_SKIPCMD) | \
-	 BIT(KGSL_FT_THROTTLE))
 
 /**
  * enum kgsl_ft_pagefault_policy_bits - KGSL pagefault policy bits
