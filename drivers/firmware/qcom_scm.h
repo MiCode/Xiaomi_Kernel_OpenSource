@@ -154,17 +154,24 @@ extern int __qcom_scm_hdcp_req(struct device *dev,
 
 #define QCOM_SCM_SVC_SMMU_PROGRAM		0x15
 #define QCOM_SCM_SMMU_CHANGE_PGTBL_FORMAT	0x01
-#define QCOM_SCM_SMMU_CONFIG_ERRATA1		0x3
+#define QCOM_SCM_SMMU_SECURE_LUT		0x03
 extern int __qcom_scm_smmu_change_pgtbl_format(struct device *dev, u64 dev_id,
 						int cbndx);
 extern int __qcom_scm_qsmmu500_wait_safe_toggle(struct device *dev,
 						bool enable);
+extern int __qcom_scm_smmu_notify_secure_lut(struct device *dev, u64 dev_id,
+						bool secure);
 #define QCOM_SCM_SMMU_CONFIG_ERRATA1_CLIENT_ALL	0x2
 
 #define QCOM_SCM_SVC_QDSS			0x16
 #define QCOM_SCM_QDSS_INVOKE			0x01
 extern int __qcom_scm_qdss_invoke(struct device *dev, phys_addr_t addr,
 				  size_t size, u64 *out);
+
+#define QCOM_SCM_SVC_CAMERA			0x18
+#define QCOM_SCM_CAMERA_PROTECT_PHY_LANES	0x07
+extern int __qcom_scm_camera_protect_phy_lanes(struct device *dev,
+						bool protect, u64 regmask);
 
 // TOS Services and Function IDs
 #define QCOM_SCM_SVC_QSEELOG		0x01

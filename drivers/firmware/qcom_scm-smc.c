@@ -1486,7 +1486,7 @@ int __qcom_scm_qsmmu500_wait_safe_toggle(struct device *dev, bool en)
 {
 	struct qcom_scm_desc desc = {
 		.svc = QCOM_SCM_SVC_SMMU_PROGRAM,
-		.cmd = QCOM_SCM_SMMU_CONFIG_ERRATA1,
+		.cmd = QCOM_SCM_SMMU_SECURE_LUT,
 		.owner = ARM_SMCCC_OWNER_SIP,
 	};
 
@@ -1495,6 +1495,22 @@ int __qcom_scm_qsmmu500_wait_safe_toggle(struct device *dev, bool en)
 	desc.arginfo = QCOM_SCM_ARGS(2);
 
 	return qcom_scm_call_atomic(dev, &desc);
+}
+
+int __qcom_scm_smmu_notify_secure_lut(struct device *dev, u64 dev_id,
+				      bool secure)
+{
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_SMMU_PROGRAM,
+		.cmd = QCOM_SCM_SMMU_SECURE_LUT,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.args[0] = dev_id;
+	desc.args[1] = secure;
+	desc.arginfo = QCOM_SCM_ARGS(2);
+
+	return qcom_scm_call(dev, &desc);
 }
 
 int __qcom_scm_qdss_invoke(struct device *dev, phys_addr_t addr, size_t size,
@@ -1517,6 +1533,22 @@ int __qcom_scm_qdss_invoke(struct device *dev, phys_addr_t addr, size_t size,
 		*out = desc.res[1];
 
 	return ret ? : desc.res[0];
+}
+
+int __qcom_scm_camera_protect_phy_lanes(struct device *dev, bool protect,
+					 u64 regmask)
+{
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_CAMERA,
+		.cmd = QCOM_SCM_CAMERA_PROTECT_PHY_LANES,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.args[0] = protect;
+	desc.args[1] = regmask;
+	desc.arginfo = QCOM_SCM_ARGS(2);
+
+	return qcom_scm_call(dev, &desc);
 }
 
 int __qcom_scm_ice_restore_cfg(struct device *dev)

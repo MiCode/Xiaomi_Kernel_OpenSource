@@ -672,11 +672,24 @@ int qcom_scm_qsmmu500_wait_safe_toggle(bool en)
 }
 EXPORT_SYMBOL(qcom_scm_qsmmu500_wait_safe_toggle);
 
+int qcom_scm_smmu_notify_secure_lut(u64 dev_id, bool secure)
+{
+	return __qcom_scm_smmu_notify_secure_lut(__scm->dev, dev_id, secure);
+}
+EXPORT_SYMBOL(qcom_scm_smmu_notify_secure_lut);
+
 int qcom_scm_qdss_invoke(phys_addr_t paddr, size_t size, u64 *out)
 {
 	return __qcom_scm_qdss_invoke(__scm->dev, paddr, size, out);
 }
 EXPORT_SYMBOL(qcom_scm_qdss_invoke);
+
+int qcom_scm_camera_protect_phy_lanes(bool protect, u64 regmask)
+{
+	return __qcom_scm_camera_protect_phy_lanes(__scm->dev, protect,
+						    regmask);
+}
+EXPORT_SYMBOL(qcom_scm_camera_protect_phy_lanes);
 
 int qcom_scm_ice_restore_cfg(void)
 {
