@@ -644,7 +644,16 @@ void kgsl_device_platform_remove(struct kgsl_device *device);
 
 const char *kgsl_pwrstate_to_str(unsigned int state);
 
-int kgsl_device_snapshot_init(struct kgsl_device *device);
+/**
+ * kgsl_device_snapshot_probe - add resources for the device GPU snapshot
+ * @device: The device to initialize
+ * @size: The size of the static region to allocate
+ *
+ * Allocate memory for a GPU snapshot for the specified device,
+ * and create the sysfs files to manage it
+ */
+void kgsl_device_snapshot_probe(struct kgsl_device *device, u32 size);
+
 void kgsl_device_snapshot(struct kgsl_device *device,
 			struct kgsl_context *context, bool gmu_fault);
 void kgsl_device_snapshot_close(struct kgsl_device *device);

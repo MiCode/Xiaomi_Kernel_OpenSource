@@ -68,6 +68,8 @@ struct adreno_a6xx_core {
 	const struct a6xx_protected_regs *protected_regs;
 	/** @disable_tseskip: True if TSESkip logic is disabled */
 	bool disable_tseskip;
+	/** @highest_bank_bit: The bit of the highest DDR bank */
+	u32 highest_bank_bit;
 };
 
 #define CP_CLUSTER_FE		0x0

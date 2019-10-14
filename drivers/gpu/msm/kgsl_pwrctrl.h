@@ -88,7 +88,6 @@ struct kgsl_pwrlevel {
  * @interval_timeout - timeout in jiffies to be idle before a power event
  * @clock_times - Each GPU frequency's accumulated active time in us
  * @pcl - bus scale identifier
- * @irq_name - resource name for the IRQ
  * @clk_stats - structure of clock statistics
  * @input_disable - To disable GPU wakeup on touch input event
  * @bus_control - true if the bus calculation is independent
@@ -131,7 +130,6 @@ struct kgsl_pwrctrl {
 	unsigned long interval_timeout;
 	u64 clock_times[KGSL_MAX_PWRLEVELS];
 	uint32_t pcl;
-	const char *irq_name;
 	struct kgsl_clk_stats clk_stats;
 	bool input_disable;
 	bool bus_control;

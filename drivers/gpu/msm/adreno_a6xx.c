@@ -104,20 +104,11 @@ static u32 a612_pwrup_reglist[] = {
 
 static void a6xx_init(struct adreno_device *adreno_dev)
 {
+	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
-	adreno_dev->highest_bank_bit = 13;
-	of_property_read_u32(device->pdev->dev.of_node,
-		"qcom,highest-bank-bit", &adreno_dev->highest_bank_bit);
+	adreno_dev->highest_bank_bit = a6xx_core->highest_bank_bit;
 
-	if (WARN(adreno_dev->highest_bank_bit < 13 ||
-			adreno_dev->highest_bank_bit > 16,
-			"The highest-bank-bit property is invalid\n"))
-		adreno_dev->highest_bank_bit =
-			clamp_t(unsigned int, adreno_dev->highest_bank_bit,
-				13, 16);
-
-	/* LP DDR4 highest bank bit is different and needs to be overridden */
 	if (adreno_is_a650(adreno_dev) && of_fdt_get_ddrtype() == 0x7)
 		adreno_dev->highest_bank_bit = 15;
 
@@ -345,7 +336,7 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
-	unsigned int bit, lower_bit, mal, mode, upper_bit;
+	unsigned int mal, mode, hbb_hi = 0, hbb_lo = 0;
 	unsigned int uavflagprd_inv;
 	unsigned int amsbc = 0;
 	unsigned int rgb565_predicator = 0;
@@ -481,27 +472,28 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 		break;
 	}
 
-	bit = adreno_dev->highest_bank_bit ?
-		adreno_dev->highest_bank_bit - 13 : 0;
-	lower_bit = bit & 0x3;
-	upper_bit = (bit >> 0x2) & 1;
+	if (!WARN_ON(!adreno_dev->highest_bank_bit)) {
+		hbb_lo = (adreno_dev->highest_bank_bit - 13) & 3;
+		hbb_hi = ((adreno_dev->highest_bank_bit - 13) >> 2) & 1;
+	}
+
 	mal = (mal == 64) ? 1 : 0;
 
 	uavflagprd_inv = (adreno_is_a650_family(adreno_dev)) ? 2 : 0;
 
 	kgsl_regwrite(device, A6XX_RB_NC_MODE_CNTL, (rgb565_predicator << 11)|
-				(upper_bit << 10) | (amsbc << 4) | (mal << 3) |
-				(lower_bit << 1) | mode);
+				(hbb_hi << 10) | (amsbc << 4) | (mal << 3) |
+				(hbb_lo << 1) | mode);
 
-	kgsl_regwrite(device, A6XX_TPL1_NC_MODE_CNTL, (upper_bit << 4) |
-				(mal << 3) | (lower_bit << 1) | mode);
+	kgsl_regwrite(device, A6XX_TPL1_NC_MODE_CNTL, (hbb_hi << 4) |
+				(mal << 3) | (hbb_lo << 1) | mode);
 
-	kgsl_regwrite(device, A6XX_SP_NC_MODE_CNTL, (upper_bit << 10) |
+	kgsl_regwrite(device, A6XX_SP_NC_MODE_CNTL, (hbb_hi << 10) |
 				(mal << 3) | (uavflagprd_inv << 4) |
-				(lower_bit << 1) | mode);
+				(hbb_lo << 1) | mode);
 
 	kgsl_regwrite(device, A6XX_UCHE_MODE_CNTL, (mal << 23) |
-		(lower_bit << 21));
+		(hbb_lo << 21));
 
 	kgsl_regwrite(device, A6XX_RBBM_INTERFACE_HANG_INT_CNTL,
 				(1 << 30) | a6xx_core->hang_detect_cycles);
