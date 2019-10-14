@@ -1705,4 +1705,15 @@ void adreno_gmu_send_nmi(struct adreno_device *adreno_dev);
  */
 int adreno_get_firmware(struct adreno_device *adreno_dev,
 		const char *fwfile, struct adreno_firmware *firmware);
+/**
+ * adreno_zap_shader_load - Helper function for loading the zap shader
+ * adreno_dev: A handle to an Adreno GPU device
+ * name: Name of the zap shader to load
+ *
+ * A target indepedent helper function for loading the zap shader.
+ *
+ * Return: 0 on success or negative on failure.
+ */
+int adreno_zap_shader_load(struct adreno_device *adreno_dev,
+		const char *name);
 #endif /*__ADRENO_H */

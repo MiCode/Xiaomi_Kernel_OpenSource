@@ -3,11 +3,10 @@
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
+#include <linux/clk/qcom.h>
 #include <linux/of.h>
 #include <linux/of_fdt.h>
 #include <linux/soc/qcom/llcc-qcom.h>
-#include <soc/qcom/subsystem_restart.h>
-#include <linux/clk/qcom.h>
 
 #include "adreno.h"
 #include "adreno_a6xx.h"
@@ -567,8 +566,6 @@ static int a6xx_microcode_load(struct adreno_device *adreno_dev)
 	struct adreno_firmware *fw = ADRENO_FW(adreno_dev, ADRENO_FW_SQE);
 	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
 	uint64_t gpuaddr;
-	void *zap;
-	int ret = 0;
 
 	gpuaddr = fw->memdesc->gpuaddr;
 	kgsl_regwrite(device, A6XX_CP_SQE_INSTR_BASE_LO,
@@ -576,19 +573,7 @@ static int a6xx_microcode_load(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A6XX_CP_SQE_INSTR_BASE_HI,
 				upper_32_bits(gpuaddr));
 
-	/* Load the zap shader firmware through PIL if its available */
-	if (a6xx_core->zap_name && !adreno_dev->zap_loaded) {
-		zap = subsystem_get(a6xx_core->zap_name);
-
-		/* Return error if the zap shader cannot be loaded */
-		if (IS_ERR_OR_NULL(zap)) {
-			ret = (zap == NULL) ? -ENODEV : PTR_ERR(zap);
-			zap = NULL;
-		} else
-			adreno_dev->zap_loaded = 1;
-	}
-
-	return ret;
+	return adreno_zap_shader_load(adreno_dev, a6xx_core->zap_name);
 }
 
 
