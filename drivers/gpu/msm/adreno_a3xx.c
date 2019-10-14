@@ -1402,7 +1402,6 @@ struct adreno_gpudev adreno_a3xx_gpudev = {
 	.perfcounters = &a3xx_perfcounters,
 	.irq = &a3xx_irq,
 	.irq_trace = trace_kgsl_a3xx_irq_status,
-	.num_prio_levels = 1,
 	.vbif_xin_halt_ctrl0_mask = A30X_VBIF_XIN_HALT_CTRL0_MASK,
 	.platform_setup = a3xx_platform_setup,
 	.rb_start = a3xx_rb_start,

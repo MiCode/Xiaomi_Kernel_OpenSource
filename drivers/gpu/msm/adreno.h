@@ -769,7 +769,6 @@ struct adreno_gpudev {
 	struct adreno_coresight *coresight[2];
 
 	struct adreno_irq *irq;
-	int num_prio_levels;
 	unsigned int vbif_xin_halt_ctrl0_mask;
 	unsigned int gbif_client_halt_mask;
 	unsigned int gbif_arb_halt_mask;
@@ -1683,6 +1682,21 @@ static inline void adreno_deassert_gbif_halt(struct adreno_device *adreno_dev)
 				ADRENO_REG_RBBM_GBIF_HALT, 0x0);
 	}
 }
+
+/**
+ * adreno_move_preempt_state - Update the preemption state
+ * @adreno_dev: An Adreno GPU device handle
+ * @old: The current state of the preemption
+ * @new: The new state of the preemption
+ *
+ * Return: True if the state was updated or false if not
+ */
+static inline bool adreno_move_preempt_state(struct adreno_device *adreno_dev,
+	enum adreno_preempt_states old, enum adreno_preempt_states new)
+{
+	return (atomic_cmpxchg(&adreno_dev->preempt.state, old, new) == old);
+}
+
 void adreno_gmu_clear_and_unmask_irqs(struct adreno_device *adreno_dev);
 void adreno_gmu_mask_and_clear_irqs(struct adreno_device *adreno_dev);
 int adreno_gmu_fenced_write(struct adreno_device *adreno_dev,

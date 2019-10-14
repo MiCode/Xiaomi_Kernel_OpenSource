@@ -142,7 +142,6 @@ static long adreno_ioctl_preemption_counters_query(
 		unsigned int cmd, void *data)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(dev_priv->device);
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct kgsl_preemption_counters_query *read = data;
 	int size_level = A5XX_CP_CTXRECORD_PREEMPTION_COUNTER_SIZE;
 	int levels_to_copy;
@@ -156,8 +155,9 @@ static long adreno_ioctl_preemption_counters_query(
 
 	/* Calculate number of preemption counter levels to copy to userspace */
 	levels_to_copy = (read->size_user / size_level);
-	if (levels_to_copy > gpudev->num_prio_levels)
-		levels_to_copy = gpudev->num_prio_levels;
+
+	levels_to_copy = min_t(int, levels_to_copy,
+		ARRAY_SIZE(adreno_dev->ringbuffers));
 
 	if (copy_to_user(u64_to_user_ptr(read->counters),
 			adreno_dev->preempt.counters->hostptr,
