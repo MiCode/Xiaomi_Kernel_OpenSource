@@ -1,0 +1,48 @@
+QTI PMIC Glink binding
+
+This binding describes the Qualcomm Technologies, Inc. PMIC GLink device. PMIC
+Glink handles the communication between different clients (e.g. battery charger,
+UCSI PPM) on the Application processor and charger firmware running on the
+remote subsystem (e.g. DSP) over Glink channel.
+
+- compatible:
+	Usage: required
+	Value type: <stringlist>
+	Definition: must be "qcom,pmic-glink"
+
+Refer to Documentation/devicetree/bindings/soc/qcom/qcom,glink.txt for
+information on rpmsg device ("qcom,pmic_glink_rpmsg" used in the example below)
+that needs to be specified under a glink device.
+
+= SUBNODE
+
+Each subnode specifies a client of PMIC Glink device that will be instantiated
+after the PMIC Glink device initializes.
+
+= EXAMPLE
+
+= PMIC Glink rpmsg device
+
+&glink_adsp {
+	...
+	qcom,pmic_glink_rpmsg {
+		qcom,glink-channels = "PMIC_RTR_ADSP_APPS";
+	};
+	...
+};
+
+= PMIC Glink device with child subnodes
+
+&soc {
+	qcom,pmic_glink {
+		compatible = "qcom,pmic-glink";
+
+		qcom,batt_chg {
+			compatible = "qcom,battery-charger";
+		};
+
+		qcom,ucsi_ppm {
+			compatible = "qcom,ucsi-ppm";
+		};
+	};
+};
