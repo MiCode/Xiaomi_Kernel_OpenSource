@@ -198,7 +198,5 @@ void kgsl_pwrctrl_busy_time(struct kgsl_device *device, u64 time, u64 busy);
 void kgsl_pwrctrl_set_constraint(struct kgsl_device *device,
 			struct kgsl_pwr_constraint *pwrc, uint32_t id);
 int kgsl_pwrctrl_set_default_gpu_pwrlevel(struct kgsl_device *device);
-void kgsl_pwrctrl_disable_unused_opp(struct kgsl_device *device,
-		struct device *dev);
 
 #endif /* __KGSL_PWRCTRL_H */

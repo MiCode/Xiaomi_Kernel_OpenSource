@@ -885,6 +885,40 @@ static void adreno_of_get_ca_aware_properties(struct adreno_device *adreno_dev,
 	}
 }
 
+/* Dynamically build the OPP table for the GPU device */
+static void adreno_build_opp_table(struct device *dev, struct kgsl_pwrctrl *pwr)
+{
+	unsigned long freq = 0;
+	int i;
+
+	/*
+	 * First an annoying step: Some targets have clock drivers that
+	 * "helpfully" builds a OPP table for us but usually it is wrong.
+	 * Go through and filter out unsupported frequencies
+	 */
+
+	for (;;) {
+		struct dev_pm_opp *opp = dev_pm_opp_find_freq_ceil(dev, &freq);
+
+		if (IS_ERR(opp))
+			break;
+
+		for (i = 0; i < pwr->num_pwrlevels; i++) {
+			if (freq == pwr->pwrlevels[i].gpu_freq)
+				break;
+		}
+
+		if (i == pwr->num_pwrlevels)
+			dev_pm_opp_remove(dev, freq);
+
+		freq++;
+	}
+
+	/* Now add all of our supported frequencies into the tree */
+	for (i = 0; i < pwr->num_pwrlevels; i++)
+		dev_pm_opp_add(dev, pwr->pwrlevels[i].gpu_freq, 0);
+}
+
 static int adreno_of_parse_pwrlevels(struct adreno_device *adreno_dev,
 		struct device_node *node)
 {
@@ -892,17 +926,6 @@ static int adreno_of_parse_pwrlevels(struct adreno_device *adreno_dev,
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct device_node *child;
 	int ret;
-
-	/* ADD the GPU OPP table if we define it */
-	if (of_find_property(device->pdev->dev.of_node,
-			"operating-points-v2", NULL)) {
-		ret = dev_pm_opp_of_add_table(&device->pdev->dev);
-		if (ret) {
-			dev_err(device->dev,
-				"Unable to set the GPU OPP table: %d\n", ret);
-			return ret;
-		}
-	}
 
 	pwr->num_pwrlevels = 0;
 
@@ -971,6 +994,7 @@ static int adreno_of_parse_pwrlevels(struct adreno_device *adreno_dev,
 			"qcom,bus-max", &level->bus_max);
 	}
 
+	adreno_build_opp_table(&device->pdev->dev, pwr);
 	return 0;
 out:
 	of_node_put(child);
