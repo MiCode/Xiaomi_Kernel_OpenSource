@@ -421,8 +421,6 @@ done:
 		pcount++;
 	}
 
-	mod_node_page_state(page_pgdat(page), NR_UNRECLAIMABLE_PAGES,
-					(1 << order));
 	return pcount;
 
 eagain:
@@ -493,9 +491,6 @@ static void kgsl_pool_free_page(struct page *page)
 		return;
 
 	page_order = compound_order(page);
-
-	mod_node_page_state(page_pgdat(page), NR_UNRECLAIMABLE_PAGES,
-					-(1 << page_order));
 
 	if (!kgsl_pool_max_pages ||
 			(kgsl_pool_size_total() < kgsl_pool_max_pages)) {

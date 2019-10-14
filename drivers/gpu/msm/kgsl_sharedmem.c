@@ -986,9 +986,6 @@ static void kgsl_contiguous_free(struct kgsl_memdesc *memdesc)
 
 	atomic_long_sub(memdesc->size, &kgsl_driver.stats.coherent);
 
-	mod_node_page_state(page_pgdat(phys_to_page(memdesc->physaddr)),
-		NR_UNRECLAIMABLE_PAGES, -(memdesc->size >> PAGE_SHIFT));
-
 	_kgsl_contiguous_free(memdesc);
 }
 
@@ -1186,13 +1183,9 @@ static int kgsl_alloc_contiguous(struct kgsl_device *device,
 	memdesc->ops = &kgsl_contiguous_ops;
 	ret = _kgsl_alloc_contiguous(device->dev->parent, memdesc, size, 0);
 
-	if (!ret) {
+	if (!ret)
 		KGSL_STATS_ADD(size, &kgsl_driver.stats.coherent,
 			&kgsl_driver.stats.coherent_max);
-
-		mod_node_page_state(page_pgdat(phys_to_page(memdesc->physaddr)),
-			NR_UNRECLAIMABLE_PAGES, (size >> PAGE_SHIFT));
-	}
 
 	return ret;
 }
