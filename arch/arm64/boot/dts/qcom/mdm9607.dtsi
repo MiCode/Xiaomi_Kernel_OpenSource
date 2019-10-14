@@ -376,12 +376,12 @@
 	};
 
 	blsp1_uart5: serial@78b3000 { /* BLSP1 UART5 */
-		compatible = "qcom,msm-lsuart-v14";
+		compatible = "qcom,msm-uartdm-v1.4","qcom,msm-uartdm";
 		reg = <0x78b3000 0x200>;
 		interrupts = <0 121 0>;
 		clocks = <&clock_gcc clk_gcc_blsp1_uart5_apps_clk>,
 			 <&clock_gcc clk_gcc_blsp1_ahb_clk>;
-		clock-names = "core_clk", "iface_clk";
+		clock-names = "core", "iface";
 		status = "disabled";
 	};
 
