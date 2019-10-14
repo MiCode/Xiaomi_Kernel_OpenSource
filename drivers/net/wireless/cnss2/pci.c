@@ -3559,6 +3559,8 @@ void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic)
 
 	dump_data->nentries += rddm_image->entries;
 
+	mhi_dump_sfr(pci_priv->mhi_ctrl);
+
 	cnss_pr_dbg("Collect remote heap dump segment\n");
 
 	for (i = 0, j = 0; i < plat_priv->fw_mem_seg_len; i++) {
