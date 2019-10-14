@@ -11,6 +11,7 @@
 #include <linux/delay.h>
 #include <linux/uaccess.h>
 #include <linux/usb/usb_qdss.h>
+#include <linux/time.h>
 
 #include "coresight-byte-cntr.h"
 #include "coresight-priv.h"
@@ -19,6 +20,7 @@
 #define USB_BLK_SIZE 65536
 #define USB_SG_NUM (USB_BLK_SIZE / PAGE_SIZE)
 #define USB_BUF_NUM 255
+#define USB_TIME_OUT (5 * HZ)
 
 static struct tmc_drvdata *tmcdrvdata;
 
@@ -315,91 +317,180 @@ exit_unreg_chrdev_region:
 	return ret;
 }
 
-static void usb_read_work_fn(struct work_struct *work)
+static int usb_transfer_small_packet(struct qdss_request *usb_req,
+			struct byte_cntr *drvdata, size_t *small_size)
 {
-	int ret, i, seq = 0;
-	struct qdss_request *usb_req = NULL;
+	int ret = 0;
 	struct etr_buf *etr_buf = tmcdrvdata->etr_buf;
-	size_t actual, req_size;
-	char *buf;
-	struct byte_cntr *drvdata =
-		container_of(work, struct byte_cntr, read_work);
+	size_t req_size, actual;
+	long w_offset;
 
-	while (tmcdrvdata->enable
-		&& tmcdrvdata->out_mode == TMC_ETR_OUT_MODE_USB) {
-		if (!atomic_read(&drvdata->irq_cnt)) {
-			ret = wait_event_interruptible(drvdata->usb_wait_wq,
-				atomic_read(&drvdata->irq_cnt) > 0
-				|| !tmcdrvdata->enable || tmcdrvdata->out_mode
-				!= TMC_ETR_OUT_MODE_USB
-				|| !drvdata->read_active);
-			if (ret == -ERESTARTSYS || !tmcdrvdata->enable
-			|| tmcdrvdata->out_mode != TMC_ETR_OUT_MODE_USB
-			|| !drvdata->read_active)
-				break;
-		}
+	w_offset = tmc_sg_get_rwp_offset(tmcdrvdata);
+	req_size = ((w_offset < drvdata->offset) ? etr_buf->size : 0) +
+				w_offset - drvdata->offset;
+	req_size = (req_size < USB_BLK_SIZE) ? req_size : USB_BLK_SIZE;
 
-		req_size = USB_BLK_SIZE;
-		seq++;
+	while (req_size > 0) {
+
 		usb_req = devm_kzalloc(tmcdrvdata->dev, sizeof(*usb_req),
-					GFP_KERNEL);
-		if (!usb_req)
-			return;
-		usb_req->sg = devm_kzalloc(tmcdrvdata->dev,
-			sizeof(*(usb_req->sg)) * USB_SG_NUM, GFP_KERNEL);
-		if (!usb_req->sg) {
-			devm_kfree(tmcdrvdata->dev, usb_req->sg);
-			return;
+			GFP_KERNEL);
+		if (!usb_req) {
+			ret = -EFAULT;
+			goto out;
 		}
-		usb_req->length = USB_BLK_SIZE;
+
+		actual = tmc_etr_buf_get_data(etr_buf, drvdata->offset,
+					req_size, &usb_req->buf);
+		usb_req->length = actual;
 		drvdata->usb_req = usb_req;
-		for (i = 0; i < USB_SG_NUM; i++) {
-			actual = tmc_etr_buf_get_data(etr_buf, drvdata->offset,
-					PAGE_SIZE, &buf);
-			if (actual <= 0) {
-				devm_kfree(tmcdrvdata->dev, usb_req->sg);
-				devm_kfree(tmcdrvdata->dev, usb_req);
-				usb_req = NULL;
-				dev_err(tmcdrvdata->dev, "No data in ETR\n");
-				return;
-			}
-			sg_set_buf(&usb_req->sg[i], buf, actual);
-			if (i == 0)
-				usb_req->buf = buf;
-			req_size -= actual;
-			if ((drvdata->offset + actual) >= tmcdrvdata->size)
-				drvdata->offset = 0;
-			else
-				drvdata->offset += actual;
-			if (i == USB_SG_NUM - 1)
-				sg_mark_end(&usb_req->sg[i]);
-		}
-		usb_req->num_sgs = i;
+		req_size -= actual;
+
+		if ((drvdata->offset + actual) >= tmcdrvdata->size)
+			drvdata->offset = 0;
+		else
+			drvdata->offset += actual;
+
+		*small_size += actual;
+
 		if (atomic_read(&drvdata->usb_free_buf) > 0) {
-			ret = usb_qdss_write(tmcdrvdata->usbch,
-					drvdata->usb_req);
+			ret = usb_qdss_write(tmcdrvdata->usbch, usb_req);
+
 			if (ret) {
-				devm_kfree(tmcdrvdata->dev, usb_req->sg);
 				devm_kfree(tmcdrvdata->dev, usb_req);
 				usb_req = NULL;
 				drvdata->usb_req = NULL;
 				dev_err(tmcdrvdata->dev,
 					"Write data failed:%d\n", ret);
-				if (ret == -EAGAIN)
-					continue;
-				return;
+				goto out;
 			}
-			atomic_dec(&drvdata->usb_free_buf);
 
+			atomic_dec(&drvdata->usb_free_buf);
 		} else {
 			dev_dbg(tmcdrvdata->dev,
-			"Drop data, offset = %d, seq = %d, irq = %d\n",
-				drvdata->offset, seq,
-				atomic_read(&drvdata->irq_cnt));
-			devm_kfree(tmcdrvdata->dev, usb_req->sg);
+			"Drop data, offset = %d, len = %d\n",
+				drvdata->offset, req_size);
 			devm_kfree(tmcdrvdata->dev, usb_req);
 			drvdata->usb_req = NULL;
 		}
+	}
+
+out:
+	return ret;
+}
+
+static void usb_read_work_fn(struct work_struct *work)
+{
+	int ret, i, seq = 0;
+	struct qdss_request *usb_req = NULL;
+	struct etr_buf *etr_buf = tmcdrvdata->etr_buf;
+	size_t actual, req_size, req_sg_num, small_size = 0;
+	char *buf;
+	struct byte_cntr *drvdata =
+		container_of(work, struct byte_cntr, read_work);
+
+
+	while (tmcdrvdata->enable
+		&& tmcdrvdata->out_mode == TMC_ETR_OUT_MODE_USB) {
+		if (!atomic_read(&drvdata->irq_cnt)) {
+			ret =  wait_event_interruptible_timeout(
+				drvdata->usb_wait_wq,
+				atomic_read(&drvdata->irq_cnt) > 0
+				|| !tmcdrvdata->enable || tmcdrvdata->out_mode
+				!= TMC_ETR_OUT_MODE_USB
+				|| !drvdata->read_active, USB_TIME_OUT);
+			if (ret == -ERESTARTSYS || !tmcdrvdata->enable
+			|| tmcdrvdata->out_mode != TMC_ETR_OUT_MODE_USB
+			|| !drvdata->read_active)
+				break;
+
+			if (ret == 0) {
+				ret = usb_transfer_small_packet(usb_req,
+						drvdata, &small_size);
+				if (ret && ret != -EAGAIN)
+					return;
+				continue;
+			}
+		}
+
+		req_size = USB_BLK_SIZE - small_size;
+		small_size = 0;
+
+		if (req_size > 0) {
+			seq++;
+			req_sg_num = (req_size - 1) / PAGE_SIZE + 1;
+			usb_req = devm_kzalloc(tmcdrvdata->dev,
+						sizeof(*usb_req), GFP_KERNEL);
+			if (!usb_req)
+				return;
+			usb_req->sg = devm_kzalloc(tmcdrvdata->dev,
+					sizeof(*(usb_req->sg)) * req_sg_num,
+					GFP_KERNEL);
+			if (!usb_req->sg) {
+				devm_kfree(tmcdrvdata->dev, usb_req);
+				usb_req = NULL;
+				return;
+			}
+
+			for (i = 0; i < req_sg_num; i++) {
+				actual = tmc_etr_buf_get_data(etr_buf,
+							drvdata->offset,
+							PAGE_SIZE, &buf);
+
+				if (actual <= 0) {
+					devm_kfree(tmcdrvdata->dev,
+							usb_req->sg);
+					devm_kfree(tmcdrvdata->dev, usb_req);
+					usb_req = NULL;
+					dev_err(tmcdrvdata->dev, "No data in ETR\n");
+					return;
+				}
+
+				sg_set_buf(&usb_req->sg[i], buf, actual);
+
+				if (i == 0)
+					usb_req->buf = buf;
+				if (i == req_sg_num - 1)
+					sg_mark_end(&usb_req->sg[i]);
+
+				if ((drvdata->offset + actual) >=
+					tmcdrvdata->size)
+					drvdata->offset = 0;
+				else
+					drvdata->offset += actual;
+			}
+
+			usb_req->length = req_size;
+			drvdata->usb_req = usb_req;
+			usb_req->num_sgs = i;
+
+			if (atomic_read(&drvdata->usb_free_buf) > 0) {
+				ret = usb_qdss_write(tmcdrvdata->usbch,
+						drvdata->usb_req);
+				if (ret) {
+					devm_kfree(tmcdrvdata->dev,
+							usb_req->sg);
+					devm_kfree(tmcdrvdata->dev, usb_req);
+					usb_req = NULL;
+					drvdata->usb_req = NULL;
+					dev_err(tmcdrvdata->dev,
+						"Write data failed:%d\n", ret);
+					if (ret == -EAGAIN)
+						continue;
+					return;
+				}
+				atomic_dec(&drvdata->usb_free_buf);
+
+			} else {
+				dev_dbg(tmcdrvdata->dev,
+				"Drop data, offset = %d, seq = %d, irq = %d\n",
+					drvdata->offset, seq,
+					atomic_read(&drvdata->irq_cnt));
+				devm_kfree(tmcdrvdata->dev, usb_req->sg);
+				devm_kfree(tmcdrvdata->dev, usb_req);
+				drvdata->usb_req = NULL;
+			}
+		}
+
 		if (atomic_read(&drvdata->irq_cnt) > 0)
 			atomic_dec(&drvdata->irq_cnt);
 	}
@@ -412,7 +503,8 @@ static void usb_write_done(struct byte_cntr *drvdata,
 	atomic_inc(&drvdata->usb_free_buf);
 	if (d_req->status)
 		pr_err_ratelimited("USB write failed err:%d\n", d_req->status);
-	devm_kfree(tmcdrvdata->dev, d_req->sg);
+	if (d_req->sg)
+		devm_kfree(tmcdrvdata->dev, d_req->sg);
 	devm_kfree(tmcdrvdata->dev, d_req);
 }
 
