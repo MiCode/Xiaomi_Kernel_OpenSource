@@ -115,8 +115,7 @@ static void a6xx_init(struct adreno_device *adreno_dev)
 	a6xx_crashdump_init(adreno_dev);
 
 	kgsl_allocate_global(device, &adreno_dev->pwrup_reglist,
-		PAGE_SIZE, 0, KGSL_MEMDESC_CONTIG | KGSL_MEMDESC_PRIVILEGED,
-		"powerup_register_list");
+		PAGE_SIZE, 0, KGSL_MEMDESC_PRIVILEGED, "powerup_register_list");
 }
 
 static void a6xx_protect_init(struct adreno_device *adreno_dev)

@@ -1313,7 +1313,7 @@ static int adreno_probe(struct platform_device *pdev)
 	struct adreno_device *adreno_dev;
 	struct kgsl_device *device;
 	int status;
-	unsigned int priv;
+	unsigned int priv = 0;
 	u32 size;
 
 	of_id = of_match_device(adreno_match_table, &pdev->dev);
@@ -1400,7 +1400,6 @@ static int adreno_probe(struct platform_device *pdev)
 		device->mmu.features |= KGSL_MMU_IO_COHERENT;
 
 	/* Allocate the memstore for storing timestamps and other useful info */
-	priv = KGSL_MEMDESC_CONTIG;
 
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_APRIV))
 		priv |= KGSL_MEMDESC_PRIVILEGED;

@@ -4381,11 +4381,23 @@ long kgsl_ioctl_timestamp_event(struct kgsl_device_private *dev_priv,
 	return ret;
 }
 
+static vm_fault_t
+kgsl_memstore_vm_fault(struct vm_fault *vmf)
+{
+	struct kgsl_memdesc *memdesc = vmf->vma->vm_private_data;
+
+	return memdesc->ops->vmfault(memdesc, vmf->vma, vmf);
+}
+
+static const struct vm_operations_struct kgsl_memstore_vm_ops = {
+	.fault = kgsl_memstore_vm_fault,
+};
+
 static int
-kgsl_mmap_memstore(struct kgsl_device *device, struct vm_area_struct *vma)
+kgsl_mmap_memstore(struct file *file, struct kgsl_device *device,
+		struct vm_area_struct *vma)
 {
 	struct kgsl_memdesc *memdesc = &device->memstore;
-	int result;
 	unsigned int vma_size = vma->vm_end - vma->vm_start;
 
 	/* The memstore can only be mapped as read only */
@@ -4393,23 +4405,18 @@ kgsl_mmap_memstore(struct kgsl_device *device, struct vm_area_struct *vma)
 	if (vma->vm_flags & VM_WRITE)
 		return -EPERM;
 
-	if (memdesc->size  !=  vma_size) {
-		dev_err(device->dev,
-			     "memstore bad size: %d should be %llu\n",
-			     vma_size, memdesc->size);
+	if (memdesc->size  != vma_size) {
+		dev_err(device->dev, "Cannot partially map the memstore\n");
 		return -EINVAL;
 	}
 
 	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
+	vma->vm_private_data = memdesc;
+	vma->vm_flags |= memdesc->ops->vmflags;
+	vma->vm_ops = &kgsl_memstore_vm_ops;
+	vma->vm_file = file;
 
-	result = remap_pfn_range(vma, vma->vm_start,
-				device->memstore.physaddr >> PAGE_SHIFT,
-				 vma_size, vma->vm_page_prot);
-	if (result != 0)
-		dev_err(device->dev, "remap_pfn_range failed: %d\n",
-			     result);
-
-	return result;
+	return 0;
 }
 
 /*
@@ -4425,7 +4432,7 @@ static void kgsl_gpumem_vm_open(struct vm_area_struct *vma)
 		vma->vm_private_data = NULL;
 }
 
-static int
+static vm_fault_t
 kgsl_gpumem_vm_fault(struct vm_fault *vmf)
 {
 	struct kgsl_mem_entry *entry = vmf->vma->vm_private_data;
@@ -4768,7 +4775,7 @@ static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 	/* Handle leagacy behavior for memstore */
 
 	if (vma_offset == (unsigned long) device->memstore.gpuaddr)
-		return kgsl_mmap_memstore(device, vma);
+		return kgsl_mmap_memstore(file, device, vma);
 
 	/*
 	 * The reference count on the entry that we get from
