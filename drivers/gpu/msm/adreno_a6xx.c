@@ -325,6 +325,20 @@ static void a6xx_llc_configure_gpuhtw_scid(struct adreno_device *adreno_dev);
 static void a6xx_llc_enable_overrides(struct adreno_device *adreno_dev);
 
 /*
+ * Some targets support marking certain transactions as always privileged which
+ * allows us to mark more memory as privileged without having to explicitly set
+ * the APRIV bit.  For those targets, choose the following transactions to be
+ * privileged by default:
+ * CDWRITE     [6:6] - Crashdumper writes
+ * CDREAD      [5:5] - Crashdumper reads
+ * RBRPWB      [3:3] - RPTR shadow writes
+ * RBPRIVLEVEL [2:2] - Memory accesses from PM4 packets in the ringbuffer
+ * RBFETCH     [1:1] - Ringbuffer reads
+ */
+#define A6XX_APRIV_DEFAULT \
+	((1 << 6) | (1 << 5) | (1 << 3) | (1 << 2) | (1 << 1))
+
+/*
  * a6xx_start() - Device start
  * @adreno_dev: Pointer to adreno device
  *
@@ -559,6 +573,9 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 
 	if (adreno_is_a660v1(adreno_dev))
 		kgsl_regwrite(device, A6XX_RBBM_GBIF_CLIENT_QOS_CNTL, 0x0);
+
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_APRIV))
+		kgsl_regwrite(device, A6XX_CP_APRIV_CNTL, A6XX_APRIV_DEFAULT);
 }
 
 /*
@@ -768,20 +785,6 @@ static int a6xx_post_start(struct adreno_device *adreno_dev)
 }
 
 /*
- * Some targets support marking certain transactions as always privileged which
- * allows us to mark more memory as privileged without having to explicitly set
- * the APRIV bit.  For those targets, choose the following transactions to be
- * privileged by default:
- * CDWRITE     [6:6] - Crashdumper writes
- * CDREAD      [5:5] - Crashdumper reads
- * RBRPWB      [3:3] - RPTR shadow writes
- * RBPRIVLEVEL [2:2] - Memory accesses from PM4 packets in the ringbuffer
- * RBFETCH     [1:1] - Ringbuffer reads
- */
-#define A6XX_APRIV_DEFAULT \
-	((1 << 6) | (1 << 5) | (1 << 3) | (1 << 2) | (1 << 1))
-
-/*
  * a6xx_rb_start() - Start the ringbuffer
  * @adreno_dev: Pointer to adreno device
  */
@@ -812,9 +815,6 @@ static int a6xx_rb_start(struct adreno_device *adreno_dev)
 	ret = a6xx_microcode_load(adreno_dev);
 	if (ret)
 		return ret;
-
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_APRIV))
-		kgsl_regwrite(device, A6XX_CP_APRIV_CNTL, A6XX_APRIV_DEFAULT);
 
 	/* Clear the SQE_HALT to start the CP engine */
 	kgsl_regwrite(device, A6XX_CP_SQE_CNTL, 1);
