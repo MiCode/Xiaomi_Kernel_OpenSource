@@ -683,8 +683,6 @@ static int __init mpm_gic_chip_init(struct device_node *node,
 		goto mpm_map_err;
 	}
 
-	msm_mpm_dev_data.gic_chip_domain->name = "qcom,mpm-gic";
-
 	ret = msm_mpm_init(node);
 	if (!ret)
 		return ret;
@@ -714,8 +712,6 @@ static int __init mpm_gpio_chip_init(struct device_node *node,
 
 	if (!msm_mpm_dev_data.gpio_chip_domain)
 		return -ENOMEM;
-
-	msm_mpm_dev_data.gpio_chip_domain->name = "qcom,mpm-gpio";
 
 	return 0;
 }
