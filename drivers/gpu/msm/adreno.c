@@ -3750,35 +3750,6 @@ static struct platform_driver adreno_platform_driver = {
 	}
 };
 
-static const struct of_device_id busmon_match_table[] = {
-	{ .compatible = "qcom,kgsl-busmon", .data = &device_3d0 },
-	{}
-};
-
-static int adreno_busmon_probe(struct platform_device *pdev)
-{
-	struct kgsl_device *device;
-	const struct of_device_id *pdid =
-			of_match_device(busmon_match_table, &pdev->dev);
-
-	if (pdid == NULL)
-		return -ENXIO;
-
-	device = (struct kgsl_device *)pdid->data;
-	device->busmondev = &pdev->dev;
-	dev_set_drvdata(device->busmondev, device);
-
-	return 0;
-}
-
-static struct platform_driver kgsl_bus_platform_driver = {
-	.probe = adreno_busmon_probe,
-	.driver = {
-		.name = "kgsl-busmon",
-		.of_match_table = busmon_match_table,
-	}
-};
-
 static int __init kgsl_3d_init(void)
 {
 	int ret;
@@ -3787,17 +3758,9 @@ static int __init kgsl_3d_init(void)
 	if (ret)
 		return ret;
 
-	ret = platform_driver_register(&kgsl_bus_platform_driver);
-	if (ret) {
-		kgsl_core_exit();
-		return ret;
-	}
-
 	ret = platform_driver_register(&adreno_platform_driver);
-	if (ret) {
-		platform_driver_unregister(&kgsl_bus_platform_driver);
+	if (ret)
 		kgsl_core_exit();
-	}
 
 	return ret;
 }
@@ -3805,8 +3768,6 @@ static int __init kgsl_3d_init(void)
 static void __exit kgsl_3d_exit(void)
 {
 	platform_driver_unregister(&adreno_platform_driver);
-	platform_driver_unregister(&kgsl_bus_platform_driver);
-
 	kgsl_core_exit();
 }
 

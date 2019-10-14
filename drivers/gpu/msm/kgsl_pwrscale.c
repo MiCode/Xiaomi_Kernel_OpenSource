@@ -654,13 +654,50 @@ static int opp_notify(struct notifier_block *nb,
 	return 0;
 }
 
+static void pwrscale_busmon_create(struct kgsl_device *device,
+		struct platform_device *pdev, unsigned long *table)
+{
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	struct kgsl_pwrscale *pwrscale = &device->pwrscale;
+	struct device *dev = &pwrscale->busmondev;
+	struct devfreq *bus_devfreq;
+	int i;
+
+	pwrscale->bus_profile.profile.max_state = pwr->num_pwrlevels - 1;
+	pwrscale->bus_profile.profile.freq_table = table;
+
+	dev->parent = &pdev->dev;
+
+	dev_set_name(dev, "kgsl-busmon");
+	if (device_register(dev))
+		return;
+
+	/* Build out the OPP table for the busmon device */
+	for (i = 0; i < pwr->num_pwrlevels; i++) {
+		if (!pwr->pwrlevels[i].gpu_freq)
+			continue;
+
+		dev_pm_opp_add(dev, pwr->pwrlevels[i].gpu_freq, 0);
+	}
+
+	bus_devfreq = devfreq_add_device(dev, &pwrscale->bus_profile.profile,
+		"gpubw_mon", NULL);
+
+	if (IS_ERR_OR_NULL(bus_devfreq)) {
+		dev_err(&pdev->dev, "Bus scaling not enabled\n");
+		put_device(dev);
+		return;
+	}
+
+	pwrscale->gpu_profile.bus_devfreq = bus_devfreq;
+}
+
 int kgsl_pwrscale_init(struct kgsl_device *device, struct platform_device *pdev,
 		const char *governor)
 {
 	struct kgsl_pwrscale *pwrscale;
 	struct kgsl_pwrctrl *pwr;
 	struct devfreq *devfreq;
-	struct devfreq *bus_devfreq = NULL;
 	struct msm_adreno_extended_profile *gpu_profile;
 	struct devfreq_dev_profile *profile;
 	struct devfreq_msm_adreno_tz_data *data;
@@ -758,34 +795,9 @@ int kgsl_pwrscale_init(struct kgsl_device *device, struct platform_device *pdev,
 		pwrscale->cooling_dev = NULL;
 
 	pwrscale->gpu_profile.bus_devfreq = NULL;
-	if (data->bus.num) {
-		pwrscale->bus_profile.profile.max_state
-					= pwr->num_pwrlevels - 1;
-		pwrscale->bus_profile.profile.freq_table
-					= pwrscale->freq_table;
 
-		/*
-		 * This is needed because devfreq expects the device
-		 * to have an opp table handle to calculate the min/max
-		 * frequency.
-		 */
-		ret = dev_pm_opp_of_add_table(device->busmondev);
-		/*
-		 * Disable OPP which are not supported as per GPU freq plan.
-		 * This is need to ensure freq_table specified in bus_profile
-		 * above matches OPP table.
-		 */
-		kgsl_pwrctrl_disable_unused_opp(device, device->busmondev);
-		if (!ret)
-			bus_devfreq = devfreq_add_device(device->busmondev,
-				&pwrscale->bus_profile.profile, "gpubw_mon",
-				NULL);
-
-		if (IS_ERR_OR_NULL(bus_devfreq))
-			dev_err(device->dev, "Bus scaling not enabled\n");
-		else
-			pwrscale->gpu_profile.bus_devfreq = bus_devfreq;
-	}
+	if (data->bus.num)
+		pwrscale_busmon_create(device, pdev, pwrscale->freq_table);
 
 	ret = sysfs_create_link(&device->dev->kobj,
 			&devfreq->dev.kobj, "devfreq");
@@ -825,6 +837,12 @@ void kgsl_pwrscale_close(struct kgsl_device *device)
 
 	pwr = &device->pwrctrl;
 	pwrscale = &device->pwrscale;
+
+	if (pwrscale->gpu_profile.bus_devfreq) {
+		devfreq_remove_device(pwrscale->gpu_profile.bus_devfreq);
+		put_device(&pwrscale->busmondev);
+	}
+
 	if (!pwrscale->devfreqptr)
 		return;
 	if (pwrscale->cooling_dev)

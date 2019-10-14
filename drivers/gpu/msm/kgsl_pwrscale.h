@@ -63,6 +63,8 @@ struct kgsl_pwrscale {
 	bool ctxt_aware_enable;
 	unsigned int ctxt_aware_target_pwrlevel;
 	unsigned int ctxt_aware_busy_penalty;
+	/** @busmondev: A child device for the busmon  governor */
+	struct device busmondev;
 };
 
 /**
