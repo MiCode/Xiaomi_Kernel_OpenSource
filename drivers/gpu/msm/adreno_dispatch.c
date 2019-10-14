@@ -2197,10 +2197,7 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 		kgsl_process_event_group(device, &hung_rb->events);
 	}
 
-	if (gpudev->reset)
-		ret = gpudev->reset(device, fault);
-	else
-		ret = adreno_reset(device, fault);
+	ret = adreno_reset(device, fault);
 
 	mutex_unlock(&device->mutex);
 	/* if any other fault got in until reset then ignore */

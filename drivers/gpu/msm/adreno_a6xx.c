@@ -1011,30 +1011,6 @@ static int a6xx_microcode_read(struct adreno_device *adreno_dev)
 	return adreno_get_firmware(adreno_dev, a6xx_core->sqefw_name, sqe_fw);
 }
 
-static int a6xx_soft_reset(struct adreno_device *adreno_dev)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	unsigned int reg;
-
-	if (gmu_core_isenabled(device))
-		return 0;
-
-	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_SW_RESET_CMD, 1);
-	/*
-	 * Do a dummy read to get a brief read cycle delay for the
-	 * reset to take effect
-	 */
-	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_SW_RESET_CMD, &reg);
-	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_SW_RESET_CMD, 0);
-
-	/* Clear GBIF client halt and CX arbiter halt */
-	adreno_deassert_gbif_halt(adreno_dev);
-
-	a6xx_sptprac_enable(adreno_dev);
-
-	return 0;
-}
-
 static int64_t a6xx_read_throttling_counters(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -1098,12 +1074,14 @@ static int a6xx_reset(struct kgsl_device *device, int fault)
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int ret;
 
-	/* Use the regular reset sequence for No GMU */
-	if (!gmu_core_isenabled(device))
-		return adreno_reset(device, fault);
-
-	/* Transition from ACTIVE to RESET state */
-	kgsl_pwrctrl_change_state(device, KGSL_STATE_RESET);
+	/*
+	 * GMU devices transition to KGSL_STATE_RESET, non GMU devices go
+	 * directly to KGSL_STATE_INIT
+	 */
+	if (gmu_core_isenabled(device))
+		kgsl_pwrctrl_change_state(device, KGSL_STATE_RESET);
+	else
+		kgsl_pwrctrl_change_state(device, KGSL_STATE_INIT);
 
 	/* since device is officially off now clear start bit */
 	clear_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv);
@@ -2407,11 +2385,6 @@ static unsigned int a6xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_INT_0_MASK, A6XX_RBBM_INT_0_MASK),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_INT_0_STATUS, A6XX_RBBM_INT_0_STATUS),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_CLOCK_CTL, A6XX_RBBM_CLOCK_CNTL),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_SW_RESET_CMD, A6XX_RBBM_SW_RESET_CMD),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_BLOCK_SW_RESET_CMD,
-					  A6XX_RBBM_BLOCK_SW_RESET_CMD),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_BLOCK_SW_RESET_CMD2,
-					  A6XX_RBBM_BLOCK_SW_RESET_CMD2),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_LO,
 				A6XX_RBBM_PERFCTR_LOAD_VALUE_LO),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_HI,
@@ -2615,7 +2588,6 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.hw_isidle = a6xx_hw_isidle, /* Replaced by NULL if GMU is disabled */
 	.iommu_fault_block = a6xx_iommu_fault_block,
 	.reset = a6xx_reset,
-	.soft_reset = a6xx_soft_reset,
 	.preemption_pre_ibsubmit = a6xx_preemption_pre_ibsubmit,
 	.preemption_post_ibsubmit = a6xx_preemption_post_ibsubmit,
 	.preemption_init = a6xx_preemption_init,

@@ -31,6 +31,7 @@
 #include "adreno-gpulist.h"
 
 static void adreno_input_work(struct work_struct *work);
+static int adreno_soft_reset(struct kgsl_device *device);
 static unsigned int counter_delta(struct kgsl_device *device,
 	unsigned int reg, unsigned int *counter);
 
@@ -500,7 +501,7 @@ static struct input_handler adreno_input_handler = {
  * all the HW logic, restores GPU registers to default state and
  * flushes out pending VBIF transactions.
  */
-static int _soft_reset(struct adreno_device *adreno_dev)
+static void _soft_reset(struct adreno_device *adreno_dev)
 {
 	struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
 	unsigned int reg;
@@ -517,8 +518,6 @@ static int _soft_reset(struct adreno_device *adreno_dev)
 
 	if (gpudev->regulator_enable)
 		gpudev->regulator_enable(adreno_dev);
-
-	return 0;
 }
 
 /**
@@ -2315,28 +2314,21 @@ no_gx_power:
 int adreno_reset(struct kgsl_device *device, int fault)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	int ret = -EINVAL;
-	int i = 0;
+	int i;
+
+	if (gpudev->reset)
+		return gpudev->reset(device, fault);
 
 	/*
 	 * Try soft reset first Do not do soft reset for a IOMMU fault (because
-	 * the IOMMU hardware needs a reset too) or for the A304 because it
-	 * can't do SMMU programming of any kind after a soft reset
+	 * the IOMMU hardware needs a reset too)
 	 */
 
-	if (!(fault & ADRENO_IOMMU_PAGE_FAULT) && !adreno_is_a304(adreno_dev)
-		&& !adreno_is_a612(adreno_dev) && !adreno_is_a610(adreno_dev)) {
-		/* Make sure VBIF is cleared before resetting */
-		ret = adreno_clear_pending_transactions(device);
+	if (!(fault & ADRENO_IOMMU_PAGE_FAULT))
+		ret = adreno_soft_reset(device);
 
-		if (ret == 0) {
-			ret = adreno_soft_reset(device);
-			if (ret)
-				dev_err(device->dev,
-					"Device soft reset failed: ret=%d\n",
-					ret);
-		}
-	}
 	if (ret) {
 		/* If soft reset failed/skipped, then pull the power */
 		kgsl_pwrctrl_change_state(device, KGSL_STATE_INIT);
@@ -2346,22 +2338,18 @@ int adreno_reset(struct kgsl_device *device, int fault)
 		/* Try to reset the device */
 		ret = adreno_start(device, 0);
 
-		/* On some GPUS, keep trying until it works */
-		if (ret && ADRENO_GPUREV(adreno_dev) < 600) {
-			for (i = 0; i < NUM_TIMES_RESET_RETRY; i++) {
-				msleep(20);
-				ret = adreno_start(device, 0);
-				if (!ret)
-					break;
-			}
+		for (i = 0; ret && i < NUM_TIMES_RESET_RETRY; i++) {
+			msleep(20);
+			ret = adreno_start(device, 0);
 		}
-	}
-	if (ret)
-		return ret;
 
-	if (i != 0)
-		dev_warn(device->dev,
+		if (ret)
+			return ret;
+
+		if (i != 0)
+			dev_warn(device->dev,
 			      "Device hard reset tried %d tries\n", i);
+	}
 
 	/*
 	 * If active_cnt is non-zero then the system was active before
@@ -2811,23 +2799,32 @@ bool adreno_hw_isidle(struct adreno_device *adreno_dev)
 	return true;
 }
 
-/**
- * adreno_soft_reset() -  Do a soft reset of the GPU hardware
+/*
+ * adreno_soft_reset -  Do a soft reset of the GPU hardware
  * @device: KGSL device to soft reset
  *
  * "soft reset" the GPU hardware - this is a fast path GPU reset
  * The GPU hardware is reset but we never pull power so we can skip
  * a lot of the standard adreno_stop/adreno_start sequence
  */
-int adreno_soft_reset(struct kgsl_device *device)
+static int adreno_soft_reset(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	int ret;
 
-	ret = gmu_core_dev_oob_set(device, oob_gpu);
-	if (ret)
+	/*
+	 * Don't allow a soft reset for a304 because the SMMU needs to be hard
+	 * reset
+	 */
+	if (adreno_is_a304(adreno_dev))
+		return -ENODEV;
+
+	ret = adreno_clear_pending_transactions(device);
+	if (ret) {
+		dev_err(device->dev, "Timed out while clearing the VBIF\n");
 		return ret;
+	}
 
 	kgsl_pwrctrl_change_state(device, KGSL_STATE_AWARE);
 	adreno_set_active_ctxs_null(adreno_dev);
@@ -2841,15 +2838,7 @@ int adreno_soft_reset(struct kgsl_device *device)
 	/* save physical performance counter values before GPU soft reset */
 	adreno_perfcounter_save(adreno_dev);
 
-	/* Reset the GPU */
-	if (gpudev->soft_reset)
-		ret = gpudev->soft_reset(adreno_dev);
-	else
-		ret = _soft_reset(adreno_dev);
-	if (ret) {
-		gmu_core_dev_oob_clear(device, oob_gpu);
-		return ret;
-	}
+	_soft_reset(adreno_dev);
 
 	/* Clear the busy_data stats - we're starting over from scratch */
 	adreno_dev->busy_data.gpu_busy = 0;
@@ -2889,7 +2878,8 @@ int adreno_soft_reset(struct kgsl_device *device)
 	/* Restore physical performance counter values after soft reset */
 	adreno_perfcounter_restore(adreno_dev);
 
-	gmu_core_dev_oob_clear(device, oob_gpu);
+	if (ret)
+		dev_err(device->dev, "Device soft reset failed: %d\n", ret);
 
 	return ret;
 }
