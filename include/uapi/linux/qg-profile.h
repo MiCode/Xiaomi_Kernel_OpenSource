@@ -47,7 +47,7 @@ struct battery_params {
 /* Profile MIN / MAX values */
 #define QG_MIN_SOC				0
 #define QG_MAX_SOC				10000
-#define QG_MIN_OCV_UV				3000000
+#define QG_MIN_OCV_UV				2000000
 #define QG_MAX_OCV_UV				5000000
 #define QG_MIN_VAR				0
 #define QG_MAX_VAR				65535

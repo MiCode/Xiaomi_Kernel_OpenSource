@@ -115,12 +115,6 @@
 			size = <0x400000>;
 		};
 
-		cnss_wlan_mem: cnss_wlan_region@0 {
-			compatible = "shared-dma-pool";
-			reusable;
-			size = <0x1400000>;
-		};
-
 		dump_mem: mem_dump_region {
 			compatible = "shared-dma-pool";
 			reusable;
@@ -1044,9 +1038,9 @@
 		qcom,cpulist = <&CPU0>;
 		qcom,target-dev = <&cpubw>;
 		qcom,core-dev-table =
-				<  153600 MHZ_TO_MBPS( 300, 4) >,
-				<  576000 MHZ_TO_MBPS(1017, 4) >,
-				< 1497600 MHZ_TO_MBPS(1804, 4)>;
+				<  576000 MHZ_TO_MBPS( 300, 4) >,
+				< 1497600 MHZ_TO_MBPS(1017, 4) >,
+				< 1555200 MHZ_TO_MBPS(1804, 4)>;
 	};
 
 	cnss_qca6390: qcom,cnss-qca6390@a0000000 {
@@ -1058,10 +1052,10 @@
 		pinctrl-names = "wlan_en_active", "wlan_en_sleep";
 		pinctrl-0 = <&cnss_wlan_en_active>;
 		pinctrl-1 = <&cnss_wlan_en_sleep>;
+		vdd-wlan-aon-supply = <&pmxprairie_s3>;
+		qcom,vdd-wlan-aon-info = <800000 800000 0 0>;
 		qcom,wlan-rc-num = <0>;
 		qcom,wlan-ramdump-dynamic = <0x400000>;
-		pcie-disable-l1;
-		pcie-disable-l1ss;
 		qcom,smmu-s1-enable;
 
 		mhi,max-channels = <30>;
@@ -1496,15 +1490,6 @@
 
 &gdsc_pcie {
 	status = "ok";
-};
-
-&pcie0_rp {
-	cnss: qcom,qca6390@0 {
-		reg = <0 0 0 0 0>;
-		pci-ids = "17cb:1101";
-
-		memory-region = <&cnss_wlan_mem>;
-	};
 };
 
 &soc {

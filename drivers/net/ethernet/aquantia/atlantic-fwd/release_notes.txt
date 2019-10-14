@@ -1,3 +1,50 @@
+Version 1.0.25
+==============
+[ATLDRV-1118] - Page fault in atl_fwd_init_ring() upon ring creation (ATL_FWR_ALLOC_BUFS is not set)
+[ATLDRV-1119] - AQ058: again Bug CR 2491137 - Crash caused due to 32 Tx descs are zero'ed
+
+Version 1.0.24
+==============
+[ATLDRV-1112] - descriptor corruption after suspend/resume
+[ATLDRV-1097] - EEE must be disabled by-default
+[ATLDRV-1099] - Strange EEE configuration behavior
+[ATLDRV-1107] - Strange message in dmesg
+[ATLDRV-1108] - FW not loaded after FWD driver unloaded on B0
+[ATLDRV-899] - Fwd driver: add more loopbacks to ethtool private flags
+[ATLDRV-1057] - Support for network loopback
+
+Version 1.0.23
+==============
+[ATLDRV-983] - runtime D3 support
+[ATLDRV-1023] - AQ056: Wake on link race condition with host power manament
+
+Version 1.0.22
+==============
+fix build of fwd api
+
+Version 1.0.21
+==============
+[ATLDRV-871] - pause frame does not turn off
+[ATLDRV-994] - failed set StripEtherPadding
+[ATLDRV-1062] - FWD: IPA: AQ058: Crash caused due to 32 Tx descs are zero'ed
+[ATLDRV-1066] - AQ062: atl_update_eth_stats() - sleeping function called from invalid context
+[ATLDRV-1067] - AQ061: AQC FWD ring descriptor memory reset
+[ATLDRV-1068] - AQ060: AQC Rx accessing buffer address from previous atl_fwd_request_ring()
+[ATLDRV-1075] - AQ063: v1.0.20 driver - atl_update_thermal_flag() missing atl_unlock_fw()
+[ATLDRV-803] - AQ040: Validation for Interrupt Moderation in FWD API
+[ATLDRV-1022] - Media detect control
+
+
+Version 1.0.20
+==============
+net: aquantia: Re-initialize fwd rings on driver resume
+Do entire suspend from dev_pm_ops->suspend() (AQ052)
+Prevent atl_update_global_stats() calls when suspended (AQ056) (ATLDRV-1021)
+Implement thermal throttling (ATLDRV-1009)
+Add log message when high temperature treshold is reached (ATLDRV-998))
+Implement FW heartbeat watchdog (AQ010) (ATLDRV-502)
+Workaround checksum offload bugs (ATLDRV-1013)
+
 Version 1.0.19
 ==============
 Fix freeing of buf vaddr vector in FWD API (AQ050)

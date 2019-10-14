@@ -1,0 +1,36 @@
+/*
+ * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "qcs407.dtsi"
+#include "qcs405-csra8plus2-audio-overlay.dtsi"
+#include "qcs405-geni-ir-overlay.dtsi"
+#include "qcs405-linear-pca9956.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. QCS407 EVB1-4K-CSRA8 I2S-GROUPING";
+	compatible = "qcom,qcs407-iot", "qcom,qcs407", "qcom,iot";
+	qcom,board-id = <0x090020 0x1>;
+};
+
+&soc {
+	spi@78b5000 {
+		status = "ok";
+		spi@0 {
+			compatible = "qcom,spi-msm-codec-slave";
+			reg = <0>;
+			spi-max-frequency = <50000000>;
+		};
+	};
+};

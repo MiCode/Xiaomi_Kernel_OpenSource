@@ -470,7 +470,7 @@
 		reg-names = "wdt-base";
 		interrupts = <0 3 0>, <0 4 0>;
 		qcom,bark-time = <11000>;
-		qcom,pet-time = <10000>;
+		qcom,pet-time = <9744>;
 		qcom,ipi-ping;
 		qcom,wakeup-enable;
 		status = "okay";
@@ -1297,7 +1297,7 @@
 			100000000 200000000 4294967295>;
 
 		qcom,clk-rates = <400000 20000000 25000000
-					50000000 100000000 200000000>;
+					50000000 100000000>;
 		qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50",
 				      "SDR104";
 
@@ -1310,9 +1310,10 @@
 		qcom,nonhotplug;
 
 		/* VDD is an external regulator eLDO5 */
-		vdd-io-supply = <&pms405_l11>;
+		vdd-io-supply = <&pms405_l6>;
 		qcom,vdd-io-voltage-level = <1800000 1800000>;
 		qcom,vdd-io-current-level = <0 24200>;
+		post-power-on-delay-ms = <100>;
 
 		qcom,core_3_0v_support;
 		qcom,nonremovable;

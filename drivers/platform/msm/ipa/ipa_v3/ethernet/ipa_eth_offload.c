@@ -207,6 +207,8 @@ int ipa_eth_offload_register_driver(struct ipa_eth_offload_driver *od)
 
 void ipa_eth_offload_unregister_driver(struct ipa_eth_offload_driver *od)
 {
+	debugfs_remove_recursive(od->debugfs);
+
 	mutex_lock(&ipa_eth_offload_drivers_lock);
 	list_del(&od->driver_list);
 	mutex_unlock(&ipa_eth_offload_drivers_lock);
@@ -218,6 +220,26 @@ int ipa_eth_offload_save_regs(struct ipa_eth_device *eth_dev)
 
 	if (od && od->ops->save_regs)
 		return eth_dev->od->ops->save_regs(eth_dev, NULL, NULL);
+
+	return 0;
+}
+
+int ipa_eth_offload_prepare_reset(struct ipa_eth_device *eth_dev, void *data)
+{
+	struct ipa_eth_offload_driver *od = eth_dev->od;
+
+	if (od && od->ops->prepare_reset)
+		return eth_dev->od->ops->prepare_reset(eth_dev, data);
+
+	return 0;
+}
+
+int ipa_eth_offload_complete_reset(struct ipa_eth_device *eth_dev, void *data)
+{
+	struct ipa_eth_offload_driver *od = eth_dev->od;
+
+	if (od && od->ops->complete_reset)
+		return eth_dev->od->ops->complete_reset(eth_dev, data);
 
 	return 0;
 }

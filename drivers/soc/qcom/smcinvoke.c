@@ -847,8 +847,10 @@ static void process_tzcb_req(void *buf, size_t buf_len, struct file **arr_filp)
 
 	cb_req = kzalloc(buf_len, GFP_KERNEL);
 	if (!cb_req) {
-		ret =  OBJECT_ERROR_KMEM;
-		goto out;
+		/* we need to return error to caller so fill up result */
+		cb_req = buf;
+		cb_req->result = OBJECT_ERROR_KMEM;
+		return;
 	}
 	memcpy(cb_req, buf, buf_len);
 
@@ -907,9 +909,11 @@ out:
 			release_tzhandle_locked(cb_req->hdr.tzhandle);
 		}
 	}
-	hash_del(&cb_txn->hash);
-	memcpy(buf, cb_req, buf_len);
-	kref_put(&cb_txn->ref_cnt, delete_cb_txn);
+	if (cb_txn) {
+		hash_del(&cb_txn->hash);
+		memcpy(buf, cb_req, buf_len);
+		kref_put(&cb_txn->ref_cnt, delete_cb_txn);
+	}
 	mutex_unlock(&g_smcinvoke_lock);
 }
 

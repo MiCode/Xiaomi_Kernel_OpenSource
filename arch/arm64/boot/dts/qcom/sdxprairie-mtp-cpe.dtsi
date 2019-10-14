@@ -16,3 +16,7 @@
 &qnand_1 {
 	status = "ok";
 };
+
+&mpss_adsp_mem {
+	reg = <0x90c00000 0xf400000>;
+};

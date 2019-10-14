@@ -1795,8 +1795,7 @@ void __arm_iommu_free_attrs(struct device *dev, size_t size, void *cpu_addr,
 void arm_iommu_free_attrs(struct device *dev, size_t size,
 		    void *cpu_addr, dma_addr_t handle, unsigned long attrs)
 {
-	__arm_iommu_free_attrs(dev, size, cpu_addr, handle, attrs,
-				is_dma_coherent(dev, attrs, NORMAL));
+	__arm_iommu_free_attrs(dev, size, cpu_addr, handle, attrs, NORMAL);
 }
 
 void arm_coherent_iommu_free_attrs(struct device *dev, size_t size,

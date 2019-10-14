@@ -1,4 +1,4 @@
-/* Copyright (c) 2012,2014-2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012,2014-2017,2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,6 +43,56 @@ struct wcnss_prealloc {
 };
 
 /* pre-alloced mem for WLAN driver */
+
+#ifdef CONFIG_CNSS_QCA6390
+/* This table should be paired with WLAN chip attached ideally.
+ * For QCA6390, roughly 800KB pre-allocation required.
+ *
+ * Be noted, currently not all QCA6390 attachment defined CNSS_QCA6390,
+ * like on which single-DT feature enabled.
+ */
+static struct wcnss_prealloc wcnss_allocs[] = {
+	{0, 8  * 1024, NULL},
+	{0, 8  * 1024, NULL},
+	{0, 8  * 1024, NULL},
+	{0, 8  * 1024, NULL},
+	{0, 8  * 1024, NULL},
+	{0, 8  * 1024, NULL},
+	{0, 8  * 1024, NULL},
+	{0, 8  * 1024, NULL},
+	{0, 8  * 1024, NULL},
+	{0, 8  * 1024, NULL},
+	{0, 8  * 1024, NULL},
+	{0, 8  * 1024, NULL},
+	{0, 8  * 1024, NULL},
+	{0, 8  * 1024, NULL},
+	{0, 8  * 1024, NULL},
+	{0, 8  * 1024, NULL},
+	{0, 8  * 1024, NULL},
+	{0, 8  * 1024, NULL},
+	{0, 8  * 1024, NULL},
+	{0, 8  * 1024, NULL},
+	{0, 8  * 1024, NULL},
+	{0, 8  * 1024, NULL},
+	{0, 8  * 1024, NULL},
+	{0, 16 * 1024, NULL},
+	{0, 16 * 1024, NULL},
+	{0, 16 * 1024, NULL},
+	{0, 16 * 1024, NULL},
+	{0, 16 * 1024, NULL},
+	{0, 16 * 1024, NULL},
+	{0, 32 * 1024, NULL},
+	{0, 32 * 1024, NULL},
+	{0, 32 * 1024, NULL},
+	{0, 32 * 1024, NULL},
+	{0, 32 * 1024, NULL},
+	{0, 32 * 1024, NULL},
+	{0, 64 * 1024, NULL},
+	{0, 64 * 1024, NULL},
+	{0, 64 * 1024, NULL},
+	{0, 64 * 1024, NULL},
+};
+#else
 static struct wcnss_prealloc wcnss_allocs[] = {
 	{0, 8  * 1024, NULL},
 	{0, 8  * 1024, NULL},
@@ -118,6 +168,7 @@ static struct wcnss_prealloc wcnss_allocs[] = {
 	{0, 128 * 1024, NULL},
 	{0, 128 * 1024, NULL},
 };
+#endif
 
 int wcnss_prealloc_init(void)
 {

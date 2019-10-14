@@ -185,6 +185,8 @@
 	bluetooth: bt_qca6390 {
 		compatible = "qca,qca6390";
 		qca,bt-reset-gpio = <&pmxprairie_gpios 6 0>;
+		qca,bt-vdd-core-supply = <&pmxprairie_s3>; /* VDD_PMU_AON_I */
+		qca,bt-vdd-core-voltage-level = <800000 800000>;
 	};
 };
 

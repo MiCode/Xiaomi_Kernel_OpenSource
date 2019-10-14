@@ -8,8 +8,6 @@
 #include <linux/mount.h>
 #include <linux/major.h>
 #include <linux/root_dev.h>
-#include "uapi/linux/dm-ioctl.h"
-#include <linux/device-mapper.h>
 
 void  change_floppy(char *fmt, ...);
 void  mount_block_root(char *name, int flags);
@@ -71,17 +69,5 @@ void dm_run_setup(void);
 #else
 
 static inline void dm_run_setup(void) {}
-
-#endif
-
-#ifdef CONFIG_BLK_DEV_DM
-
-void dm_verity_setup(void);
-extern int dm_ioctrl(uint cmd, struct dm_ioctl *param);
-extern void dm_table_destroy(struct dm_table *t);
-
-#else
-
-static inline void dm_verity_setup(void) {}
 
 #endif

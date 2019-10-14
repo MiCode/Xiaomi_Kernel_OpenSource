@@ -13,7 +13,6 @@
 #include "skeleton64.dtsi"
 #include <dt-bindings/clock/qcom,aop-qmp.h>
 #include <dt-bindings/clock/qcom,camcc-atoll.h>
-#include <dt-bindings/clock/qcom,cpucc-sm8150.h>
 #include <dt-bindings/clock/qcom,dispcc-atoll.h>
 #include <dt-bindings/clock/qcom,gcc-atoll.h>
 #include <dt-bindings/clock/qcom,gpucc-sdmmagpie.h>
@@ -25,6 +24,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/msm/msm-bus-ids.h>
 #include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
+#include <dt-bindings/soc/qcom,dcc_v2.h>
 #include <dt-bindings/soc/qcom,tcs-mbox.h>
 
 #define MHZ_TO_MBPS(mhz, w) ((mhz * 1000000 * w) / (1024 * 1024))
@@ -36,11 +36,23 @@
 	qcom,msm-id = <407 0x0>;
 	interrupt-parent = <&pdc>;
 
+	mem-offline {
+		compatible = "qcom,mem-offline";
+		offline-sizes = <0x1 0x40000000 0x0 0x80000000>,
+						<0x1 0xc0000000 0x0 0xc0000000>,
+						<0x2 0xc0000000 0x1 0x40000000>;
+		granule = <512>;
+		mboxes = <&qmp_aop 0>;
+	};
+
 	aliases {
 		serial0 = &qupv3_se8_2uart;
 		sdhc1 = &sdhc_1; /* eMMC */
 		sdhc2 = &sdhc_2; /* SD Card */
 		ufshc1 = &ufshc_mem; /* Embedded UFS slot */
+		swr0 = &swr0;
+		swr1 = &swr1;
+		swr2 = &swr2;
 	};
 
 	cpus {
@@ -411,12 +423,12 @@
 				 825600	293
 				 979200	424
 				1113600	470
-				1209600	621
 				1267200	676
 				1555200	973
 				1708800	1060
 				1843200	1298
 				1900800	1362
+				1996800	1562
 				2112000	1801
 				2208000	2000
 				2304000	2326
@@ -451,12 +463,12 @@
 				 825600	21
 				 979200	25
 				1113600	26
-				1209600	32
 				1267200	33
 				1555200	41
 				1708800	43
 				1843200	49
 				1900800	50
+				1996800	54
 				2112000	60
 				2208000	61
 				2304000	62
@@ -484,7 +496,7 @@
 				compatible = "android,fstab";
 				vendor {
 					compatible = "android,vendor";
-					dev = "/dev/block/platform/soc/7c4000.sdhci/by-name/vendor";
+					dev = "/dev/block/platform/soc/1d84000.ufshc/by-name/vendor";
 					type = "ext4";
 					mnt_flags = "ro,barrier=1,discard";
 					fsmgr_flags = "wait,slotselect,avb";
@@ -529,61 +541,61 @@
 			reg = <0 0x80b00000 0 0x3900000>;
 		};
 
-		pil_camera_mem: camera_region@8e000000 {
-			compatible = "removed-dma-pool";
-			no-map;
-			reg = <0 0x8e400000 0 0x500000>;
-		};
-
 		pil_modem_mem: modem_region@86000000 {
 			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0 0x86000000 0 0x8400000>;
 		};
 
-		pil_video_mem: pil_video_region@8ea00000 {
+		pil_camera_mem: camera_region@8e400000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x8ee00000 0 0x500000>;
+			reg = <0 0x8e400000 0 0x500000>;
 		};
 
-		pil_cdsp_mem: cdsp_regions@8ef00000 {
-			compatible = "removed-dma-pool";
-			no-map;
-			reg = <0 0x8f300000 0 0x1e00000>;
-		};
-
-		pil_adsp_mem: pil_adsp_region@90d00000 {
-			compatible = "removed-dma-pool";
-			no-map;
-			reg = <0 0x91100000 0 0x2800000>;
-		};
-
-		wlan_fw_mem: wlan_fw_region@93500000 {
-			compatible = "removed-dma-pool";
-			no-map;
-			reg = <0 0x93900000 0 0x200000>;
-		};
-
-		npu_mem: npu_region@8e500000 {
+		pil_npu_mem: pil_npu_region@8e900000 {
 			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0 0x8e900000 0 0x500000>;
 		};
 
-		pil_ipa_fw_mem: ipa_fw_region@93700000 {
+		pil_video_mem: pil_video_region@8ee00000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x8ee00000 0 0x500000>;
+		};
+
+		pil_cdsp_mem: cdsp_regions@8f300000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x8f300000 0 0x1e00000>;
+		};
+
+		pil_adsp_mem: pil_adsp_region@91100000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x91100000 0 0x2800000>;
+		};
+
+		wlan_fw_mem: wlan_fw_region@93900000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x93900000 0 0x200000>;
+		};
+
+		pil_ipa_fw_mem: ipa_fw_region@93b00000 {
 			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0 0x93b00000 0 0x10000>;
 		};
 
-		pil_ipa_gsi_mem: ipa_gsi_region@93710000 {
+		pil_ipa_gsi_mem: ipa_gsi_region@93b10000 {
 			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0 0x93b10000 0 0x5000>;
 		};
 
-		pil_gpu_mem: gpu_region@93715000 {
+		pil_gpu_mem: gpu_region@93b15000 {
 			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0 0x93b15000 0 0x2000>;
@@ -615,6 +627,21 @@
 			reusable;
 			alignment = <0 0x400000>;
 			size = <0 0x8c00000>;
+		};
+
+		cont_splash_memory: cont_splash_region@9c000000 {
+			reg = <0x0 0x9c000000 0x0 0x01700000>;
+			label = "cont_splash_region";
+		};
+
+		dfps_data_memory: dfps_data_region@9d700000 {
+			reg = <0x0 0x9d700000 0x0 0x0100000>;
+			label = "dfps_data_region";
+		};
+
+		disp_rdump_memory: disp_rdump_region@9c000000 {
+			reg = <0x0 0x9c000000 0x0 0x01800000>;
+			label = "disp_rdump_region";
 		};
 
 		adsp_mem: adsp_region {
@@ -888,6 +915,286 @@
 			<0x10ae000 0x2000>;
 		reg-names = "dcc-base", "dcc-ram-base";
 		dcc-ram-offset = <0x6000>;
+
+		qcom,curr-link-list = <3>;
+		qcom,data-sink = "sram";
+
+		qcom,link-list = <DCC_READ 0x10C004 1 0>,
+				<DCC_READ 0x10C038 1 0>,
+				<DCC_READ 0x10C01C 1 0>,
+				<DCC_READ 0x10C020 1 0>,
+				<DCC_READ 0x10C024 1 0>,
+				<DCC_READ 0x10C030 1 0>,
+				<DCC_READ 0x10414C 1 0>,
+				<DCC_READ 0x10C00C 1 0>,
+				<DCC_READ 0x10C010 1 0>,
+				<DCC_READ 0x10C014 1 0>,
+				<DCC_READ 0x10C018 1 0>,
+				<DCC_READ 0x13C008 1 0>,
+				<DCC_READ 0x144528 1 0>,
+				<DCC_READ 0x145010 1 0>,
+				<DCC_READ 0x148010 1 0>,
+				<DCC_READ 0x18A014 1 0>,
+				<DCC_READ 0x111010 1 0>,
+				<DCC_READ 0x171008 1 0>,
+				<DCC_READ 0x14D010 1 0>,
+				<DCC_READ 0x148194 1 0>,
+				<DCC_READ 0x18901C 1 0>,
+				<DCC_READ 0x111014 1 0>,
+				<DCC_READ 0x10B03C 1 0>,
+				<DCC_READ 0x10C02C 1 0>,
+				<DCC_READ 0x14800C 1 0>,
+				<DCC_READ 0x18A010 1 0>,
+				<DCC_READ 0x171014 1 0>,
+				<DCC_READ 0x14D00C 1 0>,
+				<DCC_READ 0x10C028 1 0>,
+				<DCC_READ 0x148190 1 0>,
+				<DCC_READ 0x104140 1 0>,
+				<DCC_READ 0x10B034 1 0>,
+				<DCC_READ 0x145144 1 0>,
+				<DCC_READ 0x10C034 1 0>,
+				<DCC_READ 0x148194 1 0>,
+				<DCC_READ 0x10C028 1 0>,
+				<DCC_READ 0x10C008 1 0>,
+				<DCC_READ 0x147024 1 0>,
+				<DCC_READ 0x147020 1 0>,
+				<DCC_READ 0x10C75C 1 0>,
+				<DCC_READ 0x18000024 1 0>,
+				<DCC_READ 0x18000040 1 0>,
+				<DCC_READ 0x18010024 1 0>,
+				<DCC_READ 0x18010040 1 0>,
+				<DCC_READ 0x18020024 1 0>,
+				<DCC_READ 0x18020040 1 0>,
+				<DCC_READ 0x18030024 1 0>,
+				<DCC_READ 0x18030040 1 0>,
+				<DCC_READ 0x18040024 1 0>,
+				<DCC_READ 0x18040040 1 0>,
+				<DCC_READ 0x18050024 1 0>,
+				<DCC_READ 0x18050040 1 0>,
+				<DCC_READ 0x18060024 1 0>,
+				<DCC_READ 0x18060040 1 0>,
+				<DCC_READ 0x18070024 1 0>,
+				<DCC_READ 0x18070040 1 0>,
+				<DCC_READ 0x18080024 1 0>,
+				<DCC_READ 0x18080040 1 0>,
+				<DCC_READ 0x180800f8 1 0>,
+				<DCC_READ 0x18080104 1 0>,
+				<DCC_READ 0x1808011c 1 0>,
+				<DCC_READ 0x18080128 1 0>,
+				<DCC_READ 0x18321700 1 0>,
+				<DCC_READ 0x18322c18 1 0>,
+				<DCC_READ 0x18323700 1 0>,
+				<DCC_READ 0x18324c18 1 0>,
+				<DCC_READ 0x18325f00 1 0>,
+				<DCC_READ 0x18327418 1 0>,
+				<DCC_READ 0x18321818 1 0>,
+				<DCC_READ 0x18323818 1 0>,
+				<DCC_READ 0x18326018 1 0>,
+				<DCC_READ 0x18321920 1 0>,
+				<DCC_READ 0x1832102c 1 0>,
+				<DCC_READ 0x18321044 1 0>,
+				<DCC_READ 0x18321710 1 0>,
+				<DCC_READ 0x1832176c 1 0>,
+				<DCC_READ 0x18322c18 1 0>,
+				<DCC_READ 0x18323700 1 0>,
+				<DCC_READ 0x18323920 1 0>,
+				<DCC_READ 0x1832302c 1 0>,
+				<DCC_READ 0x18323044 1 0>,
+				<DCC_READ 0x18323710 1 0>,
+				<DCC_READ 0x1832376c 1 0>,
+				<DCC_READ 0x18324c18 1 0>,
+				<DCC_READ 0x18326120 1 0>,
+				<DCC_READ 0x1832582c 1 0>,
+				<DCC_READ 0x18325844 1 0>,
+				<DCC_READ 0x18325f10 1 0>,
+				<DCC_READ 0x18325f6c 1 0>,
+				<DCC_READ 0x18327418 1 0>,
+				<DCC_READ 0x1832582c 1 0>,
+				<DCC_READ 0x18280000 2 0>,
+				<DCC_READ 0x18282000 2 0>,
+				<DCC_READ 0x18284000 2 0>,
+				<DCC_READ 0x0c201244 1 0>,
+				<DCC_READ 0x0c202244 1 0>,
+				<DCC_READ 0x18100c18 1 0>,
+				<DCC_READ 0x18101c18 1 0>,
+				<DCC_READ 0x18300000 1 0>,
+				<DCC_READ 0x183a3a84 2 0>,
+				<DCC_READ 0x18393a84 1 0>,
+				<DCC_READ 0x90c012c 1 0>,
+				<DCC_READ 0x9222408 1 0>,
+				<DCC_READ 0x9220344 2 0>,
+				<DCC_READ 0x9220480 1 0>,
+				<DCC_READ 0x922358c 1 0>,
+				<DCC_READ 0x9222398 1 0>,
+				<DCC_READ 0x92223a4 1 0>,
+				<DCC_READ 0x92223a4 1 0>,
+				<DCC_READ 0x92223a4 1 0>,
+				<DCC_READ 0x92223a4 1 0>,
+				<DCC_READ 0x92223a4 1 0>,
+				<DCC_READ 0x92223a4 1 0>,
+				<DCC_READ 0x923201c 5 0>,
+				<DCC_READ 0x9232050 1 0>,
+				<DCC_READ 0x9232100 1 0>,
+				<DCC_READ 0x9186048 1 0>,
+				<DCC_READ 0x9186054 1 0>,
+				<DCC_READ 0x9186164 1 0>,
+				<DCC_READ 0x9186170 1 0>,
+				<DCC_READ 0x9236028 1 0>,
+				<DCC_READ 0x923602c 1 0>,
+				<DCC_READ 0x9236030 1 0>,
+				<DCC_READ 0x9236034 1 0>,
+				<DCC_READ 0x9236038 1 0>,
+				<DCC_READ 0x9232100 1 0>,
+				<DCC_READ 0x92360b0 1 0>,
+				<DCC_READ 0x9236044 1 0>,
+				<DCC_READ 0x9236048 1 0>,
+				<DCC_READ 0x923604c 1 0>,
+				<DCC_READ 0x9236050 1 0>,
+				<DCC_READ 0x923e030 1 0>,
+				<DCC_READ 0x923e034 1 0>,
+				<DCC_READ 0x9241000 1 0>,
+				<DCC_READ 0x9248058 1 0>,
+				<DCC_READ 0x924805c 1 0>,
+				<DCC_READ 0x9248060 1 0>,
+				<DCC_READ 0x9248064 1 0>,
+				<DCC_READ 0x9260410 1 0>,
+				<DCC_READ 0x92e0410 1 0>,
+				<DCC_READ 0x9260414 1 0>,
+				<DCC_READ 0x92e0414 1 0>,
+				<DCC_READ 0x9260418 1 0>,
+				<DCC_READ 0x92e0418 1 0>,
+				<DCC_READ 0x9260420 1 0>,
+				<DCC_READ 0x9260424 1 0>,
+				<DCC_READ 0x9260430 1 0>,
+				<DCC_READ 0x9260440 1 0>,
+				<DCC_READ 0x9260448 1 0>,
+				<DCC_READ 0x92604a0 1 0>,
+				<DCC_READ 0x92604b0 1 0>,
+				<DCC_READ 0x92604d0 2 0>,
+				<DCC_READ 0x9261440 1 0>,
+				<DCC_READ 0x92e0420 1 0>,
+				<DCC_READ 0x92e0424 1 0>,
+				<DCC_READ 0x92e0430 1 0>,
+				<DCC_READ 0x92e0440 1 0>,
+				<DCC_READ 0x92e0448 1 0>,
+				<DCC_READ 0x92e04a0 1 0>,
+				<DCC_READ 0x92e04b0 1 0>,
+				<DCC_READ 0x92e04d0 2 0>,
+				<DCC_READ 0x9600000 1 0>,
+				<DCC_READ 0x9601000 1 0>,
+				<DCC_READ 0x9602000 1 0>,
+				<DCC_READ 0x9603000 1 0>,
+				<DCC_READ 0x9604000 1 0>,
+				<DCC_READ 0x9605000 1 0>,
+				<DCC_READ 0x9606000 1 0>,
+				<DCC_READ 0x9607000 1 0>,
+				<DCC_READ 0x9608000 1 0>,
+				<DCC_READ 0x9609000 1 0>,
+				<DCC_READ 0x960a000 1 0>,
+				<DCC_READ 0x960b000 1 0>,
+				<DCC_READ 0x960c000 1 0>,
+				<DCC_READ 0x960d000 1 0>,
+				<DCC_READ 0x960e000 1 0>,
+				<DCC_READ 0x960f000 1 0>,
+				<DCC_READ 0x9610000 1 0>,
+				<DCC_READ 0x9611000 1 0>,
+				<DCC_READ 0x9612000 1 0>,
+				<DCC_READ 0x9613000 1 0>,
+				<DCC_READ 0x9614000 1 0>,
+				<DCC_READ 0x9615000 1 0>,
+				<DCC_READ 0x9616000 1 0>,
+				<DCC_READ 0x9617000 1 0>,
+				<DCC_READ 0x9618000 1 0>,
+				<DCC_READ 0x9619000 1 0>,
+				<DCC_READ 0x961a000 1 0>,
+				<DCC_READ 0x961b000 1 0>,
+				<DCC_READ 0x961c000 1 0>,
+				<DCC_READ 0x961d000 1 0>,
+				<DCC_READ 0x961e000 1 0>,
+				<DCC_READ 0x961f000 1 0>,
+				<DCC_READ 0x9600004 1 0>,
+				<DCC_READ 0x9601004 1 0>,
+				<DCC_READ 0x9602004 1 0>,
+				<DCC_READ 0x9603004 1 0>,
+				<DCC_READ 0x9604004 1 0>,
+				<DCC_READ 0x9605004 1 0>,
+				<DCC_READ 0x9606004 1 0>,
+				<DCC_READ 0x9607004 1 0>,
+				<DCC_READ 0x9608004 1 0>,
+				<DCC_READ 0x9609004 1 0>,
+				<DCC_READ 0x960a004 1 0>,
+				<DCC_READ 0x960b004 1 0>,
+				<DCC_READ 0x960c004 1 0>,
+				<DCC_READ 0x960d004 1 0>,
+				<DCC_READ 0x960e004 1 0>,
+				<DCC_READ 0x960f004 1 0>,
+				<DCC_READ 0x9610004 1 0>,
+				<DCC_READ 0x9611004 1 0>,
+				<DCC_READ 0x9612004 1 0>,
+				<DCC_READ 0x9613004 1 0>,
+				<DCC_READ 0x9614004 1 0>,
+				<DCC_READ 0x9615004 1 0>,
+				<DCC_READ 0x9616004 1 0>,
+				<DCC_READ 0x9617004 1 0>,
+				<DCC_READ 0x9618004 1 0>,
+				<DCC_READ 0x9619004 1 0>,
+				<DCC_READ 0x961a004 1 0>,
+				<DCC_READ 0x961b004 1 0>,
+				<DCC_READ 0x961c004 1 0>,
+				<DCC_READ 0x961d004 1 0>,
+				<DCC_READ 0x961e004 1 0>,
+				<DCC_READ 0x961f004 1 0>,
+				<DCC_READ 0x9266418 1 0>,
+				<DCC_READ 0x92e6418 1 0>,
+				<DCC_READ 0x9265804 1 0>,
+				<DCC_READ 0x92e5804 1 0>,
+				<DCC_READ 0x92604b8 1 0>,
+				<DCC_READ 0x92e04b8 1 0>,
+				<DCC_READ 0x9680000 1 0>,
+				<DCC_READ 0x9680004 1 0>,
+				<DCC_LOOP 8 0 0>,
+				<DCC_READ 0x9681000 1 0>,
+				<DCC_LOOP 1 0 0>,
+				<DCC_READ 0x9681004 1 0>,
+				<DCC_READ 0x9681008 1 0>,
+				<DCC_READ 0x968100c 1 0>,
+				<DCC_READ 0x9681010 1 0>,
+				<DCC_READ 0x9681014 1 0>,
+				<DCC_READ 0x968101c 1 0>,
+				<DCC_READ 0x9681020 1 0>,
+				<DCC_READ 0x9681024 1 0>,
+				<DCC_READ 0x9681028 1 0>,
+				<DCC_READ 0x968102c 1 0>,
+				<DCC_READ 0x9681030 1 0>,
+				<DCC_READ 0x9681034 1 0>,
+				<DCC_READ 0x968103c 1 0>,
+				<DCC_READ 0x9698100 1 0>,
+				<DCC_READ 0x9698104 1 0>,
+				<DCC_READ 0x9698108 1 0>,
+				<DCC_READ 0x9698110 1 0>,
+				<DCC_READ 0x9698120 1 0>,
+				<DCC_READ 0x9698124 1 0>,
+				<DCC_READ 0x9698128 1 0>,
+				<DCC_READ 0x969812c 1 0>,
+				<DCC_READ 0x9698130 1 0>,
+				<DCC_READ 0x9698134 1 0>,
+				<DCC_READ 0x9698138 1 0>,
+				<DCC_READ 0x969813c 1 0>,
+				<DCC_READ 0x9698500 1 0>,
+				<DCC_READ 0x9698504 1 0>,
+				<DCC_READ 0x9698508 1 0>,
+				<DCC_READ 0x969850c 1 0>,
+				<DCC_READ 0x9698510 1 0>,
+				<DCC_READ 0x9698514 1 0>,
+				<DCC_READ 0x9698518 1 0>,
+				<DCC_READ 0x969851c 1 0>,
+				<DCC_READ 0x9698700 1 0>,
+				<DCC_READ 0x9698704 1 0>,
+				<DCC_READ 0x9698708 1 0>,
+				<DCC_READ 0x969870c 1 0>,
+				<DCC_READ 0x9698714 1 0>,
+				<DCC_READ 0x9698718 1 0>,
+				<DCC_READ 0x969871c 1 0>;
 	};
 
 	restart@c264000 {
@@ -895,6 +1202,12 @@
 		reg = <0xc264000 0x4>,
 		      <0x1fd3000 0x4>;
 		reg-names = "pshold-base", "tcsr-boot-misc-detect";
+	};
+
+	qcom,mpm2-sleep-counter@0xc221000 {
+		compatible = "qcom,mpm2-sleep-counter";
+		reg = <0xc221000 0x1000>;
+		clock-frequency = <32768>;
 	};
 
 	qcom_seecom: qseecom@82200000 {
@@ -947,6 +1260,10 @@
 			<1 618 0 300000>;  /* 75 MHz */
 		clocks = <&clock_gcc GCC_PRNG_AHB_CLK>;
 		clock-names = "iface_clk";
+	};
+
+	qcom_msmhdcp: qcom,msm_hdcp {
+		compatible = "qcom,msm-hdcp";
 	};
 
 	qcom_crypto: qcrypto@1de0000 {
@@ -1144,6 +1461,7 @@
 		qcom,smem-id = <421>;
 		qcom,signal-aop;
 		qcom,minidump-id = <3>;
+		qcom,aux-minidump-ids = <4>;
 		qcom,complete-ramdump;
 
 		/* Inputs from mss */
@@ -1166,6 +1484,19 @@
 
 		mboxes = <&qmp_aop 0>;
 		mbox-names = "mss-pil";
+	};
+
+	qcom,npu@9800000 {
+		compatible = "qcom,pil-tz-generic";
+		reg = <0x9800000 0x800000>;
+
+		qcom,pas-id = <23>;
+		qcom,firmware-name = "npu";
+		memory-region = <&pil_npu_mem>;
+
+		/* Outputs to npu */
+		qcom,smem-states = <&npu_smp2p_out 0>;
+		qcom,smem-state-names = "qcom,force-stop";
 	};
 
 	qcom,turing@8300000 {
@@ -1377,6 +1708,12 @@
 			cap-based-alloc-and-pwr-collapse;
 		};
 
+		qcom,llcc-perfmon {
+			compatible = "qcom,llcc-perfmon";
+			clocks = <&clock_aop QDSS_CLK>;
+			clock-names = "qdss_clk";
+		};
+
 		qcom,llcc-erp {
 			compatible = "qcom,llcc-erp";
 		};
@@ -1564,7 +1901,7 @@
 		};
 
 		pmic {
-			qcom,dump-size = <0x10000>;
+			qcom,dump-size = <0x80000>;
 			qcom,dump-id = <0xe4>;
 		};
 
@@ -1697,8 +2034,9 @@
 			<0x18325800 0x1400>;
 		reg-names = "osm_l3_base", "osm_pwrcl_base",
 			"osm_perfcl_base";
+		l3-devs = <&cpu0_cpu_l3_lat &cpu6_cpu_l3_lat
+			   &cdsp_cdsp_l3_lat>;
 		#clock-cells = <1>;
-		status = "disabled";
 	};
 
 	cpucc_debug: syscon@182a0018 {
@@ -1867,16 +2205,17 @@
 				qcom,glink-channels = "cdsprmglink-apps-dsp";
 				qcom,intents = <0x20 12>;
 
+				qcom,cdsp-cdsp-l3-gov {
+					compatible = "qcom,cdsp-l3";
+					qcom,target-dev = <&cdsp_cdsp_l3_lat>;
+				};
+
 				msm_cdsp_rm: qcom,msm_cdsp_rm {
 					compatible = "qcom,msm-cdsp-rm";
 					qcom,qos-latency-us = <44>;
 					qcom,qos-maxhold-ms = <20>;
-					#cooling-cells = <2>;
-				};
-
-				msm_hvx_rm: qcom,msm_hvx_rm {
-					compatible = "qcom,msm-hvx-rm";
-					#cooling-cells = <2>;
+					qcom,compute-cx-limit-en;
+					qcom,compute-priority-mode = <2>;
 				};
 			};
 
@@ -2547,7 +2886,7 @@
 		qcom,tcs-config = <SLEEP_TCS   1>,
 				  <WAKE_TCS    1>,
 				  <ACTIVE_TCS  0>,
-				  <CONTROL_TCS 0>;
+				  <CONTROL_TCS 1>;
 	};
 
 	system_pm {
@@ -2585,10 +2924,12 @@
 	};
 
 	icnss: qcom,icnss@18800000 {
-		status = "disabled";
 		compatible = "qcom,icnss";
-		reg = <0x18800000 0x800000>;
-		reg-names = "membase";
+		reg = <0x18800000 0x800000>,
+		      <0xa0000000 0x10000000>,
+		      <0xb0000000 0x10000>;
+		reg-names = "membase", "smmu_iova_base", "smmu_iova_ipa";
+		iommus = <&apps_smmu 0xC0 0x1>;
 		interrupts = <GIC_SPI 414 IRQ_TYPE_LEVEL_HIGH /* CE0 */ >,
 			     <GIC_SPI 415 IRQ_TYPE_LEVEL_HIGH /* CE1 */ >,
 			     <GIC_SPI 416 IRQ_TYPE_LEVEL_HIGH /* CE2 */ >,
@@ -2601,8 +2942,18 @@
 			     <GIC_SPI 423 IRQ_TYPE_LEVEL_HIGH /* CE9 */ >,
 			     <GIC_SPI 424 IRQ_TYPE_LEVEL_HIGH /* CE10 */ >,
 			     <GIC_SPI 425 IRQ_TYPE_LEVEL_HIGH /* CE11 */ >;
-		qcom,smmu-s1-bypass;
 		qcom,wlan-msa-fixed-region = <&wlan_fw_mem>;
+		vdd-cx-mx-supply = <&L9A>;
+		vdd-1.8-xo-supply = <&L1C>;
+		vdd-1.3-rfa-supply = <&L2C>;
+		vdd-3.3-ch0-supply = <&L10C>;
+		qcom,vdd-cx-mx-config = <640000 640000>;
+		qcom,smp2p_map_wlan_1_in {
+			interrupts-extended = <&smp2p_wlan_1_in 0 0>,
+					      <&smp2p_wlan_1_in 1 0>;
+			interrupt-names = "qcom,smp2p-force-fatal-error",
+					  "qcom,smp2p-early-crash-ind";
+		};
 	};
 
 	qcom,venus@aae0000 {
@@ -2675,10 +3026,10 @@
 		qca,bt-vdd-pa-supply = <&pm6150l_l10>;  /* CH0 */
 		qca,bt-vdd-xtal-supply = <&pm6150l_l1>;/* X0 */
 
-		qca,bt-vdd-io-voltage-level = <1721000 1829000>;
-		qca,bt-vdd-core-voltage-level = <1200000 1350000>;
-		qca,bt-vdd-pa-voltage-level = <3300000 3400000>;
-		qca,bt-vdd-xtal-voltage-level = <1620000 1980000>;
+		qca,bt-vdd-io-voltage-level = <1700000 1900000>;
+		qca,bt-vdd-core-voltage-level = <1245000 1350000>;
+		qca,bt-vdd-pa-voltage-level = <3200000 3400000>;
+		qca,bt-vdd-xtal-voltage-level = <1700000 1900000>;
 
 		qca,bt-vdd-io-current-level = <1>; /* LPM/PFM */
 		qca,bt-vdd-core-current-level = <1>; /* LPM/PFM */
@@ -2713,6 +3064,12 @@
 				MSM_BUS_SLAVE_EBI_CH0 0 5000000>;
 		qcom,msm-bus,active-only;
 		status = "ok";
+	};
+
+	llcc_pmu: llcc-pmu@90cc000 {
+		compatible = "qcom,qcom-llcc-pmu";
+		reg = <0x090cc000 0x300>;
+		reg-names = "lagg-base";
 	};
 
 	llcc_bw_opp_table: llcc-bw-opp-table {
@@ -2817,6 +3174,13 @@
 			< 2400000 1459000000 >;
 	};
 
+	cdsp_cdsp_l3_lat: qcom,cdsp-cdsp-l3-lat {
+		compatible = "devfreq-simple-dev";
+		clock-names = "devfreq_clk";
+		clocks = <&clock_cpucc L3_MISC_VOTE_CLK>;
+		governor = "powersave";
+	};
+
 	cpu0_cpu_llcc_lat: qcom,cpu0-cpu-llcc-lat {
 		compatible = "qcom,devbw";
 		governor = "performance";
@@ -2899,7 +3263,8 @@
 			< 1113600 MHZ_TO_MBPS( 547, 4) >,
 			< 1267200 MHZ_TO_MBPS(1017, 4) >,
 			< 1708800 MHZ_TO_MBPS(1555, 4) >,
-			< 2400000 MHZ_TO_MBPS(1804, 4) >;
+			< 2208000 MHZ_TO_MBPS(1804, 4) >,
+			< 2400000 MHZ_TO_MBPS(2133, 4) >;
 	};
 
 	cpu0_cpu_ddr_latfloor: qcom,cpu0-cpu-ddr-latfloor {
@@ -2962,12 +3327,12 @@
 		governor = "performance";
 		qcom,src-dst-ports = <MSM_BUS_MASTER_NPU MSM_BUS_SLAVE_EBI_CH0>;
 		operating-points-v2 = <&suspendable_ddr_bw_opp_table>;
-		status = "disabled";
+		status = "ok";
 	};
 
-	npu_npu_ddr_bwmon: qcom,npu-npu-ddr-bwmon@00060300 {
+	npu_npu_ddr_bwmon: qcom,npu-npu-ddr-bwmon@00060400 {
 		compatible = "qcom,bimc-bwmon4";
-		reg = <0x00060300 0x300>, <0x00060200 0x200>;
+		reg = <0x00060400 0x300>, <0x00060300 0x200>;
 		reg-names = "base", "global_base";
 		clocks = <&clock_gcc GCC_NPU_BWMON_DMA_CFG_AHB_CLK>,
 				<&clock_gcc GCC_NPU_BWMON_AXI_CLK>;
@@ -2975,12 +3340,12 @@
 					"gcc_npu_bwmon_axi_clk";
 		qcom,bwmon_clks = "gcc_npu_bwmon_dma_cfg_ahb_clk",
 					"gcc_npu_bwmon_axi_clk";
-		interrupts = <GIC_SPI 365 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 125 IRQ_TYPE_LEVEL_HIGH>;
 		qcom,mport = <0>;
 		qcom,hw-timer-hz = <19200000>;
 		qcom,target-dev = <&npu_npu_ddr_bw>;
 		qcom,count-unit = <0x10000>;
-		status = "disabled";
+		status = "ok";
 	};
 
 	npudsp_npu_ddr_bw: qcom,npudsp-npu-ddr-bw {
@@ -2988,12 +3353,12 @@
 		governor = "performance";
 		qcom,src-dst-ports = <MSM_BUS_MASTER_NPU MSM_BUS_SLAVE_EBI_CH0>;
 		operating-points-v2 = <&suspendable_ddr_bw_opp_table>;
-		status = "disabled";
+		status = "ok";
 	};
 
-	npudsp_npu_ddr_bwmon: qcom,npudsp-npu-ddr-bwmon@70200 {
+	npudsp_npu_ddr_bwmon: qcom,npudsp-npu-ddr-bwmon@70300 {
 		compatible = "qcom,bimc-bwmon4";
-		reg = <0x00070200 0x300>, <0x00070000 0x200>;
+		reg = <0x00070300 0x300>, <0x00070200 0x200>;
 		reg-names = "base", "global_base";
 		clocks = <&clock_gcc GCC_NPU_BWMON_DSP_CFG_AHB_CLK>,
 				<&clock_gcc GCC_NPU_BWMON_AXI_CLK>;
@@ -3001,12 +3366,12 @@
 					"gcc_npu_bwmon_axi_clk";
 		qcom,bwmon_clks = "gcc_npu_bwmon_dsp_cfg_ahb_clk",
 					"gcc_npu_bwmon_axi_clk";
-		interrupts = <GIC_SPI 155 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
 		qcom,mport = <0>;
 		qcom,hw-timer-hz = <19200000>;
 		qcom,target-dev = <&npudsp_npu_ddr_bw>;
 		qcom,count-unit = <0x10000>;
-		status = "disabled";
+		status = "ok";
 	};
 
 	/delete-node/gpu-bw-tbl;
@@ -3034,6 +3399,10 @@
 		governor = "bw_vbif";
 		qcom,src-dst-ports = <26 512>;
 		operating-points-v2 = <&gpu_bw_tbl>;
+	};
+
+	qcom,demux {
+		compatible = "qcom,demux";
 	};
 };
 
@@ -3067,96 +3436,377 @@
 		<26 512 0 7216000>,    /* 11 bus=1804 */
 		<26 512 0 8532000>;    /* 12 bus=2133 */
 
-	qcom,initial-pwrlevel = <7>;
-	qcom,ca-target-pwrlevel = <5>;
+	qcom,gpu-speed-bin = <0x6004 0x1fe00000 21>;
 
 	/delete-node/ qcom,gpu-pwrlevel-bins;
 
-	qcom,gpu-pwrlevels {
+	/*
+	 * Speed-bin zero is default speed bin.
+	 * For rest of the speed bins, speed-bin value
+	 * is calulated as FMAX/4.8MHz + 2 round up to zero
+	 * decimal places.
+	 */
+
+	qcom,gpu-pwrlevel-bins {
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		compatible = "qcom,gpu-pwrlevels";
+		compatible = "qcom,gpu-pwrlevel-bins";
 
-		/* TURBO_L1 */
-		qcom,gpu-pwrlevel@0 {
-			reg = <0>;
-			qcom,gpu-freq = <825000000>;
-			qcom,bus-freq = <11>;
-			qcom,bus-min = <10>;
-			qcom,bus-max = <12>;
+		qcom,gpu-pwrlevels-0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,speed-bin = <0>;
+
+			qcom,initial-pwrlevel = <6>;
+			qcom,ca-target-pwrlevel = <5>;
+
+			/* TURBO_L1 */
+			qcom,gpu-pwrlevel@0 {
+				reg = <0>;
+				qcom,gpu-freq = <825000000>;
+				qcom,bus-freq = <12>;
+				qcom,bus-min = <10>;
+				qcom,bus-max = <12>;
+			};
+
+			/* TURBO */
+			qcom,gpu-pwrlevel@1 {
+				reg = <1>;
+				qcom,gpu-freq = <800000000>;
+				qcom,bus-freq = <12>;
+				qcom,bus-min = <10>;
+				qcom,bus-max = <12>;
+			};
+
+			/* NOM_L1 */
+			qcom,gpu-pwrlevel@2 {
+				reg = <2>;
+				qcom,gpu-freq = <650000000>;
+				qcom,bus-freq = <10>;
+				qcom,bus-min = <8>;
+				qcom,bus-max = <12>;
+			};
+
+			/* NOM */
+			qcom,gpu-pwrlevel@3 {
+				reg = <3>;
+				qcom,gpu-freq = <565000000>;
+				qcom,bus-freq = <9>;
+				qcom,bus-min = <8>;
+				qcom,bus-max = <11>;
+			};
+
+			/* SVS_L1 */
+			qcom,gpu-pwrlevel@4 {
+				reg = <4>;
+				qcom,gpu-freq = <430000000>;
+				qcom,bus-freq = <8>;
+				qcom,bus-min = <7>;
+				qcom,bus-max = <10>;
+			};
+
+			/* SVS */
+			qcom,gpu-pwrlevel@5 {
+				reg = <5>;
+				qcom,gpu-freq = <355000000>;
+				qcom,bus-freq = <7>;
+				qcom,bus-min = <5>;
+				qcom,bus-max = <8>;
+			};
+
+			/* LOW SVS */
+			qcom,gpu-pwrlevel@6 {
+				reg = <6>;
+				qcom,gpu-freq = <267000000>;
+				qcom,bus-freq = <5>;
+				qcom,bus-min = <4>;
+				qcom,bus-max = <7>;
+			};
+
+			/* XO */
+			qcom,gpu-pwrlevel@7 {
+				reg = <7>;
+				qcom,gpu-freq = <0>;
+				qcom,bus-freq = <0>;
+				qcom,bus-min = <0>;
+				qcom,bus-max = <0>;
+			};
 		};
 
-		/* TURBO */
-		qcom,gpu-pwrlevel@1 {
-			reg = <1>;
-			qcom,gpu-freq = <800000000>;
-			qcom,bus-freq = <11>;
-			qcom,bus-min = <10>;
-			qcom,bus-max = <11>;
+		qcom,gpu-pwrlevels-1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,speed-bin = <172>;
+
+			qcom,initial-pwrlevel = <6>;
+			qcom,ca-target-pwrlevel = <5>;
+
+			/* TURBO_L1 */
+			qcom,gpu-pwrlevel@0 {
+				reg = <0>;
+				qcom,gpu-freq = <825000000>;
+				qcom,bus-freq = <12>;
+				qcom,bus-min = <10>;
+				qcom,bus-max = <12>;
+			};
+
+			/* TURBO */
+			qcom,gpu-pwrlevel@1 {
+				reg = <1>;
+				qcom,gpu-freq = <800000000>;
+				qcom,bus-freq = <12>;
+				qcom,bus-min = <10>;
+				qcom,bus-max = <12>;
+			};
+
+			/* NOM_L1 */
+			qcom,gpu-pwrlevel@2 {
+				reg = <2>;
+				qcom,gpu-freq = <650000000>;
+				qcom,bus-freq = <10>;
+				qcom,bus-min = <8>;
+				qcom,bus-max = <12>;
+			};
+
+			/* NOM */
+			qcom,gpu-pwrlevel@3 {
+				reg = <3>;
+				qcom,gpu-freq = <565000000>;
+				qcom,bus-freq = <9>;
+				qcom,bus-min = <8>;
+				qcom,bus-max = <11>;
+			};
+
+			/* SVS_L1 */
+			qcom,gpu-pwrlevel@4 {
+				reg = <4>;
+				qcom,gpu-freq = <430000000>;
+				qcom,bus-freq = <8>;
+				qcom,bus-min = <7>;
+				qcom,bus-max = <10>;
+			};
+
+			/* SVS */
+			qcom,gpu-pwrlevel@5 {
+				reg = <5>;
+				qcom,gpu-freq = <355000000>;
+				qcom,bus-freq = <7>;
+				qcom,bus-min = <5>;
+				qcom,bus-max = <8>;
+			};
+
+			/* LOW SVS */
+			qcom,gpu-pwrlevel@6 {
+				reg = <6>;
+				qcom,gpu-freq = <267000000>;
+				qcom,bus-freq = <5>;
+				qcom,bus-min = <4>;
+				qcom,bus-max = <7>;
+			};
+
+			/* XO */
+			qcom,gpu-pwrlevel@7 {
+				reg = <7>;
+				qcom,gpu-freq = <0>;
+				qcom,bus-freq = <0>;
+				qcom,bus-min = <0>;
+				qcom,bus-max = <0>;
+			};
 		};
 
-		/* NOM_L1 */
-		qcom,gpu-pwrlevel@2 {
-			reg = <2>;
-			qcom,gpu-freq = <650000000>;
-			qcom,bus-freq = <10>;
-			qcom,bus-min = <8>;
-			qcom,bus-max = <11>;
+		qcom,gpu-pwrlevels-2 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,speed-bin = <169>;
+
+			qcom,initial-pwrlevel = <5>;
+			qcom,ca-target-pwrlevel = <4>;
+
+			/* TURBO */
+			qcom,gpu-pwrlevel@0 {
+				reg = <0>;
+				qcom,gpu-freq = <800000000>;
+				qcom,bus-freq = <12>;
+				qcom,bus-min = <10>;
+				qcom,bus-max = <12>;
+			};
+
+			/* NOM_L1 */
+			qcom,gpu-pwrlevel@1 {
+				reg = <1>;
+				qcom,gpu-freq = <650000000>;
+				qcom,bus-freq = <10>;
+				qcom,bus-min = <8>;
+				qcom,bus-max = <12>;
+			};
+
+			/* NOM */
+			qcom,gpu-pwrlevel@2 {
+				reg = <2>;
+				qcom,gpu-freq = <565000000>;
+				qcom,bus-freq = <9>;
+				qcom,bus-min = <8>;
+				qcom,bus-max = <11>;
+			};
+
+			/* SVS_L1 */
+			qcom,gpu-pwrlevel@3 {
+				reg = <3>;
+				qcom,gpu-freq = <430000000>;
+				qcom,bus-freq = <8>;
+				qcom,bus-min = <7>;
+				qcom,bus-max = <10>;
+			};
+
+			/* SVS */
+			qcom,gpu-pwrlevel@4 {
+				reg = <4>;
+				qcom,gpu-freq = <355000000>;
+				qcom,bus-freq = <7>;
+				qcom,bus-min = <5>;
+				qcom,bus-max = <8>;
+			};
+
+			/* LOW SVS */
+			qcom,gpu-pwrlevel@5 {
+				reg = <5>;
+				qcom,gpu-freq = <267000000>;
+				qcom,bus-freq = <5>;
+				qcom,bus-min = <4>;
+				qcom,bus-max = <7>;
+			};
+
+			/* XO */
+			qcom,gpu-pwrlevel@6 {
+				reg = <6>;
+				qcom,gpu-freq = <0>;
+				qcom,bus-freq = <0>;
+				qcom,bus-min = <0>;
+				qcom,bus-max = <0>;
+			};
 		};
 
-		/* NOM */
-		qcom,gpu-pwrlevel@3 {
-			reg = <3>;
-			qcom,gpu-freq = <565000000>;
-			qcom,bus-freq = <9>;
-			qcom,bus-min = <8>;
-			qcom,bus-max = <10>;
+		qcom,gpu-pwrlevels-3 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,speed-bin = <130>;
+
+			qcom,initial-pwrlevel = <4>;
+			qcom,ca-target-pwrlevel = <3>;
+
+			/* NOM_L1 */
+			qcom,gpu-pwrlevel@0 {
+				reg = <0>;
+				qcom,gpu-freq = <610000000>;
+				qcom,bus-freq = <11>;
+				qcom,bus-min = <8>;
+				qcom,bus-max = <11>;
+			};
+
+			/* NOM */
+			qcom,gpu-pwrlevel@1 {
+				reg = <1>;
+				qcom,gpu-freq = <565000000>;
+				qcom,bus-freq = <9>;
+				qcom,bus-min = <8>;
+				qcom,bus-max = <11>;
+			};
+
+			/* SVS_L1 */
+			qcom,gpu-pwrlevel@2 {
+				reg = <2>;
+				qcom,gpu-freq = <430000000>;
+				qcom,bus-freq = <8>;
+				qcom,bus-min = <7>;
+				qcom,bus-max = <10>;
+			};
+
+			/* SVS */
+			qcom,gpu-pwrlevel@3 {
+				reg = <3>;
+				qcom,gpu-freq = <355000000>;
+				qcom,bus-freq = <7>;
+				qcom,bus-min = <5>;
+				qcom,bus-max = <8>;
+			};
+
+			/* LOW SVS */
+			qcom,gpu-pwrlevel@4 {
+				reg = <4>;
+				qcom,gpu-freq = <267000000>;
+				qcom,bus-freq = <5>;
+				qcom,bus-min = <4>;
+				qcom,bus-max = <7>;
+			};
+
+			/* XO */
+			qcom,gpu-pwrlevel@5 {
+				reg = <5>;
+				qcom,gpu-freq = <0>;
+				qcom,bus-freq = <0>;
+				qcom,bus-min = <0>;
+				qcom,bus-max = <0>;
+			};
 		};
 
-		/* SVS_L1 */
-		qcom,gpu-pwrlevel@4 {
-			reg = <4>;
-			qcom,gpu-freq = <430000000>;
-			qcom,bus-freq = <8>;
-			qcom,bus-min = <7>;
-			qcom,bus-max = <10>;
-		};
+		qcom,gpu-pwrlevels-4 {
+			#address-cells = <1>;
+			#size-cells = <0>;
 
-		/* SVS */
-		qcom,gpu-pwrlevel@5 {
-			reg = <5>;
-			qcom,gpu-freq = <355000000>;
-			qcom,bus-freq = <7>;
-			qcom,bus-min = <5>;
-			qcom,bus-max = <8>;
-		};
+			qcom,speed-bin = <107>;
 
-		/* LOW SVS */
-		qcom,gpu-pwrlevel@6 {
-			reg = <6>;
-			qcom,gpu-freq = <267000000>;
-			qcom,bus-freq = <6>;
-			qcom,bus-min = <4>;
-			qcom,bus-max = <7>;
-		};
+			qcom,initial-pwrlevel = <3>;
+			qcom,ca-target-pwrlevel = <2>;
 
-		/* LOW SVS */
-		qcom,gpu-pwrlevel@7 {
-			reg = <7>;
-			qcom,gpu-freq = <180000000>;
-			qcom,bus-freq = <4>;
-			qcom,bus-min = <3>;
-			qcom,bus-max = <4>;
-		};
+			/* NOM */
+			qcom,gpu-pwrlevel@0 {
+				reg = <0>;
+				qcom,gpu-freq = <504000000>;
+				qcom,bus-freq = <11>;
+				qcom,bus-min = <8>;
+				qcom,bus-max = <11>;
+			};
 
-		/* XO */
-		qcom,gpu-pwrlevel@8 {
-			reg = <8>;
-			qcom,gpu-freq = <0>;
-			qcom,bus-freq = <0>;
-			qcom,bus-min = <0>;
-			qcom,bus-max = <0>;
+			/* SVS_L1 */
+			qcom,gpu-pwrlevel@1 {
+				reg = <1>;
+				qcom,gpu-freq = <430000000>;
+				qcom,bus-freq = <11>;
+				qcom,bus-min = <7>;
+				qcom,bus-max = <11>;
+			};
+
+			/* SVS */
+			qcom,gpu-pwrlevel@2 {
+				reg = <2>;
+				qcom,gpu-freq = <355000000>;
+				qcom,bus-freq = <8>;
+				qcom,bus-min = <5>;
+				qcom,bus-max = <9>;
+			};
+
+			/* LOW SVS */
+			qcom,gpu-pwrlevel@3 {
+				reg = <3>;
+				qcom,gpu-freq = <267000000>;
+				qcom,bus-freq = <5>;
+				qcom,bus-min = <4>;
+				qcom,bus-max = <8>;
+			};
+
+			/* XO */
+			qcom,gpu-pwrlevel@4 {
+				reg = <4>;
+				qcom,gpu-freq = <0>;
+				qcom,bus-freq = <0>;
+				qcom,bus-min = <0>;
+				qcom,bus-max = <0>;
+			};
 		};
 	};
 };
@@ -3178,10 +3828,12 @@
 };
 
 &bps_gdsc {
+	qcom,support-hw-trigger;
 	status = "ok";
 };
 
 &ipe_0_gdsc {
+	qcom,support-hw-trigger;
 	status = "ok";
 };
 
@@ -3202,14 +3854,21 @@
 };
 
 &gpu_cx_gdsc {
+	parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
 
 &gpu_gx_gdsc {
+	clock-names = "core_root_clk";
+	clocks = <&clock_gpucc GPU_CC_GX_GFX3D_CLK_SRC>;
+	qcom,force-enable-root-clk;
+	parent-supply = <&VDD_GFX_LEVEL>;
+	qcom,reset-aon-logic;
 	status = "ok";
 };
 
 &vcodec0_gdsc {
+	qcom,support-hw-trigger;
 	status = "ok";
 };
 
@@ -3237,10 +3896,18 @@
 #include "atoll-regulator.dtsi"
 #include "atoll-usb.dtsi"
 #include "atoll-vidc.dtsi"
+#include "atoll-npu.dtsi"
 
 &pm6150_vadc {
 	pinctrl-names = "default";
 	pinctrl-0 = <&nvm_therm_default &sdm_skin_therm_default>;
+
+	smb1390_therm {
+		reg = <ADC_AMUX_THM2>;
+		label = "smb1390_therm";
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+	};
 
 	chg_skin_therm {
 		reg = <ADC_AMUX_THM1_PU2>;
@@ -3391,6 +4058,7 @@
 #include "atoll-camera.dtsi"
 #include "atoll-sde-pll.dtsi"
 #include "atoll-sde.dtsi"
+#include "msm-rdbg.dtsi"
 
 &qupv3_se9_i2c {
 	status = "ok";

@@ -24,8 +24,6 @@ static int cam_csid_ppi_reset(struct cam_csid_ppi_hw *ppi_hw)
 	struct cam_hw_soc_info                *soc_info;
 	const struct cam_csid_ppi_reg_offset  *ppi_reg;
 	int rc = 0;
-	uint32_t val = 0;
-	uint32_t clear_mask;
 	uint32_t status;
 
 	soc_info = &ppi_hw->hw_info->soc_info;
@@ -36,36 +34,29 @@ static int cam_csid_ppi_reset(struct cam_csid_ppi_hw *ppi_hw)
 	/* Mask all interrupts */
 	cam_io_w_mb(0, soc_info->reg_map[0].mem_base +
 		ppi_reg->ppi_irq_mask_addr);
+	cam_io_w_mb(PPI_RST_CONTROL, soc_info->reg_map[0].mem_base +
+		ppi_reg->ppi_irq_set_addr);
+	cam_io_w_mb(PPI_RST_CONTROL, soc_info->reg_map[0].mem_base +
+		ppi_reg->ppi_rst_cmd_addr);
+	cam_io_w_mb(PPI_IRQ_CMD_SET, soc_info->reg_map[0].mem_base +
+		ppi_reg->ppi_irq_cmd_addr);
 
-	/* clear all interrupts */
-	clear_mask = PPI_IRQ_FIFO0_OVERFLOW | PPI_IRQ_FIFO1_OVERFLOW |
-		PPI_IRQ_FIFO2_OVERFLOW;
-	cam_io_w_mb(clear_mask, soc_info->reg_map[0].mem_base +
+	rc = readl_poll_timeout(soc_info->reg_map[0].mem_base +
+		ppi_reg->ppi_irq_status_addr, status,
+		(status & 0x1) == 0x1, 1000, 500000);
+	CAM_DBG(CAM_ISP, "PPI:%d reset status %d", ppi_hw->hw_intf->hw_idx,
+		status);
+	if (rc < 0) {
+		CAM_ERR(CAM_ISP, "PPI:%d ppi_reset fail rc = %d status = %d",
+			ppi_hw->hw_intf->hw_idx, rc, status);
+		return rc;
+	}
+	cam_io_w_mb(PPI_RST_CONTROL, soc_info->reg_map[0].mem_base +
 		ppi_reg->ppi_irq_clear_addr);
 	cam_io_w_mb(PPI_IRQ_CMD_CLEAR, soc_info->reg_map[0].mem_base +
 		ppi_reg->ppi_irq_cmd_addr);
 
-	/* perform the top PPI HW registers reset */
-	cam_io_w_mb(PPI_RST_CONTROL, soc_info->reg_map[0].mem_base +
-		ppi_reg->ppi_rst_cmd_addr);
-
-	rc = readl_poll_timeout(soc_info->reg_map[0].mem_base +
-		ppi_reg->ppi_irq_status_addr, status,
-		(status & 0x1) == 0x1, 1000, 100000);
-	if (rc < 0) {
-		CAM_ERR(CAM_ISP, "PPI:%d ppi_reset fail rc = %d",
-			  ppi_hw->hw_intf->hw_idx, rc);
-		rc = -ETIMEDOUT;
-	}
-	CAM_DBG(CAM_ISP, "PPI: reset status %d", status);
-
-	val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
-		ppi_reg->ppi_irq_mask_addr);
-	if (val != 0)
-		CAM_ERR(CAM_ISP, "PPI:%d IRQ value after reset rc = %d",
-			ppi_hw->hw_intf->hw_idx, val);
-
-	return rc;
+	return 0;
 }
 
 static int cam_csid_ppi_enable_hw(struct cam_csid_ppi_hw  *ppi_hw)
@@ -75,6 +66,7 @@ static int cam_csid_ppi_enable_hw(struct cam_csid_ppi_hw  *ppi_hw)
 	uint64_t val;
 	const struct cam_csid_ppi_reg_offset *ppi_reg;
 	struct cam_hw_soc_info               *soc_info;
+	uint32_t err_irq_mask;
 
 	ppi_reg  = ppi_hw->ppi_info->ppi_reg;
 	soc_info = &ppi_hw->hw_info->soc_info;
@@ -89,35 +81,34 @@ static int cam_csid_ppi_enable_hw(struct cam_csid_ppi_hw  *ppi_hw)
 			goto clk_disable;
 	}
 
-	rc  = cam_soc_util_irq_enable(soc_info);
-	if (rc)
-		goto clk_disable;
-
 	/* Reset PPI */
 	rc = cam_csid_ppi_reset(ppi_hw);
 	if (rc)
-		goto irq_disable;
+		goto clk_disable;
 
+	err_irq_mask = PPI_IRQ_FIFO0_OVERFLOW | PPI_IRQ_FIFO1_OVERFLOW |
+		PPI_IRQ_FIFO2_OVERFLOW;
+	cam_io_w_mb(err_irq_mask, soc_info->reg_map[0].mem_base +
+		ppi_reg->ppi_irq_mask_addr);
+	rc  = cam_soc_util_irq_enable(soc_info);
+	if (rc)
+		goto clk_disable;
 	/* Clear the RST done IRQ */
-	cam_io_w_mb(1, soc_info->reg_map[0].mem_base +
+	cam_io_w_mb(PPI_RST_CONTROL, soc_info->reg_map[0].mem_base +
 		ppi_reg->ppi_irq_clear_addr);
-	cam_io_w_mb(1, soc_info->reg_map[0].mem_base +
+	cam_io_w_mb(PPI_IRQ_CMD_CLEAR, soc_info->reg_map[0].mem_base +
 		ppi_reg->ppi_irq_cmd_addr);
-
 	val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
-			ppi_reg->ppi_hw_version_addr);
+		ppi_reg->ppi_hw_version_addr);
 	CAM_DBG(CAM_ISP, "PPI:%d PPI HW version: 0x%x",
 		ppi_hw->hw_intf->hw_idx, val);
-
 	ppi_hw->device_enabled = 1;
+
 	return 0;
-irq_disable:
-	cam_soc_util_irq_disable(soc_info);
 clk_disable:
-	for (i--; i >= 0; i--) {
+	for (--i; i >= 0; i--)
 		cam_soc_util_clk_disable(soc_info->clk[i],
 			soc_info->clk_name[i]);
-	}
 	return rc;
 }
 
@@ -202,7 +193,7 @@ static int cam_csid_ppi_init_hw(void *hw_priv, void *init_args,
 		ppi_cfg.lane_cfg, num_lanes, cphy);
 
 	for (i = 0; i < num_lanes; i++) {
-		lanes[i] = ppi_cfg.lane_cfg & (0x3 << (4 * i));
+		lanes[i] = (ppi_cfg.lane_cfg & (0x3 << (4 * i))) >> (4*i);
 		(lanes[i] < 2) ? (dl0 = true) : (dl1 = true);
 		CAM_DBG(CAM_ISP, "lanes[%d] %d", i, lanes[i]);
 	}
@@ -234,6 +225,10 @@ static int cam_csid_ppi_init_hw(void *hw_priv, void *init_args,
 	soc_info = &ppi_hw->hw_info->soc_info;
 	cam_io_w_mb(ppi_cfg_val, soc_info->reg_map[0].mem_base +
 		ppi_reg->ppi_module_cfg_addr);
+
+	CAM_DBG(CAM_ISP, "ppi cfg 0x%x",
+		cam_io_r_mb(soc_info->reg_map[0].mem_base +
+		ppi_reg->ppi_module_cfg_addr));
 end:
 	return rc;
 }
@@ -341,7 +336,6 @@ irqreturn_t cam_csid_ppi_irq(int irq_num, void *data)
 	}
 
 	ppi_hw = (struct cam_csid_ppi_hw *)data;
-	CAM_DBG(CAM_ISP, "PPI %d IRQ Handling", ppi_hw->hw_intf->hw_idx);
 	ppi_reg = ppi_hw->ppi_info->ppi_reg;
 	soc_info = &ppi_hw->hw_info->soc_info;
 
@@ -353,7 +347,7 @@ irqreturn_t cam_csid_ppi_irq(int irq_num, void *data)
 	cam_io_w_mb(irq_status, soc_info->reg_map[0].mem_base +
 		ppi_reg->ppi_irq_clear_addr);
 
-	cam_io_w_mb(1, soc_info->reg_map[0].mem_base +
+	cam_io_w_mb(PPI_IRQ_CMD_CLEAR, soc_info->reg_map[0].mem_base +
 		ppi_reg->ppi_irq_cmd_addr);
 
 	CAM_DBG(CAM_ISP, "PPI %d irq status 0x%x", ppi_hw->hw_intf->hw_idx,

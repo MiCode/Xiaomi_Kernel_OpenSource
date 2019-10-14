@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,8 +29,8 @@ qcom,alium_860_89032_0000_3600mAh {
 				51  400  4350000
 				401 450  4250000>;
 	qcom,step-chg-ranges = <3600000  3800000  5400000
-				3801000  4300000  3600000
-				4301000  4350000  2500000>;
+				3800001  4300000  3600000
+				4300001  4350000  2500000>;
 	qcom,ocv-based-step-chg;
 
 	/* COOL = 5 DegC, WARM = 40 DegC */

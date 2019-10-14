@@ -144,6 +144,10 @@ static struct device_attribute dev_attr_##a_name = \
 
 #define ATTRIFY(a_name) (&dev_attr_##a_name)
 
+#define PINCTRL_STATE_ACTIVE    "pmx_ts_active"
+#define PINCTRL_STATE_SUSPEND   "pmx_ts_suspend"
+#define PINCTRL_STATE_RELEASE   "pmx_ts_release"
+
 enum module_type {
 	TCM_TOUCH = 0,
 	TCM_DEVICE = 1,
@@ -423,6 +427,10 @@ struct syna_tcm_hcd {
 	struct delayed_work polling_work;
 	struct workqueue_struct *polling_workqueue;
 	struct task_struct *notifier_thread;
+	struct pinctrl *ts_pinctrl;
+	struct pinctrl_state *pinctrl_state_active;
+	struct pinctrl_state *pinctrl_state_suspend;
+	struct pinctrl_state *pinctrl_state_release;
 #if defined(CONFIG_DRM) || defined(CONFIG_FB)
 	struct notifier_block fb_notifier;
 #endif

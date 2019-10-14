@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,15 +12,11 @@
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
-#include <linux/kernel.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/mutex.h>
-#include <linux/bitmap.h>
 #include <linux/bitops.h>
-#include <linux/slab.h>
 #include <linux/io.h>
-#include <linux/err.h>
 #include <linux/hrtimer.h>
 #include <linux/mfd/syscon.h>
 #include <linux/regmap.h>
@@ -81,6 +77,8 @@ struct event_port_ops {
  * @hrtimer:		hrtimer instance for timer functionality
  * @expires:		timer expire time in nano seconds
  * @clk:		clock node to enable qdss
+ * @num_mc:		number of MCS
+ * @version:		Version information of llcc block
  */
 struct llcc_perfmon_private {
 	struct regmap *llcc_map;
@@ -97,6 +95,8 @@ struct llcc_perfmon_private {
 	struct hrtimer hrtimer;
 	ktime_t expires;
 	struct clk *clock;
+	unsigned int num_mc;
+	unsigned int version;
 };
 
 static inline void llcc_bcast_write(struct llcc_perfmon_private *llcc_priv,
@@ -150,6 +150,7 @@ static ssize_t perfmon_counter_dump_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	struct llcc_perfmon_private *llcc_priv = dev_get_drvdata(dev);
+	struct llcc_perfmon_counter_map *counter_map;
 	uint32_t val;
 	unsigned int i, j;
 	unsigned long long total;
@@ -163,30 +164,48 @@ static ssize_t perfmon_counter_dump_show(struct device *dev,
 	if (llcc_priv->expires) {
 		perfmon_counter_dump(llcc_priv);
 		for (i = 0; i < llcc_priv->configured_counters - 1; i++) {
+			counter_map = &llcc_priv->configured[i];
 			print = snprintf(buf, MAX_STRING_SIZE, "Port %02d,",
-					llcc_priv->configured[i].port_sel);
+					counter_map->port_sel);
 			buf += print;
 			cnt += print;
 			print = snprintf(buf, MAX_STRING_SIZE, "Event %02d,",
-					llcc_priv->configured[i].event_sel);
+					counter_map->event_sel);
 			buf += print;
 			cnt += print;
 
-			print = snprintf(buf, MAX_STRING_SIZE, "0x%016llx\n",
-				       llcc_priv->configured[i].counter_dump);
-			buf += print;
-			cnt += print;
-			llcc_priv->configured[i].counter_dump = 0;
+			if ((counter_map->port_sel == EVENT_PORT_BEAC) &&
+					(llcc_priv->num_mc > 1)) {
+				/* DBX uses 2 BEAC ports */
+				print = snprintf(buf, MAX_STRING_SIZE,
+					"0x%016llx\n",
+					counter_map->counter_dump +
+					counter_map[1].counter_dump);
+
+				buf += print;
+				cnt += print;
+				counter_map->counter_dump = 0;
+				counter_map[1].counter_dump = 0;
+				i++;
+			} else {
+				print = snprintf(buf, MAX_STRING_SIZE,
+					"0x%016llx\n",
+					counter_map->counter_dump);
+				buf += print;
+				cnt += print;
+				counter_map->counter_dump = 0;
+			}
 		}
 
 		print = snprintf(buf, MAX_STRING_SIZE, "CYCLE COUNT, ,");
 		buf += print;
 		cnt += print;
+		counter_map = &llcc_priv->configured[i];
 		print = snprintf(buf, MAX_STRING_SIZE, "0x%016llx\n",
-			llcc_priv->configured[i].counter_dump);
+			counter_map->counter_dump);
 		buf += print;
 		cnt += print;
-		llcc_priv->configured[i].counter_dump = 0;
+		counter_map->counter_dump = 0;
 		hrtimer_forward_now(&llcc_priv->hrtimer, llcc_priv->expires);
 	} else {
 		llcc_bcast_write(llcc_priv, PERFMON_DUMP, MONITOR_DUMP);
@@ -246,7 +265,7 @@ static ssize_t perfmon_configure_store(struct device *dev,
 {
 	struct llcc_perfmon_private *llcc_priv = dev_get_drvdata(dev);
 	struct event_port_ops *port_ops;
-	unsigned int j;
+	unsigned int j = 0;
 	unsigned long port_sel, event_sel;
 	uint32_t val;
 	char *token, *delim = DELIM_CHAR;
@@ -259,11 +278,10 @@ static ssize_t perfmon_configure_store(struct device *dev,
 	}
 
 	llcc_priv->configured_counters = 0;
-	j = 0;
 	token = strsep((char **)&buf, delim);
 
 	while (token != NULL) {
-		if (kstrtoul(token, 10, &port_sel))
+		if (kstrtoul(token, 0, &port_sel))
 			break;
 
 		if (port_sel >= llcc_priv->port_configd)
@@ -273,7 +291,7 @@ static ssize_t perfmon_configure_store(struct device *dev,
 		if (token == NULL)
 			break;
 
-		if (kstrtoul(token, 10, &event_sel))
+		if (kstrtoul(token, 0, &event_sel))
 			break;
 
 		token = strsep((char **)&buf, delim);
@@ -282,12 +300,25 @@ static ssize_t perfmon_configure_store(struct device *dev,
 			continue;
 		}
 
+		if ((port_sel == EVENT_PORT_BEAC) &&
+				(llcc_priv->num_mc == 2) &&
+				(llcc_priv->configured_counters >=
+				(LLCC_PERFMON_COUNTER_MAX - 2)))
+			break;
+
 		llcc_priv->configured[j].port_sel = port_sel;
 		llcc_priv->configured[j].event_sel = event_sel;
 		port_ops = llcc_priv->port_ops[port_sel];
-		pr_info("counter %d configured for event %ld from port %ld\n",
-				j, event_sel, port_sel);
+		pr_info("counter %2d configured for event %2ld from port %2ld\n"
+				, j, event_sel, port_sel);
 		port_ops->event_config(llcc_priv, event_sel, j++, true);
+		if ((port_sel == EVENT_PORT_BEAC) && (llcc_priv->num_mc == 2)) {
+			llcc_priv->configured[j].port_sel = EVENT_PORT_BEAC1;
+			llcc_priv->configured[j].event_sel = event_sel;
+			j++;
+			llcc_priv->configured_counters++;
+		}
+
 		if (!(llcc_priv->enables_port & (1 << port_sel)))
 			if (port_ops->event_enable)
 				port_ops->event_enable(llcc_priv, true);
@@ -314,7 +345,7 @@ static ssize_t perfmon_remove_store(struct device *dev,
 {
 	struct llcc_perfmon_private *llcc_priv = dev_get_drvdata(dev);
 	struct event_port_ops *port_ops;
-	unsigned int j, counter_remove = 0;
+	unsigned int j = 0, counter_remove = 0;
 	unsigned long port_sel, event_sel;
 	char *token, *delim = DELIM_CHAR;
 
@@ -325,11 +356,10 @@ static ssize_t perfmon_remove_store(struct device *dev,
 		return -EINVAL;
 	}
 
-	j = 0;
 	token = strsep((char **)&buf, delim);
 
 	while (token != NULL) {
-		if (kstrtoul(token, 10, &port_sel))
+		if (kstrtoul(token, 0, &port_sel))
 			break;
 
 		if (port_sel >= llcc_priv->port_configd)
@@ -339,7 +369,7 @@ static ssize_t perfmon_remove_store(struct device *dev,
 		if (token == NULL)
 			break;
 
-		if (kstrtoul(token, 10, &event_sel))
+		if (kstrtoul(token, 0, &event_sel))
 			break;
 
 		token = strsep((char **)&buf, delim);
@@ -348,14 +378,25 @@ static ssize_t perfmon_remove_store(struct device *dev,
 			continue;
 		}
 
+		if ((port_sel == EVENT_PORT_BEAC) &&
+				(llcc_priv->num_mc == 2) &&
+				(counter_remove >=
+				(LLCC_PERFMON_COUNTER_MAX - 2)))
+			break;
+
 		/* put dummy values */
 		llcc_priv->configured[j].port_sel = MAX_NUMBER_OF_PORTS;
 		llcc_priv->configured[j].event_sel = 100;
 		port_ops = llcc_priv->port_ops[port_sel];
-		pr_info("removed counter %d for event %ld from port %ld\n",
+		pr_info("removed counter %2d for event %2ld from port %2ld\n",
 				j, event_sel, port_sel);
 
 		port_ops->event_config(llcc_priv, event_sel, j++, false);
+		if ((port_sel == EVENT_PORT_BEAC) && (llcc_priv->num_mc == 2)) {
+			j++;
+			counter_remove++;
+		}
+
 		if (llcc_priv->enables_port & (1 << port_sel))
 			if (port_ops->event_enable)
 				port_ops->event_enable(llcc_priv, false);
@@ -423,7 +464,7 @@ static ssize_t perfmon_filter_config_store(struct device *dev,
 		goto filter_config_free;
 	}
 
-	if (kstrtoul(token, 10, &val)) {
+	if (kstrtoul(token, 0, &val)) {
 		pr_err("filter configuration failed, Wrong input\n");
 		goto filter_config_free;
 	}
@@ -439,7 +480,7 @@ static ssize_t perfmon_filter_config_store(struct device *dev,
 		if (token == NULL)
 			break;
 
-		if (kstrtoul(token, 10, &port))
+		if (kstrtoul(token, 0, &port))
 			break;
 
 		llcc_priv->filtered_ports |= 1 << port;
@@ -482,7 +523,7 @@ static ssize_t perfmon_filter_remove_store(struct device *dev,
 		goto filter_remove_free;
 	}
 
-	if (kstrtoul(token, 10, &val)) {
+	if (kstrtoul(token, 0, &val)) {
 		pr_err("filter configuration failed, Wrong input\n");
 		goto filter_remove_free;
 	}
@@ -497,7 +538,7 @@ static ssize_t perfmon_filter_remove_store(struct device *dev,
 		if (token == NULL)
 			break;
 
-		if (kstrtoul(token, 10, &port))
+		if (kstrtoul(token, 0, &port))
 			break;
 
 		llcc_priv->filtered_ports &= ~(1 << port);
@@ -524,7 +565,7 @@ static ssize_t perfmon_start_store(struct device *dev,
 	unsigned long start;
 	int ret;
 
-	if (kstrtoul(buf, 10, &start))
+	if (kstrtoul(buf, 0, &start))
 		return -EINVAL;
 
 	mutex_lock(&llcc_priv->mutex);
@@ -661,22 +702,25 @@ static struct attribute_group llcc_perfmon_group = {
 };
 
 static void perfmon_counter_config(struct llcc_perfmon_private *llcc_priv,
-		unsigned int port, unsigned int event_counter_num)
+		unsigned int port, unsigned int event_counter_num, bool enable)
 {
-	uint32_t val;
+	uint32_t val = 0;
 
-	val = (port & PERFMON_PORT_SELECT_MASK) |
-		((event_counter_num << EVENT_SELECT_SHIFT) &
-		PERFMON_EVENT_SELECT_MASK) | CLEAR_ON_ENABLE | CLEAR_ON_DUMP;
+	if (enable)
+		val = (port & PERFMON_PORT_SELECT_MASK) |
+			((event_counter_num << EVENT_SELECT_SHIFT) &
+			PERFMON_EVENT_SELECT_MASK) | CLEAR_ON_ENABLE |
+			CLEAR_ON_DUMP;
+
 	llcc_bcast_write(llcc_priv, PERFMON_COUNTER_n_CONFIG(event_counter_num),
 			val);
 }
 
 static void feac_event_config(struct llcc_perfmon_private *llcc_priv,
-		unsigned int event_type, unsigned int event_counter_num,
+		unsigned int event_type, unsigned int counter_num,
 		bool enable)
 {
-	uint32_t val = 0, mask, counter_num = 0;
+	uint32_t val = 0, mask;
 
 	mask = EVENT_SEL_MASK;
 	if (llcc_priv->filtered_ports & (1 << EVENT_PORT_FEAC))
@@ -687,12 +731,11 @@ static void feac_event_config(struct llcc_perfmon_private *llcc_priv,
 		if (llcc_priv->filtered_ports & (1 << EVENT_PORT_FEAC))
 			val |= (FILTER_0 << FILTER_SEL_SHIFT) | FILTER_EN;
 
-		counter_num = event_counter_num;
 	}
 
-	llcc_bcast_modify(llcc_priv, FEAC_PROF_EVENT_n_CFG(event_counter_num),
+	llcc_bcast_modify(llcc_priv, FEAC_PROF_EVENT_n_CFG(counter_num),
 			val, mask);
-	perfmon_counter_config(llcc_priv, EVENT_PORT_FEAC, counter_num);
+	perfmon_counter_config(llcc_priv, EVENT_PORT_FEAC, counter_num, enable);
 }
 
 static void feac_event_enable(struct llcc_perfmon_private *llcc_priv,
@@ -704,17 +747,44 @@ static void feac_event_enable(struct llcc_perfmon_private *llcc_priv,
 		val = (BYTE_SCALING << BYTE_SCALING_SHIFT) |
 			(BEAT_SCALING << BEAT_SCALING_SHIFT) | PROF_EN;
 
-		if (llcc_priv->filtered_ports & (1 << EVENT_PORT_FEAC))
-			val |= (FILTER_0 << FEAC_SCALING_FILTER_SEL_SHIFT) |
-			       FEAC_SCALING_FILTER_EN;
+		if (llcc_priv->filtered_ports & (1 << EVENT_PORT_FEAC)) {
+			if (llcc_priv->version == REV_0)
+				val |= (FILTER_0 <<
+					FEAC_SCALING_FILTER_SEL_SHIFT) |
+					FEAC_SCALING_FILTER_EN;
+			else
+				val |= (FILTER_0 <<
+					FEAC_WR_BEAT_FILTER_SEL_SHIFT) |
+					FEAC_WR_BEAT_FILTER_EN |
+					(FILTER_0 <<
+					FEAC_WR_BYTE_FILTER_SEL_SHIFT) |
+					FEAC_WR_BYTE_FILTER_EN |
+					(FILTER_0 <<
+					FEAC_RD_BEAT_FILTER_SEL_SHIFT) |
+					FEAC_RD_BEAT_FILTER_EN |
+					(FILTER_0 <<
+					FEAC_RD_BYTE_FILTER_SEL_SHIFT) |
+					FEAC_RD_BYTE_FILTER_EN;
+		}
 	}
 
 	mask = PROF_CFG_BEAT_SCALING_MASK | PROF_CFG_BYTE_SCALING_MASK
 		| PROF_CFG_EN_MASK;
 
-	if (llcc_priv->filtered_ports & (1 << EVENT_PORT_FEAC))
-		mask |= FEAC_SCALING_FILTER_SEL_MASK |
-			FEAC_SCALING_FILTER_EN_MASK;
+	if (llcc_priv->filtered_ports & (1 << EVENT_PORT_FEAC)) {
+		if (llcc_priv->version == REV_0)
+			mask |= FEAC_SCALING_FILTER_SEL_MASK |
+				FEAC_SCALING_FILTER_EN_MASK;
+		else
+			mask |= FEAC_WR_BEAT_FILTER_SEL_MASK |
+				FEAC_WR_BEAT_FILTER_EN_MASK |
+				FEAC_WR_BYTE_FILTER_SEL_MASK |
+				FEAC_WR_BYTE_FILTER_EN_MASK |
+				FEAC_RD_BEAT_FILTER_SEL_MASK |
+				FEAC_RD_BEAT_FILTER_EN_MASK |
+				FEAC_RD_BYTE_FILTER_SEL_MASK |
+				FEAC_RD_BYTE_FILTER_EN_MASK;
+	}
 
 	llcc_bcast_modify(llcc_priv, FEAC_PROF_CFG, val, mask);
 }
@@ -725,17 +795,24 @@ static void feac_event_filter_config(struct llcc_perfmon_private *llcc_priv,
 	uint32_t val = 0, mask;
 
 	if (filter == SCID) {
-		if (enable)
-			val = (match << SCID_MATCH_SHIFT)
-				| SCID_MASK_MASK;
+		if (llcc_priv->version == REV_0) {
+			if (enable)
+				val = (match << SCID_MATCH_SHIFT) |
+					SCID_MASK_MASK;
 
-		mask = SCID_MATCH_MASK | SCID_MASK_MASK;
+			mask = SCID_MATCH_MASK | SCID_MASK_MASK;
+		} else {
+			if (enable)
+				val = BIT(match);
+
+			mask = SCID_MULTI_MATCH_MASK;
+		}
+
 		llcc_bcast_modify(llcc_priv, FEAC_PROF_FILTER_0_CFG6, val,
 				mask);
 	} else if (filter == MID) {
 		if (enable)
-			val = (match << MID_MATCH_SHIFT)
-				| MID_MASK_MASK;
+			val = (match << MID_MATCH_SHIFT) | MID_MASK_MASK;
 
 		mask = MID_MATCH_MASK | MID_MASK_MASK;
 		llcc_bcast_modify(llcc_priv, FEAC_PROF_FILTER_0_CFG5, val,
@@ -752,10 +829,10 @@ static struct event_port_ops feac_port_ops = {
 };
 
 static void ferc_event_config(struct llcc_perfmon_private *llcc_priv,
-		unsigned int event_type, unsigned int event_counter_num,
+		unsigned int event_type, unsigned int counter_num,
 		bool enable)
 {
-	uint32_t val = 0, mask, counter_num = 0;
+	uint32_t val = 0, mask;
 
 	mask = EVENT_SEL_MASK;
 	if (llcc_priv->filtered_ports & (1 << EVENT_PORT_FERC))
@@ -766,12 +843,11 @@ static void ferc_event_config(struct llcc_perfmon_private *llcc_priv,
 		if (llcc_priv->filtered_ports & (1 << EVENT_PORT_FERC))
 			val |= (FILTER_0 << FILTER_SEL_SHIFT) | FILTER_EN;
 
-		counter_num = event_counter_num;
 	}
 
-	llcc_bcast_modify(llcc_priv, FERC_PROF_EVENT_n_CFG(event_counter_num),
+	llcc_bcast_modify(llcc_priv, FERC_PROF_EVENT_n_CFG(counter_num),
 			val, mask);
-	perfmon_counter_config(llcc_priv, EVENT_PORT_FERC, counter_num);
+	perfmon_counter_config(llcc_priv, EVENT_PORT_FERC, counter_num, enable);
 }
 
 static void ferc_event_enable(struct llcc_perfmon_private *llcc_priv,
@@ -813,10 +889,10 @@ static struct event_port_ops ferc_port_ops = {
 };
 
 static void fewc_event_config(struct llcc_perfmon_private *llcc_priv,
-		unsigned int event_type, unsigned int event_counter_num,
+		unsigned int event_type, unsigned int counter_num,
 		bool enable)
 {
-	uint32_t val = 0, mask, counter_num = 0;
+	uint32_t val = 0, mask;
 
 	mask = EVENT_SEL_MASK;
 	if (llcc_priv->filtered_ports & (1 << EVENT_PORT_FEWC))
@@ -827,12 +903,11 @@ static void fewc_event_config(struct llcc_perfmon_private *llcc_priv,
 		if (llcc_priv->filtered_ports & (1 << EVENT_PORT_FEWC))
 			val |= (FILTER_0 << FILTER_SEL_SHIFT) | FILTER_EN;
 
-		counter_num = event_counter_num;
 	}
 
-	llcc_bcast_modify(llcc_priv, FEWC_PROF_EVENT_n_CFG(event_counter_num),
+	llcc_bcast_modify(llcc_priv, FEWC_PROF_EVENT_n_CFG(counter_num),
 			val, mask);
-	perfmon_counter_config(llcc_priv, EVENT_PORT_FEWC, counter_num);
+	perfmon_counter_config(llcc_priv, EVENT_PORT_FEWC, counter_num, enable);
 }
 
 static void fewc_event_filter_config(struct llcc_perfmon_private *llcc_priv,
@@ -859,32 +934,58 @@ static struct event_port_ops fewc_port_ops = {
 };
 
 static void beac_event_config(struct llcc_perfmon_private *llcc_priv,
-		unsigned int event_type, unsigned int event_counter_num,
+		unsigned int event_type, unsigned int counter_num,
 		bool enable)
 {
-	uint32_t val = 0, mask, counter_num = 0;
+	uint32_t val = 0, mask_val;
+	uint32_t valcfg = 0, mask_valcfg = 0;
+	unsigned int mc_cnt, offset;
 
-	mask = EVENT_SEL_MASK;
-	if (llcc_priv->filtered_ports & (1 << EVENT_PORT_BEAC))
-		mask |= FILTER_SEL_MASK | FILTER_EN_MASK;
+	mask_val = EVENT_SEL_MASK;
+	if (llcc_priv->filtered_ports & (1 << EVENT_PORT_BEAC)) {
+		mask_val |= FILTER_SEL_MASK | FILTER_EN_MASK;
+		if (llcc_priv->version == REV_1)
+			mask_valcfg = BEAC_WR_BEAT_FILTER_SEL_MASK |
+				BEAC_WR_BEAT_FILTER_EN_MASK |
+				BEAC_RD_BEAT_FILTER_SEL_MASK |
+				BEAC_RD_BEAT_FILTER_EN_MASK;
+	}
 
 	if (enable) {
 		val = (event_type << EVENT_SEL_SHIFT) & EVENT_SEL_MASK;
-		if (llcc_priv->filtered_ports & (1 << EVENT_PORT_BEAC))
-			val |= (FILTER_0 << FILTER_SEL_SHIFT) | FILTER_EN;
+		if (llcc_priv->filtered_ports & (1 << EVENT_PORT_BEAC)) {
+			val |= (FILTER_0 << FILTER_SEL_SHIFT) |
+					FILTER_EN;
+			if (llcc_priv->version == REV_1)
+				valcfg = (FILTER_0 <<
+					BEAC_WR_BEAT_FILTER_SEL_SHIFT) |
+					BEAC_WR_BEAT_FILTER_EN |
+					(FILTER_0 <<
+					BEAC_RD_BEAT_FILTER_SEL_SHIFT) |
+					BEAC_RD_BEAT_FILTER_EN;
+		}
 
-		counter_num = event_counter_num;
 	}
 
-	llcc_bcast_modify(llcc_priv, BEAC_PROF_EVENT_n_CFG(event_counter_num),
-			val, mask);
-	perfmon_counter_config(llcc_priv, EVENT_PORT_BEAC, counter_num);
+	for (mc_cnt = 0; mc_cnt < llcc_priv->num_mc; mc_cnt++) {
+		offset = BEAC_PROF_EVENT_n_CFG(counter_num + mc_cnt) +
+			mc_cnt * BEAC_INST_OFF;
+		llcc_bcast_modify(llcc_priv, offset, val, mask_val);
+
+		offset = BEAC_PROF_CFG + mc_cnt * BEAC_INST_OFF;
+		llcc_bcast_modify(llcc_priv, offset, valcfg, mask_valcfg);
+	}
+
+	perfmon_counter_config(llcc_priv, EVENT_PORT_BEAC, counter_num, enable);
+	perfmon_counter_config(llcc_priv, EVENT_PORT_BEAC1, counter_num + 1,
+			enable);
 }
 
 static void beac_event_enable(struct llcc_perfmon_private *llcc_priv,
 		bool enable)
 {
 	uint32_t val = 0, mask;
+	unsigned int mc_cnt, offset;
 
 	if (enable)
 		val = (BYTE_SCALING << BYTE_SCALING_SHIFT) |
@@ -892,13 +993,18 @@ static void beac_event_enable(struct llcc_perfmon_private *llcc_priv,
 
 	mask = PROF_CFG_BEAT_SCALING_MASK | PROF_CFG_BYTE_SCALING_MASK
 		| PROF_CFG_EN_MASK;
-	llcc_bcast_modify(llcc_priv, BEAC_PROF_CFG, val, mask);
+
+	for (mc_cnt = 0; mc_cnt < llcc_priv->num_mc; mc_cnt++) {
+		offset = BEAC_PROF_CFG + mc_cnt * BEAC_INST_OFF;
+		llcc_bcast_modify(llcc_priv, offset, val, mask);
+	}
 }
 
 static void beac_event_filter_config(struct llcc_perfmon_private *llcc_priv,
 		enum filter_type filter, unsigned long match, bool enable)
 {
 	uint32_t val = 0, mask;
+	unsigned int mc_cnt, offset;
 
 	if (filter != PROFILING_TAG) {
 		pr_err("unknown filter/not supported\n");
@@ -910,13 +1016,19 @@ static void beac_event_filter_config(struct llcc_perfmon_private *llcc_priv,
 			| FILTER_0_MASK << BEAC_PROFTAG_MASK_SHIFT;
 
 	mask = BEAC_PROFTAG_MASK_MASK | BEAC_PROFTAG_MATCH_MASK;
-	llcc_bcast_modify(llcc_priv, BEAC_PROF_FILTER_0_CFG5, val, mask);
+	for (mc_cnt = 0; mc_cnt < llcc_priv->num_mc; mc_cnt++) {
+		offset = BEAC_PROF_FILTER_0_CFG5 + mc_cnt * BEAC_INST_OFF;
+		llcc_bcast_modify(llcc_priv, offset, val, mask);
+	}
 
 	if (enable)
 		val = match << BEAC_MC_PROFTAG_SHIFT;
 
 	mask = BEAC_MC_PROFTAG_MASK;
-	llcc_bcast_modify(llcc_priv, BEAC_PROF_CFG, val, mask);
+	for (mc_cnt = 0; mc_cnt < llcc_priv->num_mc; mc_cnt++) {
+		offset = BEAC_PROF_CFG + mc_cnt * BEAC_INST_OFF;
+		llcc_bcast_modify(llcc_priv, offset, val, mask);
+	}
 }
 
 static struct event_port_ops beac_port_ops = {
@@ -926,10 +1038,10 @@ static struct event_port_ops beac_port_ops = {
 };
 
 static void berc_event_config(struct llcc_perfmon_private *llcc_priv,
-		unsigned int event_type, unsigned int event_counter_num,
+		unsigned int event_type, unsigned int counter_num,
 		bool enable)
 {
-	uint32_t val = 0, mask, counter_num = 0;
+	uint32_t val = 0, mask;
 
 	mask = EVENT_SEL_MASK;
 	if (llcc_priv->filtered_ports & (1 << EVENT_PORT_BERC))
@@ -940,12 +1052,11 @@ static void berc_event_config(struct llcc_perfmon_private *llcc_priv,
 		if (llcc_priv->filtered_ports & (1 << EVENT_PORT_BERC))
 			val |= (FILTER_0 << FILTER_SEL_SHIFT) | FILTER_EN;
 
-		counter_num = event_counter_num;
 	}
 
-	llcc_bcast_modify(llcc_priv, BERC_PROF_EVENT_n_CFG(event_counter_num),
+	llcc_bcast_modify(llcc_priv, BERC_PROF_EVENT_n_CFG(counter_num),
 			val, mask);
-	perfmon_counter_config(llcc_priv, EVENT_PORT_BERC, counter_num);
+	perfmon_counter_config(llcc_priv, EVENT_PORT_BERC, counter_num, enable);
 }
 
 static void berc_event_enable(struct llcc_perfmon_private *llcc_priv,
@@ -987,10 +1098,10 @@ static struct event_port_ops berc_port_ops = {
 };
 
 static void trp_event_config(struct llcc_perfmon_private *llcc_priv,
-		unsigned int event_type, unsigned int event_counter_num,
+		unsigned int event_type, unsigned int counter_num,
 		bool enable)
 {
-	uint32_t val = 0, mask, counter_num = 0;
+	uint32_t val = 0, mask;
 
 	mask = EVENT_SEL_MASK;
 	if (llcc_priv->filtered_ports & (1 << EVENT_PORT_TRP))
@@ -1001,12 +1112,11 @@ static void trp_event_config(struct llcc_perfmon_private *llcc_priv,
 		if (llcc_priv->filtered_ports & (1 << EVENT_PORT_TRP))
 			val |= (FILTER_0 << FILTER_SEL_SHIFT) | FILTER_EN;
 
-		counter_num = event_counter_num;
 	}
 
-	llcc_bcast_modify(llcc_priv, TRP_PROF_EVENT_n_CFG(event_counter_num),
+	llcc_bcast_modify(llcc_priv, TRP_PROF_EVENT_n_CFG(counter_num),
 			val, mask);
-	perfmon_counter_config(llcc_priv, EVENT_PORT_TRP, counter_num);
+	perfmon_counter_config(llcc_priv, EVENT_PORT_TRP, counter_num, enable);
 }
 
 static void trp_event_filter_config(struct llcc_perfmon_private *llcc_priv,
@@ -1025,8 +1135,7 @@ static void trp_event_filter_config(struct llcc_perfmon_private *llcc_priv,
 			val = (match << TRP_WAY_ID_MATCH_SHIFT)
 				| TRP_WAY_ID_MASK_MASK;
 
-		mask = TRP_WAY_ID_MATCH_MASK |
-			TRP_WAY_ID_MASK_MASK;
+		mask = TRP_WAY_ID_MATCH_MASK | TRP_WAY_ID_MASK_MASK;
 	} else if (filter == PROFILING_TAG) {
 		if (enable)
 			val = (match << TRP_PROFTAG_MATCH_SHIFT)
@@ -1047,10 +1156,10 @@ static struct event_port_ops  trp_port_ops = {
 };
 
 static void drp_event_config(struct llcc_perfmon_private *llcc_priv,
-		unsigned int event_type, unsigned int event_counter_num,
+		unsigned int event_type, unsigned int counter_num,
 		bool enable)
 {
-	uint32_t val = 0, mask, counter_num = 0;
+	uint32_t val = 0, mask;
 
 	mask = EVENT_SEL_MASK;
 	if (llcc_priv->filtered_ports & (1 << EVENT_PORT_DRP))
@@ -1061,12 +1170,11 @@ static void drp_event_config(struct llcc_perfmon_private *llcc_priv,
 		if (llcc_priv->filtered_ports & (1 << EVENT_PORT_DRP))
 			val |= (FILTER_0 << FILTER_SEL_SHIFT) | FILTER_EN;
 
-		counter_num = event_counter_num;
 	}
 
-	llcc_bcast_modify(llcc_priv, DRP_PROF_EVENT_n_CFG(event_counter_num),
+	llcc_bcast_modify(llcc_priv, DRP_PROF_EVENT_n_CFG(counter_num),
 			val, mask);
-	perfmon_counter_config(llcc_priv, EVENT_PORT_DRP, counter_num);
+	perfmon_counter_config(llcc_priv, EVENT_PORT_DRP, counter_num, enable);
 }
 
 static void drp_event_enable(struct llcc_perfmon_private *llcc_priv,
@@ -1087,10 +1195,10 @@ static struct event_port_ops drp_port_ops = {
 };
 
 static void pmgr_event_config(struct llcc_perfmon_private *llcc_priv,
-		unsigned int event_type, unsigned int event_counter_num,
+		unsigned int event_type, unsigned int counter_num,
 		bool enable)
 {
-	uint32_t val = 0, mask, counter_num = 0;
+	uint32_t val = 0, mask;
 
 	mask = EVENT_SEL_MASK;
 	if (llcc_priv->filtered_ports & (1 << EVENT_PORT_PMGR))
@@ -1101,12 +1209,11 @@ static void pmgr_event_config(struct llcc_perfmon_private *llcc_priv,
 		if (llcc_priv->filtered_ports & (1 << EVENT_PORT_PMGR))
 			val |= (FILTER_0 << FILTER_SEL_SHIFT) | FILTER_EN;
 
-		counter_num = event_counter_num;
 	}
 
-	llcc_bcast_modify(llcc_priv, PMGR_PROF_EVENT_n_CFG(event_counter_num),
+	llcc_bcast_modify(llcc_priv, PMGR_PROF_EVENT_n_CFG(counter_num),
 			val, mask);
-	perfmon_counter_config(llcc_priv, EVENT_PORT_PMGR, counter_num);
+	perfmon_counter_config(llcc_priv, EVENT_PORT_PMGR, counter_num, enable);
 }
 
 static struct event_port_ops pmgr_port_ops = {
@@ -1158,7 +1265,9 @@ static int llcc_perfmon_probe(struct platform_device *pdev)
 	}
 
 	llcc_bcast_read(llcc_priv, LLCC_COMMON_STATUS0, &val);
-
+	llcc_priv->num_mc = (val & NUM_MC_MASK) >> NUM_MC_SHIFT;
+	if (llcc_priv->num_mc == 0)
+		llcc_priv->num_mc = 1;
 	llcc_priv->num_banks = (val & LB_CNT_MASK) >> LB_CNT_SHIFT;
 	result = of_property_read_variable_u32_array(pdev->dev.parent->of_node,
 			"qcom,llcc-banks-off", (u32 *)&llcc_priv->bank_off,
@@ -1174,11 +1283,20 @@ static int llcc_perfmon_probe(struct platform_device *pdev)
 		return PTR_ERR(llcc_priv->clock);
 	}
 
+	llcc_priv->version = REV_0;
+	llcc_bcast_read(llcc_priv, LLCC_COMMON_HW_INFO, &val);
+	if ((val == LLCC_VERSION) && (llcc_priv->num_mc == 2))
+		llcc_priv->version = REV_1;
+
 	result = sysfs_create_group(&pdev->dev.kobj, &llcc_perfmon_group);
 	if (result) {
-		pr_err("Unable to create sysfs version group\n");
+		pr_err("Unable to create sysfs group\n");
 		return result;
 	}
+
+	if (llcc_priv->num_mc > 1)
+		pr_info("%d memory controllers connected with LLCC\n",
+				llcc_priv->num_mc);
 
 	mutex_init(&llcc_priv->mutex);
 	platform_set_drvdata(pdev, llcc_priv);
