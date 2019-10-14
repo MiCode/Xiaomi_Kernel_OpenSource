@@ -1517,8 +1517,11 @@ static int adreno_probe(struct platform_device *pdev)
 		KGSL_MEMSTORE_SIZE, 0, priv, "memstore");
 
 	status = PTR_ERR_OR_ZERO(device->memstore);
-	if (status)
-		goto out;
+	if (status) {
+		kgsl_device_platform_remove(device);
+		device->pdev = NULL;
+		return status;
+	}
 
 	/* Initialize the snapshot engine */
 	size = adreno_dev->gpucore->snapshot_size;
@@ -1532,10 +1535,6 @@ static int adreno_probe(struct platform_device *pdev)
 		size = SZ_1M;
 
 	kgsl_device_snapshot_probe(device, size);
-
-	status = adreno_dispatcher_init(adreno_dev);
-	if (status)
-		goto out;
 
 	adreno_debugfs_init(adreno_dev);
 	adreno_profile_init(adreno_dev);
@@ -1577,13 +1576,8 @@ static int adreno_probe(struct platform_device *pdev)
 		}
 	}
 #endif
-out:
-	if (status) {
-		kgsl_device_platform_remove(device);
-		device->pdev = NULL;
-	}
 
-	return status;
+	return 0;
 }
 
 static void _adreno_free_memories(struct adreno_device *adreno_dev)
@@ -1815,6 +1809,10 @@ static int adreno_init(struct kgsl_device *device)
 	 */
 	if (test_bit(ADRENO_DEVICE_INITIALIZED, &adreno_dev->priv))
 		return 0;
+
+	ret = adreno_dispatcher_init(adreno_dev);
+	if (ret)
+		return ret;
 
 	ret = adreno_ringbuffer_init(adreno_dev);
 	if (ret)

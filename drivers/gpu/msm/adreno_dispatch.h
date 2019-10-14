@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2008-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef ____ADRENO_DISPATCHER_H
@@ -83,7 +83,8 @@ struct adreno_dispatcher {
 
 enum adreno_dispatcher_flags {
 	ADRENO_DISPATCHER_POWER = 0,
-	ADRENO_DISPATCHER_ACTIVE = 1,
+	ADRENO_DISPATCHER_ACTIVE,
+	ADRENO_DISPATCHER_INIT,
 };
 
 struct adreno_device;
