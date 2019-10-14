@@ -1427,8 +1427,10 @@ static int adreno_probe(struct platform_device *pdev)
 	 * check the GPU capabilities here and modify mmu->secured accordingly
 	 */
 
+#if IS_ENABLED(CONFIG_QCOM_SECURE_BUFFER)
 	if (!ADRENO_FEATURE(adreno_dev, ADRENO_CONTENT_PROTECTION))
 		device->mmu.secured = false;
+#endif
 
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_IOCOHERENT))
 		device->mmu.features |= KGSL_MMU_IO_COHERENT;
