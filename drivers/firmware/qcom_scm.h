@@ -161,6 +161,21 @@ extern int __qcom_scm_clear_ice_key(struct device *dev, uint32_t index,
 extern int __qcom_scm_hdcp_req(struct device *dev,
 		struct qcom_scm_hdcp_req *req, u32 req_cnt, u32 *resp);
 
+#define QCOM_SCM_SVC_LMH			0x13
+#define QCOM_SCM_LMH_DEBUG_SET			0x08
+#define QCOM_SCM_LMH_DEBUG_READ_BUF_SIZE	0x09
+#define QCOM_SCM_LMH_DEBUG_READ			0x0A
+#define QCOM_SCM_LMH_DEBUG_GET_TYPE		0x0B
+extern int __qcom_scm_lmh_read_buf_size(struct device *dev, int *size);
+extern int __qcom_scm_lmh_debug_read(struct device *dev, phys_addr_t payload,
+					uint32_t size);
+extern int __qcom_scm_lmh_debug_config_write(struct device *dev, u64 cmd_id,
+			phys_addr_t payload, int payload_size, uint32_t *buf,
+			int buf_size);
+extern int __qcom_scm_lmh_get_type(struct device *dev, phys_addr_t payload,
+			u64 payload_size, u64 debug_type, uint32_t get_from,
+			uint32_t *size);
+
 #define QCOM_SCM_SVC_SMMU_PROGRAM		0x15
 #define QCOM_SCM_SMMU_CHANGE_PGTBL_FORMAT	0x01
 #define QCOM_SCM_SMMU_SECURE_LUT		0x03

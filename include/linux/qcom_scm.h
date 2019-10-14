@@ -98,6 +98,16 @@ extern int qcom_scm_delete_shm_bridge(u64 handle);
 extern int qcom_scm_create_shm_bridge(u64 pfn_and_ns_perm_flags,
 			u64 ipfn_and_s_perm_flags, u64 size_and_flags,
 			u64 ns_vmids, u64 *handle);
+extern bool qcom_scm_is_lmh_debug_set_available(void);
+extern bool qcom_scm_is_lmh_debug_read_buf_size_available(void);
+extern bool qcom_scm_is_lmh_debug_read_buf_available(void);
+extern bool qcom_scm_is_lmh_debug_get_type_available(void);
+extern int qcom_scm_lmh_read_buf_size(int *size);
+extern int qcom_scm_lmh_debug_read(phys_addr_t payload, uint32_t size);
+extern int qcom_scm_lmh_debug_set_config_write(phys_addr_t payload,
+			int payload_size, uint32_t *buf, int buf_size);
+extern int qcom_scm_lmh_get_type(phys_addr_t payload, u64 payload_size,
+			u64 debug_type, uint32_t get_from, uint32_t *size);
 extern int qcom_scm_smmu_change_pgtbl_format(u64 dev_id, int cbndx);
 extern int qcom_scm_qsmmu500_wait_safe_toggle(bool en);
 extern int qcom_scm_smmu_notify_secure_lut(u64 dev_id, bool secure);
@@ -196,6 +206,23 @@ static inline int qcom_scm_delete_shm_bridge(u64 handle) { return -ENODEV; }
 static inline int qcom_scm_create_shm_bridge(u64 pfn_and_ns_perm_flags,
 			u64 ipfn_and_s_perm_flags, u64 size_and_flags,
 			u64 ns_vmids, u64 *handle) { return -ENODEV; }
+static inline bool qcom_scm_is_lmh_debug_set_available(void)
+			{ return -EINVAL; }
+static inline bool qcom_scm_is_lmh_debug_read_buf_size_available(void)
+			{ return -EINVAL; }
+static inline bool qcom_scm_is_lmh_debug_read_buf_available(void)
+			{ return -EINVAL; }
+static inline bool qcom_scm_is_lmh_debug_get_type_available(void)
+			{ return -EINVAL; }
+static inline int qcom_scm_lmh_read_buf_size(int *size) { return -ENODEV; }
+static inline int qcom_scm_lmh_debug_read(phys_addr_t payload, uint32_t size)
+			{ return -ENODEV; }
+static inline int qcom_scm_lmh_debug_set_config_write(phys_addr_t payload,
+			int payload_size, uint32_t *buf, int buf_size)
+			{ return -ENODEV; }
+static inline int qcom_scm_lmh_get_type(phys_addr_t payload, u64 payload_size,
+			u64 debug_type, uint32_t get_from, uint32_t *size)
+			{ return -ENODEV; }
 static inline  int qcom_scm_smmu_change_pgtbl_format(u64 dev_id, int cbndx)
 		{ return -ENODEV; }
 static inline int qcom_scm_qsmmu500_wait_safe_toggle(bool en)

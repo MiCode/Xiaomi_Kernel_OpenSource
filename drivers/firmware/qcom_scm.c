@@ -675,6 +675,63 @@ int qcom_scm_hdcp_req(struct qcom_scm_hdcp_req *req, u32 req_cnt, u32 *resp)
 }
 EXPORT_SYMBOL(qcom_scm_hdcp_req);
 
+bool qcom_scm_is_lmh_debug_set_available(void)
+{
+	return __qcom_scm_is_call_available(__scm->dev, QCOM_SCM_SVC_LMH,
+					QCOM_SCM_LMH_DEBUG_SET);
+}
+EXPORT_SYMBOL(qcom_scm_is_lmh_debug_set_available);
+
+bool qcom_scm_is_lmh_debug_read_buf_size_available(void)
+{
+	return __qcom_scm_is_call_available(__scm->dev, QCOM_SCM_SVC_LMH,
+					QCOM_SCM_LMH_DEBUG_READ_BUF_SIZE);
+}
+EXPORT_SYMBOL(qcom_scm_is_lmh_debug_read_buf_size_available);
+
+bool qcom_scm_is_lmh_debug_read_buf_available(void)
+{
+	return __qcom_scm_is_call_available(__scm->dev, QCOM_SCM_SVC_LMH,
+					QCOM_SCM_LMH_DEBUG_READ);
+}
+EXPORT_SYMBOL(qcom_scm_is_lmh_debug_read_buf_available);
+
+bool qcom_scm_is_lmh_debug_get_type_available(void)
+{
+	return __qcom_scm_is_call_available(__scm->dev, QCOM_SCM_SVC_LMH,
+					QCOM_SCM_LMH_DEBUG_GET_TYPE);
+}
+EXPORT_SYMBOL(qcom_scm_is_lmh_debug_get_type_available);
+
+int qcom_scm_lmh_read_buf_size(int *size)
+{
+	return __qcom_scm_lmh_read_buf_size(__scm->dev, size);
+}
+EXPORT_SYMBOL(qcom_scm_lmh_read_buf_size);
+
+int qcom_scm_lmh_debug_read(phys_addr_t payload, uint32_t size)
+{
+	return __qcom_scm_lmh_debug_read(__scm->dev, payload, size);
+}
+EXPORT_SYMBOL(qcom_scm_lmh_debug_read);
+
+int qcom_scm_lmh_debug_set_config_write(phys_addr_t payload, int payload_size,
+					uint32_t *buf, int buf_size)
+{
+	return __qcom_scm_lmh_debug_config_write(__scm->dev,
+			QCOM_SCM_LMH_DEBUG_SET, payload, payload_size, buf,
+			buf_size);
+}
+EXPORT_SYMBOL(qcom_scm_lmh_debug_set_config_write);
+
+int qcom_scm_lmh_get_type(phys_addr_t payload, u64 payload_size,
+		u64 debug_type, uint32_t get_from, uint32_t *size)
+{
+	return __qcom_scm_lmh_get_type(__scm->dev, payload, payload_size,
+					debug_type, get_from, size);
+}
+EXPORT_SYMBOL(qcom_scm_lmh_get_type);
+
 int qcom_scm_smmu_change_pgtbl_format(u64 dev_id, int cbndx)
 {
 	return __qcom_scm_smmu_change_pgtbl_format(__scm->dev, dev_id, cbndx);

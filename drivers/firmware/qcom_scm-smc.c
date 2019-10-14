@@ -1501,6 +1501,94 @@ int __qcom_scm_hdcp_req(struct device *dev, struct qcom_scm_hdcp_req *req,
 	return ret;
 }
 
+int __qcom_scm_lmh_read_buf_size(struct device *dev, int *size)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_LMH,
+		.cmd = QCOM_SCM_LMH_DEBUG_READ_BUF_SIZE,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.arginfo = QCOM_SCM_ARGS(0);
+
+	ret = qcom_scm_call(dev, &desc);
+
+	if (size)
+		*size = desc.res[0];
+
+	return ret;
+}
+
+int __qcom_scm_lmh_debug_read(struct device *dev, phys_addr_t payload,
+				uint32_t size)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_LMH,
+		.cmd = QCOM_SCM_LMH_DEBUG_READ,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.args[0] = payload;
+	desc.args[1] = size;
+	desc.arginfo = QCOM_SCM_ARGS(2, QCOM_SCM_RW, QCOM_SCM_VAL);
+
+	ret = qcom_scm_call(dev, &desc);
+
+	return ret ? : desc.res[0];
+}
+
+int __qcom_scm_lmh_debug_config_write(struct device *dev, u64 cmd_id,
+			phys_addr_t payload, int payload_size, uint32_t *buf,
+			int buf_size)
+{
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_LMH,
+		.cmd = cmd_id,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	if (buf_size < 3)
+		return -EINVAL;
+
+	desc.args[0] = payload;
+	desc.args[1] = payload_size;
+	desc.args[2] = buf[0];
+	desc.args[3] = buf[1];
+	desc.args[4] = buf[2];
+	desc.arginfo = QCOM_SCM_ARGS(5, QCOM_SCM_RO, QCOM_SCM_VAL, QCOM_SCM_VAL,
+					QCOM_SCM_VAL, QCOM_SCM_VAL);
+
+	return qcom_scm_call(dev, &desc);
+}
+
+int __qcom_scm_lmh_get_type(struct device *dev, phys_addr_t payload,
+			u64 payload_size, u64 debug_type, uint32_t get_from,
+			uint32_t *size)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_LMH,
+		.cmd = QCOM_SCM_LMH_DEBUG_GET_TYPE,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.args[0] = payload;
+	desc.args[1] = payload_size;
+	desc.args[2] = debug_type;
+	desc.args[3] = get_from;
+	desc.arginfo = QCOM_SCM_ARGS(4, QCOM_SCM_RW, QCOM_SCM_VAL, QCOM_SCM_VAL,
+					QCOM_SCM_VAL);
+
+	ret = qcom_scm_call(dev, &desc);
+
+	if (size)
+		*size = desc.res[0];
+
+	return ret;
+}
+
 int __qcom_scm_smmu_change_pgtbl_format(struct device *dev, u64 dev_id,
 					int cbndx)
 {
