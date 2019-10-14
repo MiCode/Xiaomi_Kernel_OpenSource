@@ -42,6 +42,24 @@ static int a5xx_get_cp_init_cmds(struct adreno_device *adreno_dev);
 #define A530_QFPROM_RAW_PTE_ROW0_MSB 0x134
 #define A530_QFPROM_RAW_PTE_ROW2_MSB 0x144
 
+#define A5XX_INT_MASK \
+	((1 << A5XX_INT_RBBM_AHB_ERROR) |		\
+	 (1 << A5XX_INT_RBBM_TRANSFER_TIMEOUT) |		\
+	 (1 << A5XX_INT_RBBM_ME_MS_TIMEOUT) |		\
+	 (1 << A5XX_INT_RBBM_PFP_MS_TIMEOUT) |		\
+	 (1 << A5XX_INT_RBBM_ETS_MS_TIMEOUT) |		\
+	 (1 << A5XX_INT_RBBM_ATB_ASYNC_OVERFLOW) |		\
+	 (1 << A5XX_INT_RBBM_GPC_ERROR) |		\
+	 (1 << A5XX_INT_CP_HW_ERROR) |	\
+	 (1 << A5XX_INT_CP_CACHE_FLUSH_TS) |		\
+	 (1 << A5XX_INT_RBBM_ATB_BUS_OVERFLOW) |	\
+	 (1 << A5XX_INT_MISC_HANG_DETECT) |		\
+	 (1 << A5XX_INT_UCHE_OOB_ACCESS) |		\
+	 (1 << A5XX_INT_UCHE_TRAP_INTR) |		\
+	 (1 << A5XX_INT_CP_SW) |			\
+	 (1 << A5XX_INT_GPMU_FIRMWARE) |                \
+	 (1 << A5XX_INT_GPMU_VOLTAGE_DROOP))
+
 static void a530_efuse_leakage(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -1251,10 +1269,11 @@ static void _setup_throttling_counters(struct adreno_device *adreno_dev)
 static void a5xx_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	const struct adreno_a5xx_core *a5xx_core = to_a5xx_core(adreno_dev);
 	unsigned int bit;
 	int ret;
+
+	adreno_dev->irq_mask = A5XX_INT_MASK;
 
 	if (adreno_is_a530(adreno_dev) && ADRENO_FEATURE(adreno_dev, ADRENO_LM)
 			&& adreno_dev->lm_threshold_count == 0) {
@@ -1325,11 +1344,6 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 				0xFFFFFFFF);
 	}
 
-	/*
-	 * Turn on hang detection. This spews a lot of useful information
-	 * into the RBBM registers on a hang.
-	 */
-	gpudev->irq->mask |= (1 << A5XX_INT_MISC_HANG_DETECT);
 	/*
 	 * Set hang detection threshold to 4 million cycles
 	 * (0x3FFFF*16)
@@ -2318,10 +2332,6 @@ static struct adreno_ft_perf_counters a5xx_ft_perf_counters[] = {
 	{KGSL_PERFCOUNTER_GROUP_TSE, A5XX_TSE_INPUT_PRIM_NUM},
 };
 
-static unsigned int a5xx_int_bits[ADRENO_INT_BITS_MAX] = {
-	ADRENO_INT_DEFINE(ADRENO_INT_RBBM_AHB_ERROR, A5XX_INT_RBBM_AHB_ERROR),
-};
-
 /* Register offset defines for A5XX, in order of enum adreno_regs */
 static unsigned int a5xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_RB_BASE, A5XX_CP_RB_BASE),
@@ -2367,8 +2377,6 @@ static unsigned int a5xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_INT_0_MASK, A5XX_RBBM_INT_0_MASK),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_INT_0_STATUS, A5XX_RBBM_INT_0_STATUS),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_CLOCK_CTL, A5XX_RBBM_CLOCK_CNTL),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_INT_CLEAR_CMD,
-				A5XX_RBBM_INT_CLEAR_CMD),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_SW_RESET_CMD, A5XX_RBBM_SW_RESET_CMD),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_BLOCK_SW_RESET_CMD,
 					  A5XX_RBBM_BLOCK_SW_RESET_CMD),
@@ -2515,23 +2523,20 @@ static void a5xx_irq_storm_worker(struct work_struct *work)
 	struct adreno_device *adreno_dev = container_of(work,
 			struct adreno_device, irq_storm_work);
 	struct kgsl_device *device = &adreno_dev->dev;
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	unsigned int status;
 
 	mutex_lock(&device->mutex);
 
 	/* Wait for the storm to clear up */
 	do {
-		adreno_writereg(adreno_dev, ADRENO_REG_RBBM_INT_CLEAR_CMD,
+		kgsl_regwrite(device, A5XX_RBBM_INT_CLEAR_CMD,
 				BIT(A5XX_INT_CP_CACHE_FLUSH_TS));
-		adreno_readreg(adreno_dev, ADRENO_REG_RBBM_INT_0_STATUS,
-				&status);
+		kgsl_regread(device, A5XX_RBBM_INT_0_STATUS, &status);
 	} while (status & BIT(A5XX_INT_CP_CACHE_FLUSH_TS));
 
 	/* Re-enable the interrupt bit in the mask */
-	gpudev->irq->mask |= BIT(A5XX_INT_CP_CACHE_FLUSH_TS);
-	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_INT_0_MASK,
-			gpudev->irq->mask);
+	adreno_dev->irq_mask |= BIT(A5XX_INT_CP_CACHE_FLUSH_TS);
+	kgsl_regwrite(device, A5XX_RBBM_INT_0_MASK, adreno_dev->irq_mask);
 	clear_bit(ADRENO_DEVICE_CACHE_FLUSH_TS_SUSPENDED, &adreno_dev->priv);
 
 	dev_warn(device->dev, "Re-enabled A5XX_INT_CP_CACHE_FLUSH_TS\n");
@@ -2568,15 +2573,15 @@ static void a5xx_cp_callback(struct adreno_device *adreno_dev, int bit)
 	if (prev == cur) {
 		count++;
 		if (count == 2) {
-			struct adreno_gpudev *gpudev =
-				ADRENO_GPU_DEVICE(adreno_dev);
-
 			/* disable interrupt from the mask */
 			set_bit(ADRENO_DEVICE_CACHE_FLUSH_TS_SUSPENDED,
 					&adreno_dev->priv);
-			gpudev->irq->mask &= ~BIT(A5XX_INT_CP_CACHE_FLUSH_TS);
-			adreno_writereg(adreno_dev, ADRENO_REG_RBBM_INT_0_MASK,
-					gpudev->irq->mask);
+
+			adreno_dev->irq_mask &=
+				~BIT(A5XX_INT_CP_CACHE_FLUSH_TS);
+
+			kgsl_regwrite(device, A5XX_RBBM_INT_0_MASK,
+				adreno_dev->irq_mask);
 
 			kgsl_schedule_work(&adreno_dev->irq_storm_work);
 
@@ -2676,23 +2681,6 @@ static u64 a5xx_read_alwayson(struct adreno_device *adreno_dev)
 	return (((u64) hi) << 32) | lo;
 }
 
-#define A5XX_INT_MASK \
-	((1 << A5XX_INT_RBBM_AHB_ERROR) |		\
-	 (1 << A5XX_INT_RBBM_TRANSFER_TIMEOUT) |		\
-	 (1 << A5XX_INT_RBBM_ME_MS_TIMEOUT) |		\
-	 (1 << A5XX_INT_RBBM_PFP_MS_TIMEOUT) |		\
-	 (1 << A5XX_INT_RBBM_ETS_MS_TIMEOUT) |		\
-	 (1 << A5XX_INT_RBBM_ATB_ASYNC_OVERFLOW) |		\
-	 (1 << A5XX_INT_RBBM_GPC_ERROR) |		\
-	 (1 << A5XX_INT_CP_HW_ERROR) |	\
-	 (1 << A5XX_INT_CP_CACHE_FLUSH_TS) |		\
-	 (1 << A5XX_INT_RBBM_ATB_BUS_OVERFLOW) |	\
-	 (1 << A5XX_INT_UCHE_OOB_ACCESS) |		\
-	 (1 << A5XX_INT_UCHE_TRAP_INTR) |		\
-	 (1 << A5XX_INT_CP_SW) |			\
-	 (1 << A5XX_INT_GPMU_FIRMWARE) |                \
-	 (1 << A5XX_INT_GPMU_VOLTAGE_DROOP))
-
 
 static struct adreno_irq_funcs a5xx_irq_funcs[32] = {
 	ADRENO_IRQ_CALLBACK(NULL),              /* 0 - RBBM_GPU_IDLE */
@@ -2739,10 +2727,34 @@ static struct adreno_irq_funcs a5xx_irq_funcs[32] = {
 	ADRENO_IRQ_CALLBACK(NULL), /* 31 - ISDB_UNDER_DEBUG */
 };
 
-static struct adreno_irq a5xx_irq = {
-	.funcs = a5xx_irq_funcs,
-	.mask = A5XX_INT_MASK,
-};
+static irqreturn_t a5xx_irq_handler(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	irqreturn_t ret;
+	u32 status;
+
+	kgsl_regread(device, A5XX_RBBM_INT_0_STATUS, &status);
+
+	/*
+	 * Clear all the interrupt bits except A5XX_INT_RBBM_AHB_ERROR.
+	 * The interrupt will stay asserted until it is cleared by the handler
+	 * so don't touch it yet to avoid a storm
+	 */
+	kgsl_regwrite(device, A5XX_RBBM_INT_CLEAR_CMD,
+		status & ~A5XX_INT_RBBM_AHB_ERROR);
+
+	/* Call the helper function for callbacks */
+	ret = adreno_irq_callbacks(adreno_dev, a5xx_irq_funcs, status);
+
+	trace_kgsl_a5xx_irq_status(adreno_dev, status);
+
+	/* Now chear AHB_ERROR if it was set */
+	if (status & A5XX_INT_RBBM_AHB_ERROR)
+		kgsl_regwrite(device, A5XX_RBBM_INT_CLEAR_CMD,
+			A5XX_INT_RBBM_AHB_ERROR);
+
+	return ret;
+}
 
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT
 static struct adreno_coresight_register a5xx_coresight_registers[] = {
@@ -2941,7 +2953,6 @@ static struct adreno_coresight a5xx_coresight = {
 
 struct adreno_gpudev adreno_a5xx_gpudev = {
 	.reg_offsets = a5xx_register_offsets,
-	.int_bits = a5xx_int_bits,
 	.ft_perf_counters = a5xx_ft_perf_counters,
 	.ft_perf_counters_count = ARRAY_SIZE(a5xx_ft_perf_counters),
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT
@@ -2949,10 +2960,9 @@ struct adreno_gpudev adreno_a5xx_gpudev = {
 #endif
 	.start = a5xx_start,
 	.snapshot = a5xx_snapshot,
-	.irq = &a5xx_irq,
-	.irq_trace = trace_kgsl_a5xx_irq_status,
 	.platform_setup = a5xx_platform_setup,
 	.init = a5xx_init,
+	.irq_handler = a5xx_irq_handler,
 	.rb_start = a5xx_rb_start,
 	.microcode_read = a5xx_microcode_read,
 	.perfcounters = &a5xx_perfcounters,

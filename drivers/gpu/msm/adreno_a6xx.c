@@ -13,6 +13,22 @@
 #include "adreno_trace.h"
 #include "kgsl_trace.h"
 
+#define A6XX_INT_MASK \
+	((1 << A6XX_INT_CP_AHB_ERROR) |			\
+	 (1 << A6XX_INT_ATB_ASYNCFIFO_OVERFLOW) |	\
+	 (1 << A6XX_INT_RBBM_GPC_ERROR) |		\
+	 (1 << A6XX_INT_CP_SW) |			\
+	 (1 << A6XX_INT_CP_HW_ERROR) |			\
+	 (1 << A6XX_INT_CP_IB2) |			\
+	 (1 << A6XX_INT_CP_IB1) |			\
+	 (1 << A6XX_INT_CP_RB) |			\
+	 (1 << A6XX_INT_CP_CACHE_FLUSH_TS) |		\
+	 (1 << A6XX_INT_RBBM_ATB_BUS_OVERFLOW) |	\
+	 (1 << A6XX_INT_RBBM_HANG_DETECT) |		\
+	 (1 << A6XX_INT_UCHE_OOB_ACCESS) |		\
+	 (1 << A6XX_INT_UCHE_TRAP_INTR) |		\
+	 (1 << A6XX_INT_TSB_WRITE_ERROR))
+
 /* IFPC & Preemption static powerup restore list */
 static u32 a6xx_pwrup_reglist[] = {
 	A6XX_VSC_ADDR_MODE_CNTL,
@@ -381,6 +397,8 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	unsigned int amsbc = 0;
 	unsigned int rgb565_predicator = 0;
 	static bool patch_reglist;
+
+	adreno_dev->irq_mask = A6XX_INT_MASK;
 
 	/* runtime adjust callbacks based on feature sets */
 	if (!gmu_core_isenabled(device))
@@ -1359,22 +1377,6 @@ static void a6xx_cp_callback(struct adreno_device *adreno_dev, int bit)
 	adreno_dispatcher_schedule(device);
 }
 
-#define A6XX_INT_MASK \
-	((1 << A6XX_INT_CP_AHB_ERROR) |			\
-	 (1 << A6XX_INT_ATB_ASYNCFIFO_OVERFLOW) |	\
-	 (1 << A6XX_INT_RBBM_GPC_ERROR) |		\
-	 (1 << A6XX_INT_CP_SW) |			\
-	 (1 << A6XX_INT_CP_HW_ERROR) |			\
-	 (1 << A6XX_INT_CP_IB2) |			\
-	 (1 << A6XX_INT_CP_IB1) |			\
-	 (1 << A6XX_INT_CP_RB) |			\
-	 (1 << A6XX_INT_CP_CACHE_FLUSH_TS) |		\
-	 (1 << A6XX_INT_RBBM_ATB_BUS_OVERFLOW) |	\
-	 (1 << A6XX_INT_RBBM_HANG_DETECT) |		\
-	 (1 << A6XX_INT_UCHE_OOB_ACCESS) |		\
-	 (1 << A6XX_INT_UCHE_TRAP_INTR) |		\
-	 (1 << A6XX_INT_TSB_WRITE_ERROR))
-
 static struct adreno_irq_funcs a6xx_irq_funcs[32] = {
 	ADRENO_IRQ_CALLBACK(NULL),              /* 0 - RBBM_GPU_IDLE */
 	ADRENO_IRQ_CALLBACK(a6xx_err_callback), /* 1 - RBBM_AHB_ERROR */
@@ -1412,10 +1414,79 @@ static struct adreno_irq_funcs a6xx_irq_funcs[32] = {
 	ADRENO_IRQ_CALLBACK(NULL), /* 31 - ISDB_UNDER_DEBUG */
 };
 
-static struct adreno_irq a6xx_irq = {
-	.funcs = a6xx_irq_funcs,
-	.mask = A6XX_INT_MASK,
-};
+/*
+ * If the AHB fence is not in ALLOW mode when we receive an RBBM
+ * interrupt, something went wrong. This means that we cannot proceed
+ * since the IRQ status and clear registers are not accessible.
+ * This is usually harmless because the GMU will abort power collapse
+ * and change the fence back to ALLOW. Poll so that this can happen.
+ */
+static int a6xx_irq_poll_fence(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	u32 status, fence, fence_retries = 0;
+
+	if (!gmu_core_isenabled(device))
+		return 0;
+
+	kgsl_regread(device, A6XX_GMU_AO_AHB_FENCE_CTRL, &fence);
+
+	while (fence != 0) {
+		/* Wait for small time before trying again */
+		udelay(1);
+		kgsl_regread(device, A6XX_GMU_AO_AHB_FENCE_CTRL, &fence);
+
+		if (fence_retries == 100 && fence != 0) {
+			kgsl_regread(device, A6XX_GMU_RBBM_INT_UNMASKED_STATUS,
+				&status);
+
+			dev_crit_ratelimited(device->dev,
+				"status=0x%x Unmasked status=0x%x Mask=0x%x\n",
+					status & adreno_dev->irq_mask, status,
+					adreno_dev->irq_mask);
+				return -ETIMEDOUT;
+		}
+
+		fence_retries++;
+	}
+
+	return 0;
+}
+
+static irqreturn_t a6xx_irq_handler(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	irqreturn_t ret = IRQ_NONE;
+	u32 status;
+
+	/*
+	 * On A6xx, the GPU can power down once the INT_0_STATUS is read
+	 * below. But there still might be some register reads required
+	 * so force the GMU/GPU into KEEPALIVE mode until done with the ISR.
+	 */
+	a6xx_gpu_keepalive(adreno_dev, true);
+
+	if (a6xx_irq_poll_fence(adreno_dev)) {
+		adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT);
+		adreno_dispatcher_schedule(device);
+		goto done;
+	}
+
+	kgsl_regread(device, A6XX_RBBM_INT_0_STATUS, &status);
+
+	kgsl_regwrite(device, A6XX_RBBM_INT_CLEAR_CMD, status);
+
+	ret = adreno_irq_callbacks(adreno_dev, a6xx_irq_funcs, status);
+
+	trace_kgsl_a5xx_irq_status(adreno_dev, status);
+
+done:
+	/* If hard fault, then let snapshot turn off the keepalive */
+	if (!(adreno_gpu_fault(adreno_dev) & ADRENO_HARD_FAULT))
+		a6xx_gpu_keepalive(adreno_dev, false);
+
+	return ret;
+}
 
 #ifdef CONFIG_QCOM_KGSL_CORESIGHT
 static struct adreno_coresight_register a6xx_coresight_regs[] = {
@@ -2337,8 +2408,6 @@ static unsigned int a6xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_INT_0_MASK, A6XX_RBBM_INT_0_MASK),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_INT_0_STATUS, A6XX_RBBM_INT_0_STATUS),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_CLOCK_CTL, A6XX_RBBM_CLOCK_CNTL),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_INT_CLEAR_CMD,
-				A6XX_RBBM_INT_CLEAR_CMD),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_SW_RESET_CMD, A6XX_RBBM_SW_RESET_CMD),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_BLOCK_SW_RESET_CMD,
 					  A6XX_RBBM_BLOCK_SW_RESET_CMD),
@@ -2362,8 +2431,6 @@ static unsigned int a6xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 				A6XX_RBBM_GBIF_HALT_ACK),
 	ADRENO_REG_DEFINE(ADRENO_REG_GBIF_HALT, A6XX_GBIF_HALT),
 	ADRENO_REG_DEFINE(ADRENO_REG_GBIF_HALT_ACK, A6XX_GBIF_HALT_ACK),
-	ADRENO_REG_DEFINE(ADRENO_REG_GMU_AO_AHB_FENCE_CTRL,
-				A6XX_GMU_AO_AHB_FENCE_CTRL),
 	ADRENO_REG_DEFINE(ADRENO_REG_GMU_AO_INTERRUPT_EN,
 				A6XX_GMU_AO_INTERRUPT_EN),
 	ADRENO_REG_DEFINE(ADRENO_REG_GMU_AO_HOST_INTERRUPT_CLR,
@@ -2400,8 +2467,6 @@ static unsigned int a6xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 				A6XX_GMU_NMI_CONTROL_STATUS),
 	ADRENO_REG_DEFINE(ADRENO_REG_GMU_CM3_CFG,
 				A6XX_GMU_CM3_CFG),
-	ADRENO_REG_DEFINE(ADRENO_REG_GMU_RBBM_INT_UNMASKED_STATUS,
-				A6XX_GMU_RBBM_INT_UNMASKED_STATUS),
 };
 
 static int cpu_gpu_lock(struct cpu_gpu_lock *lock)
@@ -2538,10 +2603,9 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.reg_offsets = a6xx_register_offsets,
 	.start = a6xx_start,
 	.snapshot = a6xx_snapshot,
-	.irq = &a6xx_irq,
-	.irq_trace = trace_kgsl_a5xx_irq_status,
 	.platform_setup = a6xx_platform_setup,
 	.init = a6xx_init,
+	.irq_handler = a6xx_irq_handler,
 	.rb_start = a6xx_rb_start,
 	.regulator_enable = a6xx_sptprac_enable,
 	.regulator_disable = a6xx_sptprac_disable,

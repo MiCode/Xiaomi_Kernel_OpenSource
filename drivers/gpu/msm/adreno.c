@@ -530,10 +530,8 @@ static int _soft_reset(struct adreno_device *adreno_dev)
  */
 void adreno_irqctrl(struct adreno_device *adreno_dev, int state)
 {
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-	unsigned int mask = state ? gpudev->irq->mask : 0;
-
-	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_INT_0_MASK, mask);
+	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_INT_0_MASK,
+		state ? adreno_dev->irq_mask : 0);
 }
 
 /*
@@ -570,108 +568,13 @@ static irqreturn_t adreno_irq_handler(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-	struct adreno_irq *irq_params = gpudev->irq;
-	irqreturn_t ret = IRQ_NONE;
-	unsigned int status = 0, fence = 0, fence_retries = 0, tmp, int_bit;
-	unsigned int shadow_status = 0;
-	int i;
+	irqreturn_t ret;
 
 	atomic_inc(&adreno_dev->pending_irq_refcnt);
 	/* Ensure this increment is done before the IRQ status is updated */
 	smp_mb__after_atomic();
 
-	/*
-	 * On A6xx, the GPU can power down once the INT_0_STATUS is read
-	 * below. But there still might be some register reads required
-	 * so force the GMU/GPU into KEEPALIVE mode until done with the ISR.
-	 */
-	if (gpudev->gpu_keepalive)
-		gpudev->gpu_keepalive(adreno_dev, true);
-
-	/*
-	 * If the AHB fence is not in ALLOW mode when we receive an RBBM
-	 * interrupt, something went wrong. This means that we cannot proceed
-	 * since the IRQ status and clear registers are not accessible.
-	 * This is usually harmless because the GMU will abort power collapse
-	 * and change the fence back to ALLOW. Poll so that this can happen.
-	 */
-	if (gmu_core_isenabled(device)) {
-		adreno_readreg(adreno_dev,
-				ADRENO_REG_GMU_AO_AHB_FENCE_CTRL,
-				&fence);
-
-		while (fence != 0) {
-			/* Wait for small time before trying again */
-			udelay(1);
-			adreno_readreg(adreno_dev,
-					ADRENO_REG_GMU_AO_AHB_FENCE_CTRL,
-					&fence);
-
-			if (fence_retries == FENCE_RETRY_MAX && fence != 0) {
-				adreno_readreg(adreno_dev,
-					ADRENO_REG_GMU_RBBM_INT_UNMASKED_STATUS,
-					&shadow_status);
-
-				dev_crit_ratelimited(device->dev,
-					"Status=0x%x Unmasked status=0x%x Mask=0x%x\n",
-					shadow_status & irq_params->mask,
-					shadow_status, irq_params->mask);
-				adreno_set_gpu_fault(adreno_dev,
-						ADRENO_GMU_FAULT);
-				adreno_dispatcher_schedule(KGSL_DEVICE
-						(adreno_dev));
-				goto done;
-			}
-			fence_retries++;
-		}
-	}
-
-	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_INT_0_STATUS, &status);
-
-	/*
-	 * Clear all the interrupt bits but ADRENO_INT_RBBM_AHB_ERROR. Because
-	 * even if we clear it here, it will stay high until it is cleared
-	 * in its respective handler. Otherwise, the interrupt handler will
-	 * fire again.
-	 */
-	int_bit = ADRENO_INT_BIT(adreno_dev, ADRENO_INT_RBBM_AHB_ERROR);
-	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_INT_CLEAR_CMD,
-				status & ~int_bit);
-
-	/* Loop through all set interrupts and call respective handlers */
-	for (tmp = status; tmp != 0;) {
-		i = fls(tmp) - 1;
-
-		if (irq_params->funcs[i].func != NULL) {
-			if (irq_params->mask & BIT(i))
-				irq_params->funcs[i].func(adreno_dev, i);
-		} else
-			dev_crit_ratelimited(device->dev,
-						"Unhandled interrupt bit %x\n",
-						i);
-
-		ret = IRQ_HANDLED;
-
-		tmp &= ~BIT(i);
-	}
-
-	gpudev->irq_trace(adreno_dev, status);
-
-	/*
-	 * Clear ADRENO_INT_RBBM_AHB_ERROR bit after this interrupt has been
-	 * cleared in its respective handler
-	 */
-	if (status & int_bit)
-		adreno_writereg(adreno_dev, ADRENO_REG_RBBM_INT_CLEAR_CMD,
-				int_bit);
-
-done:
-	/* Turn off the KEEPALIVE vote from earlier unless hard fault set */
-	if (gpudev->gpu_keepalive) {
-		/* If hard fault, then let snapshot turn off the keepalive */
-		if (!(adreno_gpu_fault(adreno_dev) & ADRENO_HARD_FAULT))
-			gpudev->gpu_keepalive(adreno_dev, false);
-	}
+	ret = gpudev->irq_handler(adreno_dev);
 
 	/* Make sure the regwrites are done before the decrement */
 	smp_mb__before_atomic();
@@ -680,8 +583,33 @@ done:
 	smp_mb__after_atomic();
 
 	return ret;
-
 }
+
+irqreturn_t adreno_irq_callbacks(struct adreno_device *adreno_dev,
+		struct adreno_irq_funcs *funcs, u32 status)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	irqreturn_t ret = IRQ_NONE;
+
+	/* Loop through all set interrupts and call respective handlers */
+	while (status) {
+		int i = fls(status) - 1;
+
+		if (funcs[i].func) {
+			if (adreno_dev->irq_mask & BIT(i))
+				funcs[i].func(adreno_dev, i);
+		} else
+			dev_crit_ratelimited(device->dev,
+				"Unhandled interrupt bit %x\n", i);
+
+		ret = IRQ_HANDLED;
+
+		status &= ~BIT(i);
+	}
+
+	return ret;
+}
+
 
 static inline bool _rev_match(unsigned int id, unsigned int entry)
 {
@@ -2832,7 +2760,6 @@ static int adreno_setproperty(struct kgsl_device_private *dev_priv,
  */
 inline unsigned int adreno_irq_pending(struct adreno_device *adreno_dev)
 {
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	unsigned int status;
 
 	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_INT_0_STATUS, &status);
@@ -2844,7 +2771,7 @@ inline unsigned int adreno_irq_pending(struct adreno_device *adreno_dev)
 	 * Use pending_irq_refcnt along with RBBM INT0 to correctly
 	 * determine whether any IRQ is pending or not.
 	 */
-	if ((status & gpudev->irq->mask) ||
+	if ((status & adreno_dev->irq_mask) ||
 		atomic_read(&adreno_dev->pending_irq_refcnt))
 		return 1;
 	else
