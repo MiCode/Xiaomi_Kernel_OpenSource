@@ -206,7 +206,11 @@ struct gmu_device {
 	struct rpmh_votes_t rpmh_votes;
 	struct regulator *cx_gdsc;
 	struct regulator *gx_gdsc;
-	struct clk *clks[MAX_GMU_CLKS];
+	struct clk_bulk_data *clks;
+	/** @num_clks: Number of entries in the @clks array */
+	int num_clks;
+	/** @gmu_clk: Pointer to the core GMU clock */
+	struct clk *gmu_clk;
 	enum gmu_load_mode load_mode;
 	unsigned int wakeup_pwrlevel;
 	unsigned int pcl;

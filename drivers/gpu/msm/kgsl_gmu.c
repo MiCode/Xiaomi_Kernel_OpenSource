@@ -4,6 +4,7 @@
  */
 
 #include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
+#include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/firmware.h>
 #include <linux/io.h>
@@ -942,34 +943,6 @@ static int gmu_reg_probe(struct kgsl_device *device)
 	return 0;
 }
 
-static int gmu_clocks_probe(struct gmu_device *gmu, struct device_node *node)
-{
-	const char *cname;
-	struct property *prop;
-	struct clk *c;
-	int i = 0;
-
-	of_property_for_each_string(node, "clock-names", prop, cname) {
-		c = devm_clk_get(&gmu->pdev->dev, cname);
-
-		if (IS_ERR(c)) {
-			dev_err(&gmu->pdev->dev,
-				"dt: Couldn't get GMU clock: %s\n", cname);
-			return PTR_ERR(c);
-		}
-
-		if (i >= MAX_GMU_CLKS) {
-			dev_err(&gmu->pdev->dev,
-				"dt: too many GMU clocks defined\n");
-			return -EINVAL;
-		}
-
-		gmu->clks[i++] = c;
-	}
-
-	return 0;
-}
-
 static int gmu_regulators_probe(struct gmu_device *gmu,
 		struct device_node *node)
 {
@@ -1206,10 +1179,19 @@ static int gmu_probe(struct kgsl_device *device, struct device_node *node)
 	if (ret)
 		goto error;
 
-	/* Set up GMU clocks */
-	ret = gmu_clocks_probe(gmu, node);
-	if (ret)
+	ret = devm_clk_bulk_get_all(&gmu->pdev->dev, &gmu->clks);
+	if (ret < 0)
 		goto error;
+
+	gmu->num_clks = ret;
+
+	/* Get a pointer to the GMU clock */
+	gmu->gmu_clk = kgsl_of_clk_by_name(gmu->clks, gmu->num_clks, "gmu_clk");
+	if (!gmu->gmu_clk) {
+		dev_err(&gmu->pdev->dev, "Couldn't get gmu_clk\n");
+		ret = -ENODEV;
+		goto error;
+	}
 
 	/* Set up GMU IOMMU and shared memory with GMU */
 	ret = gmu_iommu_init(gmu, node);
@@ -1304,48 +1286,30 @@ error:
 static int gmu_enable_clks(struct kgsl_device *device)
 {
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
-	int ret, j = 0;
+	int ret;
 
-	if (IS_ERR_OR_NULL(gmu->clks[0]))
-		return -EINVAL;
-
-	ret = clk_set_rate(gmu->clks[0], GMU_FREQUENCY);
+	ret = clk_set_rate(gmu->gmu_clk, GMU_FREQUENCY);
 	if (ret) {
-		dev_err(&gmu->pdev->dev, "fail to set default GMU clk freq %d\n",
-				GMU_FREQUENCY);
+		dev_err(&gmu->pdev->dev, "Unable to set GMU clock\n");
 		return ret;
 	}
 
-	while ((j < MAX_GMU_CLKS) && gmu->clks[j]) {
-		ret = clk_prepare_enable(gmu->clks[j]);
-		if (ret) {
-			dev_err(&gmu->pdev->dev,
-					"fail to enable gpucc clk idx %d\n",
-					j);
-			return ret;
-		}
-		j++;
+	ret = clk_bulk_prepare_enable(gmu->num_clks, gmu->clks);
+	if (ret) {
+		dev_err(&gmu->pdev->dev, "Cannot enable GMU clocks\n");
+		return ret;
 	}
 
 	set_bit(GMU_CLK_ON, &device->gmu_core.flags);
 	return 0;
 }
 
-static int gmu_disable_clks(struct kgsl_device *device)
+static void gmu_disable_clks(struct kgsl_device *device)
 {
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
-	int j = 0;
 
-	if (IS_ERR_OR_NULL(gmu->clks[0]))
-		return 0;
-
-	while ((j < MAX_GMU_CLKS) && gmu->clks[j]) {
-		clk_disable_unprepare(gmu->clks[j]);
-		j++;
-	}
-
+	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
 	clear_bit(GMU_CLK_ON, &device->gmu_core.flags);
-	return 0;
 
 }
 
@@ -1592,7 +1556,6 @@ static void gmu_remove(struct kgsl_device *device)
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	struct kgsl_hfi *hfi;
-	int i = 0;
 
 	if (gmu == NULL || gmu->pdev == NULL)
 		return;
@@ -1608,11 +1571,6 @@ static void gmu_remove(struct kgsl_device *device)
 
 	clear_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag);
 
-	while ((i < MAX_GMU_CLKS) && gmu->clks[i]) {
-		gmu->clks[i] = NULL;
-		i++;
-	}
-
 	icc_put(gmu->icc_path);
 
 	if (gmu->fw_image) {
@@ -1621,13 +1579,6 @@ static void gmu_remove(struct kgsl_device *device)
 	}
 
 	gmu_memory_close(gmu);
-
-	for (i = 0; i < MAX_GMU_CLKS; i++) {
-		if (gmu->clks[i]) {
-			devm_clk_put(&gmu->pdev->dev, gmu->clks[i]);
-			gmu->clks[i] = NULL;
-		}
-	}
 
 	if (gmu->gx_gdsc) {
 		devm_regulator_put(gmu->gx_gdsc);

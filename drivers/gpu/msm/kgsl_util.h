@@ -7,6 +7,7 @@
 #define _KGSL_UTIL_H_
 
 struct regulator;
+struct clk_bulk_data;
 
 /**
  * kgsl_regulator_disable_wait - Disable a regulator and wait for it
@@ -20,4 +21,15 @@ struct regulator;
  */
 bool kgsl_regulator_disable_wait(struct regulator *reg, u32 timeout);
 
+/**
+ * kgsl_of_clk_by_name - Return a clock device for a given name
+ * @clks: Pointer to an array of bulk clk data
+ * @count: Number of entries in the array
+ * @id: Name of the clock to search for
+ *
+ * Returns: A pointer to the clock device for the given name or NULL if not
+ * found
+ */
+struct clk *kgsl_of_clk_by_name(struct clk_bulk_data *clks, int count,
+		const char *id);
 #endif
