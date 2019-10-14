@@ -216,7 +216,7 @@ static unsigned int _adreno_iommu_set_pt_v2_a5xx(struct kgsl_device *device,
 	*cmds++ = contextidr;
 
 	*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 4, 1);
-	cmds += cp_gpuaddr(adreno_dev, cmds, (rb->pagetable_desc.gpuaddr +
+	cmds += cp_gpuaddr(adreno_dev, cmds, (rb->pagetable_desc->gpuaddr +
 		PT_INFO_OFFSET(ttbr0)));
 	*cmds++ = lower_32_bits(ttbr0);
 	*cmds++ = upper_32_bits(ttbr0);
@@ -250,7 +250,7 @@ static unsigned int _adreno_iommu_set_pt_v2_a6xx(struct kgsl_device *device,
 	*cmds++ = cb_num;
 
 	*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 4, 1);
-	cmds += cp_gpuaddr(adreno_dev, cmds, (rb->pagetable_desc.gpuaddr +
+	cmds += cp_gpuaddr(adreno_dev, cmds, (rb->pagetable_desc->gpuaddr +
 		PT_INFO_OFFSET(ttbr0)));
 	*cmds++ = lower_32_bits(ttbr0);
 	*cmds++ = upper_32_bits(ttbr0);
@@ -296,7 +296,7 @@ unsigned int adreno_iommu_set_pt_generate_cmds(
 	cmds += cp_wait_for_me(adreno_dev, cmds);
 	*cmds++ = cp_mem_packet(adreno_dev, CP_INDIRECT_BUFFER_PFE, 2, 1);
 	cmds += cp_gpuaddr(adreno_dev, cmds,
-		iommu->setstate.gpuaddr + KGSL_IOMMU_SETSTATE_NOP_OFFSET);
+		iommu->setstate->gpuaddr + KGSL_IOMMU_SETSTATE_NOP_OFFSET);
 	*cmds++ = 2;
 	cmds += cp_wait_for_idle(adreno_dev, cmds);
 
@@ -445,7 +445,7 @@ void adreno_iommu_init(struct adreno_device *adreno_dev)
 	 * pagetables in-stream
 	 */
 
-	kgsl_sharedmem_writel(device, &iommu->setstate,
+	kgsl_sharedmem_writel(device, iommu->setstate,
 				KGSL_IOMMU_SETSTATE_NOP_OFFSET,
 				cp_packet(adreno_dev, CP_NOP, 1));
 

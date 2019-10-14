@@ -4,8 +4,10 @@
  */
 
 #include <asm/cacheflush.h>
+#include <linux/of_platform.h>
 #include <linux/highmem.h>
 #include <linux/slab.h>
+#include <linux/random.h>
 #include <soc/qcom/secure_buffer.h>
 
 #include "kgsl_device.h"
@@ -1265,11 +1267,104 @@ int kgsl_allocate_kernel(struct kgsl_device *device,
 	return 0;
 }
 
-int kgsl_allocate_global(struct kgsl_device *device,
-		struct kgsl_memdesc *memdesc, u64 size, u64 flags, u32 priv,
-		const char *name)
+#define KGSL_GLOBAL_MEM_SIZE (20 * SZ_1M)
+#define KGSL_GLOBAL_MEM_PAGES (KGSL_GLOBAL_MEM_SIZE >> PAGE_SHIFT)
+
+static u64 global_get_offset(struct kgsl_device *device, u64 size,
+		unsigned long priv)
+{
+	int start = 0, bit;
+
+	if (!device->global_map) {
+		device->global_map =
+			kcalloc(BITS_TO_LONGS(KGSL_GLOBAL_MEM_PAGES),
+			sizeof(unsigned long), GFP_KERNEL);
+		if (!device->global_map)
+			return (unsigned long) -ENOMEM;
+
+		device->global_pages = KGSL_GLOBAL_MEM_PAGES;
+	}
+
+	if (priv & KGSL_MEMDESC_RANDOM) {
+		u32 offset = device->global_pages - (size >> PAGE_SHIFT);
+
+		start = get_random_int() % offset;
+	}
+
+	while (start >= 0) {
+		bit = bitmap_find_next_zero_area(device->global_map,
+			device->global_pages, start, size >> PAGE_SHIFT, 0);
+
+		if (bit < device->global_pages)
+			break;
+
+		/* FIXME: We should randomize this */
+		start--;
+	}
+
+	if (WARN_ON(start < 0))
+		return (unsigned long) -ENOMEM;
+
+	bitmap_set(device->global_map, bit, size >> PAGE_SHIFT);
+
+	return bit << PAGE_SHIFT;
+}
+
+struct kgsl_memdesc *kgsl_allocate_global_fixed(struct kgsl_device *device,
+		const char *resource, const char *name)
+{
+	struct kgsl_global_memdesc *md;
+	u32 entry[2];
+	int ret;
+	u64 offset;
+
+	if (of_property_read_u32_array(device->pdev->dev.of_node,
+		resource, entry, 2))
+		return ERR_PTR(-ENODEV);
+
+	md = kzalloc(sizeof(*md), GFP_KERNEL);
+	if (!md)
+		return ERR_PTR(-ENOMEM);
+
+	kgsl_memdesc_init(device, &md->memdesc, 0);
+	md->memdesc.priv = KGSL_MEMDESC_GLOBAL;
+	md->memdesc.physaddr = entry[0];
+	md->memdesc.size = entry[1];
+
+	ret = kgsl_memdesc_sg_dma(&md->memdesc, entry[0], entry[1]);
+	if (ret) {
+		kfree(md);
+		return ERR_PTR(ret);
+	}
+
+	offset = global_get_offset(device,
+		kgsl_memdesc_footprint(&md->memdesc), 0);
+	if (IS_ERR_VALUE(offset)) {
+		kgsl_sharedmem_free(&md->memdesc);
+		kfree(md);
+		return (void *) offset;
+	}
+
+	if (!md->memdesc.gpuaddr)
+		md->memdesc.gpuaddr = kgsl_mmu_get_global_base(device) + offset;
+
+	md->name = name;
+
+	/*
+	 * No lock here, because this function is only called during probe/init
+	 * while the caller is holding the mutex
+	 */
+	list_add_tail(&md->node, &device->globals);
+
+	return &md->memdesc;
+}
+
+struct kgsl_memdesc *kgsl_allocate_global(struct kgsl_device *device,
+		u64 size, u64 flags, u32 priv, const char *name)
 {
 	int ret;
+	struct kgsl_global_memdesc *md;
+	u64 offset;
 
 	/*
 	 * For the moment, don't allow secure to be allocated through this
@@ -1277,21 +1372,51 @@ int kgsl_allocate_global(struct kgsl_device *device,
 	 */
 
 	if (flags & KGSL_MEMFLAGS_SECURE)
-		return -EINVAL;
+		return ERR_PTR(-EINVAL);
 
-	ret = kgsl_allocate_kernel(device, memdesc, size, flags, priv);
-	if (ret)
-		return ret;
+	md = kzalloc(sizeof(*md), GFP_KERNEL);
+	if (!md)
+		return ERR_PTR(-ENOMEM);
 
-	kgsl_mmu_add_global(device, memdesc, name);
-	return 0;
+	priv |= KGSL_MEMDESC_GLOBAL;
+
+	ret = kgsl_allocate_kernel(device, &md->memdesc, size, flags, priv);
+	if (ret) {
+		kfree(md);
+		return ERR_PTR(ret);
+	}
+
+	offset = global_get_offset(device,
+		kgsl_memdesc_footprint(&md->memdesc), priv);
+	if (IS_ERR_VALUE(offset)) {
+		kgsl_sharedmem_free(&md->memdesc);
+		kfree(md);
+		return (void *) offset;
+	}
+
+	if (!md->memdesc.gpuaddr)
+		md->memdesc.gpuaddr = kgsl_mmu_get_global_base(device) + offset;
+
+	md->name = name;
+
+	/*
+	 * No lock here, because this function is only called during probe/init
+	 * while the caller is holding the mute
+	 */
+	list_add_tail(&md->node, &device->globals);
+
+	return &md->memdesc;
 }
 
-void kgsl_free_global(struct kgsl_device *device,
-		struct kgsl_memdesc *memdesc)
+void kgsl_free_globals(struct kgsl_device *device)
 {
-	kgsl_mmu_remove_global(device, memdesc);
-	kgsl_sharedmem_free(memdesc);
+	struct kgsl_global_memdesc *md, *tmp;
+
+	list_for_each_entry_safe(md, tmp, &device->globals, node) {
+		kgsl_sharedmem_free(&md->memdesc);
+		list_del(&md->node);
+		kfree(md);
+	}
 }
 
 void kgsl_sharedmem_set_noretry(bool val)

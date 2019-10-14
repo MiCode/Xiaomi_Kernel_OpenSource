@@ -716,9 +716,9 @@ kgsl_context_destroy(struct kref *kref)
 	if (context->id != KGSL_CONTEXT_INVALID) {
 
 		/* Clear the timestamps in the memstore during destroy */
-		kgsl_sharedmem_writel(device, &device->memstore,
+		kgsl_sharedmem_writel(device, device->memstore,
 			KGSL_MEMSTORE_OFFSET(context->id, soptimestamp), 0);
-		kgsl_sharedmem_writel(device, &device->memstore,
+		kgsl_sharedmem_writel(device, device->memstore,
 			KGSL_MEMSTORE_OFFSET(context->id, eoptimestamp), 0);
 
 		/* clear device power constraint */
@@ -1181,8 +1181,8 @@ static int kgsl_open_device(struct kgsl_device *device)
 		 * which will be called by kgsl_active_count_get().
 		 */
 		atomic_inc(&device->active_cnt);
-		kgsl_sharedmem_set(device, &device->memstore, 0, 0,
-				device->memstore.size);
+		kgsl_sharedmem_set(device, device->memstore, 0, 0,
+				device->memstore->size);
 
 		result = device->ftbl->init(device);
 		if (result)
@@ -4397,7 +4397,7 @@ static int
 kgsl_mmap_memstore(struct file *file, struct kgsl_device *device,
 		struct vm_area_struct *vma)
 {
-	struct kgsl_memdesc *memdesc = &device->memstore;
+	struct kgsl_memdesc *memdesc = device->memstore;
 	unsigned int vma_size = vma->vm_end - vma->vm_start;
 
 	/* The memstore can only be mapped as read only */
@@ -4728,7 +4728,7 @@ kgsl_get_unmapped_area(struct file *file, unsigned long addr,
 	struct kgsl_device *device = dev_priv->device;
 	struct kgsl_mem_entry *entry = NULL;
 
-	if (vma_offset == (unsigned long) device->memstore.gpuaddr)
+	if (vma_offset == (unsigned long) device->memstore->gpuaddr)
 		return get_unmapped_area(NULL, addr, len, pgoff, flags);
 
 	val = get_mmap_entry(private, &entry, pgoff, len);
@@ -4774,7 +4774,7 @@ static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 
 	/* Handle leagacy behavior for memstore */
 
-	if (vma_offset == (unsigned long) device->memstore.gpuaddr)
+	if (vma_offset == (unsigned long) device->memstore->gpuaddr)
 		return kgsl_mmap_memstore(file, device, vma);
 
 	/*
@@ -5061,6 +5061,7 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 
 error_close_mmu:
 	kgsl_mmu_close(device);
+	kgsl_free_globals(device);
 error_pwrctrl_close:
 	kgsl_pwrctrl_close(device);
 error:
@@ -5082,6 +5083,12 @@ void kgsl_device_platform_remove(struct kgsl_device *device)
 	idr_destroy(&device->context_idr);
 
 	kgsl_mmu_close(device);
+
+	/*
+	 * This needs to come after the MMU close so we can be sure all the
+	 * pagetables have been freed
+	 */
+	kgsl_free_globals(device);
 
 	kgsl_pwrctrl_close(device);
 

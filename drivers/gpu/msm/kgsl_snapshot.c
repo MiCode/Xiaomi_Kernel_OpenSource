@@ -124,7 +124,7 @@ static size_t snapshot_os(struct kgsl_device *device,
 	 * Save the last active context from global index since its more
 	 * reliable than currrent RB index
 	 */
-	kgsl_sharedmem_readl(&device->memstore, &header->current_context,
+	kgsl_sharedmem_readl(device->memstore, &header->current_context,
 		KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL, current_context));
 
 	context = kgsl_context_get(device, header->current_context);

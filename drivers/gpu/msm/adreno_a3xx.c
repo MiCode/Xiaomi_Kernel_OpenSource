@@ -177,20 +177,18 @@ static int _a3xx_pwron_fixup(struct adreno_device *adreno_dev)
 {
 	unsigned int *cmds;
 	int count = ARRAY_SIZE(_a3xx_pwron_fixup_fs_instructions);
-	int ret;
 
 	/* Return if the fixup is already in place */
 	if (test_bit(ADRENO_DEVICE_PWRON_FIXUP, &adreno_dev->priv))
 		return 0;
 
-	ret = kgsl_allocate_global(KGSL_DEVICE(adreno_dev),
-		&adreno_dev->pwron_fixup, PAGE_SIZE,
-		KGSL_MEMFLAGS_GPUREADONLY, 0, "pwron_fixup");
+	adreno_dev->pwron_fixup = kgsl_allocate_global(KGSL_DEVICE(adreno_dev),
+		PAGE_SIZE, KGSL_MEMFLAGS_GPUREADONLY, 0, "pwron_fixup");
 
-	if (ret)
-		return ret;
+	if (IS_ERR(adreno_dev->pwron_fixup))
+		return PTR_ERR(adreno_dev->pwron_fixup);
 
-	cmds = adreno_dev->pwron_fixup.hostptr;
+	cmds = adreno_dev->pwron_fixup->hostptr;
 
 	*cmds++ = cp_type0_packet(A3XX_UCHE_CACHE_INVALIDATE0_REG, 2);
 	*cmds++ = 0x00000000;
@@ -598,7 +596,7 @@ static int _a3xx_pwron_fixup(struct adreno_device *adreno_dev)
 	 * program the indirect buffer call in the ringbuffer
 	 */
 	adreno_dev->pwron_fixup_dwords =
-		(cmds - (unsigned int *) adreno_dev->pwron_fixup.hostptr);
+		(cmds - (unsigned int *) adreno_dev->pwron_fixup->hostptr);
 
 	/* Mark the flag in ->priv to show that we have the fix */
 	set_bit(ADRENO_DEVICE_PWRON_FIXUP, &adreno_dev->priv);
@@ -678,7 +676,7 @@ static int a3xx_rb_start(struct adreno_device *adreno_dev)
 		(1 << 27));
 
 	adreno_writereg(adreno_dev, ADRENO_REG_CP_RB_BASE,
-			rb->buffer_desc.gpuaddr);
+			rb->buffer_desc->gpuaddr);
 
 	a3xx_microcode_load(adreno_dev);
 

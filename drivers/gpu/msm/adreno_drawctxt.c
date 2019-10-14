@@ -268,11 +268,11 @@ void adreno_drawctxt_invalidate(struct kgsl_device *device,
 	 * set the timestamp to the last value since the context is invalidated
 	 * and we want the pending events for this context to go away
 	 */
-	kgsl_sharedmem_writel(device, &device->memstore,
+	kgsl_sharedmem_writel(device, device->memstore,
 			KGSL_MEMSTORE_OFFSET(context->id, soptimestamp),
 			drawctxt->timestamp);
 
-	kgsl_sharedmem_writel(device, &device->memstore,
+	kgsl_sharedmem_writel(device, device->memstore,
 			KGSL_MEMSTORE_OFFSET(context->id, eoptimestamp),
 			drawctxt->timestamp);
 
@@ -402,10 +402,10 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 		return ERR_PTR(ret);
 	}
 
-	kgsl_sharedmem_writel(device, &device->memstore,
+	kgsl_sharedmem_writel(device, device->memstore,
 			KGSL_MEMSTORE_OFFSET(drawctxt->base.id, soptimestamp),
 			0);
-	kgsl_sharedmem_writel(device, &device->memstore,
+	kgsl_sharedmem_writel(device, device->memstore,
 			KGSL_MEMSTORE_OFFSET(drawctxt->base.id, eoptimestamp),
 			0);
 
@@ -530,11 +530,11 @@ void adreno_drawctxt_detach(struct kgsl_context *context)
 		return;
 	}
 
-	kgsl_sharedmem_writel(device, &device->memstore,
+	kgsl_sharedmem_writel(device, device->memstore,
 			KGSL_MEMSTORE_OFFSET(context->id, soptimestamp),
 			drawctxt->timestamp);
 
-	kgsl_sharedmem_writel(device, &device->memstore,
+	kgsl_sharedmem_writel(device, device->memstore,
 			KGSL_MEMSTORE_OFFSET(context->id, eoptimestamp),
 			drawctxt->timestamp);
 

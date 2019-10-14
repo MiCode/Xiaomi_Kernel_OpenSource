@@ -268,11 +268,11 @@ static void _retire_timestamp(struct kgsl_drawobj *drawobj)
 	 * Write the start and end timestamp to the memstore to keep the
 	 * accounting sane
 	 */
-	kgsl_sharedmem_writel(device, &device->memstore,
+	kgsl_sharedmem_writel(device, device->memstore,
 		KGSL_MEMSTORE_OFFSET(context->id, soptimestamp),
 		drawobj->timestamp);
 
-	kgsl_sharedmem_writel(device, &device->memstore,
+	kgsl_sharedmem_writel(device, device->memstore,
 		KGSL_MEMSTORE_OFFSET(context->id, eoptimestamp),
 		drawobj->timestamp);
 
@@ -2176,7 +2176,7 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 		adreno_dispatch_retire_drawqueue(adreno_dev,
 			&(rb->dispatch_q));
 		/* Select the active dispatch_q */
-		if (base == rb->buffer_desc.gpuaddr) {
+		if (base == rb->buffer_desc->gpuaddr) {
 			dispatch_q = &(rb->dispatch_q);
 			hung_rb = rb;
 			if (adreno_dev->cur_rb != hung_rb) {
@@ -2224,11 +2224,11 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 	 */
 
 	if (hung_rb != NULL) {
-		kgsl_sharedmem_writel(device, &device->memstore,
+		kgsl_sharedmem_writel(device, device->memstore,
 				MEMSTORE_RB_OFFSET(hung_rb, soptimestamp),
 				hung_rb->timestamp);
 
-		kgsl_sharedmem_writel(device, &device->memstore,
+		kgsl_sharedmem_writel(device, device->memstore,
 				MEMSTORE_RB_OFFSET(hung_rb, eoptimestamp),
 				hung_rb->timestamp);
 
@@ -2306,7 +2306,7 @@ static void _print_recovery(struct kgsl_device *device,
 static void cmdobj_profile_ticks(struct adreno_device *adreno_dev,
 	struct kgsl_drawobj_cmd *cmdobj, uint64_t *start, uint64_t *retire)
 {
-	void *ptr = adreno_dev->profile_buffer.hostptr;
+	void *ptr = adreno_dev->profile_buffer->hostptr;
 	struct adreno_drawobj_profile_entry *entry;
 
 	entry = (struct adreno_drawobj_profile_entry *)

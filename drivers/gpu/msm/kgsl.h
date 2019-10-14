@@ -50,10 +50,10 @@
 	KGSL_MEMSTORE_OFFSET(((rb)->id + KGSL_MEMSTORE_MAX), field)
 
 #define MEMSTORE_ID_GPU_ADDR(dev, iter, field) \
-	((dev)->memstore.gpuaddr + KGSL_MEMSTORE_OFFSET(iter, field))
+	((dev)->memstore->gpuaddr + KGSL_MEMSTORE_OFFSET(iter, field))
 
 #define MEMSTORE_RB_GPU_ADDR(dev, rb, field)	\
-	((dev)->memstore.gpuaddr + \
+	((dev)->memstore->gpuaddr + \
 	 KGSL_MEMSTORE_OFFSET(((rb)->id + KGSL_MEMSTORE_MAX), field))
 
 /*
@@ -71,13 +71,13 @@
 /* Shadow global helpers */
 #define SCRATCH_RPTR_OFFSET(id) ((id) * sizeof(unsigned int))
 #define SCRATCH_RPTR_GPU_ADDR(dev, id) \
-	((dev)->scratch.gpuaddr + SCRATCH_RPTR_OFFSET(id))
+	((dev)->scratch->gpuaddr + SCRATCH_RPTR_OFFSET(id))
 
 #define SCRATCH_PREEMPTION_CTXT_RESTORE_ADDR_OFFSET(id) \
 	(SCRATCH_RPTR_OFFSET(KGSL_PRIORITY_MAX_RB_LEVELS) + \
 	((id) * sizeof(uint64_t)))
 #define SCRATCH_PREEMPTION_CTXT_RESTORE_GPU_ADDR(dev, id) \
-	((dev)->scratch.gpuaddr + \
+	((dev)->scratch->gpuaddr + \
 	SCRATCH_PREEMPTION_CTXT_RESTORE_ADDR_OFFSET(id))
 
 /* Timestamp window used to detect rollovers (half of integer range) */
@@ -225,6 +225,18 @@ struct kgsl_memdesc {
 	struct page **pages;
 	unsigned int page_count;
 	unsigned int cur_bindings;
+};
+
+/**
+ * struct kgsl_global_memdesc  - wrapper for global memory objects
+ */
+struct kgsl_global_memdesc {
+	/** @memdesc: Container for the GPU memory descriptor for the object */
+	struct kgsl_memdesc memdesc;
+	/** @name: Name of the object for the debugfs list */
+	const char *name;
+	/** @node: List node for the list of global objects */
+	struct list_head node;
 };
 
 /*
@@ -449,22 +461,22 @@ int kgsl_request_irq(struct platform_device *pdev, const  char *name,
 int __init kgsl_core_init(void);
 void kgsl_core_exit(void);
 
-static inline int kgsl_gpuaddr_in_memdesc(const struct kgsl_memdesc *memdesc,
+static inline bool kgsl_gpuaddr_in_memdesc(const struct kgsl_memdesc *memdesc,
 				uint64_t gpuaddr, uint64_t size)
 {
+	if (!memdesc)
+		return false;
+
 	/* set a minimum size to search for */
 	if (!size)
 		size = 1;
 
 	/* don't overflow */
 	if (size > U64_MAX - gpuaddr)
-		return 0;
+		return false;
 
-	if (gpuaddr >= memdesc->gpuaddr &&
-	    ((gpuaddr + size) <= (memdesc->gpuaddr + memdesc->size))) {
-		return 1;
-	}
-	return 0;
+	return (gpuaddr >= memdesc->gpuaddr &&
+	    ((gpuaddr + size) <= (memdesc->gpuaddr + memdesc->size)));
 }
 
 static inline void *kgsl_memdesc_map(struct kgsl_memdesc *memdesc)

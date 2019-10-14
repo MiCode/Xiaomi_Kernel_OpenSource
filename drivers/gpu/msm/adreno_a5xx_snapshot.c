@@ -137,7 +137,7 @@ static size_t a5xx_snapshot_cp_pm4(struct kgsl_device *device, u8 *buf,
 	header->type = SNAPSHOT_DEBUG_CP_PM4_RAM;
 	header->size = size;
 
-	memcpy(data, fw->memdesc.hostptr, size * sizeof(uint32_t));
+	memcpy(data, fw->memdesc->hostptr, size * sizeof(uint32_t));
 
 	return DEBUG_SECTION_SZ(size);
 }
@@ -160,7 +160,7 @@ static size_t a5xx_snapshot_cp_pfp(struct kgsl_device *device, u8 *buf,
 	header->type = SNAPSHOT_DEBUG_CP_PFP_RAM;
 	header->size = size;
 
-	memcpy(data, fw->memdesc.hostptr, size * sizeof(uint32_t));
+	memcpy(data, fw->memdesc->hostptr, size * sizeof(uint32_t));
 
 	return DEBUG_SECTION_SZ(size);
 }
@@ -595,8 +595,8 @@ static struct a5xx_shader_block a5xx_shader_blocks[] = {
 	{A5XX_TP_POWER_RESTORE_RAM,      0x40},
 };
 
-static struct kgsl_memdesc capturescript;
-static struct kgsl_memdesc registers;
+static struct kgsl_memdesc *capturescript;
+static struct kgsl_memdesc *registers;
 static bool crash_dump_valid;
 
 static size_t a5xx_snapshot_shader_memory(struct kgsl_device *device,
@@ -618,7 +618,7 @@ static size_t a5xx_snapshot_shader_memory(struct kgsl_device *device,
 	header->index = info->bank;
 	header->size = block->sz;
 
-	memcpy(data, registers.hostptr + info->offset,
+	memcpy(data, registers->hostptr + info->offset,
 		block->sz * sizeof(unsigned int));
 
 	return SHADER_SECTION_SZ(block->sz);
@@ -686,7 +686,7 @@ static size_t a5xx_snapshot_registers(struct kgsl_device *device, u8 *buf,
 {
 	struct kgsl_snapshot_regs *header = (struct kgsl_snapshot_regs *)buf;
 	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
-	unsigned int *src = (unsigned int *) registers.hostptr;
+	unsigned int *src = (unsigned int *) registers->hostptr;
 	struct registers *regs = (struct registers *)priv;
 	unsigned int j, k;
 	unsigned int count = 0;
@@ -764,7 +764,8 @@ static void _a5xx_do_crashdump(struct kgsl_device *device)
 
 	if (!device->snapshot_crashdumper)
 		return;
-	if (capturescript.gpuaddr == 0 || registers.gpuaddr == 0)
+
+	if (IS_ERR_OR_NULL(capturescript) || IS_ERR_OR_NULL(registers))
 		return;
 
 	/* IF the SMMU is stalled we cannot do a crash dump */
@@ -776,9 +777,9 @@ static void _a5xx_do_crashdump(struct kgsl_device *device)
 	kgsl_regwrite(device, A5XX_CP_CNTL, 1);
 
 	kgsl_regwrite(device, A5XX_CP_CRASH_SCRIPT_BASE_LO,
-			lower_32_bits(capturescript.gpuaddr));
+			lower_32_bits(capturescript->gpuaddr));
 	kgsl_regwrite(device, A5XX_CP_CRASH_SCRIPT_BASE_HI,
-			upper_32_bits(capturescript.gpuaddr));
+			upper_32_bits(capturescript->gpuaddr));
 	kgsl_regwrite(device, A5XX_CP_CRASH_DUMP_CNTL, 1);
 
 	wait_time = jiffies + msecs_to_jiffies(CP_CRASH_DUMPER_TIMEOUT);
@@ -803,7 +804,7 @@ static int get_hlsq_registers(struct kgsl_device *device,
 		const struct a5xx_hlsq_sp_tp_regs *regs, unsigned int *data)
 {
 	unsigned int i;
-	unsigned int *src = registers.hostptr + regs->offset;
+	unsigned int *src = registers->hostptr + regs->offset;
 
 	for (i = 0; i < regs->size; i++) {
 		*data++ = regs->ahbaddr + i;
@@ -1016,7 +1017,7 @@ static int _a5xx_crashdump_init_shader(struct a5xx_shader_block *block,
 			(1 << 21) | 1;
 
 		/* Read all the data in one chunk */
-		ptr[qwords++] = registers.gpuaddr + *offset;
+		ptr[qwords++] = registers->gpuaddr + *offset;
 		ptr[qwords++] =
 			(((uint64_t) A5XX_HLSQ_DBG_AHB_READ_APERTURE << 44)) |
 			block->sz;
@@ -1043,7 +1044,7 @@ static int _a5xx_crashdump_init_hlsq(struct a5xx_hlsq_sp_tp_regs *regs,
 		(1 << 21) | 1;
 
 	/* Read all the data in one chunk */
-	ptr[qwords++] = registers.gpuaddr + *offset;
+	ptr[qwords++] = registers->gpuaddr + *offset;
 	ptr[qwords++] =
 		(((uint64_t) A5XX_HLSQ_DBG_AHB_READ_APERTURE << 44)) |
 		regs->size;
@@ -1065,7 +1066,7 @@ void a5xx_crashdump_init(struct adreno_device *adreno_dev)
 	uint64_t *ptr;
 	uint64_t offset = 0;
 
-	if (capturescript.gpuaddr != 0 && registers.gpuaddr != 0)
+	if (!IS_ERR_OR_NULL(capturescript) && !IS_ERR_OR_NULL(registers))
 		return;
 
 	/*
@@ -1117,25 +1118,30 @@ void a5xx_crashdump_init(struct adreno_device *adreno_dev)
 	/* Now allocate the script and data buffers */
 
 	/* The script buffers needs 2 extra qwords on the end */
-	if (kgsl_allocate_global(device, &capturescript,
-		script_size + 16, KGSL_MEMFLAGS_GPUREADONLY,
-		KGSL_MEMDESC_PRIVILEGED, "capturescript"))
+	if (!IS_ERR_OR_NULL(capturescript))
+		capturescript = kgsl_allocate_global(device,
+			script_size + 16, KGSL_MEMFLAGS_GPUREADONLY,
+			KGSL_MEMDESC_PRIVILEGED, "capturescript");
+
+	if (IS_ERR(capturescript))
 		return;
 
-	if (kgsl_allocate_global(device, &registers, data_size, 0,
-		KGSL_MEMDESC_PRIVILEGED, "capturescript_regs")) {
-		kgsl_free_global(KGSL_DEVICE(adreno_dev), &capturescript);
+	if (!IS_ERR_OR_NULL(registers))
+		registers = kgsl_allocate_global(device, data_size, 0,
+			KGSL_MEMDESC_PRIVILEGED, "capturescript_regs");
+
+	if (IS_ERR(registers))
 		return;
-	}
+
 	/* Build the crash script */
 
-	ptr = (uint64_t *) capturescript.hostptr;
+	ptr = (uint64_t *) capturescript->hostptr;
 
 	/* For the registers, program a read command for each pair */
 
 	for (j = 0; j < ARRAY_SIZE(a5xx_registers) / 2; j++) {
 		unsigned int r = REG_PAIR_COUNT(a5xx_registers, j);
-		*ptr++ = registers.gpuaddr + offset;
+		*ptr++ = registers->gpuaddr + offset;
 		*ptr++ = (((uint64_t) a5xx_registers[2 * j]) << 44)
 			| r;
 		offset += r * sizeof(unsigned int);
@@ -1144,7 +1150,7 @@ void a5xx_crashdump_init(struct adreno_device *adreno_dev)
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_GPMU)) {
 		for (j = 0; j < ARRAY_SIZE(a5xx_gpmu_registers) / 2; j++) {
 			unsigned int r = REG_PAIR_COUNT(a5xx_gpmu_registers, j);
-			*ptr++ = registers.gpuaddr + offset;
+			*ptr++ = registers->gpuaddr + offset;
 			*ptr++ = (((uint64_t) a5xx_gpmu_registers[2 * j]) << 44)
 				| r;
 			offset += r * sizeof(unsigned int);

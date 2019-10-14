@@ -101,7 +101,7 @@ struct adreno_ringbuffer_pagetable_info {
  */
 struct adreno_ringbuffer {
 	uint32_t flags;
-	struct kgsl_memdesc buffer_desc;
+	struct kgsl_memdesc *buffer_desc;
 	unsigned int _wptr;
 	unsigned int wptr;
 	unsigned int last_wptr;
@@ -110,10 +110,10 @@ struct adreno_ringbuffer {
 	unsigned int timestamp;
 	struct kgsl_event_group events;
 	struct adreno_context *drawctxt_active;
-	struct kgsl_memdesc preemption_desc;
+	struct kgsl_memdesc *preemption_desc;
 	struct kgsl_memdesc secure_preemption_desc;
-	struct kgsl_memdesc perfcounter_save_restore_desc;
-	struct kgsl_memdesc pagetable_desc;
+	struct kgsl_memdesc *perfcounter_save_restore_desc;
+	struct kgsl_memdesc *pagetable_desc;
 	struct adreno_dispatcher_drawqueue dispatch_q;
 	wait_queue_head_t ts_expire_waitq;
 	unsigned int wptr_preempt_end;
@@ -125,7 +125,7 @@ struct adreno_ringbuffer {
 	 * @profile_desc: global memory to construct IB1s to do user side
 	 * profiling
 	 */
-	struct kgsl_memdesc profile_desc;
+	struct kgsl_memdesc *profile_desc;
 	/**
 	 * @profile_index: Pointer to the next "slot" in profile_desc for a user
 	 * profiling IB1.  This allows for PAGE_SIZE / 16 = 256 simultaneous

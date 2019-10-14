@@ -527,22 +527,14 @@ int kgsl_mmu_sparse_dummy_map(struct kgsl_pagetable *pagetable,
 	return 0;
 }
 
-void kgsl_mmu_remove_global(struct kgsl_device *device,
-		struct kgsl_memdesc *memdesc)
+u64 kgsl_mmu_get_global_base(struct kgsl_device *device)
 {
-	struct kgsl_mmu *mmu = &device->mmu;
+	struct kgsl_mmu *mmu = &(device->mmu);
 
-	if (MMU_OP_VALID(mmu, mmu_remove_global))
-		mmu->mmu_ops->mmu_remove_global(mmu, memdesc);
-}
+	if (MMU_OP_VALID(mmu, mmu_get_global_base))
+		return mmu->mmu_ops->mmu_get_global_base(mmu);
 
-void kgsl_mmu_add_global(struct kgsl_device *device,
-		struct kgsl_memdesc *memdesc, const char *name)
-{
-	struct kgsl_mmu *mmu = &device->mmu;
-
-	if (MMU_OP_VALID(mmu, mmu_add_global))
-		mmu->mmu_ops->mmu_add_global(mmu, memdesc, name);
+	return 0;
 }
 
 void kgsl_mmu_close(struct kgsl_device *device)
@@ -565,27 +557,6 @@ bool kgsl_mmu_gpuaddr_in_range(struct kgsl_pagetable *pagetable,
 		return pagetable->pt_ops->addr_in_range(pagetable, gpuaddr);
 
 	return false;
-}
-
-struct kgsl_memdesc *kgsl_mmu_get_qdss_global_entry(struct kgsl_device *device)
-{
-	struct kgsl_mmu *mmu = &device->mmu;
-
-	if (MMU_OP_VALID(mmu, mmu_get_qdss_global_entry))
-		return mmu->mmu_ops->mmu_get_qdss_global_entry();
-
-	return NULL;
-}
-
-struct kgsl_memdesc *kgsl_mmu_get_qtimer_global_entry(
-		struct kgsl_device *device)
-{
-	struct kgsl_mmu *mmu = &device->mmu;
-
-	if (MMU_OP_VALID(mmu, mmu_get_qtimer_global_entry))
-		return mmu->mmu_ops->mmu_get_qtimer_global_entry();
-
-	return NULL;
 }
 
 /*
@@ -622,24 +593,20 @@ static struct kgsl_mmu_pt_ops nommu_pt_ops = {
 	.addr_in_range = nommu_gpuaddr_in_range,
 };
 
-static void nommu_add_global(struct kgsl_mmu *mmu,
-		struct kgsl_memdesc *memdesc, const char *name)
-{
-	memdesc->gpuaddr = (uint64_t) sg_phys(memdesc->sgt->sgl);
-}
-
-static void nommu_remove_global(struct kgsl_mmu *mmu,
-		struct kgsl_memdesc *memdesc)
-{
-	memdesc->gpuaddr = 0;
-}
-
 static int nommu_init_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 {
+	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
+	struct kgsl_global_memdesc *md;
+
 	if (pt == NULL)
 		return -EINVAL;
 
 	pt->pt_ops = &nommu_pt_ops;
+
+	list_for_each_entry(md, &device->globals, node)
+		md->memdesc.gpuaddr =
+			(uint64_t) sg_phys(md->memdesc.sgt->sgl);
+
 	return 0;
 }
 
@@ -671,8 +638,6 @@ static int nommu_probe(struct kgsl_device *device)
 
 static struct kgsl_mmu_ops kgsl_nommu_ops = {
 	.mmu_init = nommu_init,
-	.mmu_add_global = nommu_add_global,
-	.mmu_remove_global = nommu_remove_global,
 	.mmu_init_pt = nommu_init_pt,
 	.mmu_getpagetable = nommu_getpagetable,
 	.probe = nommu_probe,

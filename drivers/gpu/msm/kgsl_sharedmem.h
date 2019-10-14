@@ -96,7 +96,6 @@ int kgsl_allocate_kernel(struct kgsl_device *device,
 /**
  * kgsl_allocate_global - Allocate a global GPU memory object
  * @device: A GPU device handle
- * @memdesc: Memory descriptor for the object
  * @size: Size of the allocation in bytes
  * @flags: Control flags for the allocation
  * @priv: Internal flags for the allocation
@@ -105,11 +104,38 @@ int kgsl_allocate_kernel(struct kgsl_device *device,
  * Allocate a global GPU object for use by all processes. The buffer is
  * automatically mapped into the kernel address space and added to the list of
  * global buffers that get mapped into each newly created pagetable.
- * Return: 0 on success or negative on failure.
+ * Return: The memory descriptor on success or a ERR_PTR encoded error on
+ * failure.
  */
-int kgsl_allocate_global(struct kgsl_device *device,
-		struct kgsl_memdesc *memdesc, u64 size, u64 flags, u32 priv,
-		const char *name);
+struct kgsl_memdesc *kgsl_allocate_global(struct kgsl_device *device,
+		u64 size, u64 flags, u32 priv, const char *name);
+
+/**
+ * kgsl_allocate_global_fixed - Allocate a global GPU memory object from a fixed
+ * region defined in the device tree
+ * @device: A GPU device handle
+ * @size: Size of the allocation in bytes
+ * @flags: Control flags for the allocation
+ * @priv: Internal flags for the allocation
+ *
+ * Allocate a global GPU object for use by all processes. The buffer is
+ * added to the list of global buffers that get mapped into each newly created
+ * pagetable.
+ *
+ * Return: The memory descriptor on success or a ERR_PTR encoded error on
+ * failure.
+ */
+struct kgsl_memdesc *kgsl_allocate_global_fixed(struct kgsl_device *device,
+		const char *resource, const char *name);
+
+/**
+ * kgsl_free_globals - Free all global objects
+ * @device: A GPU device handle
+ *
+ * Free all the global buffer objects. Should only be called during shutdown
+ * after the pagetables have been freed
+ */
+void kgsl_free_globals(struct kgsl_device *device);
 
 #define MEMFLAGS(_flags, _mask, _shift) \
 	((unsigned int) (((_flags) & (_mask)) >> (_shift)))
@@ -277,18 +303,6 @@ kgsl_memdesc_footprint(const struct kgsl_memdesc *memdesc)
 	return ALIGN(memdesc->size + kgsl_memdesc_guard_page_size(memdesc),
 		PAGE_SIZE);
 }
-
-/**
- * kgsl_free_global() - Free a device wide GPU allocation and remove it from the
- * global pagetable entry list
- *
- * @device: Pointer to the device
- * @memdesc: Pointer to the GPU memory descriptor to free
- *
- * Remove the specific memory descriptor from the global pagetable entry list
- * and free it
- */
-void kgsl_free_global(struct kgsl_device *device, struct kgsl_memdesc *memdesc);
 
 void kgsl_sharedmem_set_noretry(bool val);
 bool kgsl_sharedmem_get_noretry(void);

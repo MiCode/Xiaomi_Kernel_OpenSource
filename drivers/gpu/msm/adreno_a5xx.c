@@ -19,8 +19,6 @@
 #include "kgsl_trace.h"
 
 static int critical_packet_constructed;
-
-static struct kgsl_memdesc crit_pkts;
 static unsigned int crit_pkts_dwords;
 static struct kgsl_memdesc crit_pkts_refbuf0;
 
@@ -129,8 +127,6 @@ static void a5xx_platform_setup(struct adreno_device *adreno_dev)
 
 static void a5xx_critical_packet_destroy(struct adreno_device *adreno_dev)
 {
-	kgsl_free_global(&adreno_dev->dev, &crit_pkts);
-
 	kgsl_iommu_unmap_global_secure_pt_entry(KGSL_DEVICE(adreno_dev),
 			&crit_pkts_refbuf0);
 	kgsl_sharedmem_free(&crit_pkts_refbuf0);
@@ -159,10 +155,10 @@ static int a5xx_critical_packet_construct(struct adreno_device *adreno_dev)
 	uint64_t gpuaddrs[4];
 	int ret;
 
-	ret = kgsl_allocate_global(&adreno_dev->dev,
-		&crit_pkts, PAGE_SIZE * 4, 0, 0, "crit_pkts");
-	if (ret)
-		return ret;
+	adreno_dev->critpkts = kgsl_allocate_global(KGSL_DEVICE(adreno_dev),
+		PAGE_SIZE * 4, 0, 0, "crit_pkts");
+	if (IS_ERR(adreno_dev->critpkts))
+		return PTR_ERR(adreno_dev->critpkts);
 
 	ret = kgsl_allocate_user(&adreno_dev->dev, &crit_pkts_refbuf0,
 		PAGE_SIZE, KGSL_MEMFLAGS_SECURE, 0);
@@ -174,12 +170,12 @@ static int a5xx_critical_packet_construct(struct adreno_device *adreno_dev)
 	if (ret)
 		return ret;
 
-	cmds = crit_pkts.hostptr;
+	cmds = adreno_dev->critpkts->hostptr;
 
 	gpuaddrs[0] = crit_pkts_refbuf0.gpuaddr;
-	gpuaddrs[1] = crit_pkts.gpuaddr + PAGE_SIZE;
-	gpuaddrs[2] = crit_pkts.gpuaddr + (PAGE_SIZE * 2);
-	gpuaddrs[3] = crit_pkts.gpuaddr + (PAGE_SIZE * 3);
+	gpuaddrs[1] = adreno_dev->critpkts->gpuaddr + PAGE_SIZE;
+	gpuaddrs[2] = adreno_dev->critpkts->gpuaddr + (PAGE_SIZE * 2);
+	gpuaddrs[3] = adreno_dev->critpkts->gpuaddr + (PAGE_SIZE * 3);
 
 	crit_pkts_dwords = ARRAY_SIZE(_a5xx_critical_pkts);
 
@@ -188,15 +184,15 @@ static int a5xx_critical_packet_construct(struct adreno_device *adreno_dev)
 	_do_fixup(critical_pkt_fixups, ARRAY_SIZE(critical_pkt_fixups),
 		gpuaddrs, cmds);
 
-	cmds = crit_pkts.hostptr + PAGE_SIZE;
+	cmds = adreno_dev->critpkts->hostptr + PAGE_SIZE;
 	memcpy(cmds, _a5xx_critical_pkts_mem01,
 			ARRAY_SIZE(_a5xx_critical_pkts_mem01) << 2);
 
-	cmds = crit_pkts.hostptr + (PAGE_SIZE * 2);
+	cmds = adreno_dev->critpkts->hostptr + (PAGE_SIZE * 2);
 	memcpy(cmds, _a5xx_critical_pkts_mem02,
 			ARRAY_SIZE(_a5xx_critical_pkts_mem02) << 2);
 
-	cmds = crit_pkts.hostptr + (PAGE_SIZE * 3);
+	cmds = adreno_dev->critpkts->hostptr + (PAGE_SIZE * 3);
 	memcpy(cmds, _a5xx_critical_pkts_mem03,
 			ARRAY_SIZE(_a5xx_critical_pkts_mem03) << 2);
 
@@ -1589,7 +1585,7 @@ static int _preemption_init(
 			struct kgsl_context *context)
 {
 	unsigned int *cmds_orig = cmds;
-	uint64_t gpuaddr = rb->preemption_desc.gpuaddr;
+	uint64_t gpuaddr = rb->preemption_desc->gpuaddr;
 
 	/* Turn CP protection OFF */
 	cmds += cp_protected_mode(adreno_dev, cmds, 0);
@@ -1698,13 +1694,13 @@ static int a5xx_microcode_load(struct adreno_device *adreno_dev)
 	const struct adreno_a5xx_core *a5xx_core = to_a5xx_core(adreno_dev);
 	uint64_t gpuaddr;
 
-	gpuaddr = pm4_fw->memdesc.gpuaddr;
+	gpuaddr = pm4_fw->memdesc->gpuaddr;
 	kgsl_regwrite(device, A5XX_CP_PM4_INSTR_BASE_LO,
 				lower_32_bits(gpuaddr));
 	kgsl_regwrite(device, A5XX_CP_PM4_INSTR_BASE_HI,
 				upper_32_bits(gpuaddr));
 
-	gpuaddr = pfp_fw->memdesc.gpuaddr;
+	gpuaddr = pfp_fw->memdesc->gpuaddr;
 	kgsl_regwrite(device, A5XX_CP_PFP_INSTR_BASE_LO,
 				lower_32_bits(gpuaddr));
 	kgsl_regwrite(device, A5XX_CP_PFP_INSTR_BASE_HI,
@@ -1841,7 +1837,7 @@ int a5xx_critical_packet_submit(struct adreno_device *adreno_dev,
 		return PTR_ERR(cmds);
 
 	*cmds++ = cp_mem_packet(adreno_dev, CP_INDIRECT_BUFFER_PFE, 2, 1);
-	cmds += cp_gpuaddr(adreno_dev, cmds, crit_pkts.gpuaddr);
+	cmds += cp_gpuaddr(adreno_dev, cmds, adreno_dev->critpkts->gpuaddr);
 	*cmds++ = crit_pkts_dwords;
 
 	ret = adreno_ringbuffer_submit_spin(rb, NULL, 20);
@@ -1910,7 +1906,7 @@ static int a5xx_rb_start(struct adreno_device *adreno_dev)
 		A5XX_CP_RB_CNTL_DEFAULT);
 
 	adreno_writereg64(adreno_dev, ADRENO_REG_CP_RB_BASE,
-			ADRENO_REG_CP_RB_BASE_HI, rb->buffer_desc.gpuaddr);
+			ADRENO_REG_CP_RB_BASE_HI, rb->buffer_desc->gpuaddr);
 
 	ret = a5xx_microcode_load(adreno_dev);
 	if (ret)
@@ -1937,36 +1933,6 @@ static int a5xx_rb_start(struct adreno_device *adreno_dev)
 	return 0;
 }
 
-static int _load_firmware(struct kgsl_device *device, const char *fwfile,
-			struct adreno_firmware *firmware)
-{
-	const struct firmware *fw = NULL;
-	int ret;
-
-	ret = request_firmware(&fw, fwfile, device->dev);
-
-	if (ret) {
-		dev_err(device->dev, "request_firmware(%s) failed: %d\n",
-				fwfile, ret);
-		return ret;
-	}
-
-	ret = kgsl_allocate_global(device, &firmware->memdesc, fw->size - 4,
-				KGSL_MEMFLAGS_GPUREADONLY, 0, "ucode");
-
-	if (ret)
-		goto done;
-
-	memcpy(firmware->memdesc.hostptr, &fw->data[4], fw->size - 4);
-	firmware->size = (fw->size - 4) / sizeof(uint32_t);
-	firmware->version = *(unsigned int *)&fw->data[4];
-
-done:
-	release_firmware(fw);
-
-	return ret;
-}
-
 /*
  * a5xx_microcode_read() - Read microcode
  * @adreno_dev: Pointer to adreno device
@@ -1978,19 +1944,13 @@ static int a5xx_microcode_read(struct adreno_device *adreno_dev)
 	struct adreno_firmware *pfp_fw = ADRENO_FW(adreno_dev, ADRENO_FW_PFP);
 	const struct adreno_a5xx_core *a5xx_core = to_a5xx_core(adreno_dev);
 
-	if (pm4_fw->memdesc.hostptr == NULL) {
-		ret = _load_firmware(KGSL_DEVICE(adreno_dev),
-				 a5xx_core->pm4fw_name, pm4_fw);
-		if (ret)
-			return ret;
-	}
+	ret = adreno_get_firmware(adreno_dev, a5xx_core->pm4fw_name, pm4_fw);
+	if (ret)
+		return ret;
 
-	if (pfp_fw->memdesc.hostptr == NULL) {
-		ret = _load_firmware(KGSL_DEVICE(adreno_dev),
-				 a5xx_core->pfpfw_name, pfp_fw);
-		if (ret)
-			return ret;
-	}
+	ret = adreno_get_firmware(adreno_dev, a5xx_core->pfpfw_name, pfp_fw);
+	if (ret)
+		return ret;
 
 	ret = _load_gpmu_firmware(adreno_dev);
 	if (ret)
@@ -2665,7 +2625,7 @@ static void a5xx_cp_callback(struct adreno_device *adreno_dev, int bit)
 	if (test_bit(ADRENO_DEVICE_CACHE_FLUSH_TS_SUSPENDED, &adreno_dev->priv))
 		return;
 
-	kgsl_sharedmem_readl(&device->memstore, &cur,
+	kgsl_sharedmem_readl(device->memstore, &cur,
 			KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
 				ref_wait_ts));
 
