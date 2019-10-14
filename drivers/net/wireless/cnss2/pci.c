@@ -447,7 +447,8 @@ static int cnss_pci_force_wake_get(struct cnss_pci_data *pci_priv)
 
 	ret = cnss_pci_force_wake_request(dev);
 	if (ret) {
-		cnss_pr_err("Failed to request force wake\n");
+		if (ret != -EAGAIN)
+			cnss_pr_err("Failed to request force wake\n");
 		return ret;
 	}
 
@@ -471,7 +472,7 @@ static int cnss_pci_force_wake_put(struct cnss_pci_data *pci_priv)
 	int ret;
 
 	ret = cnss_pci_force_wake_release(dev);
-	if (ret)
+	if (ret && ret != -EAGAIN)
 		cnss_pr_err("Failed to release force wake\n");
 
 	return ret;
