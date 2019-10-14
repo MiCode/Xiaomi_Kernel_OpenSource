@@ -681,6 +681,9 @@ EXPORT_SYMBOL(xt_compat_check_entry_offsets);
  *
  * Also see xt_compat_check_entry_offsets for CONFIG_COMPAT version.
  *
+ * This function does not validate the targets or matches themselves, it
+ * only tests that all the offsets and sizes are correct.
+ *
  * The arp/ip/ip6t_entry structure @base must have passed following tests:
  * - it must point to a valid memory location
  * - base to base + next_offset must be accessible, i.e. not exceed allocated
