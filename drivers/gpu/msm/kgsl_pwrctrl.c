@@ -1393,43 +1393,38 @@ static void kgsl_pwrctrl_axi(struct kgsl_device *device, int state)
 	}
 }
 
-static int _regulator_enable(struct kgsl_device *device,
-		struct kgsl_regulator *regulator)
+static int enable_regulator(struct device *dev, struct regulator *regulator,
+		const char *name)
 {
 	int ret;
 
-	if (IS_ERR_OR_NULL(regulator->reg))
+	if (IS_ERR(regulator))
 		return 0;
 
-	ret = regulator_enable(regulator->reg);
+	ret = regulator_enable(regulator);
 	if (ret)
-		dev_err(device->dev,
-			     "Failed to enable regulator '%s': %d\n",
-			     regulator->name, ret);
+		dev_err(dev, "Unable to enable regulator %s: %d\n", name, ret);
 	return ret;
 }
 
-static void _regulator_disable(struct kgsl_regulator *regulator)
+static int enable_regulators(struct kgsl_device *device)
 {
-	if (!IS_ERR_OR_NULL(regulator->reg))
-		regulator_disable(regulator->reg);
-}
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	int ret;
 
-static int _enable_regulators(struct kgsl_device *device,
-		struct kgsl_pwrctrl *pwr)
-{
-	int i;
+	if (test_and_set_bit(KGSL_PWRFLAGS_POWER_ON, &pwr->power_flags))
+		return 0;
 
-	for (i = 0; i < KGSL_MAX_REGULATORS; i++) {
-		int ret = _regulator_enable(device, &pwr->regulators[i]);
+	ret = enable_regulator(device->dev, pwr->cx_gdsc, "vddcx");
+	if (!ret)
+		ret = enable_regulator(device->dev, pwr->gx_gdsc, "vdd");
 
-		if (ret) {
-			for (i = i - 1; i >= 0; i--)
-				_regulator_disable(&pwr->regulators[i]);
-			return ret;
-		}
+	if (ret) {
+		clear_bit(KGSL_PWRFLAGS_POWER_ON, &pwr->power_flags);
+		return ret;
 	}
 
+	trace_kgsl_rail(device, KGSL_PWRFLAGS_POWER_ON);
 	return 0;
 }
 
@@ -1454,18 +1449,8 @@ static int kgsl_pwrctrl_pwrrail(struct kgsl_device *device, int state)
 			trace_kgsl_rail(device, state);
 			device->ftbl->regulator_disable_poll(device);
 		}
-	} else if (state == KGSL_PWRFLAGS_ON) {
-		if (!test_and_set_bit(KGSL_PWRFLAGS_POWER_ON,
-			&pwr->power_flags)) {
-			status = _enable_regulators(device, pwr);
-
-			if (status)
-				clear_bit(KGSL_PWRFLAGS_POWER_ON,
-					&pwr->power_flags);
-			else
-				trace_kgsl_rail(device, state);
-		}
-	}
+	} else if (state == KGSL_PWRFLAGS_ON)
+		status = enable_regulators(device);
 
 	return status;
 }
@@ -1502,66 +1487,6 @@ static void kgsl_pwrctrl_vbif_init(struct kgsl_device *device)
 {
 }
 #endif
-
-static int _get_regulator(struct kgsl_device *device,
-		struct kgsl_regulator *regulator, const char *str)
-{
-	regulator->reg = devm_regulator_get(&device->pdev->dev, str);
-	if (IS_ERR(regulator->reg)) {
-		int ret = PTR_ERR(regulator->reg);
-
-		dev_err(&device->pdev->dev,
-			"Couldn't get regulator: %s (%d)\n", str, ret);
-		return ret;
-	}
-
-	strlcpy(regulator->name, str, sizeof(regulator->name));
-	return 0;
-}
-
-static int get_legacy_regulators(struct kgsl_device *device)
-{
-	struct device *dev = &device->pdev->dev;
-	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	int ret;
-
-	ret = _get_regulator(device, &pwr->regulators[0], "vdd");
-
-	/* Use vddcx only on targets that have it. */
-	if (ret == 0 && of_find_property(dev->of_node, "vddcx-supply", NULL))
-		ret = _get_regulator(device, &pwr->regulators[1], "vddcx");
-
-	return ret;
-}
-
-static int get_regulators(struct kgsl_device *device)
-{
-	struct device *dev = &device->pdev->dev;
-	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	int index = 0;
-	const char *name;
-	struct property *prop;
-
-	if (!of_find_property(dev->of_node, "regulator-names", NULL))
-		return get_legacy_regulators(device);
-
-	of_property_for_each_string(dev->of_node,
-		"regulator-names", prop, name) {
-		int ret;
-
-		if (index == KGSL_MAX_REGULATORS) {
-			dev_err(dev, "Too many regulators defined\n");
-			return -ENOMEM;
-		}
-
-		ret = _get_regulator(device, &pwr->regulators[index], name);
-		if (ret)
-			return ret;
-		index++;
-	}
-
-	return 0;
-}
 
 static int _get_clocks(struct kgsl_device *device)
 {
@@ -1662,14 +1587,6 @@ static int kgsl_pwrctrl_clk_set_rate(struct clk *grp_clk, unsigned int freq,
 
 	WARN(ret, "%s set freq %d failed:%d\n", name, freq, ret);
 	return ret;
-}
-
-static inline void _close_regulators(struct kgsl_pwrctrl *pwr)
-{
-	int i;
-
-	for (i = 0; i < KGSL_MAX_REGULATORS; i++)
-		pwr->regulators[i].reg = NULL;
 }
 
 static inline void _close_clks(struct kgsl_device *device)
@@ -1809,9 +1726,8 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 
 	_isense_clk_set_rate(pwr, pwr->num_pwrlevels - 1);
 
-	result = get_regulators(device);
-	if (result)
-		goto error_cleanup_regulators;
+	pwr->cx_gdsc = devm_regulator_get(&device->pdev->dev, "vddcx");
+	pwr->gx_gdsc = devm_regulator_get(&device->pdev->dev, "vdd");
 
 	pwr->power_flags = 0;
 
@@ -1869,8 +1785,6 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 
 error_disable_pm:
 	pm_runtime_disable(&pdev->dev);
-error_cleanup_regulators:
-	_close_regulators(pwr);
 error_cleanup_clks:
 	_close_clks(device);
 	kfree(levels);
@@ -1888,8 +1802,6 @@ void kgsl_pwrctrl_close(struct kgsl_device *device)
 	icc_put(pwr->icc_path);
 
 	pm_runtime_disable(&device->pdev->dev);
-
-	_close_regulators(pwr);
 
 	_close_clks(device);
 }

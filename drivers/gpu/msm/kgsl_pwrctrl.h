@@ -18,7 +18,6 @@
 #define KGSL_PWR_ON	0xFFFF
 
 #define KGSL_MAX_CLKS 17
-#define KGSL_MAX_REGULATORS 2
 
 #define KGSL_MAX_PWRLEVELS 10
 
@@ -70,11 +69,6 @@ struct kgsl_pwrlevel {
 	unsigned int acd_level;
 };
 
-struct kgsl_regulator {
-	struct regulator *reg;
-	char name[8];
-};
-
 /**
  * struct kgsl_pwrctrl - Power control settings for a KGSL device
  * @interrupt_num - The interrupt number for the device
@@ -93,7 +87,6 @@ struct kgsl_regulator {
  * @throttle_mask - LM throttle mask
  * @interval_timeout - timeout in jiffies to be idle before a power event
  * @clock_times - Each GPU frequency's accumulated active time in us
- * @regulators - array of pointers to kgsl_regulator structs
  * @pcl - bus scale identifier
  * @irq_name - resource name for the IRQ
  * @clk_stats - structure of clock statistics
@@ -115,6 +108,10 @@ struct kgsl_pwrctrl {
 	int interrupt_num;
 	struct clk *grp_clks[KGSL_MAX_CLKS];
 	struct clk *gpu_bimc_int_clk;
+	/** @cx_gdsc: Pointer to the CX domain regulator if applicable */
+	struct regulator *cx_gdsc;
+	/** @gx_gdsc: Pointer to the GX domain regulator if applicable */
+	struct regulator *gx_gdsc;
 	int isense_clk_indx;
 	int isense_clk_on_level;
 	unsigned long power_flags;
@@ -133,7 +130,6 @@ struct kgsl_pwrctrl {
 	unsigned int throttle_mask;
 	unsigned long interval_timeout;
 	u64 clock_times[KGSL_MAX_PWRLEVELS];
-	struct kgsl_regulator regulators[KGSL_MAX_REGULATORS];
 	uint32_t pcl;
 	const char *irq_name;
 	struct kgsl_clk_stats clk_stats;

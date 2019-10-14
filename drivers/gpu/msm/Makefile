@@ -18,7 +18,8 @@ msm_kgsl-y = \
 	kgsl_rgmu.o \
 	kgsl_sharedmem.o \
 	kgsl_snapshot.o \
-	kgsl_trace.o
+	kgsl_trace.o \
+	kgsl_util.o
 
 msm_kgsl-$(CONFIG_COMPAT) += kgsl_compat.o
 msm_kgsl-$(CONFIG_DEBUG_FS) += kgsl_debugfs.o
