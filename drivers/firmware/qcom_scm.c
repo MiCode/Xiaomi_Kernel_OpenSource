@@ -329,6 +329,13 @@ int qcom_scm_get_sec_dump_state(u32 *dump_state)
 }
 EXPORT_SYMBOL(qcom_scm_get_sec_dump_state);
 
+int qcom_scm_tz_blsp_modify_owner(int food, u64 subsystem, int *out)
+{
+	return __qcom_scm_tz_blsp_modify_owner(__scm->dev, subsystem, food,
+					       out);
+}
+EXPORT_SYMBOL(qcom_scm_tz_blsp_modify_owner);
+
 int qcom_scm_io_readl(phys_addr_t addr, unsigned int *val)
 {
 	return __qcom_scm_io_readl(__scm->dev, addr, val);

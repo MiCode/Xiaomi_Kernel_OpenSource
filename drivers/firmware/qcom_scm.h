@@ -41,6 +41,11 @@ extern int  __qcom_scm_pas_mss_reset(struct device *dev, bool reset);
 #define QCOM_SCM_UTIL_GET_SEC_DUMP_STATE	0x10
 extern int __qcom_scm_get_sec_dump_state(struct device *dev, u32 *dump_state);
 
+#define QCOM_SCM_SVC_TZ				0x04
+#define QOCM_SCM_TZ_BLSP_MODIFY_OWNER		0x03
+extern int __qcom_scm_tz_blsp_modify_owner(struct device *dev, int food,
+					   u64 subsystem, int *out);
+
 #define QCOM_SCM_SVC_IO				0x05
 #define QCOM_SCM_IO_READ			0x01
 #define QCOM_SCM_IO_WRITE			0x02

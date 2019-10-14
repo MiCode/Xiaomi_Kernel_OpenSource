@@ -853,6 +853,28 @@ int __qcom_scm_get_sec_dump_state(struct device *dev, u32 *dump_state)
 	return ret;
 }
 
+int __qcom_scm_tz_blsp_modify_owner(struct device *dev, int food, u64 subsystem,
+				    int *out)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_TZ,
+		.cmd = QOCM_SCM_TZ_BLSP_MODIFY_OWNER,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.args[0] = subsystem;
+	desc.args[1] = food;
+	desc.arginfo = QCOM_SCM_ARGS(2);
+
+	ret = qcom_scm_call(dev, &desc);
+
+	if (out)
+		*out = desc.res[0];
+
+	return ret;
+}
+
 int __qcom_scm_io_readl(struct device *dev, phys_addr_t addr,
 			unsigned int *val)
 {
