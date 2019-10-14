@@ -478,6 +478,8 @@ void adreno_drawctxt_detach(struct kgsl_context *context)
 	}
 
 	debugfs_remove_recursive(drawctxt->debug_root);
+	/* The debugfs file has a reference, release it */
+	kgsl_context_put(context);
 
 	/*
 	 * internal_timestamp is set in adreno_ringbuffer_addcmds,

@@ -312,16 +312,14 @@ static int ctx_print(struct seq_file *s, void *unused)
 static int ctx_open(struct inode *inode, struct file *file)
 {
 	int ret;
-	unsigned int id = (unsigned int)(unsigned long)inode->i_private;
-	struct kgsl_context *context;
+	struct adreno_context *ctx = inode->i_private;
 
-	context = kgsl_context_get(kgsl_get_device(KGSL_DEVICE_3D0), id);
-	if (context == NULL)
+	if (!_kgsl_context_get(&ctx->base))
 		return -ENODEV;
 
-	ret = single_open(file, ctx_print, context);
+	ret = single_open(file, ctx_print, &ctx->base);
 	if (ret)
-		kgsl_context_put(context);
+		kgsl_context_put(&ctx->base);
 	return ret;
 }
 
@@ -350,11 +348,16 @@ adreno_context_debugfs_init(struct adreno_device *adreno_dev,
 {
 	unsigned char name[16];
 
+	/*
+	 * Get the context here to make sure it still exists for the life of the
+	 * file
+	 */
+	_kgsl_context_get(&ctx->base);
+
 	snprintf(name, sizeof(name), "%d", ctx->base.id);
 
 	ctx->debug_root = debugfs_create_file(name, 0444,
-				adreno_dev->ctx_d_debugfs,
-				(void *)(unsigned long)ctx->base.id, &ctx_fops);
+				adreno_dev->ctx_d_debugfs, ctx, &ctx_fops);
 }
 
 void adreno_debugfs_init(struct adreno_device *adreno_dev)
