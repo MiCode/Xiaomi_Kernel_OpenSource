@@ -118,18 +118,9 @@ struct gmu_memdesc {
 	enum gmu_context_index ctx_idx;
 };
 
-struct gmu_bw_votes {
-	uint32_t cmds_wait_bitmask;
-	uint32_t cmds_per_bw_vote;
-	uint32_t cmd_addrs[MAX_BW_CMDS];
-	uint32_t cmd_data[MAX_GX_LEVELS][MAX_BW_CMDS];
-};
-
 struct rpmh_votes_t {
 	uint32_t gx_votes[MAX_GX_LEVELS];
 	uint32_t cx_votes[MAX_CX_LEVELS];
-	struct gmu_bw_votes ddr_votes;
-	struct gmu_bw_votes cnoc_votes;
 };
 
 enum gmu_load_mode {

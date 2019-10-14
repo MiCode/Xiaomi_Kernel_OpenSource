@@ -30,7 +30,7 @@ static int interconnect_bus_set(struct kgsl_device *device, int level,
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 
 	icc_set_bw(pwr->icc_path, MBps_to_icc(ab),
-		KBps_to_icc(pwr->ddr_table[level]));
+		kBps_to_icc(pwr->ddr_table[level]));
 
 	return 0;
 }

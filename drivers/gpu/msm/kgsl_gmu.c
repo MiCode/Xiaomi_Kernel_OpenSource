@@ -14,8 +14,10 @@
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <soc/qcom/cmd-db.h>
+#include <soc/qcom/tcs.h>
 
 #include "adreno.h"
+#include "kgsl_bus.h"
 #include "kgsl_device.h"
 #include "kgsl_gmu.h"
 #include "kgsl_util.h"
@@ -699,7 +701,7 @@ static int rpmh_arc_votes_init(struct kgsl_device *device,
 
 	num_freqs = gmu->num_gpupwrlevels;
 
-	if (num_freqs > pri_rail->num) {
+	if (num_freqs > pri_rail->num || num_freqs > ARRAY_SIZE(vlvl_tbl)) {
 		dev_err(&gmu->pdev->dev,
 			"Defined more GPU DCVS levels than RPMh can support\n");
 		return -EINVAL;
@@ -713,132 +715,260 @@ static int rpmh_arc_votes_init(struct kgsl_device *device,
 						sec_rail, vlvl_tbl, num_freqs);
 }
 
-/*
- * build_rpmh_bw_votes() - build TCS commands to vote for bandwidth.
- * Each command sets frequency of a node along path to DDR or CNOC.
- * @rpmh_vote: Pointer to RPMh vote needed by GMU to set BW via RPMh
- * @num_usecases: Number of BW use cases (or BW levels)
- * @handle: Provided by bus driver. It contains TCS command sets for
- * all BW use cases of a bus client.
- */
-static void build_rpmh_bw_votes(struct gmu_bw_votes *rpmh_vote,
-		unsigned int num_usecases, struct msm_bus_tcs_handle handle)
-{
-	struct msm_bus_tcs_usecase *tmp;
-	int i, j;
+struct bcm {
+	const char *name;
+	u32 buswidth;
+	u32 channels;
+	u32 unit;
+	u16 width;
+	u8 vcd;
+	bool fixed;
+};
 
-	for (i = 0; i < num_usecases; i++) {
-		tmp = &handle.usecases[i];
-		for (j = 0; j < tmp->num_cmds; j++) {
-			if (!i) {
-			/*
-			 * Wait bitmask and TCS command addresses are
-			 * same for all bw use cases. To save data volume
-			 * exchanged between driver and GMU, only
-			 * transfer bitmasks and TCS command addresses
-			 * of first set of bw use case
-			 */
-				rpmh_vote->cmds_per_bw_vote = tmp->num_cmds;
-				rpmh_vote->cmds_wait_bitmask =
-						tmp->cmds[j].wait ?
-						rpmh_vote->cmds_wait_bitmask
-						| BIT(i)
-						: rpmh_vote->cmds_wait_bitmask
-						& (~BIT(i));
-				rpmh_vote->cmd_addrs[j] = tmp->cmds[j].addr;
-			}
-			rpmh_vote->cmd_data[i][j] = tmp->cmds[j].data;
+/*
+ * List of Bus Control Modules (BCMs) that need to be configured for the GPU
+ * to access DDR. For each bus level we will generate a vote each BC
+ */
+static struct bcm a660_ddr_bcms[] = {
+	{ .name = "SH0", .buswidth = 16 },
+	{ .name = "MC0", .buswidth = 4 },
+	{ .name = "ACV", .fixed = true },
+};
+
+/* Same as above, but for the CNOC BCMs */
+static struct bcm a660_cnoc_bcms[] = {
+	{ .name = "CN0", .buswidth = 4 },
+};
+
+/* Generate a set of bandwidth votes for the list of BCMs */
+static void tcs_cmd_data(struct bcm *bcms, int count, u32 ab, u32 ib,
+		u32 *data)
+{
+	int i;
+
+	for (i = 0; i < count; i++) {
+		bool valid = true;
+		bool commit = false;
+		u64 avg, peak, x, y;
+
+		if (i == count - 1 || bcms[i].vcd != bcms[i + 1].vcd)
+			commit = true;
+
+		/*
+		 * On a660, the "ACV" y vote should be 0x08 if there is a valid
+		 * vote and 0x00 if not. This is kind of hacky and a660 specific
+		 * but we can clean it up when we add a new target
+		 */
+		if (bcms[i].fixed) {
+			if (!ab && !ib)
+				data[i] = BCM_TCS_CMD(commit, false, 0x0, 0x0);
+			else
+				data[i] = BCM_TCS_CMD(commit, true, 0x0, 0x8);
+			continue;
 		}
+
+		/* Multiple the bandwidth by the width of the connection */
+		avg = ((u64) ab) * bcms[i].width;
+
+		/* And then divide by the total width across channels */
+		do_div(avg, bcms[i].buswidth * bcms[i].channels);
+
+		peak = ((u64) ib) * bcms[i].width;
+		do_div(peak, bcms[i].buswidth);
+
+		/* Input bandwidth value is in KBps */
+		x = avg * 1000ULL;
+		do_div(x, bcms[i].unit);
+
+		/* Input bandwidth value is in KBps */
+		y = peak * 1000ULL;
+		do_div(y, bcms[i].unit);
+
+		/*
+		 * If a bandwidth value was specified but the calculation ends
+		 * rounding down to zero, set a minimum level
+		 */
+		if (ab && x == 0)
+			x = 1;
+
+		if (ib && y == 0)
+			y = 1;
+
+		x = min_t(u64, x, BCM_TCS_CMD_VOTE_MASK);
+		y = min_t(u64, y, BCM_TCS_CMD_VOTE_MASK);
+
+		if (!x && !y)
+			valid = false;
+
+		data[i] = BCM_TCS_CMD(commit, valid, x, y);
 	}
 }
 
-static void build_bwtable_cmd_cache(struct gmu_device *gmu)
+struct bcm_data {
+	__le32 unit;
+	__le16 width;
+	u8 vcd;
+	u8 reserved;
+};
+
+struct rpmh_bw_votes {
+	u32 wait_bitmask;
+	u32 num_cmds;
+	u32 *addrs;
+	u32 num_levels;
+	u32 **cmds;
+};
+
+static void free_rpmh_bw_votes(struct rpmh_bw_votes *votes)
 {
-	struct hfi_bwtable_cmd *cmd = &gmu->hfi.bwtbl_cmd;
-	struct rpmh_votes_t *votes = &gmu->rpmh_votes;
+	int i;
+
+	if (!votes)
+		return;
+
+	for (i = 0; votes->cmds && i < votes->num_levels; i++)
+		kfree(votes->cmds[i]);
+
+	kfree(votes->cmds);
+	kfree(votes->addrs);
+	kfree(votes);
+}
+
+/* Build the votes table from the specified bandwidth levels */
+static struct rpmh_bw_votes *build_rpmh_bw_votes(struct bcm *bcms,
+		int bcm_count, u32 *levels, int levels_count)
+{
+	struct rpmh_bw_votes *votes;
+	int i;
+
+	votes = kzalloc(sizeof(*votes), GFP_KERNEL);
+	if (!votes)
+		return ERR_PTR(-ENOMEM);
+
+	votes->addrs = kcalloc(bcm_count, sizeof(*votes->cmds), GFP_KERNEL);
+	if (!votes->addrs) {
+		free_rpmh_bw_votes(votes);
+		return ERR_PTR(-ENOMEM);
+	}
+
+	votes->cmds = kcalloc(levels_count, sizeof(*votes->cmds), GFP_KERNEL);
+	if (!votes->cmds) {
+		free_rpmh_bw_votes(votes);
+		return ERR_PTR(-ENOMEM);
+	}
+
+	votes->num_cmds = bcm_count;
+	votes->num_levels = levels_count;
+
+	/* Get the cmd-db information for each BCM */
+	for (i = 0; i < bcm_count; i++) {
+		size_t l;
+		const struct bcm_data *data;
+
+		data = cmd_db_read_aux_data(bcms[i].name, &l);
+
+		votes->addrs[i] = cmd_db_read_addr(bcms[i].name);
+
+		bcms[i].unit = le32_to_cpu(data->unit);
+		bcms[i].width = le16_to_cpu(data->width);
+		bcms[i].vcd = data->vcd;
+	}
+
+	for (i = 0; i < bcm_count; i++) {
+		if (i == (bcm_count - 1) || bcms[i].vcd != bcms[i + 1].vcd)
+			votes->wait_bitmask |= (1 << i);
+	}
+
+	for (i = 0; i < levels_count; i++) {
+		votes->cmds[i] = kcalloc(bcm_count, sizeof(u32), GFP_KERNEL);
+		if (!votes->cmds[i]) {
+			free_rpmh_bw_votes(votes);
+			return ERR_PTR(-ENOMEM);
+		}
+
+		tcs_cmd_data(bcms, bcm_count, 0, levels[i], votes->cmds[i]);
+	}
+
+	return votes;
+}
+
+static void build_bwtable_cmd_cache(struct hfi_bwtable_cmd *cmd,
+		struct rpmh_bw_votes *ddr, struct rpmh_bw_votes *cnoc)
+{
 	unsigned int i, j;
 
 	cmd->hdr = 0xFFFFFFFF;
-	cmd->bw_level_num = gmu->num_bwlevels;
-	cmd->cnoc_cmds_num = votes->cnoc_votes.cmds_per_bw_vote;
-	cmd->cnoc_wait_bitmask = votes->cnoc_votes.cmds_wait_bitmask;
-	cmd->ddr_cmds_num = votes->ddr_votes.cmds_per_bw_vote;
-	cmd->ddr_wait_bitmask = votes->ddr_votes.cmds_wait_bitmask;
+	cmd->bw_level_num = ddr->num_levels;
+	cmd->ddr_cmds_num = ddr->num_cmds;
+	cmd->ddr_wait_bitmask = ddr->wait_bitmask;
 
-	for (i = 0; i < cmd->ddr_cmds_num; i++)
-		cmd->ddr_cmd_addrs[i] = votes->ddr_votes.cmd_addrs[i];
+	for (i = 0; i < ddr->num_cmds; i++)
+		cmd->ddr_cmd_addrs[i] = ddr->addrs[i];
 
-	for (i = 0; i < cmd->bw_level_num; i++)
-		for (j = 0; j < cmd->ddr_cmds_num; j++)
-			cmd->ddr_cmd_data[i][j] =
-				votes->ddr_votes.cmd_data[i][j];
+	for (i = 0; i < ddr->num_levels; i++)
+		for (j = 0; j < ddr->num_cmds; j++)
+			cmd->ddr_cmd_data[i][j] = (u32) ddr->cmds[i][j];
 
-	for (i = 0; i < cmd->cnoc_cmds_num; i++)
-		cmd->cnoc_cmd_addrs[i] =
-			votes->cnoc_votes.cmd_addrs[i];
+	if (!cnoc)
+		return;
 
-	for (i = 0; i < MAX_CNOC_LEVELS; i++)
-		for (j = 0; j < cmd->cnoc_cmds_num; j++)
-			cmd->cnoc_cmd_data[i][j] =
-				votes->cnoc_votes.cmd_data[i][j];
+	cmd->cnoc_cmds_num = cnoc->num_cmds;
+	cmd->cnoc_wait_bitmask = cnoc->wait_bitmask;
+
+	for (i = 0; i < cnoc->num_cmds; i++)
+		cmd->cnoc_cmd_addrs[i] = cnoc->addrs[i];
+
+	for (i = 0; i < cnoc->num_levels; i++)
+		for (j = 0; j < cnoc->num_cmds; j++)
+			cmd->cnoc_cmd_data[i][j] = (u32) cnoc->cmds[i][j];
 }
 
-/*
- * gmu_bus_vote_init - initialized RPMh votes needed for bw scaling by GMU.
- * @gmu: Pointer to GMU device
- * @pwr: Pointer to KGSL power controller
- */
-static int gmu_bus_vote_init(struct gmu_device *gmu, struct kgsl_pwrctrl *pwr)
+static int gmu_bus_vote_init(struct kgsl_device *device)
 {
-	struct msm_bus_tcs_usecase *usecases;
-	struct msm_bus_tcs_handle hdl;
-	struct rpmh_votes_t *votes = &gmu->rpmh_votes;
-	int ret;
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	struct rpmh_bw_votes *ddr, *cnoc = NULL;
+	u32 *cnoc_table;
+	u32 count;
 
-	if (!gmu->num_bwlevels)
-		return 0;
+	/* Build the DDR votes */
+	ddr = build_rpmh_bw_votes(a660_ddr_bcms, ARRAY_SIZE(a660_ddr_bcms),
+		pwr->ddr_table, pwr->ddr_table_count);
+	if (IS_ERR(ddr))
+		return PTR_ERR(ddr);
 
-	usecases  = kcalloc(gmu->num_bwlevels, sizeof(*usecases), GFP_KERNEL);
-	if (!usecases)
-		return -ENOMEM;
+	/* Get the CNOC table */
+	cnoc_table = kgsl_bus_get_table(device->pdev, "qcom,bus-table-cnoc",
+		&count);
 
-	hdl.num_usecases = gmu->num_bwlevels;
-	hdl.usecases = usecases;
+	/* And build the votes for that, if it exists */
+	if (count > 0)
+		cnoc = build_rpmh_bw_votes(a660_cnoc_bcms,
+			ARRAY_SIZE(a660_cnoc_bcms), cnoc_table, count);
+	kfree(cnoc_table);
 
-	/*
-	 * Query TCS command set for each use case defined in GPU b/w table
-	 */
-	ret = msm_bus_scale_query_tcs_cmd_all(&hdl, gmu->pcl);
-	if (ret)
-		goto out;
+	if (IS_ERR(cnoc)) {
+		free_rpmh_bw_votes(ddr);
+		return PTR_ERR(cnoc);
+	}
 
-	build_rpmh_bw_votes(&votes->ddr_votes, gmu->num_bwlevels, hdl);
+	/* Build the HFI command once */
+	build_bwtable_cmd_cache(&gmu->hfi.bwtbl_cmd, ddr, cnoc);
 
-	/*
-	 *Query CNOC TCS command set for each use case defined in cnoc bw table
-	 */
-	ret = msm_bus_scale_query_tcs_cmd_all(&hdl, gmu->ccl);
-	if (ret)
-		goto out;
+	free_rpmh_bw_votes(ddr);
+	free_rpmh_bw_votes(cnoc);
 
-	build_rpmh_bw_votes(&votes->cnoc_votes, gmu->num_cnocbwlevels, hdl);
-
-	build_bwtable_cmd_cache(gmu);
-
-out:
-	kfree(usecases);
-
-	return ret;
+	return 0;
 }
 
 static int gmu_rpmh_init(struct kgsl_device *device,
-		struct gmu_device *gmu, struct kgsl_pwrctrl *pwr)
+		struct gmu_device *gmu)
 {
 	struct rpmh_arc_vals gfx_arc, cx_arc, mx_arc;
 	int ret;
 
 	/* Initialize BW tables */
-	ret = gmu_bus_vote_init(gmu, pwr);
+	ret = gmu_bus_vote_init(device);
 	if (ret)
 		return ret;
 
@@ -1259,7 +1389,7 @@ static int gmu_probe(struct kgsl_device *device, struct device_node *node)
 	gmu->icc_path = of_icc_get(&gmu->pdev->dev, NULL);
 
 	/* Populates RPMh configurations */
-	ret = gmu_rpmh_init(device, gmu, pwr);
+	ret = gmu_rpmh_init(device, gmu);
 	if (ret)
 		goto error;
 
@@ -1422,7 +1552,7 @@ static int gmu_start(struct kgsl_device *device)
 	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(device);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
-	unsigned long ib;
+	int level;
 
 	switch (device->state) {
 	case KGSL_STATE_INIT:
