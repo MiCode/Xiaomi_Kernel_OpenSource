@@ -559,7 +559,7 @@ static int gmu_dcvs_set(struct kgsl_device *device,
 
 struct rpmh_arc_vals {
 	unsigned int num;
-	uint16_t val[MAX_GX_LEVELS];
+	const u16 *val;
 };
 
 static const char gfx_res_id[] = "gfx.lvl";
@@ -584,22 +584,9 @@ enum rpmh_vote_type {
 static int rpmh_arc_cmds(struct gmu_device *gmu,
 		struct rpmh_arc_vals *arc, const char *res_id)
 {
-	unsigned int len;
+	size_t len = 0;
 
-	memset(arc, 0, sizeof(*arc));
-
-	len = cmd_db_read_aux_data_len(res_id);
-	if (len == 0)
-		return -EINVAL;
-
-	if (len > (MAX_GX_LEVELS << 1)) {
-		dev_err(&gmu->pdev->dev,
-			"gfx cmddb size %d larger than alloc buf %d of %s\n",
-			len, (MAX_GX_LEVELS << 1), res_id);
-		return -EINVAL;
-	}
-
-	cmd_db_read_aux_data(res_id, (uint8_t *)arc->val, len);
+	arc->val = cmd_db_read_aux_data(res_id, &len);
 
 	/*
 	 * cmd_db_read_aux_data() gives us a zero-padded table of
