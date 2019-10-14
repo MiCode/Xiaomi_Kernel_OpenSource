@@ -102,17 +102,6 @@ static u32 a612_pwrup_reglist[] = {
 	A6XX_RBBM_PERFCTR_CNTL,
 };
 
-static void _update_always_on_regs(struct adreno_device *adreno_dev)
-{
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-	unsigned int *const regs = gpudev->reg_offsets;
-
-	regs[ADRENO_REG_RBBM_ALWAYSON_COUNTER_LO] =
-		A6XX_CP_ALWAYS_ON_COUNTER_LO;
-	regs[ADRENO_REG_RBBM_ALWAYSON_COUNTER_HI] =
-		A6XX_CP_ALWAYS_ON_COUNTER_HI;
-}
-
 static void a6xx_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -133,13 +122,6 @@ static void a6xx_init(struct adreno_device *adreno_dev)
 		adreno_dev->highest_bank_bit = 15;
 
 	a6xx_crashdump_init(adreno_dev);
-
-	/*
-	 * If the GMU is not enabled, rewrite the offset for the always on
-	 * counters to point to the CP always on instead of GMU always on
-	 */
-	if (!gmu_core_isenabled(device))
-		_update_always_on_regs(adreno_dev);
 
 	kgsl_allocate_global(device, &adreno_dev->pwrup_reglist,
 		PAGE_SIZE, 0, KGSL_MEMDESC_CONTIG | KGSL_MEMDESC_PRIVILEGED,
@@ -2409,10 +2391,6 @@ static unsigned int a6xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 				A6XX_RBBM_GBIF_HALT_ACK),
 	ADRENO_REG_DEFINE(ADRENO_REG_GBIF_HALT, A6XX_GBIF_HALT),
 	ADRENO_REG_DEFINE(ADRENO_REG_GBIF_HALT_ACK, A6XX_GBIF_HALT_ACK),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_ALWAYSON_COUNTER_LO,
-				A6XX_GMU_ALWAYS_ON_COUNTER_L),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_ALWAYSON_COUNTER_HI,
-				A6XX_GMU_ALWAYS_ON_COUNTER_H),
 	ADRENO_REG_DEFINE(ADRENO_REG_GMU_AO_AHB_FENCE_CTRL,
 				A6XX_GMU_AO_AHB_FENCE_CTRL),
 	ADRENO_REG_DEFINE(ADRENO_REG_GMU_AO_INTERRUPT_EN,
@@ -2585,6 +2563,32 @@ static void a6xx_clk_set_options(struct adreno_device *adreno_dev,
 	}
 }
 
+u64 a6xx_read_alwayson(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	u32 lo = 0, hi = 0, tmp = 0;
+
+	if (!gmu_core_isenabled(device)) {
+		kgsl_regread(device, A6XX_CP_ALWAYS_ON_COUNTER_LO, &lo);
+		kgsl_regread(device, A6XX_CP_ALWAYS_ON_COUNTER_HI, &hi);
+	} else {
+		/* Always use the GMU AO counter when doing a AHB read */
+		gmu_core_regread(device, A6XX_GMU_ALWAYS_ON_COUNTER_H, &hi);
+		gmu_core_regread(device, A6XX_GMU_ALWAYS_ON_COUNTER_L, &lo);
+
+		/* Check for overflow */
+		gmu_core_regread(device, A6XX_GMU_ALWAYS_ON_COUNTER_H, &tmp);
+
+		if (hi != tmp) {
+			gmu_core_regread(device, A6XX_GMU_ALWAYS_ON_COUNTER_L,
+				&lo);
+			hi = tmp;
+		}
+	}
+
+	return (((u64) hi) << 32) | lo;
+}
+
 struct adreno_gpudev adreno_a6xx_gpudev = {
 	.reg_offsets = a6xx_register_offsets,
 	.start = a6xx_start,
@@ -2620,4 +2624,5 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.coresight = {&a6xx_coresight, &a6xx_coresight_cx},
 #endif
 	.clk_set_options = a6xx_clk_set_options,
+	.read_alwayson = a6xx_read_alwayson,
 };

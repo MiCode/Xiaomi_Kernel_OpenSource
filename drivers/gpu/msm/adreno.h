@@ -663,8 +663,6 @@ enum adreno_regs {
 	ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_LO,
 	ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_HI,
 	ADRENO_REG_RBBM_SECVID_TRUST_CONTROL,
-	ADRENO_REG_RBBM_ALWAYSON_COUNTER_LO,
-	ADRENO_REG_RBBM_ALWAYSON_COUNTER_HI,
 	ADRENO_REG_RBBM_SECVID_TRUST_CONFIG,
 	ADRENO_REG_RBBM_SECVID_TSB_CONTROL,
 	ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE,
@@ -827,6 +825,8 @@ struct adreno_gpudev {
 	int (*perfcounter_update)(struct adreno_device *adreno_dev,
 				struct adreno_perfcount_register *reg,
 				bool update_reg);
+	/** @read_alwayson: Return the current value of the alwayson counter */
+	u64 (*read_alwayson)(struct adreno_device *adreno_dev);
 };
 
 /**

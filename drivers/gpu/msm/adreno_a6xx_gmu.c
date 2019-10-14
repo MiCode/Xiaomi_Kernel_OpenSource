@@ -886,7 +886,7 @@ static int a6xx_gmu_wait_for_lowest_idle(struct kgsl_device *device)
 	unsigned long t;
 	uint64_t ts1, ts2, ts3;
 
-	ts1 = read_AO_counter(device);
+	ts1 = a6xx_read_alwayson(ADRENO_DEVICE(device));
 
 	t = jiffies + msecs_to_jiffies(GMU_IDLE_TIMEOUT);
 	do {
@@ -901,7 +901,7 @@ static int a6xx_gmu_wait_for_lowest_idle(struct kgsl_device *device)
 		usleep_range(10, 100);
 	} while (!time_after(jiffies, t));
 
-	ts2 = read_AO_counter(device);
+	ts2 = a6xx_read_alwayson(ADRENO_DEVICE(device));
 	/* Check one last time */
 
 	gmu_core_regread(device, A6XX_GPU_GMU_CX_GMU_RPMH_POWER_STATE, &reg);
@@ -910,7 +910,7 @@ static int a6xx_gmu_wait_for_lowest_idle(struct kgsl_device *device)
 	if (idle_trandition_complete(gmu->idle_level, reg, reg1))
 		return 0;
 
-	ts3 = read_AO_counter(device);
+	ts3 = a6xx_read_alwayson(ADRENO_DEVICE(device));
 
 	/* Collect abort data to help with debugging */
 	gmu_core_regread(device, A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS, &reg2);
@@ -954,14 +954,15 @@ static int a6xx_gmu_wait_for_idle(struct kgsl_device *device)
 	unsigned int status2;
 	uint64_t ts1;
 
-	ts1 = read_AO_counter(device);
+	ts1 = a6xx_read_alwayson(ADRENO_DEVICE(device));
 	if (timed_poll_check(device, A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS,
 			0, GMU_START_TIMEOUT, CXGXCPUBUSYIGNAHB)) {
 		gmu_core_regread(device,
 				A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS2, &status2);
 		dev_err(&gmu->pdev->dev,
 				"GMU not idling: status2=0x%x %llx %llx\n",
-				status2, ts1, read_AO_counter(device));
+				status2, ts1,
+				a6xx_read_alwayson(ADRENO_DEVICE(device)));
 		return -ETIMEDOUT;
 	}
 

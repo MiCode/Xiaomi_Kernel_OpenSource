@@ -259,7 +259,7 @@ static int a6xx_rgmu_wait_for_lowest_idle(struct kgsl_device *device)
 	if (rgmu->idle_level != GPU_HW_IFPC)
 		return 0;
 
-	ts1 = read_AO_counter(device);
+	ts1 = a6xx_read_alwayson(ADRENO_DEVICE(device));
 
 	t = jiffies + msecs_to_jiffies(RGMU_IDLE_TIMEOUT);
 	do {
@@ -273,7 +273,7 @@ static int a6xx_rgmu_wait_for_lowest_idle(struct kgsl_device *device)
 		usleep_range(10, 100);
 	} while (!time_after(jiffies, t));
 
-	ts2 = read_AO_counter(device);
+	ts2 = a6xx_read_alwayson(ADRENO_DEVICE(device));
 
 	/* Do one last read incase it succeeds */
 	gmu_core_regread(device,
@@ -282,7 +282,7 @@ static int a6xx_rgmu_wait_for_lowest_idle(struct kgsl_device *device)
 	if (reg[0] & GX_GDSC_POWER_OFF)
 		return 0;
 
-	ts3 = read_AO_counter(device);
+	ts3 = a6xx_read_alwayson(ADRENO_DEVICE(device));
 
 	/* Collect abort data to help with debugging */
 	gmu_core_regread(device, A6XX_RGMU_CX_PCC_DEBUG, &reg[1]);

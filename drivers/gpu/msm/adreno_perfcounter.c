@@ -885,12 +885,9 @@ static int adreno_perfcounter_enable(struct adreno_device *adreno_dev,
 static uint64_t _perfcounter_read_alwayson(struct adreno_device *adreno_dev,
 		struct adreno_perfcount_group *group, unsigned int counter)
 {
-	uint64_t val = 0;
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 
-	adreno_readreg64(adreno_dev, ADRENO_REG_RBBM_ALWAYSON_COUNTER_LO,
-				   ADRENO_REG_RBBM_ALWAYSON_COUNTER_HI, &val);
-
-	return val + group->regs[counter].value;
+	return gpudev->read_alwayson(adreno_dev) + group->regs[counter].value;
 }
 
 static uint64_t _perfcounter_read_pwr(struct adreno_device *adreno_dev,

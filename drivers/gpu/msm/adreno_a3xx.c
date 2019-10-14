@@ -1431,6 +1431,12 @@ static void a3xx_clk_set_options(struct adreno_device *adreno_dev,
 	}
 }
 
+static u64 a3xx_read_alwayson(struct adreno_device *adreno_dev)
+{
+	/* A3XX does not have a always on timer */
+	return 0;
+}
+
 struct adreno_gpudev adreno_a3xx_gpudev = {
 	.reg_offsets = a3xx_register_offsets,
 	.int_bits = a3xx_int_bits,
@@ -1451,4 +1457,5 @@ struct adreno_gpudev adreno_a3xx_gpudev = {
 	.coresight = {&a3xx_coresight},
 #endif
 	.clk_set_options = a3xx_clk_set_options,
+	.read_alwayson = a3xx_read_alwayson,
 };

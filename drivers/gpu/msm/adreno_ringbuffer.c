@@ -32,6 +32,7 @@ static void adreno_get_submit_time(struct adreno_device *adreno_dev,
 		struct adreno_ringbuffer *rb,
 		struct adreno_submit_time *time)
 {
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	unsigned long flags;
 	/*
 	 * Here we are attempting to create a mapping between the
@@ -45,19 +46,7 @@ static void adreno_get_submit_time(struct adreno_device *adreno_dev,
 
 	local_irq_save(flags);
 
-	/* Read always on registers */
-	if (!adreno_is_a3xx(adreno_dev)) {
-		adreno_readreg64(adreno_dev,
-			ADRENO_REG_RBBM_ALWAYSON_COUNTER_LO,
-			ADRENO_REG_RBBM_ALWAYSON_COUNTER_HI,
-			&time->ticks);
-
-		/* Mask hi bits as they may be incorrect on some targets */
-		if (ADRENO_GPUREV(adreno_dev) >= 400 &&
-				ADRENO_GPUREV(adreno_dev) <= ADRENO_REV_A530)
-			time->ticks &= 0xFFFFFFFF;
-	} else
-		time->ticks = 0;
+	time->ticks = gpudev->read_alwayson(adreno_dev);
 
 	/* Trace the GPU time to create a mapping to ftrace time */
 	trace_adreno_cmdbatch_sync(rb->drawctxt_active, time->ticks);

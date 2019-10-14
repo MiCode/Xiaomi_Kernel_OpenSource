@@ -2506,10 +2506,6 @@ static unsigned int a5xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 				A5XX_RBBM_SECVID_TSB_TRUSTED_BASE_HI),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_SIZE,
 				A5XX_RBBM_SECVID_TSB_TRUSTED_SIZE),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_ALWAYSON_COUNTER_LO,
-				A5XX_RBBM_ALWAYSON_COUNTER_LO),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_ALWAYSON_COUNTER_HI,
-				A5XX_RBBM_ALWAYSON_COUNTER_HI),
 	ADRENO_REG_DEFINE(ADRENO_REG_VBIF_XIN_HALT_CTRL0,
 				A5XX_VBIF_XIN_HALT_CTRL0),
 	ADRENO_REG_DEFINE(ADRENO_REG_VBIF_XIN_HALT_CTRL1,
@@ -2787,6 +2783,20 @@ static void a5x_gpc_err_int_callback(struct adreno_device *adreno_dev, int bit)
 	/* Trigger a fault in the dispatcher - this will effect a restart */
 	adreno_set_gpu_fault(adreno_dev, ADRENO_SOFT_FAULT);
 	adreno_dispatcher_schedule(device);
+}
+
+static u64 a5xx_read_alwayson(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	u32 lo = 0, hi = 0;
+
+	kgsl_regread(device, A5XX_RBBM_ALWAYSON_COUNTER_LO, &lo);
+
+	/* The upper 32 bits are only reliable on A540 targets */
+	if (adreno_is_a540(adreno_dev))
+		kgsl_regread(device, A5XX_RBBM_ALWAYSON_COUNTER_HI, &hi);
+
+	return (((u64) hi) << 32) | lo;
 }
 
 #define A5XX_INT_MASK \
@@ -3087,4 +3097,5 @@ struct adreno_gpudev adreno_a5xx_gpudev = {
 	.preemption_close = a5xx_preemption_close,
 	.preemption_schedule = a5xx_preemption_schedule,
 	.clk_set_options = a5xx_clk_set_options,
+	.read_alwayson = a5xx_read_alwayson,
 };
