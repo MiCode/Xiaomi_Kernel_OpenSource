@@ -163,7 +163,7 @@ static int rgmu_enable_clks(struct kgsl_device *device)
 	}
 
 	ret = clk_set_rate(rgmu->gpu_clk,
-		rgmu->gpu_freqs[pwr->default_pwrlevel]);
+		pwr->pwrlevels[pwr->default_pwrlevel].gpu_freq);
 	if (ret) {
 		dev_err(&rgmu->pdev->dev, "Couldn't set the GPU clock\n");
 		return ret;
@@ -276,9 +276,8 @@ static int rgmu_probe(struct kgsl_device *device, struct device_node *node)
 {
 	struct rgmu_device *rgmu;
 	struct platform_device *pdev = of_find_device_by_node(node);
-	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct resource *res;
-	int i, ret = -ENXIO;
+	int ret = -ENXIO;
 
 	rgmu = devm_kzalloc(&pdev->dev, sizeof(*rgmu), GFP_KERNEL);
 
@@ -336,12 +335,6 @@ static int rgmu_probe(struct kgsl_device *device, struct device_node *node)
 	/* We cannot use rgmu_irq_disable because it writes registers */
 	disable_irq(rgmu->rgmu_interrupt_num);
 	disable_irq(rgmu->oob_interrupt_num);
-
-	/* Retrieves GPU power level configurations */
-	for (i = 0; i < pwr->num_pwrlevels; i++)
-		rgmu->gpu_freqs[i] = pwr->pwrlevels[i].gpu_freq;
-
-	rgmu->num_gpupwrlevels = pwr->num_pwrlevels;
 
 	/* Set up RGMU idle states */
 	if (ADRENO_FEATURE(ADRENO_DEVICE(device), ADRENO_IFPC))
@@ -425,7 +418,8 @@ static int rgmu_dcvs_set(struct kgsl_device *device,
 	if (pwrlevel == INVALID_DCVS_IDX)
 		return -EINVAL;
 
-	ret = clk_set_rate(rgmu->gpu_clk, rgmu->gpu_freqs[pwrlevel]);
+	ret = clk_set_rate(rgmu->gpu_clk,
+		device->pwrctrl.pwrlevels[pwrlevel].gpu_freq);
 	if (ret)
 		dev_err(&rgmu->pdev->dev, "Couldn't set the GPU clock\n");
 

@@ -30,8 +30,6 @@
  * @clks: RGMU clocks including the GPU
  * @gpu_clk: Pointer to GPU core clock
  * @rgmu_clk: Pointer to rgmu clock
- * @gpu_freqs: GPU frequency table with lowest freq at index 0
- * @num_gpupwrlevels: number GPU frequencies in GPU freq table
  * @flags: RGMU flags
  * @idle_level: Minimal GPU idle power level
  * @fault_count: RGMU fault count
@@ -50,8 +48,6 @@ struct rgmu_device {
 	struct clk *clks[MAX_RGMU_CLKS];
 	struct clk *gpu_clk;
 	struct clk *rgmu_clk;
-	unsigned int gpu_freqs[MAX_GX_LEVELS];
-	unsigned int num_gpupwrlevels;
 	unsigned int idle_level;
 	unsigned int fault_count;
 };
