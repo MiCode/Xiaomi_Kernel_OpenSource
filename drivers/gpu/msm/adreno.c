@@ -907,31 +907,46 @@ static int adreno_of_parse_pwrlevels(struct adreno_device *adreno_dev,
 	pwr->num_pwrlevels = 0;
 
 	for_each_child_of_node(node, child) {
-		unsigned int index, freq = 0;
+		u32 index, freq = 0, voltage, bus;
 		struct kgsl_pwrlevel *level;
 
-		if (of_property_read_u32(child, "reg", &index)) {
-			dev_err(device->dev,
-				"%pOF: powerlevel index not found\n", child);
-			of_node_put(child);
-			return -EINVAL;
+		ret = of_property_read_u32(child, "reg", &index);
+		if (ret) {
+			dev_err(device->dev, "%pOF: powerlevel index not found\n",
+				child);
+			goto out;
 		}
 
-		if (of_property_read_u32(child, "qcom,gpu-freq", &freq)) {
-			dev_err(device->dev,
-				"%pOF: Unable to read qcom,gpu-freq\n", child);
-			of_node_put(child);
-			return -EINVAL;
+		ret = of_property_read_u32(child, "qcom,gpu-freq", &freq);
+		if (ret) {
+			dev_err(device->dev, "%pOF: Unable to read qcom,gpu-freq\n",
+				child);
+			goto out;
 		}
 
 		/* Ignore "zero" powerlevels */
 		if (!freq)
 			continue;
 
+		ret = of_property_read_u32(child, "qcom,level", &voltage);
+		if (ret) {
+			dev_err(device->dev, "%pOF: Unable to read qcom,level\n",
+				child);
+			goto out;
+		}
+
+		ret = kgsl_of_property_read_ddrtype(child, "qcom,bus-freq",
+			&bus);
+		if (ret) {
+			dev_err(device->dev, "%pOF:Unable to read qcom,bus-freq\n",
+				child);
+			goto out;
+		}
+
+
 		if (index >= KGSL_MAX_PWRLEVELS) {
-			dev_err(device->dev,
-				"%pOF: Pwrlevel index %d is out of range\n",
-					child, index);
+			dev_err(device->dev, "%pOF: Pwrlevel index %d is out of range\n",
+				child, index);
 			continue;
 		}
 
@@ -941,19 +956,11 @@ static int adreno_of_parse_pwrlevels(struct adreno_device *adreno_dev,
 		level = &pwr->pwrlevels[index];
 
 		level->gpu_freq = freq;
+		level->bus_freq = bus;
+		level->voltage_level = voltage;
 
 		of_property_read_u32(child, "qcom,acd-level",
 			&level->acd_level);
-
-		ret = kgsl_of_property_read_ddrtype(child,
-			"qcom,bus-freq", &level->bus_freq);
-		if (ret) {
-			dev_err(device->dev,
-				"%pOF: Couldn't read the bus frequency for power level %d\n",
-				child, index);
-			of_node_put(child);
-			return ret;
-		}
 
 		level->bus_min = level->bus_freq;
 		kgsl_of_property_read_ddrtype(child,
@@ -965,6 +972,9 @@ static int adreno_of_parse_pwrlevels(struct adreno_device *adreno_dev,
 	}
 
 	return 0;
+out:
+	of_node_put(child);
+	return ret;
 }
 
 static void adreno_of_get_initial_pwrlevel(struct adreno_device *adreno_dev,

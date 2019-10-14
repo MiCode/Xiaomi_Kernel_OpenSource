@@ -690,45 +690,22 @@ static int rpmh_arc_votes_init(struct kgsl_device *device,
 {
 	unsigned int num_freqs;
 	u16 vlvl_tbl[MAX_GX_LEVELS];
-	unsigned int *freq_tbl;
 	int i;
-	struct dev_pm_opp *opp;
 
 	if (type == GMU_ARC_VOTE)
 		return rpmh_gmu_arc_votes_init(gmu, pri_rail, sec_rail);
 
 	num_freqs = gmu->num_gpupwrlevels;
-	freq_tbl = gmu->gpu_freqs;
 
-	if (num_freqs > pri_rail->num || num_freqs > MAX_GX_LEVELS) {
+	if (num_freqs > pri_rail->num) {
 		dev_err(&gmu->pdev->dev,
 			"Defined more GPU DCVS levels than RPMh can support\n");
 		return -EINVAL;
 	}
 
 	memset(vlvl_tbl, 0, sizeof(vlvl_tbl));
-
-	/* Get the values from OPP API */
-	for (i = 0; i < num_freqs; i++) {
-		/* Hardcode VLVL 0 because it is not present in OPP */
-		if (freq_tbl[i] == 0) {
-			vlvl_tbl[i] = 0;
-			continue;
-		}
-
-		opp = dev_pm_opp_find_freq_exact(&device->pdev->dev,
-			freq_tbl[i], true);
-
-		if (IS_ERR(opp)) {
-			dev_err(&gmu->pdev->dev,
-				"Failed to find opp freq %d for GPU\n",
-				freq_tbl[i]);
-			return PTR_ERR(opp);
-		}
-
-		vlvl_tbl[i] = dev_pm_opp_get_voltage(opp);
-		dev_pm_opp_put(opp);
-	}
+	for (i = 0; i < num_freqs; i++)
+		vlvl_tbl[i] = gmu->pwrlevels[i].level;
 
 	return setup_volt_dependency_tbl(gmu->rpmh_votes.gx_votes, pri_rail,
 						sec_rail, vlvl_tbl, num_freqs);
@@ -1205,7 +1182,7 @@ static int gmu_probe(struct kgsl_device *device, struct device_node *node)
 	struct kgsl_hfi *hfi;
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	int i = 0, ret = -ENXIO, index = 0;
+	int i = 0, ret = -ENXIO, index;
 
 	gmu = kzalloc(sizeof(struct gmu_device), GFP_KERNEL);
 
@@ -1275,12 +1252,21 @@ static int gmu_probe(struct kgsl_device *device, struct device_node *node)
 	tasklet_init(&hfi->tasklet, hfi_receiver, (unsigned long) gmu);
 	hfi->kgsldev = device;
 
-	/* Add a dummy level for "off" that the GMU expects */
-	gmu->gpu_freqs[index++] = 0;
+	if (WARN(pwr->num_pwrlevels + 1 > ARRAY_SIZE(gmu->pwrlevels),
+		"Too many GPU powerlevels for the GMU HFI\n")) {
+		ret = -EINVAL;
+		goto error;
+	}
+
+	/* Add a dummy level for "off" because the GMU expects it */
+	gmu->pwrlevels[0].freq = 0;
+	gmu->pwrlevels[0].level = 0;
 
 	/* GMU power levels are in ascending order */
-	for (i = pwr->num_pwrlevels - 1; i >= 0; i--)
-		gmu->gpu_freqs[index++] = pwr->pwrlevels[i].gpu_freq;
+	for (index = 1, i = pwr->num_pwrlevels - 1; i >= 0; i--, index++) {
+		gmu->pwrlevels[index].freq = pwr->pwrlevels[i].gpu_freq;
+		gmu->pwrlevels[index].level = pwr->pwrlevels[i].voltage_level;
+	}
 
 	gmu->num_gpupwrlevels = pwr->num_pwrlevels + 1;
 
