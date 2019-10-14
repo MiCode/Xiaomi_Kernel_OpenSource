@@ -385,12 +385,6 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 	drawctxt->rb = adreno_ctx_get_rb(adreno_dev, drawctxt);
 
 	/*
-	 * Set up the plist node for the dispatcher.  Insert the node into the
-	 * drawctxt pending list based on priority.
-	 */
-	plist_node_init(&drawctxt->pending, drawctxt->base.priority);
-
-	/*
 	 * Now initialize the common part of the context. This allocates the
 	 * context id, and then possibly another thread could look it up.
 	 * So we want all of our initializtion that doesn't require the context

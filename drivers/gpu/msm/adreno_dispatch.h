@@ -8,6 +8,7 @@
 
 #include <linux/kobject.h>
 #include <linux/kthread.h>
+#include <linux/llist.h>
 
 extern unsigned int adreno_drawobj_timeout;
 
@@ -40,6 +41,21 @@ struct adreno_dispatcher_drawqueue {
 };
 
 /**
+ * struct adreno_dispatch_job - An instance of work for the dispatcher
+ * @node: llist node for the list of jobs
+ * @drawctxt: A pointer to an adreno draw context
+ *
+ * This struct defines work for the dispatcher. When a drawctxt is ready to send
+ * commands it will attach itself to the appropriate list for it's priority.
+ * The dispatcher will process all jobs on each priority every time it goes
+ * through a dispatch cycle
+ */
+struct adreno_dispatch_job {
+	struct llist_node node;
+	struct adreno_context *drawctxt;
+};
+
+/**
  * struct adreno_dispatcher - container for the adreno GPU dispatcher
  * @mutex: Mutex to protect the structure
  * @state: Current state of the dispatcher (active or paused)
@@ -47,7 +63,6 @@ struct adreno_dispatcher_drawqueue {
  * @inflight: Number of drawobj operations pending in the ringbuffer
  * @fault: Non-zero if a fault was detected.
  * @pending: Priority list of contexts waiting to submit drawobjs
- * @plist_lock: Spin lock to protect the pending queue
  * @work: work_struct to put the dispatcher in a work queue
  * @kobj: kobject for the dispatcher directory in the device sysfs node
  * @idle_gate: Gate to wait on for dispatcher to idle
@@ -59,8 +74,8 @@ struct adreno_dispatcher {
 	struct timer_list fault_timer;
 	unsigned int inflight;
 	atomic_t fault;
-	struct plist_head pending;
-	spinlock_t plist_lock;
+	/** @jobs - Array of dispatch job lists for each priority level */
+	struct llist_head jobs[16];
 	struct kthread_work work;
 	struct kobject kobj;
 	struct completion idle_gate;
