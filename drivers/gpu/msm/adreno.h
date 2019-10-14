@@ -960,10 +960,9 @@ long adreno_ioctl_perfcounter_get(struct kgsl_device_private *dev_priv,
 long adreno_ioctl_perfcounter_put(struct kgsl_device_private *dev_priv,
 	unsigned int cmd, void *data);
 
-int adreno_efuse_map(struct adreno_device *adreno_dev);
-int adreno_efuse_read_u32(struct adreno_device *adreno_dev, unsigned int offset,
-		unsigned int *val);
-void adreno_efuse_unmap(struct adreno_device *adreno_dev);
+int adreno_efuse_map(struct platform_device *pdev);
+int adreno_efuse_read_u32(unsigned int offset, unsigned int *val);
+void adreno_efuse_unmap(void);
 
 bool adreno_is_cx_dbgc_register(struct kgsl_device *device,
 		unsigned int offset);

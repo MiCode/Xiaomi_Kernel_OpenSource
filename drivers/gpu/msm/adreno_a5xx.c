@@ -49,11 +49,9 @@ static void a530_efuse_leakage(struct adreno_device *adreno_dev)
 	unsigned int row0, row2;
 	unsigned int multiplier, gfx_active, leakage_pwr_on, coeff;
 
-	adreno_efuse_read_u32(adreno_dev,
-		A530_QFPROM_RAW_PTE_ROW0_MSB, &row0);
+	adreno_efuse_read_u32(A530_QFPROM_RAW_PTE_ROW0_MSB, &row0);
 
-	adreno_efuse_read_u32(adreno_dev,
-		A530_QFPROM_RAW_PTE_ROW2_MSB, &row2);
+	adreno_efuse_read_u32(A530_QFPROM_RAW_PTE_ROW2_MSB, &row2);
 
 	multiplier = (row0 >> 1) & 0x3;
 	gfx_active = (row2 >> 2) & 0xFF;
@@ -78,7 +76,7 @@ static void a530_efuse_speed_bin(struct adreno_device *adreno_dev)
 		"qcom,gpu-speed-bin", speed_bin, 3))
 		return;
 
-	adreno_efuse_read_u32(adreno_dev, speed_bin[0], &val);
+	adreno_efuse_read_u32(speed_bin[0], &val);
 
 	adreno_dev->speed_bin = (val & speed_bin[1]) >> speed_bin[2];
 }
@@ -98,7 +96,7 @@ static void a5xx_check_features(struct adreno_device *adreno_dev)
 {
 	unsigned int i;
 
-	if (adreno_efuse_map(adreno_dev))
+	if (adreno_efuse_map(KGSL_DEVICE(adreno_dev)->pdev))
 		return;
 
 	for (i = 0; i < ARRAY_SIZE(a5xx_efuse_funcs); i++) {
@@ -106,7 +104,7 @@ static void a5xx_check_features(struct adreno_device *adreno_dev)
 			a5xx_efuse_funcs[i].func(adreno_dev);
 	}
 
-	adreno_efuse_unmap(adreno_dev);
+	adreno_efuse_unmap();
 }
 
 static void a5xx_platform_setup(struct adreno_device *adreno_dev)

@@ -2175,7 +2175,7 @@ static void a6xx_efuse_speed_bin(struct adreno_device *adreno_dev)
 		"qcom,gpu-speed-bin", speed_bin, 3))
 		return;
 
-	adreno_efuse_read_u32(adreno_dev, speed_bin[0], &val);
+	adreno_efuse_read_u32(speed_bin[0], &val);
 
 	adreno_dev->speed_bin = (val & speed_bin[1]) >> speed_bin[2];
 }
@@ -2192,14 +2192,14 @@ static void a6xx_check_features(struct adreno_device *adreno_dev)
 {
 	unsigned int i;
 
-	if (adreno_efuse_map(adreno_dev))
+	if (adreno_efuse_map(KGSL_DEVICE(adreno_dev)->pdev))
 		return;
 	for (i = 0; i < ARRAY_SIZE(a6xx_efuse_funcs); i++) {
 		if (a6xx_efuse_funcs[i].check(adreno_dev))
 			a6xx_efuse_funcs[i].func(adreno_dev);
 	}
 
-	adreno_efuse_unmap(adreno_dev);
+	adreno_efuse_unmap();
 }
 static void a6xx_platform_setup(struct adreno_device *adreno_dev)
 {
