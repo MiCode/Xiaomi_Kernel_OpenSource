@@ -5001,7 +5001,7 @@ void kgsl_device_platform_remove(struct kgsl_device *device)
 
 	kgsl_exit_page_pools();
 
-	kgsl_pwrctrl_uninit_sysfs(device);
+	kobject_put(device->gpu_sysfs_kobj);
 
 	idr_destroy(&device->context_idr);
 
