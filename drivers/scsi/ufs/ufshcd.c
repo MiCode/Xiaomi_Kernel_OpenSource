@@ -6812,7 +6812,8 @@ void ufshcd_parse_dev_ref_clk_freq(struct ufs_hba *hba, struct clk *refclk)
 
 	freq = clk_get_rate(refclk);
 	if (freq == 0) {
-		dev_warn(hba->dev, " (%s) clk_get_rate - %d\n", __func__, freq);
+		dev_warn(hba->dev, " (%s) clk_get_rate - %ld\n", __func__,
+			freq);
 		freq = clk_round_rate(refclk, 19200000);
 	}
 
