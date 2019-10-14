@@ -1421,24 +1421,6 @@ static void kgsl_iommu_close(struct kgsl_mmu *mmu)
 	kgsl_cleanup_qtimer_desc(mmu);
 }
 
-static int _setstate_alloc(struct kgsl_device *device,
-		struct kgsl_iommu *iommu)
-{
-	int ret;
-
-	kgsl_memdesc_init(device, &iommu->setstate, 0);
-	ret = kgsl_sharedmem_alloc_contig(device, &iommu->setstate, PAGE_SIZE);
-
-	if (!ret) {
-		/* Mark the setstate memory as read only */
-		iommu->setstate.flags |= KGSL_MEMFLAGS_GPUREADONLY;
-
-		kgsl_sharedmem_set(device, &iommu->setstate, 0, 0, PAGE_SIZE);
-	}
-
-	return ret;
-}
-
 static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 {
 	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
@@ -1454,9 +1436,8 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 		return -EINVAL;
 	}
 
-	status = _setstate_alloc(device, iommu);
-	if (status)
-		return status;
+	status = kgsl_allocate_kernel(device, &iommu->setstate, PAGE_SIZE,
+		KGSL_MEMFLAGS_GPUREADONLY, 0);
 
 	iommu->regbase = ioremap(iommu->regstart, iommu->regsize);
 	if (iommu->regbase == NULL) {

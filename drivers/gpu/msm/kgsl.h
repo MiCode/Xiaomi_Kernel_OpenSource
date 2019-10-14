@@ -182,14 +182,10 @@ struct kgsl_memdesc_ops {
 #define KGSL_MEMDESC_SECURE BIT(4)
 /* Memory is accessible in privileged mode */
 #define KGSL_MEMDESC_PRIVILEGED BIT(6)
-/* The memdesc is TZ locked content protection */
-#define KGSL_MEMDESC_TZ_LOCKED BIT(7)
-/* The memdesc is allocated through contiguous memory */
-#define KGSL_MEMDESC_CONTIG BIT(8)
 /* This is an instruction buffer */
-#define KGSL_MEMDESC_UCODE BIT(9)
+#define KGSL_MEMDESC_UCODE BIT(7)
 /* For global buffers, randomly assign an address from the region */
-#define KGSL_MEMDESC_RANDOM BIT(10)
+#define KGSL_MEMDESC_RANDOM BIT(8)
 
 /**
  * struct kgsl_memdesc - GPU memory object descriptor

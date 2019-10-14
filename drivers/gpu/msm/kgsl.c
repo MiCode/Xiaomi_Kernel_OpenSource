@@ -3410,7 +3410,7 @@ struct kgsl_mem_entry *gpumem_alloc_entry(
 		return ERR_PTR(-ENOMEM);
 
 	ret = kgsl_allocate_user(dev_priv->device, &entry->memdesc,
-		size, flags);
+		size, flags, 0);
 	if (ret != 0)
 		goto err;
 
@@ -3631,7 +3631,7 @@ long kgsl_ioctl_sparse_phys_alloc(struct kgsl_device_private *dev_priv,
 			KGSL_MEMALIGN_MASK);
 
 	ret = kgsl_allocate_user(dev_priv->device, &entry->memdesc,
-			param->size, flags);
+			param->size, flags, 0);
 	if (ret)
 		goto err_remove_idr;
 

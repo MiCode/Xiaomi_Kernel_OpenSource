@@ -619,7 +619,7 @@ static int a6xx_preemption_ringbuffer_init(struct adreno_device *adreno_dev,
 
 	ret = kgsl_allocate_user(device, &rb->secure_preemption_desc,
 		A6XX_CP_CTXRECORD_SIZE_IN_BYTES,
-		KGSL_MEMFLAGS_SECURE | KGSL_MEMDESC_PRIVILEGED);
+		KGSL_MEMFLAGS_SECURE, KGSL_MEMDESC_PRIVILEGED);
 	if (ret)
 		return ret;
 

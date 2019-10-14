@@ -165,7 +165,7 @@ static int a5xx_critical_packet_construct(struct adreno_device *adreno_dev)
 		return ret;
 
 	ret = kgsl_allocate_user(&adreno_dev->dev, &crit_pkts_refbuf0,
-		PAGE_SIZE, KGSL_MEMFLAGS_SECURE);
+		PAGE_SIZE, KGSL_MEMFLAGS_SECURE, 0);
 	if (ret)
 		return ret;
 
