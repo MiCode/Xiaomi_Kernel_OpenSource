@@ -41,3 +41,13 @@ config QCOM_KGSL_CORESIGHT
 	  When enabled, the Adreno GPU is available as a source for Coresight
 	  data. On a6xx targets there are two sources available for the GX and
 	  CX domains respectively. Debug kernels should say 'Y' here.
+
+config QCOM_KGSL_IOCOHERENCY_DEFAULT
+	bool "Enable I/O coherency on cached GPU memory by default"
+	depends on QCOM_KGSL
+	default y if ARCH_LAHAINA
+	help
+	 Say 'Y' here to enable I/O cache coherency by default on targets that
+	 support hardware I/O coherency. If enabled all cached GPU memory
+	 will use I/O coherency regardless of the user flags. If not enabled
+	 the user can still selectively enable I/O coherency with a flag.

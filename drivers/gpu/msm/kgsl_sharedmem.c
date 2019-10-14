@@ -14,6 +14,15 @@
 #include "kgsl_sharedmem.h"
 
 /*
+ * For now, we either need the low level cache operations or
+ * QCOM_KGSL_IOCOHERENCY_DEFAULT enabled because we can't stop userspace
+ * from expecting to enable cached surfaces and have them work
+ */
+#if !defined(dmac_flush_range) && !IS_ENABLED(CONFIG_QCOM_KGSL_IOCOHERENCY_DEFAULT)
+#error "KGSL needs either dmac_flush_range or CONFIG_QCOM_KGSL_IOCOHERENCY_DEFAULT enabled"
+#endif
+
+/*
  * The user can set this from debugfs to force failed memory allocations to
  * fail without trying OOM first.  This is a debug setting useful for
  * stress applications that want to test failure cases without pushing the
@@ -512,7 +521,8 @@ static inline unsigned int _fixup_cache_range_op(unsigned int op)
 }
 #endif
 
-static inline void _cache_op(unsigned int op,
+#ifdef dmac_flush_range
+static void _cache_op(unsigned int op,
 			const void *start, const void *end)
 {
 	/*
@@ -532,8 +542,8 @@ static inline void _cache_op(unsigned int op,
 	}
 }
 
-static int kgsl_do_cache_op(struct page *page, void *addr,
-		uint64_t offset, uint64_t size, unsigned int op)
+static void kgsl_do_cache_op(struct page *page, void *addr, u64 offset,
+		u64 size, unsigned int op)
 {
 	if (page != NULL) {
 		unsigned long pfn = page_to_pfn(page) + offset / PAGE_SIZE;
@@ -562,15 +572,21 @@ static int kgsl_do_cache_op(struct page *page, void *addr,
 				offset = 0;
 			} while (size);
 
-			return 0;
+			return;
 		}
 
 		addr = page_address(page);
 	}
 
 	_cache_op(op, addr + offset, addr + offset + (size_t) size);
-	return 0;
 }
+#else
+
+static void kgsl_do_cache_op(struct page *page, void *addr, u64 offset,
+		u64 size, unsigned int op)
+{
+}
+#endif
 
 int kgsl_cache_range_op(struct kgsl_memdesc *memdesc, uint64_t offset,
 		uint64_t size, unsigned int op)
@@ -579,7 +595,9 @@ int kgsl_cache_range_op(struct kgsl_memdesc *memdesc, uint64_t offset,
 	struct sg_table *sgt = NULL;
 	struct scatterlist *sg;
 	unsigned int i, pos = 0;
-	int ret = 0;
+
+	if (memdesc->flags & KGSL_MEMFLAGS_IOCOHERENT)
+		return 0;
 
 	if (size == 0 || size > UINT_MAX)
 		return -EINVAL;
@@ -598,8 +616,8 @@ int kgsl_cache_range_op(struct kgsl_memdesc *memdesc, uint64_t offset,
 		if (addr + ((size_t) offset + (size_t) size) < addr)
 			return -ERANGE;
 
-		ret = kgsl_do_cache_op(NULL, addr, offset, size, op);
-		return ret;
+		kgsl_do_cache_op(NULL, addr, offset, size, op);
+		return 0;
 	}
 
 	/*
@@ -610,7 +628,7 @@ int kgsl_cache_range_op(struct kgsl_memdesc *memdesc, uint64_t offset,
 		sgt = memdesc->sgt;
 	else {
 		if (memdesc->pages == NULL)
-			return ret;
+			return  0;
 
 		sgt = kgsl_alloc_sgt_from_pages(memdesc);
 		if (IS_ERR(sgt))
@@ -627,7 +645,7 @@ int kgsl_cache_range_op(struct kgsl_memdesc *memdesc, uint64_t offset,
 		sg_offset = offset > pos ? offset - pos : 0;
 		sg_left = (sg->length - sg_offset > size) ? size :
 					sg->length - sg_offset;
-		ret = kgsl_do_cache_op(sg_page(sg), NULL, sg_offset,
+		kgsl_do_cache_op(sg_page(sg), NULL, sg_offset,
 							sg_left, op);
 		size -= sg_left;
 		if (size == 0)
@@ -638,7 +656,7 @@ int kgsl_cache_range_op(struct kgsl_memdesc *memdesc, uint64_t offset,
 	if (memdesc->sgt == NULL)
 		kgsl_free_sgt(sgt);
 
-	return ret;
+	return 0;
 }
 
 void kgsl_memdesc_init(struct kgsl_device *device,
@@ -657,8 +675,13 @@ void kgsl_memdesc_init(struct kgsl_device *device,
 		flags &= ~((uint64_t) KGSL_MEMFLAGS_USE_CPU_MAP);
 
 	/* Disable IO coherence if it is not supported on the chip */
-	if (!MMU_FEATURE(mmu, KGSL_MMU_IO_COHERENT))
+	if (!MMU_FEATURE(mmu, KGSL_MMU_IO_COHERENT)) {
 		flags &= ~((uint64_t) KGSL_MEMFLAGS_IOCOHERENT);
+
+		WARN_ONCE(IS_ENABLED(CONFIG_QCOM_KGSL_IOCOHERENCY_DEFAULT),
+			"I/O coherency is not supported on this target\n");
+	} else if (IS_ENABLED(CONFIG_QCOM_KGSL_IOCOHERENCY_DEFAULT))
+		flags |= KGSL_MEMFLAGS_IOCOHERENT;
 
 	if (MMU_FEATURE(mmu, KGSL_MMU_NEED_GUARD_PAGE))
 		memdesc->priv |= KGSL_MEMDESC_GUARD_PAGE;
