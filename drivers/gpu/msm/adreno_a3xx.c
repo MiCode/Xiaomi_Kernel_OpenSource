@@ -3,7 +3,6 @@
  * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
-#include <linux/clk/qcom.h>
 #include <linux/firmware.h>
 #include <linux/of.h>
 #include <linux/slab.h>
@@ -1367,24 +1366,7 @@ static void a3xx_microcode_load(struct adreno_device *adreno_dev)
 static void a3xx_clk_set_options(struct adreno_device *adreno_dev,
 	const char *name, struct clk *clk, bool on)
 {
-	if (!adreno_is_a306a(adreno_dev))
-		return;
-
-	/* Handle clock settings for GFX PSCBCs */
-	if (on) {
-		if (!strcmp(name, "mem_iface_clk")) {
-			clk_set_flags(clk, CLKFLAG_NORETAIN_PERIPH);
-			clk_set_flags(clk, CLKFLAG_NORETAIN_MEM);
-		} else if (!strcmp(name, "core_clk")) {
-			clk_set_flags(clk, CLKFLAG_RETAIN_PERIPH);
-			clk_set_flags(clk, CLKFLAG_RETAIN_MEM);
-		}
-	} else {
-		if (!strcmp(name, "core_clk")) {
-			clk_set_flags(clk, CLKFLAG_NORETAIN_PERIPH);
-			clk_set_flags(clk, CLKFLAG_NORETAIN_MEM);
-		}
-	}
+	WARN(adreno_is_a306a(adreno_dev), "clk_set_flags() not supported\n");
 }
 
 static u64 a3xx_read_alwayson(struct adreno_device *adreno_dev)
