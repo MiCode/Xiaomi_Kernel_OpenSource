@@ -1811,7 +1811,7 @@ static void _set_ordinals(struct adreno_device *adreno_dev,
 		*cmds++ = 0x0;
 }
 
-int a5xx_critical_packet_submit(struct adreno_device *adreno_dev,
+static int a5xx_critical_packet_submit(struct adreno_device *adreno_dev,
 					struct adreno_ringbuffer *rb)
 {
 	unsigned int *cmds;
@@ -1907,8 +1907,22 @@ static int a5xx_rb_start(struct adreno_device *adreno_dev)
 	if (ret)
 		return ret;
 
-	/* GPU comes up in secured mode, make it unsecured by default */
-	ret = adreno_set_unsecured_mode(adreno_dev, rb);
+	/* Run the critical packets if we need to */
+	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CRITICAL_PACKETS)) {
+		ret = a5xx_critical_packet_submit(adreno_dev, rb);
+		if (ret)
+			return ret;
+	}
+
+	/*
+	 * Try to execute the zap shader if it exists, otherwise just try
+	 * directly writing to the control register
+	 */
+	if (!adreno_dev->zap_loaded)
+		kgsl_regwrite(device, A5XX_RBBM_SECVID_TRUST_CNTL, 0);
+	else
+		ret = adreno_switch_to_unsecure_mode(adreno_dev, rb);
+
 	if (ret)
 		return ret;
 
@@ -2433,10 +2447,6 @@ static unsigned int a5xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 				A5XX_RBBM_PERFCTR_LOAD_VALUE_LO),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_HI,
 				A5XX_RBBM_PERFCTR_LOAD_VALUE_HI),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_SECVID_TRUST_CONTROL,
-				A5XX_RBBM_SECVID_TRUST_CNTL),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_SECVID_TRUST_CONFIG,
-				A5XX_RBBM_SECVID_TRUST_CONFIG),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_SECVID_TSB_CONTROL,
 				A5XX_RBBM_SECVID_TSB_CNTL),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE,
