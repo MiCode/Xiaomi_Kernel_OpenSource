@@ -121,7 +121,7 @@ static const struct file_operations msm_ion_debug_heap_fops = {
 
 static void msm_ion_debugfs_create_file(struct msm_ion_heap *msm_heap)
 {
-	char debug_name[64], buf[256];
+	char debug_name[64];
 	struct dentry *debugfs_root;
 	struct ion_heap *heap;
 
@@ -132,8 +132,9 @@ static void msm_ion_debugfs_create_file(struct msm_ion_heap *msm_heap)
 		scnprintf(debug_name, 64, "%s_stats", heap->name);
 		if (!debugfs_create_file(debug_name, 0664, debugfs_root,
 					 msm_heap, &msm_ion_debug_heap_fops))
-			pr_err("Failed to create heap debugfs at %s/%s\n",
-			       dentry_path(debugfs_root, buf, 256), debug_name);
+			dev_err(msm_heap->dev,
+				"Failed to create %s debugfs entry\n",
+				debug_name);
 	}
 }
 
