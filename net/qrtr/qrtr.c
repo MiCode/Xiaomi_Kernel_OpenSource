@@ -11,6 +11,7 @@
 #include <linux/spinlock.h>
 #include <linux/wait.h>
 #include <linux/rwsem.h>
+#include <linux/uidgid.h>
 
 #include <net/sock.h>
 
@@ -26,6 +27,8 @@
 /* qrtr socket states */
 #define QRTR_STATE_MULTI	-2
 #define QRTR_STATE_INIT		-1
+
+#define AID_VENDOR_QRTR	KGIDT_INIT(2906)
 
 /**
  * struct qrtr_hdr_v1 - (I|R)PCrouter packet header version 1
@@ -1044,7 +1047,10 @@ static int qrtr_port_assign(struct qrtr_sock *ipc, int *port)
 				      QRTR_MAX_EPH_SOCKET + 1, GFP_ATOMIC);
 		if (rc >= 0)
 			*port = rc;
-	} else if (*port < QRTR_MIN_EPH_SOCKET && !capable(CAP_NET_ADMIN)) {
+	} else if (*port < QRTR_MIN_EPH_SOCKET &&
+		   !(capable(CAP_NET_ADMIN) ||
+		   in_egroup_p(AID_VENDOR_QRTR) ||
+		   in_egroup_p(GLOBAL_ROOT_GID))) {
 		rc = -EACCES;
 	} else if (*port == QRTR_PORT_CTRL) {
 		rc = idr_alloc(&qrtr_ports, ipc, 0, 1, GFP_ATOMIC);
@@ -1643,9 +1649,6 @@ static int qrtr_addr_doit(struct sk_buff *skb, struct nlmsghdr *nlh,
 	int rc;
 
 	if (!netlink_capable(skb, CAP_NET_ADMIN))
-		return -EPERM;
-
-	if (!netlink_capable(skb, CAP_SYS_ADMIN))
 		return -EPERM;
 
 	ASSERT_RTNL();
