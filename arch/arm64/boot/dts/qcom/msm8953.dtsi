@@ -137,8 +137,11 @@
 		};
 
 		adsp_shmem_device_mem: adsp_shmem_device_region@0xc0100000 {
-			reg = <0x0 0xc0100000 0x0 0x08200000>;
-			label = "adsp_shmem_device_mem";
+			compatible = "shared-dma-pool";
+			reusable;
+			alloc-ranges = <0x0 0xc0100000 0x0 0x08200000>;
+			alignment = <0 0x400000>;
+			size = <0 0x800000>;
 		};
 
 		gpu_mem: gpu_region@0 {
