@@ -13,6 +13,7 @@
 #include <linux/wait.h>
 #include <linux/rwsem.h>
 #include <linux/uidgid.h>
+#include <linux/pm_wakeup.h>
 
 #include <net/sock.h>
 #include <uapi/linux/sched/types.h>
@@ -140,6 +141,7 @@ static DEFINE_MUTEX(qrtr_port_lock);
  * @kworker: worker thread for recv work
  * @task: task to run the worker thread
  * @read_data: scheduled work for recv work
+ * @ws: wakeupsource avoid system suspend
  */
 struct qrtr_node {
 	struct mutex ep_lock;
@@ -159,6 +161,8 @@ struct qrtr_node {
 	struct kthread_worker kworker;
 	struct task_struct *task;
 	struct kthread_work read_data;
+
+	struct wakeup_source *ws;
 };
 
 struct qrtr_tx_flow_waiter {
@@ -258,6 +262,7 @@ static void __qrtr_node_release(struct kref *kref)
 	}
 	mutex_unlock(&node->qrtr_tx_lock);
 
+	wakeup_source_unregister(node->ws);
 	kthread_flush_worker(&node->kworker);
 	kthread_stop(node->task);
 
@@ -685,6 +690,7 @@ int qrtr_endpoint_post(struct qrtr_endpoint *ep, const void *data, size_t len)
 	if (cb->type != QRTR_TYPE_DATA || cb->dst_node != qrtr_local_nid) {
 		skb_queue_tail(&node->rx_queue, skb);
 		kthread_queue_work(&node->kworker, &node->read_data);
+		__pm_wakeup_event(node->ws, 0);
 	} else {
 		ipc = qrtr_port_lookup(cb->dst_port);
 		if (!ipc)
@@ -890,6 +896,8 @@ int qrtr_endpoint_register(struct qrtr_endpoint *ep, unsigned int net_id,
 	list_add(&node->item, &qrtr_all_epts);
 	up_write(&qrtr_epts_lock);
 	ep->node = node;
+
+	node->ws = wakeup_source_register("qrtr_ws");
 
 	return 0;
 }
