@@ -589,6 +589,21 @@ struct ipahal_pkt_status {
 };
 
 /*
+ * struct ipahal_pkt_status_thin - this struct is used to parse only
+ *  a few fields from the status packet, needed for LAN optimization.
+ * @exception: The first exception that took place.
+ * @metadata: meta data value used by packet
+ * @endp_src_idx: Source end point index.
+ * @ucp: UC Processing flag
+ */
+struct ipahal_pkt_status_thin {
+	enum ipahal_pkt_status_exception exception;
+	u32 metadata;
+	u8 endp_src_idx;
+	bool ucp;
+};
+
+/*
  * ipahal_pkt_status_get_size() - Get H/W size of packet status
  */
 u32 ipahal_pkt_status_get_size(void);
@@ -600,6 +615,17 @@ u32 ipahal_pkt_status_get_size(void);
  */
 void ipahal_pkt_status_parse(const void *unparsed_status,
 	struct ipahal_pkt_status *status);
+
+/*
+ * ipahal_pkt_status_parse_thin() - Parse some of the packet status fields
+ * for specific usage in the LAN rx data path where parsing needs to be done
+ * but only for specific fields.
+ * @unparsed_status: Pointer to H/W format of the packet status as read from HW
+ * @status: Pointer to pre-allocated buffer where the parsed info will be
+ * stored
+ */
+void ipahal_pkt_status_parse_thin(const void *unparsed_status,
+	struct ipahal_pkt_status_thin *status);
 
 /*
  * ipahal_pkt_status_exception_str() - returns string represents exception type
