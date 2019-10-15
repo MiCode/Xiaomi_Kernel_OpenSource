@@ -1046,10 +1046,8 @@ static int dp_display_usbpd_disconnect_cb(struct device *dev)
 		goto end;
 	}
 
-	mutex_lock(&dp->session_lock);
 	if (dp->debug->psm_enabled && dp->core_initialized)
 		dp->link->psm_config(dp->link, &dp->panel->link_info, true);
-	mutex_unlock(&dp->session_lock);
 
 	dp_display_disconnect_sync(dp);
 
