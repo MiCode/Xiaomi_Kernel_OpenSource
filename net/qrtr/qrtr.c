@@ -3,6 +3,7 @@
  * Copyright (c) 2015, Sony Mobile Communications Inc.
  * Copyright (c) 2013, 2018-2019 The Linux Foundation. All rights reserved.
  */
+#include <linux/kthread.h>
 #include <linux/module.h>
 #include <linux/netlink.h>
 #include <linux/qrtr.h>
@@ -134,8 +135,10 @@ static DEFINE_MUTEX(qrtr_port_lock);
  * @resume_tx: waiters for a resume tx from the remote
  * @qrtr_tx_lock: lock for qrtr_tx_flow
  * @rx_queue: receive queue
- * @work: scheduled work struct for recv work
  * @item: list item for broadcast list
+ * @kworker: worker thread for recv work
+ * @task: task to run the worker thread
+ * @read_data: scheduled work for recv work
  */
 struct qrtr_node {
 	struct mutex ep_lock;
@@ -150,8 +153,11 @@ struct qrtr_node {
 	struct mutex qrtr_tx_lock; /* for qrtr_tx_flow */
 
 	struct sk_buff_head rx_queue;
-	struct work_struct work;
 	struct list_head item;
+
+	struct kthread_worker kworker;
+	struct task_struct *task;
+	struct kthread_work read_data;
 };
 
 struct qrtr_tx_flow_waiter {
@@ -251,7 +257,9 @@ static void __qrtr_node_release(struct kref *kref)
 	}
 	mutex_unlock(&node->qrtr_tx_lock);
 
-	cancel_work_sync(&node->work);
+	kthread_flush_worker(&node->kworker);
+	kthread_stop(node->task);
+
 	skb_queue_purge(&node->rx_queue);
 	kfree(node);
 }
@@ -675,7 +683,7 @@ int qrtr_endpoint_post(struct qrtr_endpoint *ep, const void *data, size_t len)
 	 */
 	if (cb->type != QRTR_TYPE_DATA || cb->dst_node != qrtr_local_nid) {
 		skb_queue_tail(&node->rx_queue, skb);
-		schedule_work(&node->work);
+		kthread_queue_work(&node->kworker, &node->read_data);
 	} else {
 		ipc = qrtr_port_lookup(cb->dst_port);
 		if (!ipc)
@@ -795,9 +803,10 @@ static void qrtr_fwd_pkt(struct sk_buff *skb, struct qrtr_cb *cb)
 }
 
 /* Handle not atomic operations for a received packet. */
-static void qrtr_node_rx_work(struct work_struct *work)
+static void qrtr_node_rx_work(struct kthread_work *work)
 {
-	struct qrtr_node *node = container_of(work, struct qrtr_node, work);
+	struct qrtr_node *node = container_of(work, struct qrtr_node,
+					      read_data);
 	struct sk_buff *skb;
 
 	while ((skb = skb_dequeue(&node->rx_queue)) != NULL) {
@@ -849,13 +858,20 @@ int qrtr_endpoint_register(struct qrtr_endpoint *ep, unsigned int net_id)
 	if (!node)
 		return -ENOMEM;
 
-	INIT_WORK(&node->work, qrtr_node_rx_work);
 	kref_init(&node->ref);
 	mutex_init(&node->ep_lock);
 	skb_queue_head_init(&node->rx_queue);
 	node->nid = QRTR_EP_NID_AUTO;
 	node->ep = ep;
 	atomic_set(&node->hello_sent, 0);
+
+	kthread_init_work(&node->read_data, qrtr_node_rx_work);
+	kthread_init_worker(&node->kworker);
+	node->task = kthread_run(kthread_worker_fn, &node->kworker, "qrtr_rx");
+	if (IS_ERR(node->task)) {
+		kfree(node);
+		return -ENOMEM;
+	}
 
 	mutex_init(&node->qrtr_tx_lock);
 	INIT_RADIX_TREE(&node->qrtr_tx_flow, GFP_KERNEL);
