@@ -12,15 +12,11 @@
 extern void *cnss_ipc_log_context;
 extern void *cnss_ipc_log_long_context;
 
-#define cnss_ipc_log_string(_x...) do {					\
-		if (cnss_ipc_log_context)				\
-			ipc_log_string(cnss_ipc_log_context, _x);	\
-	} while (0)
+#define cnss_ipc_log_string(_x...)					\
+	ipc_log_string(cnss_ipc_log_context, _x)
 
-#define cnss_ipc_log_long_string(_x...) do {				\
-		if (cnss_ipc_log_long_context)				\
-			ipc_log_string(cnss_ipc_log_long_context, _x);	\
-	} while (0)
+#define cnss_ipc_log_long_string(_x...)					\
+	ipc_log_string(cnss_ipc_log_long_context, _x)
 
 #define cnss_pr_err(_fmt, ...) do {					\
 		printk("%scnss: " _fmt, KERN_ERR, ##__VA_ARGS__);	\
