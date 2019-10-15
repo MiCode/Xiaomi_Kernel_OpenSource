@@ -43,7 +43,7 @@ static int qrtr_tun_open(struct inode *inode, struct file *filp)
 
 	filp->private_data = tun;
 
-	return qrtr_endpoint_register(&tun->ep, QRTR_EP_NID_AUTO);
+	return qrtr_endpoint_register(&tun->ep, QRTR_EP_NET_ID_AUTO);
 }
 
 static ssize_t qrtr_tun_read_iter(struct kiocb *iocb, struct iov_iter *to)
