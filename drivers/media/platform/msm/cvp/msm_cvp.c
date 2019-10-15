@@ -420,9 +420,9 @@ static int msm_cvp_map_buf_user_persist(struct msm_cvp_inst *inst,
 	rc = msm_cvp_smem_map_dma_buf(inst, &cbuf->smem);
 	if (rc) {
 		dprintk(CVP_ERR,
-		"%s: %x : fd %d %s size %d",
+		"%s: %x : fd %d size %d",
 		"map persist failed", hash32_ptr(inst->session), cbuf->smem.fd,
-		cbuf->smem.dma_buf->name, cbuf->smem.size);
+		cbuf->smem.size);
 		goto exit;
 	}
 
