@@ -5552,6 +5552,43 @@ end:
 	return rc;
 }
 
+/**
+ * sde_crtc_get_num_datapath - get the number of datapath active
+ *				of primary connector
+ * @crtc: Pointer to DRM crtc object
+ * @connector: Pointer to DRM connector object of WB in CWB case
+ */
+int sde_crtc_get_num_datapath(struct drm_crtc *crtc,
+		struct drm_connector *connector)
+{
+	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
+	struct sde_connector_state *sde_conn_state = NULL;
+	struct drm_connector *conn;
+	struct drm_connector_list_iter conn_iter;
+
+	if (!sde_crtc || !connector) {
+		SDE_DEBUG("Invalid argument\n");
+		return 0;
+	}
+
+	if (sde_crtc->num_mixers)
+		return sde_crtc->num_mixers;
+
+	drm_connector_list_iter_begin(crtc->dev, &conn_iter);
+	drm_for_each_connector_iter(conn, &conn_iter) {
+		if (conn->state && conn->state->crtc == crtc &&
+				 conn != connector)
+			sde_conn_state = to_sde_connector_state(conn->state);
+	}
+
+	drm_connector_list_iter_end(&conn_iter);
+
+	if (sde_conn_state)
+		return sde_conn_state->mode_info.topology.num_lm;
+
+	return 0;
+}
+
 int sde_crtc_vblank(struct drm_crtc *crtc, bool en)
 {
 	struct sde_crtc *sde_crtc;

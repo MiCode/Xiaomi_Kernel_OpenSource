@@ -1533,7 +1533,7 @@ static int _sde_rm_populate_requirements(
 		struct sde_rm_requirements *reqs)
 {
 	const struct drm_display_mode *mode = &crtc_state->mode;
-	int i;
+	int i, num_lm;
 
 	memset(reqs, 0, sizeof(*reqs));
 
@@ -1583,9 +1583,18 @@ static int _sde_rm_populate_requirements(
 		 */
 		reqs->topology =
 			&rm->topology_tbl[SDE_RM_TOPOLOGY_DUALPIPE_3DMERGE];
-		if (sde_crtc_get_num_datapath(crtc_state->crtc) == 1)
+
+		num_lm = sde_crtc_get_num_datapath(crtc_state->crtc,
+				conn_state->connector);
+
+		if (num_lm == 1)
 			reqs->topology =
 				&rm->topology_tbl[SDE_RM_TOPOLOGY_SINGLEPIPE];
+		else if (num_lm == 0)
+			SDE_ERROR("Primary layer mixer is not set\n");
+
+		SDE_EVT32(num_lm, reqs->topology->num_lm,
+			reqs->topology->top_name, reqs->topology->num_ctl);
 	}
 
 	SDE_DEBUG("top_ctrl: 0x%llX num_h_tiles: %d\n", reqs->top_ctrl,
