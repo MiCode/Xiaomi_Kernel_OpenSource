@@ -1613,6 +1613,43 @@ static int adreno_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int adreno_pm_resume(struct device *dev)
+{
+	struct kgsl_device *device = dev_get_drvdata(dev);
+
+	mutex_lock(&device->mutex);
+	if (device->state == KGSL_STATE_SUSPEND) {
+		adreno_dispatcher_unhalt(device);
+		kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
+	} else if (device->state != KGSL_STATE_INIT) {
+		/*
+		 * This is an error situation so wait for the device to idle and
+		 * then put the device in SLUMBER state.  This will get us to
+		 * the right place when we resume.
+		 */
+		if (device->state == KGSL_STATE_ACTIVE)
+			adreno_idle(device);
+		kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
+		dev_err(device->dev, "resume invoked without a suspend\n");
+	}
+	mutex_unlock(&device->mutex);
+	return 0;
+}
+
+static int adreno_pm_suspend(struct device *dev)
+{
+	struct kgsl_device *device = dev_get_drvdata(dev);
+	int status;
+
+	mutex_lock(&device->mutex);
+	status = kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
+	if (!status && device->state == KGSL_STATE_SUSPEND)
+		adreno_dispatcher_halt(device);
+	mutex_unlock(&device->mutex);
+
+	return status;
+}
+
 static void adreno_fault_detect_init(struct adreno_device *adreno_dev)
 {
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
@@ -3741,21 +3778,21 @@ static const struct kgsl_functable adreno_functable = {
 	.clk_set_options = adreno_clk_set_options,
 	.gpu_model = adreno_gpu_model,
 	.stop_fault_timer = adreno_dispatcher_stop_fault_timer,
-	.dispatcher_halt = adreno_dispatcher_halt,
-	.dispatcher_unhalt = adreno_dispatcher_unhalt,
 	.query_property_list = adreno_query_property_list,
 	.is_hwcg_on = adreno_is_hwcg_on,
+};
+
+static const struct dev_pm_ops adreno_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(adreno_pm_suspend, adreno_pm_resume)
 };
 
 static struct platform_driver adreno_platform_driver = {
 	.probe = adreno_probe,
 	.remove = adreno_remove,
-	.suspend = kgsl_suspend_driver,
-	.resume = kgsl_resume_driver,
 	.id_table = adreno_id_table,
 	.driver = {
 		.name = "kgsl-3d",
-		.pm = &kgsl_pm_ops,
+		.pm = &adreno_pm_ops,
 		.of_match_table = adreno_match_table,
 	}
 };
