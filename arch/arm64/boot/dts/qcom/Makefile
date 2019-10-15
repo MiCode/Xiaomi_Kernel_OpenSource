@@ -103,7 +103,9 @@ dtb-$(CONFIG_QTI_GVM) += sa8155-vm.dtb \
 	sa8155-vm-lv-mt.dtb \
 	sa8155-vm-la-mt.dtb \
 	sa6155p-vm.dtb \
-	sa8195-vm.dtb
+	sa8195-vm.dtb \
+	sa8195-vm-lv.dtb \
+	sa8195-vm-lv-mt.dtb
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 	dtbo-$(CONFIG_ARCH_SDMSHRIKE) += \
