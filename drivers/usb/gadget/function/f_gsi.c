@@ -3359,6 +3359,13 @@ static void gsi_unbind(struct usb_configuration *c, struct usb_function *f)
 	drain_workqueue(gsi->d_port.ipa_usb_wq);
 	ipa_usb_deinit_teth_prot((enum ipa_usb_teth_prot)gsi->prot_id);
 
+	/* Reset string ids */
+	rndis_gsi_string_defs[0].id = 0;
+	ecm_gsi_string_defs[0].id   = 0;
+	rmnet_gsi_string_defs[0].id = 0;
+	mbim_gsi_string_defs[0].id  = 0;
+	qdss_gsi_string_defs[0].id  = 0;
+
 skip_ipa_dinit:
 	if (gsi->prot_id == USB_PROT_RNDIS_IPA) {
 		gsi->d_port.sm_state = STATE_UNINITIALIZED;
