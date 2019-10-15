@@ -155,6 +155,14 @@ struct msm_vidc_s3d_frame_packing_payload {
 	__u32 fpa_extension_flag;
 };
 
+struct msm_vidc_roi_qp_payload {
+	__s32 upper_qp_offset;
+	__s32 lower_qp_offset;
+	__u32 b_roi_info;
+	__u32 mbi_info_size;
+	__u32 data[1];
+};
+
 #define MSM_VIDC_EXTRADATA_ROI_QP 0x00000013
 struct msm_vidc_roi_deltaqp_payload {
 	__u32 b_roi_info; /*Enable/Disable*/
