@@ -863,11 +863,53 @@ struct ipahal_imm_cmd_pyld *ipahal_construct_nop_imm_cmd(
 	(status->status_mask |= \
 		((hw_status->status_mask & (__hw_bit_msk) ? 1 : 0) << (__shft)))
 
+static enum ipahal_pkt_status_exception pkt_status_parse_exception(
+	bool is_ipv6, u64 exception)
+{
+	enum ipahal_pkt_status_exception exception_type = 0;
+
+	switch (exception) {
+	case 0:
+		exception_type = IPAHAL_PKT_STATUS_EXCEPTION_NONE;
+		break;
+	case 1:
+		exception_type = IPAHAL_PKT_STATUS_EXCEPTION_DEAGGR;
+		break;
+	case 4:
+		exception_type = IPAHAL_PKT_STATUS_EXCEPTION_IPTYPE;
+		break;
+	case 8:
+		exception_type = IPAHAL_PKT_STATUS_EXCEPTION_PACKET_LENGTH;
+		break;
+	case 16:
+		exception_type = IPAHAL_PKT_STATUS_EXCEPTION_FRAG_RULE_MISS;
+		break;
+	case 32:
+		exception_type = IPAHAL_PKT_STATUS_EXCEPTION_SW_FILT;
+		break;
+	case 64:
+		if (is_ipv6)
+			exception_type = IPAHAL_PKT_STATUS_EXCEPTION_IPV6CT;
+		else
+			exception_type = IPAHAL_PKT_STATUS_EXCEPTION_NAT;
+		break;
+	case 229:
+		exception_type = IPAHAL_PKT_STATUS_EXCEPTION_CSUM;
+		break;
+	default:
+		IPAHAL_ERR("unsupported Status Exception type 0x%x\n",
+			exception);
+		WARN_ON(1);
+	}
+
+	return exception_type;
+}
+
+
 static void ipa_pkt_status_parse(
 	const void *unparsed_status, struct ipahal_pkt_status *status)
 {
 	enum ipahal_pkt_status_opcode opcode = 0;
-	enum ipahal_pkt_status_exception exception_type = 0;
 	bool is_ipv6;
 
 	struct ipa_pkt_status_hw *hw_status =
@@ -945,40 +987,8 @@ static void ipa_pkt_status_parse(
 		IPAHAL_ERR_RL("unsupported Status NAT type 0x%x\n",
 			hw_status->nat_type);
 	}
-
-	switch (hw_status->exception) {
-	case 0:
-		exception_type = IPAHAL_PKT_STATUS_EXCEPTION_NONE;
-		break;
-	case 1:
-		exception_type = IPAHAL_PKT_STATUS_EXCEPTION_DEAGGR;
-		break;
-	case 4:
-		exception_type = IPAHAL_PKT_STATUS_EXCEPTION_IPTYPE;
-		break;
-	case 8:
-		exception_type = IPAHAL_PKT_STATUS_EXCEPTION_PACKET_LENGTH;
-		break;
-	case 16:
-		exception_type = IPAHAL_PKT_STATUS_EXCEPTION_FRAG_RULE_MISS;
-		break;
-	case 32:
-		exception_type = IPAHAL_PKT_STATUS_EXCEPTION_SW_FILT;
-		break;
-	case 64:
-		if (is_ipv6)
-			exception_type = IPAHAL_PKT_STATUS_EXCEPTION_IPV6CT;
-		else
-			exception_type = IPAHAL_PKT_STATUS_EXCEPTION_NAT;
-		break;
-	case 229:
-		exception_type = IPAHAL_PKT_STATUS_EXCEPTION_CSUM;
-		break;
-	default:
-		IPAHAL_ERR_RL("unsupported Status Exception type 0x%x\n",
-			hw_status->exception);
-	}
-	status->exception = exception_type;
+	status->exception = pkt_status_parse_exception(is_ipv6,
+						hw_status->exception);
 
 	IPA_PKT_STATUS_SET_MSK(0x1, IPAHAL_PKT_STATUS_MASK_FRAG_PROCESS_SHFT);
 	IPA_PKT_STATUS_SET_MSK(0x2, IPAHAL_PKT_STATUS_MASK_FILT_PROCESS_SHFT);
@@ -1003,15 +1013,49 @@ static void ipa_pkt_status_parse(
 }
 
 /*
+ * ipa_pkt_status_parse_thin() - Parse some of the packet status fields
+ * for specific usage in the LAN rx data path where parsing needs to be done
+ * but only for specific fields.
+ * @unparsed_status: Pointer to H/W format of the packet status as read from HW
+ * @status: Pointer to pre-allocated buffer where the parsed info will be
+ * stored
+ */
+static void ipa_pkt_status_parse_thin(const void *unparsed_status,
+	struct ipahal_pkt_status_thin *status)
+{
+	struct ipa_pkt_status_hw *hw_status =
+		(struct ipa_pkt_status_hw *)unparsed_status;
+	bool is_ipv6;
+
+	is_ipv6 = (hw_status->status_mask & 0x80) ? false : true;
+	if (!unparsed_status || !status) {
+		IPAHAL_ERR("Input Error: unparsed_status=%pK status=%pK\n",
+			unparsed_status, status);
+		return;
+	}
+
+	IPAHAL_DBG_LOW("Parse Thin Status Packet\n");
+	status->metadata = hw_status->metadata;
+	status->endp_src_idx = hw_status->endp_src_idx;
+	status->ucp = hw_status->ucp;
+	status->exception = pkt_status_parse_exception(is_ipv6,
+						hw_status->exception);
+}
+
+/*
  * struct ipahal_pkt_status_obj - Pakcet Status H/W information for
  *  specific IPA version
  * @size: H/W size of the status packet
  * @parse: CB that parses the H/W packet status into the abstracted structure
+ * @parse_thin: light weight CB that parses only some of the fields for
+ * data path optimization
  */
 struct ipahal_pkt_status_obj {
 	u32 size;
 	void (*parse)(const void *unparsed_status,
 		struct ipahal_pkt_status *status);
+	void (*parse_thin)(const void *unparsed_status,
+			struct ipahal_pkt_status_thin *status);
 };
 
 /*
@@ -1027,6 +1071,7 @@ static struct ipahal_pkt_status_obj ipahal_pkt_status_objs[IPA_HW_MAX] = {
 	[IPA_HW_v3_0] = {
 		IPA3_0_PKT_STATUS_SIZE,
 		ipa_pkt_status_parse,
+		ipa_pkt_status_parse_thin,
 		},
 };
 
@@ -1050,6 +1095,8 @@ static int ipahal_pkt_status_init(enum ipa_hw_type ipa_hw_type)
 	/*
 	 * Since structure alignment is implementation dependent,
 	 * add test to avoid different and incompatible data layouts.
+	 * If test fails it also means that ipahal_pkt_status_parse_thin
+	 * need to be checked.
 	 *
 	 * In case new H/W has different size or structure of status packet,
 	 * add a compile time validty check for it like below (as well as
@@ -1079,6 +1126,12 @@ static int ipahal_pkt_status_init(enum ipa_hw_type ipa_hw_type)
 			if (!ipahal_pkt_status_objs[i+1].parse) {
 				IPAHAL_ERR(
 				  "Packet Status without Parse func ipa_ver=%d\n",
+				  i+1);
+				WARN_ON(1);
+			}
+			if (!ipahal_pkt_status_objs[i+1].parse_thin) {
+				IPAHAL_ERR(
+				  "Packet Status without Parse_thin func ipa_ver=%d\n",
 				  i+1);
 				WARN_ON(1);
 			}
@@ -1114,6 +1167,26 @@ void ipahal_pkt_status_parse(const void *unparsed_status,
 	memset(status, 0, sizeof(*status));
 	ipahal_pkt_status_objs[ipahal_ctx->hw_type].parse(unparsed_status,
 		status);
+}
+
+/*
+ * ipahal_pkt_status_parse_thin() - Similar to iphal_pkt_status_parse,
+ * the difference is it only parses some of the status packet fields
+ * used for TP optimization.
+ * @unparsed_status: Pointer to H/W format of the packet status as read from H/W
+ * @status: Pointer to pre-allocated buffer where the parsed info will be stored
+ */
+void ipahal_pkt_status_parse_thin(const void *unparsed_status,
+	struct ipahal_pkt_status_thin *status)
+{
+	if (!unparsed_status || !status) {
+		IPAHAL_ERR("Input Error: unparsed_status=%pK status=%pK\n",
+			unparsed_status, status);
+		return;
+	}
+	IPAHAL_DBG_LOW("Parse_thin Status Packet\n");
+	ipahal_pkt_status_objs[ipahal_ctx->hw_type].parse_thin(unparsed_status,
+				status);
 }
 
 /*
