@@ -3065,8 +3065,8 @@
 		qca,bt-vdd-xtal-supply = <&pm6150l_l1>;/* X0 */
 
 		qca,bt-vdd-io-voltage-level = <1700000 1900000>;
-		qca,bt-vdd-core-voltage-level = <1245000 1350000>;
-		qca,bt-vdd-pa-voltage-level = <3200000 3400000>;
+		qca,bt-vdd-core-voltage-level = <1304000 1304000>;
+		qca,bt-vdd-pa-voltage-level = <3304000 3304000>;
 		qca,bt-vdd-xtal-voltage-level = <1700000 1900000>;
 
 		qca,bt-vdd-io-current-level = <1>; /* LPM/PFM */
