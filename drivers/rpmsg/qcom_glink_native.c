@@ -29,14 +29,11 @@
 
 #define GLINK_LOG_PAGE_CNT 2
 #define GLINK_INFO(ctxt, x, ...)					  \
-do {									  \
-	if (ctxt)							  \
-		ipc_log_string(ctxt, "[%s]: "x, __func__, ##__VA_ARGS__); \
-} while (0)
+	ipc_log_string(ctxt, "[%s]: "x, __func__, ##__VA_ARGS__)
 
 #define CH_INFO(ch, x, ...)						     \
 do {									     \
-	if (ch->glink && ch->glink->ilc)				     \
+	if (ch->glink)							     \
 		ipc_log_string(ch->glink->ilc, "%s[%d:%d] %s: "x, ch->name,  \
 			       ch->lcid, ch->rcid, __func__, ##__VA_ARGS__); \
 } while (0)
