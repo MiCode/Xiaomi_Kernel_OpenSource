@@ -968,6 +968,8 @@ int mhi_dev_sm_exit(struct mhi_dev *mhi_dev)
 	mhi_sm_debugfs_destroy();
 	flush_workqueue(mhi_sm_ctx->mhi_sm_wq);
 	destroy_workqueue(mhi_sm_ctx->mhi_sm_wq);
+	/* Initiate MHI IPA reset */
+	ipa_mhi_destroy();
 	ipa_dma_destroy();
 	mutex_destroy(&mhi_sm_ctx->mhi_state_lock);
 	devm_kfree(mhi_dev->dev, mhi_sm_ctx);
