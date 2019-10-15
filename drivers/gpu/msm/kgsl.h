@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -169,6 +169,8 @@ struct kgsl_memdesc_ops {
 #define KGSL_MEMDESC_TZ_LOCKED BIT(7)
 /* The memdesc is allocated through contiguous memory */
 #define KGSL_MEMDESC_CONTIG BIT(8)
+/* For global buffers, randomly assign an address from the region */
+#define KGSL_MEMDESC_RANDOM BIT(9)
 
 /**
  * struct kgsl_memdesc - GPU memory object descriptor
