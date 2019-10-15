@@ -108,6 +108,169 @@ struct cam_vfe_top_ver2_reg_offset_module_ctrl zoom_170_reg = {
 	.enable   = 0x0000004C,
 };
 
+static struct cam_vfe_bus_ver2_stats_cfg_info stats_170_info  = {
+	.dmi_offset_info = {
+		.auto_increment = 0x00000100,
+		.cfg_offset     = 0x00000C24,
+		.addr_offset    = 0x00000C28,
+		.data_hi_offset = 0x00000C2C,
+		.data_lo_offset = 0x00000C30,
+	},
+	.stats_cfg_offset = {
+		/* CAM_VFE_BUS_VER2_VFE_OUT_RDI0 */
+		{
+		},
+		/* CAM_VFE_BUS_VER2_VFE_OUT_RDI1 */
+		{
+		},
+		/* CAM_VFE_BUS_VER2_VFE_OUT_RDI2 */
+		{
+		},
+		/* CAM_VFE_BUS_VER2_VFE_OUT_RDI3 */
+		{
+		},
+		/* CAM_VFE_BUS_VER2_VFE_OUT_FULL */
+		{
+		},
+		/* CAM_VFE_BUS_VER2_VFE_OUT_DS4 */
+		{
+		},
+		/* CAM_VFE_BUS_VER2_VFE_OUT_DS16 */
+		{
+		},
+		/* CAM_VFE_BUS_VER2_VFE_OUT_RAW_DUMP */
+		{
+		},
+		/* CAM_VFE_BUS_VER2_VFE_OUT_FD */
+		{
+		},
+		/* CAM_VFE_BUS_VER2_VFE_OUT_PDAF */
+		{
+		},
+		/* CAM_VFE_BUS_VER2_VFE_OUT_STATS_HDR_BE */
+		{
+			.res_index      = CAM_VFE_BUS_VER2_VFE_OUT_STATS_HDR_BE,
+			.cfg_offset     = 0x00000AB8,
+			.num_cfg        = 0x00000ABC,
+			.cfg_size       = 0x00000AC0,
+			.is_lut         = 0,
+			.lut            = {
+				.size           = 0,
+				.bank_0         = 0,
+				.bank_1         = 0,
+			},
+		},
+		/* CAM_VFE_BUS_VER2_VFE_OUT_STATS_HDR_BHIST */
+		{
+			.res_index      =
+				CAM_VFE_BUS_VER2_VFE_OUT_STATS_HDR_BHIST,
+			.cfg_offset     = 0x00000AD4,
+			.num_cfg        = 0x00000AD8,
+			.cfg_size       = 0x00000000,
+			.is_lut         = 1,
+			.lut            = {
+				.size           = 180,
+				.bank_0         = 0x36,
+				.bank_1         = 0x37,
+			},
+		},
+		/* CAM_VFE_BUS_VER2_VFE_OUT_STATS_TL_BG */
+		{
+		},
+		/* CAM_VFE_BUS_VER2_VFE_OUT_STATS_BF */
+		{
+			.res_index      = CAM_VFE_BUS_VER2_VFE_OUT_STATS_BF,
+			.cfg_offset     = 0x00000AE4,
+			.num_cfg        = 0x00000000,
+			.cfg_size       = 0x00000000,
+			.is_lut         = 1,
+			.lut            = {
+				.size           = 180,
+				.bank_0         = 0x40,
+				.bank_1         = 0x41,
+			},
+		},
+		/* CAM_VFE_BUS_VER2_VFE_OUT_STATS_AWB_BG */
+		{
+			.res_index      = CAM_VFE_BUS_VER2_VFE_OUT_STATS_AWB_BG,
+			.cfg_offset     = 0x00000BC8,
+			.num_cfg        = 0x00000BCC,
+			.cfg_size       = 0x00000BD0,
+			.is_lut         = 0,
+			.lut            = {
+				.size           = 0,
+				.bank_0         = 0,
+				.bank_1         = 0,
+			},
+		},
+		/* CAM_VFE_BUS_VER2_VFE_OUT_STATS_BHIST */
+		{
+			.res_index      = CAM_VFE_BUS_VER2_VFE_OUT_STATS_BHIST,
+			.cfg_offset     = 0x00000BE4,
+			.num_cfg        = 0x00000BE8,
+			.cfg_size       = 0x00000000,
+			.is_lut         = 1,
+			.lut            = {
+				.size           = 180,
+				.bank_0         = 0x3A,
+				.bank_1         = 0,
+			},
+		},
+		/* CAM_VFE_BUS_VER2_VFE_OUT_STATS_RS */
+		{
+			.res_index      = CAM_VFE_BUS_VER2_VFE_OUT_STATS_RS,
+			.cfg_offset     = 0x00000BEC,
+			.num_cfg        = 0x00000BF0,
+			.cfg_size       = 0x00000BF4,
+			.is_lut         = 0,
+			.lut            = {
+				.size           = 0,
+				.bank_0         = 0,
+				.bank_1         = 0,
+			},
+		},
+		/* CAM_VFE_BUS_VER2_VFE_OUT_STATS_CS */
+		{
+			.res_index      = CAM_VFE_BUS_VER2_VFE_OUT_STATS_CS,
+			.cfg_offset     = 0x00000BF8,
+			.num_cfg        = 0x00000BFC,
+			.cfg_size       = 0x00000C00,
+			.is_lut         = 0,
+			.lut            = {
+				.size           = 0,
+				.bank_0         = 0,
+				.bank_1         = 0,
+			},
+		},
+		/* CAM_VFE_BUS_VER2_VFE_OUT_STATS_IHIST */
+		{
+			.res_index      = CAM_VFE_BUS_VER2_VFE_OUT_STATS_IHIST,
+			.cfg_offset     = 0x00000C04,
+			.num_cfg        = 0x00000C08,
+			.cfg_size       = 0x00000000,
+			.is_lut         = 1,
+			.lut            = {
+				.size           = 180,
+				.bank_0         = 0x3B,
+				.bank_1         = 0x3C,
+			},
+		},
+		/* CAM_VFE_BUS_VER2_VFE_OUT_FULL_DISP */
+		{
+		},
+		/* CAM_VFE_BUS_VER2_VFE_OUT_DS4_DISP */
+		{
+		},
+		/* CAM_VFE_BUS_VER2_VFE_OUT_DS16_DISP */
+		{
+		},
+		/* CAM_VFE_BUS_VER2_VFE_OUT_2PD */
+		{
+		},
+	},
+};
+
+
 static struct cam_vfe_top_ver2_reg_offset_common vfe170_top_common_reg = {
 	.hw_version               = 0x00000000,
 	.hw_capability            = 0x00000004,
@@ -859,6 +1022,7 @@ static struct cam_vfe_bus_ver2_hw_info vfe170_bus_hw_info = {
 		.ubwc_8bit_threshold_lossy_0 = 0,
 		.ubwc_8bit_threshold_lossy_1 = 0,
 	},
+	.stats_data = &stats_170_info,
 };
 
 struct cam_vfe_hw_info cam_vfe170_hw_info = {
