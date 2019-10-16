@@ -1549,7 +1549,7 @@
 	};
 
 	clock_dispcc: qcom,dispcc@af00000 {
-		compatible = "qcom,dispcc-sm8150";
+		compatible = "qcom,dispcc-sm8150", "syscon";
 		reg = <0xaf00000 0x20000>;
 		reg-names = "cc_base";
 		vdd_mm-supply = <&VDD_MMCX_LEVEL>;
@@ -1601,6 +1601,26 @@
 	cpucc_debug: syscon@182a0018 {
 		compatible = "syscon";
 		reg = <0x182a0018 0x4>;
+	};
+
+	mccc_debug: syscon@90b0000 {
+		compatible = "syscon";
+		reg = <0x90b0000 0x1000>;
+	};
+
+	clock_debugcc: qcom,cc-debug {
+		compatible = "qcom,debugcc-sdmshrike";
+		qcom,gcc = <&clock_gcc>;
+		qcom,videocc = <&clock_videocc>;
+		qcom,camcc = <&clock_camcc>;
+		qcom,dispcc = <&clock_dispcc>;
+		qcom,gpucc = <&clock_gpucc>;
+		qcom,cpucc = <&cpucc_debug>;
+		qcom,npucc = <&clock_npucc>;
+		qcom,mccc = <&mccc_debug>;
+		clocks = <&clock_rpmh RPMH_CXO_CLK>;
+		clock-names = "cxo";
+		#clock-cells = <1>;
 	};
 
 	tsens0: tsens@c222000 {
