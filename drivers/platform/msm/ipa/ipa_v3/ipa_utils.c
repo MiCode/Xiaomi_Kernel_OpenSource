@@ -7229,15 +7229,11 @@ static int __ipa3_stop_gsi_channel(u32 clnt_hdl)
 				client_type);
 		}
 	}
-	if (IPA_CLIENT_IS_PROD(ep->client)) {
-		IPADBG("Calling gsi_stop_channel ch:%lu\n",
-			ep->gsi_chan_hdl);
-		res = gsi_stop_channel(ep->gsi_chan_hdl);
-		IPADBG("gsi_stop_channel ch: %lu returned %d\n",
-			ep->gsi_chan_hdl, res);
-		return res;
-	}
 
+	/*
+	 * Apply the GSI stop retry logic if GSI returns err code to retry.
+	 * Apply the retry logic for ipa_client_prod as well as ipa_client_cons.
+	 */
 	for (i = 0; i < IPA_GSI_CHANNEL_STOP_MAX_RETRY; i++) {
 		IPADBG("Calling gsi_stop_channel ch:%lu\n",
 			ep->gsi_chan_hdl);
