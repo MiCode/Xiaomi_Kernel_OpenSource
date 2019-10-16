@@ -9,9 +9,11 @@
 #include <linux/kernel.h>
 #include <linux/mm.h>
 #include <linux/uaccess.h>
+#include <linux/dma-noncoherent.h>
 #include "ipa_i.h"
 #include "ipahal/ipahal.h"
 #include "ipahal/ipahal_nat.h"
+
 
 /*
  * The following for adding code (ie. for EMULATION) not found on x86.
@@ -114,7 +116,7 @@ static int ipa3_nat_ipv6ct_mmap(struct file *filp, struct vm_area_struct *vma)
 	}
 	/* check if smmu enable & dma_coherent mode */
 	if (!cb->valid ||
-		!is_device_dma_coherent(cb->dev)) {
+		!dev_is_dma_coherent(cb->dev)) {
 		vma->vm_page_prot =
 		pgprot_noncached(vma->vm_page_prot);
 		IPADBG("App smmu enable in DMA mode\n");
