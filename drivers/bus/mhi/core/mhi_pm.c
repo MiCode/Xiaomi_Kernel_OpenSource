@@ -549,20 +549,9 @@ static void mhi_pm_disable_transition(struct mhi_controller *mhi_cntrl,
 		to_mhi_pm_state_str(transition_state));
 
 	/* We must notify MHI control driver so it can clean up first */
-	if (transition_state == MHI_PM_SYS_ERR_PROCESS) {
-		/*
-		 * if controller support rddm, we do not process
-		 * sys error state, instead we will jump directly
-		 * to rddm state
-		 */
-		if (mhi_cntrl->rddm_image) {
-			MHI_LOG(
-				"Controller Support RDDM, skipping SYS_ERR_PROCESS\n");
-			return;
-		}
+	if (transition_state == MHI_PM_SYS_ERR_PROCESS)
 		mhi_cntrl->status_cb(mhi_cntrl, mhi_cntrl->priv_data,
 				     MHI_CB_SYS_ERROR);
-	}
 
 	mutex_lock(&mhi_cntrl->pm_mutex);
 	write_lock_irq(&mhi_cntrl->pm_lock);
@@ -724,7 +713,7 @@ int mhi_debugfs_trigger_reset(void *data, u64 val)
 	write_unlock_irq(&mhi_cntrl->pm_lock);
 
 	if (cur_state == MHI_PM_SYS_ERR_DETECT)
-		schedule_work(&mhi_cntrl->syserr_worker);
+		mhi_process_sys_err(mhi_cntrl);
 
 	return 0;
 }
@@ -808,15 +797,16 @@ void mhi_low_priority_worker(struct work_struct *work)
 	}
 }
 
-void mhi_pm_sys_err_worker(struct work_struct *work)
+void mhi_process_sys_err(struct mhi_controller *mhi_cntrl)
 {
-	struct mhi_controller *mhi_cntrl = container_of(work,
-							struct mhi_controller,
-							syserr_worker);
-
-	MHI_LOG("Enter with pm_state:%s MHI_STATE:%s\n",
-		to_mhi_pm_state_str(mhi_cntrl->pm_state),
-		TO_MHI_STATE_STR(mhi_cntrl->dev_state));
+	/*
+	 * if controller supports rddm, we do not process sys error state,
+	 * instead we will jump directly to rddm state
+	 */
+	if (mhi_cntrl->rddm_image) {
+		MHI_LOG("Controller supports RDDM, skipping SYS_ERR_PROCESS\n");
+		return;
+	}
 
 	mhi_queue_disable_transition(mhi_cntrl, MHI_PM_SYS_ERR_PROCESS);
 }
