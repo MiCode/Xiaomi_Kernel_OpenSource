@@ -30,7 +30,7 @@
 #define MSM_VFE48_BUS_CLIENT_INIT 0xABAB
 #define VFE48_STATS_BURST_LEN 3
 #define VFE48_UB_SIZE_VFE 2048 /* 2048 * 256 bits = 64KB */
-#define VFE48_UB_STATS_SIZE 288
+#define VFE48_UB_STATS_SIZE 352
 #define MSM_ISP48_TOTAL_IMAGE_UB_VFE (VFE48_UB_SIZE_VFE - VFE48_UB_STATS_SIZE)
 
 
@@ -321,8 +321,8 @@ void msm_vfe48_stats_cfg_ub(struct vfe_device *vfe_dev)
 	int i;
 	uint32_t ub_offset = 0, stats_burst_len;
 	uint32_t ub_size[VFE47_NUM_STATS_TYPE] = {
-		32, /* MSM_ISP_STATS_HDR_BE */
-		32, /* MSM_ISP_STATS_BG */
+		64, /* MSM_ISP_STATS_HDR_BE */
+		64, /* MSM_ISP_STATS_BG */
 		32, /* MSM_ISP_STATS_BF */
 		32, /* MSM_ISP_STATS_HDR_BHIST */
 		32, /* MSM_ISP_STATS_RS */

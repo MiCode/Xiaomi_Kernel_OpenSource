@@ -198,7 +198,6 @@ struct msm_vidc_buf_data {
 	u32 index;
 	u32 mark_data;
 	u32 mark_target;
-	u32 filled_length;
 };
 
 struct msm_vidc_common_data {
@@ -232,6 +231,16 @@ struct msm_vidc_efuse_data {
 	enum efuse_purpose purpose;
 };
 
+struct msm_vidc_capability_range {
+	u32 min;
+	u32 max;
+};
+
+struct msm_vidc_image_capability {
+	struct msm_vidc_capability_range width;
+	struct msm_vidc_capability_range height;
+};
+
 enum vpu_version {
 	VPU_VERSION_4 = 1,
 	VPU_VERSION_5,
@@ -253,6 +262,8 @@ struct msm_vidc_platform_data {
 	unsigned int efuse_data_length;
 	struct msm_vidc_ubwc_config *ubwc_config;
 	unsigned int ubwc_config_length;
+	struct msm_vidc_image_capability *heic_image_capability;
+	struct msm_vidc_image_capability *hevc_image_capability;
 	unsigned int sku_version;
 	uint32_t vpu_ver;
 };
@@ -488,6 +499,7 @@ struct msm_vidc_inst {
 	struct timer_list batch_timer;
 	struct work_struct batch_work;
 	bool decode_batching;
+	u32 max_filled_length;
 };
 
 extern struct msm_vidc_drv *vidc_driver;

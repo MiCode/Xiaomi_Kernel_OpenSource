@@ -294,6 +294,10 @@ int ipa_setup_odl_pipe(void)
 
 	ipa_odl_ep_cfg->ipa_ep_cfg.aggr.aggr_en = IPA_ENABLE_AGGR;
 	ipa_odl_ep_cfg->ipa_ep_cfg.aggr.aggr_hard_byte_limit_en = 1;
+	if (ipa3_is_mhip_offload_enabled()) {
+		IPADBG("MHIP is enabled, disable aggregation for ODL pipe");
+		ipa_odl_ep_cfg->ipa_ep_cfg.aggr.aggr_en = IPA_BYPASS_AGGR;
+	}
 	ipa_odl_ep_cfg->ipa_ep_cfg.aggr.aggr = IPA_GENERIC;
 	ipa_odl_ep_cfg->ipa_ep_cfg.aggr.aggr_byte_limit =
 						IPA_ODL_AGGR_BYTE_LIMIT;
@@ -382,11 +386,27 @@ int ipa3_odl_pipe_open(void)
 	 * Send signal to ipa_odl_ctl_fops_read,
 	 * to send ODL ep open notification
 	 */
-	ipa3_odl_ctx->odl_ctl_msg_wq_flag = true;
-	IPADBG("Wake up odl ctl\n");
-	wake_up_interruptible(&odl_ctl_msg_wq);
-	if (ipa3_odl_ctx->odl_state.odl_disconnected)
+	if (ipa3_is_mhip_offload_enabled()) {
+		IPADBG("MHIP is enabled, continue\n");
+		ipa3_odl_ctx->odl_state.odl_open = true;
+		ipa3_odl_ctx->odl_state.odl_setup_done_sent = true;
+		ipa3_odl_ctx->odl_state.odl_ep_info_sent = true;
+		ipa3_odl_ctx->odl_state.odl_connected = true;
 		ipa3_odl_ctx->odl_state.odl_disconnected = false;
+
+		/* Enable ADPL over ODL for MPM */
+		ret = ipa3_mpm_enable_adpl_over_odl(true);
+		if (ret) {
+			IPAERR("mpm failed to enable ADPL over ODL %d\n", ret);
+			return ret;
+		}
+	} else {
+		ipa3_odl_ctx->odl_ctl_msg_wq_flag = true;
+		IPAERR("Wake up odl ctl\n");
+		wake_up_interruptible(&odl_ctl_msg_wq);
+		if (ipa3_odl_ctx->odl_state.odl_disconnected)
+			ipa3_odl_ctx->odl_state.odl_disconnected = false;
+	}
 fail:
 	return ret;
 
@@ -421,6 +441,15 @@ static int ipa_adpl_release(struct inode *inode, struct file *filp)
 	if (ret)
 		IPAERR("failed to activate pm\n");
 	ipa3_odl_pipe_cleanup(false);
+
+	/* Disable ADPL over ODL for MPM */
+	if (ipa3_is_mhip_offload_enabled()) {
+		ret = ipa3_mpm_enable_adpl_over_odl(false);
+		if (ret)
+			IPAERR("mpm failed to disable ADPL over ODL\n");
+
+	}
+
 	return ret;
 }
 
@@ -734,4 +763,9 @@ create_char_dev0_fail:
 	kfree(ipa3_odl_ctx);
 fail_mem_ctx:
 	return result;
+}
+
+bool ipa3_is_odl_connected(void)
+{
+	return ipa3_odl_ctx->odl_state.odl_connected;
 }

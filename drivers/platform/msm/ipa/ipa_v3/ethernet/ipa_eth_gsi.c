@@ -242,6 +242,14 @@ int ipa_eth_gsi_dealloc(struct ipa_eth_channel *ch)
 	}
 
 	if (ep_ctx->gsi_evt_ring_hdl != ~0) {
+		gsi_rc = gsi_reset_evt_ring(ep_ctx->gsi_evt_ring_hdl);
+		if (gsi_rc != GSI_STATUS_SUCCESS) {
+			ipa_eth_dev_err(ch->eth_dev,
+				"Failed to reset event ring %lu",
+				ep_ctx->gsi_evt_ring_hdl);
+			return gsi_rc;
+		}
+
 		gsi_rc = gsi_dealloc_evt_ring(ep_ctx->gsi_evt_ring_hdl);
 		if (gsi_rc != GSI_STATUS_SUCCESS) {
 			ipa_eth_dev_err(ch->eth_dev,

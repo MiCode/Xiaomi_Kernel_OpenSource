@@ -338,7 +338,6 @@
 			qcom,qos-off = <4096>;
 			qcom,base-offset = <16384>;
 			qcom,sbm-offset = <0>;
-			qcom,bypass-qos-prg;
 			qcom,bus-type = <1>;
 			clocks = <>;
 		};
@@ -351,7 +350,6 @@
 			qcom,qos-off = <4096>;
 			qcom,base-offset = <20480>;
 			qcom,sbm-offset = <0>;
-			qcom,bypass-qos-prg;
 			qcom,bus-type = <1>;
 			clocks = <>;
 		};
@@ -364,7 +362,6 @@
 			qcom,qos-off = <4096>;
 			qcom,base-offset = <57344>;
 			qcom,sbm-offset = <0>;
-			qcom,bypass-qos-prg;
 			qcom,bus-type = <1>;
 			clocks = <>;
 		};
@@ -403,7 +400,6 @@
 			qcom,qos-off = <128>;
 			qcom,base-offset = <176128>;
 			qcom,sbm-offset = <0>;
-			qcom,bypass-qos-prg;
 			qcom,bus-type = <1>;
 			clocks = <>;
 		};
@@ -440,7 +436,6 @@
 			qcom,qos-off = <4096>;
 			qcom,base-offset = <36864>;
 			qcom,sbm-offset = <0>;
-			qcom,bypass-qos-prg;
 			qcom,bus-type = <1>;
 			clocks = <>;
 		};
@@ -478,7 +473,6 @@
 			qcom,qos-off = <4096>;
 			qcom,base-offset = <45056>;
 			qcom,sbm-offset = <0>;
-			qcom,bypass-qos-prg;
 			qcom,bus-type = <1>;
 			clocks = <>;
 		};
@@ -592,6 +586,12 @@
 			qcom,bcms = <&bcm_cn1>;
 			qcom,ap-owned;
 			qcom,prio = <2>;
+			qcom,node-qos-clks {
+				clocks =
+				<&clock_gcc GCC_AGGRE_UFS_PHY_AXI_CLK>;
+				clock-names =
+				"clk-aggre-ufs-phy-axi-no-rate";
+			};
 		};
 
 		mas_xm_ufs_mem: mas-xm-ufs-mem {
@@ -650,7 +650,6 @@
 			qcom,bcms = <&bcm_ce0>;
 			qcom,ap-owned;
 			qcom,prio = <2>;
-			qcom,forwarding;
 		};
 
 		mas_qxm_ipa: mas-qxm-ipa {
@@ -663,7 +662,6 @@
 			qcom,bus-dev = <&fab_aggre2_noc>;
 			qcom,ap-owned;
 			qcom,prio = <2>;
-			qcom,forwarding;
 			qcom,defer-init-qos;
 			qcom,node-qos-bcms = <7035 0 1>;
 		};
@@ -690,6 +688,12 @@
 			qcom,bus-dev = <&fab_aggre2_noc>;
 			qcom,ap-owned;
 			qcom,prio = <2>;
+			qcom,node-qos-clks {
+				clocks =
+				<&clock_gcc GCC_AGGRE_USB3_PRIM_AXI_CLK>;
+				clock-names =
+				"clk-aggre-usb3-prim-axi-no-rate";
+			};
 		};
 
 		mas_qxm_camnoc_hf0_uncomp: mas-qxm-camnoc-hf0-uncomp {
@@ -845,6 +849,7 @@
 			qcom,bcms = <&bcm_sh4>;
 			qcom,ap-owned;
 			qcom,prio = <0>;
+			qcom,forwarding;
 		};
 
 		mas_acm_sys_tcu: mas-acm-sys-tcu {
@@ -883,6 +888,7 @@
 			qcom,bcms = <&bcm_sh3>;
 			qcom,ap-owned;
 			qcom,prio = <0>;
+			qcom,forwarding;
 		};
 
 		mas_qnm_mnoc_hf: mas-qnm-mnoc-hf {
@@ -1080,7 +1086,6 @@
 			qcom,bcms = <&bcm_mm1>;
 			qcom,ap-owned;
 			qcom,prio = <5>;
-			qcom,forwarding;
 			qcom,node-qos-bcms = <7012 0 1>;
 		};
 

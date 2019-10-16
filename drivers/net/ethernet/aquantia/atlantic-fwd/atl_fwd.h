@@ -13,7 +13,7 @@
 #include "atl_common.h"
 
 /* Each incompatible API change bumps the API version */
-#define ATL_FWD_API_VERSION 1
+#define ATL_FWD_API_VERSION 2
 
 struct atl_fwd_event;
 
@@ -302,8 +302,7 @@ int atl_fwd_enable_ring(struct atl_fwd_ring *ring);
  *
  * 	@ring: ring to be disabled
  *
- * Stops and resets the ring. On next ring enable head and tail
- * pointers will be zero.
+ * Stops the ring.
  */
 void atl_fwd_disable_ring(struct atl_fwd_ring *ring);
 
@@ -361,6 +360,30 @@ int atl_fwd_disable_event(struct atl_fwd_event *evt);
 
 int atl_fwd_receive_skb(struct net_device *ndev, struct sk_buff *skb);
 int atl_fwd_transmit_skb(struct net_device *ndev, struct sk_buff *skb);
+
+/**
+ * atl_fwd_register_notifier() - Register notifier for reset of device
+ *
+ * 	@ndev:		network device
+ * 	@n:		notifier block
+ *
+ * Register for notification on reset of device. The notifier callback
+ * receives a pointer to the affected device. Notification callback is
+ * expected to be synchronous. The receiver shall perform the expected actions
+ * upon the notification according to the notification type.
+ *
+ * Returns 0 on success or negative error code.
+ */
+int atl_fwd_register_notifier(struct net_device *ndev,
+			      struct notifier_block *n);
+int atl_fwd_unregister_notifier(struct net_device *ndev,
+				struct notifier_block *n);
+enum atl_fwd_notify {
+    ATL_FWD_NOTIFY_RESET_PREPARE, /* receiver shall stop traffic and */
+				  /* disable rings */
+    ATL_FWD_NOTIFY_RESET_COMPLETE, /* receiver shall refill descriptors and  */
+				   /* enable rings */
+};
 
 enum atl_fwd_ring_state {
 	ATL_FWR_ST_ENABLED = BIT(0),

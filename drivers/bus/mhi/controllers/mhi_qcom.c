@@ -236,7 +236,7 @@ exit_runtime_suspend:
 	mutex_unlock(&mhi_cntrl->pm_mutex);
 	MHI_LOG("Exited with ret:%d\n", ret);
 
-	return ret;
+	return (ret < 0) ? -EBUSY : 0;
 }
 
 static int mhi_runtime_idle(struct device *dev)
@@ -294,7 +294,7 @@ rpm_resume_exit:
 	mutex_unlock(&mhi_cntrl->pm_mutex);
 	MHI_LOG("Exited with :%d\n", ret);
 
-	return ret;
+	return (ret < 0) ? -EBUSY : 0;
 }
 
 static int mhi_system_resume(struct device *dev)
@@ -593,10 +593,6 @@ static void mhi_status_cb(struct mhi_controller *mhi_cntrl,
 		MHI_LOG("Schedule runtime suspend\n");
 		pm_runtime_mark_last_busy(dev);
 		pm_request_autosuspend(dev);
-		break;
-	case MHI_CB_BW_REQ:
-		if (mhi_dev->bw_scale)
-			mhi_dev->bw_scale(mhi_cntrl, mhi_dev);
 		break;
 	case MHI_CB_EE_MISSION_MODE:
 		/*

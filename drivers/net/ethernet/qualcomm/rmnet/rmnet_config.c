@@ -397,14 +397,13 @@ static int rmnet_changelink(struct net_device *dev, struct nlattr *tb[],
 	}
 
 	if (data[IFLA_RMNET_UL_AGG_PARAMS]) {
-		void *agg_params;
-		unsigned long irq_flags;
+		struct rmnet_egress_agg_params *agg_params;
 
 		agg_params = nla_data(data[IFLA_RMNET_UL_AGG_PARAMS]);
-		spin_lock_irqsave(&port->agg_lock, irq_flags);
-		memcpy(&port->egress_agg_params, agg_params,
-		       sizeof(port->egress_agg_params));
-		spin_unlock_irqrestore(&port->agg_lock, irq_flags);
+		rmnet_map_update_ul_agg_config(port, agg_params->agg_size,
+					       agg_params->agg_count,
+					       agg_params->agg_features,
+					       agg_params->agg_time);
 	}
 
 	return 0;
@@ -704,6 +703,16 @@ int rmnet_get_powersave_notif(void *port)
 	return ((struct rmnet_port *)port)->data_format & RMNET_FORMAT_PS_NOTIF;
 }
 EXPORT_SYMBOL(rmnet_get_powersave_notif);
+
+struct net_device *rmnet_get_real_dev(void *port)
+{
+	if (port)
+		return ((struct rmnet_port *)port)->dev;
+
+	return NULL;
+}
+EXPORT_SYMBOL(rmnet_get_real_dev);
+
 #endif
 
 /* Startup/Shutdown */

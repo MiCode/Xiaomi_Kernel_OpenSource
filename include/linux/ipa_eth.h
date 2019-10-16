@@ -39,9 +39,11 @@
  *                - probe() and remove() offload bus ops are replaced by pair()
  *                  and unpair() callbacks respectively
  *           3    - Added .save_regs() callback for network and offload drivers
+ *           4    - Added ipa_eth_device_notify() interface for client drivers
+ *                  to notify of various device events.
  */
 
-#define IPA_ETH_API_VER 3
+#define IPA_ETH_API_VER 4
 
 /**
  * enum ipa_eth_dev_features - Features supported by an ethernet device or
@@ -440,12 +442,14 @@ struct ipa_eth_channel {
  * @start_on_resume: Allow start upon driver resume
  * @start_on_timeout: Timeout in milliseconds after which @start is enabled
  * @start_timer: Timer associated with @start_on_timer
+ * @state: Device state
  * @if_state: Interface state - one or more bit numbers IPA_ETH_IF_ST_*
  * @pm_handle: IPA PM client handle for the device
  * @bus_priv: Private field for use by offload subsystem bus layer
  * @ipa_priv: Private field for use by offload subsystem
  * @debugfs: Debugfs root for the device
  * @refresh: Work struct used to perform device refresh
+ * @refresh_mutex: Mutex to synchronize device refresh operations
  */
 struct ipa_eth_device {
 	struct list_head device_list;
@@ -478,6 +482,7 @@ struct ipa_eth_device {
 	u32 start_on_timeout;
 	struct timer_list start_timer;
 
+	unsigned long state;
 	unsigned long if_state;
 
 	u32 pm_handle;
@@ -487,7 +492,24 @@ struct ipa_eth_device {
 	struct dentry *debugfs;
 
 	struct work_struct refresh;
+	struct mutex refresh_mutex;
 };
+
+/**
+ * enum ipa_eth_device_event - Events related to device state
+ * @IPA_ETH_DEV_RESET_PREPARE: Device is entering reset and is requesting
+ *                             offload path to stop using the device
+ * @IPA_ETH_DEV_RESET_COMPLETE: Device has completed resetting and is
+ *                              requesting offload path to resume its operations
+ */
+enum ipa_eth_device_event {
+	IPA_ETH_DEV_RESET_PREPARE,
+	IPA_ETH_DEV_RESET_COMPLETE,
+	IPA_ETH_DEV_EVENT_COUNT,
+};
+
+int ipa_eth_device_notify(struct ipa_eth_device *eth_dev,
+	enum ipa_eth_device_event event, void *data);
 
 #ifdef IPA_ETH_NET_DRIVER
 
@@ -910,6 +932,25 @@ struct ipa_eth_offload_ops {
 	 */
 	int (*save_regs)(struct ipa_eth_device *eth_dev,
 		void **regs, size_t *size);
+
+	/**
+	 * .prepare_reset() - Prepare offload path for netdev reset
+	 * @eth_dev: Offloaded device
+	 * @data: Private data the network driver has provided
+	 *
+	 * Return: 0 on success, errno otherwise.
+	 */
+	int (*prepare_reset)(struct ipa_eth_device *eth_dev, void *data);
+
+	/**
+	 * .complete_reset() - Netdev reset completed, offload path can resume
+	 * @eth_dev: Offloaded device
+	 * @data: Private data the network driver has provided
+	 *
+	 * Return: 0 on success, errno otherwise.
+	 */
+	int (*complete_reset)(struct ipa_eth_device *eth_dev, void *data);
+
 };
 
 /**

@@ -42,3 +42,24 @@ config ATLFWD_FWD_TXBUF
 	 API enabled, 0 otherwise.
 
 endif
+
+config AQFWD_QCOM
+	bool "QTI MSM/MDM target support"
+	depends on AQFWD
+	depends on ARCH_QCOM
+	help
+	  Some older targets using Qualcomm Technologies, Inc. chipsets
+	  require peripheral drivers to explicitly set IOMMU attributes
+	  and perform IOMMU attach. Enable this option if your platform
+	  is affected. Using this feature will also require the user to
+	  provide SMMU configuration via PCI device tree.
+	  If unsure, say N.
+
+config AQFWD_QCOM_IPA
+	bool "QTI IPA offload support"
+	depends on IPA_ETH
+	select AQFWD_QCOM
+	select ATLFWD_FWD
+	help
+	  Enable support for Qualcomm Technologies, Inc. IPA (Internet Protocol Accelerator).
+	  If unsure, say N.

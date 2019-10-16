@@ -294,9 +294,11 @@ void dwc3_gadget_del_and_unmap_request(struct dwc3_ep *dep,
 	if (req->request.status == -EINPROGRESS)
 		req->request.status = status;
 
-	if (req->trb)
+	if (req->trb) {
+		dbg_ep_unmap(dep->number, req);
 		usb_gadget_unmap_request_by_dev(dwc->sysdev,
 				&req->request, req->direction);
+	}
 
 	req->trb = NULL;
 	trace_dwc3_gadget_giveback(req);
@@ -1139,6 +1141,12 @@ static void __dwc3_prepare_one_trb(struct dwc3_ep *dep, struct dwc3_trb *trb,
 	if (usb_endpoint_xfer_bulk(dep->endpoint.desc) && dep->stream_capable)
 		trb->ctrl |= DWC3_TRB_CTRL_SID_SOFN(stream_id);
 
+	/*
+	 * Ensure that updates of buffer address and size happens
+	 * before we set the DWC3_TRB_CTRL_HWO so that core
+	 * does not process any stale TRB.
+	 */
+	mb();
 	trb->ctrl |= DWC3_TRB_CTRL_HWO;
 
 	dwc3_ep_inc_enq(dep);
@@ -1363,6 +1371,7 @@ static void dwc3_prepare_trbs(struct dwc3_ep *dep)
 		else
 			dwc3_prepare_one_trb_linear(dep, req);
 
+		dbg_ep_map(dep->number, req);
 		if (!dwc3_calc_trbs_left(dep))
 			return;
 	}
@@ -1526,6 +1535,7 @@ static int __dwc3_gadget_ep_queue(struct dwc3_ep *dep, struct dwc3_request *req)
 
 	list_add_tail(&req->list, &dep->pending_list);
 
+	dbg_ep_queue(dep->number, req);
 	/*
 	 * NOTICE: Isochronous endpoints should NEVER be prestarted. We must
 	 * wait for a XferNotReady event so we will know what's the current
@@ -1702,7 +1712,7 @@ static int dwc3_gadget_ep_dequeue(struct usb_ep *ep,
 	}
 
 out1:
-	dbg_event(dep->number, "DEQUEUE", 0);
+	dbg_ep_dequeue(dep->number, req);
 	/* giveback the request */
 	dep->queued_requests--;
 	dwc3_gadget_giveback(dep, req, -ECONNRESET);

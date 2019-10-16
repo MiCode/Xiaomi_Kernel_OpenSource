@@ -731,6 +731,7 @@ struct mmc_host *mmc_alloc_host(int extra, struct device *dev)
 	host->max_req_size = PAGE_SIZE;
 	host->max_blk_size = 512;
 	host->max_blk_count = PAGE_SIZE / 512;
+	host->ios.power_delay_ms = 10;
 
 	return host;
 }

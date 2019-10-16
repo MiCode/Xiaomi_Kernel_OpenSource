@@ -396,11 +396,14 @@ static void ipa3_handle_mhi_vote_req(struct qmi_handle *qmi_handle,
 					IPA_QMI_ERR_NOT_SUPPORTED_V01;
 			}
 			resp = &resp2;
+		} else {
+			IPAWANERR("clk_rate_valid is false\n");
+			return;
 		}
 	} else {
 		resp = imp_handle_vote_req(vote_req->mhi_vote);
 		if (!resp) {
-			IPAWANERR("imp handle allocate channel req fails");
+			IPAWANERR("imp handle vote req fails\n");
 			return;
 		}
 		IPAWANDBG("start sending QMI_IPA_MHI_CLK_VOTE_RESP_V01\n");
@@ -1038,7 +1041,7 @@ int ipa3_qmi_rmv_offload_request_send(
 	}
 
 	/* check if the # of handles from IPACM is valid */
-	if (req->filter_handle_list_len == 0) {
+	if (!req->clean_all_rules_valid && req->filter_handle_list_len == 0) {
 		IPAWANDBG("IPACM deleted zero rules !\n");
 		return -EINVAL;
 	}

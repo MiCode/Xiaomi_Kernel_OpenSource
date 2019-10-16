@@ -34,5 +34,6 @@ obj-$(CONFIG_CNSS)              += cnss/
 obj-$(CONFIG_WCNSS_MEM_PRE_ALLOC) += cnss_prealloc/
 obj-$(CONFIG_CNSS_UTILS) += cnss_utils/
 obj-$(CONFIG_CNSS_GENL) += cnss_genl/
+obj-$(CONFIG_CNSS_CRYPTO) += cnss_crypto/
 
 obj-$(CONFIG_VIRT_WIFI)	+= virt_wifi.o

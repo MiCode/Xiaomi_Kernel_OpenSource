@@ -147,6 +147,8 @@ int ipa_eth_offload_start(struct ipa_eth_device *eth_dev);
 int ipa_eth_offload_stop(struct ipa_eth_device *eth_dev);
 
 int ipa_eth_offload_save_regs(struct ipa_eth_device *eth_dev);
+int ipa_eth_offload_prepare_reset(struct ipa_eth_device *eth_dev, void *data);
+int ipa_eth_offload_complete_reset(struct ipa_eth_device *eth_dev, void *data);
 
 int ipa_eth_net_open_device(struct ipa_eth_device *eth_dev);
 void ipa_eth_net_close_device(struct ipa_eth_device *eth_dev);
@@ -166,5 +168,7 @@ int ipa_eth_pm_activate(struct ipa_eth_device *eth_dev);
 int ipa_eth_pm_deactivate(struct ipa_eth_device *eth_dev);
 
 int ipa_eth_pm_vote_bw(struct ipa_eth_device *eth_dev);
+
+const char *ipa_eth_device_event_name(enum ipa_eth_device_event event);
 
 #endif // _IPA_ETH_I_H_

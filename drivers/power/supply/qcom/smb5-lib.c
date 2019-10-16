@@ -757,35 +757,22 @@ int smblib_set_dc_suspend(struct smb_charger *chg, bool suspend)
 	return rc;
 }
 
-static int smblib_set_adapter_allowance(struct smb_charger *chg,
+static int smblib_usb_pd_adapter_allowance_override(struct smb_charger *chg,
 					u8 allowed_voltage)
 {
 	int rc = 0;
 
-	/* PMI632 only support max. 9V */
-	if (chg->smb_version == PMI632_SUBTYPE) {
-		switch (allowed_voltage) {
-		case USBIN_ADAPTER_ALLOW_12V:
-		case USBIN_ADAPTER_ALLOW_9V_TO_12V:
-			allowed_voltage = USBIN_ADAPTER_ALLOW_9V;
-			break;
-		case USBIN_ADAPTER_ALLOW_5V_OR_12V:
-		case USBIN_ADAPTER_ALLOW_5V_OR_9V_TO_12V:
-			allowed_voltage = USBIN_ADAPTER_ALLOW_5V_OR_9V;
-			break;
-		case USBIN_ADAPTER_ALLOW_5V_TO_12V:
-			allowed_voltage = USBIN_ADAPTER_ALLOW_5V_TO_9V;
-			break;
-		}
-	}
+	if (chg->smb_version == PMI632_SUBTYPE)
+		return 0;
 
-	rc = smblib_write(chg, USBIN_ADAPTER_ALLOW_CFG_REG, allowed_voltage);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't write 0x%02x to USBIN_ADAPTER_ALLOW_CFG rc=%d\n",
+	rc = smblib_write(chg, USBIN_ADAPTER_ALLOW_OVERRIDE_REG,
+						allowed_voltage);
+	if (rc < 0)
+		smblib_err(chg, "Couldn't write 0x%02x to USBIN_ADAPTER_ALLOW_OVERRIDE_REG rc=%d\n",
 			allowed_voltage, rc);
-		return rc;
-	}
 
+	smblib_dbg(chg, PR_MISC, "set USBIN_ALLOW_OVERRIDE: %d\n",
+			allowed_voltage);
 	return rc;
 }
 
@@ -814,34 +801,52 @@ static int smblib_set_usb_pd_fsw(struct smb_charger *chg, int voltage)
 	return rc;
 }
 
+#define CONT_AICL_HEADROOM_MV		1000
+#define AICL_THRESHOLD_MV_IN_CC		5000
 static int smblib_set_usb_pd_allowed_voltage(struct smb_charger *chg,
 					int min_allowed_uv, int max_allowed_uv)
 {
-	int rc;
-	u8 allowed_voltage;
+	int rc, aicl_threshold;
+	u8 vbus_allowance;
 
-	if (min_allowed_uv == MICRO_5V && max_allowed_uv == MICRO_5V) {
-		allowed_voltage = USBIN_ADAPTER_ALLOW_5V;
+	if (chg->smb_version == PMI632_SUBTYPE)
+		return 0;
+
+	if (chg->pd_active == POWER_SUPPLY_PD_PPS_ACTIVE) {
+		vbus_allowance = CONTINUOUS;
+	} else if (min_allowed_uv == MICRO_5V && max_allowed_uv == MICRO_5V) {
+		vbus_allowance = FORCE_5V;
 	} else if (min_allowed_uv == MICRO_9V && max_allowed_uv == MICRO_9V) {
-		allowed_voltage = USBIN_ADAPTER_ALLOW_9V;
+		vbus_allowance = FORCE_9V;
 	} else if (min_allowed_uv == MICRO_12V && max_allowed_uv == MICRO_12V) {
-		allowed_voltage = USBIN_ADAPTER_ALLOW_12V;
-	} else if (min_allowed_uv < MICRO_9V && max_allowed_uv <= MICRO_9V) {
-		allowed_voltage = USBIN_ADAPTER_ALLOW_5V_TO_9V;
-	} else if (min_allowed_uv < MICRO_9V && max_allowed_uv <= MICRO_12V) {
-		allowed_voltage = USBIN_ADAPTER_ALLOW_5V_TO_12V;
+		vbus_allowance = FORCE_12V;
 	} else if (min_allowed_uv < MICRO_12V && max_allowed_uv <= MICRO_12V) {
-		allowed_voltage = USBIN_ADAPTER_ALLOW_9V_TO_12V;
+		vbus_allowance = CONTINUOUS;
 	} else {
 		smblib_err(chg, "invalid allowed voltage [%d, %d]\n",
-			min_allowed_uv, max_allowed_uv);
+				min_allowed_uv, max_allowed_uv);
 		return -EINVAL;
 	}
 
-	rc = smblib_set_adapter_allowance(chg, allowed_voltage);
+	rc = smblib_usb_pd_adapter_allowance_override(chg, vbus_allowance);
 	if (rc < 0) {
-		smblib_err(chg, "Couldn't configure adapter allowance rc=%d\n",
+		smblib_err(chg, "set CONTINUOUS allowance failed, rc=%d\n",
 				rc);
+		return rc;
+	}
+
+	if (vbus_allowance != CONTINUOUS)
+		return 0;
+
+	aicl_threshold = min_allowed_uv / 1000 - CONT_AICL_HEADROOM_MV;
+	if (chg->adapter_cc_mode)
+		aicl_threshold = min(aicl_threshold, AICL_THRESHOLD_MV_IN_CC);
+
+	rc = smblib_set_charge_param(chg, &chg->param.aicl_cont_threshold,
+							aicl_threshold);
+	if (rc < 0) {
+		smblib_err(chg, "set CONT_AICL_THRESHOLD failed, rc=%d\n",
+							rc);
 		return rc;
 	}
 
@@ -1139,13 +1144,6 @@ static void smblib_uusb_removal(struct smb_charger *chg)
 	if (chg->cp_disable_votable)
 		vote(chg->cp_disable_votable, SW_THERM_REGULATION_VOTER,
 								false, 0);
-
-	/* reconfigure allowed voltage for HVDCP */
-	rc = smblib_set_adapter_allowance(chg,
-			USBIN_ADAPTER_ALLOW_5V_OR_9V_TO_12V);
-	if (rc < 0)
-		smblib_err(chg, "Couldn't set USBIN_ADAPTER_ALLOW_5V_OR_9V_TO_12V rc=%d\n",
-			rc);
 
 	/* reset USBOV votes and cancel work */
 	cancel_delayed_work_sync(&chg->usbov_dbc_work);
@@ -1965,7 +1963,7 @@ int smblib_get_prop_batt_status(struct smb_charger *chg,
 	 * If charge termination WA is active and has suspended charging, then
 	 * continue reporting charging status as FULL.
 	 */
-	if (is_client_vote_enabled(chg->usb_icl_votable,
+	if (is_client_vote_enabled_locked(chg->usb_icl_votable,
 						CHG_TERMINATION_VOTER)) {
 		val->intval = POWER_SUPPLY_STATUS_FULL;
 		return 0;
@@ -3077,7 +3075,7 @@ int smblib_get_prop_usb_online(struct smb_charger *chg,
 		return rc;
 	}
 
-	if (is_client_vote_enabled(chg->usb_icl_votable,
+	if (is_client_vote_enabled_locked(chg->usb_icl_votable,
 					CHG_TERMINATION_VOTER)) {
 		rc = smblib_get_prop_usb_present(chg, val);
 		return rc;
@@ -4241,6 +4239,8 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 		}
 	}
 
+	smblib_usb_pd_adapter_allowance_override(chg,
+			!!chg->pd_active ? FORCE_5V : FORCE_NULL);
 	smblib_update_usb_type(chg);
 	power_supply_changed(chg->usb_psy);
 	return rc;
@@ -5547,13 +5547,18 @@ static void typec_src_removal(struct smb_charger *chg)
 		smblib_err(chg, "Couldn't write float charger options rc=%d\n",
 			rc);
 
-	/* reconfigure allowed voltage for HVDCP */
-	rc = smblib_set_adapter_allowance(chg,
-			USBIN_ADAPTER_ALLOW_5V_OR_9V_TO_12V);
-	if (rc < 0)
-		smblib_err(chg, "Couldn't set USBIN_ADAPTER_ALLOW_5V_OR_9V_TO_12V rc=%d\n",
-			rc);
+	if (!chg->pr_swap_in_progress) {
+		rc = smblib_usb_pd_adapter_allowance_override(chg, FORCE_NULL);
+		if (rc < 0)
+			smblib_err(chg, "Couldn't set FORCE_NULL rc=%d\n", rc);
 
+		rc = smblib_set_charge_param(chg,
+				&chg->param.aicl_cont_threshold,
+				chg->default_aicl_cont_threshold_mv);
+		if (rc < 0)
+			smblib_err(chg, "Couldn't restore aicl_cont_threshold, rc=%d",
+					rc);
+	}
 	/*
 	 * if non-compliant charger caused UV, restore original max pulses
 	 * and turn SUSPEND_ON_COLLAPSE_USBIN_BIT back on.
@@ -5966,8 +5971,7 @@ irqreturn_t wdog_snarl_irq_handler(int irq, void *data)
 		schedule_delayed_work(&chg->thermal_regulation_work, 0);
 	}
 
-	if (chg->step_chg_enabled)
-		power_supply_changed(chg->batt_psy);
+	power_supply_changed(chg->batt_psy);
 
 	return IRQ_HANDLED;
 }
@@ -5983,9 +5987,6 @@ irqreturn_t wdog_bark_irq_handler(int irq, void *data)
 	rc = smblib_write(chg, BARK_BITE_WDOG_PET_REG, BARK_BITE_WDOG_PET_BIT);
 	if (rc < 0)
 		smblib_err(chg, "Couldn't pet the dog rc=%d\n", rc);
-
-	if (chg->step_chg_enabled)
-		power_supply_changed(chg->batt_psy);
 
 	return IRQ_HANDLED;
 }
@@ -6791,6 +6792,33 @@ int smblib_force_dr_mode(struct smb_charger *chg, int mode)
 	return rc;
 }
 
+static int smblib_role_switch_failure(struct smb_charger *chg, int mode)
+{
+	int rc = 0;
+	union power_supply_propval pval = {0, };
+
+	if (!chg->use_extcon)
+		return 0;
+
+	rc = smblib_get_prop_usb_present(chg, &pval);
+	if (rc < 0) {
+		pr_err("Couldn't get usb presence status rc=%d\n", rc);
+		return rc;
+	}
+
+	if (pval.intval) {
+		if (mode == DUAL_ROLE_PROP_MODE_DFP)
+			smblib_notify_device_mode(chg, true);
+	} else {
+		if (mode == DUAL_ROLE_PROP_MODE_UFP)
+			smblib_notify_usb_host(chg, true);
+	}
+	smblib_dbg(chg, PR_MISC, "Role reversal is failed for %s, notify usb",
+						mode ? "DFP" : "UFP");
+
+	return rc;
+}
+
 static void smblib_dual_role_check_work(struct work_struct *work)
 {
 	struct smb_charger *chg = container_of(work, struct smb_charger,
@@ -6808,6 +6836,11 @@ static void smblib_dual_role_check_work(struct work_struct *work)
 						DUAL_ROLE_PROP_MODE_NONE);
 			if (rc < 0)
 				pr_err("Failed to set DRP mode, rc=%d\n", rc);
+
+			rc = smblib_role_switch_failure(chg,
+						DUAL_ROLE_PROP_MODE_UFP);
+			if (rc < 0)
+				pr_err("Failed to role switch rc=%d\n", rc);
 		}
 		chg->pr_swap_in_progress = false;
 		break;
@@ -6820,6 +6853,11 @@ static void smblib_dual_role_check_work(struct work_struct *work)
 						DUAL_ROLE_PROP_MODE_NONE);
 			if (rc < 0)
 				pr_err("Failed to set DRP mode, rc=%d\n", rc);
+
+			rc = smblib_role_switch_failure(chg,
+						DUAL_ROLE_PROP_MODE_DFP);
+			if (rc < 0)
+				pr_err("Failed to role switch rc=%d\n", rc);
 		}
 		chg->pr_swap_in_progress = false;
 		break;

@@ -142,6 +142,22 @@
 		};
 	};
 
+	dai_meta_mi2s0: qcom,msm-dai-q6-meta-mi2s-prim {
+		compatible = "qcom,msm-dai-q6-meta-mi2s";
+		qcom,msm-dai-q6-meta-mi2s-dev-id = <4864>;
+		qcom,msm-mi2s-num-members = <4>;
+		qcom,msm-mi2s-member-id = <0>, <1>, <2>, <3>;
+		qcom,msm-mi2s-rx-lines = <0xff>, <0xf>, <0x3>, <0x3>;
+	};
+
+	dai_meta_mi2s1: qcom,msm-dai-q6-meta-mi2s-sec {
+		compatible = "qcom,msm-dai-q6-meta-mi2s";
+		qcom,msm-dai-q6-meta-mi2s-dev-id = <4866>;
+		qcom,msm-mi2s-num-members = <4>;
+		qcom,msm-mi2s-member-id = <0>, <1>, <2>, <3>;
+		qcom,msm-mi2s-rx-lines = <0xff>, <0xf>, <0x3>, <0x3>;
+	};
+
 	msm_dai_cdc_dma: qcom,msm-dai-cdc-dma {
 		compatible = "qcom,msm-dai-cdc-dma";
 		wsa_cdc_dma_0_rx: qcom,msm-dai-wsa-cdc-dma-0-rx {

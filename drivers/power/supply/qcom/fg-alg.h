@@ -13,6 +13,7 @@
 #ifndef __FG_ALG_H__
 #define __FG_ALG_H__
 
+#include <linux/of_batterydata.h>
 #include "step-chg-jeita.h"
 
 #define BUCKET_COUNT		8
@@ -57,7 +58,7 @@ struct cap_learning {
 	int			init_cc_soc_sw;
 	int			cc_soc_max;
 	int			init_batt_soc;
-	int			init_batt_soc_msb;
+	int			init_batt_soc_cp;
 	int64_t			nom_cap_uah;
 	int64_t			init_cap_uah;
 	int64_t			final_cap_uah;
@@ -66,6 +67,7 @@ struct cap_learning {
 	bool			active;
 	struct mutex		lock;
 	struct cl_params	dt;
+	bool (*ok_to_begin)(void *data);
 	int (*get_learned_capacity)(void *data, int64_t *learned_cap_uah);
 	int (*store_learned_capacity)(void *data, int64_t learned_cap_uah);
 	int (*get_cc_soc)(void *data, int *cc_soc_sw);
@@ -91,6 +93,7 @@ enum ttf_param {
 	TTF_VFLOAT,
 	TTF_CHG_TYPE,
 	TTF_CHG_STATUS,
+	TTF_TTE_VALID,
 };
 
 struct ttf_circ_buf {
@@ -136,6 +139,17 @@ struct ttf {
 	int (*awake_voter)(void *data, bool vote);
 };
 
+struct soh_profile {
+	struct device_node *bp_node;
+	struct power_supply *bms_psy;
+	struct soh_range *soh_data;
+	int batt_id_kohms;
+	int profile_count;
+	int last_soh;
+	int last_batt_age_level;
+	bool initialized;
+};
+
 int restore_cycle_count(struct cycle_counter *counter);
 void clear_cycle_count(struct cycle_counter *counter);
 void cycle_count_update(struct cycle_counter *counter, int batt_soc,
@@ -154,5 +168,7 @@ void ttf_update(struct ttf *ttf, bool input_present);
 int ttf_get_time_to_empty(struct ttf *ttf, int *val);
 int ttf_get_time_to_full(struct ttf *ttf, int *val);
 int ttf_tte_init(struct ttf *ttf);
+int soh_profile_init(struct device *dev, struct soh_profile *sp);
+int soh_profile_update(struct soh_profile *sp, int soh);
 
 #endif

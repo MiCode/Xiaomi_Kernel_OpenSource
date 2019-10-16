@@ -63,6 +63,7 @@ struct qg_dt {
 	int			shutdown_soc_threshold;
 	int			min_sleep_time_secs;
 	int			sys_min_volt_mv;
+	int			fvss_vbat_mv;
 	bool			hold_soc_while_full;
 	bool			linearize_soc;
 	bool			cl_disable;
@@ -73,6 +74,8 @@ struct qg_dt {
 	bool			use_s7_ocv;
 	bool			qg_sleep_config;
 	bool			qg_fast_chg_cfg;
+	bool			fvss_enable;
+	bool			multi_profile_load;
 };
 
 struct qg_esr_data {
@@ -89,10 +92,12 @@ struct qpnp_qg {
 	struct pmic_revid_data	*pmic_rev_id;
 	struct regmap		*regmap;
 	struct qpnp_vadc_chip	*vadc_dev;
+	struct soh_profile	*sp;
 	struct power_supply	*qg_psy;
 	struct class		*qg_class;
 	struct device		*qg_device;
 	struct cdev		qg_cdev;
+	struct device_node	*batt_node;
 	dev_t			dev_no;
 	struct work_struct	udata_work;
 	struct work_struct	scale_soc_work;
@@ -134,6 +139,7 @@ struct qpnp_qg {
 	bool			dc_present;
 	bool			charge_full;
 	bool			force_soc;
+	bool			fvss_active;
 	int			charge_status;
 	int			charge_type;
 	int			chg_iterm_ma;
@@ -142,6 +148,8 @@ struct qpnp_qg {
 	int			esr_nominal;
 	int			soh;
 	int			soc_reporting_ready;
+	int			last_fifo_v_uv;
+	int			last_fifo_i_ua;
 	u32			fifo_done_count;
 	u32			wa_flags;
 	u32			seq_no;
@@ -150,6 +158,8 @@ struct qpnp_qg {
 	u32			esr_last;
 	u32			s2_state;
 	u32			s2_state_mask;
+	u32			soc_fvss_entry;
+	u32			vbat_fvss_entry;
 	ktime_t			last_user_update_time;
 	ktime_t			last_fifo_update_time;
 	unsigned long		last_maint_soc_update_time;
@@ -168,6 +178,7 @@ struct qpnp_qg {
 	int			sys_soc;
 	int			last_adj_ssoc;
 	int			recharge_soc;
+	int			batt_age_level;
 	struct alarm		alarm_timer;
 	u32			sdam_data[SDAM_MAX];
 
