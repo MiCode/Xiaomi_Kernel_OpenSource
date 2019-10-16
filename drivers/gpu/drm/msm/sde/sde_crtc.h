@@ -515,17 +515,6 @@ static inline int sde_crtc_get_mixer_height(struct sde_crtc *sde_crtc,
 }
 
 /**
- * sde_crtc_get_num_datapath - get the number of datapath active
- * @crtc: Pointer to drm crtc object
- */
-static inline int sde_crtc_get_num_datapath(struct drm_crtc *crtc)
-{
-	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
-
-	return sde_crtc ? sde_crtc->num_mixers : 0;
-}
-
-/**
  * sde_crtc_get_rotator_op_mode - get the rotator op mode from the crtc state
  * @crtc: Pointer to drm crtc object
  */
@@ -860,5 +849,14 @@ void sde_crtc_misr_setup(struct drm_crtc *crtc, bool enable, u32 frame_count);
 int sde_crtc_calc_vpadding_param(struct drm_crtc_state *state,
 		uint32_t crtc_y, uint32_t crtc_h, uint32_t *padding_y,
 		uint32_t *padding_start, uint32_t *padding_height);
+
+/**
+ * sde_crtc_get_num_datapath - get the number of datapath active
+ *				of primary connector
+ * @crtc: Pointer to DRM crtc object
+ * @connector: Pointer to DRM connector object of WB in CWB case
+ */
+int sde_crtc_get_num_datapath(struct drm_crtc *crtc,
+		struct drm_connector *connector);
 
 #endif /* _SDE_CRTC_H_ */

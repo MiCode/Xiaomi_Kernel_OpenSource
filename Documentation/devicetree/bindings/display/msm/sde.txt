@@ -448,6 +448,15 @@ Optional properties:
 - qcom,sde-axi-bus-width:	A u32 property to indicate the axi bus width value in bytes
 - qcom,sde-mixer-stage-base-layer: A boolean property to indicate if a layer can be staged on base
 				stage instead of border fill
+- qcom,sde-limits:		A node that lists the limits for different properties. This node
+				can have multiple child nodes. Each child node represents a
+				specific usecase limit. The usecase can be defined for properties like
+				sspp linewidth, bw limit etc.
+				e.g. qcom,sde-limits
+				-- qcom,sde-limit-name: name of the usecase
+				-- qcom,sde-limit-cases: different usecases to be considered
+				-- qcom,sde-limit-ids: respective ids for the above usecases
+				-- qcom,sde-limit-values: usecase and value for different combinations
 
 Bus Scaling Subnodes:
 - qcom,sde-reg-bus:		Property to provide Bus scaling for register access for
@@ -771,6 +780,34 @@ Example:
         qcom,sde-dspp-vlut = <0x0 0x00010000>;
     };
 
+   qcom,sde-limits {
+	qcom,sde-linewidth-limits{
+		qcom,sde-limit-cases = "vig", "dma", "scaling", "inline_rot";
+		qcom,sde-limit-ids= <0x1 0x2 0x4 0x8>;
+		/* the qcom,sde-limit-values property consist of two values:
+		one for the usecase and the other for the value. The usecase can be
+		any combination of the values mentioned in qcom,sde-limit-ids.
+		For eg: <0x5 2560> means usecase is 0x5 and value is 2560.
+		0x5 = (0x1 | 0x4) = vig + scaling. Thus the linewidth for usecase
+		vig + scaling  = 2560 */
+		qcom,sde-limit-values = <0x1 4096>,
+					<0x5 2560>,
+					<0xd 1088>,
+					<0x2 4096>;
+	};
+       qcom,sde-bw-limits{
+		qcom,sde-limit-cases = "per_pipe", "total_bw", "vfe_on", "cwb_on";
+		qcom,sde-limit-ids = <0x1 0x2 0x4 0x8>;
+		qcom,sde-limit-values = <0x1 2600000>,
+					<0x9 2600000>,
+					<0x5 2600000>,
+					<0xd 2600000>,
+					<0x2 5800000>,
+					<0xa 5500000>,
+					<0x6 4400000>,
+					<0xe 3900000>;
+	};
+    };
     qcom,sde-mixer-blocks {
         qcom,sde-mixer-gc = <0x3c0 0x00010000>;
     };
