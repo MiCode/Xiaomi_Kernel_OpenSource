@@ -149,7 +149,8 @@ void compute_work_load(struct devfreq_dev_status *stats,
 	 * is done when the entry is read
 	 */
 	acc_total += stats->total_time;
-	acc_relative_busy += (stats->busy_time * stats->current_frequency) /
+	acc_relative_busy += ((u64)stats->busy_time *
+				stats->current_frequency) /
 				devfreq->profile->freq_table[0];
 	spin_unlock(&sample_lock);
 }
