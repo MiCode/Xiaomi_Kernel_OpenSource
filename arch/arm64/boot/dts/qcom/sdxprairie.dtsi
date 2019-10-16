@@ -1464,6 +1464,13 @@
 			qcom,iova-mapping = <0x80000000 0x40000000>;
 		};
 	};
+
+	sdx_ext_ipc: qcom,sdx_ext_ipc {
+		compatible = "qcom,sdx-ext-ipc";
+		qcom,ap2mdm-status-gpio = <&tlmm 64 0x00>;
+		qcom,mdm2ap-status-gpio = <&tlmm 63 0x00>;
+		qcom,mdm2ap-status2-gpio = <&tlmm 66 0x00>;
+	};
 };
 
 #include "sdxprairie-pm.dtsi"

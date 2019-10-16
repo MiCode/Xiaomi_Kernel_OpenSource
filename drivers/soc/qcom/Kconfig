@@ -490,6 +490,16 @@ config MSM_GLADIATOR_ERP
 
 	  If unsure, say N.
 
+config SDX_EXT_IPC
+	tristate "QCOM external ipc driver"
+	help
+	  This enables the module to help modem communicate with external
+	  Application processor connected to Qualcomm Technologies, Inc
+	  modem chipset. The modem and APQ can understand each other's
+	  state by reading ipc gpios.
+
+	  If unsure, say N.
+
 config PANIC_ON_GLADIATOR_ERROR
 	depends on MSM_GLADIATOR_ERP
 	bool "Panic on GLADIATOR error report"
