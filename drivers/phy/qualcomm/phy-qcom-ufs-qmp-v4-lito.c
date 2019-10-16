@@ -76,6 +76,34 @@ static int ufs_qcom_phy_qmp_v4_lito_exit(struct phy *generic_phy)
 	return 0;
 }
 
+static inline
+void ufs_qcom_phy_qmp_v4_tx_pull_down_ctrl(struct ufs_qcom_phy *phy,
+						bool enable)
+{
+	u32 temp;
+
+	temp = readl_relaxed(phy->mmio + QSERDES_RX0_RX_INTERFACE_MODE);
+	if (enable)
+		temp |= QSERDES_RX_INTERFACE_MODE_CLOCK_EDGE_BIT;
+	else
+		temp &= ~QSERDES_RX_INTERFACE_MODE_CLOCK_EDGE_BIT;
+	writel_relaxed(temp, phy->mmio + QSERDES_RX0_RX_INTERFACE_MODE);
+
+	if (phy->lanes_per_direction == 1)
+		goto out;
+
+	temp = readl_relaxed(phy->mmio + QSERDES_RX1_RX_INTERFACE_MODE);
+	if (enable)
+		temp |= QSERDES_RX_INTERFACE_MODE_CLOCK_EDGE_BIT;
+	else
+		temp &= ~QSERDES_RX_INTERFACE_MODE_CLOCK_EDGE_BIT;
+	writel_relaxed(temp, phy->mmio + QSERDES_RX1_RX_INTERFACE_MODE);
+
+out:
+	/* ensure register value is committed */
+	mb();
+}
+
 static
 void ufs_qcom_phy_qmp_v4_lito_power_control(struct ufs_qcom_phy *phy,
 					 bool power_ctrl)
@@ -88,7 +116,9 @@ void ufs_qcom_phy_qmp_v4_lito_power_control(struct ufs_qcom_phy *phy,
 		 * powered OFF.
 		 */
 		mb();
+		ufs_qcom_phy_qmp_v4_tx_pull_down_ctrl(phy, true);
 	} else {
+		ufs_qcom_phy_qmp_v4_tx_pull_down_ctrl(phy, false);
 		/* bring PHY out of analog power collapse */
 		writel_relaxed(0x1, phy->mmio + UFS_PHY_POWER_DOWN_CONTROL);
 
