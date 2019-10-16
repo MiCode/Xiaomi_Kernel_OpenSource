@@ -136,7 +136,7 @@ struct npu_mbox {
 	bool send_data_pending;
 };
 
-/**
+/*
  * struct npul_pwrlevel - Struct holding different pwrlevel info obtained from
  * from dtsi file
  * @pwr_level:           NPU power level
@@ -159,7 +159,7 @@ struct npu_reg {
 	bool valid;
 };
 
-/**
+/*
  * struct npu_pwrctrl - Power control settings for a NPU device
  * @pwr_vote_num - voting information for power enable
  * @pwrlevels - List of supported power levels
@@ -198,7 +198,7 @@ struct npu_pwrctrl {
 	uint32_t cur_dcvs_activity;
 };
 
-/**
+/*
  * struct npu_thermalctrl - Thermal control settings for a NPU device
  * @max_state - maximum thermal mitigation state
  * @current_state - current thermal mitigation state
