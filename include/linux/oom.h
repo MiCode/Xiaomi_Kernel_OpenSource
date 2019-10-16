@@ -135,4 +135,5 @@ extern int sysctl_reap_mem_on_sigkill;
 
 /* calls for LMK reaper */
 extern void add_to_oom_reaper(struct task_struct *p);
+#define ULMK_MAGIC "lmkd"
 #endif /* _INCLUDE_LINUX_OOM_H */
