@@ -1715,6 +1715,10 @@ static int adreno_init(struct kgsl_device *device)
 	if (ret)
 		return ret;
 
+	ret = gmu_core_init(device);
+	if (ret)
+		return ret;
+
 	/* Put the GPU in a responsive state */
 	if (ADRENO_GPUREV(adreno_dev) < 600) {
 		/* No need for newer generation architectures */

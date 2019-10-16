@@ -1569,9 +1569,6 @@ static int gmu_start(struct kgsl_device *device)
 	case KGSL_STATE_INIT:
 		gmu_aop_send_acd_state(device, test_bit(ADRENO_ACD_CTRL,
 					&adreno_dev->pwrctrl_flag));
-		ret = gmu_init(device);
-		if (ret)
-			return ret;
 	case KGSL_STATE_SUSPEND:
 		WARN_ON(test_bit(GMU_CLK_ON, &device->gmu_core.flags));
 
@@ -1770,6 +1767,7 @@ static bool gmu_regulator_isenabled(struct kgsl_device *device)
 struct gmu_core_ops gmu_ops = {
 	.probe = gmu_probe,
 	.remove = gmu_remove,
+	.init = gmu_init,
 	.start = gmu_start,
 	.stop = gmu_stop,
 	.dcvs_set = gmu_dcvs_set,
