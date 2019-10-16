@@ -1528,7 +1528,7 @@
 		 * IO and XTAL share the same vreg.
 		 **/
 		vdd-wlan-io-supply = <&pms405_l5>;
-		qcom,cap-tsf-gpio = <&tlmm 42 1>;
+		qcom,cap-tsf-gpio = <&tlmm 53 1>;
 		qcom,wlan-ramdump-dynamic = <0x200000>;
 		qcom,msm-bus,name = "msm-cnss";
 		qcom,msm-bus,num-cases = <4>;
