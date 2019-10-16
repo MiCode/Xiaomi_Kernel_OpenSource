@@ -2471,6 +2471,12 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_SEQ_TYPE_DMA_ONLY,
 			QMB_MASTER_SELECT_DDR,
 			{ 7, 9, 20, 24, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY, 0 } },
+	[IPA_4_5_MHI][IPA_CLIENT_APPS_WAN_PROD]	  = {
+			true, IPA_v4_5_MHI_GROUP_DDR,
+			true,
+			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
+			QMB_MASTER_SELECT_DDR,
+			{ 2, 7, 16, 32, IPA_EE_AP, GSI_SMART_PRE_FETCH, 7 } },
 	[IPA_4_5_MHI][IPA_CLIENT_Q6_WAN_PROD]		= {
 			true, IPA_v4_5_MHI_GROUP_DDR,
 			true,
@@ -2527,6 +2533,12 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
 			{ 16, 10, 9, 9, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY, 0 } },
+	[IPA_4_5_MHI][IPA_CLIENT_APPS_WAN_CONS]       = {
+			true, IPA_v4_5_MHI_GROUP_DDR,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 25, 16, 9, 9, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY, 0 } },
 	[IPA_4_5_MHI][IPA_CLIENT_USB_DPL_CONS]        = {
 			true, IPA_v4_5_MHI_GROUP_DDR,
 			false,
