@@ -10615,7 +10615,7 @@ static inline int find_energy_aware_new_ilb(void)
 	int ilb = nr_cpu_ids;
 	struct sched_domain *sd;
 	int cpu = raw_smp_processor_id();
-	cpumask_t avail_cpus, tmp_cpus;
+	cpumask_t idle_cpus, tmp_cpus;
 	struct sched_group *sg;
 	unsigned long ref_cap = capacity_orig_of(cpu);
 	unsigned long best_cap = 0, best_cap_cpu = -1;
@@ -10625,16 +10625,16 @@ static inline int find_energy_aware_new_ilb(void)
 	if (!sd)
 		goto out;
 
-	cpumask_and(&avail_cpus, nohz.idle_cpus_mask,
+	cpumask_and(&idle_cpus, nohz.idle_cpus_mask,
 			housekeeping_cpumask(HK_FLAG_MISC));
-	cpumask_andnot(&avail_cpus, &avail_cpus, cpu_isolated_mask);
+	cpumask_andnot(&idle_cpus, &idle_cpus, cpu_isolated_mask);
 
 	sg = sd->groups;
 	do {
 		int i;
 		unsigned long cap;
 
-		cpumask_and(&tmp_cpus, &avail_cpus, sched_group_span(sg));
+		cpumask_and(&tmp_cpus, &idle_cpus, sched_group_span(sg));
 		i = cpumask_first(&tmp_cpus);
 
 		/* This sg did not have any idle CPUs */
@@ -10649,7 +10649,18 @@ static inline int find_energy_aware_new_ilb(void)
 			break;
 		}
 
-		/* The back up CPU is selected from the best capacity CPUs */
+		/*
+		 * When there are no idle CPUs in the same capacity group,
+		 * we find the next best capacity CPU.
+		 */
+		if (best_cap > ref_cap) {
+			if (cap > ref_cap && cap < best_cap) {
+				best_cap = cap;
+				best_cap_cpu = i;
+			}
+			continue;
+		}
+
 		if (cap > best_cap) {
 			best_cap = cap;
 			best_cap_cpu = i;
