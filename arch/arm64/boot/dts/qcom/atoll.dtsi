@@ -2291,7 +2291,7 @@
 		glink_npu: npu {
 			transport = "smem";
 			qcom,remote-pid = <10>;
-			mboxes = <&apcs_glb2 4>;
+			mboxes = <&msm_npu 4>;
 			mbox-names = "npu_smem";
 			interrupts = <GIC_SPI 587 IRQ_TYPE_EDGE_RISING>;
 
