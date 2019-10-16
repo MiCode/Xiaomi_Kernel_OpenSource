@@ -1258,8 +1258,7 @@ int mhi_process_ctrl_ev_ring(struct mhi_controller *mhi_cntrl,
 							MHI_PM_SYS_ERR_DETECT);
 				write_unlock_irq(&mhi_cntrl->pm_lock);
 				if (new_state == MHI_PM_SYS_ERR_DETECT)
-					schedule_work(
-						&mhi_cntrl->syserr_worker);
+					mhi_process_sys_err(mhi_cntrl);
 				break;
 			}
 			default:
@@ -1605,7 +1604,7 @@ void mhi_ctrl_ev_task(unsigned long data)
 		}
 		write_unlock_irq(&mhi_cntrl->pm_lock);
 		if (pm_state == MHI_PM_SYS_ERR_DETECT)
-			schedule_work(&mhi_cntrl->syserr_worker);
+			mhi_process_sys_err(mhi_cntrl);
 	}
 }
 
@@ -1686,7 +1685,7 @@ irqreturn_t mhi_intvec_threaded_handlr(int irq_number, void *dev)
 			mhi_cntrl->status_cb(mhi_cntrl, mhi_cntrl->priv_data,
 					     MHI_CB_FATAL_ERROR);
 		else
-			schedule_work(&mhi_cntrl->syserr_worker);
+			mhi_process_sys_err(mhi_cntrl);
 	}
 
 exit_intvec:
