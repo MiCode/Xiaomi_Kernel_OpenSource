@@ -61,6 +61,10 @@
 		qcom,proxy-reg-names ="vdd", "vdd_cx";
 		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
 		#cooling-cells = <2>;
+		mboxes = <&apcs_glb2 4>,
+			<&apcs_glb2 6>;
+		mbox-names = "glink", "smp2p";
+		#mbox-cells = <1>;
 		qcom,npubw-devs = <&npu_npu_ddr_bw>;
 		qcom,npubw-dev-names = "ddr_bw";
 		qcom,src-dst-ports = <MSM_BUS_MASTER_NPU MSM_BUS_SLAVE_EBI_CH0>;
