@@ -147,7 +147,7 @@
 		compatible = "qcom,nxp,mpc5746c";
 		reg = <0>;
 		interrupt-parent = <&tlmm>;
-		interrupts = <88 0>;
+		interrupts = <103 0>;
 		spi-max-frequency = <5000000>;
 		qcom,clk-freq-mhz = <40000000>;
 		qcom,max-can-channels = <2>;
