@@ -392,20 +392,20 @@ int npu_enable_core_power(struct npu_device *npu_dev)
 	mutex_lock(&npu_dev->dev_lock);
 	NPU_DBG("Enable core power %d\n", pwr->pwr_vote_num);
 	if (!pwr->pwr_vote_num) {
-		ret = npu_enable_regulators(npu_dev);
+		ret = npu_set_bw(npu_dev, 100, 100);
 		if (ret)
 			goto fail;
 
-		ret = npu_set_bw(npu_dev, 100, 100);
+		ret = npu_enable_regulators(npu_dev);
 		if (ret) {
-			npu_disable_regulators(npu_dev);
+			npu_set_bw(npu_dev, 0, 0);
 			goto fail;
 		}
 
 		ret = npu_enable_core_clocks(npu_dev);
 		if (ret) {
-			npu_set_bw(npu_dev, 0, 0);
 			npu_disable_regulators(npu_dev);
+			npu_set_bw(npu_dev, 0, 0);
 			goto fail;
 		}
 		npu_resume_devbw(npu_dev);
@@ -432,8 +432,8 @@ void npu_disable_core_power(struct npu_device *npu_dev)
 	if (!pwr->pwr_vote_num) {
 		npu_suspend_devbw(npu_dev);
 		npu_disable_core_clocks(npu_dev);
-		npu_set_bw(npu_dev, 0, 0);
 		npu_disable_regulators(npu_dev);
+		npu_set_bw(npu_dev, 0, 0);
 		pwr->active_pwrlevel = pwr->default_pwrlevel;
 		pwr->uc_pwrlevel = pwr->max_pwrlevel;
 		pwr->cdsprm_pwrlevel = pwr->max_pwrlevel;
@@ -1957,8 +1957,8 @@ static int npu_ipcc_bridge_mbox_send_data(struct mbox_chan *chan, void *data)
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 	unsigned long flags;
 
-	NPU_DBG("Generating IRQ for client_id: %u; signal_id: %u\n",
-		ipcc_mbox_chan->client_id, ipcc_mbox_chan->signal_id);
+	NPU_DBG("Generating IRQ for signal_id: %u\n",
+		ipcc_mbox_chan->signal_id);
 
 	spin_lock_irqsave(&host_ctx->bridge_mbox_lock, flags);
 	ipcc_mbox_chan->npu_mbox->send_data_pending = true;
@@ -1990,7 +1990,7 @@ static struct mbox_chan *npu_ipcc_bridge_mbox_xlate(
 
 	npu_dev = bridge_data->priv_data;
 
-	if (ph->args_count != 2)
+	if (ph->args_count != 1)
 		return ERR_PTR(-EINVAL);
 
 	for (chan_id = 0; chan_id < mbox->num_chans; chan_id++) {
@@ -1998,8 +1998,7 @@ static struct mbox_chan *npu_ipcc_bridge_mbox_xlate(
 
 		if (!ipcc_mbox_chan)
 			break;
-		else if (ipcc_mbox_chan->client_id == ph->args[0] &&
-				ipcc_mbox_chan->signal_id == ph->args[1])
+		else if (ipcc_mbox_chan->signal_id == ph->args[0])
 			return ERR_PTR(-EBUSY);
 	}
 
@@ -2009,16 +2008,15 @@ static struct mbox_chan *npu_ipcc_bridge_mbox_xlate(
 	/* search for target mailbox */
 	for (i = 0; i < NPU_MAX_MBOX_NUM; i++) {
 		if (npu_dev->mbox[i].chan &&
-			(npu_dev->mbox[i].client_id == ph->args[0]) &&
-			(npu_dev->mbox[i].signal_id == ph->args[1])) {
+			(npu_dev->mbox[i].signal_id == ph->args[0])) {
 			NPU_DBG("Find matched target mailbox %d\n", i);
 			break;
 		}
 	}
 
 	if (i == NPU_MAX_MBOX_NUM) {
-		NPU_ERR("Can't find matched target mailbox %d:%d\n",
-			ph->args[0], ph->args[1]);
+		NPU_ERR("Can't find matched target mailbox %d\n",
+			ph->args[0]);
 		return ERR_PTR(-EINVAL);
 	}
 
@@ -2026,16 +2024,14 @@ static struct mbox_chan *npu_ipcc_bridge_mbox_xlate(
 	if (!ipcc_mbox_chan)
 		return ERR_PTR(-ENOMEM);
 
-	ipcc_mbox_chan->client_id = ph->args[0];
-	ipcc_mbox_chan->signal_id = ph->args[1];
+	ipcc_mbox_chan->signal_id = ph->args[0];
 	ipcc_mbox_chan->chan = &bridge_data->chans[chan_id];
 	ipcc_mbox_chan->npu_dev = npu_dev;
 	ipcc_mbox_chan->chan->con_priv = ipcc_mbox_chan;
 	ipcc_mbox_chan->npu_mbox = &npu_dev->mbox[i];
 
-	NPU_DBG("New mailbox channel: %u for client_id: %u; signal_id: %u\n",
-		chan_id, ipcc_mbox_chan->client_id,
-		ipcc_mbox_chan->signal_id);
+	NPU_DBG("New mailbox channel: %u for signal_id: %u\n",
+		chan_id, ipcc_mbox_chan->signal_id);
 
 	return ipcc_mbox_chan->chan;
 }
@@ -2140,11 +2136,9 @@ static int npu_mbox_init(struct npu_device *npu_dev)
 				NPU_WARN("can't get mailbox %s args\n",
 					mbox_name);
 			} else {
-				mbox->client_id = curr_ph.args[0];
-				mbox->signal_id = curr_ph.args[1];
-				NPU_DBG("argument for mailbox %x is %x %x\n",
-					mbox_name, curr_ph.args[0],
-					curr_ph.args[1]);
+				mbox->signal_id = curr_ph.args[0];
+				NPU_DBG("argument for mailbox %x is %x\n",
+					mbox_name, curr_ph.args[0]);
 			}
 		}
 		index++;
