@@ -294,10 +294,6 @@ int ipa_setup_odl_pipe(void)
 
 	ipa_odl_ep_cfg->ipa_ep_cfg.aggr.aggr_en = IPA_ENABLE_AGGR;
 	ipa_odl_ep_cfg->ipa_ep_cfg.aggr.aggr_hard_byte_limit_en = 1;
-	if (ipa3_is_mhip_offload_enabled()) {
-		IPADBG("MHIP is enabled, disable aggregation for ODL pipe");
-		ipa_odl_ep_cfg->ipa_ep_cfg.aggr.aggr_en = IPA_BYPASS_AGGR;
-	}
 	ipa_odl_ep_cfg->ipa_ep_cfg.aggr.aggr = IPA_GENERIC;
 	ipa_odl_ep_cfg->ipa_ep_cfg.aggr.aggr_byte_limit =
 						IPA_ODL_AGGR_BYTE_LIMIT;
@@ -323,6 +319,19 @@ int ipa_setup_odl_pipe(void)
 	ipa_odl_ep_cfg->desc_fifo_sz = IPA_ODL_RX_RING_SIZE *
 						IPA_FIFO_ELEMENT_SIZE;
 	ipa3_odl_ctx->odl_client_hdl = -1;
+
+	/* For MHIP, ODL functionality is DMA. So bypass aggregation, checksum
+	 * offload, hdr_len.
+	 */
+	if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ &&
+		ipa3_is_mhip_offload_enabled()) {
+		IPADBG("MHIP enabled: bypass aggr + csum offload for ODL");
+		ipa_odl_ep_cfg->ipa_ep_cfg.aggr.aggr_en = IPA_BYPASS_AGGR;
+		ipa_odl_ep_cfg->ipa_ep_cfg.cfg.cs_offload_en =
+			IPA_DISABLE_CS_OFFLOAD;
+		ipa_odl_ep_cfg->ipa_ep_cfg.hdr.hdr_len = 0;
+	}
+
 	ret = ipa3_setup_sys_pipe(ipa_odl_ep_cfg,
 			&ipa3_odl_ctx->odl_client_hdl);
 	return ret;
