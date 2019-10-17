@@ -83,6 +83,7 @@ extern void __qcom_scm_mmu_sync(struct device *dev, bool sync);
 #define QCOM_SCM_MEMP_SHM_BRIDGE_DELETE		0x1d
 #define QCOM_SCM_MEMP_SHM_BRDIGE_CREATE		0x1e
 #define QCOM_SCM_MP_SMMU_PREPARE_ATOS_ID	0x21
+#define QCOM_SCM_MP_MPU_LOCK_NS_REGION		0x25
 extern int __qcom_scm_restore_sec_cfg(struct device *dev, u32 device_id,
 				      u32 spare);
 extern int __qcom_scm_iommu_secure_ptbl_size(struct device *dev, u32 spare,
@@ -120,6 +121,8 @@ extern int __qcom_scm_create_shm_bridge(struct device *dev,
 			u64 size_and_flags, u64 ns_vmids, u64 *handle);
 extern int __qcom_scm_smmu_prepare_atos_id(struct device *dev, u64 dev_id,
 						int cb_num, int operation);
+extern int __qcom_mdf_assign_memory_to_subsys(struct device *dev,
+		u64 start_addr, u64 end_addr, phys_addr_t paddr, u64 size);
 #define QCOM_SCM_IOMMU_TLBINVAL_FLAG    0x00000001
 #define QCOM_SCM_CP_APERTURE_REG	0x0
 

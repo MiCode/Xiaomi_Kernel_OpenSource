@@ -570,6 +570,18 @@ int qcom_scm_smmu_prepare_atos_id(u64 dev_id, int cb_num, int operation)
 EXPORT_SYMBOL(qcom_scm_smmu_prepare_atos_id);
 
 /**
+ * qcom_mdf_assign_memory_to_subsys - SDE memory protect.
+ *
+ */
+int qcom_mdf_assign_memory_to_subsys(u64 start_addr, u64 end_addr,
+		phys_addr_t paddr, u64 size)
+{
+	return __qcom_mdf_assign_memory_to_subsys(__scm->dev,
+		start_addr, end_addr, paddr, size);
+}
+EXPORT_SYMBOL(qcom_mdf_assign_memory_to_subsys);
+
+/**
  * qcom_scm_dcvs_core_available() - check if core DCVS operations are available
  */
 bool qcom_scm_dcvs_core_available(void)

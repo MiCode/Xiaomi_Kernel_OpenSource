@@ -78,6 +78,8 @@ extern bool qcom_scm_kgsl_set_smmu_aperture_available(void);
 extern int qcom_scm_kgsl_set_smmu_aperture(
 				unsigned int num_context_bank);
 extern int qcom_scm_smmu_prepare_atos_id(u64 dev_id, int cb_num, int operation);
+extern int qcom_mdf_assign_memory_to_subsys(u64 start_addr,
+				u64 end_addr, phys_addr_t paddr, u64 size);
 extern bool qcom_scm_dcvs_core_available(void);
 extern bool qcom_scm_dcvs_ca_available(void);
 extern int qcom_scm_dcvs_reset(void);
@@ -188,6 +190,9 @@ static inline int qcom_scm_kgsl_set_smmu_aperture(
 		unsigned int num_context_bank) { return -ENODEV; }
 static inline int qcom_scm_smmu_prepare_atos_id(u64 dev_id, int cb_num,
 		int operation) { return -ENODEV; }
+static inline int qcom_mdf_assign_memory_to_subsys(struct device *dev,
+		u64 start_addr, u64 end_addr, phys_addr_t paddr, u64 size)
+		{ return -ENODEV; }
 static inline bool qcom_scm_dcvs_core_available(void) { return false; }
 static inline bool qcom_scm_dcvs_ca_available(void) { return false; }
 static inline int qcom_scm_dcvs_init_v2(phys_addr_t addr, size_t size,

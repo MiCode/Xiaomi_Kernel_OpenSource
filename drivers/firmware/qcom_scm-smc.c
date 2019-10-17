@@ -1326,6 +1326,26 @@ int __qcom_scm_smmu_prepare_atos_id(struct device *dev, u64 dev_id, int cb_num,
 	return ret;
 }
 
+int __qcom_mdf_assign_memory_to_subsys(struct device *dev, u64 start_addr,
+	u64 end_addr, phys_addr_t paddr, u64 size)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_MP,
+		.cmd = QCOM_SCM_MP_MPU_LOCK_NS_REGION,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.args[0] = start_addr;
+	desc.args[1] = end_addr;
+	desc.args[2] = paddr;
+	desc.args[3] = size;
+	desc.arginfo = QCOM_SCM_ARGS(4);
+	ret = qcom_scm_call(dev, &desc);
+
+	return ret ? : desc.res[0];
+}
+
 bool __qcom_scm_dcvs_core_available(struct device *dev)
 {
 	return __qcom_scm_is_call_available(dev, QCOM_SCM_SVC_DCVS,
