@@ -1551,8 +1551,7 @@ static int cnss_qca6290_powerup(struct cnss_pci_data *pci_priv)
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
 	unsigned int timeout;
 
-	if (plat_priv->ramdump_info_v2.dump_data_valid ||
-	    test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state)) {
+	if (plat_priv->ramdump_info_v2.dump_data_valid) {
 		cnss_pci_clear_dump_info(pci_priv);
 		cnss_pci_deinit_mhi(pci_priv);
 	}
@@ -1639,8 +1638,7 @@ static int cnss_qca6290_shutdown(struct cnss_pci_data *pci_priv)
 	ret = cnss_suspend_pci_link(pci_priv);
 	if (ret)
 		cnss_pr_err("Failed to suspend PCI link, err = %d\n", ret);
-	if (!plat_priv->ramdump_info_v2.dump_data_valid &&
-	    !test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state))
+	if (!plat_priv->ramdump_info_v2.dump_data_valid)
 		cnss_pci_deinit_mhi(pci_priv);
 
 	cnss_power_off_device(plat_priv);
