@@ -4280,7 +4280,11 @@ void ipa_init_ep_flt_bitmap(void)
 	}
 
 	for (cl = 0; cl < IPA_CLIENT_MAX ; cl++) {
-		if (ipa3_ep_mapping[hw_idx][cl].support_flt) {
+		/* In normal mode don't add filter support test pipes*/
+		if ((ipa3_ep_mapping[hw_idx][cl].support_flt &&
+				!IPA_CLIENT_IS_TEST(cl)) ||
+			ipa3_ctx->ipa3_hw_mode == IPA_HW_MODE_VIRTUAL ||
+			ipa3_ctx->ipa3_hw_mode == IPA_HW_MODE_EMULATION) {
 			gsi_ep_ptr =
 				&ipa3_ep_mapping[hw_idx][cl].ipa_gsi_ep_info;
 			pipe_num =

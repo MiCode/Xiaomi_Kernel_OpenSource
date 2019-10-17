@@ -3100,14 +3100,14 @@ static int ipa3_q6_clean_q6_flt_tbls(enum ipa_ip_type ip,
 	int retval = 0;
 	int pipe_idx;
 	int flt_idx = 0;
-	int num_cmds = 0;
+	int num_cmds = 0, count = 0;
 	int index;
 	u32 lcl_addr_mem_part;
 	u32 lcl_hdr_sz;
 	struct ipa_mem_buffer mem;
 	struct ipahal_reg_valmask valmask;
 	struct ipahal_imm_cmd_register_write reg_write_coal_close;
-	int i;
+	int coal_ep = IPA_EP_NOT_ALLOCATED;
 
 	IPADBG("Entry\n");
 
@@ -3163,14 +3163,14 @@ static int ipa3_q6_clean_q6_flt_tbls(enum ipa_ip_type ip,
 		goto free_cmd_pyld;
 	}
 
+	coal_ep = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS);
 	/* IC to close the coal frame before HPS Clear if coal is enabled */
-	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) != -1) {
-		i = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS);
+	if (coal_ep != IPA_EP_NOT_ALLOCATED) {
 		reg_write_coal_close.skip_pipeline_clear = false;
 		reg_write_coal_close.pipeline_clear_options = IPAHAL_HPS_CLEAR;
 		reg_write_coal_close.offset = ipahal_get_reg_ofst(
 			IPA_AGGR_FORCE_CLOSE);
-		ipahal_get_aggr_force_close_valmask(i, &valmask);
+		ipahal_get_aggr_force_close_valmask(coal_ep, &valmask);
 		reg_write_coal_close.value = valmask.val;
 		reg_write_coal_close.value_mask = valmask.mask;
 		cmd_pyld[num_cmds] = ipahal_construct_imm_cmd(
@@ -3196,7 +3196,12 @@ static int ipa3_q6_clean_q6_flt_tbls(enum ipa_ip_type ip,
 		if (!ipa3_ctx->ep[pipe_idx].valid ||
 		    ipa3_ctx->ep[pipe_idx].skip_ep_cfg) {
 
-			if (num_cmds >= ipa3_ctx->ep_flt_num) {
+			/*
+			 * When coal pipe is valid send close coalescing frame
+			 * command and increment the ep_flt_num accordingly.
+			 */
+			count = (coal_ep != IPA_EP_NOT_ALLOCATED) ? 1 : 0;
+			if (num_cmds >= (ipa3_ctx->ep_flt_num + count)) {
 				IPAERR("number of commands is out of range\n");
 				retval = -ENOBUFS;
 				goto free_empty_img;
