@@ -16,6 +16,7 @@
 #include "msm_cvp_clocks.h"
 #include <linux/dma-buf.h>
 #include <uapi/media/msm_media_info.h>
+#include <synx_api.h>
 
 #define MAX_EVENTS 30
 #define NUM_CYCLES16X16_HCD_FRAME 95
@@ -302,6 +303,8 @@ void *msm_cvp_open(int core_id, int session_type)
 
 	kref_init(&inst->kref);
 
+	synx_initialize(NULL);
+
 	inst->session_type = session_type;
 	inst->state = MSM_CVP_CORE_UNINIT_DONE;
 	inst->core = core;
@@ -353,6 +356,8 @@ fail_init:
 	DEINIT_MSM_CVP_LIST(&inst->cvpdspbufs);
 	DEINIT_MSM_CVP_LIST(&inst->frames);
 
+	synx_uninitialize();
+
 	kfree(inst);
 	inst = NULL;
 err_invalid_core:
@@ -387,6 +392,8 @@ int msm_cvp_destroy(struct msm_cvp_inst *inst)
 	/* inst->list lives in core->instances */
 	list_del(&inst->list);
 	mutex_unlock(&core->lock);
+
+	synx_uninitialize();
 
 	DEINIT_MSM_CVP_LIST(&inst->persistbufs);
 	DEINIT_MSM_CVP_LIST(&inst->cvpcpubufs);
