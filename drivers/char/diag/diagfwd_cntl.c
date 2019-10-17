@@ -1886,11 +1886,9 @@ int diag_send_passthru_ctrl_pkt(struct diag_hw_accel_cmd_req_t *req_params)
 		if (!P_FMASK_DIAGID_V2(i))
 			continue;
 		err = diagfwd_write(i, TYPE_CNTL, &ctrl_pkt, sizeof(ctrl_pkt));
-		if (err && err != -ENODEV) {
+		if (err && err != -ENODEV)
 			pr_err("diag: Unable to send PASSTHRU ctrl packet to peripheral %d, err: %d\n",
 				i, err);
-			return err;
-		}
 	}
 	return 0;
 }
