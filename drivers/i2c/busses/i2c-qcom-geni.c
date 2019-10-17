@@ -96,6 +96,11 @@ struct geni_i2c_clk_fld {
 	u8	t_cycle;
 };
 
+struct geni_i2c_ssr {
+	struct mutex ssr_lock;
+	bool is_ssr_down;
+};
+
 struct geni_i2c_dev {
 	struct device *dev;
 	void __iomem *base;
@@ -131,7 +136,11 @@ struct geni_i2c_dev {
 	enum i2c_se_mode se_mode;
 	bool cmd_done;
 	struct geni_i2c_clk_fld geni_i2c_clk_param;
+	struct geni_i2c_ssr i2c_ssr;
 };
+
+static int ssr_i2c_force_suspend(struct device *dev);
+static int ssr_i2c_force_resume(struct device *dev);
 
 struct geni_i2c_err_log {
 	int err;
@@ -235,12 +244,22 @@ static irqreturn_t geni_i2c_irq(int irq, void *dev)
 {
 	struct geni_i2c_dev *gi2c = dev;
 	int i, j;
-	u32 m_stat = readl_relaxed(gi2c->base + SE_GENI_M_IRQ_STATUS);
-	u32 rx_st = readl_relaxed(gi2c->base + SE_GENI_RX_FIFO_STATUS);
-	u32 dm_tx_st = readl_relaxed(gi2c->base + SE_DMA_TX_IRQ_STAT);
-	u32 dm_rx_st = readl_relaxed(gi2c->base + SE_DMA_RX_IRQ_STAT);
-	u32 dma = readl_relaxed(gi2c->base + SE_GENI_DMA_MODE_EN);
+	u32 m_stat, rx_st, dm_tx_st, dm_rx_st, dma;
 	struct i2c_msg *cur = gi2c->cur;
+
+	if (gi2c->i2c_ssr.is_ssr_down) {
+		gi2c->cmd_done = false;
+		complete(&gi2c->xfer);
+		GENI_SE_DBG(gi2c->ipcl, false, gi2c->dev,
+			"%s: SSR down\n", __func__);
+		return IRQ_HANDLED;
+	}
+
+	m_stat = readl_relaxed(gi2c->base + SE_GENI_M_IRQ_STATUS);
+	rx_st = readl_relaxed(gi2c->base + SE_GENI_RX_FIFO_STATUS);
+	dm_tx_st = readl_relaxed(gi2c->base + SE_DMA_TX_IRQ_STAT);
+	dm_rx_st = readl_relaxed(gi2c->base + SE_DMA_RX_IRQ_STAT);
+	dma = readl_relaxed(gi2c->base + SE_GENI_DMA_MODE_EN);
 
 	if (!cur || (m_stat & M_CMD_FAILURE_EN) ||
 		    (dm_rx_st & (DM_I2C_CB_ERR)) ||
@@ -283,6 +302,9 @@ static irqreturn_t geni_i2c_irq(int irq, void *dev)
 			u32 temp;
 			int p;
 
+			if (gi2c->i2c_ssr.is_ssr_down)
+				break;
+
 			temp = readl_relaxed(gi2c->base + SE_GENI_RX_FIFOn);
 			for (i = gi2c->cur_rd, p = 0; (i < cur->len && p < 4);
 				i++, p++)
@@ -303,6 +325,10 @@ static irqreturn_t geni_i2c_irq(int irq, void *dev)
 			for (i = gi2c->cur_wr, p = 0; (i < cur->len && p < 4);
 				i++, p++)
 				temp |= (((u32)(cur->buf[i]) << (p * 8)));
+
+			if (gi2c->i2c_ssr.is_ssr_down)
+				break;
+
 			writel_relaxed(temp, gi2c->base + SE_GENI_TX_FIFOn);
 			gi2c->cur_wr = i;
 			dev_dbg(gi2c->dev, "FIFO i:%d,wrote 0x%x\n", i, temp);
@@ -315,6 +341,14 @@ static irqreturn_t geni_i2c_irq(int irq, void *dev)
 		}
 	}
 irqret:
+	if (gi2c->i2c_ssr.is_ssr_down) {
+		gi2c->cmd_done = false;
+		complete(&gi2c->xfer);
+		GENI_SE_DBG(gi2c->ipcl, false, gi2c->dev,
+				"%s: SSR down\n", __func__);
+		return IRQ_HANDLED;
+	}
+
 	if (m_stat)
 		writel_relaxed(m_stat, gi2c->base + SE_GENI_M_IRQ_CLEAR);
 
@@ -652,6 +686,14 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 	gi2c->err = 0;
 	gi2c->cur = &msgs[0];
 	reinit_completion(&gi2c->xfer);
+	mutex_lock(&gi2c->i2c_ssr.ssr_lock);
+	if (gi2c->i2c_ssr.is_ssr_down) {
+		GENI_SE_DBG(gi2c->ipcl, false, gi2c->dev,
+			"%s: SSR Down\n", __func__);
+		mutex_unlock(&gi2c->i2c_ssr.ssr_lock);
+		return -EINVAL;
+	}
+
 	ret = pm_runtime_get_sync(gi2c->dev);
 	if (ret < 0) {
 		GENI_SE_ERR(gi2c->ipcl, true, gi2c->dev,
@@ -659,6 +701,7 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 		pm_runtime_put_noidle(gi2c->dev);
 		/* Set device in suspended since resume failed */
 		pm_runtime_set_suspended(gi2c->dev);
+		mutex_unlock(&gi2c->i2c_ssr.ssr_lock);
 		return ret;
 	}
 	if (gi2c->se_mode == GSI_ONLY) {
@@ -732,8 +775,16 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 		}
 		/* Ensure FIFO write go through before waiting for Done evet */
 		mb();
+		mutex_unlock(&gi2c->i2c_ssr.ssr_lock);
 		timeout = wait_for_completion_timeout(&gi2c->xfer,
 						gi2c->xfer_timeout);
+		mutex_lock(&gi2c->i2c_ssr.ssr_lock);
+		if (gi2c->i2c_ssr.is_ssr_down) {
+			ret = -EINVAL;
+			GENI_SE_DBG(gi2c->ipcl, false, gi2c->dev,
+				"%s: SSR Down\n", __func__);
+			goto geni_i2c_txn_ret;
+		}
 		if (!timeout)
 			geni_i2c_err(gi2c, GENI_TIMEOUT);
 
@@ -741,7 +792,16 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 			reinit_completion(&gi2c->xfer);
 			gi2c->cur = NULL;
 			geni_cancel_m_cmd(gi2c->base);
+			mutex_unlock(&gi2c->i2c_ssr.ssr_lock);
 			timeout = wait_for_completion_timeout(&gi2c->xfer, HZ);
+			mutex_lock(&gi2c->i2c_ssr.ssr_lock);
+			if (gi2c->i2c_ssr.is_ssr_down) {
+				ret = -EINVAL;
+				GENI_SE_DBG(gi2c->ipcl, false, gi2c->dev,
+					"%s: SSR Down\n", __func__);
+				goto geni_i2c_txn_ret;
+			}
+
 			if (!timeout)
 				geni_abort_m_cmd(gi2c->base);
 		}
@@ -779,6 +839,7 @@ geni_i2c_txn_ret:
 	gi2c->cur = NULL;
 	gi2c->err = 0;
 	dev_dbg(gi2c->dev, "i2c txn ret:%d\n", ret);
+	mutex_unlock(&gi2c->i2c_ssr.ssr_lock);
 	return ret;
 }
 
@@ -815,6 +876,8 @@ static int geni_i2c_probe(struct platform_device *pdev)
 	if (!res)
 		return -EINVAL;
 
+	gi2c->i2c_rsc.rsc_ssr.ssr_enable = of_property_read_bool(
+		pdev->dev.of_node, "ssr-enable");
 	wrapper_ph_node = of_parse_phandle(pdev->dev.of_node,
 				"qcom,wrapper-core", 0);
 	if (IS_ERR_OR_NULL(wrapper_ph_node)) {
@@ -948,6 +1011,9 @@ static int geni_i2c_probe(struct platform_device *pdev)
 	pm_runtime_set_autosuspend_delay(gi2c->dev, I2C_AUTO_SUSPEND_DELAY);
 	pm_runtime_use_autosuspend(gi2c->dev);
 	pm_runtime_enable(gi2c->dev);
+	gi2c->i2c_rsc.rsc_ssr.force_suspend = ssr_i2c_force_suspend;
+	gi2c->i2c_rsc.rsc_ssr.force_resume = ssr_i2c_force_resume;
+	mutex_init(&gi2c->i2c_ssr.ssr_lock);
 	i2c_add_adapter(&gi2c->adap);
 
 	snprintf(boot_marker, sizeof(boot_marker),
@@ -1100,6 +1166,43 @@ static const struct dev_pm_ops geni_i2c_pm_ops = {
 	.freeze			= geni_i2c_suspend_noirq,
 	.restore		= geni_i2c_hib_resume_noirq,
 };
+
+static int ssr_i2c_force_suspend(struct device *dev)
+{
+	struct geni_i2c_dev *gi2c = dev_get_drvdata(dev);
+	int ret = 0;
+
+	mutex_lock(&gi2c->i2c_ssr.ssr_lock);
+	gi2c->i2c_ssr.is_ssr_down = true;
+	if (!pm_runtime_status_suspended(gi2c->dev)) {
+		ret =  geni_i2c_runtime_suspend(gi2c->dev);
+		if (ret) {
+			dev_err(gi2c->dev, "runtime suspend failed\n");
+		} else {
+			pm_runtime_disable(gi2c->dev);
+			pm_runtime_set_suspended(gi2c->dev);
+			pm_runtime_enable(gi2c->dev);
+		}
+	}
+
+	GENI_SE_DBG(gi2c->ipcl, false, gi2c->dev, "%s done\n", __func__);
+	mutex_unlock(&gi2c->i2c_ssr.ssr_lock);
+
+	return ret;
+}
+
+static int ssr_i2c_force_resume(struct device *dev)
+{
+	struct geni_i2c_dev *gi2c = dev_get_drvdata(dev);
+
+	mutex_lock(&gi2c->i2c_ssr.ssr_lock);
+	gi2c->i2c_ssr.is_ssr_down = false;
+	gi2c->se_mode = UNINITIALIZED;
+	GENI_SE_DBG(gi2c->ipcl, false, gi2c->dev, "%s done\n", __func__);
+	mutex_unlock(&gi2c->i2c_ssr.ssr_lock);
+
+	return 0;
+}
 
 static const struct of_device_id geni_i2c_dt_match[] = {
 	{ .compatible = "qcom,i2c-geni" },
