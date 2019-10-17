@@ -11,9 +11,7 @@
  */
 
 #include "sdxprairie.dtsi"
-#include "sdxprairie-cpe-memory-map.dtsi"
-#include "sdxprairie-mtp.dtsi"
 
-&qnand_1 {
-	status = "ok";
+&mpss_adsp_mem {
+	reg = <0x90800000 0xf800000>;
 };
