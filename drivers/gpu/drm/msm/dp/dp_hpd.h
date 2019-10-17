@@ -87,14 +87,17 @@ struct dp_hpd {
  * dp_hpd_get() - configure and get the DisplayPlot HPD module data
  *
  * @dev: device instance of the caller
- * @parser: DP parser
+ * @parser: pointer to DP parser module
+ * @catalog: pointer to DP catalog module
+ * @pd: handle for the ubspd driver data
  * @cb: callback function for HPD response
  * return: pointer to allocated hpd module data
  *
  * This function sets up the hpd module
  */
 struct dp_hpd *dp_hpd_get(struct device *dev, struct dp_parser *parser,
-		struct dp_catalog_hpd *catalog, struct dp_hpd_cb *cb);
+		struct dp_catalog_hpd *catalog, struct usbpd *pd,
+		struct dp_hpd_cb *cb);
 
 /**
  * dp_hpd_put()
