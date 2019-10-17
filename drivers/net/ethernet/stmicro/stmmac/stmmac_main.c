@@ -974,6 +974,16 @@ static int stmmac_init_phy(struct net_device *dev)
 	if (phydev->is_pseudo_fixed_link)
 		phydev->irq = PHY_POLL;
 
+	if (phy_intr_en) {
+		phydev->irq = PHY_IGNORE_INTERRUPT;
+		phydev->interrupts =  PHY_INTERRUPT_ENABLED;
+
+		if (phydev->drv->config_intr &&
+		    !phydev->drv->config_intr(phydev)) {
+			pr_debug(" qcom-ethqos: %s config_phy_intr successful\n",
+				 __func__);
+		}
+	}
 	phy_attached_info(phydev);
 	return 0;
 }
@@ -2519,6 +2529,8 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
 			netdev_warn(priv->dev, "PTP not supported by HW\n");
 		else if (ret)
 			netdev_warn(priv->dev, "PTP init failed\n");
+		else
+			ret = clk_set_rate(priv->plat->clk_ptp_ref, 96000000);
 	}
 
 #ifdef CONFIG_DEBUG_FS
@@ -3770,6 +3782,8 @@ static int stmmac_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 		break;
 	case SIOCSHWTSTAMP:
 		ret = stmmac_hwtstamp_ioctl(dev, rq);
+	case SIOCDEVPRIVATE:
+		ret = ethqos_handle_prv_ioctl(dev, rq, cmd);
 		break;
 	default:
 		break;
