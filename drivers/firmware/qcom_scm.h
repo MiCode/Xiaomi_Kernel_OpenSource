@@ -218,6 +218,16 @@ extern int __qcom_scm_register_qsee_log_buf(struct device *dev, phys_addr_t buf,
 #define QCOM_SCM_ICE_RESTORE_KEY_ID	0x06
 extern int __qcom_scm_ice_restore_cfg(struct device *dev);
 
+#define QCOM_SCM_SVC_SMCINVOKE		0x06
+#define QCOM_SCM_SMCINVOKE_INVOKE	0x00
+#define QCOM_SCM_SMCINVOKE_CB_RSP	0x01
+extern int __qcom_scm_invoke_smc(struct device *dev, phys_addr_t in_buf,
+		size_t in_buf_size, phys_addr_t out_buf, size_t out_buf_size,
+		int32_t *result, u64 *response_type, unsigned int *data);
+extern int __qcom_scm_invoke_callback_response(struct device *dev,
+		phys_addr_t out_buf, size_t out_buf_size, int32_t *result,
+		u64 *response_type, unsigned int *data);
+
 extern void __qcom_scm_init(void);
 
 /* common error codes */

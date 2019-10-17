@@ -1774,6 +1774,64 @@ int __qcom_scm_register_qsee_log_buf(struct device *dev, phys_addr_t buf,
 	return ret ? : desc.res[0];
 }
 
+int __qcom_scm_invoke_smc(struct device *dev, phys_addr_t in_buf,
+	size_t in_buf_size, phys_addr_t out_buf, size_t out_buf_size,
+	int32_t *result, u64 *response_type, unsigned int *data)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_SMCINVOKE,
+		.cmd = QCOM_SCM_SMCINVOKE_INVOKE,
+		.owner = ARM_SMCCC_OWNER_TRUSTED_OS
+	};
+
+	desc.args[0] = in_buf;
+	desc.args[1] = in_buf_size;
+	desc.args[2] = out_buf;
+	desc.args[3] = out_buf_size;
+	desc.arginfo = QCOM_SCM_ARGS(4, QCOM_SCM_RW, QCOM_SCM_VAL, QCOM_SCM_RW,
+					QCOM_SCM_VAL);
+
+	ret = qcom_scm_call(dev, &desc);
+
+	if (result)
+		*result = desc.res[1];
+
+	if (response_type)
+		*response_type = desc.res[0];
+
+	return ret;
+}
+
+int __qcom_scm_invoke_callback_response(struct device *dev, phys_addr_t out_buf,
+	size_t out_buf_size, int32_t *result, u64 *response_type,
+	unsigned int *data)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_SMCINVOKE,
+		.cmd = QCOM_SCM_SMCINVOKE_CB_RSP,
+		.owner = ARM_SMCCC_OWNER_TRUSTED_OS
+	};
+
+	desc.args[0] = out_buf;
+	desc.args[1] = out_buf_size;
+	desc.arginfo = QCOM_SCM_ARGS(2, QCOM_SCM_RW, QCOM_SCM_VAL);
+
+	ret = qcom_scm_call(dev, &desc);
+
+	if (result)
+		*result = desc.res[1];
+
+	if (response_type)
+		*response_type = desc.res[0];
+
+	if (data)
+		*data = desc.res[2];
+
+	return ret;
+}
+
 void __qcom_scm_init(void)
 {
 	__query_convention();
