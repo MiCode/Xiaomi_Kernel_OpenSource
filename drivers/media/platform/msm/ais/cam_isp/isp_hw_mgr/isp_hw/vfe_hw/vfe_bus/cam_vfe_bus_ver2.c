@@ -1214,6 +1214,7 @@ static int cam_vfe_bus_start_wm(struct cam_isp_resource_node *wm_res)
 				ubwc_regs->mode_cfg_0);
 		} else if ((camera_hw_version == CAM_CPAS_TITAN_175_V100) ||
 			(camera_hw_version == CAM_CPAS_TITAN_175_V101) ||
+			(camera_hw_version == CAM_CPAS_TITAN_175_V111) ||
 			(camera_hw_version == CAM_CPAS_TITAN_175_V120)) {
 			struct cam_vfe_bus_ver2_reg_offset_ubwc_3_client
 				*ubwc_regs;
@@ -2587,6 +2588,7 @@ static void cam_vfe_bus_update_ubwc_meta_addr(
 		break;
 	case CAM_CPAS_TITAN_175_V100:
 	case CAM_CPAS_TITAN_175_V101:
+	case CAM_CPAS_TITAN_175_V111:
 	case CAM_CPAS_TITAN_175_V120:
 		ubwc_3_regs =
 			(struct cam_vfe_bus_ver2_reg_offset_ubwc_3_client *)
@@ -2849,6 +2851,7 @@ static int cam_vfe_bus_update_ubwc_regs(
 		break;
 	case CAM_CPAS_TITAN_175_V100:
 	case CAM_CPAS_TITAN_175_V101:
+	case CAM_CPAS_TITAN_175_V111:
 	case CAM_CPAS_TITAN_175_V120:
 		rc = cam_vfe_bus_update_ubwc_3_regs(
 			wm_data, reg_val_pair, i, j);
