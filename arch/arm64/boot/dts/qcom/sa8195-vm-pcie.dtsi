@@ -232,7 +232,7 @@
 
 		pcie_rc0: pcie_rc0 {
 			reg = <0 0 0 0 0>;
-			pci-ids = "17cb:0108";
+			pci-ids = "17cb:0109";
 		};
 	};
 
