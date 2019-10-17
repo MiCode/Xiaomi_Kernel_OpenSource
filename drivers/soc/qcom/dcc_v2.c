@@ -15,7 +15,6 @@
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 #include <soc/qcom/memory_dump.h>
-#include <soc/qcom/scm.h>
 #include <dt-bindings/soc/qcom,dcc_v2.h>
 
 #define TIMEOUT_US		(100)
