@@ -709,6 +709,14 @@ int qcom_scm_lmh_read_buf_size(int *size)
 }
 EXPORT_SYMBOL(qcom_scm_lmh_read_buf_size);
 
+int qcom_scm_lmh_limit_dcvsh(phys_addr_t payload, uint32_t payload_size,
+			u64 limit_node, uint32_t node_id, u64 version)
+{
+	return __qcom_scm_lmh_limit_dcvsh(__scm->dev, payload, payload_size,
+					limit_node, node_id, version);
+}
+EXPORT_SYMBOL(qcom_scm_lmh_limit_dcvsh);
+
 int qcom_scm_lmh_debug_read(phys_addr_t payload, uint32_t size)
 {
 	return __qcom_scm_lmh_debug_read(__scm->dev, payload, size);

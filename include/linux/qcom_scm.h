@@ -103,6 +103,8 @@ extern bool qcom_scm_is_lmh_debug_read_buf_size_available(void);
 extern bool qcom_scm_is_lmh_debug_read_buf_available(void);
 extern bool qcom_scm_is_lmh_debug_get_type_available(void);
 extern int qcom_scm_lmh_read_buf_size(int *size);
+extern int qcom_scm_lmh_limit_dcvsh(phys_addr_t payload, uint32_t payload_size,
+			u64 limit_node, uint32_t node_id, u64 version);
 extern int qcom_scm_lmh_debug_read(phys_addr_t payload, uint32_t size);
 extern int qcom_scm_lmh_debug_set_config_write(phys_addr_t payload,
 			int payload_size, uint32_t *buf, int buf_size);
@@ -215,6 +217,9 @@ static inline bool qcom_scm_is_lmh_debug_read_buf_available(void)
 static inline bool qcom_scm_is_lmh_debug_get_type_available(void)
 			{ return -EINVAL; }
 static inline int qcom_scm_lmh_read_buf_size(int *size) { return -ENODEV; }
+static inline int qcom_scm_lmh_limit_dcvsh(phys_addr_t payload,
+			uint32_t payload_size, u64 limit_node, uint32_t node_id,
+			u64 version)	{ return -ENODEV; }
 static inline int qcom_scm_lmh_debug_read(phys_addr_t payload, uint32_t size)
 			{ return -ENODEV; }
 static inline int qcom_scm_lmh_debug_set_config_write(phys_addr_t payload,

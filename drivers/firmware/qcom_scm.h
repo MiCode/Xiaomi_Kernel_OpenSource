@@ -164,9 +164,13 @@ extern int __qcom_scm_hdcp_req(struct device *dev,
 #define QCOM_SCM_SVC_LMH			0x13
 #define QCOM_SCM_LMH_DEBUG_SET			0x08
 #define QCOM_SCM_LMH_DEBUG_READ_BUF_SIZE	0x09
+#define QCOM_SCM_LMH_LIMIT_DCVSH		0x10
 #define QCOM_SCM_LMH_DEBUG_READ			0x0A
 #define QCOM_SCM_LMH_DEBUG_GET_TYPE		0x0B
 extern int __qcom_scm_lmh_read_buf_size(struct device *dev, int *size);
+extern int __qcom_scm_lmh_limit_dcvsh(struct device *dev, phys_addr_t payload,
+			uint32_t payload_size, u64 limit_node, uint32_t node_id,
+			u64 version);
 extern int __qcom_scm_lmh_debug_read(struct device *dev, phys_addr_t payload,
 					uint32_t size);
 extern int __qcom_scm_lmh_debug_config_write(struct device *dev, u64 cmd_id,
