@@ -69,12 +69,12 @@
 			qcom,swr-mstr-irq-wakeup-capable = <1>;
 			wcd938x_tx_slave: wcd938x-tx-slave {
 				compatible = "qcom,wcd938x-slave";
-				reg = <0x0 0x01170223>;
+				reg = <0x0D 0x01170223>;
 			};
 			wcd937x_tx_slave: wcd937x-tx-slave {
 				status = "disabled";
 				compatible = "qcom,wcd937x-slave";
-				reg = <0x0 0x01170223>;
+				reg = <0x0A 0x01170223>;
 			};
 		};
 	};
@@ -111,12 +111,12 @@
 			qcom,swr-clock-stop-mode0 = <1>;
 			wcd938x_rx_slave: wcd938x-rx-slave {
 				compatible = "qcom,wcd938x-slave";
-				reg = <0x0 0x01170224>;
+				reg = <0x0D 0x01170224>;
 			};
 			wcd937x_rx_slave: wcd937x-rx-slave {
 				status = "disabled";
 				compatible = "qcom,wcd937x-slave";
-				reg = <0x0 0x01170224>;
+				reg = <0x0A 0x01170224>;
 			};
 		};
 	};
@@ -153,28 +153,28 @@
 			qcom,swr-num-dev = <2>;
 			wsa881x_0211: wsa881x@20170211 {
 				compatible = "qcom,wsa881x";
-				reg = <0x0 0x20170211>;
+				reg = <0x10 0x20170211>;
 				qcom,spkr-sd-n-node = <&wsa_spkr_en1>;
 				qcom,bolero-handle = <&bolero>;
 			};
 
 			wsa881x_0212: wsa881x@20170212 {
 				compatible = "qcom,wsa881x";
-				reg = <0x0 0x20170212>;
+				reg = <0x10 0x20170212>;
 				qcom,spkr-sd-n-node = <&wsa_spkr_en2>;
 				qcom,bolero-handle = <&bolero>;
 			};
 
 			wsa881x_0213: wsa881x@21170213 {
 				compatible = "qcom,wsa881x";
-				reg = <0x0 0x21170213>;
+				reg = <0x10 0x21170213>;
 				qcom,spkr-sd-n-node = <&wsa_spkr_en1>;
 				qcom,bolero-handle = <&bolero>;
 			};
 
 			wsa881x_0214: wsa881x@21170214 {
 				compatible = "qcom,wsa881x";
-				reg = <0x0 0x21170214>;
+				reg = <0x10 0x21170214>;
 				qcom,spkr-sd-n-node = <&wsa_spkr_en2>;
 				qcom,bolero-handle = <&bolero>;
 			};
