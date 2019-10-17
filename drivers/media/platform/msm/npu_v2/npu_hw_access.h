@@ -53,8 +53,7 @@ typedef irqreturn_t (*intr_hdlr_fn)(int32_t irq, void *ptr);
  */
 uint32_t npu_core_reg_read(struct npu_device *npu_dev, uint32_t off);
 void npu_core_reg_write(struct npu_device *npu_dev, uint32_t off, uint32_t val);
-uint32_t npu_qdsp_reg_read(struct npu_device *npu_dev, uint32_t off);
-void npu_qdsp_reg_write(struct npu_device *npu_dev, uint32_t off, uint32_t val);
+uint32_t npu_tcsr_reg_read(struct npu_device *npu_dev, uint32_t off);
 uint32_t npu_apss_shared_reg_read(struct npu_device *npu_dev, uint32_t off);
 void npu_apss_shared_reg_write(struct npu_device *npu_dev, uint32_t off,
 	uint32_t val);
