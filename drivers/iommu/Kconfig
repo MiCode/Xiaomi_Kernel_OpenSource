@@ -108,9 +108,8 @@ config QCOM_IOMMU_IO_PGTABLE_QUIRKS
 	help
 	  Enables some quirks that are used when creating the IOMMU's
 	  page tables for a particular domain for faster translations.
-	  The quirks that are supported deal with allowing for page
-	  tables to be IO-coherent, allowing for page tables to be
-	  saved in the system cache, and disabling the write-allocate
+	  The quirks that are supported deal with allowing for page tables
+	  to be saved in the system cache, and disabling the write-allocate
 	  hint when saving page tables in the system cache.
 
 	  If unsure, say N here.
