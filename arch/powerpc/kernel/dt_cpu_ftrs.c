@@ -742,6 +742,9 @@ static __init void cpufeatures_cpu_quirks(void)
 	 */
 	if ((version & 0xffffff00) == 0x004e0100)
 		cur_cpu_spec->cpu_features |= CPU_FTR_POWER9_DD1;
+
+	if ((version & 0xffff0000) == 0x004e0000)
+		cur_cpu_spec->cpu_features |= CPU_FTR_P9_TLBIE_BUG;
 }
 
 static void __init cpufeatures_setup_finished(void)
