@@ -182,7 +182,7 @@ static void av8l_clean_range(struct io_pgtable_ops *ops,
 {
 	struct io_pgtable *iop = iof_pgtable_ops_to_pgtable(ops);
 
-	if (!(iop->cfg.quirks & IO_PGTABLE_QUIRK_NO_DMA))
+	if (!iop->cfg.coherent_walk)
 		__av8l_clean_range(iop->cfg.iommu_dev, start, end);
 }
 
@@ -549,7 +549,7 @@ av8l_fast_alloc_pgtable(struct io_pgtable_cfg *cfg, void *cookie)
 		reg = (AV8L_FAST_TCR_SH_OS << AV8L_FAST_TCR_SH0_SHIFT) |
 			(AV8L_FAST_TCR_RGN_NC << AV8L_FAST_TCR_IRGN0_SHIFT) |
 			(AV8L_FAST_TCR_RGN_WBWA << AV8L_FAST_TCR_ORGN0_SHIFT);
-	else if (cfg->quirks & IO_PGTABLE_QUIRK_NO_DMA)
+	else if (cfg->coherent_walk)
 		reg = (AV8L_FAST_TCR_SH_OS << AV8L_FAST_TCR_SH0_SHIFT) |
 			(AV8L_FAST_TCR_RGN_WBWA << AV8L_FAST_TCR_IRGN0_SHIFT) |
 			(AV8L_FAST_TCR_RGN_WBWA << AV8L_FAST_TCR_ORGN0_SHIFT);
