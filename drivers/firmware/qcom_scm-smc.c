@@ -1199,6 +1199,26 @@ int __qcom_scm_assign_mem(struct device *dev, phys_addr_t mem_region,
 	return ret ? : desc.res[0];
 }
 
+int __qcom_scm_mem_protect_sd_ctrl(struct device *dev, u32 devid,
+				phys_addr_t mem_addr, u64 mem_size, u32 vmid)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_MP,
+		.cmd = QCOM_SCM_MP_CMD_SD_CTRL,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.args[0] = devid;
+	desc.args[1] = mem_addr;
+	desc.args[2] = mem_size;
+	desc.args[3] = vmid;
+	desc.arginfo = QCOM_SCM_ARGS(4);
+	ret = qcom_scm_call(dev, &desc);
+
+	return ret ? : desc.res[0];
+}
+
 int __qcom_scm_kgsl_set_smmu_aperture(struct device *dev,
 					unsigned int num_context_bank)
 {

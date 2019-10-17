@@ -77,6 +77,7 @@ extern void __qcom_scm_mmu_sync(struct device *dev, bool sync);
 #define QCOM_SCM_MP_IOMMU_SECURE_MAP2_FLAT	0x12
 #define QCOM_SCM_MP_IOMMU_SECURE_UNMAP2_FLAT	0x13
 #define QCOM_SCM_MP_ASSIGN			0x16
+#define QCOM_SCM_MP_CMD_SD_CTRL			0x18
 #define QCOM_SCM_MP_CP_SMMU_APERTURE_ID		0x1b
 #define QCOM_SCM_MEMP_SHM_BRIDGE_ENABLE		0x1c
 #define QCOM_SCM_MEMP_SHM_BRIDGE_DELETE		0x1d
@@ -108,6 +109,8 @@ extern int  __qcom_scm_assign_mem(struct device *dev,
 				  phys_addr_t mem_region, size_t mem_sz,
 				  phys_addr_t src, size_t src_sz,
 				  phys_addr_t dest, size_t dest_sz);
+extern int __qcom_scm_mem_protect_sd_ctrl(struct device *dev, u32 devid,
+				phys_addr_t mem_addr, u64 mem_size, u32 vmid);
 extern int __qcom_scm_kgsl_set_smmu_aperture(struct device *dev,
 						unsigned int num_context_bank);
 extern int __qcom_scm_enable_shm_bridge(struct device *dev);

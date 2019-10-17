@@ -510,6 +510,18 @@ int qcom_scm_assign_mem(phys_addr_t mem_addr, size_t mem_sz,
 }
 EXPORT_SYMBOL(qcom_scm_assign_mem);
 
+/**
+ * qcom_scm_mem_protect_sd_ctrl() - SDE memory protect.
+ *
+ */
+int qcom_scm_mem_protect_sd_ctrl(u32 devid, phys_addr_t mem_addr, u64 mem_size,
+				u32 vmid)
+{
+	return __qcom_scm_mem_protect_sd_ctrl(__scm->dev, devid, mem_addr,
+						mem_size, vmid);
+}
+EXPORT_SYMBOL(qcom_scm_mem_protect_sd_ctrl);
+
 bool qcom_scm_kgsl_set_smmu_aperture_available(void)
 {
 	int ret;

@@ -72,6 +72,8 @@ extern int qcom_scm_assign_mem(phys_addr_t mem_addr, size_t mem_sz,
 			       unsigned int *src,
 			       const struct qcom_scm_vmperm *newvm,
 			       unsigned int dest_cnt);
+extern int qcom_scm_mem_protect_sd_ctrl(u32 devid, phys_addr_t mem_addr,
+					u64 mem_size, u32 vmid);
 extern bool qcom_scm_kgsl_set_smmu_aperture_available(void);
 extern int qcom_scm_kgsl_set_smmu_aperture(
 				unsigned int num_context_bank);
@@ -177,6 +179,9 @@ static inline int qcom_scm_assign_mem(phys_addr_t mem_addr, size_t mem_sz,
 				      unsigned int *src,
 				      const struct qcom_scm_vmperm *newvm,
 				      unsigned int dest_cnt) { return -ENODEV; }
+static inline int qcom_scm_mem_protect_sd_ctrl(u32 devid, phys_addr_t mem_addr,
+					u64 mem_size, u32 vmid)
+					{ return -ENODEV; }
 static inline bool qcom_scm_kgsl_set_smmu_aperture_available(void)
 		{ return false; }
 static inline int qcom_scm_kgsl_set_smmu_aperture(
