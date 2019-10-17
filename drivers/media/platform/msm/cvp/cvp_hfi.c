@@ -581,8 +581,10 @@ static int __dsp_shutdown(struct iris_hfi_device *device, u32 flags)
 {
 	int rc;
 
+	cvp_dsp_set_cvp_ssr();
+
 	if (!(device->dsp_flags & DSP_INIT)) {
-		dprintk(CVP_DBG, "%s: dsp not inited\n", __func__);
+		dprintk(CVP_WARN, "%s: dsp not inited\n", __func__);
 		return 0;
 	}
 
