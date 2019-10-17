@@ -2869,14 +2869,12 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool force_power_collapse)
 	wmb();
 
 	/* Disable clocks */
-	if (mdwc->bus_aggr_clk)
-		clk_disable_unprepare(mdwc->bus_aggr_clk);
+	clk_disable_unprepare(mdwc->bus_aggr_clk);
 	clk_disable_unprepare(mdwc->utmi_clk);
 
 	clk_set_rate(mdwc->core_clk, 19200000);
 	clk_disable_unprepare(mdwc->core_clk);
-	if (mdwc->noc_aggr_clk)
-		clk_disable_unprepare(mdwc->noc_aggr_clk);
+	clk_disable_unprepare(mdwc->noc_aggr_clk);
 	/*
 	 * Disable iface_clk only after core_clk as core_clk has FSM
 	 * depedency on iface_clk. Hence iface_clk should be turned off
@@ -2999,8 +2997,7 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	 * Turned ON iface_clk before core_clk due to FSM depedency.
 	 */
 	clk_prepare_enable(mdwc->iface_clk);
-	if (mdwc->noc_aggr_clk)
-		clk_prepare_enable(mdwc->noc_aggr_clk);
+	clk_prepare_enable(mdwc->noc_aggr_clk);
 
 	core_clk_rate = mdwc->core_clk_rate;
 	if (mdwc->in_host_mode && mdwc->max_rh_port_speed == USB_SPEED_HIGH) {
@@ -3013,8 +3010,7 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	clk_prepare_enable(mdwc->core_clk);
 
 	clk_prepare_enable(mdwc->utmi_clk);
-	if (mdwc->bus_aggr_clk)
-		clk_prepare_enable(mdwc->bus_aggr_clk);
+	clk_prepare_enable(mdwc->bus_aggr_clk);
 
 	/*
 	 * Disable any wakeup events that were enabled if pwr_event_irq
@@ -3335,12 +3331,8 @@ static int dwc3_msm_get_clk_gdsc(struct dwc3_msm *mdwc)
 	}
 
 	mdwc->xo_clk = devm_clk_get(mdwc->dev, "xo");
-	if (IS_ERR(mdwc->xo_clk)) {
-		dev_err(mdwc->dev, "%s unable to get TCXO buffer handle\n",
-								__func__);
-		ret = PTR_ERR(mdwc->xo_clk);
-		return ret;
-	}
+	if (IS_ERR(mdwc->xo_clk))
+		mdwc->xo_clk = NULL;
 	clk_set_rate(mdwc->xo_clk, 19200000);
 
 	mdwc->iface_clk = devm_clk_get(mdwc->dev, "iface_clk");
@@ -4134,14 +4126,12 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 	if (ret_pm < 0) {
 		dev_err(mdwc->dev,
 			"pm_runtime_get_sync failed with %d\n", ret_pm);
-		if (mdwc->noc_aggr_clk)
-			clk_prepare_enable(mdwc->noc_aggr_clk);
+		clk_prepare_enable(mdwc->noc_aggr_clk);
 		clk_prepare_enable(mdwc->utmi_clk);
 		clk_prepare_enable(mdwc->core_clk);
 		clk_prepare_enable(mdwc->iface_clk);
 		clk_prepare_enable(mdwc->sleep_clk);
-		if (mdwc->bus_aggr_clk)
-			clk_prepare_enable(mdwc->bus_aggr_clk);
+		clk_prepare_enable(mdwc->bus_aggr_clk);
 		clk_prepare_enable(mdwc->xo_clk);
 	}
 
@@ -4182,7 +4172,6 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 	clk_disable_unprepare(mdwc->iface_clk);
 	clk_disable_unprepare(mdwc->sleep_clk);
 	clk_disable_unprepare(mdwc->xo_clk);
-	clk_put(mdwc->xo_clk);
 
 	dwc3_msm_config_gdsc(mdwc, 0);
 
