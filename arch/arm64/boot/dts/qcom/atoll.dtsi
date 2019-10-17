@@ -2043,8 +2043,9 @@
 		compatible = "qcom,atoll-npucc", "syscon";
 		reg = <0x9980000 0x10000>,
 			<0x9800000 0x10000>,
-			<0x9810000 0x10000>;
-		reg-names = "cc", "qdsp6ss", "qdsp6ss_pll";
+			<0x9810000 0x10000>,
+			<0x007841e0 0x8>;
+		reg-names = "cc", "qdsp6ss", "qdsp6ss_pll", "efuse";
 		npu_gdsc-supply = <&npu_core_gdsc>;
 		vdd_cx-supply = <&VDD_CX_LEVEL>;
 		#clock-cells = <1>;
