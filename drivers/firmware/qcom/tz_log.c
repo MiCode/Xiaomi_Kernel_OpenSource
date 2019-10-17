@@ -320,7 +320,7 @@ static struct tzdbg tzdbg = {
 static struct tzdbg_log_t *g_qsee_log;
 static dma_addr_t coh_pmem;
 static uint32_t debug_rw_buf_size;
-static struct qtee_shm shm;
+static uint64_t qseelog_shmbridge_handle;
 
 /*
  * Debugfs data structure and functions
@@ -852,34 +852,38 @@ static const struct file_operations tzdbg_fops = {
  */
 static void tzdbg_register_qsee_log_buf(struct platform_device *pdev)
 {
-	size_t len;
+	size_t len = QSEE_LOG_BUF_SIZE;
 	int ret = 0;
 	struct scm_desc desc = {0};
 	void *buf = NULL;
+	uint32_t ns_vmids[] = {VMID_HLOS};
+	uint32_t ns_vm_perms[] = {PERM_READ | PERM_WRITE};
+	uint32_t ns_vm_nums = 1;
 
-	len = QSEE_LOG_BUF_SIZE;
-	ret = qtee_shmbridge_allocate_shm(len, &shm);
-	if (ret)
+	buf = dma_alloc_coherent(&pdev->dev, len, &coh_pmem, GFP_KERNEL);
+	if (buf == NULL) {
+		pr_err("Failed to alloc memory for size %zu\n", len);
 		return;
-	buf = shm.vaddr;
-	coh_pmem = shm.paddr;
+	}
+	ret = qtee_shmbridge_register(coh_pmem,
+			len, ns_vmids, ns_vm_perms, ns_vm_nums,
+			PERM_READ | PERM_WRITE, &qseelog_shmbridge_handle);
+	if (ret) {
+		pr_err("failed to create bridge for qsee_log buffer\n");
+		dma_free_coherent(&pdev->dev, len, (void *)g_qsee_log,
+						coh_pmem);
+		return;
+	}
 
 	g_qsee_log = (struct tzdbg_log_t *)buf;
 	desc.args[0] = coh_pmem;
 	desc.args[1] = len;
 	desc.arginfo = 0x22;
 	ret = scm_call2(SCM_QSEEOS_FNID(1, 6), &desc);
-
-	if (ret) {
-		pr_err("%s: scm_call to register log buffer failed\n",
-			__func__);
-		goto err;
-	}
-
-	if (desc.ret[0] != QSEOS_RESULT_SUCCESS) {
+	if (ret || desc.ret[0] != QSEOS_RESULT_SUCCESS) {
 		pr_err(
-		"%s: scm_call to register log buf failed, resp result =%lld\n",
-		__func__, desc.ret[0]);
+		"%s: scm_call to register log buf failed, ret = %d, resp result =%lld\n",
+		__func__, ret, desc.ret[0]);
 		goto err;
 	}
 
@@ -887,7 +891,8 @@ static void tzdbg_register_qsee_log_buf(struct platform_device *pdev)
 	return;
 
 err:
-	qtee_shmbridge_free_shm(&shm);
+	qtee_shmbridge_deregister(qseelog_shmbridge_handle);
+	dma_free_coherent(&pdev->dev, len, (void *)g_qsee_log, coh_pmem);
 }
 
 static int  tzdbgfs_init(struct platform_device *pdev)
@@ -930,11 +935,14 @@ static void tzdbgfs_exit(struct platform_device *pdev)
 {
 	struct dentry           *dent_dir;
 
+	if (g_qsee_log) {
+		qtee_shmbridge_deregister(qseelog_shmbridge_handle);
+		dma_free_coherent(&pdev->dev, QSEE_LOG_BUF_SIZE,
+					 (void *)g_qsee_log, coh_pmem);
+	}
 	kzfree(tzdbg.disp_buf);
 	dent_dir = platform_get_drvdata(pdev);
 	debugfs_remove_recursive(dent_dir);
-	if (g_qsee_log)
-		qtee_shmbridge_free_shm(&shm);
 }
 
 static int __update_hypdbg_base(struct platform_device *pdev,
