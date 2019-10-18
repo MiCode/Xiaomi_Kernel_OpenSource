@@ -40,7 +40,6 @@
 
 #define CMDQ_GET_COOKIE_CNT(thread) \
 	(CMDQ_REG_GET32(CMDQ_THR_EXEC_CNT(thread)) & CMDQ_MAX_COOKIE_VALUE)
-#define CMDQ_SYNC_TOKEN_APPEND_THR(id)     (CMDQ_SYNC_TOKEN_APPEND_THR0 + id)
 
 #define CMDQ_PROFILE_LIMIT_0	3000000
 #define CMDQ_PROFILE_LIMIT_1	10000000
@@ -2020,24 +2019,8 @@ static unsigned long cmdq_get_gce_by_evt(u16 event)
 {
 	switch (event) {
 	case CMDQ_EVENT_DISP_RDMA0_SOF:
-	case CMDQ_EVENT_DISP_WDMA0_SOF:
-	case CMDQ_EVENT_DISP_DSI0_EOF:
-	case CMDQ_EVENT_DISP_WDMA1_EOF:
 	case CMDQ_EVENT_DISP_WDMA0_EOF:
 	case CMDQ_EVENT_DISP_RDMA0_EOF:
-	case CMDQ_EVENT_MUTEX0_STREAM_EOF:
-	case CMDQ_EVENT_DSI_TE:
-	case CMDQ_EVENT_DSI0_DONE_EVENT:
-	case CMDQ_SYNC_DISP_OVL0_2NONSEC_END:
-	case CMDQ_SYNC_DISP_2LOVL0_2NONSEC_END:
-	case CMDQ_SYNC_DISP_RDMA0_2NONSEC_END:
-	case CMDQ_SYNC_DISP_EXT_STREAM_EOF:
-	case CMDQ_SYNC_DISP_WDMA0_2NONSEC_END:
-	case CMDQ_SYNC_DISP_WDMA1_2NONSEC_END:
-	case CMDQ_SYNC_TOKEN_STREAM_EOF:
-	case CMDQ_SYNC_TOKEN_CONFIG_DIRTY:
-	case CMDQ_SYNC_TOKEN_ESD_EOF:
-	case CMDQ_SYNC_TOKEN_CABC_EOF:
 		return cmdq_dev_get_va2();
 	default:
 		return cmdq_dev_get_module_base_VA_GCE();
@@ -2119,7 +2102,6 @@ static void cmdq_core_reset_hw_events(void)
 {
 #if !IS_ENABLED(CONFIG_MACH_MT6885)
 	int index;
-	const u32 max_thread_count = cmdq_dev_get_thread_count();
 	struct cmdq_event_table *events = cmdq_event_get_table();
 	u32 table_size = cmdq_event_get_table_size();
 
@@ -2143,15 +2125,6 @@ static void cmdq_core_reset_hw_events(void)
 	cmdqCoreSetEvent(CMDQ_SYNC_RESOURCE_WROT1);
 	/* TODO: register reset callback from cmdq_mdp_common.c */
 	cmdq_mdp_reset_resource();
-
-	/* However, CMDQ_SYNC_RESOURCE are WSM lock flags, */
-	/* by default they should be 1. */
-	cmdqCoreSetEvent(CMDQ_SYNC_SECURE_WSM_LOCK);
-
-	/* However, APPEND_THR are resource flags, */
-	/* by default they should be 1. */
-	for (index = 0; index < max_thread_count; index++)
-		cmdqCoreSetEvent(CMDQ_SYNC_TOKEN_APPEND_THR(index));
 #endif
 }
 

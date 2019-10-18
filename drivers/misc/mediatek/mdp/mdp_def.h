@@ -18,7 +18,7 @@
 #include <linux/soc/mediatek/mtk-cmdq.h>
 
 #include "cmdq_subsys_common.h"
-#include "cmdq_event_common.h"
+#include "mdp_event_common.h"
 
 #define MDP_DRIVER_DEVICE_NAME         "mtk_mdp"
 

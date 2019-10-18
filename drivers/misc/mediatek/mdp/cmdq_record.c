@@ -1361,36 +1361,6 @@ s32 cmdq_op_poll(struct cmdqRecStruct *handle, u32 addr, u32 value, u32 mask)
 	return 0;
 }
 
-/* Efficient Polling */
-s32 cmdq_op_poll_v3(struct cmdqRecStruct *handle, u32 addr, u32 value,
-	u32 mask)
-{
-	/*
-	 * Simulate Code
-	 * do {
-	 *   arg_temp = [addr] & mask
-	 *   wait_and_clear (100us);
-	 * } while (arg_temp != value);
-	 */
-
-	CMDQ_VARIABLE arg_loop_debug = CMDQ_TASK_LOOP_DEBUG_VAR;
-	u32 condition_value = value & mask;
-
-	if (!handle)
-		return -EINVAL;
-
-	cmdq_op_assign(handle, &handle->arg_value, condition_value);
-	cmdq_op_assign(handle, &arg_loop_debug, 0);
-	cmdq_op_do_while(handle);
-		cmdq_op_read_reg(handle, addr, &handle->arg_source, mask);
-		cmdq_op_add(handle, &arg_loop_debug, arg_loop_debug, 1);
-		cmdq_op_wait(handle, CMDQ_EVENT_TIMER_00 +
-			CMDQ_POLLING_TPR_MASK_BIT);
-	cmdq_op_end_do_while(handle, handle->arg_value, CMDQ_NOT_EQUAL,
-		handle->arg_source);
-	return 0;
-}
-
 static s32 cmdq_get_event_op_id(enum cmdq_event event)
 {
 	s32 event_id = 0;

@@ -65,7 +65,7 @@ obj-y += mdp_driver.o
 obj-y += mdp_common.o
 #obj-y += cmdq_prof.o
 obj-y += cmdq_test.o
-obj-y += cmdq_event_common.o
+obj-y += mdp_event_common.o
 obj-y += cmdq_subsys_common.o
 obj-y += cmdq_helper_ext.o
 
