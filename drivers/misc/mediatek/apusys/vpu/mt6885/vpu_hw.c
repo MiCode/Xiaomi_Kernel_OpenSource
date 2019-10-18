@@ -25,6 +25,7 @@
 #include "vpu_debug.h"
 #include "vpu_dump.h"
 #include "vpu_trace.h"
+#include <memory/mediatek/emi.h>
 
 static int vpu_check_precond(struct vpu_device *vd);
 static int vpu_check_postcond(struct vpu_device *vd);
@@ -110,6 +111,21 @@ static struct vpu_image_header *bin_header(void)
 {
 	return (struct vpu_image_header *)
 	(((unsigned long)vpu_drv->bin_va) + VPU_OFFSET_IMAGE_HEADERS);
+}
+
+static void vpu_emi_mpu_set(unsigned long start, unsigned int size)
+{
+	struct emimpu_region_t md_region;
+
+	mtk_emimpu_init_region(&md_region, MPU_PROCT_REGION);
+	mtk_emimpu_set_addr(&md_region, start,
+			    (start + (unsigned long)size) - 0x1);
+	mtk_emimpu_set_apc(&md_region, MPU_PROCT_D0_AP,
+			   MTK_EMIMPU_NO_PROTECTION);
+	mtk_emimpu_set_apc(&md_region, MPU_PROCT_D5_APUSYS,
+			   MTK_EMIMPU_NO_PROTECTION);
+	mtk_emimpu_lock_region(&md_region, true);
+	mtk_emimpu_set_protection(&md_region);
 }
 
 /* called by vpu_probe() */
@@ -457,6 +473,7 @@ bool vpu_is_disabled(struct vpu_device *vd)
 /* driver hw init */
 int vpu_init_drv_hw(void)
 {
+	vpu_emi_mpu_set(vpu_drv->bin_pa, vpu_drv->bin_size);
 	return 0;
 }
 

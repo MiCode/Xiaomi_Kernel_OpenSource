@@ -108,6 +108,11 @@ enum {
 #define EFUSE_VPU_MASK		0x7
 #define EFUSE_VPU_SHIFT		0
 
+/* mpu protect region definition */
+#define MPU_PROCT_REGION	21
+#define MPU_PROCT_D0_AP		0
+#define MPU_PROCT_D5_APUSYS	5
+
 static inline
 unsigned long vpu_reg_base(struct vpu_device *vd)
 {
