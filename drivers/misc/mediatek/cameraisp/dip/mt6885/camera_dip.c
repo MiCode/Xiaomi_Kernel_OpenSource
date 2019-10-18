@@ -2153,6 +2153,27 @@ static inline int m4u_control_iommu_port(void)
 
 
 	}
+	count_of_ports = M4U_PORT_L9_IMG_MFB_WDMA1_MDP -
+		M4U_PORT_L9_IMG_MFB_RDMA0_MDP + 1;
+	for (i = 0; i < count_of_ports; i++) {
+		sPort.ePortID = M4U_PORT_L9_IMG_MFB_RDMA0_MDP+i;
+		sPort.Virtuality = DIP_MEM_USE_VIRTUL;
+		LOG_INF("config M4U Port ePortID=%d\n", sPort.ePortID);
+#if defined(CONFIG_MTK_M4U) || defined(CONFIG_MTK_PSEUDO_M4U)
+		ret = m4u_config_port(&sPort);
+
+		if (ret == 0) {
+			LOG_INF("config M4U Port %s to %s SUCCESS\n",
+			iommu_get_port_name(M4U_PORT_L9_IMG_MFB_RDMA0_MDP+i),
+			DIP_MEM_USE_VIRTUL ? "virtual" : "physical");
+		} else {
+			LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
+			iommu_get_port_name(M4U_PORT_L9_IMG_MFB_RDMA0_MDP+i),
+			DIP_MEM_USE_VIRTUL ? "virtual" : "physical", ret);
+			ret = -1;
+		}
+#endif
+	}
 	/* LARB11 */
 		count_of_ports = M4U_PORT_L11_IMG_UFBC_R0_DISP -
 		M4U_PORT_L11_IMG_IMGI_D1_DISP + 1;
