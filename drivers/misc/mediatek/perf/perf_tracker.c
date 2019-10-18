@@ -16,6 +16,10 @@
 
 #ifdef CONFIG_MTK_DRAMC
 #include <mtk_dramc.h>
+#else
+#ifdef CONFIG_MEDIATEK_DRAMC
+#include <memory/mediatek/dramc.h>
+#endif
 #endif
 
 #include <linux/mm.h>
@@ -121,11 +125,6 @@ int perf_tracer_enable(int on)
 	return (perf_tracker_on == on) ? 0 : -1;
 }
 
-unsigned int __attribute__((weak)) get_dram_data_rate(void)
-{
-	return 0;
-}
-
 u32 __attribute__((weak)) qos_sram_read(u32 offset)
 {
 	return 0;
@@ -165,7 +164,13 @@ void __perf_tracker(u64 wallclock,
 		return;
 
 	/* dram freq */
+#ifdef CONFIG_MTK_DRAMC
 	dram_rate = get_dram_data_rate();
+#else
+#ifdef CONFIG_MEDIATEK_DRAMC
+	dram_rate = mtk_dramc_get_data_rate();
+#endif
+#endif
 
 #ifdef CONFIG_MTK_QOS_FRAMEWORK
 	/* emi */
