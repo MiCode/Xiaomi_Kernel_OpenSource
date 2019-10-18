@@ -17,7 +17,7 @@
 #ifndef __UAPI_MTK_VCU_CONTROLS_H__
 #define __UAPI_MTK_VCU_CONTROLS_H__
 
-#define SHARE_BUF_SIZE 64
+#define SHARE_BUF_SIZE 72
 #define LOG_INFO_SIZE 1024
 #define VCODEC_CMDQ_CMD_MAX           (1024)
 

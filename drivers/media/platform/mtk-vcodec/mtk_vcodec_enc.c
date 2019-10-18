@@ -400,6 +400,14 @@ static int vidioc_venc_s_ctrl(struct v4l2_ctrl *ctrl)
 		p->heif_grid_size = ctrl->val;
 		ctx->param_change |= MTK_ENCODE_PARAM_GRID_SIZE;
 		break;
+	case V4L2_CID_MPEG_MTK_COLOR_DESC:
+		mtk_v4l2_debug(2,
+			"V4L2_CID_MPEG_MTK_COLOR_DESC: 0x%x",
+			ctrl->val);
+		memcpy(&p->color_desc, ctrl->p_new.p_u32,
+		sizeof(struct mtk_color_desc));
+		ctx->param_change |= MTK_ENCODE_PARAM_COLOR_DESC;
+		break;
 	case V4L2_CID_MPEG_MTK_MAX_WIDTH:
 		mtk_v4l2_debug(2,
 			"V4L2_CID_MPEG_MTK_MAX_WIDTH: %d",
@@ -952,9 +960,12 @@ static void mtk_venc_set_param(struct mtk_vcodec_ctx *ctx,
 	param->bitratemode = enc_params->bitratemode;
 	param->roion = enc_params->roion;
 	param->heif_grid_size = enc_params->heif_grid_size;
+	// will copy to vsi, pass after streamon
+	param->color_desc = &enc_params->color_desc;
 	param->max_w = enc_params->max_w;
 	param->max_h = enc_params->max_h;
 	param->num_b_frame = enc_params->num_b_frame;
+
 	param->slbc_ready = ctx->use_slbc;
 
 	ctx->use_gce = (ctx->use_gce == 1) ?
@@ -1296,7 +1307,7 @@ static int vidioc_venc_qbuf(struct file *file, void *priv,
 				buf->length, vb, vb->timestamp);
 		} else {
 			mtkbuf->lastframe = NON_EOS;
-			mtk_v4l2_debug(1, "[%d] id=%d getdata FB(%d,%d) vb=%p pts=%llu",
+			mtk_v4l2_debug(1, "[%d] id=%d getdata FB(%d,%d) vb=%p pts=%llu ",
 				ctx->id, buf->index,
 				buf->m.planes[0].bytesused,
 				buf->length, mtkbuf, vb->timestamp);
@@ -1323,6 +1334,14 @@ static int vidioc_venc_qbuf(struct file *file, void *priv,
 			ctx->id, buf->index, mtkbuf, buf->reserved2);
 		mtkbuf->roimap = buf->reserved2;
 		mtkbuf->frm_buf.roimap = buf->reserved2;
+	}
+	if (buf->flags & V4L2_BUF_FLAG_HDR_META && buf->reserved2 != 0) {
+		mtk_v4l2_debug(1, "[%d] Have HDR info meta fd, buf->index:%d. mtkbuf:%p, fd:%u",
+			ctx->id, buf->index, mtkbuf, buf->reserved2);
+		mtkbuf->has_meta = 1;
+		mtkbuf->meta_dma = dma_buf_get(buf->reserved2);
+		mtkbuf->frm_buf.has_meta = 1;
+		mtkbuf->frm_buf.meta_dma = dma_buf_get(buf->reserved2);
 	}
 
 	return v4l2_m2m_qbuf(file, ctx->m2m_ctx, buf);
@@ -1484,6 +1503,11 @@ static int vb2ops_venc_buf_prepare(struct vb2_buffer *vb)
 	struct vb2_v4l2_buffer *vb2_v4l2;
 
 	q_data = mtk_venc_get_q_data(ctx, vb->vb2_queue->type);
+
+	// Check if need to proceed cache operations
+	vb2_v4l2 = container_of(vb, struct vb2_v4l2_buffer, vb2_buf);
+	mtkbuf = container_of(vb2_v4l2, struct mtk_video_enc_buf, vb);
+	memset(&mtkbuf->frm_buf, 0, sizeof(struct venc_frm_buf));
 
 	for (i = 0; i < q_data->fmt->num_planes; i++) {
 		if (vb2_plane_size(vb, i) < q_data->sizeimage[i]) {
@@ -1941,6 +1965,20 @@ static int mtk_venc_param_change(struct mtk_vcodec_ctx *ctx)
 					&enc_prm);
 	}
 
+	if (!ret &&
+	mtk_buf->param_change & MTK_ENCODE_PARAM_COLOR_DESC) {
+		// avoid much copies
+		enc_prm.color_desc = &mtk_buf->enc_params.color_desc;
+		mtk_v4l2_err("[%d] idx=%d, color_primaries=%d range=%d",
+				ctx->id,
+				mtk_buf->vb.vb2_buf.index,
+				enc_prm.color_desc->color_primaries,
+				enc_prm.color_desc->full_range);
+		ret |= venc_if_set_param(ctx,
+					VENC_SET_PARAM_COLOR_DESC,
+					&enc_prm);
+	}
+
 	mtk_buf->param_change = MTK_ENCODE_PARAM_NONE;
 
 	if (ret) {
@@ -2138,6 +2176,8 @@ static void mtk_venc_worker(struct work_struct *work)
 			src_buf->planes[2].data_offset);
 
 	pfrm_buf->roimap = src_buf_info->roimap;
+	pfrm_buf->has_meta = src_buf_info->has_meta;
+	pfrm_buf->meta_dma = src_buf_info->meta_dma;
 
 	ret = venc_if_encode(ctx, VENC_START_OPT_ENCODE_FRAME,
 				 pfrm_buf, pbs_buf, &enc_result);
@@ -2287,6 +2327,19 @@ void mtk_vcodec_enc_set_default_params(struct mtk_vcodec_ctx *ctx)
 	ctx->q_data[MTK_Q_DATA_DST].bytesperline[0] = 0;
 
 }
+
+static const struct v4l2_ctrl_config mtk_enc_color_desc_ctrl = {
+	.ops = &mtk_vcodec_enc_ctrl_ops,
+	.id = V4L2_CID_MPEG_MTK_COLOR_DESC,
+	.name = "Video encode color description for HDR",
+	.type = V4L2_CTRL_TYPE_U32,
+	.flags = V4L2_CTRL_FLAG_WRITE_ONLY,
+	.min = 0x00000000,
+	.max = 0xffffffff,
+	.step = 1,
+	.def = 0,
+	.dims = { sizeof(struct mtk_color_desc)/sizeof(u32) }
+};
 
 int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 {
@@ -2449,6 +2502,8 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.ops = ops;
 	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
 
+	ctrl = v4l2_ctrl_new_custom(&ctx->ctrl_hdl,
+		&mtk_enc_color_desc_ctrl, NULL);
 
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.id = V4L2_CID_MPEG_MTK_MAX_WIDTH;

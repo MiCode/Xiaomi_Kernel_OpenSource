@@ -1050,6 +1050,7 @@ struct v4l2_buffer {
 #define V4L2_BUF_FLAG_LAST			0x00100000
 #define V4L2_BUF_FLAG_CSD			0x00200000
 #define V4L2_BUF_FLAG_ROI                      0x00400000
+#define V4L2_BUF_FLAG_HDR_META			0x00800000
 
 /**
  * struct v4l2_exportbuffer - export of video buffer as DMABUF file descriptor

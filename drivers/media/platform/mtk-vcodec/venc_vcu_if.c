@@ -344,6 +344,9 @@ int vcu_enc_set_param(struct venc_vcu_inst *vcu,
 		out.data_item = 1;
 		out.data[0] = enc_param->heif_grid_size;
 		break;
+	case VENC_SET_PARAM_COLOR_DESC:
+		out.data_item = 0; // passed via vsi
+		break;
 	default:
 		mtk_vcodec_err(vcu, "id %d not supported", id);
 		return -EINVAL;
@@ -365,6 +368,7 @@ int vcu_enc_encode(struct venc_vcu_inst *vcu, unsigned int bs_mode,
 				   struct mtk_vcodec_mem *bs_buf,
 				   unsigned int *bs_size)
 {
+
 	struct venc_ap_ipi_msg_enc out;
 	unsigned int i, ret;
 
@@ -392,10 +396,19 @@ int vcu_enc_encode(struct venc_vcu_inst *vcu, unsigned int bs_mode,
 			out.data_offset[i] =
 				frm_buf->fb_addr[i].data_offset;
 		}
-		mtk_vcodec_debug(vcu, " num_planes = %d input (dmabuf:%lx fd:%x)",
+		if (frm_buf->has_meta) {
+			out.meta_fd =
+				get_mapped_fd(frm_buf->meta_dma);
+			out.meta_size = sizeof(struct mtk_hdr_dynamic_info);
+		} else {
+			out.meta_fd = 0;
+			out.meta_size = 0;
+		}
+
+		mtk_vcodec_debug(vcu, " num_planes = %d input (dmabuf:%lx fd:%x), metafd %x metasize %d",
 			frm_buf->num_planes,
 			(unsigned long)frm_buf->fb_addr[0].dmabuf,
-			out.input_fd[0]);
+			out.input_fd[0], out.meta_fd, out.meta_size);
 	}
 
 	if (bs_buf) {
@@ -419,6 +432,8 @@ int vcu_enc_encode(struct venc_vcu_inst *vcu, unsigned int bs_mode,
 			if (frm_buf->fb_addr[i].dmabuf != NULL)
 				close_mapped_fd(out.input_fd[i]);
 		}
+		if (frm_buf->has_meta)
+			close_mapped_fd(out.meta_fd);
 	}
 
 	if (bs_buf && bs_buf->dmabuf != NULL)

@@ -89,6 +89,7 @@ enum mtk_encode_param {
 	MTK_ENCODE_PARAM_BITRATE_MODE = (1 << 11),
 	MTK_ENCODE_PARAM_ROI_ON = (1 << 12),
 	MTK_ENCODE_PARAM_GRID_SIZE = (1 << 13),
+	MTK_ENCODE_PARAM_COLOR_DESC = (1 << 14),
 };
 
 /*
@@ -218,6 +219,7 @@ struct mtk_enc_params {
 	unsigned int    bitratemode;
 	unsigned int    roion;
 	unsigned int    heif_grid_size;
+	struct mtk_color_desc color_desc; // data from userspace
 	unsigned int    max_w;
 	unsigned int    max_h;
 	unsigned int    slbc_ready;
@@ -260,6 +262,8 @@ struct venc_enc_param {
 	unsigned int bitratemode;
 	unsigned int roion;
 	unsigned int heif_grid_size;
+	// pointed to mtk_enc_params::color_desc
+	struct mtk_color_desc *color_desc;
 	unsigned int sizeimage[MTK_VCODEC_MAX_PLANES];
 	unsigned int max_w;
 	unsigned int max_h;
@@ -277,6 +281,8 @@ struct venc_frm_buf {
 	unsigned int num_planes;
 	u64 timestamp;
 	unsigned int roimap;
+	bool has_meta;
+	struct dma_buf *meta_dma;
 };
 
 /**

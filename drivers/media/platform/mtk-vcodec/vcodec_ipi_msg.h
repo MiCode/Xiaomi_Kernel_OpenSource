@@ -70,8 +70,31 @@ struct mtk_color_desc {
 	__u32	min_display_mastering_luminance;
 	__u32	max_content_light_level;
 	__u32	max_pic_light_level;
-	__u32	is_hdr;
-	__u32	full_range;
+	__u32   is_hdr;
+	__u32   full_range;
+};
+
+struct mtk_hdr_dynamic_info {
+	__u32    max_sc_lR;
+		// u(17); Max R Nits *10; in the range of 0x00000-0x186A0
+	__u32    max_sc_lG;
+		// u(17); Max G Nits *10; in the range of 0x00000-0x186A0
+	__u32    max_sc_lB;
+		// u(17); Max B Nits *10; in the range of 0x00000-0x186A0
+	__u32    avg_max_rgb;
+		// u(17); Average maxRGB Nits *10; in 0x00000-0x186A0
+	__u32    distribution_values[9];
+		/* u(17)
+		 * 0=1% percentile maxRGB Nits *10
+		 * 1=Maximum Nits of 99YF *10
+		 * 2=Average Nits of DPY100F
+		 * 3=25% percentile maxRGB Nits *10
+		 * 4=50% percentile maxRGB Nits *10
+		 * 5=75% percentile maxRGB Nits *10
+		 * 6=90% percentile maxRGB Nits *10
+		 * 7=95% percentile maxRGB Nits *10
+		 * 8=99.95% percentile maxRGB Nits *10
+		 */
 };
 
 /**

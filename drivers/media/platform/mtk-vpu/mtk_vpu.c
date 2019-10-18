@@ -49,7 +49,7 @@
 #define VPU_P_FW_SIZE		(VPU_PTCM_SIZE + VPU_EXT_P_SIZE)
 #define VPU_D_FW_SIZE		(VPU_DTCM_SIZE + VPU_EXT_D_SIZE)
 /* the size of share buffer between Host and  VPU */
-#define SHARE_BUF_SIZE		48
+#define SHARE_BUF_SIZE		72
 
 /* binary firmware name */
 #define VPU_P_FW		"vpu_p.bin"

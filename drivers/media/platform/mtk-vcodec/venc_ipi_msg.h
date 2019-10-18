@@ -101,6 +101,7 @@ enum venc_set_param_type {
 	VENC_SET_PARAM_BITRATE_MODE,
 	VENC_SET_PARAM_ROI_ON,
 	VENC_SET_PARAM_HEIF_GRID_SIZE,
+	VENC_SET_PARAM_COLOR_DESC,
 };
 
 /**
@@ -212,6 +213,8 @@ struct venc_ap_ipi_msg_enc {
 	__s16 bs_fd;
 	__u8 fb_num_planes;
 	__u8 bs_mode;
+	__u32 meta_size;
+	__s16 meta_fd;
 };
 
 /**
@@ -386,6 +389,7 @@ struct venc_vcu_config {
 	__u32 roi_rc_qp;
 	__u32 roion;
 	__u32 heif_grid_size;
+	struct mtk_color_desc color_desc;
 	__u32 resolutionChange;
 	__u32 max_w;
 	__u32 max_h;

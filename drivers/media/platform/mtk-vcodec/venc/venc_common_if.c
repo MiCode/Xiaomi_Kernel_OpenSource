@@ -503,6 +503,12 @@ static int venc_set_param(unsigned long handle,
 		inst->vsi->config.num_b_frame = enc_prm->num_b_frame;
 		inst->vsi->config.slbc_ready = enc_prm->slbc_ready;
 
+		if (enc_prm->color_desc) {
+			memcpy(&inst->vsi->config.color_desc,
+				enc_prm->color_desc,
+				sizeof(struct mtk_color_desc));
+		}
+
 		if (inst->vcu_inst.id == IPI_VENC_H264 ||
 			inst->vcu_inst.id == IPI_VENC_HYBRID_H264) {
 			inst->vsi->config.profile = enc_prm->profile;
@@ -534,6 +540,11 @@ static int venc_set_param(unsigned long handle,
 		break;
 	case VENC_SET_PARAM_PREPEND_HEADER:
 		inst->prepend_hdr = 1;
+		ret = vcu_enc_set_param(&inst->vcu_inst, type, enc_prm);
+		break;
+	case VENC_SET_PARAM_COLOR_DESC:
+		memcpy(&inst->vsi->config.color_desc, enc_prm->color_desc,
+			sizeof(struct mtk_color_desc));
 		ret = vcu_enc_set_param(&inst->vcu_inst, type, enc_prm);
 		break;
 	default:
