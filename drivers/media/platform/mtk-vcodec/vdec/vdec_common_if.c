@@ -464,6 +464,14 @@ static void get_codec_type(struct vdec_inst *inst,
 		*codec_type = inst->vsi->codec_type;
 }
 
+static void get_input_driven(struct vdec_inst *inst,
+			   unsigned int *input_driven)
+{
+	inst->vcu.ctx = inst->ctx;
+	if (inst->vsi != NULL)
+		*input_driven = inst->vsi->input_driven;
+}
+
 static int vdec_get_param(unsigned long h_vdec,
 	enum vdec_get_param_type type, void *out)
 {
@@ -552,6 +560,10 @@ static int vdec_get_param(unsigned long h_vdec,
 
 	case GET_PARAM_CODEC_TYPE:
 		get_codec_type(inst, out);
+		break;
+
+	case GET_PARAM_INPUT_DRIVEN:
+		get_input_driven(inst, out);
 		break;
 
 	default:

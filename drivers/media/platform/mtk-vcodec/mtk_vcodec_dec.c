@@ -1080,6 +1080,13 @@ static int mtk_vdec_set_param(struct mtk_vcodec_ctx *ctx)
 		ctx->dec_param_change &= (~MTK_DEC_PARAM_OPERATING_RATE);
 	}
 
+	if (vdec_if_get_param(ctx, GET_PARAM_INPUT_DRIVEN,
+		&ctx->input_driven)) {
+		mtk_v4l2_err("[%d] Error!! Cannot get param : GET_PARAM_INPUT_DRIVEN ERR",
+					 ctx->id);
+		return -EINVAL;
+	}
+
 	return 0;
 }
 
