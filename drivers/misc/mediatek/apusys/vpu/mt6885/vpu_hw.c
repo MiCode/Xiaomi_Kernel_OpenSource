@@ -460,7 +460,7 @@ bool vpu_is_disabled(struct vpu_device *vd)
 	mask = 1 << vd->id;
 
 	efuse = get_devinfo_with_index(EFUSE_VPU_OFFSET);
-	efuse = (efuse & EFUSE_VPU_MASK) >> EFUSE_VPU_SHIFT;
+	efuse = (efuse >> EFUSE_VPU_SHIFT) & EFUSE_VPU_MASK;
 
 	/* show efuse info to let user know */
 	pr_info("%s: efuse_data: 0x%x, core%d is %s\n",

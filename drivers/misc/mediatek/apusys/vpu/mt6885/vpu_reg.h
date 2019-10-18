@@ -106,7 +106,7 @@ enum {
 /* efuse register related define */
 #define EFUSE_VPU_OFFSET	5
 #define EFUSE_VPU_MASK		0x7
-#define EFUSE_VPU_SHIFT		0
+#define EFUSE_VPU_SHIFT		16
 
 /* mpu protect region definition */
 #define MPU_PROCT_REGION	21
