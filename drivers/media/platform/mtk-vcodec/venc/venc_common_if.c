@@ -501,6 +501,7 @@ static int venc_set_param(unsigned long handle,
 		inst->vsi->config.max_w = enc_prm->max_w;
 		inst->vsi->config.max_h = enc_prm->max_h;
 		inst->vsi->config.num_b_frame = enc_prm->num_b_frame;
+		inst->vsi->config.slbc_ready = enc_prm->slbc_ready;
 
 		if (inst->vcu_inst.id == IPI_VENC_H264 ||
 			inst->vcu_inst.id == IPI_VENC_HYBRID_H264) {

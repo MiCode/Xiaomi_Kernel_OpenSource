@@ -216,6 +216,7 @@ struct mtk_enc_params {
 	unsigned int    heif_grid_size;
 	unsigned int    max_w;
 	unsigned int    max_h;
+	unsigned int    slbc_ready;
 };
 
 /*
@@ -259,6 +260,7 @@ struct venc_enc_param {
 	unsigned int max_w;
 	unsigned int max_h;
 	unsigned int num_b_frame;
+	unsigned int slbc_ready;
 };
 
 /*
@@ -371,6 +373,7 @@ struct mtk_vcodec_ctx {
 	struct mutex buf_lock;
 	struct mutex worker_lock;
 	struct slbc_data sram_data;
+	int use_slbc;
 };
 
 /**

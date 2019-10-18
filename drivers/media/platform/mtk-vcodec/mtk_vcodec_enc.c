@@ -906,13 +906,14 @@ static void mtk_venc_set_param(struct mtk_vcodec_ctx *ctx,
 	param->max_w = enc_params->max_w;
 	param->max_h = enc_params->max_h;
 	param->num_b_frame = enc_params->num_b_frame;
+	param->slbc_ready = ctx->use_slbc;
 
 	ctx->use_gce = (ctx->use_gce == 1) ?
 		ctx->use_gce :
 		(enc_params->operationrate >= MTK_SLOWMOTION_GCE_TH);
 
 	mtk_v4l2_debug(0,
-	"fmt 0x%x, P/L %d/%d, w/h %d/%d, buf %d/%d, fps/bps %d/%d(%d), gop %d, ip# %d opr %d smvr %d grid size %d/%d b#%d",
+	"fmt 0x%x, P/L %d/%d, w/h %d/%d, buf %d/%d, fps/bps %d/%d(%d), gop %d, ip# %d opr %d smvr %d grid size %d/%d b#%d, slbc %d",
 	param->input_yuv_fmt, param->profile,
 	param->level, param->width, param->height,
 	param->buf_width, param->buf_height,
@@ -920,7 +921,7 @@ static void mtk_venc_set_param(struct mtk_vcodec_ctx *ctx,
 	param->gop_size, param->intra_period,
 	param->operationrate, ctx->use_gce,
 	(param->heif_grid_size>>16), param->heif_grid_size&0xffff,
-	param->num_b_frame);
+	param->num_b_frame, param->slbc_ready);
 }
 
 static int vidioc_venc_subscribe_evt(struct v4l2_fh *fh,

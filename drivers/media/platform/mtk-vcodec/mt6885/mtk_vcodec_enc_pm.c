@@ -57,9 +57,10 @@ void mtk_venc_init_ctx_pm(struct mtk_vcodec_ctx *ctx)
 	ctx->sram_data.type = TP_BUFFER;
 	ctx->sram_data.size = 0;
 	ctx->sram_data.flag = FG_POWER;
-	pr_debug("slbc_request, %p\n", &ctx->sram_data);
 
-	slbc_request(&ctx->sram_data);
+	if (slbc_request(&ctx->sram_data) >= 0)
+		ctx->use_slbc = 1;
+	pr_debug("slbc_request %d, %p\n", &ctx->sram_data, ctx->use_slbc);
 }
 
 int mtk_vcodec_init_enc_pm(struct mtk_vcodec_dev *mtkdev)
