@@ -521,7 +521,7 @@ static uint8_t get_permission(enum DEVAPC_SLAVE_TYPE slave_type,
 			domain, ctrl_index, 0, 0, 0, &res);
 	ret = res.a0;
 
-	if (ret == DEAD || ret == SIP_SVC_E_NOT_SUPPORTED) {
+	if (ret == DEAD) {
 		pr_err(PFX "%s: SMC call failed, ret:0x%x\n",
 				__func__, ret);
 		return 0xFF;
@@ -1017,7 +1017,7 @@ ssize_t mtk_devapc_dbg_write(struct file *file, const char __user *buffer,
 				sys_index, domain, ctrl_index, 0, 0, 0, &res);
 		ret = res.a0;
 
-		if (ret == DEAD || ret == SIP_SVC_E_NOT_SUPPORTED) {
+		if (ret == DEAD) {
 			pr_err(PFX "%s, SMC call failed, ret: 0x%x\n",
 					__func__, ret);
 			return -EINVAL;
