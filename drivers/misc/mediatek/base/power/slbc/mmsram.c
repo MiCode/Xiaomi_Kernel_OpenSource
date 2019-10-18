@@ -326,7 +326,7 @@ static int mmsram_probe(struct platform_device *pdev)
 	mmsram->sram_paddr = (void *)res->start;
 	mmsram->sram_size = resource_size(res);
 	mmsram->sram_vaddr =  (void __iomem *) devm_memremap(&pdev->dev,
-				res->start, mmsram->sram_size, MEMREMAP_WB);
+				res->start, mmsram->sram_size, MEMREMAP_WT);
 	if (IS_ERR(mmsram->sram_vaddr)) {
 		dev_notice(&pdev->dev,
 			"could not ioremap resource for memory\n");
