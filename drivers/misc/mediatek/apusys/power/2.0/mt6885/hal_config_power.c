@@ -260,9 +260,11 @@ static int init_power_resource(void *param)
 #endif
 		is_apu_power_initilized = 1;
 	}
-
+	enable_apu_vcore_clksrc();
 	enable_apu_conn_vcore_clksrc();
 	hw_init_setting();
+	set_apu_clock_source(DVFS_FREQ_00_026000_F,
+		V_VCORE);
 	disable_apu_conn_vcore_clksrc();
 
 	buck_control(VPU0, 3); // buck on
@@ -415,7 +417,10 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 			(DRV_Reg32(APU_RPC_INTF_PWR_RDY) & BIT(0)) == 0x0) {
 			LOG_WRN("%s enable wakeup signal\n", __func__);
 
+
 			enable_apu_conn_vcore_clksrc();
+			set_apu_clock_source(DVFS_FREQ_00_208000_F,
+				V_VCORE);
 
 			// CCF API assist to enable clock source of apu conn
 			enable_apu_mtcmos(1);
@@ -494,8 +499,12 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 			DRV_WriteReg32(APU_RPC_TOP_CON, regValue);
 
 			rpc_power_status_check(0, 0);
-			force_pwr_off = 0;
+
+			set_apu_clock_source(DVFS_FREQ_00_026000_F,
+				V_VCORE);
 			disable_apu_conn_vcore_clksrc();
+
+			force_pwr_off = 0;
 		}
 	}
 

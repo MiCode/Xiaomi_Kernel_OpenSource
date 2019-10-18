@@ -259,6 +259,7 @@ void unprepare_apu_clock(void)
 	LOG_DBG("%s bypass\n", __func__);
 }
 
+#if 0
 static void enable_pll(void)
 {
 	ENABLE_CLK(clk_top_clk26m);
@@ -308,14 +309,20 @@ static void disable_pll(void)
 	DISABLE_CLK(clk_top_apupll_ck);
 	DISABLE_CLK(clk_apmixed_apupll_rate);
 }
+#endif
+
+void enable_apu_vcore_clksrc(void)
+{
+	ENABLE_CLK(clk_top_ipu_if_sel);
+}
 
 void enable_apu_conn_vcore_clksrc(void)
 {
 	ENABLE_CLK(clk_top_dsp_sel);
 	ENABLE_CLK(clk_top_dsp7_sel);
-	ENABLE_CLK(clk_top_ipu_if_sel);
+	//ENABLE_CLK(clk_top_ipu_if_sel);
 
-	enable_pll();
+	//enable_pll();
 
 	LOG_DBG("%s\n", __func__);
 }
@@ -517,10 +524,10 @@ void disable_apu_device_clock(enum DVFS_USER user)
 
 void disable_apu_conn_vcore_clksrc(void)
 {
-	disable_pll();
+	//disable_pll();
 
 	DISABLE_CLK(clk_top_dsp_sel);
-	DISABLE_CLK(clk_top_ipu_if_sel);
+	//DISABLE_CLK(clk_top_ipu_if_sel);
 	DISABLE_CLK(clk_top_dsp7_sel);
 	LOG_DBG("%s\n", __func__);
 }
