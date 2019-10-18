@@ -58,10 +58,10 @@ static int cm_mgr_loop_count;
 static int cm_mgr_dram_level;
 static int cm_mgr_loop;
 static int total_bw_value;
-int cpu_power_ratio_up[CM_MGR_EMI_OPP] = {120, 120, 100, 100};
-int cpu_power_ratio_down[CM_MGR_EMI_OPP] = {120, 120, 40, 60};
-int vcore_power_ratio_up[CM_MGR_EMI_OPP] = {100, 100, 100, 100};
-int vcore_power_ratio_down[CM_MGR_EMI_OPP] = {100, 100, 100, 100};
+int cpu_power_ratio_up[CM_MGR_EMI_OPP] = {120, 140, 120, 100, 100};
+int cpu_power_ratio_down[CM_MGR_EMI_OPP] = {100, 120, 100, 100, 100};
+int vcore_power_ratio_up[CM_MGR_EMI_OPP] = {100, 100, 100, 100, 100};
+int vcore_power_ratio_down[CM_MGR_EMI_OPP] = {100, 100, 100, 100, 100};
 int debounce_times_up_adb[CM_MGR_EMI_OPP] = {0, 0, 0, 0};
 int debounce_times_down_adb[CM_MGR_EMI_OPP] = {3, 0, 0, 0};
 int debounce_times_reset_adb;
@@ -70,7 +70,7 @@ int debounce_times_perf_force_down = 100;
 static int update;
 static int update_v2f_table = 1;
 static int cm_mgr_opp_enable = 1;
-int cm_mgr_enable;
+int cm_mgr_enable = 1;
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 int cm_mgr_sspm_enable = 1;
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
