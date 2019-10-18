@@ -769,6 +769,7 @@ int mtk_adsp_init_gen_pool(struct mtk_base_dsp *dsp)
 int adsp_task_init(int task_id, struct mtk_base_dsp *dsp)
 {
 	int ret = 0;
+	struct ipi_msg_t ipi_msg;
 
 	if (dsp == NULL) {
 		pr_info("%s dsp == NULL\n", __func__);
@@ -780,13 +781,18 @@ int adsp_task_init(int task_id, struct mtk_base_dsp *dsp)
 		return -1;
 	}
 
-	ret = mtk_scp_ipi_send(
-		get_dspscene_by_dspdaiid(task_id), AUDIO_IPI_MSG_ONLY,
+	ret = audio_send_ipi_msg(&ipi_msg,
+		get_dspscene_by_dspdaiid(task_id),
+		AUDIO_IPI_LAYER_TO_DSP, AUDIO_IPI_MSG_ONLY,
 		AUDIO_IPI_MSG_BYPASS_ACK, AUDIO_DSP_TASK_INIT,
 		sizeof(struct audio_dsp_dram), 0,
 		(char *)dsp->dsp_mem[task_id].ipi_payload_buf);
+	if (ret) {
+		pr_info("%s(), task [%d]send ipi fail\n",
+			__func__, task_id);
+	}
 
-	/* send share message to SCP side */
+	/* send share message to adsp side */
 	ret = copy_ipi_payload(
 		(void *)dsp->dsp_mem[task_id].ipi_payload_buf,
 		(void *)&dsp->dsp_mem[task_id].msg_atod_share_buf,
@@ -795,27 +801,35 @@ int adsp_task_init(int task_id, struct mtk_base_dsp *dsp)
 	if (ret < 0)
 		pr_info("copy_ipi_payload err\n");
 
-	ret = mtk_scp_ipi_send(
-		get_dspscene_by_dspdaiid(task_id), AUDIO_IPI_PAYLOAD,
+	ret = audio_send_ipi_msg(
+		&ipi_msg, get_dspscene_by_dspdaiid(task_id),
+		AUDIO_IPI_LAYER_TO_DSP, AUDIO_IPI_PAYLOAD,
 		AUDIO_IPI_MSG_BYPASS_ACK, AUDIO_DSP_TASK_MSGA2DSHAREMEM,
 		sizeof(struct audio_dsp_dram), 0,
 		(char *)dsp->dsp_mem[task_id].ipi_payload_buf);
+	if (ret) {
+		pr_info("%s(), task [%d]send ipi fail\n",
+			__func__, task_id);
+	}
 
 	/* send share message to SCP side */
 	ret = copy_ipi_payload(
 		(void *)dsp->dsp_mem[task_id].ipi_payload_buf,
 		(void *)&dsp->dsp_mem[task_id].msg_dtoa_share_buf,
 		sizeof(struct audio_dsp_dram));
-
 	if (ret < 0)
 		pr_info("copy_ipi_payload err\n");
 
-	ret = mtk_scp_ipi_send(
-		get_dspscene_by_dspdaiid(task_id), AUDIO_IPI_PAYLOAD,
+	ret = audio_send_ipi_msg(
+		&ipi_msg, get_dspscene_by_dspdaiid(task_id),
+		AUDIO_IPI_LAYER_TO_DSP, AUDIO_IPI_PAYLOAD,
 		AUDIO_IPI_MSG_BYPASS_ACK, AUDIO_DSP_TASK_MSGD2ASHAREMEM,
 		sizeof(struct audio_dsp_dram), 0,
 		(char *)dsp->dsp_mem[task_id].ipi_payload_buf);
-
+	if (ret) {
+		pr_info("%s(), task [%d]send ipi fail\n",
+			__func__, task_id);
+	}
 	return 0;
 }
 

@@ -103,6 +103,13 @@ int mtk_scp_ipi_send(int task_scene, int data_type, int ack_type,
 		return send_result;
 	}
 
+	if (get_task_attr(get_dspdaiid_by_dspscene(task_scene),
+			  ADSP_TASK_ATTR_DEFAULT) == 0) {
+		pr_info("%s() task_scene[%d] not enable\n",
+			__func__, task_scene);
+		return send_result;
+	}
+
 	send_result = audio_send_ipi_msg(
 		&ipi_msg, task_scene,
 		AUDIO_IPI_LAYER_TO_DSP, data_type,
@@ -171,6 +178,8 @@ int get_dspdaiid_by_dspscene(int dspscene)
 		return AUDIO_TASK_FAST_ID;
 	case TASK_SCENE_MUSIC:
 		return AUDIO_TASK_MUSIC_ID;
+	case TASK_SCENE_CALL_FINAL:
+		return AUDIO_TASK_CALL_FINAL_ID;
 	default:
 		pr_warn("%s() err\n", __func__);
 		return -1;
