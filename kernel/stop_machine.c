@@ -486,16 +486,17 @@ static void cpu_stopper_thread(unsigned int cpu)
 {
 	struct cpu_stopper *stopper = &per_cpu(cpu_stopper, cpu);
 	struct cpu_stop_work *work;
+	unsigned long flags;
 
 repeat:
 	work = NULL;
-	raw_spin_lock_irq(&stopper->lock);
+	raw_spin_lock_irqsave(&stopper->lock, flags);
 	if (!list_empty(&stopper->works)) {
 		work = list_first_entry(&stopper->works,
 					struct cpu_stop_work, list);
 		list_del_init(&work->list);
 	}
-	raw_spin_unlock_irq(&stopper->lock);
+	raw_spin_unlock_irqrestore(&stopper->lock, flags);
 
 	if (work) {
 		cpu_stop_fn_t fn = work->fn;
