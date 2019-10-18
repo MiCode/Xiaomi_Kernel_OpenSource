@@ -30,6 +30,7 @@ enum {
 	CPC_SMC_CONFIG_AUTO_OFF,
 	CPC_SMC_CONFIG_AUTO_OFF_THRES,
 	CPC_SMC_CONFIG_CNT_CLR,
+	CPC_SMC_CONFIG_TIME_SYNC,
 
 	NF_CPC_SMC_CONFIG
 };
@@ -69,6 +70,10 @@ enum {
 #define cpc_cluster_cnt_clr()\
 	mtk_cpc_smc(CPC_SMC_EVENT_CPC_CONFIG\
 			, CPC_SMC_CONFIG_CNT_CLR, 0)
+
+#define cpc_time_sync()\
+	mtk_cpc_smc(CPC_SMC_EVENT_CPC_CONFIG\
+			, CPC_SMC_CONFIG_TIME_SYNC, 0)
 
 /* status */
 #define cpc_get_prof_sta()\

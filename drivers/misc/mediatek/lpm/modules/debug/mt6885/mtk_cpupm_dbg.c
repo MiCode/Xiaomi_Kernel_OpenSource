@@ -136,8 +136,8 @@ static int __init mtk_cpupm_dbg_init(void)
 
 	mtk_cpuidle_status_init();
 	mtk_cpc_init();
-
 	mtk_idle_procfs_init();
+	cpc_time_sync();
 
 	return 0;
 }
