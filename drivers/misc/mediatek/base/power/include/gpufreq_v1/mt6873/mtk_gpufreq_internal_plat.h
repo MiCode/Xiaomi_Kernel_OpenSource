@@ -318,7 +318,7 @@ struct opp_table_info *g_opp_table_default;
  * PTPOD definition
  **************************************************/
 unsigned int g_ptpod_opp_idx_table_segment[] = {
-	0, 4, 7, 10,
+	0, 4, 8, 10,
 	13, 16, 19, 22,
 	24, 26, 28, 30,
 	32, 34, 36, 38
