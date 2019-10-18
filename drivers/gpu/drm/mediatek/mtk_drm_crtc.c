@@ -3978,21 +3978,18 @@ static void __mtk_crtc_old_sub_path_destroy(struct drm_crtc *crtc,
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_crtc_state *crtc_state = to_mtk_crtc_state(crtc->state);
 	struct cmdq_pkt *cmdq_handle;
-	int gce_event;
 
 	if (!mtk_crtc_with_sub_path(crtc, mtk_crtc->ddp_mode))
 		return;
 
 	mtk_crtc_pkt_create(&cmdq_handle, crtc,
 		mtk_crtc->gce_obj.client[CLIENT_CFG]);
-	mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle, DDP_SECOND_PATH);
+	mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle, DDP_FIRST_PATH);
 	_mtk_crtc_atmoic_addon_module_disconnect(crtc, mtk_crtc->ddp_mode,
 					&crtc_state->lye_state,
 					cmdq_handle);
 	mtk_crtc_disconnect_single_path_cmdq(crtc, cmdq_handle,
 		DDP_FIRST_PATH,	mtk_crtc->ddp_mode, 1);
-	gce_event = get_path_wait_event(mtk_crtc, DDP_SECOND_PATH);
-	cmdq_pkt_set_event(cmdq_handle, gce_event);
 	cmdq_pkt_flush(cmdq_handle);
 	cmdq_pkt_destroy(cmdq_handle);
 }
