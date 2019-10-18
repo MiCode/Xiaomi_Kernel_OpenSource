@@ -1074,7 +1074,7 @@ static int credit_didt_suspend(struct platform_device *pdev, pm_message_t state)
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
 #ifdef CONFIG_OF_RESERVED_MEM
-	credit_didt_reserve_memory_init(1);
+//	credit_didt_reserve_memory_init(1);
 #endif
 #endif
 
@@ -1086,7 +1086,7 @@ static int credit_didt_resume(struct platform_device *pdev)
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
 #ifdef CONFIG_OF_RESERVED_MEM
-	credit_didt_reserve_memory_init(2);
+//	credit_didt_reserve_memory_init(2);
 #endif
 #endif
 
