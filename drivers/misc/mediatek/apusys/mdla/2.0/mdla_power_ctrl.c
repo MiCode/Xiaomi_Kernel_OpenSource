@@ -61,7 +61,7 @@ enum MDLA_POWER_STAT {
 
 int get_power_on_status(int core_id)
 {
-	return mdla_devices[core_id].mdla_power_status == PWR_ON ? 1:0;
+	return mdla_devices[core_id].mdla_power_status;
 }
 
 int mdla_pwr_on(int core_id)
