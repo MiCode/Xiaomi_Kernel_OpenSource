@@ -3462,9 +3462,9 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 		mtk_crtc->dc_main_path_commit_task = kthread_create(
 				dc_main_path_commit_thread,
 				&mtk_crtc->base, "decouple_update_rdma_cfg");
-		wake_up_process(mtk_crtc->dc_main_path_commit_task);
 		atomic_set(&mtk_crtc->dc_main_path_commit_event, 1);
 		init_waitqueue_head(&mtk_crtc->dc_main_path_commit_wq);
+		wake_up_process(mtk_crtc->dc_main_path_commit_task);
 	}
 
 	mtk_crtc->trigger_event_task =
