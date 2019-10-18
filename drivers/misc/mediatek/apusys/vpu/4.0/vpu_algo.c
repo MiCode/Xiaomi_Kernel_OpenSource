@@ -152,8 +152,9 @@ void vpu_alg_release(struct kref *ref)
 	alg->vd->algo_cnt--;
 	spin_unlock(&alg->vd->algo_lock);
 
-	vpu_alg_debug("%s: vpu%d: %s, algo_cnt: %d\n",
-		__func__, alg->vd->id, alg->a.name, alg->vd->algo_cnt);
+	vpu_alg_debug("%s: vpu%d: %s, algo_cnt: %d builtin: %d\n",
+		      __func__, alg->vd->id, alg->a.name,
+		      alg->vd->algo_cnt, alg->builtin);
 
 	/* free __vpu_algo memory */
 	vpu_alg_free(container_of(ref, struct __vpu_algo, ref));
@@ -161,8 +162,9 @@ void vpu_alg_release(struct kref *ref)
 
 void vpu_alg_put(struct __vpu_algo *alg)
 {
-	vpu_alg_debug("%s: vpu%d: %s: ref: %d\n",
-		__func__, alg->vd->id, alg->a.name, kref_read(&alg->ref));
+	vpu_alg_debug("%s: vpu%d: %s: ref: %d builtin: %d\n",
+		      __func__, alg->vd->id, alg->a.name,
+		      kref_read(&alg->ref), alg->builtin);
 	kref_put(&alg->ref, vpu_alg_release);
 }
 
@@ -334,9 +336,10 @@ unlock:
 	spin_unlock(&vd->algo_lock);
 
 	if (!ret) {
-		vpu_alg_debug("%s: name %s, len %d, mva 0x%lx alg_cnt: %d\n",
+		vpu_alg_debug("%s: name %s, len %d, mva 0x%lx alg_cnt: %d builtin: %d\n",
 			      __func__, alg->a.name, alg->a.len,
-			      (unsigned long)alg->a.mva, vd->algo_cnt);
+			      (unsigned long)alg->a.mva, vd->algo_cnt,
+			      alg->builtin);
 	} else if (ret == -EEXIST) {
 		vpu_alg_debug("%s: name %s already exist\n",
 			      __func__, fw->name);

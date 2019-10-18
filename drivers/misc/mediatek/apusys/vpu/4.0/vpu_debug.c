@@ -108,13 +108,13 @@ static int vpu_debug_algo_entry(struct seq_file *s,
 	int ret = 0;
 	struct vpu_port *p;
 
-	seq_printf(s, "[%s: addr: 0x%llx, len: 0x%x ref: %d]\n",
+	seq_printf(s, "[%s: addr: 0x%llx, len: 0x%x ref: %d builtin: %d]\n",
 		   alg->a.name, alg->a.mva,
-		   alg->a.len, kref_read(&alg->ref));
+		   alg->a.len, kref_read(&alg->ref), alg->builtin);
 
-	vpu_alg_debug("%s: [%s: addr: 0x%llx, len: 0x%x ref: %d]\n",
+	vpu_alg_debug("%s: [%s: addr: 0x%llx, len: 0x%x ref: %d builtin: %d]\n",
 		      __func__, alg->a.name, alg->a.mva,
-		      alg->a.len, kref_read(&alg->ref));
+		      alg->a.len, kref_read(&alg->ref), alg->builtin);
 
 	ret = vpu_alg_load(vd, NULL, alg);
 	if (ret)
