@@ -329,7 +329,7 @@ page_owner=on";
 #ifdef CONFIG_FPGA_EARLY_PORTING
 			size = <0 0x10000000>;
 #else
-			size = <0 0x100000>;
+			size = <0 0xc000>;
 #endif
 			alignment = <0 0x1000>;
 			alloc-ranges = <0 0x40000000 0 0x80000000>;

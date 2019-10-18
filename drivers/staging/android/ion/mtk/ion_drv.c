@@ -1004,8 +1004,7 @@ static struct ion_platform_heap ion_drv_platform_heaps[] = {
 #ifdef CONFIG_FPGA_EARLY_PORTING
 	 .size = 0x10000000, /* reserve 256MB for Camera; */
 #else
-	 .size = 0x100000, /* reserve 1MB for bring up; */
-	 //.size = 0x4000, /* reserve 16KB for Audio; */
+	 .size = 0xc000, /* reserve 48KB for Audio; */
 #endif
 	 .align = 0x1000, /* this must not be 0 if enable */
 	 .priv = NULL,
