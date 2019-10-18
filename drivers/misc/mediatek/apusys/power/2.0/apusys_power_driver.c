@@ -32,14 +32,6 @@
 #include "apu_power_api.h"
 #include "../../../pmic/include/pmic_api_buck.h"
 
-#define BYPASS_POWER_CTL	(0)	// 1: bypass power on/off feature
-#define BYPASS_DVFS_CTL		(0)	// 1: bypass set DVFS opp feature
-#define DEFAULT_POWER_ON	(0)	// 1: default power on in power probe
-
-#define AUTO_BUCK_OFF_SUSPEND	(1)
-#define AUTO_BUCK_OFF_DEEPIDLE	(0)
-
-#define ASSERTION_PERCENTAGE  (1)		// 1%
 static int apu_power_counter;
 
 bool apusys_power_check(void)
@@ -192,6 +184,7 @@ find_out_callback_device_by_user(enum POWER_CALLBACK_USER user)
 
 int apu_device_power_off(enum DVFS_USER user)
 {
+#if !BYPASS_POWER_OFF
 	struct power_device *pwr_dev = find_out_device_by_user(user);
 
 	if (pwr_dev == NULL) {
@@ -228,7 +221,9 @@ int apu_device_power_off(enum DVFS_USER user)
 
 	mutex_unlock(&power_ctl_mtx);
 	apu_get_power_info();
-
+#else
+	LOG_WRN("%s by user:%d bypass\n", __func__, user);
+#endif // BYPASS_POWER_OFF
 	return 0;
 }
 EXPORT_SYMBOL(apu_device_power_off);
@@ -768,6 +763,8 @@ for (loop = 0; loop < count; loop++) {
 }
 		break;
 	case 8: // dump power info and options
+		LOG_WRN("%s, BYPASS_POWER_OFF : %d\n",
+					__func__, BYPASS_POWER_OFF);
 		LOG_WRN("%s, BYPASS_POWER_CTL : %d\n",
 					__func__, BYPASS_POWER_CTL);
 		LOG_WRN("%s, BYPASS_DVFS_CTL : %d\n",
@@ -778,6 +775,8 @@ for (loop = 0; loop < count; loop++) {
 					__func__, AUTO_BUCK_OFF_SUSPEND);
 		LOG_WRN("%s, AUTO_BUCK_OFF_DEEPIDLE : %d\n",
 					__func__, AUTO_BUCK_OFF_DEEPIDLE);
+		LOG_WRN("%s, ASSERTION_PERCENTAGE : %d\n",
+					__func__, ASSERTION_PERCENTAGE);
 		apu_get_power_info();
 		break;
 	case 9: // config to force power on

@@ -201,12 +201,15 @@ static void hw_init_setting(void)
 
 	udelay(100);
 
+#if !BYPASS_POWER_OFF
 	// sleep request enable
 	regValue = DRV_Reg32(APU_RPC_TOP_CON);
 	regValue |= 0x1;
 	DRV_WriteReg32(APU_RPC_TOP_CON, regValue);
-
 	LOG_WRN("%s done and request to enter sleep\n", __func__);
+#else
+	LOG_WRN("%s done\n", __func__);
+#endif
 }
 
 static int init_power_resource(void *param)

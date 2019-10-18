@@ -21,6 +21,14 @@
 #include "test.h"
 #endif
 
+#define BYPASS_POWER_OFF	(1)	// 1: bypass power off (return directly)
+#define BYPASS_POWER_CTL	(0)	// 1: bypass power on/off feature
+#define BYPASS_DVFS_CTL		(0)	// 1: bypass set DVFS opp feature
+#define DEFAULT_POWER_ON	(0)	// 1: default power on in power probe
+#define AUTO_BUCK_OFF_SUSPEND	(0)
+#define AUTO_BUCK_OFF_DEEPIDLE	(0)
+#define ASSERTION_PERCENTAGE	(1)	// 1%
+
 #define APUSYS_MAX_NUM_OPPS                (10)
 #define APUSYS_PATH_USER_NUM               (4)   // num of DVFS_XXX_PATH
 #define APUSYS_DVFS_CONSTRAINT_NUM			(4)
