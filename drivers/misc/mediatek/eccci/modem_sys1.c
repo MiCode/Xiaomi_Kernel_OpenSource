@@ -756,6 +756,7 @@ static void dump_runtime_data_v2_1(struct ccci_modem *md,
 
 static void md_cd_smem_sub_region_init(struct ccci_modem *md)
 {
+#if (MD_GENERATION < 6297)
 	int __iomem *addr;
 	int i;
 	struct ccci_smem_region *dbm =
@@ -774,6 +775,7 @@ static void md_cd_smem_sub_region_init(struct ccci_modem *md)
 #endif
 	addr[i++] = 0x44444444; /* Guard pattern 1 tail */
 	addr[i++] = 0x44444444; /* Guard pattern 2 tail */
+#endif
 
 	/* Notify PBM */
 #ifndef DISABLE_PBM_FEATURE

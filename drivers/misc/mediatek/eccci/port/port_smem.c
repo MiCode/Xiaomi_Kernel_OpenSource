@@ -260,11 +260,13 @@ void __iomem *get_smem_start_addr(int md_id,
 	if (smem_region) {
 		addr = smem_region->base_ap_view_vir;
 
+		#if (MD_GENERATION < 6297)
 		/* dbm addr returned to user should
 		 * step over Guard pattern header
 		 */
 		if (user_id == SMEM_USER_RAW_DBM)
 			addr += CCCI_SMEM_SIZE_DBM_GUARD;
+		#endif
 
 		if (size_o)
 			*size_o = smem_region->size;
