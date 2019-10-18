@@ -62,6 +62,9 @@ static struct dentry *gpsLoadingBaseDvfsStepEntry;
 #ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
 static struct dentry *gpsTimerBaseDvfsMarginEntry;
 #endif
+#ifdef GED_ENABLE_DVFS_LOADING_MODE
+static struct dentry *gpsDvfsLoadingModeEntry;
+#endif
 
 int tokenizer(char *pcSrc, int i32len, int *pi32IndexArray, int i32NumToken)
 {
@@ -1016,7 +1019,12 @@ static void *ged_dvfs_integration_report_seq_next(struct seq_file *psSeqFile, vo
 static int ged_dvfs_integration_report_seq_show(struct seq_file *psSeqFile, void *pvData)
 {
 	if (pvData != NULL) {
+#ifdef GED_ENABLE_DVFS_LOADING_MODE
+		seq_printf(psSeqFile, "GPU Utilization EX fp: %p\n",
+					ged_dvfs_cal_gpu_utilization_ex_fp);
+#else
 		seq_printf(psSeqFile, "GPU Utilization fp: %p\n", ged_dvfs_cal_gpu_utilization_fp);
+#endif
 		seq_printf(psSeqFile, "GPU DVFS idx commit fp: %p\n", ged_dvfs_gpu_freq_commit_fp);
 		seq_printf(psSeqFile, "GPU clock notify on: %d\n", ged_gpu_power_on_notified);
 		seq_printf(psSeqFile, "GPU clock notify off: %d\n", ged_gpu_power_off_notified);
@@ -1293,6 +1301,72 @@ const struct seq_operations gsTimerBaseDvfsMarginReadOps = {
 	.stop = ged_timer_base_dvfs_margin_seq_stop,
 	.next = ged_timer_base_dvfs_margin_seq_next,
 	.show = ged_timer_base_dvfs_margin_seq_show,
+};
+#endif
+
+#ifdef GED_ENABLE_DVFS_LOADING_MODE
+/* --------------------------------------------------------------- */
+static ssize_t ged_dvfs_loading_mode_write_entry
+(const char __user *pszBuffer, size_t uiCount, loff_t uiPosition, void *pvData)
+{
+#define GED_HAL_DEBUGFS_SIZE 64
+	char acBuffer[GED_HAL_DEBUGFS_SIZE];
+
+	int i32Value;
+
+	if ((uiCount > 0) && (uiCount < GED_HAL_DEBUGFS_SIZE)) {
+		if (ged_copy_from_user(acBuffer, pszBuffer, uiCount) == 0) {
+			acBuffer[uiCount] = '\0';
+			if (kstrtoint(acBuffer, 0, &i32Value) == 0)
+				mtk_dvfs_loading_mode((unsigned int) i32Value);
+		}
+	}
+
+	return uiCount;
+}
+//-------------------------------------------------------------------
+static void *ged_dvfs_loading_mode_seq_start(struct seq_file *psSeqFile,
+			loff_t *puiPosition)
+{
+	if (*puiPosition == 0)
+		return SEQ_START_TOKEN;
+
+	return NULL;
+}
+//-------------------------------------------------------------------
+static void ged_dvfs_loading_mode_seq_stop(struct seq_file *psSeqFile,
+			void *pvData)
+{
+
+}
+//-------------------------------------------------------------------
+static void *ged_dvfs_loading_mode_seq_next(struct seq_file *psSeqFile,
+			void *pvData, loff_t *puiPosition)
+{
+	return NULL;
+}
+//-------------------------------------------------------------------
+static int ged_dvfs_loading_mode_seq_show(struct seq_file *psSeqFile,
+			void *pvData)
+{
+	if (pvData != NULL) {
+		unsigned int ui32DvfsLoadingMode;
+
+		if (false == mtk_get_dvfs_loading_mode(&ui32DvfsLoadingMode)) {
+			ui32DvfsLoadingMode = 0;
+			seq_puts(psSeqFile, "call mtk_get_dvfs_loading_mode false\n");
+		}
+		seq_printf(psSeqFile, "%d\n", ui32DvfsLoadingMode);
+	}
+
+	return 0;
+}
+/* --------------------------------------------------------------- */
+const struct seq_operations gsDvfsLoadingModeReadOps = {
+	.start = ged_dvfs_loading_mode_seq_start,
+	.stop = ged_dvfs_loading_mode_seq_stop,
+	.next = ged_dvfs_loading_mode_seq_next,
+	.show = ged_dvfs_loading_mode_seq_show,
 };
 #endif
 
@@ -1645,6 +1719,23 @@ GED_ERROR ged_hal_init(void)
 	}
 #endif
 
+#ifdef GED_ENABLE_DVFS_LOADING_MODE
+	/* Control the gpu loading mode */
+	err = ged_debugFS_create_entry(
+		"dvfs_loading_mode",
+		gpsHALDir,
+		&gsDvfsLoadingModeReadOps,
+		ged_dvfs_loading_mode_write_entry,
+		NULL,
+		&gpsDvfsLoadingModeEntry
+	);
+
+	if (unlikely(err != GED_OK)) {
+		GED_LOGE("ged: failed to create gpu loading mode entry!\n");
+		goto ERROR;
+}
+#endif
+
 	/* Report Integration Status */
 	err = ged_debugFS_create_entry(
 			"integration_report",
@@ -1698,6 +1789,8 @@ void ged_hal_exit(void)
 #ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
 	ged_debugFS_remove_entry(gpsTimerBaseDvfsMarginEntry);
 #endif
-
+#ifdef GED_ENABLE_DVFS_LOADING_MODE
+	ged_debugFS_remove_entry(gpsDvfsLoadingModeEntry);
+#endif
 }
 //-----------------------------------------------------------------------------

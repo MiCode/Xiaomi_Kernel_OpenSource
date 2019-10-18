@@ -670,7 +670,17 @@ extern bool platform_power_down_only;
 
 #ifdef ENABLE_COMMON_DVFS
 struct kbase_device *mtk_get_mali_dev(void);
-void MTKCalGpuUtilization(unsigned int *pui32Loading, unsigned int *pui32Block, unsigned int *pui32Idle);
+
+#ifdef GED_ENABLE_DVFS_LOADING_MODE
+void MTKCalGpuUtilization_ex(unsigned int *pui32Loading,
+							unsigned int *pui32Block,
+							unsigned int *pui32Idle,
+							void *Util_Ex);
+#else
+void MTKCalGpuUtilization(unsigned int *pui32Loading,
+						unsigned int *pui32Block,
+						unsigned int *pui32Idle);
+#endif
 u32 kbasep_get_gl_utilization(void);
 u32 kbasep_get_cl_js0_utilization(void);
 u32 kbasep_get_cl_js1_utilization(void);
