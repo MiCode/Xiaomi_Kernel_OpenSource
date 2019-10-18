@@ -116,6 +116,7 @@ struct __vpu_algo *vpu_alg_get(struct vpu_device *vd, const char *name,
 	/* search from tail, so that existing algorithm can be
 	 * overidden by dynamic loaded ones.
 	 **/
+	spin_lock(&vd->algo_lock);
 	list_for_each_entry_reverse(alg, &vd->algo, list) {
 		if (!strcmp(alg->a.name, name)) {
 			/* found, reference count++ */
@@ -127,8 +128,16 @@ struct __vpu_algo *vpu_alg_get(struct vpu_device *vd, const char *name,
 not_found:
 	alg = NULL;
 out:
-	vpu_alg_debug("%s: vpu%d: %s: ref: %d\n",
-		__func__, vd->id, alg->a.name, kref_read(&alg->ref));
+	/* paring locking vd->algo_lock */
+	spin_unlock(&vd->algo_lock);
+	if (alg)
+		vpu_alg_debug("%s: vpu%d: %s: ref: %d\n",
+			      __func__, vd->id, alg->a.name,
+			      kref_read(&alg->ref));
+	else
+		vpu_alg_debug("%s: vpu%d: %s not found\n",
+			      __func__, vd->id, name);
+
 	return alg;
 }
 
