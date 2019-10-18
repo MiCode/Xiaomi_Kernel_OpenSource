@@ -806,13 +806,13 @@ int pe40_init(void)
 		pe4->data.pe40_max_vbus = 11000;
 		pe4->data.pe40_max_ibus = 3000;
 		pe4->data.ibus_err = 14;
-		pe4->data.high_temp_to_enter_pe40 = 39;
-		pe4->data.low_temp_to_enter_pe40 = 16;
 		pe4->data.high_temp_to_leave_pe40 = 46;
+		pe4->data.high_temp_to_enter_pe40 = 39;
 		pe4->data.low_temp_to_leave_pe40 = 10;
-		pe4->data.pe40_r_cable_3a_lower = 576;
+		pe4->data.low_temp_to_enter_pe40 = 16;
+		pe4->data.pe40_r_cable_1a_lower = 576;
 		pe4->data.pe40_r_cable_2a_lower = 435;
-		pe4->data.pe40_r_cable_1a_lower = 293;
+		pe4->data.pe40_r_cable_3a_lower = 293;
 
 		pe4->pe4_input_current_limit = -1;
 		pe4->pe4_input_current_limit_setting = -1;

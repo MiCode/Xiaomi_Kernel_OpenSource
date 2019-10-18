@@ -492,6 +492,14 @@ static int mtk_switch_chr_pe40_run(struct charger_manager *info)
 
 	data->input_current_limit = info->chg1_data.input_current_limit;
 	data->charging_current_limit = info->chg1_data.input_current_limit;
+	data->pe40_max_vbus = pdata->pe40_max_vbus;
+	data->high_temp_to_leave_pe40 = pdata->high_temp_to_leave_pe40;
+	data->high_temp_to_enter_pe40 = pdata->high_temp_to_enter_pe40;
+	data->low_temp_to_leave_pe40 = pdata->low_temp_to_leave_pe40;
+	data->low_temp_to_enter_pe40 = pdata->low_temp_to_enter_pe40;
+	data->pe40_r_cable_1a_lower = pdata->pe40_r_cable_1a_lower;
+	data->pe40_r_cable_2a_lower = pdata->pe40_r_cable_2a_lower;
+	data->pe40_r_cable_3a_lower = pdata->pe40_r_cable_3a_lower;
 
 	if (info->enable_sw_jeita) {
 		if (info->sw_jeita.cv != 0)
