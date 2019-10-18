@@ -754,8 +754,8 @@ CONFIG_MTK_SENSORS_1_0,PROJECT,jy.lan,,,,,,,,,,,,,,
 CONFIG_MTK_SHARED_SDCARD,PROJECT,sophie.wang,,,,,,,,,,,,,,
 CONFIG_MTK_SIB_USB_SWITCH,PLATFORM,eddie.hung,Modem signal throug USB 3.0 pin,X,X,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_SIM_LOCK_POWER_ON_WRITE_PROTECT,PROJECT,yanbin.ren,new config in this commit 6ebd8f9b343a9925e51161cef20c78c0c797d19c,,,,,,,,,,,,,
+CONFIG_MTK_SLBC_MMSRAM,PROJECT,Morven-CF.Yeh,,,,,,,,,,,,,,
 CONFIG_MTK_SKB_OWNER,PROJECT,En-Ron Chang,new config in this commit I060d462011fae3d75ddeed363b15c16bb422c3db,X,X,y,X,X,y,y,y,y,y,y,y,y
-CONFIG_MTK_SLBC_MMSRAM,PLATFORM,Morven-CF.Yeh,,X,X,X,X,X,X,X,X,X,y,y,y,y
 CONFIG_MTK_SLC_BUFFER_SUPPORT,PROJECT,isaac.lee,new config in this commit ae5dc71d9ef6ebac8e6d05c6ce48ba26c40e4f7d,,,,,,,,,,,,,
 CONFIG_MTK_SM100,PROJECT,qiyuan.song,new config in this commit 3d29631334b2361b7b4596ebe73e6414b64907dc,,,,,,,,,,,,,
 CONFIG_MTK_SMART_BATTERY,COMMON,Henry.Chen,,y,y,y,y,y,y,y,y,y,y,y,y,y

@@ -334,7 +334,7 @@ int slbc_activate(struct slbc_data *d)
 	}
 
 	pr_info("#@# %s(%d) %s data not found !!!\n",
-			__func__, __LINE__, slbc_uid_str[uid]);
+			__func__, slbc_uid_str[uid]);
 
 	return -EFAULT;
 }
@@ -374,8 +374,8 @@ int slbc_deactivate(struct slbc_data *d)
 		return 0;
 	}
 
-	pr_info("#@# %s(%d) %s data not found !!!\n",
-			__func__, __LINE__, slbc_uid_str[uid]);
+	pr_info("#@# %s(%d) %s data not found !!!\n", __func__, __LINE__,
+			slbc_uid_str[uid]);
 
 	return -EFAULT;
 }
@@ -915,8 +915,8 @@ static void slbc_dump_data(struct seq_file *m, struct slbc_data *d)
 	seq_printf(m, "\t%d\t", uid);
 	seq_printf(m, "%x\t", d->type);
 	seq_printf(m, "%ld\n", d->size);
-	seq_printf(m, "%p\t", d->paddr);
-	seq_printf(m, "%p\t", d->vaddr);
+	seq_printf(m, "%x\t", d->paddr);
+	seq_printf(m, "%x\t", d->vaddr);
 	seq_printf(m, "%d\t", d->sid);
 	seq_printf(m, "%x\n", d->slot_used);
 	seq_printf(m, "%p\n", d->config);
@@ -978,7 +978,7 @@ static ssize_t dbg_slbc_proc_write(struct file *file,
 
 	buf[count] = '\0';
 
-	ret = sscanf(buf, "%63s %ld %ld", cmd, &val_1, &val_2);
+	ret = sscanf(buf, "%63s %d %d", cmd, &val_1, &val_2);
 	if (ret < 1) {
 		ret = -EPERM;
 		goto out;

@@ -228,9 +228,8 @@ void mmsram_get_info(struct mmsram_data *data)
 	data->paddr = mmsram->sram_paddr;
 	data->vaddr = mmsram->sram_vaddr;
 	data->size = mmsram->sram_size;
-	pr_notice("%s: pa:%p va:%p size:%#lx\n",
-		__func__, data->paddr, data->vaddr,
-		data->size);
+	pr_notice("%s: pa:%#x va:%#x size:%#x\n",
+		__func__, data->paddr, data->vaddr, data->size);
 }
 EXPORT_SYMBOL_GPL(mmsram_get_info);
 
@@ -334,9 +333,8 @@ static int mmsram_probe(struct platform_device *pdev)
 		return PTR_ERR(mmsram->sram_vaddr);
 	}
 
-	dev_notice(&pdev->dev, "probe va=%p pa=%p size=%#lx\n",
-		mmsram->sram_vaddr, mmsram->sram_paddr,
-		mmsram->sram_size);
+	dev_notice(&pdev->dev, "probe va=%#x pa=%#x size=%#x\n",
+		mmsram->sram_vaddr, mmsram->sram_paddr, mmsram->sram_size);
 
 	if (!IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)) {
 		clk_num = of_property_read_string_array(pdev->dev.of_node,
@@ -369,15 +367,15 @@ static int mmsram_probe(struct platform_device *pdev)
 	return 0;
 }
 
-#define RESULT_STR_LEN 8
 int test_mmsram;
 struct mmsram_data *data;
 int set_test_mmsram(const char *val, const struct kernel_param *kp)
 {
 	int result;
 	u32 test_case, offset, value;
+	const int str_len = 8;
 	const char *test_str = "12345678";
-	char result_str[RESULT_STR_LEN + 1] = {0};
+	char result_str[str_len + 1] = {0};
 
 	result = sscanf(val, "%d %i %i", &test_case, &offset, &value);
 	if (result != 3) {
@@ -409,12 +407,12 @@ int set_test_mmsram(const char *val, const struct kernel_param *kp)
 		pr_notice("read %#x success\n", value);
 		break;
 	case 4: /* Write test string to offset */
-		memcpy_toio(data->vaddr + offset, test_str, RESULT_STR_LEN);
+		memcpy_toio(data->vaddr + offset, test_str, str_len);
 		pr_notice("write str:%s success\n", test_str);
 		break;
 	case 5: /* Write test string from offset */
-		memcpy_fromio(result_str, data->vaddr, RESULT_STR_LEN);
-		result_str[RESULT_STR_LEN] = '\0';
+		memcpy_fromio(result_str, data->vaddr, str_len);
+		result_str[str_len] = '\0';
 		pr_notice("read str:%s success\n", result_str);
 		break;
 	default:
