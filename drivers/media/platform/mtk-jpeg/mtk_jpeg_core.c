@@ -889,7 +889,7 @@ static void mtk_jpeg_set_param(struct mtk_jpeg_ctx *ctx,
 		param->enc_format = JPEG_YUV_FORMAT_NV12;
 		break;
 	case V4L2_PIX_FMT_NV21M:
-		param->enc_format = JPEG_YUV_FORMAT_NV12;
+		param->enc_format = JEPG_YUV_FORMAT_NV21;
 		break;
 	default:
 		v4l2_err(&jpeg->v4l2_dev, "Unsupport fourcc =%d\n",
@@ -924,7 +924,7 @@ static void mtk_jpeg_set_param(struct mtk_jpeg_ctx *ctx,
 	param->restart_interval = jpeg_params->restart_interval;
 	width_even = ((param->enc_w + 1) >> 1) << 1;
 	Is420 = (param->enc_format == JPEG_YUV_FORMAT_NV12 ||
-			param->enc_format == JPEG_YUV_FORMAT_NV12) ? 1:0;
+			param->enc_format == JEPG_YUV_FORMAT_NV21) ? 1:0;
 	padding_width = mtk_jpeg_align(param->enc_w, 16);
 	padding_height = mtk_jpeg_align(param->enc_h, Is420 ? 16 : 8);
 	if (!Is420)
