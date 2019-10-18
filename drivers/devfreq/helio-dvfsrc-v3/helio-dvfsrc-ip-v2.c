@@ -448,6 +448,33 @@ static int dvfsrc_resume(struct helio_dvfsrc *dvfsrc)
 	return 0;
 }
 
+int get_sw_req_vcore_opp(void)
+{
+	int opp = -1;
+	int sw_req = -1;
+
+	/* return opp 0, if dvfsrc not enable */
+	if (!is_dvfsrc_enabled())
+		return 0;
+	/* 1st get sw req opp  no lock protect is ok*/
+	if (!is_dvfsrc_forced()) {
+		sw_req = (dvfsrc_read(DVFSRC_SW_REQ3) >> VCORE_SW_AP_SHIFT);
+		sw_req = sw_req & VCORE_SW_AP_MASK;
+		sw_req = VCORE_OPP_NUM - sw_req - 1;
+		/* 2nd read current level to get current vcore opp */
+		opp = get_cur_vcore_opp();
+		if (opp > sw_req) {
+			/* should not happen */
+			dvfsrc_dump_reg(NULL);
+			aee_kernel_warning("DVFSRC",
+						"%s: failed.", __func__);
+		}
+		return sw_req;  /* return sw_request, as vcore floor level*/
+	}
+	opp = get_cur_vcore_opp();
+	return opp; /* return opp , as vcore fixed level*/
+}
+
 int helio_dvfsrc_config(struct helio_dvfsrc *dvfsrc)
 {
 	struct platform_device *pdev = to_platform_device(dvfsrc->dev);
@@ -459,7 +486,7 @@ int helio_dvfsrc_config(struct helio_dvfsrc *dvfsrc)
 
 	dvfsrc_get_sys_stamp(sys_stamp);
 #ifdef CONFIG_MTK_WATCHDOG_COMMON
-	mtk_rgu_cfg_dvfsrc(1);
+	dvfsrc_latch_register(1);
 #endif
 	helio_dvfsrc_enable(1);
 	helio_dvfsrc_platform_init(dvfsrc);

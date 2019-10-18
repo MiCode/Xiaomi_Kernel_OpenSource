@@ -40,6 +40,7 @@ extern u32 dvfsrc_get_ddr_qos(void);
 extern void dvfsrc_set_isp_hrt_bw(int data);
 extern void helio_dvfsrc_platform_init(struct helio_dvfsrc *dvfsrc);
 extern struct regulator *dvfsrc_vcore_requlator(struct device *dev);
+extern int dvfsrc_latch_register(int enable);
 
 #endif /* __HELIO_DVFSRC_IP_V2_H */
 

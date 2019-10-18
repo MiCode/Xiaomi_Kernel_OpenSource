@@ -30,6 +30,7 @@
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/sched/clock.h>
+#include <dbgtop.h>
 
 
 #define DVFSRC_1600_FLOOR
@@ -584,6 +585,10 @@ static void vcorefs_get_src_misc_info(void)
 
 }
 
+int dvfsrc_latch_register(int enable)
+{
+	return mtk_dbgtop_cfg_dvfsrc(1);
+}
 
 unsigned int *vcorefs_get_src_req(void)
 {

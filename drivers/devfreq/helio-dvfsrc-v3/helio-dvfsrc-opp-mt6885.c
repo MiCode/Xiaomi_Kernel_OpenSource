@@ -36,8 +36,10 @@ static int dram_steps_freq(unsigned int step)
 int ddr_level_to_step(int opp)
 {
 /* TODO check later  */
-	return 0;
+	unsigned int step[] = {0, 1, 3, 6, 10, 14, 18};
+	return step[opp];
 }
+
 
 void dvfsrc_opp_level_mapping(void)
 {
