@@ -552,11 +552,34 @@ int __mtk_dump_reg_for_hang_issue(unsigned int m4u_id)
 	return 0;
 }
 
-void mtk_dump_reg_for_hang_issue(void)
+void mtk_dump_reg_for_hang_issue(unsigned int type)
 {
-	int i;
+	int i, start = -1, end = -1;
 
-	for (i = 0; i < MTK_IOMMU_M4U_COUNT; i++)
+#ifdef APU_IOMMU_INDEX
+	switch (type) {
+	case 0: //smi power on before dump
+		start = 0;
+		end = APU_IOMMU_INDEX - 1;
+		break;
+	case 1: //apu power on before dump
+		start = APU_IOMMU_INDEX;
+		end = MTK_IOMMU_M4U_COUNT - 1;
+		break;
+	default:
+		start = -1;
+		end = -1;
+		break;
+	}
+#else
+	start = 0;
+	end = MTK_IOMMU_M4U_COUNT - 1;
+#endif
+
+	if (start < 0 || end < 0)
+		return;
+
+	for (i = start; i <= end; i++)
 		__mtk_dump_reg_for_hang_issue(i);
 }
 EXPORT_SYMBOL_GPL(mtk_dump_reg_for_hang_issue);
