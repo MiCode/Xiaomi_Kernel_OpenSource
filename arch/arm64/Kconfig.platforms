@@ -418,6 +418,7 @@ config MACH_MT6885
 	select MTK_DEBUG_LATCH
 	select MTK_DFD_INTERNAL_DUMP
 	select MTK_PID_MAP
+	select MTK_CACHE_PARITY_CHECK
         help
           This enables support for MediaTek MT6885
           Support for aarch64 Architecture

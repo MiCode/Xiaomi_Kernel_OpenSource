@@ -394,6 +394,21 @@ page_owner=on";
 		};
 	};
 
+	cache_parity {
+		compatible = "mediatek,cache_parity";
+		version = <2>;
+		err_level = <0>;
+		interrupts = <GIC_SPI 1 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 2 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 4 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 5 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 6 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 7 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 0 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
 	qos@0011bb00 {
 		compatible = "mediatek,qos-2.0";
 		reg = <0 0x0011bb00 0 0x100>;
