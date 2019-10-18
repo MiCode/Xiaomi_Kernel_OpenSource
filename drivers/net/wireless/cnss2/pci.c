@@ -66,6 +66,9 @@ static DEFINE_SPINLOCK(time_sync_lock);
 #define FORCE_WAKE_DELAY_MAX_US			6000
 #define FORCE_WAKE_DELAY_TIMEOUT_US		60000
 
+#define POWER_ON_RETRY_MAX_TIMES		3
+#define POWER_ON_RETRY_DELAY_MS			200
+
 static struct cnss_pci_reg ce_src[] = {
 	{ "SRC_RING_BASE_LSB", QCA6390_CE_SRC_RING_BASE_LSB_OFFSET },
 	{ "SRC_RING_BASE_MSB", QCA6390_CE_SRC_RING_BASE_MSB_OFFSET },
@@ -711,8 +714,10 @@ int cnss_resume_pci_link(struct cnss_pci_data *pci_priv)
 	}
 
 	ret = cnss_set_pci_link(pci_priv, PCI_LINK_UP);
-	if (ret)
+	if (ret) {
+		ret = -EAGAIN;
 		goto out;
+	}
 
 	pci_priv->pci_link_state = PCI_LINK_UP;
 
@@ -1550,6 +1555,7 @@ static int cnss_qca6290_powerup(struct cnss_pci_data *pci_priv)
 	int ret = 0;
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
 	unsigned int timeout;
+	int retry = 0;
 
 	if (plat_priv->ramdump_info_v2.dump_data_valid ||
 	    test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state)) {
@@ -1557,6 +1563,7 @@ static int cnss_qca6290_powerup(struct cnss_pci_data *pci_priv)
 		cnss_pci_deinit_mhi(pci_priv);
 	}
 
+retry:
 	ret = cnss_power_on_device(plat_priv);
 	if (ret) {
 		cnss_pr_err("Failed to power on device, err = %d\n", ret);
@@ -1566,6 +1573,18 @@ static int cnss_qca6290_powerup(struct cnss_pci_data *pci_priv)
 	ret = cnss_resume_pci_link(pci_priv);
 	if (ret) {
 		cnss_pr_err("Failed to resume PCI link, err = %d\n", ret);
+		if (test_bit(IGNORE_PCI_LINK_FAILURE,
+			     &plat_priv->ctrl_params.quirks)) {
+			cnss_pr_dbg("Ignore PCI link resume failure\n");
+			ret = 0;
+			goto out;
+		}
+		if (ret == -EAGAIN && retry++ < POWER_ON_RETRY_MAX_TIMES) {
+			cnss_power_off_device(plat_priv);
+			cnss_pr_dbg("Retry to resume PCI link #%d\n", retry);
+			msleep(POWER_ON_RETRY_DELAY_MS * retry);
+			goto retry;
+		}
 		goto power_off;
 	}
 
