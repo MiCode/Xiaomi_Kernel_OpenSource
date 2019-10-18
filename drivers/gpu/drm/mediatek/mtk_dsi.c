@@ -198,7 +198,7 @@
 #define CONFIG (0xff << 0)
 #define SHORT_PACKET 0
 #define LONG_PACKET 2
-#define VM_LONG_PACKET 1
+#define VM_LONG_PACKET BIT(1)
 #define BTA BIT(2)
 #define DATA_ID (0xff << 8)
 #define DATA_0 (0xff << 16)
@@ -2093,18 +2093,15 @@ static void mtk_dsi_cmdq(struct mtk_dsi *dsi, const struct mipi_dsi_msg *msg)
 static void mtk_dsi_vm_cmdq(struct mtk_dsi *dsi, const struct mipi_dsi_msg *msg)
 {
 	const char *tx_buf = msg->tx_buf;
-	u8 config, cmdq_size, type = msg->type;
-	u32 reg_val, cmdq_mask, i;
+	u8 config, type = msg->type;
+	u32 reg_val, i;
 	unsigned long goto_addr;
 
-	cmdq_size = 1;
-	cmdq_mask = CONFIG | DATA_ID;
 	config = (msg->tx_len > 2) ? VM_LONG_PACKET : 0;
 
 	if (msg->tx_len > 2) {
 		for (i = 0; i < msg->tx_len; i++) {
 			goto_addr = DSI_VM_CMD_DATA0 + i;
-			cmdq_mask = (0xFFu << ((goto_addr & 0x3u) * 8));
 			mtk_dsi_mask(dsi, goto_addr & (~(0x3UL)),
 					 (0xFFu << ((goto_addr & 0x3u) * 8)),
 					 tx_buf[i] << ((goto_addr & 0x3u) * 8));
@@ -2117,7 +2114,8 @@ static void mtk_dsi_vm_cmdq(struct mtk_dsi *dsi, const struct mipi_dsi_msg *msg)
 		reg_val = (tx_buf[0] << 16) | (type << 8) | config;
 	}
 
-	mtk_dsi_mask(dsi, DSI_VM_CMD_CON, cmdq_mask, reg_val);
+	reg_val |= (VM_CMD_EN + TS_VFP_EN);
+	writel(reg_val, dsi->regs + DSI_VM_CMD_CON);
 }
 
 static void mtk_dsi_cmdq_gce(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
@@ -2260,9 +2258,11 @@ static ssize_t mtk_dsi_host_send_vm_cmd(struct mtk_dsi *dsi,
 	s32 tmp;
 
 	mtk_dsi_vm_cmdq(dsi, msg);
+
+	/* clear status */
+	mtk_dsi_mask(dsi, DSI_INTSTA, VM_CMD_DONE_INT_EN, 0);
 	mtk_dsi_vm_start(dsi);
 
-	mtk_dsi_mask(dsi, DSI_INTSTA, VM_CMD_DONE_INT_EN, 0);
 	while (loop_cnt < 100 * 1000) {
 		tmp = readl(dsi->regs + DSI_INTSTA);
 		if (!(tmp & VM_CMD_DONE_INT_EN))
