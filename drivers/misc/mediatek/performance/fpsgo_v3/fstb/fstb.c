@@ -59,6 +59,14 @@
 #define fpsgo_systrace_c_fstb_man(pid, val, fmt...) \
 	fpsgo_systrace_c(FPSGO_DEBUG_MANDATORY, pid, val, fmt)
 
+static int max_fps_limit = CFG_MAX_FPS_LIMIT;
+static int dfps_ceiling = CFG_MAX_FPS_LIMIT;
+static int min_fps_limit = CFG_MIN_FPS_LIMIT;
+static int fps_error_threshold = 10;
+static int QUANTILE = 50;
+static long long FRAME_TIME_WINDOW_SIZE_US = 1000000;
+static long long ADJUST_INTERVAL_US = 1000000;
+static int margin_mode;
 
 static void fstb_fps_stats(struct work_struct *work);
 static DECLARE_WORK(fps_stats_work,
@@ -85,6 +93,8 @@ static int set_soft_fps_level(int nr_level,
 static DEFINE_MUTEX(fstb_lock);
 static DEFINE_MUTEX(fstb_fps_active_time);
 static DEFINE_MUTEX(fstb_cam_active_time);
+
+void (*gbe_fstb2gbe_poll_fp)(struct hlist_head *list);
 
 static void enable_fstb_timer(void)
 {
@@ -1411,6 +1421,9 @@ static void fstb_fps_stats(struct work_struct *work)
 		kfree(work);
 
 	mutex_lock(&fstb_lock);
+
+	if (gbe_fstb2gbe_poll_fp)
+		gbe_fstb2gbe_poll_fp(&fstb_frame_infos);
 
 	pob_fpsgo_fstb_stats_update(POB_FPSGO_FSTB_STATS_START, NULL);
 

@@ -34,15 +34,6 @@
 #define MDLA_MAX_CAP 100
 #define RESET_TOLERENCE 3
 
-static int max_fps_limit = CFG_MAX_FPS_LIMIT;
-static int dfps_ceiling = CFG_MAX_FPS_LIMIT;
-static int min_fps_limit = CFG_MIN_FPS_LIMIT;
-static int fps_error_threshold = 10;
-static int QUANTILE = 50;
-static long long FRAME_TIME_WINDOW_SIZE_US = 1000000;
-static long long ADJUST_INTERVAL_US = 1000000;
-static int margin_mode;
-
 extern int (*fbt_notifier_cpu_frame_time_fps_stabilizer)(
 	int pid,
 	int frame_type,
