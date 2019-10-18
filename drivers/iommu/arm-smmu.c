@@ -69,8 +69,6 @@
 #define TLB_LOOP_TIMEOUT		500000	/* 500ms */
 #define TLB_SPIN_COUNT			10
 
-#define ARM_SMMU_IMPL_DEF0(smmu) \
-	((smmu)->base + (2 * (1 << (smmu)->pgshift)))
 #define ARM_SMMU_IMPL_DEF1(smmu) \
 	((smmu)->base + (6 * (1 << (smmu)->pgshift)))
 
@@ -883,8 +881,10 @@ static int __arm_smmu_tlb_sync(struct arm_smmu_device *smmu, int page,
 		}
 		udelay(delay);
 	}
-	sync_inv_ack = scm_io_read((unsigned long)(smmu->phys_addr +
-				     ARM_SMMU_STATS_SYNC_INV_TBU_ACK));
+
+	sync_inv_ack = arm_smmu_readl(smmu,
+				      ARM_SMMU_IMPL_DEF0,
+				      ARM_SMMU_STATS_SYNC_INV_TBU_ACK);
 	tbu_pwr_status = scm_io_read((unsigned long)(smmu->phys_addr +
 				     ARM_SMMU_TBU_PWR_STATUS));
 	sync_inv_progress = scm_io_read((unsigned long)(smmu->phys_addr +

@@ -221,8 +221,13 @@ enum arm_smmu_cbar_type {
 #define ARM_SMMU_CB_TLBSTATUS		0x7f4
 #define TLBSTATUS_SACTIVE		BIT(0)
 #define ARM_SMMU_CB_ATS1PR		0x800
-#define ARM_SMMU_STATS_SYNC_INV_TBU_ACK 0x25dc
+
+/* Implementation Defined Register Space 0 registers*/
+/* Relative to IMPL_DEF_0 page */
+#define ARM_SMMU_STATS_SYNC_INV_TBU_ACK 0x5dc
+/* Relative to SMMU_BASE */
 #define ARM_SMMU_TBU_PWR_STATUS         0x2204
+/* Relative SMMU_BASE */
 #define ARM_SMMU_MMU2QSS_AND_SAFE_WAIT_CNTR 0x2670
 
 #define ARM_SMMU_CB_ATSR		0x8f0
@@ -470,6 +475,7 @@ static inline void arm_smmu_writeq(struct arm_smmu_device *smmu, int page,
 
 #define ARM_SMMU_GR0		0
 #define ARM_SMMU_GR1		1
+#define ARM_SMMU_IMPL_DEF0	2
 #define ARM_SMMU_CB(s, n)	((s)->numpage + (n))
 
 #define arm_smmu_gr0_read(s, o)		\
