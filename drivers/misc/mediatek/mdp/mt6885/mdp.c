@@ -476,6 +476,7 @@ static struct CmdqMdpModuleBaseVA gCmdqMdpModuleBaseVA;
 struct CmdqMdpModuleClock {
 	struct clk *clk_APB;
 	struct clk *clk_APMCU_GALS;
+	struct clk *clk_MDP_MUTEX0;
 	struct clk *clk_IMG_DL_ASYNC0;
 	struct clk *clk_IMG_DL_ASYNC1;
 	struct clk *clk_IMG_DL_ASYNC2;
@@ -531,6 +532,7 @@ bool cmdq_mdp_clock_is_enable_##FN_NAME(void)	\
 
 IMP_ENABLE_MDP_HW_CLOCK(APB, APB);
 IMP_ENABLE_MDP_HW_CLOCK(APMCU_GALS, APMCU_GALS);
+IMP_ENABLE_MDP_HW_CLOCK(MDP_MUTEX0, MDP_MUTEX0);
 IMP_ENABLE_MDP_HW_CLOCK(IMG_DL_ASYNC0, IMG_DL_ASYNC0);
 IMP_ENABLE_MDP_HW_CLOCK(IMG_DL_ASYNC1, IMG_DL_ASYNC1);
 IMP_ENABLE_MDP_HW_CLOCK(IMG_DL_ASYNC2, IMG_DL_ASYNC2);
@@ -571,6 +573,7 @@ IMP_ENABLE_MDP_HW_CLOCK(MDP_AAL2, MDP_AAL2);
 IMP_ENABLE_MDP_HW_CLOCK(MDP_AAL3, MDP_AAL3);
 IMP_MDP_HW_CLOCK_IS_ENABLE(APB, APB);
 IMP_MDP_HW_CLOCK_IS_ENABLE(APMCU_GALS, APMCU_GALS);
+IMP_MDP_HW_CLOCK_IS_ENABLE(MDP_MUTEX0, MDP_MUTEX0);
 IMP_MDP_HW_CLOCK_IS_ENABLE(IMG_DL_ASYNC0, IMG_DL_ASYNC0);
 IMP_MDP_HW_CLOCK_IS_ENABLE(IMG_DL_ASYNC1, IMG_DL_ASYNC1);
 IMP_MDP_HW_CLOCK_IS_ENABLE(IMG_DL_ASYNC2, IMG_DL_ASYNC2);
@@ -1503,6 +1506,8 @@ void cmdq_mdp_init_module_clk(void)
 		&gCmdqMdpModuleClock.clk_APB);
 	cmdq_dev_get_module_clock_by_name("mmsys_config", "MDP_APMCU_GALS",
 		&gCmdqMdpModuleClock.clk_APMCU_GALS);
+	cmdq_dev_get_module_clock_by_name("mdp_mutex", "MDP_MUTEX0",
+		&gCmdqMdpModuleClock.clk_MDP_MUTEX0);
 	cmdq_dev_get_module_clock_by_name("mmsys_config", "MDP_IMG_DL_ASYNC0",
 		&gCmdqMdpModuleClock.clk_IMG_DL_ASYNC0);
 	cmdq_dev_get_module_clock_by_name("mmsys_config", "MDP_IMG_DL_ASYNC1",
@@ -2703,8 +2708,10 @@ static void cmdq_mdp_enable_common_clock(bool enable)
 		smi_bus_prepare_enable(SMI_LARB3, "MDP");
 		cmdq_mdp_enable_clock_APB(enable);
 		cmdq_mdp_enable_clock_APMCU_GALS(enable);
+		cmdq_mdp_enable_clock_MDP_MUTEX0(enable);
 	} else {
 		/* disable, reverse the sequence */
+		cmdq_mdp_enable_clock_MDP_MUTEX0(enable);
 		cmdq_mdp_enable_clock_APB(enable);
 		cmdq_mdp_enable_clock_APMCU_GALS(enable);
 		smi_bus_disable_unprepare(SMI_LARB2, "MDP");
