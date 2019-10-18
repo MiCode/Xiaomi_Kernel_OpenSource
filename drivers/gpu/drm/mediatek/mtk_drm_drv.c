@@ -49,6 +49,10 @@
 #include "mtk_disp_pmqos.h"
 #include "mtk_disp_recovery.h"
 #include "mtk_drm_arr.h"
+#include "mtk_disp_ccorr.h"
+#include "mtk_disp_color.h"
+#include "mtk_disp_gamma.h"
+
 
 #define DRIVER_NAME "mediatek"
 #define DRIVER_DESC "Mediatek SoC DRM"
@@ -1394,6 +1398,23 @@ int mtk_drm_set_ddp_mode(struct drm_device *dev, void *data,
 	return ret;
 }
 
+int mtk_drm_ioctl_get_lcm_index(struct drm_device *dev, void *data,
+		struct drm_file *file_priv)
+{
+	int ret = 0;
+	/* TODO */
+	/*
+	 * struct mtk_drm_private *private = dev->dev_private;
+	 * struct mtk_panel_params *params =
+	 *			mtk_drm_get_lcm_ext_params(private->crtc[0]);
+	 */
+
+	/* wait for member of mtk_panel_params include lcm index */
+	/* *data = params->xxx; */
+
+	return ret;
+}
+
 static int mtk_drm_kms_init(struct drm_device *drm)
 {
 	struct mtk_drm_private *private = drm->dev_private;
@@ -1563,6 +1584,32 @@ static const struct drm_ioctl_desc mtk_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(MTK_SET_DDP_MODE, mtk_drm_set_ddp_mode,
 			  DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(MTK_GET_SESSION_INFO, mtk_drm_get_info_ioctl,
+			  DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MTK_SET_CCORR, mtk_drm_ioctl_set_ccorr,
+			  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_CCORR_EVENTCTL, mtk_drm_ioctl_ccorr_eventctl,
+			  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_CCORR_GET_IRQ, mtk_drm_ioctl_ccorr_get_irq,
+			  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_SET_GAMMALUT, mtk_drm_ioctl_set_gammalut,
+			  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_SET_PQPARAM, mtk_drm_ioctl_set_pqparam,
+			  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_SET_PQINDEX, mtk_drm_ioctl_set_pqindex,
+			  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_SET_COLOR_REG, mtk_drm_ioctl_set_color_reg,
+			  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_MUTEX_CONTROL, mtk_drm_ioctl_mutex_control,
+			  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_READ_REG, mtk_drm_ioctl_read_reg,
+			  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_WRITE_REG, mtk_drm_ioctl_write_reg,
+			  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_BYPASS_COLOR, mtk_drm_ioctl_bypass_color,
+			  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_PQ_SET_WINDOW, mtk_drm_ioctl_pq_set_window,
+			  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_GET_LCM_INDEX, mtk_drm_ioctl_get_lcm_index,
 			  DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
 };
 

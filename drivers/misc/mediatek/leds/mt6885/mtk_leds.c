@@ -72,9 +72,9 @@ int disp_bls_set_backlight(int level_1024)
 	return 0;
 }
 
-void disp_pq_notify_backlight_changed(int bl_1024)
-{
-}
+void disp_pq_notify_backlight_changed(int bl_1024);
+//{
+//}
 
 static DEFINE_MUTEX(leds_mutex);
 static DEFINE_MUTEX(leds_pmic_mutex);
