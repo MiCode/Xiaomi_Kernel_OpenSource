@@ -90,6 +90,6 @@ extern struct notifier_block nb;
 extern int sysctl_perf_event_paranoid;
 extern void pftch_qos_tick(int cpu);
 
-#define PFTCH_ENABLE (0x333333)
-#define PFTCH_DISABLE (0x22333333)
+#define PFTCH_ENABLE (0x3333)
+#define PFTCH_DISABLE (0x22223333)
 #endif
