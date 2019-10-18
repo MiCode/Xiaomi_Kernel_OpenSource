@@ -1167,28 +1167,6 @@ static int fgauge_get_coulomb(struct gauge_device *gauge_dev, int *data)
 #endif
 }
 
-static int fgauge_reset_hw(struct gauge_device *gauge_dev)
-{
-	unsigned int ret = 0, check_car = 0;
-
-	bm_trace("[fgauge_hw_reset] : Start, only reset time and car\n");
-
-	ret = pmic_config_interface(
-		MT6359_FGADC_CON1, 0x0630, 0x0F00, 0x0);
-	bm_err("[fgauge_hw_reset] reset fgadc car ret =%d\n", ret);
-
-	mdelay(1);
-
-	ret = pmic_config_interface(
-		MT6359_FGADC_CON1, 0x0030, 0x0F00, 0x0);
-
-	fgauge_get_coulomb(gauge_dev, &check_car);
-
-	bm_trace("[fgauge_hw_reset]:End car=%d,ret=%d\n", check_car, ret);
-
-	return 0;
-}
-
 static int read_hw_ocv_6359_plug_in(void)
 {
 	signed int adc_rdy = 0;
@@ -2101,6 +2079,7 @@ static int fgauge_enable_zcv_interrupt(struct gauge_device *gauge_dev, int en)
 		pmic_set_register_value(PMIC_FG_ZCV_DET_EN, en);
 	}
 
+	gauge_dev->fg_hw_info.zcv_en_status = en;
 	bm_debug("[FG_ZCV_INT][fg_set_zcv_intr_en] En %d\n", en);
 
 	return 0;
@@ -2115,6 +2094,7 @@ static int fgauge_set_zcv_interrupt_threshold(
 
 	fg_zcv_car_th = (fg_zcv_det_time + 1) * 4 * zcv_avg_current / 60;
 
+	gauge_dev->fg_hw_info.fg_zcv_car_th = fg_zcv_car_th;
 	bm_err("[%s] current:%d, fg_zcv_det_time:%d, fg_zcv_car_th:%d\n",
 		__func__, zcv_avg_current, fg_zcv_det_time, fg_zcv_car_th);
 
@@ -2123,6 +2103,37 @@ static int fgauge_set_zcv_interrupt_threshold(
 
 	return 0;
 }
+
+static int fgauge_reset_hw(struct gauge_device *gauge_dev)
+{
+	unsigned int ret = 0, check_car = 0;
+
+	bm_trace("[fgauge_hw_reset] : Start, only reset time and car\n");
+
+	ret = pmic_config_interface(
+		MT6359_FGADC_CON1, 0x0630, 0x0F00, 0x0);
+	bm_err("[fgauge_hw_reset] reset fgadc car ret =%d\n", ret);
+
+	mdelay(1);
+
+	ret = pmic_config_interface(
+		MT6359_FGADC_CON1, 0x0030, 0x0F00, 0x0);
+
+	fgauge_get_coulomb(gauge_dev, &check_car);
+
+	bm_trace("[fgauge_hw_reset]:End car=%d,ret=%d\n", check_car, ret);
+
+	/* disable zcv and recovery zcv status */
+	fgauge_enable_zcv_interrupt(gauge_dev, 0);
+	fgauge_set_zcv_intr_internal(gauge_dev,
+		gauge_dev->fg_cust_data->zcv_suspend_time,
+		gauge_dev->fg_hw_info.fg_zcv_car_th);
+	fgauge_enable_zcv_interrupt(gauge_dev,
+		gauge_dev->fg_hw_info.zcv_en_status);
+
+	return 0;
+}
+
 
 void battery_dump_nag(void)
 {

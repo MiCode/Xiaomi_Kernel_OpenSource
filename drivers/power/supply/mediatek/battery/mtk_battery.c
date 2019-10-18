@@ -768,6 +768,20 @@ static void proc_dump_dtsi(struct seq_file *m)
 		fg_cust_data.aging1_update_soc);
 	seq_printf(m, "AGING1_LOAD_SOC = %d\n",
 		fg_cust_data.aging1_load_soc);
+
+	seq_printf(m, "AGING4_UPDATE_SOC = %d\n",
+		fg_cust_data.aging4_update_soc);
+	seq_printf(m, "AGING4_LOAD_SOC = %d\n",
+		fg_cust_data.aging4_load_soc);
+	seq_printf(m, "AGING5_UPDATE_SOC = %d\n",
+		fg_cust_data.aging5_update_soc);
+	seq_printf(m, "AGING5_LOAD_SOC = %d\n",
+		fg_cust_data.aging5_load_soc);
+	seq_printf(m, "AGING6_UPDATE_SOC = %d\n",
+		fg_cust_data.aging6_update_soc);
+	seq_printf(m, "AGING6_LOAD_SOC = %d\n",
+		fg_cust_data.aging6_load_soc);
+
 	seq_printf(m, "AGING_TEMP_DIFF = %d\n",
 		fg_cust_data.aging_temp_diff);
 	seq_printf(m, "AGING_100_EN = %d\n",
@@ -776,6 +790,12 @@ static void proc_dump_dtsi(struct seq_file *m)
 		fg_cust_data.aging_two_en);
 	seq_printf(m, "AGING_THIRD_EN = %d\n",
 		fg_cust_data.aging_third_en);
+	seq_printf(m, "AGING_4_EN = %d\n",
+		fg_cust_data.aging_4_en);
+	seq_printf(m, "AGING_5_EN = %d\n",
+		fg_cust_data.aging_5_en);
+	seq_printf(m, "AGING_6_EN = %d\n",
+		fg_cust_data.aging_6_en);
 	seq_printf(m, "DIFF_SOC_SETTING = %d\n",
 		fg_cust_data.diff_soc_setting);
 	seq_printf(m, "DIFF_BAT_TEMP_SETTING = %d\n",
@@ -1952,6 +1972,15 @@ void fg_ocv_query_soc(int ocv)
 		__func__, ocv);
 }
 
+void fg_test_ag_cmd(int cmd)
+{
+	wakeup_fg_algo_cmd(
+		FG_INTR_KERNEL_CMD, FG_KERNEL_CMD_AG_LOG_TEST, cmd);
+
+	bm_err("[%s]FG_KERNEL_CMD_AG_LOG_TEST:%d\n",
+		__func__, cmd);
+}
+
 void exec_BAT_EC(int cmd, int param)
 {
 	int i;
@@ -2929,6 +2958,30 @@ void exec_BAT_EC(int cmd, int param)
 				cmd);
 		}
 		break;
+	case 795:
+		{
+			wakeup_fg_algo_cmd(
+				FG_INTR_KERNEL_CMD,
+				FG_KERNEL_CMD_REQ_CHANGE_AGING_DATA,
+				param * 100);
+
+			bm_err(
+				"exe_BAT_EC cmd %d,change aging to=%d\n",
+				cmd, param);
+		}
+		break;
+	case 796:
+		{
+			bm_err(
+				"exe_BAT_EC cmd %d,FG_KERNEL_CMD_AG_LOG_TEST=%d\n",
+				cmd, param);
+
+			wakeup_fg_algo_cmd(
+				FG_INTR_KERNEL_CMD,
+				FG_KERNEL_CMD_AG_LOG_TEST, param);
+		}
+		break;
+
 
 	default:
 		bm_err(

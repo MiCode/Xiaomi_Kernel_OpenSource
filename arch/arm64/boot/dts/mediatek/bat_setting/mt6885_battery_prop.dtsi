@@ -14,7 +14,7 @@ bat_gm30: battery{
 	compatible = "mediatek,bat_gm30";
 	DIFFERENCE_FULLOCV_ITH = <(200)>;
 /*	Charging termination current*/
-	SHUTDOWN_1_TIME = <(30)>;
+	SHUTDOWN_1_TIME = <(5)>;
 /*	If ui_soc shows 1% more than X minites, system will shutdown*/
 	KEEP_100_PERCENT = <(1)>;
 /*	The ui_soc will keep 100% until SOC drop X percents after unplugged*/
