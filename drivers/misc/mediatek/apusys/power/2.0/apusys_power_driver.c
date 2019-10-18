@@ -32,6 +32,7 @@
 #include "apu_power_api.h"
 #include "../../../pmic/include/pmic_api_buck.h"
 
+int g_pwr_log_level = APUSYS_PWR_LOG_INFO;
 static int apu_power_counter;
 
 bool apusys_power_check(void)
@@ -96,7 +97,13 @@ EXPORT_SYMBOL(apu_get_power_info);
 
 void apu_power_reg_dump(void)
 {
-	hal_config_power(PWR_CMD_REG_DUMP, VPU0, NULL);
+	mutex_lock(&power_ctl_mtx);
+
+	// power_callback_counter larger than zero means conn mtcmos enabled
+	if (power_callback_counter > 0)
+		hal_config_power(PWR_CMD_REG_DUMP, VPU0, NULL);
+
+	mutex_unlock(&power_ctl_mtx);
 }
 EXPORT_SYMBOL(apu_power_reg_dump);
 
@@ -648,7 +655,6 @@ err_exit:
 
 int apu_power_power_stress(int type, int device, int opp)
 {
-	static int power_stress_dev_pwr_stat[APUSYS_DVFS_USER_NUM] = {0};
 	int id = 0;
 	int i = 0, j = 0;
 	int m = 0, n = 0, o = 0;
@@ -706,16 +712,11 @@ int apu_power_power_stress(int type, int device, int opp)
 			for (id = 0 ; id < APUSYS_DVFS_USER_NUM ; id++) {
 				if (dvfs_power_domain_support(id) == false)
 					continue;
-				if (!power_stress_dev_pwr_stat[id]) {
-					apu_device_power_on(id);
-					power_stress_dev_pwr_stat[id] = 1;
-				}
+
+				apu_device_power_on(id);
 			}
 		} else {
-			if (!power_stress_dev_pwr_stat[device]) {
-				apu_device_power_on(device);
-				power_stress_dev_pwr_stat[device] = 1;
-			}
+			apu_device_power_on(device);
 		}
 		break;
 
@@ -724,24 +725,19 @@ int apu_power_power_stress(int type, int device, int opp)
 			for (id = 0 ; id < APUSYS_DVFS_USER_NUM ; id++) {
 				if (dvfs_power_domain_support(id) == false)
 					continue;
-				if (power_stress_dev_pwr_stat[id]) {
-					apu_device_power_off(id);
-					power_stress_dev_pwr_stat[id] = 0;
-				}
+
+				apu_device_power_off(id);
 			}
 		} else {
-			if (power_stress_dev_pwr_stat[device]) {
-				apu_device_power_off(device);
-				power_stress_dev_pwr_stat[device] = 0;
-			}
+			apu_device_power_off(device);
 		}
 		break;
 
 	case 3: // config conn mtcmos on
-		hal_config_power(PWR_CMD_DEBUG_MTCMOS_ON, VPU0, NULL);
+		// hal_config_power(PWR_CMD_DEBUG_MTCMOS_ON, VPU0, NULL);
 		break;
 	case 4: // config conn mtcmos off
-		hal_config_power(PWR_CMD_DEBUG_MTCMOS_OFF, VPU0, NULL);
+		// hal_config_power(PWR_CMD_DEBUG_MTCMOS_OFF, VPU0, NULL);
 		break;
 	case 5:	// dvfs all combination test , opp = run count
 for (loop = 0; loop < count; loop++) {
@@ -789,6 +785,9 @@ for (loop = 0; loop < count; loop++) {
 					__func__, AUTO_BUCK_OFF_DEEPIDLE);
 		LOG_WRN("%s, ASSERTION_PERCENTAGE : %d\n",
 					__func__, ASSERTION_PERCENTAGE);
+		LOG_WRN("%s, g_pwr_log_level : %d\n",
+					__func__, g_pwr_log_level);
+		apu_power_reg_dump();
 		apu_get_power_info();
 		break;
 	case 9: // config to force power on

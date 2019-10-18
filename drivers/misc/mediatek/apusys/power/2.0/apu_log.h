@@ -19,21 +19,40 @@
 #else
 #include <aee.h>
 
+extern int g_pwr_log_level;
+
+enum {
+	APUSYS_PWR_LOG_WARN,
+	APUSYS_PWR_LOG_INFO,
+	APUSYS_PWR_LOG_DEBUG,
+};
 
 #define DVFS_TAG "[DVFS]"
 #define PWR_LOG_INF(format, args...) \
-		pr_debug(DVFS_TAG " " format, ##args)
+	{ \
+		if (g_pwr_log_level >= APUSYS_PWR_LOG_DEBUG) \
+			pr_info(DVFS_TAG " " format, ##args); \
+		else \
+			pr_debug(DVFS_TAG "[debug] " format, ##args); \
+	}
 #define PWR_LOG_WRN(format, args...) \
 		pr_info(DVFS_TAG "[warn] " format, ##args)
 #define PWR_LOG_ERR(format, args...) \
 		pr_info(DVFS_TAG "[error] " format, ##args)
 
 
-#define VPU_TAG "[apu_power_2.0]"
-#define LOG_DBG(format, args...)    pr_debug(VPU_TAG " " format, ##args)
-#define LOG_INF(format, args...)    pr_debug(VPU_TAG " " format, ##args)
-#define LOG_WRN(format, args...)    pr_info(VPU_TAG "[warn] " format, ##args)
-#define LOG_ERR(format, args...)    pr_info(VPU_TAG "[error] " format, ##args)
+#define PWR_TAG "[apu_power_2.0]"
+#define LOG_INF(format, args...)    pr_info(PWR_TAG " " format, ##args)
+#define LOG_WRN(format, args...)    pr_info(PWR_TAG "[warn] " format, ##args)
+#define LOG_ERR(format, args...)    pr_info(PWR_TAG "[error] " format, ##args)
+#define LOG_DBG(format, args...) \
+	{ \
+		if (g_pwr_log_level >= APUSYS_PWR_LOG_DEBUG) \
+			pr_info(PWR_TAG " " format, ##args); \
+		else \
+			pr_debug(PWR_TAG "[debug] " format, ##args); \
+	}
+
 #define apu_aee_warn(key, format, args...) \
 	do { \
 		pr_info(format, ##args); \

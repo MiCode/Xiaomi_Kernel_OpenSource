@@ -38,6 +38,12 @@
 
 static int g_debug_option;
 
+static void change_log_level(int new_level)
+{
+	g_pwr_log_level = new_level;
+	PWR_LOG_INF("%s, new log level = %d\n", __func__, g_pwr_log_level);
+}
+
 static void apu_power_dump_opp_table(struct seq_file *s)
 {
 	int opp_num;
@@ -98,6 +104,9 @@ static int apusys_debug_power_show(struct seq_file *s, void *unused)
 		break;
 	case POWER_PARAM_CURR_STATUS:
 		apu_power_dump_curr_status(s);
+		break;
+	case POWER_PARAM_LOG_LEVEL:
+		seq_printf(s, "g_pwr_log_level = %d\n", g_pwr_log_level);
 		break;
 	default:
 		seq_puts(s, "please echo power node first\n");
@@ -451,6 +460,19 @@ int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 		}
 		g_debug_option = POWER_PARAM_CURR_STATUS;
 		break;
+	case POWER_PARAM_LOG_LEVEL:
+		ret = (argc == 1) ? 0 : -EINVAL;
+		if (ret) {
+			PWR_LOG_INF(
+				"invalid argument, expected:1, received:%d\n",
+				argc);
+			goto out;
+		}
+		if (args[0] == 9)
+			g_debug_option = POWER_PARAM_LOG_LEVEL;
+		else
+			change_log_level(args[0]);
+		break;
 	default:
 		PWR_LOG_INF("unsupport the power parameter:%d\n", param);
 		break;
@@ -516,6 +538,8 @@ static ssize_t apusys_debug_power_write(struct file *flip,
 		param = POWER_PARAM_OPP_TABLE;
 	else if (strcmp(token, "curr_status") == 0)
 		param = POWER_PARAM_CURR_STATUS;
+	else if (strcmp(token, "log_level") == 0)
+		param = POWER_PARAM_LOG_LEVEL;
 	else {
 		ret = -EINVAL;
 		PWR_LOG_INF("no power param[%s]!\n", token);

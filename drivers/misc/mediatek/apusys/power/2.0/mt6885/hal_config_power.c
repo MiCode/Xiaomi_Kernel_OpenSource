@@ -22,6 +22,7 @@
 static int is_apu_power_initilized;
 static int force_pwr_on = 1;
 static int force_pwr_off;
+static int conn_mtcmos_on;
 static int buck_already_on;
 static int power_on_counter;
 
@@ -52,7 +53,7 @@ static int set_power_clock(enum DVFS_USER, void *param);
 static int set_power_frequency(void *param);
 static void get_current_power_info(void *param);
 static int uninit_power_resource(void);
-static void apusys_power_reg_dump(void);
+static int apusys_power_reg_dump(void);
 static void debug_power_mtcmos_on(void);
 static void debug_power_mtcmos_off(void);
 static void hw_init_setting(void);
@@ -433,6 +434,7 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 			enable_apu_conn_vcore_clock();
 
 			force_pwr_on = 0;
+			conn_mtcmos_on = 1;
 		}
 
 		// EDMA do not need to control mtcmos by rpc
@@ -509,6 +511,7 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 			disable_apu_conn_vcore_clksrc();
 
 			force_pwr_off = 0;
+			conn_mtcmos_on = 0;
 		}
 	}
 
@@ -764,63 +767,61 @@ static int set_power_shut_down(enum DVFS_USER user, void *param)
 	return ret;
 }
 
-static void apusys_power_reg_dump(void)
+static int apusys_power_reg_dump(void)
 {
-	unsigned int regVal = DRV_Reg32(APU_RPC_INTF_PWR_RDY);
+	unsigned int regVal = 0x0;
+
+	if (conn_mtcmos_on == 0) {
+		LOG_ERR("APUREG APU_RPC_INTF_PWR_RDY dump fail (mtcmos off)\n");
+		return -1;
+	}
+
+	regVal = DRV_Reg32(APU_RPC_INTF_PWR_RDY);
 
 	// dump mtcmos status
-	LOG_DBG("APUREG APU_RPC_INTF_PWR_RDY = 0x%x\n", regVal);
+	LOG_WRN("APUREG APU_RPC_INTF_PWR_RDY = 0x%x\n", regVal);
 
-	/*
-	 * ### IMPORTANT ###
-	 * We can't dump cg status before mtcmos ON, or RDY reg will crash.
-	 * RDY bit 0 is not stable now so it can't represent the real status
-	 * of conn_vcore mtcmos. So we use a workaround to check others bit
-	 * to determine the status of TOP mtcmos as well.
-	 */
-	if (((regVal & BIT(2)) >> 2) == 0x1 ||
-		((regVal & BIT(3)) >> 3) == 0x1 ||
-		((regVal & BIT(4)) >> 4) == 0x1 ||
-		((regVal & BIT(6)) >> 6) == 0x1 ||
-		((regVal & BIT(7)) >> 7) == 0x1) {
-
-		LOG_DBG("APUREG APU_VCORE_CG_CON = 0x%x\n",
+	if (((regVal & BIT(0))) == 0x1) {
+		LOG_WRN("APUREG APU_VCORE_CG_CON = 0x%x\n",
 					DRV_Reg32(APU_VCORE_CG_CON));
-		LOG_DBG("APUREG APU_CONN_CG_CON = 0x%x\n",
+		LOG_WRN("APUREG APU_CONN_CG_CON = 0x%x\n",
 					DRV_Reg32(APU_CONN_CG_CON));
 	} else {
-		LOG_DBG("APUREG conn_vcore mtcmos not ready, bypass CG dump\n");
+		LOG_WRN("APUREG conn_vcore mtcmos not ready, bypass CG dump\n");
+		return -1;
 	}
 
 	if (((regVal & BIT(2)) >> 2) == 0x1)
-		LOG_DBG("APUREG APU0_APU_CG_CON = 0x%x\n",
+		LOG_WRN("APUREG APU0_APU_CG_CON = 0x%x\n",
 					DRV_Reg32(APU0_APU_CG_CON));
 	else
-		LOG_DBG("APUREG vpu0 mtcmos not ready, bypass CG dump\n");
+		LOG_WRN("APUREG vpu0 mtcmos not ready, bypass CG dump\n");
 
 	if (((regVal & BIT(3)) >> 3) == 0x1)
-		LOG_DBG("APUREG APU1_APU_CG_CON = 0x%x\n",
+		LOG_WRN("APUREG APU1_APU_CG_CON = 0x%x\n",
 					DRV_Reg32(APU1_APU_CG_CON));
 	else
-		LOG_DBG("APUREG vpu1 mtcmos not ready, bypass CG dump\n");
+		LOG_WRN("APUREG vpu1 mtcmos not ready, bypass CG dump\n");
 
 	if (((regVal & BIT(4)) >> 4) == 0x1)
-		LOG_DBG("APUREG APU2_APU_CG_CON = 0x%x\n",
+		LOG_WRN("APUREG APU2_APU_CG_CON = 0x%x\n",
 					DRV_Reg32(APU2_APU_CG_CON));
 	else
-		LOG_DBG("APUREG vpu2 mtcmos not ready, bypass CG dump\n");
+		LOG_WRN("APUREG vpu2 mtcmos not ready, bypass CG dump\n");
 
 	if (((regVal & BIT(6)) >> 6) == 0x1)
-		LOG_DBG("APUREG APU_MDLA0_APU_MDLA_CG_CON = 0x%x\n",
+		LOG_WRN("APUREG APU_MDLA0_APU_MDLA_CG_CON = 0x%x\n",
 					DRV_Reg32(APU_MDLA0_APU_MDLA_CG_CON));
 	else
-		LOG_DBG("APUREG mdla0 mtcmos not ready, bypass CG dump\n");
+		LOG_WRN("APUREG mdla0 mtcmos not ready, bypass CG dump\n");
 
 	if (((regVal & BIT(7)) >> 7) == 0x1)
-		LOG_DBG("APUREG APU_MDLA1_APU_MDLA_CG_CON = 0x%x\n",
+		LOG_WRN("APUREG APU_MDLA1_APU_MDLA_CG_CON = 0x%x\n",
 					DRV_Reg32(APU_MDLA1_APU_MDLA_CG_CON));
 	else
-		LOG_DBG("APUREG mdla1 mtcmos not ready, bypass CG dump\n");
+		LOG_WRN("APUREG mdla1 mtcmos not ready, bypass CG dump\n");
+
+	return 0;
 }
 
 static void debug_power_mtcmos_on(void)
