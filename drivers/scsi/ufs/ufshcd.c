@@ -7752,12 +7752,17 @@ _link_retry:
 					__func__, ret, retry);
 			/* MTK PATCH */
 			if (ret && retry > 0) {
-				ufshcd_vops_device_reset(hba);
+				if (hba->lanes_per_direction == 2)
+					ufshcd_vops_device_reset(hba);
 				ret = ufshcd_hba_enable(hba);
 				if (ret)
 					goto out;
 
 				retry--;
+				/* one last try */
+				if (retry == 0 &&
+					hba->lanes_per_direction == 2)
+					hba->lanes_per_direction = 1;
 				goto _link_retry;
 			}
 			goto out;
@@ -9632,7 +9637,8 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 	}
 
 	/* Reset the attached device */
-	ufshcd_vops_device_reset(hba);
+	if (hba->lanes_per_direction == 2)
+		ufshcd_vops_device_reset(hba);
 
 	/* Host controller enable */
 	err = ufshcd_hba_enable(hba);

@@ -330,8 +330,8 @@ int ufs_mtk_pltfrm_ufs_device_reset(struct ufs_hba *hba)
 
 	mt_secure_call(MTK_SIP_KERNEL_UFS_CTL, 2, 1, 0, 0);
 
-	/* same as assert, wait for at least 10us after deassert */
-	usleep_range(10, 15);
+	/* some device may need time to respond to rst_n */
+	usleep_range(10000, 15000);
 
 	dev_info(hba->dev, "%s: UFS device reset done\n", __func__);
 
