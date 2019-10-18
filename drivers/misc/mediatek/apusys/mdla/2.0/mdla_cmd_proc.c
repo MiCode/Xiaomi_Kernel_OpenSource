@@ -405,8 +405,9 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd,
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
 	if (!pmu_apusys_pmu_addr_check(apusys_hd)) {
 		pmu_command_counter_prt(mdla_info);
-		apusys_hd->ip_time = (uint32_t)(wt->busy_time/1000);
 	}
+	if (apusys_hd != NULL)
+		apusys_hd->ip_time = (uint32_t)(wt->busy_time/1000);
 #endif
 	return ret;
 }
