@@ -2923,38 +2923,6 @@ static void DPE_EnableClock(bool En)
 			spin_unlock(&(DPEInfo.SpinLockDPE));
 		}
 #endif
-#ifdef KERNEL_DMA_BUFFER
-		spin_lock(&(DPEInfo.SpinLockDPE));
-if (g_u4EnableClockCount == 1) {
-	spin_unlock(&(DPEInfo.SpinLockDPE));
-	kernel_dpebuf =
-	vb2_dc_alloc(gdev, DMA_ATTR_WRITE_BARRIER, WB_TOTAL_SIZE,
-	DMA_FROM_DEVICE, 0);
-	dbuf = vb2_dc_get_dmabuf(kernel_dpebuf, O_RDWR);
-	refcount_dec(&kernel_dpebuf->refcount);
-	dpebuf =
-	vb2_dc_attach_dmabuf(gdev, dbuf, WB_TOTAL_SIZE, DMA_FROM_DEVICE);
-
-	if (vb2_dc_map_dmabuf(dpebuf) != 0)
-		LOG_ERR("Allocate Buffer Fail!");
-
-	g_dpewb_dvme_int_Buffer_pa = (unsigned int *)dpebuf->dma_addr;
-	g_dpewb_cost_int_Buffer_pa =
-		(unsigned int *)(((uintptr_t)g_dpewb_dvme_int_Buffer_pa) +
-		WB_INT_MEDV_SIZE);
-	g_dpewb_asfrm_Buffer_pa =
-		(unsigned int *)(((uintptr_t)g_dpewb_cost_int_Buffer_pa) +
-		WB_DCV_L_SIZE);
-	g_dpewb_asfrmext_Buffer_pa =
-		(unsigned int *)(((uintptr_t)g_dpewb_asfrm_Buffer_pa) +
-		WB_ASFRM_SIZE);
-	g_dpewb_wmfhf_Buffer_pa =
-		(unsigned int *)(((uintptr_t)g_dpewb_asfrmext_Buffer_pa) +
-		WB_ASFRMExt_SIZE);
-} else {
-	spin_unlock(&(DPEInfo.SpinLockDPE));
-}
-#endif
 	} else {		/* Disable clock. */
 
 		/* LOG_DBG("Dpe clock disabled. g_u4EnableClockCount: %d.",
@@ -2966,12 +2934,6 @@ if (g_u4EnableClockCount == 1) {
 		switch (g_u4EnableClockCount) {
 		case 0:
 			spin_unlock(&(DPEInfo.SpinLockDPE));
-#ifdef KERNEL_DMA_BUFFER
-			vb2_dc_unmap_dmabuf(dpebuf);
-			vb2_dc_detach_dmabuf(dpebuf);
-			vb2_dc_put(kernel_dpebuf);
-			dbuf = NULL;
-#endif
 #if !defined(CONFIG_MTK_LEGACY) && defined(CONFIG_COMMON_CLK) /*CCF*/
 #ifndef EP_NO_CLKMGR
 			DPE_Disable_Unprepare_ccf_clock();
@@ -4130,7 +4092,7 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 	/*int q = 0, p = 0;*/
 	struct DPE_USER_INFO_STRUCT *pUserInfo;
 
-	LOG_DBG("- E. UserCount: %d.", DPEInfo.UserCount);
+	LOG_INF("- E. UserCount: %d.", DPEInfo.UserCount);
 
 
 	/*  */
@@ -4217,7 +4179,7 @@ EXIT:
 
 
 
-	LOG_DBG("- X. Ret: %d. UserCount: %d.", Ret, DPEInfo.UserCount);
+	LOG_INF("- X. Ret: %d. UserCount: %d.", Ret, DPEInfo.UserCount);
 	return Ret;
 
 }
@@ -4230,7 +4192,7 @@ static signed int DPE_release(struct inode *pInode, struct file *pFile)
 	struct DPE_USER_INFO_STRUCT *pUserInfo;
 	/*unsigned int Reg;*/
 
-	LOG_DBG("- E. UserCount: %d.", DPEInfo.UserCount);
+	LOG_INF("- E. UserCount: %d.", DPEInfo.UserCount);
 
 	/*  */
 	if (pFile->private_data != NULL) {
@@ -4266,7 +4228,7 @@ static signed int DPE_release(struct inode *pInode, struct file *pFile)
 EXIT:
 
 
-	LOG_DBG("- X. UserCount: %d.", DPEInfo.UserCount);
+	LOG_INF("- X. UserCount: %d.", DPEInfo.UserCount);
 	return 0;
 }
 
@@ -4805,7 +4767,31 @@ if (DPE_dev->irq > 0) {
 		}
 
 #ifdef KERNEL_DMA_BUFFER
-		gdev = &pDev->dev;
+	gdev = &pDev->dev;
+	kernel_dpebuf =
+	vb2_dc_alloc(gdev, DMA_ATTR_WRITE_BARRIER, WB_TOTAL_SIZE,
+	DMA_FROM_DEVICE, 0);
+	dbuf = vb2_dc_get_dmabuf(kernel_dpebuf, O_RDWR);
+	refcount_dec(&kernel_dpebuf->refcount);
+	dpebuf =
+	vb2_dc_attach_dmabuf(gdev, dbuf, WB_TOTAL_SIZE, DMA_FROM_DEVICE);
+
+	if (vb2_dc_map_dmabuf(dpebuf) != 0)
+		LOG_ERR("Allocate Buffer Fail!");
+
+	g_dpewb_dvme_int_Buffer_pa = (unsigned int *)dpebuf->dma_addr;
+	g_dpewb_cost_int_Buffer_pa =
+		(unsigned int *)(((uintptr_t)g_dpewb_dvme_int_Buffer_pa) +
+		WB_INT_MEDV_SIZE);
+	g_dpewb_asfrm_Buffer_pa =
+		(unsigned int *)(((uintptr_t)g_dpewb_cost_int_Buffer_pa) +
+		WB_DCV_L_SIZE);
+	g_dpewb_asfrmext_Buffer_pa =
+		(unsigned int *)(((uintptr_t)g_dpewb_asfrm_Buffer_pa) +
+		WB_ASFRM_SIZE);
+	g_dpewb_wmfhf_Buffer_pa =
+		(unsigned int *)(((uintptr_t)g_dpewb_asfrmext_Buffer_pa) +
+		WB_ASFRMExt_SIZE);
 #endif
 
 		/* Init spinlocks */
@@ -4915,6 +4901,12 @@ static signed int DPE_remove(struct platform_device *pDev)
 		tasklet_kill(DPE_tasklet[i].pDPE_tkt);
 
 #ifdef KERNEL_DMA_BUFFER
+	vb2_dc_unmap_dmabuf(dpebuf);
+	vb2_dc_detach_dmabuf(dpebuf);
+	vb2_dc_put(kernel_dpebuf);
+	dpebuf = NULL;
+	kernel_dpebuf = NULL;
+	dbuf = NULL;
 	gdev = NULL;
 #endif
 

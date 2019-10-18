@@ -124,10 +124,10 @@ static void vb2_dc_finish(void *buf_priv)
 void vb2_dc_put(void *buf_priv)
 {
 	struct vb2_dc_buf *buf = buf_priv;
-
+	pr_debug("kernel_dpebuf refcount before = %d\n", buf->refcount);
 	if (!refcount_dec_and_test(&buf->refcount))
 		return;
-
+	pr_debug("kernel_dpebuf refcount after = %d\n", buf->refcount);
 	if (buf->sgt_base) {
 		sg_free_table(buf->sgt_base);
 		kfree(buf->sgt_base);
