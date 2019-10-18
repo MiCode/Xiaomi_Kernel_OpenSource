@@ -207,10 +207,8 @@ void pmu_counter_read_all(u32 mdlaid, u32 out[MDLA_PMU_COUNTERS])
 	offset = PMU_CNT_OFFSET;
 	reg = pmu_reg_read_with_mdlaid(mdlaid, PMU_CFG_PMCR);
 
-#if 0//for counter latch, unused
 	if ((1<<PMU_CLR_CMDE_SHIFT) & reg)
 		offset = offset + 4;
-#endif
 
 	for (i = 0; i < MDLA_PMU_COUNTERS; i++)
 		out[i] = pmu_reg_read_with_mdlaid(mdlaid,
@@ -301,7 +299,7 @@ void pmu_reset_saved_cycle(u32 mdlaid)
 
 static void pmu_percmd_mode_write(u32 mdlaid, u32 mode)
 {
-	u32 mask = (1 << PMU_PERCMD_MODE_SHIFT);
+	u32 mask = (1 << PMU_CLR_CMDE_SHIFT);
 
 	if (!get_power_on_status(mdlaid))
 		return;

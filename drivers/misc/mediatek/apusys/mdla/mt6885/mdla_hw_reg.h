@@ -139,7 +139,7 @@
 
 #define CFG_PMCR_DEFAULT   (0x1F021)
 #define PMU_CNT_SHIFT      (0x0010)
-#define PMU_PERCMD_MODE_SHIFT (0x5)
+#define PMU_CLR_CMDE_SHIFT (0x5)
 
 #define PMU_PMCR_CCNT_EN   (0x10000)
 #define PMU_PMCR_CCNT_RST  (0x4)
