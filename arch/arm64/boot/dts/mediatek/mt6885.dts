@@ -2890,6 +2890,12 @@ page_owner=on";
 				"MDP_APMCU_GALS";
 	};
 
+       irq_nfc: irq_nfc {
+               compatible = "mediatek,irq_nfc-eint";
+       };
+
+
+
 	mdp_mutex: mdp_mutex@1f001000 {
 		compatible = "mediatek,mdp_mutex";
 		reg = <0 0x1f001000 0 0x1000>;

@@ -48,6 +48,13 @@ config NFC_PORT100
 
 	  If unsure, say N.
 
+config NFC_NXP_PN553
+       tristate "NXP NFC support"
+       help
+         This adds support for nxp nfc.
+
+         If unsure, say N.
+
 source "drivers/nfc/fdp/Kconfig"
 source "drivers/nfc/pn544/Kconfig"
 source "drivers/nfc/pn533/Kconfig"
@@ -57,5 +64,7 @@ source "drivers/nfc/st21nfca/Kconfig"
 source "drivers/nfc/st-nci/Kconfig"
 source "drivers/nfc/nxp-nci/Kconfig"
 source "drivers/nfc/s3fwrn5/Kconfig"
+source "drivers/nfc/k6885v1_64_alpha_i2c/Kconfig"
+source "drivers/nfc/k6885v1_64_alpha_spi/Kconfig"
 source "drivers/nfc/st95hf/Kconfig"
 endmenu
