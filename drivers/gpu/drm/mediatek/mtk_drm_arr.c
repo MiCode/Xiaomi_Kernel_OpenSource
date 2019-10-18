@@ -3,7 +3,7 @@
 #include "mtk_log.h"
 
 
-static struct mutex cb_table_lock;
+static DEFINE_MUTEX(cb_table_lock);
 #define DISP_MAX_FPSCHG_CALLBACK 5
 static FPS_CHG_CALLBACK fps_chg_callback_table[DISP_MAX_FPSCHG_CALLBACK];
 
@@ -68,19 +68,10 @@ void drm_invoke_fps_chg_callbacks(unsigned int new_fps)
 	DDPMSG("[fps]: %s,new_fps =%d\n", __func__, new_fps);
 	mutex_lock(&cb_table_lock);
 	for (i = 0; i < DISP_MAX_FPSCHG_CALLBACK; i++) {
-		if (fps_chg_callback_table[i])
+		if (fps_chg_callback_table[i]) {
 			fps_chg_callback_table[i](new_fps);
+			DDPINFO("%s callback %u\n", __func__, i);
+		}
 	}
 	mutex_unlock(&cb_table_lock);
 }
-void drm_fps_chg_cb_init(void)
-{
-	int i = 0;
-
-	mutex_init(&cb_table_lock);
-	mutex_lock(&cb_table_lock);
-	for (i = 0; i < DISP_MAX_FPSCHG_CALLBACK; i++)
-		fps_chg_callback_table[i] = NULL;
-	mutex_unlock(&cb_table_lock);
-}
-

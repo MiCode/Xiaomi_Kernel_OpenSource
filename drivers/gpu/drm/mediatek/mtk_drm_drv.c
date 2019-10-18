@@ -1516,8 +1516,6 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 
 	mtk_drm_first_enable(drm);
 
-	drm_fps_chg_cb_init();
-
 	return 0;
 err_kms_helper_poll_fini:
 	drm_kms_helper_poll_fini(drm);

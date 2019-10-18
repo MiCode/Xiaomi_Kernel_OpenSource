@@ -14,6 +14,5 @@ int drm_unregister_fps_chg_callback(
 
 /*interface with primary_display*/
 void drm_invoke_fps_chg_callbacks(unsigned int new_fps);
-void drm_fps_chg_cb_init(void);
 
 #endif
