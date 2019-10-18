@@ -118,6 +118,7 @@ extern void get_dvfsrc_reg(char *p);
 extern void get_dvfsrc_record(char *p);
 
 extern void vcorefs_trace_qos(void);
+extern void helio_dvfsrc_platform_pre_init(struct helio_dvfsrc *dvfsrc);
 extern int helio_dvfsrc_config(struct helio_dvfsrc *dvfsrc);
 extern int commit_data(int type, int data, int check_spmfw);
 extern void dvfsrc_enable_level_intr(int en);

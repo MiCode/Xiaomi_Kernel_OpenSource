@@ -511,6 +511,8 @@ static int helio_dvfsrc_probe(struct platform_device *pdev)
 		(u32 *) &dvfsrc->dvfsrc_flag))
 		dvfsrc->dvfsrc_flag = 0;
 
+	helio_dvfsrc_platform_pre_init(dvfsrc);
+
 	helio_dvfsrc_config(dvfsrc);
 
 	pr_info("%s: init done\n", __func__);

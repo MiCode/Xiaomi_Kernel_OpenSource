@@ -314,19 +314,26 @@ static void dvfsrc_autok_manager(void)
 #endif
 
 
-void helio_dvfsrc_platform_init(struct helio_dvfsrc *dvfsrc)
+void helio_dvfsrc_platform_pre_init(struct helio_dvfsrc *dvfsrc)
 {
-	int spmfw_idx = 0;
 	struct platform_device *pdev = to_platform_device(dvfsrc->dev);
-	struct reg_config *config;
-	int idx = 0;
 	struct resource *res;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 
-	dvfsrc->spm_regs = devm_ioremap_resource(&pdev->dev, res);
+	dvfsrc->spm_regs = devm_ioremap(&pdev->dev,
+				res->start, resource_size(res));
 	if (IS_ERR(dvfsrc->spm_regs))
 		pr_info("not get spm register\n");
+
+}
+
+void helio_dvfsrc_platform_init(struct helio_dvfsrc *dvfsrc)
+{
+	int spmfw_idx = 0;
+	struct reg_config *config;
+	int idx = 0;
+
 
 	sysfs_merge_group(&dvfsrc->dev->kobj, &mt6885_helio_dvfsrc_attr_group);
 
