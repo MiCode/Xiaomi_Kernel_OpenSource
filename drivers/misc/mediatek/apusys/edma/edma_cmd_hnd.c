@@ -1388,15 +1388,28 @@ int edma_ext_by_sub(struct edma_sub *edma_sub, struct edma_request *req)
 	return ret;
 }
 
+bool edma_is_all_power_off(struct edma_device *edma_device)
+{
+	int i;
+
+	for (i = 0; i < edma_device->edma_sub_num; i++)
+		if (edma_device->edma_sub[i]->power_state == EDMA_POWER_ON)
+			return false;
+
+	return true;
+}
+
 void edma_power_on(struct edma_sub *edma_sub)
 {
 	struct edma_device *edma_device;
 
 	edma_device = edma_sub->edma_device;
-	if (edma_device->power_state == EDMA_POWER_OFF) {
-		edma_device->power_state = EDMA_POWER_ON;
+	mutex_lock(&edma_device->power_mutex);
+	if (edma_is_all_power_off(edma_device))
 		apu_device_power_on(EDMA);
-	}
+
+	edma_sub->power_state = EDMA_POWER_ON;
+	mutex_unlock(&edma_device->power_mutex);
 }
 
 void edma_power_off(struct edma_sub *edma_sub)
@@ -1404,27 +1417,21 @@ void edma_power_off(struct edma_sub *edma_sub)
 	struct edma_device *edma_device;
 
 	edma_device = edma_sub->edma_device;
-	if (edma_device->power_state == EDMA_POWER_ON) {
-		edma_device->power_state = EDMA_POWER_OFF;
+	mutex_lock(&edma_device->power_mutex);
+	edma_sub->power_state = EDMA_POWER_OFF;
+	if (edma_is_all_power_off(edma_device))
 		apu_device_power_off(EDMA);
-	}
+
+	mutex_unlock(&edma_device->power_mutex);
 }
 
 int edma_execute(struct edma_sub *edma_sub, struct edma_ext *edma_ext)
 {
 	int ret = 0;
-	struct edma_request *req = NULL;
+	struct edma_request req = {0};
 
-	ret = edma_alloc_request(&req);
-	if (ret) {
-		pr_notice("alloc request failed, ret=%d\n",
-			ret);
-		return ret;
-	}
-
-	edma_setup_ext_mode_request(req, edma_ext, EDMA_PROC_EXT_MODE);
-	ret = edma_ext_by_sub(edma_sub, req);
-	edma_free_request(req);
+	edma_setup_ext_mode_request(&req, edma_ext, EDMA_PROC_EXT_MODE);
+	ret = edma_ext_by_sub(edma_sub, &req);
 
 	return ret;
 }

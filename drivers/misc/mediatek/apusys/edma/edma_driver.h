@@ -21,7 +21,7 @@
 
 #define EDMA_SUB_NUM 2
 #define EDMA_SUB_NAME_SIZE 20
-#define CMD_WAIT_TIME_MS	(2000 * 1000)
+#define CMD_WAIT_TIME_MS	(3 * 1000)
 
 struct edma_device;
 
@@ -51,6 +51,7 @@ struct edma_sub {
 	bool is_cmd_done;
 
 	enum edma_sub_state state;
+	enum edma_power_state power_state;
 
 	struct task_struct *enque_task;
 	u8 sub_name[EDMA_SUB_NAME_SIZE];
@@ -67,9 +68,9 @@ struct edma_device {
 
 	/* to check user list must have mutex protection */
 	struct mutex user_mutex;
+	struct mutex power_mutex;
 	struct list_head user_list;
 	int edma_num_users;
-	enum edma_power_state power_state;
 
 	dev_t edma_devt;
 	struct cdev edma_chardev;

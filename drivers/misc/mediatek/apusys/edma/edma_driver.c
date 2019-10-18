@@ -64,6 +64,7 @@ int edma_initialize(struct edma_device *edma_device)
 
 		edma_sub->edma_device = edma_device;
 		edma_sub->sub = sub_id;
+		edma_sub->power_state = EDMA_POWER_OFF;
 		mutex_init(&edma_sub->cmd_mutex);
 		init_waitqueue_head(&edma_sub->cmd_wait);
 		sprintf(edma_sub->sub_name, "edma%d", edma_sub->sub);
@@ -333,10 +334,10 @@ static int edma_probe(struct platform_device *pdev)
 
 	INIT_LIST_HEAD(&edma_device->user_list);
 	mutex_init(&edma_device->user_mutex);
+	mutex_init(&edma_device->power_mutex);
 	edma_device->edma_num_users = 0;
 	edma_device->dev = &pdev->dev;
 	edma_device->dbgfs_reg_core = 0;
-	edma_device->power_state = EDMA_POWER_OFF;
 
 	if (edma_reg_chardev(edma_device) == 0) {
 		/* Create class register */
