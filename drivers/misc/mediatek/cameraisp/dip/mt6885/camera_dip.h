@@ -46,7 +46,7 @@ enum m4u_callback_ret_t DIP_M4U_TranslationFault_callback
 
 #if (MTK_DIP_COUNT == 2)
 #define DIP_IMGSYS2_BASE_HW   0x15080000
-#define DIP_B_BASE_HW   0x15081000
+#define DIP_B_BASE_HW   0x15821000
 #endif
 
 #define MSS_BASE_HW   0x15012000
@@ -58,7 +58,9 @@ enum m4u_callback_ret_t DIP_M4U_TranslationFault_callback
 
 #define MAX_TILE_TOT_NO (256)
 #define MAX_ISP_DUMP_HEX_PER_TILE (256)
-#define MAX_ISP_TILE_TDR_HEX_NO (MAX_TILE_TOT_NO*MAX_ISP_DUMP_HEX_PER_TILE)
+#define MAX_ISP_TILE_TDR_TOTAL_HEXNO (MAX_TILE_TOT_NO*MAX_ISP_DUMP_HEX_PER_TILE)
+#define MAX_ISP_TILE_TDR_HEX_NO (MAX_ISP_TILE_TDR_TOTAL_HEXNO * MTK_DIP_COUNT)
+
 #define MAX_DIP_CMDQ_BUFFER_SIZE (0x1000)
 
 /* 0xffff0000 chip dependent, sizeof = 256x256 = 0x10000 */

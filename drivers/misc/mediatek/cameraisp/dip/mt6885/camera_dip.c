@@ -4778,6 +4778,18 @@ static signed int DIP_mmap(
 				return -EAGAIN;
 		}
 		break;
+#if (MTK_DIP_COUNT == 2)
+	case DIP_B_BASE_HW:
+		if (length > DIP_REG_RANGE) {
+			LOG_ERR("mmap range error\n");
+			LOG_ERR("module(0x%x),length(0x%lx),",
+				pfn, length);
+			LOG_ERR("DIP_REG_RANGE(0x%x)!\n",
+				DIP_REG_RANGE);
+				return -EAGAIN;
+		}
+		break;
+#endif
 	default:
 		LOG_ERR("Illegal starting HW addr for mmap!\n");
 		return -EAGAIN;
