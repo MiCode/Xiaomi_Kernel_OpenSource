@@ -23,6 +23,7 @@
 #include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/workqueue.h>
+#include <linux/device.h>
 #include <mt-plat/aee.h>
 #include <cache_parity.h>
 
@@ -55,6 +56,7 @@ static unsigned int err_level;
 static unsigned int irq_count;
 static unsigned int version;
 static struct parity_irq_record_t *parity_irq_record;
+static bool cache_error_happened;
 
 static irqreturn_t (*custom_parity_isr)(int irq, void *dev_id);
 static int cache_parity_probe(struct platform_device *pdev);
@@ -89,6 +91,18 @@ static struct cache_parity_work_data {
 		} v2;
 	} data;
 } cache_parity_wd;
+
+static ssize_t cache_status_show(struct device_driver *driver,
+				 char *buf)
+{
+
+	if (cache_error_happened)
+		return snprintf(buf, PAGE_SIZE, "True\n");
+	else
+		return snprintf(buf, PAGE_SIZE, "False\n");
+}
+
+static DRIVER_ATTR_RO(cache_status);
 
 #ifdef CONFIG_ARM64
 static u64 read_ERXMISC0_EL1(void)
@@ -156,6 +170,8 @@ static void handle_error(struct work_struct *w)
 
 static irqreturn_t default_parity_isr_v2(int irq, void *dev_id)
 {
+	cache_error_happened = true;
+
 	/* collect error status to report later */
 	cache_parity_wd.data.v2.irq_index = virq_to_hwirq(irq);
 	cache_parity_wd.data.v2.misc0_el1 = read_ERXMISC0_EL1();
@@ -182,6 +198,8 @@ static irqreturn_t default_parity_isr_v1(int irq, void *dev_id)
 	unsigned int offset;
 	unsigned int irq_idx;
 	unsigned int i;
+
+	cache_error_happened = true;
 
 	for (i = 0, parity_record = NULL; i < irq_count; i++) {
 		if (parity_irq_record[i].irq == irq) {
@@ -381,7 +399,18 @@ static int cache_parity_probe(struct platform_device *pdev)
 
 static int __init cache_parity_init(void)
 {
-	return platform_driver_register(&cache_parity_drv);
+	int ret;
+
+	ret = platform_driver_register(&cache_parity_drv);
+	if (ret)
+		return ret;
+
+	ret = driver_create_file(&cache_parity_drv.driver,
+				 &driver_attr_cache_status);
+	if (ret)
+		return ret;
+
+	return 0;
 }
 
 module_init(cache_parity_init);
