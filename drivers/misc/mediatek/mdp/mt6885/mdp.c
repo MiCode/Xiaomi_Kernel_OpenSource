@@ -1506,7 +1506,7 @@ void cmdq_mdp_init_module_clk(void)
 		&gCmdqMdpModuleClock.clk_APB);
 	cmdq_dev_get_module_clock_by_name("mmsys_config", "MDP_APMCU_GALS",
 		&gCmdqMdpModuleClock.clk_APMCU_GALS);
-	cmdq_dev_get_module_clock_by_name("mdp_mutex", "MDP_MUTEX0",
+	cmdq_dev_get_module_clock_by_name("mm_mutex", "MDP_MUTEX0",
 		&gCmdqMdpModuleClock.clk_MDP_MUTEX0);
 	cmdq_dev_get_module_clock_by_name("mmsys_config", "MDP_IMG_DL_ASYNC0",
 		&gCmdqMdpModuleClock.clk_IMG_DL_ASYNC0);

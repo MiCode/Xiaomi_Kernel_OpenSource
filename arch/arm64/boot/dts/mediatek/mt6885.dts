@@ -2870,7 +2870,7 @@ page_owner=on";
 		reg = <0 0x1f001000 0 0x1000>;
 		interrupts = <GIC_SPI 466 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&mdpsys_config MDP_MDP_MUTEX0>;
-		ock-names = "MDP_MUTEX0";
+		clock-names = "MDP_MUTEX0";
 	};
 
 	mdp_rdma0: mdp_rdma0@1f006000 {
