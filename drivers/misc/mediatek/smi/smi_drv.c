@@ -295,8 +295,11 @@ s32 smi_bus_prepare_enable(const u32 id, const char *user)
 		break;
 	}
 
-	if (id == 4)
-		smi_unit_prepare_enable(5);
+	if (id == 4) {
+		ret = smi_unit_prepare_enable(5);
+		if (ret)
+			return ret;
+	}
 #else // !CONFIG_MACH_MT6885
 	ret = smi_unit_prepare_enable(SMI_LARB_NUM);
 	if (ret || id == SMI_LARB_NUM)
