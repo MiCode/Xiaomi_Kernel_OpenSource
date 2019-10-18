@@ -604,11 +604,11 @@ static void ipi_isr_cb(struct mtk_mbox_pin_recv *pin, void *priv)
 	atomic_t holder = ipidev->table[ipi_id].holder;
 
 	if (pin->recv_opt == MBOX_RECV_MESSAGE) {
-		complete(&pin->notify);
 		ipi_monitor(ipidev, ipi_id, ISR_RECV_MSGV);
-	} else if (atomic_read(&holder)) {
 		complete(&pin->notify);
+	} else if (atomic_read(&holder)) {
 		ipi_monitor(ipidev, ipi_id, ISR_RECV_ACK);
+		complete(&pin->notify);
 	}
 
 }
