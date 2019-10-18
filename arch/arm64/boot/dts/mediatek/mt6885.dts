@@ -4144,6 +4144,7 @@ page_owner=on";
 		larb18 = <8 8 7 7 8 7 7 7 8 8 8 8 8 8 8 8 7>;
 		larb19 = <7 8 7 8>;
 		larb20 = <7 7 8 8 6 7>;
+		vcore-supply = <&mt_pmic_vgpu11_buck_reg>;
 		/* include SMI common CCU */
 		cam_larb = <13 14 16 17 18 23 24>;
 		max_ostd_larb = <0 1>;

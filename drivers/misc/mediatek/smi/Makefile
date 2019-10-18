@@ -40,6 +40,8 @@ ccflags-y += -I$(srctree)/drivers/clk/mediatek
 obj-y += mmdvfs_mgr_v3.o
 obj-y += mmdvfs_profile_adaptor.o
 obj-y += mmdvfs_mgr_util.o
+else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6885"))
+ccflags-y += -DPMQOS_USE_IOMMU_PORT
 endif
 
 ccflags-$(CONFIG_MACH_MT6885) += -DSMI_SSPM
