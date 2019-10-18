@@ -4884,6 +4884,15 @@ page_owner=on";
 			<&venc_c1_gcon VENC_GCON_SET2_JPGENC>;
 		clock-names = "jpgenc",
 				"jpgenc_c1";
+		cshot-spec = <368>;
+		port-id = <M4U_PORT_L7_JPGENC_Y_RDMA_DISP>,
+				<M4U_PORT_L7_JPGENC_C_RDMA_DISP>,
+				<M4U_PORT_L7_JPGENC_Q_TABLE_DISP>,
+				<M4U_PORT_L7_JPGENC_BSDMA_DISP>;
+		c1-port-id = <M4U_PORT_L8_JPGENC_Y_RDMA_MDP>,
+				<M4U_PORT_L8_JPGENC_C_RDMA_MDP>,
+				<M4U_PORT_L8_JPGENC_Q_TABLE_MDP>,
+				<M4U_PORT_L8_JPGENC_BSDMA_MDP>;
 	};
 
 	jpgdec@17040000 {

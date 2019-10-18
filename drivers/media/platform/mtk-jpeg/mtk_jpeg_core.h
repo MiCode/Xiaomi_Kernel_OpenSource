@@ -33,6 +33,14 @@
 #define MTK_JPEG_DECODE		1
 
 #define MTK_JPEG_MAX_NCORE       2
+
+#define MTK_JPEG_PORT_INDEX_YRDMA  0
+#define MTK_JPEG_PORT_INDEX_CRDMA  1
+#define MTK_JPEG_PORT_INDEX_QTBLE  2
+#define MTK_JPEG_PORT_INDEX_BSDMA  3
+
+
+
 /**
  * enum mtk_jpeg_ctx_state - contex state of jpeg
  */
@@ -116,6 +124,10 @@ struct mtk_jpeg_dev {
 	u32			larb_id[MTK_JPEG_MAX_NCORE];
 	u32			ncore;
 	u32         isused[MTK_JPEG_MAX_NCORE];
+	u32         port_y_rdma[MTK_JPEG_MAX_NCORE];
+	u32         port_c_rdma[MTK_JPEG_MAX_NCORE];
+	u32         port_qtbl[MTK_JPEG_MAX_NCORE];
+	u32         port_bsdma[MTK_JPEG_MAX_NCORE];
 };
 
 /**

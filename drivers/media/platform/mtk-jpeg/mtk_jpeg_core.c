@@ -119,6 +119,14 @@ struct mtk_jpeg_src_buf {
 static int debug;
 static struct ion_client *g_ion_client;
 
+//pmqos
+static struct plist_head jpegenc_rlist;
+static struct mm_qos_request jpeg_y_rdma[MTK_JPEG_MAX_NCORE];
+static struct mm_qos_request jpeg_c_rdma[MTK_JPEG_MAX_NCORE];
+static struct mm_qos_request jpeg_qtbl[MTK_JPEG_MAX_NCORE];
+static struct mm_qos_request jpeg_bsdma[MTK_JPEG_MAX_NCORE];
+static unsigned int cshot_spec_dts;
+
 module_param(debug, int, 0644);
 static inline struct mtk_jpeg_ctx *ctrl_to_ctx(struct v4l2_ctrl *ctrl)
 {
@@ -184,6 +192,91 @@ static int vidioc_jpeg_s_ctrl(struct v4l2_ctrl *ctrl)
 static const struct v4l2_ctrl_ops mtk_jpeg_ctrl_ops = {
 	.s_ctrl = vidioc_jpeg_s_ctrl,
 };
+
+void mtk_jpeg_prepare_bw_request(struct mtk_jpeg_dev *jpeg)
+{
+	int i = 0;
+
+	plist_head_init(&jpegenc_rlist);
+	for (i = 0 ; i < jpeg->ncore; i++) {
+		mm_qos_add_request(&jpegenc_rlist,
+			 &jpeg_y_rdma[i], jpeg->port_y_rdma[i]);
+		mm_qos_add_request(&jpegenc_rlist,
+			 &jpeg_c_rdma[i], jpeg->port_c_rdma[i]);
+		mm_qos_add_request(&jpegenc_rlist,
+			 &jpeg_qtbl[i], jpeg->port_qtbl[i]);
+		mm_qos_add_request(&jpegenc_rlist,
+			 &jpeg_bsdma[i], jpeg->port_bsdma[i]);
+	}
+}
+
+void mtk_jpeg_update_bw_request(struct mtk_jpeg_ctx *ctx,
+		 struct mtk_jpeg_enc_param *config)
+{
+	/* No spec, considering [picture size] x [target fps] */
+	unsigned int cshot_spec = 0xffffffff;
+	/* limiting FPS, Upper Bound FPS = 20 */
+	unsigned int target_fps = 20;
+
+	/* Support QoS */
+	unsigned int emi_bw = 0;
+	unsigned int picSize = 0;
+	unsigned int limitedFPS = 0;
+	unsigned int core_id = ctx->coreid;
+
+	/* Support QoS */
+	picSize = (config->enc_w * config->enc_h) / 1000000;
+	/* BW = encode width x height x bpp x 1.6 */
+	/* Assume compress ratio is 0.6 */
+	#if 0
+	if (cfgEnc.encFormat == 0x0 || cfgEnc.encFormat == 0x1)
+		picCost = ((picSize * 2) * 8/5) + 1;
+	else
+		picCost = ((picSize * 3/2) * 8/5) + 1;
+	#endif
+
+
+	cshot_spec = cshot_spec_dts;
+
+	if ((picSize * target_fps) < cshot_spec) {
+		emi_bw = picSize * target_fps;
+	} else {
+		limitedFPS = cshot_spec / picSize;
+		emi_bw = (limitedFPS + 1) * picSize;
+	}
+
+	/* QoS requires Occupied BW */
+	/* Data BW x 1.33 */
+	emi_bw = emi_bw * 4/3;
+
+	pr_info("Width %d Height %d emi_bw %d cshot_spec %d\n",
+		 config->enc_w, config->enc_h, emi_bw, cshot_spec);
+
+	mm_qos_set_request(&jpeg_y_rdma[core_id], emi_bw, 0, BW_COMP_NONE);
+
+	if (config->enc_format == JPEG_YUV_FORMAT_YUYV ||
+		config->enc_format == JPEG_YUV_FORMAT_YUYV)
+		mm_qos_set_request(&jpeg_c_rdma[core_id], emi_bw,
+				 0, BW_COMP_NONE);
+	else
+		mm_qos_set_request(&jpeg_c_rdma[core_id], emi_bw * 1/2,
+				 0, BW_COMP_NONE);
+
+
+	mm_qos_set_request(&jpeg_qtbl[core_id], 10, 0, BW_COMP_NONE);
+	mm_qos_set_request(&jpeg_bsdma[core_id], emi_bw, 0, BW_COMP_NONE);
+	mm_qos_update_all_request(&jpegenc_rlist);
+
+}
+
+
+
+static void mtk_jpeg_remove_bw_request(void)
+{
+	mm_qos_remove_all_request(&jpegenc_rlist);
+}
+
+
 int mtk_jpeg_ctrls_setup(struct mtk_jpeg_ctx *ctx)
 {
 	const struct v4l2_ctrl_ops *ops = &mtk_jpeg_ctrl_ops;
@@ -934,6 +1027,9 @@ static void mtk_jpeg_set_param(struct mtk_jpeg_ctx *ctx,
 	param->total_encdu =
 		((padding_width >> 4) * (padding_height >> (Is420 ? 4 : 3)) *
 						 (Is420 ? 6 : 4)) - 1;
+
+	mtk_jpeg_update_bw_request(ctx, param);
+
 	v4l2_dbg(0, 2, &jpeg->v4l2_dev, "fmt %d, w,h %d,%d, enable_exif %d, enc_quality %d, restart_interval %d,img_stride %d, mem_stride %d, totalEncDu %d\n",
 		param->enc_format, param->enc_w, param->enc_h,
 		param->enable_exif, param->enc_quality, param->restart_interval,
@@ -1677,6 +1773,7 @@ static int mtk_jpeg_probe(struct platform_device *pdev)
 	int jpeg_irq;
 	int ret;
 	int i;
+	struct device_node *node = NULL;
 
 	jpeg = devm_kzalloc(&pdev->dev, sizeof(*jpeg), GFP_KERNEL);
 	if (!jpeg)
@@ -1687,6 +1784,7 @@ static int mtk_jpeg_probe(struct platform_device *pdev)
 	spin_lock_init(&jpeg->hw_lock[1]);
 	jpeg->dev = &pdev->dev;
 	jpeg->mode = (enum mtk_jpeg_mode)of_device_get_match_data(jpeg->dev);
+	node = pdev->dev.of_node;
 
 	jpeg->ncore = 0;
 	i = 0;
@@ -1734,6 +1832,38 @@ static int mtk_jpeg_probe(struct platform_device *pdev)
 		goto err_req_irq;
 	}
 
+	ret = of_property_read_u32(node, "cshot-spec", &cshot_spec_dts);
+	if (ret) {
+		pr_info("cshot spec read failed:%d\n", ret);
+		pr_info("init cshot spec as 0xFFFFFFFF\n");
+		cshot_spec_dts = 0xFFFFFFFF;
+	}
+
+
+	ret = of_property_read_u32_index(node, "port-id",
+		MTK_JPEG_PORT_INDEX_YRDMA, &jpeg->port_y_rdma[0]);
+	if (ret)
+		pr_info("YRDMA read failed:%d\n", ret);
+
+
+	ret = of_property_read_u32_index(node, "port-id",
+		MTK_JPEG_PORT_INDEX_CRDMA, &jpeg->port_c_rdma[0]);
+	if (ret)
+		pr_info("CRDMA read failed:%d\n", ret);
+
+
+	ret = of_property_read_u32_index(node, "port-id",
+		MTK_JPEG_PORT_INDEX_QTBLE, &jpeg->port_qtbl[0]);
+	if (ret)
+		pr_info("Qtable read failed:%d\n", ret);
+
+
+	ret = of_property_read_u32_index(node, "port-id",
+		MTK_JPEG_PORT_INDEX_BSDMA, &jpeg->port_bsdma[0]);
+	if (ret)
+		pr_info("BSDMA read failed:%d\n", ret);
+
+
 	if (jpeg->ncore == MTK_JPEG_MAX_NCORE) {
 		res = platform_get_resource(pdev, IORESOURCE_IRQ, 1);
 		jpeg_irq = platform_get_irq(pdev, 1);
@@ -1754,10 +1884,33 @@ static int mtk_jpeg_probe(struct platform_device *pdev)
 			ret = -EINVAL;
 			goto err_req_irq;
 		}
+
+		ret = of_property_read_u32_index(node, "c1-port-id",
+			MTK_JPEG_PORT_INDEX_YRDMA, &jpeg->port_y_rdma[1]);
+		if (ret)
+			pr_info("YRDMA c1 read failed:%d\n", ret);
+
+
+		ret = of_property_read_u32_index(node, "c1-port-id",
+			MTK_JPEG_PORT_INDEX_CRDMA, &jpeg->port_c_rdma[1]);
+		if (ret)
+			pr_info("CRDMA c1 read failed:%d\n", ret);
+
+
+		ret = of_property_read_u32_index(node, "c1-port-id",
+			MTK_JPEG_PORT_INDEX_QTBLE, &jpeg->port_qtbl[1]);
+		if (ret)
+			pr_info("Qtable c1 read failed:%d\n", ret);
+
+
+		ret = of_property_read_u32_index(node, "c1-port-id",
+			MTK_JPEG_PORT_INDEX_BSDMA, &jpeg->port_bsdma[1]);
+		if (ret)
+			pr_info("BSDMA c1 read failed:%d\n", ret);
+
 	}
 
-
-
+	mtk_jpeg_prepare_bw_request(jpeg);
 
 	ret = mtk_jpeg_clk_init(jpeg);
 	if (ret) {
@@ -1852,6 +2005,8 @@ static int mtk_jpeg_remove(struct platform_device *pdev)
 	v4l2_device_unregister(&jpeg->v4l2_dev);
 	if (g_ion_client)
 		ion_client_destroy(g_ion_client);
+
+	mtk_jpeg_remove_bw_request();
 
 	return 0;
 }
