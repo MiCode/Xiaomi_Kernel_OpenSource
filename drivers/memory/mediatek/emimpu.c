@@ -123,8 +123,11 @@ static ssize_t emimpu_ctrl_store
 		rg_info->apc = (unsigned int *)kmalloc_array(
 			emimpu_dev_ptr->domain_cnt, sizeof(unsigned int),
 			GFP_KERNEL);
-		if (!(rg_info->apc))
+		if (!(rg_info->apc)) {
+			kfree(rg_info);
+			rg_info = NULL;
 			return count;
+		}
 		rg_info->lock = false;
 	}
 
@@ -271,7 +274,7 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 	char aee_msg[MTK_EMI_MAX_CMD_LEN];
 	ssize_t aee_msg_cnt;
 
-	aee_msg_cnt = 0;
+	aee_msg_cnt = snprintf(aee_msg, MTK_EMI_MAX_CMD_LEN, "violation\n");
 	for (emi_id = 0; emi_id < emimpu_dev_ptr->emi_cen_cnt; emi_id++) {
 		violation = false;
 		emi_cen_base = emimpu_dev_ptr->emi_cen_base[emi_id];
@@ -356,7 +359,8 @@ static int emimpu_probe(struct platform_device *pdev)
 
 	pr_info("%s: module probe.\n", __func__);
 	emimpu_pdev = pdev;
-	emimpu_dev_ptr = kmalloc(sizeof(struct emimpu_dev_t), GFP_KERNEL);
+	emimpu_dev_ptr = devm_kmalloc(&pdev->dev,
+		sizeof(struct emimpu_dev_t), GFP_KERNEL);
 	if (!emimpu_dev_ptr)
 		return -ENOMEM;
 	emimpu_dev_ptr->show_region = 0;
@@ -426,7 +430,7 @@ static int emimpu_probe(struct platform_device *pdev)
 		pr_info("%s: get dump size fail\n", __func__);
 		return -EINVAL;
 	}
-	dump_list = kmalloc(size, GFP_KERNEL);
+	dump_list = devm_kmalloc(&pdev->dev, size, GFP_KERNEL);
 	if (!dump_list)
 		return -ENOMEM;
 	size >>= 2;
@@ -438,7 +442,8 @@ static int emimpu_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 	size *= sizeof(struct reg_info_t);
-	emimpu_dev_ptr->dump_reg = kmalloc(size, GFP_KERNEL);
+	emimpu_dev_ptr->dump_reg = devm_kmalloc(&pdev->dev,
+		size, GFP_KERNEL);
 	if (!(emimpu_dev_ptr->dump_reg))
 		return -ENOMEM;
 	for (i = 0; i < emimpu_dev_ptr->dump_cnt; i++) {
@@ -446,7 +451,7 @@ static int emimpu_probe(struct platform_device *pdev)
 		emimpu_dev_ptr->dump_reg[i].value = 0;
 		emimpu_dev_ptr->dump_reg[i].leng = 0;
 	}
-	kfree(dump_list);
+	devm_kfree(&pdev->dev, dump_list);
 
 	/* get clear regs */
 	size = of_property_count_elems_of_size(emimpu_node,
@@ -455,7 +460,8 @@ static int emimpu_probe(struct platform_device *pdev)
 		pr_info("%s: get clear fail\n", __func__);
 		return -EINVAL;
 	}
-	emimpu_dev_ptr->clear_reg = kmalloc(size, GFP_KERNEL);
+	emimpu_dev_ptr->clear_reg = devm_kmalloc(&pdev->dev,
+		size, GFP_KERNEL);
 	if (!(emimpu_dev_ptr->clear_reg))
 		return -ENOMEM;
 	emimpu_dev_ptr->clear_reg_cnt = size / sizeof(struct reg_info_t);
@@ -474,7 +480,8 @@ static int emimpu_probe(struct platform_device *pdev)
 		pr_info("%s: get clear_md size fail\n", __func__);
 		return -EINVAL;
 	}
-	emimpu_dev_ptr->clear_md_reg = kmalloc(size, GFP_KERNEL);
+	emimpu_dev_ptr->clear_md_reg = devm_kmalloc(&pdev->dev,
+		size, GFP_KERNEL);
 	if (!(emimpu_dev_ptr->clear_md_reg))
 		return -ENOMEM;
 	emimpu_dev_ptr->clear_md_reg_cnt = size / sizeof(struct reg_info_t);
@@ -493,11 +500,11 @@ static int emimpu_probe(struct platform_device *pdev)
 		pr_info("%s: get emi_cen_cnt fail\n", __func__);
 		return -EINVAL;
 	}
-	emimpu_dev_ptr->emi_cen_base = kmalloc_array(
+	emimpu_dev_ptr->emi_cen_base = devm_kmalloc_array(&pdev->dev,
 		emimpu_dev_ptr->emi_cen_cnt, sizeof(phys_addr_t), GFP_KERNEL);
 	if (!(emimpu_dev_ptr->emi_cen_base))
 		return -ENOMEM;
-	emimpu_dev_ptr->emi_mpu_base = kmalloc_array(
+	emimpu_dev_ptr->emi_mpu_base = devm_kmalloc_array(&pdev->dev,
 		emimpu_dev_ptr->emi_cen_cnt, sizeof(phys_addr_t), GFP_KERNEL);
 	if (!(emimpu_dev_ptr->emi_mpu_base))
 		return -ENOMEM;
@@ -535,7 +542,7 @@ static int emimpu_probe(struct platform_device *pdev)
 		pr_info("%s: no ap_region\n", __func__);
 	else {
 		size = sizeof(unsigned int) * emimpu_dev_ptr->domain_cnt;
-		ap_apc = kmalloc(size, GFP_KERNEL);
+		ap_apc = devm_kmalloc(&pdev->dev, size, GFP_KERNEL);
 		if (!ap_apc)
 			return -ENOMEM;
 		ret = of_property_read_u32_array(emimpu_node, "ap_apc",
@@ -554,7 +561,7 @@ static int emimpu_probe(struct platform_device *pdev)
 		mtk_emimpu_lock_region(&rg_info, MTK_EMIMPU_LOCK);
 		mtk_emimpu_set_protection(&rg_info);
 		mtk_emimpu_free_region(&rg_info);
-		kfree(ap_apc);
+		devm_kfree(&pdev->dev, ap_apc);
 	}
 
 	ret = of_property_read_u32(emimpu_node, "slverr", &slverr);
@@ -602,13 +609,15 @@ module_exit(emimpu_drv_exit);
 int mtk_emimpu_init_region(
 	struct emimpu_region_t *rg_info, unsigned int rg_num)
 {
-	struct emimpu_dev_t *emimpu_dev_ptr =
-		(struct emimpu_dev_t *)platform_get_drvdata(emimpu_pdev);
+	struct emimpu_dev_t *emimpu_dev_ptr;
 	unsigned int size;
 	unsigned int i;
 
-	if (!emimpu_dev_ptr)
+	if (!emimpu_pdev)
 		return -1;
+
+	emimpu_dev_ptr =
+		(struct emimpu_dev_t *)platform_get_drvdata(emimpu_pdev);
 
 	if (rg_num >= emimpu_dev_ptr->region_cnt) {
 		pr_info("%s: fail, out-of-range region\n", __func__);
@@ -672,11 +681,13 @@ EXPORT_SYMBOL(mtk_emimpu_set_addr);
 int mtk_emimpu_set_apc(struct emimpu_region_t *rg_info,
 	unsigned int d_num, unsigned int apc)
 {
-	struct emimpu_dev_t *emimpu_dev_ptr =
-		(struct emimpu_dev_t *)platform_get_drvdata(emimpu_pdev);
+	struct emimpu_dev_t *emimpu_dev_ptr;
 
-	if (!emimpu_dev_ptr)
+	if (!emimpu_pdev)
 		return -1;
+
+	emimpu_dev_ptr =
+		(struct emimpu_dev_t *)platform_get_drvdata(emimpu_pdev);
 
 	if (d_num >= emimpu_dev_ptr->domain_cnt) {
 		pr_info("%s: fail, out-of-range domain\n", __func__);
@@ -710,16 +721,19 @@ EXPORT_SYMBOL(mtk_emimpu_lock_region);
  */
 int mtk_emimpu_set_protection(struct emimpu_region_t *rg_info)
 {
-	struct emimpu_dev_t *emimpu_dev_ptr =
-		(struct emimpu_dev_t *)platform_get_drvdata(emimpu_pdev);
+	struct emimpu_dev_t *emimpu_dev_ptr;
 	unsigned int start, end;
 	unsigned int group_apc;
-	unsigned int d_group = emimpu_dev_ptr->domain_cnt / 8;
+	unsigned int d_group;
 	struct arm_smccc_res smc_res;
 	int i, j;
 
-	if (!emimpu_dev_ptr)
+	if (!emimpu_pdev)
 		return -1;
+
+	emimpu_dev_ptr =
+		(struct emimpu_dev_t *)platform_get_drvdata(emimpu_pdev);
+	d_group = emimpu_dev_ptr->domain_cnt / 8;
 
 	if (!(rg_info->apc)) {
 		pr_info("%s: fail, protect without init\n", __func__);

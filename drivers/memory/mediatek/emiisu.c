@@ -154,7 +154,8 @@ static int emiisu_probe(struct platform_device *pdev)
 
 	pr_info("%s: module probe.\n", __func__);
 	emiisu_pdev = pdev;
-	emiisu_dev_ptr = kmalloc(sizeof(struct emiisu_dev_t), GFP_KERNEL);
+	emiisu_dev_ptr = devm_kmalloc(&pdev->dev,
+		sizeof(struct emiisu_dev_t), GFP_KERNEL);
 	if (!emiisu_dev_ptr)
 		return -ENOMEM;
 

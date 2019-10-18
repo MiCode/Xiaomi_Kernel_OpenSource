@@ -28,7 +28,8 @@ static int emicen_probe(struct platform_device *pdev)
 
 	pr_info("%s: module probe.\n", __func__);
 	emicen_pdev = pdev;
-	emicen_dev_ptr = kmalloc(sizeof(struct emicen_dev_t), GFP_KERNEL);
+	emicen_dev_ptr = devm_kmalloc(&pdev->dev,
+		sizeof(struct emicen_dev_t), GFP_KERNEL);
 	if (!emicen_dev_ptr)
 		return -ENOMEM;
 
@@ -50,7 +51,7 @@ static int emicen_probe(struct platform_device *pdev)
 		"ch_cnt", emicen_dev_ptr->ch_cnt,
 		"rk_cnt", emicen_dev_ptr->rk_cnt);
 
-	emicen_dev_ptr->rk_size = kmalloc_array(
+	emicen_dev_ptr->rk_size = devm_kmalloc_array(&pdev->dev,
 		emicen_dev_ptr->rk_cnt, sizeof(unsigned long long),
 		GFP_KERNEL);
 	if (!(emicen_dev_ptr->rk_size))
@@ -68,14 +69,14 @@ static int emicen_probe(struct platform_device *pdev)
 		pr_info("%s: get emi_cen_cnt fail\n", __func__);
 		return -EINVAL;
 	}
-	emicen_dev_ptr->emi_cen_base = kmalloc_array(
+	emicen_dev_ptr->emi_cen_base = devm_kmalloc_array(&pdev->dev,
 		emicen_dev_ptr->emi_cen_cnt, sizeof(phys_addr_t), GFP_KERNEL);
 	if (!(emicen_dev_ptr->emi_cen_base))
 		return -ENOMEM;
 	for (i = 0; i < emicen_dev_ptr->emi_cen_cnt; i++)
 		emicen_dev_ptr->emi_cen_base[i] = of_iomap(emicen_node, i);
 
-	emicen_dev_ptr->emi_chn_base = kmalloc_array(
+	emicen_dev_ptr->emi_chn_base = devm_kmalloc_array(&pdev->dev,
 		emicen_dev_ptr->ch_cnt, sizeof(phys_addr_t), GFP_KERNEL);
 	if (!(emicen_dev_ptr->emi_chn_base))
 		return -ENOMEM;
