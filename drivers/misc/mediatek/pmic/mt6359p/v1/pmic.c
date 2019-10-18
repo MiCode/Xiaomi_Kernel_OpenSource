@@ -43,6 +43,7 @@ void vmd1_pmic_setting_on(void)
 	if (g_vrfdig_vosel != 0) {
 		pmic_set_register_value(PMIC_RG_BUCK_VPU_VOSEL,
 					g_vrfdig_vosel);
+		pr_info("[%s] set vrfdig=0x%x\n", __func__, g_vrfdig_vosel);
 	} else {
 		pr_notice("[%s] vmodem vosel has not recorded!\n", __func__);
 		record_md_vosel();
