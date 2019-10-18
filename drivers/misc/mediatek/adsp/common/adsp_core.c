@@ -261,6 +261,13 @@ int adsp_reset(void)
 		}
 	}
 
+	for (cid = 0; cid < ADSP_CORE_TOTAL; cid++) {
+		pdata = adsp_cores[cid];
+
+		if (pdata->ops->after_bootup)
+			pdata->ops->after_bootup(pdata);
+	}
+
 	pr_info("[ADSP] reset adsp done\n");
 #endif
 	return 0;
@@ -355,8 +362,15 @@ static int __init adsp_module_init(void)
 		}
 	}
 
+	for (cid = 0; cid < ADSP_CORE_TOTAL; cid++) {
+		pdata = adsp_cores[cid];
+
+		if (pdata->ops->after_bootup)
+			pdata->ops->after_bootup(pdata);
+	}
+
 	adsp_deregister_feature(SYSTEM_FEATURE_ID);
-	pr_info("[ADSP] module_init_done\n");
+	pr_debug("[ADSP] module_init_done\n");
 ERROR:
 	return ret;
 }

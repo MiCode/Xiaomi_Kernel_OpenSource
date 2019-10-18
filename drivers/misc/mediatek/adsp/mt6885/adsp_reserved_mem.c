@@ -167,8 +167,8 @@ void adsp_update_mpu_memory_info(struct adsp_priv *pdata)
 	mpu_info.share_dram_addr = (u32)adsp_reserve_mem.phys_addr;
 	mpu_info.share_dram_size = (u32)adsp_reserve_mem.size;
 
-	pr_info("[ADSP] mpu info=(0x%x, 0x%x)\n",
-		mpu_info.share_dram_addr, mpu_info.share_dram_size);
+	pr_debug("[ADSP] mpu info=(0x%x, 0x%x)\n",
+		 mpu_info.share_dram_addr, mpu_info.share_dram_size);
 	adsp_copy_to_sharedmem(pdata, ADSP_SHAREDMEM_MPUINFO,
 		&mpu_info, sizeof(struct adsp_mpu_info_t));
 }

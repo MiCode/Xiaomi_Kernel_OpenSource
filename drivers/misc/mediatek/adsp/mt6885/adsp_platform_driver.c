@@ -36,6 +36,8 @@ static int adsp_core1_suspend(void);
 static int adsp_core1_resume(void);
 static void adsp_logger_init1_cb(struct work_struct *ws);
 
+static int adsp_after_bootup(struct adsp_priv *pdata);
+
 static const struct adsp_description adsp_c0_desc = {
 	.id = 0,
 	.name = "adsp_0",
@@ -56,6 +58,7 @@ static const struct adsp_description adsp_c0_desc = {
 	},
 	.ops = {
 		.initialize = adsp_core0_init,
+		.after_bootup = adsp_after_bootup,
 	}
 };
 
@@ -73,6 +76,7 @@ static const struct adsp_description adsp_c1_desc = {
 	},
 	.ops = {
 		.initialize = adsp_core1_init,
+		.after_bootup = adsp_after_bootup,
 	}
 };
 
@@ -104,8 +108,6 @@ int adsp_core0_init(struct adsp_priv *pdata)
 				adsp_core0_resume);
 
 	adsp_update_mpu_memory_info(pdata);
-	/* TODO: driver init */
-	//adsp_awake_init();
 
 	//adsp_suspend_init();
 	if (ADSP_CORE_TOTAL > 1)
@@ -129,6 +131,8 @@ int adsp_core0_init(struct adsp_priv *pdata)
 	set_adsp_dram_remapping(pdata->sysram_phys,
 				pdata->sysram_size +
 				adsp_cores[ADSP_B_ID]->sysram_size);
+
+	adsp_awake_init(pdata, ADSP_A_SW_INT);
 	return ret;
 }
 
@@ -162,7 +166,14 @@ int adsp_core1_init(struct adsp_priv *pdata)
 	/* core 1 use core 0 remapping cfg address */
 	pdata->cfg = adsp_cores[ADSP_A_ID]->cfg;
 	pdata->cfg_size = adsp_cores[ADSP_A_ID]->cfg_size;
+
+	adsp_awake_init(pdata, ADSP_B_SW_INT);
 	return ret;
+}
+
+static int adsp_after_bootup(struct adsp_priv *pdata)
+{
+	return adsp_awake_unlock(pdata->id);
 }
 
 static bool is_adsp_core_suspend(struct adsp_priv *pdata)
@@ -291,6 +302,9 @@ int adsp_core1_resume(void)
 	struct adsp_priv *pdata = adsp_cores[ADSP_B_ID];
 
 	if (get_adsp_state(pdata) == ADSP_SUSPEND) {
+		/* core A force awake, for resume core B faster */
+		adsp_awake_lock(ADSP_A_ID);
+
 		switch_adsp_clk_ctrl_cg(true, ADSP_CLK_CORE_1_EN);
 		adsp_mt_sw_reset(pdata->id);
 
@@ -304,6 +318,8 @@ int adsp_core1_resume(void)
 			adsp_aed_dispatch(EXCEP_KERNEL, pdata);
 			return -ETIME;
 		}
+
+		adsp_awake_unlock(ADSP_A_ID);
 	}
 	return 0;
 }

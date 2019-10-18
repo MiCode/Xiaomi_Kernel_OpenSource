@@ -19,6 +19,7 @@ struct sharedmem_info {
 
 struct adsp_operations {
 	int (*initialize)(struct adsp_priv *pdata);
+	int (*after_bootup)(struct adsp_priv *pdata);
 };
 
 struct adsp_description {

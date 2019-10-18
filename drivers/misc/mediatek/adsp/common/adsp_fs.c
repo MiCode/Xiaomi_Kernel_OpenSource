@@ -159,11 +159,35 @@ static inline ssize_t log_enable_store(struct device *dev,
 }
 DEVICE_ATTR_RW(log_enable);
 
+static inline ssize_t wakelock_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	unsigned int input = 0;
+	int ret = 0;
+	struct adsp_priv *pdata = container_of(dev_get_drvdata(dev),
+					struct adsp_priv, mdev);
+
+	if (kstrtouint(buf, 0, &input) != 0)
+		return -EINVAL;
+
+	if (input == 1)
+		ret = adsp_awake_lock(pdata->id);
+	else if (input == 0)
+		ret = adsp_awake_unlock(pdata->id);
+
+	pr_info("%s, input %u, ret = %d", __func__, input, ret);
+
+	return count;
+}
+DEVICE_ATTR_WO(wakelock);
+
 static struct attribute *adsp_default_attrs[] = {
 	&dev_attr_dev_dump.attr,
 	&dev_attr_ipi_test.attr,
 	&dev_attr_suspend_cmd.attr,
 	&dev_attr_log_enable.attr,
+	&dev_attr_wakelock.attr,
 	NULL,
 };
 

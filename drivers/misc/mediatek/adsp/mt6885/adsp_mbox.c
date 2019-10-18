@@ -176,6 +176,10 @@ int adsp_mbox_probe(struct platform_device *pdev)
 		if (ret)
 			break;
 	}
+
+	for (idx = 0; idx < mbdev->send_count; idx++)
+		mutex_init(&mbdev->pin_send_table[idx].mutex_send);
+
 	return ret;
 }
 

@@ -5,7 +5,7 @@ ADSP_VERSION_PATH := ../$(ADSP_VERSION)
 
 obj-y += $(ADSP_VERSION_PATH)/
 obj-y += adsp_feature_table.o
-#obj-y += adsp_awake.o
+obj-y += adsp_awake.o
 #obj-y += adsp_dvfs.o
 #obj-y += adsp_plat.o
 obj-y += adsp_clk.o

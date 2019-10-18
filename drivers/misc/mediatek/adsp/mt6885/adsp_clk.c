@@ -58,7 +58,7 @@ int adsp_set_top_mux(enum adsp_clk clk)
 {
 	int ret = 0;
 
-	pr_info("%s(%x)\n", __func__, clk);
+	pr_debug("%s(%x)\n", __func__, clk);
 
 	if (clk >= ADSP_CLK_NUM)
 		return -EINVAL;
@@ -119,7 +119,7 @@ int adsp_enable_clock(void)
 {
 	int ret = 0;
 
-	pr_info("%s()\n", __func__);
+	pr_debug("%s()\n", __func__);
 
 	/* ToDo: power on protect disable,
 	 * use counter inside to ensure only do it once
@@ -148,7 +148,7 @@ int adsp_enable_clock(void)
 
 void adsp_disable_clock(void)
 {
-	pr_info("%s()\n", __func__);
+	pr_debug("%s()\n", __func__);
 
 #ifdef BRINGUP_WR
 	switch_adsp_clk_cg(1);
