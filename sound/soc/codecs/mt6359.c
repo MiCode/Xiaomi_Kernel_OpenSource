@@ -97,7 +97,6 @@ enum {
 	SUPPLY_SEQ_HP_PULL_DOWN,
 	SUPPLY_SEQ_CLKSQ,
 	SUPPLY_SEQ_ADC_CLKGEN,
-	SUPPLY_SEQ_VOW_AUD_LPW,
 	SUPPLY_SEQ_AUD_VOW,
 	SUPPLY_SEQ_VOW_CLK,
 	SUPPLY_SEQ_VOW_LDO,
@@ -130,6 +129,7 @@ enum {
 	SUPPLY_SEQ_UL_MTKAIF,
 	SUPPLY_SEQ_UL_SRC_DMIC,
 	SUPPLY_SEQ_UL_SRC,
+	SUPPLY_SEQ_VOW_AUD_LPW,
 };
 
 enum {
@@ -2338,6 +2338,8 @@ static int mt_vow_aud_lpw_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		/* add delay for RC Calibration */
+		usleep_range(1000, 1200);
 		/* Enable audio uplink LPW mode */
 		/* Enable Audio ADC 1st Stage LPW */
 		/* Enable Audio ADC 2nd & 3rd LPW */
