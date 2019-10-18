@@ -139,8 +139,8 @@ struct GED_GPU_INFO {
 	unsigned long gpu_res3;
 	unsigned long gpu_res4;
 	unsigned long gpu_res5;
-	unsigned int gpu_res6;
-	unsigned int gpu_res7;
+	unsigned int dvfs_loading_mode;
+	unsigned int gpu_util;
 	unsigned int gpu_power;
 };
 
@@ -707,6 +707,10 @@ static void ged_kpi_statistics_and_remove(GED_KPI_HEAD *psHead, GED_KPI *psKPI)
 	unsigned long frame_attr = 0;
 	unsigned long gpu_info = 0;
 
+#ifdef GED_ENABLE_DVFS_LOADING_MODE
+	struct GpuUtilization_Ex util_ex;
+	unsigned int dvfs_loading_mode;
+#endif
 	ged_kpi_calc_kpi_info(ulID, psKPI, psHead);
 	frame_attr |= ((psHead->isSF & GED_KPI_IS_SF_MASK) << GED_KPI_IS_SF_SHIFT);
 	frame_attr |= ((psKPI->i32QedBuffer_length & GED_KPI_QBUFFER_LEN_MASK) << GED_KPI_QBUFFER_LEN_SHIFT);
@@ -726,6 +730,22 @@ static void ged_kpi_statistics_and_remove(GED_KPI_HEAD *psHead, GED_KPI *psKPI)
 	psKPI->cpu_gpu_info.gpu.gpu_power =
 		mt_gpufreq_get_power_by_idx(
 		mt_gpufreq_get_opp_idx_by_freq(psKPI->gpu_freq*1000));
+
+#ifdef GED_ENABLE_DVFS_LOADING_MODE
+
+	ged_get_gpu_utli_ex(&util_ex);
+
+	psKPI->cpu_gpu_info.gpu.gpu_util =
+		(util_ex.util_active&0xff)|
+		((util_ex.util_3d&0xff)<<8)|
+		((util_ex.util_ta&0xff)<<16)|
+		((util_ex.util_compute&0xff)<<24);
+
+	mtk_get_dvfs_loading_mode(&dvfs_loading_mode);
+
+	psKPI->cpu_gpu_info.gpu.dvfs_loading_mode = dvfs_loading_mode;
+#endif
+
 	/* statistics */
 	ged_log_buf_print(ghLogBuf,
 		"%d,%llu,%lu,%lu,%lu,%llu,%llu,%llu,%llu,%llu,%llu,%lu,%d,%d,%lld,%d,%lld,%lld,%llu,%lu,%lu,%lu,%lu,%lu,%lu,%u,%u,%u",
@@ -755,8 +775,8 @@ static void ged_kpi_statistics_and_remove(GED_KPI_HEAD *psHead, GED_KPI *psKPI)
 		psKPI->cpu_gpu_info.gpu.gpu_res3,
 		psKPI->cpu_gpu_info.gpu.gpu_res4,
 		psKPI->cpu_gpu_info.gpu.gpu_res5,
-		psKPI->cpu_gpu_info.gpu.gpu_res6,
-		psKPI->cpu_gpu_info.gpu.gpu_res7,
+		psKPI->cpu_gpu_info.gpu.dvfs_loading_mode,
+		psKPI->cpu_gpu_info.gpu.gpu_util,
 		psKPI->cpu_gpu_info.gpu.gpu_power
 #else
 		psKPI->cpu_gpu_info.cpu.cpu_max_freq_LL,
@@ -1441,6 +1461,23 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 				cur_3D_done = psKPI->ullTimeStamp2;
 				if (psTimeStamp->i32GPUloading) {
 					/* not fallback mode */
+#ifdef GED_ENABLE_DVFS_LOADING_MODE
+					struct GpuUtilization_Ex util_ex;
+					unsigned int mode;
+
+					mtk_get_dvfs_loading_mode(&mode);
+					ged_get_gpu_utli_ex(&util_ex);
+
+					if (mode == LOADING_MAX_3DTA_COM)
+						psTimeStamp->i32GPUloading =
+						MAX(util_ex.util_3d,
+							util_ex.util_ta) +
+						util_ex.util_compute;
+					else if (mode == LOADING_MAX_3DTA)
+						psTimeStamp->i32GPUloading =
+						MAX(util_ex.util_3d,
+						util_ex.util_ta);
+#endif
 					time_spent =
 					(int)(cur_3D_done - last_3D_done)
 					/ 100 * psTimeStamp->i32GPUloading;
@@ -1476,9 +1513,10 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 			/* bit16~bit23: dvfs_margin_mode */
 
 			psKPI->cpu_gpu_info.gpu.gpu_dvfs |=
-			(((unsigned long) gx_fb_dvfs_margin) & 0x3FF);
+			(((unsigned long) ged_get_dvfs_margin()) & 0x3FF);
 			psKPI->cpu_gpu_info.gpu.gpu_dvfs |=
-			((((unsigned long) dvfs_margin_mode) & 0xFF) << 16);
+			((((unsigned long) ged_get_dvfs_margin_mode()) & 0xFF)
+				<< 16);
 
 			if (!g_force_gpu_dvfs_fallback)
 				psKPI->cpu_gpu_info.gpu.gpu_dvfs |= (0x8000);
@@ -1707,10 +1745,19 @@ static GED_ERROR ged_kpi_push_timestamp(
 			spin_lock_irqsave(&gsGpuUtilLock, ui32IRQFlags);
 			if (!ged_kpi_check_if_fallback_mode()
 				&& !g_force_gpu_dvfs_fallback) {
+#ifdef GED_ENABLE_DVFS_LOADING_MODE
+				struct GpuUtilization_Ex util_ex;
+#endif
 				ged_kpi_trigger_fb_dvfs();
+#ifdef GED_ENABLE_DVFS_LOADING_MODE
+				ged_dvfs_cal_gpu_utilization_ex(
+					&(psTimeStamp->i32GPUloading),
+					&pui32Block, &pui32Idle, &util_ex);
+#else
 				ged_dvfs_cal_gpu_utilization(
 					&(psTimeStamp->i32GPUloading),
 					&pui32Block, &pui32Idle);
+#endif
 			} else {
 				psTimeStamp->i32GPUloading = 0;
 			}
