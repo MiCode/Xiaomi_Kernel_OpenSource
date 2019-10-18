@@ -363,6 +363,8 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 	struct drm_framebuffer *fb = plane->state->fb;
 	int src_w, src_h, dst_x, dst_y, dst_w, dst_h, i;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	unsigned int plane_index = to_crtc_plane_index(plane->index);
+	struct drm_gem_object *obj = mtk_fb_get_gem_obj(fb);
 
 	if ((!crtc) || (!fb) || (mtk_crtc->ddp_mode == DDP_NO_USE))
 		return;
@@ -388,6 +390,7 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 	state->pending.format = fb->format->format;
 	state->pending.modifier = fb->modifier[0];
 	state->pending.addr = mtk_fb_get_dma(fb);
+	state->pending.size = obj->size;
 	state->pending.src_x = (plane->state->src.x1 >> 16);
 	state->pending.src_y = (plane->state->src.y1 >> 16);
 	state->pending.dst_x = dst_x;
@@ -413,6 +416,13 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 			(unsigned int)state->pending.prop_val[i]);
 	}
 	DDPINFO("\n");
+
+	DDPFENCE("S+/L%d/e%d/id%d/mva0x%08llx/size0x%08lx\n",
+		plane_index,
+		state->pending.enable,
+		state->pending.prop_val[PLANE_PROP_NEXT_BUFF_IDX],
+		state->pending.addr,
+		state->pending.size);
 
 	mtk_drm_crtc_plane_update(crtc, plane, state);
 }

@@ -727,10 +727,10 @@ struct mtk_fence_buf_info *mtk_fence_prepare_buf(struct drm_device *dev,
 	list_add_tail(&buf_info->list, &layer_info->buf_list);
 	mutex_unlock(&layer_info->sync_lock);
 
-	DDPFENCE("P+/%s%d/L%d/id%d/fd%d/mva0x%08lx/size0x%08x\n",
+	DDPFENCE("P+/%s%d/L%d/id%d/fd%d\n",
 		 mtk_fence_session_mode_spy(session_id),
 		 MTK_SESSION_DEV(session_id), timeline_id, buf_info->idx,
-		 buf_info->fence, buf_info->mva, buf_info->size);
+		 buf_info->fence);
 
 	return buf_info;
 }
