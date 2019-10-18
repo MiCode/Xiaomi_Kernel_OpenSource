@@ -68,6 +68,9 @@ void __iomem *clk_cam_base;
 void __iomem *clk_cam_rawa_base;
 void __iomem *clk_cam_rawb_base;
 void __iomem *clk_cam_rawc_base;
+void __iomem *clk_apu_vcore_base;
+void __iomem *clk_apu_conn_base;
+
 
 #define MDP_CG_CLR1		(clk_mdp_base + 0x118)
 #define DISP_CG_CLR1		(clk_disp_base + 0x118)
@@ -86,6 +89,8 @@ void __iomem *clk_cam_rawc_base;
 #define CAMSYS_RAWA_CG_CLR	(clk_cam_rawa_base + 0x0008)
 #define CAMSYS_RAWB_CG_CLR	(clk_cam_rawb_base + 0x0008)
 #define CAMSYS_RAWC_CG_CLR	(clk_cam_rawc_base + 0x0008)
+#define APU_VCORE_CG_CLR	(clk_apu_vcore_base + 0x0008)
+#define APU_CONN_CG_CLR		(clk_apu_conn_base + 0x0008)
 #endif
 
 /*
@@ -5411,8 +5416,8 @@ struct mtk_power_gate scp_clks[] __initdata = {
 	PGATE(SCP_SYS_CAM_RAWC, "PG_CAM_RAWC", "PG_CAM", NULL, SYS_CAM_RAWC),
 	PGATE(SCP_SYS_DP_TX, "PG_DP_TX", "PG_DIS", NULL, SYS_DP_TX),
 	/* Gary Wang: no need to turn of disp mtcmos*/
-	PGATE3(SCP_SYS_VPU, "PG_VPU", NULL, "dsp_sel", "dsp7_sel",
-							"ipu_if_sel", SYS_VPU),
+	PGATE3(SCP_SYS_VPU, "PG_VPU", NULL, "ipu_if_sel", "dsp_sel",
+							"dsp7_sel", SYS_VPU),
 };
 
 static void __init init_clk_scpsys(void __iomem *infracfg_reg,
@@ -5552,9 +5557,14 @@ static void iomap_mm(void)
 	clk_cam_rawc_base = find_and_iomap("mediatek,camsys_rawc");
 	if (!clk_cam_rawc_base)
 		return;
+	clk_apu_vcore_base = find_and_iomap("mediatek,apu_vcore");
+	if (!clk_apu_vcore_base)
+		return;
+	clk_apu_conn_base = find_and_iomap("mediatek,apu_conn");
+	if (!clk_apu_conn_base)
+		return;
 }
 #endif
-
 
 void enable_subsys_hwcg(enum subsys_id id)
 {
@@ -5605,6 +5615,9 @@ void enable_subsys_hwcg(enum subsys_id id)
 	} else if (id == SYS_CAM_RAWC) {
 		/* LARBX_CGPDN */
 		clk_writel(CAMSYS_RAWC_CG_CLR, 0x1);
+	} else if (id == SYS_VPU) {
+		clk_writel(APU_VCORE_CG_CLR, 0xFFFFFFFF);
+		clk_writel(APU_CONN_CG_CLR, 0xFFFFFFFF);
 	}
 }
 
