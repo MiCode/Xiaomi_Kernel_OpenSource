@@ -2163,7 +2163,11 @@ void mipi_dsi_dcs_write_gce(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
 		break;
 	}
 
-	mtk_dsi_poll_for_idle(dsi, handle);
+	/* If vdo, stop it */
+	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp))
+		mtk_dsi_stop_vdo_mode(&dsi->ddp_comp, handle);
+	else
+		mtk_dsi_poll_for_idle(dsi, handle);
 
 	mtk_dsi_cmdq_gce(dsi, handle, &msg);
 
@@ -2171,6 +2175,14 @@ void mipi_dsi_dcs_write_gce(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
 		dsi->ddp_comp.regs_pa + DSI_START, 0x0, ~0);
 	cmdq_pkt_write(handle, dsi->ddp_comp.cmdq_base,
 		dsi->ddp_comp.regs_pa + DSI_START, 0x1, ~0);
+
+	mtk_dsi_poll_for_idle(dsi, handle);
+
+	/* If vdo, start it after lcm cmd sent */
+	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
+		mtk_dsi_start_vdo_mode(&dsi->ddp_comp, handle);
+		mtk_dsi_trigger(&dsi->ddp_comp, handle);
+	}
 }
 
 static ssize_t mtk_dsi_host_send_cmd(struct mtk_dsi *dsi,
