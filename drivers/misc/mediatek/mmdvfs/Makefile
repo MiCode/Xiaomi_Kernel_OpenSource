@@ -47,12 +47,12 @@ FORCE_STEP0 := false
 ccflags-y += -DCHECK_VOLTAGE
 else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6885"))
 BUILD_MMDVFS := true
-#HRT_MECHANISM := true
-#BLOCKING_MECHANISM := true
-#SUPPORT_MMP := true
+HRT_MECHANISM := true
+BLOCKING_MECHANISM := true
+SUPPORT_MMP := true
 #SKIP_SMI_CONFIG := false
 #QOS_BOUND_DETECT := true
-#FORCE_STEP0 := false
+FORCE_STEP0 := false
 #ccflags-y += -DCHECK_VOLTAGE
 ccflags-y += -DPMQOS_USE_IOMMU_PORT
 endif
