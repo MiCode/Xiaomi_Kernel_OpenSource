@@ -31,6 +31,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/ccu/src/$(MTK_PLATFORM)/ccu_ext_
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/
 ccflags-y += -I$(srctree)/drivers/i2c/busses/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmdvfs/
+ccflags-y += -I$(srctree)/include/dt-bindings/memory/
 
 #obj-$(CONFIG_MTK_VPU) += ccu_hw.o
 obj-y += ccu_hw.o ccu_reg.o ccu_kd_mailbox.o ccu_i2c_hw.o ccu_sw_ver.o ccu_imgsensor.o ccu_mva.o ccu_qos.o
