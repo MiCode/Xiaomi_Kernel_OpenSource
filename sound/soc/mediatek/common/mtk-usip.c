@@ -30,7 +30,6 @@
 #include "audio_task.h"
 #include "adsp_ipi.h"
 #include "audio_speech_msg_id.h"
-#include "mtk-dsp-common.h"
 #endif
 
 #define USIP_EMP_IOC_MAGIC 'D'
