@@ -175,8 +175,13 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.max_framerate = 300,
 	},
 
-	.margin = 10,		/* sensor framelength & shutter margin */
+	.margin = 18,		/* sensor framelength & shutter margin */
 	.min_shutter = 1,	/* min shutter */
+	.min_gain = 64,
+	.max_gain = 1024,
+	.min_gain_iso = 100,
+	.gain_step = 16,
+	.gain_type = 0,
 
 	/* max framelength by sensor register's limitation */
 	.max_frame_length = 0xffff,
@@ -1033,13 +1038,13 @@ static kal_uint16 set_gain(kal_uint16 gain)
 	kal_uint16 reg_gain;
 
 	/*  */
-	if (gain < BASEGAIN || gain > 16 * BASEGAIN) {
+	if (gain < imgsensor_info.min_gain || gain > imgsensor_info.max_gain) {
 		pr_debug("Error gain setting");
 
-		if (gain < BASEGAIN)
-			gain = BASEGAIN;
-		else if (gain > 16 * BASEGAIN)
-			gain = 16 * BASEGAIN;
+		if (gain < imgsensor_info.min_gain)
+			gain = imgsensor_info.min_gain;
+		else
+			gain = imgsensor_info.max_gain;
 	}
 
 	reg_gain = gain2reg(gain);
@@ -2593,6 +2598,18 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 
 	/*pr_debug("feature_id = %d\n", feature_id);*/
 	switch (feature_id) {
+	case SENSOR_FEATURE_GET_GAIN_RANGE_BY_SCENARIO:
+		*(feature_data + 1) = imgsensor_info.min_gain;
+		*(feature_data + 2) = imgsensor_info.max_gain;
+		break;
+	case SENSOR_FEATURE_GET_BASE_GAIN_ISO_AND_STEP:
+		*(feature_data + 0) = imgsensor_info.min_gain_iso;
+		*(feature_data + 1) = imgsensor_info.gain_step;
+		*(feature_data + 2) = imgsensor_info.gain_type;
+		break;
+	case SENSOR_FEATURE_GET_MIN_SHUTTER_BY_SCENARIO:
+		*(feature_data + 1) = imgsensor_info.min_shutter;
+		break;
 	case SENSOR_FEATURE_GET_PERIOD:
 		*feature_return_para_16++ = imgsensor.line_length;
 		*feature_return_para_16 = imgsensor.frame_length;
