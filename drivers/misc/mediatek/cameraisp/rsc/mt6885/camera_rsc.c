@@ -58,6 +58,13 @@
 
 #include "linux/soc/mediatek/mtk-cmdq.h"
 
+#ifdef CONFIG_MTK_IOMMU_V2
+#include <mach/mt_iommu.h>
+#else /* CONFIG_MTK_IOMMU_V2 */
+#include <m4u.h>
+#endif /* CONFIG_MTK_IOMMU_V2 */
+#include "mach/pseudo_m4u.h"
+
 #include <smi_public.h>
 #include "../engine_request.h"
 
@@ -201,6 +208,9 @@ struct RSC_CLK_STRUCT rsc_clk;
 
 #define RSC_ENABLE 0x1
 
+#ifdef CONFIG_MTK_IOMMU_V2
+static int RSC_MEM_USE_VIRTUL = 1;
+#endif
 
 /* static irqreturn_t RSC_Irq_CAM_A(signed int  Irq,void *DeviceId); */
 static irqreturn_t ISP_Irq_RSC(signed int Irq, void *DeviceId);
@@ -1353,6 +1363,41 @@ static inline void RSC_Disable_Unprepare_ccf_clock(void)
 }
 #endif
 
+#ifdef CONFIG_MTK_IOMMU_V2
+static inline int m4u_control_iommu_port(void)
+{
+	struct M4U_PORT_STRUCT sPort;
+	int ret = 0;
+
+	/* LARB19 */
+	int count_of_ports = 0;
+	int i = 0;
+
+	count_of_ports = M4U_PORT_L20_IPE_RSC_WDMA_DISP -
+		M4U_PORT_L20_IPE_RSC_RDMA0_DISP + 1;
+
+	for (i = 0; i < count_of_ports; i++) {
+		sPort.ePortID = M4U_PORT_L20_IPE_RSC_RDMA0_DISP+i;
+		sPort.Virtuality = RSC_MEM_USE_VIRTUL;
+		LOG_INF("config M4U Port ePortID=%d\n", sPort.ePortID);
+		#if defined(CONFIG_MTK_M4U) || defined(CONFIG_MTK_PSEUDO_M4U)
+		ret = m4u_config_port(&sPort);
+		if (ret == 0) {
+			LOG_INF("config M4U Port %s to %s SUCCESS\n",
+			iommu_get_port_name(M4U_PORT_L20_IPE_RSC_RDMA0_DISP+i),
+			RSC_MEM_USE_VIRTUL ? "virtual" : "physical");
+		} else {
+			LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
+			iommu_get_port_name(M4U_PORT_L20_IPE_RSC_RDMA0_DISP+i),
+			RSC_MEM_USE_VIRTUL ? "virtual" : "physical", ret);
+			ret = -1;
+		}
+		#endif
+	}
+	return ret;
+}
+#endif
+
 /*******************************************************************************
  *
  ******************************************************************************/
@@ -1360,6 +1405,10 @@ static void RSC_EnableClock(bool En)
 {
 #if defined(EP_NO_CLKMGR)
 	unsigned int setReg;
+#endif
+
+#ifdef CONFIG_MTK_IOMMU_V2
+	int ret = 0;
 #endif
 
 	if (En) {		/* Enable clock. */
@@ -1394,6 +1443,14 @@ static void RSC_EnableClock(bool En)
 		spin_lock(&(RSCInfo.SpinLockRSC));
 		g_u4EnableClockCount++;
 		spin_unlock(&(RSCInfo.SpinLockRSC));
+
+#ifdef CONFIG_MTK_IOMMU_V2
+		if (g_u4EnableClockCount == 1) {
+			ret = m4u_control_iommu_port();
+			if (ret)
+				LOG_ERR("cannot config M4U IOMMU PORTS\n");
+		}
+#endif
 	} else {		/* Disable clock. */
 
 		/* LOG_DBG("Dpe clock disabled. g_u4EnableClockCount: %d.",
@@ -2876,6 +2933,14 @@ static signed int RSC_probe(struct platform_device *pDev)
 			nr_RSC_devs, pDev->dev.of_node->name);
 		return -ENOMEM;
 	}
+
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+		*(RSC_dev->dev->dma_mask) =
+			(u64)DMA_BIT_MASK(CONFIG_MTK_IOMMU_PGTABLE_EXT);
+		RSC_dev->dev->coherent_dma_mask =
+			(u64)DMA_BIT_MASK(CONFIG_MTK_IOMMU_PGTABLE_EXT);
+#endif
 
 	LOG_INF("nr_RSC_devs=%d, devnode(%s), map_addr=0x%lx\n", nr_RSC_devs,
 		pDev->dev.of_node->name, (unsigned long)RSC_dev->regs);
