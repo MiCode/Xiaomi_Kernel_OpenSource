@@ -979,7 +979,7 @@ static void sub_cmdq_cb(struct cmdq_cb_data data)
 			DISP_SLOT_CUR_INTERFACE_FENCE);
 
 	if (intr_fence) {
-		DDPINFO("intr fence_idx:%d", intr_fence);
+		DDPINFO("intr fence_idx:%d\n", intr_fence);
 		mtk_release_fence(session_id,
 			mtk_fence_get_interface_timeline_id(), intr_fence);
 	}
@@ -1128,6 +1128,39 @@ static void mtk_crtc_update_hrt_qos(struct drm_crtc *crtc)
 		*(unsigned int *)(cmdq_buf->va_base + DISP_SLOT_CUR_HRT_LEVEL) =
 				NO_PENDING_HRT;
 	}
+}
+
+static void mtk_crtc_enable_iommu(struct mtk_drm_crtc *mtk_crtc,
+			   struct cmdq_pkt *handle)
+{
+	int i, j, p_mode;
+	struct mtk_ddp_comp *comp;
+
+	for_each_comp_in_all_crtc_mode(comp, mtk_crtc, i, j, p_mode)
+		mtk_ddp_comp_iommu_enable(comp, handle);
+}
+
+void mtk_crtc_enable_iommu_runtime(struct mtk_drm_crtc *mtk_crtc,
+			   struct cmdq_pkt *handle)
+{
+	int i, j;
+	struct mtk_ddp_comp *comp;
+	struct mtk_ddp_fb_info fb_info;
+	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
+	struct mtk_drm_gem_obj *mtk_gem = to_mtk_gem_obj(priv->fbdev_bo);
+	unsigned int vramsize, fps;
+	phys_addr_t fb_base;
+
+	mtk_crtc_enable_iommu(mtk_crtc, handle);
+
+	_parse_tag_videolfb(&vramsize, &fb_base, &fps);
+	fb_info.fb_mva = mtk_gem->dma_addr;
+	fb_info.fb_size =
+		priv->fb_helper.fb->width * priv->fb_helper.fb->height / 3;
+	fb_info.fb_pa = fb_base;
+	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
+		mtk_ddp_comp_io_cmd(comp, handle, OVL_REPLACE_BOOTUP_MVA,
+				    &fb_info);
 }
 
 #ifdef MTK_DRM_CMDQ_ASYNC
@@ -1792,6 +1825,12 @@ void mtk_crtc_config_default_path(struct mtk_drm_crtc *mtk_crtc)
 	/* 2. restore OVL setting */
 	mtk_crtc_restore_plane_setting(mtk_crtc, cmdq_handle);
 
+	/* 3. Althought some of the m4u port may be enabled in LK stage.
+	 *     To make sure the driver independent, we still enable all the
+	 *     componets port here.
+	 */
+	mtk_crtc_enable_iommu(mtk_crtc, cmdq_handle);
+
 	cmdq_pkt_flush(cmdq_handle);
 	cmdq_pkt_destroy(cmdq_handle);
 }
@@ -2070,32 +2109,6 @@ static void mtk_drm_crtc_init_para(struct drm_crtc *crtc)
 	}
 }
 
-void mtk_crtc_enable_iommu(struct mtk_drm_crtc *mtk_crtc,
-			   struct cmdq_pkt *handle)
-{
-	int i, j, p_mode;
-	struct mtk_ddp_comp *comp;
-	struct mtk_ddp_fb_info fb_info;
-	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
-	struct mtk_drm_gem_obj *mtk_gem = to_mtk_gem_obj(priv->fbdev_bo);
-	unsigned int vramsize = 0, fps;
-	phys_addr_t fb_base = 0;
-
-	_parse_tag_videolfb(&vramsize, &fb_base, &fps);
-
-	for_each_comp_in_all_crtc_mode(comp, mtk_crtc, i, j, p_mode) {
-		mtk_ddp_comp_iommu_enable(comp, handle);
-	}
-
-	fb_info.fb_mva = mtk_gem->dma_addr;
-	fb_info.fb_size =
-		priv->fb_helper.fb->width * priv->fb_helper.fb->height / 3;
-	fb_info.fb_pa = fb_base;
-	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
-		mtk_ddp_comp_io_cmd(comp, handle, OVL_REPLACE_BOOTUP_MVA,
-				    &fb_info);
-}
-
 void mtk_crtc_first_enable_ddp_config(struct mtk_drm_crtc *mtk_crtc)
 {
 	struct cmdq_pkt *cmdq_handle;
@@ -2117,7 +2130,7 @@ void mtk_crtc_first_enable_ddp_config(struct mtk_drm_crtc *mtk_crtc)
 #endif
 
 	/*3. Enable M4U port and replace OVL address to mva */
-	mtk_crtc_enable_iommu(mtk_crtc, cmdq_handle);
+	mtk_crtc_enable_iommu_runtime(mtk_crtc, cmdq_handle);
 
 	/*4. Enable Frame done IRQ */
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
@@ -2461,11 +2474,39 @@ static void mtk_crtc_wb_comp_config(struct drm_crtc *crtc,
 		addr, state->prop_val[CRTC_PROP_INTF_FENCE_IDX], ~0);
 }
 
+int mtk_crtc_gec_flush_check(struct drm_crtc *crtc)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
+	struct mtk_ddp_comp *output_comp = NULL;
+
+	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+	if (output_comp) {
+		switch (output_comp->id) {
+		case DDP_COMPONENT_WDMA0:
+		case DDP_COMPONENT_WDMA1:
+			if (!state->prop_val[CRTC_PROP_OUTPUT_ENABLE])
+				return -EINVAL;
+			break;
+		default:
+			break;
+		}
+	}
+
+	return 0;
+}
+
 void mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 	void *cb_data, struct cmdq_pkt *cmdq_handle)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
+
+	if (mtk_crtc_gec_flush_check(crtc) < 0)	{
+		cmdq_pkt_destroy(cmdq_handle);
+		kfree(cb_data);
+		return;
+	}
 
 	if (mtk_crtc_is_dc_mode(crtc) ||
 		state->prop_val[CRTC_PROP_OUTPUT_ENABLE])
@@ -3551,10 +3592,6 @@ static void mtk_crtc_create_wb_path_cmdq(struct drm_crtc *crtc,
 	addr = cmdq_buf->pa_base + DISP_SLOT_RDMA_FB_ID;
 	cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base,
 		addr, 0, ~0);
-	cmdq_pkt_clear_event(cmdq_handle,
-		mtk_crtc->gce_obj.event[EVENT_WDMA0_EOF]);
-	cmdq_pkt_wait_no_clear(cmdq_handle,
-		mtk_crtc->gce_obj.event[EVENT_WDMA0_EOF]);
 }
 
 static void mtk_crtc_destroy_wb_path_cmdq(struct drm_crtc *crtc,
@@ -3646,6 +3683,10 @@ static int __mtk_crtc_composition_wb(
 	if (mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base))
 		cmdq_pkt_set_event(cmdq_handle,
 				   mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
+	cmdq_pkt_clear_event(cmdq_handle,
+		mtk_crtc->gce_obj.event[EVENT_WDMA0_EOF]);
+	cmdq_pkt_wait_no_clear(cmdq_handle,
+		mtk_crtc->gce_obj.event[EVENT_WDMA0_EOF]);
 	cmdq_pkt_flush(cmdq_handle);
 	cmdq_pkt_destroy(cmdq_handle);
 

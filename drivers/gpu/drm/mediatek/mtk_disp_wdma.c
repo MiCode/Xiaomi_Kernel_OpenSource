@@ -686,13 +686,11 @@ static int wdma_config_yuv420(struct mtk_ddp_comp *comp,
 	unsigned int stride = dstPitch;
 	int has_v = 1;
 
-	if (fmt != DRM_FORMAT_UYVY && fmt != DRM_FORMAT_YUYV &&
-		fmt != DRM_FORMAT_YUV420 && fmt != DRM_FORMAT_YVU420 &&
+	if (fmt != DRM_FORMAT_YUV420 && fmt != DRM_FORMAT_YVU420 &&
 		fmt != DRM_FORMAT_NV12 && fmt != DRM_FORMAT_NV21)
 		return 0;
 
-	if (fmt == DRM_FORMAT_UYVY || fmt == DRM_FORMAT_YUYV ||
-			fmt == DRM_FORMAT_YUV420 || fmt == DRM_FORMAT_YVU420) {
+	if (fmt == DRM_FORMAT_YUV420 || fmt == DRM_FORMAT_YVU420) {
 		y_size = stride * Height;
 		u_stride = ALIGN_TO(stride / 2, 16);
 		u_size = u_stride * Height / 2;
@@ -715,6 +713,25 @@ static int wdma_config_yuv420(struct mtk_ddp_comp *comp,
 	mtk_ddp_write_mask(comp, u_stride,
 			DISP_REG_WDMA_DST_UV_PITCH, 0xFFFF, handle);
 	return 0;
+}
+
+static bool is_yuv(uint32_t format)
+{
+	switch (format) {
+	case DRM_FORMAT_YUV420:
+	case DRM_FORMAT_YVU420:
+	case DRM_FORMAT_NV12:
+	case DRM_FORMAT_NV21:
+	case DRM_FORMAT_YUYV:
+	case DRM_FORMAT_YVYU:
+	case DRM_FORMAT_UYVY:
+	case DRM_FORMAT_VYUY:
+		return true;
+	default:
+		break;
+	}
+
+	return false;
 }
 
 static void mtk_wdma_config(struct mtk_ddp_comp *comp,
@@ -742,13 +759,13 @@ static void mtk_wdma_config(struct mtk_ddp_comp *comp,
 	size = (cfg->w & 0x3FFFU) + ((cfg->h << 16U) & 0x3FFF0000U);
 	mtk_ddp_write(comp, size, DISP_REG_WDMA_SRC_SIZE, handle);
 	mtk_ddp_write(comp, (cfg->y << 16) | cfg->x,
-	DISP_REG_WDMA_CLIP_COORD, handle);
+		DISP_REG_WDMA_CLIP_COORD, handle);
 	mtk_ddp_write(comp, (cfg->h << 16) | cfg->w,
-	DISP_REG_WDMA_CLIP_SIZE, handle);
+		DISP_REG_WDMA_CLIP_SIZE, handle);
 	mtk_ddp_write_mask(comp, con, DISP_REG_WDMA_CFG,
 		WDMA_OUT_FMT | WDMA_CON_SWAP, handle);
 
-	if (drm_format_num_planes(comp->fb->format->format) != 1) {
+	if (is_yuv(comp->fb->format->format)) {
 		wdma_config_yuv420(comp, comp->fb->format->format,
 				comp->fb->pitches[0], cfg->h, addr, handle);
 		mtk_ddp_write_mask(comp, 0,
