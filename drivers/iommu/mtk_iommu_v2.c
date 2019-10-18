@@ -3417,12 +3417,6 @@ static void mtk_iommu_pg_after_on(enum subsys_id sys)
 			continue;
 		}
 
-		if (data->poweron) {
-			pr_notice("%s, %d WARN: iommu:%d already on\n",
-				  __func__, __LINE__, data->m4uid);
-			return;
-		}
-
 		data->poweron = true;
 		ret = mtk_iommu_reg_restore(data);
 		if (ret) {
@@ -3447,15 +3441,9 @@ static void mtk_iommu_pg_before_off(enum subsys_id sys)
 
 		data = mtk_iommu_get_m4u_data(i);
 		if (!data) {
-			pr_notice("%s, %d iommu:%d is null\n",
+			pr_notice("%s, %d iommu %d is null\n",
 				  __func__, __LINE__, i);
 			continue;
-		}
-
-		if (!data->poweron) {
-			pr_notice("%s, %d WARN: iommu:%d already off\n",
-				  __func__, __LINE__, data->m4uid);
-			return;
 		}
 
 		ret = mtk_iommu_reg_backup(data);
