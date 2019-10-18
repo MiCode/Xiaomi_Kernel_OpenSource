@@ -58,19 +58,20 @@ void random_delay(struct ufs_hba *hba)
 }
 void wdt_pmic_full_reset(struct ufs_hba *hba)
 {
-	/*
-	 * Cmd issue to PMIC on MT6771 will take around 20us ~ 30us, in order
-	 * to speed up VEMC disable time, we disable VEMC first coz PMIC cold
-	 * reset may take longer to disable VEMC in it's reset flow. Can not
-	 * use regulator_disable() here because it can not use in  preemption
-	 * disabled context. Use pmic raw API without nlock instead.
-	 */
+	/* power off device VCC */
 	pmic_set_register_value_nolock(PMIC_RG_LDO_VEMC_EN, 0);
 
-	/* Need reset external LDO for VUFS18, UFS needs VEMC&VUFS18 reset at
-	 * the same time
+	/* power off device VCCQ2 1.8V */
+	pmic_set_register_value_nolock(PMIC_RG_LDO_VUFS_EN, 0);
+
+	/* Disable VIO18 is to power off device VCCQ 1.2V, but
+	 * since this is an important power source. This will
+	 * cause PMIC shutdown. At this cause all of the power
+	 * will be shutdown instantly.
+	 *
+	 * Press power key or plug in USB to power up again.
 	 */
-	pmic_set_register_value_nolock(PMIC_RG_STRUP_EXT_PMIC_SEL, 0x1);
+	pmic_set_register_value_nolock(PMIC_RG_LDO_VIO18_EN, 0);
 
 	/* PMIC cold reset */
 	pmic_set_register_value_nolock(PMIC_RG_CRST, 1);
@@ -82,17 +83,16 @@ void wdt_pmic_full_reset(struct ufs_hba *hba)
 void ufs_mtk_pltfrm_gpio_trigger_and_debugInfo_dump(struct ufs_hba *hba)
 {
 #ifdef UPMU_READY
-	int vcc_enabled, vcc_value, vccq2_enabled;
+	int vcc_enabled, vcc_0_value, vcc_1_value, vccq2_enabled;
 
 	vcc_enabled = pmic_get_register_value(PMIC_RG_LDO_VEMC_EN);
-	vcc_value = pmic_get_register_value(PMIC_RG_VEMC_VOSEL);
+	vcc_0_value = pmic_get_register_value(PMIC_RG_VEMC_VOSEL_0);
+	vcc_1_value = pmic_get_register_value(PMIC_RG_VEMC_VOSEL_1);
 	vccq2_enabled = pmic_get_register_value(PMIC_DA_EXT_PMIC_EN1);
 	/* dump vcc, vccq2 info */
 	dev_info(hba->dev,
-		"vcc_enabled:%d, vcc_value:%d, vccq2_enabled:%d!!!\n",
-		vcc_enabled, vcc_value, vccq2_enabled);
-	/* dump clock buffer */
-	clk_buf_dump_clkbuf_log();
+		"vcc_enabled:%d, vcc_0_value:%d, vcc_1_value:%d, vccq2_enabled:%d!!!\n",
+		vcc_enabled, vcc_0_value, vcc_1_value, vccq2_enabled);
 #endif
 }
 

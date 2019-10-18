@@ -20,7 +20,7 @@
 /* #define SPM_READY */ /* need platform porting */
 
 /* If UPMU function not ready, comment this define */
-/* #define UPMU_READY */
+#define UPMU_READY
 #endif
 
 #define UFS_REF_CLK_CTRL_BY_UFSHCI
