@@ -36,7 +36,7 @@ ccflags-y += -I$(srctree)/drivers/staging/android/ion
 ccflags-y += -I$(srctree)/arch/arm64/include/asm/
 
 
-obj-m += mdla.o
+obj-y += mdla.o
 mdla-y += $(VDIR)/mdla_main.o $(VDIR)/mdla_debug.o $(VDIR)/mdla_util.o $(VDIR)/mdla_power_ctrl.o $(VDIR)/mdla_cmd_proc.o
 mdla-y += $(VDIR)/mdla_debug.o
 mdla-y += $(PDIR)/mdla_plat.o

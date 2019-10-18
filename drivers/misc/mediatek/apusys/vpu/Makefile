@@ -46,7 +46,7 @@ ccflags-y += -I$(srctree)/drivers/devfreq
 # SMI debug
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/
 
-obj-m += vpu.o
+obj-y += vpu.o
 
 vpu-$(CONFIG_MTK_APUSYS_VPU_DEBUG) += $(VDIR)/vpu_debug.o $(PDIR)/vpu_dump.o
 vpu-y += $(VDIR)/vpu_main.o $(VDIR)/vpu_algo.o

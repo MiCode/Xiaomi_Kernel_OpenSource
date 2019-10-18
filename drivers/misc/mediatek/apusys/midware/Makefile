@@ -30,7 +30,7 @@ ccflags-y += -I$(obj)/../power/$(APUSYS_VERSION_POWER)/
 ccflags-y += -I$(obj)/../power/$(APUSYS_VERSION_POWER)/$(MTK_PLATFORM)/
 ccflags-y += -I$(obj)/$(UTIL_DIR)/
 
-obj-m += apusys.o
+obj-y += apusys.o
 apusys-$(CONFIG_FTRACE) += $(UTIL_DIR)/apusys_trace.o
 apusys-objs += $(APUSYS_VERSION_MIDWARE)/apusys_drv.o
 apusys-objs += $(APUSYS_VERSION_MIDWARE)/apusys_user.o
