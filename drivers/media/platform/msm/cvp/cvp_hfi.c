@@ -1442,6 +1442,9 @@ static int __set_clocks(struct iris_hfi_device *device, u32 freq)
 	iris_hfi_for_each_clock(device, cl) {
 		if (cl->has_scaling) {/* has_scaling */
 			device->clk_freq = freq;
+			if (msm_cvp_clock_voting)
+				freq = msm_cvp_clock_voting;
+
 			rc = clk_set_rate(cl->clk, freq);
 			if (rc) {
 				dprintk(CVP_ERR,
