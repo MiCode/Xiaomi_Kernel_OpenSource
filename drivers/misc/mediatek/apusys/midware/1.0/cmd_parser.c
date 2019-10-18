@@ -107,7 +107,7 @@ static int _set_data_to_cmdbuf(struct apusys_subcmd *sc)
 	/* bandwidth */
 	sc->c_hdr->bandwidth = sc->bw;
 	/* tcm usage */
-	sc->c_hdr->bandwidth = sc->tcm_usage;
+	sc->c_hdr->tcm_usage = sc->tcm_usage;
 
 	return 0;
 }
