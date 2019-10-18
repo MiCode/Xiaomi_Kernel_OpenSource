@@ -1185,18 +1185,53 @@ static void mtk_output_doze_switch(struct mtk_dsi *dsi)
 	return;
 }
 
-static int mtk_dsi_stop_vdo_mode(struct mtk_ddp_comp *comp, void *handle);
+static int mtk_dsi_stop_vdo_mode(struct mtk_dsi *dsi, void *handle);
+static int mtk_dsi_wait_cmd_frame_done(struct mtk_dsi *dsi)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(dsi->encoder.crtc);
+	struct cmdq_pkt *handle;
+	bool new_doze_state = mtk_dsi_doze_state(dsi);
+
+	mtk_crtc_pkt_create(&handle,
+		&mtk_crtc->base,
+		mtk_crtc->gce_obj.client[CLIENT_CFG]);
+
+	/* wait frame done */
+	cmdq_pkt_wait_no_clear(handle,
+		mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
+
+	/* When system ready to go to Doze suspend stage, it has to
+	 * update the latest image before entering it to make sure display
+	 * correctly. Since it's hard to know how many frame config GCE
+	 * commands are there in the waiting queue, so here we force
+	 * frame updating and wait for the latest frame done.
+	 */
+	if (new_doze_state) {
+		cmdq_pkt_set_event(handle,
+			mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
+		cmdq_pkt_wait_no_clear(handle,
+			mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
+	}
+
+	cmdq_pkt_clear_event(
+		handle,
+		mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
+
+	cmdq_pkt_flush(handle);
+	cmdq_pkt_destroy(handle);
+	return 0;
+}
 
 static void mtk_output_dsi_disable(struct mtk_dsi *dsi)
 {
-	bool doze_enabled = mtk_dsi_doze_state(dsi);
+	bool new_doze_state = mtk_dsi_doze_state(dsi);
 
-	DDPINFO("%s+ doze_enabled:%d\n", __func__, doze_enabled);
+	DDPINFO("%s+ doze_enabled:%d\n", __func__, new_doze_state);
 	if (!dsi->output_en)
 		return;
 
 	/* 1. If not doze mode, turn off backlight */
-	if (dsi->panel && !doze_enabled) {
+	if (dsi->panel && !new_doze_state) {
 		if (drm_panel_disable(dsi->panel)) {
 			DRM_ERROR("failed to disable the panel\n");
 			return;
@@ -1204,29 +1239,16 @@ static void mtk_output_dsi_disable(struct mtk_dsi *dsi)
 	}
 
 	/* 2. If VDO mode, stop it and set to CMD mode */
-	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
-		struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(dsi->encoder.crtc);
-		struct cmdq_pkt *handle;
-
-		mtk_crtc_pkt_create(&handle, &mtk_crtc->base,
-			mtk_crtc->gce_obj.client[CLIENT_CFG]);
-
-		/* wait frame done */
-		cmdq_pkt_wait_no_clear(handle,
-				       mtk_crtc->gce_obj.event[EVENT_VDO_EOF]);
-
-		/* stop vdo mode */
-		mtk_dsi_stop_vdo_mode(&dsi->ddp_comp, handle);
-
-		cmdq_pkt_flush(handle);
-		cmdq_pkt_destroy(handle);
-	}
+	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp))
+		mtk_dsi_stop_vdo_mode(dsi, NULL);
+	else
+		mtk_dsi_wait_cmd_frame_done(dsi);
 
 	/* 3. turn off panel or set to doze mode */
 	if (dsi->panel) {
-		if (!doze_enabled && drm_panel_unprepare(dsi->panel))
+		if (!new_doze_state && drm_panel_unprepare(dsi->panel))
 			DRM_ERROR("failed to unprepare the panel\n");
-		else if (doze_enabled != dsi->doze_enabled) {
+		else if (new_doze_state != dsi->doze_enabled) {
 			if (dsi->ext && dsi->ext->funcs && dsi->ext->funcs->aod)
 				dsi->ext->funcs->aod(NULL, dsi->doze_enabled);
 		}
@@ -1241,7 +1263,7 @@ static void mtk_output_dsi_disable(struct mtk_dsi *dsi)
 
 	mtk_dsi_poweroff(dsi);
 	dsi->output_en = false;
-	dsi->doze_enabled = doze_enabled;
+	dsi->doze_enabled = new_doze_state;
 	DDPINFO("%s-\n", __func__);
 }
 
@@ -1467,17 +1489,32 @@ static void _mtk_dsi_set_mode(struct mtk_ddp_comp *comp, void *handle,
 }
 
 /* STOP VDO MODE */
-static int mtk_dsi_stop_vdo_mode(struct mtk_ddp_comp *comp, void *handle)
+static int mtk_dsi_stop_vdo_mode(struct mtk_dsi *dsi, void *handle)
 {
-	struct mtk_dsi *dsi = container_of(comp, struct mtk_dsi, ddp_comp);
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(dsi->encoder.crtc);
+	int need_create_hnd = 0;
 
-	_mtk_dsi_set_mode(comp, handle, CMD_MODE);
+	if (!handle)
+		need_create_hnd = 1;
+	if (need_create_hnd) {
+		mtk_crtc_pkt_create((struct cmdq_pkt **)&handle,
+			&mtk_crtc->base,
+			mtk_crtc->gce_obj.client[CLIENT_CFG]);
 
-	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_START, 0,
-		       ~0);
-
+		/* wait frame done */
+		cmdq_pkt_wait_no_clear(handle,
+		   mtk_crtc->gce_obj.event[EVENT_VDO_EOF]);
+	}
+	/* stop vdo mode */
+	_mtk_dsi_set_mode(&dsi->ddp_comp, handle, CMD_MODE);
+	cmdq_pkt_write(handle, dsi->ddp_comp.cmdq_base,
+		dsi->ddp_comp.regs_pa + DSI_START, 0, ~0);
 	mtk_dsi_poll_for_idle(dsi, handle);
 
+	if (need_create_hnd) {
+		cmdq_pkt_flush(handle);
+		cmdq_pkt_destroy(handle);
+	}
 	return 0;
 }
 
@@ -2165,7 +2202,7 @@ void mipi_dsi_dcs_write_gce(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
 
 	/* If vdo, stop it */
 	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp))
-		mtk_dsi_stop_vdo_mode(&dsi->ddp_comp, handle);
+		mtk_dsi_stop_vdo_mode(dsi, handle);
 	else
 		mtk_dsi_poll_for_idle(dsi, handle);
 
@@ -2405,7 +2442,7 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		mtk_dsi_start_vdo_mode(comp, handle);
 		break;
 	case DSI_STOP_VDO_MODE:
-		mtk_dsi_stop_vdo_mode(comp, handle);
+		mtk_dsi_stop_vdo_mode(dsi, handle);
 		break;
 	case ESD_CHECK_READ:
 		mtk_dsi_esd_read(comp, handle, (uintptr_t)params);
