@@ -5326,6 +5326,7 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 	/* clear corresponding bits of completed commands */
 	hba->outstanding_reqs ^= completed_reqs;
 	/* MTK PATCH */
+	ufshcd_vops_complete_xfer_req(hba);
 	ufs_mtk_biolog_check(hba->outstanding_reqs);
 	ufshcd_vops_res_ctrl(hba, UFS_RESCTL_CMD_COMP);
 	ufs_mtk_auto_hiber8_quirk_handler(hba, true);
