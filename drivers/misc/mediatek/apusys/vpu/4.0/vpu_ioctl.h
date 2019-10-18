@@ -347,9 +347,7 @@ struct vpu_request {
 	/* driver usage only, fd in user space / ion handle in kernel */
 	uint64_t buf_ion_infos[VPU_MAX_NUM_PORTS * 3];
 	struct vpu_power power_param;
-	uint64_t busy_time;
-	uint32_t bandwidth;
-	uint8_t priority;
+	uint64_t busy_time;      /* ns */
 };
 
 struct vpu_status {

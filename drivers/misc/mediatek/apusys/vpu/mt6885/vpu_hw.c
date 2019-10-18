@@ -27,6 +27,21 @@
 #include "vpu_trace.h"
 #include <memory/mediatek/emi.h>
 
+#define VPU_TS_INIT(a) \
+	struct timespec a##_s, a##_e
+
+#define VPU_TS_START(a) \
+	ktime_get_ts(&a##_s)
+
+#define VPU_TS_END(a) \
+	ktime_get_ts(&a##_e)
+
+#define VPU_TS_NS(a) \
+	((uint64_t)(timespec_to_ns(&a##_e) - timespec_to_ns(&a##_s)))
+
+#define VPU_TS_US(a) \
+	(VPU_TS_NS(a) / 1000)
+
 static int vpu_check_precond(struct vpu_device *vd);
 static int vpu_check_postcond(struct vpu_device *vd);
 
@@ -263,9 +278,9 @@ int vpu_execute_d2d(struct vpu_device *vd, struct vpu_request *req)
 {
 	int ret;
 
-	/* profiling */
-	struct timespec start, end;
-	uint64_t latency = 0;
+	VPU_TS_INIT(d2d);
+
+	req->busy_time = 0;
 
 	// TODO: add met trace
 	ret = vpu_check_precond(vd);
@@ -306,11 +321,9 @@ int vpu_execute_d2d(struct vpu_device *vd, struct vpu_request *req)
 
 
 //	MET_Events_Trace(1, core, request->algo_id[core]);
-	// TODO: add QOS
-//	vpu_cmd_qos_start(vd->id);
+	VPU_TS_START(d2d);
 
 	vpu_run(vd);
-	ktime_get_ts(&start);
 
 	ret = wait_command(vd);
 	vpu_stall(vd);
@@ -331,9 +344,7 @@ int vpu_execute_d2d(struct vpu_device *vd, struct vpu_request *req)
 		goto err_cmd;
 	}
 
-	ktime_get_ts(&end);
-	latency += (uint64_t)(timespec_to_ns(&end) -
-		timespec_to_ns(&start));
+	VPU_TS_END(d2d);
 
 	// TODO: add MET trace
 	// vpu_trace_end();
@@ -342,16 +353,15 @@ int vpu_execute_d2d(struct vpu_device *vd, struct vpu_request *req)
 	req->status = (vpu_check_postcond(vd)) ?
 			VPU_REQ_STATUS_FAILURE : VPU_REQ_STATUS_SUCCESS;
 
-	req->busy_time = (uint64_t)latency;
-
-	// TODO: add QOS
-//	req->bandwidth = vpu_cmd_qos_end(vd->id);
+	req->busy_time = VPU_TS_NS(d2d);
 
 err_cmd:
 	vpu_trace_end("vpu_%d|req_status: %d, ret: %d",
 		      vd->id, req->status, ret);
-
 out:
+	vpu_cmd_debug("%s: vpu%d: %s: time: %llu ns, ret: %d\n",
+		__func__, vd->id, vd->algo_curr->a.name,
+		req->busy_time, ret);
 	return ret;
 }
 

@@ -92,7 +92,9 @@ static int vpu_ucmd_handle(struct vpu_device *vd,
 /* interface to APUSYS */
 int vpu_send_cmd(int op, void *hnd, struct apusys_device *adev)
 {
+	int ret = 0;
 	struct vpu_device *vd;
+	struct vpu_request *req;
 	struct apusys_cmd_hnd *cmd;
 	struct apusys_power_hnd *pw;
 	struct apusys_preempt_hnd *pmt;
@@ -132,13 +134,16 @@ int vpu_send_cmd(int op, void *hnd, struct apusys_device *adev)
 		break;
 	case APUSYS_CMD_EXECUTE:
 		cmd = (struct apusys_cmd_hnd *)hnd;
+		req = (struct vpu_request *)cmd->kva;
 		vpu_trace_begin("%s|cmd execute cmd_id: 0x%08llx",
 				__func__, cmd->cmd_id);
 		vpu_cmd_debug("%s:vpu%d EXECUTE, kva: %lx cmd_id: 0x%llx subcmd_idx: 0x%x\n",
 			      __func__, vd->id, (unsigned long)cmd->kva,
-				  cmd->cmd_id, cmd->subcmd_idx);
+			      cmd->cmd_id, cmd->subcmd_idx);
+		ret = vpu_execute(vd, req);
 		vpu_trace_end("%s|end", __func__);
-		return vpu_execute(vd, (struct vpu_request *)cmd->kva);
+		cmd->ip_time = req->busy_time / 1000;
+		return ret;
 	case APUSYS_CMD_PREEMPT:
 		pmt = (struct apusys_preempt_hnd *)hnd;
 		vpu_cmd_debug("%s:vpu%d PREEMPT, new cmd kva: %lx\n",
