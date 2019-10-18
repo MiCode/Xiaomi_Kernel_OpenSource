@@ -405,6 +405,7 @@ int pmu_cmd_handle(struct mdla_dev *mdla_info)
 int pmu_command_prepare(struct mdla_dev *mdla_info,
 	struct apusys_cmd_hnd *apusys_hd)
 {
+	mdla_info->pmu.pmu_hnd = (struct mdla_pmu_hnd *)apusys_hd->pmu_kva;
 
 	/*mdla pmu mode switch from ioctl or apusys cmd*/
 	if (cfg_pmu_percmd_mode[mdla_info->mdlaid] < CMD_MODE_MAX)
@@ -417,7 +418,7 @@ int pmu_command_prepare(struct mdla_dev *mdla_info,
 		return -1;
 
 	mdla_info->pmu.cmd_id = apusys_hd->cmd_id;
-	mdla_info->pmu.pmu_hnd = (struct mdla_pmu_hnd *)apusys_hd->pmu_kva;
+
 	mdla_info->pmu.PMU_res_buf_addr0 = apusys_hd->cmd_entry +
 		mdla_info->pmu.pmu_hnd->offset_to_PMU_res_buf0;
 	mdla_info->pmu.PMU_res_buf_addr1 = apusys_hd->cmd_entry +
