@@ -191,7 +191,6 @@ s32 smi_bus_prepare_enable(const u32 id, const char *user)
 	case 1:
 	case 5:
 	case 7:
-	case 11:
 	case 14:
 	case 17:
 		ret = smi_unit_prepare_enable(21); // disp
@@ -222,6 +221,7 @@ s32 smi_bus_prepare_enable(const u32 id, const char *user)
 		if (ret)
 			return ret;
 		break;
+	case 11:
 	case 19:
 	case 20:
 		ret = smi_unit_prepare_enable(21); // disp
@@ -378,7 +378,6 @@ s32 smi_bus_disable_unprepare(const u32 id, const char *user)
 	case 1:
 	case 5:
 	case 7:
-	case 11:
 	case 14:
 	case 17:
 		smi_unit_disable_unprepare(25); // disp-subcom1
@@ -397,6 +396,7 @@ s32 smi_bus_disable_unprepare(const u32 id, const char *user)
 		smi_unit_disable_unprepare(26); // mdp-subcom
 		smi_unit_disable_unprepare(22); // mdp
 		break;
+	case 11:
 	case 19:
 	case 20:
 		smi_unit_disable_unprepare(27); // mdp-subcom1
