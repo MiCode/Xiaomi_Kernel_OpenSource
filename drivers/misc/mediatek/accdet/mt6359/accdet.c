@@ -184,6 +184,8 @@ static int accdet_auxadc_offset;
 static u32 accdet_eint_type = IRQ_TYPE_LEVEL_LOW;
 #endif
 static u32 button_press_debounce = 0x400;
+static u32 button_press_debounce_01 = 0x800;
+
 static atomic_t accdet_first;
 
 /* SW mode only, moisture vm, resister declaration */
@@ -1248,6 +1250,12 @@ static u32 adjust_eint_analog_setting(u32 eintID)
 		pmic_write_set(PMIC_RG_EINT1CONFIGACCDET_ADDR,
 			PMIC_RG_EINT1CONFIGACCDET_SHIFT);
 #endif
+		if ((accdet_dts.eint_use_ext_res == 0x3) ||
+			(accdet_dts.eint_use_ext_res == 0x4)) {
+			/*select 500k, use internal resistor */
+			pmic_write_set(PMIC_RG_EINT0HIRENB_ADDR,
+				PMIC_RG_EINT0HIRENB_SHIFT);
+		}
 	}
 	return 0;
 }
@@ -1704,6 +1712,7 @@ static inline void disable_accdet(void)
 
 	/* recover accdet debounce0,3 */
 	accdet_set_debounce(accdet_state000, cust_pwm_deb->debounce0);
+	accdet_set_debounce(accdet_state001, cust_pwm_deb->debounce1);
 	accdet_set_debounce(accdet_state011, cust_pwm_deb->debounce3);
 	pr_info("%s done IRQ-STS[0x%x]=0x%x,PWM[0x%x]=0x%x\n",
 		__func__, PMIC_ACCDET_IRQ_ADDR, pmic_read(PMIC_ACCDET_IRQ_ADDR),
@@ -1929,6 +1938,12 @@ cur_AB = pmic_read(PMIC_ACCDET_MEM_IN_ADDR) >> ACCDET_STATE_MEM_IN_OFFSET;
 			 */
 			accdet_set_debounce(accdet_state000,
 				button_press_debounce);
+
+			/* adjust debounce1 to original 0x800(64ms),
+			 * to fix miss key issue when fast press double key.
+			 */
+			accdet_set_debounce(accdet_state001,
+				button_press_debounce_01);
 			/* wk, for IOT HP */
 			accdet_set_debounce(eint_state011, 0x1);
 		} else if (cur_AB == ACCDET_STATE_AB_11) {
@@ -1999,6 +2014,14 @@ cur_AB = pmic_read(PMIC_ACCDET_MEM_IN_ADDR) >> ACCDET_STATE_MEM_IN_OFFSET;
 			} else
 				pr_info("accdet headset has been plug-out\n");
 			mutex_unlock(&accdet_eint_irq_sync_mutex);
+
+			/* adjust debounce0 and debounce1 to fix miss key issue.
+			 */
+			accdet_set_debounce(accdet_state000,
+				button_press_debounce);
+			accdet_set_debounce(accdet_state001,
+				button_press_debounce_01);
+
 			/* wk, for IOT HP */
 			accdet_set_debounce(eint_state011, 0x1);
 		} else if (cur_AB == ACCDET_STATE_AB_11) {
@@ -2933,6 +2956,15 @@ static void config_eint_init_by_mode(void)
 		pmic_write_mset(PMIC_RG_ACCDETSPARE_ADDR,
 			PMIC_RG_ACCDETSPARE_SHIFT,
 			0x3, 0x3);
+	}
+	/* new customized parameter */
+	if ((accdet_dts.eint_use_ext_res == 0x2) ||
+		(accdet_dts.eint_use_ext_res == 0x4) ||
+		(accdet_dts.eint_use_ext_res == 0x5)) {
+		/* select VTH to 2v */
+		pmic_write_mset(PMIC_RG_EINTCOMPVTH_ADDR,
+			PMIC_RG_EINTCOMPVTH_SHIFT, PMIC_RG_EINTCOMPVTH_MASK,
+			0x2);
 	}
 }
 #endif /* end of CONFIG_ACCDET_EINT_IRQ */
