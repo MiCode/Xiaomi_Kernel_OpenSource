@@ -87,6 +87,8 @@ int venc_if_get_param(struct mtk_vcodec_ctx *ctx, enum venc_get_param_type type,
 		ctx->drv_handle = (unsigned long)(inst);
 		ctx->enc_if = get_enc_common_if();
 		drv_handle_exist = 0;
+		mtk_v4l2_debug(0, "%s init drv_handle = 0x%lx",
+			__func__, ctx->drv_handle);
 	}
 
 	ret = ctx->enc_if->get_param(ctx->drv_handle, type, out);
@@ -162,6 +164,9 @@ int venc_if_encode(struct mtk_vcodec_ctx *ctx,
 	struct venc_done_result *result)
 {
 	int ret = 0;
+
+	if (ctx->drv_handle == 0)
+		return 0;
 
 	ret = ctx->enc_if->encode(ctx->drv_handle, opt, frm_buf,
 							  bs_buf, result);
