@@ -117,7 +117,7 @@ enum DVFS_FREQ apusys_opp_to_freq(enum DVFS_USER user, uint8_t opp)
 	enum DVFS_FREQ freq = DVFS_FREQ_NOT_SUPPORT;
 	enum DVFS_VOLTAGE_DOMAIN buck_domain;
 
-	if (user < 0 || user > APUSYS_DVFS_USER_NUM)
+	if (user < 0 || user >= APUSYS_DVFS_USER_NUM)
 		return freq;
 
 	buck_domain = apusys_user_to_buck_domain[user];
@@ -134,7 +134,7 @@ int8_t apusys_get_opp(enum DVFS_USER user)
 {
 	enum DVFS_VOLTAGE_DOMAIN buck_domain;
 
-	if (user < 0 || user > APUSYS_DVFS_USER_NUM)
+	if (user < 0 || user >= APUSYS_DVFS_USER_NUM)
 		return -1;
 
 	buck_domain = apusys_user_to_buck_domain[user];
@@ -149,7 +149,7 @@ int8_t apusys_get_ceiling_opp(enum DVFS_USER user)
 	uint8_t used_opp;
 	enum DVFS_VOLTAGE_DOMAIN buck_domain;
 
-	if (user < 0 || user > APUSYS_DVFS_USER_NUM)
+	if (user < 0 || user >= APUSYS_DVFS_USER_NUM)
 		return -1;
 
 	buck_domain = apusys_user_to_buck_domain[user];
@@ -234,8 +234,6 @@ buck_index < APUSYS_BUCK_NUM; buck_index++) {
 		continue;
 	#endif
 	for (user_index = 0; user_index < APUSYS_DVFS_USER_NUM; user_index++) {
-		if (buck_index == VCORE_BUCK)
-			continue;
 		if (dvfs_user_support(user_index) == false)
 			continue;
 		for (path_index = 0;
