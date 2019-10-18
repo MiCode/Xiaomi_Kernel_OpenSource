@@ -4863,7 +4863,10 @@ static int ext4_commit_super(struct super_block *sb, int sync)
 	mark_buffer_dirty(sbh);
 	if (sync) {
 		unlock_buffer(sbh);
-		error = __sync_dirty_buffer(sbh,
+		if (EXT4_SB(sb)->disable_barrier)
+			error = __sync_dirty_buffer(sbh, REQ_SYNC);
+		else
+			error = __sync_dirty_buffer(sbh,
 			REQ_SYNC | (test_opt(sb, BARRIER) ? REQ_FUA : 0));
 		if (error)
 			return error;
@@ -4995,6 +4998,8 @@ static int ext4_sync_fs(struct super_block *sb, int wait)
 		}
 	} else if (wait && test_opt(sb, BARRIER))
 		needs_barrier = true;
+	if (sbi->disable_barrier)
+		needs_barrier = false;
 	if (needs_barrier) {
 		int err;
 		err = blkdev_issue_flush(sb->s_bdev, GFP_KERNEL, NULL);

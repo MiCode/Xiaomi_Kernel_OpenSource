@@ -1480,6 +1480,9 @@ struct ext4_sb_info {
 	atomic_t s_mb_discarded;
 	atomic_t s_lock_busy;
 
+	/* disable barrier on filesystem mounted without nobarrier */
+	unsigned int disable_barrier;
+
 	/* locality groups */
 	struct ext4_locality_group __percpu *s_locality_groups;
 

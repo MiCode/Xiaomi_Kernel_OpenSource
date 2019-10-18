@@ -154,6 +154,7 @@ static int journal_submit_commit_record(journal_t *journal,
 	bh->b_end_io = journal_end_buffer_io_sync;
 
 	if (journal->j_flags & JBD2_BARRIER &&
+	    !(journal->j_flags & JBD2_NOBARRIER) &&
 	    !jbd2_has_feature_async_commit(journal))
 		ret = submit_bh(REQ_OP_WRITE,
 			REQ_SYNC | REQ_PREFLUSH | REQ_FUA, bh);
@@ -881,7 +882,8 @@ start_journal_io:
 		err = journal_wait_on_commit_record(journal, cbh);
 	if (jbd2_has_feature_async_commit(journal) &&
 	    journal->j_flags & JBD2_BARRIER) {
-		blkdev_issue_flush(journal->j_dev, GFP_NOFS, NULL);
+		if (!(journal->j_flags & JBD2_NOBARRIER))
+			blkdev_issue_flush(journal->j_dev, GFP_NOFS, NULL);
 	}
 
 	if (err)

@@ -1261,6 +1261,8 @@ JBD2_FEATURE_INCOMPAT_FUNCS(csum3,		CSUM_V3)
 						 * mode */
 #define JBD2_REC_ERR	0x080	/* The errno in the sb has been recorded */
 
+#define JBD2_NOBARRIER	0x81000000	/* Temporarily disable barrier */
+
 /*
  * Function declarations for the journaling transaction and buffer
  * management

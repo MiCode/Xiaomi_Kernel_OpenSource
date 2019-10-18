@@ -120,6 +120,8 @@ int ext4_sync_file(struct file *file, loff_t start, loff_t end, int datasync)
 		ret = __generic_file_fsync(file, start, end, datasync);
 		if (!ret)
 			ret = ext4_sync_parent(inode);
+		if (EXT4_SB(inode->i_sb)->disable_barrier)
+			goto out;
 		if (test_opt(inode->i_sb, BARRIER))
 			goto issue_flush;
 		goto out;
@@ -148,7 +150,9 @@ int ext4_sync_file(struct file *file, loff_t start, loff_t end, int datasync)
 	}
 
 	commit_tid = datasync ? ei->i_datasync_tid : ei->i_sync_tid;
-	if (journal->j_flags & JBD2_BARRIER &&
+	if (EXT4_SB(inode->i_sb)->disable_barrier)
+		needs_barrier = false;
+	else if (journal->j_flags & JBD2_BARRIER &&
 	    !jbd2_trans_will_send_data_barrier(journal, commit_tid))
 		needs_barrier = true;
 	ret = jbd2_complete_transaction(journal, commit_tid);
