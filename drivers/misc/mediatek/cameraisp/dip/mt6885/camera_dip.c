@@ -5919,7 +5919,7 @@ static signed int __init DIP_Init(void)
 					  ISP_M4U_TranslationFault_callback,
 					  NULL);
 #else
-  #ifndef CONFIG_FPGA_EARLY_PORTING   //Todo: Justin EP, mt6789 porting
+  //#ifndef CONFIG_FPGA_EARLY_PORTING   //Todo: Justin EP, mt6789 porting
 	m4u_register_fault_callback(M4U_PORT_IMGI_D1,
 			ISP_M4U_TranslationFault_callback, NULL);
 	m4u_register_fault_callback(M4U_PORT_IMGBI_D1,
@@ -5944,7 +5944,7 @@ static signed int __init DIP_Init(void)
 			ISP_M4U_TranslationFault_callback, NULL);
 	m4u_register_fault_callback(M4U_PORT_TIMGO_D1,
 			ISP_M4U_TranslationFault_callback, NULL);
- #endif
+ //#endif
 #endif
 	LOG_DBG("- X. Ret: %d.", Ret);
 	return Ret;
@@ -6006,14 +6006,12 @@ int32_t DIP_MDPClockOnCallback(uint64_t engineFlag)
 int32_t DIP_MDPDumpCallback(uint64_t engineFlag, int level)
 {
 // Justin Todo, check mt6885 support cmdq_core_query or not support
+	LOG_DBG("DIP_MDPDumpCallback");
 #if 0
 	const char *pCmdq1stErrCmd;
-
-	LOG_DBG("DIP_MDPDumpCallback");
 	pCmdq1stErrCmd = cmdq_core_query_first_err_mod();
 	if (pCmdq1stErrCmd != NULL) {
 		CMDQ_ERR("Cmdq 1st Error:%s", pCmdq1stErrCmd);
-
 		if (strncmp(pCmdq1stErrCmd, "DIP", 3) == 0) {
 			CMDQ_ERR("DIP is 1st Error!!");
 			g_dip1sterr = DIP_GCE_EVENT_DIP;
