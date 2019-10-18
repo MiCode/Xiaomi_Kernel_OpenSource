@@ -112,51 +112,52 @@ int vpu_send_cmd(int op, void *hnd, struct apusys_device *adev)
 	switch (op) {
 	case APUSYS_CMD_POWERON:
 		pw = (struct apusys_power_hnd *)hnd;
-		vpu_cmd_debug("%s:v%d APUSYS_CMD_POWERON, boost: %d, opp: %d, timeout: %d\n",
+		vpu_cmd_debug("%s:vpu%d POWERON, boost: %d, opp: %d, timeout: %d\n",
 			      __func__, vd->id,
 			      pw->boost_val, pw->opp, pw->timeout);
 		return vpu_pwr_up(vd, pw->boost_val,
 			(pw->timeout ? VPU_PWR_OFF_LATENCY : 0));
 	case APUSYS_CMD_POWERDOWN:
-		vpu_cmd_debug("%s:v%d APUSYS_CMD_POWERDOWN\n",
+		vpu_cmd_debug("%s:vpu%d POWERDOWN\n",
 			      __func__, vd->id);
 		vpu_pwr_down(vd);
 		return 0;
 	case APUSYS_CMD_RESUME:
-		vpu_cmd_debug("%s:v%d APUSYS_CMD_RESUME\n",
+		vpu_cmd_debug("%s:vpu%d RESUME\n",
 			      __func__, vd->id);
 		break;
 	case APUSYS_CMD_SUSPEND:
-		vpu_cmd_debug("%s:v%d APUSYS_CMD_SUSPEND\n",
+		vpu_cmd_debug("%s:vpu%d SUSPEND\n",
 			      __func__, vd->id);
 		break;
 	case APUSYS_CMD_EXECUTE:
 		cmd = (struct apusys_cmd_hnd *)hnd;
 		vpu_trace_begin("%s|cmd execute cmd_id: 0x%08llx",
 				__func__, cmd->cmd_id);
-		vpu_cmd_debug("%s:v%d APUSYS_CMD_EXECUTE, kva: %lx\n",
-			      __func__, vd->id, (unsigned long)cmd->kva);
+		vpu_cmd_debug("%s:vpu%d EXECUTE, kva: %lx cmd_id: 0x%llx subcmd_idx: 0x%x\n",
+			      __func__, vd->id, (unsigned long)cmd->kva,
+				  cmd->cmd_id, cmd->subcmd_idx);
 		vpu_trace_end("%s|end", __func__);
 		return vpu_execute(vd, (struct vpu_request *)cmd->kva);
 	case APUSYS_CMD_PREEMPT:
 		pmt = (struct apusys_preempt_hnd *)hnd;
-		vpu_cmd_debug("%s:v%d APUSYS_CMD_PREEMPT, new cmd kva: %lx\n",
+		vpu_cmd_debug("%s:vpu%d PREEMPT, new cmd kva: %lx\n",
 			      __func__, vd->id,
 			      (unsigned long)pmt->new_cmd->kva);
 		break;
 	case APUSYS_CMD_FIRMWARE:
 		fw = (struct apusys_firmware_hnd *)hnd;
-		vpu_cmd_debug("%s:v%d APUSYS_CMD_FIRMWARE, op: %d, name: %s\n",
+		vpu_cmd_debug("%s:vpu%d FIRMWARE, op: %d, name: %s\n",
 			      __func__, vd->id, fw->op, fw->name);
 		return vpu_firmware(vd, fw);
 	case APUSYS_CMD_USER:
 		ucmd = (struct apusys_usercmd_hnd *)hnd;
-		vpu_cmd_debug("%s:v%d APUSYS_CMD_USER, op: 0x%x size %d\n",
+		vpu_cmd_debug("%s:vpu%d USER, op: 0x%x size %d\n",
 			      __func__, vd->id,
 			      *(uint32_t *)ucmd->kva, ucmd->size);
 		return vpu_ucmd_handle(vd, ucmd);
 	default:
-		vpu_cmd_debug("%s:v%d unknown command: %d\n",
+		vpu_cmd_debug("%s:vpu%d unknown command: %d\n",
 			      __func__, vd->id, op);
 		break;
 	}
