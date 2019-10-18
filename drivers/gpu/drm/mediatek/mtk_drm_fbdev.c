@@ -307,6 +307,8 @@ static int mtk_drm_fb_add_one_connector(struct drm_device *dev,
 			break;
 		}
 	}
+	drm_connector_list_iter_end(&conn_iter);
+
 	return ret;
 }
 
