@@ -96,34 +96,42 @@ extern int slbc_power_off(struct slbc_data *data);
 extern int slbc_secure_on(struct slbc_data *data);
 extern int slbc_secure_off(struct slbc_data *data);
 #else
+__attribute__ ((weak))
 int register_slbc_ops(struct slbc_ops *ops)
 {
 	return -EDISABLED;
 };
+__attribute__ ((weak))
 int unregister_slbc_ops(struct slbc_ops *ops)
 {
 	return -EDISABLED;
 };
+__attribute__ ((weak))
 int slbc_request(struct slbc_data *data)
 {
 	return -EDISABLED;
 };
+__attribute__ ((weak))
 int slbc_release(struct slbc_data *data)
 {
 	return -EDISABLED;
 };
+__attribute__ ((weak))
 int slbc_power_on(struct slbc_data *data)
 {
 	return -EDISABLED;
 };
+__attribute__ ((weak))
 int slbc_power_off(struct slbc_data *data)
 {
 	return -EDISABLED;
 };
+__attribute__ ((weak))
 int slbc_secure_on(struct slbc_data *data)
 {
 	return -EDISABLED;
 };
+__attribute__ ((weak))
 int slbc_secure_off(struct slbc_data *data)
 {
 	return -EDISABLED;
