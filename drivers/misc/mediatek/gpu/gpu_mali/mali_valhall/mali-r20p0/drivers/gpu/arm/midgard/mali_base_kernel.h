@@ -917,7 +917,7 @@ typedef struct base_jd_atom_v2 {
 	u8 jobslot;			    /**< Job slot to use when BASE_JD_REQ_JOB_SLOT is specified */
 	base_jd_core_req core_req;          /**< core requirements */
 #if defined(MTK_GPU_BM_2)
-        //u32 frame_nr;                   /** frame number to the atom */
+        u32 frame_nr;                   /** frame number to the atom */
 #endif
 } base_jd_atom_v2;
 

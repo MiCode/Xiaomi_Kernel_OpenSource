@@ -1317,7 +1317,7 @@ void kbase_gpu_complete_hw(struct kbase_device *kbdev, int js,
                                 kbdev->v1->ctx = (u32)next_katom->kctx->id;
                                 kbdev->v1->job = next_katom->work_id;
                                 kbdev->v1->freq = js;
-                                //kbdev->v1->frame = (u32)next_katom->frame_nr;
+                                kbdev->v1->frame = (u32)next_katom->frame_nr;
                         }
 #endif
 		} else {
