@@ -1276,18 +1276,17 @@ void mm_qos_update_all_request(struct plist_head *owner_list)
 			smi_hrt_clk = SHIFT_ROUND(max_ch_hrt_bw, 4);
 		pm_qos_update_request(&smi_freq_request[comm],
 			max_t(s32, smi_srt_clk, smi_hrt_clk));
-	}
-
-	if (log_level & 1 << log_smi_freq)
-		pr_notice("smi_srt_clk:%d smi_hrt_clk:%d\n",
-			smi_srt_clk, smi_hrt_clk);
+		if (log_level & 1 << log_smi_freq)
+			pr_notice("comm:%d smi_srt_clk:%d smi_hrt_clk:%d\n",
+				comm, smi_srt_clk, smi_hrt_clk);
 #ifdef MMDVFS_MMP
-	mmprofile_log_ex(
-		mmdvfs_mmp_events.smi_freq,
-		MMPROFILE_FLAG_PULSE,
-		smi_srt_clk, smi_hrt_clk);
+		mmprofile_log_ex(
+			mmdvfs_mmp_events.smi_freq,
+			MMPROFILE_FLAG_PULSE,
+			comm, (min_t(s32, smi_srt_clk, 0xffff) << 16) |
+			min_t(s32, smi_hrt_clk, 0xffff));
 #endif
-
+	}
 
 	mutex_lock(&bw_mutex);
 	/* update larb-level BW */
@@ -2227,7 +2226,7 @@ int get_larbs_info(char *buf)
 				continue;
 			length += snprintf(buf + length, MAX_DUMP - length,
 				"  [port-%u]: bw=%u setting=%u hrt=%u\n",
-				req->master_id & 0xFFFF,
+				req->master_id & 0x1F,
 				req->bw_value, req->ostd, req->hrt_value);
 			if (length >= MAX_DUMP)
 				break;
