@@ -33,7 +33,7 @@
 #include <linux/pm_qos.h>
 #include <mmdvfs_pmqos.h>
 #include "vcodec_dvfs.h"
-#define STD_VDEC_FREQ 250
+#define STD_VDEC_FREQ 249
 static struct pm_qos_request vdec_qos_req_f;
 static u64 vdec_freq;
 static u32 vdec_freq_step_size;
