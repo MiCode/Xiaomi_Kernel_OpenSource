@@ -16,6 +16,7 @@
 #include <drm/drm_fb_helper.h>
 #include <drm/drm_gem.h>
 #include <drm/drm_crtc.h>
+#include <drm/drm_atomic_helper.h>
 
 #include "mtk_drm_drv.h"
 #include "mtk_drm_fb.h"
@@ -195,27 +196,6 @@ found:
 	return 0;
 }
 
-static bool mtk_fbdev_get_width_height(struct drm_fb_helper *fb_helper,
-				 int *width, int *height)
-{
-	struct drm_fb_helper_connector *fb_helper_conn;
-	struct drm_display_mode *mode;
-	int i;
-
-	for (i = 0; i < fb_helper->connector_count; i++) {
-		fb_helper_conn = fb_helper->connector_info[i];
-
-		mode = drm_has_preferred_mode(fb_helper_conn, 4096, 4096);
-		if (mode->type & DRM_MODE_TYPE_PREFERRED) {
-			*width = mode->hdisplay;
-			*height = mode->vdisplay;
-			break;
-		}
-	}
-
-	return true;
-}
-
 static int mtk_fbdev_probe(struct drm_fb_helper *helper,
 			   struct drm_fb_helper_surface_size *sizes)
 {
@@ -243,13 +223,6 @@ static int mtk_fbdev_probe(struct drm_fb_helper *helper,
 		if (IS_ERR(mtk_gem))
 			return PTR_ERR(mtk_gem);
 	} else {
-		/* The surface width/height is the maximum value of all the
-		 * connector mode. MTK FB device is only used for CRTC0.
-		 * So here we use a trick way to get the primary panel
-		 * width/height
-		 */
-		mtk_fbdev_get_width_height(helper, &sizes->surface_width,
-			&sizes->surface_height);
 		mode.width = ALIGN_TO_32(sizes->surface_width);
 		/* LK pre-allocate triple buffer */
 		mode.height = ALIGN_TO_32(sizes->surface_height) * 3;
@@ -312,27 +285,51 @@ static const struct drm_fb_helper_funcs mtk_drm_fb_helper_funcs = {
 	.fb_probe = mtk_fbdev_probe,
 };
 
+static int mtk_drm_fb_add_one_connector(struct drm_device *dev,
+	struct drm_fb_helper *helper)
+{
+	struct drm_connector *connector;
+	struct drm_connector_list_iter conn_iter;
+	struct drm_encoder *encoder;
+	const struct drm_connector_helper_funcs *helper_private;
+	int ret = 0;
+
+	drm_connector_list_iter_begin(dev, &conn_iter);
+	drm_for_each_connector_iter(connector, &conn_iter) {
+		helper_private = connector->helper_private;
+		if (helper_private->best_encoder)
+			encoder = helper_private->best_encoder(connector);
+		else
+			encoder = drm_atomic_helper_best_encoder(connector);
+		if (encoder && (encoder->possible_crtcs & 0x1)) {
+			ret = drm_fb_helper_add_one_connector(
+				helper, connector);
+			break;
+		}
+	}
+	return ret;
+}
+
 int mtk_fbdev_init(struct drm_device *dev)
 {
 	struct mtk_drm_private *priv = dev->dev_private;
 	struct drm_fb_helper *helper = &priv->fb_helper;
 	int ret;
 
-	DDPINFO("%s+\n", __func__);
+	DDPMSG("%s+\n", __func__);
 	if (!dev->mode_config.num_crtc || !dev->mode_config.num_connector)
 		return -EINVAL;
 
 	drm_fb_helper_prepare(dev, helper, &mtk_drm_fb_helper_funcs);
 
-	ret = drm_fb_helper_init(dev, helper,
-				 dev->mode_config.num_connector);
+	ret = drm_fb_helper_init(dev, helper, 1);
 	if (ret) {
 		dev_err(dev->dev, "failed to initialize DRM FB helper, %d\n",
 			ret);
 		goto fini;
 	}
 
-	ret = drm_fb_helper_single_add_all_connectors(helper);
+	ret = mtk_drm_fb_add_one_connector(dev, helper);
 	if (ret) {
 		dev_err(dev->dev, "failed to add connectors, %d\n", ret);
 		goto fini;
@@ -344,7 +341,7 @@ int mtk_fbdev_init(struct drm_device *dev)
 			ret);
 		goto fini;
 	}
-	DDPINFO("%s-\n", __func__);
+	DDPMSG("%s-\n", __func__);
 
 	return 0;
 
