@@ -1306,7 +1306,11 @@ static struct PERIAXI_ID_INFO peri_mi_id_to_master[] = {
 };
 
 static struct INFRAAXI_ID_INFO infra_mi_id_to_master[] = {
-	{"CONNSYS",           { 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2 } },
+	{"CONNSYS_WFDMA",     { 0, 0, 0, 0, 0, 1, 2, 2, 2, 2, 2, 2, 2 } },
+	{"CONNSYS_ICAP",      { 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2 } },
+	{"CONNSYS_WF_MCU",    { 0, 0, 0, 0, 1, 1, 2, 2, 2, 2, 2, 2, 2 } },
+	{"CONNSYS_BT_MCU",    { 0, 0, 0, 0, 1, 0, 0, 1, 2, 2, 2, 2, 2 } },
+	{"CONNSYS_GPS",       { 0, 0, 0, 0, 1, 0, 0, 0, 2, 2, 2, 2, 2 } },
 	{"Tinysys",           { 0, 1, 0, 0, 2, 2, 2, 2, 2, 2, 0, 0, 0 } },
 	{"GCE_M2",            { 0, 0, 1, 0, 0, 0, 0, 2, 2, 0, 0, 0, 0 } },
 	{"CQ_DMA",            { 0, 0, 1, 0, 1, 0, 0, 2, 2, 2, 0, 0, 0 } },
@@ -1415,6 +1419,9 @@ static const char *mt6885_bus_id_to_master(int bus_id, uint32_t vio_addr)
 
 	pr_debug(PFX "[DEVAPC] bus_id:0x%x, vio_addr:0x%x\n",
 		bus_id, vio_addr);
+
+	if (bus_id == 0x0 && vio_addr == 0x0)
+		return NULL;
 
 	/* bus only reference bit 0~29 */
 	vio_addr = vio_addr & 0x3FFFFFFF;
