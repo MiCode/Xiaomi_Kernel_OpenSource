@@ -99,6 +99,25 @@ struct pg_callbacks md1_subsys_handle = {
 	.debug_dump = md1_subsys_debug_dump,
 };
 
+void ccci_md_debug_dump(char *user_info)
+{
+	struct ccci_modem *md;
+
+	CCCI_NORMAL_LOG(0, TAG, "%s called by %s\n", __func__, user_info);
+	md = ccci_md_get_modem_by_id(0);
+	if (md != NULL) {
+		CCCI_NORMAL_LOG(0, TAG, "%s dump start\n", __func__);
+		md->ops->dump_info(md, DUMP_FLAG_CCIF_REG | DUMP_FLAG_CCIF |
+			DUMP_FLAG_REG | DUMP_FLAG_QUEUE_0_1 |
+			DUMP_MD_BOOTUP_STATUS, NULL, 0);
+		mdelay(1000);
+		md->ops->dump_info(md, DUMP_FLAG_REG, NULL, 0);
+	} else
+		CCCI_NORMAL_LOG(0, TAG, "%s error\n", __func__);
+	CCCI_NORMAL_LOG(0, TAG, "%s exit\n", __func__);
+}
+EXPORT_SYMBOL(ccci_md_debug_dump);
+
 int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 	struct ccci_dev_cfg *dev_cfg, struct md_hw_info *hw_info)
 {
