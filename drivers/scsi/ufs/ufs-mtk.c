@@ -925,8 +925,7 @@ static int ufs_mtk_init(struct ufs_hba *hba)
 
 	ufs_mtk_advertise_hci_quirks(hba);
 
-	/* Get PM level from device tree */
-	ufs_mtk_parse_pm_levels(hba);
+	ufs_mtk_parse_dt(hba);
 
 	/*
 	 * If rpm_lvl and and spm_lvl are not already set to valid levels,
@@ -1310,10 +1309,11 @@ static int ufs_mtk_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	return ret;
 }
 
-void ufs_mtk_parse_pm_levels(struct ufs_hba *hba)
+void ufs_mtk_parse_dt(struct ufs_hba *hba)
 {
 	struct device *dev = hba->dev;
 	struct device_node *np = dev->of_node;
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 	u32 val;
 
 	if (np) {
@@ -1335,6 +1335,11 @@ void ufs_mtk_parse_pm_levels(struct ufs_hba *hba)
 		if (of_property_read_u32(np, "mediatek,rpm-autosuspend-delay",
 			&ufs_mtk_rpm_autosuspend_delay))
 			ufs_mtk_rpm_autosuspend_delay = -1;
+
+		if (of_property_read_bool(np, "mediatek,spm_sw_mode"))
+			host->spm_sw_mode = true;
+		else
+			host->spm_sw_mode = false;
 	}
 }
 
@@ -2331,6 +2336,10 @@ void ufs_mtk_dbg_dump_scsi_cmd(struct ufs_hba *hba,
 void ufs_mtk_res_ctrl(struct ufs_hba *hba, unsigned int op)
 {
 	int res_type = 0;
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+
+	if (!host->spm_sw_mode)
+		return;
 
 	if (!hba->outstanding_tasks && !hba->outstanding_reqs) {
 		if (op == UFS_RESCTL_CMD_SEND) {
@@ -2379,7 +2388,7 @@ static struct ufs_hba_variant_ops ufs_hba_mtk_vops = {
 	NULL,			 /* phy_initialization */
 	ufs_mtk_device_reset,         /* device_reset */
 	ufs_mtk_auto_hibern8,         /* auto_hibern8 */
-	ufs_mtk_res_ctrl, /* resource contorl */
+	ufs_mtk_res_ctrl,             /* res_ctrl */
 	ufs_mtk_pltfrm_deepidle_lock, /* deepidle_lock */
 	ufs_mtk_scsi_dev_cfg          /* scsi_dev_cfg */
 };
