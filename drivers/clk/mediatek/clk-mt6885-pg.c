@@ -1598,7 +1598,7 @@ void check_subsys_swcg(enum subsys_id id)
 		if (ret) {
 			pr_notice("%s:SYS_VEN_CORE1(%d) warning!\r\n",
 				__func__, id);
-			print_subsys_reg("vencsys");
+			print_subsys_reg("venc_c1_sys");
 		}
 	} else if (id == SYS_CAM) {
 		for (i = 0; i < cam_num; i++)
