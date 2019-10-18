@@ -323,15 +323,17 @@ void jpeg_drv_hybrid_dec_power_on(int id)
 #endif
 
 	if (id <= 1) {
-		smi_bus_prepare_enable(SMI_LARB7, "JPEG0");
-		ret = clk_prepare_enable(gJpegClk.clk_venc_jpgDec);
-		if (ret)
-			JPEG_ERR("clk enable MT_CG_VENC_JPGDEC failed %d",
-					ret);
-		ret = clk_prepare_enable(gJpegClk.clk_venc_jpgDec_c1);
-		if (ret)
-			JPEG_ERR("clk enable MT_CG_VENC_JPGDEC_C1 failed %d",
-					ret);
+		if (!dec_hwinfo[(id+1)%2].locked) {
+			smi_bus_prepare_enable(SMI_LARB7, "JPEG0");
+			ret = clk_prepare_enable(gJpegClk.clk_venc_jpgDec);
+			if (ret)
+				JPEG_ERR("clk MT_CG_VENC_JPGDEC failed %d",
+						ret);
+			ret = clk_prepare_enable(gJpegClk.clk_venc_jpgDec_c1);
+			if (ret)
+				JPEG_ERR("clk MT_CG_VENC_JPGDEC_C1 failed %d",
+						ret);
+		}
 	} else {
 		smi_bus_prepare_enable(SMI_LARB8, "JPEG1");
 		ret = clk_prepare_enable(gJpegClk.clk_venc_c1_jpgDec);
@@ -372,8 +374,8 @@ void jpeg_drv_hybrid_dec_power_off(int id)
 		if (!dec_hwinfo[(id+1)%2].locked) {
 			clk_disable_unprepare(gJpegClk.clk_venc_jpgDec);
 			clk_disable_unprepare(gJpegClk.clk_venc_jpgDec_c1);
+			smi_bus_disable_unprepare(SMI_LARB7, "JPEG0");
 		}
-		smi_bus_disable_unprepare(SMI_LARB7, "JPEG0");
 	} else {
 		clk_disable_unprepare(gJpegClk.clk_venc_c1_jpgDec);
 		smi_bus_disable_unprepare(SMI_LARB8, "JPEG1");
