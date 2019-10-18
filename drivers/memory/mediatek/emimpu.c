@@ -25,8 +25,8 @@ static struct platform_device *emimpu_pdev;
 
 static int emimpu_probe(struct platform_device *pdev);
 static irqreturn_t (*pre_handling_cb)(
-	struct reg_info_t *dump, unsigned int leng);
-static void (*post_clear_cb)(void);
+	unsigned int emi_id, struct reg_info_t *dump, unsigned int leng);
+static void (*post_clear_cb)(unsigned int emi_id);
 
 static unsigned int emimpu_read_protection(
 	unsigned int reg_type, unsigned int region, unsigned int dgroup)
@@ -253,13 +253,17 @@ static void set_regs(
 }
 
 static void clear_violation(
-	struct emimpu_dev_t *emimpu_dev_ptr, void __iomem *emi_cen_base)
+	struct emimpu_dev_t *emimpu_dev_ptr, unsigned int emi_id)
 {
+	void __iomem *emi_cen_base;
+
+	emi_cen_base = emimpu_dev_ptr->emi_cen_base[emi_id];
+
 	set_regs(emimpu_dev_ptr->clear_reg,
 		emimpu_dev_ptr->clear_reg_cnt, emi_cen_base);
 
 	if (post_clear_cb)
-		post_clear_cb();
+		post_clear_cb(emi_id);
 }
 
 static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
@@ -303,9 +307,10 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 			continue;
 
 		if (pre_handling_cb)
-			if (pre_handling_cb(dump_reg, emimpu_dev_ptr->dump_cnt)
+			if (pre_handling_cb(emi_id,
+				dump_reg, emimpu_dev_ptr->dump_cnt)
 				== IRQ_HANDLED) {
-				clear_violation(emimpu_dev_ptr, emi_cen_base);
+				clear_violation(emimpu_dev_ptr, emi_id);
 				mtk_clear_md_violation();
 				continue;
 			}
@@ -313,7 +318,7 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 		pr_info("%s: violation at emi%d\n", __func__, emi_id);
 		aee_kernel_exception("EMIMPU", aee_msg);
 
-		clear_violation(emimpu_dev_ptr, emi_cen_base);
+		clear_violation(emimpu_dev_ptr, emi_id);
 	}
 
 	return IRQ_HANDLED;
@@ -797,8 +802,8 @@ EXPORT_SYMBOL(mtk_emimpu_clear_protection);
  * Return 0 for success, -EINVAL for fail
  */
 int mtk_emimpu_prehandle_register(
-	irqreturn_t (*bypass_func)(
-		struct reg_info_t *dump, unsigned int leng))
+	irqreturn_t (*bypass_func)
+	(unsigned int emi_id, struct reg_info_t *dump, unsigned int leng))
 {
 	if (!bypass_func) {
 		pr_info("%s: bypass_func is NULL\n", __func__);
@@ -816,7 +821,7 @@ EXPORT_SYMBOL(mtk_emimpu_prehandle_register);
  *
  * Return 0 for success, -EINVAL for fail
  */
-int mtk_emimpu_postclear_register(void (*clear_func)(void))
+int mtk_emimpu_postclear_register(void (*clear_func)(unsigned int emi_id))
 {
 	if (!clear_func) {
 		pr_info("%s: clear_func is NULL\n", __func__);

@@ -101,10 +101,10 @@ int mtk_emimpu_lock_region(struct emimpu_region_t *rg_info, bool lock);
 int mtk_emimpu_set_protection(struct emimpu_region_t *rg_info);
 int mtk_emimpu_free_region(struct emimpu_region_t *rg_info);
 int mtk_emimpu_clear_protection(struct emimpu_region_t *rg_info);
-int mtk_emimpu_prehandle_register(
-	irqreturn_t (*bypass_func)
-		(struct reg_info_t *dump, unsigned int leng));
-int mtk_emimpu_postclear_register(void (*clear_func)(void));
+int mtk_emimpu_prehandle_register(irqreturn_t (*bypass_func)
+	(unsigned int emi_id, struct reg_info_t *dump, unsigned int leng));
+int mtk_emimpu_postclear_register(void (*clear_func)
+	(unsigned int emi_id));
 void mtk_clear_md_violation(void);
 
 #endif /* __EMI_H__ */
