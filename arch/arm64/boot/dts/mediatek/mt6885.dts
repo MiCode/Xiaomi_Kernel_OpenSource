@@ -2530,7 +2530,7 @@ page_owner=on";
 
 	ses: ses {
 		compatible = "mediatek,ses";
-		state = <0>;
+		state = <256>;
 		ses0_reg3 = <0>;
 		ses1_reg3 = <0>;
 		ses2_reg3 = <0>;

@@ -126,7 +126,7 @@
 /************************************************
  * static Variable
  ************************************************/
-#define sesNum 9
+#define sesNum	9
 #define DEVINFO_IDX_0	50
 
 struct drp_ratio_type {
@@ -931,6 +931,7 @@ static int ses_probe(struct platform_device *pdev)
 			rc,
 			state);
 
+	if (state < 256)
 		for (ses_node = 0; ses_node < sesNum; ses_node++)
 			mtk_ses_enable((state >> ses_node) & 0x01, ses_node);
 	}
@@ -1327,9 +1328,9 @@ static int __init ses_init(void)
 #if 0
 	unsigned int ptp_ftpgm;
 
-	ptp_ftpgm = get_devinfo_with_index(DEVINFO_IDX_0) & 0xf;
+	ptp_ftpgm = get_devinfo_with_index(DEVINFO_IDX_0) & 0xff;
 
-	if (ptp_ftpgm > 1)
+	if (ptp_ftpgm > 2)
 		mtk_ses_init();
 	else
 		ses_debug("[cpu_ses]PTPv%u, SES turn off.\n", ptp_ftpgm);
