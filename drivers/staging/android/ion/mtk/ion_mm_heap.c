@@ -325,6 +325,7 @@ static int ion_mm_heap_init_domain(struct ion_mm_buffer_info *buffer_info,
 			       __func__, __LINE__, i,
 			       table->nents,
 			       buffer_info->table[i].nents);
+			sg_free_table(&buffer_info->table[i]);
 			return -2;
 		}
 #endif
@@ -502,6 +503,7 @@ map_mva_exit:
 err2:
 	kfree(buffer_info);
 err1:
+	sg_free_table(table);
 	kfree(table);
 	IONMSG("error: alloc for sg_table fail\n");
 err:
@@ -620,11 +622,19 @@ void ion_mm_heap_free_buffer_info(struct ion_buffer *buffer)
 	}
 
 out:
-	if (buffer_info->mva_cnt == 0)
+	if (buffer_info->mva_cnt == 0) {
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+		for (domain_idx = 0;
+			domain_idx < DOMAIN_NUM; domain_idx++) {
+			sg_free_table(&buffer_info->table[domain_idx]);
+		}
+#endif
 		kfree(buffer_info);
-	else
+	} else {
 		IONMSG("there are %d MVA not mapped, check MVA leakage\n",
 		       buffer_info->mva_cnt);
+	}
 }
 
 void ion_mm_heap_free(struct ion_buffer *buffer)
@@ -648,6 +658,8 @@ void ion_mm_heap_free(struct ion_buffer *buffer)
 	if (heap->id == ION_HEAP_TYPE_MULTIMEDIA_MAP_MVA ||
 	    heap->id == ION_HEAP_TYPE_MULTIMEDIA_PA2MVA) {
 		ion_mm_heap_free_buffer_info(buffer);
+		sg_free_table(table);
+		kfree(table);
 		return;
 	}
 #endif
@@ -2261,6 +2273,7 @@ int ion_mm_heap_cache_allocate(struct ion_heap *heap,
 		       __func__, size, size_remaining);
 	return 0;
 err1:
+	sg_free_table(table);
 	kfree(table);
 	IONMSG("error: cache_alloc for sg_table fail\n");
 err:
