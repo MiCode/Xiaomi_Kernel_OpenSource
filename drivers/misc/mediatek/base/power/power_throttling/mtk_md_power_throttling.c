@@ -28,7 +28,7 @@ static void md_pt_low_battery_cb(enum LOW_BATTERY_LEVEL_TAG level)
 			intensity = LBAT_REDUCE_TX_POWER;
 
 		md_throttle_cmd = TMC_CTRL_CMD_TX_POWER |
-		PT_LOW_BATTERY_VOLTAGE << 8 | level << 16 | intensity << 24;
+		level << 8 | PT_LOW_BATTERY_VOLTAGE << 16 | intensity << 24;
 		ret = exec_ccci_kern_func_by_md_id(MD_SYS1,
 			ID_THROTTLING_CFG,
 			(char *) &md_throttle_cmd, 4);
@@ -51,7 +51,7 @@ static void md_pt_over_current_cb(enum BATTERY_OC_LEVEL_TAG level)
 			intensity = OC_REDUCE_TX_POWER;
 
 		md_throttle_cmd = TMC_CTRL_CMD_TX_POWER |
-		PT_OVER_CURRENT << 8 | level << 16 | intensity << 24;
+		level << 8 | PT_OVER_CURRENT << 16 | intensity << 24;
 		ret = exec_ccci_kern_func_by_md_id(MD_SYS1,
 			ID_THROTTLING_CFG,
 			(char *) &md_throttle_cmd, 4);
@@ -64,7 +64,7 @@ static void md_pt_over_current_cb(enum BATTERY_OC_LEVEL_TAG level)
 
 static int __init pbm_module_init(void)
 {
-	register_low_battery_notify_ext(
+	register_low_battery_notify(
 		&md_pt_low_battery_cb, LOW_BATTERY_PRIO_MD);
 	register_battery_oc_notify(
 		&md_pt_over_current_cb, BATTERY_OC_PRIO_MD);
