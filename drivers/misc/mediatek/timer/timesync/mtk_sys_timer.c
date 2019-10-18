@@ -197,7 +197,7 @@ void sys_timer_timesync_verify_sspm(void)
 	/* just for sspm v1
 	 * int ackdata = 0;
 	 */
-	u32 ts_h, ts_l;
+	u32 ts_h = 0, ts_l = 0;
 	u64 ts_sspm, ts_ap1, ts_ap2, temp_u64[2];
 
 	/* reset debug mbox before test */
