@@ -456,7 +456,7 @@ int mtk_vdec_put_fb(struct mtk_vcodec_ctx *ctx, int type)
 	struct vb2_v4l2_buffer *dst_vb2_v4l2, *src_vb2_v4l2;
 	struct vb2_buffer *src_buf, *dst_buf;
 	struct vdec_fb *pfb;
-	int i;
+	int i, ret = 0;
 
 	mtk_v4l2_debug(1, "type = %d", type);
 	src_buf = v4l2_m2m_next_src_buf(ctx->m2m_ctx);
@@ -480,17 +480,21 @@ int mtk_vdec_put_fb(struct mtk_vcodec_ctx *ctx, int type)
 				VB2_BUF_STATE_DONE);
 
 			if (ctx->input_driven)
-				wait_event_interruptible(
+				ret = wait_event_interruptible(
 					ctx->fm_wq,
 					v4l2_m2m_num_dst_bufs_ready(
 					ctx->m2m_ctx) > 0 ||
 					ctx->state == MTK_STATE_FLUSH);
 
-			if (ctx->state == MTK_STATE_FLUSH)
-				return 0;
-
 			/* update dst buf status */
 			dst_buf = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx);
+			if (ctx->state == MTK_STATE_FLUSH
+				|| ret != 0 || dst_buf == NULL) {
+				mtk_v4l2_debug(0, "wait EOS dst break!state %d, ret %d, dst_buf %p",
+				ctx->state, ret, dst_buf);
+				return 0;
+			}
+
 			dst_vb2_v4l2 = container_of(dst_buf,
 				struct vb2_v4l2_buffer, vb2_buf);
 			dst_buf_info = container_of(dst_vb2_v4l2,
@@ -1905,6 +1909,7 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 	unsigned long frame_size[2];
 	unsigned int i = 0;
 	unsigned int dpbsize = 1;
+	unsigned int bs_fourcc, fm_fourcc;
 	struct mtk_vcodec_ctx *ctx = vb2_get_drv_priv(vb->vb2_queue);
 	struct vb2_v4l2_buffer *vb2_v4l2 = NULL;
 	struct mtk_video_dec_buf *buf = NULL;
@@ -2062,7 +2067,9 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 		dst_q_data->bytesperline[i] = ctx->picinfo.buf_w;
 	}
 
-	mtk_v4l2_debug(2,
+	bs_fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
+	fm_fourcc = ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc;
+	mtk_v4l2_debug(0,
 				   "[%d] Init Vdec OK wxh=%dx%d pic wxh=%dx%d bitdepth:%d lo:%d sz[0]=0x%x sz[1]=0x%x",
 				   ctx->id,
 				   ctx->picinfo.buf_w, ctx->picinfo.buf_h,
@@ -2072,9 +2079,14 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 				   dst_q_data->sizeimage[0],
 				   dst_q_data->sizeimage[1]);
 
-	mtk_v4l2_debug(2, "[%d] fmt %d, num_planes %d, fb_sz[0] %d, fb_sz[1] %d",
+	mtk_v4l2_debug(0, "[%d] bs %c%c%c%c fm %c%c%c%c, num_planes %d, fb_sz[0] %d, fb_sz[1] %d",
 				   ctx->id,
-				   dst_q_data->fmt->fourcc,
+				   bs_fourcc & 0xFF, (bs_fourcc >> 8) & 0xFF,
+				   (bs_fourcc >> 16) & 0xFF,
+				   (bs_fourcc >> 24) & 0xFF,
+				   fm_fourcc & 0xFF, (fm_fourcc >> 8) & 0xFF,
+				   (fm_fourcc >> 16) & 0xFF,
+				   (fm_fourcc >> 24) & 0xFF,
 				   dst_q_data->fmt->num_planes,
 				   ctx->picinfo.fb_sz[0],
 				   ctx->picinfo.fb_sz[1]);
