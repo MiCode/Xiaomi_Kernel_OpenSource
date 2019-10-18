@@ -1116,10 +1116,12 @@ static void mtk_crtc_cmdq_timeout_cb(struct cmdq_cb_data data)
 
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 	/* add trigger loop dump for debug */
-	cmdq_util_msg("=====DISP TRIGGER LOOP BEGIN=====");
-	cmdq_thread_dump(client->chan, cmdq_handle, NULL, &pc);
-	cmdq_dump_pkt(cmdq_handle, pc);
-	cmdq_util_msg("=====DISP TRIGGER LOOP END=====");
+	if (cmdq_handle && client) {
+		cmdq_util_msg("=====DISP TRIGGER LOOP BEGIN=====");
+		cmdq_thread_dump(client->chan, cmdq_handle, NULL, &pc);
+		cmdq_dump_pkt(cmdq_handle, pc);
+		cmdq_util_msg("=====DISP TRIGGER LOOP END=====");
+	}
 #endif
 
 	/* CMDQ driver would not trigger aee when timeout. */
