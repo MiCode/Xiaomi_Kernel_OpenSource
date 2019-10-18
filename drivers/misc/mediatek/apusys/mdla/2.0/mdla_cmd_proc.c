@@ -252,9 +252,6 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd,
 	u32 id = 0;
 	u64 deadline = 0;
 	int core_id = 0;
-#ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
-	int pmu_ret = 0;
-#endif
 	int opp_rand = 0;
 	long status = 0;
 	/*forward compatibility temporary, This will be replaced by apusys*/
@@ -277,8 +274,8 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd,
 
 	mdla_run_command_prepare(cd, &ce);
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
-	if (apusys_hd != NULL)
-		pmu_ret = pmu_command_prepare(mdla_info, apusys_hd);
+	if (!pmu_apusys_pmu_addr_check(apusys_hd))
+		pmu_command_prepare(mdla_info, apusys_hd);
 #endif
 	/* Compute deadline */
 	deadline = get_jiffies_64() + msecs_to_jiffies(mdla_timeout);
@@ -305,8 +302,7 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd,
 	/* Trace start */
 	mdla_trace_begin(core_id, &ce);
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
-	if (apusys_hd != NULL && pmu_ret == 0)
-		pmu_ret = pmu_cmd_handle(mdla_info);
+	pmu_cmd_handle(mdla_info, apusys_hd);
 #endif
 	ce.poweron_t = sched_clock();
 	ce.req_start_t = sched_clock();
@@ -408,7 +404,7 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd,
 			wt->busy_time, wt->bandwidth);
 #endif
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
-	if (apusys_hd != NULL && pmu_ret == 0)
+	if (!pmu_apusys_pmu_addr_check(apusys_hd))
 		pmu_command_counter_prt(mdla_info);
 #endif
 	return ret;

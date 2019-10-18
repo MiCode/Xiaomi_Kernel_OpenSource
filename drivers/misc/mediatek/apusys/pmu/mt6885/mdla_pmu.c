@@ -10,8 +10,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  */
-#include "mdla_debug.h"
-
 #include <linux/io.h>
 #include <linux/spinlock.h>
 #include <linux/types.h>
@@ -21,6 +19,7 @@
 #include "mdla_pmu.h"
 #include "mdla.h"
 #include "mdla_trace.h"
+#include "mdla_debug.h"
 
 #define COUNTER_CLEAR 0xFFFFFFFF
 
@@ -194,7 +193,7 @@ int pmu_counter_event_get_all(u32 mdlaid, u32 out[MDLA_PMU_COUNTERS])
 	int i;
 
 	for (i = 0; i < MDLA_PMU_COUNTERS; i++)
-		out[i] = cfg_pmu_event[mdlaid][i];
+		out[i] = cfg_pmu_event_trace[i];
 
 	return 0;
 }
@@ -369,42 +368,57 @@ void pmu_init(u32 mdlaid)
 	spin_lock_init(&pmu_lock[mdlaid]);
 }
 
-int pmu_cmd_handle(struct mdla_dev *mdla_info)
+#ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
+int pmu_apusys_pmu_addr_check(struct apusys_cmd_hnd *apusys_hd)
+{
+	int ret = 0;
+
+	if ((apusys_hd == NULL) ||
+		(apusys_hd->pmu_kva == apusys_hd->cmd_entry) ||
+		(apusys_hd->pmu_kva == 0))
+		return ret = -1;
+	mdla_pmu_debug("command entry:%08llx, pmu kva: %08llx\n",
+		apusys_hd->cmd_entry,
+		apusys_hd->pmu_kva);
+	return ret;
+}
+
+int pmu_cmd_handle(struct mdla_dev *mdla_info,
+	struct apusys_cmd_hnd *apusys_hd)
 {
 	int i;
 
-	if (mdla_info->pmu.pmu_mode >= CMD_MODE_MAX)
-		return -1;
-
 	pmu_reset_saved_counter(mdla_info->mdlaid);
 	pmu_reset_saved_cycle(mdla_info->mdlaid);
-	pmu_percmd_mode_save(mdla_info->mdlaid,
-		mdla_info->pmu.pmu_mode);
 
-	mdla_pmu_debug("PMU number_of_event:%d, mode: %d\n",
-		mdla_info->pmu.pmu_hnd->number_of_event,
-		mdla_info->pmu.pmu_mode);
+	if (!pmu_apusys_pmu_addr_check(apusys_hd)) {
+		pmu_percmd_mode_save(mdla_info->mdlaid,
+			mdla_info->pmu.pmu_mode);
+		mdla_pmu_debug("PMU number_of_event:%d, mode: %d\n",
+			mdla_info->pmu.pmu_hnd->number_of_event,
+			mdla_info->pmu.pmu_mode);
+	}
 
 	if (!cfg_apusys_trace) {
+		if (pmu_apusys_pmu_addr_check(apusys_hd))
+			return -1;
 		for (i = 0; i < mdla_info->pmu.pmu_hnd->number_of_event; i++) {
 			pmu_event_handle[mdla_info->mdlaid][i] =
 				pmu_counter_alloc(mdla_info->mdlaid,
-				(mdla_info->pmu.pmu_hnd->event[i]&0xff00)>>8,
-				mdla_info->pmu.pmu_hnd->event[i]&0xff);
+				(mdla_info->pmu.pmu_hnd->event[i]&0x1f00)>>8,
+				mdla_info->pmu.pmu_hnd->event[i]&0xf);
 		}
 	} else {
 		for (i = 0; i < MDLA_PMU_COUNTERS; i++) {
 			pmu_event_handle[mdla_info->mdlaid][i] =
 				pmu_counter_alloc(mdla_info->mdlaid,
-				(cfg_pmu_event_trace[i]&0xff00)>>8,
-				cfg_pmu_event_trace[i]&0xff);
+				(cfg_pmu_event_trace[i]&0x1f0000)>>16,
+				cfg_pmu_event_trace[i]&0xf);
 		}
 	}
-
 	return 0;
-
 }
-#ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
+
 int pmu_command_prepare(struct mdla_dev *mdla_info,
 	struct apusys_cmd_hnd *apusys_hd)
 {
@@ -430,9 +444,7 @@ int pmu_command_prepare(struct mdla_dev *mdla_info,
 	if (mdla_info->pmu.pmu_mode == PER_CMD)
 		cfg_timer_en = 1;
 
-	mdla_pmu_debug("command entry:%08llx, pmu kva: %08llx, pmu addr0: %08llx, pmu addr1: %08llx\n",
-		apusys_hd->cmd_entry,
-		apusys_hd->pmu_kva,
+	mdla_pmu_debug("pmu addr0: %08llx, pmu addr1: %08llx\n",
 		mdla_info->pmu.PMU_res_buf_addr0,
 		mdla_info->pmu.PMU_res_buf_addr1);
 	return 0;

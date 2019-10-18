@@ -72,7 +72,9 @@ void pmu_reset(u32 mdlaid);
 int pmu_command_prepare(struct mdla_dev *mdla_info,
 	struct apusys_cmd_hnd *apusys_hd);
 #endif
-int pmu_cmd_handle(struct mdla_dev *mdla_info);
+int pmu_apusys_pmu_addr_check(struct apusys_cmd_hnd *apusys_hd);
+int pmu_cmd_handle(struct mdla_dev *mdla_info,
+	struct apusys_cmd_hnd *apusys_hd);
 void pmu_command_counter_prt(struct mdla_dev *mdla_info);
 
 #endif
