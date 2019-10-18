@@ -188,11 +188,6 @@ int get_scp_semaphore(int flag)
 	if (!driver_init_done)
 		return -1;
 
-	if (scp_awake_lock(SCP_A_ID) == -1) {
-		pr_debug("[SCP] %s: awake scp fail\n", __func__);
-		return ret;
-	}
-
 	/* spinlock context safe*/
 	spin_lock_irqsave(&scp_awake_spinlock, spin_flags);
 
@@ -222,9 +217,6 @@ int get_scp_semaphore(int flag)
 
 	spin_unlock_irqrestore(&scp_awake_spinlock, spin_flags);
 
-	if (scp_awake_unlock(SCP_A_ID) == -1)
-		pr_debug("[SCP] %s: scp_awake_unlock fail\n", __func__);
-
 	return ret;
 }
 EXPORT_SYMBOL_GPL(get_scp_semaphore);
@@ -245,10 +237,6 @@ int release_scp_semaphore(int flag)
 	if (!driver_init_done)
 		return -1;
 
-	if (scp_awake_lock(SCP_A_ID) == -1) {
-		pr_debug("[SCP] %s: awake scp fail\n", __func__);
-		return ret;
-	}
 	/* spinlock context safe*/
 	spin_lock_irqsave(&scp_awake_spinlock, spin_flags);
 	flag = (flag * 2) + 1;
@@ -268,9 +256,6 @@ int release_scp_semaphore(int flag)
 	}
 
 	spin_unlock_irqrestore(&scp_awake_spinlock, spin_flags);
-
-	if (scp_awake_unlock(SCP_A_ID) == -1)
-		pr_debug("[SCP] %s: scp_awake_unlock fail\n", __func__);
 
 	return ret;
 }
@@ -1147,13 +1132,6 @@ void scp_register_feature(enum feature_id id)
 	 */
 	mutex_lock(&scp_feature_mutex);
 
-	/*SCP keep awake */
-	if (scp_awake_lock(SCP_A_ID) == -1) {
-		pr_debug("[SCP] %s: awake scp fail\n", __func__);
-		mutex_unlock(&scp_feature_mutex);
-		return;
-	}
-
 	for (i = 0; i < NUM_FEATURE_ID; i++) {
 		if (feature_table[i].feature == id)
 			feature_table[i].enable = 1;
@@ -1182,10 +1160,6 @@ void scp_register_feature(enum feature_id id)
 		WARN_ON(1);
 	}
 
-	/*SCP release awake */
-	if (scp_awake_unlock(SCP_A_ID) == -1)
-		pr_debug("[SCP] %s: awake unlock fail\n", __func__);
-
 	mutex_unlock(&scp_feature_mutex);
 }
 
@@ -1202,13 +1176,6 @@ void scp_deregister_feature(enum feature_id id)
 	}
 
 	mutex_lock(&scp_feature_mutex);
-
-	/*SCP keep awake */
-	if (scp_awake_lock(SCP_A_ID) == -1) {
-		pr_debug("[SCP] %s: awake scp fail\n", __func__);
-		mutex_unlock(&scp_feature_mutex);
-		return;
-	}
 
 	for (i = 0; i < NUM_FEATURE_ID; i++) {
 		if (feature_table[i].feature == id)
@@ -1237,10 +1204,6 @@ void scp_deregister_feature(enum feature_id id)
 		pr_err("[SCP]Not send SCP DVFS request because SCP is down\n");
 		WARN_ON(1);
 	}
-
-	/*SCP release awake */
-	if (scp_awake_unlock(SCP_A_ID) == -1)
-		pr_debug("[SCP] %s: awake unlock fail\n", __func__);
 
 	mutex_unlock(&scp_feature_mutex);
 }
