@@ -147,9 +147,12 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 	int crtc_id = drm_crtc_index(crtc);
 	struct mtk_panel_params *panel_ext = mtk_drm_get_lcm_ext_params(crtc);
 
+	if (!priv->power_state) {
+		DDPDUMP("DRM dev is not in power on state, skip %s\n",
+			__func__);
+		return;
+	}
 	DDPINFO("%s\n", __func__);
-
-	mtk_drm_idlemgr_kick(__func__, crtc, 0);
 
 	mmsys_config_dump_reg_mt6885(mtk_crtc->config_regs);
 	mutex_dump_reg_mt6885(mtk_crtc->mutex[0]);
@@ -192,9 +195,12 @@ void mtk_drm_crtc_analysis(struct drm_crtc *crtc)
 	struct mtk_ddp_comp *comp;
 	int crtc_id = drm_crtc_index(crtc);
 
+	if (!priv->power_state) {
+		DDPDUMP("DRM dev is not in power on state, skip %s\n",
+			__func__);
+		return;
+	}
 	DDPINFO("%s\n", __func__);
-
-	mtk_drm_idlemgr_kick(__func__, crtc, 0);
 
 	mmsys_config_dump_analysis_mt6885(mtk_crtc->config_regs);
 	mutex_dump_analysis_mt6885(mtk_crtc->mutex[0]);
@@ -1914,6 +1920,7 @@ void mtk_crtc_config_default_path(struct mtk_drm_crtc *mtk_crtc)
 {
 	int i, j;
 	struct drm_crtc *crtc = &mtk_crtc->base;
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	struct cmdq_pkt *cmdq_handle;
 	struct mtk_ddp_config cfg;
 	struct mtk_golden_setting_arg io_gs;
@@ -1937,7 +1944,9 @@ void mtk_crtc_config_default_path(struct mtk_drm_crtc *mtk_crtc)
 				    MTK_IO_CMD_OVL_GOLDEN_SETTING, &io_gs);
 		mtk_ddp_comp_start(comp, cmdq_handle);
 
-		if (1)
+		if (!mtk_drm_helper_get_opt(
+				    priv->helper_opt,
+				    MTK_DRM_OPT_USE_PQ))
 			mtk_ddp_comp_bypass(comp, cmdq_handle);
 	}
 
@@ -3637,6 +3646,7 @@ static void mtk_crtc_config_single_path_cmdq(struct drm_crtc *crtc,
 					     struct mtk_ddp_config *cfg)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	struct mtk_crtc_ddp_ctx *ddp_ctx;
 	struct mtk_golden_setting_arg io_gs;
 	int i;
@@ -3681,7 +3691,9 @@ static void mtk_crtc_config_single_path_cmdq(struct drm_crtc *crtc,
 		mtk_ddp_comp_io_cmd(comp, cmdq_handle,
 				    MTK_IO_CMD_OVL_GOLDEN_SETTING, &io_gs);
 		mtk_ddp_comp_start(comp, cmdq_handle);
-		if (1)
+		if (!mtk_drm_helper_get_opt(
+				    priv->helper_opt,
+				    MTK_DRM_OPT_USE_PQ))
 			mtk_ddp_comp_bypass(comp, cmdq_handle);
 	}
 }
@@ -3693,6 +3705,7 @@ static void mtk_crtc_create_wb_path_cmdq(struct drm_crtc *crtc,
 					 struct mtk_ddp_config *cfg)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	struct mtk_crtc_ddp_ctx *ddp_ctx;
 	struct mtk_golden_setting_arg io_gs;
 	struct mtk_drm_gem_obj *mtk_gem;
@@ -3745,7 +3758,9 @@ static void mtk_crtc_create_wb_path_cmdq(struct drm_crtc *crtc,
 		mtk_ddp_comp_io_cmd(comp, cmdq_handle,
 				    MTK_IO_CMD_OVL_GOLDEN_SETTING, &io_gs);
 		mtk_ddp_comp_start(comp, cmdq_handle);
-		if (1)
+		if (!mtk_drm_helper_get_opt(
+				    priv->helper_opt,
+				    MTK_DRM_OPT_USE_PQ))
 			mtk_ddp_comp_bypass(comp, cmdq_handle);
 	}
 

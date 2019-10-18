@@ -135,6 +135,7 @@ struct mtk_drm_private {
 	atomic_t top_clk_refcnt;
 	unsigned int top_clk_num;
 	struct clk **top_clk;
+	bool power_state;
 
 	/* for rpo caps info */
 	unsigned int rsz_in_max[2];

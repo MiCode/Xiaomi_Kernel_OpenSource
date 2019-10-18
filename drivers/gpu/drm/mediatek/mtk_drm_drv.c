@@ -1198,6 +1198,7 @@ void mtk_drm_top_clk_prepare_enable(struct drm_device *drm)
 		return;
 	}
 
+	priv->power_state = true;
 	for (i = 0; i < priv->top_clk_num; i++) {
 		if (IS_ERR(priv->top_clk[i])) {
 			DDPPR_ERR("%s invalid %d clk\n", __func__, i);
@@ -1228,6 +1229,7 @@ void mtk_drm_top_clk_disable_unprepare(struct drm_device *drm)
 		return;
 	}
 
+	priv->power_state = false;
 	for (i = priv->top_clk_num - 1; i >= 0; i--) {
 		if (IS_ERR(priv->top_clk[i])) {
 			DDPPR_ERR("%s invalid %d clk\n", __func__, i);
