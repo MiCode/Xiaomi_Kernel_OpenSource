@@ -1007,18 +1007,28 @@ static void mtk_dsi_enter_ulps(struct mtk_dsi *dsi)
 	/* wait enter_ulps_done */
 	ret = wait_dsi_wq(&dsi->enter_ulps_done, 2 * HZ);
 
+	if (ret)
+		DDPDBG("%s success\n", __func__);
+	else {
+		/* IRQ maybe be un-expectedly disabled for long time,
+		 * which makes false alarm timeout...
+		 */
+		u32 status = readl(dsi->regs + DSI_INTSTA);
+
+		if (status & SLEEPIN_ULPS_DONE_INT_FLAG)
+			DDPPR_ERR("%s success but IRQ is blocked\n",
+				__func__);
+		else {
+			mtk_dsi_dump(&dsi->ddp_comp);
+			DDPAEE("%s fail\n", __func__);
+		}
+	}
+
 	/* reset related setting */
 	mtk_dsi_mask(dsi, DSI_INTEN, SLEEPIN_ULPS_DONE_INT_FLAG, 0);
 	mtk_dsi_mask(dsi, DSI_PHY_LD0CON, LDX_ULPM_AS_L0, 0);
 	mtk_dsi_mask(dsi, DSI_PHY_LD0CON, LD0_ULPM_EN, 0);
 	mtk_dsi_mask(dsi, DSI_PHY_LCCON, LC_ULPM_EN, 0);
-
-	if (ret) {
-		DDPDBG("%s sucessed\n", __func__);
-	} else {
-		mtk_dsi_dump(&dsi->ddp_comp);
-		DDPAEE("%s failed\n", __func__);
-	}
 }
 
 static void mtk_dsi_exit_ulps(struct mtk_dsi *dsi)
@@ -1026,7 +1036,7 @@ static void mtk_dsi_exit_ulps(struct mtk_dsi *dsi)
 	int wake_up_prd = (dsi->data_rate * 1000) / (1024 * 8) + 1;
 	unsigned int ret = 0;
 
-	/* reset enter_ulps_done before waiting */
+	/* reset exit_ulps_done before waiting */
 	reset_dsi_wq(&dsi->exit_ulps_done);
 
 	mtk_dsi_mask(dsi, DSI_INTEN, SLEEPOUT_DONE_INT_FLAG,
@@ -1040,11 +1050,21 @@ static void mtk_dsi_exit_ulps(struct mtk_dsi *dsi)
 	/* wait exit_ulps_done */
 	ret = wait_dsi_wq(&dsi->exit_ulps_done, 2 * HZ);
 
-	if (ret) {
-		DDPDBG("%s sucessed\n", __func__);
-	} else {
-		mtk_dsi_dump(&dsi->ddp_comp);
-		DDPAEE("%s failed\n", __func__);
+	if (ret)
+		DDPDBG("%s success\n", __func__);
+	else {
+		/* IRQ maybe be un-expectedly disabled for long time,
+		 * which makes false alarm timeout...
+		 */
+		u32 status = readl(dsi->regs + DSI_INTSTA);
+
+		if (status & SLEEPOUT_DONE_INT_FLAG)
+			DDPPR_ERR("%s success but IRQ is blocked\n",
+				__func__);
+		else {
+			mtk_dsi_dump(&dsi->ddp_comp);
+			DDPAEE("%s fail\n", __func__);
+		}
 	}
 
 	/* reset related setting */
