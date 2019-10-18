@@ -55,7 +55,8 @@ enum DVFS_USER {
 	MDLA1 = 4,
 	APUSYS_DVFS_USER_NUM,
 
-	EDMA = 0x100,	// special user
+	EDMA = 0x10,	// special user
+	EDMA2 = 0x11,   // special user
 };
 
 

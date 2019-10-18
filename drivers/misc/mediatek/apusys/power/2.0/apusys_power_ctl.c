@@ -35,6 +35,7 @@
 struct apusys_dvfs_opps apusys_opps;
 bool is_power_debug_lock;
 
+
 bool dvfs_user_support(enum DVFS_USER user)
 {
 	uint32_t val = 0;
@@ -111,6 +112,62 @@ uint8_t apusys_boost_value_to_opp(enum DVFS_USER user, uint8_t boost_value)
 EXPORT_SYMBOL(apusys_boost_value_to_opp);
 
 
+enum DVFS_FREQ apusys_opp_to_freq(enum DVFS_USER user, uint8_t opp)
+{
+	enum DVFS_FREQ freq = DVFS_FREQ_NOT_SUPPORT;
+	enum DVFS_VOLTAGE_DOMAIN buck_domain;
+
+	if (user < 0 || user > APUSYS_DVFS_USER_NUM)
+		return freq;
+
+	buck_domain = apusys_user_to_buck_domain[user];
+
+	if (opp >= 0 && opp < APUSYS_MAX_NUM_OPPS)
+		freq = apusys_opps.opps[opp][buck_domain].freq;
+
+	return freq;
+}
+EXPORT_SYMBOL(apusys_opp_to_freq);
+
+
+int8_t apusys_get_opp(enum DVFS_USER user)
+{
+	enum DVFS_VOLTAGE_DOMAIN buck_domain;
+
+	if (user < 0 || user > APUSYS_DVFS_USER_NUM)
+		return -1;
+
+	buck_domain = apusys_user_to_buck_domain[user];
+
+	return apusys_opps.cur_opp_index[buck_domain];
+}
+EXPORT_SYMBOL(apusys_get_opp);
+
+
+int8_t apusys_get_ceiling_opp(enum DVFS_USER user)
+{
+	uint8_t used_opp;
+	enum DVFS_VOLTAGE_DOMAIN buck_domain;
+
+	if (user < 0 || user > APUSYS_DVFS_USER_NUM)
+		return -1;
+
+	buck_domain = apusys_user_to_buck_domain[user];
+	used_opp = apusys_opps.cur_opp_index[buck_domain];
+
+	// upper bound for power hal
+	used_opp = MAX(used_opp, apusys_opps.power_lock_min_opp[user]);
+	// lower bound for power hal
+	used_opp = MIN(used_opp, apusys_opps.power_lock_max_opp[user]);
+
+	// upper bound for thermal
+	used_opp = MAX(used_opp, apusys_opps.thermal_opp[user]);
+
+	return used_opp;
+}
+EXPORT_SYMBOL(apusys_get_ceiling_opp);
+
+
 void apusys_set_pwr_lock(enum DVFS_USER user, uint8_t min_opp, uint8_t max_opp)
 {
 	apusys_opps.power_lock_min_opp[user] = min_opp;
@@ -173,6 +230,8 @@ void apusys_final_volt_check(void)
 for (buck_index = 0;
 buck_index < APUSYS_BUCK_NUM; buck_index++) {
 	for (user_index = 0; user_index < APUSYS_DVFS_USER_NUM; user_index++) {
+		if (buck_index == VCORE_BUCK)
+			continue;
 		if (dvfs_user_support(user_index) == false)
 			continue;
 		for (path_index = 0;
@@ -677,5 +736,12 @@ void apusys_power_uninit(enum DVFS_USER user)
 {
 	hal_config_power(PWR_CMD_UNINIT_POWER, user, NULL);
 	PWR_LOG_INF("%s done,\n", __func__);
+}
+
+enum DVFS_FREQ apusys_get_dvfs_freq(enum DVFS_VOLTAGE_DOMAIN domain)
+{
+	uint8_t cur_opp = apusys_opps.cur_opp_index[domain];
+
+	return apusys_opps.opps[cur_opp][domain].freq;
 }
 

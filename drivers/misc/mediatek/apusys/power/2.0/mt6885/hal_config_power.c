@@ -525,24 +525,23 @@ static int set_power_frequency(void *param)
 
 static void get_current_power_info(void *param)
 {
-	struct apu_power_info info;
+	struct apu_power_info *info = ((struct apu_power_info *)param);
 	char log_str[60];
 
-	info.dump_div = 1000;
-	info.id = ((struct hal_param_pwr_info *)param)->id;
+	info->dump_div = 1000;
 
 	// including APUsys related buck
-	dump_voltage(&info);
+	dump_voltage(info);
 
 	// including APUsys related freq
-	dump_frequency(&info);
+	dump_frequency(info);
 
 	snprintf(log_str, sizeof(log_str),
-				"v[%u,%u,%u,%u]f[%u,%u,%u,%u,%u,%u,%u,%u]%llu",
-				info.vvpu, info.vmdla, info.vcore, info.vsram,
-				info.dsp_freq, info.dsp1_freq, info.dsp2_freq,
-				info.dsp3_freq, info.dsp6_freq, info.dsp7_freq,
-				info.apupll_freq, info.ipuif_freq, info.id);
+			"v[%u,%u,%u,%u]f[%u,%u,%u,%u,%u,%u,%u,%u]%llu",
+			info->vvpu, info->vmdla, info->vcore, info->vsram,
+			info->dsp_freq, info->dsp1_freq, info->dsp2_freq,
+			info->dsp3_freq, info->dsp6_freq, info->dsp7_freq,
+			info->apupll_freq, info->ipuif_freq, info->id);
 
 	// TODO: return value to MET
 

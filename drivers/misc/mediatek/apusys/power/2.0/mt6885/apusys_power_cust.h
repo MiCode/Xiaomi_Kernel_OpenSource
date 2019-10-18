@@ -23,7 +23,7 @@
 
 #define APUSYS_MAX_NUM_OPPS                (10)
 #define APUSYS_PATH_USER_NUM               (4)   // num of DVFS_XXX_PATH
-#define APUSYS_DVFS_CONSTRAINT_NUM			(3)
+#define APUSYS_DVFS_CONSTRAINT_NUM			(4)
 #define APUSYS_VPU_NUM						(3)
 #define APUSYS_MDLA_NUM						(2)
 #define APUSYS_DEFAULT_OPP					(9)

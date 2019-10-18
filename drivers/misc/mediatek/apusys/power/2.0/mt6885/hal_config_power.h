@@ -16,7 +16,6 @@
 
 #include "apusys_power_cust.h"
 
-
 /************************************
  * command base hal interface
  ************************************/

@@ -17,6 +17,8 @@
 #ifdef BUILD_POLICY_TEST
 #include "test.h"
 #else
+#include <aee.h>
+
 
 #define DVFS_TAG "[DVFS]"
 #define PWR_LOG_INF(format, args...) \
@@ -32,6 +34,12 @@
 #define LOG_INF(format, args...)    pr_debug(VPU_TAG " " format, ##args)
 #define LOG_WRN(format, args...)    pr_info(VPU_TAG "[warn] " format, ##args)
 #define LOG_ERR(format, args...)    pr_info(VPU_TAG "[error] " format, ##args)
+#define apu_aee_warn(key, format, args...) \
+	do { \
+		pr_info(format, ##args); \
+		aee_kernel_warning("APU POWERU", \
+			"\nCRDISPATCH_KEY:" key "\n" format, ##args); \
+	} while (0)
 
 #endif
 

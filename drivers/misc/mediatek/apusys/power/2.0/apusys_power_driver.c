@@ -39,6 +39,7 @@
 #define AUTO_BUCK_OFF_SUSPEND	(1)
 #define AUTO_BUCK_OFF_DEEPIDLE	(0)
 
+#define ASSERTION_PERCENTAGE  (1)		// 1%
 static int apu_power_counter;
 
 bool apusys_power_check(void)
@@ -116,9 +117,8 @@ static struct power_device *find_out_device_by_user(enum DVFS_USER user)
 		list_for_each_entry(pwr_dev,
 				&power_device_list, list) {
 
-			if (pwr_dev && pwr_dev->dev_usr == user) {
+			if (pwr_dev && pwr_dev->dev_usr == user)
 				return pwr_dev;
-			}
 		}
 
 	} else {
@@ -179,9 +179,8 @@ find_out_callback_device_by_user(enum POWER_CALLBACK_USER user)
 		list_for_each_entry(pwr_dev,
 				&power_callback_device_list, list) {
 
-			if (pwr_dev && pwr_dev->power_callback_usr == user) {
+			if (pwr_dev && pwr_dev->power_callback_usr == user)
 				return pwr_dev;
-			}
 		}
 
 	} else {
@@ -380,7 +379,8 @@ EXPORT_SYMBOL(apu_power_callback_device_unregister);
 
 static void d_work_power_info_func(struct work_struct *work)
 {
-	struct hal_param_pwr_info info;
+//	struct hal_param_pwr_info info;
+	struct	apu_power_info info;
 
 	info.id = timestamp;
 	hal_config_power(PWR_CMD_GET_POWER_INFO, VPU0, &info);
@@ -404,9 +404,112 @@ static void default_power_on_func(void)
 	apu_power_reg_dump();
 }
 
+static void apu_power_assert_check(struct apu_power_info *info)
+{
+	int dsp_freq = apusys_get_dvfs_freq(V_APU_CONN)/info->dump_div;
+	int dsp1_freq = apusys_get_dvfs_freq(V_VPU0)/info->dump_div;
+	int dsp2_freq = apusys_get_dvfs_freq(V_VPU1)/info->dump_div;
+	int dsp3_freq = apusys_get_dvfs_freq(V_VPU2)/info->dump_div;
+	int dsp6_freq = apusys_get_dvfs_freq(V_MDLA0)/info->dump_div;
+	int dsp7_freq = apusys_get_dvfs_freq(V_TOP_IOMMU)/info->dump_div;
+	//int ipuif_freq = apusys_get_dvfs_freq(V_VCORE)/1000;
+
+	int vvpu = info->vvpu * info->dump_div;
+	int vmdla = info->vmdla * info->dump_div;
+	int vsram = info->vsram * info->dump_div;
+	int vcore = info->vcore * info->dump_div;
+
+
+	if ((abs(dsp_freq - info->dsp_freq) * 100) >
+		dsp_freq * ASSERTION_PERCENTAGE) {
+		apu_aee_warn("APUTOP",
+			"dsp_freq=%d, info->dsp_freq=%d\n",
+			dsp_freq, info->dsp_freq);
+	}
+
+	if ((abs(dsp1_freq - info->dsp1_freq) * 100) >
+		dsp1_freq * ASSERTION_PERCENTAGE) {
+		apu_aee_warn("VPU0",
+			"dsp1_freq=%d, info->dsp1_freq=%d\n",
+			dsp1_freq, info->dsp1_freq);
+	}
+
+	if ((abs(dsp2_freq - info->dsp2_freq) * 100) >
+		dsp2_freq * ASSERTION_PERCENTAGE) {
+		apu_aee_warn("VPU1",
+			"dsp2_freq=%d, info->dsp2_freq=%d\n",
+			dsp2_freq, info->dsp2_freq);
+	}
+
+	if ((abs(dsp3_freq - info->dsp3_freq) * 100) >
+		dsp3_freq * ASSERTION_PERCENTAGE) {
+		apu_aee_warn("VPU2",
+			"dsp3_freq=%d, info->dsp3_freq=%d\n",
+			dsp3_freq, info->dsp3_freq);
+	}
+
+	if ((abs(dsp6_freq - info->dsp6_freq) * 100) >
+		dsp6_freq * ASSERTION_PERCENTAGE) {
+		apu_aee_warn("MDLA1",
+			"dsp6_freq=%d, info->dsp6_freq=%d\n",
+			dsp6_freq, info->dsp6_freq);
+	}
+
+	if ((abs(dsp7_freq - info->dsp7_freq) * 100) >
+		dsp7_freq * ASSERTION_PERCENTAGE) {
+		apu_aee_warn("IOMMU",
+			"dsp7_freq=%d, info->dsp7_freq=%d\n",
+			dsp7_freq, info->dsp7_freq);
+	}
+
+
+#if 0	// dvfs don't use vcore
+		if (abs(ipuif_freq - info->ipuif_freq) >
+			ipuif_freq * ASSERTION_PERCENTAGE) {
+			apu_aee_warn("VCORE",
+				"ipuif_freq=%d, info->ipuif_freq=%d\n",
+				ipuif_freq, info->ipuif_freq)
+		}
+#endif
+
+	if (vvpu == DVFS_VOLT_00_575000_V && vmdla >= DVFS_VOLT_00_800000_V) {
+		apu_aee_warn("HIT DVFS Constraint",
+			"vvpu=%d, vmdla=%d\n",
+			vvpu, vmdla);
+	}
+
+	if (vmdla == DVFS_VOLT_00_575000_V && vvpu >= DVFS_VOLT_00_800000_V) {
+		apu_aee_warn("HIT DVFS Constraint",
+			"vvpu=%d, vmdla=%d\n",
+			vvpu, vmdla);
+	}
+
+	if (vcore == DVFS_VOLT_00_575000_V && vvpu >= DVFS_VOLT_00_800000_V) {
+		apu_aee_warn("HIT DVFS Constraint",
+			"vvpu=%d, vcore=%d\n",
+			vvpu, vcore);
+	}
+
+	if ((vvpu > VSRAM_TRANS_VOLT || vmdla > VSRAM_TRANS_VOLT)
+		&& vsram == DVFS_VOLT_00_750000_V) {
+		apu_aee_warn("HIT VSRAM Constraint",
+			"vvpu=%d, vmdla=%d, vsram=%d\n",
+			vvpu, vmdla, vsram);
+	}
+
+	if ((vvpu < VSRAM_TRANS_VOLT || vmdla < VSRAM_TRANS_VOLT)
+		&& vsram == DVFS_VOLT_00_825000_V) {
+		apu_aee_warn("HIT VSRAM Constraint",
+			"vvpu=%d, vmdla=%d, vsram=%d\n",
+			vvpu, vmdla, vsram);
+	}
+}
+
 static int apusys_power_task(void *arg)
 {
 	int keep_loop = 0;
+	struct	apu_power_info info;
+
 
 	set_current_state(TASK_INTERRUPTIBLE);
 
@@ -431,7 +534,10 @@ static int apusys_power_task(void *arg)
 							__func__, timestamp);
 			// call dvfs API and bring timestamp to id
 			apusys_dvfs_policy(timestamp);
-			apu_get_power_info();
+//			apu_get_power_info();
+			info.id = timestamp;
+			hal_config_power(PWR_CMD_GET_POWER_INFO, VPU0, &info);
+			apu_power_assert_check(&info);
 		} else {
 			LOG_INF("%s enter sleep\n", __func__);
 			set_current_state(TASK_INTERRUPTIBLE);
@@ -539,6 +645,11 @@ int apu_power_power_stress(int type, int device, int opp)
 {
 	static int power_stress_dev_pwr_stat[APUSYS_DVFS_USER_NUM] = {0};
 	int id = 0;
+	int i = 0, j = 0;
+	int m = 0, n = 0, o = 0;
+	int count = 0;
+	int loop = opp; // for type = 5
+	struct	apu_power_info info;
 
 	LOG_WRN("%s begin with type %d +++\n", __func__, type);
 
@@ -552,7 +663,7 @@ int apu_power_power_stress(int type, int device, int opp)
 		return -1;
 	}
 
-	if (opp < 0 || opp >= APUSYS_MAX_NUM_OPPS) {
+	if (type != 5 && (opp < 0 || opp >= APUSYS_MAX_NUM_OPPS)) {
 		LOG_ERR("%s err with opp = %d\n", __func__, opp);
 		return -1;
 	}
@@ -604,7 +715,6 @@ int apu_power_power_stress(int type, int device, int opp)
 		break;
 
 	case 2: // config power off
-
 		if (device == 9) { // all devices
 			for (id = 0 ; id < APUSYS_DVFS_USER_NUM ; id++) {
 				if (dvfs_power_domain_support(id) == false)
@@ -627,6 +737,37 @@ int apu_power_power_stress(int type, int device, int opp)
 		break;
 	case 4: // config conn mtcmos off
 		hal_config_power(PWR_CMD_DEBUG_MTCMOS_OFF, VPU0, NULL);
+		break;
+	case 5:	// dvfs all combination test , opp = run count
+for (loop = 0; loop < count; loop++) {
+	for (i = 0 ; i < APUSYS_MAX_NUM_OPPS ; i++) {
+		apusys_set_opp(VPU0, i);
+		for (j = 0 ; j < APUSYS_MAX_NUM_OPPS; j++) {
+			apusys_set_opp(VPU1, j);
+			for (m = 0 ; m < APUSYS_MAX_NUM_OPPS; m++) {
+				apusys_set_opp(VPU2, m);
+				for (n = 0 ; n < APUSYS_MAX_NUM_OPPS; n++) {
+					apusys_set_opp(MDLA0, n);
+				for (o = 0 ; o < APUSYS_MAX_NUM_OPPS; o++) {
+					count++;
+			LOG_WRN("## dvfs conbinational test, count = %d ##\n",
+						count);
+					apusys_set_opp(MDLA1, o);
+					timestamp = get_current_time_us();
+					info.id = timestamp;
+
+					apusys_dvfs_policy(timestamp);
+
+					hal_config_power(PWR_CMD_GET_POWER_INFO,
+						VPU0, &info);
+					apu_power_assert_check(&info);
+					udelay(100);
+					}
+				}
+			}
+		}
+	}
+}
 		break;
 	case 8: // dump power info and options
 		LOG_WRN("%s, BYPASS_POWER_CTL : %d\n",
