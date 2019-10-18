@@ -288,15 +288,17 @@ void cmdq_util_dump_dbg_reg(void *chan)
 {
 	void *base = cmdq_mbox_get_base(chan);
 	u32 dbg0[3], dbg2[6], i;
+	u32 id;
 
 	if (!base) {
 		cmdq_util_msg("no cmdq dbg since no base");
 		return;
 	}
 
+	id = cmdq_util_hw_id((u32)cmdq_mbox_get_base_pa(chan));
+
 	if (atomic_cmpxchg(&cmdq_dbg_ctrl, 0, 1) == 0) {
 		struct arm_smccc_res res;
-		u32 id = cmdq_util_hw_id((u32)cmdq_mbox_get_base_pa(chan));
 
 		arm_smccc_smc(MTK_SIP_CMDQ_CONTROL, CMDQ_ENABLE_DEBUG, id,
 			0, 0, 0, 0, 0, &res);
@@ -314,7 +316,8 @@ void cmdq_util_dump_dbg_reg(void *chan)
 		dbg2[i] = readl(base + GCE_DBG2);
 	}
 
-	cmdq_util_msg("dbg0:%#x %#x %#x dbg2:%#x %#x %#x %#x %#x %#x\n",
+	cmdq_util_msg("id:%u dbg0:%#x %#x %#x dbg2:%#x %#x %#x %#x %#x %#x\n",
+		id,
 		dbg0[0], dbg0[1], dbg0[2],
 		dbg2[0], dbg2[1], dbg2[2], dbg2[3], dbg2[4], dbg2[5]);
 }

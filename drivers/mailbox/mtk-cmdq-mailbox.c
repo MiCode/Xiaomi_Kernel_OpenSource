@@ -717,8 +717,9 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 	task_end_pa = cmdq_thread_get_end(thread);
 
 	if (err < 0)
-		cmdq_err("pc:%pa end:%pa err:%d",
-			&curr_pa, &task_end_pa, err);
+		cmdq_err("pc:%pa end:%pa err:%d gce base:%lx",
+			&curr_pa, &task_end_pa, err,
+			(unsigned long)cmdq->base_pa);
 
 	cmdq_log("task status %pa~%pa err:%d",
 		&curr_pa, &task_end_pa, err);
