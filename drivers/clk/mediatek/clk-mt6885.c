@@ -4355,6 +4355,8 @@ unsigned int mt_get_ckgen_freq(unsigned int ID)
 	int output = 0, i = 0;
 	unsigned int temp, clk_dbg_cfg, clk_misc_cfg_0, clk26cali_1 = 0;
 
+	while (clk_readl(CLK26CALI_0) & 0x1000)
+		;
 	clk_dbg_cfg = clk_readl(CLK_DBG_CFG);
 	clk_writel(CLK_DBG_CFG, (clk_dbg_cfg & 0xFFFFC0FC)|(ID << 8)|(0x1));
 
@@ -4384,7 +4386,7 @@ unsigned int mt_get_ckgen_freq(unsigned int ID)
 
 	clk_writel(CLK26CALI_0, 0x0000);
 	/*print("ckgen meter[%d] = %d Khz\n", ID, output);*/
-	if (i > 10)
+	if (i > 20)
 		return 0;
 	else
 		return output;
@@ -4396,6 +4398,8 @@ unsigned int mt_get_abist_freq(unsigned int ID)
 	int output = 0, i = 0;
 	unsigned int temp, clk_dbg_cfg, clk_misc_cfg_0, clk26cali_1 = 0;
 
+	while (clk_readl(CLK26CALI_0) & 0x1000)
+		;
 	clk_dbg_cfg = clk_readl(CLK_DBG_CFG);
 	clk_writel(CLK_DBG_CFG, (clk_dbg_cfg & 0xFFC0FFFC)|(ID << 16));
 
@@ -4425,7 +4429,7 @@ unsigned int mt_get_abist_freq(unsigned int ID)
 	/*clk_writel(CLK26CALI_1, clk26cali_1);*/
 	clk_writel(CLK26CALI_0, 0x0000);
 	/*pr_debug("%s = %d Khz\n", abist_array[ID-1], output);*/
-	if (i > 10)
+	if (i > 20)
 		return 0;
 	else
 		return (output * 2);
