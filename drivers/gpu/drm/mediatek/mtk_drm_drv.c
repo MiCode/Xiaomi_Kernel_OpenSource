@@ -70,6 +70,16 @@ atomic_t _mtk_fence_idx = ATOMIC_INIT(-1);
 atomic_t _mtk_fence_update_event = ATOMIC_INIT(0);
 wait_queue_head_t _mtk_fence_wq;
 
+unsigned long long mutex_time_start;
+unsigned long long mutex_time_end;
+long long mutex_time_period;
+const char *mutex_locker;
+
+unsigned long long mutex_nested_time_start;
+unsigned long long mutex_nested_time_end;
+long long mutex_nested_time_period;
+const char *mutex_nested_locker;
+
 static inline struct mtk_atomic_state *to_mtk_state(struct drm_atomic_state *s)
 {
 	return container_of(s, struct mtk_atomic_state, base);
@@ -647,14 +657,15 @@ static int mtk_atomic_commit(struct drm_device *drm,
 		crtc = private->crtc[i];
 		mtk_crtc = to_mtk_crtc(crtc);
 
-		mutex_lock_nested(&mtk_crtc->lock, i);
+		DDP_MUTEX_LOCK_NESTED(&mtk_crtc->lock, i, __func__, __LINE__);
 	}
+	mutex_nested_time_start = sched_clock();
 
 	ret = drm_atomic_helper_swap_state(state, 0);
 	if (ret) {
-		DDPINFO("DRM swap state failed! state:%p, ret:%d\n",
+		DDPPR_ERR("DRM swap state failed! state:%p, ret:%d\n",
 				state, ret);
-		return ret;
+		goto err_mutex_unlock;
 	}
 
 	mtk_atomic_state_get(state);
@@ -663,6 +674,16 @@ static int mtk_atomic_commit(struct drm_device *drm,
 	else
 		mtk_atomic_complete(private, state);
 
+	mutex_nested_time_end = sched_clock();
+	mutex_nested_time_period =
+			mutex_nested_time_end - mutex_nested_time_start;
+	if (mutex_nested_time_period > 1000000000) {
+		DDPPR_ERR("M_ULOCK_NESTED:%s[%d] timeout:<%lld ns>!\n",
+			__func__, __LINE__, mutex_nested_time_period);
+		dump_stack();
+	}
+
+err_mutex_unlock:
 	for (i = MAX_CRTC - 1; i >= 0; i--) {
 		if (!(crtc_mask >> i & 0x1))
 			continue;
@@ -670,7 +691,7 @@ static int mtk_atomic_commit(struct drm_device *drm,
 		crtc = private->crtc[i];
 		mtk_crtc = to_mtk_crtc(crtc);
 
-		mutex_unlock(&mtk_crtc->lock);
+		DDP_MUTEX_UNLOCK_NESTED(&mtk_crtc->lock, i, __func__, __LINE__);
 	}
 
 	mutex_unlock(&private->commit.lock);

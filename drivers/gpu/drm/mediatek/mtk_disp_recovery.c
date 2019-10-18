@@ -139,24 +139,24 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 
 	DDPINFO("[ESD]ESD read panel\n");
 
-	mutex_lock(&mtk_crtc->lock);
+	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
 	if (unlikely(!output_comp)) {
 		DDPPR_ERR("%s:invalid output comp\n", __func__);
-		mutex_unlock(&mtk_crtc->lock);
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 		return -EINVAL;
 	}
 
 	if (mtk_drm_is_idle(crtc) && mtk_dsi_is_cmd_mode(output_comp)) {
-		mutex_unlock(&mtk_crtc->lock);
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 		return 0;
 	}
 
 	mtk_ddp_comp_io_cmd(output_comp, NULL, REQ_PANEL_EXT, &panel_ext);
 	if (unlikely(!(panel_ext && panel_ext->params))) {
 		DDPPR_ERR("%s:can't find panel_ext handle\n", __func__);
-		mutex_unlock(&mtk_crtc->lock);
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 		return -EINVAL;
 	}
 
@@ -206,10 +206,10 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 			cmdq_pkt_flush(cmdq_handle2);
 			cmdq_pkt_destroy(cmdq_handle2);
 		}
-		mutex_unlock(&mtk_crtc->lock);
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 		goto done;
 	}
-	mutex_unlock(&mtk_crtc->lock);
+	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 	cmdq_pkt_destroy(cmdq_handle);
 
@@ -314,16 +314,16 @@ static int mtk_drm_esd_check(struct drm_crtc *crtc)
 	int ret = 0;
 
 	CRTC_MMP_EVENT_START(drm_crtc_index(crtc), esd_check, 0, 0);
-	mutex_lock(&mtk_crtc->lock);
+	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 	if (mtk_crtc->enabled == 0) {
 		CRTC_MMP_MARK(drm_crtc_index(crtc), esd_check, 0, 99);
 		DDPINFO("[ESD] CRTC %d disable. skip esd check\n",
 			drm_crtc_index(crtc));
-		mutex_unlock(&mtk_crtc->lock);
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 		goto done;
 	}
-	mutex_unlock(&mtk_crtc->lock);
+	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 	panel_ext = mtk_crtc->panel_ext;
 	if (unlikely(!(panel_ext && panel_ext->params))) {
@@ -360,13 +360,13 @@ static int mtk_drm_esd_recover(struct drm_crtc *crtc)
 	int ret = 0;
 
 	CRTC_MMP_EVENT_START(drm_crtc_index(crtc), esd_recovery, 0, 0);
-	mutex_lock(&mtk_crtc->lock);
+	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 	CRTC_MMP_MARK(drm_crtc_index(crtc), esd_recovery, 0, 1);
 	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
 
 	if (unlikely(!output_comp)) {
 		DDPPR_ERR("%s: invalid output comp\n", __func__);
-		mutex_unlock(&mtk_crtc->lock);
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 		ret = -EINVAL;
 		goto done;
 	}
@@ -409,7 +409,7 @@ static int mtk_drm_esd_recover(struct drm_crtc *crtc)
 
 	CRTC_MMP_MARK(drm_crtc_index(crtc), esd_recovery, 0, 4);
 
-	mutex_unlock(&mtk_crtc->lock);
+	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 done:
 	CRTC_MMP_EVENT_END(drm_crtc_index(crtc), esd_recovery, 0, ret);
 

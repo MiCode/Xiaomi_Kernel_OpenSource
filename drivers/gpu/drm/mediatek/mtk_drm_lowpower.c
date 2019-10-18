@@ -153,7 +153,7 @@ void mtk_drm_idlemgr_kick(const char *source, struct drm_crtc *crtc,
 
 	/* get lock to protect idlemgr_last_kick_time and is_idle */
 	if (need_lock)
-		mutex_lock(&mtk_crtc->lock);
+		DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 	/* update kick timestamp */
 	idlemgr_ctx->idlemgr_last_kick_time = sched_clock();
@@ -168,7 +168,7 @@ void mtk_drm_idlemgr_kick(const char *source, struct drm_crtc *crtc,
 	}
 
 	if (need_lock)
-		mutex_unlock(&mtk_crtc->lock);
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 }
 
 unsigned int mtk_drm_set_idlemgr(struct drm_crtc *crtc, unsigned int flag,
@@ -241,10 +241,10 @@ static int mtk_drm_idlemgr_monitor_thread(void *data)
 		else if (t_to_check > 0)
 			msleep_interruptible(t_to_check);
 
-		mutex_lock(&mtk_crtc->lock);
+		DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 		if (!mtk_crtc->enabled) {
-			mutex_unlock(&mtk_crtc->lock);
+			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 			mtk_crtc_wait_status(crtc, 1, MAX_SCHEDULE_TIMEOUT);
 			continue;
 		}
@@ -252,7 +252,8 @@ static int mtk_drm_idlemgr_monitor_thread(void *data)
 		if (crtc->state) {
 			mtk_state = to_mtk_crtc_state(crtc->state);
 			if (mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE]) {
-				mutex_unlock(&mtk_crtc->lock);
+				DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__,
+						__LINE__);
 				continue;
 			}
 		}
@@ -260,14 +261,14 @@ static int mtk_drm_idlemgr_monitor_thread(void *data)
 		if (idlemgr_ctx->is_idle
 			|| mtk_crtc_is_dc_mode(crtc)
 			|| priv->session_mode != MTK_DRM_SESSION_DL) {
-			mutex_unlock(&mtk_crtc->lock);
+			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 			continue;
 		}
 
 		t_idle = local_clock() - idlemgr_ctx->idlemgr_last_kick_time;
 		if (t_idle < idlemgr_ctx->idle_check_interval * 1000 * 1000) {
 			/* kicked in idle_check_interval msec, it's not idle */
-			mutex_unlock(&mtk_crtc->lock);
+			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 			continue;
 		}
 		/* double check if dynamic switch on/off */
@@ -279,7 +280,7 @@ static int mtk_drm_idlemgr_monitor_thread(void *data)
 			idlemgr_ctx->is_idle = 1;
 		}
 
-		mutex_unlock(&mtk_crtc->lock);
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 		wait_event_interruptible(idlemgr->idlemgr_wq,
 					 !idlemgr_ctx->is_idle);

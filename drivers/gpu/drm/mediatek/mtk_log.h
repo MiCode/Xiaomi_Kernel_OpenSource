@@ -16,6 +16,11 @@
 
 #include <linux/kernel.h>
 
+extern unsigned long long mutex_time_start;
+extern unsigned long long mutex_time_end;
+extern long long mutex_time_period;
+extern const char *mutex_locker;
+
 enum DPREC_LOGGER_PR_TYPE {
 	DPREC_LOGGER_ERROR,
 	DPREC_LOGGER_FENCE,
@@ -73,6 +78,40 @@ int mtk_dprec_logger_pr(unsigned int type, char *fmt, ...);
 	do {                                                                   \
 		if (g_irq_log)                                                 \
 			mtk_dprec_logger_pr(DPREC_LOGGER_DEBUG, fmt, ##arg);   \
+	} while (0)
+
+#define DDP_MUTEX_LOCK(lock, name, line)                                       \
+	do {                                                                   \
+		DDPINFO("M_LOCK:%s[%d] +\n", name, line);		   \
+		mutex_lock(lock);		   \
+		mutex_time_start = sched_clock();		   \
+		mutex_locker = name;		   \
+	} while (0)
+
+#define DDP_MUTEX_UNLOCK(lock, name, line)                                     \
+	do {                                                                   \
+		mutex_locker = NULL;		   \
+		mutex_time_end = sched_clock();		   \
+		mutex_time_period = mutex_time_end - mutex_time_start;   \
+		if (mutex_time_period > 1000000000) {		   \
+			DDPPR_ERR("M_ULOCK:%s[%d] timeout:<%lld ns>!\n",   \
+				name, line, mutex_time_period);		   \
+			dump_stack();		   \
+		}		   \
+		mutex_unlock(lock);		   \
+		DDPINFO("M_ULOCK:%s[%d] -\n", name, line);		   \
+	} while (0)
+
+#define DDP_MUTEX_LOCK_NESTED(lock, i, name, line)                             \
+	do {                                                                   \
+		DDPINFO("M_LOCK_NST[%d]:%s[%d] +\n", i, name, line);   \
+		mutex_lock_nested(lock, i);		   \
+	} while (0)
+
+#define DDP_MUTEX_UNLOCK_NESTED(lock, i, name, line)                           \
+	do {                                                                   \
+		DDPINFO("M_ULOCK_NST[%d]:%s[%d] -\n", i, name, line);   \
+		mutex_unlock(lock);		   \
 	} while (0)
 
 #ifdef CONFIG_MTK_AEE_FEATURE

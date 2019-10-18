@@ -405,11 +405,11 @@ static int mtk_crtc_enable_vblank_thread(void *data)
 			mtk_crtc->vblank_enable_wq,
 			atomic_read(&mtk_crtc->vblank_enable_task_active));
 
-		mutex_lock(&mtk_crtc->lock);
+		DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 		mtk_drm_idlemgr_kick(__func__, &mtk_crtc->base, 0);
 		mtk_ddp_comp_enable_vblank(comp, &mtk_crtc->base, NULL);
-		mutex_unlock(&mtk_crtc->lock);
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 		atomic_set(&mtk_crtc->vblank_enable_task_active, 0);
 
 		if (kthread_should_stop()) {
@@ -463,13 +463,13 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 	struct mtk_cmdq_cb_data *cb_data;
 	bool is_frame_mode;
 
-	mutex_lock(&mtk_crtc->lock);
+	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 	mtk_drm_idlemgr_kick(__func__, crtc, 0);
 
 	cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
 	if (!cb_data) {
-		mutex_unlock(&mtk_crtc->lock);
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 		DDPPR_ERR("cb data creation failed\n");
 		return 0;
@@ -506,7 +506,7 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 
 	cmdq_pkt_flush_threaded(cmdq_handle, bl_cmdq_cb, cb_data);
 
-	mutex_unlock(&mtk_crtc->lock);
+	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 	return 0;
 }
@@ -1211,16 +1211,16 @@ void mtk_crtc_dc_prim_path_update(struct drm_crtc *crtc)
 
 	DDPINFO("%s+\n", __func__);
 
-	mutex_lock(&mtk_crtc->lock);
+	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 	if (!mtk_crtc_is_dc_mode(crtc)) {
-		mutex_unlock(&mtk_crtc->lock);
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 		return;
 	}
 
 	cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
 	if (!cb_data) {
-		mutex_unlock(&mtk_crtc->lock);
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 		DDPPR_ERR("cb data creation failed\n");
 		return;
@@ -1263,7 +1263,7 @@ void mtk_crtc_dc_prim_path_update(struct drm_crtc *crtc)
 	cb_data->cmdq_handle = cmdq_handle;
 	cmdq_pkt_flush_threaded(cmdq_handle, sub_cmdq_cb, cb_data);
 end:
-	mutex_unlock(&mtk_crtc->lock);
+	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 }
 
 void mtk_crtc_release_output_buffer_fence(
@@ -1898,13 +1898,13 @@ static void mtk_crtc_set_dirty(struct mtk_drm_crtc *mtk_crtc)
 
 static int __mtk_check_trigger(struct mtk_drm_crtc *mtk_crtc)
 {
-	mutex_lock(&mtk_crtc->lock);
+	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 	mtk_drm_idlemgr_kick(__func__, &mtk_crtc->base, 0);
 
 	mtk_crtc_set_dirty(mtk_crtc);
 
-	mutex_unlock(&mtk_crtc->lock);
+	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 	return 0;
 }
@@ -2937,6 +2937,7 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
 	if (!cb_data) {
 		DDPPR_ERR("cb data creation failed\n");
+		CRTC_MMP_EVENT_END(index, atomic_flush, 0, 1);
 		return;
 	}
 
@@ -4122,7 +4123,7 @@ int mtk_crtc_path_switch(struct drm_crtc *crtc, unsigned int ddp_mode,
 	struct mtk_ddp_config cfg;
 
 	if (need_lock)
-		mutex_lock(&mtk_crtc->lock);
+		DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 	if (ddp_mode == mtk_crtc->ddp_mode || !crtc->enabled)
 		goto done;
@@ -4167,7 +4168,7 @@ done:
 		mtk_crtc_update_ddp_sw_status(crtc, true);
 
 	if (need_lock)
-		mutex_unlock(&mtk_crtc->lock);
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 	DDPINFO("%s-\n", __func__);
 	return 0;
@@ -4403,7 +4404,7 @@ int mtk_crtc_lcm_ATA(struct drm_crtc *crtc)
 
 	DDPINFO("%s\n", __func__);
 
-	mutex_lock(&mtk_crtc->lock);
+	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
 	if (unlikely(!output_comp)) {
@@ -4440,7 +4441,7 @@ int mtk_crtc_lcm_ATA(struct drm_crtc *crtc)
 		cmdq_pkt_destroy(cmdq_handle);
 	}
 
-	mutex_unlock(&mtk_crtc->lock);
+	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 	return ret;
 }
 unsigned int mtk_drm_primary_display_get_debug_state(

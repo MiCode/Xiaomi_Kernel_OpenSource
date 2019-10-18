@@ -172,7 +172,7 @@ int mtk_disp_hrt_cond_change_cb(struct notifier_block *nb, unsigned long value,
 	int i, ret;
 	unsigned int hrt_idx;
 
-	mutex_lock(&mtk_crtc->lock);
+	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 	switch (value) {
 	case BW_THROTTLE_START: /* CAM on */
@@ -181,7 +181,7 @@ int mtk_disp_hrt_cond_change_cb(struct notifier_block *nb, unsigned long value,
 		DDPINFO("CAM trigger repaint\n");
 		hrt_idx = _layering_rule_get_hrt_idx();
 		hrt_idx++;
-		mutex_unlock(&mtk_crtc->lock);
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 		drm_trigger_repaint(DRM_REPAINT_FOR_IDLE, dev_crtc->dev);
 		for (i = 0; i < 5; ++i) {
 			ret = wait_event_timeout(
@@ -195,7 +195,7 @@ int mtk_disp_hrt_cond_change_cb(struct notifier_block *nb, unsigned long value,
 			    hrt_idx)
 				break;
 		}
-		mutex_lock(&mtk_crtc->lock);
+		DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 		break;
 	case BW_THROTTLE_END: /* CAM off */
 		DDPMSG("DISP BW Throttle end\n");
@@ -205,7 +205,7 @@ int mtk_disp_hrt_cond_change_cb(struct notifier_block *nb, unsigned long value,
 		break;
 	}
 
-	mutex_unlock(&mtk_crtc->lock);
+	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 	return 0;
 }

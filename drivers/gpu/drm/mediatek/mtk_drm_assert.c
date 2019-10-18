@@ -274,16 +274,16 @@ int drm_show_dal(struct drm_crtc *crtc, bool enable)
 		return 0;
 	}
 
-	mutex_lock(&mtk_crtc->lock);
+	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 	if (!mtk_crtc->enabled) {
-		mutex_unlock(&mtk_crtc->lock);
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 		return 0;
 	}
 
 	plane_state = drm_set_dal_plane_state(crtc, enable);
 	if (!plane_state) {
 		DDPPR_ERR("%s: can't set dal plane_state\n", __func__);
-		mutex_unlock(&mtk_crtc->lock);
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 		return 0;
 	}
 
@@ -295,7 +295,7 @@ int drm_show_dal(struct drm_crtc *crtc, bool enable)
 	mtk_ddp_comp_layer_config(ovl_comp, layer_id, plane_state, cmdq_handle);
 
 	mtk_crtc_gce_flush(crtc, mtk_drm_cmdq_done, cmdq_handle, cmdq_handle);
-	mutex_unlock(&mtk_crtc->lock);
+	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 	return 0;
 }
 
