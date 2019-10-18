@@ -85,5 +85,6 @@ extern const struct file_operations adsp_debug_ops;
 extern const struct file_operations adsp_common_file_ops;
 extern const struct file_operations adsp_core_file_ops;
 extern struct adsp_priv *adsp_cores[ADSP_CORE_TOTAL];
+extern u32 adsp_load;
 
 #endif

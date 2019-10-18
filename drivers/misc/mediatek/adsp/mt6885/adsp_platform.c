@@ -166,6 +166,8 @@ void set_adsp_dram_remapping(u32 addr, u32 size)
 
 void adsp_platform_init(void)
 {
+	if (unlikely(!adsp_cores[0]))
+		return;
 	mt_base = adsp_cores[0]->cfg;
 	mt_secure = adsp_cores[0]->secure;
 

@@ -24,6 +24,7 @@
 struct workqueue_struct *adsp_wq;
 void __iomem *adsp_secure_base;
 struct adsp_priv *adsp_cores[ADSP_CORE_TOTAL];
+u32 adsp_load;
 
 static int adsp_core0_init(struct adsp_priv *pdata);
 static int adsp_core0_suspend(void);
@@ -421,6 +422,9 @@ static int adsp_common_drv_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct device *dev = &pdev->dev;
 
+	/* indicate if adsp images is loaded successfully */
+	of_property_read_u32(dev->of_node, "load", &adsp_load);
+
 	/* get resource from platform_device */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	adsp_secure_base = devm_ioremap_resource(dev, res);
@@ -503,9 +507,11 @@ static int adsp_core_drv_probe(struct platform_device *pdev)
 	pdata->irq[ADSP_IRQ_AUDIO_ID] = platform_get_irq(pdev, 2);
 
 	of_property_read_u32(dev->of_node, "sysram", &temp);
-	pdata->sysram_phys = temp;
+	pdata->sysram_phys = (phys_addr_t)temp;
 	of_property_read_u32(dev->of_node, "sysram_size", &temp);
-	pdata->sysram_size = temp;
+	pdata->sysram_size = (size_t)temp;
+	if (pdata->sysram_phys == 0 || pdata->sysram_size == 0)
+		return -ENODEV;
 	pdata->sysram = ioremap_wc(pdata->sysram_phys, pdata->sysram_size);
 
 	pdata->secure = adsp_secure_base;
@@ -640,6 +646,9 @@ static struct platform_driver * const drivers[] = {
 
 int create_adsp_drivers(void)
 {
-	return platform_register_drivers(drivers, ARRAY_SIZE(drivers));
+	int ret = 0;
+
+	ret = platform_register_drivers(drivers, ARRAY_SIZE(drivers));
+	return (adsp_load && adsp_cores[0] && adsp_cores[1]  && ~ret);
 }
 

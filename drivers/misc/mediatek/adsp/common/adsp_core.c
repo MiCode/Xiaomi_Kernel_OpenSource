@@ -51,6 +51,9 @@ int is_adsp_ready(u32 cid)
 	if (unlikely(cid >= ADSP_CORE_TOTAL))
 		return 0;
 
+	if (unlikely(!adsp_cores[cid]))
+		return 0;
+
 	return (adsp_cores[cid]->state == ADSP_RUNNING);
 }
 
@@ -294,6 +297,8 @@ static int __init adsp_init(void)
 	int ret = 0;
 
 	ret = create_adsp_drivers();
+	if (!ret)
+		return -ENODEV;
 
 	rwlock_init(&access_rwlock);
 
@@ -308,7 +313,6 @@ static int __init adsp_init(void)
 			      "adsp_suspend_ack");
 
 	pr_info("%s, ret(%d)\n", __func__, ret);
-
 	return ret;
 }
 
@@ -316,6 +320,9 @@ static int __init adsp_module_init(void)
 {
 	int ret = 0, cid = 0;
 	struct adsp_priv *pdata;
+
+	if (adsp_load == 0)
+		goto ERROR;
 
 	switch_adsp_power(true);
 
@@ -328,7 +335,6 @@ static int __init adsp_module_init(void)
 		}
 
 		adsp_mt_sw_reset(cid);
-//		pr_info("[ADSP]%s dtcm=0x%x\n", __func__, readl(pdata->dtcm));
 
 		ret = pdata->ops->initialize(pdata);
 		if (unlikely(ret)) {
@@ -364,6 +370,9 @@ static void __exit adsp_exit(void)
 }
 static int __init adsp_late_init(void)
 {
+	if (adsp_load == 0)
+		return -ENXIO;
+
 	adsp_set_emimpu_shared_region();
 	pr_info("[ADSP] late_init done\n");
 
