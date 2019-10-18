@@ -218,6 +218,10 @@ void mtk_drm_gem_free_object(struct drm_gem_object *obj)
 		dma_free_attrs(priv->dma_dev, obj->size, mtk_gem->cookie,
 			       mtk_gem->dma_addr, mtk_gem->dma_attrs);
 
+	if (mtk_gem->handle && priv->client)
+		mtk_drm_gem_ion_free_handle(priv->client, mtk_gem->handle);
+	else
+		DDPPR_ERR("invaild ion handle or client\n");
 	/* release file pointer to gem object. */
 	drm_gem_object_release(obj);
 
@@ -410,6 +414,45 @@ struct ion_handle *mtk_drm_gem_ion_import_handle(struct ion_client *client,
 }
 #endif
 
+struct drm_gem_object *
+mtk_gem_prime_import(struct drm_device *dev, struct dma_buf *dma_buf)
+{
+	struct drm_gem_object *obj;
+	struct mtk_drm_gem_obj *mtk_gem;// = to_mtk_gem_obj(obj);
+#if defined(CONFIG_MTK_IOMMU_V2)
+	struct mtk_drm_private *priv = dev->dev_private;
+	struct ion_client *client;
+	struct ion_handle *handle;
+	struct ion_mm_data mm_data;
+
+	client = priv->client;
+	handle = ion_import_dma_buf(client, dma_buf);
+	if (IS_ERR(handle)) {
+		DDPPR_ERR("ion import failed, client:0x%p, dmabuf:0x%p\n",
+				client, dma_buf);
+		return NULL;
+	}
+
+	memset((void *)&mm_data, 0, sizeof(struct ion_mm_data));
+	mm_data.config_buffer_param.module_id = 0;
+	mm_data.config_buffer_param.kernel_handle = handle;
+	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
+	if (ion_kernel_ioctl(client, ION_CMD_MULTIMEDIA,
+				 (unsigned long)&mm_data) < 0) {
+		DDPPR_ERR("ion config failed, handle:0x%p\n", handle);
+		ion_free(client, handle);
+		return NULL;
+	}
+#endif
+	obj = drm_gem_prime_import(dev, dma_buf);
+	if (IS_ERR(obj))
+		return obj;
+
+	mtk_gem = to_mtk_gem_obj(obj);
+	mtk_gem->handle = handle;
+
+	return obj;
+}
 
 /*
  * Allocate a sg_table for this GEM object.
