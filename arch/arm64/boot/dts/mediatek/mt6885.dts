@@ -4968,28 +4968,19 @@ page_owner=on";
 
 	jpgenc@17030000 {
 		compatible = "mediatek,jpgenc";
-		reg = <0 0x17030000 0 0x10000>,
-			<0 0x17830000 0 0x10000>;
-		mediatek,larb = <&smi_larb7>,
-				<&smi_larb8>;
+		reg = <0 0x17030000 0 0x10000>;
+		mediatek,larb = <&smi_larb7>;
 #ifdef CONFIG_MTK_IOMMU_V2
 		iommus = <&iommu0 M4U_PORT_L7_JPGENC_Y_RDMA_DISP>;
 #endif
-		interrupts = <GIC_SPI 309 IRQ_TYPE_LEVEL_HIGH>,
-			<GIC_SPI 314 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&venc_gcon VENC_GCON_SET2_JPGENC>,
-			<&venc_c1_gcon VENC_GCON_SET2_JPGENC>;
-		clock-names = "jpgenc",
-				"jpgenc_c1";
+		interrupts = <GIC_SPI 309 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&venc_gcon VENC_GCON_SET2_JPGENC>;
+		clock-names = "jpgenc";
 		cshot-spec = <368>;
 		port-id = <M4U_PORT_L7_JPGENC_Y_RDMA_DISP>,
 				<M4U_PORT_L7_JPGENC_C_RDMA_DISP>,
 				<M4U_PORT_L7_JPGENC_Q_TABLE_DISP>,
 				<M4U_PORT_L7_JPGENC_BSDMA_DISP>;
-		c1-port-id = <M4U_PORT_L8_JPGENC_Y_RDMA_MDP>,
-				<M4U_PORT_L8_JPGENC_C_RDMA_MDP>,
-				<M4U_PORT_L8_JPGENC_Q_TABLE_MDP>,
-				<M4U_PORT_L8_JPGENC_BSDMA_MDP>;
 	};
 
 	jpgdec@17040000 {
@@ -5072,6 +5063,18 @@ page_owner=on";
 	jpgenc@17830000 {
 		compatible = "mediatek,jpgenc";
 		reg = <0 0x17830000 0 0x10000>;
+		mediatek,larb = <&smi_larb8>;
+#ifdef CONFIG_MTK_IOMMU_V2
+		iommus = <&iommu0 M4U_PORT_L8_JPGENC_Y_RDMA_MDP>;
+#endif
+		interrupts = <GIC_SPI 314 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&venc_c1_gcon VENC_GCON_SET2_JPGENC>;
+		clock-names = "jpgenc";
+		cshot-spec = <368>;
+		port-id = <M4U_PORT_L8_JPGENC_Y_RDMA_MDP>,
+				<M4U_PORT_L8_JPGENC_C_RDMA_MDP>,
+				<M4U_PORT_L8_JPGENC_Q_TABLE_MDP>,
+				<M4U_PORT_L8_JPGENC_BSDMA_MDP>;
 	};
 
 	mbist@17860000 {

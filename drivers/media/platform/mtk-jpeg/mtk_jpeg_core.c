@@ -33,6 +33,8 @@
 #include "mmdvfs_pmqos.h"
 #include "ion.h"
 #include "ion_drv.h"
+#include <linux/pm_qos.h>
+
 
 
 
@@ -126,6 +128,10 @@ static struct mm_qos_request jpeg_c_rdma[MTK_JPEG_MAX_NCORE];
 static struct mm_qos_request jpeg_qtbl[MTK_JPEG_MAX_NCORE];
 static struct mm_qos_request jpeg_bsdma[MTK_JPEG_MAX_NCORE];
 static unsigned int cshot_spec_dts;
+static struct pm_qos_request jpeg_qos_request;
+static u64 g_freq_steps[MAX_FREQ_STEP];  //index 0 is max
+static u32 freq_step_size;
+
 
 module_param(debug, int, 0644);
 static inline struct mtk_jpeg_ctx *ctrl_to_ctx(struct v4l2_ctrl *ctrl)
@@ -193,6 +199,45 @@ static const struct v4l2_ctrl_ops mtk_jpeg_ctrl_ops = {
 	.s_ctrl = vidioc_jpeg_s_ctrl,
 };
 
+void mtk_jpeg_prepare_dvfs(void)
+{
+	int ret;
+	int i;
+
+	if (!freq_step_size) {
+		pm_qos_add_request(&jpeg_qos_request, PM_QOS_VENC_FREQ,
+				 PM_QOS_DEFAULT_VALUE);
+		ret = mmdvfs_qos_get_freq_steps(PM_QOS_VENC_FREQ, g_freq_steps,
+					&freq_step_size);
+		if (ret < 0)
+			pr_info("Failed to get venc freq steps (%d)\n", ret);
+
+		for (i = 0 ; i < freq_step_size ; i++)
+			pr_info("freq %d  %lx", i, g_freq_steps[i]);
+	}
+
+}
+
+void mtk_jpeg_unprepare_dvfs(void)
+{
+	pm_qos_update_request(&jpeg_qos_request,  0);
+	pm_qos_remove_request(&jpeg_qos_request);
+}
+
+void mtk_jpeg_start_dvfs(void)
+{
+	if (g_freq_steps[0] != 0) {
+		pr_info("highest freq 0x%x", g_freq_steps[0]);
+		pm_qos_update_request(&jpeg_qos_request,  g_freq_steps[0]);
+	}
+}
+
+void mtk_jpeg_end_dvfs(void)
+{
+	pm_qos_update_request(&jpeg_qos_request,  0);
+}
+
+
 void mtk_jpeg_prepare_bw_request(struct mtk_jpeg_dev *jpeg)
 {
 	int i = 0;
@@ -216,7 +261,7 @@ void mtk_jpeg_update_bw_request(struct mtk_jpeg_ctx *ctx,
 	/* No spec, considering [picture size] x [target fps] */
 	unsigned int cshot_spec = 0xffffffff;
 	/* limiting FPS, Upper Bound FPS = 20 */
-	unsigned int target_fps = 20;
+	unsigned int target_fps = 30;
 
 	/* Support QoS */
 	unsigned int emi_bw = 0;
@@ -267,6 +312,17 @@ void mtk_jpeg_update_bw_request(struct mtk_jpeg_ctx *ctx,
 	mm_qos_set_request(&jpeg_bsdma[core_id], emi_bw, 0, BW_COMP_NONE);
 	mm_qos_update_all_request(&jpegenc_rlist);
 
+}
+
+void mtk_jpeg_end_bw_request(struct mtk_jpeg_ctx *ctx)
+{
+	unsigned int core_id = ctx->coreid;
+
+	mm_qos_set_request(&jpeg_y_rdma[core_id], 0, 0, BW_COMP_NONE);
+	mm_qos_set_request(&jpeg_c_rdma[core_id], 0, 0, BW_COMP_NONE);
+	mm_qos_set_request(&jpeg_qtbl[core_id], 0, 0, BW_COMP_NONE);
+	mm_qos_set_request(&jpeg_bsdma[core_id], 0, 0, BW_COMP_NONE);
+	mm_qos_update_all_request(&jpegenc_rlist);
 }
 
 
@@ -1662,7 +1718,11 @@ static int mtk_jpeg_open(struct file *file)
 
 	mtk_jpeg_set_default_params(ctx);
 	mtk_jpeg_clk_prepare(ctx);
+
+	mtk_jpeg_start_dvfs();
+
 	mutex_unlock(&jpeg->lock);
+
 	return 0;
 
 error:
@@ -1680,6 +1740,11 @@ static int mtk_jpeg_release(struct file *file)
 	struct mtk_jpeg_ctx *ctx = mtk_jpeg_fh_to_ctx(file->private_data);
 
 	mutex_lock(&jpeg->lock);
+
+	mtk_jpeg_end_dvfs();
+
+	mtk_jpeg_end_bw_request(ctx);
+
 	mtk_jpeg_clk_unprepaer(ctx);
 	jpeg->isused[ctx->coreid] = 0;
 
@@ -1935,6 +2000,8 @@ static int mtk_jpeg_probe(struct platform_device *pdev)
 
 	mtk_jpeg_prepare_bw_request(jpeg);
 
+	mtk_jpeg_prepare_dvfs();
+
 	ret = mtk_jpeg_clk_init(jpeg);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to init clk, err %d\n", ret);
@@ -2030,6 +2097,8 @@ static int mtk_jpeg_remove(struct platform_device *pdev)
 		ion_client_destroy(g_ion_client);
 
 	mtk_jpeg_remove_bw_request();
+
+	mtk_jpeg_unprepare_dvfs();
 
 	return 0;
 }
