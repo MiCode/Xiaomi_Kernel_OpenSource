@@ -527,6 +527,7 @@ struct mtk_drm_crtc {
 
 	unsigned int avail_modes_num;
 	struct drm_display_mode *avail_modes;
+	struct timeval vblank_time;
 };
 
 struct mtk_crtc_state {
@@ -556,6 +557,10 @@ struct mtk_cmdq_cb_data {
 
 int mtk_drm_crtc_enable_vblank(struct drm_device *drm, unsigned int pipe);
 void mtk_drm_crtc_disable_vblank(struct drm_device *drm, unsigned int pipe);
+bool mtk_crtc_get_vblank_timestamp(struct drm_device *dev, unsigned int pipe,
+				 int *max_error,
+				 struct timeval *vblank_time,
+				 bool in_vblank_irq);
 void mtk_drm_crtc_commit(struct drm_crtc *crtc);
 void mtk_crtc_ddp_irq(struct drm_crtc *crtc, struct mtk_ddp_comp *comp);
 void mtk_crtc_vblank_irq(struct drm_crtc *crtc);

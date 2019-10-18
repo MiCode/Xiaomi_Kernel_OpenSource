@@ -507,6 +507,18 @@ void mtk_drm_crtc_disable_vblank(struct drm_device *drm, unsigned int pipe)
 			(unsigned long)&mtk_crtc->base);
 }
 
+bool mtk_crtc_get_vblank_timestamp(struct drm_device *dev, unsigned int pipe,
+				 int *max_error,
+				 struct timeval *vblank_time,
+				 bool in_vblank_irq)
+{
+	struct mtk_drm_private *priv = dev->dev_private;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(priv->crtc[pipe]);
+
+	*vblank_time = mtk_crtc->vblank_time;
+	return true;
+}
+
 /* power on all modules on this CRTC */
 void mtk_crtc_ddp_prepare(struct mtk_drm_crtc *mtk_crtc)
 {
@@ -3070,6 +3082,7 @@ void mtk_crtc_vblank_irq(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 
+	mtk_crtc->vblank_time = ktime_to_timeval(ktime_get());
 	drm_crtc_handle_vblank(&mtk_crtc->base);
 }
 
