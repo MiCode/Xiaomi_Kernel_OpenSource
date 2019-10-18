@@ -172,7 +172,8 @@ int vpu_init_dev_algo(struct platform_device *pdev, struct vpu_device *vd)
 				goto out;
 			}
 
-			strncpy(alg->a.name, algo_info->name, ALGO_NAMELEN);
+			strncpy(alg->a.name,
+				algo_info->name, (ALGO_NAMELEN - 1));
 			alg->a.mva = mva;
 			alg->a.len = algo_info->length;
 			alg->builtin = true;
