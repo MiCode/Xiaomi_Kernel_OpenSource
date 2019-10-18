@@ -1381,7 +1381,7 @@ static int mt_gpufreq_var_dump_proc_show(struct seq_file *m, void *v)
 			g_cur_opp_vgpu,
 			g_cur_opp_vsram_gpu);
 	seq_printf(m, "(real) freq: %d, freq: %d, vgpu: %d, vsram_gpu: %d\n",
-			mt_get_ckgen_freq(hf_fmfg_ck),
+			mt_get_abist_freq(AD_MFGPLL_CK),
 			__mt_gpufreq_get_cur_freq(),
 			__mt_gpufreq_get_cur_vgpu(),
 			__mt_gpufreq_get_cur_vsram_gpu());
@@ -1890,7 +1890,7 @@ static void __mt_gpufreq_set(
 	gpufreq_pr_logbuf(
 		"done idx: %d -> %d, clk: %d, freq: %d, vgpu: %d, vsram_gpu: %d\n",
 		idx_old, idx_new,
-		mt_get_ckgen_freq(hf_fmfg_ck),
+		mt_get_abist_freq(AD_MFGPLL_CK),
 		__mt_gpufreq_get_cur_freq(),
 		__mt_gpufreq_get_cur_vgpu(),
 		__mt_gpufreq_get_cur_vsram_gpu());
@@ -2818,7 +2818,7 @@ static int __init __mt_gpufreq_init(void)
 	int ret = 0;
 
 	if (mt_gpufreq_bringup()) {
-		gpufreq_pr_info("skip driver init: clock ID: %d\n", hf_fmfg_ck);
+		gpufreq_pr_info("skip driver init when bringup\n");
 		return 0;
 	}
 
