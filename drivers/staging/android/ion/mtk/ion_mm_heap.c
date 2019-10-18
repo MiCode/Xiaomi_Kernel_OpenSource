@@ -730,7 +730,7 @@ static void ion_buffer_dump(struct ion_buffer *buffer, struct seq_file *s)
 		val = bug_info->module_id;
 #if (DOMAIN_NUM == 1)
 	ION_DUMP(s,
-		 "0x%lx %8zu %3d %3d %3d %3d %3d %3lu(%3lu) 0x%x, 0x%x, %5d(%5d) %16s 0x%x 0x%x 0x%x 0x%x %s\n",
+		 "0x%p %8zu %3d %3d %3d %3d %3d %3lu(%3lu) 0x%x, 0x%x, %5d(%5d) %16s 0x%x 0x%x 0x%x 0x%x %s\n",
 		 buffer, buffer->size, buffer->kmap_cnt,
 		 atomic_read(&buffer->ref.refcount.refs),
 		 buffer->handle_count, val,
@@ -743,7 +743,7 @@ static void ion_buffer_dump(struct ion_buffer *buffer, struct seq_file *s)
 		 pdbg->dbg_name);
 #elif (DOMAIN_NUM == 2)
 	ION_DUMP(s,
-		 "0x%lx %8zu %3d %3d %3d %3d %3d %lx(%lx) %lx(%lx) 0x%x, 0x%x, %5d(%5d) %16s 0x%x 0x%x 0x%x 0x%x %s\n",
+		 "0x%p %8zu %3d %3d %3d %3d %3d %lx(%lx) %lx(%lx) 0x%x, 0x%x, %5d(%5d) %16s 0x%x 0x%x 0x%x 0x%x %s\n",
 		 buffer, buffer->size, buffer->kmap_cnt,
 		 atomic_read(&buffer->ref.refcount.refs),
 		 buffer->handle_count, val,
@@ -757,7 +757,7 @@ static void ion_buffer_dump(struct ion_buffer *buffer, struct seq_file *s)
 		 pdbg->dbg_name);
 #elif (DOMAIN_NUM == 4)
 	ION_DUMP(s,
-		 "0x%lx %8zu %3d %3d %3d (%3d) %3d (%d-%lx) (%d-%lx) (%d-%lx) (%d-%lx) 0x%x, 0x%x, %5d(%5d) %16s 0x%x 0x%x 0x%x 0x%x %s\n",
+		 "0x%p %8zu %3d %3d %3d (%3d) %3d (%d-%lx) (%d-%lx) (%d-%lx) (%d-%lx) 0x%x, 0x%x, %5d(%5d) %16s 0x%x 0x%x 0x%x 0x%x %s\n",
 		 buffer, buffer->size, buffer->kmap_cnt,
 		 atomic_read(&buffer->ref.refcount.refs),
 		 buffer->handle_count, val,

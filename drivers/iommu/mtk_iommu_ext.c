@@ -75,10 +75,10 @@ static inline int mtk_iommu_get_tf_larb_port_idx(unsigned int m4uid, int tf_id)
 		if (iommu_port[i].tf_id == tf_id &&
 		    iommu_port[i].m4u_id == m4uid)
 			return i;
-		if ((iommu_port[i].tf_id & 0xf80 >> 7) == TF_CCU_DISP &&
+		if (((iommu_port[i].tf_id & 0xf80) >> 7) == TF_CCU_DISP &&
 		    iommu_port[i].m4u_id == m4uid)
 			return i;
-		if ((iommu_port[i].tf_id & 0xf80 >> 7) == TF_CCU_MDP &&
+		if (((iommu_port[i].tf_id & 0xf80) >> 7) == TF_CCU_MDP &&
 		    iommu_port[i].m4u_id == m4uid)
 			return i;
 	}
