@@ -8,6 +8,7 @@
 
 #include <linux/miscdevice.h>   /* needed by miscdevice* */
 #include <linux/workqueue.h>
+#include <linux/interrupt.h>
 #include "adsp_platform.h"
 
 struct adsp_priv;
@@ -23,14 +24,23 @@ struct adsp_operations {
 };
 
 struct adsp_description {
-	int id;
+	u32 id;
 	const char *name;
 	const struct sharedmem_info sharedmems[ADSP_SHAREDMEM_NUM];
 	const struct adsp_operations ops;
 };
 
+struct irq_t {
+	u32 cid;
+	u32 seq;
+	void (*irq_cb)(u32 irq, void *data);
+	void (*clear_irq)(u32 cid);
+	void *data;
+	const char *name;
+};
+
 struct adsp_priv {
-	int id;
+	u32 id;
 	const char *name;
 	int state;
 	unsigned int feature_set;
@@ -50,8 +60,7 @@ struct adsp_priv {
 	const struct sharedmem_info *mapping_table;
 
 	/* irq */
-	int irq[ADSP_IRQ_NUM];
-
+	struct irq_t irq[ADSP_IRQ_NUM];
 	/* mailbox info */
 	struct mtk_mbox_pin_send *send_mbox;
 	struct mtk_mbox_pin_recv *recv_mbox;

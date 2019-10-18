@@ -283,9 +283,6 @@ irqreturn_t adsp_wdt_handler(int irq, void *data)
 {
 	struct adsp_priv *pdata = (struct adsp_priv *)data;
 
-	adsp_mt_disable_wdt(pdata->id);
-	adsp_mt_clr_spm(pdata->id);
-
 	if (!adsp_aed_dispatch(EXCEP_RUNTIME, data))
 		pr_info("%s, already resetting, ignore core%d wdt",
 			__func__, pdata->id);

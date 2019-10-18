@@ -59,6 +59,14 @@ enum ADSP_NOTIFY_EVENT {
 	ADSP_EVENT_READY,
 };
 
+enum semaphore_3way_flag {
+	SEMA_3WAY_UART = 0,
+	SEMA_3WAY_C2C = 1,
+	SEMA_3WAY_DVFS = 2,
+	SEMA_3WAY_AUDIO = 3,
+	SEMA_3WAY_NUM = 7,
+};
+
 #define ADSP_OSTIMER_BUFFER    (adsp_timesync_ptr)
 
 extern void *adsp_timesync_ptr;
@@ -69,9 +77,11 @@ extern enum adsp_ipi_status adsp_ipi_registration(enum adsp_ipi_id id,
 						  const char *name);
 extern enum adsp_ipi_status adsp_ipi_unregistration(enum adsp_ipi_id id);
 extern enum adsp_ipi_status adsp_push_message(enum adsp_ipi_id id, void *buf,
-			unsigned int len, unsigned int wait, int core_id);
+			unsigned int len, unsigned int wait,
+			unsigned int core_id);
 extern enum adsp_ipi_status adsp_send_message(enum adsp_ipi_id id, void *buf,
-			unsigned int len, unsigned int wait, int core_id);
+			unsigned int len, unsigned int wait,
+			unsigned int core_id);
 extern int is_adsp_ready(u32 cid);
 
 extern int adsp_feature_in_which_core(enum adsp_feature_id fid);
@@ -81,5 +91,12 @@ extern int adsp_deregister_feature(enum adsp_feature_id fid);
 extern void adsp_register_notify(struct notifier_block *nb);
 extern void adsp_unregister_notify(struct notifier_block *nb);
 extern void reset_hal_feature_table(void);
+
+extern int adsp_irq_registration(u32 core_id, u32 irq_id, void *handler,
+			const char *name, void *data);
+
+/* semaphore */
+extern int get_adsp_semaphore(unsigned int flags);
+extern int release_adsp_semaphore(unsigned int flags);
 
 #endif

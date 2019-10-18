@@ -35,7 +35,8 @@ static inline ssize_t dev_dump_show(struct device *dev,
 	n +=  scnprintf(buf + n, PAGE_SIZE - n, "sysram = %p, size = %zu\n",
 			pdata->sysram, pdata->sysram_size);
 	n +=  scnprintf(buf + n, PAGE_SIZE - n, "irq = %d, %d, %d\n",
-			pdata->irq[0], pdata->irq[1], pdata->irq[2]);
+			pdata->irq[0].seq, pdata->irq[1].seq,
+			pdata->irq[2].seq);
 	n +=  scnprintf(buf + n, PAGE_SIZE - n,
 			"status = %d, feature_set = %X\n",
 			pdata->state, pdata->feature_set);

@@ -7,6 +7,7 @@
 #include <linux/init.h>         /* needed by module macros */
 #include <linux/device.h>
 #include <linux/io.h>
+#include <linux/interrupt.h>
 #include "adsp_clk.h"
 #include "adsp_platform.h"
 #include "adsp_platform_driver.h"
@@ -117,10 +118,11 @@ int adsp_copy_from_sharedmem(struct adsp_priv *pdata, int id, void *dst,
 }
 
 enum adsp_ipi_status adsp_push_message(enum adsp_ipi_id id, void *buf,
-			unsigned int len, unsigned int wait, int core_id)
+			unsigned int len, unsigned int wait,
+			unsigned int core_id)
 {
 	int ret = 0;
-	int queue_id = core_id + AUDIO_OPENDSP_USE_HIFI3_A;
+	u32 queue_id = core_id + AUDIO_OPENDSP_USE_HIFI3_A;
 	u32 wait_ms = (wait) ? ADSP_IPI_QUEUE_DEFAULT_WAIT_MS : 0;
 
 	if (is_scp_ipi_queue_init(queue_id))
@@ -132,7 +134,8 @@ enum adsp_ipi_status adsp_push_message(enum adsp_ipi_id id, void *buf,
 }
 
 enum adsp_ipi_status adsp_send_message(enum adsp_ipi_id id, void *buf,
-			unsigned int len, unsigned int wait, int core_id)
+			unsigned int len, unsigned int wait,
+			unsigned int core_id)
 {
 	struct adsp_priv *pdata = get_adsp_core_by_id(core_id);
 	struct mtk_ipi_msg msg;
@@ -154,6 +157,33 @@ enum adsp_ipi_status adsp_send_message(enum adsp_ipi_id id, void *buf,
 	msg.data = buf;
 
 	return adsp_mbox_send(pdata->send_mbox, &msg, wait);
+}
+
+static irqreturn_t adsp_irq_dispatcher(int irq, void *data)
+{
+	struct irq_t *pdata = (struct irq_t *)data;
+
+	adsp_mt_clr_spm(pdata->cid);
+	if (!pdata->irq_cb || !pdata->clear_irq)
+		return IRQ_NONE;
+	pdata->irq_cb(irq, pdata->data);
+	pdata->clear_irq(pdata->cid);
+
+	return IRQ_HANDLED;
+}
+
+int adsp_irq_registration(u32 core_id, u32 irq_id, void *handler,
+			  const char *name, void *data)
+{
+	struct adsp_priv *pdata = get_adsp_core_by_id(core_id);
+
+	pdata->irq[irq_id].cid = core_id;
+	pdata->irq[irq_id].irq_cb = handler;
+	pdata->irq[irq_id].data = data;
+	request_irq(pdata->irq[irq_id].seq, (irq_handler_t)adsp_irq_dispatcher,
+		    IRQF_TRIGGER_HIGH, name, &pdata->irq[irq_id]);
+
+	return 0;
 }
 
 void adsp_register_notify(struct notifier_block *nb)

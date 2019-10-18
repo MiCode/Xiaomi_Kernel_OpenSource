@@ -26,7 +26,7 @@
 static void __iomem *mt_base;
 static void __iomem *mt_secure;
 
-void adsp_mt_sw_reset(int cid)
+void adsp_mt_sw_reset(u32 cid)
 {
 	unsigned long flags;
 
@@ -46,7 +46,7 @@ void adsp_mt_sw_reset(int cid)
 	write_unlock_irqrestore(&access_rwlock, flags);
 }
 
-void adsp_mt_run(int cid)
+void adsp_mt_run(u32 cid)
 {
 	int timeout = 1000;
 	if (unlikely(cid >= ADSP_CORE_TOTAL))
@@ -73,7 +73,7 @@ void adsp_mt_run(int cid)
 		CLR_BITS(ADSP_HIFI3_IO_CONFIG, ADSP_B_RUNSTALL);
 }
 
-void adsp_mt_stop(int cid)
+void adsp_mt_stop(u32 cid)
 {
 	if (unlikely(cid >= ADSP_CORE_TOTAL))
 		return;
@@ -95,7 +95,7 @@ void adsp_mt_clear(void)
 	writel(0x0, ADSP_B_WDT_REG);
 }
 
-void adsp_mt_clr_spm(int cid)
+void adsp_mt_clr_spm(u32 cid)
 {
 	if (unlikely(cid >= ADSP_CORE_TOTAL))
 		return;
@@ -106,7 +106,29 @@ void adsp_mt_clr_spm(int cid)
 		CLR_BITS(ADSP_B_SPM_WAKEUPSRC, ADSP_WAKEUP_SPM);
 }
 
-void adsp_mt_disable_wdt(int cid)
+void adsp_mt_clr_sysirq(u32 cid)
+{
+	if (unlikely(cid >= ADSP_CORE_TOTAL))
+		return;
+
+	if (cid == ADSP_A_ID)
+		SET_BITS(ADSP_GENERAL_IRQ_CLR, ADSP_A_2HOST_IRQ_BIT);
+	else
+		SET_BITS(ADSP_GENERAL_IRQ_CLR, ADSP_B_2HOST_IRQ_BIT);
+}
+
+void adsp_mt_clr_auidoirq(u32 cid)
+{
+	if (unlikely(cid >= ADSP_CORE_TOTAL))
+		return;
+
+	if (cid == ADSP_A_ID)
+		SET_BITS(ADSP_GENERAL_IRQ_CLR, ADSP_A_AFE2HOST_IRQ_BIT);
+	else
+		SET_BITS(ADSP_GENERAL_IRQ_CLR, ADSP_B_AFE2HOST_IRQ_BIT);
+}
+
+void adsp_mt_disable_wdt(u32 cid)
 {
 	if (unlikely(cid >= ADSP_CORE_TOTAL))
 		return;
@@ -117,7 +139,7 @@ void adsp_mt_disable_wdt(int cid)
 		CLR_BITS(ADSP_B_WDT_REG, WDT_EN_BIT);
 }
 
-bool check_hifi_status(int mask)
+bool check_hifi_status(u32 mask)
 {
 	return !!(readl(ADSP_SLEEP_STATUS_REG) & mask);
 }
@@ -128,7 +150,7 @@ bool is_adsp_axibus_idle(void)
 	return (readl(ADSP_DBG_PEND_CNT) == 0x000100);
 }
 
-u32 switch_adsp_clk_ctrl_cg(bool en, int mask)
+u32 switch_adsp_clk_ctrl_cg(bool en, u32 mask)
 {
 	u32 retval = readl(ADSP_CLK_CTRL_BASE);
 
@@ -140,7 +162,7 @@ u32 switch_adsp_clk_ctrl_cg(bool en, int mask)
 	return retval;
 }
 
-u32 switch_adsp_uart_ctrl_cg(bool en, int mask)
+u32 switch_adsp_uart_ctrl_cg(bool en, u32 mask)
 {
 	u32 retval = readl(ADSP_UART_CTRL);
 

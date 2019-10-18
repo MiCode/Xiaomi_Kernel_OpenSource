@@ -42,26 +42,21 @@ enum adsp_sharedmem_id {
 #define SEMA_WAY_BITS       3
 #define SEMA_CTRL_BIT       2
 
-enum semaphore_3way_flag {
-	SEMA_3WAY_UART = 0,
-	SEMA_3WAY_C2C = 1,
-	SEMA_3WAY_DVFS = 2,
-	SEMA_3WAY_NUM = 7,
-};
-
 /* platform method */
-void adsp_mt_sw_reset(int cid);
-void adsp_mt_run(int cid);
-void adsp_mt_stop(int cid);
+void adsp_mt_sw_reset(u32 cid);
+void adsp_mt_run(u32 cid);
+void adsp_mt_stop(u32 cid);
 void adsp_mt_clear(void);
 void adsp_mt_clr_sw_reset(void);
-void adsp_mt_clr_spm(int cid);
-void adsp_mt_disable_wdt(int cid);
+void adsp_mt_clr_sysirq(u32 cid);
+void adsp_mt_clr_auidoirq(u32 cid);
+void adsp_mt_clr_spm(u32 cid);
+void adsp_mt_disable_wdt(u32 cid);
 
-bool check_hifi_status(int mask);
+bool check_hifi_status(u32 mask);
 bool is_adsp_axibus_idle(void);
-u32 switch_adsp_clk_ctrl_cg(bool en, int mask);
-u32 switch_adsp_uart_ctrl_cg(bool en, int mask);
+u32 switch_adsp_clk_ctrl_cg(bool en, u32 mask);
+u32 switch_adsp_uart_ctrl_cg(bool en, u32 mask);
 void set_adsp_dram_remapping(u32 addr, u32 size);
 void adsp_platform_init(void);
 

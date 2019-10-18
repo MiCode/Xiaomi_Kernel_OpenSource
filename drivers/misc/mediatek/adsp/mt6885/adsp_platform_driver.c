@@ -9,7 +9,6 @@
 #include <linux/io.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
-#include <linux/interrupt.h>
 #include <linux/kobject.h>
 #include "adsp_clk.h"
 #include "adsp_mbox.h"
@@ -115,8 +114,8 @@ int adsp_core0_init(struct adsp_priv *pdata)
 
 	/* exception init & irq */
 	init_adsp_exception_control(adsp_wq);
-	request_irq(pdata->irq[ADSP_IRQ_WDT_ID], adsp_wdt_handler,
-		    IRQF_TRIGGER_HIGH, "ADSP A WDT", pdata);
+	adsp_irq_registration(pdata->id, ADSP_IRQ_WDT_ID, adsp_wdt_handler,
+			      "ADSP A WDT", pdata);
 
 	/* logger */
 	pdata->log_ctrl = adsp_logger_init(ADSP_A_LOGGER_MEM_ID);
@@ -151,8 +150,8 @@ int adsp_core1_init(struct adsp_priv *pdata)
 	adsp_update_mpu_memory_info(pdata);
 
 	/* exception irq */
-	request_irq(pdata->irq[ADSP_IRQ_WDT_ID], adsp_wdt_handler,
-		    IRQF_TRIGGER_HIGH, "ADSP B WDT", pdata);
+	adsp_irq_registration(pdata->id, ADSP_IRQ_WDT_ID, adsp_wdt_handler,
+			      "ADSP B WDT", pdata);
 
 	/* logger */
 	pdata->log_ctrl = adsp_logger_init(ADSP_B_LOGGER_MEM_ID);
@@ -518,9 +517,12 @@ static int adsp_core_drv_probe(struct platform_device *pdev)
 	pdata->dtcm = devm_ioremap_resource(dev, res);
 	pdata->dtcm_size = resource_size(res);
 
-	pdata->irq[ADSP_IRQ_IPC_ID] = platform_get_irq(pdev, 0);
-	pdata->irq[ADSP_IRQ_WDT_ID] = platform_get_irq(pdev, 1);
-	pdata->irq[ADSP_IRQ_AUDIO_ID] = platform_get_irq(pdev, 2);
+	pdata->irq[ADSP_IRQ_IPC_ID].seq = platform_get_irq(pdev, 0);
+	pdata->irq[ADSP_IRQ_IPC_ID].clear_irq = adsp_mt_clr_sysirq;
+	pdata->irq[ADSP_IRQ_WDT_ID].seq = platform_get_irq(pdev, 1);
+	pdata->irq[ADSP_IRQ_WDT_ID].clear_irq = adsp_mt_disable_wdt;
+	pdata->irq[ADSP_IRQ_AUDIO_ID].seq = platform_get_irq(pdev, 2);
+	pdata->irq[ADSP_IRQ_AUDIO_ID].clear_irq = adsp_mt_clr_auidoirq;
 
 	of_property_read_u32(dev->of_node, "sysram", &temp);
 	pdata->sysram_phys = (phys_addr_t)temp;

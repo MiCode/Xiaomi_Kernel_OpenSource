@@ -6,6 +6,7 @@
 #include <mt-plat/mtk-mbox.h>
 #include <linux/vmalloc.h>      /* needed by vmalloc */
 #include "adsp_core.h"
+#include "adsp_platform.h"
 #include "adsp_mbox.h"
 #include "audio_ipi_platform.h"
 #include "adsp_ipi_queue.h"
@@ -68,15 +69,6 @@ struct mtk_mbox_device adsp_mboxdev = {
 	/*.post_cb = adsp_post_cb, */
 };
 
-int adsp_post_cb(void *unused)
-{
-	/* ADSP side write 1 to assert SPM wakeup src,
-	 * while AP side write 0 to clear wakeup src.
-	 */
-	//writel(0x0, ADSP_TO_SPM_REG);
-	return 0;
-}
-
 int adsp_mbox_send(struct mtk_mbox_pin_send *pin_send, void *msg,
 		unsigned int wait)
 {
@@ -135,8 +127,10 @@ int adsp_mbox_send(struct mtk_mbox_pin_send *pin_send, void *msg,
 static int adsp_mbox_pin_cb(unsigned int id, void *prdata, void *buf,
 			    unsigned int len)
 {
-	int opendsp_id = *(unsigned int *)prdata ?
+	u32 opendsp_id = *(u32 *)prdata ?
 		AUDIO_OPENDSP_USE_HIFI3_B : AUDIO_OPENDSP_USE_HIFI3_A;
+
+	adsp_mt_clr_spm(*(u32 *)prdata);
 
 	if (id >= ADSP_NR_IPI) {
 		pr_err("%s() invalid ipi_id %d\n", __func__, id);
