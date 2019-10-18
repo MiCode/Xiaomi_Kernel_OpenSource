@@ -28,9 +28,9 @@ extern "C" {
 #endif
 
 /* #define UPOWER_NOT_READY (1) */
-#define EEM_NOT_SET_VOLT (1)
+/* #define EEM_NOT_SET_VOLT (1) */
 #define UPOWER_ENABLE (1)
-#define EEM_DISABLE (1)
+/* #define EEM_DISABLE (1) */
 
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 	#define UPOWER_ENABLE_TINYSYS_SSPM (0)
@@ -41,8 +41,8 @@ extern "C" {
 #endif
 
 /* FIX ME */
-#define EARLY_PORTING_EEM
-#define EARLY_PORTING_SPOWER
+/* #define EARLY_PORTING_EEM */
+/* #define EARLY_PORTING_SPOWER */
 #define UPOWER_UT
 /* #define UPOWER_PROFILE_API_TIME */
 #define UPOWER_RCU_LOCK
