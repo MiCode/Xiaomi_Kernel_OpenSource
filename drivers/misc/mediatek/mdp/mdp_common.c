@@ -46,6 +46,10 @@
 #include <linux/dmapool.h>
 
 #ifdef MDP_MMPATH
+#ifndef CREATE_TRACE_POINTS
+#define CREATE_TRACE_POINTS
+#endif
+
 #include "mmpath.h"
 #endif	/* MDP_MMPATH */
 
