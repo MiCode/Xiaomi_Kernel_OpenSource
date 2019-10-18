@@ -31,27 +31,11 @@
 #define GCE_DBG0			0x3004
 #define GCE_DBG2			0x300C
 
-#define util_time_to_ms(start, end, duration)	\
-{	\
-	u64 _duration = end - start;	\
-	do_div(_duration, 1000000);	\
-	duration = (s32)_duration;	\
-}
-
 #define util_time_to_us(start, end, duration)	\
 {	\
 	u64 _duration = end - start;	\
 	do_div(_duration, 1000);	\
 	duration = (s32)_duration;	\
-}
-
-#define util_rec_fmt(start, end, dur, desc)	\
-{	\
-	util_time_to_ms(start, end, dur);	\
-	if (!dur) {	\
-		util_time_to_us(start, end, dur);	\
-		desc = "us";	\
-	}	\
 }
 
 struct cmdq_util_error {
@@ -73,6 +57,7 @@ struct cmdq_util_dentry {
 struct cmdq_record {
 	unsigned long pkt;
 	s32 priority;	/* task priority (not thread priority) */
+	s8 id;
 	s32 thread;	/* allocated thread */
 	s32 reorder;
 	u32 size;
@@ -188,40 +173,37 @@ static int cmdq_util_record_print(struct seq_file *seq, void *data)
 	u32 acq_time, irq_time, begin_wait, exec_time, total_time, hw_time;
 	u64 submit_sec;
 	unsigned long submit_rem, hw_time_rem;
-	char *unit[5] = {"ms", "ms", "ms", "ms", "ms"};
 
 	mutex_lock(&cmdq_record_mutex);
 
-	seq_puts(seq, "index,pkt,task priority,sec,size,thread,");
+	seq_puts(seq, "index,pkt,task priority,sec,size,gce,thread,");
 	seq_puts(seq,
-		"submit,acq_time,irq_time,begin_wait,exec_time,total_time,start,end,jump,");
-	seq_puts(seq, "exec begin,exec end,hw_time,\n");
+		"submit,acq_time(us),irq_time(us),begin_wait(us),exec_time(us),total_time(us),start,end,jump,");
+	seq_puts(seq, "exec begin,exec end,hw_time(us),\n");
 
-	for (i = util.record_idx - 1; i != util.record_idx; i--) {
+	for (i = (int)util.record_idx - 1; i != util.record_idx; i--) {
 		if (i < 0)
 			i = CMDQ_RECORD_NUM - 1;
 		rec = &util.record[i];
 		if (!rec->pkt)
 			break;
 
-		seq_printf(seq, "%d,%#lx,%d,%d,%u,%d,",
+		seq_printf(seq, "%d,%#lx,%d,%d,%u,%hhd,%d,",
 			i, rec->pkt, rec->priority, (int)rec->is_secure,
-			rec->size, rec->thread);
+			rec->size, rec->id, rec->thread);
 
 		submit_sec = rec->submit;
 		submit_rem = do_div(submit_sec, 1000000000);
 
-		util_rec_fmt(rec->submit, rec->trigger, acq_time, unit[0]);
-		util_rec_fmt(rec->trigger, rec->irq, irq_time, unit[1]);
-		util_rec_fmt(rec->submit, rec->wait, begin_wait, unit[2]);
-		util_rec_fmt(rec->trigger, rec->done, exec_time, unit[3]);
-		util_rec_fmt(rec->submit, rec->done, total_time, unit[4]);
+		util_time_to_us(rec->submit, rec->trigger, acq_time);
+		util_time_to_us(rec->trigger, rec->irq, irq_time);
+		util_time_to_us(rec->submit, rec->wait, begin_wait);
+		util_time_to_us(rec->trigger, rec->done, exec_time);
+		util_time_to_us(rec->submit, rec->done, total_time);
 		seq_printf(seq,
-			"%llu.%06lu,%u%s,%u%s,%u%s,%u%s,%u%s,%#lx,%#lx,%#llx,",
-			submit_sec, submit_rem / 1000,
-			acq_time, unit[0], irq_time, unit[1],
-			begin_wait, unit[2], exec_time, unit[3],
-			total_time, unit[4],
+			"%llu.%06lu,%u,%u,%u,%u,%u,%#lx,%#lx,%#llx,",
+			submit_sec, submit_rem / 1000, acq_time, irq_time,
+			begin_wait, exec_time, total_time,
 			rec->start, rec->end, rec->last_inst);
 
 		hw_time = rec->exec_end > rec->exec_begin ?
@@ -229,7 +211,7 @@ static int cmdq_util_record_print(struct seq_file *seq, void *data)
 			~rec->exec_begin + 1 + rec->exec_end;
 		hw_time_rem = (u32)CMDQ_TICK_TO_US(hw_time);
 
-		seq_printf(seq, "%u,%u,%u.%06luus,\n",
+		seq_printf(seq, "%u,%u,%u.%06lu,\n",
 			rec->exec_begin, rec->exec_end, hw_time, hw_time_rem);
 	}
 
@@ -358,10 +340,14 @@ void cmdq_util_track(struct cmdq_pkt *pkt)
 	record->irq = pkt->rec_irq;
 	record->done = done;
 
-	if (cl && cl->chan)
+	if (cl && cl->chan) {
 		record->thread = cmdq_mbox_chan_id(cl->chan);
-	else
+		record->id = cmdq_util_hw_id((u32)cmdq_mbox_get_base_pa(
+			cl->chan));
+	} else {
 		record->thread = -1;
+		record->id = -1;
+	}
 
 #ifdef CMDQ_SECURE_SUPPORT
 	if (pkt->sec_data)
@@ -379,7 +365,8 @@ void cmdq_util_track(struct cmdq_pkt *pkt)
 		offset = CMDQ_CMD_BUFFER_SIZE - (pkt->buf_size -
 			pkt->cmd_buf_size);
 		record->end = buf->pa_base + offset;
-		record->last_inst = *(u64 *)(buf->va_base + offset);
+		record->last_inst = *(u64 *)(buf->va_base + offset -
+			CMDQ_INST_SIZE);
 
 		perf = cmdq_pkt_get_perf_ret(pkt);
 		record->exec_begin = perf[0];
