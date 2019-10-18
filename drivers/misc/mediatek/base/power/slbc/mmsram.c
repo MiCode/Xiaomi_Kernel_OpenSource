@@ -92,8 +92,9 @@ enum smc_mmsram_request {
 
 static struct mmsram_dev *mmsram;
 static atomic_t clk_ref = ATOMIC_INIT(0);
-static bool is_secure_on = true;
+static bool is_secure_on;
 
+/* MTCMOS clocks should be defined before CG clocks in DTS */
 static int set_clk_enable(bool is_enable)
 {
 	int ret = 0;
@@ -109,7 +110,7 @@ static int set_clk_enable(bool is_enable)
 			if (ret) {
 				pr_notice("mmsram clk(%s) enable fail:%d\n",
 					mmsram->clk_name[i], ret);
-				for (j = 0; j < i; j++)
+				for (j = i - 1; j >= 0; j--)
 					clk_disable_unprepare(mmsram->clk[j]);
 				return ret;
 			}
@@ -117,7 +118,7 @@ static int set_clk_enable(bool is_enable)
 
 		atomic_inc(&clk_ref);
 	} else {
-		for (i = 0; i < MAX_CLK_NUM; i++)
+		for (i = MAX_CLK_NUM - 1; i >= 0; i--)
 			if (mmsram->clk[i])
 				clk_disable_unprepare(mmsram->clk[i]);
 		atomic_dec(&clk_ref);
@@ -134,43 +135,41 @@ static void set_reg_secure(bool is_on)
 			is_on ? 1 : 0, 0, 0, 0, 0, 0, &res);
 }
 
-void mmsram_set_secure(bool secure_on)
-{
-	if (secure_on == is_secure_on)
-		return;
-	is_secure_on = secure_on;
-	set_clk_enable(true);
-	if (secure_on) {
-		writel(BIT_SECURE_ON, mmsram->ctrl_base + MMSYSRAM_SEC_CTRL0);
-		set_reg_secure(true);
-	} else {
-		set_reg_secure(false);
-		writel(0, mmsram->ctrl_base + MMSYSRAM_SEC_CTRL0);
-	}
-	set_clk_enable(false);
-}
-
 static s32 before_reg_rw(void)
 {
 	if (set_clk_enable(true)) {
 		pr_notice("%s: enable clk fail\n", __func__);
 		return -EINVAL;
 	}
-	mmsram_set_secure(false);
+	set_reg_secure(false);
 	return 0;
 }
 
-static void after_reg_rw(bool orig_secure_on)
+static void after_reg_rw(void)
 {
-	if (orig_secure_on)
-		mmsram_set_secure(orig_secure_on);
+	set_reg_secure(true);
 	set_clk_enable(false);
+}
+
+
+void mmsram_set_secure(bool secure_on)
+{
+	if (secure_on == is_secure_on)
+		return;
+	is_secure_on = secure_on;
+	if (before_reg_rw()) {
+		pr_notice("%s: error before reg rw\n", __func__);
+		return;
+	}
+	if (secure_on)
+		writel(BIT_SECURE_ON, mmsram->ctrl_base + MMSYSRAM_SEC_CTRL0);
+	else
+		writel(0, mmsram->ctrl_base + MMSYSRAM_SEC_CTRL0);
+	after_reg_rw();
 }
 
 static void init_mmsram_reg(void)
 {
-	bool orig_secure_on = is_secure_on;
-
 	if (before_reg_rw()) {
 		pr_notice("%s: error before reg rw\n", __func__);
 		return;
@@ -188,7 +187,7 @@ static void init_mmsram_reg(void)
 	writel(BIT_INSTA0, mmsram->ctrl_base + MMSYSRAM_INTEN0);
 	writel(BIT_INSTA1, mmsram->ctrl_base + MMSYSRAM_INTEN1);
 
-	after_reg_rw(orig_secure_on);
+	after_reg_rw();
 }
 
 int mmsram_power_on(void)
@@ -235,7 +234,6 @@ EXPORT_SYMBOL_GPL(mmsram_get_info);
 
 static irqreturn_t mmsram_irq_handler(int irq, void *data)
 {
-	bool orig_secure_on = is_secure_on;
 	u32 interrupt_monitor0, interrupt_monitor1;
 	void __iomem *ctrl_base = mmsram->ctrl_base;
 
@@ -290,7 +288,7 @@ static irqreturn_t mmsram_irq_handler(int irq, void *data)
 	writel(0x0, ctrl_base + MMSYSRAM_INSTA0);
 	writel(0x0, ctrl_base + MMSYSRAM_INSTA1);
 
-	after_reg_rw(orig_secure_on);
+	after_reg_rw();
 
 	aee_kernel_warning("MMSRAM", "MMSRAM Violation.");
 	return IRQ_HANDLED;
@@ -363,7 +361,6 @@ static int mmsram_probe(struct platform_device *pdev)
 			"failed to register ISR %d (%d)", irq, err);
 		return err;
 	}
-	mmsram_set_secure(false);
 	return 0;
 }
 

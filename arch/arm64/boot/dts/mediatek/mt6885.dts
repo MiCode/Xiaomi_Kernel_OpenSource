@@ -6873,11 +6873,13 @@ page_owner=on";
 			<0 0x1e000000 0 0x160000>;
 		interrupts = <GIC_SPI 495 IRQ_TYPE_LEVEL_HIGH>;
 #ifndef CONFIG_FPGA_EARLY_PORTING
-		clocks = <&topckgen TOP_MUX_MDP>, <&scpsys SCP_SYS_MDP>,
+		clocks = <&scpsys SCP_SYS_MDP>,
+			<&mdpsys_config MDP_APMCU_GALS>,
 			<&mdpsys_config MDP_SMI0>, <&mdpsys_config MDP_SMI1>,
 			<&mdpsys_config MDP_SMI2>,
 			<&mdpsys_config MDP_MMSYSRAM>;
-		clock-names = "mux_mdp", "scp_mdp", "mdp_smi0", "mdp_smi1",
+		clock-names = "scp_mdp", "mdp_apmcu_gals",
+				"mdp_smi0", "mdp_smi1",
 				"mdp_smi2", "mdp_mmsysram";
 #endif
 	};
