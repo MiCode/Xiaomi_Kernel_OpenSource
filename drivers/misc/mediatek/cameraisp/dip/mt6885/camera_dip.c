@@ -5836,6 +5836,10 @@ enum m4u_callback_ret_t MFB_M4U_TranslationFault_callback(int port,
 		DIP_RD32(MSF_BASE + 0xB44),
 		DIP_RD32(MSF_BASE + 0xB48),
 		DIP_RD32(MSF_BASE + 0xB4C));
+	pr_info("msftdr:0x%08x, msstdr:0x%08x diptdr:0x%08x",
+		DIP_RD32(MSF_BASE + 0x804),
+		DIP_RD32(MSS_BASE + 0x804),
+		DIP_RD32(DIP_A_BASE + 0x4));
 	pr_info("baseiy:0x%08x, ofset:0x%08x, size:0x%08x, stride:0x%08x,",
 		DIP_RD32(MSF_BASE + 0xA00),
 		DIP_RD32(MSF_BASE + 0xA04),
