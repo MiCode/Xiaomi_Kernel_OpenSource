@@ -339,6 +339,7 @@ enum mt_cpu_dvfs_id {
 /* CPU */
 #define CPU_PMIC_BASE_6359	(0)
 #define CPU_PMIC_STEP		(625) /* 1.231/1024=0.001202v=120(10uv)*/
+#define CPU_PMIC_VMAX_CLAMP	(0xA0) /* volt domain: 1v*/
 
 /* GPU */
 #define GPU_PMIC_BASE		(0)
@@ -433,7 +434,7 @@ enum mt_cpu_dvfs_id {
 #define CORESEL_INIT2_VAL		(0x0fff0000)
 
 
-#define LOW_TEMP_VAL		(25000)
+#define LOW_TEMP_VAL		(18000)
 #define EXTRA_LOW_TEMP_VAL	(10000)
 #define HIGH_TEMP_VAL		(85000)
 

@@ -176,7 +176,11 @@ DEFINE_SPINLOCK(record_spinlock);
 static int eem_log_en;
 static unsigned int eem_checkEfuse = 1;
 static unsigned int informEEMisReady;
+static int eem_aging;
+
+#if ENABLE_GPU
 static int time_val = 1;
+#endif
 
 /* Global variable for slow idle*/
 unsigned int ptp_data[3] = {0, 0, 0};
@@ -189,11 +193,15 @@ static char *cpu_name[3] = {
 #ifdef CONFIG_OF
 void __iomem *eem_base;
 void __iomem *infra_base;
+void __iomem *mcucfg_base;
 static u32 eem_irq_number;
 #endif
 #define INFRA_AO_NODE		"mediatek,infracfg_ao"
 #define INFRA_EEM_RST		(infra_base + 0x730)
 #define INFRA_EEM_CLR		(infra_base + 0x734)
+
+#define MCUCFG_NODE			"mediatek,mcucfg"
+#define MCUCFG_AGING		(mcucfg_base + 0xFFEC)
 
 /*=============================================================
  * common functions for both ap and eem
@@ -1312,10 +1320,10 @@ static void get_volt_table_in_thread(struct eem_det *det)
 	struct eem_det *ndet = det;
 	unsigned int i, verr = 0;
 	int low_temp_offset = 0, rm_dvtfix_offset = 0;
+	unsigned int t_clamp = 0, final_clamp_val;
 #if ENABLE_GPU
-	unsigned int t_clamp = 0;
-#endif
 	int extra_aging = 0;
+#endif
 
 	if (det == NULL)
 		return;
@@ -1578,13 +1586,27 @@ static void get_volt_table_in_thread(struct eem_det *det)
 				low_temp_offset =
 				(ndet->isTempInv == EEM_HIGH_T) ?
 				ndet->high_temp_off : ndet->low_temp_off;
+
+			if (ndet->isTempInv != EEM_HIGH_T)
+				t_clamp = low_temp_offset;
 		}
 
+		/* For low temp, re-calculate max clamp value */
+		if (t_clamp) {
+			final_clamp_val = ndet->volt_tbl_orig[i] +
+				ndet->volt_clamp + t_clamp;
+			if (final_clamp_val > CPU_PMIC_VMAX_CLAMP)
+				final_clamp_val = CPU_PMIC_VMAX_CLAMP;
+		} else
+			final_clamp_val = ndet->volt_tbl_orig[i] +
+			ndet->volt_clamp;
+
+#if ENABLE_GPU
 		if (time_val && (i < FALL_NUM))
 			extra_aging = 1;
 		else
 			extra_aging = 0;
-
+#endif
 		switch (ndet->ctrl_id) {
 		case EEM_CTRL_L:
 			ndet->volt_tbl_pmic[i] = min(
@@ -1592,10 +1614,10 @@ static void get_volt_table_in_thread(struct eem_det *det)
 			ndet->ops->eem_2_pmic(ndet,
 			(ndet->volt_tbl[i] + ndet->volt_offset +
 			low_temp_offset + ndet->volt_aging[i]) +
-			rm_dvtfix_offset - ndet->volt_dcv),
+			rm_dvtfix_offset + eem_aging),
 			ndet->ops->eem_2_pmic(ndet, ndet->VMIN),
 			ndet->ops->eem_2_pmic(ndet, ndet->VMAX))),
-			ndet->volt_tbl_orig[i] + ndet->volt_clamp);
+			final_clamp_val);
 			break;
 
 		case EEM_CTRL_B:
@@ -1604,23 +1626,10 @@ static void get_volt_table_in_thread(struct eem_det *det)
 				ndet->ops->eem_2_pmic(ndet,
 				(ndet->volt_tbl[i] + ndet->volt_offset +
 				low_temp_offset + ndet->volt_aging[i]) +
-				rm_dvtfix_offset - ndet->volt_dcv),
+				rm_dvtfix_offset + eem_aging),
 				ndet->ops->eem_2_pmic(ndet, ndet->VMIN),
 				ndet->ops->eem_2_pmic(ndet, ndet->VMAX))),
-				ndet->volt_tbl_orig[i] + ndet->volt_clamp);
-
-			/*
-			 *  if (eem_log_en)
-			 *	eem_debug("L->hw_v[%d]=0x%X,V(%d)L(%d)
-			 *		volt_tbl_pmic[%d]=0x%X (%d)\n",
-			 *		i, det->volt_tbl[i],
-			 *		det->volt_offset, low_temp_offset,
-			 *		i, det->volt_tbl_pmic[i],
-			 *		det->ops->pmic_2_volt(det,
-			 *		det->volt_tbl_pmic[i]));
-			 *
-			 */
-
+				final_clamp_val);
 			break;
 
 		case EEM_CTRL_CCI:
@@ -1629,10 +1638,10 @@ static void get_volt_table_in_thread(struct eem_det *det)
 				ndet->ops->eem_2_pmic(ndet,
 				(ndet->volt_tbl[i] + ndet->volt_offset +
 				low_temp_offset + ndet->volt_aging[i]) +
-				rm_dvtfix_offset - ndet->volt_dcv),
+				rm_dvtfix_offset + eem_aging),
 				ndet->ops->eem_2_pmic(ndet, ndet->VMIN),
 				ndet->ops->eem_2_pmic(ndet, ndet->VMAX))),
-				ndet->volt_tbl_orig[i] + ndet->volt_clamp);
+				final_clamp_val);
 			break;
 #if ENABLE_GPU
 		case EEM_CTRL_GPU:
@@ -1641,7 +1650,7 @@ static void get_volt_table_in_thread(struct eem_det *det)
 			ndet->ops->eem_2_pmic(ndet,
 			(ndet->volt_tbl[i] + ndet->volt_offset +
 			ndet->volt_aging[i]) +
-			rm_dvtfix_offset - ndet->volt_dcv),
+			rm_dvtfix_offset),
 			ndet->ops->eem_2_pmic(ndet, ndet->VMIN),
 			ndet->ops->eem_2_pmic(ndet, VMAX_VAL_GPU)) +
 			low_temp_offset - extra_aging),
@@ -1656,7 +1665,7 @@ static void get_volt_table_in_thread(struct eem_det *det)
 				ndet->ops->eem_2_pmic(ndet,
 				(ndet->volt_tbl[i] + ndet->volt_offset +
 				low_temp_offset + ndet->volt_aging[i]) +
-				rm_dvtfix_offset - ndet->volt_dcv),
+				rm_dvtfix_offset),
 				ndet->ops->eem_2_pmic(ndet, ndet->VMIN),
 				ndet->ops->eem_2_pmic(ndet, ndet->VMAX))),
 				ndet->volt_tbl_orig[i] + ndet->volt_clamp);
@@ -2714,14 +2723,7 @@ static inline void handle_init02_isr(struct eem_det *det)
 	det->init2_vop30 = eem_read(EEM_VOP30);
 	det->init2_vop74 = eem_read(EEM_VOP74);
 #endif
-#if 0
-	/* To remove extra volt add by detector */
-	dcvoffset = eem_read(EEM_DCVALUES) & 0xffff;
-	if ((dcvoffset / 128) >= 2)
-		det->volt_dcv = 2;
-	else
-		det->volt_dcv = (dcvoffset / 128);
-#endif
+
 	det->vop_check = 0;
 	eem_set_eem_volt(det);
 	/*
@@ -3118,9 +3120,14 @@ void eem_init02(const char *str)
 {
 	struct eem_det *det;
 	struct eem_ctrl *ctrl;
+	unsigned int mcucfg_aging;
 
 	FUNC_ENTER(FUNC_LV_LOCAL);
 	eem_debug("%s called by [%s]\n", __func__, str);
+
+	mcucfg_aging = eem_read(MCUCFG_AGING);
+	if ((mcucfg_aging >> 31) & 0x1)
+		eem_aging = (mcucfg_aging >> 4) & 0xf;
 
 	for_each_det_ctrl(det, ctrl) {
 		if (HAS_FEATURE(det, FEA_INIT02)) {
@@ -3540,6 +3547,7 @@ static int eem_probe(struct platform_device *pdev)
 #ifdef CONFIG_OF
 	struct device_node *node = NULL;
 	struct device_node *node_infra = NULL;
+	struct device_node *node_mcucfg = NULL;
 #endif
 
 #if SUPPORT_DCONFIG
@@ -3599,6 +3607,20 @@ static int eem_probe(struct platform_device *pdev)
 		eem_debug("infra_ao Map Failed\n");
 		return 0;
 	}
+
+	/* node_mcucfg */
+	node_mcucfg = of_find_compatible_node(NULL, NULL, MCUCFG_NODE);
+	if (!node_infra) {
+		eem_debug("MCUCFG_NODE Not Found\n");
+		return 0;
+	}
+
+	mcucfg_base = of_iomap(node_mcucfg, 0);
+	if (!mcucfg_base) {
+		eem_debug("mcucfg Map Failed\n");
+		return 0;
+	}
+
 #endif
 
 #if EN_EEM_THERM_CLK
@@ -4240,9 +4262,8 @@ static int eem_cur_volt_proc_show(struct seq_file *m, void *v)
 			det->volt_tbl_pmic[i],
 			det->ops->pmic_2_volt(det, det->volt_tbl_pmic[i]));
 
-		seq_printf(m, "policy:%d, isTempInv:%d, volt_dcv:%d\n",
-		det->volt_policy, det->isTempInv,
-		det->volt_dcv);
+		seq_printf(m, "policy:%d, isTempInv:%d, eem_aging:%d\n",
+		det->volt_policy, det->isTempInv, eem_aging);
 	}
 	FUNC_EXIT(FUNC_LV_HELP);
 

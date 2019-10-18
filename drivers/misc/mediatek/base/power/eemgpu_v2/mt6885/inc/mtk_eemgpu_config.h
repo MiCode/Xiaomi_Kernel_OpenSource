@@ -323,11 +323,11 @@ enum mt_cpu_dvfs_id {
 
 /* CPU */
 #define CPU_PMIC_BASE_6359	(0)
-#define CPU_PMIC_STEP		(625) /* 1.231/1024=0.001202v=120(10uv)*/
+#define CPU_PMIC_STEP		(625)
 
 /* GPU */
 #define GPU_PMIC_BASE		(0)
-#define GPU_PMIC_STEP		(625) /* 1.231/1024=0.001202v=120(10uv)*/
+#define GPU_PMIC_STEP		(625)
 
 /* common part: for cci, LL, L, GPU */
 /* common part: for  LL, L */
@@ -428,7 +428,7 @@ enum mt_cpu_dvfs_id {
 #define LOW_TEMP_OFF_B		(8)
 #define HIGH_TEMP_OFF_B		(3)
 #define LOW_TEMP_OFF_GPU		(4)
-#define HIGH_TEMP_OFF_GPU		(3)
+#define HIGH_TEMP_OFF_GPU		(0)
 #define EXTRA_LOW_TEMP_OFF_GPU	(7)
 #define MARGIN_ADD_OFF			(5)
 #define MARGIN_CLAMP_OFF		(8)

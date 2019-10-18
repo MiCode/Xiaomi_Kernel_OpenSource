@@ -1225,7 +1225,7 @@ static void get_volt_table_in_thread(struct eemg_det *det)
 			ndet->ops->eemg_2_pmic(ndet,
 			(ndet->volt_tbl[i] + ndet->volt_offset +
 			ndet->volt_aging[i]) +
-			rm_dvtfix_offset - ndet->volt_dcv),
+			rm_dvtfix_offset),
 			ndet->ops->eemg_2_pmic(ndet, ndet->VMIN),
 			ndet->ops->eemg_2_pmic(ndet, VMAX_VAL_GPU)) +
 			low_temp_offset),
@@ -1239,7 +1239,7 @@ static void get_volt_table_in_thread(struct eemg_det *det)
 				ndet->ops->eemg_2_pmic(ndet,
 				(ndet->volt_tbl[i] + ndet->volt_offset +
 				low_temp_offset + ndet->volt_aging[i]) +
-				rm_dvtfix_offset - ndet->volt_dcv),
+				rm_dvtfix_offset),
 				ndet->ops->eemg_2_pmic(ndet, ndet->VMIN),
 				ndet->ops->eemg_2_pmic(ndet, ndet->VMAX))),
 				ndet->volt_tbl_orig[i] + ndet->volt_clamp);
@@ -1941,14 +1941,7 @@ static inline void handle_init02_isr(struct eemg_det *det)
 	det->init2_vop30 = eemg_read(EEMG_VOP30);
 	det->init2_vop74 = eemg_read(EEMG_VOP74);
 #endif
-#if 0
-	/* To remove extra volt add by detector */
-	dcvoffset = eemg_read(EEMG_DCVALUES) & 0xffff;
-	if ((dcvoffset / 128) >= 2)
-		det->volt_dcv = 2;
-	else
-		det->volt_dcv = (dcvoffset / 128);
-#endif
+
 	det->vop_check = 0;
 	eemg_set_eemg_volt(det);
 	/*
@@ -3143,9 +3136,8 @@ static int eemg_cur_volt_proc_show(struct seq_file *m, void *v)
 			det->volt_tbl_pmic[i],
 			det->ops->pmic_2_volt_gpu(det, det->volt_tbl_pmic[i]));
 
-		seq_printf(m, "policy:%d, isTempInv:%d, volt_dcv:%d\n",
-		det->volt_policy, det->isTempInv,
-		det->volt_dcv);
+		seq_printf(m, "policy:%d, isTempInv:%d\n",
+		det->volt_policy, det->isTempInv);
 	}
 	FUNC_EXIT(FUNC_LV_HELP);
 
