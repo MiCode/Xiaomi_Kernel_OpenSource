@@ -505,7 +505,6 @@ static int apusys_power_task(void *arg)
 	int keep_loop = 0;
 	struct	apu_power_info info;
 
-
 	set_current_state(TASK_INTERRUPTIBLE);
 
 	LOG_INF("%s first time wakeup and enter sleep now\n", __func__);
@@ -529,10 +528,12 @@ static int apusys_power_task(void *arg)
 							__func__, timestamp);
 			// call dvfs API and bring timestamp to id
 			apusys_dvfs_policy(timestamp);
-//			apu_get_power_info();
 			info.id = timestamp;
+//			apu_get_power_info();
 			hal_config_power(PWR_CMD_GET_POWER_INFO, VPU0, &info);
+			#if ASSERTIOM_CHECK
 			apu_power_assert_check(&info);
+			#endif
 		} else {
 			LOG_INF("%s enter sleep\n", __func__);
 			set_current_state(TASK_INTERRUPTIBLE);
