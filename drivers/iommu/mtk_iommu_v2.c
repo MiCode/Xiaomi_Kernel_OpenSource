@@ -1300,26 +1300,34 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 }
 
 #ifdef MTK_M4U_SECURE_IRQ_SUPPORT
+static int mtk_irq_sec[MTK_IOMMU_M4U_COUNT];
+
 irqreturn_t MTK_M4U_isr_sec(int irq, void *dev_id)
 {
-	const struct mtk_iommu_data *data = dev_id;
+	const struct mtk_iommu_data *data = NULL;
 	size_t tf_port = 0;
 	unsigned int m4u_id = 0;
-	int ret = 0;
+	int i, ret = 0;
 
-	if (!data->base_sec || IS_ERR(data->base_sec) ||
-	    !data->base || IS_ERR(data->base)) {
-		pr_notice("%s, %d, invalid base addr\n",
-			  __func__, __LINE__);
+	for (i = 0; i < MTK_IOMMU_M4U_COUNT; i++) {
+		if (irq == mtk_irq_sec[i]) {
+			m4u_id = i;
+			data = mtk_iommu_get_m4u_data(m4u_id);
+			break;
+		}
+	}
+
+	if (!data) {
+		pr_notice("%s, Invalid secure irq %d\n",
+				__func__, irq);
 		return 0;
 	}
 
-	if (irq == data->irq_sec) {
-		m4u_id = data->m4uid;
-	} else {
-		pr_notice("%s, Invalid secure irq %d, iommu:%d\n",
-				__func__, irq, data->m4uid);
-		return -1;
+	if (!data->base_sec || IS_ERR(data->base_sec) ||
+	    !data->base || IS_ERR(data->base)) {
+		pr_notice("%s, %d, invalid base addr of iommu:%d\n",
+			  __func__, __LINE__, m4u_id);
+		return 0;
 	}
 
 	pr_notice("iommu:%d secure bank irq in normal world!\n", m4u_id);
@@ -3499,13 +3507,13 @@ static int mtk_iommu_hw_init(struct mtk_iommu_data *data)
 	}
 
 	data->base_sec = of_iomap(node, 0);
-	data->irq_sec = irq_of_parse_and_map(node, 0);
+	mtk_irq_sec[m4u_id] = irq_of_parse_and_map(node, 0);
 
 	pr_notice("%s, secure bank, of_iomap: 0x%lx, irq_num: %d, m4u_id:%d\n",
 			__func__, data->base_sec,
-			data->irq_sec, m4u_id);
+			mtk_irq_sec[m4u_id], m4u_id);
 
-	if (request_irq(data->irq_sec, MTK_M4U_isr_sec,
+	if (request_irq(mtk_irq_sec[m4u_id], MTK_M4U_isr_sec,
 			IRQF_TRIGGER_NONE, "secure_m4u", NULL)) {
 		pr_notice("request secure m4u%d IRQ line failed\n",
 			  m4u_id);

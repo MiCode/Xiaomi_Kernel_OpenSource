@@ -653,5 +653,6 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 
 #define MTK_IOMMU_PAGE_TABLE_SHARE (1)
 #define IOMMU_POWER_CLK_SUPPORT
+#define MTK_M4U_SECURE_IRQ_SUPPORT
 
 #endif
