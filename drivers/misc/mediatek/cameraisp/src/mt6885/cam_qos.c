@@ -993,14 +993,17 @@ int SV_SetPMQOS(
 			LOG_DBG("1:DFS Clk_0:%d", pvalue[0]);
 			return 1;
 #else
-			u32 step, i = 0;
-			u64 freq[ISP_CLK_LEVEL_CNT];
+			u32 step = 0, i = 0;
+			u64 freq[ISP_CLK_LEVEL_CNT] = {0};
 
 			mtk_dfs_supported(freq, step);
 			for (i = 0; i < step; i++)
 				pvalue[i] = freq[i];
 
-			target_clk = pvalue[step - 1];
+			if (step > 0)
+				target_clk = pvalue[step - 1];
+			else
+				LOG_NOTICE("clk info not available from dfs");
 
 			for (i = 0 ; i < step; i++)
 				LOG_INF("2:DFS Clk_%d:%d", i, pvalue[i]);
