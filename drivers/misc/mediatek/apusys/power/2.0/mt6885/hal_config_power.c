@@ -23,6 +23,7 @@ static int is_apu_power_initilized;
 static int force_pwr_on = 1;
 static int force_pwr_off;
 static int buck_already_on;
+static int power_on_counter;
 
 void *g_APU_RPCTOP_BASE;
 void *g_APU_PCUTOP_BASE;
@@ -701,10 +702,7 @@ static int set_power_boot_up(enum DVFS_USER user, void *param)
 {
 	struct hal_param_mtcmos mtcmos_data;
 	struct hal_param_clk clk_data;
-	uint8_t power_bit_mask = 0;
 	int ret = 0;
-
-	power_bit_mask = ((struct hal_param_pwr_mask *)param)->power_bit_mask;
 
 	if (!buck_already_on) {
 		buck_control(user, 3); // buck on
@@ -712,7 +710,7 @@ static int set_power_boot_up(enum DVFS_USER user, void *param)
 		udelay(100);
 	}
 
-	if (power_bit_mask == 0) {
+	if (power_on_counter == 0) {
 
 		buck_control(user, 2); // default voltage
 
@@ -730,6 +728,7 @@ static int set_power_boot_up(enum DVFS_USER user, void *param)
 		ret = set_power_clock(user, (void *)&clk_data);
 	}
 
+	power_on_counter++;
 	return ret;
 }
 
@@ -738,10 +737,7 @@ static int set_power_shut_down(enum DVFS_USER user, void *param)
 {
 	struct hal_param_mtcmos mtcmos_data;
 	struct hal_param_clk clk_data;
-	uint8_t power_bit_mask = 0;
 	int ret = 0;
-
-	power_bit_mask = ((struct hal_param_pwr_mask *)param)->power_bit_mask;
 
 	if (user < APUSYS_DVFS_USER_NUM) {
 		// inner dummy cg won't be gated when you call disable
@@ -749,18 +745,19 @@ static int set_power_shut_down(enum DVFS_USER user, void *param)
 		ret = set_power_clock(user, (void *)&clk_data);
 	}
 
-	if (power_bit_mask == 0)
+	if (power_on_counter == 1)
 		force_pwr_off = 1;
 
 	// Set mtcmos disable
 	mtcmos_data.enable = 0;
 	ret = set_power_mtcmos(user, (void *)&mtcmos_data);
 
-	if (power_bit_mask == 0 && buck_already_on) {
+	if (power_on_counter == 1 && buck_already_on) {
 		buck_control(user, 0); // buck off
 		buck_already_on = 0;
 	}
 
+	power_on_counter--;
 	return ret;
 }
 
