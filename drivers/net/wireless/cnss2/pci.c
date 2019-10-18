@@ -3712,7 +3712,7 @@ static int cnss_pci_get_mhi_msi(struct cnss_pci_data *pci_priv)
 	return 0;
 }
 
-static int cnss_pci_update_fw_name(struct cnss_pci_data *pci_priv)
+static void cnss_pci_update_fw_name(struct cnss_pci_data *pci_priv)
 {
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
 	struct mhi_controller *mhi_ctrl = pci_priv->mhi_ctrl;
@@ -3728,25 +3728,14 @@ static int cnss_pci_update_fw_name(struct cnss_pci_data *pci_priv)
 		    plat_priv->device_version.major_version,
 		    plat_priv->device_version.minor_version);
 
-	switch (pci_priv->device_id) {
-	case QCA6390_DEVICE_ID:
-		if (plat_priv->device_version.major_version < FW_V2_NUMBER) {
-			cnss_pr_dbg("Device ID:version (0x%lx:%d) is not supported\n",
-				    pci_priv->device_id,
-				    plat_priv->device_version.major_version);
-			return -EINVAL;
-		}
+	if (pci_priv->device_id == QCA6390_DEVICE_ID &&
+	    plat_priv->device_version.major_version >= FW_V2_NUMBER) {
 		scnprintf(plat_priv->firmware_name,
 			  sizeof(plat_priv->firmware_name), FW_V2_FILE_NAME);
 		mhi_ctrl->fw_image = plat_priv->firmware_name;
-		break;
-	default:
-		break;
 	}
 
 	cnss_pr_dbg("Firmware name is %s\n", mhi_ctrl->fw_image);
-
-	return 0;
 }
 
 static int cnss_pci_register_mhi(struct cnss_pci_data *pci_priv)
@@ -3780,8 +3769,8 @@ static int cnss_pci_register_mhi(struct cnss_pci_data *pci_priv)
 
 	ret = cnss_pci_get_mhi_msi(pci_priv);
 	if (ret) {
-		cnss_pr_err("Failed to get MSI for MHI, err = %d\n", ret);
-		goto free_mhi_ctrl;
+		cnss_pr_err("Failed to get MSI for MHI\n");
+		return ret;
 	}
 
 	if (pci_priv->smmu_s1_enable) {
@@ -3811,25 +3800,12 @@ static int cnss_pci_register_mhi(struct cnss_pci_data *pci_priv)
 	ret = of_register_mhi_controller(mhi_ctrl);
 	if (ret) {
 		cnss_pr_err("Failed to register to MHI bus, err = %d\n", ret);
-		goto destroy_ipc;
+		return ret;
 	}
 
-	ret = cnss_pci_update_fw_name(pci_priv);
-	if (ret)
-		goto unreg_mhi;
+	cnss_pci_update_fw_name(pci_priv);
 
 	return 0;
-
-unreg_mhi:
-	mhi_unregister_mhi_controller(mhi_ctrl);
-destroy_ipc:
-	if (mhi_ctrl->log_buf)
-		ipc_log_context_destroy(mhi_ctrl->log_buf);
-	kfree(mhi_ctrl->irq);
-free_mhi_ctrl:
-	mhi_free_controller(mhi_ctrl);
-
-	return ret;
 }
 
 static void cnss_pci_unregister_mhi(struct cnss_pci_data *pci_priv)
@@ -3837,10 +3813,8 @@ static void cnss_pci_unregister_mhi(struct cnss_pci_data *pci_priv)
 	struct mhi_controller *mhi_ctrl = pci_priv->mhi_ctrl;
 
 	mhi_unregister_mhi_controller(mhi_ctrl);
-	if (mhi_ctrl->log_buf)
-		ipc_log_context_destroy(mhi_ctrl->log_buf);
+	ipc_log_context_destroy(mhi_ctrl->log_buf);
 	kfree(mhi_ctrl->irq);
-	mhi_free_controller(mhi_ctrl);
 }
 
 static void cnss_pci_config_regs(struct cnss_pci_data *pci_priv)
@@ -4083,16 +4057,7 @@ int cnss_pci_init(struct cnss_plat_data *plat_priv)
 		goto out;
 	}
 
-	if (!plat_priv->bus_priv) {
-		cnss_pr_err("Failed to probe PCI driver\n");
-		ret = -ENODEV;
-		goto unreg_pci;
-	}
-
 	return 0;
-
-unreg_pci:
-	pci_unregister_driver(&cnss_pci_driver);
 out:
 	return ret;
 }
