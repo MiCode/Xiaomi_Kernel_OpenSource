@@ -300,7 +300,9 @@ void vpu_iova_free(struct device *dev, struct vpu_iova *i)
 {
 	vpu_mem_free(&i->m);
 	if (i->sgt.sgl) {
-		dma_unmap_sg(dev, i->sgt.sgl, i->sgt.nents, DMA_BIDIRECTIONAL);
+		dma_unmap_sg_attrs(dev, i->sgt.sgl,
+				   i->sgt.nents, DMA_BIDIRECTIONAL,
+				   DMA_ATTR_SKIP_CPU_SYNC);
 		sg_free_table(&i->sgt);
 	}
 	kfree(i->pages);
