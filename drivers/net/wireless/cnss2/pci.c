@@ -3486,19 +3486,6 @@ static void cnss_pci_add_dump_seg(struct cnss_pci_data *pci_priv,
 	cnss_minidump_add_region(plat_priv, type, seg_no, va, pa, size);
 }
 
-static void cnss_pci_remove_dump_seg(struct cnss_pci_data *pci_priv,
-				     struct cnss_dump_seg *dump_seg,
-				     enum cnss_fw_dump_type type, int seg_no,
-				     void *va, dma_addr_t dma, size_t size)
-{
-	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
-	struct device *dev = &pci_priv->pci_dev->dev;
-	phys_addr_t pa;
-
-	cnss_va_to_pa(dev, size, va, dma, &pa, DMA_ATTR_FORCE_CONTIGUOUS);
-	cnss_minidump_remove_region(plat_priv, type, seg_no, va, pa, size);
-}
-
 void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic)
 {
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
@@ -3583,41 +3570,6 @@ void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic)
 void cnss_pci_clear_dump_info(struct cnss_pci_data *pci_priv)
 {
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
-	struct cnss_dump_seg *dump_seg =
-		plat_priv->ramdump_info_v2.dump_data_vaddr;
-	struct image_info *fw_image, *rddm_image;
-	struct cnss_fw_mem *fw_mem = plat_priv->fw_mem;
-	int i, j;
-
-	fw_image = pci_priv->mhi_ctrl->fbc_image;
-	rddm_image = pci_priv->mhi_ctrl->rddm_image;
-
-	for (i = 0; i < fw_image->entries; i++) {
-		cnss_pci_remove_dump_seg(pci_priv, dump_seg, CNSS_FW_IMAGE, i,
-					 fw_image->mhi_buf[i].buf,
-					 fw_image->mhi_buf[i].dma_addr,
-					 fw_image->mhi_buf[i].len);
-		dump_seg++;
-	}
-
-	for (i = 0; i < rddm_image->entries; i++) {
-		cnss_pci_remove_dump_seg(pci_priv, dump_seg, CNSS_FW_RDDM, i,
-					 rddm_image->mhi_buf[i].buf,
-					 rddm_image->mhi_buf[i].dma_addr,
-					 rddm_image->mhi_buf[i].len);
-		dump_seg++;
-	}
-
-	for (i = 0, j = 0; i < plat_priv->fw_mem_seg_len; i++) {
-		if (fw_mem[i].type == CNSS_MEM_TYPE_DDR) {
-			cnss_pci_remove_dump_seg(pci_priv, dump_seg,
-						 CNSS_FW_REMOTE_HEAP, j,
-						 fw_mem[i].va, fw_mem[i].pa,
-						 fw_mem[i].size);
-			dump_seg++;
-			j++;
-		}
-	}
 
 	plat_priv->ramdump_info_v2.dump_data.nentries = 0;
 	plat_priv->ramdump_info_v2.dump_data_valid = false;
