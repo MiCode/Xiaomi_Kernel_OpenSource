@@ -23,6 +23,7 @@
 #include <linux/usb/audio-v2.h>
 #include <linux/io.h>
 #include <linux/module.h>
+#include <linux/pm_qos.h>
 
 #include <sound/core.h>
 #include <sound/pcm.h>
@@ -1315,6 +1316,10 @@ static int snd_usb_pcm_open(struct snd_pcm_substream *substream, int direction)
 	subs->dsd_dop.channel = 0;
 	subs->dsd_dop.marker = 1;
 
+	/* add the qos request and set the latency */
+	pm_qos_add_request(&subs->pm_qos,
+			   PM_QOS_CPU_DMA_LATENCY, US_PER_FRAME);
+
 	return setup_hw_info(runtime, subs);
 }
 
@@ -1334,6 +1339,9 @@ static int snd_usb_pcm_close(struct snd_pcm_substream *substream, int direction)
 
 	subs->pcm_substream = NULL;
 	snd_usb_autosuspend(subs->stream->chip);
+
+	/* remove the qos request */
+	pm_qos_remove_request(&subs->pm_qos);
 
 	return 0;
 }

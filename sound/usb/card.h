@@ -10,6 +10,7 @@
 #define MAX_QUEUE	32	/* try not to exceed this queue length, in ms */
 #define MAX_QUEUE_HS	30	/* try not to exceed this queue length, in ms */
 #define LOW_LATENCY_MAX_QUEUE   3 /* for low latency case queue length */
+#define US_PER_FRAME	125	/* high speed has 125 us per (micro) frame */
 
 struct audioformat {
 	struct list_head list;
@@ -162,6 +163,7 @@ struct snd_usb_substream {
 	} dsd_dop;
 
 	bool trigger_tstamp_pending_update; /* trigger timestamp being updated from initial estimate */
+	struct pm_qos_request pm_qos; /* for qos requests */
 };
 
 struct snd_usb_stream {
