@@ -889,24 +889,25 @@ static void __invalidate_reclaim_iterators(struct mem_cgroup *from,
 	}
 }
 
-/*
- * When cgruop1 non-hierarchy mode is used, parent_mem_cgroup() does
- * not walk all the way up to the cgroup root (root_mem_cgroup). So
- * we have to handle dead_memcg from cgroup root separately.
- */
 static void invalidate_reclaim_iterators(struct mem_cgroup *dead_memcg)
 {
 	struct mem_cgroup *memcg = dead_memcg;
-	int invalidate_root = 0;
+	struct mem_cgroup *last;
 
-	for (; memcg; memcg = parent_mem_cgroup(memcg)) {
+	do {
 		__invalidate_reclaim_iterators(memcg, dead_memcg);
-		if (memcg == root_mem_cgroup)
-			invalidate_root = 1;
-	}
+		last = memcg;
+	} while ((memcg = parent_mem_cgroup(memcg)));
 
-	if (!invalidate_root)
-		__invalidate_reclaim_iterators(root_mem_cgroup, dead_memcg);
+	/*
+	 * When cgruop1 non-hierarchy mode is used,
+	 * parent_mem_cgroup() does not walk all the way up to the
+	 * cgroup root (root_mem_cgroup). So we have to handle
+	 * dead_memcg from cgroup root separately.
+	 */
+	if (last != root_mem_cgroup)
+		__invalidate_reclaim_iterators(root_mem_cgroup,
+						dead_memcg);
 }
 
 /*
