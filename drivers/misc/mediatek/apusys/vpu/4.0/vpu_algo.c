@@ -121,15 +121,15 @@ struct __vpu_algo *vpu_alg_get(struct vpu_device *vd, const char *name,
 		if (!strcmp(alg->a.name, name)) {
 			/* found, reference count++ */
 			kref_get(&alg->ref);
-			goto out;
+			goto unlock;
 		}
 	}
 
 not_found:
 	alg = NULL;
-out:
-	/* paring locking vd->algo_lock */
+unlock:
 	spin_unlock(&vd->algo_lock);
+out:
 	if (alg)
 		vpu_alg_debug("%s: vpu%d: %s: ref: %d\n",
 			      __func__, vd->id, alg->a.name,
