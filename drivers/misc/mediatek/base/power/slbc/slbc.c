@@ -36,10 +36,17 @@
 static struct mmsram_data mmsram;
 #endif /* CONFIG_MTK_SLBC_MMSRAM */
 
+/* #define SLBC_THREAD */
+/* #define SLBC_TRACE */
+
+#ifdef SLBC_THREAD
 static struct task_struct *slbc_request_task;
 static struct task_struct *slbc_release_task;
+#endif /* SLBC_THREAD */
 
-static struct wakeup_source slbc_lock;
+#ifdef CONFIG_PM_WAKELOCKS
+static struct wakeup_source *slbc_ws;
+#endif
 
 static int slbc_enable = 1;
 static int buffer_ref;
@@ -69,6 +76,7 @@ static struct slbc_config p_config[] = {
 };
 
 char *slbc_uid_str[] = {
+	"UID_ZERO",
 	"UID_MM_VENC",
 	"UID_MM_DISP",
 	"UID_MM_MDP",
@@ -84,17 +92,6 @@ char *slbc_uid_str[] = {
 };
 
 #ifdef CONFIG_MTK_SLBC_MMSRAM
-static void slbc_set_mmsram_data(struct slbc_data *d)
-{
-	d->paddr = mmsram.paddr;
-	d->vaddr = mmsram.vaddr;
-}
-static void slbc_clr_mmsram_data(struct slbc_data *d)
-{
-	d->paddr = 0;
-	d->vaddr = 0;
-}
-
 static int slbc_check_mmsram(void)
 {
 	if (!mmsram.size) {
@@ -108,6 +105,22 @@ static int slbc_check_mmsram(void)
 	}
 
 	return 0;
+}
+
+static void slbc_set_mmsram_data(struct slbc_data *d)
+{
+	if (slbc_check_mmsram()) {
+		pr_info("#@# %s(%d) mmsram is wrong !!!\n",
+				__func__, __LINE__);
+	}
+
+	d->paddr = mmsram.paddr;
+	d->vaddr = mmsram.vaddr;
+}
+static void slbc_clr_mmsram_data(struct slbc_data *d)
+{
+	d->paddr = 0;
+	d->vaddr = 0;
 }
 #endif /* CONFIG_MTK_SLBC_MMSRAM */
 
@@ -133,7 +146,7 @@ static int get_slbc_sid_by_uid(enum slbc_uid uid)
 			return p_config[i].slot_id;
 	}
 
-	return 0;
+	return -1;
 }
 
 /**
@@ -147,7 +160,7 @@ int register_slbc_ops(struct slbc_ops *ops)
 	struct slbc_data *d;
 
 #ifdef CONFIG_MTK_SLBC_MMSRAM
-	if (!slbc_check_mmsram()) {
+	if (slbc_check_mmsram()) {
 		pr_info("#@# %s(%d) mmsram is wrong !!!\n",
 				__func__, __LINE__);
 
@@ -159,7 +172,9 @@ int register_slbc_ops(struct slbc_ops *ops)
 		d = ops->data;
 		uid = d->uid;
 
+#ifdef SLBC_TRACE
 		trace_slbc_api((void *)__func__, slbc_uid_str[uid]);
+#endif /* SLBC_TRACE */
 		slbc_debug_log("%s: %s", __func__, slbc_uid_str[uid]);
 	} else {
 		pr_info("#@# %s(%d) data is wrong !!!\n", __func__, __LINE__);
@@ -168,11 +183,12 @@ int register_slbc_ops(struct slbc_ops *ops)
 	}
 
 	sid = get_slbc_sid_by_uid(uid);
-	if (sid) {
+	if (sid >= 0) {
 		d->sid = sid;
 		d->config = &p_config[sid];
 		d->slot_used = 0;
 		d->ref = 0;
+		d->pwr_ref = 0;
 	} else {
 		pr_info("#@# %s(%d) slot is wrong !!!\n", __func__, __LINE__);
 
@@ -200,7 +216,9 @@ int unregister_slbc_ops(struct slbc_ops *ops)
 		d = ops->data;
 		uid = d->uid;
 
+#ifdef SLBC_TRACE
 		trace_slbc_api((void *)__func__, slbc_uid_str[uid]);
+#endif /* SLBC_TRACE */
 		slbc_debug_log("%s: %s", __func__, slbc_uid_str[uid]);
 	} else {
 		pr_info("#@# %s(%d) data is wrong !!!\n", __func__, __LINE__);
@@ -212,6 +230,7 @@ int unregister_slbc_ops(struct slbc_ops *ops)
 	d->config = 0;
 	d->slot_used = 0;
 	d->ref = 0;
+	d->pwr_ref = 0;
 
 	mutex_lock(&slbc_ops_lock);
 	list_del(&ops->node);
@@ -235,7 +254,9 @@ static void slbc_deactivate_timer_fn(unsigned long data)
 		int uid = d->uid;
 
 		if (test_bit(uid, &slbc_release_status)) {
+#ifdef SLBC_TRACE
 			trace_slbc_api((void *)__func__, slbc_uid_str[uid]);
+#endif /* SLBC_TRACE */
 			slbc_debug_log("%s: %s", __func__, slbc_uid_str[uid]);
 
 			if (test_bit(uid, &slbc_status)) {
@@ -273,7 +294,9 @@ int slbc_activate(struct slbc_data *d)
 	if (slbc_enable == 0)
 		return -EDISABLED;
 
+#ifdef SLBC_TRACE
 	trace_slbc_api((void *)__func__, slbc_uid_str[uid]);
+#endif /* SLBC_TRACE */
 	slbc_debug_log("%s: %s", __func__, slbc_uid_str[uid]);
 
 	ops = container_of(&d, struct slbc_ops, data);
@@ -299,7 +322,9 @@ int slbc_activate(struct slbc_data *d)
 				return ret;
 			}
 		} else {
+#ifdef SLBC_TRACE
 			trace_slbc_data((void *)__func__, d);
+#endif /* SLBC_TRACE */
 			slbc_debug_log("%s: %s %s", __func__, slbc_uid_str[uid],
 					"done");
 		}
@@ -322,7 +347,9 @@ int slbc_deactivate(struct slbc_data *d)
 	if (slbc_enable == 0)
 		return -EDISABLED;
 
+#ifdef SLBC_TRACE
 	trace_slbc_api((void *)__func__, slbc_uid_str[uid]);
+#endif /* SLBC_TRACE */
 	slbc_debug_log("%s: %s", __func__, slbc_uid_str[uid]);
 
 	ops = container_of(&d, struct slbc_ops, data);
@@ -331,7 +358,9 @@ int slbc_deactivate(struct slbc_data *d)
 
 		ops->deactivate(d);
 
+#ifdef SLBC_TRACE
 		trace_slbc_data((void *)__func__, d);
+#endif /* SLBC_TRACE */
 		slbc_debug_log("%s: %s %s", __func__, slbc_uid_str[uid],
 				"done");
 
@@ -351,6 +380,7 @@ int slbc_deactivate(struct slbc_data *d)
 }
 EXPORT_SYMBOL_GPL(slbc_deactivate);
 
+#ifdef SLBC_THREAD
 static struct slbc_data *slbc_find_next_low_used(struct slbc_data *d_old)
 {
 	struct slbc_ops *ops;
@@ -376,7 +406,9 @@ static struct slbc_data *slbc_find_next_low_used(struct slbc_data *d_old)
 	}
 
 	if (d_used) {
+#ifdef SLBC_TRACE
 		trace_slbc_data((void *)__func__, d_used);
+#endif /* SLBC_TRACE */
 		slbc_debug_log("%s: %s", __func__,
 				slbc_uid_str[d_used->uid]);
 	}
@@ -413,7 +445,9 @@ static struct slbc_data *slbc_find_next_high_req(struct slbc_data *d_old)
 	}
 
 	if (d_req) {
+#ifdef SLBC_TRACE
 		trace_slbc_data((void *)__func__, d_req);
+#endif /* SLBC_TRACE */
 		slbc_debug_log("%s: %s", __func__, slbc_uid_str[d_req->uid]);
 	}
 
@@ -425,7 +459,9 @@ static int slbc_activate_thread(void *arg)
 	struct slbc_data *d = arg;
 	int uid = d->uid;
 
+#ifdef SLBC_TRACE
 	trace_slbc_api((void *)__func__, slbc_uid_str[uid]);
+#endif /* SLBC_TRACE */
 	slbc_debug_log("%s: %s", __func__, slbc_uid_str[uid]);
 
 	/* FIXME: */
@@ -441,7 +477,9 @@ static int slbc_deactivate_thread(void *arg)
 	int uid = d->uid;
 	struct slbc_data *d_used;
 
+#ifdef SLBC_TRACE
 	trace_slbc_api((void *)__func__, slbc_uid_str[uid]);
+#endif /* SLBC_TRACE */
 	slbc_debug_log("%s: %s", __func__, slbc_uid_str[uid]);
 
 	while ((d_used = slbc_find_next_low_used(d))) {
@@ -452,6 +490,7 @@ static int slbc_deactivate_thread(void *arg)
 
 	return 0;
 }
+#endif /* SLBC_THREAD */
 
 static void check_slot_by_data(struct slbc_data *d)
 {
@@ -459,7 +498,9 @@ static void check_slot_by_data(struct slbc_data *d)
 	unsigned int res = config->res_slot;
 	int uid = d->uid;
 
+#ifdef SLBC_TRACE
 	trace_slbc_api((void *)__func__, slbc_uid_str[uid]);
+#endif /* SLBC_TRACE */
 	slbc_debug_log("%s: %s", __func__, slbc_uid_str[uid]);
 
 	/* FIXME: */
@@ -471,7 +512,9 @@ static int find_slbc_slot_by_data(struct slbc_data *d)
 {
 	int uid = d->uid;
 
+#ifdef SLBC_TRACE
 	trace_slbc_api((void *)__func__, slbc_uid_str[uid]);
+#endif /* SLBC_TRACE */
 	slbc_debug_log("%s: %s", __func__, slbc_uid_str[uid]);
 
 	slbc_debug_log("%s: slbc_slot_status %lx", __func__, slbc_slot_status);
@@ -497,6 +540,7 @@ int slbc_request(struct slbc_data *d)
 {
 	int ret = 0;
 	int uid;
+	int sid;
 
 	if (slbc_enable == 0)
 		return -EDISABLED;
@@ -509,7 +553,17 @@ int slbc_request(struct slbc_data *d)
 
 	uid = d->uid;
 
+	sid = get_slbc_sid_by_uid(uid);
+	if (sid >= 0) {
+		d->sid = sid;
+		d->config = &p_config[sid];
+		d->slot_used = 0;
+		d->ref = 0;
+	}
+
+#ifdef SLBC_TRACE
 	trace_slbc_api((void *)__func__, slbc_uid_str[uid]);
+#endif /* SLBC_TRACE */
 	slbc_debug_log("%s: %s", __func__, slbc_uid_str[uid]);
 
 	slbc_debug_log("%s: slbc_mask_status %lx", __func__, slbc_mask_status);
@@ -523,9 +577,9 @@ int slbc_request(struct slbc_data *d)
 	slbc_debug_log("%s: slbc_status %lx", __func__, slbc_status);
 	ret = test_bit(uid, &slbc_status);
 	if (ret == 1) {
-		slbc_set_mmsram_data(d);
+		/* slbc_set_mmsram_data(d); */
 
-		goto request_done;
+		goto request_done1;
 	}
 
 	if (BIT_IN_MM_BITS_1(BIT(uid)) &&
@@ -538,6 +592,7 @@ int slbc_request(struct slbc_data *d)
 	check_slot_by_data(d);
 
 	if (find_slbc_slot_by_data(d) != SLOT_AVAILABLE) {
+#ifdef SLBC_THREAD
 		struct slbc_data *d_used;
 
 		d_used = slbc_find_next_low_used(d);
@@ -547,6 +602,7 @@ int slbc_request(struct slbc_data *d)
 
 			return -EWAIT_RELEASE;
 		}
+#endif /* SLBC_THREAD */
 
 		return -ENOT_AVAILABLE;
 	}
@@ -576,14 +632,19 @@ int slbc_request(struct slbc_data *d)
 
 	set_slbc_slot_by_data(d);
 
+#ifdef SLBC_TRACE
 	trace_slbc_data((void *)__func__, d);
+#endif /* SLBC_TRACE */
 
 request_done:
+#ifdef CONFIG_PM_WAKELOCKS
 	if (slbc_ref++ == 0)
-		__pm_stay_awake(&slbc_lock);
+		__pm_stay_awake(slbc_ws);
+#endif
 
 	d->ref++;
 
+request_done1:
 	set_bit(uid, &slbc_status);
 	slbc_debug_log("%s: slbc_status %lx", __func__, slbc_status);
 	clear_bit(uid, &slbc_req_status);
@@ -596,8 +657,11 @@ EXPORT_SYMBOL_GPL(slbc_request);
 int slbc_release(struct slbc_data *d)
 {
 	int ret = 0;
+#ifdef SLBC_THREAD
 	struct slbc_data *d_req;
+#endif /* SLBC_THREAD */
 	int uid;
+	int sid;
 
 	if (slbc_enable == 0)
 		return -EDISABLED;
@@ -610,7 +674,15 @@ int slbc_release(struct slbc_data *d)
 
 	uid = d->uid;
 
+	sid = get_slbc_sid_by_uid(uid);
+	if (sid >= 0) {
+		d->sid = sid;
+		d->config = &p_config[sid];
+	}
+
+#ifdef SLBC_TRACE
 	trace_slbc_api((void *)__func__, slbc_uid_str[uid]);
+#endif /* SLBC_TRACE */
 	slbc_debug_log("%s: %s", __func__, slbc_uid_str[uid]);
 
 	slbc_debug_log("%s: slbc_mask_status %lx", __func__, slbc_mask_status);
@@ -620,10 +692,10 @@ int slbc_release(struct slbc_data *d)
 
 	slbc_debug_log("%s: slbc_status %lx", __func__, slbc_status);
 	ret = test_bit(uid, &slbc_status);
-	if (ret == 1) {
+	if (ret == 0) {
 		slbc_clr_mmsram_data(d);
 
-		goto release_done;
+		goto release_done1;
 	}
 
 	if (BIT_IN_MM_BITS_1(BIT(uid)) &&
@@ -661,22 +733,29 @@ int slbc_release(struct slbc_data *d)
 
 	clr_slbc_slot_by_data(d);
 
+#ifdef SLBC_TRACE
 	trace_slbc_data((void *)__func__, d);
+#endif /* SLBC_TRACE */
 
+#ifdef SLBC_THREAD
 	d_req = slbc_find_next_high_req(d);
 	if (d_req) {
 		slbc_request_task = kthread_run(slbc_activate_thread,
 				d_req, "slbc_activate_thread");
 	}
+#endif /* SLBC_THREAD */
 
 release_done:
+#ifdef CONFIG_PM_WAKELOCKS
 	if (--slbc_ref == 0)
-		__pm_relax(&slbc_lock);
+		__pm_relax(slbc_ws);
+#endif
 
 	d->ref--;
 	WARN(d->ref < 0, "%s: release %s fail !!!\n",
 			__func__, slbc_uid_str[uid]);
 
+release_done1:
 	clear_bit(uid, &slbc_status);
 	slbc_debug_log("%s: slbc_status %lx", __func__, slbc_status);
 
@@ -699,7 +778,9 @@ int slbc_power_on(struct slbc_data *d)
 
 	uid = d->uid;
 
+#ifdef SLBC_TRACE
 	trace_slbc_api((void *)__func__, slbc_uid_str[uid]);
+#endif /* SLBC_TRACE */
 	slbc_debug_log("%s: %s flag %x", __func__, slbc_uid_str[uid], d->flag);
 
 #ifdef CONFIG_MTK_SLBC_MMSRAM
@@ -730,7 +811,9 @@ int slbc_power_off(struct slbc_data *d)
 
 	uid = d->uid;
 
+#ifdef SLBC_TRACE
 	trace_slbc_api((void *)__func__, slbc_uid_str[uid]);
+#endif /* SLBC_TRACE */
 	slbc_debug_log("%s: %s flag %x", __func__, slbc_uid_str[uid], d->flag);
 
 #ifdef CONFIG_MTK_SLBC_MMSRAM
@@ -761,7 +844,9 @@ int slbc_secure_on(struct slbc_data *d)
 
 	uid = d->uid;
 
+#ifdef SLBC_TRACE
 	trace_slbc_api((void *)__func__, slbc_uid_str[uid]);
+#endif /* SLBC_TRACE */
 	slbc_debug_log("%s: %s flag %x", __func__, slbc_uid_str[uid], d->flag);
 
 #ifdef CONFIG_MTK_SLBC_MMSRAM
@@ -790,7 +875,9 @@ int slbc_secure_off(struct slbc_data *d)
 
 	uid = d->uid;
 
+#ifdef SLBC_TRACE
 	trace_slbc_api((void *)__func__, slbc_uid_str[uid]);
+#endif /* SLBC_TRACE */
 	slbc_debug_log("%s: %s flag %x", __func__, slbc_uid_str[uid], d->flag);
 
 #ifdef CONFIG_MTK_SLBC_MMSRAM
@@ -818,8 +905,8 @@ static void slbc_dump_data(struct seq_file *m, struct slbc_data *d)
 	seq_printf(m, "\t%d\t", uid);
 	seq_printf(m, "%x\t", d->type);
 	seq_printf(m, "%ld\n", d->size);
-	seq_printf(m, "%p\t", d->paddr);
-	seq_printf(m, "%p\t", d->vaddr);
+	seq_printf(m, "%x\t", d->paddr);
+	seq_printf(m, "%x\t", d->vaddr);
 	seq_printf(m, "%d\t", d->sid);
 	seq_printf(m, "%x\n", d->slot_used);
 	seq_printf(m, "%p\n", d->config);
@@ -975,6 +1062,12 @@ int __init slbc_module_init(void)
 				slbc_enable);
 	} else
 		pr_info("find slbc node failed\n");
+
+#ifdef CONFIG_PM_WAKELOCKS
+	slbc_ws = wakeup_source_register("slbc");
+	if (!slbc_ws)
+		pr_debug("slbc wakelock register fail!\n");
+#endif
 
 	ret = slbc_create_debug_fs();
 	if (ret) {
