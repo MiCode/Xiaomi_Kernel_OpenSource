@@ -814,6 +814,13 @@ int pe40_init(void)
 		pe4->data.pe40_r_cable_2a_lower = 435;
 		pe4->data.pe40_r_cable_1a_lower = 293;
 
+		pe4->pe4_input_current_limit = -1;
+		pe4->pe4_input_current_limit_setting = -1;
+		pe4->max_vbus = pe4->data.pe40_max_vbus;
+		pe4->max_ibus = pe4->data.pe40_max_ibus;
+		pe4->max_charger_ibus = pe4->data.pe40_max_ibus *
+				(100 - pe4->data.ibus_err) / 100;
+
 		chr_err("%s: done\n", __func__);
 
 		return 0;
