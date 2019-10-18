@@ -5407,8 +5407,10 @@ struct mtk_power_gate scp_clks[] __initdata = {
 	PGATE(SCP_SYS_VENC, "PG_VENC", "PG_DIS", "venc_sel", SYS_VEN),
 	PGATE(SCP_SYS_VENC_CORE1, "PG_VENC_C1", "PG_DIS", "venc_sel",
 								SYS_VEN_CORE1),
+
 	PGATE3(SCP_SYS_AUDIO, "PG_AUDIO", NULL, "aud_intbus_sel",
-			"infracfg_ao_audio_26m_bclk_ck", NULL, SYS_AUDIO),
+			"infracfg_ao_audio_26m_bclk_ck",
+			"infracfg_ao_audio_cg", SYS_AUDIO),
 	PGATE(SCP_SYS_ADSP, "PG_ADSP", NULL, "adsp_sel", SYS_ADSP),
 	PGATE(SCP_SYS_CAM, "PG_CAM", "PG_DIS", "cam_sel", SYS_CAM),
 	PGATE(SCP_SYS_CAM_RAWA, "PG_CAM_RAWA", "PG_CAM", NULL, SYS_CAM_RAWA),
