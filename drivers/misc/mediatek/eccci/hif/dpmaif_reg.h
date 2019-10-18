@@ -32,11 +32,15 @@ extern struct hif_dpmaif_ctrl *dpmaif_ctrl;
 #define INFRA_DPMAIF_CTRL_REG  (0xC00)
 #define DPMAIF_IP_BUSY_MASK   (0x3 << 12)
 
+#ifdef MT6297
+#define INFRA_PROT_DPMAIF_BIT		(1 << 10)
+#else
 #define INFRA_TOPAXI_PROTECTEN_1_SET  (0x2A8)
 #define INFRA_TOPAXI_PROTECTEN_1_CLR  (0x2AC)
 #define INFRA_TOPAXI_PROTECTEN_1      (0x250)
 #define DPMAIF_SLEEP_PROTECT_CTRL   (0x1<<4)
 #define INFRA_TOPAXI_PROTECT_READY_STA1_1 (0x258)
+#endif
 
 /***********************************************************************
  *  DPMAIF AO/PD register define macro
@@ -799,10 +803,10 @@ extern struct hif_dpmaif_ctrl *dpmaif_ctrl;
 
 /* === tx interrupt mask === */
 #define UL_INT_DONE_OFFSET          0
-#define UL_INT_EMPTY_OFFSET         4
-#define UL_INT_MD_NOTRDY_OFFSET     8
-#define UL_INT_PWR_NOTRDY_OFFSET    12
-#define UL_INT_LEN_ERR_OFFSET       16
+#define UL_INT_EMPTY_OFFSET         5
+#define UL_INT_MD_NOTRDY_OFFSET     10
+#define UL_INT_PWR_NOTRDY_OFFSET    15
+#define UL_INT_LEN_ERR_OFFSET       20
 
 #define DPMAIF_UL_INT_DONE(q_num)            (1 << (q_num+UL_INT_DONE_OFFSET))
 #define DPMAIF_UL_INT_EMPTY(q_num)          (1 << (q_num+UL_INT_EMPTY_OFFSET))
@@ -813,12 +817,12 @@ extern struct hif_dpmaif_ctrl *dpmaif_ctrl;
 #define DPMAIF_UL_INT_LEN_ERR(q_num)                 \
 	(1 << (q_num+UL_INT_LEN_ERR_OFFSET))
 
-#define DPMAIF_UL_INT_QDONE_MSK	(0x0F << UL_INT_DONE_OFFSET)
-#define DPMAIF_UL_INT_EMPTY_MSK	(0x0F << UL_INT_EMPTY_OFFSET)
-#define DPMAIF_UL_INT_MD_NOTREADY_MSK	(0x0F << UL_INT_MD_NOTRDY_OFFSET)
+#define DPMAIF_UL_INT_QDONE_MSK	(0x1F << UL_INT_DONE_OFFSET)
+#define DPMAIF_UL_INT_EMPTY_MSK	(0x1F << UL_INT_EMPTY_OFFSET)
+#define DPMAIF_UL_INT_MD_NOTREADY_MSK	(0x1F << UL_INT_MD_NOTRDY_OFFSET)
 #define DPMAIF_UL_INT_MD_PWR_NOTREADY_MSK	\
-	(0x0F << UL_INT_PWR_NOTRDY_OFFSET)
-#define DPMAIF_UL_INT_ERR_MSK		(0x0F << UL_INT_LEN_ERR_OFFSET)
+	(0x1F << UL_INT_PWR_NOTRDY_OFFSET)
+#define DPMAIF_UL_INT_ERR_MSK		(0x1F << UL_INT_LEN_ERR_OFFSET)
 
 #define AP_UL_L2INTR_ERR_En_Msk \
 	(DPMAIF_UL_INT_ERR_MSK | DPMAIF_UL_INT_MD_NOTREADY_MSK | \

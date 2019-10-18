@@ -2600,8 +2600,11 @@ static void dpmaif_rx_hw_init(struct dpmaif_rx_queue *rxq)
 		drv_dpmaif_dl_bat_en(rxq->index, false);
 
 		/* 3. notify HW init/setting done*/
+		CCCI_REPEAT_LOG(-1, TAG, "%s:begin check\n", __func__);
 		drv_dpmaif_dl_bat_init_done(rxq->index, false);
+		CCCI_REPEAT_LOG(-1, TAG, "%s: dl check done\n", __func__);
 		drv_dpmaif_dl_pit_init_done(rxq->index);
+		CCCI_REPEAT_LOG(-1, TAG, "%s: ul check done\n", __func__);
 #ifdef HW_FRG_FEATURE_ENABLE
 		/* 4. init frg buffer feature*/
 		drv_dpmaif_dl_set_ao_frg_bat_feature(rxq->index, true);
@@ -2883,6 +2886,7 @@ int dpmaif_start(unsigned char hif_id)
 	struct dpmaif_rx_queue *rxq;
 	struct dpmaif_tx_queue *txq;
 	int i, ret = 0;
+	unsigned int reg_value;
 
 	if (dpmaif_ctrl->dpmaif_state == HIFDPMAIF_STATE_PWRON)
 		return 0;
@@ -2896,6 +2900,11 @@ int dpmaif_start(unsigned char hif_id)
 	ccci_set_clk_by_id(2, 1);
 
 	#ifdef MT6297
+	reg_value = ccci_read32(infra_ao_mem_base, 0);
+	reg_value |= INFRA_PROT_DPMAIF_BIT;
+	ccci_write32(infra_ao_mem_base, 0, reg_value);
+	CCCI_REPEAT_LOG(-1, TAG, "%s:clr prot:0x%x\n", __func__, reg_value);
+
 	drv_dpmaif_common_hw_init();
 	#endif
 
@@ -3236,9 +3245,17 @@ int dpmaif_stop_tx_sw(unsigned char hif_id)
 void dpmaif_hw_reset(unsigned char md_id)
 {
 	unsigned int reg_value;
+#ifndef MT6297
 	int count = 0;
+#endif
 
 	/* pre- DPMAIF HW reset: bus-protect */
+#ifdef MT6297
+	reg_value = ccci_read32(infra_ao_mem_base, 0);
+	reg_value &= ~INFRA_PROT_DPMAIF_BIT;
+	ccci_write32(infra_ao_mem_base, 0, reg_value);
+	CCCI_REPEAT_LOG(md_id, TAG, "%s:set prot:0x%x\n", __func__, reg_value);
+#else
 	ccci_write32(infra_ao_base, INFRA_TOPAXI_PROTECTEN_1_SET,
 		DPMAIF_SLEEP_PROTECT_CTRL);
 
@@ -3253,6 +3270,7 @@ void dpmaif_hw_reset(unsigned char md_id)
 	reg_value = ccci_read32(infra_ao_base, INFRA_TOPAXI_PROTECTEN_1);
 	CCCI_NORMAL_LOG(md_id, TAG,
 		"infra_topaxi_protecten_1: 0x%x\n", reg_value);
+#endif
 	/* DPMAIF HW reset */
 	CCCI_DEBUG_LOG(md_id, TAG, "%s:rst dpmaif\n", __func__);
 	/* reset dpmaif hw: AO Domain */
@@ -3281,9 +3299,11 @@ void dpmaif_hw_reset(unsigned char md_id)
 	ccci_write32(infra_ao_base, INFRA_RST1_REG_PD, reg_value);
 	CCCI_DEBUG_LOG(md_id, TAG, "%s:done\n", __func__);
 
+#ifndef MT6297
 	/* post- DPMAIF HW reset: bus-protect */
 	ccci_write32(infra_ao_base, INFRA_TOPAXI_PROTECTEN_1_CLR,
 		DPMAIF_SLEEP_PROTECT_CTRL);
+#endif
 }
 
 int dpmaif_stop(unsigned char hif_id)
@@ -3310,11 +3330,18 @@ int dpmaif_stop(unsigned char hif_id)
 	/* stop debug mechnism */
 	del_timer(&dpmaif_ctrl->traffic_monitor);
 
+	#ifdef MT6297
+	/* todo: CG set */
+	ccci_set_clk_by_id(1, 0);
+	ccci_set_clk_by_id(2, 0);
+	/* 3. todo: reset IP */
+	dpmaif_hw_reset(dpmaif_ctrl->md_id);
+	#else
 	/* 3. todo: reset IP */
 	dpmaif_hw_reset(dpmaif_ctrl->md_id);
 	/* todo: CG set */
 	ccci_set_clk_by_id(1, 0);
-	ccci_set_clk_by_id(2, 0);
+	#endif
 #ifdef DPMAIF_DEBUG_LOG
 	CCCI_HISTORY_LOG(-1, TAG, "dpmaif:stop end\n");
 #endif

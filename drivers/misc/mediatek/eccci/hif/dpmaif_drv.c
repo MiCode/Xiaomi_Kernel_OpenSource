@@ -253,6 +253,7 @@ int drv_dpmaif_dl_add_frg_bat_cnt(unsigned char q_num,
 {
 	unsigned int dl_bat_update;
 	int count = 0;
+	s64 delta, ref_clk = sched_clock();
 
 	dl_bat_update = (frg_entry_cnt & 0xffff);
 	dl_bat_update |= (DPMAIF_DL_ADD_UPDATE|DPMAIF_DL_BAT_FRG_ADD);
@@ -263,8 +264,16 @@ int drv_dpmaif_dl_add_frg_bat_cnt(unsigned char q_num,
 			DPMA_WRITE_PD_DL(DPMAIF_PD_DL_BAT_ADD, dl_bat_update);
 			break;
 		}
+		count++;
+	}
+	if (count) {
+		delta = sched_clock() - ref_clk;
+		if (delta > 1000)
+			CCCI_REPEAT_LOG(0, TAG,
+				"%s cost %lld:%d\n", __func__, delta, count);
 	}
 
+	#if 0
 	while ((DPMA_READ_PD_DL(DPMAIF_PD_DL_BAT_ADD) &
 		DPMAIF_DL_ADD_NOT_READY) == DPMAIF_DL_ADD_NOT_READY) {
 		if (++count >= 1600000) {
@@ -274,6 +283,7 @@ int drv_dpmaif_dl_add_frg_bat_cnt(unsigned char q_num,
 			break;
 		}
 	}
+	#endif
 
 	return 0;
 }
@@ -294,6 +304,7 @@ int drv_dpmaif_dl_add_bat_cnt(unsigned char q_num,
 {
 	unsigned int dl_bat_update;
 	int count = 0;
+	s64 delta, ref_clk = sched_clock();
 
 	dl_bat_update = (bat_entry_cnt & 0xffff);
 	dl_bat_update |= DPMAIF_DL_ADD_UPDATE;
@@ -310,8 +321,16 @@ int drv_dpmaif_dl_add_bat_cnt(unsigned char q_num,
 			DPMA_WRITE_PD_DL(DPMAIF_PD_DL_BAT_ADD, dl_bat_update);
 			break;
 		}
+		count++;
+	}
+	if (count) {
+		delta = sched_clock() - ref_clk;
+		if (delta > 1000)
+			CCCI_REPEAT_LOG(0, TAG,
+				"%s cost %lld:%d\n", __func__, delta, count);
 	}
 
+	#if 0
 	while ((DPMA_READ_PD_DL(DPMAIF_PD_DL_BAT_ADD) &
 		DPMAIF_DL_ADD_NOT_READY) == DPMAIF_DL_ADD_NOT_READY) {
 		if (++count >= 1600000) {
@@ -321,6 +340,7 @@ int drv_dpmaif_dl_add_bat_cnt(unsigned char q_num,
 			break;
 		}
 	}
+	#endif
 #if defined(_E1_SB_SW_WORKAROUND_)
 	drv_dpmaif_dl_set_idle(false);
 #endif
@@ -1091,6 +1111,9 @@ void drv_dpmaif_common_hw_init(void)
 	/*Set Wdma performance*/
 	drv_dpmaif_dl_set_wdma();
 	drv_dpmaif_md_hw_bus_remap();
+
+	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_AP_L1TIMR0,
+				((1<<9)|(1<<10)|(1<<15)|(1<<16)));
 }
 
 void drv_dpmaif_md_hw_bus_remap(void)

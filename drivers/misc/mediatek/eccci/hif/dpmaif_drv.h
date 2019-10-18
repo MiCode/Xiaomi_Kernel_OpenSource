@@ -50,7 +50,7 @@ int drv_dpmaif_ul_add_wcnt(unsigned char q_num, unsigned short drb_wcnt);
  * (DPMA_READ_AO_DL(DPMAIF_AO_DL_RDY_CHK_THRES)&DPMAIF_AO_DL_ISR_MSK)
  */
 #define  drv_dpmaif_ul_get_ul_interrupt_mask() \
-	DPMA_READ_PD_MISC(DPMAIF_PD_AP_UL_L2TIMR0)
+	DPMA_READ_AO_UL(DPMAIF_PD_AP_UL_L2TIMR0)
 void drv_dpmaif_clear_ip_busy(void);
 
 /* == state part == */
