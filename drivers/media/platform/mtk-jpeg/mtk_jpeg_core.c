@@ -889,7 +889,7 @@ static void mtk_jpeg_set_param(struct mtk_jpeg_ctx *ctx,
 		param->enc_format = JPEG_YUV_FORMAT_NV12;
 		break;
 	case V4L2_PIX_FMT_NV21M:
-		param->enc_format = JEPG_YUV_FORMAT_NV21;
+		param->enc_format = JPEG_YUV_FORMAT_NV21;
 		break;
 	default:
 		v4l2_err(&jpeg->v4l2_dev, "Unsupport fourcc =%d\n",
@@ -924,7 +924,7 @@ static void mtk_jpeg_set_param(struct mtk_jpeg_ctx *ctx,
 	param->restart_interval = jpeg_params->restart_interval;
 	width_even = ((param->enc_w + 1) >> 1) << 1;
 	Is420 = (param->enc_format == JPEG_YUV_FORMAT_NV12 ||
-			param->enc_format == JEPG_YUV_FORMAT_NV21) ? 1:0;
+			param->enc_format == JPEG_YUV_FORMAT_NV21) ? 1:0;
 	padding_width = mtk_jpeg_align(param->enc_w, 16);
 	padding_height = mtk_jpeg_align(param->enc_h, Is420 ? 16 : 8);
 	if (!Is420)
@@ -1099,43 +1099,11 @@ static int mtk_jpeg_set_dec_dst(struct mtk_jpeg_ctx *ctx,
 	return 0;
 }
 
-static void mtk_jpeg_config_buf(int fd)
-{
-	struct ion_handle *handle;
-	struct ion_mm_data mm_data;
-
-	pr_info("%s call ion_import_dma_buf_fd  fd %d!\n", __func__,
-		 fd);
-	handle = ion_import_dma_buf_fd(g_ion_client, fd);
-	if (IS_ERR(handle)) {
-		pr_info("%s import ion handle failed!\n", __func__);
-	} else {
-		mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
-		mm_data.config_buffer_param.kernel_handle = handle;
-		mm_data.config_buffer_param.module_id = 0;
-		mm_data.config_buffer_param.security = 0;
-		mm_data.config_buffer_param.coherent = 0;
-
-
-		pr_info("%s call ION_MM_CONFIG_BUFFER!\n", __func__);
-
-		if (ion_kernel_ioctl(g_ion_client, ION_CMD_MULTIMEDIA,
-			(unsigned long)&mm_data))
-			pr_info("%s configure ion buffer failed!\n", __func__);
-
-		ion_free(g_ion_client, handle);
-	}
-
-}
-
-
 static void mtk_jpeg_set_enc_dst(struct mtk_jpeg_ctx *ctx,
 				 struct vb2_buffer *dst_buf,
 				 struct mtk_jpeg_enc_bs *bs)
 {
 	struct jpeg_enc_param *p = &ctx->jpeg_param;
-
-	mtk_jpeg_config_buf(dst_buf->planes[0].m.fd);
 
 	bs->dma_addr = vb2_dma_contig_plane_dma_addr(dst_buf, 0) &
 				(~JPEG_ENC_DST_ADDR_OFFSET_MASK);
@@ -1153,7 +1121,6 @@ static int mtk_jpeg_set_enc_src(struct mtk_jpeg_ctx *ctx,
 	int i;
 
 	for (i = 0; i < src_buf->num_planes; i++) {
-		mtk_jpeg_config_buf(src_buf->planes[i].m.fd);
 		fb->fb_addr[i].dma_addr =
 			vb2_dma_contig_plane_dma_addr(src_buf, i);
 	}

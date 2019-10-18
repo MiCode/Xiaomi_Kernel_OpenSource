@@ -57,7 +57,7 @@ enum jpeg_enc_yuv_fmt {
 	JPEG_YUV_FORMAT_YUYV = 0,
 	JPEG_YUV_FORMAT_YVYU = 1,
 	JPEG_YUV_FORMAT_NV12 = 2,
-	JEPG_YUV_FORMAT_NV21 = 3,
+	JPEG_YUV_FORMAT_NV21 = 3,
 };
 
 /**
