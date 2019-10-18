@@ -6101,6 +6101,12 @@ static int mt6359_codec_debug_set(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static const char *const rcv_mic_function[] = {"Off", "ACC", "DCC"};
+
+static const struct soc_enum rcv_mic_enum[] = {
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(rcv_mic_function), rcv_mic_function),
+};
+
 static const struct soc_enum misc_control_enum[] = {
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(off_on_function), off_on_function),
 };
@@ -6317,7 +6323,7 @@ static const struct snd_kcontrol_new mt6359_snd_misc_controls[] = {
 		       hp_impedance_get, NULL),
 	SOC_ENUM_EXT("Audio_Codec_Debug_Setting", misc_control_enum[0],
 		     mt6359_codec_debug_get, mt6359_codec_debug_set),
-	SOC_ENUM_EXT("PMIC_REG_CLEAR", misc_control_enum[0],
+	SOC_ENUM_EXT("PMIC_REG_CLEAR", rcv_mic_enum[0],
 		     mt6359_rcv_dcc_get, mt6359_rcv_dcc_set),
 };
 
