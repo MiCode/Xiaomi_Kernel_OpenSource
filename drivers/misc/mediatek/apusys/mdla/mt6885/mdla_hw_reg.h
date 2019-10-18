@@ -94,6 +94,8 @@
 #define MDLA_SES_CTL2		(0x148)
 
 /* MDLA command */
+#define MREG_TOP_SWCMD_DONE_CNT	(0x008C)
+
 #define MREG_TOP_G_REV     (0x0500)
 #define MREG_TOP_G_INTP0   (0x0504)
 #define MREG_TOP_G_INTP1   (0x0508)

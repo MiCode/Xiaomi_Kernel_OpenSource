@@ -14,6 +14,7 @@
 #include <linux/bitops.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
+#include <linux/delay.h>
 #ifdef CONFIG_OF
 #include <linux/cpu.h>
 #include <linux/of.h>
@@ -312,6 +313,32 @@ irqreturn_t mdla_interrupt(u32 mdlaid)
 	return IRQ_HANDLED;
 }
 
+unsigned int mdla_multi_core_is_swcmd_cnt(unsigned int core_id)
+{
+	unsigned int is_swcmd_done = 0;
+
+	if (mdla_reg_read_with_mdlaid(core_id, MREG_TOP_SWCMD_DONE_CNT)|
+		(0x00f0<<(core_id * 4)))
+		is_swcmd_done |= 1<<core_id;
+
+	return is_swcmd_done;
+}
+
+void mdla_multi_core_sw_rst(unsigned int core_id)
+{
+	mdla_cfg_write_with_mdlaid(core_id, 0xff, MDLA_SW_RST);
+	mdla_cfg_write_with_mdlaid(core_id, 0x0, MDLA_SW_RST);
+}
+
+void mdla_multi_core_sync_rst_done(void)
+{
+	int i = 0;
+
+	for (i = 0; i < mdla_max_num_core; i++)
+		while (mdla_multi_core_is_swcmd_cnt(i))
+			udelay(10);
+}
+
 
 #ifndef __APUSYS_PREEMPTION__
 int mdla_process_command(int core_id, struct command_entry *ce)
@@ -338,6 +365,10 @@ int mdla_process_command(int core_id, struct command_entry *ce)
 
 	if (ret)
 		return ret;
+
+#if 0//TODO, pending for multi mdla cmd
+	mdla_multi_core_sync_rst_done();
+#endif
 
 	//TODO fix it for multicore
 	/* Issue command */
@@ -392,6 +423,7 @@ int mdla_zero_skip_detect(int core_id)
 	}
 	return 0;
 }
+
 
 #ifdef __APUSYS_PREEMPTION__
 static inline struct mdla_scheduler *mdla_get_scheduler(unsigned int core_id)

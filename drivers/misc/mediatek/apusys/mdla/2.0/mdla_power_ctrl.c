@@ -99,6 +99,15 @@ int mdla_pwr_on(int core_id)
 	mdla_reset_lock(core_id, REASON_DRVINIT);
 
 power_on_done:
+
+
+#if 0//TODO: check if apusys multi core command
+	if (mdla_multi_core_is_swcmd_cnt()&(1<<core_id)) {
+		mdla_multi_core_sw_rst(core_id);
+		mdla_reset_lock(core_id, REASON_DRVINIT);
+	}
+#endif
+
 	mdla_profile_start(core_id);
 	mutex_unlock(&mdla_devices[core_id].power_lock);
 #else//CONFIG_FPGA_EARLY_PORTING

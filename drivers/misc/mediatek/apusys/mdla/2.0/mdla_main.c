@@ -540,7 +540,7 @@ int apusys_mdla_handler(int type,
 	case APUSYS_CMD_RESUME:
 		break;
 	case APUSYS_CMD_SUSPEND:
-		mdla_pwr_off(mdla_info->mdlaid);
+		mdla_start_power_off(mdla_info->mdlaid);
 		break;
 	case APUSYS_CMD_EXECUTE:
 	{
