@@ -65,7 +65,7 @@ int hal_config_power(enum HAL_POWER_CMD cmd, enum DVFS_USER user, void *param)
 {
 	int ret = 0;
 
-	LOG_INF("%s power command : %d, by user : %d\n", __func__, cmd, user);
+	LOG_DBG("%s power command : %d, by user : %d\n", __func__, cmd, user);
 
 	if (cmd != PWR_CMD_INIT_POWER && is_apu_power_initilized == 0) {
 		LOG_ERR("%s apu power state : %d, force return!\n",
@@ -231,21 +231,21 @@ static int init_power_resource(void *param)
 	g_APU_MDLA0_BASE = init_data->mdla0_base_addr;
 	g_APU_MDLA1_BASE = init_data->mdla1_base_addr;
 
-	LOG_WRN("%s , g_APU_RPCTOP_BASE 0x%p\n", __func__, g_APU_RPCTOP_BASE);
-	LOG_WRN("%s , g_APU_PCUTOP_BASE 0x%p\n", __func__, g_APU_PCUTOP_BASE);
-	LOG_WRN("%s , g_APU_VCORE_BASE 0x%p\n", __func__, g_APU_VCORE_BASE);
-	LOG_WRN("%s , g_APU_INFRACFG_AO_BASE 0x%p\n", __func__,
+	LOG_DBG("%s , g_APU_RPCTOP_BASE 0x%p\n", __func__, g_APU_RPCTOP_BASE);
+	LOG_DBG("%s , g_APU_PCUTOP_BASE 0x%p\n", __func__, g_APU_PCUTOP_BASE);
+	LOG_DBG("%s , g_APU_VCORE_BASE 0x%p\n", __func__, g_APU_VCORE_BASE);
+	LOG_DBG("%s , g_APU_INFRACFG_AO_BASE 0x%p\n", __func__,
 						g_APU_INFRACFG_AO_BASE);
-	LOG_WRN("%s , g_APU_INFRA_BCRM_BASE 0x%p\n", __func__,
+	LOG_DBG("%s , g_APU_INFRA_BCRM_BASE 0x%p\n", __func__,
 						g_APU_INFRA_BCRM_BASE);
 
-	LOG_WRN("%s , g_APU_CONN_BASE 0x%p\n", __func__, g_APU_CONN_BASE);
-	LOG_WRN("%s , g_APU_VPU0_BASE 0x%p\n", __func__, g_APU_VPU0_BASE);
-	LOG_WRN("%s , g_APU_VPU1_BASE 0x%p\n", __func__, g_APU_VPU1_BASE);
-	LOG_WRN("%s , g_APU_VPU2_BASE 0x%p\n", __func__, g_APU_VPU2_BASE);
-	LOG_WRN("%s , g_APU_MDLA0_BASE 0x%p\n", __func__, g_APU_MDLA0_BASE);
-	LOG_WRN("%s , g_APU_MDLA1_BASE 0x%p\n", __func__, g_APU_MDLA1_BASE);
-	LOG_WRN("%s , g_APU_SPM_BASE 0x%p\n", __func__, g_APU_SPM_BASE);
+	LOG_DBG("%s , g_APU_CONN_BASE 0x%p\n", __func__, g_APU_CONN_BASE);
+	LOG_DBG("%s , g_APU_VPU0_BASE 0x%p\n", __func__, g_APU_VPU0_BASE);
+	LOG_DBG("%s , g_APU_VPU1_BASE 0x%p\n", __func__, g_APU_VPU1_BASE);
+	LOG_DBG("%s , g_APU_VPU2_BASE 0x%p\n", __func__, g_APU_VPU2_BASE);
+	LOG_DBG("%s , g_APU_MDLA0_BASE 0x%p\n", __func__, g_APU_MDLA0_BASE);
+	LOG_DBG("%s , g_APU_MDLA1_BASE 0x%p\n", __func__, g_APU_MDLA1_BASE);
+	LOG_DBG("%s , g_APU_SPM_BASE 0x%p\n", __func__, g_APU_SPM_BASE);
 
 	if (!is_apu_power_initilized) {
 		prepare_apu_regulator(dev, 1);
@@ -317,7 +317,7 @@ static void rpc_fifo_check(void)
 		finished = (regValue & BIT(31));
 
 		if (++check_round >= REG_POLLING_TIMEOUT_ROUNDS) {
-			LOG_WRN("%s timeout !\n", __func__);
+			LOG_ERR("%s timeout !\n", __func__);
 			break;
 		}
 	} while (finished);
@@ -344,7 +344,7 @@ static int rpc_power_status_check(int domain_idx, unsigned int enable)
 			finished = (regValue >> domain_idx) & 0x1;
 
 		if (++check_round >= REG_POLLING_TIMEOUT_ROUNDS) {
-			LOG_WRN("%s APU_RPC_INTF_PWR_RDY = 0x%x, timeout !\n",
+			LOG_ERR("%s APU_RPC_INTF_PWR_RDY = 0x%x, timeout !\n",
 							__func__, regValue);
 			return -1;
 		}
@@ -373,72 +373,6 @@ static int check_mtcmos_all_power_state(void)
 		return 0;
 }
 
-// TODO: move to ATF
-static void polling_infra2apu_state(int polling_MI)
-{
-	uint32_t regValue1 = 0x0;
-	uint32_t regValue2 = 0x0;
-	uint32_t regValue3 = 0x0;
-	uint32_t check_round = 0;
-
-	do {
-		udelay(10);
-
-		// slave interface control signal updated status
-		regValue1 = DRV_Reg32(INFRA_BCRM_MEM_PROT_A);
-
-		// slave interface control signal updated status
-		regValue2 = DRV_Reg32(INFRA_BCRM_MEM_PROT_B);
-
-		if ((regValue1 & BIT(0)) == 0x1
-			&& (regValue2 & BIT(0)) == 0x1)
-			break;
-
-		if (++check_round >= REG_POLLING_TIMEOUT_ROUNDS) {
-			LOG_WRN("%s timeout !\n", __func__);
-			break;
-		}
-
-		LOG_DBG("%s, prot_A = %x, prot_B = %x waiting...\n",
-						__func__, regValue1, regValue2);
-	} while (1);
-
-	check_round = 0;
-
-	if (polling_MI) {
-		do {
-			udelay(10);
-
-			// Master Interface write/read busy
-			regValue3 = DRV_Reg32(INFRA_BCRM_MEM_PROT_C);
-
-			if ((regValue3 & BIT(0)) == 0x0
-				&& (regValue3 & BIT(1)) == 0x0)
-				break;
-
-			if (++check_round >= REG_POLLING_TIMEOUT_ROUNDS) {
-				LOG_WRN("%s timeout !\n", __func__);
-				break;
-			}
-
-			LOG_DBG("%s, prot_C = %x waiting...\n",
-							__func__, regValue3);
-		} while (1);
-	}
-}
-
-// TODO: move to ATF
-static void enable_infra2apu(int enable)
-{
-	if (enable) {
-		DRV_ClearBitReg32(INFRACFG_AO_MEM_PROT, (BIT(30) | BIT(31)));
-		polling_infra2apu_state(0); // no need to polling master
-	} else {
-		DRV_SetBitReg32(INFRACFG_AO_MEM_PROT, (BIT(30) | BIT(31)));
-		polling_infra2apu_state(1); // polling master
-	}
-}
-
 static int set_power_mtcmos(enum DVFS_USER user, void *param)
 {
 	unsigned int enable = ((struct hal_param_mtcmos *)param)->enable;
@@ -461,16 +395,13 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 	else if (user == MDLA1)
 		domain_idx = 7;
 	else
-		LOG_DBG("%s not support user : %d\n", __func__, user);
+		LOG_WRN("%s not support user : %d\n", __func__, user);
 
 	if (enable) {
 		// call spm api to enable wake up signal for apu_conn/apu_vcore
 		if (force_pwr_on ||
 			(DRV_Reg32(APU_RPC_INTF_PWR_RDY) & BIT(0)) == 0x0) {
 			LOG_WRN("%s enable wakeup signal\n", __func__);
-		//	DRV_SetBitReg32(APU_RPC_TOP_CON, REG_WAKEUP_SET);
-		//	LOG_WRN("%s ON check wakeup signal 0x%x\n", __func__,
-		//				DRV_Reg32(APU_RPC_TOP_CON));
 
 			// CCF API assist to enable clock source of apu conn
 			enable_apu_mtcmos(1);
@@ -478,7 +409,6 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 			// clear inner dummy CG (true enable but bypass disable)
 			enable_apu_conn_vcore_clock();
 
-			enable_infra2apu(1);
 			force_pwr_on = 0;
 		}
 
@@ -536,21 +466,13 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 			// inner dummy cg won't be gated when you call disable
 			disable_apu_conn_vcore_clock();
 
-		//	DRV_WriteReg32(APU_RPC_TOP_CON, REG_WAKEUP_CLR);
-		//	LOG_WRN("%s disable wakeup signal = 0x%x\n",
-		//		__func__, DRV_Reg32(APU_RPC_INTF_PWR_RDY));
 			enable_apu_mtcmos(0);
 			//udelay(100);
-
-			// FIXME: auto clear by CCF API ?
-			//disable_apu_conn_vcore_clksrc();
 
 			// mask RPC IRQ and bypass WFI
 			regValue = DRV_Reg32(APU_RPC_TOP_SEL);
 			regValue |= 0x9E;
 			DRV_WriteReg32(APU_RPC_TOP_SEL, regValue);
-
-			enable_infra2apu(0);
 
 			// sleep request enable
 			regValue = DRV_Reg32(APU_RPC_TOP_CON);
@@ -569,7 +491,7 @@ static int set_power_clock(enum DVFS_USER user, void *param)
 #ifndef MTK_FPGA_PORTING
 	int enable = ((struct hal_param_clk *)param)->enable;
 
-	LOG_INF("%s , user: %d , enable: %d\n", __func__, user, enable);
+	LOG_DBG("%s , user: %d , enable: %d\n", __func__, user, enable);
 
 	if (enable)
 		enable_apu_device_clock(user);
@@ -810,7 +732,7 @@ static void apusys_power_reg_dump(void)
 	unsigned int regVal = DRV_Reg32(APU_RPC_INTF_PWR_RDY);
 
 	// dump mtcmos status
-	LOG_WRN("APUREG APU_RPC_INTF_PWR_RDY = 0x%x\n", regVal);
+	LOG_DBG("APUREG APU_RPC_INTF_PWR_RDY = 0x%x\n", regVal);
 
 	/*
 	 * ### IMPORTANT ###
@@ -825,43 +747,43 @@ static void apusys_power_reg_dump(void)
 		((regVal & BIT(6)) >> 6) == 0x1 ||
 		((regVal & BIT(7)) >> 7) == 0x1) {
 
-		LOG_WRN("APUREG APU_VCORE_CG_CON = 0x%x\n",
+		LOG_DBG("APUREG APU_VCORE_CG_CON = 0x%x\n",
 					DRV_Reg32(APU_VCORE_CG_CON));
-		LOG_WRN("APUREG APU_CONN_CG_CON = 0x%x\n",
+		LOG_DBG("APUREG APU_CONN_CG_CON = 0x%x\n",
 					DRV_Reg32(APU_CONN_CG_CON));
 	} else {
-		LOG_WRN("APUREG conn_vcore mtcmos not ready, bypass CG dump\n");
+		LOG_DBG("APUREG conn_vcore mtcmos not ready, bypass CG dump\n");
 	}
 
 	if (((regVal & BIT(2)) >> 2) == 0x1)
-		LOG_WRN("APUREG APU0_APU_CG_CON = 0x%x\n",
+		LOG_DBG("APUREG APU0_APU_CG_CON = 0x%x\n",
 					DRV_Reg32(APU0_APU_CG_CON));
 	else
-		LOG_WRN("APUREG vpu0 mtcmos not ready, bypass CG dump\n");
+		LOG_DBG("APUREG vpu0 mtcmos not ready, bypass CG dump\n");
 
 	if (((regVal & BIT(3)) >> 3) == 0x1)
-		LOG_WRN("APUREG APU1_APU_CG_CON = 0x%x\n",
+		LOG_DBG("APUREG APU1_APU_CG_CON = 0x%x\n",
 					DRV_Reg32(APU1_APU_CG_CON));
 	else
-		LOG_WRN("APUREG vpu1 mtcmos not ready, bypass CG dump\n");
+		LOG_DBG("APUREG vpu1 mtcmos not ready, bypass CG dump\n");
 
 	if (((regVal & BIT(4)) >> 4) == 0x1)
-		LOG_WRN("APUREG APU2_APU_CG_CON = 0x%x\n",
+		LOG_DBG("APUREG APU2_APU_CG_CON = 0x%x\n",
 					DRV_Reg32(APU2_APU_CG_CON));
 	else
-		LOG_WRN("APUREG vpu2 mtcmos not ready, bypass CG dump\n");
+		LOG_DBG("APUREG vpu2 mtcmos not ready, bypass CG dump\n");
 
 	if (((regVal & BIT(6)) >> 6) == 0x1)
-		LOG_WRN("APUREG APU_MDLA0_APU_MDLA_CG_CON = 0x%x\n",
+		LOG_DBG("APUREG APU_MDLA0_APU_MDLA_CG_CON = 0x%x\n",
 					DRV_Reg32(APU_MDLA0_APU_MDLA_CG_CON));
 	else
-		LOG_WRN("APUREG mdla0 mtcmos not ready, bypass CG dump\n");
+		LOG_DBG("APUREG mdla0 mtcmos not ready, bypass CG dump\n");
 
 	if (((regVal & BIT(7)) >> 7) == 0x1)
-		LOG_WRN("APUREG APU_MDLA1_APU_MDLA_CG_CON = 0x%x\n",
+		LOG_DBG("APUREG APU_MDLA1_APU_MDLA_CG_CON = 0x%x\n",
 					DRV_Reg32(APU_MDLA1_APU_MDLA_CG_CON));
 	else
-		LOG_WRN("APUREG mdla1 mtcmos not ready, bypass CG dump\n");
+		LOG_DBG("APUREG mdla1 mtcmos not ready, bypass CG dump\n");
 }
 
 static void debug_power_mtcmos_on(void)
@@ -872,7 +794,6 @@ static void debug_power_mtcmos_on(void)
 
 	enable_apu_mtcmos(1);
 	enable_apu_conn_vcore_clock();
-	enable_infra2apu(1);
 #endif
 	buck_control(VPU0, 3); // buck on
 	buck_control(VPU0, 2); // default voltage
@@ -896,7 +817,6 @@ static void debug_power_mtcmos_off(void)
 	regValue |= 0x9E;
 	DRV_WriteReg32(APU_RPC_TOP_SEL, regValue);
 
-	enable_infra2apu(0);
 	// sleep request enable
 	regValue = DRV_Reg32(APU_RPC_TOP_CON);
 	regValue |= 0x1;

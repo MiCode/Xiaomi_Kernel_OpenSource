@@ -20,7 +20,7 @@
 
 #define DVFS_TAG "[DVFS]"
 #define PWR_LOG_INF(format, args...) \
-		pr_info(DVFS_TAG " " format, ##args)
+		pr_debug(DVFS_TAG " " format, ##args)
 #define PWR_LOG_WRN(format, args...) \
 		pr_info(DVFS_TAG "[warn] " format, ##args)
 #define PWR_LOG_ERR(format, args...) \
@@ -29,7 +29,7 @@
 
 #define VPU_TAG "[apu_power_2.0]"
 #define LOG_DBG(format, args...)    pr_debug(VPU_TAG " " format, ##args)
-#define LOG_INF(format, args...)    pr_info(VPU_TAG " " format, ##args)
+#define LOG_INF(format, args...)    pr_debug(VPU_TAG " " format, ##args)
 #define LOG_WRN(format, args...)    pr_info(VPU_TAG "[warn] " format, ##args)
 #define LOG_ERR(format, args...)    pr_info(VPU_TAG "[error] " format, ##args)
 

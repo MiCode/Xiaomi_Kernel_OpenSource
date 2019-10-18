@@ -135,6 +135,8 @@ int enable_regulator(enum DVFS_BUCK buck)
 		if (ret) {
 			LOG_ERR("regulator_enable vvpu_reg_id failed\n");
 			return ret;
+		} else {
+			LOG_INF("enable vvpu success\n");
 		}
 
 	} else if (buck == MDLA_BUCK) {
@@ -148,6 +150,8 @@ int enable_regulator(enum DVFS_BUCK buck)
 		if (ret) {
 			LOG_ERR("regulator_enable vmdla_reg_id failed\n");
 			return ret;
+		} else {
+			LOG_INF("enable vmdla success\n");
 		}
 
 
@@ -170,7 +174,10 @@ int enable_regulator(enum DVFS_BUCK buck)
 		if (ret) {
 			LOG_ERR("regulator_enable vsram_reg_id failed\n");
 			return ret;
+		} else {
+			LOG_INF("enable vsram success\n");
 		}
+
 	} else {
 		LOG_ERR("%s not support buck : %d\n", __func__, buck);
 		return -1;
@@ -265,7 +272,7 @@ int unprepare_regulator(enum DVFS_BUCK buck)
 
 		regulator_put(vvpu_reg_id);
 		vvpu_reg_id = NULL;
-		LOG_INF("release vvpu_reg_id success\n");
+		LOG_DBG("release vvpu_reg_id success\n");
 
 	} else if (buck == MDLA_BUCK) {
 		if (!vmdla_reg_id) {
@@ -276,7 +283,7 @@ int unprepare_regulator(enum DVFS_BUCK buck)
 
 		regulator_put(vmdla_reg_id);
 		vmdla_reg_id = NULL;
-		LOG_INF("release vmdla_reg_id success\n");
+		LOG_DBG("release vmdla_reg_id success\n");
 
 	} else if (buck == VCORE_BUCK) {
 		if (!vcore_reg_id) {
@@ -287,7 +294,7 @@ int unprepare_regulator(enum DVFS_BUCK buck)
 
 		regulator_put(vcore_reg_id);
 		vcore_reg_id = NULL;
-		LOG_INF("release vcore_reg_id success\n");
+		LOG_DBG("release vcore_reg_id success\n");
 
 	} else if (buck == SRAM_BUCK) {
 		if (!vsram_reg_id) {
@@ -298,7 +305,7 @@ int unprepare_regulator(enum DVFS_BUCK buck)
 
 		regulator_put(vsram_reg_id);
 		vsram_reg_id = NULL;
-		LOG_INF("release vsram_reg_id success\n");
+		LOG_DBG("release vsram_reg_id success\n");
 
 	} else {
 		LOG_ERR("%s not support buck : %d\n", __func__, buck);
@@ -553,6 +560,6 @@ void dump_voltage(struct apu_power_info *info)
 	info->vcore = vcore / dump_div;
 	info->vsram = vsram / dump_div;
 
-	LOG_WRN("vvpu=%d, vmdla=%d, vcore=%d, vsram=%d\n",
+	LOG_DBG("vvpu=%d, vmdla=%d, vcore=%d, vsram=%d\n",
 						vvpu, vmdla, vcore, vsram);
 }

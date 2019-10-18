@@ -140,7 +140,7 @@ static struct clk *mtcmos_scp_sys_vpu;		// mtcmos for apu conn/vcore
 
 void enable_apu_mtcmos(int enable)
 {
-	LOG_DBG("%s enable var = %d\n", __func__, enable);
+	LOG_WRN("%s enable var = %d\n", __func__, enable);
 
 	if (enable) {
 		ENABLE_CLK(mtcmos_scp_sys_vpu);
@@ -798,12 +798,12 @@ void dump_frequency(struct apu_power_info *info)
 	info->apupll_freq = apupll_freq / dump_div;
 	info->ipuif_freq = ipuif_freq / dump_div;
 
-	LOG_WRN("dsp_freq = %d\n", dsp_freq);
-	LOG_WRN("dsp1_freq = %d\n", dsp1_freq);
-	LOG_WRN("dsp2_freq = %d\n", dsp2_freq);
-	LOG_WRN("dsp3_freq = %d\n", dsp3_freq);
-	LOG_WRN("dsp6_freq = %d\n", dsp6_freq);
-	LOG_WRN("dsp7_freq = %d\n", dsp7_freq);
-	LOG_WRN("apupll_freq = %d\n", apupll_freq);
-	LOG_WRN("ipuif_freq = %d\n", ipuif_freq);
+	LOG_DBG("dsp_freq = %d\n", dsp_freq);
+	LOG_DBG("dsp1_freq = %d\n", dsp1_freq);
+	LOG_DBG("dsp2_freq = %d\n", dsp2_freq);
+	LOG_DBG("dsp3_freq = %d\n", dsp3_freq);
+	LOG_DBG("dsp6_freq = %d\n", dsp6_freq);
+	LOG_DBG("dsp7_freq = %d\n", dsp7_freq);
+	LOG_DBG("apupll_freq = %d\n", apupll_freq);
+	LOG_DBG("ipuif_freq = %d\n", ipuif_freq);
 }

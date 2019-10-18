@@ -483,7 +483,7 @@ void apusys_dvfs_info(void)
 		prev_opp = apusys_opps.prev_opp_index[buck_domain_index];
 		cur_opp = apusys_opps.cur_opp_index[buck_domain_index];
 
-		PWR_LOG_INF(
+		PWR_LOG_WRN(
 			"%s, %s, opp(%d, %d),freq(%d, %d), volt(%d, %d) %llu\n",
 			__func__,
 			buck_domain_str[buck_domain_index],
@@ -500,7 +500,7 @@ void apusys_dvfs_info(void)
 			|| buck_domain_index == V_MDLA0
 			|| buck_domain_index == V_MDLA1){
 			user = apusys_buck_domain_to_user[buck_domain_index];
-			PWR_LOG_INF(
+			PWR_LOG_WRN(
 			"%s, %s, user_opp=%d,(T=%d, Pmin=%d, Pmax=%d) %llu\n",
 				__func__,
 				buck_domain_str[buck_domain_index],
