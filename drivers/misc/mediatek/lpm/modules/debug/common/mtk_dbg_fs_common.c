@@ -296,11 +296,23 @@ static void __exit mtk_dbg_common_fs_exit(void)
 
 static int __init mtk_dbg_common_fs_init(void)
 {
+#if defined(CONFIG_ARM64)
+	int len;
+#endif
+
 	/* wakeup source init for suspend enable and disable */
 	wakeup_source_init(&mtk_suspend_lock, "mtk_suspend_wakelock");
-	/* default hold wakelock to avoid enter suspend flow */
-	__pm_stay_awake(&mtk_suspend_lock);
-
+#if defined(CONFIG_ARM64)
+	len = sizeof(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES);
+	if (strncmp(
+		&CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES[len - 4],
+			"_lp", 3) != 0) {
+		/* hold wakelock to avoid enter suspend flow */
+		__pm_stay_awake(&mtk_suspend_lock);
+		pr_info("flavor check: disable suspend feature\n");
+	} else
+		pr_info("flavor check: enable suspend feature\n");
+#endif
 	/* backup and disable suspend console (enable log print) */
 	mtk_system_console_suspend = console_suspend_enabled;
 	console_suspend_enabled = false;
