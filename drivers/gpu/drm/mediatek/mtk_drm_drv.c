@@ -443,6 +443,24 @@ static bool mtk_atomic_skip_plane_update(struct mtk_drm_private *private,
 	struct drm_crtc_state *old_crtc_state;
 	int i;
 
+	/* If the doze state change, the display engine should not be
+	 * self-refresh it again to avoid updating the unexpected content.
+	 * The middleware is only change one CRTC power state at a time
+	 * and there has no new frame updating when power state change.
+	 * So here we can traverse all the CRTC state and skip the whole
+	 * frame update. If the behavior above changed, the statement
+	 * below should be modified.
+	 */
+	for_each_crtc_in_state(state, crtc, old_crtc_state, i) {
+		struct mtk_crtc_state *mtk_state =
+			to_mtk_crtc_state(crtc->state);
+		if (mtk_state->doze_changed) {
+			DDPINFO("%s doze changed, skip self-update\n",
+				__func__);
+			return true;
+		}
+	}
+
 	/* The CRTC would be enabled in LK stage and the content of
 	 * corresponding display
 	 *  may modified unexpected when first set crtc. If the case occur, we
