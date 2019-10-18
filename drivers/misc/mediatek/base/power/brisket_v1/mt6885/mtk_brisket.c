@@ -129,7 +129,7 @@ phys_addr_t brisket_mem_base_phys;
 phys_addr_t brisket_mem_size;
 phys_addr_t brisket_mem_base_virt;
 
-static int brisket_reserve_memory_dump(char *buf)
+static int brisket_reserve_memory_dump(char *buf, unsigned int log_offset)
 {
 	int str_len = 0;
 	int cpu, brisket_group, reg_value;
@@ -141,6 +141,31 @@ static int brisket_reserve_memory_dump(char *buf)
 	if (!aee_log_buf) {
 		brisket_debug("unable to get free page!\n");
 		return -1;
+	}
+	brisket_debug("buf: 0x%llx, aee_log_buf: 0x%llx\n",
+		(unsigned long long)buf, (unsigned long long)aee_log_buf);
+
+	brisket_debug("log_offset = %d\n", log_offset);
+	if (log_offset == 0) {
+		str_len +=
+		 snprintf(aee_log_buf + str_len,
+		 (unsigned long long)brisket_mem_size - str_len,
+		 "\n[Kernel Probe]\n");
+	} else if (log_offset == 1) {
+		str_len +=
+		 snprintf(aee_log_buf + str_len,
+		 (unsigned long long)brisket_mem_size - str_len,
+		 "\n[Kernel Suspend]\n");
+	} else if (log_offset == 2) {
+		str_len +=
+		 snprintf(aee_log_buf + str_len,
+		 (unsigned long long)brisket_mem_size - str_len,
+		 "\n[Kernel Resume]\n");
+	} else {
+		str_len +=
+		 snprintf(aee_log_buf + str_len,
+		 (unsigned long long)brisket_mem_size - str_len,
+		 "\n[Kernel ??]\n");
 	}
 
 	for (cpu = BRISKET_CPU_START_ID; cpu <= BRISKET_CPU_END_ID; cpu++) {
@@ -158,11 +183,19 @@ static int brisket_reserve_memory_dump(char *buf)
 				brisket_group_bits_shift,
 				0);
 
-			str_len +=
-				snprintf(aee_log_buf + str_len,
-				(unsigned long long)brisket_mem_size - str_len,
-				"CPU%d: BRISKET0%d = 0x%08x\n",
-				cpu, brisket_group, reg_value);
+			if (brisket_group == BRISKET_GROUP_CONTROL) {
+				str_len +=
+				 snprintf(aee_log_buf + str_len,
+				 (unsigned long long)brisket_mem_size - str_len,
+				 "CPU%d: BRISKET_CONTROL = 0x%08x\n",
+				 cpu, reg_value);
+			} else {
+				str_len +=
+				 snprintf(aee_log_buf + str_len,
+				 (unsigned long long)brisket_mem_size - str_len,
+				 "CPU%d: BRISKET0%d = 0x%08x\n",
+				 cpu, brisket_group, reg_value);
+			}
 		}
 	}
 
@@ -177,39 +210,40 @@ static int brisket_reserve_memory_dump(char *buf)
 	return 0;
 }
 
-static void brisket_reserve_memory_init(void)
+#define EEM_TEMPSPARE0		0x112788F0
+#define brisket_read(addr)		__raw_readl((void __iomem *)(addr))
+#define brisket_write(addr, val)	mt_reg_sync_writel(val, addr)
+
+static void brisket_reserve_memory_init(unsigned int log_offset)
 {
 	char *buf;
 
-	brisket_mem_base_virt =
-		(phys_addr_t)(uintptr_t)ioremap_wc(
-		brisket_mem_base_phys,
-		brisket_mem_size);
+	brisket_mem_base_virt = 0;
+	brisket_mem_size = 0x80000;
+	brisket_mem_base_phys = brisket_read(ioremap(EEM_TEMPSPARE0, 0));
 
-	brisket_debug("[PICACHU] phys:0x%llx, size:0x%llx, virt:0x%llx\n",
+	if ((char *)brisket_mem_base_phys != NULL) {
+		brisket_mem_base_virt =
+			(phys_addr_t)(uintptr_t)ioremap_wc(
+			brisket_mem_base_phys,
+			brisket_mem_size);
+	}
+
+	brisket_debug("[BRISKET] phys:0x%llx, size:0x%llx, virt:0x%llx\n",
 		(unsigned long long)brisket_mem_base_phys,
 		(unsigned long long)brisket_mem_size,
 		(unsigned long long)brisket_mem_base_virt);
 
-	buf = (char *)(uintptr_t)brisket_mem_base_virt;
+	buf = (char *)(uintptr_t)(brisket_mem_base_virt+log_offset*0x1000);
 
 	if (buf != NULL) {
 		/* dump brisket register status into reserved memory */
-		brisket_reserve_memory_dump(buf);
+		brisket_reserve_memory_dump(buf, log_offset);
 	} else
 		brisket_debug("brisket_mem_base_virt is null !\n");
 
 }
 
-static int __init brisket_reserve_mem_of_init(struct reserved_mem *rmem)
-{
-	brisket_mem_base_phys = (phys_addr_t) rmem->base;
-	brisket_mem_size = (phys_addr_t) rmem->size;
-
-	return 0;
-}
-RESERVEDMEM_OF_DECLARE(brisket_reservedmem,
-	"mediatek,PICACHU", brisket_reserve_mem_of_init);
 #endif
 #endif
 
@@ -397,6 +431,7 @@ static int brisket_bren_proc_show(struct seq_file *m, void *v)
 			cpu,
 			brisket_bren);
 	}
+
 	return 0;
 }
 
@@ -698,6 +733,11 @@ static int brisket_probe(struct platform_device *pdev)
 			mtk_brisket_bren(brisket_doe_bren);
 	}
 
+	/* dump register information to picachu buf */
+#ifdef CONFIG_OF_RESERVED_MEM
+	brisket_reserve_memory_init(0);
+#endif
+
 	brisket_debug("brisket probe ok!!\n");
 #endif
 #endif
@@ -706,11 +746,25 @@ static int brisket_probe(struct platform_device *pdev)
 
 static int brisket_suspend(struct platform_device *pdev, pm_message_t state)
 {
+
+#ifndef CONFIG_FPGA_EARLY_PORTING
+#ifdef CONFIG_OF_RESERVED_MEM
+	brisket_reserve_memory_init(1);
+#endif
+#endif
+
 	return 0;
 }
 
 static int brisket_resume(struct platform_device *pdev)
 {
+
+#ifndef CONFIG_FPGA_EARLY_PORTING
+#ifdef CONFIG_OF_RESERVED_MEM
+	brisket_reserve_memory_init(2);
+#endif
+#endif
+
 	return 0;
 }
 
@@ -746,12 +800,6 @@ static int __init __brisket_init(void)
 		brisket_debug("BRISKET driver callback register failed..\n");
 		return err;
 	}
-
-#ifndef CONFIG_FPGA_EARLY_PORTING
-#ifdef CONFIG_OF_RESERVED_MEM
-	brisket_reserve_memory_init();
-#endif
-#endif
 
 	return 0;
 }

@@ -148,7 +148,7 @@ phys_addr_t credit_didt_mem_base_phys;
 phys_addr_t credit_didt_mem_size;
 phys_addr_t credit_didt_mem_base_virt;
 
-static int credit_didt_reserve_memory_dump(char *buf)
+static int credit_didt_reserve_memory_dump(char *buf, unsigned int log_offset)
 {
 	int str_len = 0;
 	int cpu, ls_vx, cfg, param, cpu_tmp;
@@ -159,6 +159,31 @@ static int credit_didt_reserve_memory_dump(char *buf)
 	if (!aee_log_buf) {
 		credit_didt_debug("unable to get free page!\n");
 		return -1;
+	}
+	credit_didt_debug("buf: 0x%llx, aee_log_buf: 0x%llx\n",
+		(unsigned long long)buf, (unsigned long long)aee_log_buf);
+
+	credit_didt_debug("log_offset = %d\n", log_offset);
+	if (log_offset == 0) {
+		str_len +=
+		 snprintf(aee_log_buf + str_len,
+		 (unsigned long long)credit_didt_mem_size - str_len,
+		 "\n[Kernel Probe]\n");
+	} else if (log_offset == 1) {
+		str_len +=
+		 snprintf(aee_log_buf + str_len,
+		 (unsigned long long)credit_didt_mem_size - str_len,
+		 "\n[Kernel Suspend]\n");
+	} else if (log_offset == 2) {
+		str_len +=
+		 snprintf(aee_log_buf + str_len,
+		 (unsigned long long)credit_didt_mem_size - str_len,
+		 "\n[Kernel Resume]\n");
+	} else {
+		str_len +=
+		 snprintf(aee_log_buf + str_len,
+		 (unsigned long long)credit_didt_mem_size - str_len,
+		 "\n[Kernel ??]\n");
 	}
 
 	for (cpu = CREDIT_DIDT_CPU_START_ID;
@@ -210,39 +235,43 @@ static int credit_didt_reserve_memory_dump(char *buf)
 	return 0;
 }
 
-static void credit_didt_reserve_memory_init(void)
+#define EEM_TEMPSPARE0		0x112788F0
+#define credit_didt_read(addr)		__raw_readl((void __iomem *)(addr))
+#define credit_didt_write(addr, val)	mt_reg_sync_writel(val, addr)
+
+static void credit_didt_reserve_memory_init(unsigned int log_offset)
 {
 	char *buf;
 
-	credit_didt_mem_base_virt =
-		(phys_addr_t)(uintptr_t)ioremap_wc(
-		credit_didt_mem_base_phys + credit_didt_mem_size,
-		credit_didt_mem_size);
+	credit_didt_mem_base_virt = 0;
+	credit_didt_mem_size = 0x80000;
+	credit_didt_mem_base_phys =
+		credit_didt_read(ioremap(EEM_TEMPSPARE0, 0));
 
-	credit_didt_debug("[Reserved Memory] phys:0x%llx, size:0x%llx, virt:0x%llx\n",
+	if ((char *)credit_didt_mem_base_phys != NULL) {
+		credit_didt_mem_base_virt =
+			(phys_addr_t)(uintptr_t)ioremap_wc(
+			credit_didt_mem_base_phys,
+			credit_didt_mem_size);
+	}
+
+	credit_didt_debug("[CREDIT_DIDT] phys:0x%llx, size:0x%llx, virt:0x%llx\n",
 		(unsigned long long)credit_didt_mem_base_phys,
 		(unsigned long long)credit_didt_mem_size,
 		(unsigned long long)credit_didt_mem_base_virt);
 
-	buf = (char *)(uintptr_t)credit_didt_mem_base_virt;
+	buf = (char *)(uintptr_t)
+		(credit_didt_mem_base_virt+0x10000+log_offset*0x1000);
 
 	if (buf != NULL) {
 		/* dump credit_didt register status into reserved memory */
-		credit_didt_reserve_memory_dump(buf);
+		credit_didt_reserve_memory_dump(buf, log_offset);
 	} else
 		credit_didt_debug("credit_didt_mem_base_virt is null !\n");
 
 }
 
-static int __init credit_didt_reserve_mem_of_init(struct reserved_mem *rmem)
-{
-	credit_didt_mem_base_phys = (phys_addr_t) rmem->base;
-	credit_didt_mem_size = (phys_addr_t) rmem->size;
 
-	return 0;
-}
-RESERVEDMEM_OF_DECLARE(credit_didt_reservedmem,
-	"mediatek,PICACHU", credit_didt_reserve_mem_of_init);
 #endif /* CONFIG_OF_RESERVED_MEM */
 #endif /* CONFIG_FPGA_EARLY_PORTING */
 
@@ -316,6 +345,7 @@ static int credit_didt_proc_show(struct seq_file *m, void *v)
 				);
 		}
 	}
+
 	return 0;
 }
 
@@ -426,6 +456,7 @@ static int credit_didt_en_proc_show(struct seq_file *m, void *v)
 				);
 		}
 	}
+
 	return 0;
 }
 
@@ -1027,6 +1058,11 @@ static int credit_didt_probe(struct platform_device *pdev)
 				credit_didt7_doe_vx_low_freq_enable);
 	}
 
+	/* dump register information to picachu buf */
+#ifdef CONFIG_OF_RESERVED_MEM
+	credit_didt_reserve_memory_init(0);
+#endif
+
 	credit_didt_debug("credit_didt probe ok!!\n");
 #endif
 #endif
@@ -1035,11 +1071,25 @@ static int credit_didt_probe(struct platform_device *pdev)
 
 static int credit_didt_suspend(struct platform_device *pdev, pm_message_t state)
 {
+
+#ifndef CONFIG_FPGA_EARLY_PORTING
+#ifdef CONFIG_OF_RESERVED_MEM
+	credit_didt_reserve_memory_init(1);
+#endif
+#endif
+
 	return 0;
 }
 
 static int credit_didt_resume(struct platform_device *pdev)
 {
+
+#ifndef CONFIG_FPGA_EARLY_PORTING
+#ifdef CONFIG_OF_RESERVED_MEM
+	credit_didt_reserve_memory_init(2);
+#endif
+#endif
+
 	return 0;
 }
 
@@ -1075,12 +1125,6 @@ static int __init __credit_didt_init(void)
 		credit_didt_debug("CREDIT_DIDT driver callback register failed..\n");
 		return err;
 	}
-
-#ifndef CONFIG_FPGA_EARLY_PORTING
-#ifdef CONFIG_OF_RESERVED_MEM
-	credit_didt_reserve_memory_init();
-#endif
-#endif
 
 	return 0;
 }
