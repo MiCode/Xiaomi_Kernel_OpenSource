@@ -45,6 +45,11 @@
 #define CAM_ISP_GENERIC_BLOB_TYPE_MAX               \
 	(CAM_ISP_GENERIC_BLOB_TYPE_BW_CONFIG_V2 + 1)
 
+static int cam_ife_hw_mgr_handle_csid_event(
+	void      *priv,
+	uint32_t   evt_id,
+	void      *evt_data);
+
 static uint32_t blob_type_hw_cmd_map[CAM_ISP_GENERIC_BLOB_TYPE_MAX] = {
 	CAM_ISP_HW_CMD_GET_HFR_UPDATE,
 	CAM_ISP_HW_CMD_CLOCK_UPDATE,
@@ -1608,7 +1613,8 @@ static int cam_ife_hw_mgr_acquire_res_ife_csid_pxl(
 		csid_acquire.in_port = in_port;
 		csid_acquire.out_port = in_port->data;
 		csid_acquire.node_res = NULL;
-
+		csid_acquire.event_cb = cam_ife_hw_mgr_handle_csid_event;
+		csid_acquire.ctx = ife_ctx;
 		hw_intf = cid_res->hw_res[i]->hw_intf;
 
 		if (csid_res->is_dual_vfe) {
@@ -1737,7 +1743,8 @@ static int cam_ife_hw_mgr_acquire_res_ife_csid_rdi(
 		csid_acquire.out_port = out_port;
 		csid_acquire.sync_mode = CAM_ISP_HW_SYNC_NONE;
 		csid_acquire.node_res = NULL;
-
+		csid_acquire.event_cb = cam_ife_hw_mgr_handle_csid_event;
+		csid_acquire.ctx = ife_ctx;
 		hw_intf = cid_res->hw_res[0]->hw_intf;
 		rc = hw_intf->hw_ops.reserve(hw_intf->hw_priv,
 			&csid_acquire, sizeof(csid_acquire));
@@ -6051,6 +6058,47 @@ static int cam_ife_hw_mgr_sort_dev_with_caps(
 		}
 	}
 
+	return 0;
+}
+
+static int cam_ife_hw_mgr_handle_csid_event(
+	void      *priv,
+	uint32_t   evt_id,
+	void      *evt_data)
+{
+	struct cam_csid_hw_evt_payload  *payload;
+	struct cam_ife_hw_mgr_ctx   *ife_hwr_mgr_ctx = priv;
+	struct cam_isp_hw_error_event_data  error_event_data = {0};
+	struct cam_hw_event_recovery_data        recovery_data = {0};
+
+	payload = (struct cam_csid_hw_evt_payload  *)evt_data;
+	CAM_DBG(CAM_ISP, "CSID[%d] type %d event %d",
+		payload->hw_idx, payload->evt_type,
+		evt_id);
+
+	switch (evt_id) {
+	case CAM_ISP_HW_EVENT_ERROR:
+		goto handle_error;
+	default:
+		break;
+	}
+	return 0;
+
+handle_error:
+	switch (payload->evt_type) {
+	case CAM_ISP_HW_ERROR_CSID_FATAL: {
+		error_event_data.error_type = payload->evt_type;
+		cam_ife_hw_mgr_find_affected_ctx(ife_hwr_mgr_ctx,
+			&error_event_data,
+			payload->hw_idx,
+			&recovery_data);
+		break;
+	}
+	case CAM_ISP_HW_ERROR_CSID_NON_FATAL:
+		break;
+	default:
+		break;
+	}
 	return 0;
 }
 
