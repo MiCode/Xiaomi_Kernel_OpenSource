@@ -279,6 +279,8 @@ static int gtimer_thread(void *arg)
 		mutex_gtimer_unlock();
 		get_monotonic_boottime(&endtime);
 		duraction = timespec_sub(endtime, stime);
+		if (duraction.tv_sec == -56789)
+			return 0;
 	}
 
 	return 0;
