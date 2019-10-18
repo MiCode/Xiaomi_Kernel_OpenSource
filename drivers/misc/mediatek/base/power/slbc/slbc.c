@@ -52,6 +52,7 @@ static int slbc_enable = 1;
 static int buffer_ref;
 static int cache_ref;
 static int slbc_ref;
+static int uid_ref[UID_MAX];
 
 static LIST_HEAD(slbc_ops_list);
 static DEFINE_MUTEX(slbc_ops_lock);
@@ -577,7 +578,7 @@ int slbc_request(struct slbc_data *d)
 	slbc_debug_log("%s: slbc_status %lx", __func__, slbc_status);
 	ret = test_bit(uid, &slbc_status);
 	if (ret == 1) {
-		/* slbc_set_mmsram_data(d); */
+		slbc_set_mmsram_data(d);
 
 		goto request_done1;
 	}
@@ -637,20 +638,21 @@ int slbc_request(struct slbc_data *d)
 #endif /* SLBC_TRACE */
 
 request_done:
+	set_bit(uid, &slbc_status);
+	slbc_debug_log("%s: slbc_status %lx", __func__, slbc_status);
+	clear_bit(uid, &slbc_req_status);
+	slbc_debug_log("%s: slbc_req_status %lx", __func__, slbc_req_status);
+
+request_done1:
 #ifdef CONFIG_PM_WAKELOCKS
 	if (slbc_ref++ == 0)
 		__pm_stay_awake(slbc_ws);
 #endif
 
 	d->ref++;
+	uid_ref[uid]++;
 
-request_done1:
-	set_bit(uid, &slbc_status);
-	slbc_debug_log("%s: slbc_status %lx", __func__, slbc_status);
-	clear_bit(uid, &slbc_req_status);
-	slbc_debug_log("%s: slbc_req_status %lx", __func__, slbc_req_status);
-
-	return ret;
+	return 0;
 }
 EXPORT_SYMBOL_GPL(slbc_request);
 
@@ -693,6 +695,12 @@ int slbc_release(struct slbc_data *d)
 	slbc_debug_log("%s: slbc_status %lx", __func__, slbc_status);
 	ret = test_bit(uid, &slbc_status);
 	if (ret == 0) {
+		slbc_clr_mmsram_data(d);
+
+		goto release_done1;
+	}
+
+	if (uid_ref[uid] > 1) {
 		slbc_clr_mmsram_data(d);
 
 		goto release_done1;
@@ -746,18 +754,20 @@ int slbc_release(struct slbc_data *d)
 #endif /* SLBC_THREAD */
 
 release_done:
+	clear_bit(uid, &slbc_status);
+	slbc_debug_log("%s: slbc_status %lx", __func__, slbc_status);
+
+release_done1:
 #ifdef CONFIG_PM_WAKELOCKS
 	if (--slbc_ref == 0)
 		__pm_relax(slbc_ws);
 #endif
 
 	d->ref--;
-	WARN(d->ref < 0, "%s: release %s fail !!!\n",
-			__func__, slbc_uid_str[uid]);
-
-release_done1:
-	clear_bit(uid, &slbc_status);
-	slbc_debug_log("%s: slbc_status %lx", __func__, slbc_status);
+	uid_ref[uid]--;
+	WARN((d->ref < 0) || (uid_ref[uid] < 0),
+			"%s: release %s fail !!! %d %d\n",
+			__func__, slbc_uid_str[uid], d->ref, uid_ref[uid]);
 
 	return 0;
 }
@@ -917,6 +927,7 @@ static void slbc_dump_data(struct seq_file *m, struct slbc_data *d)
 static int dbg_slbc_proc_show(struct seq_file *m, void *v)
 {
 	struct slbc_ops *ops;
+	int i;
 
 	seq_printf(m, "slbc_enable %x\n", slbc_enable);
 	seq_printf(m, "slbc_status %lx\n", slbc_status);
@@ -926,6 +937,9 @@ static int dbg_slbc_proc_show(struct seq_file *m, void *v)
 	seq_printf(m, "slbc_slot_status %lx\n", slbc_slot_status);
 	seq_printf(m, "buffer_ref %x\n", buffer_ref);
 	seq_printf(m, "cache_ref %x\n", cache_ref);
+	seq_printf(m, "slbc_ref %x\n", slbc_ref);
+	for (i = 0; i < UID_MAX; i++)
+		seq_printf(m, "uid_ref %s %x\n", slbc_uid_str[i], uid_ref[i]);
 
 	mutex_lock(&slbc_ops_lock);
 	list_for_each_entry(ops, &slbc_ops_list, node) {
