@@ -1446,32 +1446,86 @@ static signed int config_fdvt_hw(struct fdvt_config *basic_config)
 	if (basic_config->FD_MODE == 0) {
 		cmdq_pkt_write(pkt, NULL, FDVT_ENABLE_HW, 0x00000111,
 			       CMDQ_REG_MASK);
-		cmdq_pkt_write(pkt, NULL, FDVT_LOOP_HW, 0x00004202,
+		cmdq_pkt_write(pkt, NULL, FDVT_LOOP_HW, 0x00005D02,
 			       CMDQ_REG_MASK);
+		cmdq_pkt_write(pkt, NULL, FDVT_INT_EN_HW, 0x0, CMDQ_REG_MASK);
+		cmdq_pkt_write(pkt, NULL, FDVT_RS_CON_BASE_ADR_HW,
+			       basic_config->FDVT_RSCON_BASE_ADR,
+			       CMDQ_REG_MASK);
+		cmdq_pkt_write(pkt, NULL, FDVT_FD_CON_BASE_ADR_HW,
+			       basic_config->FDVT_FD_CON_BASE_ADR,
+			       CMDQ_REG_MASK);
+		cmdq_pkt_write(pkt, NULL, FDVT_YUV2RGB_CON_BASE_ADR_HW,
+			       basic_config->FDVT_YUV2RGBCON_BASE_ADR,
+			       CMDQ_REG_MASK);
+
+		cmdq_pkt_write(pkt, NULL, FDVT_START_HW, 0x1, CMDQ_REG_MASK);
+
+		cmdq_pkt_wfe(pkt, fdvt_event_id);
+		/*cmdqRecWait(handle, CMDQ_EVENT_IPE_EVENT_TX_FRAME_DONE_0);*/
+		cmdq_pkt_write(pkt, NULL, FDVT_START_HW, 0x0, CMDQ_REG_MASK);
+
+		cmdq_pkt_write(pkt, NULL, FDVT_ENABLE_HW, 0x00000100,
+			       CMDQ_REG_MASK);
+		cmdq_pkt_write(pkt, NULL, FDVT_LOOP_HW, 0x00000300,
+			       CMDQ_REG_MASK);
+
+		cmdq_pkt_write(pkt, NULL, FDVT_INT_EN_HW, 0x1, CMDQ_REG_MASK);
+
+		cmdq_pkt_write(pkt, NULL, FDVT_FD_CON_BASE_ADR_HW,
+			       basic_config->FDVT_FD_POSE_CON_BASE_ADR,
+			       CMDQ_REG_MASK);
+
+		cmdq_pkt_write(pkt, NULL, FDVT_START_HW, 0x1, CMDQ_REG_MASK);
+
+		cmdq_pkt_wfe(pkt, fdvt_event_id);
+		/*cmdqRecWait(handle, CMDQ_EVENT_IPE_EVENT_TX_FRAME_DONE_0);*/
+		cmdq_pkt_write(pkt, NULL, FDVT_START_HW, 0x0, CMDQ_REG_MASK);
+
 	} else if (basic_config->FD_MODE == 1) {
 		cmdq_pkt_write(pkt, NULL, FDVT_ENABLE_HW, 0x00000101,
 			       CMDQ_REG_MASK);
-		cmdq_pkt_write(pkt, NULL, FDVT_LOOP_HW, 0x00001200,
+		cmdq_pkt_write(pkt, NULL, FDVT_LOOP_HW, 0x00001A00,
 			       CMDQ_REG_MASK);
+		cmdq_pkt_write(pkt, NULL, FDVT_INT_EN_HW, 0x1, CMDQ_REG_MASK);
+		cmdq_pkt_write(pkt, NULL, FDVT_RS_CON_BASE_ADR_HW,
+			       basic_config->FDVT_RSCON_BASE_ADR,
+			       CMDQ_REG_MASK);
+		cmdq_pkt_write(pkt, NULL, FDVT_FD_CON_BASE_ADR_HW,
+			       basic_config->FDVT_FD_CON_BASE_ADR,
+			       CMDQ_REG_MASK);
+		cmdq_pkt_write(pkt, NULL, FDVT_YUV2RGB_CON_BASE_ADR_HW,
+			       basic_config->FDVT_YUV2RGBCON_BASE_ADR,
+			       CMDQ_REG_MASK);
+
+		cmdq_pkt_write(pkt, NULL, FDVT_START_HW, 0x1, CMDQ_REG_MASK);
+
+		cmdq_pkt_wfe(pkt, fdvt_event_id);
+		/*cmdqRecWait(handle, CMDQ_EVENT_IPE_EVENT_TX_FRAME_DONE_0);*/
+		cmdq_pkt_write(pkt, NULL, FDVT_START_HW, 0x0, CMDQ_REG_MASK);
+
 	} else if (basic_config->FD_MODE == 2) {
 		cmdq_pkt_write(pkt, NULL, FDVT_ENABLE_HW, 0x00000101,
 			       CMDQ_REG_MASK);
 		cmdq_pkt_write(pkt, NULL, FDVT_LOOP_HW, 0x00001200,
 			       CMDQ_REG_MASK);
+		cmdq_pkt_write(pkt, NULL, FDVT_INT_EN_HW, 0x1, CMDQ_REG_MASK);
+		cmdq_pkt_write(pkt, NULL, FDVT_RS_CON_BASE_ADR_HW,
+			       basic_config->FDVT_RSCON_BASE_ADR,
+			       CMDQ_REG_MASK);
+		cmdq_pkt_write(pkt, NULL, FDVT_FD_CON_BASE_ADR_HW,
+			       basic_config->FDVT_FD_CON_BASE_ADR,
+			       CMDQ_REG_MASK);
+		cmdq_pkt_write(pkt, NULL, FDVT_YUV2RGB_CON_BASE_ADR_HW,
+			       basic_config->FDVT_YUV2RGBCON_BASE_ADR,
+			       CMDQ_REG_MASK);
+
+		cmdq_pkt_write(pkt, NULL, FDVT_START_HW, 0x1, CMDQ_REG_MASK);
+
+		cmdq_pkt_wfe(pkt, fdvt_event_id);
+		/*cmdqRecWait(handle, CMDQ_EVENT_IPE_EVENT_TX_FRAME_DONE_0);*/
+		cmdq_pkt_write(pkt, NULL, FDVT_START_HW, 0x0, CMDQ_REG_MASK);
 	}
-	cmdq_pkt_write(pkt, NULL, FDVT_INT_EN_HW, 0x1, CMDQ_REG_MASK);
-	cmdq_pkt_write(pkt, NULL, FDVT_RS_CON_BASE_ADR_HW,
-		       basic_config->FDVT_RSCON_BASE_ADR, CMDQ_REG_MASK);
-	cmdq_pkt_write(pkt, NULL, FDVT_FD_CON_BASE_ADR_HW,
-		       basic_config->FDVT_FD_CON_BASE_ADR, CMDQ_REG_MASK);
-	cmdq_pkt_write(pkt, NULL, FDVT_YUV2RGB_CON_BASE_ADR_HW,
-		       basic_config->FDVT_YUV2RGBCON_BASE_ADR, CMDQ_REG_MASK);
-
-	cmdq_pkt_write(pkt, NULL, FDVT_START_HW, 0x1, CMDQ_REG_MASK);
-
-	cmdq_pkt_wfe(pkt, fdvt_event_id);
-	/*cmdqRecWait(handle, CMDQ_EVENT_IPE_EVENT_TX_FRAME_DONE_0);*/
-	cmdq_pkt_write(pkt, NULL, FDVT_START_HW, 0x0, CMDQ_REG_MASK);
 
 	/* non-blocking API, Please use cmdqRecFlushAsync() */
 	log_dbg("FDVT CMDQ Task flush\n");
@@ -1597,6 +1651,8 @@ static signed int fdvt_dump_reg(void)
 		(unsigned int)FDVT_RD32(FDVT_SRC_WD_HT_REG));
 	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_DES_WD_HT_HW),
 		(unsigned int)FDVT_RD32(FDVT_DES_WD_HT_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_DEBUG_INFO_0_HW),
+		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_0_REG));
 	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_DEBUG_INFO_1_HW),
 		(unsigned int)FDVT_RD32(FDVT_DEBUG_INFO_1_REG));
 	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_YUV2RGB_CON_HW),

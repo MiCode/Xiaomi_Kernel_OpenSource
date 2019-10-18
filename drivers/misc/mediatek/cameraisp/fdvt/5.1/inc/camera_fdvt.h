@@ -110,6 +110,7 @@ struct fdvt_config {
 	unsigned int FDVT_YUV2RGB;
 	unsigned int FDVT_YUV2RGBCON_BASE_ADR;
 	unsigned int FDVT_FD_CON_BASE_ADR;
+	unsigned int FDVT_FD_POSE_CON_BASE_ADR;
 	unsigned int FDVT_YUV_SRC_WD_HT;
 	unsigned int FD_MODE;
 	unsigned int RESULT;
