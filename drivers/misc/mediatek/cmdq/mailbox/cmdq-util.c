@@ -132,7 +132,7 @@ s32 cmdq_util_error_save(const char *str, ...)
 	va_list		args;
 	s32		size;
 
-	if (!util.err.enable || !util.err.buffer)
+	if (!util.err.enable)
 		return -EFAULT;
 
 	va_start(args, str);

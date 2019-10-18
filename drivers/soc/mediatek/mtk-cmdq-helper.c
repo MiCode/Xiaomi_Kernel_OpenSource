@@ -1364,32 +1364,19 @@ static void cmdq_pkt_err_irq_dump(struct cmdq_pkt *pkt)
 	dma_addr_t pc = 0;
 	struct cmdq_instruction *inst = NULL;
 	const char *mod = "CMDQ";
-	struct cmdq_pkt_buffer *buf;
-	u32 size = pkt->cmd_buf_size, cnt = 0;
 
 	cmdq_task_get_thread_pc(client->chan, &pc);
+
+	struct cmdq_pkt_buffer *buf;
+	u32 size, cnt = 0;
 
 	if (pc) {
 		list_for_each_entry(buf, &pkt->buf, list_entry) {
 			if (pc < buf->pa_base ||
-				pc > buf->pa_base + CMDQ_CMD_BUFFER_SIZE) {
-				size -= CMDQ_CMD_BUFFER_SIZE;
-				cmdq_util_msg("buffer %u va:0x%p pa:%pa",
-					cnt, buf->va_base, &buf->pa_base);
-				cnt++;
+				pc > buf->pa_base + CMDQ_CMD_BUFFER_SIZE)
 				continue;
-			}
 			inst  = (struct cmdq_instruction *)(
 				buf->va_base + (pc - buf->pa_base));
-
-			if (size > CMDQ_CMD_BUFFER_SIZE)
-				size = CMDQ_CMD_BUFFER_SIZE;
-
-			cmdq_util_msg("error irq buffer %u va:0x%p pa:%pa",
-				cnt, buf->va_base, &buf->pa_base);
-			cmdq_buf_cmd_parse(buf->va_base, CMDQ_NUM_CMD(size),
-				buf->pa_base, pc, NULL);
-
 			break;
 		}
 	}
@@ -1401,8 +1388,7 @@ static void cmdq_pkt_err_irq_dump(struct cmdq_pkt *pkt)
 			mod, *(u64 *)inst, inst->op);
 	} else {
 		/* no inst available */
-		cmdq_util_aee(mod, "%s instruction not available pc:%#llx",
-			mod, pc);
+		cmdq_util_aee(mod, "%s unknown instruction", mod);
 	}
 }
 

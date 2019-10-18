@@ -202,7 +202,6 @@ static bool cmdq_core_check_instr_valid(const u64 instr)
 	case CMDQ_CODE_JUMP_C_RELATIVE:
 		break;
 	default:
-		CMDQ_ERR("unknown instruction:%llx\n", instr);
 		return true;
 	}
 	CMDQ_ERR("instr:%#llx\n", instr);
