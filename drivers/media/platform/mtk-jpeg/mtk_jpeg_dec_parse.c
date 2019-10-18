@@ -132,6 +132,7 @@ static bool mtk_jpeg_do_parse(struct mtk_jpeg_dec_param *param, u8 *src_addr_va,
 			break;
 		case DHT:
 			param->huffman_exist = 1;
+			break;
 		default:
 			if (read_word_be(&stream, &word))
 				break;

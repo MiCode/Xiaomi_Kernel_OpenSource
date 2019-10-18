@@ -1346,8 +1346,13 @@ static void mtk_jpeg_clk_on(struct mtk_jpeg_dev *jpeg)
 
 	smi_bus_prepare_enable(jpeg->larb_id[0], "JPEG");
 
-	if (jpeg->mode == MTK_JPEG_DEC)
-		clk_prepare_enable(jpeg->clk_jpeg_smi);
+	if (jpeg->mode == MTK_JPEG_DEC) {
+		ret = clk_prepare_enable(jpeg->clk_jpeg_smi);
+		if (ret)
+			pr_info("clk_prepare_enable  failed");
+		else
+			pr_info("clk_prepare_enable  pass");
+	}
 
 	if (jpeg->mode == MTK_JPEG_ENC) {
 
@@ -1385,9 +1390,13 @@ static void mtk_jpeg_clk_on_ctx(struct mtk_jpeg_ctx *ctx)
 
 	smi_bus_prepare_enable(jpeg->larb_id[ctx->coreid], "JPEG");
 
-	if (jpeg->mode == MTK_JPEG_DEC)
-		clk_prepare_enable(jpeg->clk_jpeg_smi);
-
+	if (jpeg->mode == MTK_JPEG_DEC) {
+		ret = clk_prepare_enable(jpeg->clk_jpeg_smi);
+		if (ret)
+			pr_info("clk_prepare_enable  failed");
+		else
+			pr_info("clk_prepare_enable  pass");
+	}
 	if (jpeg->mode == MTK_JPEG_ENC) {
 
 		ret = clk_prepare_enable(jpeg->clk_jpeg[ctx->coreid]);
@@ -1709,6 +1718,9 @@ static int mtk_jpeg_clk_init(struct mtk_jpeg_dev *jpeg)
 		return -EINVAL;
 	}
 
+	if (pdev == NULL)
+		return -EINVAL;
+
 	ret = of_property_read_u32(pdev->dev.of_node, "mediatek,smi-id", &id);
 	if (ret)
 		return -EINVAL;
@@ -1729,6 +1741,9 @@ static int mtk_jpeg_clk_init(struct mtk_jpeg_dev *jpeg)
 			of_node_put(node);
 			return -EINVAL;
 		}
+
+		if (pdev == NULL)
+			return -EINVAL;
 
 		ret = of_property_read_u32(pdev->dev.of_node,
 					 "mediatek,smi-id", &id);
