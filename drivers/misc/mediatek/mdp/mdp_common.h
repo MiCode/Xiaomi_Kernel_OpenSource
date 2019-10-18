@@ -37,9 +37,6 @@ typedef void (*CmdqInitPmqosIsp) (s32 index, struct plist_head *owner_list);
 /* dump mmsys config */
 typedef void (*CmdqDumpMMSYSConfig) (void);
 
-/* VENC callback function */
-typedef s32(*CmdqVEncDumpInfo) (u64 engineFlag, int level);
-
 /* query MDP clock is on  */
 typedef bool(*CmdqMdpClockIsOn) (enum CMDQ_ENG_ENUM engine);
 
@@ -106,7 +103,6 @@ struct cmdqMDPFuncStruct {
 	CmdqInitPmqosIsp initPmqosIsp;
 #endif	/* CONFIG_MTK_SMI_EXT */
 	CmdqDumpMMSYSConfig dumpMMSYSConfig;
-	CmdqVEncDumpInfo vEncDumpInfo;
 	CmdqMdpInitModuleBaseVA initModuleBaseVA;
 	CmdqMdpDeinitModuleBaseVA deinitModuleBaseVA;
 	CmdqMdpClockIsOn mdpClockIsOn;
@@ -240,8 +236,6 @@ const char *cmdq_mdp_parse_handle_error_module_by_hwflag(
 s32 cmdqMdpClockOn(u64 engineFlag);
 
 s32 cmdqMdpDumpInfo(u64 engineFlag, int level);
-
-s32 cmdqVEncDumpInfo(u64 engineFlag, int level);
 
 s32 cmdqMdpResetEng(u64 engineFlag);
 

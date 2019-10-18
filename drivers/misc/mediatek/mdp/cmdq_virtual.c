@@ -30,25 +30,7 @@ u64 cmdq_virtual_flag_from_scenario_default(enum CMDQ_SCENARIO_ENUM scn)
 	u64 flag = 0;
 
 	switch (scn) {
-	case CMDQ_SCENARIO_KERNEL_CONFIG_GENERAL:
-		flag = 0LL;
-		break;
-
-	case CMDQ_SCENARIO_DISP_CONFIG_AAL:
-	case CMDQ_SCENARIO_DISP_CONFIG_PRIMARY_GAMMA:
-	case CMDQ_SCENARIO_DISP_CONFIG_PRIMARY_DITHER:
-	case CMDQ_SCENARIO_DISP_CONFIG_PRIMARY_PWM:
-	case CMDQ_SCENARIO_DISP_CONFIG_PRIMARY_PQ:
-	case CMDQ_SCENARIO_DISP_CONFIG_SUB_GAMMA:
-	case CMDQ_SCENARIO_DISP_CONFIG_SUB_DITHER:
-	case CMDQ_SCENARIO_DISP_CONFIG_SUB_PWM:
-	case CMDQ_SCENARIO_DISP_CONFIG_SUB_PQ:
-	case CMDQ_SCENARIO_DISP_CONFIG_OD:
-		flag = 0LL;
-		break;
 	case CMDQ_SCENARIO_TRIGGER_LOOP:
-	case CMDQ_SCENARIO_HIGHP_TRIGGER_LOOP:
-	case CMDQ_SCENARIO_LOWP_TRIGGER_LOOP:
 		/* Trigger loop does not related to any HW by itself. */
 		flag = 0LL;
 		break;
@@ -63,25 +45,8 @@ u64 cmdq_virtual_flag_from_scenario_default(enum CMDQ_SCENARIO_ENUM scn)
 		flag = 0LL;
 		break;
 
-	case CMDQ_SCENARIO_DISP_ESD_CHECK:
-	case CMDQ_SCENARIO_DISP_SCREEN_CAPTURE:
-		/* ESD check uses separate thread (not config, not trigger) */
-		flag = 0LL;
-		break;
-
-	case CMDQ_SCENARIO_DISP_COLOR:
 	case CMDQ_SCENARIO_USER_DISP_COLOR:
 		/* color path */
-		flag = 0LL;
-		break;
-
-	case CMDQ_SCENARIO_DISP_MIRROR_MODE:
-		flag = 0LL;
-		break;
-
-	case CMDQ_SCENARIO_DISP_PRIMARY_DISABLE_SECURE_PATH:
-	case CMDQ_SCENARIO_DISP_SUB_DISABLE_SECURE_PATH:
-		/* secure path */
 		flag = 0LL;
 		break;
 
@@ -191,42 +156,8 @@ bool cmdq_virtual_is_disp_scenario(const enum CMDQ_SCENARIO_ENUM scenario)
 	bool dispScenario = false;
 
 	switch (scenario) {
-	case CMDQ_SCENARIO_PRIMARY_DISP:
-	case CMDQ_SCENARIO_PRIMARY_MEMOUT:
-	case CMDQ_SCENARIO_PRIMARY_ALL:
-	case CMDQ_SCENARIO_SUB_DISP:
-	case CMDQ_SCENARIO_SUB_MEMOUT:
-	case CMDQ_SCENARIO_SUB_ALL:
-	case CMDQ_SCENARIO_MHL_DISP:
-	case CMDQ_SCENARIO_RDMA0_DISP:
-	case CMDQ_SCENARIO_RDMA1_DISP:
-	case CMDQ_SCENARIO_RDMA2_DISP:
-	case CMDQ_SCENARIO_RDMA0_COLOR0_DISP:
 	case CMDQ_SCENARIO_TRIGGER_LOOP:
-	case CMDQ_SCENARIO_HIGHP_TRIGGER_LOOP:
-	case CMDQ_SCENARIO_LOWP_TRIGGER_LOOP:
-	case CMDQ_SCENARIO_DISP_CONFIG_AAL:
-	case CMDQ_SCENARIO_DISP_CONFIG_PRIMARY_GAMMA:
-	case CMDQ_SCENARIO_DISP_CONFIG_SUB_GAMMA:
-	case CMDQ_SCENARIO_DISP_CONFIG_PRIMARY_DITHER:
-	case CMDQ_SCENARIO_DISP_CONFIG_SUB_DITHER:
-	case CMDQ_SCENARIO_DISP_CONFIG_PRIMARY_PWM:
-	case CMDQ_SCENARIO_DISP_CONFIG_SUB_PWM:
-	case CMDQ_SCENARIO_DISP_CONFIG_PRIMARY_PQ:
-	case CMDQ_SCENARIO_DISP_CONFIG_SUB_PQ:
-	case CMDQ_SCENARIO_DISP_ESD_CHECK:
-	case CMDQ_SCENARIO_DISP_SCREEN_CAPTURE:
-	case CMDQ_SCENARIO_DISP_MIRROR_MODE:
-	case CMDQ_SCENARIO_DISP_CONFIG_OD:
-	case CMDQ_SCENARIO_DISP_VFP_CHANGE:
-		/* color path */
-	case CMDQ_SCENARIO_DISP_COLOR:
 	case CMDQ_SCENARIO_USER_DISP_COLOR:
-#ifdef CMDQ_SECURE_PATH_SUPPORT
-		/* secure path */
-	case CMDQ_SCENARIO_DISP_PRIMARY_DISABLE_SECURE_PATH:
-	case CMDQ_SCENARIO_DISP_SUB_DISABLE_SECURE_PATH:
-#endif
 		dispScenario = true;
 		break;
 	default:
@@ -255,77 +186,15 @@ bool cmdq_virtual_is_dynamic_scenario(
 	return dynamic_thread;
 }
 
-bool cmdq_virtual_should_enable_prefetch(enum CMDQ_SCENARIO_ENUM scenario)
-{
-	bool shouldPrefetch = false;
-
-	switch (scenario) {
-	case CMDQ_SCENARIO_PRIMARY_DISP:
-	case CMDQ_SCENARIO_PRIMARY_ALL:
-	case CMDQ_SCENARIO_HIGHP_TRIGGER_LOOP:
-	/* HACK: force debug into 0/1 thread */
-	case CMDQ_SCENARIO_DEBUG_PREFETCH:
-		/* any path that connects to Primary DISP HW
-		 * should enable prefetch.
-		 * MEMOUT scenarios does not.
-		 * Also, since thread 0/1 shares one prefetch buffer,
-		 * we allow only PRIMARY path to use prefetch.
-		 */
-		shouldPrefetch = true;
-		break;
-	default:
-		break;
-	}
-
-	return shouldPrefetch;
-}
-
 int cmdq_virtual_disp_thread(enum CMDQ_SCENARIO_ENUM scenario)
 {
 	switch (scenario) {
-	case CMDQ_SCENARIO_PRIMARY_DISP:
-	case CMDQ_SCENARIO_PRIMARY_ALL:
-	case CMDQ_SCENARIO_DISP_CONFIG_AAL:
-	case CMDQ_SCENARIO_DISP_CONFIG_PRIMARY_GAMMA:
-	case CMDQ_SCENARIO_DISP_CONFIG_PRIMARY_DITHER:
-	case CMDQ_SCENARIO_DISP_CONFIG_PRIMARY_PWM:
-	case CMDQ_SCENARIO_DISP_CONFIG_PRIMARY_PQ:
-	case CMDQ_SCENARIO_DISP_CONFIG_OD:
-	case CMDQ_SCENARIO_RDMA0_DISP:
-	case CMDQ_SCENARIO_RDMA0_COLOR0_DISP:
 	/* HACK: force debug into 0/1 thread */
 	case CMDQ_SCENARIO_DEBUG_PREFETCH:
 		/* primary config: thread 0 */
 		return 0;
 
-	case CMDQ_SCENARIO_SUB_DISP:
-	case CMDQ_SCENARIO_SUB_ALL:
-	case CMDQ_SCENARIO_RDMA1_DISP:
-	case CMDQ_SCENARIO_RDMA2_DISP:
-	case CMDQ_SCENARIO_DISP_CONFIG_SUB_GAMMA:
-	case CMDQ_SCENARIO_DISP_CONFIG_SUB_DITHER:
-	case CMDQ_SCENARIO_DISP_CONFIG_SUB_PQ:
-	case CMDQ_SCENARIO_DISP_CONFIG_SUB_PWM:
-	case CMDQ_SCENARIO_SUB_MEMOUT:
-		return 1;
-
-	case CMDQ_SCENARIO_MHL_DISP:
-		return 5;
-
-	case CMDQ_SCENARIO_HIGHP_TRIGGER_LOOP:
-	case CMDQ_SCENARIO_DISP_VFP_CHANGE:
-		return 2;
-
-	case CMDQ_SCENARIO_DISP_ESD_CHECK:
-		return 6;
-
-	case CMDQ_SCENARIO_DISP_SCREEN_CAPTURE:
-	case CMDQ_SCENARIO_DISP_MIRROR_MODE:
-		return 3;
-
-	case CMDQ_SCENARIO_DISP_COLOR:
 	case CMDQ_SCENARIO_USER_DISP_COLOR:
-	case CMDQ_SCENARIO_PRIMARY_MEMOUT:
 		return 4;
 	case CMDQ_SCENARIO_TRIGGER_LOOP:
 		return 7;
@@ -345,24 +214,9 @@ int cmdq_virtual_get_thread_index(enum CMDQ_SCENARIO_ENUM scenario,
 
 	/* dispatch secure thread according to scenario */
 	switch (scenario) {
-	case CMDQ_SCENARIO_DISP_PRIMARY_DISABLE_SECURE_PATH:
-	case CMDQ_SCENARIO_PRIMARY_DISP:
-	case CMDQ_SCENARIO_PRIMARY_ALL:
-	case CMDQ_SCENARIO_RDMA0_DISP:
 	case CMDQ_SCENARIO_DEBUG_PREFETCH:
 		/* CMDQ_MIN_SECURE_THREAD_ID */
 		return CMDQ_THREAD_SEC_PRIMARY_DISP;
-	case CMDQ_SCENARIO_DISP_SUB_DISABLE_SECURE_PATH:
-	case CMDQ_SCENARIO_SUB_DISP:
-	case CMDQ_SCENARIO_SUB_ALL:
-	case CMDQ_SCENARIO_MHL_DISP:
-		/* because mirror mode and sub disp never use at the same time
-		 * in secure path, dispatch to same HW thread
-		 */
-	case CMDQ_SCENARIO_DISP_MIRROR_MODE:
-	case CMDQ_SCENARIO_DISP_COLOR:
-	case CMDQ_SCENARIO_PRIMARY_MEMOUT:
-		return CMDQ_THREAD_SEC_SUB_DISP;
 	case CMDQ_SCENARIO_USER_MDP:
 	case CMDQ_SCENARIO_USER_SPACE:
 	case CMDQ_SCENARIO_DEBUG:
@@ -385,51 +239,13 @@ enum CMDQ_HW_THREAD_PRIORITY_ENUM cmdq_virtual_priority_from_scenario(
 	enum CMDQ_SCENARIO_ENUM scenario)
 {
 	switch (scenario) {
-	case CMDQ_SCENARIO_PRIMARY_DISP:
-	case CMDQ_SCENARIO_PRIMARY_ALL:
-	case CMDQ_SCENARIO_SUB_MEMOUT:
-	case CMDQ_SCENARIO_SUB_DISP:
-	case CMDQ_SCENARIO_SUB_ALL:
-	case CMDQ_SCENARIO_RDMA1_DISP:
-	case CMDQ_SCENARIO_RDMA2_DISP:
-	case CMDQ_SCENARIO_MHL_DISP:
-	case CMDQ_SCENARIO_RDMA0_DISP:
-	case CMDQ_SCENARIO_RDMA0_COLOR0_DISP:
-	case CMDQ_SCENARIO_DISP_MIRROR_MODE:
-	case CMDQ_SCENARIO_PRIMARY_MEMOUT:
-	case CMDQ_SCENARIO_DISP_CONFIG_AAL:
-	case CMDQ_SCENARIO_DISP_CONFIG_PRIMARY_GAMMA:
-	case CMDQ_SCENARIO_DISP_CONFIG_SUB_GAMMA:
-	case CMDQ_SCENARIO_DISP_CONFIG_PRIMARY_DITHER:
-	case CMDQ_SCENARIO_DISP_CONFIG_SUB_DITHER:
-	case CMDQ_SCENARIO_DISP_CONFIG_PRIMARY_PWM:
-	case CMDQ_SCENARIO_DISP_CONFIG_SUB_PWM:
-	case CMDQ_SCENARIO_DISP_CONFIG_PRIMARY_PQ:
-	case CMDQ_SCENARIO_DISP_CONFIG_SUB_PQ:
-	case CMDQ_SCENARIO_DISP_CONFIG_OD:
-	case CMDQ_SCENARIO_DISP_VFP_CHANGE:
-		/* color path */
-	case CMDQ_SCENARIO_DISP_COLOR:
 	case CMDQ_SCENARIO_USER_DISP_COLOR:
-		/* secure path */
-	case CMDQ_SCENARIO_DISP_PRIMARY_DISABLE_SECURE_PATH:
-	case CMDQ_SCENARIO_DISP_SUB_DISABLE_SECURE_PATH:
 		/* currently, a prefetch thread is always in high priority. */
 		return CMDQ_THR_PRIO_DISPLAY_CONFIG;
 
 		/* HACK: force debug into 0/1 thread */
 	case CMDQ_SCENARIO_DEBUG_PREFETCH:
 		return CMDQ_THR_PRIO_DISPLAY_CONFIG;
-
-	case CMDQ_SCENARIO_DISP_ESD_CHECK:
-	case CMDQ_SCENARIO_DISP_SCREEN_CAPTURE:
-		return CMDQ_THR_PRIO_DISPLAY_ESD;
-
-	case CMDQ_SCENARIO_HIGHP_TRIGGER_LOOP:
-		return CMDQ_THR_PRIO_SUPERHIGH;
-
-	case CMDQ_SCENARIO_LOWP_TRIGGER_LOOP:
-		return CMDQ_THR_PRIO_SUPERLOW;
 
 	default:
 		/* other cases need exta logic, see below. */
@@ -440,21 +256,6 @@ enum CMDQ_HW_THREAD_PRIORITY_ENUM cmdq_virtual_priority_from_scenario(
 		return CMDQ_THR_PRIO_DISPLAY_TRIGGER;
 	else
 		return CMDQ_THR_PRIO_NORMAL;
-}
-
-bool cmdq_virtual_force_loop_irq(enum CMDQ_SCENARIO_ENUM scenario)
-{
-	bool force_loop = false;
-
-	if (scenario == CMDQ_SCENARIO_HIGHP_TRIGGER_LOOP ||
-		scenario == CMDQ_SCENARIO_LOWP_TRIGGER_LOOP) {
-		/* For monitor thread loop, we need IRQ to set callback
-		 * function
-		 */
-		force_loop = true;
-	}
-
-	return force_loop;
 }
 
 bool cmdq_virtual_is_disp_loop(enum CMDQ_SCENARIO_ENUM scenario)
@@ -787,34 +588,6 @@ void cmdq_virtual_dump_gpr(void)
 
 
 /**
- * Record usage
- *
- */
-
-u64 cmdq_virtual_flag_from_scenario(enum CMDQ_SCENARIO_ENUM scn)
-{
-	u64 flag = 0;
-
-#ifdef CMDQ_USE_LEGACY
-	cmdq_virtual_flag_from_scenario_legacy(scn);
-#else
-	switch (scn) {
-	case CMDQ_SCENARIO_PRIMARY_MEMOUT:
-		flag = 0LL;
-		break;
-	case CMDQ_SCENARIO_MHL_DISP:
-	default:
-		flag = 0LL;
-		break;
-	}
-#endif
-	if (flag == 0)
-		cmdq_virtual_flag_from_scenario_default(scn);
-
-	return flag;
-}
-
-/**
  * Event backup
  *
  */
@@ -930,11 +703,9 @@ void cmdq_virtual_function_setting(void)
 	 */
 	pFunc->isDispScenario = cmdq_virtual_is_disp_scenario;
 	pFunc->isDynamic = cmdq_virtual_is_dynamic_scenario;
-	pFunc->shouldEnablePrefetch = cmdq_virtual_should_enable_prefetch;
 	pFunc->dispThread = cmdq_virtual_disp_thread;
 	pFunc->getThreadID = cmdq_virtual_get_thread_index;
 	pFunc->priority = cmdq_virtual_priority_from_scenario;
-	pFunc->force_loop_irq = cmdq_virtual_force_loop_irq;
 	pFunc->is_disp_loop = cmdq_virtual_is_disp_loop;
 
 	/**
@@ -959,12 +730,6 @@ void cmdq_virtual_function_setting(void)
 	 */
 	pFunc->dumpSMI = cmdq_virtual_dump_smi;
 	pFunc->dumpGPR = cmdq_virtual_dump_gpr;
-
-	/**
-	 * Record usage
-	 *
-	 */
-	pFunc->flagFromScenario = cmdq_virtual_flag_from_scenario;
 
 	/**
 	 * Event backup

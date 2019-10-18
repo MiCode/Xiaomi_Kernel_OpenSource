@@ -419,45 +419,6 @@ void cmdq_dev_test_dts_correctness(void)
 			cmdq_dev_test_subsys_correctness_impl(i);
 }
 
-void cmdq_dev_get_dts_setting(struct cmdq_dts_setting *dts_setting)
-{
-	s32 ret = -1;
-	u32 sram_size_cpr_64 = 0;
-
-	ret = of_property_read_u32(gCmdqDev.pDev->of_node, "sram_size_cpr_64",
-		&sram_size_cpr_64);
-	if (ret != 0 || !sram_size_cpr_64) {
-		dts_setting->cpr_size = gThreadCount * CMDQ_THR_FREE_CPR_MAX;
-		CMDQ_ERR("sram_size_cpr_64 not support, default:%u\n",
-			dts_setting->cpr_size);
-	} else {
-		/* CPRs are 32bit register, device tree count in 64bit */
-		dts_setting->cpr_size = sram_size_cpr_64 * 2;
-		CMDQ_LOG("free CPR size:%u thread:%u\n",
-			dts_setting->cpr_size, gThreadCount);
-	}
-
-	ret = of_property_read_u32(gCmdqDev.pDev->of_node,
-		"max_prefetch_cnt", &dts_setting->prefetch_thread_count);
-	if (ret == 0) {
-		/* read prefetch array base on count */
-		ret = of_property_read_u32_array(gCmdqDev.pDev->of_node,
-			"prefetch_size", dts_setting->prefetch_size,
-			dts_setting->prefetch_thread_count);
-		if (ret != 0) {
-			/* print log but do notify error hw setting */
-			CMDQ_ERR("read prefetch size fail\n");
-		}
-	}
-
-	ret = of_property_read_u32(gCmdqDev.pDev->of_node, "ctl_int0",
-		&dts_setting->ctl_int0);
-	if (ret != 0) {
-		/* debug only feature */
-		CMDQ_VERBOSE("ctl_int0 not support\n");
-	}
-}
-
 void cmdq_dev_init_resource(CMDQ_DEV_INIT_RESOURCE_CB init_cb)
 {
 	int status, index;
@@ -491,7 +452,6 @@ void cmdq_dev_init_device_tree(struct device_node *node)
 	int status;
 	u32 mmsys_dummy_reg_offset_value = 0;
 	u32 thread_count = 16;
-	struct cmdq_dts_setting *dts_setting = cmdq_core_get_dts_setting();
 
 	gThreadCount = 16;
 	gMMSYSDummyRegOffset = 0;
@@ -515,14 +475,6 @@ void cmdq_dev_init_device_tree(struct device_node *node)
 		mmsys_dummy_reg_offset_value = 0x89C;
 
 	gMMSYSDummyRegOffset = mmsys_dummy_reg_offset_value;
-
-	/* Initialize DTS Setting structure */
-	memset(dts_setting, 0x0, sizeof(struct cmdq_dts_setting));
-	/* Initialize setting for legacy chip */
-	dts_setting->prefetch_thread_count = 3;
-	dts_setting->prefetch_size = kcalloc(gThreadCount,
-		sizeof(*dts_setting->prefetch_size), GFP_KERNEL);
-	cmdq_dev_get_dts_setting(dts_setting);
 }
 
 void cmdq_dev_init(struct platform_device *pDevice)

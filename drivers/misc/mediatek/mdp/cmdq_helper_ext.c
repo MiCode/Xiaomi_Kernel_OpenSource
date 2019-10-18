@@ -78,7 +78,6 @@ static struct DumpFirstErrorStruct cmdq_first_err;
 static struct DumpCommandBufferStruct cmdq_command_dump;
 static struct CmdqCBkStruct cmdq_group_cb[CMDQ_MAX_GROUP_COUNT];
 static struct CmdqDebugCBkStruct cmdq_debug_cb;
-static struct cmdq_dts_setting cmdq_dts;
 static struct cmdqDTSDataStruct cmdq_dts_data;
 static struct SubsysStruct cmdq_adds_subsys = {
 	.msb = 0,
@@ -262,24 +261,6 @@ bool cmdq_core_check_user_valid(void *src, u32 size)
 		ret ? "true" : "false");
 
 	return ret;
-}
-
-static void cmdq_core_config_prefetch_gsize(void)
-{
-	u32 i = 0, prefetch_gsize = 0, total_size = 0;
-
-	if (!cmdq_dts.prefetch_thread_count)
-		return;
-
-	for (i = 0; i < cmdq_dts.prefetch_thread_count; i++) {
-		total_size += cmdq_dts.prefetch_size[i];
-		prefetch_gsize |= (cmdq_dts.prefetch_size[i] /
-			32 - 1) << (i * 4);
-	}
-
-	CMDQ_REG_SET32(CMDQ_PREFETCH_GSIZE, prefetch_gsize);
-	CMDQ_MSG("prefetch gsize configure:0x%08x total size:%u\n",
-		prefetch_gsize, total_size);
 }
 
 static void cmdq_core_init_thread_work_queue(void)
@@ -1175,10 +1156,6 @@ static void cmdq_core_print_thd_usage(struct seq_file *m, void *v,
 			" va:0x%p pa:%pa size:%zu",
 			va, &pa, task->pkt->cmd_buf_size);
 
-		if (task->use_sram_buffer)
-			seq_printf(m, " SRAM Base:%u",
-				task->sram_base);
-
 		if (task->cmd_end) {
 			seq_printf(m,
 				" Last Command:0x%08x:0x%08x",
@@ -1213,7 +1190,6 @@ struct EngineStruct *cmdq_mdp_get_engines(void);
 int cmdq_core_print_status_seq(struct seq_file *m, void *v)
 {
 	s32 index = 0;
-	struct SRAMChunk *p_sram_chunk;
 	struct cmdqRecStruct *handle = NULL;
 	struct cmdq_client *client = NULL;
 	struct cmdq_pkt_buffer *buf;
@@ -1274,16 +1250,6 @@ int cmdq_core_print_status_seq(struct seq_file *m, void *v)
 	seq_printf(m, "dma_set_mask result:%d\n",
 		cmdq_dev_get_dma_mask_result());
 
-	seq_puts(m, "====== SRAM Usage Status =======\n");
-	index = 0;
-	list_for_each_entry(p_sram_chunk, &cmdq_ctx.sram_allocated_list,
-		list_node) {
-		seq_printf(m, "SRAM Chunk(%d)-32bit unit: start:0x%x count:%zu Name:%s\n",
-			index, p_sram_chunk->start_offset, p_sram_chunk->count,
-			p_sram_chunk->owner);
-		index++;
-	}
-
 	/* call to dump other infos */
 	blocking_notifier_call_chain(&cmdq_status_dump_notifier, 0, m);
 
@@ -1305,10 +1271,6 @@ int cmdq_core_print_status_seq(struct seq_file *m, void *v)
 			seq_printf(m, "va:0x%p pa:%pa\n",
 				buf->va_base, &buf->pa_base);
 		}
-
-		if (handle->use_sram_buffer)
-			seq_printf(m, "USE SRAM BUFFER sram base address:%u\n",
-			handle->sram_base);
 
 		client = cmdq_clients[handle->thread];
 		cmdq_task_get_thread_irq(client->chan, &irq);
@@ -1450,59 +1412,6 @@ void cmdq_core_dump_trigger_loop_thread(const char *tag)
 		CMDQ_LOG("[%s]CMDQ_EVENT_DISP_RDMA0_EOF is %d\n", tag, val);
 		break;
 	}
-}
-
-static void cmdq_core_dump_cmd_mem(const u32 *cmd, s32 size)
-{
-	static char buf[128];
-	int i;
-
-	print_hex_dump(KERN_ERR, "[CMDQ]", DUMP_PREFIX_ADDRESS, 16, 4, cmd,
-		size, false);
-	CMDQ_LOG("==== TASK command buffer END\n");
-
-	for (i = 0; i < size; i += CMDQ_INST_SIZE, cmd += 2) {
-		cmdq_core_parse_instruction(cmd, buf, 128);
-		CMDQ_LOG("%p: %s", cmd, buf);
-	}
-	CMDQ_LOG("TASK command buffer TRANSLATED END\n");
-}
-
-s32 cmdq_core_dump_sram_mem(u32 sram_base, u32 command_size)
-{
-	void *p_va_dest = NULL;
-	dma_addr_t pa_dest = 0;
-	s32 status = 0;
-	u32 cpr_offset = CMDQ_INVALID_CPR_OFFSET;
-
-	do {
-		/* copy SRAM command to DRAM */
-		cpr_offset = CMDQ_CPR_OFFSET(sram_base);
-		CMDQ_LOG(
-			"==Dump SRAM: size (%d) CPR OFFSET(0x%x), ADDR(0x%x)\n",
-			command_size, cpr_offset, sram_base);
-		p_va_dest = cmdq_core_alloc_hw_buffer_clt(cmdq_dev_get(),
-			command_size, &pa_dest, GFP_KERNEL, CMDQ_CLT_CMDQ);
-		if (!p_va_dest)
-			break;
-		status = cmdq_task_copy_from_sram(pa_dest, cpr_offset,
-			command_size);
-		if (status < 0) {
-			CMDQ_ERR("%s copy from sram API failed:%d\n",
-				__func__, status);
-			break;
-		}
-		CMDQ_LOG("======Dump SRAM: size (%d) SRAM command START\n",
-			command_size);
-		cmdq_core_dump_cmd_mem(p_va_dest, command_size);
-		CMDQ_LOG("======Dump SRAM command END\n");
-	} while (0);
-
-	if (p_va_dest)
-		cmdq_core_free_hw_buffer_clt(cmdq_dev_get(),
-			command_size, p_va_dest, pa_dest, CMDQ_CLT_CMDQ);
-
-	return status;
 }
 
 void cmdq_core_turnon_first_dump(const struct cmdqRecStruct *task)
@@ -1771,109 +1680,6 @@ void cmdq_core_free_hw_buffer(struct device *dev, size_t size,
 			div_s64(CMDQ_PROFILE_LIMIT_1, 1000000));
 #endif
 	}
-}
-
-void cmdq_core_dump_sram(void)
-{
-	struct SRAMChunk *p_sram_chunk;
-	s32 index = 0;
-
-	list_for_each_entry(p_sram_chunk, &cmdq_ctx.sram_allocated_list,
-		list_node) {
-		CMDQ_LOG(
-			"SRAM Chunk(%d)-32bit unit: start:0x%x count:%zu Name:%s\n",
-			index, p_sram_chunk->start_offset,
-			p_sram_chunk->count, p_sram_chunk->owner);
-		index++;
-	}
-}
-
-s32 cmdq_core_alloc_sram_buffer(size_t size,
-	const char *owner_name, u32 *out_cpr_offset)
-{
-	u32 cpr_offset = 0;
-	struct SRAMChunk *p_sram_chunk, *p_last_chunk;
-	/* Normalize from byte unit to 32bit unit */
-	size_t normalized_count = size / sizeof(u32);
-
-	/* Align allocated buffer to 64bit due to instruction alignment */
-	if (normalized_count % 2 != 0)
-		normalized_count++;
-
-	/* Get last entry to calculate new SRAM start address */
-	if (!list_empty(&cmdq_ctx.sram_allocated_list)) {
-		p_last_chunk = list_last_entry(&cmdq_ctx.sram_allocated_list,
-			struct SRAMChunk, list_node);
-		cpr_offset = p_last_chunk->start_offset + p_last_chunk->count;
-	}
-
-	if (cpr_offset + normalized_count > cmdq_dts.cpr_size) {
-		CMDQ_LOG(
-			"[WARN]SRAM count is out of memory, start:%u want:%zu owner:%s\n",
-			cpr_offset, normalized_count, owner_name);
-		cmdq_core_dump_sram();
-		return -ENOMEM;
-	}
-
-	p_sram_chunk = kzalloc(sizeof(struct SRAMChunk), GFP_KERNEL);
-	if (p_sram_chunk) {
-		p_sram_chunk->start_offset = cpr_offset;
-		p_sram_chunk->count = normalized_count;
-		strncpy(p_sram_chunk->owner, owner_name,
-			sizeof(p_sram_chunk->owner) - 1);
-		list_add_tail(&(p_sram_chunk->list_node),
-			&cmdq_ctx.sram_allocated_list);
-		cmdq_ctx.allocated_sram_count += normalized_count;
-		CMDQ_LOG(
-			"SRAM Chunk New-32bit unit: start:0x%x count:%zu Name:%s\n",
-			p_sram_chunk->start_offset, p_sram_chunk->count,
-			p_sram_chunk->owner);
-	}
-
-	*out_cpr_offset = cpr_offset;
-	return 0;
-}
-
-void cmdq_core_free_sram_buffer(u32 cpr_offset, size_t size)
-{
-	struct SRAMChunk *p_sram_chunk;
-	bool released = false;
-	/* Normalize from byte unit to 32bit unit */
-	size_t normalized_count = size / sizeof(u32);
-
-	/* Find and remove */
-	list_for_each_entry(p_sram_chunk, &cmdq_ctx.sram_allocated_list,
-		list_node) {
-		if (p_sram_chunk->start_offset == cpr_offset &&
-			p_sram_chunk->count == normalized_count) {
-			CMDQ_MSG(
-				"SRAM Chunk Free-32bit unit: start:0x%x count:%zu Name:%s\n",
-				p_sram_chunk->start_offset,
-				p_sram_chunk->count, p_sram_chunk->owner);
-			list_del_init(&(p_sram_chunk->list_node));
-			cmdq_ctx.allocated_sram_count -= normalized_count;
-			released = true;
-			break;
-		}
-	}
-
-	if (!released) {
-		CMDQ_ERR(
-			"SRAM Chunk Free-32bit unit: start:0x%x count:%zu failed\n",
-			cpr_offset, normalized_count);
-		cmdq_core_dump_sram();
-	}
-}
-
-size_t cmdq_core_get_free_sram_size(void)
-{
-	return (cmdq_dts.cpr_size - cmdq_ctx.allocated_sram_count) *
-		sizeof(u32);
-}
-
-size_t cmdq_core_get_cpr_cnt(void)
-{
-	return cmdq_dts.cpr_size;
 }
 
 int cmdqCoreAllocWriteAddress(u32 count, dma_addr_t *paStart,
@@ -2158,27 +1964,6 @@ struct cmdqDTSDataStruct *cmdq_core_get_dts_data(void)
 	return &cmdq_dts_data;
 }
 
-u32 cmdq_core_get_thread_prefetch_size(const s32 thread)
-{
-	if (thread >= 0 && thread < cmdq_dev_get_thread_count())
-		return cmdq_dts.prefetch_size[thread];
-	return 0;
-}
-
-void cmdq_core_dump_dts_setting(void)
-{
-	u32 index;
-	const u32 max_thread_count = cmdq_dev_get_thread_count();
-
-	CMDQ_LOG("[DTS] Prefetch Thread Count:%d/%u\n",
-		cmdq_dts.prefetch_thread_count, max_thread_count);
-	CMDQ_LOG("[DTS] Prefetch Size of Thread:\n");
-	for (index = 0; index < cmdq_dts.prefetch_thread_count &&
-		index < max_thread_count; index++)
-		CMDQ_LOG("	Thread[%d]:%d\n",
-			index, cmdq_dts.prefetch_size[index]);
-}
-
 void cmdq_core_set_event_table(enum cmdq_event event, const s32 value)
 {
 	if (event >= 0 && event < CMDQ_SYNC_TOKEN_MAX)
@@ -2378,16 +2163,10 @@ void cmdq_core_reset_gce(void)
 	 */
 	cmdq_get_func()->enableGCEClockLocked(true);
 	cmdq_core_reset_hw_events();
-	cmdq_core_config_prefetch_gsize();
 #ifdef CMDQ_ENABLE_BUS_ULTRA
 	CMDQ_LOG("Enable GCE Ultra ability");
 	CMDQ_REG_SET32(CMDQ_BUS_CONTROL_TYPE, 0x3);
 #endif
-	if (cmdq_dts.ctl_int0 > 0) {
-		CMDQ_REG_SET32(CMDQ_CTL_INT0, cmdq_dts.ctl_int0);
-		CMDQ_MSG("[CTL_INT0] set %d\n",
-			cmdq_dts.ctl_int0);
-	}
 	/* Restore event */
 	cmdq_get_func()->eventRestore();
 }
@@ -2784,13 +2563,8 @@ u32 *cmdq_core_get_pc_inst(const struct cmdqRecStruct *handle,
 	}
 
 	curr_pc = CMDQ_AREG_TO_PHYS(cmdq_core_get_pc(thread));
-	if (unlikely(handle->use_sram_buffer)) {
-		void *va = cmdq_pkt_get_first_va(handle);
-
-		inst_ptr = va + (curr_pc - handle->sram_base);
-	} else if (curr_pc) {
+	if (curr_pc)
 		inst_ptr = cmdq_core_get_pc_va(curr_pc, handle);
-	}
 
 	if (inst_ptr) {
 		cmdq_pkt_get_cmd_by_pc(handle, curr_pc, insts, 2);
@@ -3335,10 +3109,8 @@ static void cmdq_core_attach_engine_error(
 	const struct cmdq_ng_handle_info *nginfo, bool short_log)
 {
 	s32 index = 0;
-	bool disp_scn = false;
 	u64 print_eng_flag = 0;
 	CmdqMdpGetEngineGroupBits get_engine_group_bit = NULL;
-	CmdqIsDispScenario is_disp_scen = NULL;
 	struct CmdqCBkStruct *callback = NULL;
 	static const char *const engineGroupName[] = {
 		CMDQ_FOREACH_GROUP(GENERATE_STRING)
@@ -3356,13 +3128,12 @@ static void cmdq_core_attach_engine_error(
 
 	print_eng_flag = handle->engineFlag;
 	get_engine_group_bit = cmdq_mdp_get_func()->getEngineGroupBits;
-	is_disp_scen = cmdq_get_func()->isDispScenario;
 
 	if (nginfo)
 		print_eng_flag |= nginfo->engine_flag;
 
 	/* Dump MMSYS configuration */
-	if ((handle->engineFlag & CMDQ_ENG_MDP_GROUP_BITS)) {
+	if (handle->engineFlag & CMDQ_ENG_MDP_GROUP_BITS) {
 		CMDQ_ERR("============ [CMDQ] MMSYS_CONFIG ============\n");
 		cmdq_mdp_get_func()->dumpMMSYSConfig();
 	}
@@ -3387,12 +3158,6 @@ static void cmdq_core_attach_engine_error(
 			(get_engine_group_bit(index) & print_eng_flag),
 			cmdq_ctx.logLevel);
 	}
-
-	/* force dump DISP for DISP scenario with 0x0 engine flag */
-	disp_scn = is_disp_scen(handle->scenario);
-
-	if (nginfo)
-		disp_scn = disp_scn | is_disp_scen(nginfo->scenario);
 
 	for (index = 0; index < CMDQ_MAX_GROUP_COUNT; ++index) {
 		if (!cmdq_core_is_group_flag((enum CMDQ_GROUP_ENUM) index,
@@ -3447,18 +3212,6 @@ static void cmdq_core_attach_error_handle_detail(
 
 		if (event >= CMDQ_SYNC_RESOURCE_WROT0)
 			cmdq_mdp_dump_resource(event);
-	}
-
-	if (handle->scenario == CMDQ_SCENARIO_DISP_ESD_CHECK) {
-		cmdq_ctx.errNum--;
-		if (!cmdq_ctx.errNum)
-			cmdq_core_reset_first_dump();
-		mutex_unlock(&cmdq_err_mutex);
-		cmdq_core_release_nghandleinfo(&nginfo);
-		/* don't aee for esd case */
-		if (aee_out)
-			*aee_out = false;
-		return;
 	}
 
 	detail_log = error_num <= 2 || error_num % 16 == 0 ||
@@ -3833,44 +3586,6 @@ void cmdq_core_set_gpr64(const enum cmdq_gpr_reg reg_id, const u64 value)
 	}
 }
 
-static bool cmdq_core_is_thread_cpr(u32 argument)
-{
-	if (argument >= CMDQ_THR_SPR_MAX && argument < CMDQ_THR_VAR_MAX)
-		return true;
-	else
-		return false;
-}
-
-static void cmdq_core_replace_arg_cpr(u32 *cmd, u32 cpr_offset)
-{
-	u32 arg_header = (cmd[1] >> 16) & 0xFFFF;
-	u32 arg_a_i = cmd[1] & 0xFFFF;
-	u32 arg_b_i = (cmd[0] >> 16) & 0xFFFF;
-	u32 arg_c_i = cmd[0] & 0xFFFF;
-	u32 arg_a_type = cmd[1] & (1 << 23);
-	u32 arg_b_type = cmd[1] & (1 << 22);
-	u32 arg_c_type = cmd[1] & (1 << 21);
-
-	CMDQ_MSG("replace instruction 0x%p: 0x%08x 0x%08x\n",
-		cmd, cmd[0], cmd[1]);
-
-	if (arg_a_type != 0 && cmdq_core_is_thread_cpr(arg_a_i)) {
-		arg_a_i = cpr_offset + (arg_a_i - CMDQ_THR_SPR_MAX);
-		cmd[1] = (arg_header<<16) | (arg_a_i & 0xFFFF);
-	}
-
-	if (arg_b_type != 0 && cmdq_core_is_thread_cpr(arg_b_i))
-		arg_b_i = cpr_offset + (arg_b_i - CMDQ_THR_SPR_MAX);
-
-	if (arg_c_type != 0 && cmdq_core_is_thread_cpr(arg_c_i))
-		arg_c_i = cpr_offset + (arg_c_i - CMDQ_THR_SPR_MAX);
-
-	cmd[0] = (arg_b_i<<16) | (arg_c_i & 0xFFFF);
-
-	CMDQ_MSG("replace result: 0x%p: 0x%08x 0x%08x\n",
-		cmd, cmd[0], cmd[1]);
-}
-
 static inline u32 cmdq_core_get_subsys_id(u32 arg_a)
 {
 	return (arg_a & CMDQ_ARG_A_SUBSYS_MASK) >> subsys_lsb_bit;
@@ -3923,12 +3638,11 @@ static void cmdq_core_v3_adjust_jump(struct cmdqRecStruct *handle,
 }
 
 static void cmdq_core_v3_replace_arg(struct cmdqRecStruct *handle, u32 *va,
-	u32 thread_offset, u32 arg_op_code, u32 inst_idx)
+	u32 arg_op_code, u32 inst_idx)
 {
 	u32 arg_a_i;
 	u32 arg_a_type;
 
-	cmdq_core_replace_arg_cpr(va, thread_offset);
 	arg_a_type = va[1] & (1 << 23);
 	arg_a_i = va[1] & 0xFFFF;
 
@@ -4002,7 +3716,6 @@ void cmdq_core_replace_v3_instr(struct cmdqRecStruct *handle, s32 thread)
 	u32 i;
 	u32 arg_op_code;
 	u32 *p_cmd_va;
-	u32 thread_offset;
 	u32 *p_instr_position = CMDQ_U32_PTR(handle->replace_instr.position);
 	u32 inst_idx = 0;
 	const u32 boundary_idx = (handle->pkt->buf_size / CMDQ_INST_SIZE);
@@ -4011,7 +3724,6 @@ void cmdq_core_replace_v3_instr(struct cmdqRecStruct *handle, s32 thread)
 		return;
 
 	CMDQ_MSG("replace_instr.number:%u\n", handle->replace_instr.number);
-	thread_offset = CMDQ_CPR_STRAT_ID + CMDQ_THR_CPR_MAX * thread;
 
 	for (i = 0; i < handle->replace_instr.number; i++) {
 		if ((p_instr_position[i] + 1) * CMDQ_INST_SIZE >
@@ -4056,7 +3768,7 @@ void cmdq_core_replace_v3_instr(struct cmdqRecStruct *handle, s32 thread)
 				"replace instruction: (%d)0x%p:0x%08x 0x%08x\n",
 				i, p_cmd_va, p_cmd_va[0], p_cmd_va[1]);
 			cmdq_core_v3_replace_arg(handle, p_cmd_va,
-				thread_offset, arg_op_code, inst_idx);
+				arg_op_code, inst_idx);
 		}
 
 		if (arg_op_code == CMDQ_CODE_JUMP_C_RELATIVE) {
@@ -4243,11 +3955,6 @@ void cmdq_core_set_spm_mode(enum CMDQ_SPM_MODE mode)
 
 	CMDQ_MSG("after setting, reg:0x%x\n",
 		CMDQ_REG_GET32(CMDQ_H_SPEED_BUSY));
-}
-
-struct cmdq_dts_setting *cmdq_core_get_dts_setting(void)
-{
-	return &cmdq_dts;
 }
 
 struct ContextStruct *cmdq_core_get_context(void)
@@ -5024,52 +4731,6 @@ static s32 cmdq_pkt_flush_async_ex_impl(struct cmdqRecStruct *handle,
 
 	handle->trigger = sched_clock();
 
-	/* copy instruction to sram */
-	if (handle->use_sram_buffer) {
-		u32 cpr_offset = CMDQ_INVALID_CPR_OFFSET;
-		struct cmdq_pkt_buffer *buf;
-
-		if (handle->pkt->cmd_buf_size > CMDQ_CMD_BUFFER_SIZE) {
-			CMDQ_ERR(
-				"sram task only support 1 page, current size:%zu\n",
-				handle->pkt->cmd_buf_size);
-			return -EFAULT;
-		}
-
-		buf = list_first_entry_or_null(&handle->pkt->buf, typeof(*buf),
-			list_entry);
-
-		/* handle SRAM task, copy command to SRAM at first */
-		do {
-			if (!buf || !buf->pa_base) {
-				CMDQ_ERR(
-					"SRAM task DMA buffer list is empty!\n");
-				err = -EFAULT;
-				break;
-			}
-
-			err = cmdq_core_alloc_sram_buffer(
-				handle->pkt->cmd_buf_size,
-				handle->sram_owner_name, &cpr_offset);
-			CMDQ_CHECK_AND_BREAK_STATUS(err);
-
-			/* Note: only support 1 page size,
-			 * so only copy first buffer
-			 */
-			err = cmdq_task_copy_to_sram(buf->pa_base, cpr_offset,
-				handle->pkt->cmd_buf_size);
-		} while (0);
-
-		if (unlikely(err < 0)) {
-			CMDQ_ERR("Prepare SRAM buffer task failed!\n");
-			if (cpr_offset != CMDQ_INVALID_CPR_OFFSET)
-				cmdq_core_free_sram_buffer(cpr_offset,
-				handle->pkt->cmd_buf_size);
-		} else {
-			handle->sram_base = CMDQ_SRAM_ADDR(cpr_offset);
-		}
-	}
-
 	/* TODO: remove pmqos in seure path */
 	if (!handle->secData.is_secure) {
 		/* PMQoS */
@@ -5326,7 +4987,6 @@ void cmdq_helper_mbox_clear_pools(void)
 void cmdq_core_initialize(void)
 {
 	const u32 max_thread_count = cmdq_dev_get_thread_count();
-	s32 status;
 	u32 index;
 	u32 thread_id;
 	char long_msg[CMDQ_LONGSTRING_MAX];
@@ -5375,7 +5035,6 @@ void cmdq_core_initialize(void)
 
 	/* Initialize task lists */
 	INIT_LIST_HEAD(&cmdq_ctx.handle_active);
-	INIT_LIST_HEAD(&cmdq_ctx.sram_allocated_list);
 
 	/* Initialize writable address */
 	INIT_LIST_HEAD(&cmdq_ctx.writeAddrList);
@@ -5389,32 +5048,6 @@ void cmdq_core_initialize(void)
 	/* Reset overall first error dump */
 	cmdq_core_reset_first_dump();
 
-	/* pre-allocate fake SPR SRAM area */
-	{
-		u32 fake_spr_sram = 0;
-
-		status = cmdq_core_alloc_sram_buffer(max_thread_count *
-			CMDQ_THR_CPR_MAX * sizeof(u32),
-			"Fake SPR", &fake_spr_sram);
-		if (status < 0) {
-			CMDQ_ERR("Allocate Fake SPR failed !!");
-		} else {
-			CMDQ_LOG(
-				"CPR for thread allocated, thread:%u free:%zu\n",
-				max_thread_count,
-				cmdq_core_get_free_sram_size());
-		}
-	}
-
-	/* pre-allocate delay CPR SRAM area */
-	{
-		status = cmdq_core_alloc_sram_buffer(CMDQ_DELAY_MAX_SET *
-			CMDQ_DELAY_SET_MAX_CPR * sizeof(u32),
-			"Delay CPR", &cmdq_ctx.delay_cpr_start);
-		if (status < 0)
-			CMDQ_ERR("Allocate delay CPR failed status:%d\n",
-				status);
-	}
 	/* allocate shared memory */
 	cmdq_ctx.hSecSharedMem = NULL;
 #ifdef CMDQ_SECURE_PATH_SUPPORT
@@ -5500,8 +5133,6 @@ void cmdq_core_deinitialize(void)
 	cmdqSecDeInitialize();
 #endif
 
-	kfree(cmdq_dts.prefetch_size);
-	cmdq_dts.prefetch_size = NULL;
 	kfree(cmdq_wait_queue);
 	cmdq_wait_queue = NULL;
 	kfree(cmdq_ctx.inst_check_buffer);

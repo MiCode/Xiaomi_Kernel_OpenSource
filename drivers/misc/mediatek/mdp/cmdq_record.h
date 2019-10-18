@@ -141,30 +141,6 @@ s32 cmdqRecSecureEnablePortSecurity(struct cmdqRecStruct *handle,
 s32 cmdq_task_set_secure_meta(struct cmdqRecStruct *handle,
 	enum cmdq_sec_rec_meta_type type, void *meta, u32 size);
 
-/* Append mark command to the recorder
- * Parameter:
- *     handle: the command queue recorder handle
- * Return:
- *     0 for success; else the error code is returned
- */
-s32 cmdqRecMark(struct cmdqRecStruct *handle);
-
-/* Append mark command to enable prefetch
- * Parameter:
- *     handle: the command queue recorder handle
- * Return:
- *     0 for success; else the error code is returned
- */
-s32 cmdqRecEnablePrefetch(struct cmdqRecStruct *handle);
-
-/* Append mark command to disable prefetch
- * Parameter:
- *     handle: the command queue recorder handle
- * Return:
- *     0 for success; else the error code is returned
- */
-s32 cmdqRecDisablePrefetch(struct cmdqRecStruct *handle);
-
 /* Append write command to the recorder
  * Parameter:
  *     handle: the command queue recorder handle
@@ -428,40 +404,11 @@ s32 cmdqRecFlushAsyncCallback(struct cmdqRecStruct *handle,
  *     returned, the thread has started. Return -1 in irqCallback to stop it.
  */
 s32 cmdq_task_start_loop(struct cmdqRecStruct *handle);
-s32 cmdqRecStartLoop(struct cmdqRecStruct *handle);
-
-s32 cmdq_task_start_loop_callback(struct cmdqRecStruct *handle,
-	CmdqInterruptCB loopCB, unsigned long loopData);
-s32 cmdqRecStartLoopWithCallback(struct cmdqRecStruct *handle,
-	CmdqInterruptCB loopCB, unsigned long loopData);
-
-s32 cmdq_task_start_loop_sram(struct cmdqRecStruct *handle,
-	const char *SRAM_owner_name);
 
 /* Unconditionally stops the loop thread.
  * Must call after cmdq_task_start_loop().
  */
 s32 cmdq_task_stop_loop(struct cmdqRecStruct *handle);
-s32 cmdqRecStopLoop(struct cmdqRecStruct *handle);
-
-/* Trigger CMDQ to copy data between DRAM and SRAM.
- *
- * Parameter:
- *     pa_src: the copy to source of DRAM PA address
- *     pa_dest: the copy from destination of DRAM PA address
- *     sram_src: the copy to destination of SRAM address
- *     sram_dest: the copy from source of SRAM address
- *     size: the copy size
- *
- * Return:
- *     0 for success; else the error code is returned
- *
- * Note:
- *     This is an BLOCKING function. When the function is returned,
- *     the SRAM move is done.
- */
-s32 cmdq_task_copy_to_sram(dma_addr_t pa_src, u32 sram_dest, size_t size);
-s32 cmdq_task_copy_from_sram(dma_addr_t pa_dest, u32 sram_src, size_t size);
 
 /* returns current count of instructions in given handle
  */
@@ -511,8 +458,6 @@ s32 cmdqRecSetNOP(struct cmdqRecStruct *handle, u32 index);
  *	CMDQ_CODE_SET_TOKEN: create via cmdq_op_set_event()
  *	CMDQ_CODE_WAIT_NO_CLEAR: create via cmdq_op_wait_no_clear()
  *	CMDQ_CODE_CLEAR_TOKEN: create via cmdq_op_clear_event()
- *	CMDQ_CODE_PREFETCH_ENABLE: create via cmdqRecEnablePrefetch()
- *	CMDQ_CODE_PREFETCH_DISABLE: create via cmdqRecDisablePrefetch()
  *     event: the desired event type to set, clear, or wait
  * Return:
  *     > 0 (index) for offset of instruction; else the error code is returned

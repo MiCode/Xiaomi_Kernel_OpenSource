@@ -121,8 +121,6 @@ typedef u64 CMDQ_VARIABLE;
 #define CMDQ_THR_FREE_CPR_MAX		(4)
 #define CMDQ_THR_FREE_USR_VAR_MAX	(CMDQ_THR_SPR_MAX + \
 	CMDQ_THR_FREE_CPR_MAX)
-#define CMDQ_THR_CPR_MAX		(CMDQ_THR_FREE_CPR_MAX + 0)
-#define CMDQ_THR_VAR_MAX		(CMDQ_THR_SPR_MAX + CMDQ_THR_CPR_MAX)
 #define CMDQ_SRAM_STRAT_ADDR		(0x0)
 #define CMDQ_GPR_V3_OFFSET			(0x20)
 #define CMDQ_POLLING_TPR_MASK_BIT	(10)
@@ -131,18 +129,6 @@ typedef u64 CMDQ_VARIABLE;
 #define CMDQ_CPR_OFFSET(SRAM_ADDR)	\
 	(((SRAM_ADDR >> 3) - CMDQ_SRAM_STRAT_ADDR) * 2)
 #define CMDQ_INVALID_CPR_OFFSET		(0xFFFFFFFF)
-
-#define CMDQ_MAX_SRAM_OWNER_NAME	(32)
-
-#define CMDQ_DELAY_TPR_MASK_BIT		(11)
-#define CMDQ_DELAY_TPR_MASK_VALUE	(1 << 17 | 1 << 14 | 1 << 11)
-
-#define CMDQ_DELAY_MAX_SET		(3)
-#define CMDQ_DELAY_SET_START_CPR	(0)
-#define CMDQ_DELAY_SET_DURATION_CPR	(1)
-#define CMDQ_DELAY_SET_RESULT_CPR	(2)
-#define CMDQ_DELAY_SET_MAX_CPR		(3)
-#define CMDQ_DELAY_THD_SIZE		(64 * 64) /* delay inst in bytes */
 
 /* #define CMDQ_DUMP_GIC (0) */
 
@@ -168,17 +154,8 @@ enum CMDQ_HW_THREAD_PRIORITY_ENUM {
 };
 
 enum CMDQ_SCENARIO_ENUM {
-	CMDQ_SCENARIO_JPEG_DEC = 0,
 	CMDQ_SCENARIO_PRIMARY_DISP = 1,
-	CMDQ_SCENARIO_PRIMARY_MEMOUT = 2,
-	CMDQ_SCENARIO_PRIMARY_ALL = 3,
 	CMDQ_SCENARIO_SUB_DISP = 4,
-	CMDQ_SCENARIO_SUB_MEMOUT = 5,
-	CMDQ_SCENARIO_SUB_ALL = 6,
-	CMDQ_SCENARIO_MHL_DISP = 7,
-	CMDQ_SCENARIO_RDMA0_DISP = 8,
-	CMDQ_SCENARIO_RDMA0_COLOR0_DISP = 9,
-	CMDQ_SCENARIO_RDMA1_DISP = 10,
 
 	/* Trigger loop scenario does not enable HWs */
 	CMDQ_SCENARIO_TRIGGER_LOOP = 11,
@@ -189,18 +166,6 @@ enum CMDQ_SCENARIO_ENUM {
 	CMDQ_SCENARIO_DEBUG = 13,
 	CMDQ_SCENARIO_DEBUG_PREFETCH = 14,
 
-	/* ESD check */
-	CMDQ_SCENARIO_DISP_ESD_CHECK = 15,
-	/* for screen capture to wait for RDMA-done
-	 * without blocking config thread
-	 */
-	CMDQ_SCENARIO_DISP_SCREEN_CAPTURE = 16,
-
-	CMDQ_SCENARIO_DISP_PRIMARY_DISABLE_SECURE_PATH = 18,
-	CMDQ_SCENARIO_DISP_SUB_DISABLE_SECURE_PATH = 19,
-
-	/* color path request from kernel */
-	CMDQ_SCENARIO_DISP_COLOR = 20,
 	/* color path request from user sapce */
 	CMDQ_SCENARIO_USER_DISP_COLOR = 21,
 
@@ -209,32 +174,7 @@ enum CMDQ_SCENARIO_ENUM {
 	 */
 	CMDQ_SCENARIO_USER_SPACE = 22,
 
-	CMDQ_SCENARIO_DISP_MIRROR_MODE = 23,
-
-	CMDQ_SCENARIO_DISP_CONFIG_AAL = 24,
-	CMDQ_SCENARIO_DISP_CONFIG_PRIMARY_GAMMA = 25,
-	CMDQ_SCENARIO_DISP_CONFIG_SUB_GAMMA = 26,
-	CMDQ_SCENARIO_DISP_CONFIG_PRIMARY_DITHER = 27,
-	CMDQ_SCENARIO_DISP_CONFIG_SUB_DITHER = 28,
-	CMDQ_SCENARIO_DISP_CONFIG_PRIMARY_PWM = 29,
-	CMDQ_SCENARIO_DISP_CONFIG_SUB_PWM = 30,
-	CMDQ_SCENARIO_DISP_CONFIG_PRIMARY_PQ = 31,
-	CMDQ_SCENARIO_DISP_CONFIG_SUB_PQ = 32,
-	CMDQ_SCENARIO_DISP_CONFIG_OD = 33,
-	CMDQ_SCENARIO_DISP_VFP_CHANGE = 34,
-
-	CMDQ_SCENARIO_RDMA2_DISP = 35,
-
-	/* for primary trigger loop enable pre-fetch usage */
-	CMDQ_SCENARIO_HIGHP_TRIGGER_LOOP = 36,
-	/* for low priority monitor loop to polling bus status */
-	CMDQ_SCENARIO_LOWP_TRIGGER_LOOP = 37,
-
-	CMDQ_SCENARIO_KERNEL_CONFIG_GENERAL = 38,
-
 	CMDQ_SCENARIO_TIMER_LOOP = 39,
-	CMDQ_SCENARIO_MOVE = 40,
-	CMDQ_SCENARIO_SRAM_LOOP = 41,
 
 	/* debug scenario use mdp flush */
 	CMDQ_SCENARIO_DEBUG_MDP = 42,
@@ -486,10 +426,6 @@ struct cmdqCommandStruct {
 	struct cmdqSecDataStruct secData;
 	/* [IN] CPR position */
 	struct cmdq_v3_replace_struct replace_instr;
-	/* [IN] use SRAM buffer or not */
-	bool use_sram_buffer;
-	/* [IN] SRAM buffer owner name */
-	char sram_owner_name[CMDQ_MAX_SRAM_OWNER_NAME];
 	/* [IN] set to non-zero to enable register debug dump. */
 	uint32_t debugRegDump;
 	/* [Reserved] This is for CMDQ driver usage itself.

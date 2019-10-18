@@ -127,17 +127,6 @@ s32 cmdq_op_condition_find_op_type(const struct cmdq_stack_node *top_node,
 	return (s32)(got_position - position);
 }
 
-static bool cmdq_is_cpr(u32 argument, u32 arg_type)
-{
-	if (arg_type == 1 &&
-		argument >= CMDQ_THR_SPR_MAX &&
-		argument < CMDQ_THR_VAR_MAX) {
-		return true;
-	}
-
-	return false;
-}
-
 static void cmdq_save_op_variable_position(
 	struct cmdqRecStruct *handle, u32 index)
 {
@@ -399,7 +388,6 @@ s32 cmdq_task_create(enum CMDQ_SCENARIO_ENUM scenario,
 	}
 
 	INIT_LIST_HEAD(&handle->list_entry);
-	handle->engineFlag = cmdq_get_func()->flagFromScenario(scenario);
 	handle->scenario = scenario;
 	handle->ctrl = cmdq_core_get_controller();
 
@@ -529,7 +517,6 @@ s32 cmdq_task_duplicate(struct cmdqRecStruct *handle,
 	handle_new->loop_user_data = handle->loop_user_data;
 	handle_new->async_callback = handle->async_callback;
 	handle_new->async_user_data = handle->async_user_data;
-	handle_new->prefetchCount = handle->prefetchCount;
 	handle_new->local_var_num = handle->local_var_num;
 	handle_new->arg_source = handle->arg_source;
 	handle_new->arg_value = handle->arg_value;
@@ -879,26 +866,6 @@ static s32 cmdq_append_rw_s_command(struct cmdqRecStruct *handle,
 		arg_addr_type = 1;
 	}
 
-	if (handle->thread != CMDQ_INVALID_THREAD) {
-		u32 cpr_offset = CMDQ_CPR_STRAT_ID + CMDQ_THR_CPR_MAX *
-			handle->thread;
-
-		/* change cpr to thread cpr directly,
-		 * if we already have exclusive thread.
-		 */
-		if (cmdq_is_cpr(arg_addr, arg_addr_type))
-			arg_addr = cpr_offset + (arg_addr - CMDQ_THR_SPR_MAX);
-		if (cmdq_is_cpr(arg_value, arg_value_type))
-			arg_value = cpr_offset + (arg_value - CMDQ_THR_SPR_MAX);
-	} else if (cmdq_is_cpr(arg_a, arg_a_type) ||
-		cmdq_is_cpr(arg_b, arg_b_type)) {
-		/* save local variable position */
-		CMDQ_MSG(
-			"save op:0x%02x CMD:arg_a:0x%08x arg_b:0x%08x arg_a_type:%d arg_b_type:%d\n",
-		     code, arg_a, arg_b, arg_a_type, arg_b_type);
-		save_op = true;
-	}
-
 	if (CMDQ_CODE_WRITE_S == code || CMDQ_CODE_WRITE_S_W_MASK == code) {
 		/* For write_s command */
 		new_arg_a = (arg_addr & 0xffff) |
@@ -945,37 +912,6 @@ s32 cmdq_append_command(struct cmdqRecStruct *handle,
 			"cannot add command (op:0x%02x arg_a:0x%08x arg_b:0x%08x)\n",
 			code, arg_a, arg_b);
 		return status;
-	}
-
-	/* force insert MARKER if prefetch memory is full
-	 * GCE deadlocks if we don't do so
-	 */
-	if (code != CMDQ_CODE_EOC &&
-		cmdq_get_func()->shouldEnablePrefetch(handle->scenario)) {
-		u32 prefetchSize = 0;
-		s32 threadNo = cmdq_get_func()->getThreadID(handle->scenario,
-			handle->secData.is_secure);
-
-		prefetchSize = cmdq_core_get_thread_prefetch_size(threadNo);
-		if (prefetchSize > 0 &&
-			handle->prefetchCount >= prefetchSize) {
-			CMDQ_MSG(
-				"prefetchCount(%d) > %d, force insert disable prefetch marker\n",
-				handle->prefetchCount, prefetchSize);
-			/* Mark END of prefetch section */
-			cmdqRecDisablePrefetch(handle);
-			/* BEGING of next prefetch section */
-			cmdqRecMark(handle);
-		} else {
-			/* prefetch enabled marker exist */
-			if (handle->prefetchCount >= 1) {
-				++handle->prefetchCount;
-				CMDQ_VERBOSE(
-					"handle->prefetchCount:%d %s %d\n",
-					handle->prefetchCount, __func__,
-					__LINE__);
-			}
-		}
 	}
 
 	CMDQ_VERBOSE("REC:0x%p op:0x%02x arg_a:0x%08x arg_b:0x%08x\n",
@@ -1170,9 +1106,6 @@ s32 cmdq_task_reset(struct cmdqRecStruct *handle)
 	handle->cmd_end = NULL;
 	handle->jump_replace = true;
 	handle->finalized = false;
-	handle->prefetchCount = 0;
-	handle->use_sram_buffer = false;
-	handle->sram_owner_name = NULL;
 	handle->sram_base = 0;
 	handle->node_private = NULL;
 	handle->engine_clk = 0;
@@ -1788,18 +1721,6 @@ s32 cmdq_op_finalize_command(struct cmdqRecStruct *handle, bool loop)
 	}
 
 	if (!handle->finalized) {
-		if ((handle->prefetchCount > 0) &&
-			cmdq_get_func()->shouldEnablePrefetch(
-			handle->scenario)) {
-			CMDQ_ERR(
-				"not insert prefetch disable marker when prefetch enabled, prefetchCount:%d\n",
-				handle->prefetchCount);
-			cmdq_pkt_dump_command(handle);
-
-			status = -EFAULT;
-			return status;
-		}
-
 		/* performance debug end before finalize */
 		if (loop)
 			handle->profile_exec = false;
@@ -1810,7 +1731,7 @@ s32 cmdq_op_finalize_command(struct cmdqRecStruct *handle, bool loop)
 		arg_b = 0x1;	/* generate IRQ for each command iteration */
 #ifndef CMDQ_DEBUG_LOOP_IRQ
 		/* no generate IRQ for loop thread to save power */
-		if (loop && !cmdq_get_func()->force_loop_irq(handle->scenario))
+		if (loop)
 			arg_b = 0x0;
 #endif
 		/* no generate IRQ for delay loop thread */
@@ -2106,14 +2027,8 @@ s32 cmdq_task_flush_async_destroy(struct cmdqRecStruct *handle)
 			(unsigned long)async, true);
 }
 
-static s32 cmdq_dummy_irq_callback(unsigned long data)
-{
-	return 0;
-}
-
 s32 _cmdq_task_start_loop_callback(struct cmdqRecStruct *handle,
-	CmdqInterruptCB cb, unsigned long user_data,
-	const char *sram_owner_name)
+	CmdqInterruptCB cb, unsigned long user_data)
 {
 	s32 status;
 
@@ -2127,110 +2042,17 @@ s32 _cmdq_task_start_loop_callback(struct cmdqRecStruct *handle,
 	handle->loop_cb = cb;
 	handle->loop_user_data = user_data;
 
-	if (strlen(sram_owner_name) > 0) {
-		CMDQ_MSG("Submit task loop in SRAM:%s\n", sram_owner_name);
-		handle->use_sram_buffer = true;
-		handle->sram_owner_name = sram_owner_name;
-	}
-
 	return cmdq_pkt_flush_async_ex(handle, NULL, 0, false);
 }
 
 s32 cmdq_task_start_loop(struct cmdqRecStruct *handle)
 {
-	return _cmdq_task_start_loop_callback(handle, NULL, 0, "");
-}
-
-s32 cmdq_task_start_loop_callback(struct cmdqRecStruct *handle,
-	CmdqInterruptCB loopCB, unsigned long loopData)
-{
-	return _cmdq_task_start_loop_callback(handle, loopCB, loopData, "");
-}
-
-s32 cmdq_task_start_loop_sram(struct cmdqRecStruct *handle,
-	const char *sram_owner_name)
-{
-	return _cmdq_task_start_loop_callback(handle, &cmdq_dummy_irq_callback,
-		0, sram_owner_name);
+	return _cmdq_task_start_loop_callback(handle, NULL, 0);
 }
 
 s32 cmdq_task_stop_loop(struct cmdqRecStruct *handle)
 {
 	return cmdq_pkt_stop(handle);
-}
-
-s32 cmdq_task_copy_to_sram(dma_addr_t pa_src, u32 sram_dest, size_t size)
-{
-	struct cmdqRecStruct *handle;
-	u32 i;
-	s32 status;
-	unsigned long long duration;
-	CMDQ_VARIABLE pa_cpr, sram_cpr;
-
-	CMDQ_MSG("%s DRAM addr:0x%pa SRAM addr:%d\n",
-		__func__, &pa_src, sram_dest);
-
-	cmdq_op_init_variable(&pa_cpr);
-	cmdq_task_create(CMDQ_SCENARIO_MOVE, &handle);
-	status = cmdq_task_reset(handle);
-	if (status < 0) {
-		cmdq_task_destroy(handle);
-		return status;
-	}
-	handle->pkt->priority = CMDQ_REC_MAX_PRIORITY;
-
-	for (i = 0; i < size / sizeof(u32); i++) {
-		cmdq_op_assign(handle, &pa_cpr, (u32)pa_src + i * sizeof(u32));
-		cmdq_op_init_global_cpr_variable(&sram_cpr, sram_dest + i);
-		cmdq_append_command(handle, CMDQ_CODE_READ_S,
-			(u32)sram_cpr, (u32)pa_cpr, 1, 1);
-	}
-
-	duration = sched_clock();
-	status = cmdq_task_flush(handle);
-
-	duration = sched_clock() - duration;
-	CMDQ_MSG("%s result:%d cost time:%u us\n",
-		__func__, status, (u32)duration);
-
-	cmdq_task_destroy(handle);
-	return status;
-}
-
-s32 cmdq_task_copy_from_sram(dma_addr_t pa_dest, u32 sram_src, size_t size)
-{
-	struct cmdqRecStruct *handle;
-	u32 i;
-	unsigned long long duration;
-	CMDQ_VARIABLE pa_cpr, sram_cpr;
-	s32 status;
-
-	CMDQ_MSG("%s DRAM addr:0x%pa SRAM addr:%d\n",
-		__func__, &pa_dest, sram_src);
-	cmdq_op_init_variable(&pa_cpr);
-	cmdq_task_create(CMDQ_SCENARIO_MOVE, &handle);
-	status = cmdq_task_reset(handle);
-	if (status < 0) {
-		cmdq_task_destroy(handle);
-		return status;
-	}
-
-	for (i = 0; i < size / sizeof(u32); i++) {
-		cmdq_op_assign(handle, &pa_cpr, (u32)pa_dest + i * sizeof(u32));
-		sram_cpr = CMDQ_ARG_CPR_START + sram_src + i;
-		cmdq_append_command(handle, CMDQ_CODE_WRITE_S,
-			(u32)pa_cpr, (u32)sram_cpr, 1, 1);
-	}
-	/*cmdq_pkt_dump_command(handle);*/
-
-	duration = sched_clock();
-	cmdq_task_flush(handle);
-
-	duration = sched_clock() - duration;
-	CMDQ_MSG("%s cost time:%u us\n", __func__, (u32)duration);
-
-	cmdq_task_destroy(handle);
-	return 0;
 }
 
 s32 cmdq_task_get_inst_cnt(struct cmdqRecStruct *handle)
@@ -2409,28 +2231,6 @@ s32 cmdq_task_query_offset(struct cmdqRecStruct *handle, u32 startIndex,
 		arg_a = (CMDQ_CODE_WFE << 24) |
 			cmdq_core_get_event_value(event);
 		break;
-	case CMDQ_CODE_PREFETCH_ENABLE:
-		/* this is actually MARKER but with different parameter
-		 * interpretation
-		 * bit 53: non_suspendable, true
-		 * bit 48: no_inc_exec_cmds_cnt, true
-		 * bit 20: prefetch_marker, true
-		 * bit 17: prefetch_marker_en, true
-		 * bit 16: prefetch_en, true
-		 */
-		arg_b = ((1 << 20) | (1 << 17) | (1 << 16));
-		arg_a = (CMDQ_CODE_EOC << 24) | (0x1 << (53 - 32)) |
-			(0x1 << (48 - 32));
-		break;
-	case CMDQ_CODE_PREFETCH_DISABLE:
-		/* this is actually MARKER but with different parameter
-		 * interpretation
-		 * bit 48: no_inc_exec_cmds_cnt, true
-		 * bit 20: prefetch_marker, true
-		 */
-		arg_b = (1 << 20);
-		arg_a = (CMDQ_CODE_EOC << 24) | (0x1 << (48 - 32));
-		break;
 	default:
 		CMDQ_MSG("This offset of instruction can not be queried.\n");
 		return -EFAULT;
@@ -2549,9 +2349,6 @@ static s32 cmdq_append_logic_command(struct cmdqRecStruct *handle,
 	}
 
 	do {
-		u32 cpr_offset = CMDQ_CPR_STRAT_ID + CMDQ_THR_CPR_MAX *
-			handle->thread;
-
 		/* get actual arg_b_i & arg_b_type */
 		status = cmdq_var_data_type(arg_b, &arg_b_i, &arg_b_type);
 		if (status < 0)
@@ -2575,37 +2372,9 @@ static s32 cmdq_append_logic_command(struct cmdqRecStruct *handle,
 		/* arg_a always be SW register */
 		arg_abc_type = (1 << 2) | (arg_b_type << 1) | (arg_c_type);
 
-		/* change cpr to thread cpr directly,
-		 * if we already have exclusive thread.
-		 */
-		if (handle->thread != CMDQ_INVALID_THREAD) {
-			if (cmdq_is_cpr(arg_a_i, arg_a_type))
-				arg_a_i = cpr_offset + (arg_a_i -
-					CMDQ_THR_SPR_MAX);
-			if (cmdq_is_cpr(arg_b_i, arg_b_type))
-				arg_b_i = cpr_offset + (arg_b_i -
-					CMDQ_THR_SPR_MAX);
-			if (cmdq_is_cpr(arg_c_i, arg_c_type))
-				arg_c_i = cpr_offset + (arg_c_i -
-					CMDQ_THR_SPR_MAX);
-		}
-
 		cmdq_append_command_pkt(handle->pkt, CMDQ_CODE_LOGIC,
 			(arg_abc_type << 21) | (s_op << 16) | arg_a_i,
 			(arg_b_i << 16) | (arg_c_i & 0xFFFF));
-
-		if (handle->thread == CMDQ_INVALID_THREAD) {
-			if (cmdq_is_cpr(arg_a_i, arg_a_type) ||
-				cmdq_is_cpr(arg_b_i, arg_b_type) ||
-				cmdq_is_cpr(arg_c_i, arg_c_type)) {
-				CMDQ_MSG(
-					"save logic: sop:%d arg_a:0x%08x arg_b:0x%08x arg_c:0x%08x arg_abc_type:%d\n",
-					 s_op, arg_a_i, arg_b_i, arg_c_i,
-					 arg_abc_type);
-				cmdq_save_op_variable_position(handle,
-					cmdq_task_get_inst_cnt(handle) - 1);
-			}
-		}
 	} while (0);
 
 	return status;
@@ -2835,13 +2604,6 @@ s32 cmdq_append_jump_c_command(struct cmdqRecStruct *handle,
 
 		arg_abc_type = (arg_a_type << 2) | (arg_b_type << 1) |
 			(arg_c_type);
-		if (cmdq_is_cpr(arg_b_i, arg_b_type) ||
-			cmdq_is_cpr(arg_c_i, arg_c_type)) {
-			/* save local variable position */
-			CMDQ_MSG(
-				"save jump_c: condition:%d arg_b:0x%08x arg_c:0x%08x arg_abc_type:%d\n",
-				arg_condition, arg_b_i, arg_c_i, arg_abc_type);
-		}
 		if ((arg_c_i & 0xFFFF0000) != 0)
 			CMDQ_ERR("jump_c arg_c value is over 16 bit:0x%08x\n",
 			arg_c_i);
@@ -3443,40 +3205,6 @@ s32 cmdqRecSecureEnablePortSecurity(struct cmdqRecStruct *handle,
 	return cmdq_task_secure_enable_port_security(handle, engineFlag);
 }
 
-s32 cmdqRecMark(struct cmdqRecStruct *handle)
-{
-	s32 status;
-
-	/* Do not check prefetch-ability here.
-	 * because cmdqRecMark may have other purposes.
-	 *
-	 * bit 53: non-suspendable. set to 1 because we don't want
-	 * CPU suspend this thread during pre-fetching.
-	 * If CPU change PC, then there will be a mess,
-	 * because prefetch buffer is not properly cleared.
-	 * bit 48: do not increase CMD_COUNTER
-	 * (because this is not the end of the task)
-	 * bit 20: prefetch_marker
-	 * bit 17: prefetch_marker_en
-	 * bit 16: prefetch_en
-	 * bit 0:  irq_en (set to 0 since we don't want EOC interrupt)
-	 */
-	status = cmdq_append_command(handle,
-		CMDQ_CODE_EOC, (0x1 << (53 - 32)) | (0x1 << (48 - 32)),
-		0x00130000, 0, 0);
-
-	/* if we're in a prefetch region,
-	 * this ends the region so set count to 0.
-	 * otherwise we start the region by setting count to 1.
-	 */
-	handle->prefetchCount = 1;
-
-	if (status != 0)
-		return -EFAULT;
-
-	return 0;
-}
-
 s32 cmdqRecWrite(struct cmdqRecStruct *handle, u32 addr, u32 value, u32 mask)
 {
 	return cmdq_op_write_reg(handle, addr, (CMDQ_VARIABLE)value, mask);
@@ -3571,61 +3299,6 @@ s32 cmdqRecBackupUpdateSlot(struct cmdqRecStruct *handle,
 	return cmdq_op_write_mem(handle, h_backup_slot, slot_index, value);
 }
 
-s32 cmdqRecEnablePrefetch(struct cmdqRecStruct *handle)
-{
-#ifdef _CMDQ_DISABLE_MARKER_
-	/* disable pre-fetch marker feature but use auto prefetch mechanism */
-	CMDQ_MSG("not allow enable prefetch, scenario:%d\n", handle->scenario);
-	return true;
-#else
-	if (!handle)
-		return -EFAULT;
-
-	if (cmdq_get_func()->shouldEnablePrefetch(handle->scenario)) {
-		/* enable prefetch */
-		CMDQ_VERBOSE("REC: enable prefetch\n");
-		cmdqRecMark(handle);
-		return true;
-	}
-	CMDQ_ERR("not allow enable prefetch, scenario:%d\n", handle->scenario);
-	return -EFAULT;
-#endif
-}
-
-s32 cmdqRecDisablePrefetch(struct cmdqRecStruct *handle)
-{
-	u32 arg_b = 0;
-	u32 arg_a = 0;
-	s32 status = 0;
-
-	if (!handle)
-		return -EFAULT;
-
-	if (!handle->finalized) {
-		if (handle->prefetchCount > 0) {
-			/* with prefetch threads we should end with
-			 * bit 48: no_inc_exec_cmds_cnt = 1
-			 * bit 20: prefetch_mark = 1
-			 * bit 17: prefetch_mark_en = 0
-			 * bit 16: prefetch_en = 0
-			 */
-			arg_b = 0x00100000;
-			/* not increse execute counter */
-			arg_a = (0x1 << 16);
-			/* since we're finalized, no more prefetch */
-			handle->prefetchCount = 0;
-			status = cmdq_append_command(handle, CMDQ_CODE_EOC,
-				arg_a, arg_b, 0, 0);
-		}
-
-		if (status != 0)
-			return status;
-	}
-
-	CMDQ_MSG("%s status:%d\n", __func__, status);
-	return status;
-}
-
 s32 cmdqRecFlush(struct cmdqRecStruct *handle)
 {
 	return cmdq_task_flush(handle);
@@ -3647,22 +3320,6 @@ s32 cmdqRecFlushAsyncCallback(struct cmdqRecStruct *handle,
 	CmdqAsyncFlushCB callback, u64 user_data)
 {
 	return cmdq_task_flush_async_callback(handle, callback, user_data);
-}
-
-s32 cmdqRecStartLoop(struct cmdqRecStruct *handle)
-{
-	return cmdq_task_start_loop(handle);
-}
-
-s32 cmdqRecStartLoopWithCallback(struct cmdqRecStruct *handle,
-	CmdqInterruptCB loopCB, unsigned long loopData)
-{
-	return cmdq_task_start_loop_callback(handle, loopCB, loopData);
-}
-
-s32 cmdqRecStopLoop(struct cmdqRecStruct *handle)
-{
-	return cmdq_task_stop_loop(handle);
 }
 
 s32 cmdqRecGetInstructionCount(struct cmdqRecStruct *handle)

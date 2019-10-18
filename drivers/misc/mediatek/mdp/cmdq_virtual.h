@@ -111,11 +111,9 @@ struct cmdqCoreFuncStruct {
 	CmdqIsSecureThread isSecureThread;
 	CmdqIsDispScenario isDispScenario;
 	CmdqIsDynamic isDynamic;
-	CmdqShouldEnablePrefetch shouldEnablePrefetch;
 	CmdqDispThread dispThread;
 	CmdqGetThreadID getThreadID;
 	CmdqPriority priority;
-	cmdq_force_loop_irq force_loop_irq;
 	cmdq_is_disp_loop is_disp_loop;
 	CmdqGetRegID getRegID;
 	CmdqModuleFromEvent moduleFromEvent;
@@ -128,7 +126,6 @@ struct cmdqCoreFuncStruct {
 	CmdqParseHandleErrorModule parseHandleErrorModule;
 	CmdqDumpSMI dumpSMI;
 	CmdqDumpGPR dumpGPR;
-	CmdqFlagFromScenario flagFromScenario;
 	CmdqEventBackup eventBackup;
 	CmdqEventRestore eventRestore;
 	CmdqTestSetup testSetup;

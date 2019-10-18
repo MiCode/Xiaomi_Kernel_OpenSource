@@ -71,18 +71,10 @@ void cmdq_dev_deinit(void);
 s32 cmdq_dev_get_dma_mask_result(void);
 u32 cmdq_dev_get_thread_count(void);
 
-struct cmdq_dts_setting {
-	u32 prefetch_thread_count;
-	u32 *prefetch_size;
-	u32 ctl_int0;
-	u32 cpr_size;
-};
-
 /* callback when read resource from device tree */
 typedef void(*CMDQ_DEV_INIT_RESOURCE_CB) (u32 engineFlag,
 	enum cmdq_event resourceEvent);
 
-void cmdq_dev_get_dts_setting(struct cmdq_dts_setting *dts_setting);
 void cmdq_dev_init_resource(CMDQ_DEV_INIT_RESOURCE_CB init_cb);
 
 

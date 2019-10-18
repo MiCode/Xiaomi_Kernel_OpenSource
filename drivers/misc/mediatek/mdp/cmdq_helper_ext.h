@@ -565,18 +565,6 @@ struct ResourceUnitStruct {
 	struct delayed_work delayCheckWork;
 };
 
-/* SRAM chunk structure
- *	allocated_start: allocated start address
- *	allocated_size: allocated SRAM size
- *	allocated_owner: allocate owner name
- */
-struct SRAMChunk {
-	struct list_head list_node;
-	u32 start_offset;
-	size_t count;
-	char owner[CMDQ_MAX_SRAM_OWNER_NAME];
-};
-
 /**
  * shared memory between normal and secure world
  */
@@ -614,13 +602,6 @@ struct ContextStruct {
 	s32 errNum;
 	struct ErrorStruct error[CMDQ_MAX_ERROR_COUNT];
 	bool aee;
-
-	/* SRAM manager information */
-	struct list_head sram_allocated_list;	/* all allocated SRAM chunk */
-	size_t allocated_sram_count;
-
-	/* Delay set CPR start information */
-	u32 delay_cpr_start;
 
 	void *inst_check_buffer;
 
@@ -700,9 +681,6 @@ struct cmdqRecStruct {
 	unsigned long loop_user_data;
 	CmdqAsyncFlushCB async_callback;
 	u64 async_user_data;
-	u32 prefetchCount;	/* maintenance prefetch instruction */
-	bool use_sram_buffer;	/* use SRAM or not */
-	const char *sram_owner_name;
 	u32 sram_base;	/* Original PA address of SRAM buffer content */
 	void *node_private;
 	void *user_private;
@@ -892,12 +870,6 @@ void cmdq_core_free_hw_buffer(struct device *dev, size_t size,
 	void *cpu_addr, dma_addr_t dma_handle);
 s32 cmdq_core_alloc_pool_buf(struct cmdq_pkt_buffer *buf);
 s32 cmdq_core_free_pool_buf(struct cmdq_pkt_buffer *buf);
-void cmdq_core_dump_sram(void);
-s32 cmdq_core_alloc_sram_buffer(size_t size,
-	const char *owner_name, u32 *out_cpr_offset);
-void cmdq_core_free_sram_buffer(u32 cpr_offset, size_t size);
-size_t cmdq_core_get_free_sram_size(void);
-size_t cmdq_core_get_cpr_cnt(void);
 void cmdq_delay_dump_thread(bool dump_sram);
 u32 cmdq_core_get_delay_start_cpr(void);
 s32 cmdq_delay_get_id_by_scenario(enum CMDQ_SCENARIO_ENUM scenario);
@@ -911,8 +883,6 @@ int cmdqCoreFreeWriteAddress(dma_addr_t paStart, enum CMDQ_CLT_ENUM clt);
 /* Get and HW information from device tree */
 void cmdq_core_init_dts_data(void);
 struct cmdqDTSDataStruct *cmdq_core_get_dts_data(void);
-u32 cmdq_core_get_thread_prefetch_size(const s32 thread);
-void cmdq_core_dump_dts_setting(void);
 
 /* Get and set HW event form device tree */
 void cmdq_core_set_event_table(enum cmdq_event event, const s32 value);
@@ -978,7 +948,6 @@ s32 cmdq_core_resume_notifier(void);
 
 void cmdq_core_set_spm_mode(enum CMDQ_SPM_MODE mode);
 
-struct cmdq_dts_setting *cmdq_core_get_dts_setting(void);
 struct ContextStruct *cmdq_core_get_context(void);
 struct CmdqCBkStruct *cmdq_core_get_group_cb(void);
 dma_addr_t cmdq_core_get_pc(s32 thread);

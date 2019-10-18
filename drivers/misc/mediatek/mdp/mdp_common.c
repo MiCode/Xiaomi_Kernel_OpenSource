@@ -1719,12 +1719,6 @@ void cmdq_mdp_dump_mmsys_config_virtual(void)
 	/* Do Nothing */
 }
 
-/* VENC callback function */
-s32 cmdqVEncDumpInfo_virtual(u64 engineFlag, int level)
-{
-	return 0;
-}
-
 /* Initialization & de-initialization MDP base VA */
 void cmdq_mdp_init_module_base_VA_virtual(void)
 {
@@ -2652,8 +2646,6 @@ void cmdq_mdp_virtual_function_setting(void)
 #endif	/* CONFIG_MTK_SMI_EXT */
 
 	pFunc->dumpMMSYSConfig = cmdq_mdp_dump_mmsys_config_virtual;
-
-	pFunc->vEncDumpInfo = cmdqVEncDumpInfo_virtual;
 
 	pFunc->initModuleBaseVA = cmdq_mdp_init_module_base_VA_virtual;
 	pFunc->deinitModuleBaseVA = cmdq_mdp_deinit_module_base_VA_virtual;
