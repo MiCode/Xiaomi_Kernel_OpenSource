@@ -389,6 +389,43 @@ static unsigned int mhi_uci_client_poll(struct file *file, poll_table *wait);
 static unsigned int mhi_uci_ctrl_poll(struct file *file, poll_table *wait);
 static struct mhi_uci_ctxt_t uci_ctxt;
 
+static bool mhi_uci_are_channels_connected(struct uci_client *uci_client)
+{
+	uint32_t info_ch_in, info_ch_out;
+	int rc;
+
+	/*
+	 * Check channel states and return true only if channel
+	 * information is available and in connected state.
+	 * For all other failure conditions return false.
+	 */
+	rc = mhi_ctrl_state_info(uci_client->in_chan, &info_ch_in);
+	if (rc) {
+		uci_log(UCI_DBG_DBG,
+			"Channels %d is not available with %d\n",
+			uci_client->out_chan, rc);
+		return false;
+	}
+
+	rc = mhi_ctrl_state_info(uci_client->out_chan, &info_ch_out);
+	if (rc) {
+		uci_log(UCI_DBG_DBG,
+			"Channels %d is not available with %d\n",
+			uci_client->out_chan, rc);
+		return false;
+	}
+
+	if ((info_ch_in != MHI_STATE_CONNECTED) ||
+		(info_ch_out != MHI_STATE_CONNECTED)) {
+		uci_log(UCI_DBG_DBG,
+			"Channels %d or %d are not connected\n",
+			uci_client->in_chan, uci_client->out_chan);
+		return false;
+	}
+
+	return true;
+}
+
 static int mhi_init_read_chan(struct uci_client *client_handle,
 		enum mhi_client_channel chan)
 {
@@ -640,6 +677,15 @@ static unsigned int mhi_uci_client_poll(struct file *file, poll_table *wait)
 
 	poll_wait(file, &uci_handle->read_wq, wait);
 	poll_wait(file, &uci_handle->write_wq, wait);
+	/*
+	 * Check if the channels on which the clients are trying
+	 * to poll are in connected state and return with the
+	 * appropriate mask if channels are disconnected.
+	 */
+	if (!mhi_uci_are_channels_connected(uci_handle)) {
+		mask = POLLHUP;
+		return mask;
+	}
 	mask = uci_handle->at_ctrl_mask;
 	if (!atomic_read(&uci_ctxt.mhi_disabled) &&
 		!mhi_dev_channel_isempty(uci_handle->in_handle)) {
@@ -782,31 +828,9 @@ static int mhi_uci_read_sync(struct uci_client *uci_handle,
 static int open_client_mhi_channels(struct uci_client *uci_client)
 {
 	int rc = 0;
-	uint32_t info_ch_in, info_ch_out;
 
-	rc = mhi_ctrl_state_info(uci_client->in_chan, &info_ch_in);
-	if (rc) {
-		uci_log(UCI_DBG_DBG,
-			"Channels %d is not connected with %d\n",
-			uci_client->out_chan, rc);
-		return -EINVAL;
-	}
-
-	rc = mhi_ctrl_state_info(uci_client->out_chan, &info_ch_out);
-	if (rc) {
-		uci_log(UCI_DBG_DBG,
-			"Channels %d is not connected with %d\n",
-			uci_client->out_chan, rc);
-		return -EINVAL;
-	}
-
-	if ((info_ch_in != MHI_STATE_CONNECTED) ||
-		(info_ch_out != MHI_STATE_CONNECTED)) {
-		uci_log(UCI_DBG_DBG,
-			"Channels %d or %d are not connected\n",
-			uci_client->in_chan, uci_client->out_chan);
-		return -EINVAL;
-	}
+	if (!mhi_uci_are_channels_connected(uci_client))
+		return -ENODEV;
 
 	uci_log(UCI_DBG_DBG,
 			"Starting channels %d %d.\n",
@@ -1334,6 +1358,13 @@ void mhi_uci_chan_state_notify(struct mhi_dev *mhi,
 	if (rc)
 		uci_log(UCI_DBG_ERROR,
 				"Sending uevent failed for chan %d\n", ch_id);
+
+	if (ch_state == MHI_STATE_DISCONNECTED &&
+			!atomic_read(&uci_handle->ref_count)) {
+		/* Issue wake only if there is an active client */
+		wake_up(&uci_handle->read_wq);
+		wake_up(&uci_handle->write_wq);
+	}
 
 	kfree(buf[0]);
 }
