@@ -426,6 +426,9 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 			// CCF API assist to enable clock source of apu conn
 			enable_apu_mtcmos(1);
 
+			// wait for conn mtcmos enable ready
+			rpc_power_status_check(0, 1);
+
 			// clear inner dummy CG (true enable but bypass disable)
 			enable_apu_conn_vcore_clock();
 
