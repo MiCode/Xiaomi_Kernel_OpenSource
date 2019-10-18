@@ -163,6 +163,15 @@ static int ipv6_generate_stable_address(struct in6_addr *addr,
 static struct hlist_head inet6_addr_lst[IN6_ADDR_HSIZE];
 static DEFINE_SPINLOCK(addrconf_hash_lock);
 
+struct rt6_info *calc_lft_vzw(struct inet6_ifaddr *ifp,
+			      u32 *minimum_lft);
+static void calc_next_vzw(struct inet6_ifaddr *ifp, struct rt6_info *rt,
+			  unsigned long *next, unsigned long age,
+			  int is_expires, u32 minimum_lft);
+static int inet6_fill_nora(struct sk_buff *skb, struct inet6_dev *idev,
+			   u32 portid, u32 seq, int event);
+static void inet6_no_ra_notify(int event, struct inet6_dev *idev);
+
 static void addrconf_verify(void);
 static void addrconf_verify_rtnl(void);
 static void addrconf_verify_work(struct work_struct *);
@@ -323,7 +332,7 @@ int ip6_operator_isop12(void)
 
 /*Fill skb for  no ra  msg*/
 static int inet6_fill_nora(struct sk_buff *skb, struct inet6_dev *idev,
-			   u32 portid, u32 seq, int event, unsigned int flags)
+			   u32 portid, u32 seq, int event)
 {
 	struct nlmsghdr *nlh;
 
@@ -383,7 +392,7 @@ static void inet6_no_ra_notify(int event, struct inet6_dev *idev)
 	if (!skb)
 		goto errout;
 
-	err = inet6_fill_nora(skb, idev, 0, 0, event, 0);
+	err = inet6_fill_nora(skb, idev, 0, 0, event);
 	if (err < 0) {
 		/* -EMSGSIZE implies BUG in inet6_prefix_nlmsg_size() */
 		WARN_ON(err == -EMSGSIZE);
@@ -4477,7 +4486,7 @@ struct rt6_info *calc_lft_vzw(struct inet6_ifaddr *ifp,
 }
 
 static void calc_next_vzw(struct inet6_ifaddr *ifp, struct rt6_info *rt,
-			  unsigned long next, unsigned long age,
+			  unsigned long *next, unsigned long age,
 			  int is_expires, u32 minimum_lft)
 {
 	if (strncmp(ifp->idev->dev->name, "ccmni", 2) == 0) {
@@ -4485,12 +4494,14 @@ static void calc_next_vzw(struct inet6_ifaddr *ifp, struct rt6_info *rt,
 			if (!(ifp->idev->if_flags & IF_RS_VZW_SENT) &&
 			    age >= (minimum_lft * 3 / 4))
 				inet6_send_rs_vzw(ifp);
+
 			pr_info("[mtk_net]RA: min_lft %lld, age %lld\n",
 				(u64)minimum_lft, (u64)age);
+
 			if (!(ifp->idev->if_flags & IF_RS_VZW_SENT) &&
 			    time_before(ifp->tstamp +
-			    ((minimum_lft * 3 / 4) * HZ), next))
-				next = ifp->tstamp +
+			    ((minimum_lft * 3 / 4) * HZ), *next))
+				*next = ifp->tstamp +
 					((minimum_lft * 3 / 4) * HZ);
 		}
 	}
@@ -4550,7 +4561,7 @@ restart:
 					 *send RS when time flow
 					 *reaches 75% of route_lft
 					 */
-					calc_next_vzw(ifp, rt, next, age,
+					calc_next_vzw(ifp, rt, &next, age,
 						      0, min_lft);
 				}
 
@@ -4617,7 +4628,7 @@ restart:
 					 *75% of min{prefered_lft,
 					 *route_lft
 					 */
-					calc_next_vzw(ifp, rt, next, age,
+					calc_next_vzw(ifp, rt, &next, age,
 						      1, min_lft);
 				}
 
