@@ -575,20 +575,16 @@ static irqreturn_t mtk_mbox_isr(int irq, void *dev_id)
 					pin_recv->recv_record.cb_count++;
 				}
 			}
-			/*notify task*/
-			if (ret == MBOX_DONE && mbdev->ipi_cb) {
-				mbdev->ipi_cb(pin_recv, mbdev->ipi_priv);
-				pin_recv->recv_record.notify_count++;
-			}
+
+			if (ret != MBOX_DONE)
+				pr_err("[MBOX ISR]cp to buf fail,dev=%s chan=%d ret=%d",
+				mbdev->name, pin_recv->chan_id, ret);
+
 			/*dump recv info*/
 			if (mbdev->log_enable)
 				mtk_mbox_dump_recv(mbdev, i);
 		}
 	}
-
-	if (ret != MBOX_DONE)
-		pr_err("[MBOX ISR]read fail,dev=%s chan=%d ret=%d",
-			mbdev->name, pin_recv->chan_id, ret);
 
 	if (mbdev->post_cb)
 		mbdev->post_cb(mbdev->prdata);
@@ -602,6 +598,21 @@ static irqreturn_t mtk_mbox_isr(int irq, void *dev_id)
 
 	if (irq_temp == 0 && irq_status != 0)
 		pr_err("[MBOX ISR]dev=%s pin table err", mbdev->name);
+
+	/*notify all receive pin handler*/
+	for (i = 0; i < mbdev->recv_count; i++) {
+		pin_recv = &(mbdev->pin_recv_table[i]);
+		if (pin_recv->mbox != mbox)
+			continue;
+		/*recv irq trigger*/
+		if (((0x1 << pin_recv->pin_index) & irq_status) > 0x0) {
+			/*notify task*/
+			if (mbdev->ipi_cb) {
+				mbdev->ipi_cb(pin_recv, mbdev->ipi_priv);
+				pin_recv->recv_record.notify_count++;
+			}
+		}
+	}
 
 	return IRQ_HANDLED;
 }
