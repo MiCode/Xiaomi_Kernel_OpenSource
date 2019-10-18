@@ -3,7 +3,7 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
-#include <mtk_lpm_trace.h>
+#include <mtk_lpm_trace_event/mtk_lpm_trace.h>
 
 #include <mtk_ipi_sspm_v1.h>
 

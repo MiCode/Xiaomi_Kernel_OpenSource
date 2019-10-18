@@ -12,6 +12,8 @@
 #include <linux/tracepoint.h>
 #include "mtk_lpm_trace_def.h"
 
+/* Define the trace event bellow as you need */
+
 TRACE_EVENT(mtk_lpm_trace,
 	TP_PROTO(struct mtk_lpm_trace_debug_t *t),
 	TP_ARGS(t),

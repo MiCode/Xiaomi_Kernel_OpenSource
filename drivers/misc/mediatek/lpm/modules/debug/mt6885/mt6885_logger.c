@@ -121,8 +121,12 @@ int mt6885_get_wakeup_status(struct mt6885_spm_wake_status *wakesta)
 
 int mt6885_show_log_message(int type, const char *prefix, void *data)
 {
-	#define LOG_BUF_SIZE        256
-	#define LOG_BUF_OUT_SZ	768
+	#define LOG_BUF_SIZE		256
+	#define LOG_BUF_OUT_SZ		768
+	#define IS_WAKE_MISC(x)	(mt6885_wake.wake_misc & x)
+	#define IS_LOGBUF(ptr, newstr) \
+		((strlen(ptr) + strlen(newstr)) < LOG_BUF_SIZE)
+
 	int i;
 	unsigned int spm_26M_off_pct = 0;
 	char buf[LOG_BUF_SIZE] = { 0 };
@@ -146,154 +150,168 @@ int mt6885_show_log_message(int type, const char *prefix, void *data)
 			"[SPM] ABORT (%s), r13 = 0x%x, ",
 			scenario, mt6885_wake.r13);
 
-		aee_sram_printk(" debug_flag = 0x%x 0x%x\n",
+		aee_sram_printk(" debug_flag = 0x%x 0x%x",
 			mt6885_wake.debug_flag, mt6885_wake.debug_flag1);
 		log_size += scnprintf(log_buf + log_size,
 			LOG_BUF_OUT_SZ - log_size,
-			" debug_flag = 0x%x 0x%x\n",
+			" debug_flag = 0x%x 0x%x",
 			mt6885_wake.debug_flag, mt6885_wake.debug_flag1);
 
-		aee_sram_printk(" sw_flag = 0x%x 0x%x\n",
+		aee_sram_printk(" sw_flag = 0x%x 0x%x",
 			mt6885_wake.sw_flag0, mt6885_wake.sw_flag1);
 		log_size += scnprintf(log_buf + log_size,
 			LOG_BUF_OUT_SZ - log_size,
 			" sw_flag = 0x%x 0x%x\n",
 			mt6885_wake.sw_flag0, mt6885_wake.sw_flag1);
 
-		aee_sram_printk(" b_sw_flag = 0x%x 0x%x\n",
+		aee_sram_printk(" b_sw_flag = 0x%x 0x%x",
 			mt6885_wake.b_sw_flag0, mt6885_wake.b_sw_flag1);
 		log_size += scnprintf(log_buf + log_size,
 			LOG_BUF_OUT_SZ - log_size,
-			" b_sw_flag = 0x%x 0x%x\n",
+			" b_sw_flag = 0x%x 0x%x",
 			mt6885_wake.b_sw_flag0, mt6885_wake.b_sw_flag1);
 
 		wr =  WR_ABORT;
-	}
+	} else {
+		if (mt6885_wake.r12 & R12_PCM_TIMER) {
+			if (mt6885_wake.wake_misc & WAKE_MISC_PCM_TIMER_EVENT) {
+				local_ptr = " PCM_TIMER";
+				if (IS_LOGBUF(buf, local_ptr))
+					strncat(buf, local_ptr,
+						strlen(local_ptr));
+				wr = WR_PCM_TIMER;
+			}
+		}
 
-	if (mt6885_wake.r12 & R12_PCM_TIMER) {
-		if (mt6885_wake.wake_misc & WAKE_MISC_PCM_TIMER_EVENT) {
-			local_ptr = " PCM_TIMER";
-			if ((strlen(buf) + strlen(local_ptr)) < LOG_BUF_SIZE)
-				strncat(buf, local_ptr, strlen(local_ptr));
-			wr = WR_PCM_TIMER;
+		if (mt6885_wake.r12 & R12_TWAM_IRQ_B) {
+			if (IS_WAKE_MISC(WAKE_MISC_DVFSRC_IRQ)) {
+				local_ptr = " DVFSRC";
+				if (IS_LOGBUF(buf, local_ptr))
+					strncat(buf, local_ptr,
+						strlen(local_ptr));
+				wr = WR_DVFSRC;
+			}
+			if (IS_WAKE_MISC(WAKE_MISC_TWAM_IRQ_B)) {
+				local_ptr = " TWAM";
+				if (IS_LOGBUF(buf, local_ptr))
+					strncat(buf, local_ptr,
+						strlen(local_ptr));
+				wr = WR_TWAM;
+			}
+			if (IS_WAKE_MISC(WAKE_MISC_PMSR_IRQ_B_SET0)) {
+				local_ptr = " PMSR";
+				if (IS_LOGBUF(buf, local_ptr))
+					strncat(buf, local_ptr,
+						strlen(local_ptr));
+				wr = WR_PMSR;
+			}
+			if (IS_WAKE_MISC(WAKE_MISC_PMSR_IRQ_B_SET1)) {
+				local_ptr = " PMSR";
+				if (IS_LOGBUF(buf, local_ptr))
+					strncat(buf, local_ptr,
+						strlen(local_ptr));
+				wr = WR_PMSR;
+			}
+			if (IS_WAKE_MISC(WAKE_MISC_SPM_ACK_CHK_WAKEUP_0)) {
+				local_ptr = " SPM_ACK_CHK";
+				if (IS_LOGBUF(buf, local_ptr))
+					strncat(buf, local_ptr,
+						strlen(local_ptr));
+				wr = WR_SPM_ACK_CHK;
+			}
+			if (IS_WAKE_MISC(WAKE_MISC_SPM_ACK_CHK_WAKEUP_1)) {
+				local_ptr = " SPM_ACK_CHK";
+				if (IS_LOGBUF(buf, local_ptr))
+					strncat(buf, local_ptr,
+						strlen(local_ptr));
+				wr = WR_SPM_ACK_CHK;
+			}
+			if (IS_WAKE_MISC(WAKE_MISC_SPM_ACK_CHK_WAKEUP_2)) {
+				local_ptr = " SPM_ACK_CHK";
+				if (IS_LOGBUF(buf, local_ptr))
+					strncat(buf, local_ptr,
+						strlen(local_ptr));
+				wr = WR_SPM_ACK_CHK;
+			}
+			if (IS_WAKE_MISC(WAKE_MISC_SPM_ACK_CHK_WAKEUP_3)) {
+				local_ptr = " SPM_ACK_CHK";
+				if (IS_LOGBUF(buf, local_ptr))
+					strncat(buf, local_ptr,
+						strlen(local_ptr));
+				wr = WR_SPM_ACK_CHK;
+			}
+			if (IS_WAKE_MISC(WAKE_MISC_SPM_ACK_CHK_WAKEUP_ALL)) {
+				local_ptr = " SPM_ACK_CHK";
+				if (IS_LOGBUF(buf, local_ptr))
+					strncat(buf, local_ptr,
+						strlen(local_ptr));
+				wr = WR_SPM_ACK_CHK;
+			}
 		}
-	}
+		for (i = 1; i < 32; i++) {
+			if (mt6885_wake.r12 & (1U << i)) {
+				if (IS_LOGBUF(buf, mt6885_wakesrc_str[i]))
+					strncat(buf, mt6885_wakesrc_str[i],
+						strlen(mt6885_wakesrc_str[i]));
 
-	if (mt6885_wake.r12 & R12_TWAM_IRQ_B) {
-		if (mt6885_wake.wake_misc & WAKE_MISC_DVFSRC_IRQ) {
-			local_ptr = " DVFSRC";
-			if ((strlen(buf) + strlen(local_ptr)) < LOG_BUF_SIZE)
-				strncat(buf, local_ptr, strlen(local_ptr));
-			wr = WR_DVFSRC;
+				wr = WR_WAKE_SRC;
+			}
 		}
-		if (mt6885_wake.wake_misc & WAKE_MISC_TWAM_IRQ_B) {
-			local_ptr = " TWAM";
-			if ((strlen(buf) + strlen(local_ptr)) < LOG_BUF_SIZE)
-				strncat(buf, local_ptr, strlen(local_ptr));
-			wr = WR_TWAM;
-		}
-		if (mt6885_wake.wake_misc & WAKE_MISC_PMSR_IRQ_B_SET0) {
-			local_ptr = " PMSR";
-			if ((strlen(buf) + strlen(local_ptr)) < LOG_BUF_SIZE)
-				strncat(buf, local_ptr, strlen(local_ptr));
-			wr = WR_PMSR;
-		}
-		if (mt6885_wake.wake_misc & WAKE_MISC_PMSR_IRQ_B_SET1) {
-			local_ptr = " PMSR";
-			if ((strlen(buf) + strlen(local_ptr)) < LOG_BUF_SIZE)
-				strncat(buf, local_ptr, strlen(local_ptr));
-			wr = WR_PMSR;
-		}
-		if (mt6885_wake.wake_misc & WAKE_MISC_SPM_ACK_CHK_WAKEUP_0) {
-			local_ptr = " SPM_ACK_CHK";
-			if ((strlen(buf) + strlen(local_ptr)) < LOG_BUF_SIZE)
-				strncat(buf, local_ptr, strlen(local_ptr));
-			wr = WR_SPM_ACK_CHK;
-		}
-		if (mt6885_wake.wake_misc & WAKE_MISC_SPM_ACK_CHK_WAKEUP_1) {
-			local_ptr = " SPM_ACK_CHK";
-			if ((strlen(buf) + strlen(local_ptr)) < LOG_BUF_SIZE)
-				strncat(buf, local_ptr, strlen(local_ptr));
-			wr = WR_SPM_ACK_CHK;
-		}
-		if (mt6885_wake.wake_misc & WAKE_MISC_SPM_ACK_CHK_WAKEUP_2) {
-			local_ptr = " SPM_ACK_CHK";
-			if ((strlen(buf) + strlen(local_ptr)) < LOG_BUF_SIZE)
-				strncat(buf, local_ptr, strlen(local_ptr));
-			wr = WR_SPM_ACK_CHK;
-		}
-		if (mt6885_wake.wake_misc & WAKE_MISC_SPM_ACK_CHK_WAKEUP_3) {
-			local_ptr = " SPM_ACK_CHK";
-			if ((strlen(buf) + strlen(local_ptr)) < LOG_BUF_SIZE)
-				strncat(buf, local_ptr, strlen(local_ptr));
-			wr = WR_SPM_ACK_CHK;
-		}
-		if (mt6885_wake.wake_misc & WAKE_MISC_SPM_ACK_CHK_WAKEUP_ALL) {
-			local_ptr = " SPM_ACK_CHK";
-			if ((strlen(buf) + strlen(local_ptr)) < LOG_BUF_SIZE)
-				strncat(buf, local_ptr, strlen(local_ptr));
-			wr = WR_SPM_ACK_CHK;
-		}
-	}
-	for (i = 1; i < 32; i++) {
-		if (mt6885_wake.r12 & (1U << i)) {
-			if ((strlen(buf) + strlen(mt6885_wakesrc_str[i])) <
-				LOG_BUF_SIZE)
-				strncat(buf, mt6885_wakesrc_str[i],
-					strlen(mt6885_wakesrc_str[i]));
-
-			wr = WR_WAKE_SRC;
-		}
-	}
-	WARN_ON(strlen(buf) >= LOG_BUF_SIZE);
-
-	log_size += scnprintf(log_buf + log_size, LOG_BUF_OUT_SZ - log_size,
-		"%s wake up by %s, timer_out = %u, r13 = 0x%x, debug_flag = 0x%x 0x%x, ",
-		scenario, buf, mt6885_wake.timer_out, mt6885_wake.r13,
-		mt6885_wake.debug_flag, mt6885_wake.debug_flag1);
-
-	log_size += scnprintf(log_buf + log_size, LOG_BUF_OUT_SZ - log_size,
-		  "r12 = 0x%x, r12_ext = 0x%x, raw_sta = 0x%x 0x%x 0x%x, idle_sta = 0x%x, ",
-		  mt6885_wake.r12, mt6885_wake.r12_ext, mt6885_wake.raw_sta,
-		  mt6885_wake.md32pcm_wakeup_sta, mt6885_wake.md32pcm_event_sta,
-		  mt6885_wake.idle_sta);
-
-	log_size += scnprintf(log_buf + log_size, LOG_BUF_OUT_SZ - log_size,
-		  " req_sta =  0x%x 0x%x 0x%x 0x%x 0x%x, cg_check_sta =0x%x, isr = 0x%x, ",
-		  mt6885_wake.req_sta0, mt6885_wake.req_sta1,
-		  mt6885_wake.req_sta2, mt6885_wake.req_sta3,
-		  mt6885_wake.req_sta4, mt6885_wake.cg_check_sta,
-		  mt6885_wake.isr);
-
-	log_size += scnprintf(log_buf + log_size,
-			LOG_BUF_OUT_SZ - log_size,
-			"raw_ext_sta = 0x%x, wake_misc = 0x%x, pcm_flag = 0x%x 0x%x 0x%x 0x%x, req = 0x%x, ",
-			mt6885_wake.raw_ext_sta,
-			mt6885_wake.wake_misc,
-			mt6885_wake.sw_flag0,
-			mt6885_wake.sw_flag1, mt6885_wake.b_sw_flag0,
-			mt6885_wake.b_sw_flag0,
-			mt6885_wake.src_req);
-
-	log_size += scnprintf(log_buf + log_size,
-			LOG_BUF_OUT_SZ - log_size,
-			" clk_settle = 0x%x, ", mt6885_wake.clk_settle);
-
-	if (!strcmp(scenario, "suspend")) {
-		/* calculate 26M off percentage in suspend period */
-		if (mt6885_wake.timer_out != 0) {
-			spm_26M_off_pct = 100 * plat_mmio_read(SPM_BK_VTCXO_DUR)
-						/ mt6885_wake.timer_out;
-		}
+		WARN_ON(strlen(buf) >= LOG_BUF_SIZE);
 
 		log_size += scnprintf(log_buf + log_size,
 			LOG_BUF_OUT_SZ - log_size,
-			"wlk_cntcv_l = 0x%x, wlk_cntcv_h = 0x%x, 26M_off_pct = %d\n",
-			_golden_read_reg(WORLD_CLK_CNTCV_L),
-			_golden_read_reg(WORLD_CLK_CNTCV_H),
-			spm_26M_off_pct);
-	}
+			"%s wake up by %s, timer_out = %u, r13 = 0x%x, debug_flag = 0x%x 0x%x, ",
+			scenario, buf, mt6885_wake.timer_out, mt6885_wake.r13,
+			mt6885_wake.debug_flag, mt6885_wake.debug_flag1);
 
+		log_size += scnprintf(log_buf + log_size,
+			LOG_BUF_OUT_SZ - log_size,
+			"r12 = 0x%x, r12_ext = 0x%x, raw_sta = 0x%x 0x%x 0x%x, idle_sta = 0x%x, ",
+			mt6885_wake.r12, mt6885_wake.r12_ext,
+			mt6885_wake.raw_sta,
+			mt6885_wake.md32pcm_wakeup_sta,
+			mt6885_wake.md32pcm_event_sta,
+			mt6885_wake.idle_sta);
+
+		log_size += scnprintf(log_buf + log_size,
+			  LOG_BUF_OUT_SZ - log_size,
+			  " req_sta =  0x%x 0x%x 0x%x 0x%x 0x%x, cg_check_sta =0x%x, isr = 0x%x, ",
+			  mt6885_wake.req_sta0, mt6885_wake.req_sta1,
+			  mt6885_wake.req_sta2, mt6885_wake.req_sta3,
+			  mt6885_wake.req_sta4, mt6885_wake.cg_check_sta,
+			  mt6885_wake.isr);
+
+		log_size += scnprintf(log_buf + log_size,
+				LOG_BUF_OUT_SZ - log_size,
+				"raw_ext_sta = 0x%x, wake_misc = 0x%x, pcm_flag = 0x%x 0x%x 0x%x 0x%x, req = 0x%x, ",
+				mt6885_wake.raw_ext_sta,
+				mt6885_wake.wake_misc,
+				mt6885_wake.sw_flag0,
+				mt6885_wake.sw_flag1, mt6885_wake.b_sw_flag0,
+				mt6885_wake.b_sw_flag0,
+				mt6885_wake.src_req);
+
+		log_size += scnprintf(log_buf + log_size,
+				LOG_BUF_OUT_SZ - log_size,
+				" clk_settle = 0x%x, ", mt6885_wake.clk_settle);
+
+		if (!strcmp(scenario, "suspend")) {
+			/* calculate 26M off percentage in suspend period */
+			if (mt6885_wake.timer_out != 0) {
+				spm_26M_off_pct =
+					(100 * plat_mmio_read(SPM_BK_VTCXO_DUR))
+							/ mt6885_wake.timer_out;
+			}
+
+			log_size += scnprintf(log_buf + log_size,
+				LOG_BUF_OUT_SZ - log_size,
+				"wlk_cntcv_l = 0x%x, wlk_cntcv_h = 0x%x, 26M_off_pct = %d\n",
+				_golden_read_reg(WORLD_CLK_CNTCV_L),
+				_golden_read_reg(WORLD_CLK_CNTCV_H),
+				spm_26M_off_pct);
+		}
+	}
 	WARN_ON(log_size >= LOG_BUF_OUT_SZ);
 
 	printk_deferred("[name:spm&][SPM] %s", log_buf);
