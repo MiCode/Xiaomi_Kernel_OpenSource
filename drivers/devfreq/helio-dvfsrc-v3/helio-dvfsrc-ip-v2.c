@@ -452,6 +452,7 @@ int get_sw_req_vcore_opp(void)
 {
 	int opp = -1;
 	int sw_req = -1;
+	int scp_req = -1;
 
 	/* return opp 0, if dvfsrc not enable */
 	if (!is_dvfsrc_enabled())
@@ -461,7 +462,13 @@ int get_sw_req_vcore_opp(void)
 		sw_req = (dvfsrc_read(DVFSRC_SW_REQ3) >> VCORE_SW_AP_SHIFT);
 		sw_req = sw_req & VCORE_SW_AP_MASK;
 		sw_req = VCORE_OPP_NUM - sw_req - 1;
-		return sw_req;  /* return sw_request, as vcore floor level*/
+		if (vcorefs_get_scp_req_status()) {
+			scp_req = ((dvfsrc_read(DVFSRC_VCORE_REQUEST)
+				>> VCORE_SCP_GEAR_SHIFT) & VCORE_SCP_GEAR_MASK);
+			scp_req = VCORE_OPP_NUM - scp_req - 1;
+		}
+		/* return sw_request, as vcore floor level*/
+		return (sw_req > scp_req) ? scp_req : sw_req;
 	}
 	opp = get_cur_vcore_opp();
 	return opp; /* return opp , as vcore fixed level*/
