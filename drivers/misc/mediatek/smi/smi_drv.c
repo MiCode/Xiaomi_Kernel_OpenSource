@@ -247,8 +247,6 @@ s32 smi_bus_prepare_enable(const u32 id, const char *user)
 	}
 
 	switch (id) {
-	case 0:
-	case 1:
 	case 2:
 	case 3:
 	case 7:
@@ -333,9 +331,11 @@ s32 smi_bus_disable_unprepare(const u32 id, const char *user)
 	}
 #endif
 
-	if (ATOMR_CLK(id) == 1 && readl(smi_dev[id]->base + SMI_LARB_STAT))
+	if (ATOMR_CLK(id) == 1 && readl(smi_dev[id]->base + SMI_LARB_STAT)) {
+		smi_debug_bus_hang_detect(false, user);
 		aee_kernel_exception(user,
 			"larb%u disable by %s but still busy\n", id, user);
+	}
 	smi_unit_disable_unprepare(id);
 
 #if IS_ENABLED(CONFIG_MACH_MT6885)
@@ -343,8 +343,6 @@ s32 smi_bus_disable_unprepare(const u32 id, const char *user)
 		smi_unit_disable_unprepare(5);
 
 	switch (id) {
-	case 0:
-	case 1:
 	case 2:
 	case 3:
 	case 7:
@@ -488,6 +486,7 @@ s32 smi_sysram_enable(const u32 master_id, const bool enable, const char *user)
 		aee_kernel_exception(user,
 			"%s set larb%u port%u sysram %d failed ostd:%u %u\n",
 			user, larb, port, enable, ostd[0], ostd[1]);
+		smi_bus_disable_unprepare(larb, user);
 		return (ostd[1] << 16) | ostd[0];
 	}
 
@@ -884,6 +883,8 @@ static inline void smi_subsys_sspm_ipi(const bool ena, const u32 subsys)
 			IPI_SEND_POLLING, &ipi_data,
 			sizeof(ipi_data) / SSPM_MBOX_SLOT_SIZE, 2000);
 	} while (smi_dram.ackdata);
+	SMIWRN(0, "ena:%d subsys:%#x smi_subsys_on:%#x ackdata:%d\n",
+		ena, subsys, smi_subsys_on, smi_dram.ackdata);
 #else
 	do {
 		ret = sspm_ipi_send_sync(IPI_ID_SMI, IPI_OPT_POLLING, &ipi_data,
