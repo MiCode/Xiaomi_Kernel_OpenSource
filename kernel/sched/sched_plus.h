@@ -10,6 +10,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
+extern unsigned int capacity_margin;
 extern void unthrottle_offline_rt_rqs(struct rq *rq);
 DECLARE_PER_CPU(struct hmp_domain *, hmp_cpu_domain);
 #include "../../drivers/misc/mediatek/base/power/include/mtk_upower.h"

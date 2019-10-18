@@ -826,13 +826,39 @@ static int system_opp_count(void)
 	return count;
 }
 
+#ifdef CONFIG_NONLINEAR_FREQ_CTL
+static inline unsigned int get_opp_capacity(struct cpufreq_policy *policy,
+						int row)
+{
+	struct upower_tbl *upower_tbl;
+
+	upower_tbl = upower_get_core_tbl(policy->cpu);
+
+	return upower_tbl->row[row].cap;
+}
+#else
+static inline unsigned int get_opp_capacity(struct cpufreq_policy *policy,
+						int row)
+{
+	unsigned int cap, orig_cap;
+	unsigned long freq, max_freq;
+
+	max_freq = policy->cpuinfo.max_freq;
+	orig_cap = capacity_orig_of(policy->cpu);
+
+	freq = policy->freq_table[row].frequency;
+	cap = orig_cap * freq / max_freq;
+
+	return cap;
+}
+#endif
+
 void init_opp_capacity_tbl(void)
 {
 	int cpu, cid, prev_cid = -1;
 	int count = 0;
 	int i, idx = 0;
-	unsigned int cap, orig_cap;
-	unsigned long freq, max_freq;
+	unsigned int cap;
 	struct sched_domain *sd;
 	struct sched_group *sg;
 	const struct sched_group_energy *sge;
@@ -868,13 +894,11 @@ void init_opp_capacity_tbl(void)
 			goto free_unlock;
 		}
 
-		max_freq = arch_max_cpu_freq(NULL, cpu);
-		orig_cap = capacity_orig_of(cpu);
-
 		for (i = 0; i < sge->nr_cap_states; i++) {
-			freq = policy->freq_table[i].frequency;
-			cap = orig_cap * freq / max_freq;
-			opp_capacity_tbl[idx++] = cap;
+			cap = get_opp_capacity(policy, i);
+			cap = cap * SCHED_CAPACITY_SCALE / capacity_margin;
+			opp_capacity_tbl[idx] = cap;
+			idx++;
 		}
 		cpufreq_cpu_put(policy);
 		prev_cid = cid;
@@ -883,8 +907,10 @@ void init_opp_capacity_tbl(void)
 
 	sort(opp_capacity_tbl, count, sizeof(unsigned int),
 			&cap_compare, NULL);
+	opp_capacity_tbl[count - 1] = SCHED_CAPACITY_SCALE;
 	total_opp_count = count;
 	opp_capacity_tbl_ready = 1;
+
 	return;
 free_unlock:
 	rcu_read_unlock();
