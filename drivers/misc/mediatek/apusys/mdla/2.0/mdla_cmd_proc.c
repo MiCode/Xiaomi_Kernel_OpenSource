@@ -382,7 +382,6 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd,
 		ret = -1;
 	}
 
-
 	/* Start power off timer */
 	mdla_command_done(core_id);
 
@@ -404,8 +403,10 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd,
 			wt->busy_time, wt->bandwidth);
 #endif
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
-	if (!pmu_apusys_pmu_addr_check(apusys_hd))
+	if (!pmu_apusys_pmu_addr_check(apusys_hd)) {
 		pmu_command_counter_prt(mdla_info);
+		apusys_hd->ip_time = (uint32_t)(wt->busy_time/1000);
+	}
 #endif
 	return ret;
 }
