@@ -21,7 +21,7 @@ enum POWER_THROTTLE_NOTIFY_TYPE {
 };
 
 #define TMC_CTRL_CMD_TX_POWER	10
-#define LBAT_REDUCE_TX_POWER	48 /* unit : 1/8 db */
-#define OC_REDUCE_TX_POWER	48 /* unit : 1/8 db */
+#define LBAT_REDUCE_TX_POWER	6 /* unit : 1 db */
+#define OC_REDUCE_TX_POWER	6 /* unit : 1 db */
 
 #endif
