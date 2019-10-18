@@ -849,7 +849,7 @@ static void mtk_cl_mutt_set_mutt_limit(enum mutt_type type)
 #endif
 
 	final_lv = clmutt_decide_final_level(type, target_lv);
-	if (target_lv != -1 && target_lv < final_lv) {
+	if (final_lv != -1 && target_lv < final_lv) {
 		mtk_cooler_mutt_dprintk_always(
 			"[%s] %s:target_lv(%d) < final_lv(%d), skip...\n",
 			__func__, clmutt_data.cooler_param[type].name,
@@ -1766,7 +1766,7 @@ static int clmutt_tx_pwr_proc_read(struct seq_file *m, void *v)
 {
 	int i;
 
-	seq_puts(m, "reduce max tx power: (unit: 1/8 db)\n");
+	seq_puts(m, "reduce max tx power: (unit: db)\n");
 
 	for_each_mutt_type(i)
 		seq_printf(m, "[%s] = %d\n",
