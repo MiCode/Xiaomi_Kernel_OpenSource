@@ -312,7 +312,7 @@ static int enable_fw_nolock(struct npu_device *npu_dev)
 		goto notify_fw_pwr_fail;
 	}
 
-	ret = wait_for_completion_timeout(
+	ret = wait_for_completion_interruptible_timeout(
 		&host_ctx->fw_bringup_done, NW_CMD_TIMEOUT);
 	if (!ret) {
 		NPU_ERR("Wait for fw bringup timedout\n");
@@ -388,7 +388,7 @@ static void disable_fw_nolock(struct npu_device *npu_dev)
 	}
 
 	if (!host_ctx->auto_pil_disable) {
-		ret = wait_for_completion_timeout(
+		ret = wait_for_completion_interruptible_timeout(
 			&host_ctx->fw_shutdown_done, NW_CMD_TIMEOUT);
 		if (!ret)
 			NPU_ERR("Wait for fw shutdown timedout\n");
@@ -1613,7 +1613,7 @@ int32_t npu_host_unmap_buf(struct npu_client *client,
 	 * fw is disabled
 	 */
 	if (host_ctx->fw_error && (host_ctx->fw_state == FW_ENABLED) &&
-		!wait_for_completion_timeout(
+		!wait_for_completion_interruptible_timeout(
 		&host_ctx->fw_deinit_done, NW_CMD_TIMEOUT))
 		NPU_WARN("npu: wait for fw_deinit_done time out\n");
 
