@@ -290,14 +290,15 @@ static bool filter_by_hw_limitation(struct drm_device *dev,
 static uint16_t get_mapping_table(struct drm_device *dev, int disp_idx,
 				  enum DISP_HW_MAPPING_TB_TYPE tb_type,
 				  int param);
-static int layering_get_valid_hrt(int width, int height);
+static int layering_get_valid_hrt(struct drm_display_mode *mode);
 
-static void copy_hrt_bound_table(int is_larb, int *hrt_table,
-				 struct drm_device *dev)
+static void copy_hrt_bound_table(struct drm_mtk_layering_info *disp_info,
+			int is_larb, int *hrt_table, struct drm_device *dev)
 {
 	unsigned long flags = 0;
 	int valid_num, ovl_bound, i;
 	struct drm_crtc *crtc;
+	struct drm_display_mode *mode;
 
 	/* Not used in 6779 */
 	if (is_larb)
@@ -308,10 +309,12 @@ static void copy_hrt_bound_table(int is_larb, int *hrt_table,
 			break;
 	}
 
+	mode = mtk_drm_crtc_avail_disp_mode(crtc,
+		disp_info->disp_mode_idx[0]);
+
 	/* update table if hrt bw is enabled */
 	spin_lock_irqsave(&hrt_table_lock, flags);
-	valid_num = layering_get_valid_hrt(crtc->mode.hdisplay,
-					   crtc->mode.vdisplay);
+	valid_num = layering_get_valid_hrt(mode);
 	ovl_bound = mtk_get_phy_layer_limit(
 		get_mapping_table(dev, 0, DISP_HW_LAYER_TB, MAX_PHY_OVL_CNT));
 	valid_num = min(valid_num, ovl_bound * 100);
@@ -424,21 +427,25 @@ static bool _rollback_all_to_GPU_for_idle(struct drm_device *dev)
 	return true;
 }
 
-unsigned long long _layering_get_frame_bw(int width, int height)
+unsigned long long _layering_get_frame_bw(struct drm_display_mode *mode)
 {
 	static unsigned long long bw_base;
+	static int fps;
+	int width = mode->hdisplay, height = mode->vdisplay;
 
-	if (bw_base)
+	if (fps == mode->vrefresh)
 		return bw_base;
 
-	bw_base = (unsigned long long)width * height * 60 * 125 * 4;
+	fps = mode->vrefresh;
+
+	bw_base = (unsigned long long)width * height * fps * 125 * 4;
 
 	bw_base /= 100 * 1024 * 1024;
 
 	return bw_base;
 }
 
-static int layering_get_valid_hrt(int width, int height)
+static int layering_get_valid_hrt(struct drm_display_mode *mode)
 {
 	unsigned long long dvfs_bw = 0;
 #ifdef MTK_FB_MMDVFS_SUPPORT
@@ -447,7 +454,7 @@ static int layering_get_valid_hrt(int width, int height)
 	dvfs_bw = mm_hrt_get_available_hrt_bw(get_virtual_port(VIRTUAL_DISP));
 	dvfs_bw *= 10000;
 
-	tmp = _layering_get_frame_bw(width, height);
+	tmp = _layering_get_frame_bw(mode);
 	dvfs_bw /= tmp * 100;
 
 	/* error handling when requested BW is less than 2 layers */

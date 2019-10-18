@@ -154,8 +154,8 @@ struct layering_rule_ops {
 	/* should be removed */
 	int (*get_hrt_bound)(int is_larb, int hrt_level);
 
-	void (*copy_hrt_bound_table)(int is_larb, int *hrt_table,
-				     struct drm_device *dev);
+	void (*copy_hrt_bound_table)(struct drm_mtk_layering_info *disp_info,
+		int is_larb, int *hrt_table, struct drm_device *dev);
 	bool (*rollback_to_gpu_by_hw_limitation)(
 		struct drm_device *dev,
 		struct drm_mtk_layering_info *disp_info);

@@ -358,6 +358,8 @@ static int debug_get_info(unsigned char *stringbuf, int buf_len)
 
 	n += disp_helper_get_option_list(stringbuf + n, buf_len - n);
 #endif
+	n += mtk_drm_primary_display_get_debug_state(private, stringbuf + n,
+		buf_len - n);
 
 	n += mtk_drm_helper_get_opt_list(private->helper_opt, stringbuf + n,
 					 buf_len - n);

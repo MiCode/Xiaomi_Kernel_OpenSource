@@ -529,6 +529,9 @@ struct mtk_drm_crtc {
 	atomic_t delayed_trig;
 	wait_queue_head_t trigger_delay;
 	wait_queue_head_t trigger_event;
+
+	unsigned int avail_modes_num;
+	struct drm_display_mode *avail_modes;
 };
 
 struct mtk_crtc_state {
@@ -631,6 +634,13 @@ void mtk_crtc_check_trigger(struct mtk_drm_crtc *mtk_crtc, bool delay);
 bool mtk_crtc_is_dc_mode(struct drm_crtc *crtc);
 void mtk_crtc_hw_block_ready(struct drm_crtc *crtc);
 int mtk_crtc_lcm_ATA(struct drm_crtc *crtc);
+
+struct drm_display_mode *mtk_drm_crtc_avail_disp_mode(struct drm_crtc *crtc,
+	unsigned int idx);
+unsigned int mtk_drm_primary_frame_bw(struct drm_crtc *crtc);
+
+unsigned int mtk_drm_primary_display_get_debug_state(
+	struct mtk_drm_private *priv, char *stringbuf, int buf_len);
 
 /********************** Legacy DISP API ****************************/
 unsigned int DISP_GetScreenWidth(void);

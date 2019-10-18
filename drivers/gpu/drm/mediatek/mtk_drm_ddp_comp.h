@@ -200,6 +200,8 @@ enum mtk_ddp_io_cmd {
 	LCM_RESET,
 	DSI_SET_BL,
 	LCM_ATA_CHECK,
+	DSI_SET_CRTC_AVAIL_MODES,
+	DSI_TIMING_CHANGE,
 };
 
 struct golden_setting_context {

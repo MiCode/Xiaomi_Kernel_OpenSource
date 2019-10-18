@@ -48,6 +48,7 @@
 #include <linux/clk.h>
 #include "mtk_disp_pmqos.h"
 #include "mtk_disp_recovery.h"
+#include "mtk_drm_arr.h"
 
 #define DRIVER_NAME "mediatek"
 #define DRIVER_DESC "Mediatek SoC DRM"
@@ -1510,6 +1511,8 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 		goto err_kms_helper_poll_fini;
 
 	mtk_drm_first_enable(drm);
+
+	drm_fps_chg_cb_init();
 
 	return 0;
 err_kms_helper_poll_fini:

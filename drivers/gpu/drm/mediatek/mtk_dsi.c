@@ -2212,6 +2212,80 @@ static const struct mipi_dsi_host_ops mtk_dsi_ops = {
 	.transfer = mtk_dsi_host_transfer,
 };
 
+static void mtk_dsi_cmd_timing_change(struct mtk_dsi *dsi,
+	struct mtk_drm_crtc *mtk_crtc, struct drm_crtc_state *old_state)
+{
+	struct cmdq_pkt *cmdq_handle;
+	struct cmdq_pkt *cmdq_handle2;
+	int clk_refcnt = 0;
+	struct mtk_crtc_state *state =
+	    to_mtk_crtc_state(mtk_crtc->base.state);
+	struct mtk_crtc_state *old_mtk_state =
+	    to_mtk_crtc_state(old_state);
+	unsigned int src_mode =
+	    old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX];
+	unsigned int dst_mode =
+	    state->prop_val[CRTC_PROP_DISP_MODE_IDX];
+
+	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
+		mtk_crtc->gce_obj.client[CLIENT_CFG]);
+
+	/* 1. wait frame done & wait DSI not busy */
+	cmdq_pkt_wfe(cmdq_handle,
+		mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
+	/* Clear stream block to prevent trigger loop start */
+	cmdq_pkt_clear_event(cmdq_handle,
+		mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
+	mtk_dsi_poll_for_idle(dsi, cmdq_handle);
+	cmdq_pkt_flush(cmdq_handle);
+	cmdq_pkt_destroy(cmdq_handle);
+
+	/*  send lcm cmd before DSI power down if needed */
+	if (dsi->ext && dsi->ext->funcs &&
+		dsi->ext->funcs->mode_switch)
+		dsi->ext->funcs->mode_switch(dsi->panel, src_mode,
+			dst_mode, BEFORE_DSI_POWERDOWN);
+
+	/* Power off DSI */
+	clk_refcnt = dsi->clk_refcnt;
+	while (dsi->clk_refcnt != 1)
+		mtk_dsi_ddp_unprepare(&dsi->ddp_comp);
+	mtk_dsi_enter_idle(dsi);
+
+	if (dsi->ext && dsi->ext->funcs &&
+		dsi->ext->funcs->ext_param_set)
+		dsi->ext->funcs->ext_param_set(dsi->panel,
+			state->prop_val[CRTC_PROP_DISP_MODE_IDX]);
+
+	/* Power on & re-config DSI*/
+	mtk_dsi_leave_idle(dsi);
+	while (dsi->clk_refcnt != clk_refcnt)
+		mtk_dsi_ddp_prepare(&dsi->ddp_comp);
+
+	/*  send lcm cmd after DSI power on if needed */
+	if (dsi->ext && dsi->ext->funcs &&
+		dsi->ext->funcs->mode_switch)
+		dsi->ext->funcs->mode_switch(dsi->panel, src_mode,
+			dst_mode, AFTER_DSI_POWERON);
+
+	/* set frame done */
+	mtk_crtc_pkt_create(&cmdq_handle2, &mtk_crtc->base,
+		mtk_crtc->gce_obj.client[CLIENT_CFG]);
+	cmdq_pkt_set_event(cmdq_handle2,
+		mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
+	cmdq_pkt_set_event(cmdq_handle2,
+		mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
+	cmdq_pkt_flush(cmdq_handle2);
+	cmdq_pkt_destroy(cmdq_handle2);
+}
+
+static void mtk_dsi_timing_change(struct mtk_dsi *dsi,
+	struct mtk_drm_crtc *mtk_crtc, struct drm_crtc_state *old_state)
+{
+	if (mtk_dsi_is_cmd_mode(&dsi->ddp_comp))
+		mtk_dsi_cmd_timing_change(dsi, mtk_crtc, old_state);
+}
+
 static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			  enum mtk_ddp_io_cmd cmd, void *params)
 {
@@ -2351,7 +2425,34 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			*val = panel_ext->funcs->ata_check(dsi->panel);
 	}
 		break;
+	case DSI_SET_CRTC_AVAIL_MODES:
+	{
+		struct mtk_drm_crtc *crtc = (struct mtk_drm_crtc *)params;
+		struct drm_display_mode *m;
+		unsigned int i = 0;
 
+		crtc->avail_modes_num = 0;
+		list_for_each_entry(m, &dsi->conn.modes, head)
+			crtc->avail_modes_num++;
+
+		crtc->avail_modes =
+		    vzalloc(sizeof(struct drm_display_mode) *
+			    crtc->avail_modes_num);
+		list_for_each_entry(m, &dsi->conn.modes, head) {
+			drm_mode_copy(&crtc->avail_modes[i], m);
+			i++;
+		}
+	}
+		break;
+	case DSI_TIMING_CHANGE:
+	{
+		struct mtk_drm_crtc *crtc = comp->mtk_crtc;
+		struct drm_crtc_state *old_state =
+		    (struct drm_crtc_state *)params;
+
+		mtk_dsi_timing_change(dsi, crtc, old_state);
+	}
+		break;
 	default:
 		break;
 	}

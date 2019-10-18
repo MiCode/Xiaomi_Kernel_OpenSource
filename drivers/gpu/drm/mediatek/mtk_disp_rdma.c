@@ -402,13 +402,14 @@ static void mtk_rdma_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 }
 
 /* TODO RDMA1, wrot sram */
-void mtk_rdma_cal_golden_setting(struct mtk_ddp_config *cfg, unsigned int *gs)
+void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
+	struct mtk_ddp_config *cfg, unsigned int *gs)
 {
 	/* fixed variable */
 	unsigned int mmsys_clk = 315;
 	unsigned int pre_ultra_low_us = 245, pre_ultra_high_us = 255;
 	unsigned int ultra_low_us = 230, ultra_high_us = 245;
-	unsigned int if_fps = 60;
+	unsigned int if_fps = cfg->vrefresh;
 	unsigned int FP = 1000;
 
 	/* input variable */
@@ -419,6 +420,12 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_config *cfg, unsigned int *gs)
 
 	unsigned int fill_rate = 0;	  /* 100 times */
 	unsigned long long consume_rate = 0; /* 100 times */
+
+	if (if_fps == 0) {
+		DDPPR_ERR("%s invalid vrefresh %u\n",
+			__func__, if_fps);
+		if_fps = 60;
+	}
 
 	switch (cfg->bpc) {
 	case 8:
@@ -445,9 +452,9 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_config *cfg, unsigned int *gs)
 	else
 		fill_rate = 96 * mmsys_clk * 3 / 16; /* FIFO depth / us */
 
-	DDPDBG("%s,w:%d,h:%d,vrefresh:%d,bpc:%d,is_vdo:%d,is_dc:%d\n", __func__,
-	       cfg->w, cfg->h, cfg->vrefresh, cfg->bpc, gsc->is_vdo_mode,
-	       gsc->is_dc);
+	DDPINFO("%s,w:%d,h:%d,vrefresh:%d,bpc:%d,is_vdo:%d,is_dc:%d\n",
+		__func__, cfg->w, cfg->h, if_fps, cfg->bpc,
+		gsc->is_vdo_mode, gsc->is_dc);
 
 	consume_rate = width * height * if_fps * Bpp;
 	do_div(consume_rate, 1000);
@@ -565,7 +572,7 @@ static void mtk_rdma_set_ultra_l(struct mtk_ddp_comp *comp,
 	}
 
 	/* calculate golden setting */
-	mtk_rdma_cal_golden_setting(cfg, gs);
+	mtk_rdma_cal_golden_setting(comp, cfg, gs);
 
 	/* set golden setting */
 	val = gs[GS_RDMA_PRE_ULTRA_TH_LOW] +
@@ -747,9 +754,10 @@ static int mtk_rdma_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 
 		if (*rdma_memory_mode == true) {
 			struct drm_crtc *crtc = &comp->mtk_crtc->base;
+			struct drm_display_mode *mode =
+				&crtc->state->adjusted_mode;
 
-			bw_val = _layering_get_frame_bw(crtc->mode.hdisplay,
-							crtc->mode.vdisplay);
+			bw_val = _layering_get_frame_bw(mode);
 			ret = RDMA_REQ_HRT;
 		}
 		__mtk_disp_set_module_hrt(&comp->hrt_qos_req, bw_val);

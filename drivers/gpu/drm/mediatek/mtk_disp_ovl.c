@@ -1266,7 +1266,7 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 
 		mtk_crtc = comp->mtk_crtc;
 		crtc = &mtk_crtc->base;
-		vrefresh = crtc->mode.vrefresh;
+		vrefresh = crtc->state->adjusted_mode.vrefresh;
 
 		mtk_ovl_layer_on(comp, lye_idx, ext_lye_idx, handle);
 		/* TODO: consider FBDC */

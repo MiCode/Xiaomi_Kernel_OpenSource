@@ -379,13 +379,14 @@ static void dump_disp_info(struct drm_mtk_layering_info *disp_info,
 	struct drm_mtk_layer_config *layer_info;
 
 #define _HRT_FMT \
-	"HRT hrt_num:0x%x/fps:%d/dal:%d/addon_scn:(%d, %d, %d)/bd_tb:%d/i:%d\n"
+	"HRT hrt_num:0x%x/mod:%d/dal:%d/addon_scn:(%d, %d, %d)/bd_tb:%d/i:%d\n"
 #define _L_FMT \
 	"L%d->%d/(%d,%d,%d,%d)/(%d,%d,%d,%d)/f0x%x/ds%d/e%d/cap0x%x/compr%d\n"
 
 	if (debug_level < DISP_DEBUG_LEVEL_INFO) {
 		DDPMSG(_HRT_FMT,
-			disp_info->hrt_num, l_rule_info->primary_fps,
+			disp_info->hrt_num,
+			disp_info->disp_mode_idx[0],
 			l_rule_info->dal_enable,
 			l_rule_info->addon_scn[HRT_PRIMARY],
 			l_rule_info->addon_scn[HRT_SECONDARY],
@@ -421,7 +422,8 @@ static void dump_disp_info(struct drm_mtk_layering_info *disp_info,
 			}
 		}
 	} else {
-		DDPINFO(_HRT_FMT, disp_info->hrt_num, l_rule_info->primary_fps,
+		DDPINFO(_HRT_FMT, disp_info->hrt_num,
+			disp_info->disp_mode_idx[0],
 			l_rule_info->dal_enable,
 			l_rule_info->addon_scn[HRT_PRIMARY],
 			l_rule_info->addon_scn[HRT_SECONDARY],
@@ -2078,7 +2080,8 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 	if (l_rule_info->hrt_idx == 0xffffffff)
 		l_rule_info->hrt_idx = 0;
 
-	l_rule_ops->copy_hrt_bound_table(0, g_emi_bound_table, dev);
+	l_rule_ops->copy_hrt_bound_table(&layering_info,
+		0, g_emi_bound_table, dev);
 
 	/* 1.Pre-distribution */
 	l_rule_info->dal_enable = mtk_drm_dal_enable();

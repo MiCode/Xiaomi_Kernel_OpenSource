@@ -46,6 +46,7 @@
 #include "mtk_drm_assert.h"
 #include "mtk_drm_mmp.h"
 #include "mtk_disp_recovery.h"
+#include "mtk_drm_arr.h"
 
 static struct mtk_drm_property mtk_crtc_property[CRTC_PROP_MAX] = {
 	{DRM_MODE_PROP_ATOMIC, "OVERLAP_LAYER_NUM", 0, UINT_MAX, 0},
@@ -772,6 +773,36 @@ static void mtk_crtc_get_plane_comp_state(struct drm_crtc *crtc,
 					 0);
 	}
 }
+unsigned int mtk_drm_primary_frame_bw(struct drm_crtc *i_crtc)
+{
+	unsigned long long bw = 0;
+	struct drm_crtc *crtc = i_crtc;
+	struct drm_display_mode *mode;
+
+	if (drm_crtc_index(i_crtc) != 0) {
+		DDPPR_ERR("%s no support CRTC%u", __func__,
+			drm_crtc_index(i_crtc));
+
+		drm_for_each_crtc(crtc, i_crtc->dev) {
+			if (drm_crtc_index(crtc) == 0)
+				break;
+		}
+	}
+
+	mode = &crtc->state->adjusted_mode;
+	bw = _layering_get_frame_bw(mode);
+
+	return (unsigned int)bw;
+}
+
+static unsigned int overlap_to_bw(struct drm_crtc *crtc,
+	unsigned int overlap_num)
+{
+	unsigned int bw_base = mtk_drm_primary_frame_bw(crtc);
+	unsigned int bw = bw_base * overlap_num / 2;
+
+	return bw;
+}
 
 static void mtk_crtc_update_hrt_state(struct drm_crtc *crtc,
 				      unsigned int frame_weight,
@@ -781,25 +812,115 @@ static void mtk_crtc_update_hrt_state(struct drm_crtc *crtc,
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_crtc_state *crtc_state = to_mtk_crtc_state(crtc->state);
 	struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
+	unsigned int bw = overlap_to_bw(crtc, frame_weight);
 
 	/* Only update HRT information on path with HRT comp */
-	if (frame_weight > mtk_crtc->qos_ctx->last_hrt_req) {
+	if (bw > mtk_crtc->qos_ctx->last_hrt_req) {
 #ifdef MTK_FB_MMDVFS_SUPPORT
-		mtk_disp_set_hrt_bw(mtk_crtc, frame_weight);
+		mtk_disp_set_hrt_bw(mtk_crtc, bw);
 #endif
-		mtk_crtc->qos_ctx->last_hrt_req = frame_weight;
+		mtk_crtc->qos_ctx->last_hrt_req = bw;
 		cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base,
 			       cmdq_buf->pa_base + DISP_SLOT_CUR_HRT_LEVEL,
 			       NO_PENDING_HRT, ~0);
-	} else if (frame_weight < mtk_crtc->qos_ctx->last_hrt_req) {
+	} else if (bw < mtk_crtc->qos_ctx->last_hrt_req) {
 		cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base,
 			       cmdq_buf->pa_base + DISP_SLOT_CUR_HRT_LEVEL,
-			       frame_weight, ~0);
+			       bw, ~0);
 	}
 
 	cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base,
 		       cmdq_buf->pa_base + DISP_SLOT_CUR_HRT_IDX,
 		       crtc_state->prop_val[CRTC_PROP_LYE_IDX], ~0);
+}
+
+static void copy_drm_disp_mode(struct drm_display_mode *src,
+	struct drm_display_mode *dst)
+{
+	dst->clock       = src->clock;
+	dst->hdisplay    = src->hdisplay;
+	dst->hsync_start = src->hsync_start;
+	dst->hsync_end   = src->hsync_end;
+	dst->htotal      = src->htotal;
+	dst->vdisplay    = src->vdisplay;
+	dst->vsync_start = src->vsync_start;
+	dst->vsync_end   = src->vsync_end;
+	dst->vtotal      = src->vtotal;
+	dst->vrefresh    = src->vrefresh;
+}
+
+static struct golden_setting_context *
+__get_golden_setting_context(struct mtk_drm_crtc *mtk_crtc)
+{
+	static int is_inited;
+	static struct golden_setting_context gs_ctx;
+	struct drm_crtc *crtc = &mtk_crtc->base;
+
+	if (is_inited)
+		goto done;
+
+	/* default setting */
+	gs_ctx.is_dc = 0;
+
+	/* primary_display */
+	gs_ctx.is_vdo_mode = mtk_crtc_is_frame_trigger_mode(crtc) ? 0 : 1;
+	gs_ctx.dst_width = crtc->state->adjusted_mode.hdisplay;
+	gs_ctx.dst_height = crtc->state->adjusted_mode.vdisplay;
+
+	is_inited = 1;
+
+done:
+	return &gs_ctx;
+}
+
+static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
+	struct drm_crtc_state *old_state, struct mtk_crtc_state *mtk_state,
+	struct cmdq_pkt *cmdq_handle)
+{
+	struct mtk_crtc_state *old_mtk_state = to_mtk_crtc_state(old_state);
+	struct drm_display_mode *mode;
+	struct mtk_ddp_config cfg;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_ddp_comp *comp;
+	unsigned int i, j;
+
+	struct mtk_ddp_comp *output_comp;
+
+	/* Check if disp_mode_idx change */
+	if (old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX] ==
+		mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX])
+		return;
+
+	DDPMSG("%s from %u to %u\n", __func__,
+		old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX],
+		mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX]);
+
+	/* Update mode & adjusted_mode in CRTC */
+	mode = mtk_drm_crtc_avail_disp_mode(crtc,
+		mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX]);
+	copy_drm_disp_mode(mode, &crtc->state->mode);
+	copy_drm_disp_mode(mode, &crtc->state->adjusted_mode);
+
+	/* Update RDMA golden_setting */
+	cfg.w = crtc->state->adjusted_mode.hdisplay;
+	cfg.h = crtc->state->adjusted_mode.vdisplay;
+	cfg.vrefresh = crtc->state->adjusted_mode.vrefresh;
+	cfg.bpc = mtk_crtc->bpc;
+	cfg.p_golden_setting_context =
+	    __get_golden_setting_context(mtk_crtc);
+	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
+		mtk_ddp_comp_io_cmd(comp, cmdq_handle,
+			MTK_IO_CMD_RDMA_GOLDEN_SETTING, &cfg);
+
+	/* Change DSI mipi clk & send LCM cmd */
+	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+	if (output_comp)
+		mtk_ddp_comp_io_cmd(output_comp, NULL, DSI_TIMING_CHANGE,
+				old_state);
+
+	drm_invoke_fps_chg_callbacks(crtc->state->adjusted_mode.vrefresh);
+
+	mtk_drm_idlemgr_kick(__func__, crtc, 0);
 }
 
 static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
@@ -820,6 +941,10 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 			break;
 		} else if (lyeblob_ids->lye_idx ==
 			   crtc_state->prop_val[CRTC_PROP_LYE_IDX]) {
+			if (drm_crtc_index(crtc) == 0)
+				mtk_crtc_disp_mode_switch_begin(crtc,
+					old_crtc_state, crtc_state,
+					cmdq_handle);
 			if (drm_crtc_index(crtc) == 0)
 				mtk_crtc_update_hrt_state(
 					crtc, lyeblob_ids->frame_weight,
@@ -1101,7 +1226,7 @@ static void mtk_crtc_update_hrt_qos(struct drm_crtc *crtc)
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
 	struct mtk_ddp_comp *comp;
-	unsigned int cur_hrt, hrt_idx;
+	unsigned int cur_hrt_bw, hrt_idx;
 	int i, j;
 	u32 bw_mode = DISP_BW_NORMAL_MODE;
 
@@ -1116,15 +1241,15 @@ static void mtk_crtc_update_hrt_qos(struct drm_crtc *crtc)
 	atomic_set(&mtk_crtc->qos_ctx->last_hrt_idx, hrt_idx);
 	atomic_set(&mtk_crtc->qos_ctx->hrt_cond_sig, 1);
 	wake_up(&mtk_crtc->qos_ctx->hrt_cond_wq);
-	cur_hrt = *(unsigned int *)(cmdq_buf->va_base +
+	cur_hrt_bw = *(unsigned int *)(cmdq_buf->va_base +
 				DISP_SLOT_CUR_HRT_LEVEL);
-	if (cur_hrt != NO_PENDING_HRT) {
-		DDPINFO("release HRT %u %u\n", cur_hrt,
+	if (cur_hrt_bw != NO_PENDING_HRT) {
+		DDPINFO("release HRT %u %u\n", cur_hrt_bw,
 				mtk_crtc->qos_ctx->last_hrt_req);
 #ifdef MTK_FB_MMDVFS_SUPPORT
-		mtk_disp_set_hrt_bw(mtk_crtc, cur_hrt);
+		mtk_disp_set_hrt_bw(mtk_crtc, cur_hrt_bw);
 #endif
-		mtk_crtc->qos_ctx->last_hrt_req = cur_hrt;
+		mtk_crtc->qos_ctx->last_hrt_req = cur_hrt_bw;
 		*(unsigned int *)(cmdq_buf->va_base + DISP_SLOT_CUR_HRT_LEVEL) =
 				NO_PENDING_HRT;
 	}
@@ -1264,30 +1389,6 @@ static void ddp_cmdq_cb_blocking(struct mtk_cmdq_cb_data *cb_data)
 }
 
 #endif
-
-static struct golden_setting_context *
-__get_golden_setting_context(struct mtk_drm_crtc *mtk_crtc)
-{
-	static int is_inited;
-	static struct golden_setting_context gs_ctx;
-	struct drm_crtc *crtc = &mtk_crtc->base;
-
-	if (is_inited)
-		goto done;
-
-	/* default setting */
-	gs_ctx.is_dc = 0;
-
-	/* primary_display */
-	gs_ctx.is_vdo_mode = mtk_crtc_is_frame_trigger_mode(crtc) ? 0 : 1;
-	gs_ctx.dst_width = crtc->state->adjusted_mode.hdisplay;
-	gs_ctx.dst_height = crtc->state->adjusted_mode.vdisplay;
-
-	is_inited = 1;
-
-done:
-	return &gs_ctx;
-}
 
 static void mtk_crtc_ddp_config(struct drm_crtc *crtc)
 {
@@ -2081,6 +2182,38 @@ void mtk_crtc_load_round_corner_pattern(struct drm_crtc *crtc,
 }
 #endif
 
+struct drm_display_mode *mtk_drm_crtc_avail_disp_mode(struct drm_crtc *crtc,
+	unsigned int idx)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+
+	/* If not crtc0, use crtc0 instead. TODO: need to reconsidered for
+	 * secondary display, i.e: DP, HDMI
+	 */
+
+	if (drm_crtc_index(crtc) != 0) {
+		struct drm_crtc *crtc0;
+
+		DDPPR_ERR("%s no support CRTC%u", __func__,
+			drm_crtc_index(crtc));
+
+		drm_for_each_crtc(crtc0, crtc->dev) {
+			if (drm_crtc_index(crtc0) == 0)
+				break;
+		}
+
+		mtk_crtc = to_mtk_crtc(crtc0);
+	}
+
+	if (idx >= mtk_crtc->avail_modes_num) {
+		DDPPR_ERR("%s idx:%u exceed avail_num:%u", __func__,
+			idx, mtk_crtc->avail_modes_num);
+		idx = 0;
+	}
+
+	return &mtk_crtc->avail_modes[idx];
+}
+
 static void mtk_drm_crtc_init_para(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
@@ -2106,6 +2239,15 @@ static void mtk_drm_crtc_init_para(struct drm_crtc *crtc)
 		pgc->mode = *timing;
 		DDPMSG("width:%d, height:%d\n", pgc->mode.hdisplay,
 			pgc->mode.vdisplay);
+	}
+
+	/* store display mode for crtc0 only */
+	if (comp && drm_crtc_index(&mtk_crtc->base) == 0) {
+		mtk_ddp_comp_io_cmd(comp, NULL,
+			DSI_SET_CRTC_AVAIL_MODES, mtk_crtc);
+	} else {
+		mtk_crtc->avail_modes_num = 0;
+		mtk_crtc->avail_modes = NULL;
 	}
 }
 
@@ -4217,4 +4359,26 @@ int mtk_crtc_lcm_ATA(struct drm_crtc *crtc)
 	mutex_unlock(&mtk_crtc->lock);
 	return ret;
 }
+unsigned int mtk_drm_primary_display_get_debug_state(
+	struct mtk_drm_private *priv, char *stringbuf, int buf_len)
+{
+	int len = 0;
 
+	struct drm_crtc *crtc = priv->crtc[0];
+	struct mtk_crtc_state *mtk_state = to_mtk_crtc_state(crtc->state);
+
+	len += scnprintf(stringbuf + len, buf_len - len,
+			 "==========    Primary Display Info    ==========\n");
+
+	len += scnprintf(stringbuf + len, buf_len - len,
+			 "FPS = %d, display mode idx = %u, %s mode\n",
+			 crtc->state->adjusted_mode.vrefresh,
+			 mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX],
+			 (mtk_crtc_is_frame_trigger_mode(crtc) ?
+			  "cmd" : "vdo"));
+
+	len += scnprintf(stringbuf + len, buf_len - len,
+		"================================================\n\n");
+
+	return len;
+}

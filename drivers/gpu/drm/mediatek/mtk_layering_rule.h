@@ -56,7 +56,7 @@ void mtk_layering_rule_init(struct drm_device *dev);
 void mtk_update_layering_opt_by_disp_opt(enum MTK_DRM_HELPER_OPT opt,
 					 int value);
 unsigned int _layering_rule_get_hrt_idx(void);
-unsigned long long _layering_get_frame_bw(int width, int height);
+unsigned long long _layering_get_frame_bw(struct drm_display_mode *mode);
 // int layering_get_valid_hrt(void);
 // void copy_hrt_bound_table(int is_larb, int *hrt_table);
 

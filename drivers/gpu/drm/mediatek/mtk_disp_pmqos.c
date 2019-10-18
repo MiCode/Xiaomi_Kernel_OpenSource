@@ -135,22 +135,15 @@ void __mtk_disp_set_module_hrt(struct mm_qos_request *request,
 	mm_qos_set_hrt_request(request, bandwidth);
 }
 
-int mtk_disp_set_hrt_bw(struct mtk_drm_crtc *mtk_crtc, unsigned int overlap_num)
+int mtk_disp_set_hrt_bw(struct mtk_drm_crtc *mtk_crtc, unsigned int bw)
 {
 	struct drm_crtc *crtc = &mtk_crtc->base;
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	struct mtk_ddp_comp *comp;
-	unsigned long long bw_base;
 	unsigned int tmp;
 	int i, j, ret = 0;
 
-	DRM_MMP_MARK(hrt_bw, 0, overlap_num);
-
-	bw_base = _layering_get_frame_bw(crtc->mode.hdisplay,
-					 crtc->mode.vdisplay);
-	bw_base /= 2;
-
-	tmp = bw_base * overlap_num;
+	tmp = bw;
 
 	for (i = 0; i < DDP_PATH_NR; i++) {
 		if (!(mtk_crtc->ddp_ctx[mtk_crtc->ddp_mode].req_hrt[i]))
@@ -162,9 +155,10 @@ int mtk_disp_set_hrt_bw(struct mtk_drm_crtc *mtk_crtc, unsigned int overlap_num)
 	}
 
 	if (ret == RDMA_REQ_HRT)
-		tmp = bw_base * 2;
+		tmp = mtk_drm_primary_frame_bw(crtc);
 
 	mm_qos_set_hrt_request(&priv->hrt_bw_request, tmp);
+	DRM_MMP_MARK(hrt_bw, 0, tmp);
 	DDPINFO("set HRT bw %u\n", tmp);
 	mm_qos_update_all_request(&priv->hrt_request_list);
 

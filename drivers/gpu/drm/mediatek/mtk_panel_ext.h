@@ -35,12 +35,20 @@ struct esd_check_item {
 	unsigned char para_list[RT_MAX_NUM];
 };
 
+enum MTK_PANEL_MODE_SWITCH_STAGE {
+	BEFORE_DSI_POWERDOWN,
+	AFTER_DSI_POWERON,
+};
+
 struct mtk_panel_funcs {
 	int (*set_backlight_cmdq)(void *dsi_drv, dcs_write_gce cb,
 		void *handle, unsigned int level);
 	int (*aod)(void *handle, int enter);
 	int (*reset)(struct drm_panel *panel, int on);
 	int (*ata_check)(struct drm_panel *panel);
+	int (*ext_param_set)(struct drm_panel *panel, unsigned int mode);
+	int (*mode_switch)(struct drm_panel *panel, unsigned int cur_mode,
+		unsigned int dst_mode, enum MTK_PANEL_MODE_SWITCH_STAGE stage);
 };
 
 enum MIPITX_PHY_PORT {
