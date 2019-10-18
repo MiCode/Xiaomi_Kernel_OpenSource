@@ -218,10 +218,49 @@ page_owner=on";
 		ranges;
 		suspend-method = "system";
 		irq-remain = <&edge_keypad>;
+		resource-ctrl = <&bus26m &infra &syspll>,
+				<&dram_s0 &dram_s1>;
+		constraints = <&rc_bus26m &rc_syspll &rc_dram>;
 		irq-remain-list {
 			edge_keypad: edge_keypad {
 				target = <&keypad>;
 				value = <1 0 0 0x40>;
+			};
+		};
+		resource-ctrl-list {
+			bus26m: bus26m {
+				id = <0x00000000>;
+				value = <0>;
+			};
+			infra: infra {
+				id = <0x00000001>;
+				value = <0>;
+			};
+			syspll: syspll {
+				id = <0x00000002>;
+				value = <0>;
+			};
+			dram_s0: dram_s0 {
+				id = <0x00000003>;
+				value = <0>;
+			};
+			dram_s1: dram_s1 {
+				id = <0x00000004>;
+				value = <1>;
+			};
+		};
+		constraint-list {
+			rc_bus26m: rc_bus26m {
+				id = <0x00000000>;
+				value = <1>;
+			};
+			rc_syspll: rc_syspll {
+				id = <0x00000001>;
+				value = <1>;
+			};
+			rc_dram: rc_dram {
+				id = <0x00000002>;
+				value = <1>;
 			};
 		};
 	};
