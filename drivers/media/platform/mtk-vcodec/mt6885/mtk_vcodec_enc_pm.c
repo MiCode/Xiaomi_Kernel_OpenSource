@@ -421,6 +421,9 @@ int mtk_venc_ion_config_buff(struct dma_buf *dmabuf)
 	if (ion_kernel_ioctl(ion_venc_client, ION_CMD_MULTIMEDIA,
 		(unsigned long)&mm_data)) {
 		mtk_v4l2_err("configure ion buffer failed!\n");
+		/* dma hold ref, ion directly free */
+		ion_free(ion_venc_client, handle);
+
 		return -1;
 	}
 
