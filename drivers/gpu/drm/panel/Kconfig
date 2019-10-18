@@ -216,4 +216,25 @@ config DRM_PANEL_TIANMA_R66451_CMD
 	  and uses 24-bits RGB per pixel. It provides a MIPI DSI interface
 	  to host.
 
+config DRM_PANEL_K6885V1_64_ALPHA_VDO_01
+        tristate "K6885V1 alpha phone vdo mode panel"
+        depends on OF
+        depends on DRM_MIPI_DSI
+        depends on BACKLIGHT_CLASS_DEVICE
+        help
+          Say Y here if you want to enable support for K6885V1 alpha
+          phone vdo mode panel. The panel has a 1080x2340 resolution and uses
+          24-bits RGB per pixel. It provides a MIPI DSI interface
+          to host.
+
+config DRM_PANEL_K6885V1_64_ALPHA_VDO_02
+        tristate "K6885V1 alpha phone vdo mode panel 02"
+        depends on OF
+        depends on DRM_MIPI_DSI
+        depends on BACKLIGHT_CLASS_DEVICE
+        help
+          Say Y here if you want to enable support for K6885V1 alpha
+          phone vdo mode panel. The panel has a 1080x2340 resolution and uses
+          24-bits RGB per pixel. It provides a MIPI DSI interface
+          to host.
 endmenu
