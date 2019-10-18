@@ -18,7 +18,7 @@
 	.regmap = NULL,		\
 }
 
-static struct mt6315_chip mt6315_chip[] = {
+static struct mt6315_misc mt6315_misc[] = {
 #if defined(CONFIG_MACH_MT6885)
 	MT6315_DECL_CHIP(SPMI_MASTER_0, MT6315_SLAVE_ID_6),
 	MT6315_DECL_CHIP(SPMI_MASTER_0, MT6315_SLAVE_ID_7),
@@ -26,13 +26,13 @@ static struct mt6315_chip mt6315_chip[] = {
 #endif
 };
 
-static struct mt6315_chip *mt6315_find_chip_sid(u32 sid)
+static struct mt6315_misc *mt6315_find_chip_sid(u32 sid)
 {
 	int i;
 
-	for (i = 0; i < ARRAY_SIZE(mt6315_chip); i++) {
-		if (mt6315_chip[i].slave_addr == sid)
-			return &mt6315_chip[i];
+	for (i = 0; i < ARRAY_SIZE(mt6315_misc); i++) {
+		if (mt6315_misc[i].slave_addr == sid)
+			return &mt6315_misc[i];
 	}
 	return NULL;
 }
@@ -43,16 +43,17 @@ static unsigned int g_vsram_md_vosel;
 
 static void mt6315_S3_default_vosel(void)
 {
-	struct mt6315_chip *chip;
+#if defined(CONFIG_MACH_MT6885)
+	struct mt6315_misc *mt6315;
 	struct regmap *regmap;
 
-	chip = mt6315_find_chip_sid(MT6315_SLAVE_ID_3);
-	if (!chip) {
+	mt6315 = mt6315_find_chip_sid(MT6315_SLAVE_ID_3);
+	if (!mt6315) {
 		pr_info("%s MT6315S3 not ready.\n", __func__);
 		return;
 	}
 
-	regmap = chip->regmap;
+	regmap = mt6315->regmap;
 	if (!regmap) {
 		pr_info("%s null regmap.\n", __func__);
 		return;
@@ -79,6 +80,7 @@ static void mt6315_S3_default_vosel(void)
 			, __func__, g_vmodem_vosel, g_vnr_vosel,
 			g_vsram_md_vosel);
 	}
+#endif	/* CONFIG_MACH_MT6885 */
 }
 
 void mt6315_vmd1_pmic_setting_on(void)
@@ -238,16 +240,16 @@ static void mt6315_lp_set(unsigned char slave_id, unsigned char buck_id,
 		   enum MT6315_BUCK_EN_USER user, unsigned char op_mode,
 		   unsigned char op_en, unsigned char op_cfg)
 {
-	struct mt6315_chip *chip;
+	struct mt6315_misc *mt6315;
 	struct regmap *regmap;
 
-	chip = mt6315_find_chip_sid(slave_id);
-	if (!chip) {
+	mt6315 = mt6315_find_chip_sid(slave_id);
+	if (!mt6315) {
 		pr_info("%s MT6315S%d not ready\n", __func__, slave_id);
 		return;
 	}
 
-	regmap = chip->regmap;
+	regmap = mt6315->regmap;
 	if (!regmap) {
 		pr_info("%s null regmap.\n", __func__);
 		return;
@@ -268,16 +270,16 @@ static void mt6315_lp_set(unsigned char slave_id, unsigned char buck_id,
 /* enable VDIG18 SRCLKEN low power mode */
 static void mt6315_vdig18_hw_op_set(unsigned char slave_id, unsigned char en)
 {
-	struct mt6315_chip *chip;
+	struct mt6315_misc *mt6315;
 	struct regmap *regmap;
 
-	chip = mt6315_find_chip_sid(slave_id);
-	if (!chip) {
+	mt6315 = mt6315_find_chip_sid(slave_id);
+	if (!mt6315) {
 		pr_info("%s MT6315S%d not ready\n", __func__, slave_id);
 		return;
 	}
 
-	regmap = chip->regmap;
+	regmap = mt6315->regmap;
 	if (!regmap) {
 		pr_info("%s null regmap.\n", __func__);
 		return;
@@ -297,27 +299,33 @@ static void mt6315_vdig18_hw_op_set(unsigned char slave_id, unsigned char en)
 static void mt6315_S3_lp_initial_setting(void)
 {
 #if LP_INIT_SETTING_VERIFIED
+#if defined(CONFIG_MACH_MT6885)
 	mt6315_vdig18_hw_op_set(MT6315_SLAVE_ID_3, 1);
 	/* vmodem/vnr/vsram_md */
 	mt6315_lp_set(MT6315_SLAVE_ID_3, 1, MT6315_SRCLKEN0, 1, 1, HW_LP);
 	mt6315_lp_set(MT6315_SLAVE_ID_3, 3, MT6315_SRCLKEN0, 1, 1, HW_LP);
 	mt6315_lp_set(MT6315_SLAVE_ID_3, 4, MT6315_SRCLKEN0, 1, 1, HW_LP);
 #endif
+#endif
 }
 
 static void mt6315_S6_lp_initial_setting(void)
 {
 #if LP_INIT_SETTING_VERIFIED
+#if defined(CONFIG_MACH_MT6885)
 	mt6315_vdig18_hw_op_set(MT6315_SLAVE_ID_6, 1);
+#endif
 #endif
 }
 
 static void mt6315_S7_lp_initial_setting(void)
 {
 #if LP_INIT_SETTING_VERIFIED
+#if defined(CONFIG_MACH_MT6885)
 	mt6315_vdig18_hw_op_set(MT6315_SLAVE_ID_7, 1);
 	/* vsram_core */
 	mt6315_lp_set(MT6315_SLAVE_ID_7, 3, MT6315_SRCLKEN0, 1, 1, HW_LP);
+#endif
 #endif
 }
 
@@ -345,11 +353,11 @@ static void mt6315_misc_initial_setting(u32 sid)
 
 void mt6315_misc_init(u32 sid, struct regmap *regmap)
 {
-	struct mt6315_chip *chip;
+	struct mt6315_misc *mt6315;
 
-	chip = mt6315_find_chip_sid(sid);
-	if (chip)
-		chip->regmap = regmap;
+	mt6315 = mt6315_find_chip_sid(sid);
+	if (mt6315)
+		mt6315->regmap = regmap;
 
 	mt6315_misc_initial_setting(sid);
 

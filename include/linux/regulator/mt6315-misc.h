@@ -9,7 +9,7 @@
 #define HW_OFF	0
 #define HW_LP   1
 
-struct mt6315_chip {
+struct mt6315_misc {
 	uint8_t master_idx;
 	uint8_t slave_addr;
 	struct regmap *regmap;
