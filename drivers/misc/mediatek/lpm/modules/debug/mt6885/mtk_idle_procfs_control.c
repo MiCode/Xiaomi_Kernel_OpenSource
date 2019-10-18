@@ -27,7 +27,7 @@ static ssize_t idle_proc_log_write(struct file *filp,
 		const char __user *userbuf, size_t count, loff_t *f_pos)
 {
 	ssize_t ret = count;
-	unsigned int enabled;
+	unsigned int enabled = 0;
 	char *buf;
 
 	mtk_idle_procfs_alloc_from_user(buf, userbuf, count);
@@ -64,7 +64,7 @@ static ssize_t idle_proc_timer_write(struct file *filp,
 		const char __user *userbuf, size_t count, loff_t *f_pos)
 {
 	ssize_t ret = count;
-	unsigned int enabled;
+	unsigned int enabled = 0;
 	char *buf;
 
 	mtk_idle_procfs_alloc_from_user(buf, userbuf, count);
@@ -101,7 +101,7 @@ static ssize_t idle_proc_stress_write(struct file *filp,
 		const char __user *userbuf, size_t count, loff_t *f_pos)
 {
 	ssize_t ret = count;
-	unsigned int enabled;
+	unsigned int enabled = 0;
 	char *buf;
 
 	mtk_idle_procfs_alloc_from_user(buf, userbuf, count);
@@ -199,7 +199,7 @@ static ssize_t idle_proc_buck_mode_write(struct file *filp,
 		const char __user *userbuf, size_t count, loff_t *f_pos)
 {
 	ssize_t ret = count;
-	unsigned int mode;
+	unsigned int mode = 0;
 	char *buf;
 
 	mtk_idle_procfs_alloc_from_user(buf, userbuf, count);
@@ -261,7 +261,7 @@ static ssize_t idle_proc_armpll_mode_write(struct file *filp,
 		const char __user *userbuf, size_t count, loff_t *f_pos)
 {
 	ssize_t ret = count;
-	unsigned int mode;
+	unsigned int mode = 0;
 	char *buf;
 
 	mtk_idle_procfs_alloc_from_user(buf, userbuf, count);

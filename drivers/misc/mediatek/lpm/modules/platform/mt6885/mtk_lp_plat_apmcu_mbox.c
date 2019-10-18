@@ -90,7 +90,7 @@ bool mtk_mcupm_cm_is_notified(void)
 
 	mbox[MBOX_MCUPM].read(APMCU_MCUPM_MBOX_PWR_CTRL_EN, &en_mask, 1);
 
-	return !!(en_mask | MCUPM_CM_CTRL);
+	return !!(en_mask & MCUPM_CM_CTRL);
 }
 EXPORT_SYMBOL(mtk_mcupm_cm_is_notified);
 

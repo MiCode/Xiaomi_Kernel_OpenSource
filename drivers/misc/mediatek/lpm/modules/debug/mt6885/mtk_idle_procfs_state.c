@@ -62,8 +62,8 @@ static int idle_proc_state_param_setting(char *cmd, int param)
 {
 	struct cpuidle_driver *drv;
 	char *args;
-	unsigned int cpu_mask, state_idx, val;
-	int cpu, i;
+	unsigned int cpu_mask, state_idx = 0, val = 0;
+	int cpu = 0, i;
 
 	struct cmd_param {
 		unsigned int id;
