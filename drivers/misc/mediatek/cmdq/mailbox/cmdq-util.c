@@ -398,7 +398,8 @@ static void cmdq_util_handle_devapc_vio(void)
 		s32 usage = cmdq_mbox_get_usage(util.cmdq_mbox[i]);
 
 		cmdq_dump("GCE devapc vio usage:%d", usage);
-		cmdq_thread_dump_all(util.cmdq_mbox[i]);
+		if (usage)
+			cmdq_thread_dump_all(util.cmdq_mbox[i]);
 	}
 
 	cmdq_util_dump_smi();

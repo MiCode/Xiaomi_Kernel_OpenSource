@@ -682,11 +682,17 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 	dma_addr_t curr_pa, task_end_pa;
 	s32 err = 0;
 
+	if (atomic_read(&cmdq->usage) <= 0) {
+		cmdq_log("irq handling during gce off gce:%lx thread:%u",
+			(unsigned long)cmdq->base_pa, thread->idx);
+		return;
+	}
+
 	irq_flag = readl(thread->base + CMDQ_THR_IRQ_STATUS);
 	writel(~irq_flag, thread->base + CMDQ_THR_IRQ_STATUS);
 
-	cmdq_log("CMDQ_THR_IRQ_STATUS:%u thread chan:0x%p idx:%u",
-		irq_flag, thread->chan, thread->idx);
+	cmdq_log("irq flag:%#x gce:%lx idx:%u",
+		irq_flag, (unsigned long)cmdq->base_pa, thread->idx);
 
 	/*
 	 * When ISR call this function, another CPU core could run
@@ -794,8 +800,9 @@ static irqreturn_t cmdq_irq_handler(int irq, void *dev)
 	}
 
 	irq_status = readl(cmdq->base + CMDQ_CURR_IRQ_STATUS) & CMDQ_IRQ_MASK;
-	cmdq_log("CMDQ_CURR_IRQ_STATUS: %x, %x",
-		(u32)irq_status, (u32)(irq_status ^ CMDQ_IRQ_MASK));
+	cmdq_log("gce:%lx irq: %#x, %#x",
+		(unsigned long)cmdq->base_pa, (u32)irq_status,
+		(u32)(irq_status ^ CMDQ_IRQ_MASK));
 	if (!(irq_status ^ CMDQ_IRQ_MASK)) {
 		cmdq_msg("not handle for empty status:0x%x",
 			(u32)irq_status);
@@ -1014,6 +1021,14 @@ void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
 
 	/* lock channel and get info */
 	spin_lock_irqsave(&chan->lock, flags);
+
+	if (atomic_read(&cmdq->usage) <= 0) {
+		cmdq_err("%s gce off cmdq:%lx thread:%u",
+			__func__, cmdq, thread->idx);
+		dump_stack();
+		spin_unlock_irqrestore(&chan->lock, flags);
+		return;
+	}
 
 	warn_rst = readl(thread->base + CMDQ_THR_WARM_RESET);
 	en = readl(thread->base + CMDQ_THR_ENABLE_TASK);
