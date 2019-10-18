@@ -853,9 +853,15 @@ ssize_t mtk_devapc_dbg_read(struct file *file, char __user *buffer,
 	size_t count, loff_t *ppos)
 {
 	struct mtk_devapc_dbg_status *dbg_stat = mtk_devapc_ctx->soc->dbg_stat;
+	struct mtk_devapc_vio_info *vio_info = mtk_devapc_ctx->soc->vio_info;
 	char msg_buf[1024] = {0};
 	char *p = msg_buf;
 	int len;
+
+	if (unlikely(dbg_stat == NULL) || unlikely(vio_info == NULL)) {
+		pr_err(PFX "%s:%d NULL pointer\n", __func__, __LINE__);
+		return -EINVAL;
+	}
 
 	devapc_log(p, msg_buf, "DEVAPC debug status:\n");
 	devapc_log(p, msg_buf, "\tenable_ut = %d\n", dbg_stat->enable_ut);
@@ -863,6 +869,8 @@ ssize_t mtk_devapc_dbg_read(struct file *file, char __user *buffer,
 	devapc_log(p, msg_buf, "\tenable_AEE = %d\n", dbg_stat->enable_AEE);
 	devapc_log(p, msg_buf, "\tenable_WARN = %d\n", dbg_stat->enable_WARN);
 	devapc_log(p, msg_buf, "\tenable_dapc = %d\n", dbg_stat->enable_dapc);
+	devapc_log(p, msg_buf, "\tviolation count = %d\n",
+			vio_info->vio_trigger_times);
 	devapc_log(p, msg_buf, "\n");
 
 	len = p - msg_buf;
