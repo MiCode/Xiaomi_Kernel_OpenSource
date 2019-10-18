@@ -12,6 +12,7 @@
  */
 
 #include <linux/debugfs.h>
+#include <linux/uaccess.h>
 
 #include "vpu_cmn.h"
 #include "vpu_algo.h"
@@ -333,10 +334,54 @@ static int vpu_debug_jtag_get(void *data, u64 *val)
 	return 0;
 }
 
+static char *vpu_debug_simple_write(const char __user *buffer, size_t count)
+{
+	char *buf;
+	int ret;
+
+	buf = kzalloc(count + 1, GFP_KERNEL);
+	if (!buf)
+		goto out;
+
+	ret = copy_from_user(buf, buffer, count);
+	if (ret) {
+		pr_info("%s: copy_from_user: ret=%d\n", __func__, ret);
+		kfree(buf);
+		buf = NULL;
+		goto out;
+	}
+
+	buf[count] = '\0';
+out:
+	return buf;
+}
+
 static int vpu_debug_vpu_memory(struct seq_file *s)
 {
 	vpu_dmp_seq(s);
 	return 0;
+}
+
+static ssize_t vpu_debug_vpu_memory_write(struct file *filp,
+	const char __user *buffer, size_t count, loff_t *f_pos)
+{
+	char *buf, *cmd, *cur;
+
+	pr_info("%s:\n", __func__);
+
+	buf = vpu_debug_simple_write(buffer, count);
+
+	if (!buf)
+		goto out;
+
+	cur = buf;
+	cmd = strsep(&cur, " \t\n");
+	if (!strcmp(cmd, "free"))
+		vpu_dmp_free_all();
+
+	kfree(buf);
+out:
+	return count;
 }
 
 static int vpu_debug_dump(struct seq_file *s)
@@ -352,7 +397,38 @@ static int vpu_debug_dump(struct seq_file *s)
 	return 0;
 }
 
-#define VPU_DEBUGFS_DEF(name) \
+static ssize_t vpu_debug_dump_write(struct file *filp,
+	const char __user *buffer, size_t count, loff_t *f_pos)
+{
+	char *buf, *cmd, *cur;
+	struct vpu_device *vd;
+
+	if (!filp || !filp->f_inode)
+		goto out;
+
+	vd = (struct vpu_device *) filp->f_inode->i_private;
+
+	if (!vd)
+		goto out;
+
+	buf = vpu_debug_simple_write(buffer, count);
+
+	if (!buf)
+		goto out;
+
+	cur = buf;
+	cmd = strsep(&cur, " \t\n");
+	if (!strcmp(cmd, "free"))
+		vpu_dmp_free(vd);
+	else if (!strcmp(cmd, "dump"))
+		vpu_dmp_create(vd, NULL, "Dump trigger by user");
+
+	kfree(buf);
+out:
+	return count;
+}
+
+#define VPU_DEBUGFS_FOP_DEF(name) \
 static struct dentry *vpu_d##name; \
 static int vpu_debug_## name ##_show(struct seq_file *s, void *unused) \
 { \
@@ -364,6 +440,9 @@ static int vpu_debug_## name ##_open(struct inode *inode, struct file *file) \
 	return single_open(file, vpu_debug_ ## name ## _show, \
 		inode->i_private); \
 } \
+
+#define VPU_DEBUGFS_DEF(name) \
+	VPU_DEBUGFS_FOP_DEF(name) \
 static const struct file_operations vpu_debug_ ## name ## _fops = { \
 	.open = vpu_debug_ ## name ## _open, \
 	.read = seq_read, \
@@ -371,11 +450,21 @@ static const struct file_operations vpu_debug_ ## name ## _fops = { \
 	.release = seq_release, \
 }
 
+#define VPU_DEBUGFS_RW_DEF(name) \
+	VPU_DEBUGFS_FOP_DEF(name) \
+static const struct file_operations vpu_debug_ ## name ## _fops = { \
+	.open = vpu_debug_ ## name ## _open, \
+	.read = seq_read, \
+	.write = vpu_debug_ ## name ## _write, \
+	.llseek = seq_lseek, \
+	.release = seq_release, \
+}
+
 VPU_DEBUGFS_DEF(algo);
-VPU_DEBUGFS_DEF(dump);
+VPU_DEBUGFS_RW_DEF(dump);
 VPU_DEBUGFS_DEF(mesg);
 VPU_DEBUGFS_DEF(reg);
-VPU_DEBUGFS_DEF(vpu_memory);
+VPU_DEBUGFS_RW_DEF(vpu_memory);
 
 #undef VPU_DEBUGFS_DEF
 

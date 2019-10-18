@@ -64,10 +64,36 @@ struct vpu_dmp {
 #ifdef CONFIG_MTK_APUSYS_VPU_DEBUG
 void vpu_dmp_init(struct vpu_device *vd);
 void vpu_dmp_exit(struct vpu_device *vd);
-int vpu_dmp_create(struct vpu_device *vd, struct vpu_request *req,
+int vpu_dmp_create_locked(struct vpu_device *vd, struct vpu_request *req,
 	const char *fmt, ...);
+void vpu_dmp_free_locked(struct vpu_device *vd);
+void vpu_dmp_free_all(void);
 void vpu_dmp_seq_core(struct seq_file *s, struct vpu_device *vd);
 void vpu_dmp_seq(struct seq_file *s);
+
+#define vpu_dmp_create(vd, req, fmt, args...) do { \
+		pr_info("%s: vpu_dmp_create\n", __func__); \
+		mutex_lock(&vd->lock); \
+		mutex_lock(&vd->cmd_lock); \
+		if (!vpu_pwr_get_locked_nb(vd)) { \
+			if (!vpu_dev_boot(vd)) { \
+				vpu_dmp_create_locked(vd, req, fmt, ##args); \
+			} \
+			vpu_pwr_put_locked(vd); \
+		} \
+		mutex_unlock(&vd->cmd_lock); \
+		mutex_unlock(&vd->lock); \
+	} while (0)
+
+#define vpu_dmp_free(vd) do { \
+		pr_info("%s: vpu_dmp_free\n", __func__); \
+		mutex_lock(&vd->lock); \
+		mutex_lock(&vd->cmd_lock); \
+		vpu_dmp_free_locked(vd); \
+		mutex_unlock(&vd->cmd_lock); \
+		mutex_unlock(&vd->lock); \
+	} while (0)
+
 #else
 static inline
 void vpu_dmp_init(struct vpu_device *vd)
@@ -80,8 +106,31 @@ void vpu_dmp_exit(struct vpu_device *vd)
 }
 
 static inline
+int vpu_dmp_create_locked(struct vpu_device *vd, struct vpu_request *req,
+	const char *fmt, ...)
+{
+	return 0;
+}
+
+static inline
 int vpu_dmp_create(struct vpu_device *vd, struct vpu_request *req,
 	const char *fmt, ...)
+{
+	return 0;
+}
+
+static inline
+void vpu_dmp_free_locked(struct vpu_device *vd)
+{
+}
+
+static inline
+void vpu_dmp_free(struct vpu_device *vd)
+{
+}
+
+static inline
+void vpu_dmp_free_all(void)
 {
 }
 

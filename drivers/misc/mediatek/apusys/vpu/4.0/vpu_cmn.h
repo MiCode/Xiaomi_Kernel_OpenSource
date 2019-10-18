@@ -34,7 +34,7 @@
 #define vpu_aee_excp(vd, req, key, format, args...) \
 	do { \
 		pr_info(format, ##args); \
-		vpu_dmp_create(vd, req, format, ##args); \
+		vpu_dmp_create_locked(vd, req, format, ##args); \
 		vpu_pwr_down_locked(vd); \
 		aee_kernel_exception("VPU", \
 			"\nCRDISPATCH_KEY:" key "\n" format, ##args); \

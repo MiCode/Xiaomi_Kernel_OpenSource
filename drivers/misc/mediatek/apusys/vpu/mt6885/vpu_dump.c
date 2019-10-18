@@ -42,8 +42,15 @@ out:
 	return 0;
 }
 
-static void vpu_dmp_free(struct vpu_device *vd)
+/**
+ * vpu_dmp_free_locked() - Free VPU register and memory dump
+ * @vd: vpu device
+ *
+ * vd->lock or vd->cmd_lock must be locked before calling this function
+ */
+void vpu_dmp_free_locked(struct vpu_device *vd)
 {
+	pr_info("%s:\n", __func__);
 	if (!vd->dmp)
 		return;
 
@@ -98,13 +105,13 @@ static void vpu_dmp_iomem(void *dst, void __iomem *src, size_t size)
 }
 
 /**
- * vpu_dmp_create() - Create VPU register and memory dump
+ * vpu_dmp_create_locked() - Create VPU register and memory dump
  * @vd: vpu device
  * @req: on-going vpu request, set NULL if not available
  *
  * vd->lock or vd->cmd_lock must be locked before calling this function
  */
-int vpu_dmp_create(struct vpu_device *vd, struct vpu_request *req,
+int vpu_dmp_create_locked(struct vpu_device *vd, struct vpu_request *req,
 	const char *fmt, ...)
 {
 	struct vpu_dmp *d;
@@ -282,6 +289,22 @@ void vpu_dmp_seq(struct seq_file *s)
 	mutex_unlock(&vpu_drv->lock);
 }
 
+/**
+ * vpu_dmp_clear_all() - Free VPU dump of all cores
+ */
+void vpu_dmp_free_all(void)
+{
+	struct vpu_device *vd;
+	struct list_head *ptr, *tmp;
+
+	mutex_lock(&vpu_drv->lock);
+	list_for_each_safe(ptr, tmp, &vpu_drv->devs) {
+		vd = list_entry(ptr, struct vpu_device, list);
+		vpu_dmp_free(vd);
+	}
+	mutex_unlock(&vpu_drv->lock);
+}
+
 void vpu_dmp_init(struct vpu_device *vd)
 {
 	vd->dmp = NULL;
@@ -289,6 +312,6 @@ void vpu_dmp_init(struct vpu_device *vd)
 
 void vpu_dmp_exit(struct vpu_device *vd)
 {
-	vpu_dmp_free(vd);
+	vpu_dmp_free_locked(vd);
 }
 
