@@ -112,9 +112,10 @@ int vpu_send_cmd(int op, void *hnd, struct apusys_device *adev)
 	switch (op) {
 	case APUSYS_CMD_POWERON:
 		pw = (struct apusys_power_hnd *)hnd;
-		vpu_cmd_debug("%s: APUSYS_CMD_POWERON, boost: %d, opp: %d\n",
-			__func__, pw->boost_val, pw->opp);
-		return vpu_pwr_up(vd, pw->boost_val);
+		vpu_cmd_debug("%s: APUSYS_CMD_POWERON, boost: %d, opp: %d, timeout: %d\n",
+			__func__, pw->boost_val, pw->opp, pw->timeout);
+		return vpu_pwr_up(vd, pw->boost_val,
+			(pw->timeout ? VPU_PWR_OFF_LATENCY : 0));
 	case APUSYS_CMD_POWERDOWN:
 		vpu_cmd_debug("%s: APUSYS_CMD_POWERDOWN\n", __func__);
 		vpu_pwr_down(vd);

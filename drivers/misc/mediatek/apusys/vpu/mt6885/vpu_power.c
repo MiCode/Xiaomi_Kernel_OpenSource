@@ -122,18 +122,24 @@ void vpu_pwr_put_locked(struct vpu_device *vd)
  * vpu_pwr_up_locked() - unconditionally power up VPU
  * @vd: vpu device
  * @boost: boost value: 0~100, given from vpu_request
+ * @off_timer: set power off timer (us), 0: always on
  *
  * vd->lock or vd->cmd_lock must be locked before calling this function
  */
-int vpu_pwr_up_locked(struct vpu_device *vd, uint8_t boost)
+int vpu_pwr_up_locked(struct vpu_device *vd, uint8_t boost, uint32_t off_timer)
 {
 	int ret;
+	uint64_t pol;
 
 	ret = vpu_pwr_get_locked(vd, boost);
-	if (!ret)
+	if (ret)
 		return ret;
 
+	pol = vd->pw_off_latency;
+	vd->pw_off_latency = off_timer;
 	vpu_pwr_put_locked(vd);
+	vd->pw_off_latency = pol;
+
 	vpu_pwr_debug("%s: powered up %d\n", __func__, ret);
 	return 0;
 }
@@ -155,15 +161,16 @@ void vpu_pwr_down_locked(struct vpu_device *vd)
  * vpu_pwr_up() - unconditionally power up VPU
  * @vd: vpu device
  * @boost: boost value: 0~100, given from vpu_request
+ * @off_timer: set power off timer (us), 0: always on
  *
  */
-int vpu_pwr_up(struct vpu_device *vd, uint8_t boost)
+int vpu_pwr_up(struct vpu_device *vd, uint8_t boost, uint32_t off_timer)
 {
 	int ret;
 
 	mutex_lock(&vd->lock);
 	mutex_lock(&vd->cmd_lock);
-	ret = vpu_pwr_up_locked(vd, boost);
+	ret = vpu_pwr_up_locked(vd, boost, off_timer);
 	mutex_unlock(&vd->cmd_lock);
 	mutex_unlock(&vd->lock);
 	return ret;
