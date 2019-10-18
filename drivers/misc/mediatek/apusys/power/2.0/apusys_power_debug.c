@@ -36,8 +36,73 @@
 #include "apusys_power.h"
 #include "apu_power_api.h"
 
+static int g_debug_option;
+
+static void apu_power_dump_opp_table(struct seq_file *s)
+{
+	int opp_num;
+	int buck_domain;
+
+	seq_printf(s,
+		"|opp| vpu0| vpu1| vpu2|mdla0|mdla1| conn|iommu|ipuif|\n");
+	seq_printf(s,
+		"|---------------------------------------------------|\n");
+	for (opp_num = 0 ; opp_num < APUSYS_MAX_NUM_OPPS ; opp_num++) {
+		seq_printf(s, "| %d |", opp_num);
+		for (buck_domain = 0 ; buck_domain < APUSYS_BUCK_DOMAIN_NUM;
+			buck_domain++) {
+			seq_printf(s, " %d |",
+			apusys_opps.opps[opp_num][buck_domain].freq / 1000);
+		}
+		seq_printf(s,
+			"\n|---------------------------------------------------|\n");
+	}
+}
+
+static void apu_power_dump_curr_status(struct seq_file *s)
+{
+	struct apu_power_info info;
+	int buck_domain;
+
+	seq_printf(s,
+		"|curr| vpu0| vpu1| vpu2|mdla0|mdla1| conn|iommu|vcore|\n| opp|");
+	for (buck_domain = 0 ; buck_domain < APUSYS_BUCK_DOMAIN_NUM;
+		buck_domain++) {
+		seq_printf(s, "  %d  |",
+			apusys_opps.cur_opp_index[buck_domain]);
+	}
+	seq_puts(s, "\n");
+
+	info.id = 0;
+	hal_config_power(PWR_CMD_GET_POWER_INFO, VPU0, &info);
+
+	seq_printf(s,
+		"|freq| %03u | %03u | %03u | %03u | %03u | %03u | %03u | %03u |\n",
+		info.dsp1_freq, info.dsp2_freq, info.dsp3_freq,
+		info.dsp6_freq, info.dsp6_freq, info.dsp_freq,
+		info.dsp7_freq, info.ipuif_freq);
+
+	seq_printf(s,
+		"| clk| dsp1| dsp2| dsp3| dsp6| dsp6|  dsp| dsp7|ipuif|\n(unit: MHz)\n\n");
+
+	seq_printf(s, "vvpu:%u(mV), vmdla:%u(mV), vcore:%u(mV), vsram:%u(mV)\n",
+			info.vvpu, info.vmdla, info.vcore, info.vsram);
+
+}
+
 static int apusys_debug_power_show(struct seq_file *s, void *unused)
 {
+	switch (g_debug_option) {
+	case POWER_PARAM_OPP_TABLE:
+		apu_power_dump_opp_table(s);
+		break;
+	case POWER_PARAM_CURR_STATUS:
+		apu_power_dump_curr_status(s);
+		break;
+	default:
+		seq_puts(s, "please echo power node first\n");
+	}
+
 	return 0;
 }
 
@@ -366,6 +431,26 @@ int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 		 */
 		apu_power_power_stress(args[0], args[1], args[2]);
 		break;
+	case POWER_PARAM_OPP_TABLE:
+		ret = (argc == 1) ? 0 : -EINVAL;
+		if (ret) {
+			PWR_LOG_INF(
+				"invalid argument, expected:1, received:%d\n",
+				argc);
+			goto out;
+		}
+		g_debug_option = POWER_PARAM_OPP_TABLE;
+		break;
+	case POWER_PARAM_CURR_STATUS:
+		ret = (argc == 1) ? 0 : -EINVAL;
+		if (ret) {
+			PWR_LOG_INF(
+				"invalid argument, expected:1, received:%d\n",
+				argc);
+			goto out;
+		}
+		g_debug_option = POWER_PARAM_CURR_STATUS;
+		break;
 	default:
 		PWR_LOG_INF("unsupport the power parameter:%d\n", param);
 		break;
@@ -427,6 +512,10 @@ static ssize_t apusys_debug_power_write(struct file *flip,
 		param = POWER_PARAM_GET_POWER_REG;
 	else if (strcmp(token, "power_stress") == 0)
 		param = POWER_PARAM_POWER_STRESS;
+	else if (strcmp(token, "opp_table") == 0)
+		param = POWER_PARAM_OPP_TABLE;
+	else if (strcmp(token, "curr_status") == 0)
+		param = POWER_PARAM_CURR_STATUS;
 	else {
 		ret = -EINVAL;
 		PWR_LOG_INF("no power param[%s]!\n", token);
