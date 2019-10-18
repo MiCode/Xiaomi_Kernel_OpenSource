@@ -155,7 +155,6 @@ struct kbase_mem_phy_alloc {
 #ifdef CONFIG_MTK_IOMMU_V2
 			struct ion_client *ion_client;
 			struct ion_handle *ion_handle;
-			u32 is_iommu;
 #endif
 		} umm;
 		struct {

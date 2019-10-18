@@ -969,19 +969,8 @@ int kbase_mem_do_sync_imported(struct kbase_context *kctx,
 			struct dma_buf_attachment *attachment = reg->gpu_alloc->imported.umm.dma_attachment;
 			struct sg_table *sgt = reg->gpu_alloc->imported.umm.sgt;
 
-#ifdef CONFIG_MTK_IOMMU_V2
-			struct scatterlist *s;
-			int i;
-			u32 is_iommu = reg->gpu_alloc->imported.umm.is_iommu;
-
-			if (is_iommu) {
-				for_each_sg(sgt->sgl, s, sgt->nents, i) {
-					__dma_map_area(sg_virt(s), s->length, dir);
-				}
-			} else
-#endif
-				dma_sync_sg_for_device(attachment->dev, sgt->sgl,
-						sgt->nents, dir);
+			dma_sync_sg_for_device(attachment->dev, sgt->sgl,
+					sgt->nents, dir);
 			ret = 0;
 		}
 #else
@@ -1009,19 +998,8 @@ int kbase_mem_do_sync_imported(struct kbase_context *kctx,
 			struct dma_buf_attachment *attachment = reg->gpu_alloc->imported.umm.dma_attachment;
 			struct sg_table *sgt = reg->gpu_alloc->imported.umm.sgt;
 
-#ifdef CONFIG_MTK_IOMMU_V2
-			struct scatterlist *s;
-			int i;
-			u32 is_iommu = reg->gpu_alloc->imported.umm.is_iommu;
-
-			if (is_iommu) {
-				for_each_sg(sgt->sgl, s, sgt->nents, i) {
-					__dma_unmap_area(sg_virt(s), s->length, dir);
-				}
-			} else
-#endif
-				dma_sync_sg_for_cpu(attachment->dev, sgt->sgl,
-						sgt->nents, dir);
+			dma_sync_sg_for_cpu(attachment->dev, sgt->sgl,
+					sgt->nents, dir);
 			ret = 0;
 		}
 #else
@@ -1288,19 +1266,13 @@ static struct kbase_va_region *kbase_mem_from_umm(struct kbase_context *kctx,
 
 #ifdef CONFIG_MTK_IOMMU_V2
 	struct ion_handle *handle = NULL;
-	u32 is_iommu = 0;
-
-#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && (CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 	struct ion_mm_data mm_data;
 	int err = 0;
-#endif
-#endif
 
 	/* 64-bit address range is the max */
 	if (*va_pages > (U64_MAX / PAGE_SIZE))
 		return NULL;
 
-#ifdef CONFIG_MTK_IOMMU_V2
 	if (kctx->kbdev->client == NULL) {
 		dev_warn(kctx->kbdev->dev, "invalid ion client!\n");
 		goto skip_ion_buf_config;
@@ -1309,15 +1281,10 @@ static struct kbase_va_region *kbase_mem_from_umm(struct kbase_context *kctx,
 	handle = ion_import_dma_buf_fd(kctx->kbdev->client, fd);
 
 	if (IS_ERR(handle)) {
-		is_iommu = 0;
-
 		dev_warn(kctx->kbdev->dev, "import ion handle failed!\n");
 		goto skip_ion_buf_config;
-	} else {
-		is_iommu = 1;
 	}
 
-#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && (CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
 	mm_data.config_buffer_param.kernel_handle = handle;
 	mm_data.config_buffer_param.module_id = M4U_PORT_GPU;
@@ -1337,7 +1304,6 @@ static struct kbase_va_region *kbase_mem_from_umm(struct kbase_context *kctx,
 			err);
 		goto skip_ion_buf_config;
 	}
-#endif
 
 /* If not ion_buf, then skip it. */
 skip_ion_buf_config:
@@ -1436,7 +1402,6 @@ skip_ion_buf_config:
 #ifdef CONFIG_MTK_IOMMU_V2
 	reg->gpu_alloc->imported.umm.ion_client = kctx->kbdev->client;
 	reg->gpu_alloc->imported.umm.ion_handle = handle;
-	reg->gpu_alloc->imported.umm.is_iommu = is_iommu;
 #endif
 
 	reg->extent = 0;
