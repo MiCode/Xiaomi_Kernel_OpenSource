@@ -242,7 +242,7 @@
 			drive-strength = <1>;
 		};
 	};
-	camera_pins_cam0_mclk_2ma: camera_pins_cam1_mclk_2ma {
+	camera_pins_cam0_mclk_2ma: camera_pins_cam0_mclk_2ma {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO150__FUNC_CMMCLK1>;
 			drive-strength = <0>;
@@ -475,7 +475,7 @@
 	};
 };
 &i2c9 {
-	mtk_camera_eeprom3:camera_eeprom3@51 {
+	mtk_camera_eeprom4:camera_eeprom4@51 {
 		compatible = "mediatek,camera_eeprom";
 		reg = <0x51>;
 		status = "okay";

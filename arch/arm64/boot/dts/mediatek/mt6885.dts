@@ -7438,7 +7438,6 @@ page_owner=on";
 #include "mt6315_s3.dtsi"
 #include "mt6359p.dtsi"
 #include "cust_mt6885_msdc.dtsi"
-#include "cust_mt6885_camera.dtsi"
 #include "mt6360_pd.dtsi"
 #ifdef CONFIG_MTK_ENABLE_GENIEZONE
 #include "trusty.dtsi"
