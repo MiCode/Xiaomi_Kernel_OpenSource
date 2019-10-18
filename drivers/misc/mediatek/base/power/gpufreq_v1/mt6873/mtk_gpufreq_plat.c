@@ -1114,6 +1114,7 @@ static unsigned int mt_gpufreq_get_limited_idx_by_freq(
 	return limited_idx;
 }
 
+#if MT_GPUFREQ_BATT_OC_PROTECT
 void mt_gpufreq_batt_oc_callback(BATTERY_OC_LEVEL battery_oc_level)
 {
 	unsigned int batt_oc_limited_idx = LIMIT_IDX_DEFAULT;
@@ -1139,7 +1140,9 @@ void mt_gpufreq_batt_oc_callback(BATTERY_OC_LEVEL battery_oc_level)
 	gpufreq_pr_debug("battery_oc_level = %d, batt_oc_limited_idx = %d\n",
 					battery_oc_level, batt_oc_limited_idx);
 }
+#endif
 
+#if MT_GPUFREQ_BATT_PERCENT_PROTECT
 void mt_gpufreq_batt_percent_callback(
 		BATTERY_PERCENT_LEVEL battery_percent_level)
 {
@@ -1168,7 +1171,9 @@ void mt_gpufreq_batt_percent_callback(
 	gpufreq_pr_debug("battery_percent_level = %d, batt_percent_limited_idx = %d\n",
 		battery_percent_level, batt_percent_limited_idx);
 }
+#endif
 
+#if MT_GPUFREQ_LOW_BATT_VOLT_PROTECT
 void mt_gpufreq_low_batt_callback(LOW_BATTERY_LEVEL low_battery_level)
 {
 	unsigned int low_batt_limited_idx = LIMIT_IDX_DEFAULT;
@@ -1194,6 +1199,7 @@ void mt_gpufreq_low_batt_callback(LOW_BATTERY_LEVEL low_battery_level)
 	gpufreq_pr_debug("low_battery_level = %d, low_batt_limited_idx = %d\n",
 		low_battery_level, low_batt_limited_idx);
 }
+#endif
 
 /*
  * API : set limited OPP table index for Thermal protection
