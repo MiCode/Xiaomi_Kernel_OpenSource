@@ -48,9 +48,9 @@ struct iommu_event_t {
 	unsigned int event_id;
 	unsigned int time_low;
 	unsigned int time_high;
-	unsigned int data1;
-	unsigned int data2;
-	unsigned int data3;
+	unsigned long data1;
+	unsigned long data2;
+	unsigned long data3;
 };
 
 
@@ -434,7 +434,7 @@ void mtk_iommu_log_dump(void *seq_file)
 	seq_puts(s, "---------------------------------------------------\n");
 	seq_puts(s, "Time  | Action |iova_start | size  | port |iova_end\n");
 	for (i = 0; i < IOMMU_MAX_EVENT_COUNT; i++) {
-		unsigned int end_iova = 0;
+		unsigned long end_iova = 0;
 
 		if ((iommu_globals.record[i].time_low == 0) &&
 		    (iommu_globals.record[i].time_high == 0))
@@ -444,7 +444,7 @@ void mtk_iommu_log_dump(void *seq_file)
 			end_iova = iommu_globals.record[i].data1 +
 				iommu_globals.record[i].data2 - 1;
 
-		seq_printf(s, "%d.%-7d |%10s |0x%-8x |%9u |0x%-8x |0x%-8x\n",
+		seq_printf(s, "%d.%-7d |%10s |0x%-8lx |%9lu |0x%-8lx |0x%-8lx\n",
 			   iommu_globals.record[i].time_high,
 			   iommu_globals.record[i].time_low,
 			   event_mgr[event_id].name,
@@ -466,9 +466,9 @@ static void mtk_iommu_system_time(unsigned int *low, unsigned int *high)
 }
 
 void mtk_iommu_trace_rec_write(int event,
-			       unsigned int data1,
-			       unsigned int data2,
-			       unsigned int data3)
+			       unsigned long data1,
+			       unsigned long data2,
+			       unsigned long data3)
 {
 	unsigned int index;
 	struct iommu_event_t *p_event = NULL;
@@ -477,7 +477,7 @@ void mtk_iommu_trace_rec_write(int event,
 	if (iommu_globals.enable == 0)
 		return;
 	if (event_mgr[event].dump_log)
-		pr_info("[MTK_IOMMU] _trace %10s |0x%-8x |%9u |0x%-8x |0x%-8x\n",
+		pr_info("[MTK_IOMMU] _trace %10s |0x%-8lx |%9lu |0x%-8lx |0x%-8lx\n",
 			event_mgr[event].name,
 			data1, data2, data3, data1 + data3);
 
@@ -494,8 +494,8 @@ void mtk_iommu_trace_rec_write(int event,
 		&(iommu_globals.record[index]);
 	mtk_iommu_system_time(&(p_event->time_low), &(p_event->time_high));
 	p_event->event_id = event;
-	p_event->data1 = (unsigned int)data1;
-	p_event->data2 = (unsigned int)data2;
+	p_event->data1 = data1;
+	p_event->data2 = data2;
 	p_event->data3 = data3;
 
 	spin_unlock_irqrestore(&iommu_globals.lock, flags);
@@ -527,9 +527,9 @@ void mtk_iommu_trace_register(int event, const char *name)
 }
 
 void mtk_iommu_trace_log(int event,
-			 unsigned int data1,
-			 unsigned int data2,
-			 unsigned int data3)
+			 unsigned long data1,
+			 unsigned long data2,
+			 unsigned long data3)
 {
 	if (event >= IOMMU_EVENT_MAX)
 		return;

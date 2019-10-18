@@ -144,9 +144,9 @@ void mtk_iommu_trace_unmap(unsigned long orig_iova,
 			   size_t size,
 			   size_t unmapped);
 void mtk_iommu_trace_log(int event,
-			 unsigned int data1,
-			 unsigned int data2,
-			 unsigned int data3);
+			 unsigned long data1,
+			 unsigned long data2,
+			 unsigned long data3);
 
 void mtk_iommu_log_dump(void *seq_file);
 int m4u_user2kernel_port(int userport);

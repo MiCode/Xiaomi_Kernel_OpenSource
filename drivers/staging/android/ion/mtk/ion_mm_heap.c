@@ -733,7 +733,7 @@ static void ion_buffer_dump(struct ion_buffer *buffer, struct seq_file *s)
 		 pdbg->dbg_name);
 #elif (DOMAIN_NUM == 2)
 	ION_DUMP(s,
-		 "0x%lx %8zu %3d %3d %3d %3d %3d %3lu(%3lu) %3lu(%3lu) 0x%x, 0x%x, %5d(%5d) %16s 0x%x 0x%x 0x%x 0x%x %s\n",
+		 "0x%lx %8zu %3d %3d %3d %3d %3d %lx(%lx) %lx(%lx) 0x%x, 0x%x, %5d(%5d) %16s 0x%x 0x%x 0x%x 0x%x %s\n",
 		 buffer, buffer->size, buffer->kmap_cnt,
 		 atomic_read(&buffer->ref.refcount.refs),
 		 buffer->handle_count, val,
@@ -747,7 +747,7 @@ static void ion_buffer_dump(struct ion_buffer *buffer, struct seq_file *s)
 		 pdbg->dbg_name);
 #elif (DOMAIN_NUM == 4)
 	ION_DUMP(s,
-		 "0x%lx %8zu %3d %3d %3d %3d %3d %d-%3lu %d-%3lu %d-%3lu %d-%3lu 0x%x, 0x%x, %5d(%5d) %16s 0x%x 0x%x 0x%x 0x%x %s\n",
+		 "0x%lx %8zu %3d %3d %3d (%3d) %3d (%d-%lx) (%d-%lx) (%d-%lx) (%d-%lx) 0x%x, 0x%x, %5d(%5d) %16s 0x%x 0x%x 0x%x 0x%x %s\n",
 		 buffer, buffer->size, buffer->kmap_cnt,
 		 atomic_read(&buffer->ref.refcount.refs),
 		 buffer->handle_count, val,
@@ -1860,6 +1860,9 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 			if (mm_cmd == ION_MM_CONFIG_BUFFER &&
 			    buffer_info->module_id != -1) {
+				if (buffer_info->module_id ==
+				    param.config_buffer_param.module_id)
+					return 0;
 				IONMSG
 				    ("corrupt with %d, %d-%d,name %16.s!!!\n",
 				     buffer_info->module_id,
@@ -1870,6 +1873,9 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 
 			if (mm_cmd == ION_MM_CONFIG_BUFFER_EXT &&
 			    buffer_info->fix_module_id != -1) {
+				if (buffer_info->fix_module_id ==
+				    param.config_buffer_param.module_id)
+					return 0;
 				IONMSG
 				    ("corrupt with %d, %d-%d,name %16.s!!!\n",
 				     buffer_info->fix_module_id,
@@ -1878,7 +1884,8 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 				return -EFAULT;
 			}
 #endif
-			if (param.config_buffer_param.module_id < 0) {
+			if (param.config_buffer_param.module_id < 0 &&
+			    param.config_buffer_param.module_id != -1) {
 				IONMSG
 				    ("config error:%d-%d,name %16.s!!!\n",
 				     param.config_buffer_param.module_id,
