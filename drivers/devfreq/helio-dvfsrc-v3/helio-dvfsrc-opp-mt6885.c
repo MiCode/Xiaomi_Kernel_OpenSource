@@ -121,19 +121,15 @@ static int is_aging_test(void)
 	int ret = 0;
 
 #if defined(CONFIG_ARM64) && \
-	defined(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES)
+			defined(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES)
+		int len = sizeof(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES);
 
-	pr_info("[VcoreFS] flavor name: %s\n",
-		CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES);
-
-	if ((strstr(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES,
-			"k6885tv1_64_aging") != NULL) ||
-		(strstr(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES,
-			"k6885v1_64_alpha_aging") != NULL)) {
-		pr_info("[VcoreFS]: AGING flavor !!!\n");
-		return 1;
-	}
+		if (strncmp(
+			&CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES[len - 7],
+				"_aging", 7) == 0)
+			return 1;
 #endif
+
 	return ret;
 }
 
@@ -182,7 +178,7 @@ static int __init dvfsrc_opp_init(void)
 
 	}
 #if 1 /* TODO: fill when LV/HV setting*/
-	if (is_vcore_qea || (dvfs_v_mode == 3)) {
+	if (is_vcore_qea || (dvfs_v_mode == 3) || is_vcore_aging) {
 		/* LV */
 		vcore_opp_0_uv = 688750;
 		vcore_opp_1_uv = 617500;
@@ -194,12 +190,6 @@ static int __init dvfsrc_opp_init(void)
 		vcore_opp_1_uv = 682500;
 		vcore_opp_2_uv = 630000;
 		vcore_opp_3_uv = 603750;
-	} else if (is_vcore_aging) {
-		/*Doe NV */
-		vcore_opp_0_uv -= AGING_VALUE;
-		vcore_opp_1_uv -= AGING_VALUE;
-		vcore_opp_2_uv -= AGING_VALUE;
-		vcore_opp_3_uv -= AGING_VALUE;
 	}
 #endif
 
