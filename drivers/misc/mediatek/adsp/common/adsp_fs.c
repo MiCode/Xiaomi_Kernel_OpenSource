@@ -58,14 +58,15 @@ static inline ssize_t ipi_test_store(struct device *dev,
 	struct adsp_priv *pdata = container_of(dev_get_drvdata(dev),
 					struct adsp_priv, mdev);
 	int value = 0;
-	int ret;
 
 	if (kstrtoint(buf, 10, &value))
 		return -EINVAL;
 
-	if (is_adsp_ready(pdata->id)) {
-		ret = adsp_push_message(ADSP_IPI_TEST1, &value, sizeof(value),
+	if (_adsp_register_feature(pdata->id, SYSTEM_FEATURE_ID, 0) == 0) {
+		adsp_push_message(ADSP_IPI_TEST1, &value, sizeof(value),
 					1, pdata->id);
+
+		_adsp_deregister_feature(pdata->id, SYSTEM_FEATURE_ID, 0);
 	}
 
 	return count;

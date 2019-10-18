@@ -407,6 +407,7 @@ static ssize_t adsp_dump_log_show(struct file *filep, struct kobject *kobj,
 				char *buf, loff_t offset, size_t size)
 {
 	ssize_t n = 0;
+#if 0
 	ssize_t threshold[2];
 
 	threshold[0] = adsp_get_reserve_mem_size(ADSP_A_LOGGER_MEM_ID);
@@ -422,7 +423,7 @@ static ssize_t adsp_dump_log_show(struct file *filep, struct kobject *kobj,
 				buf, offset - threshold[1],
 				size, ADSP_B_LOGGER_MEM_ID);
 	}
-
+#endif
 	return n;
 }
 
