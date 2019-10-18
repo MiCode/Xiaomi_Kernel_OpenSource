@@ -34,7 +34,8 @@
 #include "mtk/mtk_ion.h"
 
 struct task_struct *ion_comm_kthread;
-wait_queue_head_t ion_comm_wq;
+//wait_queue_head_t ion_comm_wq;
+DECLARE_WAIT_QUEUE_HEAD(ion_comm_wq);
 atomic_t ion_comm_event = ATOMIC_INIT(0);
 atomic_t ion_comm_cache_event = ATOMIC_INIT(0);
 
@@ -43,6 +44,7 @@ static int ion_comm_cache_pool(void *data)
 	unsigned int req_cache_size = 0;
 	unsigned int cached_size = 0;
 	int cache_buffer = 0;
+	int ret = 0;
 	unsigned int gfp_flags = __GFP_HIGHMEM;
 	struct ion_buffer *buffer = NULL;
 	struct ion_heap *ion_cam_heap;
@@ -59,8 +61,12 @@ static int ion_comm_cache_pool(void *data)
 			break;
 		}
 
-		wait_event_interruptible(ion_comm_wq,
-					 atomic_read(&ion_comm_event));
+		ret = wait_event_interruptible(ion_comm_wq,
+					       atomic_read(&ion_comm_event));
+		if (ret) {
+			IONMSG("%s wait event error:%d\n", __func__, ret);
+			continue;
+		}
 		req_cache_size = atomic_read(&ion_comm_event);
 		cache_buffer = atomic_read(&ion_comm_cache_event);
 		atomic_set(&ion_comm_event, 0);
@@ -112,7 +118,9 @@ int ion_comm_init(void)
 {
 	struct sched_param param = { .sched_priority = 0 };
 
-	init_waitqueue_head(&ion_comm_wq);
+	//already init done at declear
+	//init_waitqueue_head(&ion_comm_wq);
+
 	ion_comm_kthread = kthread_run(ion_comm_cache_pool, NULL, "%s",
 				       "ion_comm_pool");
 	if (IS_ERR(ion_comm_kthread)) {

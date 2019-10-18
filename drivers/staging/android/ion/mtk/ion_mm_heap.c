@@ -63,11 +63,11 @@ struct ion_mm_buffer_info {
 	unsigned long FIXED_MVA[DOMAIN_NUM];
 	unsigned long iova_start[DOMAIN_NUM];
 	unsigned long iova_end[DOMAIN_NUM];
+	int port[DOMAIN_NUM];
 #if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
 	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 	struct sg_table table[DOMAIN_NUM];
 	struct sg_table *table_orig;
-	int port[DOMAIN_NUM];
 #endif
 	struct ion_mm_buf_debug_info dbg_info;
 	ion_mm_buf_destroy_callback_t *destroy_fn;
@@ -567,12 +567,11 @@ void ion_mm_heap_free_buffer_info(struct ion_buffer *buffer)
 #if (defined(CONFIG_MTK_M4U) || defined(CONFIG_MTK_PSEUDO_M4U))
 		if (buffer_info->MVA[domain_idx]) {
 			free_mva = buffer_info->MVA[domain_idx];
+			port = buffer_info->port[domain_idx];
 #if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
 	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
-			port = buffer_info->port[domain_idx];
 			table = &buffer_info->table[domain_idx];
 #else
-			port = buffer_info->module_id;
 			table = buffer->sg_table;
 #endif
 			ret = m4u_dealloc_mva_sg(
@@ -582,12 +581,11 @@ void ion_mm_heap_free_buffer_info(struct ion_buffer *buffer)
 		if (buffer_info->FIXED_MVA[domain_idx]) {
 			free_mva =
 				buffer_info->FIXED_MVA[domain_idx];
+			port = buffer_info->port[domain_idx];
 #if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
 	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
-			port = buffer_info->port[domain_idx];
 			table = &buffer_info->table[domain_idx];
 #else
-			port = buffer_info->fix_module_id;
 			table = buffer->sg_table;
 #endif
 			ret = m4u_dealloc_mva_sg(
@@ -934,8 +932,6 @@ static int ion_mm_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 			buffer_info->FIXED_MVA[domain_idx] = port_info.mva;
 
 		buffer_info->mva_cnt++;
-#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
-	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 		buffer_info->port[domain_idx] = port_info.emoduleid;
 		IONDBG(
 		       "%d, iova mapping done, buffer:0x%lx, port:%d, mva:0x%lx, fix:0x%lx, return:0x%lx, cnt=%d, domain%d\n",
@@ -943,7 +939,6 @@ static int ion_mm_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 		       buffer_info->MVA[domain_idx],
 		       buffer_info->FIXED_MVA[domain_idx],
 		       port_info.mva, buffer_info->mva_cnt, domain_idx);
-#endif
 
 #ifdef CONFIG_MTK_PSEUDO_M4U
 		mmprofile_log_ex(ion_mmp_events[PROFILE_MVA_ALLOC],
@@ -1041,10 +1036,7 @@ static int __do_dump_share_fd(const void *data, struct file *file,
 	struct ion_buffer *buffer;
 	struct ion_mm_buffer_info *bug_info;
 	unsigned int block_nr[DOMAIN_NUM] = {0};
-#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
-	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 	int port[DOMAIN_NUM] = {0};
-#endif
 	unsigned long mva[DOMAIN_NUM] = {0};
 	unsigned long mva_fix[DOMAIN_NUM] = {0};
 	unsigned int i;
@@ -1059,25 +1051,26 @@ static int __do_dump_share_fd(const void *data, struct file *file,
 
 	bug_info = (struct ion_mm_buffer_info *)buffer->priv_virt;
 	if (bug_info) {
+		pid = bug_info->pid;
 		for (i = 0; i < DOMAIN_NUM; i++) {
 			if (bug_info->MVA[i] ||
 			    bug_info->FIXED_MVA[i]) {
-#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
-	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 				port[i] = bug_info->port[i];
-#endif
 				mva[i] =  bug_info->MVA[i];
 				mva_fix[i] =  bug_info->FIXED_MVA[i];
 				block_nr[i] = (buffer->size +
 					MVA_ALIGN_MASK) >> MVA_SIZE_ORDER;
 			}
 		}
+	} else {
+		pid = -1;
+		for (i = 0; i < DOMAIN_NUM; i++) {
+			mva[i] = 0;
+			mva_fix[i] = 0;
+			block_nr[i] = 0;
+		}
 	}
 	if (!buffer->handle_count) {
-		if (bug_info)
-			pid = bug_info->pid;
-		else
-			pid = -1;
 #if (DOMAIN_NUM == 1)
 		ION_DUMP(s,
 			 "0x%p %9d %16s %5d %5d %16s %4d 0x%8x(0x%8x) %8d\n",
@@ -1099,8 +1092,6 @@ static int __do_dump_share_fd(const void *data, struct file *file,
 			 mva[1], mva_fix[1],
 			 block_nr[1]);
 #elif (DOMAIN_NUM == 4)
-#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
-	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 		ION_DUMP(s,
 			 "0x%p %9d %16s %5d %5d %16s %4d %d:(0x%8x+%8d) %d:(0x%8x+%8d) %d:(0x%8x+%8d) %d:(0x%8x+%8d)\n",
 			 buffer, pid,
@@ -1111,7 +1102,6 @@ static int __do_dump_share_fd(const void *data, struct file *file,
 			 port[1], mva[1], block_nr[1],
 			 port[2], mva[2], block_nr[2],
 			 port[3], mva[3], block_nr[3]);
-#endif
 #endif
 	}
 	return 0;
@@ -1314,9 +1304,9 @@ static int ion_mm_heap_debug_show(struct ion_heap *heap, struct seq_file *s,
 	}
 	current_ts = sched_clock();
 	do_div(current_ts, 1000000);
-	IONMSG("current time %llu ms, total: %llu!!\n",
-	       current_ts,
-	       (unsigned long long)(atomic64_read(&page_sz_cnt) * 4096));
+	ION_DUMP(s, "current time %llu ms, total: %llu!!\n",
+		 current_ts,
+		 (unsigned long long)(atomic64_read(&page_sz_cnt) * 4096));
 #ifdef CONFIG_MTK_IOMMU_V2
 	mtk_iommu_log_dump(s);
 #endif
