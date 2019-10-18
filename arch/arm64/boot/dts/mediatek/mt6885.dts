@@ -1437,6 +1437,12 @@ page_owner=on";
 		mediatek,emi-reg = <&emichn>;
 	};
 
+	emiisu {
+		compatible = "mediatek,mt6885-emiisu",
+			     "mediatek,common-emiisu";
+		ctrl_intf = <0>;
+	};
+
 #ifdef CONFIG_MTK_CONFIG_M4U
 	m4u@10220000 {
 		compatible = "mediatek,m4u";
