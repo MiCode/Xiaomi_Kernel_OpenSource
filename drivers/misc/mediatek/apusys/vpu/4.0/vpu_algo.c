@@ -156,7 +156,7 @@ void vpu_alg_release(struct kref *ref)
 		__func__, alg->vd->id, alg->a.name, alg->vd->algo_cnt);
 
 	/* free __vpu_algo memory */
-	kfree(container_of(ref, struct __vpu_algo, ref));
+	vpu_alg_free(container_of(ref, struct __vpu_algo, ref));
 }
 
 void vpu_alg_put(struct __vpu_algo *alg)

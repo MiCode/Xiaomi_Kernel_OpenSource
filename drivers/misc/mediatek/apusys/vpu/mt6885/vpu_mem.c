@@ -94,7 +94,7 @@ vpu_mem_alloc(struct platform_device *pdev,
 		goto error;
 	}
 
-	vpu_mem_debug("%s: kvmalloc: %p\n", __func__, kva);
+	vpu_mem_debug("%s: kvmalloc: %llx\n", __func__, (uint64_t)kva);
 
 	i->pages = vpu_map_kva_to_sgt(kva, i->size, &i->sgt);
 

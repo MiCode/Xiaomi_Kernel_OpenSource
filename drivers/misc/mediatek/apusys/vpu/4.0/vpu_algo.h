@@ -16,6 +16,7 @@
 
 #include "vpu_drv.h"
 #include "vpu_cmn.h"
+#include <linux/slab.h>
 
 enum {
 	VPU_PROP_RESERVED,
@@ -36,7 +37,7 @@ int vpu_init_algo(void);
 
 /* vpu_algo.c */
 struct __vpu_algo *vpu_alg_alloc(struct vpu_device *vd);
-void vpu_alg_free(struct __vpu_algo *alg);
+static inline void vpu_alg_free(struct __vpu_algo *alg) { kfree(alg); }
 int vpu_alg_load(struct vpu_device *vd, const char *name,
 	struct __vpu_algo *alg);
 void vpu_alg_unload(struct vpu_device *vd);
