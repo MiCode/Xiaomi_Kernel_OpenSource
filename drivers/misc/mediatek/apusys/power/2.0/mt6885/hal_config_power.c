@@ -56,6 +56,7 @@ static void debug_power_mtcmos_on(void);
 static void debug_power_mtcmos_off(void);
 static void hw_init_setting(void);
 static int buck_control(enum DVFS_USER user, int level);
+static int rpc_power_status_check(int domain_idx, unsigned int enable);
 
 /************************************
  * common power hal command
@@ -206,6 +207,8 @@ static void hw_init_setting(void)
 	regValue = DRV_Reg32(APU_RPC_TOP_CON);
 	regValue |= 0x1;
 	DRV_WriteReg32(APU_RPC_TOP_CON, regValue);
+
+	rpc_power_status_check(0, 0);
 	LOG_WRN("%s done and request to enter sleep\n", __func__);
 #else
 	LOG_WRN("%s done\n", __func__);
@@ -258,7 +261,13 @@ static int init_power_resource(void *param)
 		is_apu_power_initilized = 1;
 	}
 
+	enable_apu_conn_vcore_clksrc();
 	hw_init_setting();
+	disable_apu_conn_vcore_clksrc();
+
+	buck_control(VPU0, 3); // buck on
+	udelay(100);
+	buck_control(VPU0, 0); // buck off
 
 	return 0;
 }
@@ -406,6 +415,8 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 			(DRV_Reg32(APU_RPC_INTF_PWR_RDY) & BIT(0)) == 0x0) {
 			LOG_WRN("%s enable wakeup signal\n", __func__);
 
+			enable_apu_conn_vcore_clksrc();
+
 			// CCF API assist to enable clock source of apu conn
 			enable_apu_mtcmos(1);
 
@@ -482,7 +493,9 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 			regValue |= 0x1;
 			DRV_WriteReg32(APU_RPC_TOP_CON, regValue);
 
+			rpc_power_status_check(0, 0);
 			force_pwr_off = 0;
+			disable_apu_conn_vcore_clksrc();
 		}
 	}
 
@@ -734,8 +747,10 @@ static int set_power_shut_down(enum DVFS_USER user, void *param)
 	mtcmos_data.enable = 0;
 	ret = set_power_mtcmos(user, (void *)&mtcmos_data);
 
-	if (power_bit_mask == 0)
-		buck_control(user, 1); // low voltage
+	if (power_bit_mask == 0 && buck_already_on) {
+		buck_control(user, 0); // buck off
+		buck_already_on = 0;
+	}
 
 	return ret;
 }
