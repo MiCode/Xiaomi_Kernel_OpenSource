@@ -22,6 +22,7 @@
 #include "mtk_drm_drv.h"
 #include "mtk_drm_ddp.h"
 #include "mtk_drm_ddp_comp.h"
+#include "mtk_drm_mmp.h"
 
 static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc);
 static void mtk_drm_idlemgr_disable_crtc(struct drm_crtc *crtc);
@@ -100,32 +101,46 @@ static void mtk_drm_idlemgr_enter_idle_nolock(struct drm_crtc *crtc)
 {
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	struct mtk_ddp_comp *output_comp;
+	int index = drm_crtc_index(crtc);
+	bool mode;
 
 	output_comp = priv->ddp_comp[DDP_COMPONENT_DSI0];
 
 	if (!output_comp)
 		return;
 
-	if (mtk_dsi_is_cmd_mode(output_comp))
+	mode = mtk_dsi_is_cmd_mode(output_comp);
+	CRTC_MMP_EVENT_START(index, enter_idle, mode, 0);
+
+	if (mode)
 		mtk_drm_cmd_mode_enter_idle(crtc);
 	else
 		mtk_drm_vdo_mode_enter_idle(crtc);
+
+	CRTC_MMP_EVENT_END(index, enter_idle, mode, 0);
 }
 
 static void mtk_drm_idlemgr_leave_idle_nolock(struct drm_crtc *crtc)
 {
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	struct mtk_ddp_comp *output_comp;
+	int index = drm_crtc_index(crtc);
+	bool mode;
 
 	output_comp = priv->ddp_comp[DDP_COMPONENT_DSI0];
 
 	if (!output_comp)
 		return;
 
-	if (mtk_dsi_is_cmd_mode(output_comp))
+	mode = mtk_dsi_is_cmd_mode(output_comp);
+	CRTC_MMP_EVENT_START(index, leave_idle, mode, 0);
+
+	if (mode)
 		mtk_drm_cmd_mode_leave_idle(crtc);
 	else
 		mtk_drm_vdo_mode_leave_idle(crtc);
+
+	CRTC_MMP_EVENT_END(index, leave_idle, mode, 0);
 }
 
 bool mtk_drm_is_idle(struct drm_crtc *crtc)

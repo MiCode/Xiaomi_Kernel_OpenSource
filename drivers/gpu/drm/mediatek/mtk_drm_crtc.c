@@ -25,9 +25,6 @@
 #include <linux/kthread.h>
 #include <linux/sched.h>
 #include <uapi/linux/sched/types.h>
-#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
-#include "cmdq-util.h"
-#endif
 
 #include "mtk_drm_drv.h"
 #include "mtk_drm_crtc.h"
@@ -1129,12 +1126,6 @@ void mtk_crtc_wait_frame_done(struct mtk_drm_crtc *mtk_crtc,
 static void mtk_crtc_cmdq_timeout_cb(struct cmdq_cb_data data)
 {
 	struct drm_crtc *crtc = data.data;
-	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
-	struct cmdq_pkt *cmdq_handle = mtk_crtc->trig_loop_cmdq_handle;
-	struct cmdq_client *client = mtk_crtc->gce_obj.client[CLIENT_TRIG_LOOP];
-	dma_addr_t pc;
-#endif
 
 	if (!crtc) {
 		DDPPR_ERR("%s find crtc fail\n", __func__);
@@ -1145,16 +1136,6 @@ static void mtk_crtc_cmdq_timeout_cb(struct cmdq_cb_data data)
 		  drm_crtc_index(crtc));
 	mtk_drm_crtc_analysis(crtc);
 	mtk_drm_crtc_dump(crtc);
-
-#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
-	/* add trigger loop dump for debug */
-	if (cmdq_handle && client) {
-		cmdq_util_msg("=====DISP TRIGGER LOOP BEGIN=====");
-		cmdq_thread_dump(client->chan, cmdq_handle, NULL, &pc);
-		cmdq_dump_pkt(cmdq_handle, pc);
-		cmdq_util_msg("=====DISP TRIGGER LOOP END=====");
-	}
-#endif
 
 	/* CMDQ driver would not trigger aee when timeout. */
 	DDPAEE("%s cmdq timeout, crtc id:%d\n", __func__, drm_crtc_index(crtc));

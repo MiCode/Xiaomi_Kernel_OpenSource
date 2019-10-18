@@ -119,6 +119,10 @@ void init_crtc_mmp_event(void)
 			mmprofile_register_event(crtc_mmp_root, "ESD check");
 		g_CRTC_MMP_Events[i].esd_recovery =
 			mmprofile_register_event(crtc_mmp_root, "ESD recovery");
+		g_CRTC_MMP_Events[i].leave_idle = mmprofile_register_event(
+			crtc_mmp_root, "leave_idle");
+		g_CRTC_MMP_Events[i].enter_idle = mmprofile_register_event(
+			crtc_mmp_root, "enter_idle");
 	}
 }
 
