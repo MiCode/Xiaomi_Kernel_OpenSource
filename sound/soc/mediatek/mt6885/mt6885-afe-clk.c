@@ -17,58 +17,6 @@
 
 static DEFINE_MUTEX(mutex_request_dram);
 
-enum {
-	CLK_AFE = 0,
-	/*CLK_DAC,*/
-	/*CLK_DAC_PREDIS,*/
-	/*CLK_ADC,*/
-	CLK_TML,
-	CLK_APLL22M,
-	CLK_APLL24M,
-	CLK_APLL1_TUNER,
-	CLK_APLL2_TUNER,
-	CLK_NLE,
-	CLK_SCP_SYS_AUD,
-	CLK_INFRA_SYS_AUDIO,
-	CLK_INFRA_AUDIO_26M,
-	CLK_MUX_AUDIO,
-	CLK_MUX_AUDIOINTBUS,
-	CLK_TOP_MAINPLL_D4_D4,
-	/* apll related mux */
-	CLK_TOP_MUX_AUD_1,
-	CLK_TOP_APLL1_CK,
-	CLK_TOP_MUX_AUD_2,
-	CLK_TOP_APLL2_CK,
-	CLK_TOP_MUX_AUD_ENG1,
-	CLK_TOP_APLL1_D4,
-	CLK_TOP_MUX_AUD_ENG2,
-	CLK_TOP_APLL2_D4,
-	CLK_TOP_MUX_AUDIO_H,
-	CLK_TOP_I2S0_M_SEL,
-	CLK_TOP_I2S1_M_SEL,
-	CLK_TOP_I2S2_M_SEL,
-	CLK_TOP_I2S3_M_SEL,
-	CLK_TOP_I2S4_M_SEL,
-	CLK_TOP_I2S5_M_SEL,
-	CLK_TOP_I2S6_M_SEL,
-	CLK_TOP_I2S7_M_SEL,
-	CLK_TOP_I2S8_M_SEL,
-	CLK_TOP_I2S9_M_SEL,
-	CLK_TOP_APLL12_DIV0,
-	CLK_TOP_APLL12_DIV1,
-	CLK_TOP_APLL12_DIV2,
-	CLK_TOP_APLL12_DIV3,
-	CLK_TOP_APLL12_DIV4,
-	CLK_TOP_APLL12_DIVB,
-	CLK_TOP_APLL12_DIV5,
-	CLK_TOP_APLL12_DIV6,
-	CLK_TOP_APLL12_DIV7,
-	CLK_TOP_APLL12_DIV8,
-	CLK_TOP_APLL12_DIV9,
-	CLK_CLK26M,
-	CLK_NUM
-};
-
 static const char *aud_clks[CLK_NUM] = {
 	[CLK_AFE] = "aud_afe_clk",
 	/*[CLK_DAC] = "aud_dac_clk",*/
@@ -119,7 +67,7 @@ static const char *aud_clks[CLK_NUM] = {
 	[CLK_CLK26M] = "top_clk26m_clk",
 };
 
-static int mt6885_set_audio_int_bus_parent(struct mtk_base_afe *afe,
+int mt6885_set_audio_int_bus_parent(struct mtk_base_afe *afe,
 					   int clk_id)
 {
 	struct mt6885_afe_private *afe_priv = afe->platform_priv;
@@ -334,7 +282,6 @@ int mt6885_afe_enable_clock(struct mtk_base_afe *afe)
 CLK_AFE_ERR:
 	clk_disable_unprepare(afe_priv->clk[CLK_AFE]);
 CLK_MUX_AUDIO_H_PARENT_ERR:
-	mt6885_set_audio_int_bus_parent(afe, CLK_CLK26M);
 CLK_MUX_AUDIO_INTBUS_ERR:
 	clk_disable_unprepare(afe_priv->clk[CLK_MUX_AUDIOINTBUS]);
 CLK_MUX_AUDIO_ERR:

@@ -3523,6 +3523,24 @@ skip_regmap:
 	return 0;
 }
 
+static int mt6885_afe_pcm_copy(struct snd_pcm_substream *substream,
+			       int channel, unsigned long hwoff,
+			       void *buf, unsigned long bytes,
+			       mtk_sp_copy_f sp_copy)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct mtk_base_afe *afe = snd_soc_platform_get_drvdata(rtd->platform);
+	int ret = 0;
+
+	mt6885_set_audio_int_bus_parent(afe, CLK_TOP_MAINPLL_D4_D4);
+
+	ret = sp_copy(substream, channel, hwoff, buf, bytes);
+
+	mt6885_set_audio_int_bus_parent(afe, CLK_CLK26M);
+
+	return ret;
+}
+
 static int mt6885_set_memif_sram_mode(struct device *dev,
 				      enum mtk_audio_sram_mode sram_mode)
 {
@@ -6250,6 +6268,8 @@ static int mt6885_afe_pcm_dev_probe(struct platform_device *pdev)
 
 	afe->request_dram_resource = mt6885_afe_dram_request;
 	afe->release_dram_resource = mt6885_afe_dram_release;
+
+	afe->copy = mt6885_afe_pcm_copy;
 
 	/* debugfs */
 	afe->debug_cmds = mt6885_debug_cmds;
