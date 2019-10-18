@@ -41,6 +41,10 @@ subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/common/tasks/ca
 subdir-ccflags-y += -I$(srctree)/sound/soc/mediatek/audio_dsp
 endif
 
+ifeq ($(CONFIG_SND_SOC_MTK_AUDIO_DSP),y)
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/common/tasks/audplayback/
+endif
+
 ifeq ($(CONFIG_SND_SOC_MTK_SMART_PHONE),y)
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include
 endif
