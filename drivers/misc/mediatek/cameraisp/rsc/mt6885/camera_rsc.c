@@ -1033,6 +1033,8 @@ signed int CmdqRSCHW(struct frame *frame)
 #if 1 // support cmdq mailmox
 	pkt = cmdq_pkt_create(cmdq_clt);
 
+	cmdq_pkt_write(pkt, cmdq_base, RSC_INT_CTL_HW, 0x1, ~0);
+
 	cmdq_pkt_write(pkt, cmdq_base, RSC_CTRL_HW, pRscConfig->RSC_CTRL, ~0);
 	cmdq_pkt_write(pkt, cmdq_base, RSC_SIZE_HW, pRscConfig->RSC_SIZE, ~0);
 
@@ -1333,7 +1335,7 @@ static inline void RSC_Prepare_Enable_ccf_clock(void)
 	int ret;
 	/* open order:CG_SCP_SYS_MM0>CG_MM_SMI_COMMON>CG_SCP_SYS_ISP>RSC clk */
 #ifdef SMI_CLK
-	smi_bus_prepare_enable(SMI_LARB5, "camera_rsc");
+	smi_bus_prepare_enable(SMI_LARB20, "camera_rsc");
 #endif
 	ret = clk_prepare_enable(rsc_clk.CG_IPESYS_RSC);
 	if (ret)
@@ -1346,7 +1348,7 @@ static inline void RSC_Disable_Unprepare_ccf_clock(void)
 	/* close order:RSC clk>CG_SCP_SYS_ISP>CG_MM_SMI_COMMON>CG_SCP_SYS_MM0 */
 	clk_disable_unprepare(rsc_clk.CG_IPESYS_RSC);
 #ifdef SMI_CLK
-	smi_bus_disable_unprepare(SMI_LARB5, "camera_rsc");
+	smi_bus_disable_unprepare(SMI_LARB20, "camera_rsc");
 #endif
 }
 #endif
@@ -3009,8 +3011,10 @@ static signed int RSC_probe(struct platform_device *pDev)
 		cmdqCoreRegisterTaskCycleCB(CMDQ_GROUP_RSC, cmdq_pm_qos_start,
 							cmdq_pm_qos_stop);
 #endif
+		seqlock_init(&(rsc_reqs.seqlock));
 
 		/* init cmdq */
+		cmdq_base = NULL;
 		cmdq_base = cmdq_register_device(&pDev->dev);
 		cmdq_clt = cmdq_mbox_create(&pDev->dev, 0);
 		cmdq_event_id =

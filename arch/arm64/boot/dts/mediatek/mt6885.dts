@@ -5128,7 +5128,7 @@ page_owner=on";
 #ifdef CONFIG_VIDEO_MEDIATEK_ISP_RSC_SUPPORT
 	rsc@1b003000 {
 		compatible = "mediatek,rsc";
-		mediatek,larb = <&smi_larb5>;
+		mediatek,larb = <&smi_larb20>;
 		mediatek,hcp = <&hcp>;
 		reg = <0 0x1b003000 0 0x1000>;
 		interrupts = <GIC_SPI 358 IRQ_TYPE_LEVEL_HIGH>;
@@ -5141,6 +5141,7 @@ page_owner=on";
 #else
 	rsc@1b003000 {
 		compatible = "mediatek,rsc";
+		mediatek,larb = <&smi_larb20>;
 		reg = <0 0x1b003000 0 0x1000>;
 		interrupts = <GIC_SPI 358 IRQ_TYPE_LEVEL_HIGH>;
 		mboxes = <&gce_mbox_m 18 0 CMDQ_THR_PRIO_1>;

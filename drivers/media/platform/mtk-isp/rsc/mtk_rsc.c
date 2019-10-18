@@ -266,7 +266,7 @@ static inline void rsc_enable_ccf_clock(struct rsc_device *rsc_hw_dev)
 	int ret;
 
 	dev_dbg(&rsc_hw_dev->pdev->dev, "- E. %s.\n", __func__);
-	smi_bus_prepare_enable(SMI_LARB5, RSC_DEV_NAME);
+	smi_bus_prepare_enable(SMI_LARB20, RSC_DEV_NAME);
 	ret = clk_prepare_enable(rsc_hw_dev->rsc_clk.CG_IPESYS_RSC);
 	if (ret)
 		dev_dbg(&rsc_hw_dev->pdev->dev,
@@ -290,7 +290,7 @@ static inline void rsc_disable_ccf_clock(struct rsc_device *rsc_hw_dev)
 {
 	dev_dbg(&rsc_hw_dev->pdev->dev, "- E. %s.\n", __func__);
 	clk_disable_unprepare(rsc_hw_dev->rsc_clk.CG_IPESYS_RSC);
-	smi_bus_disable_unprepare(SMI_LARB5, RSC_DEV_NAME);
+	smi_bus_disable_unprepare(SMI_LARB20, RSC_DEV_NAME);
 
 }
 

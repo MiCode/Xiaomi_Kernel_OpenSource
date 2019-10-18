@@ -173,7 +173,7 @@ signed int register_requests(struct engine_requests *eng, size_t size)
 		}
 	}
 
-	seqlock_init(&eng->seqlock);
+	/*seqlock_init(&eng->seqlock);*/
 	local_irq_disable();
 	write_seqlock(&eng->seqlock);
 	eng->req_running = false;
