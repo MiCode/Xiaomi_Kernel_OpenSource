@@ -324,10 +324,13 @@ void pmu_reg_save(u32 mdlaid)
 {
 	u32 val = 0;
 
-	val = pmu_reg_read_with_mdlaid(mdlaid, PMU_CMDID_LATCH);
-
-	if (val != l_cmd_id[mdlaid])
-		l_cmd_cnt[mdlaid]++;
+	if (mdla_devices[mdlaid].pmu.pmu_mode == NORMAL)
+		l_cmd_cnt[mdlaid] = 1;
+	else {
+		val = pmu_reg_read_with_mdlaid(mdlaid, PMU_CMDID_LATCH);
+		if (val != l_cmd_id[mdlaid])
+			l_cmd_cnt[mdlaid]++;
+	}
 
 	l_cmd_id[mdlaid] = (u16)val;
 	l_cycle[mdlaid] = pmu_reg_read_with_mdlaid(mdlaid, PMU_CYCLE);
