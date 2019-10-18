@@ -7,10 +7,12 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/of_irq.h>
 #include <linux/slab.h>
 #include <linux/cpu_pm.h>
 #include <linux/syscore_ops.h>
 #include <linux/suspend.h>
+#include <linux/rtc.h>
 #include <asm/cpuidle.h>
 #include <asm/suspend.h>
 
@@ -122,6 +124,7 @@ void mt6885_suspend_reflect(int cpu,
 
 	if (issuer)
 		issuer->log(MT_LPM_ISSUER_CPUIDLE, "suspend", NULL);
+
 }
 
 struct mtk_lpm_model mt6885_model_suspend = {
@@ -132,9 +135,60 @@ struct mtk_lpm_model mt6885_model_suspend = {
 	}
 };
 
+#ifdef CONFIG_PM
+static int mt6885_spm_suspend_pm_event(struct notifier_block *notifier,
+			unsigned long pm_event, void *unused)
+{
+	struct timespec ts;
+	struct rtc_time tm;
+
+	getnstimeofday(&ts);
+	rtc_time_to_tm(ts.tv_sec, &tm);
+
+	switch (pm_event) {
+	case PM_HIBERNATION_PREPARE:
+		return NOTIFY_DONE;
+	case PM_RESTORE_PREPARE:
+		return NOTIFY_DONE;
+	case PM_POST_HIBERNATION:
+		return NOTIFY_DONE;
+	case PM_SUSPEND_PREPARE:
+		printk_deferred(
+		"[name:spm&][SPM] PM: suspend entry %d-%02d-%02d %02d:%02d:%02d.%09lu UTC\n",
+			tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+			tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec);
+
+		return NOTIFY_DONE;
+	case PM_POST_SUSPEND:
+		printk_deferred(
+		"[name:spm&][SPM] PM: suspend exit %d-%02d-%02d %02d:%02d:%02d.%09lu UTC\n",
+			tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+			tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec);
+
+		return NOTIFY_DONE;
+	}
+	return NOTIFY_OK;
+}
+
+static struct notifier_block mt6885_spm_suspend_pm_notifier_func = {
+	.notifier_call = mt6885_spm_suspend_pm_event,
+	.priority = 0,
+};
+#endif
+
 int __init mt6885_model_suspend_init(void)
 {
+	int ret;
+
 	mtk_lpm_suspend_registry("suspend", &mt6885_model_suspend);
+
+#ifdef CONFIG_PM
+	ret = register_pm_notifier(&mt6885_spm_suspend_pm_notifier_func);
+	if (ret) {
+		pr_debug("[name:spm&][SPM] Failed to register PM notifier.\n");
+		return ret;
+	}
+#endif /* CONFIG_PM */
 
 #ifdef CONFIG_PM_SLEEP_DEBUG
 	pm_print_times_enabled = false;

@@ -9,6 +9,7 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/io.h>
+#include <linux/rtc.h>
 
 #include <aee.h>
 #include <mtk_lpm.h>
@@ -19,6 +20,7 @@
 #include <mt6885_pcm_def.h>
 #include <mtk_dbg_common_v1.h>
 #include <mtk_power_gs_api.h>
+#include <mt-plat/mtk_ccci_common.h>
 
 static struct mt6885_spm_wake_status mt6885_wake;
 void __iomem *mt6885_spm_base;
@@ -118,6 +120,30 @@ int mt6885_get_wakeup_status(struct mt6885_spm_wake_status *wakesta)
 	return 0;
 }
 
+void mt6885_show_detailed_wakeup_reason(struct mt6885_spm_wake_status *wakesta)
+{
+#if !defined(CONFIG_FPGA_EARLY_PORTING)
+#ifdef CONFIG_MTK_CCCI_DEVICES
+	exec_ccci_kern_func_by_md_id(0, ID_DUMP_MD_SLEEP_MODE,
+		NULL, 0);
+#endif
+
+#ifdef CONFIG_MTK_ECCCI_DRIVER
+	if (wakesta->r12 & R12_CLDMA_EVENT_B)
+		exec_ccci_kern_func_by_md_id(0, ID_GET_MD_WAKEUP_SRC,
+		NULL, 0);
+	if (wakesta->r12 & R12_MD2AP_PEER_EVENT_B)
+		exec_ccci_kern_func_by_md_id(0, ID_GET_MD_WAKEUP_SRC,
+		NULL, 0);
+	if (wakesta->r12 & R12_CCIF0_EVENT_B)
+		exec_ccci_kern_func_by_md_id(0, ID_GET_MD_WAKEUP_SRC,
+		NULL, 0);
+	if (wakesta->r12 & R12_CCIF1_EVENT_B)
+		exec_ccci_kern_func_by_md_id(2, ID_GET_MD_WAKEUP_SRC,
+		NULL, 0);
+#endif
+#endif
+}
 
 int mt6885_show_log_message(int type, const char *prefix, void *data)
 {
@@ -315,6 +341,9 @@ int mt6885_show_log_message(int type, const char *prefix, void *data)
 	WARN_ON(log_size >= LOG_BUF_OUT_SZ);
 
 	printk_deferred("[name:spm&][SPM] %s", log_buf);
+
+	if (!strcmp(scenario, "suspend"))
+		mt6885_show_detailed_wakeup_reason(&mt6885_wake);
 
 	/* Eable rcu lock checking */
 	rcu_irq_exit_irqson();
