@@ -29,3 +29,5 @@ obj-$(CONFIG_MTK_PMIC_CHIP_MT6359P)	+= pmic.o pmic_common.o \
 		pmic_efuse.o \
 		pmic_throttling_dlpt.o \
 
+obj-$(CONFIG_MTK_PMIC_CHIP_MT6359P) += pmic_oc_debug.o
+

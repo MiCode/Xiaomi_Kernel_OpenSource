@@ -32,10 +32,6 @@
 #include <mt-plat/upmu_common.h>
 #include <mt-plat/mtk_auxadc_intf.h>
 
-#if defined(CONFIG_MTK_PMIC_WRAP_HAL) || defined(CONFIG_MTK_PMIC_WRAP)
-#include <mach/mtk_pmic_wrap.h>
-#endif
-
 #ifndef CONFIG_MTK_GAUGE_VERSION
 #define CONFIG_MTK_GAUGE_VERSION 0
 #endif
@@ -274,9 +270,6 @@ void wake_up_mdrt_thread(void)
 /* dump MDRT related register */
 static void mdrt_reg_dump(void)
 {
-#if defined(CONFIG_MTK_PMIC_WRAP_HAL) || defined(CONFIG_MTK_PMIC_WRAP)
-	pwrap_dump_all_register();
-#endif
 	pr_notice("AUXADC_ADC15 = 0x%x\n",
 		upmu_get_reg_value(MT6359_AUXADC_ADC15));
 	pr_notice("AUXADC_ADC16 = 0x%x\n",

@@ -37,9 +37,7 @@
 /**********************************************************
  * PMIC related define
  ***********************************************************/
-#if !defined(CONFIG_FPGA_EARLY_PORTING) && defined(CONFIG_MTK_PMIC_WRAP_HAL) \
-|| defined(CONFIG_MTK_PMIC_WRAP)
-#include "pwrap_hal.h"
+#if !defined(CONFIG_FPGA_EARLY_PORTING)
 #define CONFIG_PMIC_HW_ACCESS_EN
 #endif
 
