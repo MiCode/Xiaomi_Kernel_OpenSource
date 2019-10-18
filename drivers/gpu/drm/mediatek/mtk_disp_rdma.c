@@ -242,6 +242,7 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 	struct mtk_disp_rdma *priv = dev_id;
 	struct mtk_ddp_comp *rdma = &priv->ddp_comp;
 	unsigned int val = readl(rdma->regs + DISP_REG_RDMA_INT_STATUS);
+	unsigned int tmp;
 
 	DRM_MMP_MARK(IRQ, irq, val);
 
@@ -256,17 +257,22 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 
 	DDPIRQ("%s irq, val:0x%x\n", mtk_dump_comp_str(rdma), val);
 
-	writel(~val, rdma->regs + DISP_REG_RDMA_INT_STATUS);
-
-	if (val & (1 << 0))
+	tmp = val;
+	if (val & (1 << 0)) {
+		/* clear all abnormal states only when register update done */
+		tmp = ~val;
+		writel(~val, rdma->regs + DISP_REG_RDMA_INT_STATUS);
 		DDPIRQ("[IRQ] %s: reg update done!\n", mtk_dump_comp_str(rdma));
+	}
 
 	if (val & (1 << 2)) {
+		tmp = tmp & (~(1 << 2));
 		DDPIRQ("[IRQ] %s: frame done!\n", mtk_dump_comp_str(rdma));
 		mtk_drm_refresh_tag_end(&priv->ddp_comp);
 	}
 
 	if (val & (1 << 1)) {
+		tmp = tmp & (~(1 << 1));
 		DDPIRQ("[IRQ] %s: frame start!\n", mtk_dump_comp_str(rdma));
 		mtk_drm_refresh_tag_start(&priv->ddp_comp);
 	}
@@ -299,9 +305,12 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 
 		priv->underflow_cnt++;
 	}
-	if (val & (1 << 5))
+	if (val & (1 << 5)) {
+		tmp = tmp & (~(1 << 5));
 		DDPIRQ("[IRQ] %s: target line!\n", mtk_dump_comp_str(rdma));
+	}
 
+	writel(tmp, rdma->regs + DISP_REG_RDMA_INT_STATUS);
 	/* TODO: check if this is not necessary */
 	/* mtk_crtc_ddp_irq(priv->crtc, rdma); */
 
