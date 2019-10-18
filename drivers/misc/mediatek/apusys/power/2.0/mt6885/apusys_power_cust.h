@@ -27,7 +27,7 @@
 #define DEFAULT_POWER_ON	(0)	// 1: default power on in power probe
 #define AUTO_BUCK_OFF_SUSPEND	(0)
 #define AUTO_BUCK_OFF_DEEPIDLE	(0)
-#define ASSERTIOM_CHECK (0)
+#define ASSERTIOM_CHECK (1)
 #define ASSERTION_PERCENTAGE	(1)	// 1%
 
 #define APUSYS_MAX_NUM_OPPS                (10)

@@ -161,10 +161,10 @@ int hal_config_power(enum HAL_POWER_CMD cmd, enum DVFS_USER user, void *param)
 	int target_volt = 0;
 	enum DVFS_BUCK buck = 0;
 	int i = 0;
-	static int vpu_curr_volt = DVFS_VOLT_00_575000_V;
-	static int mdla_curr_volt = DVFS_VOLT_00_575000_V;
-	static int vsram_core_volt = DVFS_VOLT_00_750000_V;
-	static int vcore_curr_volt = DVFS_VOLT_00_575000_V;
+	static int vpu_curr_volt = DVFS_VOLT_00_800000_V;
+	static int mdla_curr_volt = DVFS_VOLT_00_825000_V;
+	static int vsram_core_volt = DVFS_VOLT_00_825000_V;
+	static int vcore_curr_volt = DVFS_VOLT_00_725000_V;
 
 	if (cmd == PWR_CMD_SET_VOLT) {
 		buck = ((struct hal_param_volt *)param)->target_buck;
@@ -175,9 +175,11 @@ int hal_config_power(enum HAL_POWER_CMD cmd, enum DVFS_USER user, void *param)
 			mdla_curr_volt = target_volt;
 		if (buck == VCORE_BUCK)
 			vcore_curr_volt = target_volt;
+		if (buck == SRAM_BUCK)
+			vsram_core_volt = target_volt;
 		//int vpu_curr_volt = apusys_opps.prev_buck_volt[VPU_BUCK];
 		//int mdla_curr_volt = apusys_opps.prev_buck_volt[MDLA_BUCK];
-		vsram_core_volt = apusys_opps.vsram_volatge;
+		//vsram_core_volt = apusys_opps.vsram_volatge;
 
 		LOG_INF("%s cmd = %d, buck = %d, voltage=%d\n",
 			__func__, cmd, buck, target_volt);
@@ -276,6 +278,7 @@ void test_case(int power_on_round, int opp_change_round, int fail_stop)
 				//if (dvfs_user_support(k) == false)
 					//continue;
 				opp = rand() % APUSYS_MAX_NUM_OPPS;
+				//opp = 0;
 				apusys_set_opp(k, opp);
 			}
 
