@@ -2473,17 +2473,17 @@ static void __mt_gpufreq_init_table(void)
 	unsigned int i = 0;
 
 	/* determine max_opp/num/segment_table... by segment  */
-	/* we have no segment now
-	if (segment_id == MT6785T_SEGMENT)
-		g_segment_max_opp_idx = 3;
-	else if (segment_id == MT6785_SEGMENT)
-		g_segment_max_opp_idx = 9;
-	else if (segment_id == MT6783_SEGMENT)
-		g_segment_max_opp_idx = 19;
+	if (segment_id == MT6883_SEGMENT)
+		g_segment_max_opp_idx = 17; //654MHz
+	else if (segment_id == MT6885_SEGMENT)
+		g_segment_max_opp_idx = 14; // 695MHz
+	else if (segment_id == MT6885T_SEGMENT)
+		g_segment_max_opp_idx = 3; // 805MHz
+	else if (segment_id == MT6885T_PLUS_SEGMENT)
+		g_segment_max_opp_idx = 0;
 	else
-		g_segment_max_opp_idx = 3;
-	*/
-	g_segment_max_opp_idx = 0;
+		g_segment_max_opp_idx = 0;
+
 	g_segment_min_opp_idx = num - 1;
 
 	g_opp_table = kzalloc((num) * sizeof(*opp_table), GFP_KERNEL);
