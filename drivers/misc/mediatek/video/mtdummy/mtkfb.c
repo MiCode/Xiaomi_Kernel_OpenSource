@@ -712,7 +712,7 @@ static int mtkfb_probe(struct platform_device *pdev)
 #ifdef CONFIG_OF
 		pr_info("%s:get FB MEM REG\n", __func__);
 		_parse_tag_videolfb();
-		pr_info("%s: fb_pa = 0x%p\n", __func__, (void *)fb_base);
+		pr_info("%s: fb_pa = 0x%px\n", __func__, (void *)fb_base);
 
 		mtkfb_allocate_framebuffer(fb_base, (fb_base + vramsize - 1),
 			(unsigned int *)&fbdev->fb_va_base, &fb_pa);
@@ -743,7 +743,7 @@ static int mtkfb_probe(struct platform_device *pdev)
 	fbdev->fb_size_in_byte = MTK_FB_SIZEV;
 
 	/* Allocate and initialize video frame buffer */
-	pr_info("[FB Driver] fbdev->fb_pa_base = %p, fbdev->fb_va_base = %lx\n",
+	pr_info("[FB Driver] fbdev->fb_pa_base = %px, fbdev->fb_va_base = %lx\n",
 	       (void *)fbdev->fb_pa_base, (unsigned long)(fbdev->fb_va_base));
 
 	if (!fbdev->fb_va_base) {
@@ -828,12 +828,13 @@ int __init mtkfb_init(void)
 {
 	int r = 0;
 
-	pr_info("%s init", __func__);
+	pr_info("%s init + ", __func__);
 
 	if (platform_driver_register(&mtkfb_driver)) {
 		pr_info("failed to register mtkfb driver\n");
 		r = -ENODEV;
 	}
+	pr_info("%s init -", __func__);
 	return r;
 }
 
