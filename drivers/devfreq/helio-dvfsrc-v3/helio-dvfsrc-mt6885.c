@@ -12,8 +12,8 @@
  */
 
 #include <linux/platform_device.h>
-#ifdef CONFIG_MTK_DRAMC
-#include <mtk_dramc.h>
+#ifdef CONFIG_MEDIATEK_DRAMC
+#include <dramc.h>
 #endif
 #ifdef CONFIG_MTK_EMI
 #include <mt_emi_api.h>
@@ -395,8 +395,8 @@ void get_opp_info(char *p)
 #else
 	int pmic_val = pmic_get_register_value(PMIC_VCORE_ADDR);
 #endif
-#ifdef CONFIG_MTK_DRAMC
-	int ddr_khz = get_dram_data_rate() * 1000;
+#ifdef CONFIG_MEDIATEK_DRAMC
+	int ddr_khz = mtk_dramc_get_data_rate() * 1000;
 #else
 	int ddr_khz = 0;
 #endif
@@ -426,6 +426,7 @@ static char *met_src_name[SRC_MAX] = {
 	"DDR__HIFI_LATENCY",
 	"DDR__MD_LATENCY",
 	"DDR__MD_DDR",
+	"DDR__MD_LEVEL_MASK",
 	"SRC_VCORE_OPP",
 	"VCORE__SW_REQ3_PMQOS",
 	"VCORE__SCP",
@@ -458,6 +459,18 @@ char **vcorefs_get_src_req_name(void)
 	return met_src_name;
 }
 EXPORT_SYMBOL(vcorefs_get_src_req_name);
+
+static u32 vcorefs_get_md_level_mask_ddr(void)
+{
+	int md_srclk = dvfsrc_read(DVFSRC_DEBUG_STA_0);
+	int vopp = get_cur_vcore_opp();
+
+	md_srclk = (md_srclk >> MD_SRC_CLK_DEBUG_SHIFT) & MD_SRC_CLK_DEBUG_MASK;
+
+	if (vopp != 3 && md_srclk == 1)
+		return 2;
+	return 0;
+}
 
 static void vcorefs_get_src_ddr_req(void)
 {
@@ -506,6 +519,9 @@ static void vcorefs_get_src_ddr_req(void)
 
 	met_vcorefs_src[DDR_MD_DDR_IDX] =
 		vcorefs_get_md_scenario_ddr();
+
+	met_vcorefs_src[DDR_MD_SRCLK_IDX] =
+		vcorefs_get_md_level_mask_ddr();
 }
 
 static void vcorefs_get_src_vcore_req(void)

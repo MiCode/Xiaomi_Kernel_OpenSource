@@ -18,15 +18,15 @@
 #include <helio-dvfsrc-opp.h>
 #include <helio-dvfsrc-qos.h>
 
-#ifdef CONFIG_MTK_DRAMC
-#include <mtk_dramc.h>
+#ifdef CONFIG_MEDIATEK_DRAMC
+#include <dramc.h>
 #endif
 #define SOC_CPE_DETECT
 
 #define AGING_VALUE 12500
 
-#ifndef CONFIG_MTK_DRAMC
-static int dram_steps_freq(unsigned int step)
+#ifndef CONFIG_MEDIATEK_DRAMC
+static int mtk_dramc_get_steps_freq(unsigned int step)
 {
 	pr_info("get dram steps_freq fail\n");
 	return 4266;
@@ -105,7 +105,7 @@ void dvfsrc_opp_table_init(void)
 			continue;
 		}
 		set_opp_table(i, get_vcore_uv_table(vcore_opp),
-		dram_steps_freq(ddr_level_to_step(ddr_opp)) * 1000);
+		mtk_dramc_get_steps_freq(ddr_opp) * 1000);
 	}
 }
 
@@ -224,11 +224,11 @@ static int __init dvfsrc_opp_init(void)
 
 	for (i = 0; i < DDR_OPP_NUM; i++) {
 		set_opp_ddr_freq(i,
-			dram_steps_freq(ddr_level_to_step(i)) * 1000);
+			mtk_dramc_get_steps_freq(i) * 1000);
 	}
 
 	return 0;
 }
 
-fs_initcall_sync(dvfsrc_opp_init)
+device_initcall_sync(dvfsrc_opp_init)
 
