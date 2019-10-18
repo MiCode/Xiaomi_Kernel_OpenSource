@@ -385,45 +385,46 @@ static ssize_t goodix_ts_chip_info_show(struct device  *dev,
 
 	return cnt;
 }
-static int flag_resume_enter_200Hz;
+
 static int goodix_ts_enable(struct goodix_ts_device *ts_dev, int en)
 {
 	u8 write_data, read_data;
 	u8 enter_200Hz[] = {0x38, 0x00, 0xC8};
 	u8 exit_200Hz[] = {0x38, 0x01, 0xC7};
-	int ret = 0;
-	u32 retry_time0 = 3;
-	u32 retry_time1 = 3;
+	int ret = 0, i = 0;
+	int flag_read_success = 0;
+	u32 retry_time = 3;
 
-	if (ts_dev == NULL)
-		return -EINVAL;
-	while (retry_time0) {
+	while (retry_time) {
 		/* 1. write 0xAA to 0x30F0 */
 		write_data = 0xAA;
 		ret = ts_dev->hw_ops->write_trans(ts_dev, 0x30F0,
 							&write_data, 1);
 		if (ret)
-			ts_err("goodix_i2c_write error!\n");
+			ts_err("goodix_i2c_write 0x30F0 error!\n");
 
-		retry_time1 = 3;
 		usleep_range(1000, 1100);
-		while (retry_time1) {
+		for (i = 0; i < 3; i++) {
 			/* 2. read 0xBB to 0x3100 */
 			ret = ts_dev->hw_ops->read_trans(ts_dev, 0x3100,
 							&read_data, 1);
 			if (!ret)
-				ts_err("goodix_i2c_read error!\n");
+				ts_err("goodix_i2c_read 0x3100 error!\n");
 
+			usleep_range(10000, 10100);
 			if (read_data == 0xBB) {
-				usleep_range(10000, 10100);
-				goto operate;
-			} else
-				retry_time1--;
+				flag_read_success = 1;
+				break;
+			}
 		}
-		retry_time0--;
+		retry_time--;
+		if (flag_read_success == 1)
+			break;
 	}
-	return -EINVAL;
-operate:
+
+	if (flag_read_success == 0)
+		return -EINVAL;
+
 	if (en == 1)
 		/* en=1. enter: write change CMD 38 00 C8 */
 		ret = ts_dev->hw_ops->write_trans(ts_dev, 0x6F68,
@@ -444,7 +445,7 @@ operate:
 		ts_err("goodix_i2c_write error!\n");
 		return -EINVAL;
 	}
-	flag_resume_enter_200Hz = en;
+
 	return 0;
 }
 static ssize_t goodix_ts_report_rate_change_store(
@@ -463,7 +464,8 @@ static ssize_t goodix_ts_report_rate_change_store(
 		return -EINVAL;
 	}
 
-	if (sscanf(buf, "%d", &en) != 1)
+	ret = kstrtou32(buf, 0, &en);
+	if (ret)
 		return -EINVAL;
 
 	if (en == 1 || en == 0) {
@@ -1843,10 +1845,6 @@ out:
 	 * and charger detector to turn on the work
 	 */
 	goodix_ts_blocking_notify(NOTIFY_RESUME, NULL);
-	/* resume enter 200Hz */
-	r = goodix_ts_enable(ts_dev, flag_resume_enter_200Hz);
-	if (r)
-		ts_debug("enable 200Hz failed!!!");
 	ts_debug("Resume end");
 	return 0;
 }
