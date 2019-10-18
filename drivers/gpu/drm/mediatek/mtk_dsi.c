@@ -96,12 +96,8 @@
 #define TXRX_CTRL_FLD_REG_HSTX_CKLP_EN REG_FLD_MSB_LSB(16, 16)
 
 #define DSI_PSCTRL 0x1c
-#define DSI_PS_WC 0x3fff
-#define DSI_PS_SEL (3 << 16)
-#define PACKED_PS_16BIT_RGB565 (0 << 16)
-#define LOOSELY_PS_18BIT_RGB666 (1 << 16)
-#define PACKED_PS_18BIT_RGB666 (2 << 16)
-#define PACKED_PS_24BIT_RGB888 (3 << 16)
+#define DSI_PS_WC	REG_FLD_MSB_LSB(14, 0)
+#define DSI_PS_SEL	REG_FLD_MSB_LSB(18, 16)
 
 #define DSI_VSA_NL 0x20
 #define DSI_VBP_NL 0x24
@@ -593,8 +589,9 @@ static void mtk_dsi_set_vm_cmd(struct mtk_dsi *dsi)
 static void mtk_dsi_ps_control_vact(struct mtk_dsi *dsi)
 {
 	struct videomode *vm = &dsi->vm;
-	u32 ps_wc, ps_sel = PACKED_PS_24BIT_RGB888, size;
+	u32 ps_wc, size;
 	u32 dsi_buf_bpp, val;
+	u32 value = 0, mask = 0;
 	u32 width = dsi->encoder.crtc->mode.hdisplay;
 	u32 height = dsi->encoder.crtc->mode.vdisplay;
 	struct mtk_panel_ext *ext = mtk_dsi_get_panel_ext(&dsi->ddp_comp);
@@ -607,19 +604,20 @@ static void mtk_dsi_ps_control_vact(struct mtk_dsi *dsi)
 
 	if (dsc_params->enable == 0) {
 		ps_wc = vm->hactive * dsi_buf_bpp;
+		SET_VAL_MASK(value, mask, ps_wc, DSI_PS_WC);
 
 		switch (dsi->format) {
 		case MIPI_DSI_FMT_RGB888:
-			ps_sel = PACKED_PS_24BIT_RGB888;
+			SET_VAL_MASK(value, mask, 3, DSI_PS_SEL);
 			break;
 		case MIPI_DSI_FMT_RGB666:
-			ps_sel = PACKED_PS_18BIT_RGB666;
+			SET_VAL_MASK(value, mask, 2, DSI_PS_SEL);
 			break;
 		case MIPI_DSI_FMT_RGB666_PACKED:
-			ps_sel = LOOSELY_PS_18BIT_RGB666;
+			SET_VAL_MASK(value, mask, 1, DSI_PS_SEL);
 			break;
 		case MIPI_DSI_FMT_RGB565:
-			ps_sel = PACKED_PS_16BIT_RGB565;
+			SET_VAL_MASK(value, mask, 0, DSI_PS_SEL);
 			break;
 		}
 		size = (height << 16) + width;
@@ -627,17 +625,23 @@ static void mtk_dsi_ps_control_vact(struct mtk_dsi *dsi)
 		ps_wc = (((dsc_params->chunk_size + 2) / 3) * 3);
 		if (dsc_params->slice_mode == 1)
 			ps_wc *= 2;
-		ps_sel = (5 << 16);
+
+		SET_VAL_MASK(value, mask, ps_wc, DSI_PS_WC);
+		SET_VAL_MASK(value, mask, 5, DSI_PS_SEL);
+
 		size = (height << 16) + (ps_wc / 3);
 	}
 
 	writel(vm->vactive, dsi->regs + DSI_VACT_NL);
 
-	val = ps_wc + ps_sel;
+	val = readl(dsi->regs + DSI_PSCTRL);
+	val = (val & ~mask) | (value & mask);
 	writel(val, dsi->regs + DSI_PSCTRL);
 
+#ifndef CONFIG_MACH_MT6885
 	val = vm->hactive * dsi_buf_bpp;
 	writel(val, dsi->regs + DSI_HSTX_CKL_WC);
+#endif
 
 	writel(size, dsi->regs + DSI_SIZE_CON);
 }
@@ -665,7 +669,9 @@ static void mtk_dsi_rxtx_control(struct mtk_dsi *dsi)
 	}
 
 	tmp_reg |= (dsi->mode_flags & MIPI_DSI_CLOCK_NON_CONTINUOUS) << 6;
+#ifndef CONFIG_MACH_MT6885
 	tmp_reg |= (dsi->mode_flags & MIPI_DSI_MODE_EOT_PACKET) >> 3;
+#endif
 	tmp_reg |= HSTX_CKLP_EN;
 
 	writel(tmp_reg, dsi->regs + DSI_TXRX_CTRL);
@@ -678,31 +684,36 @@ static void mtk_dsi_ps_control(struct mtk_dsi *dsi)
 {
 	u32 dsi_tmp_buf_bpp;
 	u32 tmp_reg;
+	u32 value = 0, mask = 0;
 
 	switch (dsi->format) {
 	case MIPI_DSI_FMT_RGB888:
-		tmp_reg = PACKED_PS_24BIT_RGB888;
+		SET_VAL_MASK(value, mask, 3, DSI_PS_SEL);
 		dsi_tmp_buf_bpp = 3;
 		break;
 	case MIPI_DSI_FMT_RGB666:
-		tmp_reg = LOOSELY_PS_18BIT_RGB666;
+		SET_VAL_MASK(value, mask, 2, DSI_PS_SEL);
 		dsi_tmp_buf_bpp = 3;
 		break;
 	case MIPI_DSI_FMT_RGB666_PACKED:
-		tmp_reg = PACKED_PS_18BIT_RGB666;
+		SET_VAL_MASK(value, mask, 1, DSI_PS_SEL);
 		dsi_tmp_buf_bpp = 3;
 		break;
 	case MIPI_DSI_FMT_RGB565:
-		tmp_reg = PACKED_PS_16BIT_RGB565;
+		SET_VAL_MASK(value, mask, 0, DSI_PS_SEL);
 		dsi_tmp_buf_bpp = 2;
 		break;
 	default:
-		tmp_reg = PACKED_PS_24BIT_RGB888;
+		SET_VAL_MASK(value, mask, 8, DSI_PS_SEL);
 		dsi_tmp_buf_bpp = 3;
 		break;
 	}
 
-	tmp_reg += dsi->vm.hactive * dsi_tmp_buf_bpp & DSI_PS_WC;
+	SET_VAL_MASK(value, mask, dsi->vm.hactive * dsi_tmp_buf_bpp,
+		DSI_PS_SEL);
+
+	tmp_reg = readl(dsi->regs + DSI_PSCTRL);
+	tmp_reg = (tmp_reg & ~mask) | (value & mask);
 	writel(tmp_reg, dsi->regs + DSI_PSCTRL);
 }
 
@@ -737,9 +748,12 @@ static void mtk_dsi_config_vdo_timing(struct mtk_dsi *dsi)
 
 	horizontal_frontporch_byte = (vm->hfront_porch * dsi_tmp_buf_bpp - 12);
 
-	writel(horizontal_sync_active_byte, dsi->regs + DSI_HSA_WC);
-	writel(horizontal_backporch_byte, dsi->regs + DSI_HBP_WC);
-	writel(horizontal_frontporch_byte, dsi->regs + DSI_HFP_WC);
+	writel(ALIGN_TO((horizontal_sync_active_byte), 4),
+		dsi->regs + DSI_HSA_WC);
+	writel(ALIGN_TO((horizontal_backporch_byte), 4),
+		dsi->regs + DSI_HBP_WC);
+	writel(ALIGN_TO((horizontal_frontporch_byte), 4),
+		dsi->regs + DSI_HFP_WC);
 
 	mtk_dsi_ps_control(dsi);
 }
