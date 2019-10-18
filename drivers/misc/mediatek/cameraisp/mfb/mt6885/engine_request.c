@@ -28,9 +28,9 @@ MODULE_DESCRIPTION("Stand Alone Engine Request");
 MODULE_AUTHOR("MM3SW5");
 MODULE_LICENSE("GPL");
 
-unsigned int egn_debug;
-module_param(egn_debug, uint, 0644);
-MODULE_PARM_DESC(egn_debug, " activates debug info");
+unsigned int mfb_egn_debug;
+module_param(mfb_egn_debug, uint, 0644);
+MODULE_PARM_DESC(mfb_egn_debug, " activates debug info");
 
 #define MyTag "[STALN]"
 #define LOG_VRB(format, args...)				 \
@@ -38,25 +38,25 @@ MODULE_PARM_DESC(egn_debug, " activates debug info");
 
 #define LOG_DBG(format, args...)				 \
 	do {							 \
-		if (egn_debug >= 2)				 \
+		if (mfb_egn_debug >= 2)				 \
 			pr_info(MyTag "[%s] " format, __func__, ##args); \
 	} while (0)
 
 #define LOG_INF(format, args...)				 \
 	do {							 \
-		if (egn_debug >= 1)				 \
+		if (mfb_egn_debug >= 1)				 \
 			pr_info(MyTag "[%s] " format, __func__, ##args);\
 	} while (0)
 
 #define LOG_WRN(format, args...)				 \
 	do {							 \
-		if (egn_debug >= 0)				 \
+		if (mfb_egn_debug >= 0)				 \
 			pr_info(MyTag "[%s] " format, __func__, ##args); \
 	} while (0)
 
 #define LOG_ERR(format, args...)				 \
 	do {							 \
-		if (egn_debug >= 0)				 \
+		if (mfb_egn_debug >= 0)				 \
 			pr_info(MyTag "[%s] " format, __func__, ##args); \
 	} while (0)
 
@@ -64,7 +64,7 @@ MODULE_PARM_DESC(egn_debug, " activates debug info");
 /*
  * Single ring ctl init
  */
-signed int init_ring_ctl(struct ring_ctrl *rctl)
+signed int mfb_init_ring_ctl(struct ring_ctrl *rctl)
 {
 	if (rctl == NULL)
 		return -1;
@@ -78,7 +78,7 @@ signed int init_ring_ctl(struct ring_ctrl *rctl)
 	return 0;
 }
 
-signed int set_ring_size(struct ring_ctrl *rctl, unsigned int size)
+signed int mfb_set_ring_size(struct ring_ctrl *rctl, unsigned int size)
 {
 	if (rctl == NULL)
 		return -1;
@@ -88,7 +88,7 @@ signed int set_ring_size(struct ring_ctrl *rctl, unsigned int size)
 	return 0;
 }
 
-signed int init_frame(struct frame *frame)
+signed int mfb_init_frame(struct frame *frame)
 {
 	if (frame == NULL)
 		return -1;
@@ -101,7 +101,7 @@ signed int init_frame(struct frame *frame)
 /*
  * single request init
  */
-signed int init_request(struct request *req)
+signed int mfb_init_request(struct request *req)
 {
 	int f;
 
@@ -109,11 +109,11 @@ signed int init_request(struct request *req)
 		return -1;
 
 	req->state = REQUEST_STATE_EMPTY;
-	init_ring_ctl(&req->fctl);
-	set_ring_size(&req->fctl, MFB_MAX_FRAMES_PER_REQUEST);
+	mfb_init_ring_ctl(&req->fctl);
+	mfb_set_ring_size(&req->fctl, MFB_MAX_FRAMES_PER_REQUEST);
 
 	for (f = 0; f < MFB_MAX_FRAMES_PER_REQUEST; f++)
-		init_frame(&req->frames[f]);
+		mfb_init_frame(&req->frames[f]);
 
 	req->pending_run = false;
 
@@ -123,7 +123,7 @@ signed int init_request(struct request *req)
 /*
  * per-frame data init
  */
-signed int set_frame_data(struct frame *f, void *engine)
+signed int mfb_set_frame_data(struct frame *f, void *engine)
 {
 	if (f == NULL) {
 		LOG_ERR("NULL frame(%p)", (void *)f);
@@ -137,10 +137,10 @@ signed int set_frame_data(struct frame *f, void *engine)
 
 /*
  * TOP : per-sub-engine
- * Size Limitaion: eng_reqs : [MAX_REQUEST_SIZE_PER_ENGINE]
- *	     data : [MAX_REQUEST_SIZE_PER_ENGINE][MFB_MAX_FRAMES_PER_REQUEST]
+ * Size Limitaion: eng_reqs : [MFB_MAX_REQUEST_SIZE_PER_ENGINE]
+ *	data : [MFB_MAX_REQUEST_SIZE_PER_ENGINE][MFB_MAX_FRAMES_PER_REQUEST]
  */
-signed int register_requests(struct engine_requests *eng, size_t size)
+signed int mfb_register_requests(struct engine_requests *eng, size_t size)
 {
 	int f, r, d;
 	char *_data;
@@ -149,11 +149,12 @@ signed int register_requests(struct engine_requests *eng, size_t size)
 	if (eng == NULL)
 		return -1;
 
-	init_ring_ctl(&eng->req_ctl);
-	set_ring_size(&eng->req_ctl, MAX_REQUEST_SIZE_PER_ENGINE);
+	mfb_init_ring_ctl(&eng->req_ctl);
+	mfb_set_ring_size(&eng->req_ctl, MFB_MAX_REQUEST_SIZE_PER_ENGINE);
 
 	/* TODO: KE Risk : array out of bound */
-	len = (size * MFB_MAX_FRAMES_PER_REQUEST) * MAX_REQUEST_SIZE_PER_ENGINE;
+	len = (size * MFB_MAX_FRAMES_PER_REQUEST) *
+			MFB_MAX_REQUEST_SIZE_PER_ENGINE;
 	_data = vmalloc(len);
 
 	if (_data == NULL) {
@@ -164,16 +165,16 @@ signed int register_requests(struct engine_requests *eng, size_t size)
 	memset(_data, 0x0, len);
 	LOG_INF("[%s]Engine struct total size is %zu", __func__, len);
 
-	for (r = 0; r < MAX_REQUEST_SIZE_PER_ENGINE; r++) {
-		init_request(&eng->reqs[r]);
+	for (r = 0; r < MFB_MAX_REQUEST_SIZE_PER_ENGINE; r++) {
+		mfb_init_request(&eng->reqs[r]);
 
 		for (f = 0; f < MFB_MAX_FRAMES_PER_REQUEST; f++) {
 			d = (r * MFB_MAX_FRAMES_PER_REQUEST + f) * size;
-			set_frame_data(&eng->reqs[r].frames[f], &_data[d]);
+			mfb_set_frame_data(&eng->reqs[r].frames[f], &_data[d]);
 		}
 	}
 
-	seqlock_init(&eng->seqlock);
+	/* seqlock_init(&eng->seqlock); */
 	local_irq_disable();
 	write_seqlock(&eng->seqlock);
 	eng->req_running = false;
@@ -187,7 +188,7 @@ signed int register_requests(struct engine_requests *eng, size_t size)
 	return 0;
 }
 
-signed int unregister_requests(struct engine_requests *eng)
+signed int mfb_unregister_requests(struct engine_requests *eng)
 {
 	int f, r;
 
@@ -196,11 +197,11 @@ signed int unregister_requests(struct engine_requests *eng)
 
 	vfree(eng->reqs[0].frames[0].data);
 
-	for (r = 0; r < MAX_REQUEST_SIZE_PER_ENGINE; r++) {
-		init_request(&eng->reqs[r]);
+	for (r = 0; r < MFB_MAX_REQUEST_SIZE_PER_ENGINE; r++) {
+		mfb_init_request(&eng->reqs[r]);
 
 		for (f = 0; f < MFB_MAX_FRAMES_PER_REQUEST; f++)
-			set_frame_data(&eng->reqs[r].frames[f], NULL);
+			mfb_set_frame_data(&eng->reqs[r].frames[f], NULL);
 	}
 
 	local_irq_disable();
@@ -213,7 +214,8 @@ signed int unregister_requests(struct engine_requests *eng)
 }
 
 
-int set_engine_ops(struct engine_requests *eng, const struct engine_ops *ops)
+int mfb_set_engine_ops(struct engine_requests *eng,
+	const struct engine_ops *ops)
 {
 	if (eng == NULL || ops == NULL)
 		return -1;
@@ -223,7 +225,7 @@ int set_engine_ops(struct engine_requests *eng, const struct engine_ops *ops)
 	return 0;
 }
 
-bool request_running(struct engine_requests *eng)
+bool mfb_request_running(struct engine_requests *eng)
 {
 	unsigned int seq;
 	seqlock_t *lock;
@@ -241,7 +243,7 @@ bool request_running(struct engine_requests *eng)
 }
 
 /*TODO: called in ENQUE_REQ */
-signed int enque_request(struct engine_requests *eng, unsigned int fcnt,
+signed int mfb_enque_request(struct engine_requests *eng, unsigned int fcnt,
 						void *req, pid_t pid)
 {
 	unsigned int r;
@@ -280,20 +282,20 @@ signed int enque_request(struct engine_requests *eng, unsigned int fcnt,
 	eng->reqs[r].fctl.wcnt = fcnt;
 	eng->reqs[r].fctl.size = fcnt;
 
-	eng->req_ctl.wcnt = (r + 1) % MAX_REQUEST_SIZE_PER_ENGINE;
+	eng->req_ctl.wcnt = (r + 1) % MFB_MAX_REQUEST_SIZE_PER_ENGINE;
 
 #if REQUEST_REGULATION
 	/*
 	 * pending request count for request base regulation
 	 */
-	for (r = 0; r < MAX_REQUEST_SIZE_PER_ENGINE; r++)
+	for (r = 0; r < MFB_MAX_REQUEST_SIZE_PER_ENGINE; r++)
 		if (eng->reqs[r].state == REQUEST_STATE_PENDING)
 			enqnum++;
 #else
 	/*
 	 * running frame count for frame base regulation
 	 */
-	for (r = 0; r < MAX_REQUEST_SIZE_PER_ENGINE; r++)
+	for (r = 0; r < MFB_MAX_REQUEST_SIZE_PER_ENGINE; r++)
 		for (f = 0; f < MFB_MAX_FRAMES_PER_REQUEST; f++)
 			if (eng->reqs[r].frames[f].state ==
 							FRAME_STATUS_RUNNING)
@@ -307,7 +309,7 @@ ERROR:
 /* ConfigWMFERequest / ConfigOCCRequest abstraction
  * TODO: locking should be here NOT camera_owe.c
  */
-signed int request_handler(struct engine_requests *eng, spinlock_t *lock)
+signed int mfb_request_handler(struct engine_requests *eng, spinlock_t *lock)
 {
 	unsigned int f, fn;
 	unsigned int r;
@@ -374,7 +376,7 @@ signed int request_handler(struct engine_requests *eng, spinlock_t *lock)
 		}
 	}
 
-	eng->req_ctl.gcnt = (r + 1) % MAX_REQUEST_SIZE_PER_ENGINE;
+	eng->req_ctl.gcnt = (r + 1) % MFB_MAX_REQUEST_SIZE_PER_ENGINE;
 #else
 	/*
 	 * TODO: to prevent IRQ timing issue due to multi-frame requests,
@@ -453,7 +455,7 @@ signed int request_handler(struct engine_requests *eng, spinlock_t *lock)
 	fstate = eng->reqs[r].frames[fn].state;
 	if (fstate == FRAME_STATUS_EMPTY || fn == 0) {
 		eng->reqs[r].pending_run = false;
-	eng->req_ctl.gcnt = (r + 1) % MAX_REQUEST_SIZE_PER_ENGINE;
+	eng->req_ctl.gcnt = (r + 1) % MFB_MAX_REQUEST_SIZE_PER_ENGINE;
 	} else
 		eng->reqs[r].fctl.gcnt = fn;
 
@@ -469,7 +471,7 @@ signed int request_handler(struct engine_requests *eng, spinlock_t *lock)
 }
 
 
-int update_request(struct engine_requests *eng, pid_t *pid)
+int mfb_update_request(struct engine_requests *eng, pid_t *pid)
 {
 	unsigned int i, f, n;
 	int req_jobs = -1;
@@ -478,7 +480,7 @@ int update_request(struct engine_requests *eng, pid_t *pid)
 		return -1;
 
 	/* TODO: request ring */
-	for (i = eng->req_ctl.icnt; i < MAX_REQUEST_SIZE_PER_ENGINE; i++) {
+	for (i = eng->req_ctl.icnt; i < MFB_MAX_REQUEST_SIZE_PER_ENGINE; i++) {
 		/* find 1st running request */
 		if (eng->reqs[i].state != REQUEST_STATE_RUNNING)
 			continue;
@@ -521,7 +523,7 @@ NO_FEEDBACK:
 
 			eng->reqs[i].state = REQUEST_STATE_FINISHED;
 			eng->req_ctl.icnt = (eng->req_ctl.icnt + 1) %
-						MAX_REQUEST_SIZE_PER_ENGINE;
+						MFB_MAX_REQUEST_SIZE_PER_ENGINE;
 		} else {
 			LOG_INF(
 			"[%s]more frames left of request(%d/%d).", __func__,
@@ -530,15 +532,15 @@ NO_FEEDBACK:
 		break;
 	}
 
-	if (i == MAX_REQUEST_SIZE_PER_ENGINE)
+	if (i == MFB_MAX_REQUEST_SIZE_PER_ENGINE)
 		LOG_ERR("no pending request was found(%d).\n", i);
 
 	return req_jobs;
 }
 
 /*TODO: called in DEQUE_REQ */
-signed int deque_request(struct engine_requests *eng, unsigned int *fcnt,
-								void *req)
+signed int mfb_deque_request(
+	struct engine_requests *eng, unsigned int *fcnt, void *req)
 {
 	unsigned int r;
 	unsigned int f;
@@ -585,14 +587,14 @@ signed int deque_request(struct engine_requests *eng, unsigned int *fcnt,
 	eng->reqs[r].fctl.gcnt = 0;
 	eng->reqs[r].fctl.size = 0;
 
-	eng->req_ctl.rcnt = (r + 1) % MAX_REQUEST_SIZE_PER_ENGINE;
+	eng->req_ctl.rcnt = (r + 1) % MFB_MAX_REQUEST_SIZE_PER_ENGINE;
 
 	return 0;
 ERROR:
 	return -1;
 }
 
-signed int request_dump(struct engine_requests *eng)
+signed int mfb_request_dump(struct engine_requests *eng)
 {
 	unsigned int r;
 	unsigned int f;
@@ -611,7 +613,7 @@ signed int request_dump(struct engine_requests *eng)
 				eng->req_ctl.rcnt,
 				eng->reqs[0].frames[0].data);
 
-	for (r = 0; r < MAX_REQUEST_SIZE_PER_ENGINE; r++) {
+	for (r = 0; r < MFB_MAX_REQUEST_SIZE_PER_ENGINE; r++) {
 		LOG_ERR(
 		"R[%d].sta:%d, pid:0x%08X, wc:%d, gc:%d, ic:%d, rc:%d\n",
 					r,

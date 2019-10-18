@@ -16,7 +16,7 @@
 #ifndef _ENGINE_REQUESTS_H_
 #define _ENGINE_REQUESTS_H_
 
-#define MAX_REQUEST_SIZE_PER_ENGINE 4
+#define MFB_MAX_REQUEST_SIZE_PER_ENGINE 4
 #define MFB_MAX_FRAMES_PER_REQUEST 32
 
 /* Regulation Options */
@@ -46,7 +46,7 @@ struct ring_ctrl {
 	unsigned int icnt; /* IRQ ringing counter w/o reset */
 	unsigned int gcnt; /* GCE */
 	unsigned int size;
-	/* init MAX_REQUEST_SIZE_PER_ENGINE MFB_MAX_FRAMES_PER_REQUEST */
+	/* init MFB_MAX_REQUEST_SIZE_PER_ENGINE MFB_MAX_FRAMES_PER_REQUEST */
 };
 
 struct frame {
@@ -72,7 +72,7 @@ struct engine_ops {
 
 struct engine_requests {
 	struct ring_ctrl req_ctl;
-	struct request reqs[MAX_REQUEST_SIZE_PER_ENGINE];
+	struct request reqs[MFB_MAX_REQUEST_SIZE_PER_ENGINE];
 	const struct engine_ops *ops;
 	struct completion req_handler_done;
 
@@ -80,23 +80,24 @@ struct engine_requests {
 	seqlock_t seqlock;
 };
 
-signed int init_ring_ctl(struct ring_ctrl *rctl);
-signed int init_request(struct request *req);
-signed int set_frame_data(struct frame *f, void *engine);
-signed int register_requests(struct engine_requests *eng, size_t size);
-signed int unregister_requests(struct engine_requests *eng);
-signed int request_handler(struct engine_requests *eng, spinlock_t *lock);
+signed int mfb_init_ring_ctl(struct ring_ctrl *rctl);
+signed int mfb_init_request(struct request *req);
+signed int mfb_set_frame_data(struct frame *f, void *engine);
+signed int mfb_register_requests(struct engine_requests *eng, size_t size);
+signed int mfb_unregister_requests(struct engine_requests *eng);
+signed int mfb_request_handler(struct engine_requests *eng, spinlock_t *lock);
 
 
 /*TODO: APIs to manipulate requests  */
-int set_engine_ops(struct engine_requests *eng, const struct engine_ops *ops);
+int mfb_set_engine_ops(struct engine_requests *eng,
+	const struct engine_ops *ops);
 
-signed int enque_request(struct engine_requests *eng, unsigned int fcnt,
+signed int mfb_enque_request(struct engine_requests *eng, unsigned int fcnt,
 							void *req, pid_t pid);
-signed int deque_request(struct engine_requests *eng, unsigned int *fcnt,
+signed int mfb_deque_request(struct engine_requests *eng, unsigned int *fcnt,
 								void *req);
-int update_request(struct engine_requests *eng, pid_t *pid);
-bool request_running(struct engine_requests *eng);
+int mfb_update_request(struct engine_requests *eng, pid_t *pid);
+bool mfb_request_running(struct engine_requests *eng);
 
-signed int request_dump(struct engine_requests *eng);
+signed int mfb_request_dump(struct engine_requests *eng);
 #endif

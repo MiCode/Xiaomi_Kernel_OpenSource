@@ -35,5 +35,6 @@ ifeq ($(CONFIG_MACH_MT6775),y)
 endif
 
 ifeq ($(CONFIG_MACH_MT6885),y)
+  obj-$(CONFIG_MTK_CAMERA_ISP_MFB_SUPPORT) += mt6885/engine_request.o
   obj-$(CONFIG_MTK_CAMERA_ISP_MFB_SUPPORT) += mt6885/camera_mfb.o
 endif

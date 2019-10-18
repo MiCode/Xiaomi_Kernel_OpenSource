@@ -849,7 +849,7 @@ static void mss_norm_sirq(struct cmdq_cb_data data)
 
 	pkt = (struct cmdq_pkt *) data.data;
 	if (data.err < 0) {
-		request_dump(&mss_reqs);
+		mfb_request_dump(&mss_reqs);
 		MSS_DumpReg();
 		LOG_ERR("%s_mss: call back error(%d)", __func__, data.err);
 		goto EXIT;
@@ -858,7 +858,7 @@ static void mss_norm_sirq(struct cmdq_cb_data data)
 
 	spin_lock_irqsave(&(MFBInfo.SpinLockIrq[MFB_IRQ_TYPE_INT_MSS_ST]),
 									flag);
-	if (update_request(&mss_reqs, &ProcessID) == 0)
+	if (mfb_update_request(&mss_reqs, &ProcessID) == 0)
 		bResulst = MTRUE;
 	/* Config the Next frame */
 	if (bResulst == MTRUE) {
@@ -997,7 +997,7 @@ static void mss_vss_sirq(struct cmdq_cb_data data)
 
 	pkt = (struct cmdq_pkt *) data.data;
 	if (data.err < 0) {
-		request_dump(&vmss_reqs);
+		mfb_request_dump(&vmss_reqs);
 		MSS_DumpReg();
 		LOG_ERR("%s_mss: call back error(%d)", __func__, data.err);
 		goto EXIT;
@@ -1006,7 +1006,7 @@ static void mss_vss_sirq(struct cmdq_cb_data data)
 
 	spin_lock_irqsave(&(MFBInfo.SpinLockIrq[MFB_IRQ_TYPE_INT_MSS_ST]),
 									flag);
-	if (update_request(&vmss_reqs, &ProcessID) == 0)
+	if (mfb_update_request(&vmss_reqs, &ProcessID) == 0)
 		bResulst = MTRUE;
 	/* Config the Next frame */
 	if (bResulst == MTRUE) {
@@ -1134,7 +1134,7 @@ static void msf_norm_sirq(struct cmdq_cb_data data)
 
 	pkt = (struct cmdq_pkt *) data.data;
 	if (data.err < 0) {
-		request_dump(&msf_reqs);
+		mfb_request_dump(&msf_reqs);
 		MSF_DumpReg();
 		LOG_ERR("%s: call back error(%d)", __func__, data.err);
 		goto EXIT;
@@ -1142,7 +1142,7 @@ static void msf_norm_sirq(struct cmdq_cb_data data)
 
 	spin_lock_irqsave(&(MFBInfo.SpinLockIrq[MFB_IRQ_TYPE_INT_MSF_ST]),
 									flag);
-	if (update_request(&msf_reqs, &ProcessID) == 0)
+	if (mfb_update_request(&msf_reqs, &ProcessID) == 0)
 		bResulst = MTRUE;
 	/* Config the Next frame */
 	if (bResulst == MTRUE) {
@@ -1279,7 +1279,7 @@ static void msf_vss_sirq(struct cmdq_cb_data data)
 
 	pkt = (struct cmdq_pkt *) data.data;
 	if (data.err < 0) {
-		request_dump(&vmsf_reqs);
+		mfb_request_dump(&vmsf_reqs);
 		MSF_DumpReg();
 		LOG_ERR("%s: call back error(%d)", __func__, data.err);
 		goto EXIT;
@@ -1288,7 +1288,7 @@ static void msf_vss_sirq(struct cmdq_cb_data data)
 
 	spin_lock_irqsave(&(MFBInfo.SpinLockIrq[MFB_IRQ_TYPE_INT_MSF_ST]),
 									flag);
-	if (update_request(&vmsf_reqs, &ProcessID) == 0)
+	if (mfb_update_request(&vmsf_reqs, &ProcessID) == 0)
 		bResulst = MTRUE;
 	/* Config the Next frame */
 	if (bResulst == MTRUE) {
@@ -2880,15 +2880,15 @@ static long MFB_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			kMssReq.m_ReqNum = mfb_MssReq.m_ReqNum;
 			kMssReq.m_pMssConfig =
 					g_MssEnqueReq_Struct.MssFrameConfig;
-			enque_request(reqs, kMssReq.m_ReqNum, &kMssReq,
+			mfb_enque_request(reqs, kMssReq.m_ReqNum, &kMssReq,
 								pUserInfo->Pid);
 			spin_unlock_irqrestore(
 				&(MFBInfo.SpinLockIrq[MFB_IRQ_TYPE_INT_MSS_ST]),
 				flags);
 			LOG_DBG("ConfigMSS Request!!\n");
-			if (!request_running(reqs)) {
-				LOG_DBG("direct request_handler\n");
-				request_handler(reqs,
+			if (!mfb_request_running(reqs)) {
+				LOG_DBG("direct mfb_request_handler\n");
+				mfb_request_handler(reqs,
 						&(MFBInfo.SpinLockIrq[
 						MFB_IRQ_TYPE_INT_MSS_ST]));
 			}
@@ -2912,7 +2912,7 @@ static long MFB_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 						  flags);
 				kMssReq.m_pMssConfig =
 					g_MssDequeReq_Struct.MssFrameConfig;
-				deque_request(reqs, &kMssReq.m_ReqNum,
+				mfb_deque_request(reqs, &kMssReq.m_ReqNum,
 					&kMssReq);
 				dequeNum = kMssReq.m_ReqNum;
 				mfb_MssReq.m_ReqNum = dequeNum;
@@ -2995,7 +2995,7 @@ static long MFB_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			kMsfReq.m_ReqNum = mfb_MsfReq.m_ReqNum;
 			kMsfReq.m_pMsfConfig =
 				g_MsfEnqueReq_Struct.MsfFrameConfig;
-			enque_request(reqs,
+			mfb_enque_request(reqs,
 				kMsfReq.m_ReqNum,
 				&kMsfReq, pUserInfo->Pid);
 			spin_unlock_irqrestore(
@@ -3003,9 +3003,9 @@ static long MFB_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				flags);
 
 			LOG_DBG("ConfigMSF Request!!\n");
-			if (!request_running(reqs)) {
-				LOG_DBG("direct request_handler\n");
-				request_handler(
+			if (!mfb_request_running(reqs)) {
+				LOG_DBG("direct mfb_request_handler\n");
+				mfb_request_handler(
 					reqs,
 					&(MFBInfo.SpinLockIrq[
 						MFB_IRQ_TYPE_INT_MSF_ST])
@@ -3032,7 +3032,7 @@ static long MFB_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 					flags);
 				kMsfReq.m_pMsfConfig =
 					g_MsfDequeReq_Struct.MsfFrameConfig;
-				deque_request(
+				mfb_deque_request(
 					reqs,
 					&kMsfReq.m_ReqNum,
 					&kMsfReq);
@@ -3575,15 +3575,15 @@ static signed int MFB_open(struct inode *pInode, struct file *pFile)
 		(MFB_DBG_INT | MFB_DBG_DBGLOG | MFB_DBG_WRITE_REG);
 #endif
 	/*  */
-	register_requests(&mss_reqs, sizeof(struct MFB_MSSConfig));
-	set_engine_ops(&mss_reqs, &mss_ops);
-	register_requests(&vmss_reqs, sizeof(struct MFB_MSSConfig));
-	set_engine_ops(&vmss_reqs, &vmss_ops);
+	mfb_register_requests(&mss_reqs, sizeof(struct MFB_MSSConfig));
+	mfb_set_engine_ops(&mss_reqs, &mss_ops);
+	mfb_register_requests(&vmss_reqs, sizeof(struct MFB_MSSConfig));
+	mfb_set_engine_ops(&vmss_reqs, &vmss_ops);
 
-	register_requests(&msf_reqs, sizeof(struct MFB_MSFConfig));
-	set_engine_ops(&msf_reqs, &msf_ops);
-	register_requests(&vmsf_reqs, sizeof(struct MFB_MSFConfig));
-	set_engine_ops(&vmsf_reqs, &vmsf_ops);
+	mfb_register_requests(&msf_reqs, sizeof(struct MFB_MSFConfig));
+	mfb_set_engine_ops(&msf_reqs, &msf_ops);
+	mfb_register_requests(&vmsf_reqs, sizeof(struct MFB_MSFConfig));
+	mfb_set_engine_ops(&vmsf_reqs, &vmsf_ops);
 
 EXIT:
 	LOG_DBG("- X. Ret: %d. UserCount: %d.", Ret, MFBInfo.UserCount);
@@ -3632,10 +3632,10 @@ static signed int MFB_release(struct inode *pInode, struct file *pFile)
 	LOG_DBG("MFB release g_u4EnableClockCount: %d", g_u4EnableClockCount);
 
 	/*  */
-	unregister_requests(&mss_reqs);
-	unregister_requests(&msf_reqs);
-	unregister_requests(&vmss_reqs);
-	unregister_requests(&vmsf_reqs);
+	mfb_unregister_requests(&mss_reqs);
+	mfb_unregister_requests(&msf_reqs);
+	mfb_unregister_requests(&vmss_reqs);
+	mfb_unregister_requests(&vmsf_reqs);
 
 EXIT:
 
@@ -4000,6 +4000,11 @@ static signed int MFB_probe(struct platform_device *pDev)
 		MFBInfo.IrqInfo.Mask[MFB_IRQ_TYPE_INT_MSF_ST] = INT_ST_MASK_MSF;
 
 	}
+
+	seqlock_init(&(mss_reqs.seqlock));
+	seqlock_init(&(vmss_reqs.seqlock));
+	seqlock_init(&(msf_reqs.seqlock));
+	seqlock_init(&(vmsf_reqs.seqlock));
 
 EXIT:
 	if (Ret < 0)
@@ -4850,9 +4855,9 @@ static void MFB_ScheduleMssWork(struct work_struct *data)
 {
 	if (MFB_DBG_DBGLOG & MFBInfo.DebugMaskMss)
 		LOG_DBG("- E.");
-	request_handler(&mss_reqs, &(MFBInfo.SpinLockIrq[
+	mfb_request_handler(&mss_reqs, &(MFBInfo.SpinLockIrq[
 						MFB_IRQ_TYPE_INT_MSS_ST]));
-	if (!request_running(&mss_reqs))
+	if (!mfb_request_running(&mss_reqs))
 		LOG_DBG("[%s]no more requests", __func__);
 }
 
@@ -4860,9 +4865,9 @@ static void vmss_do_work(struct work_struct *data)
 {
 	if (MFB_DBG_DBGLOG & MFBInfo.DebugMaskMss)
 		LOG_DBG("- E.");
-	request_handler(&vmss_reqs, &(MFBInfo.SpinLockIrq[
+	mfb_request_handler(&vmss_reqs, &(MFBInfo.SpinLockIrq[
 						MFB_IRQ_TYPE_INT_MSS_ST]));
-	if (!request_running(&vmss_reqs))
+	if (!mfb_request_running(&vmss_reqs))
 		LOG_DBG("[%s]no more requests", __func__);
 }
 
@@ -4873,9 +4878,9 @@ static void MFB_ScheduleMsfWork(struct work_struct *data)
 {
 	if (MFB_DBG_DBGLOG & MFBInfo.DebugMaskMsf)
 		LOG_DBG("- E.");
-	request_handler(&msf_reqs,
+	mfb_request_handler(&msf_reqs,
 		&(MFBInfo.SpinLockIrq[MFB_IRQ_TYPE_INT_MSF_ST]));
-	if (!request_running(&msf_reqs))
+	if (!mfb_request_running(&msf_reqs))
 		LOG_DBG("[%s]no more requests", __func__);
 }
 
@@ -4883,9 +4888,9 @@ static void vmsf_do_work(struct work_struct *data)
 {
 	if (MFB_DBG_DBGLOG & MFBInfo.DebugMaskMsf)
 		LOG_DBG("- E.");
-	request_handler(&vmsf_reqs, &(MFBInfo.SpinLockIrq[
+	mfb_request_handler(&vmsf_reqs, &(MFBInfo.SpinLockIrq[
 						MFB_IRQ_TYPE_INT_MSF_ST]));
-	if (!request_running(&vmsf_reqs))
+	if (!mfb_request_running(&vmsf_reqs))
 		LOG_DBG("[%s]no more requests", __func__);
 }
 
@@ -4914,7 +4919,7 @@ static irqreturn_t ISP_Irq_MSS(signed int Irq, void *DeviceId)
 		mt_kernel_trace_begin("mfb_mss_irq");
 #endif
 
-		if (update_request(&mss_reqs, &ProcessID) == 0)
+		if (mfb_update_request(&mss_reqs, &ProcessID) == 0)
 			bResulst = MTRUE;
 		/* Config the Next frame */
 		if (bResulst == MTRUE) {
@@ -4979,7 +4984,7 @@ static irqreturn_t ISP_Irq_MSF(signed int Irq, void *DeviceId)
 		mt_kernel_trace_begin("mfb_msf_irq");
 #endif
 
-		if (update_request(&msf_reqs, &ProcessID) == 0)
+		if (mfb_update_request(&msf_reqs, &ProcessID) == 0)
 			bResulst = MTRUE;
 		/* Config the Next frame */
 		if (bResulst == MTRUE) {
