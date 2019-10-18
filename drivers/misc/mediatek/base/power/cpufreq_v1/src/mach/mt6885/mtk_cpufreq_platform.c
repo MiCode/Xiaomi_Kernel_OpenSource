@@ -58,6 +58,7 @@ static unsigned long mcucfg_base	= 0x0c530000;
 #define MPMM_EN                 (mcucfg_base + 0xcd10)
 #define mcucfg                  0x0c530000
 
+static unsigned int pmic_ready_flag;
 #ifdef IMAX_ENABLE
 static unsigned int imax_reg_addr[REG_LEN] = {
 	0xcd10,
@@ -631,7 +632,7 @@ int mt_cpufreq_regulator_map(struct platform_device *pdev)
 		tag_pr_info("@@vsram2 Get Failed\n");
 		return -ENODEV;
 	}
-
+	pmic_ready_flag = 1;
 	tag_pr_info("@@regulator map success!!\n");
 	return 0;
 }
@@ -691,14 +692,16 @@ void _dfd_workaround(void)
 	int wait_flag = 0;
 	unsigned long long curtime = 0;
 	struct mt_cpu_dvfs *p_b = id_to_cpu_dvfs(MT_CPU_DVFS_L);
-	struct mt_cpu_dvfs *p_l = id_to_cpu_dvfs(MT_CPU_DVFS_LL);
-	struct buck_ctrl_t *l_vproc_p = id_to_buck_ctrl(p_l->Vproc_buck_id);
 	struct buck_ctrl_t *b_vproc_p = id_to_buck_ctrl(p_b->Vproc_buck_id);
-	struct buck_ctrl_t *l_vsram_p = id_to_buck_ctrl(p_l->Vsram_buck_id);
 	struct buck_ctrl_t *b_vsram_p = id_to_buck_ctrl(p_b->Vsram_buck_id);
+
 	ktime_t ktime = ktime_set(0, 0);
 	ktime_t start = ktime_set(0, 0);
 
+	if (!pmic_ready_flag) {
+		tag_pr_info("REGULATOR NOT READY!!\n");
+		return;
+	}
 	start = ktime_get();
 	ktime = ktime_sub(ktime_get(), start);
 	cpuhvfs_write();
@@ -710,14 +713,12 @@ void _dfd_workaround(void)
 			break;
 	}
 
-	l_vproc_p->buck_ops->set_cur_volt(l_vproc_p, 110000);
 	b_vproc_p->buck_ops->set_cur_volt(b_vproc_p, 110000);
-	l_vsram_p->buck_ops->set_cur_volt(l_vsram_p,  80000);
 	b_vsram_p->buck_ops->set_cur_volt(b_vsram_p,  80000);
-	tag_pr_info("time_d = %llu, wflag = %d l_vproc %u l_vsram = %u\n",
+	tag_pr_info("time_d = %llu, wflag = %d b_vproc %u b_vsram = %u\n",
 	curtime, wait_flag,
-	l_vproc_p->buck_ops->get_cur_volt(l_vproc_p),
-	l_vsram_p->buck_ops->get_cur_volt(l_vsram_p));
+	b_vproc_p->buck_ops->get_cur_volt(b_vproc_p),
+	b_vsram_p->buck_ops->get_cur_volt(b_vsram_p));
 #endif
 }
 #endif
