@@ -244,6 +244,9 @@ void adsp_sram_provide_snapshot(struct adsp_priv *pdata)
 	if (!pdata->dtcm_snapshot)
 		pdata->dtcm_snapshot = vmalloc(pdata->dtcm_size);
 
+	if (!pdata->itcm_snapshot || !pdata->dtcm_snapshot)
+		return;
+
 	memcpy_fromio(pdata->itcm_snapshot, pdata->itcm, pdata->itcm_size);
 	memcpy_fromio(pdata->dtcm_snapshot, pdata->dtcm, pdata->dtcm_size);
 }

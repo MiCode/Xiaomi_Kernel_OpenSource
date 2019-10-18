@@ -528,7 +528,7 @@ static int adsp_core_drv_probe(struct platform_device *pdev)
 	const struct adsp_description *desc;
 	const struct of_device_id *match;
 	struct of_phandle_args spec;
-	u32 temp;
+	u32 temp = 0;
 
 	/* create private data */
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
