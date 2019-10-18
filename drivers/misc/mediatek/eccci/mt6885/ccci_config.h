@@ -38,10 +38,10 @@
 /* CCIF dump offset in MD SS debug region */
 #define CCCI_EE_OFFSET_CCIF_SRAM (1024 - CCCI_EE_SIZE_CCIF_SRAM)
 /* flag to tell WDT is triggered by EPON or not, in MD SS debug region */
-#define CCCI_EE_OFFSET_EPON_MD1 (0x1C24)
+#define CCCI_EE_OFFSET_EPON_MD1 (0x2844)
 #define CCCI_EE_OFFSET_EPON_MD3 (0x464)
 /* flag to enable MD power off checking or not, in MD SS debug region */
-#define CCCI_EE_OFFSET_EPOF_MD1 (7*1024+0x234)
+#define CCCI_EE_OFFSET_EPOF_MD1 (0x2840)
 #define CCCI_EE_SMEM_TOTAL_SIZE (64*1024)
 #define CCCI_SMEM_SIZE_RUNTIME_AP (0x800) /* AP runtime data size */
 #define CCCI_SMEM_SIZE_RUNTIME_MD (0x800) /* MD runtime data size */
