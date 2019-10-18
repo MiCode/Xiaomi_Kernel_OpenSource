@@ -26,7 +26,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/ext_disp/  \
              -I$(srctree)/drivers/misc/mediatek/video/$(MTK_PLATFORM)/videox/ \
              -I$(srctree)/drivers/misc/mediatek/sync/ \
              -I$(srctree)/drivers/misc/mediatek/hdmi/$(CONFIG_CUSTOM_KERNEL_HDMI)/ \
-             -I$(srctree)/drivers/misc/mediatek/cmdq/v3/ \
+             -I$(srctree)/drivers/misc/mediatek/video/$(MTK_PLATFORM)/cmdq/v3/ \
              -I$(srctree)/drivers/misc/mediatek/hdmi/inc/ \
              -I$(srctree)/drivers/staging/android/ion \
              -I$(srctree)/drivers/misc/mediatek/lcm/inc \
@@ -35,10 +35,10 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/ext_disp/  \
 ifeq ($(CONFIG_MACH_MT6761),y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/mt6765/
 else
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/$(MTK_PLATFORM)/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/video/$(MTK_PLATFORM)/cmdq/v3/$(MTK_PLATFORM)/
 endif
 
-subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM)
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/video/$(MTK_PLATFORM)/m4u/$(MTK_PLATFORM)
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmp/
 ccflags-y += -I$(srctree)/drivers/staging/android/ion \
              -I$(srctree)/drivers/staging/android/ion/mtk

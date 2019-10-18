@@ -1381,7 +1381,8 @@ static void _cmdq_build_trigger_loop(void)
 			VFP_PORTCH = (line_num * 60) / gsync_fps - line_num +
 				pgc->plcm->params->dsi.vertical_frontporch;
 
-		cmdqBackupWriteSlot(pgc->dsi_vfp_line, 0, VFP_PORTCH);
+		if (disp_helper_get_option(DISP_OPT_USE_CMDQ))
+			cmdqBackupWriteSlot(pgc->dsi_vfp_line, 0, VFP_PORTCH);
 	}
 
 	if (pgc->cmdq_handle_trigger == NULL) {
@@ -3672,8 +3673,9 @@ static int init_cmdq_slots(cmdqBackupSlotHandle *pSlot, int count,
 
 	cmdqBackupAllocateSlot(pSlot, count);
 
-	for (i = 0; i < count; i++)
-		cmdqBackupWriteSlot(*pSlot, i, init_val);
+	if (disp_helper_get_option(DISP_OPT_USE_CMDQ))
+		for (i = 0; i < count; i++)
+			cmdqBackupWriteSlot(*pSlot, i, init_val);
 
 	return 0;
 }
@@ -3732,27 +3734,32 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 	dprec_init();
 	dpmgr_init();
 
-	init_cmdq_slots(&(pgc->ovl_config_time), 3, 0);
-	init_cmdq_slots(&(pgc->cur_config_fence),
-		DISP_SESSION_TIMELINE_COUNT, 0);
-	init_cmdq_slots(&(pgc->subtractor_when_free),
-		DISP_SESSION_TIMELINE_COUNT, 0);
-	init_cmdq_slots(&(pgc->rdma_buff_info), 3, 0);
-	init_cmdq_slots(&(pgc->ovl_status_info), 4, 0);
-	init_cmdq_slots(&(pgc->dither_status_info), 1, 0x10001);
-	init_cmdq_slots(&(pgc->dsi_vfp_line), 1, 0);
-	init_cmdq_slots(&(pgc->night_light_params), 17, 0);
-	init_cmdq_slots(&(pgc->ovl_dummy_info), OVL_NUM, 0);
+	if (disp_helper_get_option(DISP_OPT_USE_CMDQ)) {
+		init_cmdq_slots(&(pgc->ovl_config_time), 3, 0);
+		init_cmdq_slots(&(pgc->cur_config_fence),
+				DISP_SESSION_TIMELINE_COUNT, 0);
+		init_cmdq_slots(&(pgc->subtractor_when_free),
+				DISP_SESSION_TIMELINE_COUNT, 0);
+		init_cmdq_slots(&(pgc->rdma_buff_info), 3, 0);
+		init_cmdq_slots(&(pgc->ovl_status_info), 4, 0);
+		init_cmdq_slots(&(pgc->dither_status_info), 1, 0x10001);
+		init_cmdq_slots(&(pgc->dsi_vfp_line), 1, 0);
+		init_cmdq_slots(&(pgc->night_light_params), 17, 0);
+		init_cmdq_slots(&(pgc->ovl_dummy_info), OVL_NUM, 0);
+	}
 
 	/* init night light related variable */
 	mem_config.m_ccorr_config.is_dirty = 1;
 
 	mem_config.m_ccorr_config.mode = 1;
-	cmdqBackupWriteSlot(pgc->night_light_params, 0, 1);
+	if (disp_helper_get_option(DISP_OPT_USE_CMDQ))
+		cmdqBackupWriteSlot(pgc->night_light_params, 0, 1);
 
 	for (i = 0; i <= 15; i += 5) {
 		mem_config.m_ccorr_config.color_matrix[i] = 1024;
-		cmdqBackupWriteSlot(pgc->night_light_params, i + 1, 1024);
+		if (disp_helper_get_option(DISP_OPT_USE_CMDQ))
+			cmdqBackupWriteSlot(
+				pgc->night_light_params, i + 1, 1024);
 	}
 
 	mutex_init(&(pgc->capture_lock));

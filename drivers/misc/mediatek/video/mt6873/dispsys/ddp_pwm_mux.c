@@ -158,9 +158,9 @@ int disp_pwm_set_pwmmux(unsigned int clk_req)
 	pr_debug("[PWM]clk_req=%d clkid=%d", clk_req, clkid);
 
 	if (clkid != -1) {
-		ddp_clk_prepare_enable(MUX_PWM);
-		ddp_clk_set_parent(MUX_PWM, clkid);
-		ddp_clk_disable_unprepare(MUX_PWM);
+		ddp_clk_prepare_enable(CLK_MUX_DISP_PWM);
+		ddp_clk_set_parent(CLK_MUX_DISP_PWM, clkid);
+		ddp_clk_disable_unprepare(CLK_MUX_DISP_PWM);
 	}
 
 	reg_after = disp_pwm_get_pwmmux();

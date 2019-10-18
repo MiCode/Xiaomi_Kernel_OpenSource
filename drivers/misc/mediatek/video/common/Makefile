@@ -72,8 +72,8 @@ ccflags-y += \
 ifeq (y, $(filter y, $(CONFIG_MACH_MT6799) $(CONFIG_MACH_MT6759) $(CONFIG_MACH_MT6758) $(CONFIG_MACH_MT6763) $(CONFIG_MACH_MT6775) $(CONFIG_MACH_MT6771) $(CONFIG_MACH_MT6739) $(CONFIG_MACH_MT8168) $(CONFIG_MACH_MT6768) $(CONFIG_MACH_MT6785) $(CONFIG_MACH_MT6885) $(CONFIG_MACH_MT6873)))
 
 ccflags-y += \
-				-I$(srctree)/drivers/misc/mediatek/cmdq/v3/ \
-				-I$(srctree)/drivers/misc/mediatek/cmdq/v3/$(MTK_PLATFORM)/
+				-I$(srctree)/drivers/misc/mediatek/video/$(MTK_PLATFORM)/cmdq/v3/ \
+				-I$(srctree)/drivers/misc/mediatek/video/$(MTK_PLATFORM)/cmdq/v3/$(MTK_PLATFORM)/
 else
 ccflags-y += \
 				-I$(srctree)/drivers/misc/mediatek/cmdq/v2/ \
@@ -85,7 +85,7 @@ obj-y += mtkfb_dummy.o
 endif
 
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmp/
-subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM) \
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/video/$(MTK_PLATFORM)/m4u/$(MTK_PLATFORM) \
 
 
 ccflags-$(CONFIG_MTK_LCM) += -I$(srctree)/drivers/misc/mediatek/lcm/inc

@@ -1807,28 +1807,6 @@ static int disp_aal_write_param_to_reg(enum DISP_MODULE_ENUM module,
 	return 0;
 }
 
-static int mdp_aal_config(enum DISP_MODULE_ENUM module,
-	struct disp_ddp_path_config *pConfig, void *cmdq)
-{
-	u32 reg_offset = 0;
-
-	if (module == DISP_MODULE_MDP_AAL5)
-		reg_offset	 = 0x00100000;
-
-	DISP_REG_SET(cmdq, MDP_AAL4_MDP_AAL_SIZE + reg_offset,
-		pConfig->dst_w << 16 | pConfig->dst_h);
-	DISP_REG_SET(cmdq, MDP_AAL4_MDP_AAL_OUTPUT_SIZE + reg_offset,
-		pConfig->dst_w << 16 | pConfig->dst_h);
-	DISP_REG_SET(cmdq, MDP_AAL4_MDP_AAL_EN + reg_offset, 0x00000001);
-	DISP_REG_SET(cmdq, MDP_AAL4_MDP_AAL_CFG + reg_offset, 0x00400003);
-	DISP_REG_SET(cmdq, MDP_AAL4_MDP_AAL_CFG_MAIN + reg_offset,
-		0x00000000);
-	DISP_REG_SET(cmdq, MDP_AAL4_MDP_AAL_DRE_BILATERAL + reg_offset,
-		0x00000000);
-
-	return 0;
-}
-
 static int aal_config(enum DISP_MODULE_ENUM module,
 	struct disp_ddp_path_config *pConfig, void *cmdq)
 {
@@ -1837,10 +1815,6 @@ static int aal_config(enum DISP_MODULE_ENUM module,
 	int dre_alg_mode = 0;
 #endif
 
-	if (module == DISP_MODULE_MDP_AAL4 || module == DISP_MODULE_MDP_AAL5) {
-		mdp_aal_config(module, pConfig, cmdq);
-		return 0;
-	}
 	if (disp_aal_check_module(module, __func__, __LINE__) == false)
 		return 0;
 
@@ -1897,10 +1871,7 @@ static int aal_config(enum DISP_MODULE_ENUM module,
 
 		DISP_REG_SET(cmdq, DISP_AAL_SIZE + offset,
 			(width << 16) | height);
-		DISP_REG_SET(cmdq, DISP_AAL_OUTPUT_SIZE + offset,
-			(width << 16) | height);
-
-#if defined(CONFIG_MACH_MT6779) || defined(CONFIG_MACH_MT6785)
+#if defined(CONFIG_MACH_MT6779)
 		DISP_REG_SET(cmdq, DISP_AAL_OUTPUT_SIZE + offset,
 			(width << 16) | height);
 		DISP_REG_SET(cmdq, DISP_AAL_OUTPUT_OFFSET + offset,

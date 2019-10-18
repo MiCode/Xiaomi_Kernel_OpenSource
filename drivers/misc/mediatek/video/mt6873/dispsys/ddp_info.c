@@ -56,7 +56,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 NULL,
 	 {"mediatek,disp_mutex0",
 	  0x14001000,
-	  284,
+	  252,
 	  25,
 	  0,
 	  0}
@@ -82,8 +82,8 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 NULL,
 	 {"mediatek,smi_larb0",
 	  0x14003000,
-	  0,
-	  0,
+	  283,
+	  4,
 	  0,
 	  0}
 	 },
@@ -95,8 +95,8 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 NULL,
 	 {"mediatek,smi_larb1",
 	  0x14004000,
-	  0,
-	  0,
+	  282,
+	  4,
 	  0,
 	  0}
 	 },
@@ -108,7 +108,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 &ddp_driver_ovl,
 	 {"mediatek,disp_ovl0",
 	  0x14005000,
-	  286,
+	  254,
 	  14,
 	  0,
 	  0}
@@ -121,7 +121,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 &ddp_driver_ovl,
 	 {"mediatek,disp_ovl0_2l",
 	  0x14006000,
-	  287,
+	  255,
 	  14,
 	  0,
 	  0}
@@ -134,7 +134,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 &ddp_driver_rdma,
 	 {"mediatek,disp_rdma0",
 	  0x14007000,
-	  288,
+	  256,
 	  7,
 	  0,
 	  0}
@@ -147,7 +147,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 &ddp_driver_rsz,
 	 {"mediatek,disp_rsz0",
 	  0x14008000,
-	  289,
+	  257,
 	  0,
 	  0,
 	  0}
@@ -160,7 +160,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 &ddp_driver_color,
 	 {"mediatek,disp_color0",
 	  0x14009000,
-	  290,
+	  258,
 	  0,
 	  0,
 	  0}
@@ -173,7 +173,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 &ddp_driver_ccorr,
 	 {"mediatek,disp_ccorr0",
 	  0x1400a000,
-	  291,
+	  259,
 	  1,
 	  0,
 	  0}
@@ -186,7 +186,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 &ddp_driver_aal,
 	 {"mediatek,disp_aal0",
 	  0x1400b000,
-	  292,
+	  260,
 	  1,
 	  0,
 	  0}
@@ -199,7 +199,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 &ddp_driver_gamma,
 	 {"mediatek,disp_gamma0",
 	  0x1400c000,
-	  293,
+	  261,
 	  0,
 	  0,
 	  0}
@@ -212,7 +212,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 &ddp_driver_postmask,
 	 {"mediatek,disp_postmask0",
 	  0x1400d000,
-	  294,
+	  262,
 	  12,
 	  0,
 	  0}
@@ -225,7 +225,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 &ddp_driver_dither,
 	 {"mediatek,disp_dither0",
 	  0x1400e000,
-	  295,
+	  263,
 	  1,
 	  0,
 	  0}
@@ -239,7 +239,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 NULL,//&ddp_driver_dsc,
 	 {"mediatek,disp_dsc_wrap0_core0",
 	  0x1400f000,
-	  296,
+	  264,
 	  1,
 	  0,
 	  0}
@@ -252,7 +252,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 NULL,//&ddp_driver_dsc,
 	 {"mediatek,disp_dsc_wrap0_core1",
 	  0x1400f400,
-	  296,
+	  264,
 	  1,
 	  0,
 	  0}
@@ -265,7 +265,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 &ddp_driver_dsi0,
 	 {"mediatek,dsi0",
 	  0x14010000,
-	  297,
+	  265,
 	  15,
 	  0,
 	  0}
@@ -278,7 +278,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 &ddp_driver_wdma,
 	 {"mediatek,disp_wdma0",
 	  0x14011000,
-	  298,
+	  266,
 	  2,
 	  0,
 	  0}
@@ -291,7 +291,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 &ddp_driver_wdma,
 	 {"mediatek,disp_ufbc_wdma0",
 	  0x14012000,
-	  299,
+	  267,
 	  0,
 	  0,
 	  0}
@@ -304,7 +304,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 &ddp_driver_ovl,
 	 {"mediatek,disp_ovl2_2l",
 	  0x14014000,
-	  300,
+	  268,
 	  14,
 	  0,
 	  0}
@@ -317,7 +317,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 &ddp_driver_rdma,
 	 {"mediatek,disp_rdma4",
 	  0x14015000,
-	  301,
+	  269,
 	  7,
 	  0,
 	  0}
@@ -330,7 +330,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 NULL,//&ddp_driver_dpi,
 	 {"mediatek,dpi0",
 	  0x14016000,
-	  302,
+	  270,
 	  2,
 	  0,
 	  0}
@@ -344,7 +344,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 NULL,//&ddp_driver_mdp_rdma,
 	 {"mediatek,mdp_rdma4",
 	  0x14017000,
-	  303,
+	  271,
 	  2,
 	  0,
 	  0}
@@ -357,7 +357,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 NULL,//&ddp_driver_mdp_hdr,
 	 {"mediatek,mdp_hdr4",
 	  0x14018000,
-	  304,
+	  272,
 	  3,
 	  0,
 	  0}
@@ -370,7 +370,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 NULL,//&ddp_driver_mdp_rsz,
 	 {"mediatek,mdp_rsz4",
 	  0x14019000,
-	  305,
+	  273,
 	  8,
 	  0,
 	  0}
@@ -383,7 +383,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 NULL,//&ddp_driver_mdp_aal,
 	 {"mediatek,mdp_aal4",
 	  0x1401a000,
-	  306,
+	  274,
 	  1,
 	  0,
 	  0}
@@ -396,7 +396,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 NULL,//&ddp_driver_mdp_tdshp,
 	 {"mediatek,mdp_tdshp4",
 	  0x1401b000,
-	  307,
+	  275,
 	  1,
 	  0,
 	  0}
@@ -409,7 +409,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 NULL,//&ddp_driver_mdp_color,
 	 {"mediatek,mdp_color4",
 	  0x1401c000,
-	  308,
+	  276,
 	  1,
 	  0,
 	  0}

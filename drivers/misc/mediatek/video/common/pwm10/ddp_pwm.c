@@ -165,8 +165,6 @@ int disp_pwm_get_cust_led(unsigned int *clocksource, unsigned int *clockdiv)
 		if (!ret) {
 			*clocksource = pwm_config[0];
 			*clockdiv = pwm_config[1];
-			PWM_MSG("led dts pwm config data. %d %d\n",
-				pwm_config[0], pwm_config[1]);
 		} else {
 			PWM_ERR("led dts can not get pwm config data.\n");
 		}
@@ -283,8 +281,6 @@ static int disp_pwm_config_init(enum DISP_MODULE_ENUM module,
 	pwm_div = PWM_DEFAULT_DIV_VALUE;
 
 	ret = disp_pwm_get_cust_led(&pwm_src, &pwm_div);
-	PWM_NOTICE("disp_pwm_init : PWM config init data (%d,%d), ret=%d\n",
-			pwm_src, pwm_div, ret);
 	if (!ret) {
 		disp_pwm_set_pwmmux(pwm_src);
 

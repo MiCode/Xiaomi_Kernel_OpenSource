@@ -23,8 +23,8 @@ ccflags-y += \
 
 ifeq (y, $(filter y, $(CONFIG_MACH_MT6799) $(CONFIG_MACH_MT6785)))
 ccflags-y += \
-                                -I$(srctree)/drivers/misc/mediatek/cmdq/v3/ \
-                                -I$(srctree)/drivers/misc/mediatek/cmdq/v3/$(MTK_PLATFORM)/
+                                -I$(srctree)/drivers/misc/mediatek/video/$(MTK_PLATFORM)/cmdq/v3/ \
+                                -I$(srctree)/drivers/misc/mediatek/video/$(MTK_PLATFORM)/cmdq/v3/$(MTK_PLATFORM)/
 else
 ccflags-y += \
                                 -I$(srctree)/drivers/misc/mediatek/cmdq/v2/ \

@@ -23,5 +23,5 @@ ccflags-y += \
                                 -I$(srctree)/drivers/misc/mediatek/lcm/inc/ \
 
 ccflags-y += \
-                                -I$(srctree)/drivers/misc/mediatek/cmdq/v3/ \
-                                -I$(srctree)/drivers/misc/mediatek/cmdq/v3/$(MTK_PLATFORM)/
+                                -I$(srctree)/drivers/misc/mediatek/video/$(MTK_PLATFORM)/cmdq/v3/ \
+                                -I$(srctree)/drivers/misc/mediatek/video/$(MTK_PLATFORM)/cmdq/v3/$(MTK_PLATFORM)/

@@ -499,7 +499,8 @@ static int disp_probe_1(void)
 			ddp_get_module_pa(i), irq);
 	}
 	/* initialize display slot */
-	_disp_init_cmdq_slots(&(dispsys_slot), DISP_SLOT_NUM, 0);
+	if (disp_helper_get_option(DISP_OPT_USE_CMDQ))
+		_disp_init_cmdq_slots(&(dispsys_slot), DISP_SLOT_NUM, 0);
 
 	/* register irq */
 	for (i = 0; i < DISP_MODULE_NUM; i++) {
