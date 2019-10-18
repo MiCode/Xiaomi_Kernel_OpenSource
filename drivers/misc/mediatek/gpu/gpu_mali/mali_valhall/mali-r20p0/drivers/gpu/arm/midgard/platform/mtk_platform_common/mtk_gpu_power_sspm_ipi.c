@@ -35,30 +35,83 @@ struct kbase_device *pm_kbdev;
 static DEFINE_MUTEX(gpu_pmu_info_lock);
 void MTKGPUPower_model_start(unsigned int interval_ns){
 	struct kbase_ioctl_hwcnt_reader_setup setup;
+	int pm_tool = MTK_get_mtk_pm();
+
 	mutex_lock(&gpu_pmu_info_lock);
 	//Get the first device - it doesn't matter in this case
 	pm_kbdev = kbase_find_device(-1);
 	if (!pm_kbdev) {
 		return;
 	}
-	/* Default doesn't enable all HWC */
-	setup.jm_bm = 0x16;
-	setup.shader_bm = 0x1EC2;
-	setup.tiler_bm = 0x2;
-	setup.mmu_l2_bm = 0x1FC0;
-	setup.buffer_count = 1;
-	MTK_kbase_vinstr_hwcnt_reader_setup(pm_kbdev->vinstr_ctx, &setup);
-	//1ms = 1000000ns
-	MTK_kbasep_vinstr_hwcnt_set_interval(interval_ns);
+	if (init_flag == 0 && pm_tool == pm_non) {
+		//Default doesn't enable all HWC
+		setup.jm_bm = 0x16;
+		setup.shader_bm = 0x1EC2;
+		setup.tiler_bm = 0x2;
+		setup.mmu_l2_bm = 0x1FC0;
+		setup.buffer_count = 1;
+		MTK_update_mtk_pm(pm_ltr);
+		MTK_kbase_vinstr_hwcnt_reader_setup(pm_kbdev->vinstr_ctx, &setup);
+		//1ms = 1000000ns
+		MTK_kbasep_vinstr_hwcnt_set_interval(interval_ns);
+	}
+	else if(pm_tool == pm_swpm){
+		MTK_kbasep_vinstr_hwcnt_set_interval(0);
+		MTK_update_mtk_pm(pm_ltr);
+		MTK_kbasep_vinstr_hwcnt_set_interval(interval_ns);
+	}
+
 	init_flag = 1;
 	mutex_unlock(&gpu_pmu_info_lock);
 }
 EXPORT_SYMBOL(MTKGPUPower_model_start);
 
+void MTKGPUPower_model_start_swpm(unsigned int interval_ns){
+	struct kbase_ioctl_hwcnt_reader_setup setup;
+	int pm_tool = MTK_get_mtk_pm();
+
+	mutex_lock(&gpu_pmu_info_lock);
+	//Get the first device - it doesn't matter in this case
+	pm_kbdev = kbase_find_device(-1);
+	if (!pm_kbdev) {
+		return;
+	}
+	if (init_flag == 0 && pm_tool == pm_non) {
+		/* Default doesn't enable all HWC */
+		setup.jm_bm = 0x16;
+		setup.shader_bm = 0x1EC2;
+		setup.tiler_bm = 0x2;
+		setup.mmu_l2_bm = 0x1FC0;
+		setup.buffer_count = 1;
+		MTK_update_mtk_pm(pm_swpm);
+		MTK_kbase_vinstr_hwcnt_reader_setup(pm_kbdev->vinstr_ctx, &setup);
+		//1ms = 1000000ns
+		MTK_kbasep_vinstr_hwcnt_set_interval(interval_ns);
+	}
+	else if(pm_tool != pm_non){
+		MTK_kbasep_vinstr_hwcnt_set_interval(0);
+		MTK_update_mtk_pm(pm_swpm);
+		MTK_kbasep_vinstr_hwcnt_set_interval(interval_ns);
+	}
+	init_flag = 1;
+	mutex_unlock(&gpu_pmu_info_lock);
+}
+EXPORT_SYMBOL(MTKGPUPower_model_start_swpm);
+
+
 void MTKGPUPower_model_stop(void){
 	mutex_lock(&gpu_pmu_info_lock);
-	MTK_kbasep_vinstr_hwcnt_release();
-	init_flag = 0;
+	if (init_flag) {
+#if defined(CONFIG_MTK_GPU_SWPM_RUN_TIME)
+		MTK_kbasep_vinstr_hwcnt_set_interval(0);
+		MTK_update_mtk_pm(pm_swpm);
+		MTK_kbasep_vinstr_hwcnt_set_interval(1000000);
+#else
+		MTK_update_mtk_pm(pm_non);
+		MTK_kbasep_vinstr_hwcnt_release();
+		init_flag = 0;
+#endif
+	}
 	mutex_unlock(&gpu_pmu_info_lock);
 }
 EXPORT_SYMBOL(MTKGPUPower_model_stop);

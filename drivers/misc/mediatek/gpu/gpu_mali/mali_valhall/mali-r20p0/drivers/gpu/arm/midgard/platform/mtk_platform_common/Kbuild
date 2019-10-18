@@ -10,7 +10,7 @@ obj-y += $(curr)/mtk_mfg_counter.o
 obj-y += $(curr)/mtk_gpu_power_sspm_ipi.o
 
 ccflags-y += -I$(srctree)/drivers/devfreq/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/swpm_v1/$(MTK_PLATFORM)/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/swpm_v1/
 #ifdef CONFIG_MTK_PERF_TRACKER
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/perf/
 #endif

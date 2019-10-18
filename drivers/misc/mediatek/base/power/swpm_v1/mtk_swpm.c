@@ -258,18 +258,21 @@ static int gpu_debug_proc_show(struct seq_file *m, void *v)
 static ssize_t gpu_debug_proc_write(struct file *file,
 		const char __user *buffer, size_t count, loff_t *pos)
 {
-	int enable;
+	int enable_time;
 
 	char *buf = _copy_from_user_for_proc(buffer, count);
 
 	if (!buf)
 		return -EINVAL;
 
-	if (!kstrtouint(buf, 10, &enable)) {
-		swpm_gpu_debug = (enable) ? true : false;
-		if (swpm_gpu_debug)
-			MTKGPUPower_model_start(1000000);
-		else
+	if (!kstrtouint(buf, 10, &enable_time)) {
+		swpm_gpu_debug = (enable_time) ? true : false;
+		if (swpm_gpu_debug) {
+			if (enable_time < 1000000)
+				MTKGPUPower_model_start_swpm(1000000);
+			else
+				MTKGPUPower_model_start_swpm(enable_time);
+		} else
 			MTKGPUPower_model_stop();
 	} else {
 		swpm_err("echo 1/0 > /proc/swpm/debug\n");

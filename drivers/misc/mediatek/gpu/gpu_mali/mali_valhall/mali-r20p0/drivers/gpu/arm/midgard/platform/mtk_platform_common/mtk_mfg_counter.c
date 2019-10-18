@@ -18,6 +18,9 @@
 #include <mali_kbase_gator_api.h>
 #include <string.h>
 #include <linux/math64.h>
+#if defined(CONFIG_MTK_GPU_SWPM_SUPPORT)
+#include <mali_kbase_vinstr.h>
+#endif
 
 /*
  *  block position of Txx HWC
@@ -622,7 +625,10 @@ static int mali_get_gpu_pmu_init(GPU_PMU *pmus, int pmu_size, int *ret_size)
 		int nr_hwc_blocks, name_offset, data_offset;
 
 		mutex_lock(&counter_info_lock);
-
+#if defined(CONFIG_MTK_GPU_SWPM_SUPPORT)
+		if (MTK_get_mtk_pm() != pm_non)
+			MTK_kbasep_vinstr_hwcnt_set_interval(0);
+#endif
 		cnt = block_type = 0;
 		nr_hwc_blocks = info.nr_hwc_blocks;
 		for (i = 0; i < nr_hwc_blocks; i++) {
@@ -728,7 +734,12 @@ int mali_get_gpu_pmu_deinit(void)
 	kfree(mali_pmus);
 	binited = 0;
 	mfg_is_power_on = 0;
-
+#if defined(CONFIG_MTK_GPU_SWPM_SUPPORT)
+	if (MTK_get_mtk_pm() == pm_ltr)
+		MTK_kbasep_vinstr_hwcnt_set_interval(8000000);
+	else if (MTK_get_mtk_pm() == pm_swpm)
+		MTK_kbasep_vinstr_hwcnt_set_interval(1000000);
+#endif
 	mutex_unlock(&counter_info_lock);
 
 	return PMU_OK;

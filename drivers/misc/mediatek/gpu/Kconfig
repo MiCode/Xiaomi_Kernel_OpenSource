@@ -52,3 +52,10 @@ config MTK_GPU_SWPM_SUPPORT
 	default n
 	help
 	   config supports to make SWPM enable/disable GPU power model
+
+config MTK_GPU_SWPM_RUN_TIME
+	bool "Enable GPU SWPM RUN TIME"
+	default n
+	help
+	   GPU swpm rum time if config enable
+	   GPU swpm is initial in ged dvfs

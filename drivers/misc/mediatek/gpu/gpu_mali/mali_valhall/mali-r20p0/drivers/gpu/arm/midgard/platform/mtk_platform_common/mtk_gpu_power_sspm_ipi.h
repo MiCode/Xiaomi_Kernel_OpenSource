@@ -39,6 +39,7 @@
  */
 void MTKGPUPower_model_stop(void);
 void MTKGPUPower_model_start(unsigned int interval_ns);
+void MTKGPUPower_model_start_swpm(unsigned int interval_ns);
 void MTKGPUPower_model_suspend(void);
 void MTKGPUPower_model_resume(void);
 #endif

@@ -65,6 +65,14 @@ typedef enum {
 	VINSTR_PERF_COUNTER_LAST
 } mtk_vinstr_perf_counter;
 
+typedef enum {
+	pm_non,
+	pm_ltr,
+	pm_swpm,
+	pm_met
+} mtk_pm_tool_used;
+
+
 /**
  * kbase_vinstr_init() - Initialise a vinstr context.
  * @hvirt:    Non-NULL pointer to the hardware counter virtualizer.
@@ -126,8 +134,12 @@ int MTK_kbase_vinstr_hwcnt_reader_setup(
 	struct kbase_vinstr_context *vctx,
 	struct kbase_ioctl_hwcnt_reader_setup *setup);
 void MTK_update_mtk_pm(int flag);
+int MTK_get_mtk_pm(void);
 void MTK_kbasep_vinstr_hwcnt_set_interval(unsigned int interval);
 void MTK_kbasep_vinstr_hwcnt_release(void);
+#if defined(CONFIG_MTK_SWPM)
+void MTK_update_gpu_swpm(void);
+#endif
 void MTK_update_gpu_LTR(void);
 
 

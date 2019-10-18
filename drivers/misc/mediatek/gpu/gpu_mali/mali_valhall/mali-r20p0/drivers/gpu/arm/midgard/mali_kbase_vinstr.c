@@ -43,6 +43,10 @@
 #ifdef CONFIG_MTK_PERF_TRACKER
 #include <perf_tracker_internal.h>
 #endif
+#if defined(CONFIG_MTK_SWPM)
+#include <mtk_swpm_interface.h>
+#include <mtk_gpu_swpm_plat.h>
+#endif
 
 
 /* Hwcnt reader API version */
@@ -139,7 +143,10 @@ static const struct file_operations vinstr_client_fops = {
 };
 
 unsigned int *kernel_dump;
-bool mtk_pm = false;
+//check the mtk tool using now
+int mtk_pm_tool = pm_non;
+int ds5_used = 1;
+
 static struct kbase_vinstr_client *mtk_cli = NULL;
 struct mtk_gpu_perf{
 	uint32_t counter[VINSTR_PERF_COUNTER_LAST];
@@ -207,7 +214,7 @@ static int kbasep_vinstr_client_dump(
 	write_idx = atomic_read(&vcli->write_idx);
 	read_idx = atomic_read(&vcli->read_idx);
 
-	if (!mtk_pm) {
+	if (ds5_used) {
 		/* Check if there is a place to copy HWC block into. */
 		if (write_idx - read_idx == vcli->dump_bufs.buf_cnt)
 			return -EBUSY;
@@ -224,10 +231,16 @@ static int kbasep_vinstr_client_dump(
 	if (errcode)
 		return errcode;
 
-	if (mtk_pm) {
+	if (mtk_pm_tool == pm_ltr && ds5_used == 0) {
 		kernel_dump = dump_buf->dump_buf;
 		MTK_update_gpu_LTR();
 	}
+#if defined(CONFIG_MTK_SWPM)
+	else if (mtk_pm_tool == pm_swpm && ds5_used == 0) {
+		kernel_dump = dump_buf->dump_buf;
+		MTK_update_gpu_swpm();
+	}
+#endif
 
 	/* Patch the dump buf headers, to hide the counters that other hwcnt
 	 * clients are using.
@@ -877,6 +890,10 @@ static long kbasep_vinstr_hwcnt_reader_ioctl(
 	switch (cmd) {
 	case KBASE_HWCNT_READER_GET_API_VERSION:
 		rcode = put_user(HWCNT_READER_API, (u32 __user *)arg);
+		if (mtk_pm_tool != pm_non) {
+			MTK_kbasep_vinstr_hwcnt_set_interval(0);
+			ds5_used = 1;
+		}
 		break;
 	case KBASE_HWCNT_READER_GET_HWVER:
 		rcode = kbasep_vinstr_hwcnt_reader_ioctl_get_hwver(
@@ -904,6 +921,13 @@ static long kbasep_vinstr_hwcnt_reader_ioctl(
 	case KBASE_HWCNT_READER_SET_INTERVAL:
 		rcode = kbasep_vinstr_hwcnt_reader_ioctl_set_interval(
 			cli, (u32)arg);
+		if ((u32)arg == 0 && mtk_pm_tool != pm_non) {
+			ds5_used = 0;
+			if (mtk_pm_tool == pm_ltr)
+				MTK_kbasep_vinstr_hwcnt_set_interval(8000000);
+			else if (mtk_pm_tool == pm_swpm)
+				MTK_kbasep_vinstr_hwcnt_set_interval(1000000);
+		}
 		break;
 	case KBASE_HWCNT_READER_ENABLE_EVENT:
 		rcode = kbasep_vinstr_hwcnt_reader_ioctl_enable_event(
@@ -998,7 +1022,7 @@ static int kbasep_vinstr_hwcnt_reader_release(struct inode *inode,
 	struct file *filp)
 {
 	struct kbase_vinstr_client *vcli = filp->private_data;
-	if (!mtk_pm) {
+	if (ds5_used) {
 		mutex_lock(&vcli->vctx->lock);
 
 		vcli->vctx->client_count--;
@@ -1014,7 +1038,12 @@ static int kbasep_vinstr_hwcnt_reader_release(struct inode *inode,
 
 void MTK_update_mtk_pm(int flag)
 {
-	mtk_pm = flag;
+	mtk_pm_tool = flag;
+}
+
+int MTK_get_mtk_pm(void)
+{
+	return mtk_pm_tool;
 }
 
 int MTK_kbase_vinstr_hwcnt_reader_setup(
@@ -1024,9 +1053,11 @@ int MTK_kbase_vinstr_hwcnt_reader_setup(
 	int errcode;
 	int fd;
 	struct kbase_vinstr_client *vcli = NULL;
-	//reserved swpm share memory before swpm porting
-	//phys_addr_t *ptr = NULL;
-	//struct gpu_swpm_rec_data *gpu_ptr;
+#if defined(CONFIG_MTK_SWPM)
+	//use swpm share memory
+	phys_addr_t *ptr = NULL;
+	struct gpu_swpm_rec_data *gpu_ptr;
+#endif
 
 	if (!vctx || !setup ||
 	    (setup->buffer_count == 0) ||
@@ -1046,10 +1077,15 @@ int MTK_kbase_vinstr_hwcnt_reader_setup(
 	vctx->client_count++;
 	list_add(&vcli->node, &vctx->clients);
 	mtk_cli = vcli;
-	//reserved swpm function before swpm porting
-	//swpm_mem_addr_request(GPU_SWPM_TYPE, &ptr);
-	//gpu_ptr = (struct gpu_swpm_rec_data *)ptr;
-	//gpu_ptr->gpu_enable = 1;
+#if defined(CONFIG_MTK_SWPM)
+	//set swpm gpu_enable
+	if (mtk_pm_tool == pm_swpm) {
+		swpm_mem_addr_request(GPU_SWPM_TYPE, &ptr);
+		gpu_ptr = (struct gpu_swpm_rec_data *)ptr;
+		gpu_ptr->gpu_enable = 1;
+	}
+#endif
+	ds5_used = 0;
 	mutex_unlock(&vctx->lock);
 	return fd;
 error:
@@ -1060,7 +1096,6 @@ error:
 
 void MTK_kbasep_vinstr_hwcnt_set_interval(unsigned int interval)
 {
-	mtk_pm = true;
 	if (mtk_cli != NULL) {
 		kbasep_vinstr_hwcnt_reader_ioctl_set_interval(mtk_cli, interval);
 	}
@@ -1068,10 +1103,22 @@ void MTK_kbasep_vinstr_hwcnt_set_interval(unsigned int interval)
 
 void MTK_kbasep_vinstr_hwcnt_release(void)
 {
-	mtk_pm = false;
+#if defined(CONFIG_MTK_SWPM)
+	//use swpm share memory
+	phys_addr_t *ptr = NULL;
+	struct gpu_swpm_rec_data *gpu_ptr;
+#endif
 
+	mtk_pm_tool = pm_non;
+	ds5_used = 1;
 	if (mtk_cli != NULL) {
 		mutex_lock(&mtk_cli->vctx->lock);
+#if defined(CONFIG_MTK_SWPM)
+		//set swpm gpu_enable
+		swpm_mem_addr_request(GPU_SWPM_TYPE, &ptr);
+		gpu_ptr = (struct gpu_swpm_rec_data *)ptr;
+		gpu_ptr->gpu_enable = 0;
+#endif
 		mtk_cli->vctx->client_count--;
 		list_del(&mtk_cli->node);
 		mutex_unlock(&mtk_cli->vctx->lock);
@@ -1080,7 +1127,60 @@ void MTK_kbasep_vinstr_hwcnt_release(void)
 	}
 }
 
-void MTK_update_gpu_LTR()
+#if defined(CONFIG_MTK_SWPM)
+void MTK_update_gpu_swpm(void)
+{
+	unsigned int pm_gpu_loading;
+	unsigned int exec_active;
+	unsigned int exec_instr_fma, exec_instr_cvt, exec_instr_sfu;
+	unsigned int tfilt_num;
+	unsigned int l2_any;
+	unsigned int lsc_active;
+	unsigned int vary_active;
+	unsigned int tiler_active;
+	//use share memory of swpm
+	phys_addr_t *ptr = NULL;
+	struct gpu_swpm_rec_data *gpu_ptr;
+
+	mtk_get_gpu_loading(&pm_gpu_loading);
+	swpm_mem_addr_request(GPU_SWPM_TYPE, &ptr);
+	gpu_ptr = (struct gpu_swpm_rec_data *)ptr;
+	gpu_ptr->gpu_counter[gfreq] = mt_gpufreq_get_cur_freq();
+	gpu_ptr->gpu_counter[gvolt] = mt_gpufreq_get_cur_volt();
+	gpu_ptr->gpu_counter[gloading] = pm_gpu_loading;
+	exec_active = kernel_dump[6];
+	exec_instr_fma = kernel_dump[411];
+	exec_instr_cvt = kernel_dump[412];
+	exec_instr_sfu = kernel_dump[413];
+	tfilt_num = kernel_dump[423];
+	l2_any = (kernel_dump[153] + kernel_dump[217] + kernel_dump[281] + kernel_dump[345]) / 4;
+	lsc_active = kernel_dump[428] + kernel_dump[429] + kernel_dump[430] + kernel_dump[431];
+	vary_active  = kernel_dump[434] + kernel_dump[435];
+	tiler_active = kernel_dump[68];
+	if (exec_active == 0) {
+		gpu_ptr->gpu_counter[galu_fma_urate] = 0;
+		gpu_ptr->gpu_counter[galu_cvt_urate] = 0;
+		gpu_ptr->gpu_counter[galu_sfu_urate] = 0;
+		gpu_ptr->gpu_counter[gtex_urate] = 0;
+		gpu_ptr->gpu_counter[glsc_urate] = 0;
+		gpu_ptr->gpu_counter[gl2c_urate] = 0;
+		gpu_ptr->gpu_counter[gvary_urate] = 0;
+		gpu_ptr->gpu_counter[gtiler_urate] = 0;
+	} else {
+		gpu_ptr->gpu_counter[galu_fma_urate] = exec_instr_fma / (exec_active / 100);
+		gpu_ptr->gpu_counter[galu_cvt_urate] = exec_instr_cvt / (exec_active / 100);
+		gpu_ptr->gpu_counter[galu_sfu_urate] = exec_instr_sfu / (exec_active / 100);
+		gpu_ptr->gpu_counter[gtex_urate] = tfilt_num / (exec_active / 100);
+		gpu_ptr->gpu_counter[glsc_urate] = lsc_active / (exec_active / 100);
+		gpu_ptr->gpu_counter[gl2c_urate] = l2_any / (exec_active / 100);
+		gpu_ptr->gpu_counter[gvary_urate] = vary_active / (exec_active / 100);
+		gpu_ptr->gpu_counter[gtiler_urate] = tiler_active / (exec_active / 100);
+	}
+}
+#endif
+
+
+void MTK_update_gpu_LTR(void)
 {
 	unsigned int pm_gpu_loading;
 	struct mtk_gpu_perf gpu_perf_counter;
