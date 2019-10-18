@@ -407,7 +407,6 @@ static ssize_t adsp_dump_log_show(struct file *filep, struct kobject *kobj,
 				char *buf, loff_t offset, size_t size)
 {
 	ssize_t n = 0;
-#if 0
 	ssize_t threshold[2];
 
 	threshold[0] = adsp_get_reserve_mem_size(ADSP_A_LOGGER_MEM_ID);
@@ -415,15 +414,12 @@ static ssize_t adsp_dump_log_show(struct file *filep, struct kobject *kobj,
 		adsp_get_reserve_mem_size(ADSP_B_LOGGER_MEM_ID);
 
 	if (offset >= 0 && offset < threshold[0]) {
-		n = copy_from_adsp_shared_memory(
-				buf, offset - threshold[0],
+		n = copy_from_adsp_shared_memory(buf, offset,
 				size, ADSP_A_LOGGER_MEM_ID);
 	} else if (offset >= threshold[0] && offset < threshold[1]) {
-		n = copy_from_adsp_shared_memory(
-				buf, offset - threshold[1],
+		n = copy_from_adsp_shared_memory(buf, offset - threshold[0],
 				size, ADSP_B_LOGGER_MEM_ID);
 	}
-#endif
 	return n;
 }
 
