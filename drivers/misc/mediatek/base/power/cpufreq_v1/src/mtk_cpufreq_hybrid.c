@@ -345,7 +345,7 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 
 		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_CPU_DVFS,
 				IPI_SEND_POLLING, cdvfs_d,
-				sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE, 10);
+				sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE, 2000);
 
 		if (ret != 0) {
 			cpufreq_ver("#@# %s(%d) mcupm_ipi_send_sync ret %d\n",
@@ -366,7 +366,7 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 
 		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_CPU_DVFS,
 				IPI_SEND_POLLING, cdvfs_d,
-				sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE, 10);
+				sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE, 2000);
 
 		if (ret != 0) {
 			cpufreq_ver("#@# %s(%d) mcupm_ipi_send_sync ret %d\n",
@@ -423,7 +423,7 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 
 		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_CPU_DVFS,
 				IPI_SEND_POLLING, cdvfs_d,
-				sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE, 10);
+				sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE, 2000);
 		if (ret != 0) {
 			cpufreq_ver("#@# %s(%d) mcupm_ipi_send_sync ret %d\n",
 			__func__, __LINE__, ret);
@@ -442,7 +442,7 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 
 		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_CPU_DVFS,
 				IPI_SEND_POLLING, cdvfs_d,
-				sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE, 10);
+				sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE, 2000);
 		if (ret != 0) {
 			cpufreq_ver("#@# %s(%d) mcupm_ipi_send_sync ret %d\n",
 			__func__, __LINE__, ret);
@@ -461,7 +461,7 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 
 		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_CPU_DVFS,
 				IPI_SEND_POLLING, cdvfs_d,
-				sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE, 10);
+				sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE, 2000);
 		cpufreq_ver("Get volt = %d\n", ack_data);
 		if (ret != 0) {
 			cpufreq_ver("#@# %s(%d) mcupm_ipi_send_sync ret %d\n",
@@ -482,7 +482,7 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 
 		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_CPU_DVFS,
 				IPI_SEND_POLLING, cdvfs_d,
-				sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE, 10);
+				sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE, 2000);
 		cpufreq_ver("Get freq = %d\n", ack_data);
 		if (ret != 0) {
 			cpufreq_ver("#@# %s(%d) mcupm_ipi_send_sync ret %d\n",
@@ -504,7 +504,7 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 
 		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_CPU_DVFS,
 				IPI_SEND_POLLING, cdvfs_d,
-				sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE, 10);
+				sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE, 2000);
 		if (ret != 0) {
 			cpufreq_ver("#@# %s(%d) mcupm_ipi_send_sync ret %d\n",
 			__func__, __LINE__, ret);
@@ -524,7 +524,7 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 
 		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_CPU_DVFS,
 				IPI_SEND_POLLING, cdvfs_d,
-				sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE, 10);
+				sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE, 2000);
 		if (ret != 0) {
 			cpufreq_ver("#@# %s(%d) mcupm_ipi_send_sync ret %d\n",
 			__func__, __LINE__, ret);

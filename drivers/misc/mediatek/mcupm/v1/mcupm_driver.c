@@ -351,7 +351,7 @@ static unsigned int mcupm_log_enable_set(unsigned int enable)
 		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_PLATFORM,
 			IPI_SEND_WAIT, &ipi_data,
 			sizeof(struct mcupm_ipi_data_s) / MCUPM_MBOX_SLOT_SIZE,
-			0);
+			2000);
 		if (ret) {
 			pr_err("MCUPM: logger IPI fail ret=%d\n", ret);
 			goto error;
@@ -477,7 +477,7 @@ static ssize_t mcupm_alive_show(struct device *kobj,
 	ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_PLATFORM, IPI_SEND_WAIT,
 		&ipi_data,
 		sizeof(struct mcupm_ipi_data_s) / MCUPM_MBOX_SLOT_SIZE,
-		10);
+		2000);
 
 	return snprintf(buf, PAGE_SIZE, "%s\n",
 			mcupm_plt_ackdata ? "Alive" : "Dead");
@@ -561,7 +561,7 @@ int __init mcupm_plt_init(void)
 	ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_PLATFORM, IPI_SEND_POLLING,
 		&ipi_data,
 		sizeof(struct mcupm_ipi_data_s) / MCUPM_MBOX_SLOT_SIZE,
-		10);
+		2000);
 	if (ret) {
 		pr_err("MCUPM: plt IPI fail ret=%d, ackdata=%d\n",
 			ret, mcupm_plt_ackdata);
@@ -716,7 +716,7 @@ int mcupm_thread(void *data)
 		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_PLATFORM,
 			IPI_SEND_WAIT, &ipi_data,
 			sizeof(struct mcupm_ipi_data_s) / MCUPM_MBOX_SLOT_SIZE,
-			10);
+			2000);
 		if (ret) {
 			pr_info("MCUPM: alive ret=%d, ackdata=%d\n",
 				ret, mcupm_plt_ackdata);

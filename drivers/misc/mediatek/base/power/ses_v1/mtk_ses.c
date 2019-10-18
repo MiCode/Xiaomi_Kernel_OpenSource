@@ -300,7 +300,7 @@ int mtk_ses_volt_ratio_eb(unsigned int HiRatio,
 		IPI_SEND_POLLING,
 		&cdvfs_d,
 		sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE,
-		10);
+		2000);
 #endif
 
 	return ret;
