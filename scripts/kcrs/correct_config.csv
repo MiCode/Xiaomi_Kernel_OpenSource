@@ -598,8 +598,8 @@ CONFIG_MTK_IPV6_VZW,PROJECT,Xin.Xu,for customer project only,O,O,O,O,O,O,O,O,O,O
 CONFIG_MTK_IRAT_SUPPORT,PROJECT,anny.hu,,,,,,,,,,,,,,
 CONFIG_MTK_IRIS_SUPPORT,PROJECT,yicheng.chen,new config in this commit Ie6ddb08406104d35a595ed9b83593cb455f91dca,,,,,,,,,,,,,
 CONFIG_MTK_IRQ,PLATFORM,,,X,X,X,X,X,X,X,X,X,X,X,X,X
-CONFIG_MTK_IRQ_COUNT_TRACER,PROJECT,kobe-cp.wu,,O,O,O,O,O,O,O,O,O,O,O,O,O
-CONFIG_MTK_IRQ_OFF_TRACER,PROJECT,kobe-cp.wu,,O,O,O,O,O,O,O,O,O,O,O,O,O
+CONFIG_MTK_IRQ_COUNT_TRACER,PROJECT,kobe-cp.wu,,,,,,,,,,,,,,
+CONFIG_MTK_IRQ_OFF_TRACER,PROJECT,kobe-cp.wu,,,,,,,,,,,,,,
 CONFIG_MTK_IRTX_PWM_SUPPORT,PROJECT,cheng-h.chen,,,,,,,,,,,,,,
 CONFIG_MTK_IRTX_SUPPORT,PROJECT,xiao.wang,,,,,,,,,,,,,,
 CONFIG_MTK_ITG1010,PROJECT,ruixue.su,SS6,O,O,O,O,O,O,O,O,O,O,O,O,O
@@ -702,7 +702,7 @@ CONFIG_MTK_PMIC_WRAP,PLATFORM,brian-py.chen,pmic wrap upstream support option,X,
 CONFIG_MTK_PMIC_WRAP_HAL,PLATFORM,brian-py.chen,pmic wrap support option,X,X,y,y,y,y,y,y,y,X,X,y,y
 CONFIG_MTK_PMIF,PLATFORM,argus lin,pmif driver for pmic,X,X,X,X,X,X,X,X,X,y,y,y,y
 CONFIG_MTK_PQ_COLOR_MODE,PROJECT,Yj.li, new config I1b7b0441f385f77703b529b6efe6b78d122676b1,,,,,,,,,,,,,
-CONFIG_MTK_PREEMPT_TRACER,PROJECT,kobe-cp.wu,,O,O,O,O,O,O,O,O,O,O,O,O,O
+CONFIG_MTK_PREEMPT_TRACER,PROJECT,kobe-cp.wu,,,,,,,,,,,,,,
 CONFIG_MTK_PSCI,PLATFORM,scott.shu,,y,X,y,X,y,X,y,X,y,X,y,X,y
 CONFIG_MTK_PSEUDO_M4U,PROJECT,Cui.Zhang,,N,N,X,N,N,X,X,X,X,X,X,X,X
 CONFIG_MTK_PTPOD,PLATFORM,charles.yang,,X,X,y,X,X,y,y,y,y,y,y,y,y
@@ -735,7 +735,7 @@ CONFIG_MTK_SCHED_DEBUG,PLATFORM,jing-ting.wu,,X,X,X,X,X,X,X,X,X,X,X,X,X
 CONFIG_MTK_SCHED_EAS_PLUS,PLATFORM,michael.jiang,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_SCHED_EAS_POWER_SUPPORT,PLATFORM,YT.Chang,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_SCHED_INTEROP,COMMON,YT.Chang,,y,y,y,y,y,y,y,y,y,y,y,y,y
-CONFIG_MTK_SCHED_MONITOR,PROJECT,kobe-cp.wu,,O,O,O,O,O,O,O,O,O,O,O,O,O
+CONFIG_MTK_SCHED_MONITOR,PROJECT,kobe-cp.wu,,,,,,,,,,,,,,
 CONFIG_MTK_SCHED_RQAVG_KS,COMMON,lixiong.zhou,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_SCHED_RQAVG_US,COMMON,lixiong.zhou,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_SCHED_TRACE,USER,jing-ting.wu,,X,X,X,X,X,X,X,X,X,X,X,X,X
