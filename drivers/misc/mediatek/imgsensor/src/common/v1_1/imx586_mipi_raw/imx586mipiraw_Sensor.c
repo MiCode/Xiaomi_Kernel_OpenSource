@@ -371,13 +371,15 @@ static void imx586_set_pdaf_reg_setting(MUINT32 regNum, kal_uint16 *regDa)
 		pr_debug("%x %x", regDa[idx], regDa[idx+1]);
 	}
 }
-
+#ifdef VENDOR_EDIT
 static kal_uint16 imx586_QSC_setting[2304 * 2];
 static kal_uint16 imx586_LRC_setting[384 * 2];
-
+#endif
 
 static void write_sensor_QSC(void)
 {
+	write_cmos_sensor_8(0x3621, 0x01);/*enable QSC*/
+#ifdef VENDOR_EDIT
 	#if USE_BURST_MODE
 	imx586_table_write_cmos_sensor(imx586_QSC_setting,
 		sizeof(imx586_QSC_setting)/sizeof(kal_uint16));
@@ -389,8 +391,9 @@ static void write_sensor_QSC(void)
 		write_cmos_sensor_8(addr_qsc, imx586_QSC_setting[2 * idx + 1]);
 	}
 	#endif
+#endif
 }
-
+#ifdef VENDOR_EDIT
 static void write_sensor_LRC(void)
 {
 	#if USE_BURST_MODE
@@ -407,7 +410,7 @@ static void write_sensor_LRC(void)
 	}
 	#endif
 }
-
+#endif
 static void set_dummy(void)
 {
 	pr_debug("dummyline = %d, dummypixels = %d\n",
@@ -2927,8 +2930,9 @@ static kal_uint32 open(void)
 
 	/* initail sequence write in  */
 	sensor_init();
-
+#ifdef VENDOR_EDIT
 	write_sensor_LRC();
+#endif
 	spin_lock(&imgsensor_drv_lock);
 
 	imgsensor.autoflicker_en = KAL_FALSE;
