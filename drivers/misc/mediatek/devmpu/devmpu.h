@@ -1,10 +1,12 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 /*
- * Copyright (C) 2018 MediaTek Inc.
+ * Copyright (C) 2019 MediaTek Inc.
  */
 
 #ifndef __DEVMPU_H__
 #define __DEVMPU_H__
+
+void devmpu_vio_clear(void);
 
 /**
  * Print DeviceMPU violation info.

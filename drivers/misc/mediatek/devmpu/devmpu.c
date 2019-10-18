@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright (C) 2018 MediaTek Inc.
+ * Copyright (C) 2019 MediaTek Inc.
  */
 
 #include <asm/page.h>
@@ -18,6 +18,7 @@
 #include <mpu_v1.h>
 #include <mpu_platform.h>
 #include <devmpu.h>
+#include <devmpu_emi.h>
 
 #define LOG_TAG "[DEVMPU]"
 #define DUMP_TAG "dump_devmpu"
@@ -118,6 +119,20 @@ static int devmpu_vio_get(struct devmpu_vio_stat *vio, bool do_clear)
 	vio->id = (vio_info >> 16) & 0xFFFF;
 
 	return 0;
+}
+
+void devmpu_vio_clear(void)
+{
+	struct arm_smccc_res smc_res;
+
+	/* clear hyp violation status */
+	arm_smccc_smc(MTK_SIP_KERNEL_DEVMPU_VIO_CLR,
+			0, 0, 0, 0, 0, 0, 0, &smc_res);
+
+	if (smc_res.a0) {
+		pr_err("%s:%d failed to clear violation, ret=0x%lx\n",
+				__func__, __LINE__, smc_res.a0);
+	}
 }
 
 int devmpu_print_violation(uint64_t vio_addr, uint32_t vio_id,
@@ -347,6 +362,15 @@ static int devmpu_probe(struct platform_device *pdev)
 	pr_info("prot_size=0x%llx\n", devmpu_ctx->prot_size);
 	pr_info("page_size=0x%x\n", devmpu_ctx->page_size);
 	pr_info("virq=0x%x\n", devmpu_ctx->virq);
+
+#ifdef CONFIG_MTK_DEVMPU_EMI
+	rc = devmpu_regist_emi();
+	if (rc) {
+		pr_err("%s:%d failed to request EMI callback, rc=%d\n",
+				__func__, __LINE__, rc);
+		return -EINVAL;
+	}
+#endif
 
 	return 0;
 }

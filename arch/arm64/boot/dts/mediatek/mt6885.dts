@@ -930,12 +930,33 @@ page_owner=on";
 		reg = <0 0x10025000 0 0x1000>;
 	};
 
+	device_mpu_low@1021a000 {
+		compatible = "mediatek,device_mpu_low";
+		reg = <0 0x1021a000 0 0x1000>;
+		prot-base = <0x0 0x40000000>;
+		prot-size = <0x4 0x00000000>;
+		page-size = <0x200000>;
+		interrupts = <GIC_SPI 188 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	device_mpu_sub@1021b000 {
+		compatible = "mediatek,device_mpu_sub";
+		reg = <0 0x1021b000 0 0x1000>;
+		interrupts = <GIC_SPI 250 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
 	bus_dbg@10208000 {
 		compatible = "mediatek,bus_dbg-v2";
 		reg = <0 0x10208000 0 0x1000>,
 			  <0 0x10001000 0 0x1000>;
 		mediatek,bus_dbg_con_offset = <0x2fc>;
 		interrupts = <GIC_SPI 201 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	device_mpu_acp@1030d000 {
+		compatible = "mediatek,device_mpu_acp";
+		reg = <0 0x1030d000 0 0x1000>;
+		interrupts = <GIC_SPI 200 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	sspm@10400000 {
