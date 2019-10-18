@@ -327,6 +327,8 @@ void apusys_pwr_efficiency_check(void)
 			apusys_opps.cur_buck_volt[buck_index]){
 			user = apusys_buck_domain_to_user[buck_domain_index];
 			if (user < APUSYS_DVFS_USER_NUM) {
+				if (apusys_opps.is_power_on[user] == false)
+					continue;
 				apusys_opps.cur_opp_index[buck_domain_index] =
 				apusys_pwr_max_min_check(user, opp_index);
 			} else {

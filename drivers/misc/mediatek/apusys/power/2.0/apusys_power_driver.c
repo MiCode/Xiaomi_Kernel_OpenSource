@@ -424,7 +424,7 @@ static void apu_power_assert_check(struct apu_power_info *info)
 	if (info->dsp_freq != 0) {
 		if ((abs(dsp_freq - info->dsp_freq) * 100) >
 			dsp_freq * ASSERTION_PERCENTAGE) {
-			apu_aee_warn("APUTOP",
+			apu_aee_warn("APU PWR",
 				"dsp_freq=%d, info->dsp_freq=%d\n",
 				dsp_freq, info->dsp_freq);
 		}
@@ -433,7 +433,7 @@ static void apu_power_assert_check(struct apu_power_info *info)
 	if (info->dsp1_freq != 0) {
 		if ((abs(dsp1_freq - info->dsp1_freq) * 100) >
 			dsp1_freq * ASSERTION_PERCENTAGE) {
-			apu_aee_warn("VPU0",
+			apu_aee_warn("APU PWR",
 				"dsp1_freq=%d, info->dsp1_freq=%d\n",
 				dsp1_freq, info->dsp1_freq);
 		}
@@ -442,7 +442,7 @@ static void apu_power_assert_check(struct apu_power_info *info)
 	if (info->dsp2_freq != 0) {
 		if ((abs(dsp2_freq - info->dsp2_freq) * 100) >
 			dsp2_freq * ASSERTION_PERCENTAGE) {
-			apu_aee_warn("VPU1",
+			apu_aee_warn("APU PWR",
 				"dsp2_freq=%d, info->dsp2_freq=%d\n",
 				dsp2_freq, info->dsp2_freq);
 		}
@@ -451,7 +451,7 @@ static void apu_power_assert_check(struct apu_power_info *info)
 	if (info->dsp3_freq != 0) {
 		if ((abs(dsp3_freq - info->dsp3_freq) * 100) >
 			dsp3_freq * ASSERTION_PERCENTAGE) {
-			apu_aee_warn("VPU2",
+			apu_aee_warn("APU PWR",
 				"dsp3_freq=%d, info->dsp3_freq=%d\n",
 				dsp3_freq, info->dsp3_freq);
 		}
@@ -460,7 +460,7 @@ static void apu_power_assert_check(struct apu_power_info *info)
 	if (info->dsp6_freq != 0) {
 		if ((abs(dsp6_freq - info->dsp6_freq) * 100) >
 			dsp6_freq * ASSERTION_PERCENTAGE) {
-			apu_aee_warn("MDLA1",
+			apu_aee_warn("APU PWR",
 				"dsp6_freq=%d, info->dsp6_freq=%d\n",
 				dsp6_freq, info->dsp6_freq);
 		}
@@ -469,7 +469,7 @@ static void apu_power_assert_check(struct apu_power_info *info)
 	if (info->dsp7_freq != 0) {
 		if ((abs(dsp7_freq - info->dsp7_freq) * 100) >
 			dsp7_freq * ASSERTION_PERCENTAGE) {
-			apu_aee_warn("IOMMU",
+			apu_aee_warn("APU PWR",
 				"dsp7_freq=%d, info->dsp7_freq=%d\n",
 				dsp7_freq, info->dsp7_freq);
 		}
@@ -486,34 +486,34 @@ static void apu_power_assert_check(struct apu_power_info *info)
 #endif
 
 	if (vvpu == DVFS_VOLT_00_575000_V && vmdla >= DVFS_VOLT_00_800000_V) {
-		apu_aee_warn("HIT DVFS Constraint 1",
-			"vvpu=%d, vmdla=%d\n",
+		apu_aee_warn("APU PWR",
+			"Constraint 1, vvpu=%d, vmdla=%d\n",
 			vvpu, vmdla);
 	}
 
 	if (vmdla == DVFS_VOLT_00_575000_V && vvpu >= DVFS_VOLT_00_800000_V) {
-		apu_aee_warn("HIT DVFS Constraint 2",
-			"vvpu=%d, vmdla=%d\n",
+		apu_aee_warn("APU PWR",
+			"Constraint 2, vvpu=%d, vmdla=%d\n",
 			vvpu, vmdla);
 	}
 
 	if (vcore == DVFS_VOLT_00_575000_V && vvpu >= DVFS_VOLT_00_800000_V) {
-		apu_aee_warn("HIT DVFS Constraint 3",
-			"vvpu=%d, vcore=%d\n",
+		apu_aee_warn("APU PWR",
+			"Constraint 3, vvpu=%d, vcore=%d\n",
 			vvpu, vcore);
 	}
 
 	if ((vvpu > VSRAM_TRANS_VOLT || vmdla > VSRAM_TRANS_VOLT)
 		&& vsram == VSRAM_LOW_VOLT) {
-		apu_aee_warn("HIT VSRAM Constraint",
-			"vvpu=%d, vmdla=%d, vsram=%d\n",
+		apu_aee_warn("APU PWR",
+			"VSRAM Constraint 1, vvpu=%d, vmdla=%d, vsram=%d\n",
 			vvpu, vmdla, vsram);
 	}
 
-	if ((vvpu < VSRAM_TRANS_VOLT || vmdla < VSRAM_TRANS_VOLT)
+	if ((vvpu < VSRAM_TRANS_VOLT && vmdla < VSRAM_TRANS_VOLT)
 		&& vsram == VSRAM_HIGH_VOLT) {
-		apu_aee_warn("HIT VSRAM Constraint 2",
-			"vvpu=%d, vmdla=%d, vsram=%d\n",
+		apu_aee_warn("APU PWR",
+			"VSRAM Constraint 2, vvpu=%d, vmdla=%d, vsram=%d\n",
 			vvpu, vmdla, vsram);
 	}
 }

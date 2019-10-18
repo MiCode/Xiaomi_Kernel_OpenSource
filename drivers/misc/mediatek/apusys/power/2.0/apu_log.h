@@ -56,7 +56,7 @@ enum {
 #define apu_aee_warn(key, format, args...) \
 	do { \
 		pr_info(format, ##args); \
-		aee_kernel_warning("APU POWERU", \
+		aee_kernel_warning("APU PWR", \
 			"\nCRDISPATCH_KEY:" key "\n" format, ##args); \
 	} while (0)
 
