@@ -1016,12 +1016,12 @@ int kbase_mem_do_sync_imported(struct kbase_context *kctx,
 
 			if (is_iommu) {
 				for_each_sg(sgt->sgl, s, sgt->nents, i) {
-					__dma_map_area(sg_virt(s), s->length, dir);
+					__dma_unmap_area(sg_virt(s), s->length, dir);
 				}
 			} else
 #endif
 				dma_sync_sg_for_cpu(attachment->dev, sgt->sgl,
-					sgt->nents, dir);
+						sgt->nents, dir);
 			ret = 0;
 		}
 #else
