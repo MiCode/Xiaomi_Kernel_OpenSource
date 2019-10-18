@@ -4389,9 +4389,10 @@ unsigned int mt_get_ckgen_freq(unsigned int ID)
 
 	clk_writel(CLK26CALI_0, 0x0000);
 	/*print("ckgen meter[%d] = %d Khz\n", ID, output);*/
-	if (i > 20)
+	if (i > 20) {
+		mt_get_ckgen_freq(1);
 		return 0;
-	else
+	} else
 		return output;
 
 }
