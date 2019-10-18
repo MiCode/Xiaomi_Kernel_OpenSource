@@ -183,8 +183,8 @@ static int mtk_bandwith_resource_init(struct kbase_device *kbdev)
 {
         int err = 0;
 
-#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
         get_rec_addr();
+#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 
         if(gpu_info_ref == NULL) {
                 err = -1;
