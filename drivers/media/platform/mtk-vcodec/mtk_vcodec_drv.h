@@ -32,6 +32,8 @@
 #include "mtkbuf-dma-cache-sg.h"
 #endif
 
+#include "slbc_ops.h"
+
 #define MTK_VCODEC_DRV_NAME     "mtk_vcodec_drv"
 #define MTK_VCODEC_DEC_NAME     "mtk-vcodec-dec"
 #define MTK_VCODEC_ENC_NAME     "mtk-vcodec-enc"
@@ -365,6 +367,7 @@ struct mtk_vcodec_ctx {
 	int decoded_frame_cnt;
 	struct mutex buf_lock;
 	struct mutex worker_lock;
+	struct slbc_data sram_data;
 };
 
 /**

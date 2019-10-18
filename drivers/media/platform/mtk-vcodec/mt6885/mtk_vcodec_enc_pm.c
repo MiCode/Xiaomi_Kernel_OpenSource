@@ -22,7 +22,6 @@
 #include "mtk_vcodec_util.h"
 #include "mtk_vcu.h"
 #include "smi_public.h"
-#include "slbc_ops.h"
 
 #ifdef CONFIG_MTK_PSEUDO_M4U
 #include <mach/mt_iommu.h>
@@ -52,15 +51,15 @@ static struct ion_client *ion_venc_client;
 
 void mtk_venc_init_ctx_pm(struct mtk_vcodec_ctx *ctx)
 {
-	struct slbc_data enc_sram_data;
-
 	ctx->use_gce = 1;
 
-	enc_sram_data.uid = UID_MM_VENC;
-	enc_sram_data.type = TP_BUFFER;
-	enc_sram_data.size = 0;
-	enc_sram_data.flag = FG_POWER;
-	slbc_request(&enc_sram_data);
+	ctx->sram_data.uid = UID_MM_VENC;
+	ctx->sram_data.type = TP_BUFFER;
+	ctx->sram_data.size = 0;
+	ctx->sram_data.flag = FG_POWER;
+	pr_debug("slbc_request, %p\n", &ctx->sram_data);
+
+	slbc_request(&ctx->sram_data);
 }
 
 int mtk_vcodec_init_enc_pm(struct mtk_vcodec_dev *mtkdev)
@@ -122,13 +121,9 @@ void mtk_vcodec_release_enc_pm(struct mtk_vcodec_dev *mtkdev)
 
 void mtk_venc_deinit_ctx_pm(struct mtk_vcodec_ctx *ctx)
 {
-	struct slbc_data enc_sram_data;
 
-	enc_sram_data.uid = UID_MM_VENC;
-	enc_sram_data.type = TP_BUFFER;
-	enc_sram_data.size = 0;
-	enc_sram_data.flag = FG_POWER;
-	slbc_release(&enc_sram_data);
+	pr_debug("slbc_release, %p\n", &ctx->sram_data);
+	slbc_release(&ctx->sram_data);
 }
 
 void mtk_vcodec_enc_clock_on(struct mtk_vcodec_pm *pm, int core_id)
