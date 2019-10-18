@@ -50,8 +50,8 @@
 #include "scp_reservedmem_define.h"
 #endif
 
-#if defined(CONFIG_MTK_EMI) && ENABLE_SCP_EMI_PROTECTION
-#include <mt_emi_api.h>
+#if ENABLE_SCP_EMI_PROTECTION
+#include "memory/mediatek/emi.h"
 #endif
 
 /* scp mbox/ipi related */
@@ -1090,28 +1090,21 @@ static int scp_reserve_memory_ioremap(void)
 }
 #endif
 
-#if defined(CONFIG_MTK_EMI) && ENABLE_SCP_EMI_PROTECTION
+#if ENABLE_SCP_EMI_PROTECTION
 void set_scp_mpu(void)
 {
-	struct emi_region_info_t region_info;
+	struct emimpu_region_t md_region;
 
-	region_info.region = MPU_REGION_ID_SCP_SMEM;
-	region_info.start = scp_mem_base_phys;
-	region_info.end =  scp_mem_base_phys + scp_mem_size - 0x1;
-
-	SET_ACCESS_PERMISSION(region_info.apc, UNLOCK,
-			FORBIDDEN, FORBIDDEN, FORBIDDEN, FORBIDDEN,
-			FORBIDDEN, FORBIDDEN, FORBIDDEN, FORBIDDEN,
-			FORBIDDEN, FORBIDDEN, FORBIDDEN, FORBIDDEN,
-			NO_PROTECTION, FORBIDDEN, FORBIDDEN, NO_PROTECTION);
-
-	pr_debug("[SCP] MPU protect SCP Share region<%d:%08llx:%08llx> %x, %x\n",
-			MPU_REGION_ID_SCP_SMEM,
-			(uint64_t)region_info.start,
-			(uint64_t)region_info.end,
-			region_info.apc[1], region_info.apc[1]);
-
-	emi_mpu_set_protection(&region_info);
+	mtk_emimpu_init_region(&md_region, MPU_REGION_ID_SCP_SMEM);
+	mtk_emimpu_set_addr(&md_region, scp_mem_base_phys,
+		scp_mem_base_phys + scp_mem_size);
+	mtk_emimpu_set_apc(&md_region, MPU_DOMAIN_D0,
+		MTK_EMIMPU_NO_PROTECTION);
+	mtk_emimpu_set_apc(&md_region, MPU_DOMAIN_D3,
+		MTK_EMIMPU_NO_PROTECTION);
+	if (mtk_emimpu_set_protection(&md_region))
+		pr_notice("[SCP]mtk_emimpu_set_protection fail\n");
+	mtk_emimpu_free_region(&md_region);
 }
 #endif
 
@@ -1905,10 +1898,6 @@ static int __init scp_init(void)
 	}
 #endif
 
-#if defined(CONFIG_MTK_EMI) && ENABLE_SCP_EMI_PROTECTION
-	set_scp_mpu();
-#endif
-
 	scp_recovery_init();
 
 #ifdef SCP_PARAMS_TO_SCP_SUPPORT
@@ -1974,5 +1963,15 @@ static void __exit scp_exit(void)
 #endif
 }
 
+static int __init scp_late_init(void)
+{
+	pr_notice("[SCP] %s\n", __func__);
+#if ENABLE_SCP_EMI_PROTECTION
+	set_scp_mpu();
+#endif
+	return 0;
+}
+
 module_init(scp_init);
 module_exit(scp_exit);
+late_initcall(scp_late_init);

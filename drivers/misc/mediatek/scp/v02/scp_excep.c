@@ -241,7 +241,7 @@ static void scp_prepare_aed_dump(char *aed_str,
 	pr_debug("[SCP] %s begins:%s\n", __func__, aed_str);
 	scp_dump_last_regs();
 
-	scp_A_log = scp_get_last_log(SCP_A_ID);
+	scp_A_log = scp_pickup_log_for_aee();
 
 	if (scp_dump.detail_buff == NULL) {
 		pr_err("[SCP AEE]detail buf is null\n");

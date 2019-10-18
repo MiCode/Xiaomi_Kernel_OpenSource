@@ -838,21 +838,71 @@ void scp_get_log(enum scp_core_id scp_id)
 {
 	pr_debug("[SCP] %s\n", __func__);
 #if SCP_LOGGER_ENABLE
-	scp_A_get_last_log(SCP_AED_STR_LEN - 200);
+	scp_A_get_last_log(last_log_info.scp_log_buf_maxlen);
 	/*move last log to dram*/
 	scp_crash_log_move_to_buf(scp_id);
 #endif
 }
 
 /*
- * return scp last log
+ * return useful log for aee issue dispatch
  */
-char *scp_get_last_log(enum scp_core_id id)
+#define CMP_SAFT_RANGE	176
+#define DEFAULT_IDX (last_log_info.scp_log_buf_maxlen/3)
+char *scp_pickup_log_for_aee(void)
 {
 	char *last_log;
+	int i;
+	char keyword1[] = "coredump";
+	char keyword2[] = "exception";
 
-	last_log = scp_A_last_log;
+	if (scp_A_last_log == NULL)
+		return NULL;
+	last_log = &scp_A_last_log[DEFAULT_IDX]; /* default value */
 
+	for (i = last_log_info.scp_log_buf_maxlen; i >= CMP_SAFT_RANGE; i--) {
+		if (scp_A_last_log[i-0] != keyword1[7])
+			continue;
+		if (scp_A_last_log[i-1] != keyword1[6])
+			continue;
+		if (scp_A_last_log[i-2] != keyword1[5])
+			continue;
+		if (scp_A_last_log[i-3] != keyword1[4])
+			continue;
+		if (scp_A_last_log[i-4] != keyword1[3])
+			continue;
+		if (scp_A_last_log[i-5] != keyword1[2])
+			continue;
+		if (scp_A_last_log[i-6] != keyword1[1])
+			continue;
+		if (scp_A_last_log[i-7] != keyword1[0])
+			continue;
+		last_log = &scp_A_last_log[i-CMP_SAFT_RANGE];
+		return last_log;
+	}
+
+	for (i = last_log_info.scp_log_buf_maxlen; i >= CMP_SAFT_RANGE; i--) {
+		if (scp_A_last_log[i-0] != keyword2[8])
+			continue;
+		if (scp_A_last_log[i-1] != keyword2[7])
+			continue;
+		if (scp_A_last_log[i-2] != keyword2[6])
+			continue;
+		if (scp_A_last_log[i-3] != keyword2[5])
+			continue;
+		if (scp_A_last_log[i-4] != keyword2[4])
+			continue;
+		if (scp_A_last_log[i-5] != keyword2[3])
+			continue;
+		if (scp_A_last_log[i-6] != keyword2[2])
+			continue;
+		if (scp_A_last_log[i-7] != keyword2[1])
+			continue;
+		if (scp_A_last_log[i-8] != keyword2[0])
+			continue;
+		last_log = &scp_A_last_log[i-CMP_SAFT_RANGE];
+		return last_log;
+	}
 	return last_log;
 }
 
