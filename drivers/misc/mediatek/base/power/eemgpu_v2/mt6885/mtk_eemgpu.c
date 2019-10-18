@@ -1183,7 +1183,12 @@ static void get_volt_table_in_thread(struct eemg_det *det)
 	for (i = 0; i < ndet->num_freq_tbl; i++) {
 #if !ENABLE_MINIHQA
 		if (ndet->volt_policy) {
-			rm_dvtfix_offset = 0 - ndet->DVTFIXED;
+			if ((ndet->loo_role != NO_LOO_BANK) &&
+				(i < det->turn_pt)) {
+				highdet = id_to_eemg_det(ndet->loo_couple);
+				rm_dvtfix_offset = 0 - highdet->DVTFIXED;
+			} else
+				rm_dvtfix_offset = 0 - ndet->DVTFIXED;
 		} else {
 #if ENABLE_LOO
 			if ((ndet->loo_role != NO_LOO_BANK) &&
