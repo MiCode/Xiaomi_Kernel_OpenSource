@@ -407,8 +407,6 @@ static void cmdq_util_handle_devapc_vio(void)
 		if (usage)
 			cmdq_thread_dump_all(util.cmdq_mbox[i]);
 	}
-
-	cmdq_util_dump_smi();
 }
 
 static struct devapc_vio_callbacks devapc_vio_handle = {
