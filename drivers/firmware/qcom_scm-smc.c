@@ -15,6 +15,7 @@
 #include <asm/cacheflush.h>
 
 #include <linux/qtee_shmbridge.h>
+#include <soc/qcom/qseecom_scm.h>
 
 #include "qcom_scm.h"
 
@@ -1830,6 +1831,27 @@ int __qcom_scm_invoke_callback_response(struct device *dev, phys_addr_t out_buf,
 		*data = desc.res[2];
 
 	return ret;
+}
+
+int __qcom_scm_qseecom_do(u32 cmd_id, struct scm_desc *desc, bool retry)
+{
+	int _ret;
+	struct qcom_scm_desc _desc;
+
+	memcpy(&_desc.args, desc->args, sizeof(_desc.args));
+	_desc.owner = (cmd_id & 0x3f000000) >> 24;
+	_desc.svc = (cmd_id & 0xff00) >> 8;
+	_desc.cmd = (cmd_id & 0xff);
+	_desc.arginfo = desc->arginfo;
+
+	if (retry)
+		_ret = qcom_scm_call(NULL, &_desc);
+	else
+		_ret = qcom_scm_call_noretry(NULL, &_desc);
+
+	memcpy(desc->ret, &_desc.res, sizeof(_desc.res));
+
+	return _ret;
 }
 
 void __qcom_scm_init(void)
