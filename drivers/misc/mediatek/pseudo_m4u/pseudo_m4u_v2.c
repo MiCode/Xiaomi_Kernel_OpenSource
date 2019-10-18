@@ -59,7 +59,6 @@ static struct mc_session_handle m4u_dci_session;
 static struct m4u_msg *m4u_dci_msg;
 #endif
 
-#define IOMMU_DEBUG_ENABLED
 static struct m4u_client_t *ion_m4u_client;
 int m4u_log_level = 2;
 int m4u_log_to_uart = 2;
@@ -581,9 +580,11 @@ static inline int pseudo_config_port(struct M4U_PORT_STRUCT *pM4uPort,
 		ret = -4;
 	}
 
+#if 0 //def IOMMU_DEBUG_ENABLED
 	M4U_MSG("%s, l%d-p%d, userspace:%d switch fr %d to %d, bd:%d\n",
 		m4u_get_module_name(pM4uPort->ePortID),
 		larb, larb_port, is_user, old_value, value, bit32);
+#endif
 
 out:
 	larb_clock_off(larb, 1);
@@ -1599,7 +1600,7 @@ int __pseudo_alloc_mva(struct m4u_client_t *client,
 
 	pseudo_add_sgtable(mva_sg);
 
-#ifdef IOMMU_DEBUG_ENABLED
+#if 0 //def IOMMU_DEBUG_ENABLED
 	paddr = sg_phys(table->sgl);
 	M4U_MSG("%s, p:%d(%d-%d) pa=0x%pad iova=0x%lx s=0x%lx n=%d",
 		iommu_get_port_name(port),
@@ -1815,10 +1816,12 @@ int __pseudo_dealloc_mva(struct m4u_client_t *client,
 		return -EINVAL;
 	}
 
+#if 0 //def IOMMU_DEBUG_ENABLED
 	M4U_MSG("larb%d, port%d, addr=0x%lx, size=0x%lx, iova=0x%lx\n",
 		MTK_IOMMU_TO_LARB(port),
 		MTK_IOMMU_TO_PORT(port),
 		BufAddr, size, mva);
+#endif
 
 	/* for ion sg alloc, we did not align the mva in allocation. */
 	/* if (!sg_table) */
@@ -1831,13 +1834,11 @@ int __pseudo_dealloc_mva(struct m4u_client_t *client,
 							  mva, 1);
 		table = pseudo_del_sgtable(addr_align);
 		if (!table) {
-#ifdef IOMMU_DEBUG_ENABLED
 			M4U_ERR("err table of mva 0x%lx-0x%lx\n",
 				mva, addr_align);
 			M4U_ERR("%s addr=0x%lx,size=0x%lx\n",
 				m4u_get_module_name(port),
 				BufAddr, size);
-#endif
 			dump_stack();
 			return -EINVAL;
 		}
@@ -1903,7 +1904,7 @@ int pseudo_dealloc_mva(struct m4u_client_t *client, int port, unsigned long mva)
 	ret = __pseudo_dealloc_mva(client, port, pMvaInfo->va,
 				   pMvaInfo->size, mva, NULL);
 
-#ifdef IOMMU_DEBUG_ENABLED
+#if 0 //def IOMMU_DEBUG_ENABLED
 	M4U_DBG("port %d, flags 0x%x, va 0x%lx, mva = 0x%lx, size 0x%lx\n",
 		port, pMvaInfo->flags,
 		pMvaInfo->va, mva, pMvaInfo->size);
@@ -1945,13 +1946,11 @@ int pseudo_destroy_client(struct m4u_client_t *client)
 		pMvaInfo = container_of(client->mvaList.next,
 					struct m4u_buf_info_t,
 					link);
-#ifdef IOMMU_DEBUG_ENABLED
 		M4U_MSG
 			("warn:clean,%s,va=0x%lx,mva=0x%lx,s=%lu,c:%ld\n",
 			 iommu_get_port_name(pMvaInfo->port), pMvaInfo->va,
 			 pMvaInfo->mva, pMvaInfo->size,
 			 ion_m4u_client->count);
-#endif
 		port = pMvaInfo->port;
 		mva = pMvaInfo->mva;
 		size = pMvaInfo->size;
@@ -2036,12 +2035,10 @@ static int m4u_fill_sgtable_user(struct vm_area_struct *vma,
 		if (!pa || !sg) {
 			struct vm_area_struct *vma_temp;
 
-#ifdef IOMMU_DEBUG_ENABLED
 			M4U_MSG("%s: fail(0x%lx) va=0x%lx,page_num=0x%x\n",
 				__func__, ret, va, page_num);
 			M4U_MSG("%s: fail_va=0x%lx,pa=0x%lx,sg=0x%p,i=%d\n",
 				__func__, va_tmp, (unsigned long)pa, sg, i);
-#endif
 			vma_temp = find_vma(current->mm, va_tmp);
 			if (vma_temp != NULL) {
 				M4U_MSG("vma start=0x%lx,end=%lx,flag=%lx\n",

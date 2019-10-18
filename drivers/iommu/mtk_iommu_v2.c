@@ -330,7 +330,7 @@ int __mtk_iommu_atf_call(unsigned int cmd, unsigned int m4u_id,
 		return -1;
 	}
 	atf_cmd = IOMMU_ATF_SET_COMMAND(m4u_id, bank, cmd);
-	pr_notice("%s, M4U CALL ATF CMD:%d\n", __func__, atf_cmd);
+	/*pr_notice("%s, M4U CALL ATF CMD:%d\n", __func__, atf_cmd);*/
 #ifndef CONFIG_FPGA_EARLY_PORTING
 	ret = mt_secure_call_ret2(MTK_M4U_DEBUG_DUMP,
 				atf_cmd, 0, 0, 0, tf_port);
@@ -3454,8 +3454,9 @@ static void mtk_iommu_pg_after_on(enum subsys_id sys)
 			data->poweron = false;
 			continue;
 		}
-		pr_notice("%s, %d, iommu:%d, sys:%d restore after power on\n",
-			  __func__, __LINE__, data->m4uid, sys);
+		/*pr_notice("%s,%d,iommu:%d,sys:%d restore after on\n",
+		 *	  __func__, __LINE__, data->m4uid, sys);
+		 */
 	}
 }
 
@@ -3483,8 +3484,9 @@ static void mtk_iommu_pg_before_off(enum subsys_id sys)
 			continue;
 		}
 		data->poweron = false;
-		pr_notice("%s, %d, iommu:%d, sys:%d backup before power off\n",
-			  __func__, __LINE__, data->m4uid, sys);
+		/*pr_notice("%s,%d,iommu:%d,sys:%d backup before off\n",
+		 *	  __func__, __LINE__, data->m4uid, sys);
+		 */
 	}
 }
 
