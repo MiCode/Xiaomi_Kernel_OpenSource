@@ -982,13 +982,13 @@ static int shd_drm_obj_init(struct shd_display *display)
 	memset(&info, 0x0, sizeof(info));
 	rc = shd_connector_get_info(NULL, &info, display);
 	if (rc) {
-		SDE_ERROR("shd get_info %d failed\n", i);
+		SDE_ERROR("shd get_info failed\n");
 		goto end;
 	}
 
 	encoder = sde_encoder_init_with_ops(dev, &info, &enc_ops);
 	if (IS_ERR_OR_NULL(encoder)) {
-		SDE_ERROR("shd encoder init failed %d\n", i);
+		SDE_ERROR("shd encoder init failed\n");
 		rc = -ENOENT;
 		goto end;
 	}
@@ -1013,7 +1013,7 @@ static int shd_drm_obj_init(struct shd_display *display)
 		priv->encoders[priv->num_encoders++] = encoder;
 		priv->connectors[priv->num_connectors++] = connector;
 	} else {
-		SDE_ERROR("shd %d connector init failed\n", i);
+		SDE_ERROR("shd connector init failed\n");
 		shd_drm_bridge_deinit(display);
 		sde_encoder_destroy(encoder);
 		rc = -ENOENT;
