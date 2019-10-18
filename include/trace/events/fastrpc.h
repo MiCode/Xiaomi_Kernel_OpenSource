@@ -12,15 +12,13 @@
 
 TRACE_EVENT(fastrpc_rpmsg_send,
 
-	TP_PROTO(int cid, uint64_t smq_ctx,
-		uint64_t ctx, uint32_t handle,
+	TP_PROTO(char *subsys, uint64_t ctx, uint32_t handle,
 		uint32_t sc, uint64_t addr, uint64_t size),
 
-	TP_ARGS(cid, smq_ctx, ctx, handle, sc, addr, size),
+	TP_ARGS(subsys, ctx, handle, sc, addr, size),
 
 	TP_STRUCT__entry(
-		__field(int, cid)
-		__field(uint64_t, smq_ctx)
+		__string(subsys, subsys)
 		__field(uint64_t, ctx)
 		__field(uint32_t, handle)
 		__field(uint32_t, sc)
@@ -29,8 +27,7 @@ TRACE_EVENT(fastrpc_rpmsg_send,
 	),
 
 	TP_fast_assign(
-		__entry->cid = cid;
-		__entry->smq_ctx = smq_ctx;
+		__assign_str(subsys, subsys);
 		__entry->ctx = ctx;
 		__entry->handle = handle;
 		__entry->sc = sc;
@@ -38,20 +35,20 @@ TRACE_EVENT(fastrpc_rpmsg_send,
 		__entry->size = size;
 	),
 
-	TP_printk("to cid %d: smq_ctx 0x%llx, ctx 0x%llx, handle 0x%x, sc 0x%x, addr 0x%llx, size %llu",
-		__entry->cid, __entry->smq_ctx, __entry->ctx, __entry->handle,
+	TP_printk("to %s: ctx 0x%llx, handle 0x%x, sc 0x%x, addr 0x%llx, size %llu",
+		__get_str(subsys), __entry->ctx, __entry->handle,
 		__entry->sc, __entry->addr, __entry->size)
 );
 
 TRACE_EVENT(fastrpc_rpmsg_response,
 
-	TP_PROTO(int cid, uint64_t ctx, int retval,
+	TP_PROTO(const char *subsys, uint64_t ctx, int retval,
 		uint32_t rspFlags, uint32_t earlyWakeTime),
 
-	TP_ARGS(cid, ctx, retval, rspFlags, earlyWakeTime),
+	TP_ARGS(subsys, ctx, retval, rspFlags, earlyWakeTime),
 
 	TP_STRUCT__entry(
-		__field(int, cid)
+		__string(subsys, subsys)
 		__field(uint64_t, ctx)
 		__field(int, retval)
 		__field(uint32_t, rspFlags)
@@ -59,72 +56,64 @@ TRACE_EVENT(fastrpc_rpmsg_response,
 	),
 
 	TP_fast_assign(
-		__entry->cid = cid;
+		__assign_str(subsys, subsys);
 		__entry->ctx = ctx;
 		__entry->retval = retval;
 		__entry->rspFlags = rspFlags;
 		__entry->earlyWakeTime = earlyWakeTime;
 	),
 
-	TP_printk("from cid %d: ctx 0x%llx, retval 0x%x, rspFlags %u, earlyWakeTime %u",
-		__entry->cid, __entry->ctx, __entry->retval,
+	TP_printk("from %s: ctx 0x%llx, retval 0x%x, rspFlags %u, earlyWakeTime %u",
+		__get_str(subsys), __entry->ctx, __entry->retval,
 		__entry->rspFlags, __entry->earlyWakeTime)
 );
 
 TRACE_EVENT(fastrpc_context_interrupt,
 
-	TP_PROTO(int cid, uint64_t smq_ctx, uint64_t ctx,
-		uint32_t handle, uint32_t sc),
+	TP_PROTO(char *subsys, uint64_t ctx, uint32_t handle, uint32_t sc),
 
-	TP_ARGS(cid, smq_ctx, ctx, handle, sc),
+	TP_ARGS(subsys, ctx, handle, sc),
 
 	TP_STRUCT__entry(
-		__field(int, cid)
-		__field(uint64_t, smq_ctx)
+		__string(subsys, subsys)
 		__field(uint64_t, ctx)
 		__field(uint32_t, handle)
 		__field(uint32_t, sc)
 	),
 
 	TP_fast_assign(
-		__entry->cid = cid;
-		__entry->smq_ctx = smq_ctx;
+		__assign_str(subsys, subsys);
 		__entry->ctx = ctx;
 		__entry->handle = handle;
 		__entry->sc = sc;
 	),
 
-	TP_printk("to cid %d: smq_ctx 0x%llx, ctx 0x%llx, handle 0x%x, sc 0x%x",
-		__entry->cid, __entry->smq_ctx,
-		__entry->ctx, __entry->handle, __entry->sc)
+	TP_printk("to %s: ctx 0x%llx, handle 0x%x, sc 0x%x",
+		__get_str(subsys), __entry->ctx, __entry->handle, __entry->sc)
 );
 
 TRACE_EVENT(fastrpc_context_restore,
 
-	TP_PROTO(int cid, uint64_t smq_ctx, uint64_t ctx,
-		uint32_t handle, uint32_t sc),
+	TP_PROTO(char *subsys, uint64_t ctx, uint32_t handle, uint32_t sc),
 
-	TP_ARGS(cid, smq_ctx, ctx, handle, sc),
+	TP_ARGS(subsys, ctx, handle, sc),
 
 	TP_STRUCT__entry(
-		__field(int, cid)
-		__field(uint64_t, smq_ctx)
+		__string(subsys, subsys)
 		__field(uint64_t, ctx)
 		__field(uint32_t, handle)
 		__field(uint32_t, sc)
 	),
 
 	TP_fast_assign(
-		__entry->cid = cid;
-		__entry->smq_ctx = smq_ctx;
+		__assign_str(subsys, subsys);
 		__entry->ctx = ctx;
 		__entry->handle = handle;
 		__entry->sc = sc;
 	),
 
-	TP_printk("for cid %d: smq_ctx 0x%llx, ctx 0x%llx, handle 0x%x, sc 0x%x",
-		__entry->cid, __entry->smq_ctx,
-		__entry->ctx, __entry->handle, __entry->sc)
+	TP_printk("for %s: ctx 0x%llx, handle 0x%x, sc 0x%x",
+		__get_str(subsys), __entry->ctx, __entry->handle, __entry->sc)
 );
 
 TRACE_EVENT(fastrpc_dma_map,
@@ -229,86 +218,6 @@ TRACE_EVENT(fastrpc_dma_free,
 
 	TP_printk("cid %d, phys 0x%llx, size %zu",
 		__entry->cid, __entry->phys, __entry->size)
-);
-
-TRACE_EVENT(fastrpc_context_complete,
-
-	TP_PROTO(int cid, uint64_t smq_ctx, int retval,
-		uint64_t ctx, uint32_t handle, uint32_t sc),
-
-	TP_ARGS(cid, smq_ctx, retval, ctx, handle, sc),
-
-	TP_STRUCT__entry(
-		__field(int, cid)
-		__field(uint64_t, smq_ctx)
-		__field(int, retval)
-		__field(uint64_t, ctx)
-		__field(uint32_t, handle)
-		__field(uint32_t, sc)
-	),
-
-	TP_fast_assign(
-		__entry->cid = cid;
-		__entry->smq_ctx = smq_ctx;
-		__entry->retval = retval;
-		__entry->ctx = ctx;
-		__entry->handle = handle;
-		__entry->sc = sc;
-	),
-
-	TP_printk("from cid %d: smq_ctx 0x%llx, retval 0x%x, ctx 0x%llx, handle 0x%x, sc 0x%x",
-		__entry->cid, __entry->smq_ctx, __entry->retval,
-		__entry->ctx, __entry->handle, __entry->sc)
-);
-
-TRACE_EVENT(fastrpc_context_alloc,
-
-	TP_PROTO(uint64_t smq_ctx, uint64_t ctx,
-		uint32_t handle, uint32_t sc),
-
-	TP_ARGS(smq_ctx, ctx, handle, sc),
-
-	TP_STRUCT__entry(
-		__field(uint64_t, smq_ctx)
-		__field(uint64_t, ctx)
-		__field(uint32_t, handle)
-		__field(uint32_t, sc)
-	),
-
-	TP_fast_assign(
-		__entry->smq_ctx = smq_ctx;
-		__entry->ctx = ctx;
-		__entry->handle = handle;
-		__entry->sc = sc;
-	),
-
-	TP_printk("for: smq_ctx 0x%llx, ctx 0x%llx, handle 0x%x, sc 0x%x",
-		__entry->smq_ctx, __entry->ctx, __entry->handle, __entry->sc)
-);
-
-TRACE_EVENT(fastrpc_context_free,
-
-	TP_PROTO(uint64_t smq_ctx, uint64_t ctx,
-		uint32_t handle, uint32_t sc),
-
-	TP_ARGS(smq_ctx, ctx, handle, sc),
-
-	TP_STRUCT__entry(
-		__field(uint64_t, smq_ctx)
-		__field(uint64_t, ctx)
-		__field(uint32_t, handle)
-		__field(uint32_t, sc)
-	),
-
-	TP_fast_assign(
-		__entry->smq_ctx = smq_ctx;
-		__entry->ctx = ctx;
-		__entry->handle = handle;
-		__entry->sc = sc;
-	),
-
-	TP_printk("for: smq_ctx 0x%llx, ctx 0x%llx, handle 0x%x, sc 0x%x",
-		__entry->smq_ctx, __entry->ctx, __entry->handle, __entry->sc)
 );
 
 #endif
