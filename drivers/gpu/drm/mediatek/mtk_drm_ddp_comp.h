@@ -202,6 +202,7 @@ enum mtk_ddp_io_cmd {
 	LCM_ATA_CHECK,
 	DSI_SET_CRTC_AVAIL_MODES,
 	DSI_TIMING_CHANGE,
+	GET_PANEL_NAME,
 };
 
 struct golden_setting_context {
@@ -362,9 +363,9 @@ static inline void mtk_ddp_comp_layer_config(struct mtk_ddp_comp *comp,
 					     struct cmdq_pkt *handle)
 {
 	if (comp && comp->funcs && comp->funcs->layer_config) {
-		DDPINFO("[DRM]func:%s, line:%d ==>\n",
+		DDPDBG("[DRM]func:%s, line:%d ==>\n",
 			__func__, __LINE__);
-		DDPINFO("comp_funcs:0x%p, layer_config:0x%p\n",
+		DDPDBG("comp_funcs:0x%p, layer_config:0x%p\n",
 			comp->funcs, comp->funcs->layer_config);
 
 		comp->funcs->layer_config(comp, idx, state, handle);

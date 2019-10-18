@@ -617,7 +617,7 @@ static int mtk_mipi_tx_pll_prepare_mt6885(struct clk_hw *hw)
 	unsigned int txdiv, txdiv0, txdiv1, tmp;
 	u64 pcw;
 
-	DDPINFO("%s+\n", __func__);
+	DDPDBG("%s+\n", __func__);
 
 	/* if mipitx is on, skip it... */
 	if (mtk_is_mipi_tx_enable(hw)) {
@@ -700,7 +700,7 @@ static int mtk_mipi_tx_pll_prepare_mt6885(struct clk_hw *hw)
 
 	mtk_mipi_tx_set_bits(mipi_tx, MIPITX_SW_CTRL_CON4, 1);
 
-	DDPINFO("%s-\n", __func__);
+	DDPDBG("%s-\n", __func__);
 
 	return 0;
 }
@@ -766,7 +766,7 @@ static void mtk_mipi_tx_pll_unprepare_mt6885(struct clk_hw *hw)
 {
 	struct mtk_mipi_tx *mipi_tx = mtk_mipi_tx_from_clk_hw(hw);
 
-	DDPINFO("%s+\n", __func__);
+	DDPDBG("%s+\n", __func__);
 	dev_dbg(mipi_tx->dev, "unprepare\n");
 
 	mtk_mipi_tx_clear_bits(mipi_tx, MIPITX_PLL_CON1, RG_DSI_PLL_EN);

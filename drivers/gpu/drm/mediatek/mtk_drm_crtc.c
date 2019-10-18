@@ -4365,10 +4365,26 @@ unsigned int mtk_drm_primary_display_get_debug_state(
 	int len = 0;
 
 	struct drm_crtc *crtc = priv->crtc[0];
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_crtc_state *mtk_state = to_mtk_crtc_state(crtc->state);
+	struct mtk_ddp_comp *comp;
+	char *panel_name;
+
+	comp = mtk_ddp_comp_request_output(mtk_crtc);
+	if (unlikely(!comp))
+		DDPPR_ERR("%s:invalid output comp\n", __func__);
+
+	mtk_ddp_comp_io_cmd(comp, NULL, GET_PANEL_NAME,
+				    &panel_name);
 
 	len += scnprintf(stringbuf + len, buf_len - len,
 			 "==========    Primary Display Info    ==========\n");
+
+	len += scnprintf(stringbuf + len, buf_len - len,
+			 "LCM Driver=[%s] Resolution=%ux%u, Connected:%s\n",
+			  panel_name, crtc->state->adjusted_mode.hdisplay,
+			  crtc->state->adjusted_mode.vdisplay,
+			  (mtk_drm_lcm_is_connect() ? "Y" : "N"));
 
 	len += scnprintf(stringbuf + len, buf_len - len,
 			 "FPS = %d, display mode idx = %u, %s mode\n",

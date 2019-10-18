@@ -2624,7 +2624,7 @@ void mtk_disp_mutex_add_comp(struct mtk_disp_mutex *mutex,
 		writel_relaxed(reg, ddp->regs + DISP_REG_MUTEX_MOD2(mutex->id));
 	}
 
-	DDPINFO("%s mutex%d add %d\n", __func__, mutex->id, id);
+	DDPDBG("%s mutex%d add %d\n", __func__, mutex->id, id);
 }
 
 /* TODO: should be refactor, need path rather than crtc */

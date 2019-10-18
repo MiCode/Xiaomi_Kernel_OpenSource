@@ -360,7 +360,7 @@ static int mtk_postmask_io_cmd(struct mtk_ddp_comp *comp,
 static void mtk_postmask_start(struct mtk_ddp_comp *comp,
 			       struct cmdq_pkt *handle)
 {
-	DDPINFO("%s\n", __func__);
+	DDPDBG("%s\n", __func__);
 
 	mtk_postmask_io_cmd(comp, handle, IRQ_LEVEL_ALL, NULL);
 
@@ -371,7 +371,7 @@ static void mtk_postmask_start(struct mtk_ddp_comp *comp,
 static void mtk_postmask_stop(struct mtk_ddp_comp *comp,
 			      struct cmdq_pkt *handle)
 {
-	DDPINFO("%s\n", __func__);
+	DDPDBG("%s\n", __func__);
 
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		       comp->regs_pa + DISP_POSTMASK_EN, 0, ~0);

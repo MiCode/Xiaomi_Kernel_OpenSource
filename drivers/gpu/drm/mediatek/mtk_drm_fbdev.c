@@ -137,12 +137,8 @@ bool mtk_drm_lcm_is_connect(void)
 		videolfb_tag = (struct tag_videolfb *)of_get_property(
 			chosen_node,
 			"atag,videolfb", (int *)&size);
-		if (videolfb_tag) {
-			DDPINFO("[DT][videolfb] islcmconnected = %d\n",
-				videolfb_tag->islcmfound);
-
+		if (videolfb_tag)
 			return videolfb_tag->islcmfound;
-		}
 
 		DDPINFO("[DT][videolfb] videolfb_tag not found\n");
 	} else {
@@ -171,11 +167,6 @@ int _parse_tag_videolfb(unsigned int *vramsize, phys_addr_t *fb_base,
 			*fps = videolfb_tag->fps;
 			if (*fps == 0)
 				*fps = 6000;
-			DDPINFO("[DT][videolfb] fb_base	  = 0x%lx\n",
-				(unsigned long)*fb_base);
-			DDPINFO("[DT][videolfb] vram	  = 0x%x (%d)\n",
-				*vramsize, *vramsize);
-			DDPINFO("[DT][videolfb] fps        = %d\n", *fps);
 
 			return 0;
 		}
@@ -215,6 +206,12 @@ static int mtk_fbdev_probe(struct drm_fb_helper *helper,
 						      sizes->surface_depth);
 
 	if (_parse_tag_videolfb(&vramsize, &fb_base, &fps) < 0) {
+		DDPINFO("[DT][videolfb] fb_base   = 0x%lx\n",
+			(unsigned long)fb_base);
+		DDPINFO("[DT][videolfb] vram	  = 0x%x (%d)\n",
+			vramsize, vramsize);
+		DDPINFO("[DT][videolfb] fps	    = %d\n", fps);
+
 		mode.width = sizes->surface_width;
 		mode.height = sizes->surface_height;
 		mode.pitches[0] = sizes->surface_width * bytes_per_pixel;

@@ -528,7 +528,7 @@ static void mtk_ovl_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	const struct compress_info *compr_info = ovl->data->compr_info;
 	unsigned int value = 0, mask = 0;
 
-	DDPINFO("%s+ %s\n", __func__, mtk_dump_comp_str(comp));
+	DDPDBG("%s+ %s\n", __func__, mtk_dump_comp_str(comp));
 
 	ret = pm_runtime_get_sync(comp->dev);
 	if (ret < 0)
@@ -565,14 +565,14 @@ static void mtk_ovl_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 		       comp->regs_pa + DISP_REG_OVL_DATAPATH_CON,
 		       value, mask);
 
-	DDPINFO("%s-\n", __func__);
+	DDPDBG("%s-\n", __func__);
 }
 
 static void mtk_ovl_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 {
 	int ret;
 
-	DDPINFO("%s+\n", __func__);
+	DDPDBG("%s+\n", __func__);
 
 	ret = pm_runtime_put(comp->dev);
 	if (ret < 0)
@@ -582,7 +582,7 @@ static void mtk_ovl_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 		       0x0, ~0);
 
 	comp->qos_bw = 0;
-	DDPINFO("%s-\n", __func__);
+	DDPDBG("%s-\n", __func__);
 }
 
 static void _store_bg_roi(struct mtk_ddp_comp *comp, int h, int w)

@@ -166,7 +166,7 @@ static int mtk_plane_atomic_set_property(struct drm_plane *plane,
 	for (i = 0; i < PLANE_PROP_MAX; i++) {
 		if (mtk_plane->plane_property[i] == property) {
 			plane_state->prop_val[i] = (unsigned int)val;
-			DDPINFO("set property:%s %d\n", property->name,
+			DDPDBG("set property:%s %d\n", property->name,
 				(unsigned int)val);
 			return ret;
 		}

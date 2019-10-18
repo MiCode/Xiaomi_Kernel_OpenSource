@@ -462,7 +462,7 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 	u32 htotal, htotal_bits, bit_per_pixel, overhead_cycles, overhead_bits;
 	unsigned long mipi_tx_rate;
 
-	DDPINFO("%s+\n", __func__);
+	DDPDBG("%s+\n", __func__);
 	if (++dsi->clk_refcnt != 1)
 		return 0;
 
@@ -512,7 +512,7 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 	/* Store DSI data rate in MHz */
 	dsi->data_rate /= 1000000;
 
-	DDPINFO("set mipitx's data rate: %lu Hz\n", mipi_tx_rate);
+	DDPDBG("set mipitx's data rate: %lu Hz\n", mipi_tx_rate);
 	ret = clk_set_rate(dsi->hs_clk, mipi_tx_rate);
 	if (ret < 0) {
 		dev_err(dev, "Failed to set data rate: %d\n", ret);
@@ -535,7 +535,7 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 		goto err_disable_engine_clk;
 	}
 
-	DDPINFO("%s-\n", __func__);
+	DDPDBG("%s-\n", __func__);
 
 	return 0;
 
@@ -976,7 +976,7 @@ static irqreturn_t mtk_dsi_irq(int irq, void *dev_id)
 
 static void mtk_dsi_poweroff(struct mtk_dsi *dsi)
 {
-	DDPINFO("%s +\n", __func__);
+	DDPDBG("%s +\n", __func__);
 	if (WARN_ON(dsi->clk_refcnt == 0))
 		return;
 
@@ -986,7 +986,7 @@ static void mtk_dsi_poweroff(struct mtk_dsi *dsi)
 	clk_disable_unprepare(dsi->engine_clk);
 	clk_disable_unprepare(dsi->digital_clk);
 	phy_power_off(dsi->phy);
-	DDPINFO("%s -\n", __func__);
+	DDPDBG("%s -\n", __func__);
 }
 
 static void mtk_dsi_enter_ulps(struct mtk_dsi *dsi)
@@ -1014,7 +1014,7 @@ static void mtk_dsi_enter_ulps(struct mtk_dsi *dsi)
 	mtk_dsi_mask(dsi, DSI_PHY_LCCON, LC_ULPM_EN, 0);
 
 	if (ret) {
-		DDPINFO("%s sucessed\n", __func__);
+		DDPDBG("%s sucessed\n", __func__);
 	} else {
 		mtk_dsi_dump(&dsi->ddp_comp);
 		DDPAEE("%s failed\n", __func__);
@@ -1041,7 +1041,7 @@ static void mtk_dsi_exit_ulps(struct mtk_dsi *dsi)
 	ret = wait_dsi_wq(&dsi->exit_ulps_done, 2 * HZ);
 
 	if (ret) {
-		DDPINFO("%s sucessed\n", __func__);
+		DDPDBG("%s sucessed\n", __func__);
 	} else {
 		mtk_dsi_dump(&dsi->ddp_comp);
 		DDPAEE("%s failed\n", __func__);
@@ -2451,6 +2451,15 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		    (struct drm_crtc_state *)params;
 
 		mtk_dsi_timing_change(dsi, crtc, old_state);
+	}
+		break;
+	case GET_PANEL_NAME:
+	{
+		struct mtk_dsi *dsi =
+			container_of(comp, struct mtk_dsi, ddp_comp);
+		out_params = (void **)params;
+
+		*out_params = (void *)dsi->panel->dev->driver->name;
 	}
 		break;
 	default:
