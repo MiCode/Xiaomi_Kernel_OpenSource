@@ -104,6 +104,9 @@ bool report_custom_iommu_fault(
 	unsigned long	fault_pa,
 	unsigned int	fault_id, bool is_vpu);
 
+void report_custom_iommu_leakage(char *port_name,
+	unsigned int size);
+
 void mtk_iommu_debug_init(void);
 void mtk_iommu_debug_reset(void);
 

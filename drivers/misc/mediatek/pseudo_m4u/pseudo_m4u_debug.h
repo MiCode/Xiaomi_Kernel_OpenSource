@@ -37,6 +37,8 @@ int pseudo_dealloc_mva(struct m4u_client_t *client,
 struct device *pseudo_get_larbdev(int portid);
 int larb_clock_on(int larb, bool config_mtcmos);
 int larb_clock_off(int larb, bool config_mtcmos);
+void m4u_find_max_port_size(unsigned int err_bd,
+	unsigned int *err_port, unsigned int *err_size);
 
 #endif
 

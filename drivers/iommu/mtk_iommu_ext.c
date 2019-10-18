@@ -28,8 +28,10 @@
 #include <mmprofile.h>
 
 #define mmu_translation_log_format \
-	"\nCRDISPATCH_KEY:M4U_%s\ntranslation fault:port=%s,mva=0x%lx,pa=0x%lx\n"
+	"\nCRDISPATCH_KEY:M4U_%s\n<<TRANSLATION FAULT>> port=%s,mva=0x%lx,pa=0x%lx\n"
 
+#define mmu_leakage_log_format \
+	"\nCRDISPATCH_KEY:M4U_%s\n<<IOVA LEAKAGE>> port=%s size=%uKB\n"
 
 #define ERROR_LARB_PORT_ID M4U_PORT_NR
 
@@ -215,6 +217,16 @@ bool report_custom_iommu_fault(
 		       name, name,
 		       fault_iova, fault_pa);
 	return true;
+}
+
+void report_custom_iommu_leakage(char *port_name,
+	unsigned int size)
+{
+	if (!port_name)
+		return;
+
+	mmu_aee_print(mmu_leakage_log_format,
+		      port_name, port_name, size);
 }
 
 bool enable_custom_tf_report(void)

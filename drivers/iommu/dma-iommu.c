@@ -1020,6 +1020,8 @@ void iommu_dma_map_msi_msg(int irq, struct msi_msg *msg)
 }
 
 #ifdef CONFIG_MTK_IOMMU_V2
+static unsigned int domain_used_size;
+static unsigned int domain_resev_size;
 void iommu_dma_dump_iova(void *domain, unsigned long start,
 	unsigned long end, unsigned long size,
 	unsigned long target)
@@ -1037,6 +1039,10 @@ void iommu_dma_dump_iova(void *domain, unsigned long start,
 	    (order_base_2(size >> iova_shift(iovad)) <
 	    IOVA_RANGE_CACHE_MAX_SIZE))
 		return;
+
+	domain_used_size += size / 1024;
+	if (!p_start)
+		domain_resev_size += size / 1024;
 
 	if (target &&
 	    ((start >= target + SZ_16M) ||
@@ -1062,12 +1068,20 @@ void iommu_dma_dump_iovad(struct iommu_domain *domain,
 	struct iova_domain *iovad = &cookie->iovad;
 	unsigned long base = iovad->start_pfn << iova_shift(iovad);
 	unsigned long max = domain->geometry.aperture_end;
+	unsigned int domain_size = (max - base + 1) / 1024;
 
-	pr_notice("(0x%lx, 0x%lx) size:0x%lx, iova:0x%lx\n",
-		  base, max, max - base + 1, target);
+	domain_used_size = 0;
+	domain_resev_size = 0;
 
 	iovad_scan_reserved_iova((void *)domain, iovad,
 		iommu_dma_dump_iova, target);
+	pr_notice("(0x%lx, 0x%lx) total:%uKB, used:(%uKB/%dper), resev:(%uKB/%dper), target:0x%lx\n",
+		  base, max, domain_size,
+		  domain_used_size,
+		  domain_used_size * 100 / domain_size,
+		  domain_resev_size,
+		  domain_resev_size * 100 / domain_size,
+		  target);
 }
 EXPORT_SYMBOL(iommu_dma_dump_iovad);
 

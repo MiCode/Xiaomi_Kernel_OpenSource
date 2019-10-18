@@ -772,6 +772,15 @@ static int m4u_debug_set(void *data, u64 val)
 	}
 	break;
 	case 22:
+	{
+		unsigned int err_port = 0, err_size = 0;
+
+		__m4u_dump_pgtable(NULL, 1, true, 0);
+		m4u_find_max_port_size(2, &err_port, &err_size);
+		report_custom_iommu_leakage(
+					    iommu_get_port_name(err_port),
+					    err_size);
+	}
 	break;
 	case 23:
 	{
@@ -999,6 +1008,8 @@ int m4u_debug_help_show(struct seq_file *s, void *unused)
 		      "echo 20 > /d/m4u/debug:	config all ports of IOVA path\n");
 	M4U_PRINT_SEQ(s,
 		      "echo 21 > /d/m4u/debug:	config all ports of PA path\n");
+	M4U_PRINT_SEQ(s,
+		      "echo 22 > /d/m4u/debug:	aee dump of the top 5 users of IOVA space\n");
 	M4U_PRINT_SEQ(s,
 		      "echo 23 > /d/m4u/debug:	dump IOVA page table base address\n");
 	M4U_PRINT_SEQ(s,
