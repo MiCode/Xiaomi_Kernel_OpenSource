@@ -69,6 +69,8 @@ struct mtk_ipi_chan_table {
 	unsigned int ipi_stage: 4,
 		 ipi_seqno : 28;
 	struct ipimon_s ipi_record[3];
+	int trysend_count;
+	int polling_count;
 };
 
 /**

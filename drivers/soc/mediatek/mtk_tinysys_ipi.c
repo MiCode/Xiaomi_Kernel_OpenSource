@@ -106,11 +106,12 @@ static void ipi_timeout_dump(struct mtk_ipi_device *ipidev, int ipi_id)
 	pr_err("Error: %s IPI %d timeout at %lld (last done is IPI %d)\n",
 		 ipidev->name, ipi_id, cpu_clock(0), ipidev->ipi_last_done);
 
-	pr_err(" IPI %d: seqno=%d, state=%d, t%d=%lld, t%d=%lld, t%d=%lld\n",
+	pr_err("IPI %d: seqno=%d, state=%d, t%d=%lld, t%d=%lld, t%d=%lld (trysend %d, polling %d\n",
 		ipi_id, chan->ipi_seqno, chan->ipi_stage,
 		chan->ipi_record[0].idx, chan->ipi_record[0].ts,
 		chan->ipi_record[1].idx, chan->ipi_record[1].ts,
-		chan->ipi_record[2].idx, chan->ipi_record[2].ts);
+		chan->ipi_record[2].idx, chan->ipi_record[2].ts,
+		chan->trysend_count, chan->polling_count);
 
 	spin_unlock_irqrestore(&ipidev->lock_monitor, flags);
 }
@@ -345,10 +346,13 @@ int mtk_ipi_send(struct mtk_ipi_device *ipidev, int ipi_id,
 	}
 
 	ret = rpmsg_trysend(ipidev->table[ipi_id].ept, data, len);
+	ipidev->table[ipi_id].trysend_count = 1;
+
 	while (wait_us > 0 && ret) {
 		udelay(IPI_POLLING_INTERVAL_US);
 		wait_us -= IPI_POLLING_INTERVAL_US;
 		ret = rpmsg_trysend(ipidev->table[ipi_id].ept, data, len);
+		ipidev->table[ipi_id].trysend_count++;
 	}
 
 	if (!ret) {
@@ -408,7 +412,7 @@ int mtk_ipi_send_compl(struct mtk_ipi_device *ipidev, int ipi_id,
 	struct mtk_mbox_pin_send *pin_s;
 	struct mtk_mbox_pin_recv *pin_r;
 	unsigned long flags = 0;
-	int wait_us, ret;
+	int wait, ret;
 
 	if (!ipidev->ipi_inited)
 		return IPI_DEV_ILLEGAL;
@@ -423,7 +427,7 @@ int mtk_ipi_send_compl(struct mtk_ipi_device *ipidev, int ipi_id,
 	else if (!len)
 		len = pin_s->msg_size;
 
-	wait_us = MS_TO_US(timeout);
+	wait = MS_TO_US(timeout);
 
 	if (ipidev->pre_cb)
 		ipidev->pre_cb(ipidev->prdata);
@@ -449,10 +453,14 @@ int mtk_ipi_send_compl(struct mtk_ipi_device *ipidev, int ipi_id,
 	atomic_inc(&ipidev->table[ipi_id].holder);
 
 	ret = rpmsg_trysend(ipidev->table[ipi_id].ept, data, len);
-	while (ret && wait_us > 0) {
+	ipidev->table[ipi_id].trysend_count = 1;
+	ipidev->table[ipi_id].polling_count = 0;
+
+	while (ret && wait > 0) {
 		udelay(IPI_POLLING_INTERVAL_US);
-		wait_us -= IPI_POLLING_INTERVAL_US;
+		wait -= IPI_POLLING_INTERVAL_US;
 		ret = rpmsg_trysend(ipidev->table[ipi_id].ept, data, len);
+		ipidev->table[ipi_id].trysend_count++;
 	}
 
 	if (ret) {
@@ -473,12 +481,8 @@ int mtk_ipi_send_compl(struct mtk_ipi_device *ipidev, int ipi_id,
 
 	ipi_monitor(ipidev, ipi_id, SEND_MSG);
 
-	/* Run receive at least once */
-	wait_us = (wait_us < 1) ? IPI_POLLING_INTERVAL_US : wait_us;
-
-	ret = IPI_COMPL_TIMEOUT;
 	if (opt == IPI_SEND_POLLING) {
-		while (wait_us > 0) {
+		do {
 			if (mtk_mbox_polling(ipidev->mbdev, pin_r->mbox,
 				pin_r->pin_buf, pin_r) == MBOX_DONE)
 				break;
@@ -486,32 +490,35 @@ int mtk_ipi_send_compl(struct mtk_ipi_device *ipidev, int ipi_id,
 			if (try_wait_for_completion(&pin_r->notify))
 				break;
 
-			udelay(IPI_POLLING_INTERVAL_US);
-			wait_us -= IPI_POLLING_INTERVAL_US;
-		}
-		spin_unlock_irqrestore(&pin_s->pin_lock, flags);
+			ipidev->table[ipi_id].polling_count++;
 
-		if (wait_us > 0)
-			ret = IPI_ACTION_DONE;
+			udelay(IPI_POLLING_INTERVAL_US);
+			wait -= IPI_POLLING_INTERVAL_US;
+		} while (wait > 0);
 	} else {
 		/* WAIT Mode */
-		if (wait_for_completion_timeout(&pin_r->notify,
-			usecs_to_jiffies(wait_us)) > 0)
-			ret = IPI_ACTION_DONE;
-		mutex_unlock(&pin_s->mutex_send);
+		wait = wait_for_completion_timeout(&pin_r->notify,
+			usecs_to_jiffies(wait));
 	}
 
 	atomic_set(&ipidev->table[ipi_id].holder, 0);
 
-	if (ret == IPI_COMPL_TIMEOUT) {
+	if (wait > 0) {
+		ipi_monitor(ipidev, ipi_id, RECV_ACK);
+		ipidev->ipi_last_done = ipi_id;
+		ret = IPI_ACTION_DONE;
+	} else {
 		mtk_mbox_dump_recv_pin(ipidev->mbdev, pin_r);
 		ipi_timeout_dump(ipidev, ipi_id);
 		if (ipidev->timeout_handler)
 			ipidev->timeout_handler(ipi_id);
-	} else {
-		ipi_monitor(ipidev, ipi_id, RECV_ACK);
-		ipidev->ipi_last_done = ipi_id;
+		ret = IPI_COMPL_TIMEOUT;
 	}
+
+	if (opt == IPI_SEND_POLLING)
+		spin_unlock_irqrestore(&pin_s->pin_lock, flags);
+	else
+		mutex_unlock(&pin_s->mutex_send);
 
 	if (ipidev->post_cb)
 		ipidev->post_cb(ipidev->prdata);
