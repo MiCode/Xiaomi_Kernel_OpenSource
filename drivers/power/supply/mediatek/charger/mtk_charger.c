@@ -1680,6 +1680,14 @@ static void mtk_charger_start_timer(struct charger_manager *info)
 {
 	struct timespec time, time_now;
 	ktime_t ktime;
+	int ret = 0;
+
+	/* If the timer was already set, cancel it */
+	ret = alarm_try_to_cancel(&pinfo->charger_timer);
+	if (ret < 0) {
+		chr_err("%s: callback was running, skip timer\n", __func__);
+		return;
+	}
 
 	get_monotonic_boottime(&time_now);
 	time.tv_sec = info->polling_interval;
@@ -1688,7 +1696,7 @@ static void mtk_charger_start_timer(struct charger_manager *info)
 
 	ktime = ktime_set(info->endtime.tv_sec, info->endtime.tv_nsec);
 
-	chr_err("%s: alarm timer start:%ld %ld\n", __func__,
+	chr_err("%s: alarm timer start:%d, %ld %ld\n", __func__, ret,
 		info->endtime.tv_sec, info->endtime.tv_nsec);
 	alarm_start(&pinfo->charger_timer, ktime);
 }
