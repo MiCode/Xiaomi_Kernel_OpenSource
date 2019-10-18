@@ -86,7 +86,6 @@ struct mt_gpufreq_power_table_info {
 };
 
 enum mt_gpufreq_kicker {
-	KIR_DDK,
 	KIR_STRESS,
 	KIR_PROC,
 	KIR_PTPOD,
@@ -95,6 +94,7 @@ enum mt_gpufreq_kicker {
 	KIR_BATT_LOW,
 	KIR_BATT_PERCENT,
 	KIR_PBM,
+	KIR_POLICY,
 	NUM_OF_KIR
 };
 
