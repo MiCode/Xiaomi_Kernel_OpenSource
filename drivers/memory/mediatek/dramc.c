@@ -63,8 +63,10 @@ static int fmeter_v1_init(struct platform_device *pdev,
 		"ckdiv4", (unsigned int *)(fmeter_dev_ptr->ckdiv4), 6);
 	ret |= of_property_read_u32_array(dramc_node,
 		"cldiv2", (unsigned int *)(fmeter_dev_ptr->cldiv2), 6);
-	of_property_read_u32_array(dramc_node,
+	ret |= of_property_read_u32_array(dramc_node,
 		"fbksel", (unsigned int *)(fmeter_dev_ptr->fbksel), 6);
+	ret |= of_property_read_u32_array(dramc_node,
+		"sopendq", (unsigned int *)(fmeter_dev_ptr->sopendq), 6);
 
 	return ret;
 }
@@ -435,6 +437,7 @@ static unsigned int fmeter_v1(struct dramc_dev_t *dramc_dev_ptr)
 	unsigned int offset;
 	unsigned int vco_freq;
 	unsigned int fbksel;
+	unsigned int sopendq;
 
 	shu_lv_val = (readl(dramc_dev_ptr->ddrphy_chn_base_nao[0] +
 		fmeter_dev_ptr->shu_lv.offset) &
@@ -488,9 +491,18 @@ static unsigned int fmeter_v1(struct dramc_dev_t *dramc_dev_ptr)
 		fmeter_dev_ptr->fbksel[pll_id_val].mask) >>
 		fmeter_dev_ptr->fbksel[pll_id_val].shift;
 
+	offset = fmeter_dev_ptr->sopendq[pll_id_val].offset +
+		fmeter_dev_ptr->shu_of * shu_lv_val;
+	sopendq = (readl(dramc_dev_ptr->ddrphy_chn_base_ao[0] + offset) &
+		fmeter_dev_ptr->sopendq[pll_id_val].mask) >>
+		fmeter_dev_ptr->sopendq[pll_id_val].shift;
+
 	vco_freq = ((fmeter_dev_ptr->crystal_freq >> prediv_val) *
 		(sdmpcw_val >> 8)) >> posdiv_val >> ckdiv4_val >>
 		pll_md_val >> cldiv2_val << fbksel;
+
+	if (sopendq)
+		vco_freq >>= 2;
 
 	return vco_freq;
 }
