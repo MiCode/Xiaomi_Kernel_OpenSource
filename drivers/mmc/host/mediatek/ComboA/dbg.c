@@ -2280,10 +2280,12 @@ static int msdc_debug_proc_show(struct seq_file *m, void *v)
 			goto invalid_host_id;
 
 		host = mtk_msdc_host[id];
+		mmc_claim_host(host->mmc);
 		if (cmd == SD_TOOL_REG_ACCESS) {
 			base = host->base;
 			if ((offset == 0x18 || offset == 0x1C) && p1 != 4) {
 				seq_puts(m, "[SD_Debug] Err: Accessing TXDATA and RXDATA is forbidden\n");
+				mmc_release_host(host->mmc);
 				goto out;
 			}
 		} else {
@@ -2293,6 +2295,7 @@ static int msdc_debug_proc_show(struct seq_file *m, void *v)
 		if (p1 == 0) {
 			if (offset > 0x1000) {
 				seq_puts(m, "invalid register offset\n");
+				mmc_release_host(host->mmc);
 				goto out;
 			}
 			reg_value = p4;
@@ -2313,6 +2316,7 @@ static int msdc_debug_proc_show(struct seq_file *m, void *v)
 		} else if (p1 == 5) {
 			msdc_dump_info(NULL, 0, NULL, host->id);
 		}
+		mmc_release_host(host->mmc);
 	} else if (cmd == SD_TOOL_SET_DRIVING) {
 		char *device_str, *get_set_str;
 
