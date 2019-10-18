@@ -1381,6 +1381,7 @@ EXPORT_SYMBOL(m4u_switch_acp);
 #define PORT_MAX_COUNT (5)
 #define PORT_LEAKAGE_LINE (1024 * 1024) //unit of KB
 static unsigned int port_size[MTK_IOMMU_LARB_NR][32];
+static unsigned int port_iova[MTK_IOMMU_LARB_NR][32];
 static unsigned int unknown_port_size;
 
 static void m4u_clear_port_size(void)
@@ -1389,33 +1390,42 @@ static void m4u_clear_port_size(void)
 
 	unknown_port_size = 0;
 	for (i = 0; i < MTK_IOMMU_LARB_NR; i++) {
-		for (j = 0; j < 32; j++)
+		for (j = 0; j < 32; j++) {
 			port_size[i][j] = 0;
+			port_iova[i][j] = 0;
+		}
 	}
 }
 
 static void m4u_add_port_size(unsigned int larb,
-	unsigned int port, unsigned long size)
+	unsigned int port, unsigned long size, unsigned long iova)
 {
 	if (larb < MTK_IOMMU_LARB_NR &&
-	    port < 32)
+	    port < 32) {
 		port_size[larb][port] += (unsigned int)(size / 1024);
-	else
+		if (!port_iova[larb][port])
+			port_iova[larb][port] = (unsigned int)(iova / 1024);
+	} else
 		unknown_port_size += (unsigned int)(size / 1024);
 }
 
-void m4u_find_max_port_size(unsigned int err_bd,
+void m4u_find_max_port_size(unsigned long base, unsigned long max,
 	unsigned int *err_port, unsigned int *err_size)
 {
-	int i, j, k, t, boundary;
+	int i, j, k, t;
 	int size[PORT_MAX_COUNT] = {0, 0, 0, 0, 0};
 	int port[PORT_MAX_COUNT] = {-1, -1, -1, -1, -1};
+	unsigned int start = (unsigned int)(base / 1024);
+	unsigned int end = (unsigned int)(max / 1024);
 
 	*err_port = M4U_PORT_UNKNOWN;
 	*err_size = 0;
 
 	for (i = 0; i < MTK_IOMMU_LARB_NR; i++) {
 		for (j = 0; j < 32; j++) {
+			if (port_iova[i][j] < start ||
+			    port_iova[i][j] > end)
+				continue;
 			for (k = 0; k < PORT_MAX_COUNT; k++) {
 				if (port[k] == MTK_M4U_ID(i, j))
 					break;
@@ -1440,8 +1450,8 @@ void m4u_find_max_port_size(unsigned int err_bd,
 #endif
 		}
 	}
-	pr_notice(" ********* the top %d iova user *********\n",
-		  PORT_MAX_COUNT);
+	pr_notice(" ******the top %d iova user in domain(0x%lx~0x%lx)******\n",
+		  PORT_MAX_COUNT, base, max);
 
 	for (k = 0; k < PORT_MAX_COUNT; k++) {
 		if (unknown_port_size > size[k]) {
@@ -1456,17 +1466,14 @@ void m4u_find_max_port_size(unsigned int err_bd,
 		} else {
 			if (port[k] == -1)
 				continue;
-			boundary = m4u_get_boundary(port[k]);
-			if (boundary == err_bd &&
-			    size[k] > *err_size &&
-			    size[k] >= PORT_LEAKAGE_LINE) {
+			if (size[k] > *err_size) {
 				*err_port = port[k];
 				*err_size = size[k];
 			}
 
-			pr_notice(" >>> %s(%d): size:%uKB bound:%d\n",
+			pr_notice(" >>> %s(%d): size:%uKB\n",
 				  iommu_get_port_name(port[k]),
-				  port[k], size[k], boundary);
+				  port[k], size[k]);
 		}
 	}
 
@@ -1514,7 +1521,7 @@ void __m4u_dump_pgtable(struct seq_file *s, unsigned int level,
 		end = pList->mva + pList->size - 1;
 		larb = m4u_get_larbid(pList->port);
 		port = m4u_port_2_larb_port(pList->port);
-		m4u_add_port_size(larb, port, pList->size);
+		m4u_add_port_size(larb, port, pList->size, start);
 
 		if (target &&
 		    ((end <= target - MTK_PGTABLE_DUMP_RANGE) ||
@@ -1570,7 +1577,7 @@ int __pseudo_alloc_mva(struct m4u_client_t *client,
 	struct device *dev = pseudo_get_larbdev(port);
 	dma_addr_t dma_addr = ARM_MAPPING_ERROR;
 	dma_addr_t paddr;
-	unsigned int i, boundary;
+	unsigned int i;
 	unsigned int err_port = 0, err_size = 0;
 	struct scatterlist *s;
 	dma_addr_t orig_addr = ARM_MAPPING_ERROR;
@@ -1670,15 +1677,27 @@ int __pseudo_alloc_mva(struct m4u_client_t *client,
 	current_ts = sched_clock();
 
 	if (!dma_addr || dma_addr == ARM_MAPPING_ERROR) {
+		unsigned long base, max;
+		int domain, owner;
+
 		paddr = sg_phys(table->sgl);
-		boundary = m4u_get_boundary(port);
+		domain = mtk_iommu_get_iova_space(dev,
+					&base, &max, &owner,
+					NULL);
 		M4U_ERR(
-			"err map, %s, boundary:%u iova:0x%pad+0x%lx, pa=0x%pad, f:0x%x, n:%d-%d\n",
-			iommu_get_port_name(port), boundary,
+			"err %s, domain:%d(%s(%d):0x%lx~0x%lx) iova:0x%pad+0x%lx, pa=0x%pad, f:0x%x, n:%d-%d\n",
+			iommu_get_port_name(port), domain,
+			iommu_get_port_name(owner),
+			owner, base, max,
 			&dma_addr, size, &paddr,
 			flags, table->nents, table->orig_nents);
 		__m4u_dump_pgtable(NULL, 1, true, 0);
-		m4u_find_max_port_size(boundary, &err_port, &err_size);
+		if (owner < 0)
+			m4u_find_max_port_size(base, max, &err_port, &err_size);
+		else {
+			err_port = owner;
+			err_size = (unsigned int)(-1);
+		}
 		report_custom_iommu_leakage(
 					    iommu_get_port_name(err_port),
 					    err_size);
@@ -3370,11 +3389,12 @@ int pseudo_get_iova_space(int port,
 		struct list_head *list)
 {
 	struct device *dev = pseudo_get_larbdev(port);
+	int owner = -1;
 
 	if (!dev)
 		return -5;
 
-	if (mtk_iommu_get_iova_space(dev, base, max, list) < 0)
+	if (mtk_iommu_get_iova_space(dev, base, max, &owner, list) < 0)
 		return -1;
 
 	return 0;
@@ -3395,20 +3415,22 @@ static int __pseudo_dump_iova_reserved_region(struct device *dev,
 	struct seq_file *s)
 {
 	unsigned long base, max;
-	int domain;
+	int domain, owner;
 	struct iommu_resv_region *region;
 	LIST_HEAD(resv_regions);
 
 	domain = mtk_iommu_get_iova_space(dev,
-				&base, &max, &resv_regions);
+				&base, &max, &owner,
+				&resv_regions);
 	if (domain < 0) {
 		pr_notice("%s, %d, failed to get iova space\n",
 			  __func__, __LINE__);
 		return domain;
 	}
 	M4U_PRINT_SEQ(s,
-		      "domain:%d, from:0x%lx, to:0x%lx\n",
-		      domain, base, max);
+		      "domain:%d, owner:%s(%d), from:0x%lx, to:0x%lx\n",
+		      domain, iommu_get_port_name(owner),
+		      owner, base, max);
 
 	list_for_each_entry(region, &resv_regions, list)
 		M4U_PRINT_SEQ(s,

@@ -776,10 +776,59 @@ static int m4u_debug_set(void *data, u64 val)
 		unsigned int err_port = 0, err_size = 0;
 
 		__m4u_dump_pgtable(NULL, 1, true, 0);
-		m4u_find_max_port_size(2, &err_port, &err_size);
+
+#if (CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+		pr_notice(" >> boundary 0 top 5 user\n");
+		m4u_find_max_port_size(0, (1UL << 32) - 1,
+					&err_port, &err_size);
 		report_custom_iommu_leakage(
 					    iommu_get_port_name(err_port),
 					    err_size);
+
+		pr_notice(" >> boundary 1 top 5 user\n");
+		m4u_find_max_port_size(1UL << 32, (2UL << 32) - 1,
+					&err_port, &err_size);
+		report_custom_iommu_leakage(
+					    iommu_get_port_name(err_port),
+					    err_size);
+
+		pr_notice(" >> boundary 2 top 5 user\n");
+		m4u_find_max_port_size(2UL << 32, (3UL << 32) - 1,
+					&err_port, &err_size);
+		report_custom_iommu_leakage(
+					    iommu_get_port_name(err_port),
+					    err_size);
+
+		pr_notice(" >> boundary 3 top 5 user\n");
+		m4u_find_max_port_size(3UL << 32, (4UL << 32) - 1,
+					&err_port, &err_size);
+		report_custom_iommu_leakage(
+					    iommu_get_port_name(err_port),
+					    err_size);
+
+		pr_notice(" >> CCU domain top 5 user\n");
+		m4u_find_max_port_size(0x240000000UL,
+					0x248000000UL - 1,
+					&err_port, &err_size);
+		report_custom_iommu_leakage(
+					    iommu_get_port_name(err_port),
+					    err_size);
+#else
+		pr_notice(" >> boundary 0 top 5 user\n");
+		m4u_find_max_port_size(0, (1UL << 32) - 1,
+					&err_port, &err_size);
+		report_custom_iommu_leakage(
+					    iommu_get_port_name(err_port),
+					    err_size);
+
+		pr_notice(" >> CCU domain top 5 user\n");
+		m4u_find_max_port_size(0x40000000UL,
+					0x48000000UL - 1,
+					&err_port, &err_size);
+		report_custom_iommu_leakage(
+					    iommu_get_port_name(err_port),
+					    err_size);
+#endif
 	}
 	break;
 	case 23:

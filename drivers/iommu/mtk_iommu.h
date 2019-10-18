@@ -36,7 +36,6 @@ struct mtk_iommu_suspend_reg {
 	u32				vld_pa_range;
 	u32				pt_base;
 	u32				wr_ctrl;
-	u32				dummy;
 };
 
 enum mtk_iommu_plat {
@@ -79,6 +78,7 @@ struct mtk_iommu_pgtable {
 
 struct mtk_iommu_domain {
 	unsigned int		id;
+	int		owner;
 	struct iommu_domain		domain;
 	struct iommu_group		*group;
 #ifndef CONFIG_ARM64

@@ -2005,11 +2005,13 @@ static struct iommu_group *mtk_iommu_create_iova_space(
 #else
 	dom->resv_status = 0;
 #endif
+	dom->owner = mtk_domain_array[dom->id].owner;
 #ifdef IOMMU_DEBUG_ENABLED
-	pr_notice("%s, %d, dev:%s allocated IOVA group%d:%p, domain%d:%p start:0x%llx, end:0x%llx, ext=%d\n",
+	pr_notice("%s, %d, dev:%s allocated IOVA group%d:%p, domain%d:%p owner:%d start:0x%llx end:0x%llx ext=%d\n",
 		  __func__, __LINE__, dev_name(dev),
 		  iommu_group_id(group),
 		  group, dom->id, &dom->domain,
+		  dom->owner,
 		  dom->domain.geometry.aperture_start,
 		  dom->domain.geometry.aperture_end,
 		  CONFIG_MTK_IOMMU_PGTABLE_EXT);
@@ -2254,15 +2256,20 @@ static void mtk_iommu_put_resv_region(
  */
 int mtk_iommu_get_iova_space(struct device *dev,
 		unsigned long *base, unsigned long *max,
-		struct list_head *list)
+		int *owner, struct list_head *list)
 {
-	if (list == NULL) {
-		pr_notice("%s, %d, uninitialized list\n", __func__, __LINE__);
-		return -1;
-	}
+	struct mtk_iommu_domain *dom;
 
-	iommu_get_resv_regions(dev, list);
+	dom = __mtk_iommu_get_mtk_domain(dev);
+	if (dom)
+		*owner = dom->owner;
+	else
+		*owner = -1;
+
 	iommu_dma_get_iovad_info(dev, base, max);
+
+	if (list)
+		iommu_get_resv_regions(dev, list);
 
 	return mtk_iommu_get_domain_id(dev);
 }
@@ -3367,8 +3374,6 @@ static int mtk_iommu_reg_backup(struct mtk_iommu_data *data)
 					   REG_MMU_WR_LEN_CTRL);
 	reg->ivrp_paddr = readl_relaxed(base +
 					   REG_MMU_TFRP_PADDR);
-	reg->dummy = readl_relaxed(base +
-					   REG_MMU_DUMMY);
 	if (g_secure_status[data->m4uid]) {
 		ret = mtk_iommu_atf_call(IOMMU_ATF_SECURITY_BACKUP,
 				   data->m4uid, 4);
@@ -3417,8 +3422,6 @@ static int mtk_iommu_reg_restore(struct mtk_iommu_data *data)
 		   REG_MMU_WR_LEN_CTRL);
 	writel_relaxed(reg->ivrp_paddr, base +
 		   REG_MMU_TFRP_PADDR);
-	writel_relaxed(reg->dummy, base +
-		   REG_MMU_DUMMY);
 	wmb(); /*make sure the registers have been restored.*/
 	return 0;
 }
@@ -3576,9 +3579,6 @@ static int mtk_iommu_hw_init(struct mtk_iommu_data *data)
 	writel_relaxed(0, data->base + REG_MMU_DCM_DIS);
 
 	//writel_relaxed(0, data->base + REG_MMU_STANDARD_AXI_MODE);
-
-	iommu_set_field_by_mask(data->base,
-				REG_MMU_DUMMY, F_REG_MMU_IDLE_ENABLE, 0);
 
 	if (devm_request_irq(data->dev, data->irq, mtk_iommu_isr, 0,
 				 dev_name(data->dev), (void *)data)) {

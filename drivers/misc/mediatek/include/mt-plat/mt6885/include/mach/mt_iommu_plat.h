@@ -437,6 +437,7 @@ struct mtk_iova_domain_data {
 	unsigned long resv_size[MTK_IOVA_REMOVE_CNT];
 	unsigned int resv_type;
 	unsigned int port_mask[MTK_IOMMU_LARB_NR];
+	int owner;
 };
 
 #define DMA_BIT_MASK(n)	(((n) == 64) ? ~0ULL : ((1ULL<<(n))-1))
@@ -462,6 +463,7 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT))
 	{ // boundary(0~4GB) IOVA space for OVL
 	 .boundary = 0,
+	 .owner = -1,
 	 .min_iova = SZ_1G,
 	 .max_iova = IOVA_ADDR_4GB - 1,
 	 .resv_type = IOVA_REGION_UNDEFINE,
@@ -475,6 +477,7 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 #else
 	{ // boundary(0~4GB) IOVA space for display
 	 .boundary = 0,
+	 .owner = -1,
 	 .min_iova = SZ_4K,
 	 .max_iova = IOVA_ADDR_4GB - 1,
 	 .resv_type = IOVA_REGION_UNDEFINE,
@@ -488,6 +491,7 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 #endif
 	{ // boundary(4GB~8GB) IOVA space for CODEC
 	 .boundary = 1,
+	 .owner = -1,
 	 .min_iova = IOVA_ADDR_4GB,
 	 .max_iova = IOVA_ADDR_8GB - 1,
 	 .resv_type = IOVA_REGION_UNDEFINE,
@@ -500,6 +504,7 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 	},
 	{ // boundary(8GB~12GB) IOVA space for CMA MDP
 	 .boundary = 2,
+	 .owner = -1,
 	 .min_iova = IOVA_ADDR_8GB,
 	 .max_iova = IOVA_ADDR_12GB - 1,
 	 .resv_start = {RESERVED_IOVA_ADDR_CCU},
@@ -514,6 +519,7 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 	},
 	{ //CCU IOVA space
 	 .boundary = 2,
+	 .owner = -1,
 	 .min_iova = RESERVED_IOVA_ADDR_CCU,
 	 .max_iova = RESERVED_IOVA_ADDR_CCU +
 			RESERVED_IOVA_SIZE_CCU - 1,
@@ -527,6 +533,7 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 	},
 	{ // boundary(12GB~16GB) IOVA space for APU DATA
 	 .boundary = 3,
+	 .owner = M4U_PORT_L21_APU_FAKE_DATA,
 	 .min_iova = IOVA_ADDR_12GB,
 	 .max_iova = IOVA_ADDR_16GB - 1,
 	 .resv_start = {RESERVED_IOVA_ADDR_APU_DATA,
@@ -545,6 +552,7 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 	},
 	{ //VPU CODE IOVA space
 	 .boundary = 3,
+	 .owner = M4U_PORT_L21_APU_FAKE_CODE,
 	 .min_iova = RESERVED_IOVA_ADDR_APU_CODE,
 	 .max_iova = RESERVED_IOVA_ADDR_APU_CODE +
 			RESERVED_IOVA_SIZE_APU_CODE - 1,
@@ -558,6 +566,7 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 	},
 	{ //VPU VLM IOVA space
 	 .boundary = 3,
+	 .owner = M4U_PORT_L21_APU_FAKE_VLM,
 	 .min_iova = RESERVED_IOVA_ADDR_APU_VLM,
 	 .max_iova = RESERVED_IOVA_ADDR_APU_VLM +
 			RESERVED_IOVA_SIZE_APU_VLM - 1,
@@ -584,6 +593,7 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 #if (defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
 	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT))
 	{ //REE IOVA space
+	 .owner = -1,
 	 .min_iova = RESERVED_IOVA_ADDR_APU_VLM +
 			RESERVED_IOVA_SIZE_APU_VLM,
 	 .max_iova = DMA_BIT_MASK(MTK_IOVA_ADDR_BITS),
@@ -599,6 +609,7 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 	},
 #else
 	{ //public IOVA space
+	 .owner = -1,
 	 .min_iova = SZ_4K,
 	 .max_iova = DMA_BIT_MASK(MTK_IOVA_ADDR_BITS),
 	 .resv_start = {RESERVED_IOVA_ADDR_CCU,
@@ -619,6 +630,7 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 	},
 #endif
 	{ //CCU IOVA space
+	 .owner = -1,
 	 .min_iova = RESERVED_IOVA_ADDR_CCU,
 	 .max_iova = RESERVED_IOVA_ADDR_CCU +
 			RESERVED_IOVA_SIZE_CCU - 1,
@@ -631,6 +643,7 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 				 0x0, 0x0, 0x1, 0x1} //20~23
 	},
 	{ //VPU CODE IOVA space
+	 .owner = M4U_PORT_L21_APU_FAKE_CODE,
 	 .min_iova = RESERVED_IOVA_ADDR_APU_CODE,
 	 .max_iova = RESERVED_IOVA_ADDR_APU_CODE +
 			RESERVED_IOVA_SIZE_APU_CODE - 1,
@@ -643,6 +656,7 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 				 0x0, 0x1, 0x0, 0x0} //20~23
 	},
 	{ //VPU VLM IOVA space
+	 .owner = M4U_PORT_L21_APU_FAKE_VLM,
 	 .min_iova = RESERVED_IOVA_ADDR_APU_VLM,
 	 .max_iova = RESERVED_IOVA_ADDR_APU_VLM +
 			RESERVED_IOVA_SIZE_APU_VLM - 1,

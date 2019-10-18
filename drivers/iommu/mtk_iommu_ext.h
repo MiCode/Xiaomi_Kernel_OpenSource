@@ -204,7 +204,7 @@ int mtk_iommu_dump_reg(int m4u_index, unsigned int start,
 int mtk_iommu_get_boundary_id(struct device *dev);
 int mtk_iommu_get_iova_space(struct device *dev,
 		unsigned long *base, unsigned long *max,
-		struct list_head *list);
+		int *owner, struct list_head *list);
 void mtk_iommu_put_iova_space(struct device *dev,
 		struct list_head *list);
 void mtk_iommu_dump_iova_space(unsigned long target);
