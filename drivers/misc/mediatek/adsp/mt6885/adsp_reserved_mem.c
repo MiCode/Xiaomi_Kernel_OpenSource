@@ -8,6 +8,7 @@
 #include <linux/of.h>
 #include <linux/of_reserved_mem.h>
 #endif
+#include <memory/mediatek/emi.h>
 #include "adsp_reserved_mem.h"
 #include "adsp_platform.h"
 #include "adsp_core.h"
@@ -78,6 +79,27 @@ size_t adsp_get_reserve_mem_size(enum adsp_reserve_mem_id_t id)
 	return mblk ? mblk->size : 0;
 }
 
+void adsp_set_emimpu_shared_region(void)
+{
+	struct emimpu_region_t adsp_region;
+	struct adsp_reserve_mblock *mem = &adsp_reserve_mem;
+	int ret = 0;
+
+	ret = mtk_emimpu_init_region(&adsp_region,
+				     MPU_PROCT_REGION_ADSP_SHARED);
+	if (ret < 0)
+		pr_info("%s fail to init emimpu region\n", __func__);
+	mtk_emimpu_set_addr(&adsp_region, mem->phys_addr,
+			    (mem->phys_addr + mem->size - 0x1));
+	mtk_emimpu_set_apc(&adsp_region, MPU_PROCT_D0_AP,
+			   MTK_EMIMPU_NO_PROTECTION);
+	mtk_emimpu_set_apc(&adsp_region, MPU_PROCT_D10_ADSP,
+			   MTK_EMIMPU_NO_PROTECTION);
+	ret = mtk_emimpu_set_protection(&adsp_region);
+	if (ret < 0)
+		pr_info("%s fail to set emimpu protection\n", __func__);
+	mtk_emimpu_free_region(&adsp_region);
+}
 void adsp_init_reserve_memory(void)
 {
 	enum adsp_reserve_mem_id_t id;
@@ -103,10 +125,6 @@ void adsp_init_reserve_memory(void)
 	}
 
 	WARN_ON(acc_size > mem->size);
-
-//#if ENABLE_ADSP_EMI_PROTECTION
-	//set_adsp_mpu(mem->phys_addr, mem->size);
-//#endif
 }
 
 ssize_t adsp_reserve_memory_dump(char *buffer, int size)

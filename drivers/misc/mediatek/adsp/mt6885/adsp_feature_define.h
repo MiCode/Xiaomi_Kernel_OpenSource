@@ -14,17 +14,6 @@
 #define ADSP_LOGGER_ENABLE               (1)
 #define ADSP_BUS_MONITOR_INIT_ENABLE     (1)
 
-/* adsp aed definition*/
-#define ADSP_RESERVED_DRAM_SIZE         (0x1000000)
-
-/* emi mpu define*/
-#ifdef CONFIG_MTK_EMI
-#define ENABLE_ADSP_EMI_PROTECTION       (1)
-#else
-#define ENABLE_ADSP_EMI_PROTECTION       (0)
-#endif
-#define MPU_REGION_ID_ADSP_SMEM          (30)
-
 /* adsp feature PRI list */
 /* The higher number, higher priority */
 enum adsp_feature_pri {

@@ -6,6 +6,11 @@
 #ifndef __ADSP_RESERVEDMEM_DEFINE_H__
 #define __ADSP_RESERVEDMEM_DEFINE_H__
 
+/* emi mpu define*/
+#define MPU_PROCT_REGION_ADSP_SHARED      30
+#define MPU_PROCT_D0_AP                   0
+#define MPU_PROCT_D10_ADSP                10
+
 /* adsp reserve memory ID definition*/
 enum adsp_reserve_mem_id_t {
 	ADSP_A_IPI_DMA_MEM_ID,
@@ -46,6 +51,7 @@ size_t adsp_get_reserve_mem_size(enum adsp_reserve_mem_id_t id);
 void adsp_init_reserve_memory(void);
 ssize_t adsp_reserve_memory_dump(char *buffer, int size);
 
+void adsp_set_emimpu_shared_region(void);
 void adsp_update_mpu_memory_info(struct adsp_priv *pdata);
 
 #endif /* __ADSP_RESERVEDMEM_DEFINE_H__ */

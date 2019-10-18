@@ -362,7 +362,15 @@ static void __exit adsp_exit(void)
 {
 
 }
+static int __init adsp_late_init(void)
+{
+	adsp_set_emimpu_shared_region();
+	pr_info("[ADSP] late_init done\n");
+
+	return 0;
+}
 subsys_initcall(adsp_init);
 module_init(adsp_module_init);
 module_exit(adsp_exit);
+late_initcall(adsp_late_init);
 
