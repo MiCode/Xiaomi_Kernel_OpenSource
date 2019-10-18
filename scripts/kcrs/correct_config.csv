@@ -312,7 +312,8 @@ CONFIG_KSM,PROJECT,Casper.Li,A-go project only,O,O,O,O,O,O,O,O,O,O,O,O,O
 CONFIG_LCM_HEIGHT,PROJECT,xiaobin.wei,,,,,,,,,,,,,,
 CONFIG_LCM_WIDTH,PROJECT,xiaobin.wei,,,,,,,,,,,,,,
 CONFIG_LEDS_CLASS,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
-CONFIG_LEDS_PWM,PLATFORM,xing.zhang,,N,N,N,N,N,N,N,N,N,y,y,N,N
+CONFIG_LEDS_PWM,PROJECT,xing.zhang,,N,N,N,N,N,N,N,N,N,y,y,N,N
+CONFIG_LEDS_MTK_DISP,PROJECT,xing.zhang,,N,N,N,N,N,N,N,N,N,,,N,N
 CONFIG_LEDS_TRIGGER_TIMER,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_LEDS_TRIGGERS,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_LEGACY_PTY_COUNT,COMMON,,,16,16,16,16,16,16,16,16,16,16,16,16,16
@@ -620,7 +621,7 @@ CONFIG_MTK_LCM,PROJECT,,,X,X,X,X,X,X,X,X,X,X,X,X,X
 CONFIG_MTK_LCM_DEVICE_TREE_SUPPORT,PROJECT,joey.pan,,,,,,,,,,,,,,
 CONFIG_MTK_LCM_PHYSICAL_ROTATION,PROJECT,k.zhang,,,,,,,,,,,,,,
 CONFIG_MTK_LCM_PHYSICAL_ROTATION_HW,PROJECT,k.zhang,new config in this commit bc9d4699ce3f9e687fbd71247a9c3ed3e7c6b5d5,,,,,,,,,,,,,
-CONFIG_MTK_LEDS,PLATFORM,,,y,y,y,y,y,y,y,y,y,N,N,y,y
+CONFIG_MTK_LEDS,PROJECT,xing.zhang,,y,y,y,y,y,y,y,y,y,,,y,y
 CONFIG_MTK_LENS,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_LENS_AD5820AF_SUPPORT,PROJECT,sam.hung,,,,,,,,,,,,,,
 CONFIG_MTK_LENS_AK7371AF_SUPPORT,PROJECT,sam.hung,,,,,,,,,,,,,,
