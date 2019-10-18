@@ -8,18 +8,29 @@
 #include <linux/kernel.h>
 #include <linux/io.h>
 #include <linux/of.h>
+#include <linux/of_address.h>
 #include <linux/platform_device.h>
 #include <linux/module.h>
 #include <linux/reboot.h>
 #include <linux/pm.h>
 #include <linux/qcom_scm.h>
 
+enum qcom_download_dest {
+	QCOM_DOWNLOAD_DEST_UNKNOWN = -1,
+	QCOM_DOWNLOAD_DEST_QPST = 0,
+	QCOM_DOWNLOAD_DEST_EMMC = 2,
+};
+
 struct qcom_dload {
 	struct notifier_block panic_nb;
 	struct notifier_block reboot_nb;
+	struct kobject kobj;
 
 	bool in_panic;
+	void __iomem *dload_dest_addr;
 };
+
+#define to_qcom_dload(o) container_of(o, struct qcom_dload, kobj)
 
 static bool enable_dump =
 	IS_ENABLED(CONFIG_POWER_RESET_QCOM_DOWNLOAD_MODE_DEFAULT);
@@ -30,6 +41,19 @@ static int set_download_mode(enum qcom_download_mode mode)
 	current_download_mode = mode;
 	qcom_scm_set_download_mode(mode, 0);
 	return 0;
+}
+static void set_download_dest(struct qcom_dload *poweroff,
+			      enum qcom_download_dest dest)
+{
+	if (poweroff->dload_dest_addr)
+		__raw_writel(dest, poweroff->dload_dest_addr);
+}
+static enum qcom_download_dest get_download_dest(struct qcom_dload *poweroff)
+{
+	if (poweroff->dload_dest_addr)
+		return __raw_readl(poweroff->dload_dest_addr);
+	else
+		return QCOM_DOWNLOAD_DEST_UNKNOWN;
 }
 
 static int param_set_download_mode(const char *val,
@@ -48,6 +72,95 @@ static int param_set_download_mode(const char *val,
 }
 module_param_call(download_mode, param_set_download_mode, param_get_int,
 			&enable_dump, 0644);
+
+/* interface for exporting attributes */
+struct reset_attribute {
+	struct attribute        attr;
+	ssize_t (*show)(struct kobject *kobj, struct attribute *attr,
+			char *buf);
+	ssize_t (*store)(struct kobject *kobj, struct attribute *attr,
+			const char *buf, size_t count);
+};
+#define to_reset_attr(_attr) \
+	container_of(_attr, struct reset_attribute, attr)
+
+static ssize_t attr_show(struct kobject *kobj, struct attribute *attr,
+				char *buf)
+{
+	struct reset_attribute *reset_attr = to_reset_attr(attr);
+	ssize_t ret = -EIO;
+
+	if (reset_attr->show)
+		ret = reset_attr->show(kobj, attr, buf);
+
+	return ret;
+}
+
+static ssize_t attr_store(struct kobject *kobj, struct attribute *attr,
+				const char *buf, size_t count)
+{
+	struct reset_attribute *reset_attr = to_reset_attr(attr);
+	ssize_t ret = -EIO;
+
+	if (reset_attr->store)
+		ret = reset_attr->store(kobj, attr, buf, count);
+
+	return ret;
+}
+
+static const struct sysfs_ops reset_sysfs_ops = {
+	.show	= attr_show,
+	.store	= attr_store,
+};
+
+static struct kobj_type qcom_dload_kobj_type = {
+	.sysfs_ops	= &reset_sysfs_ops,
+};
+
+static ssize_t emmc_dload_show(struct kobject *kobj,
+			       struct attribute *this,
+			       char *buf)
+{
+	struct qcom_dload *poweroff = to_qcom_dload(kobj);
+
+	if (!poweroff->dload_dest_addr)
+		return -ENODEV;
+
+	return scnprintf(buf, PAGE_SIZE, "%u\n",
+			get_download_dest(poweroff) == QCOM_DOWNLOAD_DEST_EMMC);
+}
+static ssize_t emmc_dload_store(struct kobject *kobj,
+				struct attribute *this,
+				const char *buf, size_t count)
+{
+	int ret;
+	bool enabled;
+	struct qcom_dload *poweroff = to_qcom_dload(kobj);
+
+	if (!poweroff->dload_dest_addr)
+		return -ENODEV;
+
+	ret = kstrtobool(buf, &enabled);
+
+	if (ret < 0)
+		return ret;
+
+	if (enabled)
+		set_download_dest(poweroff, QCOM_DOWNLOAD_DEST_EMMC);
+	else
+		set_download_dest(poweroff, QCOM_DOWNLOAD_DEST_QPST);
+
+	return count;
+}
+static struct reset_attribute attr_emmc_dload = __ATTR_RW(emmc_dload);
+
+static struct attribute *qcom_dload_attrs[] = {
+	&attr_emmc_dload.attr,
+	NULL
+};
+static struct attribute_group qcom_dload_attr_group = {
+	.attrs = qcom_dload_attrs,
+};
 
 static int qcom_dload_panic(struct notifier_block *this, unsigned long event,
 			      void *ptr)
@@ -84,14 +197,47 @@ static int qcom_dload_reboot(struct notifier_block *this, unsigned long event,
 	return NOTIFY_OK;
 }
 
+static void __iomem *map_prop_mem(const char *propname)
+{
+	struct device_node *np = of_find_compatible_node(NULL, NULL, propname);
+	void __iomem *addr;
+
+	if (!np) {
+		pr_err("Unable to find DT property: %s\n", propname);
+		return NULL;
+	}
+
+	addr = of_iomap(np, 0);
+	if (!addr)
+		pr_err("Unable to map memory for DT property: %s\n", propname);
+	return addr;
+}
 
 static int qcom_dload_probe(struct platform_device *pdev)
 {
 	struct qcom_dload *poweroff;
+	int ret;
 
 	poweroff = devm_kzalloc(&pdev->dev, sizeof(*poweroff), GFP_KERNEL);
 	if (!poweroff)
 		return -ENOMEM;
+
+	ret = kobject_init_and_add(&poweroff->kobj, &qcom_dload_kobj_type,
+				   kernel_kobj, "dload");
+	if (ret) {
+		pr_err("%s: Error in creation kobject_add\n", __func__);
+		kobject_put(&poweroff->kobj);
+		return ret;
+	}
+
+	ret = sysfs_create_group(&poweroff->kobj, &qcom_dload_attr_group);
+	if (ret) {
+		pr_err("%s: Error in creation sysfs_create_group\n", __func__);
+		kobject_del(&poweroff->kobj);
+		return ret;
+	}
+
+	poweroff->dload_dest_addr = map_prop_mem("qcom,msm-imem-dload-type");
 
 	if (enable_dump)
 		set_download_mode(QCOM_DOWNLOAD_FULLDUMP);
@@ -121,6 +267,9 @@ static int qcom_dload_remove(struct platform_device *pdev)
 	atomic_notifier_chain_unregister(&panic_notifier_list,
 					 &poweroff->panic_nb);
 	unregister_reboot_notifier(&poweroff->reboot_nb);
+
+	if (poweroff->dload_dest_addr)
+		iounmap(poweroff->dload_dest_addr);
 
 	return 0;
 }
