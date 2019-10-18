@@ -18,6 +18,10 @@
 
 #include "mt6885/mtk_gpufreq_internal_plat.h"
 
+#elif defined(CONFIG_MACH_MT6873)
+
+#include "mt6873/mtk_gpufreq_internal_plat.h"
+
 #endif
 
 #endif /* __MTK_GPUFREQ_INTERNAL_H__ */
