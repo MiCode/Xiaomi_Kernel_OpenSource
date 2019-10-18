@@ -810,6 +810,7 @@ CONFIG_MTK_VIDEOCODEC_DRIVER,COMMON,Tofar.Huang,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_VIDEOX,PLATFORM,Tai-Hua.Tseng,,X,X,X,X,X,X,X,X,X,X,X,X,X
 CONFIG_MTK_VOW_BARGE_IN_SUPPORT,PROJECT,che-jui.chang,,O,O,O,O,O,O,O,O,O,O,O,O,O
 CONFIG_MTK_VOW_DUAL_MIC_SUPPORT,PROJECT,che-jui.chang,,O,O,O,O,O,O,O,O,O,O,O,O,O
+CONFIG_MTK_VOW_2E2K_SUPPORT,PROJECT,che-jui.chang,,O,O,O,O,O,O,O,O,O,O,O,O,O
 CONFIG_MTK_VOW_SUPPORT,PROJECT,che-jui.chang,new config in this commit a98a2d4db76d5afef19676fe44e8eb2375f44543,,,,,,,,,,,,,
 CONFIG_MTK_VPU_SUPPORT,PROJECT,perry.hsu,,,,,,,,,,,,,,
 CONFIG_MTK_VPU_SUPPORT_DEBUG,PROJECT,perry.hsu,,,,,,,,,,,,,,

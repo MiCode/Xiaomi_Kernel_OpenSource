@@ -2989,6 +2989,29 @@ static int mt6358_vow_amic_enable(struct mt6358_priv *priv)
 			regmap_write(priv->regmap,
 				     MT6358_AUDENC_ANA_CON10, 0x0061);
 	}
+	/* mic bias 0 */
+	if (mux_pga_l == PGA_MUX_AIN2) {
+		switch (mic_type) {
+		case MIC_TYPE_MUX_VOW_DCC_ECM_DIFF:
+			regmap_update_bits(priv->regmap,
+					   MT6358_AUDENC_ANA_CON9,
+					   0xff00, 0x7700);
+			break;
+		case MIC_TYPE_MUX_VOW_DCC_ECM_SINGLE:
+			regmap_update_bits(priv->regmap,
+					   MT6358_AUDENC_ANA_CON9,
+					   0xff00, 0x1100);
+			break;
+		default:
+			regmap_update_bits(priv->regmap,
+					   MT6358_AUDENC_ANA_CON9,
+					   0xff00, 0x0000);
+			break;
+		}
+		/* Enable MICBIAS0, MISBIAS0 = 1P9V */
+		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON9,
+				   0xff, 0x25);
+	}
 	/* set mic pga gain : Audio L PGA 24 dB gain*/
 	regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON0,
 			   RG_AUDPREAMPLGAIN_MASK_SFT,
