@@ -293,7 +293,7 @@ s32 trusty_std_call32(struct device *dev, u32 smcnr, u32 a0, u32 a1, u32 a2)
 
 	if (smcnr != SMC_SC_GZ_NOP && smcnr != MTEE_SMCNR_TID(SMCF_SC_NOP, 0) &&
 	    smcnr != MTEE_SMCNR_TID(SMCF_SC_NOP, 1)) {
-		mutex_lock(&multi_lock);
+		//mutex_lock(&multi_lock);
 		mutex_lock(&s->smc_lock);
 		reinit_completion(&s->cpu_idle_completion);
 	}
@@ -318,7 +318,7 @@ s32 trusty_std_call32(struct device *dev, u32 smcnr, u32 a0, u32 a1, u32 a2)
 		complete(&s->cpu_idle_completion);
 	else {
 		mutex_unlock(&s->smc_lock);
-		mutex_unlock(&multi_lock);
+		//mutex_unlock(&multi_lock);
 	}
 
 	return ret;
@@ -391,201 +391,6 @@ static void init_gz_ramconsole(struct device *dev)
 }
 #endif
 #endif
-
-#ifdef CONFIG_MT_GZ_TRUSTY_DEBUGFS
-
-ssize_t trusty_add_show(struct device *dev,
-		   struct device_attribute *attr, char *buf)
-{
-	s32 a, b, ret;
-
-	get_random_bytes(&a, sizeof(s32));
-	a &= 0xFF;
-	get_random_bytes(&b, sizeof(s32));
-	b &= 0xFF;
-	ret = trusty_std_call32(dev, MTEE_SMCNR(MT_SMCF_SC_ADD, dev),
-				a, b, 0);
-	return scnprintf(buf, PAGE_SIZE, "%d + %d = %d, %s\n", a, b, ret,
-			 (a + b) == ret ? "PASS" : "FAIL");
-}
-static ssize_t trusty_add_store(struct device *dev,
-			   struct device_attribute *attr, const char *buf,
-			   size_t n)
-{
-
-	return n;
-}
-
-DEVICE_ATTR_RW(trusty_add);
-
-ssize_t trusty_threads_show(struct device *dev,
-		       struct device_attribute *attr, char *buf)
-{
-	/* Dump Trusty threads info to memlog */
-	trusty_fast_call32(dev, MTEE_SMCNR(MT_SMCF_FC_THREADS, dev), 0, 0, 0);
-	/* Dump threads info from memlog to kmsg */
-	trusty_std_call32(dev, MTEE_SMCNR(SMCF_SC_NOP, dev), 0, 0, 0);
-	return 0;
-}
-static ssize_t trusty_threads_store(struct device *dev,
-			   struct device_attribute *attr, const char *buf,
-			   size_t n)
-{
-
-	return n;
-}
-
-DEVICE_ATTR_RW(trusty_threads);
-
-ssize_t trusty_threadstats_show(struct device *dev,
-			   struct device_attribute *attr, char *buf)
-{
-	/* Dump Trusty threads info to memlog */
-	trusty_fast_call32(dev, MTEE_SMCNR(MT_SMCF_FC_THREADSTATS, dev),
-			   0, 0, 0);
-	/* Dump threads info from memlog to kmsg */
-	trusty_std_call32(dev, MTEE_SMCNR(SMCF_SC_NOP, dev), 0, 0, 0);
-	return 0;
-}
-static ssize_t trusty_threadstats_store(struct device *dev,
-			   struct device_attribute *attr, const char *buf,
-			   size_t n)
-{
-
-	return n;
-}
-
-DEVICE_ATTR_RW(trusty_threadstats);
-
-ssize_t trusty_threadload_show(struct device *dev,
-			  struct device_attribute *attr, char *buf)
-{
-	/* Dump Trusty threads info to memlog */
-	trusty_fast_call32(dev, MTEE_SMCNR(MT_SMCF_FC_THREADLOAD, dev),
-			   0, 0, 0);
-	/* Dump threads info from memlog to kmsg */
-	trusty_std_call32(dev, MTEE_SMCNR(SMCF_SC_NOP, dev), 0, 0, 0);
-	return 0;
-}
-static ssize_t trusty_threadload_store(struct device *dev,
-			   struct device_attribute *attr, const char *buf,
-			   size_t n)
-{
-
-	return n;
-}
-
-DEVICE_ATTR_RW(trusty_threadload);
-
-ssize_t trusty_heap_dump_show(struct device *dev,
-			 struct device_attribute *attr, char *buf)
-{
-	/* Dump Trusty threads info to memlog */
-	trusty_fast_call32(dev, MTEE_SMCNR(MT_SMCF_FC_HEAP_DUMP, dev), 0, 0, 0);
-	/* Dump threads info from memlog to kmsg */
-	trusty_std_call32(dev, MTEE_SMCNR(SMCF_SC_NOP, dev), 0, 0, 0);
-	return 0;
-}
-static ssize_t trusty_heap_dump_store(struct device *dev,
-			   struct device_attribute *attr, const char *buf,
-			   size_t n)
-{
-
-	return n;
-}
-
-DEVICE_ATTR_RW(trusty_heap_dump);
-
-ssize_t trusty_apps_show(struct device *dev,
-		    struct device_attribute *attr, char *buf)
-{
-	/* Dump Trusty threads info to memlog */
-	trusty_fast_call32(dev, MTEE_SMCNR(MT_SMCF_FC_APPS, dev), 0, 0, 0);
-	/* Dump threads info from memlog to kmsg */
-	trusty_std_call32(dev, MTEE_SMCNR(SMCF_SC_NOP, dev), 0, 0, 0);
-	return 0;
-}
-static ssize_t trusty_apps_store(struct device *dev,
-			   struct device_attribute *attr, const char *buf,
-			   size_t n)
-{
-
-	return n;
-}
-
-DEVICE_ATTR_RW(trusty_apps);
-
-ssize_t trusty_vdev_reset_show(struct device *dev,
-			  struct device_attribute *attr, char *buf)
-{
-	trusty_std_call32(dev, MTEE_SMCNR(SMCF_SC_VDEV_RESET, dev), 0, 0, 0);
-	return 0;
-}
-static ssize_t trusty_vdev_reset_store(struct device *dev,
-			   struct device_attribute *attr, const char *buf,
-			   size_t n)
-{
-
-	return n;
-}
-
-DEVICE_ATTR_RW(trusty_vdev_reset);
-
-
-static void trusty_create_debugfs(struct trusty_state *s, struct device *pdev)
-{
-	int ret;
-
-	trusty_dbg(s->dev, "%s-%s\n", __func__, get_tee_name(s->tee_id));
-
-	ret = device_create_file(pdev, &dev_attr_trusty_add);
-	if (ret)
-		goto err_create_trusty_add;
-
-	ret = device_create_file(pdev, &dev_attr_trusty_threads);
-	if (ret)
-		goto err_create_trusty_threads;
-
-	ret = device_create_file(pdev, &dev_attr_trusty_threadstats);
-	if (ret)
-		goto err_create_trusty_threadstats;
-
-	ret = device_create_file(pdev, &dev_attr_trusty_threadload);
-	if (ret)
-		goto err_create_trusty_threadload;
-
-	ret = device_create_file(pdev, &dev_attr_trusty_heap_dump);
-	if (ret)
-		goto err_create_trusty_heap_dump;
-
-	ret = device_create_file(pdev, &dev_attr_trusty_apps);
-	if (ret)
-		goto err_create_trusty_apps;
-
-	ret = device_create_file(pdev, &dev_attr_trusty_vdev_reset);
-	if (ret)
-		goto err_create_trusty_vdev_reset;
-
-	return;
-
-err_create_trusty_vdev_reset:
-	device_remove_file(pdev, &dev_attr_trusty_vdev_reset);
-err_create_trusty_apps:
-	device_remove_file(pdev, &dev_attr_trusty_apps);
-err_create_trusty_heap_dump:
-	device_remove_file(pdev, &dev_attr_trusty_heap_dump);
-err_create_trusty_threadload:
-	device_remove_file(pdev, &dev_attr_trusty_threadload);
-err_create_trusty_threadstats:
-	device_remove_file(pdev, &dev_attr_trusty_threadstats);
-err_create_trusty_threads:
-	device_remove_file(pdev, &dev_attr_trusty_threads);
-err_create_trusty_add:
-	device_remove_file(pdev, &dev_attr_trusty_add);
-
-}
-
-#endif				/* CONFIG_MT_GZ_TRUSTY_DEBUGFS */
 
 const char *trusty_version_str_get(struct device *dev)
 {
@@ -885,10 +690,7 @@ static int trusty_probe(struct platform_device *pdev)
 		goto err_add_children;
 	}
 #ifdef CONFIG_MT_GZ_TRUSTY_DEBUGFS
-	if (is_trusty_tee(tee_id))
-		trusty_create_debugfs(s, &pdev->dev);
-	else if (is_nebula_tee(tee_id))
-		trusty_create_debugfs_vmm(s, &pdev->dev);
+	mtee_create_debugfs(s, &pdev->dev);
 #else
 	trusty_info(&pdev->dev, "%s, Not MT_GZ_TRUSTY_DEBUGFS\n", __func__);
 #endif

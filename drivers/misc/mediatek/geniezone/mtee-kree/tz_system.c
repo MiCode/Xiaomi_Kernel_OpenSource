@@ -60,9 +60,14 @@
 #endif
 
 #define DYNAMIC_TIPC_LEN
-#define GZ_SYS_SERVICE_NAME "com.mediatek.geniezone.srv.sys"
-#define KREE_SESSION_HANDLE_MAX_SIZE 512
+#define GZ_SYS_SERVICE_NAME_TRUSTY "com.mediatek.geniezone.srv.sys"
+#define GZ_SYS_SERVICE_NAME_NEBULA "nebula.com.mediatek.geniezone.srv.sys"
+
+#define KREE_SESSION_HANDLE_MAX_SIZE (512)
 #define KREE_SESSION_HANDLE_SIZE_MASK (KREE_SESSION_HANDLE_MAX_SIZE - 1)
+#define KREE_SESSION_HANDLE_TRUSTY (KREE_SESSION_HANDLE_MAX_SIZE)
+#define KREE_SESSION_HANDLE_NEBULA (KREE_SESSION_HANDLE_MAX_SIZE + 1)
+
 #define TIPC_RETRY_MAX_COUNT (100)
 #define TIPC_RETRY_WAIT_MS (10)
 #define IS_RESTARTSYS_ERROR(err) (err == -ERESTARTSYS)
@@ -83,8 +88,14 @@ struct wakeup_source TeeServiceCall_wake_lock;
 struct wake_lock TeeServiceCall_wake_lock;
 #endif
 
-static int32_t _sys_service_Fd = -1; /* only need to open sys service once */
-static struct tipc_k_handle _sys_service_h;
+ /* only need to open sys service once */
+static int32_t _sys_service_Fd[TEE_ID_END] = { [0 ... TEE_ID_END - 1] = -1 };
+static struct tipc_k_handle _sys_service_h[TEE_ID_END];
+static char *gz_sys_service_name[] = {
+	GZ_SYS_SERVICE_NAME_TRUSTY,
+	GZ_SYS_SERVICE_NAME_NEBULA
+};
+
 static struct tipc_k_handle
 	_kree_session_handle_pool[KREE_SESSION_HANDLE_MAX_SIZE];
 static int32_t _kree_session_handle_idx;
@@ -216,12 +227,14 @@ void _clearSessionHandle(int32_t session)
 
 int _getSessionHandle(int32_t session, struct tipc_k_handle **h)
 {
-	if (session < 0 || session > KREE_SESSION_HANDLE_MAX_SIZE)
-		return -1;
-	if (session == KREE_SESSION_HANDLE_MAX_SIZE)
-		*h = &_sys_service_h;
-	else
+	if (session == KREE_SESSION_HANDLE_MAX_SIZE + TEE_ID_TRUSTY)
+		*h = &_sys_service_h[TEE_ID_TRUSTY];
+	else if (session == KREE_SESSION_HANDLE_MAX_SIZE + TEE_ID_NEBULA)
+		*h = &_sys_service_h[TEE_ID_NEBULA];
+	else if (session >= 0 && session < KREE_SESSION_HANDLE_MAX_SIZE)
 		*h = &_kree_session_handle_pool[session];
+	else
+		return -1;
 	return 0;
 }
 
@@ -245,6 +258,22 @@ int32_t _HandleToFd(struct tipc_k_handle h)
 
 #define _HandleToChanInfo(x) (x?(struct tipc_dn_chan *)(x->dn):0)
 
+TZ_RESULT KREE_SessionToTID(KREE_SESSION_HANDLE session, enum tee_id_t *o_tid)
+{
+	struct tipc_dn_chan *dn = _HandleToChanInfo(_FdToHandle(session));
+
+	if (dn) {
+		*o_tid = dn->tee_id;
+		return TZ_RESULT_SUCCESS;
+	}
+
+	port_lookup_tid("com.default.tee_id", o_tid);
+	pr_info("[%s] session %d to tee id failed, return default %d\n",
+		__func__, session, *o_tid);
+	return TZ_RESULT_ERROR_NO_DATA;
+}
+EXPORT_SYMBOL(KREE_SessionToTID);
+
 void KREE_SESSION_LOCK(int32_t handle)
 {
 	struct tipc_dn_chan *chan_p = _HandleToChanInfo(_FdToHandle(handle));
@@ -261,20 +290,22 @@ void KREE_SESSION_UNLOCK(int32_t handle)
 		mutex_unlock(&chan_p->sess_lock);
 }
 
-static TZ_RESULT KREE_OpenSysFd(void)
+static TZ_RESULT KREE_OpenSysFd(enum tee_id_t tee_id)
 {
 	TZ_RESULT ret = TZ_RESULT_SUCCESS;
 
-	ret = _tipc_k_connect_retry(&_sys_service_h, GZ_SYS_SERVICE_NAME);
+	ret = _tipc_k_connect_retry(&_sys_service_h[tee_id],
+				    gz_sys_service_name[tee_id]);
 	if (ret < 0) {
 		KREE_DEBUG("%s: Failed to connect to service, ret = %d\n",
 			   __func__, ret);
 		return TZ_RESULT_ERROR_COMMUNICATION;
 	}
-	_sys_service_Fd = KREE_SESSION_HANDLE_MAX_SIZE;
 
-	KREE_DEBUG("===> %s: chan_p = %p\n", __func__,
-		   _sys_service_h.dn);
+	_sys_service_Fd[tee_id] = KREE_SESSION_HANDLE_MAX_SIZE + tee_id;
+
+	KREE_DEBUG("===> %s: chan_p = %p, tee_id %d\n", __func__,
+		   _sys_service_h[tee_id].dn, tee_id);
 
 	return ret;
 }
@@ -1011,6 +1042,7 @@ TZ_RESULT KREE_CreateSession(const char *ta_uuid, KREE_SESSION_HANDLE *pHandle)
 	struct tipc_dn_chan *chan_p;
 	union MTEEC_PARAM p[4];
 	KREE_SESSION_HANDLE session;
+	int tee_id;
 
 	KREE_DEBUG("%s: %s\n", __func__, ta_uuid);
 
@@ -1035,10 +1067,13 @@ TZ_RESULT KREE_CreateSession(const char *ta_uuid, KREE_SESSION_HANDLE *pHandle)
 	KREE_DEBUG("===> _GzCreateSession_body: chan_p = 0x%llx\n",
 		   (uint64_t)chan_p);
 
+	tee_id = chan_p->tee_id;
+	KREE_DEBUG("%s: get tee_id %d\n", __func__, tee_id);
+
 	/* connect to sys service */
-	if (_sys_service_Fd < 0) {
+	if (_sys_service_Fd[tee_id] < 0) {
 		KREE_DEBUG("%s: Open sys service fd first.\n", __func__);
-		ret = KREE_OpenSysFd();
+		ret = KREE_OpenSysFd(tee_id);
 		if (ret) {
 			KREE_ERR("%s: open sys service fd failed, ret = 0x%x\n",
 				 __func__, ret);
@@ -1049,7 +1084,7 @@ TZ_RESULT KREE_CreateSession(const char *ta_uuid, KREE_SESSION_HANDLE *pHandle)
 	p[0].mem.buffer = (void *)ta_uuid;
 	p[0].mem.size = (uint32_t)(strlen(ta_uuid) + 1);
 	ret = KREE_TeeServiceCall(
-		_sys_service_Fd, TZCMD_SYS_SESSION_CREATE,
+		_sys_service_Fd[tee_id], TZCMD_SYS_SESSION_CREATE,
 		TZ_ParamTypes2(TZPT_MEM_INPUT, TZPT_VALUE_OUTPUT), p);
 	if (ret != TZ_RESULT_SUCCESS) {
 		KREE_ERR("%s: create session fail\n", __func__);
@@ -1115,13 +1150,9 @@ TZ_RESULT KREE_CloseSession(KREE_SESSION_HANDLE handle)
 	KREE_SESSION_HANDLE session;
 	union MTEEC_PARAM p[4];
 	struct tipc_dn_chan *chan_p;
+	enum tee_id_t tee_id;
 
 	KREE_DEBUG(" ===> %s: Close session ...\n", __func__);
-
-	if (_sys_service_Fd < 0) {
-		KREE_ERR("%s: sys service fd is not open.\n", __func__);
-		return TZ_RESULT_ERROR_GENERIC;
-	}
 
 	mutex_lock(&session_mutex);
 
@@ -1135,12 +1166,20 @@ TZ_RESULT KREE_CloseSession(KREE_SESSION_HANDLE handle)
 		goto close_session_out;
 	}
 
+	tee_id = chan_p->tee_id;
+	if (_sys_service_Fd[tee_id] < 0) {
+		KREE_ERR("%s: sys service fd is not open.\n", __func__);
+		ret = TZ_RESULT_ERROR_GENERIC;
+		goto close_session_out;
+	}
+
 	session = chan_p->session;
 	KREE_DEBUG(" ===> %s: session = %d.\n", __func__, (int)session);
 
 	/* close session */
 	p[0].value.a = session;
-	ret = KREE_TeeServiceCall(_sys_service_Fd, TZCMD_SYS_SESSION_CLOSE,
+	ret = KREE_TeeServiceCall(_sys_service_Fd[tee_id],
+				  TZCMD_SYS_SESSION_CLOSE,
 				  TZ_ParamTypes1(TZPT_VALUE_INPUT), p);
 	if (ret != TZ_RESULT_SUCCESS) {
 		KREE_ERR("%s: close session fail\n", __func__);
