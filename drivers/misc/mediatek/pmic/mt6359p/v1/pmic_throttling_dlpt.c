@@ -433,7 +433,6 @@ static irqreturn_t fg_cur_l_int_handler(int irq, void *data)
 #endif
 
 	g_battery_oc_level = 1;
-	enable_irq(fg_cur_h_irq);
 	exec_battery_oc_callback(BATTERY_OC_LEVEL_1);
 	disable_irq_nosync(fg_cur_l_irq);
 	enable_irq(fg_cur_h_irq);
