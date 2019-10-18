@@ -624,7 +624,11 @@ s32 smi_debug_bus_hang_detect(const bool gce, const char *user)
 	dump_emi_outstanding();
 #endif
 #if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
-	mtk_dump_reg_for_hang_issue();
+	smi_bus_prepare_enable(SMI_LARB_NUM, user);
+	smi_bus_prepare_enable(SMI_LARB_NUM + 1, user);
+	mtk_dump_reg_for_hang_issue(0);
+	smi_bus_disable_unprepare(SMI_LARB_NUM + 1, user);
+	smi_bus_disable_unprepare(SMI_LARB_NUM, user);
 #elif IS_ENABLED(CONFIG_MTK_M4U)
 	m4u_dump_reg_for_smi_hang_issue();
 #endif
