@@ -802,10 +802,10 @@ void dump_timeout_debug_info(int core_id)
 	}
 
 	for (i = 0x0000; i < 0x1000; i += 4)
-		mdla_timeout_debug("apu_mdla_config_top+%04X: %08X\n",
+		mdla_timeout_all_debug("apu_mdla_config_top+%04X: %08X\n",
 				i, mdla_cfg_read_with_mdlaid(core_id, i));
 	for (i = 0x0000; i < 0x1000; i += 4)
-		mdla_timeout_debug("apu_mdla_cmde_mreg_top+%04X: %08X\n",
+		mdla_timeout_all_debug("apu_mdla_cmde_mreg_top+%04X: %08X\n",
 				i, mdla_reg_read_with_mdlaid(core_id, i));
 
 }

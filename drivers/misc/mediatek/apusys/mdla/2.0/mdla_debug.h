@@ -111,6 +111,7 @@ enum MDLA_DEBUG_MASK {
 	MDLA_DBG_QOS = 0x20,
 	MDLA_DBG_TIMEOUT = 0x40,
 	MDLA_DBG_DVFS = 0x80,
+	MDLA_DBG_TIMEOUT_ALL = 0x100,
 };
 
 #if 1
@@ -157,6 +158,8 @@ static inline void mdla_debugfs_exit(void)
 #define mdla_qos_debug(...) mdla_debug(MDLA_DBG_QOS, __VA_ARGS__)
 #define mdla_timeout_debug(...) mdla_debug(MDLA_DBG_TIMEOUT, __VA_ARGS__)
 #define mdla_dvfs_debug(...) mdla_debug(MDLA_DBG_DVFS, __VA_ARGS__)
+#define mdla_timeout_all_debug(...) \
+	mdla_debug(MDLA_DBG_TIMEOUT_ALL, __VA_ARGS__)
 #define dump_reg_top(core_id, name) \
 	mdla_timeout_debug("%s: %d: %.8x\n", #name,\
 	core_id, mdla_reg_read_with_mdlaid(core_id, name))
