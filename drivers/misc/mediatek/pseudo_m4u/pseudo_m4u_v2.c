@@ -580,11 +580,9 @@ static inline int pseudo_config_port(struct M4U_PORT_STRUCT *pM4uPort,
 		ret = -4;
 	}
 
-#if 0 //def IOMMU_DEBUG_ENABLED
-	M4U_MSG("%s, l%d-p%d, userspace:%d switch fr %d to %d, bd:%d\n",
-		m4u_get_module_name(pM4uPort->ePortID),
-		larb, larb_port, is_user, old_value, value, bit32);
-#endif
+	M4U_INFO("%s, l%d-p%d, userspace:%d switch fr %d to %d, bd:%d\n",
+		 m4u_get_module_name(pM4uPort->ePortID),
+		 larb, larb_port, is_user, old_value, value, bit32);
 
 out:
 	larb_clock_off(larb, 1);
@@ -1703,15 +1701,13 @@ int __pseudo_alloc_mva(struct m4u_client_t *client,
 
 	pseudo_add_sgtable(mva_sg);
 
-#if 0 //def IOMMU_DEBUG_ENABLED
 	paddr = sg_phys(table->sgl);
-	M4U_MSG("%s, p:%d(%d-%d) pa=0x%pad iova=0x%lx s=0x%lx n=%d",
-		iommu_get_port_name(port),
-		port, MTK_IOMMU_TO_LARB(port),
-		MTK_IOMMU_TO_PORT(port),
-		&paddr,
-		*retmva, size, table->nents);
-#endif
+	M4U_INFO("%s, p:%d(%d-%d) pa=0x%pad iova=0x%lx s=0x%lx n=%d",
+		 iommu_get_port_name(port),
+		 port, MTK_IOMMU_TO_LARB(port),
+		 MTK_IOMMU_TO_PORT(port),
+		 &paddr,
+		 *retmva, size, table->nents);
 
 	/* pbuf_info for userspace compatible */
 	pbuf_info = pseudo_alloc_buf_info();
@@ -1919,12 +1915,10 @@ int __pseudo_dealloc_mva(struct m4u_client_t *client,
 		return -EINVAL;
 	}
 
-#if 0 //def IOMMU_DEBUG_ENABLED
-	M4U_MSG("larb%d, port%d, addr=0x%lx, size=0x%lx, iova=0x%lx\n",
-		MTK_IOMMU_TO_LARB(port),
-		MTK_IOMMU_TO_PORT(port),
-		BufAddr, size, mva);
-#endif
+	M4U_INFO("larb%d, port%d, addr=0x%lx, size=0x%lx, iova=0x%lx\n",
+		 MTK_IOMMU_TO_LARB(port),
+		 MTK_IOMMU_TO_PORT(port),
+		 BufAddr, size, mva);
 
 	/* for ion sg alloc, we did not align the mva in allocation. */
 	/* if (!sg_table) */
@@ -2007,7 +2001,7 @@ int pseudo_dealloc_mva(struct m4u_client_t *client, int port, unsigned long mva)
 	ret = __pseudo_dealloc_mva(client, port, pMvaInfo->va,
 				   pMvaInfo->size, mva, NULL);
 
-#if 0 //def IOMMU_DEBUG_ENABLED
+#if 0
 	M4U_DBG("port %d, flags 0x%x, va 0x%lx, mva = 0x%lx, size 0x%lx\n",
 		port, pMvaInfo->flags,
 		pMvaInfo->va, mva, pMvaInfo->size);
