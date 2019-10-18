@@ -98,8 +98,7 @@ static int apusys_open(struct inode *inode, struct file *filp)
 
 	filp->private_data = u;
 
-	LOG_INFO("create user %p(0x%llx/%d/%d)\n",
-		u,
+	LOG_INFO("create user (0x%llx/%d/%d)\n",
 		u->id,
 		u->open_pid,
 		u->open_tgid);
@@ -276,7 +275,7 @@ static int apusys_resume(struct platform_device *pdev)
 
 static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
-	int ret = 0, count = 0;
+	int ret = 0, count = 0, dev_num = 0, val = 0;
 	struct apusys_user *user = (struct apusys_user *)filp->private_data;
 	struct apusys_mem mem;
 	struct apusys_ioctl_cmd ioctl_cmd;
@@ -284,6 +283,7 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	struct apusys_ioctl_dev dev_alloc;
 	struct apusys_ioctl_power ioctl_pwr;
 	struct apusys_ioctl_fw ioctl_fw;
+	struct apusys_ioctl_sec ioctl_sec;
 	struct apusys_ioctl_ucmd ioctl_ucmd;
 	struct apusys_cmd *a_cmd = NULL;
 	struct apusys_dev_aquire acq;
@@ -603,6 +603,7 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			goto out;
 		}
 
+		/* check cmd id */
 		if (ioctl_cmd.cmd_id == 0) {
 			ret = -EINVAL;
 			goto out;
@@ -659,8 +660,8 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			ioctl_pwr.boost_val);
 
 		/* call power on functions */
-		ret = res_set_power(ioctl_pwr.dev_type, ioctl_pwr.idx,
-		ioctl_pwr.boost_val);
+		ret = res_power_on(ioctl_pwr.dev_type, ioctl_pwr.idx,
+			ioctl_pwr.boost_val, APUSYS_SETPOWER_TIMEOUT);
 		if (ret) {
 			LOG_ERR("set power: device(%d/%u/%u) (%d)",
 				ioctl_pwr.dev_type,
@@ -699,22 +700,17 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		count = 0;
 		list_for_each_safe(list_ptr, tmp, &acq.dev_info_list) {
 			dev_info = list_entry(list_ptr,
-				struct apusys_dev_info, acq_list);
-			if (dev_info == NULL) {
-				LOG_ERR("miss dev(%d/%d)\n",
-					acq.dev_type, count);
-				ret = -ENODEV;
-			} else {
-				ret = apusys_user_insert_dev(user,
-					dev_info);
-				if (ret) {
-					LOG_ERR("insert dev list fail\n");
-					if (put_device_lock(dev_info)) {
-						LOG_ERR("put dev fail\n");
-						ret = -ENODEV;
-					}
-					break;
+			struct apusys_dev_info, acq_list);
+
+			ret = apusys_user_insert_dev(user,
+				dev_info);
+			if (ret) {
+				LOG_ERR("insert dev list fail\n");
+				if (put_device_lock(dev_info)) {
+					LOG_ERR("put dev fail\n");
+					ret = -ENODEV;
 				}
+				break;
 			}
 			count++;
 		}
@@ -961,6 +957,188 @@ check_ucmd_size_fail:
 
 		break;
 
+	case APUSYS_IOCTL_SEC_DEVICE_LOCK:
+		DEBUG_TAG;
+		if (copy_from_user(&ioctl_sec, (void *)arg,
+			sizeof(struct apusys_ioctl_sec))) {
+			LOG_ERR("copy sec struct fail\n");
+			ret = -EINVAL;
+			goto out;
+		}
+
+		/* check device supported */
+		dev_num = res_get_device_num(ioctl_sec.dev_type);
+		if (dev_num <= 0) {
+			LOG_ERR("sec lock: not support dev(%d)\n",
+				ioctl_sec.dev_type);
+			ret = -ENODEV;
+			goto out;
+		}
+
+		LOG_INFO("lock dev(%d) %d cores...\n",
+			ioctl_sec.dev_type, dev_num);
+
+		/* get type device from resource mgr */
+		memset(&acq, 0, sizeof(acq));
+		acq.target_num = dev_num;
+		acq.dev_type = ioctl_sec.dev_type;
+		acq.is_done = 0;
+		acq.owner = user->open_pid;
+		if (acq_device_sync(&acq) <= 0) {
+			LOG_ERR("sec lock alloc dev(%d) user(0x%llx) fail\n",
+				ioctl_sec.dev_type,
+				user->id);
+
+			ret = -ENODEV;
+			goto out;
+		}
+
+		LOG_INFO("lock dev(%d) %d cores done\n",
+			ioctl_sec.dev_type, dev_num);
+
+		/*
+		 * record device lock and call power on
+		 * with timeout=0 and boost=100
+		 */
+		count = 0;
+		list_for_each_safe(list_ptr, tmp, &acq.dev_info_list) {
+			dev_info = list_entry(list_ptr,
+				struct apusys_dev_info, acq_list);
+			/* power off */
+			ret = res_power_off(dev_info->dev->dev_type,
+					dev_info->dev->idx);
+			if (ret) {
+				LOG_ERR("dev(%d/%d) poweroff fail\n",
+					dev_info->dev->dev_type,
+					dev_info->dev->idx);
+				break;
+			}
+
+			/* power on */
+			ret = res_power_on(dev_info->dev->dev_type,
+					dev_info->dev->idx, 100,
+					APUSYS_SETPOWER_TIMEOUT_ALLON);
+			if (ret) {
+				LOG_ERR("dev(%d/%d) poweron fail\n",
+					dev_info->dev->dev_type,
+					dev_info->dev->idx);
+				break;
+			}
+
+			/* record sec device acquire */
+			ret = apusys_user_insert_secdev(user, dev_info);
+			if (ret) {
+				LOG_ERR("insert dev list fail\n");
+				if (put_device_lock(dev_info)) {
+					LOG_ERR("put dev fail\n");
+					ret = -ENODEV;
+				}
+				break;
+			}
+
+			/* TODO: call mtee enable 1 */
+			count++;
+		}
+
+		if (count != dev_num) {
+			LOG_WARN("alloc device num confuse(%d/%d)\n",
+				count, dev_num);
+		}
+
+		/* check success */
+		if (ret == 0) {
+			if (res_secure_on(ioctl_sec.dev_type)) {
+				LOG_ERR("dev(%d) secure mode on fail\n",
+					ioctl_sec.dev_type);
+				ret = -ENODEV;
+			} else {
+				LOG_INFO("power on dev(%d) %d cores ok\n",
+					ioctl_sec.dev_type, dev_num);
+				break;
+			}
+		}
+
+		/* if fail, need to release power and device */
+		LOG_WARN("sec lock: release dev(%d)\n", ioctl_sec.dev_type);
+		val = 0;
+		list_for_each_safe(list_ptr, tmp, &acq.dev_info_list) {
+			dev_info = list_entry(list_ptr,
+				struct apusys_dev_info, acq_list);
+
+			/* power off */
+			if (res_power_off(dev_info->dev->dev_type,
+					dev_info->dev->idx)) {
+				LOG_ERR("dev(%d/%d) poweroff fail\n",
+					dev_info->dev->dev_type,
+					dev_info->dev->idx);
+			}
+
+			if (put_device_lock(dev_info)) {
+				LOG_ERR("put dev(%d/%d) fail\n",
+					dev_info->dev->dev_type,
+					dev_info->dev->idx);
+				ret = -ENODEV;
+			}
+
+			if (val < count) {
+				if (apusys_user_delete_secdev(user, dev_info)) {
+					LOG_ERR("delete sec(%d/%d) list fail\n",
+						dev_info->dev->dev_type,
+						dev_info->dev->idx);
+				}
+			}
+			val++;
+		}
+
+		LOG_WARN("release sec dev(%d) done(%d/%d)\n",
+			ioctl_sec.dev_type,
+			val, count);
+
+		break;
+
+	case APUSYS_IOCTL_SEC_DEVICE_UNLOCK:
+		DEBUG_TAG;
+		if (copy_from_user(&ioctl_sec, (void *)arg,
+			sizeof(struct apusys_ioctl_sec))) {
+			LOG_ERR("copy sec struct fail\n");
+			ret = -EINVAL;
+			goto out;
+		}
+
+		/* check device supported */
+		dev_num = res_get_device_num(ioctl_sec.dev_type);
+		if (dev_num <= 0) {
+			LOG_ERR("sec unlock: not support dev(%d)\n",
+				ioctl_sec.dev_type);
+			ret = -ENODEV;
+			goto out;
+		}
+
+		/* TODO: call mtee enable 0 */
+		ret = res_secure_off(ioctl_sec.dev_type);
+		if (ret) {
+			LOG_ERR("dev(%d) secure mode off fail\n",
+				ioctl_sec.dev_type);
+		}
+
+		/* power off all device by type */
+		for (count = 0; count < dev_num; count++) {
+			ret = res_power_off(ioctl_sec.dev_type, count);
+			if (ret) {
+				LOG_ERR("sec unlock poweroff dev(%d/%d) fail\n",
+					ioctl_sec.dev_type, count);
+			}
+		}
+
+		/* delete secure type from user */
+		if (apusys_user_delete_sectype(user, ioctl_sec.dev_type)) {
+			LOG_ERR("sec unlock del stype(%d) from u list fail\n",
+				ioctl_sec.dev_type);
+			ret = -EINVAL;
+		}
+
+		break;
+
 	default:
 		ret = -EINVAL;
 		break;
@@ -987,6 +1165,8 @@ static long apusys_compat_ioctl(struct file *flip, unsigned int cmd,
 	case APUSYS_IOCTL_FW_LOAD:
 	case APUSYS_IOCTL_FW_UNLOAD:
 	case APUSYS_IOCTL_USER_CMD:
+	case APUSYS_IOCTL_SEC_DEVICE_LOCK:
+	case APUSYS_IOCTL_SEC_DEVICE_UNLOCK:
 	{
 		return flip->f_op->unlocked_ioctl(flip, cmd,
 					(unsigned long)compat_ptr(arg));

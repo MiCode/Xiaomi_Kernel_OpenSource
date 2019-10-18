@@ -661,12 +661,16 @@ int acq_device_sync(struct apusys_dev_aquire *acq)
 	return acq->acq_num;
 }
 
-int res_set_power(int dev_type, uint32_t idx, uint32_t boost_val)
+int res_power_on(int dev_type, uint32_t idx,
+	uint32_t boost_val, uint32_t timeout)
 {
 	struct apusys_res_table *tab = NULL;
 	struct apusys_dev_info *info = NULL;
 	struct apusys_power_hnd pwr;
 	int ret = 0;
+
+	LOG_INFO("poweron res(%d/%u) boost(%u) timeout(%u)\n",
+		dev_type, idx, boost_val, timeout);
 
 	if (boost_val > 100) {
 		LOG_ERR("invalid boost val(%d)\n", boost_val);
@@ -680,7 +684,7 @@ int res_set_power(int dev_type, uint32_t idx, uint32_t boost_val)
 	}
 
 	if (idx >= tab->dev_num) {
-		LOG_ERR("invalid device idx(%d/%d)\n",
+		LOG_ERR("invalid device idx(%u/%d)\n",
 			idx, tab->dev_num);
 		return -EINVAL;
 	}
@@ -692,17 +696,60 @@ int res_set_power(int dev_type, uint32_t idx, uint32_t boost_val)
 		return -EINVAL;
 	}
 
+	memset(&pwr, 0, sizeof(struct apusys_power_hnd));
 	pwr.opp = 0;
 	pwr.boost_val = boost_val;
-	pwr.timeout = APUSYS_SETPOWER_TIMEOUT;
+	if (timeout > APUSYS_SETPOWER_TIMEOUT)
+		pwr.timeout = APUSYS_SETPOWER_TIMEOUT;
+	else
+		pwr.timeout = timeout;
 	ret = info->dev->send_cmd(APUSYS_CMD_POWERON, &pwr, info->dev);
 	if (ret) {
-		LOG_ERR("power on resource(%d/%d) boostval(%d) fail(%d)\n",
+		LOG_ERR("poweron res(%d/%d) boostval(%d) fail(%d)\n",
 			dev_type, idx, boost_val, ret);
 	}
 
 	return ret;
 }
+
+int res_power_off(int dev_type, uint32_t idx)
+{
+	struct apusys_res_table *tab = NULL;
+	struct apusys_dev_info *info = NULL;
+	struct apusys_power_hnd pwr;
+	int ret = 0;
+
+	LOG_INFO("powerdown res(%d/%u)\n", dev_type, idx);
+
+	tab = res_get_table(dev_type);
+	if (tab == NULL) {
+		LOG_ERR("invalid device type(%d)\n", dev_type);
+		return -EINVAL;
+	}
+
+	if (idx >= tab->dev_num) {
+		LOG_ERR("invalid device idx(%u/%d)\n",
+			idx, tab->dev_num);
+		return -EINVAL;
+	}
+
+	info = &tab->dev_list[idx];
+	if (info == NULL) {
+		LOG_ERR("can't find device info(%p) (%d/%u)\n",
+			info, dev_type, idx);
+		return -EINVAL;
+	}
+
+	memset(&pwr, 0, sizeof(struct apusys_power_hnd));
+	ret = info->dev->send_cmd(APUSYS_CMD_POWERDOWN, &pwr, info->dev);
+	if (ret) {
+		LOG_ERR("powerdown res(%d/%u) fail(%d)\n",
+			dev_type, idx, ret);
+	}
+
+	return ret;
+}
+
 
 int res_load_firmware(int dev_type, uint32_t magic, const char *name,
 	int idx, uint64_t kva, uint32_t iova, uint32_t size, int op)
@@ -802,6 +849,68 @@ void res_sched_enable(int enable)
 		g_res_mgr.sched_pause = 1;
 	}
 	mutex_unlock(&g_res_mgr.mtx);
+}
+
+int res_secure_on(int dev_type)
+{
+	struct apusys_res_table *tab = NULL;
+	int ret = 0;
+
+	tab = res_get_table(dev_type);
+	if (tab == NULL) {
+		LOG_ERR("secure control can't find dev(%d)\n", dev_type);
+		return -ENODEV;
+	}
+
+	switch (dev_type) {
+	case APUSYS_DEVICE_SAMPLE:
+		LOG_INFO("dev(%d) secure mode on(%d)\n", dev_type, ret);
+		break;
+
+#ifdef CONFIG_MTK_GZ_SUPPORT_SDSP
+	case APUSYS_DEVICE_VPU:
+		ret = mtee_sdsp_enable(1);
+		LOG_INFO("dev(%d) secure mode on(%d)\n", dev_type, ret);
+		break;
+#endif
+	default:
+		LOG_ERR("dev(%d) not support secure mode\n", dev_type);
+		ret = -ENODEV;
+		break;
+	}
+
+	return ret;
+}
+
+int res_secure_off(int dev_type)
+{
+	struct apusys_res_table *tab = NULL;
+	int ret = 0;
+
+	tab = res_get_table(dev_type);
+	if (tab == NULL) {
+		LOG_ERR("secure control can't find dev(%d)\n", dev_type);
+		return -ENODEV;
+	}
+
+	switch (dev_type) {
+	case APUSYS_DEVICE_SAMPLE:
+		LOG_INFO("dev(%d) secure mode off(%d)\n", dev_type, ret);
+		break;
+
+#ifdef CONFIG_MTK_GZ_SUPPORT_SDSP
+	case APUSYS_DEVICE_VPU:
+		ret = mtee_sdsp_enable(0);
+		LOG_INFO("dev(%d) secure mode off(%d)\n", dev_type, ret);
+		break;
+#endif
+	default:
+		LOG_ERR("dev(%d) not support secure mode\n", dev_type);
+		ret = -ENODEV;
+		break;
+	}
+
+	return ret;
 }
 
 void res_mgt_dump(void *s_file)

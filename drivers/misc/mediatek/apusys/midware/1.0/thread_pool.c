@@ -218,6 +218,8 @@ int thread_pool_add_once(void)
 		return -ENOMEM;
 	}
 
+	g_pool_mgr.total++;
+
 	/* add to global mgr to store */
 	list_add_tail(&inst->list, &g_pool_mgr.thread_list);
 	mutex_unlock(&g_pool_mgr.mtx);

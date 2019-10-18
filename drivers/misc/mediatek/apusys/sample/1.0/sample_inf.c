@@ -49,6 +49,7 @@ struct sample_dev_info {
 	struct sample_fw fw;
 
 	int run;
+	uint32_t pwr_status;
 
 	struct mutex mtx;
 };
@@ -101,6 +102,7 @@ static void _print_hnd(int type, void *hnd)
 	/* print */
 	switch (type) {
 	case APUSYS_CMD_POWERON:
+	case APUSYS_CMD_POWERDOWN:
 		pwr = (struct apusys_power_hnd *)hnd;
 		LOG_INFO("| power on hnd                 |\n");
 		LOG_INFO("--------------------------------");
@@ -175,24 +177,35 @@ static void _get_time_from_system(struct timeval *duration)
 }
 
 //----------------------------------------------
-static int _sample_poweron(struct apusys_power_hnd *hnd)
+static int _sample_poweron(struct apusys_power_hnd *hnd,
+	struct sample_dev_info *info)
 {
-	if (hnd == NULL)
+	if (hnd == NULL || info == NULL)
 		return -EINVAL;
 
-	if (hnd->boost_val != SAMPLE_BOOST_MAGIC) {
-		LOG_ERR("sample poweron wrong params(%d)\n",
-			hnd->boost_val);
-		return -EINVAL;
+	LOG_INFO("sample poweron(%d)\n", info->pwr_status);
+	if (hnd->timeout == 0) {
+		if (info->pwr_status != 0)
+			LOG_ERR("pwr on already w/o timeout\n");
 	}
+
+	info->pwr_status = 1;
+	/* if timeout !=0, powerdown cause delay poweroff */
+	if (hnd->timeout != 0)
+		info->pwr_status = 0;
 
 	return 0;
 }
 
-static int _sample_powerdown(void)
+static int _sample_powerdown(struct sample_dev_info *info)
 {
-	LOG_ERR("don't support power down function\n");
-	return -EINVAL;
+	if (info == NULL)
+		return -EINVAL;
+
+	LOG_INFO("sample poweroff(%d)\n", info->pwr_status);
+	info->pwr_status = 0;
+
+	return 0;
 }
 
 static int _sample_resume(void)
@@ -380,12 +393,13 @@ int sample_send_cmd(int type, void *hnd, struct apusys_device *dev)
 	switch (type) {
 	case APUSYS_CMD_POWERON:
 		LOG_INFO("cmd poweron\n");
-		ret = _sample_poweron(hnd);
+		ret = _sample_poweron(hnd,
+			(struct sample_dev_info *)dev->private);
 		break;
 
 	case APUSYS_CMD_POWERDOWN:
 		LOG_INFO("cmd powerdown\n");
-		ret = _sample_powerdown();
+		ret = _sample_powerdown((struct sample_dev_info *)dev->private);
 		break;
 
 	case APUSYS_CMD_RESUME:

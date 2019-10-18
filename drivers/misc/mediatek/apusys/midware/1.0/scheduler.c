@@ -429,7 +429,6 @@ static void subcmd_done(void *isc)
 
 static int exec_cmd_func(void *isc, void *idev_info)
 {
-	int dev_type = APUSYS_DEVICE_NONE;
 	struct apusys_dev_info *dev_info = (struct apusys_dev_info *)idev_info;
 	struct apusys_cmd_hnd cmd_hnd;
 	struct apusys_subcmd *sc = (struct apusys_subcmd *)isc;
@@ -469,13 +468,12 @@ static int exec_cmd_func(void *isc, void *idev_info)
 			dev_info->dev->idx,
 			sc->par_cmd->cmd_id);
 
-	LOG_DEBUG("0x%llx-#%d sc: exec hnd(%d/0x%llx/%d) boost(%d)\n",
+	LOG_DEBUG("0x%llx-#%d sc: exec hnd(%d/0x%llx/%d)\n",
 		sc->par_cmd->cmd_id,
 		sc->idx,
 		sc->type,
 		cmd_hnd.kva,
-		cmd_hnd.size,
-		cmd_hnd.boost_val);
+		cmd_hnd.size);
 
 	/* 1. allocate memory ctx id*/
 	mutex_lock(&sc->par_cmd->mtx);
@@ -485,23 +483,12 @@ static int exec_cmd_func(void *isc, void *idev_info)
 
 	mutex_lock(&sc->mtx);
 
-	/* 2. get driver time start */
-	LOG_INFO("exec 0x%llx/0x%llx-#%d(%d) sc: dev(%d/%d) boost(%u)\n",
-		sc->par_cmd->hdr->uid,
-		sc->par_cmd->cmd_id,
-		sc->idx, sc->type,
-		dev_info->dev->dev_type,
-		dev_info->dev->idx,
-		cmd_hnd.boost_val);
-
 	/* execute reviser to switch VLM */
 	reviser_set_context(dev_info->dev->dev_type,
 			dev_info->dev->idx, sc->ctx_id);
 
-	get_time_from_system(&sc->duration);
-
 #ifdef APUSYS_OPTIONS_INF_MNOC
-	/* 3. start count cmd qos */
+	/* 2. start count cmd qos */
 	LOG_DEBUG("mnoc: cmd qos start 0x%llx-#%d dev(%d/%d)\n",
 		sc->par_cmd->cmd_id, sc->idx,
 		sc->type, dev_info->dev->idx);
@@ -514,6 +501,17 @@ static int exec_cmd_func(void *isc, void *idev_info)
 	}
 #endif
 
+	/* 3. get driver time start */
+	LOG_INFO("exec 0x%llx/0x%llx-#%d(%d) sc: dev(%d/%d) boost(%u)\n",
+		sc->par_cmd->hdr->uid,
+		sc->par_cmd->cmd_id,
+		sc->idx, sc->type,
+		dev_info->dev->dev_type,
+		dev_info->dev->idx,
+		cmd_hnd.boost_val);
+
+	get_time_from_system(&sc->duration);
+
 	/* 4. execute subcmd */
 	ret = dev_info->dev->send_cmd(APUSYS_CMD_EXECUTE,
 		(void *)&cmd_hnd, dev_info->dev);
@@ -525,25 +523,25 @@ static int exec_cmd_func(void *isc, void *idev_info)
 		dev_info->dev->dev_type,
 		dev_info->dev->idx);
 
+	/* 5. get driver time and ip time */
+	get_time_from_system(&sc->duration);
+	sc->ip_time = cmd_hnd.ip_time;
+
 #ifdef APUSYS_OPTIONS_INF_MNOC
-	/* count qos end */
+	/* 6. count qos end */
 	sc->bw = apu_cmd_qos_end(sc->par_cmd->cmd_id, sc->idx);
 	LOG_DEBUG("mnoc: cmd qos end 0x%llx-#%d dev(%d/%d) bw(%d)\n",
 		sc->par_cmd->cmd_id, dev_info->dev->idx, sc->type,
 		dev_info->dev->idx, sc->bw);
 #endif
 
-	/* 5. get driver time and ip time */
-	get_time_from_system(&sc->duration);
-	sc->ip_time = cmd_hnd.ip_time;
-
-	/* 6. check return value and record */
+	/* 7. check return value and record */
 	if (ret) {
 		LOG_ERR("exec 0x%llx/0x%llx-%d sc on dev(%d-#%d) fail\n",
 			sc->par_cmd->hdr->uid,
 			sc->par_cmd->cmd_id,
 			sc->idx,
-			dev_type,
+			dev_info->dev->dev_type,
 			dev_info->dev->idx);
 		sc->par_cmd->cmd_ret = ret;
 		mutex_unlock(&sc->mtx);
@@ -560,7 +558,7 @@ static int exec_cmd_func(void *isc, void *idev_info)
 		mutex_unlock(&sc->mtx);
 	}
 
-	/* 5. put back device */
+	/* 8. put device back */
 	if (put_device_lock(dev_info)) {
 		LOG_ERR("return dev(%d-#%d) fail\n",
 			dev_info->dev->dev_type,
@@ -818,6 +816,7 @@ int apusys_sched_wait_cmd(struct apusys_cmd *cmd)
 		LOG_DEBUG("wait 0x%llx cmd done...\n",
 			cmd->cmd_id);
 
+		/* final polling */
 		for (i = 0; i < 30; i++) {
 			if (check_cmd_done(cmd) == 0) {
 				LOG_INFO("delete cmd safely\n");

@@ -68,10 +68,9 @@ struct apusys_power_hnd {
 	uint32_t timeout;
 };
 
-struct apusys_pmu_info {
-	uint64_t kva;
-	uint32_t iova;
-	uint32_t size;
+struct apusys_mdla_data {
+	uint64_t pmu_kva;
+	uint64_t cmd_entry;
 };
 
 /* cmd handle */

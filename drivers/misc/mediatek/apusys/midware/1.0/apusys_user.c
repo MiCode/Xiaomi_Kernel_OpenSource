@@ -160,31 +160,31 @@ void apusys_user_dump(void *s_file)
 #undef LINEBAR
 }
 
-int apusys_user_insert_cmd(struct apusys_user *user, void *icmd)
+int apusys_user_insert_cmd(struct apusys_user *u, void *icmd)
 {
 	struct apusys_cmd *cmd = (struct apusys_cmd *)icmd;
 
-	if (user == NULL || icmd == NULL)
+	if (u == NULL || icmd == NULL)
 		return -EINVAL;
 
 	/* add to user's list */
-	mutex_lock(&user->cmd_mtx);
-	list_add_tail(&cmd->u_list, &user->cmd_list);
-	mutex_unlock(&user->cmd_mtx);
+	mutex_lock(&u->cmd_mtx);
+	list_add_tail(&cmd->u_list, &u->cmd_list);
+	mutex_unlock(&u->cmd_mtx);
 
 	return 0;
 }
 
-int apusys_user_delete_cmd(struct apusys_user *user, void *icmd)
+int apusys_user_delete_cmd(struct apusys_user *u, void *icmd)
 {
 	struct apusys_cmd *cmd = (struct apusys_cmd *) icmd;
 	struct apusys_subcmd *sc = NULL;
 	int i = 0;
 
-	if (user == NULL || icmd == NULL)
+	if (u == NULL || icmd == NULL)
 		return -EINVAL;
 
-	mutex_lock(&user->cmd_mtx);
+	mutex_lock(&u->cmd_mtx);
 
 	/* delete all sc */
 	mutex_lock(&cmd->sc_mtx);
@@ -198,41 +198,41 @@ int apusys_user_delete_cmd(struct apusys_user *user, void *icmd)
 
 	list_del(&cmd->u_list);
 	mutex_unlock(&cmd->sc_mtx);
-	mutex_unlock(&user->cmd_mtx);
+	mutex_unlock(&u->cmd_mtx);
 
 	return 0;
 }
 
-int apusys_user_get_cmd(struct apusys_user *user, void **icmd, uint64_t cmd_id)
+int apusys_user_get_cmd(struct apusys_user *u, void **icmd, uint64_t cmd_id)
 {
 	struct list_head *tmp = NULL, *list_ptr = NULL;
 	struct apusys_cmd *cmd = NULL;
 
-	if (user == NULL || icmd == NULL)
+	if (u == NULL || icmd == NULL)
 		return -EINVAL;
 
-	mutex_lock(&user->cmd_mtx);
+	mutex_lock(&u->cmd_mtx);
 
 	/* query list to find cmd in apusys user */
-	list_for_each_safe(list_ptr, tmp, &user->cmd_list) {
+	list_for_each_safe(list_ptr, tmp, &u->cmd_list) {
 		cmd = list_entry(list_ptr, struct apusys_cmd, u_list);
 		if (cmd->cmd_id == cmd_id) {
 			*icmd = (void *)cmd;
 			break;
 		}
 	}
-	mutex_unlock(&user->cmd_mtx);
+	mutex_unlock(&u->cmd_mtx);
 
 	return 0;
 }
 
-int apusys_user_insert_dev(struct apusys_user *user, void *idev_info)
+int apusys_user_insert_dev(struct apusys_user *u, void *idev_info)
 {
 	struct apusys_dev_info *dev_info = (struct apusys_dev_info *)idev_info;
 	struct apusys_user_dev *user_dev = NULL;
 
 	/* check argument */
-	if (user == NULL || dev_info == NULL)
+	if (u == NULL || dev_info == NULL)
 		return -EINVAL;
 
 	/* alloc user dev */
@@ -245,85 +245,192 @@ int apusys_user_insert_dev(struct apusys_user *user, void *idev_info)
 	user_dev->dev_info = dev_info;
 
 	/* add to user's list */
-	mutex_lock(&user->dev_mtx);
-	list_add_tail(&user_dev->list, &user->dev_list);
-	mutex_unlock(&user->dev_mtx);
+	mutex_lock(&u->dev_mtx);
+	list_add_tail(&user_dev->list, &u->dev_list);
+	mutex_unlock(&u->dev_mtx);
 
-	LOG_DEBUG("insert dev(%p/%p/%d) to user(%p/0x%llx) done\n",
+	LOG_DEBUG("insert dev(%p/%p/%d) to user(0x%llx) done\n",
 		user_dev, dev_info->dev,
-		dev_info->dev->dev_type, user,
-		user->id);
+		dev_info->dev->dev_type,
+		u->id);
 
 	return 0;
 }
 
-int apusys_user_delete_dev(struct apusys_user *user, void *idev_info)
+int apusys_user_delete_dev(struct apusys_user *u, void *idev_info)
 {
 	struct apusys_dev_info *dev_info = (struct apusys_dev_info *)idev_info;
 	struct list_head *tmp = NULL, *list_ptr = NULL;
 	struct apusys_user_dev *user_dev = NULL;
 
 	/* check argument */
-	if (user == NULL || dev_info == NULL)
+	if (u == NULL || dev_info == NULL)
 		return -EINVAL;
 
-	LOG_DEBUG("delete dev(%p/%d) from user(%p/0x%llx)...\n",
-		dev_info->dev, dev_info->dev->dev_type, user, user->id);
+	LOG_DEBUG("delete dev(%p/%d) from user(0x%llx)...\n",
+		dev_info->dev, dev_info->dev->dev_type, u->id);
 
-	mutex_lock(&user->dev_mtx);
+	mutex_lock(&u->dev_mtx);
 
 	/* query list to find mem in apusys user */
-	list_for_each_safe(list_ptr, tmp, &user->dev_list) {
+	list_for_each_safe(list_ptr, tmp, &u->dev_list) {
 		user_dev = list_entry(list_ptr, struct apusys_user_dev, list);
 		if (user_dev->dev_info == dev_info) {
 			list_del(&user_dev->list);
 			user_dev->dev_info = NULL;
 			kfree(user_dev);
-			mutex_unlock(&user->dev_mtx);
-			LOG_DEBUG("del dev(%p/%d) u(%p/0x%llx) done\n",
+			mutex_unlock(&u->dev_mtx);
+			LOG_DEBUG("del dev(%p/%d) u(0x%llx) done\n",
 				dev_info->dev, dev_info->dev->dev_type,
-				user, user->id);
+				u->id);
 			return 0;
 		}
 	}
 
-	mutex_unlock(&user->dev_mtx);
+	mutex_unlock(&u->dev_mtx);
 
-	LOG_DEBUG("delete dev(%p/%d) from user(%p/0x%llx) fail\n",
-		dev_info->dev, dev_info->dev->dev_type, user, user->id);
+	LOG_DEBUG("delete dev(%p/%d) from user(0x%llx) fail\n",
+		dev_info->dev, dev_info->dev->dev_type, u->id);
 	return -ENODEV;
 }
 
-struct apusys_dev_info *apusys_user_get_dev(struct apusys_user *user,
+struct apusys_dev_info *apusys_user_get_dev(struct apusys_user *u,
 	uint64_t hnd)
 {
 	struct list_head *tmp = NULL, *list_ptr = NULL;
 	struct apusys_user_dev *udev = NULL;
 
-	if (user == NULL || hnd == 0)
+	if (u == NULL || hnd == 0)
 		return NULL;
 
-	mutex_lock(&user->dev_mtx);
+	mutex_lock(&u->dev_mtx);
 
 	/* query list to find cmd in apusys user */
-	list_for_each_safe(list_ptr, tmp, &user->dev_list) {
+	list_for_each_safe(list_ptr, tmp, &u->dev_list) {
 		udev = list_entry(list_ptr, struct apusys_user_dev, list);
 		if ((uint64_t)udev->dev_info == hnd) {
 			LOG_DEBUG("get device!!\n");
 			break;
 		}
 	}
-	mutex_unlock(&user->dev_mtx);
+	mutex_unlock(&u->dev_mtx);
 
 	return udev->dev_info;
 }
 
+int apusys_user_insert_secdev(struct apusys_user *u, void *idev_info)
+{
+	struct apusys_dev_info *dev_info = (struct apusys_dev_info *)idev_info;
+	struct apusys_user_dev *user_dev = NULL;
 
-int apusys_user_insert_mem(struct apusys_user *user, struct apusys_mem *mem)
+	/* check argument */
+	if (u == NULL || dev_info == NULL)
+		return -EINVAL;
+
+	/* alloc user dev */
+	user_dev = kzalloc(sizeof(struct apusys_user_dev), GFP_KERNEL);
+	if (user_dev == NULL)
+		return -ENOMEM;
+
+	/* init */
+	INIT_LIST_HEAD(&user_dev->list);
+	user_dev->dev_info = dev_info;
+
+	/* add to user's list */
+	mutex_lock(&u->secdev_mtx);
+	list_add_tail(&user_dev->list, &u->secdev_list);
+	mutex_unlock(&u->secdev_mtx);
+
+	LOG_DEBUG("insert sdev(%p/%p/%d) to user(0x%llx) done\n",
+		user_dev, dev_info->dev,
+		dev_info->dev->dev_type,
+		u->id);
+
+	return 0;
+}
+
+int apusys_user_delete_secdev(struct apusys_user *u, void *idev_info)
+{
+	struct apusys_dev_info *dev_info = (struct apusys_dev_info *)idev_info;
+	struct list_head *tmp = NULL, *list_ptr = NULL;
+	struct apusys_user_dev *user_dev = NULL;
+
+	/* check argument */
+	if (u == NULL || dev_info == NULL)
+		return -EINVAL;
+
+	LOG_DEBUG("delete sdev(%p/%d) from user(0x%llx)...\n",
+		dev_info->dev, dev_info->dev->dev_type, u->id);
+
+	mutex_lock(&u->secdev_mtx);
+
+	/* query list to find mem in apusys user */
+	list_for_each_safe(list_ptr, tmp, &u->secdev_list) {
+		user_dev = list_entry(list_ptr, struct apusys_user_dev, list);
+		if (user_dev->dev_info == dev_info) {
+			list_del(&user_dev->list);
+			user_dev->dev_info = NULL;
+			kfree(user_dev);
+			mutex_unlock(&u->secdev_mtx);
+			LOG_DEBUG("del dev(%p/%d) u(0x%llx) done\n",
+				dev_info->dev, dev_info->dev->dev_type,
+				u->id);
+			return 0;
+		}
+	}
+
+	mutex_unlock(&u->secdev_mtx);
+
+	LOG_DEBUG("delete sdev(%p/%d) from user(0x%llx) fail\n",
+		dev_info->dev, dev_info->dev->dev_type, u->id);
+	return -ENODEV;
+}
+
+int apusys_user_delete_sectype(struct apusys_user *u, int dev_type)
+{
+	struct list_head *tmp = NULL, *list_ptr = NULL;
+	struct apusys_user_dev *user_dev = NULL;
+
+
+	/* check argument */
+	if (u == NULL)
+		return -EINVAL;
+
+	LOG_DEBUG("delete stype(%d) from user(0x%llx)...\n",
+		dev_type, u->id);
+
+	mutex_lock(&u->secdev_mtx);
+
+	/* query list to find mem in apusys user */
+	list_for_each_safe(list_ptr, tmp, &u->secdev_list) {
+		DEBUG_TAG;
+		user_dev = list_entry(list_ptr, struct apusys_user_dev, list);
+		if (user_dev->dev_info->dev->dev_type == dev_type) {
+			list_del(&user_dev->list);
+			LOG_INFO("del stype(%p/%d) u(0x%llx) done\n",
+				user_dev->dev_info->dev,
+				user_dev->dev_info->dev->dev_type,
+				u->id);
+			/* put device back */
+			if (put_device_lock(user_dev->dev_info)) {
+				LOG_ERR("put dev(%d/%d) fail\n",
+					user_dev->dev_info->dev->dev_type,
+					user_dev->dev_info->dev->idx);
+			}
+			user_dev->dev_info = NULL;
+			kfree(user_dev);
+		}
+	}
+
+	mutex_unlock(&u->secdev_mtx);
+	return 0;
+}
+
+int apusys_user_insert_mem(struct apusys_user *u, struct apusys_mem *mem)
 {
 	struct apusys_user_mem *user_mem = NULL;
 
-	if (mem == NULL || user == NULL)
+	if (mem == NULL || u == NULL)
 		return -EINVAL;
 
 	user_mem = kzalloc(sizeof(struct apusys_user_mem), GFP_KERNEL);
@@ -334,36 +441,36 @@ int apusys_user_insert_mem(struct apusys_user *user, struct apusys_mem *mem)
 
 	memcpy(&user_mem->mem, mem, sizeof(struct apusys_mem));
 
-	mutex_lock(&user->mem_mtx);
-	list_add_tail(&user_mem->list, &user->mem_list);
-	mutex_unlock(&user->mem_mtx);
+	mutex_lock(&u->mem_mtx);
+	list_add_tail(&user_mem->list, &u->mem_list);
+	mutex_unlock(&u->mem_mtx);
 
-	LOG_DEBUG("insert mem(%p/%d/%d/0x%llx/0x%x/%d)\n",
+	LOG_DEBUG("insert mem(%p/%d/%d/0x%llx/0x%x/%d) to u(0x%llx)\n",
 		user_mem, user_mem->mem.mem_type,
 		user_mem->mem.ion_data.ion_share_fd,
 		user_mem->mem.kva, user_mem->mem.iova,
-		user_mem->mem.size);
+		user_mem->mem.size, u->id);
 
 	return 0;
 }
 
-int apusys_user_delete_mem(struct apusys_user *user, struct apusys_mem *mem)
+int apusys_user_delete_mem(struct apusys_user *u, struct apusys_mem *mem)
 {
 	struct list_head *tmp = NULL, *list_ptr = NULL;
 	struct apusys_user_mem *user_mem = NULL;
 
-	if (mem == NULL || user == NULL)
+	if (mem == NULL || u == NULL)
 		return -EINVAL;
 
-	LOG_DEBUG("delete mem(%p/%d/%d/0x%llx/0x%x/%d) from user(%p/0x%llx)\n",
+	LOG_DEBUG("delete mem(%p/%d/%d/0x%llx/0x%x/%d) from user(0x%llx)\n",
 		mem, mem->mem_type, mem->ion_data.ion_share_fd,
 		mem->kva, mem->iova, mem->size,
-		user, user->id);
+		u->id);
 
-	mutex_lock(&user->mem_mtx);
+	mutex_lock(&u->mem_mtx);
 
 	/* query list to find mem in apusys user */
-	list_for_each_safe(list_ptr, tmp, &user->mem_list) {
+	list_for_each_safe(list_ptr, tmp, &u->mem_list) {
 		user_mem = list_entry(list_ptr, struct apusys_user_mem, list);
 
 		if (user_mem->mem.ion_data.ion_share_fd ==
@@ -372,31 +479,29 @@ int apusys_user_delete_mem(struct apusys_user *user, struct apusys_mem *mem)
 			/* delete memory struct */
 			list_del(&user_mem->list);
 			kfree(user_mem);
-			mutex_unlock(&user->mem_mtx);
+			mutex_unlock(&u->mem_mtx);
 			//LOG_DEBUG("-\n");
 			return 0;
 		}
 	}
 
-	mutex_unlock(&user->mem_mtx);
+	mutex_unlock(&u->mem_mtx);
 
 	return -ENOMEM;
 }
 
-int apusys_create_user(struct apusys_user **user)
+int apusys_create_user(struct apusys_user **iu)
 {
 	struct apusys_user *u = NULL;
 
 	LOG_DEBUG("+\n");
 
-	if (IS_ERR_OR_NULL(user))
+	if (IS_ERR_OR_NULL(iu))
 		return -EINVAL;
 
 	u = kzalloc(sizeof(struct apusys_user), GFP_KERNEL);
 	if (u == NULL)
 		return -ENOMEM;
-
-	//LOG_DEBUG("create apusys user %p\n", u);
 
 	u->open_pid = current->pid;
 	u->open_tgid = current->tgid;
@@ -407,13 +512,15 @@ int apusys_create_user(struct apusys_user **user)
 	INIT_LIST_HEAD(&u->mem_list);
 	mutex_init(&u->dev_mtx);
 	INIT_LIST_HEAD(&u->dev_list);
+	mutex_init(&u->secdev_mtx);
+	INIT_LIST_HEAD(&u->secdev_list);
 
 	LOG_DEBUG("apusys user(0x%llx/%d/%d)\n",
 		u->id,
 		(int)u->open_pid,
 		(int)u->open_tgid);
 
-	*user = u;
+	*iu = u;
 
 	/* add to user mgr's list */
 	mutex_lock(&g_user_mgr.mtx);
@@ -425,34 +532,35 @@ int apusys_create_user(struct apusys_user **user)
 	return 0;
 }
 
-int apusys_delete_user(struct apusys_user *user)
+int apusys_delete_user(struct apusys_user *u)
 {
 	struct list_head *tmp = NULL, *list_ptr = NULL;
 	struct apusys_user_mem *user_mem = NULL;
 	struct apusys_user_dev *user_dev = NULL;
+	struct apusys_dev_info *dev_info = NULL;
 	struct apusys_cmd *cmd = NULL;
+	unsigned long long dev_bit = 0;
 
 	LOG_DEBUG("+\n");
 
-	if (IS_ERR_OR_NULL(user))
+	if (IS_ERR_OR_NULL(u))
 		return -EINVAL;
 
-	/* delete all cmd from user */
-	mutex_lock(&user->cmd_mtx);
+	/* delete residual cmd */
+	mutex_lock(&u->cmd_mtx);
 	DEBUG_TAG;
-	list_for_each_safe(list_ptr, tmp, &user->cmd_list) {
+	list_for_each_safe(list_ptr, tmp, &u->cmd_list) {
 		cmd = list_entry(list_ptr, struct apusys_cmd, u_list);
 
 		if (apusys_cmd_delete(cmd))
 			LOG_ERR("delete apusys cmd(%p) fail\n", cmd);
-
 	}
-	mutex_unlock(&user->cmd_mtx);
+	mutex_unlock(&u->cmd_mtx);
 
-	/* clean memory from user */
-	mutex_lock(&user->mem_mtx);
+	/* delete residual allocated memory */
+	mutex_lock(&u->mem_mtx);
 	/* query list to find mem in apusys user */
-	list_for_each_safe(list_ptr, tmp, &user->mem_list) {
+	list_for_each_safe(list_ptr, tmp, &u->mem_list) {
 		user_mem = list_entry(list_ptr, struct apusys_user_mem, list);
 		/* delete memory */
 		LOG_WARN("undeleted mem(%p/%d/%d/0x%llx/0x%x/%d)\n",
@@ -502,32 +610,65 @@ int apusys_delete_user(struct apusys_user *user)
 
 		kfree(user_mem);
 	}
+	mutex_unlock(&u->mem_mtx);
 
-	mutex_unlock(&user->mem_mtx);
-
-	/* query list to find dev in apusys user */
-	mutex_lock(&user->dev_mtx);
-
-	list_for_each_safe(list_ptr, tmp, &user->dev_list) {
+	/* delete residual allocated dev */
+	mutex_lock(&u->dev_mtx);
+	list_for_each_safe(list_ptr, tmp, &u->dev_list) {
 		user_dev = list_entry(list_ptr, struct apusys_user_dev, list);
 		if (user_dev->dev_info != NULL) {
 			if (put_device_lock(user_dev->dev_info)) {
 				LOG_ERR("put device(%p) user(0x%llx) fail\n",
 					user_dev->dev_info->dev,
-					user->id);
+					u->id);
 			}
 		}
 		list_del(&user_dev->list);
 		kfree(user_dev);
 	}
+	mutex_unlock(&u->dev_mtx);
 
-	mutex_unlock(&user->dev_mtx);
+	/* delete residual secure dev */
+	mutex_lock(&u->secdev_mtx);
+	list_for_each_safe(list_ptr, tmp, &u->secdev_list) {
+		user_dev = list_entry(list_ptr, struct apusys_user_dev, list);
+		dev_info = user_dev->dev_info;
+		if (dev_info != NULL) {
+
+			/* power off and release secure mode before put dev */
+			if (!(dev_bit & (1 << dev_info->dev->dev_type))) {
+				if (res_secure_off(
+					dev_info->dev->dev_type)) {
+					LOG_ERR("dev(%d) secmode off fail\n",
+						dev_info->dev->dev_type);
+				}
+				dev_bit |= (1 << dev_info->dev->dev_type);
+			}
+			if (res_power_off(dev_info->dev->dev_type,
+				dev_info->dev->idx)) {
+				LOG_ERR("sec pwroff dev(%d/%d) fail\n",
+					dev_info->dev->dev_type,
+					dev_info->dev->idx);
+			}
+
+			/* put device back to table */
+			if (put_device_lock(dev_info)) {
+				LOG_ERR("put device(%p) user(0x%llx) fail\n",
+					dev_info->dev,
+					u->id);
+			}
+		}
+		list_del(&user_dev->list);
+		kfree(user_dev);
+	}
+	mutex_unlock(&u->secdev_mtx);
+
 
 	mutex_lock(&g_user_mgr.mtx);
-	list_del(&user->list);
+	list_del(&u->list);
 	mutex_unlock(&g_user_mgr.mtx);
 
-	kfree(user);
+	kfree(u);
 
 	LOG_DEBUG("-\n");
 

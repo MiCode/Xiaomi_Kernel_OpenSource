@@ -166,12 +166,26 @@ struct apusys_ioctl_fw {
 	unsigned int size;
 };
 
+/* for APUSYS_IOCTL_USER_CMD */
 struct apusys_ioctl_ucmd {
 	int dev_type;
 	int idx;
 	int mem_fd; //  memory buffer fd
 	unsigned int offset;
 	unsigned int size;
+};
+
+/* for APUSYS_IOCTL_SEC_DEVICE */
+struct apusys_ioctl_sec {
+	int dev_type;
+	unsigned int core_num;
+
+	unsigned int reserved0;
+	unsigned int reserved1;
+	unsigned int reserved2;
+	unsigned int reserved3;
+	unsigned int reserved4;
+	unsigned int reserved5;
 };
 
 #define APUSYS_MAGICNO 'A'
@@ -201,5 +215,10 @@ struct apusys_ioctl_ucmd {
 	_IOW(APUSYS_MAGICNO, 11, struct apusys_ioctl_fw)
 #define APUSYS_IOCTL_USER_CMD \
 	_IOW(APUSYS_MAGICNO, 12, struct apusys_ioctl_ucmd)
+
+#define APUSYS_IOCTL_SEC_DEVICE_LOCK \
+	_IOW(APUSYS_MAGICNO, 60, int)
+#define APUSYS_IOCTL_SEC_DEVICE_UNLOCK \
+	_IOW(APUSYS_MAGICNO, 61, int)
 
 #endif

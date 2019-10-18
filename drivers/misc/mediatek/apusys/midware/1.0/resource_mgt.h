@@ -18,6 +18,7 @@
 #include "scheduler.h"
 
 #define APUSYS_SETPOWER_TIMEOUT (3*1000)
+#define APUSYS_SETPOWER_TIMEOUT_ALLON (0)
 
 #define APUSYS_DEV_TABLE_MAX 16 //max number device supported
 
@@ -120,7 +121,9 @@ int acq_device_check(struct apusys_dev_aquire **iacq);
 int put_device_lock(struct apusys_dev_info *dev_info);
 int put_apusys_device(struct apusys_dev_info *dev_info);
 
-int res_set_power(int dev_type, uint32_t idx, uint32_t boost_val);
+int res_power_on(int dev_type, uint32_t idx,
+	uint32_t boost_val, uint32_t timeout);
+int res_power_off(int dev_type, uint32_t idx);
 int res_load_firmware(int dev_type, uint32_t magic, const char *name,
 	int idx, uint64_t kva, uint32_t iova, uint32_t size, int op);
 int res_send_ucmd(int dev_type, int idx,
@@ -130,8 +133,15 @@ int res_get_device_num(int dev_type);
 uint64_t res_get_dev_support(void);
 int res_get_queue_len(int dev_type);
 
+int res_secure_on(int dev_type);
+int res_secure_off(int dev_type);
+
 void res_mgt_dump(void *s_file);
 int res_mgt_init(void);
 int res_mgt_destroy(void);
+
+#ifdef CONFIG_MTK_GZ_SUPPORT_SDSP
+extern mtee_sdsp_enable(u32 on);
+#endif
 
 #endif

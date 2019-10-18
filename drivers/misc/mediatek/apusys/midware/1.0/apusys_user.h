@@ -55,6 +55,10 @@ struct apusys_user {
 	struct list_head dev_list;
 	struct mutex dev_mtx;
 
+	/* secure acquired dev */
+	struct list_head secdev_list;
+	struct mutex secdev_mtx;
+
 	/* for driver management only */
 	struct list_head list;
 };
@@ -68,6 +72,9 @@ int apusys_user_insert_dev(struct apusys_user *user, void *idev);
 int apusys_user_delete_dev(struct apusys_user *user, void *idev);
 struct apusys_dev_info *apusys_user_get_dev
 	(struct apusys_user *user, uint64_t hnd);
+int apusys_user_insert_secdev(struct apusys_user *user, void *idev_info);
+int apusys_user_delete_secdev(struct apusys_user *user, void *idev_info);
+int apusys_user_delete_sectype(struct apusys_user *u, int dev_type);
 int apusys_user_insert_mem(struct apusys_user *user, struct apusys_mem *mem);
 int apusys_user_delete_mem(struct apusys_user *user, struct apusys_mem *mem);
 int apusys_create_user(struct apusys_user **user);
