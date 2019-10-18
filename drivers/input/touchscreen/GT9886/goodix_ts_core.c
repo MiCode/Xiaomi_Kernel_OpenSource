@@ -2047,11 +2047,11 @@ static int goodix_ts_probe(struct platform_device *pdev)
 	r = goodix_ts_pinctrl_init(core_data);
 	if (!r && core_data->pinctrl) {
 		r = pinctrl_select_state(core_data->pinctrl,
-					core_data->pin_int_sta_active);
+				core_data->pin_int_sta_active);
 		if (r < 0)
 			ts_err("Failed to select int active pinstate, r:%d", r);
 		r = pinctrl_select_state(core_data->pinctrl,
-					core_data->pin_rst_sta_active);
+				core_data->pin_rst_sta_active);
 		if (r < 0)
 			ts_err("Failed to select rst active pinstate, r:%d", r);
 	}
@@ -2089,6 +2089,10 @@ static int goodix_ts_probe(struct platform_device *pdev)
 		ts_err("***start cfg_bin_proc FAILED");
 		goto err;
 	}
+
+	r = gt9886_touch_filter_register();
+	if (r)
+		ts_err("tpd_misc_device register failed! ret = %d!\n", r);
 
 	ts_info("%s OUT, r:%d", __func__, r);
 	return r;

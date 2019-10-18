@@ -81,39 +81,14 @@
 #define TS_DOZE_ENABLE_DATA		0xCC
 #define	TS_CMD_REG_READY		0xFF
 
-/***********only for smt start****************/
-int tpd_res_max_x;
-int tpd_res_max_y;
-
-module_param(tpd_res_max_x, int, 0664);
-module_param(tpd_res_max_y, int, 0664);
 /***********for config & firmware*************/
 const char *gt9886_firmware_buf;
 const char *gt9886_config_buf;
 
-/* for touch-filter */
-struct tpd_filter_t {
-	int enable; /*0: disable, 1: enable*/
-	int pixel_density; /*XXX pixel/cm*/
-	int W_W[3][4];/*filter custom setting prameters*/
-	unsigned int VECLOCITY_THRESHOLD[3];/*filter speed custom settings*/
-};
-
-struct tpd_filter_t tpd_filter;
-#define TOUCH_IOC_MAGIC 'A'
-#define TPD_GET_FILTER_PARA _IOWR(TOUCH_IOC_MAGIC, 2, struct tpd_filter_t)
-#ifdef CONFIG_COMPAT
-#define COMPAT_TPD_GET_FILTER_PARA _IOWR(TOUCH_IOC_MAGIC, \
-				2, struct tpd_filter_t)
-#endif
+static struct goodix_ts_board_data *touch_filter_bdata;
 static int tpd_misc_open(struct inode *inode, struct file *file)
 {
 	return nonseekable_open(inode, file);
-}
-
-static int tpd_misc_release(struct inode *inode, struct file *file)
-{
-	return 0;
 }
 
 #ifdef CONFIG_COMPAT
@@ -178,8 +153,9 @@ static long tpd_unlocked_ioctl(struct file *file,
 				break;
 			}
 
-			if (copy_to_user(data, &tpd_filter,
-					sizeof(struct tpd_filter_t))) {
+			if (copy_to_user(data,
+				&(touch_filter_bdata->tpd_filter),
+				sizeof(struct tpd_filter_t))) {
 				ts_err("GET_FILTER_PARA: copy data error\n");
 				err = -EFAULT;
 				break;
@@ -198,7 +174,7 @@ static long tpd_unlocked_ioctl(struct file *file,
 static const struct file_operations gt9886_fops = {
 /* .owner = THIS_MODULE, */
 	.open = tpd_misc_open,
-	.release = tpd_misc_release,
+	.release = NULL,
 	.unlocked_ioctl = tpd_unlocked_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl = tpd_compat_ioctl,
@@ -211,6 +187,11 @@ static struct miscdevice tpd_misc_device = {
 	.name = "touch",
 	.fops = &gt9886_fops,
 };
+
+int gt9886_touch_filter_register(void)
+{
+	return misc_register(&tpd_misc_device);
+}
 
 #ifdef CONFIG_OF
 /**
@@ -242,9 +223,6 @@ static int goodix_parse_dt_resolution(struct device_node *node,
 				&board_data->panel_max_y);
 	if (r)
 		err = -ENOENT;
-	/* Only for SMT */
-	tpd_res_max_x = board_data->panel_max_x;
-	tpd_res_max_y = board_data->panel_max_y;
 
 	/* For unreal lcm test */
 	r = of_property_read_u32(node, "goodix,input-max-x",
@@ -400,25 +378,26 @@ static int goodix_parse_dt(struct device_node *node,
 						(prop->length / sizeof(u32));
 		}
 	}
-	/* for touch filter */
+	/* touch filter */
 	of_property_read_u32(node, "tpd-filter-enable",
-			&(tpd_filter.enable));
-	if (tpd_filter.enable) {
+			&(board_data->tpd_filter.enable));
+	if (board_data->tpd_filter.enable) {
 		of_property_read_u32(node, "tpd-filter-pixel-density",
-			&(tpd_filter.pixel_density));
+			&(board_data->tpd_filter.pixel_density));
 		if (of_property_read_u32_array(node,
 			"tpd-filter-custom-prameters",
-			(u32 *)tpd_filter.W_W,
-			ARRAY_SIZE(tpd_filter.W_W)))
+			(u32 *)(board_data->tpd_filter.W_W),
+			ARRAY_SIZE(board_data->tpd_filter.W_W)))
 			ts_info("get tpd-filter-custom-parameters");
 		if (of_property_read_u32_array(node,
 			"tpd-filter-custom-speed",
-			tpd_filter.VECLOCITY_THRESHOLD,
-			ARRAY_SIZE(tpd_filter.VECLOCITY_THRESHOLD)))
+			board_data->tpd_filter.VECLOCITY_THRESHOLD,
+			ARRAY_SIZE(board_data->tpd_filter.VECLOCITY_THRESHOLD)))
 			ts_info("get tpd-filter-custom-speed");
 	}
 	ts_info("[tpd]tpd-filter-enable = %d, pixel_density = %d\n",
-		tpd_filter.enable, tpd_filter.pixel_density);
+		board_data->tpd_filter.enable,
+		board_data->tpd_filter.pixel_density);
 
 	ts_info("***key:%d, %d, %d, %d, %d",
 			board_data->panel_key_map[0],
@@ -1295,45 +1274,6 @@ static int goodix_send_config(struct goodix_ts_device *dev,
 	mutex_unlock(&config->lock);
 	return r;
 }
-
-
-
-#if 0
-/**
- * goodix_send_config - send config data to device.
- * @dev: pointer to device
- * @config: pointer to config data struct to be send
- * @return: 0 - succeed, < 0 - failed
- */
-static int goodix_send_config(struct goodix_ts_device *dev,
-		struct goodix_ts_config *config)
-{
-	int r = 0;
-
-	if (!config || !config->data) {
-		ts_err("Null config data");
-		return -EINVAL;
-	}
-
-	ts_info("Send %s,ver:%02xh,size:%d",
-		config->name, config->data[0],
-		config->length);
-
-	mutex_lock(&config->lock);
-	r = goodix_i2c_write(dev, config->reg_base,
-			config->data, config->length);
-	if (r)
-		goto exit;
-
-	/* make sure the firmware accept the config data*/
-	if (config->delay)
-		msleep(config->delay);
-exit:
-	mutex_unlock(&config->lock);
-	return r;
-}
-#endif
-
 
 /**
  * goodix_close_hidi2c_mode
@@ -2294,6 +2234,7 @@ static int goodix_i2c_probe(struct i2c_client *client,
 	ts_device->dev = &client->dev;
 	ts_device->board_data = ts_bdata;
 	ts_device->hw_ops = &hw_i2c_ops;
+	touch_filter_bdata = ts_bdata;
 
 	/* ts core device */
 	goodix_pdev = kzalloc(sizeof(struct platform_device), GFP_KERNEL);
