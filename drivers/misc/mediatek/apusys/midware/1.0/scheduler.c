@@ -497,7 +497,7 @@ static int exec_cmd_func(void *isc, void *idev_info)
 	/* count qos start */
 	if (apu_cmd_qos_start(sc->par_cmd->cmd_id, sc->idx,
 		sc->type, dev_info->dev->idx)) {
-		LOG_ERR("start qos for 0x%llx-#%d sc fail\n",
+		LOG_DEBUG("start qos for 0x%llx-#%d sc fail\n",
 			sc->par_cmd->cmd_id, sc->idx);
 	}
 #endif
@@ -727,11 +727,102 @@ sched_retrigger:
 	return 0;
 }
 
-int apusys_sched_wait_cmd(struct apusys_cmd *cmd)
+int apusys_sched_cmd_abort(struct apusys_cmd *cmd)
 {
-	int ret = 0, state = -1, i = 0;
+	int i = 0, ret = 0, times = 30, wait_ms = 200;
 	struct apusys_subcmd *sc = NULL;
 	struct apusys_res_mgr *res_mgr = res_get_mgr();
+
+
+	if (cmd->state == CMD_STATE_DONE) {
+		LOG_DEBUG("cmd done already\n");
+		return 0;
+	}
+
+	LOG_WARN("abort cmd(0x%llx)\n",
+		cmd->cmd_id);
+
+	/* delete all subcmd in cmd */
+	mutex_lock(&cmd->mtx);
+	mutex_lock(&cmd->sc_mtx);
+	if (clear_pack_cmd(cmd))
+		LOG_WARN("clear pack cmd list fail\n");
+
+	for (i = 0; i < cmd->hdr->num_sc; i++) {
+		sc = cmd->sc_list[i];
+		if (sc == NULL)
+			continue;
+
+		LOG_DEBUG("check 0x%llx-#%d sc status\n",
+			cmd->cmd_id,
+			sc->idx);
+
+		mutex_lock(&res_mgr->mtx);
+		mutex_lock(&sc->mtx);
+		if (sc->state < CMD_STATE_RUN) {
+			if (free_ctx(sc, cmd))
+				LOG_ERR("free memory ctx id fail\n");
+
+			if (sc->state == CMD_STATE_READY) {
+				/* delete subcmd from q */
+				if (delete_subcmd(sc)) {
+					LOG_ERR(
+					"delete 0x%llx-#%d from q fail\n",
+					sc->par_cmd->cmd_id,
+					sc->idx);
+				} else {
+					sc->state = CMD_STATE_DONE;
+				}
+			}
+
+			mutex_unlock(&sc->mtx);
+			mutex_unlock(&res_mgr->mtx);
+
+			if (apusys_subcmd_delete(sc)) {
+				LOG_ERR("delete 0x%llx-#%d sc fail\n",
+					cmd->cmd_id, sc->idx);
+			}
+
+		LOG_DEBUG("delete 0x%llx-#%d sc\n",
+			cmd->cmd_id,
+			i);
+
+		} else {
+			LOG_DEBUG("0x%llx-#%d sc already execute(%d)\n",
+				cmd->cmd_id,
+				i,
+				sc->state);
+			mutex_unlock(&sc->mtx);
+			mutex_unlock(&res_mgr->mtx);
+		}
+	}
+	mutex_unlock(&cmd->sc_mtx);
+	mutex_unlock(&cmd->mtx);
+
+	LOG_DEBUG("wait 0x%llx cmd done...\n",
+		cmd->cmd_id);
+
+	/* final polling */
+	for (i = 0; i < times; i++) {
+		if (check_cmd_done(cmd) == 0) {
+			LOG_INFO("delete cmd safely\n");
+			break;
+		}
+		LOG_WARN("sleep 200ms to wait sc done\n");
+		msleep(wait_ms);
+	}
+
+	if (i >= times) {
+		LOG_ERR("cmd busy\n");
+		ret = -EBUSY;
+	}
+
+	return ret;
+}
+
+int apusys_sched_wait_cmd(struct apusys_cmd *cmd)
+{
+	int ret = 0, state = -1;
 	unsigned long timeout = usecs_to_jiffies(APUSYS_PARAM_WAIT_TIMEOUT);
 
 	if (cmd == NULL)
@@ -747,86 +838,8 @@ int apusys_sched_wait_cmd(struct apusys_cmd *cmd)
 
 	ret = wait_for_completion_interruptible_timeout(&cmd->comp, timeout);
 	if (ret <= 0) {
-		LOG_ERR("user ctx int(%d), error handle...\n",
-			ret);
-		if (cmd->state == CMD_STATE_DONE) {
-			LOG_INFO("cmd done already\n");
-			return 0;
-		}
-		/* delete all subcmd in cmd */
-		mutex_lock(&cmd->mtx);
-		mutex_lock(&cmd->sc_mtx);
-		if (clear_pack_cmd(cmd))
-			LOG_WARN("clear pack cmd list fail\n");
-
-		/* set time */
+		LOG_ERR("user ctx interrupt(%d)\n", ret);
 		cmd->cmd_ret = -ETIME;
-
-		for (i = 0; i < cmd->hdr->num_sc; i++) {
-			sc = cmd->sc_list[i];
-			if (sc == NULL)
-				continue;
-
-			LOG_DEBUG("check 0x%llx-#%d sc status\n",
-				cmd->cmd_id,
-				sc->idx);
-
-			mutex_lock(&res_mgr->mtx);
-			mutex_lock(&sc->mtx);
-			if (sc->state < CMD_STATE_RUN) {
-				if (free_ctx(sc, cmd))
-					LOG_ERR("free memory ctx id fail\n");
-
-				if (sc->state == CMD_STATE_READY) {
-					/* delete subcmd from q */
-					if (delete_subcmd(sc)) {
-						LOG_ERR(
-						"delete 0x%llx-#%d from q fail\n",
-						sc->par_cmd->cmd_id,
-						sc->idx);
-					} else {
-						sc->state = CMD_STATE_DONE;
-					}
-				}
-
-				mutex_unlock(&sc->mtx);
-				mutex_unlock(&res_mgr->mtx);
-
-				if (apusys_subcmd_delete(sc)) {
-					LOG_ERR("delete 0x%llx-#%d sc fail\n",
-						cmd->cmd_id, sc->idx);
-				}
-
-			LOG_DEBUG("delete 0x%llx-#%d sc\n",
-				cmd->cmd_id,
-				i);
-
-			} else {
-				LOG_DEBUG("0x%llx-#%d sc already execute(%d)\n",
-					cmd->cmd_id,
-					i,
-					sc->state);
-				mutex_unlock(&sc->mtx);
-				mutex_unlock(&res_mgr->mtx);
-			}
-		}
-		mutex_unlock(&cmd->sc_mtx);
-		mutex_unlock(&cmd->mtx);
-
-		LOG_DEBUG("wait 0x%llx cmd done...\n",
-			cmd->cmd_id);
-
-		/* final polling */
-		for (i = 0; i < 30; i++) {
-			if (check_cmd_done(cmd) == 0) {
-				LOG_INFO("delete cmd safely\n");
-				break;
-			}
-			LOG_WARN("sleep 200ms to wait sc done\n");
-			msleep(200);
-		}
-
-		LOG_ERR("handle done\n");
 	} else {
 		ret = 0;
 	}

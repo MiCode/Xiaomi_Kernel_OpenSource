@@ -17,6 +17,7 @@
 #include "apusys_cmn.h"
 #include "apusys_user.h"
 #include "apusys_drv.h"
+#include "scheduler.h"
 #include "cmd_parser.h"
 #include "memory_mgt.h"
 #include "resource_mgt.h"
@@ -178,8 +179,8 @@ int apusys_user_insert_cmd(struct apusys_user *u, void *icmd)
 int apusys_user_delete_cmd(struct apusys_user *u, void *icmd)
 {
 	struct apusys_cmd *cmd = (struct apusys_cmd *) icmd;
-	struct apusys_subcmd *sc = NULL;
-	int i = 0;
+	//struct apusys_subcmd *sc = NULL;
+	//int i = 0;
 
 	if (u == NULL || icmd == NULL)
 		return -EINVAL;
@@ -187,6 +188,7 @@ int apusys_user_delete_cmd(struct apusys_user *u, void *icmd)
 	mutex_lock(&u->cmd_mtx);
 
 	/* delete all sc */
+#if 0
 	mutex_lock(&cmd->sc_mtx);
 	for (i = 0; i < cmd->hdr->num_sc; i++) {
 		if (cmd->sc_list[i] != NULL) {
@@ -195,9 +197,14 @@ int apusys_user_delete_cmd(struct apusys_user *u, void *icmd)
 			cmd->sc_list[i] = NULL;
 		}
 	}
-
 	list_del(&cmd->u_list);
 	mutex_unlock(&cmd->sc_mtx);
+#else
+	if (apusys_sched_cmd_abort(cmd))
+		LOG_ERR("abort cmd fail\n");
+
+	list_del(&cmd->u_list);
+#endif
 	mutex_unlock(&u->cmd_mtx);
 
 	return 0;

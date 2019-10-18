@@ -18,6 +18,7 @@
 #include <linux/bitmap.h>
 #include <linux/bitops.h>
 #include <linux/time.h>
+#include <linux/delay.h>
 
 #include "apusys_cmn.h"
 #include "apusys_drv.h"
@@ -689,27 +690,19 @@ ce_fail:
 
 int apusys_cmd_delete(struct apusys_cmd *cmd)
 {
-	struct apusys_subcmd *sc = NULL;
+	//struct apusys_subcmd *sc = NULL;
 	struct apusys_mem mem;
-	int i = 0;
+	//int i = 0;
 
 	if (cmd == NULL)
 		return -EINVAL;
 
-	mutex_lock(&cmd->mtx);
-	mutex_lock(&cmd->sc_mtx);
-
-	for (i = 0; i < cmd->hdr->num_sc; i++) {
-		sc = cmd->sc_list[i];
-		if (sc != NULL) {
-			LOG_WARN("0x%llx-#%d not deleted\n",
-				cmd->cmd_id, i);
-			if (apusys_subcmd_delete(sc))
-				LOG_ERR("delete subcmd fail(%p)\n", sc);
-		}
+	if (apusys_sched_cmd_abort(cmd)) {
+		LOG_ERR("cmd is busy\n");
+		return -EBUSY;
 	}
 
-	mutex_unlock(&cmd->sc_mtx);
+	mutex_lock(&cmd->mtx);
 
 	/* unmap iova/kva */
 	memset(&mem, 0, sizeof(struct apusys_mem));
@@ -720,7 +713,7 @@ int apusys_cmd_delete(struct apusys_cmd *cmd)
 			cmd->mem_fd);
 	}
 	if (apusys_mem_unmap_kva(&mem)) {
-		LOG_ERR("map cmdbuf kva from fd(%d)fail\n",
+		LOG_ERR("unmap cmdbuf kva from fd(%d)fail\n",
 			cmd->mem_fd);
 	}
 

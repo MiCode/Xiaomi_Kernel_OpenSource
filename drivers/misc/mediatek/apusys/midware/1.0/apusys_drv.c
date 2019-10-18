@@ -521,7 +521,7 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		/* wait cmd done */
 		ret = apusys_sched_wait_cmd(a_cmd);
 		if (ret) {
-			LOG_ERR("wait cmd (0x%llx) fail\n",
+			LOG_ERR("wait cmd(0x%llx) fail\n",
 				a_cmd->cmd_id);
 		}
 
@@ -532,7 +532,9 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			ret = -EINVAL;
 		}
 
-		ret = a_cmd->cmd_ret;
+		if (!ret)
+			ret = a_cmd->cmd_ret;
+
 		/* delete cmd */
 		if (apusys_cmd_delete(a_cmd)) {
 			LOG_ERR("delete apusys cmd(%p) fail\n", a_cmd);
@@ -624,7 +626,7 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			/* wait cmd done */
 			ret = apusys_sched_wait_cmd(a_cmd);
 			if (ret) {
-				LOG_ERR("wait cmd, fail delete cmd(0x%llx)",
+				LOG_ERR("wait cmd(0x%llx) fail",
 					a_cmd->cmd_id);
 				ret = -EINVAL;
 			}

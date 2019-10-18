@@ -34,7 +34,7 @@ enum {
 
 	APUSYS_PRIORITY_MAX = 0x20,
 };
-
+int apusys_sched_cmd_abort(struct apusys_cmd *cmd);
 int apusys_sched_wait_cmd(struct apusys_cmd *cmd);
 int apusys_sched_add_list(struct apusys_cmd *cmd);
 int apusys_sched_init(void);
