@@ -36,7 +36,7 @@ static int pmic_ipi_to_sspm(struct pmic_ipi_cmds *ipi_cmd)
 		}
 		is_ipi_register = true;
 	}
-	sspm_pmic_ack = -99; /* init ack data before send */
+
 	cmd_len = sizeof(struct pmic_ipi_cmds) / SSPM_MBOX_SLOT_SIZE;
 	ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_PMIC, IPI_SEND_POLLING,
 				 ipi_cmd, cmd_len, PMIC_IPI_TIMEOUT);
