@@ -362,7 +362,7 @@ void pmu_reset(u32 mdlaid)
 
 void pmu_init(u32 mdlaid)
 {
-	cfg_pmu_percmd_mode[mdlaid] = CMD_MODE_MAX;
+	cfg_pmu_percmd_mode[mdlaid] = NORMAL;
 	spin_lock_init(&pmu_lock[mdlaid]);
 }
 
