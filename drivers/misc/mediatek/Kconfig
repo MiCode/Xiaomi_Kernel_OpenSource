@@ -336,6 +336,15 @@ config MTK_LOWMEM_HINT
 	  userspace can use the hint to make memory health
 	  improvement immediately.
 
+config MTK_SKB_OWNER
+	bool "MTK network performance index support"
+	depends on MTK_PERF_TRACKER
+	help
+	  MTK_SKB_OWNER supports network performance index via tracepoint.
+	  Add tracepoint in protocol layer, find out TCP/UDP packet
+	  belong to which process. Add RTT information per TCP session,
+	  which helps identify network latency between client and server.
+
 source "drivers/misc/mediatek/task_turbo/Kconfig"
 endmenu # PPT
 

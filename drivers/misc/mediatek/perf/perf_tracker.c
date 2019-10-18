@@ -41,6 +41,15 @@
 #include <linux/arch_topology.h>
 #include <perf_tracker_internal.h>
 
+#ifdef CONFIG_MTK_SKB_OWNER
+#include <net/sock.h>
+#include <linux/skbuff.h>
+#include <linux/ip.h>
+#include <linux/tcp.h>
+#include <linux/udp.h>
+#include <net/tcp.h>
+#endif
+
 static int perf_tracker_on, perf_tracker_init;
 static DEFINE_MUTEX(perf_ctl_mutex);
 static int cluster_nr = -1;
@@ -54,6 +63,10 @@ void (*MTKGPUPower_model_start_symbol)(unsigned int interval_ns);
 void (*MTKGPUPower_model_stop_symbol)(void);
 void (*MTKGPUPower_model_suspend_symbol)(void);
 void (*MTKGPUPower_model_resume_symbol)(void);
+#endif
+
+#ifdef CONFIG_MTK_SKB_OWNER
+static int net_pkt_trace_enable;
 #endif
 
 #if !defined(CONFIG_MTK_BLOCK_TAG) || !defined(MTK_BTAG_FEATURE_MICTX_IOSTAT)
@@ -270,6 +283,46 @@ static ssize_t store_gpu_pmu_period(struct kobject *kobj,
 }
 #endif
 
+#ifdef CONFIG_MTK_SKB_OWNER
+void perf_update_tcp_rtt(struct sock *sk, long seq_rtt_us)
+{
+	if (net_pkt_trace_enable && sk)
+		trace_tcp_rtt(sk->sk_uid.val, ntohs(sk->sk_dport),
+			sk->sk_num, sk->sk_family,
+			ntohl(sk->sk_daddr), seq_rtt_us);
+}
+
+void perf_net_pkt_trace(struct sock *sk, struct sk_buff *skb, int copied)
+{
+	struct iphdr *iph = ip_hdr(skb);
+	struct tcphdr *tcph = NULL;
+	struct udphdr *udph = NULL;
+	int len, saddr, sport, dport;
+	int seq = 0;
+
+	if (net_pkt_trace_enable && iph->version == 4 && sk) {
+		if (iph->protocol == 6) { /* TCP */
+			tcph = (struct tcphdr *)((char *)iph+(iph->ihl*4));
+			sport = ntohs(tcph->source);
+			dport = ntohs(tcph->dest);
+			seq = TCP_SKB_CB(skb)->seq;
+		} else if (iph->protocol == 17) { /* UDP */
+			udph = (struct udphdr *)((char *)iph+(iph->ihl*4));
+			sport = ntohs(udph->source);
+			dport = ntohs(udph->dest);
+		} else {
+			return;
+		}
+
+		len = ntohs(iph->tot_len);
+		saddr = ntohl(iph->saddr);
+		/* tracing for packet */
+		trace_socket_packet(sk->sk_uid.val, iph->protocol,
+				dport, sport, saddr, len, copied, seq);
+	}
+}
+#endif
+
 /*
  * make perf tracker on
  * /sys/devices/system/cpu/perf/enable
@@ -321,6 +374,36 @@ static ssize_t store_perf_enable(struct kobject *kobj,
 	return count;
 }
 
+#ifdef CONFIG_MTK_SKB_OWNER
+static ssize_t show_perf_net_enable(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	unsigned int len;
+	unsigned int max_len = 4096;
+
+	len = snprintf(buf, max_len, "enable = %d\n",
+			net_pkt_trace_enable);
+	return len;
+}
+
+static ssize_t store_perf_net_enable(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	int val;
+
+	mutex_lock(&perf_ctl_mutex);
+
+	if (sscanf(buf, "%iu", &val) != 0) {
+		val = (val > 0) ? 1 : 0;
+
+		net_pkt_trace_enable = val;
+	}
+
+	mutex_unlock(&perf_ctl_mutex);
+
+	return count;
+}
+#endif
 
 static struct kobj_attribute perf_enable_attr =
 __ATTR(enable, 0600, show_perf_enable, store_perf_enable);
@@ -330,12 +413,19 @@ __ATTR(gpu_pmu_enable, 0600, show_gpu_pmu_enable, store_gpu_pmu_enable);
 static struct kobj_attribute perf_gpu_pmu_period_attr =
 __ATTR(gpu_pmu_period, 0600, show_gpu_pmu_period, store_gpu_pmu_period);
 #endif
+#ifdef CONFIG_MTK_SKB_OWNER
+static struct kobj_attribute perf_net_enable_attr =
+__ATTR(net_pkt_enable, 0600, show_perf_net_enable, store_perf_net_enable);
+#endif
 
 static struct attribute *perf_attrs[] = {
 	&perf_enable_attr.attr,
 #ifdef CONFIG_MTK_GPU_SWPM_SUPPORT
 	&perf_gpu_pmu_enable_attr.attr,
 	&perf_gpu_pmu_period_attr.attr,
+#endif
+#ifdef CONFIG_MTK_SKB_OWNER
+	&perf_net_enable_attr.attr,
 #endif
 	NULL,
 };
