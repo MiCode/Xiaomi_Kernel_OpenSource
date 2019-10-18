@@ -53,7 +53,6 @@ enum power_rail {
 	VGPU,
 	VCORE,
 	VDRAM,
-	VIO12_DDR,
 	VIO18_DDR,
 	VIO18_DRAM,
 
@@ -64,10 +63,10 @@ enum ddr_freq {
 	DDR_400,
 	DDR_600,
 	DDR_800,
+	DDR_933,
 	DDR_1200,
 	DDR_1600,
 	DDR_1866,
-	DDR_2133,
 
 	NR_DDR_FREQ
 };
