@@ -2741,6 +2741,24 @@ page_owner=on";
 		io-channel-names = "thermistor-ch2";
 	};
 
+	mt6315_them_intr {
+		compatible = "mediatek,mt6315_therm_intr";
+		interrupts-extended =
+			<&mt6315_6_regulator INT_TEMP_L IRQ_TYPE_EDGE_RISING>,
+			<&mt6315_6_regulator INT_TEMP_H IRQ_TYPE_EDGE_RISING>,
+			<&mt6315_6_regulator INT_RCS0 IRQ_TYPE_LEVEL_HIGH>,
+			<&mt6315_7_regulator INT_TEMP_L IRQ_TYPE_EDGE_RISING>,
+			<&mt6315_7_regulator INT_TEMP_H IRQ_TYPE_EDGE_RISING>,
+			<&mt6315_7_regulator INT_RCS0 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names =
+			"6315_6_temp_l",
+			"6315_6_temp_h",
+			"6315_6_rcs0",
+			"6315_7_temp_l",
+			"6315_7_temp_h",
+			"6315_7_rcs0";
+	};
+
 	auxadc: auxadc@11001000 {
 		compatible = "mediatek,mt6768-auxadc";
 		reg = <0 0x11001000 0 0x1000>;
