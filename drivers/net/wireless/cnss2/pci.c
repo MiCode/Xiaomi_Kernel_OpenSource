@@ -1594,6 +1594,8 @@ static int cnss_qca6290_powerup(struct cnss_pci_data *pci_priv)
 		if (ret)
 			goto stop_mhi;
 	} else if (timeout) {
+		if (test_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state))
+			timeout = timeout << 1;
 		mod_timer(&plat_priv->fw_boot_timer,
 			  jiffies + msecs_to_jiffies(timeout << 1));
 	}
@@ -1861,7 +1863,7 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 
 	timeout = cnss_get_boot_timeout(&pci_priv->pci_dev->dev);
 	ret = wait_for_completion_timeout(&plat_priv->cal_complete,
-					  msecs_to_jiffies(timeout));
+					  msecs_to_jiffies(timeout) << 2);
 	if (!ret) {
 		cnss_pr_err("Timeout waiting for calibration to complete\n");
 		cal_info->cal_status = CNSS_CAL_TIMEOUT;
@@ -2900,10 +2902,21 @@ static void cnss_pci_free_m3_mem(struct cnss_pci_data *pci_priv)
 
 void cnss_pci_fw_boot_timeout_hdlr(struct cnss_pci_data *pci_priv)
 {
+	struct cnss_plat_data *plat_priv;
+
 	if (!pci_priv)
 		return;
 
 	cnss_fatal_err("Timeout waiting for FW ready indication\n");
+
+	plat_priv = pci_priv->plat_priv;
+	if (!plat_priv)
+		return;
+
+	if (test_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state)) {
+		cnss_pr_dbg("Ignore FW ready timeout for calibration mode\n");
+		return;
+	}
 
 	cnss_schedule_recovery(&pci_priv->pci_dev->dev,
 			       CNSS_REASON_TIMEOUT);
