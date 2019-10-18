@@ -26,6 +26,7 @@ enum {
 	APUSYS_FO_MAX,
 };
 
+int apusys_dbg_create_queue(int *dev_type);
 int get_fo_from_list(int idx);
 int apusys_dbg_init(void);
 int apusys_dbg_destroy(void);

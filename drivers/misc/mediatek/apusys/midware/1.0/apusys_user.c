@@ -27,7 +27,7 @@ struct apusys_user_mem {
 };
 
 struct apusys_user_dev {
-	struct apusys_device *dev;
+	struct apusys_dev_info *dev_info;
 	struct list_head list;
 };
 
@@ -147,9 +147,9 @@ void apusys_user_dump(void *s_file)
 				struct apusys_user_dev, list);
 			LOG_CON(s, "| %-9d| %-5d| %-5d| %-60p|\n",
 				d_count,
-				u_dev->dev->dev_type,
-				u_dev->dev->idx,
-				u_dev->dev);
+				u_dev->dev_info->dev->dev_type,
+				u_dev->dev_info->dev->idx,
+				u_dev->dev_info->dev);
 			d_count++;
 		}
 		LOG_CON(s, LINEBAR);
@@ -226,13 +226,13 @@ int apusys_user_get_cmd(struct apusys_user *user, void **icmd, uint64_t cmd_id)
 	return 0;
 }
 
-int apusys_user_insert_dev(struct apusys_user *user, void *idev)
+int apusys_user_insert_dev(struct apusys_user *user, void *idev_info)
 {
-	struct apusys_device *dev = (struct apusys_device *)idev;
+	struct apusys_dev_info *dev_info = (struct apusys_dev_info *)idev_info;
 	struct apusys_user_dev *user_dev = NULL;
 
 	/* check argument */
-	if (user == NULL || dev == NULL)
+	if (user == NULL || dev_info == NULL)
 		return -EINVAL;
 
 	/* alloc user dev */
@@ -242,7 +242,7 @@ int apusys_user_insert_dev(struct apusys_user *user, void *idev)
 
 	/* init */
 	INIT_LIST_HEAD(&user_dev->list);
-	user_dev->dev = dev;
+	user_dev->dev_info = dev_info;
 
 	/* add to user's list */
 	mutex_lock(&user->dev_mtx);
@@ -250,36 +250,39 @@ int apusys_user_insert_dev(struct apusys_user *user, void *idev)
 	mutex_unlock(&user->dev_mtx);
 
 	LOG_DEBUG("insert dev(%p/%p/%d) to user(%p/0x%llx) done\n",
-		user_dev, dev, dev->dev_type, user, user->id);
+		user_dev, dev_info->dev,
+		dev_info->dev->dev_type, user,
+		user->id);
 
 	return 0;
 }
 
-int apusys_user_delete_dev(struct apusys_user *user, void *idev)
+int apusys_user_delete_dev(struct apusys_user *user, void *idev_info)
 {
-	struct apusys_device *dev = (struct apusys_device *)idev;
+	struct apusys_dev_info *dev_info = (struct apusys_dev_info *)idev_info;
 	struct list_head *tmp = NULL, *list_ptr = NULL;
 	struct apusys_user_dev *user_dev = NULL;
 
 	/* check argument */
-	if (user == NULL || dev == NULL)
+	if (user == NULL || dev_info == NULL)
 		return -EINVAL;
 
 	LOG_DEBUG("delete dev(%p/%d) from user(%p/0x%llx)...\n",
-		dev, dev->dev_type, user, user->id);
+		dev_info->dev, dev_info->dev->dev_type, user, user->id);
 
 	mutex_lock(&user->dev_mtx);
 
 	/* query list to find mem in apusys user */
 	list_for_each_safe(list_ptr, tmp, &user->dev_list) {
 		user_dev = list_entry(list_ptr, struct apusys_user_dev, list);
-		if (user_dev->dev == dev) {
+		if (user_dev->dev_info == dev_info) {
 			list_del(&user_dev->list);
-			user_dev->dev = NULL;
+			user_dev->dev_info = NULL;
 			kfree(user_dev);
 			mutex_unlock(&user->dev_mtx);
 			LOG_DEBUG("del dev(%p/%d) u(%p/0x%llx) done\n",
-				dev, dev->dev_type, user, user->id);
+				dev_info->dev, dev_info->dev->dev_type,
+				user, user->id);
 			return 0;
 		}
 	}
@@ -287,11 +290,11 @@ int apusys_user_delete_dev(struct apusys_user *user, void *idev)
 	mutex_unlock(&user->dev_mtx);
 
 	LOG_DEBUG("delete dev(%p/%d) from user(%p/0x%llx) fail\n",
-		dev, dev->dev_type, user, user->id);
+		dev_info->dev, dev_info->dev->dev_type, user, user->id);
 	return -ENODEV;
 }
 
-struct apusys_device *apusys_user_get_dev(struct apusys_user *user,
+struct apusys_dev_info *apusys_user_get_dev(struct apusys_user *user,
 	uint64_t hnd)
 {
 	struct list_head *tmp = NULL, *list_ptr = NULL;
@@ -305,14 +308,14 @@ struct apusys_device *apusys_user_get_dev(struct apusys_user *user,
 	/* query list to find cmd in apusys user */
 	list_for_each_safe(list_ptr, tmp, &user->dev_list) {
 		udev = list_entry(list_ptr, struct apusys_user_dev, list);
-		if ((uint64_t)udev->dev == hnd) {
+		if ((uint64_t)udev->dev_info == hnd) {
 			LOG_DEBUG("get device!!\n");
 			break;
 		}
 	}
 	mutex_unlock(&user->dev_mtx);
 
-	return udev->dev;
+	return udev->dev_info;
 }
 
 
@@ -507,10 +510,10 @@ int apusys_delete_user(struct apusys_user *user)
 
 	list_for_each_safe(list_ptr, tmp, &user->dev_list) {
 		user_dev = list_entry(list_ptr, struct apusys_user_dev, list);
-		if (user_dev->dev != NULL) {
-			if (put_device_lock(user_dev->dev)) {
+		if (user_dev->dev_info != NULL) {
+			if (put_device_lock(user_dev->dev_info)) {
 				LOG_ERR("put device(%p) user(0x%llx) fail\n",
-					user_dev->dev,
+					user_dev->dev_info->dev,
 					user->id);
 			}
 		}

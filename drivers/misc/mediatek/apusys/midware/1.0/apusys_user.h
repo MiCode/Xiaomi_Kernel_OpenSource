@@ -66,7 +66,7 @@ int apusys_user_delete_cmd(struct apusys_user *user, void *icmd);
 int apusys_user_get_cmd(struct apusys_user *user, void **icmd, uint64_t cmd_id);
 int apusys_user_insert_dev(struct apusys_user *user, void *idev);
 int apusys_user_delete_dev(struct apusys_user *user, void *idev);
-struct apusys_device *apusys_user_get_dev
+struct apusys_dev_info *apusys_user_get_dev
 	(struct apusys_user *user, uint64_t hnd);
 int apusys_user_insert_mem(struct apusys_user *user, struct apusys_mem *mem);
 int apusys_user_delete_mem(struct apusys_user *user, struct apusys_mem *mem);

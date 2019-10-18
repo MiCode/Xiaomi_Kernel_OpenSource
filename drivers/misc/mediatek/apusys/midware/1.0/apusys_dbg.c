@@ -92,10 +92,10 @@ static const struct file_operations apusys_dbg_fops_device = {
 };
 
 //----------------------------------------------
-// device table dump
-// device table dump
+// queue table dump
 static int apusys_dbg_dump_queue(struct seq_file *s, void *unused)
 {
+	LOG_CON(s, "hello~\n");
 	return 0;
 }
 
@@ -104,13 +104,78 @@ static int apusys_dbg_queue_open(struct inode *inode, struct file *file)
 	return single_open(file, apusys_dbg_dump_queue, inode->i_private);
 }
 
+static ssize_t apusys_dbg_queue_read(struct file *flip,
+		char __user *buffer,
+		size_t count, loff_t *f_pos)
+{
+	struct seq_file *s = (struct seq_file *)flip->private_data;
+	int num = 0, ret = 0, dev_type = 0;
+
+	if (s == NULL)
+		return -EINVAL;
+
+	if (count < sizeof(num)) {
+		LOG_ERR("size too small(%lu/%lu)\n", count, sizeof(num));
+		return -EINVAL;
+	}
+
+	dev_type = *(int *)s->private;
+	num = res_get_queue_len(dev_type);
+	if (num < 0)
+		return -ENODEV;
+
+	LOG_DEBUG("queue(%d) length = %d\n", dev_type, num);
+
+	ret = simple_read_from_buffer(buffer, count,
+		f_pos, &num, sizeof(num));
+
+	LOG_CON(s, "queue(%d) length = %d\n", dev_type, num);
+
+	return ret;
+}
+
 static const struct file_operations apusys_dbg_fops_queue = {
 	.open = apusys_dbg_queue_open,
-	.read = seq_read,
+	.read = apusys_dbg_queue_read,
 	.llseek = seq_lseek,
 	.release = seq_release,
-	//.write = seq_write,
 };
+
+/*
+ * input dev_type is device table's type,
+ * allocated by resource mgt
+ */
+int apusys_dbg_create_queue(int *dev_type)
+{
+	int ret = 0, type = 0;
+	struct dentry *dbg_dev_q = NULL;
+	char dev_name[32];
+
+	/* check argument */
+	if (dev_type == NULL)
+		return -EINVAL;
+
+	/* check queue dir */
+	ret = IS_ERR_OR_NULL(apusys_dbg_queue);
+	if (ret) {
+		LOG_ERR("failed to get queue dir.\n");
+		return -EINVAL;
+	}
+
+	memset(dev_name, 0, sizeof(dev_name));
+	type = *(int *)dev_type;
+	snprintf(dev_name, sizeof(dev_name)-1, "%d", type);
+	LOG_INFO("private: %d/%s/%p\n", type, dev_name, dev_type);
+
+	/* create with dev type */
+	dbg_dev_q = debugfs_create_file(dev_name, 0644,
+		apusys_dbg_queue, dev_type, &apusys_dbg_fops_queue);
+	ret = IS_ERR_OR_NULL(dbg_dev_q);
+	if (ret)
+		LOG_ERR("create q len node(%d) fail(%d)\n", *dev_type, ret);
+
+	return ret;
+}
 
 //----------------------------------------------
 static int apusys_dbg_fo_dump(struct seq_file *s, void *unused)
@@ -205,6 +270,7 @@ int apusys_dbg_init(void)
 {
 	int ret = 0;
 
+
 	/* create debug root */
 	apusys_dbg_root = debugfs_create_dir(APUSYS_DBG_DIR, NULL);
 	ret = IS_ERR_OR_NULL(apusys_dbg_root);
@@ -223,11 +289,10 @@ int apusys_dbg_init(void)
 	}
 
 	/* create device queue info */
-	apusys_dbg_queue = debugfs_create_file("normal_q", 0644,
-		apusys_dbg_root, NULL, &apusys_dbg_fops_queue);
+	apusys_dbg_queue = debugfs_create_dir("queue", apusys_dbg_root);
 	ret = IS_ERR_OR_NULL(apusys_dbg_queue);
 	if (ret) {
-		LOG_ERR("failed to create debug node(device).\n");
+		LOG_ERR("failed to create queue dir.\n");
 		goto out;
 	}
 

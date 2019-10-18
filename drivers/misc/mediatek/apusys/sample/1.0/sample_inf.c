@@ -15,6 +15,7 @@
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/mutex.h>
+#include <linux/time.h>
 
 #include "../../include/apusys_device.h"
 #include "sample_cmn.h"
@@ -153,6 +154,7 @@ static void _print_hnd(int type, void *hnd)
 		LOG_INFO("| kva      = 0x%-16llx|\n", u->kva);
 		LOG_INFO("| iova     = 0x%-16x|\n", u->iova);
 		LOG_INFO("| size     = %-18u|\n", u->size);
+		break;
 
 	default:
 		LOG_INFO("| not support type(%-2d) hnd    |\n", type);
@@ -160,6 +162,16 @@ static void _print_hnd(int type, void *hnd)
 	}
 	LOG_INFO("================================");
 
+}
+
+//----------------------------------------------
+static void _get_time_from_system(struct timeval *duration)
+{
+	struct timeval now;
+
+	do_gettimeofday(&now);
+	duration->tv_sec = now.tv_sec - duration->tv_sec;
+	duration->tv_usec = now.tv_usec - duration->tv_usec;
 }
 
 //----------------------------------------------
@@ -202,6 +214,7 @@ static int _sample_execute(struct apusys_cmd_hnd *hnd,
 {
 	struct sample_request *req = NULL;
 	struct sample_dev_info *info = NULL;
+	struct timeval duration;
 
 	if (hnd == NULL || dev == NULL)
 		return -EINVAL;
@@ -238,12 +251,20 @@ static int _sample_execute(struct apusys_cmd_hnd *hnd,
 		req->delay_ms);
 	LOG_INFO("| driver done(should be 0) = %-2d                      |\n",
 		req->driver_done);
-	LOG_INFO("|====================================================|\n");
+	LOG_INFO("|----------------------------------------------------|\n");
+
+	memset(&duration, 0, sizeof(struct timeval));
+	_get_time_from_system(&duration);
 
 	if (req->delay_ms) {
 		LOG_INFO("delay %d ms\n", req->delay_ms);
 		msleep(req->delay_ms);
 	}
+
+	_get_time_from_system(&duration);
+	LOG_INFO("| ip time  = %-16ld                        |\n",
+		duration.tv_sec*1000000 + duration.tv_usec);
+	LOG_INFO("|====================================================|\n");
 
 	if (req->driver_done != 0) {
 		LOG_WARN("driver done flag is (%d)\n", req->driver_done);
@@ -251,7 +272,6 @@ static int _sample_execute(struct apusys_cmd_hnd *hnd,
 		mutex_unlock(&info->mtx);
 		return -EINVAL;
 	}
-
 	info->run = 0;
 	req->driver_done = 1;
 	mutex_unlock(&info->mtx);

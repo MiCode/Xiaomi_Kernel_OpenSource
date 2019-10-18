@@ -220,7 +220,7 @@ static int insert_pack_cmd(struct apusys_subcmd *sc, struct pack_cmd **ipc)
 
 		/* TODO: don't show fake error msg */
 		if (tmp_sc->idx != pack_idx) {
-			LOG_WARN("pack idx, (%d->%d)\n",
+			LOG_DEBUG("pack idx, (%d->%d)\n",
 				tmp_sc->idx, pack_idx);
 		}
 
@@ -262,7 +262,7 @@ static int exec_pack_cmd(void *iacq)
 		if (list_empty(&pc->sc_list)) {
 			LOG_ERR("pack cmd and device(%d) is not same number!\n",
 				info->dev->dev_type);
-			if (put_apusys_device(info->dev)) {
+			if (put_apusys_device(info)) {
 				LOG_ERR("put device(%d/%d) fail\n",
 					info->dev->dev_type, info->dev->idx);
 			}
@@ -274,7 +274,11 @@ static int exec_pack_cmd(void *iacq)
 			info->cmd_id = sc->par_cmd->cmd_id;
 			info->sc_idx = sc->idx;
 			sc->state = CMD_STATE_RUN;
-			if (thread_pool_trigger(sc, info->dev)) {
+			/* mark device execute deadline task */
+			if (sc->par_cmd->hdr->soft_limit)
+				info->is_deadline = 1;
+			/* trigger device by thread pool */
+			if (thread_pool_trigger(sc, info)) {
 				LOG_ERR("tp cmd(0x%llx/%d)dev(%d/%d) fail\n",
 					sc->par_cmd->cmd_id, sc->idx,
 					info->dev->dev_type, info->dev->idx);
@@ -397,15 +401,15 @@ static void subcmd_done(void *isc)
 	mutex_unlock(&cmd->mtx);
 }
 
-static int exec_cmd_func(void *isc, void *idev)
+static int exec_cmd_func(void *isc, void *idev_info)
 {
 	int dev_type = APUSYS_DEVICE_NONE;
-	struct apusys_device *dev = (struct apusys_device *)idev;
+	struct apusys_dev_info *dev_info = (struct apusys_dev_info *)idev_info;
 	struct apusys_cmd_hnd cmd_hnd;
 	struct apusys_subcmd *sc = (struct apusys_subcmd *)isc;
 	int i = 0, ret = 0;
 
-	if (isc == NULL || idev == NULL) {
+	if (isc == NULL || idev_info == NULL) {
 		ret = -EINVAL;
 		goto out;
 	}
@@ -435,8 +439,8 @@ static int exec_cmd_func(void *isc, void *idev)
 
 	/* call execute */
 	midware_trace_begin("apusys_scheduler|dev: %d_%d, cmd_id: 0x%08llx",
-			dev->dev_type,
-			dev->idx,
+			dev_info->dev->dev_type,
+			dev_info->dev->idx,
 			sc->par_cmd->cmd_id);
 
 	LOG_DEBUG("0x%llx-#%d sc: exec hnd(%d/0x%llx/%d) boost(%d)\n",
@@ -460,7 +464,8 @@ static int exec_cmd_func(void *isc, void *idev)
 		sc->par_cmd->hdr->uid,
 		sc->par_cmd->cmd_id,
 		sc->idx, sc->type,
-		dev->dev_type, dev->idx,
+		dev_info->dev->dev_type,
+		dev_info->dev->idx,
 		cmd_hnd.boost_val);
 
 	get_time_from_system(&sc->duration);
@@ -469,49 +474,53 @@ static int exec_cmd_func(void *isc, void *idev)
 	/* 3. start count cmd qos */
 	LOG_DEBUG("mnoc: cmd qos start 0x%llx-#%d dev(%d/%d)\n",
 		sc->par_cmd->cmd_id, sc->idx,
-		sc->type, dev->idx);
+		sc->type, dev_info->dev->idx);
 
 	/* count qos start */
 	if (apu_cmd_qos_start(sc->par_cmd->cmd_id, sc->idx,
-		sc->type, dev->idx)) {
+		sc->type, dev_info->dev->idx)) {
 		LOG_ERR("start qos for 0x%llx-#%d sc fail\n",
 			sc->par_cmd->cmd_id, sc->idx);
 	}
 #endif
 
 	/* 4. execute subcmd */
-	ret = dev->send_cmd(APUSYS_CMD_EXECUTE, (void *)&cmd_hnd, dev);
+	ret = dev_info->dev->send_cmd(APUSYS_CMD_EXECUTE,
+		(void *)&cmd_hnd, dev_info->dev);
 	LOG_INFO("exec 0x%llx/0x%llx-#%d(%d) sc: dev(%d/%d) done\n",
 		sc->par_cmd->hdr->uid,
 		sc->par_cmd->cmd_id,
 		sc->idx,
 		sc->type,
-		dev->dev_type,
-		dev->idx);
+		dev_info->dev->dev_type,
+		dev_info->dev->idx);
 
 #ifdef APUSYS_OPTIONS_INF_MNOC
 	/* count qos end */
 	sc->bw = apu_cmd_qos_end(sc->par_cmd->cmd_id, sc->idx);
 	LOG_DEBUG("mnoc: cmd qos end 0x%llx-#%d dev(%d/%d) bw(%d)\n",
-		sc->par_cmd->cmd_id, dev->idx, sc->type,
-		dev->idx, sc->bw);
+		sc->par_cmd->cmd_id, dev_info->dev->idx, sc->type,
+		dev_info->dev->idx, sc->bw);
 #endif
 
+	/* 5. get driver time and ip time */
 	get_time_from_system(&sc->duration);
+	sc->ip_time = cmd_hnd.ip_time;
 
+	/* 6. check return value and record */
 	if (ret) {
 		LOG_ERR("exec 0x%llx/0x%llx-%d sc on dev(%d-#%d) fail\n",
 			sc->par_cmd->hdr->uid,
 			sc->par_cmd->cmd_id,
 			sc->idx,
 			dev_type,
-			dev->idx);
+			dev_info->dev->idx);
 		sc->par_cmd->cmd_ret = ret;
 		mutex_unlock(&sc->mtx);
-		if (put_device_lock(dev)) {
+		if (put_device_lock(dev_info)) {
 			LOG_ERR("return dev(%d-#%d) fail\n",
-				dev->dev_type,
-				dev->idx);
+				dev_info->dev->dev_type,
+				dev_info->dev->idx);
 			ret = -EINVAL;
 			goto out;
 		}
@@ -522,17 +531,19 @@ static int exec_cmd_func(void *isc, void *idev)
 	}
 
 	/* 5. put back device */
-	if (put_device_lock(dev)) {
+	if (put_device_lock(dev_info)) {
 		LOG_ERR("return dev(%d-#%d) fail\n",
-			dev->dev_type,
-			dev->idx);
+			dev_info->dev->dev_type,
+			dev_info->dev->idx);
 		ret = -EINVAL;
 		goto out;
 	}
 
 out:
 	midware_trace_end("apusys_scheduler|dev: %d_%d, cmd_id: 0x%08llx, ret:%d",
-			dev->dev_type, dev->idx, sc->par_cmd->cmd_id, ret);
+			dev_info->dev->dev_type,
+			dev_info->dev->idx,
+			sc->par_cmd->cmd_id, ret);
 
 	subcmd_done(sc);
 
@@ -667,7 +678,11 @@ int sche_routine(void *arg)
 				mutex_lock(&sc->mtx);
 				sc->state = CMD_STATE_RUN;
 				mutex_unlock(&sc->mtx);
-				ret = thread_pool_trigger(sc, dev);
+				/* mark device execute deadline task */
+				if (sc->par_cmd->hdr->soft_limit)
+					info->is_deadline = 1;
+				/* trigger device by thread pool */
+				ret = thread_pool_trigger(sc, info);
 				if (ret)
 					LOG_ERR("trigger thread pool fail\n");
 			}
@@ -689,6 +704,7 @@ int apusys_sched_wait_cmd(struct apusys_cmd *cmd)
 	int ret = 0, state = -1, i = 0;
 	struct apusys_subcmd *sc = NULL;
 	struct apusys_res_mgr *res_mgr = res_get_mgr();
+	unsigned long timeout = usecs_to_jiffies(APUSYS_PARAM_WAIT_TIMEOUT);
 
 	if (cmd == NULL)
 		return -EINVAL;
@@ -701,23 +717,31 @@ int apusys_sched_wait_cmd(struct apusys_cmd *cmd)
 	if (state == CMD_STATE_DONE)
 		return ret;
 
-	ret = wait_for_completion_interruptible(&cmd->comp);
-	if (ret) {
+	ret = wait_for_completion_interruptible_timeout(&cmd->comp, timeout);
+	if (ret <= 0) {
 		LOG_ERR("user ctx int(%d), error handle...\n",
 			ret);
-		if (cmd->state == CMD_STATE_DONE)
+		if (cmd->state == CMD_STATE_DONE) {
+			LOG_INFO("cmd done already\n");
 			return 0;
-
+		}
 		/* delete all subcmd in cmd */
 		mutex_lock(&cmd->mtx);
 		mutex_lock(&cmd->sc_mtx);
 		if (clear_pack_cmd(cmd))
 			LOG_WARN("clear pack cmd list fail\n");
 
+		/* set time */
+		cmd->cmd_ret = -ETIME;
+
 		for (i = 0; i < cmd->hdr->num_sc; i++) {
 			sc = cmd->sc_list[i];
 			if (sc == NULL)
 				continue;
+
+			LOG_DEBUG("check 0x%llx-#%d sc status\n",
+				cmd->cmd_id,
+				sc->idx);
 
 			mutex_lock(&res_mgr->mtx);
 			mutex_lock(&sc->mtx);
@@ -744,13 +768,25 @@ int apusys_sched_wait_cmd(struct apusys_cmd *cmd)
 					LOG_ERR("delete 0x%llx-#%d sc fail\n",
 						cmd->cmd_id, sc->idx);
 				}
+
+			LOG_DEBUG("delete 0x%llx-#%d sc\n",
+				cmd->cmd_id,
+				i);
+
 			} else {
+				LOG_DEBUG("0x%llx-#%d sc already execute(%d)\n",
+					cmd->cmd_id,
+					i,
+					sc->state);
 				mutex_unlock(&sc->mtx);
 				mutex_unlock(&res_mgr->mtx);
 			}
 		}
 		mutex_unlock(&cmd->sc_mtx);
 		mutex_unlock(&cmd->mtx);
+
+		LOG_DEBUG("wait 0x%llx cmd done...\n",
+			cmd->cmd_id);
 
 		for (i = 0; i < 30; i++) {
 			if (check_cmd_done(cmd) == 0) {
@@ -760,6 +796,10 @@ int apusys_sched_wait_cmd(struct apusys_cmd *cmd)
 			LOG_WARN("sleep 200ms to wait sc done\n");
 			msleep(200);
 		}
+
+		LOG_ERR("handle done\n");
+	} else {
+		ret = 0;
 	}
 
 	return ret;

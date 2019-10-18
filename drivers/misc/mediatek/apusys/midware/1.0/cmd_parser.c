@@ -15,7 +15,6 @@
 #include <linux/errno.h>
 #include <linux/mutex.h>
 #include <linux/slab.h>
-#include <linux/time.h>
 #include <linux/bitmap.h>
 #include <linux/bitops.h>
 #include <linux/time.h>
@@ -59,7 +58,7 @@ void _print_sc_info(const struct apusys_subcmd *sc)
 	LOG_DEBUG(" apusys sc info(0x%llx)\n", (uint64_t)hdr);
 	LOG_DEBUG("-------------------------------------\n");
 	LOG_DEBUG(" type                 = %u\n", hdr->dev_type);
-	LOG_DEBUG(" driver time          = %llu\n", hdr->driver_time);
+	LOG_DEBUG(" driver time          = %u\n", hdr->driver_time);
 	LOG_DEBUG(" suggest time         = %u\n", hdr->suggest_time);
 	LOG_DEBUG(" bandwidth            = %u\n", hdr->bandwidth);
 	LOG_DEBUG(" tcm usage            = %d\n", hdr->tcm_usage);
@@ -103,6 +102,8 @@ static int _set_data_to_cmdbuf(struct apusys_subcmd *sc)
 	/* execution time */
 	sc->c_hdr->driver_time = (sc->duration.tv_sec * 1000000) +
 		sc->duration.tv_usec;
+	/* ip time */
+	sc->c_hdr->ip_time = sc->ip_time;
 	/* bandwidth */
 	sc->c_hdr->bandwidth = sc->bw;
 	/* tcm usage */
@@ -296,10 +297,9 @@ int apusys_subcmd_create(int idx, struct apusys_cmd *cmd,
 	sc_hdr = (struct apusys_sc_hdr_cmn *)sc_entry;
 
 	/* check device type */
-	if (sc_hdr->dev_type <= APUSYS_DEVICE_NONE ||
-		sc_hdr->dev_type >= APUSYS_DEVICE_MAX) {
-		LOG_ERR("invalid device type(%d/%d)\n",
-			sc_hdr->dev_type, APUSYS_DEVICE_MAX);
+	if (res_get_device_num(sc_hdr->dev_type) <= 0) {
+		LOG_ERR("invalid device type(%d)\n",
+			sc_hdr->dev_type);
 		return -EINVAL;
 	}
 
@@ -453,7 +453,7 @@ int apusys_subcmd_delete(struct apusys_subcmd *sc)
 		return -EINVAL;
 
 	/* write time back to cmdbuf */
-	LOG_DEBUG("0x%llx-#%d sc: time(%llu) bw(%u) st(%d)\n",
+	LOG_DEBUG("0x%llx-#%d sc: time(%u) bw(%u) st(%d)\n",
 		sc->par_cmd->cmd_id,
 		sc->idx,
 		sc->c_hdr->driver_time,

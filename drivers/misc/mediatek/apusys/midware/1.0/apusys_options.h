@@ -24,4 +24,7 @@
 //#define APUSYS_OPTIONS_MEM_DMA
 #define APUSYS_OPTIONS_MEM_VLM
 
+/* scheduler param */
+#define APUSYS_PARAM_WAIT_TIMEOUT (30*1000*1000)
+
 #endif

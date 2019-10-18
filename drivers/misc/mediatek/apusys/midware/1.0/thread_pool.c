@@ -37,7 +37,7 @@ struct thread_pool_inst {
 
 struct job_inst {
 	void *sc; // should be struct apusys_subcmd
-	void *dev;
+	void *dev_info;
 	struct list_head list; // link to thread_pool_mgr's job_list
 };
 
@@ -113,7 +113,7 @@ static int tp_service_routine(void *arg)
 		inst->status = APUSYS_THREAD_STATUS_BUSY;
 		/* execute cmd */
 		inst->sc = job_arg->sc;
-		ret = g_pool_mgr.func_ptr(job_arg->sc, job_arg->dev);
+		ret = g_pool_mgr.func_ptr(job_arg->sc, job_arg->dev_info);
 		if (ret) {
 			LOG_ERR("process arg(%p/%d) fail\n",
 				job_arg->sc, ret);
@@ -163,7 +163,7 @@ void thread_pool_dump(void)
 
 }
 
-int thread_pool_trigger(void *sc, void *dev)
+int thread_pool_trigger(void *sc, void *dev_info)
 {
 	struct job_inst *job_arg = NULL;
 
@@ -177,7 +177,7 @@ int thread_pool_trigger(void *sc, void *dev)
 		return -ENOMEM;
 
 	job_arg->sc = sc;
-	job_arg->dev = dev;
+	job_arg->dev_info = dev_info;
 	LOG_DEBUG("add to thread pool's job queue(%p)\n", sc);
 	mutex_lock(&g_pool_mgr.job_mtx);
 	list_add_tail(&job_arg->list, &g_pool_mgr.job_list);

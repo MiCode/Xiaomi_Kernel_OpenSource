@@ -81,16 +81,17 @@ struct apusys_cmd_hnd {
 	uint32_t iova;
 	uint32_t size;
 
-	uint8_t priority;
-
 	uint64_t cmd_id;
 	uint32_t subcmd_idx;
+	uint8_t priority;
+
+	uint32_t ip_time;
+	int boost_val;
 
 	/* mdla specific */
 	uint64_t pmu_kva;
 	uint64_t cmd_entry;
 
-	int boost_val;
 };
 
 struct apusys_firmware_hnd {

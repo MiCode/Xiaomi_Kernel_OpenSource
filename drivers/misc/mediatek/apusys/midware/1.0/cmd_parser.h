@@ -94,6 +94,7 @@ struct apusys_subcmd {
 	uint64_t codebuf_mem_hnd;
 
 	struct timeval duration;
+	uint32_t ip_time;
 	uint32_t bw;
 	uint32_t tcm_usage;
 	uint32_t boost_val;       // boost value

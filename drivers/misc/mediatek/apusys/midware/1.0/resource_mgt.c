@@ -20,6 +20,7 @@
 #include <linux/bitops.h>
 #include <linux/module.h>
 
+#include "apusys_dbg.h"
 #include "apusys_cmn.h"
 #include "resource_mgt.h"
 #include "cmd_parser.h"
@@ -89,6 +90,27 @@ uint64_t res_get_dev_support(void)
 	return ret;
 }
 
+int res_get_queue_len(int dev_type)
+{
+	struct apusys_res_table *tab = NULL;
+	int busy_num = 0, i = 0;
+
+	tab = res_get_table(dev_type);
+	if (tab == NULL) {
+		LOG_ERR("no device(%d) available\n", dev_type);
+		return 0;
+	}
+
+	/* check device busy num */
+	for (i = 0; i < tab->dev_num; i++) {
+		if (tab->dev_list[i].cur_owner == APUSYS_DEV_OWNER_SCHEDULER &&
+			tab->dev_list[i].is_deadline == 0)
+			busy_num++;
+	}
+
+	return tab->prio_q->normal_len + busy_num;
+}
+
 int insert_subcmd(void *isc, int priority)
 {
 	struct apusys_res_table *tab = NULL;
@@ -110,14 +132,24 @@ int insert_subcmd(void *isc, int priority)
 		sc->par_cmd->hdr->priority);
 
 	/* get type's queue */
-	//mutex_lock(&sc->mtx);
 	sc->state = CMD_STATE_READY;
-	//mutex_unlock(&sc->mtx);
 	inst = tab->prio_q;
 
 	list_add_tail(&sc->q_list, &inst->prio[priority]);
 	bitmap_set(inst->node_exist, priority, 1);
 	bitmap_set(g_res_mgr.cmd_exist, sc->type, 1);
+
+	/* setup queue length */
+	if (sc->par_cmd->hdr->soft_limit) {
+		inst->deadline_len++;
+		LOG_DEBUG("deadline task(%d)\n",
+			inst->deadline_len);
+	} else {
+		inst->normal_len++;
+		LOG_DEBUG("normal task(%d/%d)\n",
+			sc->par_cmd->hdr->priority,
+			inst->normal_len);
+	}
 
 	complete(&g_res_mgr.sched_comp);
 
@@ -181,6 +213,18 @@ int pop_subcmd(int type, void **isc)
 		}
 	}
 
+	/* setup queue length */
+	if (sc->par_cmd->hdr->soft_limit) {
+		tab->prio_q->deadline_len--;
+		LOG_DEBUG("deadline task(%d)\n",
+			tab->prio_q->deadline_len);
+	} else {
+		tab->prio_q->normal_len--;
+		LOG_DEBUG("normal task(%d/%d)\n",
+			sc->par_cmd->hdr->priority,
+			tab->prio_q->normal_len);
+	}
+
 	*isc = sc;
 
 	return 0;
@@ -241,6 +285,19 @@ int delete_subcmd(void *isc)
 						sc->type, 1);
 				}
 			}
+
+			/* setup queue length */
+			if (sc->par_cmd->hdr->soft_limit) {
+				tab->prio_q->deadline_len--;
+				LOG_DEBUG("deadline task(%d)\n",
+					tab->prio_q->deadline_len);
+			} else {
+				tab->prio_q->normal_len--;
+				LOG_DEBUG("normal task(%d/%d)\n",
+					sc->par_cmd->hdr->priority,
+					tab->prio_q->normal_len);
+			}
+
 			ret = 0;
 			goto out;
 
@@ -265,6 +322,7 @@ int delete_subcmd_lock(void *isc)
 
 //----------------------------------------------
 // device related functions
+#if 0
 int get_apusys_device(int dev_type, uint64_t owner, struct apusys_device **dev)
 {
 	struct apusys_res_table *tab = NULL;
@@ -308,27 +366,28 @@ int get_apusys_device(int dev_type, uint64_t owner, struct apusys_device **dev)
 	*dev = ret_dev;
 	return dev_idx;
 }
+#endif
 
-int put_apusys_device(struct apusys_device *dev)
+int put_apusys_device(struct apusys_dev_info *dev_info)
 {
 	struct apusys_res_table *tab = NULL;
 	struct list_head *tmp = NULL, *list_ptr = NULL;
 	struct apusys_dev_aquire *acq = NULL;
-	struct apusys_dev_info *dev_info = NULL;
+	//struct apusys_dev_info *dev_info = NULL;
 
-	if (dev == NULL)
+	if (dev_info == NULL)
 		return -EINVAL;
 
-	if (dev->dev_type >= APUSYS_DEVICE_MAX) {
+	if (dev_info->dev->dev_type >= APUSYS_DEVICE_MAX) {
 		LOG_ERR("request device[%d/%d] invalid\n",
-			dev->dev_type, APUSYS_DEVICE_MAX);
+			dev_info->dev->dev_type, APUSYS_DEVICE_MAX);
 		return -ENODEV;
 	}
 
-	tab = res_get_table(dev->dev_type);
+	tab = res_get_table(dev_info->dev->dev_type);
 	/* can't find info, unlock and return fail */
 	if (tab == NULL) {
-		LOG_ERR("no device[%d] available\n", dev->dev_type);
+		LOG_ERR("no device[%d] available\n", dev_info->dev->dev_type);
 		return -ENODEV;
 	}
 
@@ -337,22 +396,16 @@ int put_apusys_device(struct apusys_device *dev)
 	list_for_each_safe(list_ptr, tmp, &tab->acq_list) {
 		acq = list_entry(list_ptr, struct apusys_dev_aquire, tab_list);
 		LOG_DEBUG("device(%d) has acquire(%p/%d) waiting, put device\n",
-			dev->dev_type, acq, acq->is_done);
+			dev_info->dev->dev_type, acq, acq->is_done);
 		if (acq->is_done == 0) {
 			DEBUG_TAG;
-			dev_info = &tab->dev_list[dev->idx];
-			if (dev_info->dev != dev) {
-				LOG_ERR("device(%d) idx(%d/%p/%p) confuse\n",
-					dev->dev_type, dev->idx,
-					dev_info->dev, dev);
-				return -ENODEV;
-			}
+
 			dev_info->cmd_id = 0;
 			dev_info->sc_idx = 0;
 			dev_info->cur_owner = acq->owner;
 			acq->acq_num++;
 			LOG_DEBUG("device (%d) add #%d dev to acq(%d/%d)\n",
-				dev->dev_type, dev->idx,
+				dev_info->dev->dev_type, dev_info->dev->idx,
 				acq->acq_num, acq->target_num);
 			if (acq->acq_num == acq->target_num)
 				acq->is_done = 1;
@@ -368,31 +421,29 @@ int put_apusys_device(struct apusys_device *dev)
 	DEBUG_TAG;
 
 	/* get idle device from bitmap */
-	if (dev != tab->dev_list[dev->idx].dev) {
-		LOG_ERR("put device wrong idx(%d)\n", dev->idx);
-	} else {
-		LOG_DEBUG("put device[%d](%d/%d)\n",
-			dev->dev_type, dev->idx, tab->dev_num);
-		tab->dev_list[dev->idx].cur_owner = APUSYS_DEV_OWNER_NONE;
-		tab->dev_list[dev->idx].cmd_id = 0;
-		tab->dev_list[dev->idx].sc_idx = 0;
-		bitmap_clear(tab->dev_status, dev->idx, 1); // clear status
-		tab->available_num++;
+	LOG_DEBUG("put device[%d](%d/%d)\n",
+		dev_info->dev->dev_type, dev_info->dev->idx, tab->dev_num);
+	dev_info->cur_owner = APUSYS_DEV_OWNER_NONE;
+	dev_info->cmd_id = 0;
+	dev_info->sc_idx = 0;
+	dev_info->is_deadline = 0;
+	bitmap_clear(tab->dev_status, dev_info->dev->idx, 1); // clear status
+	tab->available_num++;
 
-		bitmap_set(g_res_mgr.dev_exist, tab->dev_type, 1);
-		complete(&g_res_mgr.sched_comp);
-	}
+	bitmap_set(g_res_mgr.dev_exist, tab->dev_type, 1);
+	complete(&g_res_mgr.sched_comp);
+
 	DEBUG_TAG;
 
 	return 0;
 }
 
-int put_device_lock(struct apusys_device *dev)
+int put_device_lock(struct apusys_dev_info *dev_info)
 {
 	int ret = 0;
 
 	mutex_lock(&g_res_mgr.mtx);
-	ret = put_apusys_device(dev);
+	ret = put_apusys_device(dev_info);
 	mutex_unlock(&g_res_mgr.mtx);
 
 	return ret;
@@ -926,6 +977,7 @@ int apusys_register_device(struct apusys_device *dev)
 	mutex_lock(&g_res_mgr.mtx);
 	tab = res_get_table(dev->dev_type);
 	if (tab != NULL) {
+		/* device type already registered, add directly */
 		LOG_DEBUG("add dev to type[%d] list\n", dev->dev_type);
 		for (i = 0; i < APUSYS_DEV_TABLE_MAX; i++) {
 			if (tab->dev_list[i].cur_owner
@@ -960,6 +1012,7 @@ int apusys_register_device(struct apusys_device *dev)
 			return -ENODEV;
 		}
 	} else {
+		/* device type not registered yet, allocate table first */
 		LOG_DEBUG("register device(%d)\n", dev->dev_type);
 		tab = kzalloc(sizeof(struct apusys_res_table), GFP_KERNEL);
 		tab->dev_list[tab->dev_num].dev = dev; // dev
@@ -998,6 +1051,10 @@ int apusys_register_device(struct apusys_device *dev)
 		/* set dev's priority queue */
 		tab->prio_q = q_inst;
 
+		/* create queue length for query */
+		if (apusys_dbg_create_queue(&tab->dev_type))
+			LOG_ERR("create queue length node(%d) fail\n",
+			tab->dev_type);
 
 		LOG_DEBUG("register device(%d)(%d/%d) done,\n",
 			dev->dev_type, dev->idx, tab->dev_num);

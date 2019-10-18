@@ -30,6 +30,10 @@ enum {
 struct prio_q_inst {
 	struct list_head prio[APUSYS_PRIORITY_MAX];
 	unsigned long node_exist[BITS_TO_LONGS(APUSYS_PRIORITY_MAX)];
+
+	/* basic info */
+	int normal_len;
+	int deadline_len;
 };
 
 struct apusys_dev_aquire {
@@ -58,6 +62,7 @@ struct apusys_dev_info {
 	/* mgt info */
 	uint64_t cmd_id;
 	int sc_idx;
+	int is_deadline;
 	uint64_t cur_owner; // record this
 
 	/* acquire */
@@ -107,15 +112,13 @@ int pop_subcmd(int type, void **isc);
 int delete_subcmd(void *isc);
 int delete_subcmd_lock(void *isc);
 
-int get_apusys_device(int dev_type, uint64_t owner, struct apusys_device **dev);
-
 int acq_device_try(struct apusys_dev_aquire *acq);
 int acq_device_async(struct apusys_dev_aquire *acq);
 int acq_device_sync(struct apusys_dev_aquire *acq);
 int acq_device_check(struct apusys_dev_aquire **iacq);
 
-int put_device_lock(struct apusys_device *dev);
-int put_apusys_device(struct apusys_device *dev);
+int put_device_lock(struct apusys_dev_info *dev_info);
+int put_apusys_device(struct apusys_dev_info *dev_info);
 
 int res_set_power(int dev_type, uint32_t idx, uint32_t boost_val);
 int res_load_firmware(int dev_type, uint32_t magic, const char *name,
@@ -125,6 +128,7 @@ int res_send_ucmd(int dev_type, int idx,
 
 int res_get_device_num(int dev_type);
 uint64_t res_get_dev_support(void);
+int res_get_queue_len(int dev_type);
 
 void res_mgt_dump(void *s_file);
 int res_mgt_init(void);

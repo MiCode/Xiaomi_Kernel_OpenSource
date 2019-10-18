@@ -288,7 +288,6 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	struct apusys_cmd *a_cmd = NULL;
 	struct apusys_dev_aquire acq;
 	struct list_head *tmp = NULL, *list_ptr = NULL;
-	struct apusys_device *dev = NULL;
 	struct apusys_dev_info *dev_info = NULL;
 
 	/* check apusys user is available */
@@ -335,7 +334,7 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		case APUSYS_HANDSHAKE_QUERY_DEV:
 			hs.dev.num = res_get_device_num(hs.dev.type);
 			LOG_DEBUG("device(%d) support(%d) core\n",
-				hs.type, hs.dev.num);
+				hs.dev.type, hs.dev.num);
 
 			if (hs.dev.num < 0)
 				ret = -EINVAL;
@@ -524,7 +523,6 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		if (ret) {
 			LOG_ERR("wait cmd (0x%llx) fail\n",
 				a_cmd->cmd_id);
-			ret = -EINVAL;
 		}
 
 		/* delete cmd from user list */
@@ -534,6 +532,7 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			ret = -EINVAL;
 		}
 
+		ret = a_cmd->cmd_ret;
 		/* delete cmd */
 		if (apusys_cmd_delete(a_cmd)) {
 			LOG_ERR("delete apusys cmd(%p) fail\n", a_cmd);
@@ -707,10 +706,10 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				ret = -ENODEV;
 			} else {
 				ret = apusys_user_insert_dev(user,
-					dev_info->dev);
+					dev_info);
 				if (ret) {
 					LOG_ERR("insert dev list fail\n");
-					if (put_device_lock(dev)) {
+					if (put_device_lock(dev_info)) {
 						LOG_ERR("put dev fail\n");
 						ret = -ENODEV;
 					}
@@ -720,7 +719,7 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			count++;
 		}
 
-		dev_alloc.handle = (uint64_t)dev_info->dev;
+		dev_alloc.handle = (uint64_t)dev_info;
 		dev_alloc.dev_idx = (uint64_t)dev_info->dev->idx;
 		if (copy_to_user((void *)arg, &dev_alloc,
 			sizeof(struct apusys_ioctl_dev))) {
@@ -752,20 +751,21 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		}
 
 		/* put device back to dev table */
-		dev = apusys_user_get_dev(user, dev_alloc.handle);
-		if (dev == NULL) {
+		dev_info = apusys_user_get_dev(user, dev_alloc.handle);
+		if (dev_info == NULL) {
 			LOG_ERR("can't find device(%d/0x%llx) user(%p)\n",
 				dev_alloc.dev_type, dev_alloc.handle, user);
 		}
-		ret = put_device_lock(dev);
+		ret = put_device_lock(dev_info);
 		if (ret) {
-			LOG_ERR("free device(%p) fail(%d)\n", dev, ret);
+			LOG_ERR("free device(%p) fail(%d)\n",
+				dev_info->dev, ret);
 			ret = -ENODEV;
 		} else {
 			/* delete device from user */
-			if (apusys_user_delete_dev(user, dev)) {
+			if (apusys_user_delete_dev(user, dev_info)) {
 				LOG_ERR("del dev(%p/0x%llx) ret(%d)\n",
-					dev,
+					dev_info->dev,
 					user->id,
 					ret);
 
@@ -790,7 +790,7 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		mem.ion_data.ion_share_fd = ioctl_fw.mem_fd;
 		if (apusys_mem_map_kva(&mem)) {
 			LOG_ERR("map cmd buffer kva from fd(%d)fail\n",
-				ioctl_cmd.mem_fd);
+				ioctl_fw.mem_fd);
 			ret = -EINVAL;
 			goto out;
 		}
@@ -798,9 +798,19 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 		if (apusys_mem_map_iova(&mem)) {
 			LOG_ERR("map cmd buffer iova from fd(%d)fail\n",
-				ioctl_cmd.mem_fd);
+				ioctl_fw.mem_fd);
 			ret = -EINVAL;
 			goto out;
+		}
+
+		/* check size */
+		if (ioctl_fw.size + ioctl_fw.offset > mem.iova_size) {
+			LOG_ERR("check ucmd size(%u/%u/%u) fail\n",
+				ioctl_fw.size,
+				ioctl_fw.offset,
+				mem.iova_size);
+			ret = -EINVAL;
+			goto check_unfw_size_fail;
 		}
 
 		ret = res_load_firmware(ioctl_fw.dev_type,
@@ -814,6 +824,7 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				ioctl_fw.idx);
 		}
 
+check_unfw_size_fail:
 		/* ref count-- */
 		if (apusys_mem_unmap_iova(&mem)) {
 			LOG_ERR("uni fw(%d/0x%llx/%s) fail\n",
@@ -892,6 +903,7 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 		/* map kva */
 		memset(&mem, 0, sizeof(struct apusys_mem));
+		mem.size = ioctl_ucmd.size;
 		mem.ion_data.ion_share_fd = ioctl_ucmd.mem_fd;
 		if (apusys_mem_map_kva(&mem)) {
 			LOG_ERR("map cmdbuf kva from fd(%d)fail\n",
@@ -910,13 +922,25 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			return -ENOMEM;
 		}
 
+		/* check size */
+		if (ioctl_ucmd.size + ioctl_ucmd.offset > mem.iova_size) {
+			LOG_ERR("check ucmd size(%u/%u/%u) fail\n",
+				ioctl_ucmd.size,
+				ioctl_ucmd.offset,
+				mem.iova_size);
+			ret = -EINVAL;
+			goto check_ucmd_size_fail;
+		}
+
 		/* send ucmd to driver */
-		if (res_send_ucmd(ioctl_ucmd.dev_type, ioctl_ucmd.idx,
-			mem.kva, mem.iova, mem.size)) {
+		ret = res_send_ucmd(ioctl_ucmd.dev_type, ioctl_ucmd.idx,
+			mem.kva, mem.iova, mem.size);
+		if (ret) {
 			LOG_ERR("send user cmd(%d) fail\n",
 				ioctl_ucmd.mem_fd);
 		}
 
+check_ucmd_size_fail:
 		/* unmap iova */
 		if (apusys_mem_unmap_iova(&mem)) {
 			LOG_ERR("unmap cmdbuf iova from fd(%d)fail\n",

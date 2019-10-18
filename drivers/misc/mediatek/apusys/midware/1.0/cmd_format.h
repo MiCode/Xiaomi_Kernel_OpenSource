@@ -60,7 +60,8 @@ struct apusys_cmd_hdr {
 
 struct apusys_sc_hdr_cmn {
 	unsigned int dev_type;
-	unsigned long long driver_time;
+	unsigned int driver_time;
+	unsigned int ip_time;
 	unsigned int suggest_time;
 	unsigned int bandwidth;
 	unsigned int tcm_usage;

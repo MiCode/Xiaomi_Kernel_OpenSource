@@ -264,8 +264,8 @@ int ion_mem_map_iova(struct apusys_mem_mgr *mem_mgr, struct apusys_mem *mem)
 	int ret = 0;
 	struct ion_handle *ion_hnd = NULL;
 	struct ion_mm_data mm_data;
-	unsigned long iova;
-	size_t iova_size;
+	unsigned long iova = 0;
+	size_t iova_size = 0;
 
 	/* check argument */
 	if (mem == NULL) {
