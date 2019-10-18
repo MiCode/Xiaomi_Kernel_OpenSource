@@ -1,0 +1,82 @@
+/*
+ * Copyright (C) 2019 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
+#include <linux/module.h>
+#include <mtk_ccci_common.h>
+#include <mach/upmu_sw.h>
+#include <mtk_md_power_throttling.h>
+
+static void md_pt_low_battery_cb(enum LOW_BATTERY_LEVEL_TAG level)
+{
+	unsigned int md_throttle_cmd = 0;
+	int ret = 0, intensity = 0;
+
+	if (level <= LOW_BATTERY_LEVEL_2 &&
+		level >= LOW_BATTERY_LEVEL_0) {
+
+		if (level != LOW_BATTERY_LEVEL_0)
+			intensity = LBAT_REDUCE_TX_POWER;
+
+		md_throttle_cmd = TMC_CTRL_CMD_TX_POWER |
+		PT_LOW_BATTERY_VOLTAGE << 8 | level << 16 | intensity << 24;
+		ret = exec_ccci_kern_func_by_md_id(MD_SYS1,
+			ID_THROTTLING_CFG,
+			(char *) &md_throttle_cmd, 4);
+	}
+
+	if (ret || !md_throttle_cmd)
+		pr_notice("%s: error, ret=%d, cmd=0x%x l=%d\n", __func__, ret,
+			md_throttle_cmd, level);
+}
+
+static void md_pt_over_current_cb(enum BATTERY_OC_LEVEL_TAG level)
+{
+	unsigned int md_throttle_cmd = 0;
+	int ret = 0, intensity = 0;
+
+	if (level <= BATTERY_OC_LEVEL_1 &&
+		level >= BATTERY_OC_LEVEL_0) {
+
+		if (level != BATTERY_OC_LEVEL_0)
+			intensity = OC_REDUCE_TX_POWER;
+
+		md_throttle_cmd = TMC_CTRL_CMD_TX_POWER |
+		PT_OVER_CURRENT << 8 | level << 16 | intensity << 24;
+		ret = exec_ccci_kern_func_by_md_id(MD_SYS1,
+			ID_THROTTLING_CFG,
+			(char *) &md_throttle_cmd, 4);
+	}
+
+	if (ret || !md_throttle_cmd)
+		pr_notice("%s: error, ret=%d, cmd=0x%x l=%d\n", __func__, ret,
+			md_throttle_cmd, level);
+}
+
+static int __init pbm_module_init(void)
+{
+	register_low_battery_notify_ext(
+		&md_pt_low_battery_cb, LOW_BATTERY_PRIO_MD);
+	register_battery_oc_notify(
+		&md_pt_over_current_cb, BATTERY_OC_PRIO_MD);
+	return 0;
+}
+
+static void __exit pbm_module_exit(void)
+{
+
+}
+
+module_init(pbm_module_init);
+module_exit(pbm_module_exit);
+
+MODULE_DESCRIPTION("MD power throttle interface");

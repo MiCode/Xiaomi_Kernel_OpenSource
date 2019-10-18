@@ -42,6 +42,7 @@ obj-$(CONFIG_MACH_MT6885) += pbm_v4/
 obj-$(CONFIG_MACH_MT6768) += mdpm_v1/
 obj-$(CONFIG_MACH_MT6785) += mdpm_v2/
 obj-$(CONFIG_MACH_MT6885) += mdpm_v2/
+obj-$(CONFIG_MACH_MT6885) += power_throttling/
 obj-$(CONFIG_MACH_MT6771) += vcorefs_v3/
 obj-$(CONFIG_MACH_MT6739) += vcorefs_v3/
 obj-$(CONFIG_MACH_MT6771) += cpuidle_v3/
