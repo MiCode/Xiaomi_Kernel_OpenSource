@@ -1548,6 +1548,11 @@ static void ipa3_q6_clnt_svc_arrive(struct work_struct *work)
 		ind.master_driver_init_status.result =
 			IPA_QMI_RESULT_SUCCESS_V01;
 
+		if (unlikely(!ipa3_svc_handle)) {
+			IPAWANERR("Invalid svc handle.Ignore sending ind.");
+			return;
+		}
+
 		rc = qmi_send_indication(ipa3_svc_handle,
 			&ipa3_qmi_ctx->client_sq,
 			QMI_IPA_MASTER_DRIVER_INIT_COMPLETE_IND_V01,
