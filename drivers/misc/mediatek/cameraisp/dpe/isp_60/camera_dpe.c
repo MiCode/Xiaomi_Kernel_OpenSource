@@ -2877,8 +2877,10 @@ static void DPE_EnableClock(bool En)
 
 	if (En) {		/* Enable clock. */
 /* LOG_DBG("clock enbled. g_u4EnableClockCount: %d.", g_u4EnableClockCount); */
+		spin_lock(&(DPEInfo.SpinLockDPE));
 		switch (g_u4EnableClockCount) {
 		case 0:
+			spin_unlock(&(DPEInfo.SpinLockDPE));
 #if !defined(CONFIG_MTK_LEGACY) && defined(CONFIG_COMMON_CLK) /*CCF*/
 #ifndef EP_NO_CLKMGR
 			DPE_Prepare_Enable_ccf_clock();
@@ -2903,6 +2905,7 @@ static void DPE_EnableClock(bool En)
 #endif	/* #if !defined(CONFIG_MTK_LEGACY) && defined(CONFIG_COMMON_CLK)  */
 			break;
 		default:
+			spin_unlock(&(DPEInfo.SpinLockDPE));
 			break;
 		}
 		spin_lock(&(DPEInfo.SpinLockDPE));
@@ -2910,11 +2913,47 @@ static void DPE_EnableClock(bool En)
 		spin_unlock(&(DPEInfo.SpinLockDPE));
 
 #ifdef CONFIG_MTK_IOMMU_V2
+		spin_lock(&(DPEInfo.SpinLockDPE));
 		if (g_u4EnableClockCount == 1) {
+			spin_unlock(&(DPEInfo.SpinLockDPE));
 			ret = m4u_control_iommu_port();
 			if (ret)
 				LOG_ERR("cannot config M4U IOMMU PORTS\n");
+		} else {
+			spin_unlock(&(DPEInfo.SpinLockDPE));
 		}
+#endif
+#ifdef KERNEL_DMA_BUFFER
+		spin_lock(&(DPEInfo.SpinLockDPE));
+if (g_u4EnableClockCount == 1) {
+	spin_unlock(&(DPEInfo.SpinLockDPE));
+	kernel_dpebuf =
+	vb2_dc_alloc(gdev, DMA_ATTR_WRITE_BARRIER, WB_TOTAL_SIZE,
+	DMA_FROM_DEVICE, 0);
+	dbuf = vb2_dc_get_dmabuf(kernel_dpebuf, O_RDWR);
+	refcount_dec(&kernel_dpebuf->refcount);
+	dpebuf =
+	vb2_dc_attach_dmabuf(gdev, dbuf, WB_TOTAL_SIZE, DMA_FROM_DEVICE);
+
+	if (vb2_dc_map_dmabuf(dpebuf) != 0)
+		LOG_ERR("Allocate Buffer Fail!");
+
+	g_dpewb_dvme_int_Buffer_pa = (unsigned int *)dpebuf->dma_addr;
+	g_dpewb_cost_int_Buffer_pa =
+		(unsigned int *)(((uintptr_t)g_dpewb_dvme_int_Buffer_pa) +
+		WB_INT_MEDV_SIZE);
+	g_dpewb_asfrm_Buffer_pa =
+		(unsigned int *)(((uintptr_t)g_dpewb_cost_int_Buffer_pa) +
+		WB_DCV_L_SIZE);
+	g_dpewb_asfrmext_Buffer_pa =
+		(unsigned int *)(((uintptr_t)g_dpewb_asfrm_Buffer_pa) +
+		WB_ASFRM_SIZE);
+	g_dpewb_wmfhf_Buffer_pa =
+		(unsigned int *)(((uintptr_t)g_dpewb_asfrmext_Buffer_pa) +
+		WB_ASFRMExt_SIZE);
+} else {
+	spin_unlock(&(DPEInfo.SpinLockDPE));
+}
 #endif
 	} else {		/* Disable clock. */
 
@@ -2923,9 +2962,16 @@ static void DPE_EnableClock(bool En)
 		 */
 		spin_lock(&(DPEInfo.SpinLockDPE));
 		g_u4EnableClockCount--;
-		spin_unlock(&(DPEInfo.SpinLockDPE));
+
 		switch (g_u4EnableClockCount) {
 		case 0:
+			spin_unlock(&(DPEInfo.SpinLockDPE));
+#ifdef KERNEL_DMA_BUFFER
+			vb2_dc_unmap_dmabuf(dpebuf);
+			vb2_dc_detach_dmabuf(dpebuf);
+			vb2_dc_put(kernel_dpebuf);
+			dbuf = NULL;
+#endif
 #if !defined(CONFIG_MTK_LEGACY) && defined(CONFIG_COMMON_CLK) /*CCF*/
 #ifndef EP_NO_CLKMGR
 			DPE_Disable_Unprepare_ccf_clock();
@@ -2950,6 +2996,7 @@ static void DPE_EnableClock(bool En)
 #endif
 			break;
 		default:
+			spin_unlock(&(DPEInfo.SpinLockDPE));
 			break;
 		}
 	}
@@ -4139,36 +4186,6 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 	g_DPE_ReqRing.ReadIdx = 0x0;
 	g_DPE_ReqRing.HWProcessIdx = 0x0;
 
-#ifdef KERNEL_DMA_BUFFER
-kernel_dpebuf =
-vb2_dc_alloc(gdev, DMA_ATTR_WRITE_BARRIER, WB_TOTAL_SIZE, DMA_FROM_DEVICE, 0);
-dbuf = vb2_dc_get_dmabuf(kernel_dpebuf, O_RDWR);
-refcount_dec(&kernel_dpebuf->refcount);
-dpebuf = vb2_dc_attach_dmabuf(gdev, dbuf, WB_TOTAL_SIZE, DMA_FROM_DEVICE);
-
-	if (vb2_dc_map_dmabuf(dpebuf) != 0)
-		LOG_ERR("Allocate Buffer Fail!");
-
-	g_dpewb_dvme_int_Buffer_pa = (unsigned int *)dpebuf->dma_addr;
-	g_dpewb_cost_int_Buffer_pa =
-		(unsigned int *)(((uintptr_t)g_dpewb_dvme_int_Buffer_pa) +
-		WB_INT_MEDV_SIZE);
-	g_dpewb_asfrm_Buffer_pa =
-		(unsigned int *)(((uintptr_t)g_dpewb_cost_int_Buffer_pa) +
-		WB_DCV_L_SIZE);
-	g_dpewb_asfrmext_Buffer_pa =
-		(unsigned int *)(((uintptr_t)g_dpewb_asfrm_Buffer_pa) +
-		WB_ASFRM_SIZE);
-	g_dpewb_wmfhf_Buffer_pa =
-		(unsigned int *)(((uintptr_t)g_dpewb_asfrmext_Buffer_pa) +
-		WB_ASFRMExt_SIZE);
-LOG_DBG("[g_dpewb_dvme_int_Buffer_pa] [0x%08X]\n", g_dpewb_dvme_int_Buffer_pa);
-LOG_DBG("[g_dpewb_cost_int_Buffer_pa] [0x%08X]\n", g_dpewb_cost_int_Buffer_pa);
-LOG_DBG("[g_dpewb_asfrm_Buffer_pa] [0x%08X]\n", g_dpewb_asfrm_Buffer_pa);
-LOG_DBG("[g_dpewb_asfrmext_Buffer_pa] [0x%08X]\n", g_dpewb_asfrmext_Buffer_pa);
-LOG_DBG("[g_dpewb_wmfhf_Buffer_pa] [0x%08X]\n", g_dpewb_wmfhf_Buffer_pa);
-#endif
-
 	/* Enable clock */
 	DPE_EnableClock(MTRUE);
 	g_SuspendCnt = 0;
@@ -4237,13 +4254,6 @@ static signed int DPE_release(struct inode *pInode, struct file *pFile)
 	/*  */
 	LOG_INF("Curr UsrCnt(%d), (process, pid, tgid)=(%s, %d, %d), last user",
 		DPEInfo.UserCount, current->comm, current->pid, current->tgid);
-
-#ifdef KERNEL_DMA_BUFFER
-	vb2_dc_unmap_dmabuf(dpebuf);
-	vb2_dc_detach_dmabuf(dpebuf);
-	vb2_dc_put(kernel_dpebuf);
-	dbuf = NULL;
-#endif
 
 	/* Disable clock. */
 	DPE_EnableClock(MFALSE);
