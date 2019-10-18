@@ -11,4 +11,4 @@ ccflags-y += -I$(obj)/../$(MTK_PLATFORM)
 
 obj-m += reviser.o
 
-reviser-objs:= reviser_drv.o reviser_hw.o reviser_mem.o reviser_mem_mgt.o reviser_dbg.o ../$(MTK_PLATFORM)/reviser_reg.o
+reviser-objs:= reviser_drv.o reviser_hw.o reviser_mem.o reviser_mem_mgt.o reviser_dbg.o reviser_export.o ../$(MTK_PLATFORM)/reviser_reg.o

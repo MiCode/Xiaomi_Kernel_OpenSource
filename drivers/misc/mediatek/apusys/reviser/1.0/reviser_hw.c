@@ -17,6 +17,7 @@
 #include <linux/kernel.h>
 #include <linux/io.h>
 
+#include "apusys_device.h"
 #include "reviser_cmn.h"
 #include "reviser_drv.h"
 #include "reviser_reg.h"
@@ -490,6 +491,32 @@ static void  _reviser_set_remap_table(void *drvinfo,
 				offset, (1 << VLM_REMAP_VALID_OFFSET));
 }
 
+int reviser_type_convert(int type, enum REVISER_DEVICE_E *reviser_type)
+{
+	int ret = 0;
+
+	DEBUG_TAG;
+
+	switch (type) {
+
+	case APUSYS_DEVICE_MDLA:
+		*reviser_type = REVISER_DEVICE_MDLA;
+		break;
+	case APUSYS_DEVICE_VPU:
+		*reviser_type = REVISER_DEVICE_VPU;
+		break;
+	case APUSYS_DEVICE_EDMA:
+		*reviser_type = REVISER_DEVICE_EDMA;
+		break;
+	default:
+		*reviser_type = REVISER_DEVICE_MAX;
+		ret = -EINVAL;
+		break;
+	}
+
+	return ret;
+}
+
 int reviser_set_remap_talbe(void *drvinfo,
 		int index, uint8_t valid, uint8_t ID,
 		uint8_t src_page, uint8_t dst_page)
@@ -617,16 +644,17 @@ static void _reviser_set_default_iova(void *drvinfo,
 
 }
 
-uint32_t reviser_get_interrupt_offset(void *drvinfo)
+int reviser_get_interrupt_offset(void *drvinfo)
 {
 	uint32_t offset = 0;
+	int ret = 0;
 
 	struct reviser_dev_info *info = NULL;
 
 
 	if (drvinfo == NULL) {
 		LOG_ERR("invalid argument\n");
-		return offset;
+		return -EINVAL;
 	}
 
 	info = (struct reviser_dev_info *)drvinfo;
@@ -654,6 +682,7 @@ uint32_t reviser_get_interrupt_offset(void *drvinfo)
 		LOG_ERR("Interrupt from AXI_EXCEPTION_EDMA_1\n");
 	} else {
 		LOG_ERR("Unknown Interrupt\n");
+		return -EINVAL;
 	}
 
 	if (offset > 0) {
@@ -662,7 +691,7 @@ uint32_t reviser_get_interrupt_offset(void *drvinfo)
 	}
 
 
-	return offset;
+	return ret;
 }
 int reviser_set_default_iova(void *drvinfo)
 {
@@ -677,6 +706,29 @@ int reviser_set_default_iova(void *drvinfo)
 	return 0;
 }
 
+bool reviser_is_power(void *drvinfo)
+{
+	struct reviser_dev_info *reviser_device = NULL;
+	unsigned long flags;
+	bool is_power = false;
+
+	DEBUG_TAG;
+
+	if (drvinfo == NULL) {
+		LOG_ERR("invalid argument\n");
+		return is_power;
+	}
+	reviser_device = (struct reviser_dev_info *)drvinfo;
+
+	spin_lock_irqsave(&reviser_device->power_lock, flags);
+	if (reviser_device->power) {
+		//LOG_ERR("Can Not Read when power disable\n");
+		is_power = true;
+	}
+	spin_unlock_irqrestore(&reviser_device->power_lock, flags);
+
+	return is_power;
+}
 
 int reviser_dram_remap_init(void *drvinfo)
 {

@@ -44,7 +44,7 @@
 /* global variable */
 
 static struct class *reviser_class;
-static struct reviser_dev_info *g_reviser_device;
+struct reviser_dev_info *g_reviser_device;
 
 
 /* function declaration */
@@ -59,11 +59,24 @@ static void reviser_power_off(void *para);
 
 irqreturn_t reviser_interrupt(int irq, void *private_data)
 {
+	struct reviser_dev_info *reviser_device;
+
 	DEBUG_TAG;
 
-	reviser_get_interrupt_offset(private_data);
-	reviser_print_remap_table(private_data, NULL);
-	reviser_print_context_ID(private_data, NULL);
+	reviser_device = (struct reviser_dev_info *)private_data;
+
+	if (!reviser_is_power(reviser_device)) {
+		LOG_ERR("Can Not Read when power disable\n");
+		return IRQ_NONE;
+	}
+	if (!reviser_get_interrupt_offset(private_data)) {
+		reviser_print_remap_table(private_data, NULL);
+		reviser_print_context_ID(private_data, NULL);
+	} else {
+		LOG_ERR("INT NOT triggered by reviser\n");
+		return IRQ_NONE;
+	}
+
 	return IRQ_HANDLED;
 }
 
@@ -78,11 +91,16 @@ static const struct file_operations reviser_fops = {
 
 static void reviser_power_on(void *para)
 {
+	unsigned long flags;
+
 	if (g_reviser_device == NULL) {
 		LOG_ERR("Not Found reviser_device\n");
 		return;
 	}
+	spin_lock_irqsave(&g_reviser_device->power_lock, flags);
 	g_reviser_device->power = true;
+	spin_unlock_irqrestore(&g_reviser_device->power_lock, flags);
+
 	if (reviser_boundary_init(g_reviser_device, BOUNDARY_APUSYS)) {
 		LOG_ERR("Set Boundary Fail\n");
 		return;
@@ -96,13 +114,17 @@ static void reviser_power_on(void *para)
 
 static void reviser_power_off(void *para)
 {
+	unsigned long flags;
+
 	if (g_reviser_device == NULL) {
 		LOG_ERR("Not Found reviser_device\n");
 		return;
 	}
 
 
+	spin_lock_irqsave(&g_reviser_device->power_lock, flags);
 	g_reviser_device->power = false;
+	spin_unlock_irqrestore(&g_reviser_device->power_lock, flags);
 }
 
 static int reviser_open(struct inode *inode, struct file *filp)
@@ -175,6 +197,7 @@ static int reviser_probe(struct platform_device *pdev)
 	mutex_init(&reviser_device->mutex_remap);
 	init_waitqueue_head(&reviser_device->wait_ctxid);
 	init_waitqueue_head(&reviser_device->wait_tcm);
+	spin_lock_init(&reviser_device->power_lock);
 
 	reviser_device->dev = &pdev->dev;
 

@@ -85,7 +85,7 @@ int reviser_table_get_ctxID_sync(void *drvinfo, unsigned long *ctxID)
 			break;
 		}
 	}
-	LOG_DEBUG("Sync Get ctxID %lu\n", *ctxID);
+	//LOG_DEBUG("Sync Get ctxID %lu\n", *ctxID);
 
 	return 0;
 }
@@ -116,7 +116,8 @@ int reviser_table_get_ctxID(void *drvinfo, unsigned long *ctxID)
 		g_ctxid_empty = true;
 		goto free_mutex;
 	}
-	LOG_DEBUG("Get ctxID %lu ctxID table %lx\n", *ctxID, table_ctxID[0]);
+	LOG_INFO("[out] ctxID(%lu) table_ctxID(%08lx)\n",
+			*ctxID, table_ctxID[0]);
 
 	mutex_unlock(&reviser_device->mutex_ctxid);
 
@@ -158,7 +159,8 @@ int reviser_table_free_ctxID(void *drvinfo, unsigned long ctxID)
 		LOG_ERR("Out of range %lu\n", ctxID);
 		goto free_mutex;
 	}
-	LOG_DEBUG("Free ctxID %lu Done\n", ctxID);
+	LOG_DEBUG("[in] ctxID(%lu) [out] table_ctxID(%08lx)\n"
+			, ctxID, table_ctxID[0]);
 
 	mutex_unlock(&reviser_device->mutex_ctxid);
 
@@ -250,7 +252,7 @@ int reviser_table_get_tcm_sync(void *drvinfo,
 			break;
 		}
 	}
-	LOG_DEBUG("Sync Get page_num %u\n", pg_table->page_num);
+	//LOG_DEBUG("Sync Get page_num %u\n", pg_table->page_num);
 	//LOG_DEBUG("Sync Get table_tcm %lx\n", pg_table->table_tcm[0]);
 	return 0;
 }
@@ -275,13 +277,13 @@ int reviser_table_get_tcm(void *drvinfo,
 
 	mutex_lock(&reviser_device->mutex_tcm);
 
-	LOG_DEBUG("page_num %u tcm_pgtable %lx\n",
-			page_num, tcm_pgtable->table_tcm[0]);
+//	LOG_DEBUG("page_num %u tcm_pgtable %lx\n",
+//			page_num, tcm_pgtable->table_tcm[0]);
 
 	setbits = bitmap_weight(table_tcm, TABLE_TCM_MAX);
 	//LOG_DEBUG("setbits %lu\n", setbits);
 	if (TABLE_TCM_MAX - setbits < page_num) {
-		LOG_ERR("No free page (%u/%lu)\n",
+		LOG_DEBUG("No free page (%u/%lu)\n",
 				page_num, TABLE_TCM_MAX - setbits);
 		tcm_pgtable->page_num = 0;
 		goto free_mutex;
@@ -319,7 +321,9 @@ int reviser_table_get_tcm(void *drvinfo,
 
 	}
 
-	LOG_DEBUG("tcm %lx g_tcm_free %d\n", table_tcm[0], g_tcm_free);
+	LOG_DEBUG("[in] pg(%u) [out] g_tcm(%lx) g_tcm_free(%d) tcm_pgtb(%lx)\n",
+			page_num,
+			table_tcm[0], g_tcm_free, tcm_pgtable->table_tcm[0]);
 	mutex_unlock(&reviser_device->mutex_tcm);
 
 
@@ -344,6 +348,12 @@ int reviser_table_free_tcm(void *drvinfo, struct table_tcm *pg_table)
 	if (pg_table == NULL) {
 		LOG_ERR("invalid argument\n");
 		return -1;
+	}
+
+	if (pg_table->page_num == 0) {
+		LOG_DEBUG("[in] pg(%u) tcm_pgtb(%lx)\n",
+				pg_table->page_num, pg_table->table_tcm[0]);
+		return 0;
 	}
 	reviser_device = (struct reviser_dev_info *)drvinfo;
 
@@ -370,7 +380,10 @@ int reviser_table_free_tcm(void *drvinfo, struct table_tcm *pg_table)
 		goto free_mutex;
 	}
 
-	LOG_DEBUG("Free Done page_num %u\n", pg_table->page_num);
+	LOG_DEBUG("[in] pg(%u) tcm_pgtb(%lx) [out] g_tcm(%lx) g_tcm_free(%d)\n",
+			pg_table->page_num, pg_table->table_tcm[0],
+			table_tcm[0], g_tcm_free);
+
 	mutex_unlock(&reviser_device->mutex_tcm);
 
 
@@ -478,9 +491,18 @@ static int _reviser_set_vlm_pgtable(void *drvinfo,
 		g_vlm_pgtable[ctxID].page[i].valid = 1;
 	}
 
+	/*sys_page_num = tcm + mmsys(todo) */
 	g_vlm_pgtable[ctxID].sys_page_num = vlm_pgtable->tcm_pgtable.page_num;
 	g_vlm_pgtable[ctxID].page_num = vlm_pgtable->page_num;
 
+
+	LOG_DEBUG("[out] ctx(%lu) sys(%u) pg(%d) tcm_pg(%d) tcm_pgtb(%lx)\n",
+			ctxID,
+			g_vlm_pgtable[ctxID].sys_page_num,
+			g_vlm_pgtable[ctxID].page_num,
+			g_vlm_pgtable[ctxID].tcm.page_num,
+			g_vlm_pgtable[ctxID].tcm.table_tcm[0]
+			);
 	mutex_unlock(&reviser_device->mutex_vlm_pgtable);
 
 	return 0;
@@ -517,6 +539,7 @@ static int _reviser_clear_vlm_pgtable(void *drvinfo,
 
 	memset(&g_vlm_pgtable[ctxID], 0, sizeof(struct vlm_pgtable));
 
+	LOG_DEBUG("ctxid(%lu)\n", ctxID);
 	mutex_unlock(&reviser_device->mutex_vlm_pgtable);
 
 	return 0;
@@ -531,22 +554,23 @@ int reviser_table_get_vlm(void *drvinfo,
 	//struct table_tcm tcm_pgtable;
 	struct table_vlm vlm_pgtable;
 
-	LOG_DEBUG("requset_size: %x\n force: %d\n", requset_size, force);
+
 
 	if (requset_size > VLM_SIZE) {
-		LOG_ERR("requset_size %x is too larger\n", requset_size);
+		LOG_ERR("requset_size(%x) is too larger\n", requset_size);
 		goto fail;
 	}
 
 	memset(&vlm_pgtable, 0, sizeof(struct table_vlm));
 	vlm_pgtable.page_num = DIV_ROUND_UP(requset_size, VLM_BANK_SIZE);
-	LOG_DEBUG("page_num: %u\n", vlm_pgtable.page_num);
+	LOG_DEBUG("[in] requset_size(%x) page_num(%u) force(%d)\n",
+			requset_size, vlm_pgtable.page_num, force);
 
 	if (reviser_table_get_ctxID_sync(drvinfo, &ctxid)) {
 		LOG_ERR("Get CTX ID Fail\n");
 		goto fail;
 	}
-	LOG_DEBUG("ctxID: %lu\n", ctxid);
+	//LOG_DEBUG("ctxID: %lu\n", ctxid);
 
 	if (force) {
 		if (reviser_table_get_tcm_sync(drvinfo,
@@ -555,9 +579,6 @@ int reviser_table_get_vlm(void *drvinfo,
 			LOG_ERR("Force Get TCM Fail\n");
 			goto free_ctxid;
 		}
-		LOG_DEBUG("Get TCM Success page_num %u table %lx ctxid %lu\n",
-				vlm_pgtable.tcm_pgtable.page_num,
-				vlm_pgtable.tcm_pgtable.table_tcm[0], ctxid);
 
 	} else {
 		//Get TCM fail , all page to DRAM
@@ -566,13 +587,6 @@ int reviser_table_get_vlm(void *drvinfo,
 				vlm_pgtable.page_num,
 				&vlm_pgtable.tcm_pgtable)) {
 			LOG_DEBUG("Use Dram ctxid %lu\n", ctxid);
-
-		} else {
-			LOG_DEBUG("Get TCM page_num %u table %lx ctxid %lu\n",
-					vlm_pgtable.tcm_pgtable.page_num,
-					vlm_pgtable.tcm_pgtable.table_tcm[0],
-					ctxid);
-
 		}
 	}
 
@@ -581,15 +595,19 @@ int reviser_table_get_vlm(void *drvinfo,
 		goto free_tcm;
 	}
 
+	/* Set HW remap table */
 	if (reviser_table_set_remap(drvinfo, ctxid)) {
 		LOG_ERR("Set Remap Fail\n");
 		goto free_vlm;
 	}
+	LOG_DEBUG("[out] vlm page_num(%u) tcm_valid(%lx) ctxid(%lu)\n",
+			vlm_pgtable.tcm_pgtable.page_num,
+			vlm_pgtable.tcm_pgtable.table_tcm[0], ctxid);
 
 	*tcm_size = vlm_pgtable.tcm_pgtable.page_num * VLM_BANK_SIZE;
 	*id = ctxid;
 
-	LOG_DEBUG("==CtxID %lu Get TCM page_num %u\n",
+	LOG_DEBUG("[out] CtxID(%lu) page_num(%u)\n",
 			ctxid,
 			vlm_pgtable.tcm_pgtable.page_num);
 	return 0;
@@ -617,16 +635,16 @@ int reviser_table_free_vlm(void *drvinfo, uint32_t ctxid)
 {
 	struct table_tcm tcm_pgtable;
 
-	LOG_DEBUG("free ctxid: %u\n", ctxid);
+	//LOG_DEBUG("free ctxid: %u\n", ctxid);
 	if (ctxid >= VLM_CTXT_CTX_ID_MAX) {
 		LOG_ERR("invalid argument\n");
 		return -1;
 	}
 	if (reviser_table_clear_remap(drvinfo, ctxid)) {
-		LOG_DEBUG("Clear Remap Fail\n");
+		LOG_ERR("Clear Remap Fail\n");
 		return -1;
 	}
-	LOG_DEBUG("reviser_table_clear_remap done %d\n", ctxid);
+	//LOG_DEBUG("reviser_table_clear_remap done %d\n", ctxid);
 
 	memset(&tcm_pgtable, 0, sizeof(struct table_tcm));
 	if (_reviser_clear_vlm_pgtable(drvinfo, ctxid, &tcm_pgtable)) {
@@ -634,20 +652,20 @@ int reviser_table_free_vlm(void *drvinfo, uint32_t ctxid)
 		return -1;
 	}
 
-	LOG_DEBUG("_reviser_clear_vlm_pgtable done %d\n", ctxid);
+	//LOG_DEBUG("_reviser_clear_vlm_pgtable ctxid(%d)\n", ctxid);
 
 	if (reviser_table_free_tcm(drvinfo, &tcm_pgtable)) {
 		LOG_ERR("Free TCM Fail\n");
 		return -1;
 	}
-	LOG_DEBUG("reviser_table_free_tcm done ctxid %d page_num %u\n",
-			ctxid, tcm_pgtable.page_num);
+	//LOG_DEBUG("reviser_table_free_tcm ctxid(%d) page_num(%u)\n",
+	//		ctxid, tcm_pgtable.page_num);
 
 	if (reviser_table_free_ctxID(drvinfo, ctxid)) {
 		LOG_ERR("Free ctxID Fail\n");
 		return -1;
 	}
-	LOG_DEBUG("==Free Done ctxid: %u TCM page_num %u\n",
+	LOG_DEBUG("ctxid(%u) page_num(%u)\n",
 			ctxid, tcm_pgtable.page_num);
 
 	return 0;
@@ -689,7 +707,7 @@ int reviser_table_set_remap(void *drvinfo, unsigned long ctxid)
 	mutex_lock(&reviser_device->mutex_vlm_pgtable);
 
 	setbits = bitmap_weight(g_table_remap.valid, VLM_REMAP_TABLE_MAX);
-	LOG_DEBUG(" setbits [%d]\n", setbits);
+	//LOG_DEBUG(" setbits [%d]\n", setbits);
 
 	if (VLM_REMAP_TABLE_MAX - setbits < g_vlm_pgtable[ctxid].sys_page_num) {
 
@@ -718,6 +736,7 @@ int reviser_table_set_remap(void *drvinfo, unsigned long ctxid)
 
 		bitmap_set(g_table_remap.valid, index, 1);
 
+		/* Set HW remap table */
 		if (reviser_set_remap_talbe(drvinfo, index, 1,
 				ctxid, i, g_vlm_pgtable[ctxid].page[i].dst)) {
 			goto free_mutex;
@@ -778,7 +797,7 @@ int reviser_table_clear_remap(void *drvinfo, unsigned long ctxid)
 			goto free_mutex;
 
 	}
-
+	LOG_DEBUG("ctxid [%lu]\n", ctxid);
 
 	mutex_unlock(&reviser_device->mutex_vlm_pgtable);
 	mutex_unlock(&reviser_device->mutex_remap);

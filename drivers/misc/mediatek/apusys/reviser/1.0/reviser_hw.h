@@ -47,8 +47,9 @@ void reviser_destroy_mem(void);
 int reviser_alloc_mem(void *usr);
 int reviser_free_mem(void *usr);
 int reviser_set_default_iova(void *drvinfo);
-uint32_t reviser_get_interrupt_offset(void *drvinfo);
-
+int reviser_get_interrupt_offset(void *drvinfo);
+int reviser_type_convert(int type, enum REVISER_DEVICE_E *reviser_type);
+bool reviser_is_power(void *drvinfo);
 int reviser_boundary_init(void *drvinfo, uint8_t boundary);
 
 int reviser_alloc_tcm(void *drvinfo, void *usr);

@@ -29,6 +29,7 @@
 #include "midware_trace.h"
 
 #include "mnoc_api.h"
+#include "reviser_export.h"
 
 /* init link list head, which link all dev table */
 struct apusys_cmd_table {
@@ -68,7 +69,14 @@ static struct mem_ctx_mgr g_ctx_mgr;
 
 static int mem_alloc_ctx(void)
 {
-	int ctx = 0;
+	int ctx = -1;
+	uint32_t request_size = 0x100000;
+	uint8_t force = 0;
+	unsigned long ctxid = 0;
+	uint32_t sys_mem_size = 0;
+	int ret = 0;
+
+#if 0
 
 	mutex_lock(&g_ctx_mgr.mtx);
 	ctx = find_first_zero_bit(g_ctx_mgr.ctx, 32);
@@ -78,21 +86,39 @@ static int mem_alloc_ctx(void)
 		bitmap_set(g_ctx_mgr.ctx, ctx, 1);
 
 	mutex_unlock(&g_ctx_mgr.mtx);
+#else
+	ret = reviser_get_vlm(request_size, force, &ctxid, &sys_mem_size);
+	if (!ret) {
+		LOG_INFO("request(0x%x) force(%u) ctxid(%lu) mem_size(0x%x)\n",
+				request_size, force, ctxid, sys_mem_size);
+		ctx = ctxid;
+	}
+
+
+
+#endif
+
 
 	return ctx;
 }
 
 static int mem_free_ctx(int ctx)
 {
+	int ret = 0;
+
 	if (ctx == VALUE_SUBGRAPH_CTX_ID_NONE)
 		return 0;
-
+#if 0
 	mutex_lock(&g_ctx_mgr.mtx);
 	if (!test_bit(ctx, g_ctx_mgr.ctx))
 		LOG_ERR("ctx id confuse, idx(%d) is not set\n", ctx);
 	bitmap_clear(g_ctx_mgr.ctx, ctx, 1);
 	mutex_unlock(&g_ctx_mgr.mtx);
-
+#else
+	ret = reviser_free_vlm((unsigned long)ctx);
+	if (!ret)
+		LOG_INFO("ctxid(%d)\n", ctx);
+#endif
 	return 0;
 }
 
@@ -467,6 +493,10 @@ static int exec_cmd_func(void *isc, void *idev_info)
 		dev_info->dev->dev_type,
 		dev_info->dev->idx,
 		cmd_hnd.boost_val);
+
+	/* execute reviser to switch VLM */
+	reviser_set_context(dev_info->dev->dev_type,
+			dev_info->dev->idx, sc->ctx_id);
 
 	get_time_from_system(&sc->duration);
 

@@ -14,6 +14,8 @@
 APUSYS_VERSION_POWER = 2.0
 APUSYS_VERSION_MNOC = 1.0
 APUSYS_VERSION_MIDWARE = 1.0
+APUSYS_VERSION_REVISER = 1.0
+
 UTIL_DIR = ../util
 
 ccflags-y += -I$(srctree)/drivers/staging/android/ion
@@ -23,6 +25,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/iommu/
 ccflags-y += -I$(obj)/../include/
 ccflags-y += -I$(obj)/../mnoc/$(APUSYS_VERSION_MNOC)/
+ccflags-y += -I$(obj)/../reviser/$(APUSYS_VERSION_REVISER)/
 ccflags-y += -I$(obj)/../power/$(APUSYS_VERSION_POWER)/
 ccflags-y += -I$(obj)/../power/$(APUSYS_VERSION_POWER)/$(MTK_PLATFORM)/
 ccflags-y += -I$(obj)/$(UTIL_DIR)/

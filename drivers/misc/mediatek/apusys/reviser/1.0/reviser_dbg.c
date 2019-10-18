@@ -60,7 +60,7 @@ static int reviser_dbg_show_remap_table(struct seq_file *s, void *unused)
 {
 	struct reviser_dev_info *reviser_device = s->private;
 
-	if (!reviser_device->power) {
+	if (!reviser_is_power(reviser_device)) {
 		LOG_ERR("Can Not Read when power disable\n");
 		return -EINVAL;
 	}
@@ -90,7 +90,7 @@ static int reviser_dbg_show_context_ID(struct seq_file *s, void *unused)
 {
 	struct reviser_dev_info *reviser_device = s->private;
 
-	if (!reviser_device->power) {
+	if (!reviser_is_power(reviser_device)) {
 		LOG_ERR("Can Not Read when power disable\n");
 		return -EINVAL;
 	}
@@ -120,7 +120,7 @@ static int reviser_dbg_show_boundary(struct seq_file *s, void *unused)
 {
 	struct reviser_dev_info *reviser_device = s->private;
 
-	if (!reviser_device->power) {
+	if (!reviser_is_power(reviser_device)) {
 		LOG_ERR("Can Not Read when power disable\n");
 		return -EINVAL;
 	}
@@ -228,7 +228,7 @@ static ssize_t reviser_dbg_read_mem_tcm(struct file *filp, char *buffer,
 		return -EINVAL;
 	}
 
-	if (!reviser_device->power) {
+	if (!reviser_is_power(reviser_device)) {
 		LOG_ERR("Can Not Read when power disable\n");
 		return -EINVAL;
 	}

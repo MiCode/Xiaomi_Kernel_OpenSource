@@ -40,6 +40,8 @@ struct reviser_dev_info {
 	struct mutex mutex_vlm_pgtable;
 	struct mutex mutex_remap;
 
+	spinlock_t power_lock;
+
 	struct vlm_pgtable *pvlm;
 
 	wait_queue_head_t wait_ctxid;

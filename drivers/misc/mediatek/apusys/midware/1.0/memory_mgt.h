@@ -18,7 +18,7 @@
 #include <mtk/ion_drv.h>
 #include <mtk/mtk_ion.h>
 
-#define APUSYS_VLM_START 0x1D000000 // tcm tmp
+#define APUSYS_VLM_START 0x1D800000 // tcm tmp
 #define APUSYS_VLM_SIZE 0x100000
 
 struct apusys_mem_mgr {
