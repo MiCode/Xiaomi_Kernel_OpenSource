@@ -27,6 +27,7 @@ enum {
  * @swinf_ch_start:	indicate sw channel start number, lower is hw channel.
  * @ap_swinf_no:	indicate ap sw channel number.
  * @write:	indicate write cmd.
+ * @mstid:	indicate mstid.
  * @pmifid:	indicate pmifid.
  * @irq:	indicate irq number.
  * @grpid:	indicates which group id we used.
@@ -63,6 +64,7 @@ struct pmif {
 	u32                     swinf_ch_start;
 	u32                     ap_swinf_no;
 	int                     write;
+	int                     mstid;
 	int                     pmifid;
 	int			irq;
 	int			grpid;

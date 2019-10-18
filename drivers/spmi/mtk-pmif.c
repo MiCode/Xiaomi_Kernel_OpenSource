@@ -108,7 +108,7 @@ enum pmif_regs {
 	PMIF_SWINF_3_VLD_CLR,
 };
 
-static const u32 mt6885_regs[] = {
+static const u32 mt6xxx_regs[] = {
 	[PMIF_INIT_DONE] =			0x0000,
 	[PMIF_INF_EN] =				0x0024,
 	[PMIF_ARB_EN] =				0x0150,
@@ -156,7 +156,7 @@ static const u32 mt6885_regs[] = {
 	[PMIF_SWINF_3_STA] =			0x0CE8,
 };
 
-static const u32 mt6885_spmi_regs[] = {
+static const u32 mt6xxx_spmi_regs[] = {
 	[SPMI_OP_ST_CTRL] =			0x0000,
 	[SPMI_GRP_ID_EN] =			0x0004,
 	[SPMI_OP_ST_STA] =			0x0008,
@@ -263,8 +263,7 @@ static int pmif_spmi_write_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
 		u16 addr, const u8 *buf, size_t len);
 static int mtk_spmi_config_master(struct pmif *arb,
 		unsigned int mstid, bool en);
-static int mtk_spmi_cali_rd_clock_polarity(struct pmif *arb,
-			unsigned int mstid);
+static int mtk_spmi_cali_rd_clock_polarity(struct pmif *arb);
 #if SPMI_RCS_SUPPORT
 static int mtk_spmi_enable_rcs(struct spmi_controller *ctrl,
 			unsigned int mstid);
@@ -274,12 +273,12 @@ static int mtk_spmi_ctrl_op_st(struct spmi_controller *ctrl,
 			u8 opc, u8 sid);
 static int mtk_spmi_enable_group_id(struct pmif *arb, u8 grpid);
 
-static struct pmif mt6885_pmif_arb[] = {
+static struct pmif mt6xxx_pmif_arb[] = {
 	{
 		.base = 0x0,
-		.regs = mt6885_regs,
+		.regs = mt6xxx_regs,
 		.spmimst_base = 0x0,
-		.spmimst_regs = mt6885_spmi_regs,
+		.spmimst_regs = mt6xxx_spmi_regs,
 		.infra_base = 0x0,
 		.infra_regs = mt6xxx_infra_regs,
 		.topckgen_base = 0x0,
@@ -287,6 +286,7 @@ static struct pmif mt6885_pmif_arb[] = {
 		.swinf_ch_start = 0,
 		.ap_swinf_no = 0,
 		.write = 0x0,
+		.mstid = SPMI_MASTER_0,
 		.pmifid = PMIF_PMIFID_SPMI1,
 		.spmic = 0x0,
 		.read_cmd = pmif_spmi_read_cmd,
@@ -303,7 +303,7 @@ static struct pmif mt6885_pmif_arb[] = {
 static const struct of_device_id pmif_match_table[] = {
 	{
 		.compatible = "mediatek,mt6885-pmif",
-		.data = &mt6885_pmif_arb,
+		.data = &mt6xxx_pmif_arb,
 	}, {
 		/* sentinel */
 	},
@@ -571,7 +571,7 @@ static int pmif_spmi_read_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
 {
 	struct pmif *arb = spmi_controller_get_drvdata(ctrl);
 	int ret = 0, write = 0x0;
-	u32 offset = 0;
+	u32 offset = 0, data = 0;
 	u8 bc = len - 1;
 	unsigned long flags;
 
@@ -624,8 +624,8 @@ static int pmif_spmi_read_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
 		offset =
 		arb->regs[PMIF_SWINF_0_RDATA_31_0] + (0x40 * arb->ap_swinf_no);
 
-		*buf = readl(arb->base + offset);
-
+		data = readl(arb->base + offset);
+		memcpy(buf, &data, (bc & 3) + 1);
 		offset =
 		arb->regs[PMIF_SWINF_0_VLD_CLR] + (0x40 * arb->ap_swinf_no);
 
@@ -642,9 +642,9 @@ static int pmif_spmi_write_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
 {
 	struct pmif *arb = spmi_controller_get_drvdata(ctrl);
 	int ret = 0, write = 0x1;
-	u32 offset = 0;
+	u32 offset = 0, data = 0;
 	u8 bc = len - 1;
-	unsigned long flags;
+	unsigned long flags = 0;
 
 	/* Check for argument validation. */
 	if ((arb->ap_swinf_no & ~(0x3)) != 0x0)
@@ -681,8 +681,10 @@ static int pmif_spmi_write_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
 	}
 	/* Set the write data. */
 	offset = arb->regs[PMIF_SWINF_0_WDATA_31_0] + (0x40 * arb->ap_swinf_no);
-	if (write == 1)
-		writel(*buf, arb->base + offset);
+	if (write == 1) {
+		memcpy(&data, buf, (bc & 3) + 1);
+		writel(data, arb->base + offset);
+	}
 
 	/* Send the command. */
 	offset = arb->regs[PMIF_SWINF_0_ACC] + (0x40 * arb->ap_swinf_no);
@@ -816,8 +818,7 @@ static int mtk_spmi_config_master(struct pmif *arb,
 	return 0;
 }
 
-static int mtk_spmi_cali_rd_clock_polarity(struct pmif *arb,
-					unsigned int mstid)
+static int mtk_spmi_cali_rd_clock_polarity(struct pmif *arb)
 {
 #if defined(CONFIG_MTK_FPGA) || defined(CONFIG_FPGA_EARLY_PORTING)
 	unsigned int dly = 0, pol = 0;
@@ -1101,7 +1102,7 @@ static void pmif_irq_register(struct platform_device *pdev,
 
 static int mtk_spmimst_init(struct platform_device *pdev, struct pmif *arb)
 {
-	struct resource *res;
+	struct resource *res = NULL;
 	int err = 0, i = 0;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "spmimst");
@@ -1122,13 +1123,13 @@ static int mtk_spmimst_init(struct platform_device *pdev, struct pmif *arb)
 	/* if spmimst not enabled, enable it */
 	if ((mtk_spmi_readl(arb, SPMI_MST_REQ_EN) & 0x1) != 0x1) {
 		dev_info(&pdev->dev, "[SPMIMST]:enable spmimst.\n");
-		mtk_spmi_config_master(arb, SPMI_MASTER_0, true);
+		mtk_spmi_config_master(arb, arb->mstid, true);
 		for (i = 0; i < 3; i++) {
-			mtk_spmi_cali_rd_clock_polarity(arb, SPMI_MASTER_0);
+			mtk_spmi_cali_rd_clock_polarity(arb);
 #if SPMI_RCS_SUPPORT
-			/* enable master rcs support */
-			mtk_spmi_writel(arb, 0x4, SPMI_MST_RCS_CTRL);
-			mtk_spmi_enable_rcs(&spmi_dev[i], SPMI_MASTER_0);
+		/* enable master rcs support */
+		mtk_spmi_writel(arb, 0x4, SPMI_MST_RCS_CTRL);
+		mtk_spmi_enable_rcs(&spmi_dev[i], arb->mstid);
 #endif
 
 		}
@@ -1141,12 +1142,12 @@ static int mtk_spmimst_init(struct platform_device *pdev, struct pmif *arb)
 
 static int pmif_probe(struct platform_device *pdev)
 {
-	struct device_node *node;
+	struct device_node *node = NULL;
 	const struct of_device_id *of_id =
 		of_match_device(pmif_match_table, &pdev->dev);
-	struct spmi_controller *ctrl;
-	struct pmif *arb;
-	struct resource *res;
+	struct spmi_controller *ctrl = NULL;
+	struct pmif *arb = NULL;
+	struct resource *res = NULL;
 	u32 swinf_ch_start = 0, ap_swinf_no = 0;
 	int pmif_clk26m = 0, spmimst_clk26m = 0;
 	int err = 0;
