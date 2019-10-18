@@ -1659,25 +1659,49 @@ static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module)
 #ifdef CONFIG_MTK_IOMMU_V2
 static inline int m4u_control_iommu_port(void)
 {
+#define LARB13PORTSIZE 12
+#define LARB14PORTSIZE 6
+
 	struct M4U_PORT_STRUCT sPort;
 	int ret = 0;
 	int count_of_ports = 0;
 	int i = 0;
 
-	/* LARB13 config all ports w/o CCU and FAKE */
-	count_of_ports = M4U_PORT_L13_CAM_CAMSV6_MDP -
-		M4U_PORT_L13_CAM_MRAWI_MDP + 1;
-	for (i = 0; i < count_of_ports; i++) {
-		sPort.ePortID = M4U_PORT_L13_CAM_MRAWI_MDP+i;
-		sPort.Virtuality = camP1mem_use_m4u;
-		sPort.Security = 0;
-		sPort.domain = 2;
-		sPort.Distance = 1;
-		sPort.Direction = 0;
-#if defined(CONFIG_MTK_M4U) || defined(CONFIG_MTK_PSEUDO_M4U)
-		ret = m4u_config_port(&sPort);
-#endif
+	/* include\dt-bindings\memory\Mt6885-larb-port.h */
+	static const int larb13_support_map[LARB13PORTSIZE] = {
+		false,   /* MRAWI */
+		false,   /* MRAWO0 */
+		false,   /* MRAWO1 */
+		true,    /* CAMSV1 */
+		true,    /* CAMSV2 */
+		true,    /* CAMSV3 */
+		true,    /* CAMSV4 */
+		true,    /* CAMSV5 */
+		true,    /* CAMSV6 */
+		false,   /* CCUI */
+		false,   /* CCUO */
+		false,   /* FAKE */
+	};
 
+	static const int larb14_support_map[LARB14PORTSIZE] = {
+		false,   /* MRAWI */
+		false,   /* MRAWO0 */
+		false,   /* MRAWO1 */
+		true,    /* CAMSV0 */
+		false,   /* CCUI */
+		false,   /* CCUO */
+	};
+
+	/* LARB13 config camsv ports only */
+	for (i = 0; i < LARB13PORTSIZE; i++) {
+		if (larb13_support_map[i] == true) {
+			sPort.ePortID = M4U_PORT_L13_CAM_MRAWI_MDP+i;
+			sPort.Virtuality = camP1mem_use_m4u;
+			sPort.Security = 0;
+			sPort.domain = 2;
+			sPort.Distance = 1;
+			sPort.Direction = 0;
+			ret = m4u_config_port(&sPort);
 		if (ret == 0) {
 		} else {
 			LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
@@ -1685,28 +1709,26 @@ static inline int m4u_control_iommu_port(void)
 			camP1mem_use_m4u ? "virtual" : "physical", ret);
 			ret = -1;
 		}
+		}
 	}
 
 	/* LARB14 config all ports w/o CCU */
-	count_of_ports = M4U_PORT_L14_CAM_CAMSV0_DISP -
-		M4U_PORT_L14_CAM_MRAWI_DISP + 1;
-	for (i = 0; i < count_of_ports; i++) {
-		sPort.ePortID = M4U_PORT_L14_CAM_MRAWI_DISP+i;
-		sPort.Virtuality = camP1mem_use_m4u;
-		sPort.Security = 0;
-		sPort.domain = 2;
-		sPort.Distance = 1;
-		sPort.Direction = 0;
-#if defined(CONFIG_MTK_M4U) || defined(CONFIG_MTK_PSEUDO_M4U)
-		ret = m4u_config_port(&sPort);
-#endif
-
+	for (i = 0; i < LARB14PORTSIZE; i++) {
+		if (larb14_support_map[i] == true) {
+			sPort.ePortID = M4U_PORT_L14_CAM_MRAWI_DISP+i;
+			sPort.Virtuality = camP1mem_use_m4u;
+			sPort.Security = 0;
+			sPort.domain = 2;
+			sPort.Distance = 1;
+			sPort.Direction = 0;
+			ret = m4u_config_port(&sPort);
 		if (ret == 0) {
 		} else {
 			LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
 			iommu_get_port_name(M4U_PORT_L14_CAM_MRAWI_DISP+i),
 			camP1mem_use_m4u ? "virtual" : "physical", ret);
 			ret = -1;
+		}
 		}
 	}
 
@@ -1721,10 +1743,7 @@ static inline int m4u_control_iommu_port(void)
 		sPort.domain = 2;
 		sPort.Distance = 1;
 		sPort.Direction = 0;
-#if defined(CONFIG_MTK_M4U) || defined(CONFIG_MTK_PSEUDO_M4U)
 		ret = m4u_config_port(&sPort);
-#endif
-
 		if (ret == 0) {
 		} else {
 			LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
@@ -1744,10 +1763,7 @@ static inline int m4u_control_iommu_port(void)
 		sPort.domain = 2;
 		sPort.Distance = 1;
 		sPort.Direction = 0;
-#if defined(CONFIG_MTK_M4U) || defined(CONFIG_MTK_PSEUDO_M4U)
 		ret = m4u_config_port(&sPort);
-#endif
-
 		if (ret == 0) {
 		} else {
 			LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
@@ -1767,10 +1783,7 @@ static inline int m4u_control_iommu_port(void)
 		sPort.domain = 2;
 		sPort.Distance = 1;
 		sPort.Direction = 0;
-#if defined(CONFIG_MTK_M4U) || defined(CONFIG_MTK_PSEUDO_M4U)
 		ret = m4u_config_port(&sPort);
-#endif
-
 		if (ret == 0) {
 		} else {
 			LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
@@ -1779,7 +1792,8 @@ static inline int m4u_control_iommu_port(void)
 			ret = -1;
 		}
 	}
-
+#undef LARB13PORTSIZE
+#undef LARB14PORTSIZE
 	return ret;
 }
 #endif
@@ -1819,6 +1833,30 @@ static inline void smi_control_clock_mtcmos(bool en)
 		"ccui_disp",
 		"ccuo_disp"};
 
+	static const int larb13_support_port_map[LARB13PORTSIZE] = {
+		false,   /* MRAWI */
+		false,   /* MRAWO0 */
+		false,   /* MRAWO1 */
+		true,    /* CAMSV1 */
+		true,    /* CAMSV2 */
+		true,    /* CAMSV3 */
+		true,    /* CAMSV4 */
+		true,    /* CAMSV5 */
+		true,    /* CAMSV6 */
+		false,   /* CCUI */
+		false,   /* CCUO */
+		false,   /* FAKE */
+	};
+
+	static const int larb14_support_port_map[LARB14PORTSIZE] = {
+		false,   /* MRAWI */
+		false,   /* MRAWO0 */
+		false,   /* MRAWO1 */
+		true,    /* CAMSV0 */
+		false,   /* CCUI */
+		false,   /* CCUO */
+	};
+
 	static const char *larb16_port_Name[LARB16PORTSIZE] = {
 		"imgo_r1_a",  "rrzo_r1_a",  "cqi_r1_a",  "bpci_r1_a",
 		"yuvo_r1_a",  "ufdi_r2_a",  "rawi_r2_a", "rawi_r3_a",
@@ -1845,25 +1883,27 @@ static inline void smi_control_clock_mtcmos(bool en)
 	if (en == CAMERA_SMI_ENABLE) {
 		LOG_INF("enable CG/MTCMOS through SMI CLK API\n");
 		for (inx = 0; inx < LARB13PORTSIZE; inx++) {
-
+			if (larb13_support_port_map[inx] == true) {
 #ifndef CONFIG_MTK_SMI_EXT
-			smi_bus_prepare_enable(
-				SMI_LARB13, larb13_port_Name[inx]);
+				smi_bus_prepare_enable(
+					SMI_LARB13, larb13_port_Name[inx]);
 #else
-			ret = smi_bus_prepare_enable(
-				SMI_LARB13, larb13_port_Name[inx]);
-			if (ret != 0) {
-				LOG_NOTICE(
-					"LARB13_%s:smi_bus_prepare_enable fail",
-					larb13_port_Name[inx]);
-			}
+				ret = smi_bus_prepare_enable(
+					SMI_LARB13, larb13_port_Name[inx]);
+				if (ret != 0) {
+					LOG_NOTICE(
+						"LARB13_%s:smi_bus_prepare_enable fail",
+						larb13_port_Name[inx]);
+				}
 #endif
+			}
 		}
 
 		for (inx = 0; inx < LARB14PORTSIZE; inx++) {
+			if (larb14_support_port_map[inx] == true) {
 #ifndef CONFIG_MTK_SMI_EXT
-			smi_bus_prepare_enable(SMI_LARB14,
-						     larb14_port_Name[inx]);
+				smi_bus_prepare_enable(
+					SMI_LARB14, larb14_port_Name[inx]);
 #else
 			ret = smi_bus_prepare_enable(SMI_LARB14,
 						     larb14_port_Name[inx]);
@@ -1873,6 +1913,7 @@ static inline void smi_control_clock_mtcmos(bool en)
 					larb14_port_Name[inx]);
 			}
 #endif
+			}
 		}
 
 		for (inx = 0; inx < LARB16PORTSIZE; inx++) {
@@ -1923,9 +1964,10 @@ static inline void smi_control_clock_mtcmos(bool en)
 	} else {
 		LOG_INF("disable CG/MTCMOS through SMI CLK API\n");
 		for (inx = 0; inx < LARB13PORTSIZE; inx++) {
+			if (larb13_support_port_map[inx] == true) {
 #ifndef CONFIG_MTK_SMI_EXT
-			smi_bus_disable_unprepare(
-				SMI_LARB13, larb13_port_Name[inx]);
+				smi_bus_disable_unprepare(
+					SMI_LARB13, larb13_port_Name[inx]);
 #else
 			ret = smi_bus_disable_unprepare(SMI_LARB13,
 							larb13_port_Name[inx]);
@@ -1935,21 +1977,24 @@ static inline void smi_control_clock_mtcmos(bool en)
 					larb13_port_Name[inx]);
 			}
 #endif
+			}
 		}
 
 		for (inx = 0; inx < LARB14PORTSIZE; inx++) {
+			if (larb14_support_port_map[inx] == true) {
 #ifndef CONFIG_MTK_SMI_EXT
-			smi_bus_disable_unprepare(SMI_LARB14,
-					larb14_port_Name[inx]);
+				smi_bus_disable_unprepare(
+				SMI_LARB14, larb14_port_Name[inx]);
 #else
-			ret = smi_bus_disable_unprepare(SMI_LARB14,
-							larb14_port_Name[inx]);
+			ret = smi_bus_disable_unprepare(
+				SMI_LARB14, larb14_port_Name[inx]);
 			if (ret != 0) {
 				LOG_NOTICE(
 					"LARB14_%s:smi_bus_prepare_disable fail",
 					larb14_port_Name[inx]);
 			}
 #endif
+			}
 		}
 
 		for (inx = 0; inx < LARB16PORTSIZE; inx++) {
@@ -1991,7 +2036,7 @@ static inline void smi_control_clock_mtcmos(bool en)
 					larb18_port_Name[inx]);
 			if (ret != 0) {
 				LOG_NOTICE(
-					"LARB14_%s:smi_bus_prepare_disable fail",
+					"LARB18_%s:smi_bus_prepare_disable fail",
 					larb18_port_Name[inx]);
 			}
 #endif
