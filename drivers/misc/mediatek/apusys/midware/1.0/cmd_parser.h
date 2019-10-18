@@ -114,6 +114,8 @@ struct apusys_subcmd {
 	//struct list_head ce_list; // apusys cmd
 	struct list_head q_list;  // priority queue
 	struct list_head pc_list; // pack cmd
+	struct rb_node node; // deadline queue
+	uint64_t deadline;
 };
 
 /* general functions */

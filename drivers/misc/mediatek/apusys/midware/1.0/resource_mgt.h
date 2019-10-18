@@ -16,6 +16,7 @@
 
 #include "apusys_device.h"
 #include "scheduler.h"
+#include "sched_deadline.h"
 
 #define APUSYS_SETPOWER_TIMEOUT (3*1000)
 #define APUSYS_SETPOWER_TIMEOUT_ALLON (0)
@@ -85,6 +86,9 @@ struct apusys_res_table {
 	/* priority queue */
 	struct prio_q_inst *prio_q;
 
+	/* deadline queue */
+	struct deadline_root deadline_q;
+
 	/* reservation */
 	struct list_head acq_list;
 };
@@ -107,8 +111,8 @@ struct apusys_res_mgr {
 
 struct apusys_res_mgr *res_get_mgr(void);
 
-int insert_subcmd(void *isc, int priority);
-int insert_subcmd_lock(void *isc, int priority);
+int insert_subcmd(void *isc);
+int insert_subcmd_lock(void *isc);
 int pop_subcmd(int type, void **isc);
 int delete_subcmd(void *isc);
 int delete_subcmd_lock(void *isc);

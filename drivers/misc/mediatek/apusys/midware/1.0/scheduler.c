@@ -13,6 +13,7 @@
 
 #include <linux/mutex.h>
 #include <linux/sched.h>
+#include <linux/sched/clock.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
 #include <linux/kthread.h>
@@ -27,7 +28,7 @@
 #include "cmd_parser_mdla.h"
 #include "thread_pool.h"
 #include "midware_trace.h"
-
+#include "sched_deadline.h"
 #include "mnoc_api.h"
 #include "reviser_export.h"
 
@@ -392,7 +393,7 @@ static void subcmd_done(void *isc)
 
 			mutex_lock(&res_mgr->mtx);
 			mutex_lock(&scr->mtx);
-			ret = insert_subcmd(scr, cmd->hdr->priority);
+			ret = insert_subcmd(scr);
 			if (ret) {
 				LOG_ERR("ins 0x%llx-#%d sc to q(%d-#%d) fail\n",
 					cmd->cmd_id,
@@ -685,8 +686,7 @@ int sche_routine(void *arg)
 				LOG_WARN("no dev(%d) available\n", type);
 				mutex_lock(&sc->mtx);
 				/* can't get device, insert sc back */
-				if (insert_subcmd(sc,
-					sc->par_cmd->hdr->priority)) {
+				if (insert_subcmd(sc)) {
 					LOG_ERR("re 0x%llx-#%d sc q(%d-#%d)\n",
 						sc->par_cmd->cmd_id,
 						sc->idx,
@@ -861,7 +861,10 @@ int apusys_sched_add_list(struct apusys_cmd *cmd)
 
 		/* add sc to cmd's sc_list*/
 		if (check_sc_ready(cmd, i) == 0) {
-			ret = insert_subcmd_lock(sc, cmd->hdr->priority);
+			// Set deadline from now + soft_limit
+			sc->deadline =
+				sched_clock() + sc->par_cmd->hdr->soft_limit;
+			ret = insert_subcmd_lock(sc);
 			if (ret) {
 				LOG_ERR("ins 0x%llx-#%d sc(%p) q(%d-#%d)\n",
 					cmd->cmd_id,

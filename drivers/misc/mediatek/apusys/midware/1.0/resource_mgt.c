@@ -26,6 +26,7 @@
 #include "cmd_parser.h"
 #include "thread_pool.h"
 #include "scheduler.h"
+#include "sched_deadline.h"
 
 
 struct apusys_res_mgr g_res_mgr;
@@ -111,11 +112,13 @@ int res_get_queue_len(int dev_type)
 	return tab->prio_q->normal_len + busy_num;
 }
 
-int insert_subcmd(void *isc, int priority)
+int insert_subcmd(void *isc)
 {
 	struct apusys_res_table *tab = NULL;
 	struct prio_q_inst *inst = NULL;
 	struct apusys_subcmd *sc = (struct apusys_subcmd *)isc;
+	struct apusys_cmd_hdr *hdr = sc->par_cmd->hdr;
+	int priority = hdr->priority;
 
 	tab = res_get_table(sc->type);
 	// can't find info, unlock and return fail
@@ -124,45 +127,46 @@ int insert_subcmd(void *isc, int priority)
 		return -EINVAL;
 	}
 
-	LOG_DEBUG("insert 0x%llx-#%d to q(%d/%d/%d)\n",
+	LOG_DEBUG("insert 0x%llx-#%d to q(%d/%d/%d/%d)\n",
 		sc->par_cmd->cmd_id,
 		sc->idx,
 		sc->type,
 		priority,
-		sc->par_cmd->hdr->priority);
+		sc->par_cmd->hdr->priority,
+		hdr->soft_limit);
 
 	/* get type's queue */
 	sc->state = CMD_STATE_READY;
 	inst = tab->prio_q;
 
-	list_add_tail(&sc->q_list, &inst->prio[priority]);
-	bitmap_set(inst->node_exist, priority, 1);
-	bitmap_set(g_res_mgr.cmd_exist, sc->type, 1);
+	if (hdr->soft_limit) { /* Deadline Queue */
+		deadline_node_insert(&tab->deadline_q, sc);
 
-	/* setup queue length */
-	if (sc->par_cmd->hdr->soft_limit) {
 		inst->deadline_len++;
 		LOG_DEBUG("deadline task(%d)\n",
 			inst->deadline_len);
-	} else {
+
+	} else { /* Priority Queue */
+		list_add_tail(&sc->q_list, &inst->prio[priority]);
+		bitmap_set(inst->node_exist, priority, 1);
+
 		inst->normal_len++;
 		LOG_DEBUG("normal task(%d/%d)\n",
 			sc->par_cmd->hdr->priority,
 			inst->normal_len);
 	}
 
+	bitmap_set(g_res_mgr.cmd_exist, sc->type, 1);
 	complete(&g_res_mgr.sched_comp);
-
 	return 0;
 }
 
-int insert_subcmd_lock(void *isc, int priority)
+int insert_subcmd_lock(void *isc)
 {
 	int ret = 0;
-
 	mutex_lock(&g_res_mgr.mtx);
 	/* delete subcmd node from ce list */
-	ret = insert_subcmd(isc, priority);
+	ret = insert_subcmd(isc);
 	mutex_unlock(&g_res_mgr.mtx);
 
 	return ret;
@@ -181,52 +185,57 @@ int pop_subcmd(int type, void **isc)
 		return -EINVAL;
 	}
 
-	/* pop cmd from priority queue */
-	priority = find_last_bit(tab->prio_q->node_exist, APUSYS_PRIORITY_MAX);
-	if (priority >= APUSYS_PRIORITY_MAX) {
-		LOG_ERR("can't find cmd in type(%d) priority queue\n", type);
-		return -EINVAL;
-	}
 
-	sc = list_first_entry(&tab->prio_q->prio[priority],
-		struct apusys_subcmd, q_list);
-	if (sc == NULL) {
-		LOG_ERR("get cmd from device(%d) priority queue(%d) fail\n",
-			type, priority);
-		return -EINVAL;
-	}
-
-	LOG_DEBUG("pop 0x%llx-#%d from q(%d/%d)\n",
-		sc->par_cmd->cmd_id,
-		sc->idx,
-		sc->type,
-		priority);
-
-	list_del(&sc->q_list);
-	if (list_empty(&tab->prio_q->prio[priority])) {
-		bitmap_clear(tab->prio_q->node_exist, priority, 1);
-
-		if (bitmap_empty(tab->prio_q->node_exist,
-			APUSYS_PRIORITY_MAX)) {
-			LOG_DEBUG("device(%d) cmd empty\n", type);
-			bitmap_clear(res_mgr->cmd_exist, type, 1);
-		}
-	}
-
-	/* setup queue length */
-	if (sc->par_cmd->hdr->soft_limit) {
+	sc = deadline_node_pop_first(&tab->deadline_q);
+	if (sc) { /* pop cmd from deadline queue */
+		LOG_DEBUG("pop 0x%llx-#%d from deadline_q(%d/%llu)\n",
+				sc->par_cmd->cmd_id,
+				sc->idx,
+				sc->type,
+				sc->deadline);
 		tab->prio_q->deadline_len--;
 		LOG_DEBUG("deadline task(%d)\n",
 			tab->prio_q->deadline_len);
-	} else {
+	} else { /* deadline queue is empty, pop cmd from priority queue */
+		priority = find_last_bit(tab->prio_q->node_exist,
+				APUSYS_PRIORITY_MAX);
+		if (priority >= APUSYS_PRIORITY_MAX) {
+			LOG_ERR("can't find cmd in type(%d) priority queue\n",
+				type);
+			return -EINVAL;
+		}
+
+		sc = list_first_entry(&tab->prio_q->prio[priority],
+			struct apusys_subcmd, q_list);
+		if (sc == NULL) {
+			LOG_ERR(
+			"get cmd from device(%d) priority queue(%d) fail\n",
+			type, priority);
+			return -EINVAL;
+		}
+		list_del(&sc->q_list);
+		LOG_DEBUG("pop 0x%llx-#%d from q(%d/%d)\n",
+			sc->par_cmd->cmd_id,
+			sc->idx,
+			sc->type,
+			priority);
 		tab->prio_q->normal_len--;
 		LOG_DEBUG("normal task(%d/%d)\n",
 			sc->par_cmd->hdr->priority,
 			tab->prio_q->normal_len);
+
+		if (list_empty(&tab->prio_q->prio[priority]))
+			bitmap_clear(tab->prio_q->node_exist, priority, 1);
+
 	}
 
+	 /* check if both deadline/priority queue are empty */
+	if (bitmap_empty(tab->prio_q->node_exist, APUSYS_PRIORITY_MAX) &&
+			deadline_node_empty(&tab->deadline_q)) {
+		LOG_DEBUG("device(%d) cmd empty\n", type);
+		bitmap_clear(res_mgr->cmd_exist, type, 1);
+	}
 	*isc = sc;
-
 	return 0;
 }
 
@@ -1139,7 +1148,9 @@ int apusys_register_device(struct apusys_device *dev)
 
 		INIT_LIST_HEAD(&tab->acq_list);
 
+		deadline_node_init(&tab->deadline_q);/* Init deadline queue */
 		g_res_mgr.tab[tab->dev_type] = tab;
+
 		bitmap_set(g_res_mgr.dev_support, tab->dev_type, 1);
 
 		q_inst = kzalloc(sizeof(struct prio_q_inst), GFP_KERNEL);
