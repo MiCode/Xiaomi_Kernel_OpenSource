@@ -6419,6 +6419,7 @@ page_owner=on";
 		compatible = "mediatek,audio", "syscon";
 		reg = <0 0x11210000 0 0x2000>;
 		#clock-cells = <1>;
+		mediatek,btcvsd_snd = <&btcvsd_snd>;
 	};
 
 	afe: mt6885-afe-pcm@11210000 {
@@ -6656,6 +6657,17 @@ page_owner=on";
 		prefer_mode = <0>;
 		mode_size = <0x12000 0x18000>;
 		block_size = <0x1000>;
+	};
+
+	btcvsd_snd: mtk-btcvsd-snd@18830000 {
+		compatible = "mediatek,mtk-btcvsd-snd";
+		reg=<0 0x18830000 0 0x2000>, /*PKV_PHYSICAL_BASE*/
+		    <0 0x18840000 0 0x20000>; /*SRAM_BANK2*/
+		interrupts = <GIC_SPI 373 IRQ_TYPE_LEVEL_HIGH>;
+		mediatek,infracfg = <&infracfg_ao>;
+		mediatek,offset =<0xf00 0x800 0x140 0x144 0x148>;
+		/*INFRA MISC, conn_bt_cvsd_mask*/
+		/*cvsd_mcu_read, write, packet_indicator*/
 	};
 
 	mt_soc_playback_offload {
