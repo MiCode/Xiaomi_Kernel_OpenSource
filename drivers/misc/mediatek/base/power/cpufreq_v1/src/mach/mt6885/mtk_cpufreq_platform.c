@@ -680,7 +680,7 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 
 	turbo_flag = 0;
 
-	tag_pr_info("%d, %d, (%d, %d) efuse_val = 0x%x\n",
+	tag_pr_info("%d, %d, Settle time(%d, %d) efuse_val = 0x%x\n",
 		lv, turbo_flag, UP_SRATE, DOWN_SRATE, val);
 	return lv;
 }
