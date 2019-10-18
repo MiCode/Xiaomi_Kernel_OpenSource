@@ -1803,7 +1803,7 @@ void cmdq_mdp_dump_hdr(const unsigned long base, const char *label)
 }
 void cmdq_mdp_dump_tcc(const unsigned long base, const char *label)
 {
-	uint32_t value[7] = { 0 };
+	uint32_t value[8] = { 0 };
 
 	value[0] = CMDQ_REG_GET32(base + 0x00000000);	/* MDP_TCC_CTRL	      */
 	value[1] = CMDQ_REG_GET32(base + 0x00000520);	/* MDP_TCC_DEBUG      */
@@ -1812,6 +1812,9 @@ void cmdq_mdp_dump_tcc(const unsigned long base, const char *label)
 	value[4] = CMDQ_REG_GET32(base + 0x0000052C);	/* MDP_TCC_ST         */
 	value[5] = CMDQ_REG_GET32(base + 0x00000530);	/* MDP_TCC_CROP_X     */
 	value[6] = CMDQ_REG_GET32(base + 0x00000534);	/* MDP_TCC_CROP_Y     */
+	CMDQ_REG_SET32(MMSYS_CONFIG_BASE + 0x300, 0x060B);   /* SS */
+	value[7] = CMDQ_REG_GET32(
+			MMSYS_CONFIG_BASE + 0x048); /* MDPSYS_MODULE_DBG   */
 
 	CMDQ_ERR(
 		"=============== [CMDQ] %s Status ====================================\n",
@@ -1823,6 +1826,7 @@ void cmdq_mdp_dump_tcc(const unsigned long base, const char *label)
 		value[3], value[4]);
 	CMDQ_ERR("MDP_TCC_CROP_X: 0x%08x, MDP_TCC_CROP_Y: 0x%08x\n",
 		value[5], value[6]);
+	CMDQ_ERR("MDP_TCC_DEBUG: 0x%08x\n", value[7]);
 }
 void cmdq_mdp_dump_fg(const unsigned long base, const char *label)
 {
@@ -1914,7 +1918,6 @@ int32_t cmdqMdpClockOn(uint64_t engineFlag)
 #endif				/* #ifdef CMDQ_PWR_AWARE */
 
 	CMDQ_MSG("Enable MDP(0x%llx) clock end\n", engineFlag);
-
 	return 0;
 }
 
@@ -2283,6 +2286,7 @@ int32_t cmdqMdpClockOff(uint64_t engineFlag)
 {
 #ifdef CMDQ_PWR_AWARE
 
+	CMDQ_MSG("Disable MDP(0x%llx) clock begin\n", engineFlag);
 	if (engineFlag & (1LL << CMDQ_ENG_MDP_WROT0)) {
 		cmdq_mdp_loop_off(CMDQ_ENG_MDP_WROT0,
 			MDP_WROT0_BASE + 0X010, MDP_WROT0_BASE + 0X014,
@@ -2472,6 +2476,104 @@ int32_t cmdqMdpClockOff(uint64_t engineFlag)
 			CMDQ_MSG("Disable MDP_COLOR1 clock\n");
 			cmdq_mdp_get_func()->enableMdpClock(false,
 				CMDQ_ENG_MDP_COLOR1);
+		}
+	}
+
+	/* AAL */
+	if (engineFlag & (1LL << CMDQ_ENG_MDP_AAL0)) {
+		if (cmdq_mdp_get_func()->mdpClockIsOn(CMDQ_ENG_MDP_AAL0)) {
+			CMDQ_MSG("Disable MDP_AAL0 clock\n");
+			cmdq_mdp_get_func()->enableMdpClock(false,
+				CMDQ_ENG_MDP_AAL0);
+		}
+	}
+
+	if (engineFlag & (1LL << CMDQ_ENG_MDP_AAL1)) {
+		if (cmdq_mdp_get_func()->mdpClockIsOn(CMDQ_ENG_MDP_AAL1)) {
+			CMDQ_MSG("Disable MDP_AAL1 clock\n");
+			cmdq_mdp_get_func()->enableMdpClock(false,
+				CMDQ_ENG_MDP_AAL1);
+		}
+	}
+
+	if (engineFlag & (1LL << CMDQ_ENG_MDP_AAL2)) {
+		if (cmdq_mdp_get_func()->mdpClockIsOn(CMDQ_ENG_MDP_AAL2)) {
+			CMDQ_MSG("Disable MDP_AAL2 clock\n");
+			cmdq_mdp_get_func()->enableMdpClock(false,
+				CMDQ_ENG_MDP_AAL2);
+		}
+	}
+
+	if (engineFlag & (1LL << CMDQ_ENG_MDP_AAL3)) {
+		if (cmdq_mdp_get_func()->mdpClockIsOn(CMDQ_ENG_MDP_AAL3)) {
+			CMDQ_MSG("Disable MDP_AAL3 clock\n");
+			cmdq_mdp_get_func()->enableMdpClock(false,
+				CMDQ_ENG_MDP_AAL3);
+		}
+	}
+	/* HDR */
+	if (engineFlag & (1LL << CMDQ_ENG_MDP_HDR0)) {
+		if (cmdq_mdp_get_func()->mdpClockIsOn(CMDQ_ENG_MDP_HDR0)) {
+			CMDQ_MSG("Disable MDP_HDR0 clock\n");
+			cmdq_mdp_get_func()->enableMdpClock(false,
+				CMDQ_ENG_MDP_HDR0);
+		}
+	}
+
+	if (engineFlag & (1LL << CMDQ_ENG_MDP_HDR1)) {
+		if (cmdq_mdp_get_func()->mdpClockIsOn(CMDQ_ENG_MDP_HDR1)) {
+			CMDQ_MSG("Disable MDP_HDR1 clock\n");
+			cmdq_mdp_get_func()->enableMdpClock(false,
+				CMDQ_ENG_MDP_HDR1);
+		}
+	}
+
+	/* TCC */
+	if (engineFlag & (1LL << CMDQ_ENG_MDP_TCC0)) {
+		if (cmdq_mdp_get_func()->mdpClockIsOn(CMDQ_ENG_MDP_TCC0)) {
+			CMDQ_MSG("Disable MDP_TCC0 clock\n");
+			cmdq_mdp_get_func()->enableMdpClock(false,
+				CMDQ_ENG_MDP_TCC0);
+		}
+	}
+
+	if (engineFlag & (1LL << CMDQ_ENG_MDP_TCC1)) {
+		if (cmdq_mdp_get_func()->mdpClockIsOn(CMDQ_ENG_MDP_TCC1)) {
+			CMDQ_MSG("Disable MDP_TCC1 clock\n");
+			cmdq_mdp_get_func()->enableMdpClock(false,
+				CMDQ_ENG_MDP_TCC1);
+		}
+	}
+
+	if (engineFlag & (1LL << CMDQ_ENG_MDP_TCC2)) {
+		if (cmdq_mdp_get_func()->mdpClockIsOn(CMDQ_ENG_MDP_TCC2)) {
+			CMDQ_MSG("Disable MDP_TCC2 clock\n");
+			cmdq_mdp_get_func()->enableMdpClock(false,
+				CMDQ_ENG_MDP_TCC2);
+		}
+	}
+
+	if (engineFlag & (1LL << CMDQ_ENG_MDP_TCC3)) {
+		if (cmdq_mdp_get_func()->mdpClockIsOn(CMDQ_ENG_MDP_TCC3)) {
+			CMDQ_MSG("Disable MDP_TCC3 clock\n");
+			cmdq_mdp_get_func()->enableMdpClock(false,
+				CMDQ_ENG_MDP_TCC3);
+		}
+	}
+
+	if (engineFlag & (1LL << CMDQ_ENG_MDP_FG0)) {
+		if (cmdq_mdp_get_func()->mdpClockIsOn(CMDQ_ENG_MDP_FG0)) {
+			CMDQ_MSG("Disable MDP_FG0 clock\n");
+			cmdq_mdp_get_func()->enableMdpClock(false,
+				CMDQ_ENG_MDP_FG0);
+		}
+	}
+
+	if (engineFlag & (1LL << CMDQ_ENG_MDP_FG1)) {
+		if (cmdq_mdp_get_func()->mdpClockIsOn(CMDQ_ENG_MDP_FG1)) {
+			CMDQ_MSG("Disable MDP_FG1 clock\n");
+			cmdq_mdp_get_func()->enableMdpClock(false,
+				CMDQ_ENG_MDP_FG1);
 		}
 	}
 
