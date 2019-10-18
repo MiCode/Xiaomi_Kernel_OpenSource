@@ -481,8 +481,13 @@ int mtk_ipi_send_compl(struct mtk_ipi_device *ipidev, int ipi_id,
 
 	ipi_monitor(ipidev, ipi_id, SEND_MSG);
 
+	/* Run receive at least once */
+	wait = (wait < 1) ? IPI_POLLING_INTERVAL_US : wait;
+
 	if (opt == IPI_SEND_POLLING) {
-		do {
+		while (wait > 0) {
+			ipidev->table[ipi_id].polling_count++;
+
 			if (mtk_mbox_polling(ipidev->mbdev, pin_r->mbox,
 				pin_r->pin_buf, pin_r) == MBOX_DONE)
 				break;
@@ -490,11 +495,9 @@ int mtk_ipi_send_compl(struct mtk_ipi_device *ipidev, int ipi_id,
 			if (try_wait_for_completion(&pin_r->notify))
 				break;
 
-			ipidev->table[ipi_id].polling_count++;
-
 			udelay(IPI_POLLING_INTERVAL_US);
 			wait -= IPI_POLLING_INTERVAL_US;
-		} while (wait > 0);
+		}
 	} else {
 		/* WAIT Mode */
 		wait = wait_for_completion_timeout(&pin_r->notify,
