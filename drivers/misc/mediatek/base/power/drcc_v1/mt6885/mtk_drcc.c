@@ -54,6 +54,7 @@
 	#include <mt-plat/mtk_chip.h>
 	/* #include <mt-plat/mtk_gpio.h> */
 	#include "mtk_drcc.h"
+	#include <mt-plat/mtk_devinfo.h>
 #endif
 
 #ifdef CONFIG_OF
@@ -1204,6 +1205,7 @@ static int drcc_probe(struct platform_device *pdev)
 	struct device_node *node = NULL;
 	int rc = 0;
 	unsigned int drcc_n = 0;
+	unsigned int version;
 
 	node = pdev->dev.of_node;
 	if (!node) {
@@ -1216,10 +1218,12 @@ static int drcc_probe(struct platform_device *pdev)
 		drcc_debug("[xxxxdrcc] state from DTree; rc(%d) state(0x%x)\n",
 			rc,
 			state);
-
-		for (drcc_n = 0; drcc_n < drccNum; drcc_n++)
-			mtk_drcc_enable((state >> drcc_n) & 0x01,
-				drcc_n);
+		version = get_devinfo_with_index(50) & 0xff;
+		if (version > 1) {
+			for (drcc_n = 0; drcc_n < drccNum; drcc_n++)
+				mtk_drcc_enable((state >> drcc_n) & 0x01,
+					drcc_n);
+		}
 	}
 
 	rc = of_property_read_u32(node, "drcc0_Vref", &drcc0_Vref);
