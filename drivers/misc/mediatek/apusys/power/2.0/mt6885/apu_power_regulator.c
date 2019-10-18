@@ -282,19 +282,26 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 #if BINNING_VOLTAGE_SUPPORT
 	vpu_efuse_val = (get_devinfo_with_index(EFUSE_INDEX) & 0x7);
 	mdla_efuse_val = (get_devinfo_with_index(EFUSE_INDEX) & 0x7);
-	if (buck == VPU_BUCK && voltage_mV == DVFS_VOLT_00_800000_V) {
+	if (buck == VPU_BUCK && voltage_mV == DVFS_VOLT_00_800000_V
+		&& (vpu_efuse_val == 2 || vpu_efuse_val == 3)) {
 		if (vpu_efuse_val == 2)
 			voltage_mV = DVFS_VOLT_00_775000_V;
 		else if (vpu_efuse_val == 3)
 			voltage_mV = DVFS_VOLT_00_750000_V;
-	} else if (buck == MDLA_BUCK && voltage_mV == DVFS_VOLT_00_825000_V) {
+
+		LOG_WRN("Binning Voltage!!, vpu_efuse=%d, vol=%d\n",
+			vpu_efuse_val, voltage_mV);
+	} else if (buck == MDLA_BUCK && voltage_mV == DVFS_VOLT_00_825000_V
+		&& (mdla_efuse_val == 2 || mdla_efuse_val == 3)) {
 		if (mdla_efuse_val == 2)
 			voltage_mV = DVFS_VOLT_00_800000_V;
 		else if (mdla_efuse_val == 3)
 			voltage_mV = DVFS_VOLT_00_775000_V;
+
+
+		LOG_WRN("Binning Voltage!!, mdla_efuse=%d, vol=%d\n",
+			mdla_efuse_val, voltage_mV);
 	}
-	LOG_WRN("vpu_efuse=%d, mdla_efuse=%d, buck=%d, vol=%d\n",
-					buck, voltage_mV, buck, voltage_mV);
 #endif
 	LOG_WRN("%s try to config buck : %d to %d(max:%d)\n", __func__,
 						buck, voltage_mV, voltage_MAX);
