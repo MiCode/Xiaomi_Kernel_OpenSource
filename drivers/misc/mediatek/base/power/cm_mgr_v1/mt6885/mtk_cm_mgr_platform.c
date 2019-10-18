@@ -782,7 +782,7 @@ void cm_mgr_perf_platform_set_force_status(int enable)
 
 int cm_mgr_register_init(void)
 {
-	struct device_node *node;
+	struct device_node *node, *np;
 	int ret;
 	const char *buf;
 
@@ -790,7 +790,8 @@ int cm_mgr_register_init(void)
 			"mediatek,mcucfg_mp0_counter");
 	if (!node)
 		pr_info("find mcucfg_mp0_counter node failed\n");
-	mcucfg_mp0_counter_base = of_iomap(node, 0);
+	np = of_parse_phandle(node, "reg_mp0_counter_base", 0);
+	mcucfg_mp0_counter_base = of_iomap(np, 0);
 	if (!mcucfg_mp0_counter_base) {
 		pr_info("base mcucfg_mp0_counter_base failed\n");
 		return -1;
@@ -963,3 +964,18 @@ void cm_mgr_update_dram_by_cpu_opp(int cpu_opp)
 	ret = schedule_delayed_work(&cm_mgr_work, 1);
 }
 #endif /* USE_CPU_TO_DRAM_MAP */
+
+void cm_mgr_setup_cpu_dvfs_info(void)
+{
+	int i, j;
+	unsigned int val;
+
+	for (j = 0; j < CM_MGR_CPU_CLUSTER; j++) {
+		for (i = 0; i < CM_MGR_CPU_OPP_SIZE; i++) {
+			val = (j*16+i) << 24 | mt_cpufreq_get_freq_by_idx(j, i);
+			cm_mgr_to_sspm_command(IPI_CM_MGR_OPP_FREQ_SET, val);
+			val = (j*16+i) << 24 | mt_cpufreq_get_volt_by_idx(j, i);
+			cm_mgr_to_sspm_command(IPI_CM_MGR_OPP_VOLT_SET, val);
+		}
+	}
+}

@@ -61,6 +61,8 @@
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 #if defined(USE_SSMP_VER_V2)
 #include <sspm_ipi_id.h>
+#include <sspm_define.h>
+static int cm_sspm_ready;
 int cm_ipi_ackdata;
 #else
 #include <sspm_ipi.h>
@@ -686,6 +688,12 @@ int cm_mgr_to_sspm_command(u32 cmd, int val)
 	unsigned int ret = 0;
 	struct cm_mgr_data cm_mgr_d;
 
+	if (cm_sspm_ready != 1) {
+		pr_info("#@# %s(%d) sspm not ready(%d) to receive cmd(%d)\n",
+			__func__, __LINE__, cm_sspm_ready, cmd);
+		ret = -1;
+		return ret;
+	}
 	cm_ipi_ackdata = 0;
 
 	switch (cmd) {
@@ -708,16 +716,18 @@ int cm_mgr_to_sspm_command(u32 cmd, int val)
 	case IPI_CM_MGR_LOADING_ENABLE:
 	case IPI_CM_MGR_LOADING_LEVEL:
 	case IPI_CM_MGR_EMI_DEMAND_CHECK:
+	case IPI_CM_MGR_OPP_FREQ_SET:
+	case IPI_CM_MGR_OPP_VOLT_SET:
 		cm_mgr_d.cmd = cmd;
 		cm_mgr_d.arg = val;
 		ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_CM,
-		IPI_SEND_POLLING, &cm_mgr_d, CM_MGR_D_LEN, 10);
+		IPI_SEND_POLLING, &cm_mgr_d, CM_MGR_D_LEN, 2000);
 		if (ret != 0) {
 			pr_info("#@# %s(%d) cmd(%d) error, return %d\n",
 					__func__, __LINE__, cmd, ret);
-		} else if (cm_ipi_ackdata != 0) {
+		} else if (!cm_ipi_ackdata) {
 			ret = cm_ipi_ackdata;
-			pr_info("#@# %s(%d) cmd(%d) return %d\n",
+			pr_info("#@# %s(%d) cmd(%d) ack fail %d\n",
 					__func__, __LINE__, cmd, ret);
 		}
 	break;
@@ -1304,6 +1314,8 @@ int __weak cm_mgr_platform_init(void)
 	return 0;
 }
 
+void __weak cm_mgr_setup_cpu_dvfs_info(void) {}
+
 int __init cm_mgr_module_init(void)
 {
 	int r;
@@ -1347,10 +1359,14 @@ int __init cm_mgr_module_init(void)
 	if (r) {
 		pr_info("[SSPM] IPIS_C_CM ipi_register fail, ret %d\n", r);
 		return -1;
+		cm_sspm_ready = -1;
 	}
 	pr_info("SSPM is ready to service CM IPI\n");
+	cm_sspm_ready = 1;
 
 	cm_mgr_to_sspm_command(IPI_CM_MGR_INIT, 0);
+
+	cm_mgr_setup_cpu_dvfs_info();
 
 	cm_mgr_to_sspm_command(IPI_CM_MGR_ENABLE,
 			cm_mgr_enable);

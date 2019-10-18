@@ -29,11 +29,11 @@
 /* #define USE_SINGLE_CLUSTER */
 /* #define USE_CPU_TO_DRAM_MAP */
 
-#define CM_MGR_EMI_OPP 4
+#define CM_MGR_EMI_OPP 5
 #define CM_MGR_LOWER_OPP 6
 #define CM_MGR_CPU_CLUSTER 2
 #define CM_MGR_CPU_COUNT 8
-#define CM_MGR_CPU_LIMIT 6
+#define CM_MGR_CPU_LIMIT 4
 
 #define CLUSTER0_MASK   0xff
 

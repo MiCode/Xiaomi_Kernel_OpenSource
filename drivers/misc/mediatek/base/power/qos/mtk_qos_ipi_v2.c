@@ -80,7 +80,7 @@ int qos_ipi_to_sspm_command(void *buffer, int slot)
 
 	ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_QOS,
 		IPI_SEND_POLLING, buffer,
-		slot_num, 10);
+		slot_num, 2000);
 	if (ret) {
 		pr_info("qos ipi cmd %d send fail,ret=%d\n",
 		qos_ipi_d->cmd, ret);

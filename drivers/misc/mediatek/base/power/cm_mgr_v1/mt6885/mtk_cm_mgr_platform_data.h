@@ -70,7 +70,7 @@ int debounce_times_perf_force_down = 100;
 static int update;
 static int update_v2f_table = 1;
 static int cm_mgr_opp_enable = 1;
-int cm_mgr_enable = 1;
+int cm_mgr_enable;
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 int cm_mgr_sspm_enable = 1;
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
