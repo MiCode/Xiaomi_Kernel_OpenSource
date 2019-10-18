@@ -19,11 +19,15 @@
 #include <mtk_lpm_call.h>
 #include <mtk_lpm_type.h>
 #include <mtk_lpm_call_type.h>
+#include <mtk_power_gs_api.h>
 
 #include "mt6885.h"
 #include "mt6885_suspend.h"
 
 unsigned int mt6885_suspend_status;
+
+#define WORLD_CLK_CNTCV_L        (0x10017008)
+#define WORLD_CLK_CNTCV_H        (0x1001700C)
 
 void __attribute__((weak)) subsys_if_on(void)
 {
@@ -95,6 +99,10 @@ int mt6885_suspend_prompt(int cpu, const struct mtk_lpm_issuer *issuer)
 
 	printk_deferred("[name:spm&][%s:%d] - suspend enter\n",
 			__func__, __LINE__);
+	printk_deferred("[name:spm&] wlk_cntcv_l = 0x%x, wlk_cntcv_h = 0x%x\n",
+		_golden_read_reg(WORLD_CLK_CNTCV_L),
+		_golden_read_reg(WORLD_CLK_CNTCV_H));
+
 
 PLAT_LEAVE_SUSPEND:
 	return ret;

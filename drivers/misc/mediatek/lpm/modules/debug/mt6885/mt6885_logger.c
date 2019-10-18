@@ -18,6 +18,7 @@
 #include <mt6885_pwr_ctrl.h>
 #include <mt6885_pcm_def.h>
 #include <mtk_dbg_common_v1.h>
+#include <mtk_power_gs_api.h>
 
 static struct mt6885_spm_wake_status mt6885_wake;
 void __iomem *mt6885_spm_base;
@@ -57,7 +58,8 @@ const char *mt6885_wakesrc_str[32] = {
 	[31] = " R12_NOT_USED2",
 };
 
-
+#define WORLD_CLK_CNTCV_L        (0x10017008)
+#define WORLD_CLK_CNTCV_H        (0x1001700C)
 #define plat_mmio_read(offset)	__raw_readl(mt6885_spm_base + offset)
 int mt6885_get_wakeup_status(struct mt6885_spm_wake_status *wakesta)
 {
@@ -122,6 +124,7 @@ int mt6885_show_log_message(int type, const char *prefix, void *data)
 	#define LOG_BUF_SIZE        256
 	#define LOG_BUF_OUT_SZ	768
 	int i;
+	unsigned int spm_26M_off_pct = 0;
 	char buf[LOG_BUF_SIZE] = { 0 };
 	char log_buf[LOG_BUF_OUT_SZ] = { 0 };
 	char *local_ptr;
@@ -275,6 +278,21 @@ int mt6885_show_log_message(int type, const char *prefix, void *data)
 	log_size += scnprintf(log_buf + log_size,
 			LOG_BUF_OUT_SZ - log_size,
 			" clk_settle = 0x%x, ", mt6885_wake.clk_settle);
+
+	if (!strcmp(scenario, "suspend")) {
+		/* calculate 26M off percentage in suspend period */
+		if (mt6885_wake.timer_out != 0) {
+			spm_26M_off_pct = 100 * plat_mmio_read(SPM_BK_VTCXO_DUR)
+						/ mt6885_wake.timer_out;
+		}
+
+		log_size += scnprintf(log_buf + log_size,
+			LOG_BUF_OUT_SZ - log_size,
+			"wlk_cntcv_l = 0x%x, wlk_cntcv_h = 0x%x, 26M_off_pct = %d\n",
+			_golden_read_reg(WORLD_CLK_CNTCV_L),
+			_golden_read_reg(WORLD_CLK_CNTCV_H),
+			spm_26M_off_pct);
+	}
 
 	WARN_ON(log_size >= LOG_BUF_OUT_SZ);
 

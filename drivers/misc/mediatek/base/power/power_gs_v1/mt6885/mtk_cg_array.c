@@ -235,6 +235,8 @@ const unsigned int AP_CG_Golden_Setting_tcl_gs_suspend_data[] = {
 	0x1000C380, 0x00000001, 0x00000000,/* TVDPLL_CON0 */
 	0x1000C390, 0x00000001, 0x00000001,/* MPLL_CON0 */
 	0x1000C3A0, 0x00000001, 0x00000000,/* APUPLL_CON0 */
+	0x10017008, 0xFFFFFFFF, 0x00000000,/* World_CLK_CNTCV_L */
+	0x1001700C, 0xFFFFFFFF, 0x00000000,/* World_CLK_CNTCV_H */
 	0x10012000, 0x00000001, 0x00000000,/* DVFSRC_BASIC_CONTROL */
 	0x1020EB00, 0x00000007, 0x00000000,/* BUS_MON_CKEN */
 	0x10219858, 0x00000800, 0x00000000,/* EMI_THRO_CTRL1 */
@@ -325,7 +327,7 @@ const unsigned int AP_CG_Golden_Setting_tcl_gs_suspend_data[] = {
 const unsigned int *AP_CG_Golden_Setting_tcl_gs_suspend =
 		AP_CG_Golden_Setting_tcl_gs_suspend_data;
 
-unsigned int AP_CG_Golden_Setting_tcl_gs_suspend_len = 300;
+unsigned int AP_CG_Golden_Setting_tcl_gs_suspend_len = 306;
 
 const unsigned int AP_CG_Golden_Setting_tcl_gs_sodi_data[] = {
 /*	Address		Mask		Golden Setting Value */
