@@ -12,6 +12,9 @@ config LIGHTNESS_MAPPING_VALUE
 	default 255
 	---help---
 	  Backlight brightness mapping value, from 0 to 255.
+	  Set integer value to support.
+	  Set n to disable.
+	  This is used to set backlight max interval.
 
 config BACKLIGHT_SUPPORT_LP8557
 	bool "Support backlight lp8557 board"
@@ -30,3 +33,20 @@ config BACKLIGHT_SUPPORT_LM3697
 	  Set y to support.
 	  Set n to disable.
 	  Charge pump driver for external backlight.
+
+config LEDS_MTK_DISP
+	tristate "Mediatek display LED support"
+	depends on LEDS_CLASS
+	---help---
+	  This option enables support for Mediatek display LEDs.
+	  say 'y' to enable this
+          Set n to disable.
+	  To compile this driver as a module, the module will be called leds-mtk-disp.
+
+config CONTROL_BL_TEMPERATURE
+	bool "Support backlight controlled by thermal"
+	---help---
+	  This option enables support thermal to set max brightness.
+	  Set y to support.
+	  Set n to not support.
+	  This option enables means thermal can set brightness by the api of led driver.

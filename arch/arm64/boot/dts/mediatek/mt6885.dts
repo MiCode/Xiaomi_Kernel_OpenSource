@@ -210,6 +210,16 @@ page_owner=on";
 			};
 		};
 	};
+	disp_leds {
+		compatible = "mediatek,disp-leds";
+
+		backlight {
+			label = "lcd-backlight";
+			max-brightness = <255>;
+			led-bits = <8>;
+			default-state = "on";
+		};
+	};
 
 	mtk_lpm: mtk_lpm {
 		compatible = "mediatek,mtk-lpm";
