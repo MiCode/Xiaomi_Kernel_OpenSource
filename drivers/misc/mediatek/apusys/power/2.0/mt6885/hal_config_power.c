@@ -22,7 +22,7 @@
 static int is_apu_power_initilized;
 static int force_pwr_on = 1;
 static int force_pwr_off;
-static int reinit_apu_down;
+static int buck_already_on;
 
 void *g_APU_RPCTOP_BASE;
 void *g_APU_PCUTOP_BASE;
@@ -35,6 +35,7 @@ void *g_APU_VPU1_BASE;
 void *g_APU_VPU2_BASE;
 void *g_APU_MDLA0_BASE;
 void *g_APU_MDLA1_BASE;
+void *g_APU_SPM_BASE;
 
 /************************************
  * platform related power APIs
@@ -54,6 +55,7 @@ static void apusys_power_reg_dump(void);
 static void debug_power_mtcmos_on(void);
 static void debug_power_mtcmos_off(void);
 static void hw_init_setting(void);
+static int buck_control(enum DVFS_USER user, int level);
 
 /************************************
  * common power hal command
@@ -148,6 +150,7 @@ static enum vcore_opp volt_to_vcore_opp(int target_volt)
 static void prepare_apu_regulator(struct device *dev, int prepare)
 {
 	if (prepare) {
+		// obtain regulator handle
 		prepare_regulator(VCORE_BUCK, dev);
 		prepare_regulator(SRAM_BUCK, dev);
 		prepare_regulator(VPU_BUCK, dev);
@@ -157,6 +160,7 @@ static void prepare_apu_regulator(struct device *dev, int prepare)
 		// vcore need to use pm_qos for voltage voting
 		pm_qos_register();
 	} else {
+		// release regulator handle
 		unprepare_regulator(MDLA_BUCK);
 		unprepare_regulator(VPU_BUCK);
 		unprepare_regulator(SRAM_BUCK);
@@ -205,15 +209,6 @@ static void hw_init_setting(void)
 	LOG_WRN("%s done and request to enter sleep\n", __func__);
 }
 
-static void config_to_low_power(void)
-{
-	LOG_WRN("%s\n", __func__);
-	config_normal_regulator(SRAM_BUCK, DVFS_VOLT_00_750000_V);
-	config_vcore(VPU0, volt_to_vcore_opp(DVFS_VOLT_00_575000_V));
-	config_normal_regulator(VPU_BUCK, DVFS_VOLT_00_575000_V);
-	config_normal_regulator(MDLA_BUCK, DVFS_VOLT_00_575000_V);
-}
-
 static int init_power_resource(void *param)
 {
 	struct hal_param_init_power *init_data = NULL;
@@ -227,6 +222,7 @@ static int init_power_resource(void *param)
 	g_APU_VCORE_BASE = init_data->vcore_base_addr;
 	g_APU_INFRACFG_AO_BASE = init_data->infracfg_ao_base_addr;
 	g_APU_INFRA_BCRM_BASE = init_data->infra_bcrm_base_addr;
+	g_APU_SPM_BASE = init_data->spm_base_addr;
 
 	g_APU_CONN_BASE = init_data->conn_base_addr;
 	g_APU_VPU0_BASE = init_data->vpu0_base_addr;
@@ -249,6 +245,7 @@ static int init_power_resource(void *param)
 	LOG_WRN("%s , g_APU_VPU2_BASE 0x%p\n", __func__, g_APU_VPU2_BASE);
 	LOG_WRN("%s , g_APU_MDLA0_BASE 0x%p\n", __func__, g_APU_MDLA0_BASE);
 	LOG_WRN("%s , g_APU_MDLA1_BASE 0x%p\n", __func__, g_APU_MDLA1_BASE);
+	LOG_WRN("%s , g_APU_SPM_BASE 0x%p\n", __func__, g_APU_SPM_BASE);
 
 	if (!is_apu_power_initilized) {
 		prepare_apu_regulator(dev, 1);
@@ -259,7 +256,6 @@ static int init_power_resource(void *param)
 	}
 
 	hw_init_setting();
-	config_to_low_power();
 
 	return 0;
 }
@@ -634,6 +630,9 @@ static void get_current_power_info(void *param)
 static int uninit_power_resource(void)
 {
 	if (is_apu_power_initilized) {
+		buck_control(VPU0, 0); // buck off
+		buck_already_on = 0;
+		udelay(100);
 #ifndef MTK_FPGA_PORTING
 		unprepare_apu_clock();
 #endif
@@ -644,19 +643,39 @@ static int uninit_power_resource(void)
 	return 0;
 }
 
-static int buck_control(enum DVFS_USER user, int up)
+/*
+ * control buck to four different levels -
+ *	level 3 : buck ON
+ *	level 2 : buck to default voltage
+ *	level 1 : buck to low voltage
+ *	level 0 : buck OFF
+ */
+static int buck_control(enum DVFS_USER user, int level)
 {
 	struct hal_param_volt vpu_volt_data;
 	struct hal_param_volt mdla_volt_data;
-	struct hal_param_volt vcore_volt_data;
+//	struct hal_param_volt vcore_volt_data;
 	struct hal_param_volt sram_volt_data;
+	struct apu_power_info info;
 	int ret = 0;
 
-	if (up) {
+	LOG_WRN("%s begin, level = %d\n", __func__, level);
+
+	if (level == 3) { // buck ON
+		// just turn on buck
+		enable_regulator(VPU_BUCK);
+		enable_regulator(MDLA_BUCK);
+		enable_regulator(SRAM_BUCK);
+
+		// release buck isolation
+		DRV_ClearBitReg32(BUCK_ISOLATION, (BIT(0) | BIT(5)));
+
+	} else if (level == 2) { // default voltage
+#if 0
 		vcore_volt_data.target_buck = VCORE_BUCK;
 		vcore_volt_data.target_volt = VCORE_DEFAULT_VOLT;
 		ret |= set_power_voltage(user, (void *)&vcore_volt_data);
-
+#endif
 		sram_volt_data.target_buck = SRAM_BUCK;
 		sram_volt_data.target_volt = VSRAM_DEFAULT_VOLT;
 		ret |= set_power_voltage(user, (void *)&sram_volt_data);
@@ -670,6 +689,7 @@ static int buck_control(enum DVFS_USER user, int up)
 		ret |= set_power_voltage(user, (void *)&mdla_volt_data);
 
 	} else {
+
 		/*
 		 * to avoid vmdla/vvpu constraint,
 		 * adjust to transition voltage first.
@@ -686,22 +706,39 @@ static int buck_control(enum DVFS_USER user, int up)
 		sram_volt_data.target_volt = VSRAM_DEFAULT_VOLT;
 		ret |= set_power_voltage(user, (void *)&sram_volt_data);
 
-		/*
-		 * then adjust vmdla/vvpu again to real default voltage
-		 */
-		mdla_volt_data.target_buck = MDLA_BUCK;
-		mdla_volt_data.target_volt = VMDLA_SHUTDOWN_VOLT;
-		ret |= set_power_voltage(user, (void *)&mdla_volt_data);
+		if (level == 1) { // buck adjust to low voltage
+			/*
+			 * then adjust vmdla/vvpu again to real default voltage
+			 */
+			mdla_volt_data.target_buck = MDLA_BUCK;
+			mdla_volt_data.target_volt = VMDLA_SHUTDOWN_VOLT;
+			ret |= set_power_voltage(user, (void *)&mdla_volt_data);
 
-		vpu_volt_data.target_buck = VPU_BUCK;
-		vpu_volt_data.target_volt = VVPU_SHUTDOWN_VOLT;
-		ret |= set_power_voltage(user, (void *)&vpu_volt_data);
+			vpu_volt_data.target_buck = VPU_BUCK;
+			vpu_volt_data.target_volt = VVPU_SHUTDOWN_VOLT;
+			ret |= set_power_voltage(user, (void *)&vpu_volt_data);
+#if 0
+			vcore_volt_data.target_buck = VCORE_BUCK;
+			vcore_volt_data.target_volt = VCORE_SHUTDOWN_VOLT;
+			ret |= set_power_voltage(user,
+					(void *)&vcore_volt_data);
+#endif
+		} else { // buck OFF
+			// enable buck isolation
+			DRV_SetBitReg32(BUCK_ISOLATION, (BIT(0) | BIT(5)));
 
-		vcore_volt_data.target_buck = VCORE_BUCK;
-		vcore_volt_data.target_volt = VCORE_SHUTDOWN_VOLT;
-		ret |= set_power_voltage(user, (void *)&vcore_volt_data);
+			// just turn off buck and don't release regulator handle
+			disable_regulator(SRAM_BUCK);
+			disable_regulator(VPU_BUCK);
+			disable_regulator(MDLA_BUCK);
+		}
 	}
 
+	info.dump_div = 1000;
+	info.id = 0;
+	dump_voltage(&info);
+
+	LOG_WRN("%s end, level = %d\n", __func__, level);
 	return ret;
 }
 
@@ -714,18 +751,18 @@ static int set_power_boot_up(enum DVFS_USER user, void *param)
 
 	power_bit_mask = ((struct hal_param_pwr_mask *)param)->power_bit_mask;
 
+	if (!buck_already_on) {
+		buck_control(user, 3); // buck on
+		buck_already_on = 1;
+		udelay(100);
+	}
+
 	if (power_bit_mask == 0) {
 
-		buck_control(user, 1);
+		buck_control(user, 2); // default voltage
 
 		// FIXME: Set mtcmos disable first to avoid conflict with iommu
 		force_pwr_on = 1;
-
-		// FIXME: remove this feature after iommu owner handle this job.
-		if (!reinit_apu_down) {
-			reinit_iommu_apu_resource();
-			reinit_apu_down = 1;
-		}
 	}
 
 	// Set mtcmos enable
@@ -763,7 +800,7 @@ static int set_power_shut_down(enum DVFS_USER user, void *param)
 	ret = set_power_mtcmos(user, (void *)&mtcmos_data);
 
 	if (power_bit_mask == 0)
-		buck_control(user, 0);
+		buck_control(user, 1); // low voltage
 
 	return ret;
 }
@@ -830,22 +867,27 @@ static void apusys_power_reg_dump(void)
 static void debug_power_mtcmos_on(void)
 {
 	LOG_WRN("%s begin +++\n", __func__);
-
-	buck_control(VPU0, 1);
+#if 0
+	buck_control(VPU0, 2); // buck ON
 
 	enable_apu_mtcmos(1);
 	enable_apu_conn_vcore_clock();
 	enable_infra2apu(1);
-
+#endif
+	buck_control(VPU0, 3); // buck on
+	buck_control(VPU0, 2); // default voltage
 	LOG_WRN("%s end ---\n", __func__);
 }
 
 static void debug_power_mtcmos_off(void)
 {
-	unsigned int regValue = 0;
+//	unsigned int regValue = 0;
 
 	LOG_WRN("%s begin +++\n", __func__);
 
+	buck_control(VPU0, 1); // low voltage
+	buck_control(VPU0, 0); // buck off
+#if 0
 	disable_apu_conn_vcore_clock();
 	enable_apu_mtcmos(0);
 
@@ -860,7 +902,7 @@ static void debug_power_mtcmos_off(void)
 	regValue |= 0x1;
 	DRV_WriteReg32(APU_RPC_TOP_CON, regValue);
 
-	buck_control(VPU0, 0);
-
+	buck_control(VPU0, 0); // buck OFF
+#endif
 	LOG_WRN("%s end ---\n", __func__);
 }

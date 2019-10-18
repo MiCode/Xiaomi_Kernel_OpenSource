@@ -713,19 +713,6 @@ int config_apupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 	return clk_set_rate(clk_top_apupll_ck, scaled_freq);
 }
 
-void reinit_iommu_apu_resource(void)
-{
-#if 0
-	LOG_WRN("%s\n", __func__);
-
-	DISABLE_CLK(clk_apu_conn_iommu_0_cg);
-	DISABLE_CLK(clk_apu_conn_iommu_1_cg);
-
-	enable_apu_mtcmos(0);
-	enable_apu_mtcmos(0);
-#endif
-}
-
 // dump related frequencies of APUsys
 void dump_frequency(struct apu_power_info *info)
 {
@@ -748,30 +735,35 @@ void dump_frequency(struct apu_power_info *info)
 		dsp_freq = mt_get_ckgen_freq(13);
 	}
 
+	temp_freq = mt_get_ckgen_freq(temp_id);
 	dsp1_freq = mt_get_ckgen_freq(14);
 	if (dsp1_freq == 0) {
 		temp_freq = mt_get_ckgen_freq(temp_id);
 		dsp1_freq = mt_get_ckgen_freq(14);
 	}
 
+	temp_freq = mt_get_ckgen_freq(temp_id);
 	dsp2_freq = mt_get_ckgen_freq(15);
 	if (dsp2_freq == 0) {
 		temp_freq = mt_get_ckgen_freq(temp_id);
 		dsp2_freq = mt_get_ckgen_freq(15);
 	}
 
+	temp_freq = mt_get_ckgen_freq(temp_id);
 	dsp3_freq = mt_get_ckgen_freq(16);
 	if (dsp3_freq == 0) {
 		temp_freq = mt_get_ckgen_freq(temp_id);
 		dsp3_freq = mt_get_ckgen_freq(16);
 	}
 
+	temp_freq = mt_get_ckgen_freq(temp_id);
 	dsp6_freq = mt_get_ckgen_freq(19);
 	if (dsp6_freq == 0) {
 		temp_freq = mt_get_ckgen_freq(temp_id);
 		dsp6_freq = mt_get_ckgen_freq(19);
 	}
 
+	temp_freq = mt_get_ckgen_freq(temp_id);
 	dsp7_freq = mt_get_ckgen_freq(20);
 	if (dsp7_freq == 0) {
 		temp_freq = mt_get_ckgen_freq(temp_id);
@@ -785,6 +777,7 @@ void dump_frequency(struct apu_power_info *info)
 		apupll_freq = mt_get_abist_freq(5);
 	}
 #endif
+	temp_freq = mt_get_ckgen_freq(temp_id);
 	ipuif_freq = mt_get_ckgen_freq(21);
 	if (ipuif_freq == 0) {
 		temp_freq = mt_get_ckgen_freq(temp_id);

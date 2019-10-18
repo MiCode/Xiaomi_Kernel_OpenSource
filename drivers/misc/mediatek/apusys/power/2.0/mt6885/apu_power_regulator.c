@@ -72,7 +72,6 @@ void pm_qos_unregister(void)
 
 /*
  * regulator_get: vvpu, vmdla, vcore, vsram
- * regulator_enable: vvpu, vmdla
  */
 int prepare_regulator(enum DVFS_BUCK buck, struct device *dev)
 {
@@ -86,6 +85,52 @@ int prepare_regulator(enum DVFS_BUCK buck, struct device *dev)
 			return ret;
 		}
 
+	} else if (buck == MDLA_BUCK) {
+		vmdla_reg_id = regulator_get(dev, "vmdla");
+		if (!vmdla_reg_id) {
+			ret = -ENOENT;
+			LOG_ERR("regulator_get vmdla_reg_id failed\n");
+			return ret;
+		}
+
+	} else if (buck == VCORE_BUCK) {
+		vcore_reg_id = regulator_get(dev, "vcore");
+		if (!vcore_reg_id) {
+			ret = -ENOENT;
+			LOG_ERR("regulator_get vcore_reg_id failed\n");
+			return ret;
+		}
+
+	} else if (buck == SRAM_BUCK) {
+		vsram_reg_id = regulator_get(dev, "vsram_apu");
+		if (!vsram_reg_id) {
+			ret = -ENOENT;
+			LOG_ERR("regulator_get vsram_reg_id failed\n");
+			return ret;
+		}
+
+	} else {
+		LOG_ERR("%s not support buck : %d\n", __func__, buck);
+		return -1;
+	}
+
+	return ret;
+}
+
+/*
+ * regulator_enable: vvpu, vmdla, vsram
+ */
+int enable_regulator(enum DVFS_BUCK buck)
+{
+	int ret = 0;
+
+	if (buck == VPU_BUCK) {
+		if (!vvpu_reg_id) {
+			ret = -ENOENT;
+			LOG_ERR("regulator_get vvpu_reg_id failed\n");
+			return ret;
+		}
+
 		ret = regulator_enable(vvpu_reg_id);
 		if (ret) {
 			LOG_ERR("regulator_enable vvpu_reg_id failed\n");
@@ -93,7 +138,6 @@ int prepare_regulator(enum DVFS_BUCK buck, struct device *dev)
 		}
 
 	} else if (buck == MDLA_BUCK) {
-		vmdla_reg_id = regulator_get(dev, "vmdla");
 		if (!vmdla_reg_id) {
 			ret = -ENOENT;
 			LOG_ERR("regulator_get vmdla_reg_id failed\n");
@@ -108,7 +152,6 @@ int prepare_regulator(enum DVFS_BUCK buck, struct device *dev)
 
 
 	} else if (buck == VCORE_BUCK) {
-		vcore_reg_id = regulator_get(dev, "vcore");
 		if (!vcore_reg_id) {
 			ret = -ENOENT;
 			LOG_ERR("regulator_get vcore_reg_id failed\n");
@@ -117,7 +160,6 @@ int prepare_regulator(enum DVFS_BUCK buck, struct device *dev)
 
 
 	} else if (buck == SRAM_BUCK) {
-		vsram_reg_id = regulator_get(dev, "vsram_apu");
 		if (!vsram_reg_id) {
 			ret = -ENOENT;
 			LOG_ERR("regulator_get vsram_reg_id failed\n");
@@ -140,10 +182,9 @@ int prepare_regulator(enum DVFS_BUCK buck, struct device *dev)
 }
 
 /*
- * regulator_disable: vvpu, vmdla
- * regulator_put: vvpu, vmdla, vcore, vsram
+ * regulator_disable: vvpu, vmdla, vsram
  */
-int unprepare_regulator(enum DVFS_BUCK buck)
+int disable_regulator(enum DVFS_BUCK buck)
 {
 	int ret = 0;
 
@@ -158,11 +199,9 @@ int unprepare_regulator(enum DVFS_BUCK buck)
 		if (ret) {
 			LOG_ERR("regulator_disable vvpu_reg_id failed\n");
 			return ret;
+		} else {
+			LOG_INF("disable vvpu success\n");
 		}
-
-		regulator_put(vvpu_reg_id);
-		vvpu_reg_id = NULL;
-		LOG_DBG("release vvpu_reg_id success\n");
 
 	} else if (buck == MDLA_BUCK) {
 		if (!vmdla_reg_id) {
@@ -175,11 +214,9 @@ int unprepare_regulator(enum DVFS_BUCK buck)
 		if (ret) {
 			LOG_ERR("regulator_disable vmdla_reg_id failed\n");
 			return ret;
+		} else {
+			LOG_INF("disable vmdla success\n");
 		}
-
-		regulator_put(vmdla_reg_id);
-		vmdla_reg_id = NULL;
-		LOG_DBG("release vmdla_reg_id success\n");
 
 	} else if (buck == VCORE_BUCK) {
 		if (!vcore_reg_id) {
@@ -187,10 +224,6 @@ int unprepare_regulator(enum DVFS_BUCK buck)
 			LOG_ERR("vcore_reg_id is invalid\n");
 			return ret;
 		}
-
-		regulator_put(vcore_reg_id);
-		vcore_reg_id = NULL;
-		LOG_DBG("release vcore_reg_id success\n");
 
 	} else if (buck == SRAM_BUCK) {
 		if (!vsram_reg_id) {
@@ -203,11 +236,9 @@ int unprepare_regulator(enum DVFS_BUCK buck)
 		if (ret) {
 			LOG_ERR("regulator_disable vsram_reg_id failed\n");
 			return ret;
+		} else {
+			LOG_INF("disable vsram success\n");
 		}
-
-		regulator_put(vsram_reg_id);
-		vsram_reg_id = NULL;
-		LOG_DBG("release vsram_reg_id success\n");
 
 	} else {
 		LOG_ERR("%s not support buck : %d\n", __func__, buck);
@@ -215,6 +246,65 @@ int unprepare_regulator(enum DVFS_BUCK buck)
 	}
 
 	udelay(200); // slew rate:rising10mV/us
+	return ret;
+}
+
+/*
+ * regulator_put: vvpu, vmdla, vsram, vcore
+ */
+int unprepare_regulator(enum DVFS_BUCK buck)
+{
+	int ret = 0;
+
+	if (buck == VPU_BUCK) {
+		if (!vvpu_reg_id) {
+			ret = -ENOENT;
+			LOG_ERR("vvpu_reg_id is invalid\n");
+			return ret;
+		}
+
+		regulator_put(vvpu_reg_id);
+		vvpu_reg_id = NULL;
+		LOG_INF("release vvpu_reg_id success\n");
+
+	} else if (buck == MDLA_BUCK) {
+		if (!vmdla_reg_id) {
+			ret = -ENOENT;
+			LOG_ERR("vmdla_reg_id is invalid\n");
+			return ret;
+		}
+
+		regulator_put(vmdla_reg_id);
+		vmdla_reg_id = NULL;
+		LOG_INF("release vmdla_reg_id success\n");
+
+	} else if (buck == VCORE_BUCK) {
+		if (!vcore_reg_id) {
+			ret = -ENOENT;
+			LOG_ERR("vcore_reg_id is invalid\n");
+			return ret;
+		}
+
+		regulator_put(vcore_reg_id);
+		vcore_reg_id = NULL;
+		LOG_INF("release vcore_reg_id success\n");
+
+	} else if (buck == SRAM_BUCK) {
+		if (!vsram_reg_id) {
+			ret = -ENOENT;
+			LOG_ERR("vsram_reg_id is invalid\n");
+			return ret;
+		}
+
+		regulator_put(vsram_reg_id);
+		vsram_reg_id = NULL;
+		LOG_INF("release vsram_reg_id success\n");
+
+	} else {
+		LOG_ERR("%s not support buck : %d\n", __func__, buck);
+		return -1;
+	}
+
 	return ret;
 }
 

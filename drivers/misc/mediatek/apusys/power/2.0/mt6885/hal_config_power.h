@@ -51,6 +51,7 @@ struct hal_param_init_power {
 	void *vcore_base_addr;
 	void *infracfg_ao_base_addr;
 	void *infra_bcrm_base_addr;
+	void *spm_base_addr;
 	void *conn_base_addr;
 	void *vpu0_base_addr;
 	void *vpu1_base_addr;

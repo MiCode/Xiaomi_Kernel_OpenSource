@@ -43,6 +43,8 @@ struct apu_power_info {
 void pm_qos_register(void);
 void pm_qos_unregister(void);
 int prepare_regulator(enum DVFS_BUCK buck, struct device *dev);
+int enable_regulator(enum DVFS_BUCK buck);
+int disable_regulator(enum DVFS_BUCK buck);
 int unprepare_regulator(enum DVFS_BUCK buck);
 int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV);
 int config_regulator_mode(enum DVFS_BUCK buck, int is_normal);
@@ -69,7 +71,6 @@ void disable_apu_device_clock(enum DVFS_USER user);
 void disable_apu_conn_vcore_clksrc(void);
 void disable_apu_device_clksrc(enum DVFS_USER user);
 
-void reinit_iommu_apu_resource(void);
 bool dvfs_user_support(enum DVFS_USER user);
 bool dvfs_power_domain_support(enum DVFS_VOLTAGE_DOMAIN domain);
 

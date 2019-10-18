@@ -52,6 +52,7 @@ extern void *g_APU_VPU1_BASE;
 extern void *g_APU_VPU2_BASE;
 extern void *g_APU_MDLA0_BASE;
 extern void *g_APU_MDLA1_BASE;
+extern void *g_APU_SPM_BASE;
 
 #define REG_POLLING_TIMEOUT_ROUNDS	(50) // 50 * 10us = 500us
 
@@ -101,6 +102,12 @@ extern void *g_APU_MDLA1_BASE;
 #define INFRA_BCRM_MEM_PROT_A	(void *)(APU_INFRA_BCRM_BASE + 0x170)
 #define INFRA_BCRM_MEM_PROT_B	(void *)(APU_INFRA_BCRM_BASE + 0x174)
 #define INFRA_BCRM_MEM_PROT_C	(void *)(APU_INFRA_BCRM_BASE + 0x178)
+
+/**************************************************
+ * SPM and related register
+ *************************************************/
+#define APU_SPM_BASE		(g_APU_SPM_BASE)
+#define BUCK_ISOLATION		(void *)(APU_SPM_BASE + 0x39C)
 
 /**************************************************
  * debug related register

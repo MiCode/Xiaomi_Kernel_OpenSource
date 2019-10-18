@@ -31,6 +31,7 @@ struct hal_param_init_power *init_power_data)
 	struct resource *apusys_vcore_res = NULL;
 	struct device_node *infra_ao_node = NULL;
 	struct device_node *infra_bcrm_node = NULL;
+	struct device_node *spm_node = NULL;
 
 	// debug related resources
 	struct device_node *apusys_conn_node = NULL;
@@ -44,6 +45,17 @@ struct hal_param_init_power *init_power_data)
 						pdev->id, pdev->name,
 						pdev->dev.of_node->name);
 	init_power_data->dev = apusys_dev;
+
+	// spm
+	spm_node = of_find_compatible_node(NULL, NULL, "mediatek,sleep");
+	if (spm_node) {
+		init_power_data->spm_base_addr = of_iomap(spm_node, 0);
+
+		if (IS_ERR((void *)init_power_data->spm_base_addr)) {
+			LOG_ERR("Unable to iomap spm_base_addr\n");
+			goto err_exit;
+		}
+	}
 
 	// infra ao
 	infra_ao_node = of_find_compatible_node(NULL, NULL,
