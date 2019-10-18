@@ -42,8 +42,8 @@ enum mtk_mmsys_id {
 const struct mtk_mmsys_reg_data *
 mtk_ddp_get_mmsys_reg_data(enum mtk_mmsys_id mmsys_id);
 
-void mtk_disp_ultra_offset(void __iomem *config_regs, enum mtk_ddp_comp_id comp,
-			   enum mtk_dst_module_type dst_mod_type);
+void mtk_disp_ultra_offset(void __iomem *config_regs,
+			enum mtk_ddp_comp_id comp, bool is_dc);
 void mtk_ddp_add_comp_to_path(struct mtk_drm_crtc *mtk_crtc,
 			      struct mtk_ddp_comp *comp,
 			      enum mtk_ddp_comp_id prev,

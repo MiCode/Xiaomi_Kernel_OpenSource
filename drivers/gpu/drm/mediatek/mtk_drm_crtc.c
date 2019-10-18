@@ -862,25 +862,39 @@ static void copy_drm_disp_mode(struct drm_display_mode *src,
 static struct golden_setting_context *
 __get_golden_setting_context(struct mtk_drm_crtc *mtk_crtc)
 {
-	static int is_inited;
-	static struct golden_setting_context gs_ctx;
+	static int is_inited[MAX_CRTC];
+	static struct golden_setting_context gs_ctx[MAX_CRTC];
 	struct drm_crtc *crtc = &mtk_crtc->base;
+	int idx = drm_crtc_index(&mtk_crtc->base);
 
-	if (is_inited)
+	if (is_inited[idx])
 		goto done;
 
 	/* default setting */
-	gs_ctx.is_dc = 0;
+	gs_ctx[idx].is_dc = 0;
 
 	/* primary_display */
-	gs_ctx.is_vdo_mode = mtk_crtc_is_frame_trigger_mode(crtc) ? 0 : 1;
-	gs_ctx.dst_width = crtc->state->adjusted_mode.hdisplay;
-	gs_ctx.dst_height = crtc->state->adjusted_mode.vdisplay;
+	switch (idx) {
+	case 0:
+		gs_ctx[idx].is_vdo_mode =
+				mtk_crtc_is_frame_trigger_mode(crtc) ? 0 : 1;
+		gs_ctx[idx].dst_width = crtc->state->adjusted_mode.hdisplay;
+		gs_ctx[idx].dst_height = crtc->state->adjusted_mode.vdisplay;
+		break;
+	case 1:
+		/* TO DO: need more smart judge */
+		gs_ctx[idx].is_vdo_mode = 1;
+		break;
+	case 2:
+		/* TO DO: need more smart judge */
+		gs_ctx[idx].is_vdo_mode = 0;
+		break;
+	}
 
-	is_inited = 1;
+	is_inited[idx] = 1;
 
 done:
-	return &gs_ctx;
+	return &gs_ctx[idx];
 }
 
 static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
@@ -1015,6 +1029,19 @@ bool mtk_crtc_is_dc_mode(struct drm_crtc *crtc)
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 
 	return mtk_crtc_target_is_dc_mode(crtc, mtk_crtc->ddp_mode);
+}
+
+bool mtk_crtc_is_mem_mode(struct drm_crtc *crtc)
+{
+	/* for find memory session */
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_ddp_comp *comp = mtk_ddp_comp_request_output(mtk_crtc);
+
+	if (comp->id == DDP_COMPONENT_WDMA0 ||
+		comp->id == DDP_COMPONENT_WDMA1)
+		return true;
+
+	return false;
 }
 
 int get_path_wait_event(struct mtk_drm_crtc *mtk_crtc,
@@ -1923,11 +1950,7 @@ void mtk_crtc_config_default_path(struct mtk_drm_crtc *mtk_crtc)
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	struct cmdq_pkt *cmdq_handle;
 	struct mtk_ddp_config cfg;
-	struct mtk_golden_setting_arg io_gs;
 	struct mtk_ddp_comp *comp;
-
-	memset(&io_gs, 0, sizeof(io_gs));
-	io_gs.dst_mod_type = DST_MOD_REAL_TIME;
 
 	cfg.w = crtc->state->adjusted_mode.hdisplay;
 	cfg.h = crtc->state->adjusted_mode.vdisplay;
@@ -1940,8 +1963,6 @@ void mtk_crtc_config_default_path(struct mtk_drm_crtc *mtk_crtc)
 
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) {
 		mtk_ddp_comp_config(comp, &cfg, cmdq_handle);
-		mtk_ddp_comp_io_cmd(comp, cmdq_handle,
-				    MTK_IO_CMD_OVL_GOLDEN_SETTING, &io_gs);
 		mtk_ddp_comp_start(comp, cmdq_handle);
 
 		if (!mtk_drm_helper_get_opt(
@@ -2098,6 +2119,12 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 	/* 3. start trigger loop first to keep gce alive */
 	if (mtk_crtc_with_trigger_loop(&mtk_crtc->base))
 		mtk_crtc_start_trig_loop(mtk_crtc);
+
+	if (mtk_crtc_is_mem_mode(crtc) || mtk_crtc_is_dc_mode(crtc)) {
+		struct golden_setting_context *ctx =
+					__get_golden_setting_context(mtk_crtc);
+		ctx->is_dc = 1;
+	}
 
 	/* 4. connect path */
 	mtk_crtc_connect_default_path(mtk_crtc);
@@ -2598,6 +2625,8 @@ static void mtk_crtc_wb_comp_config(struct drm_crtc *crtc,
 		cfg.bpc = mtk_crtc->bpc;
 		cfg.p_golden_setting_context =
 				__get_golden_setting_context(mtk_crtc);
+		cfg.p_golden_setting_context->dst_width = cfg.w;
+		cfg.p_golden_setting_context->dst_height = cfg.h;
 	} else {
 		/* Output buffer configuration for internal decouple mode */
 		ddp_ctx = &mtk_crtc->ddp_ctx[mtk_crtc->ddp_mode];
@@ -3648,7 +3677,6 @@ static void mtk_crtc_config_single_path_cmdq(struct drm_crtc *crtc,
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	struct mtk_crtc_ddp_ctx *ddp_ctx;
-	struct mtk_golden_setting_arg io_gs;
 	int i;
 
 	ddp_ctx = &mtk_crtc->ddp_ctx[ddp_mode];
@@ -3671,25 +3699,10 @@ static void mtk_crtc_config_single_path_cmdq(struct drm_crtc *crtc,
 		}
 	}
 
-	memset(&io_gs, 0, sizeof(io_gs));
-	for (i = ddp_ctx->ddp_comp_nr[path_idx] - 1; i >= 0; i--) {
-		struct mtk_ddp_comp *comp = ddp_ctx->ddp_comp[path_idx][i];
-
-		if (mtk_ddp_comp_is_output(comp)) {
-			if (comp->id == DDP_COMPONENT_WDMA0 ||
-			    comp->id == DDP_COMPONENT_WDMA1)
-				io_gs.dst_mod_type = DST_MOD_WDMA;
-			else
-				io_gs.dst_mod_type = DST_MOD_REAL_TIME;
-			break;
-		}
-	}
 	for (i = 0; i < ddp_ctx->ddp_comp_nr[path_idx]; i++) {
 		struct mtk_ddp_comp *comp = ddp_ctx->ddp_comp[path_idx][i];
 
 		mtk_ddp_comp_config(comp, cfg, cmdq_handle);
-		mtk_ddp_comp_io_cmd(comp, cmdq_handle,
-				    MTK_IO_CMD_OVL_GOLDEN_SETTING, &io_gs);
 		mtk_ddp_comp_start(comp, cmdq_handle);
 		if (!mtk_drm_helper_get_opt(
 				    priv->helper_opt,
@@ -3707,7 +3720,6 @@ static void mtk_crtc_create_wb_path_cmdq(struct drm_crtc *crtc,
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	struct mtk_crtc_ddp_ctx *ddp_ctx;
-	struct mtk_golden_setting_arg io_gs;
 	struct mtk_drm_gem_obj *mtk_gem;
 	struct mtk_ddp_comp *comp;
 	dma_addr_t addr;
@@ -3750,13 +3762,10 @@ static void mtk_crtc_create_wb_path_cmdq(struct drm_crtc *crtc,
 	}
 
 	/* All the 1to2 path shoulbe be real-time */
-	io_gs.dst_mod_type = DST_MOD_REAL_TIME;
 	for (i = 0; i < ddp_ctx->wb_comp_nr; i++) {
 		struct mtk_ddp_comp *comp = ddp_ctx->wb_comp[i];
 
 		mtk_ddp_comp_config(comp, cfg, cmdq_handle);
-		mtk_ddp_comp_io_cmd(comp, cmdq_handle,
-				    MTK_IO_CMD_OVL_GOLDEN_SETTING, &io_gs);
 		mtk_ddp_comp_start(comp, cmdq_handle);
 		if (!mtk_drm_helper_get_opt(
 				    priv->helper_opt,
@@ -3920,6 +3929,13 @@ static void __mtk_crtc_prim_path_switch(struct drm_crtc *crtc,
 					  ddp_mode, 0);
 
 	/* 4. Primary path configurations */
+	cfg->p_golden_setting_context =
+				__get_golden_setting_context(mtk_crtc);
+	if (mtk_crtc_target_is_dc_mode(crtc, ddp_mode))
+		cfg->p_golden_setting_context->is_dc = 1;
+	else
+		cfg->p_golden_setting_context->is_dc = 0;
+
 	mtk_crtc_config_single_path_cmdq(crtc, cmdq_handle, next_path_idx,
 					 ddp_mode, cfg);
 

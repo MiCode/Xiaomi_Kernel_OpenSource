@@ -363,11 +363,6 @@ enum MTK_CRTC_COLOR_FMT {
 		MAKE_CRTC_COLOR_FMT(1, 32, 0, 0, 3, 0, 0, 45),
 };
 
-enum mtk_dst_module_type {
-	DST_MOD_REAL_TIME,
-	DST_MOD_WDMA,
-};
-
 #define DECLARE_GCE_CLIENT(EXPR)                                               \
 	EXPR(CLIENT_CFG)                                                       \
 	EXPR(CLIENT_TRIG_LOOP)                                                 \
@@ -557,10 +552,6 @@ struct mtk_cmdq_cb_data {
 	struct drm_crtc_state		*state;
 	struct cmdq_pkt			*cmdq_handle;
 	struct drm_crtc			*crtc;
-};
-
-struct mtk_golden_setting_arg {
-	enum mtk_dst_module_type dst_mod_type;
 };
 
 int mtk_drm_crtc_enable_vblank(struct drm_device *drm, unsigned int pipe);

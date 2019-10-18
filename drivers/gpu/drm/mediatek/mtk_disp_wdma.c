@@ -301,8 +301,8 @@ static void mtk_wdma_calc_golden_setting(struct golden_setting_context *gsc,
 	unsigned int res = 0;
 	unsigned int frame_rate = 0;
 	unsigned long long consume_rate = 0;
-	unsigned int fifo_size = 297;
-	unsigned int fifo_size_uv = 1;
+	unsigned int fifo_size = 325;
+	unsigned int fifo_size_uv = 31;
 	unsigned int fifo;
 	unsigned int factor1 = 4;
 	unsigned int factor2 = 4;
@@ -328,21 +328,12 @@ static void mtk_wdma_calc_golden_setting(struct golden_setting_context *gsc,
 	else
 		gs[GS_WDMA_BUF_CON1] = 0x40000000;
 
-	if (format == DRM_FORMAT_YVU420 ||
-	    format == DRM_FORMAT_YUV420) /* 3 plane */
-		gs[GS_WDMA_BUF_CON1] += 0xBCC5;
-	else if (format == DRM_FORMAT_NV12 ||
-		 format == DRM_FORMAT_NV21) /* 2 plane */
-		gs[GS_WDMA_BUF_CON1] += 0x184C5;
-	else /* 1 plane */
-		gs[GS_WDMA_BUF_CON1] += 0x529;
-
 	switch (format) {
 	case DRM_FORMAT_YVU420:
 	case DRM_FORMAT_YUV420:
 		/* 3 plane */
-		fifo_size = 197;
-		fifo_size_uv = 47;
+		fifo_size = 237;
+		fifo_size_uv = 59;
 		fifo = fifo_size_uv;
 		factor1 = 4;
 		factor2 = 4;
@@ -352,8 +343,8 @@ static void mtk_wdma_calc_golden_setting(struct golden_setting_context *gsc,
 	case DRM_FORMAT_NV12:
 	case DRM_FORMAT_NV21:
 		/* 2 plane */
-		fifo_size = 197;
-		fifo_size_uv = 97;
+		fifo_size = 237;
+		fifo_size_uv = 118;
 		fifo = fifo_size_uv;
 		factor1 = 2;
 		factor2 = 4;
@@ -370,6 +361,8 @@ static void mtk_wdma_calc_golden_setting(struct golden_setting_context *gsc,
 
 		break;
 	}
+
+	gs[GS_WDMA_BUF_CON1] += (fifo_size_uv << 10) + fifo_size;
 
 	/* WDMA_BUF_CON5 */
 	tmp = DIV_ROUND_UP(consume_rate * Bpp * preultra_low_us, FP);

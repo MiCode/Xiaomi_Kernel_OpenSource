@@ -537,7 +537,7 @@ static void mtk_ovl_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	mtk_ovl_io_cmd(comp, handle, IRQ_LEVEL_ALL, NULL);
 
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DISP_REG_OVL_EN,
-		       0x1, ~0);
+		       0x1, 0x1);
 
 	/* In 6779 we need to set DISP_OVL_FORCE_RELAY_MODE */
 	if (compr_info && strncmp(compr_info->name, "PVRIC_V3_1", 10) == 0) {
@@ -579,7 +579,7 @@ static void mtk_ovl_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 		DRM_ERROR("Failed to disable power domain: %d\n", ret);
 
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DISP_REG_OVL_EN,
-		       0x0, ~0);
+		       0x0, 0x1);
 
 	comp->qos_bw = 0;
 	DDPDBG("%s-\n", __func__);
@@ -601,6 +601,10 @@ static void _get_bg_roi(struct mtk_ddp_comp *comp, int *h, int *w)
 	*w = ovl->bg_w;
 }
 
+static int mtk_ovl_golden_setting(struct mtk_ddp_comp *comp,
+				  struct mtk_ddp_config *cfg,
+				  struct cmdq_pkt *handle);
+
 static void mtk_ovl_config(struct mtk_ddp_comp *comp,
 			   struct mtk_ddp_config *cfg, struct cmdq_pkt *handle)
 {
@@ -613,6 +617,8 @@ static void mtk_ovl_config(struct mtk_ddp_comp *comp,
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		       comp->regs_pa + DISP_REG_OVL_ROI_BGCLR, OVL_ROI_BGCLR,
 		       ~0);
+
+	mtk_ovl_golden_setting(comp, cfg, handle);
 }
 
 static void mtk_ovl_layer_on(struct mtk_ddp_comp *comp, unsigned int idx,
@@ -1793,58 +1799,53 @@ static void mtk_ovl_connect(struct mtk_ddp_comp *comp,
 				       DISP_OVL_BGCLR_IN_SEL, 0);
 }
 
-void mtk_ovl_cal_golden_setting(enum mtk_dst_module_type dst_mod_type,
-				unsigned int *gs)
+void mtk_ovl_cal_golden_setting(struct mtk_ddp_config *cfg, unsigned int *gs)
 {
+	bool is_dc = cfg->p_golden_setting_context->is_dc;
+
+	DDPDBG("%s,is_dc:%d\n", __func__, is_dc);
+
 	/* OVL_RDMA_MEM_GMC_SETTING_1 */
 	gs[GS_OVL_RDMA_ULTRA_TH] = 0x3ff;
-	gs[GS_OVL_RDMA_PRE_ULTRA_TH] =
-		(dst_mod_type == DST_MOD_REAL_TIME) ? 0x3ff : 0xe0;
+	gs[GS_OVL_RDMA_PRE_ULTRA_TH] = (!is_dc) ? 0x3ff : 0x15e;
 
 	/* OVL_RDMA_FIFO_CTRL */
 	gs[GS_OVL_RDMA_FIFO_THRD] = 0;
-	gs[GS_OVL_RDMA_FIFO_SIZE] = 288;
+	gs[GS_OVL_RDMA_FIFO_SIZE] = 384;
 
 	/* OVL_RDMA_MEM_GMC_SETTING_2 */
-	gs[GS_OVL_RDMA_ISSUE_REQ_TH] =
-		(dst_mod_type == DST_MOD_REAL_TIME) ? 191 : 15;
-	gs[GS_OVL_RDMA_ISSUE_REQ_TH_URG] =
-		(dst_mod_type == DST_MOD_REAL_TIME) ? 95 : 15;
+	gs[GS_OVL_RDMA_ISSUE_REQ_TH] = (!is_dc) ? 255 : 15;
+	gs[GS_OVL_RDMA_ISSUE_REQ_TH_URG] = (!is_dc) ? 127 : 15;
 	gs[GS_OVL_RDMA_REQ_TH_PRE_ULTRA] = 0;
 	gs[GS_OVL_RDMA_REQ_TH_ULTRA] = 1;
 	gs[GS_OVL_RDMA_FORCE_REQ_TH] = 0;
 
 	/* OVL_RDMA_GREQ_NUM */
-	gs[GS_OVL_RDMA_GREQ_NUM] =
-		(dst_mod_type == DST_MOD_REAL_TIME) ? 0xF1FF5555 : 0xF1FF0000;
+	gs[GS_OVL_RDMA_GREQ_NUM] = (!is_dc) ? 0xF1FF7777 : 0xF1FF0000;
 
 	/* OVL_RDMA_GREQURG_NUM */
-	gs[GS_OVL_RDMA_GREQ_URG_NUM] =
-		(dst_mod_type == DST_MOD_REAL_TIME) ? 0x5555 : 0x0;
+	gs[GS_OVL_RDMA_GREQ_URG_NUM] = (!is_dc) ? 0x7777 : 0x0;
 
 	/* OVL_RDMA_ULTRA_SRC */
-	gs[GS_OVL_RDMA_ULTRA_SRC] =
-		(dst_mod_type == DST_MOD_REAL_TIME) ? 0x8040 : 0xA040;
+	gs[GS_OVL_RDMA_ULTRA_SRC] = (!is_dc) ? 0x8040 : 0xA040;
 
 	/* OVL_RDMA_BUF_LOW_TH */
 	gs[GS_OVL_RDMA_ULTRA_LOW_TH] = 0;
-	gs[GS_OVL_RDMA_PRE_ULTRA_LOW_TH] =
-		(dst_mod_type == DST_MOD_REAL_TIME) ? 0 : 0x24;
+	gs[GS_OVL_RDMA_PRE_ULTRA_LOW_TH] = (!is_dc) ?
+				0 : (gs[GS_OVL_RDMA_FIFO_SIZE] / 8);
 
 	/* OVL_RDMA_BUF_HIGH_TH */
-	gs[GS_OVL_RDMA_PRE_ULTRA_HIGH_TH] =
-		(dst_mod_type == DST_MOD_REAL_TIME) ? 0 : 0xd8;
+	gs[GS_OVL_RDMA_PRE_ULTRA_HIGH_TH] = (!is_dc) ?
+				0 : (gs[GS_OVL_RDMA_FIFO_SIZE] * 6 / 8);
 	gs[GS_OVL_RDMA_PRE_ULTRA_HIGH_DIS] = 1;
 
 	/* OVL_EN */
-	gs[GS_OVL_BLOCK_EXT_ULTRA] =
-		(dst_mod_type == DST_MOD_REAL_TIME) ? 0 : 1;
-	gs[GS_OVL_BLOCK_EXT_PRE_ULTRA] =
-		(dst_mod_type == DST_MOD_REAL_TIME) ? 0 : 1;
+	gs[GS_OVL_BLOCK_EXT_ULTRA] = (!is_dc) ? 0 : 1;
+	gs[GS_OVL_BLOCK_EXT_PRE_ULTRA] = (!is_dc) ? 0 : 1;
 }
 
 static int mtk_ovl_golden_setting(struct mtk_ddp_comp *comp,
-				  enum mtk_dst_module_type dst_mod_type,
+				  struct mtk_ddp_config *cfg,
 				  struct cmdq_pkt *handle)
 {
 	unsigned long baddr = comp->regs_pa;
@@ -1853,12 +1854,10 @@ static int mtk_ovl_golden_setting(struct mtk_ddp_comp *comp,
 	int i, layer_num;
 	unsigned long Lx_base;
 
-	DDPDBG("%s,dst_mod_type:%d\n", __func__, dst_mod_type);
-
 	layer_num = mtk_ovl_layer_num(comp);
 
 	/* calculate ovl golden setting */
-	mtk_ovl_cal_golden_setting(dst_mod_type, gs);
+	mtk_ovl_cal_golden_setting(cfg, gs);
 
 	/* OVL_RDMA_MEM_GMC_SETTING_1 */
 	regval =
@@ -1926,10 +1925,10 @@ static int mtk_ovl_golden_setting(struct mtk_ddp_comp *comp,
 			       ~0);
 
 	/* OVL_EN */
-	regval = gs[GS_OVL_BLOCK_EXT_ULTRA] +
-		 (gs[GS_OVL_BLOCK_EXT_PRE_ULTRA] << 1);
-	cmdq_pkt_write(handle, comp->cmdq_base, baddr + (DISP_REG_OVL_EN << 18),
-		       regval, ~(0x3 << 18));
+	regval = (gs[GS_OVL_BLOCK_EXT_ULTRA] << 18) +
+		 (gs[GS_OVL_BLOCK_EXT_PRE_ULTRA] << 19);
+	cmdq_pkt_write(handle, comp->cmdq_base, baddr + DISP_REG_OVL_EN,
+		       regval, 0x3 << 18);
 
 	return 0;
 }
@@ -2060,9 +2059,10 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 
 	switch (io_cmd) {
 	case MTK_IO_CMD_OVL_GOLDEN_SETTING: {
-		struct mtk_golden_setting_arg *gset_arg = params;
+		struct mtk_ddp_config *cfg;
 
-		mtk_ovl_golden_setting(comp, gset_arg->dst_mod_type, handle);
+		cfg = (struct mtk_ddp_config *)params;
+		mtk_ovl_golden_setting(comp, cfg, handle);
 		break;
 	}
 	case OVL_ALL_LAYER_OFF: {
@@ -2297,7 +2297,7 @@ void mtk_ovl_dump_golden_setting(struct mtk_ddp_comp *comp)
 
 	value = readl(DISP_REG_OVL_DATAPATH_CON + baddr);
 	DDPDUMP("DATAPATH_CON\n");
-	DDPDUMP("[0]:%u, [24]:%u [25]:%u [26]:%u\n",
+	DDPDUMP("[0]:%u [24]:%u [25]:%u [26]:%u\n",
 		REG_FLD_VAL_GET(DATAPATH_CON_FLD_LAYER_SMI_ID_EN, value),
 		REG_FLD_VAL_GET(DATAPATH_CON_FLD_GCLAST_EN, value),
 		REG_FLD_VAL_GET(DATAPATH_CON_FLD_HDR_GCLAST_EN, value),
@@ -2305,7 +2305,7 @@ void mtk_ovl_dump_golden_setting(struct mtk_ddp_comp *comp)
 
 	value = readl(DISP_REG_OVL_FBDC_CFG1 + baddr);
 	DDPDUMP("OVL_FBDC_CFG1\n");
-	DDPDUMP("[24]:%u, [28]:%u\n",
+	DDPDUMP("[24]:%u [28]:%u\n",
 		REG_FLD_VAL_GET(FLD_FBDC_8XE_MODE, value),
 		REG_FLD_VAL_GET(FLD_FBDC_FILTER_EN, value));
 }

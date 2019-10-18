@@ -136,10 +136,12 @@
 #define DISP_REG_RDMA_DBG_OUT4 0x0118
 #define DISP_REG_RDMA_DBG_OUT5 0x011c
 
+#define DISP_REG_RDMA_GREQ_URG_NUM_SEL 0x01a8
+#define FLD_RG_LAYER_SMI_ID_EN REG_FLD_MSB_LSB(29, 29)
+
 #define DISP_RDMA_MEM_CON 0x0024
 #define MEM_MODE_INPUT_SWAP BIT(8)
 #define DISP_RDMA_MEM_SRC_PITCH 0x002c
-#define DISP_RDMA_MEM_GMC_SETTING_0 0x0030
 #define DISP_REG_RDMA_FIFO_CON 0x0040
 #define FIFO_CON_FLD_OUTPUT_VALID_FIFO_THRESHOLD REG_FLD_MSB_LSB(13, 0)
 #define FIFO_CON_FLD_FIFO_PSEUDO_SIZE	REG_FLD_MSB_LSB(29, 16)
@@ -151,7 +153,6 @@
 #define DISP_RDMA_MEM_START_ADDR 0x0f00
 
 #define MATRIX_INT_MTX_SEL_DEFAULT 0x000000
-#define RDMA_MEM_GMC 0x40402020
 
 #define MEM_MODE_INPUT_FORMAT_RGB565 0x0U
 #define MEM_MODE_INPUT_FORMAT_RGB888 (0x001U << 4)
@@ -201,6 +202,7 @@ enum GS_RDMA_FLD {
 	GS_RDMA_URGENT_TH_HIGH,
 	GS_RDMA_SELF_FIFO_SIZE,
 	GS_RDMA_RSZ_FIFO_SIZE,
+	GS_RDMA_LAYER_SMI_ID_EN,
 	GS_RDMA_FLD_NUM,
 };
 
@@ -423,11 +425,12 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 	struct mtk_ddp_config *cfg, unsigned int *gs)
 {
 	/* fixed variable */
-	unsigned int mmsys_clk = 315;
+	unsigned int mmsys_clk = 208;
 	unsigned int pre_ultra_low_us = 245, pre_ultra_high_us = 255;
 	unsigned int ultra_low_us = 230, ultra_high_us = 245;
 	unsigned int if_fps = cfg->vrefresh;
 	unsigned int FP = 1000;
+	unsigned int fifo_size = 2240;
 
 	/* input variable */
 	struct golden_setting_context *gsc = cfg->p_golden_setting_context;
@@ -509,7 +512,7 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 		gs[GS_RDMA_OUTPUT_VALID_FIFO_TH] = 0;
 	else
 		gs[GS_RDMA_OUTPUT_VALID_FIFO_TH] = gs[GS_RDMA_PRE_ULTRA_TH_LOW];
-	gs[GS_RDMA_FIFO_SIZE] = 1536;
+	gs[GS_RDMA_FIFO_SIZE] = fifo_size;
 	gs[GS_RDMA_FIFO_UNDERFLOW_EN] = 1;
 
 	/* DISP_RDMA_MEM_GMC_SETTING_2 */
@@ -562,9 +565,14 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 	gs[GS_RDMA_URGENT_TH_LOW] = DIV_ROUND_UP(consume_rate * 113, FP);
 	gs[GS_RDMA_URGENT_TH_HIGH] = DIV_ROUND_UP(consume_rate * 117, FP);
 
+	/* DISP_RDMA_GREQ_URG_NUM_SEL */
+	gs[GS_RDMA_LAYER_SMI_ID_EN] = 1;
+
+#if 0
 	/* DISP_RDMA_SRAM_CASCADE */
 	gs[GS_RDMA_SELF_FIFO_SIZE] = 1536;
 	gs[GS_RDMA_RSZ_FIFO_SIZE] = 1536;
+#endif
 }
 
 /* Set register with value from mtk_rdma_cal_golden_setting.
@@ -659,16 +667,25 @@ static void mtk_rdma_set_ultra_l(struct mtk_ddp_comp *comp,
 		       comp->regs_pa + DISP_REG_RDMA_MEM_GMC_S3, val,
 		       ~0);
 
+	val = gs[GS_RDMA_LAYER_SMI_ID_EN] << 29;
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		       comp->regs_pa + DISP_REG_RDMA_GREQ_URG_NUM_SEL, val,
+		       REG_FLD_MASK(FLD_RG_LAYER_SMI_ID_EN));
+
+#if 0
 	val = gs[GS_RDMA_SELF_FIFO_SIZE] + (gs[GS_RDMA_RSZ_FIFO_SIZE] << 16);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		       comp->regs_pa + DISP_RDMA_SRAM_CASCADE, val, ~0);
+#endif
 }
 
 static void mtk_rdma_config(struct mtk_ddp_comp *comp,
 			    struct mtk_ddp_config *cfg, struct cmdq_pkt *handle)
 {
+#if 0
 	unsigned long long threshold;
 	unsigned int reg;
+#endif
 	struct mtk_disp_rdma *rdma = comp_to_rdma(comp);
 	bool *rdma_memory_mode = comp->comp_mode;
 
@@ -698,6 +715,7 @@ static void mtk_rdma_config(struct mtk_ddp_comp *comp,
 				   RDMA_MODE_MEMORY, handle);
 	}
 
+#if 0
 	/*
 	 * Enable FIFO underflow since DSI and DPI can't be blocked.
 	 * Keep the FIFO pseudo size reset default of 8 KiB. Set the
@@ -712,6 +730,7 @@ static void mtk_rdma_config(struct mtk_ddp_comp *comp,
 	      RDMA_OUTPUT_VALID_FIFO_THRESHOLD(threshold);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		       comp->regs_pa + DISP_REG_RDMA_FIFO_CON, reg, ~0);
+#endif
 
 	mtk_rdma_set_ultra_l(comp, cfg, handle);
 }
@@ -814,8 +833,9 @@ void mtk_rdma_dump_golden_setting(struct mtk_ddp_comp *comp)
 		readl(DISP_REG_RDMA_DVFS_SETTING_ULTRA + baddr),
 		readl(DISP_REG_RDMA_LEAVE_DRS_SETTING + baddr),
 		readl(DISP_REG_RDMA_ENTER_DRS_SETTING + baddr));
-	DDPDUMP("0x%03x:0x%08x\n",
-		0xe8, readl(DISP_REG_RDMA_MEM_GMC_S3 + baddr));
+	DDPDUMP("0x%03x:0x%08x 0x%03x:0x%08x\n",
+		0xe8, readl(DISP_REG_RDMA_MEM_GMC_S3 + baddr),
+		0x1a8, readl(DISP_REG_RDMA_GREQ_URG_NUM_SEL + baddr));
 
 
 	value = readl(DISP_REG_RDMA_MEM_GMC_S0 + baddr);
@@ -862,11 +882,12 @@ void mtk_rdma_dump_golden_setting(struct mtk_ddp_comp *comp)
 
 	DDPDUMP("SRAM_SEL [0]:%u\n", readl(DISP_REG_RDMA_SRAM_SEL + baddr));
 
-
+#if 0
 	value = readl(DISP_RDMA_SRAM_CASCADE + baddr);
 	DDPDUMP("SRAM_CASCADE [13:0]:%u [27:16]:%u\n",
 		REG_FLD_VAL_GET(RG_DISP_RDMA_FIFO_SIZE, value),
 		REG_FLD_VAL_GET(RG_DISP_RDMA_RSZ_FIFO_SIZE, value));
+#endif
 
 	value = readl(DISP_REG_RDMA_DVFS_SETTING_PRE + baddr);
 	DDPDUMP("DVFS_SETTING_PREULTRA [11:0]:%u [27:16]:%u\n",
@@ -892,6 +913,10 @@ void mtk_rdma_dump_golden_setting(struct mtk_ddp_comp *comp)
 	DDPDUMP("GMC_SETTING_3 [11:0]:%u [27:16]:%u\n",
 		REG_FLD_VAL_GET(FLD_LOW_FOR_URGENT, value),
 		REG_FLD_VAL_GET(FLD_HIGH_FOR_URGENT, value));
+
+	value = readl(DISP_REG_RDMA_GREQ_URG_NUM_SEL + baddr);
+	DDPDUMP("GREQ URG NUM SEL [29:29]: %u\n",
+		REG_FLD_VAL_GET(FLD_RG_LAYER_SMI_ID_EN, value));
 }
 
 int mtk_rdma_dump(struct mtk_ddp_comp *comp)
@@ -1124,7 +1149,6 @@ static void mtk_rdma_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 
 	mtk_ddp_write_relaxed(comp, addr, DISP_RDMA_MEM_START_ADDR, handle);
 	mtk_ddp_write_relaxed(comp, pitch, DISP_RDMA_MEM_SRC_PITCH, handle);
-	mtk_ddp_write(comp, RDMA_MEM_GMC, DISP_RDMA_MEM_GMC_SETTING_0, handle);
 
 	cfg_info->addr = addr;
 	cfg_info->width = pending->width;
@@ -1294,7 +1318,7 @@ static const struct mtk_disp_rdma_data mt8173_rdma_driver_data = {
 };
 
 static const struct mtk_disp_rdma_data mt6885_rdma_driver_data = {
-	.fifo_size = SZ_8K + SZ_16K,
+	.fifo_size = SZ_1K * 3 + SZ_32K,
 };
 
 static const struct of_device_id mtk_disp_rdma_driver_dt_match[] = {

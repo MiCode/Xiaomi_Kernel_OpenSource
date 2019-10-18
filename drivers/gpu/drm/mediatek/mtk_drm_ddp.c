@@ -2312,8 +2312,8 @@ static int mtk_ddp_sout_sel(const struct mtk_mmsys_reg_data *data,
 }
 #endif
 
-void mtk_disp_ultra_offset(void __iomem *config_regs, enum mtk_ddp_comp_id comp,
-			   enum mtk_dst_module_type dst_mod_type)
+void mtk_disp_ultra_offset(void __iomem *config_regs,
+			enum mtk_ddp_comp_id comp, bool is_dc)
 {
 	unsigned int addr, reg;
 	unsigned int shift;
@@ -2343,7 +2343,7 @@ void mtk_disp_ultra_offset(void __iomem *config_regs, enum mtk_ddp_comp_id comp,
 	}
 
 	addr = DISP_REG_CONFIG_MMSYS_MISC;
-	if (dst_mod_type == DST_MOD_REAL_TIME) {
+	if (!is_dc) {
 		reg = readl_relaxed(config_regs + addr) & ~(0x1 << shift);
 		writel_relaxed(reg | (0x1 << shift), config_regs + addr);
 	} else {
