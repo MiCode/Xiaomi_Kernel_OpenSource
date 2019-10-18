@@ -27,6 +27,7 @@
 #include <linux/poll.h>
 #include <linux/timekeeping.h>
 #include <uapi/linux/gpio.h>
+#include <linux/memory.h>
 
 #include "gpiolib.h"
 
@@ -2862,7 +2863,11 @@ void gpiochip_unlock_as_irq(struct gpio_chip *chip, unsigned int offset)
 	clear_bit(FLAG_USED_AS_IRQ, &desc->flags);
 
 	/* If we only had this marking, erase it */
-	if (desc->label && !strcmp(desc->label, "interrupt"))
+	/*
+	 * Check the VA is valid or not before access it to avoid
+	 * translation fault in the following strcmp
+	 */
+	if (virt_addr_valid(desc->label) && !strcmp(desc->label, "interrupt"))
 		desc_set_label(desc, NULL);
 }
 EXPORT_SYMBOL_GPL(gpiochip_unlock_as_irq);
