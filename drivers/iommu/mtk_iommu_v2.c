@@ -1354,7 +1354,7 @@ irqreturn_t MTK_M4U_isr_sec(int irq, void *dev_id)
 	pr_notice("iommu:%d secure bank irq in normal world!\n", m4u_id);
 	ret = __mtk_iommu_atf_call(IOMMU_ATF_DUMP_SECURE_REG,
 			m4u_id, 4, &tf_port);
-	if (ret) {
+	if (!ret && tf_port < M4U_PORT_UNKNOWN) {
 		mmu_aee_print(
 				"CRDISPATCH_KEY:M4U_%s translation fault(secure): port%lu[%u-%u]\n",
 				 iommu_get_port_name(tf_port),
