@@ -497,14 +497,14 @@ static void apu_power_assert_check(struct apu_power_info *info)
 	}
 
 	if ((vvpu > VSRAM_TRANS_VOLT || vmdla > VSRAM_TRANS_VOLT)
-		&& vsram == DVFS_VOLT_00_750000_V) {
-		apu_aee_warn("HIT VSRAM Constraint 1",
+		&& vsram == VSRAM_LOW_VOLT) {
+		apu_aee_warn("HIT VSRAM Constraint",
 			"vvpu=%d, vmdla=%d, vsram=%d\n",
 			vvpu, vmdla, vsram);
 	}
 
-	if ((vvpu < VSRAM_TRANS_VOLT && vmdla < VSRAM_TRANS_VOLT)
-		&& vsram == DVFS_VOLT_00_825000_V) {
+	if ((vvpu < VSRAM_TRANS_VOLT || vmdla < VSRAM_TRANS_VOLT)
+		&& vsram == VSRAM_HIGH_VOLT) {
 		apu_aee_warn("HIT VSRAM Constraint 2",
 			"vvpu=%d, vmdla=%d, vsram=%d\n",
 			vvpu, vmdla, vsram);

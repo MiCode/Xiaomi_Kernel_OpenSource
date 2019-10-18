@@ -16,7 +16,6 @@
 
 #include "apusys_power_cust.h"
 
-#define VCORE_DVFS_SUPPORT	(0)
 
 #define MAX(a, b)	((a) > (b) ? (a) : (b))
 #define MIN(a, b)	((a) < (b) ? (a) : (b))

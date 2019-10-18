@@ -15,6 +15,7 @@
 #define _APUSYS_POWER_USER_H_
 
 #ifdef AGING_MARGIN
+#if 0
 #define MARGIN_VOLT_0	(18750 + 41250)
 #define MARGIN_VOLT_1	(18750 + 40000)
 #define MARGIN_VOLT_2	(18750 + 38750)
@@ -25,7 +26,18 @@
 #define MARGIN_VOLT_7	(12500 + 30000)
 #define MARGIN_VOLT_8	(6250 + 28750)
 #define MARGIN_VOLT_9	(6250 + 27500)
-
+#else
+#define MARGIN_VOLT_0	(18750)
+#define MARGIN_VOLT_1	(18750)
+#define MARGIN_VOLT_2	(18750)
+#define MARGIN_VOLT_3	(18750)
+#define MARGIN_VOLT_4	(18750)
+#define MARGIN_VOLT_5	(12500)
+#define MARGIN_VOLT_6	(12500)
+#define MARGIN_VOLT_7	(12500)
+#define MARGIN_VOLT_8	(6250)
+#define MARGIN_VOLT_9	(6250)
+#endif
 #else
 #define MARGIN_VOLT_0	(0)
 #define MARGIN_VOLT_1	(0)

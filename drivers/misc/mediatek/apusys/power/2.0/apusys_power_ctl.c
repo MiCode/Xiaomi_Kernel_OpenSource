@@ -377,7 +377,7 @@ void apusys_buck_up_check(void)
 		}
 	}
 
-	if (apusys_opps.vsram_volatge == DVFS_VOLT_00_750000_V &&
+	if (apusys_opps.vsram_volatge == VSRAM_LOW_VOLT &&
 		(apusys_opps.cur_buck_volt[VPU_BUCK] > VSRAM_TRANS_VOLT ||
 		apusys_opps.cur_buck_volt[MDLA_BUCK] > VSRAM_TRANS_VOLT)) {
 		if ((apusys_opps.prev_buck_volt[buck_small_index] <
@@ -398,9 +398,9 @@ void apusys_buck_up_check(void)
 		}
 
 			volt_data.target_buck = SRAM_BUCK;
-			volt_data.target_volt = DVFS_VOLT_00_825000_V;
+			volt_data.target_volt = VSRAM_HIGH_VOLT;
 		hal_config_power(PWR_CMD_SET_VOLT, user, (void *)&volt_data);
-		apusys_opps.vsram_volatge = DVFS_VOLT_00_825000_V;
+		apusys_opps.vsram_volatge = VSRAM_HIGH_VOLT;
 
 	}
 
@@ -478,7 +478,7 @@ void apusys_buck_down_check(void)
 		}
 	}
 
-	if (apusys_opps.vsram_volatge == DVFS_VOLT_00_825000_V &&
+	if (apusys_opps.vsram_volatge == VSRAM_HIGH_VOLT &&
 		(apusys_opps.cur_buck_volt[VPU_BUCK] <= VSRAM_TRANS_VOLT &&
 		apusys_opps.cur_buck_volt[MDLA_BUCK] <= VSRAM_TRANS_VOLT)) {
 		if ((apusys_opps.prev_buck_volt[buck_large_index] >
@@ -499,9 +499,9 @@ void apusys_buck_down_check(void)
 		}
 
 		volt_data.target_buck = SRAM_BUCK;
-		volt_data.target_volt = DVFS_VOLT_00_750000_V;
+		volt_data.target_volt = VSRAM_LOW_VOLT;
 		hal_config_power(PWR_CMD_SET_VOLT, user, (void *)&volt_data);
-		apusys_opps.vsram_volatge = DVFS_VOLT_00_750000_V;
+		apusys_opps.vsram_volatge = VSRAM_LOW_VOLT;
 
 	}
 
