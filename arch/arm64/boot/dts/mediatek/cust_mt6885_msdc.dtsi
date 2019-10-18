@@ -34,6 +34,7 @@
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
 	vmmc-supply = <&mt_pmic_vemc_ldo_reg>;
+	vcore-supply = <&mt_pmic_vgpu11_buck_reg>;
 	clocks = <&infracfg_ao INFRACFG_AO_MSDC0_SRC_CLK_CG>,
 		<&infracfg_ao INFRACFG_AO_MSDC0_CG>,
 		<&infracfg_ao INFRACFG_AO_AES_UFSFDE_CG>;
