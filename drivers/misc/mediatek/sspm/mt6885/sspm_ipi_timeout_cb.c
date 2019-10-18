@@ -49,5 +49,6 @@ void sspm_ipi_timeout_cb(int ipi_id)
 
 	ipi_monitor_dump(&sspm_ipidev);
 
+	BUG_ON(1);
 }
 
