@@ -175,6 +175,7 @@ int vpu_init_dev_algo(struct platform_device *pdev, struct vpu_device *vd)
 			strncpy(alg->a.name, algo_info->name, ALGO_NAMELEN);
 			alg->a.mva = mva;
 			alg->a.len = algo_info->length;
+			alg->builtin = true;
 
 			list_add_tail(&alg->list, &vd->algo);
 			vd->algo_cnt++;

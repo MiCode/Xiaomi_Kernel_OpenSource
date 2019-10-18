@@ -131,9 +131,9 @@ unlock:
 	spin_unlock(&vd->algo_lock);
 out:
 	if (alg)
-		vpu_alg_debug("%s: vpu%d: %s: ref: %d\n",
+		vpu_alg_debug("%s: vpu%d: %s: ref: %d builtin: %d\n",
 			      __func__, vd->id, alg->a.name,
-			      kref_read(&alg->ref));
+			      kref_read(&alg->ref), alg->builtin);
 	else
 		vpu_alg_debug("%s: vpu%d: %s not found\n",
 			      __func__, vd->id, name);
@@ -260,6 +260,7 @@ struct __vpu_algo *vpu_alg_alloc(struct vpu_device *vd)
 	algo->a.info.ptr = (uintptr_t) algo + sizeof(struct __vpu_algo);
 	algo->a.info.length = prop_info_data_length;
 	algo->info_valid = false;
+	algo->builtin = false;
 	algo->vd = vd;
 
 	INIT_LIST_HEAD(&algo->list);
@@ -275,37 +276,74 @@ struct __vpu_algo *vpu_alg_alloc(struct vpu_device *vd)
  */
 int vpu_alg_add(struct vpu_device *vd, struct apusys_firmware_hnd *fw)
 {
-	struct __vpu_algo *alg;
+	struct __vpu_algo *alg = NULL;
+	struct __vpu_algo *tmp = NULL;
+
 	int ret = 0;
 
 	if (fw->magic != VPU_FW_MAGIC)
 		return -EINVAL;
 
 	alg = vpu_alg_alloc(vd);
-	if (!alg) {
+	if (!alg)
+		return -ENOMEM;
+
+	alg->iova.bin = VPU_MEM_ALLOC;
+	alg->iova.size = fw->size;
+	alg->a.mva = vpu_iova_alloc(to_platform_device(vd->dev), &alg->iova);
+	if (!alg->a.mva) {
 		ret = -ENOMEM;
-		goto out;
+		goto algo_free;
 	}
 
-	alg->a.len = fw->size;
-	alg->a.mva = fw->iova;
+	/* copy apusys algo content to vpu iova and sync to vpu device*/
+	memcpy((void *)alg->iova.m.va, (void *)fw->kva, fw->size);
+	vpu_iova_sync_for_device(vd->dev, &alg->iova);
+	alg->a.len = alg->iova.size;
+
 	/* make sure alg->a.name will full-filled null byte first */
 	memset(alg->a.name, 0, sizeof(alg->a.name));
 	strncpy(alg->a.name, fw->name,
 		min(sizeof(alg->a.name), sizeof(fw->name)) - 1);
-	vpu_alg_debug("%s: name %s, len %d, mva 0x%lx\n",
-		      __func__, alg->a.name, alg->a.len,
-		      (unsigned long)alg->a.mva);
 
-	/* Add from tail, so that existing algorithm can be
-	 * overidden by dynamic loaded ones.
+	/*
+	 * Search algo for existences.
+	 * If get_algo at the function beginning,
+	 * during iova memory preparation, other process may
+	 * create the algo and let the same algo be added
+	 * multi-times.
 	 */
 	spin_lock(&vd->algo_lock);
+	list_for_each_entry_reverse(tmp, &vd->algo, list) {
+		if (!strcmp(tmp->a.name, fw->name) && !tmp->builtin) {
+			/* algo name matches and dynamic list also has it */
+			ret = -EEXIST;
+			goto unlock;
+		}
+	}
+
+	/*
+	 * Any one of 2 case established
+	 * 1. Not found algo both in builtin and dynamic algos
+	 * 2. Builtin algo has the same name as this dynamic one
+	 * Going add this dynamic algo into the list.
+	 */
 	list_add_tail(&alg->list, &vd->algo);
 	vd->algo_cnt++;
+unlock:
 	spin_unlock(&vd->algo_lock);
 
-out:
+	if (!ret) {
+		vpu_alg_debug("%s: name %s, len %d, mva 0x%lx alg_cnt: %d\n",
+			      __func__, alg->a.name, alg->a.len,
+			      (unsigned long)alg->a.mva, vd->algo_cnt);
+	} else if (ret == -EEXIST) {
+		vpu_alg_debug("%s: name %s already exist\n",
+			      __func__, fw->name);
+		vpu_iova_free(vd->dev, &alg->iova);
+algo_free:
+		vpu_alg_free(alg);
+	}
 	return ret;
 }
 
