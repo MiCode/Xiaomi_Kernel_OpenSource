@@ -113,11 +113,17 @@ int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 			apusys_opps.opps[args[0]][V_VPU0].voltage;
 		apusys_opps.cur_buck_volt[MDLA_BUCK] =
 			apusys_opps.opps[args[0]][V_MDLA0].voltage;
+		#if VCORE_DVFS_SUPPORT
 		apusys_opps.cur_buck_volt[VCORE_BUCK] =
 			apusys_opps.opps[args[0]][V_VCORE].voltage;
+		#endif
 
 		// determine buck domain opp
 		for (i = 0; i < APUSYS_BUCK_DOMAIN_NUM; i++) {
+			#if !VCORE_DVFS_SUPPORT
+			if (i == V_VCORE)
+				continue;
+			#endif
 			if (dvfs_power_domain_support(i) == false)
 				continue;
 			for (opp = 0; opp < APUSYS_MAX_NUM_OPPS; opp++) {

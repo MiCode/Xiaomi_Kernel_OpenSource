@@ -229,6 +229,10 @@ void apusys_final_volt_check(void)
 // for every buck domain, check clk path matrix for buck shared relation
 for (buck_index = 0;
 buck_index < APUSYS_BUCK_NUM; buck_index++) {
+	#if !VCORE_DVFS_SUPPORT
+	if (buck_index == VCORE_BUCK)
+		continue;
+	#endif
 	for (user_index = 0; user_index < APUSYS_DVFS_USER_NUM; user_index++) {
 		if (buck_index == VCORE_BUCK)
 			continue;
@@ -313,8 +317,10 @@ void apusys_pwr_efficiency_check(void)
 
 	for (buck_domain_index = 0;
 	buck_domain_index < APUSYS_BUCK_DOMAIN_NUM; buck_domain_index++) {
+		#if !VCORE_DVFS_SUPPORT
 		if (buck_domain_index == V_VCORE)
 			continue;
+		#endif
 		if (dvfs_power_domain_support(buck_domain_index) == false)
 			continue;
 		buck_index = apusys_buck_domain_to_buck[buck_domain_index];
@@ -624,14 +630,23 @@ void apusys_dvfs_policy(uint64_t round_id)
 		for (buck_domain_num = 0;
 		buck_domain_num < APUSYS_BUCK_DOMAIN_NUM;
 		buck_domain_num++) {
+			#if !VCORE_DVFS_SUPPORT
+			if (buck_domain_num == V_VCORE)
+				continue;
+			#endif
 			if (dvfs_power_domain_support(buck_domain_num) == false)
 				continue;
 			apusys_opps.prev_opp_index[buck_domain_num] =
 				apusys_opps.cur_opp_index[buck_domain_num];
 		}
 
+
 		for (buck_index = 0; buck_index < APUSYS_BUCK_NUM;
 		buck_index++) {
+			#if !VCORE_DVFS_SUPPORT
+			if (buck_index == VCORE_BUCK)
+				continue;
+			#endif
 			apusys_opps.prev_buck_volt[buck_index] =
 				apusys_opps.cur_buck_volt[buck_index];
 			apusys_opps.cur_buck_volt[buck_index] = 0;
@@ -713,15 +728,17 @@ void apusys_power_init(enum DVFS_USER user, void *init_power_data)
 	}
 
 	for (i = 0; i < APUSYS_BUCK_DOMAIN_NUM; i++) {
-		if (dvfs_power_domain_support(i) == false)
-			continue;
 		apusys_opps.cur_opp_index[i] = APUSYS_DEFAULT_OPP;
 		apusys_opps.prev_opp_index[i] = APUSYS_DEFAULT_OPP;
 	}
 
+	apusys_opps.cur_buck_volt[VPU_BUCK] = VVPU_DEFAULT_VOLT;
+	apusys_opps.cur_buck_volt[MDLA_BUCK] = VMDLA_DEFAULT_VOLT;
+	apusys_opps.cur_buck_volt[VCORE_BUCK] = VCORE_DEFAULT_VOLT;
+
 	for (i = 0; i < APUSYS_BUCK_NUM; i++) {
-		apusys_opps.cur_buck_volt[i] = DVFS_VOLT_00_575000_V;
-		apusys_opps.prev_buck_volt[i] = DVFS_VOLT_00_575000_V;
+		apusys_opps.prev_buck_volt[i] =
+		apusys_opps.cur_buck_volt[i];
 	}
 
 	apusys_opps.power_bit_mask = 0;
