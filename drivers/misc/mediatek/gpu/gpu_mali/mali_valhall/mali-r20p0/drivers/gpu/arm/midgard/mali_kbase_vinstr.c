@@ -1184,6 +1184,7 @@ void MTK_update_gpu_LTR(void)
 {
 	unsigned int pm_gpu_loading;
 	struct mtk_gpu_perf gpu_perf_counter;
+	unsigned int stall_counter[4] = {0};
 	mtk_get_gpu_loading(&pm_gpu_loading);
 	gpu_perf_counter.counter[VINSTR_GPU_FREQ] = mt_gpufreq_get_cur_freq();
 	gpu_perf_counter.counter[VINSTR_GPU_VOLT] = mt_gpufreq_get_cur_volt();
@@ -1213,6 +1214,11 @@ void MTK_update_gpu_LTR(void)
 	gpu_perf_counter.counter[VINSTR_L2_ANY_LOOKUP] = kernel_dump[153] + kernel_dump[217] + kernel_dump[281] + kernel_dump[345];
 	gpu_perf_counter.counter[VINSTR_JS0_ACTIVE] = kernel_dump[10];
 	gpu_perf_counter.counter[VINSTR_JS1_ACTIVE] = kernel_dump[18];
+	mtk_GPU_STALL_RAW(stall_counter, 4);
+	gpu_perf_counter.counter[VINSTR_STALL0] = stall_counter[0];
+	gpu_perf_counter.counter[VINSTR_STALL1] = stall_counter[1];
+	gpu_perf_counter.counter[VINSTR_STALL2] = stall_counter[2];
+	gpu_perf_counter.counter[VINSTR_STALL3] = stall_counter[3];
 #if defined(CONFIG_MTK_PERF_TRACKER) && defined(CONFIG_MTK_GPU_SWPM_SUPPORT)
 	perf_update_gpu_counter(gpu_perf_counter.counter, VINSTR_PERF_COUNTER_LAST);
 #endif

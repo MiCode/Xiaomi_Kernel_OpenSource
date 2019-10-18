@@ -50,12 +50,18 @@ void MTKGPUPower_model_start(unsigned int interval_ns){
 		setup.tiler_bm = 0x2;
 		setup.mmu_l2_bm = 0x1FC0;
 		setup.buffer_count = 1;
+		//gpu stall counter on
+		mtk_gpu_stall_create_subfs();
+		mtk_gpu_stall_start();
 		MTK_update_mtk_pm(pm_ltr);
 		MTK_kbase_vinstr_hwcnt_reader_setup(pm_kbdev->vinstr_ctx, &setup);
 		//1ms = 1000000ns
 		MTK_kbasep_vinstr_hwcnt_set_interval(interval_ns);
 	}
 	else if(pm_tool == pm_swpm){
+		//gpu stall counter on
+		mtk_gpu_stall_create_subfs();
+		mtk_gpu_stall_start();
 		MTK_kbasep_vinstr_hwcnt_set_interval(0);
 		MTK_update_mtk_pm(pm_ltr);
 		MTK_kbasep_vinstr_hwcnt_set_interval(interval_ns);
@@ -111,6 +117,9 @@ void MTKGPUPower_model_stop(void){
 		MTK_kbasep_vinstr_hwcnt_release();
 		init_flag = 0;
 #endif
+	//gpu stall counter off
+	mtk_gpu_stall_stop();
+	mtk_gpu_stall_delete_subfs();
 	}
 	mutex_unlock(&gpu_pmu_info_lock);
 }

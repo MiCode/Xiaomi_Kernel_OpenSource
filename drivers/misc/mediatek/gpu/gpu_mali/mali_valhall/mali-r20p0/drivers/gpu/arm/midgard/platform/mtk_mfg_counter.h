@@ -36,6 +36,12 @@ extern unsigned int mt_gpufreq_get_cur_volt(void);
 void mtk_mfg_counter_init(void);
 void mtk_mfg_counter_destroy(void);
 int gator_gpu_pmu_init(void);
+//stall counter
+int mtk_gpu_stall_create_subfs(void);
+void mtk_gpu_stall_delete_subfs(void);
+void mtk_gpu_stall_start(void);
+void mtk_gpu_stall_stop(void);
+void mtk_GPU_STALL_RAW(unsigned int *diff, int size);
 
 
 #endif

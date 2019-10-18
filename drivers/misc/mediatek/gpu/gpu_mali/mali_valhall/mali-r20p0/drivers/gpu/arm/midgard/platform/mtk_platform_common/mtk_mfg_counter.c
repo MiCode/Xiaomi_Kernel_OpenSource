@@ -21,6 +21,10 @@
 #if defined(CONFIG_MTK_GPU_SWPM_SUPPORT)
 #include <mali_kbase_vinstr.h>
 #endif
+#include <linux/of.h>
+#include <linux/of_address.h>
+#include <linux/uaccess.h>
+#include <linux/random.h>
 
 /*
  *  block position of Txx HWC
@@ -30,6 +34,14 @@
 #define TILER_BLOCK_NAME_POS	1
 #define SHADER_BLOCK_NAME_POS	2
 #define MMU_BLOCK_NAME_POS		3
+//gpu stall counter
+#define GPU_STALL_ADD_BASE	0x1021E000
+#define GPU_STALL_SIZE	0x1000
+#define OFFSET_STALL_GPU_M0_WR_CNT	0x200
+#define OFFSET_STALL_GPU_M0_RD_CNT	0x204
+#define OFFSET_STALL_GPU_M1_WR_CNT	0x208
+#define OFFSET_STALL_GPU_M1_RD_CNT	0x20c
+
 
 static DEFINE_MUTEX(counter_info_lock);
 
@@ -42,6 +54,8 @@ static int name_offset_table[MALI_HWC_TYPES];
 static int mfg_is_power_on;
 static int binited;
 static uint32_t active_cycle;
+static void __iomem *io_addr_gpu_stall;
+static unsigned int	pre_stall_counters[4];
 
 static int _find_name_pos(const char *name, int *pos)
 {
@@ -803,3 +817,67 @@ int gator_gpu_pmu_init()
 	}
 	return ret;
 }
+
+int mtk_gpu_stall_create_subfs(void)
+{
+	io_addr_gpu_stall = ioremap(GPU_STALL_ADD_BASE, GPU_STALL_SIZE);
+	if (!io_addr_gpu_stall) {
+		pr_info("Failed to init GPU stall counters!!\n");
+		return -ENODEV;
+	}
+	return 0;
+}
+
+void mtk_gpu_stall_delete_subfs(void)
+{
+	if (io_addr_gpu_stall) {
+		iounmap(io_addr_gpu_stall);
+		io_addr_gpu_stall = NULL;
+	}
+}
+
+void mtk_gpu_stall_start(void)
+{
+	unsigned int value = 0x00000001;
+	if (io_addr_gpu_stall) {
+		writel(value, io_addr_gpu_stall + OFFSET_STALL_GPU_M0_WR_CNT);
+		writel(value, io_addr_gpu_stall + OFFSET_STALL_GPU_M0_RD_CNT);
+		writel(value, io_addr_gpu_stall + OFFSET_STALL_GPU_M1_WR_CNT);
+		writel(value, io_addr_gpu_stall + OFFSET_STALL_GPU_M1_RD_CNT);
+	}
+}
+
+void mtk_gpu_stall_stop(void)
+{
+	if (io_addr_gpu_stall) {
+		writel(0x00000000, io_addr_gpu_stall + OFFSET_STALL_GPU_M0_WR_CNT);
+		writel(0x00000000, io_addr_gpu_stall + OFFSET_STALL_GPU_M0_RD_CNT);
+		writel(0x00000000, io_addr_gpu_stall + OFFSET_STALL_GPU_M1_WR_CNT);
+		writel(0x00000000, io_addr_gpu_stall + OFFSET_STALL_GPU_M1_RD_CNT);
+	}
+}
+
+void mtk_GPU_STALL_RAW(unsigned int *diff, int size)
+{
+	unsigned int stall_counters[4] = {0};
+	int i;
+	if (io_addr_gpu_stall) {
+		stall_counters[0] = ((unsigned int)readl(io_addr_gpu_stall + OFFSET_STALL_GPU_M0_WR_CNT)) >> 1;
+		stall_counters[1] = ((unsigned int)readl(io_addr_gpu_stall + OFFSET_STALL_GPU_M0_RD_CNT)) >> 1;
+		stall_counters[2] = ((unsigned int)readl(io_addr_gpu_stall + OFFSET_STALL_GPU_M1_WR_CNT)) >> 1;
+		stall_counters[3] = ((unsigned int)readl(io_addr_gpu_stall + OFFSET_STALL_GPU_M1_RD_CNT)) >> 1;
+
+		for (i = 0; i < size; i++) {
+			if(pre_stall_counters[i] > stall_counters[i]) {
+				diff[i] = stall_counters[i] + (0xFFFFFFFF - pre_stall_counters[i]);
+			}
+			else {
+				diff[i] = stall_counters[i] - pre_stall_counters[i];
+			}
+		}
+		for(i = 0; i < size; i++) {
+			pre_stall_counters[i] = stall_counters[i];
+		}
+	}
+}
+
