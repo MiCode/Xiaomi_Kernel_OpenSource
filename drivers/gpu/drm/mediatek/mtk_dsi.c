@@ -39,6 +39,7 @@
 
 #define DSI_START 0x00
 #define SLEEPOUT_START BIT(2)
+#define VM_CMD_START BIT(16)
 #define START_FLD_REG_START REG_FLD_MSB_LSB(0, 0)
 
 #define DSI_INTEN 0x08
@@ -49,6 +50,7 @@
 #define TE_RDY_INT_FLAG BIT(2)
 #define VM_DONE_INT_FLAG BIT(3)
 #define FRAME_DONE_INT_FLAG BIT(4)
+#define VM_CMD_DONE_INT_EN BIT(5)
 #define SLEEPOUT_DONE_INT_FLAG BIT(6)
 #define BUFFER_UNDERRUN_INT_FLAG BIT(12)
 #define INP_UNFINISH_INT_EN BIT(14)
@@ -185,6 +187,8 @@
 #define VM_CMD_EN BIT(0)
 #define TS_VFP_EN BIT(5)
 
+#define DSI_VM_CMD_DATA0 0x134
+
 #define DSI_STATE_DBG6 0x160
 #define STATE_DBG6_FLD_REG_CMCTL_STATE REG_FLD_MSB_LSB(14, 0)
 
@@ -194,6 +198,7 @@
 #define CONFIG (0xff << 0)
 #define SHORT_PACKET 0
 #define LONG_PACKET 2
+#define VM_LONG_PACKET 1
 #define BTA BIT(2)
 #define DATA_ID (0xff << 8)
 #define DATA_0 (0xff << 16)
@@ -762,6 +767,12 @@ static void mtk_dsi_start(struct mtk_dsi *dsi)
 {
 	writel(0, dsi->regs + DSI_START);
 	writel(1, dsi->regs + DSI_START);
+}
+
+static void mtk_dsi_vm_start(struct mtk_dsi *dsi)
+{
+	mtk_dsi_mask(dsi, DSI_START, VM_CMD_START, 0);
+	mtk_dsi_mask(dsi, DSI_START, VM_CMD_START, VM_CMD_START);
 }
 
 static void mtk_dsi_stop(struct mtk_dsi *dsi)
@@ -2042,6 +2053,36 @@ static void mtk_dsi_cmdq(struct mtk_dsi *dsi, const struct mipi_dsi_msg *msg)
 	mtk_dsi_mask(dsi, DSI_CMDQ_SIZE, CMDQ_SIZE, cmdq_size);
 }
 
+static void mtk_dsi_vm_cmdq(struct mtk_dsi *dsi, const struct mipi_dsi_msg *msg)
+{
+	const char *tx_buf = msg->tx_buf;
+	u8 config, cmdq_size, type = msg->type;
+	u32 reg_val, cmdq_mask, i;
+	unsigned long goto_addr;
+
+	cmdq_size = 1;
+	cmdq_mask = CONFIG | DATA_ID;
+	config = (msg->tx_len > 2) ? VM_LONG_PACKET : 0;
+
+	if (msg->tx_len > 2) {
+		for (i = 0; i < msg->tx_len; i++) {
+			goto_addr = DSI_VM_CMD_DATA0 + i;
+			cmdq_mask = (0xFFu << ((goto_addr & 0x3u) * 8));
+			mtk_dsi_mask(dsi, goto_addr & (~(0x3UL)),
+					 (0xFFu << ((goto_addr & 0x3u) * 8)),
+					 tx_buf[i] << ((goto_addr & 0x3u) * 8));
+		}
+		reg_val = (msg->tx_len << 16) | (type << 8) | config;
+	} else if (msg->tx_len == 2) {
+		reg_val = (tx_buf[1] << 24) | (tx_buf[0] << 16) |
+			(type << 8) | config;
+	} else {
+		reg_val = (tx_buf[0] << 16) | (type << 8) | config;
+	}
+
+	mtk_dsi_mask(dsi, DSI_VM_CMD_CON, cmdq_mask, reg_val);
+}
+
 static void mtk_dsi_cmdq_gce(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
 				const struct mipi_dsi_msg *msg)
 {
@@ -2163,6 +2204,27 @@ static ssize_t mtk_dsi_host_send_cmd(struct mtk_dsi *dsi,
 		return 0;
 }
 
+static ssize_t mtk_dsi_host_send_vm_cmd(struct mtk_dsi *dsi,
+				     const struct mipi_dsi_msg *msg, u8 flag)
+{
+	unsigned int loop_cnt = 0;
+	s32 tmp;
+
+	mtk_dsi_vm_cmdq(dsi, msg);
+	mtk_dsi_vm_start(dsi);
+
+	mtk_dsi_mask(dsi, DSI_INTSTA, VM_CMD_DONE_INT_EN, 0);
+	while (loop_cnt < 100 * 1000) {
+		tmp = readl(dsi->regs + DSI_INTSTA);
+		if (!(tmp & VM_CMD_DONE_INT_EN))
+			return 0;
+		loop_cnt++;
+		udelay(1);
+	}
+	DDPMSG("%s timeout\n", __func__);
+	return -ETIME;
+}
+
 static ssize_t mtk_dsi_host_transfer(struct mipi_dsi_host *host,
 				     const struct mipi_dsi_msg *msg)
 {
@@ -2170,12 +2232,12 @@ static ssize_t mtk_dsi_host_transfer(struct mipi_dsi_host *host,
 	u32 recv_cnt, i;
 	u8 read_data[16];
 	void *src_addr;
-	u8 irq_flag = CMD_DONE_INT_FLAG;
+	u8 irq_flag;
 
-	if (readl(dsi->regs + DSI_MODE_CTRL) & MODE) {
-		DRM_ERROR("dsi engine is not command mode\n");
-		return -EINVAL;
-	}
+	if (readl(dsi->regs + DSI_MODE_CTRL) & MODE)
+		irq_flag = VM_CMD_DONE_INT_EN;
+	else
+		irq_flag = CMD_DONE_INT_FLAG;
 
 	if (MTK_DSI_HOST_IS_READ(msg->type)) {
 		struct mipi_dsi_msg set_rd_msg = {
@@ -2190,8 +2252,13 @@ static ssize_t mtk_dsi_host_transfer(struct mipi_dsi_host *host,
 		irq_flag |= LPRX_RD_RDY_INT_FLAG;
 	}
 
-	if (mtk_dsi_host_send_cmd(dsi, msg, irq_flag) < 0)
-		return -ETIME;
+	if (readl(dsi->regs + DSI_MODE_CTRL) & MODE) {
+		if (mtk_dsi_host_send_vm_cmd(dsi, msg, irq_flag) < 0)
+			return -ETIME;
+	} else {
+		if (mtk_dsi_host_send_cmd(dsi, msg, irq_flag) < 0)
+			return -ETIME;
+	}
 
 	if (!MTK_DSI_HOST_IS_READ(msg->type))
 		return 0;
