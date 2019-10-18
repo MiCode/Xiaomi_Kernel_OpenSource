@@ -131,7 +131,7 @@ static int emiisu_remove(struct platform_device *dev)
 }
 
 static const struct of_device_id emiisu_of_ids[] = {
-	{.compatible = "mediatek,common-emiisu",},
+	{.compatible = "mediatek,disable-emiisu",},
 	{}
 };
 
