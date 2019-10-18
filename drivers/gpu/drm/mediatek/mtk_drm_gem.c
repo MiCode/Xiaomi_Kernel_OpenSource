@@ -424,24 +424,26 @@ mtk_gem_prime_import(struct drm_device *dev, struct dma_buf *dma_buf)
 	struct ion_client *client;
 	struct ion_handle *handle;
 	struct ion_mm_data mm_data;
+	int ret;
 
 	client = priv->client;
 	handle = ion_import_dma_buf(client, dma_buf);
 	if (IS_ERR(handle)) {
 		DDPPR_ERR("ion import failed, client:0x%p, dmabuf:0x%p\n",
 				client, dma_buf);
-		return NULL;
+		return ERR_PTR(-EINVAL);
 	}
 
 	memset((void *)&mm_data, 0, sizeof(struct ion_mm_data));
 	mm_data.config_buffer_param.module_id = 0;
 	mm_data.config_buffer_param.kernel_handle = handle;
 	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
-	if (ion_kernel_ioctl(client, ION_CMD_MULTIMEDIA,
-				 (unsigned long)&mm_data) < 0) {
+	ret = ion_kernel_ioctl(client, ION_CMD_MULTIMEDIA,
+				 (unsigned long)&mm_data);
+	if (ret < 0) {
 		DDPPR_ERR("ion config failed, handle:0x%p\n", handle);
 		ion_free(client, handle);
-		return NULL;
+		return ERR_PTR(ret);
 	}
 #endif
 	obj = drm_gem_prime_import(dev, dma_buf);
