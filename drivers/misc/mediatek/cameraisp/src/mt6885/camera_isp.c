@@ -379,6 +379,9 @@ struct wake_lock isp_wake_lock;
 #endif
 static int g_WaitLockCt;
 
+/*prevent isp race condition in vulunerbility test*/
+static struct mutex open_isp_mutex;
+
 /* Get HW modules' base address from device nodes */
 #define ISP_CAMSYS_CONFIG_BASE (isp_devs[ISP_CAMSYS_CONFIG_IDX].regs)
 #define ISP_CAMSYS_RAWA_CONFIG_BASE (isp_devs[ISP_CAMSYS_RAWA_CONFIG_IDX].regs)
@@ -5540,6 +5543,7 @@ static int ISP_open(struct inode *pInode, struct file *pFile)
 	int q = 0, p = 0;
 	struct ISP_USER_INFO_STRUCT *pUserInfo;
 
+	mutex_lock(&open_isp_mutex);
 	LOG_DBG("- E. UserCount: %d.\n", IspInfo.UserCount);
 
 	/*  */
@@ -5677,6 +5681,7 @@ EXIT:
 	LOG_INF("- X. Ret: %d. UserCount: %d. G_u4EnableClockCount:%d\n", Ret,
 		IspInfo.UserCount, G_u4EnableClockCount);
 
+	mutex_unlock(&open_isp_mutex);
 	return Ret;
 }
 
@@ -5943,6 +5948,7 @@ static int ISP_release(struct inode *pInode, struct file *pFile)
 	unsigned int Reg;
 	unsigned int i = 0;
 
+	mutex_lock(&open_isp_mutex);
 	LOG_DBG("- E. UserCount: %d.\n", IspInfo.UserCount);
 
 	/*  */
@@ -6090,6 +6096,7 @@ EXIT:
 
 	LOG_INF("- X. UserCount: %d. G_u4EnableClockCount:%d",
 		IspInfo.UserCount, G_u4EnableClockCount);
+	mutex_unlock(&open_isp_mutex);
 	return 0;
 }
 
@@ -6196,6 +6203,7 @@ static inline void ISP_UnregCharDev(void)
 static inline int ISP_RegCharDev(void)
 {
 	int Ret = 0;
+
 	/*  */
 	LOG_DBG("- E.\n");
 	/*  */
@@ -7180,6 +7188,7 @@ static int __init ISP_Init(void)
 
 	/*  */
 	LOG_DBG("- E.");
+	mutex_init(&open_isp_mutex);
 /*  */
 #ifdef ENABLE_KEEP_ION_HANDLE
 	mutex_init(&ion_client_mutex);
