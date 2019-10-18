@@ -259,9 +259,7 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 
 	tmp = val;
 	if (val & (1 << 0)) {
-		/* clear all abnormal states only when register update done */
-		tmp = ~val;
-		writel(~val, rdma->regs + DISP_REG_RDMA_INT_STATUS);
+		tmp = tmp & (~(1 << 0));
 		DDPIRQ("[IRQ] %s: reg update done!\n", mtk_dump_comp_str(rdma));
 	}
 
@@ -272,7 +270,8 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 	}
 
 	if (val & (1 << 1)) {
-		tmp = tmp & (~(1 << 1));
+		/* clear all abnormal states only when frame start */
+		tmp = ~val;
 		DDPIRQ("[IRQ] %s: frame start!\n", mtk_dump_comp_str(rdma));
 		mtk_drm_refresh_tag_start(&priv->ddp_comp);
 	}
