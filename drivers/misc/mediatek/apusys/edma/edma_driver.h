@@ -19,6 +19,22 @@
 
 #define DEBUG
 
+#define EDMA_TAG "[EDMA]"
+
+#define EDMA_LOG_INF(format, args...) \
+		pr_info(EDMA_TAG " " format, ##args)
+#define EDMA_LOG_WRN(format, args...) \
+		pr_info(EDMA_TAG "[warn] " format, ##args)
+#define EDMA_LOG_ERR(format, args...) \
+		pr_info(EDMA_TAG "[error] " format, ##args)
+
+#if 0
+#define edma_debug(mask, ...) do { if (edma_klog & mask) \
+		pr_debug(__VA_ARGS__); \
+	} while (0)
+
+#endif
+
 #define EDMA_SUB_NUM 2
 #define EDMA_SUB_NAME_SIZE 20
 #define CMD_WAIT_TIME_MS	(3 * 1000)
@@ -55,6 +71,7 @@ struct edma_sub {
 
 	struct task_struct *enque_task;
 	u8 sub_name[EDMA_SUB_NAME_SIZE];
+	uint32_t ip_time;
 };
 
 struct edma_device {
@@ -71,6 +88,7 @@ struct edma_device {
 	struct mutex power_mutex;
 	struct list_head user_list;
 	int edma_num_users;
+	enum edma_power_state power_state;
 
 	dev_t edma_devt;
 	struct cdev edma_chardev;

@@ -165,6 +165,10 @@ int edma_send_cmd(int cmd, void *hnd, struct apusys_device *adev)
 	if (adev == NULL)
 		return -EINVAL;
 
+#ifdef DEBUG
+	pr_notice("%s:cmd = %d\n", __func__, cmd);
+#endif
+
 	edma_sub = (struct edma_sub *)adev->private;
 
 	switch (cmd) {
@@ -180,7 +184,7 @@ int edma_send_cmd(int cmd, void *hnd, struct apusys_device *adev)
 	case APUSYS_CMD_EXECUTE:{
 			struct apusys_cmd_hnd *cmd_hnd;
 			struct edma_ext *edma_ext;
-
+			int result;
 			if (hnd == NULL)
 				break;
 
@@ -191,7 +195,11 @@ int edma_send_cmd(int cmd, void *hnd, struct apusys_device *adev)
 
 			edma_ext = (struct edma_ext *)cmd_hnd->kva;
 
-			return edma_execute(edma_sub, edma_ext);
+			result = edma_execute(edma_sub, edma_ext);
+
+			cmd_hnd->ip_time =  edma_sub->ip_time;
+
+			return result;
 		}
 	case APUSYS_CMD_PREEMPT:
 		break;

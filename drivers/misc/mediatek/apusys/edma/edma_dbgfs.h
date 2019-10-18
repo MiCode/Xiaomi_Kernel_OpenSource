@@ -17,5 +17,6 @@
 
 int edma_create_sysfs(struct device *dev);
 void edma_remove_sysfs(struct device *dev);
+int edma_dbg_check_ststus(int check_status);
 
 #endif /* __EDMA_DBGFS_H__ */

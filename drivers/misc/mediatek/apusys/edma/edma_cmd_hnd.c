@@ -27,6 +27,7 @@
 #include "edma_queue.h"
 #include "edma_api.h"
 #include "apusys_power.h"
+#include "edma_dbgfs.h"
 
 #define NO_INTERRUPT		0
 
@@ -53,10 +54,16 @@ static inline void unlock_command(struct edma_sub *edma_sub)
 
 static void print_error_status(struct edma_sub *edma_sub)
 {
-	u32 status;
+	u32 status, i;
 
 	status = edma_read_reg32(edma_sub->base_addr, APU_EDMA2_ERR_STATUS);
 	pr_notice("edma error status %x\n", status);
+
+	for (i = 0; i < (EDMA_REG_SHOW_RANGE >> 2); i++) {
+		status = edma_read_reg32(edma_sub->base_addr, i*4);
+		pr_notice("edma error dump register[0x%x] = 0x%x\n",
+		i*4, status);
+	}
 }
 
 irqreturn_t edma_isr_handler(int irq, void *edma_sub_info)
@@ -1363,10 +1370,14 @@ int edma_ext_by_sub(struct edma_sub *edma_sub, struct edma_request *req)
 {
 	int ret = 0;
 	void __iomem *base_addr;
+	struct timeval t1, t2;
+
 
 	base_addr = edma_sub->base_addr;
 	edma_power_on(edma_sub);
 	edma_enable_sequence(edma_sub);
+
+	do_gettimeofday(&t1);
 
 	lock_command(edma_sub);
 	edma_write_reg32(base_addr, APU_EDMA2_FILL_VALUE, req->fill_value);
@@ -1381,6 +1392,13 @@ int edma_ext_by_sub(struct edma_sub *edma_sub, struct edma_request *req)
 		    ("%s:timeout\n", __func__);
 		print_error_status(edma_sub);
 	}
+
+	do_gettimeofday(&t2);
+
+	edma_sub->ip_time = (((t2.tv_sec - t1.tv_sec) & 0xFFF) * 1000000 +
+		(t2.tv_usec - t1.tv_usec));
+
+	pr_notice("%s:ip time = %d\n", __func__, edma_sub->ip_time);
 
 	unlock_command(edma_sub);
 	edma_power_off(edma_sub);
@@ -1416,6 +1434,13 @@ void edma_power_off(struct edma_sub *edma_sub)
 {
 	struct edma_device *edma_device;
 
+	if (edma_dbg_check_ststus(0) != 0) {
+
+		pr_notice("%s:no power off!!\n", __func__);
+
+		return;
+	}
+
 	edma_device = edma_sub->edma_device;
 	mutex_lock(&edma_device->power_mutex);
 	edma_sub->power_state = EDMA_POWER_OFF;
@@ -1433,6 +1458,9 @@ int edma_execute(struct edma_sub *edma_sub, struct edma_ext *edma_ext)
 	edma_setup_ext_mode_request(&req, edma_ext, EDMA_PROC_EXT_MODE);
 	ret = edma_ext_by_sub(edma_sub, &req);
 
+#ifdef DEBUG
+	pr_notice("%s:function done\n", __func__);
+#endif
 	return ret;
 }
 
