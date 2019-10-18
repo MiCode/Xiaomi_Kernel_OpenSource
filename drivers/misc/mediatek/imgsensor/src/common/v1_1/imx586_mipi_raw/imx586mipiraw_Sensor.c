@@ -58,6 +58,8 @@
 
 #define I2C_BUFFER_LEN 255 /* trans# max is 255, each 3 bytes */
 
+#define LONG_EXP 1
+
 static kal_uint8 qsc_flag;
 #if USE_BURST_MODE
 static kal_uint16 imx586_table_write_cmos_sensor(
@@ -488,7 +490,7 @@ static void set_max_framerate(UINT16 framerate, kal_bool min_framelength_en)
 static void write_shutter(kal_uint32 shutter)
 {
 	kal_uint16 realtime_fps = 0;
-	#ifdef VENDOR_EDIT
+	#ifdef LONG_EXP
 	/*Yijun.Tan@camera.driver,20180116,add for slow shutter */
 	int longexposure_times = 0;
 	static int long_exposure_status;
@@ -530,8 +532,7 @@ static void write_shutter(kal_uint32 shutter)
 			imgsensor.frame_length);
 
 	}
-	#ifdef VENDOR_EDIT
-	/*Yijun.Tan@camera.driver,20180116,add for slow shutter */
+	#ifdef LONG_EXP
 	while (shutter >= 65535) {
 		shutter = shutter / 2;
 		longexposure_times += 1;
