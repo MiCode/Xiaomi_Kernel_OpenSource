@@ -128,6 +128,7 @@ struct mtk_jpeg_dev {
 	u32         port_c_rdma[MTK_JPEG_MAX_NCORE];
 	u32         port_qtbl[MTK_JPEG_MAX_NCORE];
 	u32         port_bsdma[MTK_JPEG_MAX_NCORE];
+	int         irq[MTK_JPEG_MAX_NCORE];
 };
 
 /**

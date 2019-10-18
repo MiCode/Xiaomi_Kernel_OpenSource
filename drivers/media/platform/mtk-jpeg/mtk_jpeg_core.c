@@ -1421,6 +1421,7 @@ static void mtk_jpeg_clk_on_ctx(struct mtk_jpeg_ctx *ctx)
 			m4u_config_port(&port);
 		}
 	}
+	enable_irq(jpeg->irq[ctx->coreid]);
 
 	pr_info("%s -", __func__);
 }
@@ -1429,6 +1430,8 @@ static void mtk_jpeg_clk_off_ctx(struct mtk_jpeg_ctx *ctx)
 {
 	pr_info("%s  +", __func__);
 	struct mtk_jpeg_dev *jpeg = ctx->jpeg;
+
+	disable_irq(jpeg->irq[ctx->coreid]);
 
 	if (jpeg->mode == MTK_JPEG_ENC)
 		clk_disable_unprepare(jpeg->clk_jpeg[ctx->coreid]);
@@ -1785,7 +1788,6 @@ static int mtk_jpeg_probe(struct platform_device *pdev)
 {
 	struct mtk_jpeg_dev *jpeg;
 	struct resource *res;
-	int jpeg_irq;
 	int ret;
 	int i;
 	struct device_node *node = NULL;
@@ -1829,23 +1831,27 @@ static int mtk_jpeg_probe(struct platform_device *pdev)
 	//}
 
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-	jpeg_irq = platform_get_irq(pdev, 0);
-	pr_info("%s irq0 %d\n", __func__, jpeg_irq);
-	if (!res || jpeg_irq < 0) {
+	jpeg->irq[0] = platform_get_irq(pdev, 0);
+	pr_info("%s irq0 %d\n", __func__, jpeg->irq[0]);
+	if (!res || jpeg->irq[0] < 0) {
 		v4l2_err(&jpeg->v4l2_dev, "Failed to get jpeg_irq %d.\n",
-			jpeg_irq);
+			jpeg->irq[0]);
 		ret = -EINVAL;
 		return ret;
 	}
 
-	ret = devm_request_irq(&pdev->dev, jpeg_irq, mtk_jpeg_irq, 0,
+	ret = devm_request_irq(&pdev->dev, jpeg->irq[0], mtk_jpeg_irq, 0,
 			       pdev->name, jpeg);
+
+
 	if (ret) {
 		v4l2_err(&jpeg->v4l2_dev, "Failed to request jpeg_irq %d (%d)\n",
-			jpeg_irq, ret);
+			jpeg->irq[0], ret);
 		ret = -EINVAL;
 		goto err_req_irq;
 	}
+
+	disable_irq(jpeg->irq[0]);
 
 	ret = of_property_read_u32(node, "cshot-spec", &cshot_spec_dts);
 	if (ret) {
@@ -1881,24 +1887,26 @@ static int mtk_jpeg_probe(struct platform_device *pdev)
 
 	if (jpeg->ncore == MTK_JPEG_MAX_NCORE) {
 		res = platform_get_resource(pdev, IORESOURCE_IRQ, 1);
-		jpeg_irq = platform_get_irq(pdev, 1);
-		pr_info("%s irq1 %d\n", __func__, jpeg_irq);
-		if (!res || jpeg_irq < 0) {
+		jpeg->irq[1] = platform_get_irq(pdev, 1);
+		pr_info("%s irq1 %d\n", __func__, jpeg->irq[1]);
+		if (!res || jpeg->irq[1] < 0) {
 			v4l2_err(&jpeg->v4l2_dev, "Failed to get jpeg_irq %d.\n",
-				jpeg_irq);
+				jpeg->irq[1]);
 			ret = -EINVAL;
 			return ret;
 		}
 
-		ret = devm_request_irq(&pdev->dev, jpeg_irq, mtk_jpeg_irq, 0,
-			       pdev->name, jpeg);
+		ret = devm_request_irq(&pdev->dev, jpeg->irq[1],
+			 mtk_jpeg_irq, 0, pdev->name, jpeg);
 
 		if (ret) {
 			v4l2_err(&jpeg->v4l2_dev, "Failed to request jpeg_irq %d (%d)\n",
-				jpeg_irq, ret);
+				jpeg->irq[1], ret);
 			ret = -EINVAL;
 			goto err_req_irq;
 		}
+
+		disable_irq(jpeg->irq[1]);
 
 		ret = of_property_read_u32_index(node, "c1-port-id",
 			MTK_JPEG_PORT_INDEX_YRDMA, &jpeg->port_y_rdma[1]);
