@@ -71,6 +71,7 @@
 #include "mtk_auxadc.h"
 
 #include <ap_thermal_limit.h>
+#include "mtk_thermal_ipi.h"
 
 #if !defined(CFG_THERM_LVTS)
 #define CFG_THERM_LVTS		0
@@ -2376,8 +2377,13 @@ static void init_thermal(void)
 	lvts_disable_all_sensing_points();
 	lvts_tscpu_thermal_initial_all_tc();
 	lvts_enable_all_sensing_points();
-#endif
+
 	read_all_tc_temperature();
+
+#if THERMAL_ENABLE_TINYSYS_SSPM || THERMAL_ENABLE_ONLY_TZ_SSPM
+	lvts_ipi_send_efuse_data();
+#endif
+#endif
 }
 
 static void tscpu_create_fs(void)

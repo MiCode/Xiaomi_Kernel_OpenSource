@@ -884,9 +884,6 @@ void lvts_thermal_cal_prepare(void)
 	unsigned int temp[22];
 	int i, offset;
 	char buffer[512];
-#if THERMAL_ENABLE_TINYSYS_SSPM || THERMAL_ENABLE_ONLY_TZ_SSPM
-	struct thermal_ipi_data thermal_data;
-#endif
 
 	temp[0] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_1);
 	temp[1] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_2);
@@ -1006,15 +1003,22 @@ void lvts_thermal_cal_prepare(void)
 
 	buffer[offset] = '\0';
 	lvts_printk("%s\n", buffer);
+}
 
 #if THERMAL_ENABLE_TINYSYS_SSPM || THERMAL_ENABLE_ONLY_TZ_SSPM
+void lvts_ipi_send_efuse_data(void)
+{
+	struct thermal_ipi_data thermal_data;
+
+	lvts_printk("%s\n", __func__);
+
 	thermal_data.u.data.arg[0] = g_golden_temp;
 	thermal_data.u.data.arg[1] = 0;
 	thermal_data.u.data.arg[2] = 0;
 	while (thermal_to_sspm(THERMAL_IPI_LVTS_INIT_GRP1, &thermal_data) != 0)
 		udelay(100);
-#endif
 }
+#endif
 
 static unsigned int lvts_temp_to_raw(int temp, enum lvts_sensor_enum ts_name)
 {
@@ -1027,7 +1031,7 @@ static unsigned int lvts_temp_to_raw(int temp, enum lvts_sensor_enum ts_name)
 	msr_raw = ((long long int)(((long long int)g_golden_temp * 500 +
 		LVTS_COEFF_B_X_1000 - temp)) << 14)/(-1 * LVTS_COEFF_A_X_1000);
 
-	lvts_printk("%s msr_raw = 0x%x,temp=%d\n", __func__, msr_raw, temp);
+	lvts_dbg_printk("%s msr_raw = 0x%x,temp=%d\n", __func__, msr_raw, temp);
 
 	return msr_raw;
 }
@@ -1210,7 +1214,7 @@ static void lvts_configure_polling_speed_and_filter(int tc_num)
 	mt_reg_sync_writel_print(0x00000492, offset + LVTSMSRCTL0_0);
 
 	udelay(1);
-	lvts_printk(
+	lvts_dbg_printk(
 		"%s %d, LVTSMONCTL1_0= 0x%x,LVTSMONCTL2_0= 0x%x,LVTSMSRCTL0_0= 0x%x\n",
 		__func__, tc_num,
 		readl(LVTSMONCTL1_0 + offset),
@@ -1252,7 +1256,7 @@ int temperature, int temperature2, int tc_num)
 
 	ts_name = lvts_tscpu_g_tc[tc_num].ts[d_index];
 
-	lvts_printk("%s # in tc%d , the dominator ts_name is %d\n",
+	lvts_dbg_printk("%s # in tc%d , the dominator ts_name is %d\n",
 						__func__, tc_num, ts_name);
 
 	/* temperature to trigger SPM state2 */
@@ -1685,7 +1689,7 @@ void lvts_config_all_tc_hw_protect(int temperature, int temperature2)
 	int wd_api_ret;
 	struct wd_api *wd_api;
 
-	lvts_printk("%s, temperature=%d,temperature2=%d,\n",
+	lvts_dbg_printk("%s, temperature=%d,temperature2=%d,\n",
 					__func__, temperature, temperature2);
 
 	/*spend 860~1463 us */

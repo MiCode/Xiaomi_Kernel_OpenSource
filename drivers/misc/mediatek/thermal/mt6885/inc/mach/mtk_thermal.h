@@ -131,6 +131,8 @@ extern int tscpu_get_min_gpu_pwr(void);
 extern int tscpu_get_min_vpu_pwr(void);
 extern int tscpu_get_min_mdla_pwr(void);
 
+extern void lvts_ipi_send_efuse_data(void);
+
 /* Five thermal sensors. */
 enum mtk_thermal_sensor_cpu_id_met {
 	MTK_THERMAL_SENSOR_TS0 = 0,
