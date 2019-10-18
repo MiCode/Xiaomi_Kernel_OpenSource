@@ -249,20 +249,19 @@ static unsigned int mt_gpufreq_return_by_condition(
 	if (!mt_gpufreq_get_dvfs_en())
 		ret |= (1 << 0);
 
-	/* out of segment lower/uppor bound */
-	if (limit_idx > g_segment_min_opp_idx ||
-			limit_idx < g_segment_max_opp_idx) {
-		ret |= (1 << 1);
-		gpufreq_pr_info("out of segment lower/uppor bound, %d (%d)\n",
-			limit_idx, g_segment_min_opp_idx);
+	if (kicker != KIR_PTPOD) {
+		if (limit_idx > g_segment_min_opp_idx ||
+					limit_idx < g_segment_max_opp_idx) {
+			ret |= (1 << 1);
+			gpufreq_pr_info("out of segment opp range, %d (%d)\n",
+					limit_idx, g_segment_min_opp_idx);
+		}
+		if (g_DVFS_is_paused_by_ptpod)
+			ret |= (1 << 2);
 	}
 
 	/* if /proc/gpufreq/gpufreq_fixed_freq_volt fix freq and volt */
 	if (g_fixed_freq_volt_state)
-		ret |= (1 << 2);
-
-	/* if ptpod paused dvfs, only ptpod can dvfs */
-	if (g_DVFS_is_paused_by_ptpod && kicker != KIR_PTPOD)
 		ret |= (1 << 3);
 
 	/* the same freq && volt */
