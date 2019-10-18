@@ -31,6 +31,7 @@ ccflags-y += -I$(EARA_THRM_TOP)/platform/$(MTK_PLATFORM)/
 
 ifeq ($(CONFIG_MTK_APUSYS_SUPPORT),y)
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/apusys/power/2.0/$(MTK_PLATFORM)
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/apusys/power/2.0/
 else
 ccflags-y += -I$(MTK_TOP)/vpu/$(MTK_PLATFORM)/
 ccflags-y += -I$(MTK_TOP)/mdla/1.0/

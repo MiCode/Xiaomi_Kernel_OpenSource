@@ -19,6 +19,20 @@
 #include "thermal_budget_platform.h"
 #include "thermal_budget.h"
 
+#if defined(CONFIG_MTK_APUSYS_SUPPORT)
+#include <linux/platform_device.h>
+#include "apusys_power.h"
+#elif defined(CONFIG_MTK_VPU_SUPPORT)
+#include "vpu_dvfs.h"
+#endif
+
+#if defined(CONFIG_MTK_APUSYS_SUPPORT)
+#include <linux/platform_device.h>
+#include "apusys_power.h"
+#elif defined(CONFIG_MTK_MDLA_SUPPORT)
+#include "mdla_dvfs.h"
+#endif
+
 void eara_thrm_update_gpu_info(int *input_opp_num, int *in_max_opp_idx,
 			struct mt_gpufreq_power_table_info **gpu_tbl,
 			struct thrm_pb_ratio **opp_ratio)
@@ -89,6 +103,28 @@ int eara_thrm_get_mdla_core_num(void)
 	return 2;
 #else
 	return 0;
+#endif
+}
+
+int eara_thrm_vpu_opp_to_freq(int opp)
+{
+#ifdef CONFIG_MTK_APUSYS_SUPPORT
+	return apusys_opp_to_freq(VPU0, opp);
+#elif CONFIG_MTK_VPU_SUPPORT
+	return get_vpu_opp_to_freq(opp);
+#else
+	return 100;
+#endif
+}
+
+int eara_thrm_mdla_opp_to_freq(int opp)
+{
+#ifdef CONFIG_MTK_APUSYS_SUPPORT
+	return apusys_opp_to_freq(MDLA0, opp);
+#elif CONFIG_MTK_MDLA_SUPPORT
+	return get_mdla_opp_to_freq(opp);
+#else
+	return 100;
 #endif
 }
 

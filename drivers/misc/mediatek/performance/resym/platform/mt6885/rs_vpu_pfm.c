@@ -19,7 +19,8 @@
 #include "rs_pfm.h"
 
 #if defined(CONFIG_MTK_APUSYS_SUPPORT)
-#include "apu_power_table.h"
+#include <linux/platform_device.h>
+#include "apusys_power.h"
 #endif
 
 int rs_get_vpu_core_num(void)

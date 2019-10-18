@@ -40,5 +40,7 @@ void eara_thrm_update_gpu_info(int *input_opp_num, int *in_max_opp_idx,
 		struct thrm_pb_ratio **opp_ratio);
 int eara_thrm_get_vpu_core_num(void);
 int eara_thrm_get_mdla_core_num(void);
+int eara_thrm_vpu_opp_to_freq(int opp);
+int eara_thrm_mdla_opp_to_freq(int opp);
 
 #endif
