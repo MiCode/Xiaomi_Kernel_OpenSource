@@ -35,8 +35,8 @@
 #define DBM_SECTION_MASK	0x1F
 /* each section is 0x1F = bit(11111) */
 
-/* actual used dbm offset from start address, 214 * 4 = 856 bytes */
-#define DBM_RESERVE_OFFSET 214
+/* actual used dbm offset from start address, 84 * 4 = 336 bytes */
+#define DBM_RESERVE_OFFSET 86
 
 #define MDPM_SHARE_MEMORY_MASK		0xFFFFFFFF
 #define MDPM_SHARE_MEMORY_SHIFT		0

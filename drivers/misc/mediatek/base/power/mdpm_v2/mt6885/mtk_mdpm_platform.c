@@ -687,10 +687,9 @@ int get_md1_tx_power(enum md_scenario scenario, u32 *share_mem,
 
 			if ((i + 1) % 10 == 0) {
 				usedBytes = 0;
-
-			pr_info("%s\n", log_buffer);
+				pr_info("%s\n", log_buffer);
+			}
 		}
-	}
 
 	memset((void *)&mdpm_power_s_tmp, 0, sizeof(struct md_power_status));
 
