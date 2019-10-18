@@ -23,6 +23,16 @@
 #include <linux/init.h>
 #include <linux/sched.h>
 #include <linux/clkdev.h>
+#include <mt-plat/mtk_secure_api.h>
+#ifdef CONFIG_MTK_AEE_FEATURE
+#include <mt-plat/aee.h>
+#define clk_aee_warn(key, format, args...) \
+	do { \
+		pr_info(format, ##args); \
+		aee_kernel_warning("CCF CLK/PWR", \
+			"\nCRDISPATCH_KEY:" key "\n" format, ##args); \
+	} while (0)
+#endif
 
 #include "clk.h"
 
@@ -474,9 +484,16 @@ static void clk_core_unprepare(struct clk_core *core)
 	if (!core)
 		return;
 
-	if (WARN_ON(core->prepare_count == 0))
+	if (WARN_ON(core->prepare_count == 0)) {
+#ifdef CONFIG_MTK_AEE_FEATURE
+		clk_aee_warn("CCF ERR Unprepare",
+			"%s(%s)prepare_cnt=%d, enable_cnt=%d\n",
+			__func__,
+			core->name,
+			core->prepare_count, core->enable_count);
+#endif
 		return;
-
+	}
 	if (WARN_ON(core->prepare_count == 1 && core->flags & CLK_IS_CRITICAL))
 		return;
 
@@ -484,6 +501,14 @@ static void clk_core_unprepare(struct clk_core *core)
 		return;
 
 	WARN_ON(core->enable_count > 0);
+#ifdef CONFIG_MTK_AEE_FEATURE
+	if (core->enable_count > 0)
+		clk_aee_warn("CCF Illegal Unprepare",
+			"%s(%s)prepare_cnt=%d, enable_cnt=%d\n",
+			__func__,
+			core->name,
+			core->prepare_count, core->enable_count);
+#endif
 
 	trace_clk_unprepare(core);
 
@@ -592,8 +617,16 @@ static void clk_core_disable(struct clk_core *core)
 	if (!core)
 		return;
 
-	if (WARN_ON(core->enable_count == 0))
+	if (WARN_ON(core->enable_count == 0)) {
+#ifdef CONFIG_MTK_AEE_FEATURE
+		clk_aee_warn("CCF ERR Disable",
+			"%s(%s)prepare_cnt=%d, enable_cnt=%d\n",
+			__func__,
+			core->name,
+			core->prepare_count, core->enable_count);
+#endif
 		return;
+	}
 
 	if (WARN_ON(core->enable_count == 1 && core->flags & CLK_IS_CRITICAL))
 		return;
@@ -650,8 +683,16 @@ static int clk_core_enable(struct clk_core *core)
 	if (!core)
 		return 0;
 
-	if (WARN_ON(core->prepare_count == 0))
+	if (WARN_ON(core->prepare_count == 0)) {
+#ifdef CONFIG_MTK_AEE_FEATURE
+		clk_aee_warn("CCF Illegal Enable",
+			"%s(%s)prepare_cnt=%d, enable_cnt=%d\n",
+			__func__,
+			core->name,
+			core->prepare_count, core->enable_count);
+#endif
 		return -ESHUTDOWN;
+	}
 
 	if (core->enable_count == 0) {
 		ret = clk_core_enable(core->parent);
