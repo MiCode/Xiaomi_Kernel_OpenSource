@@ -1116,6 +1116,47 @@ static ssize_t tscpu_write_log
 	return -EINVAL;
 }
 
+#if defined(THERMAL_SSPM_THERMAL_THROTTLE_SWITCH)
+static int tscpu_read_sspm_thermal_throttle(struct seq_file *m, void *v)
+{
+	seq_printf(m, "tscpu_sspm_thermal_throttle:%d\n",
+				tscpu_sspm_thermal_throttle);
+	return 0;
+}
+
+static ssize_t tscpu_write_sspm_thermal_throttle
+(struct file *file, const char __user *buffer, size_t count, loff_t *data)
+{
+	char desc[32];
+	int sspm_thermal_throttle_switch;
+	int len = 0;
+
+	tscpu_warn("%s\n", __func__);
+
+	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
+	if (copy_from_user(desc, buffer, len))
+		return 0;
+
+	desc[len] = '\0';
+
+	if (kstrtoint(desc, 10, &sspm_thermal_throttle_switch) == 0) {
+		tscpu_sspm_thermal_throttle =
+			sspm_thermal_throttle_switch;
+
+		tscpu_warn("%s , %d\n", __func__,
+			tscpu_sspm_thermal_throttle);
+
+		lvts_ipi_send_sspm_thermal_thtottle();
+
+		return count;
+	}
+
+	tscpu_warn("%s bad argument\n", __func__);
+	return -EINVAL;
+}
+#endif
+
+
 #if MTKTSCPU_FAST_POLLING
 static int tscpu_read_fastpoll(struct seq_file *m, void *v)
 {
@@ -1963,6 +2004,24 @@ static const struct file_operations mtktscpu_talking_flag_fops = {
 	.release = single_release,
 };
 
+
+#if defined(THERMAL_SSPM_THERMAL_THROTTLE_SWITCH)
+static int tscpu_sspm_thermal_throttle_open
+(struct inode *inode, struct file *file)
+{
+	return single_open(file, tscpu_read_sspm_thermal_throttle, NULL);
+}
+
+static const struct file_operations mtktscpu_sspm_thermal_throttle = {
+	.owner = THIS_MODULE,
+	.open = tscpu_sspm_thermal_throttle_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.write = tscpu_write_sspm_thermal_throttle,
+	.release = single_release,
+};
+#endif
+
 #if MTKTSCPU_FAST_POLLING
 static int tscpu_fastpoll_open(struct inode *inode, struct file *file)
 {
@@ -2447,6 +2506,13 @@ static void tscpu_create_fs(void)
 		entry = proc_create("tzcpu_GPIO_out_monitor",
 				0644, mtktscpu_dir,
 				&mtktscpu_GPIO_out_fops);
+		if (entry)
+			proc_set_user(entry, uid, gid);
+#endif
+#if defined(THERMAL_SSPM_THERMAL_THROTTLE_SWITCH)
+		entry = proc_create("sspm_thermal_throttle",
+				0644, mtktscpu_dir,
+				&mtktscpu_sspm_thermal_throttle);
 		if (entry)
 			proc_set_user(entry, uid, gid);
 #endif

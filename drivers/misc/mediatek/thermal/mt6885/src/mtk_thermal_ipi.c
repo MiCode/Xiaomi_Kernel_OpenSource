@@ -103,9 +103,6 @@ unsigned int thermal_to_sspm(
 		else if (ackData < 0)
 			tscpu_printk("cmd(%d) return error(%d)\n",
 				cmd, ackData);
-
-
-
 		break;
 
 	case THERMAL_IPI_GET_TEMP:
@@ -132,6 +129,24 @@ unsigned int thermal_to_sspm(
 		if (ret != 0)
 			tscpu_printk("mtk_ipi_send_compl error ret:%d - %d\n",
 					cmd, ret);
+		else if (ackData < 0)
+			tscpu_printk("cmd(%d) return error(%d)\n",
+				cmd, ackData);
+		break;
+
+	case THERMAL_IPI_SET_DIS_THERMAL_THROTTLE:
+		thermal_data->cmd = cmd;
+		tscpu_printk("cmd(%d) disable SSPM thermal throttle(%d)\n",
+				cmd, ack_data);
+
+		ackData = ack_data;
+
+		ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_THERMAL,
+			IPI_SEND_WAIT, thermal_data, THERMAL_SLOT_NUM, 2000);
+
+		if (ret != 0)
+			tscpu_printk("sspm_ipi_send err cmd %d,ret:%d - %d\n",
+					cmd, ret, ackData);
 		else if (ackData < 0)
 			tscpu_printk("cmd(%d) return error(%d)\n",
 				cmd, ackData);

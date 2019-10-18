@@ -82,7 +82,7 @@ int tscpu_next_fp_factor = 1;
 #endif
 
 int tscpu_debug_log;
-
+int tscpu_sspm_thermal_throttle;
 #ifdef CONFIG_OF
 const struct of_device_id mt_thermal_of_match[2] = {
 	{.compatible = "mediatek,therm_ctrl",},
@@ -1018,6 +1018,25 @@ void lvts_ipi_send_efuse_data(void)
 	while (thermal_to_sspm(THERMAL_IPI_LVTS_INIT_GRP1, &thermal_data) != 0)
 		udelay(100);
 }
+#endif
+
+
+#if THERMAL_ENABLE_TINYSYS_SSPM || THERMAL_ENABLE_ONLY_TZ_SSPM
+#if defined(THERMAL_SSPM_THERMAL_THROTTLE_SWITCH)
+void lvts_ipi_send_sspm_thermal_thtottle(void)
+{
+	struct thermal_ipi_data thermal_data;
+
+	lvts_printk("%s\n", __func__);
+
+	thermal_data.u.data.arg[0] = tscpu_sspm_thermal_throttle;
+	thermal_data.u.data.arg[1] = 0;
+	thermal_data.u.data.arg[2] = 0;
+	while (thermal_to_sspm(THERMAL_IPI_SET_DIS_THERMAL_THROTTLE,
+		&thermal_data) != 0)
+		udelay(100);
+}
+#endif
 #endif
 
 static unsigned int lvts_temp_to_raw(int temp, enum lvts_sensor_enum ts_name)

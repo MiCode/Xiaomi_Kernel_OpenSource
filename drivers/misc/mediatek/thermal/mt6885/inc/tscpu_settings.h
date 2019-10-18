@@ -402,6 +402,7 @@ extern int tscpu_curr_gpu_temp;
 extern int temp_eUART;
 extern int temp_dUART;
 
+extern int tscpu_sspm_thermal_throttle;
 extern int tscpu_debug_log;
 extern const struct of_device_id mt_thermal_of_match[2];
 #if !defined(CFG_THERM_NO_AUXADC)
