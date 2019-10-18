@@ -917,7 +917,7 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 	 */
 	status &= 0xfffe;
 	if (status) {
-		writel((~status & 0xfffe), dsi->regs + DSI_INTSTA);
+		writel(~status, dsi->regs + DSI_INTSTA);
 		if (status & BUFFER_UNDERRUN_INT_FLAG) {
 			DDPPR_ERR("[IRQ] %s: buffer underrun\n",
 				  mtk_dump_comp_str(&dsi->ddp_comp));
