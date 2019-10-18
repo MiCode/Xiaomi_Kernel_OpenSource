@@ -22,7 +22,8 @@
 #include <linux/list.h>
 #include <linux/sched.h>
 
-#define CFG_MAX_FPS_LIMIT	60
+#define DEFAULT_DFPS 60
+#define CFG_MAX_FPS_LIMIT	120
 #define CFG_MIN_FPS_LIMIT	10
 #define FRAME_TIME_BUFFER_SIZE 200
 #define MAX_NR_FPS_LEVELS	1
@@ -42,7 +43,6 @@ extern int (*fbt_notifier_cpu_frame_time_fps_stabilizer)(
 	unsigned int Curr_cap,
 	unsigned int Max_cap,
 	unsigned int Target_fps);
-extern void (*display_time_fps_stablizer)(unsigned long long ts);
 extern void (*ged_kpi_output_gfx_info2_fp)(long long t_gpu,
 	unsigned int cur_freq, unsigned int cur_max_freq, u64 ulID);
 
