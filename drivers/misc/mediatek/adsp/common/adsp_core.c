@@ -16,7 +16,7 @@
 #include "adsp_core.h"
 
 /* protect access tcm if set reset flag */
-static rwlock_t access_rwlock;
+rwlock_t access_rwlock;
 
 /* timesync */
 struct timesync_t adsp_timesync_dram;
@@ -349,7 +349,7 @@ static int __init adsp_module_init(void)
 		}
 	}
 
-	//adsp_deregister_feature(SYSTEM_FEATURE_ID);
+	adsp_deregister_feature(SYSTEM_FEATURE_ID);
 	pr_info("[ADSP] module_init_done\n");
 ERROR:
 	return ret;

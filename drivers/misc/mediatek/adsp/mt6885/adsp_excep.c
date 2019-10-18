@@ -66,7 +66,6 @@ static u32 dump_adsp_internal_mem(struct adsp_priv *pdata,
 	u32 uart_mask = ADSP_UART_RST_N | ADSP_UART_BCLK_CG;
 
 	adsp_enable_clock();
-	//mutex_lock(&adsp_sw_reset_mutex);
 
 	clk_cfg = switch_adsp_clk_ctrl_cg(true, clk_mask);
 	uart_cfg = switch_adsp_uart_ctrl_cg(true, uart_mask);
@@ -81,7 +80,6 @@ static u32 dump_adsp_internal_mem(struct adsp_priv *pdata,
 	switch_adsp_clk_ctrl_cg(false, (~clk_cfg) & clk_mask);
 	switch_adsp_uart_ctrl_cg(false, (~uart_cfg) & uart_mask);
 
-	//mutex_unlock(&adsp_sw_reset_mutex);
 	adsp_disable_clock();
 	return n;
 }
@@ -310,8 +308,9 @@ void get_adsp_aee_buffer(unsigned long *vaddr, unsigned long *size)
 
 	memset(buf, 0, len);
 	adsp_enable_clock();
+	read_lock(&access_rwlock);
+
 	adsp_mt_clr_sw_reset();
-	//mutex_lock(&adsp_sw_reset_mutex);
 
 	clk_cfg = switch_adsp_clk_ctrl_cg(true, clk_mask);
 	uart_cfg = switch_adsp_uart_ctrl_cg(true, uart_mask);
@@ -331,7 +330,7 @@ void get_adsp_aee_buffer(unsigned long *vaddr, unsigned long *size)
 	switch_adsp_clk_ctrl_cg(false, (~clk_cfg) & clk_mask);
 	switch_adsp_uart_ctrl_cg(false, (~uart_cfg) & uart_mask);
 
-	//mutex_unlock(&adsp_sw_reset_mutex);
+	read_unlock(&access_rwlock);
 	adsp_disable_clock();
 
 	/* last adsp_log */

@@ -28,9 +28,12 @@ static void __iomem *mt_secure;
 
 void adsp_mt_sw_reset(int cid)
 {
+	unsigned long flags;
+
 	if (unlikely(cid >= ADSP_CORE_TOTAL))
 		return;
 
+	write_lock_irqsave(&access_rwlock, flags);
 	if (cid == ADSP_A_ID) {
 		SET_BITS(ADSP_CFGREG_SW_RSTN, ADSP_A_SW_RSTN);
 		udelay(1);
@@ -40,6 +43,7 @@ void adsp_mt_sw_reset(int cid)
 		udelay(1);
 		CLR_BITS(ADSP_CFGREG_SW_RSTN, ADSP_B_SW_RSTN);
 	}
+	write_unlock_irqrestore(&access_rwlock, flags);
 }
 
 void adsp_mt_run(int cid)

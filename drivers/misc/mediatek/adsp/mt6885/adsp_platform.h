@@ -65,5 +65,6 @@ u32 switch_adsp_uart_ctrl_cg(bool en, int mask);
 void set_adsp_dram_remapping(u32 addr, u32 size);
 void adsp_platform_init(void);
 
+extern rwlock_t access_rwlock;
 #endif
 
