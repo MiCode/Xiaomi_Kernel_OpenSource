@@ -167,12 +167,6 @@ struct ld_ud_table {
 };
 static struct ld_ud_table *loading_ud_table;
 
-#ifdef GED_ENABLE_DVFS_LOADING_MODE
-static int gx_dvfs_loading_mode = LOADING_ACTIVE;
-struct GpuUtilization_Ex g_Util_Ex;
-static int ged_get_dvfs_loading_mode(void);
-#endif
-
 #define GED_DVFS_TIMER_BASED_DVFS_MARGIN 30
 static int gx_tb_dvfs_margin = GED_DVFS_TIMER_BASED_DVFS_MARGIN;
 static int gx_tb_dvfs_margin_cur = GED_DVFS_TIMER_BASED_DVFS_MARGIN;
@@ -288,40 +282,18 @@ unsigned long ged_query_info(GED_INFO eType)
 EXPORT_SYMBOL(ged_query_info);
 
 //-----------------------------------------------------------------------------
-#ifdef GED_ENABLE_DVFS_LOADING_MODE
-void (*ged_dvfs_cal_gpu_utilization_ex_fp)(unsigned int *pui32Loading,
-	unsigned int *pui32Block, unsigned int *pui32Idle,
-	void *Util_Ex);
-EXPORT_SYMBOL(ged_dvfs_cal_gpu_utilization_ex_fp);
-#else
 void (*ged_dvfs_cal_gpu_utilization_fp)(unsigned int *pui32Loading,
 	unsigned int *pui32Block, unsigned int *pui32Idle) = NULL;
 EXPORT_SYMBOL(ged_dvfs_cal_gpu_utilization_fp);
-#endif
 //-----------------------------------------------------------------------------
 
-#ifdef GED_ENABLE_DVFS_LOADING_MODE
-bool ged_dvfs_cal_gpu_utilization_ex(unsigned int *pui32Loading,
-	unsigned int *pui32Block, unsigned int *pui32Idle,
-	struct GpuUtilization_Ex *Util_Ex)
-#else
 bool ged_dvfs_cal_gpu_utilization(unsigned int *pui32Loading,
 	unsigned int *pui32Block, unsigned int *pui32Idle)
-#endif
 {
 	unsigned long ui32IRQFlags;
 
-#ifdef GED_ENABLE_DVFS_LOADING_MODE
-	if (ged_dvfs_cal_gpu_utilization_ex_fp != NULL) {
-		ged_dvfs_cal_gpu_utilization_ex_fp(pui32Loading, pui32Block,
-			pui32Idle, (void *) Util_Ex);
-
-		memcpy((void *)&g_Util_Ex, (void *)Util_Ex,
-			sizeof(struct GpuUtilization_Ex));
-#else
 	if (ged_dvfs_cal_gpu_utilization_fp != NULL) {
 		ged_dvfs_cal_gpu_utilization_fp(pui32Loading, pui32Block, pui32Idle);
-#endif
 		if (pui32Loading) {
 			gpu_av_loading = *pui32Loading;
 		gpu_sub_loading = *pui32Loading;
@@ -1112,9 +1084,6 @@ static bool ged_dvfs_policy(
 
 	unsigned long ui32IRQFlags;
 
-#ifdef GED_ENABLE_DVFS_LOADING_MODE
-	int loading_mode;
-#endif
 	g_um_gpu_tar_freq = 0;
 	if (bRefreshed == false) {
 		if (gL_ulCalResetTS_us - g_ulPreDVFS_TS_us != 0) {
@@ -1160,18 +1129,6 @@ static bool ged_dvfs_policy(
 #endif
 	}
 
-#ifdef GED_ENABLE_DVFS_LOADING_MODE
-	loading_mode = ged_get_dvfs_loading_mode();
-
-	if (loading_mode == LOADING_MAX_3DTA_COM) {
-		ui32GPULoading =
-		 MAX(g_Util_Ex.util_3d, g_Util_Ex.util_ta) +
-		g_Util_Ex.util_compute;
-	} else if (loading_mode == LOADING_MAX_3DTA) {
-		ui32GPULoading =
-		 MAX(g_Util_Ex.util_3d, g_Util_Ex.util_ta);
-	}
-#endif
 	ged_log_buf_print(ghLogBuf_DVFS, "[GED_K] timer: loading %u", ui32GPULoading);
 
 	/* conventional timer-based policy */
@@ -1548,17 +1505,6 @@ static int ged_get_dvfs_margin_value(void)
 
 	return ret;
 }
-
-int ged_get_dvfs_margin(void)
-{
-	return gx_fb_dvfs_margin;
-}
-
-unsigned int ged_get_dvfs_margin_mode(void)
-{
-	return dvfs_margin_mode;
-}
-
 #endif
 
 #ifdef GED_CONFIGURE_LOADING_BASE_DVFS_STEP
@@ -1606,36 +1552,6 @@ static int ged_get_timer_base_dvfs_margin(void)
 	return gx_tb_dvfs_margin_cur;
 }
 #endif
-#ifdef GED_ENABLE_DVFS_LOADING_MODE
-static void ged_dvfs_loading_mode(int i32MarginValue)
-{
-	/* -1: default: */
-	/* 0: default (Active)/(Active+Idle)*/
-	/* 1: max(TA,3D)+COMPUTE/(Active+Idle) */
-	/* 2: max(TA,3D)/(Active+Idle) */
-
-	mutex_lock(&gsDVFSLock);
-
-	if (i32MarginValue == -1)
-		gx_dvfs_loading_mode = LOADING_ACTIVE;
-	else if ((i32MarginValue >= 0) && (i32MarginValue < 100))
-		gx_dvfs_loading_mode = i32MarginValue;
-
-	mutex_unlock(&gsDVFSLock);
-}
-
-static int ged_get_dvfs_loading_mode(void)
-{
-	return gx_dvfs_loading_mode;
-}
-
-void ged_get_gpu_utli_ex(struct GpuUtilization_Ex *util_ex)
-{
-	memcpy((void *)util_ex, (void *)&g_Util_Ex,
-		sizeof(struct GpuUtilization_Ex));
-}
-#endif
-
 /* Need spinlocked */
 void ged_dvfs_save_loading_page(void)
 {
@@ -1646,7 +1562,7 @@ void ged_dvfs_save_loading_page(void)
     /* set as zero for next time */
 	g_ulWorkingPeriod_us = 0;
 }
-#if 0
+
 void ged_dvfs_cal_gpu_utilization_force(void)
 {
 	unsigned long ui32IRQFlags;
@@ -1678,7 +1594,7 @@ void ged_dvfs_cal_gpu_utilization_force(void)
 
 	spin_unlock_irqrestore(&g_sSpinLock, ui32IRQFlags);
 }
-#endif
+
 void ged_dvfs_run(unsigned long t, long phase, unsigned long ul3DFenceDoneTime)
 {
 	unsigned long ui32IRQFlags;
@@ -1714,13 +1630,8 @@ void ged_dvfs_run(unsigned long t, long phase, unsigned long ul3DFenceDoneTime)
 		}
 
 		is_fallback_mode_triggered = 1;
-#ifdef GED_ENABLE_DVFS_LOADING_MODE
-		ged_dvfs_cal_gpu_utilization_ex(&gpu_loading,
-			&gpu_block, &gpu_idle, &g_Util_Ex);
-#else
 		ged_dvfs_cal_gpu_utilization(&gpu_loading,
 			&gpu_block, &gpu_idle);
-#endif
 		ged_log_buf_print(ghLogBuf_DVFS,
 			"[GED_K][FB_DVFS] fallback mode");
 		spin_unlock_irqrestore(&gsGpuUtilLock, ui32IRQFlags);
@@ -2032,11 +1943,6 @@ GED_ERROR ged_dvfs_system_init(void)
 #ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
 	mtk_timer_base_dvfs_margin_fp =	ged_timer_base_dvfs_margin;
 	mtk_get_timer_base_dvfs_margin_fp = ged_get_timer_base_dvfs_margin;
-#endif
-#ifdef GED_ENABLE_DVFS_LOADING_MODE
-	mtk_dvfs_loading_mode_fp = ged_dvfs_loading_mode;
-	mtk_get_dvfs_loading_mode_fp = ged_get_dvfs_loading_mode;
-	ged_dvfs_cal_gpu_utilization_ex_fp = NULL;
 #endif
 
 	/* CAP query */

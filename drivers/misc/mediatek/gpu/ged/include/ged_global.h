@@ -46,15 +46,7 @@ extern void ged_monitor_3D_fence_set_enable(GED_BOOL bEnable);
 extern unsigned int g_ui32EventStatus;
 extern unsigned int g_ui32EventDebugStatus;
 
-#ifdef GED_ENABLE_DVFS_LOADING_MODE
-extern void (*ged_dvfs_cal_gpu_utilization_ex_fp)(
-		unsigned int *pui32Loading,
-		unsigned int *pui32Block,
-		unsigned int *pui32Idle,
-		void *Util_Ex);
-#else
 extern void (*ged_dvfs_cal_gpu_utilization_fp)(unsigned int *pui32Loading, unsigned int *pui32Block, unsigned int *pui32Idle);
-#endif
 extern void (*ged_dvfs_gpu_freq_commit_fp)(unsigned long ui32NewFreqID, GED_DVFS_COMMIT_TYPE eCommitType, int *pbCommited);
 extern bool ged_gpu_power_on_notified;
 extern bool ged_gpu_power_off_notified;

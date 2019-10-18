@@ -94,12 +94,6 @@ int kbasep_pm_metrics_init(struct kbase_device *kbdev)
 	kbdev->pm.backend.metrics.values.busy_cl[1] = 0;
 	kbdev->pm.backend.metrics.values.busy_gl = 0;
 
-#ifdef GED_ENABLE_DVFS_LOADING_MODE
-	kbdev->pm.backend.metrics.values.busy_gl_plus[0] = 0;
-	kbdev->pm.backend.metrics.values.busy_gl_plus[1] = 0;
-	kbdev->pm.backend.metrics.values.busy_gl_plus[2] = 0;
-#endif
-
 	spin_lock_init(&kbdev->pm.backend.metrics.lock);
 
 #ifdef CONFIG_MALI_MIDGARD_DVFS
@@ -165,14 +159,6 @@ static void kbase_pm_get_dvfs_utilisation_calc(struct kbase_device *kbdev,
 			kbdev->pm.backend.metrics.values.busy_gl += ns_time;
 		if (kbdev->pm.backend.metrics.active_gl_ctx[2])
 			kbdev->pm.backend.metrics.values.busy_gl += ns_time;
-#ifdef GED_ENABLE_DVFS_LOADING_MODE
-		if (kbdev->pm.backend.metrics.active_gl_ctx[0])
-			kbdev->pm.backend.metrics.values.busy_gl_plus[0] += ns_time;
-		if (kbdev->pm.backend.metrics.active_gl_ctx[1])
-			kbdev->pm.backend.metrics.values.busy_gl_plus[1] += ns_time;
-		if (kbdev->pm.backend.metrics.active_gl_ctx[2])
-			kbdev->pm.backend.metrics.values.busy_gl_plus[2] += ns_time;
-#endif
 	} else {
 		kbdev->pm.backend.metrics.values.time_idle += (u32) (ktime_to_ns(diff)
 							>> KBASE_PM_TIME_SHIFT);
@@ -198,11 +184,6 @@ void kbase_pm_get_dvfs_metrics(struct kbase_device *kbdev,
 	diff->busy_cl[0] = cur->busy_cl[0] - last->busy_cl[0];
 	diff->busy_cl[1] = cur->busy_cl[1] - last->busy_cl[1];
 	diff->busy_gl = cur->busy_gl - last->busy_gl;
-#ifdef GED_ENABLE_DVFS_LOADING_MODE
-	diff->busy_gl_plus[0]= cur->busy_gl_plus[0]- last->busy_gl_plus[0];
-	diff->busy_gl_plus[1] = cur->busy_gl_plus[1]- last->busy_gl_plus[1];
-	diff->busy_gl_plus[2] = cur->busy_gl_plus[2]- last->busy_gl_plus[2];
-#endif
 
 	*last = *cur;
 
@@ -213,35 +194,13 @@ KBASE_EXPORT_TEST_API(kbase_pm_get_dvfs_metrics);
 
 #ifdef CONFIG_MALI_MIDGARD_DVFS
 #ifdef ENABLE_COMMON_DVFS
-#ifdef GED_ENABLE_DVFS_LOADING_MODE
-
-struct GpuUtilization_Ex
-{
-	unsigned int util_active;
-	unsigned int util_3d;
-	unsigned int util_ta;
-	unsigned int util_compute;
-};
-
-void MTKCalGpuUtilization_ex(unsigned int *pui32Loading,
-							unsigned int *pui32Block,
-							unsigned int *pui32Idle,
-							void *Util_Ex)
-#else
-void MTKCalGpuUtilization(unsigned int *pui32Loading,
-							unsigned int *pui32Block,
-							unsigned int *pui32Idle)
-#endif
+void MTKCalGpuUtilization(unsigned int *pui32Loading, unsigned int *pui32Block, unsigned int *pui32Idle)
 {
 	struct kbase_device *kbdev = (struct kbase_device *)mtk_get_mali_dev();
 	int utilisation, util_gl_share;
 	int util_cl_share[2];
 	int busy;
 	struct kbasep_pm_metrics *diff;
-#ifdef GED_ENABLE_DVFS_LOADING_MODE
-	struct GpuUtilization_Ex *util_ex =
-			(struct GpuUtilization_Ex *) Util_Ex;
-#endif
 
 	KBASE_DEBUG_ASSERT(kbdev != NULL);
 
@@ -257,16 +216,6 @@ void MTKCalGpuUtilization(unsigned int *pui32Loading,
 	util_gl_share = (100 * diff->busy_gl) / busy;
 	util_cl_share[0] = (100 * diff->busy_cl[0]) / busy;
 	util_cl_share[1] = (100 * diff->busy_cl[1]) / busy;
-
-#ifdef GED_ENABLE_DVFS_LOADING_MODE
-	util_ex->util_active = utilisation; /* active cycles */
-	util_ex->util_3d = (100 * diff->busy_gl_plus[0]) /
-			max(diff->time_busy + diff->time_idle, 1u);/* 3D */
-	util_ex->util_ta = (100 * (diff->busy_gl_plus[1]+diff->busy_gl_plus[2])) /
-			max(diff->time_busy + diff->time_idle, 1u);/* TA */
-	util_ex->util_compute = (100 * (diff->busy_cl[0]+diff->busy_cl[1])) /
-			max(diff->time_busy + diff->time_idle, 1u);/* compute */
-#endif
 
 	if (pui32Loading)
 		*pui32Loading = utilisation;

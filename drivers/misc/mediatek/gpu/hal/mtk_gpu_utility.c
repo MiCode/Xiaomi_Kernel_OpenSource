@@ -857,31 +857,3 @@ bool mtk_get_timer_base_dvfs_margin(int *pi32MarginValue)
 	return false;
 }
 EXPORT_SYMBOL(mtk_get_timer_base_dvfs_margin);
-/* ------------------------------------------------------------------------ */
-void (*mtk_dvfs_loading_mode_fp)(unsigned int ui32LoadingMode) = NULL;
-EXPORT_SYMBOL(mtk_dvfs_loading_mode_fp);
-
-bool mtk_dvfs_loading_mode(unsigned int ui32LoadingMode)
-{
-	if (mtk_dvfs_loading_mode_fp != NULL) {
-		mtk_dvfs_loading_mode_fp(ui32LoadingMode);
-		return true;
-	}
-	return false;
-}
-EXPORT_SYMBOL(mtk_dvfs_loading_mode);
-
-int (*mtk_get_dvfs_loading_mode_fp)(void) = NULL;
-EXPORT_SYMBOL(mtk_get_dvfs_loading_mode_fp);
-
-bool mtk_get_dvfs_loading_mode(unsigned int *pui32LoadingMode)
-{
-	if ((mtk_get_dvfs_loading_mode_fp != NULL) &&
-		(pui32LoadingMode != NULL)) {
-
-		*pui32LoadingMode = mtk_get_dvfs_loading_mode_fp();
-		return true;
-	}
-	return false;
-}
-EXPORT_SYMBOL(mtk_get_dvfs_loading_mode);
