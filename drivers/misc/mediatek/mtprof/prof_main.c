@@ -233,6 +233,7 @@ static void probe_signal_deliver(void *ignore, int sig, struct siginfo *info,
 			(unsigned long)ka->sa.sa_handler, ka->sa.sa_flags);
 }
 
+#ifdef MTK_DEATH_SIGNAL_LOG
 static void probe_death_signal(void *ignore, int sig, struct siginfo *info,
 		struct task_struct *task, int _group, int result)
 {
@@ -300,7 +301,7 @@ static void probe_death_signal(void *ignore, int sig, struct siginfo *info,
 			 state < sizeof(stat_nam) - 1 ? stat_nam[state] : '?');
 	}
 }
-
+#endif
 static int mt_signal_log_show(struct seq_file *m, void *v)
 {
 	SEQ_printf(m, "%d: debug message for signal being generated\n",
@@ -351,7 +352,9 @@ static void __init init_signal_log(void)
 		register_trace_signal_generate(probe_signal_generate, NULL);
 	if (enabled_signal_log & SI_DELIVER)
 		register_trace_signal_deliver(probe_signal_deliver, NULL);
+#ifdef MTK_DEATH_SIGNAL_LOG
 	register_trace_signal_generate(probe_death_signal, NULL);
+#endif
 }
 
 #ifdef MTK_FORK_EXIT_LOG
