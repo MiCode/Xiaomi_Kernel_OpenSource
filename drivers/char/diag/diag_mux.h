@@ -65,4 +65,5 @@ int diag_mux_close_peripheral(int proc, uint8_t peripheral);
 int diag_mux_open_all(struct diag_logger_t *logger);
 int diag_mux_close_all(void);
 int diag_mux_switch_logging(int proc, int *new_mode, int *peripheral_mask);
+void diag_notify_md_client(uint8_t proc, uint8_t peripheral, int data);
 #endif
