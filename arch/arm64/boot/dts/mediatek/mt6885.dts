@@ -2549,7 +2549,7 @@ page_owner=on";
 		compatible = "mediatek,dfd";
 		reg = <0 0x10200b00 0 0x10000>;
 
-		mediatek,enabled = <0>;
+		mediatek,enabled = <1>;
 		mediatek,chain_length = <0x1940>;
 		mediatek,rg_dfd_timeout = <0xa0>;
 	};
