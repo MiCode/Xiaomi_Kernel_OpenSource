@@ -32,6 +32,10 @@
 #include <linux/arm-smccc.h>
 #include <mt-plat/mtk_secure_api.h>
 
+#ifdef CONFIG_MTK_GIC_V3_EXT
+#include <linux/irqchip/mtk-gic-extend.h>
+#endif
+
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 #include "cmdq-util.h"
 #endif
