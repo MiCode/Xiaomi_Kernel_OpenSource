@@ -54,6 +54,18 @@ extern int bu64748af_PowerDown_Main(struct i2c_client *pstAF_I2Cclient,
 				int *pAF_Opened);
 extern int bu64748af_GetFileName_Main(unsigned char *pFileName);
 
+#define BU64253GWZAF_SetI2Cclient BU64253GWZAF_SetI2Cclient_Main
+#define BU64253GWZAF_Ioctl BU64253GWZAF_Ioctl_Main
+#define BU64253GWZAF_Release BU64253GWZAF_Release_Main
+#define BU64253GWZAF_GetFileName BU64253GWZAF_GetFileName_Main
+extern int BU64253GWZAF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
+				 spinlock_t *pAF_SpinLock, int *pAF_Opened);
+extern long BU64253GWZAF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
+			   unsigned long a_u4Param);
+extern int BU64253GWZAF_Release(struct inode *a_pstInode,
+				 struct file *a_pstFile);
+extern int BU64253GWZAF_GetFileName(unsigned char *pFileName);
+
 #define BU6429AF_SetI2Cclient BU6429AF_SetI2Cclient_Main
 #define BU6429AF_Ioctl BU6429AF_Ioctl_Main
 #define BU6429AF_Release BU6429AF_Release_Main

@@ -47,6 +47,7 @@ obj-y += main2_lens.o
 obj-y += common/lc898212xdaf_f/
 obj-y += common/ak7371af/
 obj-y += common/bu64748af/
+obj-y += common/dw9718taf/
 obj-y += common/lc898217af/
 obj-y  += common/lc898217afa/
 obj-y  += common/lc898217afb/

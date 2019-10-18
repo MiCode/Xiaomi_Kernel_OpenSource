@@ -96,6 +96,8 @@ static struct stAF_DrvList g_stAF_DrvList[MAX_NUM_OF_LENS] = {
 	 BU6429AF_Release, BU6429AF_GetFileName, NULL},
 	{1, AFDRV_BU64748AF, bu64748af_SetI2Cclient_Main, bu64748af_Ioctl_Main,
 	 bu64748af_Release_Main, bu64748af_GetFileName_Main, NULL},
+	{1, AFDRV_BU64253GWZAF, BU64253GWZAF_SetI2Cclient, BU64253GWZAF_Ioctl,
+	 BU64253GWZAF_Release, BU64253GWZAF_GetFileName, NULL},
 	{1,
 #ifdef CONFIG_MTK_LENS_BU63165AF_SUPPORT
 	 AFDRV_BU63165AF, BU63165AF_SetI2Cclient, BU63165AF_Ioctl,
@@ -152,6 +154,84 @@ static struct cdev *g_pAF_CharDrv;
 static struct class *actuator_class;
 static struct device *lens_device;
 
+/******************************************************************************
+ * Pinctrl configuration
+ *****************************************************************************/
+#define AF_PINCTRL_PIN_HWEN 0
+#define AF_PINCTRL_PINSTATE_LOW 0
+#define AF_PINCTRL_PINSTATE_HIGH 1
+#define AF_PINCTRL_STATE_HWEN_HIGH     "cam0_ldo_vcamaf_1"
+#define AF_PINCTRL_STATE_HWEN_LOW      "cam0_ldo_vcamaf_0"
+static struct pinctrl *af_pinctrl;
+static struct pinctrl_state *af_hwen_high;
+static struct pinctrl_state *af_hwen_low;
+
+static int af_pinctrl_init(struct device *pdev)
+{
+	int ret = 0;
+
+	/* get pinctrl */
+	if (af_pinctrl == NULL) {
+		af_pinctrl = devm_pinctrl_get(pdev);
+		/* LOG_INF("pinctrl(%x) +", af_pinctrl); */
+		if (IS_ERR(af_pinctrl)) {
+			LOG_INF("Failed to get af pinctrl.\n");
+			ret = PTR_ERR(af_pinctrl);
+			return ret;
+		}
+
+		/* AF HWEN pin initialization */
+		af_hwen_high = pinctrl_lookup_state(
+				af_pinctrl, AF_PINCTRL_STATE_HWEN_HIGH);
+		if (IS_ERR(af_hwen_high)) {
+			LOG_INF("Failed to init (%s)\n",
+				AF_PINCTRL_STATE_HWEN_HIGH);
+			ret = PTR_ERR(af_hwen_high);
+		}
+		af_hwen_low = pinctrl_lookup_state(
+			af_pinctrl, AF_PINCTRL_STATE_HWEN_LOW);
+		if (IS_ERR(af_hwen_low)) {
+			LOG_INF("Failed to init (%s)\n",
+				AF_PINCTRL_STATE_HWEN_LOW);
+			ret = PTR_ERR(af_hwen_low);
+		}
+	}
+	LOG_INF("-");
+	return ret;
+}
+
+static int af_pinctrl_set(int pin, int state)
+{
+	int ret = 0;
+
+	LOG_INF("+");
+	if (IS_ERR(af_pinctrl)) {
+		LOG_INF("pinctrl is not available\n");
+		return -1;
+	}
+
+	switch (pin) {
+	case AF_PINCTRL_PIN_HWEN:
+		if (state == AF_PINCTRL_PINSTATE_LOW &&
+				!IS_ERR(af_hwen_low))
+			pinctrl_select_state(af_pinctrl, af_hwen_low);
+		else if (state == AF_PINCTRL_PINSTATE_HIGH &&
+				!IS_ERR(af_hwen_high))
+			pinctrl_select_state(af_pinctrl, af_hwen_high);
+		else
+			LOG_INF("set err, pin(%d) state(%d)\n", pin, state);
+		break;
+	default:
+		LOG_INF("set err, pin(%d) state(%d)\n", pin, state);
+		break;
+	}
+	LOG_INF("pin(%d) state(%d)\n", pin, state);
+
+	LOG_INF("-");
+
+	return ret;
+}
+
 /* PMIC */
 #if !defined(CONFIG_MTK_LEGACY)
 static struct regulator *regVCAMAF;
@@ -180,7 +260,7 @@ void AFRegulatorCtrl(int Stage)
 				if (strncmp(CONFIG_ARCH_MTK_PROJECT,
 					"k6885v1_64_alpha", 16) == 0) {
 					regVCAMAF =
-					regulator_get(lens_device, "vcamaf");
+					regulator_get(lens_device, "vmc");
 				} else {
 					regVCAMAF =
 					regulator_get(lens_device, "vcamio");
@@ -537,11 +617,16 @@ static int AF_Open(struct inode *a_pstInode, struct file *a_pstFile)
 	g_s4AF_Opened = 1;
 	spin_unlock(&g_AF_SpinLock);
 
+	if (strncmp(CONFIG_ARCH_MTK_PROJECT,
+		"k6885v1_64_alpha", 16) == 0) {
+		af_pinctrl_set(AF_PINCTRL_PIN_HWEN,
+				AF_PINCTRL_PINSTATE_HIGH);
+	} else {
 #if !defined(CONFIG_MTK_LEGACY)
-	AFRegulatorCtrl(0);
-	AFRegulatorCtrl(1);
+		AFRegulatorCtrl(0);
+		AFRegulatorCtrl(1);
 #endif
-
+	}
 	/* OIS/EIS Timer & Workqueue */
 	/* init work queue */
 	INIT_WORK(&ois_work, ois_pos_polling);
@@ -581,9 +666,15 @@ static int AF_Release(struct inode *a_pstInode, struct file *a_pstFile)
 		spin_unlock(&g_AF_SpinLock);
 	}
 
+	if (strncmp(CONFIG_ARCH_MTK_PROJECT,
+		"k6885v1_64_alpha", 16) == 0) {
+		af_pinctrl_set(AF_PINCTRL_PIN_HWEN,
+				AF_PINCTRL_PINSTATE_LOW);
+	} else {
 #if !defined(CONFIG_MTK_LEGACY)
-	AFRegulatorCtrl(2);
+		AFRegulatorCtrl(2);
 #endif
+	}
 
 	/* OIS/EIS Timer & Workqueue */
 	/* Cancel Timer */
@@ -742,6 +833,11 @@ static int AF_i2c_probe(struct i2c_client *client,
 
 static int AF_probe(struct platform_device *pdev)
 {
+	if (strncmp(CONFIG_ARCH_MTK_PROJECT,
+		"k6885v1_64_alpha", 16) == 0) {
+		if (af_pinctrl_init(&pdev->dev))
+			LOG_INF("Failed to init pinctrl.\n");
+	}
 	return i2c_add_driver(&AF_i2c_driver);
 }
 
@@ -761,6 +857,13 @@ static int AF_resume(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_OF
+static const struct of_device_id gmainaf_of_device_id[] = {
+	{.compatible = "mediatek,camera_af_lens",},
+	{}
+};
+#endif
+
 /* platform structure */
 static struct platform_driver g_stAF_Driver = {
 	.probe = AF_probe,
@@ -768,7 +871,11 @@ static struct platform_driver g_stAF_Driver = {
 	.suspend = AF_suspend,
 	.resume = AF_resume,
 	.driver = {
-		.name = PLATFORM_DRIVER_NAME, .owner = THIS_MODULE,
+		.name = PLATFORM_DRIVER_NAME,
+		.owner = THIS_MODULE,
+#ifdef CONFIG_OF
+		.of_match_table = gmainaf_of_device_id,
+#endif
 	} };
 
 static struct platform_device g_stAF_device = {
