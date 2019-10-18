@@ -22,10 +22,34 @@
 #include <linux/irqreturn.h>
 #include <linux/platform_device.h>
 #include <linux/delay.h>
+#include <linux/workqueue.h>
 #include <mt-plat/aee.h>
 #include <cache_parity.h>
 
+static inline unsigned int gic_irq(struct irq_data *d)
+{
+#ifdef CONFIG_MTK_SYSIRQ
+	d = get_gic_irq_data(d);
+#endif
+	return d->hwirq;
+}
+
+static inline unsigned int virq_to_hwirq(unsigned int virq)
+{
+	struct irq_desc *desc;
+	unsigned int hwirq;
+
+	desc = irq_to_desc(virq);
+
+	WARN_ON(!desc);
+
+	hwirq = gic_irq(&desc->irq_data);
+
+	return hwirq;
+}
+
 static DEFINE_SPINLOCK(parity_isr_lock);
+
 void __iomem *parity_debug_base;
 static unsigned int err_level;
 static unsigned int irq_count;
@@ -49,6 +73,107 @@ static struct platform_driver cache_parity_drv = {
 	},
 	.probe = cache_parity_probe,
 };
+
+static struct cache_parity_work_data {
+	struct work_struct work;
+	u32 version;
+	union _data {
+		struct _v1 {
+			u32 irq_index;
+			u32 status;
+		} v1;
+		struct _v2 {
+			u32 irq_index;
+			u64 misc0_el1;
+			u64 status_el1;
+		} v2;
+	} data;
+} cache_parity_wd;
+
+#ifdef CONFIG_ARM64
+static u64 read_ERXMISC0_EL1(void)
+{
+	u64 v;
+
+	__asm__ volatile ("mrs %0, s3_0_c5_c5_0" : "=r" (v));
+
+	return v;
+}
+
+static u64 read_ERXSTATUS_EL1(void)
+{
+	u64 v;
+
+	__asm__ volatile ("mrs %0, s3_0_c5_c4_2" : "=r" (v));
+
+	return v;
+}
+
+static void write_ERXSTATUS_EL1(u64 v)
+{
+	__asm__ volatile ("msr s3_0_c5_c4_2, %0" : : "r" (v));
+}
+#else
+/* TODO: aarch32, TBD */
+static u64 read_ERXMISC0_EL1(void)
+{
+	return 0;
+}
+
+static u64 read_ERXSTATUS_EL1(void)
+{
+	return 0;
+}
+
+static void write_ERXSTATUS_EL1(u64 v)
+{
+}
+#endif
+
+static void handle_error(struct work_struct *w)
+{
+	struct cache_parity_work_data *wd;
+
+	wd = container_of(w, struct cache_parity_work_data, work);
+
+	if (wd->version == 1) {
+		aee_kernel_exception("cache parity",
+			"cache parity error,%s:%d,%s:0x%x\n\n%s\n",
+			"irq_index", wd->data.v1.irq_index,
+			"status", wd->data.v1.status,
+			"CRDISPATCH_KEY:Cache Parity Issue");
+	} else if (wd->version == 2) {
+		aee_kernel_exception("cache parity",
+			"ecc error,%s:%d, %s:%llu, %s:%llu\n\n%s\n",
+			"irq_index", wd->data.v2.irq_index,
+			"misc0_el1", cache_parity_wd.data.v2.misc0_el1,
+			"status_el1", cache_parity_wd.data.v2.status_el1,
+			"CRDISPATCH_KEY:Cache Parity Issue");
+	} else {
+		pr_debug("Unknown Cache Error Irq\n");
+	}
+}
+
+static irqreturn_t default_parity_isr_v2(int irq, void *dev_id)
+{
+	/* collect error status to report later */
+	cache_parity_wd.data.v2.irq_index = virq_to_hwirq(irq);
+	cache_parity_wd.data.v2.misc0_el1 = read_ERXMISC0_EL1();
+	cache_parity_wd.data.v2.status_el1 = read_ERXSTATUS_EL1();
+
+	/* clear error status to make irq not pending */
+	write_ERXSTATUS_EL1(cache_parity_wd.data.v2.status_el1);
+
+	/* OK, can start a worker to generate error report */
+	schedule_work(&cache_parity_wd.work);
+
+	pr_debug("ecc error,%s:%d, %s:%llu, %s:%llu\n",
+	       "irq_index", cache_parity_wd.data.v2.irq_index,
+	       "misc0_el1", cache_parity_wd.data.v2.misc0_el1,
+	       "status_el1", cache_parity_wd.data.v2.status_el1);
+
+	return IRQ_HANDLED;
+}
 
 static irqreturn_t default_parity_isr_v1(int irq, void *dev_id)
 {
@@ -90,11 +215,9 @@ static irqreturn_t default_parity_isr_v1(int irq, void *dev_id)
 	WARN_ON(1);
 #else
 	if (err_level) {
-		aee_kernel_exception("cache parity",
-			"cache parity error,%s:%d,%s:0x%x\n\n%s\n",
-			"irq_index", irq_idx,
-			"status", status,
-			"CRDISPATCH_KEY:Cache Parity Issue");
+		cache_parity_wd.data.v1.irq_index = irq_idx;
+		cache_parity_wd.data.v1.status = status;
+		schedule_work(&cache_parity_wd.work);
 	} else
 		WARN_ON(1);
 #endif
@@ -123,6 +246,44 @@ static irqreturn_t default_parity_isr_v1(int irq, void *dev_id)
 void __attribute__((weak)) cache_parity_init_platform(void)
 {
 	pr_info("[%s] adopt default flow\n", __func__);
+}
+
+static int cache_parity_probe_v2(struct platform_device *pdev)
+{
+	struct device_node *node = pdev->dev.of_node;
+	unsigned int i;
+	int ret;
+	int irq;
+
+	cache_parity_init_platform();
+
+	ret = of_property_read_u32(node, "err_level", &err_level);
+	if (ret)
+		return ret;
+
+	irq_count = of_irq_count(node);
+
+	for (i = 0; i < irq_count; i++) {
+		irq = irq_of_parse_and_map(node, i);
+		pr_debug("irq %d for cpu%d\n", irq, i);
+
+		ret = irq_set_affinity(irq, cpumask_of(i));
+		if (ret)
+			pr_debug("irq target to cpu(%d) fail\n", i);
+
+		if (custom_parity_isr)
+			ret = request_irq(irq, custom_parity_isr,
+				IRQF_TRIGGER_NONE, "cache_parity",
+				&cache_parity_drv);
+		else
+			ret = request_irq(irq, default_parity_isr_v2,
+				IRQF_TRIGGER_NONE, "cache_parity",
+				&cache_parity_drv);
+		if (ret != 0)
+			pr_debug("request_irq(%d) fail\n", i);
+	}
+
+	return 0;
 }
 
 static int cache_parity_probe_v1(struct platform_device *pdev)
@@ -196,17 +357,22 @@ static int cache_parity_probe(struct platform_device *pdev)
 {
 	int ret;
 
-	parity_debug_base = of_iomap(pdev->dev.of_node, 0);
-	if (!parity_debug_base)
-		return -ENOMEM;
-
 	ret = of_property_read_u32(pdev->dev.of_node, "version", &version);
 	if (ret)
 		return ret;
 
+	INIT_WORK(&cache_parity_wd.work, handle_error);
+	cache_parity_wd.version = version;
+
 	switch (version) {
 	case 1:
+		parity_debug_base = of_iomap(pdev->dev.of_node, 0);
+		if (!parity_debug_base)
+			return -ENOMEM;
+
 		return cache_parity_probe_v1(pdev);
+	case 2:
+		return cache_parity_probe_v2(pdev);
 	default:
 		pr_info("unsupported version\n");
 		return 0;
