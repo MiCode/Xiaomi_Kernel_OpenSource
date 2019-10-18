@@ -286,6 +286,8 @@ int scp_request_freq(void)
 	__pm_stay_awake(&scp_suspend_lock);
 
 	if (scp_current_freq != scp_expected_freq) {
+		/* keep scp alive before raise vcore up */
+		scp_awake_lock(SCP_A_ID);
 
 		/* do DVS before DFS if increasing frequency */
 		if (scp_current_freq < scp_expected_freq) {
@@ -331,6 +333,9 @@ int scp_request_freq(void)
 		/* do DVS after DFS if decreasing frequency */
 		if (is_increasing_freq == 0)
 			scp_vcore_request(scp_expected_freq);
+
+		/* release scp to sleep after ap freq drop request */
+		scp_awake_unlock(SCP_A_ID);
 
 		if (scp_expected_freq == (unsigned int)CLK_OPP4)
 			/* request SPM not to turn off 26M/infra */
