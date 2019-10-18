@@ -116,7 +116,7 @@ void venc_encode_prepare(void *ctx_prepare, int core_id, unsigned long *flags)
 
 	mtk_venc_pmqos_prelock(ctx, core_id);
 	mtk_venc_lock(ctx, core_id);
-	mtk_venc_pmqos_begin_frame(ctx);
+	mtk_venc_pmqos_begin_frame(ctx, core_id);
 	spin_lock_irqsave(&ctx->dev->irqlock, *flags);
 	ctx->dev->curr_enc_ctx[0] = ctx;
 	spin_unlock_irqrestore(&ctx->dev->irqlock, *flags);
@@ -139,10 +139,22 @@ void venc_encode_unprepare(void *ctx_unprepare,
 	spin_lock_irqsave(&ctx->dev->irqlock, *flags);
 	ctx->dev->curr_enc_ctx[0] = NULL;
 	spin_unlock_irqrestore(&ctx->dev->irqlock, *flags);
-	mtk_venc_pmqos_end_frame(ctx);
+	mtk_venc_pmqos_end_frame(ctx, core_id);
 	mtk_venc_unlock(ctx, core_id);
 }
 EXPORT_SYMBOL_GPL(venc_encode_unprepare);
+
+void venc_encode_pmqos_gce_begin(void *ctx_begin, int core_id, int job_cnt)
+{
+	mtk_venc_pmqos_gce_flush(ctx_begin, core_id, job_cnt);
+}
+EXPORT_SYMBOL_GPL(venc_encode_pmqos_gce_begin);
+
+void venc_encode_pmqos_gce_end(void *ctx_end, int core_id, int job_cnt)
+{
+	mtk_venc_pmqos_gce_done(ctx_end, core_id, job_cnt);
+}
+EXPORT_SYMBOL_GPL(venc_encode_pmqos_gce_end);
 
 int venc_if_encode(struct mtk_vcodec_ctx *ctx,
 	enum venc_start_opt opt, struct venc_frm_buf *frm_buf,

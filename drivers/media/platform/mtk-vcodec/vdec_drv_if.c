@@ -195,9 +195,9 @@ void vdec_decode_prepare(void *ctx_prepare,
 {
 	struct mtk_vcodec_ctx *ctx = (struct mtk_vcodec_ctx *)ctx_prepare;
 
-	mtk_vdec_pmqos_prelock(ctx);
+	mtk_vdec_pmqos_prelock(ctx, hw_id);
 	mtk_vdec_lock(ctx, hw_id);
-	mtk_vdec_pmqos_begin_frame(ctx);
+	mtk_vdec_pmqos_begin_frame(ctx, hw_id);
 
 	mtk_vcodec_set_curr_ctx(ctx->dev, ctx, hw_id);
 	mtk_vcodec_dec_clock_on(&ctx->dev->pm, hw_id);
@@ -220,7 +220,7 @@ void vdec_decode_unprepare(void *ctx_unprepare,
 	mtk_vcodec_dec_clock_off(&ctx->dev->pm, hw_id);
 	mtk_vcodec_set_curr_ctx(ctx->dev, NULL, hw_id);
 
-	mtk_vdec_pmqos_end_frame(ctx);
+	mtk_vdec_pmqos_end_frame(ctx, hw_id);
 	mtk_vdec_unlock(ctx, hw_id);
 }
 EXPORT_SYMBOL_GPL(vdec_decode_unprepare);

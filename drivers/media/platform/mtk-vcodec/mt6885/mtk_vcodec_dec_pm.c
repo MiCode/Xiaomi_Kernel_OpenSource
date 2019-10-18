@@ -33,24 +33,49 @@
 #include <linux/pm_qos.h>
 #include <mmdvfs_pmqos.h>
 #include "vcodec_dvfs.h"
-#define STD_VDEC_FREQ 228
+#define STD_VDEC_FREQ 250
 static struct pm_qos_request vdec_qos_req_f;
 static u64 vdec_freq;
 static u32 vdec_freq_step_size;
 static u64 vdec_freq_steps[MAX_FREQ_STEP];
 static struct codec_history *vdec_hists;
-static struct codec_job *vdec_jobs;
+/* static struct codec_job *vdec_jobs; */
+/* TODO: apply new DVFS */
+static u64 vdec_req_freq[2]; /* 0 - LAT, 1 - Core */
 #endif
 
 #if DEC_EMI_BW
 #include <mtk_smi.h>
+#include <dt-bindings/memory/mt6885-larb-port.h>
 static unsigned int h264_frm_scale[4] = {12, 24, 40, 12};
 static unsigned int h265_frm_scale[4] = {12, 24, 40, 12};
 static unsigned int vp9_frm_scale[4] = {12, 24, 40, 12};
 static unsigned int vp8_frm_scale[4] = {12, 24, 40, 12};
 static unsigned int mp24_frm_scale[5] = {16, 20, 32, 50, 16};
 
-struct pm_qos_request vdec_qos_req_bw;
+static struct plist_head vdec_rlist_core;
+static struct plist_head vdec_rlist_lat;
+/* LARB4, mostly core */
+static struct mm_qos_request vdec_mc;
+static struct mm_qos_request vdec_ufo;
+static struct mm_qos_request vdec_pp;
+static struct mm_qos_request vdec_pred_rd;
+static struct mm_qos_request vdec_pred_wr;
+static struct mm_qos_request vdec_ppwrap;
+static struct mm_qos_request vdec_tile;
+static struct mm_qos_request vdec_vld;
+static struct mm_qos_request vdec_vld2;
+static struct mm_qos_request vdec_avc_mv;
+static struct mm_qos_request vdec_rg_ctrl_dma;
+/* LARB5, mostly lat */
+static struct mm_qos_request vdec_lat0_vld;
+static struct mm_qos_request vdec_lat0_vld2;
+static struct mm_qos_request vdec_lat0_avc_mv;
+static struct mm_qos_request vdec_lat0_pred_rd;
+static struct mm_qos_request vdec_lat0_tile;
+static struct mm_qos_request vdec_lat0_wdma;
+static struct mm_qos_request vdec_lat0_rg_ctrl_dma;
+static struct mm_qos_request vdec_ufo_enc;
 #endif
 static struct ion_client *ion_vdec_client;
 
@@ -266,21 +291,61 @@ void mtk_unprepare_vdec_dvfs(void)
 void mtk_prepare_vdec_emi_bw(void)
 {
 #if DEC_EMI_BW
-	pm_qos_add_request(&vdec_qos_req_bw, PM_QOS_MM_MEMORY_BANDWIDTH,
-						PM_QOS_DEFAULT_VALUE);
+	plist_head_init(&vdec_rlist_core);
+	mm_qos_add_request(&vdec_rlist_core, &vdec_mc,
+				M4U_PORT_L4_VDEC_MC_EXT_MDP);
+	mm_qos_add_request(&vdec_rlist_core, &vdec_ufo,
+				M4U_PORT_L4_VDEC_UFO_EXT_MDP);
+	mm_qos_add_request(&vdec_rlist_core, &vdec_pp,
+				M4U_PORT_L4_VDEC_PP_EXT_MDP);
+	mm_qos_add_request(&vdec_rlist_core, &vdec_pred_rd,
+				M4U_PORT_L4_VDEC_PRED_RD_EXT_MDP);
+	mm_qos_add_request(&vdec_rlist_core, &vdec_pred_wr,
+				M4U_PORT_L4_VDEC_PRED_WR_EXT_MDP);
+	mm_qos_add_request(&vdec_rlist_core, &vdec_ppwrap,
+				M4U_PORT_L4_VDEC_PPWRAP_EXT_MDP);
+	mm_qos_add_request(&vdec_rlist_core, &vdec_tile,
+				M4U_PORT_L4_VDEC_TILE_EXT_MDP);
+	mm_qos_add_request(&vdec_rlist_core, &vdec_vld,
+				M4U_PORT_L4_VDEC_VLD_EXT_MDP);
+	mm_qos_add_request(&vdec_rlist_core, &vdec_vld2,
+				M4U_PORT_L4_VDEC_VLD2_EXT_MDP);
+	mm_qos_add_request(&vdec_rlist_core, &vdec_avc_mv,
+				M4U_PORT_L4_VDEC_AVC_MV_EXT_MDP);
+	mm_qos_add_request(&vdec_rlist_core, &vdec_rg_ctrl_dma,
+				M4U_PORT_L4_VDEC_RG_CTRL_DMA_EXT_MDP);
+	mm_qos_add_request(&vdec_rlist_core, &vdec_ufo_enc,
+				M4U_PORT_L5_VDEC_UFO_ENC_EXT_DISP);
+
+	plist_head_init(&vdec_rlist_lat);
+	mm_qos_add_request(&vdec_rlist_lat, &vdec_lat0_vld,
+				M4U_PORT_L5_VDEC_LAT0_VLD_EXT_DISP);
+	mm_qos_add_request(&vdec_rlist_lat, &vdec_lat0_vld2,
+				M4U_PORT_L5_VDEC_LAT0_VLD2_EXT_DISP);
+	mm_qos_add_request(&vdec_rlist_lat, &vdec_lat0_avc_mv,
+				M4U_PORT_L5_VDEC_LAT0_AVC_MV_EXT_DISP);
+	mm_qos_add_request(&vdec_rlist_lat, &vdec_lat0_pred_rd,
+				M4U_PORT_L5_VDEC_LAT0_PRED_RD_EXT_DISP);
+	mm_qos_add_request(&vdec_rlist_lat, &vdec_lat0_tile,
+				M4U_PORT_L5_VDEC_LAT0_TILE_EXT_DISP);
+	mm_qos_add_request(&vdec_rlist_lat, &vdec_lat0_wdma,
+				M4U_PORT_L5_VDEC_LAT0_WDMA_EXT_DISP);
+	mm_qos_add_request(&vdec_rlist_lat, &vdec_lat0_rg_ctrl_dma,
+				M4U_PORT_L5_VDEC_LAT0_RG_CTRL_DMA_EXT_DISP);
 #endif
 }
 
 void mtk_unprepare_vdec_emi_bw(void)
 {
 #if DEC_EMI_BW
-	pm_qos_remove_request(&vdec_qos_req_bw);
+	mm_qos_remove_all_request(&vdec_rlist_core);
+	mm_qos_remove_all_request(&vdec_rlist_lat);
 #endif
 }
 
-void mtk_vdec_dvfs_begin(struct mtk_vcodec_ctx *ctx)
+void mtk_vdec_dvfs_begin(struct mtk_vcodec_ctx *ctx, int hw_id)
 {
-#if DEC_DVFS
+#if 0
 	int target_freq = 0;
 	u64 target_freq_64 = 0;
 	struct codec_job *vdec_cur_job = 0;
@@ -307,11 +372,27 @@ void mtk_vdec_dvfs_begin(struct mtk_vcodec_ctx *ctx)
 	}
 	mutex_unlock(&ctx->dev->dec_dvfs_mutex);
 #endif
+#if DEC_DVFS
+	mutex_lock(&ctx->dev->dec_dvfs_mutex);
+	if ((ctx->q_data[MTK_Q_DATA_DST].visible_width *
+		ctx->q_data[MTK_Q_DATA_DST].visible_height) >=
+		3840*2160) {
+		vdec_req_freq[hw_id] = 450;
+	} else {
+		vdec_req_freq[hw_id] = STD_VDEC_FREQ;
+	}
+
+	vdec_freq = vdec_req_freq[0] > vdec_req_freq[1] ?
+			vdec_req_freq[0] : vdec_req_freq[1];
+
+	pm_qos_update_request(&vdec_qos_req_f, vdec_freq);
+	mutex_unlock(&ctx->dev->dec_dvfs_mutex);
+#endif
 }
 
-void mtk_vdec_dvfs_end(struct mtk_vcodec_ctx *ctx)
+void mtk_vdec_dvfs_end(struct mtk_vcodec_ctx *ctx, int hw_id)
 {
-#if DEC_DVFS
+#if 0
 	int freq_idx = 0;
 	struct codec_job *vdec_cur_job = 0;
 
@@ -331,11 +412,21 @@ void mtk_vdec_dvfs_end(struct mtk_vcodec_ctx *ctx)
 	pm_qos_update_request(&vdec_qos_req_f, vdec_freq_steps[freq_idx]);
 	mutex_unlock(&ctx->dev->dec_dvfs_mutex);
 #endif
+#if DEC_DVFS
+	mutex_lock(&ctx->dev->dec_dvfs_mutex);
+
+	vdec_req_freq[hw_id] = 0;
+	vdec_freq = vdec_req_freq[0] > vdec_req_freq[1] ?
+			vdec_req_freq[0] : vdec_req_freq[1];
+
+	pm_qos_update_request(&vdec_qos_req_f, vdec_freq);
+	mutex_unlock(&ctx->dev->dec_dvfs_mutex);
+#endif
 }
 
-void mtk_vdec_emi_bw_begin(struct mtk_vcodec_ctx *ctx)
+void mtk_vdec_emi_bw_begin(struct mtk_vcodec_ctx *ctx, int hw_id)
 {
-#if DEC_EMI_BW
+#if 0
 	int b_freq_idx = 0;
 	int f_type = 1; /* TODO */
 	long emi_bw = 0;
@@ -385,34 +476,164 @@ void mtk_vdec_emi_bw_begin(struct mtk_vcodec_ctx *ctx)
 
 	pm_qos_update_request(&vdec_qos_req_bw, (int)emi_bw);
 #endif
-}
-
-static void mtk_vdec_emi_bw_end(void)
-{
 #if DEC_EMI_BW
-	pm_qos_update_request(&vdec_qos_req_bw, 0);
+	int f_type = 1;
+	long emi_bw = 0;
+	long emi_bw_input = 0;
+	long emi_bw_output = 0;
+
+	if (hw_id == MTK_VDEC_LAT) {
+		switch (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc) {
+		case V4L2_PIX_FMT_H264:
+		case V4L2_PIX_FMT_H265:
+			emi_bw_input = 35 * vdec_freq / STD_VDEC_FREQ;
+			break;
+		case V4L2_PIX_FMT_VP9:
+		case V4L2_PIX_FMT_AV1:
+			emi_bw_input = 15 * vdec_freq / STD_VDEC_FREQ;
+			break;
+		default:
+			emi_bw_input = 35 * vdec_freq / STD_VDEC_FREQ;
+		}
+		mm_qos_set_request(&vdec_lat0_vld, emi_bw_input, 0,
+					BW_COMP_NONE);
+		mm_qos_set_request(&vdec_lat0_vld2, 0, 0, BW_COMP_NONE);
+		mm_qos_set_request(&vdec_lat0_avc_mv, emi_bw_input * 2, 0,
+					BW_COMP_NONE);
+		mm_qos_set_request(&vdec_lat0_pred_rd, 10, 0, BW_COMP_NONE);
+		mm_qos_set_request(&vdec_lat0_tile, 0, 0, BW_COMP_NONE);
+		mm_qos_set_request(&vdec_lat0_wdma, 0, emi_bw_input * 2,
+					BW_COMP_NONE);
+		mm_qos_set_request(&vdec_lat0_rg_ctrl_dma, 0, 0, BW_COMP_NONE);
+		mm_qos_update_all_request(&vdec_rlist_lat);
+
+	} else if (hw_id == MTK_VDEC_CORE) {
+		emi_bw = 8L * 1920 * 1080 * 3 * 10 * vdec_freq;
+		emi_bw_output = 1920 * 1088 * 3 * 30 * 10 * vdec_freq /
+				2 / 3 / STD_VDEC_FREQ / 1024 / 1024;
+
+		switch (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc) {
+		case V4L2_PIX_FMT_H264:
+			emi_bw_input = 70 * vdec_freq / STD_VDEC_FREQ;
+			emi_bw = emi_bw * h264_frm_scale[f_type] /
+					(2 * STD_VDEC_FREQ);
+			break;
+		case V4L2_PIX_FMT_H265:
+			emi_bw_input = 70 * vdec_freq / STD_VDEC_FREQ;
+			emi_bw = emi_bw * h265_frm_scale[f_type] /
+					(2 * STD_VDEC_FREQ);
+			break;
+		case V4L2_PIX_FMT_VP8:
+			emi_bw_input = 15 * vdec_freq / STD_VDEC_FREQ;
+			emi_bw = emi_bw * vp8_frm_scale[f_type] /
+					(2 * STD_VDEC_FREQ);
+			break;
+		case V4L2_PIX_FMT_VP9:
+			emi_bw_input = 30 * vdec_freq / STD_VDEC_FREQ;
+			emi_bw = emi_bw * vp9_frm_scale[f_type] /
+					(2 * STD_VDEC_FREQ);
+			break;
+		case V4L2_PIX_FMT_AV1:
+			emi_bw_input = 30 * vdec_freq / STD_VDEC_FREQ;
+			emi_bw = emi_bw * vp9_frm_scale[f_type] /
+					(2 * STD_VDEC_FREQ);
+			break;
+		case V4L2_PIX_FMT_MPEG4:
+		case V4L2_PIX_FMT_H263:
+		case V4L2_PIX_FMT_S263:
+		case V4L2_PIX_FMT_XVID:
+		case V4L2_PIX_FMT_DIVX3:
+		case V4L2_PIX_FMT_DIVX4:
+		case V4L2_PIX_FMT_DIVX5:
+		case V4L2_PIX_FMT_DIVX6:
+		case V4L2_PIX_FMT_MPEG1:
+		case V4L2_PIX_FMT_MPEG2:
+			emi_bw_input = 15 * vdec_freq / STD_VDEC_FREQ;
+			emi_bw = emi_bw * mp24_frm_scale[f_type] /
+					(2 * STD_VDEC_FREQ);
+			break;
+		}
+		emi_bw = emi_bw / (1024 * 1024) / 8;
+		emi_bw = emi_bw - emi_bw_output - emi_bw_input;
+		if (emi_bw < 0)
+			emi_bw = 0;
+
+		if (0) { /* UFO */
+			mm_qos_set_request(&vdec_ufo, emi_bw, 0, BW_COMP_NONE);
+			mm_qos_set_request(&vdec_ufo_enc, emi_bw_output, 0,
+						BW_COMP_NONE);
+		} else {
+			mm_qos_set_request(&vdec_mc, emi_bw, 0, BW_COMP_NONE);
+			mm_qos_set_request(&vdec_pp, emi_bw_output, 0,
+						BW_COMP_NONE);
+		}
+		mm_qos_set_request(&vdec_pred_rd, 1, 0, BW_COMP_NONE);
+		mm_qos_set_request(&vdec_pred_wr, 1, 0, BW_COMP_NONE);
+		mm_qos_set_request(&vdec_ppwrap, 0, 0, BW_COMP_NONE);
+		mm_qos_set_request(&vdec_tile, 0, 0, BW_COMP_NONE);
+		mm_qos_set_request(&vdec_vld, emi_bw_input, 0, BW_COMP_NONE);
+		mm_qos_set_request(&vdec_vld2, 0, 0, BW_COMP_NONE);
+		mm_qos_set_request(&vdec_avc_mv, emi_bw_input, 0, BW_COMP_NONE);
+		mm_qos_set_request(&vdec_rg_ctrl_dma, 0, 0, BW_COMP_NONE);
+		mm_qos_update_all_request(&vdec_rlist_core);
+	} else {
+		pr_debug("%s unknown hw_id %d\n", __func__, hw_id);
+	}
+
 #endif
 }
 
-void mtk_vdec_pmqos_prelock(struct mtk_vcodec_ctx *ctx)
+static void mtk_vdec_emi_bw_end(int hw_id)
+{
+#if DEC_EMI_BW
+	if (hw_id == MTK_VDEC_LAT) {
+		mm_qos_set_request(&vdec_lat0_vld, 0, 0, BW_COMP_NONE);
+		mm_qos_set_request(&vdec_lat0_vld2, 0, 0, BW_COMP_NONE);
+		mm_qos_set_request(&vdec_lat0_avc_mv, 0, 0, BW_COMP_NONE);
+		mm_qos_set_request(&vdec_lat0_pred_rd, 0, 0, BW_COMP_NONE);
+		mm_qos_set_request(&vdec_lat0_tile, 0, 0, BW_COMP_NONE);
+		mm_qos_set_request(&vdec_lat0_wdma, 0, 0, BW_COMP_NONE);
+		mm_qos_set_request(&vdec_lat0_rg_ctrl_dma, 0, 0, BW_COMP_NONE);
+		mm_qos_update_all_request(&vdec_rlist_lat);
+	} else if (hw_id == MTK_VDEC_CORE) {
+		mm_qos_set_request(&vdec_mc, 0, 0, BW_COMP_NONE);
+		mm_qos_set_request(&vdec_ufo, 0, 0, BW_COMP_NONE);
+		mm_qos_set_request(&vdec_pp, 0, 0, BW_COMP_NONE);
+		mm_qos_set_request(&vdec_pred_rd, 0, 0, BW_COMP_NONE);
+		mm_qos_set_request(&vdec_pred_wr, 0, 0, BW_COMP_NONE);
+		mm_qos_set_request(&vdec_ppwrap, 0, 0, BW_COMP_NONE);
+		mm_qos_set_request(&vdec_tile, 0, 0, BW_COMP_NONE);
+		mm_qos_set_request(&vdec_vld, 0, 0, BW_COMP_NONE);
+		mm_qos_set_request(&vdec_vld2, 0, 0, BW_COMP_NONE);
+		mm_qos_set_request(&vdec_avc_mv, 0, 0, BW_COMP_NONE);
+		mm_qos_set_request(&vdec_rg_ctrl_dma, 0, 0, BW_COMP_NONE);
+		mm_qos_set_request(&vdec_ufo_enc, 0, 0, BW_COMP_NONE);
+		mm_qos_update_all_request(&vdec_rlist_core);
+	} else {
+		pr_debug("%s unknown hw_id %d\n", __func__, hw_id);
+	}
+#endif
+}
+
+void mtk_vdec_pmqos_prelock(struct mtk_vcodec_ctx *ctx, int hw_id)
 {
 #if DEC_DVFS
 	mutex_lock(&ctx->dev->dec_dvfs_mutex);
-	add_job(&ctx->id, &vdec_jobs);
+	/* add_job(&ctx->id, &vdec_jobs); */
 	mutex_unlock(&ctx->dev->dec_dvfs_mutex);
 #endif
 }
 
-void mtk_vdec_pmqos_begin_frame(struct mtk_vcodec_ctx *ctx)
+void mtk_vdec_pmqos_begin_frame(struct mtk_vcodec_ctx *ctx, int hw_id)
 {
-	mtk_vdec_dvfs_begin(ctx);
-	mtk_vdec_emi_bw_begin(ctx);
+	mtk_vdec_dvfs_begin(ctx, hw_id);
+	mtk_vdec_emi_bw_begin(ctx, hw_id);
 }
 
-void mtk_vdec_pmqos_end_frame(struct mtk_vcodec_ctx *ctx)
+void mtk_vdec_pmqos_end_frame(struct mtk_vcodec_ctx *ctx, int hw_id)
 {
-	mtk_vdec_dvfs_end(ctx);
-	mtk_vdec_emi_bw_end();
+	mtk_vdec_dvfs_end(ctx, hw_id);
+	mtk_vdec_emi_bw_end(hw_id);
 }
 
 int mtk_vdec_ion_config_buff(struct dma_buf *dmabuf)

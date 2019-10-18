@@ -656,6 +656,8 @@ static void vcu_gce_flush_callback(struct cmdq_cb_data data)
 	cmdq_pkt_destroy(buff->pkt_ptr);
 
 	mutex_lock(&vcu->vcu_gce_mutex[i]);
+	venc_encode_pmqos_gce_end(vcu->gce_info[j].v4l2_ctx, core_id,
+				vcu->gce_job_cnt[i][core_id].counter);
 	if (atomic_dec_and_test(&vcu->gce_job_cnt[i][core_id]) &&
 		vcu->gce_info[j].v4l2_ctx != NULL){
 		if (i == VCU_VENC)
@@ -754,6 +756,9 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 				core_id, &vcu->flags[i]);
 		}
 	}
+	pr_info("vcu gce_info[%d].v4l2_ctx %p\n", j, vcu->gce_info[j].v4l2_ctx);
+	venc_encode_pmqos_gce_begin(vcu->gce_info[j].v4l2_ctx, core_id,
+			vcu->gce_job_cnt[i][core_id].counter);
 	atomic_inc(&vcu->gce_job_cnt[i][core_id]);
 	mutex_unlock(&vcu->vcu_gce_mutex[i]);
 

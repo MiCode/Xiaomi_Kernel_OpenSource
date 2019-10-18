@@ -272,5 +272,8 @@ extern void venc_encode_prepare(void *ctx_prepare,
 		int core_id, unsigned long *flags);
 extern void venc_encode_unprepare(void *ctx_prepare,
 		int core_id, unsigned long *flags);
-
+extern void venc_encode_pmqos_gce_begin(void *ctx_begin,
+		int core_id, int job_cnt);
+extern void venc_encode_pmqos_gce_end(void *ctx_end,
+		int core_id, int job_cnt);
 #endif /* _MTK_VCU_H */
