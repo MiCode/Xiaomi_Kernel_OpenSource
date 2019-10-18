@@ -559,21 +559,17 @@
 	gps_l1_lna_pins_ol: gps_l1_lna@0 {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO162__FUNC_GPIO162>;
-			slew-rate = <0>;
-			bias-disable;
 			output-low;
 		};
 	};
 	gps_l1_lna_pins_dsp_ctrl: gps_l1_lna@1 {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO162__FUNC_GPS_L1_ELNA_EN>;
-			slew-rate = <1>;
 		};
 	};
 	gps_l1_lna_pins_oh: gps_l1_lna@2 {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO162__FUNC_GPIO162>;
-			slew-rate = <1>;
 			output-high;
 		};
 	};
@@ -581,21 +577,17 @@
 	gps_l5_lna_pins_ol: gps_l5_lna@0 {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO163__FUNC_GPIO163>;
-			slew-rate = <0>;
-			bias-disable;
 			output-low;
 		};
 	};
 	gps_l5_lna_pins_dsp_ctrl: gps_l5_lna@1 {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO163__FUNC_GPS_L5_ELNA_EN>;
-			slew-rate = <1>;
 		};
 	};
 	gps_l5_lna_pins_oh: gps_l5_lna@2 {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO163__FUNC_GPIO163>;
-			slew-rate = <1>;
 			output-high;
 		};
 	};
