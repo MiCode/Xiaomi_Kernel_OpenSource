@@ -1143,11 +1143,11 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 		regval = readl_relaxed(data->base +
 				REG_MMU_TBWALK_FAULT_VA);
 #if (CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
-		fault_iova = (unsigned long)(regval & F_MMU_FAULT_VA_BIT31_12) |
-				(unsigned long)((regval &
+		fault_iova = ((unsigned long)regval & F_MMU_FAULT_VA_BIT31_12) |
+				(((unsigned long)regval &
 					F_MMU_FAULT_VA_BIT32) << 23);
 #else
-		fault_iova = (unsigned long)(regval);
+		fault_iova = (unsigned long)regval;
 #endif
 		layer = regval & 1;
 		mmu_aee_print(
@@ -1356,7 +1356,7 @@ irqreturn_t MTK_M4U_isr_sec(int irq, void *dev_id)
 			m4u_id, 4, &tf_port);
 	if (ret) {
 		mmu_aee_print(
-				"CRDISPATCH_KEY:M4U_%s translation fault(secure): port%u[%u-%u]\n",
+				"CRDISPATCH_KEY:M4U_%s translation fault(secure): port%lu[%u-%u]\n",
 				 iommu_get_port_name(tf_port),
 				 tf_port, MTK_IOMMU_TO_LARB(tf_port),
 				 MTK_IOMMU_TO_PORT(tf_port));
