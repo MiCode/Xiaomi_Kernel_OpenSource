@@ -967,6 +967,7 @@ void cm_mgr_update_dram_by_cpu_opp(int cpu_opp)
 
 void cm_mgr_setup_cpu_dvfs_info(void)
 {
+#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 	int i, j;
 	unsigned int val;
 
@@ -978,4 +979,5 @@ void cm_mgr_setup_cpu_dvfs_info(void)
 			cm_mgr_to_sspm_command(IPI_CM_MGR_OPP_VOLT_SET, val);
 		}
 	}
+#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
 }
