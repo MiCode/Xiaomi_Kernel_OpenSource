@@ -415,6 +415,7 @@ static void mtk_vdec_pic_info_update(struct mtk_vcodec_ctx *ctx)
 {
 	unsigned int dpbsize = 0;
 	int ret;
+	struct mtk_color_desc color_desc;
 
 	if (vdec_if_get_param(ctx,
 						  GET_PARAM_PIC_INFO,
@@ -437,8 +438,13 @@ static void mtk_vdec_pic_info_update(struct mtk_vcodec_ctx *ctx)
 		mtk_v4l2_err("Incorrect dpb size, ret=%d", ret);
 	ctx->last_dpb_size = dpbsize;
 
+	ret = vdec_if_get_param(ctx, GET_PARAM_COLOR_DESC, &color_desc);
+	if (ret == 0) {
+		ctx->last_is_hdr = color_desc.is_hdr;
+	}
+
 	mtk_v4l2_debug(1,
-				   "[%d]-> new(%d,%d),dpb(%d), old(%d,%d),dpb(%d), bit(%d) real(%d,%d)",
+				   "[%d]-> new(%d,%d),dpb(%d), old(%d,%d),dpb(%d), bit(%d) real(%d,%d) hdr(%d,%d)",
 				   ctx->id, ctx->last_decoded_picinfo.pic_w,
 				   ctx->last_decoded_picinfo.pic_h,
 				   ctx->last_dpb_size,
@@ -446,7 +452,8 @@ static void mtk_vdec_pic_info_update(struct mtk_vcodec_ctx *ctx)
 				   ctx->dpb_size,
 				   ctx->picinfo.bitdepth,
 				   ctx->last_decoded_picinfo.buf_w,
-				   ctx->last_decoded_picinfo.buf_h);
+				   ctx->last_decoded_picinfo.buf_h,
+				   ctx->is_hdr, ctx->last_is_hdr);
 }
 
 
@@ -544,6 +551,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 	struct vb2_v4l2_buffer *dst_vb2_v4l2, *src_vb2_v4l2;
 	unsigned int fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
 	unsigned int dpbsize = 0;
+	struct mtk_color_desc color_desc;
 
 	mutex_lock(&ctx->worker_lock);
 
@@ -779,6 +787,14 @@ static void mtk_vdec_worker(struct work_struct *work)
 			ctx->last_dpb_size = dpbsize;
 		} else {
 			mtk_v4l2_err("[%d] GET_PARAM_DPB_SIZE fail=%d",
+				 ctx->id, ret);
+		}
+		ret = vdec_if_get_param(ctx, GET_PARAM_COLOR_DESC, &color_desc);
+		if (ret == 0) {
+			ctx->is_hdr = color_desc.is_hdr;
+			ctx->last_is_hdr = color_desc.is_hdr;
+		} else {
+			mtk_v4l2_err("[%d] GET_PARAM_COLOR_DESC fail=%d",
 				 ctx->id, ret);
 		}
 	}
@@ -1916,6 +1932,7 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 	struct mtk_q_data *dst_q_data;
 	u32 fourcc;
 	int last_frame_type = 0;
+	struct mtk_color_desc color_desc;
 
 	mtk_v4l2_debug(4, "[%d] (%d) id=%d, vb=%p",
 				   ctx->id, vb->vb2_queue->type,
@@ -2097,6 +2114,16 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 
 	ctx->dpb_size = dpbsize;
 	ctx->last_dpb_size = dpbsize;
+
+	ret = vdec_if_get_param(ctx, GET_PARAM_COLOR_DESC, &color_desc);
+	if (ret == 0) {
+		ctx->is_hdr = color_desc.is_hdr;
+		ctx->last_is_hdr = color_desc.is_hdr;
+	} else {
+		mtk_v4l2_err("[%d] GET_PARAM_COLOR_DESC fail=%d",
+		ctx->id, ret);
+	}
+
 	ctx->state = MTK_STATE_HEADER;
 	mtk_v4l2_debug(1, "[%d] dpbsize=%d", ctx->id, ctx->dpb_size);
 
@@ -2244,6 +2271,7 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 		 */
 		ctx->picinfo = ctx->last_decoded_picinfo;
 		ctx->dpb_size = ctx->last_dpb_size;
+		ctx->is_hdr = ctx->last_is_hdr;
 
 		mtk_v4l2_debug(2,
 			"[%d]-> new(%d,%d), old(%d,%d), real(%d,%d) bit:%d\n",
@@ -2286,7 +2314,8 @@ static int m2mops_vdec_job_ready(void *m2m_priv)
 
 	if ((ctx->last_decoded_picinfo.pic_w != ctx->picinfo.pic_w) ||
 		(ctx->last_decoded_picinfo.pic_h != ctx->picinfo.pic_h) ||
-		(ctx->last_dpb_size != ctx->dpb_size))
+		(ctx->last_dpb_size != ctx->dpb_size) ||
+		(ctx->last_is_hdr != ctx->is_hdr))
 		return 0;
 
 	if (ctx->state != MTK_STATE_HEADER)
