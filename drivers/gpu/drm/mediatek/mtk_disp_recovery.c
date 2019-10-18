@@ -383,7 +383,29 @@ static int mtk_drm_esd_recover(struct drm_crtc *crtc)
 
 	mtk_ddp_comp_io_cmd(output_comp, NULL, CONNECTOR_PANEL_ENABLE, NULL);
 
+	mtk_crtc_connect_default_path(mtk_crtc);
+
+	mtk_crtc_config_default_path(mtk_crtc);
+
+	mtk_crtc_connect_addon_module(crtc);
+
 	mtk_crtc_hw_block_ready(crtc);
+	if (mtk_crtc_is_frame_trigger_mode(crtc)) {
+		struct cmdq_pkt *cmdq_handle;
+
+		mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
+			mtk_crtc->gce_obj.client[CLIENT_CFG]);
+
+		cmdq_pkt_set_event(cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
+		cmdq_pkt_set_event(cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+		cmdq_pkt_set_event(cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_ESD_EOF]);
+
+		cmdq_pkt_flush(cmdq_handle);
+		cmdq_pkt_destroy(cmdq_handle);
+	}
 
 	CRTC_MMP_MARK(drm_crtc_index(crtc), esd_recovery, 0, 4);
 
