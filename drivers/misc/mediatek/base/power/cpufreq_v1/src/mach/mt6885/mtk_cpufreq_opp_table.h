@@ -143,22 +143,22 @@
 #define CPU_DVFS_FREQ15_LL_TB		500000		/* KHz */
 
 /* for DVFS OPP table B */
-#define CPU_DVFS_FREQ0_L_TB		2300000		/* KHz */
-#define CPU_DVFS_FREQ1_L_TB		2202000		/* KHz */
-#define CPU_DVFS_FREQ2_L_TB		2106000		/* KHz */
-#define CPU_DVFS_FREQ3_L_TB		1993000		/* KHz */
-#define CPU_DVFS_FREQ4_L_TB		1900000		/* KHz */
-#define CPU_DVFS_FREQ5_L_TB		1825000		/* KHz */
-#define CPU_DVFS_FREQ6_L_TB		1750000		/* KHz */
-#define CPU_DVFS_FREQ7_L_TB		1622000		/* KHz */
-#define CPU_DVFS_FREQ8_L_TB		1463000		/* KHz */
-#define CPU_DVFS_FREQ9_L_TB		1367000		/* KHz */
-#define CPU_DVFS_FREQ10_L_TB		1271000		/* KHz */
-#define CPU_DVFS_FREQ11_L_TB		1176000		/* KHz */
-#define CPU_DVFS_FREQ12_L_TB		1048000		/* KHz */
-#define CPU_DVFS_FREQ13_L_TB		921000		/* KHz */
-#define CPU_DVFS_FREQ14_L_TB		825000		/* KHz */
-#define CPU_DVFS_FREQ15_L_TB		730000		/* KHz */
+#define CPU_DVFS_FREQ0_L_TB             2400000         /* KHz */
+#define CPU_DVFS_FREQ1_L_TB             2300000         /* KHz */
+#define CPU_DVFS_FREQ2_L_TB             2106000         /* KHz */
+#define CPU_DVFS_FREQ3_L_TB             2012000         /* KHz */
+#define CPU_DVFS_FREQ4_L_TB             1900000         /* KHz */
+#define CPU_DVFS_FREQ5_L_TB             1803000         /* KHz */
+#define CPU_DVFS_FREQ6_L_TB             1750000         /* KHz */
+#define CPU_DVFS_FREQ7_L_TB             1622000         /* KHz */
+#define CPU_DVFS_FREQ8_L_TB             1526000         /* KHz */
+#define CPU_DVFS_FREQ9_L_TB             1367000         /* KHz */
+#define CPU_DVFS_FREQ10_L_TB            1271000         /* KHz */
+#define CPU_DVFS_FREQ11_L_TB            1176000         /* KHz */
+#define CPU_DVFS_FREQ12_L_TB            1048000         /* KHz */
+#define CPU_DVFS_FREQ13_L_TB            921000          /* KHz */
+#define CPU_DVFS_FREQ14_L_TB            825000          /* KHz */
+#define CPU_DVFS_FREQ15_L_TB            730000          /* KHz */
 
 /* for DVFS OPP table CCI */
 #define CPU_DVFS_FREQ0_CCI_TB		1540000		/* KHz */
@@ -197,22 +197,22 @@
 #define CPU_DVFS_VOLT15_VPROC1_TB	 60000		/* 10uV */
 
 /* for DVFS OPP table B */
-#define CPU_DVFS_VOLT0_VPROC2_TB	100000		/* 10uV	*/
-#define CPU_DVFS_VOLT1_VPROC2_TB	96250		/* 10uV	*/
-#define CPU_DVFS_VOLT2_VPROC2_TB	93125		/* 10uV	*/
-#define CPU_DVFS_VOLT3_VPROC2_TB	89375		/* 10uV	*/
-#define CPU_DVFS_VOLT4_VPROC2_TB	85625		/* 10uV	*/
-#define CPU_DVFS_VOLT5_VPROC2_TB	83125		/* 10uV	*/
-#define CPU_DVFS_VOLT6_VPROC2_TB	80625		/* 10uV	*/
-#define CPU_DVFS_VOLT7_VPROC2_TB	78125		/* 10uV	*/
-#define CPU_DVFS_VOLT8_VPROC2_TB	75000		/* 10uV	*/
-#define CPU_DVFS_VOLT9_VPROC2_TB	73125		/* 10uV	*/
-#define CPU_DVFS_VOLT10_VPROC2_TB	71250		/* 10uV	*/
-#define CPU_DVFS_VOLT11_VPROC2_TB	68750		/* 10uV	*/
-#define CPU_DVFS_VOLT12_VPROC2_TB	66250		/* 10uV	*/
-#define CPU_DVFS_VOLT13_VPROC2_TB	63750		/* 10uV	*/
-#define CPU_DVFS_VOLT14_VPROC2_TB	61875		/* 10uV	*/
-#define CPU_DVFS_VOLT15_VPROC2_TB	60000		/* 10uV	*/
+#define CPU_DVFS_VOLT0_VPROC2_TB        100000          /* 10uV */
+#define CPU_DVFS_VOLT1_VPROC2_TB        100000          /* 10uV */
+#define CPU_DVFS_VOLT2_VPROC2_TB        96250           /* 10uV */
+#define CPU_DVFS_VOLT3_VPROC2_TB        93125           /* 10uV */
+#define CPU_DVFS_VOLT4_VPROC2_TB        89375           /* 10uV */
+#define CPU_DVFS_VOLT5_VPROC2_TB        85625           /* 10uV */
+#define CPU_DVFS_VOLT6_VPROC2_TB        83750           /* 10uV */
+#define CPU_DVFS_VOLT7_VPROC2_TB        80625           /* 10uV */
+#define CPU_DVFS_VOLT8_VPROC2_TB        78750           /* 10uV */
+#define CPU_DVFS_VOLT9_VPROC2_TB        75000           /* 10uV */
+#define CPU_DVFS_VOLT10_VPROC2_TB       72500           /* 10uV */
+#define CPU_DVFS_VOLT11_VPROC2_TB       70625           /* 10uV */
+#define CPU_DVFS_VOLT12_VPROC2_TB       67500           /* 10uV */
+#define CPU_DVFS_VOLT13_VPROC2_TB       64375           /* 10uV */
+#define CPU_DVFS_VOLT14_VPROC2_TB       62500           /* 10uV */
+#define CPU_DVFS_VOLT15_VPROC2_TB       60000           /* 10uV */
 
 /* for DVFS OPP table CCI */
 #define CPU_DVFS_VOLT0_VPROC3_TB	100000		/* 10uV */
