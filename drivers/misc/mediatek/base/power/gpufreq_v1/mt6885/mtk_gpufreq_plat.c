@@ -229,6 +229,10 @@ u64 mt_gpufreq_get_shader_present(void)
 		shader_present = MT_GPU_SHADER_PRESENT_9;
 		break;
 
+	case MT6885T_PLUS_SEGMENT:
+		shader_present = MT_GPU_SHADER_PRESENT_9;
+		break;
+
 	default:
 		shader_present = MT_GPU_SHADER_PRESENT_9;
 	}
@@ -1315,6 +1319,9 @@ static unsigned int __mt_gpufreq_get_segment(void)
 		break;
 	case 0x10:
 		segment_id = MT6885T_SEGMENT;
+		break;
+	case 0x40:
+		segment_id = MT6885T_PLUS_SEGMENT;
 		break;
 	default:
 		segment_id = MT6885T_SEGMENT;
