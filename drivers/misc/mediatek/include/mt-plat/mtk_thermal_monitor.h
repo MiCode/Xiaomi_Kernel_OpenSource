@@ -114,7 +114,8 @@ extern int mtk_thermal_get_temp(enum mtk_thermal_sensor_id id);
 extern struct proc_dir_entry *mtk_thermal_get_proc_drv_therm_dir_entry(void);
 
 /* This API function is implemented in mediatek/kernel/drivers/leds/leds.c */
-extern int setMaxbrightness(int max_level, int enable);
+extern int setMaxbrightness(char *name, int percent, bool enable);
+
 
 extern void machine_power_off(void);
 #endif

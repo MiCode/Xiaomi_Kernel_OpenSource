@@ -28,7 +28,7 @@ ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/include/gpufreq_v1/
 
 obj-$(CONFIG_THERMAL) += mtk_thermal_monitor.o
 obj-$(CONFIG_THERMAL) += mtk_cooler_shutdown.o
-ifeq ($(CONFIG_MTK_LEDS), y)
+ifeq ($(CONTROL_BL_TEMPERATURE), y)
     # setMaxbrightness() defined in mediatek/kernel/drivers/leds/leds_drv.c only built when CONFIG_MTK_LEDS is set
     obj-$(CONFIG_THERMAL) += mtk_cooler_backlight.o
 endif
