@@ -98,7 +98,6 @@
  ************************************************/
 #ifndef CONFIG_FPGA_EARLY_PORTING
 #ifdef CONFIG_OF
-static unsigned int credit_didt_doe_ptp;
 static unsigned int credit_didt_doe_enable;
 
 static unsigned int credit_didt4_doe_ls_period;
@@ -433,7 +432,7 @@ static int credit_didt_en_proc_show(struct seq_file *m, void *v)
 static ssize_t credit_didt_en_proc_write(struct file *file,
 	const char __user *buffer, size_t count, loff_t *pos)
 {
-	int cpu, ls_vx, value;
+	int cpu, ls_vx, value = 0;
 	char *buf = (char *) __get_free_page(GFP_USER);
 
 	if (!buf)
@@ -551,40 +550,15 @@ static int credit_didt_probe(struct platform_device *pdev)
 	int rc = 0;
 	int cpu, ls_vx;
 
-	unsigned int ptp_ftpgm = get_devinfo_with_index(DEVINFO_IDX_0) & 0xf;
-
 	node = pdev->dev.of_node;
 	if (!node) {
 		credit_didt_debug("get credit_didt device node err\n");
 		return -ENODEV;
 	}
 
-	/* ptp control */
-	rc = of_property_read_u32(node,
-		"credit_didt_doe_ptp", &credit_didt_doe_ptp);
-
-	if (credit_didt_doe_ptp < 255) {
-		ptp_ftpgm = credit_didt_doe_ptp;
-		credit_didt_debug("PTPv%u, ptp control from Build-in DOE. credit_didt_doe_ptp = %d\n",
-			ptp_ftpgm, credit_didt_doe_ptp);
-	}
-
-	if (!rc) {
-		credit_didt_debug("[xxxxbrisket] credit_didt_doe_ptp from DTree; rc(%d) credit_didt_doe_ptp(0x%x)\n",
-			rc,
-			credit_didt_doe_ptp);
-	}
-
 	/* enable control */
 	rc = of_property_read_u32(node,
 		"credit_didt_doe_enable", &credit_didt_doe_enable);
-
-	if (ptp_ftpgm <= 1) {
-		/* for PTPv0 and PTPv1, disable BCDE */
-		credit_didt_doe_enable = 0;
-		credit_didt_debug("PTPv%u, force credit_didt disable.\n",
-			ptp_ftpgm);
-	}
 
 	if (!rc) {
 		credit_didt_debug("[xxxxcredit_didt] credit_didt_doe_enable from DTree; rc(%d) credit_didt_doe_enable(0x%x)\n",

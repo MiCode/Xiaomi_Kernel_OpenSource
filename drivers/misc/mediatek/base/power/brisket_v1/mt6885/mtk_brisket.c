@@ -102,7 +102,6 @@
 #ifdef CONFIG_OF
 
 /* B-DOE use */
-static unsigned int brisket_doe_ptp;
 static unsigned int brisket_doe_pllclken;
 static unsigned int brisket_doe_bren;
 static unsigned int brisket_doe_brisket05;
@@ -272,7 +271,7 @@ static ssize_t brisket_pllclken_proc_write(struct file *file,
 	const char __user *buffer, size_t count, loff_t *pos)
 {
 	/* parameter input */
-	int brisket_pllclken;
+	int brisket_pllclken = 0;
 
 	/* proc template for check */
 	char *buf = (char *) __get_free_page(GFP_USER);
@@ -339,7 +338,7 @@ static ssize_t brisket_bren_proc_write(struct file *file,
 	const char __user *buffer, size_t count, loff_t *pos)
 {
 	/* parameter input */
-	int brisket_bren;
+	int brisket_bren = 0;
 
 	/* proc template for check */
 	char *buf = (char *) __get_free_page(GFP_USER);
@@ -559,70 +558,12 @@ static int brisket_probe(struct platform_device *pdev)
 #ifdef CONFIG_OF
 	struct device_node *node = NULL;
 	int rc = 0;
-	unsigned int ptp_ftpgm = get_devinfo_with_index(DEVINFO_IDX_0) & 0xf;
 	int cpu;
 
 	node = pdev->dev.of_node;
 	if (!node) {
 		brisket_debug("get brisket device node err\n");
 		return -ENODEV;
-	}
-
-	/* ptp control */
-	rc = of_property_read_u32(node,
-		"brisket_doe_ptp", &brisket_doe_ptp);
-
-	if (brisket_doe_ptp < 255) {
-		ptp_ftpgm = brisket_doe_ptp;
-		brisket_debug("PTPv%u, ptp control from Build-in DOE. brisket_doe_ptp = %d\n",
-			ptp_ftpgm, brisket_doe_ptp);
-	}
-
-	if (!rc) {
-		brisket_debug("[xxxxbrisket] brisket_doe_ptp from DTree; rc(%d) brisket_doe_ptp(0x%x)\n",
-			rc,
-			brisket_doe_ptp);
-	}
-
-
-	/* pllclken control */
-	rc = of_property_read_u32(node,
-		"brisket_doe_pllclken", &brisket_doe_pllclken);
-
-	if (ptp_ftpgm <= 1) {
-		/* for PTPv0 and PTPv1, disable BCDE */
-		brisket_doe_pllclken = 0;
-		brisket_debug("PTPv%u, force brisket disable. brisket_doe_pllclken = %d\n",
-			ptp_ftpgm, brisket_doe_pllclken);
-	}
-
-	if (!rc) {
-		brisket_debug("[xxxxbrisket] brisket_doe_pllclken from DTree; rc(%d) brisket_doe_pllclken(0x%x)\n",
-			rc,
-			brisket_doe_pllclken);
-
-		if (brisket_doe_pllclken >= 0)
-			mtk_brisket_pllclken(brisket_doe_pllclken);
-	}
-
-	/* bren control */
-	rc = of_property_read_u32(node,
-		"brisket_doe_bren", &brisket_doe_bren);
-
-	if (ptp_ftpgm <= 1) {
-		/* for PTPv0 and PTPv1, disable BCDE */
-		brisket_doe_bren = 0;
-		brisket_debug("PTPv%u, force brisket disable. brisket_doe_bren = %d\n",
-			ptp_ftpgm, brisket_doe_bren);
-	}
-
-	if (!rc) {
-		brisket_debug("[xxxxbrisket] brisket_doe_bren from DTree; rc(%d) brisket_doe_bren(0x%x)\n",
-			rc,
-			brisket_doe_bren);
-
-		if (brisket_doe_bren >= 0)
-			mtk_brisket_bren(brisket_doe_bren);
 	}
 
 	/*brisket05*/
@@ -728,6 +669,33 @@ static int brisket_probe(struct platform_device *pdev)
 							brisket_doe_brisket09);
 			}
 		}
+	}
+
+
+	/* pllclken control */
+	rc = of_property_read_u32(node,
+		"brisket_doe_pllclken", &brisket_doe_pllclken);
+
+	if (!rc) {
+		brisket_debug("[xxxxbrisket] brisket_doe_pllclken from DTree; rc(%d) brisket_doe_pllclken(0x%x)\n",
+			rc,
+			brisket_doe_pllclken);
+
+		if (brisket_doe_pllclken >= 0)
+			mtk_brisket_pllclken(brisket_doe_pllclken);
+	}
+
+	/* bren control */
+	rc = of_property_read_u32(node,
+		"brisket_doe_bren", &brisket_doe_bren);
+
+	if (!rc) {
+		brisket_debug("[xxxxbrisket] brisket_doe_bren from DTree; rc(%d) brisket_doe_bren(0x%x)\n",
+			rc,
+			brisket_doe_bren);
+
+		if (brisket_doe_bren >= 0)
+			mtk_brisket_bren(brisket_doe_bren);
 	}
 
 	brisket_debug("brisket probe ok!!\n");
