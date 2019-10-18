@@ -4144,7 +4144,7 @@ static const struct mtk_pll_data plls[] = {
 		0x0344, 24/*pd*/, 0, 0, 0/* tuner*/, 0x0344, 0/* pcw */),
 
 	PLL(APMIXED_UNIVPLL, "univpll", 0x0308 /*con0*/, 0x0314 /*con3*/,
-		BIT(0)/*enmsk*/, (HAVE_RST_BAR | PLL_CFLAGS), 23/*rstb*/,
+		BIT(0)/*enmsk*/, (HAVE_RST_BAR | PLL_CFLAGS), BIT(23)/*rstb*/,
 		22/*pcwbits*/,
 		0x030c, 24/*pd*/, 0, 0, 0/* tuner*/, 0x030c, 0/* pcw */),
 
@@ -4153,7 +4153,7 @@ static const struct mtk_pll_data plls[] = {
 		0x0354, 24/*pd*/, 0, 0, 0/* tuner*/, 0x0354, 0/* pcw */),
 
 	PLL(APMIXED_MMPLL, "mmpll", 0x0360 /*con0*/, 0x036c /*con3*/,
-		BIT(0)/*enmsk*/, (HAVE_RST_BAR | PLL_CFLAGS), 23/*rstb*/,
+		BIT(0)/*enmsk*/, (HAVE_RST_BAR | PLL_CFLAGS), BIT(23)/*rstb*/,
 		22/*pcwbits*/,
 		0x0364, 24/*pd*/, 0, 0, 0/* tuner*/, 0x0364, 0/*pcw*/),
 
@@ -4221,9 +4221,11 @@ static void __init mtk_apmixedsys_init(struct device_node *node)
 #define PLL_EN  (0x1 << 0)
 #define PLL_PWR_ON  (0x1 << 0)
 #define PLL_ISO_EN  (0x1 << 1)
+#define PLL_DIV_RSTB  (0x1 << 23)
 
 #if 1
 /*MMPLL*/
+	clk_clrl(MMPLL_CON0, PLL_DIV_RSTB);
 	clk_clrl(MMPLL_CON0, PLL_EN);
 	clk_setl(MMPLL_CON3, PLL_ISO_EN);
 	clk_clrl(MMPLL_CON3, PLL_PWR_ON);
@@ -4236,6 +4238,7 @@ static void __init mtk_apmixedsys_init(struct device_node *node)
 	clk_setl(MFGPLL_CON3, PLL_ISO_EN);
 	clk_clrl(MFGPLL_CON3, PLL_PWR_ON);
 /*UNIVPLL*/
+	clk_clrl(UNIVPLL_CON0, PLL_DIV_RSTB);
 	clk_clrl(UNIVPLL_CON0, PLL_EN);
 	clk_setl(UNIVPLL_CON3, PLL_ISO_EN);
 	clk_clrl(UNIVPLL_CON3, PLL_PWR_ON);
