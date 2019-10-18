@@ -1420,10 +1420,18 @@ static void gsi_program_evt_ring_ctx(struct gsi_evt_ring_props *props,
 	gsi_writel(val, gsi_ctx->base +
 			GSI_EE_n_EV_CH_k_CNTXT_0_OFFS(evt_id, ee));
 
-	val = (props->ring_len & GSI_EE_n_EV_CH_k_CNTXT_1_R_LENGTH_BMSK) <<
-		GSI_EE_n_EV_CH_k_CNTXT_1_R_LENGTH_SHFT;
-	gsi_writel(val, gsi_ctx->base +
-			GSI_EE_n_EV_CH_k_CNTXT_1_OFFS(evt_id, ee));
+	if (gsi_ctx->per.ver >= GSI_VER_2_9) {
+		val = (props->ring_len &
+			GSI_V2_9_EE_n_EV_CH_k_CNTXT_1_R_LENGTH_BMSK)
+			<< GSI_V2_9_EE_n_EV_CH_k_CNTXT_1_R_LENGTH_SHFT;
+		gsi_writel(val, gsi_ctx->base +
+				GSI_V2_9_EE_n_EV_CH_k_CNTXT_1_OFFS(evt_id, ee));
+	} else {
+		val = (props->ring_len & GSI_EE_n_EV_CH_k_CNTXT_1_R_LENGTH_BMSK)
+			 << GSI_EE_n_EV_CH_k_CNTXT_1_R_LENGTH_SHFT;
+		gsi_writel(val, gsi_ctx->base +
+				GSI_EE_n_EV_CH_k_CNTXT_1_OFFS(evt_id, ee));
+	}
 
 	val = (props->ring_base_addr &
 			GSI_EE_n_EV_CH_k_CNTXT_2_R_BASE_ADDR_LSBS_BMSK) <<
@@ -1461,16 +1469,16 @@ static void gsi_program_evt_ring_ctx(struct gsi_evt_ring_props *props,
 			GSI_EE_n_EV_CH_k_CNTXT_11_OFFS(evt_id, ee));
 
 	val = (props->rp_update_addr &
-			GSI_EE_n_EV_CH_k_CNTXT_12_RP_UPDATE_ADDR_LSB_BMSK) <<
+		GSI_EE_n_EV_CH_k_CNTXT_12_RP_UPDATE_ADDR_LSB_BMSK) <<
 		GSI_EE_n_EV_CH_k_CNTXT_12_RP_UPDATE_ADDR_LSB_SHFT;
 	gsi_writel(val, gsi_ctx->base +
-			GSI_EE_n_EV_CH_k_CNTXT_12_OFFS(evt_id, ee));
+		GSI_EE_n_EV_CH_k_CNTXT_12_OFFS(evt_id, ee));
 
 	val = ((props->rp_update_addr >> 32) &
 		GSI_EE_n_EV_CH_k_CNTXT_13_RP_UPDATE_ADDR_MSB_BMSK) <<
 		GSI_EE_n_EV_CH_k_CNTXT_13_RP_UPDATE_ADDR_MSB_SHFT;
 	gsi_writel(val, gsi_ctx->base +
-			GSI_EE_n_EV_CH_k_CNTXT_13_OFFS(evt_id, ee));
+		GSI_EE_n_EV_CH_k_CNTXT_13_OFFS(evt_id, ee));
 }
 
 static void gsi_init_evt_ring(struct gsi_evt_ring_props *props,
@@ -2217,10 +2225,21 @@ static void gsi_program_chan_ctx(struct gsi_chan_props *props, unsigned int ee,
 	gsi_writel(val, gsi_ctx->base +
 			GSI_EE_n_GSI_CH_k_CNTXT_0_OFFS(props->ch_id, ee));
 
-	val = (props->ring_len & GSI_EE_n_GSI_CH_k_CNTXT_1_R_LENGTH_BMSK) <<
-		GSI_EE_n_GSI_CH_k_CNTXT_1_R_LENGTH_SHFT;
-	gsi_writel(val, gsi_ctx->base +
-			GSI_EE_n_GSI_CH_k_CNTXT_1_OFFS(props->ch_id, ee));
+	if (gsi_ctx->per.ver >= GSI_VER_2_9) {
+		val = (props->ring_len &
+				GSI_V2_9_EE_n_GSI_CH_k_CNTXT_1_R_LENGTH_BMSK)
+			<< GSI_V2_9_EE_n_GSI_CH_k_CNTXT_1_R_LENGTH_SHFT;
+		gsi_writel(val, gsi_ctx->base +
+				GSI_V2_9_EE_n_GSI_CH_k_CNTXT_1_OFFS(
+				props->ch_id, ee));
+	} else {
+		val = (props->ring_len &
+			GSI_EE_n_GSI_CH_k_CNTXT_1_R_LENGTH_BMSK)
+			<< GSI_EE_n_GSI_CH_k_CNTXT_1_R_LENGTH_SHFT;
+		gsi_writel(val, gsi_ctx->base +
+				GSI_EE_n_GSI_CH_k_CNTXT_1_OFFS(props->ch_id,
+				ee));
+	}
 
 	val = (props->ring_base_addr &
 			GSI_EE_n_GSI_CH_k_CNTXT_2_R_BASE_ADDR_LSBS_BMSK) <<
@@ -4321,11 +4340,23 @@ void gsi_wdi3_write_evt_ring_db(unsigned long evt_ring_hdl,
 		return;
 	}
 
-	gsi_writel(db_addr_low, gsi_ctx->base +
-		GSI_EE_n_EV_CH_k_CNTXT_12_OFFS(evt_ring_hdl, gsi_ctx->per.ee));
+	if (gsi_ctx->per.ver >= GSI_VER_2_9) {
+		gsi_writel(db_addr_low, gsi_ctx->base +
+			GSI_EE_n_EV_CH_k_CNTXT_10_OFFS(evt_ring_hdl,
+			gsi_ctx->per.ee));
 
-	gsi_writel(db_addr_high, gsi_ctx->base +
-		GSI_EE_n_EV_CH_k_CNTXT_13_OFFS(evt_ring_hdl, gsi_ctx->per.ee));
+		gsi_writel(db_addr_high, gsi_ctx->base +
+			GSI_EE_n_EV_CH_k_CNTXT_11_OFFS(evt_ring_hdl,
+			gsi_ctx->per.ee));
+	} else {
+		gsi_writel(db_addr_low, gsi_ctx->base +
+			GSI_EE_n_EV_CH_k_CNTXT_12_OFFS(evt_ring_hdl,
+			gsi_ctx->per.ee));
+
+		gsi_writel(db_addr_high, gsi_ctx->base +
+			GSI_EE_n_EV_CH_k_CNTXT_13_OFFS(evt_ring_hdl,
+			gsi_ctx->per.ee));
+	}
 }
 EXPORT_SYMBOL(gsi_wdi3_write_evt_ring_db);
 

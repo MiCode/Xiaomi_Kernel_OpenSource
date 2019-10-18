@@ -83,12 +83,21 @@ static int ipa3_setup_wdi3_gsi_channel(u8 is_smmu_enabled,
 	/* setup event ring */
 	memset(&gsi_evt_ring_props, 0, sizeof(gsi_evt_ring_props));
 	gsi_evt_ring_props.intf = GSI_EVT_CHTYPE_WDI3_EV;
-	gsi_evt_ring_props.intr = GSI_INTR_IRQ;
-	/* 16 (for Tx) and 8 (for Rx) */
-	if (dir == IPA_WDI3_TX_DIR)
-		gsi_evt_ring_props.re_size = GSI_EVT_RING_RE_SIZE_16B;
-	else
-		gsi_evt_ring_props.re_size = GSI_EVT_RING_RE_SIZE_8B;
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_9) {
+		gsi_evt_ring_props.intr = GSI_INTR_MSI;
+		/* 32 (for Tx) and 8 (for Rx) */
+		if (dir == IPA_WDI3_TX_DIR)
+			gsi_evt_ring_props.re_size = GSI_EVT_RING_RE_SIZE_32B;
+		else
+			gsi_evt_ring_props.re_size = GSI_EVT_RING_RE_SIZE_8B;
+	} else {
+		gsi_evt_ring_props.intr = GSI_INTR_IRQ;
+		/* 16 (for Tx) and 8 (for Rx) */
+		if (dir == IPA_WDI3_TX_DIR)
+			gsi_evt_ring_props.re_size = GSI_EVT_RING_RE_SIZE_16B;
+		else
+			gsi_evt_ring_props.re_size = GSI_EVT_RING_RE_SIZE_8B;
+	}
 	if (!is_smmu_enabled) {
 		gsi_evt_ring_props.ring_len = info->event_ring_size;
 		gsi_evt_ring_props.ring_base_addr =
@@ -153,7 +162,15 @@ static int ipa3_setup_wdi3_gsi_channel(u8 is_smmu_enabled,
 
 	gsi_channel_props.db_in_bytes = 0;
 	gsi_channel_props.evt_ring_hdl = ep->gsi_evt_ring_hdl;
-	gsi_channel_props.re_size = GSI_CHAN_RE_SIZE_16B;
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_9) {
+		/* 32 (for Tx) and 64 (for Rx) */
+		if (dir == IPA_WDI3_TX_DIR)
+			gsi_channel_props.re_size = GSI_CHAN_RE_SIZE_32B;
+		else
+			gsi_channel_props.re_size = GSI_CHAN_RE_SIZE_64B;
+	} else
+		gsi_channel_props.re_size = GSI_CHAN_RE_SIZE_16B;
+
 	gsi_channel_props.use_db_eng = GSI_CHAN_DB_MODE;
 	gsi_channel_props.max_prefetch = GSI_ONE_PREFETCH_SEG;
 	gsi_channel_props.prefetch_mode =
