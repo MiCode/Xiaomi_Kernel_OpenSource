@@ -17,10 +17,10 @@
 #include <linux/module.h>
 #include <linux/clk.h>
 
-#define MT_GPUFREQ_BRINGUP                      0
-#define MT_GPUFREQ_KICKER_PBM_READY             1
-#define MT_GPUFREQ_STATIC_PWR_READY2USE         1
-#define MT_GPUFREQ_DYNAMIC_POWER_TABLE_UPDATE   1
+#define MT_GPUFREQ_BRINGUP                      1
+#define MT_GPUFREQ_KICKER_PBM_READY             0
+#define MT_GPUFREQ_STATIC_PWR_READY2USE         0
+#define MT_GPUFREQ_DYNAMIC_POWER_TABLE_UPDATE   0
 
 #define GPUFERQ_TAG	"[GPU/DVFS] "
 #define gpufreq_pr_info(fmt, args...)	pr_info(GPUFERQ_TAG fmt, ##args)
@@ -35,49 +35,6 @@ do {							\
 #else
 #define gpufreq_pr_logbuf(fmt, args...)	gpufreq_pr_debug(fmt, ##args)
 #endif
-
-/* TxCy: Stack x, Core y */
-#define T0C0  (1 <<  0)
-#define T1C0  (1 <<  1)
-#define T1C1  (1 <<  5)
-#define T2C0  (1 <<  2)
-#define T2C1  (1 <<  6)
-#define T5C0  (1 << 17)
-#define T5C1  (1 << 21)
-#define T6C0  (1 << 18)
-#define T6C1  (1 << 22)
-
-#define MT_GPU_CORE_MASK_0    (T0C0)           /* Stack 0 */
-#define MT_GPU_CORE_MASK_1_2  (T1C0 | T1C1)    /* Stack 1 */
-#define MT_GPU_CORE_MASK_3_4  (T2C0 | T2C1)    /* Stack 2 */
-#define MT_GPU_CORE_MASK_5_6  (T5C0 | T5C1)    /* Stack 5 */
-#define MT_GPU_CORE_MASK_7_8  (T6C0 | T6C1)    /* Stack 6 */
-
-#define MT_GPU_SHADER_PRESENT_1    (MT_GPU_CORE_MASK_0)
-#define MT_GPU_SHADER_PRESENT_2    (MT_GPU_CORE_MASK_1_2)
-#define MT_GPU_SHADER_PRESENT_3    (MT_GPU_CORE_MASK_0 | \
-					MT_GPU_CORE_MASK_1_2)
-#define MT_GPU_SHADER_PRESENT_4    (MT_GPU_CORE_MASK_1_2 | \
-					MT_GPU_CORE_MASK_3_4)
-#define MT_GPU_SHADER_PRESENT_5    (MT_GPU_CORE_MASK_0 | \
-					MT_GPU_CORE_MASK_1_2 | \
-					MT_GPU_CORE_MASK_3_4)
-#define MT_GPU_SHADER_PRESENT_6    (MT_GPU_CORE_MASK_1_2 | \
-					MT_GPU_CORE_MASK_3_4 | \
-					MT_GPU_CORE_MASK_5_6)
-#define MT_GPU_SHADER_PRESENT_7    (MT_GPU_CORE_MASK_0 | \
-					MT_GPU_CORE_MASK_1_2 | \
-					MT_GPU_CORE_MASK_3_4 | \
-					MT_GPU_CORE_MASK_5_6)
-#define MT_GPU_SHADER_PRESENT_8    (MT_GPU_CORE_MASK_1_2 | \
-					MT_GPU_CORE_MASK_3_4 | \
-					MT_GPU_CORE_MASK_5_6 | \
-					MT_GPU_CORE_MASK_7_8)
-#define MT_GPU_SHADER_PRESENT_9    (MT_GPU_CORE_MASK_0 | \
-					MT_GPU_CORE_MASK_1_2 | \
-					MT_GPU_CORE_MASK_3_4 | \
-					MT_GPU_CORE_MASK_5_6 | \
-					MT_GPU_CORE_MASK_7_8)
 
 struct mt_gpufreq_power_table_info {
 	unsigned int gpufreq_khz;
