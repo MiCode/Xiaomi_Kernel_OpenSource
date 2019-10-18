@@ -387,4 +387,26 @@ struct vpu_lock_power {
 extern int mtee_sdsp_enable(u32 on);
 #endif
 
+/*---------------------------------------------------------------------------*/
+/*  VPU Customer Cmd                                                         */
+/*---------------------------------------------------------------------------*/
+enum vpu_user_cmd {
+	VPU_UCMD_GET_ALGO = 0x8001,
+	VPU_UCMD_GET_OPPTABLE,
+	VPU_UCMD_MAX,
+};
+
+/* Here using macro for feature possible
+ * increasing user cmds requsts
+ */
+#define VPU_UCMD_CHECK(va, flag) \
+	(*(uint32_t *)(va) == VPU_UCMD_##flag)
+#define VPU_UCMD_SET(va, flag) \
+	(*(uint32_t *)(va) = VPU_UCMD_##flag)
+
+struct vpu_uget_algo {
+	enum vpu_user_cmd cmd;
+	char name[ALGO_NAMELEN];
+};
+
 #endif

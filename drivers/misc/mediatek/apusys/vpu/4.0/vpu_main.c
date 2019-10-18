@@ -33,9 +33,61 @@
 #include "vpu_debug.h"
 #include "remoteproc_internal.h"  // TODO: move to drivers/remoteproc/../..
 #include "vpu_trace.h"
+#include "vpu_ioctl.h"
 
 /* remote proc */
 #define VPU_FIRMWARE_NAME "mtk_vpu"
+
+/* handle different user query */
+static int vpu_ucmd_handle(struct vpu_device *vd,
+			   struct apusys_usercmd_hnd *ucmd)
+{
+	int ret = 0;
+	struct __vpu_algo *alg = NULL;
+	struct list_head *ptr = NULL;
+	struct list_head *tmp = NULL;
+	struct vpu_uget_algo *palg_cmd = NULL;
+
+	if (!ucmd->kva || !ucmd->iova || !ucmd->size) {
+		vpu_cmd_debug("invalid argument(0x%llx/0x%llx/%u)\n",
+			      (uint64_t)ucmd->kva,
+			      (uint64_t)ucmd->iova,
+			      ucmd->size);
+		return -EINVAL;
+	}
+
+	/* Handling VPU_UCMD_GET_ALGO */
+	if (VPU_UCMD_CHECK(ucmd->kva, GET_ALGO)) {
+
+		/* casting user cmd as struct vpu_uget_algo */
+		palg_cmd = (struct vpu_uget_algo *)ucmd->kva;
+		mutex_lock(&vpu_drv->lock);
+		/* looping each vpu_device for this algo */
+		list_for_each_safe(ptr, tmp, &vpu_drv->devs) {
+			vd = list_entry(ptr, struct vpu_device, list);
+			mutex_lock(&vd->lock);
+			alg = vpu_alg_get(vd, palg_cmd->name, NULL);
+			if (alg)
+				vpu_alg_put(alg);
+			else
+				ret = -ENOENT;
+			mutex_unlock(&vd->lock);
+			/* algo not found in some vpu_device */
+			if (ret) {
+				vpu_cmd_debug("%s: vpu-%d: not found algo \'%s\"\n",
+					      __func__, vd->id, palg_cmd->name);
+				break;
+			}
+		}
+		mutex_unlock(&vpu_drv->lock);
+	} else {
+		vpu_cmd_debug("%s: unknown user cmd: 0x%x\n",
+			      __func__, *(uint32_t *)ucmd->kva);
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
 
 /* interface to APUSYS */
 int vpu_send_cmd(int op, void *hnd, struct apusys_device *adev)
@@ -45,6 +97,7 @@ int vpu_send_cmd(int op, void *hnd, struct apusys_device *adev)
 	struct apusys_power_hnd *pw;
 	struct apusys_preempt_hnd *pmt;
 	struct apusys_firmware_hnd *fw;
+	struct apusys_usercmd_hnd *ucmd;
 
 	// TODO: implement these sub-functions and remove UNUSED()
 #define UNUSED(x) ((void)x)
@@ -90,6 +143,11 @@ int vpu_send_cmd(int op, void *hnd, struct apusys_device *adev)
 		vpu_cmd_debug("%s: APUSYS_CMD_FIRMWARE, op: %d, name: %s\n",
 			      __func__, fw->op, fw->name);
 		return vpu_firmware(vd, fw);
+	case APUSYS_CMD_USER:
+		ucmd = (struct apusys_usercmd_hnd *)hnd;
+		vpu_cmd_debug("%s: APUSYS_CMD_USER, op: 0x%x size %d\n",
+			      __func__, *(uint32_t *)ucmd->kva, ucmd->size);
+		return vpu_ucmd_handle(vd, ucmd);
 	default:
 		vpu_cmd_debug("%s: unknown command: %d\n", __func__, op);
 		break;
