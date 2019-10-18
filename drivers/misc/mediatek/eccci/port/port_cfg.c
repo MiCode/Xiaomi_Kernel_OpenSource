@@ -14,6 +14,8 @@
 #include "ccci_config.h"
 #include "ccci_hif.h"
 #include "port_cfg.h"
+#include "ccci_port.h"
+#include <mt-plat/mtk_ccci_common.h>
 
 #if (MD_GENERATION <= 6292)
 #define EXP_CTRL_Q		3
@@ -219,6 +221,16 @@ static struct port_t md1_ccci_ports[] = {
 	{CCCI_VTS_TX, CCCI_VTS_RX, 3, 3, 0xFF, 0xFF,
 		MD1_NORMAL_HIF, PORT_F_WITH_CHAR_NODE,
 		&char_port_ops, 32, "ccci_vts",},
+
+	{CCCI_MD_DIRC_TX, CCCI_MD_DIRC_RX, 1, 1, 0xFF, 0xFF,
+		MD1_NORMAL_HIF, PORT_F_WITH_CHAR_NODE,
+		&char_port_ops, 33, "ccci_0_200",},
+	{CCCI_TIME_TX, CCCI_TIME_RX, 1, 1, 0xFF, 0xFF,
+		MD1_NORMAL_HIF, PORT_F_WITH_CHAR_NODE,
+		&char_port_ops, 34, "ccci_0_202",},
+	{CCCI_GARB_TX, CCCI_GARB_RX, 1, 1, 0xFF, 0xFF,
+		MD1_NORMAL_HIF, PORT_F_WITH_CHAR_NODE,
+		&char_port_ops, 35, "ccci_0_204",},
 
 /* IPC char port minor= minor idx + CCCI_IPC_MINOR_BASE(100) */
 	{CCCI_IPC_TX, CCCI_IPC_RX, 1, 1, 0xFF, 0xFF,
@@ -444,4 +456,43 @@ int port_get_cfg(int md_id, struct port_t **ports)
 		break;
 	}
 	return port_number;
+}
+
+int mtk_ccci_request_port(char *name)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(md1_ccci_ports); i++) {
+		if (!strcmp(md1_ccci_ports[i].name, name))
+			return i;
+
+	}
+	CCCI_ERROR_LOG(-1, PORT, "can not find port %s", name);
+	return -1;
+}
+
+int find_port_by_channel(int index, struct port_t **port)
+{
+	if (index < ARRAY_SIZE(md1_ccci_ports)) {
+		*port = &md1_ccci_ports[index];
+		return 0;
+	}
+	CCCI_ERROR_LOG(-1, PORT, "cannot find port by index %d\n", index);
+	return -1;
+}
+
+int mtk_ccci_open_port(int index)
+{
+	if (md1_ccci_ports[index].rx_ch != CCCI_CCB_CTRL &&
+		atomic_read(&md1_ccci_ports[index].usage_cnt))
+		return -EBUSY;
+	atomic_inc(&md1_ccci_ports[index].usage_cnt);
+	return 0;
+}
+
+int mtk_ccci_release_port(int index)
+{
+
+	atomic_dec(&md1_ccci_ports[index].usage_cnt);
+	return 0;
 }

@@ -51,6 +51,183 @@ static struct port_proxy *proxy_table[MAX_MD_NUM];
 #define CHECK_HIF_ID(hif_id)
 #define CHECK_QUEUE_ID(queue_id)
 
+#if MD_GENERATION > (6295)
+int send_new_time_to_new_md(int md_id, int tz)
+{
+	struct timeval tv;
+	unsigned int timeinfo[4];
+	char ccci_time[45];
+	int ret;
+	int index;
+	char *name = "ccci_0_202";
+
+	do_gettimeofday(&tv);
+	timeinfo[0] = tv.tv_sec;
+	timeinfo[1] = sizeof(tv.tv_sec) > 4 ? tv.tv_sec >> 32 : 0;
+	timeinfo[2] = tz;
+	timeinfo[3] = sys_tz.tz_dsttime;
+
+	snprintf(ccci_time, sizeof(ccci_time), "%010u,%010u,%010u,%010u",
+			timeinfo[0], timeinfo[1], timeinfo[2], timeinfo[3]);
+	index = mtk_ccci_request_port(name);
+	ret = mtk_ccci_send_data(index, ccci_time, strlen(ccci_time) + 1);
+
+	return ret;
+}
+#endif
+
+int port_dev_kernel_read(struct port_t *port, char *buf, int size)
+{
+	int read_done = 0, ret = 0, read_len = 0;
+	struct sk_buff *skb = NULL;
+	unsigned long flags = 0;
+
+READ_START:
+	if (skb_queue_empty(&port->rx_skb_list)) {
+		CCCI_ERROR_LOG(-1, CHAR, "skb empty\n");
+		spin_lock_irq(&port->rx_wq.lock);
+		ret = wait_event_interruptible_locked_irq(port->rx_wq,
+			!skb_queue_empty(&port->rx_skb_list));
+		spin_unlock_irq(&port->rx_wq.lock);
+		if (ret == -ERESTARTSYS) {
+			ret = -EINTR;
+			goto exit;
+		}
+	}
+	spin_lock_irqsave(&port->rx_skb_list.lock, flags);
+	if (skb_queue_empty(&port->rx_skb_list)) {
+		spin_unlock_irqrestore(&port->rx_skb_list.lock, flags);
+		goto READ_START;
+	}
+
+	skb = skb_peek(&port->rx_skb_list);
+	if (skb == NULL) {
+		ret = -EFAULT;
+		goto exit;
+	}
+
+	read_len = skb->len;
+
+	if (size >= read_len) {
+		read_done = 1;
+		__skb_unlink(skb, &port->rx_skb_list);
+		/*
+		 * here we only ask for more request when rx list is empty.
+		 * no need to be too gready, because
+		 * for most of the case, queue will not stop
+		 * sending request to port.
+		 * actually we just need to ask by ourselves when
+		 * we rejected requests before. these
+		 * rejected requests will staty in queue's buffer and may
+		 * never get a chance to be handled again.
+		 */
+		if (port->rx_skb_list.qlen == 0)
+			port_ask_more_req_to_md(port);
+		if (port->rx_skb_list.qlen < 0) {
+			spin_unlock_irqrestore(&port->rx_skb_list.lock, flags);
+			CCCI_ERROR_LOG(-1, CHAR,
+				"%s:port->rx_skb_list.qlen < 0 %s\n",
+				__func__, port->name);
+			return -EFAULT;
+		}
+	} else {
+		read_len = size;
+	}
+	spin_unlock_irqrestore(&port->rx_skb_list.lock, flags);
+	if (port->flags & PORT_F_CH_TRAFFIC)
+		port_ch_dump(port, 0, skb->data, read_len);
+	/* 3. copy to user */
+	memcpy(buf, skb->data, read_len);
+	skb_pull(skb, read_len);
+	/* 4. free request */
+	if (read_done)
+		ccci_free_skb(skb);
+
+ exit:
+	return ret ? ret : read_len;
+}
+
+int mtk_ccci_send_data(int index, char *buf, int size)
+{
+	int ret, actual_count, header_len, alloc_size = 0;
+	struct sk_buff *skb;
+	struct ccci_header *ccci_h;
+	struct port_t *tx_port;
+
+	if (size <= 0) {
+		CCCI_ERROR_LOG(-1, CHAR, "invalid size %d for port %d\n",
+				size, index);
+		return -EINVAL;
+	}
+	ret = find_port_by_channel(index, &tx_port);
+	if (ret < 0)
+		return -EINVAL;
+	if (!tx_port->name) {
+		CCCI_ERROR_LOG(-1, CHAR, "port name is null\n");
+		return -1;
+	}
+	header_len = sizeof(struct ccci_header) +
+		(tx_port->rx_ch == CCCI_FS_RX ? sizeof(unsigned int) : 0);
+	if (tx_port->flags & PORT_F_USER_HEADER) {
+		if (size > (CCCI_MTU + header_len)) {
+			CCCI_ERROR_LOG(-1, CHAR,
+			"size %d is larger than MTU for index %d",
+					size, index);
+			return -ENOMEM;
+		}
+		alloc_size = actual_count = size;
+	} else {
+		actual_count = size > CCCI_MTU ? CCCI_MTU : size;
+		alloc_size = actual_count + header_len;
+	}
+	skb = ccci_alloc_skb(alloc_size, 1, 1);
+	if (skb) {
+		if (!(tx_port->flags & PORT_F_USER_HEADER)) {
+			ccci_h = (struct ccci_header *)skb_put(skb,
+				sizeof(struct ccci_header));
+			ccci_h->data[0] = 0;
+			ccci_h->data[1] = actual_count +
+					sizeof(struct ccci_header);
+			ccci_h->channel = tx_port->tx_ch;
+			ccci_h->reserved = 0;
+		} else {
+			ccci_h = (struct ccci_header *)skb->data;
+		}
+		memcpy(skb_put(skb, actual_count), buf, actual_count);
+		ret = port_send_skb_to_md(tx_port, skb, 1);
+		if (ret) {
+			CCCI_ERROR_LOG(-1, CHAR,
+				"port %s send skb fail ret = %d\n",
+					tx_port->name, ret);
+			return ret;
+		}
+		return actual_count;
+	}
+	CCCI_ERROR_LOG(-1, CHAR,
+		"ccci alloc skb for port %s fail",
+		tx_port->name);
+	return -1;
+}
+
+int mtk_ccci_read_data(int index, char *buf, size_t count)
+{
+	int ret = 0;
+	struct port_t *rx_port;
+
+	ret = find_port_by_channel(index, &rx_port);
+	if (ret < 0)
+		return -EINVAL;
+
+	if (atomic_read(&rx_port->usage_cnt)) {
+		ret = port_dev_kernel_read(rx_port, buf, count);
+	} else {
+		CCCI_ERROR_LOG(-1, CHAR,  "open %s before read\n",
+				rx_port->name);
+		return -1;
+	}
+	return ret;
+}
+
 static inline void proxy_set_critical_user(struct port_proxy *proxy_p,
 	int user_id, int enabled)
 {
@@ -873,7 +1050,7 @@ int port_send_skb_to_md(struct port_t *port, struct sk_buff *skb, int blocking)
 	if ((md_state == BOOT_WAITING_FOR_HS1 ||
 		md_state == BOOT_WAITING_FOR_HS2)
 		&& port->tx_ch != CCCI_FS_TX && port->tx_ch != CCCI_RPC_TX) {
-		CCCI_NORMAL_LOG(port->md_id, TAG,
+		CCCI_ERROR_LOG(port->md_id, TAG,
 			"port %s ch%d write fail when md_state=%d\n",
 			port->name, port->tx_ch, md_state);
 		return -ENODEV;

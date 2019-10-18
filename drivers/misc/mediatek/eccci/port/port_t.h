@@ -163,4 +163,6 @@ long port_dev_compat_ioctl(struct file *filp, unsigned int cmd,
 #endif
 int port_dev_mmap(struct file *fp, struct vm_area_struct *vma);
 
+int find_port_by_channel(int channel, struct port_t **port);
+int send_new_time_to_new_md(int md_id, int tz);
 #endif /* __PORT_T_H__ */
