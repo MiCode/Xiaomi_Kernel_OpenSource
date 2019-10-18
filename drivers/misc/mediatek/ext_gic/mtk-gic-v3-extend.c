@@ -44,7 +44,7 @@
 #define GICD_IROUTER_SPI_MODE_ANY	  (1U << 31)
 /* for cirq use */
 void __iomem *GIC_DIST_BASE;
-#ifndef CONFIG_MTK_POL_DEPRECATED
+#ifdef CONFIG_MTK_SYSIRQ
 void __iomem *INT_POL_CTL0;
 void __iomem *INT_POL_CTL1;
 static u32 reg_len_pol0;
@@ -138,7 +138,7 @@ build_mask:
 	return true;
 }
 
-#ifndef CONFIG_MTK_POL_DEPRECATED
+#ifdef CONFIG_MTK_SYSIRQ
 u32 mt_irq_get_pol_hw(u32 hwirq)
 {
 	u32 reg;
@@ -439,11 +439,8 @@ char *mt_irq_dump_status_buf(int irq, char *buf)
 		return NULL;
 
 	ptr += sprintf(ptr, "[mt gic dump] irq = %d\n", irq);
-#if defined(CONFIG_ARM_PSCI) || defined(CONFIG_MTK_PSCI)
 	rc = mt_secure_call(MTK_SIP_KERNEL_GIC_DUMP, irq, 0, 0, 0);
-#else
-	rc = -1;
-#endif
+
 	if (rc < 0) {
 		ptr += sprintf(ptr, "[mt gic dump] not allowed to dump!\n");
 		return ptr;
@@ -475,7 +472,7 @@ char *mt_irq_dump_status_buf(int irq, char *buf)
 	result = (rc >> 12) & 0x1;
 	ptr += sprintf(ptr, "[mt gic dump] active status = %x\n", result);
 
-#ifndef CONFIG_MTK_POL_DEPRECATED
+#ifdef CONFIG_MTK_SYSIRQ
 	/* get polarity */
 	result = (rc >> 13) & 0x1;
 	ptr += sprintf(ptr,
@@ -526,7 +523,7 @@ void mt_irq_dump_status(int irq)
 }
 EXPORT_SYMBOL(mt_irq_dump_status);
 
-#ifndef CONFIG_MTK_POL_DEPRECATED
+#ifdef CONFIG_MTK_SYSIRQ
 static void _mt_set_pol_reg(void __iomem *add, u32 val)
 {
 	writel_relaxed(val, add);
@@ -674,7 +671,7 @@ int __init mt_gic_ext_init(void)
 	if (IS_ERR(GIC_REDIST_BASE))
 		return -EINVAL;
 
-#ifndef CONFIG_MTK_POL_DEPRECATED
+#ifdef CONFIG_MTK_SYSIRQ
 	INT_POL_CTL0 = of_iomap(node, 2);
 	if (IS_ERR(INT_POL_CTL0))
 		return -EINVAL;
