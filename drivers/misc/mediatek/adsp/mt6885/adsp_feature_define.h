@@ -7,7 +7,7 @@
 #define __ADSP_FEATURE_DEFINE_H__
 
 /* reset recovery feature kernel option*/
-//#define CFG_RECOVERY_SUPPORT
+#define CFG_RECOVERY_SUPPORT
 
 /* adsp platform configs*/
 #define ADSP_BOOT_TIME_OUT_MONITOR       (1)

@@ -86,6 +86,7 @@ void adsp_mt_stop(int cid)
 
 void adsp_mt_clear(void)
 {
+	writel(0x0, ADSP_CFGREG_SW_RSTN);
 	writel(0xC0001002, ADSP_HIFI3_IO_CONFIG);
 	writel(0xdf, ADSP_CLK_CTRL_BASE);
 	writel(0x0, ADSP_A_IRQ_EN);

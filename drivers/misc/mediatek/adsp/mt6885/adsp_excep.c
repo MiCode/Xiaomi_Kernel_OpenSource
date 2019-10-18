@@ -218,6 +218,7 @@ void adsp_aed_worker(struct work_struct *ws)
 	adsp_exception_dump(ctrl);
 
 	/* reset adsp */
+	adsp_enable_clock();
 	for (retry = 0; retry < ADSP_RESET_RETRY_MAXTIME; retry++) {
 		ret = adsp_reset();
 
@@ -228,15 +229,11 @@ void adsp_aed_worker(struct work_struct *ws)
 		pr_info("%s, reset retry.... (%d)", __func__, retry);
 		msleep(20);
 	}
+	adsp_disable_clock();
 
 	if (ret) {
-		aee_kernel_exception_api(__FILE__,
-					 __LINE__,
-					 DB_OPT_DEFAULT,
-					 "[ADSP]",
-					 "ASSERT: ADSP DEAD! Recovery Fail");
-		__pm_relax(&ctrl->wakeup_lock);
-		return;
+		pr_err("%s, adsp dead, force reboot", __func__);
+		BUG_ON(1);
 	}
 
 	adsp_extern_notify_chain(ADSP_EVENT_READY);
