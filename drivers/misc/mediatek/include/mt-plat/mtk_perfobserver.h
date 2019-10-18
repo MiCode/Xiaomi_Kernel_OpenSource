@@ -243,4 +243,25 @@ static inline int pob_xpufreq_update(enum pob_xpufreq_info_num info_num,
 { return 0; }
 #endif
 
+enum pob_eara_thrm_info_num {
+	POB_EARA_THRM_UNTHROTTLED,
+	POB_EARA_THRM_THROTTLED,
+};
+
+#ifdef CONFIG_MTK_PERF_OBSERVER
+extern int pob_eara_thrm_register_client(struct notifier_block *nb);
+extern int pob_eara_thrm_unregister_client(struct notifier_block *nb);
+
+extern int pob_eara_thrm_stats_update(enum pob_eara_thrm_info_num info_num);
+#else
+static inline int pob_eara_thrm_register_client(struct notifier_block *nb)
+{ return 0; }
+static inline int pob_eara_thrm_unregister_client(struct notifier_block *nb)
+{ return 0; }
+static inline int pob_eara_thrm_stats_update(
+		enum pob_eara_thrm_info_num info_num)
+{ return 0; }
+#endif
+
+
 #endif /* end __MTK_PERFOBSERVER_H__ */

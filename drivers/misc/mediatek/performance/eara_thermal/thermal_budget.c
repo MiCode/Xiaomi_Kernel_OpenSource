@@ -802,6 +802,13 @@ static void thrm_pb_turn_throttling_locked(int throttling)
 		thrm_pb_turn_record_locked(0);
 		g_total_pb = 0;
 	}
+
+#ifdef CONFIG_MTK_PERF_OBSERVER
+	if (is_throttling)
+		pob_eara_thrm_stats_update(POB_EARA_THRM_THROTTLED);
+	else
+		pob_eara_thrm_stats_update(POB_EARA_THRM_UNTHROTTLED);
+#endif
 }
 
 #if defined(EARA_THERMAL_VPU_SUPPORT) || defined(EARA_THERMAL_MDLA_SUPPORT)

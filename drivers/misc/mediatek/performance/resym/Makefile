@@ -22,6 +22,8 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/performance/observer
 ccflags-y += -DNR_FREQ_CPU=16
 
 obj-y += rs_usage.o
+obj-y += rs_state.o
 
 obj-$(CONFIG_MACH_MT6768) += platform/mt6768/
 obj-$(CONFIG_MACH_MT6785) += platform/mt6785/
+obj-$(CONFIG_MACH_MT6885) += platform/mt6885/
