@@ -901,7 +901,6 @@ int emmc_autok(void)
 	int merge_result, merge_mode, merge_window;
 	int i, vcore_step1 = -1, vcore_step2 = 0;
 	struct regulator *reg_vcore;
-	struct device *dev = mmc_dev(host->mmc);
 	/*
 	 * Static variable required by vcore dvfs module, otherwise deadlock
 	 * happens.
@@ -937,7 +936,8 @@ int emmc_autok(void)
 
 	for (i = 0; i < AUTOK_VCORE_NUM; i++) {
 		pm_qos_update_request(&autok_force, autok_opp[i]);
-		reg_vcore = devm_regulator_get_optional(dev, "vcore");
+		reg_vcore = devm_regulator_get_optional(mmc_dev(host->mmc),
+							"vcore");
 		vcore_step2 = regulator_get_voltage(reg_vcore);
 		pr_notice("msdc fix vcore: %d\n", vcore_step2);
 
