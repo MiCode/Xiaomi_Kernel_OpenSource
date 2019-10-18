@@ -879,7 +879,7 @@ static inline void smi_subsys_sspm_ipi(const bool ena, const u32 subsys)
 	do {
 		ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_SMI,
 			IPI_SEND_POLLING, &ipi_data,
-			sizeof(ipi_data) / SSPM_MBOX_SLOT_SIZE, 10);
+			sizeof(ipi_data) / SSPM_MBOX_SLOT_SIZE, 2000);
 	} while (smi_dram.ackdata);
 #else
 	do {
@@ -1121,7 +1121,7 @@ static inline void smi_dram_init(void)
 	ipi_data.u.ctrl.size = smi_dram.size;
 #if IS_ENABLED(CONFIG_MACH_MT6885)
 	ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_SMI, IPI_SEND_POLLING,
-		&ipi_data, sizeof(ipi_data) / SSPM_MBOX_SLOT_SIZE, 10);
+		&ipi_data, sizeof(ipi_data) / SSPM_MBOX_SLOT_SIZE, 2000);
 #else
 	ret = sspm_ipi_send_sync(IPI_ID_SMI, IPI_OPT_POLLING, &ipi_data,
 		sizeof(ipi_data) / MBOX_SLOT_SIZE, &smi_dram.ackdata, 1);
@@ -1134,7 +1134,7 @@ static inline void smi_dram_init(void)
 	ipi_data.u.logger.enable = (smi_dram.dump << 31) | smi_subsys_on;
 #if IS_ENABLED(CONFIG_MACH_MT6885)
 	ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_SMI, IPI_SEND_POLLING,
-		&ipi_data, sizeof(ipi_data) / SSPM_MBOX_SLOT_SIZE, 10);
+		&ipi_data, sizeof(ipi_data) / SSPM_MBOX_SLOT_SIZE, 2000);
 #else
 	ret = sspm_ipi_send_sync(IPI_ID_SMI, IPI_OPT_POLLING, &ipi_data,
 		sizeof(ipi_data) / MBOX_SLOT_SIZE, &smi_dram.ackdata, 1);
@@ -1187,7 +1187,7 @@ int smi_dram_dump_set(const char *val, const struct kernel_param *kp)
 			(smi_dram.dump << 31) | smi_subsys_on;
 #if IS_ENABLED(CONFIG_MACH_MT6885)
 		mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_SMI, IPI_SEND_WAIT,
-			&ipi_data, sizeof(ipi_data) / SSPM_MBOX_SLOT_SIZE, 10);
+		&ipi_data, sizeof(ipi_data) / SSPM_MBOX_SLOT_SIZE, 2000);
 #else
 		sspm_ipi_send_sync(IPI_ID_SMI, IPI_OPT_WAIT,
 			&ipi_data, sizeof(ipi_data) / MBOX_SLOT_SIZE, &ret, 1);
