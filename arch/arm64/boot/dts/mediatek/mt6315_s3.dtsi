@@ -11,51 +11,27 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
-#include <dt-bindings/spmi/spmi.h>
-#include <generated/autoconf.h>
+&mt6315_3_regulator {
+	compatible = "mediatek,mt6315_3-regulator";
+	interrupt-controller;
+	#interrupt-cells = <2>;
 
-&spmi_bus {
-#ifdef CONFIG_FPGA_EARLY_PORTING
-	grpid = <8>;
-	mt6315_12: mt6315@12 {
-		compatible = "mediatek,mt6315", "mtk,spmi-pmic";
-		reg = <0xc SPMI_USID
-			   0x8 SPMI_GSID>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-
+	mt6315_3_vbuck1: 3_vbuck1 {
+		regulator-name = "3_vbuck1";
+		regulator-min-microvolt = <300000>;
+		regulator-max-microvolt = <1193750>;
+		regulator-enable-ramp-delay = <256>;
 	};
-#else
-	grpid = <11>;
-	mt6315_3: mt6315@3 {
-		compatible = "mediatek,mt6315", "mtk,spmi-pmic";
-		reg = <0x3 SPMI_USID
-			   0xb SPMI_GSID>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		mt6315_3_regulator: mt6315_3_regulator {
-			compatible = "mediatek,mt6315_3-regulator";
-			mt6315_3_vbuck1: 3_vbuck1 {
-				regulator-name = "3_vbuck1";
-				regulator-min-microvolt = <300000>;
-				regulator-max-microvolt = <1193750>;
-				regulator-enable-ramp-delay = <256>;
-			};
-			mt6315_3_vbuck3: 3_vbuck3 {
-				regulator-name = "3_vbuck3";
-				regulator-min-microvolt = <300000>;
-				regulator-max-microvolt = <1193750>;
-				regulator-enable-ramp-delay = <256>;
-			};
-			mt6315_3_vbuck4: 3_vbuck4 {
-				regulator-name = "3_vbuck4";
-				regulator-min-microvolt = <300000>;
-				regulator-max-microvolt = <1193750>;
-				regulator-enable-ramp-delay = <256>;
-			};
-		};
-
+	mt6315_3_vbuck3: 3_vbuck3 {
+		regulator-name = "3_vbuck3";
+		regulator-min-microvolt = <300000>;
+		regulator-max-microvolt = <1193750>;
+		regulator-enable-ramp-delay = <256>;
 	};
-#endif
+	mt6315_3_vbuck4: 3_vbuck4 {
+		regulator-name = "3_vbuck4";
+		regulator-min-microvolt = <300000>;
+		regulator-max-microvolt = <1193750>;
+		regulator-enable-ramp-delay = <256>;
+	};
 };

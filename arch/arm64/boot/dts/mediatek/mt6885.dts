@@ -19,10 +19,12 @@
 #include <dt-bindings/memory/mt6885-larb-port.h>
 #include <dt-bindings/gce/mt6885-gce.h>
 #include <dt-bindings/iio/mt635x-auxadc.h>
+#include <dt-bindings/mfd/mt6315-irq.h>
 #include <dt-bindings/mfd/mt6359-irq.h>
 #include <dt-bindings/pinctrl/mt6885-pinfunc.h>
 #include <dt-bindings/clock/mt6885-clk.h>
 #include <dt-bindings/mmc/mt6885-msdc.h>
+#include <dt-bindings/spmi/spmi.h>
 #include <generated/autoconf.h>
 #include "mt6360.dtsi"
 
@@ -7013,6 +7015,65 @@ page_owner=on";
 		preempt_aee_limit = <0>;
 #endif
 #endif
+	};
+#endif
+};
+
+&spmi_bus {
+#ifdef CONFIG_FPGA_EARLY_PORTING
+	grpid = <8>;
+	mt6315_10: mt6315@10 {
+		compatible = "mediatek,mt6315", "mtk,spmi-pmic";
+		reg = <0xa SPMI_USID 0x8 SPMI_GSID>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+	mt6315_11: mt6315@11 {
+		compatible = "mediatek,mt6315", "mtk,spmi-pmic";
+		reg = <0xb SPMI_USID 0x8 SPMI_GSID>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+	mt6315_12: mt6315@12 {
+		compatible = "mediatek,mt6315", "mtk,spmi-pmic";
+		reg = <0xc SPMI_USID 0x8 SPMI_GSID>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+#else
+	grpid = <11>;
+	mt6315_6: mt6315@6 {
+		compatible = "mediatek,mt6315", "mtk,spmi-pmic";
+		reg = <0x6 SPMI_USID 0xb SPMI_GSID>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		mt6315_6_regulator: mt6315_6_regulator {
+			compatible = "mediatek,mt6315_6-regulator";
+			interrupt-parent = <&pio>;
+			interrupts = <1 IRQ_TYPE_LEVEL_HIGH 1 0>;
+		};
+	};
+	mt6315_7: mt6315@7 {
+		compatible = "mediatek,mt6315", "mtk,spmi-pmic";
+		reg = <0x7 SPMI_USID 0xb SPMI_GSID>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		mt6315_7_regulator: mt6315_7_regulator {
+			compatible = "mediatek,mt6315_7-regulator";
+			interrupt-parent = <&pio>;
+			interrupts = <167 IRQ_TYPE_LEVEL_HIGH 167 0>;
+		};
+	};
+	mt6315_3: mt6315@3 {
+		compatible = "mediatek,mt6315", "mtk,spmi-pmic";
+		reg = <0x3 SPMI_USID 0xb SPMI_GSID>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		mt6315_3_regulator: mt6315_3_regulator {
+			compatible = "mediatek,mt6315_3-regulator";
+			interrupt-parent = <&pio>;
+			interrupts = <2 IRQ_TYPE_LEVEL_HIGH 2 0>;
+		};
 	};
 #endif
 };
