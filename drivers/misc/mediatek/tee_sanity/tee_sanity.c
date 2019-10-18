@@ -61,7 +61,7 @@ static void convert_kernel_time(char *tee_timestamp, char *output,
 	tee_time_us = kernel_time_us % USEC_PER_SEC;
 	tee_time_s = kernel_time_us / USEC_PER_SEC;
 
-	snprintf(output, output_sz, "%u.%06u", tee_time_s, tee_time_us);
+	snprintf(output, output_sz, "%llu.%06u", tee_time_s, (u32)tee_time_us);
 }
 
 int32_t mtk_tee_log_tracing(u32 cpuid, u16 tee_pid, char *line, u32 line_len)
