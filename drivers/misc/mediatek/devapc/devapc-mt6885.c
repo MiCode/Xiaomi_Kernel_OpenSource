@@ -1416,6 +1416,9 @@ static const char *mt6885_bus_id_to_master(int bus_id, uint32_t vio_addr)
 	pr_debug(PFX "[DEVAPC] bus_id:0x%x, vio_addr:0x%x\n",
 		bus_id, vio_addr);
 
+	/* bus only reference bit 0~29 */
+	vio_addr = vio_addr & 0x3FFFFFFF;
+
 	h_1byte = (vio_addr >> 24) & 0xFF;
 	h_2byte = (vio_addr >> 16) & 0xFFFF;
 
@@ -1486,6 +1489,10 @@ const char *index_to_subsys(int slave_type, uint32_t vio_index,
 {
 	if (slave_type == SLAVE_TYPE_INFRA &&
 			vio_index < VIO_SLAVE_NUM_INFRA) {
+
+		/* check violation address */
+		if (vio_addr >= MFG_PA_START && vio_addr <= MFG_PA_END)
+			return "MFGSYS";
 
 		/* check violation index */
 		if (vio_index == SMI_LARB0_VIO_INDEX ||
