@@ -21,7 +21,7 @@
 #include <linux/videodev2.h>
 #include "vcodec_ipi_msg.h"
 
-#define MTK_MAX_ENC_CODECS_SUPPORT       (32)
+#define MTK_MAX_ENC_CODECS_SUPPORT       (64)
 #define AP_IPIMSG_VENC_BASE 0xC000
 #define VCU_IPIMSG_VENC_BASE 0xD000
 #define VENC_MAX_FB_NUM              VIDEO_MAX_FRAME

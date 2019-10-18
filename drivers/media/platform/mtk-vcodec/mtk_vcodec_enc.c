@@ -589,6 +589,10 @@ static int vidioc_try_fmt(struct v4l2_format *f, struct mtk_video_fmt *fmt,
 	unsigned int step_height_in_pixel;
 	unsigned int saligned;
 	unsigned int imagePixels;
+	// for AFBC
+	unsigned int block_w = 16;
+	unsigned int block_h = 16;
+	unsigned int block_count;
 
 	struct mtk_codec_framesizes *spec_size_info = NULL;
 
@@ -673,6 +677,23 @@ static int vidioc_try_fmt(struct v4l2_format *f, struct mtk_video_fmt *fmt,
 				spec_size_info->stepwise.step_height;
 			bitsPP = 8;
 			saligned = 6;
+		}
+
+		// Compute AFBC stream data size
+		if (pix_fmt_mp->pixelformat == V4L2_PIX_FMT_RGB32_AFBC ||
+		pix_fmt_mp->pixelformat == V4L2_PIX_FMT_RGBA1010102_AFBC) {
+			block_w = 32;
+			block_h = 8;
+			bitsPP = 32;
+		} else if (pix_fmt_mp->pixelformat == V4L2_PIX_FMT_NV12_AFBC) {
+			block_w = 16;
+			block_h = 16;
+			bitsPP = 12;
+		} else if (pix_fmt_mp->pixelformat ==
+				V4L2_PIX_FMT_NV12_10B_AFBC) {
+			block_w = 16;
+			block_h = 16;
+			bitsPP = 16;
 		}
 
 		/* find next closer width stride align 16, height align 16,
@@ -763,6 +784,22 @@ static int vidioc_try_fmt(struct v4l2_format *f, struct mtk_video_fmt *fmt,
 			pix_fmt_mp->plane_fmt[0].bytesperline =
 			pix_fmt_mp->width * bitsPP / 8;
 			pix_fmt_mp->num_planes = 1U;
+		} else if (pix_fmt_mp->pixelformat == V4L2_PIX_FMT_RGB32_AFBC ||
+		pix_fmt_mp->pixelformat == V4L2_PIX_FMT_RGBA1010102_AFBC ||
+		pix_fmt_mp->pixelformat == V4L2_PIX_FMT_NV12_AFBC ||
+		pix_fmt_mp->pixelformat == V4L2_PIX_FMT_NV12_10B_AFBC) {
+			block_count =
+			((pix_fmt_mp->width + (block_w - 1))/block_w)
+			*((pix_fmt_mp->height + (block_h - 1))/block_h);
+
+			pix_fmt_mp->plane_fmt[0].sizeimage =
+			(block_count << 4) +
+			(block_count * block_w * block_h * bitsPP / 8);
+		mtk_v4l2_debug(0, "AFBC size:%d superblock(%dx%d) superblock_count(%d)\n",
+		    pix_fmt_mp->plane_fmt[0].sizeimage,
+		    block_w,
+		    block_h,
+		    block_count);
 		} else if (pix_fmt_mp->num_planes == 1U) {
 			pix_fmt_mp->plane_fmt[0].sizeimage =
 				(imagePixels * bitsPP / 8) +
@@ -875,6 +912,18 @@ static void mtk_venc_set_param(struct mtk_vcodec_ctx *ctx,
 	case V4L2_PIX_FMT_P010M:
 	case V4L2_PIX_FMT_P010S:
 		param->input_yuv_fmt = VENC_YUV_FORMAT_P010;
+		break;
+	case V4L2_PIX_FMT_RGB32_AFBC:
+		param->input_yuv_fmt = VENC_YUV_FORMAT_32bitRGBA8888_AFBC;
+		break;
+	case V4L2_PIX_FMT_RGBA1010102_AFBC:
+		param->input_yuv_fmt = VENC_YUV_FORMAT_32bitRGBA1010102_AFBC;
+		break;
+	case V4L2_PIX_FMT_NV12_AFBC:
+		param->input_yuv_fmt = VENC_YUV_FORMAT_NV12_AFBC;
+		break;
+	case V4L2_PIX_FMT_NV12_10B_AFBC:
+		param->input_yuv_fmt = VENC_YUV_FORMAT_NV12_10B_AFBC;
 		break;
 
 	default:

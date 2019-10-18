@@ -735,6 +735,14 @@ struct v4l2_pix_format {
 #define V4L2_PIX_FMT_P010S   v4l2_fourcc('P', '0', '1', 'S')
 	/* 10-bit each pixel needs 2 bytes, LSB 6-bit is not used contiguous*/
 
+	/* MTK 8-bit frame buffer compressed mode, single plane */
+#define V4L2_PIX_FMT_RGB32_AFBC         v4l2_fourcc('M', 'C', 'R', '8')
+	/* MTK 10-bit frame buffer compressed mode, single plane */
+#define V4L2_PIX_FMT_RGBA1010102_AFBC   v4l2_fourcc('M', 'C', 'R', 'X')
+	/* MTK 8-bit frame buffer compressed mode, two planes */
+#define V4L2_PIX_FMT_NV12_AFBC          v4l2_fourcc('M', 'C', 'N', '8')
+	/* MTK 10-bit frame buffer compressed mode, two planes */
+#define V4L2_PIX_FMT_NV12_10B_AFBC      v4l2_fourcc('M', 'C', 'N', 'X')
 /* Vendor specific - Mediatek ISP compressed formats */
 #define V4L2_PIX_FMT_MTISP_B8	v4l2_fourcc('M', 'T', 'B', '8') /* 8 bit */
 

@@ -1331,6 +1331,14 @@ static void v4l_fill_fmtdesc(struct v4l2_fmtdesc *fmt)
 			descr = "10-bit P010 LSB 6-bit not used single"; break;
 		case V4L2_PIX_FMT_P010M:
 			descr = "10-bit P010 LSB 6-bit not used"; break;
+		case V4L2_PIX_FMT_NV12_AFBC:
+			descr = "AFBC NV12"; break;
+		case V4L2_PIX_FMT_NV12_10B_AFBC:
+			descr = "10-bit AFBC NV12"; break;
+		case V4L2_PIX_FMT_RGB32_AFBC:
+			descr = "32-bit AFBC A/XRGB 8-8-8-8"; break;
+		case V4L2_PIX_FMT_RGBA1010102_AFBC:
+			descr = "10-bit AFBC for RGB, 2-bit for A"; break;
 		case V4L2_PIX_FMT_ARGB1010102:
 		case V4L2_PIX_FMT_ABGR1010102:
 		case V4L2_PIX_FMT_RGBA1010102:
