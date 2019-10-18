@@ -391,10 +391,10 @@ static void mtk_ddp_comp_set_larb(struct device *dev, struct device_node *node,
 		of_node_put(larb_node);
 	}
 
-	if (comp->larb_dev != NULL)
+	if (!comp->larb_dev)
 		return;
 
-	ret = of_property_read_u32(larb_node,
+	ret = of_property_read_u32(node,
 				"mediatek,smi-id", &larb_id);
 	if (ret) {
 		dev_err(comp->larb_dev,
@@ -405,9 +405,12 @@ static void mtk_ddp_comp_set_larb(struct device *dev, struct device_node *node,
 
 	/* check if this module need larb_dev */
 	if (type == MTK_DISP_OVL || type == MTK_DISP_RDMA ||
-	    type == MTK_DISP_WDMA || type == MTK_DISP_POSTMASK)
+	    type == MTK_DISP_WDMA || type == MTK_DISP_POSTMASK) {
 		dev_warn(dev, "%s: %s need larb device\n", __func__,
-			 mtk_dump_comp_str(comp));
+				mtk_dump_comp_str(comp));
+		DDPPR_ERR("%s: smi-id:%d\n", mtk_dump_comp_str(comp),
+				comp->larb_id);
+	}
 }
 
 unsigned int mtk_drm_find_possible_crtc_by_comp(struct drm_device *drm,

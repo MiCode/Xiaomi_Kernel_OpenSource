@@ -3490,6 +3490,7 @@ page_owner=on";
 		interrupts = <GIC_SPI 253 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&dispsys_config MM_DISP_OVL0>;
 		mediatek,larb = <&smi_larb0>;
+		mediatek,smi-id = <0>;
 		iommus = <&iommu0 M4U_PORT_L0_OVL_RDMA0>,
 			 <&iommu0 M4U_PORT_L0_OVL_RDMA0_HDR>;
 	};
@@ -3501,6 +3502,7 @@ page_owner=on";
 		interrupts = <GIC_SPI 254 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&dispsys_config MM_DISP_OVL0_2L>;
 		mediatek,larb = <&smi_larb1>;
+		mediatek,smi-id = <1>;
 		iommus = <&iommu0 M4U_PORT_L1_OVL_2L_RDMA0>,
 			 <&iommu0 M4U_PORT_L1_OVL_2L_RDMA0_HDR>;
 	};
@@ -3512,6 +3514,7 @@ page_owner=on";
 		interrupts = <GIC_SPI 275 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&dispsys_config MM_DISP_OVL2_2L>;
 		mediatek,larb = <&smi_larb1>;
+		mediatek,smi-id = <1>;
 		iommus = <&iommu0 M4U_PORT_L1_OVL_2L_RDMA2>,
 			 <&iommu0 M4U_PORT_L1_OVL_2L_RDMA2_HDR>;
 	};
@@ -3523,6 +3526,7 @@ page_owner=on";
 		interrupts = <GIC_SPI 255 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&dispsys_config MM_DISP_RDMA0>;
 		mediatek,larb = <&smi_larb0>;
+		mediatek,smi-id = <0>;
 		iommus = <&iommu0 M4U_PORT_L0_DISP_RDMA0>;
 	};
 
@@ -3538,6 +3542,7 @@ page_owner=on";
 		interrupts = <GIC_SPI 295 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&dispsys_config MM_DISP_RDMA4>;
 		mediatek,larb = <&smi_larb0>;
+		mediatek,smi-id = <0>;
 		iommus = <&iommu0 M4U_PORT_L0_DISP_FAKE0>;
 	};
 
@@ -3548,6 +3553,7 @@ page_owner=on";
 		interrupts = <GIC_SPI 256 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&dispsys_config MM_DISP_WDMA0>;
 		mediatek,larb = <&smi_larb0>;
+		mediatek,smi-id = <0>;
 		iommus = <&iommu0 M4U_PORT_L0_DISP_WDMA0>;
 	};
 
@@ -3606,6 +3612,7 @@ page_owner=on";
 		interrupts = <GIC_SPI 277 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&dispsys_config MM_DISP_POSTMASK0>;
 		mediatek,larb = <&smi_larb0>;
+		mediatek,smi-id = <0>;
 		iommus = <&iommu0 M4U_PORT_L0_DISP_POSTMASK0>;
 	};
 
@@ -3672,6 +3679,7 @@ page_owner=on";
 		interrupts = <GIC_SPI 264 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&dispsys_config MM_DISP_OVL1>;
 		mediatek,larb = <&smi_larb1>;
+		mediatek,smi-id = <1>;
 		iommus = <&iommu0 M4U_PORT_L1_OVL_RDMA1>,
 			 <&iommu0 M4U_PORT_L1_OVL_RDMA1_HDR>;
 	};
@@ -3682,6 +3690,7 @@ page_owner=on";
 		interrupts = <GIC_SPI 265 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&dispsys_config MM_DISP_OVL1_2L>;
 		mediatek,larb = <&smi_larb0>;
+		mediatek,smi-id = <0>;
 		iommus = <&iommu0 M4U_PORT_L0_OVL_2L_RDMA1>,
 			 <&iommu0 M4U_PORT_L0_OVL_2L_RDMA1_HDR>;
 	};
@@ -3692,6 +3701,7 @@ page_owner=on";
 		interrupts = <GIC_SPI 276 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&dispsys_config MM_DISP_OVL3_2L>;
 		mediatek,larb = <&smi_larb0>;
+		mediatek,smi-id = <0>;
 		iommus = <&iommu0 M4U_PORT_L0_OVL_2L_RDMA3>,
 			 <&iommu0 M4U_PORT_L0_OVL_2L_RDMA3_HDR>;
 	};
@@ -3713,6 +3723,7 @@ page_owner=on";
 		interrupts = <GIC_SPI 296 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&dispsys_config MM_DISP_RDMA5>;
 		mediatek,larb = <&smi_larb1>;
+		mediatek,smi-id = <1>;
 		iommus = <&iommu0 M4U_PORT_L1_DISP_FAKE1>;
 	};
 
