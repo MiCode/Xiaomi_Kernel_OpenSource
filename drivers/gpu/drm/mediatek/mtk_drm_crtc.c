@@ -50,6 +50,7 @@
 #include "mtk_drm_mmp.h"
 #include "mtk_disp_recovery.h"
 #include "mtk_drm_arr.h"
+#include "mtk_drm_trace.h"
 
 static struct mtk_drm_property mtk_crtc_property[CRTC_PROP_MAX] = {
 	{DRM_MODE_PROP_ATOMIC, "OVERLAP_LAYER_NUM", 0, UINT_MAX, 0},
@@ -4414,4 +4415,37 @@ unsigned int mtk_drm_primary_display_get_debug_state(
 		"================================================\n\n");
 
 	return len;
+}
+
+int MMPathTraceCrtcPlanes(struct drm_crtc *crtc,
+	char *str, int strlen, int n)
+{
+	unsigned int i = 0, addr;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+
+	for (i = 0; i < mtk_crtc->layer_nr; i++) {
+		struct mtk_plane_state *state =
+		    to_mtk_plane_state(mtk_crtc->planes[i].base.state);
+		struct mtk_plane_pending_state *pending = &state->pending;
+
+		if (pending->enable == 0)
+			continue;
+
+		addr = (unsigned int)pending->addr;
+
+		n += scnprintf(str + n, strlen - n, "in_%d=0x%x, ",
+			i, addr);
+		n += scnprintf(str + n, strlen - n, "in_%d_width=%u, ",
+			i, pending->width);
+		n += scnprintf(str + n, strlen - n, "in_%d_height=%u, ",
+			i, pending->height);
+		n += scnprintf(str + n, strlen - n, "in_%d_fmt=%s, ",
+			i, mtk_get_format_name(pending->format));
+		n += scnprintf(str + n, strlen - n, "in_%d_bpp=%u, ",
+			i, mtk_get_format_bpp(pending->format));
+		n += scnprintf(str + n, strlen - n, "in_%d_compr=%u, ",
+			i, pending->prop_val[PLANE_PROP_COMPRESS]);
+	}
+
+	return n;
 }

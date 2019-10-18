@@ -1326,6 +1326,10 @@ int mtk_drm_get_display_caps_ioctl(struct drm_device *dev, void *data,
 	} else
 		DDPPR_ERR("%s: failed to get lcm luminance\n", __func__);
 
+#ifdef DRM_MMPATH
+	private->HWC_gpid = task_tgid_nr(current);
+#endif
+
 	return ret;
 }
 

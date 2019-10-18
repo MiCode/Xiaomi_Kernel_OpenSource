@@ -26,6 +26,7 @@
 #include "mtk_drm_mmp.h"
 #include "mtk_drm_gem.h"
 #include "mtk_drm_fb.h"
+#include "mtk_drm_trace.h"
 
 #define DISP_REG_WDMA_INTEN 0x0000
 #define INTEN_FLD_FME_CPL_INTEN REG_FLD_MSB_LSB(0, 0)
@@ -181,6 +182,13 @@ struct mtk_disp_wdma_data {
 			    struct cmdq_pkt *handle, void *data);
 };
 
+struct mtk_wdma_cfg_info {
+	unsigned int addr;
+	unsigned int width;
+	unsigned int height;
+	unsigned int fmt;
+};
+
 /**
  * struct mtk_disp_wdma - DISP_RDMA driver structure
  * @ddp_comp - structure containing type enum and hardware resources
@@ -189,6 +197,7 @@ struct mtk_disp_wdma_data {
 struct mtk_disp_wdma {
 	struct mtk_ddp_comp ddp_comp;
 	const struct mtk_disp_wdma_data *data;
+	struct mtk_wdma_cfg_info cfg_info;
 };
 
 static irqreturn_t mtk_wdma_irq_handler(int irq, void *dev_id)
@@ -220,6 +229,7 @@ static irqreturn_t mtk_wdma_irq_handler(int irq, void *dev_id)
 			wake_up_interruptible(
 				&mtk_crtc->dc_main_path_commit_wq);
 		}
+		MMPathTraceDRM(wdma);
 	}
 	if (val & (1 << 1))
 		DDPPR_ERR("[IRQ] %s: frame underrun!\n",
@@ -740,6 +750,8 @@ static void mtk_wdma_config(struct mtk_ddp_comp *comp,
 	unsigned int size = 0;
 	unsigned int con = 0;
 	unsigned int addr = 0;
+	struct mtk_disp_wdma *wdma = comp_to_wdma(comp);
+	struct mtk_wdma_cfg_info *cfg_info = &wdma->cfg_info;
 
 	if (!comp->fb) {
 		DDPPR_ERR("%s fb is empty\n", __func__);
@@ -787,6 +799,11 @@ static void mtk_wdma_config(struct mtk_ddp_comp *comp,
 			DISP_REG_WDMA_DST_ADDR0, handle);
 
 	mtk_wdma_golden_setting(comp, cfg, handle);
+
+	cfg_info->addr = addr;
+	cfg_info->width = cfg->w;
+	cfg_info->height = cfg->h;
+	cfg_info->fmt = comp->fb->format->format;
 }
 
 void mtk_wdma_dump_golden_setting(struct mtk_ddp_comp *comp)
@@ -1056,6 +1073,23 @@ int mtk_wdma_analysis(struct mtk_ddp_comp *comp)
 		(readl(baddr + DISP_REG_WDMA_INPUT_CNT_DBG) >> 16) & 0x3fff);
 
 	return 0;
+}
+
+int MMPathTraceWDMA(struct mtk_ddp_comp *ddp_comp, char *str,
+	unsigned int strlen, unsigned int n)
+{
+	struct mtk_disp_wdma *wdma = comp_to_wdma(ddp_comp);
+	struct mtk_wdma_cfg_info *cfg_info = &wdma->cfg_info;
+
+	n += scnprintf(str + n, strlen - n,
+		"out=0x%x, out_width=%d, out_height=%d, out_fmt=%s, out_bpp=%d",
+		cfg_info->addr,
+		cfg_info->width,
+		cfg_info->height,
+		mtk_get_format_name(cfg_info->fmt),
+		mtk_get_format_bpp(cfg_info->fmt));
+
+	return n;
 }
 
 static const struct mtk_ddp_comp_funcs mtk_disp_wdma_funcs = {

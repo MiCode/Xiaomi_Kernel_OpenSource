@@ -73,3 +73,5 @@ ccflags-$(CONFIG_MTK_CMDQ_MBOX_EXT) += -I$(srctree)/drivers/misc/mediatek/cmdq/m
 
 subdir-ccflags-y += -I$(srctree)/drivers/staging/android/ion/ \
 		    -I$(srctree)/drivers/staging/android/ion/mtk
+
+ccflags-$(CONFIG_MACH_MT6885) += -DDRM_MMPATH

@@ -147,6 +147,10 @@ struct mtk_drm_private {
 	struct mm_qos_request hrt_bw_request;
 #endif
 	struct pinctrl *pctrl;
+
+#ifdef DRM_MMPATH
+	int HWC_gpid; // for mmpath auto gen
+#endif
 };
 
 struct mtk_drm_property {

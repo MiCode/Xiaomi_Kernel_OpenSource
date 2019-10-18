@@ -214,6 +214,7 @@ int mtk_plane_init(struct drm_device *dev, struct mtk_drm_plane *plane,
 		   enum drm_plane_type type);
 
 int mtk_get_format_bpp(uint32_t format);
+char *mtk_get_format_name(uint32_t format);
 
 void mtk_plane_get_comp_state(struct drm_plane *plane,
 			      struct mtk_plane_comp_state *comp_state,

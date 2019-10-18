@@ -20,6 +20,10 @@
 #include "mtk_drm_helper.h"
 #include "mtk_drm_drv.h"
 
+#ifdef DRM_MMPATH
+#include "mmpath.h"
+#endif
+
 #define DRM_TRACE_ID 0xFFFF0000
 #define DRM_TRACE_FPS_ID (DRM_TRACE_ID + 1)
 
@@ -122,3 +126,83 @@ void mtk_drm_refresh_tag_end(struct mtk_ddp_comp *ddp_comp)
 			   tag_name, 0);
 	preempt_enable();
 }
+
+#ifdef DRM_MMPATH
+int get_HWC_gpid(struct mtk_ddp_comp *ddp_comp)
+{
+	struct drm_crtc *crtc = &ddp_comp->mtk_crtc->base;
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+
+	return priv->HWC_gpid;
+}
+
+void MMPathTraceOVL2DSI(struct mtk_ddp_comp *ddp_comp)
+{
+	char str[1300] = "";
+	int strlen = sizeof(str), n = 0;
+
+	n += scnprintf(str + n, strlen - n,
+		"hw=DISP_OVL0, pid=%d, ", get_HWC_gpid(ddp_comp));
+
+	n = MMPathTraceCrtcPlanes(&ddp_comp->mtk_crtc->base, str, strlen, n);
+
+	n += scnprintf(str + n, strlen - n, "out=DISP_DSI");
+
+	trace_MMPath(str);
+}
+
+void MMPathTraceRDMA2DSI(struct mtk_ddp_comp *ddp_comp)
+{
+	char str[1300] = "";
+	int strlen = sizeof(str), n = 0;
+
+	n += scnprintf(str + n, strlen - n,
+		"hw=DISP_RDMA0, pid=%d, ", get_HWC_gpid(ddp_comp));
+
+	n = MMPathTraceRDMA(ddp_comp, str, strlen, n);
+
+	n += scnprintf(str + n, strlen - n, "out=DISP_DSI");
+
+	trace_MMPath(str);
+}
+
+void MMPathTraceOVL2WDMA(struct mtk_ddp_comp *ddp_comp)
+{
+	char str[1300] = "";
+	int strlen = sizeof(str), n = 0;
+
+	if (drm_crtc_index(&ddp_comp->mtk_crtc->base) == 0)
+		n += scnprintf(str + n, strlen - n,
+			"hw=DISP_OVL0, pid=%d, ", get_HWC_gpid(ddp_comp));
+	else
+		n += scnprintf(str + n, strlen - n,
+			"hw=DISP_OVL1, pid=%d, ", get_HWC_gpid(ddp_comp));
+
+	n = MMPathTraceCrtcPlanes(&ddp_comp->mtk_crtc->base, str, strlen, n);
+
+	n = MMPathTraceWDMA(ddp_comp, str, strlen, n);
+
+	trace_MMPath(str);
+}
+
+void MMPathTraceDRM(struct mtk_ddp_comp *ddp_comp)
+{
+	struct drm_crtc *crtc = &ddp_comp->mtk_crtc->base;
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+
+	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_MMPATH) == 0)
+		return;
+
+	if (ddp_comp->id == DDP_COMPONENT_RDMA0) {
+		if (mtk_crtc_is_dc_mode(crtc) == 0)
+			MMPathTraceOVL2DSI(ddp_comp);
+		else
+			MMPathTraceRDMA2DSI(ddp_comp);
+	} else if (ddp_comp->id == DDP_COMPONENT_WDMA0)
+		MMPathTraceOVL2WDMA(ddp_comp);
+}
+#else
+void MMPathTraceDRM(struct mtk_ddp_comp *ddp_comp)
+{
+}
+#endif

@@ -214,6 +214,13 @@ struct mtk_rdma_backup_info {
 	unsigned long addr;
 };
 
+struct mtk_rdma_cfg_info {
+	unsigned int addr;
+	unsigned int width;
+	unsigned int height;
+	unsigned int fmt;
+};
+
 /**
  * struct mtk_disp_rdma - DISP_RDMA driver structure
  * @ddp_comp - structure containing type enum and hardware resources
@@ -230,6 +237,7 @@ struct mtk_disp_rdma {
 	unsigned int dummy_w;
 	unsigned int dummy_h;
 	struct mtk_rdma_backup_info backup_info;
+	struct mtk_rdma_cfg_info cfg_info;
 };
 
 static inline struct mtk_disp_rdma *comp_to_rdma(struct mtk_ddp_comp *comp)
@@ -274,6 +282,7 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 		tmp = ~val;
 		DDPIRQ("[IRQ] %s: frame start!\n", mtk_dump_comp_str(rdma));
 		mtk_drm_refresh_tag_start(&priv->ddp_comp);
+		MMPathTraceDRM(rdma);
 	}
 
 	if (val & (1 << 3)) {
@@ -1093,6 +1102,7 @@ static void mtk_rdma_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 				  struct cmdq_pkt *handle)
 {
 	struct mtk_disp_rdma *rdma = comp_to_rdma(comp);
+	struct mtk_rdma_cfg_info *cfg_info = &rdma->cfg_info;
 	struct mtk_plane_pending_state *pending = &state->pending;
 	unsigned int addr = pending->addr;
 	unsigned int pitch = pending->pitch & 0xffff;
@@ -1115,6 +1125,28 @@ static void mtk_rdma_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 	mtk_ddp_write_relaxed(comp, addr, DISP_RDMA_MEM_START_ADDR, handle);
 	mtk_ddp_write_relaxed(comp, pitch, DISP_RDMA_MEM_SRC_PITCH, handle);
 	mtk_ddp_write(comp, RDMA_MEM_GMC, DISP_RDMA_MEM_GMC_SETTING_0, handle);
+
+	cfg_info->addr = addr;
+	cfg_info->width = pending->width;
+	cfg_info->height = pending->height;
+	cfg_info->fmt = fmt;
+}
+
+int MMPathTraceRDMA(struct mtk_ddp_comp *ddp_comp, char *str,
+	unsigned int strlen, unsigned int n)
+{
+	struct mtk_disp_rdma *rdma = comp_to_rdma(ddp_comp);
+	struct mtk_rdma_cfg_info *cfg_info = &rdma->cfg_info;
+
+	n += scnprintf(str + n, strlen - n,
+		"in=0x%x, in_width=%d, in_height=%d, in_fmt=%s, in_bpp=%d, ",
+		cfg_info->addr,
+		cfg_info->width,
+		cfg_info->height,
+		mtk_get_format_name(cfg_info->fmt),
+		mtk_get_format_bpp(cfg_info->fmt));
+
+	return n;
 }
 
 static const struct mtk_ddp_comp_funcs mtk_disp_rdma_funcs = {

@@ -57,6 +57,10 @@ int mtk_get_format_bpp(uint32_t format)
 		return 0;
 	case DRM_FORMAT_RGB565:
 	case DRM_FORMAT_BGR565:
+	case DRM_FORMAT_YUYV:
+	case DRM_FORMAT_YVYU:
+	case DRM_FORMAT_UYVY:
+	case DRM_FORMAT_VYUY:
 		return 2;
 	case DRM_FORMAT_RGB888:
 	case DRM_FORMAT_BGR888:
@@ -84,9 +88,56 @@ int mtk_get_format_bpp(uint32_t format)
 	case DRM_FORMAT_YUV444:
 	case DRM_FORMAT_YVU444:
 		return 3;
+	case DRM_FORMAT_ABGRFP16:
+		return 8;
 	default:
 		return 4;
 	}
+}
+
+char *mtk_get_format_name(uint32_t format)
+{
+	switch (format) {
+	case DRM_FORMAT_C8:
+		return "C8";
+	case DRM_FORMAT_XRGB8888:
+		return "XRGB8888";
+	case DRM_FORMAT_XBGR8888:
+		return "XBGR8888";
+	case DRM_FORMAT_ARGB8888:
+		return "ARGB8888";
+	case DRM_FORMAT_ABGR8888:
+		return "ABGR8888";
+	case DRM_FORMAT_BGRX8888:
+		return "BGRX8888";
+	case DRM_FORMAT_RGBX8888:
+		return "RGBX8888";
+	case DRM_FORMAT_BGRA8888:
+		return "BGRA8888";
+	case DRM_FORMAT_RGBA8888:
+		return "RGBA8888";
+	case DRM_FORMAT_BGR888:
+		return "BGR888";
+	case DRM_FORMAT_RGB888:
+		return "RGB888";
+	case DRM_FORMAT_BGR565:
+		return "BGR565";
+	case DRM_FORMAT_RGB565:
+		return "RGB565";
+	case DRM_FORMAT_YUYV:
+		return "YUYV";
+	case DRM_FORMAT_YVYU:
+		return "YVYU";
+	case DRM_FORMAT_UYVY:
+		return "UYVY";
+	case DRM_FORMAT_VYUY:
+		return "VYUY";
+	case DRM_FORMAT_ABGR2101010:
+		return "ABGR2101010";
+	case DRM_FORMAT_ABGRFP16:
+		return "ABGRFP16";
+	}
+	return "fmt_unknown";
 }
 
 static struct mtk_drm_property mtk_plane_property[PLANE_PROP_MAX] = {
