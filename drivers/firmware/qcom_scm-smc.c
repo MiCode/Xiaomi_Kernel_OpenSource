@@ -1078,6 +1078,19 @@ int __qcom_scm_qsmmu500_wait_safe_toggle(struct device *dev, bool en)
 	return qcom_scm_call_atomic(dev, &desc);
 }
 
+int __qcom_scm_ice_restore_cfg(struct device *dev)
+{
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_KEYSTORE,
+		.cmd = QCOM_SCM_ICE_RESTORE_KEY_ID,
+		.owner = ARM_SMCCC_OWNER_TRUSTED_OS
+	};
+
+	desc.arginfo = QCOM_SCM_ARGS(0);
+
+	return qcom_scm_call(dev, &desc);
+}
+
 void __qcom_scm_init(void)
 {
 	__query_convention();

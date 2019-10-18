@@ -4,6 +4,7 @@
 #ifndef __QCOM_SCM_INT_H
 #define __QCOM_SCM_INT_H
 
+// SIP Services and Function IDs
 #define QCOM_SCM_SVC_BOOT			0x01
 #define QCOM_SCM_BOOT_SET_ADDR			0x01
 #define QCOM_SCM_BOOT_TERMINATE_PC		0x02
@@ -77,7 +78,6 @@ extern int  __qcom_scm_assign_mem(struct device *dev,
 				  phys_addr_t dest, size_t dest_sz);
 #define QCOM_SCM_IOMMU_TLBINVAL_FLAG    0x00000001
 
-
 #define QCOM_SCM_SVC_HDCP			0x11
 #define QCOM_SCM_HDCP_INVOKE			0x01
 extern int __qcom_scm_hdcp_req(struct device *dev,
@@ -88,6 +88,11 @@ extern int __qcom_scm_hdcp_req(struct device *dev,
 extern int __qcom_scm_qsmmu500_wait_safe_toggle(struct device *dev,
 						bool enable);
 #define QCOM_SCM_SMMU_CONFIG_ERRATA1_CLIENT_ALL	0x2
+
+// TOS Services and Function IDs
+#define QCOM_SCM_SVC_KEYSTORE		0x05
+#define QCOM_SCM_ICE_RESTORE_KEY_ID	0x06
+extern int __qcom_scm_ice_restore_cfg(struct device *dev);
 
 extern void __qcom_scm_init(void);
 

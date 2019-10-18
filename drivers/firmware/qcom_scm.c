@@ -505,6 +505,12 @@ int qcom_scm_qsmmu500_wait_safe_toggle(bool en)
 }
 EXPORT_SYMBOL(qcom_scm_qsmmu500_wait_safe_toggle);
 
+int qcom_scm_ice_restore_cfg(void)
+{
+	return __qcom_scm_ice_restore_cfg(__scm->dev);
+}
+EXPORT_SYMBOL(qcom_scm_ice_restore_cfg);
+
 /**
  * qcom_scm_is_available() - Checks if SCM is available
  */

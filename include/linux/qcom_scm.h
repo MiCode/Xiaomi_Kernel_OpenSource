@@ -66,6 +66,7 @@ extern bool qcom_scm_hdcp_available(void);
 extern int qcom_scm_hdcp_req(struct qcom_scm_hdcp_req *req, u32 req_cnt,
 			     u32 *resp);
 extern int qcom_scm_qsmmu500_wait_safe_toggle(bool en);
+extern int qcom_scm_ice_restore_cfg(void);
 extern bool qcom_scm_is_available(void);
 #else
 
@@ -114,6 +115,7 @@ static inline int qcom_scm_hdcp_req(struct qcom_scm_hdcp_req *req, u32 req_cnt,
 				    u32 *resp) { return -ENODEV; }
 static inline int qcom_scm_qsmmu500_wait_safe_toggle(bool en)
 		{ return -ENODEV; }
+static inline int qcom_scm_ice_restore_cfg(void) { return -ENODEV; }
 static inline bool qcom_scm_is_available(void) { return false; }
 #endif
 #endif
