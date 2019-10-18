@@ -203,6 +203,7 @@ enum mtk_ddp_io_cmd {
 	DSI_SET_CRTC_AVAIL_MODES,
 	DSI_TIMING_CHANGE,
 	GET_PANEL_NAME,
+	DSI_CHANGE_MODE,
 };
 
 struct golden_setting_context {

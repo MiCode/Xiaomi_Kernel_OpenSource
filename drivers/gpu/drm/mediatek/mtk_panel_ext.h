@@ -43,12 +43,53 @@ enum MTK_PANEL_MODE_SWITCH_STAGE {
 struct mtk_panel_funcs {
 	int (*set_backlight_cmdq)(void *dsi_drv, dcs_write_gce cb,
 		void *handle, unsigned int level);
-	int (*aod)(void *handle, int enter);
 	int (*reset)(struct drm_panel *panel, int on);
 	int (*ata_check)(struct drm_panel *panel);
 	int (*ext_param_set)(struct drm_panel *panel, unsigned int mode);
 	int (*mode_switch)(struct drm_panel *panel, unsigned int cur_mode,
 		unsigned int dst_mode, enum MTK_PANEL_MODE_SWITCH_STAGE stage);
+	/**
+	 * @doze_enable:
+	 *
+	 * Call the @doze_enable before starting AOD mode. The LCM off may add
+	 * at the beginning of this function to avoid panel show unexpected
+	 * content when switching to specific panel low power mode.
+	 */
+	int (*doze_enable)(struct drm_panel *panel);
+
+	/**
+	 * @doze_enable:
+	 *
+	 * Call the @doze_enable before starting AOD mode. The LCM off may add
+	 * at the beginning of this function to avoid panel show unexpected
+	 * content when switching back to normal mode.
+	 */
+	int (*doze_disable)(struct drm_panel *panel);
+
+	/**
+	 * @doze_post_disp_on:
+	 *
+	 * In some situation, the LCM off may set in @doze_enable & @disable.
+	 * After LCM switch to the new mode stable, system call
+	 * @doze_post_disp_on to turn on panel.
+	 */
+	int (*doze_post_disp_on)(struct drm_panel *panel);
+
+	/**
+	 * @doze_area:
+	 *
+	 * Send the panel area in command here.
+	 */
+	int (*doze_area)(struct drm_panel *panel);
+
+	/**
+	 * @doze_get_mode_flags:
+	 *
+	 * If CV switch is needed for doze mode, fill the mode_flags in this
+	 * function for both CMD and VDO mode.
+	 */
+	unsigned long (*doze_get_mode_flags)(
+		struct drm_panel *panel, int aod_en);
 };
 
 enum MIPITX_PHY_PORT {

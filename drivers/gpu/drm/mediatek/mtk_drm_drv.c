@@ -317,6 +317,94 @@ static bool mtk_atomic_need_force_doze_switch(struct drm_crtc *crtc)
 }
 
 static void mtk_atomic_force_doze_switch(struct drm_device *dev,
+					 struct drm_atomic_state *old_state,
+					 struct drm_connector *connector,
+					 struct drm_crtc *crtc)
+{
+	const struct drm_encoder_helper_funcs *funcs;
+	struct drm_encoder *encoder;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_panel_funcs *panel_funcs;
+
+	/*
+	 * If CRTC doze_active state change but the active state
+	 * keep with the same value, the enable/disable cb of the
+	 * encorder would not be executed. So we have to force
+	 * run those cbs to change the doze directly.
+	 */
+	if (!mtk_atomic_need_force_doze_switch(crtc))
+		return;
+
+	DDPINFO("%s\n", __func__);
+
+	encoder = connector->state->best_encoder;
+	funcs = encoder->helper_private;
+
+	panel_funcs = mtk_drm_get_lcm_ext_funcs(crtc);
+	if (panel_funcs && panel_funcs->doze_get_mode_flags) {
+		mtk_crtc_stop_trig_loop(mtk_crtc);
+		if (mtk_crtc_is_frame_trigger_mode(crtc)) {
+			mtk_disp_mutex_disable(mtk_crtc->mutex[0]);
+			mtk_disp_mutex_src_set(mtk_crtc, false);
+			mtk_disp_mutex_enable(mtk_crtc->mutex[0]);
+		}
+	}
+	/*
+	 * No matter what the target crct power state it is,
+	 * the encorder should be enabled for register controlling
+	 * purpose.
+	 */
+	if (!funcs)
+		return;
+	if (funcs->enable)
+		funcs->enable(encoder);
+	else if (funcs->commit)
+		funcs->commit(encoder);
+
+	/*
+	 * If the target crtc power state is POWER_OFF or
+	 * DOZE_SUSPEND, call the encorder disable cb here.
+	 */
+	if (!crtc->state->active) {
+		if (connector->state->crtc && funcs->prepare)
+			funcs->prepare(encoder);
+		else if (funcs->disable)
+			funcs->disable(encoder);
+		else if (funcs->dpms)
+			funcs->dpms(encoder, DRM_MODE_DPMS_OFF);
+	}
+
+	if (panel_funcs && panel_funcs->doze_get_mode_flags) {
+		if (mtk_crtc_is_frame_trigger_mode(crtc)) {
+			mtk_disp_mutex_disable(mtk_crtc->mutex[0]);
+			mtk_disp_mutex_src_set(mtk_crtc, true);
+		}
+		mtk_crtc_start_trig_loop(mtk_crtc);
+		mtk_crtc_hw_block_ready(crtc);
+	}
+}
+
+static void mtk_atomic_doze_update_dsi_state(struct drm_device *dev,
+					 struct drm_crtc *crtc)
+{
+	struct mtk_crtc_state *mtk_state;
+
+	mtk_state = to_mtk_crtc_state(crtc->state);
+	DDPINFO("%s doze_changed:%d, needs_modeset:%d, doze_active:%d\n",
+		__func__, mtk_state->doze_changed,
+		drm_atomic_crtc_needs_modeset(crtc->state),
+		mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE]);
+	if (!mtk_state->doze_changed ||
+		!drm_atomic_crtc_needs_modeset(crtc->state))
+		return;
+
+	if (!mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE] &&
+		mtk_crtc_is_frame_trigger_mode(crtc)) {
+		mtk_crtc_change_output_mode(crtc, 0);
+	}
+}
+
+static void mtk_atomic_doze_preparation(struct drm_device *dev,
 					 struct drm_atomic_state *old_state)
 {
 	struct drm_crtc *crtc;
@@ -324,52 +412,20 @@ static void mtk_atomic_force_doze_switch(struct drm_device *dev,
 	struct drm_connector_state *old_conn_state;
 	int i;
 
-	for_each_connector_in_state(old_state, connector, old_conn_state, i) {
-		const struct drm_encoder_helper_funcs *funcs;
-		struct drm_encoder *encoder;
+	for_each_new_connector_in_state(old_state, connector,
+		old_conn_state, i) {
 
 		crtc = connector->state->crtc;
 		if (!crtc) {
 			DDPPR_ERR("%s connector has no crtc\n", __func__);
 			continue;
 		}
-		/*
-		 * If CRTC doze_active state change but the active state
-		 * keep with the same value, the enable/disable cb of the
-		 * encorder would not be executed. So we have to force
-		 * run those cbs to change the doze directly.
-		 */
-		if (!mtk_atomic_need_force_doze_switch(crtc))
-			continue;
 
-		encoder = connector->state->best_encoder;
-		funcs = encoder->helper_private;
+		mtk_atomic_doze_update_dsi_state(dev, crtc);
 
-		/*
-		 * No matter what the target crct power state it is,
-		 * the encorder should be enabled for register controlling
-		 * purpose.
-		 */
-		if (!funcs)
-			continue;
-		if (funcs->enable)
-			funcs->enable(encoder);
-		else if (funcs->commit)
-			funcs->commit(encoder);
-
-		/*
-		 * If the target crtc power state is POWER_OFF or
-		 * DOZE_SUSPEND, call the encorder disable cb here.
-		 */
-		if (!crtc->state->active) {
-			if (connector->state->crtc && funcs->prepare)
-				funcs->prepare(encoder);
-			else if (funcs->disable)
-				funcs->disable(encoder);
-			else if (funcs->dpms)
-				funcs->dpms(encoder, DRM_MODE_DPMS_OFF);
-		}
+		mtk_atomic_force_doze_switch(dev, old_state, connector, crtc);
 	}
+
 }
 
 static bool mtk_drm_is_enable_from_lk(struct drm_crtc *crtc)
@@ -475,15 +531,17 @@ static void mtk_atomic_complete(struct mtk_drm_private *private,
 	 *
 	 * See the kerneldoc entries for these three functions for more details.
 	 */
-	drm_atomic_helper_commit_modeset_disables(drm, state);
-	drm_atomic_helper_commit_modeset_enables(drm, state);
-
-	mtk_drm_enable_trig(drm, state);
 	/*
 	 * To change the CRTC doze state, call the encorder enable/disable
 	 * directly if the actvie state doesn't change.
 	 */
-	mtk_atomic_force_doze_switch(drm, state);
+	mtk_atomic_doze_preparation(drm, state);
+
+	drm_atomic_helper_commit_modeset_disables(drm, state);
+	drm_atomic_helper_commit_modeset_enables(drm, state);
+
+	mtk_drm_enable_trig(drm, state);
+
 
 	mtk_atomic_disp_rsz_roi(drm, state);
 
@@ -1287,6 +1345,22 @@ struct mtk_panel_params *mtk_drm_get_lcm_ext_params(struct drm_crtc *crtc)
 		return NULL;
 
 	return panel_ext->params;
+}
+
+struct mtk_panel_funcs *mtk_drm_get_lcm_ext_funcs(struct drm_crtc *crtc)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_panel_ext *panel_ext = NULL;
+	struct mtk_ddp_comp *comp;
+
+	comp = mtk_ddp_comp_request_output(mtk_crtc);
+	if (comp)
+		mtk_ddp_comp_io_cmd(comp, NULL, REQ_PANEL_EXT, &panel_ext);
+
+	if (!panel_ext || !panel_ext->funcs)
+		return NULL;
+
+	return panel_ext->funcs;
 }
 
 int mtk_drm_get_display_caps_ioctl(struct drm_device *dev, void *data,

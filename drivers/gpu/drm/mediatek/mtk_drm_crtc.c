@@ -242,6 +242,26 @@ struct mtk_ddp_comp *mtk_ddp_comp_request_output(struct mtk_drm_crtc *mtk_crtc)
 	return NULL;
 }
 
+void mtk_crtc_change_output_mode(struct drm_crtc *crtc, int aod_en)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_ddp_comp *comp;
+
+	comp = mtk_ddp_comp_request_output(mtk_crtc);
+	if (!comp)
+		return;
+
+	DDPINFO("%s\n", __func__);
+	switch (comp->id) {
+	case DDP_COMPONENT_DSI0:
+	case DDP_COMPONENT_DSI1:
+		mtk_ddp_comp_io_cmd(comp, NULL, DSI_CHANGE_MODE, &aod_en);
+		break;
+	default:
+		break;
+	}
+}
+
 bool mtk_crtc_is_connector_enable(struct mtk_drm_crtc *mtk_crtc)
 {
 	struct mtk_ddp_comp *comp = mtk_ddp_comp_request_output(mtk_crtc);
@@ -1628,7 +1648,7 @@ void mtk_crtc_hw_block_ready(struct drm_crtc *crtc)
 	cmdq_pkt_destroy(cmdq_handle);
 }
 
-static void mtk_crtc_stop_trig_loop(struct mtk_drm_crtc *mtk_crtc)
+void mtk_crtc_stop_trig_loop(struct mtk_drm_crtc *mtk_crtc)
 {
 	cmdq_mbox_stop(mtk_crtc->gce_obj.client[CLIENT_TRIG_LOOP]);
 	cmdq_pkt_destroy(mtk_crtc->trig_loop_cmdq_handle);

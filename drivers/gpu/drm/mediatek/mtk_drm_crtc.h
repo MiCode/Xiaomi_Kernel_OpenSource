@@ -638,6 +638,11 @@ unsigned int mtk_drm_primary_frame_bw(struct drm_crtc *crtc);
 unsigned int mtk_drm_primary_display_get_debug_state(
 	struct mtk_drm_private *priv, char *stringbuf, int buf_len);
 
+void mtk_crtc_stop_trig_loop(struct mtk_drm_crtc *mtk_crtc);
+void mtk_crtc_start_trig_loop(struct mtk_drm_crtc *mtk_crtc);
+
+void mtk_crtc_change_output_mode(struct drm_crtc *crtc, int aod_en);
+
 /********************** Legacy DISP API ****************************/
 unsigned int DISP_GetScreenWidth(void);
 unsigned int DISP_GetScreenHeight(void);

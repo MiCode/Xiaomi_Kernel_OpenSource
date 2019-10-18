@@ -457,12 +457,6 @@ static const struct drm_display_mode default_mode = {
 };
 
 #if defined(CONFIG_MTK_PANEL_EXT)
-static int enter_aod(void *handle, int enter)
-{
-	/* enter & exit AOD cmd */
-	return 0;
-}
-
 static int panel_ext_reset(struct drm_panel *panel, int on)
 {
 	struct lg_panel *ctx = panel_to_lg(panel);
@@ -519,7 +513,6 @@ static struct mtk_panel_params ext_params = {
 };
 
 static struct mtk_panel_funcs ext_funcs = {
-	.aod = enter_aod,
 	.reset = panel_ext_reset,
 	.ata_check = panel_ata_check,
 };

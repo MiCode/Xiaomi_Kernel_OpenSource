@@ -221,6 +221,7 @@ static int mtk_drm_idlemgr_monitor_thread(void *data)
 	struct mtk_drm_idlemgr *idlemgr = mtk_crtc->idlemgr;
 	struct mtk_drm_idlemgr_context *idlemgr_ctx = idlemgr->idlemgr_ctx;
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	struct mtk_crtc_state *mtk_state;
 
 	msleep(16000);
 	while (1) {
@@ -246,6 +247,14 @@ static int mtk_drm_idlemgr_monitor_thread(void *data)
 			mutex_unlock(&mtk_crtc->lock);
 			mtk_crtc_wait_status(crtc, 1, MAX_SCHEDULE_TIMEOUT);
 			continue;
+		}
+
+		if (crtc->state) {
+			mtk_state = to_mtk_crtc_state(crtc->state);
+			if (mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE]) {
+				mutex_unlock(&mtk_crtc->lock);
+				continue;
+			}
 		}
 
 		if (idlemgr_ctx->is_idle

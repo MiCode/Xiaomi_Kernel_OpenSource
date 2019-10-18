@@ -358,6 +358,23 @@ static void mtk_dsi_mask(struct mtk_dsi *dsi, u32 offset, u32 mask, u32 data)
 
 #define CHK_SWITCH(a, b)  ((a == 0) ? b : a)
 
+static bool mtk_dsi_doze_state(struct mtk_dsi *dsi)
+{
+	struct drm_crtc *crtc = dsi->encoder.crtc;
+	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
+
+	return state->prop_val[CRTC_PROP_DOZE_ACTIVE];
+}
+
+static bool mtk_dsi_doze_status_change(struct mtk_dsi *dsi)
+{
+	bool doze_enabled = mtk_dsi_doze_state(dsi);
+
+	if (dsi->doze_enabled == doze_enabled)
+		return false;
+	return true;
+}
+
 static void mtk_dsi_phy_timconfig(struct mtk_dsi *dsi)
 {
 	struct mtk_dsi_phy_timcon *phy_timcon;
@@ -1089,14 +1106,77 @@ static void mtk_dsi_exit_ulps(struct mtk_dsi *dsi)
 	mtk_dsi_reset_engine(dsi);
 }
 
+static int mtk_dsi_stop_vdo_mode(struct mtk_dsi *dsi, void *handle);
+
+static void mtk_output_en_doze_switch(struct mtk_dsi *dsi)
+{
+	bool doze_enabled = mtk_dsi_doze_state(dsi);
+	struct mtk_panel_funcs *panel_funcs;
+
+	if (!dsi->output_en)
+		return;
+
+	DDPINFO("%s doze_enabled state change %d->%d\n", __func__,
+		dsi->doze_enabled, doze_enabled);
+
+	if (dsi->ext && dsi->ext->funcs) {
+		panel_funcs = dsi->ext->funcs;
+	} else {
+		DDPINFO("%s, AOD should have use panel extension function\n",
+			__func__);
+		return;
+	}
+
+	/* Change LCM Doze mode */
+	if (doze_enabled && panel_funcs->doze_enable)
+		panel_funcs->doze_enable(dsi->panel);
+	else if (!doze_enabled && panel_funcs->doze_disable)
+		panel_funcs->doze_disable(dsi->panel);
+
+	/* Display mode switch */
+	if (panel_funcs->doze_get_mode_flags) {
+		if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp))
+			mtk_dsi_stop_vdo_mode(dsi, NULL);
+
+		/* set DSI into ULPS mode */
+		mtk_dsi_reset_engine(dsi);
+
+		dsi->mode_flags =
+			panel_funcs->doze_get_mode_flags(
+				dsi->panel, doze_enabled);
+
+		if (mtk_dsi_is_cmd_mode(&dsi->ddp_comp))
+			writel(0x0001023c, dsi->regs + DSI_TXRX_CTRL);
+
+		mtk_dsi_set_mode(dsi);
+		mtk_dsi_clk_hs_mode(dsi, 1);
+
+		if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp))
+			mtk_dsi_start(dsi);
+	}
+
+	if (doze_enabled && panel_funcs->doze_area)
+		panel_funcs->doze_area(dsi->panel);
+
+	if (panel_funcs->doze_post_disp_on)
+		panel_funcs->doze_post_disp_on(dsi->panel);
+
+	dsi->doze_enabled = doze_enabled;
+}
+
 static void mtk_output_dsi_enable(struct mtk_dsi *dsi)
 {
 	int ret;
+	struct mtk_panel_ext *ext = dsi->ext;
+	bool new_doze_state = mtk_dsi_doze_state(dsi);
 
 	DDPINFO("%s +\n", __func__);
 
 	if (dsi->output_en) {
-		DDPINFO("dsi is initialized\n");
+		if (mtk_dsi_doze_status_change(dsi))
+			mtk_output_en_doze_switch(dsi);
+		else
+			DDPINFO("dsi is initialized\n");
 		return;
 	}
 
@@ -1115,15 +1195,29 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi)
 		mtk_dsi_set_vm_cmd(dsi);
 		mtk_dsi_config_vdo_timing(dsi);
 	}
+
 	mtk_dsi_set_interrupt_enable(dsi);
 
 	mtk_dsi_exit_ulps(dsi);
 	mtk_dsi_clk_hs_mode(dsi, 0);
 
 	if (dsi->panel) {
-		if (drm_panel_prepare(dsi->panel)) {
+		if (!dsi->doze_enabled && drm_panel_prepare(dsi->panel)) {
 			DDPPR_ERR("failed to prepare the panel\n");
 			return;
+		}
+		if (new_doze_state && !dsi->doze_enabled) {
+			if (ext && ext->funcs
+				&& ext->funcs->doze_enable)
+				ext->funcs->doze_enable(dsi->panel);
+			if (ext && ext->funcs
+				&& ext->funcs->doze_area)
+				ext->funcs->doze_area(dsi->panel);
+		}
+		if (!new_doze_state && dsi->doze_enabled) {
+			if (ext && ext->funcs
+				&& ext->funcs->doze_disable)
+				ext->funcs->doze_disable(dsi->panel);
 		}
 	}
 
@@ -1147,42 +1241,28 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi)
 			DDPPR_ERR("failed to enable the panel\n");
 			goto err_dsi_power_off;
 		}
+
+		/* Suspend to Doze */
+		if (mtk_dsi_doze_status_change(dsi)) {
+			/* We use doze_get_mode_flags to determine if
+			 * there has CV switch in Doze mode.
+			 */
+			if (ext && ext->funcs
+				&& ext->funcs->doze_post_disp_on
+				&& ext->funcs->doze_get_mode_flags)
+				ext->funcs->doze_post_disp_on(dsi->panel);
+		}
 	}
 
 	DDPINFO("%s -\n", __func__);
 
 	dsi->output_en = true;
+	dsi->doze_enabled = new_doze_state;
 
 	return;
 err_dsi_power_off:
 	mtk_dsi_stop(dsi);
 	mtk_dsi_poweroff(dsi);
-}
-
-static bool mtk_dsi_doze_state(struct mtk_dsi *dsi)
-{
-	struct drm_crtc *crtc = dsi->encoder.crtc;
-	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
-
-	return state->prop_val[CRTC_PROP_DOZE_ACTIVE];
-}
-
-static void mtk_output_doze_switch(struct mtk_dsi *dsi)
-{
-	bool doze_enabled = mtk_dsi_doze_state(dsi);
-
-	if (dsi->doze_enabled == doze_enabled)
-		return;
-
-	if (!dsi->output_en)
-		return;
-
-	DDPINFO("%s doze_enabled state change %d->%d\n", __func__,
-		dsi->doze_enabled, doze_enabled);
-	if (dsi->ext && dsi->ext->funcs && dsi->ext->funcs->aod)
-		dsi->ext->funcs->aod(NULL, doze_enabled);
-	dsi->doze_enabled = doze_enabled;
-	return;
 }
 
 static int mtk_dsi_stop_vdo_mode(struct mtk_dsi *dsi, void *handle);
@@ -1246,11 +1326,11 @@ static void mtk_output_dsi_disable(struct mtk_dsi *dsi)
 
 	/* 3. turn off panel or set to doze mode */
 	if (dsi->panel) {
-		if (!new_doze_state && drm_panel_unprepare(dsi->panel))
-			DRM_ERROR("failed to unprepare the panel\n");
-		else if (new_doze_state != dsi->doze_enabled) {
-			if (dsi->ext && dsi->ext->funcs && dsi->ext->funcs->aod)
-				dsi->ext->funcs->aod(NULL, dsi->doze_enabled);
+		if (!new_doze_state) {
+			if (drm_panel_unprepare(dsi->panel))
+				DRM_ERROR("failed to unprepare the panel\n");
+		} else if (new_doze_state && !dsi->doze_enabled) {
+			mtk_output_en_doze_switch(dsi);
 		}
 	}
 
@@ -1308,7 +1388,6 @@ static void mtk_dsi_encoder_disable(struct drm_encoder *encoder)
 
 	DDPINFO("%s\n", __func__);
 	mtk_drm_idlemgr_kick(__func__, crtc, 0);
-	mtk_output_doze_switch(dsi);
 	mtk_output_dsi_disable(dsi);
 }
 
@@ -1317,7 +1396,6 @@ static void mtk_dsi_encoder_enable(struct drm_encoder *encoder)
 	struct mtk_dsi *dsi = encoder_to_dsi(encoder);
 
 	mtk_output_dsi_enable(dsi);
-	mtk_output_doze_switch(dsi);
 }
 
 static enum drm_connector_status
@@ -2596,6 +2674,22 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		out_params = (void **)params;
 
 		*out_params = (void *)dsi->panel->dev->driver->name;
+	}
+		break;
+	case DSI_CHANGE_MODE:
+	{
+		struct mtk_dsi *dsi =
+			container_of(comp, struct mtk_dsi, ddp_comp);
+		int *aod_en = params;
+
+		panel_ext = mtk_dsi_get_panel_ext(comp);
+		if (dsi->ext && dsi->ext->funcs
+			&& dsi->ext->funcs->doze_get_mode_flags) {
+
+			dsi->mode_flags =
+				dsi->ext->funcs->doze_get_mode_flags(
+					dsi->panel, *aod_en);
+		}
 	}
 		break;
 	default:
