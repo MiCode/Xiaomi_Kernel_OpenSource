@@ -405,6 +405,26 @@ static void venc_get_free_buffers(struct venc_inst *inst,
 	list->count--;
 }
 
+static void venc_get_resolution_change(struct venc_inst *inst,
+			     struct venc_vcu_config *Config,
+			     struct venc_resolution_change *pResChange)
+{
+	pResChange->width = Config->pic_w;
+	pResChange->height = Config->pic_h;
+	pResChange->framerate = Config->framerate;
+	pResChange->resolutionchange = Config->resolutionChange;
+
+	if (Config->resolutionChange)
+		Config->resolutionChange = 0;
+
+	mtk_vcodec_debug(inst, "get reschange %d %d %d %d\n",
+		 pResChange->width,
+		 pResChange->height,
+		 pResChange->framerate,
+		 pResChange->resolutionchange);
+}
+
+
 static int venc_get_param(unsigned long handle,
 						  enum venc_get_param_type type,
 						  void *out)
@@ -434,6 +454,11 @@ static int venc_get_param(unsigned long handle,
 		*(int *)out = inst->vsi->config.roi_rc_qp;
 		break;
 	}
+	case GET_PARAM_RESOLUTION_CHANGE:
+		if (inst->vsi == NULL)
+			return -EINVAL;
+		venc_get_resolution_change(inst, &inst->vsi->config, out);
+		break;
 	default:
 		mtk_vcodec_err(inst, "invalid get parameter type=%d", type);
 		ret = -EINVAL;
@@ -473,6 +498,8 @@ static int venc_set_param(unsigned long handle,
 		inst->vsi->config.scenario = enc_prm->scenario;
 		inst->vsi->config.prependheader = enc_prm->prependheader;
 		inst->vsi->config.heif_grid_size = enc_prm->heif_grid_size;
+		inst->vsi->config.max_w = enc_prm->max_w;
+		inst->vsi->config.max_h = enc_prm->max_h;
 
 		if (inst->vcu_inst.id == IPI_VENC_H264 ||
 			inst->vcu_inst.id == IPI_VENC_HYBRID_H264) {

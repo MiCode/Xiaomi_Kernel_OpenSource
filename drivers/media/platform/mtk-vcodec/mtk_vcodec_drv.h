@@ -212,6 +212,8 @@ struct mtk_enc_params {
 	unsigned int    bitratemode;
 	unsigned int    roion;
 	unsigned int    heif_grid_size;
+	unsigned int    max_w;
+	unsigned int    max_h;
 };
 
 /*
@@ -252,6 +254,8 @@ struct venc_enc_param {
 	unsigned int roion;
 	unsigned int heif_grid_size;
 	unsigned int sizeimage[MTK_VCODEC_MAX_PLANES];
+	unsigned int max_w;
+	unsigned int max_h;
 };
 
 /*

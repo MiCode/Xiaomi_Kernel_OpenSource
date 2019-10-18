@@ -400,6 +400,18 @@ static int vidioc_venc_s_ctrl(struct v4l2_ctrl *ctrl)
 		p->heif_grid_size = ctrl->val;
 		ctx->param_change |= MTK_ENCODE_PARAM_GRID_SIZE;
 		break;
+	case V4L2_CID_MPEG_MTK_MAX_WIDTH:
+		mtk_v4l2_debug(2,
+			"V4L2_CID_MPEG_MTK_MAX_WIDTH: %d",
+			ctrl->val);
+		p->max_w = ctrl->val;
+		break;
+	case V4L2_CID_MPEG_MTK_MAX_HEIGHT:
+		mtk_v4l2_debug(2,
+			"V4L2_CID_MPEG_MTK_MAX_HEIGHT: %d",
+			ctrl->val);
+		p->max_h = ctrl->val;
+		break;
 	default:
 		mtk_v4l2_err("ctrl-id=%d not support!", ctrl->id);
 		ret = -EINVAL;
@@ -414,6 +426,7 @@ static int vidioc_venc_g_ctrl(struct v4l2_ctrl *ctrl)
 	struct mtk_vcodec_ctx *ctx = ctrl_to_ctx(ctrl);
 	int ret = 0;
 	int value = 0;
+	struct venc_resolution_change *reschange;
 
 	switch (ctrl->id) {
 	case V4L2_CID_MPEG_MTK_ENCODE_ROI_RC_QP:
@@ -421,6 +434,12 @@ static int vidioc_venc_g_ctrl(struct v4l2_ctrl *ctrl)
 			GET_PARAM_ROI_RC_QP,
 			&value);
 		ctrl->val = value;
+		break;
+	case V4L2_CID_MPEG_MTK_RESOLUTION_CHANGE:
+		reschange = (struct venc_resolution_change *)ctrl->p_new.p_u32;
+		venc_if_get_param(ctx,
+			GET_PARAM_RESOLUTION_CHANGE,
+			reschange);
 		break;
 	default:
 		mtk_v4l2_err("ctrl-id=%d not support!", ctrl->id);
@@ -884,6 +903,8 @@ static void mtk_venc_set_param(struct mtk_vcodec_ctx *ctx,
 	param->bitratemode = enc_params->bitratemode;
 	param->roion = enc_params->roion;
 	param->heif_grid_size = enc_params->heif_grid_size;
+	param->max_w = enc_params->max_w;
+	param->max_h = enc_params->max_h;
 
 	ctx->use_gce = (ctx->use_gce == 1) ?
 		ctx->use_gce :
@@ -1527,7 +1548,7 @@ static int vb2ops_venc_start_streaming(struct vb2_queue *q, unsigned int count)
 	/* Once state turn into MTK_STATE_ABORT, we need stop_streaming
 	  * to clear it
 	  */
-	if ((ctx->state == MTK_STATE_ABORT) || (ctx->state == MTK_STATE_FREE)) {
+	if (ctx->state == MTK_STATE_ABORT) {
 		ret = -EIO;
 		goto err_set_param;
 	}
@@ -2374,6 +2395,60 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.step = 16;
 	cfg.def = 0;
 	cfg.ops = ops;
+	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
+
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_MAX_WIDTH;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "Video encode max width";
+	cfg.min = 0;
+	cfg.max = 3840;
+	cfg.step = 16;
+	cfg.def = 0;
+	cfg.ops = ops;
+	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
+
+
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_MAX_HEIGHT;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "Video encode max height";
+	cfg.min = 0;
+	cfg.max = 3840;
+	cfg.step = 16;
+	cfg.def = 0;
+	cfg.ops = ops;
+	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
+
+	/* g_volatile_ctrl */
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_ROI_RC_QP;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.flags = V4L2_CTRL_FLAG_VOLATILE;
+	cfg.name = "Video encode roi rc qp";
+	cfg.min = 0;
+	cfg.max = 2048;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
+
+	/* g_volatile_ctrl */
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_RESOLUTION_CHANGE;
+	cfg.type = V4L2_CTRL_TYPE_U32;
+	cfg.flags = V4L2_CTRL_FLAG_VOLATILE;
+	cfg.name = "Video encode resolution change";
+	cfg.min = 0x00000000;
+	cfg.max = 0x00ffffff;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	cfg.dims[0] = sizeof(struct venc_resolution_change)/sizeof(u32);
 	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
 
 	if (handler->error) {
