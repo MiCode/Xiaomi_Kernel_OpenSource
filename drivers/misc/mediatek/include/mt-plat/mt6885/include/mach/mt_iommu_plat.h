@@ -14,6 +14,8 @@
 #ifndef __MT_IOMMU_PLAT_H__
 #define __MT_IOMMU_PLAT_H__
 
+#include "clk-mt6885-pg.h"
+
 #define MMU0_SET_ORDER   7
 #define MMU1_SET_ORDER   7
 #define MMU_SET_ORDER(mmu)      ((mmu == 0) ? MMU0_SET_ORDER : MMU1_SET_ORDER)
@@ -38,6 +40,10 @@ char *smi_clk_name[MTK_IOMMU_LARB_NR] = {
 	"iommu_null_larb15", "iommu_mdp_larb16", "iommu_disp_larb17",
 	"iommu_mdp_larb18", "iommu_disp_larb19", "iommu_disp_larb20",
 	"iommu_null_larb21", "iommu_null_larb22", "iommu_null_larb23"
+};
+
+enum subsys_id iommu_mtcmos_subsys[MTK_IOMMU_M4U_COUNT] = {
+	SYS_DIS, SYS_MDP, SYS_VPU, SYS_VPU
 };
 
 unsigned int port_size_not_aligned[] = {
@@ -654,5 +660,8 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 #define MTK_IOMMU_PAGE_TABLE_SHARE (1)
 #define IOMMU_POWER_CLK_SUPPORT
 #define MTK_M4U_SECURE_IRQ_SUPPORT
+#ifdef IOMMU_POWER_CLK_SUPPORT
+#define MTK_IOMMU_LOW_POWRER_SUPPORT
+#endif
 
 #endif
