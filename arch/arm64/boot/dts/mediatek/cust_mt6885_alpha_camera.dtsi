@@ -535,7 +535,7 @@
 	cam3_vcamio-supply = <&mt_pmic_vcamio_ldo_reg>;
 	cam4_vcamio-supply = <&mt_pmic_vcamio_ldo_reg>;
 	cam0_enable_sensor = "imx686_mipi_raw imx586_mipi_raw";
-	cam1_enable_sensor = "s5kgd1sp_mipi_raw";
+	cam1_enable_sensor = "s5kgd1sp_mipi_raw imx616_mipi_raw";
 	cam2_enable_sensor = "hi846_mipi_raw";
 	cam3_enable_sensor = "gc02m0_mipi_raw ov02a10_mipi_mono";
 	cam4_enable_sensor = "gc02m0_mipi_raw ov02a10_mipi_mono";

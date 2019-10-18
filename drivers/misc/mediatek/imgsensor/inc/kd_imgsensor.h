@@ -347,7 +347,8 @@
 #define HI846_SENSOR_ID                         0x0846
 #define GC02M0_SENSOR_ID                        0x2345
 #define OV02A10_MONO_SENSOR_ID                  0x2509
-#define IMX686_SENSOR_ID						0X0686
+#define IMX686_SENSOR_ID                        0X0686
+#define IMX616_SENSOR_ID                        0x0616
 
 /* CAMERA DRIVER NAME */
 #define CAMERA_HW_DEVNAME                       "kd_camera_hw"
@@ -551,7 +552,8 @@
 #define SENSOR_DRVNAME_HI846_MIPI_RAW           "hi846_mipi_raw"
 #define SENSOR_DRVNAME_GC02M0_MIPI_RAW          "gc02m0_mipi_raw"
 #define SENSOR_DRVNAME_OV02A10_MIPI_MONO        "ov02a10_mipi_mono"
-#define SENSOR_DRVNAME_IMX686_MIPI_RAW        	"imx686_mipi_raw"
+#define SENSOR_DRVNAME_IMX686_MIPI_RAW          "imx686_mipi_raw"
+#define SENSOR_DRVNAME_IMX616_MIPI_RAW          "imx616_mipi_raw"
 /******************************************************************************
  *
  ******************************************************************************/
