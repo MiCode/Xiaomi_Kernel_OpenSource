@@ -15,12 +15,14 @@
 #define __MTK_GPU_SWPM_PLATFORM_H__
 
 /* numbers of unsigned int */
-#define GPU_SWPM_RESERVED_SIZE 10
+#define GPU_SWPM_RESERVED_SIZE 12
 
 enum gpu_power_counter {
 	gfreq,
 	gvolt,
-	galu_urate,
+	galu_fma_urate,
+	galu_cvt_urate,
+	galu_sfu_urate,
 	gtex_urate,
 	glsc_urate,
 	gl2c_urate,

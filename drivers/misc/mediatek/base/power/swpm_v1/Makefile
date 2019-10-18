@@ -24,7 +24,10 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(CONFIG_MTK_PLATFORM)/
 endif
 ifeq ($(CONFIG_MTK_GPU_SWPM_SUPPORT), y)
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/gpu/gpu_mali/mali_bifrost/mali-r16p0/drivers/gpu/arm/midgard/platform/mtk_platform_common/
+MTK_GPU_VERSION = $(subst ",,$(CONFIG_MTK_GPU_VERSION))
+$(info *MTK_GPU_VERSION 2 = $(word 2,$(MTK_GPU_VERSION)))
+$(info *MTK_GPU_VERSION 3 = $(word 3,$(MTK_GPU_VERSION)))
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/gpu/gpu_mali/mali_$(word 2,$(MTK_GPU_VERSION))/mali-$(word 3,$(MTK_GPU_VERSION))/drivers/gpu/arm/midgard/platform/mtk_platform_common/
 endif
 ifneq ($(CONFIG_FPGA_EARLY_PORTING),y)
 obj-y += mtk_swpm.o

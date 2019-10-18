@@ -233,23 +233,23 @@ static int gpu_debug_proc_show(struct seq_file *m, void *v)
 
 	if (swpm_gpu_debug == true) {
 		seq_printf(m, "gpu freq urate : %u\n",
-			swpm_info_ref->gpu_counter[gfreq]);
+			swpm_info_ref->gpu_reserved[gfreq + 1]);
 		seq_printf(m, "gpu volt : %u\n",
-			swpm_info_ref->gpu_counter[gvolt]);
+			swpm_info_ref->gpu_reserved[gvolt + 1]);
 		seq_printf(m, "gpu loading : %u\n",
-			swpm_info_ref->gpu_counter[gloading]);
-		seq_printf(m, "alu urate : %u\n",
-			swpm_info_ref->gpu_counter[galu_urate]);
+			swpm_info_ref->gpu_reserved[gloading + 1]);
+		seq_printf(m, "alu fma urate : %u\n",
+			swpm_info_ref->gpu_reserved[galu_fma_urate + 1]);
 		seq_printf(m, "tex urate : %u\n",
-			swpm_info_ref->gpu_counter[gtex_urate]);
+			swpm_info_ref->gpu_reserved[gtex_urate + 1]);
 		seq_printf(m, "lsc urate : %u\n",
-			swpm_info_ref->gpu_counter[glsc_urate]);
+			swpm_info_ref->gpu_reserved[glsc_urate + 1]);
 		seq_printf(m, "l2c urate : %u\n",
-			swpm_info_ref->gpu_counter[gl2c_urate]);
+			swpm_info_ref->gpu_reserved[gl2c_urate + 1]);
 		seq_printf(m, "vary urate : %u\n",
-			swpm_info_ref->gpu_counter[gvary_urate]);
+			swpm_info_ref->gpu_reserved[gvary_urate + 1]);
 		seq_printf(m, "tiler urate : %u\n",
-			swpm_info_ref->gpu_counter[gtiler_urate]);
+			swpm_info_ref->gpu_reserved[gtiler_urate + 1]);
 	}
 
 	return 0;
