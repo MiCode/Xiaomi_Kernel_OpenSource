@@ -38,7 +38,7 @@ static struct pm_qos_request mtk_lp_plat_qos_req;
 #define mtk_cpu_off_block()\
 	pm_qos_update_request(&mtk_lp_plat_qos_req, 2)
 #define mtk_cpu_off_allow()\
-	pm_qos_update_request(&mtk_lp_plat_qos_req, 1000)
+	pm_qos_update_request(&mtk_lp_plat_qos_req, PM_QOS_DEFAULT_VALUE)
 #define mtk_lp_plat_qos_uninit()\
 	pm_qos_remove_request(&mtk_lp_plat_qos_req)
 
