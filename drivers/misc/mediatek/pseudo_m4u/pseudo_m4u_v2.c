@@ -1576,8 +1576,8 @@ int __pseudo_alloc_mva(struct m4u_client_t *client,
 			flags, table->nents, table->orig_nents);
 		__m4u_dump_pgtable(NULL, 1, true, 0);
 		aee_kernel_warning_api(__FILE__, __LINE__,
-				       DB_OPT_DEFAULT |
-				       DB_OPT_NATIVE_BACKTRACE,
+				       DB_OPT_MMPROFILE_BUFFER |
+				       DB_OPT_DUMP_DISPLAY,
 				       "iova space is not enough",
 				       "dump user backtrace");
 		goto ERR_EXIT;
