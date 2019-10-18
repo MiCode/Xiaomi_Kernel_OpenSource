@@ -2844,6 +2844,8 @@ static struct binder_thread *binder_get_txn_from_and_acq_inner(
 
 static void binder_free_transaction(struct binder_transaction *t)
 {
+	if (t->buffer)
+		t->buffer->transaction = NULL;
 #ifdef BINDER_WATCHDOG
 	binder_cancel_bwdog(t);
 #endif

@@ -1263,7 +1263,6 @@ int ib_init_ah_from_path(struct ib_device *device, u8 port_num,
 				&init_net
 		};
 		union {
-			struct sockaddr     _sockaddr;
 			struct sockaddr_in  _sockaddr_in;
 			struct sockaddr_in6 _sockaddr_in6;
 		} sgid_addr, dgid_addr;
@@ -1271,12 +1270,13 @@ int ib_init_ah_from_path(struct ib_device *device, u8 port_num,
 		if (!device->get_netdev)
 			return -EOPNOTSUPP;
 
-		rdma_gid2ip(&sgid_addr._sockaddr, &rec->sgid);
-		rdma_gid2ip(&dgid_addr._sockaddr, &rec->dgid);
+		rdma_gid2ip((struct sockaddr *)&sgid_addr, &rec->sgid);
+		rdma_gid2ip((struct sockaddr *)&dgid_addr, &rec->dgid);
 
 		/* validate the route */
-		ret = rdma_resolve_ip_route(&sgid_addr._sockaddr,
-					    &dgid_addr._sockaddr, &dev_addr);
+		ret = rdma_resolve_ip_route((struct sockaddr *)&sgid_addr,
+					    (struct sockaddr *)&dgid_addr,
+					    &dev_addr);
 		if (ret)
 			return ret;
 
