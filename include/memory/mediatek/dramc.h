@@ -30,6 +30,7 @@ struct fmeter_dev_t {
 	struct reg_ctrl_t posdiv[2];
 	struct reg_ctrl_t ckdiv4[2];
 	struct reg_ctrl_t cldiv2[2];
+	struct reg_ctrl_t fbksel[2];
 };
 
 struct mr4_dev_t {
@@ -55,6 +56,9 @@ struct dramc_dev_t {
 	void *mr4_dev_ptr;
 	void *fmeter_dev_ptr;
 };
+
+#define DPM_IRQ_CHA	0
+#define DPM_IRQ_CHB	1
 
 int mtk_dramc_get_steps_freq(unsigned int step);
 unsigned int mtk_dramc_get_data_rate(void);

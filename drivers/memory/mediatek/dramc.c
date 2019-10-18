@@ -9,13 +9,17 @@
 #include <linux/device.h>
 #include <linux/platform_device.h>
 #include <linux/of.h>
+#include <linux/of_irq.h>
 #include <linux/of_address.h>
 #include <linux/printk.h>
 #include <linux/slab.h>
 #include <linux/io.h>
+#include <linux/interrupt.h>
 #include <memory/mediatek/dramc.h>
+#include <linux/bug.h>
 
 static struct platform_device *dramc_pdev;
+static struct platform_driver dramc_drv;
 
 static int mr4_v1_init(struct platform_device *pdev,
 	struct mr4_dev_t *mr4_dev_ptr)
@@ -59,6 +63,8 @@ static int fmeter_v1_init(struct platform_device *pdev,
 		"ckdiv4", (unsigned int *)(fmeter_dev_ptr->ckdiv4), 6);
 	ret |= of_property_read_u32_array(dramc_node,
 		"cldiv2", (unsigned int *)(fmeter_dev_ptr->cldiv2), 6);
+	of_property_read_u32_array(dramc_node,
+		"fbksel", (unsigned int *)(fmeter_dev_ptr->fbksel), 6);
 
 	return ret;
 }
@@ -122,6 +128,7 @@ static int dramc_probe(struct platform_device *pdev)
 	dramc_pdev = pdev;
 	dramc_dev_ptr = devm_kmalloc(&pdev->dev,
 		sizeof(struct dramc_dev_t), GFP_KERNEL);
+
 	if (!dramc_dev_ptr)
 		return -ENOMEM;
 
@@ -427,13 +434,14 @@ static unsigned int fmeter_v1(struct dramc_dev_t *dramc_dev_ptr)
 	unsigned int cldiv2_val;
 	unsigned int offset;
 	unsigned int vco_freq;
+	unsigned int fbksel;
 
-	shu_lv_val = (readl(dramc_dev_ptr->dramc_chn_base_ao[0] +
+	shu_lv_val = (readl(dramc_dev_ptr->ddrphy_chn_base_nao[0] +
 		fmeter_dev_ptr->shu_lv.offset) &
 		fmeter_dev_ptr->shu_lv.mask) >>
 		fmeter_dev_ptr->shu_lv.shift;
 
-	pll_id_val = (readl(dramc_dev_ptr->ddrphy_chn_base_ao[0] +
+	pll_id_val = (readl(dramc_dev_ptr->ddrphy_chn_base_nao[0] +
 		fmeter_dev_ptr->pll_id.offset) &
 		fmeter_dev_ptr->pll_id.mask) >>
 		fmeter_dev_ptr->pll_id.shift;
@@ -474,9 +482,15 @@ static unsigned int fmeter_v1(struct dramc_dev_t *dramc_dev_ptr)
 		fmeter_dev_ptr->cldiv2[pll_id_val].mask) >>
 		fmeter_dev_ptr->cldiv2[pll_id_val].shift;
 
+	offset = fmeter_dev_ptr->fbksel[pll_id_val].offset +
+		fmeter_dev_ptr->shu_of * shu_lv_val;
+	fbksel = (readl(dramc_dev_ptr->ddrphy_chn_base_ao[0] + offset) &
+		fmeter_dev_ptr->fbksel[pll_id_val].mask) >>
+		fmeter_dev_ptr->fbksel[pll_id_val].shift;
+
 	vco_freq = ((fmeter_dev_ptr->crystal_freq >> prediv_val) *
 		(sdmpcw_val >> 8)) >> posdiv_val >> ckdiv4_val >>
-		pll_md_val >> cldiv2_val;
+		pll_md_val >> cldiv2_val << fbksel;
 
 	return vco_freq;
 }
