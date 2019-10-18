@@ -58,8 +58,10 @@ static atomic_t xgf_atomic_val_1 = ATOMIC_INIT(0);
 static unsigned long long last_update2spid_ts;
 static char *xgf_sp_name = SP_ALLOW_NAME;
 static int xgf_extra_sub;
+static int xgf_dep_frames;
 module_param(xgf_sp_name, charp, 0644);
 module_param(xgf_extra_sub, int, 0644);
+module_param(xgf_dep_frames, int, 0644);
 
 HLIST_HEAD(xgf_renders);
 HLIST_HEAD(xgf_hw_events);
@@ -306,6 +308,36 @@ void xgf_clean_deps_list(struct xgf_render *render, int pos)
 }
 EXPORT_SYMBOL(xgf_clean_deps_list);
 
+int xgf_dep_frames_mod(struct xgf_render *render, int pos)
+{
+	int ret = 0;
+	int pre_dep_frames;
+
+	xgf_lockprove(__func__);
+
+	if (xgf_dep_frames < XGF_DEP_FRAMES_MIN
+			|| xgf_dep_frames > XGF_DEP_FRAMES_MAX)
+		xgf_dep_frames = XGF_DEP_FRAMES_MIN;
+
+	if (render->dep_frames != xgf_dep_frames) {
+		xgf_clean_deps_list(render, PREVI_DEPS);
+		render->dep_frames = xgf_dep_frames;
+	}
+
+	pre_dep_frames = render->dep_frames - 1;
+
+	if (pos == PREVI_DEPS) {
+		if (render->frame_count == 0)
+			ret = INT_MAX%pre_dep_frames;
+		else
+			ret = (render->frame_count - 1)%pre_dep_frames;
+	} else
+		ret = render->frame_count%pre_dep_frames;
+
+	return ret;
+}
+EXPORT_SYMBOL(xgf_dep_frames_mod);
+
 struct xgf_dep *xgf_get_dep(
 	pid_t tid, struct xgf_render *render, int pos, int force)
 {
@@ -360,6 +392,7 @@ struct xgf_dep *xgf_get_dep(
 
 	xd->tid = tid;
 	xd->render_dep = 1;
+	xd->frame_idx = xgf_dep_frames_mod(render, pos);
 
 	rb_link_node(&xd->rb_node, parent, p);
 	rb_insert_color(&xd->rb_node, r);
@@ -747,6 +780,7 @@ static int xgf_get_render(pid_t rpid, struct xgf_render **ret, int force)
 		iter->deque.end_ts = 0;
 		iter->ema_runtime = 0;
 		iter->spid = 0;
+		iter->dep_frames = 0;
 	}
 
 	INIT_HLIST_HEAD(&iter->sector_head);
@@ -1384,22 +1418,22 @@ static int fpsgo_deplist_show(struct seq_file *m, void *unused)
 		r = &r_iter->deps_list;
 		for (n = rb_first(r); n != NULL; n = rb_next(n)) {
 			iter = rb_entry(n, struct xgf_dep, rb_node);
-			seq_printf(m, "render tid:%d inner_deps_tid:%d\n",
-				   r_iter->render, iter->tid);
+			seq_printf(m, "render tid:%d inner_deps_tid:%d idx:%d\n",
+				   r_iter->render, iter->tid, iter->frame_idx);
 		}
 
 		r = &r_iter->out_deps_list;
 		for (n = rb_first(r); n != NULL; n = rb_next(n)) {
 			iter = rb_entry(n, struct xgf_dep, rb_node);
-			seq_printf(m, "render tid:%d out_deps_tid:%d\n",
-				   r_iter->render, iter->tid);
+			seq_printf(m, "render tid:%d out_deps_tid:%d idx:%d\n",
+				   r_iter->render, iter->tid, iter->frame_idx);
 		}
 
 		r = &r_iter->prev_deps_list;
 		for (n = rb_first(r); n != NULL; n = rb_next(n)) {
 			iter = rb_entry(n, struct xgf_dep, rb_node);
-			seq_printf(m, "render tid:%d prev_deps_tid:%d\n",
-				   r_iter->render, iter->tid);
+			seq_printf(m, "render tid:%d prev_deps_tid:%d idx:%d\n",
+				   r_iter->render, iter->tid, iter->frame_idx);
 		}
 	}
 

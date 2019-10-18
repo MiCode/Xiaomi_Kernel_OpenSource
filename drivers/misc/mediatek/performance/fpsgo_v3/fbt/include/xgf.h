@@ -26,6 +26,8 @@
 #define EMA_DIVIDEND 7
 #define EMA_REST_DIVIDEND (EMA_DIVISOR - EMA_DIVIDEND)
 #define SP_ALLOW_NAME "UnityMain"
+#define XGF_DEP_FRAMES_MIN 2
+#define XGF_DEP_FRAMES_MAX 20
 
 enum XGF_ERROR {
 	XGF_NOTIFY_OK,
@@ -91,6 +93,7 @@ struct xgf_render {
 	unsigned long long ema_runtime;
 
 	int spid;
+	int dep_frames;
 };
 
 struct xgf_dep {
@@ -98,6 +101,7 @@ struct xgf_dep {
 
 	pid_t tid;
 	int render_dep;
+	int frame_idx;
 };
 
 struct xgf_runtime_sect {
@@ -187,6 +191,7 @@ long xgf_get_task_state(struct task_struct *t);
 unsigned long xgf_lookup_name(const char *name);
 void notify_xgf_ko_ready(void);
 unsigned long long xgf_get_time(void);
+int xgf_dep_frames_mod(struct xgf_render *render, int pos);
 struct xgf_dep *xgf_get_dep(pid_t tid, struct xgf_render *render,
 	int pos, int force);
 void xgf_clean_deps_list(struct xgf_render *render, int pos);
