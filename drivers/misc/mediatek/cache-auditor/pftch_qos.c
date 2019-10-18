@@ -16,6 +16,9 @@
 #include <linux/perf_event.h>
 #include "internal.h"
 
+#include <mt-plat/mtk_secure_api.h>
+#include <linux/arm-smccc.h>
+
 #include "trace_cache_auditor.h"
 
 #undef pr_fmt
@@ -151,6 +154,7 @@ static inline void pftch_control_ca76(int config)
 {
 	unsigned long bitmask = 0x0;
 	int code;
+	struct arm_smccc_res res;
 
 	code = config & 0x7;
 
@@ -164,15 +168,9 @@ static inline void pftch_control_ca76(int config)
 	bitmask |= (code & 0x2) << (7-1);
 	bitmask |= (code & 0x4) << (15-2);
 	/* CPUECTLR_EL1: s3_0_c15_c1_4 */
-	asm volatile(
-			"mrs	x0, s3_0_c15_c1_4\n"
-			"ldr x1, =0xffffffffffff7f5f\n"
-			"and x0, x0, x1\n"
-			"orr x0, x0, %0\n"
-			"msr	s3_0_c15_c1_4, x0\n"
-			:: "r" (bitmask)
-			: "memory"
-			);
+	arm_smccc_smc(MTK_SIP_CACHE_CONTROL,
+		0, bitmask, 0, 0, 0, 0, 0, &res);
+
 	trace_ca_cpu_throttled(is_pftch_disabled());
 }
 

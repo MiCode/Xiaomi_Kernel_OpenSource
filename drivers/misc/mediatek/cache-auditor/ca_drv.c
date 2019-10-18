@@ -216,6 +216,15 @@ static int ca_debug_proc_show(struct seq_file *m, void *v)
 	struct perf_event *event;
 	struct state_partition_stats pstats;
 
+	unsigned long val = 5566;
+
+	asm volatile(
+			"mrs    %0, s3_0_c15_c1_4\n"
+			: "=r"(val)
+	);
+	seq_printf(m, "%s: show [%lu]\n", __func__, val);
+
+
 	seq_printf(m, "%s: show\n", __func__);
 	seq_puts(m, "ca55 configs = [");
 	for (i = 0; i < NR_PMU_COUNTERS; i++)
