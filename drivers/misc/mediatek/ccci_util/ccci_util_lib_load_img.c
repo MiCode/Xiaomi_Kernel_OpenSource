@@ -116,7 +116,7 @@ static int check_md_header_v3(int md_id, void *parse_addr,
 	bool md_sys_match = false;
 	bool md_size_check = false;
 	int idx;
-	unsigned int md_size;
+	unsigned int md_size = 0;
 	unsigned char *start, *ptr;
 	int region_id, domain_id; /* add for v4 v5 */
 	/* struct md_check_header_v3 *head = &md_img_header_v3[md_id]; */
@@ -351,7 +351,7 @@ static int md_check_header_parser(int md_id, void *parse_addr,
 	bool md_plat_check = false;
 	bool md_sys_match = false;
 	bool md_size_check = false;
-	unsigned int md_size;
+	unsigned int md_size = 0;
 	unsigned int header_size;
 	int idx, header_up;
 	unsigned char *start, *ptr;
@@ -638,7 +638,7 @@ static int check_md_header(int md_id, void *parse_addr,
 	bool md_plat_check = false;
 	bool md_sys_match = false;
 	bool md_size_check = false;
-	unsigned int md_size;
+	unsigned int md_size = 0;
 	unsigned int header_size;
 	int idx;
 	unsigned char *start, *ptr;
