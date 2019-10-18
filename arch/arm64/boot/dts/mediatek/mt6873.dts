@@ -1126,9 +1126,74 @@
 		reg = <0 0x0d0c0000 0 0x40000>;
 	};
 
-	dfd@13e00000 {
-		compatible = "mediatek,dfd";
-		reg = <0 0x13e00000 0 0x112000>;
+	mali@13000000 {
+		compatible = "mediatek,mali", "arm,mali-valhall";
+		reg = <0 0x13000000 0 0x4000>;
+		interrupts =
+			<GIC_SPI 363 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 364 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 365 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 366 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 367 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names =
+			"GPU",
+			"MMU",
+			"JOB",
+			"EVENT",
+			"PWR";
+	};
+
+	gpufreq {
+		compatible = "mediatek,gpufreq";
+		clocks =
+			<&topckgen TOP_MUX_MFG_PLL>,
+			<&topckgen TOP_MFGPLL_CK>,
+			<&topckgen TOP_MUX_MFG_REF>,
+			<&g3d_config MFGCFG_BG3D>,
+			<&scpsys SCP_SYS_MFG0>,
+			<&scpsys SCP_SYS_MFG1>,
+			<&scpsys SCP_SYS_MFG2>,
+			<&scpsys SCP_SYS_MFG3>,
+			<&scpsys SCP_SYS_MFG4>,
+			<&scpsys SCP_SYS_MFG5>,
+			<&scpsys SCP_SYS_MFG6>;
+		clock-names =
+			"clk_mux",		/* switch main/sub */
+			"clk_main_parent",	/* main pll freq */
+			"clk_sub_parent",	/* default 218.4 MHz */
+			"subsys_bg3d",
+			"mtcmos_mfg0",		/* ASYNC */
+			"mtcmos_mfg1",		/* MFG_TOP */
+			"mtcmos_mfg2",		/* Shader Stack0 */
+			"mtcmos_mfg3",		/* Shader Stack2 tile 0 */
+			"mtcmos_mfg4",		/* Shader Stack2 tile 1 */
+			"mtcmos_mfg5",		/* Shader Stack4 */
+			"mtcmos_mfg6";		/* Shader Stack6 */
+			/*_vgpu-supply = <&mt6315_7_vbuck1>;*/
+			/*_vsram_gpu-supply = <&mt_pmic_vsram_others_ldo_reg>;*/
+	};
+
+	mali_dvfs_hint@13fbb000 {
+		compatible = "mediatek,mali_dvfs_hint", "syscon";
+		reg = <0 0x13fbb000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	g3d_secure_reg@13fbc000 {
+		compatible = "mediatek,g3d_secure_reg";
+		reg = <0 0x13fbc000 0 0x1000>;
+	};
+
+	g3d_testbench@13fbd000 {
+		compatible = "mediatek,g3d_testbench", "syscon";
+		reg = <0 0x13fbd000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	g3d_config: g3d_config@13fbf000 {
+		compatible = "mediatek,g3d_config", "syscon";
+		reg = <0 0x13fbf000 0 0x1000>;
+		#clock-cells = <1>;
 	};
 
 	/* IIC WRAP Center */
@@ -1172,27 +1237,6 @@
 	audio: audio@11210000 {
 		compatible = "mediatek,audio", "syscon";
 		reg = <0 0x11210000 0 0x2000>;
-		#clock-cells = <1>;
-	};
-
-	g3d_config@13fbb000 {
-		compatible = "mediatek,g3d_config";
-		reg = <0 0x13fbb000 0 0x1000>;
-	};
-
-	g3d_dvfs@13fbc000 {
-		compatible = "mediatek,g3d_dvfs";
-		reg = <0 0x13fbc000 0 0x1000>;
-	};
-
-	g3d_config@13fbd000 {
-		compatible = "mediatek,g3d_config";
-		reg = <0 0x13fbd000 0 0x1000>;
-	};
-
-	g3d_config: g3d_config@13fbf000 {
-		compatible = "mediatek,g3d_config", "syscon";
-		reg = <0 0x13fbf000 0 0x1000>;
 		#clock-cells = <1>;
 	};
 
