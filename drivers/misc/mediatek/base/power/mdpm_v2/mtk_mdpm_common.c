@@ -33,7 +33,7 @@ u32 fake_share_reg;
 u32 fake_share_mem[SHARE_MEM_SIZE];
 #endif
 
-#if MD_POWER_METER_ENABLE
+#if MD_POWER_METER_ENABLE && defined(CONFIG_MTK_ECCCI_DRIVER)
 static bool md1_ccci_ready;
 #endif
 
@@ -54,8 +54,9 @@ static bool md1_ccci_ready;
 #if MD_POWER_METER_ENABLE
 void init_md_section_level(enum pbm_kicker kicker)
 {
-	u32 *share_mem = NULL;
 #if defined(CONFIG_MTK_ECCCI_DRIVER)
+	u32 *share_mem = NULL;
+
 	share_mem =
 		(u32 *)get_smem_start_addr(MD_SYS1, SMEM_USER_RAW_DBM, NULL);
 	if (share_mem == NULL) {
@@ -80,6 +81,7 @@ void init_md_section_level(enum pbm_kicker kicker)
 
 int get_md1_power(enum mdpm_power_type power_type, bool need_update)
 {
+#if defined(CONFIG_MTK_ECCCI_DRIVER)
 #if defined(MD_POWER_UT) || !defined(MD_SCEANRIO_USE_SHARE_MEMORY)
 	u32 share_reg;
 #endif
@@ -87,7 +89,6 @@ int get_md1_power(enum mdpm_power_type power_type, bool need_update)
 	enum md_scenario scenario;
 	int scenario_power, tx_power;
 
-#if defined(CONFIG_MTK_ECCCI_DRIVER)
 	if (power_type >= POWER_TYPE_NUM ||
 		power_type < 0) {
 		pr_notice("[md1_power] invalid power_type=%d\n",
