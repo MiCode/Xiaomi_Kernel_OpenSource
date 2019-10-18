@@ -389,6 +389,7 @@ struct venc_vcu_config {
 	__u32 resolutionChange;
 	__u32 max_w;
 	__u32 max_h;
+	__u32 num_b_frame;
 };
 
 /**

@@ -258,6 +258,7 @@ struct venc_enc_param {
 	unsigned int sizeimage[MTK_VCODEC_MAX_PLANES];
 	unsigned int max_w;
 	unsigned int max_h;
+	unsigned int num_b_frame;
 };
 
 /*

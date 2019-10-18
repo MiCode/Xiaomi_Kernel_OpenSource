@@ -905,20 +905,22 @@ static void mtk_venc_set_param(struct mtk_vcodec_ctx *ctx,
 	param->heif_grid_size = enc_params->heif_grid_size;
 	param->max_w = enc_params->max_w;
 	param->max_h = enc_params->max_h;
+	param->num_b_frame = enc_params->num_b_frame;
 
 	ctx->use_gce = (ctx->use_gce == 1) ?
 		ctx->use_gce :
 		(enc_params->operationrate >= MTK_SLOWMOTION_GCE_TH);
 
 	mtk_v4l2_debug(0,
-	"fmt 0x%x, P/L %d/%d, w/h %d/%d, buf %d/%d, fps/bps %d/%d(%d), gop %d, i_period %d opr %d smvr %d grid size %d/%d",
+	"fmt 0x%x, P/L %d/%d, w/h %d/%d, buf %d/%d, fps/bps %d/%d(%d), gop %d, ip# %d opr %d smvr %d grid size %d/%d b#%d",
 	param->input_yuv_fmt, param->profile,
 	param->level, param->width, param->height,
 	param->buf_width, param->buf_height,
 	param->frm_rate, param->bitrate, param->bitratemode,
 	param->gop_size, param->intra_period,
 	param->operationrate, ctx->use_gce,
-	(param->heif_grid_size>>16), param->heif_grid_size&0xffff);
+	(param->heif_grid_size>>16), param->heif_grid_size&0xffff,
+	param->num_b_frame);
 }
 
 static int vidioc_venc_subscribe_evt(struct v4l2_fh *fh,
@@ -2248,7 +2250,7 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	v4l2_ctrl_new_std(handler, ops, V4L2_CID_MPEG_VIDEO_BITRATE,
 			  1, 400000000, 1, 20000000);
 	v4l2_ctrl_new_std(handler, ops, V4L2_CID_MPEG_VIDEO_B_FRAMES,
-			  0, 2, 1, 0);
+			  0, 3, 1, 0);
 	v4l2_ctrl_new_std(handler, ops, V4L2_CID_MPEG_VIDEO_FRAME_RC_ENABLE,
 			  0, 1, 1, 1);
 	v4l2_ctrl_new_std(handler, ops, V4L2_CID_MPEG_VIDEO_H264_MAX_QP,

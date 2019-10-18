@@ -500,6 +500,7 @@ static int venc_set_param(unsigned long handle,
 		inst->vsi->config.heif_grid_size = enc_prm->heif_grid_size;
 		inst->vsi->config.max_w = enc_prm->max_w;
 		inst->vsi->config.max_h = enc_prm->max_h;
+		inst->vsi->config.num_b_frame = enc_prm->num_b_frame;
 
 		if (inst->vcu_inst.id == IPI_VENC_H264 ||
 			inst->vcu_inst.id == IPI_VENC_HYBRID_H264) {

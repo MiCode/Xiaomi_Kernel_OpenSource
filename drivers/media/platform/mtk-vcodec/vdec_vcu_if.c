@@ -246,7 +246,7 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 					 timeout_jiff);
 				pfb = mtk_vcodec_get_fb(vcu->ctx);
 				if (vcu->ctx->state == MTK_STATE_FLUSH ||
-					ret == 0)
+					ret != 0)
 					break;
 			}
 			mtk_vcodec_debug(vcu, "- wait get fm pfb=0x%p\n", pfb);
