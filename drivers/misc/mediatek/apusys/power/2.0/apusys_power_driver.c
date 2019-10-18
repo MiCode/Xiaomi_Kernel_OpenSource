@@ -626,8 +626,6 @@ static int apu_power_probe(struct platform_device *pdev)
 	pmic_ldo_vsram_md_lp(SRCLKEN2, 1, 1, HW_OFF);
 	#endif
 
-	apu_power_reg_dump();
-
 	apusys_power_debugfs_init();
 
 	return 0;
@@ -780,16 +778,15 @@ for (loop = 0; loop < count; loop++) {
 					__func__, AUTO_BUCK_OFF_SUSPEND);
 		LOG_WRN("%s, AUTO_BUCK_OFF_DEEPIDLE : %d\n",
 					__func__, AUTO_BUCK_OFF_DEEPIDLE);
+		apu_get_power_info();
 		break;
 	case 9: // config to force power on
 		default_power_on_func();
-		apu_power_reg_dump();
+		apu_get_power_info();
 		break;
 	default:
 		LOG_WRN("%s invalid type %d !\n", __func__, type);
 	}
-
-	apu_get_power_info();
 
 	LOG_WRN("%s end with type %d ---\n", __func__, type);
 

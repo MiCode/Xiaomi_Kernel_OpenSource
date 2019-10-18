@@ -323,7 +323,6 @@ void enable_apu_conn_vcore_clksrc(void)
 void enable_apu_device_clksrc(enum DVFS_USER user)
 {
 	switch (user) {
-	default:
 	case VPU0:
 		ENABLE_CLK(clk_top_dsp1_sel);
 		break;
@@ -337,6 +336,8 @@ void enable_apu_device_clksrc(enum DVFS_USER user)
 	case MDLA1:
 		ENABLE_CLK(clk_top_dsp6_sel);
 		break;
+	default:
+		LOG_ERR("%s illegal DVFS_USER: %d\n", __func__, user);
 	}
 	LOG_DBG("%s for DVFS_USER: %d\n", __func__, user);
 }
@@ -372,7 +373,6 @@ void enable_apu_conn_vcore_clock(void)
 void enable_apu_device_clock(enum DVFS_USER user)
 {
 	switch (user) {
-	default:
 	case VPU0:
 		ENABLE_CLK(clk_apu_core0_jtag_cg);
 		ENABLE_CLK(clk_apu_core0_axi_m_cg);
@@ -422,6 +422,8 @@ void enable_apu_device_clock(enum DVFS_USER user)
 		ENABLE_CLK(clk_apu_mdla1_apb_cg);
 		ENABLE_CLK(clk_apu_mdla1_axi_m_cg);
 		break;
+	default:
+		LOG_ERR("%s illegal DVFS_USER: %d\n", __func__, user);
 	}
 
 	LOG_DBG("%s for DVFS_USER: %d\n", __func__, user);
@@ -458,7 +460,6 @@ void disable_apu_conn_vcore_clock(void)
 void disable_apu_device_clock(enum DVFS_USER user)
 {
 	switch (user) {
-	default:
 	case VPU0:
 		DISABLE_CLK(clk_apu_core0_jtag_cg);
 		DISABLE_CLK(clk_apu_core0_axi_m_cg);
@@ -508,6 +509,8 @@ void disable_apu_device_clock(enum DVFS_USER user)
 		DISABLE_CLK(clk_apu_mdla1_apb_cg);
 		DISABLE_CLK(clk_apu_mdla1_axi_m_cg);
 		break;
+	default:
+		LOG_ERR("%s illegal DVFS_USER: %d\n", __func__, user);
 	}
 	LOG_DBG("%s for DVFS_USER: %d\n", __func__, user);
 }
@@ -525,7 +528,6 @@ void disable_apu_conn_vcore_clksrc(void)
 void disable_apu_device_clksrc(enum DVFS_USER user)
 {
 	switch (user) {
-	default:
 	case VPU0:
 		DISABLE_CLK(clk_top_dsp1_sel);
 		break;
@@ -539,6 +541,8 @@ void disable_apu_device_clksrc(enum DVFS_USER user)
 	case MDLA1:
 		DISABLE_CLK(clk_top_dsp6_sel);
 		break;
+	default:
+		LOG_ERR("%s illegal DVFS_USER: %d\n", __func__, user);
 	}
 	LOG_DBG("%s for DVFS_USER: %d\n", __func__, user);
 }
@@ -565,10 +569,11 @@ static struct clk *find_clk_by_domain(enum DVFS_VOLTAGE_DOMAIN domain)
 	case V_TOP_IOMMU:
 		return clk_top_dsp7_sel;
 
-	default:
-		LOG_ERR("%s fail to find clk !\n", __func__);
 	case V_VCORE:
 		return clk_top_ipu_if_sel;
+	default:
+		LOG_ERR("%s fail to find clk !\n", __func__);
+		return NULL;
 	}
 }
 
@@ -576,7 +581,8 @@ static struct clk *find_clk_by_domain(enum DVFS_VOLTAGE_DOMAIN domain)
 // set normal clock
 int set_apu_clock_source(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 {
-	struct clk *clk_src;
+	struct clk *clk_src = NULL;
+	struct clk *clk_target = NULL;
 
 	switch (freq) {
 	case DVFS_FREQ_00_026000_F:
@@ -689,28 +695,44 @@ int set_apu_clock_source(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 		LOG_ERR("%s wrong freq : %d, force assign 26M\n",
 							__func__, freq);
 	}
+
+	clk_target = find_clk_by_domain(domain);
+
+	if (clk_target != NULL) {
 #if APUSYS_SETTLE_TIME_TEST
-	LOG_WRN("APUSYS_SETTLE_TIME_TEST config domain %d to freq %d\n",
+		LOG_WRN("APUSYS_SETTLE_TIME_TEST config domain %d to freq %d\n",
 								domain, freq);
 #else
-	LOG_WRN("%s config domain %d to freq %d\n", __func__, domain, freq);
+		LOG_WRN("%s config domain %d to freq %d\n", __func__,
+								domain, freq);
 #endif
-	return clk_set_parent(find_clk_by_domain(domain), clk_src);
+		return clk_set_parent(clk_target, clk_src);
+	} else {
+		return -1;
+	}
 }
 
 int config_apupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 {
+	struct clk *clk_target = NULL;
 	int scaled_freq = freq * 1000;
 
-	clk_set_parent(find_clk_by_domain(domain), clk_top_apupll_ck);
+	clk_target = find_clk_by_domain(domain);
+
+	if (clk_target != NULL) {
+		clk_set_parent(clk_target, clk_top_apupll_ck);
 
 #if APUSYS_SETTLE_TIME_TEST
-	LOG_WRN("APUSYS_SETTLE_TIME_TEST config domain %d to freq %d\n",
+		LOG_WRN("APUSYS_SETTLE_TIME_TEST config domain %d to freq %d\n",
 								domain, freq);
 #else
-	LOG_WRN("%s config domain %d to freq %d\n", __func__, domain, freq);
+		LOG_WRN("%s config domain %d to freq %d\n", __func__,
+								domain, freq);
 #endif
-	return clk_set_rate(clk_top_apupll_ck, scaled_freq);
+		return clk_set_rate(clk_top_apupll_ck, scaled_freq);
+	} else {
+		return -1;
+	}
 }
 
 // dump related frequencies of APUsys

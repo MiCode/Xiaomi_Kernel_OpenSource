@@ -413,7 +413,7 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 		}
 
 		// EDMA do not need to control mtcmos by rpc
-		if (user != EDMA) {
+		if (user < APUSYS_DVFS_USER_NUM) {
 			// enable clock source of this device first
 			enable_apu_device_clksrc(user);
 
@@ -438,7 +438,7 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 	} else {
 
 		// EDMA do not need to control mtcmos by rpc
-		if (user != EDMA) {
+		if (user < APUSYS_DVFS_USER_NUM) {
 			do {
 				rpc_fifo_check();
 				DRV_WriteReg32(APU_RPC_SW_FIFO_WE, domain_idx);
@@ -699,7 +699,7 @@ static int set_power_boot_up(enum DVFS_USER user, void *param)
 	mtcmos_data.enable = 1;
 	ret = set_power_mtcmos(user, (void *)&mtcmos_data);
 
-	if (!ret) {
+	if (!ret && user < APUSYS_DVFS_USER_NUM) {
 		// Set cg enable
 		clk_data.enable = 1;
 		ret = set_power_clock(user, (void *)&clk_data);
@@ -718,9 +718,11 @@ static int set_power_shut_down(enum DVFS_USER user, void *param)
 
 	power_bit_mask = ((struct hal_param_pwr_mask *)param)->power_bit_mask;
 
-	// inner dummy cg won't be gated when you call disable
-	clk_data.enable = 0;
-	ret = set_power_clock(user, (void *)&clk_data);
+	if (user < APUSYS_DVFS_USER_NUM) {
+		// inner dummy cg won't be gated when you call disable
+		clk_data.enable = 0;
+		ret = set_power_clock(user, (void *)&clk_data);
+	}
 
 	if (power_bit_mask == 0)
 		force_pwr_off = 1;
