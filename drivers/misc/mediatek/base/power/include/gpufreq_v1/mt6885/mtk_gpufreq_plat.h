@@ -20,9 +20,6 @@
 #define MT_GPUFREQ_BRINGUP                      0
 #define MT_GPUFREQ_KICKER_PBM_READY             1
 #define MT_GPUFREQ_STATIC_PWR_READY2USE         1
-#define MT_GPUFREQ_LOW_BATT_VOLT_PROTECT        1
-#define MT_GPUFREQ_BATT_PERCENT_PROTECT         0
-#define MT_GPUFREQ_BATT_OC_PROTECT              1
 #define MT_GPUFREQ_DYNAMIC_POWER_TABLE_UPDATE   1
 
 #define GPUFERQ_TAG	"[GPU/DVFS] "
@@ -89,10 +86,16 @@ struct mt_gpufreq_power_table_info {
 };
 
 enum mt_gpufreq_kicker {
-	KIR_PROC = 0,
 	KIR_DDK,
+	KIR_STRESS,
+	KIR_PROC,
 	KIR_PTPOD,
 	KIR_THERMAL,
+	KIR_BATT_OC,
+	KIR_BATT_LOW,
+	KIR_BATT_PERCENT,
+	KIR_PBM,
+	NUM_OF_KIR
 };
 
 enum mt_power_state {

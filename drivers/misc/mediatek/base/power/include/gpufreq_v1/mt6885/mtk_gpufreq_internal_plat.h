@@ -95,23 +95,20 @@
 /**************************************************
  * Battery Over Current Protect
  **************************************************/
-#ifdef MT_GPUFREQ_BATT_OC_PROTECT
+#define MT_GPUFREQ_BATT_OC_PROTECT              1
 #define MT_GPUFREQ_BATT_OC_LIMIT_FREQ           (485000)        /* KHz */
-#endif
 
 /**************************************************
  * Battery Percentage Protect
  **************************************************/
-#ifdef MT_GPUFREQ_BATT_PERCENT_PROTECT
+#define MT_GPUFREQ_BATT_PERCENT_PROTECT         0
 #define MT_GPUFREQ_BATT_PERCENT_LIMIT_FREQ      (485000)        /* KHz */
-#endif
 
 /**************************************************
  * Low Battery Volume Protect
  **************************************************/
-#ifdef MT_GPUFREQ_LOW_BATT_VOLT_PROTECT
+#define MT_GPUFREQ_LOW_BATT_VOLT_PROTECT        1
 #define MT_GPUFREQ_LOW_BATT_VOLT_LIMIT_FREQ     (485000)        /* KHz */
-#endif
 
 /**************************************************
  * Register Manipulations
@@ -215,13 +212,66 @@ enum g_clock_source_enum  {
 	CLOCK_MAIN = 0,
 	CLOCK_SUB,
 };
-enum g_limited_idx_enum {
-	IDX_THERMAL_PROTECT_LIMITED = 0,
-	IDX_LOW_BATT_LIMITED,
-	IDX_BATT_PERCENT_LIMITED,
-	IDX_BATT_OC_LIMITED,
-	IDX_PBM_LIMITED,
-	NUMBER_OF_LIMITED_IDX,
+
+enum g_limit_enable_enum  {
+	LIMIT_DISABLE = 0,
+	LIMIT_ENABLE,
+};
+
+enum {
+	GPUFREQ_LIMIT_PRIO_NONE,	/* the lowest priority */
+	GPUFREQ_LIMIT_PRIO_1,
+	GPUFREQ_LIMIT_PRIO_2,
+	GPUFREQ_LIMIT_PRIO_3,
+	GPUFREQ_LIMIT_PRIO_4,
+	GPUFREQ_LIMIT_PRIO_5,
+	GPUFREQ_LIMIT_PRIO_6,
+	GPUFREQ_LIMIT_PRIO_7,
+	GPUFREQ_LIMIT_PRIO_8		/* the highest priority */
+};
+
+struct gpudvfs_limit {
+	unsigned int kicker;
+	char *name;
+	unsigned int upper_idx;
+	unsigned int upper_priority;
+	unsigned int upper_enable;
+	unsigned int lower_idx;
+	unsigned int lower_priority;
+	unsigned int lower_enable;
+};
+
+#define UPPER_LIMIT_IDX_DEFAULT -1
+#define LOWER_LIMIT_IDX_DEFAULT -1
+
+struct gpudvfs_limit limit_table[] = {
+	{KIR_DDK,			"DDK",
+		UPPER_LIMIT_IDX_DEFAULT, GPUFREQ_LIMIT_PRIO_4, LIMIT_ENABLE,
+		LOWER_LIMIT_IDX_DEFAULT, GPUFREQ_LIMIT_PRIO_4, LIMIT_ENABLE},
+	{KIR_STRESS,		"STRESS",
+		UPPER_LIMIT_IDX_DEFAULT, GPUFREQ_LIMIT_PRIO_8, LIMIT_ENABLE,
+		LOWER_LIMIT_IDX_DEFAULT, GPUFREQ_LIMIT_PRIO_8, LIMIT_ENABLE},
+	{KIR_PROC,			"PROC",
+		UPPER_LIMIT_IDX_DEFAULT, GPUFREQ_LIMIT_PRIO_7, LIMIT_ENABLE,
+		LOWER_LIMIT_IDX_DEFAULT, GPUFREQ_LIMIT_PRIO_7, LIMIT_ENABLE},
+	{KIR_PTPOD,			"PTPOD",
+		UPPER_LIMIT_IDX_DEFAULT, GPUFREQ_LIMIT_PRIO_6, LIMIT_ENABLE,
+		LOWER_LIMIT_IDX_DEFAULT, GPUFREQ_LIMIT_PRIO_6, LIMIT_ENABLE},
+	{KIR_THERMAL,		"THERMAL",
+		UPPER_LIMIT_IDX_DEFAULT, GPUFREQ_LIMIT_PRIO_5, LIMIT_ENABLE,
+		LOWER_LIMIT_IDX_DEFAULT, GPUFREQ_LIMIT_PRIO_NONE, LIMIT_ENABLE},
+	{KIR_BATT_OC,		"BATT_OC",
+		UPPER_LIMIT_IDX_DEFAULT, GPUFREQ_LIMIT_PRIO_5, LIMIT_ENABLE,
+		LOWER_LIMIT_IDX_DEFAULT, GPUFREQ_LIMIT_PRIO_NONE, LIMIT_ENABLE},
+	{KIR_BATT_LOW,		"BATT_LOW",
+		UPPER_LIMIT_IDX_DEFAULT, GPUFREQ_LIMIT_PRIO_5, LIMIT_ENABLE,
+		LOWER_LIMIT_IDX_DEFAULT, GPUFREQ_LIMIT_PRIO_NONE, LIMIT_ENABLE},
+	{KIR_BATT_PERCENT,	"BATT_PERCENT",
+		UPPER_LIMIT_IDX_DEFAULT, GPUFREQ_LIMIT_PRIO_5, LIMIT_ENABLE,
+		LOWER_LIMIT_IDX_DEFAULT, GPUFREQ_LIMIT_PRIO_NONE, LIMIT_ENABLE},
+	{KIR_PBM,			"PBM",
+		UPPER_LIMIT_IDX_DEFAULT, GPUFREQ_LIMIT_PRIO_5, LIMIT_ENABLE,
+		LOWER_LIMIT_IDX_DEFAULT, GPUFREQ_LIMIT_PRIO_NONE, LIMIT_ENABLE},
 };
 
 /**************************************************
