@@ -11,3 +11,4 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/$(MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/staging/android/ion
 ccflags-y += -I$(srctree)/drivers/staging/android/ion/mtk
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmdvfs
