@@ -1351,7 +1351,7 @@ static int context_alloc(struct fastrpc_file *fl, uint32_t kernel,
 		if (err)
 			goto bail;
 	}
-	ctx->retval = 0xDECAF;
+	ctx->retval = -1;
 	ctx->pid = current->pid;
 	ctx->tgid = fl->tgid;
 	init_completion(&ctx->work);
@@ -1405,6 +1405,17 @@ static void context_free(struct smq_invoke_ctx *ctx)
 	struct fastrpc_apps *me = &gfa;
 	int nbufs = REMOTE_SCALARS_INBUFS(ctx->sc) +
 		    REMOTE_SCALARS_OUTBUFS(ctx->sc);
+	spin_lock(&ctx->fl->hlock);
+	hlist_del_init(&ctx->hn);
+	spin_unlock(&ctx->fl->hlock);
+	mutex_lock(&ctx->fl->map_mutex);
+	for (i = 0; i < nbufs; ++i)
+		fastrpc_mmap_free(ctx->maps[i], 0);
+	mutex_unlock(&ctx->fl->map_mutex);
+	fastrpc_buf_free(ctx->buf, 1);
+	fastrpc_buf_free(ctx->lbuf, 1);
+	ctx->magic = 0;
+	ctx->ctxid = 0;
 
 	spin_lock(&me->ctxlock);
 	for (i = 0; i < FASTRPC_CTX_MAX; i++) {
@@ -1414,21 +1425,6 @@ static void context_free(struct smq_invoke_ctx *ctx)
 		}
 	}
 	spin_unlock(&me->ctxlock);
-
-	spin_lock(&ctx->fl->hlock);
-	hlist_del_init(&ctx->hn);
-	spin_unlock(&ctx->fl->hlock);
-
-	mutex_lock(&ctx->fl->map_mutex);
-	for (i = 0; i < nbufs; ++i)
-		fastrpc_mmap_free(ctx->maps[i], 0);
-	mutex_unlock(&ctx->fl->map_mutex);
-
-	fastrpc_buf_free(ctx->buf, 1);
-	fastrpc_buf_free(ctx->lbuf, 1);
-	ctx->magic = 0;
-	ctx->ctxid = 0;
-
 	trace_fastrpc_context_free((uint64_t)ctx,
 		ctx->msg.invoke.header.ctx, ctx->handle, ctx->sc);
 	kfree(ctx);
@@ -1437,7 +1433,6 @@ static void context_free(struct smq_invoke_ctx *ctx)
 static void context_notify_user(struct smq_invoke_ctx *ctx,
 		int retval, uint32_t rspFlags, uint32_t earlyWakeTime)
 {
-	fastrpc_pm_awake(ctx->fl->wake_enable, &ctx->pm_awake_voted);
 	ctx->retval = retval;
 	switch (rspFlags) {
 	case NORMAL_RESPONSE:
@@ -1461,6 +1456,7 @@ static void context_notify_user(struct smq_invoke_ctx *ctx,
 		break;
 	}
 	ctx->rspFlags = (enum fastrpc_response_flags)rspFlags;
+	fastrpc_pm_awake(ctx->fl->wake_enable, &ctx->pm_awake_voted);
 	trace_fastrpc_context_complete(ctx->fl->cid, (uint64_t)ctx, retval,
 		ctx->msg.invoke.header.ctx, ctx->handle, ctx->sc);
 	complete(&ctx->work);
@@ -1474,16 +1470,10 @@ static void fastrpc_notify_users(struct fastrpc_file *me)
 	spin_lock(&me->hlock);
 	hlist_for_each_entry_safe(ictx, n, &me->clst.pending, hn) {
 		ictx->isWorkDone = true;
-		trace_fastrpc_context_complete(me->cid, (uint64_t)ictx,
-			ictx->retval, ictx->msg.invoke.header.ctx,
-			ictx->handle, ictx->sc);
 		complete(&ictx->work);
 	}
 	hlist_for_each_entry_safe(ictx, n, &me->clst.interrupted, hn) {
 		ictx->isWorkDone = true;
-		trace_fastrpc_context_complete(me->cid, (uint64_t)ictx,
-			ictx->retval, ictx->msg.invoke.header.ctx,
-			ictx->handle, ictx->sc);
 		complete(&ictx->work);
 	}
 	spin_unlock(&me->hlock);
@@ -1499,18 +1489,12 @@ static void fastrpc_notify_users_staticpd_pdr(struct fastrpc_file *me)
 	hlist_for_each_entry_safe(ictx, n, &me->clst.pending, hn) {
 		if (ictx->msg.pid) {
 			ictx->isWorkDone = true;
-			trace_fastrpc_context_complete(me->cid, (uint64_t)ictx,
-				ictx->retval, ictx->msg.invoke.header.ctx,
-				ictx->handle, ictx->sc);
 			complete(&ictx->work);
 		}
 	}
 	hlist_for_each_entry_safe(ictx, n, &me->clst.interrupted, hn) {
 		if (ictx->msg.pid) {
 			ictx->isWorkDone = true;
-			trace_fastrpc_context_complete(me->cid, (uint64_t)ictx,
-				ictx->retval, ictx->msg.invoke.header.ctx,
-				ictx->handle, ictx->sc);
 			complete(&ictx->work);
 		}
 	}
@@ -2115,18 +2099,9 @@ static void fastrpc_wait_for_completion(struct smq_invoke_ctx *ctx,
 	int jj;
 	bool wait_resp;
 	uint32_t wTimeout = FASTRPC_USER_EARLY_HINT_TIMEOUT;
-	uint32_t wakeTime = 0;
+	uint32_t wakeTime = ctx->earlyWakeTime;
 
-	if (!ctx) {
-		/* This failure is not expected */
-		err = *pInterrupted = EFAULT;
-		pr_err("Error %d: adsprpc: %s: %s: ctx is NULL, cannot wait for response\n",
-					err, current->comm, __func__);
-		return;
-	}
-	wakeTime = ctx->earlyWakeTime;
-
-	do {
+	while (ctx && !ctx->isWorkDone) {
 		switch (ctx->rspFlags) {
 		/* try polling on completion with timeout */
 		case USER_EARLY_SIGNAL:
@@ -2184,7 +2159,7 @@ static void fastrpc_wait_for_completion(struct smq_invoke_ctx *ctx,
 			current->comm, ctx->rspFlags, ctx->handle, ctx->sc);
 			return;
 		} /* end of switch */
-	} while (!ctx->isWorkDone);
+	} /* end of while loop */
 }
 
 static void fastrpc_update_invoke_count(uint32_t handle, int64_t *perf_counter,
