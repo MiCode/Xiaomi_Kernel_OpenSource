@@ -6,6 +6,6 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
 
 ccflags-y += -I$(obj)/../$(MTK_PLATFORM)
 
-obj-y += apusys_mnoc.o
+obj-m += apusys_mnoc.o
 
 apusys_mnoc-objs:= mnoc_drv.o mnoc_dbg.o mnoc_qos.o mnoc_pmu.o ../$(MTK_PLATFORM)/mnoc_hw.o

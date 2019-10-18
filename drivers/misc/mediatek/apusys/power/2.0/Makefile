@@ -28,6 +28,8 @@ else ifeq ($(CONFIG_FPGA_EARLY_PORTING),y)
 subdir-ccflags-y += -DMTK_FPGA_PORTING
 endif
 
+#obj-m += apu_power.o
+#apu_power-objs:=
 obj-y:= apusys_power_driver.o apusys_power_ctl.o apusys_power_debug.o \
 		$(PDIR)/hal_config_power.o $(PDIR)/apu_power_regulator.o \
 		$(PDIR)/apu_power_clock.o $(PDIR)/apusys_power_cust.o \
@@ -38,8 +40,8 @@ ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k6885tv1_64_aging"
 subdir-ccflags-y += -DAGING_MARGIN
 endif
 
-#obj-y += vpu_dummy_driver.o
+#obj-m += vpu_dummy_driver.o
 #vpu_dummy_driver-objs:= $(PDIR)/dummy_vpu_driver.o
 
-#obj-y += mdla_dummy_driver.o
+#obj-m += mdla_dummy_driver.o
 #mdla_dummy_driver-objs:= $(PDIR)/dummy_mdla_driver.o

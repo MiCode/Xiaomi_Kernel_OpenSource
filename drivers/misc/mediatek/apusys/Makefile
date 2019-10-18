@@ -11,8 +11,10 @@
 # GNU General Public License for more details.
 #
 
-obj-$(CONFIG_MTK_APUSYS_SUPPORT) += power/
-obj-$(CONFIG_MTK_APUSYS_SUPPORT) += reviser/
+#obj-m += midware/
+obj-y += power/
+#obj-m += sample/
+obj-m += reviser/
 obj-$(CONFIG_MTK_APUSYS_SUPPORT) += mnoc/
 obj-$(CONFIG_MTK_APUSYS_SUPPORT) += midware/
 obj-$(CONFIG_MTK_APUSYS_SUPPORT) += sample/

@@ -15,7 +15,7 @@ SAMPLE_VERSION = 1.0
 
 ccflags-y += -I$(obj)/../include/
 
-obj-y += sample.o
+obj-m += sample.o
 
 sample-objs += $(SAMPLE_VERSION)/sample_drv.o
 sample-objs += $(SAMPLE_VERSION)/sample_inf.o

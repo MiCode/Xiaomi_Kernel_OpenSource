@@ -30,7 +30,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/power/1.0
 #obj-$(CONFIG_MTK_MDLA_DEBUG) += mdla_debug.o mdla_trace.o mdla_decoder.o
 #obj-$(CONFIG_MTK_MDLA_ION) += mdla_ion.o
 
-obj-y += apusys_mem.o
+obj-m += apusys_mem.o
 
 apusys_mem-objs:= gsm.o mdla_ion.o
 
