@@ -23,7 +23,7 @@
 #define PPM_AP_SIDE	1
 #define EEM_AP_SIDE	1
 #define CCI_MAP_TBL_SUPPORT	1
-/* #define ENABLE_DOE              1 */
+#define ENABLE_DOE              1
 #define MET_READY              1
 /* #define IMAX_ENABLE             1 */
 #define IMAX_INIT_STATE         1
