@@ -16,17 +16,24 @@
 #include <linux/of_address.h>
 #include <linux/slab.h>
 #include <linux/mfd/syscon.h>
+#include <linux/clk.h>
 
 #include "clk-mtk.h"
 #include "clk-gate.h"
 #include "clk-mux.h"
-
+#include "clk-mt6885-pg.h"
 #include <dt-bindings/clock/mt6885-clk.h>
 
 #define MT_CCF_BRINGUP		0
 #ifdef CONFIG_ARM64
 #define IOMEM(a)	((void __force __iomem *)((a)))
 #endif
+#define CHECK_VCORE_FREQ	1
+
+int __attribute__((weak)) get_sw_req_vcore_opp(void)
+{
+	return -1;
+}
 
 #define mt_reg_sync_writel(v, a) \
 	do { \
@@ -315,6 +322,155 @@ static DEFINE_SPINLOCK(mt6885_clk_lock);
 #define INFRA_CG1	0x00000800	/* cpum: 11 */
 #define INFRA_CG2	0x0
 #define INFRA_CG3	0x0
+
+#if CHECK_VCORE_FREQ
+/*
+ * Opp 0 : 0.725v
+ * Opp 1 : 0.65v
+ * Opp 2 : 0.60v
+ * Opp 3 : 0.575v
+ */
+static int vf_table[66][4] = {
+	/* opp0    opp1   opp2    opp3 */
+	{156000, 156000, 156000, 156000},//axi_sel
+	{78000, 78000, 78000, 78000},//spm_sel
+	{416000, 312000, 273000, 218400},//scp_sel
+	{364000, 273000, 273000, 218400},//bus_aximem_sel
+	{546000, 416000, 312000, 249600},//disp_sel
+	{594000, 416000, 312000, 273000},//mdp_sel
+	{624000, 416000, 343750, 273000},//img1_sel
+	{624000, 416000, 343750, 273000},//img2_sel
+	{546000, 416000, 312000, 273000},//ipe_sel
+	{546000, 458333, 364000, 312000},//dpe_sel
+	{624000, 499200, 392857, 312000},//cam_sel
+	{499200, 392857, 364000, 312000},//ccu_sel
+	/* APU CORE Power: 0.575v, 0.725v, 0.825v - vcore-less */
+	{0, 0, 0, 0},//dsp_sel
+	{0, 0, 0, 0},//dsp1_sel
+	{0, 0, 0, 0},//dsp2_sel
+	{0, 0, 0, 0},//dsp3_sel
+	{0, 0, 0, 0},//dsp4_sel
+	{0, 0, 0, 0},//dsp5_sel
+	{0, 0, 0, 0},//dsp6_sel
+	{0, 0, 0, 0},//dsp7_sel
+	{0, 0, 0, 0},//ipu_if_sel
+	/* GPU DVFS - vcore-less */
+	{0, 0, 0, 0},//mfg_sel
+	{52000, 52000, 52000, 52000},//camtg_sel
+	{52000, 52000, 52000, 52000},//camtg2_sel
+	{52000, 52000, 52000, 52000},//camtg3_sel
+	{52000, 52000, 52000, 52000},//camtg4_sel
+	{52000, 52000, 52000, 52000},//uart_sel
+	{109200, 109200, 109200, 109200},//spi_sel
+	{273000, 273000, 273000, 273000},//msdc50_0_hclk_sel
+	{416000, 416000, 416000, 416000},//msdc50_0_sel
+	{208000, 208000, 208000, 208000},//msdc30_1_sel
+	{54600, 54600, 54600, 54600},//audio_sel
+	{136500, 136500, 136500, 136500},//aud_intbus_sel
+	{65000, 65000, 65000, 65000},//pwrap_ulposc_sel
+	{273000, 273000, 273000, 273000},//atb_sel
+	{364000, 312000, 273000, 273000},//sspm_sel
+	{148500, 148500, 148500, 148500},//dp_sel
+	{109200, 109200, 109200, 109200},//scam_sel
+	{130000, 130000, 130000, 130000},//disp_pwm_sel
+	{124800, 124800, 124800, 124800},//usb_top_sel
+	{124800, 124800, 124800, 124800},//ssusb_xhci_sel
+	{124800, 124800, 124800, 124800},//i2c_sel
+	{499200, 499200, 499200, 416000},//seninf_sel
+	{499200, 499200, 499200, 416000},//seninf1_sel
+	{499200, 499200, 499200, 416000},//seninf2_sel
+	{499200, 499200, 499200, 416000},//seninf3_sel
+	{273000, 273000, 273000, 273000},//dxcc_sel
+	{45158, 45158, 45158, 45158},//aud_engen1_sel
+	{49152, 49152, 49152, 49152},//aud_engen2_sel
+	{546000, 546000, 546000, 416000},//aes_ufsfde_sel
+	{208000, 208000, 208000, 208000},//ufs_sel
+	{180634, 180634, 180634, 180634},//aud_1_sel
+	{196608, 196608, 196608, 196608},//aud_2_sel
+	{700000, 700000, 700000, 700000},//adsp_sel
+	{364000, 364000, 364000, 273000},//dpmaif_main_sel
+	{624000, 416000, 312000, 273000},//venc_sel
+	{546000, 416000, 312000, 249600},//vdec_sel
+	{546000, 458333, 356571, 312000},//vdec_lat_sel
+	{208000, 208000, 208000, 208000},//camtm_sel
+	{78000, 78000, 78000, 78000},//pwm_sel
+	{196608, 196608, 196608, 196608},//audio_h_sel
+	{52000, 52000, 52000, 52000},//camtg5_sel
+	{52000, 52000, 52000, 52000},//camtg6_sel
+	{156000, 156000, 156000, 156000},//mcupm_sel
+	{32500, 32500, 32500, 32500},//spmi_mst_sel
+	{26000, 26000, 26000, 26000},//dvfsrc_sel
+};
+
+static const char * const mux_names[] = {
+	"axi_sel",
+	"spm_sel",
+	"scp_sel",
+	"bus_aximem_sel",
+	"disp_sel",
+	"mdp_sel",
+	"img1_sel",
+	"img2_sel",
+	"ipe_sel",
+	"dpe_sel",
+	"cam_sel",
+	"ccu_sel",
+	"dsp_sel",
+	"dsp1_sel",
+	"dsp2_sel",
+	"dsp3_sel",
+	"dsp4_sel",
+	"dsp5_sel",
+	"dsp6_sel",
+	"dsp7_sel",
+	"ipu_if_sel",
+	"mfg_sel",
+	"camtg_sel",
+	"camtg2_sel",
+	"camtg3_sel",
+	"camtg4_sel",
+	"uart_sel",
+	"spi_sel",
+	"msdc50_0_hclk_sel",
+	"msdc50_0_sel",
+	"msdc30_1_sel",
+	"audio_sel",
+	"aud_intbus_sel",
+	"pwrap_ulposc_sel",
+	"atb_sel",
+	"sspm_sel",
+	"dp_sel",
+	"scam_sel",
+	"disp_pwm_sel",
+	"usb_top_sel",
+	"ssusb_xhci_sel",
+	"i2c_sel",
+	"seninf_sel",
+	"seninf1_sel",
+	"seninf2_sel",
+	"seninf3_sel",
+	"dxcc_sel",
+	"aud_engen1_sel",
+	"aud_engen2_sel",
+	"aes_ufsfde_sel",
+	"ufs_sel",
+	"aud_1_sel",
+	"aud_2_sel",
+	"adsp_sel",
+	"dpmaif_main_sel",
+	"venc_sel",
+	"vdec_sel",
+	"vdec_lat_sel",
+	"camtm_sel",
+	"pwm_sel",
+	"audio_h_sel",
+	"camtg5_sel",
+	"camtg6_sel",
+	"mcupm_sel",
+	"spmi_mst_sel",
+	"dvfsrc_sel",
+};
+#endif
 
 static const struct mtk_fixed_clk fixed_clks[] __initconst = {
 	FIXED_CLK(TOP_CLK26M, "f26m_sel", "clk26m", 26000000),
@@ -3472,6 +3628,68 @@ static void mtk_perisys_init(struct device_node *node)
 CLK_OF_DECLARE_DRIVER(mtk_perisys, "mediatek,pericfg", mtk_perisys_init);
 
 /******************* TOPCKGEN Subsys *******************************/
+#if CHECK_VCORE_FREQ
+void warn_vcore(int opp, const char *clk_name, int rate, int id)
+{
+	if ((opp >= 0) && (id >= 0) && (vf_table[id][opp] > 0) &&
+		((rate/1000) > (vf_table[id][opp]))) {
+		pr_notice("%s Choose %d FAIL!!!![MAX(%d/%d): %d]\r\n",
+			clk_name, rate/1000, id, opp, vf_table[id][opp]);
+			BUG_ON(1);
+	}
+}
+static int mtk_mux2id(const char **mux_name)
+{
+	int i = 0;
+
+	for (i = 0; i < ARRAY_SIZE(mux_names); i++) {
+		if (strcmp(*mux_name, mux_names[i]) == 0)
+			return i;
+	}
+	return -2;
+}
+
+/* The clocks have a mechanism for synchronizing rate changes. */
+static int mtk_clk_rate_change(struct notifier_block *nb,
+					  unsigned long flags, void *data)
+{
+	struct clk_notifier_data *ndata = data;
+	struct clk_hw *hw = __clk_get_hw(ndata->clk);
+	const char *clk_name = __clk_get_name(hw->clk);
+
+	int vcore_opp = get_sw_req_vcore_opp();
+
+	if (flags == PRE_RATE_CHANGE) {
+		warn_vcore(vcore_opp, clk_name,
+			ndata->new_rate, mtk_mux2id(&clk_name));
+	}
+	return NOTIFY_OK;
+}
+
+static struct notifier_block mtk_clk_notifier = {
+	.notifier_call = mtk_clk_rate_change,
+};
+
+int mtk_clk_check_muxes(const struct mtk_mux *muxes,
+		int num,
+		struct clk_onecell_data *clk_data)
+{
+	struct clk *clk;
+	int i;
+
+	if (!clk_data)
+		return -ENOMEM;
+
+	for (i = 0; i < num; i++) {
+		const struct mtk_mux *mux = &muxes[i];
+
+		clk = __clk_lookup(mux->name);
+		clk_notifier_register(clk, &mtk_clk_notifier);
+	}
+
+	return 0;
+}
+#endif
 static void __iomem *cksys_base;
 static void __init mtk_topckgen_init(struct device_node *node)
 {
@@ -3497,6 +3715,9 @@ static void __init mtk_topckgen_init(struct device_node *node)
 	mtk_clk_register_factors(top_divs, ARRAY_SIZE(top_divs), clk_data);
 	mtk_clk_register_muxes(top_muxes, ARRAY_SIZE(top_muxes), node,
 						&mt6885_clk_lock, clk_data);
+	#if CHECK_VCORE_FREQ
+	mtk_clk_check_muxes(top_muxes, ARRAY_SIZE(top_muxes), clk_data);
+	#endif
 	mtk_clk_register_composites(top_audmuxes, ARRAY_SIZE(top_audmuxes),
 					base, &mt6885_clk_lock, clk_data);
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);

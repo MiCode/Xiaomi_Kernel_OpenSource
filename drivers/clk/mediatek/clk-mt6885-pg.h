@@ -66,6 +66,7 @@ extern unsigned int mt_get_abist_freq(unsigned int ID);
 extern unsigned int mt_get_ckgen_freq(unsigned int ID);
 extern void print_enabled_clks_once(void);
 extern void mtk_wcn_cmb_stub_clock_fail_dump(void);
+extern int get_sw_req_vcore_opp(void);
 void enable_subsys_hwcg(enum subsys_id id);
 /*
  * Resident in clkdbg-mt6885.c
