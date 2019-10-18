@@ -1118,6 +1118,7 @@ static int md_ccif_op_send_skb(unsigned char hif_id, int qno,
 	int md_cap = ccci_md_get_cap_by_id(md_ctrl->md_id);
 	struct ccci_per_md *per_md_data =
 		ccci_get_per_md_data(md_ctrl->md_id);
+	int md_state;
 
 	if (qno == 0xFF)
 		return -CCCI_ERR_INVALID_QUEUE_INDEX;
@@ -1245,6 +1246,21 @@ static int md_ccif_op_send_skb(unsigned char hif_id, int qno,
 				queue->wakeup = 0;
 				if (ret == -ERESTARTSYS)
 					return -EINTR;
+			}
+			md_state = ccci_fsm_get_md_state(md_ctrl->md_id);
+			if (md_state == EXCEPTION
+					&& ccci_h->channel != CCCI_MD_LOG_TX
+					&& ccci_h->channel != CCCI_UART1_TX
+					&& ccci_h->channel != CCCI_FS_TX) {
+				CCCI_REPEAT_LOG(md_ctrl->md_id, TAG,
+					"tx retry break for EE for Q%d, ch %d\n",
+					queue->index, ccci_h->channel);
+				return -ETXTBSY;
+			} else if (md_state == GATED) {
+				CCCI_REPEAT_LOG(md_ctrl->md_id, TAG,
+					"tx retry break for Gated for Q%d, ch %d\n",
+					queue->index, ccci_h->channel);
+				return -ETXTBSY;
 			}
 			CCCI_REPEAT_LOG(md_ctrl->md_id, TAG,
 				"tx retry for Q%d, ch %d\n",
