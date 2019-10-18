@@ -483,7 +483,7 @@ static int spmtwam_probe(struct platform_device *pdev)
 	}
 
 	ret = request_irq(irq0, spm_irq0_handler,
-		IRQF_TRIGGER_LOW | IRQF_NO_SUSPEND, "TWAM", NULL);
+			 (IRQF_TRIGGER_NONE | IRQF_NO_SUSPEND), "TWAM", NULL);
 	if (ret)
 		return ret;
 
