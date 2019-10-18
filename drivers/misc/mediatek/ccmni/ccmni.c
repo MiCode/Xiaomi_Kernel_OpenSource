@@ -103,13 +103,18 @@ static inline int is_ack_skb(int md_id, struct sk_buff *skb)
 	u32 packet_type;
 	struct tcphdr *tcph;
 	int ret = 0;
-	struct md_tag_packet *tag = NULL;
 	unsigned int count = 0;
+#if defined(CONFIG_MTK_MDDP_WH_SUPPORT) || defined(CONFIG_MTK_MDDP_USB_SUPPORT)
+	struct md_tag_packet *tag = NULL;
 
 	tag = (struct md_tag_packet *)skb->head;
-	if (tag->guard_pattern == MDT_TAG_PATTERN)
-		count = sizeof(tag->info);
-
+	if (tag->guard_pattern == MDDP_TAG_PATTERN) {
+		if (tag->version == 1)
+			count = 4;
+		else if (tag->version == 2)
+			count = sizeof(struct md_tag_packet);
+	}
+#endif
 	packet_type = skb->data[0] & 0xF0;
 	if (packet_type == IPV6_VERSION) {
 		struct ipv6hdr *iph = (struct ipv6hdr *)skb->data;
@@ -471,8 +476,10 @@ static int ccmni_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	struct ccmni_ctl_block *ctlb = ccmni_ctl_blk[ccmni->md_id];
 	unsigned int is_ack = 0;
 	int mac_len = 0;
+#if defined(CONFIG_MTK_MDDP_WH_SUPPORT) || defined(CONFIG_MTK_MDDP_USB_SUPPORT)
 	struct md_tag_packet *tag = NULL;
 	unsigned int count = 0;
+#endif
 	struct ethhdr *eth;
 	__be16 type;
 	struct iphdr *iph;
@@ -532,20 +539,26 @@ static int ccmni_start_xmit(struct sk_buff *skb, struct net_device *dev)
 		dev->stats.tx_dropped++;
 		return NETDEV_TX_OK;
 	}
-
+#if defined(CONFIG_MTK_MDDP_WH_SUPPORT) || defined(CONFIG_MTK_MDDP_USB_SUPPORT)
 	tag = (struct md_tag_packet *)skb->head;
-	if (tag->guard_pattern == MDT_TAG_PATTERN) {
+	if (tag->guard_pattern == MDDP_TAG_PATTERN) {
 		if (ccmni->md_id == MD_SYS1) {
-			count = sizeof(tag->info);
-			memcpy(skb_tail_pointer(skb), &(tag->info), count);
+			if (tag->version == 1) {
+				count = 4;
+				memcpy(skb_tail_pointer(skb), &(tag->v1),
+					count);
+			} else if (tag->version == 2) {
+				count = sizeof(md_tag_packet_t);
+				memcpy(skb_tail_pointer(skb), tag, count);
+			}
 			skb->len += count;
 		} else {
-			CCMNI_DBG_MSG(ccmni->md_id,
+			CCMNI_INF_MSG(ccmni->md_id,
 				"%s: MD%d not support MDT tag\n",
 				dev->name, (ccmni->md_id + 1));
 		}
 	}
-
+#endif
 	if (ctlb->ccci_ops->md_ability & MODEM_CAP_DATA_ACK_DVD) {
 		iph = (struct iphdr *)skb_network_header(skb);
 		if (skb->mark == APP_VIP_MARK)
