@@ -13,24 +13,27 @@
 
 /*
  * This file is generated.
- * From 20190808_Petrus_MDReg_remap.xlsx
+ * From 20190924_MT6885_MDReg_remap.xlsx
  * With ap_md_reg_dump_code_gentool.py v0.1
- * Date 2019-08-09 11:53:08.547335
+ * Date 2019-10-04 09:48:58.842149
  */
+
+#ifndef __AP_MD_REG_DUMP_H__
+#define __AP_MD_REG_DUMP_H__
+
 enum MD_REG_ID {
-	MD_REG_PC_MONITOR = 0,
-	MD_REG_PLL_REG,
-	MD_REG_BUS,
-	MD_REG_BUSMON__0,
-	MD_REG_BUSMON__1,
-	MD_REG_ECT,
-	MD_REG_TOPSM_REG,
-	MD_REG_MD_RGU_REG,
-	MD_REG_OST_STATUS,
-	MD_REG_CSC_REG,
-	MD_REG_ELM_REG,
-	MD_REG_USIP,
-	MD_REG_SONIC,
+	MD_REG_SET_DBGSYS_TIME_OUT_ADDR = 0,
+	MD_REG_PC_MONITOR_ADDR,
+	MD_REG_BUSMON_ADDR_0,
+	MD_REG_BUSMON_ADDR_1,
+	MD_REG_USIP_ADDR_0,
+	MD_REG_USIP_ADDR_1,
+	MD_REG_USIP_ADDR_2,
+	MD_REG_USIP_ADDR_3,
+	MD_REG_USIP_ADDR_4,
+	MD_REG_USIP_ADDR_5,
 };
 
 void internal_md_dump_debug_register(unsigned int md_index);
+
+#endif
