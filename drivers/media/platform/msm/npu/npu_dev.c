@@ -394,20 +394,20 @@ int npu_enable_core_power(struct npu_device *npu_dev)
 	mutex_lock(&npu_dev->dev_lock);
 	NPU_DBG("Enable core power %d\n", pwr->pwr_vote_num);
 	if (!pwr->pwr_vote_num) {
-		ret = npu_set_bw(npu_dev, 100, 100);
+		ret = npu_enable_regulators(npu_dev);
 		if (ret)
 			goto fail;
 
-		ret = npu_enable_regulators(npu_dev);
+		ret = npu_set_bw(npu_dev, 100, 100);
 		if (ret) {
-			npu_set_bw(npu_dev, 0, 0);
+			npu_disable_regulators(npu_dev);
 			goto fail;
 		}
 
 		ret = npu_enable_core_clocks(npu_dev);
 		if (ret) {
-			npu_disable_regulators(npu_dev);
 			npu_set_bw(npu_dev, 0, 0);
+			npu_disable_regulators(npu_dev);
 			goto fail;
 		}
 		npu_resume_devbw(npu_dev);
@@ -434,8 +434,8 @@ void npu_disable_core_power(struct npu_device *npu_dev)
 	if (!pwr->pwr_vote_num) {
 		npu_suspend_devbw(npu_dev);
 		npu_disable_core_clocks(npu_dev);
-		npu_disable_regulators(npu_dev);
 		npu_set_bw(npu_dev, 0, 0);
+		npu_disable_regulators(npu_dev);
 		pwr->active_pwrlevel = pwr->default_pwrlevel;
 		pwr->uc_pwrlevel = pwr->max_pwrlevel;
 		pwr->cdsprm_pwrlevel = pwr->max_pwrlevel;
