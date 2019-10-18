@@ -168,11 +168,11 @@ static int cmdq_util_status_print(struct seq_file *seq, void *data)
 
 static int cmdq_util_record_print(struct seq_file *seq, void *data)
 {
-	int i;
 	struct cmdq_record *rec;
 	u32 acq_time, irq_time, begin_wait, exec_time, total_time, hw_time;
 	u64 submit_sec;
 	unsigned long submit_rem, hw_time_rem;
+	s32 i, idx;
 
 	mutex_lock(&cmdq_record_mutex);
 
@@ -181,15 +181,18 @@ static int cmdq_util_record_print(struct seq_file *seq, void *data)
 		"submit,acq_time(us),irq_time(us),begin_wait(us),exec_time(us),total_time(us),start,end,jump,");
 	seq_puts(seq, "exec begin,exec end,hw_time(us),\n");
 
-	for (i = (int)util.record_idx - 1; i != util.record_idx; i--) {
-		if (i < 0)
-			i = CMDQ_RECORD_NUM - 1;
-		rec = &util.record[i];
-		if (!rec->pkt)
-			break;
+	idx = util.record_idx;
+	for (i = 0; i < ARRAY_SIZE(util.record); i++) {
+		idx--;
+		if (idx < 0)
+			idx = ARRAY_SIZE(util.record) - 1;
 
-		seq_printf(seq, "%d,%#lx,%d,%d,%u,%hhd,%d,",
-			i, rec->pkt, rec->priority, (int)rec->is_secure,
+		rec = &util.record[idx];
+		if (!rec->pkt)
+			continue;
+
+		seq_printf(seq, "%u,%#lx,%d,%d,%u,%hhd,%d,",
+			idx, rec->pkt, rec->priority, (int)rec->is_secure,
 			rec->size, rec->id, rec->thread);
 
 		submit_sec = rec->submit;
