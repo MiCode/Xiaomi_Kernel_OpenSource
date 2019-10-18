@@ -20,6 +20,11 @@
 #include "adsp_platform_driver.h"
 #include "adsp_core.h"
 
+#include <linux/suspend.h>
+#include <linux/arm-smccc.h> /* for Kernel Native SMC API */
+#include <mt-plat/mtk_secure_api.h> /* for SMC ID table */
+#include <mt6885-afe-common.h>
+
 struct workqueue_struct *adsp_wq;
 void __iomem *adsp_secure_base;
 struct adsp_priv *adsp_cores[ADSP_CORE_TOTAL];
@@ -431,6 +436,40 @@ struct notifier_block adsp_uevent_notifier = {
 	.priority = AUDIO_HAL_FEATURE_PRI,
 };
 
+#ifdef CONFIG_PM
+static int adsp_pm_event(struct notifier_block *notifier
+			, unsigned long pm_event, void *unused)
+{
+	struct arm_smccc_res res;
+
+	switch (pm_event) {
+	case PM_POST_HIBERNATION:
+		pr_notice("[ADSP] %s: reboot\n", __func__);
+		adsp_reset();
+		return NOTIFY_DONE;
+	case PM_SUSPEND_PREPARE:
+		if (adsp_feature_is_active(ADSP_A_ID))
+			arm_smccc_smc(MTK_SIP_AUDIO_CONTROL,
+				  MTK_AUDIO_SMC_OP_ADSP_REQUEST,
+				  0, 0, 0, 0, 0, 0, &res);
+
+		return NOTIFY_DONE;
+	case PM_POST_SUSPEND:
+		if (adsp_feature_is_active(ADSP_A_ID))
+			arm_smccc_smc(MTK_SIP_AUDIO_CONTROL,
+				  MTK_AUDIO_SMC_OP_ADSP_RELEASE,
+				  0, 0, 0, 0, 0, 0, &res);
+		return NOTIFY_DONE;
+	}
+	return NOTIFY_OK;
+}
+
+static struct notifier_block adsp_pm_notifier_block = {
+	.notifier_call = adsp_pm_event,
+	.priority = 0,
+};
+#endif
+
 static int adsp_common_drv_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -463,6 +502,12 @@ static int adsp_common_drv_probe(struct platform_device *pdev)
 	}
 
 	adsp_register_notify(&adsp_uevent_notifier);
+
+#ifdef CONFIG_PM
+	ret = register_pm_notifier(&adsp_pm_notifier_block);
+	if (ret)
+		pr_warn("[ADSP] failed to register PM notifier %d\n", ret);
+#endif
 
 	pr_info("%s, success\n", __func__);
 ERROR:
