@@ -1196,19 +1196,26 @@ PHONY += archheaders archscripts
 
 hdr-inst := -f $(srctree)/scripts/Makefile.headersinst obj
 
+techpack-dirs := $(shell find $(srctree)/techpack -maxdepth 1 -mindepth 1 -type d -not -name ".*")
+techpack-dirs := $(subst $(srctree)/,,$(techpack-dirs))
+
 PHONY += headers
 headers: $(version_h) scripts_unifdef uapi-asm-generic archheaders archscripts
 	$(if $(wildcard $(srctree)/arch/$(SRCARCH)/include/uapi/asm/Kbuild),, \
 	  $(error Headers not exportable for the $(SRCARCH) architecture))
 	$(Q)$(MAKE) $(hdr-inst)=include/uapi
 	$(Q)$(MAKE) $(hdr-inst)=arch/$(SRCARCH)/include/uapi
-	$(Q)$(MAKE) $(hdr-inst)=techpack
+	$(Q)for d in $(techpack-dirs); do \
+		$(MAKE) $(hdr-inst)=$$d/include/uapi; \
+	done
 
 PHONY += headers_check
 headers_check: headers
 	$(Q)$(MAKE) $(hdr-inst)=include/uapi HDRCHECK=1
 	$(Q)$(MAKE) $(hdr-inst)=arch/$(SRCARCH)/include/uapi HDRCHECK=1
-	$(Q)$(MAKE) $(hdr-inst)=techpack HDRCHECK=1
+	$(Q)for d in $(techpack-dirs); do \
+		$(MAKE) $(hdr-inst)=$$d/include/uapi HDRCHECK=1; \
+	done
 
 ifdef CONFIG_HEADERS_INSTALL
 prepare: headers
