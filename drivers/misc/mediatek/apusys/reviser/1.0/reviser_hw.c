@@ -23,6 +23,8 @@
 #include "reviser_reg.h"
 #include "reviser_hw.h"
 #include "reviser_mem.h"
+#include "reviser_secure.h"
+
 
 #define FAKE_CONTEX_REG_NUM 9
 #define FAKE_REMAP_REG_NUM 13
@@ -43,7 +45,8 @@ static void _reviser_reg_clr(void *base, uint32_t offset, uint32_t value);
 static uint32_t _reviser_get_contex_offset(enum REVISER_DEVICE_E type,
 		int index);
 static uint32_t _reviser_get_remap_offset(int index);
-static void _reviser_set_contex_boundary(void *drvinfo,
+
+APUSYS_ATTR_USE static void _reviser_set_contex_boundary(void *drvinfo,
 		uint32_t offset, uint8_t boundary);
 static void _reviser_set_context_ID(void *drvinfo,
 		uint32_t offset, uint8_t ID);
@@ -569,7 +572,8 @@ int reviser_set_remap_talbe(void *drvinfo,
 int reviser_set_boundary(void *drvinfo,
 		enum REVISER_DEVICE_E type, int index, uint8_t boundary)
 {
-	uint32_t offset = 0;
+	APUSYS_ATTR_USE uint32_t offset;
+	uint32_t value = 0;
 
 	DEBUG_TAG;
 
@@ -587,13 +591,51 @@ int reviser_set_boundary(void *drvinfo,
 		LOG_ERR("invalid argument\n");
 		return -1;
 	}
+#if APUSYS_SECURE
+	value = ((BOUNDARY_ALL_NO_CHANGE) & ~(BOUNDARY_BIT_MASK << (index*4)));
+	value = (value | boundary << (index*4));
+	LOG_DEBUG("value 0x%x\n", value);
+
+	switch (type) {
+	case REVISER_DEVICE_MDLA:
+
+		mt_secure_call(MTK_SIP_APUSYS_CONTROL,
+				MTK_APUSYS_KERNEL_OP_REVISER_SET_BOUNDARY,
+				value,
+				BOUNDARY_ALL_NO_CHANGE,
+				BOUNDARY_ALL_NO_CHANGE
+				);
+		break;
+	case REVISER_DEVICE_VPU:
+		mt_secure_call(MTK_SIP_APUSYS_CONTROL,
+				MTK_APUSYS_KERNEL_OP_REVISER_SET_BOUNDARY,
+				BOUNDARY_ALL_NO_CHANGE,
+				value,
+				BOUNDARY_ALL_NO_CHANGE
+				);
+		break;
+	case REVISER_DEVICE_EDMA:
+
+		mt_secure_call(MTK_SIP_APUSYS_CONTROL,
+				MTK_APUSYS_KERNEL_OP_REVISER_SET_BOUNDARY,
+				BOUNDARY_ALL_NO_CHANGE,
+				BOUNDARY_ALL_NO_CHANGE,
+				value
+				);
+		break;
+	default:
+		LOG_ERR("invalid argument\n");
+		return -1;
+	}
+
+#else
 	offset = _reviser_get_contex_offset(type, index);
 	if (offset == REVISER_FAIL) {
 		LOG_ERR("invalid argument\n");
 		return -1;
 	}
 	_reviser_set_contex_boundary(drvinfo, offset, boundary);
-
+#endif
 	return 0;
 }
 
