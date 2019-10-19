@@ -17,7 +17,7 @@
 #include <linux/debugfs.h>
 #include <asm/dma-iommu.h>
 #include <linux/iommu.h>
-
+#include <linux/micrel_phy.h>
 
 #include "stmmac.h"
 #include "stmmac_platform.h"
@@ -99,6 +99,15 @@
 
 #define LINK_DOWN_STATE 0x800
 #define LINK_UP_STATE 0x400
+
+#define MICREL_PHY_ID PHY_ID_KSZ9031
+#define DWC_ETH_QOS_MICREL_PHY_INTCS 0x1b
+#define DWC_ETH_QOS_MICREL_PHY_CTL 0x1f
+#define DWC_ETH_QOS_MICREL_INTR_LEVEL 0x4000
+#define DWC_ETH_QOS_BASIC_STATUS     0x0001
+#define LINK_STATE_MASK 0x4
+#define AUTONEG_STATE_MASK 0x20
+#define MICREL_LINK_UP_INTR_STATUS BIT(0)
 
 bool phy_intr_en;
 
@@ -547,6 +556,8 @@ static void ethqos_handle_phy_interrupt(struct qcom_ethqos *ethqos)
 	struct net_device *dev = platform_get_drvdata(pdev);
 	struct stmmac_priv *priv = netdev_priv(dev);
 
+	int micrel_intr_status = 0;
+
 	phy_intr_status = ethqos_mdio_read(priv, priv->plat->phy_addr,
 					   DWC_ETH_QOS_PHY_INTR_STATUS);
 
@@ -554,6 +565,46 @@ static void ethqos_handle_phy_interrupt(struct qcom_ethqos *ethqos)
 		phy_mac_interrupt(dev->phydev, LINK_UP);
 	else if (dev->phydev && (phy_intr_status & LINK_DOWN_STATE))
 		phy_mac_interrupt(dev->phydev, LINK_DOWN);
+
+	if ((dev->phydev->phy_id & dev->phydev->drv->phy_id_mask)
+		== MICREL_PHY_ID) {
+		phy_intr_status = ethqos_mdio_read(
+			priv, priv->plat->phy_addr, DWC_ETH_QOS_BASIC_STATUS);
+		ETHQOSDBG(
+			"Basic Status Reg (%#x) = %#x\n",
+			DWC_ETH_QOS_BASIC_STATUS, phy_intr_status);
+		micrel_intr_status = ethqos_mdio_read(
+			priv, priv->plat->phy_addr,
+			DWC_ETH_QOS_MICREL_PHY_INTCS);
+		ETHQOSDBG(
+			"MICREL PHY Intr EN Reg (%#x) = %#x\n",
+			DWC_ETH_QOS_MICREL_PHY_INTCS, micrel_intr_status);
+
+		/* Call ack interrupt to clear the WOL status fields */
+		if (dev->phydev->drv->ack_interrupt)
+			dev->phydev->drv->ack_interrupt(dev->phydev);
+
+		/* Interrupt received for link state change */
+		if (phy_intr_status & LINK_STATE_MASK) {
+			if (micrel_intr_status & MICREL_LINK_UP_INTR_STATUS)
+				ETHQOSDBG("Intr for link UP state\n");
+			phy_mac_interrupt(dev->phydev, LINK_UP);
+		} else if (!(phy_intr_status & LINK_STATE_MASK)) {
+			ETHQOSDBG("Intr for link DOWN state\n");
+			phy_mac_interrupt(dev->phydev, LINK_DOWN);
+		} else if (!(phy_intr_status & AUTONEG_STATE_MASK)) {
+			ETHQOSDBG("Intr for link down with auto-neg err\n");
+		}
+	} else {
+		phy_intr_status =
+		 ethqos_mdio_read(
+		    priv, priv->plat->phy_addr, DWC_ETH_QOS_PHY_INTR_STATUS);
+
+		if (phy_intr_status & LINK_UP_STATE)
+			phy_mac_interrupt(dev->phydev, LINK_UP);
+		else if (phy_intr_status & LINK_DOWN_STATE)
+			phy_mac_interrupt(dev->phydev, LINK_DOWN);
+	}
 }
 
 static void ethqos_defer_phy_isr_work(struct work_struct *work)
