@@ -176,7 +176,7 @@ struct spcom_channel {
 	uint8_t num_clients;           /* current number of clients     */
 	struct mutex shared_sync_lock;
 
-	u32 pid; /* debug only to find user space application */
+	u32 pid[SPCOM_MAX_CHANNEL_CLIENTS];
 
 	/* abort flags */
 	bool rpmsg_abort;
@@ -184,6 +184,12 @@ struct spcom_channel {
 	/* rx data info */
 	size_t actual_rx_size;	/* actual data size received */
 	void *rpmsg_rx_buf;
+
+	/**
+	 * to track if rx_buf is read in the same session
+	 * in which it is updated
+	 */
+	uint32_t rx_buf_txn_id;
 
 	/* shared buffer lock/unlock support */
 	int dmabuf_fd_table[SPCOM_MAX_ION_BUF_PER_CH];
@@ -341,7 +347,8 @@ static int spcom_init_channel(struct spcom_channel *ch,
 	ch->actual_rx_size = 0;
 	ch->is_busy = false;
 	ch->txn_id = INITIAL_TXN_ID; /* use non-zero nonce for debug */
-	ch->pid = 0;
+	ch->rx_buf_txn_id = ch->txn_id;
+	memset(ch->pid, 0, sizeof(ch->pid));
 	ch->rpmsg_abort = false;
 	ch->rpmsg_rx_buf = NULL;
 	ch->comm_role_undefined = true;
@@ -393,6 +400,16 @@ static int spcom_rx(struct spcom_channel *ch,
 	int ret = 0;
 
 	mutex_lock(&ch->lock);
+
+	if (ch->rx_buf_txn_id != ch->txn_id) {
+		pr_debug("rpmsg_rx_buf is updated in a different session\n");
+		if (ch->rpmsg_rx_buf) {
+			memset(ch->rpmsg_rx_buf, 0, ch->actual_rx_size);
+			kfree((void *)ch->rpmsg_rx_buf);
+			ch->rpmsg_rx_buf = NULL;
+			ch->actual_rx_size = 0;
+		}
+	}
 
 	/* check for already pending data */
 	if (!ch->actual_rx_size) {
@@ -1388,6 +1405,7 @@ static int spcom_device_open(struct inode *inode, struct file *filp)
 	int ret;
 	const char *name = file_to_filename(filp);
 	u32 pid = current_pid();
+	int i = 0;
 
 	pr_debug("open file [%s]\n", name);
 
@@ -1425,22 +1443,22 @@ static int spcom_device_open(struct inode *inode, struct file *filp)
 	}
 	/* max number of channel clients reached */
 	if (ch->is_busy) {
-		pr_err("channel [%s] is BUSY and has %d of clients, already in use by pid [%d]\n",
-			name, ch->num_clients, ch->pid);
+		pr_err("channel [%s] is BUSY and has %d of clients, already in use\n",
+			name, ch->num_clients);
 		mutex_unlock(&ch->lock);
 		return -EBUSY;
 	}
 
 	/*
-	 * if same active client trying to register again, this will fail.
-	 * Note: in the case of shared channel and SPCOM_MAX_CHANNEL_CLIENTS > 2
-	 * It possible to register with same pid if you are not the current
-	 * active client
+	 * if same client trying to register again, this will fail
 	 */
-	if (ch->pid == pid) {
-		pr_err("client is already registered with channel[%s]\n", name);
-		mutex_unlock(&ch->lock);
-		return -EINVAL;
+	for (i = 0; i < SPCOM_MAX_CHANNEL_CLIENTS; i++) {
+		if (ch->pid[i] == pid) {
+			pr_err("client with pid [%d] is already registered with channel[%s]\n",
+				pid, name);
+			mutex_unlock(&ch->lock);
+			return -EINVAL;
+		}
 	}
 
 	if (ch->is_sharable) {
@@ -1449,13 +1467,25 @@ static int spcom_device_open(struct inode *inode, struct file *filp)
 			ch->is_busy = true;
 		else
 			ch->is_busy = false;
+		/* pid array has pid of all the registered client.
+		 * If we reach here, the is_busy flag check above guarantees
+		 * that we have atleast one non-zero pid index
+		 */
+		for (i = 0; i < SPCOM_MAX_CHANNEL_CLIENTS; i++) {
+			if (ch->pid[i] == 0) {
+				ch->pid[i] = pid;
+				break;
+			}
+		}
 	} else {
 		ch->num_clients = 1;
 		ch->is_busy = true;
+		/* Only first index of pid is relevant in case of
+		 * non-shareable
+		 */
+		ch->pid[0] = pid;
 	}
 
-	/* pid has the last registed client's pid */
-	ch->pid = pid;
 	mutex_unlock(&ch->lock);
 
 	filp->private_data = ch;
@@ -1478,6 +1508,7 @@ static int spcom_device_release(struct inode *inode, struct file *filp)
 	struct spcom_channel *ch;
 	const char *name = file_to_filename(filp);
 	int ret = 0;
+	int i = 0;
 
 	if (strcmp(name, "unknown") == 0) {
 		pr_err("name is unknown\n");
@@ -1508,6 +1539,13 @@ static int spcom_device_release(struct inode *inode, struct file *filp)
 		return 0;
 	}
 
+	for (i = 0; i < SPCOM_MAX_CHANNEL_CLIENTS; i++) {
+		if (ch->pid[i] == current_pid()) {
+			ch->pid[i] = 0;
+			break;
+		}
+	}
+
 	if (ch->num_clients > 1) {
 		/*
 		 * Shared client is trying to close channel,
@@ -1516,20 +1554,17 @@ static int spcom_device_release(struct inode *inode, struct file *filp)
 		if (ch->active_pid == current_pid()) {
 			pr_debug("active_pid [%x] is releasing ch [%s] sync lock\n",
 				 ch->active_pid, name);
-			mutex_unlock(&ch->shared_sync_lock);
 			/* No longer the current active user of the channel */
 			ch->active_pid = 0;
+			mutex_unlock(&ch->shared_sync_lock);
 		}
 		ch->num_clients--;
 		ch->is_busy = false;
-		if (ch->num_clients > 0) {
-			mutex_unlock(&ch->lock);
-			return 0;
-		}
+		mutex_unlock(&ch->lock);
+		return 0;
 	}
 
 	ch->is_busy = false;
-	ch->pid = 0;
 	ch->num_clients = 0;
 	ch->active_pid = 0;
 
@@ -1622,8 +1657,8 @@ static ssize_t spcom_device_write(struct file *filp,
 		pr_err("handle command error [%d]\n", ret);
 		kfree(buf);
 		if (ch && ch->active_pid == current_pid()) {
-			mutex_unlock(&ch->shared_sync_lock);
 			ch->active_pid = 0;
+			mutex_unlock(&ch->shared_sync_lock);
 		}
 		return ret;
 	}
@@ -1708,16 +1743,16 @@ static ssize_t spcom_device_read(struct file *filp, char __user *user_buff,
 	pr_debug("ch [%s] ret [%d]\n", name, (int) actual_size);
 
 	if (ch->active_pid == cur_pid) {
-		mutex_unlock(&ch->shared_sync_lock);
 		ch->active_pid = 0;
+		mutex_unlock(&ch->shared_sync_lock);
 	}
 	return actual_size;
 
 exit_err:
 	kfree(buf);
 	if (ch->active_pid == cur_pid) {
-		mutex_unlock(&ch->shared_sync_lock);
 		ch->active_pid = 0;
+		mutex_unlock(&ch->shared_sync_lock);
 	}
 	return ret;
 }
@@ -2143,6 +2178,7 @@ static void spcom_signal_rx_done(struct work_struct *ignored)
 		}
 		ch->rpmsg_rx_buf = rx_item->rpmsg_rx_buf;
 		ch->actual_rx_size = rx_item->rx_buf_size;
+		ch->rx_buf_txn_id = ch->txn_id;
 		complete_all(&ch->rx_done);
 		mutex_unlock(&ch->lock);
 

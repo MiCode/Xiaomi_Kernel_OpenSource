@@ -689,17 +689,9 @@ static struct task_struct *ion_create_kworker(struct ion_page_pool **pools,
 	struct task_struct *thread;
 	int ret;
 	char *buf;
-	cpumask_t *cpumask;
-	DECLARE_BITMAP(bmap, nr_cpumask_bits);
 
 	attr.sched_nice = ION_KTHREAD_NICE_VAL;
 	buf = cached ? "cached" : "uncached";
-	/*
-	 * Affine the kthreads to min capacity CPUs
-	 * TODO: remove this hack once is_min_capability_cpu is available
-	 */
-	bitmap_fill(bmap, 0x4);
-	cpumask = to_cpumask(bmap);
 
 	thread = kthread_create(ion_sys_heap_worker, pools,
 				"ion-pool-%s-worker", buf);
@@ -715,7 +707,7 @@ static struct task_struct *ion_create_kworker(struct ion_page_pool **pools,
 			__func__, buf, ret);
 		return ERR_PTR(ret);
 	}
-	kthread_bind_mask(thread, cpumask);
+
 	return thread;
 }
 

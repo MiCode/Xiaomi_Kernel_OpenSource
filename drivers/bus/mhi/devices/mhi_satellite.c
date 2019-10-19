@@ -235,14 +235,15 @@ enum mhi_sat_state {
 	SAT_DISCONNECTED, /* rpmsg link is down */
 	SAT_FATAL_DETECT, /* device is down as fatal error was detected early */
 	SAT_ERROR, /* device is down after error or graceful shutdown */
-	SAT_DISABLED, /* set if rpmsg link goes down after device is down */
+	SAT_DISABLED, /* no further processing: wait for device removal */
 };
 
 #define MHI_SAT_ACTIVE(cntrl) (cntrl->state == SAT_RUNNING)
-#define MHI_SAT_FATAL_DETECT(cntrl) (cntrl->state == SAT_FATAL_DETECT)
+#define MHI_SAT_IN_ERROR_STATE(cntrl) (cntrl->state >= SAT_FATAL_DETECT)
 #define MHI_SAT_ALLOW_CONNECTION(cntrl) (cntrl->state == SAT_READY || \
 					 cntrl->state == SAT_DISCONNECTED)
-#define MHI_SAT_IN_ERROR_STATE(cntrl) (cntrl->state >= SAT_FATAL_DETECT)
+#define MHI_SAT_ALLOW_SYS_ERR(cntrl) (cntrl->state == SAT_RUNNING || \
+					cntrl->state == SAT_FATAL_DETECT)
 
 struct mhi_sat_cntrl {
 	struct list_head node;
@@ -462,10 +463,10 @@ static void mhi_sat_process_cmds(struct mhi_sat_cntrl *sat_cntrl,
 			code = MHI_EV_CC_SUCCESS;
 
 iommu_map_cmd_completion:
-			MHI_SAT_LOG("IOMMU MAP 0x%llx CMD processing %s\n",
-				   MHI_TRE_GET_PTR(pkt),
-				   (code == MHI_EV_CC_SUCCESS) ? "successful" :
-				   "failed");
+			MHI_SAT_LOG("IOMMU MAP 0x%llx len:%d CMD %s:%llx\n",
+				    MHI_TRE_GET_PTR(pkt), MHI_TRE_GET_SIZE(pkt),
+				    (code == MHI_EV_CC_SUCCESS) ? "successful" :
+				    "failed", iova);
 
 			pkt->ptr = MHI_TRE_EVT_CMD_COMPLETION_PTR(iova);
 			pkt->dword[0] = MHI_TRE_EVT_CMD_COMPLETION_D0(code);
@@ -503,9 +504,9 @@ iommu_map_cmd_completion:
 			if (!ret)
 				code = MHI_EV_CC_SUCCESS;
 
-			MHI_SAT_LOG("CTXT UPDATE CMD %s:%d processing %s\n",
-				buf.name, id, (code == MHI_EV_CC_SUCCESS) ?
-				"successful" : "failed");
+			MHI_SAT_LOG("CTXT UPDATE CMD %s:%d %s\n", buf.name, id,
+				    (code == MHI_EV_CC_SUCCESS) ? "successful" :
+				    "failed");
 
 			pkt->ptr = MHI_TRE_EVT_CMD_COMPLETION_PTR(0);
 			pkt->dword[0] = MHI_TRE_EVT_CMD_COMPLETION_D0(code);
@@ -532,9 +533,9 @@ iommu_map_cmd_completion:
 				code = MHI_EV_CC_SUCCESS;
 			}
 
-			MHI_SAT_LOG("START CHANNEL %d CMD processing %s\n",
-				id, (code == MHI_EV_CC_SUCCESS) ? "successful" :
-				"failure");
+			MHI_SAT_LOG("START CHANNEL %d CMD %s\n", id,
+				    (code == MHI_EV_CC_SUCCESS) ? "successful" :
+				    "failure");
 
 			pkt->ptr = MHI_TRE_EVT_CMD_COMPLETION_PTR(0);
 			pkt->dword[0] = MHI_TRE_EVT_CMD_COMPLETION_D0(code);
@@ -549,17 +550,15 @@ iommu_map_cmd_completion:
 						   SAT_CTXT_TYPE_CHAN);
 
 			MHI_SAT_ASSERT(!sat_dev,
-				"No device with given channel ID\n");
+					"No device with given channel ID\n");
 
 			MHI_SAT_ASSERT(!sat_dev->chan_started,
-				"Resetting unstarted channel!");
+					"Resetting unstarted channel!");
 
 			mhi_unprepare_from_transfer(sat_dev->mhi_dev);
 			sat_dev->chan_started = false;
 
-			MHI_SAT_LOG(
-				"RESET CHANNEL %d CMD processing successful\n",
-				id);
+			MHI_SAT_LOG("RESET CHANNEL %d CMD successful\n", id);
 
 			pkt->ptr = MHI_TRE_EVT_CMD_COMPLETION_PTR(0);
 			pkt->dword[0] = MHI_TRE_EVT_CMD_COMPLETION_D0(
@@ -940,10 +939,15 @@ static void mhi_sat_dev_status_cb(struct mhi_device *mhi_dev,
 
 	MHI_SAT_LOG("Device fatal error detected\n");
 	spin_lock_irqsave(&sat_cntrl->state_lock, flags);
-	if (MHI_SAT_ACTIVE(sat_cntrl))
+	if (MHI_SAT_ACTIVE(sat_cntrl)) {
 		sat_cntrl->error_cookie = async_schedule(mhi_sat_error_worker,
 							 sat_cntrl);
-	sat_cntrl->state = SAT_FATAL_DETECT;
+		sat_cntrl->state = SAT_FATAL_DETECT;
+	} else {
+		/* rpmsg link down or HELLO not sent or an error occurred */
+		sat_cntrl->state = SAT_DISABLED;
+	}
+
 	spin_unlock_irqrestore(&sat_cntrl->state_lock, flags);
 }
 
@@ -968,7 +972,7 @@ static void mhi_sat_dev_remove(struct mhi_device *mhi_dev)
 
 	/* send sys_err if first device is removed */
 	spin_lock_irq(&sat_cntrl->state_lock);
-	if (MHI_SAT_ACTIVE(sat_cntrl) || MHI_SAT_FATAL_DETECT(sat_cntrl))
+	if (MHI_SAT_ALLOW_SYS_ERR(sat_cntrl))
 		send_sys_err = true;
 	sat_cntrl->state = SAT_ERROR;
 	spin_unlock_irq(&sat_cntrl->state_lock);

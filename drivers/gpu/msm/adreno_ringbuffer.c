@@ -271,6 +271,7 @@ static int _adreno_ringbuffer_probe(struct adreno_device *adreno_dev,
 {
 	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffers[id];
 	int ret;
+	unsigned int priv = 0;
 
 	rb->id = id;
 	kgsl_add_event_group(&rb->events, NULL, _rb_readtimestamp, rb,
@@ -289,9 +290,17 @@ static int _adreno_ringbuffer_probe(struct adreno_device *adreno_dev,
 		PAGE_SIZE, 0, KGSL_MEMDESC_PRIVILEGED, "pagetable_desc");
 	if (ret)
 		return ret;
+
+	/* allocate a chunk of memory to create user profiling IB1s */
+	kgsl_allocate_global(KGSL_DEVICE(adreno_dev), &rb->profile_desc,
+		PAGE_SIZE, KGSL_MEMFLAGS_GPUREADONLY, 0, "profile_desc");
+
+	/* For targets that support it, make the ringbuffer privileged */
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_APRIV))
+		priv |= KGSL_MEMDESC_PRIVILEGED;
+
 	return kgsl_allocate_global(KGSL_DEVICE(adreno_dev), &rb->buffer_desc,
-			KGSL_RB_SIZE, KGSL_MEMFLAGS_GPUREADONLY,
-			0, "ringbuffer");
+		KGSL_RB_SIZE, KGSL_MEMFLAGS_GPUREADONLY, priv, "ringbuffer");
 }
 
 int adreno_ringbuffer_probe(struct adreno_device *adreno_dev)
@@ -302,8 +311,14 @@ int adreno_ringbuffer_probe(struct adreno_device *adreno_dev)
 	int status = -ENOMEM;
 
 	if (!adreno_is_a3xx(adreno_dev)) {
+		unsigned int priv = KGSL_MEMDESC_RANDOM;
+
+		/* For targets that support it, make the scratch privileged */
+		if (ADRENO_FEATURE(adreno_dev, ADRENO_APRIV))
+			priv |= KGSL_MEMDESC_PRIVILEGED;
+
 		status = kgsl_allocate_global(device, &device->scratch,
-				PAGE_SIZE, 0, 0, "scratch");
+				PAGE_SIZE, 0, priv, "scratch");
 		if (status != 0)
 			return status;
 	}
@@ -343,7 +358,7 @@ static void _adreno_ringbuffer_close(struct adreno_device *adreno_dev,
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
 	kgsl_free_global(device, &rb->pagetable_desc);
-
+	kgsl_free_global(device, &rb->profile_desc);
 	kgsl_free_global(device, &rb->buffer_desc);
 	kgsl_del_event_group(&rb->events);
 	memset(rb, 0, sizeof(struct adreno_ringbuffer));
@@ -473,7 +488,10 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	 * reserve space to temporarily turn off protected mode
 	 * error checking if needed
 	 */
-	total_sizedwords += flags & KGSL_CMD_FLAGS_PMODE ? 4 : 0;
+	if ((flags & KGSL_CMD_FLAGS_PMODE) &&
+		!ADRENO_FEATURE(adreno_dev, ADRENO_APRIV))
+		total_sizedwords += 4;
+
 	/* 2 dwords to store the start of command sequence */
 	total_sizedwords += 2;
 	/* internal ib command identifier for the ringbuffer */
@@ -595,15 +613,25 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	if (secured_ctxt)
 		ringcmds += cp_secure_mode(adreno_dev, ringcmds, 1);
 
-	/* disable protected mode error checking */
-	if (flags & KGSL_CMD_FLAGS_PMODE)
+	/*
+	 * For kernel commands disable protected mode. For user commands turn on
+	 * protected mode universally to avoid the possibility that somebody
+	 * managed to get this far with protected mode turned off.
+	 *
+	 * If the target supports apriv control then we don't need this step
+	 * since all the permisisons will already be managed for us
+	 */
+
+	if ((flags & KGSL_CMD_FLAGS_PMODE) &&
+		!ADRENO_FEATURE(adreno_dev, ADRENO_APRIV))
 		ringcmds += cp_protected_mode(adreno_dev, ringcmds, 0);
 
 	for (i = 0; i < sizedwords; i++)
 		*ringcmds++ = cmds[i];
 
 	/* re-enable protected mode error checking */
-	if (flags & KGSL_CMD_FLAGS_PMODE)
+	if ((flags & KGSL_CMD_FLAGS_PMODE) &&
+			!ADRENO_FEATURE(adreno_dev, ADRENO_APRIV))
 		ringcmds += cp_protected_mode(adreno_dev, ringcmds, 1);
 
 	/*
@@ -814,6 +842,37 @@ static inline int _get_alwayson_counter(struct adreno_device *adreno_dev,
 	return (unsigned int)(p - cmds);
 }
 
+/* This is the maximum possible size for 64 bit targets */
+#define PROFILE_IB_DWORDS 4
+#define PROFILE_IB_SLOTS (PAGE_SIZE / (PROFILE_IB_DWORDS << 2))
+
+static int set_user_profiling(struct adreno_device *adreno_dev,
+		struct adreno_ringbuffer *rb, u32 *cmds, u64 gpuaddr)
+{
+	int dwords, index = 0;
+	u64 ib_gpuaddr;
+	u32 *ib;
+
+	if (!rb->profile_desc.hostptr)
+		return 0;
+
+	ib = ((u32 *) rb->profile_desc.hostptr) +
+		(rb->profile_index * PROFILE_IB_DWORDS);
+	ib_gpuaddr = rb->profile_desc.gpuaddr +
+		(rb->profile_index * (PROFILE_IB_DWORDS << 2));
+
+	dwords = _get_alwayson_counter(adreno_dev, ib, gpuaddr);
+
+	/* Make an indirect buffer for the request */
+	cmds[index++] = cp_mem_packet(adreno_dev, CP_INDIRECT_BUFFER_PFE, 2, 1);
+	index += cp_gpuaddr(adreno_dev, &cmds[index], ib_gpuaddr);
+	cmds[index++] = dwords;
+
+	rb->profile_index = (rb->profile_index + 1) % PROFILE_IB_SLOTS;
+
+	return index;
+}
+
 /* adreno_rindbuffer_submitcmd - submit userspace IBs to the GPU */
 int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 		struct kgsl_drawobj_cmd *cmdobj,
@@ -913,14 +972,12 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 		!adreno_is_a3xx(adreno_dev) &&
 		(cmdobj->profiling_buf_entry != NULL)) {
 		user_profiling = true;
-		dwords += 6;
 
 		/*
-		 * REG_TO_MEM packet on A5xx and above needs another ordinal.
-		 * Add 2 more dwords since we do profiling before and after.
+		 * User side profiling uses two IB1s, one before with 4 dwords
+		 * per INDIRECT_BUFFER_PFE call
 		 */
-		if (!ADRENO_LEGACY_PM4(adreno_dev))
-			dwords += 2;
+		dwords += 8;
 
 		/*
 		 * we want to use an adreno_submit_time struct to get the
@@ -972,11 +1029,11 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	}
 
 	/*
-	 * Add cmds to read the GPU ticks at the start of command obj and
+	 * Add IB1 to read the GPU ticks at the start of command obj and
 	 * write it into the appropriate command obj profiling buffer offset
 	 */
 	if (user_profiling) {
-		cmds += _get_alwayson_counter(adreno_dev, cmds,
+		cmds += set_user_profiling(adreno_dev, rb, cmds,
 			cmdobj->profiling_buffer_gpuaddr +
 			offsetof(struct kgsl_drawobj_profiling_buffer,
 			gpu_ticks_submitted));
@@ -999,7 +1056,12 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 			*cmds++ = cp_mem_packet(adreno_dev,
 					CP_INDIRECT_BUFFER_PFE, 2, 1);
 			cmds += cp_gpuaddr(adreno_dev, cmds, ib->gpuaddr);
-			*cmds++ = (unsigned int) ib->size >> 2;
+			/*
+			 * Never allow bit 20 (IB_PRIV) to be set. All IBs MUST
+			 * run at reduced privilege
+			 */
+			*cmds++ = (unsigned int) ((ib->size >> 2) & 0xfffff);
+
 			/* preamble is required on only for first command */
 			use_preamble = false;
 		}
@@ -1023,11 +1085,11 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	}
 
 	/*
-	 * Add cmds to read the GPU ticks at the end of command obj and
+	 * Add IB1 to read the GPU ticks at the end of command obj and
 	 * write it into the appropriate command obj profiling buffer offset
 	 */
 	if (user_profiling) {
-		cmds += _get_alwayson_counter(adreno_dev, cmds,
+		cmds += set_user_profiling(adreno_dev, rb, cmds,
 			cmdobj->profiling_buffer_gpuaddr +
 			offsetof(struct kgsl_drawobj_profiling_buffer,
 			gpu_ticks_retired));

@@ -47,7 +47,6 @@
 #define SCLK_HZ (32768)
 #define PSCI_POWER_STATE(reset) (reset << 30)
 #define PSCI_AFFINITY_LEVEL(lvl) ((lvl & 0x3) << 24)
-#define BIAS_HYST (bias_hyst * NSEC_PER_MSEC)
 
 enum {
 	MSM_LPM_LVL_DBG_SUSPEND_LIMITS = BIT(0),
@@ -82,9 +81,6 @@ struct lpm_cluster *lpm_root_node;
 
 static bool lpm_prediction = true;
 module_param_named(lpm_prediction, lpm_prediction, bool, 0664);
-
-static uint32_t bias_hyst;
-module_param_named(bias_hyst, bias_hyst, uint, 0664);
 
 struct lpm_history {
 	uint32_t resi[MAXSAMPLES];
@@ -617,36 +613,23 @@ static void clear_predict_history(void)
 
 static void update_history(struct cpuidle_device *dev, int idx);
 
-static inline bool is_cpu_biased(int cpu, uint64_t *bias_time)
-{
-	u64 now = sched_clock();
-	u64 last = sched_get_cpu_last_busy_time(cpu);
-	u64 diff = 0;
-
-	if (!last)
-		return false;
-
-	diff = now - last;
-	if (diff < BIAS_HYST) {
-		*bias_time = BIAS_HYST - diff;
-		return true;
-	}
-
-	return false;
-}
-
 static inline bool lpm_disallowed(s64 sleep_us, int cpu, struct lpm_cpu *pm_cpu)
 {
 	uint64_t bias_time = 0;
 
-	if (sleep_disabled && !cpu_isolated(cpu))
+	if (cpu_isolated(cpu))
+		goto out;
+
+	if (sleep_disabled)
 		return true;
 
-	if (is_cpu_biased(cpu, &bias_time) && (!cpu_isolated(cpu))) {
+	bias_time = sched_lpm_disallowed_time(cpu);
+	if (bias_time) {
 		pm_cpu->bias = bias_time;
 		return true;
 	}
 
+out:
 	if (sleep_us < 0)
 		return true;
 

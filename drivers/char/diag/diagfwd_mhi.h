@@ -39,6 +39,7 @@
 /* Below mhi  device ids are from mhi controller */
 #define MHI_DEV_ID_1 0x306
 #define MHI_DEV_ID_2 0x1101
+#define MHI_DEV_ID_3 0x1103
 
 struct diag_mhi_buf_tbl_t {
 	struct list_head link;

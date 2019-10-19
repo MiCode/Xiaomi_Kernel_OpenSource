@@ -3227,12 +3227,17 @@ static void _aead_aes_fb_stage1_ahash_complete(
 		unsigned char *tmp;
 
 		tmp = kmalloc(ctx->authsize, GFP_KERNEL);
+		if (!tmp) {
+			err = -ENOMEM;
+			goto ret;
+		}
 		scatterwalk_map_and_copy(tmp, rctx->fb_aes_src,
 			req->cryptlen - ctx->authsize, ctx->authsize, 0);
 		if (memcmp(rctx->fb_ahash_digest, tmp, ctx->authsize) != 0)
 			err = -EBADMSG;
 		kfree(tmp);
 	}
+ret:
 	if (err)
 		_qcrypto_aead_aes_192_fb_a_cb(rctx, err);
 	else {
@@ -3359,6 +3364,10 @@ static int _qcrypto_aead_aes_192_fallback(struct aead_request *req,
 			unsigned char *tmp;
 
 			tmp = kmalloc(ctx->authsize, GFP_KERNEL);
+			if (!tmp) {
+				rc = -ENOMEM;
+				goto ret;
+			}
 			/* compare icv */
 			scatterwalk_map_and_copy(tmp,
 				src, req->cryptlen - ctx->authsize,

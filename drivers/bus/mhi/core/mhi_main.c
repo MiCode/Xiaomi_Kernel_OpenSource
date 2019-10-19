@@ -635,8 +635,16 @@ int mhi_destroy_device(struct device *dev, void *data)
 
 int mhi_early_notify_device(struct device *dev, void *data)
 {
-	struct mhi_device *mhi_dev = to_mhi_device(dev);
-	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
+	struct mhi_device *mhi_dev;
+	struct mhi_controller *mhi_cntrl;
+	struct mhi_chan *mhi_chan;
+	int dir;
+
+	if (dev->bus != &mhi_bus_type)
+		return 0;
+
+	mhi_dev = to_mhi_device(dev);
+	mhi_cntrl = mhi_dev->mhi_cntrl;
 
 	/* skip early notification */
 	if (!mhi_dev->early_notif)
@@ -645,6 +653,20 @@ int mhi_early_notify_device(struct device *dev, void *data)
 	MHI_LOG("Early notification for dev:%s\n", mhi_dev->chan_name);
 
 	mhi_notify(mhi_dev, MHI_CB_FATAL_ERROR);
+
+	/* send completions to any critical channels waiting on them */
+	for (dir = 0; dir < 2; dir++) {
+		mhi_chan = dir ? mhi_dev->ul_chan : mhi_dev->dl_chan;
+
+		if (!mhi_chan)
+			continue;
+
+		/* wake all threads waiting for completion */
+		write_lock_irq(&mhi_chan->lock);
+		mhi_chan->ccs = MHI_EV_CC_INVALID;
+		complete_all(&mhi_chan->completion);
+		write_unlock_irq(&mhi_chan->lock);
+	}
 
 	return 0;
 }
@@ -1569,7 +1591,8 @@ irqreturn_t mhi_intvec_threaded_handlr(int irq_number, void *dev)
 		state = mhi_get_mhi_state(mhi_cntrl);
 		ee = mhi_cntrl->ee;
 		mhi_cntrl->ee = mhi_get_exec_env(mhi_cntrl);
-		MHI_LOG("device ee:%s dev_state:%s\n",
+		MHI_LOG("local ee: %s device ee:%s dev_state:%s\n",
+			TO_MHI_EXEC_STR(ee),
 			TO_MHI_EXEC_STR(mhi_cntrl->ee),
 			TO_MHI_STATE_STR(state));
 	}
@@ -1582,11 +1605,14 @@ irqreturn_t mhi_intvec_threaded_handlr(int irq_number, void *dev)
 	write_unlock_irq(&mhi_cntrl->pm_lock);
 
 	/* if device in rddm don't bother processing sys error */
-	if (mhi_cntrl->ee == MHI_EE_RDDM) {
+	if (mhi_cntrl->ee == MHI_EE_RDDM && ee != MHI_EE_DISABLE_TRANSITION) {
 		if (mhi_cntrl->ee != ee) {
 			mhi_cntrl->status_cb(mhi_cntrl, mhi_cntrl->priv_data,
 					     MHI_CB_EE_RDDM);
 			wake_up_all(&mhi_cntrl->state_event);
+
+			/* notify critical clients with early notifications */
+			mhi_control_error(mhi_cntrl);
 		}
 		goto exit_intvec;
 	}
@@ -1688,8 +1714,8 @@ int mhi_send_cmd(struct mhi_controller *mhi_cntrl,
 	return 0;
 }
 
-static int __mhi_prepare_channel(struct mhi_controller *mhi_cntrl,
-				 struct mhi_chan *mhi_chan)
+int mhi_prepare_channel(struct mhi_controller *mhi_cntrl,
+			struct mhi_chan *mhi_chan)
 {
 	int ret = 0;
 
@@ -1730,15 +1756,16 @@ static int __mhi_prepare_channel(struct mhi_controller *mhi_cntrl,
 		goto error_pm_state;
 	}
 
+	atomic_inc(&mhi_cntrl->pending_pkts);
 	mhi_cntrl->wake_toggle(mhi_cntrl);
+	if (MHI_PM_IN_SUSPEND_STATE(mhi_cntrl->pm_state))
+		mhi_trigger_resume(mhi_cntrl);
 	read_unlock_bh(&mhi_cntrl->pm_lock);
-	mhi_cntrl->runtime_get(mhi_cntrl, mhi_cntrl->priv_data);
-	mhi_cntrl->runtime_put(mhi_cntrl, mhi_cntrl->priv_data);
 
 	ret = mhi_send_cmd(mhi_cntrl, mhi_chan, MHI_CMD_START_CHAN);
 	if (ret) {
 		MHI_ERR("Failed to send start chan cmd\n");
-		goto error_pm_state;
+		goto error_dec_pendpkt;
 	}
 
 	ret = wait_for_completion_timeout(&mhi_chan->completion,
@@ -1747,8 +1774,10 @@ static int __mhi_prepare_channel(struct mhi_controller *mhi_cntrl,
 		MHI_ERR("Failed to receive cmd completion for chan:%d\n",
 			mhi_chan->chan);
 		ret = -EIO;
-		goto error_pm_state;
+		goto error_dec_pendpkt;
 	}
+
+	atomic_dec(&mhi_cntrl->pending_pkts);
 
 	write_lock_irq(&mhi_chan->lock);
 	mhi_chan->ch_state = MHI_CH_STATE_ENABLED;
@@ -1795,6 +1824,8 @@ static int __mhi_prepare_channel(struct mhi_controller *mhi_cntrl,
 
 	return 0;
 
+error_dec_pendpkt:
+	atomic_dec(&mhi_cntrl->pending_pkts);
 error_pm_state:
 	if (!mhi_chan->offload_ch)
 		mhi_deinit_chan_ctxt(mhi_cntrl, mhi_chan);
@@ -1953,15 +1984,16 @@ static void __mhi_unprepare_channel(struct mhi_controller *mhi_cntrl,
 		goto error_invalid_state;
 	}
 
+	atomic_inc(&mhi_cntrl->pending_pkts);
 	mhi_cntrl->wake_toggle(mhi_cntrl);
+	if (MHI_PM_IN_SUSPEND_STATE(mhi_cntrl->pm_state))
+		mhi_trigger_resume(mhi_cntrl);
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 
-	mhi_cntrl->runtime_get(mhi_cntrl, mhi_cntrl->priv_data);
-	mhi_cntrl->runtime_put(mhi_cntrl, mhi_cntrl->priv_data);
 	ret = mhi_send_cmd(mhi_cntrl, mhi_chan, MHI_CMD_RESET_CHAN);
 	if (ret) {
 		MHI_ERR("Failed to send reset chan cmd\n");
-		goto error_invalid_state;
+		goto error_dec_pendpkt;
 	}
 
 	/* even if it fails we will still reset */
@@ -1970,6 +2002,8 @@ static void __mhi_unprepare_channel(struct mhi_controller *mhi_cntrl,
 	if (!ret || mhi_chan->ccs != MHI_EV_CC_SUCCESS)
 		MHI_ERR("Failed to receive cmd completion, still resetting\n");
 
+error_dec_pendpkt:
+	atomic_dec(&mhi_cntrl->pending_pkts);
 error_invalid_state:
 	if (!mhi_chan->offload_ch) {
 		mhi_reset_chan(mhi_cntrl, mhi_chan);
@@ -2076,7 +2110,7 @@ int mhi_prepare_for_transfer(struct mhi_device *mhi_dev)
 		if (!mhi_chan)
 			continue;
 
-		ret = __mhi_prepare_channel(mhi_cntrl, mhi_chan);
+		ret = mhi_prepare_channel(mhi_cntrl, mhi_chan);
 		if (ret) {
 			MHI_ERR("Error moving chan %s,%d to START state\n",
 				mhi_chan->name, mhi_chan->chan);
@@ -2144,15 +2178,16 @@ static int mhi_update_channel_state(struct mhi_controller *mhi_cntrl,
 		goto error_chan_state;
 	}
 
+	atomic_inc(&mhi_cntrl->pending_pkts);
 	mhi_cntrl->wake_toggle(mhi_cntrl);
+	if (MHI_PM_IN_SUSPEND_STATE(mhi_cntrl->pm_state))
+		mhi_trigger_resume(mhi_cntrl);
 	read_unlock_bh(&mhi_cntrl->pm_lock);
-	mhi_cntrl->runtime_get(mhi_cntrl, mhi_cntrl->priv_data);
-	mhi_cntrl->runtime_put(mhi_cntrl, mhi_cntrl->priv_data);
 
 	ret = mhi_send_cmd(mhi_cntrl, mhi_chan, cmd);
 	if (ret) {
 		MHI_ERR("Failed to send start chan cmd\n");
-		goto error_chan_state;
+		goto error_dec_pendpkt;
 	}
 
 	ret = wait_for_completion_timeout(&mhi_chan->completion,
@@ -2161,7 +2196,7 @@ static int mhi_update_channel_state(struct mhi_controller *mhi_cntrl,
 		MHI_ERR("Failed to receive cmd completion for chan:%d\n",
 			mhi_chan->chan);
 		ret = -EIO;
-		goto error_chan_state;
+		goto error_dec_pendpkt;
 	}
 
 	ret = 0;
@@ -2169,6 +2204,8 @@ static int mhi_update_channel_state(struct mhi_controller *mhi_cntrl,
 	MHI_VERB("chan:%d successfully transition to state:%s\n",
 		 mhi_chan->chan, cmd == MHI_CMD_START_CHAN ? "START" : "STOP");
 
+error_dec_pendpkt:
+	atomic_dec(&mhi_cntrl->pending_pkts);
 error_chan_state:
 	mutex_unlock(&mhi_chan->mutex);
 

@@ -407,14 +407,6 @@ static int hfi_process_session_cvp_operation_config(u32 device_id,
 	return 0;
 }
 
-static int hfi_process_session_cvp_dfs(u32 device_id,
-	void *pkt,
-	struct msm_cvp_cb_info *info)
-{
-	dprintk(CVP_ERR, "Deprecated DFS handling path\n");
-		return -EINVAL;
-}
-
 static struct msm_cvp_inst *cvp_get_inst_from_id(struct msm_cvp_core *core,
 	unsigned int session_id)
 {
@@ -477,8 +469,7 @@ static int hfi_process_session_cvp_msg(u32 device_id,
 	}
 
 	if (inst->deprecate_bitmask) {
-		if (pkt->packet_type == HFI_MSG_SESSION_CVP_DFS
-			|| pkt->packet_type == HFI_MSG_SESSION_CVP_DME
+		if (pkt->packet_type == HFI_MSG_SESSION_CVP_DME
 			|| pkt->packet_type == HFI_MSG_SESSION_CVP_ICA
 			|| pkt->packet_type == HFI_MSG_SESSION_CVP_FD) {
 			u64 ktid;
@@ -496,7 +487,7 @@ static int hfi_process_session_cvp_msg(u32 device_id,
 					inst->deprecate_bitmask);
 	}
 
-	sess_msg = kmem_cache_alloc(inst->session_queue.msg_cache, GFP_KERNEL);
+	sess_msg = kmem_cache_alloc(cvp_driver->msg_cache, GFP_KERNEL);
 	if (sess_msg == NULL) {
 		dprintk(CVP_ERR, "%s runs out msg cache memory\n", __func__);
 		return -ENOMEM;
@@ -526,7 +517,7 @@ static int hfi_process_session_cvp_msg(u32 device_id,
 
 error_handle_msg:
 	spin_unlock(&inst->session_queue.lock);
-	kmem_cache_free(inst->session_queue.msg_cache, sess_msg);
+	kmem_cache_free(cvp_driver->msg_cache, sess_msg);
 	return -ENOMEM;
 }
 
@@ -619,26 +610,20 @@ static int _deprecated_hfi_msg_process(u32 device_id,
 	struct msm_cvp_cb_info *info,
 	struct msm_cvp_inst *inst)
 {
-	if (pkt->packet_type == HFI_MSG_SESSION_CVP_DFS)
-		if (test_and_clear_bit(DFS_BIT_OFFSET,
-				&inst->deprecate_bitmask))
-			return hfi_process_session_cvp_dfs(
-					device_id, (void *)pkt, info);
-
 	if (pkt->packet_type == HFI_MSG_SESSION_CVP_DME)
-		if (test_and_clear_bit(DME_BIT_OFFSET,
+		if (test_bit(DME_BIT_OFFSET,
 				&inst->deprecate_bitmask))
 			return hfi_process_session_cvp_dme(
 					device_id, (void *)pkt, info);
 
 	if (pkt->packet_type == HFI_MSG_SESSION_CVP_ICA)
-		if (test_and_clear_bit(ICA_BIT_OFFSET,
+		if (test_bit(ICA_BIT_OFFSET,
 				&inst->deprecate_bitmask))
 			return hfi_process_session_cvp_ica(
 				device_id, (void *)pkt, info);
 
 	if (pkt->packet_type == HFI_MSG_SESSION_CVP_FD)
-		if (test_and_clear_bit(FD_BIT_OFFSET,
+		if (test_bit(FD_BIT_OFFSET,
 				&inst->deprecate_bitmask))
 			return hfi_process_session_cvp_fd(
 				device_id, (void *)pkt, info);

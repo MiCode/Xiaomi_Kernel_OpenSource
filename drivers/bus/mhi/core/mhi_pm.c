@@ -33,7 +33,8 @@
  *     M0 <--> M0
  *     M0 -> FW_DL_ERR
  *     M0 -> M3_ENTER -> M3 -> M3_EXIT --> M0
- * L1: SYS_ERR_DETECT -> SYS_ERR_PROCESS --> POR
+ * L1: DEVICE_ERR_DETECT -> SYS_ERR_DETECT
+ *     SYS_ERR_DETECT -> SYS_ERR_PROCESS --> POR
  * L2: SHUTDOWN_PROCESS -> LD_ERR_FATAL_DETECT
  *     SHUTDOWN_PROCESS -> DISABLE
  * L3: LD_ERR_FATAL_DETECT <--> LD_ERR_FATAL_DETECT
@@ -49,44 +50,53 @@ static struct mhi_pm_transitions const mhi_state_transitions[] = {
 	{
 		MHI_PM_POR,
 		MHI_PM_POR | MHI_PM_DISABLE | MHI_PM_M0 |
-		MHI_PM_SYS_ERR_DETECT | MHI_PM_SHUTDOWN_PROCESS |
-		MHI_PM_LD_ERR_FATAL_DETECT | MHI_PM_FW_DL_ERR |
-		MHI_PM_SHUTDOWN_NO_ACCESS
+		MHI_PM_DEVICE_ERR_DETECT | MHI_PM_SYS_ERR_DETECT |
+		MHI_PM_SHUTDOWN_PROCESS | MHI_PM_LD_ERR_FATAL_DETECT |
+		MHI_PM_FW_DL_ERR | MHI_PM_SHUTDOWN_NO_ACCESS
 	},
 	{
 		MHI_PM_M0,
 		MHI_PM_M0 | MHI_PM_M2 | MHI_PM_M3_ENTER |
-		MHI_PM_SYS_ERR_DETECT | MHI_PM_SHUTDOWN_PROCESS |
-		MHI_PM_LD_ERR_FATAL_DETECT | MHI_PM_FW_DL_ERR |
-		MHI_PM_SHUTDOWN_NO_ACCESS
+		MHI_PM_DEVICE_ERR_DETECT | MHI_PM_SYS_ERR_DETECT |
+		MHI_PM_SHUTDOWN_PROCESS | MHI_PM_LD_ERR_FATAL_DETECT |
+		MHI_PM_FW_DL_ERR | MHI_PM_SHUTDOWN_NO_ACCESS
 	},
 	{
 		MHI_PM_M2,
-		MHI_PM_M0 | MHI_PM_SYS_ERR_DETECT | MHI_PM_SHUTDOWN_PROCESS |
-		MHI_PM_LD_ERR_FATAL_DETECT | MHI_PM_SHUTDOWN_NO_ACCESS
-	},
-	{
-		MHI_PM_M3_ENTER,
-		MHI_PM_M3 | MHI_PM_SYS_ERR_DETECT | MHI_PM_SHUTDOWN_PROCESS |
-		MHI_PM_LD_ERR_FATAL_DETECT | MHI_PM_SHUTDOWN_NO_ACCESS
-	},
-	{
-		MHI_PM_M3,
-		MHI_PM_M3_EXIT | MHI_PM_SYS_ERR_DETECT |
-		MHI_PM_LD_ERR_FATAL_DETECT | MHI_PM_SHUTDOWN_NO_ACCESS
-	},
-	{
-		MHI_PM_M3_EXIT,
-		MHI_PM_M0 | MHI_PM_SYS_ERR_DETECT | MHI_PM_SHUTDOWN_PROCESS |
-		MHI_PM_LD_ERR_FATAL_DETECT | MHI_PM_SHUTDOWN_NO_ACCESS
-	},
-	{
-		MHI_PM_FW_DL_ERR,
-		MHI_PM_FW_DL_ERR | MHI_PM_SYS_ERR_DETECT |
+		MHI_PM_M0 | MHI_PM_DEVICE_ERR_DETECT | MHI_PM_SYS_ERR_DETECT |
 		MHI_PM_SHUTDOWN_PROCESS | MHI_PM_LD_ERR_FATAL_DETECT |
 		MHI_PM_SHUTDOWN_NO_ACCESS
 	},
+	{
+		MHI_PM_M3_ENTER,
+		MHI_PM_M3 | MHI_PM_DEVICE_ERR_DETECT | MHI_PM_SYS_ERR_DETECT |
+		MHI_PM_SHUTDOWN_PROCESS | MHI_PM_LD_ERR_FATAL_DETECT |
+		MHI_PM_SHUTDOWN_NO_ACCESS
+	},
+	{
+		MHI_PM_M3,
+		MHI_PM_M3_EXIT | MHI_PM_DEVICE_ERR_DETECT |
+		MHI_PM_SYS_ERR_DETECT | MHI_PM_LD_ERR_FATAL_DETECT |
+		MHI_PM_SHUTDOWN_NO_ACCESS
+	},
+	{
+		MHI_PM_M3_EXIT,
+		MHI_PM_M0 | MHI_PM_DEVICE_ERR_DETECT | MHI_PM_SYS_ERR_DETECT |
+		MHI_PM_SHUTDOWN_PROCESS | MHI_PM_LD_ERR_FATAL_DETECT |
+		MHI_PM_SHUTDOWN_NO_ACCESS
+	},
+	{
+		MHI_PM_FW_DL_ERR,
+		MHI_PM_FW_DL_ERR | MHI_PM_DEVICE_ERR_DETECT |
+		MHI_PM_SYS_ERR_DETECT | MHI_PM_SHUTDOWN_PROCESS |
+		MHI_PM_LD_ERR_FATAL_DETECT | MHI_PM_SHUTDOWN_NO_ACCESS
+	},
 	/* L1 States */
+	{
+		MHI_PM_DEVICE_ERR_DETECT,
+		MHI_PM_SYS_ERR_DETECT | MHI_PM_SHUTDOWN_PROCESS |
+		MHI_PM_LD_ERR_FATAL_DETECT | MHI_PM_SHUTDOWN_NO_ACCESS
+	},
 	{
 		MHI_PM_SYS_ERR_DETECT,
 		MHI_PM_SYS_ERR_PROCESS | MHI_PM_SHUTDOWN_PROCESS |
@@ -211,7 +221,8 @@ void mhi_deassert_dev_wake(struct mhi_controller *mhi_cntrl, bool override)
 {
 	unsigned long flags;
 
-	MHI_ASSERT(atomic_read(&mhi_cntrl->dev_wake) == 0, "dev_wake == 0");
+	MHI_ASSERT((mhi_is_active(mhi_cntrl->mhi_dev) &&
+		   atomic_read(&mhi_cntrl->dev_wake) == 0), "dev_wake == 0");
 
 	/* resources not dropping to 0, decrement and exit */
 	if (likely(atomic_add_unless(&mhi_cntrl->dev_wake, -1, 1)))
@@ -832,6 +843,7 @@ int mhi_async_power_up(struct mhi_controller *mhi_cntrl)
 	u32 val;
 	enum mhi_ee current_ee;
 	enum MHI_ST_TRANSITION next_state;
+	struct mhi_device *mhi_dev = mhi_cntrl->mhi_dev;
 
 	MHI_LOG("Requested to power on\n");
 
@@ -846,6 +858,10 @@ int mhi_async_power_up(struct mhi_controller *mhi_cntrl)
 		mhi_cntrl->wake_toggle = (mhi_cntrl->db_access & MHI_PM_M2) ?
 			mhi_toggle_dev_wake_nop : mhi_toggle_dev_wake;
 	}
+
+	/* clear votes before proceeding for power up */
+	atomic_set(&mhi_dev->dev_vote, 0);
+	atomic_set(&mhi_dev->bus_vote, 0);
 
 	mutex_lock(&mhi_cntrl->pm_mutex);
 	mhi_cntrl->pm_state = MHI_PM_DISABLE;
@@ -935,19 +951,24 @@ EXPORT_SYMBOL(mhi_async_power_up);
 /* Transition MHI into error state and notify critical clients */
 void mhi_control_error(struct mhi_controller *mhi_cntrl)
 {
-	enum MHI_PM_STATE cur_state;
+	enum MHI_PM_STATE cur_state, transition_state;
 
 	MHI_LOG("Enter with pm_state:%s MHI_STATE:%s\n",
 		to_mhi_pm_state_str(mhi_cntrl->pm_state),
 		TO_MHI_STATE_STR(mhi_cntrl->dev_state));
 
+	/* link is not down if device is in RDDM */
+	transition_state = (mhi_cntrl->ee == MHI_EE_RDDM) ?
+		MHI_PM_DEVICE_ERR_DETECT : MHI_PM_LD_ERR_FATAL_DETECT;
+
 	write_lock_irq(&mhi_cntrl->pm_lock);
-	cur_state = mhi_tryset_pm_state(mhi_cntrl, MHI_PM_LD_ERR_FATAL_DETECT);
+	cur_state = mhi_tryset_pm_state(mhi_cntrl, transition_state);
 	write_unlock_irq(&mhi_cntrl->pm_lock);
 
-	if (cur_state != MHI_PM_LD_ERR_FATAL_DETECT) {
+	/* proceed if we move to device error or are already in error state */
+	if (!MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state)) {
 		MHI_ERR("Failed to transition to state:%s from:%s\n",
-			to_mhi_pm_state_str(MHI_PM_LD_ERR_FATAL_DETECT),
+			to_mhi_pm_state_str(transition_state),
 			to_mhi_pm_state_str(cur_state));
 		goto exit_control_error;
 	}
@@ -1144,6 +1165,11 @@ int mhi_pm_fast_suspend(struct mhi_controller *mhi_cntrl, bool notify_client)
 		MHI_VERB("Busy, aborting M3\n");
 		return -EBUSY;
 	}
+
+	/* wait here if controller wants device to be in M2 before proceeding */
+	wait_event_timeout(mhi_cntrl->state_event,
+			   mhi_cntrl->dev_state == MHI_STATE_M2,
+			   msecs_to_jiffies(mhi_cntrl->m2_timeout_ms));
 
 	/* disable ctrl event processing */
 	tasklet_disable(&mhi_cntrl->mhi_event->task);

@@ -199,8 +199,8 @@ const struct fw_map talyn_mb_fw_mapping[] = {
 	{0x8c0000, 0x8c0210, 0x8c0000, "dum_user_rgf", true, true},
 	/* DMA OFU 296b */
 	{0x8c2000, 0x8c2128, 0x8c2000, "dma_ofu", true, true},
-	/* ucode debug 4k */
-	{0x8c3000, 0x8c4000, 0x8c3000, "ucode_debug", true, true},
+	/* ucode debug 256b */
+	{0x8c3000, 0x8c3100, 0x8c3000, "ucode_debug", true, true},
 	/* upper area 1536k */
 	{0x900000, 0xa80000, 0x900000, "upper", true, true},
 	/* UCODE areas - accessible by debugfs blobs but not by
@@ -2259,8 +2259,8 @@ int wmi_rbufcap_cfg(struct wil6210_priv *wil, bool enable, u16 threshold)
 	return rc;
 }
 
-int wmi_pcp_start(struct wil6210_vif *vif,
-		  int bi, u8 wmi_nettype, u8 chan, u8 hidden_ssid, u8 is_go)
+int wmi_pcp_start(struct wil6210_vif *vif, int bi, u8 wmi_nettype,
+		  u8 chan, u8 wmi_edmg_chan, u8 hidden_ssid, u8 is_go)
 {
 	struct wil6210_priv *wil = vif_to_wil(vif);
 	int rc;
@@ -2270,6 +2270,7 @@ int wmi_pcp_start(struct wil6210_vif *vif,
 		.network_type = wmi_nettype,
 		.disable_sec_offload = 1,
 		.channel = chan - 1,
+		.edmg_channel = wmi_edmg_chan,
 		.pcp_max_assoc_sta = max_assoc_sta,
 		.hidden_ssid = hidden_ssid,
 		.is_go = is_go,

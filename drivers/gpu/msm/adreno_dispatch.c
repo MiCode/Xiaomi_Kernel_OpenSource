@@ -7,6 +7,7 @@
 
 #include "adreno.h"
 #include "adreno_trace.h"
+#include "kgsl_gmu_core.h"
 
 #define DRAWQUEUE_NEXT(_i, _s) (((_i) + 1) % (_s))
 
@@ -1657,12 +1658,32 @@ static inline const char *_kgsl_context_comm(struct kgsl_context *context)
 
 
 static void adreno_fault_header(struct kgsl_device *device,
-		struct adreno_ringbuffer *rb, struct kgsl_drawobj_cmd *cmdobj)
+		struct adreno_ringbuffer *rb, struct kgsl_drawobj_cmd *cmdobj,
+		int fault)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_drawobj *drawobj = DRAWOBJ(cmdobj);
+	struct adreno_context *drawctxt =
+			drawobj ? ADRENO_CONTEXT(drawobj->context) : NULL;
 	unsigned int status, rptr, wptr, ib1sz, ib2sz;
 	uint64_t ib1base, ib2base;
+	bool gx_on = gmu_core_dev_gx_is_on(device);
+	int id = (rb != NULL) ? rb->id : -1;
+	const char *type = fault & ADRENO_GMU_FAULT ? "gmu" : "gpu";
+
+	if (!gx_on) {
+		if (drawobj != NULL)
+			pr_fault(device, drawobj,
+				"%s fault ctx %d ctx_type %s ts %d and GX is OFF\n",
+				type, drawobj->context->id,
+				get_api_type_str(drawctxt->type),
+				drawobj->timestamp);
+		else
+			dev_err(device->dev, "RB[%d] : %s fault and GX is OFF\n",
+				id, type);
+
+		return;
+	}
 
 	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_STATUS, &status);
 	adreno_readreg(adreno_dev, ADRENO_REG_CP_RB_RPTR, &rptr);
@@ -1675,9 +1696,6 @@ static void adreno_fault_header(struct kgsl_device *device,
 	adreno_readreg(adreno_dev, ADRENO_REG_CP_IB2_BUFSZ, &ib2sz);
 
 	if (drawobj != NULL) {
-		struct adreno_context *drawctxt =
-			ADRENO_CONTEXT(drawobj->context);
-
 		drawctxt->base.total_fault_count++;
 		drawctxt->base.last_faulted_cmd_ts = drawobj->timestamp;
 
@@ -1687,26 +1705,25 @@ static void adreno_fault_header(struct kgsl_device *device,
 			ib2base, ib2sz, drawctxt->rb->id);
 
 		pr_fault(device, drawobj,
-			"gpu fault ctx %d ctx_type %s ts %d status %8.8X rb %4.4x/%4.4x ib1 %16.16llX/%4.4x ib2 %16.16llX/%4.4x\n",
-			drawobj->context->id, get_api_type_str(drawctxt->type),
+			"%s fault ctx %d ctx_type %s ts %d status %8.8X rb %4.4x/%4.4x ib1 %16.16llX/%4.4x ib2 %16.16llX/%4.4x\n",
+			type, drawobj->context->id,
+			get_api_type_str(drawctxt->type),
 			drawobj->timestamp, status,
 			rptr, wptr, ib1base, ib1sz, ib2base, ib2sz);
 
 		if (rb != NULL)
 			pr_fault(device, drawobj,
-				"gpu fault rb %d rb sw r/w %4.4x/%4.4x\n",
-				rb->id, rptr, rb->wptr);
+				"%s fault rb %d rb sw r/w %4.4x/%4.4x\n",
+				type, rb->id, rptr, rb->wptr);
 	} else {
-		int id = (rb != NULL) ? rb->id : -1;
-
 		dev_err(device->dev,
-			"RB[%d]: gpu fault status %8.8X rb %4.4x/%4.4x ib1 %16.16llX/%4.4x ib2 %16.16llX/%4.4x\n",
-			id, status, rptr, wptr, ib1base, ib1sz, ib2base,
+			"RB[%d] : %s fault status %8.8X rb %4.4x/%4.4x ib1 %16.16llX/%4.4x ib2 %16.16llX/%4.4x\n",
+			id, type, status, rptr, wptr, ib1base, ib1sz, ib2base,
 			ib2sz);
 		if (rb != NULL)
 			dev_err(device->dev,
-				"RB[%d] gpu fault rb sw r/w %4.4x/%4.4x\n",
-				rb->id, rptr, rb->wptr);
+				"RB[%d] : %s fault rb sw r/w %4.4x/%4.4x\n",
+				rb->id, type, rptr, rb->wptr);
 	}
 }
 
@@ -2028,7 +2045,7 @@ static void do_header_and_snapshot(struct kgsl_device *device, int fault,
 
 	/* Always dump the snapshot on a non-drawobj failure */
 	if (cmdobj == NULL) {
-		adreno_fault_header(device, rb, NULL);
+		adreno_fault_header(device, rb, NULL, fault);
 		kgsl_device_snapshot(device, NULL, fault & ADRENO_GMU_FAULT);
 		return;
 	}
@@ -2038,7 +2055,7 @@ static void do_header_and_snapshot(struct kgsl_device *device, int fault,
 		return;
 
 	/* Print the fault header */
-	adreno_fault_header(device, rb, cmdobj);
+	adreno_fault_header(device, rb, cmdobj, fault);
 
 	if (!(drawobj->context->flags & KGSL_CONTEXT_NO_SNAPSHOT))
 		kgsl_device_snapshot(device, drawobj->context,
@@ -2160,6 +2177,10 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 	if (gx_on)
 		adreno_readreg64(adreno_dev, ADRENO_REG_CP_IB1_BASE,
 			ADRENO_REG_CP_IB1_BASE_HI, &base);
+
+	if (!test_bit(KGSL_FT_PAGEFAULT_GPUHALT_ENABLE,
+		&adreno_dev->ft_pf_policy) && adreno_dev->cooperative_reset)
+		gmu_core_dev_cooperative_reset(device);
 
 	do_header_and_snapshot(device, fault, hung_rb, cmdobj);
 

@@ -3322,6 +3322,7 @@ struct preempt_store {
 	u64 ts;
 	unsigned long caddr[4];
 	bool irqs_disabled;
+	bool is_idle_task;
 };
 
 DEFINE_PER_CPU(struct preempt_store, the_ps);
@@ -3331,7 +3332,9 @@ DEFINE_PER_CPU(struct preempt_store, the_ps);
  */
 static inline void preempt_latency_start(int val)
 {
-	struct preempt_store *ps = &per_cpu(the_ps, raw_smp_processor_id());
+	int cpu = raw_smp_processor_id();
+	struct rq *rq = cpu_rq(cpu);
+	struct preempt_store *ps = &per_cpu(the_ps, cpu);
 
 	if (preempt_count() == val) {
 		unsigned long ip = get_lock_parent_ip();
@@ -3344,6 +3347,7 @@ static inline void preempt_latency_start(int val)
 		ps->caddr[2] = CALLER_ADDR2;
 		ps->caddr[3] = CALLER_ADDR3;
 		ps->irqs_disabled = irqs_disabled();
+		ps->is_idle_task = (rq->curr == rq->idle);
 
 		trace_preempt_off(CALLER_ADDR0, ip);
 	}
@@ -3386,7 +3390,8 @@ static inline void preempt_latency_stop(int val)
 		 * Trace preempt disable stack if preemption
 		 * is disabled for more than the threshold.
 		 */
-		if (delta > sysctl_preemptoff_tracing_threshold_ns)
+		if (!ps->is_idle_task &&
+				delta > sysctl_preemptoff_tracing_threshold_ns)
 			trace_sched_preempt_disable(delta, ps->irqs_disabled,
 						ps->caddr[0], ps->caddr[1],
 						ps->caddr[2], ps->caddr[3]);
@@ -6865,11 +6870,12 @@ static void sched_update_down_migrate_values(int cap_margin_levels,
 
 	if (cap_margin_levels > 1) {
 		/*
-		 * Skip first cluster as down migrate value isn't needed
+		 * Skip last cluster as down migrate value isn't needed.
+		 * Because there is no downmigration to it.
 		 */
 		for (i = 0; i < cap_margin_levels; i++)
-			if (cluster_cpus[i+1])
-				for_each_cpu(cpu, cluster_cpus[i+1])
+			if (cluster_cpus[i])
+				for_each_cpu(cpu, cluster_cpus[i])
 					sched_capacity_margin_down[cpu] =
 					sysctl_sched_capacity_margin_down[i];
 	} else {
@@ -7800,7 +7806,7 @@ const u32 sched_prio_to_wmult[40] = {
  */
 int set_task_boost(int boost, u64 period)
 {
-	if (boost < 0 || boost > 2)
+	if (boost < TASK_BOOST_NONE || boost >= TASK_BOOST_END)
 		return -EINVAL;
 	if (boost) {
 		current->boost = boost;

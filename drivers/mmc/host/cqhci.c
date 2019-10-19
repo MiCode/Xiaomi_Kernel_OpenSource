@@ -102,6 +102,10 @@ static void cqhci_set_irqs(struct cqhci_host *cq_host, u32 set)
 static void cqhci_dumpregs(struct cqhci_host *cq_host)
 {
 	struct mmc_host *mmc = cq_host->mmc;
+	int offset = 0;
+
+	if (cq_host->offset_changed)
+		offset = CQE_V5_VENDOR_CFG;
 
 	mmc_log_string(mmc,
 	"CQHCI_CTL=0x%08x CQHCI_IS=0x%08x CQHCI_ISTE=0x%08x CQHCI_ISGE=0x%08x CQHCI_TDBR=0x%08x CQHCI_TCN=0x%08x CQHCI_DQS=0x%08x CQHCI_DPT=0x%08x CQHCI_TERRI=0x%08x CQHCI_CRI=0x%08x CQHCI_CRA=0x%08x CQHCI_CRDCT=0x%08x\n",
@@ -147,6 +151,8 @@ static void cqhci_dumpregs(struct cqhci_host *cq_host)
 	CQHCI_DUMP("Resp idx:  0x%08x | Resp arg: 0x%08x\n",
 		   cqhci_readl(cq_host, CQHCI_CRI),
 		   cqhci_readl(cq_host, CQHCI_CRA));
+	CQHCI_DUMP("Vendor cfg 0x%08x\n",
+		   cqhci_readl(cq_host, CQHCI_VENDOR_CFG + offset));
 
 	if (cq_host->ops->dumpregs)
 		cq_host->ops->dumpregs(mmc);
@@ -279,6 +285,12 @@ static void __cqhci_enable(struct cqhci_host *cq_host)
 		cq_host->caps |= CQHCI_CAP_CRYPTO_SUPPORT |
 				CQHCI_TASK_DESC_SZ_128;
 		cqcfg |= CQHCI_ICE_ENABLE;
+		/*
+		 * For SDHC v5.0 onwards, ICE 3.0 specific registers are added
+		 * in CQ register space, due to which few CQ registers are
+		 * shifted. Set offset_changed boolean to use updated address.
+		 */
+		 cq_host->offset_changed = true;
 	}
 
 	cqhci_writel(cq_host, cqcfg, CQHCI_CFG);
@@ -292,6 +304,9 @@ static void __cqhci_enable(struct cqhci_host *cq_host)
 		     CQHCI_TDLBAU);
 
 	cqhci_writel(cq_host, cq_host->rca, CQHCI_SSC2);
+
+	/* send QSR at lesser intervals than the default */
+	cqhci_writel(cq_host, SEND_QSR_INTERVAL, CQHCI_SSC1);
 
 	cqhci_set_irqs(cq_host, 0);
 
@@ -375,8 +390,11 @@ static void cqhci_off(struct mmc_host *mmc)
 	bool timed_out;
 	u32 reg;
 
-	if (!cq_host->enabled || !mmc->cqe_on || cq_host->recovery_halt)
+	if (!cq_host->enabled || !mmc->cqe_on || cq_host->recovery_halt) {
+		pr_debug("%s: %s: CQE is already %s\n", mmc_hostname(mmc),
+				__func__, mmc->cqe_on ? "off" : "on");
 		return;
+	}
 
 	if (cq_host->ops->disable)
 		cq_host->ops->disable(mmc, false);
@@ -391,7 +409,7 @@ static void cqhci_off(struct mmc_host *mmc)
 			break;
 	}
 
-	if (timed_out)
+	if (timed_out && !(reg & CQHCI_HALT))
 		pr_err("%s: cqhci: CQE stuck on\n", mmc_hostname(mmc));
 	else
 		pr_debug("%s: cqhci: CQE off\n", mmc_hostname(mmc));
@@ -536,7 +554,7 @@ static void cqhci_prep_dcmd_desc(struct mmc_host *mmc,
 		resp_type = 0x0;
 		timing = 0x1;
 	} else {
-		if (mrq->cmd->flags & MMC_RSP_R1B) {
+		if (mrq->cmd->flags & MMC_RSP_BUSY) {
 			resp_type = 0x3;
 			timing = 0x0;
 		} else {
@@ -660,6 +678,7 @@ static int cqhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		if (cq_host->ops->crypto_cfg) {
 			err = cq_host->ops->crypto_cfg(mmc, mrq, tag, &ice_ctx);
 			if (err) {
+				mmc->err_stats[MMC_ERR_ICE_CFG]++;
 				pr_err("%s: failed to configure crypto: err %d tag %d\n",
 						mmc_hostname(mmc), err, tag);
 				goto out;
@@ -674,7 +693,7 @@ static int cqhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		if (err) {
 			pr_err("%s: cqhci: failed to setup tx desc: %d\n",
 			       mmc_hostname(mmc), err);
-			return err;
+			goto end_crypto;
 		}
 		/* PM QoS */
 		sdhci_msm_pm_qos_irq_vote(host);
@@ -695,8 +714,16 @@ static int cqhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 
 	cq_host->qcnt += 1;
 
+	/* Ensure the task descriptor list is flushed before ringing doorbell */
+	wmb();
+	if (cqhci_readl(cq_host, CQHCI_TDBR) & (1 << tag)) {
+		cqhci_dumpregs(cq_host);
+		BUG();
+	}
 	mmc_log_string(mmc, "tag: %d\n", tag);
 	cqhci_writel(cq_host, 1 << tag, CQHCI_TDBR);
+	/* Commit the doorbell write immediately */
+	wmb();
 	if (!(cqhci_readl(cq_host, CQHCI_TDBR) & (1 << tag)))
 		pr_debug("%s: cqhci: doorbell not set for tag %d\n",
 			 mmc_hostname(mmc), tag);
@@ -705,6 +732,20 @@ out_unlock:
 
 	if (err)
 		cqhci_post_req(mmc, mrq);
+
+	goto out;
+
+end_crypto:
+	if (cq_host->ops->crypto_cfg_end && mrq->data) {
+		err = cq_host->ops->crypto_cfg_end(mmc, mrq);
+		if (err)
+			pr_err("%s: failed to end ice config: err %d tag %d\n",
+					mmc_hostname(mmc), err, tag);
+	}
+	if (!(cq_host->caps & CQHCI_CAP_CRYPTO_SUPPORT) &&
+			cq_host->ops->crypto_cfg_reset && mrq->data)
+		cq_host->ops->crypto_cfg_reset(mmc, tag);
+
 out:
 	return err;
 }
@@ -806,8 +847,10 @@ static void cqhci_finish_mrq(struct mmc_host *mmc, unsigned int tag)
 	struct cqhci_slot *slot = &cq_host->slot[tag];
 	struct mmc_request *mrq = slot->mrq;
 	struct mmc_data *data;
-	int err = 0;
+	int err = 0, offset = 0;
 
+	if (cq_host->offset_changed)
+		offset = CQE_V5_VENDOR_CFG;
 	if (!mrq) {
 		WARN_ONCE(1, "%s: cqhci: spurious TCN for tag %d\n",
 			  mmc_hostname(mmc), tag);
@@ -837,6 +880,11 @@ static void cqhci_finish_mrq(struct mmc_host *mmc, unsigned int tag)
 			data->bytes_xfered = 0;
 		else
 			data->bytes_xfered = data->blksz * data->blocks;
+	} else {
+		cqhci_writel(cq_host, cqhci_readl(cq_host,
+				CQHCI_VENDOR_CFG + offset) |
+				CMDQ_SEND_STATUS_TRIGGER,
+				CQHCI_VENDOR_CFG + offset);
 	}
 
 	if (!(cq_host->caps & CQHCI_CAP_CRYPTO_SUPPORT) &&
@@ -990,8 +1038,10 @@ static bool cqhci_halt(struct mmc_host *mmc, unsigned int timeout)
 	bool ret;
 	u32 ctl;
 
-	if (cqhci_halted(cq_host))
+	if (cqhci_halted(cq_host)) {
+		pr_debug("%s: CQE is already halted.\n", mmc_hostname(mmc));
 		return true;
+	}
 
 	cqhci_set_irqs(cq_host, CQHCI_IS_HAC);
 
@@ -1007,7 +1057,7 @@ static bool cqhci_halt(struct mmc_host *mmc, unsigned int timeout)
 	ret = cqhci_halted(cq_host);
 
 	if (!ret)
-		pr_debug("%s: cqhci: Failed to halt\n", mmc_hostname(mmc));
+		pr_err("%s: cqhci: Failed to halt\n", mmc_hostname(mmc));
 
 	mmc_log_string(mmc, "halt done with ret %d\n", ret);
 	return ret;
@@ -1019,7 +1069,7 @@ static bool cqhci_halt(struct mmc_host *mmc, unsigned int timeout)
  * layers will need to send a STOP command), so we set the timeout based on a
  * generous command timeout.
  */
-#define CQHCI_START_HALT_TIMEOUT	5
+#define CQHCI_START_HALT_TIMEOUT	5000
 
 static void cqhci_recovery_start(struct mmc_host *mmc)
 {

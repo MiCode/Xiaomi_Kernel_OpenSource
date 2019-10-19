@@ -15,6 +15,7 @@
 #include "rmnet_private.h"
 #include "rmnet_map.h"
 #include "rmnet_descriptor.h"
+#include "rmnet_genl.h"
 #include <soc/qcom/rmnet_qmi.h>
 #include <soc/qcom/qmi_rmnet.h>
 
@@ -255,9 +256,9 @@ static void rmnet_dellink(struct net_device *dev, struct list_head *head)
 	if (!port->nr_rmnet_devs)
 		qmi_rmnet_qmi_exit(port->qmi_info, port);
 
-	rmnet_unregister_real_device(real_dev, port);
+	unregister_netdevice(dev);
 
-	unregister_netdevice_queue(dev, head);
+	rmnet_unregister_real_device(real_dev, port);
 }
 
 static void rmnet_force_unassociate_device(struct net_device *dev)
@@ -287,7 +288,9 @@ static void rmnet_force_unassociate_device(struct net_device *dev)
 		synchronize_rcu();
 		kfree(ep);
 	}
-
+	/* Unregistering devices in context before freeing port.
+	 * If this API becomes non-context their order should switch.
+	 */
 	unregister_netdevice_many(&list);
 
 	rmnet_unregister_real_device(real_dev, port);
@@ -726,6 +729,8 @@ static int __init rmnet_init(void)
 		unregister_netdevice_notifier(&rmnet_dev_notifier);
 		return rc;
 	}
+	rmnet_core_genl_init();
+
 	return rc;
 }
 
@@ -733,6 +738,7 @@ static void __exit rmnet_exit(void)
 {
 	unregister_netdevice_notifier(&rmnet_dev_notifier);
 	rtnl_link_unregister(&rmnet_link_ops);
+	rmnet_core_genl_deinit();
 }
 
 module_init(rmnet_init)

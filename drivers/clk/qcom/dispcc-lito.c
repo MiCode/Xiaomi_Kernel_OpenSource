@@ -25,7 +25,7 @@
 #include "common.h"
 #include "gdsc.h"
 #include "reset.h"
-#include "vdd-level.h"
+#include "vdd-level-lito.h"
 
 static DEFINE_VDD_REGULATORS(vdd_cx, VDD_NUM, 1, vdd_corner);
 

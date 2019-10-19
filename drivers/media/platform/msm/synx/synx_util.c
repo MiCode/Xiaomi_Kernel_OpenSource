@@ -584,17 +584,6 @@ s32 synx_create_handle(void *pObj)
 	return id;
 }
 
-struct synx_client *get_current_client(void)
-{
-	struct synx_client *client = NULL;
-
-	list_for_each_entry(client, &synx_dev->client_list, list) {
-		if (current->tgid == client->pid)
-			break;
-	}
-	return client;
-}
-
 int synx_generate_secure_key(struct synx_table_row *row)
 {
 	if (!row)
@@ -750,14 +739,14 @@ struct bind_operations *synx_get_bind_ops(u32 type)
 	if (!is_valid_type(type))
 		return NULL;
 
-	mutex_lock(&synx_dev->table_lock);
+	mutex_lock(&synx_dev->vtbl_lock);
 	client_ops = &synx_dev->bind_vtbl[type];
 	if (!client_ops->valid) {
-		mutex_unlock(&synx_dev->table_lock);
+		mutex_unlock(&synx_dev->vtbl_lock);
 		return NULL;
 	}
 	pr_debug("found bind ops for %s\n", client_ops->name);
-	mutex_unlock(&synx_dev->table_lock);
+	mutex_unlock(&synx_dev->vtbl_lock);
 
 	return &client_ops->ops;
 }

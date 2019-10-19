@@ -225,8 +225,8 @@ int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc, struct dwc3_ep *dep)
 			|| usb_endpoint_xfer_isoc(dep->endpoint.desc))
 		mult = 3;
 
-	if ((dep->endpoint.maxburst > 2) &&
-			dep->endpoint.ep_type == EP_TYPE_GSI
+	if ((dep->endpoint.maxburst > 6) &&
+			usb_endpoint_xfer_bulk(dep->endpoint.desc)
 			&& dwc3_is_usb31(dwc))
 		mult = 6;
 
@@ -289,9 +289,11 @@ static void dwc3_gadget_del_and_unmap_request(struct dwc3_ep *dep,
 	if (req->request.status == -EINPROGRESS)
 		req->request.status = status;
 
-	if (req->trb)
+	if (req->trb) {
+		dbg_ep_unmap(dep->number, req);
 		usb_gadget_unmap_request_by_dev(dwc->sysdev,
 				&req->request, req->direction);
+	}
 
 	req->trb = NULL;
 	trace_dwc3_gadget_giveback(req);
@@ -1401,6 +1403,7 @@ static void dwc3_prepare_trbs(struct dwc3_ep *dep)
 		else
 			dwc3_prepare_one_trb_linear(dep, req);
 
+		dbg_ep_map(dep->number, req);
 		if (!dwc3_calc_trbs_left(dep))
 			return;
 	}
@@ -1545,6 +1548,7 @@ static int __dwc3_gadget_ep_queue(struct dwc3_ep *dep, struct dwc3_request *req)
 
 	list_add_tail(&req->list, &dep->pending_list);
 
+	dbg_ep_queue(dep->number, req);
 	/*
 	 * NOTICE: Isochronous endpoints should NEVER be prestarted. We must
 	 * wait for a XferNotReady event so we will know what's the current
@@ -1704,7 +1708,7 @@ static int dwc3_gadget_ep_dequeue(struct usb_ep *ep,
 	}
 
 out1:
-	dbg_event(dep->number, "DEQUEUE", 0);
+	dbg_ep_dequeue(dep->number, req);
 	/* giveback the request */
 
 	dwc3_gadget_giveback(dep, req, -ECONNRESET);
@@ -2103,6 +2107,8 @@ static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 		dwc->pullups_connected = true;
 	} else {
 		dwc3_gadget_disable_irq(dwc);
+
+		dwc->err_evt_seen = false;
 		dwc->pullups_connected = false;
 		__dwc3_gadget_ep_disable(dwc->eps[0]);
 		__dwc3_gadget_ep_disable(dwc->eps[1]);
@@ -3277,6 +3283,9 @@ static void dwc3_gadget_conndone_interrupt(struct dwc3 *dwc)
 		dwc3_writel(dwc->regs, DWC3_DEVTEN, reg);
 	}
 
+	/* Reset the retry on erratic error event count */
+	dwc->retries_on_error = 0;
+
 	/*
 	 * RAMClkSel is reset to 0 after USB reset, so it must be reprogrammed
 	 * each time on Connect Done.
@@ -3640,7 +3649,7 @@ static void dwc3_gadget_interrupt(struct dwc3 *dwc,
 		dwc->dbg_gadget_events.sof++;
 		break;
 	case DWC3_DEVICE_EVENT_ERRATIC_ERROR:
-		dbg_event(0xFF, "ERROR", 0);
+		dbg_event(0xFF, "ERROR", dwc->retries_on_error);
 		dwc->dbg_gadget_events.erratic_error++;
 		dwc->err_evt_seen = true;
 		break;
@@ -3698,6 +3707,7 @@ static irqreturn_t dwc3_process_event_buf(struct dwc3_event_buffer *evt)
 			if (dwc3_notify_event(dwc,
 						DWC3_CONTROLLER_ERROR_EVENT, 0))
 				dwc->err_evt_seen = 0;
+			dwc->retries_on_error++;
 			break;
 		}
 
@@ -3765,12 +3775,16 @@ static irqreturn_t dwc3_thread_interrupt(int irq, void *_evt)
 
 static irqreturn_t dwc3_check_event_buf(struct dwc3_event_buffer *evt)
 {
-	struct dwc3 *dwc = evt->dwc;
+	struct dwc3 *dwc;
 	u32 amount;
 	u32 count;
 	u32 reg;
 	ktime_t start_time;
 
+	if (!evt)
+		return IRQ_NONE;
+
+	dwc = evt->dwc;
 	start_time = ktime_get();
 	dwc->irq_cnt++;
 

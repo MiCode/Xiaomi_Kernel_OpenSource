@@ -1056,7 +1056,8 @@ static int ipa3_stop_ul_chan_with_data_drain(u32 qmi_req_id,
 	if (!stop_in_proc)
 		goto exit;
 
-	if (remove_delay && ep->ep_delay_set) {
+	/* Remove delay only if stop channel success*/
+	if (remove_delay && ep->ep_delay_set == true && !stop_in_proc) {
 		memset(&ep_cfg_ctrl, 0, sizeof(struct ipa_ep_cfg_ctrl));
 		ep_cfg_ctrl.ipa_ep_delay = false;
 		result = ipa3_cfg_ep_ctrl(clnt_hdl,
@@ -1137,7 +1138,7 @@ disable_force_clear_and_exit:
 	if (should_force_clear)
 		ipa3_disable_force_clear(qmi_req_id);
 exit:
-	if (remove_delay && ep->ep_delay_set) {
+	if (remove_delay && ep->ep_delay_set == true && !stop_in_proc) {
 		memset(&ep_cfg_ctrl, 0, sizeof(struct ipa_ep_cfg_ctrl));
 		ep_cfg_ctrl.ipa_ep_delay = false;
 		result = ipa3_cfg_ep_ctrl(clnt_hdl,

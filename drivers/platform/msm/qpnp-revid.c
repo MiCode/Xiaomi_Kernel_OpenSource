@@ -59,6 +59,10 @@ static const char *const pmic_names[] = {
 	[PM8150L_SUBTYPE] = "PM8150L",
 	[PM6150_SUBTYPE] = "PM6150",
 	[PM7250B_SUBTYPE] = "PM7250B",
+	[PM6125_SUBTYPE] = "PM6125",
+	[PM8008_SUBTYPE] = "PM8008",
+	[SMB1355_SUBTYPE] = "SMB1355",
+	[SMB1390_SUBTYPE] = "SMB1390",
 };
 
 struct revid_chip {

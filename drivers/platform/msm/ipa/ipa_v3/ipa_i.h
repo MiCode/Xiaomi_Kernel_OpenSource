@@ -996,6 +996,7 @@ struct ipa3_sys_context {
 	struct work_struct repl_work;
 	void (*repl_hdlr)(struct ipa3_sys_context *sys);
 	struct ipa3_repl_ctx *repl;
+	struct ipa3_repl_ctx *page_recycle_repl;
 	u32 pkt_sent;
 	struct napi_struct *napi_obj;
 	struct list_head pending_pkts[GSI_VEID_MAX];
@@ -1258,6 +1259,10 @@ enum ipa3_config_this_ep {
 	IPA_DO_NOT_CONFIGURE_THIS_EP,
 };
 
+struct ipa3_page_recycle_stats {
+	u64 total_replenished;
+	u64 tmp_alloc;
+};
 struct ipa3_stats {
 	u32 tx_sw_pkts;
 	u32 tx_hw_pkts;
@@ -1278,6 +1283,7 @@ struct ipa3_stats {
 	u32 flow_enable;
 	u32 flow_disable;
 	u32 tx_non_linear;
+	struct ipa3_page_recycle_stats page_recycle_stats[2];
 };
 
 /* offset for each stats */
@@ -1418,6 +1424,8 @@ struct ipa3_uc_ctx {
 	u32 ering_rp_local;
 	u32 ering_wp;
 	u32 ering_rp;
+	struct ipa_wdi_bw_info info;
+	uint64_t bw_info_max;
 };
 
 /**
@@ -2788,6 +2796,7 @@ int ipa3_alloc_counter_id(struct ipa_ioc_flt_rt_counter_alloc *counter);
 void ipa3_counter_remove_hdl(int hdl);
 void ipa3_counter_id_remove_all(void);
 int ipa3_id_alloc(void *ptr);
+bool ipa3_check_idr_if_freed(void *ptr);
 void *ipa3_id_find(u32 id);
 void ipa3_id_remove(u32 id);
 int ipa3_enable_force_clear(u32 request_id, bool throttle_source,

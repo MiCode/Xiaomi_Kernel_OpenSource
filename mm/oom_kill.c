@@ -80,6 +80,28 @@ static atomic64_t ulmk_kill_jiffies = ATOMIC64_INIT(INITIAL_JIFFIES);
 static unsigned long psi_emergency_jiffies = INITIAL_JIFFIES;
 static DEFINE_MUTEX(ulmk_retry_lock);
 
+static bool ulmk_kill_possible(void)
+{
+	struct task_struct *tsk;
+	bool ret = false;
+
+	rcu_read_lock();
+	for_each_process(tsk) {
+		if (tsk->flags & PF_KTHREAD)
+			continue;
+
+		task_lock(tsk);
+		if (tsk->signal->oom_score_adj >= 0) {
+			ret = true;
+			task_unlock(tsk);
+			break;
+		}
+		task_unlock(tsk);
+	}
+	rcu_read_unlock();
+
+	return ret;
+}
 
 /*
  * psi_emergency_jiffies represents the last ULMK emergency event.
@@ -103,6 +125,20 @@ bool should_ulmk_retry(void)
 	if (time_after_eq(last_kill, psi_emergency_jiffies)) {
 		psi_emergency_jiffies = now;
 		psi_emergency_trigger();
+		ret = true;
+		goto out;
+	}
+
+	/*
+	 * We reached here means no kill have had happened since the last
+	 * emergency trigger for 2*HZ window. We can't derive the status
+	 * of the low memory killer here. So, before falling back to OOM,
+	 * check for any +ve adj tasks left in the system in repeat for
+	 * next 20*HZ. Indirectly the below logic also giving 20HZ window
+	 * for the first emergency trigger.
+	 */
+	if (time_after(psi_emergency_jiffies + 20 * HZ, now) &&
+	    ulmk_kill_possible()) {
 		ret = true;
 		goto out;
 	}
@@ -1256,12 +1292,10 @@ void add_to_oom_reaper(struct task_struct *p)
 
 	task_unlock(p);
 
-	if (strcmp(current->comm, ULMK_MAGIC) && __ratelimit(&reaper_rs)
+	if (!strcmp(current->comm, ULMK_MAGIC) && __ratelimit(&reaper_rs)
 			&& p->signal->oom_score_adj == 0) {
 		show_mem(SHOW_MEM_FILTER_NODES, NULL);
 		show_mem_call_notifiers();
-		if (sysctl_oom_dump_tasks)
-			dump_tasks(NULL, NULL);
 	}
 
 	put_task_struct(p);

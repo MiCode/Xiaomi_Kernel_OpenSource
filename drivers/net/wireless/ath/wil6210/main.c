@@ -1719,6 +1719,9 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 		wil_dbg_misc(wil, "notify FW to enable SPI for sensing\n");
 		wil_s(wil, RGF_USER_USAGE_6, BIT_SPI_SENSING_SUPPORT);
 		wmi_reset_spi_slave(wil);
+	} else {
+		wil_dbg_misc(wil, "notify FW to disable SPI for sensing\n");
+		wil_c(wil, RGF_USER_USAGE_6, BIT_SPI_SENSING_SUPPORT);
 	}
 
 	if (wil->platform_ops.notify) {
@@ -1889,6 +1892,10 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 			wmi_set_tof_tx_rx_offset(wil, ftm->tx_offset,
 						 ftm->rx_offset);
 		}
+
+		wil->tx_reserved_entries = ((drop_if_ring_full || ac_queues) ?
+					    WIL_DEFAULT_TX_RESERVED_ENTRIES :
+					    0);
 
 		if (wil->platform_ops.notify) {
 			rc = wil->platform_ops.notify(wil->platform_handle,

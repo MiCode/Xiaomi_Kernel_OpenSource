@@ -26,7 +26,7 @@
 #include "clk-regmap.h"
 #include "common.h"
 #include "reset.h"
-#include "vdd-level.h"
+#include "vdd-level-lito.h"
 
 #define GCC_NPU_MISC				0x4d110
 #define GCC_GPU_MISC				0x71028
@@ -1366,13 +1366,12 @@ static struct clk_branch gcc_npu_axi_clk = {
 
 static struct clk_branch gcc_npu_bwmon2_axi_clk = {
 	.halt_reg = 0x7000c,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_DELAY,
 	.clkr = {
 		.enable_reg = 0x7000c,
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_npu_bwmon2_axi_clk",
-			.flags = CLK_IS_CRITICAL,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -1380,13 +1379,12 @@ static struct clk_branch gcc_npu_bwmon2_axi_clk = {
 
 static struct clk_branch gcc_npu_bwmon_axi_clk = {
 	.halt_reg = 0x70008,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_DELAY,
 	.clkr = {
 		.enable_reg = 0x70008,
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_npu_bwmon_axi_clk",
-			.flags = CLK_IS_CRITICAL,
 			.ops = &clk_branch2_ops,
 		},
 	},

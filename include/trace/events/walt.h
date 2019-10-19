@@ -83,10 +83,10 @@ __get_update_sum(struct rq *rq, enum migrate_types migrate_type,
 
 TRACE_EVENT(sched_update_pred_demand,
 
-	TP_PROTO(struct rq *rq, struct task_struct *p, u32 runtime, int pct,
+	TP_PROTO(struct task_struct *p, u32 runtime, int pct,
 		 unsigned int pred_demand),
 
-	TP_ARGS(rq, p, runtime, pct, pred_demand),
+	TP_ARGS(p, runtime, pct, pred_demand),
 
 	TP_STRUCT__entry(
 		__array(char,		comm, TASK_COMM_LEN)
@@ -106,7 +106,7 @@ TRACE_EVENT(sched_update_pred_demand,
 		__entry->pred_demand     = pred_demand;
 		memcpy(__entry->bucket, p->ravg.busy_buckets,
 					NUM_BUSY_BUCKETS * sizeof(u8));
-		__entry->cpu            = rq->cpu;
+		__entry->cpu            = task_cpu(p);
 	),
 
 	TP_printk("%d (%s): runtime %u pct %d cpu %d pred_demand %u (buckets: %u %u %u %u %u %u %u %u %u %u)",

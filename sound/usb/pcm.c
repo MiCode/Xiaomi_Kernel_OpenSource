@@ -39,6 +39,8 @@
 #define SUBSTREAM_FLAG_DATA_EP_STARTED	0
 #define SUBSTREAM_FLAG_SYNC_EP_STARTED	1
 
+#define MAX_SETALT_TIMEOUT_MS 1000
+
 /* return the estimated delay based on USB frame counters */
 snd_pcm_uframes_t snd_usb_pcm_delay(struct snd_usb_substream *subs,
 				    unsigned int rate)
@@ -413,6 +415,7 @@ static int set_sync_ep_implicit_fb_quirk(struct snd_usb_substream *subs,
 		ep = 0x81;
 		ifnum = 2;
 		goto add_sync_ep_from_ifnum;
+	case USB_ID(0x1397, 0x0001): /* Behringer UFX1604 */
 	case USB_ID(0x1397, 0x0002): /* Behringer UFX1204 */
 		ep = 0x81;
 		ifnum = 1;
@@ -581,7 +584,8 @@ static int set_format(struct snd_usb_substream *subs, struct audioformat *fmt)
 	/* close the old interface */
 	if (subs->interface >= 0 && subs->interface != fmt->iface) {
 		if (!subs->stream->chip->keep_iface) {
-			err = usb_set_interface(subs->dev, subs->interface, 0);
+			err = usb_set_interface_timeout(subs->dev,
+				subs->interface, 0, MAX_SETALT_TIMEOUT_MS);
 			if (err < 0) {
 				dev_err(&dev->dev,
 					"%d:%d: return to setting 0 failed (%d)\n",
@@ -599,7 +603,8 @@ static int set_format(struct snd_usb_substream *subs, struct audioformat *fmt)
 		if (err < 0)
 			return -EIO;
 
-		err = usb_set_interface(dev, fmt->iface, fmt->altsetting);
+		err = usb_set_interface_timeout(dev, fmt->iface,
+				fmt->altsetting, MAX_SETALT_TIMEOUT_MS);
 		if (err < 0) {
 			dev_err(&dev->dev,
 				"%d:%d: usb_set_interface failed (%d)\n",
@@ -645,7 +650,8 @@ int snd_usb_enable_audio_stream(struct snd_usb_substream *subs,
 
 	if (!enable) {
 		if (subs->interface >= 0) {
-			usb_set_interface(subs->dev, subs->interface, 0);
+			usb_set_interface_timeout(subs->dev, subs->interface, 0,
+				MAX_SETALT_TIMEOUT_MS);
 			subs->altset_idx = 0;
 			subs->interface = -1;
 			subs->cur_audiofmt = NULL;

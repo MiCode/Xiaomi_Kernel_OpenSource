@@ -4377,9 +4377,10 @@ static int tpdm_probe(struct amba_device *adev, const struct amba_id *id)
 		return PTR_ERR(drvdata->csdev);
 
 	ret = coresight_enable_reg_clk(drvdata->csdev);
-	if (ret)
+	if (ret) {
+		coresight_unregister(drvdata->csdev);
 		return ret;
-
+	}
 	version = tpdm_readl(drvdata, CORESIGHT_PERIPHIDR2);
 	drvdata->version = BMVAL(version, 4, 7);
 

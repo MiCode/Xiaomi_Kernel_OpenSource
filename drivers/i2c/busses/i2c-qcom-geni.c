@@ -115,6 +115,7 @@ struct geni_i2c_dev {
 	struct msm_gpi_dma_async_tx_cb_param rx_cb;
 	enum i2c_se_mode se_mode;
 	bool cmd_done;
+	bool is_shared;
 };
 
 struct geni_i2c_err_log {
@@ -420,15 +421,6 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 	struct geni_i2c_dev *gi2c = i2c_get_adapdata(adap);
 	int i, ret = 0, timeout = 0;
 
-	ret = pinctrl_select_state(gi2c->i2c_rsc.geni_pinctrl,
-				gi2c->i2c_rsc.geni_gpio_active);
-	if (ret) {
-		GENI_SE_ERR(gi2c->ipcl, true, gi2c->dev,
-			"%s: Error %d pinctrl_select_state active\n",
-			__func__, ret);
-		return ret;
-	}
-
 	if (!gi2c->tx_c) {
 		gi2c->tx_c = dma_request_slave_channel(gi2c->dev, "tx");
 		if (!gi2c->tx_c) {
@@ -626,9 +618,15 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 			GENI_SE_ERR(gi2c->ipcl, true, gi2c->dev,
 				    "GSI Txn timed out: %u len: %d\n",
 					gi2c->xfer_timeout, gi2c->cur->len);
+			geni_se_dump_dbg_regs(&gi2c->i2c_rsc, gi2c->base,
+						gi2c->ipcl);
 			gi2c->err = -ETIMEDOUT;
 		}
 geni_i2c_err_prep_sg:
+		if (gi2c->err) {
+			dmaengine_terminate_all(gi2c->tx_c);
+			gi2c->cfg_sent = 0;
+		}
 		if (msgs[i].flags & I2C_M_RD)
 			geni_se_iommu_unmap_buf(rx_dev, &gi2c->rx_ph,
 				msgs[i].len, DMA_FROM_DEVICE);
@@ -636,19 +634,13 @@ geni_i2c_err_prep_sg:
 			geni_se_iommu_unmap_buf(tx_dev, &gi2c->tx_ph,
 				msgs[i].len, DMA_TO_DEVICE);
 		i2c_put_dma_safe_msg_buf(dma_buf, &msgs[i], !gi2c->err);
-
-		if (gi2c->err) {
-			dmaengine_terminate_all(gi2c->tx_c);
-			gi2c->cfg_sent = 0;
+		if (gi2c->err)
 			goto geni_i2c_gsi_xfer_out;
-		}
 	}
 
 geni_i2c_gsi_xfer_out:
 	if (!ret && gi2c->err)
 		ret = gi2c->err;
-	pinctrl_select_state(gi2c->i2c_rsc.geni_pinctrl,
-				gi2c->i2c_rsc.geni_gpio_sleep);
 	return ret;
 }
 
@@ -907,6 +899,11 @@ static int geni_i2c_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,shared")) {
+		gi2c->is_shared = true;
+		dev_info(&pdev->dev, "Multi-EE usecase\n");
+	}
+
 	if (of_property_read_u32(pdev->dev.of_node, "qcom,clk-freq-out",
 				&gi2c->i2c_rsc.clk_freq_out)) {
 		dev_info(&pdev->dev,
@@ -984,12 +981,14 @@ static int geni_i2c_runtime_suspend(struct device *dev)
 {
 	struct geni_i2c_dev *gi2c = dev_get_drvdata(dev);
 
-	if (gi2c->se_mode == FIFO_SE_DMA) {
+	if (gi2c->se_mode == FIFO_SE_DMA)
 		disable_irq(gi2c->irq);
-		se_geni_resources_off(&gi2c->i2c_rsc);
-	} else {
-		/* GPIO is set to sleep state already. So just clocks off */
+
+	if (gi2c->is_shared) {
+		/* Do not unconfigure GPIOs if shared se */
 		se_geni_clks_off(&gi2c->i2c_rsc);
+	} else {
+		se_geni_resources_off(&gi2c->i2c_rsc);
 	}
 	return 0;
 }
@@ -1006,10 +1005,7 @@ static int geni_i2c_runtime_resume(struct device *dev)
 		gi2c->ipcl = ipc_log_context_create(2, ipc_name, 0);
 	}
 
-	if (gi2c->se_mode != GSI_ONLY)
-		ret = se_geni_resources_on(&gi2c->i2c_rsc);
-	else
-		ret = se_geni_clks_on(&gi2c->i2c_rsc);
+	ret = se_geni_resources_on(&gi2c->i2c_rsc);
 
 	if (ret)
 		return ret;

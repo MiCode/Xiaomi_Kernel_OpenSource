@@ -1326,6 +1326,8 @@ static int smb5_usb_main_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_FORCE_MAIN_FCC:
 		vote_override(chg->fcc_main_votable, CC_MODE_VOTER,
 				(val->intval < 0) ? false : true, val->intval);
+		/* Main FCC updated re-calculate FCC */
+		rerun_election(chg->fcc_votable);
 		break;
 	case POWER_SUPPLY_PROP_FORCE_MAIN_ICL:
 		vote_override(chg->usb_icl_votable, CC_MODE_VOTER,
@@ -1436,7 +1438,7 @@ static int smb5_dc_get_prop(struct power_supply *psy,
 		rc = smblib_get_prop_dc_voltage_max(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_REAL_TYPE:
-		val->intval = POWER_SUPPLY_TYPE_WIPOWER;
+		val->intval = POWER_SUPPLY_TYPE_WIRELESS;
 		break;
 	case POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION:
 		rc = smblib_get_prop_voltage_wls_output(chg, val);
@@ -2785,6 +2787,7 @@ static int smb5_determine_initial_status(struct smb5 *chip)
 		smblib_suspend_on_debug_battery(chg);
 
 	usb_plugin_irq_handler(0, &irq_data);
+	dc_plugin_irq_handler(0, &irq_data);
 	typec_attach_detach_irq_handler(0, &irq_data);
 	typec_state_change_irq_handler(0, &irq_data);
 	usb_source_change_irq_handler(0, &irq_data);
@@ -3406,6 +3409,7 @@ static int smb5_probe(struct platform_device *pdev)
 	switch (chg->smb_version) {
 	case PM8150B_SUBTYPE:
 	case PM6150_SUBTYPE:
+	case PM7250B_SUBTYPE:
 		rc = smb5_init_dc_psy(chip);
 		if (rc < 0) {
 			pr_err("Couldn't initialize dc psy rc=%d\n", rc);

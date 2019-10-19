@@ -24,7 +24,7 @@
 #include "clk-rcg.h"
 #include "clk-regmap.h"
 #include "common.h"
-#include "vdd-level.h"
+#include "vdd-level-lito.h"
 
 static DEFINE_VDD_REGULATORS(vdd_cx, VDD_NUM, 1, vdd_corner);
 static DEFINE_VDD_REGULATORS(vdd_mx, VDD_NUM, 1, vdd_corner);
@@ -324,7 +324,7 @@ static struct clk_alpha_pll_postdiv cam_cc_pll1_out_even = {
 	},
 };
 
-static const struct alpha_pll_config cam_cc_pll2_config = {
+static struct alpha_pll_config cam_cc_pll2_config = {
 	.l = 0x32,
 	.cal_l = 0x32,
 	.alpha = 0x0,
@@ -2319,6 +2319,7 @@ static const struct qcom_cc_desc cam_cc_lito_desc = {
 
 static const struct of_device_id cam_cc_lito_match_table[] = {
 	{ .compatible = "qcom,lito-camcc" },
+	{ .compatible = "qcom,lito-camcc-v2" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, cam_cc_lito_match_table);
@@ -2361,6 +2362,14 @@ static int cam_cc_lito_probe(struct platform_device *pdev)
 
 	clk_lucid_pll_configure(&cam_cc_pll0, regmap, &cam_cc_pll0_config);
 	clk_lucid_pll_configure(&cam_cc_pll1, regmap, &cam_cc_pll1_config);
+
+	if (of_device_is_compatible(pdev->dev.of_node, "qcom,lito-camcc-v2")) {
+		cam_cc_pll2_config.config_ctl_val = 0x38200920;
+		cam_cc_pll2_config.config_ctl_hi_val = 0x15002001;
+		cam_cc_pll2_config.config_ctl_hi1_val = 0x80000000;
+		cam_cc_pll2_config.test_ctl_val = 0x00000000;
+	}
+
 	clk_zonda_pll_configure(&cam_cc_pll2, regmap, &cam_cc_pll2_config);
 	clk_lucid_pll_configure(&cam_cc_pll3, regmap, &cam_cc_pll3_config);
 	clk_lucid_pll_configure(&cam_cc_pll4, regmap, &cam_cc_pll4_config);

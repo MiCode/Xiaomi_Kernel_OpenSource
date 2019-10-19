@@ -62,6 +62,10 @@ static struct qmi_dev_info device_clients[] = {
 		.type = QMI_CDEV_MAX_LIMIT_TYPE,
 	},
 	{
+		.dev_name = "pa_fr1",
+		.type = QMI_CDEV_MAX_LIMIT_TYPE,
+	},
+	{
 		.dev_name = "cx_vdd_limit",
 		.type = QMI_CDEV_MAX_LIMIT_TYPE,
 	},
@@ -86,6 +90,10 @@ static struct qmi_dev_info device_clients[] = {
 		.type = QMI_CDEV_MAX_LIMIT_TYPE,
 	},
 	{
+		.dev_name = "charge_state",
+		.type = QMI_CDEV_MAX_LIMIT_TYPE,
+	},
+	{
 		.dev_name = "mmw0",
 		.type = QMI_CDEV_MAX_LIMIT_TYPE,
 	},
@@ -102,19 +110,19 @@ static struct qmi_dev_info device_clients[] = {
 		.type = QMI_CDEV_MAX_LIMIT_TYPE,
 	},
 	{
-		.dev_name = "modem_skin0",
+		.dev_name = "mmw_skin0",
 		.type = QMI_CDEV_MAX_LIMIT_TYPE,
 	},
 	{
-		.dev_name = "modem_skin1",
+		.dev_name = "mmw_skin1",
 		.type = QMI_CDEV_MAX_LIMIT_TYPE,
 	},
 	{
-		.dev_name = "modem_skin2",
+		.dev_name = "mmw_skin2",
 		.type = QMI_CDEV_MAX_LIMIT_TYPE,
 	},
 	{
-		.dev_name = "modem_skin3",
+		.dev_name = "mmw_skin3",
 		.type = QMI_CDEV_MAX_LIMIT_TYPE,
 	},
 	{

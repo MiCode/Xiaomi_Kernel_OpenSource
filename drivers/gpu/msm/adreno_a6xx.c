@@ -172,7 +172,7 @@ static void a6xx_protect_init(struct adreno_device *adreno_dev)
 		count = regs[i].end - regs[i].start;
 
 		kgsl_regwrite(device, regs[i].reg,
-			regs[i].start | (count << 18) |
+			(regs[i].start & 0x3ffff) | ((count & 0x1fff) << 18) |
 			(regs[i].noaccess << 31));
 	}
 }
@@ -743,8 +743,9 @@ static int _preemption_init(struct adreno_device *adreno_dev,
 {
 	unsigned int *cmds_orig = cmds;
 
-	/* Turn CP protection OFF */
-	cmds += cp_protected_mode(adreno_dev, cmds, 0);
+	/* Turn CP protection OFF on legacy targets */
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_APRIV))
+		cmds += cp_protected_mode(adreno_dev, cmds, 0);
 
 	*cmds++ = cp_type7_packet(CP_SET_PSEUDO_REGISTER, 6);
 	*cmds++ = 1;
@@ -755,8 +756,9 @@ static int _preemption_init(struct adreno_device *adreno_dev,
 	cmds += cp_gpuaddr(adreno_dev, cmds,
 			rb->secure_preemption_desc.gpuaddr);
 
-	/* Turn CP protection ON */
-	cmds += cp_protected_mode(adreno_dev, cmds, 1);
+	/* Turn CP protection back ON */
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_APRIV))
+		cmds += cp_protected_mode(adreno_dev, cmds, 1);
 
 	*cmds++ = cp_type7_packet(CP_CONTEXT_SWITCH_YIELD, 4);
 	cmds += cp_gpuaddr(adreno_dev, cmds, 0x0);
@@ -798,6 +800,20 @@ static int a6xx_post_start(struct adreno_device *adreno_dev)
 }
 
 /*
+ * Some targets support marking certain transactions as always privileged which
+ * allows us to mark more memory as privileged without having to explicitly set
+ * the APRIV bit.  For those targets, choose the following transactions to be
+ * privileged by default:
+ * CDWRITE     [6:6] - Crashdumper writes
+ * CDREAD      [5:5] - Crashdumper reads
+ * RBRPWB      [3:3] - RPTR shadow writes
+ * RBPRIVLEVEL [2:2] - Memory accesses from PM4 packets in the ringbuffer
+ * RBFETCH     [1:1] - Ringbuffer reads
+ */
+#define A6XX_APRIV_DEFAULT \
+	((1 << 6) | (1 << 5) | (1 << 3) | (1 << 2) | (1 << 1))
+
+/*
  * a6xx_rb_start() - Start the ringbuffer
  * @adreno_dev: Pointer to adreno device
  */
@@ -827,14 +843,8 @@ static int a6xx_rb_start(struct adreno_device *adreno_dev)
 	if (ret)
 		return ret;
 
-	/*
-	 * Set the RBPRIVLEVEL bit in this register to determine
-	 * the privilege level of ucode executing packets in the RB,
-	 * so we can come out of secure mode and CP does not drop
-	 * the packet.
-	 */
-	if (adreno_is_a650_family(adreno_dev))
-		kgsl_regwrite(device, A6XX_CP_APRIV_CNTL, (1 << 2));
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_APRIV))
+		kgsl_regwrite(device, A6XX_CP_APRIV_CNTL, A6XX_APRIV_DEFAULT);
 
 	/* Clear the SQE_HALT to start the CP engine */
 	kgsl_regwrite(device, A6XX_CP_SQE_CNTL, 1);
@@ -2274,14 +2284,6 @@ static void a6xx_platform_setup(struct adreno_device *adreno_dev)
 
 	/* Check efuse bits for various capabilties */
 	a6xx_check_features(adreno_dev);
-
-	/*
-	 * A640 GPUs used a fuse to determine which frequency plan to
-	 * use for the GPU. For A650 GPUs enable using higher frequencies
-	 * based on the LM feature flag.
-	 */
-	if (adreno_is_a650(adreno_dev) && ADRENO_FEATURE(adreno_dev, ADRENO_LM))
-		adreno_dev->speed_bin = 1;
 }
 
 

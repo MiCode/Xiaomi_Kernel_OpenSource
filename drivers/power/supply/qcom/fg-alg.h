@@ -43,6 +43,7 @@ struct cl_params {
 	int	min_cap_limit;
 	int	skew_decipct;
 	int	min_delta_batt_soc;
+	int	ibat_flt_thr_ma;
 	bool	cl_wt_enable;
 };
 
@@ -51,7 +52,7 @@ struct cap_learning {
 	int			init_cc_soc_sw;
 	int			cc_soc_max;
 	int			init_batt_soc;
-	int			init_batt_soc_msb;
+	int			init_batt_soc_cp;
 	int64_t			nom_cap_uah;
 	int64_t			init_cap_uah;
 	int64_t			final_cap_uah;
@@ -60,6 +61,7 @@ struct cap_learning {
 	bool			active;
 	struct mutex		lock;
 	struct cl_params	dt;
+	bool (*ok_to_begin)(void *data);
 	int (*get_learned_capacity)(void *data, int64_t *learned_cap_uah);
 	int (*store_learned_capacity)(void *data, int64_t learned_cap_uah);
 	int (*get_cc_soc)(void *data, int *cc_soc_sw);
@@ -85,6 +87,7 @@ enum ttf_param {
 	TTF_VFLOAT,
 	TTF_CHG_TYPE,
 	TTF_CHG_STATUS,
+	TTF_TTE_VALID,
 };
 
 struct ttf_circ_buf {

@@ -7,6 +7,7 @@
 #define _UAPI_MSM_IPA_H_
 
 #ifndef __KERNEL__
+#include <stdio.h>
 #include <stdint.h>
 #include <stddef.h>
 #include <sys/stat.h>
@@ -127,6 +128,7 @@
 #define IPA_IOCTL_FNR_COUNTER_DEALLOC           75
 #define IPA_IOCTL_FNR_COUNTER_QUERY             76
 #define IPA_IOCTL_SET_FNR_COUNTER_INFO          77
+#define IPA_IOCTL_GET_NAT_IN_SRAM_INFO          78
 
 /**
  * max size of the header to be inserted
@@ -377,9 +379,13 @@ enum ipa_client_type {
 	IPA_CLIENT_MHI_PRIME_RMNET_CONS		= 99,
 
 	IPA_CLIENT_MHI_PRIME_DPL_PROD		= 100,
+	/* RESERVED CONS                        = 101, */
+
+	IPA_CLIENT_AQC_ETHERNET_PROD		= 102,
+	IPA_CLIENT_AQC_ETHERNET_CONS		= 103,
 };
 
-#define IPA_CLIENT_MAX (IPA_CLIENT_MHI_PRIME_DPL_PROD + 1)
+#define IPA_CLIENT_MAX (IPA_CLIENT_AQC_ETHERNET_CONS + 1)
 
 #define IPA_CLIENT_WLAN2_PROD IPA_CLIENT_A5_WLAN_AMPDU_PROD
 #define IPA_CLIENT_Q6_DL_NLO_DATA_PROD IPA_CLIENT_Q6_DL_NLO_DATA_PROD
@@ -399,6 +405,8 @@ enum ipa_client_type {
 #define IPA_CLIENT_MHI_PRIME_RMNET_PROD IPA_CLIENT_MHI_PRIME_RMNET_PROD
 #define IPA_CLIENT_MHI_PRIME_RMNET_CONS IPA_CLIENT_MHI_PRIME_RMNET_CONS
 #define IPA_CLIENT_MHI_PRIME_DPL_PROD IPA_CLIENT_MHI_PRIME_DPL_PROD
+#define IPA_CLIENT_AQC_ETHERNET_PROD IPA_CLIENT_AQC_ETHERNET_PROD
+#define IPA_CLIENT_AQC_ETHERNET_CONS IPA_CLIENT_AQC_ETHERNET_CONS
 
 #define IPA_CLIENT_IS_APPS_CONS(client) \
 	((client) == IPA_CLIENT_APPS_LAN_CONS || \
@@ -511,13 +519,36 @@ enum ipa_client_type {
 	(IPA_CLIENT_IS_TEST_PROD(client) || IPA_CLIENT_IS_TEST_CONS(client))
 
 /**
+ * The following is used to describe the types of memory NAT can
+ * reside in.
+ *
+ * PLEASE KEEP THE FOLLOWING IN SYNC WITH ipa3_nat_mem_in_as_str()
+ * BELOW.
+ */
+enum ipa3_nat_mem_in {
+	IPA_NAT_MEM_IN_DDR  = 0,
+	IPA_NAT_MEM_IN_SRAM = 1,
+
+	IPA_NAT_MEM_IN_MAX
+};
+
+#define IPA_VALID_NAT_MEM_IN(t) \
+	((t) >= IPA_NAT_MEM_IN_DDR && (t) < IPA_NAT_MEM_IN_MAX)
+
+/**
  * enum ipa_ip_type - Address family: IPv4 or IPv6
+ *
+ * PLEASE KEEP THE FOLLOWING IN SYNC WITH ipa_ip_type_as_str()
+ * BELOW.
  */
 enum ipa_ip_type {
 	IPA_IP_v4,
 	IPA_IP_v6,
 	IPA_IP_MAX
 };
+
+#define VALID_IPA_IP_TYPE(t) \
+	((t) >= IPA_IP_v4 && (t) < IPA_IP_MAX)
 
 /**
  * enum ipa_rule_type - Type of routing or filtering rule
@@ -2074,9 +2105,11 @@ struct ipa_ioc_nat_ipv6ct_table_alloc {
  * @expn_table_entries: input parameter, ipv4 expansion rules table number of
  *                      entries
  * @ip_addr: input parameter, public ip address
+ * @mem_type: input parameter, type of memory the table resides in
+ * @focus_change: input parameter, are we moving to/from sram or ddr
  */
 struct ipa_ioc_v4_nat_init {
-	uint8_t tbl_index;
+	uint8_t  tbl_index;
 	uint32_t ipv4_rules_offset;
 	uint32_t expn_rules_offset;
 
@@ -2086,6 +2119,9 @@ struct ipa_ioc_v4_nat_init {
 	uint16_t table_entries;
 	uint16_t expn_table_entries;
 	uint32_t ip_addr;
+
+	uint8_t  mem_type;
+	uint8_t  focus_change;
 };
 
 /**
@@ -2118,9 +2154,11 @@ struct ipa_ioc_v4_nat_del {
 /**
  * struct ipa_ioc_nat_ipv6ct_table_del - NAT/IPv6CT table delete parameter
  * @table_index: input parameter, index of the table
+ * @mem_type: input parameter, type of memory the table resides in
  */
 struct ipa_ioc_nat_ipv6ct_table_del {
 	uint8_t table_index;
+	uint8_t mem_type;
 };
 
 /**
@@ -2144,11 +2182,12 @@ struct ipa_ioc_nat_dma_one {
  * struct ipa_ioc_nat_dma_cmd - To hold multiple nat/ipv6ct dma commands
  * @entries: number of dma commands in use
  * @dma: data pointer to the dma commands
+ * @mem_type: input parameter, type of memory the table resides in
  */
 struct ipa_ioc_nat_dma_cmd {
 	uint8_t entries;
+	uint8_t mem_type;
 	struct ipa_ioc_nat_dma_one dma[0];
-
 };
 
 /**
@@ -2796,6 +2835,10 @@ enum ipacm_hw_index_counter_virtual_type {
 				IPA_IOCTL_SET_FNR_COUNTER_INFO, \
 				struct ipa_ioc_fnr_index_info)
 
+#define IPA_IOC_GET_NAT_IN_SRAM_INFO _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_GET_NAT_IN_SRAM_INFO, \
+				struct ipa_nat_in_sram_info)
+
 /*
  * unique magic number of the Tethering bridge ioctls
  */
@@ -2885,6 +2928,21 @@ struct teth_ioc_aggr_params {
 	uint16_t lcid;
 };
 
+/**
+ * struct ipa_nat_in_sram_info - query for nat in sram particulars
+ * @sram_mem_available_for_nat: Amount SRAM available to fit nat table
+ * @nat_table_offset_into_mmap: Offset into mmap'd vm where table will be
+ * @best_nat_in_sram_size_rqst: The size to request for mmap
+ *
+ * The last two elements above are required to deal with situations
+ * where the SRAM's physical address and size don't play nice with
+ * mmap'ings page size and boundary attributes.
+ */
+struct ipa_nat_in_sram_info {
+	uint32_t sram_mem_available_for_nat;
+	uint32_t nat_table_offset_into_mmap;
+	uint32_t best_nat_in_sram_size_rqst;
+};
 
 #define TETH_BRIDGE_IOC_SET_BRIDGE_MODE _IOW(TETH_BRIDGE_IOC_MAGIC, \
 				TETH_BRIDGE_IOCTL_SET_BRIDGE_MODE, \

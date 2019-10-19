@@ -31,7 +31,7 @@
 
 #define F(f, s, h, m, n) { (f), (s), (2 * (h) - 1), (m), (n) }
 
-static DEFINE_VDD_REGULATORS(vdd_mm, VDD_NUM, 1, vdd_corner);
+static DEFINE_VDD_REGULATORS(vdd_mm, VDD_NUM_MM, 1, vdd_corner);
 
 #define MSM_BUS_VECTOR(_src, _dst, _ab, _ib)	\
 {						\
@@ -282,7 +282,7 @@ static struct clk_regmap_div disp_cc_mdss_byte0_div_clk_src = {
 		.parent_names =
 			(const char *[]){ "disp_cc_mdss_byte0_clk_src" },
 		.num_parents = 1,
-		.ops = &clk_regmap_div_ro_ops,
+		.ops = &clk_regmap_div_ops,
 	},
 };
 
@@ -296,7 +296,7 @@ static struct clk_regmap_div disp_cc_mdss_byte1_div_clk_src = {
 		.parent_names =
 			(const char *[]){ "disp_cc_mdss_byte1_clk_src" },
 		.num_parents = 1,
-		.ops = &clk_regmap_div_ro_ops,
+		.ops = &clk_regmap_div_ops,
 	},
 };
 

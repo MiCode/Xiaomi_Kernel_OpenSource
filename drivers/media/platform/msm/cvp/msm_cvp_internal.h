@@ -29,6 +29,8 @@
 #define MAX_NAME_LENGTH 64
 #define MAX_DEBUGFS_NAME 50
 #define MAX_DSP_INIT_ATTEMPTS 16
+#define FENCE_WAIT_SIGNAL_TIMEOUT 100
+#define FENCE_WAIT_SIGNAL_RETRY_TIMES 20
 
 #define SYS_MSG_START HAL_SYS_INIT_DONE
 #define SYS_MSG_END HAL_SYS_ERROR
@@ -161,6 +163,11 @@ struct msm_cvp_drv {
 	struct dentry *debugfs_root;
 	int thermal_level;
 	u32 sku_version;
+	struct kmem_cache *msg_cache;
+	struct kmem_cache *fence_data_cache;
+	struct kmem_cache *frame_cache;
+	struct kmem_cache *frame_buf_cache;
+	struct kmem_cache *internal_buf_cache;
 };
 
 enum profiling_points {
@@ -250,7 +257,6 @@ struct cvp_session_queue {
 	unsigned int msg_count;
 	struct list_head msgs;
 	wait_queue_head_t wq;
-	struct kmem_cache *msg_cache;
 };
 
 struct cvp_session_prop {
@@ -259,6 +265,20 @@ struct cvp_session_prop {
 	u32 priority;
 	u32 is_secure;
 	u32 dsp_mask;
+	u32 fdu_cycles;
+	u32 od_cycles;
+	u32 mpu_cycles;
+	u32 ica_cycles;
+	u32 fw_cycles;
+	u32 fdu_op_cycles;
+	u32 od_op_cycles;
+	u32 mpu_op_cycles;
+	u32 ica_op_cycles;
+	u32 fw_op_cycles;
+	u32 ddr_bw;
+	u32 ddr_op_bw;
+	u32 ddr_cache;
+	u32 ddr_op_cache;
 };
 
 enum cvp_event_t {
@@ -329,11 +349,8 @@ struct msm_cvp_inst {
 	unsigned long deprecate_bitmask;
 	struct cvp_kmd_request_power power;
 	struct cvp_session_prop prop;
-	struct kmem_cache *fence_data_cache;
 	u32 cur_cmd_type;
-	struct kmem_cache *frame_cache;
-	struct kmem_cache *frame_buf_cache;
-	struct kmem_cache *internal_buf_cache;
+	struct mutex fence_lock;
 };
 
 struct msm_cvp_fence_thread_data {

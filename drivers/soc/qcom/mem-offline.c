@@ -14,6 +14,7 @@
 #include <linux/kobject.h>
 #include <linux/platform_device.h>
 #include <linux/of.h>
+#include <linux/bootmem.h>
 #include <linux/mailbox_client.h>
 #include <linux/mailbox/qmp.h>
 #include <asm/tlbflush.h>
@@ -383,7 +384,7 @@ static int mem_online_remaining_blocks(void)
 	start_section_nr = pfn_to_section_nr(memblock_end_pfn);
 	end_section_nr = pfn_to_section_nr(ram_end_pfn);
 
-	if (start_section_nr >= end_section_nr) {
+	if (memblock_end_of_DRAM() >= bootloader_memory_limit) {
 		pr_info("mem-offline: System booted with no zone movable memory blocks. Cannot perform memory offlining\n");
 		return -EINVAL;
 	}
@@ -407,6 +408,8 @@ static int mem_online_remaining_blocks(void)
 			fail = 1;
 		}
 	}
+
+	max_pfn = PFN_DOWN(memblock_end_of_DRAM());
 	return fail;
 }
 

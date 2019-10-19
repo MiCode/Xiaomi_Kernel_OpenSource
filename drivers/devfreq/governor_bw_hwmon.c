@@ -590,11 +590,9 @@ static int gov_start(struct devfreq *df)
 	struct bw_hwmon *hw;
 	struct devfreq_dev_status stat;
 
-	mutex_lock(&df->lock);
 	node = find_hwmon_node(df);
 	if (!node) {
 		dev_err(dev, "Unable to find HW monitor!\n");
-		mutex_unlock(&df->lock);
 		return -ENODEV;
 	}
 	hw = node->hw;
@@ -619,7 +617,6 @@ static int gov_start(struct devfreq *df)
 	if (ret)
 		goto err_sysfs;
 
-	mutex_unlock(&df->lock);
 	return 0;
 
 err_sysfs:
@@ -629,7 +626,6 @@ err_start:
 	node->orig_data = NULL;
 	hw->df = NULL;
 	node->dev_ab = NULL;
-	mutex_unlock(&df->lock);
 	return ret;
 }
 
@@ -638,7 +634,6 @@ static void gov_stop(struct devfreq *df)
 	struct hwmon_node *node = df->data;
 	struct bw_hwmon *hw = node->hw;
 
-	mutex_lock(&df->lock);
 	sysfs_remove_group(&df->dev.kobj, node->attr_grp);
 	stop_monitor(df, true);
 	df->data = node->orig_data;
@@ -653,7 +648,6 @@ static void gov_stop(struct devfreq *df)
 	if (node->dev_ab)
 		*node->dev_ab = 0;
 	node->dev_ab = NULL;
-	mutex_unlock(&df->lock);
 }
 
 static int gov_suspend(struct devfreq *df)
@@ -688,11 +682,6 @@ static int gov_resume(struct devfreq *df)
 
 	if (!node->hw->resume_hwmon)
 		return -EPERM;
-
-	if (!node->resume_freq) {
-		dev_warn(df->dev.parent, "Governor already resumed!\n");
-		return -EBUSY;
-	}
 
 	mutex_lock(&df->lock);
 	update_devfreq(df);
@@ -763,7 +752,7 @@ static DEVICE_ATTR_RW(throttle_adj);
 
 gov_attr(guard_band_mbps, 0U, 2000U);
 gov_attr(decay_rate, 0U, 100U);
-gov_attr(io_percent, 1U, 100U);
+gov_attr(io_percent, 1U, 400U);
 gov_attr(bw_step, 50U, 1000U);
 gov_attr(sample_ms, 1U, 50U);
 gov_attr(up_scale, 0U, 500U);
@@ -843,6 +832,11 @@ static int devfreq_bw_hwmon_ev_handler(struct devfreq *df,
 		 */
 		node = df->data;
 		hw = node->hw;
+
+		mutex_lock(&node->mon_lock);
+		node->mon_started = false;
+		mutex_unlock(&node->mon_lock);
+
 		hw->suspend_hwmon(hw);
 		devfreq_interval_update(df, &sample_ms);
 		ret = hw->resume_hwmon(hw);
@@ -851,6 +845,9 @@ static int devfreq_bw_hwmon_ev_handler(struct devfreq *df,
 				"Unable to resume HW monitor (%d)\n", ret);
 			goto out;
 		}
+		mutex_lock(&node->mon_lock);
+		node->mon_started = true;
+		mutex_unlock(&node->mon_lock);
 		break;
 
 	case DEVFREQ_GOV_SUSPEND:

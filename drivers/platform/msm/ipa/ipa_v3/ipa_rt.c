@@ -14,7 +14,7 @@
 #define IPA_RT_STATUS_OF_DEL_FAILED	(-1)
 #define IPA_RT_STATUS_OF_MDFY_FAILED (-1)
 
-#define IPA_RT_MAX_NUM_OF_COMMIT_TABLES_CMD_DESC 5
+#define IPA_RT_MAX_NUM_OF_COMMIT_TABLES_CMD_DESC 6
 
 #define IPA_RT_GET_RULE_TYPE(__entry) \
 	( \
@@ -97,6 +97,7 @@ static int ipa_generate_rt_hw_rule(enum ipa_ip_type ip,
 
 		proc_ctx = (entry->proc_ctx) ? : entry->hdr->proc_ctx;
 		if ((proc_ctx == NULL) ||
+			ipa3_check_idr_if_freed(proc_ctx) ||
 			(proc_ctx->cookie != IPA_PROC_HDR_COOKIE)) {
 			gen_params.hdr_type = IPAHAL_RT_RULE_HDR_NONE;
 			gen_params.hdr_ofst = 0;
@@ -474,6 +475,7 @@ int __ipa_commit_rt_v3(enum ipa_ip_type ip)
 	struct ipa3_rt_tbl_set *set;
 	struct ipa3_rt_tbl *tbl;
 	u32 tbl_hdr_width;
+	struct ipahal_imm_cmd_register_write reg_write_coal_close;
 
 	tbl_hdr_width = ipahal_get_hw_tbl_hdr_width();
 	memset(desc, 0, sizeof(desc));
@@ -564,6 +566,27 @@ int __ipa_commit_rt_v3(enum ipa_ip_type ip)
 		goto fail_size_valid;
 	}
 
+	/* IC to close the coal frame before HPS Clear if coal is enabled */
+	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) != -1) {
+		i = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS);
+		reg_write_coal_close.skip_pipeline_clear = false;
+		reg_write_coal_close.pipeline_clear_options = IPAHAL_HPS_CLEAR;
+		reg_write_coal_close.offset = ipahal_get_reg_ofst(
+			IPA_AGGR_FORCE_CLOSE);
+		ipahal_get_aggr_force_close_valmask(i, &valmask);
+		reg_write_coal_close.value = valmask.val;
+		reg_write_coal_close.value_mask = valmask.mask;
+		cmd_pyld[num_cmd] = ipahal_construct_imm_cmd(
+			IPA_IMM_CMD_REGISTER_WRITE,
+			&reg_write_coal_close, false);
+		if (!cmd_pyld[num_cmd]) {
+			IPAERR("failed to construct coal close IC\n");
+			goto fail_size_valid;
+		}
+		ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
+		++num_cmd;
+	}
+
 	/*
 	 * SRAM memory not allocated to hash tables. Sending
 	 * command to hash tables(filer/routing) operation not supported.
@@ -588,7 +611,7 @@ int __ipa_commit_rt_v3(enum ipa_ip_type ip)
 		if (!cmd_pyld[num_cmd]) {
 			IPAERR(
 			"fail construct register_write imm cmd. IP %d\n", ip);
-			goto fail_size_valid;
+			goto fail_imm_cmd_construct;
 		}
 		ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
 		num_cmd++;
@@ -747,7 +770,8 @@ struct ipa3_rt_tbl *__ipa3_find_rt_tbl(enum ipa_ip_type ip, const char *name)
 
 	set = &ipa3_ctx->rt_tbl_set[ip];
 	list_for_each_entry(entry, &set->head_rt_tbl_list, link) {
-		if (!strcmp(name, entry->name))
+		if (!ipa3_check_idr_if_freed(entry) &&
+			!strcmp(name, entry->name))
 			return entry;
 	}
 
@@ -1747,7 +1771,8 @@ int __ipa3_del_rt_rule(u32 rule_hdl)
 
 	if (entry->hdr)
 		__ipa3_release_hdr(entry->hdr->id);
-	else if (entry->proc_ctx)
+	else if (entry->proc_ctx &&
+		(!ipa3_check_idr_if_freed(entry->proc_ctx)))
 		__ipa3_release_hdr_proc_ctx(entry->proc_ctx->id);
 	list_del(&entry->link);
 	entry->tbl->rule_cnt--;
@@ -1948,7 +1973,9 @@ int ipa3_reset_rt(enum ipa_ip_type ip, bool user_only)
 				tbl->rule_cnt--;
 				if (rule->hdr)
 					__ipa3_release_hdr(rule->hdr->id);
-				else if (rule->proc_ctx)
+				else if (rule->proc_ctx &&
+					(!ipa3_check_idr_if_freed(
+						rule->proc_ctx)))
 					__ipa3_release_hdr_proc_ctx(
 						rule->proc_ctx->id);
 				rule->cookie = 0;

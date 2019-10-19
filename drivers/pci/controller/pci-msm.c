@@ -35,6 +35,7 @@
 #include <linux/slab.h>
 #include <linux/types.h>
 #include <linux/uaccess.h>
+#include <soc/qcom/subsystem_notif.h>
 
 #include "../pci.h"
 
@@ -43,6 +44,7 @@
 #define PCIE20_PARF_DBI_BASE_ADDR (0x350)
 #define PCIE20_PARF_SLV_ADDR_SPACE_SIZE (0x358)
 
+#define PCIE_GEN3_PRESET_DEFAULT (0x55555555)
 #define PCIE_GEN3_SPCIE_CAP (0x0154)
 #define PCIE_GEN3_GEN2_CTRL (0x080c)
 #define PCIE_GEN3_RELATED (0x0890)
@@ -65,6 +67,10 @@
 #define PCIE20_PARF_BDF_TO_SID_TABLE_N (0x2000)
 #define PCIE20_PARF_L1SUB_AHB_CLK_MAX_TIMER (0x180)
 #define PCIE20_PARF_DEBUG_INT_EN (0x190)
+
+#define PCIE20_PARF_CLKREQ_OVERRIDE (0x2b0)
+#define PCIE20_PARF_CLKREQ_IN_VALUE (BIT(3))
+#define PCIE20_PARF_CLKREQ_IN_ENABLE (BIT(1))
 
 #define PCIE20_ELBI_SYS_CTRL (0x04)
 #define PCIE20_ELBI_SYS_STTS (0x08)
@@ -715,6 +721,7 @@ struct msm_pcie_dev_t {
 	uint32_t phy_status_offset;
 	uint32_t phy_status_bit;
 	uint32_t phy_power_down_offset;
+	uint32_t core_preset;
 	uint32_t cpl_timeout;
 	uint32_t current_bdf;
 	uint32_t perst_delay_us_min;
@@ -1372,6 +1379,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->phy_status_bit);
 	PCIE_DBG_FS(dev, "phy_power_down_offset: 0x%x\n",
 		dev->phy_power_down_offset);
+	PCIE_DBG_FS(dev, "core_preset: 0x%x\n",
+		dev->core_preset);
 	PCIE_DBG_FS(dev, "cpl_timeout: 0x%x\n",
 		dev->cpl_timeout);
 	PCIE_DBG_FS(dev, "current_bdf: 0x%x\n",
@@ -4088,7 +4097,7 @@ static int msm_pcie_link_train(struct msm_pcie_dev_t *dev)
 	msm_pcie_write_reg_field(dev->dm_core,
 		PCIE_GEN3_MISC_CONTROL, BIT(0), 1);
 	msm_pcie_write_reg(dev->dm_core,
-		PCIE_GEN3_SPCIE_CAP, 0x77777777);
+		PCIE_GEN3_SPCIE_CAP, dev->core_preset);
 	msm_pcie_write_reg_field(dev->dm_core,
 		PCIE_GEN3_MISC_CONTROL, BIT(0), 0);
 
@@ -5931,11 +5940,21 @@ static int msm_pcie_setup_drv(struct msm_pcie_dev_t *pcie_dev,
 	struct msm_pcie_drv_msg *msg;
 	struct msm_pcie_drv_tre *pkt;
 	struct msm_pcie_drv_header *hdr;
+	u32 drv_l1ss_timeout_us = 0;
+	int ret;
 
 	drv_info = devm_kzalloc(&pcie_dev->pdev->dev, sizeof(*drv_info),
 				GFP_KERNEL);
 	if (!drv_info)
 		return -ENOMEM;
+
+	ret = of_property_read_u32(of_node, "qcom,drv-l1ss-timeout-us",
+					&drv_l1ss_timeout_us);
+	if (ret)
+		drv_l1ss_timeout_us = L1SS_TIMEOUT_US;
+
+	PCIE_DBG(pcie_dev, "PCIe: RC%d: DRV L1ss timeout: %dus\n",
+		pcie_dev->rc_idx, drv_l1ss_timeout_us);
 
 	drv_info->dev_id = pcie_dev->rc_idx;
 
@@ -5951,7 +5970,7 @@ static int msm_pcie_setup_drv(struct msm_pcie_dev_t *pcie_dev,
 
 	pkt->dword[0] = MSM_PCIE_DRV_CMD_ENABLE;
 	pkt->dword[1] = hdr->dev_id;
-	pkt->dword[2] = L1SS_TIMEOUT_US / 1000;
+	pkt->dword[2] = drv_l1ss_timeout_us / 1000;
 
 	msg = &drv_info->drv_disable;
 	pkt = &msg->pkt;
@@ -6128,6 +6147,13 @@ static int msm_pcie_probe(struct platform_device *pdev)
 				&pcie_dev->phy_power_down_offset);
 	PCIE_DBG(pcie_dev, "RC%d: phy-power-down-offset: 0x%x.\n",
 		pcie_dev->rc_idx, pcie_dev->phy_power_down_offset);
+
+	pcie_dev->core_preset = PCIE_GEN3_PRESET_DEFAULT;
+	of_property_read_u32(pdev->dev.of_node,
+				"qcom,core-preset",
+				&pcie_dev->core_preset);
+	PCIE_DBG(pcie_dev, "RC%d: core-preset: 0x%x.\n",
+		pcie_dev->rc_idx, pcie_dev->core_preset);
 
 	of_property_read_u32(of_node, "qcom,cpl-timeout",
 				&pcie_dev->cpl_timeout);
@@ -6531,34 +6557,43 @@ static int msm_pcie_drv_rpmsg_probe(struct rpmsg_device *rpdev)
 	return 0;
 }
 
-static void msm_pcie_drv_rpmsg_remove(struct rpmsg_device *rpdev)
+static void msm_pcie_drv_notify_client(struct pcie_drv_sta *pcie_drv,
+					enum msm_pcie_event event)
 {
-	struct pcie_drv_sta *pcie_drv = dev_get_drvdata(&rpdev->dev);
 	struct msm_pcie_dev_t *pcie_dev = pcie_drv->msm_pcie_dev;
 	int i;
-
-	pcie_drv->rpdev = NULL;
-	flush_work(&pcie_drv->drv_connect);
 
 	for (i = 0; i < MAX_RC_NUM; i++, pcie_dev++) {
 		struct msm_pcie_drv_info *drv_info = pcie_dev->drv_info;
 		struct msm_pcie_register_event *event_reg =
 			pcie_dev->event_reg;
 
+		PCIE_DBG(pcie_dev, "PCIe: RC%d: event %d received\n",
+			pcie_dev->rc_idx, event);
+
 		/* does not support DRV or has not been probed yet */
 		if (!drv_info)
 			continue;
 
-		if (!event_reg ||
-		    !(event_reg->events & MSM_PCIE_EVENT_DRV_DISCONNECT))
+		if (!event_reg || !(event_reg->events & event))
 			continue;
 
 		if (drv_info->ep_connected) {
-			msm_pcie_notify_client(pcie_dev,
-					       MSM_PCIE_EVENT_DRV_DISCONNECT);
-			drv_info->ep_connected = false;
+			msm_pcie_notify_client(pcie_dev, event);
+			if (event & MSM_PCIE_EVENT_DRV_DISCONNECT)
+				drv_info->ep_connected = false;
 		}
 	}
+}
+
+static void msm_pcie_drv_rpmsg_remove(struct rpmsg_device *rpdev)
+{
+	struct pcie_drv_sta *pcie_drv = dev_get_drvdata(&rpdev->dev);
+
+	pcie_drv->rpdev = NULL;
+	flush_work(&pcie_drv->drv_connect);
+
+	msm_pcie_drv_notify_client(pcie_drv, MSM_PCIE_EVENT_DRV_DISCONNECT);
 }
 
 static int msm_pcie_drv_rpmsg_cb(struct rpmsg_device *rpdev, void *data,
@@ -6667,6 +6702,15 @@ static struct rpmsg_driver msm_pcie_drv_rpmsg_driver = {
 	},
 };
 
+static void msm_pcie_early_notifier(void *data)
+{
+	struct pcie_drv_sta *pcie_drv = data;
+
+	pcie_drv->rpdev = NULL;
+
+	msm_pcie_drv_notify_client(pcie_drv, MSM_PCIE_EVENT_WAKEUP);
+};
+
 static void msm_pcie_drv_connect_worker(struct work_struct *work)
 {
 	struct pcie_drv_sta *pcie_drv = container_of(work, struct pcie_drv_sta,
@@ -6699,6 +6743,9 @@ static void msm_pcie_drv_connect_worker(struct work_struct *work)
 				       MSM_PCIE_EVENT_DRV_CONNECT);
 		drv_info->ep_connected = true;
 	}
+
+	subsys_register_early_notifier("adsp", PCIE_DRV_LAYER_NOTIF,
+				msm_pcie_early_notifier, pcie_drv);
 }
 
 static int __init pcie_init(void)
@@ -7138,6 +7185,14 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 				pcie_dev->rc_idx);
 		}
 	}
+
+	/* always ungate clkreq */
+	msm_pcie_write_reg_field(pcie_dev->parf,
+				PCIE20_PARF_CLKREQ_OVERRIDE,
+				PCIE20_PARF_CLKREQ_IN_ENABLE, 0);
+	msm_pcie_write_reg_field(pcie_dev->parf,
+				PCIE20_PARF_CLKREQ_OVERRIDE,
+				PCIE20_PARF_CLKREQ_IN_VALUE, 0);
 
 	pcie_dev->user_suspend = false;
 	spin_lock_irq(&pcie_dev->cfg_lock);

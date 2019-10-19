@@ -17,6 +17,125 @@
 #include <linux/mhi.h>
 #include "mhi_internal.h"
 
+static void mhi_process_sfr(struct mhi_controller *mhi_cntrl,
+	struct file_info *info)
+{
+	struct mhi_buf *mhi_buf = mhi_cntrl->rddm_image->mhi_buf;
+	u8 *sfr_buf, *file_offset = info->file_offset;
+	u32 file_size = info->file_size;
+	u32 rem_seg_len = info->rem_seg_len;
+	u32 seg_idx = info->seg_idx;
+
+	sfr_buf = kzalloc(file_size + 1, GFP_KERNEL);
+	if (!sfr_buf)
+		return;
+
+	while (file_size) {
+		/* file offset starting from seg base */
+		if (!rem_seg_len) {
+			file_offset = mhi_buf[seg_idx].buf;
+			if (file_size > mhi_buf[seg_idx].len)
+				rem_seg_len = mhi_buf[seg_idx].len;
+			else
+				rem_seg_len = file_size;
+		}
+
+		if (file_size <= rem_seg_len) {
+			memcpy(sfr_buf, file_offset, file_size);
+			break;
+		}
+
+		memcpy(sfr_buf, file_offset, rem_seg_len);
+		sfr_buf += rem_seg_len;
+		file_size -= rem_seg_len;
+		rem_seg_len = 0;
+		seg_idx++;
+		if (seg_idx == mhi_cntrl->rddm_image->entries) {
+			MHI_ERR("invalid size for SFR file\n");
+			goto err;
+		}
+	}
+	sfr_buf[info->file_size] = '\0';
+
+	/* force sfr string to log in kernel msg */
+	MHI_ERR("%s\n", sfr_buf);
+err:
+	kfree(sfr_buf);
+}
+
+static int mhi_find_next_file_offset(struct mhi_controller *mhi_cntrl,
+	struct file_info *info, struct rddm_table_info *table_info)
+{
+	struct mhi_buf *mhi_buf = mhi_cntrl->rddm_image->mhi_buf;
+
+	if (info->rem_seg_len >= table_info->size) {
+		info->file_offset += table_info->size;
+		info->rem_seg_len -= table_info->size;
+		return 0;
+	}
+
+	info->file_size = table_info->size - info->rem_seg_len;
+	info->rem_seg_len = 0;
+	/* iterate over segments until eof is reached */
+	while (info->file_size) {
+		info->seg_idx++;
+		if (info->seg_idx == mhi_cntrl->rddm_image->entries) {
+			MHI_ERR("invalid size for file %s\n",
+					table_info->file_name);
+			return -EINVAL;
+		}
+		if (info->file_size > mhi_buf[info->seg_idx].len) {
+			info->file_size -= mhi_buf[info->seg_idx].len;
+		} else {
+			info->file_offset = mhi_buf[info->seg_idx].buf +
+				info->file_size;
+			info->rem_seg_len = mhi_buf[info->seg_idx].len -
+				info->file_size;
+			info->file_size = 0;
+		}
+	}
+
+	return 0;
+}
+
+void mhi_dump_sfr(struct mhi_controller *mhi_cntrl)
+{
+	struct mhi_buf *mhi_buf = mhi_cntrl->rddm_image->mhi_buf;
+	struct rddm_header *rddm_header =
+		(struct rddm_header *)mhi_buf->buf;
+	struct rddm_table_info *table_info;
+	struct file_info info = {0};
+	u32 table_size, n;
+
+	if (rddm_header->header_size > sizeof(*rddm_header) ||
+			rddm_header->header_size < 8) {
+		MHI_ERR("invalid reported header size %u\n",
+				rddm_header->header_size);
+		return;
+	}
+
+	table_size = (rddm_header->header_size - 8) / sizeof(*table_info);
+	if (!table_size) {
+		MHI_ERR("invalid rddm table size %u\n", table_size);
+		return;
+	}
+
+	info.file_offset = (u8 *)rddm_header + rddm_header->header_size;
+	info.rem_seg_len = mhi_buf[0].len - rddm_header->header_size;
+	for (n = 0; n < table_size; n++) {
+		table_info = &rddm_header->table_info[n];
+
+		if (!strcmp(table_info->file_name, "Q6-SFR.bin")) {
+			info.file_size = table_info->size;
+			mhi_process_sfr(mhi_cntrl, &info);
+			return;
+		}
+
+		if (mhi_find_next_file_offset(mhi_cntrl, &info, table_info))
+			return;
+	}
+}
+EXPORT_SYMBOL(mhi_dump_sfr);
 
 /* setup rddm vector table for rddm transfer and program rxvec */
 void mhi_rddm_prepare(struct mhi_controller *mhi_cntrl,
@@ -306,7 +425,7 @@ void mhi_free_bhie_table(struct mhi_controller *mhi_cntrl,
 	struct mhi_buf *mhi_buf = image_info->mhi_buf;
 
 	for (i = 0; i < image_info->entries; i++, mhi_buf++)
-		mhi_free_coherent(mhi_cntrl, mhi_buf->len, mhi_buf->buf,
+		mhi_free_contig_coherent(mhi_cntrl, mhi_buf->len, mhi_buf->buf,
 				  mhi_buf->dma_addr);
 
 	kfree(image_info->mhi_buf);
@@ -347,7 +466,7 @@ int mhi_alloc_bhie_table(struct mhi_controller *mhi_cntrl,
 			vec_size = sizeof(struct bhi_vec_entry) * i;
 
 		mhi_buf->len = vec_size;
-		mhi_buf->buf = mhi_alloc_coherent(mhi_cntrl, vec_size,
+		mhi_buf->buf = mhi_alloc_contig_coherent(mhi_cntrl, vec_size,
 					&mhi_buf->dma_addr, GFP_KERNEL);
 		if (!mhi_buf->buf)
 			goto error_alloc_segment;
@@ -366,7 +485,7 @@ int mhi_alloc_bhie_table(struct mhi_controller *mhi_cntrl,
 
 error_alloc_segment:
 	for (--i, --mhi_buf; i >= 0; i--, mhi_buf--)
-		mhi_free_coherent(mhi_cntrl, mhi_buf->len, mhi_buf->buf,
+		mhi_free_contig_coherent(mhi_cntrl, mhi_buf->len, mhi_buf->buf,
 				  mhi_buf->dma_addr);
 
 error_alloc_mhi_buf:

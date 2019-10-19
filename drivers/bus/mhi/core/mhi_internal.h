@@ -455,6 +455,7 @@ enum {
 	MHI_PM_BIT_M3,
 	MHI_PM_BIT_M3_EXIT,
 	MHI_PM_BIT_FW_DL_ERR,
+	MHI_PM_BIT_DEVICE_ERR_DETECT,
 	MHI_PM_BIT_SYS_ERR_DETECT,
 	MHI_PM_BIT_SYS_ERR_PROCESS,
 	MHI_PM_BIT_SHUTDOWN_PROCESS,
@@ -474,6 +475,8 @@ enum MHI_PM_STATE {
 	MHI_PM_M3_EXIT = BIT(MHI_PM_BIT_M3_EXIT),
 	/* firmware download failure state */
 	MHI_PM_FW_DL_ERR = BIT(MHI_PM_BIT_FW_DL_ERR),
+	/* error or shutdown detected or processing state */
+	MHI_PM_DEVICE_ERR_DETECT = BIT(MHI_PM_BIT_DEVICE_ERR_DETECT),
 	MHI_PM_SYS_ERR_DETECT = BIT(MHI_PM_BIT_SYS_ERR_DETECT),
 	MHI_PM_SYS_ERR_PROCESS = BIT(MHI_PM_BIT_SYS_ERR_PROCESS),
 	MHI_PM_SHUTDOWN_PROCESS = BIT(MHI_PM_BIT_SHUTDOWN_PROCESS),
@@ -484,8 +487,9 @@ enum MHI_PM_STATE {
 
 #define MHI_REG_ACCESS_VALID(pm_state) ((pm_state & (MHI_PM_POR | MHI_PM_M0 | \
 		MHI_PM_M2 | MHI_PM_M3_ENTER | MHI_PM_M3_EXIT | \
-		MHI_PM_SYS_ERR_DETECT | MHI_PM_SYS_ERR_PROCESS | \
-		MHI_PM_SHUTDOWN_PROCESS | MHI_PM_FW_DL_ERR)))
+		MHI_PM_DEVICE_ERR_DETECT | MHI_PM_SYS_ERR_DETECT | \
+		MHI_PM_SYS_ERR_PROCESS | MHI_PM_SHUTDOWN_PROCESS | \
+		MHI_PM_FW_DL_ERR)))
 #define MHI_PM_IN_ERROR_STATE(pm_state) (pm_state >= MHI_PM_FW_DL_ERR)
 #define MHI_PM_IN_FATAL_STATE(pm_state) (pm_state >= MHI_PM_LD_ERR_FATAL_DETECT)
 #define MHI_DB_ACCESS_VALID(mhi_cntrl) (mhi_cntrl->pm_state & \
@@ -764,7 +768,7 @@ static inline void mhi_trigger_resume(struct mhi_controller *mhi_cntrl)
 {
 	mhi_cntrl->runtime_get(mhi_cntrl, mhi_cntrl->priv_data);
 	mhi_cntrl->runtime_put(mhi_cntrl, mhi_cntrl->priv_data);
-	pm_wakeup_event(&mhi_cntrl->mhi_dev->dev, 0);
+	pm_wakeup_hard_event(&mhi_cntrl->mhi_dev->dev);
 }
 
 /* queue transfer buffer */
@@ -843,6 +847,30 @@ static inline void mhi_free_coherent(struct mhi_controller *mhi_cntrl,
 	atomic_sub(size, &mhi_cntrl->alloc_size);
 	dma_free_coherent(mhi_cntrl->dev, size, vaddr, dma_handle);
 }
+
+static inline void *mhi_alloc_contig_coherent(
+					struct mhi_controller *mhi_cntrl,
+					size_t size, dma_addr_t *dma_handle,
+					gfp_t gfp)
+{
+	void *buf = dma_alloc_attrs(mhi_cntrl->dev, size, dma_handle, gfp,
+					DMA_ATTR_FORCE_CONTIGUOUS);
+
+	if (buf)
+		atomic_add(size, &mhi_cntrl->alloc_size);
+
+	return buf;
+}
+static inline void mhi_free_contig_coherent(
+					struct mhi_controller *mhi_cntrl,
+					size_t size, void *vaddr,
+					dma_addr_t dma_handle)
+{
+	atomic_sub(size, &mhi_cntrl->alloc_size);
+	dma_free_attrs(mhi_cntrl->dev, size, vaddr, dma_handle,
+					DMA_ATTR_FORCE_CONTIGUOUS);
+}
+
 struct mhi_device *mhi_alloc_device(struct mhi_controller *mhi_cntrl);
 static inline void mhi_dealloc_device(struct mhi_controller *mhi_cntrl,
 				      struct mhi_device *mhi_dev)
@@ -878,6 +906,8 @@ void mhi_deinit_free_irq(struct mhi_controller *mhi_cntrl);
 int mhi_dtr_init(void);
 void mhi_rddm_prepare(struct mhi_controller *mhi_cntrl,
 		      struct image_info *img_info);
+int mhi_prepare_channel(struct mhi_controller *mhi_cntrl,
+			struct mhi_chan *mhi_chan);
 
 /* isr handlers */
 irqreturn_t mhi_msi_handlr(int irq_number, void *dev);

@@ -406,6 +406,54 @@ int wait_for_sess_signal_receipt(struct msm_cvp_inst *inst,
 	return rc;
 }
 
+int wait_for_sess_signal_receipt_fence(struct msm_cvp_inst *inst,
+	enum hal_command_response cmd)
+{
+	int rc = 0;
+	struct cvp_hfi_device *hdev;
+	int retry = FENCE_WAIT_SIGNAL_RETRY_TIMES;
+
+	if (!IS_HAL_SESSION_CMD(cmd)) {
+		dprintk(CVP_ERR, "Invalid inst cmd response: %d\n", cmd);
+		return -EINVAL;
+	}
+	hdev = (struct cvp_hfi_device *)(inst->core->device);
+
+	while (retry) {
+		rc = wait_for_completion_timeout(
+			&inst->completions[SESSION_MSG_INDEX(cmd)],
+			msecs_to_jiffies(FENCE_WAIT_SIGNAL_TIMEOUT));
+		if (!rc) {
+			enum cvp_event_t event;
+			unsigned long flags = 0;
+
+		spin_lock_irqsave(&inst->event_handler.lock, flags);
+		event = inst->event_handler.event;
+		spin_unlock_irqrestore(
+			&inst->event_handler.lock, flags);
+		if (event == CVP_SSR_EVENT) {
+			dprintk(CVP_WARN, "%s: SSR triggered\n",
+				__func__);
+				return -ECONNRESET;
+		}
+			--retry;
+	} else {
+		rc = 0;
+			break;
+		}
+	}
+
+	if (!retry) {
+		dprintk(CVP_WARN, "Wait interrupted or timed out: %d\n",
+				SESSION_MSG_INDEX(cmd));
+		call_hfi_op(hdev, flush_debug_queue, hdev->hfi_device_data);
+		dump_hfi_queue(hdev->hfi_device_data);
+		rc = -EIO;
+	}
+
+	return rc;
+}
+
 static int wait_for_state(struct msm_cvp_inst *inst,
 	enum instance_state flipped_state,
 	enum instance_state desired_state,

@@ -26,7 +26,7 @@
 #include "clk-regmap.h"
 #include "common.h"
 #include "reset.h"
-#include "vdd-level.h"
+#include "vdd-level-lito.h"
 
 static DEFINE_VDD_REGULATORS(vdd_cx, VDD_NUM, 1, vdd_corner);
 
@@ -283,10 +283,11 @@ static struct clk_fixed_factor npu_cc_crc_div = {
 
 static const struct freq_tbl ftbl_npu_cc_cal_hm0_clk_src[] = {
 	F(200000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
-	F(300000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
-	F(518400000, P_NPU_CC_CRC_DIV, 1, 0, 0),
-	F(633600000, P_NPU_CC_CRC_DIV, 1, 0, 0),
-	F(825600000, P_NPU_CC_CRC_DIV, 1, 0, 0),
+	F(230000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
+	F(422000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
+	F(557000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
+	F(729000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
+	F(844000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
 	F(1000000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
 	{ }
 };
@@ -308,11 +309,12 @@ static struct clk_rcg2 npu_cc_cal_hm0_clk_src = {
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_MIN] = 200000000,
-			[VDD_LOWER] = 300000000,
-			[VDD_LOW] = 518400000,
-			[VDD_LOW_L1] = 633600000,
-			[VDD_NOMINAL] = 825600000,
-			[VDD_HIGH] = 1000000000},
+			[VDD_LOWER] = 230000000,
+			[VDD_LOW] = 422000000,
+			[VDD_LOW_L1] = 557000000,
+			[VDD_NOMINAL] = 729000000,
+			[VDD_HIGH] = 844000000,
+			[VDD_HIGH_L1] = 1000000000},
 	},
 };
 

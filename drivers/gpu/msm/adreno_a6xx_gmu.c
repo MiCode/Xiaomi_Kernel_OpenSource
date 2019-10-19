@@ -346,7 +346,7 @@ static int a6xx_gmu_start(struct kgsl_device *device)
 	u32 mask = 0x000001FF;
 
 	/* Check for 0xBABEFACE on legacy targets */
-	if (!ADRENO_FEATURE(ADRENO_DEVICE(device), ADRENO_COOP_RESET)) {
+	if (gmu->ver.core <= 0x20010004) {
 		val = 0xBABEFACE;
 		mask = 0xFFFFFFFF;
 	}
@@ -962,6 +962,23 @@ static int a6xx_gmu_wait_for_idle(struct kgsl_device *device)
 /* A6xx GMU FENCE RANGE MASK */
 #define GMU_FENCE_RANGE_MASK	((0x1 << 31) | ((0xA << 2) << 18) | (0x8A0))
 
+static void load_gmu_version_info(struct kgsl_device *device)
+{
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+
+	/* GMU version info is at a fixed offset in the DTCM */
+	gmu_core_regread(device, A6XX_GMU_CM3_DTCM_START + 0xFF8,
+				&gmu->ver.core);
+	gmu_core_regread(device, A6XX_GMU_CM3_DTCM_START + 0xFF9,
+				&gmu->ver.core_dev);
+	gmu_core_regread(device, A6XX_GMU_CM3_DTCM_START + 0xFFA,
+				&gmu->ver.pwr);
+	gmu_core_regread(device, A6XX_GMU_CM3_DTCM_START + 0xFFB,
+				&gmu->ver.pwr_dev);
+	gmu_core_regread(device, A6XX_GMU_CM3_DTCM_START + 0xFFC,
+				&gmu->ver.hfi);
+}
+
 /*
  * a6xx_gmu_fw_start() - set up GMU and start FW
  * @device: Pointer to KGSL device
@@ -1048,6 +1065,10 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 
 	/* Configure power control and bring the GMU out of reset */
 	a6xx_gmu_power_config(device);
+
+	/* Populate the GMU version info before GMU boots */
+	load_gmu_version_info(device);
+
 	ret = a6xx_gmu_start(device);
 	if (ret)
 		return ret;
@@ -1065,10 +1086,6 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 		if (ret)
 			return ret;
 	}
-
-	/* Read the HFI and Power version from registers */
-	gmu_core_regread(device, A6XX_GMU_HFI_VERSION_INFO, &gmu->ver.hfi);
-	gmu_core_regread(device, A6XX_GMU_GENERAL_0, &gmu->ver.pwr);
 
 	ret = a6xx_gmu_hfi_start(device);
 	if (ret)
@@ -1125,42 +1142,12 @@ static int a6xx_gmu_load_firmware(struct kgsl_device *device)
 
 		offset += sizeof(*blk);
 
-		switch (blk->type) {
-		case GMU_BLK_TYPE_CORE_VER:
-			gmu->ver.core = blk->value;
-			dev_dbg(&gmu->pdev->dev,
-					"CORE VER: 0x%8.8x\n", blk->value);
-			break;
-		case GMU_BLK_TYPE_CORE_DEV_VER:
-			gmu->ver.core_dev = blk->value;
-			dev_dbg(&gmu->pdev->dev,
-					"CORE DEV VER: 0x%8.8x\n", blk->value);
-			break;
-		case GMU_BLK_TYPE_PWR_VER:
-			gmu->ver.pwr = blk->value;
-			dev_dbg(&gmu->pdev->dev,
-					"PWR VER: 0x%8.8x\n", blk->value);
-			break;
-		case GMU_BLK_TYPE_PWR_DEV_VER:
-			gmu->ver.pwr_dev = blk->value;
-			dev_dbg(&gmu->pdev->dev,
-					"PWR DEV VER: 0x%8.8x\n", blk->value);
-			break;
-		case GMU_BLK_TYPE_HFI_VER:
-			gmu->ver.hfi = blk->value;
-			dev_dbg(&gmu->pdev->dev,
-					"HFI VER: 0x%8.8x\n", blk->value);
-			break;
-		case GMU_BLK_TYPE_PREALLOC_REQ:
-		case GMU_BLK_TYPE_PREALLOC_PERSIST_REQ:
+		if (blk->type == GMU_BLK_TYPE_PREALLOC_REQ ||
+				blk->type == GMU_BLK_TYPE_PREALLOC_PERSIST_REQ)
 			ret = gmu_prealloc_req(device, blk);
-			if (ret)
-				return ret;
-			break;
 
-		default:
-			break;
-		}
+		if (ret)
+			return ret;
 	}
 
 	 /* Request any other cache ranges that might be required */
@@ -1169,33 +1156,48 @@ static int a6xx_gmu_load_firmware(struct kgsl_device *device)
 
 #define A6XX_VBIF_XIN_HALT_CTRL1_ACKS   (BIT(0) | BIT(1) | BIT(2) | BIT(3))
 
-static void a6xx_isense_disable(struct kgsl_device *device)
+static void do_gbif_halt(struct kgsl_device *device, u32 reg, u32 ack_reg,
+	u32 mask, const char *client)
 {
-	unsigned int val;
-	const struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	u32 ack;
+	unsigned long t;
 
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM) ||
-		!test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
+	kgsl_regwrite(device, reg, mask);
+
+	t = jiffies + msecs_to_jiffies(100);
+	do {
+		kgsl_regread(device, ack_reg, &ack);
+		if ((ack & mask) == mask)
+			return;
+
+		/*
+		 * If we are attempting recovery in case of stall-on-fault
+		 * then the halt sequence will not complete as long as SMMU
+		 * is stalled.
+		 */
+		kgsl_mmu_pagefault_resume(&device->mmu);
+
+		usleep_range(10, 100);
+	} while (!time_after(jiffies, t));
+
+	/* Check one last time */
+	kgsl_mmu_pagefault_resume(&device->mmu);
+
+	kgsl_regread(device, ack_reg, &ack);
+	if ((ack & mask) == mask)
 		return;
 
-	gmu_core_regread(device, A6XX_GPU_CS_ENABLE_REG, &val);
-	if (val) {
-		gmu_core_regwrite(device, A6XX_GPU_CS_ENABLE_REG, 0);
-		gmu_core_regwrite(device, A6XX_GMU_ISENSE_CTRL, 0);
-	}
+	dev_err(device->dev, "%s GBIF halt timed out\n", client);
 }
 
 static int a6xx_gmu_suspend(struct kgsl_device *device)
 {
 	int ret = 0;
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
-
-	/* do it only if LM feature is enabled */
-	/* Disable ISENSE if it's on */
-	a6xx_isense_disable(device);
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
 	/* If SPTP_RAC is on, turn off SPTP_RAC HS */
-	a6xx_gmu_sptprac_disable(ADRENO_DEVICE(device));
+	a6xx_gmu_sptprac_disable(adreno_dev);
 
 	/* Disconnect GPU from BUS is not needed if CX GDSC goes off later */
 
@@ -1208,6 +1210,26 @@ static int a6xx_gmu_suspend(struct kgsl_device *device)
 
 	/* Make sure above writes are committed before we proceed to recovery */
 	wmb();
+
+	gmu_core_regwrite(device, A6XX_GMU_CM3_SYSRESET, 1);
+
+	if (adreno_has_gbif(adreno_dev)) {
+		struct adreno_gpudev *gpudev =
+			ADRENO_GPU_DEVICE(adreno_dev);
+
+		/* Halt GX traffic */
+		do_gbif_halt(device, A6XX_RBBM_GBIF_HALT,
+			A6XX_RBBM_GBIF_HALT_ACK, gpudev->gbif_gx_halt_mask,
+			"GX");
+		/* Halt CX traffic */
+		do_gbif_halt(device, A6XX_GBIF_HALT, A6XX_GBIF_HALT_ACK,
+			gpudev->gbif_arb_halt_mask, "CX");
+	}
+
+	kgsl_regwrite(device, A6XX_RBBM_SW_RESET_CMD, 0x1);
+
+	/* Allow the software reset to complete */
+	udelay(100);
 
 	/*
 	 * This is based on the assumption that GMU is the only one controlling
@@ -1628,6 +1650,38 @@ static void a6xx_gmu_snapshot(struct kgsl_device *device,
 	}
 }
 
+static void a6xx_gmu_cooperative_reset(struct kgsl_device *device)
+{
+
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+	unsigned int result;
+
+	gmu_core_regwrite(device, A6XX_GMU_CX_GMU_WDOG_CTRL, 0);
+	gmu_core_regwrite(device, A6XX_GMU_HOST2GMU_INTR_SET, BIT(17));
+
+	/*
+	 * After triggering graceful death wait for snapshot ready
+	 * indication from GMU.
+	 */
+	if (!timed_poll_check(device, A6XX_GMU_CM3_FW_INIT_RESULT,
+				0x800, 2, 0x800))
+		return;
+
+	gmu_core_regread(device, A6XX_GMU_CM3_FW_INIT_RESULT, &result);
+	dev_err(&gmu->pdev->dev,
+		"GMU cooperative reset timed out 0x%x\n", result);
+	/*
+	 * If we dont get a snapshot ready from GMU, trigger NMI
+	 * and if we still timeout then we just continue with reset.
+	 */
+	adreno_gmu_send_nmi(ADRENO_DEVICE(device));
+	udelay(200);
+	gmu_core_regread(device, A6XX_GMU_CM3_FW_INIT_RESULT, &result);
+	if ((result & 0x800) != 0x800)
+		dev_err(&gmu->pdev->dev,
+			"GMU cooperative reset NMI timed out 0x%x\n", result);
+}
+
 static int a6xx_gmu_wait_for_active_transition(
 	struct kgsl_device *device)
 {
@@ -1670,6 +1724,7 @@ struct gmu_dev_ops adreno_a6xx_gmudev = {
 	.ifpc_store = a6xx_gmu_ifpc_store,
 	.ifpc_show = a6xx_gmu_ifpc_show,
 	.snapshot = a6xx_gmu_snapshot,
+	.cooperative_reset = a6xx_gmu_cooperative_reset,
 	.wait_for_active_transition = a6xx_gmu_wait_for_active_transition,
 	.gmu2host_intr_mask = HFI_IRQ_MASK,
 	.gmu_ao_intr_mask = GMU_AO_INT_MASK,

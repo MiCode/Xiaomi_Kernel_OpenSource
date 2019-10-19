@@ -1,4 +1,5 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* SPDX-License-Identifier: GPL-2.0-only */
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -94,6 +95,12 @@
 /* send status config 2 */
 #define CQHCI_SSC2			0x44
 
+/*
+ * Value n means CQE would send CMD13 during the transfer of data block
+ * BLOCK_CNT-n
+ */
+#define SEND_QSR_INTERVAL 0x70001
+
 /* response for dcmd */
 #define CQHCI_CRDCT			0x48
 
@@ -115,6 +122,14 @@
 
 /* command response argument */
 #define CQHCI_CRA			0x5C
+
+/*
+ * Add new macro for updated CQ vendor specific
+ * register address for SDHC v5.0 onwards.
+ */
+#define CQE_V5_VENDOR_CFG	0x900
+#define CQHCI_VENDOR_CFG   0x100
+#define CMDQ_SEND_STATUS_TRIGGER (1 << 31)
 
 #define CQHCI_INT_ALL			0xF
 #define CQHCI_IC_DEFAULT_ICCTH		31
@@ -183,6 +198,7 @@ struct cqhci_host {
 	bool activated;
 	bool waiting_for_idle;
 	bool recovery_halt;
+	bool offset_changed;
 
 	size_t desc_size;
 	size_t data_size;
@@ -224,7 +240,7 @@ struct cqhci_host_ops {
 
 static inline void cqhci_writel(struct cqhci_host *host, u32 val, int reg)
 {
-	if (unlikely(host->ops->write_l))
+	if (unlikely(host->ops && host->ops->write_l))
 		host->ops->write_l(host, val, reg);
 	else
 		writel_relaxed(val, host->mmio + reg);
@@ -232,7 +248,7 @@ static inline void cqhci_writel(struct cqhci_host *host, u32 val, int reg)
 
 static inline u32 cqhci_readl(struct cqhci_host *host, int reg)
 {
-	if (unlikely(host->ops->read_l))
+	if (unlikely(host->ops && host->ops->read_l))
 		return host->ops->read_l(host, reg);
 	else
 		return readl_relaxed(host->mmio + reg);

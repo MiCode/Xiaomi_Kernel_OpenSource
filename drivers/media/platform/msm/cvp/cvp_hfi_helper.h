@@ -223,7 +223,7 @@ struct cvp_hfi_cmd_sys_get_property_packet {
 
 enum HFI_SESSION_TYPE {
 	HFI_SESSION_CV = 1,
-	HFI_SESSION_LRME,
+	HFI_SESSION_DME,
 	HFI_SESSION_ODT,
 	HFI_SESSION_FD
 };

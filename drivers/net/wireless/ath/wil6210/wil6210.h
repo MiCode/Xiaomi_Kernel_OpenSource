@@ -37,6 +37,7 @@ extern bool drop_if_ring_full;
 extern int n_msi;
 extern uint max_assoc_sta;
 extern bool drop_if_ring_full;
+extern bool ac_queues;
 extern uint rx_ring_order;
 extern uint tx_ring_order;
 extern uint bcast_ring_order;
@@ -105,6 +106,7 @@ static inline u32 WIL_GET_BITS(u32 x, int b0, int b1)
 #define WIL6210_MAX_STATUS_RINGS	(8)
 #define WIL6210_MAX_HEADROOM_SIZE      (256)
 #define WIL_WMI_CALL_GENERAL_TO_MS 100
+#define WIL_DEFAULT_TX_RESERVED_ENTRIES (16)
 
 /* Hardware offload block adds the following:
  * 26 bytes - 3-address QoS data header
@@ -473,7 +475,7 @@ static inline void parse_cidxtid(u8 cidxtid, u8 *cid, u8 *tid)
  */
 static inline bool wil_cid_valid(int cid)
 {
-	return (cid >= 0 && cid < max_assoc_sta);
+	return (cid >= 0 && cid < max_assoc_sta && cid < WIL6210_MAX_CID);
 }
 
 struct wil6210_mbox_ring {
@@ -523,13 +525,17 @@ enum { /* for wil_ctx.mapped_as */
 	wil_mapped_as_page = 2,
 };
 
+/* for wil_ctx.flags */
+#define WIL_CTX_FLAG_RESERVED_USED 0x01
+
 /**
  * struct wil_ctx - software context for ring descriptor
  */
 struct wil_ctx {
 	struct sk_buff *skb;
 	u8 nr_frags;
-	u8 mapped_as;
+	u8 mapped_as:4;
+	u8 flags:4;
 };
 
 struct wil_desc_ring_rx_swtail { /* relevant for enhanced DMA only */
@@ -604,6 +610,7 @@ struct wil_net_stats {
 	unsigned long	rx_amsdu_error; /* eDMA specific */
 	unsigned long	rx_csum_err;
 	u16 last_mcs_rx;
+	u8 last_cb_mode_rx;
 	u64 rx_per_mcs[WIL_MCS_MAX + 1];
 	u32 ft_roams; /* relevant in STA mode */
 };
@@ -662,6 +669,9 @@ struct wil_ring_tx_data {
 	bool addba_in_progress; /* if set, agg_xxx is for request in progress */
 	u8 mid;
 	spinlock_t lock;
+	u32 tx_reserved_count; /* available reserved tx entries */
+	u32 tx_reserved_count_used;
+	u32 tx_reserved_count_not_avail;
 };
 
 enum { /* for wil6210_priv.status */
@@ -866,6 +876,7 @@ struct wil6210_vif {
 	DECLARE_BITMAP(status, wil_vif_status_last);
 	u32 privacy; /* secure connection? */
 	u16 channel; /* relevant in AP mode */
+	u8 wmi_edmg_channel; /* relevant in AP mode */
 	u8 hidden_ssid; /* relevant in AP mode */
 	u32 ap_isolate; /* no intra-BSS communication */
 	bool pbss;
@@ -1104,6 +1115,8 @@ struct wil6210_priv {
 
 	struct work_struct pci_linkdown_recovery_worker;
 	void *ipa_handle;
+
+	u32 tx_reserved_entries; /* Used only in Talyn code-path */
 };
 
 #define wil_to_wiphy(i) (i->wiphy)
@@ -1397,7 +1410,7 @@ void wil_p2p_wdev_free(struct wil6210_priv *wil);
 
 int wmi_set_mac_address(struct wil6210_priv *wil, void *addr);
 int wmi_pcp_start(struct wil6210_vif *vif, int bi, u8 wmi_nettype, u8 chan,
-		  u8 hidden_ssid, u8 is_go);
+		  u8 edmg_chan, u8 hidden_ssid, u8 is_go);
 int wmi_pcp_stop(struct wil6210_vif *vif);
 int wmi_led_cfg(struct wil6210_priv *wil, bool enable);
 int wmi_abort_scan(struct wil6210_vif *vif);
@@ -1507,6 +1520,7 @@ int wmi_rbufcap_cfg(struct wil6210_priv *wil, bool enable, u16 threshold);
 
 int wil_wmi2spec_ch(u8 wmi_ch, u8 *spec_ch);
 int wil_spec2wmi_ch(u8 spec_ch, u8 *wmi_ch);
+void wil_update_supported_bands(struct wil6210_priv *wil);
 
 int reverse_memcmp(const void *cs, const void *ct, size_t count);
 

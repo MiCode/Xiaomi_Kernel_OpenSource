@@ -855,6 +855,11 @@ static void ipa_work_handler(struct work_struct *w)
 		break;
 	case STATE_INITIALIZED:
 		if (event == EVT_SET_ALT) {
+			if (!atomic_read(&gsi->connected)) {
+				log_event_err("USB cable not connected\n");
+				break;
+			}
+
 			usb_gadget_autopm_get(d_port->gadget);
 			log_event_dbg("%s: get = %d", __func__,
 				atomic_read(&gad_dev->power.usage_count));
@@ -1343,6 +1348,9 @@ static ssize_t gsi_ctrl_dev_write(struct file *fp, const char __user *buf,
 		*(enum ipa_usb_teth_prot *)(fp->private_data);
 	struct gsi_inst_status *inst_cur = &inst_status[prot_id];
 	struct f_gsi *gsi;
+
+	if (prot_id == IPA_USB_DIAG)
+		return -EINVAL;
 
 	pr_debug("Enter %zu", count);
 

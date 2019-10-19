@@ -1176,6 +1176,14 @@ static void drm_dp_add_port(struct drm_dp_mst_branch *mstb,
 		port->aux.dev = dev->dev;
 		created = true;
 	} else {
+		if (port->pdt == DP_PEER_DEVICE_DP_LEGACY_CONV ||
+				port->pdt == DP_PEER_DEVICE_SST_SINK) {
+			if (!port->cached_edid)
+				port->cached_edid = drm_get_edid(
+						port->connector,
+						&port->aux.ddc);
+		}
+
 		old_pdt = port->pdt;
 		old_ddps = port->ddps;
 	}
@@ -1249,6 +1257,7 @@ static void drm_dp_update_port(struct drm_dp_mst_branch *mstb,
 	int old_pdt;
 	int old_ddps;
 	bool dowork = false;
+	bool dohotplug = false;
 	port = drm_dp_get_port(mstb, conn_stat->port_number);
 	if (!port)
 		return;
@@ -1273,6 +1282,7 @@ static void drm_dp_update_port(struct drm_dp_mst_branch *mstb,
 		    port->port_num < DP_MST_LOGICAL_PORT_0) {
 			kfree(port->cached_edid);
 			port->cached_edid = NULL;
+			dohotplug = true;
 		}
 
 		drm_dp_port_teardown_pdt(port, old_pdt);
@@ -1285,6 +1295,8 @@ static void drm_dp_update_port(struct drm_dp_mst_branch *mstb,
 	if (dowork)
 		queue_work(system_long_wq, &mstb->mgr->work);
 
+	if (dohotplug)
+		(*mstb->mgr->cbs->hotplug)(mstb->mgr);
 }
 
 static struct drm_dp_mst_branch *drm_dp_get_mst_branch_device(struct drm_dp_mst_topology_mgr *mgr,
@@ -1365,6 +1377,40 @@ static struct drm_dp_mst_branch *drm_dp_get_mst_branch_device_by_guid(
 	return mstb;
 }
 
+static void drm_dp_reset_sink_mstb_link_address_sent(
+		struct drm_dp_mst_topology_mgr *mgr,
+		struct drm_dp_mst_branch *mstb)
+{
+	struct drm_dp_mst_port *port;
+	struct drm_dp_mst_branch *mstb_child;
+	struct drm_dp_mst_branch *mstb_parent;
+
+	list_for_each_entry(port, &mstb->ports, next) {
+		if (port->input)
+			continue;
+
+		if (!port->ddps)
+			continue;
+
+		if (port->mstb) {
+			mstb_child = drm_dp_get_validated_mstb_ref(mgr,
+					port->mstb);
+			if (mstb_child) {
+				drm_dp_reset_sink_mstb_link_address_sent(mgr,
+						mstb_child);
+				drm_dp_put_mst_branch_device(mstb_child);
+			}
+		} else {
+			mstb_parent = drm_dp_get_validated_mstb_ref(mgr,
+					port->parent);
+			if (mstb_parent) {
+				mstb_parent->link_address_sent = false;
+				drm_dp_put_mst_branch_device(mstb_parent);
+			}
+		}
+	}
+}
+
 static void drm_dp_check_and_send_link_address(struct drm_dp_mst_topology_mgr *mgr,
 					       struct drm_dp_mst_branch *mstb)
 {
@@ -1405,6 +1451,7 @@ static void drm_dp_mst_link_probe_work(struct work_struct *work)
 	}
 	mutex_unlock(&mgr->lock);
 	if (mstb) {
+		drm_dp_reset_sink_mstb_link_address_sent(mgr, mstb);
 		drm_dp_check_and_send_link_address(mgr, mstb);
 		drm_dp_put_mst_branch_device(mstb);
 	}
@@ -2568,8 +2615,6 @@ static int drm_dp_mst_handle_up_req(struct drm_dp_mst_topology_mgr *mgr)
 			drm_dp_update_port(mstb, &msg.u.conn_stat);
 
 			DRM_DEBUG_KMS("Got CSN: pn: %d ldps:%d ddps: %d mcs: %d ip: %d pdt: %d\n", msg.u.conn_stat.port_number, msg.u.conn_stat.legacy_device_plug_status, msg.u.conn_stat.displayport_device_plug_status, msg.u.conn_stat.message_capability_status, msg.u.conn_stat.input_port, msg.u.conn_stat.peer_device_type);
-			(*mgr->cbs->hotplug)(mgr);
-
 		} else if (msg.req_type == DP_RESOURCE_STATUS_NOTIFY) {
 			drm_dp_send_up_ack_reply(mgr, mgr->mst_primary, msg.req_type, seqno, false);
 			if (!mstb)
@@ -3506,6 +3551,8 @@ static const struct i2c_algorithm drm_dp_mst_i2c_algo = {
  */
 static int drm_dp_mst_register_i2c_bus(struct drm_dp_aux *aux)
 {
+	int rc;
+
 	aux->ddc.algo = &drm_dp_mst_i2c_algo;
 	aux->ddc.algo_data = aux;
 	aux->ddc.retries = 3;
@@ -3518,7 +3565,11 @@ static int drm_dp_mst_register_i2c_bus(struct drm_dp_aux *aux)
 	strlcpy(aux->ddc.name, aux->name ? aux->name : dev_name(aux->dev),
 		sizeof(aux->ddc.name));
 
-	return i2c_add_adapter(&aux->ddc);
+	mutex_lock(&aux->i2c_mutex);
+	rc = i2c_add_adapter(&aux->ddc);
+	mutex_unlock(&aux->i2c_mutex);
+
+	return rc;
 }
 
 /**
@@ -3527,5 +3578,7 @@ static int drm_dp_mst_register_i2c_bus(struct drm_dp_aux *aux)
  */
 static void drm_dp_mst_unregister_i2c_bus(struct drm_dp_aux *aux)
 {
+	mutex_lock(&aux->i2c_mutex);
 	i2c_del_adapter(&aux->ddc);
+	mutex_unlock(&aux->i2c_mutex);
 }

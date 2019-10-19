@@ -186,6 +186,36 @@ int cnss_bus_force_fw_assert_hdlr(struct cnss_plat_data *plat_priv)
 	}
 }
 
+int cnss_bus_qmi_send_get(struct cnss_plat_data *plat_priv)
+{
+	if (!plat_priv)
+		return -ENODEV;
+
+	switch (plat_priv->bus_type) {
+	case CNSS_BUS_PCI:
+		return cnss_pci_qmi_send_get(plat_priv->bus_priv);
+	default:
+		cnss_pr_err("Unsupported bus type: %d\n",
+			    plat_priv->bus_type);
+		return -EINVAL;
+	}
+}
+
+int cnss_bus_qmi_send_put(struct cnss_plat_data *plat_priv)
+{
+	if (!plat_priv)
+		return -ENODEV;
+
+	switch (plat_priv->bus_type) {
+	case CNSS_BUS_PCI:
+		return cnss_pci_qmi_send_put(plat_priv->bus_priv);
+	default:
+		cnss_pr_err("Unsupported bus type: %d\n",
+			    plat_priv->bus_type);
+		return -EINVAL;
+	}
+}
+
 void cnss_bus_fw_boot_timeout_hdlr(struct timer_list *t)
 {
 	struct cnss_plat_data *plat_priv =
@@ -381,6 +411,40 @@ int cnss_bus_is_device_down(struct cnss_plat_data *plat_priv)
 	switch (plat_priv->bus_type) {
 	case CNSS_BUS_PCI:
 		return cnss_pcie_is_device_down(plat_priv->bus_priv);
+	default:
+		cnss_pr_dbg("Unsupported bus type: %d\n",
+			    plat_priv->bus_type);
+		return 0;
+	}
+}
+
+int cnss_bus_debug_reg_read(struct cnss_plat_data *plat_priv, u32 offset,
+			    u32 *val)
+{
+	if (!plat_priv)
+		return -ENODEV;
+
+	switch (plat_priv->bus_type) {
+	case CNSS_BUS_PCI:
+		return cnss_pci_debug_reg_read(plat_priv->bus_priv, offset,
+					       val);
+	default:
+		cnss_pr_dbg("Unsupported bus type: %d\n",
+			    plat_priv->bus_type);
+		return 0;
+	}
+}
+
+int cnss_bus_debug_reg_write(struct cnss_plat_data *plat_priv, u32 offset,
+			     u32 val)
+{
+	if (!plat_priv)
+		return -ENODEV;
+
+	switch (plat_priv->bus_type) {
+	case CNSS_BUS_PCI:
+		return cnss_pci_debug_reg_write(plat_priv->bus_priv, offset,
+						val);
 	default:
 		cnss_pr_dbg("Unsupported bus type: %d\n",
 			    plat_priv->bus_type);

@@ -991,7 +991,6 @@ struct rq {
 	struct walt_sched_stats walt_stats;
 
 	u64			window_start;
-	s64			cum_window_start;
 	unsigned long		walt_flags;
 
 	u64			cur_irqload;
@@ -2659,6 +2658,7 @@ struct related_thread_group {
 	struct rcu_head rcu;
 	u64 last_update;
 	u64 downmigrate_ts;
+	u64 start_ts;
 };
 
 extern struct sched_cluster *sched_cluster[NR_CPUS];
