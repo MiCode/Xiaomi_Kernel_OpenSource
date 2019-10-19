@@ -27,6 +27,7 @@
 #include <linux/async.h>
 #include <linux/pm_runtime.h>
 #include <linux/pinctrl/devinfo.h>
+#include <linux/platform_device.h>
 
 #include "base.h"
 #include "power/power.h"
@@ -793,6 +794,21 @@ void device_initial_probe(struct device *dev)
 	__device_attach(dev, true);
 }
 
+#ifdef CONFIG_PLATFORM_AUTO
+static inline int lock_parent(struct device *dev)
+{
+	if (!dev->parent || dev->bus == &platform_bus_type)
+		return 0;
+
+	return 1;
+}
+#else
+static inline int lock_parent(struct device *dev)
+{
+	return dev->parent ? 1 : 0;
+}
+#endif
+
 static int __driver_attach(struct device *dev, void *data)
 {
 	struct device_driver *drv = data;
@@ -820,13 +836,13 @@ static int __driver_attach(struct device *dev, void *data)
 		return ret;
 	} /* ret > 0 means positive match */
 
-	if (dev->parent)	/* Needed for USB */
+	if (lock_parent(dev))	/* Needed for USB */
 		device_lock(dev->parent);
 	device_lock(dev);
 	if (!dev->driver)
 		driver_probe_device(drv, dev);
 	device_unlock(dev);
-	if (dev->parent)
+	if (lock_parent(dev))
 		device_unlock(dev->parent);
 
 	return 0;
