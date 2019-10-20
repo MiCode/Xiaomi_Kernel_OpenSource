@@ -311,15 +311,15 @@ static const struct rsrc_min_max ipa3_rsrc_src_grp_config
 	[IPA_4_0_AUTO] = {
 		/*not-used  UL_DL    CV2X  not-used, other are invalid */
 		[IPA_v4_0_RSRC_GRP_TYPE_SRC_PKT_CONTEXTS] = {
-		{0, 0}, {1, 255}, {1, 1}, {0, 0}, {0, 0}, {0, 0} },
+		{1, 63}, {1, 63}, {1, 1}, {0, 0}, {0, 0}, {0, 0} },
 		[IPA_v4_0_RSRC_GRP_TYPE_SRS_DESCRIPTOR_LISTS] = {
-		{0, 0}, {10, 10}, {8, 8}, {0, 0}, {0, 0}, {0, 0} },
+		{10, 10}, {10, 10}, {8, 8}, {0, 0}, {0, 0}, {0, 0} },
 		[IPA_v4_0_RSRC_GRP_TYPE_SRC_DESCRIPTOR_BUFF] = {
-		{0, 0}, {14, 14}, {8, 8}, {0, 0}, {0, 0}, {0, 0} },
+		{12, 12}, {14, 14}, {8, 8}, {0, 0}, {0, 0}, {0, 0} },
 		[IPA_v4_0_RSRC_GRP_TYPE_SRC_HPS_DMARS] = {
-		{0, 255}, {0, 255}, {0, 255}, {0, 255},  {0, 0}, {0, 0} },
+		{0, 63}, {0, 63}, {0, 63}, {0, 63},  {0, 0}, {0, 0} },
 		[IPA_v4_0_RSRC_GRP_TYPE_SRC_ACK_ENTRIES] = {
-		{0, 0}, {20, 20}, {14, 14}, {0, 0}, {0, 0}, {0, 0} },
+		{14, 14}, {20, 20}, {14, 14}, {0, 0}, {0, 0}, {0, 0} },
 	},
 	[IPA_4_0_AUTO_MHI] = {
 		/* PCIE  DDR   DMA/CV2X not used, other are invalid */
@@ -330,7 +330,7 @@ static const struct rsrc_min_max ipa3_rsrc_src_grp_config
 		[IPA_v4_0_RSRC_GRP_TYPE_SRC_DESCRIPTOR_BUFF] = {
 		{12, 12}, {12, 12}, {8, 8}, {0, 0}, {0, 0}, {0, 0} },
 		[IPA_v4_0_RSRC_GRP_TYPE_SRC_HPS_DMARS] = {
-		{0, 255}, {0, 255}, {0, 255}, {0, 255},  {0, 0}, {0, 0} },
+		{0, 63}, {0, 63}, {0, 63}, {0, 63},  {0, 0}, {0, 0} },
 		[IPA_v4_0_RSRC_GRP_TYPE_SRC_ACK_ENTRIES] = {
 		{14, 14}, {14, 14}, {14, 14}, {0, 0}, {0, 0}, {0, 0} },
 	},
@@ -387,14 +387,14 @@ static const struct rsrc_min_max ipa3_rsrc_dst_grp_config
 		[IPA_v4_0_RSRC_GRP_TYPE_DST_DATA_SECTORS] = {
 		{4, 4}, {4, 4}, {3, 3}, {2, 2}, {0, 0}, {0, 0} },
 		[IPA_v4_0_RSRC_GRP_TYPE_DST_DPS_DMARS] = {
-		{2, 255}, {1, 255}, {1, 2}, {0, 2}, {0, 0}, {0, 0} },
+		{2, 63}, {1, 63}, {1, 2}, {0, 2}, {0, 0}, {0, 0} },
 	},
 	[IPA_4_0_AUTO_MHI] = {
 		/*PCIE    DDR  DMA/CV2X, other are invalid */
 		[IPA_v4_0_RSRC_GRP_TYPE_DST_DATA_SECTORS] = {
 		{4, 4}, {4, 4}, {3, 3}, {2, 2}, {0, 0}, {0, 0} },
 		[IPA_v4_0_RSRC_GRP_TYPE_DST_DPS_DMARS] = {
-		{2, 255}, {1, 255}, {1, 2}, {0, 2}, {0, 0}, {0, 0} },
+		{2, 63}, {1, 63}, {1, 2}, {0, 2}, {0, 0}, {0, 0} },
 	},
 };
 
@@ -433,7 +433,7 @@ static const struct rsrc_min_max ipa3_rsrc_rx_grp_config
 	[IPA_4_0_AUTO] = {
 		/*not-used  UL_DL CV2X  not-used, other are invalid */
 		[IPA_RSRC_GRP_TYPE_RX_HPS_CMDQ] = {
-		{0, 0}, {7, 7}, {2, 2}, {0, 0}, {0, 0}, {0, 0} },
+		{3, 3}, {7, 7}, {2, 2}, {0, 0}, {0, 0}, {0, 0} },
 	},
 	[IPA_4_0_AUTO_MHI] = {
 		/* PCIE  DDR   DMA/CV2X not used, other are invalid */
@@ -1705,7 +1705,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			QMB_MASTER_SELECT_DDR,
 			{ 17, 1, 9, 9, IPA_EE_AP, GSI_USE_PREFETCH_BUFS } },
 	[IPA_4_0_AUTO][IPA_CLIENT_ETHERNET_CONS]	  = {
-			true, IPA_v4_0_ETHERNET,
+			true, IPA_v4_0_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
@@ -1887,7 +1887,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			QMB_MASTER_SELECT_PCIE,
 			{ 19, 6, 9, 9, IPA_EE_AP, GSI_USE_PREFETCH_BUFS } },
 	[IPA_4_0_AUTO_MHI][IPA_CLIENT_ETHERNET_CONS]	  = {
-			true, IPA_v4_0_ETHERNET,
+			true, IPA_v4_0_MHI_GROUP_DDR,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,

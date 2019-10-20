@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -430,12 +430,19 @@ static void ipc_router_log_msg(void *log_ctx, u32 xchng_type,
 			(xchng_type == IPC_ROUTER_LOG_EVENT_RX ? "RX" :
 			(xchng_type == IPC_ROUTER_LOG_EVENT_TX ? "TX" : "ERR")),
 			msg->cmd, msg->cli.node_id, msg->cli.port_id);
-		else if (msg->cmd == IPC_ROUTER_CTRL_CMD_HELLO && hdr)
+		else if (msg->cmd == IPC_ROUTER_CTRL_CMD_HELLO && hdr) {
 			IPC_RTR_INFO(log_ctx,
 				     "CTL MSG %s cmd:0x%x ADDR:0x%x",
 			(xchng_type == IPC_ROUTER_LOG_EVENT_RX ? "RX" :
 			(xchng_type == IPC_ROUTER_LOG_EVENT_TX ? "TX" : "ERR")),
 			msg->cmd, hdr->src_node_id);
+			if (hdr->src_node_id == 0 || hdr->src_node_id == 3)
+				pr_err("%s: Modem QMI Readiness %s cmd:0x%x ADDR:0x%x\n",
+				       __func__,
+				(xchng_type == IPC_ROUTER_LOG_EVENT_RX ? "RX" :
+				(xchng_type == IPC_ROUTER_LOG_EVENT_TX ? "TX" :
+				"ERR")), msg->cmd, hdr->src_node_id);
+		}
 		else
 			IPC_RTR_INFO(log_ctx,
 				     "%s UNKNOWN cmd:0x%x",

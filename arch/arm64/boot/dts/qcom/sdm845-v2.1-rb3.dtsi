@@ -332,3 +332,7 @@
 		};
 	};
 };
+
+&qcom_seecom {
+	/delete-property/ qcom,commonlib64-loaded-by-uefi;
+};

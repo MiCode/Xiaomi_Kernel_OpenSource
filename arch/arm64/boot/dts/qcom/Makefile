@@ -111,7 +111,8 @@ dtb-$(CONFIG_ARCH_SDM845) += sdm845-sim.dtb \
 	sdm845-4k-panel-qrd.dtb \
 	sdm845-interposer-sdm670-mtp.dtb \
 	sdm845-interposer-sdm670-cdp.dtb \
-	sdm845-v2.1-rb3.dtb
+	sdm845-v2.1-rb3.dtb \
+	sdm845-v2.1-mtp.dtb
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
@@ -651,7 +652,8 @@ dtb-$(CONFIG_ARCH_SDM429) += sdm429-mtp.dtb \
 	sda429-cdp.dtb \
 	sdm429-spyro.dtb \
 	sdm429-spyro-dvt.dtb \
-	sdm429-spyro-wdp.dtb
+	sdm429-spyro-wdp.dtb \
+	sdw3300-bg-1gb-wtp.dtb
 
 endif
 
