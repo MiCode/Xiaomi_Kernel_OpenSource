@@ -46,7 +46,8 @@
 #include "hid-qvr.h"
 #include "hid-trace.h"
 
-#define WAIT_EVENT_INT_TOUT 20
+#define TIME_OUT_START_STOP_MS 500
+#define TIME_OUT_READ_WRITE_MS 20
 
 #define QVR_START_IMU		_IO('q', 1)
 #define QVR_STOP_IMU		_IO('q', 2)
@@ -128,7 +129,7 @@ static int read_calibration_len(void)
 
 	ret = wait_event_interruptible_timeout(wq,
 		sensor->calib_data_len != -1,
-		msecs_to_jiffies(WAIT_EVENT_INT_TOUT));
+		msecs_to_jiffies(TIME_OUT_READ_WRITE_MS));
 	if (ret == 0) {
 		kfree(hid_buf);
 		return -ETIME;
@@ -173,7 +174,7 @@ static uint8_t *read_calibration_data(void)
 			HID_REQ_SET_REPORT);
 		ret = wait_event_interruptible_timeout(wq,
 			sensor->calib_data_recv == 1,
-			msecs_to_jiffies(WAIT_EVENT_INT_TOUT));
+			msecs_to_jiffies(TIME_OUT_READ_WRITE_MS));
 		if (ret == 0) {
 			pr_err("%s:get calibration data timeout\n", __func__);
 			kfree(hid_buf);
@@ -221,7 +222,7 @@ static int control_imu_stream(bool status)
 		HID_FEATURE_REPORT,
 		HID_REQ_SET_REPORT);
 	ret = wait_event_interruptible_timeout(wq, sensor->ext_ack == 1,
-		msecs_to_jiffies(WAIT_EVENT_INT_TOUT));
+		msecs_to_jiffies(TIME_OUT_START_STOP_MS));
 	if (!ret && status) {
 		pr_debug("qvr: falling back - start IMU stream failed\n");
 		hid_buf[0] = QVR_HID_REPORT_ID_CAL;
