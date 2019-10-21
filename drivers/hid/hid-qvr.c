@@ -64,6 +64,7 @@ struct qvr_buf_index {
 	uint8_t padding[60];
 };
 
+// struct must be 64 bit aligned
 struct qvr_sensor_t {
 	uint64_t gts;
 	uint64_t ats;
@@ -71,13 +72,19 @@ struct qvr_sensor_t {
 	s32 gx;
 	s32 gy;
 	s32 gz;
+	u32 gNumerator;
+	u32 gDenominator;
 	s32 ax;
 	s32 ay;
 	s32 az;
+	u32 aNumerator;
+	u32 aDenominator;
 	s32 mx;
 	s32 my;
 	s32 mz;
-	uint8_t padding[4];
+	u32 mNumerator;
+	u32 mDenominator;
+	uint8_t padding[44];
 };
 
 struct qvr_calib_data {
@@ -281,9 +288,9 @@ static int qvr_send_package_wrap(u8 *message, int msize, struct hid_device *hid)
 	if (!sensor->ts_offset)
 		sensor->ts_offset = imuData.gts0;
 	index_buf = (struct qvr_buf_index *)((uintptr_t)sensor->vaddr +
-		(sensor->vsize / 2) + (8 * sizeof(*sensor_buf)));
-	sensor_buf = (struct qvr_sensor_t *)((uintptr_t)sensor->vaddr +
 		(sensor->vsize / 2));
+	sensor_buf = (struct qvr_sensor_t *)((uintptr_t)sensor->vaddr +
+		(sensor->vsize / 2) + sizeof(struct qvr_buf_index));
 
 	data = (struct qvr_sensor_t *)&(sensor_buf[buf_index]);
 	if (sensor->ts_offset > imuData.gts0)
@@ -316,6 +323,12 @@ static int qvr_send_package_wrap(u8 *message, int msize, struct hid_device *hid)
 	data->mx = imuData.my0;
 	data->my = imuData.mx0;
 	data->mz = imuData.mz0;
+	data->aNumerator = imuData.aNumerator;
+	data->aDenominator = imuData.aDenominator;
+	data->gNumerator = imuData.gNumerator;
+	data->gDenominator = imuData.gDenominator;
+	data->mNumerator = imuData.mNumerator;
+	data->mDenominator = imuData.mDenominator;
 
 	trace_qvr_recv_sensor("gyro", data->gts, data->gx, data->gy, data->gz);
 	trace_qvr_recv_sensor("accel", data->ats, data->ax, data->ay, data->az);
