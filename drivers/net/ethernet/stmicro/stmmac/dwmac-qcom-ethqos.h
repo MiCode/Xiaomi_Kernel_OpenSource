@@ -12,14 +12,28 @@
 #ifndef	_DWMAC_QCOM_ETHQOS_H
 #define	_DWMAC_QCOM_ETHQOS_H
 
+#include <linux/ipc_logging.h>
+
+extern void *ipc_emac_log_ctxt;
+
+#define IPCLOG_STATE_PAGES 50
+#define __FILENAME__ (strrchr(__FILE__, '/') ? \
+		strrchr(__FILE__, '/') + 1 : __FILE__)
+
 #define DRV_NAME "qcom-ethqos"
 #define ETHQOSDBG(fmt, args...) \
 	pr_debug(DRV_NAME " %s:%d " fmt, __func__, ## args)
 #define ETHQOSERR(fmt, args...) \
-	pr_err(DRV_NAME " %s:%d " fmt, __func__, ## args)
+do {\
+	pr_err(DRV_NAME " %s:%d " fmt, __func__, ## args);\
+	if (ipc_emac_log_ctxt) { \
+		ipc_log_string(ipc_emac_log_ctxt, \
+		"%s: %s[%u]:[emac] ERROR:" fmt, __FILENAME__,\
+		__func__, __LINE__, ## args); \
+	} \
+} while (0)
 #define ETHQOSINFO(fmt, args...) \
 	pr_info(DRV_NAME " %s:%d " fmt, __func__, ## args)
-
 #define RGMII_IO_MACRO_CONFIG		0x0
 #define SDCC_HC_REG_DLL_CONFIG		0x4
 #define SDCC_HC_REG_DDR_CONFIG		0xC
@@ -130,6 +144,7 @@ struct qcom_ethqos {
 
 	unsigned long avb_class_a_intr_cnt;
 	unsigned long avb_class_b_intr_cnt;
+	struct dentry *debugfs_dir;
 };
 
 struct pps_cfg {
