@@ -4245,6 +4245,34 @@
 			};
 		};
 
+		qupv3_se16_2uart_pins: qupv3_se16_2uart_pins {
+			qupv3_se16_2uart_active: qupv3_se16_2uart_active {
+				mux {
+					pins = "gpio83", "gpio84";
+					function = "qup16";
+				};
+
+				config {
+					pins = "gpio83", "gpio84";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se16_2uart_sleep: qupv3_se16_2uart_sleep {
+				mux {
+					pins = "gpio83", "gpio84";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio83", "gpio84";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+		};
+
 		/* SE 13 UART 4-Wire pin mappings */
 		qupv3_se13_4uart_pins: qupv3_se13_4uart_pins {
 			qupv3_se13_default_ctsrtsrx:
