@@ -13,23 +13,22 @@
 #include <linux/platform_device.h>
 #include <linux/module.h>
 #include <linux/of.h>
-#include <soc/qcom/scm.h>
+#include <linux/qcom_scm.h>
 #include <soc/qcom/secure_buffer.h>
 
 #define CREATE_TRACE_POINTS
 #include "trace_secure_buffer.h"
 
-#define MEM_PROT_ASSIGN_ID		0x16
 #define BATCH_MAX_SIZE SZ_2M
 #define BATCH_MAX_SECTIONS 32
 
 static struct device *qcom_secure_buffer_dev;
 
-static struct dest_vm_and_perm_info *
+static struct qcom_scm_current_perm_info *
 populate_dest_info(int *dest_vmids, int nelements, int *dest_perms,
 		   size_t *size_in_bytes)
 {
-	struct dest_vm_and_perm_info *dest_info;
+	struct qcom_scm_current_perm_info *dest_info;
 	int i;
 	size_t size;
 
@@ -42,18 +41,15 @@ populate_dest_info(int *dest_vmids, int nelements, int *dest_perms,
 	if (!dest_info)
 		return NULL;
 
-	for (i = 0; i < nelements; i++) {
-		dest_info[i].vm = dest_vmids[i];
-		dest_info[i].perm = dest_perms[i];
-		dest_info[i].ctx = 0x0;
-		dest_info[i].ctx_size = 0;
-	}
+	for (i = 0; i < nelements; i++)
+		qcom_scm_populate_vmperm_info(&dest_info[i], dest_vmids[i],
+					      dest_perms[i]);
 
 	*size_in_bytes = size;
 	return dest_info;
 }
 
-static unsigned int get_batches_from_sgl(struct mem_prot_info *sg_table_copy,
+static unsigned int get_batches_from_sgl(struct qcom_scm_mem_map_info *sgt_copy,
 					 struct scatterlist *sgl,
 					 struct scatterlist **next_sgl)
 {
@@ -63,9 +59,10 @@ static unsigned int get_batches_from_sgl(struct mem_prot_info *sg_table_copy,
 
 	/* Ensure no zero size batches */
 	do {
-		sg_table_copy[i].addr = page_to_phys(sg_page(curr_sgl));
-		sg_table_copy[i].size = curr_sgl->length;
-		batch_size += sg_table_copy[i].size;
+		qcom_scm_populate_mem_map_info(&sgt_copy[i],
+					       page_to_phys(sg_page(curr_sgl)),
+					       curr_sgl->length);
+		batch_size += curr_sgl->length;
 		curr_sgl = sg_next(curr_sgl);
 		i++;
 	} while (curr_sgl && i < BATCH_MAX_SECTIONS &&
@@ -75,9 +72,11 @@ static unsigned int get_batches_from_sgl(struct mem_prot_info *sg_table_copy,
 	return i;
 }
 
-static int batched_hyp_assign(struct sg_table *table, struct scm_desc *desc)
+static int batched_hyp_assign(struct sg_table *table, u32 *source_vmids,
+			      size_t source_size,
+			      struct qcom_scm_current_perm_info *destvms,
+			      size_t destvms_size)
 {
-	unsigned int entries_size;
 	unsigned int batch_start = 0;
 	unsigned int batches_processed;
 	unsigned int i = 0;
@@ -87,40 +86,44 @@ static int batched_hyp_assign(struct sg_table *table, struct scm_desc *desc)
 	int ret = 0;
 	ktime_t batch_assign_start_ts;
 	ktime_t first_assign_ts;
-	struct mem_prot_info *sg_table_copy = kcalloc(BATCH_MAX_SECTIONS,
-						      sizeof(*sg_table_copy),
-						      GFP_KERNEL);
+	struct qcom_scm_mem_map_info *mem_regions_buf =
+		kcalloc(BATCH_MAX_SECTIONS, sizeof(*mem_regions_buf),
+			GFP_KERNEL);
 	dma_addr_t entries_dma_addr;
+	size_t mem_regions_buf_size;
 
-	if (!sg_table_copy)
+	if (!mem_regions_buf)
 		return -ENOMEM;
 
 	first_assign_ts = ktime_get();
 	while (batch_start < table->nents) {
-		batches_processed = get_batches_from_sgl(sg_table_copy,
+		batches_processed = get_batches_from_sgl(mem_regions_buf,
 							 curr_sgl, &next_sgl);
 		curr_sgl = next_sgl;
-		entries_size = batches_processed * sizeof(*sg_table_copy);
+		mem_regions_buf_size = batches_processed *
+				       sizeof(*mem_regions_buf);
 		entries_dma_addr = dma_map_single(qcom_secure_buffer_dev,
-						  sg_table_copy, entries_size,
+						  mem_regions_buf,
+						  mem_regions_buf_size,
 						  DMA_TO_DEVICE);
 		if (dma_mapping_error(qcom_secure_buffer_dev,
 				      entries_dma_addr)) {
 			ret = -EADDRNOTAVAIL;
 			break;
 		}
-		desc->args[0] = entries_dma_addr;
-		desc->args[1] = entries_size;
 
-		trace_hyp_assign_batch_start(sg_table_copy, batches_processed);
+		trace_hyp_assign_batch_start(mem_regions_buf,
+					     batches_processed);
 		batch_assign_start_ts = ktime_get();
-		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP,
-				MEM_PROT_ASSIGN_ID), desc);
+		ret = qcom_scm_assign_mem_regions(mem_regions_buf,
+						  mem_regions_buf_size,
+						  source_vmids, source_size,
+						  destvms, destvms_size);
 
 		trace_hyp_assign_batch_end(ret, ktime_us_delta(ktime_get(),
 					   batch_assign_start_ts));
 		dma_unmap_single(qcom_secure_buffer_dev, entries_dma_addr,
-				 entries_size, DMA_TO_DEVICE);
+				 mem_regions_buf_size, DMA_TO_DEVICE);
 		i++;
 
 		if (ret) {
@@ -138,7 +141,7 @@ static int batched_hyp_assign(struct sg_table *table, struct scm_desc *desc)
 	}
 	total_delta = ktime_us_delta(ktime_get(), first_assign_ts);
 	trace_hyp_assign_end(total_delta, div64_u64(total_delta, i));
-	kfree(sg_table_copy);
+	kfree(mem_regions_buf);
 	return ret;
 }
 
@@ -152,10 +155,9 @@ int hyp_assign_table(struct sg_table *table,
 			int dest_nelems)
 {
 	int ret = 0;
-	struct scm_desc desc = {0};
 	u32 *source_vm_copy;
 	size_t source_vm_copy_size;
-	struct dest_vm_and_perm_info *dest_vm_copy;
+	struct qcom_scm_current_perm_info *dest_vm_copy;
 	size_t dest_vm_copy_size;
 	dma_addr_t source_dma_addr, dest_dma_addr;
 
@@ -197,20 +199,12 @@ int hyp_assign_table(struct sg_table *table,
 		goto out_free_dest;
 	}
 
-
-	desc.args[2] = source_dma_addr;
-	desc.args[3] = source_vm_copy_size;
-	desc.args[4] = dest_dma_addr;
-	desc.args[5] = dest_vm_copy_size;
-	desc.args[6] = 0;
-
-	desc.arginfo = SCM_ARGS(7, SCM_RO, SCM_VAL, SCM_RO, SCM_VAL, SCM_RO,
-				SCM_VAL, SCM_VAL);
-
 	trace_hyp_assign_info(source_vm_list, source_nelems, dest_vmids,
 			      dest_perms, dest_nelems);
 
-	ret = batched_hyp_assign(table, &desc);
+
+	ret = batched_hyp_assign(table, source_vm_copy, source_vm_copy_size,
+				 dest_vm_copy, dest_vm_copy_size);
 
 	dma_unmap_single(qcom_secure_buffer_dev, dest_dma_addr,
 			 dest_vm_copy_size, DMA_TO_DEVICE);

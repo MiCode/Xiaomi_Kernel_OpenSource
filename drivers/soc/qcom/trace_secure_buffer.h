@@ -52,7 +52,7 @@ TRACE_EVENT(hyp_assign_info,
 
 TRACE_EVENT(hyp_assign_batch_start,
 
-	TP_PROTO(struct mem_prot_info *info, int info_nelems),
+	TP_PROTO(struct qcom_scm_mem_map_info *info, int info_nelems),
 
 	TP_ARGS(info, info_nelems),
 
@@ -72,9 +72,9 @@ TRACE_EVENT(hyp_assign_batch_start,
 		__entry->batch_size = 0;
 
 		for (i = 0; i < info_nelems; i++) {
-			addr_arr_ptr[i] = info[i].addr;
-			sizes_arr_ptr[i] = info[i].size;
-			__entry->batch_size += info[i].size;
+			addr_arr_ptr[i] = info[i].mem_addr;
+			sizes_arr_ptr[i] = info[i].mem_size;
+			__entry->batch_size += info[i].mem_size;
 		}
 	),
 
