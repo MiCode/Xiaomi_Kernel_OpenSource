@@ -24,6 +24,19 @@ struct qcom_scm_vmperm {
 	int perm;
 };
 
+struct qcom_scm_current_perm_info {
+	__le32 vmid;
+	__le32 perm;
+	__le64 ctx;
+	__le32 ctx_size;
+	__le32 unused;
+};
+
+struct qcom_scm_mem_map_info {
+	__le64 mem_addr;
+	__le64 mem_size;
+};
+
 #define QCOM_SCM_VMID_HLOS       0x3
 #define QCOM_SCM_VMID_MSS_MSA    0xF
 #define QCOM_SCM_VMID_WLAN       0x18
@@ -33,6 +46,30 @@ struct qcom_scm_vmperm {
 #define QCOM_SCM_PERM_EXEC       0x1
 #define QCOM_SCM_PERM_RW (QCOM_SCM_PERM_READ | QCOM_SCM_PERM_WRITE)
 #define QCOM_SCM_PERM_RWX (QCOM_SCM_PERM_RW | QCOM_SCM_PERM_EXEC)
+
+static inline void qcom_scm_populate_vmperm_info(
+		struct qcom_scm_current_perm_info *destvm, int vmid, int perm)
+{
+	if (!destvm)
+		return;
+
+	destvm->vmid = cpu_to_le32(vmid);
+	destvm->perm = cpu_to_le32(perm);
+	destvm->ctx = 0;
+	destvm->ctx_size = 0;
+}
+
+static inline void qcom_scm_populate_mem_map_info(
+				struct qcom_scm_mem_map_info *mem_to_map,
+				phys_addr_t mem_addr, size_t mem_size)
+{
+	if (!mem_to_map)
+		return;
+
+	mem_to_map->mem_addr = cpu_to_le64(mem_addr);
+	mem_to_map->mem_size = cpu_to_le64(mem_size);
+}
+
 
 #if IS_ENABLED(CONFIG_QCOM_SCM)
 extern int qcom_scm_set_cold_boot_addr(void *entry, const cpumask_t *cpus);
@@ -68,6 +105,11 @@ extern int qcom_scm_iommu_secure_map(phys_addr_t sg_list_addr, size_t num_sg,
 				unsigned long iova, size_t total_len);
 extern int qcom_scm_iommu_secure_unmap(u64 sec_id, int cbndx,
 				unsigned long iova, size_t total_len);
+extern int
+qcom_scm_assign_mem_regions(struct qcom_scm_mem_map_info *mem_regions,
+			    size_t mem_regions_sz, u32 *srcvms, size_t src_sz,
+			    struct qcom_scm_current_perm_info *newvms,
+			    size_t newvms_sz);
 extern int qcom_scm_assign_mem(phys_addr_t mem_addr, size_t mem_sz,
 			       unsigned int *src,
 			       const struct qcom_scm_vmperm *newvm,
@@ -183,6 +225,11 @@ static inline int qcom_scm_iommu_secure_map(phys_addr_t sg_list_addr,
 		unsigned long iova, size_t total_len) { return -ENODEV; }
 static inline int qcom_scm_iommu_secure_unmap(u64 sec_id, int cbndx,
 		unsigned long iova, size_t total_len) { return -ENODEV; }
+static inline int
+qcom_scm_assign_mem_regions(struct qcom_scm_mem_map_info *mem_regions,
+			    size_t mem_regions_sz, u32 *srcvms, size_t src_sz,
+			    struct qcom_scm_current_perm_info *newvms,
+			    size_t newvms_sz) { return -ENODEV; }
 static inline int qcom_scm_assign_mem(phys_addr_t mem_addr, size_t mem_sz,
 				      unsigned int *src,
 				      const struct qcom_scm_vmperm *newvm,
