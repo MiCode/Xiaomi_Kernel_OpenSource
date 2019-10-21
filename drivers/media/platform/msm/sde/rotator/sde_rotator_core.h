@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -393,6 +393,7 @@ struct sde_rot_bus_data_type {
  * @regulator_enable: true if foot switch is enabled; false otherwise
  * @res_ref_cnt: reference count of how many times resource is requested
  * @rot_enable_clk_cnt: reference count of how many times clock is requested
+ * @pm_rot_enable_clk_cnt : tracks the clock enable count on pm suspend
  * @rot_clk: array of rotator and periphery clocks
  * @num_rot_clk: size of the rotator clock array
  * @rdot_limit: current read OT limit
@@ -439,6 +440,7 @@ struct sde_rot_mgr {
 
 	int res_ref_cnt;
 	int rot_enable_clk_cnt;
+	int pm_rot_enable_clk_cnt;
 	struct sde_rot_clk *rot_clk;
 	int num_rot_clk;
 	u32 rdot_limit;
