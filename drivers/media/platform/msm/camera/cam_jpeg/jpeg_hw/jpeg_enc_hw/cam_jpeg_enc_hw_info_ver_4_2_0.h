@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -73,6 +73,10 @@ static struct cam_jpeg_enc_device_hw_info cam_jpeg_enc_hw_info = {
 		.resetdone = CAM_JPEG_HW_MASK_COMP_RESET_ACK,
 		.iserror = CAM_JPEG_HW_MASK_COMP_ERR,
 		.stopdone = CAM_JPEG_HW_IRQ_STATUS_STOP_DONE_MASK,
+	},
+	.reg_dump = {
+		.start_offset = 0x0,
+		.end_offset = 0x33C,
 	}
 };
 
