@@ -33,7 +33,10 @@
 #include <net/cnss.h>
 #endif
 
+#ifdef CONFIG_BTFM_SLIM
 #include "btfm_slim.h"
+#endif
+
 #include <linux/fs.h>
 
 #define BT_PWR_DBG(fmt, arg...)  pr_debug("%s: " fmt "\n", __func__, ## arg)
@@ -727,6 +730,7 @@ static long bt_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	int chipset_version = 0;
 
 	switch (cmd) {
+#ifdef CONFIG_BTFM_SLIM
 	case BT_CMD_SLIM_TEST:
 		if (!bt_power_pdata->slim_dev) {
 			BT_PWR_ERR("slim_dev is null\n");
@@ -736,6 +740,7 @@ static long bt_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			bt_power_pdata->slim_dev->platform_data
 		);
 		break;
+#endif
 	case BT_CMD_PWR_CTRL:
 		pwr_cntrl = (int)arg;
 		BT_PWR_ERR("BT_CMD_PWR_CTRL pwr_cntrl:%d", pwr_cntrl);
@@ -789,20 +794,20 @@ static int __init bluetooth_power_init(void)
 
 	bt_major = register_chrdev(0, "bt", &bt_dev_fops);
 	if (bt_major < 0) {
-		BTFMSLIM_ERR("failed to allocate char dev\n");
+		BT_PWR_ERR("failed to allocate char dev\n");
 		goto chrdev_unreg;
 	}
 
 	bt_class = class_create(THIS_MODULE, "bt-dev");
 	if (IS_ERR(bt_class)) {
-		BTFMSLIM_ERR("coudn't create class");
+		BT_PWR_ERR("coudn't create class");
 		goto chrdev_unreg;
 	}
 
 
 	if (device_create(bt_class, NULL, MKDEV(bt_major, 0),
 		NULL, "btpower") == NULL) {
-		BTFMSLIM_ERR("failed to allocate char dev\n");
+		BT_PWR_ERR("failed to allocate char dev\n");
 		goto chrdev_unreg;
 	}
 	return 0;
