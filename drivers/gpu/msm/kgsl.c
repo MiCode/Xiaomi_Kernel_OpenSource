@@ -1008,23 +1008,9 @@ static int kgsl_close_device(struct kgsl_device *device)
 
 	mutex_lock(&device->mutex);
 	device->open_count--;
-	if (device->open_count == 0) {
+	if (device->open_count == 0)
+		result = device->ftbl->last_close(device);
 
-		/*
-		 * Wait up to 1 second for the active count to go low
-		 * and then start complaining about it
-		 */
-		if (kgsl_active_count_wait(device, 0)) {
-			dev_err(device->dev,
-				"Waiting for the active count to become 0\n");
-
-			while (kgsl_active_count_wait(device, 0))
-				dev_err(device->dev,
-					"Still waiting for the active count\n");
-		}
-
-		result = kgsl_pwrctrl_change_state(device, KGSL_STATE_INIT);
-	}
 	mutex_unlock(&device->mutex);
 	return result;
 
@@ -1092,37 +1078,12 @@ static int kgsl_open_device(struct kgsl_device *device)
 
 	mutex_lock(&device->mutex);
 	if (device->open_count == 0) {
-		/*
-		 * active_cnt special case: we are starting up for the first
-		 * time, so use this sequence instead of the kgsl_pwrctrl_wake()
-		 * which will be called by kgsl_active_count_get().
-		 */
-		atomic_inc(&device->active_cnt);
-		kgsl_sharedmem_set(device, device->memstore, 0, 0,
-				device->memstore->size);
-
-		result = device->ftbl->init(device);
+		result = device->ftbl->first_open(device);
 		if (result)
-			goto err;
-
-		result = device->ftbl->start(device, 0);
-		if (result)
-			goto err;
-		/*
-		 * Make sure the gates are open, so they don't block until
-		 * we start suspend or FT.
-		 */
-		complete_all(&device->hwaccess_gate);
-		kgsl_pwrctrl_change_state(device, KGSL_STATE_ACTIVE);
-		kgsl_active_count_put(device);
+			goto out;
 	}
 	device->open_count++;
-err:
-	if (result) {
-		kgsl_pwrctrl_change_state(device, KGSL_STATE_INIT);
-		atomic_dec(&device->active_cnt);
-	}
-
+out:
 	mutex_unlock(&device->mutex);
 	return result;
 }
@@ -4907,8 +4868,6 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 
 	rwlock_init(&device->context_lock);
 	spin_lock_init(&device->submit_lock);
-
-	timer_setup(&device->idle_timer, kgsl_timer, 0);
 
 	status = kgsl_mmu_probe(device);
 	if (status != 0)

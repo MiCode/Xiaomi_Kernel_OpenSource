@@ -1953,6 +1953,60 @@ static void adreno_set_active_ctxs_null(struct adreno_device *adreno_dev)
 	}
 }
 
+static int adreno_first_open(struct kgsl_device *device)
+{
+	int ret;
+
+	/*
+	 * active_cnt special case: we are starting up for the first
+	 * time, so use this sequence instead of the kgsl_pwrctrl_wake()
+	 * which will be called by kgsl_active_count_get().
+	 */
+	atomic_inc(&device->active_cnt);
+
+	kgsl_sharedmem_set(device, device->memstore, 0, 0,
+		device->memstore->size);
+
+	ret = adreno_init(device);
+	if (ret)
+		goto err;
+
+	ret = adreno_start(device, 0);
+	if (ret)
+		goto err;
+
+	timer_setup(&device->idle_timer, kgsl_timer, 0);
+
+	complete_all(&device->hwaccess_gate);
+	kgsl_pwrctrl_change_state(device, KGSL_STATE_ACTIVE);
+	kgsl_active_count_put(device);
+
+	return 0;
+err:
+	kgsl_pwrctrl_change_state(device, KGSL_STATE_INIT);
+	atomic_dec(&device->active_cnt);
+
+	return ret;
+}
+
+static int adreno_last_close(struct kgsl_device *device)
+{
+	/*
+	 * Wait up to 1 second for the active count to go low
+	 * and then start complaining about it
+	 */
+	if (kgsl_active_count_wait(device, 0)) {
+		dev_err(device->dev,
+			"Waiting for the active count to become 0\n");
+
+		while (kgsl_active_count_wait(device, 0))
+			dev_err(device->dev,
+				"Still waiting for the active count\n");
+	}
+
+	return kgsl_pwrctrl_change_state(device, KGSL_STATE_INIT);
+}
+
 /**
  * _adreno_start - Power up the GPU and prepare to accept commands
  * @adreno_dev: Pointer to an adreno_device structure
@@ -3791,9 +3845,10 @@ static const struct kgsl_functable adreno_functable = {
 	.idle = adreno_idle,
 	.isidle = adreno_isidle,
 	.suspend_context = adreno_suspend_context,
-	.init = adreno_init,
+	.first_open = adreno_first_open,
 	.start = adreno_start,
 	.stop = adreno_stop,
+	.last_close = adreno_last_close,
 	.getproperty = adreno_getproperty,
 	.getproperty_compat = adreno_getproperty_compat,
 	.waittimestamp = adreno_waittimestamp,
