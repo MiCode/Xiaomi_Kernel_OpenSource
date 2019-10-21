@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +19,7 @@
 	compatible = "qcom,ufs-phy-qmp-v3";
 
 	vdda-phy-supply = <&pm660l_l1>; /* 0.88v */
+	vdda-phy-always-on;
 	vdda-pll-supply = <&pm660_l1>; /* 1.2v */
 	vdda-phy-max-microamp = <62900>;
 	vdda-pll-max-microamp = <18300>;
