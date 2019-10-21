@@ -56,3 +56,5 @@ usb_f_audio_source-y		:= f_audio_source.o
 obj-$(CONFIG_USB_F_AUDIO_SRC)	+= usb_f_audio_source.o
 usb_f_diag-y			:= f_diag.o
 obj-$(CONFIG_USB_F_DIAG)	+= usb_f_diag.o
+usb_f_qdss-y			:= f_qdss.o u_qdss.o
+obj-$(CONFIG_USB_F_QDSS)	+= usb_f_qdss.o
