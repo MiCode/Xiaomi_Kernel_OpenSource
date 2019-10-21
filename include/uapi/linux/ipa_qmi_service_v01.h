@@ -87,6 +87,8 @@ enum ipa_qmi_error_type_v01 {
 	IPA_QMI_ERROR_TYPE_MAX_ENUM_VAL_V01 = IPA_INT_MAX,
 };
 
+#pragma pack(push, 1)
+
 struct ipa_qmi_response_type_v01 {
 	uint16_t result;
 	uint16_t error;
@@ -2671,6 +2673,8 @@ struct ipa_bw_change_ind_msg_v01 {
 	/* Kbps */
 	uint32_t peak_bw_dl;
 }; /* Message */
+
+#pragma pack(pop)
 #define IPA_BW_CHANGE_IND_MSG_V01_MAX_MSG_LEN 14
 
 /*Service Message Definition*/
