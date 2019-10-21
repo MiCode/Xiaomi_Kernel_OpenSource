@@ -36,7 +36,7 @@ int ipa_hw_stats_init(void)
 		teth_stats_init->prod_mask = (
 			IPA_CLIENT_BIT_32(IPA_CLIENT_MHI_PRIME_TETH_PROD) |
 			IPA_CLIENT_BIT_32(IPA_CLIENT_USB_PROD));
-		if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_5)
+		if (ipa3_ctx->ipa_wdi3_over_gsi)
 			teth_stats_init->prod_mask |=
 			IPA_CLIENT_BIT_32(IPA_CLIENT_WLAN2_PROD);
 		else
@@ -57,7 +57,7 @@ int ipa_hw_stats_init(void)
 			teth_stats_init->dst_ep_mask[ep_index] =
 				IPA_CLIENT_BIT_32(IPA_CLIENT_USB_CONS);
 
-			if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_5)
+			if (ipa3_ctx->ipa_wdi3_over_gsi)
 				teth_stats_init->dst_ep_mask[ep_index] |=
 				IPA_CLIENT_BIT_32(IPA_CLIENT_WLAN2_CONS);
 			else
@@ -78,7 +78,7 @@ int ipa_hw_stats_init(void)
 			IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_WAN_PROD) |
 			IPA_CLIENT_BIT_32(IPA_CLIENT_USB_PROD));
 
-		if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_5)
+		if (ipa3_ctx->ipa_wdi3_over_gsi)
 			teth_stats_init->prod_mask |=
 			IPA_CLIENT_BIT_32(IPA_CLIENT_WLAN2_PROD);
 		else
@@ -102,7 +102,7 @@ int ipa_hw_stats_init(void)
 			teth_stats_init->dst_ep_mask[ep_index] =
 			IPA_CLIENT_BIT_32(IPA_CLIENT_USB_CONS);
 
-			if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_5)
+			if (ipa3_ctx->ipa_wdi3_over_gsi)
 				teth_stats_init->dst_ep_mask[ep_index] |=
 				IPA_CLIENT_BIT_32(IPA_CLIENT_WLAN2_CONS);
 			else
@@ -131,7 +131,7 @@ int ipa_hw_stats_init(void)
 			teth_stats_init->dst_ep_mask[ep_index] =
 				IPA_CLIENT_BIT_32(IPA_CLIENT_USB_CONS);
 
-			if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_5)
+			if (ipa3_ctx->ipa_wdi3_over_gsi)
 				teth_stats_init->dst_ep_mask[ep_index] |=
 				IPA_CLIENT_BIT_32(IPA_CLIENT_WLAN2_CONS);
 			else
