@@ -150,6 +150,15 @@ enum {
 /*********
  * HELPER*
  *********/
+static bool is_usb_available(struct pl_data *chip)
+{
+	if (!chip->usb_psy)
+		chip->usb_psy =
+			power_supply_get_by_name("usb");
+
+	return !!chip->usb_psy;
+}
+
 static bool is_cp_available(struct pl_data *chip)
 {
 	if (!chip->cp_master_psy)
@@ -203,8 +212,11 @@ static int cp_get_parallel_mode(struct pl_data *chip, int mode)
  */
 static void cp_configure_ilim(struct pl_data *chip, const char *voter, int ilim)
 {
-	int rc, fcc;
+	int rc, fcc, main_icl, target_icl = chip->chg_param->hvdcp3_max_icl_ua;
 	union power_supply_propval pval = {0, };
+
+	if (!is_usb_available(chip))
+		return;
 
 	if (!is_cp_available(chip))
 		return;
@@ -212,6 +224,31 @@ static void cp_configure_ilim(struct pl_data *chip, const char *voter, int ilim)
 	if (cp_get_parallel_mode(chip, PARALLEL_OUTPUT_MODE)
 					== POWER_SUPPLY_PL_OUTPUT_VPH)
 		return;
+
+	rc = power_supply_get_property(chip->usb_psy,
+				POWER_SUPPLY_PROP_REAL_TYPE, &pval);
+	if (rc < 0)
+		return;
+
+	/*
+	 * For HVDCP3 adapters limit max. ILIM based on DT configuration
+	 * of HVDCP3 ICL value.
+	 * Input VBUS:
+	 * target_icl = HVDCP3_ICL - main_ICL
+	 * Input VMID
+	 * target_icl = HVDCP3_ICL
+	 */
+	if (pval.intval == POWER_SUPPLY_TYPE_USB_HVDCP_3) {
+		if (((cp_get_parallel_mode(chip, PARALLEL_INPUT_MODE))
+					== POWER_SUPPLY_PL_USBIN_USBIN)) {
+			main_icl = get_effective_result_locked(
+							chip->usb_icl_votable);
+			if ((main_icl >= 0) && (main_icl < target_icl))
+				target_icl -= main_icl;
+		}
+
+		ilim = min(target_icl, ilim);
+	}
 
 	rc = power_supply_get_property(chip->cp_master_psy,
 				POWER_SUPPLY_PROP_MIN_ICL, &pval);
@@ -234,6 +271,10 @@ static void cp_configure_ilim(struct pl_data *chip, const char *voter, int ilim)
 			vote(chip->cp_ilim_votable, voter, true, pval.intval);
 		else
 			vote(chip->cp_ilim_votable, voter, true, ilim);
+
+		pl_dbg(chip, PR_PARALLEL,
+			"ILIM: vote: %d voter:%s min_ilim=%d fcc = %d\n",
+			ilim, voter, pval.intval, fcc);
 	}
 }
 
