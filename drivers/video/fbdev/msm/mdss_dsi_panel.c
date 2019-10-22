@@ -572,11 +572,13 @@ static int mdss_dsi_roi_merge(struct mdss_dsi_ctrl_pdata *ctrl,
 	return ans;
 }
 
+static char pageset[] = {0xfe, 0x00};			/* DTYPE_DCS_WRITE1 */
 static char caset[] = {0x2a, 0x00, 0x00, 0x03, 0x00};	/* DTYPE_DCS_LWRITE */
 static char paset[] = {0x2b, 0x00, 0x00, 0x05, 0x00};	/* DTYPE_DCS_LWRITE */
 
 /* pack into one frame before sent */
 static struct dsi_cmd_desc set_col_page_addr_cmd[] = {
+	{{DTYPE_DCS_WRITE1, 1, 0, 0, 0, sizeof(pageset)}, pageset},
 	{{DTYPE_DCS_LWRITE, 0, 0, 0, 1, sizeof(caset)}, caset},	/* packed */
 	{{DTYPE_DCS_LWRITE, 1, 0, 0, 1, sizeof(paset)}, paset},
 };
@@ -586,20 +588,22 @@ static void mdss_dsi_send_col_page_addr(struct mdss_dsi_ctrl_pdata *ctrl,
 {
 	struct dcs_cmd_req cmdreq;
 
+	set_col_page_addr_cmd[0].payload = pageset;
+
 	caset[1] = (((roi->x) & 0xFF00) >> 8);
 	caset[2] = (((roi->x) & 0xFF));
 	caset[3] = (((roi->x - 1 + roi->w) & 0xFF00) >> 8);
 	caset[4] = (((roi->x - 1 + roi->w) & 0xFF));
-	set_col_page_addr_cmd[0].payload = caset;
+	set_col_page_addr_cmd[1].payload = caset;
 
 	paset[1] = (((roi->y) & 0xFF00) >> 8);
 	paset[2] = (((roi->y) & 0xFF));
 	paset[3] = (((roi->y - 1 + roi->h) & 0xFF00) >> 8);
 	paset[4] = (((roi->y - 1 + roi->h) & 0xFF));
-	set_col_page_addr_cmd[1].payload = paset;
+	set_col_page_addr_cmd[2].payload = paset;
 
 	memset(&cmdreq, 0, sizeof(cmdreq));
-	cmdreq.cmds_cnt = 2;
+	cmdreq.cmds_cnt = 3;
 	cmdreq.flags = CMD_REQ_COMMIT;
 	if (unicast)
 		cmdreq.flags |= CMD_REQ_UNICAST;
