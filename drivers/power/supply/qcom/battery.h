@@ -17,6 +17,7 @@ struct charger_param {
 	u32 fcc_step_delay_ms;
 	u32 fcc_step_size_ua;
 	u32 smb_version;
+	u32 hvdcp3_max_icl_ua;
 };
 
 int qcom_batt_init(struct charger_param *param);
