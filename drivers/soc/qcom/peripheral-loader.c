@@ -413,8 +413,8 @@ static int pil_do_minidump(struct pil_desc *desc, void *ramdump_dev)
 	}
 
 	if (desc->minidump_as_elf32)
-		ret = do_elf_ramdump(ramdump_dev, ramdump_segs,
-				     ss_valid_seg_cnt);
+		ret = do_minidump_elf32(ramdump_dev, ramdump_segs,
+					ss_valid_seg_cnt);
 	else
 		ret = do_minidump(ramdump_dev, ramdump_segs, ss_valid_seg_cnt);
 	if (ret)
