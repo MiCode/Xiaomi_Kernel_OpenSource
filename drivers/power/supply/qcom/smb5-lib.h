@@ -22,6 +22,7 @@
 #include <linux/extcon.h>
 #include <linux/usb/class-dual-role.h>
 #include "storm-watch.h"
+#include "battery.h"
 
 enum print_reason {
 	PR_INTERRUPT	= BIT(0),
@@ -382,7 +383,6 @@ struct smb_charger {
 	int			*pd_disabled;
 	enum smb_mode		mode;
 	struct smb_chg_freq	chg_freq;
-	int			smb_version;
 	int			otg_delay_ms;
 	int			*weak_chg_icl_ua;
 	bool			pd_not_supported;
@@ -464,6 +464,7 @@ struct smb_charger {
 	struct alarm		moisture_protection_alarm;
 	struct alarm		chg_termination_alarm;
 
+	struct charger_param	chg_param;
 	/* secondary charger config */
 	bool			sec_pl_present;
 	bool			sec_cp_present;

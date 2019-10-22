@@ -100,13 +100,15 @@ struct pl_data {
 	struct class		qcom_batt_class;
 	struct wakeup_source	*pl_ws;
 	struct notifier_block	nb;
+	struct charger_param	*chg_param;
 	bool			pl_disable;
 	bool			cp_disabled;
 	int			taper_entry_fv;
 	int			main_fcc_max;
 	u32			float_voltage_uv;
-	int			fcc_step_size_ua;
-	int			fcc_step_delay_ms;
+	/* debugfs directory */
+	struct dentry		*dfs_root;
+
 };
 
 struct pl_data *the_chip;
@@ -528,8 +530,6 @@ ATTRIBUTE_GROUPS(batt_class);
  *  FCC  *
  **********/
 #define EFFICIENCY_PCT	80
-#define DEFAULT_FCC_STEP_SIZE_UA 100000
-#define DEFAULT_FCC_STEP_UPDATE_DELAY_MS 1000
 #define STEP_UP 1
 #define STEP_DOWN -1
 static void get_fcc_split(struct pl_data *chip, int total_ua,
@@ -632,6 +632,11 @@ static void get_fcc_stepper_params(struct pl_data *chip, int main_fcc_ua,
 {
 	int main_set_fcc_ua, total_fcc_ua;
 
+	if (!chip->chg_param->fcc_step_size_ua) {
+		pr_err("Invalid fcc stepper step size, value 0\n");
+		return;
+	}
+
 	if (is_override_vote_enabled_locked(chip->fcc_main_votable)) {
 		/*
 		 * FCC stepper params need re-calculation in override mode
@@ -653,26 +658,23 @@ static void get_fcc_stepper_params(struct pl_data *chip, int main_fcc_ua,
 		}
 	}
 
-	if (!chip->fcc_step_size_ua) {
-		pr_err("Invalid fcc stepper step size, value 0\n");
-		return;
-	}
-
 	/* Read current FCC of main charger */
 	chip->main_fcc_ua = get_effective_result(chip->fcc_main_votable);
 	chip->main_step_fcc_dir = (main_fcc_ua > chip->main_fcc_ua) ?
 				STEP_UP : STEP_DOWN;
 	chip->main_step_fcc_count = abs((main_fcc_ua - chip->main_fcc_ua) /
-				chip->fcc_step_size_ua);
-	chip->main_step_fcc_residual = (main_fcc_ua - chip->main_fcc_ua) %
-				chip->fcc_step_size_ua;
+				chip->chg_param->fcc_step_size_ua);
+	chip->main_step_fcc_residual = abs((main_fcc_ua - chip->main_fcc_ua) %
+				chip->chg_param->fcc_step_size_ua);
 
 	chip->parallel_step_fcc_dir = (parallel_fcc_ua > chip->slave_fcc_ua) ?
 				STEP_UP : STEP_DOWN;
-	chip->parallel_step_fcc_count = abs((parallel_fcc_ua -
-				chip->slave_fcc_ua) / chip->fcc_step_size_ua);
-	chip->parallel_step_fcc_residual = (parallel_fcc_ua -
-				chip->slave_fcc_ua) % chip->fcc_step_size_ua;
+	chip->parallel_step_fcc_count
+				= abs((parallel_fcc_ua - chip->slave_fcc_ua) /
+					chip->chg_param->fcc_step_size_ua);
+	chip->parallel_step_fcc_residual
+				= abs((parallel_fcc_ua - chip->slave_fcc_ua) %
+					chip->chg_param->fcc_step_size_ua);
 
 skip_fcc_step_update:
 	if (chip->parallel_step_fcc_count || chip->parallel_step_fcc_residual
@@ -963,19 +965,20 @@ static void fcc_stepper_work(struct work_struct *work)
 	}
 
 	if (chip->main_step_fcc_count) {
-		main_fcc += (chip->fcc_step_size_ua * chip->main_step_fcc_dir);
+		main_fcc += (chip->chg_param->fcc_step_size_ua
+					* chip->main_step_fcc_dir);
 		chip->main_step_fcc_count--;
-		reschedule_ms = chip->fcc_step_delay_ms;
+		reschedule_ms = chip->chg_param->fcc_step_delay_ms;
 	} else if (chip->main_step_fcc_residual) {
 		main_fcc += chip->main_step_fcc_residual;
 		chip->main_step_fcc_residual = 0;
 	}
 
 	if (chip->parallel_step_fcc_count) {
-		parallel_fcc += (chip->fcc_step_size_ua *
-			chip->parallel_step_fcc_dir);
+		parallel_fcc += (chip->chg_param->fcc_step_size_ua
+					* chip->parallel_step_fcc_dir);
 		chip->parallel_step_fcc_count--;
-		reschedule_ms = chip->fcc_step_delay_ms;
+		reschedule_ms = chip->chg_param->fcc_step_delay_ms;
 	} else if (chip->parallel_step_fcc_residual) {
 		parallel_fcc += chip->parallel_step_fcc_residual;
 		chip->parallel_step_fcc_residual = 0;
@@ -1809,18 +1812,10 @@ static int pl_determine_initial_status(struct pl_data *chip)
 
 static void pl_config_init(struct pl_data *chip, int smb_version)
 {
-	chip->fcc_step_size_ua = DEFAULT_FCC_STEP_SIZE_UA;
-	chip->fcc_step_delay_ms = DEFAULT_FCC_STEP_UPDATE_DELAY_MS;
-
 	switch (smb_version) {
-	case PM8150B_SUBTYPE:
-		chip->fcc_step_delay_ms = 100;
-		break;
 	case PMI8998_SUBTYPE:
 	case PM660_SUBTYPE:
 		chip->wa_flags = AICL_RERUN_WA_BIT | FORCE_INOV_DISABLE_BIT;
-		break;
-	case PMI632_SUBTYPE:
 		break;
 	default:
 		break;
@@ -1828,10 +1823,15 @@ static void pl_config_init(struct pl_data *chip, int smb_version)
 }
 
 #define DEFAULT_RESTRICTED_CURRENT_UA	1000000
-int qcom_batt_init(int smb_version)
+int qcom_batt_init(struct charger_param *chg_param)
 {
 	struct pl_data *chip;
 	int rc = 0;
+
+	if (!chg_param) {
+		pr_err("invalid charger parameter\n");
+		return -EINVAL;
+	}
 
 	/* initialize just once */
 	if (the_chip) {
@@ -1843,7 +1843,8 @@ int qcom_batt_init(int smb_version)
 	if (!chip)
 		return -ENOMEM;
 	chip->slave_pct = 50;
-	pl_config_init(chip, smb_version);
+	chip->chg_param = chg_param;
+	pl_config_init(chip, chg_param->smb_version);
 	chip->restricted_current = DEFAULT_RESTRICTED_CURRENT_UA;
 
 	chip->pl_ws = wakeup_source_register("qcom-battery");
