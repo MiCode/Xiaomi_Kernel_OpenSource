@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -48,21 +49,16 @@ struct cl_params {
 	int	max_cap_limit;
 	int	min_cap_limit;
 	int	skew_decipct;
-	int	min_delta_batt_soc;
-	bool	cl_wt_enable;
 };
 
 struct cap_learning {
 	void			*data;
 	int			init_cc_soc_sw;
 	int			cc_soc_max;
-	int			init_batt_soc;
-	int			init_batt_soc_msb;
 	int64_t			nom_cap_uah;
 	int64_t			init_cap_uah;
 	int64_t			final_cap_uah;
 	int64_t			learned_cap_uah;
-	int64_t			delta_cap_uah;
 	bool			active;
 	struct mutex		lock;
 	struct cl_params	dt;
@@ -142,6 +138,7 @@ void cycle_count_update(struct cycle_counter *counter, int batt_soc,
 		int charge_status, bool charge_done, bool input_present);
 int get_cycle_count(struct cycle_counter *counter, int *count);
 int get_cycle_counts(struct cycle_counter *counter, const char **buf);
+int set_cycle_count(struct cycle_counter *counter, u16 count);
 int cycle_count_init(struct cycle_counter *counter);
 void cap_learning_abort(struct cap_learning *cl);
 void cap_learning_update(struct cap_learning *cl, int batt_temp,

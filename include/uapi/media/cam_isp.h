@@ -4,7 +4,7 @@
 #include "cam_defs.h"
 #include "cam_isp_vfe.h"
 #include "cam_isp_ife.h"
-#include "cam_cpas.h"
+
 
 /* ISP driver name */
 #define CAM_ISP_DEV_NAME                        "cam-isp"
@@ -90,14 +90,6 @@
 #define CAM_ISP_GENERIC_BLOB_TYPE_UBWC_CONFIG         3
 #define CAM_ISP_GENERIC_BLOB_TYPE_CSID_CLOCK_CONFIG   4
 #define CAM_ISP_GENERIC_BLOB_TYPE_FE_CONFIG           5
-#define CAM_ISP_GENERIC_BLOB_TYPE_BW_CONFIG_V2        6
-#define CAM_ISP_GENERIC_BLOB_TYPE_INIT_FRAME_DROP     10
-
-/* Per Path Usage Data */
-#define CAM_ISP_USAGE_INVALID     0
-#define CAM_ISP_USAGE_LEFT_PX     1
-#define CAM_ISP_USAGE_RIGHT_PX    2
-#define CAM_ISP_USAGE_RDI         3
 
 /* Query devices */
 /**
@@ -218,7 +210,7 @@ struct cam_isp_in_port_info {
 	uint32_t                        hbi_cnt;
 	uint32_t                        reserved;
 	uint32_t                        num_out_res;
-	struct cam_isp_out_port_info    data[1];
+	struct cam_isp_out_port_info	data[1];
 };
 
 /**
@@ -393,38 +385,6 @@ struct cam_isp_bw_config {
 	struct cam_isp_bw_vote         rdi_vote[1];
 } __attribute__((packed));
 
-
-/**
- * struct cam_isp_bw_config_ab - Bandwidth configuration
- *
- * @usage_type:                    Usage type (Single/Dual)
- * @num_rdi:                       Number of RDI votes
- * @left_pix_vote_ab:              AB Bandwidth vote for left ISP
- * @right_pix_vote_ab:             AB Bandwidth vote for right ISP
- * @rdi_vote_ab:                   AB RDI bandwidth requirements
- */
-
-struct cam_isp_bw_config_ab {
-	uint32_t    usage_type;
-	uint32_t    num_rdi;
-	uint64_t    left_pix_vote_ab;
-	uint64_t    right_pix_vote_ab;
-	uint64_t    rdi_vote_ab[1];
-} __attribute__((packed));
-
-/**
- * struct cam_isp_bw_config_v2 - Bandwidth configuration
- *
- * @usage_type:                 Usage type (Single/Dual)
- * @num_paths:                  Number of axi data paths
- * @axi_path                    Per path vote info
- */
-struct cam_isp_bw_config_v2 {
-	uint32_t                             usage_type;
-	uint32_t                             num_paths;
-	struct cam_axi_per_path_bw_vote      axi_path[1];
-} __attribute__((packed));
-
 /**
  * struct cam_fe_config - Fetch Engine configuration
  *
@@ -500,15 +460,5 @@ struct cam_isp_acquire_hw_info {
 #define CAM_ISP_ACQUIRE_OUT_VER0            0x3000
 
 #define CAM_ISP_ACQUIRE_OUT_SIZE_VER0       sizeof(struct cam_isp_out_port_info)
-
-/**
- * struct cam_isp_init_frame_drop_config - init frame drop configuration
- *
- * @init_frame_drop:            Initial number of frames needs to drop
- */
-
-struct cam_isp_init_frame_drop_config {
-	uint32_t                       init_frame_drop;
-} __attribute__((packed));
 
 #endif /* __UAPI_CAM_ISP_H__ */

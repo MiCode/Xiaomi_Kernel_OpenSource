@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -107,6 +108,7 @@ struct dsi_phy_cfg {
 	struct dsi_lane_map lane_map;
 	bool force_clk_lane_hs;
 	unsigned long bit_clk_rate_hz;
+	unsigned long clk_strength;
 };
 
 struct dsi_phy_hw;

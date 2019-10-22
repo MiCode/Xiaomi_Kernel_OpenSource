@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -473,7 +474,6 @@ int cam_isp_add_io_buffers(
 	int32_t                             hdl;
 	int                                 mmu_hdl;
 	bool                                mode, is_buf_secure;
-	uint64_t                            req_id;
 
 	io_cfg = (struct cam_buf_io_cfg *) ((uint8_t *)
 			&prepare->packet->payload +
@@ -482,7 +482,6 @@ int cam_isp_add_io_buffers(
 	num_in_buf  = 0;
 	io_cfg_used_bytes = 0;
 	prepare->pf_data->packet = prepare->packet;
-	req_id = prepare->packet->header.request_id;
 
 	/* Max one hw entries required for each base */
 	if (prepare->num_hw_update_entries + 1 >=
@@ -628,23 +627,6 @@ int cam_isp_add_io_buffers(
 						plane_id);
 					rc = -ENOMEM;
 					return rc;
-				}
-
-				if (j == 0) {
-					rc = cam_packet_validate_plane_size(
-							&io_cfg[i],
-							plane_id,
-							size);
-					if (rc) {
-						CAM_ERR(CAM_ISP,
-						"Invalid buffer size, port 0x%x plane %d req_id %llu format %d memh 0x%x",
-						io_cfg[i].resource_type,
-						plane_id,
-						req_id,
-						io_cfg[i].format,
-						io_cfg[i].mem_handle[plane_id]);
-						return -EINVAL;
-					}
 				}
 
 				/* need to update with offset */

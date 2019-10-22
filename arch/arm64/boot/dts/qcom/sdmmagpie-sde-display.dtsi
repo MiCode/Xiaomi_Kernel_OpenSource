@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -482,9 +483,12 @@
 };
 
 &dsi_dual_sharp_wqhd_cmd {
+	/*
 	qcom,ulps-enabled;
+	*/
 	qcom,mdss-dsi-t-clk-post = <0x0c>;
 	qcom,mdss-dsi-t-clk-pre = <0x21>;
+	/*
 	qcom,esd-check-enabled;
 	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
 	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0a];
@@ -492,14 +496,17 @@
 	qcom,mdss-dsi-panel-status-value = <0x9c>;
 	qcom,mdss-dsi-panel-on-check-value = <0x9c>;
 	qcom,mdss-dsi-panel-status-read-length = <1>;
+	*/
 	qcom,mdss-dsi-display-timings {
 		timing@0{
 			qcom,mdss-dsi-panel-phy-timings = [00 2e 08 0a 12 18 08
 				0b 09 03 04 00];
-			qcom,display-topology = <2 0 2>;
+			qcom,display-topology = <1 0 2>;
 			qcom,default-topology-index = <0>;
+			/*
 			qcom,partial-update-enabled = "single_roi";
 			qcom,panel-roi-alignment = <720 160 160 160 1440 160>;
+			*/
 		};
 	};
 };

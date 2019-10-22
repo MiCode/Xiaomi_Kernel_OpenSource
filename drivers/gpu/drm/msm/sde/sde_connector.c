@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -87,9 +88,12 @@ static int sde_backlight_device_update_status(struct backlight_device *bd)
 	if (brightness > display->panel->bl_config.bl_max_level)
 		brightness = display->panel->bl_config.bl_max_level;
 
-	/* map UI brightness into driver backlight level with rounding */
-	bl_lvl = mult_frac(brightness, display->panel->bl_config.bl_max_level,
-			display->panel->bl_config.brightness_max_level);
+	if (!display->panel->bl_config.bl_remap_flag) {
+		/* map UI brightness into driver backlight level with rounding */
+		bl_lvl = mult_frac(brightness, display->panel->bl_config.bl_max_level,
+				display->panel->bl_config.brightness_max_level);
+	} else
+		bl_lvl = brightness;
 
 	if (!bl_lvl && brightness)
 		bl_lvl = 1;
@@ -726,12 +730,13 @@ void sde_connector_helper_bridge_enable(struct drm_connector *connector)
 				MSM_ENC_TX_COMPLETE);
 	c_conn->allow_bl_update = true;
 
-	if (c_conn->bl_device) {
+	if (!display->is_first_boot && c_conn->bl_device) {
 		c_conn->bl_device->props.power = FB_BLANK_UNBLANK;
 		c_conn->bl_device->props.state &= ~BL_CORE_FBBLANK;
 		backlight_update_status(c_conn->bl_device);
 	}
 	c_conn->panel_dead = false;
+	display->is_first_boot = false;
 }
 
 int sde_connector_clk_ctrl(struct drm_connector *connector, bool enable)
@@ -1148,6 +1153,10 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 	/* connector-specific property handling */
 	idx = msm_property_index(&c_conn->property_info, property);
 	switch (idx) {
+	case CONNECTOR_PROP_LP:
+		if (connector->dev)
+			connector->dev->doze_state = val;
+		break;
 	case CONNECTOR_PROP_OUT_FB:
 		/* clear old fb, if present */
 		if (c_state->out_fb)
@@ -1848,6 +1857,46 @@ static void _sde_connector_report_panel_dead(struct sde_connector *conn,
 }
 
 int sde_connector_esd_status(struct drm_connector *conn)
+{
+	struct sde_connector *sde_conn = NULL;
+	struct dsi_display *display;
+	int ret = 0;
+
+	if (!conn)
+		return ret;
+
+	sde_conn = to_sde_connector(conn);
+	if (!sde_conn || !sde_conn->ops.check_status)
+		return ret;
+
+		display = sde_conn->display;
+
+	/* protect this call with ESD status check call */
+	mutex_lock(&sde_conn->lock);
+	if (atomic_read(&(display->panel->esd_recovery_pending))) {
+		SDE_ERROR("ESD recovery already pending\n");
+		mutex_unlock(&sde_conn->lock);
+		return -ETIMEDOUT;
+	}
+	ret = sde_conn->ops.check_status(&sde_conn->base,
+					sde_conn->display, true);
+	mutex_unlock(&sde_conn->lock);
+
+	if (ret <= 0) {
+		/* cancel if any pending esd work */
+		sde_connector_schedule_status_work(conn, false);
+		_sde_connector_report_panel_dead(sde_conn, true);
+		ret = -ETIMEDOUT;
+	} else {
+		SDE_DEBUG("Successfully received TE from panel\n");
+		ret = 0;
+	}
+	SDE_EVT32(ret);
+
+	return ret;
+}
+
+int ssde_connector_atomic_checkde_connector_esd_status(struct drm_connector *conn)
 {
 	struct sde_connector *sde_conn = NULL;
 	struct dsi_display *display;

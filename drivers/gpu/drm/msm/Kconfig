@@ -74,7 +74,7 @@ config DRM_MSM_DSI_STAGING
 config DSI_PARSER
 	bool "Enable DSI panel configuration parser"
 	depends on DYNAMIC_DEBUG
-	default y
+	default n
 	help
 	  Choose this option if you need text parser for a DSI panel
 	  configurations which can parse a given text file and get the
@@ -177,4 +177,7 @@ config DRM_SDE_RSC
 	  can vote their active state. Any active request from any client
 	  avoids the display core power collapse. A client can also register
 	  for display core power collapse events on rsc.
-
+config DRM_SDE_XLOG_DEBUG
+	bool "Trigger a panic after the dumping work has completed when SDE error"
+	default n
+	depends on DRM_MSM

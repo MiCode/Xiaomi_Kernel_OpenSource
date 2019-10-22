@@ -39,9 +39,13 @@
 #include "../pinconf.h"
 #include "pinctrl-msm.h"
 #include "../pinctrl-utils.h"
-
+#include <linux/syscore_ops.h>
+#include <soc/qcom/socinfo.h>
 #define MAX_NR_GPIO 300
 #define PS_HOLD_OFFSET 0x820
+
+#define WEST	  0x00100000
+#define REG_SIZE  0x1000
 
 /**
  * struct msm_pinctrl - state for a pinctrl-msm device
@@ -207,7 +211,6 @@ static int msm_pinmux_set_mux(struct pinctrl_dev *pctldev,
 	/* Check if egpio present and enable that feature */
 	if (val & BIT(g->egpio_present))
 		val |= BIT(g->egpio_enable);
-
 	writel(val, base + g->ctl_reg);
 
 	raw_spin_unlock_irqrestore(&pctrl->lock, flags);
@@ -570,7 +573,7 @@ static void msm_gpio_dbg_show_one(struct seq_file *s,
 	int is_out;
 	int drive;
 	int pull;
-	u32 ctl_reg;
+	u32 ctl_reg, io_reg, value;
 
 	static const char * const pulls[] = {
 		"no pull",
@@ -588,9 +591,12 @@ static void msm_gpio_dbg_show_one(struct seq_file *s,
 	drive = (ctl_reg >> g->drv_bit) & 7;
 	pull = (ctl_reg >> g->pull_bit) & 3;
 
+	io_reg = readl(pctrl->regs + g->io_reg);
+	value = (is_out ? io_reg >> g->out_bit : io_reg >> g->in_bit) & 0x1;
 	seq_printf(s, " %-8s: %-3s %d", g->name, is_out ? "out" : "in", func);
 	seq_printf(s, " %dmA", msm_regval_to_drive(drive));
 	seq_printf(s, " %s", pulls[pull]);
+	seq_printf(s, " %s", value ? "high":"low");
 }
 
 static void msm_gpio_dbg_show(struct seq_file *s, struct gpio_chip *chip)
@@ -599,6 +605,16 @@ static void msm_gpio_dbg_show(struct seq_file *s, struct gpio_chip *chip)
 	unsigned i;
 
 	for (i = 0; i < chip->ngpio; i++, gpio++) {
+		/* gpio 0~3 is NFC spi, gpio 126~129 is FP spi */
+		if (i < 4 || (i > 125 && i < 130))
+			continue;
+
+		if ((HARDWARE_PLATFORM_CRUX == get_hw_version_platform())) {
+		  /*skip 5G related gpio: 5G IPC HS-UART, 5G RF HS-UART*/
+			if ((i >= 4 && i <= 7) || (i >= 83 && i <= 86))
+				continue;
+		}
+
 		msm_gpio_dbg_show_one(s, NULL, chip, i, gpio);
 		seq_puts(s, "\n");
 	}
@@ -1771,6 +1787,53 @@ static void msm_pinctrl_setup_pm_reset(struct msm_pinctrl *pctrl)
 		}
 }
 
+#ifdef CONFIG_PM
+extern int msm_show_resume_irq_mask;
+static int msm_pinctrl_suspend(void)
+{
+	return 0;
+}
+
+static void msm_pinctrl_resume(void)
+{
+	int i, irq;
+	u32 val;
+	unsigned long flags;
+	struct irq_desc *desc;
+	const struct msm_pingroup *g;
+	const char *name = "null";
+	struct msm_pinctrl *pctrl = msm_pinctrl_data;
+
+	if (!msm_show_resume_irq_mask)
+		return;
+
+	raw_spin_lock_irqsave(&pctrl->lock, flags);
+	for_each_set_bit(i, pctrl->enabled_irqs, pctrl->chip.ngpio) {
+		g = &pctrl->soc->groups[i];
+		val = readl_relaxed(pctrl->regs + g->intr_status_reg);
+		if (val & BIT(g->intr_status_bit)) {
+			irq = irq_find_mapping(pctrl->chip.irqdomain, i);
+			desc = irq_to_desc(irq);
+			if (desc == NULL)
+				name = "stray irq";
+			else if (desc->action && desc->action->name)
+				name = desc->action->name;
+
+			pr_warn("%s: %d triggered %s\n", __func__, irq, name);
+		}
+	}
+	raw_spin_unlock_irqrestore(&pctrl->lock, flags);
+}
+#else
+#define msm_pinctrl_suspend NULL
+#define msm_pinctrl_resume NULL
+#endif
+
+static struct syscore_ops msm_pinctrl_pm_ops = {
+	.suspend = msm_pinctrl_suspend,
+	.resume = msm_pinctrl_resume,
+};
+
 int msm_pinctrl_probe(struct platform_device *pdev,
 		      const struct msm_pinctrl_soc_data *soc_data)
 {
@@ -1846,6 +1909,7 @@ int msm_pinctrl_probe(struct platform_device *pdev,
 
 	platform_set_drvdata(pdev, pctrl);
 
+	register_syscore_ops(&msm_pinctrl_pm_ops);
 	dev_dbg(&pdev->dev, "Probed Qualcomm pinctrl driver\n");
 
 	return 0;
@@ -1859,6 +1923,7 @@ int msm_pinctrl_remove(struct platform_device *pdev)
 	gpiochip_remove(&pctrl->chip);
 
 	unregister_restart_handler(&pctrl->restart_nb);
+	unregister_syscore_ops(&msm_pinctrl_pm_ops);
 
 	return 0;
 }

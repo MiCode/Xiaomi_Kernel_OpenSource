@@ -17,7 +17,8 @@ Charger specific properties:
 - compatible
   Usage:      required
   Value type: <string>
-  Definition: "qcom,smb1390-charger-psy".
+  Definition: "qcom,smb1390-charger-psy" for master SMB1390 and
+	      "qcom,smb1390-slave" for slave SMB1390.
 
 - qcom,pmic-revid
   Usage:      required

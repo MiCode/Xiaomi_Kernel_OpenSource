@@ -37,6 +37,7 @@
 #include "sde_crtc.h"
 #include "sde_trace.h"
 #include "sde_core_irq.h"
+#include "dsi_drm.h"
 
 #define SDE_DEBUG_ENC(e, fmt, ...) SDE_DEBUG("enc%d " fmt,\
 		(e) ? (e)->base.base.id : -1, ##__VA_ARGS__)
@@ -913,6 +914,7 @@ void sde_encoder_helper_split_config(
 		 *   assume master is first pp
 		 */
 		cfg->pp_split_index = sde_enc->hw_pp[0]->idx - PINGPONG_0;
+		cfg->pp_slave_intf = true;
 		SDE_DEBUG_ENC(sde_enc, "master using pp%d\n",
 				cfg->pp_split_index);
 
@@ -941,6 +943,24 @@ bool sde_encoder_in_clone_mode(struct drm_encoder *drm_enc)
 	}
 
 	return false;
+}
+
+bool sde_encoder_is_topology_ppsplit(struct drm_encoder *drm_enc)
+{
+	struct sde_encoder_virt *sde_enc;
+	struct sde_encoder_phys *master;
+
+	if (!drm_enc)
+		return false;
+
+	sde_enc = to_sde_encoder_virt(drm_enc);
+	master = sde_enc->cur_master;
+
+	if (!master || !master->connector)
+		return false;
+
+	return  (sde_connector_get_topology_name(master->connector)
+					== SDE_RM_TOPOLOGY_PPSPLIT);
 }
 
 static int sde_encoder_virt_atomic_check(
@@ -4658,6 +4678,12 @@ void sde_encoder_kickoff(struct drm_encoder *drm_enc, bool is_error)
 				nsecs_to_jiffies(ktime_to_ns(wakeup_time)));
 	}
 
+	if (drm_enc->bridge && drm_enc->bridge->is_dsi_drm_bridge) {
+		struct dsi_bridge *c_bridge = container_of((drm_enc->bridge), struct dsi_bridge, base);
+		if (c_bridge && c_bridge->display && c_bridge->display->panel)
+			c_bridge->display->panel->kickoff_count++;
+	}
+
 	SDE_ATRACE_END("encoder_kickoff");
 }
 
@@ -5116,6 +5142,7 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 	} else if (disp_info->intf_type == DRM_MODE_CONNECTOR_VIRTUAL) {
 		*drm_enc_mode = DRM_MODE_ENCODER_VIRTUAL;
 		intf_type = INTF_WB;
+		phys_params.parent_ops.handle_vblank_virt = NULL;
 	} else {
 		SDE_ERROR_ENC(sde_enc, "unsupported display interface type\n");
 		return -EINVAL;

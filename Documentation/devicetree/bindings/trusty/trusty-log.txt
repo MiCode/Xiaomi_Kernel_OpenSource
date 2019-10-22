@@ -1,0 +1,6 @@
+Trusty log interface
+
+Trusty log is service to print logs from secure world..
+
+Required properties:
+- compatible: "android,trusty-log-v1"

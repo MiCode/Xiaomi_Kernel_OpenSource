@@ -1,4 +1,5 @@
 /* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -44,7 +45,7 @@
 		qcom,adjust-timer-wakeup-ms = <1>;
 		qcom,mdss-dsi-display-timings {
 			timing@0 {
-				qcom,mdss-dsi-panel-width = <720>;
+				qcom,mdss-dsi-panel-width = <712>;
 				qcom,mdss-dsi-panel-height = <2560>;
 				qcom,mdss-dsi-h-front-porch = <30>;
 				qcom,mdss-dsi-h-back-porch = <100>;
@@ -54,6 +55,7 @@
 				qcom,mdss-dsi-v-front-porch = <8>;
 				qcom,mdss-dsi-v-pulse-width = <1>;
 				qcom,mdss-dsi-panel-framerate = <60>;
+				qcom,mdss-dsi-overlap-pixels = <8>;
 				qcom,mdss-dsi-on-command = [
 					39 01 00 00 00 00 11 91 09
 					20 00 20 02 00 03 1c 04 21 00

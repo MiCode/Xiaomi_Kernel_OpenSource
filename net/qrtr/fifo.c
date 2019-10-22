@@ -199,16 +199,16 @@ static void xprt_read_data(struct qrtr_fifo_xprt *xprtp)
 			break;
 		}
 
+		data = kzalloc(pkt_len, GFP_ATOMIC);
+		if (!data)
+			break;
+
 		rx_avail = fifo_rx_avail(&xprtp->rx_pipe);
 		if (rx_avail < pkt_len) {
 			pr_err("%s Not FULL pkt in FIFO %zu %zu\n",
 			       __func__, rx_avail, pkt_len);
 			break;
 		}
-
-		data = kzalloc(pkt_len, GFP_ATOMIC);
-		if (!data)
-			break;
 
 		fifo_rx_peak(&xprtp->rx_pipe, data, 0, pkt_len);
 		fifo_rx_advance(&xprtp->rx_pipe, pkt_len);

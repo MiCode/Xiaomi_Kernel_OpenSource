@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -164,9 +165,11 @@ static int cam_bps_handle_pc(struct cam_hw_info *bps_dev)
 			CAM_CPAS_REG_CPASTOP,
 			hw_info->pwr_ctrl, true, 0x1);
 
-		if ((pwr_status >> BPS_PWR_ON_MASK))
-			CAM_WARN(CAM_ICP, "BPS: pwr_status(%x):pwr_ctrl(%x)",
+		if ((pwr_status >> BPS_PWR_ON_MASK)) {
+			CAM_ERR(CAM_ICP, "BPS: pwr_status(%x):pwr_ctrl(%x)",
 				pwr_status, pwr_ctrl);
+			return -EINVAL;
+		}
 	}
 	cam_bps_get_gdsc_control(soc_info);
 	cam_cpas_reg_read(core_info->cpas_handle,

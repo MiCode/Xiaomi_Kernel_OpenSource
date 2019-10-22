@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2014, 2016-2018 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -682,17 +683,15 @@ static void pmic_gpio_config_dbg_show(struct pinctrl_dev *pctldev,
 
 		if (pad->analog_pass)
 			seq_puts(s, " analog-pass");
-		else
-			seq_printf(s, " %-4s",
-					pad->output_enabled ? "out" : "in");
+		else {
+		seq_printf(s, " %-4s", pad->output_enabled ? "out" : "in");
 		seq_printf(s, " %-7s", pmic_gpio_functions[function]);
 		seq_printf(s, " vin-%d", pad->power_source);
 		seq_printf(s, " %-27s", biases[pad->pullup]);
 		seq_printf(s, " %-10s", buffer_types[pad->buffer_type]);
 		seq_printf(s, " %-4s", pad->out_value ? "high" : "low");
 		seq_printf(s, " %-7s", strengths[pad->strength]);
-		seq_printf(s, " atest-%d", pad->atest);
-		seq_printf(s, " dtest-%d", pad->dtest_buffer);
+		}
 	}
 }
 

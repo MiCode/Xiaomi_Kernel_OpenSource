@@ -41,7 +41,6 @@
 #define AMI_4000T		12
 #define AMI_CDTV		13
 #define AMI_CD32		14
-#define AMI_DRACO		15
 
 
     /*

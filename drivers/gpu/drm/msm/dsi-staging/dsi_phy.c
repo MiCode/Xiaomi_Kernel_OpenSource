@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -876,6 +877,7 @@ int dsi_phy_enable(struct msm_dsi_phy *phy,
 	phy->dst_format = config->common_config.dst_format;
 	phy->cfg.pll_source = pll_source;
 	phy->cfg.bit_clk_rate_hz = config->bit_clk_rate_hz;
+	phy->cfg.clk_strength = config->common_config.clk_strength;
 
 	/**
 	 * If PHY timing parameters are not present in panel dtsi file,

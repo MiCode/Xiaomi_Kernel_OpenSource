@@ -2,6 +2,7 @@
  *  linux/mm/memory.c
  *
  *  Copyright (C) 1991, 1992, 1993, 1994  Linus Torvalds
+ *  Copyright (C) 2019 XiaoMi, Inc.
  */
 
 /*
@@ -1132,7 +1133,7 @@ again:
 	 * are still not flushed.
 	 */
 	if (IS_ENABLED(CONFIG_SPECULATIVE_PAGE_FAULT) &&
-	    is_cow_mapping(vma->vm_flags))
+			is_cow_mapping(vma->vm_flags))
 		flush_tlb_range(vma, orig_addr, end);
 
 	spin_unlock(src_ptl);

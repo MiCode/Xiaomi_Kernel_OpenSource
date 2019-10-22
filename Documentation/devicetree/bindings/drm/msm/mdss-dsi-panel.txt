@@ -25,6 +25,7 @@ Required properties:
 					this panel will be mapped to.
 - qcom,mdss-dsi-panel-width:		Specifies panel width in pixels.
 - qcom,mdss-dsi-panel-height:		Specifies panel height in pixels.
+- qcom,mdss-dsi-overlap-pixels:		Specifies overlap pixels for certain panels.
 - qcom,mdss-dsi-bpp:			Specifies the panel bits per pixel.
 					3  = for rgb111
 					8  = for rgb332

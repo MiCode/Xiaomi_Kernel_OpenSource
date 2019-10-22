@@ -1,4 +1,5 @@
 /* Copyright (c) 2018 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,9 +43,6 @@
 
 #define QG_INT_LATCHED_STS_REG			0x18
 #define FIFO_UPDATE_DONE_INT_LAT_STS_BIT	BIT(3)
-
-#define QG_STATE_TRIG_CMD_REG			0x40
-#define S7_PON_OCV_START			BIT(3)
 
 #define QG_DATA_CTL1_REG			0x41
 #define MASTER_HOLD_OR_CLR_BIT			BIT(0)
@@ -95,8 +93,6 @@
 #define QG_PRE_ESR_I_DATA0_REG			0x7A
 #define QG_POST_ESR_V_DATA0_REG			0x7C
 #define QG_POST_ESR_I_DATA0_REG			0x7E
-
-#define QG_S2_NORMAL_AVG_V_DATA0_REG		0x80
 
 #define QG_V_ACCUM_DATA0_RT_REG			0x88
 #define QG_I_ACCUM_DATA0_RT_REG			0x8B

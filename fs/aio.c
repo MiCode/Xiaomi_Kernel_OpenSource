@@ -1050,6 +1050,7 @@ static inline struct aio_kiocb *aio_get_req(struct kioctx *ctx)
 
 	percpu_ref_get(&ctx->reqs);
 	INIT_LIST_HEAD(&req->ki_list);
+
 	req->ki_ctx = ctx;
 	return req;
 out_put:

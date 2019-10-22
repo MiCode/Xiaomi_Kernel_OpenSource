@@ -134,5 +134,6 @@ obj-$(CONFIG_REGULATOR_RPM_SMD) += rpm-smd-regulator.o
 obj-$(CONFIG_REGULATOR_SPM) += spm-regulator.o
 obj-$(CONFIG_REGULATOR_RPMH) += rpmh-regulator.o
 obj-$(CONFIG_REGULATOR_STUB) += stub-regulator.o
+obj-$(CONFIG_REGULATOR_PM8008) += qcom_pm8008-regulator.o
 
 ccflags-$(CONFIG_REGULATOR_DEBUG) += -DDEBUG

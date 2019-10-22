@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2019, The Linux Foundation.All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -197,6 +198,8 @@ struct dsi_display {
 	struct drm_connector *ext_conn;
 
 	const char *name;
+	bool is_prim_display;
+	bool is_first_boot;
 	const char *display_type;
 	struct list_head list;
 	bool is_cont_splash_enabled;
@@ -294,6 +297,7 @@ int dsi_display_get_num_of_displays(void);
  * @max_display_count: Size of display_array
  * @Returns: Number of display entries filled
  */
+
 int dsi_display_get_active_displays(void **display_array,
 		u32 max_display_count);
 
@@ -608,6 +612,8 @@ void dsi_display_enable_event(struct drm_connector *connector,
 int dsi_display_set_backlight(struct drm_connector *connector,
 		void *display, u32 bl_lvl);
 
+int dsi_panel_set_doze_backlight(struct dsi_display *display, u32 bl_lvl);
+
 /**
  * dsi_display_check_status() - check if panel is dead or alive
  * @connector:          Pointer to drm connector structure
@@ -676,6 +682,12 @@ int dsi_display_pre_kickoff(struct drm_connector *connector,
  *
  * Return: enum dsi_pixel_format type
  */
+
+ssize_t wp_info_show(struct device *device,
+			    struct device_attribute *attr,
+			   char *buf);
+
+
 enum dsi_pixel_format dsi_display_get_dst_format(
 		struct drm_connector *connector,
 		void *display);

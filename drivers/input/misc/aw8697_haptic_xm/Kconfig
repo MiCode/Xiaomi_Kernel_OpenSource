@@ -1,0 +1,15 @@
+#
+# Mediatek AW9233 Driver
+#
+
+config AW8697_XM_HAPTIC
+	tristate "Freescale AW8697 Touchkey"
+	depends on I2C
+	help
+	  Say Y here if you have Freescale AW8697 touchkey controller
+	  chip in your system.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called mpr121_touchkey.

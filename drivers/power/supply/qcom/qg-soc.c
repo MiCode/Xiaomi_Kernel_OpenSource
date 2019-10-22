@@ -1,4 +1,5 @@
-/* Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -53,7 +54,7 @@ int qg_adjust_sys_soc(struct qpnp_qg *chip)
 
 	chip->sys_soc = CAP(QG_MIN_SOC, QG_MAX_SOC, chip->sys_soc);
 
-	if (chip->sys_soc < 100) {
+	if (chip->sys_soc == QG_MIN_SOC) {
 		/* Hold SOC to 1% of VBAT has not dropped below cutoff */
 		rc = qg_get_battery_voltage(chip, &vbat_uv);
 		if (!rc && vbat_uv >= (vcutoff_uv + VBAT_LOW_HYST_UV))
@@ -177,11 +178,11 @@ static bool maint_soc_timeout(struct qpnp_qg *chip)
 static void update_msoc(struct qpnp_qg *chip)
 {
 	int rc = 0, sdam_soc, batt_temp = 0,  batt_soc_32bit = 0;
-	bool input_present = is_input_present(chip);
+	bool usb_present = is_usb_present(chip);
 
 	if (chip->catch_up_soc > chip->msoc) {
 		/* SOC increased */
-		if (input_present) /* Increment if input is present */
+		if (usb_present) /* Increment if USB is present */
 			chip->msoc += chip->dt.delta_soc;
 	} else if (chip->catch_up_soc < chip->msoc) {
 		/* SOC dropped */
@@ -221,14 +222,14 @@ static void update_msoc(struct qpnp_qg *chip)
 						QG_SOC_FULL);
 			cap_learning_update(chip->cl, batt_temp, batt_soc_32bit,
 					chip->charge_status, chip->charge_done,
-					input_present, false);
+					usb_present, false);
 		}
 	}
 
 	cycle_count_update(chip->counter,
 			DIV_ROUND_CLOSEST(chip->msoc * 255, 100),
 			chip->charge_status, chip->charge_done,
-			input_present);
+			usb_present);
 
 	qg_dbg(chip, QG_DEBUG_SOC,
 		"SOC scale: Update maint_soc=%d msoc=%d catch_up_soc=%d delta_soc=%d\n",

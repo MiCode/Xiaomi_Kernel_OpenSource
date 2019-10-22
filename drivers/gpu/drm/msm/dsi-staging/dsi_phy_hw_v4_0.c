@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -181,7 +182,11 @@ void dsi_phy_hw_v4_0_enable(struct dsi_phy_hw *phy,
 		less_than_1500_mhz = true;
 	vreg_ctrl_0 = less_than_1500_mhz ? 0x5B : 0x59;
 	glbl_str_swi_cal_sel_ctrl = less_than_1500_mhz ? 0x03 : 0x00;
-	glbl_hstx_str_ctrl_0 = less_than_1500_mhz ? 0x66 : 0x88;
+	if (cfg->clk_strength == 0) {
+		glbl_hstx_str_ctrl_0 = less_than_1500_mhz ? 0x66 : 0x88;
+	} else {
+		glbl_hstx_str_ctrl_0 = cfg->clk_strength;
+	}
 
 	/* de-assert digital and pll power down */
 	data = BIT(6) | BIT(5);
@@ -206,7 +211,11 @@ void dsi_phy_hw_v4_0_enable(struct dsi_phy_hw *phy,
 	DSI_W32(phy, DSIPHY_CMN_GLBL_PEMPH_CTRL_0, 0x00);
 	DSI_W32(phy, DSIPHY_CMN_GLBL_RESCODE_OFFSET_TOP_CTRL, 0x03);
 	DSI_W32(phy, DSIPHY_CMN_GLBL_RESCODE_OFFSET_BOT_CTRL, 0x3c);
-	DSI_W32(phy, DSIPHY_CMN_GLBL_LPTX_STR_CTRL, 0x55);
+	if (cfg->clk_strength == 0) {
+		DSI_W32(phy, DSIPHY_CMN_GLBL_LPTX_STR_CTRL, 0x55);
+	} else {
+		DSI_W32(phy, DSIPHY_CMN_GLBL_LPTX_STR_CTRL, cfg->clk_strength);
+	}
 
 	/* Remove power down from all blocks */
 	DSI_W32(phy, DSIPHY_CMN_CTRL_0, 0x7f);

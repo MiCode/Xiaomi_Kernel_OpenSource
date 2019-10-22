@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -48,6 +49,7 @@
 #define ICL_LIMIT_VOTER			"ICL_LIMIT_VOTER"
 #define FCC_STEPPER_VOTER		"FCC_STEPPER_VOTER"
 #define FCC_VOTER			"FCC_VOTER"
+#define MAIN_FCC_VOTER			"MAIN_FCC_VOTER"
 
 struct pl_data {
 	int			pl_mode;
@@ -67,6 +69,7 @@ struct pl_data {
 	struct votable		*pl_enable_votable_indirect;
 	struct votable		*cp_ilim_votable;
 	struct votable		*cp_disable_votable;
+	struct votable		*fcc_main_votable;
 	struct delayed_work	status_change_work;
 	struct work_struct	pl_disable_forever_work;
 	struct work_struct	pl_taper_work;
@@ -102,6 +105,12 @@ struct pl_data {
 };
 
 struct pl_data *the_chip;
+
+enum hvdcp3_type {
+	HVDCP3_NONE = 0,
+	HVDCP3_CLASSA_18W,
+	HVDCP3_CLASSB_27W,
+};
 
 enum print_reason {
 	PR_PARALLEL	= BIT(0),
@@ -144,7 +153,29 @@ static bool is_cp_available(struct pl_data *chip)
 	return !!chip->cp_master_psy;
 }
 
-static bool cp_ilim_boost_enabled(struct pl_data *chip)
+static bool is_main_available(struct pl_data *chip)
+{
+	if (chip->main_psy)
+		return true;
+
+	chip->main_psy = power_supply_get_by_name("main");
+
+	return !!chip->main_psy;
+}
+
+
+static bool is_usb_available(struct pl_data *chip)
+{
+	if (!chip->usb_psy)
+		chip->usb_psy = power_supply_get_by_name("usb");
+
+	if (!chip->usb_psy)
+		return false;
+
+	return true;
+}
+
+static int cp_get_output_mode(struct pl_data *chip)
 {
 	union power_supply_propval pval = {-1, };
 
@@ -152,16 +183,67 @@ static bool cp_ilim_boost_enabled(struct pl_data *chip)
 		power_supply_get_property(chip->cp_master_psy,
 				POWER_SUPPLY_PROP_PARALLEL_OUTPUT_MODE, &pval);
 
-	return pval.intval == POWER_SUPPLY_PL_OUTPUT_VPH;
+	return pval.intval;
+}
+
+static int get_split_ilim(struct pl_data *chip, int total_fcc)
+{
+	union power_supply_propval pval = {0, };
+	int output_mode = cp_get_output_mode(chip);
+	int rc;
+	int main_fcc, ilim = total_fcc;
+
+
+	if (!is_usb_available(chip) || !is_main_available(chip)
+			|| output_mode == POWER_SUPPLY_PL_OUTPUT_VPH)
+		goto out;
+	/* No FCC split for CC mode */
+	rc = power_supply_get_property(chip->usb_psy,
+			POWER_SUPPLY_PROP_PD_ACTIVE, &pval);
+	if ((rc < 0) || (pval.intval == POWER_SUPPLY_CP_PPS))
+		goto out;
+
+	main_fcc = get_effective_result_locked(chip->fcc_main_votable);
+
+	pr_err("ILIM  total_fcc=%d main_fcc=%d\n", total_fcc, main_fcc);
+	if (total_fcc == main_fcc)
+		goto out;
+
+	ilim = total_fcc - main_fcc;
+	rc = power_supply_get_property(chip->usb_psy,
+			POWER_SUPPLY_PROP_HVDCP3_TYPE, &pval);
+	if (rc < 0) {
+		pr_err("Couldn't get max current rc=%d\n", rc);
+		return rc;
+	}
+	if (pval.intval == HVDCP3_CLASSB_27W) {
+		ilim = ilim / 60 * 100;
+	} else if (pval.intval == HVDCP3_CLASSA_18W) {
+		ilim = ilim / 40 * 100;
+	}
+	pr_err("ILIM ILIM split total = %d main = %d ilim =%d\n", total_fcc, main_fcc, ilim);
+out:
+	return ilim;
 }
 
 static void cp_configure_ilim(struct pl_data *chip, const char *voter, int ilim)
 {
+	bool ilim_boost = false;
+
+
+	if (!is_cp_available(chip))
+		return;
+
 	if (!chip->cp_ilim_votable)
 		chip->cp_ilim_votable = find_votable("CP_ILIM");
 
-	if (!cp_ilim_boost_enabled(chip) && chip->cp_ilim_votable)
+	ilim_boost = (cp_get_output_mode(chip) == POWER_SUPPLY_PL_OUTPUT_VPH)
+				? true : false;
+
+	if (!ilim_boost && chip->cp_ilim_votable) {
+		pr_err("ILIM setting ILIM %s val=%d\n", voter, ilim);
 		vote(chip->cp_ilim_votable, voter, true, ilim);
+	}
 }
 
 /*******
@@ -198,9 +280,7 @@ static int get_settled_split(struct pl_data *chip, int *main_icl_ua,
 
 	total_current_ua = get_effective_result_locked(chip->usb_icl_votable);
 	if (total_current_ua < 0) {
-		if (!chip->usb_psy)
-			chip->usb_psy = power_supply_get_by_name("usb");
-		if (!chip->usb_psy) {
+		if (!is_usb_available(chip)) {
 			pr_err("Couldn't get usbpsy while splitting settled\n");
 			return -ENOENT;
 		}
@@ -560,17 +640,9 @@ static void get_fcc_stepper_params(struct pl_data *chip, int main_fcc_ua,
 			int parallel_fcc_ua)
 {
 	union power_supply_propval pval = {0, };
-	int rc;
 
 	/* Read current FCC of main charger */
-	rc = power_supply_get_property(chip->main_psy,
-		POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX, &pval);
-	if (rc < 0) {
-		pr_err("Couldn't get main charger current fcc, rc=%d\n", rc);
-		return;
-	}
-	chip->main_fcc_ua = pval.intval;
-
+	chip->main_fcc_ua = get_effective_result_locked(chip->fcc_main_votable);
 	chip->main_step_fcc_dir = (main_fcc_ua > pval.intval) ?
 				STEP_UP : STEP_DOWN;
 	chip->main_step_fcc_count = abs((main_fcc_ua - pval.intval) /
@@ -690,12 +762,28 @@ done:
 	vote(chip->pl_awake_votable, TAPER_END_VOTER, false, 0);
 }
 
+static int pl_fcc_main_vote_callback(struct votable *votable, void *data,
+			int fcc_main_ua, const char *client)
+{
+	struct pl_data *chip = data;
+	union power_supply_propval pval = {0,};
+
+	if (!is_main_available(chip))
+		return 0;
+
+	pval.intval = fcc_main_ua;
+	return  power_supply_set_property(chip->main_psy,
+			  POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
+			  &pval);
+}
+
 static int pl_fcc_vote_callback(struct votable *votable, void *data,
 			int total_fcc_ua, const char *client)
 {
 	struct pl_data *chip = data;
 	int master_fcc_ua = total_fcc_ua, slave_fcc_ua = 0;
 	union power_supply_propval pval = {0, };
+	bool ilim_boost = false;
 
 	if (total_fcc_ua < 0)
 		return 0;
@@ -707,7 +795,9 @@ static int pl_fcc_vote_callback(struct votable *votable, void *data,
 		chip->cp_disable_votable = find_votable("CP_DISABLE");
 
 	if (chip->cp_disable_votable) {
-		if (cp_ilim_boost_enabled(chip)) {
+		ilim_boost = (cp_get_output_mode(chip)
+				== POWER_SUPPLY_PL_OUTPUT_VPH) ? true : false;
+		if (ilim_boost) {
 			power_supply_get_property(chip->cp_master_psy,
 					POWER_SUPPLY_PROP_MIN_ICL, &pval);
 			/*
@@ -738,6 +828,13 @@ static int pl_fcc_vote_callback(struct votable *votable, void *data,
 	}
 
 	rerun_election(chip->pl_disable_votable);
+	/* When FCC changes, trigger psy changed event for CC mode */
+	if (!chip->cp_master_psy)
+		chip->cp_master_psy =
+			power_supply_get_by_name("charge_pump_master");
+
+	if (chip->cp_master_psy)
+		power_supply_changed(chip->cp_master_psy);
 
 	return 0;
 }
@@ -750,7 +847,9 @@ static void fcc_stepper_work(struct work_struct *work)
 	int reschedule_ms = 0, rc = 0, charger_present = 0;
 	int main_fcc = chip->main_fcc_ua;
 	int parallel_fcc = chip->slave_fcc_ua;
+	int split_ilim;
 
+	pr_err("fcc_stepper_work =============\n");
 	/* Check whether USB is present or not */
 	rc = power_supply_get_property(chip->usb_psy,
 				POWER_SUPPLY_PROP_PRESENT, &pval);
@@ -794,14 +893,7 @@ static void fcc_stepper_work(struct work_struct *work)
 		}
 
 		main_fcc = get_effective_result_locked(chip->fcc_votable);
-		pval.intval = main_fcc;
-		rc = power_supply_set_property(chip->main_psy,
-			POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX, &pval);
-		if (rc < 0) {
-			pr_err("Couldn't set main charger fcc, rc=%d\n", rc);
-			goto out;
-		}
-
+		vote(chip->fcc_main_votable, FCC_STEPPER_VOTER, true, main_fcc);
 		goto stepper_exit;
 	}
 
@@ -862,22 +954,10 @@ static void fcc_stepper_work(struct work_struct *work)
 		}
 
 		/* Set main FCC */
-		pval.intval = main_fcc;
-		rc = power_supply_set_property(chip->main_psy,
-			POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX, &pval);
-		if (rc < 0) {
-			pr_err("Couldn't set main charger fcc, rc=%d\n", rc);
-			goto out;
-		}
+		vote(chip->fcc_main_votable, FCC_STEPPER_VOTER, true, main_fcc);
 	} else {
 		/* Set main FCC */
-		pval.intval = main_fcc;
-		rc = power_supply_set_property(chip->main_psy,
-			POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX, &pval);
-		if (rc < 0) {
-			pr_err("Couldn't set main charger fcc, rc=%d\n", rc);
-			goto out;
-		}
+		vote(chip->fcc_main_votable, FCC_STEPPER_VOTER, true, main_fcc);
 
 		/* Set parallel FCC */
 		if (chip->pl_psy) {
@@ -920,7 +1000,9 @@ stepper_exit:
 	chip->main_fcc_ua = main_fcc;
 	chip->slave_fcc_ua = parallel_fcc;
 
-	cp_configure_ilim(chip, FCC_VOTER, chip->main_fcc_ua / 2);
+	pr_err("ILIM %s  %d\n", __func__, main_fcc);
+	split_ilim = get_split_ilim(chip, main_fcc);
+	cp_configure_ilim(chip, FCC_VOTER, split_ilim / 2);
 
 	if (reschedule_ms) {
 		schedule_delayed_work(&chip->fcc_stepper_work,
@@ -931,6 +1013,17 @@ stepper_exit:
 out:
 	chip->step_fcc = 0;
 	vote(chip->pl_awake_votable, FCC_STEPPER_VOTER, false, 0);
+}
+
+static bool is_batt_available(struct pl_data *chip)
+{
+	if (!chip->batt_psy)
+		chip->batt_psy = power_supply_get_by_name("battery");
+
+	if (!chip->batt_psy)
+		return false;
+
+	return true;
 }
 
 #define PARALLEL_FLOAT_VOLTAGE_DELTA_UV 50000
@@ -1037,7 +1130,9 @@ static int usb_icl_vote_callback(struct votable *votable, void *data,
 
 	vote(chip->pl_disable_votable, ICL_CHANGE_VOTER, false, 0);
 
-	cp_configure_ilim(chip, ICL_CHANGE_VOTER, icl_ua);
+	/* TODO: Use only for Non-VBUS config */
+	if (0)
+		cp_configure_ilim(chip, ICL_CHANGE_VOTER, icl_ua);
 
 	return 0;
 }
@@ -1063,34 +1158,13 @@ static void pl_awake_work(struct work_struct *work)
 	vote(chip->pl_awake_votable, PL_VOTER, false, 0);
 }
 
-static bool is_main_available(struct pl_data *chip)
-{
-	if (chip->main_psy)
-		return true;
-
-	chip->main_psy = power_supply_get_by_name("main");
-
-	return !!chip->main_psy;
-}
-
-static bool is_batt_available(struct pl_data *chip)
-{
-	if (!chip->batt_psy)
-		chip->batt_psy = power_supply_get_by_name("battery");
-
-	if (!chip->batt_psy)
-		return false;
-
-	return true;
-}
-
 static int pl_disable_vote_callback(struct votable *votable,
 		void *data, int pl_disable, const char *client)
 {
 	struct pl_data *chip = data;
 	union power_supply_propval pval = {0, };
 	int master_fcc_ua = 0, total_fcc_ua = 0, slave_fcc_ua = 0;
-	int rc = 0;
+	int split_ilim, rc = 0;
 	bool disable = false;
 
 	if (!is_main_available(chip))
@@ -1099,12 +1173,8 @@ static int pl_disable_vote_callback(struct votable *votable,
 	if (!is_batt_available(chip))
 		return -ENODEV;
 
-	if (!chip->usb_psy)
-		chip->usb_psy = power_supply_get_by_name("usb");
-	if (!chip->usb_psy) {
-		pr_err("Couldn't get usb psy\n");
+	if (!is_usb_available(chip))
 		return -ENODEV;
-	}
 
 	rc = power_supply_get_property(chip->batt_psy,
 			POWER_SUPPLY_PROP_FCC_STEPPER_ENABLE, &pval);
@@ -1184,16 +1254,8 @@ static int pl_disable_vote_callback(struct votable *votable,
 			 *	Set slave ICL then main FCC.
 			 */
 			if (slave_fcc_ua > chip->slave_fcc_ua) {
-				pval.intval = master_fcc_ua;
-				rc = power_supply_set_property(chip->main_psy,
-				POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
-					&pval);
-				if (rc < 0) {
-					pr_err("Could not set main fcc, rc=%d\n",
-						rc);
-					return rc;
-				}
-
+				vote(chip->fcc_main_votable, MAIN_FCC_VOTER,
+							true, master_fcc_ua);
 				pval.intval = slave_fcc_ua;
 				rc = power_supply_set_property(chip->pl_psy,
 				POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
@@ -1217,16 +1279,8 @@ static int pl_disable_vote_callback(struct votable *votable,
 				}
 
 				chip->slave_fcc_ua = slave_fcc_ua;
-
-				pval.intval = master_fcc_ua;
-				rc = power_supply_set_property(chip->main_psy,
-				POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
-					&pval);
-				if (rc < 0) {
-					pr_err("Could not set main fcc, rc=%d\n",
-						rc);
-					return rc;
-				}
+				vote(chip->fcc_main_votable, MAIN_FCC_VOTER,
+							true, master_fcc_ua);
 			}
 
 			/*
@@ -1288,16 +1342,11 @@ static int pl_disable_vote_callback(struct votable *votable,
 			}
 
 			/* main psy gets all share */
-			pval.intval = total_fcc_ua;
-			rc = power_supply_set_property(chip->main_psy,
-				POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
-				&pval);
-			if (rc < 0) {
-				pr_err("Could not set main fcc, rc=%d\n", rc);
-				return rc;
-			}
-
-			cp_configure_ilim(chip, FCC_VOTER, total_fcc_ua / 2);
+			vote(chip->fcc_main_votable, MAIN_FCC_VOTER, true,
+								total_fcc_ua);
+			pr_err("ILIM %s  %d\n", __func__, total_fcc_ua);
+			split_ilim = get_split_ilim(chip, total_fcc_ua);
+			cp_configure_ilim(chip, FCC_VOTER, split_ilim / 2);
 
 			/* reset parallel FCC */
 			chip->slave_fcc_ua = 0;
@@ -1584,9 +1633,7 @@ static void handle_usb_change(struct pl_data *chip)
 	int rc;
 	union power_supply_propval pval = {0, };
 
-	if (!chip->usb_psy)
-		chip->usb_psy = power_supply_get_by_name("usb");
-	if (!chip->usb_psy) {
+	if (!is_usb_available(chip)) {
 		pr_err("Couldn't get usbpsy\n");
 		return;
 	}
@@ -1711,13 +1758,22 @@ int qcom_batt_init(int smb_version)
 	if (!chip->pl_ws)
 		goto cleanup;
 
+	chip->fcc_main_votable = create_votable("FCC_MAIN", VOTE_MIN,
+					pl_fcc_main_vote_callback,
+					chip);
+	if (IS_ERR(chip->fcc_main_votable)) {
+		rc = PTR_ERR(chip->fcc_main_votable);
+		chip->fcc_main_votable = NULL;
+		goto release_wakeup_source;
+	}
+
 	chip->fcc_votable = create_votable("FCC", VOTE_MIN,
 					pl_fcc_vote_callback,
 					chip);
 	if (IS_ERR(chip->fcc_votable)) {
 		rc = PTR_ERR(chip->fcc_votable);
 		chip->fcc_votable = NULL;
-		goto release_wakeup_source;
+		goto destroy_votable;
 	}
 
 	chip->fv_votable = create_votable("FV", VOTE_MIN,
@@ -1813,6 +1869,7 @@ destroy_votable:
 	destroy_votable(chip->pl_disable_votable);
 	destroy_votable(chip->fv_votable);
 	destroy_votable(chip->fcc_votable);
+	destroy_votable(chip->fcc_main_votable);
 	destroy_votable(chip->usb_icl_votable);
 release_wakeup_source:
 	wakeup_source_unregister(chip->pl_ws);
@@ -1840,6 +1897,7 @@ void qcom_batt_deinit(void)
 	destroy_votable(chip->pl_disable_votable);
 	destroy_votable(chip->fv_votable);
 	destroy_votable(chip->fcc_votable);
+	destroy_votable(chip->fcc_main_votable);
 	wakeup_source_unregister(chip->pl_ws);
 	the_chip = NULL;
 	kfree(chip);

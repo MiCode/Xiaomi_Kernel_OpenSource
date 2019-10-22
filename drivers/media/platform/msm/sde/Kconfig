@@ -19,3 +19,8 @@ config MSM_SDE_ROTATOR_EVTLOG_DEBUG
 	features to: Dump rotator registers during driver errors, panic
 	driver during fatal errors and enable some rotator driver logging
 	into an internal buffer (this avoids logging overhead).
+
+config MSM_SDE_ROTATOR_XLOG_DEBUG
+	bool "Trigger a panic after the dumping work has completed when SDE ROTATOR error"
+	default n
+	depends on MSM_SDE_ROTATOR

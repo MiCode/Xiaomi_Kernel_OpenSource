@@ -1193,7 +1193,7 @@ static int ffs_aio_cancel(struct kiocb *kiocb)
 	ENTER();
 
 	ffs_log("enter:state %d setup_state %d flag %lu", ffs->state,
-		ffs->setup_state, ffs->flags);
+	ffs->setup_state, ffs->flags);
 
 	spin_lock_irq(&epfile->ffs->eps_lock);
 
@@ -1201,9 +1201,7 @@ static int ffs_aio_cancel(struct kiocb *kiocb)
 		value = usb_ep_dequeue(io_data->ep, io_data->req);
 	else
 		value = -EINVAL;
-
 	spin_unlock_irq(&epfile->ffs->eps_lock);
-
 	ffs_log("exit: value %d", value);
 
 	return value;

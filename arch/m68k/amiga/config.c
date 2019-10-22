@@ -71,7 +71,6 @@ static char s_a4000[] __initdata = "A4000";
 static char s_a4000t[] __initdata = "A4000T";
 static char s_cdtv[] __initdata = "CDTV";
 static char s_cd32[] __initdata = "CD32";
-static char s_draco[] __initdata = "Draco";
 static char *amiga_models[] __initdata = {
 	[AMI_500-AMI_500]	= s_a500,
 	[AMI_500PLUS-AMI_500]	= s_a500p,
@@ -87,7 +86,6 @@ static char *amiga_models[] __initdata = {
 	[AMI_4000T-AMI_500]	= s_a4000t,
 	[AMI_CDTV-AMI_500]	= s_cdtv,
 	[AMI_CD32-AMI_500]	= s_cd32,
-	[AMI_DRACO-AMI_500]	= s_draco,
 };
 
 static char amiga_model_name[13] = "Amiga ";
@@ -209,7 +207,7 @@ static void __init amiga_identify(void)
 	memset(&amiga_hw_present, 0, sizeof(amiga_hw_present));
 
 	pr_info("Amiga hardware found: ");
-	if (amiga_model >= AMI_500 && amiga_model <= AMI_DRACO) {
+	if (amiga_model >= AMI_500) {
 		pr_cont("[%s] ", amiga_models[amiga_model-AMI_500]);
 		strcat(amiga_model_name, amiga_models[amiga_model-AMI_500]);
 	}
@@ -311,9 +309,6 @@ static void __init amiga_identify(void)
 		}
 		AMIGAHW_SET(ZORRO);
 		break;
-
-	case AMI_DRACO:
-		panic("No support for Draco yet");
 
 	default:
 		panic("Unknown Amiga Model");

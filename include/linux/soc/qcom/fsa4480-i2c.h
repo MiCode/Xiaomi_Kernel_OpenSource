@@ -1,4 +1,5 @@
 /* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,6 +31,7 @@ int fsa4480_reg_notifier(struct notifier_block *nb,
 			 struct device_node *node);
 int fsa4480_unreg_notifier(struct notifier_block *nb,
 			   struct device_node *node);
+int fsa4480_get_direction(struct device_node *node);
 #else
 static inline int fsa4480_switch_event(struct device_node *node,
 				       enum fsa_function event)
@@ -45,6 +47,11 @@ static inline int fsa4480_reg_notifier(struct notifier_block *nb,
 
 static inline int fsa4480_unreg_notifier(struct notifier_block *nb,
 					 struct device_node *node)
+{
+	return 0;
+}
+
+static inline int fsa4480_get_direction(struct device_node *node)
 {
 	return 0;
 }

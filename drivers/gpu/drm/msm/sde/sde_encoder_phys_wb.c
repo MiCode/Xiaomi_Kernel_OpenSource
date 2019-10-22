@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2018 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1585,6 +1586,8 @@ static void sde_encoder_phys_wb_disable(struct sde_encoder_phys *phys_enc)
 exit:
 	phys_enc->enable_state = SDE_ENC_DISABLED;
 	wb_enc->crtc = NULL;
+	phys_enc->hw_cdm = NULL;
+	phys_enc->hw_ctl = NULL;
 }
 
 /**
