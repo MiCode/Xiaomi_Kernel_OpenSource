@@ -20,6 +20,7 @@ struct image_info;
 struct bhi_vec_entry;
 struct mhi_timesync;
 struct mhi_buf_info;
+struct mhi_sfr_info;
 
 #define REG_WRITE_QUEUE_LEN 1024
 
@@ -342,6 +343,10 @@ struct mhi_controller {
 	struct mhi_device *tsync_dev;
 	u64 local_timer_freq;
 	u64 remote_timer_freq;
+
+	/* subsytem failure reason retrieval feature */
+	struct mhi_sfr_info *mhi_sfr;
+	size_t sfr_len;
 
 	/* kernel log level */
 	enum MHI_DEBUG_LEVEL klog_lvl;

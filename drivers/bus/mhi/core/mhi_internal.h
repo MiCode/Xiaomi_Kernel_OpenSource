@@ -306,6 +306,7 @@ enum mhi_cmd_type {
 	MHI_CMD_TYPE_STOP = 17,
 	MHI_CMD_TYPE_START = 18,
 	MHI_CMD_TYPE_TSYNC = 24,
+	MHI_CMD_TYPE_SFR_CFG = 73,
 };
 
 /* no operation command */
@@ -335,6 +336,11 @@ enum mhi_cmd_type {
 #define MHI_TRE_CMD_TSYNC_CFG_DWORD0 (0)
 #define MHI_TRE_CMD_TSYNC_CFG_DWORD1(er) ((MHI_CMD_TYPE_TSYNC << 16) | \
 					  (er << 24))
+
+/* subsystem failure reason cfg command */
+#define MHI_TRE_CMD_SFR_CFG_PTR(ptr) (ptr)
+#define MHI_TRE_CMD_SFR_CFG_DWORD0(len) (len)
+#define MHI_TRE_CMD_SFR_CFG_DWORD1 (MHI_CMD_TYPE_SFR_CFG << 16)
 
 #define MHI_TRE_GET_CMD_CHID(tre) (((tre)->dword[1] >> 24) & 0xFF)
 #define MHI_TRE_GET_CMD_TYPE(tre) (((tre)->dword[1] >> 16) & 0xFF)
@@ -375,6 +381,7 @@ enum MHI_CMD {
 	MHI_CMD_RESET_CHAN,
 	MHI_CMD_START_CHAN,
 	MHI_CMD_TIMSYNC_CFG,
+	MHI_CMD_SFR_CFG,
 };
 
 enum MHI_PKT_TYPE {
@@ -391,6 +398,7 @@ enum MHI_PKT_TYPE {
 	MHI_PKT_TYPE_RSC_TX_EVENT = 0x28,
 	MHI_PKT_TYPE_EE_EVENT = 0x40,
 	MHI_PKT_TYPE_TSYNC_EVENT = 0x48,
+	MHI_PKT_TYPE_SFR_CFG_CMD = 0x49,
 	MHI_PKT_TYPE_BW_REQ_EVENT = 0x50,
 	MHI_PKT_TYPE_STALE_EVENT, /* internal event */
 };
@@ -718,6 +726,14 @@ struct mhi_timesync {
 	struct list_head head;
 };
 
+struct mhi_sfr_info {
+	void *buf_addr;
+	dma_addr_t dma_addr;
+	size_t len;
+	enum MHI_EV_CCS ccs;
+	struct completion completion;
+};
+
 struct mhi_bus {
 	struct list_head controller_list;
 	struct mutex lock;
@@ -807,6 +823,7 @@ int mhi_get_capability_offset(struct mhi_controller *mhi_cntrl, u32 capability,
 			      u32 *offset);
 void *mhi_to_virtual(struct mhi_ring *ring, dma_addr_t addr);
 int mhi_init_timesync(struct mhi_controller *mhi_cntrl);
+int mhi_init_sfr(struct mhi_controller *mhi_cntrl);
 int mhi_create_timesync_sysfs(struct mhi_controller *mhi_cntrl);
 void mhi_destroy_timesync(struct mhi_controller *mhi_cntrl);
 int mhi_create_sysfs(struct mhi_controller *mhi_cntrl);

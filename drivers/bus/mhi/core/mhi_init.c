@@ -662,6 +662,39 @@ exit_timesync:
 	return ret;
 }
 
+int mhi_init_sfr(struct mhi_controller *mhi_cntrl)
+{
+	struct mhi_sfr_info *sfr_info = mhi_cntrl->mhi_sfr;
+	int ret = -EIO;
+
+	if (!sfr_info)
+		return ret;
+
+	sfr_info->buf_addr = mhi_alloc_coherent(mhi_cntrl, sfr_info->len,
+					&sfr_info->dma_addr, GFP_KERNEL);
+	if (!sfr_info->buf_addr) {
+		MHI_ERR("Failed to allocate memory for sfr\n");
+		return -ENOMEM;
+	}
+
+	init_completion(&sfr_info->completion);
+
+	ret = mhi_send_cmd(mhi_cntrl, NULL, MHI_CMD_SFR_CFG);
+	if (ret) {
+		MHI_ERR("Failed to send sfr cfg cmd\n");
+		return ret;
+	}
+
+	ret = wait_for_completion_timeout(&sfr_info->completion,
+			msecs_to_jiffies(mhi_cntrl->timeout_ms));
+	if (!ret || sfr_info->ccs != MHI_EV_CC_SUCCESS) {
+		MHI_ERR("Failed to get sfr cfg cmd completion\n");
+		return -EIO;
+	}
+
+	return 0;
+}
+
 static int mhi_init_bw_scale(struct mhi_controller *mhi_cntrl)
 {
 	int ret, er_index;
@@ -1317,6 +1350,7 @@ int of_register_mhi_controller(struct mhi_controller *mhi_cntrl)
 	struct mhi_chan *mhi_chan;
 	struct mhi_cmd *mhi_cmd;
 	struct mhi_device *mhi_dev;
+	struct mhi_sfr_info *sfr_info;
 	u32 soc_info;
 
 	if (!mhi_cntrl->of_node)
@@ -1432,6 +1466,17 @@ int of_register_mhi_controller(struct mhi_controller *mhi_cntrl)
 
 	mhi_cntrl->mhi_dev = mhi_dev;
 
+	if (mhi_cntrl->sfr_len) {
+		sfr_info = kzalloc(sizeof(*sfr_info), GFP_KERNEL);
+		if (!sfr_info) {
+			ret = -ENOMEM;
+			goto error_add_dev;
+		}
+
+		sfr_info->len = mhi_cntrl->sfr_len;
+		mhi_cntrl->mhi_sfr = sfr_info;
+	}
+
 	mhi_cntrl->parent = debugfs_lookup(mhi_bus_type.name, NULL);
 	mhi_cntrl->klog_lvl = MHI_MSG_LVL_ERROR;
 
@@ -1464,6 +1509,7 @@ void mhi_unregister_mhi_controller(struct mhi_controller *mhi_cntrl)
 	kfree(mhi_cntrl->mhi_event);
 	kfree(mhi_cntrl->mhi_chan);
 	kfree(mhi_cntrl->mhi_tsync);
+	kfree(mhi_cntrl->mhi_sfr);
 
 	device_del(&mhi_dev->dev);
 	put_device(&mhi_dev->dev);

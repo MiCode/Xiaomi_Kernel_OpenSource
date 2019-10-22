@@ -507,7 +507,8 @@ static int mhi_pm_mission_mode_transition(struct mhi_controller *mhi_cntrl)
 
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 
-	/* setup support for time sync */
+	/* setup support for additional features (SFR, timesync, etc.) */
+	mhi_init_sfr(mhi_cntrl);
 	mhi_init_timesync(mhi_cntrl);
 
 	if (MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state))
@@ -541,6 +542,7 @@ static void mhi_pm_disable_transition(struct mhi_controller *mhi_cntrl,
 	struct mhi_cmd_ctxt *cmd_ctxt;
 	struct mhi_cmd *mhi_cmd;
 	struct mhi_event_ctxt *er_ctxt;
+	struct mhi_sfr_info *sfr_info = mhi_cntrl->mhi_sfr;
 	int ret, i;
 
 	MHI_LOG("Enter with from pm_state:%s MHI_STATE:%s to pm_state:%s\n",
@@ -644,6 +646,12 @@ static void mhi_pm_disable_transition(struct mhi_controller *mhi_cntrl,
 	flush_work(&mhi_cntrl->st_worker);
 	flush_work(&mhi_cntrl->fw_worker);
 	flush_work(&mhi_cntrl->low_priority_worker);
+
+	if (sfr_info && sfr_info->buf_addr) {
+		mhi_free_coherent(mhi_cntrl, sfr_info->len, sfr_info->buf_addr,
+				  sfr_info->dma_addr);
+		sfr_info->buf_addr = NULL;
+	}
 
 	mutex_lock(&mhi_cntrl->pm_mutex);
 
@@ -965,10 +973,15 @@ EXPORT_SYMBOL(mhi_async_power_up);
 void mhi_control_error(struct mhi_controller *mhi_cntrl)
 {
 	enum MHI_PM_STATE cur_state;
+	struct mhi_sfr_info *sfr_info = mhi_cntrl->mhi_sfr;
 
 	MHI_LOG("Enter with pm_state:%s MHI_STATE:%s\n",
 		to_mhi_pm_state_str(mhi_cntrl->pm_state),
 		TO_MHI_STATE_STR(mhi_cntrl->dev_state));
+
+	/* copy subsystem failure reason string if supported */
+	if (sfr_info && sfr_info->buf_addr)
+		pr_err("mhi: sfr: %s\n", sfr_info->buf_addr);
 
 	write_lock_irq(&mhi_cntrl->pm_lock);
 	cur_state = mhi_tryset_pm_state(mhi_cntrl, MHI_PM_LD_ERR_FATAL_DETECT);
