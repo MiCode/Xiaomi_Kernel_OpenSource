@@ -394,7 +394,6 @@ static int cnss_pci_reg_read(struct cnss_pci_data *pci_priv,
 			     u32 offset, u32 *val)
 {
 	int ret;
-	unsigned long flags;
 
 	ret = cnss_pci_check_link_status(pci_priv);
 	if (ret)
@@ -406,12 +405,12 @@ static int cnss_pci_reg_read(struct cnss_pci_data *pci_priv,
 		return 0;
 	}
 
-	spin_lock_irqsave(&pci_reg_window_lock, flags);
+	spin_lock_bh(&pci_reg_window_lock);
 	cnss_pci_select_window(pci_priv, offset);
 
 	*val = readl_relaxed(pci_priv->bar + WINDOW_START +
 			     (offset & WINDOW_RANGE_MASK));
-	spin_unlock_irqrestore(&pci_reg_window_lock, flags);
+	spin_unlock_bh(&pci_reg_window_lock);
 
 	return 0;
 }
@@ -420,7 +419,6 @@ static int cnss_pci_reg_write(struct cnss_pci_data *pci_priv, u32 offset,
 			      u32 val)
 {
 	int ret;
-	unsigned long flags;
 
 	ret = cnss_pci_check_link_status(pci_priv);
 	if (ret)
@@ -432,12 +430,12 @@ static int cnss_pci_reg_write(struct cnss_pci_data *pci_priv, u32 offset,
 		return 0;
 	}
 
-	spin_lock_irqsave(&pci_reg_window_lock, flags);
+	spin_lock_bh(&pci_reg_window_lock);
 	cnss_pci_select_window(pci_priv, offset);
 
 	writel_relaxed(val, pci_priv->bar + WINDOW_START +
 		       (offset & WINDOW_RANGE_MASK));
-	spin_unlock_irqrestore(&pci_reg_window_lock, flags);
+	spin_unlock_bh(&pci_reg_window_lock);
 
 	return 0;
 }
@@ -809,6 +807,18 @@ int cnss_pci_is_device_down(struct device *dev)
 	return cnss_pcie_is_device_down(pci_priv);
 }
 EXPORT_SYMBOL(cnss_pci_is_device_down);
+
+void cnss_pci_lock_reg_window(struct device *dev, unsigned long *flags)
+{
+	spin_lock_bh(&pci_reg_window_lock);
+}
+EXPORT_SYMBOL(cnss_pci_lock_reg_window);
+
+void cnss_pci_unlock_reg_window(struct device *dev, unsigned long *flags)
+{
+	spin_unlock_bh(&pci_reg_window_lock);
+}
+EXPORT_SYMBOL(cnss_pci_unlock_reg_window);
 
 static char *cnss_mhi_state_to_str(enum cnss_mhi_state mhi_state)
 {
