@@ -129,6 +129,7 @@ int npu_host_ipc_send_cmd(struct npu_device *npu_dev, uint32_t queueIndex,
 	void *pCmd);
 int npu_host_ipc_read_msg(struct npu_device *npu_dev, uint32_t queueIndex,
 	uint32_t *pMsg);
+int npu_host_get_ipc_queue_size(struct npu_device *npu_dev, uint32_t q_idx);
 
 int32_t npu_host_get_info(struct npu_device *npu_dev,
 	struct msm_npu_get_info_ioctl *get_info_ioctl);

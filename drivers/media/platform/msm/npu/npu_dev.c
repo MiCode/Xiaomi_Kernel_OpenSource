@@ -1472,6 +1472,17 @@ static int npu_get_property(struct npu_client *client,
 	case MSM_NPU_PROP_ID_HARDWARE_VERSION:
 		prop.prop_param[0] = npu_dev->hw_version;
 		break;
+	case MSM_NPU_PROP_ID_IPC_QUEUE_INFO:
+		ret = npu_host_get_ipc_queue_size(npu_dev,
+			prop.prop_param[0]);
+		if (ret < 0) {
+			NPU_ERR("Can't get ipc queue %d size",
+				prop.prop_param[0]);
+			return ret;
+		}
+
+		prop.prop_param[1] = ret;
+		break;
 	default:
 		ret = npu_host_get_fw_property(client->npu_dev, &prop);
 		if (ret) {
