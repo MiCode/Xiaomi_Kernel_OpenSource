@@ -399,7 +399,7 @@ void destroy_ramdump_device(void *dev)
 EXPORT_SYMBOL(destroy_ramdump_device);
 
 static int _do_ramdump(void *handle, struct ramdump_segment *segments,
-		int nsegments, bool use_elf)
+		int nsegments, bool use_elf, bool complete_ramdump)
 {
 	int ret, i;
 	struct ramdump_device *rd_dev = (struct ramdump_device *)handle;
@@ -427,7 +427,7 @@ static int _do_ramdump(void *handle, struct ramdump_segment *segments,
 		return -EPIPE;
 	}
 
-	if (rd_dev->complete_ramdump) {
+	if (complete_ramdump) {
 		for (i = 0; i < nsegments-1; i++)
 			segments[i].size =
 				segments[i + 1].address - segments[i].address;
@@ -628,7 +628,10 @@ static int _do_minidump(void *handle, struct ramdump_segment *segments,
 
 int do_ramdump(void *handle, struct ramdump_segment *segments, int nsegments)
 {
-	return _do_ramdump(handle, segments, nsegments, false);
+	struct ramdump_device *rd_dev = (struct ramdump_device *)handle;
+
+	return _do_ramdump(handle, segments, nsegments, false,
+				rd_dev->complete_ramdump);
 }
 EXPORT_SYMBOL(do_ramdump);
 
@@ -638,10 +641,20 @@ int do_minidump(void *handle, struct ramdump_segment *segments, int nsegments)
 }
 EXPORT_SYMBOL(do_minidump);
 
+int do_minidump_elf32(void *handle, struct ramdump_segment *segments,
+		      int nsegments)
+{
+	return _do_ramdump(handle, segments, nsegments, true, false);
+}
+EXPORT_SYMBOL(do_minidump_elf32);
+
 int
 do_elf_ramdump(void *handle, struct ramdump_segment *segments, int nsegments)
 {
-	return _do_ramdump(handle, segments, nsegments, true);
+	struct ramdump_device *rd_dev = (struct ramdump_device *)handle;
+
+	return _do_ramdump(handle, segments, nsegments, true,
+				rd_dev->complete_ramdump);
 }
 EXPORT_SYMBOL(do_elf_ramdump);
 
