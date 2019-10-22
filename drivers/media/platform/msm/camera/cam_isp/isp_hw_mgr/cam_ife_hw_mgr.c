@@ -2478,7 +2478,7 @@ static int cam_isp_blob_bw_update(
 static int cam_ife_mgr_config_hw(void *hw_mgr_priv,
 					void *config_hw_args)
 {
-	int rc = -1, i;
+	int rc = -1, i, skip = 0;
 	struct cam_hw_config_args *cfg;
 	struct cam_hw_update_entry *cmd;
 	struct cam_cdm_bl_request *cdm_cmd;
@@ -2528,18 +2528,34 @@ static int cam_ife_mgr_config_hw(void *hw_mgr_priv,
 
 	if (cfg->num_hw_update_entries > 0) {
 		cdm_cmd = ctx->cdm_cmd;
-		cdm_cmd->cmd_arrary_count = cfg->num_hw_update_entries;
 		cdm_cmd->type = CAM_CDM_BL_CMD_TYPE_MEM_HANDLE;
 		cdm_cmd->flag = true;
 		cdm_cmd->userdata = ctx;
 		cdm_cmd->cookie = cfg->request_id;
 
-		for (i = 0 ; i <= cfg->num_hw_update_entries; i++) {
+		for (i = 0 ; i < cfg->num_hw_update_entries; i++) {
 			cmd = (cfg->hw_update_entries + i);
-			cdm_cmd->cmd[i].bl_addr.mem_handle = cmd->handle;
-			cdm_cmd->cmd[i].offset = cmd->offset;
-			cdm_cmd->cmd[i].len = cmd->len;
+			CAM_DBG(CAM_ISP, "reapply:%d cmd flags:%d",
+				cfg->reapply, cmd->flags);
+
+			if (cfg->reapply &&
+				(cmd->flags == CAM_ISP_IQ_BL)) {
+				skip++;
+				continue;
+			}
+
+			if (cmd->flags == CAM_ISP_UNUSED_BL ||
+				cmd->flags >= CAM_ISP_BL_MAX)
+				CAM_ERR(CAM_ISP, "Unexpected BL type %d",
+					cmd->flags);
+
+			cdm_cmd->cmd[i - skip].bl_addr.mem_handle = cmd->handle;
+			cdm_cmd->cmd[i - skip].offset = cmd->offset;
+			cdm_cmd->cmd[i - skip].len = cmd->len;
 		}
+		cdm_cmd->cmd_arrary_count = cfg->num_hw_update_entries - skip;
+		CAM_DBG(CAM_ISP, "updated cmd array count:%d skip value:%d",
+			cdm_cmd->cmd_arrary_count, skip);
 
 		if (cfg->init_packet)
 			init_completion(&ctx->config_done_complete);

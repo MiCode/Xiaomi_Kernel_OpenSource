@@ -698,6 +698,7 @@ static int __cam_isp_ctx_handle_buf_done_in_activated_state(
 	} else {
 		list_del_init(&req->list);
 		list_add_tail(&req->list, &ctx->free_req_list);
+		req_isp->reapply = false;
 
 		CAM_DBG(CAM_REQ,
 			"Move active request %lld to free list(cnt = %d) [all fences done], ctx %u",
@@ -1125,6 +1126,7 @@ static int __cam_isp_ctx_epoch_in_applied(struct cam_isp_context *ctx_isp,
 		list);
 	req_isp = (struct cam_isp_ctx_req *)req->req_priv;
 	req_isp->bubble_detected = true;
+	req_isp->reapply = true;
 
 	CAM_INFO(CAM_ISP, "ctx:%d Report Bubble flag %d req id:%lld",
 		ctx->ctx_id, req_isp->bubble_report, req->request_id);
@@ -1288,6 +1290,7 @@ static int __cam_isp_ctx_epoch_in_bubble_applied(
 	CAM_INFO(CAM_ISP, "Ctx:%d Report Bubble flag %d req id:%lld",
 		ctx->ctx_id, req_isp->bubble_report, req->request_id);
 	__cam_isp_ctx_dump_state_monitor_array(ctx_isp, true);
+	req_isp->reapply = true;
 
 	if (req_isp->bubble_report && ctx->ctx_crm_intf &&
 		ctx->ctx_crm_intf->notify_err) {
@@ -2065,6 +2068,7 @@ static int __cam_isp_ctx_apply_req_in_activated_state(
 	cfg.num_hw_update_entries = req_isp->num_cfg;
 	cfg.priv  = &req_isp->hw_update_data;
 	cfg.init_packet = 0;
+	cfg.reapply = req_isp->reapply;
 
 	rc = ctx->hw_mgr_intf->hw_config(ctx->hw_mgr_intf->hw_mgr_priv, &cfg);
 	if (rc) {
@@ -2345,6 +2349,7 @@ static int __cam_isp_ctx_flush_req(struct cam_context *ctx,
 				req_isp->fence_map_out[i].sync_id = -1;
 			}
 		}
+		req_isp->reapply = false;
 		list_add_tail(&req->list, &ctx->free_req_list);
 	}
 
@@ -2707,6 +2712,7 @@ static int __cam_isp_ctx_rdi_only_sof_in_bubble_applied(
 	CAM_INFO(CAM_ISP, "Ctx:%d Report Bubble flag %d req id:%lld",
 		ctx->ctx_id, req_isp->bubble_report, req->request_id);
 	__cam_isp_ctx_dump_state_monitor_array(ctx_isp, true);
+	req_isp->reapply = true;
 
 	if (req_isp->bubble_report && ctx->ctx_crm_intf &&
 		ctx->ctx_crm_intf->notify_err) {
@@ -3763,6 +3769,7 @@ static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 	start_isp.hw_config.num_hw_update_entries = req_isp->num_cfg;
 	start_isp.hw_config.priv  = &req_isp->hw_update_data;
 	start_isp.hw_config.init_packet = 1;
+	start_isp.hw_config.reapply = 0;
 	start_isp.start_only = false;
 
 	atomic_set(&ctx_isp->process_bubble, 0);
