@@ -2989,6 +2989,7 @@ static irqreturn_t msm_dwc3_pwr_irq(int irq, void *data)
 }
 
 static void dwc3_otg_sm_work(struct work_struct *w);
+static int get_psy_type(struct dwc3_msm *mdwc);
 
 static int dwc3_msm_get_clk_gdsc(struct dwc3_msm *mdwc)
 {
@@ -3155,6 +3156,8 @@ static void check_for_sdp_connection(struct work_struct *w)
 	}
 }
 
+#define DP_PULSE_WIDTH_MSEC 200
+
 static int dwc3_msm_vbus_notifier(struct notifier_block *nb,
 	unsigned long event, void *ptr)
 {
@@ -3178,6 +3181,13 @@ static int dwc3_msm_vbus_notifier(struct notifier_block *nb,
 	dev_dbg(mdwc->dev, "vbus:%ld event received\n", event);
 
 	mdwc->vbus_active = event;
+
+	if (get_psy_type(mdwc) == POWER_SUPPLY_TYPE_USB_CDP &&
+			mdwc->vbus_active) {
+		dev_dbg(mdwc->dev, "Connected to CDP, pull DP up\n");
+		usb_phy_drive_dp_pulse(mdwc->hs_phy, DP_PULSE_WIDTH_MSEC);
+	}
+
 	if (dwc3_is_otg_or_drd(dwc) && !mdwc->in_restart)
 		queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
 
