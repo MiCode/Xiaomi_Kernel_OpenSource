@@ -105,6 +105,7 @@ struct cpufreq_cooling_device {
 	unsigned int max_level;
 	unsigned int *freq_table;	/* In descending order */
 	struct cpumask allowed_cpus;
+	struct cpufreq_policy *policy;
 	struct list_head node;
 	u32 last_load;
 	u64 *time_in_idle;
@@ -647,6 +648,7 @@ static int cpufreq_set_min_state(struct thermal_cooling_device *cdev,
 {
 	struct cpufreq_cooling_device *cpufreq_device = cdev->devdata;
 	unsigned int cpu = cpumask_any(&cpufreq_device->allowed_cpus);
+	struct cpumask policy_online_cpus;
 	unsigned int floor_freq;
 
 	if (state > cpufreq_device->max_level)
@@ -676,7 +678,10 @@ static int cpufreq_set_min_state(struct thermal_cooling_device *cdev,
 	} else {
 		floor_freq = cpufreq_device->freq_table[state];
 		cpufreq_device->floor_freq = floor_freq;
-		cpufreq_update_policy(cpu);
+		if (cpumask_and(&policy_online_cpus, cpu_online_mask,
+				cpufreq_device->policy->related_cpus))
+			cpufreq_update_policy(cpumask_first(
+						&policy_online_cpus));
 	}
 
 	return 0;
@@ -717,6 +722,7 @@ static int cpufreq_set_cur_state(struct thermal_cooling_device *cdev,
 {
 	struct cpufreq_cooling_device *cpufreq_device = cdev->devdata;
 	unsigned int cpu = cpumask_any(&cpufreq_device->allowed_cpus);
+	struct cpumask policy_online_cpus;
 	unsigned int clip_freq;
 	unsigned long prev_state;
 	struct device *cpu_dev;
@@ -770,7 +776,10 @@ update_frequency:
 			cpufreq_device->plat_ops->ceil_limit(cpu,
 						clip_freq);
 	} else {
-		cpufreq_update_policy(cpu);
+		if (cpumask_and(&policy_online_cpus, cpu_online_mask,
+				cpufreq_device->policy->related_cpus))
+			cpufreq_update_policy(cpumask_first(
+						&policy_online_cpus));
 	}
 
 	return 0;
@@ -1073,6 +1082,7 @@ __cpufreq_cooling_register(struct device_node *np,
 		goto put_policy;
 	}
 
+	cpufreq_dev->policy = policy;
 	num_cpus = cpumask_weight(clip_cpus);
 	cpufreq_dev->time_in_idle = kcalloc(num_cpus,
 					    sizeof(*cpufreq_dev->time_in_idle),
