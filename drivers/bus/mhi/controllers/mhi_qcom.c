@@ -756,6 +756,9 @@ static struct mhi_controller *mhi_register_controller(struct pci_dev *pci_dev)
 	mhi_cntrl->remote_timer_freq = 19200000;
 	mhi_cntrl->local_timer_freq = 19200000;
 
+	/* setup host support for SFR retreival */
+	mhi_cntrl->sfr_len = MHI_MAX_SFR_LEN;
+
 	ret = of_register_mhi_controller(mhi_cntrl);
 	if (ret)
 		goto error_register;
