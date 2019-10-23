@@ -2198,7 +2198,8 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 		&adreno_dev->ft_pf_policy) && adreno_dev->cooperative_reset)
 		gmu_core_dev_cooperative_reset(device);
 
-	do_header_and_snapshot(device, fault, hung_rb, cmdobj);
+	if (!(fault & ADRENO_GMU_FAULT_SKIP_SNAPSHOT))
+		do_header_and_snapshot(device, fault, hung_rb, cmdobj);
 
 	/* Turn off the KEEPALIVE vote from the ISR for hard fault */
 	if (gpudev->gpu_keepalive && fault & ADRENO_HARD_FAULT)
