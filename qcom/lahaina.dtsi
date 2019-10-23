@@ -1688,3 +1688,4 @@
 #include "lahaina-usb.dtsi"
 #include "lahaina-pm.dtsi"
 #include "lahaina-qupv3.dtsi"
+#include "lahaina-vidc.dtsi"
