@@ -22,7 +22,7 @@ allowed_warnings = set([
     "umid.c:388",
     "coresight-catu.h:116",
     "mprotect.c:42",
-    "signal.c:93",
+    "signal.c:95",
     "signal.c:51",
  ])
 
