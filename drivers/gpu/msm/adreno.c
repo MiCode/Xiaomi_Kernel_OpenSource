@@ -3817,6 +3817,20 @@ static bool adreno_is_hwcg_on(struct kgsl_device *device)
 	return test_bit(ADRENO_HWCG_CTRL, &adreno_dev->pwrctrl_flag);
 }
 
+static int adreno_queue_cmds(struct kgsl_device_private *dev_priv,
+	struct kgsl_context *context, struct kgsl_drawobj *drawobj[],
+	u32 count, u32 *timestamp)
+{
+	return adreno_dispatcher_queue_cmds(dev_priv, context, drawobj, count,
+			timestamp);
+}
+
+static void adreno_drawctxt_sched(struct kgsl_device *device,
+		struct kgsl_context *context)
+{
+	adreno_dispatcher_queue_context(device, ADRENO_CONTEXT(context));
+}
+
 static const struct kgsl_functable adreno_functable = {
 	/* Mandatory functions */
 	.regread = adreno_regread,
@@ -3832,7 +3846,7 @@ static const struct kgsl_functable adreno_functable = {
 	.getproperty_compat = adreno_getproperty_compat,
 	.waittimestamp = adreno_waittimestamp,
 	.readtimestamp = adreno_readtimestamp,
-	.queue_cmds = adreno_dispatcher_queue_cmds,
+	.queue_cmds = adreno_queue_cmds,
 	.ioctl = adreno_ioctl,
 	.compat_ioctl = adreno_compat_ioctl,
 	.power_stats = adreno_power_stats,
