@@ -801,6 +801,7 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 		handle_lmk_event(selected, selected_tasksize, min_score_adj);
 		put_task_struct(selected);
 	}
+
 	return rem;
 }
 

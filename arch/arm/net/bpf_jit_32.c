@@ -72,8 +72,6 @@ struct jit_ctx {
 #endif
 };
 
-int bpf_jit_enable __read_mostly;
-
 static inline int call_neg_helper(struct sk_buff *skb, int offset, void *ret,
 		      unsigned int size)
 {
