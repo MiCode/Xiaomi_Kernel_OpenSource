@@ -480,7 +480,7 @@ int qg_batterydata_init(struct device_node *profile_node)
 		if (IS_ERR_OR_NULL(battery->battery_device)) {
 			pr_err("Failed to create battery_device device\n");
 			rc = -ENODEV;
-			goto delete_cdev;
+			goto destroy_class;
 		}
 		the_battery = battery;
 	}
@@ -499,6 +499,8 @@ int qg_batterydata_init(struct device_node *profile_node)
 
 destroy_device:
 	device_destroy(battery->battery_class, battery->dev_no);
+destroy_class:
+	class_destroy(battery->battery_class);
 delete_cdev:
 	cdev_del(&battery->battery_cdev);
 unregister_chrdev:
@@ -530,6 +532,7 @@ void qg_batterydata_exit(void)
 	if (the_battery) {
 		/* unregister the device node */
 		device_destroy(the_battery->battery_class, the_battery->dev_no);
+		class_destroy(the_battery->battery_class);
 		cdev_del(&the_battery->battery_cdev);
 		unregister_chrdev_region(the_battery->dev_no, 1);
 		qg_battery_profile_free();
