@@ -7136,6 +7136,7 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 	struct msm_pcie_drv_info *drv_info = pcie_dev->drv_info;
 	struct msm_pcie_drv_msg *drv_disable = &drv_info->drv_disable;
 	struct msm_pcie_clk_info_t *clk_info;
+	u32 current_link_speed;
 	int ret, i;
 
 	mutex_lock(&pcie_dev->recovery_lock);
@@ -7188,6 +7189,14 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 				pcie_dev->rc_idx);
 		}
 	}
+
+	/* scale CX and rate change based on current GEN speed */
+	current_link_speed = readl_relaxed(pcie_dev->dm_core +
+					PCIE20_CAP_LINKCTRLSTATUS);
+	current_link_speed = ((current_link_speed >> 16) &
+				PCI_EXP_LNKSTA_CLS);
+
+	msm_pcie_scale_link_bandwidth(pcie_dev, current_link_speed);
 
 	/* always ungate clkreq */
 	msm_pcie_write_reg_field(pcie_dev->parf,
