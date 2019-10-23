@@ -1064,8 +1064,8 @@ static int64_t a6xx_read_throttling_counters(struct adreno_device *adreno_dev)
 		 * 91.7% counter does a weighted count by the value of sid used
 		 * which are taken into consideration for the final formula.
 		 */
-		adj *= ((a * 42) + (b * 500) +
-			((((int64_t)c - a - b * 12) / 22) * 917)) / 1000;
+		adj *= div_s64((a * 42) + (b * 500) +
+			(div_s64((int64_t)c - a - b * 12, 22) * 917), 1000);
 	else
 		adj *= ((a * 5) + (b * 50) + (c * 90)) / 100;
 
