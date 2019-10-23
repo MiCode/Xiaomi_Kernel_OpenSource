@@ -2901,18 +2901,17 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data,
 				bool app_crash)
 {
 	unsigned long flags;
-	unsigned long flags1;
 	int ret = 0;
 	struct qseecom_registered_app_list *ptr_app = NULL;
-	bool unload = false;
 	bool found_app = false;
-	bool found_dead_app = false;
-	bool doublecheck = false;
 
 	if (!data) {
 		pr_err("Invalid/uninitialized device handle\n");
 		return -EINVAL;
 	}
+
+	pr_debug("unload app %d(%s), app_crash flag %d\n", data->client.app_id,
+			data->client.app_name, app_crash);
 
 	if (!memcmp(data->client.app_name, "keymaste", strlen("keymaste"))) {
 		pr_debug("Do not unload keymaster app from tz\n");
@@ -2922,88 +2921,42 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data,
 	__qseecom_cleanup_app(data);
 	__qseecom_reentrancy_check_if_no_app_blocked(TZ_OS_APP_SHUTDOWN_ID);
 
-	if (data->client.app_id > 0) {
-		spin_lock_irqsave(&qseecom.registered_app_list_lock, flags);
-		list_for_each_entry(ptr_app, &qseecom.registered_app_list_head,
-									list) {
-			if (ptr_app->app_id == data->client.app_id) {
-				if (!strcmp((void *)ptr_app->app_name,
-					(void *)data->client.app_name)) {
-					found_app = true;
-					if (ptr_app->app_blocked ||
-							ptr_app->check_block)
-						app_crash = false;
-					if (app_crash || ptr_app->ref_cnt == 1)
-						unload = true;
-					break;
-				}
-				found_dead_app = true;
-				break;
-			}
-		}
-		spin_unlock_irqrestore(&qseecom.registered_app_list_lock,
-								flags);
-		if (found_app == false && found_dead_app == false) {
-			pr_err("Cannot find app with id = %d (%s)\n",
-				data->client.app_id,
-				(char *)data->client.app_name);
-			ret = -EINVAL;
-			goto unload_exit;
+	/* ignore app_id 0, it happens when close qseecom_fd if load app fail*/
+	if (!data->client.app_id)
+		goto unload_exit;
+
+	spin_lock_irqsave(&qseecom.registered_app_list_lock, flags);
+	list_for_each_entry(ptr_app, &qseecom.registered_app_list_head,
+								list) {
+		if ((ptr_app->app_id == data->client.app_id) &&
+			(!strcmp(ptr_app->app_name, data->client.app_name))) {
+			pr_debug("unload app %d (%s), ref_cnt %d\n",
+				ptr_app->app_id, ptr_app->app_name,
+				ptr_app->ref_cnt);
+			ptr_app->ref_cnt--;
+			found_app = true;
+			break;
 		}
 	}
+	spin_unlock_irqrestore(&qseecom.registered_app_list_lock,
+							flags);
+	if (!found_app) {
+		pr_err("Cannot find app with id = %d (%s)\n",
+			data->client.app_id, data->client.app_name);
+		ret = -EINVAL;
+		goto unload_exit;
+	}
 
-	if (found_dead_app)
-		pr_warn("cleanup app_id %d(%s)\n", data->client.app_id,
-			(char *)data->client.app_name);
-
-	if (unload) {
+	if (!ptr_app->ref_cnt) {
 		ret = __qseecom_unload_app(data, data->client.app_id);
-
-		/* double check if this app_entry still exists */
-		spin_lock_irqsave(&qseecom.registered_app_list_lock, flags1);
-		list_for_each_entry(ptr_app,
-			&qseecom.registered_app_list_head, list) {
-			if ((ptr_app->app_id == data->client.app_id) &&
-				(!strcmp((void *)ptr_app->app_name,
-				(void *)data->client.app_name))) {
-				doublecheck = true;
-				break;
-			}
-		}
+		spin_lock_irqsave(&qseecom.registered_app_list_lock, flags);
+		list_del(&ptr_app->list);
 		spin_unlock_irqrestore(&qseecom.registered_app_list_lock,
-								flags1);
-		if (!doublecheck) {
-			pr_warn("app %d(%s) entry is already removed\n",
-				data->client.app_id,
-				(char *)data->client.app_name);
-			found_app = false;
-		}
+					flags);
+		kzfree(ptr_app);
 	}
 
 unload_exit:
-	if (found_app) {
-		spin_lock_irqsave(&qseecom.registered_app_list_lock, flags1);
-		if (app_crash) {
-			ptr_app->ref_cnt = 0;
-			pr_debug("app_crash: ref_count = 0\n");
-		} else {
-			if (ptr_app->ref_cnt == 1) {
-				ptr_app->ref_cnt = 0;
-				pr_debug("ref_count set to 0\n");
-			} else {
-				ptr_app->ref_cnt--;
-				pr_debug("Can't unload app(%d) inuse\n",
-					ptr_app->app_id);
-			}
-		}
-		if (unload) {
-			list_del(&ptr_app->list);
-			kzfree(ptr_app);
-		}
-		spin_unlock_irqrestore(&qseecom.registered_app_list_lock,
-								flags1);
-	}
-
 	if (data->client.dmabuf)
 		qseecom_vaddr_unmap(data->client.sb_virt, data->client.sgt,
 			data->client.attach, data->client.dmabuf);
