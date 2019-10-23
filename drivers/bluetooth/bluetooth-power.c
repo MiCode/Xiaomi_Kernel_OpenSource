@@ -80,8 +80,6 @@ static int bt_vreg_enable(struct bt_power_vreg_data *vreg)
 {
 	int rc = 0;
 
-	BT_PWR_DBG("vreg_en for : %s", vreg->name);
-
 	if (!vreg->is_enabled) {
 		if (vreg->set_voltage_sup) {
 			rc = regulator_set_voltage(vreg->reg,
@@ -112,6 +110,8 @@ static int bt_vreg_enable(struct bt_power_vreg_data *vreg)
 		}
 		vreg->is_enabled = true;
 	}
+
+	BT_PWR_ERR("vreg_en successful for : %s", vreg->name);
 out:
 	return rc;
 }
@@ -122,8 +122,6 @@ static int bt_vreg_unvote(struct bt_power_vreg_data *vreg)
 
 	if (!vreg)
 		return rc;
-
-	BT_PWR_DBG("vreg_unvote for : %s", vreg->name);
 
 	if (vreg->is_enabled) {
 		if (vreg->set_voltage_sup) {
@@ -141,9 +139,12 @@ static int bt_vreg_unvote(struct bt_power_vreg_data *vreg)
 			if (rc < 0) {
 				BT_PWR_ERR("vreg_set_mode(%s) failed rc=%d\n",
 						vreg->name, rc);
+				goto out;
 			}
 		}
 	}
+
+	BT_PWR_ERR("vreg_unvote successful for : %s", vreg->name);
 out:
 	return rc;
 }
@@ -154,8 +155,6 @@ static int bt_vreg_disable(struct bt_power_vreg_data *vreg)
 
 	if (!vreg)
 		return rc;
-
-	BT_PWR_DBG("vreg_disable for : %s", vreg->name);
 
 	if (vreg->is_enabled) {
 		rc = regulator_disable(vreg->reg);
@@ -181,9 +180,12 @@ static int bt_vreg_disable(struct bt_power_vreg_data *vreg)
 			if (rc < 0) {
 				BT_PWR_ERR("vreg_set_mode(%s) failed rc=%d\n",
 						vreg->name, rc);
+				goto out;
 			}
 		}
 	}
+
+	BT_PWR_ERR("vreg_disable successful for : %s", vreg->name);
 out:
 	return rc;
 }
@@ -251,8 +253,6 @@ static int bt_configure_gpios(int on)
 	int rc = 0;
 	int bt_reset_gpio = bt_power_pdata->bt_gpio_sys_rst;
 
-	BT_PWR_DBG("bt_gpio= %d on: %d", bt_reset_gpio, on);
-
 	if (on) {
 		rc = gpio_request(bt_reset_gpio, "bt_sys_rst_n");
 		if (rc) {
@@ -277,6 +277,8 @@ static int bt_configure_gpios(int on)
 		gpio_set_value(bt_reset_gpio, 0);
 		msleep(100);
 	}
+
+	BT_PWR_ERR("bt_gpio= %d on: %d is successful", bt_reset_gpio, on);
 	return rc;
 }
 
@@ -836,7 +838,7 @@ static long bt_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			if (!ret)
 				pwr_state = pwr_cntrl;
 		} else {
-			BT_PWR_ERR("BT chip state is already :%d no change d\n"
+			BT_PWR_ERR("BT state already:%d no change done\n"
 				, pwr_state);
 			ret = 0;
 		}
