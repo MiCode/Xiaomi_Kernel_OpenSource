@@ -657,6 +657,10 @@ static int i3c_geni_runtime_get_mutex_lock(struct geni_i3c_dev *gi3c)
 	mutex_lock(&gi3c->lock);
 
 	reinit_completion(&gi3c->done);
+	if (!pm_runtime_enabled(gi3c->se.dev))
+		GENI_SE_ERR(gi3c->ipcl, true, gi3c->se.dev,
+				"PM runtime disabled\n");
+
 	ret = pm_runtime_get_sync(gi3c->se.dev);
 	if (ret < 0) {
 		GENI_SE_ERR(gi3c->ipcl, true, gi3c->se.dev,
@@ -1204,8 +1208,16 @@ static int geni_i3c_master_bus_init(struct i3c_master_controller *m)
 	ret = i3c_master_set_info(&gi3c->ctrlr, &info);
 
 err_cleanup:
-	pm_runtime_mark_last_busy(gi3c->se.dev);
-	pm_runtime_put_autosuspend(gi3c->se.dev);
+	/*As framework calls multiple exposed API's after this API, we cannot
+	 *use mutex protected internal put/get sync API. Hence forcefully
+	 *disabling clocks and decrementing usage count.
+	 */
+	disable_irq(gi3c->irq);
+	se_geni_resources_off(&gi3c->se.i3c_rsc);
+	pm_runtime_disable(gi3c->se.dev);
+	pm_runtime_put_noidle(gi3c->se.dev);
+	pm_runtime_set_suspended(gi3c->se.dev);
+	pm_runtime_enable(gi3c->se.dev);
 
 	return ret;
 }
@@ -1476,19 +1488,14 @@ static void qcom_geni_i3c_ibi_unconf(struct i3c_dev_desc *dev)
 	/* check if any IBI is enabled, if not then reset HW */
 	val = geni_read_reg(gi3c->se.ibi_base, IBI_GPII_IBI_EN);
 	if (!val) {
-		u32 wait = 100;
 
 		gi3c->ibi.err = 0;
 		reinit_completion(&gi3c->ibi.done);
 
 		val = geni_read_reg(gi3c->se.ibi_base, IBI_GEN_CONFIG);
-		val |= ~IBI_C_ENABLE;
+		val &= ~IBI_C_ENABLE;
 		geni_write_reg(val, gi3c->se.ibi_base, IBI_GEN_CONFIG);
 
-		/* enable ENABLE_CHANGE */
-		val = geni_read_reg(gi3c->se.ibi_base, IBI_GEN_IRQ_EN);
-		val |= ENABLE_CHANGE_IRQ_EN;
-		geni_write_reg(val, gi3c->se.ibi_base, IBI_GEN_IRQ_EN);
 
 		/* wait for ENABLE change */
 		timeout = wait_for_completion_timeout(&gi3c->ibi.done,
@@ -1506,54 +1513,9 @@ static void qcom_geni_i3c_ibi_unconf(struct i3c_dev_desc *dev)
 			return;
 		}
 
-		/* IBI_C reset */
-		geni_write_reg(1, gi3c->se.ibi_base, IBI_SW_RESET);
-		/*
-		 * wait for SW_RESET to be taken care by HW. Post reset it
-		 * will get cleared by HW
-		 */
-		while (wait--) {
-			if (geni_read_reg(gi3c->se.ibi_base, IBI_SW_RESET) != 0)
-				break;
-			usleep_range(IBI_SW_RESET_MIN_SLEEP,
-				IBI_SW_RESET_MAX_SLEEP);
-		}
-
-		if (!wait)
-			GENI_SE_ERR(gi3c->ipcl, true, gi3c->se.dev,
-				"IBI controller reset failed\n");
-
-		gi3c->ibi.err = 0;
-		reinit_completion(&gi3c->ibi.done);
-
-		/* enable ENABLE_CHANGE */
-		val = geni_read_reg(gi3c->se.ibi_base, IBI_GEN_IRQ_EN);
-		val |= SW_RESET_DONE_EN;
-		geni_write_reg(val, gi3c->se.ibi_base, IBI_GEN_IRQ_EN);
-
-		/* wait for SW_RESET_DONE */
-		timeout = wait_for_completion_timeout(&gi3c->ibi.done,
-				XFER_TIMEOUT);
-		if (!timeout) {
-			GENI_SE_ERR(gi3c->ipcl, true, gi3c->se.dev,
-				"timeout while resetting  IBI controller\n");
-			return;
-		}
-
-		if (gi3c->ibi.err) {
-			GENI_SE_ERR(gi3c->ipcl, true, gi3c->se.dev,
-				"error while resetting IBI controller 0x%x\n",
-				gi3c->ibi.err);
-			return;
-		}
-
-		/* disable IBI interrupts */
-		geni_write_reg(0, gi3c->se.ibi_base, IBI_GEN_IRQ_EN);
 	}
 
 	gi3c->ibi.is_init = false;
-	disable_irq(gi3c->ibi.mngr_irq);
-	disable_irq(gi3c->ibi.gpii_irq[0]);
 }
 
 static void geni_i3c_master_free_ibi(struct i3c_dev_desc *dev)
@@ -1787,6 +1749,15 @@ static int i3c_ibi_rsrcs_init(struct geni_i3c_dev *gi3c,
 		return ret;
 	}
 
+	/* set mngr irq as wake-up irq */
+	ret = irq_set_irq_wake(gi3c->ibi.mngr_irq, 1);
+	if (ret) {
+		GENI_SE_ERR(gi3c->ipcl, false, gi3c->se.dev,
+			"Failed to set mngr IRQ(%d) wake: err:%d\n",
+			gi3c->ibi.mngr_irq, ret);
+		return ret;
+	}
+
 	/* Register GPII interrupt */
 	gi3c->ibi.gpii_irq[0] = platform_get_irq(pdev, 2);
 	if (gi3c->ibi.gpii_irq[0] < 0) {
@@ -1801,6 +1772,15 @@ static int i3c_ibi_rsrcs_init(struct geni_i3c_dev *gi3c,
 	if (ret) {
 		GENI_SE_ERR(gi3c->ipcl, false, gi3c->se.dev,
 			"Request_irq failed:%d: err:%d\n",
+			gi3c->ibi.gpii_irq[0], ret);
+		return ret;
+	}
+
+	/* set gpii irq as wake-up irq */
+	ret = irq_set_irq_wake(gi3c->ibi.gpii_irq[0], 1);
+	if (ret) {
+		GENI_SE_ERR(gi3c->ipcl, false, gi3c->se.dev,
+			"Failed to set gpii IRQ(%d) wake: err:%d\n",
 			gi3c->ibi.gpii_irq[0], ret);
 		return ret;
 	}
@@ -1919,6 +1899,11 @@ static int geni_i3c_remove(struct platform_device *pdev)
 	return ret;
 }
 
+static int geni_i3c_resume_noirq(struct device *dev)
+{
+	return 0;
+}
+
 #ifdef CONFIG_PM
 static int geni_i3c_runtime_suspend(struct device *dev)
 {
@@ -1943,6 +1928,18 @@ static int geni_i3c_runtime_resume(struct device *dev)
 	/* Enable TLMM I3C MODE registers */
 	return 0;
 }
+
+static int geni_i3c_suspend_noirq(struct device *dev)
+{
+	if (!pm_runtime_status_suspended(dev)) {
+		geni_i3c_runtime_suspend(dev);
+		pm_runtime_disable(dev);
+		pm_runtime_put_noidle(dev);
+		pm_runtime_set_suspended(dev);
+		pm_runtime_enable(dev);
+	}
+	return 0;
+}
 #else
 static int geni_i3c_runtime_suspend(struct device *dev)
 {
@@ -1953,9 +1950,16 @@ static int geni_i3c_runtime_resume(struct device *dev)
 {
 	return 0;
 }
+
+static int geni_i3c_suspend_noirq(struct device *dev)
+{
+	return 0;
+}
 #endif
 
 static const struct dev_pm_ops geni_i3c_pm_ops = {
+	.suspend_noirq = geni_i3c_suspend_noirq,
+	.resume_noirq = geni_i3c_resume_noirq,
 	.runtime_suspend = geni_i3c_runtime_suspend,
 	.runtime_resume  = geni_i3c_runtime_resume,
 };
