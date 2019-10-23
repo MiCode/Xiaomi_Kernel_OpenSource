@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2016, Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, 2019 Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -145,6 +145,20 @@ struct phy *ufs_qcom_phy_generic_probe(struct platform_device *pdev,
 				 &common_cfg->lanes_per_direction))
 		common_cfg->lanes_per_direction =
 			UFS_PHY_DEFAULT_LANES_PER_DIRECTION;
+
+	if (of_property_read_string(dev->of_node, "qcom,rpmh-resource-name",
+			     &common_cfg->rpmh_rsc.qphy_rsc_name))
+		dev_dbg(dev, "%s rpmh-resource-name missing in DT node or n/a\n",
+				__func__);
+
+	if (common_cfg->rpmh_rsc.qphy_rsc_name) {
+		err = cmd_db_ready();
+		if (err) {
+			dev_err(dev, "%s: Command DB not ready, err: %d\n",
+				__func__, err);
+			goto out;
+		}
+	}
 
 	/*
 	 * UFS PHY power management is managed by its parent (UFS host
@@ -316,6 +330,15 @@ int ufs_qcom_phy_init_vregulators(struct ufs_qcom_phy *phy_common)
 	ufs_qcom_phy_init_vreg(phy_common->dev, &phy_common->vddp_ref_clk,
 		"vddp-ref-clk");
 
+	if (phy_common->rpmh_rsc.qphy_rsc_name) {
+		phy_common->rpmh_rsc.qphy_rsc_addr =
+			cmd_db_read_addr(phy_common->rpmh_rsc.qphy_rsc_name);
+		if (!phy_common->rpmh_rsc.qphy_rsc_addr) {
+			dev_err(phy_common->dev, "%s: Invalid rpmh resource address\n",
+					__func__);
+			err = EINVAL;
+		}
+	}
 out:
 	return err;
 }
@@ -526,6 +549,31 @@ static void ufs_qcom_phy_disable_ref_clk(struct ufs_qcom_phy *phy)
 	}
 }
 
+static int ufs_qcom_phy_setup_rpmh_rsc(struct device *dev,
+				struct ufs_qcom_phy_rpmh_rsc *rpmh_rsc,
+				bool on)
+{
+	struct tcs_cmd cmd = {0};
+	int err = 0;
+
+	if (!rpmh_rsc->qphy_rsc_addr)
+		goto out;
+
+	if (rpmh_rsc->enabled == on)
+		goto out;
+
+	cmd.addr = rpmh_rsc->qphy_rsc_addr;
+	cmd.data = on;
+	cmd.wait = true;
+
+	err = rpmh_write_async(dev, RPMH_ACTIVE_ONLY_STATE, &cmd, 1);
+	if (!err)
+		rpmh_rsc->enabled = on;
+
+out:
+	return err;
+}
+
 #define UFS_REF_CLK_EN	(1 << 5)
 
 static void ufs_qcom_phy_dev_ref_clk_ctrl(struct phy *generic_phy, bool enable)
@@ -723,6 +771,13 @@ int ufs_qcom_phy_power_on(struct phy *generic_phy)
 	if (phy_common->is_powered_on)
 		return 0;
 
+	err = ufs_qcom_phy_setup_rpmh_rsc(dev, &phy_common->rpmh_rsc, 1);
+	if (err) {
+		dev_err(dev, "%s enable rpmh resource failed, err=%d\n",
+			__func__, err);
+		goto out;
+	}
+
 	err = ufs_qcom_phy_enable_vreg(dev, &phy_common->vdda_phy);
 	if (err) {
 		dev_err(dev, "%s enable vdda_phy failed, err=%d\n",
@@ -798,6 +853,10 @@ int ufs_qcom_phy_power_off(struct phy *generic_phy)
 
 	ufs_qcom_phy_disable_vreg(phy_common->dev, &phy_common->vdda_pll);
 	ufs_qcom_phy_disable_vreg(phy_common->dev, &phy_common->vdda_phy);
+
+	ufs_qcom_phy_setup_rpmh_rsc(phy_common->dev,
+				&phy_common->rpmh_rsc, 0);
+
 	phy_common->is_powered_on = false;
 
 	return 0;
