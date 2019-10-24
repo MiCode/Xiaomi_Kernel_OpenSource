@@ -11,12 +11,17 @@ void kgsl_pool_free_sgt(struct sg_table *sgt);
  * kgsl_pool_alloc_pages - Allocate an array of pages from the pool
  * @size: Size of the allocation
  * @pages: Pointer to an array of pages
+ * @dev: A &struct device pointer
  *
  * Allocate a list of pages and store it in the pointer pointed to by @pages.
+ * @dev specifies a &struct device that is used to call dma_sync_sg_for_device
+ * to synchronize the caches. If @dev isn't specified, no cache maintenance
+ * will be performed.
+ *
  * Return: The number of entries in the array pointed to by @page or negative
  * on error.
  */
-int kgsl_pool_alloc_pages(u64 size, struct page ***pages);
+int kgsl_pool_alloc_pages(u64 size, struct page ***pages, struct device *dev);
 
 /**
  * kgsl_pool_free_pages - Free pages in an pages array

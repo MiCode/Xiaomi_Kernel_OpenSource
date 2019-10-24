@@ -1074,7 +1074,7 @@ static int kgsl_alloc_secure_pages(struct kgsl_device *device,
 	memdesc->priv |= priv;
 
 	memdesc->ops = &kgsl_secure_pool_ops;
-	count = kgsl_pool_alloc_pages(size, &pages);
+	count = kgsl_pool_alloc_pages(size, &pages, device->dev);
 
 	if (count < 0)
 		return count;
@@ -1129,7 +1129,7 @@ static int kgsl_alloc_pages(struct kgsl_device *device,
 	memdesc->priv |= priv;
 
 	memdesc->ops = &kgsl_pool_ops;
-	count = kgsl_pool_alloc_pages(size, &pages);
+	count = kgsl_pool_alloc_pages(size, &pages, device->dev);
 
 	if (count < 0)
 		return count;
