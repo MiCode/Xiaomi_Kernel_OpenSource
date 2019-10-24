@@ -313,6 +313,7 @@ struct mhi_controller {
 	enum mhi_dev_state dev_state;
 	enum mhi_dev_state saved_dev_state;
 	bool wake_set;
+	bool ignore_override;
 	atomic_t dev_wake;
 	atomic_t alloc_size;
 	atomic_t pending_pkts;
