@@ -202,10 +202,10 @@ int mtk_audio_sram_allocate(struct mtk_audio_sram *sram,
 	int ret = 0;
 	int i;
 
-	dev_info(sram->dev, "%s(), size %d, user %p, format %d, force_normal %d\n",
-		 __func__, size, user, format, force_normal);
-
 	spin_lock(&sram->lock);
+
+	dev_info(sram->dev, "%s(), size %d, user %p, format %d, force_normal %d, sram mode %d\n",
+		 __func__, size, user, format, force_normal, sram->sram_mode);
 
 	/* check if sram has user */
 	for (i = 0; i < sram->block_num; i++) {
