@@ -15,6 +15,22 @@
 
 #include <linux/skbuff.h>
 
+enum rmnet_ctl_log_lvl {
+	RMNET_CTL_LOG_CRIT,
+	RMNET_CTL_LOG_ERR,
+	RMNET_CTL_LOG_INFO,
+	RMNET_CTL_LOG_DEBUG,
+};
+
+#define rmnet_ctl_log_err(msg, rc, data, len) \
+		rmnet_ctl_log(RMNET_CTL_LOG_ERR, msg, rc, data, len)
+
+#define rmnet_ctl_log_info(msg, data, len) \
+		rmnet_ctl_log(RMNET_CTL_LOG_INFO, msg, 0, data, len)
+
+#define rmnet_ctl_log_debug(msg, data, len) \
+		rmnet_ctl_log(RMNET_CTL_LOG_DEBUG, msg, 0, data, len)
+
 struct rmnet_ctl_client_hooks {
 	void (*ctl_dl_client_hook)(struct sk_buff *);
 };
@@ -24,6 +40,8 @@ struct rmnet_ctl_client_hooks {
 void *rmnet_ctl_register_client(struct rmnet_ctl_client_hooks *hook);
 int rmnet_ctl_unregister_client(void *handle);
 int rmnet_ctl_send_client(void *handle, struct sk_buff *skb);
+void rmnet_ctl_log(enum rmnet_ctl_log_lvl lvl, const char *msg,
+		   int rc, const void *data, unsigned int len);
 
 #else
 
@@ -41,6 +59,11 @@ static inline int rmnet_ctl_unregister_client(void *handle)
 static inline int rmnet_ctl_send_client(void *handle, struct sk_buff *skb)
 {
 	return -EINVAL;
+}
+
+static inline void rmnet_ctl_log(enum rmnet_ctl_log_lvl lvl, const char *msg,
+				 int rc, const void *data, unsigned int len)
+{
 }
 
 #endif /* CONFIG_RMNET_CTL */
