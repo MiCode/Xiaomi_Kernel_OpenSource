@@ -196,6 +196,8 @@ static int __arm_smmu_domain_set_attr(struct iommu_domain *domain,
 static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 				    enum iommu_attr attr, void *data);
 
+static void __arm_smmu_tlb_sync_timeout(struct arm_smmu_device *smmu);
+
 static inline int arm_smmu_rpm_get(struct arm_smmu_device *smmu)
 {
 	if (pm_runtime_enabled(smmu->dev))
@@ -887,7 +889,6 @@ static int __arm_smmu_tlb_sync(struct arm_smmu_device *smmu, int page,
 				int sync, int status)
 {
 	unsigned int inc, delay;
-	u32 sync_inv_ack, tbu_pwr_status = -EINVAL, sync_inv_progress = -EINVAL;
 	u32 reg;
 
 	arm_smmu_writel(smmu, page, sync, QCOM_DUMMY_VAL);
@@ -902,19 +903,8 @@ static int __arm_smmu_tlb_sync(struct arm_smmu_device *smmu, int page,
 			inc *= 2;
 	}
 
-	sync_inv_ack = arm_smmu_readl(smmu,
-				      ARM_SMMU_IMPL_DEF0,
-				      ARM_SMMU_STATS_SYNC_INV_TBU_ACK);
-	qcom_scm_io_readl((unsigned long)(smmu->phys_addr +
-			ARM_SMMU_TBU_PWR_STATUS), &tbu_pwr_status);
-	qcom_scm_io_readl((unsigned long)(smmu->phys_addr +
-			      ARM_SMMU_MMU2QSS_AND_SAFE_WAIT_CNTR),
-			      &sync_inv_progress);
 	trace_tlbsync_timeout(smmu->dev, 0);
-	dev_err_ratelimited(smmu->dev,
-			    "TLB sync timed out -- SMMU may be deadlocked ack 0x%x pwr 0x%x sync and invalidation progress 0x%x\n",
-			    sync_inv_ack, tbu_pwr_status, sync_inv_progress);
-	BUG_ON(IS_ENABLED(CONFIG_IOMMU_TLBSYNC_DEBUG));
+	__arm_smmu_tlb_sync_timeout(smmu);
 	return -EINVAL;
 }
 
@@ -5004,6 +4994,96 @@ struct qsmmuv500_group_iommudata {
 	((struct qsmmuv500_group_iommudata *)				\
 		(iommu_group_get_iommudata(group)))
 
+static struct qsmmuv500_tbu_device *qsmmuv500_find_tbu(
+	struct arm_smmu_device *smmu, u32 sid);
+
+static void __arm_smmu_tlb_sync_timeout(struct arm_smmu_device *smmu)
+{
+	u32 sync_inv_ack, tbu_pwr_status, sync_inv_progress;
+	u32 tbu_inv_pending = 0, tbu_sync_pending = 0;
+	u32 tbu_inv_acked = 0, tbu_sync_acked = 0;
+	u32 tcu_inv_pending = 0, tcu_sync_pending = 0;
+	u32 tbu_ids = 0;
+	int ret;
+
+	static DEFINE_RATELIMIT_STATE(_rs,
+				      DEFAULT_RATELIMIT_INTERVAL,
+				      DEFAULT_RATELIMIT_BURST);
+
+	dev_err_ratelimited(smmu->dev,
+			    "TLB sync timed out -- SMMU may be deadlocked\n");
+
+	sync_inv_ack = arm_smmu_readl(smmu,
+				      ARM_SMMU_IMPL_DEF0,
+				      ARM_SMMU_STATS_SYNC_INV_TBU_ACK);
+	ret = qcom_scm_io_readl((unsigned long)(smmu->phys_addr +
+				ARM_SMMU_TBU_PWR_STATUS), &tbu_pwr_status);
+	if (ret) {
+		dev_err_ratelimited(smmu->dev,
+				    "SCM read of TBU power status fails: %d\n",
+				    ret);
+		goto out;
+	}
+
+	ret = qcom_scm_io_readl((unsigned long)(smmu->phys_addr +
+				ARM_SMMU_MMU2QSS_AND_SAFE_WAIT_CNTR),
+				&sync_inv_progress);
+	if (ret) {
+		dev_err_ratelimited(smmu->dev,
+				    "SCM read of TBU sync/inv prog fails: %d\n",
+				    ret);
+		goto out;
+	}
+
+	if (sync_inv_ack) {
+		tbu_inv_pending = FIELD_GET(TBU_INV_REQ, sync_inv_ack);
+		tbu_inv_acked = FIELD_GET(TBU_INV_ACK, sync_inv_ack);
+		tbu_sync_pending = FIELD_GET(TBU_SYNC_REQ, sync_inv_ack);
+		tbu_sync_acked = FIELD_GET(TBU_SYNC_ACK, sync_inv_ack);
+	}
+
+	if (tbu_pwr_status) {
+		if (tbu_sync_pending)
+			tbu_ids = tbu_pwr_status & ~tbu_sync_acked;
+		else if (tbu_inv_pending)
+			tbu_ids = tbu_pwr_status & ~tbu_inv_acked;
+	}
+
+	tcu_inv_pending = FIELD_GET(TCU_INV_IN_PRGSS, sync_inv_progress);
+	tcu_sync_pending = FIELD_GET(TCU_SYNC_IN_PRGSS, sync_inv_progress);
+
+	if (__ratelimit(&_rs)) {
+		unsigned long tbu_id, tbus_t = tbu_ids;
+
+		dev_err(smmu->dev,
+			"TBU ACK 0x%x TBU PWR 0x%x TCU sync_inv 0x%x\n",
+			sync_inv_ack, tbu_pwr_status, sync_inv_progress);
+		dev_err(smmu->dev,
+			"TCU invalidation %s, TCU sync %s\n",
+			tcu_inv_pending?"pending":"completed",
+			tcu_sync_pending?"pending":"completed");
+
+		while (tbus_t) {
+			struct qsmmuv500_tbu_device *tbu;
+
+			tbu_id = __ffs(tbus_t);
+			tbus_t = tbus_t & ~(1 << tbu_id);
+			tbu = qsmmuv500_find_tbu(smmu,
+						 (u16)(tbu_id << TBUID_SHIFT));
+			if (tbu) {
+				dev_err(smmu->dev,
+					"TBU %s ack pending for TBU %s, %s\n",
+					tbu_sync_pending?"sync" : "inv",
+					dev_name(tbu->dev),
+					tbu_sync_pending ?
+					"check pending transactions on TBU"
+					: "check for TBU power status");
+			}
+		}
+	}
+out:
+	BUG_ON(IS_ENABLED(CONFIG_IOMMU_TLBSYNC_DEBUG));
+}
 
 static bool arm_smmu_fwspec_match_smr(struct iommu_fwspec *fwspec,
 				      struct arm_smmu_smr *smr)
