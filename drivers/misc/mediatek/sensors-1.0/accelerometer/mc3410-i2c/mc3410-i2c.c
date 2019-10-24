@@ -2220,8 +2220,8 @@ static int mc3xxx_set_delay(u64 ns)
 static int mc3xxx_get_data(int *x, int *y, int *z, int *status)
 {
 	int err = 0;
-	char buff[MC3XXX_BUF_SIZE];
-	int ret;
+	char buff[MC3XXX_BUF_SIZE] = {0};
+	int ret = 0;
 	u8 databuf[2] = { 0 };
 
 	MC3XXX_ReadSensorData(mc3xxx_obj_i2c_data->client, buff,
