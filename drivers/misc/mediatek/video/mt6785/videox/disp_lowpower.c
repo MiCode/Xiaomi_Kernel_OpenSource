@@ -867,7 +867,8 @@ static void _vdo_mode_enter_idle(void)
 		}
 	}
 
-	if (disp_helper_get_option(DISP_OPT_SHARE_SRAM))
+	if (disp_helper_get_option(DISP_OPT_SHARE_SRAM) &&
+		!disp_idle_check_rsz())
 		enter_share_sram(CMDQ_SYNC_RESOURCE_WROT1);
 
 	/* set golden setting, merge fps/dc */
@@ -894,7 +895,8 @@ static void _vdo_mode_leave_idle(void)
 
 	DISPDBG("[LP]%s\n", __func__);
 
-	if (disp_helper_get_option(DISP_OPT_SHARE_SRAM))
+	if (disp_helper_get_option(DISP_OPT_SHARE_SRAM) &&
+		!disp_idle_check_rsz())
 		leave_share_sram(CMDQ_SYNC_RESOURCE_WROT1);
 
 	/* set golden setting */
