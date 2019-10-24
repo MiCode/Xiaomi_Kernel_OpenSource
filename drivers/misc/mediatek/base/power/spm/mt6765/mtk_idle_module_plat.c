@@ -80,12 +80,12 @@ size_t mtk_idle_module_helper(char *buf, size_t sz)
 struct MTK_IDLE_MODEL mod_sodi3 = {
 	.clerk = {
 		.name = "sodi3",
-		.type = IDLE_MODEL_SODI3,
+		.type = IDLE_TYPE_SO3,
 		.time_critera = 30000,
 	},
 	.notify = {
-		.id_enter = MTK_IDLE_26M_OFF,
-		.id_leave = MTK_IDLE_26M_ON,
+		.id_enter = NOTIFY_SOIDLE3_ENTER,
+		.id_leave = NOTIFY_SOIDLE3_LEAVE,
 	},
 	.policy = {
 		.init = mtk_sodi3_init,
@@ -99,12 +99,12 @@ struct MTK_IDLE_MODEL mod_sodi3 = {
 struct MTK_IDLE_MODEL mod_dpidle = {
 	.clerk = {
 		.name = "dpidle",
-		.type = IDLE_MODEL_DPIDLE,
+		.type = IDLE_TYPE_DP,
 		.time_critera = 30000,
 	},
 	.notify = {
-		.id_enter = MTK_IDLE_MAINPLL_OFF,
-		.id_leave = MTK_IDLE_MAINPLL_ON,
+		.id_enter = NOTIFY_DPIDLE_ENTER,
+		.id_leave = NOTIFY_DPIDLE_LEAVE,
 	},
 	.policy = {
 		.init = mtk_dpidle_init,
@@ -118,12 +118,12 @@ struct MTK_IDLE_MODEL mod_dpidle = {
 struct MTK_IDLE_MODEL mod_sodi = {
 	.clerk = {
 		.name = "sodi",
-		.type = IDLE_MODEL_SODI,
+		.type = IDLE_TYPE_SO,
 		.time_critera = 30000,
 	},
 	.notify = {
-		.id_enter = MTK_IDLE_MAINPLL_OFF,
-		.id_leave = MTK_IDLE_MAINPLL_ON,
+		.id_enter = NOTIFY_SOIDLE_ENTER,
+		.id_leave = NOTIFY_SOIDLE_LEAVE,
 	},
 	.policy = {
 		.init = mtk_sodi_init,
