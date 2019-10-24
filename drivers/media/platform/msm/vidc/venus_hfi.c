@@ -1095,8 +1095,11 @@ static int __unvote_buses(struct venus_hfi_device *device)
 	venus_hfi_for_each_bus(device, bus) {
 		unsigned long zero = 0;
 
-		if (!bus->is_prfm_gov_used)
-			rc = devfreq_suspend_device(bus->devfreq);
+		if (!bus->is_prfm_gov_used) {
+			mutex_lock(&bus->devfreq->lock);
+			rc = update_devfreq(bus->devfreq);
+			mutex_unlock(&bus->devfreq->lock);
+		}
 		else
 			rc = __devfreq_target(bus->dev, &zero, 0);
 
@@ -1138,7 +1141,9 @@ no_data_count:
 	venus_hfi_for_each_bus(device, bus) {
 		if (bus && bus->devfreq) {
 			if (!bus->is_prfm_gov_used) {
-				rc = devfreq_resume_device(bus->devfreq);
+				mutex_lock(&bus->devfreq->lock);
+				rc = update_devfreq(bus->devfreq);
+				mutex_unlock(&bus->devfreq->lock);
 				if (rc)
 					goto err_no_mem;
 			} else {
