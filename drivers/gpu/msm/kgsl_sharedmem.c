@@ -10,6 +10,7 @@
 #include <linux/random.h>
 
 #include "kgsl_device.h"
+#include "kgsl_pool.h"
 #include "kgsl_sharedmem.h"
 
 /*
@@ -966,59 +967,6 @@ int kgsl_memdesc_sg_dma(struct kgsl_memdesc *memdesc,
 	return 0;
 }
 
-static struct page **kgsl_pool_alloc_pages(u64 size, u32 *pages_count)
-{
-	int count = 0;
-	int npages = size >> PAGE_SHIFT;
-	struct page **pages = kvcalloc(npages, sizeof(*pages), GFP_KERNEL);
-	u32 page_size;
-	u64 len = size;
-	u32 align = ilog2(SZ_1M);
-
-	if (!pages)
-		return ERR_PTR(-ENOMEM);
-
-	/*
-	 * Start with an 1M alignment to get the largest supported pagesize we
-	 * can
-	 */
-	page_size = kgsl_get_page_size(len, align);
-
-	while (len) {
-		int ret = kgsl_pool_alloc_page(&page_size, &pages[count],
-			npages, &align);
-
-		if (ret == -EAGAIN)
-			continue;
-		else if (ret <= 0) {
-			int i;
-
-			for (i = 0; i < count; ) {
-				int n = 1 << compound_order(pages[i]);
-
-				kgsl_pool_free_page(pages[i]);
-				i += n;
-			}
-			kvfree(pages);
-
-			if (!sharedmem_noretry_flag)
-				pr_err_ratelimited("kgsl: out of memory: only allocated %lldKb of %lldKb requested\n",
-					(size - len) >> 10, size >> 10);
-
-			return ERR_PTR(-ENOMEM);
-		}
-
-		count += ret;
-		npages -= ret;
-		len -= page_size;
-
-		page_size = kgsl_get_page_size(len, align);
-	}
-
-	*pages_count = count;
-	return pages;
-}
-
 static void _kgsl_contiguous_free(struct kgsl_memdesc *memdesc)
 {
 	dma_free_attrs(memdesc->dev, memdesc->size,
@@ -1126,10 +1074,10 @@ static int kgsl_alloc_secure_pages(struct kgsl_device *device,
 	memdesc->priv |= priv;
 
 	memdesc->ops = &kgsl_secure_pool_ops;
-	pages = kgsl_pool_alloc_pages(size, &count);
+	count = kgsl_pool_alloc_pages(size, &pages);
 
-	if (IS_ERR(pages))
-		return PTR_ERR(pages);
+	if (count < 0)
+		return count;
 
 	sgt = kzalloc(sizeof(*sgt), GFP_KERNEL);
 	if (!sgt) {
@@ -1181,10 +1129,10 @@ static int kgsl_alloc_pages(struct kgsl_device *device,
 	memdesc->priv |= priv;
 
 	memdesc->ops = &kgsl_pool_ops;
-	pages = kgsl_pool_alloc_pages(size, &count);
+	count = kgsl_pool_alloc_pages(size, &pages);
 
-	if (IS_ERR(pages))
-		return PTR_ERR(pages);
+	if (count < 0)
+		return count;
 
 	memdesc->pages = pages;
 	memdesc->size = size;
