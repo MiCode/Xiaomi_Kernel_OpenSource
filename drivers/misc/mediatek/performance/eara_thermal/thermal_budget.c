@@ -1328,18 +1328,14 @@ static int reallocate_perf_first(int remain_budget,
 #ifdef EARA_THERMAL_AI_SUPPORT
 			else if (ChoosenModule != -1) {
 				opp[ChoosenModule] -= 1;
-				if (ChoosenModule != THRM_VPU
-					&& ChoosenModule != THRM_MDLA)
-					EARA_THRM_LOGE("unknown module %d\n",
-							ChoosenModule);
 #ifdef EARA_THERMAL_VPU_SUPPORT
-				else if (ChoosenModule == THRM_VPU) {
+				if (ChoosenModule == THRM_VPU) {
 					vpu_time = new_vpu_time;
 					vpu_opp = opp[ChoosenModule];
 				}
 #endif
 #ifdef EARA_THERMAL_MDLA_SUPPORT
-				else if (ChoosenModule == THRM_MDLA) {
+				if (ChoosenModule == THRM_MDLA) {
 					mdla_time = new_mdla_time;
 					mdla_opp = opp[ChoosenModule];
 				}
