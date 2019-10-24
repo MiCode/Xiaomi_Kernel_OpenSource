@@ -306,6 +306,7 @@ struct arm64_cpu_capabilities {
 			struct midr_range midr_range;
 		};
 
+		const struct midr_range *midr_range_list;
 		struct {	/* Feature register checking */
 			u32 sys_reg;
 			u8 field_pos;
