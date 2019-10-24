@@ -71,7 +71,6 @@
 /*****************************************************************************
  * Variable Definition
  ****************************************************************************/
-static const char vowdrv_name[] = "VOW_driver_device";
 static unsigned int VowDrv_Wait_Queue_flag;
 static unsigned int VoiceData_Wait_Queue_flag;
 static DECLARE_WAIT_QUEUE_HEAD(VowDrv_Wait_Queue);
@@ -431,6 +430,8 @@ static void vow_ipi_reg_ok(short uuid, int confidence_lv)
 	vowserv.scp_command_flag = true;
 	/* transfer uuid to model handle id */
 	slot = vow_service_SearchSpeakerModelWithUuid(uuid);
+	if (slot < 0)
+		return;
 	vowserv.scp_command_id = vowserv.vow_speaker_model[slot].id;
 	vowserv.confidence_level = confidence_lv;
 	VowDrv_Wait_Queue_flag = 1;
@@ -873,11 +874,14 @@ static bool vow_service_SetModelStatus(bool enable, unsigned long arg)
 			   (const void __user *)(arg),
 			   sizeof(struct vow_model_start_t))) {
 		VOWDRV_DEBUG("vow get vow_model_start data fail\n");
-		return -EFAULT;
+		return false;
 	}
 
 	slot = vow_service_SearchSpeakerModelWithId(model_start.handle);
-
+	if (slot < 0) {
+		VOWDRV_DEBUG("%s(), no match id\n", __func__);
+		return false;
+	}
 	if (enable == VOW_MODEL_STATUS_START) {
 		if (vowserv.vow_speaker_model[slot].enabled == 0) {
 			int uuid;
@@ -1394,7 +1398,6 @@ static void vow_service_CloseDumpFile(void)
 static void vow_service_OpenDumpFile_internal(void)
 {
 	struct timespec curr_tm;
-
 	char string_time[16];
 #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
 	char string_input_pcm[16] = "input_pcm.pcm";
@@ -1408,6 +1411,7 @@ static void vow_service_OpenDumpFile_internal(void)
 	char path_recog[64];
 
 	VOWDRV_DEBUG("+%s()\n", __func__);
+	memset(&curr_tm, 0, sizeof(struct timespec));
 	getnstimeofday(&curr_tm);
 
 	memset(string_time, '\0', 16);
@@ -2125,7 +2129,7 @@ static ssize_t VowDrv_SetPhase1Debug(struct device *kobj,
 				     const char *buf,
 				     size_t n)
 {
-	unsigned int enable;
+	unsigned int enable = 0;
 
 	if (kstrtouint(buf, 0, &enable) != 0)
 		return -EINVAL;
@@ -2157,7 +2161,7 @@ static ssize_t VowDrv_SetPhase2Debug(struct device *kobj,
 				     const char *buf,
 				     size_t n)
 {
-	unsigned int enable;
+	unsigned int enable = 0;
 
 	if (kstrtouint(buf, 0, &enable) != 0)
 		return -EINVAL;
@@ -2189,7 +2193,7 @@ static ssize_t VowDrv_SetDualMicDebug(struct device *kobj,
 				     const char *buf,
 				     size_t n)
 {
-	unsigned int enable;
+	unsigned int enable = 0;
 
 	if (kstrtouint(buf, 0, &enable) != 0)
 		return -EINVAL;
@@ -2223,7 +2227,7 @@ static ssize_t VowDrv_SetSplitDumpFile(struct device *kobj,
 				     const char *buf,
 				     size_t n)
 {
-	unsigned int enable;
+	unsigned int enable = 0;
 
 	if (kstrtouint(buf, 0, &enable) != 0)
 		return -EINVAL;
@@ -2245,7 +2249,7 @@ static ssize_t VowDrv_SetBargeInDebug(struct device *kobj,
 				      const char *buf,
 				      size_t n)
 {
-	unsigned int enable;
+	unsigned int enable = 0;
 
 	if (kstrtouint(buf, 0, &enable) != 0)
 		return -EINVAL;
@@ -2309,7 +2313,7 @@ static ssize_t VowDrv_SetBypassPhase3Flag(struct device *kobj,
 					  const char *buf,
 					  size_t n)
 {
-	unsigned int enable;
+	unsigned int enable = 0;
 
 	if (kstrtouint(buf, 0, &enable) != 0)
 		return -EINVAL;
@@ -2361,7 +2365,7 @@ static ssize_t VowDrv_SetSWIPLog(struct device *kobj,
 				 const char *buf,
 				 size_t n)
 {
-	unsigned int enable;
+	unsigned int enable = 0;
 
 	if (kstrtouint(buf, 0, &enable) != 0)
 		return -EINVAL;
@@ -2379,7 +2383,7 @@ static ssize_t VowDrv_SetEnableHW(struct device *kobj,
 				  const char *buf,
 				  size_t n)
 {
-	unsigned int enable;
+	unsigned int enable = 0;
 
 	if (kstrtouint(buf, 0, &enable) != 0)
 		return -EINVAL;
@@ -2956,7 +2960,7 @@ static struct platform_driver VowDrv_driver = {
 #ifdef CONFIG_PM
 	.pm       = &VowDrv_pm_ops,
 #endif
-	.name     = vowdrv_name,
+	.name     = "VOW_driver_device",
 #ifdef CONFIG_OF
 	.of_match_table = vow_of_match,
 #endif
