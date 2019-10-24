@@ -7371,7 +7371,7 @@ unsigned int sctp_poll(struct file *file, struct socket *sock, poll_table *wait)
 	mask = 0;
 
 	/* Is there any exceptional events?  */
-	if (sk->sk_err || !skb_queue_empty(&sk->sk_error_queue))
+	if (sk->sk_err || !skb_queue_empty_lockless(&sk->sk_error_queue))
 		mask |= POLLERR |
 			(sock_flag(sk, SOCK_SELECT_ERR_QUEUE) ? POLLPRI : 0);
 	if (sk->sk_shutdown & RCV_SHUTDOWN)
@@ -7380,7 +7380,7 @@ unsigned int sctp_poll(struct file *file, struct socket *sock, poll_table *wait)
 		mask |= POLLHUP;
 
 	/* Is it readable?  Reconsider this code with TCP-style support.  */
-	if (!skb_queue_empty(&sk->sk_receive_queue))
+	if (!skb_queue_empty_lockless(&sk->sk_receive_queue))
 		mask |= POLLIN | POLLRDNORM;
 
 	/* The association is either gone or not ready.  */
