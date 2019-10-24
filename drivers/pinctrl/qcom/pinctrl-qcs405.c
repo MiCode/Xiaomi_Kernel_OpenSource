@@ -475,6 +475,18 @@ enum qcs405_functions {
 	msm_mux_blsp_i2c_sda_b2,
 	msm_mux_blsp_i2c_scl_b2,
 	msm_mux_pwm_led11,
+	msm_mux_i2s_1_sck,
+	msm_mux_i2s_1_ws,
+	msm_mux_i2s_1_data0_dsd0,
+	msm_mux_i2s_1_data0,
+	msm_mux_i2s_1_data1_dsd1,
+	msm_mux_i2s_1_data1,
+	msm_mux_i2s_1_data2_dsd2,
+	msm_mux_i2s_1_data2,
+	msm_mux_i2s_1_data3_dsd3,
+	msm_mux_i2s_1_data3,
+	msm_mux_i2s_1_data4_dsd4,
+	msm_mux_i2s_1_data5_dsd5,
 	msm_mux_i2s_3_data0_a,
 	msm_mux_ebi2_lcd,
 	msm_mux_hdmi_hot,
@@ -828,6 +840,42 @@ static const char * const i2s_3_data3_a_groups[] = {
 };
 static const char * const pwm_led4_groups[] = {
 	"gpio109",
+};
+static const char * const i2s_1_sck_groups[] = {
+	"gpio87",
+};
+static const char * const i2s_1_ws_groups[] = {
+	"gpio88",
+};
+static const char * const i2s_1_data0_dsd0_groups[] = {
+	"gpio88",
+};
+static const char * const i2s_1_data0_groups[] = {
+	"gpio89",
+};
+static const char * const i2s_1_data1_dsd1_groups[] = {
+	"gpio89",
+};
+static const char * const i2s_1_data1_groups[] = {
+	"gpio90",
+};
+static const char * const i2s_1_data2_dsd2_groups[] = {
+	"gpio90",
+};
+static const char * const i2s_1_data2_groups[] = {
+	"gpio91",
+};
+static const char * const i2s_1_data3_dsd3_groups[] = {
+	"gpio91",
+};
+static const char * const i2s_1_data3_groups[] = {
+	"gpio92",
+};
+static const char * const i2s_1_data4_dsd4_groups[] = {
+	"gpio92",
+};
+static const char * const i2s_1_data5_dsd5_groups[] = {
+	"gpio93",
 };
 static const char * const i2s_4_sck_groups[] = {
 	"gpio110",
@@ -1292,22 +1340,34 @@ static const struct msm_function qcs405_functions[] = {
 	FUNCTION(pwm_led3),
 	FUNCTION(i2s_3_data3_a),
 	FUNCTION(pwm_led4),
+	FUNCTION(i2s_1_sck),
 	FUNCTION(i2s_4_sck),
 	FUNCTION(ebi2_a),
 	FUNCTION(dsd_clk_b),
 	FUNCTION(pwm_led5),
+	FUNCTION(i2s_1_ws),
+	FUNCTION(i2s_1_data0_dsd0),
 	FUNCTION(i2s_4_ws),
 	FUNCTION(i2s_4_data0_dsd0),
 	FUNCTION(pwm_led6),
+	FUNCTION(i2s_1_data0),
+	FUNCTION(i2s_1_data1_dsd1),
 	FUNCTION(i2s_4_data0),
 	FUNCTION(i2s_4_data1_dsd1),
 	FUNCTION(pwm_led7),
+	FUNCTION(i2s_1_data1),
+	FUNCTION(i2s_1_data2_dsd2),
 	FUNCTION(i2s_4_data1),
 	FUNCTION(i2s_4_data2_dsd2),
 	FUNCTION(pwm_led8),
+	FUNCTION(i2s_1_data2),
+	FUNCTION(i2s_1_data3_dsd3),
 	FUNCTION(i2s_4_data2),
 	FUNCTION(i2s_4_data3_dsd3),
 	FUNCTION(pwm_led24),
+	FUNCTION(i2s_1_data3),
+	FUNCTION(i2s_1_data4_dsd4),
+	FUNCTION(i2s_1_data5_dsd5),
 	FUNCTION(i2s_4_data3),
 	FUNCTION(i2s_4_data4_dsd4),
 	FUNCTION(i2s_4_data5_dsd5),
@@ -1582,16 +1642,20 @@ static const struct msm_pingroup qcs405_groups[] = {
 			gcc_gp2_clk_a, qdss_tracedata_b, NA, NA, NA, NA),
 	[86] = PINGROUP(86, EAST, ext_mclk0, mclk_in1, NA, NA, NA, NA, NA, NA,
 			NA),
-	[87] = PINGROUP(87, EAST, i2s_1, dsd_clk_a, NA, NA, NA, NA, NA, NA, NA),
-	[88] = PINGROUP(88, EAST, i2s_1, i2s_1, NA, NA, NA, NA, NA, NA, NA),
-	[89] = PINGROUP(89, EAST, i2s_1, i2s_1, NA, NA, NA, NA, NA, NA,
-			qdss_tracedata_b),
-	[90] = PINGROUP(90, EAST, i2s_1, i2s_1, NA, NA, NA, NA, NA, NA, NA),
-	[91] = PINGROUP(91, EAST, i2s_1, i2s_1, NA, NA, NA, NA, NA, NA, NA),
-	[92] = PINGROUP(92, EAST, i2s_1, i2s_1, NA, NA, NA, NA, NA,
-			qdss_cti_trig_in_a1, NA),
-	[93] = PINGROUP(93, EAST, i2s_1, pwm_led22, i2s_1, NA, NA, NA, NA, NA,
-			qdss_tracedata_b),
+	[87] = PINGROUP(87, EAST, i2s_1_sck, dsd_clk_a,
+			NA, NA, NA, NA, NA, NA, NA),
+	[88] = PINGROUP(88, EAST, i2s_1_ws, i2s_1_data0_dsd0,
+			NA, NA, NA, NA, NA, NA, NA),
+	[89] = PINGROUP(89, EAST, i2s_1_data0, i2s_1_data1_dsd1,
+			NA, NA, NA, NA, NA, NA, qdss_tracedata_b),
+	[90] = PINGROUP(90, EAST, i2s_1_data1, i2s_1_data2_dsd2,
+			NA, NA, NA, NA, NA, NA, NA),
+	[91] = PINGROUP(91, EAST, i2s_1_data2, i2s_1_data3_dsd3,
+			NA, NA, NA, NA, NA, NA, NA),
+	[92] = PINGROUP(92, EAST, i2s_1_data3, i2s_1_data4_dsd4,
+			NA, NA, NA, NA, NA, qdss_cti_trig_in_a1, NA),
+	[93] = PINGROUP(93, EAST, i2s_1_data5_dsd5, pwm_led22, i2s_1,
+			NA, NA, NA, NA, NA, qdss_tracedata_b),
 	[94] = PINGROUP(94, EAST, i2s_1, pwm_led23, i2s_1, NA,
 			qdss_cti_trig_out_a0, NA, rgmi_dll2, NA, NA),
 	[95] = PINGROUP(95, EAST, i2s_1, pwm_led1, i2s_1, NA,
