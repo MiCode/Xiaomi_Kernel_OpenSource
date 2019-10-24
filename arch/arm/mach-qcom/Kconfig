@@ -73,6 +73,45 @@ config ARCH_QCS403
 	This enables support for the QCS403 chipset. If you do not
 	wish to build a kernel that runs on this chipset, say 'N' here.
 
+config ARCH_TRINKET
+	bool "Enable Support for TRINKET"
+	select CPU_V7
+	select CLKDEV_LOOKUP
+	select HAVE_CLK
+	select HAVE_CLK_PREPARE
+	select PM_OPP
+	select SOC_BUS
+	select MSM_IRQ
+	select THERMAL_WRITABLE_TRIPS
+	select ARM_GIC_V3
+	select ARM_AMBA
+	select SPARSE_IRQ
+	select MULTI_IRQ_HANDLER
+	select HAVE_ARM_ARCH_TIMER
+	select MAY_HAVE_SPARSE_IRQ
+	select COMMON_CLK
+	select QCOM_GDSC
+	select PINCTRL_MSM
+	select USE_PINCTRL_IRQ
+	select MSM_PM if PM
+	select QMI_ENCDEC
+	select CPU_FREQ
+	select PM_DEVFREQ
+	select MSM_DEVFREQ_DEVBW
+	select DEVFREQ_SIMPLE_DEV
+	select DEVFREQ_GOV_MSM_BW_HWMON
+	select MSM_BIMC_BWMON
+	select MSM_QDSP6V2_CODECS
+	select MSM_AUDIO_QDSP6V2 if SND_SOC
+	select MSM_RPM_SMD
+	select PCI
+	select MSM_JTAG_MM if CORESIGHT_ETM
+	select MSM_RPM_LOG
+	select MSM_RPM_STATS_LOG
+	help
+	This enables support for the TRINKET chipset. If you do not
+	wish to build a kernel that runs on this chipset, say 'N' here.
+
 config ARCH_MSM8X60
 	bool "Enable support for MSM8X60"
 	select ARCH_SUPPORTS_BIG_ENDIAN
