@@ -22,6 +22,7 @@
 #include <linux/mempool.h>
 #include <linux/ioprio.h>
 #include <linux/bug.h>
+#include <linux/bio-crypt-ctx.h>
 
 #ifdef CONFIG_BLOCK
 
@@ -594,11 +595,6 @@ static inline char *__bio_kmap_irq(struct bio *bio, struct bvec_iter iter,
 #define bio_kmap_irq(bio, flags) \
 	__bio_kmap_irq((bio), (bio)->bi_iter, (flags))
 #define bio_kunmap_irq(buf,flags)	__bio_kunmap_irq(buf, flags)
-
-enum blk_crypto_mode_num {
-	BLK_ENCRYPTION_MODE_INVALID	= 0,
-	BLK_ENCRYPTION_MODE_AES_256_XTS	= 1,
-};
 
 /*
  * BIO list management for use by remapping drivers (e.g. DM or MD) and loop.
