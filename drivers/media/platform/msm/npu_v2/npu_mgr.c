@@ -315,7 +315,7 @@ static int enable_fw_nolock(struct npu_device *npu_dev)
 		goto notify_fw_pwr_fail;
 	}
 
-	ret = wait_for_completion_interruptible_timeout(
+	ret = wait_for_completion_timeout(
 		&host_ctx->fw_bringup_done, NW_CMD_TIMEOUT);
 	if (!ret) {
 		NPU_ERR("Wait for fw bringup timedout\n");
@@ -391,7 +391,7 @@ static void disable_fw_nolock(struct npu_device *npu_dev)
 	}
 
 	if (!host_ctx->auto_pil_disable) {
-		ret = wait_for_completion_interruptible_timeout(
+		ret = wait_for_completion_timeout(
 			&host_ctx->fw_shutdown_done, NW_CMD_TIMEOUT);
 		if (!ret)
 			NPU_ERR("Wait for fw shutdown timedout\n");
@@ -660,7 +660,7 @@ int npu_host_init(struct npu_device *npu_dev)
 		goto fail;
 	}
 
-	host_ctx->auto_pil_disable = true;
+	host_ctx->auto_pil_disable = false;
 
 	return sts;
 fail:
@@ -1505,12 +1505,7 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 
 static void host_session_msg_hdlr(struct npu_device *npu_dev)
 {
-	uint32_t *msg;
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
-
-	msg = kzalloc(sizeof(uint32_t) * NPU_IPC_BUF_LENGTH, GFP_KERNEL);
-	if (!msg)
-		return;
 
 	mutex_lock(&host_ctx->lock);
 	if (host_ctx->fw_state != FW_ENABLED) {
@@ -1518,14 +1513,14 @@ static void host_session_msg_hdlr(struct npu_device *npu_dev)
 		goto skip_read_msg;
 	}
 
-	while (npu_host_ipc_read_msg(npu_dev, IPC_QUEUE_APPS_RSP, msg) == 0) {
+	while (npu_host_ipc_read_msg(npu_dev, IPC_QUEUE_APPS_RSP,
+		host_ctx->ipc_msg_buf) == 0) {
 		NPU_DBG("received from msg queue\n");
-		app_msg_proc(host_ctx, msg);
+		app_msg_proc(host_ctx, host_ctx->ipc_msg_buf);
 	}
 
 skip_read_msg:
 	mutex_unlock(&host_ctx->lock);
-	kfree(msg);
 }
 
 static void log_msg_proc(struct npu_device *npu_dev, uint32_t *msg)
@@ -1551,13 +1546,7 @@ static void log_msg_proc(struct npu_device *npu_dev, uint32_t *msg)
 
 static void host_session_log_hdlr(struct npu_device *npu_dev)
 {
-	uint32_t *msg;
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
-
-	msg = kzalloc(sizeof(uint32_t) * NPU_IPC_BUF_LENGTH, GFP_KERNEL);
-
-	if (!msg)
-		return;
 
 	mutex_lock(&host_ctx->lock);
 	if (host_ctx->fw_state != FW_ENABLED) {
@@ -1565,14 +1554,14 @@ static void host_session_log_hdlr(struct npu_device *npu_dev)
 		goto skip_read_msg;
 	}
 
-	while (npu_host_ipc_read_msg(npu_dev, IPC_QUEUE_LOG, msg) == 0) {
+	while (npu_host_ipc_read_msg(npu_dev, IPC_QUEUE_LOG,
+		host_ctx->ipc_msg_buf) == 0) {
 		NPU_DBG("received from log queue\n");
-		log_msg_proc(npu_dev, msg);
+		log_msg_proc(npu_dev, host_ctx->ipc_msg_buf);
 	}
 
 skip_read_msg:
 	mutex_unlock(&host_ctx->lock);
-	kfree(msg);
 }
 
 /*
@@ -1612,7 +1601,7 @@ int32_t npu_host_unmap_buf(struct npu_client *client,
 	 * fw is disabled
 	 */
 	if (host_ctx->fw_error && (host_ctx->fw_state == FW_ENABLED) &&
-		!wait_for_completion_interruptible_timeout(
+		!wait_for_completion_timeout(
 		&host_ctx->fw_deinit_done, NW_CMD_TIMEOUT))
 		NPU_WARN("npu: wait for fw_deinit_done time out\n");
 

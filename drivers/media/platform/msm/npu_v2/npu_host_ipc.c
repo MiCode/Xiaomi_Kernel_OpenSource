@@ -42,7 +42,7 @@ static const struct npu_queue_tuple npu_q_setup[6] = {
 	{ 4096, IPC_QUEUE_APPS_EXEC         | TX_HDR_TYPE | RX_HDR_TYPE },
 	{ 4096, IPC_QUEUE_DSP_EXEC          | TX_HDR_TYPE | RX_HDR_TYPE },
 	{ 4096, IPC_QUEUE_APPS_RSP          | TX_HDR_TYPE | RX_HDR_TYPE },
-	{ 1024, IPC_QUEUE_DSP_RSP           | TX_HDR_TYPE | RX_HDR_TYPE },
+	{ 4096, IPC_QUEUE_DSP_RSP           | TX_HDR_TYPE | RX_HDR_TYPE },
 	{ 1024, IPC_QUEUE_LOG               | TX_HDR_TYPE | RX_HDR_TYPE },
 };
 
