@@ -12,15 +12,10 @@
 #include "kgsl_pool.h"
 #include "kgsl_sharedmem.h"
 
-#define KGSL_MAX_POOLS 4
-#define KGSL_MAX_POOL_ORDER 8
-#define KGSL_MAX_RESERVED_PAGES 4096
-
 /**
  * struct kgsl_page_pool - Structure to hold information for the pool
  * @pool_order: Page order describing the size of the page
  * @page_count: Number of pages currently present in the pool
- * @reserved_pages: Number of pages reserved at init for the pool
  * @allocation_allowed: Tells if reserved pool gets exhausted, can we allocate
  * from system memory
  * @list_lock: Spinlock for page list in the pool
@@ -29,13 +24,12 @@
 struct kgsl_page_pool {
 	unsigned int pool_order;
 	int page_count;
-	unsigned int reserved_pages;
 	bool allocation_allowed;
 	spinlock_t list_lock;
 	struct list_head page_list;
 };
 
-static struct kgsl_page_pool kgsl_pools[KGSL_MAX_POOLS];
+static struct kgsl_page_pool kgsl_pools[4];
 static int kgsl_num_pools;
 static int kgsl_pool_max_pages;
 
@@ -83,6 +77,9 @@ _kgsl_pool_zero_page(struct page *p, unsigned int pool_order)
 static void
 _kgsl_pool_add_page(struct kgsl_page_pool *pool, struct page *p)
 {
+	if (!p)
+		return;
+
 	_kgsl_pool_zero_page(p, pool->pool_order);
 
 	spin_lock(&pool->list_lock);
@@ -508,24 +505,6 @@ static void kgsl_pool_free_page(struct page *page)
 	__free_pages(page, page_order);
 }
 
-static void kgsl_pool_reserve_pages(void)
-{
-	int i, j;
-
-	for (i = 0; i < kgsl_num_pools; i++) {
-		struct page *page;
-
-		for (j = 0; j < kgsl_pools[i].reserved_pages; j++) {
-			int order = kgsl_pools[i].pool_order;
-			gfp_t gfp_mask = kgsl_gfp_mask(order);
-
-			page = alloc_pages(gfp_mask, order);
-			if (page != NULL)
-				_kgsl_pool_add_page(&kgsl_pools[i], page);
-		}
-	}
-}
-
 /* Functions for the shrinker */
 
 static unsigned long
@@ -559,51 +538,58 @@ static struct shrinker kgsl_pool_shrinker = {
 	.batch = 0,
 };
 
-static void kgsl_pool_config(unsigned int order, unsigned int reserved_pages,
-		bool allocation_allowed)
+static void kgsl_pool_reserve_pages(struct kgsl_page_pool *pool,
+		struct device_node *node)
 {
-	if (kgsl_num_pools == KGSL_MAX_POOLS)
-		return;
+	u32 reserved = 0;
+	int i;
 
-	if ((order > KGSL_MAX_POOL_ORDER) ||
-			(reserved_pages > KGSL_MAX_RESERVED_PAGES))
-		return;
+	of_property_read_u32(node, "qcom,mempool-reserved", &reserved);
 
-	kgsl_pools[kgsl_num_pools].pool_order = order;
-	kgsl_pools[kgsl_num_pools].reserved_pages = reserved_pages;
-	kgsl_pools[kgsl_num_pools].allocation_allowed = allocation_allowed;
-	spin_lock_init(&kgsl_pools[kgsl_num_pools].list_lock);
-	INIT_LIST_HEAD(&kgsl_pools[kgsl_num_pools].page_list);
-	kgsl_num_pools++;
+	/* Limit the total number of reserved pages to 4096 */
+	reserved = min_t(u32, reserved, 4096);
+
+	for (i = 0; i < reserved; i++) {
+		gfp_t gfp_mask = kgsl_gfp_mask(pool->pool_order);
+		struct page *page;
+
+		page = alloc_pages(gfp_mask, pool->pool_order);
+		_kgsl_pool_add_page(pool, page);
+	}
 }
 
-static void kgsl_of_parse_mempools(struct device_node *node)
+static int kgsl_of_parse_mempool(struct kgsl_page_pool *pool,
+		struct device_node *node)
 {
-	struct device_node *child;
-	unsigned int page_size;
-	bool allocation_allowed;
+	u32 size;
+	int order;
 
-	for_each_child_of_node(node, child) {
-		unsigned int reserved_pages = 0;
+	if (of_property_read_u32(node, "qcom,mempool-page-size", &size))
+		return -EINVAL;
 
-		if (of_property_read_u32(child, "qcom,mempool-page-size",
-					&page_size))
-			continue;
+	order = ilog2(size >> PAGE_SHIFT);
 
-		of_property_read_u32(child, "qcom,mempool-reserved",
-				&reserved_pages);
-
-		allocation_allowed = of_property_read_bool(child,
-				"qcom,mempool-allocate");
-
-		kgsl_pool_config(ilog2(page_size >> PAGE_SHIFT), reserved_pages,
-				allocation_allowed);
+	if (order > 8) {
+		pr_err("kgsl: %pOF: pool order %d is too big\n", node, order);
+		return -EINVAL;
 	}
+
+	pool->pool_order = order;
+	pool->allocation_allowed = of_property_read_bool(node,
+		"qcom,mempool-allocate");
+
+	spin_lock_init(&pool->list_lock);
+	INIT_LIST_HEAD(&pool->page_list);
+
+	kgsl_pool_reserve_pages(pool, node);
+
+	return 0;
 }
 
 static void kgsl_of_get_mempools(struct device_node *parent)
 {
-	struct device_node *node;
+	struct device_node *node, *child;
+	int index = 0;
 
 	node = of_find_compatible_node(parent, NULL, "qcom,gpu-mempools");
 	if (!node)
@@ -612,19 +598,25 @@ static void kgsl_of_get_mempools(struct device_node *parent)
 	/* Get Max pages limit for mempool */
 	of_property_read_u32(node, "qcom,mempool-max-pages",
 			&kgsl_pool_max_pages);
-	kgsl_of_parse_mempools(node);
 
+	for_each_child_of_node(node, child) {
+		if (!kgsl_of_parse_mempool(&kgsl_pools[index], child))
+			index++;
+
+		if (index == ARRAY_SIZE(kgsl_pools)) {
+			of_node_put(child);
+			break;
+		}
+	}
+
+	kgsl_num_pools = index;
 	of_node_put(node);
 }
 
 void kgsl_init_page_pools(struct platform_device *pdev)
 {
-
 	/* Get GPU mempools data and configure pools */
 	kgsl_of_get_mempools(pdev->dev.of_node);
-
-	/* Reserve the appropriate number of pages for each pool */
-	kgsl_pool_reserve_pages();
 
 	/* Initialize shrinker */
 	register_shrinker(&kgsl_pool_shrinker);
