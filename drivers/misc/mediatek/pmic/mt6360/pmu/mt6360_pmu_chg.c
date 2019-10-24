@@ -40,7 +40,7 @@
 #include <mt-plat/upmu_common.h>
 #include <mt-plat/mtk_boot.h>
 
-#define MT6360_PMU_CHG_DRV_VERSION	"1.0.4_MTK"
+#define MT6360_PMU_CHG_DRV_VERSION	"1.0.5_MTK"
 
 void __attribute__ ((weak)) Charger_Detect_Init(void)
 {
@@ -86,6 +86,7 @@ struct mt6360_pmu_chg_info {
 
 	/* Charger type detection */
 	struct mutex chgdet_lock;
+	bool attach;
 	enum charger_type chg_type;
 	bool pwr_rdy;
 	bool bc12_en;
@@ -375,12 +376,6 @@ static int mt6360_psy_online_changed(struct mt6360_pmu_chg_info *mpci)
 #if 1 /* (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0)) */
 	union power_supply_propval propval;
 
-#ifdef CONFIG_TCPC_CLASS
-	propval.intval = mpci->tcpc_attach;
-#else
-	propval.intval = mpci->pwr_rdy;
-#endif /* CONFIG_TCPC_CLASS */
-
 	/* Get chg type det power supply */
 	mpci->psy = power_supply_get_by_name("charger");
 	if (!mpci->psy) {
@@ -389,13 +384,14 @@ static int mt6360_psy_online_changed(struct mt6360_pmu_chg_info *mpci)
 		return -EINVAL;
 	}
 
+	propval.intval = mpci->attach;
 	ret = power_supply_set_property(mpci->psy, POWER_SUPPLY_PROP_ONLINE,
 					&propval);
 	if (ret < 0)
 		dev_err(mpci->dev, "%s: psy online fail(%d)\n", __func__, ret);
 	else
 		dev_info(mpci->dev,
-			 "%s: pwr_rdy = %d\n",  __func__, propval.intval);
+			 "%s: pwr_rdy = %d\n",  __func__, mpci->attach);
 #endif
 	return ret;
 }
@@ -538,21 +534,21 @@ static int mt6360_enable_usbchgen(struct mt6360_pmu_chg_info *mpci, bool en)
 }
 
 #ifdef CONFIG_MT6360_PMU_CHARGER_TYPE_DETECT
-static int mt6360_chgdet_pre_process(struct mt6360_pmu_chg_info *mpci,
-				     bool attach)
+static int mt6360_chgdet_pre_process(struct mt6360_pmu_chg_info *mpci)
 {
 	int ret = 0;
+	bool attach = false;
 
-	if (!attach) {
-		mpci->chg_type = CHARGER_UNKNOWN;
-		mt6360_psy_online_changed(mpci);
-		mt6360_psy_chg_type_changed(mpci);
-	}
+#ifdef CONFIG_TCPC_CLASS
+	attach = mpci->tcpc_attach;
+#else
+	attach = mpci->pwr_rdy;
+#endif /* CONFIG_TCPC_CLASS */
 	if (attach && is_meta_mode()) {
 		/* Skip charger type detection to speed up meta boot.*/
 		dev_notice(mpci->dev, "%s: force Standard USB Host in meta\n",
 			   __func__);
-		mpci->pwr_rdy = true;
+		mpci->attach = attach;
 		mpci->chg_type = STANDARD_HOST;
 		ret = mt6360_psy_online_changed(mpci);
 		if (ret < 0)
@@ -566,7 +562,7 @@ static int mt6360_chgdet_pre_process(struct mt6360_pmu_chg_info *mpci,
 static int mt6360_chgdet_post_process(struct mt6360_pmu_chg_info *mpci)
 {
 	int ret = 0;
-	bool attach = false;
+	bool attach = false, inform_psy = true;
 	u8 usb_status = CHARGER_UNKNOWN;
 
 #ifdef CONFIG_TCPC_CLASS
@@ -574,6 +570,13 @@ static int mt6360_chgdet_post_process(struct mt6360_pmu_chg_info *mpci)
 #else
 	attach = mpci->pwr_rdy;
 #endif /* CONFIG_TCPC_CLASS */
+	if (mpci->attach == attach) {
+		dev_info(mpci->dev, "%s: attach(%d) is the same\n",
+				    __func__, attach);
+		inform_psy = !attach;
+		goto out;
+	}
+	mpci->attach = attach;
 	dev_info(mpci->dev, "%s: attach = %d\n", __func__, attach);
 	/* Plug out during BC12 */
 	if (!attach) {
@@ -610,7 +613,8 @@ out:
 				   __func__);
 	} else if (mpci->chg_type != STANDARD_CHARGER)
 		mt6360_set_usbsw_state(mpci, MT6360_USBSW_USB);
-
+	if (!inform_psy)
+		return ret;
 	ret = mt6360_psy_online_changed(mpci);
 	if (ret < 0)
 		dev_err(mpci->dev, "%s: report psy online fail\n", __func__);
@@ -1471,7 +1475,8 @@ static int mt6360_enable_chg_type_det(struct charger_device *chg_dev, bool en)
 		goto out;
 	}
 	mpci->tcpc_attach = en;
-	ret = mt6360_chgdet_pre_process(mpci, en);
+	ret = (en ? mt6360_chgdet_pre_process :
+		    mt6360_chgdet_post_process)(mpci);
 out:
 	mutex_unlock(&mpci->chgdet_lock);
 #endif /* CONFIG_MT6360_PMU_CHARGER_TYPE_DETECT && CONFIG_TCPC_CLASS */
@@ -2253,7 +2258,8 @@ static irqreturn_t mt6360_pmu_chrdet_ext_evt_handler(int irq, void *data)
 #ifdef CONFIG_MT6360_PMU_CHARGER_TYPE_DETECT
 #ifndef CONFIG_TCPC_CLASS
 	mutex_lock(&mpci->chgdet_lock);
-	mt6360_chgdet_pre_process(mpci, pwr_rdy);
+	(pwr_rdy ? mt6360_chgdet_pre_process :
+		   mt6360_chgdet_post_process)(mpci);
 	mutex_unlock(&mpci->chgdet_lock);
 #endif /* !CONFIG_TCPC_CLASS */
 #endif /* CONFIG_MT6360_PMU_CHARGER_TYPE_DETECT */
@@ -2760,6 +2766,8 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 	mpci->tchg = 0;
 	mpci->ichg = 2000000;
 	mpci->ichg_dis_chg = 2000000;
+	mpci->attach = false;
+	mpci->chg_type = CHARGER_UNKNOWN;
 	g_mpci = mpci;
 #if defined(CONFIG_MT6360_PMU_CHARGER_TYPE_DETECT)\
 && !defined(CONFIG_TCPC_CLASS)
@@ -2923,6 +2931,9 @@ MODULE_VERSION(MT6360_PMU_CHG_DRV_VERSION);
 
 /*
  * Version Note
+ * 1.0.5_MTK
+ * (1) Prevent charger type infromed repeatedly
+ *
  * 1.0.4_MTK
  * (1) Mask mivr irq until mivr task has run an iteration
  *
