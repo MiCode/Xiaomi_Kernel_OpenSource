@@ -1263,9 +1263,6 @@ gsi_ctrl_dev_read(struct file *fp, char __user *buf, size_t count, loff_t *pos)
 	unsigned long flags;
 	int ret = 0;
 
-	if (prot_id == IPA_USB_DIAG)
-		return -EINVAL;
-
 	pr_debug("%s: Enter %zu", __func__, count);
 
 	mutex_lock(&inst_cur->gsi_lock);
@@ -3087,6 +3084,13 @@ static void gsi_unbind(struct usb_configuration *c, struct usb_function *f)
 	log_event_dbg("%s:id:%d: dwq end", __func__, gsi->prot_id);
 
 	ipa_usb_deinit_teth_prot(gsi->prot_id);
+
+	/* Reset string ids */
+	rndis_gsi_string_defs[0].id = 0;
+	ecm_gsi_string_defs[0].id   = 0;
+	rmnet_gsi_string_defs[0].id = 0;
+	mbim_gsi_string_defs[0].id  = 0;
+	qdss_gsi_string_defs[0].id  = 0;
 
 	if (gsi->prot_id == IPA_USB_RNDIS) {
 		gsi->d_port.sm_state = STATE_UNINITIALIZED;

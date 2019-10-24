@@ -320,6 +320,8 @@ static int hfi_send_cmd(struct gmu_device *gmu, uint32_t queue_idx,
 	return rc;
 }
 
+#define HFI_ACK_ERROR 0xffffffff
+
 static int hfi_send_generic_req(struct gmu_device *gmu, uint32_t queue,
 		void *cmd)
 {
@@ -329,16 +331,14 @@ static int hfi_send_generic_req(struct gmu_device *gmu, uint32_t queue,
 	memset(&ret_cmd, 0, sizeof(ret_cmd));
 
 	rc = hfi_send_cmd(gmu, queue, cmd, &ret_cmd);
-	if (rc)
-		return rc;
 
-	if (ret_cmd.results[2])
-		dev_err(&gmu->pdev->dev,
-				"HFI ACK failure: Req 0x%8.8X Error 0x%X\n",
-				ret_cmd.results[1],
-				ret_cmd.results[2]);
+	if (!rc && ret_cmd.results[2] == HFI_ACK_ERROR) {
+		dev_err(&gmu->pdev->dev, "HFI ACK failure: Req 0x%8.8X\n",
+						ret_cmd.results[1]);
+		return -EINVAL;
+	}
 
-	return ret_cmd.results[2] ? -EINVAL : 0;
+	return rc;
 }
 
 static int hfi_send_gmu_init(struct gmu_device *gmu, uint32_t boot_state)

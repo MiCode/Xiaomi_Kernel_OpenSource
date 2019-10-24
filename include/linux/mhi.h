@@ -139,6 +139,52 @@ struct image_info {
 	u32 entries;
 };
 
+/* rddm header info */
+
+#define MAX_RDDM_TABLE_SIZE 6
+
+/**
+ * struct rddm_table_info - rddm table info
+ * @base_address - Start offset of the file
+ * @actual_phys_address - phys addr offset of file
+ * @size - size of file
+ * @description - file description
+ * @file_name - name of file
+ */
+struct rddm_table_info {
+	u64 base_address;
+	u64 actual_phys_address;
+	u64 size;
+	char description[20];
+	char file_name[20];
+};
+
+/**
+ * struct rddm_header - rddm header
+ * @version - header ver
+ * @header_size - size of header
+ * @rddm_table_info - array of rddm table info
+ */
+struct rddm_header {
+	u32 version;
+	u32 header_size;
+	struct rddm_table_info table_info[MAX_RDDM_TABLE_SIZE];
+};
+
+/**
+ * struct file_info - keeping track of file info while traversing the rddm
+ * table header
+ * @file_offset - current file offset
+ * @seg_idx - mhi buf seg array index
+ * @rem_seg_len - remaining length of the segment containing current file
+ */
+struct file_info {
+	u8 *file_offset;
+	u32 file_size;
+	u32 seg_idx;
+	u32 rem_seg_len;
+};
+
 /**
  * struct mhi_controller - Master controller structure for external modem
  * @dev: Device associated with this controller
@@ -327,6 +373,7 @@ struct mhi_controller {
 	enum MHI_DEBUG_LEVEL log_lvl;
 
 	/* controller specific data */
+	bool power_down;
 	void *priv_data;
 	void *log_buf;
 	struct dentry *dentry;
@@ -688,6 +735,12 @@ int mhi_download_rddm_img(struct mhi_controller *mhi_cntrl, bool in_panic);
  * @mhi_cntrl: MHI controller
  */
 int mhi_force_rddm_mode(struct mhi_controller *mhi_cntrl);
+
+/**
+ * mhi_dump_sfr - Print SFR string from RDDM table.
+ * @mhi_cntrl: MHI controller
+ */
+void mhi_dump_sfr(struct mhi_controller *mhi_cntrl);
 
 /**
  * mhi_get_remote_time_sync - Get external soc time relative to local soc time

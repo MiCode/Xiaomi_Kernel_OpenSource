@@ -123,8 +123,7 @@
 } while (0)
 
 #define DMA_RX_BUF_SIZE		(2048)
-#define UART_CONSOLE_RX_WM	(0)
-/* Not using stale interrupt, hence change watermark level */
+#define UART_CONSOLE_RX_WM	(2)
 
 struct msm_geni_serial_ver_info {
 	int hw_major_ver;
@@ -173,6 +172,7 @@ struct msm_geni_serial_port {
 	bool manual_flow;
 	struct msm_geni_serial_ver_info ver_info;
 	u32 cur_tx_remaining;
+	bool startup_in_progress;
 };
 
 static const struct uart_ops msm_geni_serial_pops;
@@ -1083,6 +1083,9 @@ static void start_rx_sequencer(struct uart_port *uport)
 	int ret;
 	u32 geni_se_param = UART_PARAM_RFR_OPEN;
 
+	if (port->startup_in_progress)
+		return;
+
 	geni_status = geni_read_reg_nolog(uport->membase, SE_GENI_STATUS);
 	if (geni_status & S_GENI_CMD_ACTIVE) {
 		if (port->xfer_mode == SE_DMA && !port->rx_dma) {
@@ -1109,8 +1112,7 @@ static void start_rx_sequencer(struct uart_port *uport)
 		geni_m_irq_en = geni_read_reg_nolog(uport->membase,
 							SE_GENI_M_IRQ_EN);
 
-		/* Not using stale Interrupt */
-		geni_s_irq_en |= S_RX_FIFO_WATERMARK_EN | (~S_RX_FIFO_LAST_EN);
+		geni_s_irq_en |= S_RX_FIFO_WATERMARK_EN | S_RX_FIFO_LAST_EN;
 		geni_m_irq_en |= M_RX_FIFO_WATERMARK_EN | M_RX_FIFO_LAST_EN;
 
 		geni_write_reg_nolog(geni_s_irq_en, uport->membase,
@@ -1331,9 +1333,9 @@ static int msm_geni_serial_handle_rx(struct uart_port *uport, bool drop_rx)
 	rx_fifo_status = geni_read_reg_nolog(uport->membase,
 				SE_GENI_RX_FIFO_STATUS);
 	rx_fifo_wc = rx_fifo_status & RX_FIFO_WC_MSK;
-	/* Not using the stale interrupt, make stale event always true */
-	rx_last_byte_valid = 1;
-	rx_last = 1;
+	rx_last_byte_valid = ((rx_fifo_status & RX_LAST_BYTE_VALID_MSK) >>
+						RX_LAST_BYTE_VALID_SHFT);
+	rx_last = rx_fifo_status & RX_LAST;
 	if (rx_fifo_wc)
 		ret = port->handle_rx(uport, rx_fifo_wc, rx_last_byte_valid,
 							rx_last, drop_rx);
@@ -1601,7 +1603,8 @@ static irqreturn_t msm_geni_serial_isr(int isr, void *dev)
 				__func__, s_irq_status, uport->icount.brk);
 		}
 
-		if ((s_irq_status & S_RX_FIFO_WATERMARK_EN))
+		if ((s_irq_status & S_RX_FIFO_WATERMARK_EN) ||
+			(s_irq_status & S_RX_FIFO_LAST_EN))
 			msm_geni_serial_handle_rx(uport, drop_rx);
 	} else {
 		if (dma_tx_status) {
@@ -1818,7 +1821,7 @@ static int msm_geni_serial_port_setup(struct uart_port *uport)
 						SE_GENI_TX_PACKING_CFG0);
 		geni_write_reg_nolog(cfg1, uport->membase,
 						SE_GENI_TX_PACKING_CFG1);
-		se_get_packing_config(8, 1, false, &cfg0, &cfg1);
+		se_get_packing_config(8, 4, false, &cfg0, &cfg1);
 		geni_write_reg_nolog(cfg0, uport->membase,
 						SE_GENI_RX_PACKING_CFG0);
 		geni_write_reg_nolog(cfg1, uport->membase,
@@ -1851,6 +1854,8 @@ static int msm_geni_serial_startup(struct uart_port *uport)
 
 	scnprintf(msm_port->name, sizeof(msm_port->name), "msm_serial_geni%d",
 				uport->line);
+
+	msm_port->startup_in_progress = true;
 
 	if (likely(!uart_console(uport))) {
 		ret = msm_geni_serial_power_on(&msm_port->uport);
@@ -1901,6 +1906,8 @@ static int msm_geni_serial_startup(struct uart_port *uport)
 exit_startup:
 	if (likely(!uart_console(uport)))
 		msm_geni_serial_power_off(&msm_port->uport);
+	msm_port->startup_in_progress = false;
+
 	return ret;
 }
 

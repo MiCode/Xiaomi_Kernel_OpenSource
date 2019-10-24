@@ -420,9 +420,9 @@ static int msm_cvp_map_buf_user_persist(struct msm_cvp_inst *inst,
 	rc = msm_cvp_smem_map_dma_buf(inst, &cbuf->smem);
 	if (rc) {
 		dprintk(CVP_ERR,
-		"%s: %x : fd %d %s size %d",
+		"%s: %x : fd %d size %d",
 		"map persist failed", hash32_ptr(inst->session), cbuf->smem.fd,
-		cbuf->smem.dma_buf->name, cbuf->smem.size);
+		cbuf->smem.size);
 		goto exit;
 	}
 
@@ -1065,6 +1065,7 @@ static int msm_cvp_thread_fence_run(void *data)
 			}
 		}
 
+		mutex_lock(&inst->fence_lock);
 		rc = call_hfi_op(hdev, session_send,
 				(void *)inst->session, in_pkt);
 		if (rc) {
@@ -1085,6 +1086,7 @@ static int msm_cvp_thread_fence_run(void *data)
 				synx_state = SYNX_STATE_SIGNALED_ERROR;
 			}
 		}
+		mutex_unlock(&inst->fence_lock);
 
 		if (ica_enabled) {
 			rc = synx_import(fence[2], fence[3], &synx_obj);
@@ -1164,6 +1166,7 @@ static int msm_cvp_thread_fence_run(void *data)
 			}
 		}
 
+		mutex_lock(&inst->fence_lock);
 		rc = call_hfi_op(hdev, session_send,
 				(void *)inst->session, in_pkt);
 		if (rc) {
@@ -1184,6 +1187,7 @@ static int msm_cvp_thread_fence_run(void *data)
 				synx_state = SYNX_STATE_SIGNALED_ERROR;
 			}
 		}
+		mutex_unlock(&inst->fence_lock);
 
 		rc = synx_import(fence[2], fence[3], &synx_obj);
 		if (rc) {
@@ -1235,6 +1239,7 @@ static int msm_cvp_thread_fence_run(void *data)
 			}
 		}
 
+		mutex_lock(&inst->fence_lock);
 		rc = call_hfi_op(hdev, session_send,
 				(void *)inst->session, in_pkt);
 		if (rc) {
@@ -1255,6 +1260,7 @@ static int msm_cvp_thread_fence_run(void *data)
 				synx_state = SYNX_STATE_SIGNALED_ERROR;
 			}
 		}
+		mutex_unlock(&inst->fence_lock);
 
 		for (i = start_out; i <  start_out + out_fence_num; i++) {
 			if (fence[(i<<1)]) {

@@ -511,6 +511,10 @@ static void qdss_unbind(struct usb_configuration *c, struct usb_function *f)
 
 	flush_workqueue(qdss->wq);
 
+	/* Reset string ids */
+	qdss_string_defs[QDSS_DATA_IDX].id = 0;
+	qdss_string_defs[QDSS_CTRL_IDX].id = 0;
+
 	qdss->debug_inface_enabled = 0;
 
 	clear_eps(f);

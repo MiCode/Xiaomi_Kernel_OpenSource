@@ -16,6 +16,7 @@
 #include "msm_cvp_clocks.h"
 #include <linux/dma-buf.h>
 #include <uapi/media/msm_media_info.h>
+#include <synx_api.h>
 
 #define MAX_EVENTS 30
 #define NUM_CYCLES16X16_HCD_FRAME 95
@@ -290,6 +291,7 @@ void *msm_cvp_open(int core_id, int session_type)
 	pr_info(CVP_DBG_TAG "Opening cvp instance: %pK\n", "info", inst);
 	mutex_init(&inst->sync_lock);
 	mutex_init(&inst->lock);
+	mutex_init(&inst->fence_lock);
 	spin_lock_init(&inst->event_handler.lock);
 
 	INIT_MSM_CVP_LIST(&inst->persistbufs);
@@ -300,6 +302,8 @@ void *msm_cvp_open(int core_id, int session_type)
 	init_waitqueue_head(&inst->event_handler.wq);
 
 	kref_init(&inst->kref);
+
+	synx_initialize(NULL);
 
 	inst->session_type = session_type;
 	inst->state = MSM_CVP_CORE_UNINIT_DONE;
@@ -345,11 +349,14 @@ fail_init:
 	mutex_unlock(&core->lock);
 	mutex_destroy(&inst->sync_lock);
 	mutex_destroy(&inst->lock);
+	mutex_destroy(&inst->fence_lock);
 
 	DEINIT_MSM_CVP_LIST(&inst->persistbufs);
 	DEINIT_MSM_CVP_LIST(&inst->cvpcpubufs);
 	DEINIT_MSM_CVP_LIST(&inst->cvpdspbufs);
 	DEINIT_MSM_CVP_LIST(&inst->frames);
+
+	synx_uninitialize();
 
 	kfree(inst);
 	inst = NULL;
@@ -386,6 +393,8 @@ int msm_cvp_destroy(struct msm_cvp_inst *inst)
 	list_del(&inst->list);
 	mutex_unlock(&core->lock);
 
+	synx_uninitialize();
+
 	DEINIT_MSM_CVP_LIST(&inst->persistbufs);
 	DEINIT_MSM_CVP_LIST(&inst->cvpcpubufs);
 	DEINIT_MSM_CVP_LIST(&inst->cvpdspbufs);
@@ -393,6 +402,7 @@ int msm_cvp_destroy(struct msm_cvp_inst *inst)
 
 	mutex_destroy(&inst->sync_lock);
 	mutex_destroy(&inst->lock);
+	mutex_destroy(&inst->fence_lock);
 
 	msm_cvp_debugfs_deinit_inst(inst);
 	_deinit_session_queue(inst);

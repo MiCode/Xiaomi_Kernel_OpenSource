@@ -1789,31 +1789,27 @@ static int ufshcd_devfreq_scale(struct ufs_hba *hba, bool scale_up)
 		ufshcd_custom_cmd_log(hba, "Gear-scaled-down");
 	}
 
-	/*
-	 * If auto hibern8 is enabled then put the link in
-	 * hibern8 manually, this is to avoid auto hibern8
-	 * racing during clock frequency scaling sequence.
-	 */
-	if (ufshcd_is_auto_hibern8_enabled(hba)) {
-		ret = ufshcd_uic_hibern8_enter(hba);
-		if (ret)
-			/* link will be bad state so no need to scale_up_gear */
-			goto clk_scaling_unprepare;
-		ufshcd_custom_cmd_log(hba, "Hibern8-entered");
-	}
+	/* Enter hibern8 before scaling clocks */
+	ret = ufshcd_uic_hibern8_enter(hba);
+	if (ret)
+		/* link will be bad state so no need to scale_up_gear */
+		goto clk_scaling_unprepare;
+	ufshcd_custom_cmd_log(hba, "Hibern8-entered");
 
 	ret = ufshcd_scale_clks(hba, scale_up);
-	if (ret)
+	if (ret) {
+		dev_err(hba->dev, "%s: scaling %s clks failed %d\n", __func__,
+			scale_up ? "up" : "down", ret);
 		goto scale_up_gear;
+	}
 	ufshcd_custom_cmd_log(hba, "Clk-freq-switched");
 
-	if (ufshcd_is_auto_hibern8_enabled(hba)) {
-		ret = ufshcd_uic_hibern8_exit(hba);
-		if (ret)
-			/* link will be bad state so no need to scale_up_gear */
-			goto clk_scaling_unprepare;
-		ufshcd_custom_cmd_log(hba, "Hibern8-Exited");
-	}
+	/* Exit hibern8 after scaling clocks */
+	ret = ufshcd_uic_hibern8_exit(hba);
+	if (ret)
+		/* link will be bad state so no need to scale_up_gear */
+		goto clk_scaling_unprepare;
+	ufshcd_custom_cmd_log(hba, "Hibern8-Exited");
 
 	/* scale up the gear after scaling up clocks */
 	if (scale_up) {
@@ -1838,6 +1834,8 @@ static int ufshcd_devfreq_scale(struct ufs_hba *hba, bool scale_up)
 	goto clk_scaling_unprepare;
 
 scale_up_gear:
+	if (ufshcd_uic_hibern8_exit(hba))
+		goto clk_scaling_unprepare;
 	if (!scale_up)
 		ufshcd_scale_gear(hba, true);
 clk_scaling_unprepare:
@@ -5607,6 +5605,12 @@ int ufshcd_change_power_mode(struct ufs_hba *hba,
 			DL_TC0ReplayTimeOutVal_Default);
 	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_PWRMODEUSERDATA2),
 			DL_AFC0ReqTimeOutVal_Default);
+	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_PWRMODEUSERDATA3),
+			DL_FC1ProtectionTimeOutVal_Default);
+	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_PWRMODEUSERDATA4),
+			DL_TC1ReplayTimeOutVal_Default);
+	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_PWRMODEUSERDATA5),
+			DL_AFC1ReqTimeOutVal_Default);
 
 	ufshcd_dme_set(hba, UIC_ARG_MIB(DME_LocalFC0ProtectionTimeOutVal),
 			DL_FC0ProtectionTimeOutVal_Default);

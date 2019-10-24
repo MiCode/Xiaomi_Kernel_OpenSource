@@ -3441,7 +3441,7 @@ static int rmnet_ipa3_query_tethering_stats_hw(
 		}
 	}
 
-	if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_5)
+	if (ipa3_ctx->ipa_wdi3_over_gsi)
 		wlan_client = IPA_CLIENT_WLAN2_CONS;
 	else
 		wlan_client = IPA_CLIENT_WLAN1_CONS;
@@ -3511,6 +3511,90 @@ static int rmnet_ipa3_query_tethering_stats_hw(
 		(unsigned long) data->ipv4_rx_bytes,
 		(unsigned long) data->ipv6_rx_bytes);
 
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5 ||
+		ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ)
+		goto skip_nlo_stats;
+
+	memset(con_stats, 0, sizeof(struct ipa_quota_stats_all));
+	rc = ipa_query_teth_stats(IPA_CLIENT_Q6_DL_NLO_DATA_PROD,
+				con_stats, reset);
+	if (rc) {
+		IPAERR("IPA_CLIENT_Q6_DL_NLO_DATA_PROD query failed %d,\n", rc);
+		kfree(con_stats);
+		return rc;
+	}
+
+	if (ipa3_ctx->ipa_wdi3_over_gsi)
+		wlan_client = IPA_CLIENT_WLAN2_CONS;
+	else
+		wlan_client = IPA_CLIENT_WLAN1_CONS;
+
+	IPAWANDBG("wlan: v4_rx_p-b(%d,%lld) v6_rx_p-b(%d,%lld),client(%d)\n",
+		con_stats->client[wlan_client].num_ipv4_pkts,
+		con_stats->client[wlan_client].num_ipv4_bytes,
+		con_stats->client[wlan_client].num_ipv6_pkts,
+		con_stats->client[wlan_client].num_ipv6_bytes,
+		wlan_client);
+
+	IPAWANDBG("usb: v4_rx_p(%d) b(%lld) v6_rx_p(%d) b(%lld)\n",
+		con_stats->client[IPA_CLIENT_USB_CONS].num_ipv4_pkts,
+		con_stats->client[IPA_CLIENT_USB_CONS].num_ipv4_bytes,
+		con_stats->client[IPA_CLIENT_USB_CONS].num_ipv6_pkts,
+		con_stats->client[IPA_CLIENT_USB_CONS].num_ipv6_bytes);
+
+	for (i = 0; i < MAX_WIGIG_CLIENTS; i++) {
+		enum ipa_client_type wigig_client =
+			rmnet_ipa3_get_wigig_cons(i);
+
+		if (wigig_client > IPA_CLIENT_WIGIG4_CONS)
+			break;
+
+		IPAWANDBG("wigig%d: v4_rx_p(%d) b(%lld) v6_rx_p(%d) b(%lld)\n",
+			i + 1,
+			con_stats->client[wigig_client].num_ipv4_pkts,
+			con_stats->client[wigig_client].num_ipv4_bytes,
+			con_stats->client[wigig_client].num_ipv6_pkts,
+			con_stats->client[wigig_client].num_ipv6_bytes);
+	}
+
+	/* update the DL stats */
+	data->ipv4_rx_packets +=
+		con_stats->client[wlan_client].num_ipv4_pkts +
+			con_stats->client[IPA_CLIENT_USB_CONS].num_ipv4_pkts;
+	data->ipv6_rx_packets +=
+		con_stats->client[wlan_client].num_ipv6_pkts +
+			con_stats->client[IPA_CLIENT_USB_CONS].num_ipv6_pkts;
+	data->ipv4_rx_bytes +=
+		con_stats->client[wlan_client].num_ipv4_bytes +
+			con_stats->client[IPA_CLIENT_USB_CONS].num_ipv4_bytes;
+	data->ipv6_rx_bytes +=
+		con_stats->client[wlan_client].num_ipv6_bytes +
+		con_stats->client[IPA_CLIENT_USB_CONS].num_ipv6_bytes;
+
+	for (i = 0; i < MAX_WIGIG_CLIENTS; i++) {
+		enum ipa_client_type wigig_client =
+			rmnet_ipa3_get_wigig_cons(i);
+
+		if (wigig_client > IPA_CLIENT_WIGIG4_CONS)
+			break;
+
+		data->ipv4_rx_packets +=
+			con_stats->client[wigig_client].num_ipv4_pkts;
+		data->ipv6_rx_packets +=
+			con_stats->client[wigig_client].num_ipv6_pkts;
+		data->ipv4_rx_bytes +=
+			con_stats->client[wigig_client].num_ipv4_bytes;
+		data->ipv6_rx_bytes +=
+			con_stats->client[wigig_client].num_ipv6_bytes;
+	}
+
+	IPAWANDBG("v4_rx_p(%lu) v6_rx_p(%lu) v4_rx_b(%lu) v6_rx_b(%lu)\n",
+		(unsigned long) data->ipv4_rx_packets,
+		(unsigned long) data->ipv6_rx_packets,
+		(unsigned long) data->ipv4_rx_bytes,
+		(unsigned long) data->ipv6_rx_bytes);
+
+skip_nlo_stats:
 	/* query USB UL stats */
 	memset(con_stats, 0, sizeof(struct ipa_quota_stats_all));
 	rc = ipa_query_teth_stats(IPA_CLIENT_USB_PROD, con_stats, reset);
@@ -3541,10 +3625,31 @@ static int rmnet_ipa3_query_tethering_stats_hw(
 	data->ipv6_tx_bytes =
 		con_stats->client[index].num_ipv6_bytes;
 
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5 &&
+		ipa3_ctx->platform_type == IPA_PLAT_TYPE_MSM) {
+
+		index = IPA_CLIENT_Q6_UL_NLO_DATA_CONS;
+
+		IPAWANDBG("usb: v4_tx_p(%d) b(%lld) v6_tx_p(%d) b(%lld)\n",
+				con_stats->client[index].num_ipv4_pkts,
+				con_stats->client[index].num_ipv4_bytes,
+				con_stats->client[index].num_ipv6_pkts,
+				con_stats->client[index].num_ipv6_bytes);
+
+		/* update the USB UL stats */
+		data->ipv4_tx_packets +=
+			con_stats->client[index].num_ipv4_pkts;
+		data->ipv6_tx_packets +=
+			con_stats->client[index].num_ipv6_pkts;
+		data->ipv4_tx_bytes +=
+			con_stats->client[index].num_ipv4_bytes;
+		data->ipv6_tx_bytes +=
+			con_stats->client[index].num_ipv6_bytes;
+	}
 	/* query WLAN UL stats */
 	memset(con_stats, 0, sizeof(struct ipa_quota_stats_all));
 
-	if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_5)
+	if (ipa3_ctx->ipa_wdi3_over_gsi)
 		rc = ipa_query_teth_stats(IPA_CLIENT_WLAN2_PROD,
 			con_stats, reset);
 	else
@@ -3578,6 +3683,27 @@ static int rmnet_ipa3_query_tethering_stats_hw(
 	data->ipv6_tx_bytes +=
 		con_stats->client[index].num_ipv6_bytes;
 
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5 &&
+		ipa3_ctx->platform_type == IPA_PLAT_TYPE_MSM) {
+		index = IPA_CLIENT_Q6_UL_NLO_DATA_CONS;
+
+		IPAWANDBG("wlan1: v4_tx_p(%d) b(%lld) v6_tx_p(%d) b(%lld)\n",
+				con_stats->client[index].num_ipv4_pkts,
+				con_stats->client[index].num_ipv4_bytes,
+				con_stats->client[index].num_ipv6_pkts,
+				con_stats->client[index].num_ipv6_bytes);
+
+		/* update the USB UL stats */
+		data->ipv4_tx_packets +=
+			con_stats->client[index].num_ipv4_pkts;
+		data->ipv6_tx_packets +=
+			con_stats->client[index].num_ipv6_pkts;
+		data->ipv4_tx_bytes +=
+			con_stats->client[index].num_ipv4_bytes;
+		data->ipv6_tx_bytes +=
+			con_stats->client[index].num_ipv6_bytes;
+	}
+
 	if (ipa3_get_ep_mapping(IPA_CLIENT_WIGIG_PROD) !=
 			IPA_EP_NOT_ALLOCATED) {
 		/* query WIGIG UL stats */
@@ -3610,6 +3736,22 @@ static int rmnet_ipa3_query_tethering_stats_hw(
 			con_stats->client[index].num_ipv4_bytes;
 		data->ipv6_tx_bytes +=
 			con_stats->client[index].num_ipv6_bytes;
+
+		if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5 &&
+				ipa3_ctx->platform_type == IPA_PLAT_TYPE_MSM) {
+			index = IPA_CLIENT_Q6_UL_NLO_DATA_CONS;
+
+			/* update the WIGIG UL stats */
+			data->ipv4_tx_packets +=
+				con_stats->client[index].num_ipv4_pkts;
+			data->ipv6_tx_packets +=
+				con_stats->client[index].num_ipv6_pkts;
+			data->ipv4_tx_bytes +=
+				con_stats->client[index].num_ipv4_bytes;
+			data->ipv6_tx_bytes +=
+				con_stats->client[index].num_ipv6_bytes;
+		}
+
 	} else {
 		IPAWANDBG("IPA_CLIENT_WIGIG_PROD client not supported\n");
 	}

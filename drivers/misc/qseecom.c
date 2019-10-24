@@ -1350,17 +1350,19 @@ static int qseecom_dmabuf_map(int ion_fd, struct sg_table **sgt,
 				ion_fd, ret);
 		goto err_detach;
 	}
-	*sgt = new_sgt;
-	*attach = new_attach;
-	*dmabuf = new_dma_buf;
 
 	ret = qseecom_create_bridge_for_secbuf(ion_fd, new_dma_buf, new_sgt);
 	if (ret) {
 		pr_err("failed to create bridge for fd %d\n", ion_fd);
-		goto err_detach;
+		goto err_unmap_attachment;
 	}
+	*sgt = new_sgt;
+	*attach = new_attach;
+	*dmabuf = new_dma_buf;
 	return ret;
 
+err_unmap_attachment:
+	dma_buf_unmap_attachment(new_attach, new_sgt, DMA_BIDIRECTIONAL);
 err_detach:
 	dma_buf_detach(new_dma_buf, new_attach);
 err_put:
@@ -1514,8 +1516,6 @@ static int qseecom_register_listener(struct qseecom_dev_handle *data,
 			rcvd_lstnr.sb_size))
 		return -EFAULT;
 
-	data->listener.id = rcvd_lstnr.listener_id;
-
 	ptr_svc = __qseecom_find_svc(rcvd_lstnr.listener_id);
 	if (ptr_svc) {
 		if (!ptr_svc->unregister_pending) {
@@ -1573,6 +1573,7 @@ static int qseecom_register_listener(struct qseecom_dev_handle *data,
 	new_entry->listener_in_use = false;
 	list_add_tail(&new_entry->list, &qseecom.registered_listener_list_head);
 
+	data->listener.id = rcvd_lstnr.listener_id;
 	pr_debug("Service %d is registered\n", rcvd_lstnr.listener_id);
 	return ret;
 }
@@ -1636,6 +1637,11 @@ static int qseecom_unregister_listener(struct qseecom_dev_handle *data)
 {
 	struct qseecom_registered_listener_list *ptr_svc = NULL;
 	struct qseecom_unregister_pending_list *entry = NULL;
+
+	if (data->released) {
+		pr_err("Don't unregister lsnr %d\n", data->listener.id);
+		return -EINVAL;
+	}
 
 	ptr_svc = __qseecom_find_svc(data->listener.id);
 	if (!ptr_svc) {
@@ -8289,9 +8295,10 @@ static int qseecom_release(struct inode *inode, struct file *file)
 		switch (data->type) {
 		case QSEECOM_LISTENER_SERVICE:
 			pr_debug("release lsnr svc %d\n", data->listener.id);
-			free_private_data = false;
 			mutex_lock(&listener_access_lock);
 			ret = qseecom_unregister_listener(data);
+			if (!ret)
+				free_private_data = false;
 			data->listener.release_called = true;
 			mutex_unlock(&listener_access_lock);
 			__wakeup_unregister_listener_kthread();

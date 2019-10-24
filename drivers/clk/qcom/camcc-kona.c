@@ -37,7 +37,7 @@
 	.ib = _ib,				\
 }
 
-static DEFINE_VDD_REGULATORS(vdd_mm, VDD_NUM, 1, vdd_corner);
+static DEFINE_VDD_REGULATORS(vdd_mm, VDD_NUM_MM, 1, vdd_corner);
 static DEFINE_VDD_REGULATORS(vdd_mx, VDD_NUM, 1, vdd_corner);
 
 static struct msm_bus_vectors clk_debugfs_vectors[] = {
