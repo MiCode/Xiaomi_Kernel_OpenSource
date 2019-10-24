@@ -11,7 +11,7 @@
 | cappu-n-oss | Mi Pad 3 | Android N | MTK | [cappu-n-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/cappu-n-oss) |
 | cepheus-p-oss | Mi 9 | Android P | LA.UM.7.1.r1-07600-sm8150.0 | [cepheus-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/cepheus-p-oss) |
 | clover-o-oss | Mi Pad 4 | Android O | LA.UM.6.2.r1-08100-sdm660.0 | [clover-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/clover-o-oss) |
-| crux-p-oss | Mi9 Pro 5G | Android P | LA.UM.7.1.r1-15600-sm8150.0 | [crux-p-oss](https://github.com/MiCode/vendor_qcom_opensource_audio-kernel/tree/crux-p-oss) |
+| crux-p-oss | Mi9 Pro 5G | Android P | LA.UM.7.1.r1-15600-sm8150.0 | [crux-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/crux-p-oss) |
 | dior-kk-oss | Redmi Note Single SIM | Android KK | LNX.LA.3.5.2.2.2-00510-8x26.0 | [dior-kk-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/dior-kk-oss) |
 | dipper-o-oss | Mi 8/MI 8 Explorer Edition/POCOPHONE F1 | Android 8.1 | LA.UM.6.3.r4-03000-sdm845.0 | [dipper-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/dipper-o-oss) |
 | dipper-p-oss | MIX2S, MIX3, MI 8, POCOPHONE F1, MI 8UD, MI 8 Explorer Edition | Android P | LA.UM.7.3.r1-04500-sdm845.0 | [dipper-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/dipper-p-oss) |
