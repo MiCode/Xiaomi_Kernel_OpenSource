@@ -1092,6 +1092,7 @@ static noinline void __init kernel_init_freeable(void)
 	if (sys_access((const char __user *) ramdisk_execute_command, 0) != 0) {
 		ramdisk_execute_command = NULL;
 		prepare_namespace();
+		launch_early_services();
 	}
 
 	/*
