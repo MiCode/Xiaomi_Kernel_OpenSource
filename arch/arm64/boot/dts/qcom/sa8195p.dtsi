@@ -231,6 +231,10 @@
 	};
 };
 
+&usb0 {
+	qcom,default-mode-none;
+};
+
 &usb1 {
 	qcom,default-mode-host;
 	status = "ok";
