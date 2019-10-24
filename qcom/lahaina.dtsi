@@ -536,30 +536,6 @@
 		};
 	};
 
-	cxo: bi_tcxo {
-		compatible = "fixed-factor-clock";
-		clocks = <&xo_board>;
-		clock-mult = <1>;
-		clock-div = <2>;
-		#clock-cells = <0>;
-		clock-output-names = "bi_tcxo";
-	};
-
-	cxo_a: bi_tcxo_ao {
-		compatible = "fixed-factor-clock";
-		clocks = <&xo_board>;
-		clock-mult = <1>;
-		clock-div = <2>;
-		#clock-cells = <0>;
-		clock-output-names = "bi_tcxo_ao";
-	};
-
-	clock_rpmh: qcom,rpmhclk {
-		compatible = "qcom,dummycc";
-		clock-output-names = "rpmh_clocks";
-		#clock-cells = <1>;
-	};
-
 	clock_aop: qcom,aopclk {
 		compatible = "qcom,aop-qmp-clk";
 		#clock-cells = <1>;
@@ -1138,6 +1114,11 @@
 
 		system_pm {
 			compatible = "qcom,system-pm";
+		};
+
+		clock_rpmh: qcom,rpmhclk {
+			compatible = "qcom,lahaina-rpmh-clk";
+			#clock-cells = <1>;
 		};
 	};
 
