@@ -805,6 +805,7 @@ static int ovl_layer_config_compress(enum DISP_MODULE_ENUM module,
 	unsigned int src_buf_tile_num = 0;
 
 	unsigned int src_addr_offset = 0;
+	unsigned int buf_total_size = 0;
 
 	/* sbch can use the variable */
 	cfg->real_dst_x = dst_x;
@@ -869,6 +870,7 @@ static int ovl_layer_config_compress(enum DISP_MODULE_ENUM module,
 	header_offset = ALIGN_TO((src_buf_tile_num * tile_header_size),
 		comp_header_align);
 	buf_addr = cfg->addr + header_offset;
+	buf_total_size = header_offset + src_buf_tile_num * tile_body_size;
 
 	/* 3. Align offset & size to meet compress requirement */
 	src_x_align = (src_x / tile_w) * tile_w;
@@ -1078,21 +1080,26 @@ static int ovl_layer_config_compress(enum DISP_MODULE_ENUM module,
 		if (cfg->security != DISP_SECURE_BUFFER) {
 			/*
 			 * OVL is sec but this layer is non-sec
-			 * we need to tell cmdq to help map non-sec mva
-			 * to sec mva
+			 * we need to tell cmdq to help copy
+			 * non-sec mva page table
+			 * to sec mva page table
 			 */
 			cmdqRecWriteSecure(handle,
 				disp_addr_convert(DISP_REG_OVL_L0_ADDR +
 						  Lx_addr_base),
 				CMDQ_SAM_NMVA_2_MVA,
-				buf_addr + src_addr_offset,
-				0, size, m4u_port);
+				cfg->addr,
+				0, buf_total_size, m4u_port);
+			DISP_REG_SET(handle,
+				DISP_REG_OVL_L0_ADDR + Lx_addr_base,
+				buf_addr + src_addr_offset);
 		} else {
 			/*
 			 * for sec layer, addr variable stores sec handle
 			 * we need to pass this handle and offset to cmdq driver
 			 * cmdq sec driver will help to convert handle to
 			 * correct address
+			 * ToDo: how to handle rotate case for AFBC sec buf
 			 */
 			cmdqRecWriteSecure(handle,
 				disp_addr_convert(DISP_REG_OVL_L0_ADDR +
