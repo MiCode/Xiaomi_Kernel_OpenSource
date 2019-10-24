@@ -59,6 +59,7 @@
 #define PIL_NUM_DESC		16
 #define MAX_LEN 96
 #define NUM_OF_ENCRYPTED_KEY	3
+#define MINIDUMP_DEBUG_PROP "qcom,msm-imem-minidump-debug"
 
 #define pil_log(msg, desc)	\
 	do {			\
@@ -70,9 +71,27 @@
 
 
 static void __iomem *pil_info_base;
+static void __iomem *minidump_debug;
 static struct md_global_toc *g_md_toc;
 
 void *pil_ipc_log;
+
+static void __iomem *map_prop(const char *propname)
+{
+	struct device_node *np = of_find_compatible_node(NULL, NULL, propname);
+	void __iomem *addr;
+
+	if (!np) {
+		pr_err("Unable to find DT property: %s\n", propname);
+		return NULL;
+	}
+
+	addr = of_iomap(np, 0);
+	if (!addr)
+		pr_err("Unable to map memory for DT property: %s\n", propname);
+
+	return addr;
+}
 
 /**
  * proxy_timeout - Override for proxy vote timeouts
@@ -478,6 +497,9 @@ int pil_do_ramdump(struct pil_desc *desc,
 
 		print_aux_minidump_tocs(desc);
 
+		if (minidump_debug)
+			pr_info("Minidump debug cookie=%x\n",
+				__raw_readl(minidump_debug));
 		/**
 		 * Collect minidump if SS ToC is valid and segment table
 		 * is initialized in memory and encryption status is set.
@@ -1694,6 +1716,8 @@ static int __init msm_pil_init(void)
 		return -EPROBE_DEFER;
 	}
 
+	minidump_debug = map_prop(MINIDUMP_DEBUG_PROP);
+
 	pil_wq = alloc_workqueue("pil_workqueue", WQ_HIGHPRI | WQ_UNBOUND, 0);
 	if (!pil_wq)
 		pr_warn("pil: Defaulting to sequential firmware loading.\n");
@@ -1713,6 +1737,8 @@ static void __exit msm_pil_exit(void)
 	unregister_pm_notifier(&pil_pm_notifier);
 	if (pil_info_base)
 		iounmap(pil_info_base);
+	if (minidump_debug)
+		iounmap(minidump_debug);
 }
 module_exit(msm_pil_exit);
 
