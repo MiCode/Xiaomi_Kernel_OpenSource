@@ -4582,7 +4582,7 @@ retry:
 				&compaction_retries))
 		goto retry;
 
-	if (order <= PAGE_ALLOC_COSTLY_ORDER && should_ulmk_retry())
+	if (order <= PAGE_ALLOC_COSTLY_ORDER && should_ulmk_retry(gfp_mask))
 		goto retry;
 
 	/* Deal with possible cpuset update races before we start OOM killing */
