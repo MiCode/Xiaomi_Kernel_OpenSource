@@ -1324,6 +1324,7 @@ static int _m4u_config_port(int port, int virt, int sec, int dis, int dir)
 		if (unlikely(larb >= SMI_LARB_NR)) {
 			M4ULOG_HIGH("%d port id errror port %d\n",
 				    __LINE__, port);
+			spin_unlock(&gM4u_reg_lock[m4u_index]);
 			return -1;
 		}
 
