@@ -1343,7 +1343,7 @@ static ssize_t clk_buf_debug_show(struct kobject *kobj,
 static ssize_t clk_buf_bblpm_store(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf, size_t count)
 {
-	u32 onoff;
+	u32 onoff = 0;
 	int ret = 0;
 
 	if ((kstrtouint(buf, 10, &onoff))) {
