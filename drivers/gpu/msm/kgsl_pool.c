@@ -599,12 +599,12 @@ static int kgsl_of_parse_mempool(struct kgsl_page_pool *pool,
 	return 0;
 }
 
-static void kgsl_of_get_mempools(struct device_node *parent)
+void kgsl_probe_page_pools(void)
 {
 	struct device_node *node, *child;
 	int index = 0;
 
-	node = of_find_compatible_node(parent, NULL, "qcom,gpu-mempools");
+	node = of_find_compatible_node(NULL, NULL, "qcom,gpu-mempools");
 	if (!node)
 		return;
 
@@ -624,12 +624,6 @@ static void kgsl_of_get_mempools(struct device_node *parent)
 
 	kgsl_num_pools = index;
 	of_node_put(node);
-}
-
-void kgsl_init_page_pools(struct platform_device *pdev)
-{
-	/* Get GPU mempools data and configure pools */
-	kgsl_of_get_mempools(pdev->dev.of_node);
 
 	/* Initialize shrinker */
 	register_shrinker(&kgsl_pool_shrinker);

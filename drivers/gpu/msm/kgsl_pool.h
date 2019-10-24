@@ -33,7 +33,15 @@ int kgsl_pool_alloc_pages(u64 size, struct page ***pages, struct device *dev);
  * otherwise they are given back to system.
  */
 void kgsl_pool_free_pages(struct page **pages, unsigned int page_count);
-void kgsl_init_page_pools(struct platform_device *pdev);
+
+/**
+ * kgsl_probe_page_pools - Initialize the memory pools pools
+ */
+void kgsl_probe_page_pools(void);
+
+/**
+ * kgsl_exit_page_pools - Free outstanding pooled memory
+ */
 void kgsl_exit_page_pools(void);
 #endif /* __KGSL_POOL_H */
 
