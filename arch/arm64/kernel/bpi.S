@@ -55,13 +55,6 @@ ENTRY(__bp_harden_hyp_vecs_start)
 	.endr
 ENTRY(__bp_harden_hyp_vecs_end)
 
-ENTRY(__qcom_hyp_sanitize_link_stack_start)
-	stp     x29, x30, [sp, #-16]!
-	.rept	16
-	bl	. + 4
-	.endr
-	ldp	x29, x30, [sp], #16
-ENTRY(__qcom_hyp_sanitize_link_stack_end)
 
 .macro smccc_workaround_1 inst
 	sub	sp, sp, #(8 * 4)
