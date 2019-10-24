@@ -45,7 +45,7 @@ static int cam_icp_context_dump_active_request(void *data, unsigned long iova,
 		return -EINVAL;
 	}
 
-	if (ctx->state < CAM_CTX_ACQUIRED || ctx->state > CAM_CTX_ACTIVATED) {
+	if (ctx->state < CAM_CTX_READY || ctx->state > CAM_CTX_ACTIVATED) {
 		CAM_ERR(CAM_ICP, "Invalid state icp ctx %d state %d",
 			ctx->ctx_id, ctx->state);
 		return -EINVAL;
