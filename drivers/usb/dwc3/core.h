@@ -1032,6 +1032,7 @@ struct dwc3_scratchpad_array {
  * @dis_metastability_quirk: set to disable metastability quirk.
  * @imod_interval: set the interrupt moderation interval in 250ns
  *                 increments or 0 to disable.
+ * @xhci_imod_value: imod value to use with xhci
  */
 struct dwc3 {
 	struct work_struct	drd_work;
@@ -1221,6 +1222,7 @@ struct dwc3 {
 	unsigned		dis_metastability_quirk:1;
 
 	u16			imod_interval;
+	u32			xhci_imod_value;
 };
 
 #define INCRX_BURST_MODE 0
