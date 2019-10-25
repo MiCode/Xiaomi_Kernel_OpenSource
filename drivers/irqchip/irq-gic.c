@@ -249,6 +249,9 @@ static int gic_suspend_one(struct gic_chip_data *gic)
 	unsigned int i;
 	void __iomem *base = gic_data_dist_base(gic);
 
+	if (base == NULL)
+		return 0;
+
 	for (i = 0; i * 32 < gic->gic_irqs; i++) {
 		gic->enabled_irqs[i]
 			= readl_relaxed(base + GIC_DIST_ENABLE_SET + i * 4);
@@ -279,6 +282,9 @@ static void gic_show_resume_irq(struct gic_chip_data *gic)
 	u32 enabled;
 	u32 pending[32];
 	void __iomem *base = gic_data_dist_base(gic);
+
+	if (base == NULL)
+		return;
 
 	raw_spin_lock(&irq_controller_lock);
 	for (i = 0; i * 32 < gic->gic_irqs; i++) {

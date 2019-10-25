@@ -409,6 +409,9 @@ static void gic_hibernation_suspend(void)
 	void __iomem *base = gic_data.dist_base;
 	void __iomem *rdist_base = gic_data_rdist_sgi_base();
 
+	if ((base == NULL) || (rdist_base == NULL))
+		return;
+
 	gic_data.enabled_sgis = readl_relaxed(rdist_base + GICD_ISENABLER);
 	gic_data.pending_sgis = readl_relaxed(rdist_base + GICD_ISPENDR);
 	/* Store edge level for PPIs by reading GICR_ICFGR1 */
@@ -441,6 +444,9 @@ static void gic_show_resume_irq(struct gic_chip_data *gic)
 	u32 enabled;
 	u32 pending[32];
 	void __iomem *base = gic_data.dist_base;
+
+	if (base == NULL)
+		return;
 
 	if (!msm_show_resume_irq_mask)
 		return;
