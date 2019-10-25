@@ -81,6 +81,13 @@ DEFINE_MUTEX(oom_lock);
 /* The maximum amount of time to loop in should_ulmk_retry() */
 #define ULMK_TIMEOUT (20 * HZ)
 
+#define ULMK_DBG_POLICY_TRIGGER (BIT(0))
+#define ULMK_DBG_POLICY_WDOG (BIT(1))
+#define ULMK_DBG_POLICY_POSITIVE_ADJ (BIT(2))
+#define ULMK_DBG_POLICY_ALL (BIT(3) - 1)
+static unsigned int ulmk_dbg_policy;
+module_param(ulmk_dbg_policy, uint, 0644);
+
 static atomic64_t ulmk_wdog_expired = ATOMIC64_INIT(0);
 static atomic64_t ulmk_kill_jiffies = ATOMIC64_INIT(INITIAL_JIFFIES);
 static unsigned long psi_emergency_jiffies = INITIAL_JIFFIES;
@@ -157,13 +164,16 @@ bool should_ulmk_retry(gfp_t gfp_mask)
 	} else if (time_after(now, psi_emergency_jiffies + ULMK_TIMEOUT)) {
 		ret = false;
 	} else if (!trigger_active) {
+		BUG_ON(ulmk_dbg_policy & ULMK_DBG_POLICY_TRIGGER);
 		psi_emergency_trigger();
 		ret = true;
 	} else if (wdog_expired) {
 		mutex_lock(&oom_lock);
 		ret = out_of_memory(&oc);
 		mutex_unlock(&oom_lock);
+		BUG_ON(!ret && ulmk_dbg_policy & ULMK_DBG_POLICY_POSITIVE_ADJ);
 	} else if (!ulmk_kill_possible()) {
+		BUG_ON(ulmk_dbg_policy & ULMK_DBG_POLICY_POSITIVE_ADJ);
 		ret = false;
 	}
 
@@ -174,6 +184,7 @@ bool should_ulmk_retry(gfp_t gfp_mask)
 void ulmk_watchdog_fn(struct timer_list *t)
 {
 	atomic64_set(&ulmk_wdog_expired, 1);
+	BUG_ON(ulmk_dbg_policy & ULMK_DBG_POLICY_WDOG);
 }
 
 void ulmk_watchdog_pet(struct timer_list *t)
