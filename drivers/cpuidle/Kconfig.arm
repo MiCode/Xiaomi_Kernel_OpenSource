@@ -86,3 +86,16 @@ config ARM_MVEBU_V7_CPUIDLE
 	depends on ARCH_MVEBU && !ARM64
 	help
 	  Select this to enable cpuidle on Armada 370, 38x and XP processors.
+
+config ARM_QCOM_LPM_CPUIDLE
+	depends on ARCH_QCOM || COMPILE_TEST
+	select CPU_IDLE_MULTIPLE_DRIVERS
+	select MSM_PM if QGKI
+	select QGKI_LPM_IPI_CHECK if QGKI
+	tristate "Qualcomm Technologies, Inc. (QTI) Power Management Drivers"
+	help
+	  Platform specific power driver to manage cores and cluster low power
+	  modes. It interface with various system driver and put the cores
+	  into low power modes. It implements OS initiated scheme and
+	  determines last CPU to call into PSCI for cluster Low power
+	  modes.

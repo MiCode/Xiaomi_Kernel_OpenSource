@@ -22,6 +22,8 @@ obj-$(CONFIG_ARM_AT91_CPUIDLE)          += cpuidle-at91.o
 obj-$(CONFIG_ARM_EXYNOS_CPUIDLE)        += cpuidle-exynos.o
 obj-$(CONFIG_ARM_CPUIDLE)		+= cpuidle-arm.o
 obj-$(CONFIG_ARM_PSCI_CPUIDLE)		+= cpuidle-psci.o
+obj-$(CONFIG_ARM_QCOM_LPM_CPUIDLE)	+= lpm-levels.o
+obj-$(CONFIG_ARM_QCOM_LPM_CPUIDLE)	+= lpm-levels-of.o
 
 ###############################################################################
 # MIPS drivers

@@ -49,3 +49,6 @@ obj-$(CONFIG_QSEE_IPC_IRQ) += qsee_ipc_irq.o
 obj-$(CONFIG_QCOM_GLINK) += glink_probe.o
 obj-$(CONFIG_MSM_GLINK_SSR) += msm_glink_ssr.o
 obj-$(CONFIG_QTI_DDR_STATS_LOG) += ddr_stats.o
+obj-$(CONFIG_QTI_SYSTEM_PM) += system_pm.o
+obj-$(CONFIG_MSM_IDLE_STATS)	+= lpm-stats.o
+obj-$(CONFIG_QTI_RPM_STATS_LOG) += rpmh_master_stat.o
