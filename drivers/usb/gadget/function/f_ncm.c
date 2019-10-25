@@ -1659,6 +1659,8 @@ static void ncm_unbind(struct usb_configuration *c, struct usb_function *f)
 
 	DBG(c->cdev, "ncm unbind\n");
 
+	opts->bound = false;
+
 	hrtimer_cancel(&ncm->task_timer);
 
 	kfree(f->os_desc_table);
@@ -1671,7 +1673,6 @@ static void ncm_unbind(struct usb_configuration *c, struct usb_function *f)
 	usb_ep_free_request(ncm->notify, ncm->notify_req);
 
 	gether_cleanup(netdev_priv(opts->net));
-	opts->bound = false;
 }
 
 static struct usb_function *ncm_alloc(struct usb_function_instance *fi)
