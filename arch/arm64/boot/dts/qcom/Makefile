@@ -144,6 +144,7 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 		sa6155p-v2-adp-star-overlay.dtbo \
 		sa6155p-v2-adp-air-overlay.dtbo \
 		qcs610-iot-overlay.dtbo \
+		qcs610-ipc-overlay.dtbo \
 		qcs410-iot-overlay.dtbo
 
 sm6150-rumi-overlay.dtbo-base := sm6150.dtb
@@ -162,6 +163,7 @@ sa6155-adp-air-overlay.dtbo-base := sa6155.dtb
 sa6155p-adp-air-overlay.dtbo-base := sa6155p.dtb
 sa6155p-v2-adp-air-overlay.dtbo-base := sa6155p.dtb
 qcs610-iot-overlay.dtbo-base := sm6150.dtb
+qcs610-ipc-overlay.dtbo-base := sm6150.dtb
 qcs410-iot-overlay.dtbo-base := sm6150.dtb
 else
 dtb-$(CONFIG_ARCH_SM6150)	+= sm6150-rumi.dtb \
@@ -180,6 +182,7 @@ dtb-$(CONFIG_ARCH_SM6150)	+= sm6150-rumi.dtb \
 	sa6155p-v2-adp-star.dtb \
 	sa6155p-v2-adp-air.dtb \
 	qcs610-iot.dtb \
+	qcs610-ipc.dtb \
 	qcs410-iot.dtb
 
 endif
