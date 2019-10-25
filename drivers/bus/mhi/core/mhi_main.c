@@ -1450,6 +1450,9 @@ int mhi_process_bw_scale_ev_ring(struct mhi_controller *mhi_cntrl,
 
 	if (ev_ring->rp == dev_rp) {
 		spin_unlock_bh(&mhi_event->lock);
+		read_lock_bh(&mhi_cntrl->pm_lock);
+		mhi_cntrl->wake_put(mhi_cntrl, false);
+		read_unlock_bh(&mhi_cntrl->pm_lock);
 		MHI_VERB("no pending event found\n");
 		goto exit_bw_process;
 	}
