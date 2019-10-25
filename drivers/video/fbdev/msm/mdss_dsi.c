@@ -3520,6 +3520,10 @@ static int mdss_dsi_parse_dt_params(struct platform_device *pdev,
 		of_property_read_bool(pdev->dev.of_node,
 		"qcom,dsi-clk-ln-recovery");
 
+	sdata->skip_clamp =
+		of_property_read_bool(pdev->dev.of_node,
+		"qcom,mdss-skip-clamp");
+
 	return 0;
 }
 
