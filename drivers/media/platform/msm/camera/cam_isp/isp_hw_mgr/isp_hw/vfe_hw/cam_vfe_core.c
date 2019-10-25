@@ -764,6 +764,7 @@ int cam_vfe_process_cmd(void *hw_priv, uint32_t cmd_type,
 	case CAM_ISP_HW_CMD_BW_CONTROL:
 	case CAM_ISP_HW_CMD_GET_IRQ_REGISTER_DUMP:
 	case CAM_ISP_HW_CMD_FPS_CONFIG:
+	case CAM_ISP_HW_CMD_DUMP_HW:
 		rc = core_info->vfe_top->hw_ops.process_cmd(
 			core_info->vfe_top->top_priv, cmd_type, cmd_args,
 			arg_size);
@@ -773,6 +774,7 @@ int cam_vfe_process_cmd(void *hw_priv, uint32_t cmd_type,
 	case CAM_ISP_HW_CMD_STRIPE_UPDATE:
 	case CAM_ISP_HW_CMD_STOP_BUS_ERR_IRQ:
 	case CAM_ISP_HW_CMD_UBWC_UPDATE:
+	case CAM_ISP_HW_CMD_SET_STATS_DMI_DUMP:
 		rc = core_info->vfe_bus->hw_ops.process_cmd(
 			core_info->vfe_bus->bus_priv, cmd_type, cmd_args,
 			arg_size);
