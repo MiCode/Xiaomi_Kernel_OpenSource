@@ -1049,6 +1049,13 @@ static int dwc3_core_init(struct dwc3 *dwc)
 		}
 	}
 
+	/* set inter-packet gap 199.794ns to improve EL_23 margin */
+	if (dwc->revision >= DWC3_USB31_REVISION_170A) {
+		reg = dwc3_readl(dwc->regs, DWC3_GUCTL1);
+		reg |= DWC3_GUCTL1_IP_GAP_ADD_ON(1);
+		dwc3_writel(dwc->regs, DWC3_GUCTL1, reg);
+	}
+
 	return 0;
 
 err4:
