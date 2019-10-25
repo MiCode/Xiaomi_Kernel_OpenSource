@@ -23,7 +23,6 @@
 		};
 
 		qcom,ion-heap@14 { /* SECURE CARVEOUT HEAP */
-			status = "disabled";
 			reg = <ION_SECURE_CARVEOUT_HEAP_ID>;
 			qcom,ion-heap-type = "SECURE_CARVEOUT";
 			cdsp {
