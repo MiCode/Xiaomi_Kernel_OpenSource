@@ -512,6 +512,24 @@
 
 		status = "ok";
 	};
+
+	subsys_notif_virt: qcom,subsys_notif_virt@2D000000 {
+		compatible = "qcom,subsys-notif-virt";
+		reg = <0x2D000000 0x400>;
+		reg-names = "vdev_base";
+		adsp {
+			subsys-name = "adsp";
+			interrupts = <0 43 0>;
+			interrupt-names = "state-irq";
+			type = "virtual";
+			offset = <0>;
+		};
+		wlan {
+			subsys-name = "wlan";
+			type = "native";
+			offset = <512>;
+		};
+	};
 };
 
 #include "sa6155p-vm-pinctrl.dtsi"
