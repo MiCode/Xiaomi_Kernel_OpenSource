@@ -3076,13 +3076,17 @@ void ipa3_lan_rx_cb(void *priv, enum ipa_dp_evt_type evt, unsigned long data)
 	unsigned int src_pipe;
 	u32 metadata;
 	u8 ucp;
+	void (*client_notify)(void *client_priv, enum ipa_dp_evt_type evt,
+		       unsigned long data);
+	void *client_priv;
 
 	ipahal_pkt_status_parse(rx_skb->data, &status);
 	src_pipe = status.endp_src_idx;
 	metadata = status.metadata;
 	ucp = status.ucp;
 	ep = &ipa3_ctx->ep[src_pipe];
-	if (unlikely(src_pipe >= ipa3_ctx->ipa_num_pipes)) {
+	if (unlikely(src_pipe >= ipa3_ctx->ipa_num_pipes) ||
+		unlikely(atomic_read(&ep->disconnect_in_progress))) {
 		IPAERR("drop pipe=%d\n", src_pipe);
 		dev_kfree_skb_any(rx_skb);
 		return;
@@ -3105,12 +3109,19 @@ void ipa3_lan_rx_cb(void *priv, enum ipa_dp_evt_type evt, unsigned long data)
 			metadata, *(u32 *)rx_skb->cb);
 	IPADBG_LOW("ucp: %d\n", *(u8 *)(rx_skb->cb + 4));
 
+	spin_lock(&ipa3_ctx->disconnect_lock);
 	if (likely((!atomic_read(&ep->disconnect_in_progress)) &&
-				ep->valid && ep->client_notify))
-		ep->client_notify(ep->priv, IPA_RECEIVE,
+				ep->valid && ep->client_notify)) {
+		client_notify = ep->client_notify;
+		client_priv = ep->priv;
+		spin_unlock(&ipa3_ctx->disconnect_lock);
+		client_notify(client_priv, IPA_RECEIVE,
 				(unsigned long)(rx_skb));
-	else
+	} else {
+		spin_unlock(&ipa3_ctx->disconnect_lock);
 		dev_kfree_skb_any(rx_skb);
+	}
+
 }
 
 static void ipa3_recycle_rx_wrapper(struct ipa3_rx_pkt_wrapper *rx_pkt)
