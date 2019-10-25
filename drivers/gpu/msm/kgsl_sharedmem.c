@@ -1070,7 +1070,9 @@ void kgsl_sharedmem_free(struct kgsl_memdesc *memdesc)
 		kvfree(memdesc->sgt);
 	}
 
+	memdesc->page_count = 0;
 	kvfree(memdesc->pages);
+	memdesc->pages = NULL;
 }
 EXPORT_SYMBOL(kgsl_sharedmem_free);
 
