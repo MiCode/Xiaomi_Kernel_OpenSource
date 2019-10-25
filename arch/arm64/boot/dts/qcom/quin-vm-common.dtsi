@@ -271,7 +271,7 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 		reg = <0x1c800000 0x1100>;
-		interrupts = <GIC_SPI 43 IRQ_TYPE_NONE>;
+		interrupts = <GIC_SPI 45 IRQ_TYPE_NONE>;
 		status = "okay";
 	};
 
