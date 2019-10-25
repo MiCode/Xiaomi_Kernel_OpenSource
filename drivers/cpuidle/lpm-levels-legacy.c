@@ -19,13 +19,13 @@
 #include <linux/pm_qos.h>
 #include <linux/of_platform.h>
 #include <linux/smp.h>
-#include <linux/remote_spinlock.h>
-#include <linux/msm_remote_spinlock.h>
 #include <linux/dma-mapping.h>
 #include <linux/coresight-cti.h>
 #include <linux/moduleparam.h>
 #include <linux/sched.h>
 #include <linux/cpu_pm.h>
+#include <linux/io.h>
+#include <linux/of_address.h>
 #include <soc/qcom/spm.h>
 #include <soc/qcom/pm-legacy.h>
 #include <soc/qcom/rpm-notifier.h>
@@ -48,10 +48,22 @@
 #include <soc/qcom/minidump.h>
 
 #define SCLK_HZ (32768)
-#define SCM_HANDOFF_LOCK_ID "S:7"
 #define PSCI_POWER_STATE(reset) (reset << 30)
 #define PSCI_AFFINITY_LEVEL(lvl) ((lvl & 0x3) << 24)
-static remote_spinlock_t scm_handoff_lock;
+#define MUTEX_NUM_PID 128
+#define MUTEX_TID_START MUTEX_NUM_PID
+#define SCM_HANDOFF_LOCK_ID 7
+
+/* sfpb implementation for hardware spinlock usage */
+static phys_addr_t reg_base;
+static uint32_t reg_size;
+static uint32_t lock_size;
+
+static void __iomem *hw_mutex_reg_base;
+
+struct mutex_reg {
+	uint32_t regaddr;
+};
 
 enum {
 	MSM_LPM_LVL_DBG_SUSPEND_LIMITS = BIT(0),
@@ -1278,13 +1290,38 @@ static const struct platform_suspend_ops lpm_suspend_ops = {
 	.wake = lpm_suspend_wake,
 };
 
+static int init_hw_mutex(struct device_node *node)
+{
+	struct resource r;
+	int rc;
+	static uint32_t lock_count;
+
+	rc = of_address_to_resource(node, 0, &r);
+	if (rc) {
+		pr_err("Failed to get resource\n");
+		return 1;
+	}
+
+	rc = of_property_read_u32(node, "qcom,num-locks", &lock_count);
+	if (rc) {
+		pr_err("Failed to get num-locks property\n");
+		return 1;
+	}
+
+	reg_base = r.start;
+	reg_size = (uint32_t)(resource_size(&r));
+	lock_size = reg_size / lock_count;
+
+	return 0;
+}
+
 static int lpm_probe(struct platform_device *pdev)
 {
 	int ret;
 	int size;
 	struct kobject *module_kobj = NULL;
 	struct md_region md_entry;
-
+	struct device_node *node;
 	get_online_cpus();
 	lpm_root_node = lpm_of_parse_cluster(pdev);
 
@@ -1305,14 +1342,6 @@ static int lpm_probe(struct platform_device *pdev)
 	 */
 	suspend_set_ops(&lpm_suspend_ops);
 	hrtimer_init(&lpm_hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
-
-	ret = remote_spin_lock_init(&scm_handoff_lock, SCM_HANDOFF_LOCK_ID);
-	if (ret) {
-		pr_err("%s: Failed initializing scm_handoff_lock (%d)\n",
-			__func__, ret);
-		put_online_cpus();
-		return ret;
-	}
 	size = num_dbg_elements * sizeof(struct lpm_debug);
 	lpm_debug = dma_alloc_coherent(&pdev->dev, size,
 			&lpm_debug_phys, GFP_KERNEL);
@@ -1354,6 +1383,28 @@ static int lpm_probe(struct platform_device *pdev)
 	if (msm_minidump_add_region(&md_entry))
 		pr_info("Failed to add lpm_debug in Minidump\n");
 
+	node = of_find_node_by_name(NULL, "qcom,ipc-spinlock");
+	if (!node) {
+		pr_err("Failed to find ipc-spinlock node\n");
+		ret = -ENODEV;
+		goto failed;
+	}
+
+	if (init_hw_mutex(node)) {
+		ret = -EINVAL;
+		of_node_put(node);
+		goto failed;
+	}
+
+	hw_mutex_reg_base = ioremap(reg_base, reg_size);
+	if (!hw_mutex_reg_base) {
+		pr_err("ioremap failed\n");
+		ret = -ENOMEM;
+		of_node_put(node);
+		goto failed;
+	}
+	of_node_put(node);
+
 	return 0;
 failed:
 	free_cluster_node(lpm_root_node);
@@ -1389,11 +1440,24 @@ fail:
 }
 late_initcall(lpm_levels_module_init);
 
+static void mutex_reg_write(uint32_t tid)
+{
+	struct mutex_reg *lock;
+
+	lock = hw_mutex_reg_base + (SCM_HANDOFF_LOCK_ID * lock_size);
+	do {
+		writel_relaxed(tid, lock);
+		/* barrier for proper semantics */
+		smp_mb();
+	} while (readl_relaxed(lock) != tid);
+}
+
+
 enum msm_pm_l2_scm_flag lpm_cpu_pre_pc_cb(unsigned int cpu)
 {
 	struct lpm_cluster *cluster = per_cpu(cpu_cluster, cpu);
 	enum msm_pm_l2_scm_flag retflag = MSM_SCM_L2_ON;
-
+	uint32_t tid;
 	/*
 	 * No need to acquire the lock if probe isn't completed yet
 	 * In the event of the hotplug happening before lpm probe, we want to
@@ -1434,8 +1498,8 @@ unlock_and_return:
 	update_debug_pc_event(PRE_PC_CB, retflag, 0xdeadbeef, 0xdeadbeef,
 			0xdeadbeef);
 	trace_pre_pc_cb(retflag);
-	remote_spin_lock_rlock_id(&scm_handoff_lock,
-				  REMOTE_SPINLOCK_TID_START + cpu);
+	tid = MUTEX_TID_START + cpu;
+	mutex_reg_write(tid);
 	spin_unlock(&cluster->sync_lock);
 	return retflag;
 }
