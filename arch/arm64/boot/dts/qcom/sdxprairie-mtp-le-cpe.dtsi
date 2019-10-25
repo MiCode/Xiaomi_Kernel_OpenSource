@@ -80,3 +80,7 @@
 &sdx_ext_ipc {
 	status = "ok";
 };
+
+&usb {
+	qcom,smmu-s1-bypass;
+};
