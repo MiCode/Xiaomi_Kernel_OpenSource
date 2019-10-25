@@ -1856,7 +1856,7 @@ static struct clk_rcg2 gcc_usb3_prim_phy_aux_clk_src = {
 };
 
 static const struct freq_tbl ftbl_gcc_video_venus_clk_src[] = {
-	F(133000000, P_GPLL11_OUT_MAIN, 4.5, 0, 0),
+	F(133333333, P_GPLL11_OUT_MAIN, 4.5, 0, 0),
 	F(240000000, P_GPLL11_OUT_MAIN, 2.5, 0, 0),
 	F(300000000, P_GPLL11_OUT_MAIN, 2, 0, 0),
 	F(384000000, P_GPLL11_OUT_MAIN, 2, 0, 0),
@@ -2590,6 +2590,19 @@ static struct clk_branch gcc_disp_ahb_clk = {
 	},
 };
 
+static struct clk_regmap_div gcc_disp_gpll0_clk_src = {
+	.reg = 0x17058,
+	.shift = 0,
+	.width = 2,
+	.clkr.hw.init = &(struct clk_init_data) {
+		.name = "gcc_disp_gpll0_clk_src",
+		.parent_names =
+			(const char *[]){ "gpll0" },
+		.num_parents = 1,
+		.ops = &clk_regmap_div_ops,
+	},
+};
+
 static struct clk_branch gcc_disp_gpll0_div_clk_src = {
 	.halt_check = BRANCH_HALT_DELAY,
 	.clkr = {
@@ -2598,7 +2611,7 @@ static struct clk_branch gcc_disp_gpll0_div_clk_src = {
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_disp_gpll0_div_clk_src",
 			.parent_names = (const char *[]){
-				"gpll0",
+				"gcc_disp_gpll0_clk_src",
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
@@ -3701,6 +3714,7 @@ static struct clk_regmap *gcc_bengal_clocks[] = {
 	[GCC_CPUSS_THROTTLE_CORE_CLK] = &gcc_cpuss_throttle_core_clk.clkr,
 	[GCC_CPUSS_THROTTLE_XO_CLK] = &gcc_cpuss_throttle_xo_clk.clkr,
 	[GCC_DISP_AHB_CLK] = &gcc_disp_ahb_clk.clkr,
+	[GCC_DISP_GPLL0_CLK_SRC] = &gcc_disp_gpll0_clk_src.clkr,
 	[GCC_DISP_GPLL0_DIV_CLK_SRC] = &gcc_disp_gpll0_div_clk_src.clkr,
 	[GCC_DISP_HF_AXI_CLK] = &gcc_disp_hf_axi_clk.clkr,
 	[GCC_DISP_THROTTLE_CORE_CLK] = &gcc_disp_throttle_core_clk.clkr,
@@ -3818,6 +3832,8 @@ static const struct qcom_reset_map gcc_bengal_resets[] = {
 	[GCC_UFS_PHY_BCR] = { 0x45000 },
 	[GCC_USB30_PRIM_BCR] = { 0x1a000 },
 	[GCC_USB_PHY_CFG_AHB2PHY_BCR] = { 0x1d000 },
+	[GCC_USB3PHY_PHY_PRIM_SP0_BCR] = { 0x1b008 },
+	[GCC_USB3_PHY_PRIM_SP0_BCR] = { 0x1b000 },
 	[GCC_VCODEC0_BCR] = { 0x58094 },
 	[GCC_VENUS_BCR] = { 0x58078 },
 	[GCC_VIDEO_INTERFACE_BCR] = { 0x6e000 },
