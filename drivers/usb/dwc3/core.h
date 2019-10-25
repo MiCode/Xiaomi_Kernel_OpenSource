@@ -639,6 +639,35 @@ struct dwc3_event_buffer {
 	struct dwc3		*dwc;
 };
 
+struct dwc3_gadget_events {
+	unsigned int	disconnect;
+	unsigned int	reset;
+	unsigned int	connect;
+	unsigned int	wakeup;
+	unsigned int	link_status_change;
+	unsigned int	eopf;
+	unsigned int	suspend;
+	unsigned int	sof;
+	unsigned int	erratic_error;
+	unsigned int	overflow;
+	unsigned int	vendor_dev_test_lmp;
+	unsigned int	cmdcmplt;
+	unsigned int	unknown_event;
+};
+
+struct dwc3_ep_events {
+	unsigned int	xfercomplete;
+	unsigned int	xfernotready;
+	unsigned int	control_data;
+	unsigned int	control_status;
+	unsigned int	xferinprogress;
+	unsigned int	rxtxfifoevent;
+	unsigned int	streamevent;
+	unsigned int	epcmdcomplete;
+	unsigned int	unknown_event;
+	unsigned int	total;
+};
+
 #define DWC3_EP_FLAG_STALLED	BIT(0)
 #define DWC3_EP_FLAG_WEDGED	BIT(1)
 
@@ -673,6 +702,9 @@ struct dwc3_event_buffer {
  *		isochronous START TRANSFER command failure workaround
  * @start_cmd_status: the status of testing START TRANSFER command with
  *		combo_num = 'b00
+ * @dbg_ep_events: different events counter for endpoint
+ * @dbg_ep_events_diff: differential events counter for endpoint
+ * @dbg_ep_events_ts: timestamp for previous event counters
  */
 struct dwc3_ep {
 	struct usb_ep		endpoint;
@@ -723,6 +755,10 @@ struct dwc3_ep {
 	/* For isochronous START TRANSFER workaround only */
 	u8			combo_num;
 	int			start_cmd_status;
+
+	struct dwc3_ep_events	dbg_ep_events;
+	struct dwc3_ep_events	dbg_ep_events_diff;
+	ktime_t			dbg_ep_events_kt;
 };
 
 enum dwc3_phy {
@@ -1231,6 +1267,7 @@ struct dwc3 {
 
 	unsigned int		index;
 	void			*dwc_ipc_log_ctxt;
+	struct dwc3_gadget_events	dbg_gadget_events;
 };
 
 #define INCRX_BURST_MODE 0
