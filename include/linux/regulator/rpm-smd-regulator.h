@@ -131,3 +131,4 @@ static inline void rpm_vreg_create_debugfs(struct rpm_regulator *reg)
 {
 }
 #endif
+#endif

@@ -668,7 +668,7 @@ int wil_parse_config_ini(struct wil6210_priv *wil)
 
 		/* parse new line */
 		name = strsep(&buffer, "=");
-		if (!name) {
+		if (!name || !buffer) {
 			wil_err(wil, "file parse error at line %d. expecting '='\n",
 				line_index);
 			rc = -EINVAL;

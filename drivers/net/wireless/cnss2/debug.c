@@ -654,6 +654,9 @@ static int cnss_show_quirks_state(struct seq_file *s,
 		case DISABLE_IO_COHERENCY:
 			seq_puts(s, "DISABLE_IO_COHERENCY");
 			continue;
+		case IGNORE_PCI_LINK_FAILURE:
+			seq_puts(s, "IGNORE_PCI_LINK_FAILURE");
+			continue;
 		}
 
 		seq_printf(s, "UNKNOWN-%d", i);

@@ -360,7 +360,16 @@ static int a6xx_gmu_start(struct kgsl_device *device)
 	if (timed_poll_check(device,
 			A6XX_GMU_CM3_FW_INIT_RESULT,
 			val, GMU_START_TIMEOUT, mask)) {
-		dev_err(&gmu->pdev->dev, "GMU doesn't boot\n");
+		u32 val;
+
+		/*
+		 * The breadcrumb is written to a gmu virtual mapping
+		 * which points to dtcm byte offset 0x3fdc.
+		 */
+		gmu_core_regread(device,
+			A6XX_GMU_CM3_DTCM_START + (0x3fdc >> 2), &val);
+		dev_err(&gmu->pdev->dev, "GMU doesn't boot: 0x%x\n", val);
+
 		return -ETIMEDOUT;
 	}
 

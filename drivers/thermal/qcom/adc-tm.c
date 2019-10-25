@@ -350,6 +350,8 @@ static int adc_tm_probe(struct platform_device *pdev)
 	adc_tm->base = reg;
 	adc_tm->dt_channels = dt_chan_num;
 
+	platform_set_drvdata(pdev, adc_tm);
+
 	revid_dev_node = of_parse_phandle(node, "qcom,pmic-revid", 0);
 	if (revid_dev_node) {
 		adc_tm->pmic_rev_id = get_revid_data(revid_dev_node);
@@ -393,7 +395,6 @@ static int adc_tm_probe(struct platform_device *pdev)
 	}
 
 	list_add_tail(&adc_tm->list, &adc_tm_device_list);
-	platform_set_drvdata(pdev, adc_tm);
 	return 0;
 fail:
 	i = 0;

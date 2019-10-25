@@ -54,6 +54,13 @@ int cvp_dsp_resume(uint32_t session_flag);
 int cvp_dsp_shutdown(uint32_t session_flag);
 
 /*
+ * API for CVP driver to set CVP status during
+ * cvp subsystem error.
+ *
+ */
+void cvp_dsp_set_cvp_ssr(void);
+
+/*
  * API to register iova buffer address with CDSP
  *
  * @session_id:     cvp session id

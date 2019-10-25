@@ -6,7 +6,8 @@
 #define CREATE_TRACE_POINTS
 #define MAX_SSR_STRING_LEN 10
 #include "msm_cvp_debug.h"
-#include "cvp_hfi_api.h"
+#include "msm_cvp_common.h"
+#include "cvp_core_hfi.h"
 
 int msm_cvp_debug = CVP_ERR | CVP_WARN | CVP_FW;
 EXPORT_SYMBOL(msm_cvp_debug);
@@ -190,8 +191,6 @@ struct dentry *msm_cvp_debugfs_init_drv(void)
 	__debugfs_create(u32, "debug_output", &msm_cvp_debug_out) &&
 	__debugfs_create(bool, "disable_thermal_mitigation",
 			&msm_cvp_thermal_mitigation_disabled) &&
-	__debugfs_create(u32, "core_clock_voting",
-			&msm_cvp_clock_voting) &&
 	__debugfs_create(bool, "disable_cvp_syscache",
 			&msm_cvp_syscache_disable);
 
@@ -208,6 +207,62 @@ failed_create_dir:
 
 	return NULL;
 }
+
+static int _clk_rate_set(void *data, u64 val)
+{
+	struct msm_cvp_core *core;
+	struct cvp_hfi_device *dev;
+	struct allowed_clock_rates_table *tbl = NULL;
+	unsigned int tbl_size, i;
+
+	core = list_first_entry(&cvp_driver->cores, struct msm_cvp_core, list);
+	dev = core->device;
+	tbl = core->resources.allowed_clks_tbl;
+	tbl_size = core->resources.allowed_clks_tbl_size;
+
+	if (val == 0) {
+		struct iris_hfi_device *hdev = dev->hfi_device_data;
+
+		msm_cvp_clock_voting = 0;
+		call_hfi_op(dev, scale_clocks, hdev, hdev->clk_freq);
+		return 0;
+	}
+
+	for (i = 0; i < tbl_size; i++)
+		if (val <= tbl[i].clock_rate)
+			break;
+
+	if (i == tbl_size)
+		msm_cvp_clock_voting = tbl[tbl_size-1].clock_rate;
+	else
+		msm_cvp_clock_voting = tbl[i].clock_rate;
+
+	dprintk(CVP_WARN, "Override cvp_clk_rate with %d\n",
+			msm_cvp_clock_voting);
+
+	call_hfi_op(dev, scale_clocks, dev->hfi_device_data,
+		msm_cvp_clock_voting);
+
+	return 0;
+}
+
+static int _clk_rate_get(void *data, u64 *val)
+{
+	struct msm_cvp_core *core;
+	struct iris_hfi_device *hdev;
+
+	core = list_first_entry(&cvp_driver->cores, struct msm_cvp_core, list);
+	hdev = core->device->hfi_device_data;
+	if (msm_cvp_clock_voting)
+		*val = msm_cvp_clock_voting;
+	else
+		*val = hdev->clk_freq;
+
+	return 0;
+}
+
+DEFINE_DEBUGFS_ATTRIBUTE(clk_rate_fops, _clk_rate_get, _clk_rate_set, "%llu\n");
+
 
 struct dentry *msm_cvp_debugfs_init_core(struct msm_cvp_core *core,
 		struct dentry *parent)
@@ -235,6 +290,12 @@ struct dentry *msm_cvp_debugfs_init_core(struct msm_cvp_core *core,
 		dprintk(CVP_ERR, "debugfs_create_file: fail\n");
 		goto failed_create_dir;
 	}
+	if (!debugfs_create_file("clock_rate", 0644, dir,
+			NULL, &clk_rate_fops)) {
+		dprintk(CVP_ERR, "debugfs_create_file: clock_rate fail\n");
+		goto failed_create_dir;
+	}
+
 failed_create_dir:
 	return dir;
 }
@@ -370,7 +431,7 @@ struct dentry *msm_cvp_debugfs_init_inst(struct msm_cvp_inst *inst,
 	info = debugfs_create_file("info", 0444, dir,
 			idata, &inst_info_fops);
 	if (!info) {
-		dprintk(CVP_ERR, "debugfs_create_file: fail\n");
+		dprintk(CVP_ERR, "debugfs_create_file: info fail\n");
 		goto failed_create_file;
 	}
 

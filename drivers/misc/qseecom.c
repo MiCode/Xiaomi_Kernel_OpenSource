@@ -1350,17 +1350,19 @@ static int qseecom_dmabuf_map(int ion_fd, struct sg_table **sgt,
 				ion_fd, ret);
 		goto err_detach;
 	}
-	*sgt = new_sgt;
-	*attach = new_attach;
-	*dmabuf = new_dma_buf;
 
 	ret = qseecom_create_bridge_for_secbuf(ion_fd, new_dma_buf, new_sgt);
 	if (ret) {
 		pr_err("failed to create bridge for fd %d\n", ion_fd);
-		goto err_detach;
+		goto err_unmap_attachment;
 	}
+	*sgt = new_sgt;
+	*attach = new_attach;
+	*dmabuf = new_dma_buf;
 	return ret;
 
+err_unmap_attachment:
+	dma_buf_unmap_attachment(new_attach, new_sgt, DMA_BIDIRECTIONAL);
 err_detach:
 	dma_buf_detach(new_dma_buf, new_attach);
 err_put:

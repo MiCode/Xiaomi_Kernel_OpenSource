@@ -140,6 +140,7 @@
 #include <linux/file.h>
 #include <linux/poll.h>
 #include <linux/psi.h>
+#include <linux/oom.h>
 #include "sched.h"
 
 #define CREATE_TRACE_POINTS
@@ -603,6 +604,8 @@ void psi_emergency_trigger(void)
 		return;
 
 	list_for_each_entry(t, &group->triggers, node) {
+		if (strcmp(t->comm, ULMK_MAGIC))
+			continue;
 		trace_psi_event(t->state, t->threshold);
 
 		/* Generate an event */
@@ -1112,6 +1115,7 @@ struct psi_trigger *psi_trigger_create(struct psi_group *group,
 	t->last_event_time = 0;
 	init_waitqueue_head(&t->event_wait);
 	kref_init(&t->refcount);
+	get_task_comm(t->comm, current);
 
 	mutex_lock(&group->trigger_lock);
 

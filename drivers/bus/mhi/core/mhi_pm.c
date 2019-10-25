@@ -221,7 +221,8 @@ void mhi_deassert_dev_wake(struct mhi_controller *mhi_cntrl, bool override)
 {
 	unsigned long flags;
 
-	MHI_ASSERT(atomic_read(&mhi_cntrl->dev_wake) == 0, "dev_wake == 0");
+	MHI_ASSERT((mhi_is_active(mhi_cntrl->mhi_dev) &&
+		   atomic_read(&mhi_cntrl->dev_wake) == 0), "dev_wake == 0");
 
 	/* resources not dropping to 0, decrement and exit */
 	if (likely(atomic_add_unless(&mhi_cntrl->dev_wake, -1, 1)))
@@ -564,6 +565,8 @@ static void mhi_pm_disable_transition(struct mhi_controller *mhi_cntrl,
 		mhi_cntrl->ee = MHI_EE_DISABLE_TRANSITION;
 		mhi_cntrl->dev_state = MHI_STATE_RESET;
 	}
+	/* notify controller of power down regardless of state transitions */
+	mhi_cntrl->power_down = true;
 	write_unlock_irq(&mhi_cntrl->pm_lock);
 
 	/* wake up any threads waiting for state transitions */
@@ -842,6 +845,7 @@ int mhi_async_power_up(struct mhi_controller *mhi_cntrl)
 	u32 val;
 	enum mhi_ee current_ee;
 	enum MHI_ST_TRANSITION next_state;
+	struct mhi_device *mhi_dev = mhi_cntrl->mhi_dev;
 
 	MHI_LOG("Requested to power on\n");
 
@@ -856,6 +860,10 @@ int mhi_async_power_up(struct mhi_controller *mhi_cntrl)
 		mhi_cntrl->wake_toggle = (mhi_cntrl->db_access & MHI_PM_M2) ?
 			mhi_toggle_dev_wake_nop : mhi_toggle_dev_wake;
 	}
+
+	/* clear votes before proceeding for power up */
+	atomic_set(&mhi_dev->dev_vote, 0);
+	atomic_set(&mhi_dev->bus_vote, 0);
 
 	mutex_lock(&mhi_cntrl->pm_mutex);
 	mhi_cntrl->pm_state = MHI_PM_DISABLE;

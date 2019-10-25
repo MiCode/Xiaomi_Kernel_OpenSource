@@ -198,6 +198,7 @@ struct synx_import_data {
  * synx_ids       : Global unique ids
  * idr_lock       : Spin lock for id allocation
  * dma_context    : dma context id
+ * vtbl_lock      : Mutex used to lock the bind table
  * bind_vtbl      : Table with registered bind ops for external sync (bind)
  * client_list    : All the synx clients
  * debugfs_root   : Root directory for debugfs
@@ -218,6 +219,7 @@ struct synx_device {
 	struct idr synx_ids;
 	spinlock_t idr_lock;
 	u64 dma_context;
+	struct mutex vtbl_lock;
 	struct synx_registered_ops bind_vtbl[SYNX_MAX_BIND_TYPES];
 	struct list_head client_list;
 	struct dentry *debugfs_root;

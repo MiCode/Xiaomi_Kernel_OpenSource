@@ -29,8 +29,8 @@ static const char *const cpu_cc_debug_mux_parent_names[] = {
 };
 
 static int cpu_cc_debug_mux_sels[] = {
-	0x25,		/* perfcl_clk */
-	0x21,		/* pwrcl_clk */
+	0x1,		/* perfcl_clk */
+	0x0,		/* pwrcl_clk */
 };
 
 static int apss_cc_debug_mux_pre_divs[] = {
@@ -43,9 +43,9 @@ static struct clk_debug_mux cpu_cc_debug_mux = {
 	.debug_offset = 0x0,
 	.post_div_offset = 0x0,
 	.cbcr_offset = U32_MAX,
-	.src_sel_mask = 0x3FF,
+	.src_sel_mask = 0x3FF00,
 	.src_sel_shift = 8,
-	.post_div_mask = 0xF,
+	.post_div_mask = 0xF0000000,
 	.post_div_shift = 28,
 	.post_div_val = 1,
 	.mux_sels = cpu_cc_debug_mux_sels,

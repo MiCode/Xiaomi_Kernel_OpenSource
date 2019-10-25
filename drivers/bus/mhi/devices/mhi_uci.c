@@ -45,6 +45,7 @@ struct uci_dev {
 	struct uci_chan ul_chan;
 	struct uci_chan dl_chan;
 	size_t mtu;
+	size_t actual_mtu; /* maximum size of incoming buffer */
 	int ref_count;
 	bool enabled;
 	u32 tiocm;
@@ -115,22 +116,24 @@ static int mhi_queue_inbound(struct uci_dev *uci_dev)
 	struct mhi_device *mhi_dev = uci_dev->mhi_dev;
 	int nr_trbs = mhi_get_no_free_descriptors(mhi_dev, DMA_FROM_DEVICE);
 	size_t mtu = uci_dev->mtu;
+	size_t actual_mtu = uci_dev->actual_mtu;
 	void *buf;
 	struct uci_buf *uci_buf;
 	int ret = -EIO, i;
 
 	for (i = 0; i < nr_trbs; i++) {
-		buf = kmalloc(mtu + sizeof(*uci_buf), GFP_KERNEL);
+		buf = kmalloc(mtu, GFP_KERNEL);
 		if (!buf)
 			return -ENOMEM;
 
-		uci_buf = buf + mtu;
+		uci_buf = buf + actual_mtu;
 		uci_buf->data = buf;
 
-		MSG_VERB("Allocated buf %d of %d size %ld\n", i, nr_trbs, mtu);
+		MSG_VERB("Allocated buf %d of %d size %ld\n", i, nr_trbs,
+			 actual_mtu);
 
-		ret = mhi_queue_transfer(mhi_dev, DMA_FROM_DEVICE, buf, mtu,
-					 MHI_EOT);
+		ret = mhi_queue_transfer(mhi_dev, DMA_FROM_DEVICE, buf,
+					 actual_mtu, MHI_EOT);
 		if (ret) {
 			kfree(buf);
 			MSG_ERR("Failed to queue buffer %d\n", i);
@@ -425,8 +428,8 @@ static ssize_t mhi_uci_read(struct file *file,
 
 		if (uci_dev->enabled)
 			ret = mhi_queue_transfer(mhi_dev, DMA_FROM_DEVICE,
-						 uci_buf->data, uci_dev->mtu,
-						 MHI_EOT);
+						 uci_buf->data,
+						 uci_dev->actual_mtu, MHI_EOT);
 		else
 			ret = -ERESTARTSYS;
 
@@ -613,6 +616,7 @@ static int mhi_uci_probe(struct mhi_device *mhi_dev,
 	}
 
 	uci_dev->mtu = min_t(size_t, id->driver_data, mhi_dev->mtu);
+	uci_dev->actual_mtu = uci_dev->mtu -  sizeof(struct uci_buf);
 	mhi_device_set_devdata(mhi_dev, uci_dev);
 	uci_dev->enabled = true;
 
@@ -656,7 +660,7 @@ static void mhi_dl_xfer_cb(struct mhi_device *mhi_dev,
 	}
 
 	spin_lock_irqsave(&uci_chan->lock, flags);
-	buf = mhi_result->buf_addr + uci_dev->mtu;
+	buf = mhi_result->buf_addr + uci_dev->actual_mtu;
 	buf->data = mhi_result->buf_addr;
 	buf->len = mhi_result->bytes_xferd;
 	list_add_tail(&buf->node, &uci_chan->pending);

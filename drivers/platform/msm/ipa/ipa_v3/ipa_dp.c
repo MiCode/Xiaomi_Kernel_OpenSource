@@ -927,7 +927,7 @@ static void ipa_pm_sys_pipe_cb(void *p, enum ipa_pm_cb_event event)
 int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 {
 	struct ipa3_ep_context *ep;
-	int i, ipa_ep_idx, wan_handle;
+	int i, ipa_ep_idx, wan_handle, coal_ep_id;
 	int result = -EINVAL;
 	struct ipahal_reg_coal_qmap_cfg qmap_cfg;
 	struct ipahal_reg_coal_evict_lru evict_lru;
@@ -957,6 +957,7 @@ int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		goto fail_gen;
 	}
 
+	coal_ep_id = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS);
 	/* save the input config parameters */
 	if (sys_in->client == IPA_CLIENT_APPS_WAN_COAL_CONS)
 		ep_cfg_copy = sys_in->ipa_ep_cfg;
@@ -1008,7 +1009,12 @@ int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		ep->sys->db_timer.function = ipa3_ring_doorbell_timer_fn;
 
 		/* create IPA PM resources for handling polling mode */
-		if (IPA_CLIENT_IS_CONS(sys_in->client)) {
+		if (sys_in->client == IPA_CLIENT_APPS_WAN_CONS &&
+			coal_ep_id != IPA_EP_NOT_ALLOCATED &&
+			ipa3_ctx->ep[coal_ep_id].valid == 1) {
+			/* Use coalescing pipe PM handle for default pipe also*/
+			ep->sys->pm_hdl = ipa3_ctx->ep[coal_ep_id].sys->pm_hdl;
+		} else if (IPA_CLIENT_IS_CONS(sys_in->client)) {
 			pm_reg.name = ipa_clients_strings[sys_in->client];
 			pm_reg.callback = ipa_pm_sys_pipe_cb;
 			pm_reg.user_data = ep->sys;
@@ -1979,9 +1985,9 @@ static void ipa3_replenish_rx_page_recycle(struct ipa3_sys_context *sys)
 			 * Could not find idle page at curr index.
 			 * Allocate a new one.
 			 */
-			ipa3_ctx->stats.page_recycle_stats[stats_i].tmp_alloc++;
 			if (curr_wq == atomic_read(&sys->repl->tail_idx))
 				break;
+			ipa3_ctx->stats.page_recycle_stats[stats_i].tmp_alloc++;
 			rx_pkt = sys->repl->cache[curr_wq];
 			curr_wq = (++curr_wq == sys->repl->capacity) ?
 								 0 : curr_wq;
@@ -3812,7 +3818,16 @@ static int ipa3_assign_policy(struct ipa_sys_connect_params *in,
 		}  else if (in->client == IPA_CLIENT_ODL_DPL_CONS) {
 			IPADBG("assigning policy to ODL client:%d\n",
 				in->client);
-			sys->ep->status.status_en = true;
+			/* Status enabling is needed for DPLv2 with
+			 * IPA versions < 4.5.
+			 * Dont enable ipa_status for APQ, since MDM IPA
+			 * has IPA >= 4.5 with DPLv3.
+			 */
+			if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ &&
+				ipa3_is_mhip_offload_enabled())
+				sys->ep->status.status_en = false;
+			else
+				sys->ep->status.status_en = true;
 			sys->policy = IPA_POLICY_INTR_POLL_MODE;
 			INIT_WORK(&sys->work, ipa3_wq_handle_rx);
 			INIT_DELAYED_WORK(&sys->switch_to_intr_work,
@@ -4422,6 +4437,12 @@ static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 		}
 		ipa3_ctx->gsi_evt_comm_ring_rem -= (ring_size);
 		ep->gsi_evt_ring_hdl = ipa3_ctx->gsi_evt_comm_hdl;
+	} else if (in->client == IPA_CLIENT_APPS_WAN_COAL_CONS) {
+		result = ipa_gsi_setup_event_ring(ep,
+				IPA_COMMON_EVENT_RING_SIZE, mem_flag);
+		if (result)
+			goto fail_setup_event_ring;
+
 	} else if (in->client == IPA_CLIENT_APPS_WAN_CONS &&
 			coale_ep_idx != IPA_EP_NOT_ALLOCATED &&
 			ipa3_ctx->ep[coale_ep_idx].valid == 1) {

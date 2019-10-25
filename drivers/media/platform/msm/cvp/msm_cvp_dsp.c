@@ -350,6 +350,15 @@ int cvp_dsp_resume(uint32_t session_flag)
 	return err;
 }
 
+void cvp_dsp_set_cvp_ssr(void)
+{
+	struct cvp_dsp_apps *me = &gfa_cv;
+
+	mutex_lock(&me->smd_mutex);
+	me->cvp_shutdown = STATUS_SSR;
+	mutex_unlock(&me->smd_mutex);
+}
+
 int cvp_dsp_shutdown(uint32_t session_flag)
 {
 	struct msm_cvp_core *core;
@@ -377,7 +386,6 @@ int cvp_dsp_shutdown(uint32_t session_flag)
 	}
 
 	mutex_lock(&me->smd_mutex);
-	me->cvp_shutdown = STATUS_SSR;
 	local_cmd_msg.msg_ptr = cmd_msg.msg_ptr;
 	local_cmd_msg.msg_ptr_len = cmd_msg.msg_ptr_len;
 	mutex_unlock(&me->smd_mutex);

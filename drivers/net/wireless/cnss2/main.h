@@ -242,6 +242,7 @@ enum cnss_debug_quirks {
 	ENABLE_DAEMON_SUPPORT,
 	DISABLE_DRV,
 	DISABLE_IO_COHERENCY,
+	IGNORE_PCI_LINK_FAILURE,
 };
 
 enum cnss_bdf_type {
@@ -412,5 +413,8 @@ int cnss_va_to_pa(struct device *dev, size_t size, void *va, dma_addr_t dma,
 int cnss_minidump_add_region(struct cnss_plat_data *plat_priv,
 			     enum cnss_fw_dump_type type, int seg_no,
 			     void *va, phys_addr_t pa, size_t size);
+int cnss_minidump_remove_region(struct cnss_plat_data *plat_priv,
+				enum cnss_fw_dump_type type, int seg_no,
+				void *va, phys_addr_t pa, size_t size);
 
 #endif /* _CNSS_MAIN_H */
