@@ -73,6 +73,13 @@ static int cam_csid_ppi_enable_hw(struct cam_csid_ppi_hw  *ppi_hw)
 
 	CAM_DBG(CAM_ISP, "PPI:%d init PPI HW", ppi_hw->hw_intf->hw_idx);
 
+	ppi_hw->hw_info->open_count++;
+	if (ppi_hw->hw_info->open_count > 1) {
+		CAM_DBG(CAM_ISP, "PPI:%d dual vfe already enabled",
+			ppi_hw->hw_intf->hw_idx);
+		return 0;
+	}
+
 	for (i = 0; i < soc_info->num_clk; i++) {
 	/* Passing zero in clk_rate results in setting no clk_rate */
 		rc = cam_soc_util_clk_enable(soc_info->clk[i],
@@ -109,6 +116,7 @@ clk_disable:
 	for (--i; i >= 0; i--)
 		cam_soc_util_clk_disable(soc_info->clk[i],
 			soc_info->clk_name[i]);
+	ppi_hw->hw_info->open_count--;
 	return rc;
 }
 
@@ -122,6 +130,18 @@ static int cam_csid_ppi_disable_hw(struct cam_csid_ppi_hw *ppi_hw)
 
 	CAM_DBG(CAM_ISP, "PPI:%d De-init PPI HW",
 		ppi_hw->hw_intf->hw_idx);
+
+	if (!ppi_hw->hw_info->open_count) {
+		CAM_WARN(CAM_ISP, "ppi[%d] unbalanced disable hw",
+			ppi_hw->hw_intf->hw_idx);
+		return -EINVAL;
+	}
+	/* Decrement the ref count */
+	ppi_hw->hw_info->open_count--;
+
+	/* Check for ref count */
+	if (ppi_hw->hw_info->open_count)
+		return rc;
 
 	soc_info = &ppi_hw->hw_info->soc_info;
 	ppi_reg = ppi_hw->ppi_info->ppi_reg;
