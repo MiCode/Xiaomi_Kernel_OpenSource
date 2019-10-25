@@ -58,7 +58,14 @@ struct arm_smccc_args {
 	unsigned long a[8];
 };
 
-static u64 qcom_smccc_convention = -1;
+enum qcom_smc_convention {
+	SMC_CONVENTION_UNKNOWN,
+	SMC_CONVENTION_LEGACY,
+	SMC_CONVENTION_ARM_32,
+	SMC_CONVENTION_ARM_64,
+};
+
+static enum qcom_smc_convention qcom_smc_convention = SMC_CONVENTION_UNKNOWN;
 static DEFINE_MUTEX(qcom_scm_lock);
 
 #define QCOM_SCM_EBUSY_WAIT_MS 30
@@ -177,6 +184,9 @@ static int qcom_scm_call_smccc(struct device *dev,
 	size_t alloc_len;
 	gfp_t flag = atomic ? GFP_ATOMIC : GFP_KERNEL;
 	u32 smccc_call_type = atomic ? ARM_SMCCC_FAST_CALL : ARM_SMCCC_STD_CALL;
+	u32 qcom_smccc_convention =
+		(qcom_smc_convention == SMC_CONVENTION_ARM_32) ?
+		ARM_SMCCC_SMC_32 : ARM_SMCCC_SMC_64;
 	struct arm_smccc_res res;
 	struct arm_smccc_args smc = {{0}};
 
@@ -196,7 +206,7 @@ static int qcom_scm_call_smccc(struct device *dev,
 		if (!args_virt)
 			return -ENOMEM;
 
-		if (qcom_smccc_convention == ARM_SMCCC_SMC_32) {
+		if (qcom_smc_convention == SMC_CONVENTION_ARM_32) {
 			__le32 *args = args_virt;
 
 			for (i = 0; i < SMCCC_N_EXT_ARGS; i++)
@@ -429,7 +439,16 @@ static int qcom_scm_call_atomic_legacy(struct device *dev,
 static int qcom_scm_call(struct device *dev, struct qcom_scm_desc *desc)
 {
 	might_sleep();
-	return qcom_scm_call_smccc(dev, desc, false);
+	switch (qcom_smc_convention) {
+	case SMC_CONVENTION_ARM_32:
+	case SMC_CONVENTION_ARM_64:
+		return qcom_scm_call_smccc(dev, desc, false);
+	case SMC_CONVENTION_LEGACY:
+		return qcom_scm_call_legacy(dev, desc);
+	default:
+		pr_err("Unknown current SCM calling convention.\n");
+		return -EINVAL;
+	}
 }
 
 /**
@@ -445,7 +464,16 @@ static int qcom_scm_call(struct device *dev, struct qcom_scm_desc *desc)
  */
 static int qcom_scm_call_atomic(struct device *dev, struct qcom_scm_desc *desc)
 {
-	return qcom_scm_call_smccc(dev, desc, true);
+	switch (qcom_smc_convention) {
+	case SMC_CONVENTION_ARM_32:
+	case SMC_CONVENTION_ARM_64:
+		return qcom_scm_call_smccc(dev, desc, true);
+	case SMC_CONVENTION_LEGACY:
+		return qcom_scm_call_atomic_legacy(dev, desc);
+	default:
+		pr_err("Unknown current SCM calling convention.\n");
+		return -EINVAL;
+	}
 }
 
 /**
@@ -742,10 +770,21 @@ int __qcom_scm_is_call_available(struct device *dev, u32 svc_id, u32 cmd_id)
 	};
 
 	desc.arginfo = QCOM_SCM_ARGS(1);
-	desc.args[0] = SMCCC_FUNCNUM(svc_id, cmd_id) |
-			(ARM_SMCCC_OWNER_SIP << ARM_SMCCC_OWNER_SHIFT);
+	switch (qcom_smc_convention) {
+	case SMC_CONVENTION_ARM_32:
+	case SMC_CONVENTION_ARM_64:
+		desc.args[0] = SMCCC_FUNCNUM(svc_id, cmd_id) |
+				(ARM_SMCCC_OWNER_SIP << ARM_SMCCC_OWNER_SHIFT);
+		break;
+	case SMC_CONVENTION_LEGACY:
+		desc.args[0] = LEGACY_FUNCNUM(svc_id, cmd_id);
+		break;
+	default:
+		pr_err("Unknown SMC convention being used\n");
+		return -EINVAL;
+	}
 
-	ret = qcom_scm_call(dev, &desc);
+	ret = qcom_scm_call_atomic(dev, &desc);
 
 	return ret ? : desc.res[0];
 }
@@ -902,17 +941,16 @@ void __qcom_scm_init(void)
 	};
 
 	qcom_smcc_convention = ARM_SMCCC_SMC_64;
-	ret = qcom_scm_call_atomic(NULL, &desc);
+	ret = qcom_scm_call_smccc(NULL, &desc, true);
 	if (!ret && desc.res[0] == 1)
 		goto out;
 
 	qcom_smcc_convention = ARM_SMCCC_SMC_32;
-	ret = qcom_scm_call_atomic(NULL, &desc);
+	ret = qcom_scm_call_smccc(NULL, &desc, true);
 	if (!ret && desc.res[0] == 1)
 		goto out;
 
-	qcom_smccc_convention = -1;
-	BUG();
+	qcom_smc_convention = SMC_CONVENTION_LEGACY;
 out:
-	pr_debug("QCOM SCM SMC Convention: %d\n", qcom_smcc_convention);
+	pr_debug("QCOM SCM SMC Convention: %d\n", qcom_smc_convention);
 }
