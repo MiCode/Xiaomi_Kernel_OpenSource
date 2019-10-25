@@ -673,4 +673,12 @@ void sde_kms_timeline_status(struct drm_device *dev);
  */
 int sde_kms_handle_recovery(struct drm_encoder *encoder);
 
+/**
+ * sde_kms_release_splash_resource - release splash resource
+ * @sde_kms: poiner to sde_kms structure
+ * @crtc: crtc that splash resource to be released from
+ */
+void sde_kms_release_splash_resource(struct sde_kms *sde_kms,
+		struct drm_crtc *crtc);
+
 #endif /* __sde_kms_H__ */

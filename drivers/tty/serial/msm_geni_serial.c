@@ -1137,6 +1137,38 @@ static void msm_geni_serial_rx_fsm_rst(struct uart_port *uport)
 	geni_write_reg_nolog(rx_irq_en, uport->membase, SE_DMA_RX_IRQ_EN_SET);
 }
 
+static void msm_geni_serial_set_manual_flow(bool enable,
+					struct msm_geni_serial_port *port)
+{
+	u32 uart_manual_rfr = 0;
+
+	if (!enable) {
+		uart_manual_rfr |= (UART_MANUAL_RFR_EN);
+		geni_write_reg_nolog(uart_manual_rfr, port->uport.membase,
+						SE_UART_MANUAL_RFR);
+		/* UART FW needs delay per HW experts recommendation */
+		udelay(10);
+
+		uart_manual_rfr |= (UART_RFR_NOT_READY);
+		geni_write_reg_nolog(uart_manual_rfr, port->uport.membase,
+						SE_UART_MANUAL_RFR);
+		/*
+		 * Ensure that the manual flow on writes go through before
+		 * doing a stop_rx.
+		 */
+		mb();
+		IPC_LOG_MSG(port->ipc_log_pwr,
+			"%s: Manual Flow Enabled, HW Flow OFF\n", __func__);
+	} else {
+		geni_write_reg_nolog(0, port->uport.membase,
+						SE_UART_MANUAL_RFR);
+		/* Ensure that the manual flow off writes go through */
+		mb();
+		IPC_LOG_MSG(port->ipc_log_pwr,
+			"%s: Manual Flow Disabled, HW Flow ON\n", __func__);
+	}
+}
+
 static void stop_rx_sequencer(struct uart_port *uport)
 {
 	unsigned int geni_s_irq_en;
@@ -1609,6 +1641,7 @@ static void msm_geni_serial_shutdown(struct uart_port *uport)
 {
 	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
 	unsigned long flags;
+	int ret;
 
 	if (!uart_console(uport)) {
 		msm_geni_serial_power_on(uport);
@@ -1634,7 +1667,13 @@ static void msm_geni_serial_shutdown(struct uart_port *uport)
 			}
 			msm_port->ioctl_count = 0;
 		}
-		msm_geni_serial_power_off(uport);
+
+		ret = pm_runtime_put_sync_suspend(uport->dev);
+		if (ret) {
+			IPC_LOG_MSG(msm_port->ipc_log_pwr,
+			"%s: Failed to suspend:%d\n", __func__, ret);
+		}
+
 		if (msm_port->wakeup_irq > 0) {
 			irq_set_irq_wake(msm_port->wakeup_irq, 0);
 			disable_irq(msm_port->wakeup_irq);
@@ -1880,6 +1919,8 @@ static void msm_geni_serial_set_termios(struct uart_port *uport,
 	 * and FSM_RESET. This also has a potential race with the dma_map/unmap
 	 * operations of ISR.
 	 */
+	disable_irq(uport->irq);
+	msm_geni_serial_set_manual_flow(false, port);
 	spin_lock_irqsave(&uport->lock, flags);
 	msm_geni_serial_stop_rx(uport);
 	spin_unlock_irqrestore(&uport->lock, flags);
@@ -1971,8 +2012,8 @@ static void msm_geni_serial_set_termios(struct uart_port *uport,
 
 	if (termios->c_cflag & CRTSCTS) {
 		geni_write_reg_nolog(0x0, uport->membase, SE_UART_MANUAL_RFR);
-		IPC_LOG_MSG(port->ipc_log_misc, "%s: Manual flow off\n",
-				__func__);
+		IPC_LOG_MSG(port->ipc_log_misc,
+			"%s: Manual flow Disabled, HW Flow ON\n", __func__);
 	}
 
 	IPC_LOG_MSG(port->ipc_log_misc, "%s: baud %d\n", __func__, baud);
@@ -1983,6 +2024,8 @@ static void msm_geni_serial_set_termios(struct uart_port *uport,
 	IPC_LOG_MSG(port->ipc_log_misc, "BitsChar%d stop bit%d\n",
 				bits_per_char, stop_bit_len);
 exit_set_termios:
+	msm_geni_serial_set_manual_flow(true, port);
+	enable_irq(uport->irq);
 	msm_geni_serial_start_rx(uport);
 	if (!uart_console(uport))
 		msm_geni_serial_power_off(uport);

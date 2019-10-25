@@ -1307,8 +1307,6 @@
 			<&clock_gcc GCC_SDCC2_APPS_CLK>;
 		clock-names = "iface_clk", "core_clk";
 
-		qcom,nonhotplug;
-
 		/* VDD is an external regulator eLDO5 */
 		vdd-io-supply = <&pms405_l6>;
 		qcom,vdd-io-voltage-level = <1800000 1800000>;
@@ -1319,8 +1317,10 @@
 		qcom,nonremovable;
 
 		pinctrl-names = "active", "sleep";
-		pinctrl-0 = <&sdc2_clk_on  &sdc2_cmd_on &sdc2_data_on>;
-		pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off>;
+		pinctrl-0 = <&sdc2_clk_on  &sdc2_cmd_on &sdc2_data_on
+			&sdc2_wlan_on>;
+		pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off
+			&sdc2_wlan_off>;
 
 		/delete-property/ qcom,devfreq,freq-table;
 		/delete-property/ cd-gpios;
@@ -1527,7 +1527,7 @@
 		 * IO and XTAL share the same vreg.
 		 **/
 		vdd-wlan-io-supply = <&pms405_l5>;
-		qcom,cap-tsf-gpio = <&tlmm 42 1>;
+		qcom,cap-tsf-gpio = <&tlmm 53 1>;
 		qcom,wlan-ramdump-dynamic = <0x200000>;
 		qcom,msm-bus,name = "msm-cnss";
 		qcom,msm-bus,num-cases = <4>;

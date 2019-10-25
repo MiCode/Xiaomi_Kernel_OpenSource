@@ -40,10 +40,10 @@
 		#size-cells = <1>;
 		ranges;
 
-		mpss_adsp_mem: mpss_adsp_region@90c00000 {
+		mpss_adsp_mem: mpss_adsp_region@90800000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x90c00000 0xd400000>;
+			reg = <0x90800000 0xd800000>;
 			label = "mpss_adsp_mem";
 		};
 
@@ -1053,7 +1053,7 @@
 		pinctrl-0 = <&cnss_wlan_en_active>;
 		pinctrl-1 = <&cnss_wlan_en_sleep>;
 		vdd-wlan-aon-supply = <&pmxprairie_s3>;
-		qcom,vdd-wlan-aon-info = <800000 800000 0 0>;
+		qcom,vdd-wlan-aon-info = <950000 950000 0 0>;
 		qcom,wlan-rc-num = <0>;
 		qcom,wlan-ramdump-dynamic = <0x400000>;
 		qcom,smmu-s1-enable;
@@ -1462,6 +1462,13 @@
 			iommus = <&apps_smmu 0x1c0 0xf>;
 			qcom,iova-mapping = <0x80000000 0x40000000>;
 		};
+	};
+
+	sdx_ext_ipc: qcom,sdx_ext_ipc {
+		compatible = "qcom,sdx-ext-ipc";
+		qcom,ap2mdm-status-gpio = <&tlmm 64 0x00>;
+		qcom,mdm2ap-status-gpio = <&tlmm 63 0x00>;
+		qcom,mdm2ap-status2-gpio = <&tlmm 66 0x00>;
 	};
 };
 

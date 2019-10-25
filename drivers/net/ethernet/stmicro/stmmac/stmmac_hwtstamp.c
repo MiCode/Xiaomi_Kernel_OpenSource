@@ -24,6 +24,8 @@
 #include "common.h"
 #include "stmmac_ptp.h"
 
+#define PTP_LIMIT 100000
+
 static void stmmac_config_hw_tstamping(void __iomem *ioaddr, u32 data)
 {
 	writel(data, ioaddr + PTP_TCR);
@@ -64,6 +66,16 @@ static int stmmac_init_systime(void __iomem *ioaddr, u32 sec, u32 nsec)
 {
 	int limit;
 	u32 value;
+
+	/* wait for previous(if any) time initialization to complete. */
+	limit = PTP_LIMIT;
+	while (limit--) {
+		if (!(readl_relaxed(ioaddr + PTP_TCR) &  PTP_TCR_TSINIT))
+			break;
+		usleep_range(1000, 1500);
+	}
+	if (limit < 0)
+		return -EBUSY;
 
 	writel(sec, ioaddr + PTP_STSUR);
 	writel(nsec, ioaddr + PTP_STNSUR);
@@ -114,6 +126,16 @@ static int stmmac_adjust_systime(void __iomem *ioaddr, u32 sec, u32 nsec,
 {
 	u32 value;
 	int limit;
+
+	/* wait for previous(if any) time adjust/update to complete. */
+	limit = PTP_LIMIT;
+	while (limit--) {
+		if (!(readl_relaxed(ioaddr + PTP_TCR) & PTP_TCR_TSUPDT))
+			break;
+		usleep_range(1000, 1500);
+	}
+	if (limit < 0)
+		return -EBUSY;
 
 	if (add_sub) {
 		/* If the new sec value needs to be subtracted with

@@ -283,3 +283,8 @@
 				&nfc_clk_req_suspend>;
 	};
 };
+
+&sde_dp{
+	qcom,dp-aux-switch = <&fsa4480>;
+};
+

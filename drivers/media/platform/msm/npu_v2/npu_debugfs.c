@@ -29,8 +29,7 @@
  */
 static int npu_debug_open(struct inode *inode, struct file *file);
 static int npu_debug_release(struct inode *inode, struct file *file);
-static ssize_t npu_debug_reg_write(struct file *file,
-		const char __user *user_buf, size_t count, loff_t *ppos);
+static int npu_debug_reg_release(struct inode *inode, struct file *file);
 static ssize_t npu_debug_reg_read(struct file *file,
 		char __user *user_buf, size_t count, loff_t *ppos);
 static ssize_t npu_debug_off_write(struct file *file,
@@ -45,13 +44,12 @@ static ssize_t npu_debug_ctrl_write(struct file *file,
 /*
  * Variables
  */
-struct npu_device *g_npu_dev;
+static struct npu_device *g_npu_dev;
 
 static const struct file_operations npu_reg_fops = {
 	.open = npu_debug_open,
-	.release = npu_debug_release,
+	.release = npu_debug_reg_release,
 	.read = npu_debug_reg_read,
-	.write = npu_debug_reg_write,
 };
 
 static const struct file_operations npu_off_fops = {
@@ -88,6 +86,11 @@ static int npu_debug_open(struct inode *inode, struct file *file)
 
 static int npu_debug_release(struct inode *inode, struct file *file)
 {
+	return 0;
+}
+
+static int npu_debug_reg_release(struct inode *inode, struct file *file)
+{
 	struct npu_device *npu_dev = file->private_data;
 	struct npu_debugfs_ctx *debugfs;
 
@@ -102,41 +105,6 @@ static int npu_debug_release(struct inode *inode, struct file *file)
 /*
  * Function Implementations - Reg Read/Write
  */
-static ssize_t npu_debug_reg_write(struct file *file,
-		const char __user *user_buf, size_t count, loff_t *ppos)
-{
-	size_t off;
-	uint32_t data, cnt;
-	struct npu_device *npu_dev = file->private_data;
-	char buf[24];
-
-	if (count >= sizeof(buf))
-		return -EINVAL;
-
-	if (copy_from_user(buf, user_buf, count))
-		return -EFAULT;
-
-	buf[count] = 0;	/* end of string */
-
-	cnt = sscanf(buf, "%zx %x", &off, &data);
-	NPU_DBG("%s 0x%zx, 0x%08x\n", buf, off, data);
-
-	return count;
-	if (cnt < 2)
-		return -EINVAL;
-
-	if (npu_enable_core_power(npu_dev))
-		return -EPERM;
-
-	REGW(npu_dev, off, data);
-
-	npu_disable_core_power(npu_dev);
-
-	NPU_DBG("write: addr=%zx data=%x\n", off, data);
-
-	return count;
-}
-
 static ssize_t npu_debug_reg_read(struct file *file,
 			char __user *user_buf, size_t count, loff_t *ppos)
 {
@@ -255,6 +223,7 @@ static ssize_t npu_debug_off_read(struct file *file,
 
 	len = scnprintf(buf, sizeof(buf), "offset=0x%08x cnt=%d\n",
 		debugfs->reg_off, debugfs->reg_cnt);
+	len = min(len, count);
 
 	if (copy_to_user(user_buf, buf, len)) {
 		NPU_ERR("failed to copy to user\n");
@@ -283,49 +252,21 @@ static ssize_t npu_debug_log_read(struct file *file,
 	mutex_lock(&debugfs->log_lock);
 
 	if (debugfs->log_num_bytes_buffered != 0) {
-		if ((debugfs->log_read_index +
-			debugfs->log_num_bytes_buffered) >
-			debugfs->log_buf_size) {
-			/* Wrap around case */
-			uint32_t remaining_to_end = debugfs->log_buf_size -
-				debugfs->log_read_index;
-			uint8_t *src_addr = debugfs->log_buf +
-				debugfs->log_read_index;
-			void __user *dst_addr = (void __user *) user_buf;
-
-			if (copy_to_user(dst_addr, src_addr,
-				remaining_to_end)) {
-				NPU_ERR("failed to copy to user\n");
-				mutex_unlock(&debugfs->log_lock);
-				return -EFAULT;
-			}
-			src_addr = debugfs->log_buf;
-			dst_addr = (void __user *)(user_buf + remaining_to_end);
-			if (copy_to_user(dst_addr, src_addr,
-				debugfs->log_num_bytes_buffered -
-				remaining_to_end)) {
-				NPU_ERR("failed to copy to user\n");
-				mutex_unlock(&debugfs->log_lock);
-				return -EFAULT;
-			}
-			debugfs->log_read_index =
-				debugfs->log_num_bytes_buffered -
-				remaining_to_end;
-		} else {
-			if (copy_to_user(user_buf, (debugfs->log_buf +
-				debugfs->log_read_index),
-				debugfs->log_num_bytes_buffered)) {
-				NPU_ERR("failed to copy to user\n");
-				mutex_unlock(&debugfs->log_lock);
-				return -EFAULT;
-			}
-			debugfs->log_read_index +=
-				debugfs->log_num_bytes_buffered;
-			if (debugfs->log_read_index == debugfs->log_buf_size)
-				debugfs->log_read_index = 0;
+		len = min(debugfs->log_num_bytes_buffered,
+			debugfs->log_buf_size - debugfs->log_read_index);
+		len = min(count, len);
+		if (copy_to_user(user_buf, (debugfs->log_buf +
+			debugfs->log_read_index), len)) {
+			NPU_ERR("failed to copy to user\n");
+			mutex_unlock(&debugfs->log_lock);
+			return -EFAULT;
 		}
-		len = debugfs->log_num_bytes_buffered;
-		debugfs->log_num_bytes_buffered = 0;
+		debugfs->log_read_index += len;
+		if (debugfs->log_read_index == debugfs->log_buf_size)
+			debugfs->log_read_index = 0;
+
+		debugfs->log_num_bytes_buffered -= len;
+		*ppos += len;
 	}
 
 	/* mutex log unlock */

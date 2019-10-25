@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * Description: CoreSight System Trace Macrocell driver
  *
@@ -563,7 +563,7 @@ static ssize_t traceid_show(struct device *dev,
 	struct stm_drvdata *drvdata = dev_get_drvdata(dev->parent);
 
 	val = drvdata->traceid;
-	return sprintf(buf, "%#lx\n", val);
+	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
 }
 
 static ssize_t traceid_store(struct device *dev,

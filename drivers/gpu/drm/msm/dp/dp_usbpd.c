@@ -523,11 +523,10 @@ static void dp_usbpd_wakeup_phy(struct dp_hpd *dp_hpd, bool wakeup)
 	usbpd_vdm_in_suspend(usbpd->pd, wakeup);
 }
 
-struct dp_hpd *dp_usbpd_get(struct device *dev, struct dp_hpd_cb *cb)
+struct dp_hpd *dp_usbpd_init(struct device *dev, struct usbpd *pd,
+		struct dp_hpd_cb *cb)
 {
 	int rc = 0;
-	const char *pd_phandle = "qcom,dp-usbpd-detection";
-	struct usbpd *pd = NULL;
 	struct dp_usbpd_private *usbpd;
 	struct dp_usbpd *dp_usbpd;
 	struct usbpd_svid_handler svid_handler = {
@@ -538,16 +537,9 @@ struct dp_hpd *dp_usbpd_get(struct device *dev, struct dp_hpd_cb *cb)
 		.disconnect	= &dp_usbpd_disconnect_cb,
 	};
 
-	if (!cb) {
-		pr_err("invalid cb data\n");
+	if (IS_ERR(pd) || !cb) {
+		pr_err("invalid data\n");
 		rc = -EINVAL;
-		goto error;
-	}
-
-	pd = devm_usbpd_get_by_phandle(dev, pd_phandle);
-	if (IS_ERR(pd)) {
-		pr_err("usbpd phandle failed (%ld)\n", PTR_ERR(pd));
-		rc = PTR_ERR(pd);
 		goto error;
 	}
 
@@ -573,7 +565,7 @@ error:
 	return ERR_PTR(rc);
 }
 
-void dp_usbpd_put(struct dp_hpd *dp_hpd)
+void dp_usbpd_deinit(struct dp_hpd *dp_hpd)
 {
 	struct dp_usbpd *dp_usbpd;
 	struct dp_usbpd_private *usbpd;

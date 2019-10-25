@@ -131,6 +131,7 @@ static struct icnss_vreg_info icnss_vreg_info[] = {
 	{NULL, "vdd-cx-mx", 752000, 752000, 0, 0, false},
 	{NULL, "vdd-1.8-xo", 1800000, 1800000, 0, 0, false},
 	{NULL, "vdd-1.3-rfa", 1304000, 1304000, 0, 0, false},
+	{NULL, "vdd-3.3-ch1", 3312000, 3312000, 0, 0, false},
 	{NULL, "vdd-3.3-ch0", 3312000, 3312000, 0, 0, false},
 };
 

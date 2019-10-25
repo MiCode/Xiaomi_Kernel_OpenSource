@@ -93,6 +93,15 @@ struct diag_rpmsg_info rpmsg_data[NUM_PERIPHERALS] = {
 		.buf1 = NULL,
 		.buf2 = NULL,
 		.hdl = NULL
+	},
+	{
+		.peripheral = PERIPHERAL_NPU,
+		.type = TYPE_DATA,
+		.edge = "npu",
+		.name = "DIAG_DATA",
+		.buf1 = NULL,
+		.buf2 = NULL,
+		.hdl = NULL
 	}
 };
 
@@ -146,6 +155,15 @@ struct diag_rpmsg_info rpmsg_cntl[NUM_PERIPHERALS] = {
 		.peripheral = PERIPHERAL_CDSP,
 		.type = TYPE_CNTL,
 		.edge = "cdsp",
+		.name = "DIAG_CTRL",
+		.buf1 = NULL,
+		.buf2 = NULL,
+		.hdl = NULL
+	},
+	{
+		.peripheral = PERIPHERAL_NPU,
+		.type = TYPE_CNTL,
+		.edge = "npu",
 		.name = "DIAG_CTRL",
 		.buf1 = NULL,
 		.buf2 = NULL,
@@ -207,6 +225,15 @@ struct diag_rpmsg_info rpmsg_dci[NUM_PERIPHERALS] = {
 		.buf1 = NULL,
 		.buf2 = NULL,
 		.hdl = NULL
+	},
+	{
+		.peripheral = PERIPHERAL_NPU,
+		.type = TYPE_DCI,
+		.edge = "npu",
+		.name = "DIAG_DCI_DATA",
+		.buf1 = NULL,
+		.buf2 = NULL,
+		.hdl = NULL
 	}
 };
 
@@ -264,6 +291,15 @@ struct diag_rpmsg_info rpmsg_cmd[NUM_PERIPHERALS] = {
 		.buf1 = NULL,
 		.buf2 = NULL,
 		.hdl = NULL
+	},
+	{
+		.peripheral = PERIPHERAL_NPU,
+		.type = TYPE_CMD,
+		.edge = "npu",
+		.name = "DIAG_CMD",
+		.buf1 = NULL,
+		.buf2 = NULL,
+		.hdl = NULL
 	}
 };
 
@@ -317,6 +353,15 @@ struct diag_rpmsg_info rpmsg_dci_cmd[NUM_PERIPHERALS] = {
 		.peripheral = PERIPHERAL_CDSP,
 		.type = TYPE_DCI_CMD,
 		.edge = "cdsp",
+		.name = "DIAG_DCI_CMD",
+		.buf1 = NULL,
+		.buf2 = NULL,
+		.hdl = NULL
+	},
+	{
+		.peripheral = PERIPHERAL_NPU,
+		.type = TYPE_DCI_CMD,
+		.edge = "npu",
 		.name = "DIAG_DCI_CMD",
 		.buf1 = NULL,
 		.buf2 = NULL,

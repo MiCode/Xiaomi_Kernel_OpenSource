@@ -241,22 +241,32 @@ struct fastrpc_ioctl_perf {			/* kernel performance data */
 	uintptr_t keys;
 };
 
-#define FASTRPC_CONTROL_LATENCY	(1)
+enum fastrpc_control_type {
+	FASTRPC_CONTROL_LATENCY		=	1,
+	FASTRPC_CONTROL_SMMU		=	2,
+	FASTRPC_CONTROL_KALLOC		=	3,
+	FASTRPC_CONTROL_WAKELOCK	=	4,
+};
+
 struct fastrpc_ctrl_latency {
 	uint32_t enable;	/* latency control enable */
 	uint32_t level;		/* level of control */
 };
 
-#define FASTRPC_CONTROL_KALLOC	(3)
 struct fastrpc_ctrl_kalloc {
 	uint32_t kalloc_support;  /* Remote memory allocation from kernel */
 };
-/* FASTRPC_CONTROL value 2 is reserved in user space */
+
+struct fastrpc_ctrl_wakelock {
+	uint32_t enable;	/* wakelock control enable */
+};
+
 struct fastrpc_ioctl_control {
 	uint32_t req;
 	union {
 		struct fastrpc_ctrl_latency lp;
 		struct fastrpc_ctrl_kalloc kalloc;
+		struct fastrpc_ctrl_wakelock wp;
 	};
 };
 

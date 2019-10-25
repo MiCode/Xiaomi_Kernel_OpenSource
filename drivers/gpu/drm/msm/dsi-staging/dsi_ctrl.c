@@ -118,7 +118,7 @@ static ssize_t debugfs_state_info_read(struct file *file,
 			dsi_ctrl->clk_freq.pix_clk_rate,
 			dsi_ctrl->clk_freq.esc_clk_rate);
 
-	/* TODO: make sure that this does not exceed 4K */
+	len = min_t(size_t, len, SZ_4K);
 	if (copy_to_user(buff, buf, len)) {
 		kfree(buf);
 		return -EFAULT;
@@ -173,8 +173,7 @@ static ssize_t debugfs_reg_dump_read(struct file *file,
 		return rc;
 	}
 
-
-	/* TODO: make sure that this does not exceed 4K */
+	len = min_t(size_t, len, SZ_4K);
 	if (copy_to_user(buff, buf, len)) {
 		kfree(buf);
 		return -EFAULT;

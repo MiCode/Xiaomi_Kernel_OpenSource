@@ -411,6 +411,8 @@ static uint32_t diag_translate_kernel_to_user_mask(uint32_t peripheral_mask)
 		ret |= DIAG_CON_WDSP;
 	if (peripheral_mask & MD_PERIPHERAL_MASK(PERIPHERAL_CDSP))
 		ret |= DIAG_CON_CDSP;
+	if (peripheral_mask & MD_PERIPHERAL_MASK(PERIPHERAL_NPU))
+		ret |= DIAG_CON_NPU;
 	if (peripheral_mask & MD_PERIPHERAL_MASK(UPD_WLAN))
 		ret |= DIAG_CON_UPD_WLAN;
 	if (peripheral_mask & MD_PERIPHERAL_MASK(UPD_AUDIO))
@@ -1753,6 +1755,8 @@ static uint32_t diag_translate_mask(uint32_t peripheral_mask)
 		ret |= (1 << PERIPHERAL_WDSP);
 	if (peripheral_mask & DIAG_CON_CDSP)
 		ret |= (1 << PERIPHERAL_CDSP);
+	if (peripheral_mask & DIAG_CON_NPU)
+		ret |= (1 << PERIPHERAL_NPU);
 	if (peripheral_mask & DIAG_CON_UPD_WLAN)
 		ret |= (1 << UPD_WLAN);
 	if (peripheral_mask & DIAG_CON_UPD_AUDIO)
@@ -2431,6 +2435,8 @@ int diag_query_pd(char *process_name)
 		return PERIPHERAL_SENSORS;
 	if (diag_query_pd_name(process_name, "cdsp/root_pd"))
 		return PERIPHERAL_CDSP;
+	if (diag_query_pd_name(process_name, "npu/root_pd"))
+		return PERIPHERAL_NPU;
 	if (diag_query_pd_name(process_name, "wlan_pd"))
 		return UPD_WLAN;
 	if (diag_query_pd_name(process_name, "audio_pd"))
@@ -2852,6 +2858,7 @@ long diagchar_compat_ioctl(struct file *filp,
 	case DIAG_IOCTL_QUERY_CON_ALL:
 		con_param.diag_con_all = DIAG_CON_ALL;
 		con_param.num_peripherals = NUM_PERIPHERALS;
+		con_param.upd_map_supported = 1;
 		if (copy_to_user((void __user *)ioarg, &con_param,
 				sizeof(struct diag_con_all_param_t)))
 			result = -EFAULT;
@@ -3011,6 +3018,7 @@ long diagchar_ioctl(struct file *filp,
 	case DIAG_IOCTL_QUERY_CON_ALL:
 		con_param.diag_con_all = DIAG_CON_ALL;
 		con_param.num_peripherals = NUM_PERIPHERALS;
+		con_param.upd_map_supported = 1;
 		if (copy_to_user((void __user *)ioarg, &con_param,
 				sizeof(struct diag_con_all_param_t)))
 			result = -EFAULT;

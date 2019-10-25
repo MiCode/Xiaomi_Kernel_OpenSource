@@ -39,6 +39,10 @@
 #define NPU_IPC_CMD_EXECUTE_V2          0x0000000A
 /* npu_ipc_cmd_notify_pwr_packet_t */
 #define NPU_IPC_CMD_NOTIFY_PWR          0x0000000B
+/* ipc_cmd_set_property_packet */
+#define NPU_IPC_CMD_SET_PROPERTY        0x0000000C
+/* ipc_cmd_get_property_packet */
+#define NPU_IPC_CMD_GET_PROPERTY        0x0000000D
 
 /* Messages sent **from** NPU */
 /* IPC Message Response -- uint32_t */
@@ -58,6 +62,15 @@
 #define NPU_IPC_MSG_EXECUTE_V2_DONE     0x00010006
 /* struct ipc_msg_notify_pwr_pkt */
 #define NPU_IPC_MSG_NOTIFY_PWR_DONE     0x00010007
+/* ipc_msg_set_property_packet */
+#define NPU_IPC_MSG_SET_PROPERTY_DONE   0x00010008
+/* ipc_msg_get_property_packet */
+#define NPU_IPC_MSG_GET_PROPERTY_DONE   0x00010009
+/* ipc_msg_general_notify_pkt */
+#define NPU_IPC_MSG_GENERAL_NOTIFY      0x00010010
+
+/* IPC Notify Message Type -- uint32_t */
+#define NPU_NOTIFY_DCVS_MODE            0x00002000
 
 /* Logging message size */
 /* Number 32-bit elements for the maximum log message size */
@@ -105,6 +118,9 @@
 
 /* Debug stats */
 #define NUM_LAYER_STATS_PER_EXE_MSG_MAX 110
+
+/* DCVS */
+#define NPU_DCVS_ACTIVITY_MAX_PERF 0x100
 
 /*
  * Data Structures
@@ -272,6 +288,40 @@ struct ipc_cmd_loopback_pkt {
 	struct ipc_cmd_header_pkt header;
 	uint32_t loopbackParams;
 };
+
+/*
+ * Generic property definition
+ */
+struct ipc_cmd_prop_pkt {
+	struct ipc_cmd_header_pkt header;
+	uint32_t prop_id;
+	uint32_t num_params;
+	uint32_t network_hdl;
+	uint32_t prop_param[0];
+};
+
+/*
+ * Generic property response packet definition
+ */
+struct ipc_msg_prop_pkt {
+	struct ipc_msg_header_pkt header;
+	uint32_t prop_id;
+	uint32_t num_params;
+	uint32_t network_hdl;
+	uint32_t prop_param[0];
+};
+
+/*
+ * Generic notify message packet definition
+ */
+struct ipc_msg_general_notify_pkt {
+	struct ipc_msg_header_pkt header;
+	uint32_t notify_id;
+	uint32_t num_params;
+	uint32_t network_hdl;
+	uint32_t notify_param[0];
+};
+
 
 /*
  * LOAD response packet definition
