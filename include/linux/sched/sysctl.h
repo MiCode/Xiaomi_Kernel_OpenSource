@@ -53,6 +53,7 @@ extern unsigned int sysctl_sched_coloc_busy_hyst_enable_cpus;
 extern unsigned int sysctl_sched_coloc_busy_hyst;
 extern unsigned int sysctl_sched_coloc_busy_hyst_max_ms;
 extern unsigned int sysctl_sched_window_stats_policy;
+extern unsigned int sysctl_sched_ravg_window_nr_ticks;
 
 extern int
 walt_proc_group_thresholds_handler(struct ctl_table *table, int write,
@@ -60,6 +61,11 @@ walt_proc_group_thresholds_handler(struct ctl_table *table, int write,
 			 loff_t *ppos);
 extern int
 walt_proc_user_hint_handler(struct ctl_table *table, int write,
+			 void __user *buffer, size_t *lenp,
+			 loff_t *ppos);
+
+extern int
+sched_ravg_window_handler(struct ctl_table *table, int write,
 			 void __user *buffer, size_t *lenp,
 			 loff_t *ppos);
 

@@ -108,6 +108,8 @@ static void release_rq_locks_irqrestore(const cpumask_t *cpus,
 /* Max window size (in ns) = 1s */
 #define MAX_SCHED_RAVG_WINDOW 1000000000
 
+#define NR_WINDOWS_PER_SEC (NSEC_PER_SEC / MIN_SCHED_RAVG_WINDOW)
+
 __read_mostly unsigned int sysctl_sched_cpu_high_irqload = (10 * NSEC_PER_MSEC);
 
 unsigned int sysctl_sched_walt_rotate_big_tasks;
@@ -120,6 +122,9 @@ static __read_mostly unsigned int sched_io_is_busy = 1;
 
 __read_mostly unsigned int sysctl_sched_window_stats_policy =
 	WINDOW_STATS_MAX_RECENT_AVG;
+
+__read_mostly unsigned int sysctl_sched_ravg_window_nr_ticks =
+	(HZ / NR_WINDOWS_PER_SEC);
 
 /* Window size (in ns) */
 __read_mostly unsigned int sched_ravg_window = MIN_SCHED_RAVG_WINDOW;
@@ -3547,6 +3552,35 @@ int walt_proc_user_hint_handler(struct ctl_table *table,
 		goto unlock;
 
 	irq_work_queue(&walt_migration_irq_work);
+
+unlock:
+	mutex_unlock(&mutex);
+	return ret;
+}
+
+static inline void sched_window_nr_ticks_change(int new_nr_ticks)
+{
+	new_sched_ravg_window = new_nr_ticks * (NSEC_PER_SEC / HZ);
+}
+
+int sched_ravg_window_handler(struct ctl_table *table,
+				int write, void __user *buffer, size_t *lenp,
+				loff_t *ppos)
+{
+	int ret;
+	static DEFINE_MUTEX(mutex);
+	unsigned int prev_value;
+
+	mutex_lock(&mutex);
+
+	prev_value = sysctl_sched_ravg_window_nr_ticks;
+	ret = proc_douintvec_ravg_window(table, write, buffer, lenp, ppos);
+	if (ret || !write ||
+			(prev_value == sysctl_sched_ravg_window_nr_ticks) ||
+			(sysctl_sched_ravg_window_nr_ticks == 0))
+		goto unlock;
+
+	sched_window_nr_ticks_change(sysctl_sched_ravg_window_nr_ticks);
 
 unlock:
 	mutex_unlock(&mutex);
