@@ -16,3 +16,14 @@
 &qnand_1 {
 	status = "ok";
 };
+
+&emac_hw {
+	/delete-property/ vreg_rgmii-supply;
+	pinctrl-names = "default";
+	pinctrl-0 = <&vreg_rgmii_off_default>;
+};
+
+&vreg_rgmii_io_pads {
+	regulator-min-microvolt = <1800000>;
+	regulator-max-microvolt = <1800000>;
+};
