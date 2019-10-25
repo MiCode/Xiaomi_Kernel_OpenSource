@@ -6266,7 +6266,7 @@ irqreturn_t dc_plugin_irq_handler(int irq, void *data)
 	union power_supply_propval pval;
 	int input_present;
 	bool dcin_present, vbus_present;
-	int rc, wireless_vout = 0;
+	int rc, wireless_vout = 0, wls_set = 0;
 	int sec_charger;
 
 	rc = smblib_get_prop_vph_voltage_now(chg, &pval);
@@ -6316,7 +6316,15 @@ irqreturn_t dc_plugin_irq_handler(int irq, void *data)
 				vote(chg->fcc_main_votable,
 					WLS_PL_CHARGING_VOTER, true, 800000);
 
-			pval.intval = wireless_vout;
+			rc = smblib_get_prop_batt_status(chg, &pval);
+			if (rc < 0)
+				smblib_err(chg, "Couldn't read batt status rc=%d\n",
+						rc);
+
+			wls_set = (pval.intval == POWER_SUPPLY_STATUS_FULL) ?
+				MICRO_5V : wireless_vout;
+
+			pval.intval = wls_set;
 			rc = smblib_set_prop_voltage_wls_output(chg, &pval);
 			if (rc < 0)
 				dev_err(chg->dev, "Couldn't set dc voltage to 2*vph  rc=%d\n",
