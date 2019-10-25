@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -88,7 +88,7 @@
 				<&apps_iommu 0x82c 0x01>,
 				<&apps_iommu 0x821 0x10>;
 			buffer-types = <0xfff>;
-			virtual-addr-pool = <0x79000000 0x28000000
+			virtual-addr-pool = <0x79000000 0x50000000
 				0xa1000000 0xc9000000>;
 		};
 
