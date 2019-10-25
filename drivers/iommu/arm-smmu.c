@@ -1765,8 +1765,6 @@ static void arm_smmu_domain_get_qcom_quirks(struct arm_smmu_domain *smmu_domain,
 {
 	if (smmu_domain->attributes & (1ULL << DOMAIN_ATTR_USE_UPSTREAM_HINT))
 		*quirks |= IO_PGTABLE_QUIRK_QCOM_USE_UPSTREAM_HINT;
-	if (is_iommu_pt_coherent(smmu_domain))
-		*quirks |= IO_PGTABLE_QUIRK_NO_DMA;
 	if (smmu_domain->attributes & (1ULL << DOMAIN_ATTR_USE_LLC_NWA))
 		*quirks |= IO_PGTABLE_QUIRK_QCOM_USE_LLC_NWA;
 }
@@ -1972,7 +1970,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		.pgsize_bitmap	= smmu->pgsize_bitmap,
 		.ias		= ias,
 		.oas		= oas,
-		.coherent_walk	= smmu->features & ARM_SMMU_FEAT_COHERENT_WALK,
+		.coherent_walk	= is_iommu_pt_coherent(smmu_domain),
 		.tlb		= &smmu_domain->flush_ops->tlb.tlb_ops,
 		.iommu_dev	= smmu->dev,
 	};
