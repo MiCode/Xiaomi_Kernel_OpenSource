@@ -74,6 +74,10 @@ static const struct ath10k_hw_params ath10k_hw_params_list[] = {
 		.spectral_bin_discard = 0,
 		.vht160_mcs_rx_highest = 0,
 		.vht160_mcs_tx_highest = 0,
+		.n_cipher_suites = 8,
+		.num_peers = TARGET_TLV_NUM_PEERS,
+		.ast_skid_limit = 0x10,
+		.num_wds_entries = 0x20,
 	},
 	{
 		.id = QCA9887_HW_1_0_VERSION,
@@ -97,6 +101,10 @@ static const struct ath10k_hw_params ath10k_hw_params_list[] = {
 		.spectral_bin_discard = 0,
 		.vht160_mcs_rx_highest = 0,
 		.vht160_mcs_tx_highest = 0,
+		.n_cipher_suites = 8,
+		.num_peers = TARGET_TLV_NUM_PEERS,
+		.ast_skid_limit = 0x10,
+		.num_wds_entries = 0x20,
 	},
 	{
 		.id = QCA6174_HW_2_1_VERSION,
@@ -119,6 +127,10 @@ static const struct ath10k_hw_params ath10k_hw_params_list[] = {
 		.spectral_bin_discard = 0,
 		.vht160_mcs_rx_highest = 0,
 		.vht160_mcs_tx_highest = 0,
+		.n_cipher_suites = 8,
+		.num_peers = TARGET_TLV_NUM_PEERS,
+		.ast_skid_limit = 0x10,
+		.num_wds_entries = 0x20,
 	},
 	{
 		.id = QCA6174_HW_2_1_VERSION,
@@ -141,6 +153,10 @@ static const struct ath10k_hw_params ath10k_hw_params_list[] = {
 		.spectral_bin_discard = 0,
 		.vht160_mcs_rx_highest = 0,
 		.vht160_mcs_tx_highest = 0,
+		.n_cipher_suites = 8,
+		.num_peers = TARGET_TLV_NUM_PEERS,
+		.ast_skid_limit = 0x10,
+		.num_wds_entries = 0x20,
 	},
 	{
 		.id = QCA6174_HW_3_0_VERSION,
@@ -163,6 +179,10 @@ static const struct ath10k_hw_params ath10k_hw_params_list[] = {
 		.spectral_bin_discard = 0,
 		.vht160_mcs_rx_highest = 0,
 		.vht160_mcs_tx_highest = 0,
+		.n_cipher_suites = 8,
+		.num_peers = TARGET_TLV_NUM_PEERS,
+		.ast_skid_limit = 0x10,
+		.num_wds_entries = 0x20,
 	},
 	{
 		.id = QCA6174_HW_3_2_VERSION,
@@ -188,6 +208,10 @@ static const struct ath10k_hw_params ath10k_hw_params_list[] = {
 		.spectral_bin_discard = 0,
 		.vht160_mcs_rx_highest = 0,
 		.vht160_mcs_tx_highest = 0,
+		.n_cipher_suites = 8,
+		.num_peers = TARGET_TLV_NUM_PEERS,
+		.ast_skid_limit = 0x10,
+		.num_wds_entries = 0x20,
 	},
 	{
 		.id = QCA99X0_HW_2_0_DEV_VERSION,
@@ -216,6 +240,10 @@ static const struct ath10k_hw_params ath10k_hw_params_list[] = {
 		.spectral_bin_discard = 4,
 		.vht160_mcs_rx_highest = 0,
 		.vht160_mcs_tx_highest = 0,
+		.n_cipher_suites = 11,
+		.num_peers = TARGET_TLV_NUM_PEERS,
+		.ast_skid_limit = 0x10,
+		.num_wds_entries = 0x20,
 	},
 	{
 		.id = QCA9984_HW_1_0_DEV_VERSION,
@@ -249,6 +277,10 @@ static const struct ath10k_hw_params ath10k_hw_params_list[] = {
 		 */
 		.vht160_mcs_rx_highest = 1560,
 		.vht160_mcs_tx_highest = 1560,
+		.n_cipher_suites = 11,
+		.num_peers = TARGET_TLV_NUM_PEERS,
+		.ast_skid_limit = 0x10,
+		.num_wds_entries = 0x20,
 	},
 	{
 		.id = QCA9888_HW_2_0_DEV_VERSION,
@@ -281,6 +313,10 @@ static const struct ath10k_hw_params ath10k_hw_params_list[] = {
 		 */
 		.vht160_mcs_rx_highest = 780,
 		.vht160_mcs_tx_highest = 780,
+		.n_cipher_suites = 11,
+		.num_peers = TARGET_TLV_NUM_PEERS,
+		.ast_skid_limit = 0x10,
+		.num_wds_entries = 0x20,
 	},
 	{
 		.id = QCA9377_HW_1_0_DEV_VERSION,
@@ -303,6 +339,10 @@ static const struct ath10k_hw_params ath10k_hw_params_list[] = {
 		.spectral_bin_discard = 0,
 		.vht160_mcs_rx_highest = 0,
 		.vht160_mcs_tx_highest = 0,
+		.n_cipher_suites = 8,
+		.num_peers = TARGET_TLV_NUM_PEERS,
+		.ast_skid_limit = 0x10,
+		.num_wds_entries = 0x20,
 	},
 	{
 		.id = QCA9377_HW_1_1_DEV_VERSION,
@@ -327,6 +367,10 @@ static const struct ath10k_hw_params ath10k_hw_params_list[] = {
 		.spectral_bin_discard = 0,
 		.vht160_mcs_rx_highest = 0,
 		.vht160_mcs_tx_highest = 0,
+		.n_cipher_suites = 8,
+		.num_peers = TARGET_TLV_NUM_PEERS,
+		.ast_skid_limit = 0x10,
+		.num_wds_entries = 0x20,
 	},
 	{
 		.id = QCA4019_HW_1_0_DEV_VERSION,
@@ -356,6 +400,28 @@ static const struct ath10k_hw_params ath10k_hw_params_list[] = {
 		.spectral_bin_discard = 4,
 		.vht160_mcs_rx_highest = 0,
 		.vht160_mcs_tx_highest = 0,
+		.n_cipher_suites = 11,
+		.num_peers = TARGET_TLV_NUM_PEERS,
+		.ast_skid_limit = 0x10,
+		.num_wds_entries = 0x20,
+	},
+	{
+		.id = WCN3990_HW_1_0_DEV_VERSION,
+		.dev_id = 0,
+		.name = "wcn3990 hw1.0",
+		.continuous_frag_desc = true,
+		.tx_chain_mask = 0x7,
+		.rx_chain_mask = 0x7,
+		.max_spatial_stream = 4,
+		.fw = {
+			.dir = WCN3990_HW_1_0_FW_DIR,
+		},
+		.sw_decrypt_mcast_mgmt = true,
+		.hw_ops = &wcn3990_ops,
+		.decap_align_bytes = 1,
+		.num_peers = TARGET_HL_10_TLV_NUM_PEERS,
+		.ast_skid_limit = TARGET_HL_10_TLV_AST_SKID_LIMIT,
+		.num_wds_entries = TARGET_HL_10_TLV_NUM_WDS_ENTRIES,
 	},
 };
 
@@ -378,6 +444,7 @@ static const char *const ath10k_core_fw_feature_str[] = {
 	[ATH10K_FW_FEATURE_SKIP_NULL_FUNC_WAR] = "skip-null-func-war",
 	[ATH10K_FW_FEATURE_ALLOWS_MESH_BCAST] = "allows-mesh-bcast",
 	[ATH10K_FW_FEATURE_NO_PS] = "no-ps",
+	[ATH10K_FW_FEATURE_MGMT_TX_BY_REF] = "mgmt-tx-by-reference",
 };
 
 static unsigned int ath10k_core_get_fw_feature_str(char *buf,

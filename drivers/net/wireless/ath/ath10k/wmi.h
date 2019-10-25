@@ -798,6 +798,7 @@ struct wmi_cmd_map {
 	u32 bcn_filter_rx_cmdid;
 	u32 prb_req_filter_rx_cmdid;
 	u32 mgmt_tx_cmdid;
+	u32 mgmt_tx_send_cmdid;
 	u32 prb_tmpl_cmdid;
 	u32 addba_clear_resp_cmdid;
 	u32 addba_send_cmdid;
@@ -4752,6 +4753,7 @@ struct wmi_key_seq_counter {
 #define WMI_CIPHER_WAPI     0x5
 #define WMI_CIPHER_CKIP     0x6
 #define WMI_CIPHER_AES_CMAC 0x7
+#define WMI_CIPHER_AES_GCM  0x8
 
 struct wmi_vdev_install_key_cmd {
 	__le32 vdev_id;
