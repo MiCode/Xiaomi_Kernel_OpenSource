@@ -71,6 +71,43 @@ EXPORT_SYMBOL(snd_seq_root);
 struct snd_info_entry *snd_oss_root;
 #endif
 
+#ifdef CONFIG_AUDIO_QGKI
+#define SND_CARD_STATE_MAX_LEN 16
+
+static ssize_t snd_info_card_state_read(struct snd_info_entry *entry,
+			void *file_private_data, struct file *file,
+			char __user *buf, size_t count, loff_t pos)
+{
+	struct snd_card *card = entry->private_data;
+	int len;
+	char buffer[SND_CARD_STATE_MAX_LEN];
+
+	/* make sure offline is updated prior to wake up */
+	rmb();
+	len = snprintf(buffer, sizeof(buffer), "%s\n",
+			card->offline ? "OFFLINE" : "ONLINE");
+	return simple_read_from_buffer(buf, count, &pos, buffer, len);
+}
+
+static unsigned int snd_info_card_state_poll(struct snd_info_entry *entry,
+				void *private_data, struct file *file,
+				poll_table *wait)
+{
+	struct snd_card *card = entry->private_data;
+
+	poll_wait(file, &card->offline_poll_wait, wait);
+	if (xchg(&card->offline_change, 0))
+		return POLLIN | POLLPRI | POLLRDNORM;
+	else
+		return 0;
+}
+
+static struct snd_info_entry_ops snd_info_card_state_proc_ops = {
+	.read = snd_info_card_state_read,
+	.poll = snd_info_card_state_poll,
+};
+#endif
+
 static int alloc_info_private(struct snd_info_entry *entry,
 			      struct snd_info_private_data **ret)
 {
@@ -505,6 +542,10 @@ int snd_info_card_create(struct snd_card *card)
 {
 	char str[8];
 	struct snd_info_entry *entry;
+#ifdef CONFIG_AUDIO_QGKI
+	struct snd_info_entry *entry_state;
+#endif
+	int ret;
 
 	if (snd_BUG_ON(!card))
 		return -ENXIO;
@@ -515,7 +556,23 @@ int snd_info_card_create(struct snd_card *card)
 		return -ENOMEM;
 	card->proc_root = entry;
 
-	return snd_card_ro_proc_new(card, "id", card, snd_card_id_read);
+	ret = snd_card_ro_proc_new(card, "id", card, snd_card_id_read);
+	if (ret)
+		return ret;
+
+#ifdef CONFIG_AUDIO_QGKI
+	entry_state = snd_info_create_card_entry(card, "state",
+						card->proc_root);
+	if (!entry_state) {
+		dev_dbg(card->dev, "unable to create card entry state\n");
+		card->proc_root = NULL;
+		return -ENOMEM;
+	}
+	entry_state->size = SND_CARD_STATE_MAX_LEN;
+	entry_state->content = SNDRV_INFO_CONTENT_DATA;
+	entry_state->c.ops = &snd_info_card_state_proc_ops;
+#endif
+	return 0;
 }
 
 /*
