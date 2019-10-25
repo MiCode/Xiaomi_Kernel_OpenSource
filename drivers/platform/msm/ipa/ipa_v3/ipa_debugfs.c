@@ -101,7 +101,7 @@ const char *ipa3_hdr_proc_type_name[] = {
 };
 
 static struct dentry *dent;
-static char dbg_buff[IPA_MAX_MSG_LEN];
+static char dbg_buff[IPA_MAX_MSG_LEN + 1];
 static char *active_clients_buf;
 
 static s8 ep_reg_idx;
