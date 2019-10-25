@@ -582,20 +582,29 @@ int __qcom_scm_qsmmu500_wait_safe_toggle(struct device *dev, bool en)
 
 void __qcom_scm_init(void)
 {
-	u64 cmd;
-	struct arm_smccc_res res;
-	u32 function = SMCCC_FUNCNUM(QCOM_SCM_SVC_INFO,
-				     QCOM_SCM_INFO_IS_CALL_AVAIL);
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_INFO,
+		.cmd = QCOM_SCM_INFO_IS_CALL_AVAIL,
+		.args[1] = SMCCC_FUNCNUM(QCOM_SCM_SVC_INFO,
+					 QCOM_SCM_INFO_IS_CALL_AVAIL) |
+			   (ARM_SMCCC_OWNER_SIP << ARM_SMCCC_OWNER_SHIFT),
+		.arginfo = QCOM_SCM_ARGS(1);
+		.owner = ARM_SMCCC_OWNER_SIP,
+	};
 
-	/* First try a SMC64 call */
-	cmd = ARM_SMCCC_CALL_VAL(ARM_SMCCC_FAST_CALL, ARM_SMCCC_SMC_64,
-				 ARM_SMCCC_OWNER_SIP, function);
+	qcom_smcc_convention = ARM_SMCCC_SMC_64;
+	ret = qcom_scm_call_atomic(NULL, &desc);
+	if (!ret && desc.res[0] == 1)
+		goto out;
 
-	arm_smccc_smc(cmd, QCOM_SCM_ARGS(1), cmd & (~BIT(ARM_SMCCC_TYPE_SHIFT)),
-		      0, 0, 0, 0, 0, &res);
+	qcom_smcc_convention = ARM_SMCCC_SMC_32;
+	ret = qcom_scm_call_atomic(NULL, &desc);
+	if (!ret && desc.res[0] == 1)
+		goto out;
 
-	if (!res.a0 && res.a1)
-		qcom_smccc_convention = ARM_SMCCC_SMC_64;
-	else
-		qcom_smccc_convention = ARM_SMCCC_SMC_32;
+	qcom_smccc_convention = -1;
+	BUG();
+out:
+	pr_debug("QCOM SCM SMC Convention: %d\n", qcom_smcc_convention);
 }
