@@ -5176,12 +5176,12 @@ more_wait:
 		if ((intr_status & UFSHCD_UIC_PWR_MASK) ||
 		    ((hba->ufs_stats.last_intr_status & UFSHCD_UIC_PWR_MASK) &&
 		     (ts_since_last_intr < (s64)UIC_CMD_TIMEOUT))) {
-			if (wait_retries--)
-				goto more_wait;
-
 			dev_info(hba->dev, "IS:0x%08x last_intr_sts:0x%08x last_intr_ts:%lld, retry-cnt:%d\n",
 				intr_status, hba->ufs_stats.last_intr_status,
 				hba->ufs_stats.last_intr_ts, wait_retries);
+			if (wait_retries--)
+				goto more_wait;
+
 			/*
 			 * If same state continues event after more wait time,
 			 * something must be hogging CPU.
