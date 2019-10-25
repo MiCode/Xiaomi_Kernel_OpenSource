@@ -92,6 +92,7 @@ size_t ion_system_heap_secure_page_pool_total(struct ion_heap *heap, int vmid);
 int ion_page_pool_shrink(struct ion_page_pool *pool, gfp_t gfp_mask,
 			 int nr_to_scan);
 
+#ifdef CONFIG_ION_POOL_AUTO_REFILL
 void ion_page_pool_refill(struct ion_page_pool *pool);
 
 static __always_inline int get_pool_fillmark(struct ion_page_pool *pool)
@@ -113,4 +114,29 @@ static __always_inline bool pool_fillmark_reached(struct ion_page_pool *pool)
 {
 	return atomic_read(&pool->count) >= get_pool_fillmark(pool);
 }
+#else
+static inline void ion_page_pool_refill(struct ion_page_pool *pool)
+{
+}
+
+static __always_inline int get_pool_fillmark(struct ion_page_pool *pool)
+{
+	return 0;
+}
+
+static __always_inline int get_pool_lowmark(struct ion_page_pool *pool)
+{
+	return 0;
+}
+
+static __always_inline bool pool_count_below_lowmark(struct ion_page_pool *pool)
+{
+	return false;
+}
+
+static __always_inline bool pool_fillmark_reached(struct ion_page_pool *pool)
+{
+	return false;
+}
+#endif /* CONFIG_ION_POOL_AUTO_REFILL */
 #endif /* _ION_PAGE_POOL_H */

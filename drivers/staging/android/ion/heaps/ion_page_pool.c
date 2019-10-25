@@ -13,6 +13,37 @@
 #include "msm_ion_priv.h"
 #include "ion_page_pool.h"
 
+static inline struct page *ion_page_pool_alloc_pages(struct ion_page_pool *pool)
+{
+	if (fatal_signal_pending(current))
+		return NULL;
+	return alloc_pages(pool->gfp_mask, pool->order);
+}
+
+static void ion_page_pool_free_pages(struct ion_page_pool *pool,
+				     struct page *page)
+{
+	__free_pages(page, pool->order);
+}
+
+static void ion_page_pool_add(struct ion_page_pool *pool, struct page *page)
+{
+	mutex_lock(&pool->mutex);
+	if (PageHighMem(page)) {
+		list_add_tail(&page->lru, &pool->high_items);
+		pool->high_count++;
+	} else {
+		list_add_tail(&page->lru, &pool->low_items);
+		pool->low_count++;
+	}
+
+	atomic_inc(&pool->count);
+	mod_node_page_state(page_pgdat(page), NR_KERNEL_MISC_RECLAIMABLE,
+			    (1 << (PAGE_SHIFT + pool->order)));
+	mutex_unlock(&pool->mutex);
+}
+
+#ifdef CONFIG_ION_POOL_AUTO_REFILL
 /* do a simple check to see if we are in any low memory situation */
 static bool pool_refill_ok(struct ion_page_pool *pool)
 {
@@ -48,36 +79,6 @@ static bool pool_refill_ok(struct ion_page_pool *pool)
 	return true;
 }
 
-static inline struct page *ion_page_pool_alloc_pages(struct ion_page_pool *pool)
-{
-	if (fatal_signal_pending(current))
-		return NULL;
-	return alloc_pages(pool->gfp_mask, pool->order);
-}
-
-static void ion_page_pool_free_pages(struct ion_page_pool *pool,
-				     struct page *page)
-{
-	__free_pages(page, pool->order);
-}
-
-static void ion_page_pool_add(struct ion_page_pool *pool, struct page *page)
-{
-	mutex_lock(&pool->mutex);
-	if (PageHighMem(page)) {
-		list_add_tail(&page->lru, &pool->high_items);
-		pool->high_count++;
-	} else {
-		list_add_tail(&page->lru, &pool->low_items);
-		pool->low_count++;
-	}
-
-	atomic_inc(&pool->count);
-	mod_node_page_state(page_pgdat(page), NR_KERNEL_MISC_RECLAIMABLE,
-			    (1 << (PAGE_SHIFT + pool->order)));
-	mutex_unlock(&pool->mutex);
-}
-
 void ion_page_pool_refill(struct ion_page_pool *pool)
 {
 	struct page *page;
@@ -99,6 +100,7 @@ void ion_page_pool_refill(struct ion_page_pool *pool)
 		ion_page_pool_add(pool, page);
 	}
 }
+#endif /* CONFIG_ION_PAGE_POOL_REFILL */
 
 static struct page *ion_page_pool_remove(struct ion_page_pool *pool, bool high)
 {
