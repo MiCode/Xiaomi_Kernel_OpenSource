@@ -357,4 +357,13 @@ config MSM_VIDEOCC_LAHAINA
 	  Say Y if you want to support video devices and functionality such as
 	  video encode/decode.
 
+config MSM_DISPCC_LAHAINA
+	tristate "LAHAINA Display Clock Controller"
+	select MSM_GCC_LAHAINA
+	help
+	  Support for the display clock controller on Qualcomm Technologies, Inc
+	  Lahaina devices.
+	  Say Y if you want to support display devices and functionality such as
+	  splash screen.
+
 endif
