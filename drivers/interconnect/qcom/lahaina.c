@@ -16,116 +16,8 @@
 #include <linux/platform_device.h>
 #include <linux/sort.h>
 
-#include <soc/qcom/cmd-db.h>
-#include <soc/qcom/rpmh.h>
-#include <soc/qcom/tcs.h>
-
-#define to_qcom_provider(_provider) \
-	container_of(_provider, struct qcom_icc_provider, provider)
-
-struct qcom_icc_provider {
-	struct icc_provider provider;
-	struct device *dev;
-	struct qcom_icc_bcm **bcms;
-	size_t num_bcms;
-};
-
-/**
- * struct bcm_db - Auxiliary data pertaining to each Bus Clock Manager (BCM)
- * @unit: divisor used to convert bytes/sec bw value to an RPMh msg
- * @width: multiplier used to convert bytes/sec bw value to an RPMh msg
- * @vcd: virtual clock domain that this bcm belongs to
- * @reserved: reserved field
- */
-struct bcm_db {
-	__le32 unit;
-	__le16 width;
-	u8 vcd;
-	u8 reserved;
-};
-
-#define LAHAINA_MAX_LINKS	56
-#define LAHAINA_MAX_BCM_PER_NODE	2
-#define LAHAINA_MAX_VCD		10
-
-/**
- * struct qcom_icc_node - qcom specific interconnect nodes
- * @name: the node name used in debugfs
- * @links: an array of nodes where we can go next while traversing
- * @id: a unique node identifier
- * @num_links: the total number of @links
- * @channels: num of channels at this node
- * @buswidth: width of the interconnect between a node and the bus
- * @sum_avg: current sum aggregate value of all avg bw requests
- * @max_peak: current max aggregate value of all peak bw requests
- * @bcms: list of bcms associated with this logical node
- * @num_bcms: num of @bcms
- */
-struct qcom_icc_node {
-	const char *name;
-	u16 links[LAHAINA_MAX_LINKS];
-	u16 id;
-	u16 num_links;
-	u16 channels;
-	u16 buswidth;
-	u64 sum_avg;
-	u64 max_peak;
-	struct qcom_icc_bcm *bcms[LAHAINA_MAX_BCM_PER_NODE];
-	size_t num_bcms;
-};
-
-/**
- * struct qcom_icc_bcm - qcom specific hardware accelerator nodes
- * known as Bus Clock Manager (BCM)
- * @name: the bcm node name used to fetch BCM data from command db
- * @type: latency or bandwidth bcm
- * @addr: address offsets used when voting to RPMH
- * @vote_x: aggregated threshold values, represents sum_bw when @type is bw bcm
- * @vote_y: aggregated threshold values, represents peak_bw when @type is bw bcm
- * @dirty: flag used to indicate whether the bcm needs to be committed
- * @keepalive: flag used to indicate whether a keepalive is required
- * @aux_data: auxiliary data used when calculating threshold values and
- * communicating with RPMh
- * @list: used to link to other bcms when compiling lists for commit
- * @num_nodes: total number of @num_nodes
- * @nodes: list of qcom_icc_nodes that this BCM encapsulates
- */
-struct qcom_icc_bcm {
-	const char *name;
-	u32 type;
-	u32 addr;
-	u64 vote_x;
-	u64 vote_y;
-	bool dirty;
-	bool keepalive;
-	struct bcm_db aux_data;
-	struct list_head list;
-	size_t num_nodes;
-	struct qcom_icc_node *nodes[];
-};
-
-struct qcom_icc_fabric {
-	struct qcom_icc_node **nodes;
-	size_t num_nodes;
-};
-
-struct qcom_icc_desc {
-	struct qcom_icc_node **nodes;
-	size_t num_nodes;
-	struct qcom_icc_bcm **bcms;
-	size_t num_bcms;
-};
-
-#define DEFINE_QNODE(_name, _id, _channels, _buswidth,			\
-			_numlinks, ...)					\
-		static struct qcom_icc_node _name = {			\
-		.id = _id,						\
-		.name = #_name,						\
-		.channels = _channels,					\
-		.buswidth = _buswidth,					\
-		.num_links = _numlinks,					\
-		.links = { __VA_ARGS__ },				\
-	}
+#include "icc-rpmh.h"
+#include "bcm-voter.h"
 
 DEFINE_QNODE(qhm_qspi, MASTER_QSPI_0, 1, 4, 1,
 		SLAVE_A1NOC_SNOC);
@@ -399,15 +291,6 @@ DEFINE_QNODE(qns_gemnoc_gc, SLAVE_SNOC_GEM_NOC_GC, 1, 8, 1,
 DEFINE_QNODE(qns_gemnoc_sf, SLAVE_SNOC_GEM_NOC_SF, 1, 16, 1,
 		MASTER_SNOC_SF_MEM_NOC);
 DEFINE_QNODE(srvc_snoc, SLAVE_SERVICE_SNOC, 1, 4, 0);
-
-
-#define DEFINE_QBCM(_name, _bcmname, _keepalive, _numnodes, ...)	\
-		static struct qcom_icc_bcm _name = {			\
-		.name = _bcmname,					\
-		.keepalive = _keepalive,				\
-		.num_nodes = _numnodes,					\
-		.nodes = { __VA_ARGS__ },				\
-	}
 
 DEFINE_QBCM(bcm_acv, "ACV", 1, false,
 		&ebi);
@@ -781,17 +664,6 @@ static struct qcom_icc_desc lahaina_system_noc = {
 	.num_bcms = ARRAY_SIZE(system_noc_bcms),
 };
 
-static int qcom_icc_aggregate(struct icc_node *node, u32 tag, u32 avg_bw,
-			      u32 peak_bw, u32 *agg_avg, u32 *agg_peak)
-{
-	return 0;
-}
-
-static int qcom_icc_set(struct icc_node *src, struct icc_node *dst)
-{
-	return 0;
-}
-
 static int qnoc_probe(struct platform_device *pdev)
 {
 	const struct qcom_icc_desc *desc;
@@ -821,6 +693,7 @@ static int qnoc_probe(struct platform_device *pdev)
 	provider = &qp->provider;
 	provider->dev = &pdev->dev;
 	provider->set = qcom_icc_set;
+	provider->pre_aggregate = qcom_icc_pre_aggregate;
 	provider->aggregate = qcom_icc_aggregate;
 	provider->xlate = of_icc_xlate_onecell;
 	INIT_LIST_HEAD(&provider->nodes);
@@ -829,6 +702,10 @@ static int qnoc_probe(struct platform_device *pdev)
 	qp->dev = &pdev->dev;
 	qp->bcms = desc->bcms;
 	qp->num_bcms = desc->num_bcms;
+
+	qp->voter = of_bcm_voter_get(qp->dev, NULL);
+	if (IS_ERR(qp->voter))
+		return PTR_ERR(qp->voter);
 
 	ret = icc_provider_add(provider);
 	if (ret) {
@@ -862,6 +739,9 @@ static int qnoc_probe(struct platform_device *pdev)
 		data->nodes[i] = node;
 	}
 	data->num_nodes = num_nodes;
+
+	for (i = 0; i < qp->num_bcms; i++)
+		qcom_icc_bcm_init(qp->bcms[i], &pdev->dev);
 
 	platform_set_drvdata(pdev, qp);
 
