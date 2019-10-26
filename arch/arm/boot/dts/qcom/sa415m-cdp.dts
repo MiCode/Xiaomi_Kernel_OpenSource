@@ -12,7 +12,7 @@
 
 /dts-v1/;
 
-#include "sdxpoorwills-cdp.dtsi"
+#include "sa415m-cdp.dtsi"
 #include "sdxpoorwills-display.dtsi"
 #include "qpic-panel-ili-hvga.dtsi"
 
