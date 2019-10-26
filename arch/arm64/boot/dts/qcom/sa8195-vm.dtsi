@@ -378,3 +378,7 @@
 #include "sa8155-vm-audio.dtsi"
 #include "sa8195-vm-pcie.dtsi"
 #include "pm8195-vm.dtsi"
+
+&tlmm {
+	dirconn-list = <37 216 1>;
+};
