@@ -267,9 +267,41 @@ static void free_pdata(const struct ion_platform_data *pdata)
 	kfree(pdata);
 }
 
-static int init_reserved_memory(struct device *dev, struct device_node *pnode)
+static int msm_ion_get_heap_base_size(struct ion_platform_heap *heap,
+				      struct device_node *pnode)
+{
+	const __be32 *basep;
+	u64 base, size;
+	int ret = 0;
+
+	basep = of_get_address(pnode, 0, &size, NULL);
+	if (basep) {
+		base = of_translate_address(pnode, basep);
+		if (base != OF_BAD_ADDR) {
+			heap->base = base;
+			heap->size = size;
+		} else {
+			ret = -EINVAL;
+		}
+	}
+
+	return ret;
+}
+
+static void release_reserved_memory(struct device *dev,
+				    struct device_node *pnode)
+{
+	struct reserved_mem *rmem = of_reserved_mem_lookup(pnode);
+
+	if (rmem && rmem->ops)
+		of_reserved_mem_device_release(dev);
+}
+
+static int init_reserved_memory(struct ion_platform_heap *heap,
+				struct device_node *pnode)
 {
 	int ret = 0;
+	struct device *dev = heap->priv;
 	struct reserved_mem *rmem = of_reserved_mem_lookup(pnode);
 
 	if (!rmem) {
@@ -286,20 +318,21 @@ static int init_reserved_memory(struct device *dev, struct device_node *pnode)
 	 */
 	if (rmem->ops) {
 		ret = of_reserved_mem_device_init_by_idx(dev, dev->of_node, 0);
-		if (ret)
-			dev_err(dev, "Failed to initialize memory region\n");
+		if (ret) {
+			dev_err(dev,
+				"Failed to initialize memory region rc: %d\n",
+				ret);
+			return ret;
+		}
+	}
+
+	ret = msm_ion_get_heap_base_size(heap, pnode);
+	if (ret) {
+		dev_err(dev, "Failed to get heap base/size\n");
+		release_reserved_memory(dev, pnode);
 	}
 
 	return ret;
-}
-
-static void release_reserved_memory(struct device *dev,
-				    struct device_node *pnode)
-{
-	struct reserved_mem *rmem = of_reserved_mem_lookup(pnode);
-
-	if (rmem && rmem->ops)
-		of_reserved_mem_device_release(dev);
 }
 
 static void release_reserved_memory_regions(struct ion_platform_heap *heaps,
@@ -323,45 +356,12 @@ static int msm_ion_get_heap_dt_data(struct device_node *node,
 				    struct ion_platform_heap *heap)
 {
 	struct device_node *pnode;
-	struct device *dev = heap->priv;
-	int ret = -EINVAL;
+	int ret = 0;
 
 	pnode = of_parse_phandle(node, "memory-region", 0);
-	if (pnode) {
-		const __be32 *basep;
-		u64 size = 0;
-		u64 base = 0;
+	if (pnode)
+		ret = init_reserved_memory(heap, pnode);
 
-		ret = init_reserved_memory(dev, pnode);
-		if (ret)
-			goto out;
-
-		basep = of_get_address(pnode,  0, &size, NULL);
-		if (!basep) {
-			if (dev->cma_area) {
-				base = cma_get_base(dev->cma_area);
-				size = cma_get_size(dev->cma_area);
-				ret = 0;
-			} else if (dev->dma_mem) {
-				base = dma_get_device_base(dev, dev->dma_mem);
-				size = dma_get_size(dev->dma_mem);
-				ret = 0;
-			}
-		} else {
-			base = of_translate_address(pnode, basep);
-			if (base != OF_BAD_ADDR)
-				ret = 0;
-		}
-
-		if (!ret) {
-			heap->base = base;
-			heap->size = size;
-		}
-	} else {
-		ret = 0;
-	}
-
-out:
 	of_node_put(pnode);
 	WARN(ret, "Failed to parse DT node for heap %s\n", heap->name);
 	return ret;
