@@ -311,8 +311,7 @@ static int ion_sc_add_child(struct ion_sc_heap *manager,
 	struct ion_platform_heap heap_data = {0};
 	struct ion_sc_entry *entry;
 	struct device_node *phandle;
-	const __be32 *basep;
-	u64 base, size;
+	struct resource res;
 	int ret;
 
 	entry = kzalloc(sizeof(*entry), GFP_KERNEL);
@@ -325,25 +324,21 @@ static int ion_sc_add_child(struct ion_sc_heap *manager,
 	if (!phandle)
 		goto out_free;
 
-	basep = of_get_address(phandle,  0, &size, NULL);
-	if (!basep)
-		goto out_put_phandle;
-
-	base = of_translate_address(phandle, basep);
-	if (base == OF_BAD_ADDR)
-		goto out_put_phandle;
-
+	ret = of_address_to_resource(phandle, 0, &res);
 	of_node_put(phandle);
+	if (ret)
+		goto out_free;
+
 	heap_data.priv = dev;
-	heap_data.base = base;
-	heap_data.size = size;
+	heap_data.base = res.start;
+	heap_data.size = resource_size(&res);
 
 	/* This will zero memory initially */
 	entry->heap = __ion_carveout_heap_create(&heap_data, false);
 	if (IS_ERR(entry->heap))
 		goto out_free;
 
-	ret = ion_sc_get_dt_token(entry, np, base, size);
+	ret = ion_sc_get_dt_token(entry, np, heap_data.base, heap_data.size);
 	if (ret) {
 		ion_carveout_heap_destroy(entry->heap);
 		goto out_free;
@@ -351,11 +346,9 @@ static int ion_sc_add_child(struct ion_sc_heap *manager,
 
 	list_add(&entry->list, &manager->children);
 	dev_info(dev, "ion_secure_carveout: creating heap@0x%llx, size 0x%llx\n",
-		 base, size);
+		 heap_data.base, heap_data.size);
 	return 0;
 
-out_put_phandle:
-	of_node_put(phandle);
 out_free:
 	kfree(entry);
 	return -EINVAL;
