@@ -139,6 +139,9 @@ bool should_ulmk_retry(gfp_t gfp_mask)
 	if (!sysctl_panic_on_oom)
 		return false;
 
+	if (gfp_mask & __GFP_RETRY_MAYFAIL)
+		return false;
+
 	/* Someone else is already checking. */
 	if (!mutex_trylock(&ulmk_retry_lock))
 		return true;
