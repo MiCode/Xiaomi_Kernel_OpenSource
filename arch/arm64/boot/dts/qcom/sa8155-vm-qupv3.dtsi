@@ -345,6 +345,21 @@
 	};
 
 	/* 2-wire UART */
+	qupv3_se10_2uart: qcom,qup_uart@a88000 {
+		compatible = "qcom,msm-geni-serial-hs";
+		reg = <0xa88000 0x4000>;
+		reg-names = "se_phys";
+		clock-names = "se-clk", "m-ahb", "s-ahb";
+		clocks = <&clock_virt GCC_QUPV3_WRAP1_S2_CLK>,
+			<&clock_virt GCC_QUPV3_WRAP_1_M_AHB_CLK>,
+			<&clock_virt GCC_QUPV3_WRAP_1_S_AHB_CLK>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&qupv3_se10_2uart_active>;
+		pinctrl-1 = <&qupv3_se10_2uart_sleep>;
+		interrupts = <GIC_SPI 355 0>;
+		qcom,wrapper-core = <&qupv3_1>;
+		status = "disabled";
+	};
 
 	/* Debug UART Instance for CDP/MTP platform */
 	qupv3_se12_2uart: qcom,qup_uart@0xa90000 {
@@ -359,6 +374,22 @@
 		pinctrl-0 = <&qupv3_se12_2uart_active>;
 		pinctrl-1 = <&qupv3_se12_2uart_sleep>;
 		interrupts = <GIC_SPI 357 0>;
+		qcom,wrapper-core = <&qupv3_1>;
+		status = "disabled";
+	};
+
+	qupv3_se16_2uart: qcom,qup_uart@0xa94000 {
+		compatible = "qcom,msm-geni-serial-hs";
+		reg = <0xa94000 0x4000>;
+		reg-names = "se_phys";
+		clock-names = "se-clk", "m-ahb", "s-ahb";
+		clocks = <&clock_virt GCC_QUPV3_WRAP1_S5_CLK>,
+			<&clock_virt GCC_QUPV3_WRAP_1_M_AHB_CLK>,
+			<&clock_virt GCC_QUPV3_WRAP_1_S_AHB_CLK>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&qupv3_se16_2uart_active>;
+		pinctrl-1 = <&qupv3_se16_2uart_sleep>;
+		interrupts = <GIC_SPI 358 0>;
 		qcom,wrapper-core = <&qupv3_1>;
 		status = "disabled";
 	};
