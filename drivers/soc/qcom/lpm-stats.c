@@ -21,8 +21,8 @@
 
 #define MAX_STR_LEN 256
 #define MAX_TIME_LEN 20
-char *lpm_stats_reset = "reset";
-char *lpm_stats_suspend = "suspend";
+static char *lpm_stats_reset = "reset";
+static char *lpm_stats_suspend = "suspend";
 
 struct lpm_sleep_time {
 	struct kobj_attribute ts_attr;
@@ -46,7 +46,7 @@ static struct level_stats suspend_time_stats;
 
 static DEFINE_PER_CPU_SHARED_ALIGNED(struct lpm_stats, cpu_stats);
 
-bool str_is_reset(const char __user *in, size_t count)
+static bool str_is_reset(const char __user *in, size_t count)
 {
 	loff_t ppos = 0;
 	char buffer[64] = { 0 };
@@ -254,7 +254,7 @@ static ssize_t lpm_stats_file_write(struct file *file,
 	return count;
 }
 
-int lifo_stats_file_show(struct seq_file *m, void *v)
+static int lifo_stats_file_show(struct seq_file *m, void *v)
 {
 	struct lpm_stats *stats = (struct lpm_stats *)m->private;
 	struct list_head *centry = NULL;
