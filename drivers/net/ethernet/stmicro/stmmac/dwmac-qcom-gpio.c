@@ -89,7 +89,8 @@ int ethqos_init_reqgulators(struct qcom_ethqos *ethqos)
 	}
 
 	if (of_property_read_bool(ethqos->pdev->dev.of_node,
-				  "vreg_rgmii-supply")) {
+				  "vreg_rgmii-supply") && (2500000 ==
+		   regulator_get_voltage(ethqos->reg_rgmii_io_pads))) {
 		ethqos->reg_rgmii =
 		devm_regulator_get(&ethqos->pdev->dev, EMAC_VREG_RGMII_NAME);
 		if (IS_ERR(ethqos->reg_rgmii)) {
@@ -207,8 +208,7 @@ int ethqos_init_pinctrl(struct device *dev)
 
 	num_names = of_property_count_strings(dev->of_node, "pinctrl-names");
 	if (num_names < 0) {
-		dev_err(dev, "Cannot parse pinctrl-names: %d\n",
-			num_names);
+		dev_err(dev, "Cannot parse pinctrl-names: %d\n", num_names);
 		return num_names;
 	}
 
