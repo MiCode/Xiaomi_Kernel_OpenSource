@@ -487,6 +487,19 @@ struct ipa_indication_reg_req_msg_v01 {
 	 * message makes sense only when the  QMI_IPA_INDICATION_REGISTER_REQ
 	 * is being originated from the master driver.
 	 */
+
+	/* Optional */
+	/* BW CHANGE Indication */
+	uint8_t bw_change_ind_valid;
+	/* Must be set to true if bw_change_ind is being passed */
+	uint8_t bw_change_ind;
+	/*
+	 * If set to TRUE, this field indicates that the client wants to
+	 * receive indications for BW change information via
+	 * QMI_IPA_BW_CHANGE_INDICATION. Setting this field in the request
+	 * message makes sense only when the QMI_IPA_INDICATION_REGISTER_REQ
+	 * is being originated from the master driver.
+	 */
 };  /* Message */
 
 
@@ -2655,6 +2668,19 @@ struct ipa_remove_offload_connection_resp_msg_v01 {
 }; /* Message */
 #define IPA_REMOVE_OFFLOAD_CONNECTION_RESP_MSG_V01_MAX_MSG_LEN 7
 
+struct ipa_bw_change_ind_msg_v01 {
+	/* optional */
+	/* Must be set to true if peak_bw_ul is being passed*/
+	uint8_t peak_bw_ul_valid;
+	/* Kbps */
+	uint32_t peak_bw_ul;
+	/* Must be set to true if peak_bw_dl is being passed*/
+	uint8_t peak_bw_dl_valid;
+	/* Kbps */
+	uint32_t peak_bw_dl;
+}; /* Message */
+#define IPA_BW_CHANGE_IND_MSG_V01_MAX_MSG_LEN 14
+
 /*Service Message Definition*/
 #define QMI_IPA_INDICATION_REGISTER_REQ_V01 0x0020
 #define QMI_IPA_INDICATION_REGISTER_RESP_V01 0x0020
@@ -2709,12 +2735,12 @@ struct ipa_remove_offload_connection_resp_msg_v01 {
 #define QMI_IPA_ADD_OFFLOAD_CONNECTION_RESP_V01 0x0041
 #define QMI_IPA_REMOVE_OFFLOAD_CONNECTION_REQ_V01 0x0042
 #define QMI_IPA_REMOVE_OFFLOAD_CONNECTION_RESP_V01 0x0042
-
+#define QMI_IPA_BW_CHANGE_INDICATION_V01 0x0044
 
 /* add for max length*/
 #define QMI_IPA_INIT_MODEM_DRIVER_REQ_MAX_MSG_LEN_V01 162
 #define QMI_IPA_INIT_MODEM_DRIVER_RESP_MAX_MSG_LEN_V01 25
-#define QMI_IPA_INDICATION_REGISTER_REQ_MAX_MSG_LEN_V01 16
+#define QMI_IPA_INDICATION_REGISTER_REQ_MAX_MSG_LEN_V01 20
 #define QMI_IPA_INDICATION_REGISTER_RESP_MAX_MSG_LEN_V01 7
 #define QMI_IPA_INSTALL_FILTER_RULE_REQ_MAX_MSG_LEN_V01 33705
 #define QMI_IPA_INSTALL_FILTER_RULE_RESP_MAX_MSG_LEN_V01 783
