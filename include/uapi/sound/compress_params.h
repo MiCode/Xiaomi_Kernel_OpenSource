@@ -60,6 +60,13 @@
 #define MAX_NUM_BITRATES 32
 #define MAX_NUM_SAMPLE_RATES 32
 
+#ifdef CONFIG_AUDIO_QGKI
+/* Timestamp flag */
+/* Bit-0 - 1 : Enable Timestamp mode */
+/* Bit-0 - 0 : Disable Timestamp mode */
+#define COMPRESSED_TIMESTAMP_FLAG 0x0001
+#endif
+
 /* Codecs are listed linearly to allow for extensibility */
 #define SND_AUDIOCODEC_PCM                   ((__u32) 0x00000001)
 #define SND_AUDIOCODEC_MP3                   ((__u32) 0x00000002)
@@ -400,7 +407,29 @@ struct snd_codec {
 	__u32 format;
 	__u32 align;
 	union snd_codec_options options;
+#ifdef CONFIG_AUDIO_QGKI
+	__u32 flags;
+	__u32 reserved[2];
+#else
 	__u32 reserved[3];
+#endif
 } __attribute__((packed, aligned(4)));
+
+#ifdef CONFIG_AUDIO_QGKI
+/** struct snd_codec_metadata
+ * @length: Length of the encoded buffer.
+ * @offset: Offset from the buffer address to the first byte of the first
+ *		encoded frame. All encoded frames are consecutive starting
+ *		from this offset.
+ * @timestamp: Session time in microseconds of the first sample in the buffer.
+ * @reserved: Reserved for future use.
+ */
+struct snd_codec_metadata {
+	__u32 length;
+	__u32 offset;
+	__u64 timestamp;
+	__u32 reserved[4];
+};
+#endif
 
 #endif
