@@ -702,6 +702,7 @@ static struct mhi_controller *mhi_register_controller(struct pci_dev *pci_dev)
 		goto error_register;
 
 	use_bb = of_property_read_bool(of_node, "mhi,use-bb");
+	mhi_dev->allow_m1 = of_property_read_bool(of_node, "mhi,allow-m1");
 
 	/*
 	 * if s1 translation enabled or using bounce buffer pull iova addr
