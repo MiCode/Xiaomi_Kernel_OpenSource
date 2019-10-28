@@ -959,9 +959,13 @@ int snd_soc_new_compress(struct snd_soc_pcm_runtime *rtd, int num)
 
 	rtd->compr = compr;
 	compr->private_data = rtd;
-
-	dev_info(rtd->card->dev, "Compress ASoC: %s <-> %s mapping ok\n",
+#ifdef CONFIG_AUDIO_QGKI
+	dev_dbg(rtd->card->dev, "Compress ASoC: %s <-> %s mapping ok\n",
 		 codec_dai->name, cpu_dai->name);
+#else
+	dev_info(rtd->card->dev, "Compress ASoC: %s <-> %s mapping ok\n",
+		 codai->name, cpu_dai->name);
+#endif
 
 	return 0;
 }
