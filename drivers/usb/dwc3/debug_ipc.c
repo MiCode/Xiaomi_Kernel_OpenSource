@@ -52,6 +52,7 @@ void dwc3_dbg_print(struct dwc3 *dwc, u8 ep_num, const char *name,
 	ipc_log_string(dwc->dwc_ipc_log_ctxt, "%02X %-25.25s %4i ?\t%s",
 			ep_num, name, status, extra);
 }
+EXPORT_SYMBOL(dwc3_dbg_print);
 
 /**
  * dwc3_dbg_done: prints a DONE event

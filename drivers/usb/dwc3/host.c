@@ -134,8 +134,11 @@ err:
 	platform_device_put(xhci);
 	return ret;
 }
+EXPORT_SYMBOL(dwc3_host_init);
 
 void dwc3_host_exit(struct dwc3 *dwc)
 {
 	platform_device_unregister(dwc->xhci);
 }
+EXPORT_SYMBOL(dwc3_host_exit);
+
