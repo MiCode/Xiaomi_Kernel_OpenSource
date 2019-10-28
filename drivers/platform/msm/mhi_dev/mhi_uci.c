@@ -960,7 +960,6 @@ static int mhi_uci_client_release(struct inode *mhi_inode,
 		struct file *file_handle)
 {
 	struct uci_client *uci_handle = file_handle->private_data;
-	int rc = 0;
 
 	if (!uci_handle)
 		return -EINVAL;
@@ -975,12 +974,12 @@ static int mhi_uci_client_release(struct inode *mhi_inode,
 			if (!(uci_handle->f_flags & O_SYNC))
 				kfree(uci_handle->wreqs);
 			mutex_lock(&uci_handle->out_chan_lock);
-			rc = mhi_dev_close_channel(uci_handle->out_handle);
+			mhi_dev_close_channel(uci_handle->out_handle);
 			wake_up(&uci_handle->write_wq);
 			mutex_unlock(&uci_handle->out_chan_lock);
 
 			mutex_lock(&uci_handle->in_chan_lock);
-			rc = mhi_dev_close_channel(uci_handle->in_handle);
+			mhi_dev_close_channel(uci_handle->in_handle);
 			wake_up(&uci_handle->read_wq);
 			mutex_unlock(&uci_handle->in_chan_lock);
 
@@ -994,7 +993,7 @@ static int mhi_uci_client_release(struct inode *mhi_inode,
 			iminor(mhi_inode),
 			atomic_read(&uci_handle->ref_count));
 	}
-	return rc;
+	return 0;
 }
 
 static void  mhi_parse_state(char *buf, int *nbytes, uint32_t info)
@@ -1796,16 +1795,8 @@ static void mhi_uci_at_ctrl_client_cb(struct mhi_dev_client_cb_data *cb_data)
 		uci_ctxt.at_ctrl_wq = NULL;
 		if (!(client->f_flags & O_SYNC))
 			kfree(client->wreqs);
-		rc = mhi_dev_close_channel(client->out_handle);
-		if (rc)
-			uci_log(UCI_DBG_INFO,
-			"Failed to close channel %d ret %d\n",
-			client->out_chan, rc);
-		rc = mhi_dev_close_channel(client->in_handle);
-		if (rc)
-			uci_log(UCI_DBG_INFO,
-			"Failed to close channel %d ret %d\n",
-			client->in_chan, rc);
+		mhi_dev_close_channel(client->out_handle);
+		mhi_dev_close_channel(client->in_handle);
 	}
 }
 
