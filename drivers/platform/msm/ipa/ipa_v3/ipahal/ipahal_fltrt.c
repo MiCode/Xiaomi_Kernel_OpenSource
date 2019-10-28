@@ -1045,6 +1045,24 @@ static int ipa_fltrt_generate_hw_rule_bdy_ip4(u16 *en_rule,
 		}
 	}
 
+	if (attrib->attrib_mask & IPA_FLT_VLAN_ID) {
+		uint32_t vlan_tag;
+
+		if (IPA_IS_RAN_OUT_OF_EQ(ipa3_0_ofst_meq32, ofst_meq32)) {
+			IPAHAL_ERR("ran out of meq32 eq\n");
+			goto err;
+		}
+		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(
+			ipa3_0_ofst_meq32[ofst_meq32]);
+		/* -6 => offset of 802_1Q tag in L2 hdr */
+		extra = ipa_write_8((u8)-6, extra);
+		/* filter vlan packets: 0x8100 TPID + required VLAN ID */
+		vlan_tag = (0x8100 << 16) | (attrib->vlan_id & 0xFFF);
+		rest = ipa_write_32(0xFFFF0FFF, rest);
+		rest = ipa_write_32(vlan_tag, rest);
+		ofst_meq32++;
+	}
+
 	if (attrib->attrib_mask & IPA_FLT_TYPE) {
 		if (IPA_IS_RAN_OUT_OF_EQ(ipa3_0_ihl_ofst_meq32,
 			ihl_ofst_meq32)) {
@@ -1428,6 +1446,24 @@ static int ipa_fltrt_generate_hw_rule_bdy_ip6(u16 *en_rule,
 		rest = ipa_write_16(htons(attrib->ether_type), rest);
 		rest = ipa_write_16(0, rest);
 		rest = ipa_write_16(htons(attrib->ether_type), rest);
+		ofst_meq32++;
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_VLAN_ID) {
+		uint32_t vlan_tag;
+
+		if (IPA_IS_RAN_OUT_OF_EQ(ipa3_0_ofst_meq32, ofst_meq32)) {
+			IPAHAL_ERR("ran out of meq32 eq\n");
+			goto err;
+		}
+		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(
+			ipa3_0_ofst_meq32[ofst_meq32]);
+		/* -6 => offset of 802_1Q tag in L2 hdr */
+		extra = ipa_write_8((u8)-6, extra);
+		/* filter vlan packets: 0x8100 TPID + required VLAN ID */
+		vlan_tag = (0x8100 << 16) | (attrib->vlan_id & 0xFFF);
+		rest = ipa_write_32(0xFFFF0FFF, rest);
+		rest = ipa_write_32(vlan_tag, rest);
 		ofst_meq32++;
 	}
 
@@ -2291,6 +2327,24 @@ static int ipa_flt_generate_eq_ip4(enum ipa_ip_type ip,
 		}
 	}
 
+	if (attrib->attrib_mask & IPA_FLT_VLAN_ID) {
+		uint32_t vlan_tag;
+
+		if (IPA_IS_RAN_OUT_OF_EQ(ipa3_0_ofst_meq32, ofst_meq32)) {
+			IPAHAL_ERR("ran out of meq32 eq\n");
+			return -EPERM;
+		}
+		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(
+			ipa3_0_ofst_meq32[ofst_meq32]);
+		/* -6 => offset of 802_1Q tag in L2 hdr */
+		eq_atrb->offset_meq_32[ofst_meq32].offset = -6;
+		/* filter vlan packets: 0x8100 TPID + required VLAN ID */
+		vlan_tag = (0x8100 << 16) | (attrib->vlan_id & 0xFFF);
+		eq_atrb->offset_meq_32[ofst_meq32].mask = 0xFFFF0FFF;
+		eq_atrb->offset_meq_32[ofst_meq32].value = vlan_tag;
+		ofst_meq32++;
+	}
+
 	if (attrib->attrib_mask & IPA_FLT_TYPE) {
 		if (IPA_IS_RAN_OUT_OF_EQ(ipa3_0_ihl_ofst_meq32,
 			ihl_ofst_meq32)) {
@@ -2776,6 +2830,24 @@ static int ipa_flt_generate_eq_ip6(enum ipa_ip_type ip,
 			htons(attrib->ether_type);
 		eq_atrb->offset_meq_32[ofst_meq32].value =
 			htons(attrib->ether_type);
+		ofst_meq32++;
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_VLAN_ID) {
+		uint32_t vlan_tag;
+
+		if (IPA_IS_RAN_OUT_OF_EQ(ipa3_0_ofst_meq32, ofst_meq32)) {
+			IPAHAL_ERR("ran out of meq32 eq\n");
+			return -EPERM;
+		}
+		*en_rule |= IPA_GET_RULE_EQ_BIT_PTRN(
+			ipa3_0_ofst_meq32[ofst_meq32]);
+		/* -6 => offset of 802_1Q tag in L2 hdr */
+		eq_atrb->offset_meq_32[ofst_meq32].offset = -6;
+		/* filter vlan packets: 0x8100 TPID + required VLAN ID */
+		vlan_tag = (0x8100 << 16) | (attrib->vlan_id & 0xFFF);
+		eq_atrb->offset_meq_32[ofst_meq32].mask = 0xFFFF0FFF;
+		eq_atrb->offset_meq_32[ofst_meq32].value = vlan_tag;
 		ofst_meq32++;
 	}
 
