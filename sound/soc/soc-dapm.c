@@ -1689,6 +1689,14 @@ static void dapm_seq_run(struct snd_soc_card *card,
 			list_move(&w->power_list, &pending);
 			break;
 		}
+#ifdef CONFIG_AUDIO_QGKI
+		/*
+		 * Add this debug log to keep track of widgets being
+		 * powered-up and powered-down.
+		 */
+		dev_dbg(w->dapm->dev, "dapm: powering %s widget %s\n",
+			power_up ? "up" : "down", w->name);
+#endif
 
 		if (ret < 0)
 			dev_err(w->dapm->dev,
