@@ -912,6 +912,12 @@
 		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
 
+	clk_virt: interconnect {
+		compatible = "qcom,lahaina-clk_virt";
+		#interconnect-cells = <1>;
+		qcom,bcm-voters = <&apps_bcm_voter>;
+	};
+
 	config_noc: interconnect@1500000 {
 		compatible = "qcom,lahaina-config_noc";
 		#interconnect-cells = <1>;
