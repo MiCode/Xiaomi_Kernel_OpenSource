@@ -121,6 +121,7 @@ struct qnovo {
 	struct votable		*not_ok_to_qnovo_votable;
 	struct votable		*chg_ready_votable;
 	struct votable		*awake_votable;
+	struct votable		*cp_disable_votable;
 	struct work_struct	status_change_work;
 	struct delayed_work	usb_debounce_work;
 	int			base;
@@ -336,6 +337,7 @@ enum {
 	OK_TO_QNOVO,
 	QNOVO_ENABLE,
 	PT_ENABLE,
+	STANDALONE,
 	FV_REQUEST,
 	FCC_REQUEST,
 	PE_CTRL_REG,
@@ -721,6 +723,38 @@ static ssize_t pt_enable_store(struct class *c, struct class_attribute *attr,
 }
 static CLASS_ATTR_RW(pt_enable);
 
+static ssize_t standalone_show(struct class *c, struct class_attribute *attr,
+			char *ubuf)
+{
+	int val;
+	struct votable *cp_disable_votable = find_votable("CP_DISABLE");
+
+	if (!cp_disable_votable)
+		return -ENODEV;
+
+	val = get_effective_result(cp_disable_votable);
+
+	return scnprintf(ubuf, PAGE_SIZE, "%d\n", !val);
+}
+
+static ssize_t standalone_store(struct class *c, struct class_attribute *attr,
+			const char *ubuf, size_t count)
+{
+	unsigned long val;
+	struct votable *cp_disable_votable;
+
+	if (kstrtoul(ubuf, 0, &val))
+		return -EINVAL;
+
+	cp_disable_votable = find_votable("CP_DISABLE");
+	if (!cp_disable_votable)
+		return -ENODEV;
+
+	vote(cp_disable_votable, QNOVO_VOTER, !!val, 0);
+
+	return count;
+}
+static CLASS_ATTR_RW(standalone);
 
 static ssize_t val_show(struct class *c, struct class_attribute *attr,
 			char *ubuf)
@@ -1078,6 +1112,7 @@ static struct attribute *qnovo_class_attrs[] = {
 	[OK_TO_QNOVO]		= &class_attr_ok_to_qnovo.attr,
 	[QNOVO_ENABLE]		= &class_attr_qnovo_enable.attr,
 	[PT_ENABLE]		= &class_attr_pt_enable.attr,
+	[STANDALONE]		= &class_attr_standalone.attr,
 	[FV_REQUEST]		= &class_attr_fv_uV_request.attr,
 	[FCC_REQUEST]		= &class_attr_fcc_uA_request.attr,
 	[PE_CTRL_REG]		= &class_attr_PE_CTRL_REG.attr,
