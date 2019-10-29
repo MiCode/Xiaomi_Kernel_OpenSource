@@ -82,6 +82,11 @@ extern int qcom_scm_dcvs_update(int level, s64 total_time, s64 busy_time);
 extern int qcom_scm_dcvs_update_v2(int level, s64 total_time, s64 busy_time);
 extern int qcom_scm_dcvs_update_ca_v2(int level, s64 total_time, s64 busy_time,
 				      int context_count);
+extern int qcom_scm_config_set_ice_key(uint32_t index, phys_addr_t paddr,
+				       size_t size, uint32_t cipher,
+				       unsigned int data_unit,
+				       unsigned int food);
+extern int qcom_scm_clear_ice_key(uint32_t index, unsigned int food);
 extern bool qcom_scm_hdcp_available(void);
 extern int qcom_scm_hdcp_req(struct qcom_scm_hdcp_req *req, u32 req_cnt,
 			     u32 *resp);
@@ -165,6 +170,11 @@ static inline int qcom_scm_dcvs_update_v2(int level, s64 total_time,
 		s64 busy_time) { return -ENODEV; }
 static inline int qcom_scm_dcvs_update_ca_v2(int level, s64 total_time,
 		s64 busy_time, int context_count) { return -ENODEV; }
+static inline int qcom_scm_config_set_ice_key(uint32_t index, phys_addr_t paddr,
+		size_t size, uint32_t cipher, unsigned int data_unit,
+		unsigned int food) { return -ENODEV; }
+static inline int qcom_scm_clear_ice_key(uint32_t index, unsigned int food)
+		{ return -ENODEV; }
 static inline bool qcom_scm_hdcp_available(void) { return false; }
 static inline int qcom_scm_hdcp_req(struct qcom_scm_hdcp_req *req, u32 req_cnt,
 				    u32 *resp) { return -ENODEV; }

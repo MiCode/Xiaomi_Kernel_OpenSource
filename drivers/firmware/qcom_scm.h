@@ -136,6 +136,17 @@ extern int __qcom_scm_dcvs_update_ca_v2(struct device *dev, int level,
 					s64 total_time, s64 busy_time,
 					int context_count);
 
+#define QCOM_SCM_SVC_ES				0x10
+#define QCOM_SCM_ES_CONFIG_SET_ICE_KEY		0x05
+#define QCOM_SCM_ES_CLEAR_ICE_KEY		0x06
+extern int __qcom_scm_config_set_ice_key(struct device *dev, uint32_t index,
+					 phys_addr_t paddr, size_t size,
+					 uint32_t cipher,
+					 unsigned int data_unit,
+					 unsigned int food);
+extern int __qcom_scm_clear_ice_key(struct device *dev, uint32_t index,
+				    unsigned int food);
+
 #define QCOM_SCM_SVC_HDCP			0x11
 #define QCOM_SCM_HDCP_INVOKE			0x01
 extern int __qcom_scm_hdcp_req(struct device *dev,

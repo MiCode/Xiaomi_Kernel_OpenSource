@@ -21,6 +21,9 @@
 #define MAX_QCOM_SCM_ARGS 10
 #define MAX_QCOM_SCM_RETS 3
 
+#define QCOM_SCM_ATOMIC		BIT(0)
+#define QCOM_SCM_NORETRY	BIT(1)
+
 enum qcom_scm_arg_types {
 	QCOM_SCM_VAL,
 	QCOM_SCM_RO,
@@ -181,11 +184,12 @@ static void __qcom_scm_call_do_quirk(const struct arm_smccc_args *smc,
 }
 
 static int qcom_scm_call_smccc(struct device *dev,
-				  struct qcom_scm_desc *desc, bool atomic)
+				  struct qcom_scm_desc *desc, const u32 options)
 {
 	int arglen = desc->arginfo & 0xf;
 	int i, ret;
 	size_t alloc_len;
+	const bool atomic = options & QCOM_SCM_ATOMIC;
 	gfp_t flag = atomic ? GFP_ATOMIC : GFP_NOIO;
 	u32 smccc_call_type = atomic ? ARM_SMCCC_FAST_CALL : ARM_SMCCC_STD_CALL;
 	u32 qcom_smccc_convention =
@@ -262,7 +266,8 @@ static int qcom_scm_call_smccc(struct device *dev,
 			mutex_unlock(&qcom_scm_lock);
 
 			if (res.a0 == QCOM_SCM_V2_EBUSY) {
-				if (retry_count++ > QCOM_SCM_EBUSY_MAX_RETRY)
+				if (retry_count++ > QCOM_SCM_EBUSY_MAX_RETRY ||
+				    (options & QCOM_SCM_NORETRY))
 					break;
 				msleep(QCOM_SCM_EBUSY_WAIT_MS);
 			}
@@ -537,6 +542,31 @@ static int qcom_scm_call_atomic(struct device *dev, struct qcom_scm_desc *desc)
 		return qcom_scm_call_smccc(dev, desc, true);
 	case SMC_CONVENTION_LEGACY:
 		return qcom_scm_call_atomic_legacy(dev, desc);
+	default:
+		pr_err("Unknown current SCM calling convention.\n");
+		return -EINVAL;
+	}
+}
+
+/**
+ * qcom_scm_call_noretry() - Invoke a syscall in the secure world
+ * @dev:	device
+ * @svc_id:	service identifier
+ * @cmd_id:	command identifier
+ * @desc:	Descriptor structure containing arguments and return values
+ *
+ * Sends a command to the SCM and waits for the command to finish processing.
+ * This should *only* be called in pre-emptible context.
+ */
+static int qcom_scm_call_noretry(struct device *dev, struct qcom_scm_desc *desc)
+{
+	might_sleep();
+	switch (__get_convention()) {
+	case SMC_CONVENTION_ARM_32:
+	case SMC_CONVENTION_ARM_64:
+		return qcom_scm_call_smccc(dev, desc, QCOM_SCM_NORETRY);
+	case SMC_CONVENTION_LEGACY:
+		return qcom_scm_call_legacy(dev, desc);
 	default:
 		pr_err("Unknown current SCM calling convention.\n");
 		return -EINVAL;
@@ -1358,6 +1388,45 @@ int __qcom_scm_dcvs_update_ca_v2(struct device *dev, int level, s64 total_time,
 
 	ret = qcom_scm_call(dev, &desc);
 	return ret ? : desc.res[0];
+}
+
+int __qcom_scm_config_set_ice_key(struct device *dev, uint32_t index,
+				  phys_addr_t paddr, size_t size,
+				  uint32_t cipher, unsigned int data_unit,
+				  unsigned int food)
+{
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_ES,
+		.cmd = QCOM_SCM_ES_CONFIG_SET_ICE_KEY,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.args[0] = index;
+	desc.args[1] = paddr;
+	desc.args[2] = size;
+	desc.args[3] = cipher;
+	desc.args[4] = data_unit;
+	desc.args[5] = food;
+	desc.arginfo = QCOM_SCM_ARGS(6, QCOM_SCM_VAL, QCOM_SCM_RW, QCOM_SCM_VAL,
+				     QCOM_SCM_VAL, QCOM_SCM_VAL, QCOM_SCM_VAL);
+
+	return qcom_scm_call_noretry(dev, &desc);
+}
+
+int __qcom_scm_clear_ice_key(struct device *dev, uint32_t index,
+			     unsigned int food)
+{
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_ES,
+		.cmd = QCOM_SCM_ES_CLEAR_ICE_KEY,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.args[0] = index;
+	desc.args[1] = food;
+	desc.arginfo = QCOM_SCM_ARGS(2);
+
+	return qcom_scm_call_noretry(dev, &desc);
 }
 
 int __qcom_scm_hdcp_req(struct device *dev, struct qcom_scm_hdcp_req *req,

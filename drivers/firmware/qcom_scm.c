@@ -603,6 +603,21 @@ int qcom_scm_dcvs_update_ca_v2(int level, s64 total_time, s64 busy_time,
 }
 EXPORT_SYMBOL(qcom_scm_dcvs_update_ca_v2);
 
+int qcom_scm_config_set_ice_key(uint32_t index, phys_addr_t paddr, size_t size,
+				uint32_t cipher, unsigned int data_unit,
+				unsigned int food)
+{
+	return __qcom_scm_config_set_ice_key(__scm->dev, index, paddr, size,
+					     cipher, data_unit, food);
+}
+EXPORT_SYMBOL(qcom_scm_config_set_ice_key);
+
+int qcom_scm_clear_ice_key(uint32_t index,  unsigned int food)
+{
+	return __qcom_scm_clear_ice_key(__scm->dev, index, food);
+}
+EXPORT_SYMBOL(qcom_scm_clear_ice_key);
+
 /**
  * qcom_scm_hdcp_available() - Check if secure environment supports HDCP.
  *
