@@ -38,6 +38,7 @@
 #define DWC3_ENDPOINTS_NUM	32
 #define DWC3_XHCI_RESOURCES_NUM	2
 #define DWC3_ISOC_MAX_RETRIES	5
+#define MAX_ERROR_RECOVERY_TRIES	3
 
 #define DWC3_SCRATCHBUF_SIZE	4096	/* each buffer is assumed to be 4KiB */
 #define DWC3_EVENT_BUFFERS_SIZE	4096
@@ -1352,6 +1353,7 @@ struct dwc3 {
 	 * connected devices on PM resume.
 	 */
 	bool			host_poweroff_in_pm_suspend;
+	int			retries_on_error;
 };
 
 #define INCRX_BURST_MODE 0
