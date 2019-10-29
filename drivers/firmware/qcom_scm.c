@@ -580,6 +580,12 @@ static int qcom_scm_probe(struct platform_device *pdev)
 
 	__qcom_scm_init();
 
+#if CONFIG_ARM64
+	ret = dma_set_mask(&pdev->dev, DMA_BIT_MASK(64));
+	if (ret)
+		return ret;
+#endif
+
 	/*
 	 * If requested enable "download mode", from this point on warmboot
 	 * will cause the the boot stages to enter download mode, unless
