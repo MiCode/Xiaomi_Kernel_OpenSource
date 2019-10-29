@@ -1058,7 +1058,7 @@ int qrtr_endpoint_register(struct qrtr_endpoint *ep, unsigned int net_id,
 	up_write(&qrtr_epts_lock);
 	ep->node = node;
 
-	node->ws = wakeup_source_register("qrtr_ws");
+	node->ws = wakeup_source_register(NULL, "qrtr_ws");
 
 	kthread_queue_work(&node->kworker, &node->say_hello);
 	return 0;
