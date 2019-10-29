@@ -1632,6 +1632,14 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 	}
 
 checkbme:
+	/*
+	 * De-assert WAKE# GPIO following link until L2/3 and WAKE#
+	 * is triggered to send data from device to host at which point
+	 * it will assert WAKE#.
+	 */
+	gpio_set_value(dev->gpio[EP_PCIE_GPIO_WAKE].num,
+			1 - dev->gpio[EP_PCIE_GPIO_WAKE].on);
+
 	if (dev->active_config)
 		ep_pcie_write_reg(dev->dm_core, PCIE20_AUX_CLK_FREQ_REG, 0x14);
 
@@ -2621,8 +2629,9 @@ static int ep_pcie_core_wakeup_host(enum ep_pcie_event event)
 		dev->rev, dev->wake_counter,
 		dev->perst_deast ? "" : "not",
 		dev->l23_ready ? "" : "not");
-	gpio_set_value(dev->gpio[EP_PCIE_GPIO_WAKE].num,
-			1 - dev->gpio[EP_PCIE_GPIO_WAKE].on);
+	/*
+	 * Assert WAKE# GPIO until link is back to L0.
+	 */
 	gpio_set_value(dev->gpio[EP_PCIE_GPIO_WAKE].num,
 			dev->gpio[EP_PCIE_GPIO_WAKE].on);
 	return 0;
