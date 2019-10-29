@@ -152,27 +152,28 @@ int dwc3_gadget_set_link_state(struct dwc3 *dwc, enum dwc3_link_state state)
 
 /**
  * dwc3_ep_inc_trb() - Increment a TRB index.
+ * @dep - DWC3 endpoint
  * @index - Pointer to the TRB index to increment.
  *
  * The index should never point to the link TRB. After incrementing,
  * if it is point to the link TRB, wrap around to the beginning. The
  * link TRB is always at the last TRB entry.
  */
-static void dwc3_ep_inc_trb(u8 *index)
+static void dwc3_ep_inc_trb(struct dwc3_ep *dep, u8 *index)
 {
 	(*index)++;
-	if (*index == (DWC3_TRB_NUM - 1))
+	if (*index == (dep->num_trbs - 1))
 		*index = 0;
 }
 
 void dwc3_ep_inc_enq(struct dwc3_ep *dep)
 {
-	dwc3_ep_inc_trb(&dep->trb_enqueue);
+	dwc3_ep_inc_trb(dep, &dep->trb_enqueue);
 }
 
 void dwc3_ep_inc_deq(struct dwc3_ep *dep)
 {
-	dwc3_ep_inc_trb(&dep->trb_dequeue);
+	dwc3_ep_inc_trb(dep, &dep->trb_dequeue);
 }
 
 /*
@@ -2736,14 +2737,14 @@ static void dwc3_gsi_ep_transfer_complete(struct dwc3 *dwc, struct dwc3_ep *dep)
 
 	trb = &dep->trb_pool[dep->trb_dequeue];
 	while (trb->ctrl & DWC3_TRBCTL_LINK_TRB) {
-		dwc3_ep_inc_trb(&dep->trb_dequeue);
+		dwc3_ep_inc_trb(dep, &dep->trb_dequeue);
 		trb = &dep->trb_pool[dep->trb_dequeue];
 	}
 
 	if (!(trb->ctrl & DWC3_TRB_CTRL_HWO)) {
 		offset = dwc3_trb_dma_offset(dep, trb);
 		usb_gsi_ep_op(ep, (void *)&offset, GSI_EP_OP_UPDATE_DB);
-		dwc3_ep_inc_trb(&dep->trb_dequeue);
+		dwc3_ep_inc_trb(dep, &dep->trb_dequeue);
 	}
 }
 
