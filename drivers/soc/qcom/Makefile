@@ -54,3 +54,4 @@ obj-$(CONFIG_QTI_SYSTEM_PM) += system_pm.o
 obj-$(CONFIG_MSM_SPSS_UTILS) += spss_utils.o
 obj-$(CONFIG_MSM_IDLE_STATS)	+= lpm-stats.o
 obj-$(CONFIG_QTI_RPM_STATS_LOG) += rpmh_master_stat.o
+obj-$(CONFIG_QTEE_SHM_BRIDGE) += qtee_shmbridge.o
