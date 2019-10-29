@@ -1,0 +1,28 @@
+%YAML 1.2
+---
+$id: "http://devicetree.org/schemas/soc/qcom/qcom,tee-shared-memory-bridge.yaml#"
+$schema: "http://devicetree.org/meta-schemas/core.yaml#"
+
+title: Qualcomm Technologies, Inc. Trusted execution environment shared memory bridge binding
+
+maintainers:
+  - Zhen Kong <zkong@quicinc.com>
+
+description: |
+
+QTEE shared memory bridge driver is used to share memory between non-secure
+world and trustzone through shared memory bridge.
+
+properties:
+  compatible:
+    items:
+      - const: qcom,tee-shared-memory-bridge
+
+required:
+  - compatible
+
+examples:
+  - |
+    qtee_shmbridge {
+        compatible = "qcom,tee-shared-memory-bridge";
+    };
