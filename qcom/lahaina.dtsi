@@ -859,6 +859,10 @@
 		compatible = "qcom,secure-chan-manager";
 	};
 
+	qtee_shmbridge {
+		compatible = "qcom,tee-shared-memory-bridge";
+	};
+
 	qcom-secure-buffer {
 		compatible = "qcom,secure-buffer";
 	};
