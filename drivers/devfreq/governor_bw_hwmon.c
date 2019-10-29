@@ -48,6 +48,7 @@ struct hwmon_node {
 	unsigned int hyst_trigger_count;
 	unsigned int hyst_length;
 	unsigned int idle_mbps;
+	unsigned int use_ab;
 	unsigned int mbps_zones[NUM_MBPS_ZONES];
 
 	unsigned long prev_ab;
@@ -170,6 +171,9 @@ static DEVICE_ATTR(__attr, 0644, show_list_##__attr, store_list_##__attr)
 
 #define MIN_MS	10U
 #define MAX_MS	500U
+
+#define SAMPLE_MIN_MS	1U
+#define SAMPLE_MAX_MS	50U
 
 /* Returns MBps of read/writes for the sampling window. */
 static unsigned long bytes_to_mbps(unsigned long long bytes, unsigned int us)
@@ -467,8 +471,10 @@ static unsigned long get_bw_and_set_irq(struct hwmon_node *node,
 	}
 
 	node->prev_ab = new_bw;
-	if (ab)
+	if (ab && node->use_ab)
 		*ab = roundup(new_bw, node->bw_step);
+	else if (ab)
+		*ab = 0;
 
 	*freq = (new_bw * 100) / io_percent;
 	trace_bw_hwmon_update(dev_name(node->hw->df->dev.parent),
@@ -759,11 +765,42 @@ static ssize_t show_throttle_adj(struct device *dev,
 static DEVICE_ATTR(throttle_adj, 0644, show_throttle_adj,
 						store_throttle_adj);
 
+static ssize_t sample_ms_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct devfreq *df = to_devfreq(dev);
+	struct hwmon_node *hw = df->data;
+	int ret;
+	unsigned int val;
+
+	ret = kstrtoint(buf, 10, &val);
+	if (ret)
+		return ret;
+
+	val = max(val, SAMPLE_MIN_MS);
+	val = min(val, SAMPLE_MAX_MS);
+	if (val > df->profile->polling_ms)
+		return -EINVAL;
+
+	hw->sample_ms = val;
+	return count;
+}
+
+static ssize_t sample_ms_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct devfreq *df = to_devfreq(dev);
+	struct hwmon_node *node = df->data;
+
+	return snprintf(buf, PAGE_SIZE, "%u\n", node->sample_ms);
+}
+
+static DEVICE_ATTR_RW(sample_ms);
+
 gov_attr(guard_band_mbps, 0U, 2000U);
 gov_attr(decay_rate, 0U, 100U);
 gov_attr(io_percent, 1U, 100U);
 gov_attr(bw_step, 50U, 1000U);
-gov_attr(sample_ms, 1U, 50U);
 gov_attr(up_scale, 0U, 500U);
 gov_attr(up_thres, 1U, 100U);
 gov_attr(down_thres, 0U, 90U);
@@ -772,6 +809,7 @@ gov_attr(hist_memory, 0U, 90U);
 gov_attr(hyst_trigger_count, 0U, 90U);
 gov_attr(hyst_length, 0U, 90U);
 gov_attr(idle_mbps, 0U, 2000U);
+gov_attr(use_ab, 0U, 1U);
 gov_list_attr(mbps_zones, NUM_MBPS_ZONES, 0U, UINT_MAX);
 
 static struct attribute *dev_attr[] = {
@@ -788,6 +826,7 @@ static struct attribute *dev_attr[] = {
 	&dev_attr_hyst_trigger_count.attr,
 	&dev_attr_hyst_length.attr,
 	&dev_attr_idle_mbps.attr,
+	&dev_attr_use_ab.attr,
 	&dev_attr_mbps_zones.attr,
 	&dev_attr_throttle_adj.attr,
 	NULL,
@@ -830,7 +869,13 @@ static int devfreq_bw_hwmon_ev_handler(struct devfreq *df,
 		break;
 
 	case DEVFREQ_GOV_INTERVAL:
+		node = df->data;
 		sample_ms = *(unsigned int *)data;
+		if (sample_ms < node->sample_ms) {
+			ret = -EINVAL;
+			goto out;
+		}
+
 		sample_ms = max(MIN_MS, sample_ms);
 		sample_ms = min(MAX_MS, sample_ms);
 		/*
@@ -839,7 +884,6 @@ static int devfreq_bw_hwmon_ev_handler(struct devfreq *df,
 		 * stop/start the delayed workqueue while the interval update
 		 * is happening.
 		 */
-		node = df->data;
 		hw = node->hw;
 		hw->suspend_hwmon(hw);
 		devfreq_interval_update(df, &sample_ms);
@@ -931,6 +975,7 @@ int register_bw_hwmon(struct device *dev, struct bw_hwmon *hwmon)
 	node->hyst_trigger_count = 3;
 	node->hyst_length = 0;
 	node->idle_mbps = 400;
+	node->use_ab = 1;
 	node->mbps_zones[0] = 0;
 	node->hw = hwmon;
 
