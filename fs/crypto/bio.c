@@ -39,7 +39,6 @@ static void __fscrypt_decrypt_bio(struct bio *bio, bool done)
 			int ret = fscrypt_decrypt_page(page->mapping->host,
 				page, PAGE_SIZE, 0, page->index);
 			if (ret) {
-				WARN_ON_ONCE(1);
 				SetPageError(page);
 			} else if (done) {
 				SetPageUptodate(page);
@@ -106,7 +105,7 @@ int fscrypt_zeroout_range(const struct inode *inode, pgoff_t lblk,
 
 	BUG_ON(inode->i_sb->s_blocksize != PAGE_SIZE);
 
-	ctx = fscrypt_get_ctx(inode, GFP_NOFS);
+	ctx = fscrypt_get_ctx(GFP_NOFS);
 	if (IS_ERR(ctx))
 		return PTR_ERR(ctx);
 
