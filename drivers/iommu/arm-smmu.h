@@ -375,6 +375,8 @@ struct arm_smmu_device {
 
 	struct arm_smmu_arch_ops	*arch_ops;
 	void				*archdata;
+	struct work_struct		outstanding_tnx_work;
+	unsigned long			sync_timed_out;
 };
 
 enum arm_smmu_context_fmt {
