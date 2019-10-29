@@ -34,3 +34,4 @@ obj-$(CONFIG_UEFI_CPER)		+= efi/
 obj-y				+= imx/
 obj-y				+= tegra/
 obj-y				+= xilinx/
+obj-$(CONFIG_QTI_TZ_LOG)	+= qcom/
