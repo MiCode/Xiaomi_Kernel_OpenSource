@@ -60,6 +60,9 @@ do {									\
 #define CSR_QDSSSPARE		(0x064)
 #define CSR_IPCAT		(0x068)
 #define CSR_BYTECNTVAL		(0x06C)
+#define CSR_MSR_START		(0x0F8)
+#define CSR_MSR_END		(0x144)
+#define MSR_NUM			(((CSR_MSR_END - CSR_MSR_START) >> 2) + 1)
 
 #define BLKSIZE_256		0
 #define BLKSIZE_512		1
@@ -71,6 +74,7 @@ struct csr_drvdata {
 	phys_addr_t		pbase;
 	struct device		*dev;
 	struct coresight_device	*csdev;
+	uint32_t		*msr;
 	uint32_t		blksize;
 	struct coresight_csr		csr;
 	struct clk		*clk;
@@ -79,9 +83,10 @@ struct csr_drvdata {
 	bool			hwctrl_set_support;
 	bool			set_byte_cntr_support;
 	bool			timestamp_support;
+	bool			msr_support;
 };
 
-DEFINE_CORESIGHT_DEVLIST(csr_devs, "tpdm");
+DEFINE_CORESIGHT_DEVLIST(csr_devs, "csr");
 
 static LIST_HEAD(csr_list);
 static DEFINE_MUTEX(csr_lock);
@@ -312,8 +317,98 @@ static ssize_t timestamp_show(struct device *dev,
 
 static DEVICE_ATTR_RO(timestamp);
 
+static ssize_t msr_show(struct device *dev,
+				struct device_attribute *attr,
+				char *buf)
+{
+	int i;
+	ssize_t len = 0;
+	struct csr_drvdata *drvdata = dev_get_drvdata(dev->parent);
+
+	if (IS_ERR_OR_NULL(drvdata) || !drvdata->msr_support ||
+			IS_ERR_OR_NULL(drvdata->msr))
+		return -EINVAL;
+	for (i = 0; i < MSR_NUM; i++)
+		len += scnprintf(buf + len, PAGE_SIZE - len, "0x%x 0x%x\n",
+			i * sizeof(uint32_t) + CSR_MSR_START, drvdata->msr[i]);
+	return len;
+}
+
+static ssize_t msr_store(struct device *dev,
+				 struct device_attribute *attr,
+				 const char *buf,
+				 size_t size)
+{
+	uint32_t offset, val, rval;
+	int nval, ret;
+	unsigned long flags;
+	struct csr_drvdata *drvdata = dev_get_drvdata(dev->parent);
+
+	if (IS_ERR_OR_NULL(drvdata) || !drvdata->msr_support ||
+			IS_ERR_OR_NULL(drvdata->msr))
+		return -EINVAL;
+
+	nval = sscanf(buf, "%x %x", &offset, &val);
+	if (nval != 2)
+		return -EINVAL;
+	if (offset < CSR_MSR_START || offset > CSR_MSR_END || offset % 4 != 0)
+		return -EINVAL;
+
+	ret = clk_prepare_enable(drvdata->clk);
+	if (ret)
+		return ret;
+
+	spin_lock_irqsave(&drvdata->spin_lock, flags);
+	CSR_UNLOCK(drvdata);
+	csr_writel(drvdata, val, offset);
+	rval = csr_readl(drvdata, offset);
+	drvdata->msr[(offset - CSR_MSR_START) / 4] = rval;
+	CSR_LOCK(drvdata);
+	spin_unlock_irqrestore(&drvdata->spin_lock, flags);
+	clk_disable_unprepare(drvdata->clk);
+	return size;
+}
+
+static DEVICE_ATTR_RW(msr);
+
+static ssize_t msr_reset_store(struct device *dev,
+				 struct device_attribute *attr,
+				 const char *buf,
+				 size_t size)
+{
+	unsigned long flags, val;
+	int i, ret;
+	struct csr_drvdata *drvdata = dev_get_drvdata(dev->parent);
+
+	if (IS_ERR_OR_NULL(drvdata) || !drvdata->msr_support ||
+			IS_ERR_OR_NULL(drvdata->msr))
+		return -EINVAL;
+
+	if (kstrtoul(buf, 0, &val) || val != 1)
+		return -EINVAL;
+
+	ret = clk_prepare_enable(drvdata->clk);
+	if (ret)
+		return ret;
+
+	spin_lock_irqsave(&drvdata->spin_lock, flags);
+	CSR_UNLOCK(drvdata);
+	for (i = 0; i < MSR_NUM; i++) {
+		csr_writel(drvdata, 0, CSR_MSR_START + i * 4);
+		drvdata->msr[i] = 0;
+	}
+	CSR_LOCK(drvdata);
+	spin_unlock_irqrestore(&drvdata->spin_lock, flags);
+	clk_disable_unprepare(drvdata->clk);
+	return size;
+}
+
+static DEVICE_ATTR_WO(msr_reset);
+
 static struct attribute *csr_attrs[] = {
 	&dev_attr_timestamp.attr,
+	&dev_attr_msr.attr,
+	&dev_attr_msr_reset.attr,
 	NULL,
 };
 
@@ -394,10 +489,22 @@ static int csr_probe(struct platform_device *pdev)
 	else
 		dev_dbg(dev, "timestamp_support operation supported\n");
 
+	drvdata->msr_support = of_property_read_bool(pdev->dev.of_node,
+						"qcom,msr-support");
+	if (!drvdata->msr_support) {
+		dev_dbg(dev, "msr_support handled by other subsystem\n");
+	} else {
+		drvdata->msr = devm_kzalloc(dev, MSR_NUM * sizeof(uint32_t),
+						GFP_KERNEL);
+		if (!drvdata->msr)
+			return -ENOMEM;
+		dev_dbg(dev, "msr_support operation supported\n");
+	}
+
 	desc.type = CORESIGHT_DEV_TYPE_NONE;
 	desc.pdata = pdev->dev.platform_data;
 	desc.dev = &pdev->dev;
-	if (drvdata->timestamp_support)
+	if (drvdata->timestamp_support || drvdata->msr_support)
 		desc.groups = csr_attr_grps;
 
 	drvdata->csdev = coresight_register(&desc);
