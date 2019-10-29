@@ -952,6 +952,11 @@ static void dwc3_debugfs_create_endpoint_dir(struct dwc3_ep *dep,
 	struct dentry		*dir;
 
 	dir = debugfs_create_dir(dep->name, parent);
+	if (!dir) {
+		pr_err("%s: failed to create dir %s\n", __func__, dep->name);
+		return;
+	}
+
 	dwc3_debugfs_create_endpoint_files(dep, dir);
 }
 
@@ -1155,6 +1160,12 @@ void dwc3_debugfs_init(struct dwc3 *dwc)
 	dwc->regset->base = dwc->regs - DWC3_GLOBALS_REGS_START;
 
 	root = debugfs_create_dir(dev_name(dwc->dev), NULL);
+	if (!root) {
+		pr_err("%s: failed to create dir %s\n", __func__,
+				dev_name(dwc->dev));
+		return;
+	}
+
 	dwc->root = root;
 
 	debugfs_create_regset32("regdump", S_IRUGO, root, dwc->regset);
