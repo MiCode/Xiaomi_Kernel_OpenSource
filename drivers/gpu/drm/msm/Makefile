@@ -23,6 +23,8 @@ msm_drm-y := \
 	dp/dp_audio.o \
 	dp/dp_debug.o \
 	dp/dp_hpd.o \
+	dp/dp_aux_bridge.o \
+	dp/dp_bridge_hpd.o \
 	dp/dp_gpio_hpd.o \
 	dp/dp_lphw_hpd.o \
 	dp/dp_display.o \
