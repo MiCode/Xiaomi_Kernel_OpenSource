@@ -3404,6 +3404,19 @@ int ipa_disable_wdi_pipes(int ipa_ep_idx_tx, int ipa_ep_idx_rx)
 }
 
 /**
+ * ipa_get_lan_rx_napi() - returns if NAPI is enabled in LAN RX
+ */
+bool ipa_get_lan_rx_napi(void)
+{
+	bool ret;
+
+	IPA_API_DISPATCH_RETURN_BOOL(ipa_get_lan_rx_napi);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_get_lan_rx_napi);
+
+/**
  * ipa_tz_unlock_reg() - Allow AP access to memory regions controlled by TZ
  */
 int ipa_tz_unlock_reg(struct ipa_tz_unlock_reg_info *reg_info, u16 num_regs)

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -433,6 +433,8 @@ struct ipa_api_controller {
 	int (*ipa_is_vlan_mode)(enum ipa_vlan_ifaces iface, bool *res);
 
 	bool (*ipa_pm_is_used)(void);
+
+	bool (*ipa_get_lan_rx_napi)(void);
 };
 
 #ifdef CONFIG_IPA
