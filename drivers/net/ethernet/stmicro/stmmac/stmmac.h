@@ -149,6 +149,23 @@ struct stmmac_priv {
 #endif
 };
 
+struct emac_emb_smmu_cb_ctx {
+	bool valid;
+	struct platform_device *pdev_master;
+	struct platform_device *smmu_pdev;
+	struct dma_iommu_mapping *mapping;
+	struct iommu_domain *iommu_domain;
+	u32 va_start;
+	u32 va_size;
+	u32 va_end;
+	int ret;
+};
+
+extern struct emac_emb_smmu_cb_ctx emac_emb_smmu_ctx;
+
+#define GET_MEM_PDEV_DEV (emac_emb_smmu_ctx.valid ? \
+			&emac_emb_smmu_ctx.smmu_pdev->dev : priv->device)
+
 int ethqos_handle_prv_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
 
 extern bool phy_intr_en;
