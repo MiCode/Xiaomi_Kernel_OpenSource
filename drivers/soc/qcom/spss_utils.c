@@ -366,7 +366,17 @@ remove_firmware_name:
 
 	return ret;
 }
+static void spss_destroy_sysfs(struct device *dev)
+{
 
+	device_remove_file(dev, &dev_attr_pbl_cmac);
+	device_remove_file(dev, &dev_attr_iar_enabled);
+	device_remove_file(dev, &dev_attr_iar_state);
+	device_remove_file(dev, &dev_attr_cmac_buf);
+	device_remove_file(dev, &dev_attr_spss_debug_reg);
+	device_remove_file(dev, &dev_attr_test_fuse_state);
+	device_remove_file(dev, &dev_attr_firmware_name);
+}
 /*==========================================================================*/
 /*  IOCTL */
 /*==========================================================================*/
@@ -507,6 +517,13 @@ exit_destroy_class:
 exit_unreg_chrdev_region:
 	unregister_chrdev_region(spss_utils_dev->device_no, 1);
 	return ret;
+}
+
+static void spss_utils_destroy_chardev(void)
+{
+	device_destroy(spss_utils_dev->driver_class, spss_utils_dev->device_no);
+	class_destroy(spss_utils_dev->driver_class);
+	unregister_chrdev_region(spss_utils_dev->device_no, 1);
 }
 
 /*==========================================================================*/
@@ -728,6 +745,7 @@ static int spss_parse_dt(struct device_node *node)
 
 	/* read IAR_FEATURE_ENABLED from soc fuse */
 	val1 = readl_relaxed(spss_fuse3_reg);
+	iounmap(spss_fuse3_reg);
 	spss_fuse3_mask = (1<<spss_fuse3_bit);
 	pr_debug("iar_enabled fuse, addr [0x%x] val [0x%x] mask [0x%x].\n",
 		spss_fuse3_addr, val1, spss_fuse3_mask);
@@ -760,6 +778,7 @@ static int spss_parse_dt(struct device_node *node)
 	}
 
 	val1 = readl_relaxed(spss_fuse4_reg);
+	iounmap(spss_fuse4_reg);
 	spss_fuse4_mask = (0x07 << spss_fuse4_bit); /* 3 bits */
 	pr_debug("IAR_STATE fuse, addr [0x%x] val [0x%x] mask [0x%x].\n",
 	spss_fuse4_addr, val1, spss_fuse4_mask);
@@ -796,6 +815,7 @@ static int spss_set_fw_cmac(u32 *cmac, size_t cmac_size)
 		pr_debug("cmac[%d] [0x%x]\n", i, cmac[i]);
 	}
 	reg += cmac_size;
+	iounmap(cmac_mem);
 
 	return 0;
 }
@@ -1025,7 +1045,27 @@ static int spss_probe(struct platform_device *pdev)
 	if (IS_ERR_OR_NULL(iar_notif_handle)) {
 		pr_err("register fail for IAR notifier\n");
 		kfree(iar_nb);
+		iar_notif_handle = NULL;
+		iar_nb = NULL;
 	}
+
+	return 0;
+}
+
+static int spss_remove(struct platform_device *pdev)
+{
+
+	spss_utils_destroy_chardev();
+	spss_destroy_sysfs(spss_dev);
+
+	if (!iar_notif_handle && !iar_nb)
+		subsys_notif_unregister_notifier(iar_notif_handle, iar_nb);
+
+	kfree(iar_nb);
+	iar_nb = 0;
+
+	kfree(spss_utils_dev);
+	spss_utils_dev = 0;
 
 	return 0;
 }
@@ -1037,6 +1077,7 @@ static const struct of_device_id spss_match_table[] = {
 
 static struct platform_driver spss_driver = {
 	.probe = spss_probe,
+	.remove = spss_remove,
 	.driver = {
 		.name = DEVICE_NAME,
 		.of_match_table = of_match_ptr(spss_match_table),
@@ -1057,6 +1098,12 @@ static int __init spss_init(void)
 	return ret;
 }
 late_initcall(spss_init); /* start after PIL driver */
+
+static void __exit spss_exit(void)
+{
+	platform_driver_unregister(&spss_driver);
+}
+module_exit(spss_exit)
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Secure Processor Utilities");
