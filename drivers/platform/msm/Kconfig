@@ -124,7 +124,7 @@ config IPA_EMULATION
 	  shall be connected via PCIE to X86 machine.
 
 config USB_BAM
-	bool "USB BAM Driver"
+	tristate "USB BAM Driver"
 	depends on SPS && USB_GADGET
 	help
 	  Enabling this option adds USB BAM Driver.

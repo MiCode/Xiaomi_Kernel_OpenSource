@@ -6,3 +6,4 @@
 obj-$(CONFIG_GSI) += gsi/
 obj-$(CONFIG_IPA3) += ipa/
 obj-$(CONFIG_MSM_GENI_SE) += msm-geni-se.o
+obj-$(CONFIG_USB_BAM) += usb_bam.o
