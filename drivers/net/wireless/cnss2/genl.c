@@ -59,7 +59,6 @@ static int cnss_genl_process_msg(struct sk_buff *skb, struct genl_info *info)
 static struct genl_ops cnss_genl_ops[] = {
 	{
 		.cmd = CNSS_GENL_CMD_MSG,
-		.policy = cnss_genl_msg_policy,
 		.doit = cnss_genl_process_msg,
 	},
 };
@@ -76,6 +75,7 @@ static struct genl_family cnss_genl_family = {
 	.name = CNSS_GENL_FAMILY_NAME,
 	.version = CNSS_GENL_VERSION,
 	.maxattr = CNSS_GENL_ATTR_MAX,
+	.policy = cnss_genl_msg_policy,
 	.module = THIS_MODULE,
 	.ops = cnss_genl_ops,
 	.n_ops = ARRAY_SIZE(cnss_genl_ops),
