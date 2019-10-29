@@ -1355,7 +1355,7 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 			"Context fault handled by client: iova=0x%08lx, cb=%d, fsr=0x%x, fsynr0=0x%x, fsynr1=0x%x\n",
 			iova, cfg->cbndx, fsr, fsynr0, fsynr1);
 		dev_dbg(smmu->dev,
-			"Client info: BID=0x%x, PID=0x%x, MID=0x%x\n",
+			"Client info: BID=0x%lx, PID=0x%lx, MID=0x%lx\n",
 			FIELD_GET(FSYNR1_BID, fsynr1),
 			FIELD_GET(FSYNR1_PID, fsynr1),
 			FIELD_GET(FSYNR1_MID, fsynr1));
@@ -1373,7 +1373,7 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 				"Unhandled context fault: iova=0x%08lx, cb=%d, fsr=0x%x, fsynr0=0x%x, fsynr1=0x%x\n",
 				iova, cfg->cbndx, fsr, fsynr0, fsynr1);
 			dev_err(smmu->dev,
-				"Client info: BID=0x%x, PID=0x%x, MID=0x%x\n",
+				"Client info: BID=0x%lx, PID=0x%lx, MID=0x%lx\n",
 				FIELD_GET(FSYNR1_BID, fsynr1),
 				FIELD_GET(FSYNR1_PID, fsynr1),
 				FIELD_GET(FSYNR1_MID, fsynr1));
