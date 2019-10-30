@@ -44,7 +44,7 @@
 #define SYSRAM_CPUSYS_CNT              (0x1E8)
 #define SYSRAM_MCUSYS_CNT              (0x1EC)
 #define SYSRAM_CPC_CPUSYS_CNT_BACKUP   (0x1F0)
-#define SYSRAM_CPC_MCUSYS_CNT_BACKUP   (0x1F4)
+#define SYSRAM_MCUPM_MCUSYS_COUNTER    (0x1F4)
 #define SYSRAM_CPU_ONLINE              (0x1F8)
 
 /* Run time information. The registers may be cleared in db dump flow */

@@ -359,6 +359,12 @@ static unsigned int mtk_cpuidle_get_cluster_off_cnt(void)
 
 	mtk_cpupm_syssram_write(SYSRAM_CPC_CPUSYS_CNT_BACKUP, 0);
 
+	/**
+	 * Add mcusys off count because CPC cluster counter will be cleared
+	 * when mcusys power off.
+	 */
+	cnt += mtk_cpupm_syssram_read(SYSRAM_MCUPM_MCUSYS_COUNTER);
+
 	mtk_cpupm_syssram_write(SYSRAM_CPUSYS_CNT,
 			mtk_cpupm_syssram_read(SYSRAM_CPUSYS_CNT) + cnt);
 
@@ -367,9 +373,9 @@ static unsigned int mtk_cpuidle_get_cluster_off_cnt(void)
 
 static unsigned int mtk_cpuidle_get_mcusys_off_cnt(void)
 {
-	unsigned int cnt = mtk_cpupm_syssram_read(SYSRAM_CPC_MCUSYS_CNT_BACKUP);
+	unsigned int cnt = mtk_cpupm_syssram_read(SYSRAM_MCUPM_MCUSYS_COUNTER);
 
-	mtk_cpupm_syssram_write(SYSRAM_CPC_MCUSYS_CNT_BACKUP, 0);
+	mtk_cpupm_syssram_write(SYSRAM_MCUPM_MCUSYS_COUNTER, 0);
 
 	mtk_cpupm_syssram_write(SYSRAM_MCUSYS_CNT,
 			mtk_cpupm_syssram_read(SYSRAM_MCUSYS_CNT) + cnt);
@@ -404,6 +410,7 @@ static void mtk_cpuidle_dump_info(void)
 		}
 	}
 
+	/* Should calculate cluster off count before mcusys counter reset */
 	mtk_cpupm_syssram_write(SYSRAM_RECENT_CPUSYS_CNT,
 				mtk_cpuidle_get_cluster_off_cnt());
 

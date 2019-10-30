@@ -61,38 +61,6 @@ static void mtk_cpc_cal_lat(void)
 {
 }
 
-static void mtk_cpc_get_cpu_lat(int cpu, unsigned int *on, unsigned int *off)
-{
-	unsigned int lat;
-
-	lat = mtk_cpupm_mcusys_read(CPC_CPU_LATENCY(cpu));
-
-	*on = (lat >> 16) & 0xFFFF;
-	*off = lat & 0xFFFF;
-}
-
-static void mtk_cpc_get_cpusys_lat(unsigned int *on, unsigned int *off)
-{
-	unsigned int lat_on;
-	unsigned int lat_off;
-
-	lat_on = mtk_cpupm_mcusys_read(CPC_CLUSTER_ON_LATENCY);
-	lat_off = mtk_cpupm_mcusys_read(CPC_CLUSTER_OFF_LATENCY);
-
-	*on = lat_on & 0xFFFF;
-	*off = lat_off & 0xFFFF;
-}
-
-static void mtk_cpc_get_mcusys_lat(unsigned int *on, unsigned int *off)
-{
-	unsigned int lat;
-
-	lat = mtk_cpupm_mcusys_read(CPC_MCUSYS_LATENCY);
-
-	*on = (lat >> 16) & 0xFFFF;
-	*off = lat & 0xFFFF;
-}
-
 #define __mtk_cpc_record_lat(sum, max, lat)	\
 		do {				\
 			if (lat > max)		\
@@ -100,36 +68,60 @@ static void mtk_cpc_get_mcusys_lat(unsigned int *on, unsigned int *off)
 			(sum) += (lat);		\
 		} while (0)
 
-static void mtk_cpc_on_record_lat(struct mtk_cpc_lat_data *lat,
-					unsigned int ticks)
+static void mtk_cpc_record_lat(struct mtk_cpc_lat_data *lat,
+			unsigned int on_ticks, unsigned int off_ticks)
 {
 	unsigned long flags;
 
-	if (ticks == 0)
+	if ((on_ticks == 0) || (off_ticks == 0))
 		return;
 
 	spin_lock_irqsave(&cpc_prof_spin_lock, flags);
 
-	__mtk_cpc_record_lat(lat->on_sum, lat->on_max, ticks);
+	__mtk_cpc_record_lat(lat->on_sum, lat->on_max, on_ticks);
 	lat->on_cnt++;
+	__mtk_cpc_record_lat(lat->off_sum, lat->off_max, off_ticks);
+	lat->off_cnt++;
 
 	spin_unlock_irqrestore(&cpc_prof_spin_lock, flags);
 }
 
-static void mtk_cpc_off_record_lat(struct mtk_cpc_lat_data *lat,
-					unsigned int ticks)
+static void mtk_cpc_save_cpu_lat(int cpu)
 {
-	unsigned long flags;
+	unsigned int lat, on, off;
 
-	if (ticks == 0)
-		return;
+	lat = mtk_cpupm_mcusys_read(CPC_CPU_LATENCY(cpu));
 
-	spin_lock_irqsave(&cpc_prof_spin_lock, flags);
+	on = (lat >> 16) & 0xFFFF;
+	off = lat & 0xFFFF;
 
-	__mtk_cpc_record_lat(lat->off_sum, lat->off_max, ticks);
-	lat->off_cnt++;
+	mtk_cpc_record_lat(&cpc.cpu[get_core_type_index(cpu)],
+				on, off);
+}
 
-	spin_unlock_irqrestore(&cpc_prof_spin_lock, flags);
+static void mtk_cpc_save_cpusys_lat(void)
+{
+	unsigned int lat_on, lat_off, on, off;
+
+	lat_on = mtk_cpupm_mcusys_read(CPC_CLUSTER_ON_LATENCY);
+	lat_off = mtk_cpupm_mcusys_read(CPC_CLUSTER_OFF_LATENCY);
+
+	on = lat_on & 0xFFFF;
+	off = lat_off & 0xFFFF;
+
+	mtk_cpc_record_lat(&cpc.cluster, on, off);
+}
+
+static void mtk_cpc_save_mcusys_lat(void)
+{
+	unsigned int lat, on, off;
+
+	lat = mtk_cpupm_mcusys_read(CPC_MCUSYS_LATENCY);
+
+	on = (lat >> 16) & 0xFFFF;
+	off = lat & 0xFFFF;
+
+	mtk_cpc_record_lat(&cpc.mcusys, on, off);
 }
 
 static bool mtk_cpc_did_cluster_pwr_off(void)
@@ -160,7 +152,7 @@ static bool mtk_cpc_did_cluster_pwr_off(void)
 static bool mtk_cpc_did_mcusys_pwr_off(void)
 {
 	static unsigned int last_cnt;
-	unsigned int cnt = mtk_cpupm_syssram_read(SYSRAM_CPC_MCUSYS_CNT_BACKUP);
+	unsigned int cnt = mtk_cpupm_syssram_read(SYSRAM_MCUPM_MCUSYS_COUNTER);
 
 	cnt += mtk_cpupm_syssram_read(SYSRAM_MCUSYS_CNT);
 
@@ -174,32 +166,14 @@ static bool mtk_cpc_did_mcusys_pwr_off(void)
 
 static void mtk_cpc_save_latency(int cpu)
 {
-	unsigned int on, off;
-	struct mtk_cpc_lat_data *lat;
+	mtk_cpc_save_cpu_lat(cpu);
 
-	lat = &cpc.cpu[get_core_type_index(cpu)];
-
-	mtk_cpc_get_cpu_lat(cpu, &on, &off);
-	mtk_cpc_on_record_lat(lat, on);
-	mtk_cpc_off_record_lat(lat, off);
-
-	if (mtk_cpc_did_mcusys_pwr_off()) {
-
-		lat = &cpc.mcusys;
-
-		mtk_cpc_get_mcusys_lat(&on, &off);
-		mtk_cpc_on_record_lat(lat, on);
-		mtk_cpc_off_record_lat(lat, off);
-
-	} else if (!mtk_cpc_did_cluster_pwr_off()) {
+	if (mtk_cpc_did_mcusys_pwr_off())
+		mtk_cpc_save_mcusys_lat();
+	else if (!mtk_cpc_did_cluster_pwr_off())
 		return;
-	}
 
-	lat = &cpc.cluster;
-
-	mtk_cpc_get_cpusys_lat(&on, &off);
-	mtk_cpc_on_record_lat(lat, on);
-	mtk_cpc_off_record_lat(lat, off);
+	mtk_cpc_save_cpusys_lat();
 }
 
 void mtk_cpc_prof_lat_dump(struct seq_file *m)
