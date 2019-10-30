@@ -55,6 +55,10 @@ while (0)
 
 
 static DEFINE_SPINLOCK(mt6885_clk_lock);
+static DEFINE_SPINLOCK(meter_lock);
+#define fmeter_lock(flags)   spin_lock_irqsave(&meter_lock, flags)
+#define fmeter_unlock(flags) spin_unlock_irqrestore(&meter_lock, flags)
+
 
 /* CKSYS */
 #define CLK_MISC_CFG_0		(cksys_base + 0x140)
@@ -4357,7 +4361,9 @@ unsigned int mt_get_ckgen_freq(unsigned int ID)
 {
 	int output = 0, i = 0;
 	unsigned int temp, clk_dbg_cfg, clk_misc_cfg_0, clk26cali_1 = 0;
+	unsigned long flags;
 
+	fmeter_lock(flags);
 	while (clk_readl(CLK26CALI_0) & 0x1000)
 		;
 	clk_dbg_cfg = clk_readl(CLK_DBG_CFG);
@@ -4377,6 +4383,19 @@ unsigned int mt_get_ckgen_freq(unsigned int ID)
 		if (i > 20)
 			break;
 	}
+	/* illegal pass */
+	if (i == 0) {
+		clk_writel(CLK26CALI_0, 0x0000);
+		//re-trigger
+		clk_writel(CLK26CALI_0, 0x1000);
+		clk_writel(CLK26CALI_0, 0x1010);
+		while (clk_readl(CLK26CALI_0) & 0x10) {
+			udelay(10);
+			i++;
+			if (i > 20)
+				break;
+		}
+	}
 
 	temp = clk_readl(CLK26CALI_1) & 0xFFFF;
 
@@ -4388,15 +4407,15 @@ unsigned int mt_get_ckgen_freq(unsigned int ID)
 	/*clk_writel(CLK26CALI_1, clk26cali_1);*/
 
 	clk_writel(CLK26CALI_0, 0x0000);
+	fmeter_unlock(flags);
 	/*print("ckgen meter[%d] = %d Khz\n", ID, output);*/
 	if (i > 20) {
-		mt_get_ckgen_freq(1);
 		return 0;
 	} else
 		return output;
 
 }
-
+#if 0
 unsigned int mt_get_abist_freq(unsigned int ID)
 {
 	int output = 0, i = 0;
@@ -4438,7 +4457,7 @@ unsigned int mt_get_abist_freq(unsigned int ID)
 	else
 		return (output * 2);
 }
-
+#endif
 
 void pll_if_on(void)
 {
