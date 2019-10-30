@@ -1438,16 +1438,21 @@ void edma_power_on(struct edma_sub *edma_sub)
 	mutex_unlock(&edma_device->power_mutex);
 }
 
+void edma_start_power_off(struct work_struct *work)
+{
+	pr_notice("%s: in!!\n", __func__);
+	apu_device_power_off(EDMA);
+	pr_notice("%s: power off done!!\n", __func__);
+}
 
 void edma_power_time_up(unsigned long data)
 {
 	struct edma_device *edma_device = (struct edma_device *)data;
 
 	pr_notice("%s: user = %d!!\n", __func__, edma_device->edma_num_users);
-	apu_device_power_off(EDMA);
-	pr_notice("%s: power off done!!\n", __func__);
+	//use kwork job to prevent power off at irq
+	schedule_work(&edma_device->power_off_work);
 }
-
 
 void edma_power_off(struct edma_sub *edma_sub)
 {

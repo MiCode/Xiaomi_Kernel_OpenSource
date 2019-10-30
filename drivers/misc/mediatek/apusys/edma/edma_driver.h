@@ -90,6 +90,7 @@ struct edma_device {
 	struct list_head user_list;
 	int edma_num_users;
 	enum edma_power_state power_state;
+	struct work_struct power_off_work;
 
 	dev_t edma_devt;
 	struct cdev edma_chardev;
