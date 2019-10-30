@@ -58,7 +58,7 @@ static ssize_t mnoc_log_level_write(struct file *file,
 	buf[count] = '\0';
 
 	if (kstrtoint(buf, 10, &val) == 0)
-		if (val == 0 || val == 1)
+		if (val >= 0 && val <= 2)
 			mnoc_log_level = val;
 
 out:
@@ -166,14 +166,19 @@ static int mnoc_pmu_reg_show(struct seq_file *m, void *v)
 	return 0;
 }
 
+/* usage:
+ * pmu reg setting: echo w phys_addr > mnoc_pmu_reg
+ * clear pmu reg list: echo 0 > mnoc_pmu_reg
+ * clear pmu counter to zero: echo c grp_num > mnoc_pmu_reg
+ */
 static ssize_t mnoc_pmu_reg_write(struct file *file,
 	const char __user *buffer, size_t count, loff_t *pos)
 {
 	void *addr = 0;
 	unsigned long flags;
 	char *buf = (char *) __get_free_page(GFP_USER);
-	unsigned int mnoc_value = 0, mnoc_op = 0;
-	unsigned char mnoc_rw = 0;
+	unsigned int mnoc_value = 0;
+	unsigned char mnoc_op = 0;
 	unsigned int pmu_addr_phy = 0;
 
 	if (!buf)
@@ -187,13 +192,11 @@ static ssize_t mnoc_pmu_reg_write(struct file *file,
 
 	buf[count] = '\0';
 
-	if (sscanf(buf, "%1s %x %x", &mnoc_rw, &pmu_addr_phy,
+	if (sscanf(buf, "%1s %x %x", &mnoc_op, &pmu_addr_phy,
 		&mnoc_value) == 3) {
-		if (mnoc_rw != 'w' && mnoc_rw != 'W')
+		if (mnoc_op != 'w' && mnoc_op != 'W')
 			goto out;
-		if (pmu_addr_phy < APU_NOC_PMU_ADDR ||
-			pmu_addr_phy >=
-			(APU_NOC_PMU_ADDR + APU_NOC_PMU_RANGE)) {
+		if (!mnoc_pmu_reg_in_range(pmu_addr_phy)) {
 			LOG_DEBUG("Reg[%08X] not in pmu reg map\n",
 				pmu_addr_phy);
 		} else {
@@ -205,8 +208,14 @@ static ssize_t mnoc_pmu_reg_write(struct file *file,
 			spin_unlock_irqrestore(&mnoc_spinlock, flags);
 			enque_pmu_reg(pmu_addr_phy, mnoc_value);
 		}
-	} else if (kstrtoint(buf, 10, &mnoc_op) == 0) {
-		if (mnoc_op == 0)
+	} else if (sscanf(buf, "%1s %d", &mnoc_op,
+		&mnoc_value) == 2) {
+		if (mnoc_op != 'c' && mnoc_op != 'C')
+			goto out;
+		if (mnoc_value < NR_GROUP)
+			mnoc_clear_pmu_counter(mnoc_value);
+	} else if (kstrtoint(buf, 10, &mnoc_value) == 0) {
+		if (mnoc_value == 0)
 			clear_pmu_reg_list();
 	}
 
@@ -399,7 +408,7 @@ out:
 	free_page((unsigned long)buf);
 	return count;
 }
-#endif
+#endif /* MNOC_DBG_ENABLE */
 
 static int mnoc_cmd_qos_dump_show(struct seq_file *m, void *v)
 {

@@ -79,12 +79,21 @@ void enque_pmu_reg(unsigned int addr, unsigned int val)
 void clear_pmu_reg_list(void)
 {
 	struct pmu_reg *pmu_reg, *pos;
+	void *addr = 0;
+	unsigned long flags;
 
 	LOG_DEBUG("+\n");
 
 	mutex_lock(&(pmu_reg_list.list_mtx));
 
 	list_for_each_entry_safe(pmu_reg, pos, &(pmu_reg_list.list), list) {
+		spin_lock_irqsave(&mnoc_spinlock, flags);
+		addr = (void *) ((uintptr_t) mnoc_base +
+					(pmu_reg->addr - APU_NOC_TOP_ADDR));
+		if (mnoc_reg_valid)
+			mnoc_write(addr, 0);
+		spin_unlock_irqrestore(&mnoc_spinlock, flags);
+
 		list_del(&pmu_reg->list);
 		kfree(pmu_reg);
 	}

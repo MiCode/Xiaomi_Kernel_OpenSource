@@ -191,18 +191,30 @@ static void mnoc_apusys_top_before_pwr_off(void *para)
 #if MNOC_INT_ENABLE
 static irqreturn_t mnoc_isr(int irq, void *dev_id)
 {
+	unsigned long flags;
 	bool mnoc_irq_triggered = false;
 
 	LOG_DEBUG("+\n");
 
+	spin_lock_irqsave(&mnoc_spinlock, flags);
+
+	/* prevent register access if apusys power off */
+	if (!mnoc_reg_valid) {
+		spin_unlock_irqrestore(&mnoc_spinlock, flags);
+		LOG_ERR("ISR can't access mnoc reg when APUSYS off\n");
+		return IRQ_NONE;
+	}
+
 	mnoc_irq_triggered = mnoc_check_int_status();
+
+	spin_unlock_irqrestore(&mnoc_spinlock, flags);
 
 	if (mnoc_irq_triggered) {
 		LOG_ERR("INT triggered by mnoc\n");
 		return IRQ_HANDLED;
 	}
 
-	LOG_ERR("INT NOT triggered by mnoc\n");
+	LOG_DEBUG("INT NOT triggered by mnoc\n");
 
 	LOG_DEBUG("-\n");
 

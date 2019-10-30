@@ -170,7 +170,7 @@ static void update_cmd_qos(struct qos_bound *qos_info, struct cmd_qos *cmd_qos)
 		cmd_qos->count++;
 		idx = (idx + 1) % MTK_QOS_BUF_SIZE;
 	}
-	LOG_DEBUG("(0x%llx/0x%llx)idx(%d ~ %d)\n", cmd_qos->cmd_id,
+	LOG_DETAIL("(0x%llx/0x%llx)idx(%d ~ %d)\n", cmd_qos->cmd_id,
 		cmd_qos->sub_cmd_id, cmd_qos->last_idx, idx);
 	/* update last idx */
 	cmd_qos->last_idx = idx;
@@ -183,7 +183,7 @@ static int update_cmd_qos_list_locked(struct qos_bound *qos_info)
 	struct cmd_qos *cmd_qos = NULL;
 	struct qos_counter *counter = &qos_counter;
 
-	LOG_DEBUG("+\n");
+	LOG_DETAIL("+\n");
 
 	/* mutex_lock(&counter->list_mtx); */
 
@@ -194,7 +194,7 @@ static int update_cmd_qos_list_locked(struct qos_bound *qos_info)
 
 	/* mutex_unlock(&counter->list_mtx); */
 
-	LOG_DEBUG("-\n");
+	LOG_DETAIL("-\n");
 
 	return 0;
 }
@@ -290,7 +290,7 @@ static void qos_work_func(struct work_struct *work)
 	unsigned long val;
 #endif
 
-	LOG_DEBUG("+\n");
+	LOG_DETAIL("+\n");
 
 #if MNOC_TIME_PROFILE
 	do_gettimeofday(&begin);
@@ -316,7 +316,7 @@ static void qos_work_func(struct work_struct *work)
 				peak_bw :
 				qos_info->stats[idx].smibw_mon[qos_smi_idx];
 		} while (idx != qos_info->idx);
-		LOG_DEBUG("idx[%d](%d ~ %d)\n", i, counter->last_idx, idx);
+		LOG_DETAIL("idx[%d](%d ~ %d)\n", i, counter->last_idx, idx);
 		counter->last_idx = idx;
 
 		/* update peak bw */
@@ -325,7 +325,7 @@ static void qos_work_func(struct work_struct *work)
 			update_qos_request(&counter->qos_req, peak_bw);
 		}
 
-		LOG_DEBUG("peakbw[%d]=%d\n", i, peak_bw);
+		LOG_DETAIL("peakbw[%d]=%d\n", i, peak_bw);
 	}
 
 	mutex_lock(&(qos_counter.list_mtx));
@@ -341,21 +341,21 @@ static void qos_work_func(struct work_struct *work)
 	cnt_work_func += 1;
 #endif
 
-	LOG_DEBUG("-\n");
+	LOG_DETAIL("-\n");
 }
 
 static void qos_timer_func(unsigned long arg)
 {
 	struct qos_counter *counter = &qos_counter;
 
-	LOG_DEBUG("+\n");
+	LOG_DETAIL("+\n");
 
 	/* queue work because mutex sleep must be happened */
 	enque_qos_wq(&qos_work);
 	mod_timer(&counter->qos_timer,
 		jiffies + msecs_to_jiffies(DEFAUTL_QOS_POLLING_TIME));
 
-	LOG_DEBUG("-\n");
+	LOG_DETAIL("-\n");
 }
 
 /*
@@ -393,7 +393,6 @@ static void apu_qos_timer_start(void)
  */
 static void apu_qos_timer_end(void)
 {
-	int i = 0;
 	struct qos_counter *counter = &qos_counter;
 
 	LOG_DEBUG("+\n");
@@ -401,12 +400,6 @@ static void apu_qos_timer_end(void)
 	if (qos_timer_exist) {
 		qos_timer_exist = false;
 		del_timer_sync(&counter->qos_timer);
-	}
-
-	/* fixme: if update request to default value necessary? */
-	for (i = 0; i < NR_APU_QOS_ENGINE; i++) {
-		update_qos_request(&(engine_pm_qos_counter[i].qos_req),
-			PM_QOS_APU_MEMORY_BANDWIDTH_DEFAULT_VALUE);
 	}
 
 	LOG_DEBUG("-\n");
@@ -720,11 +713,12 @@ int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id)
 			} else
 				cmd_qos->total_bw -= total_bw;
 
-			if (cmd_qos->count < total_count)
+			if (cmd_qos->count < total_count) {
 				LOG_ERR("cmd(0x%llx/0x%llx) count(%d) < %d",
 					cmd_qos->cmd_id, cmd_qos->sub_cmd_id,
 					cmd_qos->count, total_count);
-			else
+				cmd_qos->count = 0;
+			} else
 				cmd_qos->count -= total_count;
 
 			/* workaround to prevent including last
@@ -738,6 +732,12 @@ int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id)
 	}
 
 	mutex_unlock(&counter->list_mtx);
+
+	if (!qos_timer_exist) {
+		/* make sure no work_func running after timer delete */
+		cancel_work_sync(&qos_work);
+		apu_pm_qos_off();
+	}
 
 	LOG_DEBUG("-\n");
 
@@ -866,6 +866,10 @@ void notify_sspm_apusys_on(void)
 }
 
 void notify_sspm_apusys_off(void)
+{
+}
+
+void apu_pm_qos_off(void)
 {
 }
 

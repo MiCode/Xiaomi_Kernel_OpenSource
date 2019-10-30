@@ -106,6 +106,7 @@ enum rt_int_sta {
 #define NR_APU_ENGINE_EDMA (2)
 
 #define NR_MNOC_RT (5)
+#define NR_GROUP (1)
 #define NR_MNOC_MNI (16)
 #define NR_MNOC_SNI (16)
 #define NR_MNOC_PMU_CNTR (16)
@@ -114,7 +115,7 @@ enum rt_int_sta {
 #define APU_NOC_TOP_BASEADDR mnoc_base
 /* 0x19001000 */
 #define MNOC_INT_BASEADDR mnoc_int_base
-/* 0x19001000 */
+/* 0x19020000 */
 #define MNOC_APU_CONN_BASEADDR mnoc_apu_conn_base
 /* 0x10001000 */
 #define MNOC_SLP_PROT_BASEADDR1 mnoc_slp_prot_base1
@@ -122,17 +123,17 @@ enum rt_int_sta {
 #define MNOC_SLP_PROT_BASEADDR2 mnoc_slp_prot_base2
 
 /* MNoC register definition */
-#define MNOC_INT_EN (MNOC_INT_BASEADDR + 0x80)
-#define MNOC_INT_STA (MNOC_INT_BASEADDR + 0x34)
+#define APUSYS_INT_EN (MNOC_INT_BASEADDR + 0x80)
+#define APUSYS_INT_STA (MNOC_INT_BASEADDR + 0x34)
 
 #define APU_TCM_HASH_TRUNCATE_CTRL0 (MNOC_APU_CONN_BASEADDR + 0x7C)
 
 /* #define APU_NOC_TOP_BASEADDR			(0x1906E000) */
-#define APU_NOC_TOP_ADDR			(0x1906E000)
-#define APU_NOC_TOP_RANGE			(0x2000)
+#define APU_NOC_TOP_ADDR (0x1906E000)
+#define APU_NOC_TOP_RANGE (0x2000)
 
-#define APU_NOC_PMU_ADDR			(0x1906E200)
-#define APU_NOC_PMU_RANGE			(0x48C)
+#define APU_NOC_PMU_ADDR (0x1906E200)
+#define APU_NOC_PMU_RANGE (0x48C)
 
 #define MNI_QOS_CTRL_BASE (APU_NOC_TOP_BASEADDR + 0x1000)
 #define MNI_QOS_INFO_BASE (APU_NOC_TOP_BASEADDR + 0x1800)
@@ -143,6 +144,7 @@ enum rt_int_sta {
 #define RSP_RT_PMU_BASE (APU_NOC_TOP_BASEADDR + 0x600)
 #define MNOC_RT_PMU_REG(base, reg_num, rt_num)	(base + reg_num*5*4 + rt_num*4)
 
+#define MISC_CTRL (0x0)
 #define SLV_QOS_CTRL1 (0x14)
 #define MNI_QOS_IRQ_FLAG (0x18)
 #define ADDR_DEC_ERR_FLAG (0x30)
@@ -173,5 +175,7 @@ int apusys_dev_to_core_id(int dev_type, int dev_core);
 void mnoc_get_pmu_counter(unsigned int *buf);
 void mnoc_tcm_hash_set(unsigned int sel, unsigned int en0, unsigned int en1);
 void mnoc_hw_reinit(void);
+void mnoc_clear_pmu_counter(unsigned int grp);
+bool mnoc_pmu_reg_in_range(unsigned int addr);
 
 #endif

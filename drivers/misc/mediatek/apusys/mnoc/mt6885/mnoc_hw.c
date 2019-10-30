@@ -246,7 +246,7 @@ static void mnoc_reg_init(void)
 	mnoc_write_field(MNOC_REG(SLV_QOS_CTRL1), 31:16, 0x7777);
 
 	/* enable mnoc interrupt */
-	mnoc_write_field(MNOC_INT_EN, 1:0, 3);
+	mnoc_write_field(APUSYS_INT_EN, 1:0, 3);
 
 	/* set request router timeout interrupt */
 	for (i = 0; i < NR_MNOC_RT; i++) {
@@ -286,20 +286,13 @@ static void mnoc_reg_init(void)
  */
 bool mnoc_check_int_status(void)
 {
-	unsigned long flags;
 	bool mnoc_irq_triggered = false;
 	unsigned int val;
 	int int_idx, ni_idx;
 
 	LOG_DEBUG("+\n");
 
-	spin_lock_irqsave(&mnoc_spinlock, flags);
-
-	/* prevent register access if apusys power off */
-	if (!mnoc_reg_valid) {
-		spin_unlock_irqrestore(&mnoc_spinlock, flags);
-		return mnoc_irq_triggered;
-	}
+	LOG_DEBUG("APUSYS INT STA = 0x%x\n", mnoc_read(APUSYS_INT_STA));
 
 	for (int_idx = 0; int_idx < NR_MNI_INT_STA; int_idx++) {
 		val = mnoc_read(MNOC_REG(mni_int_sta_offset[int_idx]));
@@ -348,7 +341,14 @@ bool mnoc_check_int_status(void)
 		}
 	}
 
-	spin_unlock_irqrestore(&mnoc_spinlock, flags);
+	/* additional check: sw triggered irq */
+	val = mnoc_read_field(MNOC_REG(MISC_CTRL), 18:16);
+	if (val != 0) {
+		LOG_ERR("From SW_IRQ = 0x%x\n", val);
+		mnoc_write_field(MNOC_REG(MISC_CTRL),
+			18:16, 0x0);
+		mnoc_irq_triggered = true;
+	}
 
 	LOG_DEBUG("-\n");
 
@@ -370,6 +370,25 @@ void mnoc_get_pmu_counter(unsigned int *buf)
 	spin_unlock_irqrestore(&mnoc_spinlock, flags);
 
 	LOG_DEBUG("-\n");
+}
+
+/* project not support clear pmu counter */
+void mnoc_clear_pmu_counter(unsigned int grp)
+{
+	LOG_DEBUG("+\n");
+	LOG_DEBUG("-\n");
+}
+
+bool mnoc_pmu_reg_in_range(unsigned int addr)
+{
+	unsigned int start, end;
+
+	start = APU_NOC_PMU_ADDR;
+	end = start + APU_NOC_PMU_RANGE;
+	if (addr >= start && addr < end)
+		return true;
+
+	return false;
 }
 
 void mnoc_tcm_hash_set(unsigned int sel, unsigned int en0, unsigned int en1)
