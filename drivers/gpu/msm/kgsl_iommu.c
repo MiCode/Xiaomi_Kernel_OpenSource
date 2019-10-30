@@ -2544,6 +2544,8 @@ static const char * const kgsl_iommu_clocks[] = {
 	"gpu_cc_ahb",
 };
 
+static struct kgsl_mmu_ops kgsl_iommu_ops;
+
 static int _kgsl_iommu_probe(struct kgsl_device *device,
 		struct device_node *node)
 {
@@ -2608,7 +2610,21 @@ static int _kgsl_iommu_probe(struct kgsl_device *device,
 	ret = kgsl_iommu_probe_child(device, node, &iommu->user_context,
 		"gfx3d_user");
 
-	if (!ret && device->mmu.secured) {
+	if (ret) {
+		of_platform_depopulate(&pdev->dev);
+		platform_device_put(pdev);
+
+		return ret;
+	}
+
+	mmu->type = KGSL_MMU_TYPE_IOMMU;
+	mmu->mmu_ops = &kgsl_iommu_ops;
+
+	/* Probe "lpac" context bank if the platform demands it */
+	kgsl_iommu_probe_child(device, node,
+		&iommu->lpac_context, "gfx3d_lpac");
+
+	if (device->mmu.secured) {
 		const char *name = "gfx3d_secure";
 
 		if (test_bit(KGSL_MMU_SECURE_CB_ALT, &mmu->features))
@@ -2620,16 +2636,7 @@ static int _kgsl_iommu_probe(struct kgsl_device *device,
 			device->mmu.secured = false;
 	}
 
-	if (ret) {
-		of_platform_depopulate(&pdev->dev);
-		platform_device_put(pdev);
-	}
-
-	/* Probe "lpac" context bank if the platform demands it */
-	if (!ret)
-		kgsl_iommu_probe_child(device, node,
-			&iommu->lpac_context, "gfx3d_lpac");
-	return ret;
+	return 0;
 }
 
 static const struct {
@@ -2639,7 +2646,7 @@ static const struct {
 	{ "qcom,kgsl-smmu-v2", _kgsl_iommu_probe },
 };
 
-static int kgsl_iommu_probe(struct kgsl_device *device)
+int kgsl_iommu_probe(struct kgsl_device *device)
 {
 	int i;
 
@@ -2656,7 +2663,7 @@ static int kgsl_iommu_probe(struct kgsl_device *device)
 	return -ENODEV;
 }
 
-struct kgsl_mmu_ops kgsl_iommu_ops = {
+static struct kgsl_mmu_ops kgsl_iommu_ops = {
 	.mmu_init = kgsl_iommu_init,
 	.mmu_close = kgsl_iommu_close,
 	.mmu_start = kgsl_iommu_start,
@@ -2671,7 +2678,6 @@ struct kgsl_mmu_ops kgsl_iommu_ops = {
 	.mmu_init_pt = kgsl_iommu_init_pt,
 	.mmu_getpagetable = kgsl_iommu_getpagetable,
 	.mmu_map_global = kgsl_iommu_map_global,
-	.probe = kgsl_iommu_probe,
 };
 
 static struct kgsl_mmu_pt_ops iommu_pt_ops = {

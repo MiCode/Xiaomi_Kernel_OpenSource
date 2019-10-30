@@ -637,49 +637,27 @@ static int nommu_init(struct kgsl_mmu *mmu)
 	return 0;
 }
 
-static int nommu_probe(struct kgsl_device *device)
-{
-	/* NOMMU always exists */
-	return 0;
-}
-
 static struct kgsl_mmu_ops kgsl_nommu_ops = {
 	.mmu_init = nommu_init,
 	.mmu_init_pt = nommu_init_pt,
 	.mmu_getpagetable = nommu_getpagetable,
-	.probe = nommu_probe,
-};
-
-static struct {
-	const char *name;
-	unsigned int type;
-	struct kgsl_mmu_ops *ops;
-} kgsl_mmu_subtypes[] = {
-#if IS_ENABLED(CONFIG_ARM_SMMU)
-	{ "iommu", KGSL_MMU_TYPE_IOMMU, &kgsl_iommu_ops },
-#endif
-	{ "nommu", KGSL_MMU_TYPE_NONE, &kgsl_nommu_ops },
 };
 
 int kgsl_mmu_probe(struct kgsl_device *device)
 {
 	struct kgsl_mmu *mmu = &device->mmu;
-	int ret, i;
 
-	for (i = 0; i < ARRAY_SIZE(kgsl_mmu_subtypes); i++) {
-		ret = kgsl_mmu_subtypes[i].ops->probe(device);
-
-		if (ret == 0) {
-			mmu->type = kgsl_mmu_subtypes[i].type;
-			mmu->mmu_ops = kgsl_mmu_subtypes[i].ops;
-
-			if (MMU_OP_VALID(mmu, mmu_init))
-				return mmu->mmu_ops->mmu_init(mmu);
-
-			return 0;
-		}
+	/*
+	 * Try to probe for the IOMMU and if it doesn't exist for some reason
+	 * go for the NOMMU option instead
+	 */
+	if (kgsl_iommu_probe(device)) {
+		mmu->mmu_ops = &kgsl_nommu_ops;
+		mmu->type = KGSL_MMU_TYPE_NONE;
 	}
 
-	dev_err(device->dev, "mmu: couldn't detect any known MMU types\n");
-	return -ENODEV;
+	if (MMU_OP_VALID(mmu, mmu_init))
+		return mmu->mmu_ops->mmu_init(mmu);
+
+	return 0;
 }

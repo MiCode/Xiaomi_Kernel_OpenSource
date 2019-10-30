@@ -55,7 +55,6 @@ struct kgsl_pagetable {
 struct kgsl_mmu;
 
 struct kgsl_mmu_ops {
-	int (*probe)(struct kgsl_device *device);
 	int (*mmu_init)(struct kgsl_mmu *mmu);
 	void (*mmu_close)(struct kgsl_mmu *mmu);
 	int (*mmu_start)(struct kgsl_mmu *mmu);
@@ -157,8 +156,6 @@ struct kgsl_mmu {
 };
 
 #define KGSL_IOMMU_PRIV(_device) (&((_device)->mmu.priv.iommu))
-
-extern struct kgsl_mmu_ops kgsl_iommu_ops;
 
 int kgsl_mmu_probe(struct kgsl_device *device);
 int kgsl_mmu_start(struct kgsl_device *device);
@@ -356,4 +353,13 @@ void kgsl_mmu_map_global(struct kgsl_device *device,
  * negative error on failure.
  */
 int kgsl_mmu_pagetable_get_context_bank(struct kgsl_pagetable *pagetable);
+
+#if IS_ENABLED(CONFIG_ARM_SMMU)
+int kgsl_iommu_probe(struct kgsl_device *device);
+#else
+static inline int kgsl_iommu_probe(struct kgsl_device *device)
+{
+	return -ENODEV;
+}
+#endif
 #endif /* __KGSL_MMU_H */
