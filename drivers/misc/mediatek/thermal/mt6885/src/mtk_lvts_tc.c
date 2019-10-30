@@ -66,7 +66,7 @@
 /* chip dependent */
 int tscpu_polling_trip_temp1 = 40000;
 int tscpu_polling_trip_temp2 = 20000;
-int tscpu_polling_factor1 = 1;
+int tscpu_polling_factor1 = 3;
 int tscpu_polling_factor2 = 4;
 
 #if MTKTSCPU_FAST_POLLING
