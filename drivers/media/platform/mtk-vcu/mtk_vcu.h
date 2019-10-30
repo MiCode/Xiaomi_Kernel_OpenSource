@@ -136,7 +136,7 @@ enum ipi_id {
 	IPI_MDP_1,
 	IPI_MDP_2,
 	IPI_MDP_3,
-	IPI_CAMERA = 20,
+	IPI_CAMERA,
 	IPI_MAX = 50,
 };
 
