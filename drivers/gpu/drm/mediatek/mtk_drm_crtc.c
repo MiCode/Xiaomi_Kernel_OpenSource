@@ -4473,14 +4473,17 @@ int mtk_crtc_lcm_ATA(struct drm_crtc *crtc)
 
 	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 
+	mtk_disp_esd_check_switch(crtc, 0);
 	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
 	if (unlikely(!output_comp)) {
 		DDPPR_ERR("%s:invalid output comp\n", __func__);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto out;
 	}
 	if (unlikely(!panel_ext)) {
 		DDPPR_ERR("%s:invalid panel_ext\n", __func__);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto out;
 	}
 
 	DDPINFO("[ATA_LCM]primary display path stop[begin]\n");
@@ -4507,6 +4510,8 @@ int mtk_crtc_lcm_ATA(struct drm_crtc *crtc)
 		cmdq_pkt_flush(cmdq_handle);
 		cmdq_pkt_destroy(cmdq_handle);
 	}
+out:
+	mtk_disp_esd_check_switch(crtc, 1);
 
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 	return ret;
