@@ -89,6 +89,13 @@ int scp_awake_lock(enum scp_core_id scp_id)
 
 	count = 0;
 	while (++count != SCP_AWAKE_TIMEOUT) {
+#if SCP_RECOVERY_SUPPORT
+		if (atomic_read(&scp_reset_status) == RESET_STATUS_START) {
+			pr_notice("%s: resetting scp, break\n", __func__);
+			break;
+		}
+#endif  // SCP_RECOVERY_SUPPORT
+
 		tmp = readl(INFRA_IRQ_SET);
 		if ((tmp & 0xf0) != 0xA0) {
 			pr_notice("%s: INFRA_IRQ_SET %x\n", __func__, tmp);
@@ -167,6 +174,12 @@ int scp_awake_unlock(enum scp_core_id scp_id)
 
 	count = 0;
 	while (++count != SCP_AWAKE_TIMEOUT) {
+#if SCP_RECOVERY_SUPPORT
+		if (atomic_read(&scp_reset_status) == RESET_STATUS_START) {
+			pr_notice("%s: scp is being reset, break\n", __func__);
+			break;
+		}
+#endif  // SCP_RECOVERY_SUPPORT
 		tmp = readl(INFRA_IRQ_SET);
 		if ((tmp & 0xf0) != 0xA0) {
 			pr_notice("%s: INFRA7_IRQ_SET %x\n", __func__, tmp);

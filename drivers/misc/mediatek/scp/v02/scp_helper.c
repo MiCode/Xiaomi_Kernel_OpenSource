@@ -1072,8 +1072,9 @@ static int scp_reserve_memory_ioremap(void)
 			(uint64_t)scp_reserve_mblock[id].size);
 #endif  // DEBUG
 	}
-	//BUG_ON(accumlate_memory_size > scp_mem_size);
-
+#ifdef CONFIG_MTK_ENG_BUILD
+	BUG_ON(accumlate_memory_size > scp_mem_size);
+#endif
 #ifdef DEBUG
 	for (id = 0; id < NUMS_MEM_ID; id++) {
 		uint64_t start_phys = (uint64_t)scp_get_reserve_mem_phys(id);
