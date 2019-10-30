@@ -2804,6 +2804,7 @@ EXIT:
 /* isr dbg log , sw isr response counter , +1 when sw receive 1 sof isr. */
 static unsigned int sof_count[ISP_IRQ_TYPE_AMOUNT] = {0};
 static int Vsync_cnt[ISP_IRQ_TYPE_AMOUNT] = {0};
+static unsigned int HwP1Done_cnt[ISP_IRQ_TYPE_AMOUNT] = {0};
 
 /* keep current frame status */
 static enum CAM_FrameST FrameStatus[ISP_IRQ_TYPE_AMOUNT] = {0};
@@ -2912,6 +2913,7 @@ static long ISP_Buf_CTRL_FUNC(unsigned long Param)
 
 					sof_count[rt_buf_ctrl.module] = 0;
 					g1stSof[rt_buf_ctrl.module] = MTRUE;
+					HwP1Done_cnt[rt_buf_ctrl.module] = 0;
 
 #if (TSTMP_SUBSAMPLE_INTPL == 1)
 
@@ -2956,6 +2958,7 @@ static long ISP_Buf_CTRL_FUNC(unsigned long Param)
 
 					sof_count[rt_buf_ctrl.module] = 0;
 					g1stSof[rt_buf_ctrl.module] = MTRUE;
+					HwP1Done_cnt[rt_buf_ctrl.module] = 0;
 					g_ISPIntStatus[rt_buf_ctrl.module]
 						.ispIntErr = 0;
 
@@ -5192,6 +5195,29 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			}
 		}
 		break;
+	case ISP_GET_CUR_HWP1DONE:
+		if (copy_from_user(&DebugFlag[0], (void *)Param,
+				   sizeof(unsigned int)) != 0) {
+			LOG_NOTICE("get cur hw p1 done from user fail\n");
+			Ret = -EFAULT;
+		} else {
+			if (DebugFlag[0] < ISP_IRQ_TYPE_INT_CAM_A_ST ||
+			    DebugFlag[0] >= ISP_IRQ_TYPE_AMOUNT) {
+
+				LOG_NOTICE("cur hw p1 done: error type(%d)\n",
+					   DebugFlag[0]);
+
+				Ret = -EFAULT;
+				break;
+			}
+			DebugFlag[1] = HwP1Done_cnt[DebugFlag[0]];
+		}
+		if (copy_to_user((void *)Param, &DebugFlag[1],
+				 sizeof(unsigned int)) != 0) {
+			LOG_NOTICE("copy to user fail\n");
+			Ret = -EFAULT;
+		}
+		break;
 	default: {
 		LOG_NOTICE("Unknown Cmd(%d)\n", Cmd);
 		Ret = -EPERM;
@@ -5524,6 +5550,7 @@ static long ISP_ioctl_compat(struct file *filp, unsigned int cmd,
 	case SV_SET_PM_QOS:
 	case ISP_SET_SEC_DAPC_REG:
 	case ISP_NOTE_CQTHR0_BASE:
+	case ISP_GET_CUR_HWP1DONE:
 		return filp->f_op->unlocked_ioctl(filp, cmd, arg);
 	default:
 		return -ENOIOCTLCMD;
@@ -8873,6 +8900,12 @@ irqreturn_t ISP_Irq_CAMSV(enum ISP_IRQ_TYPE_ENUM irq_module,
 		}
 	}
 
+	if (IrqStatus & SV_HW_PASS1_DON_ST) {
+		HwP1Done_cnt[module]++;
+		if (HwP1Done_cnt[module] > 255)
+			HwP1Done_cnt[module] -= 256;
+	}
+
 	spin_lock(&(IspInfo.SpinLockIrq[module]));
 	if (IrqStatus & SV_SW_PASS1_DON_ST) {
 		sec = cpu_clock(0);	  /* ns */
@@ -10383,6 +10416,12 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 				       "isp sof_don block, %d_%d\n", cur_v_cnt,
 				       sof_count[module]);
 		}
+	}
+
+	if (IrqStatus & HW_PASS1_DON_ST) {
+		HwP1Done_cnt[module]++;
+		if (HwP1Done_cnt[module] > 255)
+			HwP1Done_cnt[module] -= 256;
 	}
 
 	if ((IrqStatus & HW_PASS1_DON_ST) &&

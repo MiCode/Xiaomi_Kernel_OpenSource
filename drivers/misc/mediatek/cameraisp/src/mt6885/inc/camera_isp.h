@@ -678,6 +678,7 @@ enum ISP_CMD_ENUM {
 	SV_CMD_GET_CUR_ISP_CLOCK, /* Get cur isp clock level */
 	SV_CMD_GET_SUPPORTED_ISP_CLOCKS,
 	ISP_CMD_SET_SEC_DAPC_REG,
+	ISP_CMD_GET_CUR_HWP1DONE,
 	ISP_CMD_NOTE_CQTHR0_BASE
 };
 
@@ -825,6 +826,9 @@ enum ISP_HALT_DMA_ENUM {
 
 #define ISP_SET_SEC_DAPC_REG                     \
 	_IOW(ISP_MAGIC, ISP_CMD_SET_SEC_DAPC_REG, unsigned int)
+
+#define ISP_GET_CUR_HWP1DONE                    \
+	_IOWR(ISP_MAGIC, ISP_CMD_GET_CUR_HWP1DONE, unsigned char*)
 
 #ifdef CONFIG_COMPAT
 #define COMPAT_ISP_READ_REGISTER                 \
