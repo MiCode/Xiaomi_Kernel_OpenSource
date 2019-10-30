@@ -2152,7 +2152,7 @@ int remap_pfn_range(struct vm_area_struct *vma, unsigned long addr,
 	do {
 		next = pgd_addr_end(addr, end);
 
-#ifdef CONFIG_DEVAPC_MT6885
+#ifdef CONFIG_DEVAPC_MMAP_DEBUG
 		devapc_catch_illegal_range(pfn << PAGE_SHIFT, size);
 #endif
 

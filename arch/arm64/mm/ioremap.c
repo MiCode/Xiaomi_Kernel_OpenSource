@@ -65,7 +65,7 @@ static void __iomem *__ioremap_caller(phys_addr_t phys_addr, size_t size,
 	addr = (unsigned long)area->addr;
 	area->phys_addr = phys_addr;
 
-#ifdef CONFIG_DEVAPC_MT6885
+#ifdef CONFIG_DEVAPC_MMAP_DEBUG
 	devapc_catch_illegal_range(phys_addr, size);
 #endif
 
