@@ -118,11 +118,33 @@ static void init_function_symbols(void)
 #endif
 }
 
-int perf_tracer_enable(int on)
+int perf_tracker_enable(int val)
 {
-	perf_tracker_on = on;
+	mutex_lock(&perf_ctl_mutex);
 
-	return (perf_tracker_on == on) ? 0 : -1;
+	val = (val > 0) ? 1 : 0;
+
+	perf_tracker_on = val;
+#ifdef CONFIG_MTK_BLOCK_TAG
+	mtk_btag_mictx_enable(val);
+#endif
+
+#ifdef CONFIG_MTK_GPU_SWPM_SUPPORT
+	// GPU PMU Recording
+	if (val == 1 && gpu_pmu_enable && !is_gpu_pmu_worked) {
+		if (MTKGPUPower_model_start_symbol)
+			MTKGPUPower_model_start_symbol(gpu_pmu_period);
+		is_gpu_pmu_worked = 1;
+	} else if (val == 0 && is_gpu_pmu_worked) {
+		if (MTKGPUPower_model_stop_symbol)
+			MTKGPUPower_model_stop_symbol();
+		is_gpu_pmu_worked = 0;
+	}
+#endif
+
+	mutex_unlock(&perf_ctl_mutex);
+
+	return (perf_tracker_on == val) ? 0 : -1;
 }
 
 u32 __attribute__((weak)) qos_sram_read(u32 offset)
@@ -350,31 +372,8 @@ static ssize_t store_perf_enable(struct kobject *kobj,
 {
 	int val = 0;
 
-	mutex_lock(&perf_ctl_mutex);
-
-	if (sscanf(buf, "%iu", &val) != 0) {
-		val = (val > 0) ? 1 : 0;
-
-		perf_tracker_on = val;
-#ifdef CONFIG_MTK_BLOCK_TAG
-		mtk_btag_mictx_enable(val);
-#endif
-
-#ifdef CONFIG_MTK_GPU_SWPM_SUPPORT
-		// GPU PMU Recording
-		if (val == 1 && gpu_pmu_enable && !is_gpu_pmu_worked) {
-			if (MTKGPUPower_model_start_symbol)
-				MTKGPUPower_model_start_symbol(gpu_pmu_period);
-			is_gpu_pmu_worked = 1;
-		} else if (val == 0 && is_gpu_pmu_worked) {
-			if (MTKGPUPower_model_stop_symbol)
-				MTKGPUPower_model_stop_symbol();
-			is_gpu_pmu_worked = 0;
-		}
-#endif
-	}
-
-	mutex_unlock(&perf_ctl_mutex);
+	if (sscanf(buf, "%iu", &val) != 0)
+		perf_tracker_enable(val);
 
 	return count;
 }
