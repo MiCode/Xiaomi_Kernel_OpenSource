@@ -404,6 +404,7 @@ bool of_reserved_mem_device_is_init(struct device *dev)
 {
 	struct device_node *mem_dev_node;
 	struct rmem_assigned_device *rd;
+	struct reserved_mem *rmem;
 	bool ret = false;
 
 	if (!dev->of_node)
@@ -413,7 +414,11 @@ bool of_reserved_mem_device_is_init(struct device *dev)
 	if (!mem_dev_node)
 		return true;
 
-	if (!of_device_is_available(mem_dev_node) || !__find_rmem(mem_dev_node))
+	if (!of_device_is_available(mem_dev_node))
+		goto exit;
+
+	rmem = __find_rmem(mem_dev_node);
+	if (!rmem || !rmem->ops)
 		goto exit;
 	of_node_put(mem_dev_node);
 
