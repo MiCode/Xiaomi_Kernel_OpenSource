@@ -40,7 +40,7 @@ static DEFINE_SPINLOCK(imgsensor_drv_lock);
 
 static struct imgsensor_info_struct imgsensor_info = {
 	/*.sensor_id = GC02M0_SENSOR_ID, */
-	.sensor_id = ALPHA_3_ID,
+	.sensor_id = GC02M0_SENSOR_ID,
 
 	.checksum_value = 0xf7375923,	//checksum value for Camera Auto Test
 
