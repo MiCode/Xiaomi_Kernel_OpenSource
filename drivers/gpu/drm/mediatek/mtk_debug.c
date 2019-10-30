@@ -971,10 +971,56 @@ static const struct file_operations debug_fops = {
 	.read = debug_read, .write = debug_write, .open = debug_open,
 };
 
+static int idletime_set(void *data, u64 val)
+{
+	struct drm_crtc *crtc;
+
+	if (val < 33)
+		val = 33;
+	if (val > 1000000)
+		val = 1000000;
+
+	crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+				typeof(*crtc), head);
+	if (!crtc) {
+		DDPPR_ERR("find crtc fail\n");
+		return -ENODEV;
+	}
+	mtk_drm_set_idle_check_interval(crtc, val);
+
+	return 0;
+}
+
+static int idletime_get(void *data, u64 *val)
+{
+	struct drm_crtc *crtc;
+
+	crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+				typeof(*crtc), head);
+	if (!crtc) {
+		DDPPR_ERR("find crtc fail\n");
+		return -ENODEV;
+	}
+	*val = mtk_drm_get_idle_check_interval(crtc);
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(idletime_fops, idletime_get, idletime_set, "%llu\n");
+
 void disp_dbg_probe(void)
 {
+	struct dentry *d_folder;
+	struct dentry *d_file;
+
 	mtkfb_dbgfs = debugfs_create_file("mtkfb", S_IFREG | 0444, NULL,
 					  NULL, &debug_fops);
+
+	d_folder = debugfs_create_dir("displowpower", NULL);
+	if (d_folder) {
+		d_file = debugfs_create_file("idletime", S_IFREG | 0644,
+					     d_folder, NULL, &idletime_fops);
+	}
 
 	init_log_buffer();
 

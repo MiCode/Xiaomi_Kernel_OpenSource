@@ -226,6 +226,16 @@ mtk_drm_set_idle_check_interval(struct drm_crtc *crtc,
 	return old_interval;
 }
 
+unsigned long long
+mtk_drm_get_idle_check_interval(struct drm_crtc *crtc)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_idlemgr *idlemgr = mtk_crtc->idlemgr;
+	struct mtk_drm_idlemgr_context *idlemgr_ctx = idlemgr->idlemgr_ctx;
+
+	return idlemgr_ctx->idle_check_interval;
+}
+
 static int mtk_drm_idlemgr_monitor_thread(void *data)
 {
 	int ret = 0;

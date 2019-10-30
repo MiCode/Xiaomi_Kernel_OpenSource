@@ -42,5 +42,7 @@ unsigned int mtk_drm_set_idlemgr(struct drm_crtc *crtc, unsigned int flag,
 unsigned long long
 mtk_drm_set_idle_check_interval(struct drm_crtc *crtc,
 				unsigned long long new_interval);
+unsigned long long
+mtk_drm_get_idle_check_interval(struct drm_crtc *crtc);
 
 #endif
