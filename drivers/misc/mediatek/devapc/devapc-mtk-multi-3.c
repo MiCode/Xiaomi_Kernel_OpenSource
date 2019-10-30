@@ -296,6 +296,7 @@ static bool check_type2_vio_status(enum DEVAPC_SLAVE_TYPE slave_type)
 	if (slave_type == SLAVE_TYPE_INFRA &&
 			check_vio_status(slave_type, sramrom_vio_idx)) {
 
+		pr_info(PFX "SRAMROM violation is triggered\n");
 		sramrom_vio_handler();
 		return true;
 	}
@@ -311,6 +312,7 @@ static bool check_type2_vio_status(enum DEVAPC_SLAVE_TYPE slave_type)
 
 		if (mdp_vio || disp2_vio || mmsys_vio) {
 
+			pr_info(PFX "MM2nd violation is triggered\n");
 			mtk_devapc_ctx->soc->mm2nd_vio_handler(
 					mtk_devapc_ctx->infracfg_base,
 					mtk_devapc_ctx->soc->vio_info,
@@ -319,6 +321,8 @@ static bool check_type2_vio_status(enum DEVAPC_SLAVE_TYPE slave_type)
 		}
 	}
 
+	pr_info(PFX "%s: no violation for %s:0x%x\n", __func__,
+			"slave_type", slave_type);
 	return false;
 }
 
@@ -379,7 +383,11 @@ static void start_devapc(void)
 			if ((check_vio_status(slave_type, i) ==
 					VIOLATION_TRIGGERED) &&
 					clear_vio_status(slave_type, i))
-				pr_warn(PFX "clear vio status failed\n");
+				pr_warn(PFX "%s, %s:0x%x, %s:0x%x\n",
+					"clear vio status failed",
+					"slave_type", slave_type,
+					"vio_index",
+					device_info[slave_type][i].vio_index);
 
 			mask_module_irq(slave_type, i, false);
 		}
@@ -389,6 +397,8 @@ static void start_devapc(void)
 
 	/* register subsys test cb */
 	register_devapc_vio_callback(&devapc_test_handle);
+
+	pr_info(PFX "%s done\n", __func__);
 }
 
 /*
@@ -552,7 +562,7 @@ static uint32_t mtk_devapc_vio_check(enum DEVAPC_SLAVE_TYPE slave_type)
 /*
  * mtk_devapc_dump_vio_dbg - shift & dump the violation debug information.
  */
-static void mtk_devapc_dump_vio_dbg(enum DEVAPC_SLAVE_TYPE slave_type)
+static bool mtk_devapc_dump_vio_dbg(enum DEVAPC_SLAVE_TYPE slave_type)
 {
 	void __iomem *vio_dbg0_reg, *vio_dbg1_reg, *vio_dbg2_reg;
 	const struct mtk_infra_vio_dbg_desc *vio_dbgs;
@@ -563,7 +573,7 @@ static void mtk_devapc_dump_vio_dbg(enum DEVAPC_SLAVE_TYPE slave_type)
 	if (slave_type >= SLAVE_TYPE_NUM) {
 		pr_err(PFX "%s: param check failed, %s:0x%x\n",
 				__func__, "slave_type", slave_type);
-		return;
+		return false;
 	}
 
 	vio_dbg0_reg = mtk_devapc_pd_get(slave_type, VIO_DBG0, 0);
@@ -612,8 +622,14 @@ static void mtk_devapc_dump_vio_dbg(enum DEVAPC_SLAVE_TYPE slave_type)
 					"Violation",
 					"Current Process:", current->comm,
 					"PID:", current->pid);
+
+			return true;
 		}
 	}
+
+	pr_info(PFX "check_devapc_vio_status: no violation for %s:0x%x\n",
+			"slave_type", slave_type);
+	return false;
 }
 
 /*
@@ -736,7 +752,8 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 	for (slave_type = 0; slave_type < SLAVE_TYPE_NUM; slave_type++) {
 
 		if (!check_type2_vio_status(slave_type))
-			mtk_devapc_dump_vio_dbg(slave_type);
+			if (!mtk_devapc_dump_vio_dbg(slave_type))
+				continue;
 
 		for (i = 0; i < ndevices[slave_type].vio_slave_num; i++) {
 			if (!device_info[slave_type][i].enable_vio_irq)
@@ -750,7 +767,10 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 			mask_module_irq(slave_type, vio_idx, true);
 
 			if (clear_vio_status(slave_type, vio_idx))
-				pr_warn(PFX "clear vio status failed\n");
+				pr_warn(PFX "%s, %s:0x%x, %s:0x%x\n",
+						"clear vio status failed",
+						"slave_type", slave_type,
+						"vio_index", vio_idx);
 
 			perm = get_permission(slave_type, i,
 					vio_info->domain_id);
