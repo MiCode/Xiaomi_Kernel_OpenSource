@@ -230,7 +230,7 @@ int apu_device_power_off(enum DVFS_USER user)
 
 	if (ret) {
 		apu_power_reg_dump();
-		apu_aee_warn("APUPWR_OFF_FAIL", "user=%d\n", user);
+		LOG_ERR("APUPWR_OFF_FAIL, user=%d\n", user);
 		return -ENODEV;
 	} else {
 		return 0;
@@ -274,7 +274,7 @@ int apu_device_power_on(enum DVFS_USER user)
 
 	if (ret) {
 		apu_power_reg_dump();
-		apu_aee_warn("APUPWR_ON_FAIL", "user=%d\n", user);
+		LOG_ERR("APUPWR_ON_FAIL, user=%d\n", user);
 		return -ENODEV;
 	} else {
 		return 0;
