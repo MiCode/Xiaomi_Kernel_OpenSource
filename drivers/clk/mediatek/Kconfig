@@ -126,6 +126,16 @@ config COMMON_CLK_MT6797_VENCSYS
        ---help---
          This driver supports Mediatek MT6797 vencsys clocks.
 
+config COMMON_CLK_MT6873
+	bool "Clock driver for Mediatek MT6873"
+	depends on COMMON_CLK
+	select COMMON_CLK_MEDIATEK
+	---help---
+	  This driver supports Mediatek MT6873 clocks.
+	  Use the config to support CCF on MT6873,
+	  instead of old clkmgr architecture.
+	  MT6873 default will use CCF.
+
 config COMMON_CLK_MT6885
 	bool "Clock driver for Mediatek MT6885"
 	depends on COMMON_CLK

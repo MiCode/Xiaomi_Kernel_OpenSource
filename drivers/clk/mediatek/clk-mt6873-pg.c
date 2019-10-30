@@ -27,7 +27,7 @@
 #include <dt-bindings/clock/mt6873-clk.h>
 
 #define MT_CCF_DEBUG	0
-#define MT_CCF_BRINGUP  0
+#define MT_CCF_BRINGUP  1
 #define CONTROL_LIMIT	1
 
 #define	CHECK_PWR_ST	1
@@ -981,6 +981,10 @@ int spm_mtcmos_ctrl_md1(int state)
 {
 	int err = 0;
 
+	DBG_ID = DBG_ID_MD1;
+	DBG_STA = state;
+	DBG_STEP = 0;
+
 	/* TINFO="enable SPM register control" */
 	spm_write(POWERON_CONFIG_EN, (SPM_PROJECT_CODE << 16) | (0x1 << 0));
 
@@ -1004,6 +1008,7 @@ int spm_mtcmos_ctrl_md1(int state)
 			/* */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="MD_EXT_BUCK_ISO_CON[0]=1"*/
 		spm_write(MD_EXT_BUCK_ISO_CON,
@@ -1032,6 +1037,7 @@ int spm_mtcmos_ctrl_md1(int state)
 			!= MD1_PWR_STA_MASK) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Release bus protect - step1 : 0" */
 		spm_write(INFRA_TOPAXI_PROTECTEN_CLR, MD1_PROT_STEP1_0_MASK);
@@ -1047,6 +1053,10 @@ int spm_mtcmos_ctrl_conn(int state)
 {
 	int err = 0;
 
+	DBG_ID = DBG_ID_CONN;
+	DBG_STA = state;
+	DBG_STEP = 0;
+
 	/* TINFO="enable SPM register control" */
 	spm_write(POWERON_CONFIG_EN, (SPM_PROJECT_CODE << 16) | (0x1 << 0));
 
@@ -1060,6 +1070,7 @@ int spm_mtcmos_ctrl_conn(int state)
 			!= CONN_PROT_STEP1_0_ACK_MASK) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set bus protect - step1 : 1" */
 		spm_write(INFRA_TOPAXI_PROTECTEN_2_SET, CONN_PROT_STEP1_1_MASK);
@@ -1069,6 +1080,7 @@ int spm_mtcmos_ctrl_conn(int state)
 			!= CONN_PROT_STEP1_1_ACK_MASK) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set bus protect - step2 : 0" */
 		spm_write(INFRA_TOPAXI_PROTECTEN_SET, CONN_PROT_STEP2_0_MASK);
@@ -1078,6 +1090,7 @@ int spm_mtcmos_ctrl_conn(int state)
 			!= CONN_PROT_STEP2_0_ACK_MASK) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 #ifndef IGNORE_MTCMOS_CHECK
 #endif
@@ -1113,6 +1126,7 @@ int spm_mtcmos_ctrl_conn(int state)
 			!= CONN_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_CLK_DIS = 0" */
 		spm_write(CONN_PWR_CON, spm_read(CONN_PWR_CON) & ~PWR_CLK_DIS);
@@ -1146,6 +1160,10 @@ int spm_mtcmos_ctrl_mfg0(int state)
 {
 	int err = 0;
 
+	DBG_ID = DBG_ID_MFG0;
+	DBG_STA = state;
+	DBG_STEP = 0;
+
 	/* TINFO="enable SPM register control" */
 	spm_write(POWERON_CONFIG_EN, (SPM_PROJECT_CODE << 16) | (0x1 << 0));
 
@@ -1160,6 +1178,7 @@ int spm_mtcmos_ctrl_mfg0(int state)
 			/* Need f_fmfg_core_ck for SRAM PDN delay IP. */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_ISO = 1" */
 		spm_write(MFG0_PWR_CON, spm_read(MFG0_PWR_CON) | PWR_ISO);
@@ -1177,6 +1196,7 @@ int spm_mtcmos_ctrl_mfg0(int state)
 		       || (spm_read(PWR_STATUS_2ND) & MFG0_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Finish to turn off MFG0" */
 	} else {    /* STA_POWER_ON */
@@ -1193,6 +1213,7 @@ int spm_mtcmos_ctrl_mfg0(int state)
 			!= MFG0_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_CLK_DIS = 0" */
 		spm_write(MFG0_PWR_CON, spm_read(MFG0_PWR_CON) & ~PWR_CLK_DIS);
@@ -1208,6 +1229,7 @@ int spm_mtcmos_ctrl_mfg0(int state)
 				/* Need f_fmfg_core_ck for SRAM PDN delay IP. */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Finish to turn on MFG0" */
 	}
@@ -1217,6 +1239,10 @@ int spm_mtcmos_ctrl_mfg0(int state)
 int spm_mtcmos_ctrl_mfg1(int state)
 {
 	int err = 0;
+
+	DBG_ID = DBG_ID_MFG1;
+	DBG_STA = state;
+	DBG_STEP = 0;
 
 	/* TINFO="enable SPM register control" */
 	spm_write(POWERON_CONFIG_EN, (SPM_PROJECT_CODE << 16) | (0x1 << 0));
@@ -1231,6 +1257,7 @@ int spm_mtcmos_ctrl_mfg1(int state)
 			!= MFG1_PROT_STEP1_0_ACK_MASK) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set bus protect - step1 : 1" */
 		spm_write(INFRA_TOPAXI_PROTECTEN_2_SET, MFG1_PROT_STEP1_1_MASK);
@@ -1240,6 +1267,7 @@ int spm_mtcmos_ctrl_mfg1(int state)
 			!= MFG1_PROT_STEP1_1_ACK_MASK) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set SRAM_PDN = 1" */
 		spm_write(MFG1_PWR_CON, spm_read(MFG1_PWR_CON) | MFG1_SRAM_PDN);
@@ -1250,6 +1278,7 @@ int spm_mtcmos_ctrl_mfg1(int state)
 			/*  */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_ISO = 1" */
 		spm_write(MFG1_PWR_CON, spm_read(MFG1_PWR_CON) | PWR_ISO);
@@ -1267,6 +1296,7 @@ int spm_mtcmos_ctrl_mfg1(int state)
 		       || (spm_read(PWR_STATUS_2ND) & MFG1_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Finish to turn off MFG1" */
 	} else {    /* STA_POWER_ON */
@@ -1283,6 +1313,7 @@ int spm_mtcmos_ctrl_mfg1(int state)
 			!= MFG1_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_CLK_DIS = 0" */
 		spm_write(MFG1_PWR_CON, spm_read(MFG1_PWR_CON) & ~PWR_CLK_DIS);
@@ -1298,6 +1329,7 @@ int spm_mtcmos_ctrl_mfg1(int state)
 				/*  */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 			/* TINFO="Release bus protect - step1 : 0" */
 		spm_write(INFRA_TOPAXI_PROTECTEN_1_CLR, MFG1_PROT_STEP1_0_MASK);
@@ -1318,6 +1350,10 @@ int spm_mtcmos_ctrl_mfg2(int state)
 {
 	int err = 0;
 
+	DBG_ID = DBG_ID_MFG2;
+	DBG_STA = state;
+	DBG_STEP = 0;
+
 	/* TINFO="enable SPM register control" */
 	spm_write(POWERON_CONFIG_EN, (SPM_PROJECT_CODE << 16) | (0x1 << 0));
 
@@ -1332,6 +1368,7 @@ int spm_mtcmos_ctrl_mfg2(int state)
 			/*  */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_ISO = 1" */
 		spm_write(MFG2_PWR_CON, spm_read(MFG2_PWR_CON) | PWR_ISO);
@@ -1349,6 +1386,7 @@ int spm_mtcmos_ctrl_mfg2(int state)
 		       || (spm_read(PWR_STATUS_2ND) & MFG2_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Finish to turn off MFG2" */
 	} else {    /* STA_POWER_ON */
@@ -1365,6 +1403,7 @@ int spm_mtcmos_ctrl_mfg2(int state)
 			!= MFG2_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_CLK_DIS = 0" */
 		spm_write(MFG2_PWR_CON, spm_read(MFG2_PWR_CON) & ~PWR_CLK_DIS);
@@ -1390,6 +1429,10 @@ int spm_mtcmos_ctrl_mfg3(int state)
 {
 	int err = 0;
 
+	DBG_ID = DBG_ID_MFG3;
+	DBG_STA = state;
+	DBG_STEP = 0;
+
 	/* TINFO="enable SPM register control" */
 	spm_write(POWERON_CONFIG_EN, (SPM_PROJECT_CODE << 16) | (0x1 << 0));
 
@@ -1404,6 +1447,7 @@ int spm_mtcmos_ctrl_mfg3(int state)
 			/*  */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_ISO = 1" */
 		spm_write(MFG3_PWR_CON, spm_read(MFG3_PWR_CON) | PWR_ISO);
@@ -1421,6 +1465,7 @@ int spm_mtcmos_ctrl_mfg3(int state)
 		       || (spm_read(PWR_STATUS_2ND) & MFG3_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Finish to turn off MFG3" */
 	} else {    /* STA_POWER_ON */
@@ -1437,6 +1482,7 @@ int spm_mtcmos_ctrl_mfg3(int state)
 			!= MFG3_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_CLK_DIS = 0" */
 		spm_write(MFG3_PWR_CON, spm_read(MFG3_PWR_CON) & ~PWR_CLK_DIS);
@@ -1452,6 +1498,7 @@ int spm_mtcmos_ctrl_mfg3(int state)
 				/*  */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Finish to turn on MFG3" */
 	}
@@ -1461,6 +1508,10 @@ int spm_mtcmos_ctrl_mfg3(int state)
 int spm_mtcmos_ctrl_mfg4(int state)
 {
 	int err = 0;
+
+	DBG_ID = DBG_ID_MFG4;
+	DBG_STA = state;
+	DBG_STEP = 0;
 
 	/* TINFO="enable SPM register control" */
 	spm_write(POWERON_CONFIG_EN, (SPM_PROJECT_CODE << 16) | (0x1 << 0));
@@ -1476,6 +1527,7 @@ int spm_mtcmos_ctrl_mfg4(int state)
 			/*  */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_ISO = 1" */
 		spm_write(MFG4_PWR_CON, spm_read(MFG4_PWR_CON) | PWR_ISO);
@@ -1493,6 +1545,7 @@ int spm_mtcmos_ctrl_mfg4(int state)
 		       || (spm_read(PWR_STATUS_2ND) & MFG4_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Finish to turn off MFG4" */
 	} else {    /* STA_POWER_ON */
@@ -1509,6 +1562,7 @@ int spm_mtcmos_ctrl_mfg4(int state)
 			!= MFG4_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_CLK_DIS = 0" */
 		spm_write(MFG4_PWR_CON, spm_read(MFG4_PWR_CON) & ~PWR_CLK_DIS);
@@ -1524,6 +1578,7 @@ int spm_mtcmos_ctrl_mfg4(int state)
 				/*  */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Finish to turn on MFG4" */
 	}
@@ -1533,6 +1588,10 @@ int spm_mtcmos_ctrl_mfg4(int state)
 int spm_mtcmos_ctrl_mfg5(int state)
 {
 	int err = 0;
+
+	DBG_ID = DBG_ID_MFG5;
+	DBG_STA = state;
+	DBG_STEP = 0;
 
 	/* TINFO="enable SPM register control" */
 	spm_write(POWERON_CONFIG_EN, (SPM_PROJECT_CODE << 16) | (0x1 << 0));
@@ -1548,6 +1607,7 @@ int spm_mtcmos_ctrl_mfg5(int state)
 			/*  */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_ISO = 1" */
 		spm_write(MFG5_PWR_CON, spm_read(MFG5_PWR_CON) | PWR_ISO);
@@ -1565,6 +1625,7 @@ int spm_mtcmos_ctrl_mfg5(int state)
 		       || (spm_read(PWR_STATUS_2ND) & MFG5_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Finish to turn off MFG5" */
 	} else {    /* STA_POWER_ON */
@@ -1581,6 +1642,7 @@ int spm_mtcmos_ctrl_mfg5(int state)
 			!= MFG5_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_CLK_DIS = 0" */
 		spm_write(MFG5_PWR_CON, spm_read(MFG5_PWR_CON) & ~PWR_CLK_DIS);
@@ -1596,6 +1658,7 @@ int spm_mtcmos_ctrl_mfg5(int state)
 				/*  */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Finish to turn on MFG5" */
 	}
@@ -1605,6 +1668,10 @@ int spm_mtcmos_ctrl_mfg5(int state)
 int spm_mtcmos_ctrl_mfg6(int state)
 {
 	int err = 0;
+
+	DBG_ID = DBG_ID_MFG6;
+	DBG_STA = state;
+	DBG_STEP = 0;
 
 	/* TINFO="enable SPM register control" */
 	spm_write(POWERON_CONFIG_EN, (SPM_PROJECT_CODE << 16) | (0x1 << 0));
@@ -1620,6 +1687,7 @@ int spm_mtcmos_ctrl_mfg6(int state)
 			/* n/a */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_ISO = 1" */
 		spm_write(MFG6_PWR_CON, spm_read(MFG6_PWR_CON) | PWR_ISO);
@@ -1637,6 +1705,7 @@ int spm_mtcmos_ctrl_mfg6(int state)
 		       || (spm_read(PWR_STATUS_2ND) & MFG6_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Finish to turn off MFG6" */
 	} else {    /* STA_POWER_ON */
@@ -1653,6 +1722,7 @@ int spm_mtcmos_ctrl_mfg6(int state)
 			!= MFG6_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_CLK_DIS = 0" */
 		spm_write(MFG6_PWR_CON, spm_read(MFG6_PWR_CON) & ~PWR_CLK_DIS);
@@ -1668,6 +1738,7 @@ int spm_mtcmos_ctrl_mfg6(int state)
 				/* n/a */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Finish to turn on MFG6" */
 	}
@@ -1677,6 +1748,10 @@ int spm_mtcmos_ctrl_mfg6(int state)
 int spm_mtcmos_ctrl_isp(int state)
 {
 	int err = 0;
+
+	DBG_ID = DBG_ID_ISP;
+	DBG_STA = state;
+	DBG_STEP = 0;
 
 	/* TINFO="enable SPM register control" */
 	spm_write(POWERON_CONFIG_EN, (SPM_PROJECT_CODE << 16) | (0x1 << 0));
@@ -1692,6 +1767,7 @@ int spm_mtcmos_ctrl_isp(int state)
 			!= ISP_PROT_STEP2_0_ACK_MASK) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set SRAM_PDN = 1" */
 		spm_write(ISP_PWR_CON, spm_read(ISP_PWR_CON) | ISP_SRAM_PDN);
@@ -1702,6 +1778,7 @@ int spm_mtcmos_ctrl_isp(int state)
 			/* Need hf_fmm_ck for SRAM PDN delay IP. */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_ISO = 1" */
 		spm_write(ISP_PWR_CON, spm_read(ISP_PWR_CON) | PWR_ISO);
@@ -1719,6 +1796,7 @@ int spm_mtcmos_ctrl_isp(int state)
 		       || (spm_read(PWR_STATUS_2ND) & ISP_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Finish to turn off ISP" */
 	} else {    /* STA_POWER_ON */
@@ -1735,6 +1813,7 @@ int spm_mtcmos_ctrl_isp(int state)
 			!= ISP_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_CLK_DIS = 0" */
 		spm_write(ISP_PWR_CON, spm_read(ISP_PWR_CON) & ~PWR_CLK_DIS);
@@ -1750,6 +1829,7 @@ int spm_mtcmos_ctrl_isp(int state)
 				/* Need hf_fmm_ck for SRAM PDN delay IP. */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Release bus protect - step2 : 0" */
 		spm_write(INFRA_TOPAXI_PROTECTEN_MM_2_CLR,
@@ -1766,6 +1846,10 @@ int spm_mtcmos_ctrl_isp2(int state)
 {
 	int err = 0;
 
+	DBG_ID = DBG_ID_ISP2;
+	DBG_STA = state;
+	DBG_STEP = 0;
+
 	/* TINFO="enable SPM register control" */
 	spm_write(POWERON_CONFIG_EN, (SPM_PROJECT_CODE << 16) | (0x1 << 0));
 
@@ -1780,6 +1864,7 @@ int spm_mtcmos_ctrl_isp2(int state)
 			/* Need hf_fmm_ck for SRAM PDN delay IP. */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_ISO = 1" */
 		spm_write(ISP2_PWR_CON, spm_read(ISP2_PWR_CON) | PWR_ISO);
@@ -1797,6 +1882,7 @@ int spm_mtcmos_ctrl_isp2(int state)
 		       || (spm_read(PWR_STATUS_2ND) & ISP2_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Finish to turn off ISP2" */
 	} else {    /* STA_POWER_ON */
@@ -1813,6 +1899,7 @@ int spm_mtcmos_ctrl_isp2(int state)
 			!= ISP2_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_CLK_DIS = 0" */
 		spm_write(ISP2_PWR_CON, spm_read(ISP2_PWR_CON) & ~PWR_CLK_DIS);
@@ -1828,6 +1915,7 @@ int spm_mtcmos_ctrl_isp2(int state)
 			/* Need hf_fmm_ck for SRAM PDN delay IP. */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Finish to turn on ISP2" */
 	}
@@ -1837,6 +1925,10 @@ int spm_mtcmos_ctrl_isp2(int state)
 int spm_mtcmos_ctrl_ipe(int state)
 {
 	int err = 0;
+
+	DBG_ID = DBG_ID_IPE;
+	DBG_STA = state;
+	DBG_STEP = 0;
 
 	/* TINFO="enable SPM register control" */
 	spm_write(POWERON_CONFIG_EN, (SPM_PROJECT_CODE << 16) | (0x1 << 0));
@@ -1852,6 +1944,7 @@ int spm_mtcmos_ctrl_ipe(int state)
 			/* Need hf_fmm_ck for SRAM PDN delay IP. */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_ISO = 1" */
 		spm_write(IPE_PWR_CON, spm_read(IPE_PWR_CON) | PWR_ISO);
@@ -1869,6 +1962,7 @@ int spm_mtcmos_ctrl_ipe(int state)
 		       || (spm_read(PWR_STATUS_2ND) & IPE_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Finish to turn off IPE" */
 	} else {    /* STA_POWER_ON */
@@ -1885,6 +1979,7 @@ int spm_mtcmos_ctrl_ipe(int state)
 			!= IPE_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_CLK_DIS = 0" */
 		spm_write(IPE_PWR_CON, spm_read(IPE_PWR_CON) & ~PWR_CLK_DIS);
@@ -1900,6 +1995,7 @@ int spm_mtcmos_ctrl_ipe(int state)
 				/* Need hf_fmm_ck for SRAM PDN delay IP. */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Finish to turn on IPE" */
 	}
@@ -1909,6 +2005,10 @@ int spm_mtcmos_ctrl_ipe(int state)
 int spm_mtcmos_ctrl_vde(int state)
 {
 	int err = 0;
+
+	DBG_ID = DBG_ID_VDE;
+	DBG_STA = state;
+	DBG_STEP = 0;
 
 	/* TINFO="enable SPM register control" */
 	spm_write(POWERON_CONFIG_EN, (SPM_PROJECT_CODE << 16) | (0x1 << 0));
@@ -1924,6 +2024,7 @@ int spm_mtcmos_ctrl_vde(int state)
 			/* Need hf_fmm_ck for SRAM PDN delay IP. */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_ISO = 1" */
 		spm_write(VDE_PWR_CON, spm_read(VDE_PWR_CON) | PWR_ISO);
@@ -1941,6 +2042,7 @@ int spm_mtcmos_ctrl_vde(int state)
 		       || (spm_read(PWR_STATUS_2ND) & VDE_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Finish to turn off VDE" */
 	} else {    /* STA_POWER_ON */
@@ -1957,6 +2059,7 @@ int spm_mtcmos_ctrl_vde(int state)
 			!= VDE_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_CLK_DIS = 0" */
 		spm_write(VDE_PWR_CON, spm_read(VDE_PWR_CON) & ~PWR_CLK_DIS);
@@ -1972,6 +2075,7 @@ int spm_mtcmos_ctrl_vde(int state)
 				/* Need hf_fmm_ck for SRAM PDN delay IP. */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Finish to turn on VDE" */
 	}
@@ -1981,6 +2085,10 @@ int spm_mtcmos_ctrl_vde(int state)
 int spm_mtcmos_ctrl_vde2(int state)
 {
 	int err = 0;
+
+	DBG_ID = DBG_ID_VDE2;
+	DBG_STA = state;
+	DBG_STEP = 0;
 
 	/* TINFO="enable SPM register control" */
 	spm_write(POWERON_CONFIG_EN, (SPM_PROJECT_CODE << 16) | (0x1 << 0));
@@ -1996,6 +2104,7 @@ int spm_mtcmos_ctrl_vde2(int state)
 			/* Need hf_fmm_ck for SRAM PDN delay IP. */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_ISO = 1" */
 		spm_write(VDE2_PWR_CON, spm_read(VDE2_PWR_CON) | PWR_ISO);
@@ -2013,6 +2122,7 @@ int spm_mtcmos_ctrl_vde2(int state)
 		       || (spm_read(PWR_STATUS_2ND) & VDE2_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Finish to turn off VDE2" */
 	} else {    /* STA_POWER_ON */
@@ -2029,6 +2139,7 @@ int spm_mtcmos_ctrl_vde2(int state)
 			!= VDE2_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_CLK_DIS = 0" */
 		spm_write(VDE2_PWR_CON, spm_read(VDE2_PWR_CON) & ~PWR_CLK_DIS);
@@ -2044,6 +2155,7 @@ int spm_mtcmos_ctrl_vde2(int state)
 				/* Need hf_fmm_ck for SRAM PDN delay IP. */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Finish to turn on VDE2" */
 	}
@@ -2053,6 +2165,10 @@ int spm_mtcmos_ctrl_vde2(int state)
 int spm_mtcmos_ctrl_ven(int state)
 {
 	int err = 0;
+
+	DBG_ID = DBG_ID_VEN;
+	DBG_STA = state;
+	DBG_STEP = 0;
 
 	/* TINFO="enable SPM register control" */
 	spm_write(POWERON_CONFIG_EN, (SPM_PROJECT_CODE << 16) | (0x1 << 0));
@@ -2068,6 +2184,7 @@ int spm_mtcmos_ctrl_ven(int state)
 			/* Need hf_fmm_ck for SRAM PDN delay IP. */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_ISO = 1" */
 		spm_write(VEN_PWR_CON, spm_read(VEN_PWR_CON) | PWR_ISO);
@@ -2085,6 +2202,7 @@ int spm_mtcmos_ctrl_ven(int state)
 		       || (spm_read(PWR_STATUS_2ND) & VEN_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Finish to turn off VEN" */
 	} else {    /* STA_POWER_ON */
@@ -2101,6 +2219,7 @@ int spm_mtcmos_ctrl_ven(int state)
 			!= VEN_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_CLK_DIS = 0" */
 		spm_write(VEN_PWR_CON, spm_read(VEN_PWR_CON) & ~PWR_CLK_DIS);
@@ -2116,6 +2235,7 @@ int spm_mtcmos_ctrl_ven(int state)
 				/* Need hf_fmm_ck for SRAM PDN delay IP. */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Finish to turn on VEN" */
 	}
@@ -2125,6 +2245,10 @@ int spm_mtcmos_ctrl_ven(int state)
 int spm_mtcmos_ctrl_mdp(int state)
 {
 	int err = 0;
+
+	DBG_ID = DBG_ID_MDP;
+	DBG_STA = state;
+	DBG_STEP = 0;
 
 	/* TINFO="enable SPM register control" */
 	spm_write(POWERON_CONFIG_EN, (SPM_PROJECT_CODE << 16) | (0x1 << 0));
@@ -2140,6 +2264,7 @@ int spm_mtcmos_ctrl_mdp(int state)
 			/* Need hf_fmm_ck for SRAM PDN delay IP. */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_ISO = 1" */
 		spm_write(MDP_PWR_CON, spm_read(MDP_PWR_CON) | PWR_ISO);
@@ -2173,6 +2298,7 @@ int spm_mtcmos_ctrl_mdp(int state)
 			!= MDP_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_CLK_DIS = 0" */
 		spm_write(MDP_PWR_CON, spm_read(MDP_PWR_CON) & ~PWR_CLK_DIS);
@@ -2188,6 +2314,7 @@ int spm_mtcmos_ctrl_mdp(int state)
 				/* Need hf_fmm_ck for SRAM PDN delay IP. */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Finish to turn on MDP" */
 	}
@@ -2197,6 +2324,10 @@ int spm_mtcmos_ctrl_mdp(int state)
 int spm_mtcmos_ctrl_dis(int state)
 {
 	int err = 0;
+
+	DBG_ID = DBG_ID_DIS;
+	DBG_STA = state;
+	DBG_STEP = 0;
 
 	/* TINFO="enable SPM register control" */
 	spm_write(POWERON_CONFIG_EN, (SPM_PROJECT_CODE << 16) | (0x1 << 0));
@@ -2212,6 +2343,7 @@ int spm_mtcmos_ctrl_dis(int state)
 			/* Need hf_fmm_ck for SRAM PDN delay IP. */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_ISO = 1" */
 		spm_write(DIS_PWR_CON, spm_read(DIS_PWR_CON) | PWR_ISO);
@@ -2229,6 +2361,7 @@ int spm_mtcmos_ctrl_dis(int state)
 		       || (spm_read(PWR_STATUS_2ND) & DIS_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Finish to turn off DIS" */
 	} else {    /* STA_POWER_ON */
@@ -2245,6 +2378,7 @@ int spm_mtcmos_ctrl_dis(int state)
 			!= DIS_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_CLK_DIS = 0" */
 		spm_write(DIS_PWR_CON, spm_read(DIS_PWR_CON) & ~PWR_CLK_DIS);
@@ -2260,6 +2394,7 @@ int spm_mtcmos_ctrl_dis(int state)
 				/* Need hf_fmm_ck for SRAM PDN delay IP. */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Finish to turn on DIS" */
 	}
@@ -2269,6 +2404,10 @@ int spm_mtcmos_ctrl_dis(int state)
 int spm_mtcmos_ctrl_audio(int state)
 {
 	int err = 0;
+
+	DBG_ID = DBG_ID_AUDIO;
+	DBG_STA = state;
+	DBG_STEP = 0;
 
 	/* TINFO="enable SPM register control" */
 	spm_write(POWERON_CONFIG_EN, (SPM_PROJECT_CODE << 16) | (0x1 << 0));
@@ -2284,6 +2423,7 @@ int spm_mtcmos_ctrl_audio(int state)
 			!= AUDIO_PROT_STEP1_0_ACK_MASK) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set SRAM_PDN = 1" */
 		spm_write(AUDIO_PWR_CON,
@@ -2295,6 +2435,7 @@ int spm_mtcmos_ctrl_audio(int state)
 				/* Need f_f26M_aud_ck for SRAM PDN delay IP. */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_ISO = 1" */
 		spm_write(AUDIO_PWR_CON, spm_read(AUDIO_PWR_CON) | PWR_ISO);
@@ -2312,6 +2453,7 @@ int spm_mtcmos_ctrl_audio(int state)
 		       || (spm_read(PWR_STATUS_2ND) & AUDIO_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Finish to turn off AUDIO" */
 	} else {    /* STA_POWER_ON */
@@ -2328,6 +2470,7 @@ int spm_mtcmos_ctrl_audio(int state)
 			!= AUDIO_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_CLK_DIS = 0" */
 		spm_write(AUDIO_PWR_CON,
@@ -2344,6 +2487,7 @@ int spm_mtcmos_ctrl_audio(int state)
 				/* Need f_f26M_aud_ck for SRAM PDN delay IP. */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Release bus protect - step1 : 0" */
 		spm_write(INFRA_TOPAXI_PROTECTEN_2_CLR,
@@ -2360,6 +2504,10 @@ int spm_mtcmos_ctrl_adsp_dormant(int state)
 {
 	int err = 0;
 
+	DBG_ID = DBG_ID_ADSP;
+	DBG_STA = state;
+	DBG_STEP = 0;
+
 	/* TINFO="enable SPM register control" */
 	spm_write(POWERON_CONFIG_EN, (SPM_PROJECT_CODE << 16) | (0x1 << 0));
 
@@ -2373,6 +2521,7 @@ int spm_mtcmos_ctrl_adsp_dormant(int state)
 			!= ADSP_PROT_STEP1_0_ACK_MASK) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set SRAM_CKISO = 1" */
 		spm_write(ADSP_PWR_CON, spm_read(ADSP_PWR_CON) | SRAM_CKISO);
@@ -2390,6 +2539,7 @@ int spm_mtcmos_ctrl_adsp_dormant(int state)
 				/* n/a */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_ISO = 1" */
 		spm_write(ADSP_PWR_CON, spm_read(ADSP_PWR_CON) | PWR_ISO);
@@ -2407,6 +2557,7 @@ int spm_mtcmos_ctrl_adsp_dormant(int state)
 		       || (spm_read(PWR_STATUS_2ND) & ADSP_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Finish to turn off ADSP" */
 	} else {    /* STA_POWER_ON */
@@ -2423,6 +2574,7 @@ int spm_mtcmos_ctrl_adsp_dormant(int state)
 			& ADSP_PWR_STA_MASK) != ADSP_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_CLK_DIS = 0" */
 		spm_write(ADSP_PWR_CON, spm_read(ADSP_PWR_CON) & ~PWR_CLK_DIS);
@@ -2439,6 +2591,7 @@ int spm_mtcmos_ctrl_adsp_dormant(int state)
 				/* n/a */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Delay 1us" */
 		udelay(1);
@@ -2462,6 +2615,10 @@ int spm_mtcmos_ctrl_adsp_shut_down(int state)
 {
 	int err = 0;
 
+	DBG_ID = DBG_ID_ADSP;
+	DBG_STA = state;
+	DBG_STEP = 0;
+
 	/* TINFO="enable SPM register control" */
 	spm_write(POWERON_CONFIG_EN, (SPM_PROJECT_CODE << 16) | (0x1 << 0));
 
@@ -2475,6 +2632,7 @@ int spm_mtcmos_ctrl_adsp_shut_down(int state)
 			!= ADSP_PROT_STEP1_0_ACK_MASK) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set SRAM_CKISO = 1" */
 		spm_write(ADSP_PWR_CON, spm_read(ADSP_PWR_CON) | SRAM_CKISO);
@@ -2492,6 +2650,7 @@ int spm_mtcmos_ctrl_adsp_shut_down(int state)
 				/* Need f_f26M_aud_ck for SRAM PDN delay IP. */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_ISO = 1" */
 		spm_write(ADSP_PWR_CON, spm_read(ADSP_PWR_CON) | PWR_ISO);
@@ -2509,6 +2668,7 @@ int spm_mtcmos_ctrl_adsp_shut_down(int state)
 		       || (spm_read(PWR_STATUS_2ND) & ADSP_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Finish to turn off ADSP" */
 	} else {    /* STA_POWER_ON */
@@ -2525,6 +2685,7 @@ int spm_mtcmos_ctrl_adsp_shut_down(int state)
 			!= ADSP_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_CLK_DIS = 0" */
 		spm_write(ADSP_PWR_CON, spm_read(ADSP_PWR_CON) & ~PWR_CLK_DIS);
@@ -2540,6 +2701,7 @@ int spm_mtcmos_ctrl_adsp_shut_down(int state)
 				/* Need f_f26M_aud_ck for SRAM PDN delay IP. */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Delay 1us" */
 		udelay(1);
@@ -2563,6 +2725,10 @@ int spm_mtcmos_ctrl_cam(int state)
 {
 	int err = 0;
 
+	DBG_ID = DBG_ID_CAM;
+	DBG_STA = state;
+	DBG_STEP = 0;
+
 	/* TINFO="enable SPM register control" */
 	spm_write(POWERON_CONFIG_EN, (SPM_PROJECT_CODE << 16) | (0x1 << 0));
 
@@ -2577,6 +2743,7 @@ int spm_mtcmos_ctrl_cam(int state)
 				/*  */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_ISO = 1" */
 		spm_write(CAM_PWR_CON, spm_read(CAM_PWR_CON) | PWR_ISO);
@@ -2594,6 +2761,7 @@ int spm_mtcmos_ctrl_cam(int state)
 		       || (spm_read(PWR_STATUS_2ND) & CAM_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Finish to turn off CAM" */
 	} else {    /* STA_POWER_ON */
@@ -2610,6 +2778,7 @@ int spm_mtcmos_ctrl_cam(int state)
 			!= CAM_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_CLK_DIS = 0" */
 		spm_write(CAM_PWR_CON, spm_read(CAM_PWR_CON) & ~PWR_CLK_DIS);
@@ -2625,6 +2794,7 @@ int spm_mtcmos_ctrl_cam(int state)
 				/*  */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Finish to turn on CAM" */
 	}
@@ -2634,6 +2804,10 @@ int spm_mtcmos_ctrl_cam(int state)
 int spm_mtcmos_ctrl_cam_rawa(int state)
 {
 	int err = 0;
+
+	DBG_ID = DBG_ID_CAM_RAWA;
+	DBG_STA = state;
+	DBG_STEP = 0;
 
 	/* TINFO="enable SPM register control" */
 	spm_write(POWERON_CONFIG_EN, (SPM_PROJECT_CODE << 16) | (0x1 << 0));
@@ -2650,6 +2824,7 @@ int spm_mtcmos_ctrl_cam_rawa(int state)
 				/*  */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_ISO = 1" */
 		spm_write(CAM_RAWA_PWR_CON,
@@ -2672,6 +2847,7 @@ int spm_mtcmos_ctrl_cam_rawa(int state)
 		       || (spm_read(PWR_STATUS_2ND) & CAM_RAWA_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Finish to turn off CAM_RAWA" */
 	} else {    /* STA_POWER_ON */
@@ -2690,6 +2866,7 @@ int spm_mtcmos_ctrl_cam_rawa(int state)
 			!= CAM_RAWA_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_CLK_DIS = 0" */
 		spm_write(CAM_RAWA_PWR_CON,
@@ -2710,6 +2887,7 @@ int spm_mtcmos_ctrl_cam_rawa(int state)
 			/*  */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Finish to turn on CAM_RAWA" */
 	}
@@ -2719,6 +2897,10 @@ int spm_mtcmos_ctrl_cam_rawa(int state)
 int spm_mtcmos_ctrl_cam_rawb(int state)
 {
 	int err = 0;
+
+	DBG_ID = DBG_ID_CAM_RAWB;
+	DBG_STA = state;
+	DBG_STEP = 0;
 
 	/* TINFO="enable SPM register control" */
 	spm_write(POWERON_CONFIG_EN, (SPM_PROJECT_CODE << 16) | (0x1 << 0));
@@ -2735,6 +2917,7 @@ int spm_mtcmos_ctrl_cam_rawb(int state)
 				/*  */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_ISO = 1" */
 		spm_write(CAM_RAWB_PWR_CON,
@@ -2757,6 +2940,7 @@ int spm_mtcmos_ctrl_cam_rawb(int state)
 		       || (spm_read(PWR_STATUS_2ND) & CAM_RAWB_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Finish to turn off CAM_RAWB" */
 	} else {    /* STA_POWER_ON */
@@ -2775,6 +2959,7 @@ int spm_mtcmos_ctrl_cam_rawb(int state)
 			!= CAM_RAWB_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_CLK_DIS = 0" */
 		spm_write(CAM_RAWB_PWR_CON,
@@ -2795,6 +2980,7 @@ int spm_mtcmos_ctrl_cam_rawb(int state)
 				/*  */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Finish to turn on CAM_RAWB" */
 	}
@@ -2804,6 +2990,10 @@ int spm_mtcmos_ctrl_cam_rawb(int state)
 int spm_mtcmos_ctrl_cam_rawc(int state)
 {
 	int err = 0;
+
+	DBG_ID = DBG_ID_CAM_RAWC;
+	DBG_STA = state;
+	DBG_STEP = 0;
 
 	/* TINFO="enable SPM register control" */
 	spm_write(POWERON_CONFIG_EN, (SPM_PROJECT_CODE << 16) | (0x1 << 0));
@@ -2820,6 +3010,7 @@ int spm_mtcmos_ctrl_cam_rawc(int state)
 				/*  */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_ISO = 1" */
 		spm_write(CAM_RAWC_PWR_CON,
@@ -2842,6 +3033,7 @@ int spm_mtcmos_ctrl_cam_rawc(int state)
 		       || (spm_read(PWR_STATUS_2ND) & CAM_RAWC_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Finish to turn off CAM_RAWC" */
 	} else {    /* STA_POWER_ON */
@@ -2860,6 +3052,7 @@ int spm_mtcmos_ctrl_cam_rawc(int state)
 			!= CAM_RAWC_PWR_STA_MASK)) {
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_CLK_DIS = 0" */
 		spm_write(CAM_RAWC_PWR_CON,
@@ -2880,6 +3073,7 @@ int spm_mtcmos_ctrl_cam_rawc(int state)
 				/*  */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Finish to turn on CAM_RAWC" */
 	}
@@ -2896,6 +3090,10 @@ int spm_mtcmos_ctrl_dp_tx(int state)
 int spm_mtcmos_ctrl_msdc(int state)
 {
 	int err = 0;
+
+	DBG_ID = DBG_ID_MSDC;
+	DBG_STA = state;
+	DBG_STEP = 0;
 
 	/* TINFO="enable SPM register control" */
 	spm_write(POWERON_CONFIG_EN, (SPM_PROJECT_CODE << 16) | (0x1 << 0));
@@ -2923,6 +3121,7 @@ int spm_mtcmos_ctrl_msdc(int state)
 				/*  */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Finish to turn off MSDC" */
 	} else {    /* STA_POWER_ON */
@@ -2940,6 +3139,7 @@ int spm_mtcmos_ctrl_msdc(int state)
 				/*  */
 			ram_console_update();
 		}
+		INCREASE_STEPS;
 #endif
 		/* TINFO="Set PWR_CLK_DIS = 0" */
 		spm_write(MSDC_PWR_CON, spm_read(MSDC_PWR_CON) & ~PWR_CLK_DIS);
@@ -3375,17 +3575,17 @@ int allow[NR_SYSS] = {
 1,	/* SYS_VDE2 = 13 */
 1,	/* SYS_VEN = 14 */
 //1,	/* SYS_VEN_CORE1 = 15 */
-1,	/* SYS_MDP = 16 */
-1,	/* SYS_DIS = 17 */
-1,	/* SYS_AUDIO = 18 */
-1,	/* SYS_ADSP = 19 */
-1,	/* SYS_CAM = 20 */
-1,	/* SYS_CAM_RAWA = 21 */
-1,	/* SYS_CAM_RAWB = 22 */
-1,	/* SYS_CAM_RAWC = 23 */
-1,	/* SYS_DP_TX = 24 */
-1,	/* SYS_VPU = 25 */
-1,	/* SYS_MSDC = 26 */
+1,	/* SYS_MDP = 15 */
+1,	/* SYS_DIS = 16 */
+1,	/* SYS_AUDIO = 17 */
+1,	/* SYS_ADSP = 18 */
+1,	/* SYS_CAM = 19 */
+1,	/* SYS_CAM_RAWA = 20 */
+1,	/* SYS_CAM_RAWB = 21 */
+1,	/* SYS_CAM_RAWC = 22 */
+1,	/* SYS_DP_TX = 23 */
+1,	/* SYS_VPU = 24 */
+1,	/* SYS_MSDC = 25 */
 };
 #endif
 
@@ -3721,8 +3921,8 @@ struct mtk_power_gate scp_clks[] __initdata = {
 	PGATE(SCP_SYS_CAM_RAWC, "PG_CAM_RAWC", "PG_CAM", NULL, SYS_CAM_RAWC),
 	PGATE(SCP_SYS_DP_TX, "PG_DP_TX", "PG_DIS", NULL, SYS_DP_TX),
 	/* Gary Wang: no need to turn on disp mtcmos*/
-	PGATE3(SCP_SYS_VPU, "PG_VPU", NULL, "dsp_sel", "dsp7_sel",
-							"ipu_if_sel", SYS_VPU),
+	PGATE3(SCP_SYS_VPU, "PG_VPU", NULL, "ipu_if_sel", "dsp_sel",
+							"dsp7_sel", SYS_VPU),
 	PGATE(SCP_SYS_MSDC, "PG_MSDC", NULL, NULL, SYS_MSDC),
 };
 
@@ -3990,8 +4190,8 @@ static void __init mt_scpsys_init(struct device_node *node)
 	spm_mtcmos_ctrl_conn(STA_POWER_DOWN);
 
 	pr_notice("MTCMOS MM AO begin\n");
-	spm_mtcmos_ctrl_mdp(STA_POWER_ON);
 	spm_mtcmos_ctrl_dis(STA_POWER_ON);
+	spm_mtcmos_ctrl_mdp(STA_POWER_ON);
 
 	pr_notice("MTCMOS GPU begin\n");
 	spm_mtcmos_ctrl_mfg0(STA_POWER_ON);
@@ -4338,11 +4538,11 @@ void mtcmos_force_off(void)
 	spm_mtcmos_ctrl_mfg1(STA_POWER_DOWN);
 	spm_mtcmos_ctrl_mfg0(STA_POWER_DOWN);
 
-	pr_notice("suspend test: dis\n");
-	spm_mtcmos_ctrl_dis(STA_POWER_DOWN);
-
 	pr_notice("suspend test: mdp\n");
 	spm_mtcmos_ctrl_mdp(STA_POWER_DOWN);
+
+	pr_notice("suspend test: dis\n");
+	spm_mtcmos_ctrl_dis(STA_POWER_DOWN);
 
 	pr_notice("suspend test: md1\n");
 	spm_mtcmos_ctrl_md1(STA_POWER_DOWN);
