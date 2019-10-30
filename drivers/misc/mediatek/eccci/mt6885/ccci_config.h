@@ -78,7 +78,7 @@
 #endif
 
 /*#define CCCI_LOG_LEVEL     1*/
-/*#define FEATURE_CLK_BUF*/
+#define FEATURE_CLK_BUF
 /*#define DPMAIF_DEBUG_LOG*/
 #define DEBUG_FOR_CCB
 #endif
