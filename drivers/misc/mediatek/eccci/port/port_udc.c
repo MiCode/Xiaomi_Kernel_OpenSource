@@ -416,7 +416,8 @@ static int check_cmp_buf(u32 inst_id,
 		ap_read = rw_index->md_des_ins1.read;
 		ap_write = rw_index->ap_resp_ins1.write;
 		md_read = rw_index->ap_resp_ins1.read;
-	}
+	} else
+		return -CMP_INST_ID_ERR;
 
 	md_read_len = (rslt_des_base + md_read)->cmp_addr
 		+ (rslt_des_base + md_read)->cmp_len;
@@ -640,7 +641,7 @@ int udc_kick_handler(struct port_t *port, struct z_stream_s *zcpr,
 	}
 	/* cal md_read_len for check if cmp_buf is full or not */
 	ret = check_cmp_buf(inst_id, max_output_size);
-	if (ret == -CMP_BUF_FULL)
+	if (ret)
 		return ret;
 	/* must inc ap_read after check_cmp_buf,
 	 * or if cmp buf full happen,sdu_idx will be wrong.
