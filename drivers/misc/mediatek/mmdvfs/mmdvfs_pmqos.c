@@ -29,7 +29,9 @@
 #include <mt_freqhopping_drv.h>
 #endif
 
-#ifdef USE_MTK_DRAMC
+#if defined(USE_MEDIATEK_EMI)
+#include <memory/mediatek/emi.h>
+#elif defined(USE_MTK_DRAMC)
 #include <mtk_dramc.h>
 #endif
 
@@ -179,7 +181,7 @@ static struct pm_qos_request mm_bw_request;
 static struct pm_qos_request smi_freq_request[MAX_COMM_NUM];
 static DEFINE_MUTEX(step_mutex);
 static DEFINE_MUTEX(bw_mutex);
-static s32 total_hrt_bw;
+static s32 total_hrt_bw = UNINITIALIZED_VALUE;
 static BLOCKING_NOTIFIER_HEAD(hrt_bw_throttle_notifier);
 
 
@@ -750,7 +752,13 @@ static s32 get_total_used_hrt_bw(void)
 	return (cam_hrt_bw + disp_hrt_bw + md_hrt_bw);
 }
 
-#ifdef USE_MTK_DRAMC
+#if defined(USE_MEDIATEK_EMI)
+static s32 get_io_width(void)
+{
+	/* Todo: Use EMI API */
+	return 2;
+}
+#elif defined(USE_MTK_DRAMC)
 static s32 get_io_width(void)
 {
 	s32 io_width;
@@ -1482,10 +1490,16 @@ EXPORT_SYMBOL_GPL(mmdvfs_set_max_camera_hrt_bw);
 static s32 get_total_hrt_bw(void)
 {
 	s32 result = 0;
-#ifdef USE_MTK_DRAMC
+#if defined(USE_MEDIATEK_EMI)
+	s32 max_freq = get_opp_ddr_freq(0)/1000;
+	s32 ch_num = mtk_emicen_get_ch_cnt();
+	s32 io_width = get_io_width();
+
+	result = MULTIPLY_BW_THRESH_HIGH(max_freq * ch_num * io_width);
+#elif defined(USE_MTK_DRAMC)
 	s32 max_freq = dram_steps_freq(0);
 	s32 ch_num = get_emi_ch_num();
-	s32 io_width = get_io_width(); /* Todo: Use API from DRAM owner */
+	s32 io_width = get_io_width();
 
 	result = MULTIPLY_BW_THRESH_HIGH(max_freq * ch_num * io_width);
 #else
@@ -1856,7 +1870,6 @@ static int mmdvfs_probe(struct platform_device *pdev)
 	for (i = 0; i < value && i < MAX_FREQ_STEP; i++)
 		pr_notice(" - step[%d]: %llu\n", i, freq_steps[i]);
 
-	total_hrt_bw = get_total_hrt_bw();
 #ifdef BLOCKING_MECHANISM
 	init_waitqueue_head(&hrt_wait);
 #endif
@@ -1978,6 +1991,7 @@ static int __init mmdvfs_pmqos_late_init(void)
 	mmdvfs_qos_force_step(-1);
 	pr_notice("force flip step0 when late_init\n");
 #endif
+	total_hrt_bw = get_total_hrt_bw();
 	return 0;
 }
 

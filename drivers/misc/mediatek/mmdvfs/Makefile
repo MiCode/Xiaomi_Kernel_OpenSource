@@ -122,6 +122,10 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)/
 ccflags-y += -DUSE_MTK_DRAMC
 endif
 
+ifeq ($(CONFIG_MEDIATEK_EMI),y)
+ccflags-y += -DUSE_MEDIATEK_EMI
+endif
+
 ifeq (true, $(SUPPORT_USE_DDR_TYPE))
 ccflags-y += -DUSE_DDR_TYPE
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/emi/$(MTK_PLATFORM)/
