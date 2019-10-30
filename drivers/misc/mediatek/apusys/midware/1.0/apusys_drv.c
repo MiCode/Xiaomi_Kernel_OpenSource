@@ -1134,6 +1134,7 @@ check_ucmd_size_fail:
 				LOG_ERR("dev(%d/%d) poweroff fail\n",
 					dev_info->dev->dev_type,
 					dev_info->dev->idx);
+				ret = -ENODEV;
 			}
 
 			if (put_device_lock(dev_info)) {
@@ -1148,6 +1149,7 @@ check_ucmd_size_fail:
 					LOG_ERR("delete sec(%d/%d) list fail\n",
 						dev_info->dev->dev_type,
 						dev_info->dev->idx);
+					ret = -ENODEV;
 				}
 			}
 			val++;
@@ -1186,10 +1188,10 @@ check_ucmd_size_fail:
 
 		/* power off all device by type */
 		for (count = 0; count < dev_num; count++) {
-			ret = res_power_off(ioctl_sec.dev_type, count);
-			if (ret) {
+			if (res_power_off(ioctl_sec.dev_type, count)) {
 				LOG_ERR("sec unlock poweroff dev(%d/%d) fail\n",
 					ioctl_sec.dev_type, count);
+				ret = -ENODEV;
 			}
 		}
 
