@@ -371,7 +371,13 @@ int vpu_dev_boot(struct vpu_device *vd)
 {
 	int ret = 0;
 
-	if (vd->state != VS_DOWN)
+	if (vd->state <= VS_DOWN) {
+		pr_info("%s: unexpected state: %d\n", __func__, vd->state);
+		ret = -ENODEV;
+		goto err;
+	}
+
+	if (vd->state != VS_UP && vd->state != VS_BOOT)
 		return ret;
 
 	vd->state = VS_BOOT;
@@ -380,7 +386,6 @@ int vpu_dev_boot(struct vpu_device *vd)
 	ret = vpu_dev_boot_sequence(vd);
 	if (ret) {
 		pr_info("%s: vpu_dev_boot_sequence: %d\n", __func__, ret);
-		vd->state = VS_DOWN;
 		goto err;
 	}
 
@@ -388,7 +393,6 @@ int vpu_dev_boot(struct vpu_device *vd)
 	ret = vpu_dev_set_debug(vd);
 	if (ret) {
 		pr_info("%s: vpu_dev_set_debug: %d\n", __func__, ret);
-		vd->state = VS_DOWN;
 		goto err;
 	}
 
@@ -396,16 +400,6 @@ int vpu_dev_boot(struct vpu_device *vd)
 
 err:
 	return ret;
-}
-
-// reference: vpu_shut_down
-// vd->cmd_lock, should be acquired before calling this function
-int vpu_dev_down(struct vpu_device *vd)
-{
-	if ((vd->state > VS_DOWN) && (vd->state < VS_REMOVING))
-		vd->state = VS_DOWN;
-
-	return 0;
 }
 
 // Equal to vpu_hw_processing_request

@@ -205,6 +205,5 @@ int vpu_dev_set_debug(struct vpu_device *vd);
 #define VPU_SIZE_LOG_DATA  (VPU_SIZE_LOG_BUF - VPU_SIZE_LOG_HEADER)
 
 int vpu_dev_boot(struct vpu_device *vd);
-int vpu_dev_down(struct vpu_device *vd);
 
 #endif

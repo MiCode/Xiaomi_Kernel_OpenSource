@@ -96,6 +96,7 @@ int vpu_pwr_get_locked(struct vpu_device *vd, uint8_t boost)
 				__func__, vd->id, ret);
 			goto err;
 		}
+		vd->state = VS_UP;
 	}
 
 	kref_init(&vd->pw_ref);
@@ -161,6 +162,7 @@ int vpu_pwr_up_locked(struct vpu_device *vd, uint8_t boost, uint32_t off_timer)
 void vpu_pwr_down_locked(struct vpu_device *vd)
 {
 	refcount_set(&vd->pw_ref.refcount, 0);
+	cancel_delayed_work(&vd->pw_off_work);
 	vpu_pwr_off_locked(vd);
 	vpu_pwr_debug("%s: vpu%d: powered down\n", __func__, vd->id);
 }
@@ -202,9 +204,17 @@ static void vpu_pwr_off_locked(struct vpu_device *vd)
 {
 	int ret;
 
+	vpu_alg_unload(vd);
+
+	if (vd->state <= VS_DOWN) {
+		vpu_pwr_debug("%s: vpu%d: already off: %d\n",
+			__func__, vd->id, vd->state);
+		return;
+	}
+
 	vpu_pwr_debug("%s: vpu%d: apu_device_power_off\n",
 		__func__, vd->id);
-	vpu_alg_unload(vd);
+
 	ret = apu_device_power_off(adu(vd->id));
 	if (ret)
 		vpu_pwr_debug("%s: vpu%d: apu_device_power_off: failed: %d\n",

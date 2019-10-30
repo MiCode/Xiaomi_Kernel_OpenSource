@@ -118,7 +118,7 @@ int vpu_send_cmd(int op, void *hnd, struct apusys_device *adev)
 			      __func__, vd->id,
 			      pw->boost_val, pw->opp, pw->timeout);
 		return vpu_pwr_up(vd, pw->boost_val,
-			(pw->timeout ? VPU_PWR_OFF_LATENCY : 0));
+			(pw->timeout ? vd->pw_off_latency : 0));
 	case APUSYS_CMD_POWERDOWN:
 		vpu_cmd_debug("%s:vpu%d POWERDOWN\n",
 			      __func__, vd->id);

@@ -91,6 +91,7 @@ enum vpu_state {
 	VS_UNKNOWN = 0,
 	VS_DISALBED,   // disabled by e-fuse
 	VS_DOWN,       // power down
+	VS_UP,         // power up
 	VS_BOOT,       // booting
 	VS_IDLE,       // power on, idle
 	VS_CMD_ALG,
