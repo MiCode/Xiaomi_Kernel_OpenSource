@@ -116,7 +116,7 @@ static struct reg_config dvfsrc_init_configs[][128] = {
 		{ DVFSRC_HRT_LOW_1,          0x1AD116FF },
 		{ DVFSRC_HRT_LOW,            0x0E0F095F },
 
-		{ DVFSRC_BASIC_CONTROL_3,    0x0000000E },
+		{ DVFSRC_BASIC_CONTROL_3,    0x00000006 },
 		{ DVFSRC_INT_EN,             0x00000002 },
 		{ DVFSRC_QOS_EN,             0x0000407C },
 
@@ -470,11 +470,13 @@ EXPORT_SYMBOL(vcorefs_get_src_req_name);
 static u32 vcorefs_get_md_level_mask_ddr(void)
 {
 	int md_srclk = dvfsrc_read(DVFSRC_DEBUG_STA_0);
+	int level_mask_en;
 	int vopp = get_cur_vcore_opp();
 
+	level_mask_en = dvfsrc_read(DVFSRC_BASIC_CONTROL_3) & 0x8;
 	md_srclk = (md_srclk >> MD_SRC_CLK_DEBUG_SHIFT) & MD_SRC_CLK_DEBUG_MASK;
 
-	if (vopp != 3 && md_srclk == 1)
+	if (vopp != 3 && md_srclk == 1 && level_mask_en == 8)
 		return 2;
 	return 0;
 }
