@@ -831,8 +831,16 @@ for (loop = 0; loop < count; loop++) {
 					__func__, AUTO_BUCK_OFF_SUSPEND);
 		LOG_WRN("%s, AUTO_BUCK_OFF_DEEPIDLE : %d\n",
 					__func__, AUTO_BUCK_OFF_DEEPIDLE);
+		LOG_WRN("%s, VCORE_DVFS_SUPPORT : %d\n",
+					__func__, VCORE_DVFS_SUPPORT);
 		LOG_WRN("%s, ASSERTION_PERCENTAGE : %d\n",
 					__func__, ASSERTION_PERCENTAGE);
+#ifdef AGING_MARGIN
+		LOG_WRN("%s, AGING_MARGIN : %d\n",
+					__func__, AGING_MARGIN);
+#endif
+		LOG_WRN("%s, BINNING_VOLTAGE_SUPPORT : %d\n",
+					__func__, BINNING_VOLTAGE_SUPPORT);
 		LOG_WRN("%s, g_pwr_log_level : %d\n",
 					__func__, g_pwr_log_level);
 		apu_power_reg_dump();
