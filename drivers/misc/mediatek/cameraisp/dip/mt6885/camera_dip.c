@@ -396,6 +396,11 @@ struct S_START_T {
 	unsigned int usec;
 };
 
+struct DIP_DEV_NODE_MAPPING {
+	enum DIP_DEV_NODE_ENUM idx;
+	unsigned int region;
+};
+
 /* QQ, remove later */
 /* record remain node count(success/fail) */
 /* excludes head when enque/deque control */
@@ -822,838 +827,1645 @@ static inline unsigned int DIP_JiffiesToMs(unsigned int Jiffies)
 	return ((Jiffies * 1000) / HZ);
 }
 
-static signed int DIP_DumpDIPReg(void)
+
+static signed int DIP_Dump_IMGSYS_DIP_Reg(void)
 {
 	signed int Ret = 0;
-	unsigned int loop = 0;
-#if 1 /*YW TODO*/
-	unsigned int i, cmdqidx = 0, dipdmacmd = 0, mfbcmd = 0;
+	unsigned int DIPNo = 0, i = 0;
+	unsigned int dipdmacmd = 0;
 	unsigned int dbg_rgb = 0x1, dbg_yuv = 0x2;
 	unsigned int dbg_sel = 0, dbg_out = 0, dd = 0;
 	unsigned int smidmacmd = 0, dmaidx = 0;
 	unsigned int fifodmacmd = 0;
 	unsigned int cmdqdebugcmd = 0, cmdqdebugidx = 0;
+	unsigned int d1a_cq_en = 0;
+	void __iomem *dipRegBasAddr, *imgsysBasAddr;
+
+	static struct DIP_DEV_NODE_MAPPING ImgsysDumpTL[MTK_DIP_COUNT + 1]
+	= {		{DIP_IMGSYS_CONFIG_IDX, 0x1502},
+		#if (MTK_DIP_COUNT == 2)
+			{DIP_IMGSYS2_CONFIG_IDX, 0x1582},
+		#endif
+			{DIP_DEV_NODE_NUM, 0xFFFF} };
+
+	static struct DIP_DEV_NODE_MAPPING DipDumpTL[MTK_DIP_COUNT + 1]
+	= {		{DIP_DIP_A_IDX, 0x1502},
+		#if (MTK_DIP_COUNT == 2)
+			{DIP_DIP_B_IDX, 0x1582},
+		#endif
+			{DIP_DEV_NODE_NUM, 0xFFFF} };
+
+	for (DIPNo = 0; DIPNo < MTK_DIP_COUNT; DIPNo++) {
+		/* IMGSYS_CONFIG_BASE */
+		imgsysBasAddr = dip_devs[ImgsysDumpTL[DIPNo].idx].regs;
+		/* DIP REG_CONFIG_BASE */
+		dipRegBasAddr = dip_devs[DipDumpTL[DIPNo].idx].regs;
+
+		cmdq_util_err("***** Imgsys %d *****", DIPNo);
+		/* HUNG-WEN */
+		cmdq_util_err("imgsys:0x%x0000(0x%x)",
+			ImgsysDumpTL[DIPNo].region, DIP_RD32(imgsysBasAddr));
+		cmdq_util_err("imgsys: 0x%x004C(0x%x)",
+			ImgsysDumpTL[DIPNo].region,
+			DIP_RD32(imgsysBasAddr + 0x4C));
+		cmdq_util_err("0x%x0200(0x%x)-0x%x0204(0x%x)",
+			ImgsysDumpTL[DIPNo].region,
+			DIP_RD32(imgsysBasAddr + 0x200),
+			ImgsysDumpTL[DIPNo].region,
+			DIP_RD32(imgsysBasAddr + 0x204));
+		cmdq_util_err("0x%x0208(0x%x)-0x%x020C(0x%x)",
+			ImgsysDumpTL[DIPNo].region,
+			DIP_RD32(imgsysBasAddr + 0x208),
+			ImgsysDumpTL[DIPNo].region,
+			DIP_RD32(imgsysBasAddr + 0x20C));
+		cmdq_util_err("0x%x0220(0x%x)-0x%x0224(0x%x)",
+			ImgsysDumpTL[DIPNo].region,
+			DIP_RD32(imgsysBasAddr + 0x220),
+			ImgsysDumpTL[DIPNo].region,
+			DIP_RD32(imgsysBasAddr + 0x224));
+		cmdq_util_err("0x%x0228(0x%x)-0x%x0230(0x%x)",
+			ImgsysDumpTL[DIPNo].region,
+			DIP_RD32(imgsysBasAddr + 0x228),
+			ImgsysDumpTL[DIPNo].region,
+			DIP_RD32(imgsysBasAddr + 0x230));
+		cmdq_util_err("0x%x0234(0x%x)-0x%x0238(0x%x)",
+			ImgsysDumpTL[DIPNo].region,
+			DIP_RD32(imgsysBasAddr + 0x234),
+			ImgsysDumpTL[DIPNo].region,
+			DIP_RD32(imgsysBasAddr + 0x238));
+
+		cmdq_util_err("***** DIP %d *****", DIPNo);
+		/*top control*/
+		cmdq_util_err("dip: 0x%x2000(0x%x)-0x%x2004(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1000),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1004));
+		cmdq_util_err("dip: 0x%x2010(0x%x)-0x%x2014(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1010),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1014));
+		cmdq_util_err("dip: 0x%x2018(0x%x)-0x%x201C(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1018),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x101C));
+		cmdq_util_err("dip: 0x%x2020(0x%x)-0x%x2024(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1020),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1024));
+		cmdq_util_err("dip: 0x%x2028(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1028));
+		cmdq_util_err("dip: 0x%x2040(0x%x)-0x%x2044(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1040),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1044));
+		cmdq_util_err("dip: 0x%x2050(0x%x)-0x%x2054(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1050),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1054));
+		cmdq_util_err("dip: 0x%x2058(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1058));
+
+		/*mdp crop1 and mdp crop2*/
+		cmdq_util_err("dip: 0x%x86C0(0x%x)-0x%x86C4(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x76C0),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x76C4));
+		cmdq_util_err("crop2: 0x%x4B80(0x%x)-0x%x4B84(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x3B80),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x3B84));
+
+		/*imgi and tdri offset address*/
+		cmdq_util_err("dip: 0x%x1104(0x%x)-0x%x1004(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0104),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0004));
+		cmdq_util_err("dip: 0x%x1008(0x%x)-0x%x100C(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0008),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x000C));
+		/*tdr ctrl*/
+		cmdq_util_err("dip: 0x%x2060(0x%x)-0x%x2064(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1060),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1064));
+		cmdq_util_err("dip: 0x%x2068(0x%x)-0x%x206C(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1068),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x106C));
+		cmdq_util_err("dip: 0x%x2070(0x%x)-0x%x2074(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1070),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1074));
+		cmdq_util_err("dip: 0x%x2078(0x%x)-0x%x207C(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1078),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x107C));
+		cmdq_util_err("dip: 0x%x2080(0x%x)-0x%x2084(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1080),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1084));
+		cmdq_util_err("dip: 0x%x2088(0x%x)-0x%x208C(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1088),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x108C));
+		cmdq_util_err("dip: 0x%x2090(0x%x)-0x%x2094(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1090),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1094));
+
+		/*Request and Ready Signal*/
+		/*0x%x216c - reserve bit*/
+		cmdq_util_err("dip: 0x%x2150(0x%x)-0x%x2154(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1150),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1154));
+		cmdq_util_err("dip: 0x%x2158(0x%x)-0x%x215C(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1158),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x115C));
+		cmdq_util_err("dip: 0x%x2160(0x%x)-0x%x2164(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1160),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1164));
+		cmdq_util_err("dip: 0x%x2168(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1168));
+		cmdq_util_err("dip: 0x%x2170(0x%x)-0x%x2174(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1170),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1174));
+		cmdq_util_err("dip: 0x%x2178(0x%x)-0x%x217C(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1178),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x117C));
+		cmdq_util_err("dip: 0x%x2180(0x%x)-0x%x2184(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1180),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1184));
+		cmdq_util_err("dip: 0x%x2188(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1188));
+		cmdq_util_err("dip: 0x%x218C(0x%x)-0x%x2190(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x118C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1190));
+
+		/*CQ_THR info*/
+		cmdq_util_err("dip: 0x%x2204(0x%x)-0x%x2208(0x%x)-0x%x2210(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1204),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1208),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x120C));
+		cmdq_util_err("dip: 0x%x221C(0x%x)-0x%x2220(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x121C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1220));
+		cmdq_util_err("dip: 0x%x2224(0x%x)-0x%x101C(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1224),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x001C));
+
+
+		d1a_cq_en = DIP_RD32(dipRegBasAddr + 0x200);
+		d1a_cq_en = d1a_cq_en & 0xEFFFFFFF;
+		DIP_WR32(dipRegBasAddr + 0x200, d1a_cq_en);
+
+		cmdqdebugcmd = 0x6;
+		DIP_WR32(dipRegBasAddr + 0x190, cmdqdebugcmd);
+		cmdq_util_err("thread state:0x%x : dip: 0x%x2194(0x%x)",
+			cmdqdebugcmd,
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x194));
+
+		cmdqdebugcmd = 0x1006;
+		DIP_WR32(dipRegBasAddr + 0x190, cmdqdebugcmd);
+		cmdq_util_err("cq state:0x%x : dip: 0x%x2194(0x%x)",
+			cmdqdebugcmd,
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x194));
+
+		d1a_cq_en = DIP_RD32(dipRegBasAddr + 0x200);
+		d1a_cq_en = d1a_cq_en | 0x10000000;
+		DIP_WR32(dipRegBasAddr + 0x200, d1a_cq_en);
+
+		cmdqdebugcmd = 0x6;
+		for (cmdqdebugidx = 0; cmdqdebugidx < 16; cmdqdebugidx++) {
+			cmdqdebugcmd = cmdqdebugcmd | (cmdqdebugidx << 16);
+			DIP_WR32(dipRegBasAddr + 0x190, cmdqdebugcmd);
+			cmdq_util_err("cq checksum:0x%x : dip: 0x%x2194(0x%x)",
+				cmdqdebugcmd,
+				DipDumpTL[DIPNo].region,
+				DIP_RD32(dipRegBasAddr + 0x194));
+		}
+
+		/* 0x%x2190, DIPCTL_D1A_DIPCTL_DBG_SEL*/
+		/* HUNG-WEN */
+		DIP_WR32(dipRegBasAddr + 0x1190, 0x3);
+		dipdmacmd = 0x00000014;
+		for (i = 0; i < 104 ; i++) {
+	    /* 0x%x10A8, DIPDMATOP_REG_D1A_DIPDMATOP_DMA_DEBUG_SEL */
+			switch (i) {
+			case 0x0:
+				dmaidx = 1;
+				cmdq_util_err("imgi dma debug");
+				break;
+			case 0x4:
+				dmaidx = 3;
+				cmdq_util_err("imgbi dma debug");
+				break;
+			case 0x8:
+				dmaidx = 2;
+				cmdq_util_err("imgci dma debug");
+				break;
+			case 0xc:
+				dmaidx = 4;
+				cmdq_util_err("vipi dma debug");
+				break;
+			case 0x10:
+				dmaidx = 5;
+				cmdq_util_err("vip2i dma debug");
+				break;
+			case 0x14:
+				dmaidx = 6;
+				cmdq_util_err("vip3i dma debug");
+				break;
+			case 0x18:
+				dmaidx = 21;
+				cmdq_util_err("smti_d1 dma debug");
+				break;
+			case 0x1c:
+				dmaidx = 22;
+				cmdq_util_err("smti_d2 dma debug");
+				break;
+			case 0x20:
+				dmaidx = 23;
+				cmdq_util_err("smti_d3 dma debug");
+				break;
+			case 0x24:
+				dmaidx = 24;
+				cmdq_util_err("smti_d4 dma debug");
+				break;
+			case 0x28:
+				dmaidx = 9;
+				cmdq_util_err("lcei_d1 dma debug");
+				break;
+			case 0x2c:
+				dmaidx = 7;
+				cmdq_util_err("dmgi_d1 dma debug");
+				break;
+			case 0x30:
+				dmaidx = 8;
+				cmdq_util_err("depi_d1 dma debug");
+				break;
+			case 0x34:
+				dmaidx = 10;
+				cmdq_util_err("ufdi_d1 dma debug");
+				break;
+			case 0x38:
+				dmaidx = 14;
+				cmdq_util_err("img3o_d1 dma debug");
+				break;
+			case 0x3c:
+				dmaidx = 15;
+				cmdq_util_err("img3bo_d1 dma debug");
+				break;
+			case 0x40:
+				dmaidx = 16;
+				cmdq_util_err("img3co_d1 dma debug");
+				break;
+			case 0x44:
+				dmaidx = 11;
+				cmdq_util_err("crzo_d1 dma debug");
+				break;
+			case 0x48:
+				dmaidx = 12;
+				cmdq_util_err("crzbo_d1 dma debug");
+				break;
+			case 0x4c:
+				dmaidx = 13;
+				cmdq_util_err("dceso_d1 dma debug");
+				break;
+			case 0x50:
+				dmaidx = 18;
+				cmdq_util_err("timgo_d1 dma debug");
+				break;
+			case 0x54:
+				dmaidx = 25;
+				cmdq_util_err("smto_d1 dma debug");
+				break;
+			case 0x58:
+				dmaidx = 26;
+				cmdq_util_err("smto_d2 dma debug");
+				break;
+			case 0x5c:
+				dmaidx = 27;
+				cmdq_util_err("smto_d3 dma debug");
+				break;
+			case 0x60:
+				dmaidx = 28;
+				cmdq_util_err("smto_d4 dma debug");
+				break;
+			case 0x64:
+				dmaidx = 17;
+				cmdq_util_err("feo_d1 dma debug");
+				break;
+			default:
+				break;
+			}
+			dipdmacmd = dipdmacmd & 0xFFFF00FF;
+			dipdmacmd = dipdmacmd | (i << 8);
+			DIP_WR32(dipRegBasAddr + 0xA8, dipdmacmd);
+			/* 0x%x2194, DIPCTL_REG_D1A_DIPCTL_DBG_OUT */
+			cmdq_util_err("0x%x : dip: 0x%x2194(0x%x)",
+				dipdmacmd, DipDumpTL[DIPNo].region,
+				DIP_RD32(dipRegBasAddr + 0x1194));
+			i++;
+			dipdmacmd = dipdmacmd & 0xFFFF00FF;
+			dipdmacmd = dipdmacmd | (i << 8);
+			DIP_WR32(dipRegBasAddr + 0xA8, dipdmacmd);
+			cmdq_util_err("0x%x : dip: 0x%x2194(0x%x)",
+				dipdmacmd, DipDumpTL[DIPNo].region,
+				DIP_RD32(dipRegBasAddr + 0x1194));
+			i++;
+			dipdmacmd = dipdmacmd & 0xFFFF00FF;
+			dipdmacmd = dipdmacmd | (i << 8);
+			DIP_WR32(dipRegBasAddr + 0xA8, dipdmacmd);
+			cmdq_util_err("0x%x : dip: 0x%x2194(0x%x)",
+				dipdmacmd, DipDumpTL[DIPNo].region,
+				DIP_RD32(dipRegBasAddr + 0x1194));
+			i++;
+			dipdmacmd = dipdmacmd & 0xFFFF00FF;
+			dipdmacmd = dipdmacmd | (i << 8);
+			DIP_WR32(dipRegBasAddr + 0xA8, dipdmacmd);
+			cmdq_util_err("0x%x : dip: 0x%x2194(0x%x)",
+				dipdmacmd, DipDumpTL[DIPNo].region,
+				DIP_RD32(dipRegBasAddr + 0x1194));
+
+			if (((dmaidx >= 10) && (dmaidx <= 18)) ||
+				((dmaidx >= 25) && (dmaidx <= 28))) {
+				smidmacmd = 0x00080400;
+				smidmacmd = smidmacmd | dmaidx;
+				DIP_WR32(dipRegBasAddr + 0xA8, smidmacmd);
+				cmdq_util_err("0x%x : dip: 0x%x2194(0x%x)",
+					smidmacmd, DipDumpTL[DIPNo].region,
+					DIP_RD32(dipRegBasAddr + 0x1194));
+
+				smidmacmd = 0x00090400;
+				smidmacmd = smidmacmd | dmaidx;
+				DIP_WR32(dipRegBasAddr + 0xA8, smidmacmd);
+				cmdq_util_err("0x%x : dip: 0x%x2194(0x%x)",
+					smidmacmd, DipDumpTL[DIPNo].region,
+					DIP_RD32(dipRegBasAddr + 0x1194));
+
+				smidmacmd = 0x00000400;
+				smidmacmd = smidmacmd | dmaidx;
+				DIP_WR32(dipRegBasAddr + 0xA8, smidmacmd);
+				cmdq_util_err("0x%x : dip: 0x%x2194(0x%x)",
+					smidmacmd, DipDumpTL[DIPNo].region,
+					DIP_RD32(dipRegBasAddr + 0x1194));
+
+				smidmacmd = 0x00010400;
+				smidmacmd = smidmacmd | dmaidx;
+				DIP_WR32(dipRegBasAddr + 0xA8, smidmacmd);
+				cmdq_util_err("0x%x : dip: 0x%x2194(0x%x)",
+					smidmacmd, DipDumpTL[DIPNo].region,
+					DIP_RD32(dipRegBasAddr + 0x1194));
+
+				fifodmacmd = 0x00000300;
+				fifodmacmd = fifodmacmd | dmaidx;
+				DIP_WR32(dipRegBasAddr + 0xA8, fifodmacmd);
+				cmdq_util_err("0x%x : dip: 0x%x2194(0x%x)",
+					fifodmacmd, DipDumpTL[DIPNo].region,
+					DIP_RD32(dipRegBasAddr + 0x1194));
+
+				fifodmacmd = 0x00010300;
+				fifodmacmd = fifodmacmd | dmaidx;
+				DIP_WR32(dipRegBasAddr + 0xA8, fifodmacmd);
+				cmdq_util_err("0x%x : dip: 0x%x2194(0x%x)",
+					fifodmacmd, DipDumpTL[DIPNo].region,
+					DIP_RD32(dipRegBasAddr + 0x1194));
+
+				fifodmacmd = 0x00020300;
+				fifodmacmd = fifodmacmd | dmaidx;
+				DIP_WR32(dipRegBasAddr + 0xA8, fifodmacmd);
+				cmdq_util_err("0x%x : dip: 0x%x2194(0x%x)",
+					fifodmacmd, DipDumpTL[DIPNo].region,
+					DIP_RD32(dipRegBasAddr + 0x1194));
+
+				fifodmacmd = 0x00030300;
+				fifodmacmd = fifodmacmd | dmaidx;
+				DIP_WR32(dipRegBasAddr + 0xA8, fifodmacmd);
+				cmdq_util_err("0x%x : dip: 0x%x2194(0x%x)",
+					fifodmacmd, DipDumpTL[DIPNo].region,
+					DIP_RD32(dipRegBasAddr + 0x1194));
+
+			} else {
+				smidmacmd = 0x00080100;
+				smidmacmd = smidmacmd | dmaidx;
+				DIP_WR32(dipRegBasAddr + 0xA8, smidmacmd);
+				cmdq_util_err("0x%x : dip: 0x%x2194(0x%x)",
+					smidmacmd, DipDumpTL[DIPNo].region,
+					DIP_RD32(dipRegBasAddr + 0x1194));
+
+				smidmacmd = 0x00000100;
+				smidmacmd = smidmacmd | dmaidx;
+				DIP_WR32(dipRegBasAddr + 0xA8, smidmacmd);
+				cmdq_util_err("0x%x : dip: 0x%x2194(0x%x)",
+					smidmacmd, DipDumpTL[DIPNo].region,
+					DIP_RD32(dipRegBasAddr + 0x1194));
+
+				fifodmacmd = 0x00000200;
+				fifodmacmd = fifodmacmd | dmaidx;
+				DIP_WR32(dipRegBasAddr + 0xA8, fifodmacmd);
+				cmdq_util_err("0x%x : dip: 0x%x2194(0x%x)",
+					fifodmacmd, DipDumpTL[DIPNo].region,
+					DIP_RD32(dipRegBasAddr + 0x1194));
+
+				fifodmacmd = 0x00010200;
+				fifodmacmd = fifodmacmd | dmaidx;
+				DIP_WR32(dipRegBasAddr + 0xA8, fifodmacmd);
+				cmdq_util_err("0x%x : dip: 0x%x2194(0x%x)",
+					fifodmacmd, DipDumpTL[DIPNo].region,
+					DIP_RD32(dipRegBasAddr + 0x1194));
+
+				fifodmacmd = 0x00020200;
+				fifodmacmd = fifodmacmd | dmaidx;
+				DIP_WR32(dipRegBasAddr + 0xA8, fifodmacmd);
+				cmdq_util_err("0x%x : dip: 0x%x2194(0x%x)",
+					fifodmacmd, DipDumpTL[DIPNo].region,
+					DIP_RD32(dipRegBasAddr + 0x1194));
+
+				fifodmacmd = 0x00030200;
+				fifodmacmd = fifodmacmd | dmaidx;
+				DIP_WR32(dipRegBasAddr + 0xA8, fifodmacmd);
+				cmdq_util_err("0x%x : dip: 0x%x2194(0x%x)",
+					fifodmacmd, DipDumpTL[DIPNo].region,
+					DIP_RD32(dipRegBasAddr + 0x1194));
+			}
+		}
+
+		// module checksum
+		for (dd = 0; dd < 0x80; dd++) {
+			switch (dd) {
+			case 0x17:
+				dd = 0x20;
+				break;
+			case 0x2E:
+				dd = 0x70;
+				break;
+			default:
+				break;
+			}
+			dbg_sel = ((dd << 8) + dbg_rgb) & 0xFF0F;
+			DIP_WR32(dipRegBasAddr + 0x1190, dbg_sel);
+			dbg_out = DIP_RD32(dipRegBasAddr + 0x1194);
+			cmdq_util_err("YW DBG rgb dbg_sel: 0x%08x dbg_out: 0x%08x",
+						dbg_sel, dbg_out);
+		}
+
+		for (dd = 0; dd < 0x7C; dd++) {
+			switch (dd) {
+			case 0x1D:
+				dd = 0x20;
+				break;
+			case 0x40:
+				dd = 0x70;
+				break;
+			default:
+				break;
+			}
+			dbg_sel = ((dd << 8)  + dbg_yuv) & 0xFF0F;
+			DIP_WR32(dipRegBasAddr + 0x1190, dbg_sel);
+			dbg_out = DIP_RD32(dipRegBasAddr + 0x1194);
+			cmdq_util_err("YW DBG yuv dbg_sel: 0x%08x dbg_out: 0x%08x",
+						dbg_sel, dbg_out);
+		}
+
+			for (dd = 0; dd < 9; dd++) {
+				dbg_sel = 0x00000302 | (dd << 16);
+				DIP_WR32(dipRegBasAddr + 0x1190, dbg_sel);
+				dbg_out = DIP_RD32(dipRegBasAddr + 0x1194);
+				cmdq_util_err("YNR dbg_sel: 0x%08x dbg_out: 0x%08x",
+						dbg_sel, dbg_out);
+		}
+
+		DIP_WR32(dipRegBasAddr + 0x1190, 0x00000202);
+		dbg_out = DIP_RD32(dipRegBasAddr + 0x1194);
+		cmdq_util_err("mix_d3 dbg_sel: 0x%08x dbg_out: 0x%08x\n",
+					dbg_sel, dbg_out);
+		DIP_WR32(dipRegBasAddr + 0x1190, 0x00000402);
+		dbg_out = DIP_RD32(dipRegBasAddr + 0x1194);
+		cmdq_util_err("ndg_d1 dbg_sel: 0x%08x dbg_out: 0x%08x\n",
+					dbg_sel, dbg_out);
+		DIP_WR32(dipRegBasAddr + 0x1190, 0x00000502);
+		dbg_out = DIP_RD32(dipRegBasAddr + 0x1194);
+		cmdq_util_err("mix_d1 dbg_sel: 0x%08x dbg_out: 0x%08x\n",
+					dbg_sel, dbg_out);
+		DIP_WR32(dipRegBasAddr + 0x1190, 0x00000602);
+		dbg_out = DIP_RD32(dipRegBasAddr + 0x1194);
+		cmdq_util_err("c24_d3 dbg_sel: 0x%08x dbg_out: 0x%08x\n",
+					dbg_sel, dbg_out);
+		DIP_WR32(dipRegBasAddr + 0x1190, 0x00002002);
+		dbg_out = DIP_RD32(dipRegBasAddr + 0x1194);
+		cmdq_util_err("nr3d dbg_sel: 0x%08x dbg_out: 0x%08x\n",
+					dbg_sel, dbg_out);
+		DIP_WR32(dipRegBasAddr + 0x1190, 0x00012002);
+		dbg_out = DIP_RD32(dipRegBasAddr + 0x1194);
+		cmdq_util_err("nr3d dbg_sel: 0x%08x dbg_out: 0x%08x\n",
+					dbg_sel, dbg_out);
+		DIP_WR32(dipRegBasAddr + 0x1190, 0x00022002);
+		dbg_out = DIP_RD32(dipRegBasAddr + 0x1194);
+		cmdq_util_err("nr3d dbg_sel: 0x%08x dbg_out: 0x%08x\n",
+					dbg_sel, dbg_out);
+		DIP_WR32(dipRegBasAddr + 0x1190, 0x00032002);
+		dbg_out = DIP_RD32(dipRegBasAddr + 0x1194);
+		cmdq_util_err("nr3d dbg_sel: 0x%08x dbg_out: 0x%08x\n",
+					dbg_sel, dbg_out);
+
+		/* DMA Error */
+		cmdq_util_err("DMA_ERR_EN  0x%x1020(0x%x)",
+		DipDumpTL[DIPNo].region,
+		DIP_RD32(dipRegBasAddr + 0x20));
+		cmdq_util_err("img2o  0x%x1068(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x68));
+		cmdq_util_err("img2bo 0x%x106C(0x%x)"
+			, DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x6C));
+		cmdq_util_err("img3o  0x%x1080(0x%x)"
+			, DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x80));
+		cmdq_util_err("img3bo 0x%x1084(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x84));
+		cmdq_util_err("img3Co 0x%x1088(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x88));
+		cmdq_util_err("feo	 0x%x1070(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x70));
+		cmdq_util_err("dceso  0x%x1054(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x54));
+		cmdq_util_err("timgo  0x%x103C(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x3C));
+		cmdq_util_err("imgi  0x%x1024(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x24));
+		cmdq_util_err("imgbi  0x%x1034(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x34));
+		cmdq_util_err("imgci  0x%x1038(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x38));
+		cmdq_util_err("vipi  0x%x1074(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x74));
+		cmdq_util_err("vip2i  0x%x1078(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x78));
+		cmdq_util_err("vip3i  0x%x107C(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x7C));
+		cmdq_util_err("dmgi  0x%x1048(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x48));
+		cmdq_util_err("depi  0x%x104C(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x4C));
+		cmdq_util_err("lcei  0x%x1050(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x50));
+		cmdq_util_err("ufdi  0x%x1028(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x28));
+		cmdq_util_err("smx1o  0x%x1030(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x30));
+		cmdq_util_err("smx2o  0x%x105C(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x5C));
+		cmdq_util_err("smx3o  0x%x1064(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x64));
+		cmdq_util_err("smx4o  0x%x1044(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x44));
+		cmdq_util_err("smx5o  0x%x11D4(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1D4));
+		cmdq_util_err("smx6o  0x%x11DC(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1DC));
+		cmdq_util_err("smx1i  0x%x102C(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x2C));
+		cmdq_util_err("smx2i  0x%x1058(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x58));
+		cmdq_util_err("smx3i  0x%x1060(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x60));
+		cmdq_util_err("smx4i  0x%x1040(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x40));
+		cmdq_util_err("smx5i  0x%x11D0(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1D0));
+		cmdq_util_err("smx6i  0x%x11D8(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1D8));
+
+		/* Interrupt Status */
+		cmdq_util_err("DIPCTL_INT1_STATUSX	0x%x20A8(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x10A8));
+		cmdq_util_err("DIPCTL_INT2_STATUSX	0x%x20B8(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x10B8));
+		cmdq_util_err("DIPCTL_INT3_STATUSX	0x%x20C8(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x10C8));
+		cmdq_util_err("CQ_INT1_STATUSX	0x%x20D8(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x10D8));
+		cmdq_util_err("CQ_INT2_STATUSX	0x%x20E8(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x10E8));
+		cmdq_util_err("CQ_INT3_STATUSX	0x%x20F8(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x10F8));
+
+			/* IMGI DMA*/
+		cmdq_util_err("imgi: 0x%x1200(0x%x)-0x%x1204(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x200),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x204));
+		cmdq_util_err("imgi: 0x%x1208(0x%x)-0x%x120C(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x208),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x20C));
+		cmdq_util_err("imgi: 0x%x1210(0x%x)-0x%x1114(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x210),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x214));
+		cmdq_util_err("imgi: 0x%x1218(0x%x)-0x%x121C(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x218),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x21C));
+		cmdq_util_err("imgi: 0x%x1220(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x220));
+
+		/* TIMGO DMA*/
+		cmdq_util_err("timgo: 0x%x1360(0x%x)-0x%x1364(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x360),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x364));
+		cmdq_util_err("timgo: 0x%x136C(0x%x)-0x%x1370(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x36C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x370));
+		cmdq_util_err("timgo: 0x%x1374(0x%x)-0x%x1378(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x374),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x378));
+		cmdq_util_err("timgo: 0x%x137C(0x%x)-0x%x1380(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x37C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x380));
+		cmdq_util_err("timgo: 0x%x1384(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x284));
+
+		/* CRZO DMA*/
+		cmdq_util_err("crzo: 0x%x16B0(0x%x)-0x%x16B4(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x6B0),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x6B4));
+		cmdq_util_err("crzo: 0x%x16BC(0x%x)-0x%x16C0(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x6BC),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x6C0));
+		cmdq_util_err("crzo: 0x%x16C4(0x%x)-0x%x16C8(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x6C4),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x6C8));
+		cmdq_util_err("crzo: 0x%x16CC(0x%x)-0x%x16D0(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x6CC),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x6D0));
+		cmdq_util_err("crzo: 0x%x16D4(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x6D4));
+
+		/* CRZBO DMA*/
+		cmdq_util_err("crzbo: 0x%x1720(0x%x)-0x%x1724(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x720),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x724));
+		cmdq_util_err("crzbo: 0x%x172C(0x%x)-0x%x1730(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x72C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x730));
+		cmdq_util_err("crzbo: 0x%x1734(0x%x)-0x%x1738(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x734),
+			DipDumpTL[DIPNo].region
+			, DIP_RD32(dipRegBasAddr + 0x738));
+		cmdq_util_err("crzbo: 0x%x173C(0x%x)-0x%x1740(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x73C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x740));
+		cmdq_util_err("crzbo: 0x%x1744(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x744));
+
+		/* DCES DMA*/
+		cmdq_util_err("dceso: 0x%x1500(0x%x)-0x%x1504(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x500),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x504));
+		cmdq_util_err("dceso: 0x%x150C(0x%x)-0x%x1510(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x50C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x510));
+		cmdq_util_err("dceso: 0x%x1514(0x%x)-0x%x1518(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x514),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x518));
+		cmdq_util_err("dceso: 0x%x151C(0x%x)-0x%x1520(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x51C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x520));
+		cmdq_util_err("dceso: 0x%x1524(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x524));
+
+		/* FEO DMA*/
+		cmdq_util_err("feo: 0x%x1790(0x%x)-0x%x1794(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x790),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x794));
+		cmdq_util_err("feo: 0x%x179C(0x%x)-0x%x17A0(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x79C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x7A0));
+		cmdq_util_err("feo: 0x%x17A4(0x%x)-0x%x17A8(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x7A4),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x7A8));
+		cmdq_util_err("feo: 0x%x17AC(0x%x)-0x%x17B0(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x7AC),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x7B0));
+		cmdq_util_err("feo: 0x%x17B4(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x7B4));
+
+		/* IMG3O DMA*/
+		cmdq_util_err("img3o: 0x%x1890(0x%x)-0x%x1894(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x890),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x894));
+		cmdq_util_err("img3o: 0x%x189C(0x%x)-0x%x18A0(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x89C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x8A0));
+		cmdq_util_err("img3o: 0x%x18A4(0x%x)-0x%x18A8(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x8A4),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x8A8));
+		cmdq_util_err("img3o: 0x%x18AC(0x%x)-0x%x18B0(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x8AC),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x8B0));
+		cmdq_util_err("img3o: 0x%x18B4(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x8B4));
+
+		/* IMG3BO DMA*/
+		cmdq_util_err("img3bo: 0x%x1900(0x%x)-0x%x1904(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x900),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x904));
+		cmdq_util_err("img3bo: 0x%x190C(0x%x)-0x%x1910(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x90C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x910));
+		cmdq_util_err("img3bo: 0x%x1914(0x%x)-0x%x1918(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x914),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x918));
+		cmdq_util_err("img3bo: 0x%x191C(0x%x)-0x%x1920(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x91C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x920));
+		cmdq_util_err("img3bo: 0x%x1924(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x924));
+
+		/* IMG3CO DMA*/
+		cmdq_util_err("img3co: 0x%x1970(0x%x)-0x%x1974(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x970),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x974));
+		cmdq_util_err("img3co: 0x%x197C(0x%x)-0x%x1980(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x97C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x980));
+		cmdq_util_err("img3co: 0x%x1984(0x%x)-0x%x1988(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x984),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x988));
+		cmdq_util_err("img3co: 0x%x198C(0x%x)-0x%x1990(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x98C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x990));
+		cmdq_util_err("img3co: 0x%x1994(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x994));
+
+		/* LCEI DMA*/
+		cmdq_util_err("lcei: 0x%x14D0(0x%x)-0x%x14DC(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x04D0),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x04DC));
+		cmdq_util_err("lcei: 0x%x14E0(0x%x)-0x%x14E4(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x04E0),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x04E4));
+		cmdq_util_err("lcei: 0x%x14E8(0x%x)-0x%x14EC(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x04E8),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x04EC));
+		cmdq_util_err("lcei: 0x%x14F0(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x04F0));
+
+		/* VIPI DMA*/
+		cmdq_util_err("vipi: 0x%x1800(0x%x)-0x%x1804(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x800),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x804));
+		cmdq_util_err("vipi: 0x%x180C(0x%x)-0x%x1810(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x80C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x810));
+		cmdq_util_err("vipi: 0x%x1814(0x%x)-0x%x1818(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x814),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x818));
+		cmdq_util_err("vipi: 0x%x181C(0x%x)-0x%x1820(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x81C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x820));
+
+		/* VIPBI DMA*/
+		cmdq_util_err("vipbi: 0x%x1830(0x%x)-0x%x1834(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x830),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x834));
+		cmdq_util_err("vipbi: 0x%x183C(0x%x)-0x%x1840(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x83C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x840));
+		cmdq_util_err("vipbi: 0x%x1844(0x%x)-0x%x1848(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x844),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x848));
+		cmdq_util_err("vipbi: 0x%x184C(0x%x)-0x%x1850(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x84C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x850));
+
+		/* VIPCI DMA*/
+		cmdq_util_err("vipci: 0x%x1860(0x%x)-0x%x1864(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x860),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x864));
+		cmdq_util_err("vipci: 0x%x186C(0x%x)-0x%x1870(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x86C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x870));
+		cmdq_util_err("vipci: 0x%x1874(0x%x)-0x%x1878(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x874),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x878));
+		cmdq_util_err("vipci: 0x%x187C(0x%x)-0x%x1880(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x87C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x880));
+
+		/* CRZ */
+		cmdq_util_err("crz: 0x%x8700(0x%x)-0x%x8704(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x7700),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x7704));
+		cmdq_util_err("crz: 0x%x8708(0x%x)-0x%x870C(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x7708),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x770C));
+		cmdq_util_err("crz: 0x%x8710(0x%x)-0x%x8714(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x7710),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x7714));
+		cmdq_util_err("crz: 0x%x8718(0x%x)-0x%x871C(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x7718),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x771C));
+		cmdq_util_err("crz: 0x%x8720(0x%x)-0x%x8724(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x7720),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x7724));
+		cmdq_util_err("crz: 0x%x8728(0x%x)-0x%x872C(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x7728),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x772C));
+		cmdq_util_err("crz: 0x%x8730(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x7730));
+		cmdq_util_err("crz: 0x%x8734(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x7734));
+
+		/* IMGBI */
+		cmdq_util_err("imgci: 0x%x1300(0x%x)-0x%x1304(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0300),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0304));
+		cmdq_util_err("imgci: 0x%x130C(0x%x)-0x%x1310(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x030C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0310));
+		cmdq_util_err("imgci: 0x%x1314(0x%x)-0x%x1318(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0314),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0318));
+		cmdq_util_err("imgci: 0x%x131C(0x%x)-0x%x1320(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x031C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0320));
+
+		/* IMGCI */
+		cmdq_util_err("imgci: 0x%x1330(0x%x)-0x%x1334(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0330),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0334));
+		cmdq_util_err("imgci: 0x%x133C(0x%x)-0x%x1340(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x033C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0340));
+		cmdq_util_err("imgci: 0x%x1344(0x%x)-0x%x1348(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0344),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0348));
+		cmdq_util_err("imgci: 0x%x134C(0x%x)-0x%x1350(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x034C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0350));
+
+		/* DEPI */
+		cmdq_util_err("depi: 0x%x14A0(0x%x)-0x%x14A4(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x04A0),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x04A4));
+		cmdq_util_err("depi: 0x%x14AC(0x%x)-0x%x14B0(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x04AC),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x04B0));
+		cmdq_util_err("depi: 0x%x14B4(0x%x)-0x%x14B8(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x04B4),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x04B8));
+		cmdq_util_err("depi: 0x%x14BC(0x%x)-0x%x14D0(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x04BC),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x04D0));
+
+		/* DMGI */
+		cmdq_util_err("dmgi: 0x%x1470(0x%x)-0x%x1474(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0470),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0474));
+		cmdq_util_err("dmgi: 0x%x147C(0x%x)-0x%x1480(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x047C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0480));
+		cmdq_util_err("dmgi: 0x%x1484(0x%x)-0x%x1488(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0484),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0488));
+		cmdq_util_err("dmgi: 0x%x148C(0x%x)-0x%x1490(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x048C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0490));
+
+		/* LCE */
+		cmdq_util_err("lce: 0x%x6A00(0x%x)-0x%x6A04(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x5A00),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x5A04));
+		cmdq_util_err("lce: 0x%x6A08(0x%x)-0x%x6A0C(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x5A08),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x5A0C));
+		cmdq_util_err("lce: 0x%x6A10(0x%x)-0x%x6A14(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x5A10),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x5A14));
+		cmdq_util_err("lce: 0x%x6A18(0x%x)-0x%x6A1C(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x5A18),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x5A1C));
+		cmdq_util_err("lce: 0x%x6A20(0x%x)-0x%x6A24(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x5A20),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x5A24));
+		cmdq_util_err("lce: 0x%x6A28(0x%x)-0x%x6A2C(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x5A28),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x5A2C));
+		cmdq_util_err("0x%x6A30(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x5A30));
+
+		/* YNR */
+		cmdq_util_err("ynr: 0x%x5700(0x%x)-0x%x5704(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x4700),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x4704));
+
+		/* BNR */
+		cmdq_util_err("bnr: 0x%x3100(0x%x)-0x%x315C(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x2100),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x215C));
+		cmdq_util_err("bnr: 0x%x3124(0x%x)-0x%x3148(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x2124),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x2148));
+
+		/* NR3D */
+		cmdq_util_err("tnr: 0x%x8000(0x%x)-0x%x800C(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x7000),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x700c));
+		cmdq_util_err("color: 0x%x7640(0x%x)-0x%x7750(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x6640),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x6750));
+
+		/* SMT1O DMA*/
+		cmdq_util_err("smt1 ctrl: 0x%x3080(0x%x)-0x%x3084(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x2080),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x2084));
+		cmdq_util_err("smt1 ctrl: 0x%x308C(0x%x)-0x%x3090(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x208C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x2090));
+		cmdq_util_err("smt1 ctrl: 0x%x3094(0x%x)-0x%x3098(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x2094),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x2098));
+		cmdq_util_err("smt1 ctrl: 0x%x309C(0x%x)-0x%x30A0(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x209C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x20A0));
+		cmdq_util_err("smto_d1a: 0x%x1290(0x%x)-0x%x1294(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0290),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0294));
+		cmdq_util_err("smto_d1a: 0x%x129C(0x%x)-0x%x12A0(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x029C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x02A0));
+		cmdq_util_err("smto_d1a: 0x%x12A4(0x%x)-0x%x12A8(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x02A4),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x02A8));
+		cmdq_util_err("smto_d1a: 0x%x12AC(0x%x)-0x%x12B0(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x02AC),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x02B0));
+		cmdq_util_err("smto_d1a: 0x%x12B4(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x02B4));
+
+		/* SMX2O DMA*/
+		cmdq_util_err("smt2 ctrl: 0x%x7300(0x%x)-0x%x7304(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x6300),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x6304));
+		cmdq_util_err("smt2 ctrl: 0x%x730C(0x%x)-0x%x7310(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x630C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x6310));
+		cmdq_util_err("smt2 ctrl: 0x%x7314(0x%x)-0x%x7318(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x6314),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x6318));
+		cmdq_util_err("smt2 ctrl: 0x%x731C(0x%x)-0x%x7320(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x631C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x6320));
+		cmdq_util_err("smto_d2a: 0x%x15A0(0x%x)-0x%x15A4(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x05A0),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x05A4));
+		cmdq_util_err("smto_d2a: 0x%x15AC(0x%x)-0x%x15B0(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x05AC),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x05B0));
+		cmdq_util_err("smto_d2a: 0x%x15B4(0x%x)-0x%x15B8(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x05B4),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x05B8));
+		cmdq_util_err("smto_d2a: 0x%x15BC(0x%x)-0x%x15C0(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x05BC),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x05C0));
+		cmdq_util_err("smto_d2a: 0x%x15C4(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x05C4));
+
+		/* SMX3O DMA*/
+		cmdq_util_err("smt3 ctrl: 0x%x7580(0x%x)-0x%x7584(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x6580),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x6584));
+		cmdq_util_err("smt3 ctrl: 0x%x758C(0x%x)-0x%x7590(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x658C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x6590));
+		cmdq_util_err("smt3 ctrl: 0x%x7594(0x%x)-0x%x7598(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x6594),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x6598));
+		cmdq_util_err("smt3 ctrl: 0x%x759C(0x%x)-0x%x75A0(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x659C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x65A0));
+		cmdq_util_err("smt3o: 0x%x1640(0x%x)-0x%x1644(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0640),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0644));
+		cmdq_util_err("smt3o: 0x%x164C(0x%x)-0x%x1650(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x064C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0650));
+		cmdq_util_err("smt3o: 0x%x1654(0x%x)-0x%x1658(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0654),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0658));
+		cmdq_util_err("smt3o: 0x%x165C(0x%x)-0x%x1660(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x065C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0660));
+		cmdq_util_err("smt3o: 0x%x1664(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0664));
+
+		/* SMX4O DMA*/
+		cmdq_util_err("smt4 ctrl: 0x%x5B00(0x%x)-0x%x5B04(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x4B00),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x4B04));
+		cmdq_util_err("smt4 ctrl: 0x%x5B0C(0x%x)-0x%x5B10(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x4B0C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x4B10));
+		cmdq_util_err("smt4 ctrl: 0x%x5B14(0x%x)-0x%x5B18(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x4B14),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x4B18));
+		cmdq_util_err("smt4 ctrl: 0x%x5B1C(0x%x)-0x%x5B20(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x4B1C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x4B20));
+		cmdq_util_err("smt4o: 0x%x1400(0x%x)-0x%x1404(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0400),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0404));
+		cmdq_util_err("smt4o: 0x%x140C(0x%x)-0x%x1410(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x040C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0410));
+		cmdq_util_err("smt4o: 0x%x1414(0x%x)-0x%x1418(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0414),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0418));
+		cmdq_util_err("smt4o: 0x%x141C(0x%x)-0x%x1420(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x041C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0420));
+		cmdq_util_err("smt4o: 0x%x1424(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0424));
+
+		/* SMX5O DMA*/
+		cmdq_util_err("smt5 ctrl: 0x%x5BC0(0x%x)-0x%x5BC4(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x4BC0),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x4BC4));
+		cmdq_util_err("smt5 ctrl: 0x%x5BCC(0x%x)-0x%x5BD0(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x4BCC),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x4BD0));
+		cmdq_util_err("smt5 ctrl: 0x%x5BD4(0x%x)-0x%x5BD8(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x4BD4),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x4BD8));
+		cmdq_util_err("smt5 ctrl: 0x%x5BDC(0x%x)-0x%x5BE0(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x4BDC),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x4BE0));
+		cmdq_util_err("smt5o: 0x%x1A10(0x%x)-0x%x1A14(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0A10),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0A14));
+		cmdq_util_err("smt5o: 0x%x1A1C(0x%x)-0x%x1A20(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0A1C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0A20));
+		cmdq_util_err("smt5o: 0x%x1A24(0x%x)-0x%x1A28(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0A24),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0A28));
+		cmdq_util_err("smt5o: 0x%x1A2C(0x%x)-0x%x1A30(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0A2C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0A30));
+		cmdq_util_err("smt5o: 0x%x1A34(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0A34));
+
+		/* SMX6O DMA*/
+		cmdq_util_err("smt6 ctrl: 0x%x5CC0(0x%x)-0x%x5CC4(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x4CC0),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x4CC4));
+		cmdq_util_err("smt6 ctrl: 0x%x5CCC(0x%x)-0x%x5CD0(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x4CCC),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x4CD0));
+		cmdq_util_err("smt6 ctrl: 0x%x5CD4(0x%x)-0x%x5CD8(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x4CD4),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x4CD8));
+		cmdq_util_err("smt6 ctrl: 0x%x5CDC(0x%x)-0x%x5CE0(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x4CDC),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x4CE0));
+		cmdq_util_err("smt6o: 0x%x1AB0(0x%x)-0x%x1AB4(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0AB0),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0AB4));
+		cmdq_util_err("smt6o: 0x%x1ABC(0x%x)-0x%x1AC0(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0ABC),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0AC0));
+		cmdq_util_err("smt6o: 0x%x1AC4(0x%x)-0x%x1AC8(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0AC4),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0AC8));
+		cmdq_util_err("smt6o: 0x%x1ACC(0x%x)-0x%x1AD0(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0ACC),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0AD0));
+		cmdq_util_err("smt6o: 0x%x1AD4(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0AD4));
+
+		/* SMX1I DMA*/
+		cmdq_util_err("smt1i: 0x%x1260(0x%x)-0x%x1264(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0260),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0264));
+		cmdq_util_err("smt1i: 0x%x126C(0x%x)-0x%x1270(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x026C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0270));
+		cmdq_util_err("smt1i: 0x%x1274(0x%x)-0x%x1278(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0274),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0278));
+		cmdq_util_err("smt1i: 0x%x127C(0x%x)-0x%x1280(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x027C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0280));
+
+		/* SMX2I DMA*/
+		cmdq_util_err("smt2i: 0x%x1570(0x%x)-0x%x1574(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0570),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0574));
+		cmdq_util_err("smt2i: 0x%x157C(0x%x)-0x%x1580(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x057C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0580));
+		cmdq_util_err("smt2i: 0x%x1584(0x%x)-0x%x1588(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0584),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0588));
+		cmdq_util_err("smt2i: 0x%x158C(0x%x)-0x%x1590(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x058C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0590));
+
+		/* SMX3I DMA*/
+		cmdq_util_err("smt3i: 0x%x1610(0x%x)-0x%x1614(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0610),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0614));
+		cmdq_util_err("smt3i: 0x%x161C(0x%x)-0x%x1620(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x061C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0620));
+		cmdq_util_err("smt3i: 0x%x1624(0x%x)-0x%x1628(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0624),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0628));
+		cmdq_util_err("smt3i: 0x%x162C(0x%x)-0x%x1630(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x062C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0630));
+
+		/* SMX4I DMA*/
+		cmdq_util_err("smt4i: 0x%x13D0(0x%x)-0x%x13D4(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x03D0),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x03D4));
+		cmdq_util_err("smt4i: 0x%x13DC(0x%x)-0x%x13E0(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x03DC),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x03E0));
+		cmdq_util_err("smt4i: 0x%x13E4(0x%x)-0x%x13E8(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x03E4),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x03E8));
+		cmdq_util_err("smt4i: 0x%x13EC(0x%x)-0x%x13F0(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x03EC),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x03F0));
+
+		/* SMX5I DMA*/
+		cmdq_util_err("smt5i: 0x%x19E0(0x%x)-0x%x19E4(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x09E0),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x09E4));
+		cmdq_util_err("smt5i: 0x%x19EC(0x%x)-0x%x19F0(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x09EC),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x09F0));
+		cmdq_util_err("smt5i: 0x%x19F4(0x%x)-0x%x19F8(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x09F4),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x09F8));
+		cmdq_util_err("smt5i: 0x%x19FC(0x%x)-0x%x1A00(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x09FC),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0A00));
+
+		/* SMX6I DMA*/
+		cmdq_util_err("smt6i: 0x%x1A80(0x%x)-0x%x1A84(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0A80),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0A84));
+		cmdq_util_err("smt6i: 0x%x1A8C(0x%x)-0x%x1A90(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0A8C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0A90));
+		cmdq_util_err("smt6i: 0x%x1A94(0x%x)-0x%x1A98(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0A94),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0A98));
+		cmdq_util_err("smt6i: 0x%x1A9C(0x%x)-0x%x1AA0(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0A9C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x0AA0));
+
+		DIP_WR32(dipRegBasAddr + 0xA8, dipdmacmd);
+		cmdq_util_err("0x%x : dip: 0x%x2194(0x%x)",
+			dipdmacmd, DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1194));
+	}
+	cmdq_util_err("***** DIP DUMP E.*****");
+
+	return Ret;
+}
+
+static signed int DIP_DumpDIPReg(void)
+{
+	signed int Ret = 0;
+	unsigned int loop = 0;
+#if 1 /*YW TODO*/
+	unsigned int i, cmdqidx = 0, mfbcmd = 0;
 #ifdef AEE_DUMP_REDUCE_MEMORY
 	unsigned int offset = 0;
 	uintptr_t OffsetAddr = 0;
 	unsigned int ctrl_start;
-	unsigned int d1a_cq_en;
 #endif
 	/*  */
 	cmdq_util_err("- E.");
-	cmdq_util_err("g_bDumpPhyDIPBuf:(0x%x), g_pPhyDIPBuffer:(0x%p)\n",
+	cmdq_util_err("g_bDumpPhyDIPBuf:(0x%x), g_pPhyDIPBuffer:(0x%p)",
 		g_bDumpPhyDIPBuf, g_pPhyDIPBuffer);
-	cmdq_util_err("g_pPhyMFBBuffer:(0x%p), g_pPhyMSSBuffer:(0x%p)\n",
+	cmdq_util_err("g_pPhyMFBBuffer:(0x%p), g_pPhyMSSBuffer:(0x%p)",
 		g_pPhyMFBBuffer, g_pPhyMSSBuffer);
-	cmdq_util_err("g_bIonBuf:(0x%x)\n", g_bIonBufferAllocated);
+	cmdq_util_err("g_bIonBuf:(0x%x)", g_bIonBufferAllocated);
 
-	cmdq_util_err("imgsys: 0x1502004C(0x%x)\n",
-		DIP_RD32(DIP_IMGSYS_CONFIG_BASE + 0x4C));
-	cmdq_util_err("0x15020200(0x%x)-0x15020204(0x%x)\n",
-		DIP_RD32(DIP_IMGSYS_CONFIG_BASE + 0x200),
-		DIP_RD32(DIP_IMGSYS_CONFIG_BASE + 0x204));
-	cmdq_util_err("0x15020208(0x%x)-0x1502020C(0x%x)\n",
-		DIP_RD32(DIP_IMGSYS_CONFIG_BASE + 0x208),
-		DIP_RD32(DIP_IMGSYS_CONFIG_BASE + 0x20C));
-	cmdq_util_err("0x15020220(0x%x)-0x15020224(0x%x)\n",
-		DIP_RD32(DIP_IMGSYS_CONFIG_BASE + 0x220),
-		DIP_RD32(DIP_IMGSYS_CONFIG_BASE + 0x224));
-	cmdq_util_err("0x15020228(0x%x)-0x15020230(0x%x)\n",
-		DIP_RD32(DIP_IMGSYS_CONFIG_BASE + 0x228),
-		DIP_RD32(DIP_IMGSYS_CONFIG_BASE + 0x230));
-	cmdq_util_err("0x15020234(0x%x)-0x15020238(0x%x)\n",
-		DIP_RD32(DIP_IMGSYS_CONFIG_BASE + 0x234),
-		DIP_RD32(DIP_IMGSYS_CONFIG_BASE + 0x238));
+	DIP_Dump_IMGSYS_DIP_Reg();
 
-	/*top control*/
-	cmdq_util_err("dip: 0x15022000(0x%x)-0x15022004(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x1000), DIP_RD32(DIP_A_BASE + 0x1004));
-	cmdq_util_err("dip: 0x15022010(0x%x)-0x15022014(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x1010), DIP_RD32(DIP_A_BASE + 0x1014));
-	cmdq_util_err("dip: 0x15022018(0x%x)-0x1502201C(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x1018), DIP_RD32(DIP_A_BASE + 0x101C));
-	cmdq_util_err("dip: 0x15022020(0x%x)-0x15022024(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x1020), DIP_RD32(DIP_A_BASE + 0x1024));
-	cmdq_util_err("dip: 0x15022028(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x1028));
-	cmdq_util_err("dip: 0x15022040(0x%x)-0x15022044(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x1040), DIP_RD32(DIP_A_BASE + 0x1044));
-	cmdq_util_err("dip: 0x15022050(0x%x)-0x15022054(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x1050), DIP_RD32(DIP_A_BASE + 0x1054));
-	cmdq_util_err("dip: 0x15022058(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x1058));
-	/*mdp crop1 and mdp crop2*/
-	cmdq_util_err("dip: 0x150286C0(0x%x)-0x150286C4(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x76C0), DIP_RD32(DIP_A_BASE + 0x76C4));
-	cmdq_util_err("crop2: 0x15024B80(0x%x)-0x15024B84(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x3B80), DIP_RD32(DIP_A_BASE + 0x3B84));
-
-	/*imgi and tdri offset address*/
-	cmdq_util_err("dip: 0x15021104(0x%x)-0x15021004(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x0104), DIP_RD32(DIP_A_BASE + 0x0004));
-	cmdq_util_err("dip: 0x15021008(0x%x)-0x1502100C(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x0008), DIP_RD32(DIP_A_BASE + 0x000C));
-	/*tdr ctrl*/
-	cmdq_util_err("dip: 0x15022060(0x%x)-0x15022064(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x1060), DIP_RD32(DIP_A_BASE + 0x1064));
-	cmdq_util_err("dip: 0x15022068(0x%x)-0x1502206C(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x1068), DIP_RD32(DIP_A_BASE + 0x106C));
-	cmdq_util_err("dip: 0x15022070(0x%x)-0x15022074(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x1070), DIP_RD32(DIP_A_BASE + 0x1074));
-	cmdq_util_err("dip: 0x15022078(0x%x)-0x1502207C(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x1078), DIP_RD32(DIP_A_BASE + 0x107C));
-	cmdq_util_err("dip: 0x15022080(0x%x)-0x15022084(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x1080), DIP_RD32(DIP_A_BASE + 0x1084));
-	cmdq_util_err("dip: 0x15022088(0x%x)-0x1502208C(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x1088), DIP_RD32(DIP_A_BASE + 0x108C));
-	cmdq_util_err("dip: 0x15022090(0x%x)-0x15022094(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x1090), DIP_RD32(DIP_A_BASE + 0x1094));
-
-	/*Request and Ready Signal*/
-	/*0x1502216c - reserve bit*/
-
-	cmdq_util_err("dip: 0x15022150(0x%x)-0x15022154(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x1150), DIP_RD32(DIP_A_BASE + 0x1154));
-	cmdq_util_err("dip: 0x15022158(0x%x)-0x1502215C(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x1158), DIP_RD32(DIP_A_BASE + 0x115C));
-	cmdq_util_err("dip: 0x15022160(0x%x)-0x15022164(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x1160), DIP_RD32(DIP_A_BASE + 0x1164));
-	cmdq_util_err("dip: 0x15022168(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x1168));
-	cmdq_util_err("dip: 0x15022170(0x%x)-0x15022174(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x1170), DIP_RD32(DIP_A_BASE + 0x1174));
-	cmdq_util_err("dip: 0x15022178(0x%x)-0x1502217C(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x1178), DIP_RD32(DIP_A_BASE + 0x117C));
-	cmdq_util_err("dip: 0x15022180(0x%x)-0x15022184(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x1180), DIP_RD32(DIP_A_BASE + 0x1184));
-	cmdq_util_err("dip: 0x15022188(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x1188));
-	cmdq_util_err("dip: 0x1502218C(0x%x)-0x15022190(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x118C), DIP_RD32(DIP_A_BASE + 0x1190));
-
-	/*CQ_THR info*/
-	cmdq_util_err("dip: 0x15022204(0x%x)-0x15022208(0x%x)-0x15022210(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x1204), DIP_RD32(DIP_A_BASE + 0x1208),
-		DIP_RD32(DIP_A_BASE + 0x120C));
-	cmdq_util_err("dip: 0x1502221C(0x%x)-0x15022220(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x121C), DIP_RD32(DIP_A_BASE + 0x1220));
-	cmdq_util_err("dip: 0x15022224(0x%x)-0x1502101C(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x1224), DIP_RD32(DIP_A_BASE + 0x001C));
-
-	d1a_cq_en = DIP_RD32(DIP_A_BASE + 0x200);
-	d1a_cq_en = d1a_cq_en & 0xEFFFFFFF;
-	DIP_WR32(DIP_A_BASE + 0x200, d1a_cq_en);
-	cmdqdebugcmd = 0x6;
-	DIP_WR32(DIP_A_BASE + 0x190, cmdqdebugcmd);
-	cmdq_util_err("thread state:0x%x : dip: 0x15022194(0x%x)\n",
-		cmdqdebugcmd, DIP_RD32(DIP_A_BASE + 0x194));
-	cmdqdebugcmd = 0x1006;
-	DIP_WR32(DIP_A_BASE + 0x190, cmdqdebugcmd);
-	cmdq_util_err("cq state:0x%x : dip: 0x15022194(0x%x)\n",
-		cmdqdebugcmd, DIP_RD32(DIP_A_BASE + 0x194));
-	d1a_cq_en = DIP_RD32(DIP_A_BASE + 0x200);
-	d1a_cq_en = d1a_cq_en | 0x10000000;
-	DIP_WR32(DIP_A_BASE + 0x200, d1a_cq_en);
-	cmdqdebugcmd = 0x6;
-	for (cmdqdebugidx = 0; cmdqdebugidx < 16; cmdqdebugidx++) {
-		cmdqdebugcmd = cmdqdebugcmd | (cmdqdebugidx << 16);
-		DIP_WR32(DIP_A_BASE + 0x190, cmdqdebugcmd);
-		cmdq_util_err("cq checksum:0x%x : dip: 0x15022194(0x%x)\n",
-			cmdqdebugcmd, DIP_RD32(DIP_A_BASE + 0x194));
-	}
-
-	/* 0x15022190, DIPCTL_D1A_DIPCTL_DBG_SEL*/
-	/* HUNG-WEN */
-	DIP_WR32(DIP_A_BASE + 0x1190, 0x3);
-	dipdmacmd = 0x00000014;
-	for (i = 0; i < 104 ; i++) {
-		/* 0x150210A8, DIPDMATOP_REG_D1A_DIPDMATOP_DMA_DEBUG_SEL */
-		switch (i) {
-		case 0x0:
-			dmaidx = 1;
-			cmdq_util_err("imgi dma debug\n");
-			break;
-		case 0x4:
-			dmaidx = 3;
-			cmdq_util_err("imgbi dma debug\n");
-			break;
-		case 0x8:
-			dmaidx = 2;
-			cmdq_util_err("imgci dma debug\n");
-			break;
-		case 0xc:
-			dmaidx = 4;
-			cmdq_util_err("vipi dma debug\n");
-			break;
-		case 0x10:
-			dmaidx = 5;
-			cmdq_util_err("vip2i dma debug\n");
-			break;
-		case 0x14:
-			dmaidx = 6;
-			cmdq_util_err("vip3i dma debug\n");
-			break;
-		case 0x18:
-			dmaidx = 21;
-			cmdq_util_err("smti_d1 dma debug\n");
-			break;
-		case 0x1c:
-			dmaidx = 22;
-			cmdq_util_err("smti_d2 dma debug\n");
-			break;
-		case 0x20:
-			dmaidx = 23;
-			cmdq_util_err("smti_d3 dma debug\n");
-			break;
-		case 0x24:
-			dmaidx = 24;
-			cmdq_util_err("smti_d4 dma debug\n");
-			break;
-		case 0x28:
-			dmaidx = 9;
-			cmdq_util_err("lcei_d1 dma debug\n");
-			break;
-		case 0x2c:
-			dmaidx = 7;
-			cmdq_util_err("dmgi_d1 dma debug\n");
-			break;
-		case 0x30:
-			dmaidx = 8;
-			cmdq_util_err("depi_d1 dma debug\n");
-			break;
-		case 0x34:
-			dmaidx = 10;
-			cmdq_util_err("ufdi_d1 dma debug\n");
-			break;
-		case 0x38:
-			dmaidx = 14;
-			cmdq_util_err("img3o_d1 dma debug\n");
-			break;
-		case 0x3c:
-			dmaidx = 15;
-			cmdq_util_err("img3bo_d1 dma debug\n");
-			break;
-		case 0x40:
-			dmaidx = 16;
-			cmdq_util_err("img3co_d1 dma debug\n");
-			break;
-		case 0x44:
-			dmaidx = 11;
-			cmdq_util_err("crzo_d1 dma debug\n");
-			break;
-		case 0x48:
-			dmaidx = 12;
-			cmdq_util_err("crzbo_d1 dma debug\n");
-			break;
-		case 0x4c:
-			dmaidx = 13;
-			cmdq_util_err("dceso_d1 dma debug\n");
-			break;
-		case 0x50:
-			dmaidx = 18;
-			cmdq_util_err("timgo_d1 dma debug\n");
-			break;
-		case 0x54:
-			dmaidx = 25;
-			cmdq_util_err("smto_d1 dma debug\n");
-			break;
-		case 0x58:
-			dmaidx = 26;
-			cmdq_util_err("smto_d2 dma debug\n");
-			break;
-		case 0x5c:
-			dmaidx = 27;
-			cmdq_util_err("smto_d3 dma debug\n");
-			break;
-		case 0x60:
-			dmaidx = 28;
-			cmdq_util_err("smto_d4 dma debug\n");
-			break;
-		case 0x64:
-			dmaidx = 17;
-			cmdq_util_err("feo_d1 dma debug\n");
-			break;
-		default:
-			break;
-		}
-		dipdmacmd = dipdmacmd & 0xFFFF00FF;
-		dipdmacmd = dipdmacmd | (i << 8);
-		DIP_WR32(DIP_A_BASE + 0xA8, dipdmacmd);
-		/* 0x15022194, DIPCTL_REG_D1A_DIPCTL_DBG_OUT */
-		cmdq_util_err("0x%x : dip: 0x15022194(0x%x)\n",
-			dipdmacmd, DIP_RD32(DIP_A_BASE + 0x1194));
-		i++;
-		dipdmacmd = dipdmacmd & 0xFFFF00FF;
-		dipdmacmd = dipdmacmd | (i << 8);
-		DIP_WR32(DIP_A_BASE + 0xA8, dipdmacmd);
-		cmdq_util_err("0x%x : dip: 0x15022194(0x%x)\n",
-			dipdmacmd, DIP_RD32(DIP_A_BASE + 0x1194));
-		i++;
-		dipdmacmd = dipdmacmd & 0xFFFF00FF;
-		dipdmacmd = dipdmacmd | (i << 8);
-		DIP_WR32(DIP_A_BASE + 0xA8, dipdmacmd);
-		cmdq_util_err("0x%x : dip: 0x15022194(0x%x)\n",
-			dipdmacmd, DIP_RD32(DIP_A_BASE + 0x1194));
-		i++;
-		dipdmacmd = dipdmacmd & 0xFFFF00FF;
-		dipdmacmd = dipdmacmd | (i << 8);
-		DIP_WR32(DIP_A_BASE + 0xA8, dipdmacmd);
-		cmdq_util_err("0x%x : dip: 0x15022194(0x%x)\n",
-			dipdmacmd, DIP_RD32(DIP_A_BASE + 0x1194));
-
-		if (((dmaidx >= 10) && (dmaidx <= 18)) ||
-			((dmaidx >= 25) && (dmaidx <= 28))) {
-			smidmacmd = 0x00080400;
-			smidmacmd = smidmacmd | dmaidx;
-			DIP_WR32(DIP_A_BASE + 0xA8, smidmacmd);
-			cmdq_util_err("0x%x : dip: 0x15022194(0x%x)\n",
-				smidmacmd, DIP_RD32(DIP_A_BASE + 0x1194));
-
-			smidmacmd = 0x00090400;
-			smidmacmd = smidmacmd | dmaidx;
-			DIP_WR32(DIP_A_BASE + 0xA8, smidmacmd);
-			cmdq_util_err("0x%x : dip: 0x15022194(0x%x)\n",
-				smidmacmd, DIP_RD32(DIP_A_BASE + 0x1194));
-
-			smidmacmd = 0x00000400;
-			smidmacmd = smidmacmd | dmaidx;
-			DIP_WR32(DIP_A_BASE + 0xA8, smidmacmd);
-			cmdq_util_err("0x%x : dip: 0x15022194(0x%x)\n",
-				smidmacmd, DIP_RD32(DIP_A_BASE + 0x1194));
-
-			smidmacmd = 0x00010400;
-			smidmacmd = smidmacmd | dmaidx;
-			DIP_WR32(DIP_A_BASE + 0xA8, smidmacmd);
-			cmdq_util_err("0x%x : dip: 0x15022194(0x%x)\n",
-				smidmacmd, DIP_RD32(DIP_A_BASE + 0x1194));
-
-			fifodmacmd = 0x00000300;
-			fifodmacmd = fifodmacmd | dmaidx;
-			DIP_WR32(DIP_A_BASE + 0xA8, fifodmacmd);
-			cmdq_util_err("0x%x : dip: 0x15022194(0x%x)\n",
-				fifodmacmd, DIP_RD32(DIP_A_BASE + 0x1194));
-
-			fifodmacmd = 0x00010300;
-			fifodmacmd = fifodmacmd | dmaidx;
-			DIP_WR32(DIP_A_BASE + 0xA8, fifodmacmd);
-			cmdq_util_err("0x%x : dip: 0x15022194(0x%x)\n",
-				fifodmacmd, DIP_RD32(DIP_A_BASE + 0x1194));
-
-			fifodmacmd = 0x00020300;
-			fifodmacmd = fifodmacmd | dmaidx;
-			DIP_WR32(DIP_A_BASE + 0xA8, fifodmacmd);
-			cmdq_util_err("0x%x : dip: 0x15022194(0x%x)\n",
-				fifodmacmd, DIP_RD32(DIP_A_BASE + 0x1194));
-
-			fifodmacmd = 0x00030300;
-			fifodmacmd = fifodmacmd | dmaidx;
-			DIP_WR32(DIP_A_BASE + 0xA8, fifodmacmd);
-			cmdq_util_err("0x%x : dip: 0x15022194(0x%x)\n",
-				fifodmacmd, DIP_RD32(DIP_A_BASE + 0x1194));
-
-		} else {
-			smidmacmd = 0x00080100;
-			smidmacmd = smidmacmd | dmaidx;
-			DIP_WR32(DIP_A_BASE + 0xA8, smidmacmd);
-			cmdq_util_err("0x%x : dip: 0x15022194(0x%x)\n",
-				smidmacmd, DIP_RD32(DIP_A_BASE + 0x1194));
-
-			smidmacmd = 0x00000100;
-			smidmacmd = smidmacmd | dmaidx;
-			DIP_WR32(DIP_A_BASE + 0xA8, smidmacmd);
-			cmdq_util_err("0x%x : dip: 0x15022194(0x%x)\n",
-				smidmacmd, DIP_RD32(DIP_A_BASE + 0x1194));
-
-			fifodmacmd = 0x00000200;
-			fifodmacmd = fifodmacmd | dmaidx;
-			DIP_WR32(DIP_A_BASE + 0xA8, fifodmacmd);
-			cmdq_util_err("0x%x : dip: 0x15022194(0x%x)\n",
-				fifodmacmd, DIP_RD32(DIP_A_BASE + 0x1194));
-
-			fifodmacmd = 0x00010200;
-			fifodmacmd = fifodmacmd | dmaidx;
-			DIP_WR32(DIP_A_BASE + 0xA8, fifodmacmd);
-			cmdq_util_err("0x%x : dip: 0x15022194(0x%x)\n",
-				fifodmacmd, DIP_RD32(DIP_A_BASE + 0x1194));
-
-			fifodmacmd = 0x00020200;
-			fifodmacmd = fifodmacmd | dmaidx;
-			DIP_WR32(DIP_A_BASE + 0xA8, fifodmacmd);
-			cmdq_util_err("0x%x : dip: 0x15022194(0x%x)\n",
-				fifodmacmd, DIP_RD32(DIP_A_BASE + 0x1194));
-
-			fifodmacmd = 0x00030200;
-			fifodmacmd = fifodmacmd | dmaidx;
-			DIP_WR32(DIP_A_BASE + 0xA8, fifodmacmd);
-			cmdq_util_err("0x%x : dip: 0x15022194(0x%x)\n",
-				fifodmacmd, DIP_RD32(DIP_A_BASE + 0x1194));
-
-		}
-	}
-
-	// module checksum
-	for (dd = 0; dd < 0x80; dd++) {
-		switch (dd) {
-		case 0x17:
-			dd = 0x20;
-			break;
-		case 0x2E:
-			dd = 0x70;
-			break;
-		default:
-			break;
-		}
-		dbg_sel = ((dd << 8) + dbg_rgb) & 0xFF0F;
-		DIP_WR32(DIP_A_BASE + 0x1190, dbg_sel);
-		dbg_out = DIP_RD32(DIP_A_BASE + 0x1194);
-		cmdq_util_err("YW DBG rgb dbg_sel: 0x%08x dbg_out: 0x%08x\n",
-			dbg_sel, dbg_out);
-	}
-	for (dd = 0; dd < 0x7C; dd++) {
-		switch (dd) {
-		case 0x1D:
-			dd = 0x20;
-			break;
-		case 0x40:
-			dd = 0x70;
-			break;
-		default:
-			break;
-		}
-		dbg_sel = ((dd << 8)  + dbg_yuv) & 0xFF0F;
-		DIP_WR32(DIP_A_BASE + 0x1190, dbg_sel);
-		dbg_out = DIP_RD32(DIP_A_BASE + 0x1194);
-		cmdq_util_err("YW DBG yuv dbg_sel: 0x%08x dbg_out: 0x%08x\n",
-			dbg_sel, dbg_out);
-	}
-
-	for (dd = 0; dd < 9; dd++) {
-		dbg_sel = 0x00000302 | (dd << 16);
-		DIP_WR32(DIP_A_BASE + 0x1190, dbg_sel);
-		dbg_out = DIP_RD32(DIP_A_BASE + 0x1194);
-		cmdq_util_err("YNR dbg_sel: 0x%08x dbg_out: 0x%08x\n",
-		dbg_sel, dbg_out);
-	}
-
-
-	/* DMA Error */
-	cmdq_util_err("DMA_ERR_EN  0x15021020(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x20));
-	cmdq_util_err("img2o  0x15021068(0x%x)\n", DIP_RD32(DIP_A_BASE + 0x68));
-	cmdq_util_err("img2bo 0x1502106C(0x%x)\n", DIP_RD32(DIP_A_BASE + 0x6C));
-	cmdq_util_err("img3o  0x15021080(0x%x)\n", DIP_RD32(DIP_A_BASE + 0x80));
-	cmdq_util_err("img3bo 0x15021084(0x%x)\n", DIP_RD32(DIP_A_BASE + 0x84));
-	cmdq_util_err("img3Co 0x15021088(0x%x)\n", DIP_RD32(DIP_A_BASE + 0x88));
-	cmdq_util_err("feo	 0x15021070(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x70));
-	cmdq_util_err("dceso  0x15021054(0x%x)\n", DIP_RD32(DIP_A_BASE + 0x54));
-	cmdq_util_err("timgo  0x1502103C(0x%x)\n", DIP_RD32(DIP_A_BASE + 0x3C));
-	cmdq_util_err("imgi	 0x15021024(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x24));
-	cmdq_util_err("imgbi  0x15021034(0x%x)\n", DIP_RD32(DIP_A_BASE + 0x34));
-	cmdq_util_err("imgci  0x15021038(0x%x)\n", DIP_RD32(DIP_A_BASE + 0x38));
-	cmdq_util_err("vipi	 0x15021074(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x74));
-	cmdq_util_err("vip2i  0x15021078(0x%x)\n", DIP_RD32(DIP_A_BASE + 0x78));
-	cmdq_util_err("vip3i  0x1502107C(0x%x)\n", DIP_RD32(DIP_A_BASE + 0x7C));
-	cmdq_util_err("dmgi	 0x15021048(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x48));
-	cmdq_util_err("depi	 0x1502104C(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x4C));
-	cmdq_util_err("lcei	 0x15021050(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x50));
-	cmdq_util_err("ufdi	 0x15021028(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x28));
-	cmdq_util_err("smx1o  0x15021030(0x%x)\n", DIP_RD32(DIP_A_BASE + 0x30));
-	cmdq_util_err("smx2o  0x1502105C(0x%x)\n", DIP_RD32(DIP_A_BASE + 0x5C));
-	cmdq_util_err("smx3o  0x15021064(0x%x)\n", DIP_RD32(DIP_A_BASE + 0x64));
-	cmdq_util_err("smx4o  0x15021044(0x%x)\n", DIP_RD32(DIP_A_BASE + 0x44));
-	cmdq_util_err("smx1i  0x1502102C(0x%x)\n", DIP_RD32(DIP_A_BASE + 0x2C));
-	cmdq_util_err("smx2i  0x15021058(0x%x)\n", DIP_RD32(DIP_A_BASE + 0x58));
-	cmdq_util_err("smx3i  0x15021060(0x%x)\n", DIP_RD32(DIP_A_BASE + 0x60));
-	cmdq_util_err("smx4i  0x15021040(0x%x)\n", DIP_RD32(DIP_A_BASE + 0x40));
-
-	/* Interrupt Status */
-	cmdq_util_err("DIPCTL_INT1_STATUSX	0x150220A8(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x10A8));
-	cmdq_util_err("DIPCTL_INT2_STATUSX	0x150220B8(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x10B8));
-	cmdq_util_err("DIPCTL_INT3_STATUSX  0x150220C8(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x10C8));
-	cmdq_util_err("CQ_INT1_STATUSX  0x150220D8(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x10D8));
-	cmdq_util_err("CQ_INT2_STATUSX  0x150220E8(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x10E8));
-	cmdq_util_err("CQ_INT3_STATUSX  0x150220F8(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x10F8));
-
-	/* IMGI DMA*/
-	cmdq_util_err("imgi: 0x15021200(0x%x)-0x15021204(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x200), DIP_RD32(DIP_A_BASE + 0x204));
-	cmdq_util_err("imgi: 0x15021208(0x%x)-0x1502120C(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x208), DIP_RD32(DIP_A_BASE + 0x20C));
-	cmdq_util_err("imgi: 0x15021210(0x%x)-0x15021114(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x210), DIP_RD32(DIP_A_BASE + 0x214));
-	cmdq_util_err("imgi: 0x15021218(0x%x)-0x1502121C(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x218), DIP_RD32(DIP_A_BASE + 0x21C));
-	cmdq_util_err("imgi: 0x15021220(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x220));
-
-	/* TIMGO DMA*/
-	cmdq_util_err("timgo: 0x15021360(0x%x)-0x15021364(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x360), DIP_RD32(DIP_A_BASE + 0x364));
-	cmdq_util_err("timgo: 0x1502136C(0x%x)-0x15021370(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x36C), DIP_RD32(DIP_A_BASE + 0x370));
-	cmdq_util_err("timgo: 0x15021374(0x%x)-0x15021378(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x374), DIP_RD32(DIP_A_BASE + 0x378));
-	cmdq_util_err("timgo: 0x1502137C(0x%x)-0x15021380(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x37C), DIP_RD32(DIP_A_BASE + 0x380));
-	cmdq_util_err("timgo: 0x15021384(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x284));
-
-	/* CRZO DMA*/
-	cmdq_util_err("crzo: 0x150216B0(0x%x)-0x150216B4(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x6B0), DIP_RD32(DIP_A_BASE + 0x6B4));
-	cmdq_util_err("crzo: 0x150216BC(0x%x)-0x150216C0(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x6BC), DIP_RD32(DIP_A_BASE + 0x6C0));
-	cmdq_util_err("crzo: 0x150216C4(0x%x)-0x150216C8(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x6C4), DIP_RD32(DIP_A_BASE + 0x6C8));
-	cmdq_util_err("crzo: 0x150216CC(0x%x)-0x150216D0(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x6CC), DIP_RD32(DIP_A_BASE + 0x6D0));
-	cmdq_util_err("crzo: 0x150216D4(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x6D4));
-
-	/* CRZBO DMA*/
-	cmdq_util_err("crzbo: 0x15021720(0x%x)-0x15021724(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x720), DIP_RD32(DIP_A_BASE + 0x724));
-	cmdq_util_err("crzbo: 0x1502172C(0x%x)-0x15021730(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x72C), DIP_RD32(DIP_A_BASE + 0x730));
-	cmdq_util_err("crzbo: 0x15021734(0x%x)-0x15021738(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x734), DIP_RD32(DIP_A_BASE + 0x738));
-	cmdq_util_err("crzbo: 0x1502173C(0x%x)-0x15021740(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x73C), DIP_RD32(DIP_A_BASE + 0x740));
-	cmdq_util_err("crzbo: 0x15021744(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x744));
-
-
-	/* DCES DMA*/
-	cmdq_util_err("dceso: 0x15021500(0x%x)-0x15021504(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x500), DIP_RD32(DIP_A_BASE + 0x504));
-	cmdq_util_err("dceso: 0x1502150C(0x%x)-0x15021510(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x50C), DIP_RD32(DIP_A_BASE + 0x510));
-	cmdq_util_err("dceso: 0x15021514(0x%x)-0x15021518(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x514), DIP_RD32(DIP_A_BASE + 0x518));
-	cmdq_util_err("dceso: 0x1502151C(0x%x)-0x15021520(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x51C), DIP_RD32(DIP_A_BASE + 0x520));
-	cmdq_util_err("dceso: 0x15021524(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x524));
-
-	/* FEO DMA*/
-	cmdq_util_err("feo: 0x15021790(0x%x)-0x15021794(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x790), DIP_RD32(DIP_A_BASE + 0x794));
-	cmdq_util_err("feo: 0x1502179C(0x%x)-0x150217A0(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x79C), DIP_RD32(DIP_A_BASE + 0x7A0));
-	cmdq_util_err("feo: 0x150217A4(0x%x)-0x150217A8(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x7A4), DIP_RD32(DIP_A_BASE + 0x7A8));
-	cmdq_util_err("feo: 0x150217AC(0x%x)-0x150217B0(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x7AC), DIP_RD32(DIP_A_BASE + 0x7B0));
-	cmdq_util_err("feo: 0x150217B4(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x7B4));
-
-	/* IMG3O DMA*/
-	cmdq_util_err("img3o: 0x15021890(0x%x)-0x15021894(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x890), DIP_RD32(DIP_A_BASE + 0x894));
-	cmdq_util_err("img3o: 0x1502189C(0x%x)-0x150218A0(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x89C), DIP_RD32(DIP_A_BASE + 0x8A0));
-	cmdq_util_err("img3o: 0x150218A4(0x%x)-0x150218A8(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x8A4), DIP_RD32(DIP_A_BASE + 0x8A8));
-	cmdq_util_err("img3o: 0x150218AC(0x%x)-0x150218B0(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x8AC), DIP_RD32(DIP_A_BASE + 0x8B0));
-	cmdq_util_err("img3o: 0x150218B4(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x8B4));
-
-	/* IMG3BO DMA*/
-	cmdq_util_err("img3bo: 0x15021900(0x%x)-0x15021904(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x900), DIP_RD32(DIP_A_BASE + 0x904));
-	cmdq_util_err("img3bo: 0x1502190C(0x%x)-0x15021910(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x90C), DIP_RD32(DIP_A_BASE + 0x910));
-	cmdq_util_err("img3bo: 0x15021914(0x%x)-0x15021918(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x914), DIP_RD32(DIP_A_BASE + 0x918));
-	cmdq_util_err("img3bo: 0x1502191C(0x%x)-0x15021920(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x91C), DIP_RD32(DIP_A_BASE + 0x920));
-	cmdq_util_err("img3bo: 0x15021924(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x924));
-
-	/* IMG3CO DMA*/
-	cmdq_util_err("img3co: 0x15021970(0x%x)-0x15021974(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x970), DIP_RD32(DIP_A_BASE + 0x974));
-	cmdq_util_err("img3co: 0x1502197C(0x%x)-0x15021980(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x97C), DIP_RD32(DIP_A_BASE + 0x980));
-	cmdq_util_err("img3co: 0x15021984(0x%x)-0x15021988(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x984), DIP_RD32(DIP_A_BASE + 0x988));
-	cmdq_util_err("img3co: 0x1502198C(0x%x)-0x15021990(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x98C), DIP_RD32(DIP_A_BASE + 0x990));
-	cmdq_util_err("img3co: 0x15021994(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x994));
-
-	/* LCEI DMA*/
-	cmdq_util_err("lcei: 0x150214D0(0x%x)-0x150214DC(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x04D0), DIP_RD32(DIP_A_BASE + 0x04DC));
-	cmdq_util_err("lcei: 0x150214E0(0x%x)-0x150214E4(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x04E0), DIP_RD32(DIP_A_BASE + 0x04E4));
-	cmdq_util_err("lcei: 0x150214E8(0x%x)-0x150214EC(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x04E8), DIP_RD32(DIP_A_BASE + 0x04EC));
-	cmdq_util_err("lcei: 0x150214F0(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x04F0));
-
-	/* VIPI DMA*/
-	cmdq_util_err("vipi: 0x15021800(0x%x)-0x15021804(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x800), DIP_RD32(DIP_A_BASE + 0x804));
-	cmdq_util_err("vipi: 0x1502180C(0x%x)-0x15021810(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x80C), DIP_RD32(DIP_A_BASE + 0x810));
-	cmdq_util_err("vipi: 0x15021814(0x%x)-0x15021818(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x814), DIP_RD32(DIP_A_BASE + 0x818));
-	cmdq_util_err("vipi: 0x1502181C(0x%x)-0x15021820(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x81C), DIP_RD32(DIP_A_BASE + 0x820));
-
-	/* VIPBI DMA*/
-	cmdq_util_err("vipbi: 0x15021830(0x%x)-0x15021834(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x830), DIP_RD32(DIP_A_BASE + 0x834));
-	cmdq_util_err("vipbi: 0x1502183C(0x%x)-0x15021840(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x83C), DIP_RD32(DIP_A_BASE + 0x840));
-	cmdq_util_err("vipbi: 0x15021844(0x%x)-0x15021848(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x844), DIP_RD32(DIP_A_BASE + 0x848));
-	cmdq_util_err("vipbi: 0x1502184C(0x%x)-0x15021850(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x84C), DIP_RD32(DIP_A_BASE + 0x850));
-
-	/* VIPCI DMA*/
-	cmdq_util_err("vipci: 0x15021860(0x%x)-0x15021864(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x860), DIP_RD32(DIP_A_BASE + 0x864));
-	cmdq_util_err("vipci: 0x1502186C(0x%x)-0x15021870(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x86C), DIP_RD32(DIP_A_BASE + 0x870));
-	cmdq_util_err("vipci: 0x15021874(0x%x)-0x15021878(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x874), DIP_RD32(DIP_A_BASE + 0x878));
-	cmdq_util_err("vipci: 0x1502187C(0x%x)-0x15021880(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x87C), DIP_RD32(DIP_A_BASE + 0x880));
-
-	/* CRZ */
-	cmdq_util_err("crz: 0x15028700(0x%x)-0x15028704(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x7700), DIP_RD32(DIP_A_BASE + 0x7704));
-	cmdq_util_err("crz: 0x15028708(0x%x)-0x1502870C(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x7708), DIP_RD32(DIP_A_BASE + 0x770C));
-	cmdq_util_err("crz: 0x15028710(0x%x)-0x15028714(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x7710), DIP_RD32(DIP_A_BASE + 0x7714));
-	cmdq_util_err("crz: 0x15028718(0x%x)-0x1502871C(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x7718), DIP_RD32(DIP_A_BASE + 0x771C));
-	cmdq_util_err("crz: 0x15028720(0x%x)-0x15028724(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x7720), DIP_RD32(DIP_A_BASE + 0x7724));
-	cmdq_util_err("crz: 0x15028728(0x%x)-0x1502872C(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x7728), DIP_RD32(DIP_A_BASE + 0x772C));
-	cmdq_util_err("crz: 0x15028730(0x%x)\n", DIP_RD32(DIP_A_BASE + 0x7730));
-	cmdq_util_err("crz: 0x15028734(0x%x)\n", DIP_RD32(DIP_A_BASE + 0x7734));
-
-	/* IMGBI */
-	cmdq_util_err("imgci: 0x15021300(0x%x)-0x15021304(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x0300), DIP_RD32(DIP_A_BASE + 0x0304));
-	cmdq_util_err("imgci: 0x1502130C(0x%x)-0x15021310(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x030C), DIP_RD32(DIP_A_BASE + 0x0310));
-	cmdq_util_err("imgci: 0x15021314(0x%x)-0x15021318(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x0314), DIP_RD32(DIP_A_BASE + 0x0318));
-	cmdq_util_err("imgci: 0x1502131C(0x%x)-0x15021320(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x031C), DIP_RD32(DIP_A_BASE + 0x0320));
-
-
-	/* IMGCI */
-	cmdq_util_err("imgci: 0x15021330(0x%x)-0x15021334(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x0330), DIP_RD32(DIP_A_BASE + 0x0334));
-	cmdq_util_err("imgci: 0x1502133C(0x%x)-0x15021340(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x033C), DIP_RD32(DIP_A_BASE + 0x0340));
-	cmdq_util_err("imgci: 0x15021344(0x%x)-0x15021348(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x0344), DIP_RD32(DIP_A_BASE + 0x0348));
-	cmdq_util_err("imgci: 0x1502134C(0x%x)-0x15021350(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x034C), DIP_RD32(DIP_A_BASE + 0x0350));
-
-	/* DEPI */
-	cmdq_util_err("depi: 0x150214A0(0x%x)-0x150214A4(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x04A0), DIP_RD32(DIP_A_BASE + 0x04A4));
-	cmdq_util_err("depi: 0x150214AC(0x%x)-0x150214B0(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x04AC), DIP_RD32(DIP_A_BASE + 0x04B0));
-	cmdq_util_err("depi: 0x150214B4(0x%x)-0x150214B8(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x04B4), DIP_RD32(DIP_A_BASE + 0x04B8));
-	cmdq_util_err("depi: 0x150214BC(0x%x)-0x150214D0(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x04BC), DIP_RD32(DIP_A_BASE + 0x04D0));
-
-
-	/* DMGI */
-	cmdq_util_err("dmgi: 0x15021470(0x%x)-0x15021474(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x0470), DIP_RD32(DIP_A_BASE + 0x0474));
-	cmdq_util_err("dmgi: 0x1502147C(0x%x)-0x15021480(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x047C), DIP_RD32(DIP_A_BASE + 0x0480));
-	cmdq_util_err("dmgi: 0x15021484(0x%x)-0x15021488(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x0484), DIP_RD32(DIP_A_BASE + 0x0488));
-	cmdq_util_err("dmgi: 0x1502148C(0x%x)-0x15021490(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x048C), DIP_RD32(DIP_A_BASE + 0x0490));
-
-	/* LCE */
-	cmdq_util_err("lce: 0x15026A00(0x%x)-0x15026A04(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x5A00), DIP_RD32(DIP_A_BASE + 0x5A04));
-	cmdq_util_err("lce: 0x15026A08(0x%x)-0x15026A0C(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x5A08), DIP_RD32(DIP_A_BASE + 0x5A0C));
-	cmdq_util_err("lce: 0x15026A10(0x%x)-0x15026A14(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x5A10), DIP_RD32(DIP_A_BASE + 0x5A14));
-	cmdq_util_err("lce: 0x15026A18(0x%x)-0x15026A1C(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x5A18), DIP_RD32(DIP_A_BASE + 0x5A1C));
-	cmdq_util_err("lce: 0x15026A20(0x%x)-0x15026A24(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x5A20), DIP_RD32(DIP_A_BASE + 0x5A24));
-	cmdq_util_err("lce: 0x15026A28(0x%x)-0x15026A2C(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x5A28), DIP_RD32(DIP_A_BASE + 0x5A2C));
-	cmdq_util_err("0x15026A30(0x%x)\n", DIP_RD32(DIP_A_BASE + 0x5A30));
-
-	/* YNR */
-	cmdq_util_err("ynr: 0x15025700(0x%x)-0x15025704(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x4700), DIP_RD32(DIP_A_BASE + 0x4704));
-
-	/* BNR */
-	cmdq_util_err("bnr: 0x15023100(0x%x)-0x1502315C(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x2100), DIP_RD32(DIP_A_BASE + 0x215C));
-	cmdq_util_err("bnr: 0x15023124(0x%x)-0x15023148(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x2124), DIP_RD32(DIP_A_BASE + 0x2148));
-
-	/* HUNG-WEN */
-	cmdq_util_err("imgsys:0x15020000(0x%x)\n",
-		DIP_RD32(DIP_IMGSYS_CONFIG_BASE));
-
-	/* NR3D */
-	cmdq_util_err("tnr: 0x15028000(0x%x)-0x1502800C(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x7000), DIP_RD32(DIP_A_BASE + 0x700c));
-	cmdq_util_err("color: 0x15027640(0x%x)-0x15027750(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x6640), DIP_RD32(DIP_A_BASE + 0x6750));
-
-	/* SMT1O DMA*/
-	cmdq_util_err("smt1 ctrl: 0x15023080(0x%x)-0x15023084(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x2080), DIP_RD32(DIP_A_BASE + 0x2084));
-	cmdq_util_err("smt1 ctrl: 0x1502308C(0x%x)-0x15023090(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x208C), DIP_RD32(DIP_A_BASE + 0x2090));
-	cmdq_util_err("smt1 ctrl: 0x15023094(0x%x)-0x15023098(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x2094), DIP_RD32(DIP_A_BASE + 0x2098));
-	cmdq_util_err("smt1 ctrl: 0x1502309C(0x%x)-0x150230A0(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x209C), DIP_RD32(DIP_A_BASE + 0x20A0));
-	cmdq_util_err("smto_d1a: 0x15021290(0x%x)-0x15021294(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x0290), DIP_RD32(DIP_A_BASE + 0x0294));
-	cmdq_util_err("smto_d1a: 0x1502129C(0x%x)-0x150212A0(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x029C), DIP_RD32(DIP_A_BASE + 0x02A0));
-	cmdq_util_err("smto_d1a: 0x150212A4(0x%x)-0x150212A8(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x02A4), DIP_RD32(DIP_A_BASE + 0x02A8));
-	cmdq_util_err("smto_d1a: 0x150212AC(0x%x)-0x150212B0(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x02AC), DIP_RD32(DIP_A_BASE + 0x02B0));
-	cmdq_util_err("smto_d1a: 0x150212B4(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x02B4));
-
-	/* SMX2O DMA*/
-	cmdq_util_err("smt2 ctrl: 0x15027300(0x%x)-0x15027304(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x6300), DIP_RD32(DIP_A_BASE + 0x6304));
-	cmdq_util_err("smt2 ctrl: 0x1502730C(0x%x)-0x15027310(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x630C), DIP_RD32(DIP_A_BASE + 0x6310));
-	cmdq_util_err("smt2 ctrl: 0x15027314(0x%x)-0x15027318(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x6314), DIP_RD32(DIP_A_BASE + 0x6318));
-	cmdq_util_err("smt2 ctrl: 0x1502731C(0x%x)-0x15027320(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x631C), DIP_RD32(DIP_A_BASE + 0x6320));
-	cmdq_util_err("smto_d2a: 0x150215A0(0x%x)-0x150215A4(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x05A0), DIP_RD32(DIP_A_BASE + 0x05A4));
-	cmdq_util_err("smto_d2a: 0x150215AC(0x%x)-0x150215B0(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x05AC), DIP_RD32(DIP_A_BASE + 0x05B0));
-	cmdq_util_err("smto_d2a: 0x150215B4(0x%x)-0x150215B8(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x05B4), DIP_RD32(DIP_A_BASE + 0x05B8));
-	cmdq_util_err("smto_d2a: 0x150215BC(0x%x)-0x150215C0(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x05BC), DIP_RD32(DIP_A_BASE + 0x05C0));
-	cmdq_util_err("smto_d2a: 0x150215C4(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x05C4));
-
-	/* SMX3O DMA*/
-	cmdq_util_err("smt3 ctrl: 0x15027580(0x%x)-0x15027584(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x6580), DIP_RD32(DIP_A_BASE + 0x6584));
-	cmdq_util_err("smt3 ctrl: 0x1502758C(0x%x)-0x15027590(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x658C), DIP_RD32(DIP_A_BASE + 0x6590));
-	cmdq_util_err("smt3 ctrl: 0x15027594(0x%x)-0x15027598(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x6594), DIP_RD32(DIP_A_BASE + 0x6598));
-	cmdq_util_err("smt3 ctrl: 0x1502759C(0x%x)-0x150275A0(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x659C), DIP_RD32(DIP_A_BASE + 0x65A0));
-	cmdq_util_err("smt3o: 0x15021640(0x%x)-0x15021644(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x0640), DIP_RD32(DIP_A_BASE + 0x0644));
-	cmdq_util_err("smt3o: 0x1502164C(0x%x)-0x15021650(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x064C), DIP_RD32(DIP_A_BASE + 0x0650));
-	cmdq_util_err("smt3o: 0x15021654(0x%x)-0x15021658(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x0654), DIP_RD32(DIP_A_BASE + 0x0658));
-	cmdq_util_err("smt3o: 0x1502165C(0x%x)-0x15021660(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x065C), DIP_RD32(DIP_A_BASE + 0x0660));
-	cmdq_util_err("smt3o: 0x15021664(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x0664));
-
-	/* SMX4O DMA*/
-	cmdq_util_err("smt4 ctrl: 0x15025B00(0x%x)-0x15025B04(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x4B00), DIP_RD32(DIP_A_BASE + 0x4B04));
-	cmdq_util_err("smt4 ctrl: 0x15025B0C(0x%x)-0x15025B10(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x4B0C), DIP_RD32(DIP_A_BASE + 0x4B10));
-	cmdq_util_err("smt4 ctrl: 0x15025B14(0x%x)-0x15025B18(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x4B14), DIP_RD32(DIP_A_BASE + 0x4B18));
-	cmdq_util_err("smt4 ctrl: 0x15025B1C(0x%x)-0x15025B20(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x4B1C), DIP_RD32(DIP_A_BASE + 0x4B20));
-
-
-
-	cmdq_util_err("smt4o: 0x15021400(0x%x)-0x15021404(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x0400), DIP_RD32(DIP_A_BASE + 0x0404));
-	cmdq_util_err("smt4o: 0x1502140C(0x%x)-0x15021410(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x040C), DIP_RD32(DIP_A_BASE + 0x0410));
-	cmdq_util_err("smt4o: 0x15021414(0x%x)-0x15021418(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x0414), DIP_RD32(DIP_A_BASE + 0x0418));
-	cmdq_util_err("smt4o: 0x1502141C(0x%x)-0x15021420(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x041C), DIP_RD32(DIP_A_BASE + 0x0420));
-	cmdq_util_err("smt4o: 0x15021424(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x0424));
-
-	/* SMX1I DMA*/
-	cmdq_util_err("smt1i: 0x15021260(0x%x)-0x15021264(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x0260), DIP_RD32(DIP_A_BASE + 0x0264));
-	cmdq_util_err("smt1i: 0x1502126C(0x%x)-0x15021270(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x026C), DIP_RD32(DIP_A_BASE + 0x0270));
-	cmdq_util_err("smt1i: 0x15021274(0x%x)-0x15021278(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x0274), DIP_RD32(DIP_A_BASE + 0x0278));
-	cmdq_util_err("smt1i: 0x1502127C(0x%x)-0x15021280(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x027C), DIP_RD32(DIP_A_BASE + 0x0280));
-	/* SMX2I DMA*/
-	cmdq_util_err("smt2i: 0x15021570(0x%x)-0x15021574(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x0570), DIP_RD32(DIP_A_BASE + 0x0574));
-	cmdq_util_err("smt2i: 0x1502157C(0x%x)-0x15021580(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x057C), DIP_RD32(DIP_A_BASE + 0x0580));
-	cmdq_util_err("smt2i: 0x15021584(0x%x)-0x15021588(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x0584), DIP_RD32(DIP_A_BASE + 0x0588));
-	cmdq_util_err("smt2i: 0x1502158C(0x%x)-0x15021590(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x058C), DIP_RD32(DIP_A_BASE + 0x0590));
-	/* SMX3I DMA*/
-	cmdq_util_err("smt3i: 0x15021610(0x%x)-0x15021614(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x0610), DIP_RD32(DIP_A_BASE + 0x0614));
-	cmdq_util_err("smt3i: 0x1502161C(0x%x)-0x15021620(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x061C), DIP_RD32(DIP_A_BASE + 0x0620));
-	cmdq_util_err("smt3i: 0x15021624(0x%x)-0x15021628(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x0624), DIP_RD32(DIP_A_BASE + 0x0628));
-	cmdq_util_err("smt3i: 0x1502162C(0x%x)-0x15021630(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x062C), DIP_RD32(DIP_A_BASE + 0x0630));
-	/* SMX4I DMA*/
-	cmdq_util_err("smt4i: 0x150213D0(0x%x)-0x150213D4(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x03D0), DIP_RD32(DIP_A_BASE + 0x03D4));
-	cmdq_util_err("smt4i: 0x150213DC(0x%x)-0x150213E0(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x03DC), DIP_RD32(DIP_A_BASE + 0x03E0));
-	cmdq_util_err("smt4i: 0x150213E4(0x%x)-0x150213E8(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x03E4), DIP_RD32(DIP_A_BASE + 0x03E8));
-	cmdq_util_err("smt4i: 0x150213EC(0x%x)-0x150213F0(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x03EC), DIP_RD32(DIP_A_BASE + 0x03F0));
-
-	DIP_WR32(DIP_A_BASE + 0xA8, dipdmacmd);
-	cmdq_util_err("0x%x : dip: 0x15022194(0x%x)\n",
-	dipdmacmd, DIP_RD32(DIP_A_BASE + 0x1194));
-	cmdq_util_err("MSS Config Info\n");
-	cmdq_util_err("MSSTOP_DBG: 15012438(0x%x)-15012448(0x%x)\n",
+	cmdq_util_err("MSS Config Info");
+	cmdq_util_err("MSSTOP_DBG: 15012438(0x%x)-15012448(0x%x)",
 		DIP_RD32(MSS_BASE + 0x438), DIP_RD32(MSS_BASE + 0x448));
 
 	DIP_WR32(MSS_BASE + 0x888, 0x8);
@@ -1661,152 +2473,152 @@ static signed int DIP_DumpDIPReg(void)
 	for (i = 0; i < 24; i++) {
 		mfbcmd = i << 8;
 		DIP_WR32(MSS_BASE + 0x888, (mfbcmd | 0x8));
-		cmdq_util_err("idx:%d cmd:0x%x debug0(0x%x)\n",
+		cmdq_util_err("idx:%d cmd:0x%x debug0(0x%x)",
 				i, mfbcmd, DIP_RD32(MSS_BASE + 0x440));
 	}
-	cmdq_util_err("CRSP: 0x15012200(0x%x)-0x15012204(0x%x)\n",
+	cmdq_util_err("CRSP: 0x15012200(0x%x)-0x15012204(0x%x)",
 		DIP_RD32(MSS_BASE + 0x200), DIP_RD32(MSS_BASE + 0x204));
-	cmdq_util_err("CRSP: 0x15012208(0x%x)-0x1501220C(0x%x)\n",
+	cmdq_util_err("CRSP: 0x15012208(0x%x)-0x1501220C(0x%x)",
 		DIP_RD32(MSS_BASE + 0x208), DIP_RD32(MSS_BASE + 0x20C));
-	cmdq_util_err("CRSP: 0x15012210(0x%x)\n",
+	cmdq_util_err("CRSP: 0x15012210(0x%x)",
 		DIP_RD32(MSS_BASE + 0x210));
-	cmdq_util_err("UNP: 0x15012240(0x%x)-0x15012244(0x%x)\n",
+	cmdq_util_err("UNP: 0x15012240(0x%x)-0x15012244(0x%x)",
 		DIP_RD32(MSS_BASE + 0x240), DIP_RD32(MSS_BASE + 0x244));
-	cmdq_util_err("UNP: 0x15012250(0x%x)-0x15012254(0x%x)\n",
+	cmdq_util_err("UNP: 0x15012250(0x%x)-0x15012254(0x%x)",
 		DIP_RD32(MSS_BASE + 0x250), DIP_RD32(MSS_BASE + 0x254));
 
-	cmdq_util_err("YDRZ_0: 0x15012280(0x%x)-0x15012284(0x%x)\n",
+	cmdq_util_err("YDRZ_0: 0x15012280(0x%x)-0x15012284(0x%x)",
 		DIP_RD32(MSS_BASE + 0x280), DIP_RD32(MSS_BASE + 0x284));
-	cmdq_util_err("YDRZ_0: 0x15012288(0x%x)-0x1501228C(0x%x)\n",
+	cmdq_util_err("YDRZ_0: 0x15012288(0x%x)-0x1501228C(0x%x)",
 		DIP_RD32(MSS_BASE + 0x288), DIP_RD32(MSS_BASE + 0x28C));
-	cmdq_util_err("YDRZ_0: 0x15012290(0x%x)-0x150122A4(0x%x)\n",
+	cmdq_util_err("YDRZ_0: 0x15012290(0x%x)-0x150122A4(0x%x)",
 		DIP_RD32(MSS_BASE + 0x290), DIP_RD32(MSS_BASE + 0x2A4));
 
-	cmdq_util_err("YDRZ_1: 0x150122C0(0x%x)-0x150122C4(0x%x)\n",
+	cmdq_util_err("YDRZ_1: 0x150122C0(0x%x)-0x150122C4(0x%x)",
 		DIP_RD32(MSS_BASE + 0x2C4), DIP_RD32(MSS_BASE + 0x2C4));
-	cmdq_util_err("YDRZ_1: 0x150122C8(0x%x)-0x150122CC(0x%x)\n",
+	cmdq_util_err("YDRZ_1: 0x150122C8(0x%x)-0x150122CC(0x%x)",
 		DIP_RD32(MSS_BASE + 0x2C8), DIP_RD32(MSS_BASE + 0x2CC));
-	cmdq_util_err("YDRZ_1: 0x150122D0(0x%x)-0x150122E4(0x%x)\n",
+	cmdq_util_err("YDRZ_1: 0x150122D0(0x%x)-0x150122E4(0x%x)",
 		DIP_RD32(MSS_BASE + 0x2D0), DIP_RD32(MSS_BASE + 0x2E4));
 
-	cmdq_util_err("CDRZ: 0x15012300(0x%x)-0x15012304(0x%x)\n",
+	cmdq_util_err("CDRZ: 0x15012300(0x%x)-0x15012304(0x%x)",
 		DIP_RD32(MSS_BASE + 0x300), DIP_RD32(MSS_BASE + 0x304));
-	cmdq_util_err("CDRZ: 0x15012308(0x%x)-0x1501230C(0x%x)\n",
+	cmdq_util_err("CDRZ: 0x15012308(0x%x)-0x1501230C(0x%x)",
 		DIP_RD32(MSS_BASE + 0x308), DIP_RD32(MSS_BASE + 0x30C));
-	cmdq_util_err("CDRZ: 0x15012310(0x%x)-0x15012324(0x%x)\n",
+	cmdq_util_err("CDRZ: 0x15012310(0x%x)-0x15012324(0x%x)",
 		DIP_RD32(MSS_BASE + 0x310), DIP_RD32(MSS_BASE + 0x324));
 
-	cmdq_util_err("CRP_0: 0x15012340(0x%x)-0x15012344(0x%x)\n",
+	cmdq_util_err("CRP_0: 0x15012340(0x%x)-0x15012344(0x%x)",
 		DIP_RD32(MSS_BASE + 0x340), DIP_RD32(MSS_BASE + 0x344));
-	cmdq_util_err("CRP_1: 0x15012360(0x%x)-0x15012364(0x%x)\n",
+	cmdq_util_err("CRP_1: 0x15012360(0x%x)-0x15012364(0x%x)",
 		DIP_RD32(MSS_BASE + 0x360), DIP_RD32(MSS_BASE + 0x364));
-	cmdq_util_err("CRP_2: 0x15012380(0x%x)-0x15012384(0x%x)\n",
+	cmdq_util_err("CRP_2: 0x15012380(0x%x)-0x15012384(0x%x)",
 		DIP_RD32(MSS_BASE + 0x380), DIP_RD32(MSS_BASE + 0x384));
-	cmdq_util_err("CRP_3: 0x150123A0(0x%x)-0x150123A4(0x%x)\n",
+	cmdq_util_err("CRP_3: 0x150123A0(0x%x)-0x150123A4(0x%x)",
 		DIP_RD32(MSS_BASE + 0x3A0), DIP_RD32(MSS_BASE + 0x3A4));
-	cmdq_util_err("PAK: 0x150123C0(0x%x)-0x150123C8(0x%x)\n",
+	cmdq_util_err("PAK: 0x150123C0(0x%x)-0x150123C8(0x%x)",
 		DIP_RD32(MSS_BASE + 0x3C0), DIP_RD32(MSS_BASE + 0x3C8));
-	cmdq_util_err("PAK: 0x150123D0(0x%x)-0x150123D8(0x%x)\n",
+	cmdq_util_err("PAK: 0x150123D0(0x%x)-0x150123D8(0x%x)",
 		DIP_RD32(MSS_BASE + 0x03D0), DIP_RD32(MSS_BASE + 0x3D8));
 
 	for (loop = 0; loop < (0x60/0x4); loop++) {
-		cmdq_util_err("MSSREG: 0x%08X 0x%08X\n",
+		cmdq_util_err("MSSREG: 0x%08X 0x%08X",
 			0x15012400 + (loop * 0x4),
 			DIP_RD32(MSS_BASE + 0x0400 + (loop * 0x4)));
 	}
-	cmdq_util_err("MSSCMDQ: 0x15012500(0x%x)-0x15012504(0x%x)\n",
+	cmdq_util_err("MSSCMDQ: 0x15012500(0x%x)-0x15012504(0x%x)",
 		DIP_RD32(MSS_BASE + 0x500), DIP_RD32(MSS_BASE + 0x504));
-	cmdq_util_err("MSSCMDQ: 0x15012508(0x%x)-0x1501250C(0x%x)\n",
+	cmdq_util_err("MSSCMDQ: 0x15012508(0x%x)-0x1501250C(0x%x)",
 		DIP_RD32(MSS_BASE + 0x508), DIP_RD32(MSS_BASE + 0x50C));
-	cmdq_util_err("MSSCMDQ: 0x15012510(0x%x)-0x15012514(0x%x)\n",
+	cmdq_util_err("MSSCMDQ: 0x15012510(0x%x)-0x15012514(0x%x)",
 		DIP_RD32(MSS_BASE + 0x510), DIP_RD32(MSS_BASE + 0x514));
-	cmdq_util_err("MSSCQLP: 0x15012600(0x%x)-0x15012604(0x%x)\n",
+	cmdq_util_err("MSSCQLP: 0x15012600(0x%x)-0x15012604(0x%x)",
 		DIP_RD32(MSS_BASE + 0x600), DIP_RD32(MSS_BASE + 0x604));
 	cmdq_util_err("MSSCQLP: 0x15012608(0x%x)\n",
 		DIP_RD32(MSS_BASE + 0x608));
 
-	cmdq_util_err("MSSDMT: 0x15012800(0x%x)-0x15012804(0x%x)\n",
+	cmdq_util_err("MSSDMT: 0x15012800(0x%x)-0x15012804(0x%x)",
 		DIP_RD32(MSS_BASE + 0x800), DIP_RD32(MSS_BASE + 0x804));
-	cmdq_util_err("MSSDMT: 0x15012808(0x%x)-0x1501280C(0x%x)\n",
+	cmdq_util_err("MSSDMT: 0x15012808(0x%x)-0x1501280C(0x%x)",
 		DIP_RD32(MSS_BASE + 0x808), DIP_RD32(MSS_BASE + 0x80C));
-	cmdq_util_err("MSSDMT: 0x15012810(0x%x)-0x15012814(0x%x)\n",
+	cmdq_util_err("MSSDMT: 0x15012810(0x%x)-0x15012814(0x%x)",
 		DIP_RD32(MSS_BASE + 0x810), DIP_RD32(MSS_BASE + 0x814));
-	cmdq_util_err("MSSDMT: 0x1501281C(0x%x)-0x15012834(0x%x)\n",
+	cmdq_util_err("MSSDMT: 0x1501281C(0x%x)-0x15012834(0x%x)",
 		DIP_RD32(MSS_BASE + 0x81C), DIP_RD32(MSS_BASE + 0x834));
-	cmdq_util_err("MSSDMT: 0x15012838(0x%x)-0x1501283C(0x%x)\n",
+	cmdq_util_err("MSSDMT: 0x15012838(0x%x)-0x1501283C(0x%x)",
 		DIP_RD32(MSS_BASE + 0x838), DIP_RD32(MSS_BASE + 0x83C));
-	cmdq_util_err("MSSDMT: 0x15012840(0x%x)-0x15012844(0x%x)\n",
+	cmdq_util_err("MSSDMT: 0x15012840(0x%x)-0x15012844(0x%x)",
 		DIP_RD32(MSS_BASE + 0x840), DIP_RD32(MSS_BASE + 0x844));
-	cmdq_util_err("MSSDMT: 0x15012850(0x%x)-0x15012854(0x%x)\n",
+	cmdq_util_err("MSSDMT: 0x15012850(0x%x)-0x15012854(0x%x)",
 		DIP_RD32(MSS_BASE + 0x850), DIP_RD32(MSS_BASE + 0x854));
-	cmdq_util_err("MSSDMT: 0x15012858(0x%x)-0x1501285C(0x%x)\n",
+	cmdq_util_err("MSSDMT: 0x15012858(0x%x)-0x1501285C(0x%x)",
 		DIP_RD32(MSS_BASE + 0x858), DIP_RD32(MSS_BASE + 0x85C));
-	cmdq_util_err("MSSDMT: 0x15012884(0x%x)-0x15012888(0x%x)\n",
+	cmdq_util_err("MSSDMT: 0x15012884(0x%x)-0x15012888(0x%x)",
 		DIP_RD32(MSS_BASE + 0x884), DIP_RD32(MSS_BASE + 0x888));
-	cmdq_util_err("MSSDMT: 0x1501288C(0x%x)-0x15012890(0x%x)\n",
+	cmdq_util_err("MSSDMT: 0x1501288C(0x%x)-0x15012890(0x%x)",
 		DIP_RD32(MSS_BASE + 0x88C), DIP_RD32(MSS_BASE + 0x890));
 
-	cmdq_util_err("MSSDMW_0: 0x15012900(0x%x)-0x15012904(0x%x)\n",
+	cmdq_util_err("MSSDMW_0: 0x15012900(0x%x)-0x15012904(0x%x)",
 		DIP_RD32(MSS_BASE + 0x500), DIP_RD32(MSS_BASE + 0x504));
-	cmdq_util_err("MSSDMW_0: 0x15012908(0x%x)-0x1501290C(0x%x)\n",
+	cmdq_util_err("MSSDMW_0: 0x15012908(0x%x)-0x1501290C(0x%x)",
 		DIP_RD32(MSS_BASE + 0x508), DIP_RD32(MSS_BASE + 0x50C));
-	cmdq_util_err("MSSDMW_0: 0x15012910(0x%x)-0x15012914(0x%x)\n",
+	cmdq_util_err("MSSDMW_0: 0x15012910(0x%x)-0x15012914(0x%x)",
 		DIP_RD32(MSS_BASE + 0x910), DIP_RD32(MSS_BASE + 0x914));
-	cmdq_util_err("MSSDMW_0: 0x15012918(0x%x)-0x1501291C(0x%x)\n",
+	cmdq_util_err("MSSDMW_0: 0x15012918(0x%x)-0x1501291C(0x%x)",
 		DIP_RD32(MSS_BASE + 0x918), DIP_RD32(MSS_BASE + 0x91C));
 
-	cmdq_util_err("MSSDMW_1: 0x15012940(0x%x)-0x15012944(0x%x)\n",
+	cmdq_util_err("MSSDMW_1: 0x15012940(0x%x)-0x15012944(0x%x)",
 		DIP_RD32(MSS_BASE + 0x940), DIP_RD32(MSS_BASE + 0x944));
-	cmdq_util_err("MSSDMW_1: 0x15012948(0x%x)-0x1501294C(0x%x)\n",
+	cmdq_util_err("MSSDMW_1: 0x15012948(0x%x)-0x1501294C(0x%x)",
 		DIP_RD32(MSS_BASE + 0x948), DIP_RD32(MSS_BASE + 0x94C));
-	cmdq_util_err("MSSDMW_1: 0x15012950(0x%x)-0x15012954(0x%x)\n",
+	cmdq_util_err("MSSDMW_1: 0x15012950(0x%x)-0x15012954(0x%x)",
 		DIP_RD32(MSS_BASE + 0x950), DIP_RD32(MSS_BASE + 0x954));
-	cmdq_util_err("MSSDMW_1: 0x15012958(0x%x)-0x1501295C(0x%x)\n",
+	cmdq_util_err("MSSDMW_1: 0x15012958(0x%x)-0x1501295C(0x%x)",
 		DIP_RD32(MSS_BASE + 0x958), DIP_RD32(MSS_BASE + 0x95C));
 
-	cmdq_util_err("MSSDMW_2: 0x15012980(0x%x)-0x15012984(0x%x)\n",
+	cmdq_util_err("MSSDMW_2: 0x15012980(0x%x)-0x15012984(0x%x)",
 		DIP_RD32(MSS_BASE + 0x980), DIP_RD32(MSS_BASE + 0x984));
-	cmdq_util_err("MSSDMW_2: 0x15012988(0x%x)-0x1501298C(0x%x)\n",
+	cmdq_util_err("MSSDMW_2: 0x15012988(0x%x)-0x1501298C(0x%x)",
 		DIP_RD32(MSS_BASE + 0x988), DIP_RD32(MSS_BASE + 0x98C));
-	cmdq_util_err("MSSDMW_2: 0x15012990(0x%x)-0x15012994(0x%x)\n",
+	cmdq_util_err("MSSDMW_2: 0x15012990(0x%x)-0x15012994(0x%x)",
 		DIP_RD32(MSS_BASE + 0x990), DIP_RD32(MSS_BASE + 0x994));
-	cmdq_util_err("MSSDMW_2: 0x15012998(0x%x)-0x1501299C(0x%x)\n",
+	cmdq_util_err("MSSDMW_2: 0x15012998(0x%x)-0x1501299C(0x%x)",
 		DIP_RD32(MSS_BASE + 0x998), DIP_RD32(MSS_BASE + 0x99C));
 
-	cmdq_util_err("MSSDMW_3: 0x150129C0(0x%x)-0x150129C4(0x%x)\n",
+	cmdq_util_err("MSSDMW_3: 0x150129C0(0x%x)-0x150129C4(0x%x)",
 		DIP_RD32(MSS_BASE + 0x9C0), DIP_RD32(MSS_BASE + 0x9C4));
-	cmdq_util_err("MSSDMW_3: 0x150129C8(0x%x)-0x150129CC(0x%x)\n",
+	cmdq_util_err("MSSDMW_3: 0x150129C8(0x%x)-0x150129CC(0x%x)",
 		DIP_RD32(MSS_BASE + 0x9C8), DIP_RD32(MSS_BASE + 0x9CC));
-	cmdq_util_err("MSSDMW_3: 0x150129D0(0x%x)-0x150129D4(0x%x)\n",
+	cmdq_util_err("MSSDMW_3: 0x150129D0(0x%x)-0x150129D4(0x%x)",
 		DIP_RD32(MSS_BASE + 0x9D0), DIP_RD32(MSS_BASE + 0x9D4));
-	cmdq_util_err("MSSDMW_3: 0x150129D8(0x%x)-0x150129DC(0x%x)\n",
+	cmdq_util_err("MSSDMW_3: 0x150129D8(0x%x)-0x150129DC(0x%x)",
 		DIP_RD32(MSS_BASE + 0x9D8), DIP_RD32(MSS_BASE + 0x9DC));
 
-	cmdq_util_err("MSSDMR_0: 0x15012A00(0x%x)-0x15012A04(0x%x)\n",
+	cmdq_util_err("MSSDMR_0: 0x15012A00(0x%x)-0x15012A04(0x%x)",
 		DIP_RD32(MSS_BASE + 0xA00), DIP_RD32(MSS_BASE + 0xA04));
-	cmdq_util_err("MSSDMR_0: 0x15012A08(0x%x)-0x15012A0C(0x%x)\n",
+	cmdq_util_err("MSSDMR_0: 0x15012A08(0x%x)-0x15012A0C(0x%x)",
 		DIP_RD32(MSS_BASE + 0xA08), DIP_RD32(MSS_BASE + 0xA0C));
-	cmdq_util_err("MSSDMR_0: 0x15012A10(0x%x)-0x15012A14(0x%x)\n",
+	cmdq_util_err("MSSDMR_0: 0x15012A10(0x%x)-0x15012A14(0x%x)",
 		DIP_RD32(MSS_BASE + 0xA10), DIP_RD32(MSS_BASE + 0xA14));
-	cmdq_util_err("MSSDMR_0: 0x15012A18(0x%x)\n",
+	cmdq_util_err("MSSDMR_0: 0x15012A18(0x%x)",
 		DIP_RD32(MSS_BASE + 0xA18));
 
-	cmdq_util_err("MSSDMR_1: 0x15012A40(0x%x)-0x15012A44(0x%x)\n",
+	cmdq_util_err("MSSDMR_1: 0x15012A40(0x%x)-0x15012A44(0x%x)",
 		DIP_RD32(MSS_BASE + 0xA40), DIP_RD32(MSS_BASE + 0xA44));
-	cmdq_util_err("MSSDMR_1: 0x15012A48(0x%x)-0x15012A4C(0x%x)\n",
+	cmdq_util_err("MSSDMR_1: 0x15012A48(0x%x)-0x15012A4C(0x%x)",
 		DIP_RD32(MSS_BASE + 0xA48), DIP_RD32(MSS_BASE + 0xA4C));
-	cmdq_util_err("MSSDMR_1: 0x15012A50(0x%x)-0x15012A54(0x%x)\n",
+	cmdq_util_err("MSSDMR_1: 0x15012A50(0x%x)-0x15012A54(0x%x)",
 		DIP_RD32(MSS_BASE + 0xA50), DIP_RD32(MSS_BASE + 0xA54));
-	cmdq_util_err("MSSDMR_1: 0x15012A58(0x%x)\n",
+	cmdq_util_err("MSSDMR_1: 0x15012A58(0x%x)",
 		DIP_RD32(MSS_BASE + 0xA58));
 
-	cmdq_util_err("MSS Config Info End\n");
+	cmdq_util_err("MSS Config Info End");
 
-	cmdq_util_err("MSF Config Info\n");
+	cmdq_util_err("MSF Config Info");
 	for (i = 0; i < 32 ; i++) {
 		mfbcmd = i << 24;
 		DIP_WR32(MSF_BASE + 0x4d0, mfbcmd);
-		cmdq_util_err("idx:%d cmd:0x%x debug0(0x%x)\n",
+		cmdq_util_err("idx:%d cmd:0x%x debug0(0x%x)",
 				i, mfbcmd, DIP_RD32(MSF_BASE + 0x4d4));
 	}
 
@@ -1815,7 +2627,7 @@ static signed int DIP_DumpDIPReg(void)
 		mfbcmd = 0x11;
 		mfbcmd |= (i << 8);
 		DIP_WR32(MSF_BASE + 0x888, mfbcmd);
-		cmdq_util_err("idx:%d cmd:0x%x debug0(0x%x)\n",
+		cmdq_util_err("idx:%d cmd:0x%x debug0(0x%x)",
 				i, mfbcmd, DIP_RD32(MSF_BASE + 0x4d4));
 	}
 
@@ -1823,33 +2635,33 @@ static signed int DIP_DumpDIPReg(void)
 		mfbcmd = 0x3000000;
 		mfbcmd |= (i << 16);
 		DIP_WR32(MSF_BASE + 0x4d0, mfbcmd);
-		cmdq_util_err("idx:%d cmd:0x%x debug0(0x%x)\n",
+		cmdq_util_err("idx:%d cmd:0x%x debug0(0x%x)",
 				i, mfbcmd, DIP_RD32(MSF_BASE + 0x4cc));
 	}
 
 
 	for (loop = 0; loop < (0x73C/0x4); loop++) {
-		cmdq_util_err("MSFREG: 0x%08X 0x%08X\n",
+		cmdq_util_err("MSFREG: 0x%08X 0x%08X",
 			0x15010000 + (loop * 0x4),
 			DIP_RD32(MSF_BASE + (loop * 0x4)));
 	}
 
 
 	for (loop = 0; loop < (0xD0/0x4); loop++) {
-		cmdq_util_err("MSFREG: 0x%08X 0x%08X\n",
+		cmdq_util_err("MSFREG: 0x%08X 0x%08X",
 			0x150107C0 + (loop * 0x4),
 			DIP_RD32(MSF_BASE + 0x7C0 + (loop * 0x4)));
 	}
 
 
 	for (loop = 0; loop < (0x398/0x4); loop++) {
-		cmdq_util_err("MSFREG: 0x%08X 0x%08X\n",
+		cmdq_util_err("MSFREG: 0x%08X 0x%08X",
 			0x15010900 + (loop * 0x4),
 			DIP_RD32(MSF_BASE + 0x900 + (loop * 0x4)));
 	}
 
 	for (loop = 0; loop < (0x58/0x4); loop++) {
-		cmdq_util_err("MSFREG: 0x%08X 0x%08X\n",
+		cmdq_util_err("MSFREG: 0x%08X 0x%08X",
 			0x15010D00 + (loop * 0x4),
 			DIP_RD32(MSF_BASE + 0xD00 + (loop * 0x4)));
 	}
@@ -1862,64 +2674,65 @@ static signed int DIP_DumpDIPReg(void)
 		ctrl_start = DIP_RD32(DIP_A_BASE + 0x1000);
 		if (g_bIonBufferAllocated == MFALSE) {
 			if (g_pPhyDIPBuffer != NULL) {
-				cmdq_util_err("g_pPhyDIPBuffer isn't NULL(0x%pK)\n",
+				cmdq_util_err("g_pPhyDIPBuffer isn't NULL(0x%pK)",
 					g_pPhyDIPBuffer);
 				vfree(g_pPhyDIPBuffer);
 				g_pPhyDIPBuffer = NULL;
 			}
-			g_pPhyDIPBuffer = vmalloc(DIP_REG_RANGE);
+			g_pPhyDIPBuffer =
+				vmalloc(DIP_REG_RANGE * MTK_DIP_COUNT);
 			if (g_pPhyDIPBuffer == NULL)
-				CMDQ_ERR("g_pPhyDIPBuffer kmalloc failed\n");
+				CMDQ_ERR("g_pPhyDIPBuffer kmalloc failed");
 
 			if (g_pPhyMFBBuffer != NULL) {
-				cmdq_util_err("g_pPhyMFBBuffer isn't NULL(0x%pK)\n",
+				cmdq_util_err("g_pPhyMFBBuffer isn't NULL(0x%pK)",
 					g_pPhyMFBBuffer);
 				vfree(g_pPhyMFBBuffer);
 				g_pPhyMFBBuffer = NULL;
 			}
 			g_pPhyMFBBuffer = vmalloc(MFB_REG_RANGE);
 			if (g_pPhyMFBBuffer == NULL)
-				CMDQ_ERR("g_pPhyMFBBuffer kmalloc failed\n");
+				CMDQ_ERR("g_pPhyMFBBuffer kmalloc failed");
 
 			if (g_pPhyMSSBuffer != NULL) {
-				cmdq_util_err("g_pPhyMFBBuffer isn't NULL(0x%pK)\n",
+				cmdq_util_err("g_pPhyMFBBuffer isn't NULL(0x%pK)",
 					g_pPhyMSSBuffer);
 				vfree(g_pPhyMSSBuffer);
 				g_pPhyMSSBuffer = NULL;
 			}
 			g_pPhyMSSBuffer = vmalloc(MFB_REG_RANGE);
 			if (g_pPhyMSSBuffer == NULL)
-				CMDQ_ERR("g_pPhyMSSBuffer kmalloc failed\n");
+				CMDQ_ERR("g_pPhyMSSBuffer kmalloc failed");
 
 			if (g_pKWTpipeBuffer != NULL) {
-				cmdq_util_err("g_pKWTpipeBuffer isn't NULL(0x%pK)\n",
+				cmdq_util_err("g_pKWTpipeBuffer isn't NULL(0x%pK)",
 					g_pKWTpipeBuffer);
 					vfree(g_pKWTpipeBuffer);
 					g_pKWTpipeBuffer = NULL;
 			}
 			g_pKWTpipeBuffer = vmalloc(MAX_ISP_TILE_TDR_HEX_NO);
 			if (g_pKWTpipeBuffer == NULL)
-				CMDQ_ERR("g_pKWTpipeBuffer kmalloc failed\n");
+				CMDQ_ERR("g_pKWTpipeBuffer kmalloc failed");
 
 			if (g_pKWCmdqBuffer != NULL) {
-				cmdq_util_err("g_KWCmdqBuffer isn't NULL(0x%pK)\n",
+				cmdq_util_err("g_KWCmdqBuffer isn't NULL(0x%pK)",
 					g_pKWCmdqBuffer);
 				vfree(g_pKWCmdqBuffer);
 				g_pKWCmdqBuffer = NULL;
 			}
 			g_pKWCmdqBuffer = vmalloc(MAX_DIP_CMDQ_BUFFER_SIZE);
 			if (g_pKWCmdqBuffer == NULL)
-				CMDQ_ERR("g_KWCmdqBuffer kmalloc failed\n");
+				CMDQ_ERR("g_KWCmdqBuffer kmalloc failed");
 
 			if (g_pKWVirDIPBuffer != NULL) {
-				cmdq_util_err("g_KWVirDIPBuffer isn't NULL(0x%pK)\n",
+				cmdq_util_err("g_KWVirDIPBuffer isn't NULL(0x%pK)",
 					g_pKWVirDIPBuffer);
 				vfree(g_pKWVirDIPBuffer);
 				g_pKWVirDIPBuffer = NULL;
 			}
 			g_pKWVirDIPBuffer = vmalloc(DIP_REG_RANGE);
 			if (g_pKWVirDIPBuffer == NULL)
-				CMDQ_ERR("g_KWVirDIPBuffer kmalloc failed\n");
+				CMDQ_ERR("g_KWVirDIPBuffer kmalloc failed");
 		}
 
 		if (g_pPhyDIPBuffer != NULL) {
@@ -1933,8 +2746,20 @@ static signed int DIP_DumpDIPReg(void)
 				g_pPhyDIPBuffer[i+3] =
 					DIP_RD32(DIP_A_BASE + ((i+3)*4));
 			}
+#if (MTK_DIP_COUNT == 2)
+			for (i = 0; i < (DIP_REG_RANGE >> 2); i = i + 4) {
+				g_pPhyDIPBuffer[i] =
+					DIP_RD32(DIP_B_BASE + (i*4));
+				g_pPhyDIPBuffer[i+1] =
+					DIP_RD32(DIP_B_BASE + ((i+1)*4));
+				g_pPhyDIPBuffer[i+2] =
+					DIP_RD32(DIP_B_BASE + ((i+2)*4));
+				g_pPhyDIPBuffer[i+3] =
+					DIP_RD32(DIP_B_BASE + ((i+3)*4));
+			}
+#endif
 		} else {
-			CMDQ_ERR("g_pPhyDIPBuffer:(0x%pK)\n",
+			CMDQ_ERR("g_pPhyDIPBuffer:(0x%pK)",
 			g_pPhyDIPBuffer);
 		}
 		if (g_pPhyMFBBuffer != NULL) {
@@ -1949,7 +2774,7 @@ static signed int DIP_DumpDIPReg(void)
 					DIP_RD32(MSF_BASE + ((i+3)*4));
 			}
 		} else {
-			cmdq_util_err("g_pPhyMFBBuffer:(0x%pK)\n",
+			cmdq_util_err("g_pPhyMFBBuffer:(0x%pK)",
 			g_pPhyMFBBuffer);
 		}
 		if (g_pPhyMSSBuffer != NULL) {
@@ -1964,7 +2789,7 @@ static signed int DIP_DumpDIPReg(void)
 					DIP_RD32(MSS_BASE + ((i+3)*4));
 			}
 		} else {
-			cmdq_util_err("g_pPhyMSSBuffer:(0x%pK)\n",
+			cmdq_util_err("g_pPhyMSSBuffer:(0x%pK)",
 			g_pPhyMSSBuffer);
 		}
 		g_dumpInfo.tdri_baseaddr = DIP_RD32(DIP_A_BASE + 0x4);
@@ -2006,21 +2831,21 @@ static signed int DIP_DumpDIPReg(void)
 			if (copy_from_user(g_pKWTpipeBuffer,
 				(void __user *)(OffsetAddr),
 				MAX_ISP_TILE_TDR_HEX_NO) != 0) {
-				cmdq_util_err("cpy tpipe fail. tdriaddr:0x%x\n",
+				cmdq_util_err("cpy tpipe fail. tdriaddr:0x%x",
 				g_tdriaddr);
-		cmdq_util_err("MemVa:0x%lx, MemPa:0x%x,offset:0x%x\n",
+		cmdq_util_err("MemVa:0x%lx, MemPa:0x%x,offset:0x%x",
 				(uintptr_t)g_TpipeBaseAddrInfo.MemVa,
 				g_TpipeBaseAddrInfo.MemPa,
 				offset);
 			}
 		}
-		cmdq_util_err("tdraddr:0x%x,MemVa:0x%lx,MemPa:0x%x\n",
+		cmdq_util_err("tdraddr:0x%x,MemVa:0x%lx,MemPa:0x%x",
 			g_tdriaddr,
 			(uintptr_t)g_TpipeBaseAddrInfo.MemVa,
 			g_TpipeBaseAddrInfo.MemPa);
-		cmdq_util_err("MemSizeDiff:0x%x,offset:0x%x\n",
+		cmdq_util_err("MemSizeDiff:0x%x,offset:0x%x",
 			g_TpipeBaseAddrInfo.MemSizeDiff, offset);
-		cmdq_util_err("g_pKWTpipeBuffer:0x%pK\n", g_pKWTpipeBuffer);
+		cmdq_util_err("g_pKWTpipeBuffer:0x%pK", g_pKWTpipeBuffer);
 
 		if ((ctrl_start  != 0) &&
 			(g_cmdqaddr  != 0) &&
@@ -2034,17 +2859,17 @@ static signed int DIP_DumpDIPReg(void)
 			if (copy_from_user(g_pKWCmdqBuffer,
 				(void __user *)(OffsetAddr),
 				MAX_DIP_CMDQ_BUFFER_SIZE) != 0) {
-				cmdq_util_err("cpy cmdq fail. cmdqaddr:0x%x\n",
+				cmdq_util_err("cpy cmdq fail. cmdqaddr:0x%x",
 					g_cmdqaddr);
-				cmdq_util_err("MemVa:0x%lx,MemPa:0x%x,offset:0x%x\n",
+				cmdq_util_err("MemVa:0x%lx,MemPa:0x%x,offset:0x%x",
 					(uintptr_t)g_CmdqBaseAddrInfo.MemVa,
 					g_CmdqBaseAddrInfo.MemPa,
 					offset);
 			}
-			cmdq_util_err("cmdqidx:0x%x, cmdqaddr:0x%x\n",
+			cmdq_util_err("cmdqidx:0x%x, cmdqaddr:0x%x",
 				cmdqidx,
 				g_cmdqaddr);
-			cmdq_util_err("MemVa:0x%lx,MemPa:0x%x, offset:0x%x\n",
+			cmdq_util_err("MemVa:0x%lx,MemPa:0x%x, offset:0x%x",
 				(uintptr_t)g_CmdqBaseAddrInfo.MemVa,
 				g_CmdqBaseAddrInfo.MemPa,
 				offset);
@@ -2055,29 +2880,29 @@ static signed int DIP_DumpDIPReg(void)
 				(void __user *)(OffsetAddr),
 				DIP_REG_RANGE) != 0) {
 				cmdq_util_err("cpy vir dip fail.\n");
-				cmdq_util_err("cmdqaddr:0x%x,MVa:0x%lx,MPa:0x%x\n",
+				cmdq_util_err("cmdqaddr:0x%x,MVa:0x%lx,MPa:0x%x",
 				g_cmdqaddr,
 				(uintptr_t)g_CmdqBaseAddrInfo.MemVa,
 				g_CmdqBaseAddrInfo.MemPa);
-				cmdq_util_err("MSzDiff:0x%x,offset:0x%x\n",
+				cmdq_util_err("MSzDiff:0x%x,offset:0x%x",
 				g_CmdqBaseAddrInfo.MemSizeDiff,
 				offset);
 
 			}
-			cmdq_util_err("cmdqaddr:0x%x,MVa:0x%lx,MPa:0x%x\n",
+			cmdq_util_err("cmdqaddr:0x%x,MVa:0x%lx,MPa:0x%x",
 				g_cmdqaddr,
 				(uintptr_t)g_CmdqBaseAddrInfo.MemVa,
 				g_CmdqBaseAddrInfo.MemPa);
 			cmdq_util_err("MSzDiff:0x%x\n",
 				g_CmdqBaseAddrInfo.MemSizeDiff);
-			cmdq_util_err("ofset:0x%x,KWCmdBuf:0x%pK,KWTdrBuf:0x%pK\n",
+			cmdq_util_err("ofset:0x%x,KWCmdBuf:0x%pK,KWTdrBuf:0x%pK",
 				offset, g_pKWCmdqBuffer, g_pKWTpipeBuffer);
 		} else {
-			cmdq_util_err("cmdqadd:0x%x,MVa:0x%lx,MPa:0x%x\n",
+			cmdq_util_err("cmdqadd:0x%x,MVa:0x%lx,MPa:0x%x",
 				g_cmdqaddr,
 				(uintptr_t)g_CmdqBaseAddrInfo.MemVa,
 				g_CmdqBaseAddrInfo.MemPa);
-			cmdq_util_err("MSzDiff:0x%x,KWCmdBuf:0x%pK,KWTdrBuf:0x%pK\n",
+			cmdq_util_err("MSzDiff:0x%x,KWCmdBuf:0x%pK,KWTdrBuf:0x%pK",
 				g_CmdqBaseAddrInfo.MemSizeDiff,
 				g_pKWCmdqBuffer,
 				g_pKWTpipeBuffer);
@@ -2086,11 +2911,11 @@ static signed int DIP_DumpDIPReg(void)
 	}
 #endif
 
-	cmdq_util_err("direct link: g_bDumpPhyDIPBuf:(0x%x), cmdqidx(0x%x)\n",
+	cmdq_util_err("direct link: g_bDumpPhyDIPBuf:(0x%x), cmdqidx(0x%x)",
 		g_bDumpPhyDIPBuf, cmdqidx);
-	cmdq_util_err("direct link: cmdqaddr(0x%x), tdriaddr(0x%x)\n",
+	cmdq_util_err("direct link: cmdqaddr(0x%x), tdriaddr(0x%x)",
 		g_cmdqaddr, g_tdriaddr);
-	cmdq_util_err("- X.");
+	cmdq_util_err("- X.\n");
 #endif
 	/*  */
 	return Ret;
