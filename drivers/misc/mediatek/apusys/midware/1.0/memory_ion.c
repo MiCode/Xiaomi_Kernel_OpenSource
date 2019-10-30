@@ -39,11 +39,12 @@
 
 
 
-int _ion_mem_ctl_cache(struct apusys_mem_mgr *mem_mgr, struct apusys_mem *mem)
+int _ion_mem_ctl_cache(struct apusys_mem_mgr *mem_mgr,
+		struct apusys_mem_ctl *ctl_data, struct apusys_kmem *mem)
 {
 	int ret = 0;
 
-	switch (mem->ctl_data.cache_param.cache_type) {
+	switch (ctl_data->cache_param.cache_type) {
 	case APUSYS_CACHE_SYNC:
 		LOG_ERR("ION Not Support APUSYS_CACHE_SYNC\n");
 		ret = -1;
@@ -59,98 +60,174 @@ int _ion_mem_ctl_cache(struct apusys_mem_mgr *mem_mgr, struct apusys_mem *mem)
 	return ret;
 }
 
-int _ion_mem_ctl_map(struct apusys_mem_mgr *mem_mgr, struct apusys_mem *mem)
+
+
+int ion_mem_alloc(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 {
-	int ret = 0;
-
-	DEBUG_TAG;
-	switch (mem->ctl_data.map_param.map_type) {
-	case APUSYS_MAP_KVA:
-		ret = ion_mem_map_kva(mem_mgr, mem);
-		break;
-	case APUSYS_UNMAP_KVA:
-		ret = ion_mem_unmap_kva(mem_mgr, mem);
-		break;
-	case APUSYS_MAP_IOVA:
-		ret = ion_mem_map_iova(mem_mgr, mem);
-		break;
-	case APUSYS_UNMAP_IOVA:
-		ret = ion_mem_unmap_iova(mem_mgr, mem);
-		break;
-	case APUSYS_MAP_PA:
-		LOG_ERR("Not Support APUSYS_MAP_PA!");
-		ret = -EINVAL;
-		break;
-	case APUSYS_UNMAP_PA:
-		LOG_ERR("Not Support APUSYS_UNMAP_PA!");
-		ret = -EINVAL;
-		break;
-	default:
-		ret = -EINVAL;
-		break;
-	}
-	return ret;
-}
-
-
-
-int ion_mem_alloc(struct apusys_mem_mgr *mem_mgr, struct apusys_mem *mem)
-{
-	void *buffer = NULL;
 	struct ion_handle *ion_hnd = NULL;
 	int ret = 0;
 
+	DEBUG_TAG;
 	/* check argument */
 	if (mem == NULL) {
 		LOG_ERR("invalid argument\n");
 		return -EINVAL;
 	}
 
-	LOG_DEBUG("mem(0x%x/0x%llx/0x%llx/%d/%d)\n",
-		mem->iova, mem->uva, mem->kva, mem->size,
-		mem->ion_data.ion_share_fd);
-	/* import fd */
+	/* allocate buffer by fd */
 	ion_hnd = ion_import_dma_buf_fd(mem_mgr->client,
-	mem->ion_data.ion_share_fd);
+	mem->fd);
 
 	if (IS_ERR_OR_NULL(ion_hnd))
 		return -ENOMEM;
 
-	LOG_DEBUG("mem(%d/%p)\n", mem->ion_data.ion_share_fd, ion_hnd);
-
 	/* map kernel va*/
-	buffer = ion_map_kernel(mem_mgr->client, ion_hnd);
-	if (IS_ERR_OR_NULL(buffer)) {
-		LOG_ERR("map kernel va fail(%p/%p)\n",
-			mem_mgr->client, ion_hnd);
+	if (ion_mem_map_kva(mem_mgr, mem)) {
 		ret = -ENOMEM;
+		goto free_import;
 	}
-	mem->ion_data.ion_khandle = (uint64_t)ion_hnd;
-	mem->kva = (uint64_t)buffer;
+	/* map iova*/
+	if (ion_mem_map_iova(mem_mgr, mem)) {
+		ret = -ENOMEM;
+		goto free_import;
+	}
 
-	LOG_DEBUG("mem(0x%x/0x%llx/0x%llx/%d)\n",
-		mem->iova, mem->uva, mem->kva, mem->size);
+	LOG_INFO("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+			mem->fd, mem->uva, mem->iova, mem->size,
+			mem->iova_size, mem->khandle, mem->kva);
 
+	return 0;
+
+free_import:
+	ion_free(mem_mgr->client, ion_hnd);
 	return ret;
 }
 
-int ion_mem_free(struct apusys_mem_mgr *mem_mgr, struct apusys_mem *mem)
+int ion_mem_free(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
+{
+	struct ion_handle *ion_hnd;
+	int ret = 0;
+
+	DEBUG_TAG;
+	/* check argument */
+	if (mem == NULL) {
+		LOG_ERR("invalid argument\n");
+		return -EINVAL;
+	}
+	/* check argument */
+	if (mem->khandle == 0) {
+		LOG_ERR("invalid argument\n");
+		return -EINVAL;
+	}
+
+	ion_hnd = (struct ion_handle *) mem->khandle;
+
+	/* unmap iova*/
+	if (ion_mem_unmap_iova(mem_mgr, mem)) {
+		ret = -ENOMEM;
+		goto free_import;
+	}
+
+	/* unmap kernel va*/
+	if (ion_mem_unmap_kva(mem_mgr, mem)) {
+		ret = -ENOMEM;
+		goto free_import;
+	}
+
+	/* free buffer by fd */
+	ion_free(mem_mgr->client, ion_hnd);
+
+	LOG_INFO("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+			mem->fd, mem->uva, mem->iova, mem->size,
+			mem->iova_size, mem->khandle, mem->kva);
+
+free_import:
+	return ret;
+}
+
+int ion_mem_import(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
+{
+	struct ion_handle *ion_hnd = NULL;
+	int ret = 0;
+
+	DEBUG_TAG;
+	/* check argument */
+	if (mem == NULL) {
+		LOG_ERR("invalid argument\n");
+		return -EINVAL;
+	}
+
+
+	/* allocate buffer by fd */
+	ion_hnd = ion_import_dma_buf_fd(mem_mgr->client,
+	mem->fd);
+
+	if (IS_ERR_OR_NULL(ion_hnd))
+		return -ENOMEM;
+
+	/* map kernel va*/
+	if (ion_mem_map_kva(mem_mgr, mem)) {
+		ret = -ENOMEM;
+		goto free_import;
+	}
+	/* map iova*/
+	if (ion_mem_map_iova(mem_mgr, mem)) {
+		ret = -ENOMEM;
+		goto free_import;
+	}
+
+	LOG_INFO("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+			mem->fd, mem->uva, mem->iova, mem->size,
+			mem->iova_size, mem->khandle, mem->kva);
+
+	return 0;
+
+free_import:
+	ion_free(mem_mgr->client, ion_hnd);
+	return ret;
+}
+
+int ion_mem_unimport(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 {
 
 	struct ion_handle *ion_hnd;
+	int ret = 0;
 
-	ion_hnd = (struct ion_handle *) mem->ion_data.ion_khandle;
-	LOG_DEBUG("mem(0x%x/0x%llx/0x%llx/%d/%d,%p)\n",
-		mem->iova, mem->uva, mem->kva, mem->size,
-		mem->ion_data.ion_share_fd, ion_hnd);
+	DEBUG_TAG;
+	/* check argument */
+	if (mem == NULL) {
+		LOG_ERR("invalid argument\n");
+		return -EINVAL;
+	}
+	/* check argument */
+	if (mem->khandle == 0) {
+		LOG_ERR("invalid argument\n");
+		return -EINVAL;
+	}
 
-	ion_unmap_kernel(mem_mgr->client, ion_hnd);
+	ion_hnd = (struct ion_handle *) mem->khandle;
 
-	//ion_hnd = (struct ion_handle *) mem->ion_khandle;
+	/* unmap iova*/
+	if (ion_mem_unmap_iova(mem_mgr, mem)) {
+		ret = -ENOMEM;
+		goto free_import;
+	}
+
+	/* unmap kernel va*/
+	if (ion_mem_unmap_kva(mem_mgr, mem)) {
+		ret = -ENOMEM;
+		goto free_import;
+	}
+
+	/* free buffer by fd */
 	ion_free(mem_mgr->client, ion_hnd);
-	//ion_free(mem_mgr->client, ion_hnd);
 
-	return 0;
+	LOG_INFO("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+			mem->fd, mem->uva, mem->iova, mem->size,
+			mem->iova_size, mem->khandle, mem->kva);
+
+free_import:
+	return ret;
 }
 
 int ion_mem_init(struct apusys_mem_mgr *mem_mgr)
@@ -194,16 +271,14 @@ int ion_mem_destroy(struct apusys_mem_mgr *mem_mgr)
 
 	return ret;
 }
-int ion_mem_ctl(struct apusys_mem_mgr *mem_mgr, struct apusys_mem *mem)
+int ion_mem_ctl(struct apusys_mem_mgr *mem_mgr,
+		struct apusys_mem_ctl *ctl_data, struct apusys_kmem *mem)
 {
 	int ret = 0;
 
-	switch (mem->ctl_data.cmd) {
+	switch (ctl_data->cmd) {
 	case APUSYS_CACHE:
-		ret = _ion_mem_ctl_cache(mem_mgr, mem);
-		break;
-	case APUSYS_MAP:
-		ret = _ion_mem_ctl_map(mem_mgr, mem);
+		ret = _ion_mem_ctl_cache(mem_mgr, ctl_data, mem);
 		break;
 	default:
 		ret = -EINVAL;
@@ -213,7 +288,7 @@ int ion_mem_ctl(struct apusys_mem_mgr *mem_mgr, struct apusys_mem *mem)
 	return ret;
 }
 
-int ion_mem_map_kva(struct apusys_mem_mgr *mem_mgr, struct apusys_mem *mem)
+int ion_mem_map_kva(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 {
 	void *buffer = NULL;
 	struct ion_handle *ion_hnd = NULL;
@@ -225,18 +300,12 @@ int ion_mem_map_kva(struct apusys_mem_mgr *mem_mgr, struct apusys_mem *mem)
 		return -EINVAL;
 	}
 
-	LOG_DEBUG("mem(0x%x/0x%llx/0x%llx/%d/%d)\n",
-		mem->iova, mem->uva, mem->kva, mem->size,
-		mem->ion_data.ion_share_fd);
 	/* import fd */
 	ion_hnd = ion_import_dma_buf_fd(mem_mgr->client,
-	mem->ion_data.ion_share_fd);
+	mem->fd);
 
 	if (IS_ERR_OR_NULL(ion_hnd))
 		return -ENOMEM;
-
-	LOG_DEBUG("mem(%d/%p)\n",
-		mem->ion_data.ion_share_fd, ion_hnd);
 
 	/* map kernel va*/
 	buffer = ion_map_kernel(mem_mgr->client, ion_hnd);
@@ -246,20 +315,21 @@ int ion_mem_map_kva(struct apusys_mem_mgr *mem_mgr, struct apusys_mem *mem)
 		ret = -ENOMEM;
 		goto free_import;
 	}
-	mem->ion_data.ion_khandle = (uint64_t)ion_hnd;
+	mem->khandle = (uint64_t)ion_hnd;
 	mem->kva = (uint64_t)buffer;
 
-	LOG_DEBUG("mem(0x%x/0x%llx/0x%llx/%d)\n",
-		mem->iova, mem->uva, mem->kva, mem->size);
+	LOG_DEBUG("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+			mem->fd, mem->uva, mem->iova, mem->size,
+			mem->iova_size, mem->khandle, mem->kva);
 
-	return ret;
+	return 0;
 
 free_import:
 	ion_free(mem_mgr->client, ion_hnd);
 	return ret;
 }
 
-int ion_mem_map_iova(struct apusys_mem_mgr *mem_mgr, struct apusys_mem *mem)
+int ion_mem_map_iova(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 {
 	int ret = 0;
 	struct ion_handle *ion_hnd = NULL;
@@ -273,18 +343,12 @@ int ion_mem_map_iova(struct apusys_mem_mgr *mem_mgr, struct apusys_mem *mem)
 		return -EINVAL;
 	}
 
-	LOG_DEBUG("mem(0x%x/0x%llx/0x%llx/%d/%d)\n",
-		mem->iova, mem->uva, mem->kva, mem->size,
-		mem->ion_data.ion_share_fd);
 	/* import fd */
 	ion_hnd = ion_import_dma_buf_fd(mem_mgr->client,
-	mem->ion_data.ion_share_fd);
+	mem->fd);
 
 	if (IS_ERR_OR_NULL(ion_hnd))
 		return -ENOMEM;
-
-	LOG_DEBUG("mem(%d/%p)\n",
-		mem->ion_data.ion_share_fd, ion_hnd);
 
 	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
 	mm_data.config_buffer_param.kernel_handle = ion_hnd;
@@ -308,41 +372,67 @@ int ion_mem_map_iova(struct apusys_mem_mgr *mem_mgr, struct apusys_mem *mem)
 
 	mem->iova = iova;
 	mem->iova_size = iova_size;
-	LOG_DEBUG("mem iova(0x%x/%d)\n",
-		mem->iova, mem->iova_size);
+
+	LOG_DEBUG("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+			mem->fd, mem->uva, mem->iova, mem->size,
+			mem->iova_size, mem->khandle, mem->kva);
 
 
 free_import:
 	ion_free(mem_mgr->client, ion_hnd);
 	return ret;
 }
-int ion_mem_unmap_iova(struct apusys_mem_mgr *mem_mgr, struct apusys_mem *mem)
+int ion_mem_unmap_iova(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 {
 	int ret = 0;
+	struct ion_handle *ion_hnd = NULL;
 
-	DEBUG_TAG;
+	/* check argument */
+	if (mem == NULL) {
+		LOG_ERR("invalid argument\n");
+		return -EINVAL;
+	}
+	/* check argument */
+	if (mem->khandle == 0) {
+		LOG_ERR("invalid argument\n");
+		return -EINVAL;
+	}
+
+	ion_hnd = (struct ion_handle *) mem->khandle;
+
+	LOG_DEBUG("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+			mem->fd, mem->uva, mem->iova, mem->size,
+			mem->iova_size, mem->khandle, mem->kva);
 
 	return ret;
 }
 
-int ion_mem_unmap_kva(struct apusys_mem_mgr *mem_mgr, struct apusys_mem *mem)
+int ion_mem_unmap_kva(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 {
-	struct ion_handle *ion_hnd;
+	struct ion_handle *ion_hnd = NULL;
+	int ret = 0;
 
-	ion_hnd = (struct ion_handle *) mem->ion_data.ion_khandle;
-	LOG_DEBUG("mem(0x%x/0x%llx/0x%llx/%d/%d,%p)\n",
-		mem->iova, mem->uva, mem->kva, mem->size,
-		mem->ion_data.ion_share_fd, ion_hnd);
-
-	if (ion_hnd == NULL) {
-		LOG_ERR("ion handle null\n");
+	/* check argument */
+	if (mem == NULL) {
+		LOG_ERR("invalid argument\n");
+		return -EINVAL;
+	}
+	/* check argument */
+	if (mem->khandle == 0) {
+		LOG_ERR("invalid argument\n");
 		return -EINVAL;
 	}
 
+	ion_hnd = (struct ion_handle *) mem->khandle;
+
 	ion_unmap_kernel(mem_mgr->client, ion_hnd);
 
-	//ion_hnd = (struct ion_handle *) mem->ion_khandle;
 	ion_free(mem_mgr->client, ion_hnd);
-	//ion_free(mem_mgr->client, ion_hnd);
-	return 0;
+
+	LOG_DEBUG("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+			mem->fd, mem->uva, mem->iova, mem->size,
+			mem->iova_size, mem->khandle, mem->kva);
+
+	return ret;
+
 }

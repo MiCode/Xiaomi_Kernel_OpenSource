@@ -278,6 +278,7 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	int ret = 0, count = 0, dev_num = 0, val = 0;
 	struct apusys_user *user = (struct apusys_user *)filp->private_data;
 	struct apusys_mem mem;
+	struct apusys_kmem kmem;
 	struct apusys_ioctl_cmd ioctl_cmd;
 	struct apusys_ioctl_hs hs;
 	struct apusys_ioctl_dev dev_alloc;
@@ -364,28 +365,32 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			goto out;
 		}
 
+		apusys_mem_copy_from_user(&mem, &kmem);
+
 		/* allocate memory, mapping kernel va */
-		ret = apusys_mem_alloc(&mem);
+		ret = apusys_mem_alloc(&kmem);
 		if (ret)
 			break;
+
+		apusys_mem_copy_to_user(&mem, &kmem);
 
 		if (copy_to_user((void *)arg, &mem,
 			sizeof(struct apusys_mem))) {
 			LOG_ERR("copy mem struct to user fail\n");
-			if (apusys_mem_free(&mem))
+			if (apusys_mem_free(&kmem))
 				LOG_ERR("free unused mem fail\n");
 
 			ret = -EINVAL;
 		} else {
-			if (apusys_user_insert_mem(user, &mem)) {
+			if (apusys_user_insert_mem(user, &kmem)) {
 				LOG_ERR("insmemd fail(0x%llx/%d/%d/0x%llx)\n",
 					user->id,
-					mem.mem_type,
-					mem.ion_data.ion_share_fd,
-					mem.kva);
+					kmem.mem_type,
+					kmem.fd,
+					kmem.kva);
 				ret = -EINVAL;
 
-				if (apusys_mem_free(&mem))
+				if (apusys_mem_free(&kmem))
 					LOG_ERR("free unused mem fail\n");
 			}
 		}
@@ -401,19 +406,23 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			goto out;
 		}
 
+		apusys_mem_copy_from_user(&mem, &kmem);
+
 		/* free memory, free kernel memory ref count */
-		ret = apusys_mem_free(&mem);
+		ret = apusys_mem_free(&kmem);
 		if (ret) {
 			LOG_ERR("free apusys mem fail\n");
 			break;
 		}
 
-		if (apusys_user_delete_mem(user, &mem)) {
+		apusys_mem_copy_to_user(&mem, &kmem);
+
+		if (apusys_user_delete_mem(user, &kmem)) {
 			LOG_ERR("delmem fail(0x%llx/%d/%d/0x%llx)\n",
 				user->id,
-				mem.mem_type,
-				mem.ion_data.ion_share_fd,
-				mem.kva);
+				kmem.mem_type,
+				kmem.fd,
+				kmem.kva);
 			ret = -EINVAL;
 			goto out;
 		} else {
@@ -426,8 +435,7 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		}
 
 		break;
-
-	case APUSYS_IOCTL_MEM_CTL:
+	case APUSYS_IOCTL_MEM_IMPORT:
 		DEBUG_TAG;
 		if (copy_from_user(&mem, (void *)arg,
 			sizeof(struct apusys_mem))) {
@@ -436,38 +444,91 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			goto out;
 		}
 
-		ret = apusys_mem_ctl(&mem);
+		apusys_mem_copy_from_user(&mem, &kmem);
+
+		/* allocate memory, mapping kernel va */
+		ret = apusys_mem_import(&kmem);
+		if (ret)
+			break;
+
+		apusys_mem_copy_to_user(&mem, &kmem);
+
+		if (copy_to_user((void *)arg, &mem,
+			sizeof(struct apusys_mem))) {
+			LOG_ERR("copy mem struct to user fail\n");
+			if (apusys_mem_unimport(&kmem))
+				LOG_ERR("free unused mem fail\n");
+
+			ret = -EINVAL;
+		} else {
+			if (apusys_user_insert_mem(user, &kmem)) {
+				LOG_ERR("insmemd fail(0x%llx/%d/%d/0x%llx)\n",
+					user->id,
+					kmem.mem_type,
+					kmem.fd,
+					kmem.kva);
+				ret = -EINVAL;
+
+				if (apusys_mem_unimport(&kmem))
+					LOG_ERR("free unused mem fail\n");
+			}
+		}
+
+		break;
+
+	case APUSYS_IOCTL_MEM_UNIMPORT:
+		DEBUG_TAG;
+		if (copy_from_user(&mem, (void *)arg,
+			sizeof(struct apusys_mem))) {
+			LOG_ERR("copy mem struct fail\n");
+			ret = -EINVAL;
+			goto out;
+		}
+
+		apusys_mem_copy_from_user(&mem, &kmem);
+
+		/* free memory, free kernel memory ref count */
+		ret = apusys_mem_unimport(&kmem);
+		if (ret) {
+			LOG_ERR("free apusys mem fail\n");
+			break;
+		}
+
+		apusys_mem_copy_to_user(&mem, &kmem);
+
+		if (apusys_user_delete_mem(user, &kmem)) {
+			LOG_ERR("delmem fail(0x%llx/%d/%d/0x%llx)\n",
+				user->id,
+				kmem.mem_type,
+				kmem.fd,
+				kmem.kva);
+			ret = -EINVAL;
+			goto out;
+		} else {
+			if (copy_to_user((void *)arg, &mem,
+				sizeof(struct apusys_mem))) {
+
+				LOG_ERR("copy mem struct to user fail\n");
+				ret = -EINVAL;
+			}
+		}
+
+		break;
+	case APUSYS_IOCTL_MEM_CTL:
+		DEBUG_TAG;
+		if (copy_from_user(&mem, (void *)arg,
+			sizeof(struct apusys_mem))) {
+			LOG_ERR("copy mem struct fail\n");
+			ret = -EINVAL;
+			goto out;
+		}
+		apusys_mem_copy_from_user(&mem, &kmem);
+
+		ret = apusys_mem_ctl(&mem.ctl_data, &kmem);
 		if (ret)
 			LOG_ERR("control apusys mem fail\n");
 
-		if (mem.ctl_data.cmd == APUSYS_MAP) {
-			switch (mem.ctl_data.map_param.map_type) {
-			case APUSYS_MAP_KVA:
-			case APUSYS_MAP_IOVA:
-			case APUSYS_MAP_PA:
-				if (apusys_user_insert_mem(user, &mem)) {
-					LOG_ERR("delmem fail(0x%llx/%d/%d)\n",
-						user->id,
-						mem.mem_type,
-						mem.ion_data.ion_share_fd);
-				}
-				break;
-			case APUSYS_UNMAP_KVA:
-			case APUSYS_UNMAP_IOVA:
-			case APUSYS_UNMAP_PA:
-				if (apusys_user_delete_mem(user, &mem)) {
-					LOG_ERR("delmem fail(0x%llx/%d/%d)\n",
-						user->id,
-						mem.mem_type,
-						mem.ion_data.ion_share_fd);
-				}
-				break;
-			default:
-				LOG_ERR("unknown mem ctl type(%d)\n",
-					mem.ctl_data.map_param.map_type);
-				break;
-			}
-		}
+		apusys_mem_copy_to_user(&mem, &kmem);
 
 		if (ret == 0) {
 			if (copy_to_user((void *)arg, &mem,
@@ -782,11 +843,11 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			goto out;
 		}
 
-		memset(&mem, 0, sizeof(struct apusys_mem));
+		memset(&kmem, 0, sizeof(struct apusys_kmem));
 
 		/* ref count++ */
-		mem.ion_data.ion_share_fd = ioctl_fw.mem_fd;
-		if (apusys_mem_map_kva(&mem)) {
+		kmem.fd = ioctl_fw.mem_fd;
+		if (apusys_mem_map_kva(&kmem)) {
 			LOG_ERR("map cmd buffer kva from fd(%d)fail\n",
 				ioctl_fw.mem_fd);
 			ret = -EINVAL;
@@ -794,7 +855,7 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		}
 		LOG_DEBUG("%x\n", ioctl_fw.magic);
 
-		if (apusys_mem_map_iova(&mem)) {
+		if (apusys_mem_map_iova(&kmem)) {
 			LOG_ERR("map cmd buffer iova from fd(%d)fail\n",
 				ioctl_fw.mem_fd);
 			ret = -EINVAL;
@@ -802,19 +863,19 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		}
 
 		/* check size */
-		if (ioctl_fw.size + ioctl_fw.offset > mem.iova_size) {
+		if (ioctl_fw.size + ioctl_fw.offset > kmem.iova_size) {
 			LOG_ERR("check ucmd size(%u/%u/%u) fail\n",
 				ioctl_fw.size,
 				ioctl_fw.offset,
-				mem.iova_size);
+				kmem.iova_size);
 			ret = -EINVAL;
 			goto check_unfw_size_fail;
 		}
 
 		ret = res_load_firmware(ioctl_fw.dev_type,
 			ioctl_fw.magic, ioctl_fw.name,
-			ioctl_fw.idx, mem.kva,
-			mem.iova, ioctl_fw.size,
+			ioctl_fw.idx, kmem.kva,
+			kmem.iova, ioctl_fw.size,
 			APUSYS_FIRMWARE_LOAD);
 		if (ret) {
 			LOG_ERR("load fw to device(%d/%d) fail\n",
@@ -824,15 +885,15 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 check_unfw_size_fail:
 		/* ref count-- */
-		if (apusys_mem_unmap_iova(&mem)) {
+		if (apusys_mem_unmap_iova(&kmem)) {
 			LOG_ERR("uni fw(%d/0x%llx/%s) fail\n",
-			ioctl_fw.mem_fd, mem.kva, ioctl_fw.name);
+			ioctl_fw.mem_fd, kmem.kva, ioctl_fw.name);
 		}
 
 		/* ref count-- */
-		if (apusys_mem_unmap_kva(&mem)) {
+		if (apusys_mem_unmap_kva(&kmem)) {
 			LOG_ERR("unmap fw(%d/0x%llx/%s) fail\n",
-			ioctl_fw.mem_fd, mem.kva, ioctl_fw.name);
+			ioctl_fw.mem_fd, kmem.kva, ioctl_fw.name);
 		}
 		break;
 
@@ -844,21 +905,21 @@ check_unfw_size_fail:
 			ret = -EINVAL;
 			goto out;
 		}
-		memset(&mem, 0, sizeof(struct apusys_mem));
+		memset(&kmem, 0, sizeof(struct apusys_kmem));
 
 		LOG_DEBUG("fd = %d/%d\n",
-			mem.ion_data.ion_share_fd,
+				kmem.fd,
 			ioctl_fw.mem_fd);
 
-		mem.ion_data.ion_share_fd = ioctl_fw.mem_fd;
-		if (apusys_mem_map_kva(&mem)) {
+		kmem.fd = ioctl_fw.mem_fd;
+		if (apusys_mem_map_kva(&kmem)) {
 			LOG_ERR("map fw buffer kva from fd(%d)fail\n",
 				ioctl_fw.mem_fd);
 			ret = -EINVAL;
 			goto out;
 		}
 
-		if (apusys_mem_map_iova(&mem)) {
+		if (apusys_mem_map_iova(&kmem)) {
 			LOG_ERR("map cmd buffer iovva from fd(%d)fail\n",
 				ioctl_fw.mem_fd);
 			ret = -EINVAL;
@@ -867,8 +928,8 @@ check_unfw_size_fail:
 
 		ret = res_load_firmware(ioctl_fw.dev_type,
 			ioctl_fw.magic, ioctl_fw.name,
-			ioctl_fw.idx, mem.kva,
-			mem.iova, ioctl_fw.size,
+			ioctl_fw.idx, kmem.kva,
+			kmem.iova, ioctl_fw.size,
 			APUSYS_FIRMWARE_UNLOAD);
 
 		if (ret) {
@@ -878,12 +939,12 @@ check_unfw_size_fail:
 		}
 
 		/* ref count-- */
-		if (apusys_mem_unmap_iova(&mem)) {
+		if (apusys_mem_unmap_iova(&kmem)) {
 			LOG_ERR("uni fw(%d/0x%llx/%s) fail\n",
-			ioctl_fw.mem_fd, mem.kva, ioctl_fw.name);
+			ioctl_fw.mem_fd, kmem.kva, ioctl_fw.name);
 		}
 
-		if (apusys_mem_unmap_kva(&mem)) {
+		if (apusys_mem_unmap_kva(&kmem)) {
 			LOG_ERR("unmap fw buffer kva from fd(%d)fail\n",
 				ioctl_fw.mem_fd);
 			ret = -EINVAL;
@@ -900,20 +961,20 @@ check_unfw_size_fail:
 		}
 
 		/* map kva */
-		memset(&mem, 0, sizeof(struct apusys_mem));
-		mem.size = ioctl_ucmd.size;
-		mem.ion_data.ion_share_fd = ioctl_ucmd.mem_fd;
-		if (apusys_mem_map_kva(&mem)) {
+		memset(&kmem, 0, sizeof(struct apusys_kmem));
+		kmem.size = ioctl_ucmd.size;
+		kmem.fd = ioctl_ucmd.mem_fd;
+		if (apusys_mem_map_kva(&kmem)) {
 			LOG_ERR("map cmdbuf kva from fd(%d)fail\n",
 				ioctl_ucmd.mem_fd);
 			return -ENOMEM;
 		}
 
 		/* map iova */
-		if (apusys_mem_map_iova(&mem)) {
+		if (apusys_mem_map_iova(&kmem)) {
 			LOG_ERR("map cmdbuf iova from fd(%d)fail\n",
 				ioctl_ucmd.mem_fd);
-			if (apusys_mem_unmap_kva(&mem)) {
+			if (apusys_mem_unmap_kva(&kmem)) {
 				LOG_ERR("unmap cmdbuf kva from fd(%d)fail\n",
 					ioctl_ucmd.mem_fd);
 			}
@@ -921,18 +982,18 @@ check_unfw_size_fail:
 		}
 
 		/* check size */
-		if (ioctl_ucmd.size + ioctl_ucmd.offset > mem.iova_size) {
+		if (ioctl_ucmd.size + ioctl_ucmd.offset > kmem.iova_size) {
 			LOG_ERR("check ucmd size(%u/%u/%u) fail\n",
 				ioctl_ucmd.size,
 				ioctl_ucmd.offset,
-				mem.iova_size);
+				kmem.iova_size);
 			ret = -EINVAL;
 			goto check_ucmd_size_fail;
 		}
 
 		/* send ucmd to driver */
 		ret = res_send_ucmd(ioctl_ucmd.dev_type, ioctl_ucmd.idx,
-			mem.kva, mem.iova, mem.size);
+				kmem.kva, kmem.iova, kmem.size);
 		if (ret) {
 			LOG_ERR("send user cmd(%d) fail\n",
 				ioctl_ucmd.mem_fd);
@@ -940,10 +1001,10 @@ check_unfw_size_fail:
 
 check_ucmd_size_fail:
 		/* unmap iova */
-		if (apusys_mem_unmap_iova(&mem)) {
+		if (apusys_mem_unmap_iova(&kmem)) {
 			LOG_ERR("unmap cmdbuf iova from fd(%d)fail\n",
 				ioctl_ucmd.mem_fd);
-			if (apusys_mem_unmap_kva(&mem)) {
+			if (apusys_mem_unmap_kva(&kmem)) {
 				LOG_ERR("unmap cmdbuf kva from fd(%d)fail\n",
 					ioctl_ucmd.mem_fd);
 			}
@@ -951,7 +1012,7 @@ check_ucmd_size_fail:
 		}
 
 		/* unmap kva */
-		if (apusys_mem_unmap_kva(&mem)) {
+		if (apusys_mem_unmap_kva(&kmem)) {
 			LOG_ERR("unmap cmdbuf kva from fd(%d)fail\n",
 				ioctl_ucmd.mem_fd);
 			return -ENOMEM;
@@ -1157,6 +1218,8 @@ static long apusys_compat_ioctl(struct file *flip, unsigned int cmd,
 	case APUSYS_IOCTL_HANDSHAKE:
 	case APUSYS_IOCTL_MEM_ALLOC:
 	case APUSYS_IOCTL_MEM_FREE:
+	case APUSYS_IOCTL_MEM_IMPORT:
+	case APUSYS_IOCTL_MEM_UNIMPORT:
 	case APUSYS_IOCTL_MEM_CTL:
 	case APUSYS_IOCTL_RUN_CMD_SYNC:
 	case APUSYS_IOCTL_RUN_CMD_ASYNC:

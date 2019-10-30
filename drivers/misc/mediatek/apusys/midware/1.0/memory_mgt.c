@@ -28,7 +28,33 @@ struct apusys_mem_mgr g_mem_mgr;
 static int g_mem_type = APUSYS_MEM_DRAM_ION;
 
 //----------------------------------------------
-int apusys_mem_alloc(struct apusys_mem *mem)
+int apusys_mem_copy_from_user(struct apusys_mem *umem, struct apusys_kmem *kmem)
+{
+
+	kmem->khandle = umem->khandle;
+	kmem->uva = umem->uva;
+	kmem->iova = umem->iova;
+	kmem->size = umem->size;
+	kmem->iova_size = umem->iova_size;
+	kmem->align = umem->align;
+	kmem->cache = umem->cache;
+	kmem->mem_type = umem->mem_type;
+	kmem->fd = umem->fd;
+
+	return 0;
+}
+
+int apusys_mem_copy_to_user(struct apusys_mem *umem, struct apusys_kmem *kmem)
+{
+	umem->iova = kmem->iova;
+	umem->size = kmem->size;
+	umem->iova_size = kmem->iova_size;
+	umem->khandle = kmem->khandle;
+
+
+	return 0;
+}
+int apusys_mem_alloc(struct apusys_kmem *mem)
 {
 	int ret = 0;
 
@@ -40,14 +66,18 @@ int apusys_mem_alloc(struct apusys_mem *mem)
 		ret = dma_mem_alloc(&g_mem_mgr, mem);
 		break;
 	default:
+		LOG_ERR("invalid argument\n");
 		ret = -EINVAL;
 		break;
 	}
+	if (!ret)
+		mem->property = APUSYS_MEM_PROP_ALLOC;
+
 
 	return ret;
 }
 
-int apusys_mem_free(struct apusys_mem *mem)
+int apusys_mem_free(struct apusys_kmem *mem)
 {
 	int ret = 0;
 
@@ -59,9 +89,71 @@ int apusys_mem_free(struct apusys_mem *mem)
 		ret = dma_mem_free(&g_mem_mgr, mem);
 		break;
 	default:
+		LOG_ERR("invalid argument\n");
 		ret = -EINVAL;
 		break;
 	}
+	return ret;
+}
+
+int apusys_mem_import(struct apusys_kmem *mem)
+{
+	int ret = 0;
+
+	switch (g_mem_type) {
+	case APUSYS_MEM_DRAM_ION:
+		ret = ion_mem_import(&g_mem_mgr, mem);
+		break;
+	case APUSYS_MEM_DRAM_DMA:
+		ret = -EINVAL;
+		break;
+	default:
+		LOG_ERR("invalid argument\n");
+		ret = -EINVAL;
+		break;
+	}
+
+	if (!ret)
+		mem->property = APUSYS_MEM_PROP_IMPORT;
+
+	return ret;
+}
+int apusys_mem_unimport(struct apusys_kmem *mem)
+{
+	int ret = 0;
+
+	switch (g_mem_type) {
+	case APUSYS_MEM_DRAM_ION:
+		ret = ion_mem_unimport(&g_mem_mgr, mem);
+		break;
+	case APUSYS_MEM_DRAM_DMA:
+		ret = -EINVAL;
+		break;
+	default:
+		LOG_ERR("invalid argument\n");
+		ret = -EINVAL;
+		break;
+	}
+	return ret;
+}
+
+int apusys_mem_release(struct apusys_kmem *mem)
+{
+	int ret = 0;
+
+	switch (mem->property) {
+	case APUSYS_MEM_PROP_ALLOC:
+		ret = apusys_mem_free(mem);
+		break;
+	case APUSYS_MEM_PROP_IMPORT:
+		ret = apusys_mem_unimport(mem);
+		break;
+	default:
+		LOG_ERR("invalid argument\n");
+		ret = -EINVAL;
+		break;
+	}
+
 	return ret;
 }
 
@@ -127,14 +219,13 @@ int apusys_mem_destroy(void)
 	return ret;
 }
 
-int apusys_mem_ctl(struct apusys_mem *mem)
+int apusys_mem_ctl(struct apusys_mem_ctl *ctl_data, struct apusys_kmem *mem)
 {
 	int ret = 0;
 
-	DEBUG_TAG;
 	switch (g_mem_type) {
 	case APUSYS_MEM_DRAM_ION:
-		ret = ion_mem_ctl(&g_mem_mgr, mem);
+		ret = ion_mem_ctl(&g_mem_mgr, ctl_data, mem);
 		break;
 	case APUSYS_MEM_DRAM_DMA:
 		ret = -EINVAL;
@@ -146,7 +237,7 @@ int apusys_mem_ctl(struct apusys_mem *mem)
 	return ret;
 }
 
-int apusys_mem_map_iova(struct apusys_mem *mem)
+int apusys_mem_map_iova(struct apusys_kmem *mem)
 {
 	int ret = 0;
 
@@ -165,7 +256,7 @@ int apusys_mem_map_iova(struct apusys_mem *mem)
 	return ret;
 }
 
-int apusys_mem_map_kva(struct apusys_mem *mem)
+int apusys_mem_map_kva(struct apusys_kmem *mem)
 {
 	int ret = 0;
 
@@ -184,7 +275,7 @@ int apusys_mem_map_kva(struct apusys_mem *mem)
 	return ret;
 }
 
-int apusys_mem_unmap_iova(struct apusys_mem *mem)
+int apusys_mem_unmap_iova(struct apusys_kmem *mem)
 {
 	int ret = 0;
 
@@ -203,7 +294,7 @@ int apusys_mem_unmap_iova(struct apusys_mem *mem)
 	return ret;
 }
 
-int apusys_mem_unmap_kva(struct apusys_mem *mem)
+int apusys_mem_unmap_kva(struct apusys_kmem *mem)
 {
 	int ret = 0;
 

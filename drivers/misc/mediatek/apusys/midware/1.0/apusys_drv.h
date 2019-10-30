@@ -60,7 +60,6 @@ struct apusys_ioctl_hs {
 enum {
 	APUSYS_NONE,
 	APUSYS_CACHE,
-	APUSYS_MAP,
 	APUSYS_MAX,
 };
 
@@ -69,17 +68,6 @@ enum {
 	APUSYS_CACHE_SYNC,
 	APUSYS_CACHE_INVALIDATE,
 	APUSYS_CACHE_MAX,
-};
-
-enum {
-	APUSYS_MAP_NONE,
-	APUSYS_MAP_KVA,
-	APUSYS_UNMAP_KVA,
-	APUSYS_MAP_IOVA,
-	APUSYS_UNMAP_IOVA,
-	APUSYS_MAP_PA,
-	APUSYS_UNMAP_PA,
-	APUSYS_MAP_MAX,
 };
 
 enum {
@@ -94,27 +82,15 @@ struct apusys_cache_param {
 	int cache_type;
 };
 
-struct apusys_map_param {
-	int map_type;
-};
-
 struct apusys_mem_ctl {
 	int cmd;
 	union {
 		struct apusys_cache_param cache_param;
-		struct apusys_map_param map_param;
 	};
-};
-
-struct apusys_ion_info {
-	int ion_share_fd;
-	unsigned long long ion_khandle;
-	int ion_uhandle;
 };
 
 struct apusys_mem {
 	unsigned long long uva;
-	unsigned long long kva;
 	unsigned int iova;
 	unsigned int size;
 	unsigned int iova_size;
@@ -123,9 +99,13 @@ struct apusys_mem {
 	unsigned int cache;
 
 	int mem_type;
-	struct apusys_ion_info ion_data;
+	int fd;
+	unsigned long long khandle;
+
 	struct apusys_mem_ctl ctl_data;
 };
+
+
 
 /* for APUSYS_IOCTL_RUN_CMD_SYNC */
 struct apusys_ioctl_cmd {
@@ -195,26 +175,30 @@ struct apusys_ioctl_sec {
 	_IOWR(APUSYS_MAGICNO, 1, struct apusys_mem)
 #define APUSYS_IOCTL_MEM_FREE \
 	_IOWR(APUSYS_MAGICNO, 2, struct apusys_mem)
-#define APUSYS_IOCTL_MEM_CTL \
+#define APUSYS_IOCTL_MEM_IMPORT \
 	_IOWR(APUSYS_MAGICNO, 3, struct apusys_mem)
+#define APUSYS_IOCTL_MEM_UNIMPORT \
+	_IOWR(APUSYS_MAGICNO, 4, struct apusys_mem)
+#define APUSYS_IOCTL_MEM_CTL \
+	_IOWR(APUSYS_MAGICNO, 5, struct apusys_mem)
 #define APUSYS_IOCTL_RUN_CMD_SYNC \
-	_IOW(APUSYS_MAGICNO, 4, struct apusys_ioctl_cmd)
-#define APUSYS_IOCTL_RUN_CMD_ASYNC \
-	_IOWR(APUSYS_MAGICNO, 5, struct apusys_ioctl_cmd)
-#define APUSYS_IOCTL_WAIT_CMD \
 	_IOW(APUSYS_MAGICNO, 6, struct apusys_ioctl_cmd)
+#define APUSYS_IOCTL_RUN_CMD_ASYNC \
+	_IOWR(APUSYS_MAGICNO, 7, struct apusys_ioctl_cmd)
+#define APUSYS_IOCTL_WAIT_CMD \
+	_IOW(APUSYS_MAGICNO, 8, struct apusys_ioctl_cmd)
 #define APUSYS_IOCTL_SET_POWER \
-	_IOW(APUSYS_MAGICNO, 7, struct apusys_ioctl_power)
+	_IOW(APUSYS_MAGICNO, 9, struct apusys_ioctl_power)
 #define APUSYS_IOCTL_DEVICE_ALLOC \
-	_IOWR(APUSYS_MAGICNO, 8, struct apusys_ioctl_dev)
+	_IOWR(APUSYS_MAGICNO, 10, struct apusys_ioctl_dev)
 #define APUSYS_IOCTL_DEVICE_FREE \
-	_IOW(APUSYS_MAGICNO, 9, struct apusys_ioctl_dev)
+	_IOW(APUSYS_MAGICNO, 11, struct apusys_ioctl_dev)
 #define APUSYS_IOCTL_FW_LOAD \
-	_IOW(APUSYS_MAGICNO, 10, struct apusys_ioctl_fw)
+	_IOW(APUSYS_MAGICNO, 12, struct apusys_ioctl_fw)
 #define APUSYS_IOCTL_FW_UNLOAD \
-	_IOW(APUSYS_MAGICNO, 11, struct apusys_ioctl_fw)
+	_IOW(APUSYS_MAGICNO, 13, struct apusys_ioctl_fw)
 #define APUSYS_IOCTL_USER_CMD \
-	_IOW(APUSYS_MAGICNO, 12, struct apusys_ioctl_ucmd)
+	_IOW(APUSYS_MAGICNO, 14, struct apusys_ioctl_ucmd)
 
 #define APUSYS_IOCTL_SEC_DEVICE_LOCK \
 	_IOW(APUSYS_MAGICNO, 60, int)

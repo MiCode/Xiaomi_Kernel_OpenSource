@@ -936,6 +936,7 @@ int apusys_sched_init(void)
 int apusys_sched_destroy(void)
 {
 	int ret = 0;
+
 	LOG_INFO("%s +\n", __func__);
 
 	/* destroy thread pool */

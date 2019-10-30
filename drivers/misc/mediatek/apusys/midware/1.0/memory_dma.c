@@ -27,7 +27,7 @@
 
 
 
-int dma_mem_alloc(struct apusys_mem_mgr *mem_mgr, struct apusys_mem *mem)
+int dma_mem_alloc(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 {
 	dma_addr_t dma_addr = 0;
 
@@ -41,7 +41,7 @@ int dma_mem_alloc(struct apusys_mem_mgr *mem_mgr, struct apusys_mem *mem)
 	return (mem->kva) ? 0 : -ENOMEM;
 }
 
-int dma_mem_free(struct apusys_mem_mgr *mem_mgr, struct apusys_mem *mem)
+int dma_mem_free(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 {
 	dma_free_attrs(mem_mgr->dev, mem->size,
 		(void *) mem->kva, mem->iova, 0);

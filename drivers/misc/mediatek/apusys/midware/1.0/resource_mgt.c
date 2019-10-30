@@ -164,6 +164,7 @@ int insert_subcmd(void *isc)
 int insert_subcmd_lock(void *isc)
 {
 	int ret = 0;
+
 	mutex_lock(&g_res_mgr.mtx);
 	/* delete subcmd node from ce list */
 	ret = insert_subcmd(isc);

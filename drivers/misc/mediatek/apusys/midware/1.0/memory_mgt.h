@@ -17,9 +17,17 @@
 #include <ion.h>
 #include <mtk/ion_drv.h>
 #include <mtk/mtk_ion.h>
+#include "apusys_device.h"
 
 #define APUSYS_VLM_START 0x1D800000 // tcm tmp
 #define APUSYS_VLM_SIZE 0x100000
+
+enum {
+	APUSYS_MEM_PROP_NONE,
+	APUSYS_MEM_PROP_ALLOC,
+	APUSYS_MEM_PROP_IMPORT,
+	APUSYS_MEM_PROP_MAX,
+};
 
 struct apusys_mem_mgr {
 	struct ion_client *client;
@@ -29,18 +37,27 @@ struct apusys_mem_mgr {
 	struct device *dev;
 	uint8_t is_init;
 };
+int apusys_mem_copy_from_user(
+		struct apusys_mem *umem,
+		struct apusys_kmem *kmem);
+int apusys_mem_copy_to_user(
+		struct apusys_mem *umem,
+		struct apusys_kmem *kmem);
 
-int apusys_mem_alloc(struct apusys_mem *mem);
-int apusys_mem_free(struct apusys_mem *mem);
+int apusys_mem_alloc(struct apusys_kmem *mem);
+int apusys_mem_free(struct apusys_kmem *mem);
+int apusys_mem_import(struct apusys_kmem *mem);
+int apusys_mem_unimport(struct apusys_kmem *mem);
+int apusys_mem_release(struct apusys_kmem *mem);
 int apusys_mem_flush(void);
 int apusys_mem_invalidate(void);
 int apusys_mem_init(struct device *dev);
 int apusys_mem_destroy(void);
-int apusys_mem_ctl(struct apusys_mem *mem);
-int apusys_mem_map_iova(struct apusys_mem *mem);
-int apusys_mem_map_kva(struct apusys_mem *mem);
-int apusys_mem_unmap_iova(struct apusys_mem *mem);
-int apusys_mem_unmap_kva(struct apusys_mem *mem);
+int apusys_mem_ctl(struct apusys_mem_ctl *ctl_data, struct apusys_kmem *mem);
+int apusys_mem_map_iova(struct apusys_kmem *mem);
+int apusys_mem_map_kva(struct apusys_kmem *mem);
+int apusys_mem_unmap_iova(struct apusys_kmem *mem);
+int apusys_mem_unmap_kva(struct apusys_kmem *mem);
 
 unsigned int apusys_mem_get_support(void);
 int apusys_mem_get_vlm(unsigned int *start, unsigned int *size);

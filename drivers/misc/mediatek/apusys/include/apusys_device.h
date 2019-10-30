@@ -68,6 +68,23 @@ struct apusys_power_hnd {
 	uint32_t timeout;
 };
 
+struct apusys_kmem {
+	unsigned long long uva;
+	unsigned long long kva;
+	unsigned int iova;
+	unsigned int size;
+	unsigned int iova_size;
+
+	unsigned int align;
+	unsigned int cache;
+
+	int mem_type;
+	int fd;
+	unsigned long long khandle;
+	int property;
+
+};
+
 struct apusys_mdla_data {
 	uint64_t pmu_kva;
 	uint64_t cmd_entry;

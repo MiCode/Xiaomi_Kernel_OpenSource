@@ -162,7 +162,6 @@ void get_time_from_system(struct timeval *duration)
 	duration->tv_sec = now.tv_sec - duration->tv_sec;
 	duration->tv_usec = now.tv_usec - duration->tv_usec;
 
-	return;
 }
 
 int check_sc_ready(const struct apusys_cmd *cmd, int idx)
@@ -275,7 +274,7 @@ uint64_t get_cmdformat_magic(void)
 int apusys_subcmd_create(int idx, struct apusys_cmd *cmd,
 	struct apusys_subcmd **isc, unsigned int scr_ofs)
 {
-	struct apusys_mem mem;
+	struct apusys_kmem mem;
 	struct apusys_sc_hdr_cmn *sc_hdr;
 	struct apusys_subcmd *sc = NULL;
 	unsigned int scr_num = 0, i = 0;
@@ -334,9 +333,9 @@ int apusys_subcmd_create(int idx, struct apusys_cmd *cmd,
 		LOG_DEBUG("codebuf is fd, need to map\n");
 		sc->codebuf_fd = sc->c_hdr->ofs_cb_info &
 			~(1UL << SUBGRAPH_CODEBUF_INFO_BIT_FD);
-		memset(&mem, 0, sizeof(struct apusys_mem));
+		memset(&mem, 0, sizeof(struct apusys_kmem));
 		mem.size = sc->c_hdr->cb_info_size;
-		mem.ion_data.ion_share_fd = sc->codebuf_fd;
+		mem.fd = sc->codebuf_fd;
 
 		if (apusys_mem_map_kva(&mem)) {
 			LOG_ERR("map sc fail\n");
@@ -352,7 +351,7 @@ int apusys_subcmd_create(int idx, struct apusys_cmd *cmd,
 
 		sc->codebuf_iosize = (int)mem.size;
 		sc->codebuf = (void *)mem.kva;
-		sc->codebuf_mem_hnd = mem.ion_data.ion_khandle;
+		sc->codebuf_mem_hnd = mem.khandle;
 		LOG_DEBUG("map sc codebuf from fd(%d/%p/%u)\n",
 			sc->codebuf_fd,
 			sc->codebuf,
@@ -448,7 +447,7 @@ alloc_sc_fail:
 
 int apusys_subcmd_delete(struct apusys_subcmd *sc)
 {
-	struct apusys_mem mem;
+	struct apusys_kmem mem;
 
 	if (sc == NULL)
 		return -EINVAL;
@@ -463,11 +462,11 @@ int apusys_subcmd_delete(struct apusys_subcmd *sc)
 	_set_data_to_cmdbuf(sc);
 
 	if (sc->codebuf_fd >= 0) {
-		memset(&mem, 0, sizeof(struct apusys_mem));
+		memset(&mem, 0, sizeof(struct apusys_kmem));
 		mem.kva = (unsigned long long)sc->codebuf;
 		mem.size = sc->c_hdr->cb_info_size;
-		mem.ion_data.ion_share_fd = sc->codebuf_fd;
-		mem.ion_data.ion_khandle = sc->codebuf_mem_hnd;
+		mem.fd = sc->codebuf_fd;
+		mem.khandle = sc->codebuf_mem_hnd;
 
 		if (apusys_mem_unmap_iova(&mem)) {
 			LOG_ERR("unmap codebuf iova fd(%d) fail\n",
@@ -505,12 +504,12 @@ int apusys_cmd_create(int mem_fd, uint32_t offset,
 	struct apusys_cmd *cmd = NULL;
 	struct apusys_cmd_hdr *cmd_hdr = NULL;
 	struct apusys_sc_hdr_cmn *subcmd_hdr = NULL;
-	struct apusys_mem mem;
+	struct apusys_kmem mem;
 	int ret = 0, i = 0;
 
 	/* map kva */
-	memset(&mem, 0, sizeof(struct apusys_mem));
-	mem.ion_data.ion_share_fd = mem_fd;
+	memset(&mem, 0, sizeof(struct apusys_kmem));
+	mem.fd = mem_fd;
 	if (apusys_mem_map_kva(&mem)) {
 		LOG_ERR("map cmdbuf kva from fd(%d)fail\n",
 			mem_fd);
@@ -566,7 +565,7 @@ int apusys_cmd_create(int mem_fd, uint32_t offset,
 	/* assign value */
 	cmd->hdr = cmd_hdr;
 	cmd->mem_fd = mem_fd;
-	cmd->mem_hnd = mem.ion_data.ion_khandle;
+	cmd->mem_hnd = mem.khandle;
 	cmd->cmd_id = (uint64_t)(cmd);
 	cmd->power_save = (cmd->hdr->flag_bitmap &
 		1UL << CMD_FLAG_BITMAP_POWERSAVE) ? 1 : 0;
@@ -690,9 +689,7 @@ ce_fail:
 
 int apusys_cmd_delete(struct apusys_cmd *cmd)
 {
-	//struct apusys_subcmd *sc = NULL;
-	struct apusys_mem mem;
-	//int i = 0;
+	struct apusys_kmem mem;
 
 	if (cmd == NULL)
 		return -EINVAL;
@@ -705,9 +702,9 @@ int apusys_cmd_delete(struct apusys_cmd *cmd)
 	mutex_lock(&cmd->mtx);
 
 	/* unmap iova/kva */
-	memset(&mem, 0, sizeof(struct apusys_mem));
-	mem.ion_data.ion_share_fd = cmd->mem_fd;
-	mem.ion_data.ion_khandle = cmd->mem_hnd;
+	memset(&mem, 0, sizeof(struct apusys_kmem));
+	mem.fd = cmd->mem_fd;
+	mem.khandle = cmd->mem_hnd;
 	if (apusys_mem_unmap_iova(&mem)) {
 		LOG_ERR("unmap cmdbuf iova fd(%d) fail\n",
 			cmd->mem_fd);

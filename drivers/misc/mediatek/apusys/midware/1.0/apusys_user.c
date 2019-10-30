@@ -23,7 +23,7 @@
 #include "resource_mgt.h"
 
 struct apusys_user_mem {
-	struct apusys_mem mem;
+	struct apusys_kmem mem;
 	struct list_head list;
 };
 
@@ -127,7 +127,7 @@ void apusys_user_dump(void *s_file)
 			"| #%-8d| %-5u| %-5u| %-5d| 0x%-17llx| 0x%-17llx| 0x%-9x|\n",
 				m_count,
 				u_mem->mem.mem_type,
-				u_mem->mem.ion_data.ion_share_fd,
+				u_mem->mem.fd,
 				u_mem->mem.size,
 				u_mem->mem.uva,
 				u_mem->mem.kva,
@@ -433,7 +433,7 @@ int apusys_user_delete_sectype(struct apusys_user *u, int dev_type)
 	return 0;
 }
 
-int apusys_user_insert_mem(struct apusys_user *u, struct apusys_mem *mem)
+int apusys_user_insert_mem(struct apusys_user *u, struct apusys_kmem *mem)
 {
 	struct apusys_user_mem *user_mem = NULL;
 
@@ -446,7 +446,7 @@ int apusys_user_insert_mem(struct apusys_user *u, struct apusys_mem *mem)
 
 	INIT_LIST_HEAD(&user_mem->list);
 
-	memcpy(&user_mem->mem, mem, sizeof(struct apusys_mem));
+	memcpy(&user_mem->mem, mem, sizeof(struct apusys_kmem));
 
 	mutex_lock(&u->mem_mtx);
 	list_add_tail(&user_mem->list, &u->mem_list);
@@ -454,14 +454,14 @@ int apusys_user_insert_mem(struct apusys_user *u, struct apusys_mem *mem)
 
 	LOG_DEBUG("insert mem(%p/%d/%d/0x%llx/0x%x/%d) to u(0x%llx)\n",
 		user_mem, user_mem->mem.mem_type,
-		user_mem->mem.ion_data.ion_share_fd,
+		user_mem->mem.fd,
 		user_mem->mem.kva, user_mem->mem.iova,
 		user_mem->mem.size, u->id);
 
 	return 0;
 }
 
-int apusys_user_delete_mem(struct apusys_user *u, struct apusys_mem *mem)
+int apusys_user_delete_mem(struct apusys_user *u, struct apusys_kmem *mem)
 {
 	struct list_head *tmp = NULL, *list_ptr = NULL;
 	struct apusys_user_mem *user_mem = NULL;
@@ -470,7 +470,7 @@ int apusys_user_delete_mem(struct apusys_user *u, struct apusys_mem *mem)
 		return -EINVAL;
 
 	LOG_DEBUG("delete mem(%p/%d/%d/0x%llx/0x%x/%d) from user(0x%llx)\n",
-		mem, mem->mem_type, mem->ion_data.ion_share_fd,
+		mem, mem->mem_type, mem->fd,
 		mem->kva, mem->iova, mem->size,
 		u->id);
 
@@ -480,8 +480,8 @@ int apusys_user_delete_mem(struct apusys_user *u, struct apusys_mem *mem)
 	list_for_each_safe(list_ptr, tmp, &u->mem_list) {
 		user_mem = list_entry(list_ptr, struct apusys_user_mem, list);
 
-		if (user_mem->mem.ion_data.ion_share_fd ==
-			mem->ion_data.ion_share_fd &&
+		if (user_mem->mem.fd ==
+			mem->fd &&
 			user_mem->mem.mem_type == mem->mem_type) {
 			/* delete memory struct */
 			list_del(&user_mem->list);
@@ -572,47 +572,18 @@ int apusys_delete_user(struct apusys_user *u)
 		/* delete memory */
 		LOG_WARN("undeleted mem(%p/%d/%d/0x%llx/0x%x/%d)\n",
 		user_mem, user_mem->mem.mem_type,
-		user_mem->mem.ion_data.ion_share_fd,
+		user_mem->mem.fd,
 		user_mem->mem.kva, user_mem->mem.iova,
 		user_mem->mem.size);
 
 		list_del(&user_mem->list);
 
-		/* unmap buf */
-		if (user_mem->mem.ctl_data.cmd == APUSYS_MAP) {
-			/* unmap buf */
-			switch (user_mem->mem.ctl_data.map_param.map_type) {
-			case APUSYS_MAP_NONE:
-				DEBUG_TAG;
-				if (apusys_mem_free(&user_mem->mem)) {
-					LOG_ERR("free fail(%d/0x%llx/0x%x)\n",
-					user_mem->mem.ion_data.ion_share_fd,
-					user_mem->mem.kva,
-					user_mem->mem.iova);
-				}
-				break;
-			case APUSYS_MAP_KVA:
-				if (apusys_mem_unmap_kva(&user_mem->mem)) {
-					LOG_ERR("unkva fail(%d/0x%llx/0x%x)\n",
-					user_mem->mem.ion_data.ion_share_fd,
-					user_mem->mem.kva,
-					user_mem->mem.iova);
-				}
-				break;
-			case APUSYS_MAP_IOVA:
-				if (apusys_mem_unmap_iova(&user_mem->mem)) {
-					LOG_ERR("uniova fail(%d/0x%llx/0x%x)\n",
-					user_mem->mem.ion_data.ion_share_fd,
-					user_mem->mem.kva,
-					user_mem->mem.iova);
-				}
-				break;
-			case APUSYS_MAP_PA:
-				LOG_ERR("not support unmap pa\n");
-				break;
-			default:
-				break;
-			}
+		DEBUG_TAG;
+		if (apusys_mem_release(&user_mem->mem)) {
+			LOG_ERR("free fail(%d/0x%llx/0x%x)\n",
+			user_mem->mem.fd,
+			user_mem->mem.kva,
+			user_mem->mem.iova);
 		}
 
 		kfree(user_mem);
