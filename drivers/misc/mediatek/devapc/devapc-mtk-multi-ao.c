@@ -645,17 +645,25 @@ static void devapc_extra_handler(int slave_type, const char *vio_master,
 	dispatch_key[sizeof(dispatch_key) - 1] = '\0';
 
 	/* Callback func for vio master */
-	if (!strncasecmp(vio_master, "MD", 2))
+	if (!strncasecmp(vio_master, "MD", 2)) {
 		id = INFRA_SUBSYS_MD;
-	else if (!strncasecmp(vio_master, "CONN", 4) ||
-			!strncasecmp(dispatch_key, "CONN", 4))
+		strncpy(dispatch_key, "MD", sizeof(dispatch_key));
+
+	} else if (!strncasecmp(vio_master, "CONN", 4) ||
+			!strncasecmp(dispatch_key, "CONN", 4)) {
 		id = INFRA_SUBSYS_CONN;
-	else if (!strncasecmp(vio_master, "TINYSYS", 7))
+		strncpy(dispatch_key, "CONNSYS", sizeof(dispatch_key));
+
+	} else if (!strncasecmp(vio_master, "TINYSYS", 7)) {
 		id = INFRA_SUBSYS_ADSP;
-	else if (!strncasecmp(vio_master, "GCE", 3) ||
-			!strncasecmp(dispatch_key, "GCE", 3))
+		strncpy(dispatch_key, "TINYSYS", sizeof(dispatch_key));
+
+	} else if (!strncasecmp(vio_master, "GCE", 3) ||
+			!strncasecmp(dispatch_key, "GCE", 3)) {
 		id = INFRA_SUBSYS_GCE;
-	else if (!strncasecmp(vio_master, "APMCU", 5))
+		strncpy(dispatch_key, "GCE", sizeof(dispatch_key));
+
+	} else if (!strncasecmp(vio_master, "APMCU", 5))
 		id = INFRA_SUBSYS_APMCU;
 	else
 		id = DEVAPC_SUBSYS_RESERVED;
