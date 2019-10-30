@@ -107,16 +107,7 @@ static inline void unlock_command(void)
 
 static void isr_sp_task(void)
 {
-	MUINT32 sp_task = ccu_read_reg(ccu_base, CCU_STA_REG_SP_ISR_TASK);
-
-	switch (sp_task) {
-
-	default:
-	{
-		LOG_DBG("no %s: %x\n", __func__, sp_task);
-		break;
-	}
-	}
+	LOG_DBG("%s\n", __func__);
 }
 
 #define CCU_ISR_WORK_BUFFER_SZIE 16
@@ -568,17 +559,17 @@ int ccu_power(struct ccu_power_s *power)
 		#endif
 
 		/*use user space buffer*/
-		ccu_write_reg(ccu_base, CCU_DATA_REG_LOG_BUF0,
+		ccu_write_reg(ccu_base, SPREG_02_LOG_DRAM_ADDR1,
 			power->workBuf.mva_log[0]);
-		ccu_write_reg(ccu_base, CCU_DATA_REG_LOG_BUF1,
+		ccu_write_reg(ccu_base, SPREG_03_LOG_DRAM_ADDR2,
 			power->workBuf.mva_log[1]);
 
 		LOG_DBG("LogBuf_mva[0](0x%x)(0x%x)\n",
 			power->workBuf.mva_log[0],
-			ccu_read_reg(ccu_base, CCU_DATA_REG_LOG_BUF0));
+			ccu_read_reg(ccu_base, SPREG_02_LOG_DRAM_ADDR1));
 		LOG_DBG("LogBuf_mva[1](0x%x)(0x%x)\n",
 			power->workBuf.mva_log[1],
-			ccu_read_reg(ccu_base, CCU_DATA_REG_LOG_BUF1));
+			ccu_read_reg(ccu_base, SPREG_03_LOG_DRAM_ADDR2));
 
 		ccuInfo.IsCcuPoweredOn = 1;
 
@@ -599,9 +590,9 @@ int ccu_power(struct ccu_power_s *power)
 		/*ccu_write_reg_bit(ccu_base, RESET, CCU_HW_RST, 1);*/
 
 		/*use user space buffer*/
-		ccu_write_reg(ccu_base, CCU_DATA_REG_LOG_BUF0,
+		ccu_write_reg(ccu_base, SPREG_02_LOG_DRAM_ADDR1,
 			power->workBuf.mva_log[0]);
-		ccu_write_reg(ccu_base, CCU_DATA_REG_LOG_BUF1,
+		ccu_write_reg(ccu_base, SPREG_03_LOG_DRAM_ADDR2,
 			power->workBuf.mva_log[1]);
 
 		LOG_DBG("LogBuf_mva[0](0x%x)\n", power->workBuf.mva_log[0]);
@@ -610,7 +601,7 @@ int ccu_power(struct ccu_power_s *power)
 		/*Pause CCU, but don't pullup CG*/
 
 		/*Check CCU halt status*/
-		while ((ccu_read_reg(ccu_base, CCU_STA_REG_SW_INIT_DONE)
+		while ((ccu_read_reg(ccu_base, SPREG_08_CCU_INIT_CHECK)
 			!= CCU_STATUS_INIT_DONE_2)
 			&& (timeout >= 0)) {
 			mdelay(1);
@@ -661,7 +652,7 @@ int ccu_force_powerdown(void)
 		if (__clk_get_enable_count(cam_clk) > 0) {
 			/*Set special isr task to MSG_TO_CCU_SHUTDOWN*/
 			ccu_write_reg(ccu_base,
-				CCU_INFO29, MSG_TO_CCU_SHUTDOWN);
+				SPREG_09_FORCE_PWR_DOWN, MSG_TO_CCU_SHUTDOWN);
 			/*Interrupt to CCU*/
 			ccu_write_reg_bit(ccu_base,
 				EXT2CCU_INT_CCU, EXT2CCU_INT_CCU, 1);
@@ -693,9 +684,9 @@ static int _ccu_powerdown(bool need_check_ccu_stat)
 		LOG_INF_MUST("ccu reset is up, skip halt check\n");
 	} else {
 		while (
-			(ccu_read_reg_bit(ccu_base, CCU_ST, CCU_SYS_HALT)
-				== 0) && timeout > 0) {
-			mdelay(1);
+			(ccu_read_reg(ccu_base, SPREG_09_FORCE_PWR_DOWN)
+				== MSG_TO_CCU_SHUTDOWN) && timeout > 0) {
+			mdelay(100);
 			LOG_DBG("wait ccu shutdown done\n");
 			LOG_DBG("ccu shutdown stat: %x\n",
 			ccu_read_reg_bit(ccu_base, CCU_ST, CCU_SYS_HALT));
@@ -703,9 +694,13 @@ static int _ccu_powerdown(bool need_check_ccu_stat)
 		}
 
 		if (timeout <= 0) {
-			LOG_ERR("%s timeout\n", __func__);
+			LOG_ERR("%s timeout(%d)\n", __func__,
+			ccu_read_reg(ccu_base, SPREG_09_FORCE_PWR_DOWN));
 			/*Even timed-out, clock disable is still necessary,*/
 			/*DO NOT return here.*/
+		} else {
+			LOG_INF_MUST("Force shutdown success(%x)\n",
+			ccu_read_reg(ccu_base, SPREG_09_FORCE_PWR_DOWN));
 		}
 	}
 	/*Set CCU_A_RESET. CCU_HW_RST=1*/
@@ -750,31 +745,29 @@ int ccu_run(void)
 	LOG_DBG("CCU reset: %x\n", ccu_read_reg(ccu_base, RESET));
 
 	/*4. Pulling CCU init done spare register*/
-	while ((ccu_read_reg(ccu_base, CCU_STA_REG_SW_INIT_DONE)
+	while ((ccu_read_reg(ccu_base, SPREG_08_CCU_INIT_CHECK)
 		!= CCU_STATUS_INIT_DONE) && (timeout >= 0)) {
 		usleep_range(50, 100);
 		LOG_DBG("wait ccu initial done\n");
 		LOG_DBG("ccu initial stat: %x\n",
-			ccu_read_reg(ccu_base, CCU_STA_REG_SW_INIT_DONE));
+			ccu_read_reg(ccu_base, SPREG_08_CCU_INIT_CHECK));
 		timeout = timeout - 1;
 	}
 
 	if (timeout <= 0) {
 		LOG_ERR("CCU init timeout\n");
 		LOG_ERR("ccu initial debug info: %x\n",
-			ccu_read_reg(ccu_base, CCU_INFO28));
+			ccu_read_reg(ccu_base, SPREG_08_CCU_INIT_CHECK));
 		return -ETIMEDOUT;
 	}
 
 	LOG_DBG_MUST("ccu initial done\n");
 	LOG_DBG_MUST("ccu initial stat: %x\n",
-		ccu_read_reg(ccu_base, CCU_STA_REG_SW_INIT_DONE));
-	LOG_DBG_MUST("ccu initial debug info: %x\n",
-		ccu_read_reg(ccu_base, CCU_INFO29));
-	LOG_DBG_MUST("ccu initial debug info00: %x\n",
-		ccu_read_reg(ccu_base, CCU_INFO00));
-	LOG_DBG_MUST("ccu initial debug info01: %x\n",
-		ccu_read_reg(ccu_base, CCU_INFO01));
+		ccu_read_reg(ccu_base, SPREG_08_CCU_INIT_CHECK));
+	LOG_DBG_MUST("ccu initial debug mb_ap2ccu: %x\n",
+		ccu_read_reg(ccu_base, SPREG_00_MB_CCU2AP));
+	LOG_DBG_MUST("ccu initial debug mb_ccu2ap: %x\n",
+		ccu_read_reg(ccu_base, SPREG_01_MB_AP2CCU));
 
 	/*
 	 * 20160930
@@ -784,10 +777,10 @@ int ccu_run(void)
 	 */
 	pMailBox[MAILBOX_SEND] =
 		(struct ccu_mailbox_t *)(uintptr_t)(dmem_base +
-			ccu_read_reg(ccu_base, CCU_DATA_REG_MAILBOX_CCU));
+			ccu_read_reg(ccu_base, SPREG_01_MB_AP2CCU));
 	pMailBox[MAILBOX_GET] =
 		(struct ccu_mailbox_t *)(uintptr_t)(dmem_base +
-			ccu_read_reg(ccu_base, CCU_DATA_REG_MAILBOX_APMCU));
+			ccu_read_reg(ccu_base, SPREG_00_MB_CCU2AP));
 
 
 	ccuMbPtr = (struct ccu_mailbox_t *) pMailBox[MAILBOX_SEND];
@@ -796,10 +789,10 @@ int ccu_run(void)
 	mailbox_init(apMbPtr, ccuMbPtr);
 
 	/*tell ccu that driver has initialized mailbox*/
-	ccu_write_reg(ccu_base, CCU_STA_REG_SW_INIT_DONE, 0);
+	ccu_write_reg(ccu_base, SPREG_08_CCU_INIT_CHECK, 0);
 
 	timeout = 100000;
-	while ((ccu_read_reg(ccu_base, CCU_STA_REG_SW_INIT_DONE)
+	while ((ccu_read_reg(ccu_base, SPREG_08_CCU_INIT_CHECK)
 		!= CCU_STATUS_INIT_DONE_2) && (timeout >= 0)) {
 		udelay(100);
 		LOG_DBG_MUST("wait ccu log test\n");
@@ -809,15 +802,13 @@ int ccu_run(void)
 	if (timeout <= 0) {
 		LOG_ERR("CCU init timeout 2\n");
 		LOG_ERR("ccu initial debug info: %x\n",
-			ccu_read_reg(ccu_base, CCU_INFO28));
+			ccu_read_reg(ccu_base, SPREG_08_CCU_INIT_CHECK));
 		return -ETIMEDOUT;
 	}
 
 	LOG_DBG_MUST("ccu log test done\n");
 	LOG_DBG_MUST("ccu log test stat: %x\n",
-			ccu_read_reg(ccu_base, CCU_STA_REG_SW_INIT_DONE));
-	LOG_DBG_MUST("ccu log test debug info: %x\n",
-		ccu_read_reg(ccu_base, CCU_INFO29));
+			ccu_read_reg(ccu_base, SPREG_08_CCU_INIT_CHECK));
 
 	LOG_DBG_MUST("-:%s\n", __func__);
 

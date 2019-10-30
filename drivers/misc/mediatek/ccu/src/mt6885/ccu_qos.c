@@ -59,9 +59,9 @@ void ccu_qos_update_req(uint32_t *ccu_bw)
 
 	mutex_lock(&ccu_qos_mutex);
 
-	i_request = ccu_read_reg(ccu_base, CCU_STA_REG_QOS_BW_I);
-	g_request = ccu_read_reg(ccu_base, CCU_STA_REG_QOS_BW_G);
-	o_request = ccu_read_reg(ccu_base, CCU_STA_REG_QOS_BW_O);
+	i_request = ccu_read_reg(ccu_base, SPREG_12_CCU_BW_I_REG);
+	g_request = ccu_read_reg(ccu_base, SPREG_13_CCU_BW_O_REG);
+	o_request = ccu_read_reg(ccu_base, SPREG_14_CCU_BW_G_REG);
 
 	if ((i_request > CCU_BW_I) ||
 	(o_request > CCU_BW_O) ||

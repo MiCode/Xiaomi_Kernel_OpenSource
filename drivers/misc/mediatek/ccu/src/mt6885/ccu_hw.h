@@ -18,27 +18,38 @@
 #include "ccu_drv.h"
 extern void cam_mtcmos_check(void);
 
-/*spare register define*/
-#define CCU_STA_REG_SW_INIT_DONE        CCU_INFO30
-#define CCU_STA_REG_3A_INIT_DONE        CCU_INFO01
-#define CCU_STA_REG_SP_ISR_TASK          CCU_INFO24
-#define CCU_STA_REG_I2C_TRANSAC_LEN        CCU_INFO25
-#define CCU_STA_REG_I2C_DO_DMA_EN         CCU_INFO26
-#define CCU_STA_REG_QOS_BW_I            CCU_INFO27
-#define CCU_STA_REG_QOS_BW_O            CCU_INFO28
-#define CCU_STA_REG_QOS_BW_G            CCU_INFO29
+#define SPREG_00_MB_CCU2AP            CCU_INFO00
+#define SPREG_01_MB_AP2CCU            CCU_INFO01
+#define SPREG_02_LOG_DRAM_ADDR1       CCU_INFO02
+#define SPREG_03_LOG_DRAM_ADDR2       CCU_INFO03
+#define SPREG_04_LOG_LEVEL            CCU_INFO04
+#define SPREG_05_LOG_TAGLEVEL         CCU_INFO05
+#define SPREG_06_CPUREF_BUF_ADDR      CCU_INFO06
+#define SPREG_07_LOG_SRAM_ADDR        CCU_INFO07
+#define SPREG_08_CCU_INIT_CHECK       CCU_INFO08
+#define SPREG_09_FORCE_PWR_DOWN       CCU_INFO09
+#define SPREG_10_STRUCT_SIZE_CHECK    CCU_INFO10
+#define SPREG_11_CCU_VER_NO           CCU_INFO11
+#define SPREG_12_CCU_BW_I_REG         CCU_INFO12
+#define SPREG_13_CCU_BW_O_REG         CCU_INFO13
+#define SPREG_14_CCU_BW_G_REG         CCU_INFO14
+#define SPREG_15_DMA_RST_CHK          CCU_INFO15
+#define SPREG_16_DMA_TRG_CHK          CCU_INFO16
+#define SPREG_17_DBG_MAIN_INIT        CCU_INFO17
+#define SPREG_18_DBG_SRAM_LOG_CUR_POS CCU_INFO18
+#define SPREG_19_DBG_SRAM_LOG_SLOT    CCU_INFO19
+#define SPREG_20_DBG_ASSET_ERRNO      CCU_INFO20
+#define SPREG_21                 CCU_INFO21
+#define SPREG_22                 CCU_INFO22
+#define SPREG_23                 CCU_INFO23
+#define SPREG_24                 CCU_INFO24
+#define SPREG_25                 CCU_INFO25
+#define SPREG_26                 CCU_INFO26
+#define SPREG_27                 CCU_INFO27
+#define SPREG_28                 CCU_INFO28
+#define SPREG_29                 CCU_INFO29
+#define SPREG_30                 CCU_INFO30
+#define SPREG_31                 CCU_INFO31
 
-/*
- * KuanFu Yeh@20160715
- * Spare Register         Data Type        Field
- * 0        int32        APMCU mailbox addr.
- * 1        int32        CCU mailbox addr.
- * 2        int32        DRAM log buffer addr.1
- * 3        int32        DRAM log buffer addr.2
- */
-#define CCU_DATA_REG_MAILBOX_APMCU        CCU_INFO00
-#define CCU_DATA_REG_MAILBOX_CCU        CCU_INFO01
-#define CCU_DATA_REG_LOG_BUF0                CCU_INFO02
-#define CCU_DATA_REG_LOG_BUF1                CCU_INFO03
 
 #endif
