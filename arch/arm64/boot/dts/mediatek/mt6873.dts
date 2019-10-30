@@ -1233,6 +1233,12 @@
 		#clock-cells = <1>;
 	};
 
+	msdcsys_top: msdcsys_top@11f10000 {
+		compatible = "mediatek,msdcsys_top", "syscon";
+		reg = <0 0x11f10000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
 	audio: audio@11210000 {
 		compatible = "mediatek,audio", "syscon";
 		reg = <0 0x11210000 0 0x2000>;
