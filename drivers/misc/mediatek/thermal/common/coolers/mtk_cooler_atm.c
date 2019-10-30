@@ -213,6 +213,7 @@ static int MAXIMUM_CPU_POWERS[MAX_CPT_ADAPTIVE_COOLERS] = { 4400, 0 };
 static int MINIMUM_GPU_POWERS[MAX_CPT_ADAPTIVE_COOLERS] = { 350, 0 };
 static int MAXIMUM_GPU_POWERS[MAX_CPT_ADAPTIVE_COOLERS] = { 960, 0 };
 #endif
+static int is_max_gpu_power_specified[MAX_CPT_ADAPTIVE_COOLERS] = { 0, 0 };
 
 #ifndef CLATM_USE_MIN_CPU_OPP
 #define CLATM_USE_MIN_CPU_OPP			(0)
@@ -1939,6 +1940,9 @@ static int decide_ttj(void)
 	int active_cooler_id = -1;
 	int ret = 117000;	/* highest allowable TJ */
 	int temp_cl_dev_adp_cpu_state_active = 0;
+	int cur_min_gpu_pwr = (int)mt_gpufreq_get_min_power() + 1;
+	int cur_max_gpu_pwr = (int)mt_gpufreq_get_max_power() + 1;
+
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 #if THERMAL_ENABLE_TINYSYS_SSPM && CPT_ADAPTIVE_AP_COOLER &&	\
 	PRECISE_HYBRID_POWER_BUDGET && CONTINUOUS_TM
@@ -2018,6 +2022,10 @@ static int decide_ttj(void)
 		}
 #else
 		MINIMUM_GPU_POWER = MINIMUM_GPU_POWERS[active_cooler_id];
+		if (!is_max_gpu_power_specified[active_cooler_id])
+			MAXIMUM_GPU_POWERS[active_cooler_id] = cur_max_gpu_pwr;
+		else if (MAXIMUM_GPU_POWERS[active_cooler_id] < cur_min_gpu_pwr)
+			MAXIMUM_GPU_POWERS[active_cooler_id] = cur_min_gpu_pwr;
 		MAXIMUM_GPU_POWER = MAXIMUM_GPU_POWERS[active_cooler_id];
 #endif
 		MINIMUM_TOTAL_POWER = MINIMUM_CPU_POWER + MINIMUM_GPU_POWER;
@@ -2033,6 +2041,10 @@ static int decide_ttj(void)
 		MINIMUM_CPU_POWER = MINIMUM_CPU_POWERS[0];
 		MAXIMUM_CPU_POWER = MAXIMUM_CPU_POWERS[0];
 		MINIMUM_GPU_POWER = MINIMUM_GPU_POWERS[0];
+		if (!is_max_gpu_power_specified[0])
+			MAXIMUM_GPU_POWERS[0] = cur_max_gpu_pwr;
+		else if (MAXIMUM_GPU_POWERS[0] < cur_min_gpu_pwr)
+			MAXIMUM_GPU_POWERS[0] = cur_min_gpu_pwr;
 		MAXIMUM_GPU_POWER = MAXIMUM_GPU_POWERS[0];
 	}
 
@@ -2348,12 +2360,13 @@ static ssize_t tscpu_write_atm_setting
 
 				MAXIMUM_GPU_POWERS[i_id] =
 					MAX(i_max_gpu_pwr, min_gpuopp_power);
-
-			} else if (i_max_gpu_pwr == 0)
+				is_max_gpu_power_specified[i_id] = 1;
+			} else if (i_max_gpu_pwr == 0) {
+				/* choose OPP with power "<=" limit */
 				MAXIMUM_GPU_POWERS[i_id] =
 					(int) mt_gpufreq_get_max_power() + 1;
-				/* choose OPP with power "<=" limit */
-			else {
+				is_max_gpu_power_specified[i_id] = 0;
+			} else {
 				#ifdef CONFIG_MTK_AEE_FEATURE
 				aee_kernel_warning_api(__FILE__, __LINE__,
 						DB_OPT_DEFAULT,
@@ -2922,6 +2935,10 @@ static ssize_t atm_sspm_write
 			atm_sspm_enabled = 0;
 		} else if (t_enabled == 1) {
 			int ret = 0;
+			int cur_min_gpu_pwr =
+				(int)mt_gpufreq_get_min_power() + 1;
+			int cur_max_gpu_pwr =
+				(int)mt_gpufreq_get_max_power() + 1;
 
 			/* Fix the problem that mMc mMg not updated
 			 * when trip point is not reached.
@@ -2929,6 +2946,10 @@ static ssize_t atm_sspm_write
 			MINIMUM_CPU_POWER = MINIMUM_CPU_POWERS[0];
 			MAXIMUM_CPU_POWER = MAXIMUM_CPU_POWERS[0];
 			MINIMUM_GPU_POWER = MINIMUM_GPU_POWERS[0];
+			if (!is_max_gpu_power_specified[0])
+				MAXIMUM_GPU_POWERS[0] = cur_max_gpu_pwr;
+			else if (MAXIMUM_GPU_POWERS[0] < cur_min_gpu_pwr)
+				MAXIMUM_GPU_POWERS[0] = cur_min_gpu_pwr;
 			MAXIMUM_GPU_POWER = MAXIMUM_GPU_POWERS[0];
 
 			ret = atm_update_atm_param_to_sspm();
