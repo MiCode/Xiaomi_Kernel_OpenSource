@@ -3993,11 +3993,13 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 		pr_notice("%s, failed to power switch on\n", __func__);
 		return ret;
 	}
+#ifdef IOMMU_POWER_CLK_SUPPORT
 	if (data->m4u_clks->nr_powers)
 		data->poweron = true;
 	else
 		pr_notice("%s, iommu%u not support power control\n",
 			  __func__, data->m4uid);
+#endif
 
 	ret = mtk_iommu_hw_init(data);
 	if (ret) {
