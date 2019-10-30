@@ -85,8 +85,6 @@ int reviser_mem_alloc(struct reviser_mem *mem)
 		goto out;
 	}
 
-	LOG_DEBUG("client %p\n", ion_client);
-	LOG_DEBUG("size: %x\n", mem->size);
 
 	handle = ion_alloc(ion_client, mem->size, 0,
 			ION_HEAP_MULTIMEDIA_MASK, 0);
@@ -125,15 +123,15 @@ int reviser_mem_alloc(struct reviser_mem *mem)
 		LOG_ERR("Get MVA failed\n");
 		goto free_map;
 	}
-	LOG_DEBUG("iova: %08lx pa_size = %lu\n", pa, pa_size);
-	LOG_DEBUG("handle: %lx kva: %08lx\n",
-			(unsigned long)handle,
-			(unsigned long)buffer);
-	LOG_DEBUG("Done\n");
+
 
 	mem->kva = (uint64_t)buffer;
 	mem->handle = (uint64_t) handle;
 	mem->iova = pa;
+
+	LOG_INFO("mem(%p/0x%x/%d/0x%lx/0x%llx/0x%llx)\n",
+			ion_client, mem->iova, mem->size,
+			pa_size, mem->handle, mem->kva);
 
 	return 0;
 free_map:
@@ -141,7 +139,7 @@ free_map:
 free_alloc:
 	ion_free(ion_client, handle);
 out:
-	LOG_DEBUG("Fail\n");
+	LOG_ERR("Fail\n");
 
 	return -ENOMEM;
 
@@ -166,7 +164,7 @@ int reviser_mem_init(void)
 		return -EALREADY;
 	}
 
-	g_rmem.client = ion_client_create(g_ion_device, "vpu");
+	g_rmem.client = ion_client_create(g_ion_device, "reviser");
 	g_rmem.is_init = 1;
 
 	return 0;

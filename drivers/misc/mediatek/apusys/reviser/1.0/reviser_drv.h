@@ -27,6 +27,7 @@ struct reviser_dev_info {
 	void *tcm_base;
 
 	void *dram_base;
+	void *int_base;
 
 	bool init_done;
 	struct device *dev;

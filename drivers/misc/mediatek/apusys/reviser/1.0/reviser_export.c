@@ -59,8 +59,9 @@ int reviser_free_vlm(uint32_t ctxid)
 	}
 
 	if (reviser_table_free_vlm(g_reviser_device, ctxid)) {
-		LOG_DEBUG("Free VLM Fail: ctxID: %d\n", ctxid);
+		LOG_ERR("Free VLM Fail: ctxID: %d\n", ctxid);
 		ret = -EINVAL;
+		return ret;
 	}
 
 	LOG_INFO("ctxid(%d)\n", ctxid);

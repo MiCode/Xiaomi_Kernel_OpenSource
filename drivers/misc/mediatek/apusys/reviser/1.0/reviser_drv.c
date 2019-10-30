@@ -20,6 +20,7 @@
 #include <linux/platform_device.h>
 #include <linux/interrupt.h>
 #include <linux/uaccess.h>
+#include <linux/kthread.h>
 
 #include <linux/init.h>
 #include <linux/io.h>
@@ -42,10 +43,10 @@
 #define APUSYS_DEV_NAME "apusys_reviser"
 
 /* global variable */
-
 static struct class *reviser_class;
 struct reviser_dev_info *g_reviser_device;
-
+static struct task_struct *mem_task;
+static int g_ioctl_enable;
 
 /* function declaration */
 static int reviser_open(struct inode *, struct file *);
@@ -56,6 +57,7 @@ static long reviser_compat_ioctl(struct file *, unsigned int, unsigned long);
 
 static void reviser_power_on(void *para);
 static void reviser_power_off(void *para);
+
 
 irqreturn_t reviser_interrupt(int irq, void *private_data)
 {
@@ -78,6 +80,21 @@ irqreturn_t reviser_interrupt(int irq, void *private_data)
 	}
 
 	return IRQ_HANDLED;
+}
+
+static int reviser_memory_func(void *arg)
+{
+	struct reviser_dev_info *reviser_device;
+
+	reviser_device = (struct reviser_dev_info *) arg;
+
+	if (reviser_dram_remap_init(reviser_device)) {
+		LOG_ERR("Could not set memory for reviser\n");
+		return -ENOMEM;
+	}
+	LOG_INFO("reviser memory init\n");
+
+	return 0;
 }
 
 
@@ -156,6 +173,7 @@ static int reviser_probe(struct platform_device *pdev)
 	struct resource *apusys_reviser_ctl; /* IO mem resources */
 	struct resource *apusys_reviser_tcm; /* IO mem resources */
 	struct resource *apusys_reviser_vlm; /* IO mem resources */
+	struct resource *apusys_reviser_int; /* IO mem resources */
 	struct device *dev = &pdev->dev;
 	struct reviser_dev_info *reviser_device;
 
@@ -198,6 +216,8 @@ static int reviser_probe(struct platform_device *pdev)
 	init_waitqueue_head(&reviser_device->wait_ctxid);
 	init_waitqueue_head(&reviser_device->wait_tcm);
 	spin_lock_init(&reviser_device->power_lock);
+
+	g_ioctl_enable = 0;
 
 	reviser_device->dev = &pdev->dev;
 
@@ -260,6 +280,12 @@ static int reviser_probe(struct platform_device *pdev)
 		goto free_device;
 	}
 
+	apusys_reviser_int = platform_get_resource(pdev, IORESOURCE_MEM, 3);
+	if (!apusys_reviser_int) {
+		LOG_ERR("invalid address\n");
+		ret = -ENODEV;
+		goto free_device;
+	}
 
 	LOG_DEBUG("apusys_reviser_ctl->start = %pa\n",
 			&apusys_reviser_ctl->start);
@@ -292,8 +318,20 @@ static int reviser_probe(struct platform_device *pdev)
 		goto free_device;
 	}
 
-	if (reviser_dram_remap_init(reviser_device)) {
-		LOG_ERR("Could not set memory for reviser\n");
+	LOG_DEBUG("apusys_reviser_int->start = %pa\n",
+			&apusys_reviser_int->start);
+	reviser_device->int_base =
+		ioremap_nocache(apusys_reviser_int->start,
+		apusys_reviser_int->end - apusys_reviser_int->start + 1);
+	if (!reviser_device->int_base) {
+		LOG_ERR("Could not allocate iomem\n");
+		ret = -EIO;
+		goto free_device;
+	}
+
+	mem_task = kthread_run(reviser_memory_func, reviser_device, "reviser");
+	if (mem_task == NULL) {
+		LOG_ERR("create kthread(mem) fail\n");
 		ret = -ENOMEM;
 		goto free_device;
 	}
@@ -434,6 +472,9 @@ static long reviser_ioctl(struct file *filp, unsigned int cmd,
 	unsigned long ctxID = 0;
 	struct table_tcm pg_table;
 	uint32_t tcm_page_num = 0, tcm_size = 0;
+
+	if (!g_ioctl_enable)
+		return -EINVAL;
 
 	switch (cmd) {
 	case REVISER_IOCTL_SET_BOUNDARY:

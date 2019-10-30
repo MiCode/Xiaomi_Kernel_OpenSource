@@ -51,7 +51,7 @@ int reviser_get_interrupt_offset(void *drvinfo);
 int reviser_type_convert(int type, enum REVISER_DEVICE_E *reviser_type);
 bool reviser_is_power(void *drvinfo);
 int reviser_boundary_init(void *drvinfo, uint8_t boundary);
-
+void reviser_enable_interrupt(void *drvinfo, uint8_t enable);
 int reviser_alloc_tcm(void *drvinfo, void *usr);
 int reviser_free_tcm(void *drvinfo, void *usr);
 

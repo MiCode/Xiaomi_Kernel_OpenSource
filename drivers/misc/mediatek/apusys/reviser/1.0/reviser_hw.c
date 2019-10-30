@@ -593,7 +593,7 @@ int reviser_set_boundary(void *drvinfo,
 #if APUSYS_SECURE
 	value = ((BOUNDARY_ALL_NO_CHANGE) & ~(BOUNDARY_BIT_MASK << (index*4)));
 	value = (value | boundary << (index*4));
-	LOG_DEBUG("value 0x%x\n", value);
+	//LOG_DEBUG("value 0x%x\n", value);
 
 	switch (type) {
 	case REVISER_DEVICE_MDLA:
@@ -865,6 +865,35 @@ int reviser_boundary_init(void *drvinfo, uint8_t boundary)
 	return 0;
 }
 
+void reviser_enable_interrupt(void *drvinfo,
+		uint8_t enable)
+{
+	struct reviser_dev_info *info = NULL;
+	uint32_t value = 0;
+
+	if (drvinfo == NULL) {
+		LOG_ERR("invalid argument\n");
+		return;
+	}
+
+	info = (struct reviser_dev_info *)drvinfo;
+
+	if (enable) {
+		_reviser_reg_clr(info->int_base,
+				REVISER_INT_EN, REVISER_INT_EN_MASK);
+	} else {
+		_reviser_reg_set(info->int_base,
+				REVISER_INT_EN, REVISER_INT_EN_MASK);
+	}
+
+	value = _reviser_reg_read(info->int_base, REVISER_INT_EN);
+
+	LOG_DEBUG("value: %x\n", value);
+
+
+}
+
+
 
 int reviser_alloc_tcm(void *drvinfo, void *usr)
 {
@@ -899,5 +928,6 @@ int reviser_free_tcm(void *drvinfo, void *usr)
 
 	return 0;
 }
+
 
 

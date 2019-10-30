@@ -761,6 +761,8 @@ int reviser_table_set_remap(void *drvinfo, unsigned long ctxid)
 				ctxid, i, g_vlm_pgtable[ctxid].page[i].dst)) {
 			goto free_mutex;
 		}
+
+
 		index++;
 	}
 	//setbits = bitmap_weight(g_table_remap.valid, VLM_REMAP_TABLE_MAX);
@@ -768,7 +770,6 @@ int reviser_table_set_remap(void *drvinfo, unsigned long ctxid)
 
 	mutex_unlock(&reviser_device->mutex_vlm_pgtable);
 	mutex_unlock(&reviser_device->mutex_remap);
-
 
 	return 0;
 
