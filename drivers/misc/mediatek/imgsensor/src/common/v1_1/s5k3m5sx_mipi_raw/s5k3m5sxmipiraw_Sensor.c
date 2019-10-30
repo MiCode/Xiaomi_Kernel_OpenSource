@@ -1857,7 +1857,7 @@ static kal_uint16 gain2reg(const kal_uint16 gain)
 {
 	 kal_uint16 reg_gain = 0x0;
 
-	reg_gain = 1024 - (1024*64)/gain;
+	reg_gain = gain / 2;
 	return (kal_uint16) reg_gain;
 }
 
