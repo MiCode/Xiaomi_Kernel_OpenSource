@@ -189,7 +189,7 @@ int mau_start_monitor(unsigned int m4u_id, unsigned int slave,
 		      unsigned int start, unsigned int end,
 		      unsigned int port_mask, unsigned int larb_mask);
 void mau_stop_monitor(unsigned int m4u_id, unsigned int slave,
-		      unsigned int mau);
+		      unsigned int mau, bool force);
 int iommu_perf_monitor_start(int m4u_id);
 int iommu_perf_monitor_stop(int m4u_id);
 void iommu_perf_print_counter(int m4u_index,

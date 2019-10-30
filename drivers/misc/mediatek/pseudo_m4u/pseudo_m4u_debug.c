@@ -740,7 +740,7 @@ static int m4u_debug_set(void *data, u64 val)
 
 		for (i = 0; i < MTK_IOMMU_M4U_COUNT; i++)
 			for (j = 0; j < MTK_IOMMU_MMU_COUNT; j++)
-				mau_stop_monitor(i, j, 0);
+				mau_stop_monitor(i, j, 0, false);
 	}
 	break;
 	case 20:
@@ -926,6 +926,15 @@ static int m4u_debug_set(void *data, u64 val)
 			mtk_iommu_power_switch_by_id(i, false, "pseudo_debug");
 	}
 	break;
+	case 33:
+	{
+		int i, j;
+
+		for (i = 0; i < MTK_IOMMU_M4U_COUNT; i++)
+			for (j = 0; j < MTK_IOMMU_MMU_COUNT; j++)
+				mau_stop_monitor(i, j, 0, true);
+	}
+	break;
 #ifdef M4U_TEE_SERVICE_ENABLE
 	case 50:
 	{
@@ -1083,6 +1092,8 @@ int m4u_debug_help_show(struct seq_file *s, void *unused)
 		      "echo 31 > /d/m4u/debug:	iommu power on\n");
 	M4U_PRINT_SEQ(s,
 		      "echo 32 > /d/m4u/debug:	iommu power off\n");
+	M4U_PRINT_SEQ(s,
+		      "echo 33 > /d/m4u/debug:	disable mau monitor interrupt\n");
 	M4U_PRINT_SEQ(s,
 		      "echo 50 > /d/m4u/debug:	init the Trustlet and T-drv of secure IOMMU\n");
 	M4U_PRINT_SEQ(s,

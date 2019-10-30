@@ -3008,8 +3008,31 @@ int mau_start_monitor(unsigned int m4u_id, unsigned int slave,
 	return 0;
 }
 
-void mau_stop_monitor(unsigned int m4u_id, unsigned int slave, unsigned int mau)
+void mau_stop_monitor(unsigned int m4u_id, unsigned int slave,
+		unsigned int mau, bool force)
 {
+	unsigned int irq = 0;
+	void __iomem *base;
+	const struct mtk_iommu_data *data = mtk_iommu_get_m4u_data(m4u_id);
+
+	if (force) {
+		if (!data)
+			return;
+#ifdef IOMMU_POWER_CLK_SUPPORT
+		if (!data->poweron) {
+			pr_notice("%s, iommu%u not support power control\n",
+				  __func__, data->m4uid);
+			return;
+		}
+#endif
+		base = data->base;
+		irq = readl_relaxed(base +
+			REG_MMU_INT_MAIN_CONTROL);
+		irq = irq & ~F_INT_MAIN_MAU_INT_EN(slave);
+		writel_relaxed(irq, base +
+			REG_MMU_INT_MAIN_CONTROL);
+		return;
+	}
 	mau_start_monitor(m4u_id, slave, mau,
 		1, 1, 0, 0, 0x0, SZ_4K - 1,
 		0xffffffff, 0xffffffff);
@@ -4018,7 +4041,7 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 	for (slave = 0;
 	     slave < MTK_MMU_NUM_OF_IOMMU(data->m4uid); slave++)
 		for (mau = 0; mau < MTK_MAU_NUM_OF_MMU(slave); mau++)
-			mau_stop_monitor(data->m4uid, slave, mau);
+			mau_stop_monitor(data->m4uid, slave, mau, false);
 
 #ifdef MTK_IOMMU_LOW_POWER_SUPPORT
 	if (total_iommu_cnt == 1)
