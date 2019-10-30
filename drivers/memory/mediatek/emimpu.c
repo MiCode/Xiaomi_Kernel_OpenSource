@@ -350,7 +350,7 @@ static int emimpu_probe(struct platform_device *pdev)
 	struct device_node *emicen_node =
 		of_parse_phandle(emimpu_node, "mediatek,emi-reg", 0);
 	struct emimpu_dev_t *emimpu_dev_ptr;
-	struct emimpu_region_t rg_info;
+	struct emimpu_region_t *rg_info;
 	struct arm_smccc_res smc_res;
 	struct resource *res;
 	unsigned int *dump_list;
@@ -543,9 +543,10 @@ static int emimpu_probe(struct platform_device *pdev)
 
 	/* enable AP region */
 	ret = of_property_read_u32(emimpu_node, "ap_region", &ap_region);
-	if (ret)
+	if (ret) {
+		emimpu_dev_ptr->ap_rg_info = NULL;
 		pr_info("%s: no ap_region\n", __func__);
-	else {
+	} else {
 		size = sizeof(unsigned int) * emimpu_dev_ptr->domain_cnt;
 		ap_apc = devm_kmalloc(&pdev->dev, size, GFP_KERNEL);
 		if (!ap_apc)
@@ -557,15 +558,18 @@ static int emimpu_probe(struct platform_device *pdev)
 			return -EINVAL;
 		}
 
-		mtk_emimpu_init_region(&rg_info, ap_region);
-		mtk_emimpu_set_addr(&rg_info,
+		emimpu_dev_ptr->ap_rg_info =
+			kmalloc(sizeof(struct emimpu_region_t), GFP_KERNEL);
+		if (!(emimpu_dev_ptr->ap_rg_info))
+			return -ENOMEM;
+		rg_info = emimpu_dev_ptr->ap_rg_info;
+		mtk_emimpu_init_region(rg_info, ap_region);
+		mtk_emimpu_set_addr(rg_info,
 			emimpu_dev_ptr->dram_start, emimpu_dev_ptr->dram_end);
 		for (i = 0; i < emimpu_dev_ptr->domain_cnt; i++)
 			if (ap_apc[i] != MTK_EMIMPU_FORBIDDEN)
-				mtk_emimpu_set_apc(&rg_info, i, ap_apc[i]);
-		mtk_emimpu_lock_region(&rg_info, MTK_EMIMPU_LOCK);
-		mtk_emimpu_set_protection(&rg_info);
-		mtk_emimpu_free_region(&rg_info);
+				mtk_emimpu_set_apc(rg_info, i, ap_apc[i]);
+		mtk_emimpu_lock_region(rg_info, MTK_EMIMPU_LOCK);
 		devm_kfree(&pdev->dev, ap_apc);
 	}
 
@@ -581,6 +585,29 @@ static int emimpu_probe(struct platform_device *pdev)
 		pr_info("%s: fail to create emimpu_ctrl\n", __func__);
 
 	return ret;
+}
+
+static int __init emimpu_ap_region_init(void)
+{
+	struct emimpu_dev_t *emimpu_dev_ptr;
+
+	if (!emimpu_pdev)
+		return 0;
+
+	pr_info("%s: enable AP region\n", __func__);
+
+	emimpu_dev_ptr =
+		(struct emimpu_dev_t *)platform_get_drvdata(emimpu_pdev);
+	if (!(emimpu_dev_ptr->ap_rg_info))
+		return 0;
+
+	mtk_emimpu_set_protection(emimpu_dev_ptr->ap_rg_info);
+	mtk_emimpu_free_region(emimpu_dev_ptr->ap_rg_info);
+
+	kfree(emimpu_dev_ptr->ap_rg_info);
+	emimpu_dev_ptr->ap_rg_info = NULL;
+
+	return 0;
 }
 
 static int __init emimpu_drv_init(void)
@@ -601,6 +628,7 @@ static void __exit emimpu_drv_exit(void)
 	platform_driver_unregister(&emimpu_drv);
 }
 
+late_initcall_sync(emimpu_ap_region_init);
 module_init(emimpu_drv_init);
 module_exit(emimpu_drv_exit);
 

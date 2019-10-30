@@ -65,6 +65,7 @@ struct emimpu_dev_t {
 	void __iomem **emi_mpu_base;
 	unsigned int show_region;
 	unsigned int ctrl_intf;
+	struct emimpu_region_t *ap_rg_info;
 };
 
 struct emiisu_dev_t {
