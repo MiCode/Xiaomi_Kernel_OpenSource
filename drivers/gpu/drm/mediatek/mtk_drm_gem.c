@@ -428,7 +428,7 @@ mtk_gem_prime_import(struct drm_device *dev, struct dma_buf *dma_buf)
 	struct ion_client *client;
 	struct ion_handle *handle;
 	struct ion_mm_data mm_data;
-	int ret;
+	int ret, retry_cnt = 0;
 
 	DRM_MMP_EVENT_START(prime_import, (unsigned long)priv,
 			(unsigned long)dma_buf);
@@ -444,6 +444,7 @@ mtk_gem_prime_import(struct drm_device *dev, struct dma_buf *dma_buf)
 		return ERR_PTR(-EINVAL);
 	}
 
+retry:
 	DRM_MMP_MARK(prime_import, 1, 1);
 	memset((void *)&mm_data, 0, sizeof(struct ion_mm_data));
 	DRM_MMP_MARK(prime_import, 1, 2);
@@ -452,8 +453,17 @@ mtk_gem_prime_import(struct drm_device *dev, struct dma_buf *dma_buf)
 	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
 	ret = ion_kernel_ioctl(client, ION_CMD_MULTIMEDIA,
 				 (unsigned long)&mm_data);
-	if (ret < 0) {
-		DDPPR_ERR("ion config failed, handle:0x%p\n", handle);
+
+	/* try 10s */
+	if (ret == -ION_ERROR_CONFIG_CONFLICT && retry_cnt < 10000) {
+		retry_cnt++;
+		DDPPR_ERR("ion config conflict, retry:%d, handle:0x%p\n",
+			retry_cnt, handle);
+		usleep_range(1000, 1500); /* delay 1ms */
+		goto retry;
+	} else if (ret < 0) {
+		DDPPR_ERR("ion config failed, handle:0x%p, ret:%d\n",
+			handle, ret);
 		ion_free(client, handle);
 		DRM_MMP_MARK(prime_import, 0, 1);
 		DRM_MMP_EVENT_END(prime_import, (unsigned long)handle,
