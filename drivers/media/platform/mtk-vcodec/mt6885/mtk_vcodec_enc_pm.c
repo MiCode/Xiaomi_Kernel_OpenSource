@@ -768,6 +768,7 @@ void mtk_venc_pmqos_gce_flush(struct mtk_vcodec_ctx *ctx, int core_id,
 		frame_rate = ctx->enc_params.framerate_num /
 				ctx->enc_params.framerate_denom;
 	}
+	job->operation_rate = frame_rate;
 
 	if (job_cnt == 0) {
 		// Adjust dvfs immediately
