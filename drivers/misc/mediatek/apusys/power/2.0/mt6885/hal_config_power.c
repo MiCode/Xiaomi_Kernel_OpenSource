@@ -534,9 +534,9 @@ static int set_power_frequency(void *param)
 	domain = ((struct hal_param_freq *)param)->target_volt_domain;
 
 	if (domain < APUSYS_BUCK_DOMAIN_NUM) {
-		if (domain == V_MDLA0 || domain == V_MDLA1)
-			ret = config_apupll(freq, domain);
-		else
+		//if (domain == V_MDLA0 || domain == V_MDLA1)
+			//ret = config_apupll(freq, domain);
+		//else
 			ret = set_apu_clock_source(freq, domain);
 	} else {
 		LOG_ERR("%s not support power domain : %d\n", __func__, domain);
