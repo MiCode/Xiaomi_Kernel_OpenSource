@@ -36,6 +36,11 @@
 #define DISABLE_DLPT_FEATURE
 #endif /* defined(CONFIG_FPGA_EARLY_PORTING) || PT_DLPT_BRINGUP */
 
+/* if not support GM3, disable DLPT */
+#if defined(CONFIG_MTK_DISABLE_GAUGE)
+#define DISABLE_DLPT_FEATURE
+#endif /* defined(CONFIG_MTK_DISABLE_GAUGE) */
+
 #define POWER_UVLO_VOLT_LEVEL 2600
 #define IMAX_MAX_VALUE 5500
 
