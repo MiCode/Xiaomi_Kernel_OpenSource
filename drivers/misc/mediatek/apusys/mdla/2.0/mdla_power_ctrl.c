@@ -156,6 +156,9 @@ int mdla_pwr_off(int core_id)
 			__func__, core_id);
 
 	for (i = 0; i < mdla_max_num_core; i++) {
+		if (get_power_on_status(i) == PWR_OFF)
+			continue;
+
 		ret = apu_device_power_off(MDLA0+i);
 		if (!ret) {
 			mdla_cmd_debug("%s power off device %d success\n",
@@ -168,7 +171,7 @@ int mdla_pwr_off(int core_id)
 	}
 
 power_off_done:
-	for (i = 0; i < mdla_max_num_core; i++)
+	for (i = mdla_max_num_core-1; i >= 0; i--)
 		mutex_unlock(&mdla_devices[i].power_lock);
 #endif
 	return ret;
