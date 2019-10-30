@@ -67,9 +67,10 @@ enum DVFS_USER {
 	MDLA1 = 4,
 	APUSYS_DVFS_USER_NUM,
 
-	EDMA = 0x10,	// special user
-	EDMA2 = 0x11,   // special user
-	REVISER = 0x12, // special user
+	EDMA = 0x10,	// power user only
+	EDMA2 = 0x11,   // power user only
+	REVISER = 0x12, // power user only
+	APUSYS_POWER_USER_NUM,
 };
 
 
