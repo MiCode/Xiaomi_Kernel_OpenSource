@@ -5247,10 +5247,12 @@ page_owner=on";
 		interrupts = <GIC_SPI 329 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&camsys CAMSYS_MAIN_CCU0_CGPDN>,
 					<&topckgen TOP_MUX_CCU>,
-					<&scpsys SCP_SYS_CAM>;
+					<&scpsys SCP_SYS_CAM>,
+					<&scpsys SCP_SYS_MDP>;
 		clock-names = "CCU_CLK_CAM_CCU",
 						"CCU_CLK_TOP_MUX",
-						"CAM_PWR";
+						"CAM_PWR",
+						"MDP_PWR";
 	};
 
 	wifi@18000000{

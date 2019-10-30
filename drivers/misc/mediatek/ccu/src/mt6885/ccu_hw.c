@@ -652,7 +652,7 @@ int ccu_force_powerdown(void)
 	if (ccuInfo.IsCcuPoweredOn == 1) {
 		LOG_WARN("CCU kernel released on CCU running, shutdown\n");
 
-		cam_clk = __clk_lookup("pg_cam"); /* check cam power */
+		cam_clk = __clk_lookup("PG_CAM"); /* check cam power */
 
 		LOG_WARN("current cam power is [%-17s: %3d]\n",
 			__clk_get_name(cam_clk),

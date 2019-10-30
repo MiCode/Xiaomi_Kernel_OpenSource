@@ -80,8 +80,8 @@
 
 #define CCU_DEV_NAME            "ccu"
 
-#define CCU_CLK_PWR_NUM 3
-/* [0]: CCU_CLK_TOP_MUX, [1]: CAM_PWR, [2]: CCU_CLK_CAM_CCU */
+#define CCU_CLK_PWR_NUM 4
+/* [0]: CCU_CLK_TOP_MUX, [1]: MDP_PWR, [2]: CAM_PWR, [3]: CCU_CLK_CAM_CCU */
 struct clk *ccu_clk_pwr_ctrl[CCU_CLK_PWR_NUM];
 
 struct ccu_device_s *g_ccu_device;
@@ -137,7 +137,7 @@ static int ccu_suspend(struct platform_device *dev,
 		       pm_message_t mesg);
 
 static int ccu_resume(struct platform_device *dev);
-
+static int32_t _clk_count;
 /*-------------------------------------------------------------------------*/
 /* CCU Driver: pm operations                                               */
 /*-------------------------------------------------------------------------*/
@@ -440,7 +440,7 @@ static int ccu_open(struct inode *inode, struct file *flip)
 	int ret = 0, i;
 
 	struct ccu_user_s *user;
-
+	_clk_count = 0;
 	ccu_create_user(&user);
 	if (IS_ERR_OR_NULL(user)) {
 		LOG_ERR("fail to create user\n");
@@ -585,16 +585,23 @@ int ccu_clock_enable(void)
 {
 	int ret = 0;
 
-	LOG_DBG_MUST("%s, 2 clks, 1 pwr.\n", __func__);
+	LOG_DBG_MUST("%s, 2 clks, 2 pwr. %d\n", __func__, _clk_count);
+	_clk_count++;
 	ccu_qos_init();
 #ifndef CCU_LDVT
 	ret = clk_prepare_enable(ccu_clk_pwr_ctrl[0]);
 	if (ret)
 		LOG_ERR("CCU_CLK_TOP_MUX enable fail.\n");
+
 	ret = clk_prepare_enable(ccu_clk_pwr_ctrl[1]);
 	if (ret)
-		LOG_ERR("CAM_PWR enable fail.\n");
+		LOG_ERR("MDP_PWR enable fail.\n");
+
 	ret = clk_prepare_enable(ccu_clk_pwr_ctrl[2]);
+	if (ret)
+		LOG_ERR("CAM_PWR enable fail.\n");
+
+	ret = clk_prepare_enable(ccu_clk_pwr_ctrl[3]);
 	if (ret)
 		LOG_ERR("CCU_CLK_CAM_CCU enable fail.\n");
 #endif
@@ -603,8 +610,10 @@ int ccu_clock_enable(void)
 
 void ccu_clock_disable(void)
 {
-	LOG_DBG_MUST("%s.\n", __func__);
+	LOG_DBG_MUST("%s. %d\n", __func__, _clk_count);
+	_clk_count--;
 #ifndef CCU_LDVT
+	clk_disable_unprepare(ccu_clk_pwr_ctrl[3]);
 	clk_disable_unprepare(ccu_clk_pwr_ctrl[2]);
 	clk_disable_unprepare(ccu_clk_pwr_ctrl[1]);
 	clk_disable_unprepare(ccu_clk_pwr_ctrl[0]);
@@ -1302,13 +1311,18 @@ if ((strcmp("ccu", g_ccu_device->dev->of_node->name) == 0)) {
 		LOG_ERR("Get CCU_CLK_TOP_MUX fail.\n");
 
 	ccu_clk_pwr_ctrl[1] = devm_clk_get(g_ccu_device->dev,
-		"CAM_PWR");
+		"MDP_PWR");
 	if (ccu_clk_pwr_ctrl[1] == NULL)
-		LOG_ERR("Get CAM_PWR fail.\n");
+		LOG_ERR("Get MDP_PWR fail.\n");
 
 	ccu_clk_pwr_ctrl[2] = devm_clk_get(g_ccu_device->dev,
-		"CCU_CLK_CAM_CCU");
+		"CAM_PWR");
 	if (ccu_clk_pwr_ctrl[2] == NULL)
+		LOG_ERR("Get CAM_PWR fail.\n");
+
+	ccu_clk_pwr_ctrl[3] = devm_clk_get(g_ccu_device->dev,
+		"CCU_CLK_CAM_CCU");
+	if (ccu_clk_pwr_ctrl[3] == NULL)
 		LOG_ERR("Get CCU_CLK_CAM_CCU fail.\n");
 
 	g_ccu_device->irq_num = irq_of_parse_and_map(node, 0);
