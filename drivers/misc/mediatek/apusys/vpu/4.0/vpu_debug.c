@@ -480,7 +480,7 @@ DEFINE_SIMPLE_ATTRIBUTE(vpu_debug_jtag_fops, vpu_debug_jtag_get,
 	if (IS_ERR_OR_NULL(vpu_d##name)) { \
 		ret = PTR_ERR(vpu_d##name); \
 		pr_info("%s: vpu%d: " #name "): %d\n", \
-			__func__, vd->id, ret); \
+			__func__, (vd) ? (vd->id) : 0, ret); \
 		goto out; \
 	} \
 	vpu_d##name->d_inode->i_private = vd; \
