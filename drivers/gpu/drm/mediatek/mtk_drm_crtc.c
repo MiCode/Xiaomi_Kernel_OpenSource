@@ -48,6 +48,8 @@
 #include "mtk_disp_recovery.h"
 #include "mtk_drm_arr.h"
 #include "mtk_drm_trace.h"
+#include "cmdq-sec.h"
+#include "cmdq-sec-iwc-common.h"
 
 static struct mtk_drm_property mtk_crtc_property[CRTC_PROP_MAX] = {
 	{DRM_MODE_PROP_ATOMIC, "OVERLAP_LAYER_NUM", 0, UINT_MAX, 0},
@@ -184,7 +186,7 @@ void mtk_drm_crtc_analysis(struct drm_crtc *crtc)
 {
 	int i, j;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
+	struct mtk_crtc_state *state;
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	const struct mtk_addon_scenario_data *addon_data;
 	const struct mtk_addon_path_data *addon_path;
@@ -204,6 +206,9 @@ void mtk_drm_crtc_analysis(struct drm_crtc *crtc)
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
 		mtk_dump_analysis(comp);
 
+	if (!crtc->state)
+		return;
+	state = to_mtk_crtc_state(crtc->state);
 	addon_data = mtk_addon_get_scenario_data(__func__, crtc,
 					state->lye_state.scn[crtc_id]);
 	if (!addon_data)
@@ -2041,11 +2046,13 @@ void mtk_crtc_config_default_path(struct mtk_drm_crtc *mtk_crtc)
 static void mtk_crtc_all_layer_off(struct mtk_drm_crtc *mtk_crtc,
 				   struct cmdq_pkt *cmdq_handle)
 {
-	int i, j;
+	int i, j, keep_first_layer;
 	struct mtk_ddp_comp *comp;
 
+	keep_first_layer = true;
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
-		mtk_ddp_comp_io_cmd(comp, cmdq_handle, OVL_ALL_LAYER_OFF, NULL);
+		mtk_ddp_comp_io_cmd(comp, cmdq_handle,
+			OVL_ALL_LAYER_OFF, &keep_first_layer);
 }
 
 void mtk_crtc_stop_ddp(struct mtk_drm_crtc *mtk_crtc,
@@ -2544,12 +2551,57 @@ void mtk_drm_crtc_suspend(struct drm_crtc *crtc)
 	CRTC_MMP_EVENT_END(index, suspend, 0, 0);
 }
 
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+void mtk_crtc_disable_secure_state(struct drm_crtc *crtc)
+{
+	struct cmdq_pkt *cmdq_handle;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	int i, j, keep_first_layer;
+	struct mtk_ddp_comp *comp;
+
+	DDPINFO("%s+ crtc%d\n", __func__, drm_crtc_index(crtc));
+	mtk_crtc_pkt_create(&cmdq_handle, crtc,
+		mtk_crtc->gce_obj.client[CLIENT_SEC_CFG]);
+	/* Secure path only support DL mode, so we just wait
+	 * the first path frame done here
+	 */
+	mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle, DDP_FIRST_PATH);
+
+	/* Disable secure path */
+	cmdq_sec_pkt_set_data(cmdq_handle,
+		0,
+		(0 << CMDQ_SEC_DISP_OVL0) | (0 << CMDQ_SEC_DISP_2L_OVL0),
+		CMDQ_SEC_DISP_PRIMARY_DISABLE_SECURE_PATH,
+		CMDQ_METAEX_NONE);
+
+	/* Disable OVL layers */
+	keep_first_layer = false;
+	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
+		mtk_ddp_comp_io_cmd(comp, cmdq_handle,
+			OVL_ALL_LAYER_OFF, &keep_first_layer);
+
+	cmdq_pkt_flush(cmdq_handle);
+	cmdq_pkt_destroy(cmdq_handle);
+	DDPINFO("%s-\n", __func__);
+}
+#endif
+
 struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct cmdq_pkt *cmdq_handle;
 
-	if (mtk_crtc_is_dc_mode(crtc))
+	if (mtk_crtc->sec_on) {
+		mtk_crtc_pkt_create(&cmdq_handle, crtc,
+			mtk_crtc->gce_obj.client[CLIENT_SEC_CFG]);
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+		cmdq_sec_pkt_set_data(cmdq_handle, 0,
+			(1 << CMDQ_SEC_DISP_OVL0) |
+			(1 << CMDQ_SEC_DISP_2L_OVL0),
+			CMDQ_SEC_PRIMARY_DISP,
+			CMDQ_METAEX_NONE);
+#endif
+	} else if (mtk_crtc_is_dc_mode(crtc))
 		mtk_crtc_pkt_create(&cmdq_handle, crtc,
 			mtk_crtc->gce_obj.client[CLIENT_SUB_CFG]);
 	else

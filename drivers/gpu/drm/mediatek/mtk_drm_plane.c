@@ -16,6 +16,7 @@
 #include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_plane_helper.h>
+#include <linux/mailbox_controller.h>
 
 #include "mtk_drm_crtc.h"
 #include "mtk_drm_ddp_comp.h"
@@ -23,6 +24,7 @@
 #include "mtk_drm_fb.h"
 #include "mtk_drm_gem.h"
 #include "mtk_drm_plane.h"
+#include "cmdq-sec.h"
 
 #define MTK_DRM_PLANE_SCALING_MIN 16
 #define MTK_DRM_PLANE_SCALING_MAX (1 << 16)
@@ -395,6 +397,12 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 	state->pending.size = mtk_fb_get_size(fb);
 	state->pending.src_x = (plane->state->src.x1 >> 16);
 	state->pending.src_y = (plane->state->src.y1 >> 16);
+	if (mtk_crtc->sec_on) {
+		if (mtk_drm_fb_is_secure(fb))
+			state->pending.is_sec = true;
+		else
+			state->pending.is_sec = false;
+	}
 	state->pending.dst_x = dst_x;
 	state->pending.dst_y = dst_y;
 	state->pending.width = dst_w;

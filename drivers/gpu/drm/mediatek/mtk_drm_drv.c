@@ -313,6 +313,50 @@ mtk_atomic_calculate_plane_enabled_number(struct drm_device *dev,
 	}
 }
 
+static void mtk_atomic_check_plane_sec_state(struct drm_device *dev,
+				     struct drm_atomic_state *new_state)
+{
+	int i;
+	int sec_on[MAX_CRTC] = {0};
+	struct drm_plane *plane;
+	struct drm_plane_state *new_plane_state;
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+	struct drm_crtc *crtc;
+	struct drm_crtc_state *new_crtc_state;
+#endif
+	for_each_plane_in_state(new_state, plane, new_plane_state, i) {
+		if (plane->state->crtc) {
+			struct mtk_drm_crtc *mtk_crtc =
+					to_mtk_crtc(plane->state->crtc);
+
+			if (plane->state->fb
+				&& plane->state->fb->pixel_format
+					!= DRM_FORMAT_C8
+				&& mtk_drm_fb_is_secure(plane->state->fb))
+				sec_on[drm_crtc_index(&mtk_crtc->base)] = true;
+		}
+	}
+
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+	for_each_crtc_in_state(new_state, crtc, new_crtc_state, i) {
+		struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+
+		/* Leave secure sequence */
+		if (mtk_crtc->sec_on && !sec_on[i])
+			mtk_crtc_disable_secure_state(&mtk_crtc->base);
+
+		/* When the engine switch to secure, we don't let system
+		 * enter LP idle mode. Because it may make more secure risks
+		 * with tiny power benefit.
+		 */
+		if (!mtk_crtc->sec_on && sec_on[i])
+			mtk_drm_idlemgr_kick(__func__, crtc, false);
+
+		mtk_crtc->sec_on = sec_on[i];
+	}
+#endif
+}
+
 static bool mtk_atomic_need_force_doze_switch(struct drm_crtc *crtc)
 {
 	struct mtk_crtc_state *mtk_state;
@@ -578,6 +622,8 @@ static void mtk_atomic_complete(struct mtk_drm_private *private,
 	mtk_atomic_disp_rsz_roi(drm, state);
 
 	mtk_atomic_calculate_plane_enabled_number(drm, state);
+
+	mtk_atomic_check_plane_sec_state(drm, state);
 
 	if (!mtk_atomic_skip_plane_update(private, state)) {
 		drm_atomic_helper_commit_planes(drm, state,
@@ -1748,6 +1794,8 @@ static const struct drm_ioctl_desc mtk_ioctls[] = {
 			  DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(MTK_AAL_GET_SIZE, mtk_drm_ioctl_aal_get_size,
 			  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_SEC_HND_TO_GEM_HND, mtk_drm_sec_hnd_to_gem_hnd,
+			  DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
 };
 
 static const struct file_operations mtk_drm_fops = {

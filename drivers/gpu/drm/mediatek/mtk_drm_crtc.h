@@ -368,6 +368,7 @@ enum MTK_CRTC_COLOR_FMT {
 	EXPR(CLIENT_CFG)                                                       \
 	EXPR(CLIENT_TRIG_LOOP)                                                 \
 	EXPR(CLIENT_SUB_CFG)                                                   \
+	EXPR(CLIENT_SEC_CFG)                                                   \
 	EXPR(CLIENT_TYPE_MAX)
 
 enum CRTC_GCE_CLIENT_TYPE { DECLARE_GCE_CLIENT(DECLARE_NUM) };
@@ -503,7 +504,7 @@ struct mtk_drm_crtc {
 	struct mtk_drm_gem_obj *round_corner_gem;
 #endif
 	struct mtk_drm_qos_ctx *qos_ctx;
-
+	bool sec_on;
 	struct task_struct *vblank_enable_task;
 	wait_queue_head_t vblank_enable_wq;
 	atomic_t vblank_enable_task_active;
@@ -649,5 +650,7 @@ void mtk_crtc_change_output_mode(struct drm_crtc *crtc, int aod_en);
 /********************** Legacy DISP API ****************************/
 unsigned int DISP_GetScreenWidth(void);
 unsigned int DISP_GetScreenHeight(void);
+
+void mtk_crtc_disable_secure_state(struct drm_crtc *crtc);
 
 #endif /* MTK_DRM_CRTC_H */

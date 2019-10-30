@@ -35,6 +35,7 @@
 #ifdef CONFIG_MTK_IOMMU_V2
 #include "mtk_iommu_ext.h"
 #endif
+#include "cmdq-sec.h"
 
 #define REG_FLD(width, shift)                                                  \
 	((unsigned int)((((width)&0xFF) << 16) | ((shift)&0xFF)))
@@ -1126,9 +1127,25 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_REG_OVL_EL_PITCH(id),
 			pitch, ~0);
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + DISP_REG_OVL_EL_ADDR(id), addr,
-			~0);
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+		if (comp->mtk_crtc->sec_on) {
+			u32 size, meta_type, addr;
+
+			size = (dst_h - 1) * state->pending.pitch +
+				dst_w * drm_format_plane_cpp(fmt, 0);
+			addr = comp->regs_pa +
+				DISP_REG_OVL_EL_ADDR(ext_lye_idx - 1);
+			if (state->pending.is_sec)
+				meta_type = CMDQ_IWC_H_2_MVA;
+			else
+				meta_type = CMDQ_IWC_NMVA_2_MVA;
+			cmdq_sec_pkt_write_reg(handle, addr,
+				pending->addr, meta_type, 0, size, 0);
+		} else
+#endif
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				comp->regs_pa + DISP_REG_OVL_EL_ADDR(id),
+				addr, ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_REG_OVL_EL_SRC_SIZE(id),
 			src_size, ~0);
@@ -1142,9 +1159,25 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_REG_OVL_PITCH(lye_idx),
 			pitch, ~0);
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + DISP_REG_OVL_ADDR(ovl, lye_idx),
-			addr, ~0);
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+		if (comp->mtk_crtc->sec_on) {
+			u32 size, meta_type, addr;
+
+			size = (dst_h - 1) * state->pending.pitch +
+				dst_w * drm_format_plane_cpp(fmt, 0);
+			addr = comp->regs_pa +
+				DISP_REG_OVL_ADDR(ovl, lye_idx);
+			if (state->pending.is_sec)
+				meta_type = CMDQ_IWC_H_2_MVA;
+			else
+				meta_type = CMDQ_IWC_NMVA_2_MVA;
+			cmdq_sec_pkt_write_reg(handle, addr,
+				pending->addr, meta_type, 0, size, 0);
+		} else
+#endif
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				comp->regs_pa + DISP_REG_OVL_ADDR(ovl, lye_idx),
+				addr, ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_REG_OVL_SRC_SIZE(lye_idx),
 			src_size, ~0);
@@ -1423,10 +1456,26 @@ static bool compr_l_config_PVRIC_V3_1(struct mtk_ddp_comp *comp,
 
 	/* 7. config register */
 	if (ext_lye_idx != LYE_NORMAL) {
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			       comp->regs_pa +
-				       DISP_REG_OVL_EL_ADDR(ext_lye_idx - 1),
-			       lx_addr, ~0);
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+		if (comp->mtk_crtc->sec_on) {
+			u32 size, meta_type, addr;
+
+			size = state->pending.pitch * src_w;
+			addr = comp->regs_pa +
+				DISP_REG_OVL_EL_ADDR(ext_lye_idx - 1);
+			if (state->pending.is_sec)
+				meta_type = CMDQ_IWC_H_2_MVA;
+			else
+				meta_type = CMDQ_IWC_NMVA_2_MVA;
+			cmdq_sec_pkt_write_reg(handle, addr,
+				pending->addr, meta_type, 0, size, 0);
+		} else
+#endif
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				comp->regs_pa +
+				DISP_REG_OVL_EL_ADDR(ext_lye_idx - 1),
+				lx_addr, ~0);
+
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa +
 				       DISP_REG_OVL_EL_PITCH(ext_lye_idx - 1),
@@ -1448,9 +1497,24 @@ static bool compr_l_config_PVRIC_V3_1(struct mtk_ddp_comp *comp,
 						       ext_lye_idx - 1),
 			       lx_hdr_pitch, ~0);
 	} else {
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			       comp->regs_pa + DISP_REG_OVL_ADDR(ovl, lye_idx),
-			       lx_addr, ~0);
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+		if (comp->mtk_crtc->sec_on) {
+			u32 size, meta_type, addr;
+
+			size = state->pending.pitch * src_w;
+			addr = comp->regs_pa +
+				DISP_REG_OVL_ADDR(ovl, lye_idx);
+			if (state->pending.is_sec)
+				meta_type = CMDQ_IWC_H_2_MVA;
+			else
+				meta_type = CMDQ_IWC_NMVA_2_MVA;
+			cmdq_sec_pkt_write_reg(handle, addr,
+				pending->addr, meta_type, 0, size, 0);
+		} else
+#endif
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				comp->regs_pa + DISP_REG_OVL_ADDR(ovl, lye_idx),
+				lx_addr, ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_OVL_PITCH(lye_idx),
 			       lx_pitch, 0xffff);
@@ -1640,10 +1704,25 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 
 	/* 7. config register */
 	if (ext_lye_idx != LYE_NORMAL) {
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa +
-			DISP_REG_OVL_EL_ADDR(ext_lye_idx-1),
-			lx_addr, ~0);
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+		if (comp->mtk_crtc->sec_on) {
+			u32 size, meta_type, addr;
+
+			size = state->pending.pitch * src_w;
+			addr = comp->regs_pa +
+				DISP_REG_OVL_EL_ADDR(ext_lye_idx - 1);
+			if (state->pending.is_sec)
+				meta_type = CMDQ_IWC_H_2_MVA;
+			else
+				meta_type = CMDQ_IWC_NMVA_2_MVA;
+			cmdq_sec_pkt_write_reg(handle, addr,
+				pending->addr, meta_type, 0, size, 0);
+		} else
+#endif
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				comp->regs_pa +
+				DISP_REG_OVL_EL_ADDR(ext_lye_idx-1),
+				lx_addr, ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa +
 			DISP_REG_OVL_EL_PITCH_MSB(ext_lye_idx-1),
@@ -1669,9 +1748,24 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 			DISP_REG_OVL_ELX_HDR_PITCH(ext_lye_idx-1),
 			lx_hdr_pitch, ~0);
 	} else {
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + DISP_REG_OVL_ADDR(ovl, lye_idx),
-			lx_addr, ~0);
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+		if (comp->mtk_crtc->sec_on) {
+			u32 size, meta_type, addr;
+
+			size = state->pending.pitch * src_w;
+			addr = comp->regs_pa +
+				DISP_REG_OVL_ADDR(ovl, lye_idx);
+			if (state->pending.is_sec)
+				meta_type = CMDQ_IWC_H_2_MVA;
+			else
+				meta_type = CMDQ_IWC_NMVA_2_MVA;
+			cmdq_sec_pkt_write_reg(handle, addr,
+				pending->addr, meta_type, 0, size, 0);
+		} else
+#endif
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				comp->regs_pa + DISP_REG_OVL_ADDR(ovl, lye_idx),
+				lx_addr, ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_REG_OVL_PITCH_MSB(lye_idx),
 			lx_pitch_msb, ~0);
@@ -1934,10 +2028,10 @@ static int mtk_ovl_golden_setting(struct mtk_ddp_comp *comp,
 }
 
 static void mtk_ovl_all_layer_off(struct mtk_ddp_comp *comp,
-				  struct cmdq_pkt *handle)
+	struct cmdq_pkt *handle, int keep_first_layer)
 {
 	int i;
-	unsigned int phy_layer0_on;
+	unsigned int phy_layer0_on = 0;
 
 	/* In 6779 we need to set DISP_OVL_FORCE_RELAY_MODE */
 
@@ -1945,7 +2039,8 @@ static void mtk_ovl_all_layer_off(struct mtk_ddp_comp *comp,
 	 * as readl while writing the new value in GCE. This function should
 	 * only used in driver probe.
 	 */
-	phy_layer0_on = readl(comp->regs + DISP_REG_OVL_SRC_CON) & 0x1;
+	if (keep_first_layer)
+		phy_layer0_on = readl(comp->regs + DISP_REG_OVL_SRC_CON) & 0x1;
 	if (phy_layer0_on)
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_OVL_SRC_CON, 0x1, ~0);
@@ -2065,8 +2160,11 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		mtk_ovl_golden_setting(comp, cfg, handle);
 		break;
 	}
-	case OVL_ALL_LAYER_OFF: {
-		mtk_ovl_all_layer_off(comp, handle);
+	case OVL_ALL_LAYER_OFF:
+	{
+		int *keep_first_layer = params;
+
+		mtk_ovl_all_layer_off(comp, handle, *keep_first_layer);
 		break;
 	}
 	case IRQ_LEVEL_ALL: {

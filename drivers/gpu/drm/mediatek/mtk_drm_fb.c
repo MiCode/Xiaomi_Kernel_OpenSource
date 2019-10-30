@@ -67,6 +67,21 @@ dma_addr_t mtk_fb_get_dma(struct drm_framebuffer *fb)
 	return mtk_gem->dma_addr;
 }
 
+bool mtk_drm_fb_is_secure(struct drm_framebuffer *fb)
+{
+	struct drm_gem_object *gem;
+	struct mtk_drm_gem_obj *mtk_gem;
+
+
+	if (!fb)
+		return false;
+	gem = mtk_fb_get_gem_obj(fb);
+	if (!gem)
+		return false;
+	mtk_gem = to_mtk_gem_obj(gem);
+	return mtk_gem->sec;
+}
+
 static int mtk_drm_fb_create_handle(struct drm_framebuffer *fb,
 				    struct drm_file *file_priv,
 				    unsigned int *handle)
@@ -170,6 +185,7 @@ mtk_drm_mode_fb_create(struct drm_device *dev, struct drm_file *file,
 {
 	struct mtk_drm_fb *mtk_fb;
 	struct drm_gem_object *gem = NULL;
+	struct mtk_drm_gem_obj *mtk_gem;
 	unsigned int width = cmd->width;
 	unsigned int height = cmd->height;
 	unsigned int size, bpp;
@@ -186,7 +202,8 @@ mtk_drm_mode_fb_create(struct drm_device *dev, struct drm_file *file,
 	size = (height - 1) * cmd->pitches[0] + width * bpp;
 	size += cmd->offsets[0];
 
-	if (gem->size < size) {
+	mtk_gem = to_mtk_gem_obj(gem);
+	if (gem->size < size && !mtk_gem->sec) {
 		ret = -EINVAL;
 		goto unreference;
 	}

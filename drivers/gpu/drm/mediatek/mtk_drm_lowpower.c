@@ -285,7 +285,8 @@ static int mtk_drm_idlemgr_monitor_thread(void *data)
 
 		if (idlemgr_ctx->is_idle
 			|| mtk_crtc_is_dc_mode(crtc)
-			|| priv->session_mode != MTK_DRM_SESSION_DL) {
+			|| priv->session_mode != MTK_DRM_SESSION_DL
+			|| mtk_crtc->sec_on) {
 			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 			continue;
 		}

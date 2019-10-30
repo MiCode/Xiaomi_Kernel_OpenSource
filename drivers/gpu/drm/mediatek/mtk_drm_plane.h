@@ -142,6 +142,7 @@ struct mtk_plane_pending_state {
 	unsigned int width;
 	unsigned int height;
 	bool dirty;
+	bool is_sec;
 	unsigned int prop_val[PLANE_PROP_MAX];
 };
 

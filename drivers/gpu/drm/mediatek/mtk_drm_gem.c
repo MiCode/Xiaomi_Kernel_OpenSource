@@ -218,7 +218,7 @@ void mtk_drm_gem_free_object(struct drm_gem_object *obj)
 
 	if (mtk_gem->sg)
 		drm_prime_gem_destroy(obj, mtk_gem->sg);
-	else
+	else if (!mtk_gem->sec)
 		dma_free_attrs(priv->dma_dev, obj->size, mtk_gem->cookie,
 			       mtk_gem->dma_addr, mtk_gem->dma_attrs);
 
@@ -658,4 +658,25 @@ int mtk_gem_submit_ioctl(struct drm_device *dev, void *data,
 	}
 
 	return ret;
+}
+
+int mtk_drm_sec_hnd_to_gem_hnd(struct drm_device *dev, void *data,
+		struct drm_file *file_priv)
+{
+	struct drm_mtk_sec_gem_hnd *args = data;
+	struct mtk_drm_gem_obj *mtk_gem_obj;
+
+	if (!drm_core_check_feature(dev, DRIVER_PRIME))
+		return -EINVAL;
+
+	mtk_gem_obj = kzalloc(sizeof(*mtk_gem_obj), GFP_KERNEL);
+	if (!mtk_gem_obj)
+		return -ENOMEM;
+
+	mtk_gem_obj->sec = true;
+	mtk_gem_obj->dma_addr = args->sec_hnd;
+	drm_gem_private_object_init(dev, &mtk_gem_obj->base, 0);
+	drm_gem_handle_create(file_priv, &mtk_gem_obj->base, &args->gem_hnd);
+
+	return 0;
 }

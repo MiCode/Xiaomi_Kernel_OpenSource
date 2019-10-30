@@ -86,6 +86,17 @@ struct drm_mtk_gem_submit {
 };
 
 /**
+ * A structure for secure/gem hnd transform.
+ *
+ * @sec_hnd: handle of secure memory
+ * @gem_hnd: handle of gem
+ */
+struct drm_mtk_sec_gem_hnd {
+	uint32_t sec_hnd;
+	uint32_t gem_hnd;
+};
+
+/**
  * A structure for session create.
  *
  * @type:
@@ -384,6 +395,7 @@ struct DISP_PQ_PARAM {
 #define DRM_MTK_GET_DISPLAY_CAPS	0x08
 #define DRM_MTK_SET_DDP_MODE   0x09
 #define DRM_MTK_GET_SESSION_INFO	0x0A
+#define DRM_MTK_SEC_HND_TO_GEM_HND   0x0B
 
 /* PQ */
 #define DRM_MTK_SET_CCORR			0x20
@@ -586,6 +598,8 @@ struct DRM_DISP_WRITE_REG {
 
 #define DRM_IOCTL_MTK_GET_SESSION_INFO     DRM_IOWR(DRM_COMMAND_BASE + \
 		DRM_MTK_GET_SESSION_INFO, struct drm_mtk_session_info)
+#define DRM_IOCTL_MTK_SEC_HND_TO_GEM_HND     DRM_IOWR(DRM_COMMAND_BASE + \
+		DRM_MTK_SEC_HND_TO_GEM_HND, struct drm_mtk_sec_gem_hnd)
 
 #define DRM_IOCTL_MTK_SET_CCORR     DRM_IOWR(DRM_COMMAND_BASE + \
 		DRM_MTK_SET_CCORR, struct DISP_CCORR_COEF_T)
