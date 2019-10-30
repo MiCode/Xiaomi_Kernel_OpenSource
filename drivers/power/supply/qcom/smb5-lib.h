@@ -548,6 +548,7 @@ struct smb_charger {
 	int			init_thermal_ua;
 	u32			comp_clamp_level;
 	int			wls_icl_ua;
+	bool			dcin_aicl_done;
 
 	/* workaround flag */
 	u32			wa_flags;

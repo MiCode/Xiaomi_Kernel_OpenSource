@@ -1413,6 +1413,7 @@ static enum power_supply_property smb5_dc_props[] = {
 	POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION,
 	POWER_SUPPLY_PROP_REAL_TYPE,
 	POWER_SUPPLY_PROP_DC_RESET,
+	POWER_SUPPLY_PROP_AICL_DONE,
 };
 
 static int smb5_dc_get_prop(struct power_supply *psy,
@@ -1450,6 +1451,9 @@ static int smb5_dc_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_DC_RESET:
 		val->intval = 0;
+		break;
+	case POWER_SUPPLY_PROP_AICL_DONE:
+		val->intval = chg->dcin_aicl_done;
 		break;
 	default:
 		return -EINVAL;

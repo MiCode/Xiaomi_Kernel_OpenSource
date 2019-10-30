@@ -1068,7 +1068,7 @@ static void smb1390_status_change_work(struct work_struct *work)
 	struct smb1390 *chip = container_of(work, struct smb1390,
 					    status_change_work);
 	union power_supply_propval pval = {0, };
-	int rc;
+	int rc, dc_current_max = 0;
 
 	if (!is_psy_voter_available(chip))
 		goto out;
@@ -1109,11 +1109,21 @@ static void smb1390_status_change_work(struct work_struct *work)
 			vote(chip->ilim_votable, ICL_VOTER, false, 0);
 			rc = power_supply_get_property(chip->dc_psy,
 					POWER_SUPPLY_PROP_CURRENT_MAX, &pval);
-			if (rc < 0)
+			if (rc < 0) {
 				pr_err("Couldn't get dc icl rc=%d\n", rc);
-			else
-				vote(chip->ilim_votable, WIRELESS_VOTER, true,
-						pval.intval);
+			} else {
+				dc_current_max = pval.intval;
+
+				rc = power_supply_get_property(chip->dc_psy,
+						POWER_SUPPLY_PROP_AICL_DONE,
+						&pval);
+				if (rc < 0)
+					pr_err("Couldn't get aicl done rc=%d\n",
+							rc);
+				else if (pval.intval)
+					vote(chip->ilim_votable, WIRELESS_VOTER,
+							true, dc_current_max);
+			}
 		} else {
 			vote(chip->ilim_votable, WIRELESS_VOTER, false, 0);
 			smb1390_configure_ilim(chip, pval.intval);

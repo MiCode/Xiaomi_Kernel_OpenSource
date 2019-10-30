@@ -1152,7 +1152,7 @@ static int usb_icl_vote_callback(struct votable *votable, void *data,
 	int rc;
 	struct pl_data *chip = data;
 	union power_supply_propval pval = {0, };
-	bool rerun_aicl = false;
+	bool rerun_aicl = false, dc_present = false;
 
 	if (!chip->main_psy)
 		return 0;
@@ -1214,8 +1214,21 @@ static int usb_icl_vote_callback(struct votable *votable, void *data,
 
 	/* Configure ILIM based on AICL result only if input mode is USBMID */
 	if (cp_get_parallel_mode(chip, PARALLEL_INPUT_MODE)
-					== POWER_SUPPLY_PL_USBMID_USBMID)
-		cp_configure_ilim(chip, ICL_CHANGE_VOTER, icl_ua);
+					== POWER_SUPPLY_PL_USBMID_USBMID) {
+		if (chip->dc_psy) {
+			rc = power_supply_get_property(chip->dc_psy,
+					POWER_SUPPLY_PROP_PRESENT, &pval);
+			if (rc < 0) {
+				pr_err("Couldn't get DC PRESENT rc=%d\n", rc);
+				return rc;
+			}
+			dc_present = pval.intval;
+		}
+
+		/* Don't configure ILIM if DC is present */
+		if (!dc_present)
+			cp_configure_ilim(chip, ICL_CHANGE_VOTER, icl_ua);
+	}
 
 	return 0;
 }
