@@ -4597,6 +4597,10 @@ static void msdc_check_data_timeout(struct work_struct *work)
 		msdc_dma_stop(host);
 		msdc_dma_clear(host);
 		msdc_reset_hw(host->id);
+		if (host->id == 1) {
+			pr_info("msdc1 err, reset sdcard\n");
+			(void)sdcard_hw_reset(host->mmc);
+		}
 
 		tmo = jiffies + POLLING_BUSY;
 
