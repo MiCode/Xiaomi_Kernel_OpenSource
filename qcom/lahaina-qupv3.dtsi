@@ -1,0 +1,50 @@
+#include <dt-bindings/interconnect/qcom,lahaina.h>
+
+&soc {
+
+	/* QUPv3 West instances */
+	qupv3_0: qcom,qupv3_0_geni_se@0x9C0000 {
+		compatible = "qcom,qupv3-geni-se";
+		reg = <0x9C0000 0x2000>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-bus-ids =
+			<MASTER_QUP_0 SLAVE_EBI1>;
+		iommus = <&apps_smmu 0x5a3 0x0>;
+		qcom,iommu-dma-addr-pool = <0x40000000 0xc0000000>;
+		qcom,iommu-dma = "atomic";
+	};
+
+	/* Debug UART Instance for CDP/MTP/RUMI platform: QUPV3_0_SE3 */
+	qupv3_se3_2uart: qcom,qup_uart@0x98C000 {
+		compatible = "qcom,msm-geni-console";
+		reg = <0x98C000 0x4000>;
+		reg-names = "se_phys";
+		clock-names = "se-clk", "m-ahb", "s-ahb";
+		clocks = <&clock_gcc GCC_QUPV3_WRAP0_S3_CLK>,
+			<&clock_gcc GCC_QUPV3_WRAP_0_M_AHB_CLK>,
+			<&clock_gcc GCC_QUPV3_WRAP_0_S_AHB_CLK>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&qupv3_se3_2uart_active>;
+		pinctrl-1 = <&qupv3_se3_2uart_sleep>;
+		interrupts = <GIC_SPI 604 IRQ_TYPE_LEVEL_HIGH>;
+		qcom,wrapper-core = <&qupv3_0>;
+		status = "ok";
+	};
+
+	/* Debug UART Instance for CDP/MTP/RUMI platform: QUPV3_0_SE2 */
+	qupv3_se2_2uart: qcom,qup_uart@0x988000 {
+		compatible = "qcom,msm-geni-console";
+		reg = <0x988000 0x4000>;
+		reg-names = "se_phys";
+		clock-names = "se-clk", "m-ahb", "s-ahb";
+		clocks = <&clock_gcc GCC_QUPV3_WRAP0_S2_CLK>,
+			<&clock_gcc GCC_QUPV3_WRAP_0_M_AHB_CLK>,
+			<&clock_gcc GCC_QUPV3_WRAP_0_S_AHB_CLK>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&qupv3_se2_2uart_active>;
+		pinctrl-1 = <&qupv3_se2_2uart_sleep>;
+		interrupts = <GIC_SPI 603 IRQ_TYPE_LEVEL_HIGH>;
+		qcom,wrapper-core = <&qupv3_0>;
+		status = "disabled";
+	};
+};

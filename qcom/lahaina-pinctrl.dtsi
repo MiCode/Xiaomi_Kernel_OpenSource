@@ -8,6 +8,62 @@
 		interrupt-controller;
 		#interrupt-cells = <2>;
 		wakeup-parent = <&pdc>;
+
+		qupv3_se3_2uart_pins: qupv3_se3_2uart_pins {
+			qupv3_se3_2uart_active: qupv3_se3_2uart_active {
+				mux {
+					pins = "gpio18", "gpio19";
+					function = "qup3";
+				};
+
+				config {
+					pins = "gpio18", "gpio19";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se3_2uart_sleep: qupv3_se3_2uart_sleep {
+				mux {
+					pins = "gpio18", "gpio19";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio18", "gpio19";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+		};
+
+		qupv3_se2_2uart_pins: qupv3_se2_2uart_pins {
+			qupv3_se2_2uart_active: qupv3_se2_2uart_active {
+				mux {
+					pins = "gpio14", "gpio15";
+					function = "qup2";
+				};
+
+				config {
+					pins = "gpio14", "gpio15";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se2_2uart_sleep: qupv3_se2_2uart_sleep {
+				mux {
+					pins = "gpio14", "gpio15";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio14", "gpio15";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+		};
 	};
 
 	cam_sensor_mclk0_active: cam_sensor_mclk0_active {
