@@ -1669,14 +1669,24 @@ static void mm2nd_vio_handler(void __iomem *infracfg,
 
 void devapc_catch_illegal_range(phys_addr_t phys_addr, size_t size)
 {
+	phys_addr_t test_pa = 0x17a54c50;
+
 	/*
 	 * Catch BROM addr mapped
 	 */
 	if (phys_addr >= 0x0 && phys_addr < SRAM_START_ADDR) {
-		pr_err(PFX "%s: %s %s:(%pa), %s:(0x%lx)\n",
+		pr_err(PFX "%s %s:(%pa), %s:(0x%lx)\n",
 				"catch BROM address mapped!",
-				__func__, "phys_addr", &phys_addr,
+				"phys_addr", &phys_addr,
 				"size", size);
+		BUG_ON(1);
+	}
+
+	if ((phys_addr <= test_pa) && (phys_addr + size > test_pa)) {
+		pr_err(PFX "%s %s:(%pa), %s:(0x%lx), %s:(%pa)\n",
+				"catch VENCSYS address mapped!",
+				"phys_addr", &phys_addr,
+				"size", size, "test_pa", &test_pa);
 		BUG_ON(1);
 	}
 }
