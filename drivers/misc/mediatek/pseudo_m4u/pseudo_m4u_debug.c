@@ -717,10 +717,14 @@ static int m4u_debug_set(void *data, u64 val)
 	case 18:
 	{
 		int i, j;
-		unsigned int wr = 1, vir = 1, io = 0, bit32 = 0;
-		unsigned int start = 0x1000, end = 0xffffffff;
-		unsigned int port_mask = 0xffffffff;
-		unsigned int larb_mask = 0xffffffff;
+		unsigned int wr = 1; /*0:read, 1:write*/
+		unsigned int vir = 1; /*0:pa, 1:iova*/
+		unsigned int io = 0; /*0:RS input, 1:RS output*/
+		unsigned int bit32 = 0; /*boundary id: 0, 1, 2, 3*/
+		unsigned int start = 0x1000; /*start addr*/
+		unsigned int end = 0xffffffff; /*end addr*/
+		unsigned int port_mask = 0xffffffff; /*port list*/
+		unsigned int larb_mask = 0xffffffff; /*larb list*/
 
 		for (i = 0; i < MTK_IOMMU_M4U_COUNT; i++) {
 			for (j = 0; j < MTK_IOMMU_MMU_COUNT; j++)
