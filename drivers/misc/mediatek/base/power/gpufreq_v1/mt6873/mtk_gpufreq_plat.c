@@ -2799,7 +2799,7 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 
 #if defined(CONFIG_ARM64) && defined(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES)
 	if (strstr(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES,
-						"k6873v1_64_aging") != NULL) {
+						"aging") != NULL) {
 		gpufreq_pr_info("@%s: AGING flavor name: %s\n",
 			__func__, CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES);
 		g_aging_enable = 1;
