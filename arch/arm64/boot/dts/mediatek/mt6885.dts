@@ -4933,8 +4933,8 @@ page_owner=on";
 
 	venc@17000000 {
 		compatible = "mediatek,mt6885-vcodec-enc";
-		reg = <0 0x17000000 0 0x10000>,
-			<0 0x17020000 0 0x1000>;
+		reg = <0 0x17020000 0 0x2000>,
+			<0 0x17820000 0 0x2000>;
 #ifdef CONFIG_MTK_IOMMU_V2
 		iommus = <&iommu0 M4U_PORT_L7_VENC_RD_COMV_DISP>;
 #endif

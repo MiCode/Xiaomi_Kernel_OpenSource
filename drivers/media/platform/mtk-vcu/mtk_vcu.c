@@ -669,6 +669,20 @@ static void vcu_gce_flush_callback(struct cmdq_cb_data data)
 	kfree(buff);
 }
 
+static void vcu_gce_timeout_callback(struct cmdq_cb_data data)
+{
+	struct gce_callback_data *buff;
+	struct mtk_vcu *vcu;
+
+	buff = (struct gce_callback_data *)data.data;
+	vcu = buff->vcu_ptr;
+	pr_debug("%s: buff %p vcu: %p, codec_typ: %d\n",
+		__func__, buff, vcu, buff->cmdq_buff.codec_type);
+
+	if (buff->cmdq_buff.codec_type == VCU_VENC)
+		mtk_vcodec_enc_timeout_dump(vcu->curr_ctx[VCU_VENC]);
+}
+
 static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 {
 	int i, j, ret;
@@ -768,13 +782,6 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 	}
 	buff->pkt_ptr = pkt_ptr;
 
-	/* clear all registered event */
-	for (i = 0; i < GCE_EVENT_MAX; i++) {
-		if (vcu->gce_codec_eid[i] != -1)
-			cmdq_pkt_clear_event(pkt_ptr,
-				vcu->gce_codec_eid[i]);
-	}
-
 	if (cmds->cmd_cnt >= VCODEC_CMDQ_CMD_MAX) {
 		pr_info("[VCU] cmd_cnt (%d) overflow!!\n", cmds->cmd_cnt);
 		cmds->cmd_cnt = VCODEC_CMDQ_CMD_MAX;
@@ -785,6 +792,9 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 			cmds->addr[i], cmds->data[i],
 			cmds->mask[i]);
 	}
+
+	pkt_ptr->err_cb.cb = vcu_gce_timeout_callback;
+	pkt_ptr->err_cb.data = (void *)buff;
 
 	/* flush cmd async */
 	cmdq_pkt_flush_threaded(pkt_ptr,

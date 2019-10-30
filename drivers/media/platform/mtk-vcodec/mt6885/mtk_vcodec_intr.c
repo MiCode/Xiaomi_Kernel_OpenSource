@@ -267,3 +267,46 @@ int mtk_vcodec_enc_irq_setup(struct platform_device *pdev,
 }
 EXPORT_SYMBOL(mtk_vcodec_enc_irq_setup);
 
+
+void mtk_vcodec_enc_timeout_dump(void *ctx)
+{
+	unsigned long value;
+	int i = 0, j = 0;
+
+	struct mtk_vcodec_ctx *curr_ctx = ctx;
+	struct mtk_vcodec_dev *dev = curr_ctx->dev;
+
+	#define REG1_COUNT 13
+	#define REG2_COUNT 19
+	unsigned int Reg_1[REG1_COUNT] = {
+		0x14, 0xEC, 0x1C0, 0x1168, 0x11C0,
+		0x11C4, 0xF4, 0x5C, 0x60, 0x130,
+		0x24, 0x114C, 0x1164};
+	unsigned int Reg_2[REG2_COUNT] = {
+		0xEC, 0x200, 0x204, 0x208,
+		0x20C, 0x218, 0x21C, 0x228,
+		0x22C, 0x230, 0xF4, 0x1168,
+		0x11C0, 0x11C4, 0x1030, 0x240,
+		0x248, 0x250, 0x130};
+
+	for (j = 0; j < MTK_VENC_HW_NUM; j++) {
+		for (i = 0; i < REG1_COUNT; i++) {
+			value = readl(dev->enc_reg_base[j] + Reg_1[i]);
+			mtk_v4l2_debug(0, "[%d] 0x%x = 0x%lx",
+			    j, Reg_1[i], value);
+		}
+	}
+	writel(1, dev->enc_reg_base[0] + 0xEC);
+	writel(1, dev->enc_reg_base[1] + 0xEC);
+	writel(0, dev->enc_reg_base[0] + 0xF4);
+	writel(0, dev->enc_reg_base[1] + 0xF4);
+
+	for (j = 0; j < MTK_VENC_HW_NUM; j++) {
+		for (i = 0; i < REG2_COUNT; i++) {
+			value = readl(dev->enc_reg_base[j] + Reg_2[i]);
+			mtk_v4l2_debug(0, "[%d] 0x%x = 0x%lx",
+			    j, Reg_2[i], value);
+		}
+	}
+}
+EXPORT_SYMBOL(mtk_vcodec_enc_timeout_dump);

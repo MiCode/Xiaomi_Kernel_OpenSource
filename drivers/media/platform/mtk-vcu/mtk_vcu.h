@@ -276,4 +276,5 @@ extern void venc_encode_pmqos_gce_begin(void *ctx_begin,
 		int core_id, int job_cnt);
 extern void venc_encode_pmqos_gce_end(void *ctx_end,
 		int core_id, int job_cnt);
+extern void mtk_vcodec_enc_timeout_dump(void *ctx);
 #endif /* _MTK_VCU_H */

@@ -67,8 +67,8 @@ enum mtk_dec_dtsi_reg_idx {
 };
 
 enum mtk_enc_dtsi_reg_idx {
-	VENC_LT_SYS,
 	VENC_SYS,
+	VENC_C1_SYS,
 	NUM_MAX_VENC_REG_BASE
 };
 
