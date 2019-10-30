@@ -672,10 +672,21 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 #endif
 
 #define MTK_IOMMU_PAGE_TABLE_SHARE (1)
+
 #define IOMMU_POWER_CLK_SUPPORT
-#define MTK_M4U_SECURE_IRQ_SUPPORT
 #ifdef IOMMU_POWER_CLK_SUPPORT
 #define MTK_IOMMU_LOW_POWER_SUPPORT
+#endif
+
+
+#if (defined(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
+	defined(CONFIG_MICROTRUST_TEE_SUPPORT)) && \
+	defined(CONFIG_MTK_TEE_GP_SUPPORT)
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+#define MTK_M4U_SECURE_IRQ_SUPPORT
+#elif defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+#define MTK_M4U_SECURE_IRQ_SUPPORT
+#endif
 #endif
 
 #endif

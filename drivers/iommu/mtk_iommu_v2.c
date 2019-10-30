@@ -607,6 +607,12 @@ int mtk_iommu_dump_reg(int m4u_id, unsigned int start, unsigned int end)
 	return 0;
 }
 
+static unsigned int g_iommu_power_support;
+unsigned int mtk_iommu_power_support(void)
+{
+	return g_iommu_power_support;
+}
+
 #ifdef IOMMU_POWER_CLK_SUPPORT
 static int mtk_iommu_hw_clock_power_switch(const struct mtk_iommu_data *data,
 			bool enable, char *master, bool is_clk)
@@ -1210,7 +1216,7 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 			WARN_ON(1);
 			return 0;
 		}
-		pseudo_dump_port(port_id, true);
+		/*pseudo_dump_port(port_id, true);*/
 
 		regval = readl_relaxed(data->base +
 					REG_MMU_FAULT_STATUS(slave_id));
@@ -3375,8 +3381,10 @@ static int mtk_iommu_reg_backup(struct mtk_iommu_data *data)
 	reg->ivrp_paddr = readl_relaxed(base +
 					   REG_MMU_TFRP_PADDR);
 	if (g_secure_status[data->m4uid]) {
+#ifdef MTK_M4U_SECURE_IRQ_SUPPORT
 		ret = mtk_iommu_atf_call(IOMMU_ATF_SECURITY_BACKUP,
 				   data->m4uid, 4);
+#endif
 		if (!ret)
 			mau_reg_backup(data);
 	}
@@ -3401,8 +3409,10 @@ static int mtk_iommu_reg_restore(struct mtk_iommu_data *data)
 	}
 
 	if (g_secure_status[data->m4uid]) {
+#ifdef MTK_M4U_SECURE_IRQ_SUPPORT
 		ret = mtk_iommu_atf_call(IOMMU_ATF_SECURITY_RESTORE,
 				   data->m4uid, 4);
+#endif
 		if (!ret)
 			mau_reg_restore(data);
 	}
@@ -3700,6 +3710,7 @@ static s32 mtk_iommu_clks_get(struct mtk_iommu_data *data)
 	}
 #endif
 	data->m4u_clks = m4u_clks;
+	g_iommu_power_support = 1;
 
 	return 0;
 
@@ -3715,6 +3726,7 @@ free_clks:
 	return ret;
 
 #else
+	g_iommu_power_support = 0;
 	return 0;
 #endif
 }
@@ -3996,11 +4008,6 @@ static int mtk_iommu_suspend(struct device *dev)
 	 * for IOMMU of DISP and MDP, do power off at suspend
 	 * for IOMMU of APU, power off is controlled by APU
 	 */
-#ifdef APU_IOMMU_INDEX
-	if (data->m4uid >= APU_IOMMU_INDEX)
-		return 0;
-#endif
-
 	ret = mtk_iommu_reg_backup(data);
 	if (ret)
 		pr_notice("%s, %d, iommu:%d, backup failed %d\n",
@@ -4027,11 +4034,6 @@ static int mtk_iommu_resume(struct device *dev)
 	 * for IOMMU of DISP and MDP, do power on at suspend
 	 * for IOMMU of APU, power on is controlled by APU
 	 */
-#ifdef APU_IOMMU_INDEX
-	if (data->m4uid >= APU_IOMMU_INDEX)
-		return 0;
-#endif
-
 	ret = mtk_iommu_power_switch(data, true, "iommu_resume");
 	if (ret)
 		pr_notice("%s, failed to power switch on\n", __func__);

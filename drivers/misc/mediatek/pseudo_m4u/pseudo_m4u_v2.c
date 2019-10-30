@@ -2874,9 +2874,16 @@ out:
 	m4u_sec_ctx_put(ctx);
 	return ret;
 }
+
 static void m4u_early_suspend(void)
 {
 	int i = 0;
+
+	if (mtk_iommu_power_support()) {
+		M4U_MSG("%s , iommu pg callback supported\n",
+			__func__);
+		return;
+	}
 
 	M4U_MSG("%s +, %d\n", __func__, m4u_tee_en);
 
@@ -2896,6 +2903,12 @@ static void m4u_early_suspend(void)
 static void m4u_late_resume(void)
 {
 	int i = 0;
+
+	if (mtk_iommu_power_support()) {
+		M4U_MSG("%s , iommu pg callback supported\n",
+			__func__);
+		return;
+	}
 
 	M4U_MSG("%s +, %d\n", __func__, m4u_tee_en);
 
@@ -3298,12 +3311,15 @@ static int pseudo_probe(struct platform_device *pdev)
 	}
 
 #ifdef PSEUDO_M4U_TEE_SERVICE_ENABLE
-	m4u_fb_notifier.notifier_call = m4u_fb_notifier_callback;
-	ret = fb_register_client(&m4u_fb_notifier);
-	if (ret)
-		M4U_MSG("m4u register fb_notifier failed! ret(%d)\n", ret);
-	else
-		M4U_MSG("m4u register fb_notifier OK!\n");
+	if (!mtk_iommu_power_support()) {
+		m4u_fb_notifier.notifier_call = m4u_fb_notifier_callback;
+		ret = fb_register_client(&m4u_fb_notifier);
+		if (ret)
+			M4U_MSG("err fb_notifier failed! ret(%d)\n", ret);
+		else
+			M4U_MSG("register fb_notifier OK!\n");
+	} else
+		M4U_MSG("pg_callback replace fb_notifier\n");
 #endif
 	pseudo_get_m4u_client();
 	if (IS_ERR_OR_NULL(ion_m4u_client)) {
