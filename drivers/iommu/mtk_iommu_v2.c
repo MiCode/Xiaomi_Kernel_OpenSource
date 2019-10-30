@@ -907,16 +907,18 @@ void mtk_iommu_dump_iova_space(unsigned long target)
 	pr_notice("========= %s-- ============\n", __func__);
 }
 
-static void mtk_iommu_tlb_flush_all(void *cookie)
+static void mtk_iommu_tlb_flush_all_lock(void *cookie, bool lock)
 {
 	struct mtk_iommu_data *data, *temp;
 	int i = 0;
 	unsigned long flags;
 
 	list_for_each_entry_safe(data, temp, &m4ulist, list) {
-		spin_lock_irqsave(&data->reg_lock, flags);
+		if (lock)
+			spin_lock_irqsave(&data->reg_lock, flags);
 		__mtk_iommu_tlb_flush_all(data);
-		spin_unlock_irqrestore(&data->reg_lock, flags);
+		if (lock)
+			spin_unlock_irqrestore(&data->reg_lock, flags);
 		if (++i >= total_iommu_cnt)
 			return;  //do not while loop if m4ulist is destroyed
 	}
@@ -975,14 +977,16 @@ void mtk_iommu_dump_iova_space(unsigned long iova)
 	}
 }
 
-static void mtk_iommu_tlb_flush_all(void *cookie)
+static void mtk_iommu_tlb_flush_all_lock(void *cookie, bool lock)
 {
 	struct mtk_iommu_data *data = cookie->data;
 	unsigned long flags;
 
-	spin_lock_irqsave(&data->reg_lock, flags);
+	if (lock)
+		spin_lock_irqsave(&data->reg_lock, flags);
 	__mtk_iommu_tlb_flush_all(data);
-	spin_unlock_irqrestore(&data->reg_lock, flags);
+	if (lock)
+		spin_unlock_irqrestore(&data->reg_lock, flags);
 }
 
 static void mtk_iommu_tlb_add_flush_nosync(unsigned long iova,
@@ -1005,6 +1009,11 @@ static void mtk_iommu_tlb_sync(void *cookie)
 			  __func__, data->m4uid);
 }
 #endif
+
+static void mtk_iommu_tlb_flush_all(void *cookie)
+{
+	mtk_iommu_tlb_flush_all_lock(cookie, true);
+}
 
 static void mtk_iommu_iotlb_flush_all(struct iommu_domain *domain)
 {
@@ -1142,10 +1151,8 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 		return 0;
 	}
 
-	spin_lock_irqsave(&data->reg_lock, flags);
 #ifdef IOMMU_POWER_CLK_SUPPORT
 	if (!data->poweron) {
-		spin_unlock_irqrestore(&data->reg_lock, flags);
 		return 0;
 	}
 #endif
@@ -1153,10 +1160,8 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	int_state_l2 = readl_relaxed(data->base + REG_MMU_L2_FAULT_ST);
 	int_state = readl_relaxed(data->base + REG_MMU_FAULT_ST1);
 
-	if (!int_state_l2 && !int_state) {
-		spin_unlock_irqrestore(&data->reg_lock, flags);
+	if (!int_state_l2 && !int_state)
 		return 0;
-	}
 
 	pr_notice("iommu L2 int sta=0x%x, main sta=0x%x\n",
 		  int_state_l2, int_state);
@@ -1220,7 +1225,6 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 		iommu_set_field_by_mask(data->base, REG_MMU_INT_CONTROL0,
 					F_INT_CTL0_INT_CLR,
 					F_INT_CTL0_INT_CLR);
-		spin_unlock_irqrestore(&data->reg_lock, flags);
 		return 0;
 	}
 
@@ -1235,7 +1239,6 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 			  fault_larb, fault_port, int_id);
 
 		if (port_id < 0) {
-			spin_unlock_irqrestore(&data->reg_lock, flags);
 			WARN_ON(1);
 			return 0;
 		}
@@ -1258,7 +1261,6 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 		domain = __mtk_iommu_get_domain(data,
 					fault_larb, fault_port);
 		if (!domain) {
-			spin_unlock_irqrestore(&data->reg_lock, flags);
 			WARN_ON(1);
 			return 0;
 		}
@@ -1344,10 +1346,9 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	regval |= F_INT_CTL0_INT_CLR;
 	writel_relaxed(regval, data->base + REG_MMU_INT_CONTROL0);
 
-	mtk_iommu_tlb_flush_all(data);
+	mtk_iommu_tlb_flush_all_lock(data, false);
 	mtk_iommu_isr_record(data);
 
-	spin_unlock_irqrestore(&data->reg_lock, flags);
 	return IRQ_HANDLED;
 }
 
