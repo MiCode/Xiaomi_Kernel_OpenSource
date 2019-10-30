@@ -3880,7 +3880,9 @@ static int mtk_ddp_probe(struct platform_device *pdev)
 			       IRQF_TRIGGER_NONE | IRQF_SHARED, dev_name(dev),
 			       ddp);
 	if (ret < 0) {
-		dev_err(dev, "Failed to request irq %d: %d\n", irq, ret);
+		DDPAEE("%s:%d, failed to request irq:%d ret:%d\n",
+				__func__, __LINE__,
+				irq, ret);
 		return ret;
 	}
 

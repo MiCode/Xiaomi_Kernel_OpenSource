@@ -2895,7 +2895,9 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 		&pdev->dev, irq_num, dsi->driver_data->irq_handler,
 		IRQF_TRIGGER_NONE | IRQF_SHARED, dev_name(&pdev->dev), dsi);
 	if (ret) {
-		dev_err(&pdev->dev, "failed to request mediatek dsi irq\n");
+		DDPAEE("%s:%d, failed to request irq:%d ret:%d\n",
+				__func__, __LINE__,
+				irq_num, ret);
 		ret = -EPROBE_DEFER;
 		goto error;
 	}
