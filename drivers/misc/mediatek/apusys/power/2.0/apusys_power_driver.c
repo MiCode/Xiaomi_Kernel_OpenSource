@@ -133,6 +133,9 @@ bool apu_get_power_on_status(enum DVFS_USER user)
 	bool power_on_status;
 	struct power_device *pwr_dev = find_out_device_by_user(user);
 
+	if (pwr_dev == NULL)
+		return false;
+
 	mutex_lock(&power_ctl_mtx);
 	power_on_status = pwr_dev->is_power_on;
 	mutex_unlock(&power_ctl_mtx);

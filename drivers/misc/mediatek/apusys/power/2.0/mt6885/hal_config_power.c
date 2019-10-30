@@ -18,6 +18,8 @@
 #include "apusys_power_reg.h"
 #include "apu_log.h"
 #include <helio-dvfsrc-opp.h>
+#define CREATE_TRACE_POINTS
+#include "apu_power_events.h"
 
 static int is_apu_power_initilized;
 static int force_pwr_on = 1;
@@ -564,6 +566,7 @@ static void get_current_power_info(void *param)
 {
 	struct apu_power_info *info = ((struct apu_power_info *)param);
 	char log_str[60];
+	unsigned int mdla_0 = 0, mdla_1 = 0;
 
 	info->dump_div = 1000;
 
@@ -573,6 +576,9 @@ static void get_current_power_info(void *param)
 	// including APUsys related freq
 	dump_frequency(info);
 
+	mdla_0 = (apu_get_power_on_status(MDLA0)) ? info->dsp6_freq : 0;
+	mdla_1 = (apu_get_power_on_status(MDLA1)) ? info->dsp6_freq : 0;
+
 	snprintf(log_str, sizeof(log_str),
 			"v[%u,%u,%u,%u]f[%u,%u,%u,%u,%u,%u,%u,%u]%llu",
 			info->vvpu, info->vmdla, info->vcore, info->vsram,
@@ -580,7 +586,7 @@ static void get_current_power_info(void *param)
 			info->dsp3_freq, info->dsp6_freq, info->dsp7_freq,
 			info->apupll_freq, info->ipuif_freq, info->id);
 
-	// TODO: return value to MET
+	trace_APUSYS_DFS(info, mdla_0, mdla_1);
 
 	LOG_WRN("APUPWR %s\n", log_str);
 }
