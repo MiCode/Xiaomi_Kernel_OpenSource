@@ -1249,14 +1249,20 @@ void mm_qos_update_all_request(struct plist_head *owner_list)
 		max_ch_srt_bw = 0;
 		max_ch_hrt_bw = 0;
 		for (i = 0; i < MAX_CH_COUNT; i++) {
+			/* channel_hrt_bw[] doesn't contain disp HRT BW, so
+			 * add one HRT BW to it if disp HRT count > 0
+			 */
 			final_chn_hrt_bw[comm][i] =
 				channel_disp_hrt_cnt[comm][i] > 0 ?
 				channel_hrt_bw[comm][i] +
 					larb_req[SMI_PMQOS_LARB_DEC(
 					PORT_VIRTUAL_DISP)].total_hrt_data :
 				channel_hrt_bw[comm][i];
+			/* Remove redundent disp HRT BW because channel_bw[]
+			 * contains sum of HRT BW reported by each disp port
+			 */
 			final_chn_srt_bw[comm][i] =
-				channel_disp_hrt_cnt[comm][i] > 1 ?
+				channel_disp_hrt_cnt[comm][i] > 0 ?
 				channel_bw[comm][i] -
 					(channel_disp_hrt_cnt[comm][i]-1) *
 					larb_req[SMI_PMQOS_LARB_DEC(
