@@ -89,7 +89,7 @@ struct mddp_drv_handle_t {
 // Public function definition.
 // -----------------------------------------------------------------------------
 /* MD to AP CCCI_IPC callback function */
-int mddp_md_msg_hdlr(void *in_ilm);
+int32_t mddp_md_msg_hdlr(void *arg);
 
 //------------------------------------------------------------------------------
 // Public function definition - For driver

@@ -69,53 +69,6 @@ int32_t _mddp_ct_update(struct ipc_ilm *ilm)
 //------------------------------------------------------------------------------
 // Public functions.
 //------------------------------------------------------------------------------
-int32_t mddp_md_msg_hdlr(void *in_ilm)
-{
-	int32_t          ret = 0;
-	struct ipc_ilm  *ilm;
-
-	ilm = (struct ipc_ilm *)in_ilm;
-
-	switch (ilm->msg_id) {
-#if defined CONFIG_MTK_MDDP_USB_SUPPORT
-	case IPC_MSG_ID_UFPM_ENABLE_MD_FAST_PATH_RSP:
-	case IPC_MSG_ID_UFPM_DISABLE_MD_FAST_PATH_RSP:
-	case IPC_MSG_ID_UFPM_ACTIVATE_MD_FAST_PATH_RSP:
-	case IPC_MSG_ID_UFPM_DEACTIVATE_MD_FAST_PATH_RSP:
-	case IPC_MSG_ID_UFPM_DEACTIVATE_MD_FAST_PATH_IND:
-	case IPC_MSG_ID_UFPM_SEND_MD_USB_EP0_RSP:
-	case IPC_MSG_ID_UFPM_SEND_AP_USB_EP0_IND:
-		ret = mddp_sm_msg_hdlr(MDDP_APP_TYPE_USB, ilm);
-		break;
-#endif
-
-#if defined CONFIG_MTK_MDDP_WH_SUPPORT || defined CONFIG_MTK_MCIF_WIFI_SUPPORT
-	case IPC_MSG_ID_WFPM_ENABLE_MD_FAST_PATH_RSP:
-	case IPC_MSG_ID_WFPM_DISABLE_MD_FAST_PATH_RSP:
-	case IPC_MSG_ID_WFPM_DEACTIVATE_MD_FAST_PATH_RSP:
-	case IPC_MSG_ID_WFPM_DEACTIVATE_MD_FAST_PATH_IND:
-	case IPC_MSG_ID_WFPM_ACTIVATE_MD_FAST_PATH_RSP:
-	case IPC_MSG_ID_WFPM_MD_NOTIFY:
-	case IPC_MSG_ID_WFPM_RESET_IND:
-		ret = mddp_sm_msg_hdlr(MDDP_APP_TYPE_WH, ilm);
-		break;
-#endif
-#if defined MDDP_TETHERING_SUPPORT
-	case IPC_MSG_ID_MDT_DATA_USAGE_CMD:
-		ret = mddp_u_msg_hdlr(ilm);
-		break;
-#endif
-	case IPC_MSG_ID_DPFM_CT_TIMEOUT_IND:
-		ret = _mddp_ct_update(ilm);
-		break;
-	default:
-		break;
-	}
-
-	return ret;
-}
-EXPORT_SYMBOL_GPL(mddp_md_msg_hdlr);
-
 int32_t mddp_drv_attach(
 	struct mddp_drv_conf_t *conf,
 	struct mddp_drv_handle_t *handle)
@@ -315,6 +268,10 @@ static int __init mddp_init(void)
 	if (ret < 0)
 		goto _init_fail;
 
+	ret = mddp_ipc_init();
+	if (ret < 0)
+		goto _init_fail;
+
 	ret = mddp_dev_init();
 	if (ret < 0)
 		goto _init_fail;
@@ -339,6 +296,7 @@ static void __exit mddp_exit(void)
 	mddp_usage_uninit();
 	mddp_filter_uninit();
 	mddp_dev_uninit();
+	mddp_ipc_uninit();
 	mddp_sm_uninit();
 }
 module_init(mddp_init);

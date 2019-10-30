@@ -17,6 +17,7 @@
 
 #include "mddp_sm.h"
 #include "mddp_ipc.h"
+#include "mddp_usage.h"
 
 //------------------------------------------------------------------------------
 // Struct definition.
@@ -76,8 +77,7 @@ void _mddp_send_msg_to_md_wq(struct work_struct *in_work)
 		list_del(&md_msg->list);
 		MDDP_SM_UNLOCK(md_queue->locker);
 
-		mddp_ipc_send_md(app, md_msg, -1);
-		kfree(md_msg);
+		mddp_ipc_send_md(app, md_msg, MDFPM_USER_ID_NULL);
 
 		MDDP_SM_LOCK(md_queue->locker);
 	}
@@ -314,26 +314,54 @@ enum mddp_state_e mddp_sm_on_event(struct mddp_app_t *app,
 	return new_state;
 }
 
-int32_t mddp_sm_msg_hdlr(enum mddp_app_type_e type, struct ipc_ilm *ilm)
+int32_t mddp_sm_msg_hdlr(
+		uint32_t user_id,
+		uint32_t msg_id,
+		void *buf,
+		uint32_t buf_len)
 {
-	struct mddp_app_t      *app;
+	struct mddp_app_t      *app = NULL;
 	int32_t                 ret;
 
-	app = mddp_get_app_inst(type);
+	switch (user_id) {
+#if defined CONFIG_MTK_MDDP_USB_SUPPORT
+	case MDFPM_USER_ID_UFPM:
+		app = mddp_get_app_inst(MDDP_APP_TYPE_USB);
+		break;
+#endif
+
+#if defined CONFIG_MTK_MDDP_WH_SUPPORT || defined CONFIG_MTK_MCIF_WIFI_SUPPORT
+	case MDFPM_USER_ID_WFPM:
+		app = mddp_get_app_inst(MDDP_APP_TYPE_WH);
+		break;
+#endif
+
+#if defined MDDP_TETHERING_SUPPORT
+	case MDFPM_USER_ID_DPFM:
+		return mddp_u_msg_hdlr(msg_id, buf, buf_len);
+#endif
+
+	default:
+		/*
+		 * NG. Receive invalid ctrl_msg!
+		 */
+		pr_notice("%s: Unaccepted user_id(%d)!\n", __func__, user_id);
+		return -ENODEV;
+	}
 
 	/*
 	 * OK. This app_type is configured.
 	 */
-	if (app->is_config) {
-		ret = app->md_recv_msg_hdlr(ilm);
+	if (app && app->is_config) {
+		ret = app->md_recv_msg_hdlr(msg_id, buf, buf_len);
 		return ret;
 	}
 
 	/*
 	 * NG. This app_type is not configured!
 	 */
-	pr_notice("%s: Unaccepted msg(%d) on app_type(%d)!\n",
-			__func__, ilm->msg_id, type);
+	pr_notice("%s: app is not configured, app(%p), user_id(%d), msg_id(%d)!\n",
+			__func__, app, user_id, msg_id);
 	return -ENODEV;
 }
 

@@ -37,13 +37,8 @@ static struct ufpm_deactivate_md_func_rsp_t deact_rsp_metadata_s;
 // Private variables.
 //------------------------------------------------------------------------------
 static struct mddp_md_cfg_t mddpu_md_cfg_s = {
-#if 0 // <TODO> CCCI TTY
-	AP_MOD_MDDP, /* ipc_ap_mod_id */
-	MD_MOD_UFPM, /*ipc_md_mod_id */
-#else
-	1,
-	2,
-#endif
+	MDFPM_AP_USER_ID,
+	MDFPM_USER_ID_UFPM,
 };
 
 //------------------------------------------------------------------------------
@@ -106,7 +101,6 @@ void mddpu_sm_enable(struct mddp_app_t *app)
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) + sizeof(enable_req),
 			GFP_ATOMIC);
 	if (unlikely(!md_msg)) {
-		//pr_notice("%s: failed to alloc md_msg bug!\n", __func__);
 		WARN_ON(1);
 		return;
 	}
@@ -114,7 +108,7 @@ void mddpu_sm_enable(struct mddp_app_t *app)
 	md_msg->msg_id = IPC_MSG_ID_UFPM_ENABLE_MD_FAST_PATH_REQ;
 	md_msg->data_len = sizeof(enable_req);
 	memcpy(md_msg->data, &enable_req, sizeof(enable_req));
-	mddp_ipc_send_md(app, md_msg, -1);
+	mddp_ipc_send_md(app, md_msg, MDFPM_USER_ID_NULL);
 }
 
 void mddpu_sm_rsp_enable_ok(struct mddp_app_t *app)
@@ -179,7 +173,6 @@ void mddpu_sm_disable(struct mddp_app_t *app)
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) + sizeof(disable_req),
 			GFP_ATOMIC);
 	if (unlikely(!md_msg)) {
-		//pr_notice("%s: failed to alloc md_msg bug!\n", __func__);
 		WARN_ON(1);
 		return;
 	}
@@ -187,7 +180,7 @@ void mddpu_sm_disable(struct mddp_app_t *app)
 	md_msg->msg_id = IPC_MSG_ID_UFPM_DISABLE_MD_FAST_PATH_REQ;
 	md_msg->data_len = sizeof(disable_req);
 	memcpy(md_msg->data, &disable_req, sizeof(disable_req));
-	mddp_ipc_send_md(app, md_msg, -1);
+	mddp_ipc_send_md(app, md_msg, MDFPM_USER_ID_NULL);
 }
 
 void mddpu_sm_drv_disable(struct mddp_app_t *app)
@@ -202,7 +195,6 @@ void mddpu_sm_drv_disable(struct mddp_app_t *app)
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) + sizeof(disable_req),
 			GFP_ATOMIC);
 	if (unlikely(!md_msg)) {
-		//pr_notice("%s: failed to alloc md_msg bug!\n", __func__);
 		WARN_ON(1);
 		return;
 	}
@@ -210,7 +202,7 @@ void mddpu_sm_drv_disable(struct mddp_app_t *app)
 	md_msg->msg_id = IPC_MSG_ID_UFPM_DISABLE_MD_FAST_PATH_REQ;
 	md_msg->data_len = sizeof(disable_req);
 	memcpy(md_msg->data, &disable_req, sizeof(disable_req));
-	mddp_ipc_send_md(app, md_msg, -1);
+	mddp_ipc_send_md(app, md_msg, MDFPM_USER_ID_NULL);
 }
 
 void mddpu_sm_rsp_disable(struct mddp_app_t *app)
@@ -257,7 +249,6 @@ void mddpu_sm_act(struct mddp_app_t *app)
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) + usb_buf_len,
 			GFP_ATOMIC);
 	if (unlikely(!md_msg)) {
-		//pr_notice("%s: failed to alloc md_msg bug!\n", __func__);
 		WARN_ON(1);
 		return;
 	}
@@ -265,7 +256,7 @@ void mddpu_sm_act(struct mddp_app_t *app)
 	md_msg->msg_id = IPC_MSG_ID_UFPM_ACTIVATE_MD_FAST_PATH_REQ;
 	md_msg->data_len = usb_buf_len;
 	memcpy(md_msg->data, &usb_buf, usb_buf_len);
-	mddp_ipc_send_md(app, md_msg, -1);
+	mddp_ipc_send_md(app, md_msg, MDFPM_USER_ID_NULL);
 }
 
 void mddpu_sm_rsp_act_ok(struct mddp_app_t *app)
@@ -329,7 +320,6 @@ void mddpu_sm_deact(struct mddp_app_t *app)
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) + usb_buf_len,
 			GFP_ATOMIC);
 	if (unlikely(!md_msg)) {
-		//pr_notice("%s: failed to alloc md_msg bug!\n", __func__);
 		WARN_ON(1);
 		return;
 	}
@@ -337,7 +327,7 @@ void mddpu_sm_deact(struct mddp_app_t *app)
 	md_msg->msg_id = IPC_MSG_ID_UFPM_DEACTIVATE_MD_FAST_PATH_REQ;
 	md_msg->data_len = usb_buf_len;
 	memcpy(md_msg->data, &usb_buf, usb_buf_len);
-	mddp_ipc_send_md(app, md_msg, -1);
+	mddp_ipc_send_md(app, md_msg, MDFPM_USER_ID_NULL);
 }
 
 void mddpu_sm_rsp_deact(struct mddp_app_t *app)
@@ -455,15 +445,13 @@ struct mddp_sm_entry_t *mddpu_state_machines_s[MDDP_STATE_CNT] = {
 //------------------------------------------------------------------------------
 // Public functions.
 //------------------------------------------------------------------------------
-int32_t mddpu_ufpm_msg_hdlr(struct ipc_ilm *ilm)
+int32_t mddpu_ufpm_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
 {
 	struct mddp_app_t                      *app;
 	struct mddp_ilm_common_rsp_t           *rsp;
 	struct ufpm_enable_md_func_rsp_t       *enable_rsp;
 
-	//pr_info("%s: Handle ilm from UFPM.\n", __func__);
-
-	rsp = (struct mddp_ilm_common_rsp_t *) ilm->local_para_ptr;
+	rsp = (mddp_ilm_common_rsp_t *) buf;
 	if (unlikely(rsp->rsp.mode != UFPM_FUNC_MODE_TETHER)) {
 		pr_notice("%s: Wrong mode(%d)!\n",
 				__func__, rsp->rsp.mode);
@@ -472,10 +460,9 @@ int32_t mddpu_ufpm_msg_hdlr(struct ipc_ilm *ilm)
 
 	app = mddp_get_app_inst(MDDP_APP_TYPE_USB);
 
-	switch (ilm->msg_id) {
+	switch (msg_id) {
 	case IPC_MSG_ID_UFPM_ENABLE_MD_FAST_PATH_RSP:
-		enable_rsp = (struct ufpm_enable_md_func_rsp_t *)
-			&ilm->local_para_ptr->data[0];
+		enable_rsp = (struct ufpm_enable_md_func_rsp_t *) buf;
 		pr_info("%s: set (%u), (%u),  MD version(%u), (%u).\n",
 			__func__, enable_rsp->mode, enable_rsp->result,
 			enable_rsp->version, enable_rsp->reserved);
@@ -538,7 +525,7 @@ int32_t mddpu_ufpm_msg_hdlr(struct ipc_ilm *ilm)
 				MDDP_STATE_DEACTIVATING, true);
 
 			memcpy(&deact_rsp_metadata_s,
-					&((struct local_para *)rsp)->data[0],
+					buf,
 					sizeof(deact_rsp_metadata_s));
 		} else {
 			/* DEACT FAIL. */
@@ -548,7 +535,7 @@ int32_t mddpu_ufpm_msg_hdlr(struct ipc_ilm *ilm)
 				MDDP_STATE_DEACTIVATING, false);
 
 			memcpy(&deact_rsp_metadata_s,
-					&((struct local_para *)rsp)->data[0],
+					buf,
 					sizeof(deact_rsp_metadata_s));
 		}
 
@@ -557,22 +544,23 @@ int32_t mddpu_ufpm_msg_hdlr(struct ipc_ilm *ilm)
 	case IPC_MSG_ID_UFPM_SEND_MD_USB_EP0_RSP:
 	case IPC_MSG_ID_UFPM_SEND_AP_USB_EP0_IND:
 		/* USB event. Forward to USB driver directly. */
-		app->drv_hdlr.usb_handle->usb_event(ilm->msg_id,
-				&((struct local_para *)rsp)->data[0],
+		app->drv_hdlr.usb_handle->usb_event(msg_id,
+				buf,
 				rsp->msg_len);
 
 		break;
 
 	default:
 		pr_notice("%s: Unsupported RSP MSG_ID[%d] from UFPM.\n",
-					__func__, ilm->msg_id);
+					__func__, msg_id);
 		break;
 	}
 
-	// <TJ_TODO_2> MSG_ID_L4C_UFPM_DEACTIVATE_MD_FAST_PATH_REQ
+	// <TODO_2> MSG_ID_L4C_UFPM_DEACTIVATE_MD_FAST_PATH_REQ
 	// from ATCI for MD power off flight mode
 
 	return 0;
+
 }
 
 int32_t mddpu_drv_reg_callback(struct mddp_drv_handle_t *handle)

@@ -56,7 +56,8 @@ enum mddp_sysfs_cmd_e {
  */
 struct mddp_app_t;
 typedef void (*mddp_sm_action_t)(struct mddp_app_t *);
-typedef int32_t (*mddp_md_recv_msg_hdlr_t)(struct ipc_ilm *);
+typedef int32_t (*mddp_md_recv_msg_hdlr_t)(uint32_t msg_id,
+		void *buf, uint32_t buf_len);
 typedef int32_t (*mddp_reg_drv_cbf_t)(struct mddp_drv_handle_t *);
 typedef ssize_t (*mddp_sysfs_cbf_t)(struct mddp_app_t *app,
 				    enum mddp_sysfs_cmd_e,
@@ -75,7 +76,7 @@ struct mddp_ap_cfg_t {
 
 struct mddp_md_cfg_t {
 	uint32_t        ipc_ap_mod_id;
-	uint32_t        ipc_md_mod_id;
+	enum mdfpm_user_id_e ipc_md_user_id;
 };
 
 struct mddp_md_queue_t {
@@ -147,7 +148,9 @@ void mddp_dump_sm_table(struct mddp_app_t *app);
 #endif
 enum mddp_state_e mddp_sm_on_event(struct mddp_app_t *app,
 		enum mddp_event_e event);
-int32_t mddp_sm_msg_hdlr(enum mddp_app_type_e type, struct ipc_ilm *ilm);
+
+int32_t mddp_sm_msg_hdlr(uint32_t user_id,
+		uint32_t msg_id, void *buf, uint32_t buf_len);
 int32_t mddp_sm_reg_callback(
 	struct mddp_drv_conf_t *conf,
 	struct mddp_drv_handle_t *handle);

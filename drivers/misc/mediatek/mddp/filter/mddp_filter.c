@@ -134,7 +134,6 @@ static void mddp_f_init_table_buffer(void)
 		track_table = kmalloc(sizeof(struct mddp_f_track_table_t),
 								GFP_ATOMIC);
 		if (!track_table) {
-			//pr_notice("%s: kmalloc failed!\n", __func__);
 			continue;
 		}
 

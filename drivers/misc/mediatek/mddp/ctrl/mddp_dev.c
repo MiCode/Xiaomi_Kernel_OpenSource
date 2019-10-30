@@ -403,7 +403,6 @@ void mddp_dev_response(enum mddp_app_type_e type,
 	dev_rsp = kmalloc(sizeof(struct mddp_dev_rsp_common_t) + data_len,
 				GFP_KERNEL);
 	if (unlikely(!dev_rsp)) {
-		//pr_notice("%s: dev_rsp kmalloc fail!\n", __func__);
 		return;
 	}
 
@@ -417,7 +416,6 @@ void mddp_dev_response(enum mddp_app_type_e type,
 
 	entry = kmalloc(sizeof(struct mddp_dev_rb_t), GFP_KERNEL);
 	if (unlikely(!entry)) {
-		//pr_notice("%s: entry kmalloc fail!\n", __func__);
 		kfree(dev_rsp);
 		return;
 	}

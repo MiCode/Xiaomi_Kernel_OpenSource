@@ -74,9 +74,7 @@ void mddp_u_get_data_stats(void *buf, uint32_t *buf_len)
 	struct mddp_u_data_stats_t             *usage;
 	uint32_t                                sm_len = 0;
 
-	// <TODO> CCCI support ?
-	//md_stats = get_smem_start_addr(MD_SYS1, SMEM_USER_RAW_NETD, &sm_len);
-	md_stats = 0x0;
+	md_stats = get_smem_start_addr(MD_SYS1, SMEM_USER_RAW_NETD, &sm_len);
 
 	if (sm_len >= sizeof(struct mddp_u_data_stats_t)) {
 		usage = (struct mddp_u_data_stats_t *)buf;
@@ -134,7 +132,6 @@ int32_t mddp_u_set_data_limit(uint8_t *buf, uint32_t buf_len)
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) + sizeof(limit),
 			GFP_ATOMIC);
 	if (unlikely(!md_msg)) {
-		//pr_notice("%s: failed to alloc md_msg bug!\n", __func__);
 		WARN_ON(1);
 		return -EAGAIN;
 	}
@@ -157,22 +154,19 @@ int32_t mddp_u_set_data_limit(uint8_t *buf, uint32_t buf_len)
 		__func__, limit.cmd, limit.id, in_req->ul_dev_name,
 		limit.limit_buffer_size);
 
-	md_msg->msg_id = IPC_MSG_ID_MDT_DATA_USAGE_CMD;
+	md_msg->msg_id = IPC_MSG_ID_DPFM_DATA_USAGE_CMD;
 	md_msg->data_len = sizeof(limit);
 	memcpy(md_msg->data, &limit, sizeof(limit));
-	mddp_ipc_send_md(NULL, md_msg, MD_MOD_MDT);
+	mddp_ipc_send_md(NULL, md_msg, MDFPM_USER_ID_DPFM);
 
 	return 0;
 }
 
-
-int32_t mddp_u_msg_hdlr(void *in_ilm)
+int32_t mddp_u_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
 {
-	struct ipc_ilm                         *ilm;
 	struct mddp_u_iq_entry_t               *iq;
 
-	ilm = in_ilm;
-	iq = &((struct mddp_u_iquota_ind_t *)(ilm->local_para_ptr))->iq;
+	iq = &((struct mddp_u_iquota_ind_t *)buf)->iq;
 
 	// Send IND to upper module.
 	mddp_dev_response(MDDP_APP_TYPE_ALL, MDDP_CMCMD_LIMIT_IND,
