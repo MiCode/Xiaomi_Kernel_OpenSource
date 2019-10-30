@@ -33,9 +33,6 @@ obj-$(CONFIG_MTK_ICE_DEBUG) += ice_debug/
 obj-y += mmdvfs/
 obj-$(CONFIG_MTK_SYSTRACKER_V2)   += systracker/
 
-obj-$(CONFIG_MTK_CCCI_DEVICES)	+=  ccci_util/
-obj-$(CONFIG_MTK_NET_CCMNI) +=  ccmni/
-obj-$(CONFIG_MTK_ECCCI_DRIVER) +=  eccci/
 obj-$(CONFIG_MTK_IRRX) += irrx/
 
 obj-$(CONFIG_MTK_COMBO) += connectivity/
@@ -89,6 +86,9 @@ obj-$(CONFIG_MTK_AUDIODSP_SUPPORT) += adsp/
 obj-$(CONFIG_MTK_AUDIODSP_SUPPORT) += audio_ipi/
 obj-$(CONFIG_MTK_TINYSYS_SCP_SUPPORT) += audio_ipi/
 obj-$(CONFIG_MTK_TINYSYS_SCP_SUPPORT) += audio_scp/
+obj-$(CONFIG_MTK_CCCI_DEVICES)	+=  ccci_util/
+obj-$(CONFIG_MTK_NET_CCMNI) +=  ccmni/
+obj-$(CONFIG_MTK_ECCCI_DRIVER) +=  eccci/
 obj-$(CONFIG_MTK_SSMR) += memory-ssmr/
 obj-$(CONFIG_ZONE_MOVABLE_CMA) += zone_movable_cma/
 obj-$(CONFIG_MTK_VIBRATOR) += vibrator/
