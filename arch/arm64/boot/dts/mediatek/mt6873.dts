@@ -188,6 +188,11 @@
 		reg = <0 0x11f30000 0 0x1000>;
 	};
 
+	eint: apirq@1000b000 {
+		compatible = "mediatek,apirq";
+		reg = <0 0x1000b000 0 0x1000>;
+	};
+
 	gpio: gpio@10005000 {
 		compatible = "mediatek,gpio";
 		reg = <0 0x10005000 0 0x1000>;
@@ -205,11 +210,15 @@
 			    <&iocfg_rt>,
 			    <&iocfg_lt>,
 			    <&iocfg_tl>;
+		reg_base_eint = <&eint>;
 		pins-are-numbered;
 		gpio-controller;
 		gpio-ranges = <&pio 0 0 219>;
 		#gpio-cells = <2>;
+		interrupt-controller;
 		#interrupt-cells = <4>;
+		interrupts = <GIC_SPI 212 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&gic>;
 	};
 
 	msdc0: msdc@11F60000 {
@@ -247,13 +256,6 @@
 		reg = <0 0x1000a000 0 0x1000>;
 		interrupts = <GIC_SPI 230 IRQ_TYPE_LEVEL_HIGH>;
 	};
-
-	apirq@1000b000 {
-		compatible = "mediatek,apirq";
-		reg = <0 0x1000b000 0 0x1000>;
-		interrupts = <GIC_SPI 212 IRQ_TYPE_LEVEL_HIGH>;
-	};
-
 
 	fhctl@1000ce00 {
 		compatible = "mediatek,fhctl";
