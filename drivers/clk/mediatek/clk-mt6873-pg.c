@@ -767,10 +767,8 @@ static struct subsys *id_to_sys(unsigned int id)
 #define INCREASE_STEPS \
 	do { DBG_STEP++; } while (0)
 
-#ifdef CONFIG_MTK_RAM_CONSOLE
 static int DBG_ID;
 static int DBG_STA;
-#endif
 static int DBG_STEP;
 /*
  * ram console data0 define
@@ -780,7 +778,6 @@ static int DBG_STEP;
  */
 static void ram_console_update(void)
 {
-#ifdef CONFIG_MTK_RAM_CONSOLE
 	struct pg_callbacks *pgcb;
 	u32 data[8] = {0x0};
 	u32 i = 0, j = 0;
@@ -970,6 +967,7 @@ static void ram_console_update(void)
 				pgcb->debug_dump(DBG_ID);
 		}
 	}
+#ifdef CONFIG_MTK_RAM_CONSOLE
 	for (j = 0; j <= i; j++)
 		aee_rr_rec_clk(j, data[j]);
 	/*todo: add each domain's debug register to ram console*/

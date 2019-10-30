@@ -3400,7 +3400,7 @@ static struct mtk_gate msdcsys_top_clks[] __initdata = {
 	GATE_STA_INV(MSDC_32K_CK_CKEN, "MSDC_32K_CK_CKEN", "axi_sel",
 			msdcsys_top_regs, 13, 1),
 	GATE_STA_INV(MSDC_AHB2AXI_BRG_AXI_CKEN, "MSDC_AHB2AXI_BRG_AXI_CKEN",
-		axi_sel", msdcsys_top_regs, 14, 1),
+		"axi_sel", msdcsys_top_regs, 14, 1),
 };
 
 static void __iomem *msdcsys_top_base;
@@ -3892,9 +3892,12 @@ static void __init mtk_apmixedsys_init(struct device_node *node)
 #define PLL_EN  (0x1 << 0)
 #define PLL_PWR_ON  (0x1 << 0)
 #define PLL_ISO_EN  (0x1 << 1)
+#define PLL_DIV_RSTB  (0x1 << 23)
+#define USBPLL_EN  (0x1 << 2)
 
-#if 1
+#if 0
 /*MMPLL*/
+	clk_clrl(MMPLL_CON0, PLL_DIV_RSTB);
 	clk_clrl(MMPLL_CON0, PLL_EN);
 	clk_setl(MMPLL_CON3, PLL_ISO_EN);
 	clk_clrl(MMPLL_CON3, PLL_PWR_ON);
@@ -3907,6 +3910,7 @@ static void __init mtk_apmixedsys_init(struct device_node *node)
 	clk_setl(MFGPLL_CON3, PLL_ISO_EN);
 	clk_clrl(MFGPLL_CON3, PLL_PWR_ON);
 /*UNIVPLL*/
+	clk_clrl(UNIVPLL_CON0, PLL_DIV_RSTB);
 	clk_clrl(UNIVPLL_CON0, PLL_EN);
 	clk_setl(UNIVPLL_CON3, PLL_ISO_EN);
 	clk_clrl(UNIVPLL_CON3, PLL_PWR_ON);
@@ -4084,6 +4088,7 @@ unsigned int mt_get_abist_freq(unsigned int ID)
 {
 	int output = 0, i = 0;
 	unsigned int temp, clk_dbg_cfg, clk_misc_cfg_0, clk26cali_1 = 0;
+
 	while (clk_readl(CLK26CALI_0) & 0x1000)
 		;
 	clk_dbg_cfg = clk_readl(CLK_DBG_CFG);
@@ -4137,34 +4142,42 @@ void pll_if_on(void)
 {
 	int ret = 0;
 
-	if (clk_readl(ARMPLL_LL_CON0) & 0x1)
+	if (clk_readl(ARMPLL_LL_CON0) & PLL_EN)
 		pr_notice("suspend warning : ARMPLL_LL is on !!!\n");
-	if (clk_readl(ARMPLL_BL0_CON0) & 0x1)
+	if (clk_readl(ARMPLL_BL0_CON0) & PLL_EN)
 		pr_notice("suspend warning : ARMPLL_BL0 is on !!!\n");
-	if (clk_readl(UNIVPLL_CON0) & 0x1) {
+	if (clk_readl(UNIVPLL_CON0) & PLL_EN) {
 		pr_notice("suspend warning : UNIVPLL is on !!!\n");
 		ret++;
 	}
-	if (clk_readl(MFGPLL_CON0) & 0x1) {
+	if (clk_readl(MFGPLL_CON0) & PLL_EN) {
 		pr_notice("suspend warning : MFGPLL is on !!!\n");
 		ret++;
 	}
-	if (clk_readl(MMPLL_CON0) & 0x1) {
+	if (clk_readl(MMPLL_CON0) & PLL_EN) {
 		pr_notice("suspend warning : MMPLL is on !!!\n");
 		ret++;
 	}
-	if (clk_readl(ADSPPLL_CON0) & 0x1)
+	if (clk_readl(ADSPPLL_CON0) & PLL_EN)
 		pr_notice("suspend warning : ADSPPLL is on !!!\n");
-	if (clk_readl(MSDCPLL_CON0) & 0x1)
+	if (clk_readl(MSDCPLL_CON0) & PLL_EN)
 		pr_notice("suspend warning : MSDCPLL is on !!!\n");
-	if (clk_readl(TVDPLL_CON0) & 0x1) {
+	if (clk_readl(TVDPLL_CON0) & PLL_EN) {
 		pr_notice("suspend warning : TVDPLL is on !!!\n");
 		ret++;
 	}
-	if (clk_readl(APLL1_CON0) & 0x1)
+	if (clk_readl(APLL1_CON0) & PLL_EN)
 		pr_notice("suspend warning : APLL1 is on !!!\n");
 	if (clk_readl(APLL2_CON0) & 0x1)
 		pr_notice("suspend warning : APLL2 is on !!!\n");
+	if (clk_readl(NPUPLL_CON0) & PLL_EN) {
+		pr_notice("suspend warning : NPUPLL is on !!!\n");
+		ret++;
+	}
+	if (clk_readl(USBPLL_CON2) & USBPLL_EN) {
+		pr_notice("suspend warning : USBPLL is on !!!\n");
+		ret++;
+	}
 #if 0
 	if (ret > 0)
 		WARN_ON(1);
@@ -4178,6 +4191,7 @@ void pll_force_off(void)
 	clk_setl(MFGPLL_CON3, PLL_ISO_EN);
 	clk_clrl(MFGPLL_CON3, PLL_PWR_ON);
 /*UNIVPLL*/
+	clk_clrl(UNIVPLL_CON0, PLL_DIV_RSTB);
 	clk_clrl(UNIVPLL_CON0, PLL_EN);
 	clk_setl(UNIVPLL_CON3, PLL_ISO_EN);
 	clk_clrl(UNIVPLL_CON3, PLL_PWR_ON);
@@ -4186,6 +4200,7 @@ void pll_force_off(void)
 	clk_setl(MSDCPLL_CON3, PLL_ISO_EN);
 	clk_clrl(MSDCPLL_CON3, PLL_PWR_ON);
 /*MMPLL*/
+	clk_clrl(MMPLL_CON0, PLL_DIV_RSTB);
 	clk_clrl(MMPLL_CON0, PLL_EN);
 	clk_setl(MMPLL_CON3, PLL_ISO_EN);
 	clk_clrl(MMPLL_CON3, PLL_PWR_ON);
@@ -4205,6 +4220,14 @@ void pll_force_off(void)
 	clk_clrl(APLL2_CON0, PLL_EN);
 	clk_setl(APLL2_CON4, PLL_ISO_EN);
 	clk_clrl(APLL2_CON4, PLL_PWR_ON);
+/*NPUPLL*/
+	clk_clrl(NPUPLL_CON0, PLL_EN);
+	clk_setl(NPUPLL_CON3, PLL_ISO_EN);
+	clk_clrl(NPUPLL_CON3, PLL_PWR_ON);
+/*USBPLL*/
+	clk_clrl(USBPLL_CON2, USBPLL_EN);
+	clk_setl(USBPLL_CON2, PLL_ISO_EN);
+	clk_clrl(USBPLL_CON2, PLL_PWR_ON);
 }
 
 static int __init clk_mt6873_init(void)
