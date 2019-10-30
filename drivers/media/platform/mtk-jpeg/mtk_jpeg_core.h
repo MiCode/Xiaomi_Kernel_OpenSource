@@ -11,6 +11,8 @@
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-fh.h>
+#include "mmdvfs_pmqos.h"
+
 
 #define MTK_JPEG_NAME		"mtk-jpeg"
 
@@ -129,6 +131,11 @@ struct mtk_jpeg_dev {
 	u32         port_qtbl[MTK_JPEG_MAX_NCORE];
 	u32         port_bsdma[MTK_JPEG_MAX_NCORE];
 	int         irq[MTK_JPEG_MAX_NCORE];
+	struct plist_head jpegenc_rlist;
+	struct mm_qos_request jpeg_y_rdma;
+	struct mm_qos_request jpeg_c_rdma;
+	struct mm_qos_request jpeg_qtbl;
+	struct mm_qos_request jpeg_bsdma;
 };
 
 /**

@@ -122,11 +122,6 @@ static int debug;
 static struct ion_client *g_ion_client;
 
 //pmqos
-static struct plist_head jpegenc_rlist;
-static struct mm_qos_request jpeg_y_rdma[MTK_JPEG_MAX_NCORE];
-static struct mm_qos_request jpeg_c_rdma[MTK_JPEG_MAX_NCORE];
-static struct mm_qos_request jpeg_qtbl[MTK_JPEG_MAX_NCORE];
-static struct mm_qos_request jpeg_bsdma[MTK_JPEG_MAX_NCORE];
 static unsigned int cshot_spec_dts;
 static struct pm_qos_request jpeg_qos_request;
 static u64 g_freq_steps[MAX_FREQ_STEP];  //index 0 is max
@@ -226,9 +221,9 @@ void mtk_jpeg_unprepare_dvfs(void)
 
 void mtk_jpeg_start_dvfs(void)
 {
-	if (g_freq_steps[0] != 0) {
-		pr_info("highest freq 0x%x", g_freq_steps[0]);
-		pm_qos_update_request(&jpeg_qos_request,  g_freq_steps[0]);
+	if (g_freq_steps[1] != 0) {
+		pr_info("highest freq 0x%x", g_freq_steps[1]);
+		pm_qos_update_request(&jpeg_qos_request,  g_freq_steps[1]);
 	}
 }
 
@@ -242,16 +237,16 @@ void mtk_jpeg_prepare_bw_request(struct mtk_jpeg_dev *jpeg)
 {
 	int i = 0;
 
-	plist_head_init(&jpegenc_rlist);
+	plist_head_init(&jpeg->jpegenc_rlist);
 	for (i = 0 ; i < jpeg->ncore; i++) {
-		mm_qos_add_request(&jpegenc_rlist,
-			 &jpeg_y_rdma[i], jpeg->port_y_rdma[i]);
-		mm_qos_add_request(&jpegenc_rlist,
-			 &jpeg_c_rdma[i], jpeg->port_c_rdma[i]);
-		mm_qos_add_request(&jpegenc_rlist,
-			 &jpeg_qtbl[i], jpeg->port_qtbl[i]);
-		mm_qos_add_request(&jpegenc_rlist,
-			 &jpeg_bsdma[i], jpeg->port_bsdma[i]);
+		mm_qos_add_request(&jpeg->jpegenc_rlist,
+			 &jpeg->jpeg_y_rdma, jpeg->port_y_rdma[i]);
+		mm_qos_add_request(&jpeg->jpegenc_rlist,
+			 &jpeg->jpeg_c_rdma, jpeg->port_c_rdma[i]);
+		mm_qos_add_request(&jpeg->jpegenc_rlist,
+			 &jpeg->jpeg_qtbl, jpeg->port_qtbl[i]);
+		mm_qos_add_request(&jpeg->jpegenc_rlist,
+			 &jpeg->jpeg_bsdma, jpeg->port_bsdma[i]);
 	}
 }
 
@@ -268,6 +263,7 @@ void mtk_jpeg_update_bw_request(struct mtk_jpeg_ctx *ctx,
 	unsigned int picSize = 0;
 	unsigned int limitedFPS = 0;
 	unsigned int core_id = ctx->coreid;
+	struct mtk_jpeg_dev *jpeg = ctx->jpeg;
 
 	/* Support QoS */
 	picSize = (config->enc_w * config->enc_h) / 1000000;
@@ -292,44 +288,51 @@ void mtk_jpeg_update_bw_request(struct mtk_jpeg_ctx *ctx,
 
 	/* QoS requires Occupied BW */
 	/* Data BW x 1.33 */
+	emi_bw = picSize * target_fps;
+
 	emi_bw = emi_bw * 4/3;
 
 	pr_info("Width %d Height %d emi_bw %d cshot_spec %d\n",
 		 config->enc_w, config->enc_h, emi_bw, cshot_spec);
 
-	mm_qos_set_request(&jpeg_y_rdma[core_id], emi_bw, 0, BW_COMP_NONE);
+
 
 	if (config->enc_format == JPEG_YUV_FORMAT_YUYV ||
-		config->enc_format == JPEG_YUV_FORMAT_YUYV)
-		mm_qos_set_request(&jpeg_c_rdma[core_id], emi_bw,
+		config->enc_format == JPEG_YUV_FORMAT_YUYV) {
+		mm_qos_set_request(&jpeg->jpeg_y_rdma, emi_bw * 2,
 				 0, BW_COMP_NONE);
-	else
-		mm_qos_set_request(&jpeg_c_rdma[core_id], emi_bw * 1/2,
+		mm_qos_set_request(&jpeg->jpeg_c_rdma, emi_bw,
 				 0, BW_COMP_NONE);
+	} else {
+		mm_qos_set_request(&jpeg->jpeg_y_rdma, emi_bw,
+				 0, BW_COMP_NONE);
+		mm_qos_set_request(&jpeg->jpeg_c_rdma, emi_bw * 1/2,
+				 0, BW_COMP_NONE);
+	}
 
-
-	mm_qos_set_request(&jpeg_qtbl[core_id], 10, 0, BW_COMP_NONE);
-	mm_qos_set_request(&jpeg_bsdma[core_id], emi_bw, 0, BW_COMP_NONE);
-	mm_qos_update_all_request(&jpegenc_rlist);
+	mm_qos_set_request(&jpeg->jpeg_qtbl, emi_bw, 0, BW_COMP_NONE);
+	mm_qos_set_request(&jpeg->jpeg_bsdma, emi_bw, 0, BW_COMP_NONE);
+	mm_qos_update_all_request(&jpeg->jpegenc_rlist);
 
 }
 
 void mtk_jpeg_end_bw_request(struct mtk_jpeg_ctx *ctx)
 {
 	unsigned int core_id = ctx->coreid;
+	struct mtk_jpeg_dev *jpeg = ctx->jpeg;
 
-	mm_qos_set_request(&jpeg_y_rdma[core_id], 0, 0, BW_COMP_NONE);
-	mm_qos_set_request(&jpeg_c_rdma[core_id], 0, 0, BW_COMP_NONE);
-	mm_qos_set_request(&jpeg_qtbl[core_id], 0, 0, BW_COMP_NONE);
-	mm_qos_set_request(&jpeg_bsdma[core_id], 0, 0, BW_COMP_NONE);
-	mm_qos_update_all_request(&jpegenc_rlist);
+	mm_qos_set_request(&jpeg->jpeg_y_rdma, 0, 0, BW_COMP_NONE);
+	mm_qos_set_request(&jpeg->jpeg_c_rdma, 0, 0, BW_COMP_NONE);
+	mm_qos_set_request(&jpeg->jpeg_qtbl, 0, 0, BW_COMP_NONE);
+	mm_qos_set_request(&jpeg->jpeg_bsdma, 0, 0, BW_COMP_NONE);
+	mm_qos_update_all_request(&jpeg->jpegenc_rlist);
 }
 
 
 
-static void mtk_jpeg_remove_bw_request(void)
+static void mtk_jpeg_remove_bw_request(struct mtk_jpeg_dev *jpeg)
 {
-	mm_qos_remove_all_request(&jpegenc_rlist);
+	mm_qos_remove_all_request(&jpeg->jpegenc_rlist);
 }
 
 
@@ -2096,7 +2099,7 @@ static int mtk_jpeg_remove(struct platform_device *pdev)
 	if (g_ion_client)
 		ion_client_destroy(g_ion_client);
 
-	mtk_jpeg_remove_bw_request();
+	mtk_jpeg_remove_bw_request(jpeg);
 
 	mtk_jpeg_unprepare_dvfs();
 
