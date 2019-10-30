@@ -178,7 +178,7 @@ static int __init dvfsrc_opp_init(void)
 
 	}
 #if 1 /* TODO: fill when LV/HV setting*/
-	if (is_vcore_qea || (dvfs_v_mode == 3) || is_vcore_aging) {
+	if (is_vcore_qea || (dvfs_v_mode == 3)) {
 		/* LV */
 		vcore_opp_0_uv = 688750;
 		vcore_opp_1_uv = 617500;
@@ -190,6 +190,11 @@ static int __init dvfsrc_opp_init(void)
 		vcore_opp_1_uv = 682500;
 		vcore_opp_2_uv = 630000;
 		vcore_opp_3_uv = 603750;
+	} else if (is_vcore_aging) {
+		vcore_opp_0_uv -= AGING_VALUE;
+		vcore_opp_1_uv -= AGING_VALUE;
+		vcore_opp_2_uv -= AGING_VALUE;
+		vcore_opp_3_uv -= AGING_VALUE;
 	}
 #endif
 
