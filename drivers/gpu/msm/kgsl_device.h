@@ -914,6 +914,18 @@ int kgsl_of_property_read_ddrtype(struct device_node *node, const char *base,
  */
 int kgsl_query_property_list(struct kgsl_device *device, u32 *list, u32 count);
 
+static inline bool kgsl_mmu_has_feature(struct kgsl_device *device,
+		enum kgsl_mmu_feature feature)
+{
+	return test_bit(feature, &device->mmu.features);
+}
+
+static inline void kgsl_mmu_set_feature(struct kgsl_device *device,
+	      enum kgsl_mmu_feature feature)
+{
+	set_bit(feature, &device->mmu.features);
+}
+
 /**
  * struct kgsl_pwr_limit - limit structure for each client
  * @node: Local list node for the limits list

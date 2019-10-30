@@ -656,7 +656,7 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 	}
 
 	contextidr = KGSL_IOMMU_GET_CTX_REG(ctx, CONTEXTIDR);
-	ptname = MMU_FEATURE(mmu, KGSL_MMU_GLOBAL_PAGETABLE) ?
+	ptname = test_bit(KGSL_MMU_GLOBAL_PAGETABLE, &mmu->features) ?
 		KGSL_MMU_GLOBAL_PT : pid;
 	/*
 	 * Trace needs to be logged before searching the faulting
@@ -985,7 +985,7 @@ _alloc_pt(struct device *dev, struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 	pt->fault_addr = ~0ULL;
 	iommu_pt->rbtree = RB_ROOT;
 
-	if (MMU_FEATURE(mmu, KGSL_MMU_64BIT))
+	if (test_bit(KGSL_MMU_64BIT, &mmu->features))
 		setup_64bit_pagetable(mmu, pt, iommu_pt);
 	else
 		setup_32bit_pagetable(mmu, pt, iommu_pt);
@@ -1098,7 +1098,7 @@ static int _init_global_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 		goto done;
 	}
 
-	if (!MMU_FEATURE(mmu, KGSL_MMU_GLOBAL_PAGETABLE)) {
+	if (!test_bit(KGSL_MMU_GLOBAL_PAGETABLE, &device->mmu.features)) {
 		ret = set_smmu_aperture(device, cb_num);
 
 		if (ret)
@@ -1406,7 +1406,7 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
 	int status = 0;
 
-	mmu->features |= KGSL_MMU_PAGED;
+	set_bit(KGSL_MMU_PAGED, &mmu->features);
 
 	if (!iommu->user_context.name) {
 		dev_err(device->dev,
@@ -2517,14 +2517,6 @@ static int kgsl_iommu_probe_child(struct kgsl_device *device,
 	return 0;
 }
 
-static const struct {
-	char *feature;
-	unsigned long bit;
-} kgsl_iommu_features[] = {
-	{ "qcom,global_pt", KGSL_MMU_GLOBAL_PAGETABLE },
-	{ "qcom,force-32bit", KGSL_MMU_FORCE_32BIT },
-};
-
 static const char * const kgsl_iommu_clocks[] = {
 	"gcc_gpu_memnoc_gfx",
 	"gcc_gpu_snoc_dvm_gfx",
@@ -2537,8 +2529,8 @@ static int _kgsl_iommu_probe(struct kgsl_device *device,
 	u32 reg_val[2];
 	int ret, i, index = 0;
 	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct platform_device *pdev = of_find_device_by_node(node);
+	struct kgsl_mmu *mmu = &device->mmu;
 
 	memset(iommu, 0, sizeof(*iommu));
 
@@ -2585,10 +2577,8 @@ static int _kgsl_iommu_probe(struct kgsl_device *device,
 	/* Get the CX regulator if it is available */
 	iommu->cx_gdsc = devm_regulator_get(&pdev->dev, "vddcx");
 
-	for (i = 0; i < ARRAY_SIZE(kgsl_iommu_features); i++) {
-		if (of_property_read_bool(node, kgsl_iommu_features[i].feature))
-			device->mmu.features |= kgsl_iommu_features[i].bit;
-	}
+	if (of_property_read_bool(node, "qcom,global_pt"))
+		set_bit(KGSL_MMU_GLOBAL_PAGETABLE, &mmu->features);
 
 	/* Fill out the rest of the devices in the node */
 	of_platform_populate(node, NULL, NULL, &pdev->dev);
@@ -2600,7 +2590,7 @@ static int _kgsl_iommu_probe(struct kgsl_device *device,
 	if (!ret && device->mmu.secured) {
 		const char *name = "gfx3d_secure";
 
-		if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_MMU_SECURE_CB_ALT))
+		if (test_bit(KGSL_MMU_SECURE_CB_ALT, &mmu->features))
 			name = "gfx3d_secure_alt";
 
 		/* Secure context bank devices are optional */

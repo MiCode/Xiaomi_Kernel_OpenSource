@@ -393,7 +393,7 @@ void adreno_iommu_init(struct adreno_device *adreno_dev)
 			cp_type3_packet(CP_NOP, 1));
 	}
 
-	device->mmu.features |= KGSL_MMU_NEED_GUARD_PAGE;
+	kgsl_mmu_set_feature(device, KGSL_MMU_NEED_GUARD_PAGE);
 }
 
 /**

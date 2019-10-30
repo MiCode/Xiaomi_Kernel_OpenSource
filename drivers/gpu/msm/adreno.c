@@ -722,7 +722,6 @@ static struct {
 	{ ADRENO_QUIRK_SECVID_SET_ONCE, "qcom,gpu-quirk-secvid-set-once" },
 	{ ADRENO_QUIRK_LIMIT_UCHE_GBIF_RW,
 			"qcom,gpu-quirk-limit-uche-gbif-rw" },
-	{ ADRENO_QUIRK_MMU_SECURE_CB_ALT, "qcom,gpu-quirk-mmu-secure-cb-alt" },
 	{ ADRENO_QUIRK_CX_GDSC, "qcom,gpu-quirk-cx-gdsc" },
 };
 
@@ -777,6 +776,12 @@ static void adreno_update_soc_hw_revision_quirks(
 		if (of_property_read_bool(node, adreno_quirks[i].prop))
 			adreno_dev->quirks |= adreno_quirks[i].quirk;
 	}
+
+	/* Set a quirk in the MMU */
+	if (of_property_read_bool(node, "qcom,gpu-quirk-mmu-secure-cb-alt"))
+		kgsl_mmu_set_feature(KGSL_DEVICE(adreno_dev),
+			KGSL_MMU_SECURE_CB_ALT);
+
 }
 
 static int adreno_identify_gpu(struct adreno_device *adreno_dev)
@@ -1501,7 +1506,7 @@ static int adreno_bind(struct device *dev)
 	 * though the hardware and the rest of the KGSL driver supports it.
 	 */
 	if (adreno_support_64bit(adreno_dev))
-		device->mmu.features |= KGSL_MMU_64BIT;
+		kgsl_mmu_set_feature(device, KGSL_MMU_64BIT);
 
 	device->pwrctrl.bus_width = adreno_dev->gpucore->bus_width;
 
@@ -1523,7 +1528,7 @@ static int adreno_bind(struct device *dev)
 	adreno_isense_probe(device);
 
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_IOCOHERENT))
-		device->mmu.features |= KGSL_MMU_IO_COHERENT;
+		kgsl_mmu_set_feature(device, KGSL_MMU_IO_COHERENT);
 
 	/* Allocate the memstore for storing timestamps and other useful info */
 
@@ -2450,7 +2455,7 @@ static int adreno_prop_device_info(struct kgsl_device *device,
 	struct kgsl_devinfo devinfo = {
 		.device_id = device->id + 1,
 		.chip_id = adreno_dev->chipid,
-		.mmu_enabled = MMU_FEATURE(&device->mmu, KGSL_MMU_PAGED),
+		.mmu_enabled = kgsl_mmu_has_feature(device, KGSL_MMU_PAGED),
 		.gmem_gpubaseaddr = adreno_dev->gpucore->gmem_base,
 		.gmem_sizebytes = adreno_dev->gpucore->gmem_size,
 	};
@@ -2511,7 +2516,7 @@ static int adreno_prop_s32(struct kgsl_device *device,
 	int val = 0;
 
 	if (param->type == KGSL_PROP_MMU_ENABLE)
-		val = MMU_FEATURE(&device->mmu, KGSL_MMU_PAGED);
+		val = kgsl_mmu_has_feature(device, KGSL_MMU_PAGED);
 	else if (param->type == KGSL_PROP_INTERRUPT_WAITS)
 		val = 1;
 
