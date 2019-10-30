@@ -896,7 +896,6 @@ void init_opp_capacity_tbl(void)
 
 		for (i = 0; i < sge->nr_cap_states; i++) {
 			cap = get_opp_capacity(policy, i);
-			cap = cap * SCHED_CAPACITY_SCALE / capacity_margin;
 			opp_capacity_tbl[idx] = cap;
 			idx++;
 		}
@@ -1898,6 +1897,18 @@ static inline void init_uclamp(void) { }
 static inline void uclamp_cpu_get(struct rq *rq, struct task_struct *p) { }
 static inline void uclamp_cpu_put(struct rq *rq, struct task_struct *p) { }
 #endif /* CONFIG_UCLAMP_TASK  */
+
+void set_capacity_margin(unsigned int margin)
+{
+	capacity_margin = margin;
+}
+EXPORT_SYMBOL(set_capacity_margin);
+
+unsigned int get_capacity_margin(void)
+{
+	return capacity_margin;
+}
+EXPORT_SYMBOL(get_capacity_margin);
 
 static inline void enqueue_task(struct rq *rq, struct task_struct *p, int flags)
 {
