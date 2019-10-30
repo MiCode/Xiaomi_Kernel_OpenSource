@@ -104,6 +104,31 @@ static void vpu_dmp_iomem(void *dst, void __iomem *src, size_t size)
 	memcpy_fromio(dst, src, size);
 }
 
+static bool vpu_dmp_is_alive(struct vpu_device *vd)
+{
+	uint32_t pc;
+	int i;
+
+	if (!vd || !vd->dmp)
+		return false;
+
+	pc = vd->dmp->r_dbg[5];
+
+	pr_info("%s: debug info05: %x\n", __func__, pc);
+
+	if (!pc)
+		return false;
+
+	for (i = 0; i < VPU_DMP_REG_CNT_INFO; i++) {
+		if (vd->dmp->r_info[i])
+			return true;
+	}
+
+	pr_info("%s: all info registers are zeros\n", __func__);
+
+	return false;
+}
+
 /**
  * vpu_dmp_create_locked() - Create VPU register and memory dump
  * @vd: vpu device
@@ -138,9 +163,12 @@ int vpu_dmp_create_locked(struct vpu_device *vd, struct vpu_request *req,
 	vpu_dmp_iomem(d->m_##a, vd->a.m, VPU_DMP_##A##_SZ)
 
 	VPU_DMP_IOMEM(reg, REG);
-	VPU_DMP_IOMEM(dmem, DMEM);
-	VPU_DMP_IOMEM(dmem_log, DMEM_LOG);
-	VPU_DMP_IOMEM(imem, IMEM);
+
+	if (vpu_dmp_is_alive(vd)) {
+		VPU_DMP_IOMEM(dmem, DMEM);
+		VPU_DMP_IOMEM(dmem_log, DMEM_LOG);
+		VPU_DMP_IOMEM(imem, IMEM);
+	}
 
 #define VPU_DMP_IOVA(a, A) \
 	vpu_dmp_iova(d->m_##a, &vd->iova_##a, VPU_DMP_##A##_SZ)
