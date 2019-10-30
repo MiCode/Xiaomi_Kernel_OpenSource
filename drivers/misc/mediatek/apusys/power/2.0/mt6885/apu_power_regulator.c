@@ -18,12 +18,12 @@
 #include "upmu_hw.h"
 #include "apusys_power_reg.h"
 #include "apu_power_api.h"
+#include "apusys_power_cust.h"
 #include "apu_log.h"
 #include "mtk_devinfo.h"
 
 
 #define EFUSE_INDEX 72	// 0x11C105D8
-#define BINNING_VOLTAGE_SUPPORT (1)
 #define FOR_HQA_TEST		(1)
 
 /* regulator id */
@@ -373,10 +373,12 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 	int ret = 0;
 	int voltage_MAX = voltage_mV + 50000;
 	int settle_time = 0;
+
+
+#if BINNING_VOLTAGE_SUPPORT
 	unsigned int vpu_efuse_val = 0;
 	unsigned int mdla_efuse_val = 0;
 
-#if BINNING_VOLTAGE_SUPPORT
 	vpu_efuse_val = (get_devinfo_with_index(EFUSE_INDEX) & 0x7);
 	mdla_efuse_val = (get_devinfo_with_index(EFUSE_INDEX) & 0x7);
 	if (buck == VPU_BUCK && voltage_mV == DVFS_VOLT_00_800000_V
