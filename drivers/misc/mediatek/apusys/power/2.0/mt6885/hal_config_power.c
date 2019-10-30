@@ -624,11 +624,10 @@ static int buck_control(enum DVFS_USER user, int level)
 		DRV_ClearBitReg32(BUCK_ISOLATION, (BIT(0) | BIT(5)));
 
 	} else if (level == 2) { // default voltage
-#if 1
+
 		vcore_volt_data.target_buck = VCORE_BUCK;
 		vcore_volt_data.target_volt = VCORE_DEFAULT_VOLT;
 		ret |= set_power_voltage(VPU0, (void *)&vcore_volt_data);
-#endif
 
 		vpu_volt_data.target_buck = VPU_BUCK;
 		vpu_volt_data.target_volt = VSRAM_TRANS_VOLT;
@@ -668,6 +667,11 @@ static int buck_control(enum DVFS_USER user, int level)
 		sram_volt_data.target_volt = VSRAM_TRANS_VOLT;
 		ret |= set_power_voltage(user, (void *)&sram_volt_data);
 
+		vcore_volt_data.target_buck = VCORE_BUCK;
+		vcore_volt_data.target_volt = VCORE_SHUTDOWN_VOLT;
+		ret |= set_power_voltage(VPU0,
+				(void *)&vcore_volt_data);
+
 		if (level == 1) { // buck adjust to low voltage
 			/*
 			 * then adjust vmdla/vvpu again to real default voltage
@@ -679,12 +683,7 @@ static int buck_control(enum DVFS_USER user, int level)
 			vpu_volt_data.target_buck = VPU_BUCK;
 			vpu_volt_data.target_volt = VVPU_SHUTDOWN_VOLT;
 			ret |= set_power_voltage(user, (void *)&vpu_volt_data);
-#if 1
-			vcore_volt_data.target_buck = VCORE_BUCK;
-			vcore_volt_data.target_volt = VCORE_SHUTDOWN_VOLT;
-			ret |= set_power_voltage(VPU0,
-					(void *)&vcore_volt_data);
-#endif
+
 		} else { // buck OFF
 			// enable buck isolation
 			DRV_SetBitReg32(BUCK_ISOLATION, (BIT(0) | BIT(5)));
