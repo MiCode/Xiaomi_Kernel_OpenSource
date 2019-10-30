@@ -68,6 +68,10 @@
 	#include <mt-plat/aee.h>
 #endif
 
+#ifdef CONFIG_OF_RESERVED_MEM
+	#include <of_reserved_mem.h>
+#endif
+
 /************************************************
  * Marco definition
  ************************************************/
@@ -99,11 +103,18 @@
 	(((_val_) & (BITMASK(_bits_))) >> ((0) ? _bits_))
 
 /************************************************
- * LOG
+ * Debug print
  ************************************************/
-#define SES_TAG	 "[CPU_SES] "
+
+#define CPU_SES_DEBUG
+#define CPU_SES_TAG	 "[CPU_SES]"
+
+#ifdef CPU_SES_DEBUG
 #define ses_debug(fmt, args...)	\
-	pr_info(SES_TAG"(%d)" fmt, __LINE__, ##args)
+	pr_info(CPU_SES_TAG"[%s():%d]" fmt, __func__, __LINE__, ##args)
+#else
+#define ses_debug(fmt, args...)
+#endif
 
 /************************************************
  * REG ACCESS
@@ -140,6 +151,7 @@ struct drp_ratio_type drp_ratio[sesNum];
 
 static unsigned int ses_ByteSel = 4;
 
+#ifndef CONFIG_FPGA_EARLY_PORTING
 static unsigned int state;
 #if MTK_SES_DOE
 static unsigned int ses0_reg3;
@@ -179,6 +191,138 @@ static unsigned int ses5_drplopct;
 static unsigned int ses6_drplopct;
 static unsigned int ses7_drplopct;
 static unsigned int ses8_drplopct;
+#endif
+
+/************************************************
+ * log dump into reserved memory for AEE
+ ************************************************/
+
+#ifndef CONFIG_FPGA_EARLY_PORTING
+#ifdef CONFIG_OF_RESERVED_MEM
+
+/* GAT log use */
+phys_addr_t ses_mem_base_phys;
+phys_addr_t ses_mem_size;
+phys_addr_t ses_mem_base_virt;
+
+static int ses_reserve_memory_dump(char *buf, unsigned int log_offset)
+{
+	unsigned int i, value[sesNum][5], ses_node = 0, str_len = 0;
+	char *aee_log_buf = (char *) __get_free_page(GFP_USER);
+
+	if (!aee_log_buf) {
+		ses_debug("unable to get free page!\n");
+		return -1;
+	}
+	ses_debug("buf: 0x%llx, aee_log_buf: 0x%llx\n",
+		(unsigned long long)buf, (unsigned long long)aee_log_buf);
+
+	ses_debug("log_offset = %u\n", log_offset);
+	if (log_offset == 0) {
+		str_len +=
+		 snprintf(aee_log_buf + str_len,
+		 (unsigned long long)ses_mem_size - str_len,
+		 "\n[Kernel Probe]\n");
+	} else if (log_offset == 1) {
+		str_len +=
+		 snprintf(aee_log_buf + str_len,
+		 (unsigned long long)ses_mem_size - str_len,
+		 "\n[Kernel ??]\n");
+	} else if (log_offset == 2) {
+		str_len +=
+		 snprintf(aee_log_buf + str_len,
+		 (unsigned long long)ses_mem_size - str_len,
+		 "\n[Kernel ??]\n");
+	} else {
+		str_len +=
+		 snprintf(aee_log_buf + str_len,
+		 (unsigned long long)ses_mem_size - str_len,
+		 "\n[Kernel ??]\n");
+	}
+
+	for (ses_node = 0; ses_node < (sesNum - 1) ; ses_node++) {
+		for (i = 0; i < 5; i++)
+			value[ses_node][i] = mtk_ses_status(
+				SESV6_REG0 + (0x200 * ses_node) + (i * 4));
+		str_len +=
+			snprintf(aee_log_buf + str_len,
+			(unsigned long long)ses_mem_size - str_len,
+			"\nCPU(%u) ses_reg:", ses_node);
+		for (i = 0; i < 5; i++)
+			str_len +=
+				snprintf(aee_log_buf + str_len,
+				(unsigned long long)ses_mem_size - str_len,
+				" 0x%x = 0x%08x",
+				SESV6_REG0 + (0x200 * ses_node) + (i * 4),
+				value[ses_node][i]);
+	}
+
+	for (i = 0; i < 5; i++)
+		value[(sesNum - 1)][i] = mtk_ses_status(
+			SESV6_DSU_REG0 + (i * 4));
+	str_len +=
+		snprintf(aee_log_buf + str_len,
+		(unsigned long long)ses_mem_size - str_len,
+		"\nDSU(%u) ses_reg:", (sesNum - 1));
+	for (i = 0; i < 5; i++)
+		str_len +=
+			snprintf(aee_log_buf + str_len,
+			(unsigned long long)ses_mem_size - str_len,
+			" 0x%x = 0x%08x",
+			SESV6_DSU_REG0 + (i * 4),
+			value[(sesNum - 1)][i]);
+	str_len +=
+		snprintf(aee_log_buf + str_len,
+		(unsigned long long)ses_mem_size - str_len,
+		"\nSESBG  ses_reg: 0x%x = 0x%08x\n",
+		SESV6_BG_CTRL,
+		mtk_ses_status(SESV6_BG_CTRL));
+
+	if (str_len > 0)
+		memcpy(buf, aee_log_buf, str_len+1);
+
+	ses_debug("\n%s", aee_log_buf);
+	ses_debug("\n%s", buf);
+
+	free_page((unsigned long)aee_log_buf);
+
+	return 0;
+}
+
+#define EEM_TEMPSPARE0		0x112788F0
+
+static void ses_reserve_memory_init(unsigned int log_offset)
+{
+	char *buf;
+
+	ses_mem_base_virt = 0;
+	ses_mem_size = 0x80000;
+	ses_mem_base_phys = ses_read(ioremap(EEM_TEMPSPARE0, 0));
+
+	if ((char *)ses_mem_base_phys != NULL) {
+		ses_mem_base_virt =
+			(phys_addr_t)(uintptr_t)ioremap_wc(
+			ses_mem_base_phys,
+			ses_mem_size);
+	}
+
+	ses_debug("[ses] phys:0x%llx, size:0x%llx, virt:0x%llx\n",
+		(unsigned long long)ses_mem_base_phys,
+		(unsigned long long)ses_mem_size,
+		(unsigned long long)ses_mem_base_virt);
+
+	buf = (char *)(uintptr_t)(ses_mem_base_virt+0x30000+log_offset*0x1000);
+
+	if (buf != NULL) {
+		/* dump ses register status into reserved memory */
+		ses_reserve_memory_dump(buf, log_offset);
+	} else
+		ses_debug("ses_mem_base_virt is null !\n");
+
+}
+
+#endif
+#endif
 
 /************************************************
  * Global function definition
@@ -294,6 +438,7 @@ int mtk_ses_volt_ratio_eb(unsigned int HiRatio,
 	cdvfs_d.u.set_fv.arg[1] = HiRatio;
 	cdvfs_d.u.set_fv.arg[2] = LoRatio;
 
+#ifndef CONFIG_FPGA_EARLY_PORTING
 #ifdef MTK_TINYSYS_MCUPM_SUPPORT
 	ret = mtk_ipi_send_compl(&mcupm_ipidev,
 		CH_S_CPU_DVFS,
@@ -302,7 +447,7 @@ int mtk_ses_volt_ratio_eb(unsigned int HiRatio,
 		sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE,
 		2000);
 #endif
-
+#endif
 	return ret;
 }
 
@@ -800,9 +945,9 @@ static int ses_status_dump_proc_show(struct seq_file *m, void *v)
 		for (i = 0; i < 5; i++)
 			value[ses_node][i] = mtk_ses_status(
 				SESV6_REG0 + (0x200 * ses_node) + (i * 4));
-		seq_printf(m, "CPU(%u), ses_reg :", ses_node);
+		seq_printf(m, "CPU(%u) ses_reg :", ses_node);
 		for (i = 0; i < 5; i++)
-			seq_printf(m, "\t0x%x = 0x%x",
+			seq_printf(m, "\t0x%x = 0x%08x",
 				SESV6_REG0 + (0x200 * ses_node) + (i * 4),
 				value[ses_node][i]);
 		seq_printf(m, "    .%u\n", i);
@@ -811,15 +956,15 @@ static int ses_status_dump_proc_show(struct seq_file *m, void *v)
 	for (i = 0; i < 5; i++)
 		value[(sesNum - 1)][i] = mtk_ses_status(
 			SESV6_DSU_REG0 + (i * 4));
-	seq_printf(m, "DSU(%u), ses_reg :", (sesNum - 1));
+	seq_printf(m, "DSU(%u) ses_reg :", (sesNum - 1));
 	for (i = 0; i < 5; i++)
-		seq_printf(m, "\t0x%x = 0x%x",
+		seq_printf(m, "\t0x%x = 0x%08x",
 			SESV6_DSU_REG0 + (i * 4),
 			value[(sesNum - 1)][i]);
 	seq_printf(m, "    .%u\n", i);
 
-	seq_puts(m, "BG, ses_reg :");
-	seq_printf(m, "\t0x%x = 0x%x\n",
+	seq_puts(m, "SESBG  ses_reg :");
+	seq_printf(m, "\t0x%x = 0x%08x\n",
 			SESV6_BG_CTRL,
 			mtk_ses_status(SESV6_BG_CTRL));
 
@@ -915,6 +1060,8 @@ static int create_procfs(void)
 
 static int ses_probe(struct platform_device *pdev)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
+#ifdef CONFIG_OF_RESERVED_MEM
 	struct device_node *node = NULL;
 	int rc = 0;
 	unsigned int ses_node = 0;
@@ -1285,8 +1432,13 @@ static int ses_probe(struct platform_device *pdev)
 			mtk_ses_volt_ratio_eb(ses8_drphipct, ses8_drplopct, 8);
 	}
 
-	ses_debug("ses probe ok!!\n");
+#ifdef CONFIG_OF_RESERVED_MEM
+	ses_reserve_memory_init(0);
+#endif
 
+	ses_debug("ses probe ok!!\n");
+#endif
+#endif
 	return 0;
 }
 
