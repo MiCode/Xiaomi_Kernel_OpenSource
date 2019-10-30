@@ -1089,7 +1089,7 @@ void dump_rbuf_bridge(struct ringbuf_bridge *ring_buffer_bridge)
 	if (ring_buffer_bridge == NULL)
 		return;
 #if defined(__linux__)
-	pr_info("%s pBufBase = 0x%x pBufEnd = 0x%x pRead = 0x%x pWrite = 0x%x bufLen=%llu readidx = 0x%x writeidx = 0x%x\n",
+	pr_info("%s pBufBase = 0x%llx pBufEnd = 0x%llx pRead = 0x%llx pWrite = 0x%llx bufLen=%llu readidx = 0x%llx writeidx = 0x%llx\n",
 		 __func__, ring_buffer_bridge->pBufBase,
 		 ring_buffer_bridge->pBufEnd, ring_buffer_bridge->pRead,
 		 ring_buffer_bridge->pWrite, ring_buffer_bridge->bufLen,
@@ -1119,7 +1119,7 @@ void dump_rbuf_bridge_s(const char *appendingstring,
 	if (ring_buffer_bridge == NULL)
 		return;
 #if defined(__linux__)
-	pr_info("%s %s pBufBase = 0x%x pBufEnd = 0x%x pRead = 0x%x pWrite = 0x%x bufLen=%llu readidx = 0x%x writeidx = 0x%x\n",
+	pr_info("%s %s pBufBase = 0x%llx pBufEnd = 0x%llx pRead = 0x%llx pWrite = 0x%llx bufLen=%llu readidx = 0x%llx writeidx = 0x%llx\n",
 		appendingstring, __func__, ring_buffer_bridge->pBufBase,
 		ring_buffer_bridge->pBufEnd, ring_buffer_bridge->pRead,
 		ring_buffer_bridge->pWrite, ring_buffer_bridge->bufLen,
