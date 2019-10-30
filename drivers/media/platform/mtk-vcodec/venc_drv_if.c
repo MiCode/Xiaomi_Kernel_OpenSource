@@ -122,7 +122,7 @@ void venc_encode_prepare(void *ctx_prepare, int core_id, unsigned long *flags)
 	spin_lock_irqsave(&ctx->dev->irqlock, *flags);
 	ctx->dev->curr_enc_ctx[0] = ctx;
 	spin_unlock_irqrestore(&ctx->dev->irqlock, *flags);
-	mtk_vcodec_enc_clock_on(&ctx->dev->pm, core_id);
+	mtk_vcodec_enc_clock_on(ctx, core_id);
 }
 EXPORT_SYMBOL_GPL(venc_encode_prepare);
 
@@ -137,7 +137,7 @@ void venc_encode_unprepare(void *ctx_unprepare,
 		return;
 	}
 
-	mtk_vcodec_enc_clock_off(&ctx->dev->pm, core_id);
+	mtk_vcodec_enc_clock_off(ctx, core_id);
 	spin_lock_irqsave(&ctx->dev->irqlock, *flags);
 	ctx->dev->curr_enc_ctx[0] = NULL;
 	spin_unlock_irqrestore(&ctx->dev->irqlock, *flags);

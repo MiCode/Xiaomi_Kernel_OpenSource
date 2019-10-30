@@ -246,9 +246,9 @@ void mtk_venc_deinit_ctx_pm(struct mtk_vcodec_ctx *ctx)
 	slbc_release(&ctx->sram_data);
 }
 
-void mtk_vcodec_enc_clock_on(struct mtk_vcodec_pm *pm, int core_id)
+void mtk_vcodec_enc_clock_on(struct mtk_vcodec_ctx *ctx, int core_id)
 {
-	struct slbc_data enc_sram_data;
+	struct mtk_vcodec_pm *pm = &ctx->dev->pm;
 	int ret;
 #ifdef CONFIG_MTK_PSEUDO_M4U
 	int i, larb_port_num, larb_id;
@@ -271,12 +271,8 @@ void mtk_vcodec_enc_clock_on(struct mtk_vcodec_pm *pm, int core_id)
 		mtk_v4l2_err("invalid core_id %d", core_id);
 
 #endif
-	enc_sram_data.uid = UID_MM_VENC;
-	enc_sram_data.type = TP_BUFFER;
-	enc_sram_data.size = 0;
-	enc_sram_data.flag = FG_POWER;
 
-	ret = slbc_power_on(&enc_sram_data);
+	ret = slbc_power_on(&ctx->sram_data);
 
 #ifdef CONFIG_MTK_PSEUDO_M4U
 	if (core_id == MTK_VENC_CORE_0) {
@@ -315,15 +311,11 @@ void mtk_vcodec_enc_clock_on(struct mtk_vcodec_pm *pm, int core_id)
 
 }
 
-void mtk_vcodec_enc_clock_off(struct mtk_vcodec_pm *pm, int core_id)
+void mtk_vcodec_enc_clock_off(struct mtk_vcodec_ctx *ctx, int core_id)
 {
-	struct slbc_data enc_sram_data;
+	struct mtk_vcodec_pm *pm = &ctx->dev->pm;
 
-	enc_sram_data.uid = UID_MM_VENC;
-	enc_sram_data.type = TP_BUFFER;
-	enc_sram_data.size = 0;
-	enc_sram_data.flag = FG_POWER;
-	slbc_power_off(&enc_sram_data);
+	slbc_power_off(&ctx->sram_data);
 
 #ifndef FPGA_PWRCLK_API_DISABLE
 	if (core_id == MTK_VENC_CORE_0 ||
