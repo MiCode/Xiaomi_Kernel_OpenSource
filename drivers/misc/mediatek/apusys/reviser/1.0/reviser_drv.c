@@ -66,14 +66,14 @@ irqreturn_t reviser_interrupt(int irq, void *private_data)
 	reviser_device = (struct reviser_dev_info *)private_data;
 
 	if (!reviser_is_power(reviser_device)) {
-		LOG_ERR("Can Not Read when power disable\n");
+		//LOG_ERR("Can Not Read when power disable\n");
 		return IRQ_NONE;
 	}
 	if (!reviser_get_interrupt_offset(private_data)) {
 		reviser_print_remap_table(private_data, NULL);
 		reviser_print_context_ID(private_data, NULL);
 	} else {
-		LOG_ERR("INT NOT triggered by reviser\n");
+		//LOG_ERR("INT NOT triggered by reviser\n");
 		return IRQ_NONE;
 	}
 

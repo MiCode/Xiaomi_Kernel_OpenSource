@@ -722,7 +722,7 @@ int reviser_get_interrupt_offset(void *drvinfo)
 		offset = AXI_EXCEPTION_EDMA_1;
 		LOG_ERR("Interrupt from AXI_EXCEPTION_EDMA_1\n");
 	} else {
-		LOG_ERR("Unknown Interrupt\n");
+		//LOG_ERR("Unknown Interrupt\n");
 		return -EINVAL;
 	}
 
