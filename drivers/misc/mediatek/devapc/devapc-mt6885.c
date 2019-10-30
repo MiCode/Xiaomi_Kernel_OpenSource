@@ -1525,6 +1525,12 @@ const char *index_to_subsys(int slave_type, uint32_t vio_index,
 				vio_index == SMI_LARB20_VIO_INDEX)
 			return "SMI";
 
+		if (vio_index == IOMMU0_VIO_INDEX ||
+				vio_index == IOMMU1_VIO_INDEX ||
+				vio_index == IOMMU0_SEC_VIO_INDEX ||
+				vio_index == IOMMU1_SEC_VIO_INDEX)
+			return "IOMMU";
+
 		else if (vio_index >= CAM_SENINF_START &&
 				vio_index <= CAM_SENINF_END)
 			return "CAMSYS_SENINF";
