@@ -166,6 +166,7 @@ EXPORT_SYMBOL(wcnss_prealloc_put);
 void wcnss_prealloc_check_memory_leak(void)
 {
 	int i, j = 0;
+	struct stack_trace *trace = NULL;
 
 	for (i = 0; i < ARRAY_SIZE(wcnss_allocs); i++) {
 		if (!wcnss_allocs[i].occupied)
@@ -178,7 +179,8 @@ void wcnss_prealloc_check_memory_leak(void)
 
 		pr_err("Size: %zu, addr: %pK, backtrace:\n",
 		       wcnss_allocs[i].size, wcnss_allocs[i].ptr);
-		print_stack_trace(&wcnss_allocs[i].trace, 1);
+		trace = &wcnss_allocs[i].trace;
+		stack_trace_print(trace->entries, trace->nr_entries, 1);
 	}
 }
 #else
