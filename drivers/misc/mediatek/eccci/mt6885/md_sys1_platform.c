@@ -566,6 +566,11 @@ void md1_pmic_setting_on(void)
 	vmd1_pmic_setting_on();
 }
 
+void md1_pmic_setting_off(void)
+{
+	vmd1_pmic_setting_off();
+}
+
 /* callback for system power off*/
 void ccci_power_off(void)
 {
@@ -743,6 +748,9 @@ int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 #ifdef FEATURE_CLK_BUF
 		clk_buf_set_by_flightmode(true);
 #endif
+		/* 3. PMIC off */
+		md1_pmic_setting_off();
+
 		/* 5. DLPT */
 		kicker_pbm_by_md(KR_MD1, false);
 		CCCI_BOOTUP_LOG(md->index, TAG,
