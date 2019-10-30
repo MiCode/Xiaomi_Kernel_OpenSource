@@ -1836,10 +1836,13 @@ static int mtk_ion_copy_param(unsigned int type,
 			else
 				buffer_info->module_id =
 				    param.get_phys_param.module_id;
-		} else if ((buffer_info->MVA[domain_idx] == 0 &&
+		}
+#ifndef CONFIG_MTK_IOMMU_V2
+		if ((buffer_info->MVA[domain_idx] == 0 &&
 		     mm_cmd == ION_MM_GET_IOVA) ||
 		    (buffer_info->FIXED_MVA[domain_idx] == 0 &&
 			mm_cmd == ION_MM_GET_IOVA_EXT)) {
+#endif
 			buffer_info->security =
 			    param.get_phys_param.security;
 			buffer_info->coherent =
@@ -1855,7 +1858,9 @@ static int mtk_ion_copy_param(unsigned int type,
 				buffer_info->module_id =
 				    param.get_phys_param.module_id;
 			}
+#ifndef CONFIG_MTK_IOMMU_V2
 		}
+#endif
 		break;
 	default:
 		break;
