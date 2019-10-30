@@ -70,12 +70,12 @@
 #include <dt-bindings/gce/mt6885-gce.h>
 #include <smi_public.h>
 
-/*#define MFB_PMQOS*//*YWtodo*/
-#define USE_SW_TOKEN
+#define MFB_PMQOS
 #ifdef MFB_PMQOS
 #include <linux/pm_qos.h>
 #include <mmdvfs_pmqos.h>
 #endif
+#define USE_SW_TOKEN
 
 //#define __MFB_EP_NO_CLKMGR__
 /* #define BYPASS_REG */
@@ -293,8 +293,10 @@ static unsigned int g_SuspendCnt;
 #define IRQ_USER_NUM_MAX 32
 
 #ifdef MFB_PMQOS
-static struct pm_qos_request mfb_qos_request;
+static struct pm_qos_request mfb_pmqos_request;
 static u64 max_img_freq;
+struct plist_head module_request_list;  /* all module list */
+struct mm_qos_request mfb_mmqos_request;
 #endif
 
 struct  MSS_CONFIG_STRUCT {
@@ -712,7 +714,7 @@ static inline unsigned int MFB_JiffiesToMs(unsigned int Jiffies)
 	return ((Jiffies * 1000) / HZ);
 }
 
-#ifdef MFB_PMQOS/*YWtodo*/
+#ifdef MFB_PMQOS
 void MFBQOS_Init(void)
 {
 	s32 result = 0;
@@ -721,7 +723,7 @@ void MFBQOS_Init(void)
 
 	/* Call pm_qos_add_request when initialize module or driver prob */
 	pm_qos_add_request(
-		&mfb_qos_request,
+		&mfb_pmqos_request,
 		PM_QOS_IMG_FREQ,
 		PM_QOS_MM_FREQ_DEFAULT_VALUE);
 
@@ -732,22 +734,49 @@ void MFBQOS_Init(void)
 		&step_size);
 
 	if (result < 0 || step_size == 0)
-		log_inf("get MMDVFS freq steps failed, result: %d\n", result);
+		LOG_INF("get MMDVFS freq steps failed, result: %d\n", result);
 	else
 		max_img_freq = img_freq_steps[0];
+
+	/* Initialize owner list */
+	plist_head_init(&module_request_list);
+
+	/* Call mm_qos_add_request */
+	/* when initialize module or driver prob */
+	mm_qos_add_request(&module_request_list,
+		&mfb_mmqos_request, M4U_PORT_L9_IMG_MFB_RDMA0_MDP);
 }
 
 void MFBQOS_Uninit(void)
 {
-	pm_qos_remove_request(&mfb_qos_request);
+	pm_qos_remove_request(&mfb_pmqos_request);
+
+	/* Call mm_qos_remove_request */
+	/* when de-initialize module or driver remove */
+	mm_qos_remove_all_request(&module_request_list);
 }
 
-void MFBQOS_UpdateImgFreq(bool start)
+void MFBQOS_Update(bool start, unsigned int bw)
 {
-	if (start) /* start MFB, configure MMDVFS to highest CLK */
-		pm_qos_update_request(&mfb_qos_request, max_img_freq);
-	else /* finish MFB, config MMDVFS to lowest CLK */
-		pm_qos_update_request(&mfb_qos_request, 0);
+	LOG_INF("MFB bw: %d", bw);
+	if (start) { /* start MFB, configure MMDVFS to highest CLK */
+		if (bw > 20000000)
+			pm_qos_update_request(&mfb_pmqos_request, max_img_freq);
+	} else { /* finish MFB, config MMDVFS to lowest CLK */
+		pm_qos_update_request(&mfb_pmqos_request, 0);
+	}
+
+	if (start) {
+		/* Call mm_qos_set_request API to setup estimated data bw */
+		mm_qos_set_request(&mfb_mmqos_request,
+					bw/10000, 0, BW_COMP_NONE);
+		/* Call mm_qos_update_all_requests API */
+		/* update necessary HW configuration for MM BW */
+		mm_qos_update_all_request(&module_request_list);
+	} else {
+		mm_qos_set_request(&mfb_mmqos_request, 0, 0, BW_COMP_NONE);
+		mm_qos_update_all_request(&module_request_list);
+	}
 }
 #endif
 
@@ -943,6 +972,9 @@ signed int CmdqMSSHW(struct frame *frame)
 #ifdef USE_SW_TOKEN
 	cmdq_pkt_clear_event(handle, CMDQ_SYNC_TOKEN_MSS);
 #endif
+#ifdef MFB_PMQOS
+	MFBQOS_Update(1, pMssConfig->qos);
+#endif
 	cmdq_pkt_flush_threaded(handle, mss_norm_sirq, (void *)handle);
 
 	return 0;
@@ -1066,6 +1098,9 @@ signed int vCmdqMSSHW(struct frame *frame)
 	mss_pkt_tcmds(handle, pMssConfig);
 #ifdef USE_SW_TOKEN
 	cmdq_pkt_clear_event(handle, CMDQ_SYNC_TOKEN_MSS);
+#endif
+#ifdef MFB_PMQOS
+	MFBQOS_Update(1, pMssConfig->qos);
 #endif
 	cmdq_pkt_flush_threaded(handle, mss_vss_sirq, (void *)handle);
 
@@ -1228,6 +1263,9 @@ signed int CmdqMSFHW(struct frame *frame)
 #ifdef USE_SW_TOKEN
 	cmdq_pkt_clear_event(handle, CMDQ_SYNC_TOKEN_MSF);
 #endif
+#ifdef MFB_PMQOS
+	MFBQOS_Update(1, pMsfConfig->qos);
+#endif
 	cmdq_pkt_flush_threaded(handle, msf_norm_sirq, (void *)handle);
 
 	return 0;
@@ -1350,6 +1388,9 @@ signed int vCmdqMSFHW(struct frame *frame)
 	msf_pkt_tcmds(handle, pMsfConfig);
 #ifdef USE_SW_TOKEN
 	cmdq_pkt_clear_event(handle, CMDQ_SYNC_TOKEN_MSF);
+#endif
+#ifdef MFB_PMQOS
+	MFBQOS_Update(1, pMsfConfig->qos);
 #endif
 	cmdq_pkt_flush_threaded(handle, msf_vss_sirq, (void *)handle);
 
@@ -2714,6 +2755,9 @@ static long MFB_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			}
 			break;
 		}
+#ifdef MFB_PMQOS
+		MFBQOS_Update(0, 0);
+#endif
 	case MFB_MSF_WAIT_IRQ:
 		{
 			if (copy_from_user(&IrqInfo, (void *)Param,
@@ -2758,6 +2802,9 @@ static long MFB_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			}
 			break;
 		}
+#ifdef MFB_PMQOS
+		MFBQOS_Update(0, 0);
+#endif
 	case MFB_MSS_CLEAR_IRQ:
 		{
 			if (copy_from_user(&ClearIrq, (void *)Param,
