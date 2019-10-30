@@ -97,6 +97,7 @@ typedef struct GED_KPI_HEAD_TAG {
 	unsigned long long last_TimeStamp2;
 	unsigned long long last_TimeStampS;
 	unsigned long long last_TimeStampH;
+	unsigned long long pre_TimeStamp2;
 	long long t_cpu_remained;
 	long long t_gpu_remained;
 	long long t_cpu_latest;
@@ -134,9 +135,9 @@ struct GED_GPU_INFO {
 	/* bit0~bit9: headroom ratio:10-bias */
 	/* bit15: is frame base? */
 	/* bit16~bit23: dvfs_margin_mode */
-	unsigned long gpu_res1;
-	unsigned long gpu_res2;
-	unsigned long gpu_res3;
+	unsigned long tb_dvfs_mode;
+	unsigned long tb_dvfs_margin;
+	unsigned long t_gpu_real;
 	unsigned long gpu_res4;
 	unsigned long gpu_res5;
 	unsigned int dvfs_loading_mode;
@@ -770,9 +771,9 @@ static void ged_kpi_statistics_and_remove(GED_KPI_HEAD *psHead, GED_KPI *psKPI)
 		psKPI->QedBufferDelay,
 #ifdef GED_ENABLE_FB_DVFS
 		psKPI->cpu_gpu_info.gpu.gpu_dvfs,
-		psKPI->cpu_gpu_info.gpu.gpu_res1,
-		psKPI->cpu_gpu_info.gpu.gpu_res2,
-		psKPI->cpu_gpu_info.gpu.gpu_res3,
+		psKPI->cpu_gpu_info.gpu.tb_dvfs_mode,
+		psKPI->cpu_gpu_info.gpu.tb_dvfs_margin,
+		psKPI->cpu_gpu_info.gpu.t_gpu_real,
 		psKPI->cpu_gpu_info.gpu.gpu_res4,
 		psKPI->cpu_gpu_info.gpu.gpu_res5,
 		psKPI->cpu_gpu_info.gpu.dvfs_loading_mode,
@@ -1183,13 +1184,10 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 		if (!psHead) {
 			psHead = (GED_KPI_HEAD *)ged_alloc_atomic(sizeof(GED_KPI_HEAD));
 			if (psHead) {
+				memset(psHead, 0, sizeof(GED_KPI_HEAD));
 				psHead->pid = psTimeStamp->pid;
 				psHead->ullWnd = psTimeStamp->ullWnd;
-				psHead->i32Count = 0;
-				psHead->i32DebugQedBuffer_length = 0;
 				psHead->isSF = psTimeStamp->isSF;
-				psHead->i32Gpu_uncompleted = 0;
-				psHead->last_QedBufferDelay = 0;
 				ged_kpi_update_target_time_and_target_fps(psHead,
 					GED_KPI_MAX_FPS,
 					GED_KPI_DEFAULT_FPS_MARGIN,
@@ -1423,6 +1421,12 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 			if (psKPI) {
 				psKPI->ulMask |= GED_TIMESTAMP_TYPE_2;
 				psKPI->ullTimeStamp2 = psTimeStamp->ullTimeStamp;
+#ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
+				psKPI->cpu_gpu_info.gpu.tb_dvfs_mode =
+					ged_dvfs_get_tb_dvfs_margin_mode();
+				psKPI->cpu_gpu_info.gpu.tb_dvfs_margin =
+					ged_dvfs_get_tb_dvfs_margin_cur();
+#endif
 				/* calculate gpu time */
 				if (psKPI->ullTimeStamp1 > psHead->last_TimeStamp2
 					&& psKPI->ullTimeStamp1 > psKPI->ullTimeStampP)
@@ -1448,11 +1452,20 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 					(long long)psKPI->gpu_freq,
 					psTimeStamp->pid,
 					psTimeStamp->i32FrameID, ulID);
+				psHead->pre_TimeStamp2 =
+					psHead->last_TimeStamp2;
 				psHead->last_TimeStamp2 = psTimeStamp->ullTimeStamp;
 				psHead->i32Gpu_uncompleted--;
 				psKPI->gpu_loading = psTimeStamp->i32GPUloading;
 				if (psKPI->gpu_loading == 0)
 				mtk_get_gpu_loading(&psKPI->gpu_loading);
+#ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
+				psKPI->cpu_gpu_info.gpu.t_gpu_real =
+					((unsigned int)
+					(psHead->last_TimeStamp2
+					- psHead->pre_TimeStamp2))
+					* psKPI->gpu_loading / 100U;
+#endif
 				ged_log_perf_trace_counter("gpu_loading",
 					(long long)psKPI->gpu_loading,
 					psTimeStamp->pid
@@ -2221,3 +2234,79 @@ void ged_kpi_set_target_FPS_margin(u64 ulID, int target_FPS,
 #endif
 }
 EXPORT_SYMBOL(ged_kpi_set_target_FPS_margin);
+/* ------------------------------------------------------------------- */
+#ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
+static GED_BOOL ged_kpi_find_riskyBQ_func(unsigned long ulID,
+	void *pvoid, void *pvParam)
+{
+	GED_KPI_HEAD *psHead = (GED_KPI_HEAD *)pvoid;
+	GED_KPI_HEAD *psRiskyBQ = (GED_KPI_HEAD *)pvParam;
+
+	if (psRiskyBQ && psHead
+			&& psHead->t_gpu_latest > 0
+			&& psHead->t_gpu_target > 0) {
+		int t_gpu_latest;
+		int t_gpu_target;
+		int risk;
+		int maxRisk;
+
+		t_gpu_latest = ((int)psHead->t_gpu_latest) / 1000; // ns -> ms
+		t_gpu_target = psHead->t_gpu_target / 1000;
+		risk = t_gpu_latest * 100 / t_gpu_target;
+		t_gpu_latest = ((int)psRiskyBQ->t_gpu_latest) / 1000;
+		t_gpu_target = psRiskyBQ->t_gpu_target / 1000;
+		maxRisk = (t_gpu_target > 0) ?
+			(t_gpu_latest * 100 / t_gpu_target) : 0;
+
+		if (risk > maxRisk)
+			*psRiskyBQ = *psHead;
+	}
+	return GED_TRUE;
+}
+/* ------------------------------------------------------------------- */
+GED_ERROR ged_kpi_timer_based_pick_riskyBQ(int *pT_gpu_real, int *pT_gpu_pipe,
+	int *pT_gpu_target, unsigned long long *pullWnd)
+{
+	GED_ERROR ret = GED_ERROR_FAIL;
+	GED_KPI_HEAD sRiskyBQ = {0};
+	unsigned int last_TimeStamp2 = 0;
+	unsigned int pre_TimeStamp2 = 0;
+	unsigned int loading = 0;
+	int i;
+
+	ged_hashtable_iterator(gs_hashtable,
+		ged_kpi_find_riskyBQ_func, (void *)&sRiskyBQ);
+
+	if (sRiskyBQ.ullWnd == 0
+			|| sRiskyBQ.last_TimeStamp2 == 0
+			|| sRiskyBQ.pre_TimeStamp2 == 0
+			|| sRiskyBQ.t_gpu_latest <= 0
+			|| sRiskyBQ.t_gpu_target <= 0)
+		return ret;
+
+	last_TimeStamp2 =
+		((unsigned int)sRiskyBQ.last_TimeStamp2) / 1000U; // ns -> ms
+	pre_TimeStamp2 =
+		((unsigned int)sRiskyBQ.pre_TimeStamp2) / 1000U;
+
+	for (i = 0; i < GED_KPI_TOTAL_ITEMS; ++i) {
+		if (g_asKPI[i].ullTimeStamp2 == sRiskyBQ.last_TimeStamp2
+			&& g_asKPI[i].ullWnd == sRiskyBQ.ullWnd) {
+			loading = g_asKPI[i].gpu_loading;
+			break;
+		}
+	}
+	if (loading == 0)
+		mtk_get_gpu_loading(&loading);
+
+	*pT_gpu_real = (last_TimeStamp2 - pre_TimeStamp2)
+		* loading / 100U;
+	*pT_gpu_pipe = ((int)sRiskyBQ.t_gpu_latest) / 1000; // ns -> ms
+	*pT_gpu_target = sRiskyBQ.t_gpu_target / 1000;
+	*pullWnd = sRiskyBQ.ullWnd;
+	ret = GED_OK;
+
+	return ret;
+}
+EXPORT_SYMBOL(ged_kpi_timer_based_pick_riskyBQ);
+#endif /* GED_ENABLE_TIMER_BASED_DVFS_MARGIN */

@@ -176,7 +176,22 @@ static int ged_get_dvfs_loading_mode(void);
 #define GED_DVFS_TIMER_BASED_DVFS_MARGIN 30
 static int gx_tb_dvfs_margin = GED_DVFS_TIMER_BASED_DVFS_MARGIN;
 static int gx_tb_dvfs_margin_cur = GED_DVFS_TIMER_BASED_DVFS_MARGIN;
+#ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
+#define MAX_TB_DVFS_MARGIN 50
+#define MIN_TB_DVFS_MARGIN 10
+#define MIN_TB_MARGIN_INC_STEP 1
+#define CONFIGURE_TIMER_BASED_MODE	0x00000000
+#define DYNAMIC_TB_MASK			0x00000100
+#define DYNAMIC_TB_PIPE_TIME_MASK	0x00000200
+#define DYNAMIC_TB_PERF_MODE_MASK	0x00000400
+#define DYNAMIC_TB_FIX_TARGET_MASK	0x00000800
+#define TIMER_BASED_MARGIN_MASK		0x000000ff
+static int g_tb_dvfs_margin_value = GED_DVFS_TIMER_BASED_DVFS_MARGIN;
+static unsigned int g_tb_dvfs_margin_mode = CONFIGURE_TIMER_BASED_MODE;
+#else
 module_param(gx_tb_dvfs_margin, int, 0644);
+#endif
+
 static void _init_loading_ud_table(void)
 {
 	int i;
@@ -1203,6 +1218,61 @@ static bool ged_dvfs_policy(
 #ifndef GED_CONFIGURE_LOADING_BASE_DVFS_STEP
 		static int init;
 #endif
+
+#ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
+	int t_gpu_real = -1;
+	int t_gpu_pipe = -1;
+	int t_gpu = -1;
+	int t_gpu_target = -1;
+	int temp = 0;
+	unsigned long long ullWnd = 0;
+
+	if (g_tb_dvfs_margin_mode & DYNAMIC_TB_MASK) {
+		if (ged_kpi_timer_based_pick_riskyBQ(
+			&t_gpu_real, &t_gpu_pipe,
+			&t_gpu_target, &ullWnd) == GED_OK) {
+			t_gpu =
+				(g_tb_dvfs_margin_mode
+				& DYNAMIC_TB_PIPE_TIME_MASK) ?
+				t_gpu_pipe : t_gpu_real;
+			t_gpu_target =
+				(g_tb_dvfs_margin_mode
+				& DYNAMIC_TB_FIX_TARGET_MASK) ?
+				33333 : t_gpu_target;
+			t_gpu_target =
+				(g_tb_dvfs_margin_mode
+				& DYNAMIC_TB_PERF_MODE_MASK) ?
+				(t_gpu_target
+				* (100 - gx_tb_dvfs_margin) / 100)
+				: t_gpu_target;
+			if (t_gpu > t_gpu_target) {
+				temp = gx_tb_dvfs_margin
+					* (t_gpu - t_gpu_target)
+					/ t_gpu_target;
+
+				if (temp < MIN_TB_MARGIN_INC_STEP)
+					temp = MIN_TB_MARGIN_INC_STEP;
+
+				gx_tb_dvfs_margin += temp;
+
+				if (gx_tb_dvfs_margin > g_tb_dvfs_margin_value)
+					gx_tb_dvfs_margin =
+					g_tb_dvfs_margin_value;
+			} else {
+				gx_tb_dvfs_margin -=
+					gx_tb_dvfs_margin
+					* (t_gpu_target - t_gpu)
+					/ t_gpu_target;
+
+				if (gx_tb_dvfs_margin < MIN_TB_DVFS_MARGIN)
+					gx_tb_dvfs_margin = MIN_TB_DVFS_MARGIN;
+			}
+		}
+	} else {
+		gx_tb_dvfs_margin = g_tb_dvfs_margin_value;
+	}
+#endif
+
 		if (init == 0) {
 			init = 1;
 			gx_tb_dvfs_margin_cur
@@ -1212,11 +1282,24 @@ static bool ged_dvfs_policy(
 
 		if (gx_tb_dvfs_margin != gx_tb_dvfs_margin_cur
 				&& gx_tb_dvfs_margin < 100
-				&& gx_tb_dvfs_margin > 0) {
+				&& gx_tb_dvfs_margin >= 0) {
 			gx_tb_dvfs_margin_cur
 				= gx_tb_dvfs_margin;
 			_init_loading_ud_table();
 		}
+
+#ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
+		ged_log_buf_print(ghLogBuf_DVFS,
+			"[GED_K][LB_DVFS] mode: 0x%x, ceiling: %d, margin: %d, gpu_real: %d, gpu_pipe: %d, t_gpu: %d, target: %d, BQ: %llu",
+			g_tb_dvfs_margin_mode,
+			g_tb_dvfs_margin_value,
+			gx_tb_dvfs_margin_cur,
+			t_gpu_real,
+			t_gpu_pipe,
+			t_gpu,
+			t_gpu_target,
+			ullWnd);
+#endif
 
 		ui32GPULoading_avg = _loading_avg(ui32GPULoading);
 		if (ui32GPULoading >= 110 - gx_tb_dvfs_margin_cur) {
@@ -1588,15 +1671,40 @@ static int ged_get_loading_base_dvfs_step(void)
 #ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
 static void ged_timer_base_dvfs_margin(int i32MarginValue)
 {
-	/* -1:  default: GED_DVFS_TIMER_BASED_DVFS_MARGIN */
-	/* 1~99: configure timer base dvfs margin */
+	/*
+	 *     < 0: default, GED_DVFS_TIMER_BASED_DVFS_MARGIN
+	 * bit 7~0: margin value
+	 * bit   8: dynamic timer based dvfs margin
+	 * bit   9: use gpu pipe time for dynamic timer based dvfs margin
+	 * bit  10: use performance mode for dynamic timer based dvfs margin
+	 * bit  11: fix target FPS to 30 for dynamic timer based dvfs margin
+	 */
+	unsigned int mode = CONFIGURE_TIMER_BASED_MODE;
+	int value = i32MarginValue & TIMER_BASED_MARGIN_MASK;
+
+	if (i32MarginValue < 0)
+		value = GED_DVFS_TIMER_BASED_DVFS_MARGIN;
+	else {
+		mode = (i32MarginValue & DYNAMIC_TB_MASK) ?
+				(mode | DYNAMIC_TB_MASK) : mode;
+		mode = (i32MarginValue & DYNAMIC_TB_PIPE_TIME_MASK) ?
+				(mode | DYNAMIC_TB_PIPE_TIME_MASK) : mode;
+		mode = (i32MarginValue & DYNAMIC_TB_PERF_MODE_MASK) ?
+				(mode | DYNAMIC_TB_PERF_MODE_MASK) : mode;
+		mode = (i32MarginValue & DYNAMIC_TB_FIX_TARGET_MASK) ?
+				(mode | DYNAMIC_TB_FIX_TARGET_MASK) : mode;
+	}
 
 	mutex_lock(&gsDVFSLock);
 
-	if (i32MarginValue == -1)
-		gx_tb_dvfs_margin = GED_DVFS_TIMER_BASED_DVFS_MARGIN;
-	else if ((i32MarginValue > 0) && (i32MarginValue < 100))
-		gx_tb_dvfs_margin = i32MarginValue;
+	g_tb_dvfs_margin_mode = mode;
+
+	if (value > MAX_TB_DVFS_MARGIN)
+		g_tb_dvfs_margin_value = MAX_TB_DVFS_MARGIN;
+	else if (value < MIN_TB_DVFS_MARGIN)
+		g_tb_dvfs_margin_value = MIN_TB_DVFS_MARGIN;
+	else
+		g_tb_dvfs_margin_value = value;
 
 	mutex_unlock(&gsDVFSLock);
 }
@@ -1605,7 +1713,17 @@ static int ged_get_timer_base_dvfs_margin(void)
 {
 	return gx_tb_dvfs_margin_cur;
 }
-#endif
+
+int ged_dvfs_get_tb_dvfs_margin_cur(void)
+{
+	return gx_tb_dvfs_margin_cur;
+}
+
+unsigned int ged_dvfs_get_tb_dvfs_margin_mode(void)
+{
+	return g_tb_dvfs_margin_mode;
+}
+#endif /* GED_ENABLE_TIMER_BASED_DVFS_MARGIN */
 #ifdef GED_ENABLE_DVFS_LOADING_MODE
 static void ged_dvfs_loading_mode(int i32MarginValue)
 {
