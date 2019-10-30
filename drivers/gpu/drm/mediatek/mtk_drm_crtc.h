@@ -646,6 +646,8 @@ void mtk_crtc_stop_trig_loop(struct mtk_drm_crtc *mtk_crtc);
 void mtk_crtc_start_trig_loop(struct mtk_drm_crtc *mtk_crtc);
 
 void mtk_crtc_change_output_mode(struct drm_crtc *crtc, int aod_en);
+int mtk_crtc_user_cmd(struct drm_crtc *crtc, struct mtk_ddp_comp *comp,
+		unsigned int cmd, void *params);
 
 /********************** Legacy DISP API ****************************/
 unsigned int DISP_GetScreenWidth(void);

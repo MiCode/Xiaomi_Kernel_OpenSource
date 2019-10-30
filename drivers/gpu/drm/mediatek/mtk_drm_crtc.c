@@ -568,6 +568,86 @@ bool mtk_crtc_get_vblank_timestamp(struct drm_device *dev, unsigned int pipe,
 	return true;
 }
 
+int mtk_crtc_user_cmd(struct drm_crtc *crtc, struct mtk_ddp_comp *comp,
+		unsigned int cmd, void *params)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct cmdq_pkt *cmdq_handle;
+	int index = 0;
+
+	if (!mtk_crtc) {
+		DDPPR_ERR("%s:%d, invalid crtc:0x%p\n",
+				__func__, __LINE__, crtc);
+		return -1;
+	}
+
+	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+	CRTC_MMP_EVENT_START(index, user_cmd, (unsigned long)crtc,
+			(unsigned long)comp);
+
+	if ((!crtc) || (!comp)) {
+		DDPPR_ERR("%s:%d, invalid arg:(0x%p,0x%p)\n",
+				__func__, __LINE__,
+				crtc, comp);
+		CRTC_MMP_EVENT_END(index, user_cmd, 0, 0);
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		return -1;
+	}
+
+	index = drm_crtc_index(crtc);
+	if (index) {
+		DDPPR_ERR("%s:%d, invalid crtc:0x%p, index:%d\n",
+				__func__, __LINE__, crtc, index);
+		CRTC_MMP_EVENT_END(index, user_cmd, 0, 1);
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		return -1;
+	}
+
+	if (!(mtk_crtc->enabled)) {
+		DDPINFO("%s:%d, slepted\n", __func__, __LINE__);
+		CRTC_MMP_EVENT_END(index, user_cmd, 0, 2);
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		return 0;
+	}
+
+	mtk_drm_idlemgr_kick(__func__, crtc, 0);
+
+	cmdq_handle = cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
+
+	if (mtk_crtc_with_sub_path(crtc, mtk_crtc->ddp_mode))
+		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
+			DDP_SECOND_PATH);
+	else
+		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
+			DDP_FIRST_PATH);
+
+	/* set user command */
+	if (comp && comp->funcs && comp->funcs->user_cmd)
+		comp->funcs->user_cmd(comp, cmdq_handle, cmd, (void *)params);
+	else {
+		DDPPR_ERR("%s:%d, invalid comp:(0x%p,0x%p)\n",
+				__func__, __LINE__, comp, comp->funcs);
+		CRTC_MMP_EVENT_END(index, user_cmd, 0, 3);
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		return -1;
+	}
+
+	if (mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base))
+		cmdq_pkt_set_event(cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
+
+	cmdq_pkt_flush(cmdq_handle);
+	cmdq_pkt_destroy(cmdq_handle);
+
+	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+	CRTC_MMP_EVENT_END(index, user_cmd, (unsigned long)cmd,
+			(unsigned long)params);
+
+	return 0;
+}
+
 /* power on all modules on this CRTC */
 void mtk_crtc_ddp_prepare(struct mtk_drm_crtc *mtk_crtc)
 {

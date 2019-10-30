@@ -76,6 +76,7 @@ struct CRTC_MMP_Events {
 	mmp_event resume;
 	mmp_event backlight;
 	mmp_event path_switch;
+	mmp_event user_cmd;
 };
 
 struct DRM_MMP_Events *get_drm_mmp_events(void);

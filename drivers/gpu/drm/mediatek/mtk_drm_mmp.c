@@ -145,6 +145,8 @@ void init_crtc_mmp_event(void)
 			crtc_mmp_root, "backlight");
 		g_CRTC_MMP_Events[i].path_switch = mmprofile_register_event(
 			crtc_mmp_root, "path_switch");
+		g_CRTC_MMP_Events[i].user_cmd = mmprofile_register_event(
+			crtc_mmp_root, "user_cmd");
 	}
 }
 

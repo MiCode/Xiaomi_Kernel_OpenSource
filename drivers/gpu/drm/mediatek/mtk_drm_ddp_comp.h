@@ -263,6 +263,8 @@ struct mtk_ddp_comp_funcs {
 			     struct cmdq_pkt *handle);
 	int (*io_cmd)(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		      enum mtk_ddp_io_cmd cmd, void *params);
+	int (*user_cmd)(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
+		      unsigned int cmd, void *params);
 	void (*connect)(struct mtk_ddp_comp *comp, enum mtk_ddp_comp_id prev,
 			enum mtk_ddp_comp_id next);
 };
