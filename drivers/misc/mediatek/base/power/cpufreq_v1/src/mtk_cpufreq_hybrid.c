@@ -608,6 +608,12 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 #define OFFS_SCHED_S		0x03a4	/* 233 */
 #define OFFS_SCHED_E		0x03c8	/* 242 */
 
+#define OFFS_HAS_ADVISE_FREQ_S  0x1218  /* 1158 */
+#define OFFS_HAS_ADVISE_FREQ_E  0x1220  /* 1160 */
+
+#define ADVI			0x41445649
+#define NOAD			0x4E4F4144
+
 static u32 g_dbg_repo_bak[DBG_REPO_NUM];
 
 #ifdef ENABLE_DOE
@@ -798,6 +804,16 @@ int cpuhvfs_set_min_max(int cluster_id, int base, int limit)
 		(limit << 16 | base));
 #endif
 	return 0;
+}
+
+void cpuhvfs_write_advise_freq(int cluster_id, unsigned int has_advise_freq)
+{
+	if (has_advise_freq)
+		csram_write((OFFS_HAS_ADVISE_FREQ_S + (cluster_id * 4)),
+			ADVI);
+	else
+		csram_write((OFFS_HAS_ADVISE_FREQ_S + (cluster_id * 4)),
+			NOAD);
 }
 
 int cpuhvfs_set_dvfs_stress(unsigned int en)

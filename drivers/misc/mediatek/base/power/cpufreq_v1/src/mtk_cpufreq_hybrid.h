@@ -79,6 +79,7 @@ int cpuhvfs_module_init(void);
 int cpuhvfs_set_init_sta(void);
 int cpuhvfs_set_turbo_scale(unsigned int turbo_f, unsigned int turbo_v);
 int cpuhvfs_set_min_max(int cluster_id, int base, int limit);
+void cpuhvfs_write_advise_freq(int cluster_id, unsigned int has_advise_freq);
 int cpuhvfs_set_cluster_on_off(int cluster_id, int state);
 int cpuhvfs_set_dvfs(int cluster_id, unsigned int freq);
 int cpuhvfs_set_volt(int cluster_id, unsigned int volt);
