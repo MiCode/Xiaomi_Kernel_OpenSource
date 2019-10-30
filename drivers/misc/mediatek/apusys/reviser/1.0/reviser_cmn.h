@@ -50,6 +50,6 @@ enum {
 		if (s) \
 			seq_printf(s, x, ##args); \
 		else \
-			LOG_INFO(x, ##args); \
+			LOG_DEBUG(x, ##args); \
 	}
 #endif

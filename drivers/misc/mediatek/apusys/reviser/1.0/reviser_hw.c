@@ -57,26 +57,55 @@ static void _reviser_set_default_iova(void *drvinfo,
 
 void reviser_print_private(void *drvinfo)
 {
-	struct reviser_dev_info *info = NULL;
+	struct reviser_dev_info *reviser_device = NULL;
 
+	reviser_device = (struct reviser_dev_info *)drvinfo;
 	DEBUG_TAG;
 	if (drvinfo == NULL) {
 		LOG_ERR("invalid argument\n");
 		return;
 	}
 
-	info = (struct reviser_dev_info *)drvinfo;
+	reviser_device = (struct reviser_dev_info *)drvinfo;
 	LOG_INFO("=============================");
-	LOG_INFO(" reviser driver private info\n");
+	LOG_INFO(" reviser driver private reviser_device\n");
 	LOG_INFO("-----------------------------");
-	LOG_INFO("pctrl_top: %p\n",	info->pctrl_top);
+	LOG_INFO("pctrl_top: %p\n",	reviser_device->pctrl_top);
 	LOG_INFO("=============================");
+
+}
+
+void reviser_print_error(void *drvinfo, void *s_file)
+{
+	struct reviser_dev_info *reviser_device = NULL;
+	struct seq_file *s = (struct seq_file *)s_file;
+	unsigned long flags;
+	int count = 0;
+
+	DEBUG_TAG;
+
+	if (drvinfo == NULL) {
+		LOG_ERR("invalid argument\n");
+		return;
+	}
+
+	reviser_device = (struct reviser_dev_info *)drvinfo;
+
+	spin_lock_irqsave(&reviser_device->lock_dump, flags);
+	count = reviser_device->dump.err_count;
+	spin_unlock_irqrestore(&reviser_device->lock_dump, flags);
+	LOG_CON(s, "=============================\n");
+	LOG_CON(s, " reviser error info\n");
+	LOG_CON(s, "-----------------------------\n");
+	LOG_CON(s, "count: %d\n", count);
+	LOG_CON(s, "=============================\n");
+
 
 }
 
 void reviser_print_boundary(void *drvinfo, void *s_file)
 {
-	struct reviser_dev_info *info = NULL;
+	struct reviser_dev_info *reviser_device = NULL;
 	uint32_t reg[FAKE_CONTEX_REG_NUM];
 	uint32_t offset = 0;
 	struct seq_file *s = (struct seq_file *)s_file;
@@ -88,50 +117,50 @@ void reviser_print_boundary(void *drvinfo, void *s_file)
 		return;
 	}
 
-	info = (struct reviser_dev_info *)drvinfo;
+	reviser_device = (struct reviser_dev_info *)drvinfo;
 
 
 
 	offset = _reviser_get_contex_offset(REVISER_DEVICE_MDLA, 0);
 	if (offset == REVISER_FAIL)
 		goto fail_offset;
-	reg[0] = _reviser_reg_read(info->pctrl_top, offset) &
+	reg[0] = _reviser_reg_read(reviser_device->pctrl_top, offset) &
 			VLM_CTXT_BDY_SELECT;
 
 	offset = _reviser_get_contex_offset(REVISER_DEVICE_MDLA, 1);
 	if (offset == REVISER_FAIL)
 		goto fail_offset;
-	reg[1] = _reviser_reg_read(info->pctrl_top, offset) &
+	reg[1] = _reviser_reg_read(reviser_device->pctrl_top, offset) &
 			VLM_CTXT_BDY_SELECT;
 
 	offset = _reviser_get_contex_offset(REVISER_DEVICE_VPU, 0);
 	if (offset == REVISER_FAIL)
 		goto fail_offset;
-	reg[2] = _reviser_reg_read(info->pctrl_top, offset) &
+	reg[2] = _reviser_reg_read(reviser_device->pctrl_top, offset) &
 			VLM_CTXT_BDY_SELECT;
 
 	offset = _reviser_get_contex_offset(REVISER_DEVICE_VPU, 1);
 	if (offset == REVISER_FAIL)
 		goto fail_offset;
-	reg[3] = _reviser_reg_read(info->pctrl_top, offset) &
+	reg[3] = _reviser_reg_read(reviser_device->pctrl_top, offset) &
 			VLM_CTXT_BDY_SELECT;
 
 	offset = _reviser_get_contex_offset(REVISER_DEVICE_VPU, 2);
 	if (offset == REVISER_FAIL)
 		goto fail_offset;
-	reg[4] = _reviser_reg_read(info->pctrl_top, offset) &
+	reg[4] = _reviser_reg_read(reviser_device->pctrl_top, offset) &
 			VLM_CTXT_BDY_SELECT;
 
 	offset = _reviser_get_contex_offset(REVISER_DEVICE_EDMA, 0);
 	if (offset == REVISER_FAIL)
 		goto fail_offset;
-	reg[5] = _reviser_reg_read(info->pctrl_top, offset) &
+	reg[5] = _reviser_reg_read(reviser_device->pctrl_top, offset) &
 			VLM_CTXT_BDY_SELECT;
 
 	offset = _reviser_get_contex_offset(REVISER_DEVICE_EDMA, 1);
 	if (offset == REVISER_FAIL)
 		goto fail_offset;
-	reg[6] = _reviser_reg_read(info->pctrl_top, offset) &
+	reg[6] = _reviser_reg_read(reviser_device->pctrl_top, offset) &
 			VLM_CTXT_BDY_SELECT;
 
 	LOG_CON(s, "=============================\n");
@@ -154,7 +183,7 @@ fail_offset:
 
 void reviser_print_context_ID(void *drvinfo, void *s_file)
 {
-	struct reviser_dev_info *info = NULL;
+	struct reviser_dev_info *reviser_device = NULL;
 	uint32_t reg[FAKE_CONTEX_REG_NUM];
 	uint32_t offset = 0;
 	struct seq_file *s = (struct seq_file *)s_file;
@@ -166,50 +195,50 @@ void reviser_print_context_ID(void *drvinfo, void *s_file)
 		return;
 	}
 
-	info = (struct reviser_dev_info *)drvinfo;
+	reviser_device = (struct reviser_dev_info *)drvinfo;
 
 	offset = _reviser_get_contex_offset(REVISER_DEVICE_MDLA, 0);
 	if (offset == REVISER_FAIL)
 		goto fail_offset;
-	reg[0] = (_reviser_reg_read(info->pctrl_top, offset) & VLM_CTXT_CTX_ID)
-			>> VLM_CTXT_CTX_ID_OFFSET;
+	reg[0] = (_reviser_reg_read(reviser_device->pctrl_top, offset)
+			& VLM_CTXT_CTX_ID) >> VLM_CTXT_CTX_ID_OFFSET;
 
 	offset = _reviser_get_contex_offset(REVISER_DEVICE_MDLA, 1);
 	if (offset == REVISER_FAIL)
 		goto fail_offset;
-	reg[1] = (_reviser_reg_read(info->pctrl_top, offset) & VLM_CTXT_CTX_ID)
-			>> VLM_CTXT_CTX_ID_OFFSET;
+	reg[1] = (_reviser_reg_read(reviser_device->pctrl_top, offset)
+			& VLM_CTXT_CTX_ID) >> VLM_CTXT_CTX_ID_OFFSET;
 
 	offset = _reviser_get_contex_offset(REVISER_DEVICE_VPU, 0);
 	if (offset == REVISER_FAIL)
 		goto fail_offset;
-	reg[2] = (_reviser_reg_read(info->pctrl_top, offset) & VLM_CTXT_CTX_ID)
-			>> VLM_CTXT_CTX_ID_OFFSET;
+	reg[2] = (_reviser_reg_read(reviser_device->pctrl_top, offset)
+			& VLM_CTXT_CTX_ID) >> VLM_CTXT_CTX_ID_OFFSET;
 
 	offset = _reviser_get_contex_offset(REVISER_DEVICE_VPU, 1);
 	if (offset == REVISER_FAIL)
 		goto fail_offset;
-	reg[3] = (_reviser_reg_read(info->pctrl_top, offset) & VLM_CTXT_CTX_ID)
-			>> VLM_CTXT_CTX_ID_OFFSET;
+	reg[3] = (_reviser_reg_read(reviser_device->pctrl_top, offset)
+			& VLM_CTXT_CTX_ID) >> VLM_CTXT_CTX_ID_OFFSET;
 
 	offset = _reviser_get_contex_offset(REVISER_DEVICE_VPU, 2);
 	if (offset == REVISER_FAIL)
 		goto fail_offset;
-	reg[4] = (_reviser_reg_read(info->pctrl_top, offset) & VLM_CTXT_CTX_ID)
-			>> VLM_CTXT_CTX_ID_OFFSET;
+	reg[4] = (_reviser_reg_read(reviser_device->pctrl_top, offset)
+			& VLM_CTXT_CTX_ID) >> VLM_CTXT_CTX_ID_OFFSET;
 
 
 	offset = _reviser_get_contex_offset(REVISER_DEVICE_EDMA, 0);
 	if (offset == REVISER_FAIL)
 		goto fail_offset;
-	reg[5] = (_reviser_reg_read(info->pctrl_top, offset) & VLM_CTXT_CTX_ID)
-			>> VLM_CTXT_CTX_ID_OFFSET;
+	reg[5] = (_reviser_reg_read(reviser_device->pctrl_top, offset)
+			& VLM_CTXT_CTX_ID) >> VLM_CTXT_CTX_ID_OFFSET;
 
 	offset = _reviser_get_contex_offset(REVISER_DEVICE_EDMA, 1);
 	if (offset == REVISER_FAIL)
 		goto fail_offset;
-	reg[6] = (_reviser_reg_read(info->pctrl_top, offset) & VLM_CTXT_CTX_ID)
-			>> VLM_CTXT_CTX_ID_OFFSET;
+	reg[6] = (_reviser_reg_read(reviser_device->pctrl_top, offset)
+			& VLM_CTXT_CTX_ID) >> VLM_CTXT_CTX_ID_OFFSET;
 
 	LOG_CON(s, "=============================\n");
 	LOG_CON(s, " reviser driver ID info\n");
@@ -231,7 +260,7 @@ fail_offset:
 
 void reviser_print_remap_table(void *drvinfo, void *s_file)
 {
-	struct reviser_dev_info *info = NULL;
+	struct reviser_dev_info *reviser_device = NULL;
 	uint32_t reg[FAKE_REMAP_REG_NUM];
 	uint32_t offset[FAKE_REMAP_REG_NUM];
 	int i = 0;
@@ -245,7 +274,7 @@ void reviser_print_remap_table(void *drvinfo, void *s_file)
 		return;
 	}
 
-	info = (struct reviser_dev_info *)drvinfo;
+	reviser_device = (struct reviser_dev_info *)drvinfo;
 
 	for (i = 0; i < FAKE_REMAP_REG_NUM; i++) {
 		offset[i] = _reviser_get_remap_offset(i);
@@ -253,7 +282,9 @@ void reviser_print_remap_table(void *drvinfo, void *s_file)
 			LOG_ERR("invalid argument\n");
 			goto fail_offset;
 		}
-		reg[i] = _reviser_reg_read(info->pctrl_top, offset[i]);
+		reg[i] = _reviser_reg_read(
+				reviser_device->pctrl_top,
+				offset[i]);
 	}
 
 	LOG_CON(s, "=============================\n");
@@ -278,7 +309,7 @@ fail_offset:
 
 void reviser_print_default_iova(void *drvinfo)
 {
-	struct reviser_dev_info *info = NULL;
+	struct reviser_dev_info *reviser_device = NULL;
 	uint32_t reg;
 
 	DEBUG_TAG;
@@ -288,9 +319,9 @@ void reviser_print_default_iova(void *drvinfo)
 		return;
 	}
 
-	info = (struct reviser_dev_info *)drvinfo;
+	reviser_device = (struct reviser_dev_info *)drvinfo;
 
-	reg = _reviser_reg_read(info->pctrl_top, VLM_DEFAULT_MVA);
+	reg = _reviser_reg_read(reviser_device->pctrl_top, VLM_DEFAULT_MVA);
 
 	LOG_INFO("=============================");
 	LOG_INFO(" reviser driver default iova\n");
@@ -439,26 +470,26 @@ static uint32_t  _reviser_get_contex_offset(enum REVISER_DEVICE_E type,
 static void _reviser_set_contex_boundary(void *drvinfo,
 		uint32_t offset, uint8_t boundary)
 {
-	struct reviser_dev_info *info = NULL;
+	struct reviser_dev_info *reviser_device = NULL;
 
-	info = (struct reviser_dev_info *)drvinfo;
+	reviser_device = (struct reviser_dev_info *)drvinfo;
 
-	_reviser_reg_clr(info->pctrl_top,
+	_reviser_reg_clr(reviser_device->pctrl_top,
 			offset, VLM_CTXT_BDY_SELECT);
-	_reviser_reg_set(info->pctrl_top,
+	_reviser_reg_set(reviser_device->pctrl_top,
 			offset, boundary & VLM_CTXT_BDY_SELECT);
 
 }
 static void _reviser_set_context_ID(void *drvinfo, uint32_t offset, uint8_t ID)
 {
-	struct reviser_dev_info *info = NULL;
+	struct reviser_dev_info *reviser_device = NULL;
 
 	DEBUG_TAG;
-	info = (struct reviser_dev_info *)drvinfo;
+	reviser_device = (struct reviser_dev_info *)drvinfo;
 
-	_reviser_reg_clr(info->pctrl_top,
+	_reviser_reg_clr(reviser_device->pctrl_top,
 			offset, VLM_CTXT_CTX_ID);
-	_reviser_reg_set(info->pctrl_top,
+	_reviser_reg_set(reviser_device->pctrl_top,
 			offset, (ID << VLM_CTXT_CTX_ID_OFFSET));
 
 }
@@ -467,29 +498,29 @@ static void  _reviser_set_remap_table(void *drvinfo,
 		uint32_t offset, uint8_t valid, uint8_t ID,
 		uint8_t src_page, uint8_t dst_page)
 {
-	struct reviser_dev_info *info = NULL;
+	struct reviser_dev_info *reviser_device = NULL;
 
 	DEBUG_TAG;
-	info = (struct reviser_dev_info *)drvinfo;
+	reviser_device = (struct reviser_dev_info *)drvinfo;
 
-	_reviser_reg_clr(info->pctrl_top,
+	_reviser_reg_clr(reviser_device->pctrl_top,
 			offset, VLM_REMAP_VALID);
 
-	_reviser_reg_clr(info->pctrl_top,
+	_reviser_reg_clr(reviser_device->pctrl_top,
 			offset, VLM_REMAP_CTX_ID);
-	_reviser_reg_set(info->pctrl_top,
+	_reviser_reg_set(reviser_device->pctrl_top,
 			offset, (ID << VLM_REMAP_CTX_ID_OFFSET));
-	_reviser_reg_clr(info->pctrl_top,
+	_reviser_reg_clr(reviser_device->pctrl_top,
 			offset, VLM_REMAP_CTX_SRC);
-	_reviser_reg_set(info->pctrl_top,
+	_reviser_reg_set(reviser_device->pctrl_top,
 			offset, (src_page << VLM_REMAP_CTX_SRC_OFFSET));
-	_reviser_reg_clr(info->pctrl_top,
+	_reviser_reg_clr(reviser_device->pctrl_top,
 			offset, VLM_REMAP_CTX_DST);
-	_reviser_reg_set(info->pctrl_top,
+	_reviser_reg_set(reviser_device->pctrl_top,
 			offset, (dst_page << VLM_REMAP_CTX_DST_OFFSET));
 
 	if (valid)
-		_reviser_reg_set(info->pctrl_top,
+		_reviser_reg_set(reviser_device->pctrl_top,
 				offset, (1 << VLM_REMAP_VALID_OFFSET));
 }
 
@@ -669,18 +700,18 @@ int reviser_set_context_ID(void *drvinfo,
 static void _reviser_set_default_iova(void *drvinfo,
 		uint32_t iova)
 {
-	struct reviser_dev_info *info = NULL;
+	struct reviser_dev_info *reviser_device = NULL;
 
 	if (drvinfo == NULL) {
 		LOG_ERR("invalid argument\n");
 		return;
 	}
 
-	info = (struct reviser_dev_info *)drvinfo;
+	reviser_device = (struct reviser_dev_info *)drvinfo;
 
-	_reviser_reg_clr(info->pctrl_top,
+	_reviser_reg_clr(reviser_device->pctrl_top,
 			VLM_DEFAULT_MVA, REVISER_DEFAULT);
-	_reviser_reg_set(info->pctrl_top,
+	_reviser_reg_set(reviser_device->pctrl_top,
 			VLM_DEFAULT_MVA, iova);
 
 }
@@ -690,7 +721,7 @@ int reviser_get_interrupt_offset(void *drvinfo)
 	uint32_t offset = 0;
 	int ret = 0;
 
-	struct reviser_dev_info *info = NULL;
+	struct reviser_dev_info *reviser_device = NULL;
 
 
 	if (drvinfo == NULL) {
@@ -698,36 +729,43 @@ int reviser_get_interrupt_offset(void *drvinfo)
 		return -EINVAL;
 	}
 
-	info = (struct reviser_dev_info *)drvinfo;
+	reviser_device = (struct reviser_dev_info *)drvinfo;
 
-	if (_reviser_reg_read(info->pctrl_top, AXI_EXCEPTION_MDLA_0)) {
+	if (_reviser_reg_read(reviser_device->pctrl_top,
+			AXI_EXCEPTION_MDLA_0)) {
 		offset = AXI_EXCEPTION_MDLA_0;
-		LOG_ERR("Interrupt from AXI_EXCEPTION_MDLA_0\n");
-	} else if (_reviser_reg_read(info->pctrl_top, AXI_EXCEPTION_MDLA_1)) {
+		LOG_DEBUG("Interrupt from AXI_EXCEPTION_MDLA_0\n");
+	} else if (_reviser_reg_read(reviser_device->pctrl_top,
+			AXI_EXCEPTION_MDLA_1)) {
 		offset = AXI_EXCEPTION_MDLA_1;
-		LOG_ERR("Interrupt from AXI_EXCEPTION_MDLA_1\n");
-	} else if (_reviser_reg_read(info->pctrl_top, AXI_EXCEPTION_VPU_0)) {
+		LOG_DEBUG("Interrupt from AXI_EXCEPTION_MDLA_1\n");
+	} else if (_reviser_reg_read(reviser_device->pctrl_top,
+			AXI_EXCEPTION_VPU_0)) {
 		offset = AXI_EXCEPTION_VPU_0;
-		LOG_ERR("Interrupt from AXI_EXCEPTION_VPU_0\n");
-	} else if (_reviser_reg_read(info->pctrl_top, AXI_EXCEPTION_VPU_1)) {
+		LOG_DEBUG("Interrupt from AXI_EXCEPTION_VPU_0\n");
+	} else if (_reviser_reg_read(reviser_device->pctrl_top,
+			AXI_EXCEPTION_VPU_1)) {
 		offset = AXI_EXCEPTION_VPU_1;
-		LOG_ERR("Interrupt from AXI_EXCEPTION_VPU_1\n");
-	} else if (_reviser_reg_read(info->pctrl_top, AXI_EXCEPTION_VPU_2)) {
+		LOG_DEBUG("Interrupt from AXI_EXCEPTION_VPU_1\n");
+	} else if (_reviser_reg_read(reviser_device->pctrl_top,
+			AXI_EXCEPTION_VPU_2)) {
 		offset = AXI_EXCEPTION_VPU_2;
-		LOG_ERR("Interrupt from AXI_EXCEPTION_VPU_2\n");
-	} else if (_reviser_reg_read(info->pctrl_top, AXI_EXCEPTION_EDMA_0)) {
+		LOG_DEBUG("Interrupt from AXI_EXCEPTION_VPU_2\n");
+	} else if (_reviser_reg_read(reviser_device->pctrl_top,
+			AXI_EXCEPTION_EDMA_0)) {
 		offset = AXI_EXCEPTION_EDMA_0;
-		LOG_ERR("Interrupt from AXI_EXCEPTION_EDMA_0\n");
-	} else if (_reviser_reg_read(info->pctrl_top, AXI_EXCEPTION_EDMA_1)) {
+		LOG_DEBUG("Interrupt from AXI_EXCEPTION_EDMA_0\n");
+	} else if (_reviser_reg_read(reviser_device->pctrl_top,
+			AXI_EXCEPTION_EDMA_1)) {
 		offset = AXI_EXCEPTION_EDMA_1;
-		LOG_ERR("Interrupt from AXI_EXCEPTION_EDMA_1\n");
+		LOG_DEBUG("Interrupt from AXI_EXCEPTION_EDMA_1\n");
 	} else {
 		//LOG_ERR("Unknown Interrupt\n");
 		return -EINVAL;
 	}
 
 	if (offset > 0) {
-		_reviser_reg_set(info->pctrl_top,
+		_reviser_reg_set(reviser_device->pctrl_top,
 				offset, 1);
 	}
 
@@ -761,19 +799,19 @@ bool reviser_is_power(void *drvinfo)
 	}
 	reviser_device = (struct reviser_dev_info *)drvinfo;
 
-	spin_lock_irqsave(&reviser_device->power_lock, flags);
+	spin_lock_irqsave(&reviser_device->lock_power, flags);
 	if (reviser_device->power) {
 		//LOG_ERR("Can Not Read when power disable\n");
 		is_power = true;
 	}
-	spin_unlock_irqrestore(&reviser_device->power_lock, flags);
+	spin_unlock_irqrestore(&reviser_device->lock_power, flags);
 
 	return is_power;
 }
 
 int reviser_dram_remap_init(void *drvinfo)
 {
-	struct reviser_dev_info *info = NULL;
+	struct reviser_dev_info *reviser_device = NULL;
 
 	DEBUG_TAG;
 
@@ -781,7 +819,7 @@ int reviser_dram_remap_init(void *drvinfo)
 		LOG_ERR("invalid argument\n");
 		return -1;
 	}
-	info = (struct reviser_dev_info *)drvinfo;
+	reviser_device = (struct reviser_dev_info *)drvinfo;
 
 	reviser_mem_init();
 
@@ -793,13 +831,13 @@ int reviser_dram_remap_init(void *drvinfo)
 
 	//_reviser_set_default_iova(drvinfo, g_mem_sys.iova);
 
-	info->dram_base = (void *) g_mem_sys.kva;
+	reviser_device->dram_base = (void *) g_mem_sys.kva;
 
 	return 0;
 }
 int reviser_dram_remap_destroy(void *drvinfo)
 {
-	struct reviser_dev_info *info = NULL;
+	struct reviser_dev_info *reviser_device = NULL;
 
 	DEBUG_TAG;
 
@@ -807,11 +845,11 @@ int reviser_dram_remap_destroy(void *drvinfo)
 		LOG_ERR("invalid argument\n");
 		return -1;
 	}
-	info = (struct reviser_dev_info *)drvinfo;
+	reviser_device = (struct reviser_dev_info *)drvinfo;
 
 	reviser_mem_free(&g_mem_sys);
 	reviser_mem_destroy();
-	info->dram_base = NULL;
+	reviser_device->dram_base = NULL;
 	return 0;
 }
 int reviser_alloc_mem(void *usr)
@@ -868,7 +906,7 @@ int reviser_boundary_init(void *drvinfo, uint8_t boundary)
 void reviser_enable_interrupt(void *drvinfo,
 		uint8_t enable)
 {
-	struct reviser_dev_info *info = NULL;
+	struct reviser_dev_info *reviser_device = NULL;
 	uint32_t value = 0;
 
 	if (drvinfo == NULL) {
@@ -876,17 +914,17 @@ void reviser_enable_interrupt(void *drvinfo,
 		return;
 	}
 
-	info = (struct reviser_dev_info *)drvinfo;
+	reviser_device = (struct reviser_dev_info *)drvinfo;
 
 	if (enable) {
-		_reviser_reg_clr(info->int_base,
+		_reviser_reg_clr(reviser_device->int_base,
 				REVISER_INT_EN, REVISER_INT_EN_MASK);
 	} else {
-		_reviser_reg_set(info->int_base,
+		_reviser_reg_set(reviser_device->int_base,
 				REVISER_INT_EN, REVISER_INT_EN_MASK);
 	}
 
-	value = _reviser_reg_read(info->int_base, REVISER_INT_EN);
+	value = _reviser_reg_read(reviser_device->int_base, REVISER_INT_EN);
 
 	LOG_DEBUG("value: %x\n", value);
 
@@ -897,14 +935,14 @@ void reviser_enable_interrupt(void *drvinfo,
 
 int reviser_alloc_tcm(void *drvinfo, void *usr)
 {
-	struct reviser_dev_info *info = NULL;
+	struct reviser_dev_info *reviser_device = NULL;
 	struct reviser_mem *mem;
 
-	info = (struct reviser_dev_info *)drvinfo;
+	reviser_device = (struct reviser_dev_info *)drvinfo;
 	mem = (struct reviser_mem *) usr;
 
 
-	mem->kva = (uint64_t) info->tcm_base;
+	mem->kva = (uint64_t) reviser_device->tcm_base;
 	mem->iova = TCM_BASE;
 
 	LOG_DEBUG("kva:%llx, mva:%x,size:%x\n", mem->kva, mem->iova,
@@ -915,9 +953,9 @@ int reviser_alloc_tcm(void *drvinfo, void *usr)
 int reviser_free_tcm(void *drvinfo, void *usr)
 {
 	struct reviser_mem *mem;
-	struct reviser_dev_info *info = NULL;
+	struct reviser_dev_info *reviser_device = NULL;
 
-	info = (struct reviser_dev_info *)drvinfo;
+	reviser_device = (struct reviser_dev_info *)drvinfo;
 	mem = (struct reviser_mem *) usr;
 
 	mem->kva = 0;

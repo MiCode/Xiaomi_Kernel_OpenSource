@@ -48,7 +48,10 @@ struct dentry *reviser_dbg_mem_dram_ctxid;
 struct dentry *reviser_dbg_mem_swap;
 struct dentry *reviser_dbg_log;
 
-u8 g_reviser_log_level = REVISER_LOG_DEBUG;
+struct dentry *reviser_dbg_err;
+struct dentry *reviser_dbg_err_info;
+
+u8 g_reviser_log_level = REVISER_LOG_INFO;
 uint32_t g_reviser_vlm_ctxid;
 uint32_t g_reviser_mem_tcm_bank;
 uint32_t g_reviser_mem_dram_bank;
@@ -355,6 +358,31 @@ static const struct file_operations reviser_dbg_fops_mem_swap = {
 };
 
 //----------------------------------------------
+//----------------------------------------------
+// context error info
+static int reviser_dbg_show_err_info(struct seq_file *s, void *unused)
+{
+	struct reviser_dev_info *reviser_device = s->private;
+
+	reviser_print_error(reviser_device, s);
+	return 0;
+}
+
+static int reviser_dbg_err_info_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, reviser_dbg_show_err_info, inode->i_private);
+}
+
+static const struct file_operations reviser_dbg_fops_err_info = {
+	.open = reviser_dbg_err_info_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = seq_release,
+	//.write = seq_write,
+};
+
+//----------------------------------------------
+
 int reviser_dbg_init(struct reviser_dev_info *reviser_device)
 {
 	int ret = 0;
@@ -370,6 +398,8 @@ int reviser_dbg_init(struct reviser_dev_info *reviser_device)
 	reviser_dbg_mem = debugfs_create_dir(REVISER_DBG_SUBDIR_MEM,
 			reviser_dbg_root);
 	reviser_dbg_hw = debugfs_create_dir(REVISER_DBG_SUBDIR_HW,
+			reviser_dbg_root);
+	reviser_dbg_err = debugfs_create_dir(REVISER_DBG_SUBDIR_ERR,
 			reviser_dbg_root);
 
 	ret = IS_ERR_OR_NULL(reviser_dbg_root);
@@ -510,6 +540,17 @@ int reviser_dbg_init(struct reviser_dev_info *reviser_device)
 	/* create log level */
 	reviser_dbg_log = debugfs_create_u8("log_level", 0644,
 			reviser_dbg_root, &g_reviser_log_level);
+
+	reviser_dbg_err_info = debugfs_create_file("info", 0644,
+			reviser_dbg_err, reviser_device,
+			&reviser_dbg_fops_err_info);
+
+	ret = IS_ERR_OR_NULL(reviser_dbg_err_info);
+	if (ret) {
+		LOG_ERR("failed to create debug node(count).\n");
+		goto out;
+	}
+
 out:
 	return ret;
 }

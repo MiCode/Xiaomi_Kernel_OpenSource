@@ -48,6 +48,7 @@ struct reviser_dev_info *g_reviser_device;
 static struct task_struct *mem_task;
 static int g_ioctl_enable;
 
+
 /* function declaration */
 static int reviser_open(struct inode *, struct file *);
 static int reviser_release(struct inode *, struct file *);
@@ -62,6 +63,8 @@ static void reviser_power_off(void *para);
 irqreturn_t reviser_interrupt(int irq, void *private_data)
 {
 	struct reviser_dev_info *reviser_device;
+	unsigned long flags;
+	irqreturn_t ret = IRQ_NONE;
 
 	DEBUG_TAG;
 
@@ -71,15 +74,21 @@ irqreturn_t reviser_interrupt(int irq, void *private_data)
 		//LOG_ERR("Can Not Read when power disable\n");
 		return IRQ_NONE;
 	}
+	spin_lock_irqsave(&g_reviser_device->lock_dump, flags);
 	if (!reviser_get_interrupt_offset(private_data)) {
 		reviser_print_remap_table(private_data, NULL);
 		reviser_print_context_ID(private_data, NULL);
+		reviser_device->dump.err_count++;
+		ret = IRQ_HANDLED;
 	} else {
 		//LOG_ERR("INT NOT triggered by reviser\n");
-		return IRQ_NONE;
+		ret = IRQ_NONE;
 	}
 
-	return IRQ_HANDLED;
+	spin_unlock_irqrestore(&g_reviser_device->lock_dump, flags);
+
+	return ret;
+
 }
 
 static int reviser_memory_func(void *arg)
@@ -114,9 +123,9 @@ static void reviser_power_on(void *para)
 		LOG_ERR("Not Found reviser_device\n");
 		return;
 	}
-	spin_lock_irqsave(&g_reviser_device->power_lock, flags);
+	spin_lock_irqsave(&g_reviser_device->lock_power, flags);
 	g_reviser_device->power = true;
-	spin_unlock_irqrestore(&g_reviser_device->power_lock, flags);
+	spin_unlock_irqrestore(&g_reviser_device->lock_power, flags);
 
 	if (reviser_boundary_init(g_reviser_device, BOUNDARY_APUSYS)) {
 		LOG_ERR("Set Boundary Fail\n");
@@ -139,9 +148,9 @@ static void reviser_power_off(void *para)
 	}
 
 
-	spin_lock_irqsave(&g_reviser_device->power_lock, flags);
+	spin_lock_irqsave(&g_reviser_device->lock_power, flags);
 	g_reviser_device->power = false;
-	spin_unlock_irqrestore(&g_reviser_device->power_lock, flags);
+	spin_unlock_irqrestore(&g_reviser_device->lock_power, flags);
 }
 
 static int reviser_open(struct inode *inode, struct file *filp)
@@ -215,10 +224,10 @@ static int reviser_probe(struct platform_device *pdev)
 	mutex_init(&reviser_device->mutex_remap);
 	init_waitqueue_head(&reviser_device->wait_ctxid);
 	init_waitqueue_head(&reviser_device->wait_tcm);
-	spin_lock_init(&reviser_device->power_lock);
+	spin_lock_init(&reviser_device->lock_power);
+	spin_lock_init(&reviser_device->lock_dump);
 
 	g_ioctl_enable = 0;
-
 	reviser_device->dev = &pdev->dev;
 
 	//memset(&g_reviser_info, 0, sizeof(struct reviser_dev_info));

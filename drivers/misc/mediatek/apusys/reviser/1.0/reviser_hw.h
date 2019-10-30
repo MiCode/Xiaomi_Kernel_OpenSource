@@ -29,6 +29,7 @@ enum REVISER_DEVICE_E {
 
 
 void reviser_print_private(void *drvinfo);
+void reviser_print_error(void *drvinfo, void *s_file);
 void reviser_print_boundary(void *drvinfo, void *s_file);
 void reviser_print_context_ID(void *drvinfo, void *s_file);
 void reviser_print_remap_table(void *drvinfo, void *s_file);

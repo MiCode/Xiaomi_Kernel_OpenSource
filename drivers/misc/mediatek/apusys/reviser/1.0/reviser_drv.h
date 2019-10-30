@@ -20,6 +20,9 @@
 #include <linux/device.h>
 #include <linux/wait.h>
 
+struct reviser_dump {
+	int err_count;
+};
 /* reviser driver's private structure */
 struct reviser_dev_info {
 	void *pctrl_top;
@@ -41,12 +44,15 @@ struct reviser_dev_info {
 	struct mutex mutex_vlm_pgtable;
 	struct mutex mutex_remap;
 
-	spinlock_t power_lock;
+	spinlock_t lock_power;
+	spinlock_t lock_dump;
 
 	struct vlm_pgtable *pvlm;
 
 	wait_queue_head_t wait_ctxid;
 	wait_queue_head_t wait_tcm;
+
+	struct reviser_dump dump;
 };
 
 
