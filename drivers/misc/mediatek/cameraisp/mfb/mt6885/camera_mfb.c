@@ -609,6 +609,9 @@ static struct SV_LOG_STR gSvLog[MFB_IRQ_TYPE_AMOUNT];
 #define MFB_MSS_START_HW   (0x1501250c)
 #define MFB_MSF_START_HW   (0x150107cc)
 
+#define MFB_MSS_INT_STA_HW  (0x15012508)
+#define MFB_MSF_INT_STA_HW  (0x150107c8)
+
 #define MFB_MSS_CMDQ_ENABLE_HW  (0x15012504)
 #define MFB_MSF_CMDQ_ENABLE_HW  (0x150107C4)
 
@@ -827,6 +830,8 @@ static void mss_pkt_tcmds(struct cmdq_pkt *handle,
 				0x1, CMDQ_REG_MASK);
 		/* wfe */
 		cmdq_pkt_wfe(handle, mss_done_event_id);
+		cmdq_pkt_write(handle, NULL, (dma_addr_t)MFB_MSS_INT_STA_HW,
+				0x1, CMDQ_REG_MASK);
 		LOG_DBG("MSS_CMDQ_ENABLE%d = 0x%x", t,
 						pMssConfig->MSSCMDQ_ENABLE[t]);
 		LOG_DBG("MSSCMDQ_BASE%d = 0x%x", t,
@@ -1113,6 +1118,8 @@ static void msf_pkt_tcmds(struct cmdq_pkt *handle,
 				0x1, CMDQ_REG_MASK);
 		/* wfe */
 		cmdq_pkt_wfe(handle, msf_done_event_id);
+		cmdq_pkt_write(handle, NULL, (dma_addr_t)MFB_MSF_INT_STA_HW,
+				0x1, CMDQ_REG_MASK);
 		LOG_DBG("MSF_CMDQ_ENABLE%d = 0x%x", t,
 						pMsfConfig->MSFCMDQ_ENABLE[t]);
 		LOG_DBG("MSFCMDQ_BASE%d = 0x%x", t,
@@ -4901,7 +4908,7 @@ static irqreturn_t ISP_Irq_MSS(signed int Irq, void *DeviceId)
 	unsigned int MssStatus;
 
 	MssStatus = MFB_RD32(MFB_MSS_INT_STATUS_REG);	/* MSS Status */
-	MFB_WR32(MFB_MSS_INT_STATUS_REG, MssStatus);	/* MSS Status */
+	/*MFB_WR32(MFB_MSS_INT_STATUS_REG, MssStatus);*//* MSS Status */
 	LOG_DBG("%s:0x%x = 0x%x ", __func__,
 			MFB_MSS_INT_STATUS_HW, MssStatus);
 
@@ -4967,7 +4974,7 @@ static irqreturn_t ISP_Irq_MSF(signed int Irq, void *DeviceId)
 	unsigned int MsfStatus;
 
 	MsfStatus = MFB_RD32(MFB_MSF_INT_STATUS_REG);	/* MSF Status */
-	MFB_WR32(MFB_MSF_INT_STATUS_REG, MsfStatus);	/* MSF Status */
+	/*MFB_WR32(MFB_MSF_INT_STATUS_REG, MsfStatus);*//* MSF Status */
 	LOG_DBG("%s:0x%x = 0x%x ", __func__,
 			MFB_MSF_INT_STATUS_HW, MsfStatus);
 #else
