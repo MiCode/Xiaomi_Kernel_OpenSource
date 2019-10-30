@@ -51,6 +51,7 @@ struct goodix_module goodix_modules;
 static struct work_struct touch_resume_work;
 static struct workqueue_struct *touch_resume_workqueue;
 static int touch_suspend_flag;
+static atomic_t touch_need_resume_200Hz = ATOMIC_INIT(0);
 
 /**
  * __do_register_ext_module - register external module
@@ -400,8 +401,12 @@ static int goodix_ts_enable(struct goodix_ts_device *ts_dev, int en)
 		write_data = 0xAA;
 		ret = ts_dev->hw_ops->write_trans(ts_dev, 0x30F0,
 							&write_data, 1);
-		if (ret)
+		if (ret) {
 			ts_err("goodix_i2c_write 0x30F0 error!\n");
+			usleep_range(10000, 10100);
+			retry_time--;
+			continue;
+		}
 
 		usleep_range(1000, 1100);
 		for (i = 0; i < 3; i++) {
@@ -459,6 +464,11 @@ static ssize_t goodix_ts_report_rate_change_store(
 	struct goodix_ts_device *ts_dev = core_data->ts_dev;
 	int en, ret = 0;
 
+	if (touch_suspend_flag) {
+		atomic_set(&touch_need_resume_200Hz, 1);
+		return -EAGAIN;
+	}
+
 	if (!buf) {
 		ts_err("%s() buf is NULL.Exit!\n", __func__);
 		return -EINVAL;
@@ -471,7 +481,7 @@ static ssize_t goodix_ts_report_rate_change_store(
 	if (en == 1 || en == 0) {
 		ret = goodix_ts_enable(ts_dev, en);
 		if (ret)
-			return -EINVAL;
+			return -EAGAIN;
 	} else
 		return -EINVAL;
 
@@ -1845,6 +1855,13 @@ out:
 	 * and charger detector to turn on the work
 	 */
 	goodix_ts_blocking_notify(NOTIFY_RESUME, NULL);
+
+	if (atomic_cmpxchg(&touch_need_resume_200Hz, 1, 0)) {
+		r = goodix_ts_enable(ts_dev, 1);
+		if (r)
+			return -EAGAIN;
+	}
+
 	ts_debug("Resume end");
 	return 0;
 }
