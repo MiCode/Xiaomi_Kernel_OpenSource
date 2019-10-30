@@ -178,14 +178,14 @@ int venc_if_deinit(struct mtk_vcodec_ctx *ctx)
 {
 	int ret = 0;
 
-	mtk_venc_deinit_ctx_pm(ctx);
-
 	if (ctx->drv_handle == 0)
 		return 0;
 
 	ret = ctx->enc_if->deinit(ctx->drv_handle);
 
 	ctx->drv_handle = 0;
+
+	mtk_venc_deinit_ctx_pm(ctx);
 
 	return ret;
 }
