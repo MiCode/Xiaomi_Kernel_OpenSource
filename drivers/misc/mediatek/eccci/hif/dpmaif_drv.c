@@ -1114,6 +1114,9 @@ void drv_dpmaif_common_hw_init(void)
 
 	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_AP_L1TIMR0,
 				((1<<9)|(1<<10)|(1<<15)|(1<<16)));
+
+    /*Set Power on/off flag*/
+	DPMA_WRITE_PD_DL(NRL2_DPMAIF_DL_RESERVE_RW, 0xff);
 }
 
 void drv_dpmaif_md_hw_bus_remap(void)
@@ -1462,12 +1465,23 @@ bool drv_dpmaif_check_power_down(void)
 	unsigned char ret;
 	unsigned int check_value;
 
+
+#ifdef MT6297
+	check_value = DPMA_READ_PD_DL(NRL2_DPMAIF_DL_RESERVE_RW);
+#else
 	check_value = DPMA_READ_PD_UL(DPMAIF_ULQSAR_n(0));
+#endif
 
 	if (check_value == 0)
 		ret = true;
 	else
 		ret = false;
+
+#ifdef MT6297
+	/*re-fill power flag*/
+	if (ret == true)
+		DPMA_WRITE_PD_DL(NRL2_DPMAIF_DL_RESERVE_RW, 0xff);
+#endif
 
 	return ret;
 #endif
