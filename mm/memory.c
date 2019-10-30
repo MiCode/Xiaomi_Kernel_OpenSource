@@ -80,6 +80,7 @@
 #include <asm/tlb.h>
 #include <asm/tlbflush.h>
 #include <asm/pgtable.h>
+#include <mt-plat/devapc_public.h>
 
 #include "internal.h"
 
@@ -2145,6 +2146,11 @@ int remap_pfn_range(struct vm_area_struct *vma, unsigned long addr,
 	vma->vm_flags |= VM_IO | VM_PFNMAP | VM_DONTEXPAND | VM_DONTDUMP;
 
 	BUG_ON(addr >= end);
+
+#ifdef CONFIG_DEVAPC_MMAP_DEBUG
+	devapc_catch_illegal_range(pfn << PAGE_SHIFT, size);
+#endif
+
 	pfn -= addr >> PAGE_SHIFT;
 	pgd = pgd_offset(mm, addr);
 	flush_cache_range(vma, addr, end);
