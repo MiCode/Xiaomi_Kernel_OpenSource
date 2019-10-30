@@ -1667,6 +1667,15 @@ page_owner=on";
 			<&infracfg_ao INFRACFG_AO_GCE_26M>;
 	};
 
+	gce_mbox_sec: gce_mbox_sec@10228000 {
+		compatible = "mediatek,mailbox-gce-sec";
+		reg = <0 0x10228000 0 0x4000>;
+		#mbox-cells = <3>;
+		mboxes = <&gce_mbox 15 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
+		clock-names = "gce";
+		clocks = <&infracfg_ao INFRACFG_AO_GCE_CG>;
+	};
+
 	infra_dpmaif@1022c000 {
 		compatible = "mediatek,infra_dpmaif";
 		reg = <0 0x1022c000 0 0x1000>;
@@ -2226,13 +2235,23 @@ page_owner=on";
 			<&infracfg_ao INFRACFG_AO_GCE_26M>;
 	};
 
+	gce_mbox_m_sec: gce_mbox_m_sec@10318000 {
+		compatible = "mediatek,mailbox-gce-sec";
+		reg = <0 0x10318000 0 0x4000>;
+		#mbox-cells = <3>;
+		mboxes = <&gce_mbox_m 15 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
+		clock-names = "gce";
+		clocks = <&infracfg_ao INFRACFG_AO_GCE2_CG>;
+	};
+
 	cmdq-test {
 		compatible = "mediatek,cmdq-test";
 		mediatek,gce = <&gce_mbox>;
 		mmsys_config = <&mdpsys_config>;
 		mediatek,gce-subsys = <99>, <SUBSYS_1400XXXX>;
 		mboxes = <&gce_mbox 23 0 CMDQ_THR_PRIO_1>,
-			<&gce_mbox_m 23 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
+			<&gce_mbox_m 23 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>,
+			<&gce_mbox_sec 11 0 CMDQ_THR_PRIO_1>;
 		token_user0 = /bits/ 16 <CMDQ_SYNC_TOKEN_USER_0>;
 		token_gpr_set4 = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>;
 	};
@@ -2974,7 +2993,8 @@ page_owner=on";
 		clock-names = "MDP_RDMA0", "GCE", "GCE_TIMER";
 		mmsys_config = <&mdpsys_config>;
 		mm_mutex   = <&mdp_mutex>;
-		mboxes = <&gce_mbox_m 12 0 CMDQ_THR_PRIO_1>,
+		mboxes = <&gce_mbox_m_sec 10 0 CMDQ_THR_PRIO_1>,
+			<&gce_mbox_m 12 0 CMDQ_THR_PRIO_1>,
 			<&gce_mbox_m 13 0 CMDQ_THR_PRIO_1>,
 			<&gce_mbox_m 14 0 CMDQ_THR_PRIO_1>,
 			<&gce_mbox_m 21 0 CMDQ_THR_PRIO_1>,

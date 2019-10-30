@@ -4877,26 +4877,12 @@ s32 cmdq_helper_mbox_register(struct device *dev)
 	s32 chan_id;
 	struct cmdq_client *clt;
 
-#ifdef CMDQ_SECURE_PATH_SUPPORT
-	u32 sec_thread[2] = {0};
-	s32 ret;
-
-	ret = of_property_read_u32_array(dev->of_node, "secure_thread",
-		sec_thread, 2);
-	if (ret != 0) {
-		sec_thread[0] = CMDQ_MIN_SECURE_THREAD_ID;
-		sec_thread[1] = CMDQ_MIN_SECURE_THREAD_ID +
-			CMDQ_MAX_SECURE_THREAD_COUNT;
-	}
-	CMDQ_LOG("sec thread index %u to %u\n", sec_thread[0], sec_thread[1]);
-#endif
-
 	/* for display we start from thread 0 */
 	for (i = 0; i < CMDQ_MAX_THREAD_COUNT; i++) {
 		clt = cmdq_mbox_create(dev, i);
 		if (!clt || IS_ERR(clt)) {
-			CMDQ_LOG("register mbox stop:0x%p idx:%u\n", clt, i);
-			break;
+			CMDQ_MSG("register mbox stop:0x%p idx:%u\n", clt, i);
+			continue;
 		}
 		chan_id = cmdq_mbox_chan_id(clt->chan);
 
