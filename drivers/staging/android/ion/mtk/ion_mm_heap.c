@@ -1713,14 +1713,50 @@ int ion_mm_cp_sf_buf_info(struct ion_mm_sf_buf_info *src,
 	return 0;
 }
 
-static void mtk_ion_copy_param(unsigned int type,
-			       unsigned int domain_idx,
-			       enum ION_MM_CMDS mm_cmd,
-			       struct ion_mm_data param,
-			       struct ion_mm_buffer_info *buffer_info)
+static int mtk_ion_copy_param(unsigned int type,
+			      unsigned int domain_idx,
+			      enum ION_MM_CMDS mm_cmd,
+			      struct ion_mm_data param,
+			      const char *client_name,
+			      struct ion_buffer *buffer)
 {
+	struct ion_mm_buffer_info *buffer_info =
+		    buffer->priv_virt;
+
+	mutex_lock(&buffer->lock);
 	switch (type) {
 	case 1:
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+		if (mm_cmd == ION_MM_CONFIG_BUFFER &&
+		    buffer_info->module_id != -1) {
+			mutex_unlock(&buffer->lock);
+			if (buffer_info->module_id ==
+			    param.config_buffer_param.module_id)
+				return 0;
+			IONMSG
+			    ("corrupt with %d, %d-%d,name %16.s!!!\n",
+			     buffer_info->module_id,
+			     param.config_buffer_param.module_id,
+			     buffer->heap->type, client_name);
+			return -ION_ERROR_CONFIG_CONFLICT;
+		}
+
+		if (mm_cmd == ION_MM_CONFIG_BUFFER_EXT &&
+		    buffer_info->fix_module_id != -1) {
+			mutex_unlock(&buffer->lock);
+			if (buffer_info->fix_module_id ==
+			    param.config_buffer_param.module_id)
+				return 0;
+			IONMSG
+			    ("corrupt with %d, %d-%d,name %16.s!!!\n",
+			     buffer_info->fix_module_id,
+			     param.config_buffer_param.module_id,
+			     buffer->heap->type, client_name);
+			return -ION_ERROR_CONFIG_CONFLICT;
+		}
+#endif
+
 		if (domain_idx == MTK_GET_DOMAIN_IGNORE) {
 			if (mm_cmd == ION_MM_CONFIG_BUFFER_EXT)
 				buffer_info->fix_module_id =
@@ -1756,6 +1792,35 @@ static void mtk_ion_copy_param(unsigned int type,
 #endif
 		break;
 	case 2:
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+		if (mm_cmd == ION_MM_GET_IOVA &&
+		    buffer_info->module_id != -1) {
+			mutex_unlock(&buffer->lock);
+			if (buffer_info->module_id ==
+			    param.get_phys_param.module_id)
+				return 0;
+			IONMSG
+			    ("corrupt with %d, %d-%d,name %16.s!!!\n",
+			     buffer_info->module_id,
+			     param.get_phys_param.module_id,
+			     buffer->heap->type, client_name);
+			return -ION_ERROR_CONFIG_CONFLICT;
+		} else if (mm_cmd == ION_MM_GET_IOVA_EXT &&
+		    buffer_info->fix_module_id != -1) {
+			mutex_unlock(&buffer->lock);
+			if (buffer_info->fix_module_id ==
+			    param.get_phys_param.module_id)
+				return 0;
+			IONMSG
+			    ("corrupt with %d, %d-%d,name %16.s!!!\n",
+			     buffer_info->fix_module_id,
+			     param.get_phys_param.module_id,
+			     buffer->heap->type, client_name);
+			return -ION_ERROR_CONFIG_CONFLICT;
+		}
+#endif
+
 		if (domain_idx == MTK_GET_DOMAIN_IGNORE) {
 			if (mm_cmd == ION_MM_GET_IOVA_EXT)
 				buffer_info->fix_module_id =
@@ -1787,6 +1852,9 @@ static void mtk_ion_copy_param(unsigned int type,
 	default:
 		break;
 	}
+
+	mutex_unlock(&buffer->lock);
+	return 0;
 }
 
 long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
@@ -1852,40 +1920,12 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 		}
 
 		if ((int)buffer->heap->type == ION_HEAP_TYPE_MULTIMEDIA) {
-			struct ion_mm_buffer_info *buffer_info =
+			struct ion_fb_buffer_info *buffer_info =
 			    buffer->priv_virt;
 			enum ION_MM_CMDS mm_cmd = param.mm_cmd;
 
 			buffer_sec = buffer_info->security;
 
-#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
-	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
-			if (mm_cmd == ION_MM_CONFIG_BUFFER &&
-			    buffer_info->module_id != -1) {
-				if (buffer_info->module_id ==
-				    param.config_buffer_param.module_id)
-					return 0;
-				IONMSG
-				    ("corrupt with %d, %d-%d,name %16.s!!!\n",
-				     buffer_info->module_id,
-				     param.config_buffer_param.module_id,
-				     buffer->heap->type, client->name);
-				return -EFAULT;
-			}
-
-			if (mm_cmd == ION_MM_CONFIG_BUFFER_EXT &&
-			    buffer_info->fix_module_id != -1) {
-				if (buffer_info->fix_module_id ==
-				    param.config_buffer_param.module_id)
-					return 0;
-				IONMSG
-				    ("corrupt with %d, %d-%d,name %16.s!!!\n",
-				     buffer_info->fix_module_id,
-				     param.config_buffer_param.module_id,
-				     buffer->heap->type, client->name);
-				return -EFAULT;
-			}
-#endif
 			if (param.config_buffer_param.module_id < 0 &&
 			    param.config_buffer_param.module_id != -1) {
 				IONMSG
@@ -1895,8 +1935,12 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 				return -EFAULT;
 			}
 
-			mtk_ion_copy_param(1, domain_idx,
-					   mm_cmd, param, buffer_info);
+			ret = mtk_ion_copy_param(1, domain_idx,
+						 mm_cmd, param,
+						 client->name, buffer);
+			if (ret)
+				return ret;
+
 			IONDBG(
 			       "config, bf:0x%lx pt%d, dom:%d, tp:%d, clt:%16.s\n",
 			       buffer,
@@ -2016,8 +2060,11 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 				return -EFAULT;
 			}
 
-			mtk_ion_copy_param(2, domain_idx,
-					   mm_cmd, param, buffer_info);
+			ret = mtk_ion_copy_param(2, domain_idx,
+						 mm_cmd, param,
+						 client->name, buffer);
+			if (ret)
+				return ret;
 
 			/* get mva */
 			phy_addr = param.get_phys_param.phy_addr;

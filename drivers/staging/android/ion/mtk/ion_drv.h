@@ -62,7 +62,8 @@ enum ION_CACHE_SYNC_TYPE {
 };
 
 enum ION_ERRORE {
-	ION_ERROR_CONFIG_LOCKED = 0x10000
+	ION_ERROR_CONFIG_LOCKED = 0x10000,
+	ION_ERROR_CONFIG_CONFLICT = 0x10001
 };
 
 /* mm or mm_sec heap flag which is do not conflist */
