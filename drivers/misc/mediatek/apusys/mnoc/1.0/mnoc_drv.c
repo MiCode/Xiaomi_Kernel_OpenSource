@@ -168,6 +168,8 @@ static void mnoc_apusys_top_after_pwr_on(void *para)
 	mnoc_reg_valid = true;
 	spin_unlock_irqrestore(&mnoc_spinlock, flags);
 
+	mnoc_int_endis(true);
+
 	LOG_DEBUG("-\n");
 }
 
@@ -176,6 +178,8 @@ static void mnoc_apusys_top_before_pwr_off(void *para)
 	unsigned long flags;
 
 	LOG_DEBUG("+\n");
+
+	mnoc_int_endis(false);
 
 	spin_lock_irqsave(&mnoc_spinlock, flags);
 	mnoc_reg_valid = false;
@@ -201,7 +205,7 @@ static irqreturn_t mnoc_isr(int irq, void *dev_id)
 	/* prevent register access if apusys power off */
 	if (!mnoc_reg_valid) {
 		spin_unlock_irqrestore(&mnoc_spinlock, flags);
-		LOG_ERR("ISR can't access mnoc reg when APUSYS off\n");
+		LOG_DEBUG("ISR can't access mnoc reg when APUSYS off\n");
 		return IRQ_NONE;
 	}
 

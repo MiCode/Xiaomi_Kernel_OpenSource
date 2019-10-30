@@ -232,6 +232,28 @@ static void mnoc_qos_reg_init(void)
 	LOG_DEBUG("-\n");
 }
 
+void mnoc_int_endis(bool endis)
+{
+	unsigned long flags;
+
+	LOG_DEBUG("+\n");
+
+	spin_lock_irqsave(&mnoc_spinlock, flags);
+
+	if (!mnoc_reg_valid) {
+		spin_unlock_irqrestore(&mnoc_spinlock, flags);
+		return;
+	}
+	if (endis)
+		mnoc_set_bit(APUSYS_INT_EN, MNOC_INT_MAP);
+	else
+		mnoc_clr_bit(APUSYS_INT_EN, MNOC_INT_MAP);
+
+	spin_unlock_irqrestore(&mnoc_spinlock, flags);
+
+	LOG_DEBUG("-\n");
+}
+
 /* register to apusys power on callback */
 static void mnoc_reg_init(void)
 {
@@ -244,9 +266,6 @@ static void mnoc_reg_init(void)
 
 	/* EMI fine tune: SLV12_QOS ~ SLV15_QOS = 0x7 */
 	mnoc_write_field(MNOC_REG(SLV_QOS_CTRL1), 31:16, 0x7777);
-
-	/* enable mnoc interrupt */
-	mnoc_write_field(APUSYS_INT_EN, 1:0, 3);
 
 	/* set request router timeout interrupt */
 	for (i = 0; i < NR_MNOC_RT; i++) {

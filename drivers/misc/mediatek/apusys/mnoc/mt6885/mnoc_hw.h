@@ -125,6 +125,7 @@ enum rt_int_sta {
 /* MNoC register definition */
 #define APUSYS_INT_EN (MNOC_INT_BASEADDR + 0x80)
 #define APUSYS_INT_STA (MNOC_INT_BASEADDR + 0x34)
+#define MNOC_INT_MAP (0x3)
 
 #define APU_TCM_HASH_TRUNCATE_CTRL0 (MNOC_APU_CONN_BASEADDR + 0x7C)
 
@@ -177,5 +178,6 @@ void mnoc_tcm_hash_set(unsigned int sel, unsigned int en0, unsigned int en1);
 void mnoc_hw_reinit(void);
 void mnoc_clear_pmu_counter(unsigned int grp);
 bool mnoc_pmu_reg_in_range(unsigned int addr);
+void mnoc_int_endis(bool endis);
 
 #endif
