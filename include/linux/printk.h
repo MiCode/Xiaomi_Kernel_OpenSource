@@ -334,28 +334,28 @@ extern asmlinkage void dump_stack(void) __cold;
 	&& defined CONFIG_PRINTK_MT_PREFIX \
 	&& defined CONFIG_DYNAMIC_DEBUG
 #define pr_emerg(fmt, ...) \
-	dynamic_pr_emerg(KLOG_MODNAME fmt, ##__VA_ARGS__) \
+	dynamic_pr_emerg(fmt, ##__VA_ARGS__) \
 
 #define pr_alert(fmt, ...) \
-	dynamic_pr_alert(KLOG_MODNAME fmt, ##__VA_ARGS__) \
+	dynamic_pr_alert(fmt, ##__VA_ARGS__) \
 
 #define pr_crit(fmt, ...) \
-	dynamic_pr_crit(KLOG_MODNAME fmt, ##__VA_ARGS__) \
+	dynamic_pr_crit(fmt, ##__VA_ARGS__) \
 
 #define pr_err(fmt, ...) \
-	dynamic_pr_err(KLOG_MODNAME fmt, ##__VA_ARGS__) \
+	dynamic_pr_err(fmt, ##__VA_ARGS__) \
 
 #define pr_warning(fmt, ...) \
-	dynamic_pr_warn(KLOG_MODNAME fmt, ##__VA_ARGS__) \
+	dynamic_pr_warn(fmt, ##__VA_ARGS__) \
 
 #define pr_warn(fmt, ...) \
-	dynamic_pr_warn(KLOG_MODNAME fmt, ##__VA_ARGS__) \
+	dynamic_pr_warn(fmt, ##__VA_ARGS__) \
 
 #define pr_notice(fmt, ...) \
-	dynamic_pr_notice(KLOG_MODNAME fmt, ##__VA_ARGS__) \
+	dynamic_pr_notice(fmt, ##__VA_ARGS__) \
 
 #define pr_info(fmt, ...) \
-	dynamic_pr_info(KLOG_MODNAME fmt, ##__VA_ARGS__) \
+	dynamic_pr_info(fmt, ##__VA_ARGS__) \
 
 #else
 #define pr_emerg(fmt, ...) \
@@ -399,7 +399,7 @@ extern asmlinkage void dump_stack(void) __cold;
 
 /* dynamic_pr_debug() uses pr_fmt() internally so we don't need it here */
 #define pr_debug(fmt, ...) \
-	dynamic_pr_debug(KLOG_MODNAME fmt, ##__VA_ARGS__)
+	dynamic_pr_debug(fmt, ##__VA_ARGS__)
 #elif defined(DEBUG)
 #define pr_debug(fmt, ...) \
 	printk(KERN_DEBUG KLOG_MODNAME pr_fmt(fmt), ##__VA_ARGS__)
