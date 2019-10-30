@@ -1220,6 +1220,7 @@ int port_lookup_tid(const char *port, enum tee_id_t *o_tid)
 		 * just take the default.
 		 */
 		WARN(1, "[%s] Service name error %s\n", __func__, port);
+		kfree(str);
 		return -EINVAL;
 	}
 
@@ -1235,6 +1236,7 @@ int port_lookup_tid(const char *port, enum tee_id_t *o_tid)
 		}
 	}
 
+	kfree(str);
 	return 0;
 }
 EXPORT_SYMBOL(port_lookup_tid);
@@ -1866,9 +1868,6 @@ static int tipc_virtio_probe(struct virtio_device *vdev)
 	INIT_LIST_HEAD(&vds->free_buf_list);
 	idr_init(&vds->addr_idr);
 
-	/* For multiple TEEs */
-	tee_routing_init();
-
 	/* set default max message size and alignment */
 	memset(&config, 0, sizeof(config));
 	config.msg_buf_max_size = DEFAULT_MSG_BUF_SIZE;
@@ -2015,6 +2014,9 @@ static int __init tipc_init(void)
 		pr_info("%s: class_create failed: %d\n", __func__, ret);
 		goto err_class_create;
 	}
+
+	/* For multiple TEEs */
+	tee_routing_init();
 
 	ret = register_virtio_driver(&virtio_tipc_driver);
 	if (ret) {
