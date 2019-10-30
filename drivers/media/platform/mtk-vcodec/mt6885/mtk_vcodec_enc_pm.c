@@ -109,6 +109,7 @@ struct temp_job *new_job_from_info(struct mtk_vcodec_ctx *ctx, int core_id)
 		return 0;
 
 	new_job->ctx_id = ctx->id;
+	new_job->format = ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc;
 	new_job->type = 1; /* temp */
 	new_job->module = core_id;
 	new_job->visible_width = ctx->q_data[MTK_Q_DATA_SRC].visible_width;
