@@ -180,10 +180,10 @@ static int pm_callback_power_on(struct kbase_device *kbdev)
 	int ret = 0;
 
 	mutex_lock(&g_mfg_lock);
+	ret = pm_callback_power_on_nolock(kbdev);
 #ifdef CONFIG_MTK_GPU_SWPM_SUPPORT
 	MTKGPUPower_model_resume();
 #endif
-	ret = pm_callback_power_on_nolock(kbdev);
 	mutex_unlock(&g_mfg_lock);
 
 	return ret;

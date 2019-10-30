@@ -142,6 +142,7 @@ int MTK_get_mtk_pm(void);
 void MTK_kbasep_vinstr_hwcnt_set_interval(unsigned int interval);
 void MTK_kbasep_vinstr_hwcnt_release(void);
 #if defined(CONFIG_MTK_SWPM)
+void MTK_reset_urate(void);
 void MTK_update_gpu_swpm(void);
 #endif
 void MTK_update_gpu_LTR(void);

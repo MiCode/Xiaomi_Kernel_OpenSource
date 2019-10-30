@@ -155,6 +155,7 @@ extern unsigned int mt_gpufreq_get_thermal_limit_index(void);
 extern unsigned int mt_gpufreq_get_thermal_limit_freq(void);
 extern void mt_gpufreq_set_power_limit_by_pbm(unsigned int limited_power);
 extern unsigned int mt_gpufreq_get_leakage_mw(void);
+extern unsigned int mt_gpufreq_get_leakage_no_lock(void);
 extern int mt_gpufreq_get_cur_ceiling_idx(void);
 extern void mt_gpufreq_set_loading(unsigned int gpu_loading); /* legacy */
 extern void mt_gpufreq_power_control(enum mt_power_state, enum mt_cg_state,

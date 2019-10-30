@@ -621,6 +621,13 @@ static void swpm_update_lkg_table(void)
 				swpm_info_ref->cpu_lkg_pwr[i][j] = lkg;
 		}
 	}
+	//get gpu lkg and thermal
+	if (swpm_info_ref) {
+		swpm_info_ref->gpu_reserved[gthermal + 1] =
+			get_immediate_gpu_wrap() / 1000;
+		swpm_info_ref->gpu_reserved[glkg + 1] =
+			mt_gpufreq_get_leakage_no_lock();
+	}
 }
 
 static int swpm_log_loop(void)

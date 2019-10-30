@@ -196,6 +196,7 @@ static unsigned int g_cur_opp_idx;
 static unsigned int g_fixed_freq;
 static unsigned int g_fixed_vgpu;
 static unsigned int g_max_upper_limited_idx;
+static unsigned int g_lkg_pwr;
 static int g_opp_sb_idx_up[NUM_OF_OPP_IDX] = { 0 };
 static int g_opp_sb_idx_down[NUM_OF_OPP_IDX] = { 0 };
 
@@ -1034,13 +1035,21 @@ unsigned int mt_gpufreq_get_leakage_mw(void)
 
 #if MT_GPUFREQ_STATIC_PWR_READY2USE
 	leak_power = mt_spower_get_leakage(MTK_SPOWER_GPU, cur_vcore, temp);
-	if (g_buck_on && leak_power > 0)
+	if (g_buck_on && leak_power > 0) {
+		g_lkg_pwr = leak_power;
 		return leak_power;
-	else
+	} else {
 		return 0;
+	}
 #else
 	return 130;
 #endif
+}
+
+//API : provide gpu lkg for swpm
+unsigned int mt_gpufreq_get_leakage_no_lock(void)
+{
+	return g_lkg_pwr;
 }
 
 /*

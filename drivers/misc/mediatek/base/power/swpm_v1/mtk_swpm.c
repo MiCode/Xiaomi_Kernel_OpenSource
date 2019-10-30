@@ -216,9 +216,12 @@ static ssize_t gpu_debug_proc_write(struct file *file,
 	if (!kstrtouint(buf, 10, &enable_time)) {
 		swpm_gpu_debug = (enable_time) ? true : false;
 		if (swpm_gpu_debug) {
-			if (enable_time < 1000000)
-				MTKGPUPower_model_start_swpm(1000000);
-			else
+			if (enable_time < 1000000) {
+				if (enable_time == 1)
+					MTKGPUPower_model_start_swpm(1000000);
+				else if (enable_time == 2)
+					MTKGPUPower_model_sspm_enable();
+			} else
 				MTKGPUPower_model_start_swpm(enable_time);
 		} else
 			MTKGPUPower_model_stop();

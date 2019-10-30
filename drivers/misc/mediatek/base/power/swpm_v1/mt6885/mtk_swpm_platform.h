@@ -243,13 +243,13 @@ struct swpm_rec_data {
 	/* 4(int) * 3(lkg_type) * 16 = 192 bytes */
 	unsigned int cpu_lkg_pwr[NR_CPU_LKG_TYPE][NR_CPU_OPP];
 
-	/* 4(int) * 10 = 40 bytes */
+	/* 4(int) * 15 = 60 bytes */
 	unsigned int gpu_reserved[GPU_SWPM_RESERVED_SIZE];
 
 	/* 4(int) * 256 = 1024 bytes */
 	unsigned int isp_reserved[ISP_SWPM_RESERVED_SIZE];
 
-	/* remaining size = 888 bytes */
+	/* remaining size = 868 bytes */
 };
 
 extern struct swpm_rec_data *swpm_info_ref;

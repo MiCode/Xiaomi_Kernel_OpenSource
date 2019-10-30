@@ -554,6 +554,12 @@ void kbase_vinstr_suspend(struct kbase_vinstr_context *vctx)
 	 */
 	hrtimer_cancel(&vctx->dump_timer);
 	cancel_work_sync(&vctx->dump_work);
+
+#if defined(CONFIG_MTK_SWPM)
+	/* mtk reset urate of shared memory */
+	if (mtk_pm_tool == pm_ltr || mtk_pm_tool == pm_swpm)
+		MTK_reset_urate();
+#endif
 }
 
 void kbase_vinstr_resume(struct kbase_vinstr_context *vctx)
@@ -1118,6 +1124,7 @@ void MTK_kbasep_vinstr_hwcnt_release(void)
 		swpm_mem_addr_request(GPU_SWPM_TYPE, &ptr);
 		gpu_ptr = (struct gpu_swpm_rec_data *)ptr;
 		gpu_ptr->gpu_enable = 0;
+		MTK_reset_urate();
 #endif
 		mtk_cli->vctx->client_count--;
 		list_del(&mtk_cli->node);
@@ -1128,6 +1135,25 @@ void MTK_kbasep_vinstr_hwcnt_release(void)
 }
 
 #if defined(CONFIG_MTK_SWPM)
+void MTK_reset_urate(void)
+{
+	//use share memory of swpm
+	phys_addr_t *ptr = NULL;
+	struct gpu_swpm_rec_data *gpu_ptr;
+
+	swpm_mem_addr_request(GPU_SWPM_TYPE, &ptr);
+	gpu_ptr = (struct gpu_swpm_rec_data *)ptr;
+	gpu_ptr->gpu_counter[galu_fma_urate] = 0;
+	gpu_ptr->gpu_counter[galu_cvt_urate] = 0;
+	gpu_ptr->gpu_counter[galu_sfu_urate] = 0;
+	gpu_ptr->gpu_counter[gtex_urate] = 0;
+	gpu_ptr->gpu_counter[glsc_urate] = 0;
+	gpu_ptr->gpu_counter[gl2c_urate] = 0;
+	gpu_ptr->gpu_counter[gvary_urate] = 0;
+	gpu_ptr->gpu_counter[gtiler_urate] = 0;
+
+}
+
 void MTK_update_gpu_swpm(void)
 {
 	unsigned int pm_gpu_loading;
@@ -1138,6 +1164,7 @@ void MTK_update_gpu_swpm(void)
 	unsigned int lsc_active;
 	unsigned int vary_active;
 	unsigned int tiler_active;
+	unsigned int rast_active;
 	//use share memory of swpm
 	phys_addr_t *ptr = NULL;
 	struct gpu_swpm_rec_data *gpu_ptr;
@@ -1154,9 +1181,10 @@ void MTK_update_gpu_swpm(void)
 	exec_instr_sfu = kernel_dump[413];
 	tfilt_num = kernel_dump[423];
 	l2_any = (kernel_dump[153] + kernel_dump[217] + kernel_dump[281] + kernel_dump[345]) / 4;
-	lsc_active = kernel_dump[428] + kernel_dump[429] + kernel_dump[430] + kernel_dump[431];
+	lsc_active = kernel_dump[440] + kernel_dump[441];
 	vary_active  = kernel_dump[434] + kernel_dump[435];
 	tiler_active = kernel_dump[68];
+	rast_active = kernel_dump[459];
 	if (exec_active == 0) {
 		gpu_ptr->gpu_counter[galu_fma_urate] = 0;
 		gpu_ptr->gpu_counter[galu_cvt_urate] = 0;
@@ -1166,15 +1194,17 @@ void MTK_update_gpu_swpm(void)
 		gpu_ptr->gpu_counter[gl2c_urate] = 0;
 		gpu_ptr->gpu_counter[gvary_urate] = 0;
 		gpu_ptr->gpu_counter[gtiler_urate] = 0;
+		gpu_ptr->gpu_counter[grast_urate] = 0;
 	} else {
-		gpu_ptr->gpu_counter[galu_fma_urate] = exec_instr_fma / (exec_active / 100);
-		gpu_ptr->gpu_counter[galu_cvt_urate] = exec_instr_cvt / (exec_active / 100);
-		gpu_ptr->gpu_counter[galu_sfu_urate] = exec_instr_sfu / (exec_active / 100);
-		gpu_ptr->gpu_counter[gtex_urate] = tfilt_num / (exec_active / 100);
-		gpu_ptr->gpu_counter[glsc_urate] = lsc_active / (exec_active / 100);
-		gpu_ptr->gpu_counter[gl2c_urate] = l2_any / (exec_active / 100);
-		gpu_ptr->gpu_counter[gvary_urate] = vary_active / (exec_active / 100);
-		gpu_ptr->gpu_counter[gtiler_urate] = tiler_active / (exec_active / 100);
+		gpu_ptr->gpu_counter[galu_fma_urate] = exec_instr_fma *100 / exec_active;
+		gpu_ptr->gpu_counter[galu_cvt_urate] = exec_instr_cvt *100 / exec_active;
+		gpu_ptr->gpu_counter[galu_sfu_urate] = exec_instr_sfu *100 / exec_active;
+		gpu_ptr->gpu_counter[gtex_urate] = tfilt_num * 100 / exec_active;
+		gpu_ptr->gpu_counter[glsc_urate] = lsc_active * 100 / exec_active;
+		gpu_ptr->gpu_counter[gl2c_urate] = l2_any * 100 / exec_active;
+		gpu_ptr->gpu_counter[gvary_urate] = vary_active * 100 / exec_active;
+		gpu_ptr->gpu_counter[gtiler_urate] = tiler_active * 100 / exec_active;
+		gpu_ptr->gpu_counter[grast_urate] = rast_active * 100 / exec_active;
 	}
 }
 #endif

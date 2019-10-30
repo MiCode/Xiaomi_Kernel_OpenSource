@@ -15,7 +15,7 @@
 #define __MTK_GPU_SWPM_PLATFORM_H__
 
 /* numbers of unsigned int */
-#define GPU_SWPM_RESERVED_SIZE 12
+#define GPU_SWPM_RESERVED_SIZE 15
 
 enum gpu_power_counter {
 	gfreq,
@@ -28,13 +28,16 @@ enum gpu_power_counter {
 	gl2c_urate,
 	gvary_urate,
 	gtiler_urate,
+	grast_urate,
 	gloading,
+	gthermal,
+	glkg,
 
 	GPU_POWER_COUNTER_LAST
 };
 
 struct gpu_swpm_rec_data {
-	/* 4(int) * 10 = 48 bytes */
+	/* 4(int) * 15 = 60 bytes */
 	unsigned int gpu_enable;
 	unsigned int gpu_counter[GPU_POWER_COUNTER_LAST];
 };
@@ -62,6 +65,9 @@ struct gpu_swpm_index {
 	unsigned int l2c_urate;
 	unsigned int vary_urate;
 	unsigned int tiler_urate;
+	unsigned int rast_urate;
+	unsigned int thermal;
+	unsigned int lkg;
 };
 
 #endif

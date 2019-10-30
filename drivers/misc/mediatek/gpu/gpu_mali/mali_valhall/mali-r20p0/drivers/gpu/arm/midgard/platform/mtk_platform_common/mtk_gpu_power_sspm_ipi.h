@@ -15,31 +15,30 @@
 #include <linux/types.h>
 #include <linux/uaccess.h>
 #include <linux/kernel.h>
-/*reserve sspm variable
- *sspm power counter : for gpu_pm_buf offest
- *
- *enum {
- *	gpu_freq,
- *	gpu_volt,
- *	alu_urate,
- *	tex_urate,
- *	POWER_COUNTER_LAST
- *} sspm_power_counter;
- *
- *4x4 = 16 byte
- *struct dym_gpu_pm {
- *	uint32_t version;
- *	uint32_t gpu_freq;
- *	union {
- *		struct {
- *			uint32_t counter[POWER_COUNTER_LAST];
- *		} v1;
- *	};
- *};
- */
+
+enum {
+	GPU_PM_POWER_STATUE,
+	GPU_PM_SWITCH,	// 0 : API 1 : SSPM
+	GPU_PM_LAST,
+	GPU_PM_LAST2
+};
+
+enum {
+	gpm_off,
+	gpm_kernel_side,
+	gpm_sspm_side
+};
+
+struct gpu_pm_ipi_cmds {
+	unsigned int cmd[GPU_PM_LAST];
+};
+
 void MTKGPUPower_model_stop(void);
 void MTKGPUPower_model_start(unsigned int interval_ns);
 void MTKGPUPower_model_start_swpm(unsigned int interval_ns);
 void MTKGPUPower_model_suspend(void);
 void MTKGPUPower_model_resume(void);
+int MTKGPUPower_model_init(void);
+void MTKGPUPower_model_sspm_enable(void);
+
 #endif

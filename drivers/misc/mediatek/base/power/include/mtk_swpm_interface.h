@@ -15,5 +15,7 @@
 #define _MTK_SWPM_H_
 
 #include "swpm_v1/mtk_swpm_interface.h"
+#include "gpufreq_v1/mt6885/mtk_gpufreq_plat.h"
+
 
 #endif /* __MTK_SWPM_H__ */
