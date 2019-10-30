@@ -335,12 +335,18 @@ static ssize_t ext4_attr_store(struct kobject *kobj,
 		if ((len == 1 && buf[0] == '0')
 		 || (len == 2 && buf[0] == '0' && buf[1] == 0xa)) {
 			sbi->disable_barrier = 0;
-			if (sbi->s_journal)
+			if (sbi->s_journal) {
+				write_lock(&sbi->s_journal->j_state_lock);
 				sbi->s_journal->j_flags &= ~JBD2_NOBARRIER;
+				write_unlock(&sbi->s_journal->j_state_lock);
+			}
 		} else {
 			sbi->disable_barrier = 1;
-			if (sbi->s_journal)
+			if (sbi->s_journal) {
+				write_lock(&sbi->s_journal->j_state_lock);
 				sbi->s_journal->j_flags |= JBD2_NOBARRIER;
+				write_unlock(&sbi->s_journal->j_state_lock);
+			}
 		}
 		return len;
 	}
