@@ -19,4 +19,9 @@
 int apusys_dbg_init(void);
 int apusys_dbg_destroy(void);
 
+void apusys_dump_init(void);
+void apusys_reg_dump(void);
+void apusys_dump_exit(void);
+int apusys_dump_show(struct seq_file *sfile, void *v);
+
 #endif

@@ -45,3 +45,4 @@ apusys-objs += $(APUSYS_VERSION_MIDWARE)/memory_ion.o
 apusys-objs += $(APUSYS_VERSION_MIDWARE)/memory_dma.o
 apusys-objs += $(APUSYS_VERSION_MIDWARE)/sched_deadline.o
 apusys-objs += $(APUSYS_VERSION_MIDWARE)/sched_normal.o
+apusys-objs += $(APUSYS_VERSION_MIDWARE)/dump_reg.o

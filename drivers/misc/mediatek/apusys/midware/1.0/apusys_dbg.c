@@ -260,13 +260,14 @@ int apusys_dbg_init(void)
 		goto out;
 	}
 
+	apusys_dump_init();
 out:
 	return ret;
 }
 
 int apusys_dbg_destroy(void)
 {
+	apusys_dump_exit();
 	debugfs_remove_recursive(apusys_dbg_root);
-
 	return 0;
 }
