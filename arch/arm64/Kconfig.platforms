@@ -189,10 +189,10 @@ config MACH_MT6771
 	select MTK_SYSTRACKER_V2
 	select MTK_SECURITY_SW_SUPPORT
         help
-          This enables support for MediaTek MT6771
-          Support for aarch64 Architecture
-          Support for fpga_64_mt6771 related projects
-          Support for mt6771 related projects
+	  This enables support for MediaTek MT6771
+	  Support for aarch64 Architecture
+	  Support for fpga_64_mt6771 related projects
+	  Support for mt6771 related projects
 
 config MACH_MT6768
 	bool "MediaTek MT6768"
@@ -360,10 +360,10 @@ config MACH_MT8168
 	select MTK_BOUNCING_CHECK if AEE_FEATURE
 	select MTK_TIMER_APXGPT
         help
-          This enables support for MediaTek MT8168
-          Support for aarch64 Architecture
-          Support for fpga_64_mt8168 related projects
-          Support for mt8168 related projects
+	  This enables support for MediaTek MT8168
+	  Support for aarch64 Architecture
+	  Support for fpga_64_mt8168 related projects
+	  Support for mt8168 related projects
 
 config MACH_MT6885
 	bool "MediaTek MT6885"
@@ -421,10 +421,10 @@ config MACH_MT6885
 	select MTK_PID_MAP
 	select MTK_CACHE_PARITY_CHECK
         help
-          This enables support for MediaTek MT6885
-          Support for aarch64 Architecture
-          Support for fpga_64_mt6885 related projects
-          Support for mt6885 related projects
+	  This enables support for MediaTek MT6885
+	  Support for aarch64 Architecture
+	  Support for fpga_64_mt6885 related projects
+	  Support for mt6885 related projects
 
 config MACH_MT6873
 	bool "MediaTek MT6873"
@@ -442,6 +442,8 @@ config MACH_MT6873
 	select ARMV7_COMPAT_CPUINFO
 	select PINCTRL
 	select PINCTRL_MT6873
+	select MFD_SYSCON
+	select COMMON_CLK_MT6873
 	select CPU_IDLE
 	select ARM64_CRYPTO
 	select CRYPTO_SHA2_ARM64_CE
