@@ -17,14 +17,14 @@
 #include <mt-plat/aee.h>
 #include <mt-plat/devapc_public.h>
 #include <mt-plat/mtk_secure_api.h>
-#include "devapc-mtk-multi-3.h"
+#include "devapc-mtk-multi-ao.h"
 
 static struct mtk_devapc_context {
 	struct clk *devapc_infra_clk;
 	uint32_t devapc_irq;
 
 	/* HW reg mapped addr */
-	void __iomem *devapc_pd_base[SLAVE_TYPE_NUM];
+	void __iomem *devapc_pd_base[4];
 	void __iomem *devapc_infra_ao_base;
 	void __iomem *infracfg_base;
 	void __iomem *sramrom_base;
@@ -51,12 +51,13 @@ static struct devapc_vio_callbacks devapc_test_handle = {
  *
  * Returns the value of reg addr
  */
-static void __iomem *mtk_devapc_pd_get(enum DEVAPC_SLAVE_TYPE slave_type,
+static void __iomem *mtk_devapc_pd_get(int slave_type,
 				       enum DEVAPC_PD_REG_TYPE pd_reg_type,
 				       uint32_t index)
 {
 	struct mtk_devapc_vio_info *vio_info = mtk_devapc_ctx->soc->vio_info;
 	const uint32_t *devapc_pds = mtk_devapc_ctx->soc->devapc_pds;
+	uint32_t slave_type_num = mtk_devapc_ctx->soc->slave_type_num;
 	void __iomem *reg;
 
 	if (unlikely(devapc_pds == NULL)) {
@@ -64,12 +65,8 @@ static void __iomem *mtk_devapc_pd_get(enum DEVAPC_SLAVE_TYPE slave_type,
 		return NULL;
 	}
 
-	if (((slave_type == SLAVE_TYPE_INFRA &&
-			index < vio_info->vio_mask_sta_num_infra) ||
-			(slave_type == SLAVE_TYPE_PERI &&
-			 index < vio_info->vio_mask_sta_num_peri) ||
-			(slave_type == SLAVE_TYPE_PERI2 &&
-			 index < vio_info->vio_mask_sta_num_peri2)) &&
+	if ((slave_type < slave_type_num &&
+			index < vio_info->vio_mask_sta_num[slave_type]) &&
 			(pd_reg_type < PD_REG_TYPE_NUM)) {
 
 		reg = mtk_devapc_ctx->devapc_pd_base[slave_type] +
@@ -140,10 +137,10 @@ static void sramrom_vio_handler(void)
 		"vio_addr", vio_info->vio_addr);
 }
 
-static void mask_module_irq(enum DEVAPC_SLAVE_TYPE slave_type,
-			    uint32_t module, bool mask)
+static void mask_module_irq(int slave_type, uint32_t module, bool mask)
 {
 	struct mtk_devapc_vio_info *vio_info = mtk_devapc_ctx->soc->vio_info;
+	uint32_t slave_type_num = mtk_devapc_ctx->soc->slave_type_num;
 	uint32_t apc_register_index;
 	uint32_t apc_set_index;
 	void __iomem *reg;
@@ -151,12 +148,8 @@ static void mask_module_irq(enum DEVAPC_SLAVE_TYPE slave_type,
 	apc_register_index = module / (MOD_NO_IN_1_DEVAPC * 2);
 	apc_set_index = module % (MOD_NO_IN_1_DEVAPC * 2);
 
-	if ((slave_type == SLAVE_TYPE_INFRA &&
-		apc_register_index < vio_info->vio_mask_sta_num_infra) ||
-		(slave_type == SLAVE_TYPE_PERI &&
-		 apc_register_index < vio_info->vio_mask_sta_num_peri) ||
-		(slave_type == SLAVE_TYPE_PERI2 &&
-		 apc_register_index < vio_info->vio_mask_sta_num_peri2)) {
+	if ((slave_type < slave_type_num) &&
+		(apc_register_index < vio_info->vio_mask_sta_num[slave_type])) {
 
 		reg = mtk_devapc_pd_get(slave_type, VIO_MASK,
 				apc_register_index);
@@ -174,10 +167,10 @@ static void mask_module_irq(enum DEVAPC_SLAVE_TYPE slave_type,
 				"mask", mask ? "true" : "false");
 }
 
-static int32_t check_vio_status(enum DEVAPC_SLAVE_TYPE slave_type,
-				uint32_t module)
+static int32_t check_vio_status(int slave_type, uint32_t module)
 {
 	struct mtk_devapc_vio_info *vio_info = mtk_devapc_ctx->soc->vio_info;
+	uint32_t slave_type_num = mtk_devapc_ctx->soc->slave_type_num;
 	uint32_t apc_register_index;
 	uint32_t apc_set_index;
 	void __iomem *reg;
@@ -185,12 +178,8 @@ static int32_t check_vio_status(enum DEVAPC_SLAVE_TYPE slave_type,
 	apc_register_index = module / (MOD_NO_IN_1_DEVAPC * 2);
 	apc_set_index = module % (MOD_NO_IN_1_DEVAPC * 2);
 
-	if ((slave_type == SLAVE_TYPE_INFRA &&
-		apc_register_index < vio_info->vio_mask_sta_num_infra) ||
-		(slave_type == SLAVE_TYPE_PERI &&
-		 apc_register_index < vio_info->vio_mask_sta_num_peri) ||
-		(slave_type == SLAVE_TYPE_PERI2 &&
-		 apc_register_index < vio_info->vio_mask_sta_num_peri2)) {
+	if ((slave_type < slave_type_num) &&
+		(apc_register_index < vio_info->vio_mask_sta_num[slave_type])) {
 
 		reg = mtk_devapc_pd_get(slave_type, VIO_STA,
 				apc_register_index);
@@ -209,10 +198,10 @@ static int32_t check_vio_status(enum DEVAPC_SLAVE_TYPE slave_type,
 		return 0;
 }
 
-static int32_t clear_vio_status(enum DEVAPC_SLAVE_TYPE slave_type,
-				uint32_t module)
+static int32_t clear_vio_status(int slave_type, uint32_t module)
 {
 	struct mtk_devapc_vio_info *vio_info = mtk_devapc_ctx->soc->vio_info;
+	uint32_t slave_type_num = mtk_devapc_ctx->soc->slave_type_num;
 	uint32_t apc_register_index;
 	uint32_t apc_set_index;
 	void __iomem *reg;
@@ -220,12 +209,8 @@ static int32_t clear_vio_status(enum DEVAPC_SLAVE_TYPE slave_type,
 	apc_register_index = module / (MOD_NO_IN_1_DEVAPC * 2);
 	apc_set_index = module % (MOD_NO_IN_1_DEVAPC * 2);
 
-	if ((slave_type == SLAVE_TYPE_INFRA &&
-		apc_register_index < vio_info->vio_mask_sta_num_infra) ||
-		(slave_type == SLAVE_TYPE_PERI &&
-		 apc_register_index < vio_info->vio_mask_sta_num_peri) ||
-		(slave_type == SLAVE_TYPE_PERI2 &&
-		 apc_register_index < vio_info->vio_mask_sta_num_peri2)) {
+	if ((slave_type < slave_type_num) &&
+		(apc_register_index < vio_info->vio_mask_sta_num[slave_type])) {
 
 		reg = mtk_devapc_pd_get(slave_type, VIO_STA,
 				apc_register_index);
@@ -245,43 +230,39 @@ static int32_t clear_vio_status(enum DEVAPC_SLAVE_TYPE slave_type,
 	return 0;
 }
 
+static const char *slave_type_to_string(uint32_t slave_type)
+{
+	uint32_t slave_type_num = mtk_devapc_ctx->soc->slave_type_num;
+	const char * const *slave_type_arr;
+
+	slave_type_arr = mtk_devapc_ctx->soc->slave_type_arr;
+
+	if (slave_type < slave_type_num)
+		return slave_type_arr[slave_type];
+	else
+		return slave_type_arr[slave_type_num];
+}
+
 static void print_vio_mask_sta(void)
 {
 	struct mtk_devapc_vio_info *vio_info = mtk_devapc_ctx->soc->vio_info;
-	int i;
+	uint32_t slave_type_num = mtk_devapc_ctx->soc->slave_type_num;
+	int slave_type, i;
 
-	for (i = 0; i < vio_info->vio_mask_sta_num_infra; i++)
-		pr_debug(PFX "%s_%d: 0x%x, %s_%d: 0x%x\n",
-				"INFRA VIO_MASK", i,
-				readl(mtk_devapc_pd_get(SLAVE_TYPE_INFRA,
-						VIO_MASK, i)),
-				"INFRA VIO_STA", i,
-				readl(mtk_devapc_pd_get(SLAVE_TYPE_INFRA,
-						VIO_STA, i))
-			);
-
-	for (i = 0; i < vio_info->vio_mask_sta_num_peri; i++)
-		pr_debug(PFX "%s_%d: 0x%x, %s_%d: 0x%x\n",
-				"PERI VIO_MASK", i,
-				readl(mtk_devapc_pd_get(SLAVE_TYPE_PERI,
-						VIO_MASK, i)),
-				"PERI VIO_STA", i,
-				readl(mtk_devapc_pd_get(SLAVE_TYPE_PERI,
-						VIO_STA, i))
-			);
-
-	for (i = 0; i < vio_info->vio_mask_sta_num_peri2; i++)
-		pr_debug(PFX "%s_%d: 0x%x, %s_%d: 0x%x\n",
-				"PERI2 VIO_MASK", i,
-				readl(mtk_devapc_pd_get(SLAVE_TYPE_PERI2,
-						VIO_MASK, i)),
-				"PERI2 VIO_STA", i,
-				readl(mtk_devapc_pd_get(SLAVE_TYPE_PERI2,
-						VIO_STA, i))
-			);
+	for (slave_type = 0; slave_type < slave_type_num; slave_type++)
+		for (i = 0; i < vio_info->vio_mask_sta_num[slave_type]; i++)
+			pr_debug(PFX "%s: %s_%d: 0x%x, %s_%d: 0x%x\n",
+					slave_type_to_string(slave_type),
+					"VIO_MASK", i,
+					readl(mtk_devapc_pd_get(slave_type,
+							VIO_MASK, i)),
+					"VIO_STA", i,
+					readl(mtk_devapc_pd_get(slave_type,
+							VIO_STA, i))
+				);
 }
 
-static bool check_type2_vio_status(enum DEVAPC_SLAVE_TYPE slave_type)
+static bool check_type2_vio_status(int slave_type)
 {
 	uint32_t sramrom_vio_idx;
 	uint32_t mdp_vio_idx, disp2_vio_idx, mmsys_vio_idx;
@@ -293,7 +274,7 @@ static bool check_type2_vio_status(enum DEVAPC_SLAVE_TYPE slave_type)
 	mmsys_vio_idx = mtk_devapc_ctx->soc->vio_info->mmsys_vio_idx;
 
 	/* check SRAMROM */
-	if (slave_type == SLAVE_TYPE_INFRA &&
+	if (slave_type == SRAMROM_SLAVE_TYPE &&
 			check_vio_status(slave_type, sramrom_vio_idx)) {
 
 		pr_info(PFX "SRAMROM violation is triggered\n");
@@ -302,7 +283,7 @@ static bool check_type2_vio_status(enum DEVAPC_SLAVE_TYPE slave_type)
 	}
 
 	/* check mm2nd */
-	if (slave_type == SLAVE_TYPE_PERI) {
+	if (slave_type == MM2ND_SLAVE_TYPE) {
 		mdp_vio = check_vio_status(slave_type, mdp_vio_idx) ==
 			VIOLATION_TRIGGERED;
 		disp2_vio = check_vio_status(slave_type, disp2_vio_idx) ==
@@ -332,7 +313,8 @@ static bool check_type2_vio_status(enum DEVAPC_SLAVE_TYPE slave_type)
  */
 static void start_devapc(void)
 {
-	const struct mtk_device_info *device_info[SLAVE_TYPE_NUM];
+	uint32_t slave_type_num = mtk_devapc_ctx->soc->slave_type_num;
+	const struct mtk_device_info **device_info;
 	const struct mtk_device_num *ndevices;
 	void __iomem *pd_vio_shift_sta_reg;
 	void __iomem *pd_apc_con_reg;
@@ -342,11 +324,9 @@ static void start_devapc(void)
 	print_vio_mask_sta();
 	ndevices = mtk_devapc_ctx->soc->ndevices;
 
-	device_info[SLAVE_TYPE_INFRA] = mtk_devapc_ctx->soc->device_info_infra;
-	device_info[SLAVE_TYPE_PERI] = mtk_devapc_ctx->soc->device_info_peri;
-	device_info[SLAVE_TYPE_PERI2] = mtk_devapc_ctx->soc->device_info_peri2;
+	device_info = mtk_devapc_ctx->soc->device_info;
 
-	for (slave_type = 0; slave_type < SLAVE_TYPE_NUM; slave_type++) {
+	for (slave_type = 0; slave_type < slave_type_num; slave_type++) {
 
 		pd_apc_con_reg = mtk_devapc_pd_get(slave_type, APC_CON, 0);
 		pd_vio_shift_sta_reg = mtk_devapc_pd_get(
@@ -407,16 +387,16 @@ static void start_devapc(void)
  *
  * Returns sync done or not
  */
-static uint32_t sync_vio_dbg(enum DEVAPC_SLAVE_TYPE slave_type,
-			     uint32_t shift_bit)
+static uint32_t sync_vio_dbg(int slave_type, uint32_t shift_bit)
 {
+	uint32_t slave_type_num = mtk_devapc_ctx->soc->slave_type_num;
 	void __iomem *pd_vio_shift_sta_reg;
 	void __iomem *pd_vio_shift_sel_reg;
 	void __iomem *pd_vio_shift_con_reg;
 	uint32_t shift_count;
 	uint32_t sync_done;
 
-	if (slave_type >= SLAVE_TYPE_NUM ||
+	if (slave_type >= slave_type_num ||
 			shift_bit >= (MOD_NO_IN_1_DEVAPC * 2)) {
 		pr_err(PFX "param check failed, %s:0x%x, %s:0x%x\n",
 				"slave_type", slave_type,
@@ -494,10 +474,10 @@ static void devapc_vio_reason(uint8_t perm)
  *
  * Returns the value of access permission
  */
-static uint8_t get_permission(enum DEVAPC_SLAVE_TYPE slave_type,
-			      int module_index, int domain)
+static uint8_t get_permission(int slave_type, int module_index, int domain)
 {
-	const struct mtk_device_info *device_info[SLAVE_TYPE_NUM];
+	uint32_t slave_type_num = mtk_devapc_ctx->soc->slave_type_num;
+	const struct mtk_device_info **device_info;
 	uint32_t sys_index, ctrl_index, apc_set_index;
 	const struct mtk_device_num *ndevices;
 	struct arm_smccc_res res;
@@ -505,7 +485,7 @@ static uint8_t get_permission(enum DEVAPC_SLAVE_TYPE slave_type,
 
 	ndevices = mtk_devapc_ctx->soc->ndevices;
 
-	if (slave_type >= SLAVE_TYPE_NUM ||
+	if (slave_type >= slave_type_num ||
 			module_index >= ndevices[slave_type].vio_slave_num) {
 		pr_err(PFX "%s: param check failed, %s:0x%x, %s:0x%x\n",
 				__func__,
@@ -514,9 +494,7 @@ static uint8_t get_permission(enum DEVAPC_SLAVE_TYPE slave_type,
 		return 0xFF;
 	}
 
-	device_info[SLAVE_TYPE_INFRA] = mtk_devapc_ctx->soc->device_info_infra;
-	device_info[SLAVE_TYPE_PERI] = mtk_devapc_ctx->soc->device_info_peri;
-	device_info[SLAVE_TYPE_PERI2] = mtk_devapc_ctx->soc->device_info_peri2;
+	device_info = mtk_devapc_ctx->soc->device_info;
 
 	sys_index = device_info[slave_type][module_index].sys_index;
 	ctrl_index = device_info[slave_type][module_index].ctrl_index;
@@ -548,9 +526,11 @@ static uint8_t get_permission(enum DEVAPC_SLAVE_TYPE slave_type,
  *
  * Returns the value of violation shift status reg
  */
-static uint32_t mtk_devapc_vio_check(enum DEVAPC_SLAVE_TYPE slave_type)
+static uint32_t mtk_devapc_vio_check(int slave_type)
 {
-	if (slave_type < SLAVE_TYPE_NUM)
+	uint32_t slave_type_num = mtk_devapc_ctx->soc->slave_type_num;
+
+	if (slave_type < slave_type_num)
 		return readl(mtk_devapc_pd_get(slave_type, VIO_SHIFT_STA, 0));
 
 	pr_err(PFX "%s: param check failed, %s:0x%x\n",
@@ -562,15 +542,16 @@ static uint32_t mtk_devapc_vio_check(enum DEVAPC_SLAVE_TYPE slave_type)
 /*
  * mtk_devapc_dump_vio_dbg - shift & dump the violation debug information.
  */
-static bool mtk_devapc_dump_vio_dbg(enum DEVAPC_SLAVE_TYPE slave_type)
+static bool mtk_devapc_dump_vio_dbg(int slave_type)
 {
+	uint32_t slave_type_num = mtk_devapc_ctx->soc->slave_type_num;
 	void __iomem *vio_dbg0_reg, *vio_dbg1_reg, *vio_dbg2_reg;
 	const struct mtk_infra_vio_dbg_desc *vio_dbgs;
 	struct mtk_devapc_vio_info *vio_info;
 	uint32_t dbg0;
 	int i;
 
-	if (slave_type >= SLAVE_TYPE_NUM) {
+	if (slave_type >= slave_type_num) {
 		pr_err(PFX "%s: param check failed, %s:0x%x\n",
 				__func__, "slave_type", slave_type);
 		return false;
@@ -638,19 +619,16 @@ static bool mtk_devapc_dump_vio_dbg(enum DEVAPC_SLAVE_TYPE slave_type)
  * violation severity level
  * 2. call subsys handler to get more debug information
  */
-static void devapc_extra_handler(enum DEVAPC_SLAVE_TYPE slave_type,
-		const char *vio_master, uint32_t vio_index, uint32_t vio_addr)
+static void devapc_extra_handler(int slave_type, const char *vio_master,
+				 uint32_t vio_index, uint32_t vio_addr)
 {
-	const struct mtk_device_info *device_info[SLAVE_TYPE_NUM];
+	const struct mtk_device_info **device_info;
 	struct mtk_devapc_dbg_status *dbg_stat;
 	struct devapc_vio_callbacks *viocb;
 	char dispatch_key[48] = {0};
 	enum infra_subsys_id id;
 
-	device_info[SLAVE_TYPE_INFRA] = mtk_devapc_ctx->soc->device_info_infra;
-	device_info[SLAVE_TYPE_PERI] = mtk_devapc_ctx->soc->device_info_peri;
-	device_info[SLAVE_TYPE_PERI2] = mtk_devapc_ctx->soc->device_info_peri2;
-
+	device_info = mtk_devapc_ctx->soc->device_info;
 	dbg_stat = mtk_devapc_ctx->soc->dbg_stat;
 
 	pr_info(PFX "%s:%d\n", "vio_trigger_times",
@@ -729,7 +707,8 @@ static void devapc_extra_handler(enum DEVAPC_SLAVE_TYPE slave_type,
  */
 static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 {
-	const struct mtk_device_info *device_info[SLAVE_TYPE_NUM];
+	uint32_t slave_type_num = mtk_devapc_ctx->soc->slave_type_num;
+	const struct mtk_device_info **device_info;
 	const struct mtk_device_num *ndevices;
 	struct mtk_devapc_vio_info *vio_info;
 	int slave_type, i, vio_idx;
@@ -741,15 +720,12 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 
 	print_vio_mask_sta();
 
-	device_info[SLAVE_TYPE_INFRA] = mtk_devapc_ctx->soc->device_info_infra;
-	device_info[SLAVE_TYPE_PERI] = mtk_devapc_ctx->soc->device_info_peri;
-	device_info[SLAVE_TYPE_PERI2] = mtk_devapc_ctx->soc->device_info_peri2;
-
+	device_info = mtk_devapc_ctx->soc->device_info;
 	vio_info = mtk_devapc_ctx->soc->vio_info;
 	ndevices = mtk_devapc_ctx->soc->ndevices;
 
 	/* There are multiple DEVAPC_PD */
-	for (slave_type = 0; slave_type < SLAVE_TYPE_NUM; slave_type++) {
+	for (slave_type = 0; slave_type < slave_type_num; slave_type++) {
 
 		if (!check_type2_vio_status(slave_type))
 			if (!mtk_devapc_dump_vio_dbg(slave_type))
@@ -910,6 +886,7 @@ ssize_t mtk_devapc_dbg_read(struct file *file, char __user *buffer,
 ssize_t mtk_devapc_dbg_write(struct file *file, const char __user *buffer,
 			     size_t count, loff_t *data)
 {
+	uint32_t slave_type_num = mtk_devapc_ctx->soc->slave_type_num;
 	long param, sys_index, domain, ctrl_index;
 	struct mtk_devapc_dbg_status *dbg_stat;
 	uint32_t slave_type, apc_set_idx, ret;
@@ -1011,7 +988,7 @@ ssize_t mtk_devapc_dbg_write(struct file *file, const char __user *buffer,
 		/* slave_type is already parse before */
 		slave_type = (uint32_t)param;
 
-		if (slave_type >= SLAVE_TYPE_NUM) {
+		if (slave_type >= slave_type_num) {
 			pr_err(PFX "Wrong slave type:0x%x\n", slave_type);
 			return -EFAULT;
 		}
@@ -1073,6 +1050,8 @@ int mtk_devapc_probe(struct platform_device *pdev,
 		struct mtk_devapc_soc *soc)
 {
 	struct device_node *node = pdev->dev.of_node;
+	uint32_t slave_type_num;
+	int slave_type;
 	int ret;
 
 	pr_info(PFX "driver registered\n");
@@ -1083,40 +1062,26 @@ int mtk_devapc_probe(struct platform_device *pdev,
 	}
 
 	mtk_devapc_ctx->soc = soc;
+	slave_type_num = mtk_devapc_ctx->soc->slave_type_num;
 
-	mtk_devapc_ctx->devapc_pd_base[SLAVE_TYPE_INFRA] = of_iomap(node,
-			DT_DEVAPC_INFRA_PD_IDX);
-	if (unlikely(mtk_devapc_ctx->devapc_pd_base[SLAVE_TYPE_INFRA]
-				== NULL)) {
-		pr_err(PFX "parse devapc_infra_pd_base failed\n");
-		return -EINVAL;
+	for (slave_type = 0; slave_type < slave_type_num; slave_type++) {
+		mtk_devapc_ctx->devapc_pd_base[slave_type] = of_iomap(node,
+				slave_type);
+		if (unlikely(mtk_devapc_ctx->devapc_pd_base[slave_type]
+					== NULL)) {
+			pr_err(PFX "parse devapc_pd_base:0x%x failed\n",
+					slave_type);
+			return -EINVAL;
+		}
 	}
 
-	mtk_devapc_ctx->devapc_pd_base[SLAVE_TYPE_PERI] = of_iomap(node,
-			DT_DEVAPC_PERI_PD_IDX);
-	if (unlikely(mtk_devapc_ctx->devapc_pd_base[SLAVE_TYPE_PERI]
-				== NULL)) {
-		pr_err(PFX "parse devapc_peri_pd_base failed\n");
-		return -EINVAL;
-	}
-
-	mtk_devapc_ctx->devapc_pd_base[SLAVE_TYPE_PERI2] = of_iomap(node,
-			DT_DEVAPC_PERI_PD2_IDX);
-	if (unlikely(mtk_devapc_ctx->devapc_pd_base[SLAVE_TYPE_PERI2]
-				== NULL)) {
-		pr_err(PFX "parse devapc_peri_pd2_base failed\n");
-		return -EINVAL;
-	}
-
-	mtk_devapc_ctx->devapc_infra_ao_base = of_iomap(node,
-			DT_DEVAPC_INFRA_AO_IDX);
+	mtk_devapc_ctx->devapc_infra_ao_base = of_iomap(node, slave_type_num);
 	if (unlikely(mtk_devapc_ctx->devapc_infra_ao_base == NULL)) {
 		pr_err(PFX "parse devapc_infra_ao_base failed\n");
 		return -EINVAL;
 	}
 
-	mtk_devapc_ctx->infracfg_base = of_iomap(node,
-			DT_INFRACFG_IDX);
+	mtk_devapc_ctx->infracfg_base = of_iomap(node, slave_type_num + 1);
 	if (unlikely(mtk_devapc_ctx->infracfg_base == NULL)) {
 		pr_err(PFX "parse infracfg_base failed\n");
 		return -EINVAL;
@@ -1128,14 +1093,13 @@ int mtk_devapc_probe(struct platform_device *pdev,
 		return -EINVAL;
 	}
 
-	pr_debug(PFX "%s:%p, %s:%p, %s:%p, IRQ:%d\n",
-			"devapc_infra_pd_base",
-			mtk_devapc_ctx->devapc_pd_base[SLAVE_TYPE_INFRA],
-			"devapc_peri_pd_base",
-			mtk_devapc_ctx->devapc_pd_base[SLAVE_TYPE_PERI],
-			"devapc_peri_pd2_base",
-			mtk_devapc_ctx->devapc_pd_base[SLAVE_TYPE_PERI2],
-			mtk_devapc_ctx->devapc_irq);
+	for (slave_type = 0; slave_type < slave_type_num; slave_type++)
+		pr_debug(PFX "%s:0x%x %s:%p\n",
+				"slave_type", slave_type,
+				"devapc_pd_base",
+				mtk_devapc_ctx->devapc_pd_base[slave_type]);
+
+	pr_debug(PFX " IRQ:%d\n", mtk_devapc_ctx->devapc_irq);
 
 	ret = devm_request_irq(&pdev->dev, mtk_devapc_ctx->devapc_irq,
 			(irq_handler_t)devapc_violation_irq,

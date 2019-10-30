@@ -3,8 +3,8 @@
  * Copyright (C) 2019 MediaTek Inc.
  */
 
-#ifndef __DEVAPC_MTK_COMMON_H__
-#define __DEVAPC_MTK_COMMON_H__
+#ifndef __DEVAPC_MTK_MULTI_4_H__
+#define __DEVAPC_MTK_MULTI_4_H__
 
 #include <linux/platform_device.h>
 #include <linux/types.h>
@@ -17,6 +17,7 @@
 #define DEAD			0xdeadbeaf
 #define RANDOM_OFFSET		0x88
 #define PFX			"[DEVAPC]: "
+#define SLAVE_TYPE_NUM_MAX	5
 
 #define devapc_log(p, s, fmt, args...) \
 	(p += scnprintf(p, sizeof(s) - strlen(s), fmt, ##args))
@@ -24,22 +25,6 @@
 /******************************************************************************
  * DATA STRUCTURE & FUNCTION DEFINATION
  ******************************************************************************/
-enum DEVAPC_DT_NODE_INDEX {
-	DT_DEVAPC_INFRA_PD_IDX = 0,
-	DT_DEVAPC_PERI_PD_IDX,
-	DT_DEVAPC_PERI_PD2_IDX,
-	DT_DEVAPC_INFRA_AO_IDX,
-	DT_INFRACFG_IDX,
-	DT_SRAMROM_IDX,
-};
-
-enum DEVAPC_SLAVE_TYPE {
-	SLAVE_TYPE_INFRA = 0,
-	SLAVE_TYPE_PERI,
-	SLAVE_TYPE_PERI2,
-	SLAVE_TYPE_NUM,
-};
-
 enum DEVAPC_PD_REG_TYPE {
 	VIO_MASK = 0,
 	VIO_STA,
@@ -83,6 +68,11 @@ enum SRAMROM_VIO {
 	SRAM_VIOLATION,
 };
 
+enum DEVAPC_TYPE2_SLAVE_TYPE {
+	SRAMROM_SLAVE_TYPE = 0,	/* Infra */
+	MM2ND_SLAVE_TYPE = 1, /* Peri */
+};
+
 struct mtk_devapc_dbg_status {
 	bool enable_ut;
 	bool enable_KE;
@@ -100,7 +90,7 @@ struct mtk_device_info {
 };
 
 struct mtk_device_num {
-	enum DEVAPC_SLAVE_TYPE slave_type;
+	int slave_type;
 	uint32_t vio_slave_num;
 };
 
@@ -111,9 +101,7 @@ struct mtk_devapc_vio_info {
 	uint32_t vio_addr_high;
 	uint32_t master_id;
 	uint32_t domain_id;
-	int vio_mask_sta_num_infra;
-	int vio_mask_sta_num_peri;
-	int vio_mask_sta_num_peri2;
+	int *vio_mask_sta_num;
 	int sramrom_vio_idx;
 	int mdp_vio_idx;
 	int disp2_vio_idx;
@@ -156,9 +144,9 @@ struct mtk_devapc_pd_desc {
 
 struct mtk_devapc_soc {
 	struct mtk_devapc_dbg_status *dbg_stat;
-	const struct mtk_device_info *device_info_infra;
-	const struct mtk_device_info *device_info_peri;
-	const struct mtk_device_info *device_info_peri2;
+	const char * const *slave_type_arr;
+	uint32_t slave_type_num;
+	const struct mtk_device_info *device_info[SLAVE_TYPE_NUM_MAX];
 	const struct mtk_device_num *ndevices;
 	struct mtk_devapc_vio_info *vio_info;
 	const struct mtk_infra_vio_dbg_desc *vio_dbgs;
@@ -182,4 +170,4 @@ ssize_t mtk_devapc_dbg_read(struct file *file, char __user *buffer,
 ssize_t mtk_devapc_dbg_write(struct file *file, const char __user *buffer,
 	size_t count, loff_t *data);
 
-#endif /* __DEVAPC_MTK_COMMON_H__ */
+#endif /* __DEVAPC_MTK_MULTI_4_H__ */

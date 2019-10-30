@@ -10,7 +10,7 @@
 #include <asm-generic/io.h>
 
 #include "devapc-mt6885.h"
-#include "devapc-mtk-multi-3.h"
+#include "devapc-mtk-multi-ao.h"
 
 static struct mtk_device_info mt6885_devices_infra[] = {
 	/* sys_idx, ctrl_idx, vio_idx, device, vio_irq */
@@ -1700,10 +1700,21 @@ static struct mtk_devapc_dbg_status mt6885_devapc_dbg_stat = {
 	.enable_dapc = PLAT_DBG_DAPC_DEFAULT,
 };
 
+static const char * const slave_type_to_str[] = {
+	"SLAVE_TYPE_INFRA",
+	"SLAVE_TYPE_PERI",
+	"SLAVE_TYPE_PERI2",
+	"WRONG_SLAVE_TYPE",
+};
+
+static int mtk_vio_mask_sta_num[] = {
+	VIO_MASK_STA_NUM_INFRA,
+	VIO_MASK_STA_NUM_PERI,
+	VIO_MASK_STA_NUM_PERI2,
+};
+
 static struct mtk_devapc_vio_info mt6885_devapc_vio_info = {
-	.vio_mask_sta_num_infra = VIO_MASK_STA_NUM_INFRA,
-	.vio_mask_sta_num_peri = VIO_MASK_STA_NUM_PERI,
-	.vio_mask_sta_num_peri2 = VIO_MASK_STA_NUM_PERI2,
+	.vio_mask_sta_num = mtk_vio_mask_sta_num,
 	.sramrom_vio_idx = SRAMROM_VIO_INDEX,
 	.mdp_vio_idx = MDP_VIO_INDEX,
 	.disp2_vio_idx = DISP2_VIO_INDEX,
@@ -1746,9 +1757,11 @@ static const uint32_t mt6885_devapc_pds[] = {
 
 static struct mtk_devapc_soc mt6885_data = {
 	.dbg_stat = &mt6885_devapc_dbg_stat,
-	.device_info_infra = mt6885_devices_infra,
-	.device_info_peri = mt6885_devices_peri,
-	.device_info_peri2 = mt6885_devices_peri2,
+	.slave_type_arr = slave_type_to_str,
+	.slave_type_num = SLAVE_TYPE_NUM,
+	.device_info[SLAVE_TYPE_INFRA] = mt6885_devices_infra,
+	.device_info[SLAVE_TYPE_PERI] = mt6885_devices_peri,
+	.device_info[SLAVE_TYPE_PERI2] = mt6885_devices_peri2,
 	.ndevices = mtk6885_devices_num,
 	.vio_info = &mt6885_devapc_vio_info,
 	.vio_dbgs = &mt6885_vio_dbgs,

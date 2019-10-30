@@ -21,7 +21,7 @@ config DEVAPC_ARCH_V1
 	  Say yes here to enable support Mediatek
 	  Device APC driver which is based on HW
 	  architecture version 1.
-	  This architecture supports 1 Infra-peri.
+	  This architecture supports 1 Infra AO.
 
 config DEVAPC_ARCH_V2
 	bool "Mediatek Device APC driver architecture v2"
@@ -29,7 +29,7 @@ config DEVAPC_ARCH_V2
 	  Say yes here to enable support Mediatek
 	  Device APC driver which is based on HW
 	  architecture version 2.
-	  This architecture supports 3 Infra-peri.
+	  This architecture supports multiple Infra AO.
 
 config DEVAPC_MT6779
 	bool "Mediatek MT6779 Device APC driver"
@@ -71,6 +71,17 @@ config DEVAPC_MT6885
 	select MTK_DEVAPC
 	help
 	  Say yes here to enable support Mediatek MT6885
+	  Device APC driver.
+	  This driver is combined with DEVAPC_ARCH_V2 for
+	  common handle flow.
+
+config DEVAPC_MT6873
+	bool "Mediatek MT6873 Device APC driver"
+	depends on MACH_MT6873 || COMPILE_TEST
+	select DEVAPC_ARCH_V2
+	select MTK_DEVAPC
+	help
+	  Say yes here to enable support Mediatek MT6873
 	  Device APC driver.
 	  This driver is combined with DEVAPC_ARCH_V2 for
 	  common handle flow.
