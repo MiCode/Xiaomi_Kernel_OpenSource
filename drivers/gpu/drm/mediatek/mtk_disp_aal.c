@@ -44,6 +44,7 @@ static struct mtk_ddp_comp *default_comp;
 int aal_dbg_en;
 
 static DECLARE_WAIT_QUEUE_HEAD(g_aal_hist_wq);
+static DEFINE_SPINLOCK(g_aal_clock_lock);
 static DEFINE_SPINLOCK(g_aal_hist_lock);
 static DEFINE_SPINLOCK(g_aal_irq_en_lock);
 
@@ -163,23 +164,6 @@ static int disp_aal_get_cust_led(void)
 	return ret;
 }
 
-static void disp_aal_trigger_refresh(enum DISP_AAL_REFRESH_LATENCY latency)
-{
-	DDPINFO("%s\n", __func__);
-	//if(g_ddp_notify != NULL)
-	{
-		//enum DISP_PATH_EVENT trigger_method = DISP_PATH_EVENT_TRIGGER;
-
-#ifdef DISP_PATH_DELAYED_TRIGGER_33ms_SUPPORT
-		if (latency == AAL_REFRESH_33MS)
-			trigger_method = DISP_PATH_EVENT_DELAYED_TRIGGER_33ms;
-#endif
-		//g_ddp_notify(AAL0_MODULE_NAMEING, trigger_method);
-
-		//DDPPR_ERR("trigger_method = %d", trigger_method);
-	}
-}
-
 #define LOG_INTERVAL_TH 200
 #define LOG_BUFFER_SIZE 4
 static char g_aal_log_buffer[256] = "";
@@ -198,11 +182,6 @@ bool disp_aal_is_support(void)
 static void disp_aal_set_interrupt(struct mtk_ddp_comp *comp, int enable)
 {
 	const int index = 0;
-
-	if (atomic_read(&g_aal_is_clock_on[index]) != 1) {
-		DDPPR_ERR("%s: clock is off\n", __func__);
-		return;
-	}
 
 	if (!disp_aal_is_support()) {
 		DDPPR_ERR("%s: aal is not support\n", __func__);
@@ -302,7 +281,7 @@ static void backlight_brightness_set_with_lock(int bl_1024)
 
 void disp_aal_notify_backlight_changed(int bl_1024)
 {
-	unsigned long flags;
+	unsigned long flags, clockflags;
 	int max_backlight = 0;
 	unsigned int service_flags;
 
@@ -350,10 +329,18 @@ void disp_aal_notify_backlight_changed(int bl_1024)
 	if (atomic_read(&g_aal_is_init_regs_valid) == 1) {
 		spin_lock_irqsave(&g_aal_irq_en_lock, flags);
 		atomic_set(&g_aal_force_enable_irq, 1);
-		disp_aal_set_interrupt(NULL, 1);
+
+		if (spin_trylock_irqsave(&g_aal_clock_lock, clockflags)) {
+			if (atomic_read(&g_aal_is_clock_on[0]) != 1)
+				DDPPR_ERR("%s: clock is off\n", __func__);
+			else
+				disp_aal_set_interrupt(NULL, true);
+			spin_unlock_irqrestore(&g_aal_clock_lock, clockflags);
+		}
+
 		spin_unlock_irqrestore(&g_aal_irq_en_lock, flags);
 		/* Backlight latency should be as smaller as possible */
-		disp_aal_trigger_refresh(AAL_REFRESH_17MS);
+		mtk_crtc_check_trigger(default_comp->mtk_crtc, false);
 	}
 }
 
@@ -363,8 +350,8 @@ int mtk_drm_ioctl_aal_eventctl(struct drm_device *dev, void *data,
 	struct mtk_drm_private *private = dev->dev_private;
 	struct mtk_ddp_comp *comp = private->ddp_comp[DDP_COMPONENT_AAL0];
 
-	int ret = 0;
-	unsigned long flags;
+	int ret = IRQ_NONE;
+	unsigned long flags, clockflags;
 	int *enabled = (int *)data;
 
 	DDPINFO("%s: %d\n", __func__, *enabled);
@@ -375,11 +362,19 @@ int mtk_drm_ioctl_aal_eventctl(struct drm_device *dev, void *data,
 			DDPINFO("%s: force enable aal ieq 0 -> 1\n", __func__);
 		*enabled = 1;
 	}
-	disp_aal_set_interrupt(comp, *enabled);
+	if (spin_trylock_irqsave(&g_aal_clock_lock, clockflags)) {
+		if (atomic_read(&g_aal_is_clock_on[0]) != 1)
+			DDPPR_ERR("%s: clock is off\n", __func__);
+		else {
+			disp_aal_set_interrupt(comp, *enabled);
+			ret = IRQ_HANDLED;
+		}
+		spin_unlock_irqrestore(&g_aal_clock_lock, clockflags);
+	}
 	spin_unlock_irqrestore(&g_aal_irq_en_lock, flags);
 
 	if (*enabled)
-		disp_aal_trigger_refresh(AAL_REFRESH_33MS);
+		mtk_crtc_check_trigger(comp->mtk_crtc, false);
 
 	return ret;
 }
@@ -416,12 +411,19 @@ static void mtk_aal_init(struct mtk_ddp_comp *comp,
 static void mtk_aal_config(struct mtk_ddp_comp *comp,
 	struct mtk_ddp_config *cfg, struct cmdq_pkt *handle)
 {
+	unsigned long flags;
 	unsigned int val = 0;
 #ifdef AAL_HAS_DRE3
 	int dre_alg_mode = 0;
 #endif
 	DDPINFO("%s +\n", __func__);
-	disp_aal_set_interrupt(comp, true);
+	if (spin_trylock_irqsave(&g_aal_clock_lock, flags)) {
+		if (atomic_read(&g_aal_is_clock_on[0]) != 1)
+			DDPPR_ERR("%s: clock is off\n", __func__);
+		else
+			disp_aal_set_interrupt(comp, true);
+		spin_unlock_irqrestore(&g_aal_clock_lock, flags);
+	}
 	//if (pConfig->dst_dirty)
 	{
 		int width = cfg->w, height = cfg->h;
@@ -947,7 +949,7 @@ int disp_aal_set_param(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 // FIXME
 //	backlight_brightness_set(backlight_value);
 
-	disp_aal_trigger_refresh(g_aal_param.refreshLatency);
+	mtk_crtc_check_trigger(comp->mtk_crtc, false);
 
 	return ret;
 }
@@ -1027,8 +1029,17 @@ static void disp_aal_clear_irq(struct mtk_ddp_comp *comp,
 	 * no need per-frame wakeup.
 	 * We stop interrupt until next frame dirty.
 	 */
-	if (cleared == true)
-		disp_aal_set_interrupt(comp, false);
+	if (cleared == true) {
+		if (spin_trylock_irqsave(&g_aal_clock_lock, flags)) {
+			if (atomic_read(&g_aal_is_clock_on[0]) != 1)
+				DDPPR_ERR("%s: clock is off\n",
+					__func__);
+			else
+				disp_aal_set_interrupt(comp, false);
+			spin_unlock_irqrestore(&g_aal_clock_lock,
+					flags);
+		}
+	}
 
 	DDPINFO("AAL Module, process:(%d)", cleared);
 }
@@ -1425,7 +1436,15 @@ static void disp_aal_single_pipe_hist_update(struct mtk_ddp_comp *comp)
 			 */
 			DDPINFO("%s: set disp_aal_set_interrupt to 0",
 					__func__);
-			disp_aal_set_interrupt(comp, false);
+			if (spin_trylock_irqsave(&g_aal_clock_lock, flags)) {
+				if (atomic_read(&g_aal_is_clock_on[0]) != 1) {
+					DDPPR_ERR("%s: clock is off\n",
+						__func__);
+				} else
+					disp_aal_set_interrupt(comp, false);
+				spin_unlock_irqrestore(&g_aal_clock_lock,
+					flags);
+			}
 		}
 	} while (0);
 }
@@ -1494,9 +1513,13 @@ static void mtk_aal_prepare(struct mtk_ddp_comp *comp)
 
 static void mtk_aal_unprepare(struct mtk_ddp_comp *comp)
 {
+	unsigned long flags;
+
 	//disp_aal_clear_irq(comp, true);
-	mtk_ddp_comp_clk_unprepare(comp);
+	spin_lock_irqsave(&g_aal_clock_lock, flags);
 	atomic_set(&g_aal_is_clock_on[0], 0);
+	spin_unlock_irqrestore(&g_aal_clock_lock, flags);
+	mtk_ddp_comp_clk_unprepare(comp);
 }
 
 static const struct mtk_ddp_comp_funcs mtk_disp_aal_funcs = {
@@ -1551,6 +1574,7 @@ void mtk_aal_dump(struct mtk_ddp_comp *comp)
 
 void disp_aal_on_end_of_frame(struct mtk_ddp_comp *comp)
 {
+
 	if (atomic_read(&g_aal_force_relay) == 1) {
 		disp_aal_clear_irq(comp, true);
 		return;
@@ -1565,12 +1589,22 @@ void disp_aal_on_end_of_frame(struct mtk_ddp_comp *comp)
 
 static irqreturn_t mtk_disp_aal_irq_handler(int irq, void *dev_id)
 {
+	unsigned long flags;
+	irqreturn_t ret = IRQ_NONE;
 	struct mtk_disp_aal *priv = dev_id;
 	struct mtk_ddp_comp *comp = &priv->ddp_comp;
 
-	disp_aal_on_end_of_frame(comp);
+	if (spin_trylock_irqsave(&g_aal_clock_lock, flags)) {
+		if (atomic_read(&g_aal_is_clock_on[0]) != 1)
+			DDPPR_ERR("%s: clock is off\n", __func__);
+		else {
+			disp_aal_on_end_of_frame(comp);
+			ret = IRQ_HANDLED;
+		}
+		spin_unlock_irqrestore(&g_aal_clock_lock, flags);
+	}
 
-	return IRQ_HANDLED;
+	return ret;
 }
 
 static int mtk_disp_aal_probe(struct platform_device *pdev)
