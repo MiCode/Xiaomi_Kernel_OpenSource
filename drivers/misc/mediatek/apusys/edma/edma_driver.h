@@ -77,6 +77,7 @@ struct edma_sub {
 struct edma_device {
 	struct device *dev;
 	struct edma_sub *edma_sub[EDMA_SUB_NUM];
+	struct timer_list power_timer;
 
 	unsigned int edma_sub_num;
 

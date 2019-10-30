@@ -41,5 +41,6 @@ int edma_sync_ext_mode(struct edma_device *edma_device,
 						struct edma_request *req);
 #endif
 int edma_execute(struct edma_sub *edma_sub, struct edma_ext *edma_ext);
+void edma_power_time_up(unsigned long data);
 
 #endif /* __EDMA_CMD_HND_H__ */

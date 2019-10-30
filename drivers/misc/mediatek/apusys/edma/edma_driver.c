@@ -55,6 +55,11 @@ int edma_initialize(struct edma_device *edma_device)
 	int sub_id;
 
 	init_waitqueue_head(&edma_device->req_wait);
+
+	edma_device->power_timer.data = (unsigned long)edma_device;
+	edma_device->power_timer.function =
+				edma_power_time_up;
+	init_timer(&edma_device->power_timer);
 	/* init hw and create task */
 	for (sub_id = 0; sub_id < edma_device->edma_sub_num; sub_id++) {
 		struct edma_sub *edma_sub = edma_device->edma_sub[sub_id];

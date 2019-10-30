@@ -20,6 +20,10 @@
 #include <linux/cdev.h>
 #include <linux/slab.h>
 #include <linux/kthread.h>
+#include <linux/interrupt.h>
+#include <linux/spinlock.h>
+#include <linux/delay.h>
+#include <linux/jiffies.h>
 
 #include "edma_driver.h"
 #include "edma_cmd_hnd.h"
@@ -30,6 +34,7 @@
 #include "edma_dbgfs.h"
 
 #define NO_INTERRUPT		0
+#define EDMA_POWEROFF_TIME_DEFAULT 2000
 
 
 static inline void lock_command(struct edma_sub *edma_sub)
@@ -1423,12 +1428,26 @@ void edma_power_on(struct edma_sub *edma_sub)
 
 	edma_device = edma_sub->edma_device;
 	mutex_lock(&edma_device->power_mutex);
-	if (edma_is_all_power_off(edma_device))
-		apu_device_power_on(EDMA);
+	if (edma_is_all_power_off(edma_device))	{
+		if (timer_pending(&edma_device->power_timer))
+			del_timer(&edma_device->power_timer);
 
+		apu_device_power_on(EDMA);
+	}
 	edma_sub->power_state = EDMA_POWER_ON;
 	mutex_unlock(&edma_device->power_mutex);
 }
+
+
+void edma_power_time_up(unsigned long data)
+{
+	struct edma_device *edma_device = (struct edma_device *)data;
+
+	pr_notice("%s: user = %d!!\n", __func__, edma_device->edma_num_users);
+	apu_device_power_off(EDMA);
+	pr_notice("%s: power off done!!\n", __func__);
+}
+
 
 void edma_power_off(struct edma_sub *edma_sub)
 {
@@ -1444,9 +1463,15 @@ void edma_power_off(struct edma_sub *edma_sub)
 	edma_device = edma_sub->edma_device;
 	mutex_lock(&edma_device->power_mutex);
 	edma_sub->power_state = EDMA_POWER_OFF;
-	if (edma_is_all_power_off(edma_device))
-		apu_device_power_off(EDMA);
+	if (edma_is_all_power_off(edma_device)) {
 
+		if (timer_pending(&edma_device->power_timer))
+			del_timer(&edma_device->power_timer);
+
+		edma_device->power_timer.expires = jiffies +
+		msecs_to_jiffies(EDMA_POWEROFF_TIME_DEFAULT);
+		add_timer(&edma_device->power_timer);
+	}
 	mutex_unlock(&edma_device->power_mutex);
 }
 
