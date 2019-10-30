@@ -58,7 +58,7 @@
 #define EEPROM_I2C_WRITE_MSG_LENGTH_MAX 32
 #endif
 #ifndef EEPROM_WRITE_EN
-#define EEPROM_WRITE_EN 0
+#define EEPROM_WRITE_EN 1
 #endif
 
 static int Read_I2C_CAM_CAL(struct i2c_client *client,
@@ -135,7 +135,6 @@ static int Write_I2C_CAM_CAL(struct i2c_client *client,
 			     u32 ui4_length,
 			     u8 *a_puBuff)
 {
-	int i;
 	int i4RetValue = 0;
 	char puCmd[2 + EEPROM_I2C_WRITE_MSG_LENGTH_MAX];
 	struct i2c_msg msg;
