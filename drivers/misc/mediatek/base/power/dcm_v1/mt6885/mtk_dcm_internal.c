@@ -34,14 +34,14 @@ static struct notifier_block dcm_hotplug_nb;
 unsigned int all_dcm_type =
 		(ARMCORE_DCM_TYPE | MCUSYS_DCM_TYPE | STALL_DCM_TYPE |
 		INFRA_DCM_TYPE | DDRPHY_DCM_TYPE | EMI_DCM_TYPE
-		| DRAMC_DCM_TYPE);
+		| DRAMC_DCM_TYPE | BIG_CORE_DCM_TYPE);
 
 #if defined(BUSDVT_ONLY_MD)
 static unsigned int init_dcm_type = BUSDVT_DCM_TYPE;
 #else
 unsigned int init_dcm_type =
 		(ARMCORE_DCM_TYPE | MCUSYS_DCM_TYPE | STALL_DCM_TYPE |
-		INFRA_DCM_TYPE);
+		INFRA_DCM_TYPE | BIG_CORE_DCM_TYPE);
 #endif
 
 
@@ -262,7 +262,6 @@ int mt_dcm_dts_map(void)
  * 1. per-DCM function is 1-argu with ON/OFF/MODE option.
  *****************************************/
 /* TODO: Fix*/
-#define DCM_6885
 int dcm_topckg(int on)
 {
 	return 0;
@@ -296,7 +295,6 @@ bool dcm_infra_is_on(void)
 
 int dcm_infra(int on)
 {
-#ifdef DCM_6885
 	/* INFRACFG_AO */
 	/* Review this group with PIC*/
 	dcm_infracfg_ao_aximem_bus_dcm(on);
@@ -317,21 +315,7 @@ int dcm_infra(int on)
 
 	/* move to preloader */
 	/* dcm_sub_infracfg_ao_mem_dcm_emi_group(on); */
-#else
-	dcm_infracfg_ao_infra_bus_dcm(on);
 
-	/* MT6779: Debounce setting, and not DCM really. */
-	/* dcm_infracfg_ao_infra_emi_local_dcm(on); */
-
-	dcm_infracfg_ao_infra_rx_p2p_dcm(on);
-	dcm_infracfg_ao_peri_bus_dcm(on);
-	dcm_infracfg_ao_peri_module_dcm(on);
-
-	/* MT6779: INFRACFG_AO_MEM. It has been enabled in preloader
-	 *         and can't not be turned off.
-	 */
-	/* dcm_infracfg_ao_mem_dcm_emi_group(on) */
-#endif
 	return 0;
 }
 
@@ -356,19 +340,13 @@ bool dcm_armcore_is_on(void)
 
 int dcm_armcore(int mode)
 {
-#ifdef DCM_6885
 	dcm_mp_cpusys_top_bus_pll_div_dcm(mode);
 	dcm_mp_cpusys_top_cpu_pll_div_0_dcm(mode);
 	dcm_mp_cpusys_top_cpu_pll_div_1_dcm(mode);
 	dcm_mp_cpusys_top_cpu_pll_div_2_dcm(mode);
 	dcm_mp_cpusys_top_cpu_pll_div_3_dcm(mode);
 	dcm_mp_cpusys_top_cpu_pll_div_4_dcm(mode);
-#else
-	dcm_mp_cpusys_top_bus_pll_div_dcm(mode);
-	dcm_mp_cpusys_top_cpu_pll_div_0_dcm(mode);
-	dcm_mp_cpusys_top_cpu_pll_div_1_dcm(mode);
-	dcm_mp_cpusys_top_cpu_pll_div_2_dcm(mode);
-#endif
+
 	return 0;
 }
 
@@ -389,7 +367,6 @@ bool dcm_mcusys_is_on(void)
 
 int dcm_mcusys(int on)
 {
-#ifdef DCM_6885
 	dcm_mp_cpusys_top_adb_dcm(on);
 	dcm_mp_cpusys_top_apb_dcm(on);
 	dcm_mp_cpusys_top_cpubiu_dcm(on);
@@ -401,19 +378,6 @@ int dcm_mcusys(int on)
 	dcm_cpccfg_reg_emi_wfifo(on);
 	dcm_mp_cpusys_top_last_cor_idle_dcm(on);
 
-#else
-	dcm_mp_cpusys_top_adb_dcm(on);
-	dcm_mp_cpusys_top_apb_dcm(on);
-	dcm_mp_cpusys_top_cpubiu_dbg_cg(on);
-	dcm_mp_cpusys_top_cpubiu_dcm(on);
-	dcm_mp_cpusys_top_misc_dcm(on);
-	dcm_mp_cpusys_top_mp0_qdcm(on);
-
-	dcm_cpccfg_reg_emi_wfifo(on);
-
-	/* for MT6779 */
-	dcm_mp_cpusys_top_last_cor_idle_dcm(on);
-#endif
 	return 0;
 }
 
@@ -449,14 +413,9 @@ bool dcm_stall_is_on(void)
 
 int dcm_stall(int on)
 {
-#ifdef DCM_6885
 	dcm_mp_cpusys_top_core_stall_dcm(on);
 	dcm_mp_cpusys_top_fcm_stall_dcm(on);
-#else
-	dcm_mp_cpusys_top_core_stall_dcm(on);
-	dcm_mp_cpusys_top_fcm_stall_dcm(on);
-	dcm_cpccfg_reg_mp_stall_dcm(on);
-#endif
+
 	return 0;
 }
 
@@ -477,41 +436,28 @@ int dcm_rgu(int on)
 
 int dcm_dramc_ao(int on)
 {
-#ifdef DCM_6885
-#else
-	dcm_dramc_ch1_top0_ddrphy(on);
-	dcm_dramc_ch0_top0_ddrphy(on);
-#endif
 	return 0;
 }
 
 int dcm_ddrphy(int on)
 {
-#ifdef DCM_6885
 	dcm_dramc_ch0_top5_ddrphy(on);
 	dcm_dramc_ch1_top5_ddrphy(on);
 	dcm_dramc_ch2_top5_ddrphy(on);
 	dcm_dramc_ch3_top5_ddrphy(on);
-#else
-	dcm_dramc_ch1_top5_ddrphy(on);
-	dcm_dramc_ch0_top5_ddrphy(on);
-#endif
+
 	return 0;
 }
 
 int dcm_emi(int on)
 {
-#ifdef DCM_6885
 	dcm_chn0_emi_chn_emi_dcm(on);
 	dcm_chn1_emi_chn_emi_dcm(on);
 	dcm_chn2_emi_chn_emi_dcm(on);
 	dcm_chn3_emi_chn_emi_dcm(on);
 	dcm_emi_emi_dcm(on);
 	dcm_sub_emi_emi_dcm(on);
-#else
-	dcm_chn0_emi_chn_emi_dcm(on);
-	dcm_emi_emi_dcm(on);
-#endif
+
 	return 0;
 }
 
@@ -918,6 +864,16 @@ void dcm_set_hotplug_nb(void)
 		dcm_pr_info("[%s]: fail to register_cpu_notifier\n", __func__);
 #endif
 #endif /* #ifdef CONFIG_HOTPLUG_CPU */
+}
+
+int dcm_smc_get_cnt(int type_id)
+{
+	return dcm_smc_read_cnt(type_id);
+}
+
+void dcm_smc_msg_send(unsigned int msg)
+{
+	dcm_smc_msg(msg);
 }
 
 short dcm_get_cpu_cluster_stat(void)
