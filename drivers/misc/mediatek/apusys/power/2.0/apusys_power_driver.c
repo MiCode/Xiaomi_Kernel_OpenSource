@@ -200,29 +200,24 @@ int apu_device_power_off(enum DVFS_USER user)
 	LOG_WRN("%s waiting for lock, user = %d\n", __func__, user);
 	mutex_lock(&power_ctl_mtx);
 
-	if (pwr_dev->is_power_on) {
-		LOG_INF("%s for user : %d, cnt : %d\n", __func__,
+	LOG_INF("%s for user : %d, cnt : %d\n", __func__,
 						user, apu_power_counter);
-		power_callback_counter--;
-		if (power_callback_counter == 0) {
-			// call passive power off function list
+	power_callback_counter--;
+	if (power_callback_counter == 0) {
+		// call passive power off function list
 #if !BYPASS_POWER_CTL
-			power_callback_caller(0);
+		power_callback_caller(0);
 #endif
-		}
-
-		udelay(100);
-		// for debug
-		// dump_stack();
-#if !BYPASS_POWER_CTL
-		ret = apusys_power_off(user);
-#endif
-		pwr_dev->is_power_on = 0;
-
-	} else {
-		LOG_INF("%s user %d has already power off, bypass this time!\n",
-							__func__, user);
 	}
+
+	udelay(100);
+	// for debug
+	// dump_stack();
+#if !BYPASS_POWER_CTL
+	ret = apusys_power_off(user);
+#endif
+	if (!ret)
+		pwr_dev->is_power_on = 0;
 
 	mutex_unlock(&power_ctl_mtx);
 	apu_get_power_info();
@@ -253,28 +248,23 @@ int apu_device_power_on(enum DVFS_USER user)
 	LOG_WRN("%s waiting for lock, user = %d\n", __func__, user);
 	mutex_lock(&power_ctl_mtx);
 
-	if (!pwr_dev->is_power_on) {
-		LOG_INF("%s for user : %d, cnt : %d\n", __func__,
+	LOG_INF("%s for user : %d, cnt : %d\n", __func__,
 						user, apu_power_counter);
-		// for debug
-		// dump_stack();
+	// for debug
+	// dump_stack();
 #if !BYPASS_POWER_CTL
-		ret = apusys_power_on(user);
+	ret = apusys_power_on(user);
 #endif
+	if (!ret)
 		pwr_dev->is_power_on = 1;
 
-		if (!ret && power_callback_counter == 0) {
-			// call passive power on function list
+	if (!ret && power_callback_counter == 0) {
+		// call passive power on function list
 #if !BYPASS_POWER_CTL
-			power_callback_caller(1);
+		power_callback_caller(1);
 #endif
-		}
-		power_callback_counter++;
-
-	} else {
-		LOG_INF("%s user %d has already power on, bypass this time!\n",
-								__func__, user);
 	}
+	power_callback_counter++;
 
 	mutex_unlock(&power_ctl_mtx);
 	apu_get_power_info();
