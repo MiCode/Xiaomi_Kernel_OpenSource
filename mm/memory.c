@@ -84,7 +84,7 @@
 #include "internal.h"
 
 #ifdef CONFIG_SPECULATIVE_PAGE_FAULT
-/* #define SPECULATIVE_PAGE_FAULT_SUPPORT_FILEMAP 1 */
+#define SPECULATIVE_PAGE_FAULT_SUPPORT_FILEMAP 1
 int sysctl_speculative_page_fault = 1;
 #endif
 
