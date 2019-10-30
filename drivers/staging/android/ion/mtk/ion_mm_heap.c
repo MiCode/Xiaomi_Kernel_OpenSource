@@ -1751,9 +1751,6 @@ static int mtk_ion_copy_param(unsigned int type,
 		if (mm_cmd == ION_MM_CONFIG_BUFFER &&
 		    buffer_info->module_id != -1) {
 			mutex_unlock(&buffer->lock);
-			if (buffer_info->module_id ==
-			    param.config_buffer_param.module_id)
-				return 0;
 			IONMSG
 			    ("corrupt with %d, %d-%d,name %16.s!!!\n",
 			     buffer_info->module_id,
@@ -1765,9 +1762,6 @@ static int mtk_ion_copy_param(unsigned int type,
 		if (mm_cmd == ION_MM_CONFIG_BUFFER_EXT &&
 		    buffer_info->fix_module_id != -1) {
 			mutex_unlock(&buffer->lock);
-			if (buffer_info->fix_module_id ==
-			    param.config_buffer_param.module_id)
-				return 0;
 			IONMSG
 			    ("corrupt with %d, %d-%d,name %16.s!!!\n",
 			     buffer_info->fix_module_id,
@@ -1817,9 +1811,6 @@ static int mtk_ion_copy_param(unsigned int type,
 		if (mm_cmd == ION_MM_GET_IOVA &&
 		    buffer_info->module_id != -1) {
 			mutex_unlock(&buffer->lock);
-			if (buffer_info->module_id ==
-			    param.get_phys_param.module_id)
-				return 0;
 			IONMSG
 			    ("corrupt with %d, %d-%d,name %16.s!!!\n",
 			     buffer_info->module_id,
@@ -1829,9 +1820,6 @@ static int mtk_ion_copy_param(unsigned int type,
 		} else if (mm_cmd == ION_MM_GET_IOVA_EXT &&
 		    buffer_info->fix_module_id != -1) {
 			mutex_unlock(&buffer->lock);
-			if (buffer_info->fix_module_id ==
-			    param.get_phys_param.module_id)
-				return 0;
 			IONMSG
 			    ("corrupt with %d, %d-%d,name %16.s!!!\n",
 			     buffer_info->fix_module_id,
