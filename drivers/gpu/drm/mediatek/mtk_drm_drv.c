@@ -52,7 +52,7 @@
 #include "mtk_disp_ccorr.h"
 #include "mtk_disp_color.h"
 #include "mtk_disp_gamma.h"
-
+#include "mtk_disp_aal.h"
 
 #define DRIVER_NAME "mediatek"
 #define DRIVER_DESC "Mediatek SoC DRM"
@@ -1725,6 +1725,18 @@ static const struct drm_ioctl_desc mtk_ioctls[] = {
 			  DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(MTK_GET_LCM_INDEX, mtk_drm_ioctl_get_lcm_index,
 			  DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MTK_AAL_INIT_REG, mtk_drm_ioctl_aal_init_reg,
+			  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_AAL_GET_HIST, mtk_drm_ioctl_aal_get_hist,
+			  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_AAL_SET_PARAM, mtk_drm_ioctl_aal_set_param,
+			  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_AAL_EVENTCTL, mtk_drm_ioctl_aal_eventctl,
+			  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_AAL_INIT_DRE30, mtk_drm_ioctl_aal_init_dre30,
+			  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_AAL_GET_SIZE, mtk_drm_ioctl_aal_get_size,
+			  DRM_UNLOCKED),
 };
 
 static const struct file_operations mtk_drm_fops = {

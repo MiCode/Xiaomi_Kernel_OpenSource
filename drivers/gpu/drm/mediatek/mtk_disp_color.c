@@ -1047,6 +1047,13 @@ static void ddp_color_cal_split_window(struct mtk_ddp_comp *comp,
 	*p_split_window_y = split_window_y;
 }
 
+bool disp_color_reg_get(struct mtk_ddp_comp *comp,
+	unsigned long addr, int *value)
+{
+	*value = readl(comp->regs + addr);
+	return true;
+}
+
 static void ddp_color_set_window(struct mtk_ddp_comp *comp,
 	struct DISP_PQ_WIN_PARAM *win_param, struct cmdq_pkt *handle)
 {

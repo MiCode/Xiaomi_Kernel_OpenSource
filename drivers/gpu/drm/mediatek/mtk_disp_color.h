@@ -86,6 +86,7 @@ struct mtk_pq_reg_table {
 #define DISP_COLOR_Y_SLOPE_1_0_MAIN 0x4A0
 #define DISP_COLOR_LOCAL_HUE_CD_0	0x620
 #define DISP_COLOR_TWO_D_WINDOW_1	0x740
+#define DISP_COLOR_TWO_D_W1_RESULT	0x74C
 #define DISP_COLOR_PART_SAT_GAIN1_0 0x7FC
 #define DISP_COLOR_PART_SAT_GAIN1_1 0x800
 #define DISP_COLOR_PART_SAT_GAIN1_2 0x804
@@ -182,6 +183,8 @@ struct mtk_pq_reg_table {
 
 struct DISP_PQ_PARAM *get_Color_config(int id);
 struct DISPLAY_PQ_T *get_Color_index(void);
+bool disp_color_reg_get(struct mtk_ddp_comp *comp,
+	unsigned long addr, int *value);
 void disp_color_set_window(struct mtk_ddp_comp *comp,
 	unsigned int sat_upper, unsigned int sat_lower,
 	unsigned int hue_upper, unsigned int hue_lower);

@@ -399,6 +399,13 @@ struct DISP_PQ_PARAM {
 #define DRM_MTK_BYPASS_COLOR   0x2A
 #define DRM_MTK_PQ_SET_WINDOW   0x2B
 #define DRM_MTK_GET_LCM_INDEX   0x2C
+/* AAL */
+#define DRM_MTK_AAL_INIT_REG	0x30
+#define DRM_MTK_AAL_GET_HIST	0x31
+#define DRM_MTK_AAL_SET_PARAM	0x32
+#define DRM_MTK_AAL_EVENTCTL	0x33
+#define DRM_MTK_AAL_INIT_DRE30	0x34
+#define DRM_MTK_AAL_GET_SIZE	0x35
 
 #define DRM_IOCTL_MTK_SET_DDP_MODE	DRM_IOWR(DRM_COMMAND_BASE + \
 		DRM_MTK_SET_DDP_MODE, unsigned int)
@@ -619,6 +626,88 @@ struct DRM_DISP_WRITE_REG {
 #define DRM_IOCTL_MTK_GET_LCM_INDEX    DRM_IOWR(DRM_COMMAND_BASE + \
 			DRM_MTK_GET_LCM_INDEX, unsigned int)
 
+/* AAL IOCTL */
+#define AAL_HIST_BIN            33	/* [0..32] */
+#define AAL_DRE_POINT_NUM       29
+
+struct DISP_AAL_INITREG {
+	/* DRE */
+	int dre_map_bypass;
+	/* ESS */
+	int cabc_gainlmt[33];
+	/* DRE 3.0 Reg. */
+	int dre_s_lower;
+	int dre_s_upper;
+	int dre_y_lower;
+	int dre_y_upper;
+	int dre_h_lower;
+	int dre_h_upper;
+	int dre_x_alpha_base;
+	int dre_x_alpha_shift_bit;
+	int dre_y_alpha_base;
+	int dre_y_alpha_shift_bit;
+	int act_win_x_end;
+	int dre_blk_x_num;
+	int dre_blk_y_num;
+	int dre_blk_height;
+	int dre_blk_width;
+	int dre_blk_area;
+	int dre_blk_area_min;
+	int hist_bin_type;
+	int dre_flat_length_slope;
+};
+
+struct DISP_AAL_PARAM {
+	int DREGainFltStatus[AAL_DRE_POINT_NUM];
+	int cabc_fltgain_force;	/* 10-bit ; [0,1023] */
+	int cabc_gainlmt[33];
+	int FinalBacklight;	/* 10-bit ; [0,1023] */
+	int allowPartial;
+	int refreshLatency;	/* DISP_AAL_REFRESH_LATENCY */
+	unsigned long long dre30_gain;
+};
+
+struct DISP_DRE30_INIT {
+	/* DRE 3.0 SW */
+	unsigned long long dre30_hist_addr;
+};
+
+struct DISP_AAL_DISPLAY_SIZE {
+	int width;
+	int height;
+};
+
+struct DISP_AAL_HIST {
+	unsigned int serviceFlags;
+	int backlight;
+	int colorHist;
+	unsigned int maxHist[AAL_HIST_BIN];
+	int requestPartial;
+	unsigned long long dre30_hist;
+	unsigned int panel_type;
+	int essStrengthIndex;
+	int ess_enable;
+	int dre_enable;
+	unsigned int yHist[AAL_HIST_BIN];
+};
+
+#define DRM_IOCTL_MTK_AAL_INIT_REG	DRM_IOWR(DRM_COMMAND_BASE + \
+			DRM_MTK_AAL_INIT_REG, struct DISP_AAL_INITREG)
+
+#define DRM_IOCTL_MTK_AAL_GET_HIST	DRM_IOWR(DRM_COMMAND_BASE + \
+			DRM_MTK_AAL_GET_HIST, struct DISP_AAL_HIST)
+
+#define DRM_IOCTL_MTK_AAL_SET_PARAM	DRM_IOWR(DRM_COMMAND_BASE + \
+			DRM_MTK_AAL_SET_PARAM, struct DISP_AAL_PARAM)
+
+#define DRM_IOCTL_MTK_AAL_EVENTCTL	DRM_IOWR(DRM_COMMAND_BASE + \
+			DRM_MTK_AAL_EVENTCTL, unsigned int)
+
+#define DRM_IOCTL_MTK_AAL_INIT_DRE30	DRM_IOWR(DRM_COMMAND_BASE + \
+			DRM_MTK_AAL_INIT_DRE30, struct DISP_DRE30_INIT)
+
+#define DRM_IOCTL_MTK_AAL_GET_SIZE	DRM_IOWR(DRM_COMMAND_BASE + \
+			DRM_MTK_AAL_GET_SIZE, struct DISP_AAL_DISPLAY_SIZE)
 
 #define MTK_DRM_ADVANCE
 #define MTK_DRM_FORMAT_DIM		fourcc_code('D', ' ', '0', '0')
