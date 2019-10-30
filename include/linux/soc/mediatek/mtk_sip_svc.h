@@ -14,7 +14,6 @@
 #define MTK_SIP_SMC_AARCH_BIT			0x00000000
 #endif
 
-
 /* CCCI debug feature */
 #define MTK_SIP_KERNEL_CCCI_GET_INFO \
 	(0x82000206 | MTK_SIP_SMC_AARCH_BIT)
@@ -26,6 +25,10 @@
 /* EMI MPU */
 #define MTK_SIP_EMIMPU_CONTROL \
 	(0x8200050B | MTK_SIP_SMC_AARCH_BIT)
+
+/* Clock Buffer */
+#define MTK_SIP_CLKBUF_CONTROL \
+	(0x82000520 | MTK_SIP_SMC_AARCH_BIT)
 
 #endif
 /* _MTK_SECURE_API_H_ */

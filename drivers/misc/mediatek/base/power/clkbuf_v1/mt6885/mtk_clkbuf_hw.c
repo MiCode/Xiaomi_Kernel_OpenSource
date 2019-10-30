@@ -20,6 +20,9 @@
 #include <mtk_spm.h>
 #include <mtk_clkbuf_ctl.h>
 #include <mtk_clkbuf_common.h>
+#include <linux/arm-smccc.h>
+#include <linux/soc/mediatek/mtk_sip_svc.h>
+
 /* TODO: UFS no use clockbuff*/
 #if defined(CONFIG_MTK_UFS_SUPPORT)
 #if 0
@@ -111,6 +114,8 @@ static void __iomem *pmif_spmi_base;
 #define CO_BUF_M				3
 
 #define CLKBUF_STATUS_INFO_SIZE 2048
+
+#define PLAT_CLKBUF_OP_FLIGHT_MODE	(0x1)
 
 static unsigned int xo2_mode_set[4] = {WCN_EN_M,
 			WCN_EN_BB_G,
@@ -205,6 +210,14 @@ static void pmic_clk_buf_ctrl_ext(short on)
 				      PMIC_XO_EXTBUF7_EN_M_SHIFT);
 }
 
+void clkbuf_smc_msg_send(unsigned int flightMode)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_CLKBUF_CONTROL, PLAT_CLKBUF_OP_FLIGHT_MODE,
+		flightMode, 0, 0, 0, 0, 0, &res);
+}
+
 void clk_buf_ctrl_bblpm_hw(short on)
 {
 #ifdef CLKBUF_USE_BBLPM
@@ -227,7 +240,9 @@ void clk_buf_ctrl_bblpm_hw(short on)
 	clk_buf_pr_dbg("%s(%u): bblpm_sel=0x%x\n", __func__, (on ? 1 : 0),
 		bblpm_sel);
 #else
-	clk_buf_pr_dbg("%s: not support\n", __func__);
+	/* Info DeepIdle*/
+	clkbuf_smc_msg_send(on ? 1 : 0);
+	/*clk_buf_pr_dbg("%s: Info DeepIdle\n", __func__);*/
 #endif
 }
 
@@ -1131,12 +1146,11 @@ static ssize_t clk_buf_show_status_info_internal(char *buf)
 			mtk_spm_read_register(SPM_MD1_PWR_CON),
 			mtk_spm_read_register(SPM_PWRSTA),
 			mtk_spm_read_register(SPM_REG13));
-
-	len += snprintf(buf+len, PAGE_SIZE-len,
-			"SPARE_ACK_MASK=0x%x, flight mode = %d\n",
-			mtk_spm_read_register(SPM_SPARE_ACK_MASK),
-			is_clk_buf_under_flightmode());
 	#endif
+	len += snprintf(buf+len, PAGE_SIZE-len,
+			"flight mode = %d\n",
+			/*mtk_spm_read_register(SPM_SPARE_ACK_MASK),*/
+			is_clk_buf_under_flightmode());
 
 	len += snprintf(buf+len, PAGE_SIZE-len,
 			".********** clock buffer command help **********\n");
