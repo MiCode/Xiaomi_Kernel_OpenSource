@@ -5900,7 +5900,9 @@ static inline void ISP_StopSVHW(int module)
 			   0x00003F00) >>
 			  8;
 
-		if (regTGSt == 1)
+		//regTGSt should never be 0 except HW issue
+		//add "regTGSt == 0" for workaround
+		if (regTGSt == 1 || regTGSt == 0)
 			break;
 
 		LOG_INF("%s: wait 1VD (%x)(%d)\n", moduleName, regTGSt,
@@ -5929,9 +5931,14 @@ static inline void ISP_StopSVHW(int module)
 			/* wait time>timeoutMs, break */
 			if ((sec - m_sec) > timeoutMs)
 				break;
+			//add "regTGSt == 0" for workaround
+			if (regTGSt == 0)
+				break;
 		}
 		if (regTGSt == 1) {
 			LOG_INF("%s: wait idle done\n", moduleName);
+		} else if (regTGSt == 0) {
+			LOG_INF("%s: plz check regTGSt value\n", moduleName);
 		} else {
 			LOG_INF("%s: wait idle timeout(%lld)\n", moduleName,
 				(sec - m_sec));
@@ -5964,6 +5971,9 @@ static inline void ISP_StopSVHW(int module)
 			LOG_INF("%s: wait SW idle timeout\n", moduleName);
 			break;
 		}
+		//add "regTGSt == 0" for workaround
+		if (regTGSt == 0)
+			break;
 	}
 	ISP_WR32(CAMSV_REG_SW_CTL(module), 0x4); /* SW_RST:1 */
 	ISP_WR32(CAMSV_REG_SW_CTL(module), 0x0);
