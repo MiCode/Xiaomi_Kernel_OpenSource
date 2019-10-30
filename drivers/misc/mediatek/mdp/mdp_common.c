@@ -754,8 +754,14 @@ static s32 cmdq_mdp_check_engine_waiting_unlock(struct cmdqRecStruct *handle)
 			continue;
 		/* same secure path, can be dispatch */
 		if (mdp_ctx.thread[i].task_count &&
-			handle->secData.is_secure != mdp_ctx.thread[i].secure)
+			handle->secData.is_secure != mdp_ctx.thread[i].secure) {
+			CMDQ_MSG(
+				"sec engine busy %u count:%u engine:%#llx & %#llx\n",
+				i, mdp_ctx.thread[i].task_count,
+				mdp_ctx.thread[i].engine_flag,
+				handle->engineFlag);
 			return -EBUSY;
+		}
 	}
 
 	/* same engine does not exist in working threads */
@@ -817,6 +823,13 @@ static bool cmdq_mdp_check_engine_conflict(
 	return conflict;
 }
 
+#ifdef CMDQ_SECURE_PATH_SUPPORT
+static s32 cmdq_mdp_get_sec_thread(void)
+{
+	return CMDQ_THREAD_SEC_MDP;
+}
+#endif
+
 static s32 cmdq_mdp_find_free_thread(struct cmdqRecStruct *handle)
 {
 	bool conflict;
@@ -830,7 +843,7 @@ static s32 cmdq_mdp_find_free_thread(struct cmdqRecStruct *handle)
 		return CMDQ_INVALID_THREAD;
 
 	if (handle->secData.is_secure)
-		return handle->ctrl->get_thread_id(handle->scenario);
+		return cmdq_mdp_get_sec_thread();
 #endif
 	conflict = cmdq_mdp_check_engine_conflict(handle, &thread);
 	if (conflict) {
@@ -896,6 +909,8 @@ static s32 cmdq_mdp_consume_handle(void)
 
 	/* operation for tasks_wait list need task mutex */
 	mutex_lock(&mdp_task_mutex);
+
+	CMDQ_MSG("%s\n", __func__);
 
 	CMDQ_PROF_MMP(cmdq_mmp_get_event()->consume_done, MMPROFILE_FLAG_START,
 		current->pid, 0);
@@ -977,6 +992,8 @@ static s32 cmdq_mdp_consume_handle(void)
 		current->pid, 0);
 
 	mutex_unlock(&mdp_task_mutex);
+
+	CMDQ_MSG("%s end acquired:%s\n", __func__, acquired ? "true" : "false");
 
 	if (acquired) {
 		/* notify some task's SW thread to change their waiting state.
@@ -1180,6 +1197,20 @@ static s32 cmdq_mdp_setup_sec(struct cmdqCommandStruct *desc,
 	cmdq_sec_pkt_assign_metadata(handle->pkt,
 		desc->secData.addrMetadataCount,
 		CMDQ_U32_PTR(desc->secData.addrMetadatas));
+
+	if (handle->pkt->cmd_buf_size) {
+		u32 cnt = handle->pkt->cmd_buf_size / CMDQ_INST_SIZE;
+		struct cmdq_sec_data *data = handle->pkt->sec_data;
+		struct iwcCmdqAddrMetadata_t *addr =
+			(struct iwcCmdqAddrMetadata_t *)
+			(unsigned long)data->addrMetadatas;
+		u32 i;
+
+		for (i = 0; i < data->addrMetadataCount; i++)
+			addr[i].instrIndex += cnt;
+
+		CMDQ_MSG("%s append cmd count:%u\n", __func__, cnt);
+	}
 #endif
 	return 0;
 }
@@ -1265,6 +1296,7 @@ s32 cmdq_mdp_flush_async(struct cmdqCommandStruct *desc, bool user_space,
 	if (handle->secData.is_secure) {
 		/* insert backup cookie cmd */
 		cmdq_sec_insert_backup_cookie(handle->pkt);
+		handle->thread = CMDQ_INVALID_THREAD;
 	}
 #endif
 
@@ -1299,7 +1331,7 @@ s32 cmdq_mdp_flush_async_impl(struct cmdqRecStruct *handle)
 	struct list_head *insert_pos = &mdp_ctx.tasks_wait;
 	struct cmdqRecStruct *entry;
 
-	CMDQ_VERBOSE("dispatch handle:0x%p\n", handle);
+	CMDQ_MSG("dispatch handle:0x%p\n", handle);
 
 	/* set handle life cycle callback */
 	handle->prepare = cmdq_mdp_handle_prepare;

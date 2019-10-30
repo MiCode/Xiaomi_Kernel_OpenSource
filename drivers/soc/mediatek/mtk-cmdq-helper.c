@@ -1487,6 +1487,13 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 		item->err_cb(cb_data);
 	}
 
+#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
+	IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+	/* for secure path dump more detail */
+	if (pkt->sec_data)
+		cmdq_sec_err_dump(pkt, client);
+#endif
+
 	cmdq_dump_pkt(pkt, pc, true);
 	cmdq_util_dump_smi();
 

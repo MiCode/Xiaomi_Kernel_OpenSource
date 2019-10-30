@@ -2562,7 +2562,6 @@ static void cmdq_core_parse_handle_error(const struct cmdqRecStruct *handle,
 	s32 eventENUM;
 	u32 addr = 0;
 	const char *module = NULL;
-	int isSMIHang = 0;
 	dma_addr_t curr_pc = 0;
 	u32 tmp_instr[2] = { 0 };
 	struct cmdq_client *client;
@@ -2575,13 +2574,6 @@ static void cmdq_core_parse_handle_error(const struct cmdqRecStruct *handle,
 	client = cmdq_clients[handle->thread];
 
 	do {
-		/* confirm if SMI is hang */
-		isSMIHang = cmdq_get_func()->dumpSMI(0);
-		if (isSMIHang) {
-			module = "SMI";
-			break;
-		}
-
 		/* other cases, use instruction to judge
 		 * because scenario / HW flag are not sufficient
 		 a* e.g. ISP pass 2 involves both MDP and ISP
@@ -3056,14 +3048,6 @@ static void cmdq_core_dump_error_buffer(const struct cmdqRecStruct *handle,
 		CMDQ_LOG("PC is not in region, dump all\n");
 }
 
-static void cmdq_core_dump_handle_command(const struct cmdqRecStruct *handle,
-	u32 *pc)
-{
-	CMDQ_ERR("============ [CMDQ] Error Command Buffer ============\n");
-
-	cmdq_core_dump_error_buffer(handle, pc, 0);
-}
-
 s32 cmdq_core_is_group_flag(enum CMDQ_GROUP_ENUM engGroup, u64 engineFlag)
 {
 	if (!cmdq_core_is_valid_group(engGroup))
@@ -3086,11 +3070,6 @@ static void cmdq_core_attach_engine_error(
 	static const char *const engineGroupName[] = {
 		CMDQ_FOREACH_GROUP(GENERATE_STRING)
 	};
-
-#ifndef CONFIG_FPGA_EARLY_PORTING
-	CMDQ_ERR("============ [CMDQ] SMI Status ============\n");
-	cmdq_get_func()->dumpSMI(1);
-#endif
 
 	if (short_log) {
 		CMDQ_ERR("============ skip detail error dump ============\n");
@@ -3189,8 +3168,6 @@ static void cmdq_core_attach_error_handle_detail(
 		cmdq_core_should_full_error();
 	cmdq_core_attach_engine_error(handle, thread,
 		&nginfo, !detail_log);
-	if (detail_log)
-		cmdq_core_dump_handle_command(handle, pc);
 
 	CMDQ_ERR("=========== [CMDQ] End of Full Error %d ==========\n",
 		error_num);
@@ -4515,10 +4492,7 @@ s32 cmdq_pkt_dump_command(struct cmdqRecStruct *handle)
 
 s32 cmdq_pkt_wait_flush_ex_result(struct cmdqRecStruct *handle)
 {
-	s32 waitq;
-	s32 status = 0;
-	u32 count = 0;
-	const struct cmdq_controller *ctrl = handle->ctrl;
+	s32 status;
 	struct cmdq_client *client;
 
 	CMDQ_PROF_MMP(cmdq_mmp_get_event()->wait_task,
@@ -4530,10 +4504,6 @@ s32 cmdq_pkt_wait_flush_ex_result(struct cmdqRecStruct *handle)
 		return -EINVAL;
 	}
 
-
-	CMDQ_SYSTRACE_BEGIN("%s_wait_done\n", __func__);
-	handle->beginWait = sched_clock();
-
 	client = cmdq_clients[handle->thread];
 	if (!client->chan->mbox || !client->chan->mbox->dev)
 		CMDQ_AEE("CMDQ",
@@ -4541,81 +4511,13 @@ s32 cmdq_pkt_wait_flush_ex_result(struct cmdqRecStruct *handle)
 			handle->thread, client->chan->mbox,
 			client->chan->mbox->dev);
 
-	do {
-		if (!handle->pkt->loop) {
-			/* wait event and pre-dump */
-			waitq = wait_event_timeout(
-				cmdq_wait_queue[handle->thread],
-				(handle->state != TASK_STATE_BUSY &&
-				handle->state != TASK_STATE_WAITING),
-				msecs_to_jiffies(CMDQ_PREDUMP_TIMEOUT_MS));
-		} else {
-			/* wait infinite without pre-dump, for loop case */
-			wait_event(cmdq_wait_queue[handle->thread],
-				handle->state != TASK_STATE_BUSY &&
-				handle->state != TASK_STATE_WAITING);
-			CMDQ_LOG("loop task finish:0x%p pkt:0x%p\n",
-				handle, handle->pkt);
-			break;
-		}
+	status = cmdq_pkt_wait_complete(handle->pkt);
 
-		/* tick mailbox see to make pending task run */
-		mbox_client_txdone(cmdq_clients[handle->thread]->chan, 0);
-
-		if (waitq)
-			break;
-
-		/* pre-dump */
-		CMDQ_LOG(
-			"===== SW timeout Pre-dump %d handle:0x%p pkt:0x%p thread:%d state:%d =====\n",
-			count, handle, handle->pkt, handle->thread,
-			handle->state);
-		cmdq_core_dump_status("INFO");
-		cmdq_core_dump_pc(handle, handle->thread, "INFO");
-		cmdq_core_dump_thread(handle, handle->thread, true, "INFO");
-
-		if (handle->secData.is_secure)
-			cmdq_core_dump_thread(NULL, CMDQ_SEC_IRQ_THREAD, false,
-				"INFO");
-
-		if (count == 0) {
-			cmdq_core_dump_trigger_loop_thread("INFO");
-			/* first time we dump full handle detail */
-			cmdq_core_dump_handle(handle, "INFO");
-		}
-
-		count++;
-	} while (1);
-
-	handle->wakedUp = sched_clock();
-	CMDQ_SYSTRACE_END();
-
-	if (handle->profile_exec) {
-		u32 *va = cmdq_pkt_get_perf_ret(handle->pkt);
-		u64 exec;
-
-		if (va[1] > va[0])
-			exec = 0xffffffff - va[0] + va[1];
-		else
-			exec = va[1] - va[0];
-
-		exec = (u32)CMDQ_TICK_TO_US(exec);
-
-		CMDQ_LOG(
-			"task profile thread:%d handle:0x%p execute time:%lluus begin:%u end:%u\n",
-			handle->thread, handle, exec, va[0], va[1]);
-
-		CMDQ_PROF_MMP(cmdq_mmp_get_event()->task_exec,
-			MMPROFILE_FLAG_PULSE, ((unsigned long)handle), exec);
-	}
-
-	status = ctrl->handle_wait_result(handle, handle->thread);
 	CMDQ_PROF_MMP(cmdq_mmp_get_event()->wait_task_done,
 		MMPROFILE_FLAG_PULSE, ((unsigned long)handle),
 		handle->wakedUp - handle->beginWait);
 
 	CMDQ_SYSTRACE_BEGIN("%s_wait_release\n", __func__);
-	cmdq_core_track_handle_record(handle, handle->thread);
 	cmdq_pkt_release_handle(handle);
 
 	CMDQ_SYSTRACE_END();
@@ -5013,6 +4915,8 @@ void cmdq_core_initialize(void)
 	/* Initialize test case structure */
 	cmdq_test_init_setting();
 #endif
+
+	cmdq_ctx.enableProfile = 1 << CMDQ_PROFILE_EXEC;
 }
 
 #ifdef CMDQ_DAPC_DEBUG

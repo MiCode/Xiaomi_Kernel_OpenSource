@@ -20,7 +20,8 @@
 #include <devapc_public.h>
 #endif
 
-#define CMDQ_RECORD_NUM			128
+#define CMDQ_RECORD_NUM			256
+#define CMDQ_FIRST_ERR_SIZE		131072	/* 128k */
 
 #define CMDQ_CURR_IRQ_STATUS		0x10
 #define CMDQ_CURR_LOADED_THR		0x18
@@ -41,7 +42,7 @@
 struct cmdq_util_error {
 	spinlock_t	lock;
 	bool		enable;
-	char		*buffer; // ARG_MAX
+	char		*buffer;
 	u32		length;
 	u64		nsec;
 	char		caller[TASK_COMM_LEN]; // TODO
@@ -138,14 +139,14 @@ s32 cmdq_util_error_save(const char *str, ...)
 	va_start(args, str);
 	spin_lock_irqsave(&util.err.lock, flags);
 	size = vsnprintf(util.err.buffer + util.err.length,
-		ARG_MAX - util.err.length, str, args);
+		CMDQ_FIRST_ERR_SIZE - util.err.length, str, args);
 	util.err.length += size;
 	spin_unlock_irqrestore(&util.err.lock, flags);
 
-	if (util.err.length >= ARG_MAX) {
+	if (util.err.length >= CMDQ_FIRST_ERR_SIZE) {
 		cmdq_util_error_disable();
-		cmdq_err("util.err.length:%u is over ARG_MAX:%u",
-			util.err.length, ARG_MAX);
+		cmdq_err("util.err.length:%u is over CMDQ_FIRST_ERR_SIZE:%u",
+			util.err.length, CMDQ_FIRST_ERR_SIZE);
 	}
 	va_end(args);
 	return 0;
@@ -428,7 +429,7 @@ static int __init cmdq_util_init(void)
 	cmdq_msg("%s begin", __func__);
 
 	spin_lock_init(&util.err.lock);
-	util.err.buffer = kzalloc(ARG_MAX, GFP_KERNEL);
+	util.err.buffer = kzalloc(CMDQ_FIRST_ERR_SIZE, GFP_KERNEL);
 	if (!util.err.buffer)
 		return -ENOMEM;
 
