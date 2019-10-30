@@ -359,6 +359,9 @@ static void mtk_vdec_queue_res_chg_event(struct mtk_vcodec_ctx *ctx)
 
 	mtk_v4l2_debug(1, "[%d]", ctx->id);
 	v4l2_event_queue_fh(&ctx->fh, &ev_src_ch);
+
+	v4l2_m2m_set_dst_buffered(ctx->m2m_ctx,
+		ctx->input_driven);
 }
 
 static void mtk_vdec_queue_stop_play_event(struct mtk_vcodec_ctx *ctx)
