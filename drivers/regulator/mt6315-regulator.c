@@ -550,69 +550,108 @@ static const struct of_device_id mt6315_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, mt6315_of_match);
 
-static ssize_t show_extbuck_access(struct device *dev,
+static ssize_t extbuck_access_show(struct device *dev,
 				   struct device_attribute *attr,
 				   char *buf)
 {
-	struct mt6315_chip *drvdata = dev_get_drvdata(dev);
+	struct mt6315_chip *chip = dev_get_drvdata(dev);
 
-	pr_info("[%s] 0x%x\n", __func__, drvdata->reg_value);
+	pr_info("[%s] 0x%x\n", __func__, chip->reg_value);
 
-	return sprintf(buf, "0x%x\n", drvdata->reg_value);
+	return sprintf(buf, "0x%x\n", chip->reg_value);
 }
 
-static ssize_t store_extbuck_access(struct device *dev,
+static ssize_t extbuck_access_store(struct device *dev,
 				    struct device_attribute *attr,
 				    const char *buf,
 				    size_t size)
 {
-	struct mt6315_chip *drvdata = NULL;
-	struct regmap *regmap;
+	struct mt6315_chip *chip;
 	int ret = 0;
 	char *pvalue = NULL, *addr, *val;
 	unsigned int sid = 0;
 	unsigned int reg_val = 0;
 	unsigned int reg_adr = 0;
 
-	pr_info("[%s]\n", __func__);
-
-	if (dev && dev->parent) {
-		drvdata = dev_get_drvdata(dev);
-		regmap = dev_get_regmap(dev->parent, NULL);
-		if (!drvdata || !regmap)
+	if (dev) {
+		chip = dev_get_drvdata(dev);
+		if (!chip)
 			return -ENODEV;
 	} else
 		return -ENODEV;
 
-	if (buf != NULL && size != 0 && drvdata != NULL) {
-		pr_info("[%s] size is %d, buf is %s\n"
-			, __func__, (int)size, buf);
+	if (buf != NULL && size != 0) {
+		pr_info("[%s] size is %d, buf is %s\n", __func__,
+			(int)size, buf);
 
 		pvalue = (char *)buf;
 		addr = strsep(&pvalue, " ");
 		val = strsep(&pvalue, " ");
-		sid = drvdata->slave_id;
+		sid = chip->slave_id;
 		if (addr)
 			ret = kstrtou32(addr, 16, (unsigned int *)&reg_adr);
 		if (val) {
 			ret = kstrtou32(val, 16, (unsigned int *)&reg_val);
-
-			pr_info("[%s] write MT6315_S%d reg 0x%x with value 0x%x !\n"
-				, __func__, sid, reg_adr, reg_val);
-			ret = regmap_write(regmap, reg_adr, reg_val);
+			pr_info("write MT6315_S%d Reg[0x%x] to 0x%x!\n",
+				sid, reg_adr, reg_val);
+			ret = regmap_write(chip->regmap, reg_adr, reg_val);
 		} else {
-			mutex_lock(&drvdata->lock);
-			ret = regmap_read(regmap, reg_adr, &drvdata->reg_value);
-			mutex_unlock(&drvdata->lock);
-			pr_info("[%s] read MT6315_S%d reg 0x%x with value 0x%x !\n"
-				, __func__, sid, reg_adr, drvdata->reg_value);
+			mutex_lock(&chip->lock);
+			ret = regmap_read(chip->regmap,
+					  reg_adr, &chip->reg_value);
+			mutex_unlock(&chip->lock);
+			pr_info("read MT6315_S%d Reg[0x%x]=0x%x!\n",
+				sid, reg_adr, chip->reg_value);
 		}
 	}
 	return size;
 }
+static DEVICE_ATTR_RW(extbuck_access);
 
-static DEVICE_ATTR(extbuck_access, 0664,
-		   show_extbuck_access, store_extbuck_access);
+/*
+ * PMIC dump record register log
+ */
+static ssize_t dump_rec_pmic_show(struct device *dev,
+				  struct device_attribute *attr,
+				  char *buf)
+{
+	struct mt6315_chip *chip;
+	unsigned int rdata0 = 0, rdata1 = 0, rdata2 = 0, rdata3 = 0;
+	unsigned int offset, sid;
+	int ret, log_size = 0;
+
+	if (dev) {
+		chip = dev_get_drvdata(dev);
+		if (!chip)
+			return -ENODEV;
+	} else
+		return -ENODEV;
+	sid = chip->slave_id;
+	/* log_size += sprintf(buf,  ""); */
+	/* log sequence, idx 0->1->2->3->0 */
+	for (offset = MT6315_SPMI_DEBUG_ADDR0;
+	     offset <= MT6315_SPMI_DEBUG_ADDR3; offset += 4) {
+		ret = regmap_read(chip->regmap, offset, &rdata0);
+		ret = regmap_read(chip->regmap, offset + 1, &rdata1);
+		ret = regmap_read(chip->regmap, offset + 2, &rdata2);
+		ret = regmap_read(chip->regmap, offset + 3, &rdata3);
+		if (offset == 0) {
+			log_size += sprintf(buf + log_size,
+					    "slvid:%d DBG. Last cmd idx:%d\n",
+					    sid,
+					    (((rdata3 & 0xc) >> 2) + 3) % 4);
+		}
+		log_size += sprintf(buf + log_size,
+				    "Idx:%d slvid:%d Type:0x%x, [0x%x]=0x%x\n",
+				    (offset - MT6315_SPMI_DEBUG_ADDR0) / 4,
+				    sid, (rdata3 & 0x3),
+				    (rdata1 << 0x8) | rdata0, rdata2);
+	}
+	pr_info("\n[SPMISLV] %s", buf);
+
+	return log_size;
+}
+static DEVICE_ATTR_RO(dump_rec_pmic);
 
 static int mt6315_regulator_probe(struct platform_device *pdev)
 {
@@ -686,6 +725,7 @@ static int mt6315_regulator_probe(struct platform_device *pdev)
 	mt6315_misc_init(regulator_init_data->id, regmap);
 	/* Create sysfs entry */
 	device_create_file(&pdev->dev, &dev_attr_extbuck_access);
+	device_create_file(&pdev->dev, &dev_attr_dump_rec_pmic);
 
 	return 0;
 }

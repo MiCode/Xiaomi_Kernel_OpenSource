@@ -305,6 +305,9 @@ static const struct of_device_id pmif_match_table[] = {
 		.compatible = "mediatek,mt6885-pmif",
 		.data = &mt6xxx_pmif_arb,
 	}, {
+		.compatible = "mediatek,pmif",
+		.data = &mt6xxx_pmif_arb,
+	}, {
 		/* sentinel */
 	},
 };
@@ -1067,7 +1070,7 @@ static struct pmif_irq_desc pmif_event_irq[] = {
 static void pmif_irq_register(struct platform_device *pdev,
 		struct pmif *arb, int irq)
 {
-	int i = 0, ret = 0, err = 0;
+	int i = 0, ret = 0;
 	u32 irq_event_en[5] = {0};
 
 	for (i = 0; i < ARRAY_SIZE(pmif_event_irq); i++) {
@@ -1078,7 +1081,7 @@ static void pmif_irq_register(struct platform_device *pdev,
 				IRQF_TRIGGER_HIGH | IRQF_ONESHOT | IRQF_SHARED,
 				pmif_event_irq[i].name, arb);
 		if (ret < 0) {
-			dev_dbg(&pdev->dev, "request %s irq fail\n",
+			dev_notice(&pdev->dev, "request %s irq fail\n",
 				pmif_event_irq[i].name);
 			continue;
 		}
@@ -1114,7 +1117,7 @@ static int mtk_spmimst_init(struct platform_device *pdev, struct pmif *arb)
 
 	err = of_property_read_u32(pdev->dev.of_node, "grpid", &arb->grpid);
 	if (err) {
-		dev_dbg(&pdev->dev, "[SPMIMST]:grpid unspecified.\n");
+		dev_notice(&pdev->dev, "[SPMIMST]:grpid unspecified.\n");
 		return -EINVAL;
 	}
 	/* set group id */
@@ -1153,11 +1156,11 @@ static int pmif_probe(struct platform_device *pdev)
 	int err = 0;
 
 #if PMIF_BRINGUP
-	dev_dbg(&pdev->dev, "[PMIF]bringup do nothing\n");
+	dev_notice(&pdev->dev, "[PMIF]bringup do nothing\n");
 	return 0;
 #endif
 	if (!of_id) {
-		dev_dbg(&pdev->dev, "[PMIF]:Error: No device match found\n");
+		dev_notice(&pdev->dev, "[PMIF]:Error: No device match found\n");
 		return -ENODEV;
 	}
 
@@ -1195,17 +1198,18 @@ static int pmif_probe(struct platform_device *pdev)
 		err = PTR_ERR(arb->topckgen_base);
 		goto err_put_ctrl;
 	}
+
 	/* get pmif infracfg_ao clock */
 	arb->pmif_sys_ck = devm_clk_get(&pdev->dev, "pmif_sys_ck");
 	if (IS_ERR(arb->pmif_sys_ck)) {
-		dev_dbg(&pdev->dev, "[PMIF]:failed to get ap clock: %ld\n",
+		dev_notice(&pdev->dev, "[PMIF]:failed to get ap clock: %ld\n",
 			PTR_ERR(arb->pmif_sys_ck));
 		return PTR_ERR(arb->pmif_sys_ck);
 	}
 
 	arb->pmif_tmr_ck = devm_clk_get(&pdev->dev, "pmif_tmr_ck");
 	if (IS_ERR(arb->pmif_tmr_ck)) {
-		dev_dbg(&pdev->dev, "[PMIF]:failed to get tmr clock: %ld\n",
+		dev_notice(&pdev->dev, "[PMIF]:failed to get tmr clock: %ld\n",
 			PTR_ERR(arb->pmif_tmr_ck));
 		return PTR_ERR(arb->pmif_tmr_ck);
 	}
@@ -1213,21 +1217,21 @@ static int pmif_probe(struct platform_device *pdev)
 	/* get pmif topckgen clock */
 	arb->pmif_clk_mux = devm_clk_get(&pdev->dev, "pmif_clk_mux");
 	if (IS_ERR(arb->pmif_clk_mux)) {
-		dev_dbg(&pdev->dev, "[PMIF]:failed to get clock: %ld\n",
+		dev_notice(&pdev->dev, "[PMIF]:failed to get clock: %ld\n",
 			PTR_ERR(arb->pmif_clk_mux));
 		return PTR_ERR(arb->pmif_clk_mux);
 	}
 
 	arb->pmif_clk_osc_d10 = devm_clk_get(&pdev->dev, "pmif_clk_osc_d10");
 	if (IS_ERR(arb->pmif_clk_osc_d10)) {
-		dev_dbg(&pdev->dev, "[PMIF]:failed to get clock: %ld\n",
+		dev_notice(&pdev->dev, "[PMIF]:failed to get clock: %ld\n",
 			PTR_ERR(arb->pmif_clk_osc_d10));
 		return PTR_ERR(arb->pmif_clk_osc_d10);
 	}
 
 	arb->pmif_clk26m = devm_clk_get(&pdev->dev, "pmif_clk26m");
 	if (IS_ERR(arb->pmif_clk26m)) {
-		dev_dbg(&pdev->dev, "[PMIF]:failed to get clock: %ld\n",
+		dev_notice(&pdev->dev, "[PMIF]:failed to get clock: %ld\n",
 			PTR_ERR(arb->pmif_clk26m));
 		return PTR_ERR(arb->pmif_clk26m);
 	}
@@ -1254,20 +1258,20 @@ static int pmif_probe(struct platform_device *pdev)
 	/* get spmimst topckgen clock */
 	arb->spmimst_clk_mux = devm_clk_get(&pdev->dev, "spmimst_clk_mux");
 	if (IS_ERR(arb->spmimst_clk_mux)) {
-		dev_dbg(&pdev->dev, "[SPMIMST]:failed to get clock: %ld\n",
+		dev_notice(&pdev->dev, "[SPMIMST]:failed to get clock: %ld\n",
 			PTR_ERR(arb->spmimst_clk_mux));
 		return PTR_ERR(arb->spmimst_clk_mux);
 	}
 	arb->spmimst_clk26m = devm_clk_get(&pdev->dev, "spmimst_clk26m");
 	if (IS_ERR(arb->spmimst_clk26m)) {
-		dev_dbg(&pdev->dev, "[SPMIMST]:failed to get clock: %ld\n",
+		dev_notice(&pdev->dev, "[SPMIMST]:failed to get clock: %ld\n",
 			PTR_ERR(arb->spmimst_clk26m));
 		return PTR_ERR(arb->spmimst_clk26m);
 	}
 	arb->spmimst_clk_osc_d10 = devm_clk_get(&pdev->dev,
 			"spmimst_clk_osc_d10");
 	if (IS_ERR(arb->spmimst_clk_osc_d10)) {
-		dev_dbg(&pdev->dev, "[SPMIMST]:failed to get clock: %ld\n",
+		dev_notice(&pdev->dev, "[SPMIMST]:failed to get clock: %ld\n",
 			PTR_ERR(arb->spmimst_clk_osc_d10));
 		return PTR_ERR(arb->spmimst_clk_osc_d10);
 	}
@@ -1295,7 +1299,7 @@ static int pmif_probe(struct platform_device *pdev)
 	err = of_property_read_u32(pdev->dev.of_node,
 			"swinf_ch_start", &swinf_ch_start);
 	if (err) {
-		dev_dbg(&pdev->dev, "[PMIF]:swinf_ch_start unspecified.\n");
+		dev_notice(&pdev->dev, "[PMIF]:swinf_ch_start unspecified.\n");
 		goto err_put_ctrl;
 	}
 	arb->swinf_ch_start = swinf_ch_start;
@@ -1303,7 +1307,7 @@ static int pmif_probe(struct platform_device *pdev)
 	err = of_property_read_u32(pdev->dev.of_node,
 			"ap_swinf_no", &ap_swinf_no);
 	if (err) {
-		dev_dbg(&pdev->dev, "[PMIF]:ap_swinf_no unspecified.\n");
+		dev_notice(&pdev->dev, "[PMIF]:ap_swinf_no unspecified.\n");
 		goto err_put_ctrl;
 	}
 	arb->ap_swinf_no = ap_swinf_no;

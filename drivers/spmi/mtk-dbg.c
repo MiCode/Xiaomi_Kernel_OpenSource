@@ -13,7 +13,6 @@
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/kernel.h>
-#include <linux/mfd/mt6315/registers.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
@@ -1151,54 +1150,6 @@ void spmi_dump_spmimst_record_reg_d(struct seq_file *m,
 			mtk_spmi_readl_d(arb, SPMI_MST_DBG));
 }
 
-void spmi_dump_slv_record_reg(u8 sid)
-{
-	struct pmif *arb = spmi_controller_get_drvdata(dbg_ctrl);
-	u8 rdata1 = 0, rdata2 = 0, rdata3 = 0, rdata4 = 0;
-	unsigned int offset, i, j = 0, log_size = 0, ret = 0;
-
-	log_size += sprintf(wp,  "");
-	/* log sequence, idx 0->1->2->3->0 */
-	for (offset = 0x34; offset < 0x50; offset += 4) {
-		ret = arb->read_cmd(dbg_ctrl, SPMI_CMD_EXT_READL,
-			sid, (MT6315_PLT0_ID_ANA_ID + offset), &rdata1, 1);
-		ret = arb->read_cmd(dbg_ctrl, SPMI_CMD_EXT_READL,
-			sid, (MT6315_PLT0_ID_ANA_ID + offset + 1), &rdata2, 1);
-		ret = arb->read_cmd(dbg_ctrl, SPMI_CMD_EXT_READL,
-			sid, (MT6315_PLT0_ID_ANA_ID + offset + 2), &rdata3, 1);
-		ret = arb->read_cmd(dbg_ctrl, SPMI_CMD_EXT_READL,
-			sid, (MT6315_PLT0_ID_ANA_ID + offset + 3), &rdata4, 1);
-		if ((offset + 3) == 0x37) {
-			i = (rdata4 & 0xc) >> 2;
-			if (i == 0)
-				log_size += sprintf(wp + log_size,
-					"slvid:%d DBG. Last cmd idx:0x3\n",
-					sid);
-			else {
-				log_size += sprintf(wp + log_size,
-					"slvid:%d DBG. Last cmd idx:0x%x\n",
-					sid, ((rdata4 & 0xc) >> 2) - 1);
-			}
-
-		}
-		/*
-		 *log_size += sprintf(wp + log_size,
-		 *"[0x%x]=0x%x [0x%x]=0x%x [0x%x]=0x%x [0x%x]=0x%x ",
-		 *offset, rdata1, (offset + 1), rdata2,
-		 *(offset + 2), rdata3, (offset + 3), rdata4);
-		 */
-
-		log_size += sprintf(wp + log_size,
-			"Idx:%d slvid:%d Type:0x%x, [0x%x]=0x%x\n", j,
-			sid, (rdata4 & 0x3),
-			(rdata2 << 0x8) | rdata1, rdata3);
-		if (j <= 3)
-			j++;
-
-	}
-	pr_info("\n[SPMISLV] %s", wp);
-}
-
 /*
  * PMIF dump busy register log
  */
@@ -1336,44 +1287,6 @@ static const struct file_operations dump_rec_spmimst_proc_fops = {
 	.read = seq_read,
 };
 
-/*
- * PMIC dump record register log
- */
-static u8 gsid;
-static ssize_t dump_rec_pmic_show(struct device_driver *ddri, char *buf)
-{
-	if (buf == NULL) {
-		pr_notice("[%s] *buf is NULL!\n",  __func__);
-		return -EINVAL;
-	}
-	is_drv_attr = 1;
-	wp = buf;
-	spmi_dump_slv_record_reg(gsid);
-	wp = d_log_buf;
-	is_drv_attr = 0;
-
-	return strlen(buf);
-}
-static ssize_t dump_rec_pmic_store(struct device_driver *ddri,
-	const char *buf, size_t count)
-{
-	int ret = 0, sid = 0;
-
-	if (strlen(buf) < 1) {
-		pr_notice("%s() Invalid input!\n", __func__);
-		return -EINVAL;
-	}
-
-	ret = kstrtoint(buf, 10, &sid);
-	gsid = sid;
-	if (ret < 0) {
-		pr_notice("%s() kstrtoint failed! ret:%d\n", __func__, ret);
-		return ret;
-	}
-	pr_info("%s() get slvid:%d pmic dump\n", __func__, gsid);
-
-	return count;
-}
 static u32 gpmif_of;
 static u32 gpmif_val;
 static ssize_t pmif_access_show(struct device_driver *ddri, char *buf)
@@ -1475,12 +1388,10 @@ static ssize_t spmi_access_store(struct device_driver *ddri,
 	}
 	return count;
 }
-static DRIVER_ATTR_RW(dump_rec_pmic);
 static DRIVER_ATTR_RW(pmif_access);
 static DRIVER_ATTR_RW(spmi_access);
 
 static struct driver_attribute *spmi_pmif_attr_list[] = {
-	&driver_attr_dump_rec_pmic,
 	&driver_attr_pmif_access,
 	&driver_attr_spmi_access,
 };

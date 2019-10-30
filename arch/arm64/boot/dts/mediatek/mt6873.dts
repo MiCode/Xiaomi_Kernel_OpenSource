@@ -18,11 +18,13 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/iio/mt635x-auxadc.h>
 #include <dt-bindings/mfd/mt6359-irq.h>
+#include <dt-bindings/mfd/mt6315-irq.h>
 #include <dt-bindings/gce/mt6873-gce.h>
 #include <dt-bindings/mmc/mt6873-msdc.h>
 #include <generated/autoconf.h>
 #include <dt-bindings/clock/mt6873-clk.h>
 #include <dt-bindings/memory/mt6873-larb-port.h>
+#include <dt-bindings/spmi/spmi.h>
 
 / {
 	model = "MT6873";
@@ -368,19 +370,40 @@
 		reg = <0 0x10026000 0 0x1000>;
 	};
 
-	pmif1@10027000 {
-		compatible = "mediatek,pmif1";
-		reg = <0 0x10027000 0 0x1000>;
+	spmi_bus: spmi@10027000 {
+		compatible = "mediatek,pmif";
+		reg = <0 0x10027000 0 0x000e00>,
+		      <0 0x10027f00 0 0x00008c>,
+		      <0 0x10029000 0 0x000100>;
+		reg-names = "pmif", "pmifmpu", "spmimst";
+		interrupts = <GIC_SPI 221 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "pmif_irq";
+		irq_event_en = <0x0 0x0 0x00300000 0x00000100 0x0>;
+		clocks = <&infracfg_ao INFRACFG_AO_PMIC_CG_AP>,
+			<&infracfg_ao INFRACFG_AO_PMIC_CG_TMR>,
+			<&topckgen TOP_MUX_PWRAP_ULPOSC>,
+			<&topckgen TOP_OSC_D10>,
+			<&clk26m>,
+			<&topckgen TOP_MUX_SPMI_MST>,
+			<&clk26m>,
+			<&topckgen TOP_OSC_D10>;
+		clock-names = "pmif_sys_ck",
+			"pmif_tmr_ck",
+			"pmif_clk_mux",
+			"pmif_clk_osc_d10",
+			"pmif_clk26m",
+			"spmimst_clk_mux",
+			"spmimst_clk26m",
+			"spmimst_clk_osc_d10";
+		swinf_ch_start = <4>;
+		ap_swinf_no = <2>;
+		#address-cells = <2>;
+		#size-cells = <0>;
 	};
 
-	pmicspi_mst@10028000 {
-		compatible = "mediatek,pmicspi_mst";
-		reg = <0 0x10028000 0 0x1000>;
-	};
-
-	spmi_mst@10029000 {
-		compatible = "mediatek,spmi_mst";
-		reg = <0 0x10029000 0 0x1000>;
+	spmi_mpu@10027000 {
+		compatible = "mediatek,spmi_mpu";
+		reg = <0 0x10027000 0 0x0e00>;
 	};
 
 	bcrm_peri_ao@1002a000 {
@@ -2482,5 +2505,69 @@
 
 };
 
+&spmi_bus {
+#ifdef CONFIG_FPGA_EARLY_PORTING
+	grpid = <8>;
+	mt6315_10: mt6315@10 {
+		compatible = "mediatek,mt6315", "mtk,spmi-pmic";
+		reg = <0xa SPMI_USID 0x8 SPMI_GSID>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+	mt6315_11: mt6315@11 {
+		compatible = "mediatek,mt6315", "mtk,spmi-pmic";
+		reg = <0xb SPMI_USID 0x8 SPMI_GSID>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+	mt6315_12: mt6315@12 {
+		compatible = "mediatek,mt6315", "mtk,spmi-pmic";
+		reg = <0xc SPMI_USID 0x8 SPMI_GSID>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+#else
+	grpid = <11>;
+	mt6315_6: mt6315@6 {
+		compatible = "mediatek,mt6315", "mtk,spmi-pmic";
+		reg = <0x6 SPMI_USID 0xb SPMI_GSID>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		mt6315_6_regulator: mt6315_6_regulator {
+			compatible = "mediatek,mt6315_6-regulator";
+			interrupt-parent = <&pio>;
+			interrupts = <1 IRQ_TYPE_LEVEL_HIGH 1 0>;
+		};
+	};
+	mt6315_7: mt6315@7 {
+		compatible = "mediatek,mt6315", "mtk,spmi-pmic";
+		reg = <0x7 SPMI_USID 0xb SPMI_GSID>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		mt6315_7_regulator: mt6315_7_regulator {
+			compatible = "mediatek,mt6315_7-regulator";
+			interrupt-parent = <&pio>;
+			interrupts = <167 IRQ_TYPE_LEVEL_HIGH 167 0>;
+		};
+	};
+	mt6315_3: mt6315@3 {
+		compatible = "mediatek,mt6315", "mtk,spmi-pmic";
+		reg = <0x3 SPMI_USID 0xb SPMI_GSID>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		mt6315_3_regulator: mt6315_3_regulator {
+			compatible = "mediatek,mt6315_3-regulator";
+			interrupt-parent = <&pio>;
+			interrupts = <2 IRQ_TYPE_LEVEL_HIGH 2 0>;
+		};
+	};
+#endif
+};
+
+#ifndef CONFIG_FPGA_EARLY_PORTING
+#include "mt6315_s6.dtsi"
+#include "mt6315_s7.dtsi"
+#include "mt6315_s3.dtsi"
+#endif
 #include "mt6359p.dtsi"
 #include "cust_mt6873_msdc.dtsi"
