@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
  */
 #ifndef __KGSL_MMU_H
 #define __KGSL_MMU_H
@@ -71,6 +71,8 @@ struct kgsl_mmu_ops {
 	struct kgsl_pagetable * (*mmu_getpagetable)(struct kgsl_mmu *mmu,
 			unsigned long name);
 	u64 (*mmu_get_global_base)(struct kgsl_mmu *mmu);
+	void (*mmu_map_global)(struct kgsl_mmu *mmu,
+		struct kgsl_memdesc *memdesc);
 };
 
 struct kgsl_mmu_pt_ops {
@@ -343,5 +345,15 @@ kgsl_mmu_pagetable_get_contextidr(struct kgsl_pagetable *pagetable)
  * Return: The virtual address of the base of the global object region
  */
 u64 kgsl_mmu_get_global_base(struct kgsl_device *device);
+
+/**
+ * kgsl_mmu_map_global - Map a memdesc as a global buffer
+ * @device: A KGSL GPU device handle
+ * @memdesc: Pointer to a GPU memory descriptor
+ *
+ * Map a buffer as globally accessible in all pagetable contexts
+ */
+void kgsl_mmu_map_global(struct kgsl_device *device,
+		struct kgsl_memdesc *memdesc);
 
 #endif /* __KGSL_MMU_H */

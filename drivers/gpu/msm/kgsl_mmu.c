@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -535,6 +535,15 @@ u64 kgsl_mmu_get_global_base(struct kgsl_device *device)
 		return mmu->mmu_ops->mmu_get_global_base(mmu);
 
 	return 0;
+}
+
+void kgsl_mmu_map_global(struct kgsl_device *device,
+		struct kgsl_memdesc *memdesc)
+{
+	struct kgsl_mmu *mmu = &(device->mmu);
+
+	if (MMU_OP_VALID(mmu, mmu_map_global))
+		mmu->mmu_ops->mmu_map_global(mmu, memdesc);
 }
 
 void kgsl_mmu_close(struct kgsl_device *device)

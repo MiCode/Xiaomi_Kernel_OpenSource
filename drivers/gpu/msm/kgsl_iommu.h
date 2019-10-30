@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 #ifndef __KGSL_IOMMU_H
 #define __KGSL_IOMMU_H
@@ -124,6 +124,12 @@ struct kgsl_iommu {
 	struct kgsl_memdesc *smmu_info;
 	/** @pdev: Pointer to the platform device for the IOMMU device */
 	struct platform_device *pdev;
+	/**
+	 * @ppt_active: Set when the first per process pagetable is created.
+	 * This is used to warn when global buffers are created that might not
+	 * be mapped in all contexts
+	 */
+	bool ppt_active;
 };
 
 /*
