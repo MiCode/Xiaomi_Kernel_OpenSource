@@ -404,6 +404,9 @@ static irqreturn_t devapc_vio_handler(int irq_number, void *data)
 	unsigned int domain_id, read_vio, write_vio, vio_addr_high;
 	struct devapc_ctx *dctx = (struct devapc_ctx *)data;
 
+	if (!is_violation_irq())
+		return IRQ_NONE;
+
 	if (!dctx || IS_ERR_OR_NULL(devapc_virt)) {
 		pr_err("driver abort\n");
 		return IRQ_NONE;
@@ -416,11 +419,6 @@ static irqreturn_t devapc_vio_handler(int irq_number, void *data)
 
 	if (!dctx->irq) {
 		pr_err("Disable vio irq handler\n");
-		return IRQ_NONE;
-	}
-
-	if (!is_violation_irq()) {
-		pr_err("No apusys devapc violation\n");
 		return IRQ_NONE;
 	}
 
