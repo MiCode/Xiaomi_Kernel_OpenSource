@@ -81,14 +81,6 @@
 		interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
-	sysirq: intpol-controller@0 {
-		compatible = "mediatek,mt6577-sysirq";
-		interrupt-controller;
-		#interrupt-cells = <3>;
-		interrupt-parent = <&gic>;
-		reg = <0 0x0c53a650 0 0x50>;
-	};
-
 	clocks {
 		clk_null: clk_null {
 			compatible = "fixed-clock";
@@ -241,7 +233,7 @@
 	toprgu@10007000 {
 		compatible = "mediatek,toprgu";
 		reg = <0 0x10007000 0 0x1000>;
-		interrupts = <GIC_SPI 77 IRQ_TYPE_EDGE_FALLING>;
+		interrupts = <GIC_SPI 77 IRQ_TYPE_EDGE_RISING>;
 	};
 
 	apxgpt@10008000 {
@@ -276,7 +268,7 @@
 	kp@10010000 {
 		compatible = "mediatek,kp";
 		reg = <0 0x10010000 0 0x1000>;
-		interrupts = <GIC_SPI 74 IRQ_TYPE_EDGE_FALLING>;
+		interrupts = <GIC_SPI 74 IRQ_TYPE_EDGE_RISING>;
 	};
 
 	topmisc@10011000 {
@@ -770,7 +762,7 @@
 		reg-names = "ssusb_base",
 				"ssusb_ippc",
 				"ssusb_sif2";
-		interrupts = <GIC_SPI 96 IRQ_TYPE_LEVEL_LOW>;
+		interrupts = <GIC_SPI 96 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "musb-hdrc";
 		debug_level = <6>;
 		fpga_i2c_physical_base = <0x11d01100>;

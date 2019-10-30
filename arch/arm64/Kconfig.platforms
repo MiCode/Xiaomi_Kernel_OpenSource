@@ -434,7 +434,6 @@ config MACH_MT6873
 	select CPU_V7
 	select HAVE_SMP
 	select NEED_MACH_MEMORY_H
-	select MTK_SYSIRQ
 	select IRQ_DOMAIN
 	select IRQ_DOMAIN_DEBUG
 	select GENERIC_SCHED_CLOCK
