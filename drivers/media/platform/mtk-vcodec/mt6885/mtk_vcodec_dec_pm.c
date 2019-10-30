@@ -374,8 +374,8 @@ void mtk_vdec_dvfs_begin(struct mtk_vcodec_ctx *ctx, int hw_id)
 #endif
 #if DEC_DVFS
 	mutex_lock(&ctx->dev->dec_dvfs_mutex);
-	if ((ctx->q_data[MTK_Q_DATA_DST].visible_width *
-		ctx->q_data[MTK_Q_DATA_DST].visible_height) >=
+	if ((ctx->q_data[MTK_Q_DATA_DST].coded_width *
+		ctx->q_data[MTK_Q_DATA_DST].coded_height) >=
 		3840*2160) {
 		vdec_req_freq[hw_id] = 450;
 	} else {
