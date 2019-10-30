@@ -287,7 +287,11 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd,
 	mdla_cmd_debug("%s: core: %d max_cmd_id: %d id: %d\n",
 			__func__, core_id, mdla_info->max_cmd_id, id);
 
-	mdla_pwr_on(core_id);
+	ret = mdla_pwr_on(core_id);
+	if (ret) {
+		/*Power On failed*/
+		return ret;
+	}
 
 	if (apusys_hd != NULL)
 		mdla_set_opp(core_id, apusys_hd->boost_val);

@@ -176,11 +176,13 @@ void mdla1_start_power_off(struct work_struct *work)
 	mdla_start_power_off(1);
 }
 
-void mdla_start_power_off(int core_id)
+int mdla_start_power_off(int core_id)
 {
+	int ret = 0;
 	mutex_lock(&mdla_devices[core_id].cmd_lock);
-	mdla_pwr_off(core_id);
+	ret = mdla_pwr_off(core_id);
 	mutex_unlock(&mdla_devices[core_id].cmd_lock);
+	return ret;
 }
 
 void mdla_power_timeup(unsigned long data)
