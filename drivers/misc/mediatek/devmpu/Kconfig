@@ -1,6 +1,5 @@
 config MTK_DEVMPU
 	bool "Enable MTK Device MPU driver"
-	depends on (MTK_EMI || MEDIATEK_EMI)
 	help
 	  Device MPU is a kernel driver providing
 	  non-continuous memory protection in the
@@ -9,7 +8,7 @@ config MTK_DEVMPU
 
 config MTK_DEVMPU_SUB
 	bool "Enable MTK Device MPU SUB driver"
-	depends on MTK_DEVMPU
+	select MTK_DEVMPU
 	help
 	  Device MPU SUB is a kernel driver providing
 	  non-continuous memory protection in the
@@ -19,7 +18,7 @@ config MTK_DEVMPU_SUB
 
 config MTK_DEVMPU_ACP
 	bool "Enable MTK Device MPU ACP driver"
-	depends on MTK_DEVMPU
+	select MTK_DEVMPU
 	help
 	  Device MPU ACP is a kernel driver providing
 	  non-continuous memory protection in the
@@ -28,7 +27,7 @@ config MTK_DEVMPU_ACP
 
 config MTK_DEVMPU_EMI
 	bool "Enable MTK Device MPU with EMI MPU"
-	depends on (MTK_EMI || MEDIATEK_EMI)
+	select MTK_DEVMPU
 	help
 	  Device MPU hardware will receive the violation
 	  from EMI MPU hardware. Device MPU driver will
@@ -37,11 +36,11 @@ config MTK_DEVMPU_EMI
 
 config DEVMPU_MT6885
 	bool "Mediatek MT6885 Device MPU driver"
-	depends on (MTK_EMI || MEDIATEK_EMI)
-	select MTK_DEVMPU
+	depends on MACH_MT6885
+	select MTK_DEVMPU if (MTK_EMI || MEDIATEK_EMI)
 	select MTK_DEVMPU_SUB
 	select MTK_DEVMPU_ACP
-	select MTK_DEVMPU_EMI
+	select MTK_DEVMPU_EMI if (MTK_EMI || MEDIATEK_EMI)
 	help
 	  Say yes here to enable support Mediatek MT6885
 	  Device MPU driver. This driver is combined with
