@@ -52,7 +52,7 @@ int mtk_vcodec_wait_for_done_ctx(struct mtk_vcodec_ctx  *ctx,
 			ctx->id, ctx->type, core_id,
 			command, ctx->int_cond[core_id],
 			ctx->int_type);
-		status = -1;
+		status = -2;
 	}
 
 	ctx->int_cond[core_id] = 0;
