@@ -83,6 +83,8 @@ int mtk_dprec_logger_pr(unsigned int type, char *fmt, ...);
 #define DDP_MUTEX_LOCK(lock, name, line)                                       \
 	do {                                                                   \
 		DDPINFO("M_LOCK:%s[%d] +\n", name, line);		   \
+		DRM_MMP_EVENT_START(mutex_lock, (unsigned long)lock,	   \
+				line);	   \
 		mutex_lock(lock);		   \
 		mutex_time_start = sched_clock();		   \
 		mutex_locker = name;		   \
@@ -96,9 +98,13 @@ int mtk_dprec_logger_pr(unsigned int type, char *fmt, ...);
 		if (mutex_time_period > 1000000000) {		   \
 			DDPPR_ERR("M_ULOCK:%s[%d] timeout:<%lld ns>!\n",   \
 				name, line, mutex_time_period);		   \
+			DRM_MMP_MARK(mutex_lock,		   \
+				(unsigned long)mutex_time_period, 0);   \
 			dump_stack();		   \
 		}		   \
 		mutex_unlock(lock);		   \
+		DRM_MMP_EVENT_END(mutex_lock, (unsigned long)lock,	   \
+			line);	   \
 		DDPINFO("M_ULOCK:%s[%d] -\n", name, line);		   \
 	} while (0)
 
@@ -110,8 +116,8 @@ int mtk_dprec_logger_pr(unsigned int type, char *fmt, ...);
 
 #define DDP_MUTEX_UNLOCK_NESTED(lock, i, name, line)                           \
 	do {                                                                   \
-		DDPINFO("M_ULOCK_NST[%d]:%s[%d] -\n", i, name, line);   \
 		mutex_unlock(lock);		   \
+		DDPINFO("M_ULOCK_NST[%d]:%s[%d] -\n", i, name, line);	\
 	} while (0)
 
 #ifdef CONFIG_MTK_AEE_FEATURE

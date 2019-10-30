@@ -461,12 +461,17 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 	struct mtk_ddp_comp *comp = mtk_ddp_comp_request_output(mtk_crtc);
 	struct mtk_cmdq_cb_data *cb_data;
 	bool is_frame_mode;
+	int index = drm_crtc_index(crtc);
+
+	CRTC_MMP_EVENT_START(index, backlight, (unsigned long)crtc,
+			level);
 
 	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 	if (!(mtk_crtc->enabled)) {
 		DDPINFO("Sleep State set backlight stop --crtc not ebable\n");
 		mutex_unlock(&mtk_crtc->lock);
+		CRTC_MMP_EVENT_END(index, backlight, 0, 0);
 
 		return -EINVAL;
 	}
@@ -478,6 +483,8 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 		DDPPR_ERR("cb data creation failed\n");
+		CRTC_MMP_EVENT_END(index, backlight, 0, 1);
+
 		return 0;
 	}
 
@@ -513,6 +520,9 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 	cmdq_pkt_flush_threaded(cmdq_handle, bl_cmdq_cb, cb_data);
 
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+	CRTC_MMP_EVENT_END(index, backlight, (unsigned long)crtc,
+			level);
 
 	return 0;
 }
@@ -2209,6 +2219,10 @@ void mtk_drm_crtc_atomic_resume(struct drm_crtc *crtc,
 				struct drm_crtc_state *old_crtc_state)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	int index = drm_crtc_index(crtc);
+
+	CRTC_MMP_EVENT_START(index, resume,
+			(unsigned long)crtc, index);
 
 	/* hold wakelock */
 	DDPMSG("%s hold wakelock\n", __func__);
@@ -2500,6 +2514,7 @@ static void mtk_drm_crtc_release_fence(struct drm_crtc *crtc)
 void mtk_drm_crtc_suspend(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	int index = drm_crtc_index(crtc);
 
 	mtk_drm_crtc_disable(crtc);
 
@@ -2511,6 +2526,8 @@ void mtk_drm_crtc_suspend(struct drm_crtc *crtc)
 	/* release wakelock */
 	DDPMSG("%s release wakelock\n", __func__);
 	__pm_relax(&mtk_crtc->wk_lock);
+
+	CRTC_MMP_EVENT_END(index, suspend, 0, 0);
 }
 
 struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc)
@@ -4145,12 +4162,18 @@ int mtk_crtc_path_switch(struct drm_crtc *crtc, unsigned int ddp_mode,
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_ddp_config cfg;
+	int index = drm_crtc_index(crtc);
+
+	CRTC_MMP_EVENT_START(index, path_switch, mtk_crtc->ddp_mode,
+			ddp_mode);
 
 	if (need_lock)
 		DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 
-	if (ddp_mode == mtk_crtc->ddp_mode || !crtc->enabled)
+	if (ddp_mode == mtk_crtc->ddp_mode || !crtc->enabled) {
+		CRTC_MMP_MARK(index, path_switch, 0, 0);
 		goto done;
+	}
 
 	DDPINFO("%s crtc%d path switch(%d->%d)\n",
 		__func__, drm_crtc_index(crtc),
@@ -4162,9 +4185,11 @@ int mtk_crtc_path_switch(struct drm_crtc *crtc, unsigned int ddp_mode,
 	 *     CRTC enable/disable function to create/destroy path.
 	 */
 	if (ddp_mode == DDP_NO_USE) {
+		CRTC_MMP_MARK(index, path_switch, 0, 1);
 		mtk_drm_crtc_disable(crtc);
 		goto done;
 	} else if (mtk_crtc->ddp_mode == DDP_NO_USE) {
+		CRTC_MMP_MARK(index, path_switch, 0, 2);
 		mtk_crtc->ddp_mode = ddp_mode;
 		mtk_drm_crtc_enable(crtc);
 		goto done;
@@ -4193,6 +4218,9 @@ done:
 
 	if (need_lock)
 		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+	CRTC_MMP_EVENT_END(index, path_switch, crtc->enabled,
+			need_lock);
 
 	DDPINFO("%s-\n", __func__);
 	return 0;

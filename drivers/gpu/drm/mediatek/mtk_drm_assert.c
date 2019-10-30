@@ -25,6 +25,7 @@
 
 #include "mtk_drm_assert.h"
 #include "mtk_drm_fbconsole.h"
+#include "mtk_drm_mmp.h"
 
 #define RGB888_To_RGB565(x)                                                    \
 	((((x)&0xF80000) >> 8) | (((x)&0x00FC00) >> 5) | (((x)&0x0000F8) >> 3))

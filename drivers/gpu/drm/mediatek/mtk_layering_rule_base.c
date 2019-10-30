@@ -37,6 +37,7 @@
 #include "mtk_drm_plane.h"
 #include "mtk_drm_assert.h"
 #include "mtk_log.h"
+#include "mtk_drm_mmp.h"
 
 static struct drm_mtk_layering_info layering_info;
 #ifdef HRT_UT_DEBUG
@@ -539,8 +540,10 @@ int mtk_rollback_resize_layer_to_GPU_range(
 	int i;
 	struct drm_mtk_layer_config *lc;
 
-	if (disp_info->layer_num[disp_idx] <= 0)
+	if (disp_info->layer_num[disp_idx] <= 0) {
+		/* direct skip */
 		return 0;
+	}
 
 	if (start_idx < 0 || end_idx >= disp_info->layer_num[disp_idx])
 		return -EINVAL;
@@ -728,8 +731,10 @@ static int _filter_by_ovl_cnt(struct drm_device *dev,
 	int ovl_num_limit, phy_ovl_cnt;
 	uint16_t l_tb;
 
-	if (disp_info->layer_num[disp_idx] <= 0)
+	if (disp_info->layer_num[disp_idx] <= 0) {
+		/* direct skip */
 		return 0;
+	}
 
 retry:
 	phy_ovl_cnt = get_phy_ovl_layer_cnt(disp_info, disp_idx);
@@ -790,8 +795,10 @@ static int ext_id_tuning(struct drm_device *dev,
 	int ext_cnt = 0, cur_phy_cnt = 0;
 	struct drm_mtk_layer_config *layer_info;
 
-	if (info->layer_num[disp] <= 0)
+	if (info->layer_num[disp] <= 0) {
+		/* direct skip */
 		return 0;
+	}
 
 	_filter_by_ovl_cnt(dev, info, disp);
 	phy_ovl_cnt = get_phy_ovl_layer_cnt(info, disp);
@@ -850,8 +857,10 @@ static int ext_id_tuning(struct drm_device *dev,
 static int rollback_all_to_GPU(struct drm_mtk_layering_info *disp_info,
 			       int disp_idx)
 {
-	if (disp_info->layer_num[disp_idx] <= 0)
+	if (disp_info->layer_num[disp_idx] <= 0) {
+		/* direct skip */
 		return 0;
+	}
 
 	disp_info->gles_head[disp_idx] = 0;
 	disp_info->gles_tail[disp_idx] = disp_info->layer_num[disp_idx] - 1;
@@ -1700,15 +1709,21 @@ _copy_layer_info_from_disp(struct drm_mtk_layering_info *disp_info_user,
 	unsigned long int layer_size = 0;
 	int ret = 0, layer_num = 0;
 
-	if (l_info->layer_num[disp_idx] <= 0)
-		return -EFAULT;
+	if (l_info->layer_num[disp_idx] <= 0) {
+		/* direct skip */
+		return 0;
+	}
 
 	layer_num = l_info->layer_num[disp_idx];
 	layer_size = sizeof(struct drm_mtk_layer_config) * layer_num;
 	l_info->input_config[disp_idx] = kzalloc(layer_size, GFP_KERNEL);
 
-	if (l_info->input_config[disp_idx] == NULL)
+	if (l_info->input_config[disp_idx] == NULL) {
+		DDPPR_ERR("%s:%d invalid input_config[%d]:0x%p\n",
+			__func__, __LINE__,
+			disp_idx, l_info->input_config[disp_idx]);
 		return -ENOMEM;
+	}
 
 	if (debug_mode) {
 		memcpy(l_info->input_config[disp_idx],
@@ -1717,8 +1732,11 @@ _copy_layer_info_from_disp(struct drm_mtk_layering_info *disp_info_user,
 		if (copy_from_user(l_info->input_config[disp_idx],
 				   disp_info_user->input_config[disp_idx],
 				   layer_size)) {
-			DDPINFO("[DISP][FB]: copy_to_user failed! line:%d\n",
-				__LINE__);
+			DDPPR_ERR("%s:%d copy failed:(0x%p,0x%p), size:%ld\n",
+					__func__, __LINE__,
+					l_info->input_config[disp_idx],
+					disp_info_user->input_config[disp_idx],
+					layer_size);
 			return -EFAULT;
 		}
 	}
@@ -1749,8 +1767,10 @@ _copy_layer_info_by_disp(struct drm_mtk_layering_info *disp_info_user,
 	unsigned long int layer_size = 0;
 	int ret = 0;
 
-	if (l_info->layer_num[disp_idx] <= 0)
+	if (l_info->layer_num[disp_idx] <= 0) {
+		/* direct skip */
 		return -EFAULT;
+	}
 
 	disp_info_user->gles_head[disp_idx] = l_info->gles_head[disp_idx];
 	disp_info_user->gles_tail[disp_idx] = l_info->gles_tail[disp_idx];
@@ -2052,19 +2072,31 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 	unsigned int scale_num = 0;
 	unsigned int scn_decision_flag = 0;
 
+	DRM_MMP_EVENT_START(layering, (unsigned long)disp_info_user,
+			(unsigned long)dev);
+
 	roll_gpu_for_idle = 0;
 
 	if (l_rule_ops == NULL || l_rule_info == NULL) {
-		DDPINFO("Layering rule has not been initialize.\n");
+		DRM_MMP_MARK(layering, 0, 0);
+		DRM_MMP_EVENT_END(layering, 0, 0);
+		DDPPR_ERR("Layering rule has not been initialize:(%p,%p)\n",
+				l_rule_ops, l_rule_info);
 		return -EFAULT;
 	}
 
 	if (check_disp_info(disp_info_user) < 0) {
+		DRM_MMP_MARK(layering, 0, 1);
+		DRM_MMP_EVENT_END(layering, 0, 0);
 		DDPPR_ERR("check_disp_info fail\n");
 		return -EFAULT;
 	}
-	if (set_disp_info(disp_info_user, debug_mode))
+
+	if (set_disp_info(disp_info_user, debug_mode)) {
+		DRM_MMP_MARK(layering, 0, 2);
+		DRM_MMP_EVENT_END(layering, 0, 0);
 		return -EFAULT;
+	}
 
 	print_disp_info_to_log_buffer(&layering_info);
 #ifdef HRT_DEBUG_LEVEL1
@@ -2179,7 +2211,17 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 	 */
 	lye_add_blob_ids(&layering_info, lyeblob_ids, dev);
 
+	DRM_MMP_MARK(layering, layering_info.hrt_num,
+			(layering_info.gles_head[0] << 24) |
+			(layering_info.gles_tail[0] << 16) |
+			(layering_info.layer_num[0] << 8) |
+			layering_info.layer_num[1]);
+
 	ret = copy_layer_info_to_user(disp_info_user, debug_mode);
+
+	DRM_MMP_EVENT_END(layering, (unsigned long)disp_info_user,
+			(unsigned long)dev);
+
 	return ret;
 }
 
@@ -2593,7 +2635,7 @@ int mtk_layering_rule_ioctl(struct drm_device *dev, void *data,
 
 	ret = layering_rule_start(disp_info_user, 0, dev);
 	if (ret < 0)
-		DDPINFO("layering_rule_start error\n");
+		DDPPR_ERR("layering_rule_start error:%d\n", ret);
 
 	return 0;
 }

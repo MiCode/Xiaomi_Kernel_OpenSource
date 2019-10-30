@@ -64,6 +64,10 @@ void init_drm_mmp_event(void)
 		mmprofile_register_event(g_DRM_MMP_Events.pmqos, "PMQOS");
 	g_DRM_MMP_Events.hrt_bw =
 		mmprofile_register_event(g_DRM_MMP_Events.pmqos, "HRT_BW");
+	g_DRM_MMP_Events.mutex_lock =
+		mmprofile_register_event(g_DRM_MMP_Events.drm, "LOCK");
+	g_DRM_MMP_Events.layering =
+		mmprofile_register_event(g_DRM_MMP_Events.drm, "HRT");
 
 	g_DRM_MMP_Events.ddp =
 		mmprofile_register_event(g_DRM_MMP_Events.IRQ, "MUTEX");
@@ -125,6 +129,14 @@ void init_crtc_mmp_event(void)
 			crtc_mmp_root, "enter_idle");
 		g_CRTC_MMP_Events[i].frame_cfg =
 			mmprofile_register_event(crtc_mmp_root, "frame cfg");
+		g_CRTC_MMP_Events[i].suspend = mmprofile_register_event(
+			crtc_mmp_root, "suspend");
+		g_CRTC_MMP_Events[i].resume = mmprofile_register_event(
+			crtc_mmp_root, "resume");
+		g_CRTC_MMP_Events[i].backlight = mmprofile_register_event(
+			crtc_mmp_root, "backlight");
+		g_CRTC_MMP_Events[i].path_switch = mmprofile_register_event(
+			crtc_mmp_root, "path_switch");
 	}
 }
 

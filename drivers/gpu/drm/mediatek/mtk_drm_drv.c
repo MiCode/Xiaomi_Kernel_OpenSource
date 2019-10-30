@@ -53,6 +53,8 @@
 #include "mtk_disp_color.h"
 #include "mtk_disp_gamma.h"
 #include "mtk_disp_aal.h"
+#include "mtk_drm_mmp.h"
+
 
 #define DRIVER_NAME "mediatek"
 #define DRIVER_DESC "Mediatek SoC DRM"
@@ -652,12 +654,14 @@ static int mtk_atomic_commit(struct drm_device *drm,
 
 	crtc_mask = mtk_atomic_crtc_mask(drm, state);
 
+	DRM_MMP_EVENT_START(mutex_lock, 0, 0);
 	for (i = 0; i < MAX_CRTC; i++) {
 		if (!(crtc_mask >> i & 0x1))
 			continue;
 
 		crtc = private->crtc[i];
 		mtk_crtc = to_mtk_crtc(crtc);
+		DRM_MMP_MARK(mutex_lock, (unsigned long)&mtk_crtc->lock, i);
 
 		DDP_MUTEX_LOCK_NESTED(&mtk_crtc->lock, i, __func__, __LINE__);
 	}
@@ -682,6 +686,8 @@ static int mtk_atomic_commit(struct drm_device *drm,
 	if (mutex_nested_time_period > 1000000000) {
 		DDPPR_ERR("M_ULOCK_NESTED:%s[%d] timeout:<%lld ns>!\n",
 			__func__, __LINE__, mutex_nested_time_period);
+		DRM_MMP_MARK(mutex_lock,
+			(unsigned long)mutex_time_period, 0);
 		dump_stack();
 	}
 
@@ -694,7 +700,10 @@ err_mutex_unlock:
 		mtk_crtc = to_mtk_crtc(crtc);
 
 		DDP_MUTEX_UNLOCK_NESTED(&mtk_crtc->lock, i, __func__, __LINE__);
+		DRM_MMP_MARK(mutex_lock, (unsigned long)&mtk_crtc->lock,
+				i + (1 << 8));
 	}
+	DRM_MMP_EVENT_END(mutex_lock, 0, 0);
 
 	mutex_unlock(&private->commit.lock);
 

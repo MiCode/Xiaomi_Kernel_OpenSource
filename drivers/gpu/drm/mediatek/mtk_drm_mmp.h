@@ -49,6 +49,8 @@ struct DRM_MMP_Events {
 	mmp_event abnormal_irq;
 	mmp_event pmqos;
 	mmp_event hrt_bw;
+	mmp_event mutex_lock;
+	mmp_event layering;
 };
 
 /* if changed, need to update init_crtc_mmp_event() */
@@ -66,6 +68,10 @@ struct CRTC_MMP_Events {
 	mmp_event leave_idle;
 	mmp_event enter_idle;
 	mmp_event frame_cfg;
+	mmp_event suspend;
+	mmp_event resume;
+	mmp_event backlight;
+	mmp_event path_switch;
 };
 
 struct DRM_MMP_Events *get_drm_mmp_events(void);
