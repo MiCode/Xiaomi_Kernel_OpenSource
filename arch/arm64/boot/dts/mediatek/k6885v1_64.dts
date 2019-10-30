@@ -160,8 +160,8 @@
 		goodix,y2y;
 		goodix,pen-enable;
 		goodix,key-of-pen = <331 332>;/*BTN_STYLUS, BTN_STYLUS2*/
-		tpd-filter-enable = <0>;
-		tpd-filter-pixel-density = <168>;
+		tpd-filter-enable = <1>;
+		tpd-filter-pixel-density = <161>;
 		tpd-filter-custom-prameters = <0 0 0 0 0 0 0 0 0 0 0 0>;
 		tpd-filter-custom-speed = <0 0 0>;
 		sensor0 {
