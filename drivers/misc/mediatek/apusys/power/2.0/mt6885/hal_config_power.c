@@ -383,7 +383,7 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 
 	LOG_INF("%s , user: %d , enable: %d\n", __func__, user, enable);
 
-	if (user == EDMA)
+	if (user == EDMA || user == EDMA2 || user == REVISER)
 		domain_idx = 0;
 	else if (user == VPU0)
 		domain_idx = 2;

@@ -69,6 +69,7 @@ enum DVFS_USER {
 
 	EDMA = 0x10,	// special user
 	EDMA2 = 0x11,   // special user
+	REVISER = 0x12, // special user
 };
 
 
