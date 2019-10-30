@@ -373,21 +373,6 @@ static int rpc_power_status_check(int domain_idx, unsigned int enable)
 	return 0;
 }
 
-static int check_mtcmos_all_power_state(void)
-{
-	unsigned int regValue = DRV_Reg32(APU_RPC_INTF_PWR_RDY);
-
-	// check if all mtcmos bit equals to zero
-	if (((regValue >> 2) & 0x1) == 0x0 &&
-			((regValue >> 3) & 0x1) == 0x0 &&
-			((regValue >> 4) & 0x1) == 0x0 &&
-			((regValue >> 6) & 0x1) == 0x0 &&
-			((regValue >> 7) & 0x1) == 0x0)
-		return 1;
-	else
-		return 0;
-}
-
 static int set_power_mtcmos(enum DVFS_USER user, void *param)
 {
 	unsigned int enable = ((struct hal_param_mtcmos *)param)->enable;
@@ -415,10 +400,8 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 
 	if (enable) {
 		// call spm api to enable wake up signal for apu_conn/apu_vcore
-		if (force_pwr_on ||
-			(DRV_Reg32(APU_RPC_INTF_PWR_RDY) & BIT(0)) == 0x0) {
+		if (force_pwr_on) {
 			LOG_WRN("%s enable wakeup signal\n", __func__);
-
 
 			ret |= enable_apu_conn_clksrc();
 			ret |= set_apu_clock_source(DVFS_FREQ_00_208000_F,
@@ -483,7 +466,7 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 		}
 
 		// only remained apu_top is power on
-		if (force_pwr_off || check_mtcmos_all_power_state()) {
+		if (force_pwr_off) {
 		/*
 		 * call spm api to disable wake up signal
 		 * for apu_conn/apu_vcore
