@@ -1230,6 +1230,7 @@ void mtk_crtc_dc_prim_path_update(struct drm_crtc *crtc)
 		mtk_fb_get_dma(fb) +
 		(dma_addr_t)mtk_crtc_get_dc_fb_size(crtc) *
 		(dma_addr_t)fb_idx;
+	plane_state.pending.size = mtk_fb_get_size(fb);
 	plane_state.pending.src_x = 0;
 	plane_state.pending.src_y = 0;
 	plane_state.pending.dst_x = 0;
@@ -2787,6 +2788,7 @@ static void mtk_drm_crtc_enable_fake_layer(struct drm_crtc *crtc,
 		pending = &plane_state->pending;
 
 		pending->addr = mtk_fb_get_dma(fake_layer->fake_layer_buf[i]);
+		pending->size = mtk_fb_get_size(fake_layer->fake_layer_buf[i]);
 		pending->pitch = fake_layer->fake_layer_buf[i]->pitches[0];
 		pending->format = fake_layer->fake_layer_buf[i]->format->format;
 		pending->modifier = fake_layer->fake_layer_buf[i]->modifier[0];
@@ -3858,6 +3860,7 @@ static void mtk_crtc_config_wb_path_cmdq(struct drm_crtc *crtc,
 	plane_state.pending.pitch = fb->pitches[0];
 	plane_state.pending.format = fb->format->format;
 	plane_state.pending.addr = mtk_fb_get_dma(fb);
+	plane_state.pending.size = mtk_fb_get_size(fb);
 	plane_state.pending.src_x = 0;
 	plane_state.pending.src_y = 0;
 	plane_state.pending.dst_x = 0;

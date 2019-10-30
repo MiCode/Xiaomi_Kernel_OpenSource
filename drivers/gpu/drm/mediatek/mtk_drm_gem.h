@@ -42,6 +42,7 @@ struct mtk_drm_gem_obj {
 	void *cookie;
 	void *kvaddr;
 	dma_addr_t dma_addr;
+	size_t size;
 	unsigned long dma_attrs;
 	struct sg_table *sg;
 #if defined(CONFIG_MTK_IOMMU_V2)

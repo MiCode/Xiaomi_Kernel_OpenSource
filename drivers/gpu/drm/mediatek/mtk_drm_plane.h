@@ -131,6 +131,7 @@ struct mtk_plane_pending_state {
 	bool config;
 	bool enable;
 	dma_addr_t addr;
+	size_t size;
 	unsigned int pitch;
 	unsigned int format;
 	uint64_t modifier;

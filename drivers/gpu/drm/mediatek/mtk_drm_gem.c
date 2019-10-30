@@ -124,6 +124,7 @@ static void mtk_gem_vmap_pa_legacy(phys_addr_t pa, uint size,
 
 	ion_phys(client, handle, &phy_addr, &mva_size);
 	mtk_gem->dma_addr = (unsigned int)phy_addr;
+	mtk_gem->size = mva_size;
 #endif
 }
 
@@ -154,6 +155,7 @@ struct mtk_drm_gem_obj *mtk_drm_fb_gem_insert(struct drm_device *dev,
 		mtk_gem_vmap_pa(fb_base, vramsize, 0, dev->dev, &fb_pa);
 
 		mtk_gem->dma_addr = (dma_addr_t)fb_pa;
+		mtk_gem->size = size;
 		mtk_gem->cookie =
 			dma_alloc_attrs(priv->dma_dev, size, &mtk_gem->dma_addr,
 					GFP_KERNEL, mtk_gem->dma_attrs);
@@ -192,12 +194,13 @@ struct mtk_drm_gem_obj *mtk_drm_gem_create(struct drm_device *dev, size_t size,
 		ret = -ENOMEM;
 		goto err_gem_free;
 	}
+	mtk_gem->size = obj->size;
 
 	if (alloc_kmap)
 		mtk_gem->kvaddr = mtk_gem->cookie;
 
 	DRM_DEBUG_DRIVER("cookie = %p dma_addr = %pad size = %zu\n",
-			 mtk_gem->cookie, &mtk_gem->dma_addr, size);
+			 mtk_gem->cookie, &mtk_gem->dma_addr, mtk_gem->size);
 
 	return mtk_gem;
 
@@ -512,6 +515,7 @@ mtk_gem_prime_import_sg_table(struct drm_device *dev,
 	}
 
 	mtk_gem->dma_addr = sg_dma_address(sg->sgl);
+	mtk_gem->size = attach->dmabuf->size;
 	mtk_gem->sg = sg;
 
 	return &mtk_gem->base;
