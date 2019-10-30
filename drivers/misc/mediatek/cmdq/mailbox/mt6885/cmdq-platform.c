@@ -7,7 +7,29 @@
 
 #include "../cmdq-util.h"
 
-const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event)
+#define GCE_D_PA	0x10228000
+#define GCE_M_PA	0x10318000
+
+const char *cmdq_thread_module_dispatch(phys_addr_t gce_pa, s32 thread)
+{
+	if (gce_pa == GCE_D_PA) {
+		switch (thread) {
+		case 0 ... 9:
+			return "DISP";
+		case 16:
+			return "VDEC";
+		case 17 ... 18:
+			return "VENC";
+		default:
+			return "CMDQ";
+		}
+	}
+
+	return "CMDQ";
+}
+
+const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event,
+	s32 thread)
 {
 	switch (event) {
 	case CMDQ_SYNC_TOKEN_CONFIG_DIRTY:
@@ -20,9 +42,12 @@ const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event)
 		return "MSS";
 	case CMDQ_SYNC_TOKEN_MSF:
 		return "MSF";
+
+	case GCE_TOKEN_GPR_TIMER ... GCE_TOKEN_GPR_TIMER+32:
+		return cmdq_thread_module_dispatch(gce_pa, thread);
 	}
 
-	if (gce_pa == 0x10228000) // GCE-D
+	if (gce_pa == GCE_D_PA) // GCE-D
 		switch (event) {
 		case CMDQ_EVENT_DISP_OVL0_SOF ... CMDQ_EVENT_DP_INTF_SOF:
 		case CMDQ_EVENT_DISP_RDMA4_SOF
@@ -70,7 +95,7 @@ const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event)
 			return "CMDQ";
 		}
 
-	if (gce_pa == 0x10318000) // GCE-M
+	if (gce_pa == GCE_M_PA) // GCE-M
 		switch (event) {
 		case CMDQ_EVENT_IMG2_EVENT_TX_FRAME_DONE_0
 			... CMDQ_EVENT_IMG1_EVENT_TX_FRAME_DONE_23:
@@ -106,9 +131,9 @@ EXPORT_SYMBOL(cmdq_event_module_dispatch);
 u32 cmdq_util_hw_id(u32 pa)
 {
 	switch (pa) {
-	case 0x10228000:
+	case GCE_D_PA:
 		return 0;
-	case 0x10318000:
+	case GCE_M_PA:
 		return 1;
 	default:
 		cmdq_err("unknown addr:%x", pa);

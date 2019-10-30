@@ -1448,6 +1448,7 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 	dma_addr_t pc = 0;
 	phys_addr_t gce_pa = cmdq_mbox_get_base_pa(client->chan);
 	const char *mod = "CMDQ";
+	s32 thread_id = cmdq_mbox_chan_id(client->chan);
 
 	cmdq_util_dump_lock();
 
@@ -1483,15 +1484,18 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 	cmdq_util_dump_unlock();
 
 	if (inst && inst->op == CMDQ_CODE_WFE) {
-		mod = cmdq_event_module_dispatch(gce_pa, inst->arg_a);
+		mod = cmdq_event_module_dispatch(gce_pa, inst->arg_a,
+			thread_id);
 		cmdq_util_aee(mod,
-			"DISPATCH:%s inst:%#016llx OP:WAIT EVENT:%#x",
-			mod, *(u64 *)inst, inst->arg_a);
+			"DISPATCH:%s inst:%#018llx OP:WAIT EVENT:%hu thread:%d",
+			mod, *(u64 *)inst, inst->arg_a, thread_id);
 	} else if (inst) {
+		mod = cmdq_thread_module_dispatch(gce_pa, inst->arg_a);
+
 		/* not sync case, print raw */
 		cmdq_util_aee(mod,
-			"DISPATCH:%s inst:%#016llx OP:%#02x",
-			mod, *(u64 *)inst, inst->op);
+			"DISPATCH:%s inst:%#018llx OP:%#02hhx thread:%d",
+			mod, *(u64 *)inst, inst->op, thread_id);
 	} else {
 		/* no inst available */
 		cmdq_util_aee(mod, "DISPATCH:%s unknown instruction", mod);

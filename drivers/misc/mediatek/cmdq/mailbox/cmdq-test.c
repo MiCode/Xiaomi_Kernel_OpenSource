@@ -271,7 +271,7 @@ static void cmdq_test_mbox_cpr(struct cmdq_test *test)
 }
 
 u32 *cmdq_test_mbox_polling_timeout_unit(struct cmdq_pkt *pkt,
-	const unsigned long pa, const u32 pttn, const u32 mask)
+	const unsigned long pa, const u32 pttn, const u32 mask, const bool aee)
 {
 	struct cmdq_pkt_buffer	*buf;
 	u32			*out_va;
@@ -286,13 +286,15 @@ u32 *cmdq_test_mbox_polling_timeout_unit(struct cmdq_pkt *pkt,
 
 	cmdq_pkt_write_indriect(pkt, NULL, out_pa, CMDQ_CPR_STRAT_ID, ~0);
 	cmdq_pkt_poll_timeout(pkt, pttn & mask,
-		SUBSYS_NO_SUPPORT, pa, mask, 100, CMDQ_GPR_DEBUG_TIMER);
+		SUBSYS_NO_SUPPORT, pa, mask, aee ? U16_MAX : 100,
+		CMDQ_GPR_DEBUG_TIMER);
 	cmdq_pkt_write_indriect(pkt, NULL, out_pa + 4, CMDQ_CPR_STRAT_ID, ~0);
 	return out_va;
 }
 
 void cmdq_test_mbox_polling(
-	struct cmdq_test *test, const bool secure, const bool timeout)
+	struct cmdq_test *test, const bool secure, const bool timeout,
+	const bool aee)
 {
 	unsigned long	va = (unsigned long)(secure ?
 		CMDQ_THR_SPR3(test->gce.va, 3) :
@@ -338,7 +340,7 @@ void cmdq_test_mbox_polling(
 		cmdq_pkt_wfe(pkt[i], test->token_gpr_set4);
 		if (timeout)
 			out_va = cmdq_test_mbox_polling_timeout_unit(
-				pkt[i], pa, pttn[i], mask[i]);
+				pkt[i], pa, pttn[i], mask[i], aee);
 		else
 			cmdq_pkt_poll(pkt[i], NULL, pttn[i] & mask[i], pa,
 				mask[i], CMDQ_GPR_DEBUG_TIMER);
@@ -792,8 +794,8 @@ cmdq_test_trigger(struct cmdq_test *test, const s32 sec, const s32 id)
 		cmdq_test_mbox_write(test, sec, true);
 		cmdq_test_mbox_flush(test, sec, false);
 		cmdq_test_mbox_flush(test, sec, true);
-		cmdq_test_mbox_polling(test, sec, false);
-		cmdq_test_mbox_polling(test, sec, true);
+		cmdq_test_mbox_polling(test, sec, false, false);
+		cmdq_test_mbox_polling(test, sec, true, false);
 		cmdq_test_mbox_dma_access(test, sec);
 		cmdq_test_mbox_gpr_sleep(test, false);
 		cmdq_test_mbox_gpr_sleep(test, true);
@@ -810,8 +812,8 @@ cmdq_test_trigger(struct cmdq_test *test, const s32 sec, const s32 id)
 		cmdq_test_mbox_flush(test, sec, true);
 		break;
 	case 3:
-		cmdq_test_mbox_polling(test, sec, false);
-		cmdq_test_mbox_polling(test, sec, true);
+		cmdq_test_mbox_polling(test, sec, false, false);
+		cmdq_test_mbox_polling(test, sec, true, false);
 		break;
 	case 4:
 		cmdq_test_mbox_dma_access(test, sec);
@@ -843,6 +845,9 @@ cmdq_test_trigger(struct cmdq_test *test, const s32 sec, const s32 id)
 		break;
 	case 13:
 		cmdq_test_devapc_vio(test);
+		break;
+	case 14:
+		cmdq_test_mbox_polling(test, sec, true, true);
 		break;
 	default:
 		break;
@@ -984,8 +989,8 @@ static int cmdq_test_probe(struct platform_device *pdev)
 		return PTR_ERR(test->sec);
 	}
 #endif
-	cmdq_msg("test:%p dev:%p clt:%p loop:%p sec:%p",
-		test, test->dev, test->clt, test->loop, test->sec);
+	cmdq_msg("%s test:%p dev:%p clt:%p loop:%p sec:%p",
+		__func__, test, test->dev, test->clt, test->loop, test->sec);
 
 	// subsys
 	i = of_property_count_u32_elems(
