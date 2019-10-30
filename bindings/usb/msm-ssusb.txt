@@ -91,6 +91,8 @@ Optional properties :
 	capable DWC3 which does not have extcon handle.
 - qcom,default-mode-host: If present, start host mode on probe for an OTG
 	capable DWC3 which does not have extcon handle.
+- qcom,usb-charger: If present, phandle to device node associated with charger
+	device that handles battery charging on this USB port.
 
 Sub nodes:
 - Sub node for "DWC3- USB3 controller".
