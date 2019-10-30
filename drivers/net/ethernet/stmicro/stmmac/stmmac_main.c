@@ -2531,6 +2531,7 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
 			netdev_warn(priv->dev, "PTP init failed\n");
 		else
 			ret = clk_set_rate(priv->plat->clk_ptp_ref, 96000000);
+		ret = ethqos_init_pps(priv);
 	}
 
 #ifdef CONFIG_DEBUG_FS
@@ -2619,7 +2620,12 @@ static int stmmac_open(struct net_device *dev)
 		goto init_error;
 	}
 
+#ifdef CONFIG_PTPSUPPORT_OBJ
 	ret = stmmac_hw_setup(dev, true);
+#else
+	ret = stmmac_hw_setup(dev, false);
+#endif
+
 	if (ret < 0) {
 		netdev_err(priv->dev, "%s: Hw setup failed\n", __func__);
 		goto init_error;
