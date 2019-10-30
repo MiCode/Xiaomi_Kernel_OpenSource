@@ -74,17 +74,26 @@ static void cm_mgr_process(struct work_struct *work);
 static int cm_mgr_vcore_opp_to_bw_0[CM_MGR_VCORE_OPP_COUNT] = {
 	540,
 	460,
-	340,
 	460,
 	340,
-	460,
 	340,
-	460,
+	340, /* 5 */
+	340,
+	340,
+	340,
+	340,
+	340, /* 10 */
+	340,
+	340,
+	340,
+	340,
+	340, /* 15 */
 	340,
 	340,
 	230,
-	340,
-	230
+	230,
+	230, /* 20 */
+	230,
 };
 
 #define VCORE_OPP_BW_PTR(name) \

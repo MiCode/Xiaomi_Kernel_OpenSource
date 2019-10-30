@@ -22,7 +22,7 @@
 #define LIGHT_LOAD
 /* #define USE_AVG_PMU */
 /* #define DEBUG_CM_MGR */
-#define USE_TIMER_CHECK
+/* #define USE_TIMER_CHECK */
 /* #define USE_IDLE_NOTIFY */
 #define USE_NEW_CPU_OPP
 #define USE_CM_MGR_AT_SSPM
@@ -47,7 +47,7 @@
 #define USE_TIMER_CHECK_TIME msecs_to_jiffies(50)
 #define CM_MGR_INIT_DELAY_MS 1
 #define CM_MGR_BW_VALUE 0
-#define CM_MGR_VCORE_OPP_COUNT 13
+#define CM_MGR_VCORE_OPP_COUNT 22
 
 enum {
 	CM_MGR_LP4 = 0,

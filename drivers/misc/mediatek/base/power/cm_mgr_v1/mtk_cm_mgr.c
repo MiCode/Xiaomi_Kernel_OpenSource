@@ -1358,8 +1358,8 @@ int __init cm_mgr_module_init(void)
 				(void *) &cm_ipi_ackdata);
 	if (r) {
 		pr_info("[SSPM] IPIS_C_CM ipi_register fail, ret %d\n", r);
-		return -1;
 		cm_sspm_ready = -1;
+		return -1;
 	}
 	pr_info("SSPM is ready to service CM IPI\n");
 	cm_sspm_ready = 1;
