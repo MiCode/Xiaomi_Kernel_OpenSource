@@ -58,7 +58,7 @@
 #define EEPROM_I2C_WRITE_MSG_LENGTH_MAX 32
 #endif
 #ifndef EEPROM_WRITE_EN
-#define EEPROM_WRITE_EN 1
+#define EEPROM_WRITE_EN 0
 #endif
 
 static int Read_I2C_CAM_CAL(struct i2c_client *client,

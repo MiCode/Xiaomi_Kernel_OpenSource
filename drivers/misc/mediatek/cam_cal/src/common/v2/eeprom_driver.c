@@ -97,7 +97,7 @@ static unsigned int write_region(struct EEPROM_DRV_FD_DATA *pdata,
 	unsigned short dts_addr;
 	struct stCAM_CAL_LIST_STRUCT *plist = get_list(&pdata->sensor_info);
 	unsigned int size_limit = (plist && plist->maxEepromSize > 0)
-		? plist->maxEepromSize : 0x4000;
+		? plist->maxEepromSize : DEFAULT_MAX_EEPROM_SIZE_8K;
 
 	if (offset + size > size_limit) {
 		pr_debug("Error! not support address >= 0x%x!!\n", size_limit);
