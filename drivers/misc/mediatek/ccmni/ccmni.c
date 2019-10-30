@@ -548,7 +548,7 @@ static int ccmni_start_xmit(struct sk_buff *skb, struct net_device *dev)
 				memcpy(skb_tail_pointer(skb), &(tag->v1),
 					count);
 			} else if (tag->version == 2) {
-				count = sizeof(md_tag_packet_t);
+				count = sizeof(struct md_tag_packet *);
 				memcpy(skb_tail_pointer(skb), tag, count);
 			}
 			skb->len += count;
