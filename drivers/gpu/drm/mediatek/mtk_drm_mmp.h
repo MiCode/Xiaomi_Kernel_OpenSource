@@ -65,6 +65,7 @@ struct CRTC_MMP_Events {
 	mmp_event esd_recovery;
 	mmp_event leave_idle;
 	mmp_event enter_idle;
+	mmp_event frame_cfg;
 };
 
 struct DRM_MMP_Events *get_drm_mmp_events(void);

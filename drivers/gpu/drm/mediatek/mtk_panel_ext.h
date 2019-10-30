@@ -41,8 +41,8 @@ enum MTK_PANEL_MODE_SWITCH_STAGE {
 };
 
 struct mtk_panel_funcs {
-	int (*set_backlight_cmdq)(void *dsi_drv, struct drm_panel *panel,
-		dcs_write_gce cb, void *handle, unsigned int level);
+	int (*set_backlight_cmdq)(void *dsi_drv, dcs_write_gce cb,
+		void *handle, unsigned int level);
 	int (*reset)(struct drm_panel *panel, int on);
 	int (*ata_check)(struct drm_panel *panel);
 	int (*ext_param_set)(struct drm_panel *panel, unsigned int mode);

@@ -2155,6 +2155,16 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		mtk_ovl_backup_info_cmp(comp, params);
 		break;
 	}
+	case BACKUP_OVL_STATUS: {
+		struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+		struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
+		dma_addr_t slot = cmdq_buf->pa_base + DISP_SLOT_OVL_STATUS;
+
+		cmdq_pkt_mem_move(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_REG_OVL_STA,
+			slot, CMDQ_THR_SPR_IDX3);
+		break;
+	}
 	default:
 		break;
 	}

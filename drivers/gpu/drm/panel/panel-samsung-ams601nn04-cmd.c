@@ -347,8 +347,8 @@ static struct mtk_panel_params ext_params = {
 	.physical_height_um = 136512,
 };
 
-static int samsung_setbacklight_cmdq(void *dsi, struct drm_panel *panel,
-		dcs_write_gce cb, void *handle, unsigned int level)
+static int samsung_setbacklight_cmdq(void *dsi, dcs_write_gce cb,
+	void *handle, unsigned int level)
 {
 	char bl_tb0[] = {0xf0, 0x5a, 0x5a};
 	char bl_tb1[] = {0x51, 0xff, 0xff};

@@ -123,6 +123,8 @@ void init_crtc_mmp_event(void)
 			crtc_mmp_root, "leave_idle");
 		g_CRTC_MMP_Events[i].enter_idle = mmprofile_register_event(
 			crtc_mmp_root, "enter_idle");
+		g_CRTC_MMP_Events[i].frame_cfg =
+			mmprofile_register_event(crtc_mmp_root, "frame cfg");
 	}
 }
 

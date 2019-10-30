@@ -204,6 +204,7 @@ enum mtk_ddp_io_cmd {
 	DSI_TIMING_CHANGE,
 	GET_PANEL_NAME,
 	DSI_CHANGE_MODE,
+	BACKUP_OVL_STATUS,
 };
 
 struct golden_setting_context {

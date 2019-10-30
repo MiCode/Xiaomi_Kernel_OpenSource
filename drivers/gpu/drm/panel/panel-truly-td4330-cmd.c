@@ -597,8 +597,8 @@ static int panel_ata_check(struct drm_panel *panel)
 	return 0;
 }
 
-static int lcm_setbacklight_cmdq(void *dsi, struct drm_panel *panel,
-		dcs_write_gce cb, void *handle, unsigned int level)
+static int lcm_setbacklight_cmdq(void *dsi, dcs_write_gce cb,
+	void *handle, unsigned int level)
 {
 	char bl_tb0[] = {0x51, 0xFF};
 

@@ -454,7 +454,6 @@ static void bl_cmdq_cb(struct cmdq_cb_data data)
 	kfree(cb_data);
 }
 
-
 int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
@@ -1368,6 +1367,7 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_drm_private *private;
 	int session_id = -1, id, i;
+	unsigned int ovl_status = 0;
 
 	DDPINFO("%s:%d, data:%px, cb_data:%px\n",
 		__func__, __LINE__,
@@ -1385,6 +1385,18 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 			break;
 		}
 	}
+
+	if (id == 0) {
+		struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
+
+		ovl_status = *(unsigned int *)(cmdq_buf->va_base +
+			DISP_SLOT_OVL_STATUS);
+
+		if (ovl_status & 1)
+			DDPPR_ERR("ovl status error\n");
+
+	}
+	CRTC_MMP_MARK(id, frame_cfg, ovl_status, 0);
 
 	mtk_crtc_release_input_layer_fence(crtc, session_id);
 
@@ -2966,6 +2978,14 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	else if (mtk_crtc->fake_layer.first_dis) {
 		mtk_drm_crtc_disable_fake_layer(crtc, old_crtc_state);
 		mtk_crtc->fake_layer.first_dis = false;
+	}
+
+	/* backup ovl0 2l status for crtc0 */
+	if (index == 0) {
+		comp = mtk_ddp_comp_find_by_id(crtc, DDP_COMPONENT_OVL0_2L);
+		if (comp != NULL)
+			mtk_ddp_comp_io_cmd(comp, cmdq_handle,
+				BACKUP_OVL_STATUS, NULL);
 	}
 
 	atomic_set(&mtk_crtc->delayed_trig, 1);

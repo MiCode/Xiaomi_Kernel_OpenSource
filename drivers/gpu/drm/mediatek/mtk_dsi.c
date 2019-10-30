@@ -943,7 +943,8 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 	 * rd_rdy don't clear and wait for ESD &
 	 * Read LCM will clear the bit.
 	 */
-	status &= 0xfffe;
+	/* do not clear vm command done */
+	status &= 0xffde;
 	if (status) {
 		writel(~status, dsi->regs + DSI_INTSTA);
 		if (status & BUFFER_UNDERRUN_INT_FLAG) {
@@ -2172,21 +2173,30 @@ static void mtk_dsi_cmdq(struct mtk_dsi *dsi, const struct mipi_dsi_msg *msg)
 	mtk_dsi_mask(dsi, DSI_CMDQ_SIZE, CMDQ_SIZE, cmdq_size);
 }
 
-static void mtk_dsi_vm_cmdq(struct mtk_dsi *dsi, const struct mipi_dsi_msg *msg)
+static void mtk_dsi_vm_cmdq(struct mtk_dsi *dsi,
+	const struct mipi_dsi_msg *msg, struct cmdq_pkt *handle)
 {
 	const char *tx_buf = msg->tx_buf;
 	u8 config, type = msg->type;
 	u32 reg_val, i;
-	unsigned long goto_addr;
+	unsigned long addr;
 
 	config = (msg->tx_len > 2) ? VM_LONG_PACKET : 0;
 
 	if (msg->tx_len > 2) {
 		for (i = 0; i < msg->tx_len; i++) {
-			goto_addr = DSI_VM_CMD_DATA0 + i;
-			mtk_dsi_mask(dsi, goto_addr & (~(0x3UL)),
-					 (0xFFu << ((goto_addr & 0x3u) * 8)),
-					 tx_buf[i] << ((goto_addr & 0x3u) * 8));
+			addr = DSI_VM_CMD_DATA0 + i;
+			if (handle == NULL)
+				mtk_dsi_mask(dsi, addr & (~(0x3UL)),
+					 (0xFFu << ((addr & 0x3u) * 8)),
+					 tx_buf[i] << ((addr & 0x3u) * 8));
+			else
+				cmdq_pkt_write(handle,
+					dsi->ddp_comp.cmdq_base,
+					dsi->ddp_comp.regs_pa +
+					(addr & (~(0x3UL))),
+					tx_buf[i] << ((addr & 0x3u) * 8),
+					(0xFFu << ((addr & 0x3u) * 8)));
 		}
 		reg_val = (msg->tx_len << 16) | (type << 8) | config;
 	} else if (msg->tx_len == 2) {
@@ -2197,7 +2207,13 @@ static void mtk_dsi_vm_cmdq(struct mtk_dsi *dsi, const struct mipi_dsi_msg *msg)
 	}
 
 	reg_val |= (VM_CMD_EN + TS_VFP_EN);
-	writel(reg_val, dsi->regs + DSI_VM_CMD_CON);
+
+	if (handle == NULL)
+		writel(reg_val, dsi->regs + DSI_VM_CMD_CON);
+	else
+		cmdq_pkt_write(handle, dsi->ddp_comp.cmdq_base,
+			dsi->ddp_comp.regs_pa + DSI_VM_CMD_CON, reg_val, ~0);
+
 }
 
 static void mtk_dsi_cmdq_gce(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
@@ -2280,25 +2296,37 @@ void mipi_dsi_dcs_write_gce(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
 		break;
 	}
 
-	/* If vdo, stop it */
-	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp))
-		mtk_dsi_stop_vdo_mode(dsi, handle);
-	else
+	if (mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
 		mtk_dsi_poll_for_idle(dsi, handle);
+		mtk_dsi_cmdq_gce(dsi, handle, &msg);
 
-	mtk_dsi_cmdq_gce(dsi, handle, &msg);
+		cmdq_pkt_write(handle, dsi->ddp_comp.cmdq_base,
+			dsi->ddp_comp.regs_pa + DSI_START, 0x0, ~0);
+		cmdq_pkt_write(handle, dsi->ddp_comp.cmdq_base,
+			dsi->ddp_comp.regs_pa + DSI_START, 0x1, ~0);
 
-	cmdq_pkt_write(handle, dsi->ddp_comp.cmdq_base,
-		dsi->ddp_comp.regs_pa + DSI_START, 0x0, ~0);
-	cmdq_pkt_write(handle, dsi->ddp_comp.cmdq_base,
-		dsi->ddp_comp.regs_pa + DSI_START, 0x1, ~0);
+		mtk_dsi_poll_for_idle(dsi, handle);
+	} else {
+		/* set BL cmd */
+		mtk_dsi_vm_cmdq(dsi, &msg, handle);
 
-	mtk_dsi_poll_for_idle(dsi, handle);
+		/* clear VM_CMD_DONE */
+		cmdq_pkt_write(handle, dsi->ddp_comp.cmdq_base,
+			dsi->ddp_comp.regs_pa + DSI_INTSTA, 0,
+			VM_CMD_DONE_INT_EN);
 
-	/* If vdo, start it after lcm cmd sent */
-	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
-		mtk_dsi_start_vdo_mode(&dsi->ddp_comp, handle);
-		mtk_dsi_trigger(&dsi->ddp_comp, handle);
+		/* start to send VM cmd */
+		cmdq_pkt_write(handle, dsi->ddp_comp.cmdq_base,
+			dsi->ddp_comp.regs_pa + DSI_START, 0,
+			VM_CMD_START);
+		cmdq_pkt_write(handle, dsi->ddp_comp.cmdq_base,
+			dsi->ddp_comp.regs_pa + DSI_START, VM_CMD_START,
+			VM_CMD_START);
+
+		/* poll VM cmd done */
+		mtk_dsi_cmdq_poll(&dsi->ddp_comp, handle,
+			dsi->ddp_comp.regs_pa + DSI_INTSTA,
+			VM_CMD_DONE_INT_EN, VM_CMD_DONE_INT_EN);
 	}
 }
 
@@ -2339,7 +2367,7 @@ static ssize_t mtk_dsi_host_send_vm_cmd(struct mtk_dsi *dsi,
 	unsigned int loop_cnt = 0;
 	s32 tmp;
 
-	mtk_dsi_vm_cmdq(dsi, msg);
+	mtk_dsi_vm_cmdq(dsi, msg, NULL);
 
 	/* clear status */
 	mtk_dsi_mask(dsi, DSI_INTSTA, VM_CMD_DONE_INT_EN, 0);
@@ -2626,7 +2654,7 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		panel_ext = mtk_dsi_get_panel_ext(comp);
 		if (panel_ext && panel_ext->funcs
 			&& panel_ext->funcs->set_backlight_cmdq)
-			panel_ext->funcs->set_backlight_cmdq(dsi, dsi->panel,
+			panel_ext->funcs->set_backlight_cmdq(dsi,
 					mipi_dsi_dcs_write_gce,
 					handle, *(int *)params);
 	}
