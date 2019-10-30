@@ -1109,6 +1109,7 @@ static const struct mtk_mmsys_driver_data mt6885_mmsys_driver_data = {
 	.fake_eng_data = &mt6885_fake_eng_data,
 	.mmsys_id = MMSYS_MT6885,
 	.mode_tb = mt6885_mode_tb,
+	.sodi_config = mt6885_mtk_sodi_config,
 };
 
 #ifdef MTK_DRM_FENCE_SUPPORT

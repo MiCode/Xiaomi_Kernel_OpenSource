@@ -4007,6 +4007,8 @@ static void __mtk_crtc_old_sub_path_destroy(struct drm_crtc *crtc,
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_crtc_state *crtc_state = to_mtk_crtc_state(crtc->state);
 	struct cmdq_pkt *cmdq_handle;
+	struct mtk_crtc_ddp_ctx *ddp_ctx;
+	int i;
 
 	if (!mtk_crtc_with_sub_path(crtc, mtk_crtc->ddp_mode))
 		return;
@@ -4017,8 +4019,18 @@ static void __mtk_crtc_old_sub_path_destroy(struct drm_crtc *crtc,
 	_mtk_crtc_atmoic_addon_module_disconnect(crtc, mtk_crtc->ddp_mode,
 					&crtc_state->lye_state,
 					cmdq_handle);
+
+	ddp_ctx = &mtk_crtc->ddp_ctx[mtk_crtc->ddp_mode];
+	for (i = 0; i < ddp_ctx->ddp_comp_nr[DDP_FIRST_PATH]; i++) {
+		struct mtk_ddp_comp *comp =
+				ddp_ctx->ddp_comp[DDP_FIRST_PATH][i];
+
+		mtk_ddp_comp_stop(comp, cmdq_handle);
+	}
+
 	mtk_crtc_disconnect_single_path_cmdq(crtc, cmdq_handle,
 		DDP_FIRST_PATH,	mtk_crtc->ddp_mode, 1);
+
 	cmdq_pkt_flush(cmdq_handle);
 	cmdq_pkt_destroy(cmdq_handle);
 }

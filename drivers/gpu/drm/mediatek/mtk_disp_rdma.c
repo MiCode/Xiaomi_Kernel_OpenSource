@@ -1307,7 +1307,8 @@ static const struct mtk_disp_rdma_data mt2701_rdma_driver_data = {
 };
 
 static const struct mtk_disp_rdma_data mt6779_rdma_driver_data = {
-	.fifo_size = SZ_8K + SZ_16K, .sodi_config = mt6779_mtk_sodi_config,
+	.fifo_size = SZ_8K + SZ_16K,
+	.sodi_config = mt6779_mtk_sodi_config,
 };
 
 static const struct mtk_disp_rdma_data mt8173_rdma_driver_data = {
@@ -1316,6 +1317,7 @@ static const struct mtk_disp_rdma_data mt8173_rdma_driver_data = {
 
 static const struct mtk_disp_rdma_data mt6885_rdma_driver_data = {
 	.fifo_size = SZ_1K * 3 + SZ_32K,
+	.sodi_config = mt6885_mtk_sodi_config,
 };
 
 static const struct of_device_id mtk_disp_rdma_driver_dt_match[] = {

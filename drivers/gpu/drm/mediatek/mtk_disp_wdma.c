@@ -1193,12 +1193,17 @@ static const struct mtk_disp_wdma_data mt6779_wdma_driver_data = {
 	.sodi_config = mt6779_mtk_sodi_config,
 };
 
+static const struct mtk_disp_wdma_data mt6885_wdma_driver_data = {
+	.sodi_config = mt6885_mtk_sodi_config,
+};
+
 static const struct of_device_id mtk_disp_wdma_driver_dt_match[] = {
 	{.compatible = "mediatek,mt2701-disp-wdma"},
 	{.compatible = "mediatek,mt6779-disp-wdma",
 	 .data = &mt6779_wdma_driver_data},
 	{.compatible = "mediatek,mt8173-disp-wdma"},
-	{.compatible = "mediatek,mt6885-disp-wdma"},
+	{.compatible = "mediatek,mt6885-disp-wdma",
+	 .data = &mt6885_wdma_driver_data},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_disp_wdma_driver_dt_match);

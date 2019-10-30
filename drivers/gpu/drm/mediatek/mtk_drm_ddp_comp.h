@@ -458,6 +458,8 @@ void mtk_ddp_comp_iommu_enable(struct mtk_ddp_comp *comp,
 			       struct cmdq_pkt *handle);
 void mt6779_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			    struct cmdq_pkt *handle, void *data);
+void mt6885_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
+			    struct cmdq_pkt *handle, void *data);
 int mtk_ddp_comp_helper_get_opt(struct mtk_ddp_comp *comp,
 				enum MTK_DRM_HELPER_OPT option);
 #endif /* MTK_DRM_DDP_COMP_H */
