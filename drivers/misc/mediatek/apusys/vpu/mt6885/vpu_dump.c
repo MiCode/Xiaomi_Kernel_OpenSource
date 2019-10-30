@@ -13,6 +13,7 @@
 
 #include <linux/slab.h>
 #include <linux/sched/clock.h>
+#include <apusys_dbg.h>
 #include "vpu_debug.h"
 #include "vpu_reg.h"
 #include "vpu_cmn.h"
@@ -150,6 +151,8 @@ int vpu_dmp_create_locked(struct vpu_device *vd, struct vpu_request *req,
 	if (ret)
 		goto out;
 
+	apusys_reg_dump();
+
 	d = vd->dmp;
 	d->time = sched_clock();
 
@@ -273,6 +276,8 @@ void vpu_dmp_seq_core(struct seq_file *s, struct vpu_device *vd)
 
 	vpu_dmp_seq_bar(s, vd, "register");
 	vpu_dmp_seq_reg(s, vd);
+
+	apusys_dump_show(s, NULL);
 
 #define VPU_SEQ_IOVA(a, A) \
 	vpu_dmp_seq_iova(s, vd, &vd->iova_##a, #a" ", \
