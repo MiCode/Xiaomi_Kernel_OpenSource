@@ -52,10 +52,15 @@
 #define SMI_COMMON_CLAMP_EN_CLR		(0x3c8)
 
 #define SMI_DEBUG_S(slave)	(0x400 + ((slave) << 2))
+#define SMI_DEBUG_EXT(slave)	(0x420 + ((slave) << 2))
 #define SMI_DEBUG_M0		(0x430)
 #define SMI_DEBUG_M1		(0x434)
+#define SMI_DEBUG_EXT4		(0x438)
+#define SMI_DEBUG_EXT5		(0x43c)
 #define SMI_DEBUG_MISC		(0x440)
 #define SMI_DUMMY		(0x444)
+#define SMI_DEBUG_EXT6		(0x448)
+#define SMI_DEBUG_EXT7		(0x44c)
 
 /* LARB */
 #define SMI_LARB_STAT			(0x0)
