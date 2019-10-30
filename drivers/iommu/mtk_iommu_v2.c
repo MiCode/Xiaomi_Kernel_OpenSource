@@ -2296,6 +2296,11 @@ int mtk_iommu_get_iova_space(struct device *dev,
 		int *owner, struct list_head *list)
 {
 	struct mtk_iommu_domain *dom;
+	struct mtk_iommu_pgtable *pgtable = mtk_iommu_get_pgtable(NULL, 0);
+	unsigned long flags = 0;
+
+	if (!pgtable)
+		pr_notice("%s, invalid pgtable\n", __func__);
 
 	dom = __mtk_iommu_get_mtk_domain(dev);
 	if (dom)
@@ -2303,7 +2308,11 @@ int mtk_iommu_get_iova_space(struct device *dev,
 	else
 		*owner = -1;
 
+	if (pgtable)
+		spin_lock_irqsave(&pgtable->pgtlock, flags);
 	iommu_dma_get_iovad_info(dev, base, max);
+	if (pgtable)
+		spin_unlock_irqrestore(&pgtable->pgtlock, flags);
 
 	if (list)
 		iommu_get_resv_regions(dev, list);
