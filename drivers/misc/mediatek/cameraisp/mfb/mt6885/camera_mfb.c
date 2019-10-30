@@ -1704,7 +1704,7 @@ static void MFB_EnableClock(bool En)
  ******************************************************************************/
 static inline void MSS_Reset(void)
 {
-#if 1/*YWtodo*/
+#if 0/*YWtodo*/
 	LOG_DBG("- E.");
 	LOG_DBG(" MSS Reset start!\n");
 	spin_lock(&(MFBInfo.SpinLockMFBRef));
@@ -1735,7 +1735,7 @@ static inline void MSS_Reset(void)
  ******************************************************************************/
 static inline void MSF_Reset(void)
 {
-#if 1/*YWtodo*/
+#if 0/*YWtodo*/
 	unsigned int temp;
 
 	LOG_DBG("- E.");
