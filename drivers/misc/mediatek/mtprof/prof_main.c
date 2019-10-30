@@ -29,6 +29,7 @@
 #include <trace/events/signal.h>
 
 //#define MTK_FORK_EXIT_LOG
+#define MTK_DEATH_SIGNAL_LOG
 
 #ifdef CONFIG_MTK_ENG_BUILD
 
