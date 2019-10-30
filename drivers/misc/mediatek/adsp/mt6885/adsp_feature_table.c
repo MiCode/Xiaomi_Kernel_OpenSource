@@ -148,6 +148,8 @@ int _adsp_deregister_feature(u32 cid, u32 fid, u32 opt)
 		delay = (opt & DEREGI_FLAG_NODELAY) ?
 			0 : msecs_to_jiffies(ctrl->delay_ms);
 		queue_delayed_work(ctrl->wq, &ctrl->suspend_work, delay);
+		pr_info("%s, send suspend work cid(%u), fid(%u), delay(%lu)",
+				__func__, cid, fid, delay);
 	}
 
 	mutex_unlock(&ctrl->lock);

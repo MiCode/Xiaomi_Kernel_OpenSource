@@ -10,6 +10,7 @@
 #include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <linux/kobject.h>
+#include <linux/ktime.h>
 #include "adsp_clk.h"
 #include "adsp_mbox.h"
 #include "adsp_reserved_mem.h"
@@ -207,6 +208,7 @@ int adsp_core0_suspend(void)
 	int ret = 0, retry = 10;
 	u32 status = 0;
 	struct adsp_priv *pdata = adsp_cores[ADSP_A_ID];
+	ktime_t start = ktime_get();
 
 	if (get_adsp_state(pdata) == ADSP_RUNNING) {
 		reinit_completion(&pdata->done);
@@ -230,6 +232,8 @@ int adsp_core0_suspend(void)
 		switch_adsp_power(false);
 		set_adsp_state(pdata, ADSP_SUSPEND);
 	}
+	pr_info("%s(), done elapse %lld us", __func__,
+		ktime_us_delta(ktime_get(), start));
 	return 0;
 ERROR:
 	pr_warn("%s(), can't going to suspend, ret(%d)\n", __func__, ret);
@@ -241,6 +245,7 @@ int adsp_core0_resume(void)
 {
 	int ret = 0;
 	struct adsp_priv *pdata = adsp_cores[ADSP_A_ID];
+	ktime_t start = ktime_get();
 
 	if (get_adsp_state(pdata) == ADSP_SUSPEND) {
 		switch_adsp_power(true);
@@ -262,6 +267,8 @@ int adsp_core0_resume(void)
 			return -ETIME;
 		}
 	}
+	pr_info("%s(), done elapse %lld us", __func__,
+		ktime_us_delta(ktime_get(), start));
 	return 0;
 }
 
@@ -270,6 +277,7 @@ int adsp_core1_suspend(void)
 	int ret = 0, retry = 10;
 	u32 status = 0;
 	struct adsp_priv *pdata = adsp_cores[ADSP_B_ID];
+	ktime_t start = ktime_get();
 
 	if (get_adsp_state(pdata) == ADSP_RUNNING) {
 		reinit_completion(&pdata->done);
@@ -293,6 +301,8 @@ int adsp_core1_suspend(void)
 		switch_adsp_clk_ctrl_cg(false, ADSP_CLK_CORE_1_EN);
 		set_adsp_state(pdata, ADSP_SUSPEND);
 	}
+	pr_info("%s(), done elapse %lld us", __func__,
+		ktime_us_delta(ktime_get(), start));
 	return 0;
 ERROR:
 	pr_warn("%s(), can't going to suspend, ret(%d)\n", __func__, ret);
@@ -304,6 +314,7 @@ int adsp_core1_resume(void)
 {
 	int ret = 0;
 	struct adsp_priv *pdata = adsp_cores[ADSP_B_ID];
+	ktime_t start = ktime_get();
 
 	if (get_adsp_state(pdata) == ADSP_SUSPEND) {
 		/* core A force awake, for resume core B faster */
@@ -325,6 +336,8 @@ int adsp_core1_resume(void)
 
 		adsp_awake_unlock(ADSP_A_ID);
 	}
+	pr_info("%s(), done elapse %lld us", __func__,
+		ktime_us_delta(ktime_get(), start));
 	return 0;
 }
 
