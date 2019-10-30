@@ -27,6 +27,7 @@
 #include "ccci_bm.h"
 #include "modem_sys.h"
 #include "ccci_hif.h"
+#include "ccci_modem.h"
 
 #include <mt-plat/mtk_meminfo.h>
 #include <mt-plat/mtk_ccci_common.h>
@@ -1858,21 +1859,20 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 				rt_feature.data_len =
 				sizeof(struct ccci_misc_info_element);
 				c2k_flags = 0;
-#if defined(CONFIG_MTK_MD3_SUPPORT) && (CONFIG_MTK_MD3_SUPPORT > 0)
-				c2k_flags |= (1 << 0);
-#endif
-				/* SVLTE_MODE */
-				if (ccci_get_opt_val("opt_c2k_lte_mode") == 1)
-					c2k_flags |= (1 << 1);
-				/* SRLTE_MODE */
-				if (ccci_get_opt_val("opt_c2k_lte_mode") == 2)
+
+
+				if (is_cdma2000_enable(MD_SYS1)) {
 					c2k_flags |= (1 << 2);
-#ifdef CONFIG_MTK_C2K_OM_SOLUTION1
-				c2k_flags |=  (1 << 3);
+
+#if (MD_GENERATION == 6290 || MD_GENERATION == 6291)
+					c2k_flags |= (1 << 0);
+					c2k_flags |= (1 << 3);
 #endif
-#ifdef CONFIG_CT6M_SUPPORT
-				c2k_flags |= (1 << 4)
-#endif
+				}
+				CCCI_NORMAL_LOG(md_id, TAG,
+					"c2k_flags 0x%X; MD_GENERATION: %d\n",
+					c2k_flags, MD_GENERATION);
+
 				rt_f_element.feature[0] = c2k_flags;
 				append_runtime_feature(&rt_data,
 				&rt_feature, &rt_f_element);

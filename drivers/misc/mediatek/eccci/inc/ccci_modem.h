@@ -359,6 +359,8 @@ enum {
 	MD_FLIGHT_MODE_LEAVE = 2
 };/* FLIGHT_STAGE */
 
+extern unsigned int is_cdma2000_enable(int md_id);
+
 struct ccci_mem_layout *ccci_md_get_mem(int md_id);
 struct ccci_smem_region *ccci_md_get_smem_by_user_id(int md_id,
 	enum SMEM_USER_ID user_id);

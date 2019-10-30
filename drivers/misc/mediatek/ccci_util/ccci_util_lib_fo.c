@@ -282,6 +282,13 @@ static unsigned int ubin_md_support_id_to_rat(int md_support_id)
 	return legacy_ubin_rat_map[md_support_id - LEGACY_UBIN_START_ID];
 }
 
+unsigned int is_cdma2000_enable(int md_id)
+{
+	int mdtype = get_legacy_md_type(md_id);
+
+	return (ubin_md_support_id_to_rat(mdtype) & MD_CAP_CDMA2000);
+}
+
 static int find_ccci_tag_inf(char *name, char *buf, unsigned int size)
 {
 	unsigned int i;
