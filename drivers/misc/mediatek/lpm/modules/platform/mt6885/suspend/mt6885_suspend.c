@@ -22,11 +22,14 @@
 #include <mtk_lpm_type.h>
 #include <mtk_lpm_call_type.h>
 #include <mtk_power_gs_api.h>
+#include <mt-plat/mtk_ccci_common.h>
 
 #include "mt6885.h"
 #include "mt6885_suspend.h"
 
 unsigned int mt6885_suspend_status;
+u64 before_md_sleep_time;
+u64 after_md_sleep_time;
 
 #define WORLD_CLK_CNTCV_L        (0x10017008)
 #define WORLD_CLK_CNTCV_H        (0x1001700C)
@@ -60,6 +63,26 @@ void mtk_suspend_clk_dbg(void)
 #endif /* CONFIG_FPGA_EARLY_PORTING */
 }
 EXPORT_SYMBOL(mtk_suspend_clk_dbg);
+
+#define MD_SLEEP_INFO_SMEM_OFFEST (4)
+static u64 get_md_sleep_time(void)
+{
+	/* dump subsystem sleep info */
+#if defined(CONFIG_MTK_ECCCI_DRIVER)
+	u32 *share_mem = NULL;
+	struct md_sleep_status md_data;
+
+	share_mem = (u32 *)get_smem_start_addr(MD_SYS1,
+		SMEM_USER_LOW_POWER, NULL);
+	share_mem = share_mem + MD_SLEEP_INFO_SMEM_OFFEST;
+	memset(&md_data, 0, sizeof(struct md_sleep_status));
+	memcpy(&md_data, share_mem, sizeof(struct md_sleep_status));
+
+	return md_data.sleep_time;
+#else
+	return 0;
+#endif
+}
 
 static inline int mt6885_suspend_common_enter(unsigned int *susp_status)
 {
@@ -105,6 +128,9 @@ int mt6885_suspend_prompt(int cpu, const struct mtk_lpm_issuer *issuer)
 		_golden_read_reg(WORLD_CLK_CNTCV_L),
 		_golden_read_reg(WORLD_CLK_CNTCV_H));
 
+	/* Record md sleep time */
+	before_md_sleep_time = get_md_sleep_time();
+
 
 PLAT_LEAVE_SUSPEND:
 	return ret;
@@ -125,6 +151,11 @@ void mt6885_suspend_reflect(int cpu,
 	if (issuer)
 		issuer->log(MT_LPM_ISSUER_CPUIDLE, "suspend", NULL);
 
+	/* show md sleep duration during AP suspend */
+	after_md_sleep_time = get_md_sleep_time();
+	if (after_md_sleep_time >= before_md_sleep_time)
+		printk_deferred("[name:spm&][SPM] md_slp_duration = %llu",
+			after_md_sleep_time - before_md_sleep_time);
 }
 
 struct mtk_lpm_model mt6885_model_suspend = {
