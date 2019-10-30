@@ -18,6 +18,7 @@
 #include <linux/fs.h>
 #include <linux/uaccess.h>
 #include "vow_hw.h"
+#include "vow_assert.h"
 
 /*****************************************************************************
  * VOW Type Define
@@ -48,10 +49,11 @@
 #define VOW_MODEL_SIZE                 0x11000
 #define VOW_VOICEDATA_OFFSET           (VOW_MODEL_SIZE * 2)
 #define VOW_VOICEDATA_SIZE             0x12500 /* 74880, need over 2.3sec */
-#define WORD_H                         8
-#define WORD_L                         8
-#define WORD_H_MASK                    0xFF00
-#define WORD_L_MASK                    0x00FF
+/* IPI return value definition */
+#define WORD_H                         16
+#define WORD_L                         0
+#define WORD_H_MASK                    0xFFFF0000
+#define WORD_L_MASK                    0x0000FFFF
 /* multiplier of cycle to ns in 13m clock */
 #define CYCLE_TO_NS                    77
 #define VOW_STOP_DUMP_WAIT             50
@@ -99,7 +101,7 @@
 #define VOW_BARGEIN_DUMP_SIZE    0x3C00
 #endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
 
-#define KERNEL_VOW_DRV_VER "1.0.2"
+#define KERNEL_VOW_DRV_VER "2.0.2"
 struct dump_package_t {
 	uint32_t dump_data_type;
 	uint32_t mic_offset;
@@ -178,6 +180,7 @@ enum vow_ipi_msgid_t {
 	IPIMSG_VOW_COMBINED_INFO = 17,
 	IPIMSG_VOW_MODEL_START = 18,
 	IPIMSG_VOW_MODEL_STOP = 19,
+	IPIMSG_VOW_RETURN_VALUE = 20,
 };
 
 enum vow_eint_status_t {
@@ -379,7 +382,7 @@ struct vow_ipi_combined_info_t {
 	unsigned int mic_dump_size;
 	unsigned int mic_offset;
 #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT
-	unsigned int mic_dump_size_R;
+//	unsigned int mic_dump_size_R;
 	unsigned int mic_offset_R;
 #endif  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
 	unsigned int echo_dump_size;
@@ -388,9 +391,19 @@ struct vow_ipi_combined_info_t {
 	unsigned int recog_dump_size;
 	unsigned int recog_dump_offset;
 #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT
-	unsigned int recog_dump_size_R;
+//	unsigned int recog_dump_size_R;
 	unsigned int recog_dump_offset_R;
 #endif  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
 };
+
+
+
+/*****************************************************************************
+ * VOW Function Declaration
+ *****************************************************************************/
+bool vow_service_GetScpRecoverStatus(void);
+bool vow_service_GetVowRecoverStatus(void);
+void vow_ipi_rx_internal(unsigned int msg_id, void *msg_data);
+bool vow_ipi_rceive_ack(unsigned int msg_id, unsigned int msg_data);
 
 #endif /*__VOW_H__ */

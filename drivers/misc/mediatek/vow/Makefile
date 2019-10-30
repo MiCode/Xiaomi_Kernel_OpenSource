@@ -13,7 +13,9 @@
 
 ifeq ($(CONFIG_MTK_TINYSYS_SCP_SUPPORT),y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/$(CONFIG_MTK_PLATFORM)
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6785" "mt6771" "mt6768"))
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/common/framework
+endif
 endif
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/vow/$(CONFIG_MTK_PLATFORM)
 
