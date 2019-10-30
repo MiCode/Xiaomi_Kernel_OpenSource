@@ -445,7 +445,7 @@ static void cmdq_test_mbox_loop(struct cmdq_test *test)
 	cmdq_pkt_wfe(pkt, test->token_user0);
 	cmdq_pkt_finalize_loop(pkt);
 
-	cmdq_dump_pkt(pkt, 0);
+	cmdq_dump_pkt(pkt, 0, true);
 
 	test->iter = 0;
 	test->tick = true;

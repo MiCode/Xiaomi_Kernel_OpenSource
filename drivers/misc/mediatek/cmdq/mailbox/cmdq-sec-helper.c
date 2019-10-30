@@ -281,7 +281,7 @@ int cmdq_sec_pkt_wait_complete(struct cmdq_pkt *pkt,
 		cmdq_dump_core(client->chan);
 		cmdq_msg("thd:%d Hidden thread info since it's secure",
 			thread_id);
-		cmdq_dump_pkt(pkt, 0);
+		cmdq_dump_pkt(pkt, 0, false);
 		cmdq_sec_dump_notify_loop(client->chan);
 
 		cmdq_util_dump_unlock();

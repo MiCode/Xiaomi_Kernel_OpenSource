@@ -1487,7 +1487,7 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 		item->err_cb(cb_data);
 	}
 
-	cmdq_dump_pkt(pkt, pc);
+	cmdq_dump_pkt(pkt, pc, true);
 	cmdq_util_dump_smi();
 
 	cmdq_util_err("End of Error %u", err_num);
@@ -1576,7 +1576,7 @@ void cmdq_dump_summary(struct cmdq_client *client, struct cmdq_pkt *pkt)
 			"curr inst:");
 	else
 		cmdq_msg("curr inst: Not Available");
-	cmdq_dump_pkt(pkt, pc);
+	cmdq_dump_pkt(pkt, pc, false);
 }
 
 static int cmdq_pkt_wait_complete_loop(struct cmdq_pkt *pkt)
@@ -2090,7 +2090,7 @@ s32 cmdq_pkt_dump_buf(struct cmdq_pkt *pkt, dma_addr_t curr_pa)
 }
 EXPORT_SYMBOL(cmdq_pkt_dump_buf);
 
-int cmdq_dump_pkt(struct cmdq_pkt *pkt, dma_addr_t pc)
+int cmdq_dump_pkt(struct cmdq_pkt *pkt, dma_addr_t pc, bool dump_ist)
 {
 	if (!pkt)
 		return -EINVAL;
@@ -2105,7 +2105,8 @@ int cmdq_dump_pkt(struct cmdq_pkt *pkt, dma_addr_t pc)
 		pkt->rec_submit, pkt->rec_trigger,
 		pkt->rec_wait, pkt->rec_irq);
 #endif
-	cmdq_pkt_dump_buf(pkt, pc);
+	if (dump_ist)
+		cmdq_pkt_dump_buf(pkt, pc);
 
 	return 0;
 }
