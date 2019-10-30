@@ -172,6 +172,7 @@ struct mdla_dev {
 	struct work_struct power_off_work;
 	void (*power_pdn_work)(struct work_struct *work);
 	int mdla_power_status;
+	int mdla_sw_power_status;
 #ifdef __APUSYS_PREEMPTION__
 	struct mdla_scheduler *scheduler;
 #endif

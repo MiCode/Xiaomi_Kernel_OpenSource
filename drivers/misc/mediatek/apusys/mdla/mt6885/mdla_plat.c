@@ -384,23 +384,6 @@ int mdla_process_command(int core_id, struct command_entry *ce)
 	return ret;
 }
 #endif
-#if 0//6779 only, remove latter
-int hw_e1_timeout_detect(int core_id)
-{
-	u32 ste_debug_if_1;
-
-	//TODO, fix it for multi core
-	ste_debug_if_1 = mdla_reg_read_with_mdlaid(core_id, 0x0EA8);
-	if (((ste_debug_if_1&0x1C0) != 0x0 &&
-			(ste_debug_if_1&0x3) == 0x3)) {
-		mdla_timeout_debug("%s: match E1 timeout issue\n",
-				__func__);
-		mdla_devices[core_id].mdla_e1_detect_count++;
-		return -1;
-	}
-	return 0;
-}
-#endif
 int mdla_zero_skip_detect(int core_id)
 {
 	u32 dde_debug_if_0, dde_debug_if_2, dde_it_front_c_invalid;
@@ -805,7 +788,7 @@ void dump_timeout_debug_info(int core_id)
 		mdla_timeout_all_debug("apu_mdla_config_top+%04X: %08X\n",
 				i, mdla_cfg_read_with_mdlaid(core_id, i));
 	for (i = 0x0000; i < 0x1000; i += 4)
-		mdla_timeout_all_debug("apu_mdla_cmde_mreg_top+%04X: %08X\n",
+		mdla_timeout_debug("apu_mdla_cmde_mreg_top+%04X: %08X\n",
 				i, mdla_reg_read_with_mdlaid(core_id, i));
 
 }

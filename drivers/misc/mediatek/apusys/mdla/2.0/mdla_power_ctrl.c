@@ -64,6 +64,11 @@ int get_power_on_status(int core_id)
 	return mdla_devices[core_id].mdla_power_status;
 }
 
+int get_sw_power_on_status(int core_id)
+{
+	return mdla_devices[core_id].mdla_sw_power_status;
+}
+
 int mdla_pwr_on(int core_id)
 {
 
@@ -74,6 +79,8 @@ int mdla_pwr_on(int core_id)
 	enum DVFS_USER register_user = MDLA0+core_id;
 
 	mutex_lock(&mdla_devices[core_id].power_lock);
+
+	mdla_devices[core_id].mdla_sw_power_status = PWR_ON;
 
 	if (timer_pending(&mdla_devices[core_id].power_timer))
 		del_timer(&mdla_devices[core_id].power_timer);
@@ -122,10 +129,11 @@ power_on_done:
 int mdla_pwr_off(int core_id)
 {
 	int ret = 0;
-#ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
-	enum DVFS_USER register_user = MDLA0+core_id;
+	int i;
 
-	mutex_lock(&mdla_devices[core_id].power_lock);
+#ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
+	for (i = 0; i < mdla_max_num_core; i++)
+		mutex_lock(&mdla_devices[i].power_lock);
 
 	if (get_power_on_status(core_id) == PWR_OFF)
 		goto power_off_done;
@@ -136,21 +144,32 @@ int mdla_pwr_off(int core_id)
 
 	pmu_reg_save(core_id);
 
-	mdla_drv_debug("%s: MDLA %d start power on\n",
+	mdla_devices[core_id].mdla_sw_power_status = PWR_OFF;
+
+	/*avoid multi core power down pollute, pdn multi core simultaneously*/
+	for (i = 0; i < mdla_max_num_core; i++) {
+		if (get_sw_power_on_status(i) == PWR_ON)
+			goto power_off_done;
+	}
+
+	mdla_drv_debug("%s: MDLA %d start power off\n",
 			__func__, core_id);
 
-	ret = apu_device_power_off(register_user);
-	if (!ret) {
-		mdla_cmd_debug("%s power off device %d success\n",
-						__func__, register_user);
-		mdla_devices[core_id].mdla_power_status = PWR_OFF;
-	} else {
-		mdla_cmd_debug("%s power off device %d fail\n",
-						__func__, register_user);
+	for (i = 0; i < mdla_max_num_core; i++) {
+		ret = apu_device_power_off(MDLA0+i);
+		if (!ret) {
+			mdla_cmd_debug("%s power off device %d success\n",
+							__func__, MDLA0+i);
+			mdla_devices[i].mdla_power_status = PWR_OFF;
+		} else {
+			mdla_cmd_debug("%s power off device %d fail\n",
+							__func__, MDLA0+i);
+		}
 	}
 
 power_off_done:
-	mutex_unlock(&mdla_devices[core_id].power_lock);
+	for (i = 0; i < mdla_max_num_core; i++)
+		mutex_unlock(&mdla_devices[i].power_lock);
 #endif
 	return ret;
 }
