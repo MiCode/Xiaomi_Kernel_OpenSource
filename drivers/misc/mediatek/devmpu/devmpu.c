@@ -121,13 +121,13 @@ static int devmpu_vio_get(struct devmpu_vio_stat *vio, bool do_clear)
 	return 0;
 }
 
-void devmpu_vio_clear(void)
+void devmpu_vio_clear(unsigned int emi_id)
 {
 	struct arm_smccc_res smc_res;
 
 	/* clear hyp violation status */
 	arm_smccc_smc(MTK_SIP_KERNEL_DEVMPU_VIO_CLR,
-			0, 0, 0, 0, 0, 0, 0, &smc_res);
+			emi_id, 0, 0, 0, 0, 0, 0, &smc_res);
 
 	if (smc_res.a0) {
 		pr_err("%s:%d failed to clear violation, ret=0x%lx\n",

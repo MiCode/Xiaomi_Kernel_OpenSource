@@ -6,7 +6,7 @@
 #ifndef __DEVMPU_H__
 #define __DEVMPU_H__
 
-void devmpu_vio_clear(void);
+void devmpu_vio_clear(unsigned int emi_id);
 
 /**
  * Print DeviceMPU violation info.

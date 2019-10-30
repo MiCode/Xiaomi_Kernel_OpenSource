@@ -28,8 +28,8 @@
 #endif
 #define pr_fmt(fmt) LOG_TAG " " fmt
 
-static irqreturn_t devmpu_irq_handler_emi(struct reg_info_t *dump,
-	unsigned int leng)
+static irqreturn_t devmpu_irq_handler_emi(unsigned int emi_id,
+	struct reg_info_t *dump, unsigned int leng)
 {
 	unsigned int i;
 	unsigned int mpus = 0, mput = 0, mput_2nd = 0;
@@ -82,9 +82,9 @@ static irqreturn_t devmpu_irq_handler_emi(struct reg_info_t *dump,
 	return IRQ_NONE;
 }
 
-static void devmpu_vio_clear_emi(void)
+static void devmpu_vio_clear_emi(unsigned int emi_id)
 {
-	devmpu_vio_clear();
+	devmpu_vio_clear(emi_id);
 }
 
 int devmpu_regist_emi(void)
