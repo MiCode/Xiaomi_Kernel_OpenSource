@@ -54,8 +54,9 @@ static char *dsp_task_dsp_name[AUDIO_TASK_DAI_NUM] = {
 	[AUDIO_TASK_CAPTURE_UL1_ID] = "mtk_dsp_capture1",
 	[AUDIO_TASK_A2DP_ID]        = "mtk_dsp_a2dp",
 	[AUDIO_TASK_DATAPROVIDER_ID] = "mtk_dsp_dataprovider",
-	[AUDIO_TASK_CALL_FINAL_ID] = "mtk_dsp_call_final",
+	[AUDIO_TASK_CALL_FINAL_ID]  = "mtk_dsp_call_final",
 	[AUDIO_TASK_FAST_ID]        = "mtk_dsp_fast",
+	[AUDIO_TASK_KTV_ID]         = "mtk_dsp_ktv",
 };
 
 static int dsp_runtime_suspend(struct device *dev)

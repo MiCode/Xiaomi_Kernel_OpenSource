@@ -34,6 +34,7 @@ static struct adsp_feature_tb feature_table[ADSP_NUM_FEATURE_ID] = {
 	[CAPTURE_UL1_FEATURE_ID]      = {.name = "capture_ul1"},
 	[CALL_FINAL_FEATURE_ID]       = {.name = "call_final"},
 	[FAST_FEATURE_ID]             = {.name = "fast"},
+	[KTV_FEATURE_ID]              = {.name = "ktv"},
 };
 
 int adsp_get_feature_index(char *str)

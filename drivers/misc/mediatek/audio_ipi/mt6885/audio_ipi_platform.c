@@ -125,6 +125,7 @@ uint32_t audio_get_dsp_id(const uint8_t task)
 	case TASK_SCENE_VOIP:
 	case TASK_SCENE_CAPTURE_UL1:
 	case TASK_SCENE_AUDIO_CONTROLLER_HIFI3_B:
+	case TASK_SCENE_KTV:
 		dsp_id = AUDIO_OPENDSP_USE_HIFI3_B;
 		break;
 	default:

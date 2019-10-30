@@ -34,6 +34,7 @@ enum {
 	TASK_SCENE_MUSIC                = 13,
 	TASK_SCENE_CALL_FINAL           = 14,
 	TASK_SCENE_FAST                 = 15,
+	TASK_SCENE_KTV                  = 16,
 
 	/* control for driver */
 	TASK_SCENE_AUD_DAEMON,
