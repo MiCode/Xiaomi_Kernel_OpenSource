@@ -73,6 +73,13 @@ struct intf_params {
 	struct cam_req_mgr_crm_cb *crm_cb;
 };
 
+struct cam_sensor_intr_t {
+	struct cam_sensor_ctrl_t *sctrl;
+	struct gpio gpio_array[1];
+	int work_inited;
+	struct work_struct irq_work;
+};
+
 /**
  * struct cam_sensor_ctrl_t: Camera control structure
  * @device_name: Sensor device name
@@ -123,6 +130,7 @@ struct cam_sensor_ctrl_t {
 	bool bob_pwm_switch;
 	uint32_t last_flush_req;
 	uint16_t pipeline_delay;
+	struct cam_sensor_intr_t s_intr[AIS_MAX_INTR_GPIO];
 };
 
 #endif /* _CAM_SENSOR_DEV_H_ */
