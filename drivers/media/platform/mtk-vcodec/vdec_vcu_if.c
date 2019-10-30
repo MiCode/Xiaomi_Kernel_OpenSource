@@ -276,6 +276,23 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 					mtk_vcodec_debug(vcu, "+ vsi->dec.fb_fd[%d]:%llx\n",
 						i, vsi->dec.fb_fd[i]);
 				}
+				if (pfb->dma_general_buf != 0) {
+					pfb->general_buf_fd =
+						(uint32_t)get_mapped_fd(
+							pfb->dma_general_buf);
+					vsi->general_buf_fd =
+						pfb->general_buf_fd;
+					vsi->general_buf_size =
+						pfb->dma_general_buf->size;
+					mtk_vcodec_debug(vcu, "get_mapped_fd fb->dma_general_buf = %p, mapped fd = %d, size = %lu",
+						pfb->dma_general_buf,
+						vsi->general_buf_fd,
+						pfb->dma_general_buf->size);
+				} else {
+					pfb->general_buf_fd = -1;
+					vsi->general_buf_fd = -1;
+					mtk_vcodec_debug(vcu, "no general buf dmabuf");
+				}
 			} else {
 				vsi->dec.index = 0xFF;
 				mtk_vcodec_err(vcu, "Cannot get frame buffer from V4l2\n");

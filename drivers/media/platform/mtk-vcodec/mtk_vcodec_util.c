@@ -182,15 +182,19 @@ struct vdec_fb *mtk_vcodec_get_fb(struct mtk_vcodec_ctx *ctx)
 			pfb->fb_base[i].length = dst_buf->planes[i].length;
 			pfb->fb_base[i].dmabuf = dst_buf->planes[i].dbuf;
 		}
+		if (dst_buf_info->dma_general_buf != 0)
+			pfb->dma_general_buf = dst_buf_info->dma_general_buf;
 
 		pfb->status = 0;
-		mtk_v4l2_debug(1, "[%d] idx=%d pfb=0x%p VA=%p dma_addr[0]=%p dma_addr[1]=%p Size=%zx fd:%x",
+		mtk_v4l2_debug(1, "[%d] idx=%d pfb=0x%p VA=%p dma_addr[0]=%p dma_addr[1]=%p Size=%zx fd:%x, dma_general_buf = %p, general_buf_fd = %d",
 				ctx->id, dst_buf->index, pfb,
 				pfb->fb_base[0].va,
 				&pfb->fb_base[0].dma_addr,
 				&pfb->fb_base[1].dma_addr,
 				pfb->fb_base[0].size,
-				dst_buf->planes[0].m.fd);
+				dst_buf->planes[0].m.fd,
+				pfb->dma_general_buf,
+				pfb->general_buf_fd);
 
 		dst_buf_info->vb.vb2_buf.timestamp
 			= src_buf_info->vb.vb2_buf.timestamp;

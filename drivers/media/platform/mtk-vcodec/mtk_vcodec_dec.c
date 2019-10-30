@@ -609,14 +609,18 @@ static void mtk_vdec_worker(struct work_struct *work)
 			pfb->fb_base[i].length = dst_buf->planes[i].length;
 			pfb->fb_base[i].dmabuf = dst_buf->planes[i].dbuf;
 		}
+		if (dst_buf_info->dma_general_buf != 0)
+			pfb->dma_general_buf = dst_buf_info->dma_general_buf;
 		pfb->status = 0;
 
 		mtk_v4l2_debug(1,
-				"id=%d Framebuf  pfb=%p VA=%p Y_DMA=%pad C_DMA=%pad ion_buffer=(%p %p) Size=%zx",
+				"id=%d Framebuf  pfb=%p VA=%p Y_DMA=%pad C_DMA=%pad ion_buffer=(%p %p) Size=%zx, dma_general_buf = %p, general_buf_fd = %d",
 			dst_buf->index, pfb,
 			pfb->fb_base[0].va, &pfb->fb_base[0].dma_addr,
 			&pfb->fb_base[1].dma_addr, pfb->fb_base[0].dmabuf,
-			pfb->fb_base[1].dmabuf, pfb->fb_base[0].size);
+			pfb->fb_base[1].dmabuf, pfb->fb_base[0].size,
+			dst_buf_info->dma_general_buf,
+			dst_buf_info->general_buf_fd);
 	}
 
 	mtk_v4l2_debug(4, "===>[%d] vdec_if_decode() ===>", ctx->id);
@@ -1139,10 +1143,16 @@ static int vidioc_vdec_qbuf(struct file *file, void *priv,
 				timeval_to_ns(&buf->timestamp),
 				ctx->input_max_ts);
 		}
-	} else
-		mtk_v4l2_debug(1, "[%d] id=%d FB (%d) vb=%p",
+	} else {
+		if (buf->reserved2 == 0xFFFFFFFF)
+			mtkbuf->general_buf_fd = -1;
+		else
+			mtkbuf->general_buf_fd = (int)buf->reserved2;
+		mtk_v4l2_debug(1, "[%d] id=%d FB (%d) vb=%p, general_buf_fd=%d, mtkbuf->general_buf_fd = %d",
 				ctx->id, buf->index,
-				buf->length, mtkbuf);
+				buf->length, mtkbuf,
+				buf->reserved2, mtkbuf->general_buf_fd);
+	}
 
 	if (buf->flags & V4L2_BUF_FLAG_NO_CACHE_CLEAN) {
 		mtk_v4l2_debug(4, "[%d] No need for Cache clean, buf->index:%d. mtkbuf:%p",
@@ -1189,6 +1199,13 @@ static int vidioc_vdec_dqbuf(struct file *file, void *priv,
 			buf->flags |= V4L2_BUF_FLAG_CROP_CHANGED;
 		if (mtkbuf->flags & REF_FREED)
 			buf->flags |= V4L2_BUF_FLAG_REF_FREED;
+		if (mtkbuf->general_buf_fd < 0)
+			buf->reserved2 = 0xFFFFFFFF;
+		else
+			buf->reserved2 = mtkbuf->general_buf_fd;
+		mtk_v4l2_debug(2,
+			"dqbuf mtkbuf->general_buf_fd = %d",
+			mtkbuf->general_buf_fd);
 	}
 
 	return ret;
@@ -1913,12 +1930,22 @@ static int vb2ops_vdec_buf_prepare(struct vb2_buffer *vb)
 					ctx->picinfo.fb_sz[plane];
 				dma_buf_detach(vb->planes[plane].dbuf, buf_att);
 
+				dst_mem.general_buf_fd = mtkbuf->general_buf_fd;
+				if (mtkbuf->general_buf_fd > -1)
+					dst_mem.dma_general_buf =
+					  dma_buf_get(mtkbuf->general_buf_fd);
+				else
+					dst_mem.dma_general_buf = 0;
+				mtkbuf->dma_general_buf =
+					dst_mem.dma_general_buf;
 				mtk_v4l2_debug(4,
-				  "[%d] Cache sync- TD for %p sz=%d dev %p",
+				  "[%d] Cache sync- TD for %p sz=%d dev %p, general_buf_fd = %d, dma_general_buf = %p",
 				  ctx->id,
 				  (void *)dst_mem.fb_base[plane].dma_addr,
 				  (unsigned int)dst_mem.fb_base[plane].size,
-				  &ctx->dev->plat_dev->dev);
+				  &ctx->dev->plat_dev->dev,
+				  dst_mem.general_buf_fd,
+				  dst_mem.dma_general_buf);
 			}
 		}
 	}
@@ -2185,12 +2212,19 @@ static void vb2ops_vdec_buf_finish(struct vb2_buffer *vb)
 			dma_buf_detach(vb->planes[plane].dbuf, buf_att);
 
 			mtk_v4l2_debug(4,
-				"[%d] Cache sync- FD for %p sz=%d dev %p pfb %p",
+				"[%d] Cache sync- FD for %p sz=%d dev %p pfb %p, general_buf_fd = %d, dma_general_buf = %p",
 				ctx->id,
 				(void *)dst_mem.fb_base[plane].dma_addr,
 				(unsigned int)dst_mem.fb_base[plane].size,
 				&ctx->dev->plat_dev->dev,
-				&buf->frame_buffer);
+				&buf->frame_buffer,
+				mtkbuf->general_buf_fd,
+				mtkbuf->dma_general_buf);
+
+			if (mtkbuf->dma_general_buf != 0) {
+				dma_buf_put(mtkbuf->dma_general_buf);
+				mtkbuf->dma_general_buf = 0;
+			}
 		}
 	}
 }

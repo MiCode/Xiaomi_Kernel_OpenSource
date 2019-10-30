@@ -40,6 +40,8 @@ struct vdec_fb {
 	unsigned int    num_planes;
 	long long timestamp;
 	unsigned int    index;
+	int             general_buf_fd;
+	struct          dma_buf *dma_general_buf;
 };
 
 /**
@@ -83,6 +85,8 @@ struct mtk_video_dec_buf {
 	struct mtk_vcodec_mem bs_buffer;
 	struct vdec_fb  frame_buffer;
 	int     flags;
+	int     general_buf_fd;
+	struct  dma_buf *dma_general_buf;
 };
 
 extern const struct v4l2_ioctl_ops mtk_vdec_ioctl_ops;
