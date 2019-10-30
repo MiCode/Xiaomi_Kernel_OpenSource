@@ -1010,7 +1010,7 @@ static void mtk_iommu_tlb_sync(void *cookie)
 }
 #endif
 
-static void mtk_iommu_tlb_flush_all(void *cookie)
+void mtk_iommu_tlb_flush_all(void *cookie)
 {
 	mtk_iommu_tlb_flush_all_lock(cookie, true);
 }

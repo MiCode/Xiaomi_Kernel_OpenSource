@@ -460,7 +460,8 @@ struct mtk_iova_domain_data {
 #define IOVA_ADDR_16GB   (4UL << 32)
 const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 #if (defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
-	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT))
+	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)) || \
+	defined(CONFIG_MTK_GZ_SUPPORT_SDSP)
 	{ // boundary(0~4GB) IOVA space for OVL
 	 .boundary = 0,
 	 .owner = -1,
@@ -591,7 +592,8 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 #define RESERVED_IOVA_SIZE_APU_VLM  (0x04000000U)
 const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 #if (defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
-	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT))
+	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)) || \
+	defined(CONFIG_MTK_GZ_SUPPORT_SDSP)
 	{ //REE IOVA space
 	 .owner = -1,
 	 .min_iova = RESERVED_IOVA_ADDR_APU_VLM +
@@ -685,6 +687,8 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 #define MTK_M4U_SECURE_IRQ_SUPPORT
 #elif defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+#define MTK_M4U_SECURE_IRQ_SUPPORT
+#elif defined(CONFIG_MTK_GZ_SUPPORT_SDSP)
 #define MTK_M4U_SECURE_IRQ_SUPPORT
 #endif
 #endif

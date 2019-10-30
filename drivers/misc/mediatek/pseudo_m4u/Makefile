@@ -35,6 +35,9 @@ endif
 ifeq ($(CONFIG_MTK_CAM_SECURITY_SUPPORT),y)
   ccflags-y += -DCONFIG_MTK_CAM_SECURITY_SUPPORT
 endif
+ifeq ($(CONFIG_MTK_GZ_SUPPORT_SDSP),y)
+  ccflags-y += -DCONFIG_MTK_GZ_SUPPORT_SDSP
+endif
 ccflags-y += -I$(srctree)/drivers/iommu
 ccflags-y += -I$(srctree)/arch/arm/include
 ifneq (,$(filter $(strip $(CONFIG_MTK_PLATFORM)), "mt6761" "mt6758" "mt6779" "mt6768" "mt6785" "mt6885" "mt6873"))
@@ -43,6 +46,8 @@ ifeq ($(CONFIG_MTK_TEE_GP_SUPPORT),y)
 ifeq ($(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT),y)
 obj-y += pseudo_m4u_sec.o
 else ifeq ($(CONFIG_MTK_CAM_SECURITY_SUPPORT),y)
+obj-y += pseudo_m4u_sec.o
+else ifeq ($(CONFIG_MTK_GZ_SUPPORT_SDSP),y)
 obj-y += pseudo_m4u_sec.o
 endif
 endif
