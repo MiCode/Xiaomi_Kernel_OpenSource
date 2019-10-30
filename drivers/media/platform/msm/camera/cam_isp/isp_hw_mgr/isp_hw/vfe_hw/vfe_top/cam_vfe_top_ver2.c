@@ -455,6 +455,19 @@ static int cam_vfe_top_mux_get_reg_update(
 	return -EINVAL;
 }
 
+static int cam_vfe_top_mux_get_rdi_irq_mask(
+	struct cam_vfe_top_ver2_priv *top_priv,
+	void *cmd_args, uint32_t arg_size)
+{
+	struct cam_isp_hw_get_cmd_update  *cmd_update = cmd_args;
+
+	if (cmd_update->res->process_cmd)
+		return cmd_update->res->process_cmd(cmd_update->res,
+			CAM_ISP_HW_CMD_GET_RDI_IRQ_MASK, cmd_args, arg_size);
+
+	return -EINVAL;
+}
+
 static int cam_vfe_get_irq_register_dump(
 	struct cam_vfe_top_ver2_priv *top_priv,
 	void *cmd_args, uint32_t arg_size)
@@ -875,6 +888,10 @@ int cam_vfe_top_process_cmd(void *device_priv, uint32_t cmd_type,
 	case CAM_ISP_HW_CMD_DUMP_HW:
 		rc = cam_vfe_hw_dump(top_priv,
 			cmd_args, arg_size);
+		break;
+	case CAM_ISP_HW_CMD_GET_RDI_IRQ_MASK:
+		rc = cam_vfe_top_mux_get_rdi_irq_mask(top_priv, cmd_args,
+			arg_size);
 		break;
 	default:
 		rc = -EINVAL;
