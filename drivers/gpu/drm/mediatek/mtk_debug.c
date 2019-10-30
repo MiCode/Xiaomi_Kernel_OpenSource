@@ -331,6 +331,40 @@ int mtkfb_set_backlight_level(unsigned int level)
 }
 EXPORT_SYMBOL(mtkfb_set_backlight_level);
 
+int mtk_disp_mipi_ccci_callback(int en, unsigned int usrdata)
+{
+	struct drm_crtc *crtc;
+
+	crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+				typeof(*crtc), head);
+
+	if (!crtc) {
+		DDPPR_ERR("find crtc fail\n");
+		return 0;
+	}
+	mtk_crtc_mipi_freq_switch(crtc, en, usrdata);
+
+	return 0;
+}
+EXPORT_SYMBOL(mtk_disp_mipi_ccci_callback);
+
+int mtk_disp_osc_ccci_callback(int en, unsigned int usrdata)
+{
+	struct drm_crtc *crtc;
+
+	crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+				typeof(*crtc), head);
+
+	if (!crtc) {
+		DDPPR_ERR("find crtc fail\n");
+		return 0;
+	}
+	mtk_crtc_osc_freq_switch(crtc, en, usrdata);
+
+	return 0;
+}
+EXPORT_SYMBOL(mtk_disp_osc_ccci_callback);
+
 static int debug_get_info(unsigned char *stringbuf, int buf_len)
 {
 	int n = 0;
@@ -907,6 +941,18 @@ static void process_dbg_opt(const char *opt)
 		mtk_crtc->fake_layer.fake_layer_mask = mask;
 
 		DDPINFO("fake_layer:0x%x enable\n", mask);
+	} else if (!strncmp(opt, "mipi_ccci:", 10)) {
+		int en, ret;
+
+		ret = sscanf(opt, "mipi_ccci:%d\n", &en);
+		if (ret != 1) {
+			DDPPR_ERR("%d error to parse cmd %s\n",
+				__LINE__, opt);
+			return;
+		}
+
+		DDPINFO("mipi_ccci:%d\n", en);
+		mtk_disp_mipi_ccci_callback(en, 0);
 	}
 }
 

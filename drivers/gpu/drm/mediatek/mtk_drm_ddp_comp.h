@@ -205,6 +205,8 @@ enum mtk_ddp_io_cmd {
 	GET_PANEL_NAME,
 	DSI_CHANGE_MODE,
 	BACKUP_OVL_STATUS,
+	MIPI_HOPPING,
+	PANEL_OSC_HOPPING,
 };
 
 struct golden_setting_context {

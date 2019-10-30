@@ -532,6 +532,8 @@ struct mtk_drm_crtc {
 	struct timeval vblank_time;
 
 	atomic_t pending_vblank_op;
+	bool mipi_hopping_sta;
+	bool panel_osc_hopping_sta;
 };
 
 struct mtk_crtc_state {
@@ -634,6 +636,11 @@ void mtk_crtc_check_trigger(struct mtk_drm_crtc *mtk_crtc, bool delay);
 bool mtk_crtc_is_dc_mode(struct drm_crtc *crtc);
 void mtk_crtc_hw_block_ready(struct drm_crtc *crtc);
 int mtk_crtc_lcm_ATA(struct drm_crtc *crtc);
+int mtk_crtc_mipi_freq_switch(struct drm_crtc *crtc, int en,
+			unsigned int userdata);
+int mtk_crtc_osc_freq_switch(struct drm_crtc *crtc, int en,
+			unsigned int userdata);
+
 
 struct drm_display_mode *mtk_drm_crtc_avail_disp_mode(struct drm_crtc *crtc,
 	unsigned int idx);

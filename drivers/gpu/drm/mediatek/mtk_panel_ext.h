@@ -161,11 +161,26 @@ struct mtk_dsi_phy_timcon {
 	unsigned int clk_hs_post;
 };
 
+struct dynamic_mipi_params {
+	unsigned int switch_en;
+	unsigned int pll_clk;
+	unsigned int data_rate;
+
+	unsigned int vsa;
+	unsigned int vbp;
+	unsigned int vfp;
+
+	unsigned int hsa;
+	unsigned int hbp;
+	unsigned int hfp;
+};
+
 struct mtk_panel_params {
 	unsigned int pll_clk;
 	unsigned int data_rate;
 	struct mtk_dsi_phy_timcon phy_timcon;
 	unsigned int vfp_low_power;
+	struct dynamic_mipi_params dyn;
 	unsigned int cust_esd_check;
 	unsigned int esd_check_enable;
 	struct esd_check_item lcm_esd_check_table[ESD_CHECK_NUM];

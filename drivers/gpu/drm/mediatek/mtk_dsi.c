@@ -323,6 +323,16 @@ struct mtk_dsi {
 	unsigned int clk_hs_prpr;
 	unsigned int clk_hs_exit;
 	unsigned int clk_hs_post;
+
+	unsigned int vsa;
+	unsigned int vbp;
+	unsigned int vfp;
+	unsigned int hsa_byte;
+	unsigned int hbp_byte;
+	unsigned int hfp_byte;
+
+	bool mipi_hopping_sta;
+	bool panel_osc_hopping_sta;
 };
 
 enum DSI_MODE_CON {
@@ -739,43 +749,90 @@ static void mtk_dsi_ps_control(struct mtk_dsi *dsi)
 	writel(tmp_reg, dsi->regs + DSI_PSCTRL);
 }
 
-static void mtk_dsi_config_vdo_timing(struct mtk_dsi *dsi)
+static void mtk_dsi_calc_vdo_timing(struct mtk_dsi *dsi)
 {
 	u32 horizontal_sync_active_byte;
 	u32 horizontal_backporch_byte;
 	u32 horizontal_frontporch_byte;
 	u32 dsi_tmp_buf_bpp;
-
+	u32 t_vfp, t_vbp, t_vsa;
+	u32 t_hfp, t_hbp, t_hsa;
+	struct mtk_panel_ext *ext = dsi->ext;
 	struct videomode *vm = &dsi->vm;
+	struct dynamic_mipi_params *dyn = NULL;
+
+	if (ext && ext->params)
+		dyn = &ext->params->dyn;
+
+	t_vfp = (dsi->mipi_hopping_sta) ?
+			((dyn && !!dyn->vfp) ?
+			 dyn->vfp : vm->vfront_porch) :
+			vm->vfront_porch;
+
+	t_vbp = (dsi->mipi_hopping_sta) ?
+			((dyn && !!dyn->vbp) ?
+			 dyn->vbp : vm->vback_porch) :
+			vm->vback_porch;
+
+	t_vsa = (dsi->mipi_hopping_sta) ?
+			((dyn && !!dyn->vsa) ?
+			 dyn->vfp : vm->vsync_len) :
+			vm->vsync_len;
+
+	t_hfp = (dsi->mipi_hopping_sta) ?
+			((dyn && !!dyn->hfp) ?
+			 dyn->hfp : vm->hfront_porch) :
+			vm->hfront_porch;
+
+	t_hbp = (dsi->mipi_hopping_sta) ?
+			((dyn && !!dyn->hbp) ?
+			 dyn->hbp : vm->hback_porch) :
+			vm->hback_porch;
+
+	t_hsa = (dsi->mipi_hopping_sta) ?
+			((dyn && !!dyn->hsa) ?
+			 dyn->hsa : vm->hsync_len) :
+			vm->hsync_len;
 
 	if (dsi->format == MIPI_DSI_FMT_RGB565)
 		dsi_tmp_buf_bpp = 2;
 	else
 		dsi_tmp_buf_bpp = 3;
 
-	writel(vm->vsync_len, dsi->regs + DSI_VSA_NL);
-	writel(vm->vback_porch, dsi->regs + DSI_VBP_NL);
-	writel(vm->vfront_porch, dsi->regs + DSI_VFP_NL);
-	writel(vm->vactive, dsi->regs + DSI_VACT_NL);
-
-	horizontal_sync_active_byte = (vm->hsync_len * dsi_tmp_buf_bpp - 10);
+	horizontal_sync_active_byte =
+		ALIGN_TO((t_hsa * dsi_tmp_buf_bpp - 10), 4);
 
 	if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_SYNC_PULSE)
 		horizontal_backporch_byte =
-			(vm->hback_porch * dsi_tmp_buf_bpp - 10);
+			ALIGN_TO((t_hbp * dsi_tmp_buf_bpp - 10), 4);
 	else
 		horizontal_backporch_byte =
-			((vm->hback_porch + vm->hsync_len) * dsi_tmp_buf_bpp -
-			 10);
+			ALIGN_TO(((t_hbp + t_hsa) * dsi_tmp_buf_bpp -
+			 10), 4);
 
-	horizontal_frontporch_byte = (vm->hfront_porch * dsi_tmp_buf_bpp - 12);
+	horizontal_frontporch_byte =
+		ALIGN_TO((t_hfp * dsi_tmp_buf_bpp - 12), 4);
 
-	writel(ALIGN_TO((horizontal_sync_active_byte), 4),
-		dsi->regs + DSI_HSA_WC);
-	writel(ALIGN_TO((horizontal_backporch_byte), 4),
-		dsi->regs + DSI_HBP_WC);
-	writel(ALIGN_TO((horizontal_frontporch_byte), 4),
-		dsi->regs + DSI_HFP_WC);
+	dsi->vfp = t_vfp;
+	dsi->vbp = t_vbp;
+	dsi->vsa = t_vsa;
+	dsi->hfp_byte = horizontal_frontporch_byte;
+	dsi->hbp_byte = horizontal_backporch_byte;
+	dsi->hsa_byte = horizontal_sync_active_byte;
+}
+
+static void mtk_dsi_config_vdo_timing(struct mtk_dsi *dsi)
+{
+	struct videomode *vm = &dsi->vm;
+
+	writel(dsi->vsa, dsi->regs + DSI_VSA_NL);
+	writel(dsi->vbp, dsi->regs + DSI_VBP_NL);
+	writel(dsi->vfp, dsi->regs + DSI_VFP_NL);
+	writel(vm->vactive, dsi->regs + DSI_VACT_NL);
+
+	writel(dsi->hsa_byte, dsi->regs + DSI_HSA_WC);
+	writel(dsi->hbp_byte, dsi->regs + DSI_HBP_WC);
+	writel(dsi->hfp_byte, dsi->regs + DSI_HFP_WC);
 
 	mtk_dsi_ps_control(dsi);
 }
@@ -1199,6 +1256,7 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 	mtk_dsi_ps_control_vact(dsi);
 	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
 		mtk_dsi_set_vm_cmd(dsi);
+		mtk_dsi_calc_vdo_timing(dsi);
 		mtk_dsi_config_vdo_timing(dsi);
 	}
 
@@ -2097,6 +2155,75 @@ static void mtk_dsi_leave_idle(struct mtk_dsi *dsi)
 	mtk_dsi_clk_hs_mode(dsi, 1);
 }
 
+static void mtk_dsi_clk_change(struct mtk_dsi *dsi,
+		struct cmdq_pkt *handle, int en)
+{
+	struct mtk_panel_ext *ext = dsi->ext;
+	struct mtk_ddp_comp *comp = &dsi->ddp_comp;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(dsi->encoder.crtc);
+	bool mod_vfp, mod_vbp, mod_vsa;
+	bool mod_hfp, mod_hbp, mod_hsa;
+	unsigned int data_rate;
+
+	dsi->mipi_hopping_sta = en;
+
+	if (!(ext && ext->params &&
+			ext->params->dyn.switch_en == 1))
+		return;
+
+	mod_vfp = !!ext->params->dyn.vfp;
+	mod_vbp = !!ext->params->dyn.vbp;
+	mod_vsa = !!ext->params->dyn.vsa;
+	mod_hfp = !!ext->params->dyn.hfp;
+	mod_hbp = !!ext->params->dyn.hbp;
+	mod_hsa = !!ext->params->dyn.hsa;
+
+	if (en) {
+		data_rate = !!ext->params->dyn.data_rate ?
+				ext->params->dyn.data_rate :
+				ext->params->dyn.pll_clk * 2;
+	} else
+		data_rate = dsi->data_rate;
+
+	mtk_mipi_tx_pll_rate_set_adpt(dsi->phy, data_rate);
+
+	if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO)
+		mtk_dsi_calc_vdo_timing(dsi);
+
+	if (dsi->clk_refcnt == 0)
+		return;
+
+	if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO) {
+		if (mod_vfp)
+			mtk_dsi_porch_setting(comp, handle, DSI_VFP, dsi->vfp);
+
+		if (mod_vbp)
+			mtk_dsi_porch_setting(comp, handle, DSI_VBP, dsi->vbp);
+
+		if (mod_vsa)
+			mtk_dsi_porch_setting(comp, handle, DSI_VSA, dsi->vsa);
+
+		if (mod_hbp || mod_hfp || mod_hsa)
+			cmdq_pkt_wait_no_clear(handle,
+				mtk_crtc->gce_obj.event[EVENT_VDO_EOF]);
+
+		if (mod_hfp)
+			mtk_dsi_porch_setting(comp, handle, DSI_HFP,
+				dsi->hfp_byte);
+
+		if (mod_hbp)
+			mtk_dsi_porch_setting(comp, handle, DSI_HBP,
+				dsi->hbp_byte);
+
+		if (mod_hsa)
+			mtk_dsi_porch_setting(comp, handle, DSI_HSA,
+				dsi->hsa_byte);
+	}
+
+	mtk_mipi_tx_pll_rate_switch_gce(dsi->phy, handle, data_rate);
+
+}
+
 static int mtk_dsi_host_attach(struct mipi_dsi_host *host,
 			       struct mipi_dsi_device *device)
 {
@@ -2735,6 +2862,15 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 				dsi->ext->funcs->doze_get_mode_flags(
 					dsi->panel, *aod_en);
 		}
+	}
+		break;
+	case MIPI_HOPPING:
+	{
+		struct mtk_dsi *dsi =
+			container_of(comp, struct mtk_dsi, ddp_comp);
+		int *en = (int *)params;
+
+		mtk_dsi_clk_change(dsi, handle, *en);
 	}
 		break;
 	default:

@@ -3318,6 +3318,7 @@ static void mtk_crtc_get_event_name(struct mtk_drm_crtc *mtk_crtc, char *buf,
 	int crtc_id, len;
 	char output_comp[20];
 
+	/* TODO: remove hardcode comp event */
 	crtc_id = drm_crtc_index(&mtk_crtc->base);
 	switch (event_id) {
 	case EVENT_STREAM_DIRTY:
@@ -4583,6 +4584,93 @@ int mtk_crtc_find_prev_comp(struct drm_crtc *crtc, unsigned int ddp_mode,
 	}
 
 	return -1;
+}
+
+int mtk_crtc_mipi_freq_switch(struct drm_crtc *crtc, int en,
+			unsigned int userdata)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_ddp_comp *comp;
+	struct mtk_panel_ext *ext = mtk_crtc->panel_ext;
+	struct cmdq_pkt *cmdq_handle;
+
+	if (mtk_crtc->mipi_hopping_sta == en)
+		return 0;
+
+	if (!(ext && ext->params &&
+			ext->params->dyn.switch_en == 1))
+		return 0;
+
+	DDPMSG("%s, userdata=%d, en=%d\n", __func__, userdata, en);
+
+	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+	comp = mtk_ddp_comp_request_output(mtk_crtc);
+	if (!comp) {
+		DDPPR_ERR("request output fail\n");
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		return -EINVAL;
+	}
+
+	mtk_crtc->mipi_hopping_sta = en;
+
+	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
+			mtk_crtc->gce_obj.client[CLIENT_CFG]);
+
+	mtk_ddp_comp_io_cmd(comp,
+			cmdq_handle, MIPI_HOPPING, &en);
+
+	cmdq_pkt_flush(cmdq_handle);
+	cmdq_pkt_destroy(cmdq_handle);
+
+	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+	return 0;
+}
+
+int mtk_crtc_osc_freq_switch(struct drm_crtc *crtc, int en,
+			unsigned int userdata)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_ddp_comp *comp;
+	struct mtk_panel_ext *ext = mtk_crtc->panel_ext;
+	struct cmdq_pkt *cmdq_handle;
+
+	if (mtk_crtc->panel_osc_hopping_sta == en)
+		return 0;
+
+	if (!(ext && ext->params))
+		return 0;
+
+	DDPMSG("%s, userdata=%d, en=%d\n", __func__, userdata, en);
+
+	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+	comp = mtk_ddp_comp_request_output(mtk_crtc);
+	if (!comp) {
+		DDPPR_ERR("request output fail\n");
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		return -EINVAL;
+	}
+
+	mtk_crtc->panel_osc_hopping_sta = en;
+
+	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
+			mtk_crtc->gce_obj.client[CLIENT_CFG]);
+
+	/* Following section is for customization */
+	/* Start */
+	/* e.g. lmtk_ddp_comp_io_cmd(comp,
+	 *	cmdq_handle, PANEL_OSC_HOPPING, &en);
+	 */
+	/* End */
+
+	cmdq_pkt_flush(cmdq_handle);
+	cmdq_pkt_destroy(cmdq_handle);
+
+	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+	return 0;
 }
 
 

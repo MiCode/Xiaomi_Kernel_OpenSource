@@ -220,7 +220,10 @@ struct mtk_mipitx_data {
 struct mtk_mipi_tx {
 	struct device *dev;
 	void __iomem *regs;
+	resource_size_t regs_pa;
+	struct cmdq_base *cmdq_base;
 	u32 data_rate;
+	u32 data_rate_adpt;
 	const struct mtk_mipitx_data *driver_data;
 	struct clk_hw pll_hw;
 	struct clk *pll;
@@ -517,6 +520,26 @@ static bool mtk_is_mipi_tx_enable(struct clk_hw *hw)
 	return ((tmp & RG_DSI_PLL_EN) > 0);
 }
 
+static inline unsigned int _dsi_get_pcw(unsigned long data_rate,
+	unsigned int pcw_ratio)
+{
+	unsigned int pcw, tmp, pcw_floor;
+
+	/**
+	 * PCW bit 24~30 = floor(pcw)
+	 * PCW bit 16~23 = (pcw - floor(pcw))*256
+	 * PCW bit 8~15 = (pcw*256 - floor(pcw)*256)*256
+	 * PCW bit 0~7 = (pcw*256*256 - floor(pcw)*256*256)*256
+	 */
+	pcw = data_rate * pcw_ratio / 26;
+	pcw_floor = data_rate * pcw_ratio % 26;
+	tmp = ((pcw & 0xFF) << 24) | (((256 * pcw_floor / 26) & 0xFF) << 16) |
+		(((256 * (256 * pcw_floor % 26) / 26) & 0xFF) << 8) |
+		((256 * (256 * (256 * pcw_floor % 26) % 26) / 26) & 0xFF);
+
+	return tmp;
+}
+
 static int mtk_mipi_tx_pll_prepare_mt6779(struct clk_hw *hw)
 {
 	struct mtk_mipi_tx *mipi_tx = mtk_mipi_tx_from_clk_hw(hw);
@@ -615,7 +638,7 @@ static int mtk_mipi_tx_pll_prepare_mt6885(struct clk_hw *hw)
 {
 	struct mtk_mipi_tx *mipi_tx = mtk_mipi_tx_from_clk_hw(hw);
 	unsigned int txdiv, txdiv0, txdiv1, tmp;
-	u64 pcw;
+	u32 rate;
 
 	DDPDBG("%s+\n", __func__);
 
@@ -625,24 +648,27 @@ static int mtk_mipi_tx_pll_prepare_mt6885(struct clk_hw *hw)
 		return 0;
 	}
 
-	dev_dbg(mipi_tx->dev, "prepare: %u Hz\n", mipi_tx->data_rate);
-	if (mipi_tx->data_rate >= 2000000000) {
+	rate = (mipi_tx->data_rate_adpt) ? mipi_tx->data_rate_adpt :
+			mipi_tx->data_rate / 1000000;
+
+	dev_dbg(mipi_tx->dev, "prepare: %u MHz\n", rate);
+	if (rate >= 2000) {
 		txdiv = 1;
 		txdiv0 = 0;
 		txdiv1 = 0;
-	} else if (mipi_tx->data_rate >= 1000000000) {
+	} else if (rate >= 1000) {
 		txdiv = 2;
 		txdiv0 = 1;
 		txdiv1 = 0;
-	} else if (mipi_tx->data_rate >= 500000000) {
+	} else if (rate >= 500) {
 		txdiv = 4;
 		txdiv0 = 2;
 		txdiv1 = 0;
-	} else if (mipi_tx->data_rate > 250000000) {
+	} else if (rate > 250) {
 		txdiv = 8;
 		txdiv0 = 3;
 		txdiv1 = 0;
-	} else if (mipi_tx->data_rate >= 125000000) {
+	} else if (rate >= 125) {
 		txdiv = 16;
 		txdiv0 = 4;
 		txdiv1 = 0;
@@ -673,22 +699,7 @@ static int mtk_mipi_tx_pll_prepare_mt6885(struct clk_hw *hw)
 	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_PWR,
 				FLD_AD_DSI_PLL_SDM_ISO_EN, 0);
 
-	pcw = (mipi_tx->data_rate / 1000000) * txdiv / 26;
-	tmp = ((pcw & 0xFF) << 24) |
-	      (((256 * ((mipi_tx->data_rate / 1000000) * txdiv % 26) / 26) &
-		0xFF)
-	       << 16) |
-	      (((256 *
-		 (256 * ((mipi_tx->data_rate / 1000000) * txdiv % 26) % 26) /
-		 26) &
-		0xFF)
-	       << 8) |
-	      ((256 *
-		(256 *
-		 (256 * ((mipi_tx->data_rate / 1000000) * txdiv % 26) % 26) %
-		 26) /
-		26) &
-	       0xFF);
+	tmp = _dsi_get_pcw(rate, txdiv);
 	writel(tmp, mipi_tx->regs + MIPITX_PLL_CON0);
 
 	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_CON1,
@@ -787,6 +798,80 @@ static void mtk_mipi_tx_pll_unprepare_mt6885(struct clk_hw *hw)
 	DDPINFO("%s-\n", __func__);
 }
 
+void mtk_mipi_tx_pll_rate_set_adpt(struct phy *phy, unsigned long rate)
+{
+	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(phy);
+
+	mipi_tx->data_rate_adpt = rate;
+}
+
+void mtk_mipi_tx_pll_rate_switch_gce(struct phy *phy,
+		void *handle, unsigned long rate)
+{
+	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(phy);
+	unsigned int txdiv, txdiv0, txdiv1, tmp;
+	u32 reg_val;
+
+	DDPINFO("%s+ %lu\n", __func__, rate);
+
+	/* parameter rate should be MHz */
+	if (rate >= 2000) {
+		txdiv = 1;
+		txdiv0 = 0;
+		txdiv1 = 0;
+	} else if (rate >= 1000) {
+		txdiv = 2;
+		txdiv0 = 1;
+		txdiv1 = 0;
+	} else if (rate >= 500) {
+		txdiv = 4;
+		txdiv0 = 2;
+		txdiv1 = 0;
+	} else if (rate > 250) {
+		txdiv = 8;
+		txdiv0 = 3;
+		txdiv1 = 0;
+	} else if (rate >= 125) {
+		txdiv = 16;
+		txdiv0 = 4;
+		txdiv1 = 0;
+	} else {
+		return;
+	}
+
+	tmp = _dsi_get_pcw(rate, txdiv);
+
+	cmdq_pkt_write(handle, mipi_tx->cmdq_base,
+			mipi_tx->regs_pa + MIPITX_PLL_CON0, tmp, ~0);
+
+	reg_val = readl(mipi_tx->regs + MIPITX_PLL_CON1);
+
+	reg_val = ((reg_val & ~FLD_RG_DSI_PLL_POSDIV) |
+			((txdiv0 << 8) & FLD_RG_DSI_PLL_POSDIV));
+
+	reg_val = (reg_val & ~RG_DSI_PLL_SDM_PCW_CHG) |
+		(0 & RG_DSI_PLL_SDM_PCW_CHG);
+
+	cmdq_pkt_write(handle, mipi_tx->cmdq_base,
+			mipi_tx->regs_pa + MIPITX_PLL_CON1, reg_val, ~0);
+
+	reg_val = (reg_val & ~RG_DSI_PLL_SDM_PCW_CHG) |
+		(1 & RG_DSI_PLL_SDM_PCW_CHG);
+
+	cmdq_pkt_write(handle, mipi_tx->cmdq_base,
+			mipi_tx->regs_pa + MIPITX_PLL_CON1, reg_val, ~0);
+
+	reg_val = (reg_val & ~RG_DSI_PLL_SDM_PCW_CHG) |
+		(0 & RG_DSI_PLL_SDM_PCW_CHG);
+
+	cmdq_pkt_write(handle, mipi_tx->cmdq_base,
+			mipi_tx->regs_pa + MIPITX_PLL_CON1, reg_val, ~0);
+
+	DDPDBG("%s-\n", __func__);
+
+	return;
+
+}
 
 static long mtk_mipi_tx_pll_round_rate(struct clk_hw *hw, unsigned long rate,
 				       unsigned long *prate)
@@ -920,6 +1005,10 @@ static int mtk_mipi_tx_probe(struct platform_device *pdev)
 		dev_err(dev, "Failed to get memory resource: %d\n", ret);
 		return ret;
 	}
+
+	mipi_tx->regs_pa = mem->start;
+
+	mipi_tx->cmdq_base = cmdq_register_device(dev);
 
 	ref_clk = devm_clk_get(dev, NULL);
 	if (IS_ERR(ref_clk)) {
