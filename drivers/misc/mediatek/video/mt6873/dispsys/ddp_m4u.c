@@ -343,7 +343,7 @@ void disp_ion_cache_flush(struct ion_client *client,
 	if (!client || !handle)
 		return;
 
-	if (sync_type > ION_CACHE_FLUSH_BY_RANGE_USE_VA) {
+	if (sync_type > ION_CACHE_FLUSH_BY_RANGE_USE_PA) {
 		pr_info("Cannot use ion cache flush anymore\n");
 		return;
 	}

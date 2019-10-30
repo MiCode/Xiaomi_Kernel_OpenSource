@@ -7070,7 +7070,7 @@ void testmbox_loop(void)
 	cmdq_pkt_wfe(pkt, CMDQ_SYNC_TOKEN_USER_0);
 	cmdq_pkt_finalize_loop(pkt);
 
-	cmdq_dump_pkt(pkt, 0);
+	/*cmdq_dump_pkt(pkt, 0);*/
 
 	setup_timer(&g_loopTimer, &_testcase_loop_timer_func,
 		CMDQ_SYNC_TOKEN_USER_0);
