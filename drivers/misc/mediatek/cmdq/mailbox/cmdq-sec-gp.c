@@ -170,19 +170,19 @@ s32 cmdq_sec_execute_session(struct cmdq_sec_tee_context *tee,
 
 	if (status != TEEC_SUCCESS)
 		cmdq_err(
-			"[SEC]execute: TEEC_InvokeCommand:%u err:%d memex:%s memex2:%s cost:%lld",
+			"[SEC]execute: TEEC_InvokeCommand:%u err:%d memex:%s memex2:%s cost:%lldus",
 			cmd, status, mem_ex1 ? "true" : "false",
 			mem_ex2 ? "true" : "false",
 			ts);
-	else if (ts > 15)
+	else if (ts > 15000)
 		cmdq_msg(
-			"[SEC]execute: TEEC_InvokeCommand:%u ret:%d memex1:%s memex2:%s cost:%lld",
+			"[SEC]execute: TEEC_InvokeCommand:%u ret:%d memex1:%s memex2:%s cost:%lldus",
 			cmd, status, mem_ex1 ? "true" : "false",
 			mem_ex2 ? "true" : "false",
 			ts);
 	else
 		cmdq_log(
-			"[SEC]execute: TEEC_InvokeCommand:%u ret:%d memex1:%s memex2:%s cost:%lld",
+			"[SEC]execute: TEEC_InvokeCommand:%u ret:%d memex1:%s memex2:%s cost:%lldus",
 			cmd, status, mem_ex1 ? "true" : "false",
 			mem_ex2 ? "true" : "false",
 			ts);
