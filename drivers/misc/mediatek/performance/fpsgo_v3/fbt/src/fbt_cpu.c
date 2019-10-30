@@ -175,6 +175,8 @@ static int down_throttle_ns;
 static int fbt_down_throttle_enable;
 static int sync_flag;
 static int fbt_sync_flag_enable;
+static int set_cap_margin;
+static int fbt_cap_margin_enable;
 static int ultra_rescue;
 static int loading_policy;
 
@@ -182,6 +184,7 @@ static int vsync_period;
 
 static unsigned int cpu_max_freq;
 static struct fbt_cpu_dvfs_info *cpu_dvfs;
+static unsigned int def_capacity_margin;
 
 static int *clus_max_cap;
 static int max_cap_cluster;
@@ -467,6 +470,23 @@ static void fbt_find_ex_max_blc(int pid,
 	mutex_unlock(&blc_mlock);
 }
 
+static void fbt_set_cap_margin_locked(int set)
+{
+	if (!fbt_cap_margin_enable)
+		return;
+
+	if (set_cap_margin == set)
+		return;
+
+	fpsgo_main_trace("fpsgo set margin %d", set?1024:def_capacity_margin);
+
+	if (set)
+		set_capacity_margin(1024);
+	else
+		set_capacity_margin(def_capacity_margin);
+	set_cap_margin = set;
+}
+
 static int fbt_find_freerun(void)
 {
 	struct fbt_thread_blc *pos, *next;
@@ -506,6 +526,8 @@ static void fbt_free_bhr(void)
 
 	update_userlimit_cpu_freq(CPU_KIR_FPSGO, cluster_num, pld);
 	kfree(pld);
+
+	fbt_set_cap_margin_locked(0);
 }
 
 static void fbt_set_idleprefer_locked(int enable)
@@ -1711,6 +1733,9 @@ static int fbt_boost_policy(
 	if (!boost_ta)
 		fbt_set_min_cap_locked(thread_info, blc_wt, 1, 0);
 
+	if (blc_wt)
+		fbt_set_cap_margin_locked(1);
+
 	boost_info->target_time = target_time;
 	mutex_unlock(&fbt_mlock);
 
@@ -2321,6 +2346,7 @@ void fpsgo_base2fbt_no_one_render(void)
 	fbt_set_idleprefer_locked(0);
 	fbt_set_down_throttle_locked(-1);
 	fbt_set_sync_flag_locked(-1);
+	fbt_set_cap_margin_locked(0);
 	fbt_free_bhr();
 	fbt_filter_ppm_log_locked(0);
 	if (boost_ta)
@@ -2352,6 +2378,7 @@ void fpsgo_base2fbt_only_bypass(void)
 	fbt_filter_ppm_log_locked(0);
 	fbt_set_down_throttle_locked(-1);
 	fbt_set_sync_flag_locked(-1);
+	fbt_set_cap_margin_locked(0);
 
 	if (boost_ta)
 		fbt_clear_boost_value();
@@ -2445,6 +2472,7 @@ static void fbt_setting_exit(void)
 	fbt_set_idleprefer_locked(0);
 	fbt_set_down_throttle_locked(-1);
 	fbt_set_sync_flag_locked(-1);
+	fbt_set_cap_margin_locked(0);
 	fbt_free_bhr();
 	if (boost_ta)
 		fbt_clear_boost_value();
@@ -2889,6 +2917,45 @@ static ssize_t fbt_switch_sync_flag_write(struct file *flip,
 
 FBT_DEBUGFS_ENTRY(switch_sync_flag);
 
+static int fbt_switch_cap_margin_show(struct seq_file *m, void *unused)
+{
+	mutex_lock(&fbt_mlock);
+	SEQ_printf(m, "fbt_cap_margin_enable %d\n", fbt_cap_margin_enable);
+	SEQ_printf(m, "set_cap_margin %d\n", set_cap_margin);
+	SEQ_printf(m, "get_cap_margin %d\n", get_capacity_margin());
+	mutex_unlock(&fbt_mlock);
+
+	return 0;
+}
+
+static ssize_t fbt_switch_cap_margin_write(struct file *flip,
+			const char *ubuf, size_t cnt, loff_t *data)
+{
+	int val;
+	int ret;
+
+	ret = kstrtoint_from_user(ubuf, cnt, 0, &val);
+	if (ret)
+		return ret;
+
+	mutex_lock(&fbt_mlock);
+
+	if (!fbt_enable) {
+		mutex_unlock(&fbt_mlock);
+		return cnt;
+	}
+
+	if (!val && set_cap_margin != 0)
+		fbt_set_cap_margin_locked(0);
+	fbt_cap_margin_enable = val;
+
+	mutex_unlock(&fbt_mlock);
+
+	return cnt;
+}
+
+FBT_DEBUGFS_ENTRY(switch_cap_margin);
+
 static int fbt_ultra_rescue_show(struct seq_file *m, void *unused)
 {
 	mutex_lock(&fbt_mlock);
@@ -2971,6 +3038,8 @@ int __init fbt_cpu_init(void)
 	fbt_down_throttle_enable = 1;
 	sync_flag = -1;
 	fbt_sync_flag_enable = 1;
+	def_capacity_margin = get_capacity_margin();
+	fbt_cap_margin_enable = 1;
 	boost_ta = fbt_get_default_boost_ta();
 	adjust_loading = fbt_get_default_adj_loading();
 
@@ -3040,6 +3109,11 @@ int __init fbt_cpu_init(void)
 					fbt_debugfs_dir,
 					NULL,
 					&fbt_switch_sync_flag_fops);
+			debugfs_create_file("enable_switch_cap_margin",
+					0664,
+					fbt_debugfs_dir,
+					NULL,
+					&fbt_switch_cap_margin_fops);
 			debugfs_create_file("ultra_rescue",
 					0664,
 					fbt_debugfs_dir,
