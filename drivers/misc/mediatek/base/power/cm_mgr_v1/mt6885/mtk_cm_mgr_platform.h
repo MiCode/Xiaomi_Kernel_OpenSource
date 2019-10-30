@@ -82,6 +82,13 @@ extern int cpu_load[NR_CPUS];
 extern int loading_acc[NR_CPUS];
 extern int loading_cnt;
 
+#define DEBUG_CM_PERF_OPP
+extern int debounce_times_perf_down_local;
+extern int debounce_times_perf_down_force_local;
+extern int pm_qos_update_request_status;
+extern int cm_mgr_dram_opp_base;
+extern int cm_mgr_dram_opp;
+
 extern void cm_mgr_update_met(void);
 extern int cm_mgr_get_idx(void);
 extern int cm_mgr_get_stall_ratio(int cpu);

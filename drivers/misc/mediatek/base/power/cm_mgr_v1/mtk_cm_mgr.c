@@ -848,6 +848,16 @@ static int dbg_cm_mgr_proc_show(struct seq_file *m, void *v)
 	seq_printf(m, "cm_mgr_loading_enable %d\n", cm_mgr_loading_enable);
 	seq_printf(m, "cm_mgr_emi_demand_check %d\n", cm_mgr_emi_demand_check);
 
+#ifdef DEBUG_CM_PERF_OPP
+	seq_printf(m, "perfx cm_mgr_dram_opp %d (base: %d)\n",
+		cm_mgr_dram_opp_base, cm_mgr_dram_opp);
+	seq_printf(m, "perfx debounce_time_down_local %d (force: %d)\n",
+		debounce_times_perf_down_local,
+		debounce_times_perf_down_force_local);
+	seq_printf(m, "perfx pm_qos_update_request_status %d\n",
+		pm_qos_update_request_status);
+	seq_printf(m, "perfx cm_mgr_blank_status %d\n", cm_mgr_blank_status);
+#endif
 	seq_puts(m, "cpu_power_ratio_up");
 	for (i = 0; i < CM_MGR_EMI_OPP; i++)
 		seq_printf(m, " %d", cpu_power_ratio_up[i]);

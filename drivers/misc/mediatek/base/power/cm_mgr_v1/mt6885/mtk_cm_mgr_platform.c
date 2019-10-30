@@ -556,11 +556,11 @@ static void cm_mgr_sched_pm_init(void)
 static inline void cm_mgr_sched_pm_init(void) { }
 #endif /* CONFIG_CPU_PM */
 
-static int debounce_times_perf_down_local = -1;
-static int debounce_times_perf_down_force_local = -1;
-static int pm_qos_update_request_status;
-static int cm_mgr_dram_opp_base = -1;
-static int cm_mgr_dram_opp = -1;
+int debounce_times_perf_down_local = -1;
+int debounce_times_perf_down_force_local = -1;
+int pm_qos_update_request_status;
+int cm_mgr_dram_opp_base = -1;
+int cm_mgr_dram_opp = -1;
 
 static int cm_mgr_fb_notifier_callback(struct notifier_block *self,
 		unsigned long event, void *data)
@@ -713,6 +713,13 @@ void cm_mgr_perf_platform_set_status(int enable)
 
 		if (++debounce_times_perf_down_local <
 				debounce_times_perf_down) {
+			if (cm_mgr_dram_opp_base < 0) {
+				pm_qos_update_request(&ddr_opp_req,
+					PM_QOS_DDR_OPP_DEFAULT_VALUE);
+				pm_qos_update_request_status = enable;
+				debounce_times_perf_down_local = -1;
+				return;
+			}
 			if (ktime_ms_delta(ktime_get(), perf_now) < PERF_TIME)
 				return;
 			cm_mgr_dram_opp_base = -1;
