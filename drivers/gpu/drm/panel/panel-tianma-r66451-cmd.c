@@ -51,6 +51,8 @@ struct tianma {
 	int error;
 };
 
+static char bl_tb0[] = {0x51, 0xf, 0xff};
+
 #define tianma_dcs_write_seq(ctx, seq...)                                     \
 	({                                                                     \
 		const u8 d[] = {seq};                                          \
@@ -138,7 +140,7 @@ static void tianma_panel_init(struct tianma *ctx)
 	tianma_dcs_write_seq_static(ctx, 0xB6, 0x51, 0x00, 0x06, 0x23, 0x8A,
 		0x13, 0x1A, 0x05, 0x04, 0xFA, 0x05, 0x20);
 
-	tianma_dcs_write_seq_static(ctx, 0x51, 0x0F, 0xFF);
+	tianma_dcs_write_seq(ctx, bl_tb0[0], bl_tb0[1], bl_tb0[2]);
 	tianma_dcs_write_seq_static(ctx, 0x53, 0x04);
 	tianma_dcs_write_seq_static(ctx, 0x35, 0x00);
 	tianma_dcs_write_seq_static(ctx, 0x44, 0x08, 0x66);
@@ -310,7 +312,7 @@ static struct mtk_panel_params ext_params = {
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
 
-			.cmd = 0x53, .count = 1, .para_list[0] = 0x24,
+			.cmd = 0x53, .count = 1, .para_list[0] = 0x00,
 		},
 	.lcm_color_mode = MTK_DRM_COLOR_MODE_DISPLAY_P3,
 	.physical_width_um = 70200,
@@ -406,8 +408,6 @@ static struct mtk_panel_params ext_params_90hz = {
 static int tianma_setbacklight_cmdq(void *dsi, dcs_write_gce cb,
 	void *handle, unsigned int level)
 {
-	char bl_tb0[] = {0x51, 0xf, 0xff};
-
 	if (level > 255)
 		level = 255;
 
@@ -630,10 +630,23 @@ static int mode_switch(struct drm_panel *panel, unsigned int cur_mode,
 	return ret;
 }
 
+static int panel_ext_reset(struct drm_panel *panel, int on)
+{
+	struct tianma *ctx = panel_to_tianma(panel);
+
+	ctx->reset_gpio =
+		devm_gpiod_get(ctx->dev, "reset", GPIOD_OUT_HIGH);
+	gpiod_set_value(ctx->reset_gpio, on);
+	devm_gpiod_put(ctx->dev, ctx->reset_gpio);
+
+	return 0;
+}
+
 static struct mtk_panel_funcs ext_funcs = {
 	.set_backlight_cmdq = tianma_setbacklight_cmdq,
 	.ext_param_set = mtk_panel_ext_param_set,
 	.mode_switch = mode_switch,
+	.reset = panel_ext_reset,
 };
 #endif
 
