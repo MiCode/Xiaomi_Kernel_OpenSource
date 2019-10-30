@@ -16,6 +16,8 @@
 /dts-v1/;
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/iio/mt635x-auxadc.h>
+#include <dt-bindings/mfd/mt6359-irq.h>
 #include <dt-bindings/gce/mt6873-gce.h>
 #include <dt-bindings/mmc/mt6873-msdc.h>
 #include <generated/autoconf.h>
@@ -265,6 +267,17 @@
 	pwrap@1000d000 {
 		compatible = "mediatek,pwrap";
 		reg = <0 0x1000d000 0 0x1000>;
+
+		main_pmic: mt6359-pmic {
+			compatible = "mediatek,mt6359-pmic";
+			interrupt-parent = <&pio>;
+			interrupts = <214 IRQ_TYPE_LEVEL_HIGH 214 0>;
+			status = "okay";
+
+			pmic_oc_debug: pmic-oc-debug {
+				compatible = "mediatek,pmic-oc-debug";
+			};
+		};
 	};
 
 	kp@10010000 {
@@ -2466,4 +2479,6 @@
 	};
 
 };
+
+#include "mt6359p.dtsi"
 #include "cust_mt6873_msdc.dtsi"

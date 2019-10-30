@@ -221,7 +221,7 @@ static int mt6315_irq_init(struct mt6315_chip *chip)
 		return 0;
 	}
 
-	irq_data = devm_kzalloc(chip->dev, sizeof(struct pmic_irq_data *),
+	irq_data = devm_kzalloc(chip->dev, sizeof(struct pmic_irq_data),
 				GFP_KERNEL);
 	if (!irq_data)
 		return -ENOMEM;

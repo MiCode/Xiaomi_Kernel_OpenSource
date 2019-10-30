@@ -108,6 +108,7 @@ unsigned int PMIC_CHIP_VER(void)
 	return ret;
 }
 
+#if defined(CONFIG_MACH_MT6885)
 void PMIC_LP_INIT_SETTING(void)
 {
 	g_pmic_chip_version = PMIC_CHIP_VER();
@@ -200,3 +201,17 @@ void PMIC_LP_INIT_SETTING(void)
 	pr_info("[%s] Chip Ver = %d\n", __func__, g_pmic_chip_version);
 #endif /*LP_INIT_SETTING_VERIFIED*/
 }
+#elif defined(CONFIG_MACH_MT6873)
+void PMIC_LP_INIT_SETTING(void)
+{
+	g_pmic_chip_version = PMIC_CHIP_VER();
+#if LP_INIT_SETTING_VERIFIED
+	/*SODI3*/
+	//TODO
+
+	/*Deepidle*/
+	//TODO
+	pr_info("[%s] Chip Ver = %d\n", __func__, g_pmic_chip_version);
+#endif /*LP_INIT_SETTING_VERIFIED*/
+}
+#endif
