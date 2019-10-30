@@ -263,6 +263,22 @@ int ufs_mtk_pltfrm_xo_ufs_req(struct ufs_hba *hba, bool on)
 	u32 value;
 	int retry;
 
+	if (!hba->card) {
+		/*
+		 * In case card is not init, just ignore it.
+		 * Because clock is default on.
+		 * After card init done the clk control
+		 * will be normal.
+		 */
+		dev_info(hba->dev, "%s: card not init skip\n",
+			__func__);
+		return 0;
+	}
+
+	/* inform ATF clock is on */
+	if (on)
+		mt_secure_call(MTK_SIP_KERNEL_UFS_CTL, 4, 1, 0, 0);
+
 	/*
 	 * Delay before disable ref-clk: H8 -> delay A -> disable ref-clk
 	 *		delayA
@@ -271,7 +287,7 @@ int ufs_mtk_pltfrm_xo_ufs_req(struct ufs_hba *hba, bool on)
 	 * Toshiba	100us
 	 */
 	if (!on) {
-		switch (ufs_mtk_hba->card->wmanufacturerid) {
+		switch (hba->card->wmanufacturerid) {
 		case UFS_VENDOR_TOSHIBA:
 			udelay(100);
 			break;
@@ -325,7 +341,7 @@ int ufs_mtk_pltfrm_xo_ufs_req(struct ufs_hba *hba, bool on)
 	 * Toshiba	32us
 	 */
 	if (on) {
-		switch (ufs_mtk_hba->card->wmanufacturerid) {
+		switch (hba->card->wmanufacturerid) {
 		case UFS_VENDOR_TOSHIBA:
 			udelay(32);
 			break;
@@ -339,6 +355,10 @@ int ufs_mtk_pltfrm_xo_ufs_req(struct ufs_hba *hba, bool on)
 			break;
 		}
 	}
+
+	/* inform ATF clock is off */
+	if (!on)
+		mt_secure_call(MTK_SIP_KERNEL_UFS_CTL, 4, 0, 0, 0);
 
 	return 0;
 }
@@ -384,6 +404,50 @@ int ufs_mtk_pltfrm_bootrom_deputy(struct ufs_hba *hba)
 	return 0;
 }
 
+int ufs_mtk_pltfrm_ref_clk_ctrl(struct ufs_hba *hba, bool on)
+{
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+	int ret = 0;
+	u32 val = 0;
+
+	if (on) {
+		/* Host need turn on clock by itself */
+		ret = ufs_mtk_pltfrm_xo_ufs_req(hba, true);
+		if (ret)
+			goto out;
+		if (host) {
+			ret = ufs_mtk_perf_setup(host, true);
+			if (ret)
+				goto out;
+		}
+	} else {
+		if (host) {
+			ret = ufs_mtk_perf_setup(host, false);
+			if (ret)
+				goto out;
+		}
+
+		/* Check powerstate before turn off clock */
+		ret = ufs_mtk_generic_read_dme_no_check(UIC_CMD_DME_GET,
+			VENDOR_POWERSTATE, 0, &val, 100);
+		if (ret) {
+			dev_info(hba->dev, "%s: check power state fail (%d)\n",
+				__func__, ret);
+			return ret;
+		}
+
+		if (val == VENDOR_POWERSTATE_HIBERNATE) {
+			/* Host need turn off clock by itself */
+			ret = ufs_mtk_pltfrm_xo_ufs_req(hba, false);
+		} else
+			dev_info(hba->dev, "%s: power state (%d) clk not off\n",
+				__func__, val);
+	}
+
+out:
+	return ret;
+}
+
 /**
  * ufs_mtk_deepidle_hibern8_check - callback function for Deepidle & SODI.
  * Release all resources: DRAM/26M clk/Main PLL and dsiable 26M ref clk if
@@ -393,73 +457,16 @@ int ufs_mtk_pltfrm_bootrom_deputy(struct ufs_hba *hba)
  */
 int ufs_mtk_pltfrm_deepidle_check_h8(void)
 {
-#ifdef SPM_READY
-	int ret = 0;
-	u32 tmp = 0;
-
-	/**
-	 * If current device is not active or link is h8, it means it is after
-	 * ufshcd_suspend() through
-	 * a. runtime or system pm b. ufshcd_shutdown
-	 * Both a. and b. will disable 26MHz ref clk(XO_UFS),
-	 * so that deepidle/SODI do not need to disable 26MHz ref clk here.
-	 */
-	if (ufs_mtk_hba->curr_dev_pwr_mode != UFS_ACTIVE_PWR_MODE ||
-		ufshcd_is_link_hibern8(ufs_mtk_hba)) {
-		spm_resource_req(SPM_RESOURCE_USER_UFS, SPM_RESOURCE_RELEASE);
-		return UFS_H8_SUSPEND;
-	}
-
-	/* Release all resources if entering H8 mode */
-	ret = ufs_mtk_generic_read_dme(UIC_CMD_DME_GET,
-		VENDOR_POWERSTATE, 0, &tmp, 100);
-
-	if (ret) {
-		/* ret == -1 means there is outstanding
-		 * req/task/uic/pm ongoing, not an error
-		 */
-		if (ret != -1)
-			dev_err(ufs_mtk_hba->dev,
-				"ufshcd_dme_get 0x%x fail, ret = %d!\n",
-				VENDOR_POWERSTATE, ret);
-		return ret;
-	}
-
-	if (tmp == VENDOR_POWERSTATE_HIBERNATE) {
-		/* Host need turn off clock by self */
-		ufs_mtk_pltfrm_xo_ufs_req(ufs_mtk_hba, false);
-
-		spm_resource_req(SPM_RESOURCE_USER_UFS, SPM_RESOURCE_RELEASE);
-		return UFS_H8;
-	}
-
-	return -1;
-#else
-	return -1;
-#endif
+	/* No Need for MT6885 */
+	return 0;
 }
-
 
 /**
  * ufs_mtk_deepidle_leave - callback function for leaving Deepidle & SODI.
  */
 void ufs_mtk_pltfrm_deepidle_leave(void)
 {
-	/* Enable MPHY 26MHz ref clock after leaving deepidle */
-
-	/* If current device is not active, it means it is after
-	 * ufshcd_suspend() through a. runtime or system pm b. ufshcd_shutdown
-	 * And deepidle/SODI can not enter in ufs suspend/resume
-	 * callback by idle_lock_by_ufs()
-	 * Therefore, it's guranteed that UFS is in H8 now
-	 * and 26MHz ref clk is disabled by suspend callback
-	 * deepidle/SODI do not need to enable 26MHz ref clk here
-	 */
-	if (ufs_mtk_hba->curr_dev_pwr_mode != UFS_ACTIVE_PWR_MODE)
-		return;
-
-	/* Host need turn on clock by self */
-	ufs_mtk_pltfrm_xo_ufs_req(ufs_mtk_hba, true);
+	/* No Need for MT6885 */
 }
 
 /**
@@ -469,12 +476,7 @@ void ufs_mtk_pltfrm_deepidle_leave(void)
  */
 void ufs_mtk_pltfrm_deepidle_lock(struct ufs_hba *hba, bool lock)
 {
-#ifdef SPM_READY
-	if (lock)
-		idle_lock_by_ufs(1);
-	else
-		idle_lock_by_ufs(0);
-#endif
+	/* No Need for MT6885 */
 }
 
 int ufs_mtk_pltfrm_host_sw_rst(struct ufs_hba *hba, u32 target)
@@ -570,6 +572,8 @@ int ufs_mtk_pltfrm_host_sw_rst(struct ufs_hba *hba, u32 target)
 
 int ufs_mtk_pltfrm_init(void)
 {
+	ufs_mtk_hba->caps |= UFSHCD_CAP_CLK_GATING;
+
 	return 0;
 }
 
@@ -661,27 +665,14 @@ int ufs_mtk_pltfrm_parse_dt(struct ufs_hba *hba)
 
 int ufs_mtk_pltfrm_resume(struct ufs_hba *hba)
 {
-	ufs_mtk_pltfrm_xo_ufs_req(ufs_mtk_hba, true);
-
 	return 0;
 }
 
 int ufs_mtk_pltfrm_suspend(struct ufs_hba *hba)
 {
-	/* Disable MPHY 26MHz ref clock in H8 mode */
-	ufs_mtk_pltfrm_xo_ufs_req(ufs_mtk_hba, false);
-
-#ifdef SPM_READY
-	if (ufs_mtk_hba->curr_dev_pwr_mode != UFS_ACTIVE_PWR_MODE)
-		spm_resource_req(SPM_RESOURCE_USER_UFS, SPM_RESOURCE_RELEASE);
-#endif
-
 #if 0
 	/* TEST ONLY: emulate UFSHCI power off by HCI SW reset */
 	ufs_mtk_pltfrm_host_sw_rst(hba, SW_RST_TARGET_UFSHCI);
 #endif
-
 	return 0;
 }
-
-

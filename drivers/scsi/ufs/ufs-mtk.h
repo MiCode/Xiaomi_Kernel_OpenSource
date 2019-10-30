@@ -92,6 +92,12 @@ enum {
 };
 #define H8_POLL_TOUT_MS             100
 
+enum perf_mode {
+	PERF_FORCE_DISABLE   = 0,
+	PERF_FORCE_ENABLE    = 1,
+	PERF_AUTO            = 2,
+};
+
 struct ufs_cmd_str_struct {
 	char str[32];
 	char cmd;
@@ -178,7 +184,8 @@ struct ufs_mtk_host {
 	struct ufs_hba *hba;
 
 	/* performance mode */
-	bool perf_mode;
+	enum perf_mode perf_mode;
+	bool perf_en;
 	int crypto_vcore_opp;
 	struct clk *crypto_clk_mux;
 	struct clk *crypto_parent_clk_normal;
@@ -215,6 +222,8 @@ void ufs_mtk_dbg_dump_scsi_cmd(struct ufs_hba *hba,
 	struct scsi_cmnd *cmd, u32 flag);
 int ufs_mtk_deepidle_hibern8_check(void);
 void ufs_mtk_deepidle_leave(void);
+int ufs_mtk_generic_read_dme_no_check(u32 uic_cmd, u16 mib_attribute,
+	u16 gen_select_index, u32 *value, unsigned long retry_ms);
 int ufs_mtk_generic_read_dme(u32 uic_cmd, u16 mib_attribute,
 	u16 gen_select_index, u32 *value, unsigned long retry_ms);
 void ufs_mtk_hwfde_cfg_cmd(struct ufs_hba *hba,
@@ -224,6 +233,7 @@ void ufs_mtk_parse_auto_hibern8_timer(struct ufs_hba *hba);
 void ufs_mtk_parse_dt(struct ufs_hba *hba);
 bool ufs_mtk_perf_is_supported(struct ufs_mtk_host *host);
 int ufs_mtk_perf_setup_crypto_clk(struct ufs_mtk_host *host, bool perf);
+int ufs_mtk_perf_setup(struct ufs_mtk_host *host, bool perf);
 int ufs_mtk_ioctl_ffu(struct scsi_device *dev, void __user *buf_user);
 int ufs_mtk_ioctl_get_fw_ver(struct scsi_device *dev, void __user *buf_user);
 int ufs_mtk_ioctl_query(struct ufs_hba *hba, u8 lun, void __user *buf_user);

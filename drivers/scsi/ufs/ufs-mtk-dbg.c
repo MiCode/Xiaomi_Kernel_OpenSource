@@ -515,7 +515,8 @@ static int ufs_perf_proc_show(struct seq_file *m, void *v)
 
 	seq_puts(m, "UFS Performance Mode\n");
 	seq_printf(m, "  - supported: %d\n", ufs_mtk_perf_is_supported(host));
-	seq_printf(m, "  - enabled: %d\n", host->perf_mode);
+	seq_printf(m, "  - enabled: %d\n", host->perf_en);
+	seq_printf(m, "  - mode: %d\n", host->perf_mode);
 	seq_printf(m, "  - crypto_vcore_opp: %d\n", host->crypto_vcore_opp);
 
 	return 0;
@@ -528,7 +529,7 @@ static ssize_t ufs_perf_proc_write(struct file *file, const char *ubuf,
 	unsigned long op = UFS_CMD_UNKNOWN;
 	char cmd[16] = {0};
 	loff_t buff_pos = 0;
-	int ret;
+	int ret = 0, last_mode;
 
 	ret = simple_write_to_buffer(cmd, 16, &buff_pos, ubuf, count);
 	if (ret < 0) {
@@ -541,16 +542,24 @@ static ssize_t ufs_perf_proc_write(struct file *file, const char *ubuf,
 	if (kstrtoul(cmd, 10, &op))
 		return -EINVAL;
 
-	if (op == 1 && !host->perf_mode) {
+	last_mode = host->perf_mode;
+
+	if (op == PERF_AUTO) {
+		host->perf_mode = PERF_AUTO;
+		ret = 0;
+	} else if (op == PERF_FORCE_ENABLE &&
+			host->perf_mode != PERF_FORCE_ENABLE) {
+		host->perf_mode = PERF_FORCE_ENABLE;
 		ret = ufs_mtk_perf_setup_crypto_clk(host, true);
-		if (!ret)
-			host->perf_mode = true;
-	} else if (op == 0 && host->perf_mode) {
+	} else if (op == PERF_FORCE_DISABLE &&
+			host->perf_mode != PERF_FORCE_DISABLE) {
+		host->perf_mode = PERF_FORCE_DISABLE;
 		ret = ufs_mtk_perf_setup_crypto_clk(host, false);
-		if (!ret)
-			host->perf_mode = false;
 	} else
 		return -EINVAL;
+
+	if (ret)
+		host->perf_mode = last_mode;
 
 	return count;
 }

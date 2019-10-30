@@ -16,9 +16,6 @@
 #include "ufshcd.h"
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
-/* If SPM function not ready, comment this define */
-/* #define SPM_READY */ /* need platform porting */
-
 /* If UPMU function not ready, comment this define */
 #define UPMU_READY
 #endif
@@ -100,6 +97,7 @@ int  ufs_mtk_pltfrm_bootrom_deputy(struct ufs_hba *hba);
 int  ufs_mtk_pltfrm_deepidle_check_h8(void);
 void ufs_mtk_pltfrm_deepidle_leave(void);
 void ufs_mtk_pltfrm_deepidle_lock(struct ufs_hba *hba, bool lock);
+int  ufs_mtk_pltfrm_ref_clk_ctrl(struct ufs_hba *hba, bool on);
 int  ufs_mtk_pltfrm_init(void);
 int  ufs_mtk_pltfrm_parse_dt(struct ufs_hba *hba);
 int  ufs_mtk_pltfrm_resume(struct ufs_hba *hba);

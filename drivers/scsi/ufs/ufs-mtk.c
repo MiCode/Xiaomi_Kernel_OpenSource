@@ -743,6 +743,43 @@ bool ufs_mtk_perf_is_supported(struct ufs_mtk_host *host)
 		return true;
 }
 
+int ufs_mtk_perf_setup_req(struct ufs_mtk_host *host, bool perf)
+{
+	int err = 0;
+
+	err = clk_prepare_enable(host->crypto_clk_mux);
+	if (err) {
+		dev_info(host->hba->dev, "%s: clk_prepare_enable(): %d\n",
+			 __func__, err);
+		goto out;
+	}
+
+	if (perf) {
+		pm_qos_update_request(host->req_vcore,
+				      host->crypto_vcore_opp);
+		err = clk_set_parent(host->crypto_clk_mux,
+				     host->crypto_parent_clk_perf);
+	} else {
+		err = clk_set_parent(host->crypto_clk_mux,
+				     host->crypto_parent_clk_normal);
+		pm_qos_update_request(host->req_vcore,
+				      PM_QOS_VCORE_OPP_DEFAULT_VALUE);
+	}
+
+	if (err)
+		dev_info(host->hba->dev, "%s: clk_set_parent(): %d\n",
+			 __func__, err);
+
+	clk_disable_unprepare(host->crypto_clk_mux);
+
+out:
+	ufs_mtk_dbg_add_trace(host->hba, UFS_TRACE_PERF_MODE,
+		perf, 0, (u32)err,
+		0, 0, 0, 0, 0, 0);
+
+	return err;
+}
+
 int ufs_mtk_perf_setup_crypto_clk(struct ufs_mtk_host *host, bool perf)
 {
 	int err = 0;
@@ -774,31 +811,7 @@ int ufs_mtk_perf_setup_crypto_clk(struct ufs_mtk_host *host, bool perf)
 
 	clk_prepared = true;
 
-	err = clk_prepare_enable(host->crypto_clk_mux);
-	if (err) {
-		dev_info(host->hba->dev, "%s: clk_prepare_enable(): %d\n",
-			 __func__, err);
-		goto out;
-	}
-
-	if (perf) {
-		pm_qos_update_request(host->req_vcore,
-				      host->crypto_vcore_opp);
-		err = clk_set_parent(host->crypto_clk_mux,
-				     host->crypto_parent_clk_perf);
-	} else {
-		err = clk_set_parent(host->crypto_clk_mux,
-				     host->crypto_parent_clk_normal);
-		pm_qos_update_request(host->req_vcore,
-				      PM_QOS_VCORE_OPP_DEFAULT_VALUE);
-	}
-
-	if (err)
-		dev_info(host->hba->dev, "%s: clk_set_parent(): %d\n",
-			 __func__, err);
-
-	clk_disable_unprepare(host->crypto_clk_mux);
-
+	err = ufs_mtk_perf_setup_req(host, perf);
 out:
 	/*
 	 * add event before any possible incoming commands
@@ -807,15 +820,36 @@ out:
 	dev_info(host->hba->dev, "perf mode: request %s %s\n",
 		 perf ? "on" : "off",
 		 err ? "failed" : "ok");
-	ufs_mtk_dbg_add_trace(host->hba, UFS_TRACE_PERF_MODE,
-		perf, 0, (u32)err,
-		0, 0, 0, 0, 0, 0);
 
 	if (clk_prepared)
 		ufshcd_clock_scaling_unprepare(host->hba);
 
 	if (rpm_resumed)
 		pm_runtime_put_sync(host->hba->dev);
+
+	if (!err)
+		host->perf_en = perf;
+
+	return err;
+}
+
+int ufs_mtk_perf_setup(struct ufs_mtk_host *host,
+	 bool perf)
+{
+	int err = 0;
+
+	if (!ufs_mtk_perf_is_supported(host) ||
+		(host->perf_mode != PERF_AUTO)) {
+		/* return without error */
+		return 0;
+	}
+
+	err = ufs_mtk_perf_setup_req(host, perf);
+	if (!err)
+		host->perf_en = perf;
+	else
+		dev_info(host->hba->dev, "%s: %s fail %d\n",
+		 __func__, perf ? "en":"dis", err);
 
 	return err;
 }
@@ -877,7 +911,33 @@ static int ufs_mtk_perf_init_crypto(struct ufs_hba *hba)
 	pm_qos_add_request(host->req_vcore, PM_QOS_VCORE_OPP,
 			   PM_QOS_VCORE_OPP_DEFAULT_VALUE);
 out:
+	if (!err)
+		host->perf_mode = PERF_AUTO;
+	else
+		host->perf_mode = PERF_FORCE_DISABLE;
+
 	return err;
+}
+
+static int ufs_mtk_setup_clocks(struct ufs_hba *hba, bool on,
+	enum ufs_notify_change_status stage)
+{
+	int ret = 0;
+
+	switch (stage) {
+	case PRE_CHANGE:
+		if (!on)
+			ret = ufs_mtk_pltfrm_ref_clk_ctrl(hba, false);
+		break;
+	case POST_CHANGE:
+		if (on)
+			ret = ufs_mtk_pltfrm_ref_clk_ctrl(hba, true);
+		break;
+	default:
+		break;
+	}
+
+	return ret;
 }
 
 /**
@@ -2160,16 +2220,81 @@ int ufs_mtk_auto_hiber8_quirk_handler(struct ufs_hba *hba, bool enable)
 	return 0;
 }
 
+int ufs_mtk_generic_read_dme_no_check(u32 uic_cmd, u16 mib_attribute,
+	u16 gen_select_index, u32 *value, unsigned long retry_ms)
+{
+	u32 arg1, val;
+	int ret = 0;
+	unsigned long elapsed_us = 0;
+	bool reenable_intr = false;
+
+	if (ufshcd_readl(ufs_mtk_hba, REG_INTERRUPT_ENABLE)
+			& UIC_COMMAND_COMPL) {
+		ufshcd_disable_intr(ufs_mtk_hba, UIC_COMMAND_COMPL);
+		/*
+		 * Make sure UIC command completion interrupt is disabled before
+		 * issuing UIC command.
+		 */
+		wmb();
+		reenable_intr = true;
+	}
+
+	arg1 = ((u32)mib_attribute << 16) | (u32)gen_select_index;
+	ufshcd_writel(ufs_mtk_hba, arg1, REG_UIC_COMMAND_ARG_1);
+	ufshcd_writel(ufs_mtk_hba, 0, REG_UIC_COMMAND_ARG_2);
+	ufshcd_writel(ufs_mtk_hba, 0, REG_UIC_COMMAND_ARG_3);
+
+	/* add trace - uic send */
+	ufs_mtk_dbg_add_trace(ufs_mtk_hba, UFS_TRACE_UIC_SEND,
+		ufshcd_readl(ufs_mtk_hba, REG_UIC_COMMAND_ARG_1),
+		0,
+		ufshcd_readl(ufs_mtk_hba, REG_UIC_COMMAND_ARG_2),
+		ufshcd_readl(ufs_mtk_hba, REG_UIC_COMMAND_ARG_3),
+		uic_cmd, 0, 0, 0, 0);
+
+	ufshcd_writel(ufs_mtk_hba, uic_cmd, REG_UIC_COMMAND);
+
+	while ((ufshcd_readl(ufs_mtk_hba,
+		REG_INTERRUPT_STATUS) & UIC_COMMAND_COMPL)
+		!= UIC_COMMAND_COMPL) {
+		/* busy waiting 1us */
+		udelay(1);
+		elapsed_us += 1;
+		if (elapsed_us > (retry_ms * 1000)) {
+			ret = -ETIMEDOUT;
+			goto out;
+		}
+	}
+	ufshcd_writel(ufs_mtk_hba, UIC_COMMAND_COMPL, REG_INTERRUPT_STATUS);
+
+	/* add trace - uic complete */
+	ufs_mtk_dbg_add_trace(ufs_mtk_hba, UFS_TRACE_UIC_CMPL_GENERAL,
+		ufshcd_readl(ufs_mtk_hba, REG_UIC_COMMAND_ARG_1),
+		0,
+		ufshcd_readl(ufs_mtk_hba, REG_UIC_COMMAND_ARG_2),
+		ufshcd_readl(ufs_mtk_hba, REG_UIC_COMMAND_ARG_3),
+		ufshcd_readl(ufs_mtk_hba, REG_UIC_COMMAND), 0, 0, 0, 0);
+
+	val = ufshcd_readl(ufs_mtk_hba, REG_UIC_COMMAND_ARG_2);
+	if (val & MASK_UIC_COMMAND_RESULT) {
+		ret = val;
+		goto out;
+	}
+
+	*value = ufshcd_readl(ufs_mtk_hba, REG_UIC_COMMAND_ARG_3);
+out:
+	if (reenable_intr)
+		ufshcd_enable_intr(ufs_mtk_hba, UIC_COMMAND_COMPL);
+
+	return ret;
+}
+
 /* Notice: this function must be called in automic context */
 /* Because it is not protected by ufs spin_lock or mutex */
 /* it access ufs host directly. */
 int ufs_mtk_generic_read_dme(u32 uic_cmd, u16 mib_attribute,
 	u16 gen_select_index, u32 *value, unsigned long retry_ms)
 {
-	u32 arg1;
-	u32 ret;
-	unsigned long elapsed_us = 0;
-
 	if (ufs_mtk_hba->outstanding_reqs || ufs_mtk_hba->outstanding_tasks
 		|| ufs_mtk_hba->active_uic_cmd ||
 		ufs_mtk_hba->pm_op_in_progress) {
@@ -2182,30 +2307,8 @@ int ufs_mtk_generic_read_dme(u32 uic_cmd, u16 mib_attribute,
 		return -1;
 	}
 
-	arg1 = ((u32)mib_attribute << 16) | (u32)gen_select_index;
-	ufshcd_writel(ufs_mtk_hba, arg1, REG_UIC_COMMAND_ARG_1);
-	ufshcd_writel(ufs_mtk_hba, 0, REG_UIC_COMMAND_ARG_2);
-	ufshcd_writel(ufs_mtk_hba, 0, REG_UIC_COMMAND_ARG_3);
-	ufshcd_writel(ufs_mtk_hba, uic_cmd, REG_UIC_COMMAND);
-
-	while ((ufshcd_readl(ufs_mtk_hba,
-		REG_INTERRUPT_STATUS) & UIC_COMMAND_COMPL)
-		!= UIC_COMMAND_COMPL) {
-		/* busy waiting 1us */
-		udelay(1);
-		elapsed_us += 1;
-		if (elapsed_us > (retry_ms * 1000))
-			return -ETIMEDOUT;
-	}
-	ufshcd_writel(ufs_mtk_hba, UIC_COMMAND_COMPL, REG_INTERRUPT_STATUS);
-
-	ret = ufshcd_readl(ufs_mtk_hba, REG_UIC_COMMAND_ARG_2);
-	if (ret & MASK_UIC_COMMAND_RESULT)
-		return ret;
-
-	*value = ufshcd_readl(ufs_mtk_hba, REG_UIC_COMMAND_ARG_3);
-
-	return 0;
+	return ufs_mtk_generic_read_dme_no_check(uic_cmd, mib_attribute,
+		gen_select_index, value, retry_ms);
 }
 
 /**
@@ -2543,7 +2646,7 @@ static struct ufs_hba_variant_ops ufs_hba_mtk_vops = {
 	NULL,            /* exit */
 	NULL,            /* get_ufs_hci_version */
 	NULL,            /* clk_scale_notify */
-	NULL,            /* setup_clocks */
+	ufs_mtk_setup_clocks,            /* setup_clocks */
 	NULL,            /* setup_regulators */
 	ufs_mtk_hce_enable_notify,    /* hce_enable_notify */
 	ufs_mtk_link_startup_notify,  /* link_startup_notify */
