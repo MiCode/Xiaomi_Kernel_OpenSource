@@ -21,6 +21,7 @@
 #include "mtk_drm_gem.h"
 #include "mtk_fence.h"
 #include "mtk_drm_session.h"
+#include "mtk_drm_mmp.h"
 #include "ion_drv.h"
 #include "ion_priv.h"
 #include <soc/mediatek/smi.h>
@@ -429,15 +430,23 @@ mtk_gem_prime_import(struct drm_device *dev, struct dma_buf *dma_buf)
 	struct ion_mm_data mm_data;
 	int ret;
 
+	DRM_MMP_EVENT_START(prime_import, (unsigned long)priv,
+			(unsigned long)dma_buf);
 	client = priv->client;
+	DRM_MMP_MARK(prime_import, 1, 0);
 	handle = ion_import_dma_buf(client, dma_buf);
 	if (IS_ERR(handle)) {
 		DDPPR_ERR("ion import failed, client:0x%p, dmabuf:0x%p\n",
 				client, dma_buf);
+		DRM_MMP_MARK(prime_import, 0, 0);
+		DRM_MMP_EVENT_END(prime_import, (unsigned long)handle,
+				(unsigned long)client);
 		return ERR_PTR(-EINVAL);
 	}
 
+	DRM_MMP_MARK(prime_import, 1, 1);
 	memset((void *)&mm_data, 0, sizeof(struct ion_mm_data));
+	DRM_MMP_MARK(prime_import, 1, 2);
 	mm_data.config_buffer_param.module_id = 0;
 	mm_data.config_buffer_param.kernel_handle = handle;
 	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
@@ -446,15 +455,26 @@ mtk_gem_prime_import(struct drm_device *dev, struct dma_buf *dma_buf)
 	if (ret < 0) {
 		DDPPR_ERR("ion config failed, handle:0x%p\n", handle);
 		ion_free(client, handle);
+		DRM_MMP_MARK(prime_import, 0, 1);
+		DRM_MMP_EVENT_END(prime_import, (unsigned long)handle,
+				(unsigned long)client);
 		return ERR_PTR(ret);
 	}
 #endif
+	DRM_MMP_MARK(prime_import, 1, 3);
 	obj = drm_gem_prime_import(dev, dma_buf);
-	if (IS_ERR(obj))
+	if (IS_ERR(obj)) {
+		DRM_MMP_MARK(prime_import, 0, 2);
+		DRM_MMP_EVENT_END(prime_import, (unsigned long)dev,
+				(unsigned long)obj);
 		return obj;
+	}
 
+	DRM_MMP_MARK(prime_import, 1, 4);
 	mtk_gem = to_mtk_gem_obj(obj);
 	mtk_gem->handle = handle;
+	DRM_MMP_EVENT_END(prime_import, (unsigned long)obj,
+			(unsigned long)handle);
 
 	return obj;
 }
@@ -499,16 +519,24 @@ mtk_gem_prime_import_sg_table(struct drm_device *dev,
 	unsigned int i;
 	dma_addr_t expected;
 
+	DRM_MMP_EVENT_START(prime_import_sg, (unsigned long)attach,
+			(unsigned long)sg);
 	mtk_gem = mtk_drm_gem_init(dev, attach->dmabuf->size);
 
-	if (IS_ERR(mtk_gem))
+	DRM_MMP_MARK(prime_import_sg, 1, 0);
+	if (IS_ERR(mtk_gem)) {
+		DRM_MMP_MARK(prime_import_sg, 0, 0);
+		DRM_MMP_EVENT_END(prime_import_sg, 0, 0);
 		return ERR_PTR(PTR_ERR(mtk_gem));
+	}
 
 	expected = sg_dma_address(sg->sgl);
 	for_each_sg(sg->sgl, s, sg->nents, i) {
 		if (sg_dma_address(s) != expected) {
 			DRM_ERROR("sg_table is not contiguous");
 			ret = -EINVAL;
+			DRM_MMP_MARK(prime_import_sg, 0, 1);
+			DRM_MMP_EVENT_END(prime_import_sg, 0, 0);
 			goto err_gem_free;
 		}
 		expected = sg_dma_address(s) + sg_dma_len(s);
@@ -517,6 +545,8 @@ mtk_gem_prime_import_sg_table(struct drm_device *dev,
 	mtk_gem->dma_addr = sg_dma_address(sg->sgl);
 	mtk_gem->size = attach->dmabuf->size;
 	mtk_gem->sg = sg;
+	DRM_MMP_EVENT_END(prime_import_sg, (unsigned long)attach,
+			(unsigned long)sg);
 
 	return &mtk_gem->base;
 

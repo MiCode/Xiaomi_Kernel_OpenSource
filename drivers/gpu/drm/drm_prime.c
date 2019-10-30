@@ -34,6 +34,13 @@
 #include <drm/drmP.h>
 
 #include "drm_internal.h"
+#include "mtk_drm_mmp.h"
+
+unsigned long long prime_time_start;
+unsigned long long prime_time_end;
+long long prime_time_period;
+unsigned int prime_time_once;
+const char *prime_locker;
 
 /*
  * DMA-BUF/GEM Object references and lifetime overview:
@@ -613,6 +620,8 @@ struct drm_gem_object *drm_gem_prime_import_dev(struct drm_device *dev,
 	struct drm_gem_object *obj;
 	int ret;
 
+	DRM_MMP_EVENT_START(prime_import_dev, (unsigned long)dev,
+			(unsigned long)dma_buf);
 	if (dma_buf->ops == &drm_gem_prime_dmabuf_ops) {
 		obj = dma_buf->priv;
 		if (obj->dev == dev) {
@@ -621,32 +630,50 @@ struct drm_gem_object *drm_gem_prime_import_dev(struct drm_device *dev,
 			 * refcount on gem itself instead of f_count of dmabuf.
 			 */
 			drm_gem_object_get(obj);
+			DRM_MMP_MARK(prime_import_dev, 0, 0);
+			DRM_MMP_EVENT_END(prime_import_dev, (unsigned long)dev,
+					(unsigned long)obj);
 			return obj;
 		}
 	}
 
-	if (!dev->driver->gem_prime_import_sg_table)
+	if (!dev->driver->gem_prime_import_sg_table) {
+		DRM_MMP_MARK(prime_import_dev, 0, 1);
+		DRM_MMP_EVENT_END(prime_import_dev, 0, 0);
 		return ERR_PTR(-EINVAL);
+	}
 
+	DRM_MMP_MARK(prime_import_dev, 1, 0);
 	attach = dma_buf_attach(dma_buf, attach_dev);
-	if (IS_ERR(attach))
+	if (IS_ERR(attach)) {
+		DRM_MMP_MARK(prime_import_dev, 0, 2);
+		DRM_MMP_EVENT_END(prime_import_dev, dma_buf, attach_dev);
 		return ERR_CAST(attach);
+	}
 
+	DRM_MMP_MARK(prime_import_dev, 1, 1);
 	get_dma_buf(dma_buf);
 
 	sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
 	if (IS_ERR(sgt)) {
 		ret = PTR_ERR(sgt);
+		DRM_MMP_MARK(prime_import_dev, 0, 3);
+		DRM_MMP_EVENT_END(prime_import_dev, dma_buf, attach);
 		goto fail_detach;
 	}
 
+	DRM_MMP_MARK(prime_import_dev, 1, 2);
 	obj = dev->driver->gem_prime_import_sg_table(dev, attach, sgt);
 	if (IS_ERR(obj)) {
 		ret = PTR_ERR(obj);
+		DRM_MMP_MARK(prime_import_dev, 0, 4);
+		DRM_MMP_EVENT_END(prime_import_dev, attach, sgt);
 		goto fail_unmap;
 	}
 
 	obj->import_attach = attach;
+	DRM_MMP_EVENT_END(prime_import_dev, (unsigned long)obj,
+			(unsigned long)attach);
 
 	return obj;
 
@@ -700,20 +727,29 @@ int drm_gem_prime_fd_to_handle(struct drm_device *dev,
 		return PTR_ERR(dma_buf);
 
 	mutex_lock(&file_priv->prime.lock);
+	DRM_MMP_EVENT_START(prime_to_gem, (unsigned long)file_priv,
+			prime_fd);
+	prime_time_start = sched_clock();
 
+	DRM_MMP_MARK(prime_to_gem, 1, 0);
 	ret = drm_prime_lookup_buf_handle(&file_priv->prime,
 			dma_buf, handle);
-	if (ret == 0)
+	if (ret == 0) {
+		DRM_MMP_MARK(prime_to_gem, 0, 0);
 		goto out_put;
+	}
 
+	DRM_MMP_MARK(prime_to_gem, 1, 1);
 	/* never seen this one, need to import */
 	mutex_lock(&dev->object_name_lock);
 	obj = dev->driver->gem_prime_import(dev, dma_buf);
 	if (IS_ERR(obj)) {
 		ret = PTR_ERR(obj);
+		DRM_MMP_MARK(prime_to_gem, 0, 1);
 		goto out_unlock;
 	}
 
+	DRM_MMP_MARK(prime_to_gem, 1, 2);
 	if (obj->dma_buf) {
 		WARN_ON(obj->dma_buf != dma_buf);
 	} else {
@@ -721,17 +757,32 @@ int drm_gem_prime_fd_to_handle(struct drm_device *dev,
 		get_dma_buf(dma_buf);
 	}
 
+	DRM_MMP_MARK(prime_to_gem, 1, 3);
 	/* _handle_create_tail unconditionally unlocks dev->object_name_lock. */
 	ret = drm_gem_handle_create_tail(file_priv, obj, handle);
 	drm_gem_object_put_unlocked(obj);
-	if (ret)
+	if (ret) {
+		DRM_MMP_MARK(prime_to_gem, 0, 2);
 		goto out_put;
+	}
 
+	DRM_MMP_MARK(prime_to_gem, 1, 4);
 	ret = drm_prime_add_buf_handle(&file_priv->prime,
 			dma_buf, *handle);
+	prime_locker = NULL;
+	prime_time_end = sched_clock();
+	prime_time_period = prime_time_end - prime_time_start;
+	if ((prime_time_period > 1000000000) && (!prime_time_once)) {
+		DDPAEE("P2G:%s[%d] timeout:<%lld ns>!\n",
+			__func__, __LINE__, prime_time_period);
+		prime_time_once = 1;
+	}
+	DRM_MMP_EVENT_END(prime_to_gem, (unsigned long)handle, 0);
 	mutex_unlock(&file_priv->prime.lock);
-	if (ret)
+	if (ret) {
+		DRM_MMP_MARK(prime_to_gem, 0, 3);
 		goto fail;
+	}
 
 	dma_buf_put(dma_buf);
 
@@ -743,6 +794,8 @@ fail:
 	 */
 	drm_gem_handle_delete(file_priv, *handle);
 	dma_buf_put(dma_buf);
+	DRM_MMP_EVENT_END(prime_to_gem, 0, 0);
+
 	return ret;
 
 out_unlock:
@@ -750,6 +803,8 @@ out_unlock:
 out_put:
 	mutex_unlock(&file_priv->prime.lock);
 	dma_buf_put(dma_buf);
+	DRM_MMP_EVENT_END(prime_to_gem, 0, 0);
+
 	return ret;
 }
 EXPORT_SYMBOL(drm_gem_prime_fd_to_handle);

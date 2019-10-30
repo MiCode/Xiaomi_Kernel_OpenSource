@@ -68,6 +68,14 @@ void init_drm_mmp_event(void)
 		mmprofile_register_event(g_DRM_MMP_Events.drm, "LOCK");
 	g_DRM_MMP_Events.layering =
 		mmprofile_register_event(g_DRM_MMP_Events.drm, "HRT");
+	g_DRM_MMP_Events.prime_to_gem =
+		mmprofile_register_event(g_DRM_MMP_Events.drm, "P2G");
+	g_DRM_MMP_Events.prime_import =
+		mmprofile_register_event(g_DRM_MMP_Events.drm, "Pimp");
+	g_DRM_MMP_Events.prime_import_dev =
+		mmprofile_register_event(g_DRM_MMP_Events.drm, "PID");
+	g_DRM_MMP_Events.prime_import_sg =
+		mmprofile_register_event(g_DRM_MMP_Events.drm, "PIS");
 
 	g_DRM_MMP_Events.ddp =
 		mmprofile_register_event(g_DRM_MMP_Events.IRQ, "MUTEX");
