@@ -347,16 +347,32 @@ static void rpc_fifo_check(void)
 #endif
 }
 
-static void dump_spm_register(void)
+static unsigned int check_spm_register(void)
 {
+	unsigned int spm_wake_bit = DRV_Reg32(SPM_CROSS_WAKE_M01_REQ);
+
 	LOG_WRN("APUREG, SPM OTHER_PWR_STATUS = 0x%x\n",
 					DRV_Reg32(OTHER_PWR_STATUS));
 	LOG_WRN("APUREG, SPM BUCK_ISOLATION = 0x%x\n",
 					DRV_Reg32(BUCK_ISOLATION));
 	LOG_WRN("APUREG, SPM SPM_CROSS_WAKE_M01_REQ = 0x%x\n",
-					DRV_Reg32(SPM_CROSS_WAKE_M01_REQ));
+					spm_wake_bit);
+
+	if (spm_wake_bit == 0x1)
+		return 0x1;
+	else
+		return 0x0;
 }
 
+/*
+ * domain_idx : 0 (conn), 2 (vpu0), 3 (vpu1), 4 (vpu2), 6 (mdla0), 7 (mdla1)
+ * enable : 0 (disable), 1 (enable), 2 (disable mid stage)
+ * explain :
+ *	conn enable - check SPM flag to 0x1 only
+ *	conn disable mid stage - check SPM flag to 0x0 before sleep request
+ *	conn disable - check APU_RPC_INTF_PWR_RDY after sleep request
+ *	other devices enable/disable - check APU_RPC_INTF_PWR_RDY only
+ */
 static int rpc_power_status_check(int domain_idx, unsigned int enable)
 {
 	unsigned int regValue = 0;
@@ -366,18 +382,22 @@ static int rpc_power_status_check(int domain_idx, unsigned int enable)
 
 	do {
 		udelay(10);
-		regValue = DRV_Reg32(APU_RPC_INTF_PWR_RDY);
 
-		if (enable)
+		// check SPM_CROSS_WAKE_M01_REQ
+		if (domain_idx == 0 && enable != 0)
+			regValue = check_spm_register();
+		else // check APU_RPC_INTF_PWR_RDY
+			regValue = DRV_Reg32(APU_RPC_INTF_PWR_RDY);
+
+		if (enable == 1)
 			finished = !((regValue >> domain_idx) & 0x1);
-		else
+		else // enable equals to 0 (disable) or 2 (disable mid stage)
 			finished = (regValue >> domain_idx) & 0x1;
 
 		if (++check_round >= REG_POLLING_TIMEOUT_ROUNDS) {
 			LOG_ERR(
-			"%s APU_RPC_INTF_PWR_RDY = 0x%x (from idx:%d), timeout !\n",
-						__func__, regValue, domain_idx);
-			dump_spm_register();
+			"%s APU_RPC_INTF_PWR_RDY = 0x%x (idx:%d, en:%d), timeout !\n",
+					__func__, regValue, domain_idx, enable);
 			return -1;
 		}
 
@@ -386,8 +406,8 @@ static int rpc_power_status_check(int domain_idx, unsigned int enable)
 	udelay(500);
 	regValue = DRV_Reg32(APU_RPC_INTF_PWR_RDY);
 #endif
-	LOG_WRN("%s APU_RPC_INTF_PWR_RDY = 0x%x (from idx:%d)\n",
-					__func__, regValue, domain_idx);
+	LOG_WRN("%s APU_RPC_INTF_PWR_RDY = 0x%x (idx:%d, en:%d)\n",
+					__func__, regValue, domain_idx, enable);
 	return 0;
 }
 
@@ -495,6 +515,9 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 			ret |= enable_apu_mtcmos(0);
 			//udelay(100);
 
+			// conn disable mid stage, checking SPM flag
+			ret |= rpc_power_status_check(0, 2);
+
 			// mask RPC IRQ and bypass WFI
 			regValue = DRV_Reg32(APU_RPC_TOP_SEL);
 			regValue |= 0x9E;
@@ -507,6 +530,7 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 			regValue |= 0x1;
 			DRV_WriteReg32(APU_RPC_TOP_CON, regValue);
 
+			// conn disable, checking APU_RPC_INTF_PWR_RDY
 			ret |= rpc_power_status_check(0, 0);
 
 			ret |= set_apu_clock_source(DVFS_FREQ_00_026000_F,
@@ -804,7 +828,7 @@ static int apusys_power_reg_dump(void)
 	LOG_WRN("APUREG APU_RPC_INTF_PWR_RDY = 0x%x, conn_mtcmos_on = %d\n",
 							regVal, conn_mtcmos_on);
 
-	dump_spm_register();
+	check_spm_register();
 
 	if (((regVal & BIT(0))) == 0x1) {
 		LOG_WRN("APUREG APU_VCORE_CG_CON = 0x%x\n",
