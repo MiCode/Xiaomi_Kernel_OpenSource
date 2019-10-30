@@ -1169,7 +1169,8 @@ static void mtk_output_en_doze_switch(struct mtk_dsi *dsi)
 	dsi->doze_enabled = doze_enabled;
 }
 
-static void mtk_output_dsi_enable(struct mtk_dsi *dsi)
+static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
+	int force_lcm_update)
 {
 	int ret;
 	struct mtk_panel_ext *ext = dsi->ext;
@@ -1207,7 +1208,8 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi)
 	mtk_dsi_clk_hs_mode(dsi, 0);
 
 	if (dsi->panel) {
-		if (!dsi->doze_enabled && drm_panel_prepare(dsi->panel)) {
+		if ((!dsi->doze_enabled || force_lcm_update)
+			&& drm_panel_prepare(dsi->panel)) {
 			DDPPR_ERR("failed to prepare the panel\n");
 			return;
 		}
@@ -1271,7 +1273,8 @@ err_dsi_power_off:
 }
 
 static int mtk_dsi_stop_vdo_mode(struct mtk_dsi *dsi, void *handle);
-static int mtk_dsi_wait_cmd_frame_done(struct mtk_dsi *dsi)
+static int mtk_dsi_wait_cmd_frame_done(struct mtk_dsi *dsi,
+	int force_lcm_update)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(dsi->encoder.crtc);
 	struct cmdq_pkt *handle;
@@ -1291,7 +1294,7 @@ static int mtk_dsi_wait_cmd_frame_done(struct mtk_dsi *dsi)
 	 * commands are there in the waiting queue, so here we force
 	 * frame updating and wait for the latest frame done.
 	 */
-	if (new_doze_state) {
+	if (new_doze_state && !force_lcm_update) {
 		cmdq_pkt_set_event(handle,
 			mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
 		cmdq_pkt_wait_no_clear(handle,
@@ -1307,7 +1310,8 @@ static int mtk_dsi_wait_cmd_frame_done(struct mtk_dsi *dsi)
 	return 0;
 }
 
-static void mtk_output_dsi_disable(struct mtk_dsi *dsi)
+static void mtk_output_dsi_disable(struct mtk_dsi *dsi,
+	int force_lcm_update)
 {
 	bool new_doze_state = mtk_dsi_doze_state(dsi);
 
@@ -1316,7 +1320,7 @@ static void mtk_output_dsi_disable(struct mtk_dsi *dsi)
 		return;
 
 	/* 1. If not doze mode, turn off backlight */
-	if (dsi->panel && !new_doze_state) {
+	if (dsi->panel && (!new_doze_state || force_lcm_update)) {
 		if (drm_panel_disable(dsi->panel)) {
 			DRM_ERROR("failed to disable the panel\n");
 			return;
@@ -1327,11 +1331,11 @@ static void mtk_output_dsi_disable(struct mtk_dsi *dsi)
 	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp))
 		mtk_dsi_stop_vdo_mode(dsi, NULL);
 	else
-		mtk_dsi_wait_cmd_frame_done(dsi);
+		mtk_dsi_wait_cmd_frame_done(dsi, force_lcm_update);
 
 	/* 3. turn off panel or set to doze mode */
 	if (dsi->panel) {
-		if (!new_doze_state) {
+		if (!new_doze_state || force_lcm_update) {
 			if (drm_panel_unprepare(dsi->panel))
 				DRM_ERROR("failed to unprepare the panel\n");
 		} else if (new_doze_state && !dsi->doze_enabled) {
@@ -1397,7 +1401,7 @@ static void mtk_dsi_encoder_disable(struct drm_encoder *encoder)
 
 	DDPINFO("%s\n", __func__);
 	mtk_drm_idlemgr_kick(__func__, crtc, 0);
-	mtk_output_dsi_disable(dsi);
+	mtk_output_dsi_disable(dsi, false);
 }
 
 static void mtk_dsi_encoder_enable(struct drm_encoder *encoder)
@@ -1407,7 +1411,7 @@ static void mtk_dsi_encoder_enable(struct drm_encoder *encoder)
 	int index = drm_crtc_index(crtc);
 
 	DDPINFO("%s\n", __func__);
-	mtk_output_dsi_enable(dsi);
+	mtk_output_dsi_enable(dsi, false);
 
 	CRTC_MMP_EVENT_END(index, resume, 0, 0);
 }
@@ -2577,10 +2581,10 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		mtk_dsi_trigger(comp, handle);
 		break;
 	case CONNECTOR_PANEL_ENABLE:
-		mtk_output_dsi_enable(dsi);
+		mtk_output_dsi_enable(dsi, true);
 		break;
 	case CONNECTOR_PANEL_DISABLE:
-		mtk_output_dsi_disable(dsi);
+		mtk_output_dsi_disable(dsi, true);
 		break;
 	case CONNECTOR_ENABLE:
 		mtk_dsi_leave_idle(dsi);
@@ -2977,7 +2981,7 @@ static int mtk_dsi_remove(struct platform_device *pdev)
 {
 	struct mtk_dsi *dsi = platform_get_drvdata(pdev);
 
-	mtk_output_dsi_disable(dsi);
+	mtk_output_dsi_disable(dsi, false);
 	component_del(&pdev->dev, &mtk_dsi_component_ops);
 
 	return 0;

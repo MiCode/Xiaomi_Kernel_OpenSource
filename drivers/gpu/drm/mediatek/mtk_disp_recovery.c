@@ -244,10 +244,25 @@ static int _mtk_esd_check_eint(struct drm_crtc *crtc)
 	}
 
 	enable_irq(esd_ctx->eint_irq);
+	/* The first wait is used for clear the TE interrupt
+	 * for the past 2 sec.
+	 */
 	if (wait_event_interruptible_timeout(
-		    esd_ctx->ext_te_wq, atomic_read(&esd_ctx->ext_te_event),
+		    esd_ctx->ext_te_wq,
+		    atomic_read(&esd_ctx->ext_te_event),
 		    HZ / 2) > 0)
 		ret = 0;
+
+	if (!ret) {
+		ret = 1;
+		atomic_set(&esd_ctx->ext_te_event, 0);
+		if (wait_event_interruptible_timeout(
+			    esd_ctx->ext_te_wq,
+			    atomic_read(&esd_ctx->ext_te_event),
+			    HZ / 2) > 0)
+			ret = 0;
+	}
+	DDPINFO("[ESD]%s %d\n", __func__, __LINE__);
 
 	disable_irq(esd_ctx->eint_irq);
 	atomic_set(&esd_ctx->ext_te_event, 0);
@@ -361,6 +376,11 @@ static int mtk_drm_esd_recover(struct drm_crtc *crtc)
 
 	CRTC_MMP_EVENT_START(drm_crtc_index(crtc), esd_recovery, 0, 0);
 	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+	if (crtc->state && !crtc->state->active) {
+		DDPMSG("%s: crtc is inactive\n", __func__);
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		return 0;
+	}
 	CRTC_MMP_MARK(drm_crtc_index(crtc), esd_recovery, 0, 1);
 	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
 
