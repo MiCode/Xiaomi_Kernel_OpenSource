@@ -773,7 +773,7 @@ int drm_gem_prime_fd_to_handle(struct drm_device *dev,
 	prime_time_end = sched_clock();
 	prime_time_period = prime_time_end - prime_time_start;
 	if ((prime_time_period > 1000000000) && (!prime_time_once)) {
-		DDPAEE("P2G:%s[%d] timeout:<%lld ns>!\n",
+		DDPMSG("P2G:%s[%d] timeout:<%lld ns>!\n",
 			__func__, __LINE__, prime_time_period);
 		prime_time_once = 1;
 	}
