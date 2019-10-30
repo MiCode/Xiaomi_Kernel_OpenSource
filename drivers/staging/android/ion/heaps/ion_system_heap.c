@@ -605,6 +605,10 @@ static int ion_system_heap_debug_show(struct ion_heap *heap,
 	return 0;
 }
 
+static struct msm_ion_heap_ops msm_system_heap_ops = {
+	.debug_show = ion_system_heap_debug_show,
+};
+
 static void ion_system_heap_destroy_pools(struct ion_page_pool **pools)
 {
 	int i;
@@ -710,7 +714,7 @@ struct ion_heap *ion_system_heap_create(struct ion_platform_heap *data)
 	if (!heap)
 		return ERR_PTR(-ENOMEM);
 	heap->heap.dev = data->priv;
-	heap->heap.debug_show = ion_system_heap_debug_show;
+	heap->heap.msm_heap_ops = &msm_system_heap_ops;
 	heap->heap.ion_heap.ops = &system_heap_ops;
 	heap->heap.ion_heap.buf_ops = msm_ion_dma_buf_ops;
 	heap->heap.ion_heap.type = ION_HEAP_TYPE_SYSTEM;

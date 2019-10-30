@@ -101,8 +101,10 @@ static int msm_ion_debug_heap_show(struct seq_file *s, void *unused)
 {
 	struct msm_ion_heap *msm_heap = s->private;
 
-	if (msm_heap && msm_heap->debug_show)
-		msm_heap->debug_show(&msm_heap->ion_heap, s, unused);
+	if (msm_heap && msm_heap->msm_heap_ops &&
+	    msm_heap->msm_heap_ops->debug_show)
+		msm_heap->msm_heap_ops->debug_show(&msm_heap->ion_heap, s,
+						   unused);
 
 	return 0;
 }
@@ -125,7 +127,8 @@ static void msm_ion_debugfs_create_file(struct msm_ion_heap *msm_heap)
 	struct dentry *debugfs_root;
 	struct ion_heap *heap;
 
-	if (msm_heap && msm_heap->debug_show &&
+	if (msm_heap && msm_heap->msm_heap_ops &&
+	    msm_heap->msm_heap_ops->debug_show &&
 	    msm_heap->ion_heap.debugfs_dir) {
 		heap = &msm_heap->ion_heap;
 		debugfs_root = heap->debugfs_dir;
@@ -199,7 +202,7 @@ struct device *msm_ion_heap_device(struct ion_heap *heap)
 	return to_msm_ion_heap(heap)->dev;
 }
 
-struct device *msm_ion_heap_device_by_id(int heap_id)
+static struct ion_heap *ion_heap_by_id(int heap_id)
 {
 	struct ion_heap *heap;
 
@@ -209,12 +212,60 @@ struct device *msm_ion_heap_device_by_id(int heap_id)
 		return ERR_PTR(-ENODEV);
 
 	heap = get_ion_heap(heap_id);
-	if (heap)
-		return msm_ion_heap_device(heap);
+	if (!heap)
+		return ERR_PTR(-EINVAL);
+	return heap;
+}
 
-	return ERR_PTR(-EINVAL);
+struct device *msm_ion_heap_device_by_id(int heap_id)
+{
+	struct ion_heap *heap;
+
+	heap = ion_heap_by_id(heap_id);
+	if (IS_ERR(heap))
+		return ERR_CAST(heap);
+
+	return to_msm_ion_heap(heap)->dev;
 }
 EXPORT_SYMBOL(msm_ion_heap_device_by_id);
+
+int msm_ion_heap_prefetch(int heap_id, struct ion_prefetch_region *regions,
+			  int nr_regions)
+{
+	struct ion_heap *heap = ion_heap_by_id(heap_id);
+	struct msm_ion_heap *msm_heap;
+
+	if (IS_ERR(heap))
+		return PTR_ERR(heap);
+
+	msm_heap = to_msm_ion_heap(heap);
+
+	if (msm_heap->msm_heap_ops && msm_heap->msm_heap_ops->heap_prefetch)
+		return msm_heap->msm_heap_ops->heap_prefetch(heap, regions,
+							     nr_regions);
+
+	return -ENOTSUPP;
+}
+EXPORT_SYMBOL(msm_ion_heap_prefetch);
+
+int msm_ion_heap_drain(int heap_id, struct ion_prefetch_region *regions,
+		       int nr_regions)
+{
+	struct ion_heap *heap = ion_heap_by_id(heap_id);
+	struct msm_ion_heap *msm_heap;
+
+	if (IS_ERR(heap))
+		return PTR_ERR(heap);
+
+	msm_heap = to_msm_ion_heap(heap);
+
+	if (msm_heap->msm_heap_ops && msm_heap->msm_heap_ops->heap_drain)
+		return msm_heap->msm_heap_ops->heap_drain(heap, regions,
+							  nr_regions);
+
+	return -ENOTSUPP;
+}
+EXPORT_SYMBOL(msm_ion_heap_drain);
 
 static int msm_ion_get_heap_type_from_dt_node(struct device_node *node,
 					      int *heap_type)
