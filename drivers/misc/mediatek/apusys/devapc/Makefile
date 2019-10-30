@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2016 MediaTek Inc.
+# Copyright (C) 2019 MediaTek Inc.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -11,12 +11,4 @@
 # GNU General Public License for more details.
 #
 
-obj-$(CONFIG_MTK_APUSYS_SUPPORT) += power/
-obj-$(CONFIG_MTK_APUSYS_SUPPORT) += reviser/
-obj-$(CONFIG_MTK_APUSYS_SUPPORT) += mnoc/
-obj-$(CONFIG_MTK_APUSYS_SUPPORT) += midware/
-obj-$(CONFIG_MTK_APUSYS_SUPPORT) += sample/
-obj-$(CONFIG_MTK_APUSYS_MDLA_SUPPORT) += mdla/
-obj-$(CONFIG_MTK_APUSYS_VPU) += vpu/
-obj-$(CONFIG_MTK_APUSYS_EDMA_SUPPORT) += edma/
-obj-$(CONFIG_MTK_APUSYS_SUPPORT) += devapc/
+obj-y += apusys_devapc.o
