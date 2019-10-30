@@ -823,6 +823,7 @@ CONFIG_MTK_RAM_CONSOLE_DRAM_SIZE,COMMON,Xinghua.Yang,,0x10000,0x10000,0x10000,0x
 CONFIG_MTK_RAM_CONSOLE_SIZE,PLATFORM,Xinghua.Yang,,0x800,0x800,0x800,0x800,0x800,0x800,0x800,0x800,0x800,0x800,0x800,0x800,0x800
 CONFIG_MTK_RAM_CONSOLE_USING_DRAM,PLATFORM,Xinghua.Yang,,X,X,X,X,X,X,X,X,X,X,X,X,X
 CONFIG_MTK_RAM_CONSOLE_USING_SRAM,PLATFORM,Xinghua.Yang,new config in this commit 5ea1bbd49287ac7cd3a31ab1632c4835ac6a71ad,y,y,y,y,y,y,y,y,y,y,y,y,y
+CONFIG_MTK_RESYM,PROJECT,chiayu.ku,,,,,,,,,,,,,,
 CONFIG_MTK_ROOT_TRACE,USER;PROJECT,colin.lee,customer may set this in user load, a white list must be set before,,,,,,,,,,,,
 CONFIG_MTK_ROTATVECHUB,PROJECT,hongxu.zhao,new config in this commit bd8b67170550fbf1f721310116ae26ced96105a6,,,,,,,,,,,,,
 CONFIG_MTK_ROUND_CORNER_SUPPORT,PROJECT,k.zhang,,,,,,,,,,,,,,

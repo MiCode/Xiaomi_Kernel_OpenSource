@@ -541,6 +541,11 @@ static int rsu_get_bw_usage(__u32 pid)
 
 	rsu_systrace_c(RSU_DEBUG_QOS, 0,
 			ret, "BW Avg");
+	rsu_systrace_c(RSU_DEBUG_QOS, 0,
+			threshold, "BW th");
+
+	if (!threshold)
+		return 0;
 
 	if (ret > 0) {
 		ret *= 100;
