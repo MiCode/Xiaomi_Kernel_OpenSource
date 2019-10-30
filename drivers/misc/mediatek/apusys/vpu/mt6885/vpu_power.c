@@ -71,6 +71,8 @@ static void vpu_pwr_param(struct vpu_device *vd, uint8_t boost)
  */
 int vpu_pwr_get_locked(struct vpu_device *vd, uint8_t boost)
 {
+	int ret = 0;
+
 	if (vd->state == VS_REMOVING) {
 		pr_info("%s: vpu%d is going to be removed\n",
 			__func__, vd->id);
@@ -85,18 +87,24 @@ int vpu_pwr_get_locked(struct vpu_device *vd, uint8_t boost)
 		goto out;
 	}
 
-	kref_init(&vd->pw_ref);
-	vpu_pwr_debug("%s: vpu%d: ref: 1\n", __func__, vd->id);
-
 	if (vd->state == VS_DOWN) {
 		vpu_pwr_debug("%s: vpu%d: apu_device_power_on\n",
 			__func__, vd->id);
-		apu_device_power_on(adu(vd->id));
+		ret = apu_device_power_on(adu(vd->id));
+		if (ret) {
+			vpu_pwr_debug("%s: vpu%d: apu_device_power_on: failed: %d\n",
+				__func__, vd->id, ret);
+			goto err;
+		}
 	}
+
+	kref_init(&vd->pw_ref);
+	vpu_pwr_debug("%s: vpu%d: ref: 1\n", __func__, vd->id);
 
 out:
 	vpu_pwr_param(vd, boost);
-	return 0;
+err:
+	return ret;
 }
 
 /**
@@ -192,10 +200,16 @@ void vpu_pwr_down(struct vpu_device *vd)
 
 static void vpu_pwr_off_locked(struct vpu_device *vd)
 {
+	int ret;
+
 	vpu_pwr_debug("%s: vpu%d: apu_device_power_off\n",
 		__func__, vd->id);
 	vpu_alg_unload(vd);
-	apu_device_power_off(adu(vd->id));
+	ret = apu_device_power_off(adu(vd->id));
+	if (ret)
+		vpu_pwr_debug("%s: vpu%d: apu_device_power_off: failed: %d\n",
+			__func__, vd->id, ret);
+
 	vd->state = VS_DOWN;
 }
 
