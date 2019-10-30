@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -417,7 +417,7 @@ static void _sde_encoder_phys_vid_setup_avr(
 			return;
 		}
 
-		if (qsync_min_fps >= default_fps) {
+		if (qsync_min_fps > default_fps) {
 			SDE_ERROR_VIDENC(vid_enc,
 				"qsync fps %d must be less than default %d\n",
 				qsync_min_fps, default_fps);
@@ -1079,9 +1079,6 @@ static int sde_encoder_phys_vid_prepare_for_kickoff(
 		vid_enc->error_count = 0;
 	}
 
-	if (sde_connector_is_qsync_updated(phys_enc->connector))
-		_sde_encoder_phys_vid_avr_ctrl(phys_enc);
-
 	programmable_rot_fetch_config(phys_enc,
 			params->inline_rotate_prefill, params->is_primary);
 
@@ -1227,6 +1224,20 @@ static void sde_encoder_phys_vid_handle_post_kickoff(
 				phys_enc->hw_intf->idx - INTF_0,
 				SDE_EVTLOG_FUNC_CASE9);
 	}
+}
+
+static void sde_encoder_phys_vid_prepare_for_commit(
+		struct sde_encoder_phys *phys_enc)
+{
+
+	if (!phys_enc) {
+		SDE_ERROR("invalid encoder parameters\n");
+		return;
+	}
+
+	if (sde_connector_is_qsync_updated(phys_enc->connector))
+		_sde_encoder_phys_vid_avr_ctrl(phys_enc);
+
 }
 
 static void sde_encoder_phys_vid_irq_control(struct sde_encoder_phys *phys_enc,
@@ -1383,6 +1394,7 @@ static void sde_encoder_phys_vid_init_ops(struct sde_encoder_phys_ops *ops)
 	ops->get_wr_line_count = sde_encoder_phys_vid_get_line_count;
 	ops->wait_dma_trigger = sde_encoder_phys_vid_wait_dma_trigger;
 	ops->wait_for_active = sde_encoder_phys_vid_wait_for_active;
+	ops->prepare_commit = sde_encoder_phys_vid_prepare_for_commit;
 }
 
 struct sde_encoder_phys *sde_encoder_phys_vid_init(

@@ -861,6 +861,9 @@ static int mhi_netdev_debugfs_stats_show(struct seq_file *m, void *d)
 		   mhi_netdev->abuffers, mhi_netdev->kbuffers,
 		   mhi_netdev->rbuffers);
 
+	seq_printf(m, "chaining SKBs:%s\n", (mhi_netdev->chain) ?
+		   "enabled" : "disabled");
+
 	return 0;
 }
 
@@ -874,6 +877,22 @@ static const struct file_operations debugfs_stats = {
 	.release = single_release,
 	.read = seq_read,
 };
+
+static int mhi_netdev_debugfs_chain(void *data, u64 val)
+{
+	struct mhi_netdev *mhi_netdev = data;
+	struct mhi_netdev *rsc_dev = mhi_netdev->rsc_dev;
+
+	mhi_netdev->chain = NULL;
+
+	if (rsc_dev)
+		rsc_dev->chain = NULL;
+
+	return 0;
+}
+
+DEFINE_DEBUGFS_ATTRIBUTE(debugfs_chain, NULL,
+			 mhi_netdev_debugfs_chain, "%llu\n");
 
 static void mhi_netdev_create_debugfs(struct mhi_netdev *mhi_netdev)
 {
@@ -894,6 +913,8 @@ static void mhi_netdev_create_debugfs(struct mhi_netdev *mhi_netdev)
 
 	debugfs_create_file_unsafe("stats", 0444, mhi_netdev->dentry,
 				   mhi_netdev, &debugfs_stats);
+	debugfs_create_file_unsafe("chain", 0444, mhi_netdev->dentry,
+				   mhi_netdev, &debugfs_chain);
 }
 
 static void mhi_netdev_create_debugfs_dir(void)

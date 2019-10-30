@@ -556,6 +556,9 @@ int ipa3_tear_down_uc_offload_pipes(int ipa_ep_idx_ul,
 		return -EFAULT;
 	}
 
+	atomic_set(&ep_ul->disconnect_in_progress, 1);
+	atomic_set(&ep_dl->disconnect_in_progress, 1);
+
 	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0)
 		cmd.size = sizeof(*cmd_data_v4_0);
 	else

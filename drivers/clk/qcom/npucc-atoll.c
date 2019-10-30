@@ -42,6 +42,8 @@
 #define CRC_MND_CFG			0x11a4
 #define CRC_MND_CFG_SETTING		0x15011
 
+#define NPU_FUSE_OFFSET			0x4
+
 static DEFINE_VDD_REGULATORS(vdd_cx, VDD_NUM, 1, vdd_corner);
 
 enum {
@@ -276,6 +278,17 @@ static const struct freq_tbl ftbl_npu_cc_cal_hm0_clk_src[] = {
 	F(515000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
 	F(650000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
 	F(800000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
+	{ }
+};
+
+static const struct freq_tbl ftbl_npu_cc_cal_hm0_clk_no_crc_src[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(100000000, P_NPU_CC_CRC_DIV, 2, 0, 0),
+	F(200000000, P_NPU_CC_CRC_DIV, 2, 0, 0),
+	F(400000000, P_NPU_CC_CRC_DIV, 2, 0, 0),
+	F(515000000, P_NPU_CC_CRC_DIV, 2, 0, 0),
+	F(650000000, P_NPU_CC_CRC_DIV, 2, 0, 0),
+	F(800000000, P_NPU_CC_CRC_DIV, 2, 0, 0),
 	{ }
 };
 
@@ -718,9 +731,23 @@ static const struct of_device_id npu_cc_atoll_match_table[] = {
 };
 MODULE_DEVICE_TABLE(of, npu_cc_atoll_match_table);
 
-static int enable_npu_crc(struct regmap *regmap, struct regulator *npu_gdsc)
+static int enable_npu_crc(struct platform_device *pdev, struct regmap *regmap,
+			struct regulator *npu_gdsc)
 {
+	struct resource *res;
+	void __iomem *base;
+	u32 fuse_val, fuse1_val;
 	int ret;
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "efuse");
+	base = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(base))
+		return PTR_ERR(base);
+
+	fuse_val = readl_relaxed(base) & GENMASK(31, 27);
+	fuse1_val = readl_relaxed(base + NPU_FUSE_OFFSET) & GENMASK(2, 0);
+
+	devm_iounmap(&pdev->dev, base);
 
 	/* Set npu_cc_cal_hm0_clk to the lowest supported frequency */
 	clk_set_rate(npu_cc_cal_hm0_clk.clkr.hw.clk,
@@ -741,9 +768,19 @@ static int enable_npu_crc(struct regmap *regmap, struct regulator *npu_gdsc)
 		return ret;
 	}
 
-	/* Enable MND RC */
-	regmap_write(regmap, CRC_MND_CFG, CRC_MND_CFG_SETTING);
-	regmap_write(regmap, CRC_SID_FSM_CTRL, CRC_SID_FSM_CTRL_SETTING);
+	if (fuse_val || fuse1_val) {
+		regmap_write(regmap, CRC_MND_CFG, 0x0);
+		regmap_write(regmap, CRC_SID_FSM_CTRL, 0x0);
+
+		npu_cc_crc_div.div = 1;
+		npu_cc_cal_hm0_clk_src.freq_tbl =
+					ftbl_npu_cc_cal_hm0_clk_no_crc_src;
+	} else {
+		/* Enable MND RC */
+		regmap_write(regmap, CRC_MND_CFG, CRC_MND_CFG_SETTING);
+		regmap_write(regmap, CRC_SID_FSM_CTRL,
+						CRC_SID_FSM_CTRL_SETTING);
+	}
 
 	/* Wait for 16 cycles before continuing */
 	udelay(1);
@@ -800,7 +837,7 @@ static int npu_clocks_atoll_probe(struct platform_device *pdev,
 	}
 
 	if (!strcmp("cc", desc->config->name)) {
-		ret = enable_npu_crc(regmap, npu_gdsc);
+		ret = enable_npu_crc(pdev, regmap, npu_gdsc);
 		if (ret) {
 			dev_err(&pdev->dev,
 				"Failed to enable CRC for NPU cal RCG\n");

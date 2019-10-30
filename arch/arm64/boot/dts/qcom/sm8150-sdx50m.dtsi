@@ -29,6 +29,7 @@
 	qcom,smmu-cfg = <0>;
 	memory-region = <&mhi_mem>;
 	mhi,use-bb;
+	mhi,allow-m1; /* use legacy mode for suspends */
 	mhi,buffer-len = <0x8000>;
 	qcom,addr-win = <0x0 0xa0000000 0x0 0xa4bfffff>;
 

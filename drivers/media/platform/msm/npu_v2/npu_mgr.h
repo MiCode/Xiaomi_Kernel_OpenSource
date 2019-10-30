@@ -31,7 +31,7 @@
 #define NPU_MBOX_IDLE_TIMEOUT msecs_to_jiffies(NPU_MBOX_IDLE_TIMEOUT_MS)
 #define FIRMWARE_VERSION 0x00001000
 #define MAX_LOADED_NETWORK 32
-#define NPU_IPC_BUF_LENGTH 512
+#define NPU_IPC_BUF_LENGTH 4096
 
 #define FW_DBG_MODE_PAUSE        (1 << 0)
 #define FW_DBG_MODE_INC_TIMEOUT  (1 << 1)
@@ -48,7 +48,8 @@ struct npu_network {
 	uint32_t first_block_size;
 	uint32_t network_hdl;
 	uint32_t priority;
-	uint32_t perf_mode;
+	uint32_t cur_perf_mode;
+	uint32_t init_perf_mode;
 	uint32_t num_layers;
 	void *stats_buf;
 	void __user *stats_buf_u;
@@ -77,6 +78,7 @@ struct npu_host_ctx {
 	void *subsystem_handle;
 	enum fw_state fw_state;
 	int32_t fw_ref_cnt;
+	int32_t npu_init_cnt;
 	int32_t power_vote_num;
 	struct work_struct ipc_irq_work;
 	struct work_struct wdg_err_irq_work;
@@ -85,11 +87,13 @@ struct npu_host_ctx {
 	struct work_struct update_pwr_work;
 	struct delayed_work disable_fw_work;
 	struct workqueue_struct *wq;
+	struct workqueue_struct *wq_pri;
 	struct completion misc_cmd_done;
 	struct completion fw_deinit_done;
 	struct completion fw_bringup_done;
 	struct completion fw_shutdown_done;
 	struct completion npu_power_up_done;
+	void *prop_buf;
 	int32_t network_num;
 	struct npu_network networks[MAX_LOADED_NETWORK];
 	bool sys_cache_disable;
@@ -109,6 +113,7 @@ struct npu_host_ctx {
 	void *notif_hdle;
 	spinlock_t bridge_mbox_lock;
 	bool bridge_mbox_pwr_on;
+	void *ipc_msg_buf;
 };
 
 struct npu_device;
@@ -143,11 +148,17 @@ int32_t npu_host_exec_network_v2(struct npu_client *client,
 	struct msm_npu_exec_network_ioctl_v2 *exec_ioctl,
 	struct msm_npu_patch_buf_info *patch_buf_info);
 int32_t npu_host_loopback_test(struct npu_device *npu_dev);
+int32_t npu_host_set_fw_property(struct npu_device *npu_dev,
+			struct msm_npu_property *property);
+int32_t npu_host_get_fw_property(struct npu_device *npu_dev,
+			struct msm_npu_property *property);
 void npu_host_cleanup_networks(struct npu_client *client);
 int npu_host_notify_fw_pwr_state(struct npu_device *npu_dev,
 	uint32_t pwr_level, bool post);
 int npu_host_update_power(struct npu_device *npu_dev);
-
+int32_t npu_host_set_perf_mode(struct npu_client *client, uint32_t network_hdl,
+	uint32_t perf_mode);
+int32_t npu_host_get_perf_mode(struct npu_client *client, uint32_t network_hdl);
 void npu_dump_debug_info(struct npu_device *npu_dev);
 void npu_dump_ipc_packet(struct npu_device *npu_dev, void *cmd_ptr);
 

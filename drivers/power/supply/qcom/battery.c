@@ -197,6 +197,9 @@ static int cp_get_parallel_mode(struct pl_data *chip, int mode)
  */
 static void cp_configure_ilim(struct pl_data *chip, const char *voter, int ilim)
 {
+	int rc, fcc;
+	union power_supply_propval pval = {0, };
+
 	if (!is_cp_available(chip))
 		return;
 
@@ -204,11 +207,28 @@ static void cp_configure_ilim(struct pl_data *chip, const char *voter, int ilim)
 					== POWER_SUPPLY_PL_OUTPUT_VPH)
 		return;
 
+	rc = power_supply_get_property(chip->cp_master_psy,
+				POWER_SUPPLY_PROP_MIN_ICL, &pval);
+	if (rc < 0)
+		return;
+
 	if (!chip->cp_ilim_votable)
 		chip->cp_ilim_votable = find_votable("CP_ILIM");
 
-	if (chip->cp_ilim_votable)
-		vote(chip->cp_ilim_votable, voter, true, ilim);
+	if (chip->cp_ilim_votable) {
+		fcc = get_effective_result_locked(chip->fcc_votable);
+		/*
+		 * If FCC >= (2 * MIN_ICL) then it is safe to enable CP
+		 * with MIN_ICL.
+		 * Configure ILIM as follows:
+		 * if request_ilim < MIN_ICL cofigure ILIM to MIN_ICL.
+		 * otherwise configure ILIM to requested_ilim.
+		 */
+		if ((fcc >= (pval.intval * 2)) && (ilim < pval.intval))
+			vote(chip->cp_ilim_votable, voter, true, pval.intval);
+		else
+			vote(chip->cp_ilim_votable, voter, true, ilim);
+	}
 }
 
 /*******
@@ -622,7 +642,7 @@ static void get_fcc_stepper_params(struct pl_data *chip, int main_fcc_ua,
 				|| (total_fcc_ua != chip->total_fcc_ua)) {
 			chip->override_main_fcc_ua = main_set_fcc_ua;
 			chip->total_fcc_ua = total_fcc_ua;
-			parallel_fcc_ua += (main_fcc_ua
+			parallel_fcc_ua = (total_fcc_ua
 						- chip->override_main_fcc_ua);
 		} else {
 			goto skip_fcc_step_update;
@@ -1367,6 +1387,13 @@ static int pl_disable_vote_callback(struct votable *votable,
 			if (chip->step_fcc) {
 				vote(chip->pl_awake_votable, FCC_STEPPER_VOTER,
 					true, 0);
+				/*
+				 * Configure ILIM above min ILIM of CP to
+				 * ensure CP is not disabled due to ILIM vote.
+				 * Later FCC stepper will take to ILIM to
+				 * target value.
+				 */
+				cp_configure_ilim(chip, FCC_VOTER, 0);
 				schedule_delayed_work(&chip->fcc_stepper_work,
 					0);
 			}

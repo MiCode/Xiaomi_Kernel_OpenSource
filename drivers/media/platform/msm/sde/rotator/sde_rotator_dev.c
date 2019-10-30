@@ -2399,7 +2399,7 @@ static int sde_rotator_qbuf(struct file *file, void *fh,
 		ctx->vbinfo_cap[idx].qbuf_ts = ktime_get();
 		ctx->vbinfo_cap[idx].dqbuf_ts = NULL;
 		SDEDEV_DBG(ctx->rot_dev->dev,
-				"create buffer fence s:%d.%u i:%d f:%p\n",
+				"create buffer fence s:%d.%u i:%d f:%pK\n",
 				ctx->session_id,
 				ctx->vbinfo_cap[idx].fence_ts,
 				idx,
@@ -3088,7 +3088,7 @@ static void sde_rotator_retire_handler(struct kthread_work *work)
 
 		if (!src_buf || !dst_buf) {
 			SDEDEV_ERR(rot_dev->dev,
-				"null buffer in retire s:%d sb:%p db:%p\n",
+				"null buffer in retire s:%d sb:%pK db:%pK\n",
 				ctx->session_id,
 				src_buf, dst_buf);
 		}
@@ -3377,7 +3377,7 @@ static void sde_rotator_device_run(void *priv)
 			dst_buf = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx);
 			if (!src_buf || !dst_buf) {
 				SDEDEV_ERR(rot_dev->dev,
-					"null buffer in device run s:%d sb:%p db:%p\n",
+					"null buffer in device run s:%d sb:%pK db:%pK\n",
 					ctx->session_id,
 					src_buf, dst_buf);
 				goto error_process_buffers;

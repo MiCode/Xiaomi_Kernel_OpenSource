@@ -125,34 +125,48 @@ err_release_mapping:
 
 static int atl_qcom_attach_smmu(struct device *dev)
 {
-	int rc = 0;
+	bool dt_present = !!of_find_property(dev->of_node, "qcom,smmu", NULL);
+	bool smmu_attached = !!iommu_get_domain_for_dev(dev);
 
-	if (!dev->of_node) {
-		dev_dbg(dev, "device tree node is not present\n");
+	if (smmu_attached) {
+		/* On platforms where IOMMU is attached automatically, we do
+		 * not expect qcom,smmu property to be present in devicetree.
+		 */
+		if (dt_present) {
+			dev_err(dev, "SMMU DT node is not expected\n");
+			return -EEXIST;
+		}
+
 		return 0;
 	}
 
-	if (of_find_property(dev->of_node, "qcom,smmu", NULL))
-		rc = __atl_qcom_attach_smmu(dev);
-	else
-		dev_dbg(dev, "SMMU config not present in DT\n");
+	if (!dt_present) {
+		dev_err(dev, "SMMU DT is required for the device\n");
+		return -EFAULT;
+	}
 
-	return 0;
+	return __atl_qcom_attach_smmu(dev);
 }
 
 static void atl_qcom_detach_smmu(struct device *dev)
 {
-	struct dma_iommu_mapping *mapping;
+	bool dt_present = !!of_find_property(dev->of_node, "qcom,smmu", NULL);
+	bool smmu_attached = !!iommu_get_domain_for_dev(dev);
 
-	if (!dev->of_node || !of_find_property(dev->of_node, "qcom,smmu", NULL))
-		return;
+	/* Perform a manual deattach only if we were tasked with doing the
+	 * attach originally.
+	 */
+	if (dt_present && smmu_attached) {
+		struct dma_iommu_mapping *mapping = to_dma_iommu_mapping(dev);
 
-	mapping = to_dma_iommu_mapping(dev);
-	if (!mapping)
-		return;
+		if (!mapping) {
+			dev_err(dev, "Failed to retrieve IOMMU mapping\n");
+			return;
+		}
 
-	arm_iommu_detach_device(dev);
-	arm_iommu_release_mapping(mapping);
+		arm_iommu_detach_device(dev);
+		arm_iommu_release_mapping(mapping);
+	}
 }
 
 static int atl_qcom_probe(struct pci_dev *pdev, const struct pci_device_id *id)

@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +17,7 @@
 
 #define REG_DMA_VER_1_0 0x00010000
 #define REG_DMA_VER_1_1 0x00010001
+#define REG_DMA_VER_1_2 0x00010002
 
 static int default_check_support(enum sde_reg_dma_features feature,
 		     enum sde_reg_dma_blk blk,
@@ -109,6 +110,7 @@ int sde_reg_dma_init(void __iomem *addr, struct sde_mdss_cfg *m,
 			DRM_DEBUG("init v1 dma ops failed\n");
 		break;
 	case REG_DMA_VER_1_1:
+	case REG_DMA_VER_1_2:
 		rc = init_v11(&reg_dma);
 		if (rc)
 			DRM_DEBUG("init v11 dma ops failed\n");
@@ -142,6 +144,7 @@ void sde_reg_dma_deinit(void)
 		deinit_v1();
 		break;
 	case REG_DMA_VER_1_1:
+	case REG_DMA_VER_1_2:
 		deinit_v1();
 		break;
 	default:

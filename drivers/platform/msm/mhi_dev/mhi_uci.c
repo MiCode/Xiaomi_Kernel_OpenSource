@@ -151,7 +151,7 @@ static const struct chan_attr uci_chan_attr_table[] = {
 		TRB_MAX_DATA_SIZE,
 		MAX_NR_TRBS_PER_CHAN,
 		MHI_DIR_OUT,
-		mhi_uci_generic_client_cb,
+		NULL,
 		NULL,
 		NULL,
 		false,
@@ -162,7 +162,7 @@ static const struct chan_attr uci_chan_attr_table[] = {
 		TRB_MAX_DATA_SIZE,
 		MAX_NR_TRBS_PER_CHAN,
 		MHI_DIR_IN,
-		mhi_uci_generic_client_cb,
+		NULL,
 		NULL,
 		NULL,
 		false,
@@ -914,9 +914,14 @@ static int mhi_uci_client_open(struct inode *mhi_inode,
 				"Opening channels client %d\n",
 				iminor(mhi_inode));
 			rc = open_client_mhi_channels(uci_handle);
-			if (rc) {
+			if (rc < 0) {
 				uci_log(UCI_DBG_INFO,
 					"Failed to open channels ret %d\n", rc);
+				if (atomic_sub_return(1, &uci_handle->ref_count)
+									== 0) {
+					uci_log(UCI_DBG_INFO,
+						"Closing failed channel\n");
+				}
 				return rc;
 			}
 		}
@@ -1148,7 +1153,16 @@ static ssize_t mhi_uci_client_read(struct file *file, char __user *ubuf,
 	ssize_t bytes_copied = 0;
 	u32 addr_offset = 0;
 
+	if (!file || !ubuf || !file->private_data) {
+		uci_log(UCI_DBG_DBG, "Invalid access to read\n");
+		return -EINVAL;
+	}
+
 	uci_handle = file->private_data;
+	if (!uci_handle->read || !uci_handle->in_handle) {
+		uci_log(UCI_DBG_DBG, "Invalid inhandle or read\n");
+		return -EINVAL;
+	}
 	mutex = &uci_handle->in_chan_lock;
 	mutex_lock(mutex);
 
@@ -1216,12 +1230,16 @@ static ssize_t mhi_uci_client_write(struct file *file,
 	unsigned long memcpy_result;
 	int rc;
 
-	if (file == NULL || buf == NULL ||
-		!count || file->private_data == NULL)
+	if (!file || !buf || !count || !file->private_data) {
+		uci_log(UCI_DBG_DBG, "Invalid access to write\n");
 		return -EINVAL;
+	}
 
 	uci_handle = file->private_data;
-
+	if (!uci_handle->send || !uci_handle->out_handle) {
+		uci_log(UCI_DBG_DBG, "Invalid handle or send\n");
+		return -EINVAL;
+	}
 	if (atomic_read(&uci_ctxt.mhi_disabled)) {
 		uci_log(UCI_DBG_ERROR,
 			"Client %d attempted to write while MHI is disabled\n",

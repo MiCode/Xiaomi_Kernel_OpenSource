@@ -25,73 +25,93 @@
 /*
  * Functions - Register
  */
+static uint32_t npu_reg_read(void __iomem *base, size_t size, uint32_t off)
+{
+	if (!base) {
+		NPU_ERR("NULL base address\n");
+		return 0;
+	}
+
+	if ((off % 4) != 0) {
+		NPU_ERR("offset %x is not aligned\n", off);
+		return 0;
+	}
+
+	if (off >= size) {
+		NPU_ERR("offset exceeds io region %x:%x\n", off, size);
+		return 0;
+	}
+
+	return readl_relaxed(base + off);
+}
+
+static void npu_reg_write(void __iomem *base, size_t size, uint32_t off,
+	uint32_t val)
+{
+	if (!base) {
+		NPU_ERR("NULL base address\n");
+		return;
+	}
+
+	if ((off % 4) != 0) {
+		NPU_ERR("offset %x is not aligned\n", off);
+		return;
+	}
+
+	if (off >= size) {
+		NPU_ERR("offset exceeds io region %x:%x\n", off, size);
+		return;
+	}
+
+	writel_relaxed(val, base + off);
+	__iowmb();
+}
+
 uint32_t npu_core_reg_read(struct npu_device *npu_dev, uint32_t off)
 {
-	uint32_t ret = 0;
-
-	ret = readl_relaxed(npu_dev->core_io.base + off);
-	return ret;
+	return npu_reg_read(npu_dev->core_io.base, npu_dev->core_io.size, off);
 }
 
 void npu_core_reg_write(struct npu_device *npu_dev, uint32_t off, uint32_t val)
 {
-	writel_relaxed(val, npu_dev->core_io.base + off);
-	__iowmb();
+	npu_reg_write(npu_dev->core_io.base, npu_dev->core_io.size,
+		off, val);
 }
 
-uint32_t npu_qdsp_reg_read(struct npu_device *npu_dev, uint32_t off)
+uint32_t npu_tcsr_reg_read(struct npu_device *npu_dev, uint32_t off)
 {
-	uint32_t ret = 0;
-
-	ret = readl_relaxed(npu_dev->qdsp_io.base + off);
-	return ret;
-}
-
-void npu_qdsp_reg_write(struct npu_device *npu_dev, uint32_t off, uint32_t val)
-{
-	writel_relaxed(val, npu_dev->qdsp_io.base + off);
-	__iowmb();
+	return npu_reg_read(npu_dev->tcsr_io.base, npu_dev->tcsr_io.size, off);
 }
 
 uint32_t npu_apss_shared_reg_read(struct npu_device *npu_dev, uint32_t off)
 {
-	uint32_t ret = 0;
-
-	ret = readl_relaxed(npu_dev->apss_shared_io.base + off);
-	return ret;
+	return npu_reg_read(npu_dev->apss_shared_io.base,
+		npu_dev->apss_shared_io.size, off);
 }
 
 void npu_apss_shared_reg_write(struct npu_device *npu_dev, uint32_t off,
 	uint32_t val)
 {
-	writel_relaxed(val, npu_dev->apss_shared_io.base + off);
-	__iowmb();
+	npu_reg_write(npu_dev->apss_shared_io.base,
+		npu_dev->apss_shared_io.size, off, val);
 }
 
 uint32_t npu_cc_reg_read(struct npu_device *npu_dev, uint32_t off)
 {
-	uint32_t ret = 0;
-
-	ret = readl_relaxed(npu_dev->cc_io.base + off);
-
-	return ret;
+	return npu_reg_read(npu_dev->cc_io.base, npu_dev->cc_io.size, off);
 }
 
 void npu_cc_reg_write(struct npu_device *npu_dev, uint32_t off,
 	uint32_t val)
 {
-	writel_relaxed(val, npu_dev->cc_io.base + off);
-	__iowmb();
+	npu_reg_write(npu_dev->cc_io.base, npu_dev->cc_io.size,
+		off, val);
 }
 
 uint32_t npu_qfprom_reg_read(struct npu_device *npu_dev, uint32_t off)
 {
-	uint32_t ret = 0;
-
-	if (npu_dev->qfprom_io.base)
-		ret = readl_relaxed(npu_dev->qfprom_io.base + off);
-
-	return ret;
+	return npu_reg_read(npu_dev->qfprom_io.base,
+		npu_dev->qfprom_io.size, off);
 }
 
 /*
@@ -105,6 +125,13 @@ void npu_mem_write(struct npu_device *npu_dev, void *dst, void *src,
 	uint8_t *src_ptr8 = NULL;
 	uint32_t i = 0;
 	uint32_t num = 0;
+
+	if (dst_off >= npu_dev->tcm_io.size ||
+		(npu_dev->tcm_io.size - dst_off) < size) {
+		NPU_ERR("memory write exceeds io region %x:%x:%x\n",
+			dst_off, size, npu_dev->tcm_io.size);
+		return;
+	}
 
 	num = size/4;
 	for (i = 0; i < num; i++) {
@@ -131,6 +158,13 @@ int32_t npu_mem_read(struct npu_device *npu_dev, void *src, void *dst,
 	uint8_t *out8 = NULL;
 	uint32_t i = 0;
 	uint32_t num = 0;
+
+	if (src_off >= npu_dev->tcm_io.size ||
+		(npu_dev->tcm_io.size - src_off) < size) {
+		NPU_ERR("memory read exceeds io region %x:%x:%x\n",
+			src_off, size, npu_dev->tcm_io.size);
+		return 0;
+	}
 
 	num = size/4;
 	for (i = 0; i < num; i++) {
@@ -163,7 +197,7 @@ void npu_interrupt_ack(struct npu_device *npu_dev, uint32_t intr_num)
 
 int32_t npu_interrupt_raise_m0(struct npu_device *npu_dev)
 {
-	npu_apss_shared_reg_write(npu_dev, APSS_SHARED_IPC_INTERRUPT_1, 0x40);
+	npu_apss_shared_reg_write(npu_dev, APSS_SHARED_IPC_INTERRUPT_1, 0x20);
 
 	return 0;
 }

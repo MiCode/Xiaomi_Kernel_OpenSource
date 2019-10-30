@@ -1042,9 +1042,13 @@ static void smb1390_status_change_work(struct work_struct *work)
 	if (!is_psy_voter_available(chip))
 		goto out;
 
-	if (!smb1390_is_adapter_cc_mode(chip))
-		vote(chip->disable_votable, SOC_LEVEL_VOTER,
-		     smb1390_is_batt_soc_valid(chip) ? false : true, 0);
+	/*
+	 * If batt soc is not valid upon bootup, but becomes
+	 * valid due to the battery discharging later, remove
+	 * vote from SOC_LEVEL_VOTER.
+	 */
+	if (smb1390_is_batt_soc_valid(chip))
+		vote(chip->disable_votable, SOC_LEVEL_VOTER, false, 0);
 
 	rc = power_supply_get_property(chip->usb_psy,
 			POWER_SUPPLY_PROP_SMB_EN_MODE, &pval);
@@ -1152,11 +1156,14 @@ static int smb1390_validate_slave_chg_taper(struct smb1390 *chip, int fcc_uA)
 		smb1390_dbg(chip, PR_INFO, "Set Master ILIM to MAX, post Slave disable in taper, fcc=%d\n",
 									fcc_uA);
 		vote_override(chip->ilim_votable, CC_MODE_VOTER,
-						true, MAX_ILIM_DUAL_CP_UA);
+				smb1390_is_adapter_cc_mode(chip),
+				MAX_ILIM_DUAL_CP_UA);
+
 		if (chip->usb_icl_votable)
 			vote_override(chip->usb_icl_votable,
 				      TAPER_MAIN_ICL_LIMIT_VOTER,
-				      true, chip->cc_mode_taper_main_icl_ua);
+				      smb1390_is_adapter_cc_mode(chip),
+				      chip->cc_mode_taper_main_icl_ua);
 	}
 
 	return rc;
@@ -1380,7 +1387,7 @@ static int smb1390_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CP_ILIM:
 		if (chip->ilim_votable)
 			vote_override(chip->ilim_votable, CC_MODE_VOTER,
-							true, val->intval);
+					(val->intval > 0), val->intval);
 		break;
 	default:
 		smb1390_dbg(chip, PR_MISC, "charge pump power supply set prop %d not supported\n",

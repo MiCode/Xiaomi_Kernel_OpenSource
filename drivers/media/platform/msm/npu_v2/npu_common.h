@@ -47,10 +47,13 @@
 
 #define NUM_MAX_CLK_NUM			48
 #define NPU_MAX_REGULATOR_NUM	2
-#define NPU_MAX_DT_NAME_LEN	    21
+#define NPU_MAX_DT_NAME_LEN		21
 #define NPU_MAX_PWRLEVELS		8
-#define NPU_MAX_STATS_BUF_SIZE 16384
+#define NPU_MAX_STATS_BUF_SIZE	16384
+#define NPU_MAX_PATCH_NUM		160
 #define NPU_MAX_BW_DEVS			4
+
+#define PERF_MODE_DEFAULT 0
 
 enum npu_power_level {
 	NPU_PWRLEVEL_MINSVS = 0,
@@ -167,6 +170,8 @@ struct npu_reg {
  * @uc_pwrlevel - power level from user driver setting
  * @perf_mode_override - perf mode from sysfs to override perf mode
  *                       settings from user driver
+ * @dcvs_mode - dcvs mode from sysfs to turn on dcvs mode
+ *              settings from user driver
  * @devbw - bw device
  */
 struct npu_pwrctrl {
@@ -186,6 +191,8 @@ struct npu_pwrctrl {
 	uint32_t cdsprm_pwrlevel;
 	uint32_t fmax_pwrlevel;
 	uint32_t perf_mode_override;
+	uint32_t dcvs_mode;
+	uint32_t cur_dcvs_activity;
 };
 
 /*
@@ -249,7 +256,7 @@ struct npu_device {
 	struct npu_io_data core_io;
 	struct npu_io_data tcm_io;
 	struct npu_io_data cc_io;
-	struct npu_io_data qdsp_io;
+	struct npu_io_data tcsr_io;
 	struct npu_io_data apss_shared_io;
 	struct npu_io_data qfprom_io;
 

@@ -42,7 +42,7 @@ static const struct npu_queue_tuple npu_q_setup[6] = {
 	{ 4096, IPC_QUEUE_APPS_EXEC         | TX_HDR_TYPE | RX_HDR_TYPE },
 	{ 4096, IPC_QUEUE_DSP_EXEC          | TX_HDR_TYPE | RX_HDR_TYPE },
 	{ 4096, IPC_QUEUE_APPS_RSP          | TX_HDR_TYPE | RX_HDR_TYPE },
-	{ 1024, IPC_QUEUE_DSP_RSP           | TX_HDR_TYPE | RX_HDR_TYPE },
+	{ 4096, IPC_QUEUE_DSP_RSP           | TX_HDR_TYPE | RX_HDR_TYPE },
 	{ 1024, IPC_QUEUE_LOG               | TX_HDR_TYPE | RX_HDR_TYPE },
 };
 
@@ -238,6 +238,13 @@ static int ipc_queue_read(struct npu_device *npu_dev,
 		status = -EPERM;
 		goto exit;
 	}
+
+	if (packet_size > NPU_IPC_BUF_LENGTH) {
+		NPU_ERR("Invalid packet size %d\n", packet_size);
+		status = -EINVAL;
+		goto exit;
+	}
+
 	new_read_idx = queue.qhdr_read_idx + packet_size;
 
 	if (new_read_idx < (queue.qhdr_q_size)) {

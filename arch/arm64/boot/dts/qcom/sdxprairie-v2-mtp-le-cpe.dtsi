@@ -77,3 +77,7 @@
 &mhi_net_device {
 	status = "ok";
 };
+
+&sdx_ext_ipc {
+	status = "ok";
+};
