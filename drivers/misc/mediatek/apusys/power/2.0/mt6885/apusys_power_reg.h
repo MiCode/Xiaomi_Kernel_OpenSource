@@ -107,7 +107,9 @@ extern void *g_APU_SPM_BASE;
  * SPM and related register
  *************************************************/
 #define APU_SPM_BASE		(g_APU_SPM_BASE)
+#define OTHER_PWR_STATUS	(void *)(APU_SPM_BASE + 0x178)
 #define BUCK_ISOLATION		(void *)(APU_SPM_BASE + 0x39C)
+#define SPM_CROSS_WAKE_M01_REQ	(void *)(APU_SPM_BASE + 0x670)
 
 /**************************************************
  * debug related register

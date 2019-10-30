@@ -345,6 +345,15 @@ static void rpc_fifo_check(void)
 #endif
 }
 
+static void dump_spm_register(void)
+{
+	LOG_WRN("APUREG, SPM OTHER_PWR_STATUS = 0x%x\n",
+					DRV_Reg32(OTHER_PWR_STATUS));
+	LOG_WRN("APUREG, SPM BUCK_ISOLATION = 0x%x\n",
+					DRV_Reg32(BUCK_ISOLATION));
+	LOG_WRN("APUREG, SPM SPM_CROSS_WAKE_M01_REQ = 0x%x\n",
+					DRV_Reg32(SPM_CROSS_WAKE_M01_REQ));
+}
 
 static int rpc_power_status_check(int domain_idx, unsigned int enable)
 {
@@ -366,6 +375,7 @@ static int rpc_power_status_check(int domain_idx, unsigned int enable)
 			LOG_ERR(
 			"%s APU_RPC_INTF_PWR_RDY = 0x%x (from idx:%d), timeout !\n",
 						__func__, regValue, domain_idx);
+			dump_spm_register();
 			return -1;
 		}
 
@@ -489,6 +499,8 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 			DRV_WriteReg32(APU_RPC_TOP_SEL, regValue);
 
 			// sleep request enable
+			// CAUTION!! do NOT request sleep twice in succession
+			// or system may crash (comments from DE)
 			regValue = DRV_Reg32(APU_RPC_TOP_CON);
 			regValue |= 0x1;
 			DRV_WriteReg32(APU_RPC_TOP_CON, regValue);
@@ -785,6 +797,8 @@ static int apusys_power_reg_dump(void)
 	// dump mtcmos status
 	LOG_WRN("APUREG APU_RPC_INTF_PWR_RDY = 0x%x, conn_mtcmos_on = %d\n",
 							regVal, conn_mtcmos_on);
+
+	dump_spm_register();
 
 	if (((regVal & BIT(0))) == 0x1) {
 		LOG_WRN("APUREG APU_VCORE_CG_CON = 0x%x\n",

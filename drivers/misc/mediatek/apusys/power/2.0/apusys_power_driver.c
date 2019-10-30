@@ -34,6 +34,7 @@
 
 int g_pwr_log_level = APUSYS_PWR_LOG_INFO;
 static int apu_power_counter;
+static int apusys_power_broken;
 
 bool apusys_power_check(void)
 {
@@ -203,8 +204,22 @@ int apu_device_power_off(enum DVFS_USER user)
 	LOG_WRN("%s waiting for lock, user = %d\n", __func__, user);
 	mutex_lock(&power_ctl_mtx);
 
+	if (apusys_power_broken) {
+		mutex_unlock(&power_ctl_mtx);
+		LOG_ERR("APUPWR_BROKEN, user:%d fail to pwr off\n", user);
+		return -ENODEV;
+	}
+
+	if (pwr_dev->is_power_on == 0) {
+		mutex_unlock(&power_ctl_mtx);
+		LOG_ERR("APUPWR_OFF_FAIL, not allow user:%d to pwr off twice\n",
+									user);
+		return -ECANCELED;
+	}
+
 	LOG_INF("%s for user : %d, cnt : %d\n", __func__,
 						user, apu_power_counter);
+
 	power_callback_counter--;
 	if (power_callback_counter == 0) {
 		// call passive power off function list
@@ -219,8 +234,12 @@ int apu_device_power_off(enum DVFS_USER user)
 #if !BYPASS_POWER_CTL
 	ret = apusys_power_off(user);
 #endif
-	if (!ret)
+	if (!ret) {
 		pwr_dev->is_power_on = 0;
+	} else {
+		apusys_power_broken = 1;
+		power_callback_counter++;
+	}
 
 	mutex_unlock(&power_ctl_mtx);
 	apu_get_power_info();
@@ -229,8 +248,8 @@ int apu_device_power_off(enum DVFS_USER user)
 #endif // BYPASS_POWER_OFF
 
 	if (ret) {
+		LOG_ERR("APUPWR_OFF_FAIL, user:%d\n", user);
 		apu_power_reg_dump();
-		LOG_ERR("APUPWR_OFF_FAIL, user=%d\n", user);
 		return -ENODEV;
 	} else {
 		return 0;
@@ -251,30 +270,47 @@ int apu_device_power_on(enum DVFS_USER user)
 	LOG_WRN("%s waiting for lock, user = %d\n", __func__, user);
 	mutex_lock(&power_ctl_mtx);
 
+	if (apusys_power_broken) {
+		mutex_unlock(&power_ctl_mtx);
+		LOG_ERR("APUPWR_BROKEN, user:%d fail to pwr on\n", user);
+		return -ENODEV;
+	}
+
+	if (pwr_dev->is_power_on == 1) {
+		mutex_unlock(&power_ctl_mtx);
+		LOG_ERR("APUPWR_ON_FAIL, not allow user:%d to pwr on twice\n",
+									user);
+		return -ECANCELED;
+	}
+
 	LOG_INF("%s for user : %d, cnt : %d\n", __func__,
 						user, apu_power_counter);
+
 	// for debug
 	// dump_stack();
 #if !BYPASS_POWER_CTL
 	ret = apusys_power_on(user);
 #endif
-	if (!ret)
+	if (!ret) {
 		pwr_dev->is_power_on = 1;
+		power_callback_counter++;
+	} else {
+		apusys_power_broken = 1;
+	}
 
-	if (!ret && power_callback_counter == 0) {
+	if (power_callback_counter == 1) {
 		// call passive power on function list
 #if !BYPASS_POWER_CTL
 		power_callback_caller(1);
 #endif
 	}
-	power_callback_counter++;
 
 	mutex_unlock(&power_ctl_mtx);
 	apu_get_power_info();
 
 	if (ret) {
-		apu_power_reg_dump();
 		LOG_ERR("APUPWR_ON_FAIL, user=%d\n", user);
+		apu_power_reg_dump();
 		return -ENODEV;
 	} else {
 		return 0;
