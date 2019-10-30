@@ -218,8 +218,12 @@ static int sync_read(struct goodix_tools_dev *dev, void __user *arg)
 	list_add_tail(&tools_data.list, &dev->head);
 	mutex_unlock(&dev->mutex);
 	/* wait queue will timeout after 1 seconds */
-	wait_event_interruptible_timeout(dev->wq,
-					tools_data.filled == 1, HZ * 3);
+	if (!wait_event_interruptible_timeout(dev->wq,
+			tools_data.filled == 1, HZ * 3)) {
+		ret = -EAGAIN;
+		ts_err("Wait queue timeout");
+		goto err_out;
+	}
 
 	mutex_lock(&dev->mutex);
 	list_del(&tools_data.list);
@@ -237,6 +241,7 @@ static int sync_read(struct goodix_tools_dev *dev, void __user *arg)
 		ts_err("Wait queue timeout");
 	}
 
+err_out:
 	kfree(tools_data.data);
 	return ret;
 }
