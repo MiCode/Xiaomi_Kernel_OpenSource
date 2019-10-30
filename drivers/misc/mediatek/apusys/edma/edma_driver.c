@@ -36,6 +36,8 @@ static struct class *edma_class;
 
 static int edma_init_queue_task(struct edma_sub *edma_sub)
 {
+#ifdef EDMA_IOCTRL
+
 	edma_sub->enque_task = kthread_create(edma_enque_routine_loop,
 					      edma_sub,
 					      edma_sub->sub_name);
@@ -45,7 +47,7 @@ static int edma_init_queue_task(struct edma_sub *edma_sub)
 		return -ENOENT;
 	}
 	wake_up_process(edma_sub->enque_task);
-
+#endif
 	return 0;
 }
 
@@ -122,8 +124,10 @@ static const struct file_operations edma_fops = {
 	.owner = THIS_MODULE,
 	.open = edma_open,
 	.release = edma_release,
+#ifdef EDMA_IOCTRL
 #ifdef CONFIG_COMPAT
 	.unlocked_ioctl = edma_ioctl
+#endif
 #endif
 };
 
