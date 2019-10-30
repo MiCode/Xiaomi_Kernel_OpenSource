@@ -2425,9 +2425,11 @@ int m4u_mva_map_kernel(unsigned long mva,
 	unsigned int page_num;
 	void *kernel_va;
 	unsigned int kernel_size;
+	struct m4u_client_t *client = ion_m4u_client;
 
-	pMvaInfo = pseudo_client_find_buf(ion_m4u_client, mva, 0);
+	pMvaInfo = pseudo_client_find_buf(client, mva, 0);
 
+	mutex_lock(&(client->dataMutex));
 	if (!pMvaInfo || pMvaInfo->size < size) {
 		M4U_MSG(
 			"%s cannot find mva: mva=0x%lx, size=0x%lx\n",
@@ -2436,6 +2438,7 @@ int m4u_mva_map_kernel(unsigned long mva,
 			M4U_MSG(
 			"pMvaInfo: mva=0x%lx, size=0x%lx\n",
 			pMvaInfo->mva, pMvaInfo->size);
+		mutex_unlock(&(client->dataMutex));
 		return -1;
 	}
 
@@ -2446,6 +2449,7 @@ int m4u_mva_map_kernel(unsigned long mva,
 	if (pages == NULL) {
 		M4U_MSG("mva_map_kernel:error to vmalloc for %d\n",
 			   (unsigned int)sizeof(struct page *) * page_num);
+		mutex_unlock(&(client->dataMutex));
 		return -1;
 	}
 
@@ -2466,6 +2470,7 @@ int m4u_mva_map_kernel(unsigned long mva,
 	}
 
 get_pages_done:
+	mutex_unlock(&(client->dataMutex));
 	if (k < page_num) {
 		/* this should not happen, because we have
 		 * checked the size before.
