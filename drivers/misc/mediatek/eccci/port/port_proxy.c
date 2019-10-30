@@ -19,6 +19,7 @@
 #include <linux/wait.h>
 #include <linux/module.h>
 #include <linux/poll.h>
+#include <linux/proc_fs.h>
 #ifdef CONFIG_COMPAT
 #include <linux/compat.h>
 #endif
@@ -50,6 +51,14 @@ static struct port_proxy *proxy_table[MAX_MD_NUM];
 #define CHECK_MD_ID(md_id)
 #define CHECK_HIF_ID(hif_id)
 #define CHECK_QUEUE_ID(queue_id)
+
+struct ccci_proc_user {
+	unsigned int busy;
+	int left_len;
+	void __iomem *curr_addr;
+};
+
+static spinlock_t file_lock;
 
 #if MD_GENERATION > (6295)
 int send_new_time_to_new_md(int md_id, int tz)
@@ -1613,11 +1622,133 @@ int port_send_msg_to_md(struct port_t *port, unsigned int msg,
  * This API is called by ccci_modem,
  * and used to create all ccci port instance for per modem
  */
+
+static int ccci_lp_mem_open(struct inode *inode, struct file *file)
+{
+	struct ccci_proc_user *proc_user;
+
+	proc_user = kzalloc(sizeof(struct ccci_proc_user), GFP_KERNEL);
+	if (!proc_user) {
+		CCCI_ERROR_LOG(-1, TAG, "fail to open ccci_lp_mem\n");
+		return -1;
+	}
+
+	file->private_data = proc_user;
+	proc_user->busy = 0;
+	nonseekable_open(inode, file);
+
+	return 0;
+}
+
+static ssize_t ccci_lp_mem_read(struct file *file, char __user *buf,
+				size_t size, loff_t *ppos)
+{
+		int proc_size = 0, read_len = 0, has_closed = 0;
+		unsigned long flags;
+		void __iomem *user_start_addr = NULL;
+		struct ccci_proc_user *proc_user = file->private_data;
+		struct ccci_smem_region *ccci_user_region =
+			ccci_md_get_smem_by_user_id(0, SMEM_USER_LOW_POWER);
+
+		spin_lock_irqsave(&file_lock, flags);
+		proc_user = (struct ccci_proc_user *)file->private_data;
+		if (proc_user == NULL)
+			has_closed = 1;
+		else
+			proc_user->busy = 1;
+		spin_unlock_irqrestore(&file_lock, flags);
+
+		if (has_closed) {
+			CCCI_ERROR_LOG(-1, TAG,
+				"ccci_lp_proc has been already closed\n");
+			return 0;
+		}
+		if (!ccci_user_region) {
+			CCCI_ERROR_LOG(-1, TAG, "not found Low power region\n");
+			proc_user->busy = 0;
+			return -1;
+		}
+
+		user_start_addr = ccci_user_region->base_ap_view_vir;
+		proc_size = ccci_user_region->size;
+		if (proc_user->left_len)
+			read_len = size > proc_user->left_len ?
+					proc_user->left_len : size;
+		else
+			read_len = size > proc_size ? proc_size : size;
+		proc_user->curr_addr = proc_user->curr_addr ?
+				proc_user->curr_addr : user_start_addr;
+
+		if (proc_user->curr_addr < user_start_addr + proc_size) {
+			CCCI_ERROR_LOG(-1, TAG, "copy to user\n");
+			if (copy_to_user(buf, proc_user->curr_addr, read_len)) {
+				CCCI_ERROR_LOG(-1, TAG,
+				"read ccci_lp_mem fail, size %lu\n", size);
+				proc_user->busy = 0;
+				return -EFAULT;
+			}
+			proc_user->curr_addr = proc_user->curr_addr + read_len;
+			proc_user->left_len = proc_size - read_len;
+		} else {
+			proc_user->busy = 0;
+			return 0;
+		}
+		proc_user->busy = 0;
+
+		return read_len;
+}
+
+static int ccci_lp_mem_close(struct inode *inode, struct file *file)
+{
+	int need_wait = 0;
+	unsigned long flags;
+	struct ccci_proc_user *proc_user = file->private_data;
+
+	if (proc_user == NULL)
+		return -1;
+
+	do {
+		spin_lock_irqsave(&file_lock, flags);
+		if (proc_user->busy) {
+			need_wait = 1;
+		} else {
+			need_wait = 0;
+			file->private_data = NULL;
+		}
+		spin_unlock_irqrestore(&file_lock, flags);
+		if (need_wait)
+			msleep(20);
+	} while (need_wait);
+	if (proc_user != NULL)
+		kfree(proc_user);
+
+	return 0;
+}
+
+const struct file_operations ccci_dbm_ops = {
+	.open = ccci_lp_mem_open,
+	.read = ccci_lp_mem_read,
+	.release = ccci_lp_mem_close,
+};
+
+static void ccci_proc_init(void)
+{
+	struct proc_dir_entry *ccci_dbm_proc;
+
+	ccci_dbm_proc = proc_create("ccci_lp_mem", 0444, NULL, &ccci_dbm_ops);
+	if (ccci_dbm_proc == NULL)
+		CCCI_ERROR_LOG(-1, TAG, "fail to create ccci dbm proc\n");
+	spin_lock_init(&file_lock);
+	return;
+
+}
+
 int ccci_port_init(int md_id)
 {
 	struct port_proxy *proxy_p;
 
 	CHECK_MD_ID(md_id);
+	ccci_proc_init();
 	proxy_p = proxy_alloc(md_id);
 	if (proxy_p == NULL) {
 		CCCI_ERROR_LOG(md_id, TAG, "alloc port_proxy fail\n");
