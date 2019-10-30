@@ -49,6 +49,7 @@ void apusys_user_dump(void *s_file)
 	struct list_head *c_tmp = NULL, *c_list_ptr = NULL;
 	struct list_head *m_tmp = NULL, *m_list_ptr = NULL;
 	struct apusys_user_dev *u_dev = NULL;
+	struct apusys_res_table *tab = NULL;
 	struct seq_file *s = (struct seq_file *)s_file;
 	int u_count = 0;
 	int d_count = 0;
@@ -56,11 +57,11 @@ void apusys_user_dump(void *s_file)
 	int c_count = 0;
 
 #define LINEBAR \
-	"|-------------------------------------------"\
-	"-------------------------------------------|\n"
+	"|--------------------------------------------------------"\
+	"---------------------------------------------------------|\n"
 
 	LOG_CON(s, LINEBAR);
-	LOG_CON(s, "|%-86s|\n",
+	LOG_CON(s, "|%-113s|\n",
 		" apusys user table");
 	LOG_CON(s, LINEBAR);
 
@@ -68,14 +69,14 @@ void apusys_user_dump(void *s_file)
 	list_for_each_safe(list_ptr, tmp, &g_user_mgr.list) {
 		user = list_entry(list_ptr, struct apusys_user, list);
 
-		LOG_CON(s, "| user (#%-3d)%74s|\n",
+		LOG_CON(s, "| user (#%-3d)%101s|\n",
 			u_count,
 			"");
-		LOG_CON(s, "| id   = 0x%-76llx|\n",
+		LOG_CON(s, "| id   = 0x%-103llx|\n",
 			user->id);
-		LOG_CON(s, "| pid  = %-78d|\n",
+		LOG_CON(s, "| pid  = %-105d|\n",
 			user->open_pid);
-		LOG_CON(s, "| tgid = %-78d|\n",
+		LOG_CON(s, "| tgid = %-105d|\n",
 			user->open_tgid);
 		LOG_CON(s, LINEBAR);
 
@@ -84,7 +85,7 @@ void apusys_user_dump(void *s_file)
 		m_count = 0;
 
 		/* cmd */
-		LOG_CON(s, "|%-10s|%-20s|%-20s|%-20s|%-12s|\n",
+		LOG_CON(s, "|%-10s|%-13s|%-33s|%-33s|%-20s|\n",
 			" cmd",
 			" priority",
 			" uid",
@@ -97,7 +98,7 @@ void apusys_user_dump(void *s_file)
 			mutex_lock(&cmd->mtx);
 
 			LOG_CON(s,
-			"| #%-8d| %-19d| 0x%-17llx| 0x%-17llx| %-11u|\n",
+			"| #%-8d| %-12d| 0x%-30llx| 0x%-30llx| %-19u|\n",
 				c_count,
 				cmd->hdr->priority,
 				cmd->hdr->uid,
@@ -110,46 +111,71 @@ void apusys_user_dump(void *s_file)
 
 		/* mem */
 		LOG_CON(s,
-		"|%-10s|%-6s|%-6s|%-6s|%-20s|%-20s|%-12s|\n",
+		"|%-10s|%-6s|%-6s|%-20s|%-12s|%-20s|%-12s|%-20s|\n",
 			" mem",
 			" type",
 			" fd",
-			" size",
 			" uva",
-			" kva",
-			" iova");
+			" size",
+			" iova",
+			" iova size",
+			" kva");
 		LOG_CON(s, LINEBAR);
 		list_for_each_safe(m_list_ptr, m_tmp, &user->mem_list) {
 			u_mem = list_entry(m_list_ptr,
 				struct apusys_user_mem, list);
 
 			LOG_CON(s,
-			"| #%-8d| %-5u| %-5u| %-5d| 0x%-17llx| 0x%-17llx| 0x%-9x|\n",
+			"| #%-8d| %-5u| %-5u| 0x%-17llx| %-11d| 0x%-17x| 0x%-9x| 0x%-17llx|\n",
 				m_count,
 				u_mem->mem.mem_type,
 				u_mem->mem.fd,
-				u_mem->mem.size,
 				u_mem->mem.uva,
-				u_mem->mem.kva,
-				u_mem->mem.iova);
+				u_mem->mem.size,
+				u_mem->mem.iova,
+				u_mem->mem.iova_size,
+				u_mem->mem.kva);
 			m_count++;
 		}
 		LOG_CON(s, LINEBAR);
 
 		/* device */
-		LOG_CON(s, "|%-10s|%-6s|%-6s|%-61s|\n",
+		LOG_CON(s, "|%-10s|%-6s|%-6s|%-20s|%-67s|\n",
 			" dev",
 			" type",
 			" idx",
+			" name",
 			" devptr");
 		LOG_CON(s, LINEBAR);
 		list_for_each_safe(d_list_ptr, d_tmp, &user->dev_list) {
 			u_dev = list_entry(d_list_ptr,
 				struct apusys_user_dev, list);
-			LOG_CON(s, "| %-9d| %-5d| %-5d| %-60p|\n",
+			tab = res_get_table(u_dev->dev_info->dev->dev_type);
+			if (tab == NULL) {
+				LOG_CON(s, "miss resource table\n");
+				break;
+			}
+			LOG_CON(s, "| %-9d| %-5d| %-5d| %-19s| %-66p|\n",
 				d_count,
 				u_dev->dev_info->dev->dev_type,
 				u_dev->dev_info->dev->idx,
+				tab->name,
+				u_dev->dev_info->dev);
+			d_count++;
+		}
+		list_for_each_safe(d_list_ptr, d_tmp, &user->secdev_list) {
+			u_dev = list_entry(d_list_ptr,
+				struct apusys_user_dev, list);
+			tab = res_get_table(u_dev->dev_info->dev->dev_type);
+			if (tab == NULL) {
+				LOG_CON(s, "miss resource table\n");
+				break;
+			}
+			LOG_CON(s, "| %-9d| %-5d| %-5d| %-19s| %-66p|\n",
+				d_count,
+				u_dev->dev_info->dev->dev_type,
+				u_dev->dev_info->dev->idx,
+				tab->name,
 				u_dev->dev_info->dev);
 			d_count++;
 		}
@@ -200,8 +226,8 @@ int apusys_user_delete_cmd(struct apusys_user *u, void *icmd)
 	list_del(&cmd->u_list);
 	mutex_unlock(&cmd->sc_mtx);
 #else
-	if (apusys_sched_cmd_abort(cmd))
-		LOG_ERR("abort cmd fail\n");
+	if (apusys_sched_del_cmd(cmd))
+		LOG_ERR("delete cmd(0x%llx) fail\n", cmd->cmd_id);
 
 	list_del(&cmd->u_list);
 #endif
@@ -229,8 +255,8 @@ int apusys_user_get_cmd(struct apusys_user *u, void **icmd, uint64_t cmd_id)
 			return 0;
 		}
 	}
-	mutex_unlock(&u->cmd_mtx);
 
+	mutex_unlock(&u->cmd_mtx);
 	return -ENODATA;
 }
 
@@ -318,12 +344,13 @@ struct apusys_dev_info *apusys_user_get_dev(struct apusys_user *u,
 		udev = list_entry(list_ptr, struct apusys_user_dev, list);
 		if ((uint64_t)udev->dev_info == hnd) {
 			LOG_DEBUG("get device!!\n");
-			break;
+			mutex_unlock(&u->dev_mtx);
+			return udev->dev_info;
 		}
 	}
 	mutex_unlock(&u->dev_mtx);
 
-	return udev->dev_info;
+	return NULL;
 }
 
 int apusys_user_insert_secdev(struct apusys_user *u, void *idev_info)

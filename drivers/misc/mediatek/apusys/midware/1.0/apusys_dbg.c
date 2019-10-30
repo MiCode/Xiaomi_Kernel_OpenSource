@@ -24,30 +24,26 @@
 #include "resource_mgt.h"
 #include "midware_trace.h"
 #include "apusys_user.h"
+#include "scheduler.h"
 
 struct dentry *apusys_dbg_root;
 struct dentry *apusys_dbg_user;
+struct dentry *apusys_dbg_devinfo;
 struct dentry *apusys_dbg_device;
-struct dentry *apusys_dbg_queue;
 struct dentry *apusys_dbg_trace;
-struct dentry *apusys_dbg_fo;
+struct dentry *apusys_dbg_test;
 struct dentry *apusys_dbg_log;
 
 u8 g_log_level = APUSYS_LOG_INFO;
 u8 cfg_apusys_trace;
 EXPORT_SYMBOL(cfg_apusys_trace);
 
-
-uint8_t apusys_fo_list[APUSYS_FO_MAX];
-
-//----------------------------------------------
-inline int get_fo_from_list(int idx)
-{
-	if (idx >= APUSYS_FO_MAX)
-		return -EINVAL;
-
-	return (int)apusys_fo_list[idx];
-}
+enum {
+	APUSYS_DBG_TEST_SUSPEND,
+	APUSYS_DBG_TEST_LOCKDEV,
+	APUSYS_DBG_TEST_UNLOCKDEV,
+	APUSYS_DBG_TEST_MAX,
+};
 
 //----------------------------------------------
 // user table dump
@@ -57,13 +53,13 @@ static int apusys_dbg_dump_user(struct seq_file *s, void *unused)
 	return 0;
 }
 
-static int apusys_dbg_user_open(struct inode *inode, struct file *file)
+static int apusys_dbg_open_user(struct inode *inode, struct file *file)
 {
 	return single_open(file, apusys_dbg_dump_user, inode->i_private);
 }
 
 static const struct file_operations apusys_dbg_fops_user = {
-	.open = apusys_dbg_user_open,
+	.open = apusys_dbg_open_user,
 	.read = seq_read,
 	.llseek = seq_lseek,
 	.release = seq_release,
@@ -72,19 +68,19 @@ static const struct file_operations apusys_dbg_fops_user = {
 
 //----------------------------------------------
 // device table dump
-static int apusys_dbg_dump_dev(struct seq_file *s, void *unused)
+static int apusys_dbg_dump_devinfo(struct seq_file *s, void *unused)
 {
 	res_mgt_dump(s);
 	return 0;
 }
 
-static int apusys_dbg_device_open(struct inode *inode, struct file *file)
+static int apusys_dbg_open_devinfo(struct inode *inode, struct file *file)
 {
-	return single_open(file, apusys_dbg_dump_dev, inode->i_private);
+	return single_open(file, apusys_dbg_dump_devinfo, inode->i_private);
 }
 
-static const struct file_operations apusys_dbg_fops_device = {
-	.open = apusys_dbg_device_open,
+static const struct file_operations apusys_dbg_fops_devinfo = {
+	.open = apusys_dbg_open_devinfo,
 	.read = seq_read,
 	.llseek = seq_lseek,
 	.release = seq_release,
@@ -92,122 +88,59 @@ static const struct file_operations apusys_dbg_fops_device = {
 };
 
 //----------------------------------------------
-// queue table dump
-static int apusys_dbg_dump_queue(struct seq_file *s, void *unused)
-{
-	LOG_CON(s, "hello~\n");
-	return 0;
-}
-
-static int apusys_dbg_queue_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, apusys_dbg_dump_queue, inode->i_private);
-}
-
-static ssize_t apusys_dbg_queue_read(struct file *flip,
-		char __user *buffer,
-		size_t count, loff_t *f_pos)
-{
-	struct seq_file *s = (struct seq_file *)flip->private_data;
-	int num = 0, ret = 0, dev_type = 0;
-
-	if (s == NULL)
-		return -EINVAL;
-
-	if (count < sizeof(num)) {
-		LOG_ERR("size too small(%lu/%lu)\n", count, sizeof(num));
-		return -EINVAL;
-	}
-
-	dev_type = *(int *)s->private;
-	num = res_get_queue_len(dev_type);
-	if (num < 0)
-		return -ENODEV;
-
-	LOG_DEBUG("queue(%d) length = %d\n", dev_type, num);
-
-	ret = simple_read_from_buffer(buffer, count,
-		f_pos, &num, sizeof(num));
-
-	LOG_CON(s, "queue(%d) length = %d\n", dev_type, num);
-
-	return ret;
-}
-
-static const struct file_operations apusys_dbg_fops_queue = {
-	.open = apusys_dbg_queue_open,
-	.read = apusys_dbg_queue_read,
-	.llseek = seq_lseek,
-	.release = seq_release,
-};
-
-/*
- * input dev_type is device table's type,
- * allocated by resource mgt
- */
-int apusys_dbg_create_queue(int *dev_type)
-{
-	int ret = 0, type = 0;
-	struct dentry *dbg_dev_q = NULL;
-	char dev_name[32];
-
-	/* check argument */
-	if (dev_type == NULL)
-		return -EINVAL;
-
-	/* check queue dir */
-	ret = IS_ERR_OR_NULL(apusys_dbg_queue);
-	if (ret) {
-		LOG_ERR("failed to get queue dir.\n");
-		return -EINVAL;
-	}
-
-	memset(dev_name, 0, sizeof(dev_name));
-	type = *(int *)dev_type;
-	snprintf(dev_name, sizeof(dev_name)-1, "%d", type);
-	LOG_INFO("private: %d/%s/%p\n", type, dev_name, dev_type);
-
-	/* create with dev type */
-	dbg_dev_q = debugfs_create_file(dev_name, 0644,
-		apusys_dbg_queue, dev_type, &apusys_dbg_fops_queue);
-	ret = IS_ERR_OR_NULL(dbg_dev_q);
-	if (ret)
-		LOG_ERR("create q len node(%d) fail(%d)\n", *dev_type, ret);
-
-	return ret;
-}
-
-//----------------------------------------------
-static int apusys_dbg_fo_dump(struct seq_file *s, void *unused)
+static int apusys_dbg_test_dump(struct seq_file *s, void *unused)
 {
 	LOG_CON(s, "|---------------------------------|\n");
-	LOG_CON(s, "| apusys fo list                  |\n");
+	LOG_CON(s, "| apusys test list                |\n");
 	LOG_CON(s, "|---------------------------------|\n");
-	LOG_CON(s, "| multicore  = %-3d                |\n",
-		apusys_fo_list[APUSYS_FO_MULTICORE]);
-	LOG_CON(s, "| scheduler  = %-3d                |\n",
-		apusys_fo_list[APUSYS_FO_SCHED]);
-	LOG_CON(s, "| preemption = %-3d                |\n",
-		apusys_fo_list[APUSYS_FO_PREEMPTION]);
-	LOG_CON(s, "| timerecord = %-3d                |\n",
-		apusys_fo_list[APUSYS_FO_TIMERECORD]);
+	LOG_CON(s, "| 1. suspend test                 |\n");
+	LOG_CON(s, "|        suspend 0 : resume       |\n");
+	LOG_CON(s, "|        suspend 1 : suspend      |\n");
 	LOG_CON(s, "|---------------------------------|\n");
 
 	return 0;
 }
 
-static int apusys_dbg_fo_open(struct inode *inode, struct file *file)
+static int apusys_dbg_open_test(struct inode *inode, struct file *file)
 {
-	return single_open(file, apusys_dbg_fo_dump, inode->i_private);
+	return single_open(file, apusys_dbg_test_dump, inode->i_private);
 }
 
-static ssize_t apusys_dbg_fo_write(struct file *flip,
+static void _apusys_dbg_test(int test, int *arg, int count)
+{
+	switch (test) {
+	case APUSYS_DBG_TEST_SUSPEND:
+		if (count < 1)
+			LOG_WARN("suspend test need 1 arg\n");
+
+		if (arg[0])
+			apusys_sched_pause();
+		else
+			apusys_sched_restart();
+		break;
+	case APUSYS_DBG_TEST_LOCKDEV:
+		if (count < 2)
+			LOG_WARN("lock dev test need 2 args\n");
+		LOG_WARN("todo\n");
+		break;
+	case APUSYS_DBG_TEST_UNLOCKDEV:
+		if (count < 2)
+			LOG_WARN("lock dev test need 2 args\n");
+		LOG_WARN("todo\n");
+		break;
+	default:
+		LOG_WARN("no test(%d/%d/%d)\n", test, arg[0], count);
+		break;
+	}
+}
+
+static ssize_t apusys_dbg_write_test(struct file *flip,
 		const char __user *buffer,
 		size_t count, loff_t *f_pos)
 {
 	char *tmp, *token, *cursor;
-	int ret, i, fo;
-	const int max_arg = 1;
+	int ret, i, test;
+	const int max_arg = 2;
 	unsigned int args[max_arg];
 
 	tmp = kzalloc(count + 1, GFP_KERNEL);
@@ -225,17 +158,15 @@ static ssize_t apusys_dbg_fo_write(struct file *flip,
 
 	/* parse a command */
 	token = strsep(&cursor, " ");
-	if (strcmp(token, "multicore") == 0)
-		fo = APUSYS_FO_MULTICORE;
-	else if (strcmp(token, "scheduler") == 0)
-		fo = APUSYS_FO_SCHED;
-	else if (strcmp(token, "preemption") == 0)
-		fo = APUSYS_FO_PREEMPTION;
-	else if (strcmp(token, "timerecord") == 0)
-		fo = APUSYS_FO_TIMERECORD;
+	if (strcmp(token, "suspend") == 0)
+		test = APUSYS_DBG_TEST_SUSPEND;
+	else if (strcmp(token, "lockdev") == 0)
+		test = APUSYS_DBG_TEST_LOCKDEV;
+	else if (strcmp(token, "unlockdev") == 0)
+		test = APUSYS_DBG_TEST_UNLOCKDEV;
 	else {
 		ret = -EINVAL;
-		LOG_ERR("no power param[%s]!\n", token);
+		LOG_ERR("no test(%s)\n", token);
 		goto out;
 	}
 
@@ -248,7 +179,8 @@ static ssize_t apusys_dbg_fo_write(struct file *flip,
 		}
 	}
 
-	apusys_fo_list[fo] = args[0];
+	/* call test */
+	_apusys_dbg_test(test, args, i);
 
 	ret = count;
 out:
@@ -257,19 +189,18 @@ out:
 	return ret;
 }
 
-static const struct file_operations apusys_dbg_fops_fo = {
-	.open = apusys_dbg_fo_open,
+static const struct file_operations apusys_dbg_fops_test = {
+	.open = apusys_dbg_open_test,
 	.read = seq_read,
 	.llseek = seq_lseek,
 	.release = seq_release,
-	.write = apusys_dbg_fo_write,
+	.write = apusys_dbg_write_test,
 };
 
 //----------------------------------------------
 int apusys_dbg_init(void)
 {
 	int ret = 0;
-
 
 	/* create debug root */
 	apusys_dbg_root = debugfs_create_dir(APUSYS_DBG_DIR, NULL);
@@ -280,24 +211,24 @@ int apusys_dbg_init(void)
 	}
 
 	/* create device table info */
-	apusys_dbg_device = debugfs_create_file("device", 0644,
-		apusys_dbg_root, NULL, &apusys_dbg_fops_device);
-	ret = IS_ERR_OR_NULL(apusys_dbg_device);
+	apusys_dbg_devinfo = debugfs_create_file("devinfo", 0444,
+		apusys_dbg_root, NULL, &apusys_dbg_fops_devinfo);
+	ret = IS_ERR_OR_NULL(apusys_dbg_devinfo);
 	if (ret) {
-		LOG_ERR("failed to create debug node(device).\n");
+		LOG_ERR("failed to create debug node(devinfo).\n");
 		goto out;
 	}
 
 	/* create device queue info */
-	apusys_dbg_queue = debugfs_create_dir("queue", apusys_dbg_root);
-	ret = IS_ERR_OR_NULL(apusys_dbg_queue);
+	apusys_dbg_device = debugfs_create_dir("device", apusys_dbg_root);
+	ret = IS_ERR_OR_NULL(apusys_dbg_device);
 	if (ret) {
-		LOG_ERR("failed to create queue dir.\n");
+		LOG_ERR("failed to create queue dir(device).\n");
 		goto out;
 	}
 
 	/* create user info */
-	apusys_dbg_user = debugfs_create_file("user", 0644,
+	apusys_dbg_user = debugfs_create_file("user", 0444,
 		apusys_dbg_root, NULL, &apusys_dbg_fops_user);
 	ret = IS_ERR_OR_NULL(apusys_dbg_user);
 	if (ret) {
@@ -306,11 +237,11 @@ int apusys_dbg_init(void)
 	}
 
 	/* create feature option info */
-	apusys_dbg_fo = debugfs_create_file("fo", 0644,
-		apusys_dbg_root, NULL, &apusys_dbg_fops_fo);
-	ret = IS_ERR_OR_NULL(apusys_dbg_fo);
+	apusys_dbg_test = debugfs_create_file("test", 0644,
+		apusys_dbg_root, NULL, &apusys_dbg_fops_test);
+	ret = IS_ERR_OR_NULL(apusys_dbg_test);
 	if (ret) {
-		LOG_ERR("failed to create debug node(fo).\n");
+		LOG_ERR("failed to create debug node(test).\n");
 		goto out;
 	}
 
@@ -328,12 +259,6 @@ int apusys_dbg_init(void)
 		LOG_ERR("failed to create debug node(trace_en).\n");
 		goto out;
 	}
-
-	/* init feature option */
-	apusys_fo_list[APUSYS_FO_MULTICORE] = 0;
-	apusys_fo_list[APUSYS_FO_SCHED] = 1;
-	apusys_fo_list[APUSYS_FO_PREEMPTION] = 0;
-	apusys_fo_list[APUSYS_FO_TIMERECORD] = 0;
 
 out:
 	return ret;

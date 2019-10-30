@@ -17,25 +17,19 @@
 #include "apusys_device.h"
 #include "scheduler.h"
 #include "sched_deadline.h"
+#include "sched_normal.h"
+#include "cmd_parser.h"
 
 #define APUSYS_SETPOWER_TIMEOUT (3*1000)
 #define APUSYS_SETPOWER_TIMEOUT_ALLON (0)
 
 #define APUSYS_DEV_TABLE_MAX 16 //max number device supported
+#define APUSYS_DEV_NAME_SIZE 16
 
 enum {
 	APUSYS_DEV_OWNER_DISABLE,
 	APUSYS_DEV_OWNER_NONE,
 	APUSYS_DEV_OWNER_SCHEDULER,
-};
-
-struct prio_q_inst {
-	struct list_head prio[APUSYS_PRIORITY_MAX];
-	unsigned long node_exist[BITS_TO_LONGS(APUSYS_PRIORITY_MAX)];
-
-	/* basic info */
-	int normal_len;
-	int deadline_len;
 };
 
 struct apusys_dev_aquire {
@@ -75,6 +69,7 @@ struct apusys_dev_info {
 struct apusys_res_table {
 	/* device related info */
 	int dev_type; // APUSYS_DEVICE_E
+	char name[APUSYS_DEV_NAME_SIZE];
 	uint32_t dev_num; // num of total cores
 	uint32_t available_num; // record how many cores available
 
@@ -84,13 +79,20 @@ struct apusys_res_table {
 	unsigned long dev_status[BITS_TO_LONGS(APUSYS_DEV_TABLE_MAX)];
 
 	/* priority queue */
-	struct prio_q_inst *prio_q;
+	struct normal_queue normal_q;
 
 	/* deadline queue */
 	struct deadline_root deadline_q;
 
+	uint32_t normal_task_num;
+	uint32_t deadline_task_num;
+	struct mutex mtx;
+
 	/* reservation */
 	struct list_head acq_list;
+
+	/* dbg */
+	struct dentry *dbg_dir;
 };
 
 /* init link list head, which link all dev table */
@@ -110,12 +112,13 @@ struct apusys_res_mgr {
 };
 
 struct apusys_res_mgr *res_get_mgr(void);
+struct apusys_res_table *res_get_table(int type);
 
-int insert_subcmd(void *isc);
-int insert_subcmd_lock(void *isc);
-int pop_subcmd(int type, void **isc);
-int delete_subcmd(void *isc);
-int delete_subcmd_lock(void *isc);
+int insert_subcmd(struct apusys_subcmd *sc);
+int insert_subcmd_lock(struct apusys_subcmd *sc);
+int pop_subcmd(int type, struct apusys_subcmd **isc);
+int delete_subcmd(struct apusys_subcmd *sc);
+int delete_subcmd_lock(struct apusys_subcmd *sc);
 
 int acq_device_try(struct apusys_dev_aquire *acq);
 int acq_device_async(struct apusys_dev_aquire *acq);
@@ -135,10 +138,14 @@ int res_send_ucmd(int dev_type, int idx,
 
 int res_get_device_num(int dev_type);
 uint64_t res_get_dev_support(void);
-int res_get_queue_len(int dev_type);
+
+int res_task_inc(struct apusys_subcmd *sc);
+int res_task_dec(struct apusys_subcmd *sc);
 
 int res_secure_on(int dev_type);
 int res_secure_off(int dev_type);
+int res_suspend_dev(void);
+int res_resume_dev(void);
 
 void res_mgt_dump(void *s_file);
 int res_mgt_init(void);

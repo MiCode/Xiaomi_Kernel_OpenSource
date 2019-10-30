@@ -22,7 +22,7 @@
 #include <linux/slab.h>
 
 #include <linux/init.h>
-#include <linux/io.h>
+//#include <linux/io.h>
 
 #include "apusys_power.h"
 
@@ -34,6 +34,7 @@
 #include "memory_mgt.h"
 #include "cmd_parser.h"
 #include "apusys_dbg.h"
+#include "apusys_options.h"
 
 #include "apusys_device.h"
 
@@ -265,11 +266,17 @@ static int apusys_remove(struct platform_device *pdev)
 
 static int apusys_suspend(struct platform_device *pdev, pm_message_t mesg)
 {
+#ifdef APUSYS_OPTIONS_SUSPEND_SUPPORT
+	apusys_sched_pause();
+#endif
 	return 0;
 }
 
 static int apusys_resume(struct platform_device *pdev)
 {
+#ifdef APUSYS_OPTIONS_SUSPEND_SUPPORT
+	apusys_sched_restart();
+#endif
 	return 0;
 }
 
@@ -568,7 +575,7 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		}
 
 		/* insert cmd to priority queue */
-		if (apusys_sched_add_list(a_cmd)) {
+		if (apusys_sched_add_cmd(a_cmd)) {
 			LOG_ERR("add cmd(0x%llx) to list fail\n",
 				a_cmd->cmd_id);
 			if (apusys_user_delete_cmd(user, a_cmd)) {
@@ -634,7 +641,7 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		}
 
 		/* insert cmd to priority queue */
-		ret = apusys_sched_add_list(a_cmd);
+		ret = apusys_sched_add_cmd(a_cmd);
 		if (ret) {
 			LOG_ERR("add cmd(0x%llx) to list fail\n",
 				a_cmd->cmd_id);
@@ -737,6 +744,8 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 	case APUSYS_IOCTL_DEVICE_ALLOC:
 		DEBUG_TAG;
+		LOG_WARN("not support\n");
+		return -EINVAL;
 		if (copy_from_user(&dev_alloc, (void *)arg,
 			sizeof(struct apusys_ioctl_dev))) {
 			LOG_ERR("copy dev_alloc struct fail\n");
@@ -790,6 +799,8 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 	case APUSYS_IOCTL_DEVICE_FREE:
 		DEBUG_TAG;
+		LOG_WARN("not support\n");
+		return -EINVAL;
 		if (copy_from_user(&dev_alloc, (void *)arg,
 			sizeof(struct apusys_ioctl_dev))) {
 			LOG_ERR("copy dev_alloc struct fail\n");
@@ -1024,7 +1035,7 @@ check_ucmd_size_fail:
 		DEBUG_TAG;
 		if (copy_from_user(&ioctl_sec, (void *)arg,
 			sizeof(struct apusys_ioctl_sec))) {
-			LOG_ERR("copy sec struct fail\n");
+			LOG_ERR("[sec]copy sec struct fail\n");
 			ret = -EINVAL;
 			goto out;
 		}
@@ -1032,13 +1043,13 @@ check_ucmd_size_fail:
 		/* check device supported */
 		dev_num = res_get_device_num(ioctl_sec.dev_type);
 		if (dev_num <= 0) {
-			LOG_ERR("sec lock: not support dev(%d)\n",
+			LOG_ERR("[sec]lock: not support dev(%d)\n",
 				ioctl_sec.dev_type);
 			ret = -ENODEV;
 			goto out;
 		}
 
-		LOG_INFO("lock dev(%d) %d cores...\n",
+		LOG_INFO("[sec]lock dev(%d) %d cores...\n",
 			ioctl_sec.dev_type, dev_num);
 
 		/* get type device from resource mgr */
@@ -1048,7 +1059,7 @@ check_ucmd_size_fail:
 		acq.is_done = 0;
 		acq.owner = user->open_pid;
 		if (acq_device_sync(&acq) <= 0) {
-			LOG_ERR("sec lock alloc dev(%d) user(0x%llx) fail\n",
+			LOG_ERR("[sec]lock alloc dev(%d) u(0x%llx) fail\n",
 				ioctl_sec.dev_type,
 				user->id);
 
@@ -1056,7 +1067,7 @@ check_ucmd_size_fail:
 			goto out;
 		}
 
-		LOG_INFO("lock dev(%d) %d cores done\n",
+		LOG_INFO("[sec]lock dev(%d) %d cores done\n",
 			ioctl_sec.dev_type, dev_num);
 
 		/*
@@ -1071,7 +1082,7 @@ check_ucmd_size_fail:
 			ret = res_power_off(dev_info->dev->dev_type,
 					dev_info->dev->idx);
 			if (ret) {
-				LOG_ERR("dev(%d/%d) poweroff fail\n",
+				LOG_ERR("[sec]dev(%d/%d) poweroff fail\n",
 					dev_info->dev->dev_type,
 					dev_info->dev->idx);
 				break;
@@ -1082,7 +1093,7 @@ check_ucmd_size_fail:
 					dev_info->dev->idx, 100,
 					APUSYS_SETPOWER_TIMEOUT_ALLON);
 			if (ret) {
-				LOG_ERR("dev(%d/%d) poweron fail\n",
+				LOG_ERR("[sec]dev(%d/%d) poweron fail\n",
 					dev_info->dev->dev_type,
 					dev_info->dev->idx);
 				break;
@@ -1091,7 +1102,7 @@ check_ucmd_size_fail:
 			/* record sec device acquire */
 			ret = apusys_user_insert_secdev(user, dev_info);
 			if (ret) {
-				LOG_ERR("insert dev list fail\n");
+				LOG_ERR("[sec]insert dev list fail\n");
 				if (put_device_lock(dev_info)) {
 					LOG_ERR("put dev fail\n");
 					ret = -ENODEV;
@@ -1104,25 +1115,25 @@ check_ucmd_size_fail:
 		}
 
 		if (count != dev_num) {
-			LOG_WARN("alloc device num confuse(%d/%d)\n",
+			LOG_WARN("[sec]alloc dev num confuse(%d/%d)\n",
 				count, dev_num);
 		}
 
 		/* check success */
 		if (ret == 0) {
 			if (res_secure_on(ioctl_sec.dev_type)) {
-				LOG_ERR("dev(%d) secure mode on fail\n",
+				LOG_ERR("[sec]dev(%d) secure mode on fail\n",
 					ioctl_sec.dev_type);
 				ret = -ENODEV;
 			} else {
-				LOG_INFO("power on dev(%d) %d cores ok\n",
+				LOG_INFO("[sec]power on dev(%d) %d cores ok\n",
 					ioctl_sec.dev_type, dev_num);
 				break;
 			}
 		}
 
 		/* if fail, need to release power and device */
-		LOG_WARN("sec lock: release dev(%d)\n", ioctl_sec.dev_type);
+		LOG_WARN("[sec]release dev(%d)...\n", ioctl_sec.dev_type);
 		val = 0;
 		list_for_each_safe(list_ptr, tmp, &acq.dev_info_list) {
 			dev_info = list_entry(list_ptr,
@@ -1131,14 +1142,14 @@ check_ucmd_size_fail:
 			/* power off */
 			if (res_power_off(dev_info->dev->dev_type,
 					dev_info->dev->idx)) {
-				LOG_ERR("dev(%d/%d) poweroff fail\n",
+				LOG_ERR("[sec]dev(%d/%d) poweroff fail\n",
 					dev_info->dev->dev_type,
 					dev_info->dev->idx);
 				ret = -ENODEV;
 			}
 
 			if (put_device_lock(dev_info)) {
-				LOG_ERR("put dev(%d/%d) fail\n",
+				LOG_ERR("[sec]put dev(%d/%d) fail\n",
 					dev_info->dev->dev_type,
 					dev_info->dev->idx);
 				ret = -ENODEV;
@@ -1146,7 +1157,7 @@ check_ucmd_size_fail:
 
 			if (val < count) {
 				if (apusys_user_delete_secdev(user, dev_info)) {
-					LOG_ERR("delete sec(%d/%d) list fail\n",
+					LOG_ERR("[sec]del secdev(%d/%d) fail\n",
 						dev_info->dev->dev_type,
 						dev_info->dev->idx);
 					ret = -ENODEV;
@@ -1155,7 +1166,7 @@ check_ucmd_size_fail:
 			val++;
 		}
 
-		LOG_WARN("release sec dev(%d) done(%d/%d)\n",
+		LOG_WARN("[sec]release sec dev(%d) done(%d/%d)\n",
 			ioctl_sec.dev_type,
 			val, count);
 
@@ -1246,15 +1257,50 @@ static long apusys_compat_ioctl(struct file *flip, unsigned int cmd,
 	return 0;
 }
 
+#ifdef CONFIG_PM
+int apusys_pm_suspend(struct device *device)
+{
+	struct platform_device *pdev = to_platform_device(device);
+
+	WARN_ON(pdev == NULL);
+	return apusys_suspend(pdev, PMSG_SUSPEND);
+}
+
+int apusys_pm_resume(struct device *device)
+{
+	struct platform_device *pdev = to_platform_device(device);
+
+	WARN_ON(pdev == NULL);
+	return apusys_resume(pdev);
+}
+
+int apusys_pm_restore_noirq(struct device *device)
+{
+	return 0;
+}
+
+static const struct dev_pm_ops apusys_pm_ops = {
+	.suspend = apusys_pm_suspend,
+	.resume = apusys_pm_resume,
+	.freeze = apusys_pm_suspend,
+	.thaw = apusys_pm_resume,
+	.poweroff = apusys_pm_suspend,
+	.restore = apusys_pm_resume,
+	.restore_noirq = apusys_pm_restore_noirq,
+};
+#endif
+
 static struct platform_driver midware_driver = {
 	.probe = apusys_probe,
 	.remove = apusys_remove,
 	.suspend = apusys_suspend,
 	.resume  = apusys_resume,
-	//.pm = apusys_pm_qos,
 	.driver = {
 		.name = APUSYS_DEV_NAME,
 		.owner = THIS_MODULE,
+#ifdef CONFIG_PM
+		.pm = &apusys_pm_ops,
+#endif
 	},
 };
 

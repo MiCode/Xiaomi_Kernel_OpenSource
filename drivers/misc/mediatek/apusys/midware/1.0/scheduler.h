@@ -18,25 +18,11 @@
 #include <linux/mutex.h>
 #include "cmd_parser.h"
 
-/* total 32 priority, 16 for user, 16 reserved for system */
-enum {
-	/* user used */
-	APUSYS_PRIORITY_NORMAL = 0x1,
-	APUSYS_PRIORITY_HIGH = 0x2,
-	APUSYS_PRIORITY_ULTRA = 0x0,
-
-	/* system used */
-	APUSYS_PRIORITY_SYSTEM_0 = 0x10,
-	APUSYS_PRIORITY_SYSTEM_1 = 0x11,
-	APUSYS_PRIORITY_SYSTEM_2 = 0x12,
-	APUSYS_PRIORITY_SYSTEM_3 = 0x13,
-	APUSYS_PRIORITY_SYSTEM_4 = 0x14,
-
-	APUSYS_PRIORITY_MAX = 0x20,
-};
-int apusys_sched_cmd_abort(struct apusys_cmd *cmd);
+int apusys_sched_add_cmd(struct apusys_cmd *cmd);
 int apusys_sched_wait_cmd(struct apusys_cmd *cmd);
-int apusys_sched_add_list(struct apusys_cmd *cmd);
+int apusys_sched_del_cmd(struct apusys_cmd *cmd);
+int apusys_sched_pause(void);
+int apusys_sched_restart(void);
 int apusys_sched_init(void);
 int apusys_sched_destroy(void);
 

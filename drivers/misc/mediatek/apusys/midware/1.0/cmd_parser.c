@@ -108,12 +108,35 @@ static int _set_data_to_cmdbuf(struct apusys_subcmd *sc)
 	/* bandwidth */
 	sc->c_hdr->bandwidth = sc->bw;
 	/* tcm usage */
-	sc->c_hdr->tcm_usage = sc->tcm_usage;
+	//sc->c_hdr->tcm_usage = sc->tcm_usage;
 
 	return 0;
 }
 
-static int check_fd_from_codebuf_offset(unsigned int codebuf_offset)
+static int _get_multicore_sched(struct apusys_cmd *cmd)
+{
+	int multicore_sched = CMD_SCHED_NORMAL;
+	unsigned long long multi0 = 0, multi1 = 0;
+
+	if (cmd == NULL) {
+		LOG_WARN("invalid arg\n");
+		return CMD_SCHED_NORMAL;
+	}
+
+	multi0 = cmd->hdr->flag_bitmap & (1ULL << CMD_FLAG_BITMAP_MULTI0);
+	multi1 = cmd->hdr->flag_bitmap & (1ULL << CMD_FLAG_BITMAP_MULTI1);
+
+	if (!multi0 && multi1) /* bit62 = 0 and bit63 = 1, multi */
+		multicore_sched = CMD_SCHED_FORCE_MULTI;
+	else if (multi0 && !multi1) /* bit62 = 1 and bit63 = 0, single */
+		multicore_sched = CMD_SCHED_FORCE_SINGLE;
+	else /* ohter, scheduler decide */
+		multicore_sched = CMD_SCHED_NORMAL;
+
+	return multicore_sched;
+}
+
+static int _check_fd_from_codebuf_offset(unsigned int codebuf_offset)
 {
 	if (codebuf_offset & (1UL << SUBGRAPH_CODEBUF_INFO_BIT_FD))
 		return 1;
@@ -328,7 +351,7 @@ int apusys_subcmd_create(int idx, struct apusys_cmd *cmd,
 
 	/* check codebuf type, fd or offset */
 	LOG_DEBUG("cb offset = 0x%x\n", sc->c_hdr->ofs_cb_info);
-	if (check_fd_from_codebuf_offset(sc->c_hdr->ofs_cb_info)) {
+	if (_check_fd_from_codebuf_offset(sc->c_hdr->ofs_cb_info)) {
 		/* from lib, fd need to map */
 		LOG_DEBUG("codebuf is fd, need to map\n");
 		sc->codebuf_fd = sc->c_hdr->ofs_cb_info &
@@ -425,6 +448,13 @@ int apusys_subcmd_create(int idx, struct apusys_cmd *cmd,
 
 	cmd->sc_list[sc->idx] = sc;
 	*isc = sc;
+	if (res_task_inc(sc)) {
+		LOG_WARN("inc 0x%llx-#%d sc softlimit(%u) fail",
+			cmd->cmd_id,
+			sc->idx,
+			cmd->hdr->soft_limit
+			);
+	}
 	_print_sc_info(sc);
 
 	return 0;
@@ -484,9 +514,17 @@ int apusys_subcmd_delete(struct apusys_subcmd *sc)
 			sc->par_cmd->cmd_id,
 			sc->idx,
 			sc->state);
-		delete_subcmd_lock((void *)sc);
+		delete_subcmd_lock(sc);
 	}
 	DEBUG_TAG;
+
+	if (res_task_dec(sc)) {
+		LOG_WARN("dec 0x%llx-#%d sc softlimit(%u) fail",
+			sc->par_cmd->cmd_id,
+			sc->idx,
+			sc->par_cmd->hdr->soft_limit
+			);
+	}
 
 	sc->par_cmd->sc_list[sc->idx] = NULL;
 	bitmap_clear(sc->par_cmd->sc_status, sc->idx, 1);
@@ -569,8 +607,7 @@ int apusys_cmd_create(int mem_fd, uint32_t offset,
 	cmd->cmd_id = (uint64_t)(cmd);
 	cmd->power_save = (cmd->hdr->flag_bitmap &
 		1UL << CMD_FLAG_BITMAP_POWERSAVE) ? 1 : 0;
-	cmd->force_dual = (cmd->hdr->flag_bitmap &
-		1UL << CMD_FLAG_BITMAP_FORCEDUAL) ? 1 : 0;
+	cmd->multicore_sched = _get_multicore_sched(cmd);
 	cmd->dp_entry = (void *)_get_dp_entry(cmd);
 	cmd->dp_cnt_entry = (void *)_get_dp_cnt_entry(cmd);
 	cmd->state = CMD_STATE_READY;
@@ -694,7 +731,7 @@ int apusys_cmd_delete(struct apusys_cmd *cmd)
 	if (cmd == NULL)
 		return -EINVAL;
 
-	if (apusys_sched_cmd_abort(cmd)) {
+	if (apusys_sched_del_cmd(cmd)) {
 		LOG_ERR("cmd is busy\n");
 		return -EBUSY;
 	}

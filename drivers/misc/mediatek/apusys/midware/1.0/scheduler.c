@@ -58,7 +58,7 @@ struct pack_cmd_mgr {
 
 //----------------------------------------------
 static struct pack_cmd_mgr g_pack_mgr;
-static struct task_struct *sche_task;
+static struct task_struct *sched_task;
 
 //----------------------------------------------
 struct mem_ctx_mgr {
@@ -490,7 +490,7 @@ static int exec_cmd_func(void *isc, void *idev_info)
 
 #ifdef APUSYS_OPTIONS_INF_MNOC
 	/* 2. start count cmd qos */
-	LOG_DEBUG("mnoc: cmd qos start 0x%llx-#%d dev(%d/%d)\n",
+	LOG_DEBUG("mnoc: cmd qos start 0x%llx-#%d dev(%d-#%d)\n",
 		sc->par_cmd->cmd_id, sc->idx,
 		sc->type, dev_info->dev->idx);
 
@@ -503,7 +503,7 @@ static int exec_cmd_func(void *isc, void *idev_info)
 #endif
 
 	/* 3. get driver time start */
-	LOG_INFO("exec 0x%llx/0x%llx-#%d(%d) sc: dev(%d/%d) boost(%u)\n",
+	LOG_INFO("exec 0x%llx/0x%llx-#%d(%d) sc: dev(%d-#%d) boost(%u)\n",
 		sc->par_cmd->hdr->uid,
 		sc->par_cmd->cmd_id,
 		sc->idx, sc->type,
@@ -516,13 +516,25 @@ static int exec_cmd_func(void *isc, void *idev_info)
 	/* 4. execute subcmd */
 	ret = dev_info->dev->send_cmd(APUSYS_CMD_EXECUTE,
 		(void *)&cmd_hnd, dev_info->dev);
-	LOG_INFO("exec 0x%llx/0x%llx-#%d(%d) sc: dev(%d/%d) done\n",
-		sc->par_cmd->hdr->uid,
-		sc->par_cmd->cmd_id,
-		sc->idx,
-		sc->type,
-		dev_info->dev->dev_type,
-		dev_info->dev->idx);
+	if (ret) {
+		LOG_ERR("exec 0x%llx/0x%llx-%d sc on dev(%d-#%d) fail(%d)\n",
+			sc->par_cmd->hdr->uid,
+			sc->par_cmd->cmd_id,
+			sc->idx,
+			dev_info->dev->dev_type,
+			dev_info->dev->idx,
+			ret);
+
+		sc->par_cmd->cmd_ret = ret;
+	} else {
+		LOG_INFO("exec 0x%llx/0x%llx-#%d(%d) sc: dev(%d-#%d) done\n",
+			sc->par_cmd->hdr->uid,
+			sc->par_cmd->cmd_id,
+			sc->idx,
+			sc->type,
+			dev_info->dev->dev_type,
+			dev_info->dev->idx);
+	}
 
 	/* 5. get driver time and ip time */
 	get_time_from_system(&sc->duration);
@@ -536,28 +548,7 @@ static int exec_cmd_func(void *isc, void *idev_info)
 		dev_info->dev->idx, sc->bw);
 #endif
 
-	/* 7. check return value and record */
-	if (ret) {
-		LOG_ERR("exec 0x%llx/0x%llx-%d sc on dev(%d-#%d) fail\n",
-			sc->par_cmd->hdr->uid,
-			sc->par_cmd->cmd_id,
-			sc->idx,
-			dev_info->dev->dev_type,
-			dev_info->dev->idx);
-		sc->par_cmd->cmd_ret = ret;
-		mutex_unlock(&sc->mtx);
-		if (put_device_lock(dev_info)) {
-			LOG_ERR("return dev(%d-#%d) fail\n",
-				dev_info->dev->dev_type,
-				dev_info->dev->idx);
-			ret = -EINVAL;
-			goto out;
-		}
-		ret = -EINVAL;
-		goto out;
-	} else {
-		mutex_unlock(&sc->mtx);
-	}
+	mutex_unlock(&sc->mtx);
 
 	/* 8. put device back */
 	if (put_device_lock(dev_info)) {
@@ -579,7 +570,7 @@ out:
 	return ret;
 }
 
-int sche_routine(void *arg)
+int sched_routine(void *arg)
 {
 	int ret = 0, type = 0, dev_num = 0;
 	unsigned long available[BITS_TO_LONGS(APUSYS_DEV_TABLE_MAX)];
@@ -598,10 +589,8 @@ int sche_routine(void *arg)
 		if (ret)
 			LOG_WARN("sched thread(%d)\n", ret);
 
-		if (get_fo_from_list(APUSYS_FO_SCHED) == 0 ||
-			res_mgr->sched_pause != 0) {
-			LOG_DEBUG("sched pause(%d/%d)\n",
-				get_fo_from_list(APUSYS_FO_SCHED),
+		if (res_mgr->sched_pause != 0) {
+			LOG_DEBUG("sched pause(%d)\n",
 				res_mgr->sched_pause);
 			continue;
 		}
@@ -639,7 +628,7 @@ int sche_routine(void *arg)
 			}
 
 			/* pop cmd from priority queue */
-			ret = pop_subcmd(type, (void **)&sc);
+			ret = pop_subcmd(type, &sc);
 			if (ret) {
 				LOG_ERR("pop subcmd for dev(%d) fail\n", type);
 				goto sched_retrigger;
@@ -672,6 +661,8 @@ int sche_routine(void *arg)
 				}
 				goto sched_retrigger;
 			}
+
+			/* check queue empty for multicore */
 
 			/* get device */
 			dev_num = 1;
@@ -727,7 +718,7 @@ sched_retrigger:
 	return 0;
 }
 
-int apusys_sched_cmd_abort(struct apusys_cmd *cmd)
+int apusys_sched_del_cmd(struct apusys_cmd *cmd)
 {
 	int i = 0, ret = 0, times = 30, wait_ms = 200;
 	struct apusys_subcmd *sc = NULL;
@@ -847,7 +838,7 @@ int apusys_sched_wait_cmd(struct apusys_cmd *cmd)
 	return ret;
 }
 
-int apusys_sched_add_list(struct apusys_cmd *cmd)
+int apusys_sched_add_cmd(struct apusys_cmd *cmd)
 {
 	int ret = 0, i = 0;
 	struct apusys_subcmd *sc = NULL;
@@ -901,6 +892,48 @@ out:
 	return ret;
 }
 
+int apusys_sched_pause(void)
+{
+	struct apusys_res_mgr *res_mgr = res_get_mgr();
+
+	if (res_mgr == NULL)
+		return -EINVAL;
+
+	/* pause scheduler */
+	if (res_mgr->sched_pause == 0) {
+		LOG_INFO("scheduler pause\n");
+		res_mgr->sched_pause = 1;
+	} else {
+		LOG_WARN("scheduler already pause\n");
+	}
+
+	/* check all device free */
+	res_suspend_dev();
+
+	return 0;
+}
+
+int apusys_sched_restart(void)
+{
+	struct apusys_res_mgr *res_mgr = res_get_mgr();
+
+	if (res_mgr == NULL)
+		return -EINVAL;
+
+	if (res_mgr->sched_pause == 1) {
+		LOG_INFO("scheduler restart\n");
+		res_mgr->sched_pause = 0;
+	} else {
+		LOG_WARN("scheduler already resume\n");
+	}
+
+	res_resume_dev();
+	/* trigger sched thread */
+	complete(&res_mgr->sched_comp);
+
+	return 0;
+}
+
 
 //----------------------------------------------
 /* init function */
@@ -922,9 +955,9 @@ int apusys_sched_init(void)
 		return ret;
 	}
 
-	sche_task = kthread_run(sche_routine,
+	sched_task = kthread_run(sched_routine,
 		(void *)res_get_mgr(), "apusys_sched");
-	if (sche_task == NULL) {
+	if (sched_task == NULL) {
 		LOG_ERR("create kthread(sched) fail\n");
 		return -ENOMEM;
 	}

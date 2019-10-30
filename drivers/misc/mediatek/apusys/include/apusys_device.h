@@ -16,17 +16,19 @@
 
 /* device type */
 enum {
-	APUSYS_DEVICE_NONE   = 0,
-	APUSYS_DEVICE_SAMPLE = 1,
+	APUSYS_DEVICE_NONE,
 
-	APUSYS_DEVICE_MDLA   = 2,
-	APUSYS_DEVICE_VPU    = 3,
-	APUSYS_DEVICE_EDMA   = 4,
+	APUSYS_DEVICE_SAMPLE,
+	APUSYS_DEVICE_MDLA,
+	APUSYS_DEVICE_VPU,
+	APUSYS_DEVICE_EDMA,
+	APUSYS_DEVICE_WAIT,// subgraph mean wait event
 
-	APUSYS_DEVICE_WAIT   = 63, // subgraph mean wait event
+	APUSYS_DEVICE_LAST,
 
-	APUSYS_DEVICE_MAX    = 64, //total support 64 different devices
+	APUSYS_DEVICE_MAX = 64, //total support 64 different devices
 };
+
 
 /* device cmd type */
 enum {

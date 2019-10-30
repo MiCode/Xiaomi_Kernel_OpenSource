@@ -35,7 +35,8 @@
 /* flag bitmap of apusys cmd */
 enum {
 	CMD_FLAG_BITMAP_POWERSAVE = 0,
-	CMD_FLAG_BITMAP_FORCEDUAL = 63,
+	CMD_FLAG_BITMAP_MULTI0 = 62,
+	CMD_FLAG_BITMAP_MULTI1 = 63,
 };
 
 /* fd flag of codebuf info offset */

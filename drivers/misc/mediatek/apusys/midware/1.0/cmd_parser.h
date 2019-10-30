@@ -33,6 +33,12 @@ enum {
 	CMD_STATE_MAX,
 };
 
+enum {
+	CMD_SCHED_NORMAL, // scheduler decide
+	CMD_SCHED_FORCE_SINGLE,
+	CMD_SCHED_FORCE_MULTI,
+};
+
 struct pack_collect {
 	unsigned long *pack_status;
 	struct list_head sc_list;
@@ -50,7 +56,7 @@ struct apusys_cmd {
 	void *dp_entry;
 	void *dp_cnt_entry;
 	uint8_t power_save;  // power save flag, allow to downgrade opp
-	uint8_t force_dual;  // force dual flag
+	int multicore_sched;
 
 	int *pdr_cnt_list;
 
