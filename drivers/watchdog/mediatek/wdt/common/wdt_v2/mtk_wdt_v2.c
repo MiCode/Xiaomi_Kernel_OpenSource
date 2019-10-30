@@ -287,6 +287,75 @@ void mtk_wdt_mode_config(bool dual_mode_en,
 }
 /* EXPORT_SYMBOL(mtk_wdt_mode_config); */
 
+void mtk_wdt_mode_config_nolock(bool dual_mode_en,
+					bool irq,
+					bool ext_en,
+					bool ext_pol,
+					bool wdt_en)
+{
+	#ifndef CONFIG_KICK_SPM_WDT
+	unsigned int tmp;
+	unsigned int non_rst2 = __raw_readl(MTK_WDT_NONRST_REG2);
+	#endif
+	#ifdef CONFIG_KICK_SPM_WDT
+	if (wdt_en == TRUE) {
+		pr_debug("wdt enable spm timer.....\n");
+		spm_wdt_enable_timer();
+	} else {
+		pr_debug("wdt disable spm timer.....\n");
+		spm_wdt_disable_timer();
+	}
+	#else
+	mtk_wdt_clear_all();
+	tmp = __raw_readl(MTK_WDT_MODE);
+	tmp |= MTK_WDT_MODE_KEY | MTK_WDT_MODE_EXTRA_CNT;
+
+	/* Bit 0 : Whether enable watchdog or not */
+	if (wdt_en == TRUE)
+		tmp |= MTK_WDT_MODE_ENABLE;
+	else
+		tmp &= ~MTK_WDT_MODE_ENABLE;
+
+	/* Bit 1 : Configure extern reset signal polarity. */
+	if (ext_pol == TRUE)
+		tmp |= MTK_WDT_MODE_EXT_POL;
+	else
+		tmp &= ~MTK_WDT_MODE_EXT_POL;
+
+	/* Bit 2 : Whether enable external reset signal */
+	if (ext_en == TRUE)
+		tmp |= MTK_WDT_MODE_EXTEN;
+	else
+		tmp &= ~MTK_WDT_MODE_EXTEN;
+
+	/* Bit 3 : Whether generating interrupt instead of reset signal */
+	if (irq == TRUE)
+		tmp |= MTK_WDT_MODE_IRQ;
+	else
+		tmp &= ~MTK_WDT_MODE_IRQ;
+
+	/* Bit 6 : Whether enable debug module reset */
+	if (dual_mode_en == TRUE)
+		tmp |= MTK_WDT_MODE_DUAL_MODE;
+	else
+		tmp &= ~MTK_WDT_MODE_DUAL_MODE;
+
+	/*
+	 * MTK_WDT_MODE_AUTO_RESTART is replaced by
+	 * MTK_WDT_NONRST2_BYPASS_PWR_KEY of NONRST_REG2
+	 * for common kernel projects and two stage timeout design
+	 */
+	mt_reg_sync_writel(non_rst2 | MTK_WDT_NONRST2_BYPASS_PWR_KEY,
+			   MTK_WDT_NONRST_REG2);
+
+	mt_reg_sync_writel(tmp, MTK_WDT_MODE);
+	/* dual_mode(1); //always dual mode */
+	/* mdelay(100); */
+	pr_debug("mode change to 0x%x (write 0x%x), pid: %d\n",
+		__raw_readl(MTK_WDT_MODE), tmp, current->pid);
+	#endif
+}
+
 int mtk_wdt_enable(enum wk_wdt_en en)
 {
 	unsigned int tmp = 0;
@@ -340,7 +409,7 @@ int  mtk_wdt_confirm_hwreboot(void)
 {
 	/* aee need confirm wd can hw reboot */
 	/* pr_debug("mtk_wdt_probe : Initialize to dual mode\n"); */
-	mtk_wdt_mode_config(TRUE, TRUE, TRUE, FALSE, TRUE);
+	mtk_wdt_mode_config_nolock(TRUE, TRUE, TRUE, FALSE, TRUE);
 	return 0;
 }
 
