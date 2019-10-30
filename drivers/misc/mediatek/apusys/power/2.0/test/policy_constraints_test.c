@@ -22,7 +22,7 @@
 #include "hal_config_power.h"
 #include "apu_log.h"
 
-
+#define ALL_COMBINATION
 
 
 #define VOLT_CONSTRAINTS_1	(225000)
@@ -79,7 +79,8 @@ struct hal_param_init_power init_power_data;
 
 u32 get_devinfo_with_index(unsigned int index)
 {
-	return 1;	// 5G-L
+	//return 1;	// 5G-L
+	return 2;
 }
 
 
@@ -259,9 +260,20 @@ int apusys_policy_checker(void)
 	return ret;
 }
 
+void reset_all_opp_to_default(void)
+{
+	apusys_set_opp(VPU0, APUSYS_MAX_NUM_OPPS-1);
+	apusys_set_opp(VPU1, APUSYS_MAX_NUM_OPPS-1);
+	apusys_set_opp(VPU2, APUSYS_MAX_NUM_OPPS-1);
+	apusys_set_opp(MDLA0, APUSYS_MAX_NUM_OPPS-1);
+	apusys_set_opp(MDLA1, APUSYS_MAX_NUM_OPPS-1);
+	apusys_dvfs_policy(100);
+}
+
 void test_case(int power_on_round, int opp_change_round, int fail_stop)
 {
 	int i, j, k, opp;
+	int m, n, x, y;
 
 //	apusys_power_hal_test();
 //	apusys_set_dfvs_debug_test();
@@ -274,6 +286,26 @@ void test_case(int power_on_round, int opp_change_round, int fail_stop)
 		for (j = 1 ; j <= opp_change_round ; j++) {
 			LOG_INF("## opp change round #%d start ##\n", j);
 
+		#ifdef ALL_COMBINATION
+for (k = 0 ; k < APUSYS_MAX_NUM_OPPS ; k++) {
+	apusys_set_opp(VPU0, k);
+	for (m = 0 ; m < APUSYS_MAX_NUM_OPPS ; m++) {
+		apusys_set_opp(VPU1, m);
+		for (n = 0 ; n < APUSYS_MAX_NUM_OPPS ; n++) {
+			apusys_set_opp(VPU2, n);
+			for (x = 0 ; x < APUSYS_MAX_NUM_OPPS ; x++) {
+				apusys_set_opp(MDLA0, x);
+				for (y = 0 ; y < APUSYS_MAX_NUM_OPPS ; y++) {
+					apusys_set_opp(MDLA1, y);
+					apusys_dvfs_policy(100);
+					reset_all_opp_to_default();
+				}
+			}
+		}
+	}
+}
+
+		#else
 			for (k = 0 ; k < APUSYS_DVFS_USER_NUM ; k++) {
 				//if (dvfs_user_support(k) == false)
 					//continue;
@@ -294,6 +326,7 @@ void test_case(int power_on_round, int opp_change_round, int fail_stop)
 
 			is_power_debug_lock = false;
 			LOG_INF("## opp change round #%d end ##\n", j);
+		#endif
 		}
 
 
