@@ -1175,8 +1175,10 @@
 			"mtcmos_mfg4",		/* Shader Stack2 tile 1 */
 			"mtcmos_mfg5",		/* Shader Stack4 */
 			"mtcmos_mfg6";		/* Shader Stack6 */
-			/*_vgpu-supply = <&mt6315_7_vbuck1>;*/
-			/*_vsram_gpu-supply = <&mt_pmic_vsram_others_ldo_reg>;*/
+#ifndef CONFIG_FPGA_EARLY_PORTING
+			_vgpu-supply = <&mt6315_7_vbuck1>;
+			_vsram_gpu-supply = <&mt_pmic_vsram_others_ldo_reg>;
+#endif
 	};
 
 	mali_dvfs_hint@13fbb000 {
