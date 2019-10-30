@@ -28,6 +28,9 @@ static ssize_t emiisu_ctrl_show(struct device_driver *driver, char *buf)
 		(struct emiisu_dev_t *)platform_get_drvdata(emiisu_pdev);
 	unsigned int state;
 
+	if (!(emiisu_dev_ptr->con_addr))
+		return 0;
+
 	state = readl(emiisu_dev_ptr->con_addr);
 	return snprintf(buf, PAGE_SIZE, "isu_state: 0x%x\n", state);
 }
@@ -45,6 +48,9 @@ static ssize_t emiisu_ctrl_store
 	int i;
 
 	if (!(emiisu_dev_ptr->ctrl_intf))
+		return count;
+
+	if (!(emiisu_dev_ptr->con_addr))
 		return count;
 
 	if ((strlen(buf) + 1) > MTK_EMI_MAX_CMD_LEN) {
@@ -90,7 +96,10 @@ static ssize_t dump_buf_read
 		len : (emiisu_dev_ptr->buf_size - *ppos);
 	ssize_t header_bytes = 0;
 
-	if (!emiisu_dev_ptr->buf_addr)
+	if (!(emiisu_dev_ptr->buf_addr))
+		return 0;
+
+	if (!(emiisu_dev_ptr->ver_addr))
 		return 0;
 
 	if (*ppos == 0) {
@@ -131,7 +140,7 @@ static int emiisu_remove(struct platform_device *dev)
 }
 
 static const struct of_device_id emiisu_of_ids[] = {
-	{.compatible = "mediatek,disable-emiisu",},
+	{.compatible = "mediatek,common-emiisu",},
 	{}
 };
 
@@ -171,22 +180,31 @@ static int emiisu_probe(struct platform_device *pdev)
 		pr_info("%s: get buf_addr fail\n", __func__);
 		return -EINVAL;
 	}
-	emiisu_dev_ptr->buf_addr = ioremap_wc(
-		(phys_addr_t)addr_temp, emiisu_dev_ptr->buf_size);
+	if (addr_temp)
+		emiisu_dev_ptr->buf_addr = ioremap_wc(
+			(phys_addr_t)addr_temp, emiisu_dev_ptr->buf_size);
+	else
+		emiisu_dev_ptr->buf_addr = NULL;
 
 	ret = of_property_read_u64(emiisu_node, "ver_addr", &addr_temp);
 	if (ret) {
 		pr_info("%s: get ver_addr fail\n", __func__);
 		return -EINVAL;
 	}
-	emiisu_dev_ptr->ver_addr = ioremap((phys_addr_t)addr_temp, 4);
+	if (addr_temp)
+		emiisu_dev_ptr->ver_addr = ioremap((phys_addr_t)addr_temp, 4);
+	else
+		emiisu_dev_ptr->ver_addr = NULL;
 
 	ret = of_property_read_u64(emiisu_node, "con_addr", &addr_temp);
 	if (ret) {
 		pr_info("%s: get con_addr fail\n", __func__);
 		return -EINVAL;
 	}
-	emiisu_dev_ptr->con_addr = ioremap((phys_addr_t)addr_temp, 4);
+	if (addr_temp)
+		emiisu_dev_ptr->con_addr = ioremap((phys_addr_t)addr_temp, 4);
+	else
+		emiisu_dev_ptr->con_addr = NULL;
 
 	ret = of_property_read_u32(emiisu_node,
 		"ctrl_intf", &(emiisu_dev_ptr->ctrl_intf));
