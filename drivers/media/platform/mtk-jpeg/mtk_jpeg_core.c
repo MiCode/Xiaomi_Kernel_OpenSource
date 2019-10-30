@@ -83,6 +83,24 @@ static struct mtk_jpeg_fmt mtk_jpeg_formats[] = {
 		.flags		= MTK_JPEG_FMT_FLAG_ENC_OUTPUT,
 	},
 	{
+		.fourcc		= V4L2_PIX_FMT_NV12M,
+		.h_sample	= {4, 2, 2},
+		.v_sample	= {4, 2, 2},
+		.colplanes	= 1,
+		.h_align	= 4,
+		.v_align	= 4,
+		.flags		= MTK_JPEG_FMT_FLAG_ENC_OUTPUT,
+	},
+	{
+		.fourcc		= V4L2_PIX_FMT_NV21M,
+		.h_sample	= {4, 2, 2},
+		.v_sample	= {4, 2, 2},
+		.colplanes	= 1,
+		.h_align	= 4,
+		.v_align	= 4,
+		.flags		= MTK_JPEG_FMT_FLAG_ENC_OUTPUT,
+	},
+	{
 		.fourcc		= V4L2_PIX_FMT_YUYV,
 		.h_sample	= {4, 2, 2},
 		.v_sample	= {4, 4, 4},
@@ -433,6 +451,7 @@ static struct mtk_jpeg_q_data *mtk_jpeg_get_q_data(struct mtk_jpeg_ctx *ctx,
 
 static struct mtk_jpeg_fmt *mtk_jpeg_find_format(struct mtk_jpeg_ctx *ctx,
 						 u32 pixelformat,
+						 u32 num_planes,
 						 unsigned int fmt_type)
 {
 	unsigned int k, fmt_flag;
@@ -450,7 +469,9 @@ static struct mtk_jpeg_fmt *mtk_jpeg_find_format(struct mtk_jpeg_ctx *ctx,
 	for (k = 0; k < MTK_JPEG_NUM_FORMATS; k++) {
 		struct mtk_jpeg_fmt *fmt = &mtk_jpeg_formats[k];
 
-		if (fmt->fourcc == pixelformat && fmt->flags & fmt_flag)
+		if (fmt->fourcc == pixelformat &&
+			fmt->flags & fmt_flag &&
+			fmt->colplanes == num_planes)
 			return fmt;
 	}
 
@@ -515,27 +536,53 @@ static int mtk_jpeg_try_fmt_mplane(struct v4l2_format *f,
 	pix_mp->num_planes = fmt->colplanes;
 	pix_mp->pixelformat = fmt->fourcc;
 
+
+
 	if (q_type == MTK_JPEG_FMT_TYPE_OUTPUT) {
 		if (jpeg->mode == MTK_JPEG_ENC) {
 			align_w = pix_mp->width;
 			align_h = pix_mp->height;
 			align_w = ((align_w + 1) >> 1) << 1;
 			if (pix_mp->num_planes == 1U) {
-				align_w = align_w << 1;//jx add for fix bug
-				mtk_jpeg_bound_align_image(&align_w,
-					MTK_JPEG_MIN_WIDTH, MTK_JPEG_MAX_WIDTH,
-					5, &align_h, MTK_JPEG_MIN_HEIGHT,
-					MTK_JPEG_MAX_HEIGHT, 3);
+				if (pix_mp->pixelformat == V4L2_PIX_FMT_YUYV ||
+				    pix_mp->pixelformat == V4L2_PIX_FMT_YVYU) {
+					align_w = align_w << 1;//jx fix bug
+					mtk_jpeg_bound_align_image(&align_w,
+						MTK_JPEG_MIN_WIDTH,
+						MTK_JPEG_MAX_WIDTH,
+						5,
+						&align_h, MTK_JPEG_MIN_HEIGHT,
+						MTK_JPEG_MAX_HEIGHT, 3);
 
-				pix_mp->plane_fmt[0].bytesperline = align_w;
-				pix_mp->plane_fmt[0].sizeimage =
-					align_w * align_h;
+					pix_mp->plane_fmt[0].bytesperline =
+						align_w;
+					pix_mp->plane_fmt[0].sizeimage =
+						align_w * align_h;
 
-				pr_info("bperline %d  imagesz %d align_w h %d %d\n",
+					pr_info("bperline %d  imagesz %d align_w h %d %d\n",
 					 pix_mp->plane_fmt[0].bytesperline,
 					 pix_mp->plane_fmt[0].sizeimage,
 					 align_w,
 					 align_h);
+				} else {
+					mtk_jpeg_bound_align_image(&align_w,
+					MTK_JPEG_MIN_WIDTH, MTK_JPEG_MAX_WIDTH,
+					4, &align_h, MTK_JPEG_MIN_HEIGHT,
+					MTK_JPEG_MAX_HEIGHT, 4);
+
+					pix_mp->plane_fmt[0].bytesperline =
+						align_w;
+					pix_mp->plane_fmt[0].sizeimage =
+					align_w * align_h +
+					(align_w * align_h) / 2;
+
+
+					pr_info("bperline NV21 %d imagesz %d align_w h %d %d\n",
+					 pix_mp->plane_fmt[0].bytesperline,
+					 pix_mp->plane_fmt[0].sizeimage,
+					 align_w,
+					 align_h);
+				}
 
 			} else if (pix_mp->num_planes == 2U) {
 				mtk_jpeg_bound_align_image(&align_w,
@@ -684,6 +731,7 @@ static int mtk_jpeg_try_fmt_vid_cap_mplane(struct file *file, void *priv,
 	struct mtk_jpeg_fmt *fmt;
 
 	fmt = mtk_jpeg_find_format(ctx, f->fmt.pix_mp.pixelformat,
+					f->fmt.pix_mp.num_planes,
 				   MTK_JPEG_FMT_TYPE_CAPTURE);
 	if (!fmt)
 		fmt = ctx->cap_q.fmt;
@@ -705,7 +753,8 @@ static int mtk_jpeg_try_fmt_vid_out_mplane(struct file *file, void *priv,
 	struct mtk_jpeg_fmt *fmt;
 
 	fmt = mtk_jpeg_find_format(ctx, f->fmt.pix_mp.pixelformat,
-				   MTK_JPEG_FMT_TYPE_OUTPUT);
+					 f->fmt.pix_mp.num_planes,
+					 MTK_JPEG_FMT_TYPE_OUTPUT);
 	if (!fmt)
 		fmt = ctx->out_q.fmt;
 
@@ -743,7 +792,8 @@ static int mtk_jpeg_s_fmt_mplane(struct mtk_jpeg_ctx *ctx,
 	f_type = V4L2_TYPE_IS_OUTPUT(f->type) ?
 			 MTK_JPEG_FMT_TYPE_OUTPUT : MTK_JPEG_FMT_TYPE_CAPTURE;
 
-	q_data->fmt = mtk_jpeg_find_format(ctx, pix_mp->pixelformat, f_type);
+	q_data->fmt = mtk_jpeg_find_format(ctx, pix_mp->pixelformat,
+		pix_mp->num_planes, f_type);
 	q_data->w = pix_mp->width;
 	q_data->h = pix_mp->height;
 	ctx->colorspace = pix_mp->colorspace;
@@ -978,7 +1028,7 @@ static bool mtk_jpeg_check_resolution_change(struct mtk_jpeg_ctx *ctx,
 	}
 
 	q_data = &ctx->cap_q;
-	if (q_data->fmt != mtk_jpeg_find_format(ctx, param->dst_fourcc,
+	if (q_data->fmt != mtk_jpeg_find_format(ctx, param->dst_fourcc, 3,
 						MTK_JPEG_FMT_TYPE_CAPTURE)) {
 		v4l2_dbg(1, debug, &jpeg->v4l2_dev, "format change\n");
 		return true;
@@ -1001,7 +1051,7 @@ static void mtk_jpeg_set_queue_data(struct mtk_jpeg_ctx *ctx,
 	q_data->w = param->dec_w;
 	q_data->h = param->dec_h;
 	q_data->fmt = mtk_jpeg_find_format(ctx,
-					   param->dst_fourcc,
+					   param->dst_fourcc, 3,
 					   MTK_JPEG_FMT_TYPE_CAPTURE);
 
 	for (i = 0; i < q_data->fmt->colplanes; i++) {
@@ -1279,6 +1329,8 @@ static int mtk_jpeg_set_enc_src(struct mtk_jpeg_ctx *ctx,
 		fb->fb_addr[i].dma_addr =
 			vb2_dma_contig_plane_dma_addr(src_buf, i);
 	}
+
+	fb->num_planes = src_buf->num_planes;
 	return 0;
 }
 static void mtk_jpeg_device_run(void *priv)
@@ -1606,7 +1658,7 @@ static void mtk_jpeg_set_default_params(struct mtk_jpeg_ctx *ctx)
 	if (ctx->jpeg->mode == MTK_JPEG_ENC) {
 		q->w = MTK_JPEG_MIN_WIDTH;
 		q->h = MTK_JPEG_MIN_HEIGHT;
-		q->fmt = mtk_jpeg_find_format(ctx, V4L2_PIX_FMT_YUYV,
+		q->fmt = mtk_jpeg_find_format(ctx, V4L2_PIX_FMT_YUYV, 1,
 					      MTK_JPEG_FMT_TYPE_OUTPUT);
 		align_w = q->w;
 		align_h = q->h;
@@ -1627,7 +1679,7 @@ static void mtk_jpeg_set_default_params(struct mtk_jpeg_ctx *ctx)
 		q->sizeimage[0] = align_w * align_h + 64;
 		q->bytesperline[0] = align_w;
 	} else {
-		q->fmt = mtk_jpeg_find_format(ctx, V4L2_PIX_FMT_JPEG,
+		q->fmt = mtk_jpeg_find_format(ctx, V4L2_PIX_FMT_JPEG, 1,
 						      MTK_JPEG_FMT_TYPE_OUTPUT);
 		q->w = MTK_JPEG_MIN_WIDTH;
 		q->h = MTK_JPEG_MIN_HEIGHT;
@@ -1639,12 +1691,12 @@ static void mtk_jpeg_set_default_params(struct mtk_jpeg_ctx *ctx)
 	if (ctx->jpeg->mode == MTK_JPEG_ENC) {
 		q->w = MTK_JPEG_MIN_WIDTH;
 		q->h = MTK_JPEG_MIN_HEIGHT;
-		q->fmt = mtk_jpeg_find_format(ctx, V4L2_PIX_FMT_JPEG,
+		q->fmt = mtk_jpeg_find_format(ctx, V4L2_PIX_FMT_JPEG, 1,
 					MTK_JPEG_FMT_TYPE_CAPTURE);
 		q->bytesperline[0] = 0;
 		q->sizeimage[0] = MTK_JPEG_DEFAULT_SIZEIMAGE;
 	} else {
-		q->fmt = mtk_jpeg_find_format(ctx, V4L2_PIX_FMT_YUV420M,
+		q->fmt = mtk_jpeg_find_format(ctx, V4L2_PIX_FMT_YUV420M, 3,
 					MTK_JPEG_FMT_TYPE_CAPTURE);
 		q->w = MTK_JPEG_MIN_WIDTH;
 		q->h = MTK_JPEG_MIN_HEIGHT;

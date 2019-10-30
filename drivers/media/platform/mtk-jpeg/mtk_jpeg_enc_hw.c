@@ -200,8 +200,28 @@ void mtk_jpeg_enc_set_config(void __iomem *base,
 {
 	mtk_jpeg_enc_set_src_img(base, config->enc_w, config->enc_h,
 				config->enc_format, config->total_encdu);
-	mtk_jpeg_enc_set_src_buf(base, config->img_stride, config->mem_stride,
-	fb->fb_addr[0].dma_addr, fb->fb_addr[1].dma_addr);
+
+
+	if (config->enc_format == JPEG_YUV_FORMAT_NV12 ||
+		config->enc_format == JPEG_YUV_FORMAT_NV21 &&
+		fb->num_planes == 1) {
+
+		pr_info("%s set 2 plane by add offset w %d h %d\n", __func__,
+			config->enc_w, config->enc_h);
+
+		mtk_jpeg_enc_set_src_buf(base, config->img_stride,
+			 config->mem_stride,
+			 fb->fb_addr[0].dma_addr,
+			 fb->fb_addr[0].dma_addr + config->enc_h*config->enc_w);
+	} else {
+		mtk_jpeg_enc_set_src_buf(base, config->img_stride,
+			 config->mem_stride,
+			 fb->fb_addr[0].dma_addr,
+			 fb->fb_addr[1].dma_addr);
+	}
+
+
+
 	mtk_jpeg_enc_set_dst_buf(base, bs->dma_addr, bs->size,
 				bs->dma_addr_offset, bs->dma_addr_offsetmask);
 	mtk_jpeg_enc_set_ctrl_cfg(base, config->enable_exif,
