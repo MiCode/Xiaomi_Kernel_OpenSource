@@ -18,6 +18,8 @@
 #include "apu_power_api.h"
 #include "power_clock.h"
 #include "apu_log.h"
+#include "apusys_power_ctl.h"
+
 
 
 /************** IMPORTANT !! *******************
@@ -767,15 +769,54 @@ int set_apu_clock_source(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 	}
 }
 
+
+static bool isApupll_freq(enum DVFS_FREQ freq)
+{
+	if (freq == DVFS_FREQ_00_880000_F ||
+		freq == DVFS_FREQ_00_850000_F ||
+		freq == DVFS_FREQ_00_800000_F ||
+		freq == DVFS_FREQ_00_700000_F ||
+		freq == DVFS_FREQ_00_572000_F ||
+		freq == DVFS_FREQ_00_457000_F ||
+		freq == DVFS_FREQ_00_280000_F)
+		return true;
+
+	return false;
+}
+
+enum DVFS_FREQ findNearestFreq(enum DVFS_FREQ freq,
+	enum DVFS_VOLTAGE_DOMAIN domain)
+{
+	int opp = 0;
+	enum DVFS_FREQ used_freq = DVFS_FREQ_00_026000_F;
+
+	for (opp = 0; opp < APUSYS_MAX_NUM_OPPS; opp++) {
+		if (isApupll_freq(apusys_opps.opps[opp][domain].freq) == true)
+			continue;
+		if (apusys_opps.opps[opp][domain].freq < freq) {
+			used_freq = apusys_opps.opps[opp][domain].freq;
+			break;
+		}
+	}
+
+	return used_freq;
+}
+
+
 int config_apupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 {
+	int ret = 0;
 	struct clk *clk_target = NULL;
 	int scaled_freq = freq * 1000;
+	enum DVFS_FREQ ckmux_freq;
 
 	clk_target = find_clk_by_domain(domain);
 
 	if (clk_target != NULL) {
-		clk_set_parent(clk_target, clk_top_apupll_ck);
+
+		// switch to ckmux first
+		ckmux_freq = findNearestFreq(freq, domain);
+		ret |= set_apu_clock_source(ckmux_freq, domain);
 
 #if APUSYS_SETTLE_TIME_TEST
 		LOG_WRN("APUSYS_SETTLE_TIME_TEST config domain %d to freq %d\n",
@@ -784,10 +825,14 @@ int config_apupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 		LOG_WRN("%s config domain %d to freq %d\n", __func__,
 								domain, freq);
 #endif
-		return clk_set_rate(clk_top_apupll_ck, scaled_freq);
+		ret |= clk_set_rate(clk_top_apupll_ck, scaled_freq);
+
+		ret |= clk_set_parent(clk_target, clk_top_apupll_ck);
+
 	} else {
 		return -1;
 	}
+	return ret;
 }
 
 // dump related frequencies of APUsys

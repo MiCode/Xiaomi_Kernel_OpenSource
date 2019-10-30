@@ -890,11 +890,11 @@ void apusys_power_init(enum DVFS_USER user, void *init_power_data)
 {
 	int i = 0, j = 0;
 
-	//if (get_devinfo_with_index(30) == 0x1)
-		//apusys_opps.opps = dvfs_table_0;
-	//else if (get_devinfo_with_index(30) == 0x10)
-		//apusys_opps.opps = dvfs_table_2;
-	//else
+	if (get_devinfo_with_index(30) == 0x1)
+		apusys_opps.opps = dvfs_table_0;
+	else if (get_devinfo_with_index(30) == 0x10)
+		apusys_opps.opps = dvfs_table_2;
+	else
 		apusys_opps.opps = dvfs_table_1;
 	for (i = 0; i < APUSYS_DVFS_USER_NUM; i++)	{
 		if (dvfs_user_support(user) == false)
