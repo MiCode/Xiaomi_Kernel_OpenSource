@@ -579,3 +579,32 @@
 	};
 };
 /* CAMERA EEPROM end */
+
+/* CAMERA AF */
+&pio {
+	camera_af_pins_default: camafdefault {
+	};
+	camera0_vcamaf_on: camera0_vcamaf_output_high@gpio30 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO30__FUNC_GPIO30>;
+			output-high;
+		};
+	};
+	camera0_vcamaf_off: camera0_vcamaf_output_low@gpio30 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO30__FUNC_GPIO30>;
+			output-low;
+		};
+	};
+};
+
+&camera_af_hw_node {
+	pinctrl-names = "default",
+			"cam0_ldo_vcamaf_0", "cam0_ldo_vcamaf_1";
+	pinctrl-0 = <&camera_af_pins_default>;
+	pinctrl-1 = <&camera0_vcamaf_off>;
+	pinctrl-2 = <&camera0_vcamaf_on>;
+	vcamaf-supply = <&mt_pmic_vmc_ldo_reg>;
+	status = "okay";
+};
+/* CAMERA AF end */
