@@ -225,12 +225,13 @@ int apusys_user_get_cmd(struct apusys_user *u, void **icmd, uint64_t cmd_id)
 		cmd = list_entry(list_ptr, struct apusys_cmd, u_list);
 		if (cmd->cmd_id == cmd_id) {
 			*icmd = (void *)cmd;
-			break;
+			mutex_unlock(&u->cmd_mtx);
+			return 0;
 		}
 	}
 	mutex_unlock(&u->cmd_mtx);
 
-	return 0;
+	return -ENODATA;
 }
 
 int apusys_user_insert_dev(struct apusys_user *u, void *idev_info)
