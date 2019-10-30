@@ -1146,6 +1146,7 @@ void mm_qos_update_all_request(struct plist_head *owner_list)
 	s32 smi_srt_clk = 0, smi_hrt_clk = 0;
 	s32 max_ch_srt_bw = 0, max_ch_hrt_bw = 0;
 	s32 final_chn_hrt_bw[MAX_COMM_NUM][MAX_CH_COUNT];
+	s32 final_chn_srt_bw[MAX_COMM_NUM][MAX_CH_COUNT];
 
 	if (!owner_list || plist_head_empty(owner_list)) {
 		pr_notice("%s: owner_list is invalid\n", __func__);
@@ -1245,6 +1246,8 @@ void mm_qos_update_all_request(struct plist_head *owner_list)
 	for (comm = 0; comm < MAX_COMM_NUM; comm++) {
 		if (comm_freq_class[comm] == 0)
 			continue;
+		max_ch_srt_bw = 0;
+		max_ch_hrt_bw = 0;
 		for (i = 0; i < MAX_CH_COUNT; i++) {
 			final_chn_hrt_bw[comm][i] =
 				channel_disp_hrt_cnt[comm][i] > 0 ?
@@ -1252,28 +1255,35 @@ void mm_qos_update_all_request(struct plist_head *owner_list)
 					larb_req[SMI_PMQOS_LARB_DEC(
 					PORT_VIRTUAL_DISP)].total_hrt_data :
 				channel_hrt_bw[comm][i];
+			final_chn_srt_bw[comm][i] =
+				channel_disp_hrt_cnt[comm][i] > 1 ?
+				channel_bw[comm][i] -
+					(channel_disp_hrt_cnt[comm][i]-1) *
+					larb_req[SMI_PMQOS_LARB_DEC(
+					PORT_VIRTUAL_DISP)].total_hrt_data :
+				channel_bw[comm][i];
 			max_ch_srt_bw = max_t(s32,
-				channel_bw[comm][i], max_ch_srt_bw);
+				final_chn_srt_bw[comm][i], max_ch_srt_bw);
 			max_ch_hrt_bw = max_t(s32,
 				final_chn_hrt_bw[comm][i], max_ch_hrt_bw);
 			if (log_level & 1 << log_smi_freq)
 				pr_notice("comm:%d chn:%d s_bw:%d h_bw:%d\n",
-					comm, i, channel_bw[comm][i],
+					comm, i, final_chn_srt_bw[comm][i],
 					final_chn_hrt_bw[comm][i]);
 #ifdef MMDVFS_MMP
 			mmprofile_log_ex(
 				mmdvfs_mmp_events.smi_freq,
 				MMPROFILE_FLAG_PULSE,
 				((comm+1) << 28) | (i << 24) | min_t(s32,
-					channel_bw[comm][i], 0xffff),
+					final_chn_srt_bw[comm][i], 0xffff),
 				((comm+1) << 28) | (i << 24) | min_t(s32,
 					final_chn_hrt_bw[comm][i], 0xffff));
 #endif
 		}
-		if (max_ch_srt_bw)
-			smi_srt_clk = SHIFT_ROUND(max_ch_srt_bw, 4);
-		if (max_ch_hrt_bw)
-			smi_hrt_clk = SHIFT_ROUND(max_ch_hrt_bw, 4);
+		smi_srt_clk = max_ch_srt_bw ?
+			SHIFT_ROUND(max_ch_srt_bw, 4) : 0;
+		smi_hrt_clk = max_ch_hrt_bw ?
+			SHIFT_ROUND(max_ch_hrt_bw, 4) : 0;
 		pm_qos_update_request(&smi_freq_request[comm],
 			max_t(s32, smi_srt_clk, smi_hrt_clk));
 		if (log_level & 1 << log_smi_freq)
