@@ -291,6 +291,21 @@ static int adsp_driver_open(struct inode *inode, struct file *file)
 	return nonseekable_open(inode, file);
 }
 
+static unsigned int adsp_driver_poll(struct file *filp,
+				     struct poll_table_struct *poll)
+{
+	struct adsp_priv *pdata = container_of(filp->private_data,
+					struct adsp_priv, mdev);
+
+	if (!pdata->log_ctrl || !pdata->log_ctrl->inited)
+		return 0;
+
+	if (!(filp->f_mode & FMODE_READ))
+		return 0;
+
+	return adsp_log_poll(pdata->log_ctrl);
+}
+
 static long adsp_driver_ioctl(
 	struct file *filp, unsigned int cmd, unsigned long arg)
 {
@@ -367,5 +382,6 @@ const struct file_operations adsp_core_file_ops = {
 	.owner = THIS_MODULE,
 	.read = adsp_driver_read,
 	.open = adsp_driver_open,
+	.poll = adsp_driver_poll,
 };
 

@@ -28,6 +28,7 @@ struct buffer_info_s {
 };
 
 struct log_ctrl_s *adsp_logger_init(int mem_id);
+unsigned int adsp_log_poll(struct log_ctrl_s *ctrl);
 ssize_t adsp_log_read(struct log_ctrl_s *ctrl, char __user *userbuf,
 		      size_t len);
 ssize_t adsp_log_enable(struct log_ctrl_s *ctrl, int cid, u32 enable);

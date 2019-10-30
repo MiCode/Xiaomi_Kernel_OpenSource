@@ -5,6 +5,7 @@
 
 #include <linux/uaccess.h>      /* needed by copy_to_user */
 #include <linux/vmalloc.h>      /* needed by vmalloc */
+#include <linux/poll.h>         /* needed by poll */
 #include <linux/mutex.h>
 #include <linux/io.h>
 #include "adsp_platform.h"
@@ -14,6 +15,21 @@
 
 #define PLT_LOG_ENABLE              0x504C5402 /* magic */
 #define MINIMUM_LOG_BUF_SIZE        0x10000 /* 64k */
+
+unsigned int adsp_log_poll(struct log_ctrl_s *ctrl)
+{
+	void *addr = (void *)ctrl;
+	struct buffer_info_s *buf_info =
+		(struct buffer_info_s *)(addr + ctrl->info_ofs);
+
+	if (!ctrl->inited)
+		return 0;
+
+	if (buf_info->r_pos != buf_info->w_pos)
+		return POLLIN | POLLRDNORM;
+
+	return 0;
+}
 
 ssize_t adsp_log_read(struct log_ctrl_s *ctrl, char __user *userbuf, size_t len)
 {
