@@ -21,7 +21,7 @@
 #include <linux/string.h>
 #include <linux/timer.h>
 #include <linux/ktime.h>
-#include <trace/events/mtk_events.h>
+
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 #include <sspm_reservedmem_define.h>
 #endif
@@ -39,7 +39,6 @@
  *  Macro Definitions
  ****************************************************************************/
 #define DEFAULT_AVG_WINDOW		(50)
-/* #define LOG_LOOP_TIME_PROFILE */
 #define IDD_TBL_DBG
 
 #define MAX(a, b)			((a) >= (b) ? (a) : (b))
@@ -96,13 +95,13 @@ static struct swpm_manager swpm_m = {
 };
 
 static unsigned char avg_window = DEFAULT_AVG_WINDOW;
-static struct timer_list log_timer;
 static unsigned int log_interval_ms = DEFAULT_LOG_INTERVAL_MS;
-static unsigned int log_mask = DEFAULT_LOG_MASK;
-
 /****************************************************************************
  *  Global Variables
  ****************************************************************************/
+/* swpm periodic timer for ftrace output */
+unsigned int swpm_log_mask = DEFAULT_LOG_MASK;
+struct timer_list swpm_timer;
 struct swpm_rec_data *swpm_info_ref;
 unsigned int swpm_status;
 bool swpm_debug;
@@ -114,56 +113,6 @@ DEFINE_MUTEX(swpm_mutex);
 /****************************************************************************
  *  Static Function
  ****************************************************************************/
-static int log_loop(void)
-{
-	unsigned long expires;
-	char buf[256] = {0};
-	char *ptr = buf;
-	int i;
-#ifdef LOG_LOOP_TIME_PROFILE
-	ktime_t t1, t2;
-	unsigned long long diff, diff2;
-
-	t1 = ktime_get();
-#endif
-
-	for (i = 0; i < NR_POWER_RAIL; i++) {
-		if ((1 << i) & log_mask) {
-			ptr += snprintf(ptr, 256, "%s/",
-				swpm_power_rail_to_string((enum power_rail)i));
-		}
-	}
-	ptr--;
-	ptr += sprintf(ptr, " = ");
-
-	for (i = 0; i < NR_POWER_RAIL; i++) {
-		if ((1 << i) & log_mask) {
-			ptr += snprintf(ptr, 256, "%d/",
-				swpm_get_avg_power((enum power_rail)i, 50));
-		}
-	}
-	ptr--;
-	ptr += sprintf(ptr, " uA");
-
-	trace_swpm_power(buf);
-#ifdef LOG_LOOP_TIME_PROFILE
-	t2 = ktime_get();
-#endif
-
-	swpm_update_lkg_table();
-
-#ifdef LOG_LOOP_TIME_PROFILE
-	diff = ktime_to_us(ktime_sub(t2, t1));
-	diff2 = ktime_to_us(ktime_sub(ktime_get(), t2));
-	swpm_err("exe time = %llu/%lluus\n", diff, diff2);
-#endif
-
-	expires = jiffies + msecs_to_jiffies(log_interval_ms);
-	mod_timer(&log_timer, expires);
-
-	return 0;
-}
-
 static char *_copy_from_user_for_proc(const char __user *buffer, size_t count)
 {
 	static char buf[64];
@@ -202,7 +151,6 @@ static int dump_power_proc_show(struct seq_file *m, void *v)
 		else
 			ptr += sprintf(ptr, " uA");
 	}
-
 	seq_printf(m, "%s\n", buf);
 
 	return 0;
@@ -332,14 +280,14 @@ static ssize_t enable_proc_write(struct file *file,
 		if (swpm_status) {
 			unsigned long expires;
 
-			if (log_timer.function != NULL) {
+			if (swpm_timer.function != NULL) {
 				expires = jiffies +
 					msecs_to_jiffies(log_interval_ms);
-				mod_timer(&log_timer, expires);
+				mod_timer(&swpm_timer, expires);
 			}
 		} else {
-			if (log_timer.function != NULL)
-				del_timer(&log_timer);
+			if (swpm_timer.function != NULL)
+				del_timer(&swpm_timer);
 		}
 		swpm_unlock(&swpm_mutex);
 	} else {
@@ -479,7 +427,7 @@ static ssize_t log_interval_proc_write(struct file *file,
 
 static int log_mask_proc_show(struct seq_file *m, void *v)
 {
-	seq_printf(m, "Current log mask is 0x%x\n", log_mask);
+	seq_printf(m, "Current log mask is 0x%x\n", swpm_log_mask);
 
 	return 0;
 }
@@ -495,7 +443,7 @@ static ssize_t log_mask_proc_write(struct file *file,
 		return -EINVAL;
 
 	if (!kstrtouint(buf, 10, &mask))
-		log_mask = mask;
+		swpm_log_mask = mask;
 	else
 		swpm_err("echo <mask> > /proc/swpm/log_mask\n");
 
@@ -577,7 +525,10 @@ PROC_FOPS_RW(log_mask);
 PROC_FOPS_RW(idd_tbl);
 #endif
 
-static int create_procfs(void)
+/***************************************************************************
+ *  API
+ ***************************************************************************/
+int swpm_create_procfs(void)
 {
 	struct proc_dir_entry *swpm_dir = NULL;
 	int i = 0;
@@ -624,9 +575,6 @@ static int create_procfs(void)
 	return 0;
 }
 
-/***************************************************************************
- *  API
- ***************************************************************************/
 void swpm_get_rec_addr(phys_addr_t *phys,
 		       phys_addr_t *virt,
 		       unsigned long long *size)
@@ -677,18 +625,25 @@ int swpm_interface_manager_init(struct swpm_mem_ref_tbl *ref_tbl,
 	return 0;
 }
 
-int swpm_init(void)
+int swpm_set_periodic_timer(void *func)
 {
-	int ret = 0;
+	swpm_lock(&swpm_mutex);
 
-	ret = create_procfs();
+	if (func != NULL) {
+		swpm_timer.function = func;
+		swpm_timer.data = (unsigned long)&swpm_timer;
+		init_timer_deferrable(&swpm_timer);
+	}
+	swpm_unlock(&swpm_mutex);
 
-	/* init log timer */
-	init_timer_deferrable(&log_timer);
-	log_timer.function = (void *)&log_loop;
-	log_timer.data = (unsigned long)&log_timer;
+	return 0;
+}
 
-	return ret;
+void swpm_update_periodic_timer(void)
+{
+	swpm_lock(&swpm_mutex);
+	mod_timer(&swpm_timer, jiffies + msecs_to_jiffies(log_interval_ms));
+	swpm_unlock(&swpm_mutex);
 }
 
 int swpm_mem_addr_request(enum swpm_type id, phys_addr_t **ptr)

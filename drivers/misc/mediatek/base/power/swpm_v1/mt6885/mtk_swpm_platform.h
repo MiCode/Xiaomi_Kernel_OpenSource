@@ -19,13 +19,21 @@
 
 #define SWPM_TEST (0)
 
-#define MAX_RECORD_CNT                  (64)
-#define MAX_APHY_PWR                    (10)
-#define DEFAULT_LOG_INTERVAL_MS         (1000)
-#define DEFAULT_LOG_MASK                (0x13) /* VPROC2 + VPROC1 + VDRAM */
+#define MAX_RECORD_CNT				(64)
+#define MAX_APHY_PWR				(10)
+#define DEFAULT_LOG_INTERVAL_MS			(1000)
+/* VPROC2 + VPROC1 + VDRAM + VGPU + VCORE */
+#define DEFAULT_LOG_MASK			(0x1F)
 
-#define NR_CPU_OPP                      (16)
-#define NR_CPU_L_CORE                   (6)
+#define POWER_INDEX_CHAR_SIZE			(4096)
+
+#define NR_CPU_OPP				(16)
+#define NR_CPU_CORE				(8)
+#define NR_CPU_L_CORE				(4)
+
+#define ALL_METER_TYPE				(0xFFFF)
+#define EN_POWER_METER_ONLY			(0x1)
+#define EN_POWER_METER_ALL			(0x3)
 
 /* data shared w/ SSPM */
 enum profile_point {
@@ -95,6 +103,97 @@ enum cpu_lkg_type {
 	DSU_LKG,
 
 	NR_CPU_LKG_TYPE
+};
+
+enum pmu_idx {
+	PMU_IDX_L3DC,
+	PMU_IDX_INST_SPEC,
+	PMU_IDX_CYCLES,
+	PMU_IDX_NON_WFX_COUNTER, /* put non-WFX counter here */
+
+	MAX_PMU_CNT
+};
+
+enum cpu_core_power_state {
+	CPU_CORE_ACTIVE,
+	CPU_CORE_IDLE,
+	CPU_CORE_POWER_OFF,
+
+	NR_CPU_CORE_POWER_STATE
+};
+
+enum cpu_cluster_power_state {
+	CPU_CLUSTER_ACTIVE,
+	CPU_CLUSTER_IDLE,
+	CPU_CLUSTER_POWER_OFF,
+
+	NR_CPU_CLUSTER_POWER_STATE
+};
+
+enum mcusys_power_state {
+	MCUSYS_ACTIVE,
+	MCUSYS_IDLE,
+	MCUSYS_POWER_OFF,
+
+	NR_MCUSYS_POWER_STATE
+};
+
+/* TODO: cpu power index structure */
+struct cpu_swpm_index {
+	unsigned int core_state_ratio[NR_CPU_CORE_POWER_STATE][NR_CPU_CORE];
+	unsigned int cpu_stall_ratio[NR_CPU_CORE];
+	unsigned int cluster_state_ratio[NR_CPU_CLUSTER_POWER_STATE];
+	unsigned int mcusys_state_ratio[NR_MCUSYS_POWER_STATE];
+	unsigned int pmu_val[MAX_PMU_CNT][NR_CPU_CORE];
+	unsigned int l3_bw;
+	unsigned int cpu_emi_bw;
+};
+
+/* TODO: infra power state for core power */
+enum infra_power_state {
+	INFRA_DATA_ACTIVE,
+	INFRA_CMD_ACTIVE,
+	INFRA_IDLE,
+	INFRA_DCM,
+
+	NR_INFRA_POWER_STATE
+};
+
+/* TODO: core power index structure */
+struct core_swpm_index {
+	unsigned int infra_state_ratio[NR_INFRA_POWER_STATE];
+	unsigned int read_bw;
+	unsigned int write_bw;
+};
+
+/* TODO: dram power index structure */
+struct mem_swpm_index {
+	unsigned int read_bw;
+	unsigned int write_bw;
+	unsigned int srr_pct;	/* self refresh rate */
+	unsigned int pdir_pct;	/* power-down idle rate */
+	unsigned int phr_pct;	/* page-hit rate */
+	unsigned int acc_util;	/* accumulate EMI utilization */
+	unsigned int mr4;
+};
+
+struct share_index {
+	struct cpu_swpm_index cpu_idx;
+	struct core_swpm_index core_idx;
+	struct mem_swpm_index mem_idx;
+	struct gpu_swpm_index gpu_idx;
+	struct isp_swpm_index isp_idx;
+	unsigned int window_cnt;
+};
+
+struct share_ctrl {
+	unsigned int lock;
+	unsigned int clear_flag;
+};
+
+struct share_wrap {
+	unsigned int share_index_addr;
+	unsigned int share_ctrl_addr;
 };
 
 struct aphy_pwr {

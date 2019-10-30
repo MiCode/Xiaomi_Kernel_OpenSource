@@ -56,9 +56,12 @@ struct swpm_mem_ref_tbl {
 extern bool swpm_debug;
 extern unsigned int swpm_status;
 extern struct mutex swpm_mutex;
+extern unsigned int swpm_log_mask;
+extern struct timer_list swpm_timer;
 
-extern char *swpm_power_rail_to_string(enum power_rail p);
-extern int swpm_init(void);
+extern int swpm_create_procfs(void);
+extern void swpm_update_periodic_timer(void);
+extern int swpm_set_periodic_timer(void *func);
 extern void swpm_get_rec_addr(phys_addr_t *phys,
 			      phys_addr_t *virt,
 			      unsigned long long *size);
@@ -68,7 +71,7 @@ extern int swpm_interface_manager_init(struct swpm_mem_ref_tbl *ref_tbl,
 				       unsigned int tbl_size);
 extern void swpm_set_enable(unsigned int type, unsigned int enable);
 extern void swpm_set_update_cnt(unsigned int type, unsigned int cnt);
-extern void swpm_update_lkg_table(void);
+extern char *swpm_power_rail_to_string(enum power_rail p);
 extern unsigned int swpm_get_avg_power(unsigned int type,
 				       unsigned int avg_window);
 #endif

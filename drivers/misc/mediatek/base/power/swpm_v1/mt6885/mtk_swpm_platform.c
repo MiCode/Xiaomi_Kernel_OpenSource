@@ -16,6 +16,7 @@
 #include <linux/kernel.h>
 #include <linux/notifier.h>
 #include <linux/perf_event.h>
+#include <trace/events/mtk_events.h>
 #ifdef CONFIG_MTK_QOS_FRAMEWORK
 #include <mtk_qos_ipi.h>
 #endif
@@ -28,6 +29,11 @@
 #ifdef CONFIG_MTK_CPU_FREQ
 #include <mach/mtk_cpufreq_api.h>
 #endif
+#ifndef __CHECKER__
+#define CREATE_TRACE_POINTS
+#include <mtk_swpm_tracker_trace.h>
+#endif
+#include <sspm_reservedmem.h>
 #include <mtk_swpm_common.h>
 #include <mtk_swpm_platform.h>
 #include <mtk_swpm_interface.h>
@@ -36,6 +42,7 @@
 /****************************************************************************
  *  Macro Definitions
  ****************************************************************************/
+/* #define LOG_LOOP_TIME_PROFILE */
 
 /****************************************************************************
  *  Type Definitions
@@ -45,6 +52,15 @@
  *  Local Variables
  ****************************************************************************/
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+/* share sram for average power index */
+static struct share_index *share_idx_ref;
+static struct share_ctrl *share_idx_ctrl;
+/* type of unsigned int pointer for share_index iterator */
+static unsigned int *idx_ref_uint_ptr;
+/* numbers of unsigned int output to LTR with iterator */
+static unsigned int idx_output_size;
+
+/* share dram for subsys related table communication */
 static phys_addr_t rec_phys_addr, rec_virt_addr;
 static unsigned long long rec_size;
 #endif
@@ -358,6 +374,7 @@ static struct swpm_mem_ref_tbl mem_ref_tbl[NR_POWER_METER] = {
 	[ISP_POWER_METER] = {0, NULL},
 };
 
+static char idx_buf[POWER_INDEX_CHAR_SIZE] = { 0 };
 /****************************************************************************
  *  Global Variables
  ****************************************************************************/
@@ -524,116 +541,59 @@ static int swpm_get_spower_devid(enum cpu_lkg_type type)
 }
 #endif
 
-/***************************************************************************
- *  API
- ***************************************************************************/
-char *swpm_power_rail_to_string(enum power_rail p)
-{
-	char *s;
-
-	switch (p) {
-	case VPROC2:
-		s = "VPROC2";
-		break;
-	case VPROC1:
-		s = "VPROC1";
-		break;
-	case VGPU:
-		s = "VGPU";
-		break;
-	case VCORE:
-		s = "VCORE";
-		break;
-	case VDRAM:
-		s = "VDRAM";
-		break;
-	case VIO18_DDR:
-		s = "VIO18_DDR";
-		break;
-	case VIO18_DRAM:
-		s = "VIO18_DRAM";
-		break;
-	default:
-		s = "None";
-		break;
-	}
-
-	return s;
-}
-
 static void swpm_send_init_ipi(unsigned int addr, unsigned int size,
-			       unsigned int ch_num)
+			      unsigned int ch_num)
 {
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && \
 	defined(CONFIG_MTK_QOS_FRAMEWORK)
 	struct qos_ipi_data qos_d;
+	struct share_wrap *wrap_d;
+	unsigned int offset;
 
 	qos_d.cmd = QOS_IPI_SWPM_INIT;
 	qos_d.u.swpm_init.dram_addr = addr;
 	qos_d.u.swpm_init.dram_size = size;
 	qos_d.u.swpm_init.dram_ch_num = ch_num;
-	qos_ipi_to_sspm_command(&qos_d, 4);
-#endif
-}
+	offset = qos_ipi_to_sspm_command(&qos_d, 4);
 
-void swpm_set_enable(unsigned int type, unsigned int enable)
-{
-	if (type == 0xFFFF) {
-		int i;
-
-		for_each_pwr_mtr(i) {
-			if (enable) {
-				if (swpm_get_status(i))
-					continue;
-
-				if (i == CPU_POWER_METER)
-					swpm_pmu_set_enable_all(1);
-				swpm_set_status(i);
-			} else {
-				if (!swpm_get_status(i))
-					continue;
-
-				if (i == CPU_POWER_METER)
-					swpm_pmu_set_enable_all(0);
-				swpm_clr_status(i);
-			}
-		}
-		swpm_send_enable_ipi(type, enable);
-	} else if (type < NR_POWER_METER) {
-		if (enable && !swpm_get_status(type)) {
-			if (type == CPU_POWER_METER)
-				swpm_pmu_set_enable_all(1);
-			swpm_set_status(type);
-		} else if (!enable && swpm_get_status(type)) {
-			if (type == CPU_POWER_METER)
-				swpm_pmu_set_enable_all(0);
-			swpm_clr_status(type);
-		}
-		swpm_send_enable_ipi(type, enable);
-	}
-}
-
-void swpm_set_update_cnt(unsigned int type, unsigned int cnt)
-{
-	if (type != 0xFFFF && type >= NR_POWER_METER)
+	if (!offset) {
+		share_idx_ref = NULL;
+		share_idx_ctrl = NULL;
+		idx_ref_uint_ptr = NULL;
+		idx_output_size = 0;
+		swpm_err("swpm share sram init fail\n");
 		return;
-
-	swpm_lock(&swpm_mutex);
-#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) &&		\
-	defined(CONFIG_MTK_QOS_FRAMEWORK)
-	{
-		struct qos_ipi_data qos_d;
-
-		qos_d.cmd = QOS_IPI_SWPM_SET_UPDATE_CNT;
-		qos_d.u.swpm_set_update_cnt.type = type;
-		qos_d.u.swpm_set_update_cnt.cnt = cnt;
-		qos_ipi_to_sspm_command(&qos_d, 3);
 	}
+
+	/* get wrapped sram address */
+	wrap_d = (struct share_wrap *)
+		sspm_sbuf_get(offset);
+
+	/* get sram power index and control address from wrap data */
+	share_idx_ref = (struct share_index *)
+		sspm_sbuf_get(wrap_d->share_index_addr);
+	share_idx_ctrl = (struct share_ctrl *)
+		sspm_sbuf_get(wrap_d->share_ctrl_addr);
+
+	/* init unsigned int ptr for share index iterator */
+	idx_ref_uint_ptr = (unsigned int *)share_idx_ref;
+	/* init output size to LTR except window_cnt with decrease 1 */
+	idx_output_size =
+		(sizeof(struct share_index)/sizeof(unsigned int)) - 1;
+
+
+#if SWPM_TEST
+	swpm_err("wrap_d = 0x%p, wrap index addr = 0x%p, wrap ctrl addr = 0x%p\n",
+		 wrap_d, wrap_d->share_index_addr, wrap_d->share_ctrl_addr);
+	swpm_err("share_idx_ref = 0x%p, share_idx_ctrl = 0x%p\n",
+		 share_idx_ref, share_idx_ctrl);
+	swpm_err("share_index size check = %d\n",
+		 sizeof(struct share_index) / 4);
 #endif
-	swpm_unlock(&swpm_mutex);
+#endif
 }
 
-void swpm_update_lkg_table(void)
+static void swpm_update_lkg_table(void)
 {
 	int temp, dev_id, volt, i, j;
 	unsigned int lkg = 0;
@@ -661,6 +621,72 @@ void swpm_update_lkg_table(void)
 				swpm_info_ref->cpu_lkg_pwr[i][j] = lkg;
 		}
 	}
+}
+
+static int swpm_log_loop(void)
+{
+	char buf[256] = {0};
+	char *ptr = buf;
+	char *idx_ptr = idx_buf;
+	int i;
+#ifdef LOG_LOOP_TIME_PROFILE
+	ktime_t t1, t2;
+	unsigned long long diff, diff2;
+
+	t1 = ktime_get();
+#endif
+	for (i = 0; i < NR_POWER_RAIL; i++) {
+		if ((1 << i) & swpm_log_mask) {
+			ptr += snprintf(ptr, 256, "%s/",
+				swpm_power_rail_to_string((enum power_rail)i));
+		}
+	}
+	ptr--;
+	ptr += sprintf(ptr, " = ");
+
+	for (i = 0; i < NR_POWER_RAIL; i++) {
+		if ((1 << i) & swpm_log_mask) {
+			ptr += snprintf(ptr, 256, "%d/",
+				swpm_get_avg_power((enum power_rail)i, 50));
+		}
+	}
+	ptr--;
+	ptr += sprintf(ptr, " uA");
+
+	/* for LTR */
+	if (share_idx_ref && share_idx_ctrl) {
+		memset(idx_buf, 0, sizeof(char) * POWER_INDEX_CHAR_SIZE);
+		/* exclude window_cnt */
+		for (i = 0; i < idx_output_size; i++) {
+			idx_ptr += snprintf(idx_ptr, POWER_INDEX_CHAR_SIZE,
+					    "%d,", *(idx_ref_uint_ptr+i));
+		}
+		idx_ptr--;
+
+		/* set share sram clear flag and release lock */
+		share_idx_ctrl->clear_flag = 1;
+
+		/* put power index data to ftrace */
+		trace_swpm_power_idx(idx_buf);
+	}
+	/* put power data to ftrace */
+	trace_swpm_power(buf);
+
+#ifdef LOG_LOOP_TIME_PROFILE
+	t2 = ktime_get();
+#endif
+
+	swpm_update_lkg_table();
+
+#ifdef LOG_LOOP_TIME_PROFILE
+	diff = ktime_to_us(ktime_sub(t2, t1));
+	diff2 = ktime_to_us(ktime_sub(ktime_get(), t2));
+	swpm_err("exe time = %llu/%lluus\n", diff, diff2);
+#endif
+
+	swpm_update_periodic_timer();
+
+	return 0;
 }
 
 static inline void swpm_pass_to_sspm(void)
@@ -741,6 +767,100 @@ static inline void swpm_subsys_data_ref_init(void)
 	swpm_unlock(&swpm_mutex);
 }
 
+/***************************************************************************
+ *  API
+ ***************************************************************************/
+void swpm_set_enable(unsigned int type, unsigned int enable)
+{
+	if (type == ALL_METER_TYPE) {
+		int i;
+
+		for_each_pwr_mtr(i) {
+			if (enable) {
+				if (swpm_get_status(i))
+					continue;
+
+				if (i == CPU_POWER_METER)
+					swpm_pmu_set_enable_all(1);
+				swpm_set_status(i);
+			} else {
+				if (!swpm_get_status(i))
+					continue;
+
+				if (i == CPU_POWER_METER)
+					swpm_pmu_set_enable_all(0);
+				swpm_clr_status(i);
+			}
+		}
+		swpm_send_enable_ipi(type, enable);
+	} else if (type < NR_POWER_METER) {
+		if (enable && !swpm_get_status(type)) {
+			if (type == CPU_POWER_METER)
+				swpm_pmu_set_enable_all(1);
+			swpm_set_status(type);
+		} else if (!enable && swpm_get_status(type)) {
+			if (type == CPU_POWER_METER)
+				swpm_pmu_set_enable_all(0);
+			swpm_clr_status(type);
+		}
+		swpm_send_enable_ipi(type, enable);
+	}
+}
+
+/* TODO: move to static internal use */
+char *swpm_power_rail_to_string(enum power_rail p)
+{
+	char *s;
+
+	switch (p) {
+	case VPROC2:
+		s = "VPROC2";
+		break;
+	case VPROC1:
+		s = "VPROC1";
+		break;
+	case VGPU:
+		s = "VGPU";
+		break;
+	case VCORE:
+		s = "VCORE";
+		break;
+	case VDRAM:
+		s = "VDRAM";
+		break;
+	case VIO18_DDR:
+		s = "VIO18_DDR";
+		break;
+	case VIO18_DRAM:
+		s = "VIO18_DRAM";
+		break;
+	default:
+		s = "None";
+		break;
+	}
+
+	return s;
+}
+
+void swpm_set_update_cnt(unsigned int type, unsigned int cnt)
+{
+	if (type != ALL_METER_TYPE && type >= NR_POWER_METER)
+		return;
+
+	swpm_lock(&swpm_mutex);
+#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) &&		\
+	defined(CONFIG_MTK_QOS_FRAMEWORK)
+	{
+		struct qos_ipi_data qos_d;
+
+		qos_d.cmd = QOS_IPI_SWPM_SET_UPDATE_CNT;
+		qos_d.u.swpm_set_update_cnt.type = type;
+		qos_d.u.swpm_set_update_cnt.cnt = cnt;
+		qos_ipi_to_sspm_command(&qos_d, 3);
+	}
+#endif
+	swpm_unlock(&swpm_mutex);
+}
 
 static int __init swpm_platform_init(void)
 {
@@ -751,7 +871,7 @@ static int __init swpm_platform_init(void)
 	goto end;
 #endif
 
-	ret = swpm_init();
+	swpm_create_procfs();
 
 	swpm_get_rec_addr(&rec_phys_addr,
 			  &rec_virt_addr,
@@ -779,6 +899,12 @@ static int __init swpm_platform_init(void)
 
 	swpm_pass_to_sspm();
 
+	/* set preiodic timer task */
+	swpm_set_periodic_timer((void *)&swpm_log_loop);
+
+	/* enable all pwr meter and set swpm timer to start */
+	swpm_set_enable(ALL_METER_TYPE, EN_POWER_METER_ONLY);
+	swpm_update_periodic_timer();
 end:
 	return ret;
 }
