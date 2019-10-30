@@ -72,6 +72,22 @@ enum {
 #define SW_RST_TARGET_ALL (SW_RST_TARGET_UFSHCI | \
 	SW_RST_TARGET_UNIPRO | SW_RST_TARGET_UFSCPT)
 
+/* infracfg_ao */
+enum {
+	CLK_CG_2_STA                = 0xAC,
+	CLK_CG_3_STA                = 0xC8,
+};
+
+/* apmixed */
+enum {
+	PLL_MAINPLL                 = 0x0340,
+	PLL_MSDCPLL                 = 0x0350,
+};
+
+/* topckgen */
+enum {
+	CLK_CFG_12                  = 0xD0,
+};
 
 /*
  * Platform-dependent APIs
