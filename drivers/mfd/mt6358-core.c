@@ -229,7 +229,17 @@ static void mt6358_irq_disable(struct irq_data *data)
 
 	int_regs = (hwirq - sp_top->hwirq_base) / 16;
 	en_reg = sp_top->en_reg + 0x6 * int_regs;
+#if defined(CONFIG_MTK_PMIC_CHIP_MT6359) || \
+defined(CONFIG_MTK_PMIC_CHIP_MT6359P)
+	/* PMIC MT6359 miss LDO_INT_CON1_SET/CLR, use LDO_INT_CON1 */
+	if (en_reg == MT6359_LDO_TOP_INT_CON1)
+		regmap_update_bits(chip->regmap,
+				   en_reg, BIT(hwirq % 16), 0);
+	else
+		regmap_write(chip->regmap, en_reg + 0x4, 0x1 << (hwirq % 16));
+#else
 	regmap_write(chip->regmap, en_reg + 0x4, 0x1 << (hwirq % 16));
+#endif
 }
 
 static void mt6358_irq_lock(struct irq_data *data)

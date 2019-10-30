@@ -148,6 +148,8 @@ void PMIC_EINT_SETTING(struct platform_device *pdev)
 	pmic_set_register_value(PMIC_RG_LDO_VIO18_OCFB_EN, 0x0);
 	pmic_set_register_value(PMIC_RG_STRUP_VIO18_PG_ENB, 0x1);
 	pmic_set_register_value(PMIC_RG_STRUP_VIO18_OC_ENB, 0x1);
+	/* MT6359 set VIO18 OC de-bounce to 120us */
+	pmic_set_register_value(PMIC_RG_LDO_VIO18_OC_TSEL, 0x1);
 
 	pmic_dev = &pdev->dev;
 	ret = devm_request_threaded_irq(&pdev->dev,
