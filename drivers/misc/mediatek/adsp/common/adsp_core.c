@@ -175,15 +175,17 @@ static irqreturn_t adsp_irq_dispatcher(int irq, void *data)
 int adsp_irq_registration(u32 core_id, u32 irq_id, void *handler,
 			  const char *name, void *data)
 {
+	int ret;
 	struct adsp_priv *pdata = get_adsp_core_by_id(core_id);
 
 	pdata->irq[irq_id].cid = core_id;
 	pdata->irq[irq_id].irq_cb = handler;
 	pdata->irq[irq_id].data = data;
-	request_irq(pdata->irq[irq_id].seq, (irq_handler_t)adsp_irq_dispatcher,
-		    IRQF_TRIGGER_HIGH, name, &pdata->irq[irq_id]);
+	ret = request_irq(pdata->irq[irq_id].seq,
+			  (irq_handler_t)adsp_irq_dispatcher,
+			  IRQF_TRIGGER_HIGH, name, &pdata->irq[irq_id]);
 
-	return 0;
+	return ret;
 }
 
 void adsp_register_notify(struct notifier_block *nb)

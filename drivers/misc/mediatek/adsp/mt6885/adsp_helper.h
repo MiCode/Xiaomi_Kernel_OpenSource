@@ -92,6 +92,7 @@ extern void adsp_register_notify(struct notifier_block *nb);
 extern void adsp_unregister_notify(struct notifier_block *nb);
 extern void reset_hal_feature_table(void);
 
+/* If device interrupt is not connected, return -ENOTCONN. */
 extern int adsp_irq_registration(u32 core_id, u32 irq_id, void *handler,
 			const char *name, void *data);
 
