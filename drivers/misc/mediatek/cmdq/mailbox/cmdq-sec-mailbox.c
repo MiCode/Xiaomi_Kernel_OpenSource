@@ -409,7 +409,7 @@ static s32 cmdq_sec_irq_notify_start(struct cmdq_sec *cmdq)
 
 	cmdq_pkt_wfe(cmdq->clt_pkt, CMDQ_SYNC_TOKEN_SEC_DONE);
 	cmdq_pkt_finalize_loop(cmdq->clt_pkt);
-	cmdq_clear_event(cmdq->clt_pkt->cl, CMDQ_SYNC_TOKEN_SEC_DONE);
+	cmdq_clear_event(cmdq->clt->chan, CMDQ_SYNC_TOKEN_SEC_DONE);
 
 	err = cmdq_pkt_flush_async(cmdq->clt_pkt,
 		cmdq_sec_irq_notify_callback, (void *)cmdq);
