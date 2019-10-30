@@ -347,19 +347,68 @@ void apusys_pwr_efficiency_check(void)
 	}
 }
 
-
+#if 0
 void apusys_set_transition_volt(void)
 {
 	uint8_t user = 0;  // don't care
 	struct hal_param_volt volt_data;
+	struct hal_param_freq  freq_data;
+	uint8_t buck_domain_index = 0;
 
-	volt_data.target_buck = VPU_BUCK;
-	volt_data.target_volt = VSRAM_TRANS_VOLT;
-	hal_config_power(PWR_CMD_SET_VOLT, user, (void *)&volt_data);
+	// check voltage up
+	if (apusys_opps.prev_buck_volt[VPU_BUCK] < VSRAM_TRANS_VOLT) {
+		volt_data.target_buck = VPU_BUCK;
+		volt_data.target_volt = VSRAM_TRANS_VOLT;
+		hal_config_power(PWR_CMD_SET_VOLT, user, (void *)&volt_data);
+	}
 
-	volt_data.target_buck = MDLA_BUCK;
-	volt_data.target_volt = VSRAM_TRANS_VOLT;
-	hal_config_power(PWR_CMD_SET_VOLT, user, (void *)&volt_data);
+	if (apusys_opps.prev_buck_volt[MDLA_BUCK] < VSRAM_TRANS_VOLT) {
+		volt_data.target_buck = MDLA_BUCK;
+		volt_data.target_volt = VSRAM_TRANS_VOLT;
+		hal_config_power(PWR_CMD_SET_VOLT, user, (void *)&volt_data);
+	}
+
+	//check freq
+	freq_data.target_volt_domain = V_VPU0;
+	freq_data.target_freq = DVFS_FREQ_00_728000_F;
+	hal_config_power(PWR_CMD_SET_FREQ, VPU0, (void *)&freq_data);
+
+	freq_data.target_volt_domain = V_VPU1;
+	freq_data.target_freq = DVFS_FREQ_00_728000_F;
+	hal_config_power(PWR_CMD_SET_FREQ, VPU1, (void *)&freq_data);
+
+	freq_data.target_volt_domain = V_VPU2;
+	freq_data.target_freq = DVFS_FREQ_00_728000_F;
+	hal_config_power(PWR_CMD_SET_FREQ, VPU2, (void *)&freq_data);
+
+	freq_data.target_volt_domain = V_MDLA0;
+	freq_data.target_freq = DVFS_FREQ_00_700000_F;
+	hal_config_power(PWR_CMD_SET_FREQ, MDLA0, (void *)&freq_data);
+
+	freq_data.target_volt_domain = V_MDLA1;
+	freq_data.target_freq = DVFS_FREQ_00_700000_F;
+	hal_config_power(PWR_CMD_SET_FREQ, MDLA1, (void *)&freq_data);
+
+	freq_data.target_volt_domain = V_APU_CONN;
+	freq_data.target_freq = DVFS_FREQ_00_550000_F;
+	hal_config_power(PWR_CMD_SET_FREQ, VPU0, (void *)&freq_data);
+
+	freq_data.target_volt_domain = V_TOP_IOMMU;
+	freq_data.target_freq = DVFS_FREQ_00_550000_F;
+	hal_config_power(PWR_CMD_SET_FREQ, VPU0, (void *)&freq_data);
+
+	//check freq down
+	if (apusys_opps.prev_buck_volt[VPU_BUCK] > VSRAM_TRANS_VOLT) {
+		volt_data.target_buck = VPU_BUCK;
+		volt_data.target_volt = VSRAM_TRANS_VOLT;
+		hal_config_power(PWR_CMD_SET_VOLT, user, (void *)&volt_data);
+	}
+
+	if (apusys_opps.prev_buck_volt[MDLA_BUCK] > VSRAM_TRANS_VOLT) {
+		volt_data.target_buck = MDLA_BUCK;
+		volt_data.target_volt = VSRAM_TRANS_VOLT;
+		hal_config_power(PWR_CMD_SET_VOLT, user, (void *)&volt_data);
+	}
 }
 
 
@@ -391,10 +440,10 @@ void apusys_check_vsram_volt(void)
 		apusys_opps.vsram_volatge = VSRAM_LOW_VOLT;
 	}
 }
-
+#endif
 void apusys_buck_up_check(void)
 {
-#if 0
+#if 1
 	uint8_t user = 0;  // don't care
 	uint8_t buck_small_index = 0, buck_large_index = 0;
 	struct hal_param_volt volt_data;
@@ -426,6 +475,14 @@ void apusys_buck_up_check(void)
 		}
 	}
 
+	PWR_LOG_INF("%s,prev vpu=%d, prev mdla=%d, vpu=%d, mdla=%d, vsrm=%d\n",
+		__func__,
+		apusys_opps.prev_buck_volt[VPU_BUCK],
+		apusys_opps.prev_buck_volt[MDLA_BUCK],
+		apusys_opps.cur_buck_volt[VPU_BUCK],
+		apusys_opps.cur_buck_volt[MDLA_BUCK],
+		apusys_opps.vsram_volatge);
+
 	if (apusys_opps.vsram_volatge == VSRAM_LOW_VOLT &&
 		(apusys_opps.cur_buck_volt[VPU_BUCK] > VSRAM_TRANS_VOLT ||
 		apusys_opps.cur_buck_volt[MDLA_BUCK] > VSRAM_TRANS_VOLT)) {
@@ -450,7 +507,7 @@ void apusys_buck_up_check(void)
 			else
 				volt_data.target_volt =
 				apusys_opps.cur_buck_volt[buck_large_index];
-			volt_data.target_volt = VSRAM_TRANS_VOLT;
+			volt_data.target_buck = buck_large_index;
 			hal_config_power(PWR_CMD_SET_VOLT, user,
 				(void *)&volt_data);
 		}
@@ -462,14 +519,16 @@ void apusys_buck_up_check(void)
 
 	}
 
-	if (apusys_opps.cur_buck_volt[buck_small_index] > VSRAM_TRANS_VOLT) {
+	if (apusys_opps.cur_buck_volt[buck_small_index] >
+		apusys_opps.prev_buck_volt[buck_small_index]) {
 		volt_data.target_buck = buck_small_index;
 		volt_data.target_volt =
 			apusys_opps.cur_buck_volt[buck_small_index];
 	hal_config_power(PWR_CMD_SET_VOLT, user, (void *)&volt_data);
 	}
 
-	if (apusys_opps.cur_buck_volt[buck_large_index] > VSRAM_TRANS_VOLT) {
+	if (apusys_opps.cur_buck_volt[buck_large_index] >
+		apusys_opps.prev_buck_volt[buck_large_index]) {
 		volt_data.target_buck = buck_large_index;
 		volt_data.target_volt =
 			apusys_opps.cur_buck_volt[buck_large_index];
@@ -537,7 +596,7 @@ void apusys_frequency_check(void)
 
 void apusys_buck_down_check(void)
 {
-#if 0
+#if 1
 	uint8_t user = 0; //don't care
 	uint8_t buck_small_index = 0, buck_large_index = 0;
 	struct hal_param_volt volt_data;
@@ -561,23 +620,37 @@ void apusys_buck_down_check(void)
 		}
 	}
 
+	PWR_LOG_INF("%s,prev vpu=%d, prev mdla=%d, vpu=%d, mdla=%d, vsrm=%d\n",
+		__func__,
+		apusys_opps.prev_buck_volt[VPU_BUCK],
+		apusys_opps.prev_buck_volt[MDLA_BUCK],
+		apusys_opps.cur_buck_volt[VPU_BUCK],
+		apusys_opps.cur_buck_volt[MDLA_BUCK],
+		apusys_opps.vsram_volatge);
+
 	if (apusys_opps.vsram_volatge == VSRAM_HIGH_VOLT &&
 		(apusys_opps.cur_buck_volt[VPU_BUCK] <= VSRAM_TRANS_VOLT &&
 		apusys_opps.cur_buck_volt[MDLA_BUCK] <= VSRAM_TRANS_VOLT)) {
-		if ((apusys_opps.prev_buck_volt[buck_large_index] >
-			apusys_opps.cur_buck_volt[buck_large_index]) &&
-			(apusys_opps.cur_buck_volt[buck_large_index] <=
-				VSRAM_TRANS_VOLT)) {
+		if (apusys_opps.prev_buck_volt[buck_large_index] >
+			apusys_opps.cur_buck_volt[buck_large_index]){
+			if (apusys_opps.cur_buck_volt[buck_large_index] <=
+				VSRAM_TRANS_VOLT)
+				volt_data.target_volt = VSRAM_TRANS_VOLT;
+			else
+				volt_data.target_volt =
+				apusys_opps.cur_buck_volt[buck_large_index];
 			volt_data.target_buck = buck_large_index;
-			volt_data.target_volt = VSRAM_TRANS_VOLT;
 		hal_config_power(PWR_CMD_SET_VOLT, user, (void *)&volt_data);
 		}
-		if ((apusys_opps.prev_buck_volt[buck_small_index] >
-			apusys_opps.cur_buck_volt[buck_small_index]) &&
-			(apusys_opps.cur_buck_volt[buck_small_index] <=
-				VSRAM_TRANS_VOLT)) {
+		if (apusys_opps.prev_buck_volt[buck_small_index] >
+			apusys_opps.cur_buck_volt[buck_small_index]){
+			if (apusys_opps.cur_buck_volt[buck_small_index] <=
+				VSRAM_TRANS_VOLT)
+				volt_data.target_volt = VSRAM_TRANS_VOLT;
+			else
+				volt_data.target_volt =
+				apusys_opps.cur_buck_volt[buck_small_index];
 			volt_data.target_buck = buck_small_index;
-			volt_data.target_volt = VSRAM_TRANS_VOLT;
 		hal_config_power(PWR_CMD_SET_VOLT, user, (void *)&volt_data);
 		}
 
@@ -696,9 +769,9 @@ void apusys_dvfs_info(void)
 
 void apusys_dvfs_state_machine(void)
 {
-	apusys_set_transition_volt();
+//	apusys_set_transition_volt();
 
-	apusys_check_vsram_volt();
+//	apusys_check_vsram_volt();
 
 	apusys_buck_up_check();
 
