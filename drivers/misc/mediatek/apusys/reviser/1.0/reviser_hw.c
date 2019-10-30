@@ -25,7 +25,6 @@
 #include "reviser_mem.h"
 #include "reviser_secure.h"
 
-
 #define FAKE_CONTEX_REG_NUM 9
 #define FAKE_REMAP_REG_NUM 13
 
@@ -520,7 +519,7 @@ int reviser_type_convert(int type, enum REVISER_DEVICE_E *reviser_type)
 	return ret;
 }
 
-int reviser_set_remap_talbe(void *drvinfo,
+int reviser_set_remap_table(void *drvinfo,
 		int index, uint8_t valid, uint8_t ID,
 		uint8_t src_page, uint8_t dst_page)
 {

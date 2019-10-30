@@ -14,7 +14,7 @@
 #include <linux/errno.h>
 #include <linux/slab.h>
 #include <linux/errno.h>
-
+#include <linux/platform_device.h>
 #include <linux/kernel.h>
 #include <linux/io.h>
 #include <linux/sched.h>
@@ -25,7 +25,7 @@
 #include "reviser_drv.h"
 #include "reviser_mem_mgt.h"
 #include "reviser_hw.h"
-
+#include "apusys_power.h"
 
 //static unsigned long pgtable_dram[BITS_TO_LONGS(VLM_DRAM_BANK_MAX)];
 static unsigned long table_tcm[BITS_TO_LONGS(TABLE_TCM_MAX)];
@@ -554,8 +554,6 @@ int reviser_table_get_vlm(void *drvinfo,
 	//struct table_tcm tcm_pgtable;
 	struct table_vlm vlm_pgtable;
 
-
-
 	if (requset_size > VLM_SIZE) {
 		LOG_ERR("requset_size(%x) is too larger\n", requset_size);
 		goto fail;
@@ -595,11 +593,21 @@ int reviser_table_get_vlm(void *drvinfo,
 		goto free_tcm;
 	}
 
-	/* Set HW remap table */
-	if (reviser_table_set_remap(drvinfo, ctxid)) {
-		LOG_ERR("Set Remap Fail\n");
+	if (!apu_device_power_on(REVISER)) {
+		/* Set HW remap table */
+		if (reviser_table_set_remap(drvinfo, ctxid)) {
+			LOG_ERR("Set Remap Fail and power off\n");
+			if (apu_device_power_off(REVISER))
+				LOG_ERR("Power OFF Fail\n");
+
+			goto free_vlm;
+		}
+	} else {
+		LOG_ERR("Power ON Fail\n");
 		goto free_vlm;
 	}
+
+
 	LOG_DEBUG("[out] vlm page_num(%u) tcm_valid(%lx) ctxid(%lu)\n",
 			vlm_pgtable.tcm_pgtable.page_num,
 			vlm_pgtable.tcm_pgtable.table_tcm[0], ctxid);
@@ -634,41 +642,53 @@ fail:
 int reviser_table_free_vlm(void *drvinfo, uint32_t ctxid)
 {
 	struct table_tcm tcm_pgtable;
+	int ret = 0;
 
 	//LOG_DEBUG("free ctxid: %u\n", ctxid);
 	if (ctxid >= VLM_CTXT_CTX_ID_MAX) {
 		LOG_ERR("invalid argument\n");
-		return -1;
+		ret = -1;
+		goto power_off;
 	}
 	if (reviser_table_clear_remap(drvinfo, ctxid)) {
 		LOG_ERR("Clear Remap Fail\n");
-		return -1;
+		ret = -1;
+		goto power_off;
 	}
+
 	//LOG_DEBUG("reviser_table_clear_remap done %d\n", ctxid);
 
 	memset(&tcm_pgtable, 0, sizeof(struct table_tcm));
 	if (_reviser_clear_vlm_pgtable(drvinfo, ctxid, &tcm_pgtable)) {
 		LOG_ERR("Clear VLM PageTable Fail\n");
-		return -1;
+		ret = -1;
+		goto power_off;
 	}
 
 	//LOG_DEBUG("_reviser_clear_vlm_pgtable ctxid(%d)\n", ctxid);
 
 	if (reviser_table_free_tcm(drvinfo, &tcm_pgtable)) {
 		LOG_ERR("Free TCM Fail\n");
-		return -1;
+		ret = -1;
+		goto power_off;
 	}
 	//LOG_DEBUG("reviser_table_free_tcm ctxid(%d) page_num(%u)\n",
 	//		ctxid, tcm_pgtable.page_num);
 
 	if (reviser_table_free_ctxID(drvinfo, ctxid)) {
 		LOG_ERR("Free ctxID Fail\n");
-		return -1;
+		ret = -1;
+		goto power_off;
 	}
 	LOG_DEBUG("ctxid(%u) page_num(%u)\n",
 			ctxid, tcm_pgtable.page_num);
 
-	return 0;
+power_off:
+	if (apu_device_power_off(REVISER)) {
+		LOG_ERR("Power OFF Fail\n");
+		ret = -1;
+	}
+	return ret;
 }
 
 int reviser_table_init_remap(void *drvinfo)
@@ -737,12 +757,14 @@ int reviser_table_set_remap(void *drvinfo, unsigned long ctxid)
 		bitmap_set(g_table_remap.valid, index, 1);
 
 		/* Set HW remap table */
-		if (reviser_set_remap_talbe(drvinfo, index, 1,
+		if (reviser_set_remap_table(drvinfo, index, 1,
 				ctxid, i, g_vlm_pgtable[ctxid].page[i].dst)) {
 			goto free_mutex;
 		}
 		index++;
 	}
+	//setbits = bitmap_weight(g_table_remap.valid, VLM_REMAP_TABLE_MAX);
+	//LOG_DEBUG("Done setbits [%d]\n", setbits);
 
 	mutex_unlock(&reviser_device->mutex_vlm_pgtable);
 	mutex_unlock(&reviser_device->mutex_remap);
@@ -781,9 +803,9 @@ int reviser_table_clear_remap(void *drvinfo, unsigned long ctxid)
 	//LOG_DEBUG(" setbits [%d]\n", setbits);
 	if (setbits < g_vlm_pgtable[ctxid].sys_page_num) {
 
-		//LOG_ERR("Remap Setbits (%d) < vlm[%d] sys_page_num[%d]\n",
-		//		setbits, ctxid,
-		//		g_vlm_pgtable[ctxid].sys_page_num);
+		LOG_ERR("Remap (%u)[%lu][%u]\n",
+				setbits, ctxid,
+				g_vlm_pgtable[ctxid].sys_page_num);
 		goto free_mutex;
 	}
 
@@ -792,7 +814,7 @@ int reviser_table_clear_remap(void *drvinfo, unsigned long ctxid)
 		index = g_vlm_pgtable[ctxid].page[i].vlm;
 
 		bitmap_clear(g_table_remap.valid, index, 1);
-		if (reviser_set_remap_talbe(drvinfo,
+		if (reviser_set_remap_table(drvinfo,
 				index, 0, ctxid, index, index))
 			goto free_mutex;
 

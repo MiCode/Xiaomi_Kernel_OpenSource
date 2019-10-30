@@ -350,6 +350,7 @@ static int reviser_probe(struct platform_device *pdev)
 		goto free_map;
 	}
 
+	apu_power_device_register(REVISER, pdev);
 	/* Workaround for power all on mode*/
 	//reviser_power_on(NULL);
 
@@ -389,6 +390,7 @@ static int reviser_remove(struct platform_device *pdev)
 
 	DEBUG_TAG;
 
+	apu_power_device_unregister(REVISER);
 	apu_power_callback_device_unregister(REVISOR);
 
 	g_reviser_device = NULL;
@@ -486,7 +488,7 @@ static long reviser_ioctl(struct file *filp, unsigned int cmd,
 			ret = -EINVAL;
 		}
 
-		ret = reviser_set_remap_talbe(
+		ret = reviser_set_remap_table(
 			reviser_device, info.table.index,
 			info.table.valid, info.table.ID,
 			info.table.src_page, info.table.dst_page);

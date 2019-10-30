@@ -37,7 +37,7 @@ int reviser_set_boundary(void *drvinfo,
 		enum REVISER_DEVICE_E type, int index, uint8_t boundary);
 int reviser_set_context_ID(void *drvinfo,
 		enum REVISER_DEVICE_E type, int index, uint8_t ID);
-int reviser_set_remap_talbe(void *drvinfo,
+int reviser_set_remap_table(void *drvinfo,
 		int index, uint8_t valid, uint8_t ID, uint8_t src_page,
 		uint8_t dst_page);
 int reviser_dram_remap_init(void *drvinfo);
