@@ -462,7 +462,7 @@ static ssize_t goodix_ts_report_rate_change_store(
 	struct goodix_ts_core *core_data =
 		dev_get_drvdata(dev);
 	struct goodix_ts_device *ts_dev = core_data->ts_dev;
-	int en, ret = 0;
+	int en = 0, ret = 0;
 
 	if (touch_suspend_flag) {
 		atomic_set(&touch_need_resume_200Hz, 1);
