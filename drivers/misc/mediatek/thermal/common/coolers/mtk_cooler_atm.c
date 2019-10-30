@@ -375,7 +375,7 @@ static unsigned long atm_hrtimer_polling_delay =
 	static int polling_trip_temp0 = 75000;
 	static int polling_trip_temp1 = 65000;
 	static int polling_trip_temp2 = 40000;
-	static int polling_factor0 = 2;
+	static int polling_factor0 = 10;
 	static int polling_factor1 = 2;
 	static int polling_factor2 = 4;
 #endif
