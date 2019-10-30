@@ -266,6 +266,7 @@ struct msm_slim_iommu {
 	struct device			*cb_dev;
 	struct dma_iommu_mapping	*iommu_map;
 	bool				s1_bypass;
+	bool				atomic_ctx;
 };
 
 struct msm_slim_ctrl {
