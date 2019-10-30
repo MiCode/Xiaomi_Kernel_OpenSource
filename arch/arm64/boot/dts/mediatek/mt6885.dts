@@ -7221,6 +7221,12 @@ page_owner=on";
 #endif
 	};
 #endif
+
+	ssusb_ip_sleep: ssusb_ip_sleep {
+		compatible = "mediatek,usb_ipsleep";
+		interrupt-parent = <&pio>;
+		interrupts = <219 IRQ_TYPE_LEVEL_LOW 223 0>;
+	};
 };
 
 &spmi_bus {
