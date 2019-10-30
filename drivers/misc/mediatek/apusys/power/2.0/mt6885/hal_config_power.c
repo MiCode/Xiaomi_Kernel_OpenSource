@@ -302,6 +302,10 @@ static int set_power_voltage(enum DVFS_USER user, void *param)
 		LOG_ERR("%s not support buck : %d\n", __func__, buck);
 	}
 
+	if (ret)
+		LOG_ERR("%s failed(%d), buck:%d, volt:%d\n",
+					__func__, ret, buck, target_volt);
+
 	return ret;
 }
 
@@ -359,8 +363,9 @@ static int rpc_power_status_check(int domain_idx, unsigned int enable)
 			finished = (regValue >> domain_idx) & 0x1;
 
 		if (++check_round >= REG_POLLING_TIMEOUT_ROUNDS) {
-			LOG_ERR("%s APU_RPC_INTF_PWR_RDY = 0x%x, timeout !\n",
-							__func__, regValue);
+			LOG_ERR(
+			"%s APU_RPC_INTF_PWR_RDY = 0x%x (from idx:%d), timeout !\n",
+						__func__, regValue, domain_idx);
 			return -1;
 		}
 
@@ -369,7 +374,8 @@ static int rpc_power_status_check(int domain_idx, unsigned int enable)
 	udelay(500);
 	regValue = DRV_Reg32(APU_RPC_INTF_PWR_RDY);
 #endif
-	LOG_WRN("%s APU_RPC_INTF_PWR_RDY = 0x%x\n", __func__, regValue);
+	LOG_WRN("%s APU_RPC_INTF_PWR_RDY = 0x%x (from idx:%d)\n",
+					__func__, regValue, domain_idx);
 	return 0;
 }
 
@@ -536,6 +542,9 @@ static int set_power_frequency(void *param)
 		LOG_ERR("%s not support power domain : %d\n", __func__, domain);
 	}
 
+	if (ret)
+		LOG_ERR("%s failed(%d), domain:%d, freq:%d\n",
+					__func__, ret, domain, freq);
 	return ret;
 }
 

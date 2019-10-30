@@ -76,8 +76,12 @@ static int power_callback_counter;
 static struct task_struct *power_task_handle;
 static uint64_t timestamp;
 static struct hal_param_init_power init_power_data;
+
+static struct workqueue_struct *wq;
 static void d_work_power_info_func(struct work_struct *work);
-static DECLARE_DELAYED_WORK(d_work_power_info, d_work_power_info_func);
+static void d_work_power_init_func(struct work_struct *work);
+static DECLARE_WORK(d_work_power_info, d_work_power_info_func);
+static DECLARE_WORK(d_work_power_init, d_work_power_init_func);
 
 
 uint64_t get_current_time_us(void)
@@ -90,8 +94,7 @@ uint64_t get_current_time_us(void)
 
 void apu_get_power_info(void)
 {
-	mod_delayed_work(system_freezable_power_efficient_wq,
-			&d_work_power_info, msecs_to_jiffies(1));
+	queue_work(wq, &d_work_power_info);
 }
 EXPORT_SYMBOL(apu_get_power_info);
 
@@ -383,11 +386,19 @@ EXPORT_SYMBOL(apu_power_callback_device_unregister);
 
 static void d_work_power_info_func(struct work_struct *work)
 {
-//	struct hal_param_pwr_info info;
-	struct	apu_power_info info;
+	struct apu_power_info info;
 
 	info.id = timestamp;
 	hal_config_power(PWR_CMD_GET_POWER_INFO, VPU0, &info);
+}
+
+static void d_work_power_init_func(struct work_struct *work)
+{
+	apusys_power_init(VPU0, (void *)&init_power_data);
+
+#if DEFAULT_POWER_ON
+	default_power_on_func();
+#endif // DEFAULT_POWER_ON
 }
 
 static void default_power_on_func(void)
@@ -596,17 +607,17 @@ static int apu_power_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_exit;
 
-	apusys_power_init(VPU0, (void *)&init_power_data);
+	wq = create_workqueue("apu_pwr_drv_wq");
+	if (IS_ERR(wq)) {
+		LOG_ERR("%s create power driver wq fail\n", __func__);
+		goto err_exit;
+	}
 
-#if DEFAULT_POWER_ON
-	default_power_on_func();
-#endif // DEFAULT_POWER_ON
-
-	mod_delayed_work(system_freezable_power_efficient_wq,
-			&d_work_power_info, msecs_to_jiffies(1));
+	queue_work(wq, &d_work_power_init);
+	queue_work(wq, &d_work_power_info);
 
 	power_task_handle = kthread_create(apusys_power_task,
-						(void *)NULL, "apusys_power");
+						(void *)NULL, "apu_pwr_policy");
 	if (IS_ERR(power_task_handle)) {
 		LOG_ERR("%s create power task fail\n", __func__);
 		goto err_exit;
@@ -639,6 +650,13 @@ err_exit:
 	if (power_task_handle != NULL) {
 		kfree(power_task_handle);
 		power_task_handle = NULL;
+	}
+
+	if (wq != NULL) {
+		flush_workqueue(wq);
+		destroy_workqueue(wq);
+		kfree(wq);
+		wq = NULL;
 	}
 
 	return err;
@@ -805,6 +823,13 @@ static int apu_power_remove(struct platform_device *pdev)
 	mutex_destroy(&power_opp_mtx);
 	mutex_destroy(&power_ctl_mtx);
 	mutex_destroy(&power_device_list_mtx);
+
+	if (wq) {
+		flush_workqueue(wq);
+		destroy_workqueue(wq);
+		kfree(wq);
+		wq = NULL;
+	}
 
 	return 0;
 }
