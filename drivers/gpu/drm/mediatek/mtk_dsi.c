@@ -2626,7 +2626,7 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		panel_ext = mtk_dsi_get_panel_ext(comp);
 		if (panel_ext && panel_ext->funcs
 			&& panel_ext->funcs->set_backlight_cmdq)
-			panel_ext->funcs->set_backlight_cmdq(dsi,
+			panel_ext->funcs->set_backlight_cmdq(dsi, dsi->panel,
 					mipi_dsi_dcs_write_gce,
 					handle, *(int *)params);
 	}

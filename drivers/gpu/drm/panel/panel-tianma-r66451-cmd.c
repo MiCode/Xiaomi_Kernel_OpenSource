@@ -403,8 +403,8 @@ static struct mtk_panel_params ext_params_90hz = {
 	.data_rate = 570,
 };
 
-static int tianma_setbacklight_cmdq(void *dsi, dcs_write_gce cb,
-		void *handle, unsigned int level)
+static int tianma_setbacklight_cmdq(void *dsi, struct drm_panel *panel,
+		dcs_write_gce cb, void *handle, unsigned int level)
 {
 	char bl_tb0[] = {0x51, 0xf, 0xff};
 
