@@ -2657,8 +2657,6 @@ static void mtk_crtc_wb_comp_config(struct drm_crtc *crtc,
 	struct mtk_ddp_comp *comp = NULL;
 	struct mtk_crtc_ddp_ctx *ddp_ctx = NULL;
 	struct mtk_ddp_config cfg;
-	dma_addr_t addr;
-	struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
 
 	comp = mtk_ddp_comp_find_by_id(crtc, DDP_COMPONENT_WDMA0);
 	if (!comp)
@@ -2700,6 +2698,18 @@ static void mtk_crtc_wb_comp_config(struct drm_crtc *crtc,
 	}
 
 	mtk_ddp_comp_config(comp, &cfg, cmdq_handle);
+}
+
+static void mtk_crtc_wb_backup_to_slot(struct drm_crtc *crtc,
+	struct cmdq_pkt *cmdq_handle)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
+	struct mtk_crtc_ddp_ctx *ddp_ctx = NULL;
+	dma_addr_t addr;
+	struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
+
+	ddp_ctx = &mtk_crtc->ddp_ctx[mtk_crtc->ddp_mode];
 
 	addr = cmdq_buf->pa_base + DISP_SLOT_RDMA_FB_IDX;
 	if (state->prop_val[CRTC_PROP_OUTPUT_ENABLE]) {
@@ -2763,20 +2773,20 @@ void mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 	}
 
 	if (mtk_crtc_is_dc_mode(crtc) ||
-		state->prop_val[CRTC_PROP_OUTPUT_ENABLE])
-		mtk_crtc_wb_comp_config(crtc, cmdq_handle);
-
-	if (mtk_crtc_is_dc_mode(crtc)) {
-		/* Decouple and Decouple mirror mode */
-		mtk_disp_mutex_enable_cmdq(mtk_crtc->mutex[1],
-			cmdq_handle, mtk_crtc->gce_obj.base);
-	} else if (state->prop_val[CRTC_PROP_OUTPUT_ENABLE]) {
-		/* For virtual display write-back path */
+		state->prop_val[CRTC_PROP_OUTPUT_ENABLE]) {
 		int gce_event = mtk_crtc->gce_obj.event[EVENT_WDMA0_EOF];
 
-		cmdq_pkt_clear_event(cmdq_handle, gce_event);
-		mtk_disp_mutex_enable_cmdq(mtk_crtc->mutex[0],
-				cmdq_handle, mtk_crtc->gce_obj.base);
+		mtk_crtc_wb_comp_config(crtc, cmdq_handle);
+
+		if (mtk_crtc_is_dc_mode(crtc))
+			/* Decouple and Decouple mirror mode */
+			mtk_disp_mutex_enable_cmdq(mtk_crtc->mutex[1],
+					cmdq_handle, mtk_crtc->gce_obj.base);
+		else
+			/* For virtual display write-back path */
+			mtk_disp_mutex_enable_cmdq(mtk_crtc->mutex[0],
+					cmdq_handle, mtk_crtc->gce_obj.base);
+
 		cmdq_pkt_wait_no_clear(cmdq_handle, gce_event);
 	} else if (mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base) &&
 					mtk_crtc_with_trigger_loop(crtc)) {
@@ -2788,6 +2798,11 @@ void mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 		/* DL without trigger loop */
 		mtk_disp_mutex_enable_cmdq(mtk_crtc->mutex[0],
 			cmdq_handle, mtk_crtc->gce_obj.base);
+	}
+
+	if (mtk_crtc_is_dc_mode(crtc) ||
+		state->prop_val[CRTC_PROP_OUTPUT_ENABLE]) {
+		mtk_crtc_wb_backup_to_slot(crtc, cmdq_handle);
 	}
 
 #ifdef MTK_DRM_CMDQ_ASYNC
