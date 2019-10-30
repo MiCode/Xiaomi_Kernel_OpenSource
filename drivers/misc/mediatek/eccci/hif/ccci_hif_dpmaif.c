@@ -63,6 +63,11 @@
 
 struct hif_dpmaif_ctrl *dpmaif_ctrl;
 
+
+#ifdef USING_BATCHING
+#define BATCHING_PUSH_THRESH 176
+#endif
+
 /* =======================================================
  *
  * Descriptions: Debug part
@@ -547,11 +552,36 @@ static int dpmaif_net_rx_push_thread(void *arg)
 #endif
 	int count = 0;
 	int ret;
+#ifdef USING_BATCHING
+	struct list_head head, gro_head;
+	struct lhif_header *lhif_h;
+	int ccmni_id = 0;
+	int is_gro = 0;
+
+	INIT_LIST_HEAD(&head);
+	INIT_LIST_HEAD(&gro_head);
+	CCCI_BOOTUP_LOG(-1, TAG, "Using batch !!!\r\n");
+#endif
 
 	while (1) {
 		if (skb_queue_empty(&queue->skb_list.skb_list)) {
+#ifdef USING_BATCHING
+			if (!list_empty(&gro_head)) {
+				ccmni_rx_list_push(MD_SYS1, ccmni_id,
+					&gro_head, true);
+				dpmaif_queue_broadcast_state(hif_ctrl, RX_FLUSH,
+					IN, queue->index);
+				INIT_LIST_HEAD(&gro_head);
+			}
+			if (!list_empty(&head)) {
+				ccmni_rx_list_push(MD_SYS1, ccmni_id,
+					&head, false);
+				INIT_LIST_HEAD(&head);
+			}
+#else
 			dpmaif_queue_broadcast_state(hif_ctrl, RX_FLUSH,
 				IN, queue->index);
+#endif
 			count = 0;
 			ret = wait_event_interruptible(queue->rx_wq,
 				(!skb_queue_empty(&queue->skb_list.skb_list) ||
@@ -570,8 +600,37 @@ static int dpmaif_net_rx_push_thread(void *arg)
 		if (count > 0)
 			skb->tstamp = sched_clock();
 #endif
+
+#ifdef USING_BATCHING
+		lhif_h = (struct lhif_header *)skb->data;
+		skb_pull(skb, sizeof(struct lhif_header));
+
+		ccmni_id = lhif_h->netif;
+		is_gro = ccmni_header(MD_SYS1, ccmni_id, skb);
+		count++;
+
+		if (is_gro == 1) {
+			list_add_tail(&skb->list, &gro_head);
+			if (count >= BATCHING_PUSH_THRESH) {
+				ccmni_rx_list_push(MD_SYS1, ccmni_id,
+					&gro_head, true);
+				INIT_LIST_HEAD(&gro_head);
+				count = 0;
+			}
+		} else if (is_gro == 0) {
+			list_add_tail(&skb->list, &head);
+			if (count >= BATCHING_PUSH_THRESH) {
+				ccmni_rx_list_push(MD_SYS1, ccmni_id,
+					 &head, false);
+				INIT_LIST_HEAD(&head);
+				count = 0;
+			}
+		}
+#else
 		ccci_md_recv_skb(hif_ctrl->md_id, hif_ctrl->hif_id, skb);
 		count++;
+#endif
+
 #ifdef CCCI_SKB_TRACE
 		per_md_data->netif_rx_profile[6] = sched_clock() -
 			per_md_data->netif_rx_profile[6];

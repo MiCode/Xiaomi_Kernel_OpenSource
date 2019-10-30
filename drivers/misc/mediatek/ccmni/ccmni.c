@@ -52,6 +52,15 @@
 #include <mt-plat/met_drv.h>
 #endif
 
+
+#include <linux/hash.h>
+#include <linux/slab.h>
+#include <linux/jhash.h>
+#include <linux/spinlock.h>
+//#include <linux/string.h>
+#include <linux/list.h>
+
+
 struct ccmni_ctl_block *ccmni_ctl_blk[MAX_MD_NUM];
 
 /* Time in nano seconds. This number must be less than a second. */
@@ -1286,6 +1295,108 @@ ccmni_exit_ret:
 	}
 }
 
+int ccmni_header(int md_id, int ccmni_idx, struct sk_buff *skb)
+{
+		struct ccmni_ctl_block *ctlb = ccmni_ctl_blk[md_id];
+		struct ccmni_instance *ccmni = NULL;
+		struct net_device *dev = NULL;
+		int pkt_type, skb_len;
+		struct iphdr *iph;
+
+		int is_gro = 0;
+
+		if (unlikely(ctlb == NULL || ctlb->ccci_ops == NULL)) {
+			CCMNI_PR_DBG(md_id,
+				"invalid CCMNI%d ctrl/ops struct\n",
+				ccmni_idx);
+			dev_kfree_skb(skb);
+			return -1;
+		}
+
+		ccmni = ctlb->ccmni_inst[ccmni_idx];
+		dev = ccmni->dev;
+
+		iph = (struct iphdr *)skb->data;
+		pkt_type = skb->data[0] & 0xF0;
+		ccmni_make_etherframe(md_id, dev, skb->data - ETH_HLEN,
+			dev->dev_addr, pkt_type);
+		skb_set_mac_header(skb, -ETH_HLEN);
+		skb_reset_network_header(skb);
+		skb->dev = dev;
+		if (pkt_type == 0x60)
+			skb->protocol  = htons(ETH_P_IPV6);
+		else
+			skb->protocol  = htons(ETH_P_IP);
+
+		skb->ip_summed = CHECKSUM_NONE;
+		skb_len = skb->len;
+#ifdef ENABLE_WQ_GRO
+		is_gro = is_skb_gro(skb);
+#endif
+
+#if defined(CCCI_SKB_TRACE)
+		iph = (struct iphdr *)skb->data;
+		ctlb->net_rx_delay[2] = iph->id;
+		ctlb->net_rx_delay[0] = dev->stats.rx_bytes + skb_len;
+		ctlb->net_rx_delay[1] = dev->stats.tx_bytes;
+#endif
+
+	dev->stats.rx_packets++;
+	dev->stats.rx_bytes += skb_len;
+
+	return is_gro;
+}
+
+
+int ccmni_rx_list_push(int md_id, int ccmni_idx, struct list_head *head,
+			bool is_gro)
+{
+	struct ccmni_ctl_block *ctlb = ccmni_ctl_blk[md_id];
+	struct ccmni_instance *ccmni = NULL;
+#ifdef ENABLE_WQ_GRO
+	struct sk_buff *skb, *next;
+#endif
+
+	if (!head || list_empty(head))
+		return 0;
+
+	ccmni = ctlb->ccmni_inst[ccmni_idx];
+	if (likely(ctlb->ccci_ops->md_ability & MODEM_CAP_NAPI)) {
+#ifdef ENABLE_NAPI_GRO
+		list_for_each_entry_safe(skb, next, head, list) {
+			list_del(&skb->list);
+			napi_gro_receive(ccmni->napi, skb);
+		}
+#else
+		netif_receive_skb_list(head);
+#endif
+	} else {
+#ifdef ENABLE_WQ_GRO
+		if (is_gro) {
+			preempt_disable();
+			spin_lock_bh(ccmni->spinlock);
+			list_for_each_entry_safe(skb, next, head, list) {
+				list_del(&skb->list);
+				napi_gro_receive(ccmni->napi, skb);
+			}
+#ifndef CCMNI_NAPI_GRO_FLUSH_DISABLE
+			napi_gro_flush(ccmni->napi, false);
+#endif
+			spin_unlock_bh(ccmni->spinlock);
+			preempt_enable();
+		} else {
+			netif_rx_list_ni(head);
+		}
+#else
+		netif_rx_list_ni(head);
+#endif
+		}
+
+	__pm_wakeup_event(&ctlb->ccmni_wakelock, jiffies_to_msecs(HZ));
+
+	return 0;
+}
+
 static int ccmni_rx_callback(int md_id, int ccmni_idx, struct sk_buff *skb,
 		void *priv_data)
 {
@@ -1409,12 +1520,14 @@ static void ccmni_queue_state_callback(int md_id, int ccmni_idx,
 	switch (state) {
 #ifdef ENABLE_WQ_GRO
 	case RX_FLUSH:
-		preempt_disable();
-		spin_lock_bh(ccmni->spinlock);
-		ccmni->rx_gro_cnt++;
-		napi_gro_flush(ccmni->napi, false);
-		spin_unlock_bh(ccmni->spinlock);
-		preempt_enable();
+		if (ccmni->napi->gro_list) {
+			preempt_disable();
+			spin_lock_bh(ccmni->spinlock);
+			ccmni->rx_gro_cnt++;
+			napi_gro_flush(ccmni->napi, false);
+			spin_unlock_bh(ccmni->spinlock);
+			preempt_enable();
+		}
 		break;
 #else
 	case RX_IRQ:
