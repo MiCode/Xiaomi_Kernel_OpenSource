@@ -30,6 +30,7 @@
 
 //#define MTK_FORK_EXIT_LOG
 #define MTK_DEATH_SIGNAL_LOG
+#define SIGNAL_LOG_THRESHOLD 500000000ULL /*500ms (unit is ns) */
 
 #ifdef CONFIG_MTK_ENG_BUILD
 
@@ -210,28 +211,47 @@ static void probe_signal_generate(void *ignore, int sig, struct siginfo *info,
 		struct task_struct *task, int group, int result)
 {
 	unsigned int state = task->state ? __ffs(task->state) + 1 : 0;
+	unsigned long long Ts, Td;
 	int errno, code;
 
 	/*
 	 * only log delivered signals
 	 */
 	STORE_SIGINFO(errno, code, info);
+	Ts = sched_clock();
 	pr_debug("[signal][%d:%s]generate sig %d to [%d:%s:%c] errno=%d code=%d grp=%d res=%s\n",
 		 current->pid, current->comm, sig,
 		task->pid, task->comm,
 		state < sizeof(stat_nam) - 1 ? stat_nam[state] : '?',
 		errno, code, group, signal_deliver_results[result]);
+
+	Td = sched_clock() - Ts;
+	if (Td > SIGNAL_LOG_THRESHOLD) {
+		pr_info("[signal] warn: print [%d:%s] generate sig %d to[%d:%s:%c] take %lld ns\n",
+			current->pid, current->comm, sig, task->pid, task->comm,
+			state < sizeof(stat_nam) - 1 ? stat_nam[state] : '?',
+			Td);
+	}
 }
 
 static void probe_signal_deliver(void *ignore, int sig, struct siginfo *info,
 		struct k_sigaction *ka)
 {
 	int errno, code;
+	unsigned long long Ts, Td;
 
 	STORE_SIGINFO(errno, code, info);
+	Ts = sched_clock();
 	pr_debug("[signal]sig %d delivered to [%d:%s] errno=%d code=%d sa_handler=%lx sa_flags=%lx\n",
 			sig, current->pid, current->comm, errno, code,
 			(unsigned long)ka->sa.sa_handler, ka->sa.sa_flags);
+
+	Td = sched_clock() - Ts;
+	if (Td > SIGNAL_LOG_THRESHOLD) {
+		pr_info("[signal] warn: print sig %d delivered to [%d:%s] take %lld ns\n",
+			sig, current->pid, current->comm, Td);
+	}
+
 }
 
 #ifdef MTK_DEATH_SIGNAL_LOG
@@ -239,6 +259,7 @@ static void probe_death_signal(void *ignore, int sig, struct siginfo *info,
 		struct task_struct *task, int _group, int result)
 {
 	struct signal_struct *signal = task->signal;
+	unsigned long long Ts, Td;
 	unsigned int state;
 	int group;
 
@@ -280,10 +301,18 @@ static void probe_death_signal(void *ignore, int sig, struct siginfo *info,
 			return;
 
 		state = task->state ? __ffs(task->state) + 1 : 0;
+
+		Ts = sched_clock();
 		pr_debug("[signal][%d:%s]send death sig %d to[%d:%s:%c]\n",
 			 current->pid, current->comm,
 			 sig, task->pid, task->comm,
 			 state < sizeof(stat_nam) - 1 ? stat_nam[state] : '?');
+		Td = sched_clock() - Ts;
+		if (Td > SIGNAL_LOG_THRESHOLD) {
+			pr_info("[signal] warn:[%d:%s] print death sig %d to[%d:%s] take %lld ns\n",
+				current->pid, current->comm,
+				sig, task->pid, task->comm, Td);
+		}
 	} else if ((sig_kernel_stop(sig) && result == TRACE_SIGNAL_DELIVERED) ||
 		   sig == SIGCONT) {
 
@@ -295,11 +324,21 @@ static void probe_death_signal(void *ignore, int sig, struct siginfo *info,
 			return;
 
 		state = task->state ? __ffs(task->state) + 1 : 0;
+
+		Ts = sched_clock();
 		pr_debug("[signal][%d:%s]send %s sig %d to[%d:%s:%c]\n",
 			 current->pid, current->comm,
 			 (sig == SIGCONT) ? "continue" : "stop",
 			 sig, task->pid, task->comm,
 			 state < sizeof(stat_nam) - 1 ? stat_nam[state] : '?');
+
+		Td = sched_clock() - Ts;
+		if (Td > SIGNAL_LOG_THRESHOLD) {
+			pr_info("[signal] warn:[%d:%s] print send %s sig %d to[%d:%s] take %lld ns\n",
+				current->pid, current->comm,
+				(sig == SIGCONT) ? "continue" : "stop",
+				sig, task->pid, task->comm, Td);
+		}
 	}
 }
 #endif
