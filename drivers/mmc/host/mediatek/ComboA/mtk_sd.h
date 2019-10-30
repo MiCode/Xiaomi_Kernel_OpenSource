@@ -714,6 +714,7 @@ void msdc_sdio_restore_after_resume(struct msdc_host *host);
 void msdc_restore_timing_setting(struct msdc_host *host);
 void msdc_save_timing_setting(struct msdc_host *host);
 void msdc_set_bad_card_and_remove(struct msdc_host *host);
+void msdc_ops_set_bad_card_and_remove(struct mmc_host *mmc);
 void msdc_remove_card(struct work_struct *work);
 #ifdef CONFIG_HIE
 struct hie_dev *msdc_hie_get_dev(void);

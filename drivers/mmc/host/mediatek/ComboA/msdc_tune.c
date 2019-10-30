@@ -121,6 +121,13 @@ void msdc_set_bad_card_and_remove(struct msdc_host *host)
 	}
 }
 
+void msdc_ops_set_bad_card_and_remove(struct mmc_host *mmc)
+{
+	struct msdc_host *host = mmc_priv(mmc);
+
+	msdc_set_bad_card_and_remove(host);
+}
+
 void msdc_remove_card(struct work_struct *work)
 {
 	struct msdc_host *host =

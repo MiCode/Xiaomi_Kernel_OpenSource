@@ -1654,6 +1654,11 @@ static int mmc_blk_reset(struct mmc_blk_data *md, struct mmc_host *host,
 		/* We failed to reset so we need to abort the request */
 		pr_notice("%s: %s: failed to reset %d\n", mmc_hostname(host),
 					__func__, err);
+		if (host->card && mmc_card_sd(host->card)) {
+			pr_notice("%s: %s removing bad card.\n",
+				mmc_hostname(host), __func__);
+			host->ops->remove_bad_sdcard(host);
+		}
 		return -ENODEV;
 	}
 	/* Ensure we switch back to the correct partition */

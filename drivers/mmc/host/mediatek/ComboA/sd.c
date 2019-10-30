@@ -4673,6 +4673,7 @@ static struct mmc_host_ops mt_msdc_ops = {
 	.hw_reset                      = msdc_card_reset,
 	.card_busy                     = msdc_card_busy,
 	.prepare_hs400_tuning          = msdc_prepare_hs400_tuning,
+	.remove_bad_sdcard	       = msdc_ops_set_bad_card_and_remove,
 };
 
 static void msdc_irq_cmd_complete(struct msdc_host *host)
