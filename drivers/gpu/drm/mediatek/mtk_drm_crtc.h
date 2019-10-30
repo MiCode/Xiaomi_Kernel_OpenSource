@@ -529,6 +529,8 @@ struct mtk_drm_crtc {
 	unsigned int avail_modes_num;
 	struct drm_display_mode *avail_modes;
 	struct timeval vblank_time;
+
+	atomic_t pending_vblank_op;
 };
 
 struct mtk_crtc_state {

@@ -429,6 +429,10 @@ int mtk_drm_crtc_enable_vblank(struct drm_device *drm, unsigned int pipe)
 
 	CRTC_MMP_EVENT_START(pipe, enable_vblank, (unsigned long)comp,
 			(unsigned long)&mtk_crtc->base);
+	if (!mtk_crtc->enabled) {
+		atomic_set(&mtk_crtc->pending_vblank_op, 1);
+		goto done;
+	}
 	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_IDLE_MGR) &&
 	    drm_crtc_index(&mtk_crtc->base) == 0) {
 		/* The enable vblank is called in spinlock, so we create another
@@ -440,7 +444,7 @@ int mtk_drm_crtc_enable_vblank(struct drm_device *drm, unsigned int pipe)
 	} else {
 		mtk_ddp_comp_enable_vblank(comp, &mtk_crtc->base, NULL);
 	}
-
+done:
 	CRTC_MMP_EVENT_END(pipe, enable_vblank, (unsigned long)comp,
 			(unsigned long)&mtk_crtc->base);
 	return 0;
@@ -536,9 +540,13 @@ void mtk_drm_crtc_disable_vblank(struct drm_device *drm, unsigned int pipe)
 	DDPINFO("%s\n", __func__);
 	CRTC_MMP_EVENT_START(pipe, disable_vblank, (unsigned long)comp,
 			(unsigned long)&mtk_crtc->base);
+	if (!mtk_crtc->enabled)
+		goto done;
+
 	if (!mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_IDLE_MGR) &&
 	    drm_crtc_index(&mtk_crtc->base) == 0)
 		mtk_ddp_comp_disable_vblank(comp, NULL);
+done:
 	CRTC_MMP_EVENT_END(pipe, disable_vblank, (unsigned long)comp,
 			(unsigned long)&mtk_crtc->base);
 }
@@ -2191,6 +2199,12 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 	/* 8. set vblank*/
 	drm_crtc_vblank_on(crtc);
 
+	if (atomic_read(&mtk_crtc->pending_vblank_op) == 1) {
+		mtk_ddp_comp_enable_vblank(
+			mtk_crtc_get_comp(&mtk_crtc->base, 0, 0),
+			&mtk_crtc->base, NULL);
+		atomic_set(&mtk_crtc->pending_vblank_op, 0);
+	}
 #ifdef MTK_DRM_ESD_SUPPORT
 	/* 9. enable ESD check */
 	if (mtk_drm_lcm_is_connect())
@@ -3571,6 +3585,7 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 	dma_set_coherent_mask(dev, DMA_BIT_MASK(32));
 	mtk_crtc_init_gce_obj(drm_dev, mtk_crtc);
 
+	atomic_set(&mtk_crtc->pending_vblank_op, 0);
 	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_IDLE_MGR) &&
 	    drm_crtc_index(&mtk_crtc->base) == 0) {
 		char name[50];
