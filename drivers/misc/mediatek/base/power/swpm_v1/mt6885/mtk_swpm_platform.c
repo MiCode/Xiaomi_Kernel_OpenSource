@@ -137,13 +137,13 @@ static struct aphy_pwr_data aphy_def_pwr_tbl[] = {
 				21633, 21661, 21682, 21609, 21627},
 		},
 		[DDR_1866] = {
-			.bw = {746, 1493, 2239, 2986, 3732,
-				4478, 5971, 7464, 8957, 10450},
-			.coef = {14650, 17088, 21338, 23838, 25938,
-				27963, 29963, 32713, 35163, 36713},
+			.bw = {687, 2587, 6487, 12243, 14089,
+				15709, 19146, 20456, 22624, 24214},
+			.coef = {8153, 12611, 17655, 22792, 24193,
+				25444, 25504, 25338, 25769, 25409},
 		},
 		},
-		.coef_idle = {3602, 3561, 4873, 5377, 5512, 6667, 6264},
+		.coef_idle = {3602, 3561, 4873, 5377, 5512, 6667, 7597},
 	},
 	[APHY_VDDQ_0P6V] = {
 		.pwr = {
@@ -184,13 +184,13 @@ static struct aphy_pwr_data aphy_def_pwr_tbl[] = {
 				42259, 42343, 42407, 42185, 42240},
 		},
 		[DDR_1866] = {
-			.bw = {746, 1493, 2239, 2986, 3732,
-				4478, 5971, 7464, 8957, 10450},
-			.coef = {615, 852, 1402, 1877, 2248,
-				2635, 3002, 3602, 4118, 4525},
+			.bw = {687, 2587, 6487, 12243, 14089,
+				15709, 19146, 20456, 22624, 24214},
+			.coef = {4087, 12378, 23514, 36822, 40709,
+				44116, 44287, 43929, 44767, 44014},
 		},
 		},
-		.coef_idle = {21, 21, 21, 21, 21, 21, 32},
+		.coef_idle = {21, 21, 21, 21, 21, 21, 21},
 	},
 	[APHY_VM_0P75V] = {
 		.pwr = {
@@ -231,13 +231,13 @@ static struct aphy_pwr_data aphy_def_pwr_tbl[] = {
 				13491, 13517, 13538, 13468, 13485},
 		},
 		[DDR_1866] = {
-			.bw = {746, 1493, 2239, 2986, 3732,
-				4478, 5971, 7464, 8957, 10450},
-			.coef = {676, 893, 1441, 1897, 2235,
-				2564, 2897, 3412, 3897, 4257},
+			.bw = {687, 2587, 6487, 12243, 14089,
+				15709, 19146, 20456, 22624, 24214},
+			.coef = {1628, 4539, 8462, 13154, 14525,
+				15728, 15788, 15661, 15959, 15692},
 		},
 		},
-		.coef_idle = {256, 256, 256, 256, 256, 256, 103},
+		.coef_idle = {256, 256, 256, 256, 256, 256, 256},
 	},
 	[APHY_VIO_1P2V] = {
 		.pwr = {
@@ -278,13 +278,13 @@ static struct aphy_pwr_data aphy_def_pwr_tbl[] = {
 				685, 685, 685, 685, 685},
 		},
 		[DDR_1866] = {
-			.bw = {746, 1493, 2239, 2986, 3732,
-				4478, 5971, 7464, 8957, 10450},
-			.coef = {94, 128, 219, 298, 362,
-				428, 501, 619, 747, 816},
+			.bw = {687, 2587, 6487, 12243, 14089,
+				15709, 19146, 20456, 22624, 24214},
+			.coef = {771, 771, 771, 771, 771,
+				771, 771, 771, 771, 771},
 		},
 		},
-		.coef_idle = {233, 153, 233, 283, 753, 913, 351},
+		.coef_idle = {233, 153, 233, 283, 753, 913, 1028},
 	},
 	[APHY_VIO_1P8V] = {
 		.pwr = {
@@ -325,13 +325,13 @@ static struct aphy_pwr_data aphy_def_pwr_tbl[] = {
 				0, 0, 0, 0, 0},
 		},
 		[DDR_1866] = {
-			.bw = {746, 1493, 2239, 2986, 3732,
-				4478, 5971, 7464, 8957, 10450},
-			.coef = {14, 14, 14, 14, 14,
-				14, 14, 14, 14, 14},
+			.bw = {687, 2587, 6487, 12243, 14089,
+				15709, 19146, 20456, 22624, 24214},
+			.coef = {0, 0, 0, 0, 0,
+				0, 0, 0, 0, 0},
 		},
 		},
-		.coef_idle = {3, 3, 3, 3, 3, 3, 14},
+		.coef_idle = {3, 3, 3, 3, 3, 3, 3},
 	},
 };
 
@@ -661,7 +661,12 @@ static int swpm_log_loop(void)
 			idx_ptr += snprintf(idx_ptr, POWER_INDEX_CHAR_SIZE,
 					    "%d,", *(idx_ref_uint_ptr+i));
 		}
+#if SWPM_TEST
 		idx_ptr--;
+		idx_ptr += snprintf(idx_ptr, POWER_INDEX_CHAR_SIZE,
+				    " window_cnt = %d",
+				    share_idx_ref->window_cnt);
+#endif
 
 		/* set share sram clear flag and release lock */
 		share_idx_ctrl->clear_flag = 1;
@@ -902,11 +907,20 @@ static int __init swpm_platform_init(void)
 	/* set preiodic timer task */
 	swpm_set_periodic_timer((void *)&swpm_log_loop);
 
+#if SWPM_TEST
 	/* enable all pwr meter and set swpm timer to start */
 	swpm_set_enable(ALL_METER_TYPE, EN_POWER_METER_ONLY);
 	swpm_update_periodic_timer();
+#endif
 end:
 	return ret;
 }
-late_initcall_sync(swpm_platform_init);
 
+static void __exit swpm_platform_exit(void)
+{
+	swpm_set_enable(ALL_METER_TYPE, 0);
+}
+late_initcall_sync(swpm_platform_init);
+module_exit(swpm_platform_exit);
+MODULE_AUTHOR("www.mediatek.com>");
+MODULE_DESCRIPTION("Software Power Meter");

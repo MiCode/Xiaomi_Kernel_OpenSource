@@ -34,7 +34,7 @@ enum gpu_power_counter {
 };
 
 struct gpu_swpm_rec_data {
-	/* 4(int) * 10 = 40 bytes */
+	/* 4(int) * 10 = 48 bytes */
 	unsigned int gpu_enable;
 	unsigned int gpu_counter[GPU_POWER_COUNTER_LAST];
 };
