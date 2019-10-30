@@ -8888,17 +8888,7 @@ disable_clks:
 		dev_err(hba->dev, "%s: vender suspend failed. ret = %d\n",
 			__func__, ret);
 
-		/* block commands from scsi mid-layer */
-		ufshcd_scsi_block_requests(hba);
-		hba->ufshcd_state = UFSHCD_STATE_ERROR;
-		hba->force_host_reset = true;
-		schedule_work(&hba->eh_work);
-
-		/* Unable to recover the link, so no point proceeding */
-		if (ret) {
-			ret = -EAGAIN;
-			goto set_link_active;
-		}
+		goto set_link_active;
 	}
 
 	if (!ufshcd_is_link_active(hba))
