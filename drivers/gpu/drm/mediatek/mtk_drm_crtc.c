@@ -288,7 +288,10 @@ mtk_drm_crtc_duplicate_state(struct drm_crtc *crtc)
 
 	__drm_atomic_helper_crtc_duplicate_state(crtc, &state->base);
 
-	WARN_ON(state->base.crtc != crtc);
+	if (state->base.crtc != crtc)
+		DDPAEE("%s:%d, invalid crtc:(%p,%p)\n",
+			__func__, __LINE__,
+			state->base.crtc, crtc);
 	state->base.crtc = crtc;
 
 	if (crtc->state) {
@@ -2533,7 +2536,10 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 
 	if (state->base.event) {
 		state->base.event->pipe = drm_crtc_index(crtc);
-		WARN_ON(drm_crtc_vblank_get(crtc) != 0);
+		if (drm_crtc_vblank_get(crtc) != 0)
+			DDPAEE("%s:%d, invalid vblank:%d, crtc:%p\n",
+				__func__, __LINE__,
+				drm_crtc_vblank_get(crtc), crtc);
 		mtk_crtc->event = state->base.event;
 		state->base.event = NULL;
 	}

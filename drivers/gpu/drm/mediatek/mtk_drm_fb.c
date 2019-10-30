@@ -142,8 +142,12 @@ int mtk_fb_wait(struct drm_framebuffer *fb)
 	ret = reservation_object_wait_timeout_rcu(resv, false, true,
 						  MAX_SCHEDULE_TIMEOUT);
 	/* MAX_SCHEDULE_TIMEOUT on success, -ERESTARTSYS if interrupted */
-	if (WARN_ON(ret < 0))
+	if (ret < 0) {
+		DDPAEE("%s:%d, invalid ret:%ld\n",
+			__func__, __LINE__,
+			ret);
 		return ret;
+	}
 
 	return 0;
 }

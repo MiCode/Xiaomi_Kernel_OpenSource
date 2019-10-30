@@ -1005,8 +1005,12 @@ static irqreturn_t mtk_dsi_irq(int irq, void *dev_id)
 static void mtk_dsi_poweroff(struct mtk_dsi *dsi)
 {
 	DDPDBG("%s +\n", __func__);
-	if (WARN_ON(dsi->clk_refcnt == 0))
+	if (dsi->clk_refcnt == 0) {
+		DDPAEE("%s:%d, invalid cnt:%d\n",
+			__func__, __LINE__,
+			dsi->clk_refcnt);
 		return;
+	}
 
 	if (--dsi->clk_refcnt != 0)
 		return;

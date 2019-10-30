@@ -2565,7 +2565,10 @@ void mtk_disp_mutex_put(struct mtk_disp_mutex *mutex)
 	struct mtk_ddp *ddp =
 		container_of(mutex, struct mtk_ddp, mutex[mutex->id]);
 
-	WARN_ON(&ddp->mutex[mutex->id] != mutex);
+	if (&ddp->mutex[mutex->id] != mutex)
+		DDPAEE("%s:%d, invalid mutex:(%p,%p) id:%d\n",
+			__func__, __LINE__,
+			&ddp->mutex[mutex->id], mutex, mutex->id);
 
 	mutex->claimed = false;
 }
@@ -2610,7 +2613,10 @@ void mtk_disp_mutex_add_comp(struct mtk_disp_mutex *mutex,
 		container_of(mutex, struct mtk_ddp, mutex[mutex->id]);
 	unsigned int reg;
 
-	WARN_ON(&ddp->mutex[mutex->id] != mutex);
+	if (&ddp->mutex[mutex->id] != mutex)
+		DDPAEE("%s:%d, invalid mutex:(%p,%p) id:%d\n",
+			__func__, __LINE__,
+			&ddp->mutex[mutex->id], mutex, mutex->id);
 
 	if (ddp->data->mutex_mod[id] <= BIT(31)) {
 		reg = readl_relaxed(ddp->regs +
@@ -2637,7 +2643,10 @@ void mtk_disp_mutex_src_set(struct mtk_drm_crtc *mtk_crtc, bool is_cmd_mode)
 	unsigned int val = DDP_MUTEX_SOF_SINGLE_MODE;
 	struct mtk_ddp_comp *comp;
 
-	WARN_ON(&ddp->mutex[mutex->id] != mutex);
+	if (&ddp->mutex[mutex->id] != mutex)
+		DDPAEE("%s:%d, invalid mutex:(%p,%p) id:%d\n",
+			__func__, __LINE__,
+			&ddp->mutex[mutex->id], mutex, mutex->id);
 
 	if (is_cmd_mode) {
 		writel_relaxed(
@@ -2688,7 +2697,10 @@ void mtk_disp_mutex_add_comp_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 	mutex = mtk_crtc->mutex[mutex_id];
 	ddp = container_of(mutex, struct mtk_ddp, mutex[mutex->id]);
 
-	WARN_ON(&ddp->mutex[mutex->id] != mutex);
+	if (&ddp->mutex[mutex->id] != mutex)
+		DDPAEE("%s:%d, invalid mutex:(%p,%p) id:%d\n",
+			__func__, __LINE__,
+			&ddp->mutex[mutex->id], mutex, mutex->id);
 
 	reg = DDP_MUTEX_SOF_SINGLE_MODE;
 	switch (id) {
@@ -2751,7 +2763,10 @@ void mtk_disp_mutex_remove_comp(struct mtk_disp_mutex *mutex,
 		container_of(mutex, struct mtk_ddp, mutex[mutex->id]);
 	unsigned int reg;
 
-	WARN_ON(&ddp->mutex[mutex->id] != mutex);
+	if (&ddp->mutex[mutex->id] != mutex)
+		DDPAEE("%s:%d, invalid mutex:(%p,%p) id:%d\n",
+			__func__, __LINE__,
+			&ddp->mutex[mutex->id], mutex, mutex->id);
 
 	switch (id) {
 	case DDP_COMPONENT_DSI0:
@@ -2798,7 +2813,10 @@ void mtk_disp_mutex_remove_comp_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 	mutex = mtk_crtc->mutex[mutex_id];
 	ddp = container_of(mutex, struct mtk_ddp, mutex[mutex->id]);
 
-	WARN_ON(&ddp->mutex[mutex->id] != mutex);
+	if (&ddp->mutex[mutex->id] != mutex)
+		DDPAEE("%s:%d, invalid mutex:(%p,%p) id:%d\n",
+			__func__, __LINE__,
+			&ddp->mutex[mutex->id], mutex, mutex->id);
 
 	switch (id) {
 	case DDP_COMPONENT_DSI0:
@@ -2881,7 +2899,10 @@ void mtk_disp_mutex_enable(struct mtk_disp_mutex *mutex)
 	struct mtk_ddp *ddp =
 		container_of(mutex, struct mtk_ddp, mutex[mutex->id]);
 
-	WARN_ON(&ddp->mutex[mutex->id] != mutex);
+	if (&ddp->mutex[mutex->id] != mutex)
+		DDPAEE("%s:%d, invalid mutex:(%p,%p) id:%d\n",
+			__func__, __LINE__,
+			&ddp->mutex[mutex->id], mutex, mutex->id);
 
 	writel(1, ddp->regs + DISP_REG_MUTEX_EN(mutex->id));
 	mtk_disp_mutex_inten_enable(mutex);
@@ -2894,7 +2915,10 @@ void mtk_disp_mutex_enable_cmdq(struct mtk_disp_mutex *mutex,
 	struct mtk_ddp *ddp =
 		container_of(mutex, struct mtk_ddp, mutex[mutex->id]);
 
-	WARN_ON(&ddp->mutex[mutex->id] != mutex);
+	if (&ddp->mutex[mutex->id] != mutex)
+		DDPAEE("%s:%d, invalid mutex:(%p,%p) id:%d\n",
+			__func__, __LINE__,
+			&ddp->mutex[mutex->id], mutex, mutex->id);
 
 	cmdq_pkt_write(cmdq_handle, cmdq_base,
 		       ddp->regs_pa + DISP_REG_MUTEX_CFG, 0, ~0);
@@ -2909,7 +2933,10 @@ void mtk_disp_mutex_disable(struct mtk_disp_mutex *mutex)
 	struct mtk_ddp *ddp =
 		container_of(mutex, struct mtk_ddp, mutex[mutex->id]);
 
-	WARN_ON(&ddp->mutex[mutex->id] != mutex);
+	if (&ddp->mutex[mutex->id] != mutex)
+		DDPAEE("%s:%d, invalid mutex:(%p,%p) id:%d\n",
+			__func__, __LINE__,
+			&ddp->mutex[mutex->id], mutex, mutex->id);
 
 	writel(0, ddp->regs + DISP_REG_MUTEX_EN(mutex->id));
 }

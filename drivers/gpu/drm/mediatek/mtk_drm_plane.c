@@ -181,7 +181,10 @@ mtk_plane_duplicate_state(struct drm_plane *plane)
 
 	__drm_atomic_helper_plane_duplicate_state(plane, &state->base);
 
-	WARN_ON(state->base.plane != plane);
+	if (state->base.plane != plane)
+		DDPAEE("%s:%d, invalid plane:(%p,%p)\n",
+			__func__, __LINE__,
+			state->base.plane, plane);
 
 	state->prop_val[PLANE_PROP_PLANE_ALPHA] =
 		old_state->prop_val[PLANE_PROP_PLANE_ALPHA];

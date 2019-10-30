@@ -680,16 +680,14 @@ static int rollback_to_GPU(struct drm_mtk_layering_info *info, int disp,
 
 	if (mtk_is_layer_id_valid(info, disp, info->gles_head[disp]) == false) {
 		dump_disp_info(info, DISP_DEBUG_LEVEL_CRITICAL);
-		DDPPR_ERR("invalid gles_head:%d, aval:%d\n",
+		DDPAEE("invalid gles_head:%d, aval:%d\n",
 			  info->gles_head[disp], available);
-		WARN_ON(1);
 	}
 
 	if (mtk_is_layer_id_valid(info, disp, info->gles_tail[disp]) == false) {
 		dump_disp_info(info, DISP_DEBUG_LEVEL_CRITICAL);
-		DDPPR_ERR("invalid gles_tail:%d, aval:%d\n",
+		DDPAEE("invalid gles_tail:%d, aval:%d\n",
 			  info->gles_tail[disp], available);
-		WARN_ON(1);
 	}
 
 	/* Clear extended layer for all GLES layer */
@@ -1656,10 +1654,8 @@ static int check_layering_result(struct drm_mtk_layering_info *info)
 		layer_num = info->layer_num[disp_idx];
 		max_ovl_id = info->input_config[disp_idx][layer_num - 1].ovl_id;
 
-		if (max_ovl_id >= ovl_layer_num) {
-			DDPPR_ERR("Inv ovl:%d,disp:%d\n", max_ovl_id, disp_idx);
-			WARN_ON(1);
-		}
+		if (max_ovl_id >= ovl_layer_num)
+			DDPAEE("Inv ovl:%d,disp:%d\n", max_ovl_id, disp_idx);
 	}
 	return 0;
 }
