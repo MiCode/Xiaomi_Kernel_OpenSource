@@ -301,6 +301,7 @@ update_window_start(struct rq *rq, u64 wallclock, int event)
 
 	rq->cum_window_demand_scaled =
 			rq->walt_stats.cumulative_runnable_avg_scaled;
+	rq->prev_window_size = sched_ravg_window;
 
 	return old_window_start;
 }
@@ -1460,7 +1461,7 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 	int p_is_curr_task = (p == rq->curr);
 	u64 mark_start = p->ravg.mark_start;
 	u64 window_start = rq->window_start;
-	u32 window_size = sched_ravg_window;
+	u32 window_size = rq->prev_window_size;
 	u64 delta;
 	u64 *curr_runnable_sum = &rq->curr_runnable_sum;
 	u64 *prev_runnable_sum = &rq->prev_runnable_sum;
@@ -3343,9 +3344,10 @@ void walt_irq_work(struct irq_work *irq_work)
 	 */
 	if (!is_migration) {
 		if (sched_ravg_window != new_sched_ravg_window) {
-			printk_deferred("ALERT: changing window size from %u to %u\n",
+			printk_deferred("ALERT: changing window size from %u to %u at %lu\n",
 					sched_ravg_window,
-					new_sched_ravg_window);
+					new_sched_ravg_window,
+					sched_ktime_clock());
 			sched_ravg_window = new_sched_ravg_window;
 			walt_tunables_fixup();
 		}
@@ -3494,6 +3496,7 @@ void walt_sched_init_rq(struct rq *rq)
 	cpumask_set_cpu(cpu_of(rq), &rq->freq_domain_cpumask);
 
 	rq->walt_stats.cumulative_runnable_avg_scaled = 0;
+	rq->prev_window_size = sched_ravg_window;
 	rq->window_start = 0;
 	rq->walt_stats.nr_big_tasks = 0;
 	rq->walt_flags = 0;
