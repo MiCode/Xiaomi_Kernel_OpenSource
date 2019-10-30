@@ -134,6 +134,7 @@
 
 /* Support QoS */
 #include <linux/pm_qos.h>
+#include "mmdvfs_pmqos.h"
 
 /* -------------------------------------------------------------------------- */
 /*  */
@@ -229,6 +230,9 @@ static int Driver_Open_Count;
 
 /* Support QoS */
 struct pm_qos_request jpgenc_qos_request;
+static struct pm_qos_request jpgdec_qos_request;
+static u64 g_freq_steps[MAX_FREQ_STEP];  //index 0 is max
+static u32 freq_step_size;
 
 /* ========================================== */
 /* CMDQ */
@@ -314,6 +318,45 @@ static irqreturn_t jpeg_drv_hybrid_dec_isr(int irq, void *dev_id)
 
 	return IRQ_HANDLED;
 }
+
+void jpeg_drv_hybrid_dec_prepare_dvfs(void)
+{
+	int ret;
+	int i;
+
+	if (!freq_step_size) {
+		pm_qos_add_request(&jpgdec_qos_request, PM_QOS_VENC_FREQ,
+				 PM_QOS_DEFAULT_VALUE);
+		ret = mmdvfs_qos_get_freq_steps(PM_QOS_VENC_FREQ, g_freq_steps,
+					&freq_step_size);
+		if (ret < 0)
+			JPEG_MSG("Failed to get venc freq steps (%d)\n", ret);
+
+		for (i = 0 ; i < freq_step_size ; i++)
+			JPEG_MSG("freq %d  %lx", i, g_freq_steps[i]);
+	}
+
+}
+
+void jpeg_drv_hybrid_dec_unprepare_dvfs(void)
+{
+	pm_qos_update_request(&jpgdec_qos_request,  0);
+	pm_qos_remove_request(&jpgdec_qos_request);
+}
+
+void jpeg_drv_hybrid_dec_start_dvfs(void)
+{
+	if (g_freq_steps[0] != 0) {
+		JPEG_MSG("highest freq 0x%x", g_freq_steps[0]);
+		pm_qos_update_request(&jpgdec_qos_request,  g_freq_steps[0]);
+	}
+}
+
+void jpeg_drv_hybrid_dec_end_dvfs(void)
+{
+	pm_qos_update_request(&jpgdec_qos_request,  0);
+}
+
 void jpeg_drv_hybrid_dec_power_on(int id)
 {
 	int ret;
@@ -341,6 +384,8 @@ void jpeg_drv_hybrid_dec_power_on(int id)
 			JPEG_ERR("clk enable MT_CG_VENC_C1_JPGDEC failed %d",
 					ret);
 	}
+
+	jpeg_drv_hybrid_dec_start_dvfs();
 
 #ifdef CONFIG_MTK_PSEUDO_M4U
 	if (id <= 1) {
@@ -370,6 +415,7 @@ void jpeg_drv_hybrid_dec_power_on(int id)
 
 void jpeg_drv_hybrid_dec_power_off(int id)
 {
+	jpeg_drv_hybrid_dec_end_dvfs();
 	if (id <= 1) {
 		if (!dec_hwinfo[(id+1)%2].locked) {
 			clk_disable_unprepare(gJpegClk.clk_venc_jpgDec);
@@ -2026,6 +2072,7 @@ static int jpeg_probe(struct platform_device *pdev)
 				i, jpegDev->hybriddecRegBaseVA[i],
 				jpegDev->hybriddecIrqId[i]);
 	}
+	jpeg_drv_hybrid_dec_prepare_dvfs();
 	JPEG_MSG("get JPGDEC clk!");
 	gJpegClk.clk_venc_jpgDec =
 			 of_clk_get_by_name(node, "MT_CG_VENC_JPGDEC");
@@ -2168,6 +2215,7 @@ static int jpeg_remove(struct platform_device *pdev)
 	#ifdef JPEG_HYBRID_DEC_DRIVER
 	for (i = 0; i < HW_CORE_NUMBER; i++)
 		free_irq(gJpegqDev.hybriddecIrqId[i], NULL);
+	jpeg_drv_hybrid_dec_unprepare_dvfs();
 	#endif
 #endif
     #ifdef JPEG_ENC_DRIVER

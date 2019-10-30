@@ -77,6 +77,7 @@ ifeq ($(CONFIG_MACH_MT8173),y)
 endif
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmdvfs
 
 #obj-$(CONFIG_MTK_JPEG) += jpeg_driver.o
 obj-y += jpeg_driver.o
