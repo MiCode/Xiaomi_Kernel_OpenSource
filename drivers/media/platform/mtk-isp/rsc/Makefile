@@ -11,6 +11,8 @@
 # GNU General Public License for more details.
 #
 
+MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
+
 $(info "RSC: makefile start srctree: $(srctree)")
 ccflags-y += -I$(srctree)/drivers/media/platform/mtk-isp/rsc
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM)/
@@ -20,11 +22,14 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/variant/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/media/platform/mtk-isp/
-ccflags-y += -I$(srctree)/drivers/media/platform/mtk-isp/common/
 ccflags-y += -I$(srctree)/drivers/media/platform/mtk-isp/mtk-hcp/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/$(CONFIG_MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/staging/android/ion \
              -I$(srctree)/drivers/staging/android/ion/mtk
+
+ccflags-$(CONFIG_MTK_IOMMU_V2) += -I$(srctree)/drivers/iommu
+ccflags-$(CONFIG_MTK_IOMMU_V2) += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
+ccflags-$(CONFIG_MTK_IOMMU_V2) += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/
 
 obj-y += mtk_rsc.o
 obj-y += mtk_rsc-v4l2.o

@@ -57,6 +57,13 @@
 #include <linux/mtk_ftrace.h>
 #endif
 
+#ifdef CONFIG_MTK_IOMMU_V2
+#include <mach/mt_iommu.h>
+#else /* CONFIG_MTK_IOMMU_V2 */
+#include <m4u.h>
+#endif /* CONFIG_MTK_IOMMU_V2 */
+#include "mach/pseudo_m4u.h"
+
 #ifndef MTRUE
 #define MTRUE               1
 #endif
@@ -95,6 +102,10 @@ const struct isr_table rsc_irq_cb_tbl[RSC_IRQ_TYPE_AMOUNT] = {
 };
 #endif
 
+#ifdef CONFIG_MTK_IOMMU_V2
+static int RSC_MEM_USE_VIRTUL = 1;
+#endif
+
 static int rsc_enqueue_work(void *data)
 {
 	struct rsc_device *rsc_hw_dev = NULL;
@@ -103,8 +114,6 @@ static int rsc_enqueue_work(void *data)
 
 	rsc_hw_dev = (struct rsc_device *)data;
 	rsc_ctx = &rsc_hw_dev->rsc_ctx;
-
-	dev_info(&rsc_hw_dev->pdev->dev, "- E. %s.\n", __func__);
 
 	while (1) {
 		ret = wait_event_interruptible
@@ -128,18 +137,21 @@ static int rsc_enqueue_work(void *data)
 		dev_info(&rsc_hw_dev->pdev->dev, " %s with frame_id:%d\n",
 			__func__, rsc_ctx->enqueue_param.frameparams.frame_id);
 
+		spin_lock(&rsc_ctx->dequeue_param.lock);
+		memcpy(&rsc_ctx->dequeue_param.frameparams,
+			&rsc_ctx->enqueue_param.frameparams,
+			sizeof(struct v4l2_rsc_frame_param));
+		atomic_inc(&rsc_ctx->dequeue_param.queue_cnt);
+		spin_unlock(&rsc_ctx->dequeue_param.lock);
+
 		ret = mtk_hcp_send_async(rsc_hw_dev->mtk_hcp_pdev,
 			HCP_RSC_FRAME_ID, &rsc_ctx->enqueue_param.frameparams,
 			sizeof(struct v4l2_rsc_frame_param));
 
-		memcpy(&rsc_ctx->dequeue_param.frameparams,
-			&rsc_ctx->enqueue_param.frameparams,
-			sizeof(struct v4l2_rsc_frame_param));
-
-		spin_lock(&rsc_ctx->dequeue_param.lock);
-		atomic_inc(&rsc_ctx->dequeue_param.queue_cnt);
-		spin_unlock(&rsc_ctx->dequeue_param.lock);
 	}
+
+	dev_info(&rsc_hw_dev->pdev->dev, "- X. %s.\n", __func__);
+
 	return ret;
 }
 
@@ -157,9 +169,6 @@ static int rsc_dequeue_work(void *data)
 
 	drv_data = mtk_rsc_hw_dev_to_drv(rsc_hw_dev);
 	dev_ctx = &drv_data->rsc_v4l2_dev.ctx;
-
-
-	dev_info(&rsc_hw_dev->pdev->dev, "[%s] start\n", __func__);
 
 	while (1) {
 		ret = wait_event_interruptible
@@ -202,7 +211,7 @@ static irqreturn_t isp_irq_rsc(int irq, void *data)
 	/* RSC Status */
 	RscStatus = readl(RSC_INT_STATUS_REG(rsc_hw_dev->regs));
 
-	dev_info(&rsc_hw_dev->pdev->dev, "%s RscStatus = %d\n",
+	dev_dbg(&rsc_hw_dev->pdev->dev, "%s RscStatus = %d\n",
 		__func__, RscStatus);
 
 	if (RSC_INT_ST == (RSC_INT_ST & RscStatus)) {
@@ -238,8 +247,6 @@ static int config_hw_handler(void *data, unsigned int len, void *priv)
 	uint32_t regData[30][2];
 	int i = 0;
 
-	dev_info(&rsc_hw_dev->pdev->dev, "%s receive data from HCP", __func__);
-
 	if (data == NULL || len == 0)
 		return -1;
 
@@ -258,14 +265,58 @@ static int config_hw_handler(void *data, unsigned int len, void *priv)
 	cmdq_pkt_flush(pkt);
 	cmdq_pkt_destroy(pkt);
 
+	dev_info(&rsc_hw_dev->pdev->dev, "%s configure hw done", __func__);
 	return 0;
 }
 
+#ifdef CONFIG_MTK_IOMMU_V2
+static inline int m4u_control_iommu_port(struct rsc_device *rsc_hw_dev)
+{
+	struct M4U_PORT_STRUCT sPort;
+	int ret = 0;
+
+	/* LARB19 */
+	int count_of_ports = 0;
+	int i = 0;
+
+	count_of_ports = M4U_PORT_L20_IPE_RSC_WDMA_DISP -
+		M4U_PORT_L20_IPE_RSC_RDMA0_DISP + 1;
+
+	for (i = 0; i < count_of_ports; i++) {
+		sPort.ePortID = M4U_PORT_L20_IPE_RSC_RDMA0_DISP+i;
+		sPort.Virtuality = RSC_MEM_USE_VIRTUL;
+		dev_dbg(&rsc_hw_dev->pdev->dev,
+			"config M4U Port ePortID=%d\n", sPort.ePortID);
+#if defined(CONFIG_MTK_M4U) || defined(CONFIG_MTK_PSEUDO_M4U)
+		ret = m4u_config_port(&sPort);
+		if (ret == 0) {
+			dev_dbg(&rsc_hw_dev->pdev->dev,
+				"config M4U Port %s to %s SUCCESS\n",
+				iommu_get_port_name(sPort.ePortID),
+				RSC_MEM_USE_VIRTUL ? "virtual" : "physical");
+		} else {
+			dev_dbg(&rsc_hw_dev->pdev->dev,
+				"config M4U Port %s to %s FAIL(ret=%d)\n",
+				iommu_get_port_name(sPort.ePortID),
+				RSC_MEM_USE_VIRTUL ? "virtual" : "physical",
+				ret);
+			ret = -1;
+		}
+#endif
+	}
+	return ret;
+}
+#endif
+
 static inline void rsc_enable_ccf_clock(struct rsc_device *rsc_hw_dev)
 {
-	int ret;
+	int ret = 0;
 
 	dev_dbg(&rsc_hw_dev->pdev->dev, "- E. %s.\n", __func__);
+
+	if (rsc_hw_dev->is_hw_enable)
+		return;
+
 	smi_bus_prepare_enable(SMI_LARB20, RSC_DEV_NAME);
 	ret = clk_prepare_enable(rsc_hw_dev->rsc_clk.CG_IPESYS_RSC);
 	if (ret)
@@ -277,21 +328,34 @@ static inline void rsc_enable_ccf_clock(struct rsc_device *rsc_hw_dev)
 		RSC_WR32(0x1, RSC_RST_REG(rsc_hw_dev->regs));
 		dev_info(&rsc_hw_dev->pdev->dev, "RSC start reset...\n");
 		while ((readl(RSC_RST_REG(rsc_hw_dev->regs)) & 0x02) != 0x2)
-			dev_info(&rsc_hw_dev->pdev->dev, "RSC resetting...\n");
+			dev_dbg(&rsc_hw_dev->pdev->dev, "RSC resetting...\n");
 		RSC_WR32(0x11, RSC_RST_REG(rsc_hw_dev->regs));
 		RSC_WR32(0x10, RSC_RST_REG(rsc_hw_dev->regs));
 		RSC_WR32(0x0, RSC_RST_REG(rsc_hw_dev->regs));
 		RSC_WR32(0, RSC_START_REG(rsc_hw_dev->regs));
 	}
 
+#ifdef CONFIG_MTK_IOMMU_V2
+	/* set iommu port */
+	ret = m4u_control_iommu_port(rsc_hw_dev);
+	if (ret)
+		dev_dbg(&rsc_hw_dev->pdev->dev,
+			"cannot config M4U IOMMU PORTS\n");
+#endif
+	rsc_hw_dev->is_hw_enable = MTRUE;
+
 }
 
 static inline void rsc_disable_ccf_clock(struct rsc_device *rsc_hw_dev)
 {
 	dev_dbg(&rsc_hw_dev->pdev->dev, "- E. %s.\n", __func__);
+	if (!rsc_hw_dev->is_hw_enable)
+		return;
+
 	clk_disable_unprepare(rsc_hw_dev->rsc_clk.CG_IPESYS_RSC);
 	smi_bus_disable_unprepare(SMI_LARB20, RSC_DEV_NAME);
 
+	rsc_hw_dev->is_hw_enable = MFALSE;
 }
 
 static void rsc_set_clock(struct rsc_device *rsc_hw_dev, bool En)
@@ -314,7 +378,7 @@ int mtk_rsc_open(struct platform_device *pdev)
 	int ret = 0;
 	s32 usercount = 0;
 
-	dev_info(&pdev->dev, "- E. %s.\n", __func__);
+	dev_dbg(&pdev->dev, "- E. %s.\n", __func__);
 
 	rsc_drv = dev_get_drvdata(&pdev->dev);
 	rsc_hw_dev = &rsc_drv->rsc_hw_dev;
@@ -433,7 +497,7 @@ int mtk_rsc_enqueue(struct platform_device *pdev,
 	rsc_hw_dev = &rsc_drv->rsc_hw_dev;
 	rsc_ctx = &rsc_hw_dev->rsc_ctx;
 
-	dev_info(&rsc_hw_dev->pdev->dev, "- E. %s\n", __func__);
+	dev_dbg(&rsc_hw_dev->pdev->dev, "- E. %s\n", __func__);
 
 	spin_lock(&rsc_ctx->enqueue_param.lock);
 	memcpy(&rsc_ctx->enqueue_param.frameparams, frameparams,
@@ -483,11 +547,11 @@ int mtk_rsc_release(struct platform_device *pdev)
 		}
 
 		mtk_hcp_unregister(rsc_hw_dev->mtk_hcp_pdev, HCP_RSC_FRAME_ID);
+
+		rsc_hw_dev->is_needed_reset_hw = MFALSE;
 	}
 
-	rsc_hw_dev->is_needed_reset_hw = MFALSE;
-
-	dev_info(&rsc_hw_dev->pdev->dev,
+	dev_dbg(&rsc_hw_dev->pdev->dev,
 		"%s Curr user_count(%d), (process, pid, tgid)=(%s, %d, %d)\n",
 		__func__, atomic_read(&rsc_hw_dev->user_count), current->comm,
 		current->pid, current->tgid);
@@ -543,6 +607,7 @@ static int mtk_rsc_probe(struct platform_device *pdev)
 	rsc_hw_dev->pdev = pdev;
 
 	rsc_hw_dev->is_needed_reset_hw = MFALSE;
+	rsc_hw_dev->is_hw_enable = MFALSE;
 
 	/* iomap registers */
 	rsc_hw_dev->regs = of_iomap(pdev->dev.of_node, 0);
@@ -553,6 +618,14 @@ static int mtk_rsc_probe(struct platform_device *pdev)
 			pdev->dev.of_node->name);
 		return -ENOMEM;
 	}
+
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+	*(rsc_hw_dev->pdev->dev.dma_mask) =
+		(u64)DMA_BIT_MASK(CONFIG_MTK_IOMMU_PGTABLE_EXT);
+	rsc_hw_dev->pdev->dev.coherent_dma_mask =
+		(u64)DMA_BIT_MASK(CONFIG_MTK_IOMMU_PGTABLE_EXT);
+#endif
 
 	/* get IRQ ID and request IRQ */
 	rsc_hw_dev->irq = irq_of_parse_and_map(pdev->dev.of_node, 0);
@@ -681,10 +754,7 @@ static int mtk_rsc_suspend(struct device *dev)
 	rsc_hw_dev = &rsc_drv->rsc_hw_dev;
 	pdev = rsc_hw_dev->pdev;
 
-	dev_dbg(&pdev->dev, "E.%s\n", __func__);
-
-	if (atomic_read(&rsc_hw_dev->user_count) > 0)
-		rsc_set_clock(rsc_hw_dev, MFALSE);
+	rsc_set_clock(rsc_hw_dev, MFALSE);
 
 	dev_dbg(&pdev->dev, "X.%s\n", __func__);
 	return 0;
@@ -702,8 +772,6 @@ static int mtk_rsc_resume(struct device *dev)
 	rsc_drv = dev_get_drvdata(dev);
 	rsc_hw_dev = &rsc_drv->rsc_hw_dev;
 	pdev = rsc_hw_dev->pdev;
-
-	dev_dbg(&pdev->dev, "E.%s\n", __func__);
 
 	if (atomic_read(&rsc_hw_dev->user_count) > 0)
 		rsc_set_clock(rsc_hw_dev, MTRUE);

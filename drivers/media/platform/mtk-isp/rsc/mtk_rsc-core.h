@@ -121,6 +121,7 @@ struct rsc_device {
 	u32                    irq_num;
 	u32                    irq;
 	bool                   is_needed_reset_hw;
+	bool                   is_hw_enable;
 };
 
 struct mtk_isp_rsc_drv_data {
