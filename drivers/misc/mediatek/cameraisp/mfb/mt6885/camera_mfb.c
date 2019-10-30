@@ -889,6 +889,9 @@ static void mss_norm_sirq(struct cmdq_cb_data data)
 		goto EXIT;
 	}
 
+#ifdef MFB_PMQOS
+		MFBQOS_Update(0, 0);
+#endif
 
 	spin_lock_irqsave(&(MFBInfo.SpinLockIrq[MFB_IRQ_TYPE_INT_MSS_ST]),
 									flag);
@@ -993,7 +996,7 @@ signed int mss_enque_cb(struct frame *frames, void *req)
 
 	fcnt = _req->m_ReqNum;
 	for (f = 0; f < fcnt; f++) {
-		LOG_DBG("[%s]request enque frame(%d/%d)@0x%lx.",
+		LOG_INF("[%s]request enque frame(%d/%d) 0x%p",
 					__func__, f, fcnt, frames[f].data);
 		memcpy(frames[f].data, &_req->m_pMssConfig[f],
 						sizeof(struct MFB_MSSConfig));
@@ -1040,6 +1043,9 @@ static void mss_vss_sirq(struct cmdq_cb_data data)
 		goto EXIT;
 	}
 
+#ifdef MFB_PMQOS
+		MFBQOS_Update(0, 0);
+#endif
 
 	spin_lock_irqsave(&(MFBInfo.SpinLockIrq[MFB_IRQ_TYPE_INT_MSS_ST]),
 									flag);
@@ -1181,6 +1187,10 @@ static void msf_norm_sirq(struct cmdq_cb_data data)
 		LOG_ERR("%s: call back error(%d)", __func__, data.err);
 		goto EXIT;
 	}
+
+#ifdef MFB_PMQOS
+		MFBQOS_Update(0, 0);
+#endif
 
 	spin_lock_irqsave(&(MFBInfo.SpinLockIrq[MFB_IRQ_TYPE_INT_MSF_ST]),
 									flag);
@@ -1330,6 +1340,9 @@ static void msf_vss_sirq(struct cmdq_cb_data data)
 		goto EXIT;
 	}
 
+#ifdef MFB_PMQOS
+		MFBQOS_Update(0, 0);
+#endif
 
 	spin_lock_irqsave(&(MFBInfo.SpinLockIrq[MFB_IRQ_TYPE_INT_MSF_ST]),
 									flag);
@@ -2755,9 +2768,6 @@ static long MFB_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			}
 			break;
 		}
-#ifdef MFB_PMQOS
-		MFBQOS_Update(0, 0);
-#endif
 	case MFB_MSF_WAIT_IRQ:
 		{
 			if (copy_from_user(&IrqInfo, (void *)Param,
@@ -2802,9 +2812,6 @@ static long MFB_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			}
 			break;
 		}
-#ifdef MFB_PMQOS
-		MFBQOS_Update(0, 0);
-#endif
 	case MFB_MSS_CLEAR_IRQ:
 		{
 			if (copy_from_user(&ClearIrq, (void *)Param,
