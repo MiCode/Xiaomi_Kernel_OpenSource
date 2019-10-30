@@ -2308,6 +2308,35 @@ enum {
 #define O_0_CFG_MASK                                   0x1f
 #define O_0_CFG_MASK_SFT                               (0x1f << 0)
 
+/* AFE_MEMIF_CONN */
+#define VUL6_USE_TINY_SFT                              8
+#define VUL6_USE_TINY_MASK                             1
+#define VUL6_USE_TINY_MASK_SFT                         (0x1 << 8)
+#define VUL5_USE_TINY_SFT                              7
+#define VUL5_USE_TINY_MASK                             1
+#define VUL5_USE_TINY_MASK_SFT                         (0x1 << 7)
+#define VUL4_USE_TINY_SFT                              6
+#define VUL4_USE_TINY_MASK                             1
+#define VUL4_USE_TINY_MASK_SFT                         (0x1 << 6)
+#define VUL3_USE_TINY_SFT                              5
+#define VUL3_USE_TINY_MASK                             1
+#define VUL3_USE_TINY_MASK_SFT                         (0x1 << 5)
+#define AWB2_USE_TINY_SFT                              4
+#define AWB2_USE_TINY_MASK                             1
+#define AWB2_USE_TINY_MASK_SFT                         (0x1 << 4)
+#define AWB_USE_TINY_SFT                               3
+#define AWB_USE_TINY_MASK                              1
+#define AWB_USE_TINY_MASK_SFT                          (0x1 << 3)
+#define VUL12_USE_TINY_SFT                             2
+#define VUL12_USE_TINY_MASK                            1
+#define VUL12_USE_TINY_MASK_SFT                        (0x1 << 2)
+#define VUL2_USE_TINY_SFT                              1
+#define VUL2_USE_TINY_MASK                             1
+#define VUL2_USE_TINY_MASK_SFT                         (0x1 << 1)
+#define VUL1_USE_TINY_SFT                              0
+#define VUL1_USE_TINY_MASK                             1
+#define VUL1_USE_TINY_MASK_SFT                         (0x1 << 0)
+
 #define AUDIO_TOP_CON0                                 0x0000
 #define AUDIO_TOP_CON1                                 0x0004
 #define AUDIO_TOP_CON2                                 0x0008

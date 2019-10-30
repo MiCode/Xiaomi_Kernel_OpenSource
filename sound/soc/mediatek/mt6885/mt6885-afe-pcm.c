@@ -1666,6 +1666,8 @@ static const struct snd_kcontrol_new memif_ul4_ch1_mix[] = {
 				    I_ADDA_UL_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("I2S0_CH1", AFE_CONN38,
 				    I_I2S0_CH1, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("UL4_TINYCONN", AFE_MEMIF_CONN,
+				    AWB2_USE_TINY_SFT, 1, 0),
 };
 
 static const struct snd_kcontrol_new memif_ul4_ch2_mix[] = {
@@ -1673,6 +1675,8 @@ static const struct snd_kcontrol_new memif_ul4_ch2_mix[] = {
 				    I_ADDA_UL_CH2, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("I2S0_CH2", AFE_CONN39,
 				    I_I2S0_CH2, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("UL4_TINYCONN", AFE_MEMIF_CONN,
+				    AWB2_USE_TINY_SFT, 1, 0),
 };
 
 static const struct snd_kcontrol_new memif_ul5_ch1_mix[] = {
@@ -1989,6 +1993,11 @@ static const struct snd_soc_dapm_route mt6885_memif_routes[] = {
 	{"UL4_CH1", "I2S0_CH1", "I2S0"},
 	{"UL4_CH2", "I2S0_CH2", "I2S0"},
 
+	{"UL4_TINYCONN_CH1_MUX", "I2S0_CH1", "I2S0"},
+	{"UL4_TINYCONN_CH2_MUX", "I2S0_CH2", "I2S0"},
+	{"UL4_CH1", "UL4_TINYCONN", "UL4_TINYCONN_CH1_MUX"},
+	{"UL4_CH2", "UL4_TINYCONN", "UL4_TINYCONN_CH2_MUX"},
+
 	{"UL5", NULL, "UL5_CH1"},
 	{"UL5", NULL, "UL5_CH2"},
 	{"UL5_CH1", "ADDA_UL_CH1", "ADDA_UL_Mux"},
@@ -2036,11 +2045,6 @@ static const struct snd_soc_dapm_route mt6885_memif_routes[] = {
 	{"DSP_DL", "DSP_DL6", "DL6"},
 	{"DSP_DL", "DSP_DL3", "DL3"},
 	{"DSP_DL", "DSP_DL4", "DL4"},
-
-	{"UL4_TINYCONN_CH1_MUX", "I2S0_CH1", "I2S0"},
-	{"UL4_TINYCONN_CH2_MUX", "I2S0_CH2", "I2S0"},
-	{"UL4", NULL, "UL4_TINYCONN_CH1_MUX"},
-	{"UL4", NULL, "UL4_TINYCONN_CH2_MUX"},
 };
 
 static const struct mtk_base_memif_data memif_data[MT6885_MEMIF_NUM] = {
