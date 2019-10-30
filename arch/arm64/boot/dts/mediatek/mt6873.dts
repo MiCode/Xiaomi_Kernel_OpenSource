@@ -803,7 +803,7 @@
 		interrupts = <GIC_SPI 96 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "musb-hdrc";
 		debug_level = <6>;
-		fpga_i2c_physical_base = <0x11d01100>;
+		fpga_i2c_physical_base = <0x11d01000>;
 	};
 
 	usbphy0:usbphy {
