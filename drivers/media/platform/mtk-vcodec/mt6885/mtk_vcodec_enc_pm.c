@@ -651,6 +651,7 @@ void mtk_venc_emi_bw_begin(struct temp_job **jobs)
 	cur_chroma_bw = STD_CHROMA_BW * venc_freq * (100 + boost_perc) /
 			STD_VENC_FREQ / 100;
 
+	rec_bw = cur_luma_bw + cur_chroma_bw;
 	ref_luma_bw = cur_luma_bw * 4;
 	ref_chroma_bw = cur_chroma_bw * 4;
 
