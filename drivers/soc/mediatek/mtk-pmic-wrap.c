@@ -15,6 +15,7 @@
 #include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/kernel.h>
+#include <linux/kthread.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
@@ -103,6 +104,13 @@
 #define PWRAP_CAP_ARB_V2	BIT(8)
 #define PWRAP_CAP_ARB_V3	BIT(9)
 #define PWRAP_CAP_ULPOSC_CLK	BIT(10)
+
+/* Marco and Struct for kernel thread */
+#define pwrap_init_wake_lock(lock, name)	wakeup_source_init(lock, name)
+#define pwrap_wake_lock(lock)	__pm_stay_awake(lock)
+#define pwrap_wake_unlock(lock)	__pm_relax(lock)
+struct task_struct *pwrap_thread_handle;
+struct wakeup_source pwrapThread_lock;
 
 /* defines for slave device wrapper registers */
 enum dew_regs {
@@ -554,6 +562,20 @@ enum pwrap_regs {
 	PMIF_SPI_PMIF_MONITOR_RECORD_0_0,
 	PMIF_SPI_PMIF_MONITOR_RECORD_0_1,
 	PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_0,
+	PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_1,
+	PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_2,
+	PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_3,
+	PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_4,
+	PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_5,
+	PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_0,
+	PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_1,
+	PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_2,
+	PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_3,
+	PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_4,
+	PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_5,
+	PMIF_SPI_PMIF_PMIF_ACC_VIO_INFO_0,
+	PMIF_SPI_PMIF_PMIF_ACC_VIO_INFO_1,
+	PMIF_SPI_PMIF_PMIF_ACC_VIO_INFO_2,
 
 	/* MT8167 only regs */
 	PWRAP_SW_RST,
@@ -1102,6 +1124,20 @@ static int mt6885_regs[] = {
 	[PMIF_SPI_PMIF_SWINF_2_STA] =		0xCA8,
 	[PWRAP_WACS2_RDATA] =			0xCA8,
 	[PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_0] =	0xF50,
+	[PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_1] =	0xF54,
+	[PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_2] =	0xF58,
+	[PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_3] =	0xF5C,
+	[PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_4] =	0xF60,
+	[PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_5] =	0xF64,
+	[PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_0] = 0xF68,
+	[PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_1] = 0xF6C,
+	[PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_2] = 0xF70,
+	[PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_3] = 0xF74,
+	[PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_4] = 0xF78,
+	[PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_5] = 0xF7C,
+	[PMIF_SPI_PMIF_PMIF_ACC_VIO_INFO_0] =	0xF80,
+	[PMIF_SPI_PMIF_PMIF_ACC_VIO_INFO_1] =	0xF84,
+	[PMIF_SPI_PMIF_PMIF_ACC_VIO_INFO_2] =	0xF88,
 };
 
 static int mt8173_regs[] = {
@@ -1736,22 +1772,80 @@ static void pwrap_mpu_info(void)
 	static DEFINE_RATELIMIT_STATE(ratelimit, 1 * HZ, 5);
 
 	if (__ratelimit(&ratelimit)) {
-		dev_notice(wrp->dev, "PMIC_INFO_0=0x%x\n",
-			   pwrap_readl(wrp, PWRAP_MPU_PMIC_ACC_VIO_INFO_0));
-		dev_notice(wrp->dev, "PMIC_INFO_1=0x%x\n",
-			   pwrap_readl(wrp, PWRAP_MPU_PMIC_ACC_VIO_INFO_1));
-		dev_notice(wrp->dev, "PMIC_INFO_2=0x%x\n",
-			   pwrap_readl(wrp, PWRAP_MPU_PMIC_ACC_VIO_INFO_2));
-		dev_notice(wrp->dev, "P2P_INFO_0=0x%x\n",
-			   pwrap_readl(wrp, PWRAP_MPU_PMIC_ACC_VIO_P2P_INFO_0));
-		dev_notice(wrp->dev, "P2P_INFO_1=0x%x\n",
-			   pwrap_readl(wrp, PWRAP_MPU_PMIC_ACC_VIO_P2P_INFO_1));
-		dev_notice(wrp->dev, "P2P_INFO_2=0x%x\n",
-			   pwrap_readl(wrp, PWRAP_MPU_PMIC_ACC_VIO_P2P_INFO_2));
-		dev_notice(wrp->dev, "PWRAP_INFO_0=0x%x\n",
-			   pwrap_readl(wrp, PWRAP_MPU_PWRAP_ACC_VIO_INFO_0));
-		dev_notice(wrp->dev, "PWRAP_INFO_1=0x%x\n",
-			   pwrap_readl(wrp, PWRAP_MPU_PWRAP_ACC_VIO_INFO_1));
+		if (HAS_CAP(wrp->master->caps, PWRAP_CAP_ARB_V3)) {
+			dev_notice(wrp->dev, "PMIC_ACC_VIO_INFO_0=0x%x\n",
+				   pwrap_readl(wrp,
+				   PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_0));
+			dev_notice(wrp->dev, "PMIC_ACC_VIO_INFO_1=0x%x\n",
+				   pwrap_readl(wrp,
+				   PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_1));
+			dev_notice(wrp->dev, "PMIC_ACC_VIO_INFO_2=0x%x\n",
+				   pwrap_readl(wrp,
+				   PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_2));
+			dev_notice(wrp->dev, "PMIC_ACC_VIO_INFO_3=0x%x\n",
+				   pwrap_readl(wrp,
+				   PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_3));
+			dev_notice(wrp->dev, "PMIC_ACC_VIO_INFO_4=0x%x\n",
+				   pwrap_readl(wrp,
+				   PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_4));
+			dev_notice(wrp->dev, "PMIC_ACC_VIO_INFO_5=0x%x\n",
+				   pwrap_readl(wrp,
+				   PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_5));
+
+			dev_notice(wrp->dev, "PMIC_ACC_SCP_VIO_INFO_0=0x%x\n",
+				   pwrap_readl(wrp,
+				   PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_0));
+			dev_notice(wrp->dev, "PMIC_ACC_SCP_VIO_INFO_1=0x%x\n",
+				   pwrap_readl(wrp,
+				   PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_1));
+			dev_notice(wrp->dev, "PMIC_ACC_SCP_VIO_INFO_2=0x%x\n",
+				   pwrap_readl(wrp,
+				   PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_2));
+			dev_notice(wrp->dev, "PMIC_ACC_SCP_VIO_INFO_3=0x%x\n",
+				   pwrap_readl(wrp,
+				   PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_3));
+			dev_notice(wrp->dev, "PMIC_ACC_SCP_VIO_INFO_4=0x%x\n",
+				   pwrap_readl(wrp,
+				   PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_4));
+			dev_notice(wrp->dev, "PMIC_ACC_SCP_VIO_INFO_5=0x%x\n",
+				   pwrap_readl(wrp,
+				   PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_5));
+
+			dev_notice(wrp->dev, "PMIF_ACC_VIO_INFO_0=0x%x\n",
+				   pwrap_readl(wrp,
+				   PMIF_SPI_PMIF_PMIF_ACC_VIO_INFO_0));
+			dev_notice(wrp->dev, "PMIF_ACC_VIO_INFO_1=0x%x\n",
+				   pwrap_readl(wrp,
+				   PMIF_SPI_PMIF_PMIF_ACC_VIO_INFO_1));
+			dev_notice(wrp->dev, "PMIF_ACC_VIO_INFO_2=0x%x\n",
+				   pwrap_readl(wrp,
+				   PMIF_SPI_PMIF_PMIF_ACC_VIO_INFO_2));
+		} else {
+			dev_notice(wrp->dev, "PMIC_INFO_0=0x%x\n",
+				   pwrap_readl(wrp,
+				   PWRAP_MPU_PMIC_ACC_VIO_INFO_0));
+			dev_notice(wrp->dev, "PMIC_INFO_1=0x%x\n",
+				   pwrap_readl(wrp,
+				   PWRAP_MPU_PMIC_ACC_VIO_INFO_1));
+			dev_notice(wrp->dev, "PMIC_INFO_2=0x%x\n",
+				   pwrap_readl(wrp,
+				   PWRAP_MPU_PMIC_ACC_VIO_INFO_2));
+			dev_notice(wrp->dev, "P2P_INFO_0=0x%x\n",
+				   pwrap_readl(wrp,
+				   PWRAP_MPU_PMIC_ACC_VIO_P2P_INFO_0));
+			dev_notice(wrp->dev, "P2P_INFO_1=0x%x\n",
+				   pwrap_readl(wrp,
+				   PWRAP_MPU_PMIC_ACC_VIO_P2P_INFO_1));
+			dev_notice(wrp->dev, "P2P_INFO_2=0x%x\n",
+				   pwrap_readl(wrp,
+				   PWRAP_MPU_PMIC_ACC_VIO_P2P_INFO_2));
+			dev_notice(wrp->dev, "PWRAP_INFO_0=0x%x\n",
+				   pwrap_readl(wrp,
+				   PWRAP_MPU_PWRAP_ACC_VIO_INFO_0));
+			dev_notice(wrp->dev, "PWRAP_INFO_1=0x%x\n",
+				   pwrap_readl(wrp,
+				   PWRAP_MPU_PWRAP_ACC_VIO_INFO_1));
+		}
 	}
 }
 
@@ -1761,56 +1855,57 @@ static void pwrap_reenable_pmic_logging(void)
 
 	/* Read Last three command */
 	pwrap_read(wrp, wrp->slave->dew_regs[PWRAP_DEW_RECORD_CMD0], &rdata);
-	dev_dbg(wrp->dev,
+	dev_notice(wrp->dev,
 	"REC_CMD0:0x%x (The last cmd addr)\n", (rdata & 0x3fff) << 1);
 	pwrap_read(wrp, wrp->slave->dew_regs[PWRAP_DEW_RECORD_WDATA0], &rdata);
-	dev_dbg(wrp->dev,
+	dev_notice(wrp->dev,
 	"REC_WDATA0:0x%x (The last cmd wdata)\n", rdata);
 
 	pwrap_read(wrp, wrp->slave->dew_regs[PWRAP_DEW_RECORD_CMD1], &rdata);
-	dev_dbg(wrp->dev,
+	dev_notice(wrp->dev,
 	"REC_CMD1:0x%x (The second-last cmd addr)\n", (rdata & 0x3fff) << 1);
 	pwrap_read(wrp, wrp->slave->dew_regs[PWRAP_DEW_RECORD_WDATA1], &rdata);
-	dev_dbg(wrp->dev,
+	dev_notice(wrp->dev,
 	"REC_WDATA1:0x%x (The second-last cmd wdata)\n", rdata);
 
 	pwrap_read(wrp, wrp->slave->dew_regs[PWRAP_DEW_RECORD_CMD2], &rdata);
-	dev_dbg(wrp->dev,
+	dev_notice(wrp->dev,
 	"REC_CMD2:0x%x (The third-last cmd addr)\n", (rdata & 0x3fff) << 1);
 	pwrap_read(wrp, wrp->slave->dew_regs[PWRAP_DEW_RECORD_WDATA2], &rdata);
-	dev_dbg(wrp->dev,
+	dev_notice(wrp->dev,
 	"REC_WDATA2:0x%x (The third-last cmd wdata)\n", rdata);
 
 	/* Read fourth-last to sixth-last command */
-	if (HAS_CAP(wrp->master->caps, PWRAP_CAP_MONITOR_V2)) {
+	if (HAS_CAP(wrp->master->caps, PWRAP_CAP_MONITOR_V2) ||
+		HAS_CAP(wrp->master->caps, PWRAP_CAP_ARB_V3)) {
 		pwrap_read(wrp, wrp->slave->dew_regs[PWRAP_DEW_RECORD_CMD3],
 			   &rdata);
-		dev_dbg(wrp->dev, "REC_CMD3:0x%x (The fourth-last cmd addr)\n",
+		dev_notice(wrp->dev, "REC_CMD3:0x%x (The fourth-last cmd addr)\n",
 			(rdata & 0x3fff) << 1);
 
 		pwrap_read(wrp, wrp->slave->dew_regs[PWRAP_DEW_RECORD_WDATA3],
 			   &rdata);
-		dev_dbg(wrp->dev,
+		dev_notice(wrp->dev,
 		"REC_WDATA3:0x%x (The fourth-last cmd wdata)\n", rdata);
 
 		pwrap_read(wrp, wrp->slave->dew_regs[PWRAP_DEW_RECORD_CMD4],
 			   &rdata);
-		dev_dbg(wrp->dev, "REC_CMD4:0x%x (The fifth-last cmd addr)\n",
+		dev_notice(wrp->dev, "REC_CMD4:0x%x (The fifth-last cmd addr)\n",
 			(rdata & 0x3fff) << 1);
 
 		pwrap_read(wrp, wrp->slave->dew_regs[PWRAP_DEW_RECORD_WDATA4],
 			   &rdata);
-		dev_dbg(wrp->dev,
+		dev_notice(wrp->dev,
 		"REC_WDATA4:0x%x (The fifth-last cmd wdata)\n", rdata);
 
 		pwrap_read(wrp, wrp->slave->dew_regs[PWRAP_DEW_RECORD_CMD5],
 			   &rdata);
-		dev_dbg(wrp->dev, "REC_CMD5:0x%x (The sixth-last cmd addr)\n",
+		dev_notice(wrp->dev, "REC_CMD5:0x%x (The sixth-last cmd addr)\n",
 			(rdata & 0x3fff) << 1);
 
 		pwrap_read(wrp, wrp->slave->dew_regs[PWRAP_DEW_RECORD_WDATA5],
 			   &rdata);
-		dev_dbg(wrp->dev,
+		dev_notice(wrp->dev,
 		"REC_WDATA5:0x%x (The sixth-last cmd wdata)\n", rdata);
 	}
 
@@ -1819,18 +1914,18 @@ static void pwrap_reenable_pmic_logging(void)
 		wrp->slave->dew_regs[PWRAP_DEW_RG_EN_RECORD], 0x1);
 	if (sub_return != 0)
 		dev_dbg(wrp->dev, "en spi debug fail, ret=%x\n", sub_return);
-	dev_dbg(wrp->dev, "enable spi debug ok\n");
+	dev_notice(wrp->dev, "enable spi debug ok\n");
 
 	/* Clear Last three command */
 	sub_return = pwrap_write(wrp,
 		wrp->slave->dew_regs[PWRAP_DEW_RG_SPI_RECORD_CLR], 0x1);
 	if (sub_return != 0)
-		dev_dbg(wrp->dev, "clr rec cmd fail, ret=%x\n", sub_return);
+		dev_notice(wrp->dev, "clr rec cmd fail, ret=%x\n", sub_return);
 	sub_return = pwrap_write(wrp,
 		wrp->slave->dew_regs[PWRAP_DEW_RG_SPI_RECORD_CLR], 0x0);
 	if (sub_return != 0)
-		dev_dbg(wrp->dev, "clr rec cmd fail, ret=%x\n", sub_return);
-	dev_dbg(wrp->dev, "clear record command ok\n");
+		dev_notice(wrp->dev, "clr rec cmd fail, ret=%x\n", sub_return);
+	dev_notice(wrp->dev, "clear record command ok\n");
 
 }
 
@@ -1861,14 +1956,14 @@ static void pwrap_swinf_info(void)
 	static DEFINE_RATELIMIT_STATE(ratelimit, 1 * HZ, 5);
 
 	if (__ratelimit(&ratelimit)) {
-		dev_dbg(wrp->dev, "Dump SWINF Info\n");
-		dev_dbg(wrp->dev, "SWINF_2_ACC=0x%x\n",
+		dev_notice(wrp->dev, "Dump SWINF Info\n");
+		dev_notice(wrp->dev, "SWINF_2_ACC=0x%x\n",
 			pwrap_readl(wrp, PMIF_SPI_PMIF_SWINF_2_ACC));
-		dev_dbg(wrp->dev, "SWINF_2_WDATA_31_0=0x%x\n",
+		dev_notice(wrp->dev, "SWINF_2_WDATA_31_0=0x%x\n",
 			pwrap_readl(wrp, PMIF_SPI_PMIF_SWINF_2_WDATA_31_0));
-		dev_dbg(wrp->dev, "SWINF_2_RDATA_31_0=0x%x\n",
+		dev_notice(wrp->dev, "SWINF_2_RDATA_31_0=0x%x\n",
 			pwrap_readl(wrp, PMIF_SPI_PMIF_SWINF_2_RDATA_31_0));
-		dev_dbg(wrp->dev, "SWINF_2_STA=0x%x\n",
+		dev_notice(wrp->dev, "SWINF_2_STA=0x%x\n",
 			pwrap_readl(wrp, PMIF_SPI_PMIF_SWINF_2_STA));
 	}
 }
@@ -1881,19 +1976,19 @@ static void pwrap_monitor_info(void)
 	static DEFINE_RATELIMIT_STATE(ratelimit, 1 * HZ, 5);
 
 	if (__ratelimit(&ratelimit)) {
-		dev_dbg(wrp->dev, "Dump Monitor Info\n");
-		dev_dbg(wrp->dev, "MONITOR_CTRL=0x%x\n",
+		dev_notice(wrp->dev, "Dump Monitor Info\n");
+		dev_notice(wrp->dev, "MONITOR_CTRL=0x%x\n",
 			pwrap_readl(wrp, PMIF_SPI_PMIF_MONITOR_CTRL));
-		dev_dbg(wrp->dev, "MONITOR_TARGET_CHAN_0=0x%x\n",
+		dev_notice(wrp->dev, "MONITOR_TARGET_CHAN_0=0x%x\n",
 			pwrap_readl(wrp, PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_0));
-		dev_dbg(wrp->dev, "MONITOR_TARGET_ADDR_0=0x%x\n",
+		dev_notice(wrp->dev, "MONITOR_TARGET_ADDR_0=0x%x\n",
 			pwrap_readl(wrp, PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_0));
-		dev_dbg(wrp->dev, "MONITOR_TARGET_WDATA_0=0x%x\n",
+		dev_notice(wrp->dev, "MONITOR_TARGET_WDATA_0=0x%x\n",
 			pwrap_readl(wrp, PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_0));
-		dev_dbg(wrp->dev, "MONITOR_TARGET_WRITE=0x%x\n",
+		dev_notice(wrp->dev, "MONITOR_TARGET_WRITE=0x%x\n",
 			pwrap_readl(wrp, PMIF_SPI_PMIF_MONITOR_TARGET_WRITE));
 
-		dev_dbg(wrp->dev, "MONITOR_STA=0x%x\n",
+		dev_notice(wrp->dev, "MONITOR_STA=0x%x\n",
 			pwrap_readl(wrp, PMIF_SPI_PMIF_MONITOR_STA));
 
 		for (i = 0; i <= 31; i++) {
@@ -1901,30 +1996,41 @@ static void pwrap_monitor_info(void)
 			   wrp->master->regs[PMIF_SPI_PMIF_MONITOR_RECORD_0_0] +
 			   (i * 20);
 			rdata = readl(reg_addr);
-			dev_dbg(wrp->dev, "MONITOR_RECORD_%d_WRITE=0x%x\n", i,
-					   PMIF_GET_MONITOR_REC_0_WRITE(rdata));
-			dev_dbg(wrp->dev, "MONITOR_RECORD_%d_CHAN=0x%x\n", i,
-					   PMIF_GET_MONITOR_REC_0_CHAN(rdata));
-			dev_dbg(wrp->dev, "MONITOR_RECORD_%d_CMD=0x%x\n", i,
-					   PMIF_GET_MONITOR_REC_0_CMD(rdata));
-			dev_dbg(wrp->dev, "MONITOR_RECORD_%d_ADDR=0x%x\n", i,
-					   PMIF_GET_MONITOR_REC_0_ADDR(rdata));
+			dev_notice(wrp->dev, "MONITOR_RECORD_%d_WRITE=0x%x\n",
+					i, PMIF_GET_MONITOR_REC_0_WRITE(rdata));
+			dev_notice(wrp->dev, "MONITOR_RECORD_%d_CHAN=0x%x\n",
+					i, PMIF_GET_MONITOR_REC_0_CHAN(rdata));
+			dev_notice(wrp->dev, "MONITOR_RECORD_%d_CMD=0x%x\n",
+					i, PMIF_GET_MONITOR_REC_0_CMD(rdata));
+			dev_notice(wrp->dev, "MONITOR_RECORD_%d_ADDR=0x%x\n",
+					i, PMIF_GET_MONITOR_REC_0_ADDR(rdata));
 
 			reg_addr = wrp->base +
 			   wrp->master->regs[PMIF_SPI_PMIF_MONITOR_RECORD_0_1] +
 			   (i * 20);
 			rdata = readl(reg_addr);
-			dev_dbg(wrp->dev, "MONITOR_RECORD_%d_WDATA=0x%x\n", i,
-				PMIF_GET_MONITOR_REC_0_WDATA_31_0(rdata));
+			dev_notice(wrp->dev, "MONITOR_RECORD_%d_WDATA=0x%x\n",
+				i, PMIF_GET_MONITOR_REC_0_WDATA_31_0(rdata));
 		}
 	}
 }
 
 static void pwrap_sw_monitor_clr(void)
 {
+	u32 rdata = 0;
+
+	rdata = pwrap_readl(wrp, PMIF_SPI_PMIF_IRQ_EVENT_EN_3);
+
 	/* Clear and Reenable SW Monitor */
-	pwrap_writel(wrp, 0x800, PMIF_SPI_PMIF_MONITOR_CTRL);
-	pwrap_writel(wrp, 0x5, PMIF_SPI_PMIF_MONITOR_CTRL);
+	if (rdata | 0x8000000) {
+		/* Matching Mode */
+		pwrap_writel(wrp, 0x800, PMIF_SPI_PMIF_MONITOR_CTRL);
+		pwrap_writel(wrp, 0x405, PMIF_SPI_PMIF_MONITOR_CTRL);
+	} else {
+		/* Logging Mode */
+		pwrap_writel(wrp, 0x800, PMIF_SPI_PMIF_MONITOR_CTRL);
+		pwrap_writel(wrp, 0x5, PMIF_SPI_PMIF_MONITOR_CTRL);
+	}
 }
 
 void pwrap_dump_and_recovery(void)
@@ -2063,8 +2169,18 @@ static int pwrap_wait_for_state(struct pmic_wrapper *wrp,
 				return 1;
 			} else if (fp(wrp) == 0) {
 				dev_notice(wrp->dev, "[PWRAP] FSM Timeout\n");
-				pwrap_logging_at_isr();
-				pwrap_dump_ap_register();
+
+				if (HAS_CAP(wrp->master->caps,
+					PWRAP_CAP_ARB_V3)) {
+					pwrap_reenable_pmic_logging();
+					pwrap_swinf_info();
+					pwrap_monitor_info();
+					pwrap_sw_monitor_clr();
+				} else {
+					pwrap_logging_at_isr();
+					pwrap_dump_ap_register();
+				}
+
 				aee_kernel_warning("PWRAP:FSM Timeout",
 						   "PWRAP");
 				return -ETIMEDOUT;
@@ -2514,6 +2630,55 @@ static int pwrap_mt2701_init_soc_specific(struct pmic_wrapper *wrp)
 	return 0;
 }
 
+void wake_up_pwrap(void)
+{
+	dev_notice(wrp->dev, "[PWRAP] %s\n", __func__);
+	if (pwrap_thread_handle != NULL) {
+		pwrap_wake_lock(&pwrapThread_lock);
+		wake_up_process(pwrap_thread_handle);
+	} else {
+		dev_notice(wrp->dev,
+		"[PWRAP] pwrap_thread_handle not ready\n");
+		return;
+	}
+}
+
+int pwrap_thread_kthread(void *x)
+{
+	unsigned int rdata = 0;
+
+	dev_notice(wrp->dev, "[PWRAP] enter kernel thread\n");
+
+	/* Run on a process content */
+	while (1) {
+		pwrap_reenable_pmic_logging();
+		pwrap_monitor_info();
+		pwrap_sw_monitor_clr();
+		aee_kernel_warning("PWRAP:HW Monitor match",
+				   "PWRAP:HW Monitor match");
+		pwrap_wake_unlock(&pwrapThread_lock);
+		set_current_state(TASK_INTERRUPTIBLE);
+		schedule();
+	}
+	dev_notice(wrp->dev, "[PWRAP] kernel thread error\n");
+	return 0;
+}
+
+static void pwrap_irq_thread_init(void)
+{
+	pwrap_init_wake_lock(&pwrapThread_lock, "pwrapThread_lock wakelock");
+
+	/* create pwrap irq thread handler*/
+	pwrap_thread_handle = kthread_create(pwrap_thread_kthread,
+					    (void *)NULL, "pwrap_thread");
+	if (IS_ERR(pwrap_thread_handle)) {
+		pwrap_thread_handle = NULL;
+		dev_notice(wrp->dev, "[PWRAP] kthread_create fails\n");
+	} else {
+		dev_notice(wrp->dev, "[PWRAP] kthread_create done\n");
+	}
+}
+
 static int pwrap_init(struct pmic_wrapper *wrp)
 {
 	int ret = 0;
@@ -2736,18 +2901,37 @@ static irqreturn_t pwrap_interrupt(int irqno, void *dev_id)
 				dev_notice(wrp->dev,
 					   "[PWRAP] MPU Access Violation\n");
 				pwrap_mpu_info();
-				pwrap_reenable_pmic_logging();
-				pwrap_swinf_info();
-				pwrap_sw_monitor_clr();
+
+				rdata = pwrap_readl(wrp,
+					PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_0);
+				if (rdata & 0x80000000)
+					pwrap_writel(wrp, rdata | 0x80000000,
+					PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_0);
+
+				rdata = pwrap_readl(wrp,
+					PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_0);
+				if (rdata & 0x80000000)
+					pwrap_writel(wrp, rdata | 0x80000000,
+					PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_0);
+
+				rdata = pwrap_readl(wrp,
+					PMIF_SPI_PMIF_PMIF_ACC_VIO_INFO_0);
+				if (rdata & 0x80000000)
+					pwrap_writel(wrp, rdata | 0x80000000,
+					PMIF_SPI_PMIF_PMIF_ACC_VIO_INFO_0);
+
 				aee_kernel_warning("PWRAP:MPU Violation",
 						   "PWRAP:MPU Violation");
+
 			} else if ((int3_flg & (0x1 << 27)) != 0) {
 				dev_notice(wrp->dev, "[PWRAP] HW Monitor match\n");
+				wake_up_pwrap();
 			} else if ((int3_flg & (0x1 << 28)) != 0) {
 				dev_dbg(wrp->dev, "[PWRAP] WDT Timeout\n");
 			}
 
 			pwrap_writel(wrp, int3_flg, PMIF_SPI_PMIF_IRQ_CLR_3);
+
 		}
 	} else {
 		rdata = pwrap_readl(wrp, PWRAP_INT_FLG);
@@ -3283,6 +3467,9 @@ static int pwrap_probe(struct platform_device *pdev)
 		goto err_out2;
 	} else
 		dev_notice(wrp->dev, "[PWRAP] Write Test pass\n");
+
+	/* init kernel thread for HW Monitor interrupt handling */
+	pwrap_irq_thread_init();
 
 	return 0;
 
