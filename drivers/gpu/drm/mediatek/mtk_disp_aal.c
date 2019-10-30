@@ -128,6 +128,8 @@ struct mtk_disp_aal {
 	struct drm_crtc		*crtc;
 };
 
+static bool force_bypass = true;
+
 static int disp_aal_get_cust_led(void)
 {
 	struct device_node *led_node = NULL;
@@ -733,12 +735,16 @@ static int disp_aal_set_init_reg(struct mtk_ddp_comp *comp,
 int mtk_drm_ioctl_aal_init_reg(struct drm_device *dev, void *data,
 	struct drm_file *file_priv)
 {
+
 	struct mtk_drm_private *private = dev->dev_private;
 	struct mtk_ddp_comp *comp = private->ddp_comp[DDP_COMPONENT_AAL0];
 	struct drm_crtc *crtc = private->crtc[0];
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct cmdq_pkt *handle;
 	struct cmdq_client *client = mtk_crtc->gce_obj.client[CLIENT_CFG];
+
+	if (force_bypass)
+		return 0;
 
 	mtk_crtc_pkt_create(&handle, crtc, client);
 
@@ -747,7 +753,6 @@ int mtk_drm_ioctl_aal_init_reg(struct drm_device *dev, void *data,
 		DDPPR_ERR("%s: fail\n", __func__);
 		return -EFAULT;
 	}
-
 	cmdq_pkt_flush(handle);
 	cmdq_pkt_destroy(handle);
 
@@ -973,12 +978,16 @@ void dumpAALReg(struct mtk_ddp_comp *comp)
 int mtk_drm_ioctl_aal_set_param(struct drm_device *dev, void *data,
 	struct drm_file *file_priv)
 {
+
 	struct mtk_drm_private *private = dev->dev_private;
 	struct mtk_ddp_comp *comp = private->ddp_comp[DDP_COMPONENT_AAL0];
 	struct drm_crtc *crtc = private->crtc[0];
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct cmdq_pkt *handle;
 	struct cmdq_client *client = mtk_crtc->gce_obj.client[CLIENT_CFG];
+
+	if (force_bypass)
+		return 0;
 
 	DDPINFO("%s\n", __func__);
 	mtk_crtc_pkt_create(&handle, crtc, client);
@@ -988,9 +997,9 @@ int mtk_drm_ioctl_aal_set_param(struct drm_device *dev, void *data,
 		DDPPR_ERR("%s: fail\n", __func__);
 		return -EFAULT;
 	}
-
 	cmdq_pkt_flush(handle);
 	cmdq_pkt_destroy(handle);
+
 #ifdef DUMPAAL
 	dumpAALReg(comp);
 #endif
