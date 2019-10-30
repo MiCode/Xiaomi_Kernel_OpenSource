@@ -339,7 +339,7 @@ void apusys_reg_dump(void)
 {
 	mutex_lock(&dbg_lock);
 	dump_gals_reg();
-	memcpy_fromio(reg_all_mem, apu_top, 0x30000);
+	memcpy_fromio(reg_all_mem + 0x1000, apu_top+0x1000, 0x2F000);
 	memcpy_fromio(reg_all_mem + 0x50000, apu_top + 0x50000, 0xA2000);
 	mutex_unlock(&dbg_lock);
 }
