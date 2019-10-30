@@ -123,12 +123,15 @@ static int g_aal_ess_en_cmd_id;
 #endif
 #define aal_min(a, b)			(((a) < (b)) ? (a) : (b))
 
+enum AAL_IOCTL_CMD {
+	INIT_REG = 0,
+	SET_PARAM
+};
+
 struct mtk_disp_aal {
 	struct mtk_ddp_comp	ddp_comp;
 	struct drm_crtc		*crtc;
 };
-
-static bool force_bypass = true;
 
 static int disp_aal_get_cust_led(void)
 {
@@ -739,24 +742,8 @@ int mtk_drm_ioctl_aal_init_reg(struct drm_device *dev, void *data,
 	struct mtk_drm_private *private = dev->dev_private;
 	struct mtk_ddp_comp *comp = private->ddp_comp[DDP_COMPONENT_AAL0];
 	struct drm_crtc *crtc = private->crtc[0];
-	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct cmdq_pkt *handle;
-	struct cmdq_client *client = mtk_crtc->gce_obj.client[CLIENT_CFG];
 
-	if (force_bypass)
-		return 0;
-
-	mtk_crtc_pkt_create(&handle, crtc, client);
-
-	if (disp_aal_set_init_reg(comp, handle,
-				(struct DISP_AAL_INITREG *) data) < 0) {
-		DDPPR_ERR("%s: fail\n", __func__);
-		return -EFAULT;
-	}
-	cmdq_pkt_flush(handle);
-	cmdq_pkt_destroy(handle);
-
-	return 0;
+	return mtk_crtc_user_cmd(crtc, comp, INIT_REG, data);
 }
 
 static struct DISP_AAL_PARAM g_aal_param;
@@ -978,31 +965,41 @@ void dumpAALReg(struct mtk_ddp_comp *comp)
 int mtk_drm_ioctl_aal_set_param(struct drm_device *dev, void *data,
 	struct drm_file *file_priv)
 {
-
+	int ret = 0;
 	struct mtk_drm_private *private = dev->dev_private;
 	struct mtk_ddp_comp *comp = private->ddp_comp[DDP_COMPONENT_AAL0];
 	struct drm_crtc *crtc = private->crtc[0];
-	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct cmdq_pkt *handle;
-	struct cmdq_client *client = mtk_crtc->gce_obj.client[CLIENT_CFG];
 
-	if (force_bypass)
-		return 0;
-
-	DDPINFO("%s\n", __func__);
-	mtk_crtc_pkt_create(&handle, crtc, client);
-
-	if (disp_aal_set_param(comp, handle,
-				(struct DISP_AAL_PARAM *) data) < 0) {
-		DDPPR_ERR("%s: fail\n", __func__);
-		return -EFAULT;
-	}
-	cmdq_pkt_flush(handle);
-	cmdq_pkt_destroy(handle);
-
+	ret = mtk_crtc_user_cmd(crtc, comp, SET_PARAM, data);
 #ifdef DUMPAAL
 	dumpAALReg(comp);
 #endif
+	return ret;
+}
+
+static int mtk_aal_user_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
+	unsigned int cmd, void *data)
+{
+	DDPINFO("%s: cmd: %d\n", __func__, cmd);
+	switch (cmd) {
+	case INIT_REG:
+		if (disp_aal_set_init_reg(comp, handle,
+			(struct DISP_AAL_INITREG *) data) < 0) {
+			DDPPR_ERR("%s INIT_REG: fail\n", __func__);
+			return -EFAULT;
+		}
+		break;
+	case SET_PARAM:
+		if (disp_aal_set_param(comp, handle,
+			(struct DISP_AAL_PARAM *) data) < 0) {
+			DDPPR_ERR("%s SET_PARAM: fail\n", __func__);
+			return -EFAULT;
+		}
+		break;
+	default:
+		DDPPR_ERR("%s: error cmd: %d\n", __func__, cmd);
+		return -EINVAL;
+	}
 	return 0;
 }
 
@@ -1507,6 +1504,7 @@ static const struct mtk_ddp_comp_funcs mtk_disp_aal_funcs = {
 	.start = mtk_aal_start,
 	.stop = mtk_aal_stop,
 	.bypass = mtk_aal_bypass,
+	.user_cmd = mtk_aal_user_cmd,
 	.prepare = mtk_aal_prepare,
 	.unprepare = mtk_aal_unprepare,
 };

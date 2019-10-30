@@ -83,6 +83,10 @@ static int disp_ccorr_write_coef_reg(struct mtk_ddp_comp *comp,
 	struct cmdq_pkt *handle, int lock);
 /* static void ccorr_dump_reg(void); */
 
+enum CCORR_IOCTL_CMD {
+	SET_CCORR = 0,
+};
+
 struct mtk_disp_ccorr {
 	struct mtk_ddp_comp ddp_comp;
 	struct drm_crtc *crtc;
@@ -539,29 +543,11 @@ int disp_ccorr_set_RGB_Gain(struct mtk_ddp_comp *comp,
 int mtk_drm_ioctl_set_ccorr(struct drm_device *dev, void *data,
 		struct drm_file *file_priv)
 {
-	int ret = 0;
-	struct DISP_CCORR_COEF_T *config = data;
-	/* TODO: dual pipe */
 	struct mtk_drm_private *private = dev->dev_private;
 	struct mtk_ddp_comp *comp = private->ddp_comp[DDP_COMPONENT_CCORR0];
-	/* primary display */
 	struct drm_crtc *crtc = private->crtc[0];
-	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct cmdq_pkt *handle;
-	struct cmdq_client *client = mtk_crtc->gce_obj.client[CLIENT_CFG];
 
-	mtk_crtc_pkt_create(&handle, crtc, client);
-
-	if (disp_ccorr_set_coef(config,
-		comp, handle) < 0) {
-		DDPPR_ERR("DISP_IOCTL_SET_CCORR: failed\n");
-		ret = -EFAULT;
-	}
-
-	cmdq_pkt_flush(handle);
-	cmdq_pkt_destroy(handle);
-
-	return ret;
+	return mtk_crtc_user_cmd(crtc, comp, SET_CCORR, data);
 }
 
 int mtk_drm_ioctl_ccorr_eventctl(struct drm_device *dev, void *data,
@@ -630,6 +616,29 @@ static void mtk_ccorr_bypass(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	g_ccorr_relay_value[index_of_ccorr(comp->id)] = 0x1;
 }
 
+static int mtk_ccorr_user_cmd(struct mtk_ddp_comp *comp,
+	struct cmdq_pkt *handle, unsigned int cmd, void *data)
+{
+	DDPINFO("%s: cmd: %d\n", __func__, cmd);
+	switch (cmd) {
+	case SET_CCORR:
+	{
+		struct DISP_CCORR_COEF_T *config = data;
+
+		if (disp_ccorr_set_coef(config,
+			comp, handle) < 0) {
+			DDPPR_ERR("DISP_IOCTL_SET_CCORR: failed\n");
+			return -EFAULT;
+		}
+	}
+	break;
+	default:
+		DDPPR_ERR("%s: error cmd: %d\n", __func__, cmd);
+		return -EINVAL;
+	}
+	return 0;
+}
+
 static void mtk_ccorr_prepare(struct mtk_ddp_comp *comp)
 {
 	mtk_ddp_comp_clk_prepare(comp);
@@ -647,6 +656,7 @@ static const struct mtk_ddp_comp_funcs mtk_disp_ccorr_funcs = {
 	.config = mtk_ccorr_config,
 	.start = mtk_ccorr_start,
 	.bypass = mtk_ccorr_bypass,
+	.user_cmd = mtk_ccorr_user_cmd,
 	.prepare = mtk_ccorr_prepare,
 	.unprepare = mtk_ccorr_unprepare,
 };

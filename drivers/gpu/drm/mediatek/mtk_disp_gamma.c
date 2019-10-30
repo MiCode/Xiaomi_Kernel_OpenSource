@@ -48,6 +48,10 @@ static DEFINE_MUTEX(g_gamma_global_lock);
 /* TODO */
 /* static ddp_module_notify g_gamma_ddp_notify; */
 
+enum GAMMA_IOCTL_CMD {
+	SET_GAMMALUT = 0,
+};
+
 struct mtk_disp_gamma {
 	struct mtk_ddp_comp ddp_comp;
 	struct drm_crtc *crtc;
@@ -185,28 +189,11 @@ static int mtk_gamma_set_lut(struct mtk_ddp_comp *comp,
 int mtk_drm_ioctl_set_gammalut(struct drm_device *dev, void *data,
 		struct drm_file *file_priv)
 {
-	int ret = 0;
-	struct DISP_GAMMA_LUT_T *config = data;
-	/* TODO: dual pipe */
 	struct mtk_drm_private *private = dev->dev_private;
 	struct mtk_ddp_comp *comp = private->ddp_comp[DDP_COMPONENT_GAMMA0];
-	/* primary display */
 	struct drm_crtc *crtc = private->crtc[0];
-	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct cmdq_pkt *handle;
-	struct cmdq_client *client = mtk_crtc->gce_obj.client[CLIENT_CFG];
 
-	mtk_crtc_pkt_create(&handle, crtc, client);
-
-	if (mtk_gamma_set_lut(comp, handle, config) < 0) {
-		DDPPR_ERR("%s: failed\n", __func__);
-		ret = -EFAULT;
-	}
-
-	cmdq_pkt_flush(handle);
-	cmdq_pkt_destroy(handle);
-
-	return ret;
+	return mtk_crtc_user_cmd(crtc, comp, SET_GAMMALUT, data);
 }
 
 static void mtk_gamma_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
@@ -272,6 +259,28 @@ static void mtk_gamma_set(struct mtk_ddp_comp *comp,
 	}
 }
 
+static int mtk_gamma_user_cmd(struct mtk_ddp_comp *comp,
+	struct cmdq_pkt *handle, unsigned int cmd, void *data)
+{
+	DDPINFO("%s: cmd: %d\n", __func__, cmd);
+	switch (cmd) {
+	case SET_GAMMALUT:
+	{
+		struct DISP_GAMMA_LUT_T *config = data;
+
+		if (mtk_gamma_set_lut(comp, handle, config) < 0) {
+			DDPPR_ERR("%s: failed\n", __func__);
+			return -EFAULT;
+		}
+	}
+	break;
+	default:
+		DDPPR_ERR("%s: error cmd: %d\n", __func__, cmd);
+		return -EINVAL;
+	}
+	return 0;
+}
+
 static void mtk_gamma_prepare(struct mtk_ddp_comp *comp)
 {
 	mtk_ddp_comp_clk_prepare(comp);
@@ -288,6 +297,7 @@ static const struct mtk_ddp_comp_funcs mtk_disp_gamma_funcs = {
 	.start = mtk_gamma_start,
 	.stop = mtk_gamma_stop,
 	.bypass = mtk_gamma_bypass,
+	.user_cmd = mtk_gamma_user_cmd,
 	.prepare = mtk_gamma_prepare,
 	.unprepare = mtk_gamma_unprepare,
 };
