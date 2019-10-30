@@ -678,20 +678,20 @@ bool apusys_check_opp_change(void)
 }
 
 
-void apusys_power_on(enum DVFS_USER user)
+int apusys_power_on(enum DVFS_USER user)
 {
 	struct hal_param_pwr_mask pwr_mask;
 
-	hal_config_power(PWR_CMD_SET_BOOT_UP, user, (void *)&pwr_mask);
 	apusys_opps.is_power_on[user] = true;
+	return hal_config_power(PWR_CMD_SET_BOOT_UP, user, (void *)&pwr_mask);
 }
 
-void apusys_power_off(enum DVFS_USER user)
+int apusys_power_off(enum DVFS_USER user)
 {
 	struct hal_param_pwr_mask pwr_mask;
 
-	hal_config_power(PWR_CMD_SET_SHUT_DOWN, user, (void *)&pwr_mask);
 	apusys_opps.is_power_on[user] = false;
+	return hal_config_power(PWR_CMD_SET_SHUT_DOWN, user, (void *)&pwr_mask);
 }
 
 void apusys_power_init(enum DVFS_USER user, void *init_power_data)

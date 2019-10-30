@@ -98,11 +98,8 @@ EXPORT_SYMBOL(apu_get_power_info);
 void apu_power_reg_dump(void)
 {
 	mutex_lock(&power_ctl_mtx);
-
-	// power_callback_counter larger than zero means conn mtcmos enabled
-	if (power_callback_counter > 0)
-		hal_config_power(PWR_CMD_REG_DUMP, VPU0, NULL);
-
+	// keep 26M vcore clk make we can dump reg directly
+	hal_config_power(PWR_CMD_REG_DUMP, VPU0, NULL);
 	mutex_unlock(&power_ctl_mtx);
 }
 EXPORT_SYMBOL(apu_power_reg_dump);
@@ -191,6 +188,7 @@ find_out_callback_device_by_user(enum POWER_CALLBACK_USER user)
 
 int apu_device_power_off(enum DVFS_USER user)
 {
+	int ret = 0;
 #if !BYPASS_POWER_OFF
 	struct power_device *pwr_dev = find_out_device_by_user(user);
 
@@ -217,7 +215,7 @@ int apu_device_power_off(enum DVFS_USER user)
 		// for debug
 		// dump_stack();
 #if !BYPASS_POWER_CTL
-		apusys_power_off(user);
+		ret = apusys_power_off(user);
 #endif
 		pwr_dev->is_power_on = 0;
 
@@ -231,13 +229,21 @@ int apu_device_power_off(enum DVFS_USER user)
 #else
 	LOG_WRN("%s by user:%d bypass\n", __func__, user);
 #endif // BYPASS_POWER_OFF
-	return 0;
+
+	if (ret) {
+		apu_power_reg_dump();
+		apu_aee_warn("APUPWR_OFF_FAIL", "user=%d\n", user);
+		return -ENODEV;
+	} else {
+		return 0;
+	}
 }
 EXPORT_SYMBOL(apu_device_power_off);
 
 int apu_device_power_on(enum DVFS_USER user)
 {
 	struct power_device *pwr_dev = find_out_device_by_user(user);
+	int ret = 0;
 
 	if (pwr_dev == NULL) {
 		LOG_ERR("%s fail, dev of user %d is NULL\n", __func__, user);
@@ -253,11 +259,11 @@ int apu_device_power_on(enum DVFS_USER user)
 		// for debug
 		// dump_stack();
 #if !BYPASS_POWER_CTL
-		apusys_power_on(user);
+		ret = apusys_power_on(user);
 #endif
 		pwr_dev->is_power_on = 1;
 
-		if (power_callback_counter == 0) {
+		if (!ret && power_callback_counter == 0) {
 			// call passive power on function list
 #if !BYPASS_POWER_CTL
 			power_callback_caller(1);
@@ -273,7 +279,13 @@ int apu_device_power_on(enum DVFS_USER user)
 	mutex_unlock(&power_ctl_mtx);
 	apu_get_power_info();
 
-	return 0;
+	if (ret) {
+		apu_power_reg_dump();
+		apu_aee_warn("APUPWR_ON_FAIL", "user=%d\n", user);
+		return -ENODEV;
+	} else {
+		return 0;
+	}
 }
 EXPORT_SYMBOL(apu_device_power_on);
 

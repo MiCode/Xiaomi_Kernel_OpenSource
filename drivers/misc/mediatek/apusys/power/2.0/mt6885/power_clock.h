@@ -50,8 +50,10 @@ static inline void check_vpu_clk_sts(void) { }
 
 #define ENABLE_CLK(clk) \
 	{ \
-		if (clk_prepare_enable(clk)) \
-			LOG_ERR("fail to prepare&enable clk:%s\n", #clk); \
+		ret = clk_prepare_enable(clk); \
+		if (ret) \
+			LOG_ERR("fail to prepare & enable clk:%s\n", #clk); \
+		ret_all |= ret; \
 	}
 
 #define DISABLE_CLK(clk) \

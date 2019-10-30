@@ -42,6 +42,7 @@ struct apu_power_info {
 //APU
 void pm_qos_register(void);
 void pm_qos_unregister(void);
+
 int prepare_regulator(enum DVFS_BUCK buck, struct device *dev);
 int enable_regulator(enum DVFS_BUCK buck);
 int disable_regulator(enum DVFS_BUCK buck);
@@ -49,29 +50,27 @@ int unprepare_regulator(enum DVFS_BUCK buck);
 int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV);
 int config_regulator_mode(enum DVFS_BUCK buck, int is_normal);
 int config_vcore(enum DVFS_USER user, int vcore_opp);
-void dump_voltage(struct apu_power_info *info);
-void dump_frequency(struct apu_power_info *info);
-int set_apu_clock_source(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain);
+
 int prepare_apu_clock(struct device *dev);
 void unprepare_apu_clock(void);
-void disable_apu_clock(enum DVFS_USER);
-void disable_apu_conn_vcore_clock(void);
-void enable_apu_clock(enum DVFS_USER);
-void enable_apu_conn_vcore_clock(void);
-void enable_apu_mtcmos(int enable);
-int config_apupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain);
 
-
-void enable_apu_vcore_clksrc(void);
-void enable_apu_conn_vcore_clksrc(void);
-void enable_apu_device_clksrc(enum DVFS_USER user);
-void enable_apu_conn_vcore_clock(void);
-void enable_apu_device_clock(enum DVFS_USER user);
+int enable_apu_mtcmos(int enable);
+int enable_apu_vcore_clksrc(void);
+int enable_apu_conn_clksrc(void);
+int enable_apu_device_clksrc(enum DVFS_USER user);
+int enable_apu_conn_vcore_clock(void);
+int enable_apu_device_clock(enum DVFS_USER user);
 
 void disable_apu_conn_vcore_clock(void);
 void disable_apu_device_clock(enum DVFS_USER user);
-void disable_apu_conn_vcore_clksrc(void);
+void disable_apu_conn_clksrc(void);
 void disable_apu_device_clksrc(enum DVFS_USER user);
+
+int set_apu_clock_source(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain);
+int config_apupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain);
+
+void dump_voltage(struct apu_power_info *info);
+void dump_frequency(struct apu_power_info *info);
 
 bool dvfs_user_support(enum DVFS_USER user);
 bool dvfs_power_domain_support(enum DVFS_VOLTAGE_DOMAIN domain);

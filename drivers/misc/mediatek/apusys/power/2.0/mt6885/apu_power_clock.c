@@ -138,15 +138,19 @@ static struct clk *mtcmos_scp_sys_vpu;		// mtcmos for apu conn/vcore
  * The following functions are apu dedicated usate
  **************************************************/
 
-void enable_apu_mtcmos(int enable)
+int enable_apu_mtcmos(int enable)
 {
-	LOG_WRN("%s enable var = %d\n", __func__, enable);
+	int ret = 0;
+	int ret_all = 0;
 
 	if (enable) {
 		ENABLE_CLK(mtcmos_scp_sys_vpu);
 	} else {
 		DISABLE_CLK(mtcmos_scp_sys_vpu);
 	}
+
+	LOG_WRN("%s enable var = %d, ret = %d\n", __func__, enable, ret_all);
+	return ret_all;
 }
 
 int prepare_apu_clock(struct device *dev)
@@ -311,24 +315,40 @@ static void disable_pll(void)
 }
 #endif
 
-void enable_apu_vcore_clksrc(void)
+int enable_apu_vcore_clksrc(void)
 {
+	int ret = 0;
+	int ret_all = 0;
+
 	ENABLE_CLK(clk_top_ipu_if_sel);
+	LOG_WRN("%s, ret = %d\n", __func__, ret_all);
+	return ret_all;
 }
 
-void enable_apu_conn_vcore_clksrc(void)
+int enable_apu_conn_clksrc(void)
 {
+	int ret = 0;
+	int ret_all = 0;
+
 	ENABLE_CLK(clk_top_dsp_sel);
 	ENABLE_CLK(clk_top_dsp7_sel);
 	//ENABLE_CLK(clk_top_ipu_if_sel);
 
 	//enable_pll();
 
-	LOG_DBG("%s\n", __func__);
+	if (ret_all)
+		LOG_ERR("%s, ret = %d\n", __func__, ret_all);
+	else
+		LOG_DBG("%s, ret = %d\n", __func__, ret_all);
+
+	return ret_all;
 }
 
-void enable_apu_device_clksrc(enum DVFS_USER user)
+int enable_apu_device_clksrc(enum DVFS_USER user)
 {
+	int ret = 0;
+	int ret_all = 0;
+
 	switch (user) {
 	case VPU0:
 		ENABLE_CLK(clk_top_dsp1_sel);
@@ -345,12 +365,24 @@ void enable_apu_device_clksrc(enum DVFS_USER user)
 		break;
 	default:
 		LOG_ERR("%s illegal DVFS_USER: %d\n", __func__, user);
+		ret_all = -1;
 	}
-	LOG_DBG("%s for DVFS_USER: %d\n", __func__, user);
+
+	if (ret_all)
+		LOG_ERR("%s for DVFS_USER: %d, ret = %d\n",
+						__func__, user, ret_all);
+	else
+		LOG_DBG("%s for DVFS_USER: %d, ret = %d\n",
+						__func__, user, ret_all);
+
+	return ret_all;
 }
 
-void enable_apu_conn_vcore_clock(void)
+int enable_apu_conn_vcore_clock(void)
 {
+	int ret = 0;
+	int ret_all = 0;
+
 	ENABLE_CLK(clk_apusys_vcore_ahb_cg);
 	ENABLE_CLK(clk_apusys_vcore_axi_cg);
 	ENABLE_CLK(clk_apusys_vcore_adl_cg);
@@ -373,12 +405,21 @@ void enable_apu_conn_vcore_clock(void)
 	ENABLE_CLK(clk_apu_conn_iommu_0_cg);
 	ENABLE_CLK(clk_apu_conn_iommu_1_cg);
 	ENABLE_CLK(clk_apu_conn_md32_32k_cg);
-	LOG_DBG("%s\n", __func__);
+
+	if (ret_all)
+		LOG_ERR("%s, ret = %d\n", __func__, ret_all);
+	else
+		LOG_DBG("%s, ret = %d\n", __func__, ret_all);
+
+	return ret_all;
 }
 
 //per user
-void enable_apu_device_clock(enum DVFS_USER user)
+int enable_apu_device_clock(enum DVFS_USER user)
 {
+	int ret = 0;
+	int ret_all = 0;
+
 	switch (user) {
 	case VPU0:
 		ENABLE_CLK(clk_apu_core0_jtag_cg);
@@ -431,9 +472,16 @@ void enable_apu_device_clock(enum DVFS_USER user)
 		break;
 	default:
 		LOG_ERR("%s illegal DVFS_USER: %d\n", __func__, user);
+		ret_all = -1;
 	}
 
-	LOG_DBG("%s for DVFS_USER: %d\n", __func__, user);
+	if (ret_all)
+		LOG_ERR("%s for DVFS_USER: %d, ret = %d\n",
+						__func__, user, ret_all);
+	else
+		LOG_DBG("%s for DVFS_USER: %d, ret = %d\n",
+						__func__, user, ret_all);
+	return ret_all;
 }
 
 void disable_apu_conn_vcore_clock(void)
@@ -522,7 +570,7 @@ void disable_apu_device_clock(enum DVFS_USER user)
 	LOG_DBG("%s for DVFS_USER: %d\n", __func__, user);
 }
 
-void disable_apu_conn_vcore_clksrc(void)
+void disable_apu_conn_clksrc(void)
 {
 	//disable_pll();
 

@@ -263,11 +263,10 @@ static int init_power_resource(void *param)
 		is_apu_power_initilized = 1;
 	}
 	enable_apu_vcore_clksrc();
-	enable_apu_conn_vcore_clksrc();
+	enable_apu_conn_clksrc();
 	hw_init_setting();
-	set_apu_clock_source(DVFS_FREQ_00_026000_F,
-		V_VCORE);
-	disable_apu_conn_vcore_clksrc();
+	set_apu_clock_source(DVFS_FREQ_00_026000_F, V_VCORE);
+	disable_apu_conn_clksrc();
 
 	buck_control(VPU0, 3); // buck on
 	udelay(100);
@@ -395,6 +394,7 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 	unsigned int domain_idx = 0;
 	unsigned int regValue = 0;
 	int retry = 0;
+	int ret = 0;
 
 	LOG_INF("%s , user: %d , enable: %d\n", __func__, user, enable);
 
@@ -420,27 +420,27 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 			LOG_WRN("%s enable wakeup signal\n", __func__);
 
 
-			enable_apu_conn_vcore_clksrc();
-			set_apu_clock_source(DVFS_FREQ_00_208000_F,
-				V_VCORE);
+			ret |= enable_apu_conn_clksrc();
+			ret |= set_apu_clock_source(DVFS_FREQ_00_208000_F,
+								V_VCORE);
 
 			// CCF API assist to enable clock source of apu conn
-			enable_apu_mtcmos(1);
+			ret |= enable_apu_mtcmos(1);
 
 			// wait for conn mtcmos enable ready
-			rpc_power_status_check(0, 1);
+			ret |= rpc_power_status_check(0, 1);
 
 			// clear inner dummy CG (true enable but bypass disable)
-			enable_apu_conn_vcore_clock();
+			ret |= enable_apu_conn_vcore_clock();
 
 			force_pwr_on = 0;
 			conn_mtcmos_on = 1;
 		}
 
 		// EDMA do not need to control mtcmos by rpc
-		if (user < APUSYS_DVFS_USER_NUM) {
+		if (user < APUSYS_DVFS_USER_NUM && !ret) {
 			// enable clock source of this device first
-			enable_apu_device_clksrc(user);
+			ret |= enable_apu_device_clksrc(user);
 
 			do {
 				rpc_fifo_check();
@@ -491,7 +491,7 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 			// inner dummy cg won't be gated when you call disable
 			disable_apu_conn_vcore_clock();
 
-			enable_apu_mtcmos(0);
+			ret |= enable_apu_mtcmos(0);
 			//udelay(100);
 
 			// mask RPC IRQ and bypass WFI
@@ -504,34 +504,35 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 			regValue |= 0x1;
 			DRV_WriteReg32(APU_RPC_TOP_CON, regValue);
 
-			rpc_power_status_check(0, 0);
+			ret |= rpc_power_status_check(0, 0);
 
-			set_apu_clock_source(DVFS_FREQ_00_026000_F,
-				V_VCORE);
-			disable_apu_conn_vcore_clksrc();
+			ret |= set_apu_clock_source(DVFS_FREQ_00_026000_F,
+								V_VCORE);
+			disable_apu_conn_clksrc();
 
 			force_pwr_off = 0;
 			conn_mtcmos_on = 0;
 		}
 	}
 
-	return 0;
+	return ret;
 }
 
 static int set_power_clock(enum DVFS_USER user, void *param)
 {
+	int ret = 0;
 #ifndef MTK_FPGA_PORTING
 	int enable = ((struct hal_param_clk *)param)->enable;
 
 	LOG_DBG("%s , user: %d , enable: %d\n", __func__, user, enable);
 
 	if (enable)
-		enable_apu_device_clock(user);
+		ret = enable_apu_device_clock(user);
 	else
 		// inner dummy cg won't be gated when you call disable
 		disable_apu_device_clock(user);
 #endif
-	return 0;
+	return ret;
 }
 
 static int set_power_frequency(void *param)
@@ -730,8 +731,13 @@ static int set_power_boot_up(enum DVFS_USER user, void *param)
 	if (!ret && user < APUSYS_DVFS_USER_NUM) {
 		// Set cg enable
 		clk_data.enable = 1;
-		ret = set_power_clock(user, (void *)&clk_data);
+		ret |= set_power_clock(user, (void *)&clk_data);
 	}
+
+	if (ret)
+		LOG_ERR("%s fail, ret = %d\n", __func__, ret);
+	else
+		LOG_DBG("%s pass, ret = %d\n", __func__, ret);
 
 	power_on_counter++;
 	return ret;
@@ -755,12 +761,17 @@ static int set_power_shut_down(enum DVFS_USER user, void *param)
 
 	// Set mtcmos disable
 	mtcmos_data.enable = 0;
-	ret = set_power_mtcmos(user, (void *)&mtcmos_data);
+	ret |= set_power_mtcmos(user, (void *)&mtcmos_data);
 
 	if (power_on_counter == 1 && buck_already_on) {
 		buck_control(user, 0); // buck off
 		buck_already_on = 0;
 	}
+
+	if (ret)
+		LOG_ERR("%s fail, ret = %d\n", __func__, ret);
+	else
+		LOG_DBG("%s pass, ret = %d\n", __func__, ret);
 
 	power_on_counter--;
 	return ret;
@@ -770,15 +781,18 @@ static int apusys_power_reg_dump(void)
 {
 	unsigned int regVal = 0x0;
 
+	// keep 26M vcore clk make we can dump reg directly
+#if 0
 	if (conn_mtcmos_on == 0) {
 		LOG_ERR("APUREG APU_RPC_INTF_PWR_RDY dump fail (mtcmos off)\n");
 		return -1;
 	}
-
+#endif
 	regVal = DRV_Reg32(APU_RPC_INTF_PWR_RDY);
 
 	// dump mtcmos status
-	LOG_WRN("APUREG APU_RPC_INTF_PWR_RDY = 0x%x\n", regVal);
+	LOG_WRN("APUREG APU_RPC_INTF_PWR_RDY = 0x%x, conn_mtcmos_on = %d\n",
+							regVal, conn_mtcmos_on);
 
 	if (((regVal & BIT(0))) == 0x1) {
 		LOG_WRN("APUREG APU_VCORE_CG_CON = 0x%x\n",
