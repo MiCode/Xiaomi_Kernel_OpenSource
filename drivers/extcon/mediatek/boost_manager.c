@@ -19,6 +19,7 @@
 #include <linux/pinctrl/consumer.h>
 #include <linux/seq_file.h>
 #include <linux/uaccess.h>
+#include <linux/pm_wakeup.h>
 
 #if CONFIG_MTK_GAUGE_VERSION == 30
 #include <mtk_gauge_time_service.h>
@@ -33,7 +34,7 @@ struct usbotg_boost {
 	struct alarm otg_timer;
 	struct timespec endtime;
 	struct workqueue_struct *boost_workq;
-	struct work_struct kick_work;
+	struct delayed_work kick_work;
 	unsigned int polling_interval;
 	bool polling_enabled;
 #endif
@@ -52,8 +53,6 @@ static void usbotg_alarm_start_timer(struct usbotg_boost *info)
 	info->endtime = timespec_add(time_now, time);
 
 	ktime = ktime_set(info->endtime.tv_sec, info->endtime.tv_nsec);
-
-	pr_info("%s: alarm timer start\n", __func__);
 	alarm_start(&info->otg_timer, ktime);
 }
 
@@ -73,7 +72,8 @@ static void enable_boost_polling(bool poll_en)
 static void usbotg_boost_kick_work(struct work_struct *work)
 {
 	struct usbotg_boost *usb_boost_manager =
-		container_of(work, struct usbotg_boost, kick_work);
+		container_of(work, struct usbotg_boost, kick_work.work);
+	struct device *dev = &usb_boost_manager->pdev->dev;
 
 	pr_info("%s\n", __func__);
 
@@ -81,6 +81,9 @@ static void usbotg_boost_kick_work(struct work_struct *work)
 
 	if (usb_boost_manager->polling_enabled == true)
 		usbotg_alarm_start_timer(usb_boost_manager);
+
+	/* release wakelock */
+	pm_relax(dev);
 }
 
 static enum alarmtimer_restart
@@ -88,9 +91,14 @@ static enum alarmtimer_restart
 {
 	struct usbotg_boost *usb_boost_manager =
 		container_of(alarm, struct usbotg_boost, otg_timer);
+	struct device *dev = &usb_boost_manager->pdev->dev;
 
-	queue_work(usb_boost_manager->boost_workq,
-		&usb_boost_manager->kick_work);
+	/* active wakelock */
+	pm_stay_awake(dev);
+
+	/* delay 100ms waiting i2c resume */
+	queue_delayed_work(usb_boost_manager->boost_workq,
+		&usb_boost_manager->kick_work, msecs_to_jiffies(100));
 
 	return ALARMTIMER_NORESTART;
 }
@@ -152,7 +160,7 @@ static int usbotg_boost_probe(struct platform_device *pdev)
 
 	info->polling_interval = 30;
 	info->boost_workq = create_singlethread_workqueue("boost_workq");
-	INIT_WORK(&info->kick_work, usbotg_boost_kick_work);
+	INIT_DELAYED_WORK(&info->kick_work, usbotg_boost_kick_work);
 #endif
 	g_info = info;
 	return 0;
