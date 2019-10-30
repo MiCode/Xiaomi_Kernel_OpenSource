@@ -593,12 +593,8 @@ int md_cd_soft_power_on(struct ccci_modem *md, unsigned int mode)
 	return 0;
 }
 
-#define BRINGUP_BYPASS_BROM
 int md_start_platform(struct ccci_modem *md)
 {
-#ifndef BRINGUP_BYPASS_BROM
-	struct device_node *node = NULL;
-	void __iomem *sec_ao_base = NULL;
 	int timeout = 100; /* 100 * 20ms = 2s */
 	int ret = -1;
 	int retval = 0;
@@ -606,30 +602,15 @@ int md_start_platform(struct ccci_modem *md)
 	if ((md->per_md_data.config.setting&MD_SETTING_FIRST_BOOT) == 0)
 		return 0;
 
-	node = of_find_compatible_node(NULL, NULL, "mediatek,security_ao");
-	if (node) {
-		sec_ao_base = of_iomap(node, 0);
-		if (sec_ao_base == NULL) {
-			CCCI_ERROR_LOG(md->index, TAG, "sec_ao_base NULL\n");
-			return -1;
-		}
-	} else {
-		CCCI_ERROR_LOG(md->index, TAG, "sec_ao NULL\n");
-		return -1;
-	}
-
 	while (timeout > 0) {
-		if (ccci_read32(sec_ao_base, 0x824) == 0x01 &&
-			ccci_read32(sec_ao_base, 0x828) == 0x01 &&
-			ccci_read32(sec_ao_base, 0x82C) == 0x01 &&
-			ccci_read32(sec_ao_base, 0x830) == 0x01) {
+		ret = mt_secure_call(MD_POWER_CONFIG, MD_READ_STATUS,
+					0, 0, 0, 0, 0);
+		if (!ret)
 			CCCI_BOOTUP_LOG(md->index, TAG, "BROM Pass\n");
-			ret = 0;
-			break;
+		break;
 		}
 		timeout--;
 		msleep(20);
-	}
 
 	CCCI_BOOTUP_LOG(md->index, TAG, "dummy md sys clk\n");
 	retval = clk_prepare_enable(clk_table[0].clk_ref); /* match lk on */
@@ -639,21 +620,14 @@ int md_start_platform(struct ccci_modem *md)
 	CCCI_BOOTUP_LOG(md->index, TAG, "dummy md sys clk done\n");
 	md_cd_dump_md_bootup_status(md);
 
-	md_cd_power_off(md, 0);
-
 	if (ret != 0) {
 		/* BROM */
-		CCCI_ERROR_LOG(md->index, TAG,
-			"BROM Failed: 0x%x, 0x%x, 0x%x, 0x%x\n",
-			ccci_read32(sec_ao_base, 0x824),
-			ccci_read32(sec_ao_base, 0x828),
-			ccci_read32(sec_ao_base, 0x82C),
-			ccci_read32(sec_ao_base, 0x830));
+		CCCI_ERROR_LOG(md->index, TAG, "BROM Failed\n");
+		mt_secure_call(MD_POWER_CONFIG, MD_READ_STATUS,
+				0, 0, 0, 0, 0);
 	}
-
+	md_cd_power_off(md, 0);
 	return ret;
-#endif
-	return 0;
 }
 
 
@@ -681,9 +655,6 @@ int md_cd_power_on(struct ccci_modem *md)
 {
 	int ret = 0;
 	unsigned int reg_value;
-#ifdef BRINGUP_BYPASS_BROM
-	void __iomem *md_peri_base;
-#endif
 
 	/* step 1: PMIC setting */
 	md1_pmic_setting_on();
@@ -720,14 +691,6 @@ int md_cd_power_on(struct ccci_modem *md)
 	/* notify NFC */
 	inform_nfc_vsim_change(md->index, 1, 0);
 #endif
-#ifdef BRINGUP_BYPASS_BROM
-	#define MDPERIMISC_BASE    (0x20061000)
-	md_peri_base = ioremap_nocache(MDPERIMISC_BASE, 0x200);
-	ccci_write32(md_peri_base, 0x010C, 0x5500);
-	ccci_write32(md_peri_base, 0x0104, 0x0);
-	ccci_write32(md_peri_base, 0x0108, 0x1);
-	iounmap(md_peri_base);
-#endif
 	return 0;
 }
 
@@ -738,17 +701,17 @@ int md_cd_bootup_cleanup(struct ccci_modem *md, int success)
 
 int md_cd_let_md_go(struct ccci_modem *md)
 {
-	struct md_sys1_info *md_info = (struct md_sys1_info *)md->private_data;
+	int kernel_secure_ret;
 
 	if (MD_IN_DEBUG(md))
 		return -1;
 	CCCI_BOOTUP_LOG(md->index, TAG, "set MD boot slave\n");
 
 	/* make boot vector take effect */
-	ccci_write32(md_info->md_boot_slave_En, 0, 1);
-	CCCI_BOOTUP_LOG(md->index, TAG,
-		"MD boot slave = 0x%x\n",
-		ccci_read32(md_info->md_boot_slave_En, 0));
+	kernel_secure_ret = mt_secure_call(MD_POWER_CONFIG, MD_KERNEL_BOOT_UP,
+						0, 0, 0, 0, 0);
+	CCCI_BOOTUP_LOG(md->index, TAG, "kernel_secure_ret=%d\n",
+				kernel_secure_ret);
 
 	return 0;
 }
