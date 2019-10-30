@@ -1791,7 +1791,7 @@ static void cmdq_buf_print_write(char *text, u32 txt_sz,
 		addr = cmdq_inst->arg_a & 0xfffc;
 
 		snprintf(text, txt_sz,
-			"%#06x %#018llx [Write ] addr(low) %#06x = %s%#010x%s",
+			"%#06x %#018llx [Write] addr(low) %#06x = %s%#010x%s",
 			offset, *((u64 *)cmdq_inst),
 			addr, CMDQ_REG_IDX_PREFIX(cmdq_inst->arg_b_type),
 			cmdq_inst->arg_b_type ? cmdq_inst->arg_b :
@@ -1803,7 +1803,7 @@ static void cmdq_buf_print_write(char *text, u32 txt_sz,
 			(cmdq_inst->s_op << CMDQ_SUBSYS_SHIFT)));
 
 		snprintf(text, txt_sz,
-			"%#06x %#018llx [Write ] %s%#010x = %s%#010x%s",
+			"%#06x %#018llx [Write] %s%#010x = %s%#010x%s",
 			offset, *((u64 *)cmdq_inst),
 			cmdq_inst->arg_a_type ? "*Reg Index " : "SubSys Reg ",
 			addr, CMDQ_REG_IDX_PREFIX(cmdq_inst->arg_b_type),
