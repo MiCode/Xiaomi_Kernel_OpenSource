@@ -165,9 +165,6 @@ static int s_g_curr_ccci_fo_version;
 #define MD_CAP_CDMA2000_AT_MD	(1<<2)
 #define MD_CAP_NR_AT_MD		(1<<6)
 
-#define LEGACY_UBIN_START_ID	(8)
-#define LEGACY_UBIN_END_ID	(24)
-
 static const unsigned int ubin_convert_table_src[] = {
 	(MD_CAP_GSM|MD_CAP_TDD_LTE|MD_CAP_FDD_LTE|MD_CAP_CDMA2000),
 	(MD_CAP_GSM|MD_CAP_WCDMA|MD_CAP_CDMA2000)
@@ -177,6 +174,58 @@ static const unsigned int ubin_convert_table_des[] = {
 	(MD_CAP_GSM|MD_CAP_WCDMA|MD_CAP_TDD_LTE|MD_CAP_FDD_LTE|MD_CAP_CDMA2000),
 	(MD_CAP_GSM|MD_CAP_WCDMA|MD_CAP_TDD_LTE|MD_CAP_FDD_LTE|MD_CAP_CDMA2000)
 };
+
+static const unsigned int legacy_ubin_rat_map[] = {
+	/* ultg */
+	(MD_CAP_FDD_LTE|MD_CAP_TDD_LTE|MD_CAP_TDS_CDMA|MD_CAP_GSM),
+	/* ulwg */
+	(MD_CAP_FDD_LTE|MD_CAP_TDD_LTE|MD_CAP_WCDMA|MD_CAP_GSM),
+	/* ulwtg */
+	(MD_CAP_FDD_LTE|MD_CAP_TDD_LTE|MD_CAP_WCDMA|MD_CAP_TDS_CDMA|MD_CAP_GSM),
+	/* ulwcg */
+	(MD_CAP_FDD_LTE|MD_CAP_TDD_LTE|MD_CAP_WCDMA|MD_CAP_CDMA2000|MD_CAP_GSM),
+	/* ulwctg */
+	(MD_CAP_FDD_LTE|MD_CAP_TDD_LTE|MD_CAP_WCDMA|MD_CAP_CDMA2000
+	|MD_CAP_TDS_CDMA|MD_CAP_GSM),
+	/* ulttg */
+	(MD_CAP_TDD_LTE|MD_CAP_TDS_CDMA|MD_CAP_GSM),
+	/* ulfwg */
+	(MD_CAP_FDD_LTE|MD_CAP_WCDMA|MD_CAP_GSM),
+	/* ulfwcg */
+	(MD_CAP_FDD_LTE|MD_CAP_WCDMA|MD_CAP_CDMA2000|MD_CAP_GSM),
+	/* ulctg */
+	(MD_CAP_FDD_LTE|MD_CAP_TDD_LTE|MD_CAP_CDMA2000|MD_CAP_TDS_CDMA
+	|MD_CAP_GSM),
+	/* ultctg */
+	(MD_CAP_TDD_LTE|MD_CAP_CDMA2000|MD_CAP_TDS_CDMA|MD_CAP_GSM),
+	/*ultwg */
+	(MD_CAP_TDD_LTE|MD_CAP_WCDMA|MD_CAP_GSM),
+	/* ultwcg */
+	(MD_CAP_TDD_LTE|MD_CAP_WCDMA|MD_CAP_CDMA2000|MD_CAP_GSM),
+	/* ulftg */
+	(MD_CAP_FDD_LTE|MD_CAP_TDS_CDMA|MD_CAP_GSM),
+	/* ulfctg */
+	(MD_CAP_FDD_LTE|MD_CAP_CDMA2000|MD_CAP_TDS_CDMA|MD_CAP_GSM),
+	/* unlwg */
+	(MD_CAP_NR|MD_CAP_FDD_LTE|MD_CAP_TDD_LTE|MD_CAP_WCDMA
+	|MD_CAP_GSM),
+	/* unlwtg */
+	(MD_CAP_NR|MD_CAP_FDD_LTE|MD_CAP_TDD_LTE|MD_CAP_WCDMA
+	|MD_CAP_TDS_CDMA|MD_CAP_GSM),
+	/* unlwctg */
+	(MD_CAP_NR|MD_CAP_FDD_LTE|MD_CAP_TDD_LTE|MD_CAP_WCDMA|MD_CAP_CDMA2000
+	|MD_CAP_TDS_CDMA|MD_CAP_GSM),
+	/* unlwcg */
+	(MD_CAP_NR|MD_CAP_FDD_LTE|MD_CAP_TDD_LTE|MD_CAP_WCDMA
+	|MD_CAP_CDMA2000|MD_CAP_GSM),
+	/* unltctg */
+	(MD_CAP_NR|MD_CAP_TDD_LTE|MD_CAP_CDMA2000
+	|MD_CAP_TDS_CDMA|MD_CAP_GSM),
+};
+
+#define LEGACY_UBIN_START_ID	(8)
+#define LEGACY_UBIN_NUM (ARRAY_SIZE(legacy_ubin_rat_map))
+#define LEGACY_UBIN_END_ID	(LEGACY_UBIN_START_ID + LEGACY_UBIN_NUM - 1)
 
 static unsigned int compatible_convert(unsigned int src_rat)
 {
@@ -223,48 +272,6 @@ static unsigned int ap_rat_bitmap_to_md_bitmap(unsigned int rat_cfg)
 
 	return md_rat_cfg;
 }
-
-static unsigned int legacy_ubin_rat_map[] = {
-	/* ultg */
-	(MD_CAP_FDD_LTE|MD_CAP_TDD_LTE|MD_CAP_TDS_CDMA|MD_CAP_GSM),
-	/* ulwg */
-	(MD_CAP_FDD_LTE|MD_CAP_TDD_LTE|MD_CAP_WCDMA|MD_CAP_GSM),
-	/* ulwtg */
-	(MD_CAP_FDD_LTE|MD_CAP_TDD_LTE|MD_CAP_WCDMA|MD_CAP_TDS_CDMA|MD_CAP_GSM),
-	/* ulwcg */
-	(MD_CAP_FDD_LTE|MD_CAP_TDD_LTE|MD_CAP_WCDMA|MD_CAP_CDMA2000|MD_CAP_GSM),
-	/* ulwctg */
-	(MD_CAP_FDD_LTE|MD_CAP_TDD_LTE|MD_CAP_WCDMA|MD_CAP_CDMA2000
-	|MD_CAP_TDS_CDMA|MD_CAP_GSM),
-	/* ulttg */
-	(MD_CAP_TDD_LTE|MD_CAP_TDS_CDMA|MD_CAP_GSM),
-	/* ulfwg */
-	(MD_CAP_FDD_LTE|MD_CAP_WCDMA|MD_CAP_GSM),
-	/* ulfwcg */
-	(MD_CAP_FDD_LTE|MD_CAP_WCDMA|MD_CAP_CDMA2000|MD_CAP_GSM),
-	/* ulctg */
-	(MD_CAP_FDD_LTE|MD_CAP_TDD_LTE|MD_CAP_CDMA2000|MD_CAP_TDS_CDMA
-	|MD_CAP_GSM),
-	/* ultctg */
-	(MD_CAP_TDD_LTE|MD_CAP_CDMA2000|MD_CAP_TDS_CDMA|MD_CAP_GSM),
-	/*ultwg */
-	(MD_CAP_TDD_LTE|MD_CAP_WCDMA|MD_CAP_GSM),
-	/* ultwcg */
-	(MD_CAP_TDD_LTE|MD_CAP_WCDMA|MD_CAP_CDMA2000|MD_CAP_GSM),
-	/* ulftg */
-	(MD_CAP_FDD_LTE|MD_CAP_TDS_CDMA|MD_CAP_GSM),
-	/* ulfctg */
-	(MD_CAP_FDD_LTE|MD_CAP_CDMA2000|MD_CAP_TDS_CDMA|MD_CAP_GSM),
-	/* unlwg */
-	(MD_CAP_NR|MD_CAP_FDD_LTE|MD_CAP_TDD_LTE|MD_CAP_WCDMA
-	|MD_CAP_GSM),
-	/* unlwtg */
-	(MD_CAP_NR|MD_CAP_FDD_LTE|MD_CAP_TDD_LTE|MD_CAP_WCDMA
-	|MD_CAP_TDS_CDMA|MD_CAP_GSM),
-	/* ulwctg */
-	(MD_CAP_NR|MD_CAP_FDD_LTE|MD_CAP_TDD_LTE|MD_CAP_WCDMA|MD_CAP_CDMA2000
-	|MD_CAP_TDS_CDMA|MD_CAP_GSM),
-};
 
 static unsigned int ubin_md_support_id_to_rat(int md_support_id)
 {
@@ -2151,7 +2158,9 @@ int __init ccci_util_fo_init(void)
 
 	CCCI_UTIL_INF_MSG("Dump default setting(@P/K)\n");
 	ccci_dump_opt_tbl();
-
+	CCCI_UTIL_INF_MSG("ubin: num(%d),start(%d), end(%d)\n",
+			LEGACY_UBIN_NUM, LEGACY_UBIN_START_ID,
+			LEGACY_UBIN_END_ID);
 	if (collect_lk_boot_arguments() == 0) {
 		CCCI_UTIL_INF_MSG("using v3.\n");
 		return 0;
