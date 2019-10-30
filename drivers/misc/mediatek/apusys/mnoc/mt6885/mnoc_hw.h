@@ -171,6 +171,14 @@ enum rt_int_sta {
 #define QG_LT_THL_PRE_ULTRA (0x1FFF)
 #define QG_LT_THH_PRE_ULTRA (0x1FFF)
 
+struct mnoc_int_dump {
+	uint32_t count;
+	uint32_t mni_int_sta[NR_MNI_INT_STA];
+	uint32_t sni_int_sta[NR_SNI_INT_STA];
+	uint32_t rt_int_sta[NR_RT_INT_STA];
+	uint32_t sw_irq_sta;
+};
+
 bool mnoc_check_int_status(void);
 int apusys_dev_to_core_id(int dev_type, int dev_core);
 void mnoc_get_pmu_counter(unsigned int *buf);
@@ -183,5 +191,6 @@ void infra2apu_sram_en(void);
 void infra2apu_sram_dis(void);
 void apu2infra_bus_protect_en(void);
 void apu2infra_bus_protect_dis(void);
+void print_int_sta(struct seq_file *m);
 
 #endif

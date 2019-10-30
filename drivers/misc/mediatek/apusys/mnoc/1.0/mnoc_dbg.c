@@ -419,6 +419,14 @@ static int mnoc_cmd_qos_dump_show(struct seq_file *m, void *v)
 	return 0;
 }
 
+static int mnoc_int_sta_dump_show(struct seq_file *m, void *v)
+{
+	seq_puts(m, "Print interrupt count and last snapshot\n");
+	print_int_sta(m);
+
+	return 0;
+}
+
 #define DBG_FOPS_RW(name)						\
 	struct dentry *dentry_ ## name;				\
 	static int name ## _open(struct inode *inode,		\
@@ -473,6 +481,7 @@ DBG_FOPS_RW(mnoc_cmd_qos_end);
 DBG_FOPS_RW(mnoc_tcm_endis);
 #endif
 DBG_FOPS_RO(mnoc_cmd_qos_dump);
+DBG_FOPS_RO(mnoc_int_sta_dump);
 
 struct dentry *mnoc_dbg_root;
 
@@ -500,6 +509,7 @@ int create_debugfs(void)
 	CREATE_DBGFS(mnoc_tcm_endis);
 #endif
 	CREATE_DBGFS(mnoc_cmd_qos_dump);
+	CREATE_DBGFS(mnoc_int_sta_dump);
 
 	LOG_DEBUG("-\n");
 

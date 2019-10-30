@@ -21,6 +21,7 @@
 #include <linux/printk.h>
 #include <linux/io.h>
 #include <linux/spinlock.h>
+#include <linux/seq_file.h>
 
 #include "apusys_device.h"
 #include "mnoc_hw.h"
@@ -159,6 +160,8 @@ static char mni_map[NR_APU_QOS_MNI] = {6, 10, 11, 0, 1, 2, 3, 7, 8, 12};
 
 static bool arr_mni_pre_ultra[NR_APU_QOS_MNI] = {0};
 static bool arr_mni_lt_guardian_pre_ultra[NR_APU_QOS_MNI] = {0};
+
+static struct mnoc_int_dump mnoc_int_dump;
 
 
 int apusys_dev_to_core_id(int dev_type, int dev_core)
@@ -312,7 +315,6 @@ static void mnoc_reg_init(void)
 }
 
 /*
- * todo: extinguish mnoc irq0 and irq1 for better efficiency?
  * GIC SPI IRQ 406 is shared, need to return IRQ_NONE
  * if not triggered by mnoc
  */
@@ -326,9 +328,15 @@ bool mnoc_check_int_status(void)
 
 	LOG_DEBUG("APUSYS INT STA = 0x%x\n", mnoc_read(APUSYS_INT_STA));
 
+	if ((mnoc_read(APUSYS_INT_STA) & MNOC_INT_MAP) == 0)
+		return mnoc_irq_triggered;
+
+	mnoc_int_dump.count++;
+
 	for (int_idx = 0; int_idx < NR_MNI_INT_STA; int_idx++) {
 		val = mnoc_read(MNOC_REG(mni_int_sta_offset[int_idx]));
 		if ((val & 0xFFFF) != 0) {
+			mnoc_int_dump.mni_int_sta[int_idx] = val;
 			LOG_DEBUG("%s = 0x%x\n",
 				mni_int_sta_string[int_idx], val);
 			for (ni_idx = 0; ni_idx < NR_MNOC_MNI; ni_idx++)
@@ -345,6 +353,7 @@ bool mnoc_check_int_status(void)
 	for (int_idx = 0; int_idx < NR_SNI_INT_STA; int_idx++) {
 		val = mnoc_read(MNOC_REG(sni_int_sta_offset[int_idx]));
 		if ((val & 0xFFFF) != 0) {
+			mnoc_int_dump.sni_int_sta[int_idx] = val;
 			LOG_DEBUG("%s = 0x%x\n",
 				sni_int_sta_string[int_idx], val);
 			for (ni_idx = 0; ni_idx < NR_MNOC_SNI; ni_idx++)
@@ -361,6 +370,7 @@ bool mnoc_check_int_status(void)
 	for (int_idx = 0; int_idx < NR_MNI_INT_STA; int_idx++) {
 		val = mnoc_read(MNOC_REG(rt_int_sta_offset[int_idx]));
 		if ((val & 0x1F) != 0) {
+			mnoc_int_dump.rt_int_sta[int_idx] = val;
 			LOG_DEBUG("%s = 0x%x\n",
 				rt_int_sta_string[int_idx], val);
 			for (ni_idx = 0; ni_idx < NR_MNOC_RT; ni_idx++)
@@ -376,6 +386,7 @@ bool mnoc_check_int_status(void)
 	/* additional check: sw triggered irq */
 	val = mnoc_read_field(MNOC_REG(MISC_CTRL), 18:16);
 	if (val != 0) {
+		mnoc_int_dump.sw_irq_sta = val;
 		LOG_DEBUG("From SW_IRQ = 0x%x\n", val);
 		mnoc_write_field(MNOC_REG(MISC_CTRL),
 			18:16, 0x0);
@@ -710,6 +721,17 @@ void mnoc_hw_reinit(void)
 	unsigned long flags;
 	int idx;
 
+	LOG_DEBUG("+\n");
+
+	mnoc_int_dump.count = 0;
+	for (idx = 0; idx < NR_MNI_INT_STA; idx++)
+		mnoc_int_dump.mni_int_sta[idx] = 0;
+	for (idx = 0; idx < NR_SNI_INT_STA; idx++)
+		mnoc_int_dump.sni_int_sta[idx] = 0;
+	for (idx = 0; idx < NR_RT_INT_STA; idx++)
+		mnoc_int_dump.rt_int_sta[idx] = 0;
+	mnoc_int_dump.sw_irq_sta = 0;
+
 	mnoc_qos_reg_init();
 	mnoc_reg_init();
 
@@ -721,4 +743,31 @@ void mnoc_hw_reinit(void)
 			set_lt_guardian_pre_ultra_locked(idx, 1);
 	}
 	spin_unlock_irqrestore(&mnoc_spinlock, flags);
+
+	LOG_DEBUG("-\n");
+}
+
+/*
+ * print mnoc interrupt count and
+ * last snapshot when each type of interrupt happened
+ */
+void print_int_sta(struct seq_file *m)
+{
+	int idx;
+
+	seq_printf(m, "count = %d\n", mnoc_int_dump.count);
+
+	for (idx = 0; idx < NR_MNI_INT_STA; idx++)
+		seq_printf(m, "%s = 0x%x\n", mni_int_sta_string[idx],
+			mnoc_int_dump.mni_int_sta[idx]);
+
+	for (idx = 0; idx < NR_SNI_INT_STA; idx++)
+		seq_printf(m, "%s = 0x%x\n", sni_int_sta_string[idx],
+			mnoc_int_dump.sni_int_sta[idx]);
+
+	for (idx = 0; idx < NR_RT_INT_STA; idx++)
+		seq_printf(m, "%s = 0x%x\n", rt_int_sta_string[idx],
+			mnoc_int_dump.rt_int_sta[idx]);
+
+	seq_printf(m, "sw_irq_sta = 0x%x\n", mnoc_int_dump.sw_irq_sta);
 }
