@@ -605,13 +605,13 @@ int md_start_platform(struct ccci_modem *md)
 	while (timeout > 0) {
 		ret = mt_secure_call(MD_POWER_CONFIG, MD_READ_STATUS,
 					0, 0, 0, 0, 0);
-		if (!ret)
+		if (!ret) {
 			CCCI_BOOTUP_LOG(md->index, TAG, "BROM Pass\n");
-		break;
+			break;
 		}
 		timeout--;
 		msleep(20);
-
+	}
 	CCCI_BOOTUP_LOG(md->index, TAG, "dummy md sys clk\n");
 	retval = clk_prepare_enable(clk_table[0].clk_ref); /* match lk on */
 	if (retval)
