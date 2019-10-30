@@ -203,6 +203,10 @@ struct ion_heap_ops {
 	int (*phys)(struct ion_heap *heap, struct ion_buffer *buffer,
 		    ion_phys_addr_t *addr, size_t *len);
 	int (*page_pool_total)(struct ion_heap *heap);
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+	void (*get_table)(struct ion_buffer *buffer, struct sg_table *table);
+#endif
 };
 
 /**

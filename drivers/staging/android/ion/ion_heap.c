@@ -83,6 +83,14 @@ int ion_heap_map_user(struct ion_heap *heap, struct ion_buffer *buffer,
 	int i;
 	int ret;
 
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+	if (heap->ops->get_table)
+		heap->ops->get_table(buffer, table);
+	if (!table)
+		return -1;
+#endif
+
 	for_each_sg(table->sgl, sg, table->nents, i) {
 		struct page *page = sg_page(sg);
 		unsigned long remainder = vma->vm_end - addr;
@@ -100,8 +108,8 @@ int ion_heap_map_user(struct ion_heap *heap, struct ion_buffer *buffer,
 		ret = remap_pfn_range(vma, addr, page_to_pfn(page), len,
 				vma->vm_page_prot);
 		if (ret) {
-			IONMSG("%s remap fail 0x%p, %lu, %lu, %lu, %d.\n",
-			       __func__, vma, addr,
+			IONMSG("%s h:%d remap fail 0x%p, %lu, %lu, %lu, %d.\n",
+			       __func__, heap->id, vma, addr,
 			       page_to_pfn(page), len, ret);
 			return ret;
 		}

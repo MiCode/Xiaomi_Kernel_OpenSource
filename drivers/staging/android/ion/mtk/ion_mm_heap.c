@@ -793,7 +793,7 @@ static int ion_mm_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 	if ((buffer_info->module_id == -1) &&
 	    (buffer_info->fix_module_id == -1)) {
-		IONMSG("[%s] warning. Buffer:0x%lx not configured.\n",
+		IONMSG("[%s] warning. Buffer:0x%p not configured.\n",
 		       __func__, buffer);
 		ion_buffer_dump(buffer, NULL);
 		return -EDOM;
@@ -934,7 +934,7 @@ static int ion_mm_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 		buffer_info->mva_cnt++;
 		buffer_info->port[domain_idx] = port_info.emoduleid;
 		IONDBG(
-		       "%d, iova mapping done, buffer:0x%lx, port:%d, mva:0x%lx, fix:0x%lx, return:0x%lx, cnt=%d, domain%d\n",
+		       "%d, iova mapping done, buffer:0x%p, port:%d, mva:0x%lx, fix:0x%lx, return:0x%lx, cnt=%d, domain%d\n",
 		       __LINE__, buffer, buffer_info->port[domain_idx],
 		       buffer_info->MVA[domain_idx],
 		       buffer_info->FIXED_MVA[domain_idx],
@@ -956,7 +956,7 @@ static int ion_mm_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 		buffer->sg_table = &buffer_info->table[domain_idx];
 		IONDBG(
-		       "%d, iova reuse done, module:%d, buffer:0x%lx, port:%d, mva:0x%lx, fix:0x%lx, return:0x%lx, cnt=%d, domain%d\n",
+		       "%d, iova reuse done, module:%d, buffer:0x%p, port:%d, mva:0x%lx, fix:0x%lx, return:0x%lx, cnt=%d, domain%d\n",
 		       __LINE__, buffer, buffer_info->module_id,
 		       buffer_info->port[domain_idx],
 		       buffer_info->MVA[domain_idx],
@@ -989,6 +989,22 @@ out:
 	return ret;
 }
 
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+void ion_mm_heap_get_table(struct ion_buffer *buffer, struct sg_table *table)
+{
+	struct ion_mm_buffer_info *buffer_info = NULL;
+
+	if (!buffer) {
+		table = NULL;
+		return;
+	}
+
+	buffer_info = (struct ion_mm_buffer_info *)buffer->priv_virt;
+	table = buffer_info->table_orig;
+}
+#endif
+
 int ion_mm_heap_pool_total(struct ion_heap *heap)
 {
 	struct ion_system_heap *sys_heap;
@@ -1020,6 +1036,10 @@ static struct ion_heap_ops ion_mm_heap_ops = {
 	.map_user = ion_heap_map_user,
 	.phys = ion_mm_heap_phys,
 	.shrink = ion_mm_heap_shrink,
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+	.get_table = ion_mm_heap_get_table,
+#endif
 };
 
 struct dump_fd_data {
@@ -1942,7 +1962,7 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 				return ret;
 
 			IONDBG(
-			       "config, bf:0x%lx pt%d, dom:%d, tp:%d, clt:%16.s\n",
+			       "config, bf:0x%p pt%d, dom:%d, tp:%d, clt:%16.s\n",
 			       buffer,
 			       param.config_buffer_param.module_id,
 			       domain_idx,
