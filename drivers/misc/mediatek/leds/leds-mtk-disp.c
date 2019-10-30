@@ -398,9 +398,6 @@ static int mtk_leds_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	pr_info("leds_info : %d, %d, %d, %d", sizeof(struct led_desp),
-		nums, sizeof(struct led_desp) * (nums), sizeof(leds_info));
-
 	ret = mtk_leds_parse_dt(&(pdev->dev), m_leds);
 	if (ret) {
 		pr_notice("Failed to parse devicetree!\n");
