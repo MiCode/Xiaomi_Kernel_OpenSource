@@ -837,7 +837,7 @@ static void __mtk_iommu_tlb_add_flush_nosync(
 	}
 #endif
 	start = round_down(iova_start, SZ_4K);
-	end = round_up(iova_end, SZ_4K);
+	end = round_down(iova_end, SZ_4K);
 
 	//0x38 for V1, 0x2c for V2
 	writel_relaxed(F_MMU_INV_EN_L2 | F_MMU_INV_EN_L1,
