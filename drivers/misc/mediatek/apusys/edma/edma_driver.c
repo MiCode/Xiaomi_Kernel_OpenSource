@@ -173,21 +173,25 @@ int edma_send_cmd(int cmd, void *hnd, struct apusys_device *adev)
 	if (adev == NULL)
 		return -EINVAL;
 
-#ifdef DEBUG
-	pr_notice("%s:cmd = %d\n", __func__, cmd);
-#endif
-
 	edma_sub = (struct edma_sub *)adev->private;
+
+#ifdef DEBUG
+		pr_notice("%s:cmd = %d, name = %s\n", __func__,
+		cmd, edma_sub->sub_name);
+#endif
 
 	switch (cmd) {
 	case APUSYS_CMD_POWERON:
+		/*pre-power on*/
+		edma_power_on(edma_sub);
 		break;
 	case APUSYS_CMD_POWERDOWN:
+		edma_power_off(edma_sub, 1);
 		break;
 	case APUSYS_CMD_RESUME:
 		break;
 	case APUSYS_CMD_SUSPEND:
-		edma_power_off(edma_sub);
+		edma_power_off(edma_sub, 1);
 		break;
 	case APUSYS_CMD_EXECUTE:{
 			struct apusys_cmd_hnd *cmd_hnd;

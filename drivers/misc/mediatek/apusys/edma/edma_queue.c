@@ -136,7 +136,7 @@ static int edma_enque_handler(struct edma_request *req,
 		pr_notice("%s: bad command!\n", __func__);
 		ret = -EINVAL;
 	}
-	edma_power_off(edma_sub);
+	edma_power_off(edma_sub, 0);
 
 	return ret;
 }

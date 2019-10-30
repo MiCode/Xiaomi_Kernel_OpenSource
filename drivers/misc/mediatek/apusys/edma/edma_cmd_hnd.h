@@ -33,7 +33,7 @@ int edma_decompress_mode(struct edma_sub *edma_sub, struct edma_request *req);
 int edma_raw_mode(struct edma_sub *edma_sub, struct edma_request *req);
 int edma_ext_mode(struct edma_sub *edma_sub, struct edma_request *req);
 void edma_power_on(struct edma_sub *edma_sub);
-void edma_power_off(struct edma_sub *edma_sub);
+void edma_power_off(struct edma_sub *edma_sub, u8 force);
 #ifdef DEBUG
 int edma_sync_normal_mode(struct edma_device *edma_device,
 						struct edma_request *req);

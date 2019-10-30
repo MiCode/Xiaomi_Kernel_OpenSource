@@ -861,7 +861,7 @@ int edma_sync_normal_mode(struct edma_device *edma_device,
 	}
 
 	unlock_command(edma_sub);
-	edma_power_off(edma_sub);
+	edma_power_off(edma_sub, 0);
 
 	return ret;
 }
@@ -1366,7 +1366,7 @@ int edma_sync_ext_mode(struct edma_device *edma_device,
 	}
 
 	unlock_command(edma_sub);
-	edma_power_off(edma_sub);
+	edma_power_off(edma_sub, 0);
 
 	return ret;
 }
@@ -1403,10 +1403,8 @@ int edma_ext_by_sub(struct edma_sub *edma_sub, struct edma_request *req)
 	edma_sub->ip_time = (((t2.tv_sec - t1.tv_sec) & 0xFFF) * 1000000 +
 		(t2.tv_usec - t1.tv_usec));
 
-	pr_notice("%s:ip time = %d\n", __func__, edma_sub->ip_time);
-
 	unlock_command(edma_sub);
-	edma_power_off(edma_sub);
+	edma_power_off(edma_sub, 0);
 
 	return ret;
 }
@@ -1454,7 +1452,7 @@ void edma_power_time_up(unsigned long data)
 	schedule_work(&edma_device->power_off_work);
 }
 
-void edma_power_off(struct edma_sub *edma_sub)
+void edma_power_off(struct edma_sub *edma_sub, u8 force)
 {
 	struct edma_device *edma_device;
 
@@ -1473,9 +1471,14 @@ void edma_power_off(struct edma_sub *edma_sub)
 		if (timer_pending(&edma_device->power_timer))
 			del_timer(&edma_device->power_timer);
 
-		edma_device->power_timer.expires = jiffies +
-		msecs_to_jiffies(EDMA_POWEROFF_TIME_DEFAULT);
-		add_timer(&edma_device->power_timer);
+		if (force == 1) {
+			apu_device_power_off(EDMA);
+			pr_notice("%s: force power off!!\n", __func__);
+		} else {
+			edma_device->power_timer.expires = jiffies +
+			msecs_to_jiffies(EDMA_POWEROFF_TIME_DEFAULT);
+			add_timer(&edma_device->power_timer);
+		}
 	}
 	mutex_unlock(&edma_device->power_mutex);
 }
@@ -1484,12 +1487,23 @@ int edma_execute(struct edma_sub *edma_sub, struct edma_ext *edma_ext)
 {
 	int ret = 0;
 	struct edma_request req = {0};
+#ifdef DEBUG
+	struct timeval t1, t2;
+	uint32_t exe_time;
 
+	do_gettimeofday(&t1);
+#endif
 	edma_setup_ext_mode_request(&req, edma_ext, EDMA_PROC_EXT_MODE);
 	ret = edma_ext_by_sub(edma_sub, &req);
 
 #ifdef DEBUG
-	pr_notice("%s:function done\n", __func__);
+	do_gettimeofday(&t2);
+
+	exe_time = (((t2.tv_sec - t1.tv_sec) & 0xFFF) * 1000000 +
+		(t2.tv_usec - t1.tv_usec));
+
+	pr_notice("%s:ip time = %d\n", __func__, edma_sub->ip_time);
+	pr_notice("%s:function done, exe_time = %d\n", __func__, exe_time);
 #endif
 	return ret;
 }
