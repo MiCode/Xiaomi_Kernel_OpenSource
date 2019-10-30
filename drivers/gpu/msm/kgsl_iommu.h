@@ -68,12 +68,6 @@ enum kgsl_iommu_reg_map {
 /* Max number of iommu clks per IOMMU unit */
 #define KGSL_IOMMU_MAX_CLKS 5
 
-enum kgsl_iommu_context_id {
-	KGSL_IOMMU_CONTEXT_USER = 0,
-	KGSL_IOMMU_CONTEXT_SECURE = 1,
-	KGSL_IOMMU_CONTEXT_MAX,
-};
-
 /* offset at which a nop command is placed in setstate */
 #define KGSL_IOMMU_SETSTATE_NOP_OFFSET	1024
 
@@ -94,7 +88,6 @@ enum kgsl_iommu_context_id {
 struct kgsl_iommu_context {
 	struct platform_device *pdev;
 	const char *name;
-	enum kgsl_iommu_context_id id;
 	unsigned int cb_num;
 	struct kgsl_device *kgsldev;
 	bool stalled_on_fault;
@@ -104,7 +97,6 @@ struct kgsl_iommu_context {
 
 /*
  * struct kgsl_iommu - Structure holding iommu data for kgsl driver
- * @ctx: Array of kgsl_iommu_context structs
  * @regbase: Virtual address of the IOMMU register base
  * @regstart: Physical address of the iommu registers
  * @regsize: Length of the iommu register region.
@@ -114,7 +106,10 @@ struct kgsl_iommu_context {
  * @smmu_info: smmu info used in a5xx preemption
  */
 struct kgsl_iommu {
-	struct kgsl_iommu_context ctx[KGSL_IOMMU_CONTEXT_MAX];
+	/** @user_context: Container for the user iommu context */
+	struct kgsl_iommu_context user_context;
+	/** @secure_context: Container for the secure iommu context */
+	struct kgsl_iommu_context secure_context;
 	void __iomem *regbase;
 	unsigned long regstart;
 	unsigned int regsize;

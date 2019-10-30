@@ -553,13 +553,21 @@ static struct kgsl_process_private *kgsl_iommu_get_process(u64 ptbase)
 	return NULL;
 }
 
+static struct kgsl_iommu_context *
+iommu_context_by_name(struct kgsl_iommu *iommu, u32 name)
+{
+	if (name == KGSL_MMU_SECURE_PT)
+		return &iommu->secure_context;
+
+	return &iommu->user_context;
+}
+
 static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 	struct device *dev, unsigned long addr, int flags, void *token)
 {
 	int ret = 0;
 	struct kgsl_pagetable *pt = token;
 	struct kgsl_mmu *mmu = pt->mmu;
-	struct kgsl_iommu *iommu;
 	struct kgsl_iommu_context *ctx;
 	u64 ptbase;
 	u32 contextidr;
@@ -582,8 +590,6 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 	if (mmu == NULL)
 		return ret;
 
-	iommu = _IOMMU_PRIV(mmu);
-	ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
 	device = KGSL_MMU_DEVICE(mmu);
 	adreno_dev = ADRENO_DEVICE(device);
 	gpudev = ADRENO_GPU_DEVICE(adreno_dev);
@@ -598,6 +604,8 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 	else if (flags & IOMMU_FAULT_TRANSACTION_STALLED)
 		fault_type = "transaction stalled";
 
+	ctx = iommu_context_by_name(_IOMMU_PRIV(mmu), pt->name);
+
 	ptbase = KGSL_IOMMU_GET_CTX_REG_Q(ctx, TTBR0);
 	private = kgsl_iommu_get_process(ptbase);
 
@@ -605,9 +613,6 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 		pid = private->pid;
 		comm = private->comm;
 	}
-
-	if (pt->name == KGSL_MMU_SECURE_PT)
-		ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_SECURE];
 
 	if (test_bit(KGSL_FT_PAGEFAULT_GPUHALT_ENABLE,
 		&adreno_dev->ft_pf_policy) &&
@@ -814,7 +819,6 @@ static void kgsl_iommu_destroy_pagetable(struct kgsl_pagetable *pt)
 	struct kgsl_iommu_pt *iommu_pt = pt->priv;
 	struct kgsl_mmu *mmu = pt->mmu;
 	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
-	struct kgsl_iommu *iommu;
 	struct kgsl_iommu_context  *ctx;
 
 	/*
@@ -823,19 +827,17 @@ static void kgsl_iommu_destroy_pagetable(struct kgsl_pagetable *pt)
 	 */
 	WARN_ON(!list_empty(&pt->list));
 
-	iommu = _IOMMU_PRIV(mmu);
+	ctx = iommu_context_by_name(_IOMMU_PRIV(mmu), pt->name);
 
 	if (pt->name == KGSL_MMU_SECURE_PT) {
 		struct kgsl_global_memdesc *md;
 
-		ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_SECURE];
 		/* Unmap any pending secure global buffers */
 		list_for_each_entry(md, &device->globals, node) {
 			if (md->memdesc.flags & KGSL_MEMFLAGS_SECURE)
 				kgsl_mmu_unmap(pt, &md->memdesc);
 		}
 	} else {
-		ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
 		kgsl_iommu_unmap_globals(mmu, pt);
 	}
 
@@ -1006,7 +1008,7 @@ static int _init_global_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 	struct kgsl_iommu_pt *iommu_pt = NULL;
 	unsigned int cb_num;
 	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
-	struct kgsl_iommu_context *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
+	struct kgsl_iommu_context *ctx = &iommu->user_context;
 
 	iommu_pt = _alloc_pt(&ctx->pdev->dev, mmu, pt);
 
@@ -1083,7 +1085,7 @@ static int _init_secure_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 	int ret = 0;
 	struct kgsl_iommu_pt *iommu_pt = NULL;
 	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
-	struct kgsl_iommu_context *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_SECURE];
+	struct kgsl_iommu_context *ctx = &iommu->secure_context;
 	int secure_vmid = VMID_CP_PIXEL;
 	struct kgsl_global_memdesc *md;
 
@@ -1134,7 +1136,7 @@ static int _init_per_process_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 	int ret = 0;
 	struct kgsl_iommu_pt *iommu_pt = NULL;
 	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
-	struct kgsl_iommu_context *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
+	struct kgsl_iommu_context *ctx = &iommu->user_context;
 	int dynamic = 1;
 	unsigned int cb_num = ctx->cb_num;
 
@@ -1255,10 +1257,9 @@ static void _detach_context(struct kgsl_iommu_context *ctx)
 static void kgsl_iommu_close(struct kgsl_mmu *mmu)
 {
 	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
-	int i;
 
-	for (i = 0; i < KGSL_IOMMU_CONTEXT_MAX; i++)
-		_detach_context(&iommu->ctx[i]);
+	_detach_context(&iommu->user_context);
+	_detach_context(&iommu->secure_context);
 
 	kgsl_mmu_putpagetable(mmu->defaultpagetable);
 	mmu->defaultpagetable = NULL;
@@ -1290,12 +1291,11 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 {
 	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
 	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
-	struct kgsl_iommu_context *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
 	int status = 0;
 
 	mmu->features |= KGSL_MMU_PAGED;
 
-	if (ctx->name == NULL) {
+	if (!iommu->user_context.name) {
 		dev_err(device->dev,
 			"dt: gfx3d0_user context bank not found\n");
 		return -EINVAL;
@@ -1347,7 +1347,7 @@ static int _setup_user_context(struct kgsl_mmu *mmu)
 {
 	int ret = 0;
 	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
-	struct kgsl_iommu_context *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
+	struct kgsl_iommu_context *ctx = &iommu->user_context;
 	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_iommu_pt *iommu_pt = NULL;
@@ -1409,7 +1409,7 @@ static int _setup_secure_context(struct kgsl_mmu *mmu)
 {
 	int ret;
 	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
-	struct kgsl_iommu_context *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_SECURE];
+	struct kgsl_iommu_context *ctx = &iommu->secure_context;
 
 	struct kgsl_iommu_pt *iommu_pt;
 
@@ -1456,7 +1456,7 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 
 	status = _setup_secure_context(mmu);
 	if (status) {
-		_detach_context(&iommu->ctx[KGSL_IOMMU_CONTEXT_USER]);
+		_detach_context(&iommu->user_context);
 		return status;
 	}
 
@@ -1770,7 +1770,7 @@ static int kgsl_iommu_map_offset(struct kgsl_pagetable *pt,
 static void kgsl_iommu_clear_fsr(struct kgsl_mmu *mmu)
 {
 	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
-	struct kgsl_iommu_context  *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
+	struct kgsl_iommu_context  *ctx = &iommu->user_context;
 	unsigned int sctlr_val;
 
 	if (ctx->default_pt != NULL && ctx->stalled_on_fault) {
@@ -1797,7 +1797,7 @@ static void kgsl_iommu_clear_fsr(struct kgsl_mmu *mmu)
 static void kgsl_iommu_pagefault_resume(struct kgsl_mmu *mmu)
 {
 	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
-	struct kgsl_iommu_context *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
+	struct kgsl_iommu_context *ctx = &iommu->user_context;
 
 	if (ctx->default_pt != NULL && ctx->stalled_on_fault) {
 		/*
@@ -1830,7 +1830,7 @@ kgsl_iommu_get_current_ttbr0(struct kgsl_mmu *mmu)
 {
 	u64 val;
 	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
-	struct kgsl_iommu_context *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
+	struct kgsl_iommu_context *ctx = &iommu->user_context;
 
 	/*
 	 * We cannot enable or disable the clocks in interrupt context, this
@@ -1861,7 +1861,7 @@ kgsl_iommu_get_current_ttbr0(struct kgsl_mmu *mmu)
 static int kgsl_iommu_set_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 {
 	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
-	struct kgsl_iommu_context *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
+	struct kgsl_iommu_context *ctx = &iommu->user_context;
 	uint64_t ttbr0, temp;
 	unsigned int contextidr;
 	unsigned long wait_for_flush;
@@ -1919,7 +1919,7 @@ static int kgsl_iommu_set_pf_policy(struct kgsl_mmu *mmu,
 				unsigned long pf_policy)
 {
 	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
-	struct kgsl_iommu_context *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
+	struct kgsl_iommu_context *ctx = &iommu->user_context;
 	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
@@ -2304,9 +2304,9 @@ static bool kgsl_iommu_addr_in_range(struct kgsl_pagetable *pagetable,
 }
 
 static int kgsl_iommu_probe_child(struct kgsl_device *device,
-		struct device_node *parent, int id, const char *name)
+		struct device_node *parent, struct kgsl_iommu_context *context,
+		const char *name)
 {
-	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
 	struct device_node *node = of_find_node_by_name(parent, name);
 	struct platform_device *pdev;
 	struct device_node *phandle;
@@ -2316,13 +2316,10 @@ static int kgsl_iommu_probe_child(struct kgsl_device *device,
 
 	pdev = of_find_device_by_node(node);
 
-	iommu->ctx[id].id = id;
-	iommu->ctx[id].cb_num = -1;
-	iommu->ctx[id].name = name;
-
-	iommu->ctx[id].kgsldev = device;
-
-	iommu->ctx[id].pdev = pdev;
+	context->cb_num = -1;
+	context->name = name;
+	context->kgsldev = device;
+	context->pdev = pdev;
 
 	phandle = of_parse_phandle(node, "iommus", 0);
 
@@ -2396,7 +2393,7 @@ static int _kgsl_iommu_probe(struct kgsl_device *device,
 	of_platform_populate(node, NULL, NULL, &pdev->dev);
 
 	/* The "user" device always needs to be present */
-	ret = kgsl_iommu_probe_child(device, node, KGSL_IOMMU_CONTEXT_USER,
+	ret = kgsl_iommu_probe_child(device, node, &iommu->user_context,
 		"gfx3d_user");
 
 	if (!ret && device->mmu.secured) {
@@ -2407,7 +2404,7 @@ static int _kgsl_iommu_probe(struct kgsl_device *device,
 
 		/* Secure context bank devices are optional */
 		if (kgsl_iommu_probe_child(device, node,
-			KGSL_IOMMU_CONTEXT_SECURE, name))
+			&iommu->secure_context, name))
 			device->mmu.secured = false;
 	}
 
