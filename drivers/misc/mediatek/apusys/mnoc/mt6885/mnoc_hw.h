@@ -179,5 +179,9 @@ void mnoc_hw_reinit(void);
 void mnoc_clear_pmu_counter(unsigned int grp);
 bool mnoc_pmu_reg_in_range(unsigned int addr);
 void mnoc_int_endis(bool endis);
+void infra2apu_sram_en(void);
+void infra2apu_sram_dis(void);
+void apu2infra_bus_protect_en(void);
+void apu2infra_bus_protect_dis(void);
 
 #endif

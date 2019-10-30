@@ -30,6 +30,7 @@
 #include "mnoc_qos.h"
 #include "mnoc_api.h"
 #include "mnoc_pmu.h"
+#include "mnoc_option.h"
 
 static unsigned int mnoc_addr_phy;
 

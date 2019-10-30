@@ -27,6 +27,7 @@
 
 #include "mnoc_drv.h"
 #include "mnoc_hw.h"
+#include "mnoc_option.h"
 
 #if MNOC_TIME_PROFILE
 unsigned long sum_start, sum_suspend, sum_end, sum_work_func;

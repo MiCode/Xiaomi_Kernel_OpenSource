@@ -26,6 +26,19 @@
 #include "mnoc_hw.h"
 #include "mnoc_drv.h"
 
+/* for Kernel Native SMC API */
+#include <linux/arm-smccc.h>
+#include <mtk_secure_api.h>
+
+enum APUSYS_MNOC_SMC_ID {
+	MNOC_INFRA2APU_SRAM_EN,
+	MNOC_INFRA2APU_SRAM_DIS,
+	MNOC_APU2INFRA_BUS_PROTECT_EN,
+	MNOC_APU2INFRA_BUS_PROTECT_DIS,
+
+	NR_APUSYS_MNOC_SMC_ID
+};
+
 static const char * const mni_int_sta_string[] = {
 	"MNI_QOS_IRQ_FLAG",
 	"ADDR_DEC_ERR_FLAG",
@@ -316,11 +329,11 @@ bool mnoc_check_int_status(void)
 	for (int_idx = 0; int_idx < NR_MNI_INT_STA; int_idx++) {
 		val = mnoc_read(MNOC_REG(mni_int_sta_offset[int_idx]));
 		if ((val & 0xFFFF) != 0) {
-			LOG_ERR("%s = 0x%x\n",
+			LOG_DEBUG("%s = 0x%x\n",
 				mni_int_sta_string[int_idx], val);
 			for (ni_idx = 0; ni_idx < NR_MNOC_MNI; ni_idx++)
 				if ((val & (1 << ni_idx)) != 0)
-					LOG_ERR("From %s\n",
+					LOG_DEBUG("From %s\n",
 						mni_map_string[ni_idx]);
 			mnoc_write_field(
 				MNOC_REG(mni_int_sta_offset[int_idx]),
@@ -332,11 +345,11 @@ bool mnoc_check_int_status(void)
 	for (int_idx = 0; int_idx < NR_SNI_INT_STA; int_idx++) {
 		val = mnoc_read(MNOC_REG(sni_int_sta_offset[int_idx]));
 		if ((val & 0xFFFF) != 0) {
-			LOG_ERR("%s = 0x%x\n",
+			LOG_DEBUG("%s = 0x%x\n",
 				sni_int_sta_string[int_idx], val);
 			for (ni_idx = 0; ni_idx < NR_MNOC_SNI; ni_idx++)
 				if ((val & (1 << ni_idx)) != 0)
-					LOG_ERR("From %s\n",
+					LOG_DEBUG("From %s\n",
 						sni_map_string[ni_idx]);
 			mnoc_write_field(
 				MNOC_REG(sni_int_sta_offset[int_idx]),
@@ -348,11 +361,11 @@ bool mnoc_check_int_status(void)
 	for (int_idx = 0; int_idx < NR_MNI_INT_STA; int_idx++) {
 		val = mnoc_read(MNOC_REG(rt_int_sta_offset[int_idx]));
 		if ((val & 0x1F) != 0) {
-			LOG_ERR("%s = 0x%x\n",
+			LOG_DEBUG("%s = 0x%x\n",
 				rt_int_sta_string[int_idx], val);
 			for (ni_idx = 0; ni_idx < NR_MNOC_RT; ni_idx++)
 				if ((val & (1 << ni_idx)) != 0)
-					LOG_ERR("From RT %d\n", ni_idx);
+					LOG_DEBUG("From RT %d\n", ni_idx);
 			mnoc_write_field(
 				MNOC_REG(rt_int_sta_offset[int_idx]),
 				4:0, 0x1F);
@@ -363,7 +376,7 @@ bool mnoc_check_int_status(void)
 	/* additional check: sw triggered irq */
 	val = mnoc_read_field(MNOC_REG(MISC_CTRL), 18:16);
 	if (val != 0) {
-		LOG_ERR("From SW_IRQ = 0x%x\n", val);
+		LOG_DEBUG("From SW_IRQ = 0x%x\n", val);
 		mnoc_write_field(MNOC_REG(MISC_CTRL),
 			18:16, 0x0);
 		mnoc_irq_triggered = true;
@@ -608,6 +621,86 @@ void mnoc_set_lt_guardian_pre_ultra(int dev_type, int dev_core, bool endis)
 	}
 
 	spin_unlock_irqrestore(&mnoc_spinlock, flags);
+
+	LOG_DEBUG("-\n");
+}
+
+/* After APUSYS top power on */
+void infra2apu_sram_en(void)
+{
+	struct arm_smccc_res res;
+
+	LOG_DEBUG("+\n");
+
+	/*
+	 * arm_smccc_smc (unsigned long a0, unsigned long a1,
+	 *	unsigned long a2, unsigned long a3, unsigned long a4,
+	 *	unsigned long a5, unsigned long a6, unsigned long a7,
+	 *	struct arm_smccc_res *res)
+	 */
+	arm_smccc_smc(MTK_SIP_APUSYS_MNOC_CONTROL,
+		MNOC_INFRA2APU_SRAM_EN,
+		0, 0, 0, 0, 0, 0, &res);
+
+	LOG_DEBUG("-\n");
+}
+
+/* Before APUSYS top power off */
+void infra2apu_sram_dis(void)
+{
+	struct arm_smccc_res res;
+
+	LOG_DEBUG("+\n");
+
+	/*
+	 * arm_smccc_smc (unsigned long a0, unsigned long a1,
+	 *	unsigned long a2, unsigned long a3, unsigned long a4,
+	 *	unsigned long a5, unsigned long a6, unsigned long a7,
+	 *	struct arm_smccc_res *res)
+	 */
+	arm_smccc_smc(MTK_SIP_APUSYS_MNOC_CONTROL,
+		MNOC_INFRA2APU_SRAM_DIS,
+		0, 0, 0, 0, 0, 0, &res);
+
+	LOG_DEBUG("-\n");
+}
+
+/* Before APUSYS reset */
+void apu2infra_bus_protect_en(void)
+{
+	struct arm_smccc_res res;
+
+	LOG_DEBUG("+\n");
+
+	/*
+	 * arm_smccc_smc (unsigned long a0, unsigned long a1,
+	 *	unsigned long a2, unsigned long a3, unsigned long a4,
+	 *	unsigned long a5, unsigned long a6, unsigned long a7,
+	 *	struct arm_smccc_res *res)
+	 */
+	arm_smccc_smc(MTK_SIP_APUSYS_MNOC_CONTROL,
+		MNOC_APU2INFRA_BUS_PROTECT_EN,
+		0, 0, 0, 0, 0, 0, &res);
+
+	LOG_DEBUG("-\n");
+}
+
+/* After APUSYS reset */
+void apu2infra_bus_protect_dis(void)
+{
+	struct arm_smccc_res res;
+
+	LOG_DEBUG("+\n");
+
+	/*
+	 * arm_smccc_smc (unsigned long a0, unsigned long a1,
+	 *	unsigned long a2, unsigned long a3, unsigned long a4,
+	 *	unsigned long a5, unsigned long a6, unsigned long a7,
+	 *	struct arm_smccc_res *res)
+	 */
+	arm_smccc_smc(MTK_SIP_APUSYS_MNOC_CONTROL,
+		MNOC_APU2INFRA_BUS_PROTECT_DIS,
+		0, 0, 0, 0, 0, 0, &res);
 
 	LOG_DEBUG("-\n");
 }

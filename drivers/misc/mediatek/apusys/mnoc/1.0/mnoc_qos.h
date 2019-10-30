@@ -13,6 +13,13 @@
 #ifndef __APUSYS_MNOC_QOS_H__
 #define __APUSYS_MNOC_QOS_H__
 
+#include "mnoc_option.h"
+
+#if MNOC_TIME_PROFILE
+extern unsigned long sum_start, sum_suspend, sum_end, sum_work_func;
+extern unsigned int cnt_start, cnt_suspend, cnt_end, cnt_work_func;
+#endif
+
 
 void notify_sspm_apusys_on(void);
 void notify_sspm_apusys_off(void);
@@ -25,10 +32,5 @@ void print_cmd_qos_list(struct seq_file *m);
 
 void apu_qos_suspend(void);
 void apu_qos_resume(void);
-
-#if MNOC_TIME_PROFILE
-extern unsigned long sum_start, sum_suspend, sum_end, sum_work_func;
-extern unsigned int cnt_start, cnt_suspend, cnt_end, cnt_work_func;
-#endif
 
 #endif

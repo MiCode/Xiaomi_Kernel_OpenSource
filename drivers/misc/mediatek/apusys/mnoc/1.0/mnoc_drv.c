@@ -25,10 +25,6 @@
 #include <linux/platform_device.h>
 #include <linux/module.h>
 
-/* for Kernel Native SMC API */
-#include <linux/arm-smccc.h>
-#include <mtk_secure_api.h>
-
 
 #ifdef CONFIG_OF
 #include <linux/cpu.h>
@@ -47,15 +43,7 @@
 #include "mnoc_qos.h"
 #include "mnoc_dbg.h"
 #include "mnoc_pmu.h"
-
-enum APUSYS_MNOC_SMC_ID {
-	MNOC_INFRA2APU_SRAM_EN,
-	MNOC_INFRA2APU_SRAM_DIS,
-	MNOC_APU2INFRA_BUS_PROTECT_EN,
-	MNOC_APU2INFRA_BUS_PROTECT_DIS,
-
-	NR_APUSYS_MNOC_SMC_ID
-};
+#include "mnoc_option.h"
 
 
 #if MNOC_INT_ENABLE
@@ -72,86 +60,6 @@ void __iomem *mnoc_slp_prot_base2;
 
 bool mnoc_reg_valid;
 int mnoc_log_level;
-
-/* After APUSYS top power on */
-void infra2apu_sram_en(void)
-{
-	struct arm_smccc_res res;
-
-	LOG_DEBUG("+\n");
-
-	/*
-	 * arm_smccc_smc (unsigned long a0, unsigned long a1,
-	 *	unsigned long a2, unsigned long a3, unsigned long a4,
-	 *	unsigned long a5, unsigned long a6, unsigned long a7,
-	 *	struct arm_smccc_res *res)
-	 */
-	arm_smccc_smc(MTK_SIP_APUSYS_MNOC_CONTROL,
-		MNOC_INFRA2APU_SRAM_EN,
-		0, 0, 0, 0, 0, 0, &res);
-
-	LOG_DEBUG("-\n");
-}
-
-/* Before APUSYS top power off */
-void infra2apu_sram_dis(void)
-{
-	struct arm_smccc_res res;
-
-	LOG_DEBUG("+\n");
-
-	/*
-	 * arm_smccc_smc (unsigned long a0, unsigned long a1,
-	 *	unsigned long a2, unsigned long a3, unsigned long a4,
-	 *	unsigned long a5, unsigned long a6, unsigned long a7,
-	 *	struct arm_smccc_res *res)
-	 */
-	arm_smccc_smc(MTK_SIP_APUSYS_MNOC_CONTROL,
-		MNOC_INFRA2APU_SRAM_DIS,
-		0, 0, 0, 0, 0, 0, &res);
-
-	LOG_DEBUG("-\n");
-}
-
-/* Before APUSYS reset */
-void apu2infra_bus_protect_en(void)
-{
-	struct arm_smccc_res res;
-
-	LOG_DEBUG("+\n");
-
-	/*
-	 * arm_smccc_smc (unsigned long a0, unsigned long a1,
-	 *	unsigned long a2, unsigned long a3, unsigned long a4,
-	 *	unsigned long a5, unsigned long a6, unsigned long a7,
-	 *	struct arm_smccc_res *res)
-	 */
-	arm_smccc_smc(MTK_SIP_APUSYS_MNOC_CONTROL,
-		MNOC_APU2INFRA_BUS_PROTECT_EN,
-		0, 0, 0, 0, 0, 0, &res);
-
-	LOG_DEBUG("-\n");
-}
-
-/* After APUSYS reset */
-void apu2infra_bus_protect_dis(void)
-{
-	struct arm_smccc_res res;
-
-	LOG_DEBUG("+\n");
-
-	/*
-	 * arm_smccc_smc (unsigned long a0, unsigned long a1,
-	 *	unsigned long a2, unsigned long a3, unsigned long a4,
-	 *	unsigned long a5, unsigned long a6, unsigned long a7,
-	 *	struct arm_smccc_res *res)
-	 */
-	arm_smccc_smc(MTK_SIP_APUSYS_MNOC_CONTROL,
-		MNOC_APU2INFRA_BUS_PROTECT_DIS,
-		0, 0, 0, 0, 0, 0, &res);
-
-	LOG_DEBUG("-\n");
-}
 
 static void mnoc_apusys_top_after_pwr_on(void *para)
 {
@@ -214,7 +122,7 @@ static irqreturn_t mnoc_isr(int irq, void *dev_id)
 	spin_unlock_irqrestore(&mnoc_spinlock, flags);
 
 	if (mnoc_irq_triggered) {
-		LOG_ERR("INT triggered by mnoc\n");
+		LOG_DEBUG("INT triggered by mnoc\n");
 		return IRQ_HANDLED;
 	}
 

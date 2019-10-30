@@ -13,11 +13,6 @@
 #ifndef __APUSYS_MNOC_DRV_H__
 #define __APUSYS_MNOC_DRV_H__
 
-#define MNOC_TIME_PROFILE (1)
-#define MNOC_INT_ENABLE (1)
-#define MNOC_QOS_ENABLE (1)
-#define MNOC_DBG_ENABLE (1)
-
 #define APUSYS_MNOC_DEV_NAME "apusys_mnoc"
 
 #define APUSYS_MNOC_LOG_PREFIX "[apusys][mnoc]"
