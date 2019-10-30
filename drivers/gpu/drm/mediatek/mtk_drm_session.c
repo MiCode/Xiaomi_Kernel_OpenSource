@@ -155,6 +155,23 @@ int mtk_drm_session_destroy(struct drm_device *dev,
 	return ret;
 }
 
+int mtk_get_session_id(struct drm_crtc *crtc)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_private *private;
+	int session_id = -1, id, i;
+
+	id = drm_crtc_index(crtc);
+	private = mtk_crtc->base.dev->dev_private;
+	for (i = 0; i < MAX_SESSION_COUNT; i++) {
+		if ((id + 1) == MTK_SESSION_TYPE(private->session_id[i])) {
+			session_id = private->session_id[i];
+			break;
+		}
+	}
+	return session_id;
+}
+
 int mtk_drm_session_create_ioctl(struct drm_device *dev, void *data,
 				 struct drm_file *file_priv)
 {

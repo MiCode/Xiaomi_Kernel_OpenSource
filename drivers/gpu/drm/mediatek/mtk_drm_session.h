@@ -57,5 +57,6 @@ int mtk_drm_session_destroy_ioctl(struct drm_device *dev, void *data,
 
 int mtk_session_get_mode(struct drm_device *dev, struct drm_crtc *crtc);
 int mtk_session_set_mode(struct drm_device *dev, unsigned int session_mode);
+int mtk_get_session_id(struct drm_crtc *crtc);
 
 #endif
