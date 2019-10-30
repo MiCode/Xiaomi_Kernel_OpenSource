@@ -1446,7 +1446,7 @@ static signed int config_fdvt_hw(struct fdvt_config *basic_config)
 	if (basic_config->FD_MODE == 0) {
 		cmdq_pkt_write(pkt, NULL, FDVT_ENABLE_HW, 0x00000111,
 			       CMDQ_REG_MASK);
-		cmdq_pkt_write(pkt, NULL, FDVT_LOOP_HW, 0x00005D02,
+		cmdq_pkt_write(pkt, NULL, FDVT_LOOP_HW, 0x00006002,
 			       CMDQ_REG_MASK);
 		cmdq_pkt_write(pkt, NULL, FDVT_INT_EN_HW, 0x0, CMDQ_REG_MASK);
 		cmdq_pkt_write(pkt, NULL, FDVT_RS_CON_BASE_ADR_HW,
