@@ -452,6 +452,11 @@ static int layering_get_valid_hrt(struct drm_display_mode *mode)
 	unsigned long long tmp;
 
 	dvfs_bw = mm_hrt_get_available_hrt_bw(get_virtual_port(VIRTUAL_DISP));
+	if (dvfs_bw == 0xffffffffffffffff) {
+		DDPPR_ERR("mm_hrt_get_available_hrt_bw=-1\n");
+		return 600;
+	}
+
 	dvfs_bw *= 10000;
 
 	tmp = _layering_get_frame_bw(mode);
