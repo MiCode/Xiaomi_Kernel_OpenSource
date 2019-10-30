@@ -45,6 +45,9 @@
 #define CMDQ_IWC_ISP_META_CNT	8
 #define CMDQ_SEC_ISP_META_MAX	(0x1000)	/* 4k */
 
+#define CMDQ_SEC_DATA_SIZE_1	(0x2000)	/* 8k */
+#define CMDQ_SEC_DATA_SIZE_2	(0x2000)	/* 8k */
+
 enum CMDQ_IWC_ADDR_METADATA_TYPE {
 	CMDQ_IWC_H_2_PA = 0, /* sec handle to sec PA */
 	CMDQ_IWC_H_2_MVA = 1, /* sec handle to sec MVA */
@@ -148,22 +151,12 @@ struct iwcCmdqSecStatus_t {
 	char dispatch[CMDQ_SEC_DISPATCH_LEN];
 };
 
-struct iwcCmdqSystraceLog_t {
-	uint64_t startTime;	/* start timestamp */
-	uint64_t endTime;	/* end timestamp */
-};
-
 struct iwcCmdqMetadata_t {
 	uint32_t addrListLength;
 	struct iwcCmdqAddrMetadata_t addrList[CMDQ_IWC_MAX_ADDR_LIST_LENGTH];
 
 	uint64_t enginesNeedDAPC;
 	uint64_t enginesNeedPortSecurity;
-};
-
-struct iwcCmdqSectraceBuffer_t {
-	uint32_t addr; /* pass VA for TCI cases, and pass PA for DCI case */
-	uint32_t size;
 };
 
 struct iwcCmdqPathResource_t {
@@ -210,6 +203,11 @@ struct iwcCmdqSecIspMeta {
 	uint64_t DmgiHandle;
 };
 
+struct iwcIspMeta {
+	uint32_t size;
+	uint32_t data[CMDQ_SEC_ISP_META_MAX / sizeof(uint32_t)];
+};
+
 /* extension flag for secure driver, must sync with def */
 enum sec_extension_iwc {
 	IWC_MDP_AAL = 0,
@@ -237,15 +235,10 @@ struct iwcCmdqCommand_t {
 
 	/* metadata */
 	struct iwcCmdqMetadata_t metadata;
-	struct iwcCmdqSecIspMeta isp_metadata;
 
 	/* client extension bits */
 	uint64_t extension;
 	uint64_t readback_pa;
-
-	/* ISP share memory buffer */
-	uint32_t isp_lcei[CMDQ_SEC_ISP_LCEI_SIZE / sizeof(uint32_t)];
-	uint32_t isp_lcei_size;
 
 	/* debug */
 	uint64_t hNormalTask; /* handle to reference task in normal world*/
@@ -274,9 +267,16 @@ struct iwcIspMessage {
 	uint32_t isp_dmgi_size;
 };
 
-struct iwcIspMeta {
-	uint32_t size;
-	uint32_t data[CMDQ_SEC_ISP_META_MAX / sizeof(uint32_t)];
+struct iwcIspMessage2 {
+	struct iwcCmdqSecIspMeta handles;
+	uint32_t isp_lcei[CMDQ_SEC_ISP_LCEI_SIZE / sizeof(uint32_t)];
+	uint32_t isp_lcei_size;
+};
+
+enum cmdq_iwc_meta_idx {
+	CMDQ_IWC_MSG = 0,
+	CMDQ_IWC_MSG1 = 1,
+	CMDQ_IWC_MSG2 = 2,
 };
 
 /* linex kernel and mobicore has their own MMU tables,
@@ -299,20 +299,34 @@ struct iwcCmdqMessage_t {
 		struct iwcCmdqCommand_t command;
 		struct iwcCmdqCancelTask_t cancelTask;
 		struct iwcCmdqPathResource_t pathResource;
-		struct iwcCmdqSectraceBuffer_t sectracBuffer;
 	};
 
 	struct iwcCmdqDebugConfig_t debug;
 	struct iwcCmdqSecStatus_t secStatus;
 
-	bool iwcMegExAvailable;
+	uint8_t cmdq_id;
+	uint8_t iwcex_available;
 	uint32_t metaex_type;
 };
 
 struct iwcCmdqMessageEx_t {
+	uint32_t size;
 	union {
+		uint32_t data[CMDQ_SEC_DATA_SIZE_1 / sizeof(uint32_t)];
 		struct iwcIspMessage isp;
 		struct iwcIspMeta meta;
+
+	};
+};
+
+struct iwcCmdqMessageEx2_t {
+	uint32_t size;
+	union {
+		uint32_t data[CMDQ_SEC_DATA_SIZE_2 / sizeof(uint32_t)];
+		struct {
+			struct iwcCmdqSecIspMeta isp_metadata;
+			struct iwcIspMessage2 isp;
+		};
 	};
 };
 
@@ -341,9 +355,6 @@ struct iwcCmdqMessageEx_t {
 #define CMDQ_ERR_INVALID_SECURITY_THREAD (1505)
 #define CMDQ_ERR_PATH_RESOURCE_NOT_READY (1506)
 #define CMDQ_ERR_NULL_TASK (1507)
-#define CMDQ_ERR_HDCP_NOT_ALLOW_ENGINE (1508)
-#define CMDQ_ERR_HDCP_NOT_ALLOW_PATH (1509)
-#define CMDQ_ERR_HDCP_NOT_DISP_REG_PATH (1510)
 #define CMDQ_ERR_SECURITY_INVALID_SEC_PORT_FALG (1511)
 
 /* msee error */

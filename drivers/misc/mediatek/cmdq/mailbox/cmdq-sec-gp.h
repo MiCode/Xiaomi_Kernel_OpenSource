@@ -31,15 +31,15 @@ struct cmdq_sec_tee_context {
 	struct TEEC_UUID uuid;
 	struct TEEC_Context gp_context; /* basic context */
 	struct TEEC_Session session; /* session handle */
-	struct TEEC_SharedMemory shared_mem; /* shared memory */
-	struct TEEC_SharedMemory shared_mem_ex; /* shared memory */
+	struct TEEC_SharedMemory shared_mem[4]; /* shared memory */
 };
 
+void cmdq_sec_setup_tee_context(struct cmdq_sec_tee_context *tee);
 s32 cmdq_sec_init_context(struct cmdq_sec_tee_context *tee);
 s32 cmdq_sec_allocate_wsm(struct cmdq_sec_tee_context *tee,
-	void **wsm_buffer, u32 size, void **wsm_buf_ex, u32 size_ex);
+	void **wsm_buffer, u8 idx, u32 size);
 s32 cmdq_sec_open_session(struct cmdq_sec_tee_context *tee, void *wsm_buffer);
 s32 cmdq_sec_execute_session(struct cmdq_sec_tee_context *tee,
-	u32 cmd, s32 timeout_ms, bool share_mem_ex);
+	u32 cmd, s32 timeout_ms, bool mem_ex1, bool mem_ex2);
 
 #endif	/* __CMDQ_SEC_GP_H__ */

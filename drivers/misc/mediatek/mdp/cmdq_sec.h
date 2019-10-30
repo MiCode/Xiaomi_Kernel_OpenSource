@@ -151,9 +151,10 @@ s32 cmdq_sec_init_context(struct cmdq_sec_tee_context *tee);
 s32 cmdq_sec_deinit_context(struct cmdq_sec_tee_context *tee);
 
 s32 cmdq_sec_allocate_wsm(struct cmdq_sec_tee_context *tee, void **wsm_buffer,
-	u32 size, void **wsm_buf_ex, u32 size_ex);
+	u32 size, void **wsm_buf_ex, u8 idx, u32 size_ex);
 
-s32 cmdq_sec_free_wsm(struct cmdq_sec_tee_context *tee, void **wsm_buffer);
+s32 cmdq_sec_free_wsm(struct cmdq_sec_tee_context *tee, void **wsm_buffer,
+	u8 idx);
 
 s32 cmdq_sec_open_session(struct cmdq_sec_tee_context *tee, void *wsm_buffer);
 

@@ -7,17 +7,19 @@
 
 #include "cmdq-util.h"
 #include "cmdq-sec.h"
+#include "cmdq-sec-mailbox.h"
 
 #define ADDR_METADATA_MAX_COUNT_ORIGIN	(8)
 
 #define CMDQ_IMMEDIATE_VALUE		(0)
 #define CMDQ_REG_TYPE			(1)
 
-// s32 cmdq_rec_realloc_addr_metadata_buffer
+#define CMDQ_PREDUMP_TIMEOUT_MS		200
+
 static s32 cmdq_sec_realloc_addr_list(struct cmdq_pkt *pkt, const u32 count)
 {
-	struct cmdqSecDataStruct *sec_data =
-		(struct cmdqSecDataStruct *)pkt->sec_data;
+	struct cmdq_sec_data *sec_data =
+		(struct cmdq_sec_data *)pkt->sec_data;
 	void *prev = (void *)(unsigned long)sec_data->addrMetadatas, *curr;
 
 	if (count <= sec_data->addrMetadataMaxCount)
@@ -36,28 +38,36 @@ static s32 cmdq_sec_realloc_addr_list(struct cmdq_pkt *pkt, const u32 count)
 	return 0;
 }
 
-// static void cmdq_task_reset_thread(struct cmdqRecStruct *handle)
-// s32 cmdq_task_duplicate
+static s32 cmdq_sec_check_sec(struct cmdq_pkt *pkt)
+{
+	struct cmdq_sec_data *sec_data;
 
-// s32 cmdq_append_addr_metadata
+	if (pkt->sec_data)
+		return 0;
+
+	sec_data = kzalloc(sizeof(*sec_data), GFP_KERNEL);
+	if (!sec_data)
+		return -ENOMEM;
+	pkt->sec_data = (void *)sec_data;
+
+	return 0;
+}
+
 static s32 cmdq_sec_append_metadata(
-	struct cmdq_pkt *pkt, const enum CMDQ_SEC_ADDR_METADATA_TYPE type,
+	struct cmdq_pkt *pkt, const enum CMDQ_IWC_ADDR_METADATA_TYPE type,
 	const u64 base, const u32 offset, const u32 size, const u32 port)
 {
-	struct cmdqSecDataStruct *sec_data;
-	struct cmdqSecAddrMetadataStruct *meta;
-	s32 idx, max, ret = 0;
+	struct cmdq_sec_data *sec_data;
+	struct cmdq_sec_addr_meta *meta;
+	s32 idx, max, ret;
 
 	cmdq_log("pkt:%p type:%u base:%#llx offset:%#x size:%#x port:%#x",
 		pkt, type, base, offset, size, port);
 
-	if (!pkt->sec_data) {
-		sec_data = kzalloc(sizeof(*sec_data), GFP_KERNEL);
-		if (!sec_data)
-			return -ENOMEM;
-		pkt->sec_data = (void *)sec_data;
-	}
-	sec_data = (struct cmdqSecDataStruct *)pkt->sec_data;
+	ret = cmdq_sec_check_sec(pkt);
+	if (ret < 0)
+		return ret;
+	sec_data = (struct cmdq_sec_data *)pkt->sec_data;
 	idx = sec_data->addrMetadataCount;
 
 	if (idx >= CMDQ_IWC_MAX_ADDR_LIST_LENGTH) {
@@ -83,7 +93,7 @@ static s32 cmdq_sec_append_metadata(
 			return -ENOMEM;
 		sec_data->addrMetadatas = (u64)(void *)meta;
 	}
-	meta = (struct cmdqSecAddrMetadataStruct *)
+	meta = (struct cmdq_sec_addr_meta *)
 		(unsigned long)sec_data->addrMetadatas;
 
 	meta[idx].instrIndex = pkt->cmd_buf_size / CMDQ_INST_SIZE - 1;
@@ -97,46 +107,78 @@ static s32 cmdq_sec_append_metadata(
 }
 
 s32 cmdq_sec_pkt_set_data(struct cmdq_pkt *pkt, const u64 dapc_engine,
-	const u64 port_sec_engine, const enum CMDQ_SCENARIO_ENUM scenario,
-	const enum cmdq_sec_meta_type meta_type, const u32 meta_size, u32 *meta)
+	const u64 port_sec_engine, const enum CMDQ_SEC_SCENARIO scenario,
+	const enum cmdq_sec_meta_type meta_type)
 {
-	struct cmdqSecDataStruct *sec_data;
+	struct cmdq_sec_data *sec_data;
+	s32 ret;
 
 	if (!pkt) {
 		cmdq_err("invalid pkt:%p", pkt);
 		return -EINVAL;
 	}
-	if (meta_size > CMDQ_SEC_ISP_META_MAX) {
-		cmdq_err("invalid meta_size:%#lx MAX:%#x",
-			meta_size, CMDQ_SEC_ISP_META_MAX);
-		return -EINVAL;
-	}
-	if (!pkt->sec_data) {
-		sec_data = kzalloc(sizeof(*sec_data), GFP_KERNEL);
-		if (!sec_data)
-			return -ENOMEM;
-		pkt->sec_data = (void *)sec_data;
-	}
-	cmdq_msg(
-		"pkt:%p sec_data:%p dapc:%llu port_sec:%llu scen:%u size:%#lx meta:%p",
-		pkt, pkt->sec_data, dapc_engine, port_sec_engine, scenario,
-		meta_size, meta);
 
-	sec_data = (struct cmdqSecDataStruct *)pkt->sec_data;
+	ret = cmdq_sec_check_sec(pkt);
+	if (ret < 0)
+		return ret;
+	cmdq_log(
+		"pkt:%p sec_data:%p dapc:%llu port_sec:%llu scen:%u",
+		pkt, pkt->sec_data, dapc_engine, port_sec_engine, scenario);
+
+	sec_data = (struct cmdq_sec_data *)pkt->sec_data;
 	sec_data->enginesNeedDAPC |= dapc_engine;
 	sec_data->enginesNeedPortSecurity |= port_sec_engine;
 	sec_data->scenario = scenario;
-
 	sec_data->client_meta_type = meta_type;
-	sec_data->client_meta_size = meta_size;
-	sec_data->client_meta = (meta_size && meta ? meta : NULL);
+
 	return 0;
 }
 EXPORT_SYMBOL(cmdq_sec_pkt_set_data);
 
-// s32 cmdq_op_write_reg_secure
+s32 cmdq_sec_pkt_set_payload(struct cmdq_pkt *pkt, u8 idx,
+	const u32 meta_size, u32 *meta)
+{
+	struct cmdq_sec_data *sec_data;
+	s32 ret;
+
+	if (idx == 0) {
+		cmdq_err("not allow set reserved payload 0");
+		return -EINVAL;
+	}
+
+	if (!meta_size || !meta) {
+		cmdq_err("not allow empty size or buffer");
+		return -EINVAL;
+	}
+
+	ret = cmdq_sec_check_sec(pkt);
+	if (ret < 0)
+		return ret;
+
+	if (idx == CMDQ_IWC_MSG1 &&
+		meta_size >= sizeof(struct iwcCmdqMessageEx_t)) {
+		cmdq_err("not enough size payload 1:%u msg size:%zu",
+			meta_size, sizeof(struct iwcCmdqMessageEx_t));
+		return -EINVAL;
+	}
+
+	if (idx == CMDQ_IWC_MSG2 &&
+		meta_size >= sizeof(struct iwcCmdqMessageEx2_t)) {
+		cmdq_err("not enough size payload 2:%u msg size:%zu",
+			meta_size, sizeof(struct iwcCmdqMessageEx2_t));
+		return -EINVAL;
+	}
+
+	sec_data = (struct cmdq_sec_data *)pkt->sec_data;
+	sec_data->client_meta_size[idx] = meta_size;
+	sec_data->client_meta[idx] = meta;
+
+	return 0;
+}
+EXPORT_SYMBOL(cmdq_sec_pkt_set_payload);
+
 s32 cmdq_sec_pkt_write_reg(struct cmdq_pkt *pkt, u32 addr, u64 base,
-	const enum CMDQ_SEC_ADDR_METADATA_TYPE type,
+	const enum CMDQ_IWC_ADDR_METADATA_TYPE type,
 	const u32 offset, const u32 size, const u32 port)
 {
 	s32 ret;
@@ -156,10 +198,39 @@ s32 cmdq_sec_pkt_write_reg(struct cmdq_pkt *pkt, u32 addr, u64 base,
 }
 EXPORT_SYMBOL(cmdq_sec_pkt_write_reg);
 
+s32 cmdq_sec_pkt_assign_metadata(struct cmdq_pkt *pkt,
+	u32 count, void *meta_array)
+{
+	struct cmdq_sec_data *data;
+	void *pkt_meta_array;
+	size_t size;
+	s32 ret;
+
+	if (!count)
+		return -EINVAL;
+
+	ret = cmdq_sec_check_sec(pkt);
+	if (ret < 0)
+		return ret;
+	data = (struct cmdq_sec_data *)pkt->sec_data;
+
+	size = count * sizeof(struct cmdq_sec_addr_meta);
+	pkt_meta_array = kzalloc(size, GFP_KERNEL);
+	if (!pkt_meta_array)
+		return -ENOMEM;
+
+	memcpy(pkt_meta_array, meta_array, size);
+	data->addrMetadatas = (unsigned long)pkt_meta_array;
+	data->addrMetadataCount = count;
+
+	return 0;
+}
+EXPORT_SYMBOL(cmdq_sec_pkt_assign_metadata);
+
 void cmdq_sec_dump_secure_data(struct cmdq_pkt *pkt)
 {
-	struct cmdqSecDataStruct *data;
-	struct cmdqSecAddrMetadataStruct *meta;
+	struct cmdq_sec_data *data;
+	struct cmdq_sec_addr_meta *meta;
 	s32 i;
 
 	if (!pkt || !pkt->sec_data) {
@@ -167,7 +238,7 @@ void cmdq_sec_dump_secure_data(struct cmdq_pkt *pkt)
 		return;
 	}
 
-	data = (struct cmdqSecDataStruct *)pkt->sec_data;
+	data = (struct cmdq_sec_data *)pkt->sec_data;
 	cmdq_util_msg(
 		"meta cnt:%u addr:%#llx max:%u scen:%d dapc:%#llx port:%#llx wait:%d reset:%d",
 		data->addrMetadataCount, data->addrMetadatas,
@@ -175,7 +246,7 @@ void cmdq_sec_dump_secure_data(struct cmdq_pkt *pkt)
 		data->enginesNeedDAPC, data->enginesNeedPortSecurity,
 		data->waitCookie, data->resetExecCnt);
 
-	meta = (struct cmdqSecAddrMetadataStruct *)(unsigned long)
+	meta = (struct cmdq_sec_addr_meta *)(unsigned long)
 		data->addrMetadatas;
 	for (i = 0; i < data->addrMetadataCount; i++)
 		cmdq_util_msg(
@@ -185,3 +256,40 @@ void cmdq_sec_dump_secure_data(struct cmdq_pkt *pkt)
 			meta[i].size, meta[i].port);
 }
 EXPORT_SYMBOL(cmdq_sec_dump_secure_data);
+
+int cmdq_sec_pkt_wait_complete(struct cmdq_pkt *pkt,
+	struct completion *cmplt)
+{
+	struct cmdq_client *client = pkt->cl;
+	unsigned long ret;
+	u8 cnt = 0;
+	s32 thread_id = cmdq_sec_mbox_chan_id(client->chan);
+
+	cmdq_sec_mbox_enable(client->chan);
+
+	do {
+		ret = wait_for_completion_timeout(cmplt,
+			msecs_to_jiffies(CMDQ_PREDUMP_TIMEOUT_MS));
+		if (ret)
+			break;
+
+		cmdq_util_dump_lock();
+
+		cmdq_msg("===== SW timeout Pre-dump %hhu =====", cnt);
+		cnt++;
+
+		cmdq_dump_core(client->chan);
+		cmdq_msg("thd:%d Hidden thread info since it's secure",
+			thread_id);
+		cmdq_dump_pkt(pkt, 0);
+		cmdq_sec_dump_notify_loop(client->chan);
+
+		cmdq_util_dump_unlock();
+	} while (1);
+
+	cmdq_sec_mbox_disable(client->chan);
+
+	return 0;
+}
+EXPORT_SYMBOL(cmdq_sec_pkt_wait_complete);
+

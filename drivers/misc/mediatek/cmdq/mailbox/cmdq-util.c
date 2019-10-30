@@ -258,7 +258,7 @@ static int cmdq_util_log_feature_get(void *data, u64 *val)
 
 static int cmdq_util_log_feature_set(void *data, u64 val)
 {
-	if (val == ~0) {
+	if (val == CMDQ_LOG_FEAT_NUM) {
 		util.fs.bit_feature = 0;
 		cmdq_msg("data:%p val:%#llx bit_feature:%#x reset",
 			data, val, util.fs.bit_feature);

@@ -196,9 +196,6 @@ static inline void cmdq_mmp_init(void)
 static void cmdq_lock_wake_lock(struct cmdq *cmdq, bool lock)
 {
 	unsigned long flags;
-	static DEFINE_SPINLOCK(cmdq_wake_lock);
-
-	spin_lock_irqsave(&cmdq_wake_lock, flags);
 
 	if (lock) {
 		if (!cmdq->wake_locked) {
@@ -206,7 +203,9 @@ static void cmdq_lock_wake_lock(struct cmdq *cmdq, bool lock)
 			cmdq->wake_locked = true;
 		} else  {
 			/* should not reach here */
-			cmdq_err("try lock twice");
+			cmdq_err("try lock twice cmdq:%lx",
+				(unsigned long)cmdq);
+			dump_stack();
 		}
 	} else {
 		if (cmdq->wake_locked) {
@@ -214,17 +213,20 @@ static void cmdq_lock_wake_lock(struct cmdq *cmdq, bool lock)
 			cmdq->wake_locked = false;
 		} else {
 			/* should not reach here */
-			cmdq_err("try unlock twice");
+			cmdq_err("try unlock twice cmdq:%lx",
+				(unsigned long)cmdq);
+			dump_stack();
 		}
-	}
 
-	spin_unlock_irqrestore(&cmdq_wake_lock, flags);
+	}
 }
 
 static s32 cmdq_clk_enable(struct cmdq *cmdq)
 {
 	s32 usage, err, err_timer;
 	unsigned long flags;
+
+	spin_lock_irqsave(&cmdq->lock, flags);
 
 	usage = atomic_inc_return(&cmdq->usage);
 
@@ -239,16 +241,14 @@ static s32 cmdq_clk_enable(struct cmdq *cmdq)
 		writel(CMDQ_TPR_EN, cmdq->base + CMDQ_TPR_MASK);
 		/* make sure pm not suspend */
 		cmdq_lock_wake_lock(cmdq, true);
-	}
-
-	spin_lock_irqsave(&cmdq->lock, flags);
-	if (usage == 1)
 		cmdq_init(cmdq);
-	spin_unlock_irqrestore(&cmdq->lock, flags);
+	}
 
 	err_timer = clk_enable(cmdq->clock_timer);
 	if (err_timer < 0)
 		cmdq_err("timer clk fail:%d", err_timer);
+
+	spin_unlock_irqrestore(&cmdq->lock, flags);
 
 	return err;
 }
@@ -256,6 +256,9 @@ static s32 cmdq_clk_enable(struct cmdq *cmdq)
 static void cmdq_clk_disable(struct cmdq *cmdq)
 {
 	s32 usage;
+	unsigned long flags;
+
+	spin_lock_irqsave(&cmdq->lock, flags);
 
 	usage = atomic_dec_return(&cmdq->usage);
 
@@ -266,15 +269,15 @@ static void cmdq_clk_disable(struct cmdq *cmdq)
 		cmdq_log("cmdq shutdown mbox");
 		/* clear tpr mask */
 		writel(0, cmdq->base + CMDQ_TPR_MASK);
+
+		/* now allow pm suspend */
+		cmdq_lock_wake_lock(cmdq, false);
 	}
 
 	clk_disable(cmdq->clock_timer);
 	clk_disable(cmdq->clock);
 
-	if (usage == 0) {
-		/* now allow pm suspend */
-		cmdq_lock_wake_lock(cmdq, false);
-	}
+	spin_unlock_irqrestore(&cmdq->lock, flags);
 }
 
 dma_addr_t cmdq_thread_get_pc(struct cmdq_thread *thread)
@@ -1073,7 +1076,7 @@ void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
 	spin_unlock_irqrestore(&chan->lock, flags);
 
 	cmdq_util_msg(
-		"thd:%u pc:%#08x(%p) inst:%#016llx end:%#08x cnt:%#x token:%#08x",
+		"thd:%u pc:%#010x(%p) inst:%#018llx end:%#010x cnt:%#x token:%#010x",
 		thread->idx, curr_pa, curr_va, inst, end_pa, cnt, wait_token);
 	cmdq_util_msg(
 		"rst:%#x en:%#x suspend:%#x status:%#x irq:%x en:%#x cfg:%#x",
@@ -1082,7 +1085,7 @@ void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
 		cmdq_util_msg(
 			"cur pkt:0x%p size:%zu va:0x%p pa:%pa priority:%u",
 			pkt, size, va_base, &pa_base, pri);
-		cmdq_util_msg("last inst %#016llx %#016llx",
+		cmdq_util_msg("last inst %#018llx %#018llx",
 			last_inst[0], last_inst[1]);
 
 		if (cl_pkt && cl_pkt != pkt) {

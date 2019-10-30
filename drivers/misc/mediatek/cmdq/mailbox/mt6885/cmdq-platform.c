@@ -20,6 +20,8 @@ const char *cmdq_thread_module_dispatch(phys_addr_t gce_pa, s32 thread)
 			return "VDEC";
 		case 17 ... 18:
 			return "VENC";
+		case 23:
+			return "CMDQ-TEST";
 		default:
 			return "CMDQ";
 		}

@@ -15,7 +15,6 @@
 #include "cmdq_device.h"
 #include "cmdq_record.h"
 #include "cmdq_reg.h"
-#include "cmdq_sec.h"
 #if IS_ENABLED(CONFIG_MMPROFILE)
 #include "cmdq_mmp.h"
 #endif
@@ -44,6 +43,11 @@
 #include <linux/notifier.h>
 #include <linux/sched/clock.h>
 #include <linux/dmapool.h>
+#include <linux/mailbox_controller.h>
+
+#ifdef CMDQ_SECURE_PATH_SUPPORT
+#include <cmdq-sec.h>
+#endif
 
 #ifdef MDP_MMPATH
 #ifndef CREATE_TRACE_POINTS
@@ -1035,6 +1039,7 @@ static void cmdq_mdp_store_debug(struct cmdqCommandStruct *desc,
 	CMDQ_MSG("user debug string:%s\n", handle->user_debug_str);
 }
 
+#ifdef CMDQ_SECURE_PATH_SUPPORT
 static void cmdq_mdp_setup_sec_ext(struct cmdqCommandStruct *desc,
 	struct cmdqRecStruct *handle)
 {
@@ -1059,53 +1064,123 @@ static void cmdq_mdp_setup_sec_ext(struct cmdqCommandStruct *desc,
 		handle->reg_count, handle->secData.extension);
 }
 
+#define CMDQ_ISP_MSG2(name) \
+{ \
+	.va = iwc_msg2->name, \
+	.sz = &(iwc_msg2->name##_size), \
+}
+
+#define CMDQ_ISP_BUFS_MSG1(name) \
+{ \
+	.va = iwc_msg1->name, \
+	.sz = &(iwc_msg1->name##_size), \
+}
+
+const u32 isp_iwc_buf_size[] = {
+	CMDQ_SEC_ISP_CQ_SIZE,
+	CMDQ_SEC_ISP_VIRT_SIZE,
+	CMDQ_SEC_ISP_TILE_SIZE,
+	CMDQ_SEC_ISP_BPCI_SIZE,
+	CMDQ_SEC_ISP_LSCI_SIZE,
+	CMDQ_SEC_ISP_LCEI_SIZE,
+	CMDQ_SEC_ISP_DEPI_SIZE,
+	CMDQ_SEC_ISP_DMGI_SIZE,
+};
+
+static void cmdq_mdp_fill_isp_meta(struct cmdqSecIspMeta *meta,
+	struct cmdqRecStruct *handle,
+	struct iwcIspMessage *iwc_msg1,
+	struct iwcIspMessage2 *iwc_msg2)
+{
+	u32 i;
+	struct iwc_meta_buf {
+		u32 *va;
+		u32 *sz;
+	} bufs[ARRAY_SIZE(meta->ispBufs)] = {
+		CMDQ_ISP_BUFS_MSG1(isp_cq_desc),
+		CMDQ_ISP_BUFS_MSG1(isp_cq_virt),
+		CMDQ_ISP_BUFS_MSG1(isp_tile),
+		CMDQ_ISP_BUFS_MSG1(isp_bpci),
+		CMDQ_ISP_BUFS_MSG1(isp_lsci),
+		CMDQ_ISP_MSG2(isp_lcei),
+		CMDQ_ISP_BUFS_MSG1(isp_depi),
+		CMDQ_ISP_BUFS_MSG1(isp_dmgi),
+	};
+
+	memcpy(&iwc_msg2->handles, meta, sizeof(iwc_msg2->handles));
+
+	for (i = 0; i < ARRAY_SIZE(meta->ispBufs); i++) {
+		if (!meta->ispBufs[i].va || !meta->ispBufs[i].size)
+			continue;
+
+		if (meta->ispBufs[i].size > isp_iwc_buf_size[i]) {
+			CMDQ_ERR("isp buf %u size:%llu max:%u\n",
+				i, meta->ispBufs[i].size,
+				isp_iwc_buf_size[i]);
+			*bufs[i].sz = 0;
+			continue;
+		}
+
+		*bufs[i].sz = meta->ispBufs[i].size;
+		memcpy(bufs[i].va,
+			(void *)(unsigned long)(meta->ispBufs[i].va),
+			meta->ispBufs[i].size);
+	}
+}
+#endif
+
 static s32 cmdq_mdp_setup_sec(struct cmdqCommandStruct *desc,
 	struct cmdqRecStruct *handle)
 {
-	u32 i;
+#ifdef CMDQ_SECURE_PATH_SUPPORT
+	u64 dapc, port;
+	enum cmdq_sec_meta_type meta_type = CMDQ_METAEX_NONE;
+	struct cmdq_client *cl;
 
 	if (!desc->secData.is_secure)
 		return 0;
 
+	dapc = cmdq_mdp_get_func()->mdpGetSecEngine(
+		desc->secData.enginesNeedDAPC);
+	port = cmdq_mdp_get_func()->mdpGetSecEngine(
+		desc->secData.enginesNeedPortSecurity);
+
 	cmdq_task_set_secure(handle, desc->secData.is_secure);
-	handle->secData.enginesNeedDAPC = desc->secData.enginesNeedDAPC;
-	handle->secData.enginesNeedPortSecurity =
-		desc->secData.enginesNeedPortSecurity;
-	handle->secData.addrMetadataCount = desc->secData.addrMetadataCount;
+
+	/* force assign client, since backup cookie must call before flush,
+	 * and it is necessary to know client first before append backup code.
+	 */
+	cl = cmdq_helper_mbox_client(handle->thread);
+	handle->pkt->cl = (void *)cl;
+	handle->pkt->dev = cl->chan->mbox->dev;
 
 	cmdq_mdp_setup_sec_ext(desc, handle);
 
-	/* copy isp meta */
-	handle->secData.ispMeta = desc->secData.ispMeta;
-
-	/* clear isp buf since free in task destroy */
-	for (i = 0; i < ARRAY_SIZE(desc->secData.ispMeta.ispBufs); i++)
-		desc->secData.ispMeta.ispBufs[i].va = 0;
-
-	if (handle->secData.addrMetadataCount > 0) {
-		u32 metadata_length;
-		void *p_metadatas;
-
-		metadata_length = (handle->secData.addrMetadataCount) *
-			sizeof(struct cmdqSecAddrMetadataStruct);
-		/* create sec data task buffer for working */
-		p_metadatas = kzalloc(metadata_length, GFP_KERNEL);
-		if (p_metadatas) {
-			memcpy(p_metadatas, CMDQ_U32_PTR(
-				desc->secData.addrMetadatas), metadata_length);
-			handle->secData.addrMetadatas =
-				(cmdqU32Ptr_t)(unsigned long)p_metadatas;
-		} else {
-			CMDQ_AEE("CMDQ",
-				"Can't alloc secData buffer count:%d alloacted_size:%d\n",
-				 handle->secData.addrMetadataCount,
-				 metadata_length);
+	if (desc->secData.ispMeta.ispBufs[0].size) {
+		handle->sec_isp_msg1 = vzalloc(sizeof(struct iwcIspMessage));
+		handle->sec_isp_msg2 = vzalloc(sizeof(struct iwcIspMessage2));
+		if (!handle->sec_isp_msg1 || !handle->sec_isp_msg2) {
+			CMDQ_ERR("fail to alloc isp msg\n");
+			vfree(handle->sec_isp_msg1);
+			vfree(handle->sec_isp_msg2);
 			return -ENOMEM;
 		}
-	} else {
-		handle->secData.addrMetadatas = 0;
+		cmdq_mdp_fill_isp_meta(&desc->secData.ispMeta, handle,
+			handle->sec_isp_msg1, handle->sec_isp_msg2);
+		meta_type = CMDQ_METAEX_CQ;
+		cmdq_sec_pkt_set_payload(handle->pkt, 1,
+			sizeof(struct iwcIspMessage), handle->sec_isp_msg1);
+		cmdq_sec_pkt_set_payload(handle->pkt, 2,
+			sizeof(struct iwcIspMessage2), handle->sec_isp_msg2);
 	}
 
+	cmdq_sec_pkt_set_data(handle->pkt, dapc, port,
+		CMDQ_SEC_USER_MDP, meta_type);
+
+	cmdq_sec_pkt_assign_metadata(handle->pkt,
+		desc->secData.addrMetadataCount,
+		CMDQ_U32_PTR(desc->secData.addrMetadatas));
+#endif
 	return 0;
 }
 
@@ -1121,6 +1196,9 @@ s32 cmdq_mdp_flush_async(struct cmdqCommandStruct *desc, bool user_space,
 	CMDQ_TRACE_FORCE_BEGIN("%s\n", __func__);
 
 	cmdq_task_create(desc->scenario, &handle);
+	/* force assign buffer pool since mdp task assign clients later
+	 * but allocate instruction buffer before do it.
+	 */
 	handle->pkt->cur_pool.pool = mdp_pool.pool;
 	handle->pkt->cur_pool.cnt = mdp_pool.cnt;
 	handle->pkt->cur_pool.limit = mdp_pool.limit;
@@ -1180,15 +1258,15 @@ s32 cmdq_mdp_flush_async(struct cmdqCommandStruct *desc, bool user_space,
 		}
 	}
 
+	if (handle->profile_exec)
+		cmdq_pkt_perf_end(handle->pkt);
+
 #ifdef CMDQ_SECURE_PATH_SUPPORT
 	if (handle->secData.is_secure) {
 		/* insert backup cookie cmd */
-		cmdq_sec_insert_backup_cookie_instr(handle, handle->thread);
+		cmdq_sec_insert_backup_cookie(handle->pkt);
 	}
 #endif
-
-	if (handle->profile_exec)
-		cmdq_pkt_perf_end(handle->pkt);
 
 	err = cmdq_mdp_copy_cmd_to_task(handle,
 		(void *)(unsigned long)desc->pVABase + copy_size,

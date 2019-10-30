@@ -26,6 +26,10 @@
 #include "smi_public.h"
 #include "smi_port.h"
 
+#ifdef CMDQ_SECURE_PATH_SUPPORT
+#include <cmdq-sec-iwc-common.h>
+#endif
+
 /* mdp */
 struct mm_qos_request mdp_rdma0_request[MDP_TOTAL_THREAD];
 struct mm_qos_request mdp_rdma1_request[MDP_TOTAL_THREAD];
@@ -2710,6 +2714,7 @@ u64 cmdq_mdp_get_engine_group_bits(u32 engine_group)
 	return gCmdqEngineGroupBits[engine_group];
 }
 
+#if 0
 void testcase_clkmgr_mdp(void)
 {
 #if defined(CMDQ_PWR_AWARE)
@@ -2799,6 +2804,7 @@ void testcase_clkmgr_mdp(void)
 
 #endif
 }
+#endif
 
 static void cmdq_mdp_enable_common_clock(bool enable)
 {
@@ -2828,6 +2834,44 @@ static void cmdq_mdp_check_hw_status(struct cmdqRecStruct *handle)
 {
 }
 
+#ifdef CMDQ_SECURE_PATH_SUPPORT
+#define CMDQ_ENGINE_TRANS(eng_flags, eng_flags_sec, ENGINE) \
+	do {	\
+		if ((1LL << CMDQ_ENG_##ENGINE) & (eng_flags)) \
+			(eng_flags_sec) |= (1LL << CMDQ_SEC_##ENGINE); \
+	} while (0)
+
+u64 cmdq_mdp_get_secure_engine(u64 engine_flags)
+{
+	u64 sec_eng_flag = 0;
+
+	/* MDP engines */
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, MDP_RDMA0);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, MDP_RDMA1);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, MDP_WDMA);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, MDP_WROT0);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, MDP_WROT1);
+
+	/* ISP */
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, ISP_IMGI);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, ISP_VIPI);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, ISP_LCEI);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, ISP_IMG2O);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, ISP_IMG3O);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, ISP_SMXIO);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, ISP_DMGI_DEPI);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, ISP_IMGCI);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, ISP_TIMGO);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, DPE);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, OWE);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, WPEI);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, WPEO);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, WPEI2);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, WPEO2);
+
+	return sec_eng_flag;
+}
+#endif
 
 void cmdq_mdp_platform_function_setting(void)
 {
@@ -2861,7 +2905,12 @@ void cmdq_mdp_platform_function_setting(void)
 	pFunc->wdmaGetRegOffsetDstAddr = cmdq_mdp_wdma_get_reg_offset_dst_addr;
 	pFunc->parseErrModByEngFlag = cmdq_mdp_parse_error_module;
 	pFunc->getEngineGroupBits = cmdq_mdp_get_engine_group_bits;
+#if 0
 	pFunc->testcaseClkmgrMdp = testcase_clkmgr_mdp;
+#endif
 	pFunc->mdpEnableCommonClock = cmdq_mdp_enable_common_clock;
 	pFunc->CheckHwStatus = cmdq_mdp_check_hw_status;
+#ifdef CMDQ_SECURE_PATH_SUPPORT
+	pFunc->mdpGetSecEngine = cmdq_mdp_get_secure_engine;
+#endif
 }

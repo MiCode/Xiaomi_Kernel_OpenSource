@@ -22,10 +22,9 @@
 #if IS_ENABLED(CONFIG_MMPROFILE)
 #include "cmdq_mmp.h"
 #endif
-#include "cmdq_sec.h"
-
 #ifdef CMDQ_SECURE_PATH_SUPPORT
-#include "cmdq_sec_iwc_common.h"
+#include <cmdq-sec.h>
+#include <cmdq-sec-iwc-common.h>
 #endif
 
 #define CMDQ_DATA_VAR		(CMDQ_BIT_VAR<<CMDQ_DATA_BIT)
@@ -336,8 +335,12 @@ static void cmdq_task_reset_thread(struct cmdqRecStruct *handle)
 		handle->thd_dispatch == CMDQ_THREAD_ACQUIRE)
 		cmdq_core_release_thread(handle->scenario, handle->thread);
 
-	/* try thread static assign first */
-	handle->thread = handle->ctrl->get_thread_id(handle->scenario);
+	if (handle->secData.is_secure)
+		handle->thread = cmdq_get_func()->getThreadID(
+			handle->scenario, true);
+	else
+		/* try thread static assign first */
+		handle->thread = handle->ctrl->get_thread_id(handle->scenario);
 
 	/* acquire an empty thread */
 	if (handle->thread == CMDQ_INVALID_THREAD) {
@@ -1062,6 +1065,8 @@ static void cmdq_task_release_buffer(struct cmdqRecStruct *handle)
 	}
 	for (i = 0; i < ARRAY_SIZE(handle->secData.ispMeta.ispBufs); i++)
 		vfree(CMDQ_U32_PTR(handle->secData.ispMeta.ispBufs[i].va));
+	vfree(handle->sec_isp_msg1);
+	vfree(handle->sec_isp_msg2);
 
 	/* reset local variable setting */
 	handle->replace_instr.number = 0;
@@ -1213,6 +1218,11 @@ s32 cmdq_task_set_secure(struct cmdqRecStruct *handle, const bool is_secure)
 		CMDQ_MSG("[warn]set secure after record size:%zu\n",
 			handle->pkt->cmd_buf_size);
 
+	cmdq_task_reset_thread(handle);
+
+	return 0;
+
+#if 0
 	if (!is_secure) {
 		handle->ctrl = cmdq_core_get_controller();
 		cmdq_task_reset_thread(handle);
@@ -1227,6 +1237,7 @@ s32 cmdq_task_set_secure(struct cmdqRecStruct *handle, const bool is_secure)
 #else
 	CMDQ_ERR("%s failed since not support secure path\n", __func__);
 	return -EFAULT;
+#endif
 #endif
 }
 
@@ -1266,21 +1277,6 @@ s32 cmdq_task_secure_enable_port_security(
 	CMDQ_ERR("%s failed since not support secure path\n", __func__);
 	return -EFAULT;
 #endif
-}
-
-s32 cmdq_task_set_secure_meta(struct cmdqRecStruct *handle,
-	enum cmdq_sec_rec_meta_type type, void *meta, u32 size)
-{
-#ifdef CMDQ_SECURE_PATH_SUPPORT
-	if (!cmdq_task_is_secure(handle) || size > CMDQ_SEC_ISP_META_MAX)
-		return -EINVAL;
-
-	handle->sec_meta_type = type;
-	handle->sec_meta_size = size;
-	handle->sec_client_meta = meta;
-#endif
-
-	return 0;
 }
 
 s32 cmdq_op_write_reg(struct cmdqRecStruct *handle, u32 addr,
@@ -1672,6 +1668,8 @@ s32 cmdq_op_write_mem(struct cmdqRecStruct *handle,
 
 s32 cmdq_op_finalize_command(struct cmdqRecStruct *handle, bool loop)
 {
+	return 0;
+#if 0
 	s32 status = 0;
 	u32 arg_b = 0;
 
@@ -1746,6 +1744,7 @@ s32 cmdq_op_finalize_command(struct cmdqRecStruct *handle, bool loop)
 	}
 
 	return status;
+#endif
 }
 
 s32 cmdq_setup_sec_data_of_command_desc_by_rec_handle(

@@ -588,9 +588,6 @@ struct ContextStruct {
 	/* auto-release workqueue per thread */
 	struct workqueue_struct **taskThreadAutoReleaseWQ;
 
-	/* Secure path shared information */
-	struct cmdqSecSharedMemoryStruct *hSecSharedMem;
-
 	/* Profile information */
 	s32 enableProfile;
 	s32 lastID;
@@ -686,6 +683,8 @@ struct cmdqRecStruct {
 	void *user_private;
 
 	struct cmdqSecDataStruct secData;	/* secure execution data */
+	void *sec_isp_msg1;
+	void *sec_isp_msg2;
 
 	/* for CPR conditional and variable use */
 	struct cmdq_v3_replace_struct replace_instr;

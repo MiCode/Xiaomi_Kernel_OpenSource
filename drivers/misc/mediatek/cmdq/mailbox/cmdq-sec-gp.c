@@ -12,6 +12,8 @@
  */
 
 #include <linux/soc/mediatek/mtk-cmdq.h>
+#include <linux/math64.h>
+#include <linux/sched/clock.h>
 
 #include "cmdq-sec-gp.h"
 
@@ -28,15 +30,15 @@ s32 cmdq_sec_init_context(struct cmdq_sec_tee_context *tee)
 {
 	s32 status;
 
-	cmdq_msg("[SEC] enter %s", __func__);
+	cmdq_msg("[SEC]%s", __func__);
 #if defined(CONFIG_MICROTRUST_TEE_SUPPORT)
 	while (!is_teei_ready()) {
-		cmdq_msg("[SEC] Microtrust TEE is not ready, wait...");
+		cmdq_msg("[SEC]Microtrust TEE is not ready, wait...");
 		msleep(1000);
 	}
 #else
 	while (!is_mobicore_ready()) {
-		cmdq_msg("[SEC] Trustonic TEE is not ready, wait...");
+		cmdq_msg("[SEC]Trustonic TEE is not ready, wait...");
 		msleep(1000);
 	}
 #endif
@@ -57,51 +59,39 @@ s32 cmdq_sec_deinit_context(struct cmdq_sec_tee_context *tee)
 }
 
 s32 cmdq_sec_allocate_wsm(struct cmdq_sec_tee_context *tee,
-	void **wsm_buffer, u32 size, void **wsm_buf_ex, u32 size_ex)
+	void **wsm_buffer, u8 idx, u32 size)
 {
 	s32 status;
+	struct TEEC_SharedMemory *mem = &tee->shared_mem[idx];
 
-	if (!wsm_buffer || !wsm_buf_ex)
+	if (!wsm_buffer)
 		return -EINVAL;
 
-	cmdq_msg("%s tee:0x%p size:%u size ex:%u",
-		__func__, tee, size, size_ex);
-	tee->shared_mem.size = size;
-	tee->shared_mem.flags = TEEC_MEM_INPUT | TEEC_MEM_OUTPUT;
-	status = TEEC_AllocateSharedMemory(&tee->gp_context,
-		&tee->shared_mem);
+	cmdq_msg("%s tee:0x%p size:%u idx:%hhu",
+		__func__, tee, size, idx);
+	mem->size = size;
+	mem->flags = TEEC_MEM_INPUT | TEEC_MEM_OUTPUT;
+	status = TEEC_AllocateSharedMemory(&tee->gp_context, mem);
 	if (status != TEEC_SUCCESS) {
-		cmdq_err("[WARN][SEC]allocate_wsm: err:0x%x size:%u",
-			status, size);
+		cmdq_err("[SEC][WARN]allocate_wsm: err:%#x size:%u idx:%hhu",
+			status, size, idx);
 	} else {
-		cmdq_log("[SEC]allocate_wsm: status:0x%x wsm:0x%p size:%u",
-			status, tee->shared_mem.buffer, size);
-		*wsm_buffer = (void *)tee->shared_mem.buffer;
-	}
-
-	tee->shared_mem_ex.size = size_ex;
-	tee->shared_mem_ex.flags = TEEC_MEM_INPUT | TEEC_MEM_OUTPUT;
-	status = TEEC_AllocateSharedMemory(&tee->gp_context,
-		&tee->shared_mem_ex);
-	if (status != TEEC_SUCCESS) {
-		cmdq_err("[WARN][SEC]allocate_wsm: err:0x%x size_ex:%u",
-			status, size_ex);
-	} else {
-		cmdq_log("[SEC]allocate_wsm: status:0x%x wsm:0x%p size ex:%u",
-			status, tee->shared_mem_ex.buffer, size_ex);
-		*wsm_buf_ex = (void *)tee->shared_mem_ex.buffer;
+		cmdq_log(
+			"[SEC]allocate_wsm: status:%#x wsm:0x%p size:%u idx:%hhu",
+			status, mem->buffer, size, idx);
+		*wsm_buffer = mem->buffer;
 	}
 
 	return status;
 }
 
 s32 cmdq_sec_free_wsm(struct cmdq_sec_tee_context *tee,
-	void **wsm_buffer)
+	void **wsm_buffer, u8 idx)
 {
 	if (!wsm_buffer)
 		return -EINVAL;
 
-	TEEC_ReleaseSharedMemory(&tee->shared_mem);
+	TEEC_ReleaseSharedMemory(&tee->shared_mem[idx]);
 	*wsm_buffer = NULL;
 	return 0;
 }
@@ -140,41 +130,62 @@ s32 cmdq_sec_close_session(struct cmdq_sec_tee_context *tee)
 }
 
 s32 cmdq_sec_execute_session(struct cmdq_sec_tee_context *tee,
-	u32 cmd, s32 timeout_ms, bool share_mem_ex)
+	u32 cmd, s32 timeout_ms, bool mem_ex1, bool mem_ex2)
 {
 	s32 status;
 	struct TEEC_Operation operation;
+	u64 ts = sched_clock();
 
 	memset(&operation, 0, sizeof(struct TEEC_Operation));
 #if defined(CONFIG_TRUSTONIC_TEE_SUPPORT)
 	operation.param_types = TEEC_PARAM_TYPES(TEEC_MEMREF_PARTIAL_INOUT,
-		share_mem_ex ? TEEC_MEMREF_PARTIAL_INOUT : TEEC_NONE,
-		TEEC_NONE, TEEC_NONE);
+		mem_ex1 ? TEEC_MEMREF_PARTIAL_INOUT : TEEC_NONE,
+		mem_ex2 ? TEEC_MEMREF_PARTIAL_INOUT : TEEC_NONE,
+		TEEC_NONE);
 #else
 	operation.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_PARTIAL_INOUT,
-		share_mem_ex ? TEEC_MEMREF_PARTIAL_INOUT : TEEC_NONE,
-		TEEC_NONE, TEEC_NONE);
+		mem_ex1 ? TEEC_MEMREF_PARTIAL_INOUT : TEEC_NONE,
+		mem_ex2 ? TEEC_MEMREF_PARTIAL_INOUT : TEEC_NONE,
+		TEEC_NONE);
 #endif
-	operation.params[0].memref.parent = &tee->shared_mem;
-	operation.params[0].memref.size = tee->shared_mem.size;
+	operation.params[0].memref.parent = &tee->shared_mem[0];
+	operation.params[0].memref.size = tee->shared_mem[0].size;
 	operation.params[0].memref.offset = 0;
 
-	if (share_mem_ex) {
-		operation.params[1].memref.parent = &tee->shared_mem_ex;
-		operation.params[1].memref.size = tee->shared_mem_ex.size;
+	if (mem_ex1) {
+		operation.params[1].memref.parent = &tee->shared_mem[1];
+		operation.params[1].memref.size = tee->shared_mem[1].size;
 		operation.params[1].memref.offset = 0;
+	}
+
+	if (mem_ex2) {
+		operation.params[2].memref.parent = &tee->shared_mem[2];
+		operation.params[2].memref.size = tee->shared_mem[2].size;
+		operation.params[2].memref.offset = 0;
 	}
 
 	status = TEEC_InvokeCommand(&tee->session, cmd, &operation,
 		NULL);
+	ts = div_u64(sched_clock() - ts, 1000000);
+
 	if (status != TEEC_SUCCESS)
 		cmdq_err(
-			"[SEC]execute: TEEC_InvokeCommand:%u err:%d memex:%s",
-			cmd, status, share_mem_ex ? "true" : "false");
-	else
+			"[SEC]execute: TEEC_InvokeCommand:%u err:%d memex:%s memex2:%s cost:%lld",
+			cmd, status, mem_ex1 ? "true" : "false",
+			mem_ex2 ? "true" : "false",
+			ts);
+	else if (ts > 15)
 		cmdq_msg(
-			"[SEC]execute: TEEC_InvokeCommand:%u ret:%d memex:%s",
-			cmd, status, share_mem_ex ? "true" : "false");
+			"[SEC]execute: TEEC_InvokeCommand:%u ret:%d memex1:%s memex2:%s cost:%lld",
+			cmd, status, mem_ex1 ? "true" : "false",
+			mem_ex2 ? "true" : "false",
+			ts);
+	else
+		cmdq_log(
+			"[SEC]execute: TEEC_InvokeCommand:%u ret:%d memex1:%s memex2:%s cost:%lld",
+			cmd, status, mem_ex1 ? "true" : "false",
+			mem_ex2 ? "true" : "false",
+			ts);
 
 	return status;
 }

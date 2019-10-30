@@ -11,108 +11,87 @@
 
 #include "cmdq-sec-iwc-common.h"
 
-enum CMDQ_SCENARIO_ENUM {
-	CMDQ_SCENARIO_JPEG_DEC = 0,
-	CMDQ_SCENARIO_PRIMARY_DISP = 1,
-	CMDQ_SCENARIO_PRIMARY_MEMOUT = 2,
-	CMDQ_SCENARIO_PRIMARY_ALL = 3,
-	CMDQ_SCENARIO_SUB_DISP = 4,
-	CMDQ_SCENARIO_SUB_MEMOUT = 5,
-	CMDQ_SCENARIO_SUB_ALL = 6,
-	CMDQ_SCENARIO_MHL_DISP = 7,
-	CMDQ_SCENARIO_RDMA0_DISP = 8,
-	CMDQ_SCENARIO_RDMA0_COLOR0_DISP = 9,
-	CMDQ_SCENARIO_RDMA1_DISP = 10,
+enum CMDQ_SEC_SCENARIO {
+	CMDQ_SEC_JPEG_DEC = 0,
+	CMDQ_SEC_PRIMARY_DISP = 1,
+	CMDQ_SEC_PRIMARY_MEMOUT = 2,
+	CMDQ_SEC_PRIMARY_ALL = 3,
+	CMDQ_SEC_SUB_DISP = 4,
+	CMDQ_SEC_SUB_MEMOUT = 5,
+	CMDQ_SEC_SUB_ALL = 6,
+	CMDQ_SEC_MHL_DISP = 7,
+	CMDQ_SEC_RDMA0_DISP = 8,
+	CMDQ_SEC_RDMA0_COLOR0_DISP = 9,
+	CMDQ_SEC_RDMA1_DISP = 10,
 
 	/* Trigger loop scenario does not enable HWs */
-	CMDQ_SCENARIO_TRIGGER_LOOP = 11,
+	CMDQ_SEC_TRIGGER_LOOP = 11,
 
 	/* client from user space, so the cmd buffer is in user space. */
-	CMDQ_SCENARIO_USER_MDP = 12,
+	CMDQ_SEC_USER_MDP = 12,
 
-	CMDQ_SCENARIO_DEBUG = 13,
-	CMDQ_SCENARIO_DEBUG_PREFETCH = 14,
+	CMDQ_SEC_DEBUG = 13,
+	CMDQ_SEC_DEBUG_PREFETCH = 14,
 
 	/* ESD check */
-	CMDQ_SCENARIO_DISP_ESD_CHECK = 15,
+	CMDQ_SEC_DISP_ESD_CHECK = 15,
 	/* for screen capture to wait for RDMA-done
 	 * without blocking config thread
 	 */
-	CMDQ_SCENARIO_DISP_SCREEN_CAPTURE = 16,
+	CMDQ_SEC_DISP_SCREEN_CAPTURE = 16,
 
-	CMDQ_SCENARIO_DISP_PRIMARY_DISABLE_SECURE_PATH = 18,
-	CMDQ_SCENARIO_DISP_SUB_DISABLE_SECURE_PATH = 19,
+	CMDQ_SEC_DISP_PRIMARY_DISABLE_SECURE_PATH = 18,
+	CMDQ_SEC_DISP_SUB_DISABLE_SECURE_PATH = 19,
 
 	/* color path request from kernel */
-	CMDQ_SCENARIO_DISP_COLOR = 20,
+	CMDQ_SEC_DISP_COLOR = 20,
 	/* color path request from user sapce */
-	CMDQ_SCENARIO_USER_DISP_COLOR = 21,
+	CMDQ_SEC_USER_DISP_COLOR = 21,
 
 	/* [phased out]client from user space,
 	 * so the cmd buffer is in user space.
 	 */
-	CMDQ_SCENARIO_USER_SPACE = 22,
+	CMDQ_SEC_USER_SPACE = 22,
 
-	CMDQ_SCENARIO_DISP_MIRROR_MODE = 23,
+	CMDQ_SEC_DISP_MIRROR_MODE = 23,
 
-	CMDQ_SCENARIO_DISP_CONFIG_AAL = 24,
-	CMDQ_SCENARIO_DISP_CONFIG_PRIMARY_GAMMA = 25,
-	CMDQ_SCENARIO_DISP_CONFIG_SUB_GAMMA = 26,
-	CMDQ_SCENARIO_DISP_CONFIG_PRIMARY_DITHER = 27,
-	CMDQ_SCENARIO_DISP_CONFIG_SUB_DITHER = 28,
-	CMDQ_SCENARIO_DISP_CONFIG_PRIMARY_PWM = 29,
-	CMDQ_SCENARIO_DISP_CONFIG_SUB_PWM = 30,
-	CMDQ_SCENARIO_DISP_CONFIG_PRIMARY_PQ = 31,
-	CMDQ_SCENARIO_DISP_CONFIG_SUB_PQ = 32,
-	CMDQ_SCENARIO_DISP_CONFIG_OD = 33,
-	CMDQ_SCENARIO_DISP_VFP_CHANGE = 34,
+	CMDQ_SEC_DISP_CONFIG_AAL = 24,
+	CMDQ_SEC_DISP_CONFIG_PRIMARY_GAMMA = 25,
+	CMDQ_SEC_DISP_CONFIG_SUB_GAMMA = 26,
+	CMDQ_SEC_DISP_CONFIG_PRIMARY_DITHER = 27,
+	CMDQ_SEC_DISP_CONFIG_SUB_DITHER = 28,
+	CMDQ_SEC_DISP_CONFIG_PRIMARY_PWM = 29,
+	CMDQ_SEC_DISP_CONFIG_SUB_PWM = 30,
+	CMDQ_SEC_DISP_CONFIG_PRIMARY_PQ = 31,
+	CMDQ_SEC_DISP_CONFIG_SUB_PQ = 32,
+	CMDQ_SEC_DISP_CONFIG_OD = 33,
+	CMDQ_SEC_DISP_VFP_CHANGE = 34,
 
-	CMDQ_SCENARIO_RDMA2_DISP = 35,
+	CMDQ_SEC_RDMA2_DISP = 35,
 
 	/* for primary trigger loop enable pre-fetch usage */
-	CMDQ_SCENARIO_HIGHP_TRIGGER_LOOP = 36,
+	CMDQ_SEC_HIGHP_TRIGGER_LOOP = 36,
 	/* for low priority monitor loop to polling bus status */
-	CMDQ_SCENARIO_LOWP_TRIGGER_LOOP = 37,
+	CMDQ_SEC_LOWP_TRIGGER_LOOP = 37,
 
-	CMDQ_SCENARIO_KERNEL_CONFIG_GENERAL = 38,
+	CMDQ_SEC_KERNEL_CONFIG_GENERAL = 38,
 
-	CMDQ_SCENARIO_TIMER_LOOP = 39,
-	CMDQ_SCENARIO_MOVE = 40,
-	CMDQ_SCENARIO_SRAM_LOOP = 41,
+	CMDQ_SEC_TIMER_LOOP = 39,
+	CMDQ_SEC_MOVE = 40,
+	CMDQ_SEC_SRAM_LOOP = 41,
 
 	/* debug scenario use mdp flush */
-	CMDQ_SCENARIO_DEBUG_MDP = 42,
+	CMDQ_SEC_DEBUG_MDP = 42,
 
 	/* for ISP kernel driver */
-	CMDQ_SCENARIO_ISP_RSC = 43,
-	CMDQ_SCENARIO_ISP_FDVT = 44,
-	CMDQ_SCENARIO_ISP_DPE = 45,
+	CMDQ_SEC_ISP_RSC = 43,
+	CMDQ_SEC_ISP_FDVT = 44,
+	CMDQ_SEC_ISP_DPE = 45,
 
-	CMDQ_MAX_SCENARIO_COUNT	/* ALWAYS keep at the end */
+	CMDQ_MAX_SEC_COUNT	/* ALWAYS keep at the end */
 };
 
-/* General Purpose Register */
-enum cmdq_gpr_reg {
-	/* Value Reg, we use 32-bit
-	 * Address Reg, we use 64-bit
-	 * Note that R0-R15 and P0-P7 actullay share same memory
-	 * and R1 cannot be used.
-	 */
-	CMDQ_DATA_REG_JPEG = 0x00,	/* R0 */
-	CMDQ_DATA_REG_JPEG_DST = 0x11,	/* P1 */
-	CMDQ_DATA_REG_PQ_COLOR = 0x04,	/* R4 */
-	CMDQ_DATA_REG_PQ_COLOR_DST = 0x13,	/* P3 */
-	CMDQ_DATA_REG_2D_SHARPNESS_0 = 0x05,	/* R5 */
-	CMDQ_DATA_REG_2D_SHARPNESS_0_DST = 0x14,	/* P4 */
-	CMDQ_DATA_REG_2D_SHARPNESS_1 = 0x0a,	/* R10 */
-	CMDQ_DATA_REG_2D_SHARPNESS_1_DST = 0x16,	/* P6 */
-	CMDQ_DATA_REG_DEBUG = 0x0b,	/* R11 */
-	CMDQ_DATA_REG_DEBUG_DST = 0x17,	/* P7 */
-	/* sentinel value for invalid register ID */
-	CMDQ_DATA_REG_INVALID = -1,
-};
-
-struct cmdqSecAddrMetadataStruct {
+struct cmdq_sec_addr_meta {
 	/* [IN]_d, index of instruction.
 	 * Update its arg_b value to real PA/MVA in secure world
 	 */
@@ -142,41 +121,16 @@ struct cmdqSecAddrMetadataStruct {
 	uint32_t port;		/* hw port id (i.e. M4U port id) */
 };
 
-struct cmdqMetaBuf {
-	uint64_t va;
-	uint64_t size;
-};
-
-#define CMDQ_ISP_META_CNT	8
-
-struct cmdqSecIspMeta {
-	struct cmdqMetaBuf ispBufs[CMDQ_ISP_META_CNT];
-	uint64_t CqSecHandle;
-	uint32_t CqSecSize;
-	uint32_t CqDesOft;
-	uint32_t CqVirtOft;
-	uint64_t TpipeSecHandle;
-	uint32_t TpipeSecSize;
-	uint32_t TpipeOft;
-	uint64_t BpciHandle;
-	uint64_t LsciHandle;
-	uint64_t LceiHandle;
-	uint64_t DepiHandle;
-	uint64_t DmgiHandle;
-};
-
-struct cmdqSecDataStruct {
-	bool is_secure;		/* [IN]true for secure command */
-
+struct cmdq_sec_data {
 	/* address metadata, used to translate secure buffer PA
 	 * related instruction in secure world
 	 */
 	uint32_t addrMetadataCount;	/* [IN] count of element in addrList */
-	/* [IN] array of cmdqSecAddrMetadataStruct */
+	/* [IN] array of cmdq_sec_addr_meta */
 	uint64_t addrMetadatas;
 	uint32_t addrMetadataMaxCount;	/*[Reserved] */
 
-	enum CMDQ_SCENARIO_ENUM scenario;
+	enum CMDQ_SEC_SCENARIO scenario;
 
 	uint64_t enginesNeedDAPC;
 	uint64_t enginesNeedPortSecurity;
@@ -188,38 +142,25 @@ struct cmdqSecDataStruct {
 	/* reset HW thread in SWd */
 	bool resetExecCnt;
 
-	/* ISP metadata for secure camera */
-	struct cmdqSecIspMeta ispMeta;
-
 	enum cmdq_sec_meta_type client_meta_type;
-	u32 client_meta_size;
-	u32 *client_meta;
+
+	u32 client_meta_size[4];
+	void *client_meta[4];
 };
 
-/*
- * Secure address metadata:
- * According to handle type,
- * translate handle and replace (_d)th instruciton to
- *     1. sec_addr = hadnle_sec_base_addr(baseHandle) + offset(_b)
- *     2. sec_mva = mva( hadnle_sec_base_addr(baseHandle) + offset(_b) )
- *     3. secure world normal mva = map(baseHandle)
- *        . pass normal mva to parameter baseHandle
- *        . use case: OVL reads from secure and normal buffers
- *          at the same time)
- */
-enum CMDQ_SEC_ADDR_METADATA_TYPE {
-	CMDQ_SAM_H_2_PA = 0,	/* sec handle to sec PA */
-	CMDQ_SAM_H_2_MVA = 1,	/* sec handle to sec MVA */
-	CMDQ_SAM_NMVA_2_MVA = 2,	/* map normal MVA to secure world */
-	CMDQ_SAM_PH_2_MVA = 3,	/* protected handle to sec MVA */
-};
-
+/* implementation in cmdq-sec-helper.c */
 s32 cmdq_sec_pkt_set_data(struct cmdq_pkt *pkt, const u64 dapc_engine,
-	const u64 port_sec_engine, const enum CMDQ_SCENARIO_ENUM scenario,
-	const enum cmdq_sec_meta_type meta_type,
+	const u64 port_sec_engine, const enum CMDQ_SEC_SCENARIO scenario,
+	const enum cmdq_sec_meta_type meta_type);
+s32 cmdq_sec_pkt_set_payload(struct cmdq_pkt *pkt, u8 idx,
 	const u32 meta_size, u32 *meta);
 s32 cmdq_sec_pkt_write_reg(struct cmdq_pkt *pkt, u32 addr, u64 base,
-	const enum CMDQ_SEC_ADDR_METADATA_TYPE type,
+	const enum CMDQ_IWC_ADDR_METADATA_TYPE type,
 	const u32 offset, const u32 size, const u32 port);
+s32 cmdq_sec_pkt_assign_metadata(struct cmdq_pkt *pkt,
+	u32 count, void *meta_array);
 void cmdq_sec_dump_secure_data(struct cmdq_pkt *pkt);
+int cmdq_sec_pkt_wait_complete(struct cmdq_pkt *pkt,
+	struct completion *cmplt);
+
 #endif

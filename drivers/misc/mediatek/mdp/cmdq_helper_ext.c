@@ -37,6 +37,9 @@
 #if IS_ENABLED(CONFIG_MMPROFILE)
 #include "cmdq_mmp.h"
 #endif
+#ifdef CMDQ_SECURE_PATH_SUPPORT
+#include <cmdq-sec.h>
+#endif
 
 #define CMDQ_GET_COOKIE_CNT(thread) \
 	(CMDQ_REG_GET32(CMDQ_THR_EXEC_CNT(thread)) & CMDQ_MAX_COOKIE_VALUE)
@@ -1318,11 +1321,6 @@ static s32 cmdq_core_get_thread_id(s32 scenario)
 	return cmdq_get_func()->getThreadID(scenario, false);
 }
 
-struct cmdqSecSharedMemoryStruct *cmdq_core_get_secure_shared_memory(void)
-{
-	return cmdq_ctx.hSecSharedMem;
-}
-
 static void cmdq_core_dump_thread(const struct cmdqRecStruct *handle,
 	s32 thread, bool dump_irq, const char *tag)
 {
@@ -1368,10 +1366,6 @@ static void cmdq_core_dump_thread(const struct cmdqRecStruct *handle,
 		"[%s]Curr Cookie:%d Wait Cookie:%d Next Cookie:%d Task Count:%d engineFlag:0x%llx\n",
 		tag, value[4], pThread->waitCookie, pThread->nextCookie,
 		pThread->taskCount, pThread->engineFlag);
-#endif
-
-#ifdef CMDQ_SECURE_PATH_SUPPORT
-	cmdq_sec_dump_secure_thread_cookie(thread);
 #endif
 
 	CMDQ_LOG(
@@ -3672,7 +3666,7 @@ static void cmdq_core_v3_replace_jumpc(struct cmdqRecStruct *handle,
 		va[1] = jump_op | jump_op_header;
 
 		CMDQ_MSG(
-			"Replace jump_c inst idx:%u(%u) cmd:0x%p %#016llx logic:0x%p %#016llx\n",
+			"Replace jump_c inst idx:%u(%u) cmd:0x%p %#018llx logic:0x%p %#018llx\n",
 			inst_idx, inst_pos,
 			va, *(u64 *)va,
 			p_cmd_logic, *(u64 *)p_cmd_logic);
@@ -4904,15 +4898,7 @@ s32 cmdq_helper_mbox_register(struct device *dev)
 			CMDQ_LOG("register mbox stop:0x%p idx:%u\n", clt, i);
 			break;
 		}
-#ifdef CMDQ_SECURE_PATH_SUPPORT
-		/* if channel is not valid in normal controller, check sec */
-		if (i >= sec_thread[0] && i <= sec_thread[1])
-			chan_id = cmdq_mbox_sec_chan_id(clt->chan);
-		else
-			chan_id = cmdq_mbox_chan_id(clt->chan);
-#else
 		chan_id = cmdq_mbox_chan_id(clt->chan);
-#endif
 
 		if (chan_id < 0 || cmdq_clients[chan_id]) {
 			CMDQ_ERR("channel and client duplicate:%d\n", chan_id);
@@ -5025,13 +5011,6 @@ void cmdq_core_initialize(void)
 	/* Reset overall first error dump */
 	cmdq_core_reset_first_dump();
 
-	/* allocate shared memory */
-	cmdq_ctx.hSecSharedMem = NULL;
-#ifdef CMDQ_SECURE_PATH_SUPPORT
-	cmdq_sec_create_shared_memory(&(cmdq_ctx.hSecSharedMem),
-		PAGE_SIZE);
-#endif
-
 #if 0
 	cmdqCoreRegisterDebugRegDumpCB(testcase_regdump_begin,
 		testcase_regdump_end);
@@ -5043,10 +5022,7 @@ void cmdq_core_initialize(void)
 #if IS_ENABLED(CONFIG_MMPROFILE)
 	cmdq_mmp_init();
 #endif
-#ifdef CMDQ_SECURE_PATH_SUPPORT
-	/* Initialize secure path context */
-	cmdqSecInitialize();
-#endif
+
 #if 0
 	/* Initialize test case structure */
 	cmdq_test_init_setting();
@@ -5103,11 +5079,6 @@ void cmdq_core_deinitialize(void)
 
 	kmem_cache_destroy(cmdq_ctx.taskCache);
 	cmdq_ctx.taskCache = NULL;
-#endif
-
-#ifdef CMDQ_SECURE_PATH_SUPPORT
-	/* Deinitialize secure path context */
-	cmdqSecDeInitialize();
 #endif
 
 	kfree(cmdq_wait_queue);
