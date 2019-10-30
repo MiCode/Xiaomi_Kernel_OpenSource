@@ -499,7 +499,7 @@ static const char *get_provider_name(struct device_node *node, u32 *cells)
 
 struct provider_clk *get_all_provider_clks(void)
 {
-	static struct provider_clk provider_clks[512];
+	static struct provider_clk provider_clks[1024];
 	struct device_node *node = NULL;
 	int n = 0;
 
