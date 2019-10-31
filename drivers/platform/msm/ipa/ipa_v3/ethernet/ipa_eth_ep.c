@@ -382,16 +382,35 @@ void ipa_eth_ep_deinit_ctx(struct ipa_eth_channel *ch)
 	memset(ep_ctx, 0, offsetof(typeof(*ep_ctx), sys));
 }
 
+static int __ipa_eth_ep_init(struct ipa_eth_channel *ch,
+				struct ipa3_ep_context *ep_ctx)
+{
+	int rc;
+
+	rc = ipa3_cfg_ep(ch->ipa_ep_num, &ep_ctx->cfg);
+	if (rc) {
+		ipa_eth_dev_err(ch->eth_dev,
+				"Failed to configure EP %d", ch->ipa_ep_num);
+		goto err_exit;
+	}
+
+	if (IPA_CLIENT_IS_PROD(ch->ipa_client))
+		ipa3_install_dflt_flt_rules(ch->ipa_ep_num);
+
+err_exit:
+	return rc;
+}
+
 /**
- * ipa_eth_ep_init - Initialize IPA endpoint for a channel
+ * ipa_eth_ep_init() - Initialize IPA endpoint for a channel
  * @ch: Channel for which EP need to be initialized
  *
  * Return: 0 on success, negative errno otherwise
  */
 int ipa_eth_ep_init(struct ipa_eth_channel *ch)
 {
-	int rc = 0;
-	struct ipa3_ep_context *ep_ctx = NULL;
+	int rc;
+	struct ipa3_ep_context *ep_ctx;
 
 	ep_ctx = &ipa3_ctx->ep[ch->ipa_ep_num];
 	if (!ep_ctx->valid) {
@@ -400,24 +419,31 @@ int ipa_eth_ep_init(struct ipa_eth_channel *ch)
 	}
 
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
-
-	rc = ipa3_cfg_ep(ch->ipa_ep_num, &ep_ctx->cfg);
-	if (rc) {
-		ipa_eth_dev_err(ch->eth_dev,
-				"Failed to configure EP %d", ch->ipa_ep_num);
-		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
-		goto err_exit;
-	}
-
-	if (IPA_CLIENT_IS_PROD(ch->ipa_client))
-		ipa3_install_dflt_flt_rules(ch->ipa_ep_num);
-
+	rc = __ipa_eth_ep_init(ch, ep_ctx);
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
-err_exit:
 	return rc;
 }
 EXPORT_SYMBOL(ipa_eth_ep_init);
+
+/**
+ * ipa_eth_ep_deinit() - Deinitialize IPA endpoint for a channel
+ * @ch: Channel for which EP need to be deinitialized
+ *
+ * Return: 0 on success, negative errno otherwise
+ */
+int ipa_eth_ep_deinit(struct ipa_eth_channel *ch)
+{
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+
+	if (IPA_CLIENT_IS_PROD(ch->ipa_client))
+		ipa3_delete_dflt_flt_rules(ch->ipa_ep_num);
+
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
+
+	return 0;
+}
+EXPORT_SYMBOL(ipa_eth_ep_deinit);
 
 /**
  * ipa_eth_ep_start() - Start an IPA endpoint
