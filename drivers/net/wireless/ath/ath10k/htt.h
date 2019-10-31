@@ -187,6 +187,22 @@ struct htt_data_tx_desc {
 	u8 prefetch[0]; /* start of frame, for FW classification engine */
 } __packed;
 
+struct htt_data_tx_desc_64 {
+	u8 flags0; /* %HTT_DATA_TX_DESC_FLAGS0_ */
+	__le16 flags1; /* %HTT_DATA_TX_DESC_FLAGS1_ */
+	__le16 len;
+	__le16 id;
+	__le64 frags_paddr;
+	union {
+		__le32 peerid;
+		struct {
+			__le16 peerid;
+			__le16 freq;
+		} __packed offchan_tx;
+	} __packed;
+	u8 prefetch[0]; /* start of frame, for FW classification engine */
+} __packed;
+
 enum htt_rx_ring_flags {
 	HTT_RX_RING_FLAGS_MAC80211_HDR = 1 << 0,
 	HTT_RX_RING_FLAGS_MSDU_PAYLOAD = 1 << 1,
@@ -208,6 +224,9 @@ enum htt_rx_ring_flags {
 
 #define HTT_RX_RING_SIZE_MIN 128
 #define HTT_RX_RING_SIZE_MAX 2048
+#define HTT_RX_RING_SIZE HTT_RX_RING_SIZE_MAX
+#define HTT_RX_RING_FILL_LEVEL (((HTT_RX_RING_SIZE) / 2) - 1)
+#define HTT_RX_RING_FILL_LEVEL_DUAL_MAC (HTT_RX_RING_SIZE - 1)
 
 struct htt_rx_ring_setup_ring32 {
 	__le32 fw_idx_shadow_reg_paddr;
@@ -1648,11 +1667,18 @@ struct htt_peer_unmap_event {
 	u16 peer_id;
 };
 
-struct ath10k_htt_txbuf {
+struct ath10k_htt_txbuf_32 {
 	struct htt_data_tx_desc_frag frags[2];
 	struct ath10k_htc_hdr htc_hdr;
 	struct htt_cmd_hdr cmd_hdr;
 	struct htt_data_tx_desc cmd_tx;
+} __packed;
+
+struct ath10k_htt_txbuf_64 {
+	struct htt_data_tx_desc_frag frags[2];
+	struct ath10k_htc_hdr htc_hdr;
+	struct htt_cmd_hdr cmd_hdr;
+	struct htt_data_tx_desc_64 cmd_tx;
 } __packed;
 
 struct ath10k_htt {
@@ -1699,7 +1725,10 @@ struct ath10k_htt {
 		 * rx buffers the host SW provides for the MAC HW to
 		 * fill.
 		 */
-		__le32 *paddrs_ring;
+		union {
+			__le64 *paddrs_ring_64;
+			__le32 *paddrs_ring_32;
+		};
 
 		/*
 		 * Base address of ring, as a "physical" device address
@@ -1785,7 +1814,11 @@ struct ath10k_htt {
 
 	struct {
 		dma_addr_t paddr;
-		struct ath10k_htt_txbuf *vaddr;
+		union {
+			struct ath10k_htt_txbuf_32 *vaddr_txbuff_32;
+			struct ath10k_htt_txbuf_64 *vaddr_txbuff_64;
+		};
+		size_t size;
 	} txbuf;
 
 	struct {
@@ -1801,6 +1834,7 @@ struct ath10k_htt {
 
 	bool tx_mem_allocated;
 	const struct ath10k_htt_tx_ops *tx_ops;
+	const struct ath10k_htt_rx_ops *rx_ops;
 };
 
 struct ath10k_htt_tx_ops {
@@ -1808,8 +1842,20 @@ struct ath10k_htt_tx_ops {
 	int (*htt_send_frag_desc_bank_cfg)(struct ath10k_htt *htt);
 	int (*htt_alloc_frag_desc)(struct ath10k_htt *htt);
 	void (*htt_free_frag_desc)(struct ath10k_htt *htt);
+	int (*htt_tx)(struct ath10k_htt *htt, enum ath10k_hw_txrx_mode txmode,
+		      struct sk_buff *msdu);
+	int (*htt_alloc_txbuff)(struct ath10k_htt *htt);
+	void (*htt_free_txbuff)(struct ath10k_htt *htt);
 };
 
+struct ath10k_htt_rx_ops {
+	size_t (*htt_get_rx_ring_size)(struct ath10k_htt *htt);
+	void (*htt_config_paddrs_ring)(struct ath10k_htt *htt, void *vaddr);
+	void (*htt_set_paddrs_ring)(struct ath10k_htt *htt, dma_addr_t paddr,
+				    int idx);
+	void* (*htt_get_vaddr_ring)(struct ath10k_htt *htt);
+	void (*htt_reset_paddrs_ring)(struct ath10k_htt *htt, int idx);
+};
 #define RX_HTT_HDR_STATUS_LEN 64
 
 /* This structure layout is programmed via rx ring setup
@@ -1912,11 +1958,9 @@ int ath10k_htt_tx_mgmt_inc_pending(struct ath10k_htt *htt, bool is_mgmt,
 int ath10k_htt_tx_alloc_msdu_id(struct ath10k_htt *htt, struct sk_buff *skb);
 void ath10k_htt_tx_free_msdu_id(struct ath10k_htt *htt, u16 msdu_id);
 int ath10k_htt_mgmt_tx(struct ath10k_htt *htt, struct sk_buff *msdu);
-int ath10k_htt_tx(struct ath10k_htt *htt,
-		  enum ath10k_hw_txrx_mode txmode,
-		  struct sk_buff *msdu);
 void ath10k_htt_rx_pktlog_completion_handler(struct ath10k *ar,
 					     struct sk_buff *skb);
 int ath10k_htt_txrx_compl_task(struct ath10k *ar, int budget);
 void ath10k_htt_set_tx_ops(struct ath10k_htt *htt);
+void ath10k_htt_set_rx_ops(struct ath10k_htt *htt);
 #endif
