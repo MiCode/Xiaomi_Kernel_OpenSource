@@ -644,6 +644,29 @@ static int hfi_verify_fw_version(struct kgsl_device *device,
 	return 0;
 }
 
+static int hfi_send_lm_feature_ctrl(struct gmu_device *gmu,
+		struct adreno_device *adreno_dev)
+{
+	struct hfi_set_value_cmd req = {
+		.type = HFI_VALUE_LM_CS0,
+		.subtype = 0,
+		.data = adreno_dev->lm_slope,
+	};
+	struct kgsl_device *device = &adreno_dev->dev;
+	int ret;
+
+	if (!test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
+		return 0;
+
+	ret = hfi_send_feature_ctrl(gmu, HFI_FEATURE_LM, 1,
+			device->pwrctrl.throttle_mask);
+
+	if (!ret)
+		ret = hfi_send_req(gmu, H2F_MSG_SET_VALUE, &req);
+
+	return ret;
+}
+
 static int hfi_send_acd_feature_ctrl(struct gmu_device *gmu,
 		struct adreno_device *adreno_dev)
 {
@@ -723,12 +746,9 @@ int hfi_start(struct kgsl_device *device,
 		if (result)
 			return result;
 
-		if (test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag)) {
-			result = hfi_send_feature_ctrl(gmu, HFI_FEATURE_LM, 1,
-					device->pwrctrl.throttle_mask);
-			if (result)
-				return result;
-		}
+		result = hfi_send_lm_feature_ctrl(gmu, adreno_dev);
+		if (result)
+			return result;
 
 		result = hfi_send_core_fw_start(gmu);
 		if (result)

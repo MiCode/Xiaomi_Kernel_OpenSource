@@ -96,6 +96,7 @@ struct hfi_queue_table;
 #define HFI_VALUE_LOG_EVENT_ON		112
 #define HFI_VALUE_LOG_EVENT_OFF		113
 #define HFI_VALUE_DCVS_OBJ		114
+#define HFI_VALUE_LM_CS0		115
 
 #define HFI_VALUE_GLOBAL_TOKEN		0xFFFFFFFF
 
