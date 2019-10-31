@@ -1,4 +1,4 @@
-/* Copyright (c) 2012,2013,2015, Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013,2015,2019, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,15 +10,13 @@
  * GNU General Public License for more details.
  */
 
-&spmi_bus {
-	#address-cells = <1>;
-	#size-cells = <0>;
-	interrupt-controller;
-	#interrupt-cells = <3>;
+#include <dt-bindings/spmi/spmi.h>
+#include <dt-bindings/iio/qcom,spmi-vadc.h>
 
+&spmi_bus {
 	qcom,pm8019@0 {
-		spmi-slave-container;
-		reg = <0x0>;
+		compatible ="qcom,spmi-pmic";
+		reg = <0x0 SPMI_USID>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 
@@ -30,21 +28,21 @@
 		qcom,power_on@800 {
 			compatible = "qcom,qpnp-power-on";
 			reg = <0x800 0x100>;
-			interrupts = <0x0 0x8 0x2>;
+			interrupts = <0x0 0x8 0x2 IRQ_TYPE_NONE>;
 			interrupt-names = "cblpwr";
 			qcom,pon-dbc-delay = <15625>;
 			qcom,system-reset;
+			qcom,store-hard-reset-reason;
 
 			qcom,pon_1 {
 				qcom,pon-type = <2>;
-				qcom,pull-up = <1>;
+				qcom,pull-up;
 				linux,code = <116>;
 			};
 		};
 
 
 		rtc {
-			spmi-dev-container;
 			compatible = "qcom,qpnp-rtc";
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -57,348 +55,109 @@
 
 			qcom,pm8019_rtc_alarm@6100 {
 				reg = <0x6100 0x100>;
-				interrupts = <0x0 0x61 0x1>;
+				interrupts = <0x0 0x61 0x1 IRQ_TYPE_NONE>;
 			};
 		};
 
-		pm8019_gpios: gpios {
-			spmi-dev-container;
-			compatible = "qcom,qpnp-pin";
+		pm8019_gpios: pinctrl@c000 {
+			compatible = "qcom,spmi-gpio";
+			reg = <0xc000 0x600>;
+			interrupts = <0x0 0xc0 0 IRQ_TYPE_NONE>,
+					<0x0 0xc1 0 IRQ_TYPE_NONE>,
+					<0x0 0xc2 0 IRQ_TYPE_NONE>,
+					<0x0 0xc3 0 IRQ_TYPE_NONE>,
+					<0x0 0xc4 0 IRQ_TYPE_NONE>,
+					<0x0 0xc5 0 IRQ_TYPE_NONE>;
+			interrupt-names = "pm8019_gpio1", "pm8019_gpio2",
+					  "pm8019_gpio3", "pm8019_gpio4",
+					  "pm8019_gpio5", "pm8019_gpio6";
 			gpio-controller;
 			#gpio-cells = <2>;
-			#address-cells = <1>;
-			#size-cells = <1>;
-			label = "pm8019-gpio";
-
-			gpio@c000 {
-				reg = <0xc000 0x100>;
-				qcom,pin-num = <1>;
-			};
-
-			gpio@c100 {
-				reg = <0xc100 0x100>;
-				qcom,pin-num = <2>;
-			};
-
-			gpio@c200 {
-				reg = <0xc200 0x100>;
-				qcom,pin-num = <3>;
-			};
-
-			gpio@c300 {
-				reg = <0xc300 0x100>;
-				qcom,pin-num = <4>;
-			};
-
-			gpio@c400 {
-				reg = <0xc400 0x100>;
-				qcom,pin-num = <5>;
-			};
-
-			gpio@c500 {
-				reg = <0xc500 0x100>;
-				qcom,pin-num = <6>;
-			};
 		};
 
-		pm8019_mpps: mpps {
-			spmi-dev-container;
-			compatible = "qcom,qpnp-pin";
+		pm8019_mpps: pinctrl@a000 {
+			compatible = "qcom,spmi-mpp";
+			reg = <0xa000 0x600>;
+			interrupts = <0 0xa0 0 IRQ_TYPE_NONE>,
+					<0 0xa1 0 IRQ_TYPE_NONE>,
+					<0 0xa2 0 IRQ_TYPE_NONE>,
+					<0 0xa3 0 IRQ_TYPE_NONE>,
+					<0 0xa4 0 IRQ_TYPE_NONE>,
+					<0 0xa5 0 IRQ_TYPE_NONE>;
+			interrupt-names = "pm8019_mpp1", "pm8019_mpp2",
+					  "pm8019_mpp3", "pm8019_mpp4",
+					  "pm8019_mpp5", "pm8019_mpp6";
 			gpio-controller;
 			#gpio-cells = <2>;
-			#address-cells = <1>;
-			#size-cells = <1>;
-			label = "pm8019-mpp";
-
-			mpp@a000 {
-				reg = <0xa000 0x100>;
-				qcom,pin-num = <1>;
-			};
-
-			mpp@a100 {
-				reg = <0xa100 0x100>;
-				qcom,pin-num = <2>;
-			};
-
-			mpp@a200 {
-				reg = <0xa200 0x100>;
-				qcom,pin-num = <3>;
-			};
-
-			mpp@a300 {
-				reg = <0xa300 0x100>;
-				qcom,pin-num = <4>;
-			};
-
-			mpp@a400 {
-				reg = <0xa400 0x100>;
-				qcom,pin-num = <5>;
-			};
-
-			mpp@a500 {
-				reg = <0xa500 0x100>;
-				qcom,pin-num = <6>;
-			};
 		};
 
 		pm8019_vadc: vadc@3100 {
-			compatible = "qcom,qpnp-vadc";
+			compatible = "qcom,spmi-vadc";
 			reg = <0x3100 0x100>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			interrupts = <0x0 0x31 0x0>;
-			interrupt-names = "eoc-int-en-set";
-			qcom,adc-bit-resolution = <15>;
-			qcom,adc-vdd-reference = <1800>;
-			qcom,vadc-poll-eoc;
+			#io-channel-cells = <1>;
+			io-channel-ranges;
 
-			chan@8 {
+			die_temp {
 				label = "die_temp";
-				reg = <8>;
-				qcom,decimation = <0>;
-				qcom,pre-div-channel-scaling = <0>;
-				qcom,calibration-type = "absolute";
-				qcom,scale-function = <3>;
-				qcom,hw-settle-time = <0>;
-				qcom,fast-avg-setup = <0>;
+				reg = <VADC_DIE_TEMP>;
+				qcom,pre-scaling = <1 1>;
 			};
 
-			chan@9 {
+			ref_625mv {
 				label = "ref_625mv";
-				reg = <9>;
-				qcom,decimation = <0>;
-				qcom,pre-div-channel-scaling = <0>;
-				qcom,calibration-type = "absolute";
-				qcom,scale-function = <0>;
-				qcom,hw-settle-time = <0>;
-				qcom,fast-avg-setup = <0>;
+				reg = <VADC_REF_625MV>;
+				qcom,pre-scaling = <1 1>;
 			};
 
-			chan@a {
+			ref_1250v {
 				label = "ref_1250v";
-				reg = <0xa>;
-				qcom,decimation = <0>;
-				qcom,pre-div-channel-scaling = <0>;
-				qcom,calibration-type = "absolute";
-				qcom,scale-function = <0>;
-				qcom,hw-settle-time = <0>;
-				qcom,fast-avg-setup = <0>;
+				reg = <VADC_REF_1250MV>;
+				qqcom,pre-scaling = <1 1>;
+			};
+
+			ref_gnd {
+				label = "ref_gnd";
+				reg = <VADC_GND_REF>;
+				qcom,pre-scaling = <1 1>;
+			};
+
+			ref_vdd {
+				label = "ref_vdd";
+				reg = <VADC_VDD_VADC>;
+				qcom,pre-scaling = <1 1>;
 			};
 		};
 
 		pm8019_adc_tm: vadc@3400 {
-			compatible = "qcom,qpnp-adc-tm";
+			compatible = "qcom,adc-tm5-iio";
 			reg = <0x3400 0x100>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			interrupts =	<0x0 0x34 0x0>,
-					<0x0 0x34 0x3>,
-				     <0x0 0x34 0x4>;
-			interrupt-names =	"eoc-int-en-set",
-						"high-thr-en-set",
-						"low-thr-en-set";
-			qcom,adc-bit-resolution = <15>;
-			qcom,adc_tm-vadc = <&pm8019_vadc>;
-			qcom,adc-vdd-reference = <1800>;
+			#thermal-sensor-cells = <1>;
+			io-channels = <&pm8019_vadc VADC_LR_MUX4_AMUX_THM1>,
+					<&pm8019_vadc VADC_LR_MUX5_AMUX_THM2>;
+
+			pa_therm1 {
+				reg = <VADC_LR_MUX4_AMUX_THM1>;
+				qcom,ratiometric;
+				qcom,hw-settle-time = <200>;
+			};
+
+			pa_therm2 {
+				reg = <VADC_LR_MUX5_AMUX_THM2>;
+				qcom,ratiometric;
+				qcom,hw-settle-time = <200>;
+			};
+
 		};
 	};
 
 	qcom,pm8019@1 {
-		spmi-slave-container;
-		reg = <0x1>;
+		compatible = "qcom,spmi-pmic";
+		reg = <0x1 SPMI_USID>;
 		#address-cells = <1>;
 		#size-cells = <1>;
-
-		regulator@1400 {
-			regulator-name = "8019_s1";
-			spmi-dev-container;
-			#address-cells = <1>;
-			#size-cells = <1>;
-			compatible = "qcom,qpnp-regulator";
-			reg = <0x1400 0x300>;
-			status = "disabled";
-
-			qcom,ctl@1400 {
-				reg = <0x1400 0x100>;
-			};
-			qcom,ps@1500 {
-				reg = <0x1500 0x100>;
-			};
-			qcom,freq@1600 {
-				reg = <0x1600 0x100>;
-			};
-		};
-
-		regulator@1700 {
-			regulator-name = "8019_s2";
-			spmi-dev-container;
-			#address-cells = <1>;
-			#size-cells = <1>;
-			compatible = "qcom,qpnp-regulator";
-			reg = <0x1700 0x300>;
-			status = "disabled";
-
-			qcom,ctl@1700 {
-				reg = <0x1700 0x100>;
-			};
-			qcom,ps@1800 {
-				reg = <0x1800 0x100>;
-			};
-			qcom,freq@1900 {
-				reg = <0x1900 0x100>;
-			};
-		};
-
-		regulator@1a00 {
-			regulator-name = "8019_s3";
-			spmi-dev-container;
-			#address-cells = <1>;
-			#size-cells = <1>;
-			compatible = "qcom,qpnp-regulator";
-			reg = <0x1a00 0x300>;
-			status = "disabled";
-
-			qcom,ctl@1a00 {
-				reg = <0x1a00 0x100>;
-			};
-			qcom,ps@1b00 {
-				reg = <0x1b00 0x100>;
-			};
-			qcom,freq@1c00 {
-				reg = <0x1c00 0x100>;
-			};
-		};
-
-		regulator@1d00 {
-			regulator-name = "8019_s4";
-			spmi-dev-container;
-			#address-cells = <1>;
-			#size-cells = <1>;
-			compatible = "qcom,qpnp-regulator";
-			reg = <0x1d00 0x300>;
-			status = "disabled";
-
-			qcom,ctl@1d00 {
-				reg = <0x1d00 0x100>;
-			};
-			qcom,ps@1e00 {
-				reg = <0x1e00 0x100>;
-			};
-			qcom,freq@1f00 {
-				reg = <0x1f00 0x100>;
-			};
-		};
-
-		regulator@4000 {
-			regulator-name = "8019_l1";
-			reg = <0x4000 0x100>;
-			compatible = "qcom,qpnp-regulator";
-			status = "disabled";
-		};
-
-		regulator@4100 {
-			regulator-name = "8019_l2";
-			reg = <0x4100 0x100>;
-			compatible = "qcom,qpnp-regulator";
-			status = "disabled";
-		};
-
-		regulator@4200 {
-			regulator-name = "8019_l3";
-			reg = <0x4200 0x100>;
-			compatible = "qcom,qpnp-regulator";
-			status = "disabled";
-		};
-
-		regulator@4300 {
-			regulator-name = "8019_l4";
-			reg = <0x4300 0x100>;
-			compatible = "qcom,qpnp-regulator";
-			status = "disabled";
-		};
-
-		regulator@4400 {
-			regulator-name = "8019_l5";
-			reg = <0x4400 0x100>;
-			compatible = "qcom,qpnp-regulator";
-			status = "disabled";
-		};
-
-		regulator@4500 {
-			regulator-name = "8019_l6";
-			reg = <0x4500 0x100>;
-			compatible = "qcom,qpnp-regulator";
-			status = "disabled";
-		};
-
-		regulator@4600 {
-			regulator-name = "8019_l7";
-			reg = <0x4600 0x100>;
-			compatible = "qcom,qpnp-regulator";
-			status = "disabled";
-		};
-
-		regulator@4700 {
-			regulator-name = "8019_l8";
-			reg = <0x4700 0x100>;
-			compatible = "qcom,qpnp-regulator";
-			status = "disabled";
-		};
-
-		regulator@4800 {
-			regulator-name = "8019_l9";
-			reg = <0x4800 0x100>;
-			compatible = "qcom,qpnp-regulator";
-			status = "disabled";
-		};
-
-		regulator@4900 {
-			regulator-name = "8019_l10";
-			reg = <0x4900 0x100>;
-			compatible = "qcom,qpnp-regulator";
-			status = "disabled";
-		};
-
-		regulator@4a00 {
-			regulator-name = "8019_l11";
-			reg = <0x4a00 0x100>;
-			compatible = "qcom,qpnp-regulator";
-			status = "disabled";
-		};
-
-		regulator@4b00 {
-			regulator-name = "8019_l12";
-			reg = <0x4b00 0x100>;
-			compatible = "qcom,qpnp-regulator";
-			status = "disabled";
-		};
-
-		regulator@4c00 {
-			regulator-name = "8019_l13";
-			reg = <0x4c00 0x100>;
-			compatible = "qcom,qpnp-regulator";
-			status = "disabled";
-		};
-
-		regulator@4d00 {
-			regulator-name = "8019_l14";
-			reg = <0x4d00 0x100>;
-			compatible = "qcom,qpnp-regulator";
-			status = "disabled";
-		};
-
-		regulator@4e00 {
-			regulator-name = "8019_ldo_xo";
-			reg = <0x4e00 0x100>;
-			compatible = "qcom,qpnp-regulator";
-			status = "disabled";
-		};
-
-		regulator@4f00 {
-			regulator-name = "8019_ldo_rfclk";
-			reg = <0x4f00 0x100>;
-			compatible = "qcom,qpnp-regulator";
-			status = "disabled";
-		};
 	};
 };

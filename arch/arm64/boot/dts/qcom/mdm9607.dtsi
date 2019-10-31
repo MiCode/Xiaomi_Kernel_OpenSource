@@ -16,6 +16,8 @@
 #include <dt-bindings/clock/msm-clocks-a7.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
+#include <dt-bindings/spmi/spmi.h>
+#include <dt-bindings/iio/qcom,spmi-vadc.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. MDM 9607";
@@ -1533,21 +1535,20 @@
 
 	spmi_bus: qcom,spmi@200f000 {
 		compatible = "qcom,spmi-pmic-arb";
-		reg = <0x200f000 0x1000>,
+		reg = <0x200f000 0xa00>,
 			<0x2400000 0x800000>,
 			<0x2c00000 0x800000>,
 			<0x3800000 0x200000>,
 			<0x200a000 0x2100>;
 		reg-names = "core", "chnls", "obsrvr", "intr", "cnfg";
+		interrupt-names = "periph_irq";
 		interrupts = <0 190 0>;
-		qcom,pmic-arb-channel = <0>;
-		qcom,pmic-arb-max-peripherals = <128>;
-		qcom,pmic-arb-max-periph-interrupts = <128>;
-		qcom,pmic-arb-ee = <0>;
-		#interrupt-cells = <3>;
-		interrupt-controller;
+		qcom,ee = <0>;
+		qcom,channel = <0>;
 		#address-cells = <1>;
-		#size-cells = <0>;
+		#size-cells = <1>;
+		interrupt-controller;
+		#interrupt-cells = <4>;
 		cell-index = <0>;
 	};
 
@@ -1827,12 +1828,9 @@
 /* MPP pin 1 config for USB ID interrupt line */
 &pm8019_mpps {
 	mpp@a000 {
-		qcom,mode = <0>;	/* Digital input */
-		qcom,vin-sel = <3>;	/* 1.8V (L11) */
-		qcom,src-sel = <0>;	/* QPNP_PIN_SEL_FUNC_CONSTANT */
-		qcom,pull = <2>;	/* PULL UP 10KOHM */
-		qcom,master-en = <1>;
-		status = "okay";
+		pins = "mpp1";
+		function = "digital";
+		input-enable;
 	};
 };
 
@@ -1841,109 +1839,56 @@
 };
 
 &pm8019_vadc {
-	chan@6 {
+	vbat_sns {
 		label = "vbat_sns";
-		reg = <6>;
-		qcom,decimation = <0>;
-		qcom,pre-div-channel-scaling = <1>;
-		qcom,calibration-type = "absolute";
-		qcom,scale-function = <0>;
-		qcom,hw-settle-time = <0>;
-		qcom,fast-avg-setup = <0>;
+		reg = <VADC_VBAT_SNS>;
+		qcom,pre-scaling = <1 3>;
 	};
 
-	chan@7 {
+	vph_pwr {
 		label = "vph_pwr";
-		reg = <7>;
-		qcom,decimation = <0>;
-		qcom,pre-div-channel-scaling = <1>;
-		qcom,calibration-type = "absolute";
-		qcom,scale-function = <0>;
-		qcom,hw-settle-time = <0>;
-		qcom,fast-avg-setup = <0>;
+		reg = <VADC_VSYS>;
+		qcom,pre-scaling = <1 3>;
 	};
 
-	chan@31 {
+	batt_id_therm {
 		label = "batt_id_therm";
-		reg = <0x31>;
-		qcom,decimation = <0>;
-		qcom,pre-div-channel-scaling = <0>;
-		qcom,calibration-type = "ratiometric";
-		qcom,scale-function = <0>;
-		qcom,hw-settle-time = <2>;
-		qcom,fast-avg-setup = <0>;
-	 };
-
-	chan@33 {
-		label = "pa_therm0";
-		reg = <0x33>;
-		qcom,decimation = <0>;
-		qcom,pre-div-channel-scaling = <0>;
-		qcom,calibration-type = "ratiometric";
-		qcom,scale-function = <2>;
-		qcom,hw-settle-time = <2>;
-		qcom,fast-avg-setup = <0>;
+		reg = <VADC_LR_MUX2_BAT_ID>;
+		qcom,ratiometric;
+		qcom,pre-scaling = <1 1>;
+		qcom,hw-settle-time = <200>;
 	};
 
-	chan@34 {
+	pa_therm1 {
 		label = "pa_therm1";
-		reg = <0x34>;
-		qcom,decimation = <0>;
-		qcom,pre-div-channel-scaling = <0>;
-		qcom,calibration-type = "ratiometric";
-		qcom,scale-function = <2>;
-		qcom,hw-settle-time = <2>;
-		qcom,fast-avg-setup = <0>;
+		reg = <VADC_LR_MUX4_AMUX_THM1>;
+		qcom,ratiometric;
+		qcom,pre-scaling = <1 1>;
+		qcom,hw-settle-time = <200>;
 	};
 
-	chan@32 {
+	pa_therm2 {
+		label = "pa_therm2";
+		reg = <VADC_LR_MUX5_AMUX_THM2>;
+		qqcom,ratiometric;
+		qcom,pre-scaling = <1 1>;
+		qcom,hw-settle-time = <200>;
+	};
+
+	xo_therm {
 		label = "xo_therm";
-		reg = <0x32>;
-		qcom,decimation = <0>;
-		qcom,pre-div-channel-scaling = <0>;
-		qcom,calibration-type = "ratiometric";
-		qcom,scale-function = <4>;
-		qcom,hw-settle-time = <2>;
-		qcom,fast-avg-setup = <0>;
+		reg = <VADC_LR_MUX3_XO_THERM>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
 	};
 
-	chan@3c {
+	xo_therm_amux {
 		label = "xo_therm_amux";
-		reg = <0x3c>;
-		qcom,decimation = <0>;
-		qcom,pre-div-channel-scaling = <0>;
-		qcom,calibration-type = "ratiometric";
-		qcom,scale-function = <4>;
-		qcom,hw-settle-time = <2>;
-		qcom,fast-avg-setup = <0>;
-	};
-};
-
-&pm8019_adc_tm {
-	/* Channel Node */
-	chan@33 {
-		label = "pa_therm0";
-		reg = <0x33>;
-		qcom,decimation = <0>;
-		qcom,pre-div-channel-scaling = <0>;
-		qcom,calibration-type = "ratiometric";
-		qcom,scale-function = <2>;
-		qcom,hw-settle-time = <2>;
-		qcom,fast-avg-setup = <0>;
-		qcom,btm-channel-number = <0x48>;
-		qcom,thermal-node;
+		reg = <VADC_LR_MUX3_BUF_XO_THERM>;
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
 	};
 
-	chan@34 {
-		label = "pa_therm1";
-		reg = <0x34>;
-		qcom,decimation = <0>;
-		qcom,pre-div-channel-scaling = <0>;
-		qcom,calibration-type = "ratiometric";
-		qcom,scale-function = <2>;
-		qcom,hw-settle-time = <2>;
-		qcom,fast-avg-setup = <0>;
-		qcom,btm-channel-number = <0x68>;
-		qcom,thermal-node;
-	};
 };

@@ -69,50 +69,64 @@
 	status = "ok";
 };
 
-/* MPP pin 2 configs for SMB358 interrupt line */
 &pm8019_mpps {
-	mpp@a100 {
-		qcom,mode = <0>;	/* Digital input */
-		qcom,vin-sel = <3>;	/* 1.8V (L11) */
-		qcom,src-sel = <0>;	/* QPNP_PIN_SEL_FUNC_CONSTANT */
-		qcom,pull = <2>;	/* PULL UP 10KOHM */
-		qcom,master-en = <1>;
+	/* MPP 2 configs for SMB358 interrupt line */
+	smb_stat {
+		smb_stat_default: smb_stat_default {
+			pins = "mpp2";
+			function = "digital";
+			input-enable;
+		};
+	};
+
+	mpp@a300 { /* MPP 4 */
+		pins = "mpp4";
+		function = "digital";
+		output-high;
 	};
 };
 
 &pm8019_gpios {
-	gpio@c100 { /* BT_EN */
-		qcom,mode = <1>;         /* Digital output*/
-		qcom,pull = <4>;         /* Pulldown 10uA */
-		qcom,vin-sel = <2>;      /* VIN2 */
-		qcom,src-sel = <0>;      /* GPIO */
-		qcom,invert = <0>;       /* Invert */
-		qcom,master-en = <1>;    /* Enable GPIO */
-		status = "ok";
+		/* PMIC GPIO 1 for wlan power supply */
+	wlan_en {
+		wlan_en_default_wlan_en_default {
+			pins = "gpio1";
+			function = "normal";
+			output-high;
+			bias-pull-up;
+			qcom,drive-strength = <1>;
+			power-source = <1>;
+		};
 	};
 
-	/* PMIC gpio for wlan power supply */
-	gpio@c200 {
-		qcom,mode = <1>;		/* Digital output */
-		qcom,output-type = <0>;		/* CMOS logic */
-		qcom,invert = <1>;		/* Output high */
-		qcom,vin-sel = <3>;		/* VPH_PWR */
-		qcom,src-sel = <0>;		/* Constant */
-		qcom,out-strength = <1>;	/* High drive strength */
-		qcom,master-en = <1>;		/* Enable GPIO */
-		status = "okay";
+	bt_en {
+		bt_en_default: bt_en_default {  /* BT_EN GPIO 2*/
+			pins = "gpio2";
+			function = "normal";
+			output-low;
+			bias-pull-down;
+			qcom,drive-strength = <2>;
+			power-source = <1>;
+		};
 	};
 
-	/* ROME 32k Sleep Clock */
+	gpio@c300 { /* GPIO 4 */
+		pins = "gpio4";
+		function = "normal";
+		output-high;
+		bias-pull-up;
+		qcom,drive-strength = <1>;
+		power-source = <1>;
+	};
+
+	/* ROME 32k GPIO 6 Sleep Clock */
 	gpio@c500 {
-		qcom,mode = <1>;               /* Digital output */
-		qcom,output-type = <0>;        /* CMOS logic */
-		qcom,invert = <0>;             /* no inversion */
-		qcom,vin-sel = <2>;            /* VIN 2 */
-		qcom,src-sel = <2>;            /* Function 2 */
-		qcom,out-strength = <2>;       /* Medium */
-		qcom,master-en = <1>;          /* Enable GPIO */
-		status = "ok";
+		pins = "gpio6";
+		function = "normal";
+		output-low;
+		bias-pull-down;
+		qcom,drive-strength = <2>;
+		power-source = <1>;
 	};
 };
 
@@ -132,29 +146,6 @@
 	status = "ok";
 };
 
-&pm8019_gpios {
-	gpio@c300 { /* GPIO 4 */
-		qcom,mode = <1>;		/* Digital output */
-		qcom,output-type = <0>;		/* CMOS logic */
-		qcom,invert = <0>;		/* Output high */
-		qcom,vin-sel = <0>;		/* VPH_PWR */
-		qcom,src-sel = <0>;		/* GPIO */
-		qcom,out-strength = <1>;	/* Low drive strength */
-		qcom,master-en = <1>;		/* Enable GPIO */
-	};
-};
-
-/* MPP pin 4 configs for SGMII */
-&pm8019_mpps {
-	mpp@a300 { /* MPP 4 */
-		qcom,mode = <1>;		/* Digital output */
-		qcom,vin-sel = <2>;		/* 1.8V */
-		qcom,src-sel = <0>;		/* Constant */
-		qcom,master-en = <1>;		/* Enable GPIO */
-		status = "okay";
-	};
-};
-
 &i2c_4 {
 	/* SMB358 charger configuration */
 	smb358_otg_vreg: smb358-charger@57 {
@@ -162,7 +153,9 @@
 		regulator-name = "smb358_otg_vreg";
 		reg = <0x57>;
 		interrupt-parent = <&spmi_bus>;
-		interrupts = <0x0 0xa1 0x0>;	/* PMIC MPP 2 */
+		interrupts = <0x0 0xa1 0 IRQ_TYPE_NONE>;	/* PMIC MPP 2 */
+		pinctrl-names = "default";
+		pinctrl-0 = <&smb_stat_default>;
 		qcom,float-voltage-mv = <4200>;
 		qcom,irq-gpio = <&pm8019_mpps 2 0>;
 		qcom,chg-vadc = <&pm8019_vadc>;
