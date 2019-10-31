@@ -23,6 +23,7 @@
 
 	aliases {
 		ufshc1 = &ufshc_mem; /* Embedded UFS Slot */
+		serial0 = &qupv3_se3_2uart;
 	};
 
 	cpus {
@@ -1597,3 +1598,4 @@
 #include "msm-arm-smmu-lahaina.dtsi"
 #include "lahaina-usb.dtsi"
 #include "lahaina-pm.dtsi"
+#include "lahaina-qupv3.dtsi"
