@@ -395,14 +395,16 @@ static void diag_usb_notifier(void *priv, unsigned int event,
 
 	switch (event) {
 	case USB_DIAG_CONNECT:
-		pr_info("diag: USB channel %s: Received Connect event\n",
+		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+			"diag: USB channel %s: Received Connect event\n",
 			usb_info->name);
 		diag_usb_event_add(usb_info, USB_DIAG_CONNECT);
 		queue_work(usb_info->usb_wq,
 			   &usb_info->event_work);
 		break;
 	case USB_DIAG_DISCONNECT:
-		pr_info("diag: USB channel %s: Received Disconnect event\n",
+		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+			"diag: USB channel %s: Received Disconnect event\n",
 			usb_info->name);
 		diag_usb_event_add(usb_info, USB_DIAG_DISCONNECT);
 		queue_work(usb_info->usb_wq,
