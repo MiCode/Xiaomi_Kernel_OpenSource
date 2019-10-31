@@ -22,6 +22,7 @@ Required properties:
 	       should be "qcom,msm8937-tsens" for 8937 TSENS driver.
 	       should be "qcom,qcs405-tsens" for QCS405 TSENS driver.
 	       should be "qcom,sm6150-tsens" for 6150 TSENS driver.
+	       should be "qcom,mdm9607-tsens" for 9607 TSENS driver.
 
 	       The compatible property is used to identify the respective controller to use
 	       for the corresponding SoC.

@@ -1,0 +1,216 @@
+MSM HSIC EHCI controller
+
+Required properties :
+- compatible : should be "qcom,hsic-host"
+- regs : offset and length of the register set in the memory map
+- interrupts: IRQ lines used by this controller
+- interrupt-names : Required interrupt resource entries are:
+	"core_irq" : Interrupt for HSIC core
+- <supply-name>-supply: handle to the regulator device tree node
+  Required "supply-name" is either "hsic_vdd_dig" or "HSIC_VDDCX" and
+  optionally - "HSIC_GDSC".
+
+Optional properties :
+- interrupt-parent - This must provide reference to the current
+        device node.
+- #address-cells - Should provide a value of 0.
+- interrupts - Should be <0 1 2> and it is an index to the
+        interrupt-map.
+- #interrupt-cells - should provide a value of 1.
+- #interrupt-mask - should provide a value of 0xffffffff.
+- interrupt-map - Must create mapping for the number of interrupts
+        that are defined in above interrupts property.
+        For HSIC device node, it should define 3 mappings for
+        core_irq, async_irq and wakeup in the format
+        mentioned in below example node of HSIC.
+
+- interrupt-names : Optional interrupt resource entries are:
+	"async_irq" : Interrupt from HSIC for asynchronous events in HSIC LPM.
+	"wakeup" : Wakeup interrupt from HSIC during suspend (or XO shutdown).
+- pinctrl-names : This should be defined if a target uses pinctrl framework.
+  See "pinctrl" in Documentation/devicetree/bindings/pinctrl/msm-pinctrl.txt.
+  It should specify the names of the configs that pinctrl can install in driver
+  Following are the pinctrl configs that can be installed
+	"hsic_ehci_active" : Active configuration of pins, this should specify active
+	config defined in pin groups of used gpio's from strobe, data and
+	resume.
+	"hsic_ehci_sleep" : Disabled configuration of pins, this should specify sleep
+	config defined in pin groups of used gpio's from strobe, data and
+	resume.
+- hsic,<gpio-name>-gpio : handle to the GPIO node, see "gpios property"
+  in Documentation/devicetree/bindings/gpio/gpio.txt.
+  If pinctrl is being used we need to define only gpio's which drives signals
+  using gpiolib api's like resume gpio in dt, the node name in such cases should
+  be msm_gpio as defined in pinctrl-dtsi. For gpio's only installing active and
+  sleep configs it is not required to specify the gpio in dt file.
+  Optional "gpio-name" can be "strobe", "data" and "resume".
+- hsic,resume-gpio : if present then periperal connected to hsic controller
+  cannot wakeup from XO shutdown using in-band hsic resume. Use resume
+  gpio to wakeup peripheral
+- qcom,phy-sof-workaround : If present then HSIC PHY has h/w BUGs related to
+  SOFs. All the relevant software workarounds are required for the same during
+  suspend, reset and resume.
+- qcom,phy-susp-sof-workaround : If present then HSIC PHY has h/w BUG related to
+  SOFs while entering SUSPEND. Relevant software workaround is required for the same
+  during SUSPEND.
+- qcom,phy-reset-sof-workaround : If present then HSIC PHY has h/w BUG related to
+  SOFs during RESET.
+- qcom,pool-64-bit-align: If present then the pool's memory will be aligned
+  to 64 bits
+- qcom,enable_hbm: if present host bus manager is enabled.
+- qcom,disable-park-mode: if present park mode is enabled. Park mode enables executing
+  up to 3 usb packets from each QH.
+- hsic,consider-ipa-handshake: If present then hsic low power mode is
+  depend on suitable handshake with the IPA peer.
+- qcom,ahb-async-bridge-bypass: if present AHB ASYNC bridge will be bypassed such that
+  the bridge on the slave AHB is always used.
+- hsic,log2-itc: itc (interrupt threshold control) defines rate at which usb
+  controller will issue interrupts. It represents max interrupt interval
+  measured in micro frames.  In high speed USB, each micro frame is 125us.
+  Valid values are from zero to six. Zero is default. Higher ITC value will
+  result in higher interrupt latency and can impact overall data latency.
+
+  log2-itc     - Max interrupt threshold
+  --------       -----------------------
+  0 (2^0 = 1)    1 micro frame interrupt threshold aka 125us interrupt threshold
+  1 (2^1 = 2)    2 micro frame interrupt threshold aka 250us interrupt threshold
+  2 (2^2 = 4)    4 micro frame interrupt threshold aka 500us interrupt threshold
+  3 (2^3 = 8)    8 micro frame interrupt threshold aka 1ms interrupt threshold
+  4 (2^4 = 16)   16 micro frame interrupt threshold aka 2ms interrupt threshold
+  5 (2^5 = 32)   32 micro frame interrupt threshold aka 4ms interrupt threshold
+  6 (2^6 = 64)   64 micro frame interrupt threshold aka 8ms interrupt threshold
+
+- hsic,disable-cerr: CERR is 2bit down error counter that keeps track of number
+  of consecutive errors detected on single usb transaction. When set to non
+  zero value, hw decrements the count and updates qTD when transaction fails.
+  If counter reaches zero, hw marks the qTD inactive and triggers the interrupt.
+  When CERR is programmed to zero, hw ignores transaction failures. ECHI stack
+  programs the CERR  to 3 by default. When this flag is true, CERR is set to
+  zero and transaction errors are ignored.
+
+- hsic,reset-delay: If present then add the given delay time (ms) between
+  the reset and enumeration. Since some devices might take more than 100ms
+  for initialization when receiving the bus reset, add delay to avoid the
+  problem that enmueration is before device initialization done.
+- hsic,vdd-voltage-level: This property must be a list of three integer
+  values (no, min, max) where each value represents either a voltage in
+  microvolts or a value corresponding to voltage corner
+- qcom,disable-internal-clk-gating: If present then internal clock gating in
+  controller is disabled. Internal clock gating is enabled by default in hw.
+
+- Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
+  below optional properties:
+    - qcom,msm_bus,name
+    - qcom,msm_bus,num_cases
+    - qcom,msm_bus,num_paths
+    - qcom,msm_bus,vectors
+
+
+Example MSM HSIC EHCI controller device node :
+	hsic_host: hsic@f9a15000 {
+		compatible = "qcom,hsic-host";
+		reg = <0xf9a15000 0x400>;
+		#address-cells = <0>;
+		interrupt-parent = <&hsic_host>;
+		interrupts = <0 1 2>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 136 0
+			1 &intc 0 148 0
+			2 &msm_gpio 144 0x8>;
+		interrupt-names = "core_irq", "async_irq", "wakeup";
+		hsic_vdd_dig-supply = <&pm8841_s2_corner>;
+		HSIC_GDSC-supply = <&gdsc_usb_hsic>;
+		/* If pinctrl is used and resume gpio is present */
+		pinctrl-names = "hsic_ehci_active","hsic_ehci_sleep";
+		pinctrl-0 = <&hsic_act &resume_act>;
+		pinctrl-1 = <&hsic_sus &resume_act>;
+		hsic,resume-gpio = <&msm_gpio 80 0x00>;
+		/* else (pinctrl is not present)  */
+		hsic,strobe-gpio = <&msmgpio 144 0x00>;
+		hsic,data-gpio = <&msmgpio 145 0x00>;
+		hsic,resume-gpio = <&msmgpio 80 0x00>;
+		/* End */
+		hsic,ignore-cal-pad-config;
+		hsic,strobe-pad-offset = <0x2050>;
+		hsic,data-pad-offset = <0x2054>;
+		hsic,consider-ipa-handshake;
+		hsic,vdd-voltage-level = <1 5 7>;
+
+		qcom,msm-bus,name = "hsic";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<85 512 0 0>,
+				<85 512 40000 160000>;
+        };
+
+SMSC HSIC HUB
+
+Required properties :
+- compatible : should be "qcom,hsic-smsc-hub"
+- smsc,model-id : should be <3502>/<3503>/<4604> depending on hub model. It
+  will be 0 for standalone HSIC controller configuration.
+- smsc,reset-gpio: this output gpio is used to assert/de-assert the hub reset
+- Sub node for "MSM HSIC EHCI controller".
+  Sub node has the required properties mentioned above.
+
+Optional properties :
+- pinctrl-names : This should be defined if a target uses pinctrl framework.
+  See "pinctrl" in Documentation/devicetree/bindings/pinctrl/msm-pinctrl.txt.
+  It should specify the names of the configs that pinctrl can install in driver
+  Following are the pinctrl configs that can be installed
+	"smsc_active" : Active configuration of pins, this should specify active
+	config defined in pin groups of used gpio's from reset, refclk, xo-clk
+	and int.
+	"smsc_sleep" : Disabled configuration of pins, this should specify the sleep
+	config defined in pin groups of used gpio's from reset, refclk, xo-clk
+	and int.
+  If pinctrl is being used we need to only define gpio's which drives signals
+  using gpiolib api's like reset and xo-clk gpio in dt, the node name in such
+  cases should be msm_gpio as defined in pinctrl-dtsi. For gpio's only
+  installing active and sleep configs it is not required to specify the gpio
+  in dt file.
+- smsc,int-gpio: this input gpio indicate HUB suspend status and signal remote
+  wakeup interrupt
+- smsc,refclk-gpio: this gpio is used to supply the reference clock
+- smsc,xo-clk-gpio: this output gpio is used to control the external XO clock
+  which is supplied to the hub as a reference clock
+- hub-vbus-supply: this regulator is used to supply the power to
+  downstream ports
+- hub-int-supply: this regulator is used to bias the interrupt gpio
+- ext-hub-vddio-supply: this regulator is used to supply the power to one of
+  the hub's VDD.
+
+Example SMSC HSIC HUB :
+	hsic_hub {
+		compatible = "qcom,hsic-smsc-hub";
+		smsc,model-id = <4604>;
+		ranges;
+		/* If pinctrl is used with all gpio_present */
+		pinctrl-names = "smsc_active","smsc_sleep";
+		pinctrl-0 = <&reset_act &refclk_act &int_act>;
+		pinctrl-1 = <&reset_sus &refclk_sus &int_sus>;
+		smsc,reset-gpio = <&pm8941_gpios 8 0x00>;
+		/* If target does not use pinctrl */
+		smsc,reset-gpio = <&pm8941_gpios 8 0x00>;
+		smsc,refclk-gpio = <&pm8941_gpios 16 0x00>;
+		smsc,int-gpio = <&msmgpio 50 0x00>;
+		/* End if */
+		hub-int-supply = <&pm8941_l10>;
+		hub-vbus-supply = <&pm8941_mvs1>;
+
+		hsic@f9a00000 {
+			compatible = "qcom,hsic-host";
+			reg = <0xf9a00000 0x400>;
+			interrupts = <0 136 0>;
+			interrupt-names = "core_irq";
+			HSIC_VDDCX-supply = <&pm8841_s2>;
+			HSIC_GDSC-supply = <&gdsc_usb_hsic>;
+			hsic,strobe-gpio = <&msmgpio 144 0x00>;
+			hsic,data-gpio = <&msmgpio 145 0x00>;
+			hsic,ignore-cal-pad-config;
+			hsic,strobe-pad-offset = <0x2050>;
+			hsic,data-pad-offset = <0x2054>;
+		};
+	};

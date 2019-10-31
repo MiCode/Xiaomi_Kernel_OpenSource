@@ -1,0 +1,36 @@
+ANDROID USB:
+
+This describes the device tree node for the Android USB gadget device.
+This works in conjunction with a USB Device Controller (UDC) to provide
+a dynamically configurable composition of functions to be exposed when
+connected to a USB host.
+
+Required properties:
+- compatible: should be "qcom,android-usb"
+
+Optional properties :
+- reg  : offset and length of memory region that is used by device to
+  update USB PID and serial numbers used by bootloader in DLOAD mode.
+- qcom,pm-qos-latency : This property must be a list of three integer values
+  (perf, normal, sleep) where each value respresents DMA latency in microsecs.
+  First value represents DMA latency to vote with pm_qos when back to back USB
+  transfers are happening and it requires USB thoughput to be maximum.
+  Second value represents value to vote when not many USB transfers are
+  happening and it is OK to have higher DMA latency to save power.
+  Third value represents DMA latency to vote when USB BUS is IDLE and absolutely
+  no transfers are happening. It should allow transition to lowest power state.
+- qcom,usb-core-id: Index to refer USB hardware core to bind android gadget driver
+  with UDC if multiple USB peripheral controllers are present. If unspecified,
+  core is set to zero by default.
+- qcom,supported-func: Represents list of supported function drivers. If this
+  property is present android USB driver dynamically creats the list of
+  supported function drivers and uses this list instead of statically defined default
+  supported function driver list.
+Example Android USB device node :
+	android_usb@fc42b0c8 {
+		compatible = "qcom,android-usb";
+		reg = <0xfc42b0c8 0xc8>;
+		qcom,pm-qos-latency = <2 1001 12701>;
+		qcom,supported-func = "rndis_gsi","ecm_gsi","rmnet_gsi";
+		qcom,usb-core-id = <1>;
+	};
