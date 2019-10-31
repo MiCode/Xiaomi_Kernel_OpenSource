@@ -202,10 +202,12 @@ void mhi_assert_dev_wake(struct mhi_controller *mhi_cntrl, bool force)
 		spin_unlock_irqrestore(&mhi_cntrl->wlock, flags);
 	} else {
 		/* if resources requested already, then increment and exit */
-		if (likely(atomic_add_unless(&mhi_cntrl->dev_wake, 1, 0)))
-			return;
-
 		spin_lock_irqsave(&mhi_cntrl->wlock, flags);
+		if (likely(atomic_add_unless(&mhi_cntrl->dev_wake, 1, 0))) {
+			spin_unlock_irqrestore(&mhi_cntrl->wlock, flags);
+			return;
+		}
+
 		if ((atomic_inc_return(&mhi_cntrl->dev_wake) == 1) &&
 		    MHI_WAKE_DB_SET_VALID(mhi_cntrl->pm_state) &&
 		    !mhi_cntrl->wake_set) {
@@ -225,15 +227,20 @@ void mhi_deassert_dev_wake(struct mhi_controller *mhi_cntrl, bool override)
 		   atomic_read(&mhi_cntrl->dev_wake) == 0), "dev_wake == 0");
 
 	/* resources not dropping to 0, decrement and exit */
-	if (likely(atomic_add_unless(&mhi_cntrl->dev_wake, -1, 1)))
-		return;
-
 	spin_lock_irqsave(&mhi_cntrl->wlock, flags);
+	if (likely(atomic_add_unless(&mhi_cntrl->dev_wake, -1, 1))) {
+		if (!override)
+			mhi_cntrl->ignore_override = true;
+		spin_unlock_irqrestore(&mhi_cntrl->wlock, flags);
+		return;
+	}
+
 	if ((atomic_dec_return(&mhi_cntrl->dev_wake) == 0) &&
-	    MHI_WAKE_DB_CLEAR_VALID(mhi_cntrl->pm_state) && !override &&
-	    mhi_cntrl->wake_set) {
+	    MHI_WAKE_DB_CLEAR_VALID(mhi_cntrl->pm_state) && (!override ||
+	    mhi_cntrl->ignore_override) && mhi_cntrl->wake_set) {
 		mhi_write_db(mhi_cntrl, mhi_cntrl->wake_db, 0);
 		mhi_cntrl->wake_set = false;
+		mhi_cntrl->ignore_override = false;
 	}
 	spin_unlock_irqrestore(&mhi_cntrl->wlock, flags);
 }
