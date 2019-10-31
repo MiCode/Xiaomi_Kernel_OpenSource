@@ -13,6 +13,7 @@
 /dts-v1/;
 
 #include "sa515m-v2-ttp.dtsi"
+#include "sa515m-flashless.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SA515M TTP FLASHLESS PCIE EP";

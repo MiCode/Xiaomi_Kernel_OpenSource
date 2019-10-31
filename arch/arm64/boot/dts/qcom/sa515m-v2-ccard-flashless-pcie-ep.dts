@@ -14,6 +14,7 @@
 
 #include "sdxprairie-v2.dtsi"
 #include "sa515m-ccard.dtsi"
+#include "sa515m-flashless.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SA515M CCARD FLASHLESS PCIE-EP";
