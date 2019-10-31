@@ -10,6 +10,7 @@
 #include <linux/device.h>
 #include <linux/dma-buf.h>
 #include <linux/dma-direction.h>
+#include <linux/msm_ion.h>
 #include <linux/kref.h>
 #include <linux/mm_types.h>
 #include <linux/msm_ion.h>

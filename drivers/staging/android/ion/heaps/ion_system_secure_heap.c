@@ -15,6 +15,7 @@
 #include "msm_ion_priv.h"
 #include "ion_secure_util.h"
 
+#define MAX_NR_PREFETCH_REGIONS 32
 #define to_system_secure_heap(_heap) \
 	container_of(to_msm_ion_heap(_heap), struct ion_system_secure_heap, \
 		     heap)
@@ -207,69 +208,43 @@ static void ion_system_secure_heap_prefetch_work(struct work_struct *work)
 	spin_unlock_irqrestore(&secure_heap->work_lock, flags);
 }
 
-static int alloc_prefetch_info(struct ion_prefetch_regions __user *
-			       user_regions, bool shrink,
-			       struct list_head *items)
+static int alloc_prefetch_info(struct ion_prefetch_region *region,
+			       bool shrink, struct list_head *items)
 {
 	struct prefetch_info *info;
-	u64 user_sizes;
-	int err;
-	unsigned int nr_sizes, vmid, i;
 
-	err = get_user(nr_sizes, &user_regions->nr_sizes);
-	err |= get_user(user_sizes, &user_regions->sizes);
-	err |= get_user(vmid, &user_regions->vmid);
-	if (err)
-		return -EFAULT;
-
-	if (!is_secure_vmid_valid(get_secure_vmid(vmid)))
+	if (!is_secure_vmid_valid(get_secure_vmid(region->vmid)))
 		return -EINVAL;
 
-	if (nr_sizes > 0x10)
-		return -EINVAL;
+	info = kmalloc(sizeof(*info), GFP_KERNEL);
+	if (!info)
+		return -ENOMEM;
 
-	for (i = 0; i < nr_sizes; i++) {
-		info = kzalloc(sizeof(*info), GFP_KERNEL);
-		if (!info)
-			return -ENOMEM;
-
-		err = get_user(info->size, ((u64 __user *)user_sizes + i));
-		if (err)
-			goto out_free;
-
-		info->vmid = vmid;
-		info->shrink = shrink;
-		INIT_LIST_HEAD(&info->list);
-		list_add_tail(&info->list, items);
-	}
-	return err;
-out_free:
-	kfree(info);
-	return err;
+	info->size = region->size;
+	info->vmid = region->vmid;
+	info->shrink = shrink;
+	INIT_LIST_HEAD(&info->list);
+	list_add_tail(&info->list, items);
+	return 0;
 }
 
-static int __ion_system_secure_heap_resize(struct ion_heap *heap, void *ptr,
+static int __ion_system_secure_heap_resize(struct ion_heap *heap,
+					   struct ion_prefetch_region *regions,
+					   int nr_regions,
 					   bool shrink)
 {
 	struct ion_system_secure_heap *secure_heap =
 		to_system_secure_heap(heap);
-	struct ion_prefetch_data *data = ptr;
 	int i, ret = 0;
 	struct prefetch_info *info, *tmp;
 	unsigned long flags;
 	LIST_HEAD(items);
 
-	if ((int)heap->type != ION_HEAP_TYPE_SYSTEM_SECURE)
+	if (nr_regions > MAX_NR_PREFETCH_REGIONS)
 		return -EINVAL;
 
-	if (data->nr_regions > 0x10)
-		return -EINVAL;
-
-	for (i = 0; i < data->nr_regions; i++) {
-		struct ion_prefetch_regions *r;
-
-		r = (struct ion_prefetch_regions *)data->regions + i;
-		ret = alloc_prefetch_info(r, shrink, &items);
+	for (i = 0; i < nr_regions; i++) {
+		ret = alloc_prefetch_info(&regions[i], shrink, &items);
 		if (ret)
 			goto out_free;
 	}
@@ -294,14 +269,19 @@ out_free:
 	return ret;
 }
 
-int ion_system_secure_heap_prefetch(struct ion_heap *heap, void *ptr)
+static int ion_system_secure_heap_prefetch(struct ion_heap *heap,
+					   struct ion_prefetch_region *regions,
+					   int nr_regions)
 {
-	return __ion_system_secure_heap_resize(heap, ptr, false);
+	return __ion_system_secure_heap_resize(heap, regions, nr_regions,
+					       false);
 }
 
-int ion_system_secure_heap_drain(struct ion_heap *heap, void *ptr)
+static int ion_system_secure_heap_drain(struct ion_heap *heap,
+					struct ion_prefetch_region *regions,
+					int nr_regions)
 {
-	return __ion_system_secure_heap_resize(heap, ptr, true);
+	return __ion_system_secure_heap_resize(heap, regions, nr_regions, true);
 }
 
 static int ion_system_secure_heap_shrink(struct ion_heap *heap, gfp_t gfp_mask,
@@ -320,6 +300,11 @@ static struct ion_heap_ops system_secure_heap_ops = {
 	.shrink = ion_system_secure_heap_shrink,
 };
 
+static struct msm_ion_heap_ops msm_system_secure_heap_ops = {
+	.heap_prefetch = ion_system_secure_heap_prefetch,
+	.heap_drain = ion_system_secure_heap_drain,
+};
+
 struct ion_heap *ion_system_secure_heap_create(struct ion_platform_heap *unused)
 {
 	struct ion_system_secure_heap *heap;
@@ -334,6 +319,7 @@ struct ion_heap *ion_system_secure_heap_create(struct ion_platform_heap *unused)
 	if (!heap)
 		return ERR_PTR(-ENOMEM);
 	heap->heap.ion_heap.ops = &system_secure_heap_ops;
+	heap->heap.msm_heap_ops = &msm_system_secure_heap_ops;
 	heap->heap.ion_heap.buf_ops = msm_ion_dma_buf_ops;
 	heap->heap.ion_heap.type =
 		(enum ion_heap_type)ION_HEAP_TYPE_SYSTEM_SECURE;
