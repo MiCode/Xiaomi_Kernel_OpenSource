@@ -1629,7 +1629,8 @@ irqreturn_t mhi_intvec_handlr(int irq_number, void *dev)
 	wake_up_all(&mhi_cntrl->state_event);
 	MHI_VERB("Exit\n");
 
-	schedule_work(&mhi_cntrl->low_priority_worker);
+	if (MHI_IN_MISSION_MODE(mhi_cntrl->ee))
+		schedule_work(&mhi_cntrl->low_priority_worker);
 
 	return IRQ_WAKE_THREAD;
 }

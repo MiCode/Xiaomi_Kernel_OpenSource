@@ -441,22 +441,24 @@ int mhi_pm_m3_transition(struct mhi_controller *mhi_cntrl)
 static int mhi_pm_mission_mode_transition(struct mhi_controller *mhi_cntrl)
 {
 	int i, ret;
+	enum mhi_ee ee = 0;
 	struct mhi_event *mhi_event;
 
 	MHI_LOG("Processing Mission Mode Transition\n");
 
 	write_lock_irq(&mhi_cntrl->pm_lock);
 	if (MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state))
-		mhi_cntrl->ee = mhi_get_exec_env(mhi_cntrl);
+		ee = mhi_get_exec_env(mhi_cntrl);
 	write_unlock_irq(&mhi_cntrl->pm_lock);
 
-	if (!MHI_IN_MISSION_MODE(mhi_cntrl->ee))
+	if (!MHI_IN_MISSION_MODE(ee))
 		return -EIO;
-
-	wake_up_all(&mhi_cntrl->state_event);
 
 	mhi_cntrl->status_cb(mhi_cntrl, mhi_cntrl->priv_data,
 			     MHI_CB_EE_MISSION_MODE);
+	mhi_cntrl->ee = ee;
+
+	wake_up_all(&mhi_cntrl->state_event);
 
 	/* force MHI to be in M0 state before continuing */
 	ret = __mhi_device_get_sync(mhi_cntrl);
@@ -770,10 +772,8 @@ void mhi_low_priority_worker(struct work_struct *work)
 		 TO_MHI_EXEC_STR(mhi_cntrl->ee));
 
 	/* check low priority event rings and process events */
-	list_for_each_entry(mhi_event, &mhi_cntrl->lp_ev_rings, node) {
-		if (MHI_IN_MISSION_MODE(mhi_cntrl->ee))
-			mhi_event->process_event(mhi_cntrl, mhi_event, U32_MAX);
-	}
+	list_for_each_entry(mhi_event, &mhi_cntrl->lp_ev_rings, node)
+		mhi_event->process_event(mhi_cntrl, mhi_event, U32_MAX);
 }
 
 void mhi_pm_sys_err_worker(struct work_struct *work)
