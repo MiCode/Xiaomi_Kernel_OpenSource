@@ -1417,6 +1417,11 @@ int smblib_get_irq_status(struct smb_charger *chg,
 	int rc;
 	u8 reg;
 
+	if (chg->wa_flags & SKIP_MISC_PBS_IRQ_WA) {
+		val->intval = 0;
+		return 0;
+	}
+
 	mutex_lock(&chg->irq_status_lock);
 	/* Report and clear cached status */
 	val->intval = chg->irq_status;
