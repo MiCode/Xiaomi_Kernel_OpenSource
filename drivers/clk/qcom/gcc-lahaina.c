@@ -1242,6 +1242,32 @@ static struct clk_regmap_div gcc_usb30_sec_mock_utmi_postdiv_clk_src = {
 	},
 };
 
+static struct clk_branch gcc_aggre_noc_pcie_0_axi_clk = {
+	.halt_reg = 0x6b080,
+	.halt_check = BRANCH_HALT_SKIP,
+	.clkr = {
+		.enable_reg = 0x52000,
+		.enable_mask = BIT(12),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_aggre_noc_pcie_0_axi_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_aggre_noc_pcie_1_axi_clk = {
+	.halt_reg = 0x8d084,
+	.halt_check = BRANCH_HALT_SKIP,
+	.clkr = {
+		.enable_reg = 0x52000,
+		.enable_mask = BIT(11),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_aggre_noc_pcie_1_axi_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
 static struct clk_branch gcc_aggre_noc_pcie_tbu_clk = {
 	.halt_reg = 0x9000c,
 	.halt_check = BRANCH_HALT_VOTED,
@@ -1410,7 +1436,7 @@ static struct clk_branch gcc_camera_ahb_clk = {
 
 static struct clk_branch gcc_camera_hf_axi_clk = {
 	.halt_reg = 0x26010,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_SKIP,
 	.hwcg_reg = 0x26010,
 	.hwcg_bit = 1,
 	.clkr = {
@@ -1425,7 +1451,7 @@ static struct clk_branch gcc_camera_hf_axi_clk = {
 
 static struct clk_branch gcc_camera_sf_axi_clk = {
 	.halt_reg = 0x26014,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_SKIP,
 	.hwcg_reg = 0x26014,
 	.hwcg_bit = 1,
 	.clkr = {
@@ -1514,7 +1540,7 @@ static struct clk_branch gcc_cpuss_ahb_clk = {
 
 static struct clk_branch gcc_ddrss_gpu_axi_clk = {
 	.halt_reg = 0x71154,
-	.halt_check = BRANCH_VOTED,
+	.halt_check = BRANCH_HALT_SKIP,
 	.hwcg_reg = 0x71154,
 	.hwcg_bit = 1,
 	.clkr = {
@@ -1529,7 +1555,7 @@ static struct clk_branch gcc_ddrss_gpu_axi_clk = {
 
 static struct clk_branch gcc_ddrss_pcie_sf_tbu_clk = {
 	.halt_reg = 0x8d080,
-	.halt_check = BRANCH_HALT_VOTED,
+	.halt_check = BRANCH_HALT_SKIP,
 	.hwcg_reg = 0x8d080,
 	.hwcg_bit = 1,
 	.clkr = {
@@ -1560,7 +1586,7 @@ static struct clk_branch gcc_disp_ahb_clk = {
 
 static struct clk_branch gcc_disp_hf_axi_clk = {
 	.halt_reg = 0x2700c,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_SKIP,
 	.hwcg_reg = 0x2700c,
 	.hwcg_bit = 1,
 	.clkr = {
@@ -1575,7 +1601,7 @@ static struct clk_branch gcc_disp_hf_axi_clk = {
 
 static struct clk_branch gcc_disp_sf_axi_clk = {
 	.halt_reg = 0x27014,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_SKIP,
 	.hwcg_reg = 0x27014,
 	.hwcg_bit = 1,
 	.clkr = {
@@ -1831,7 +1857,7 @@ static struct clk_branch gcc_pcie_0_clkref_en = {
 
 static struct clk_branch gcc_pcie_0_mstr_axi_clk = {
 	.halt_reg = 0x6b01c,
-	.halt_check = BRANCH_HALT_VOTED,
+	.halt_check = BRANCH_HALT_SKIP,
 	.hwcg_reg = 0x6b01c,
 	.hwcg_bit = 1,
 	.clkr = {
@@ -1933,7 +1959,7 @@ static struct clk_branch gcc_pcie_1_clkref_en = {
 
 static struct clk_branch gcc_pcie_1_mstr_axi_clk = {
 	.halt_reg = 0x8d01c,
-	.halt_check = BRANCH_HALT_VOTED,
+	.halt_check = BRANCH_HALT_SKIP,
 	.hwcg_reg = 0x8d01c,
 	.hwcg_bit = 1,
 	.clkr = {
@@ -2718,6 +2744,19 @@ static struct clk_branch gcc_sys_noc_cpuss_ahb_clk = {
 	},
 };
 
+static struct clk_branch gcc_throttle_pcie_ahb_clk = {
+	.halt_reg = 0x9044,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x9044,
+		.enable_mask = BIT(0),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_throttle_pcie_ahb_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
 static struct clk_branch gcc_ufs_1_clkref_en = {
 	.halt_reg = 0x8c000,
 	.halt_check = BRANCH_HALT,
@@ -3400,7 +3439,7 @@ static struct clk_branch gcc_video_ahb_clk = {
 
 static struct clk_branch gcc_video_axi0_clk = {
 	.halt_reg = 0x28010,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_SKIP,
 	.hwcg_reg = 0x28010,
 	.hwcg_bit = 1,
 	.clkr = {
@@ -3415,7 +3454,7 @@ static struct clk_branch gcc_video_axi0_clk = {
 
 static struct clk_branch gcc_video_axi1_clk = {
 	.halt_reg = 0x28018,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_SKIP,
 	.hwcg_reg = 0x28018,
 	.hwcg_bit = 1,
 	.clkr = {
@@ -3443,6 +3482,8 @@ static struct clk_branch gcc_video_xo_clk = {
 };
 
 static struct clk_regmap *gcc_lahaina_clocks[] = {
+	[GCC_AGGRE_NOC_PCIE_0_AXI_CLK] = &gcc_aggre_noc_pcie_0_axi_clk.clkr,
+	[GCC_AGGRE_NOC_PCIE_1_AXI_CLK] = &gcc_aggre_noc_pcie_1_axi_clk.clkr,
 	[GCC_AGGRE_NOC_PCIE_TBU_CLK] = &gcc_aggre_noc_pcie_tbu_clk.clkr,
 	[GCC_AGGRE_UFS_CARD_AXI_CLK] = &gcc_aggre_ufs_card_axi_clk.clkr,
 	[GCC_AGGRE_UFS_CARD_AXI_HW_CTL_CLK] =
@@ -3572,6 +3613,7 @@ static struct clk_regmap *gcc_lahaina_clocks[] = {
 	[GCC_SDCC4_APPS_CLK] = &gcc_sdcc4_apps_clk.clkr,
 	[GCC_SDCC4_APPS_CLK_SRC] = &gcc_sdcc4_apps_clk_src.clkr,
 	[GCC_SYS_NOC_CPUSS_AHB_CLK] = &gcc_sys_noc_cpuss_ahb_clk.clkr,
+	[GCC_THROTTLE_PCIE_AHB_CLK] = &gcc_throttle_pcie_ahb_clk.clkr,
 	[GCC_UFS_1_CLKREF_EN] = &gcc_ufs_1_clkref_en.clkr,
 	[GCC_UFS_CARD_AHB_CLK] = &gcc_ufs_card_ahb_clk.clkr,
 	[GCC_UFS_CARD_AXI_CLK] = &gcc_ufs_card_axi_clk.clkr,
