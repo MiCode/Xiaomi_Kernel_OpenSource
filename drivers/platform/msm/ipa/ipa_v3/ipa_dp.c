@@ -939,7 +939,7 @@ static void ipa_pm_sys_pipe_cb(void *p, enum ipa_pm_cb_event event)
 int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 {
 	struct ipa3_ep_context *ep;
-	int i, ipa_ep_idx, wan_handle;
+	int i, ipa_ep_idx, wan_handle, coal_ep_id;
 	int result = -EINVAL;
 	struct ipahal_reg_coal_qmap_cfg qmap_cfg;
 	struct ipahal_reg_coal_evict_lru evict_lru;
@@ -969,6 +969,7 @@ int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		goto fail_gen;
 	}
 
+	coal_ep_id = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS);
 	/* save the input config parameters */
 	if (sys_in->client == IPA_CLIENT_APPS_WAN_COAL_CONS)
 		ep_cfg_copy = sys_in->ipa_ep_cfg;
@@ -1020,8 +1021,13 @@ int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		ep->sys->db_timer.function = ipa3_ring_doorbell_timer_fn;
 
 		/* create IPA PM resources for handling polling mode */
-		if (ipa3_ctx->use_ipa_pm &&
-			IPA_CLIENT_IS_CONS(sys_in->client)) {
+		if (sys_in->client == IPA_CLIENT_APPS_WAN_CONS &&
+			coal_ep_id != IPA_EP_NOT_ALLOCATED &&
+			ipa3_ctx->ep[coal_ep_id].valid == 1) {
+			/* Use coalescing pipe PM handle for default pipe also*/
+			ep->sys->pm_hdl = ipa3_ctx->ep[coal_ep_id].sys->pm_hdl;
+		} else if (ipa3_ctx->use_ipa_pm &&
+				IPA_CLIENT_IS_CONS(sys_in->client)) {
 			pm_reg.name = ipa_clients_strings[sys_in->client];
 			pm_reg.callback = ipa_pm_sys_pipe_cb;
 			pm_reg.user_data = ep->sys;
