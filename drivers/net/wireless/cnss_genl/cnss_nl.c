@@ -81,6 +81,7 @@ static struct genl_family cld80211_fam __ro_after_init = {
 	.hdrsize = 0,			/* no private header */
 	.version = 1,			/* no particular meaning now */
 	.maxattr = CLD80211_ATTR_MAX,
+	.policy = cld80211_policy,
 	.netnsok = true,
 	.pre_doit = cld80211_pre_doit,
 	.post_doit = NULL,
@@ -166,7 +167,6 @@ static int __cld80211_init(void)
 		nl_ops[i].cmd = i + 1;
 		nl_ops[i].doit = cld80211_doit;
 		nl_ops[i].flags = GENL_ADMIN_PERM;
-		nl_ops[i].policy = cld80211_policy;
 	}
 
 	err = genl_register_family(&cld80211_fam);
