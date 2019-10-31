@@ -533,6 +533,11 @@ struct usb_gadget {
 	unsigned			connected:1;
 	unsigned			lpm_capable:1;
 	unsigned			remote_wakeup:1;
+	bool				bam2bam_func_enabled;
+	u32				extra_buf_alloc;
+	bool				l1_supported;
+	bool				is_chipidea;
+	bool				self_powered;
 };
 #define work_to_gadget(w)	(container_of((w), struct usb_gadget, work))
 
