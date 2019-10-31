@@ -1154,6 +1154,7 @@ static int msm_gpio_init(struct msm_pinctrl *pctrl)
 	girq->chip = &pctrl->irq_chip;
 	girq->parent_handler = msm_gpio_irq_handler;
 	girq->num_parents = 1;
+	girq->fwnode = pctrl->dev->fwnode;
 	girq->parents = devm_kcalloc(pctrl->dev, 1, sizeof(*girq->parents),
 				     GFP_KERNEL);
 	if (!girq->parents)
