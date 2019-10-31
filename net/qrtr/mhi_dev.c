@@ -109,6 +109,8 @@ static void qrtr_mhi_dev_read(struct qrtr_mhi_dev_ep *qep)
 				bytes_read);
 			return;
 		}
+		if (bytes_read == 0)
+			return;
 
 		rc = qrtr_endpoint_post(&qep->ep, req.buf, req.transfer_len);
 		if (rc == -EINVAL)
