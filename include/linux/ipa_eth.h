@@ -43,9 +43,10 @@
  *                  to notify of various device events.
  *           5    - Removed ipa_eth_{gsi,uc}_iommu_*{} APIs that were used for
  *                  mapping memory to GSI and IPA uC IOMMU CBs.
+ *           6    - Added ipa_eth_ep_deinit()
  */
 
-#define IPA_ETH_API_VER 5
+#define IPA_ETH_API_VER 6
 
 /**
  * enum ipa_eth_dev_features - Features supported by an ethernet device or
@@ -1018,6 +1019,7 @@ struct ipa_eth_resource *ipa_eth_net_ch_to_cb_mem(
 	enum ipa_eth_hw_type hw_type);
 
 int ipa_eth_ep_init(struct ipa_eth_channel *ch);
+int ipa_eth_ep_deinit(struct ipa_eth_channel *ch);
 int ipa_eth_ep_start(struct ipa_eth_channel *ch);
 int ipa_eth_ep_stop(struct ipa_eth_channel *ch);
 
