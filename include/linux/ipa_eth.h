@@ -447,6 +447,8 @@ struct ipa_eth_channel {
  * @flags: Device flags
  * @if_state: Interface state - one or more bit numbers IPA_ETH_IF_ST_*
  * @pm_handle: IPA PM client handle for the device
+ * @phdr_v4_handle: Partial header handle for IPv4
+ * @phdr_v6_handle: Partial header handle for IPv6
  * @bus_priv: Private field for use by offload subsystem bus layer
  * @ipa_priv: Private field for use by offload subsystem
  * @debugfs: Debugfs root for the device
@@ -487,6 +489,8 @@ struct ipa_eth_device {
 	unsigned long if_state;
 
 	u32 pm_handle;
+	u32 phdr_v4_handle;
+	u32 phdr_v6_handle;
 
 	void *bus_priv;
 	void *ipa_priv;
