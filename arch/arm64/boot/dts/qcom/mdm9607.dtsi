@@ -686,6 +686,10 @@
 		qcom,max-nominal-sysclk-rate = <133330000>;
 		qcom,max-svs-sysclk-rate = <69500000>;
 		qcom,default-mode-svs;
+		resets = <&clock_gcc GCC_USB_HS_BCR>,
+			<&clock_gcc GCC_QUSB2_PHY_BCR>,
+			<&clock_gcc GCC_USB2_HS_PHY_ONLY_BCR>;
+		reset-names = "core_reset", "phy_reset", "phy_por_reset";
 
 		qcom,usbbam@78c4000 {
 			compatible = "qcom,usb-bam-msm";
@@ -716,12 +720,6 @@
 		};
 	};
 
-	android_usb: android_usb@086000c8 {
-		compatible = "qcom,android-usb";
-		reg = <0x086000c8 0xc8>;
-		qcom,pm-qos-latency = <2 1001 12701>;
-	};
-
 	hsic: hsic@7c00000 {
 		compatible = "qcom,hsic-peripheral";
 		reg = <0x7c00000 0x352>,
@@ -748,12 +746,8 @@
 		qcom,msm-bus,vectors-KBps =
 				<85 512 0 0>,
 				<85 512 6000  6000>;
-		status = "disabled";
-	};
-
-	android_usb_hsic: android_usb-hsic {
-		compatible = "qcom,android-usb";
-		qcom,usb-core-id = <1>;
+		resets = <&clock_gcc GCC_USB_HS_HSIC_BCR>;
+		reset-names = "core_reset";
 		status = "disabled";
 	};
 
