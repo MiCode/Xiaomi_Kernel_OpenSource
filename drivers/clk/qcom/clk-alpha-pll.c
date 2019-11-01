@@ -1202,8 +1202,6 @@ static int clk_zonda_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	if (ret)
 		return ret;
 
-	/* Wait for PLL output to stabilize */
-	udelay(100);
 	return 0;
 }
 
