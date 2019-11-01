@@ -739,11 +739,11 @@ static int atl_get_sset_count(struct net_device *ndev, int sset)
 #ifdef NETIF_F_HW_MACSEC
 		       + ARRAY_SIZE(macsec_stat_descs)
 		       + ARRAY_SIZE(macsec_tx_sc_stat_descs) *
-		       		hweight_long(nic->hw.macsec_cfg.secy_idx_busy)
+				 atl_macsec_tx_sc_cnt(&nic->hw)
 		       + ARRAY_SIZE(macsec_tx_sa_stat_descs) *
-		       		atl_macsec_tx_sa_cnt(&nic->hw)
+				 atl_macsec_tx_sa_cnt(&nic->hw)
 		       + ARRAY_SIZE(macsec_rx_sa_stat_descs) *
-		       		atl_macsec_rx_sa_cnt(&nic->hw)
+				 atl_macsec_rx_sa_cnt(&nic->hw)
 #endif
 			;
 
@@ -756,13 +756,13 @@ static int atl_get_sset_count(struct net_device *ndev, int sset)
 }
 
 static void atl_copy_stats_strings(char **data, char *prefix,
-	const struct atl_stat_desc *descs, int len)
+				   const struct atl_stat_desc *descs, int len)
 {
 	int i;
 
 	for (i = 0; i < len; i++) {
-		snprintf(*data, ETH_GSTRING_LEN, "%s%s",
-			prefix, descs[i].stat_name);
+		snprintf(*data, ETH_GSTRING_LEN, "%s%s", prefix,
+			 descs[i].stat_name);
 		*data += ETH_GSTRING_LEN;
 	}
 }
@@ -770,13 +770,13 @@ static void atl_copy_stats_strings(char **data, char *prefix,
 static void atl_copy_stats_string_set(char **data, char *prefix)
 {
 	atl_copy_stats_strings(data, prefix, tx_stat_descs,
-		ARRAY_SIZE(tx_stat_descs));
+			       ARRAY_SIZE(tx_stat_descs));
 	atl_copy_stats_strings(data, prefix, rx_stat_descs,
-		ARRAY_SIZE(rx_stat_descs));
+			       ARRAY_SIZE(rx_stat_descs));
 }
 
 static void atl_get_strings(struct net_device *ndev, uint32_t sset,
-	uint8_t *data)
+			    uint8_t *data)
 {
 	struct atl_nic *nic = netdev_priv(ndev);
 	int i;
@@ -788,7 +788,7 @@ static void atl_get_strings(struct net_device *ndev, uint32_t sset,
 		atl_copy_stats_string_set(&p, "");
 
 		atl_copy_stats_strings(&p, "", eth_stat_descs,
-			ARRAY_SIZE(eth_stat_descs));
+				       ARRAY_SIZE(eth_stat_descs));
 
 		for (i = 0; i < nic->nvecs; i++) {
 			snprintf(prefix, sizeof(prefix), "ring_%d_", i);
@@ -811,29 +811,30 @@ static void atl_get_strings(struct net_device *ndev, uint32_t sset,
 #endif
 #ifdef NETIF_F_HW_MACSEC
 		atl_copy_stats_strings(&p, "macsec_", macsec_stat_descs,
-			ARRAY_SIZE(macsec_stat_descs));
+				       ARRAY_SIZE(macsec_stat_descs));
 
-		for (i = 0; i < ATL_MACSEC_MAX_SECY; i++) {
-			if (!(test_bit(i, &nic->hw.macsec_cfg.secy_idx_busy)))
+		for (i = 0; i < ATL_MACSEC_MAX_SC; i++) {
+			if (!(test_bit(i, &nic->hw.macsec_cfg.txsc_idx_busy)))
 				continue;
-			struct atl_macsec_secy *atl_secy =
-				&nic->hw.macsec_cfg.atl_secy[i];
+			struct atl_macsec_txsc *atl_txsc =
+				&nic->hw.macsec_cfg.atl_txsc[i];
 			int assoc_num;
 
 			snprintf(prefix, sizeof(prefix), "txsc%d_",
-				 atl_secy->sc_idx);
-			atl_copy_stats_strings(&p, prefix,
-					macsec_tx_sc_stat_descs,
-					ARRAY_SIZE(macsec_tx_sc_stat_descs));
-			for (assoc_num = 0; assoc_num < MACSEC_NUM_AN; assoc_num++) {
+				 atl_txsc->hw_sc_idx);
+			atl_copy_stats_strings(
+				&p, prefix, macsec_tx_sc_stat_descs,
+				ARRAY_SIZE(macsec_tx_sc_stat_descs));
+			for (assoc_num = 0; assoc_num < MACSEC_NUM_AN;
+			     assoc_num++) {
 				if (!test_bit(assoc_num,
-					      &atl_secy->tx_sa_idx_busy))
+					      &atl_txsc->tx_sa_idx_busy))
 					continue;
 				snprintf(prefix, sizeof(prefix), "txsc%d_sa%d_",
-					 atl_secy->sc_idx, assoc_num);
-				atl_copy_stats_strings(&p, prefix,
-						macsec_tx_sa_stat_descs,
-						ARRAY_SIZE(macsec_tx_sa_stat_descs));
+					 atl_txsc->hw_sc_idx, assoc_num);
+				atl_copy_stats_strings(
+					&p, prefix, macsec_tx_sa_stat_descs,
+					ARRAY_SIZE(macsec_tx_sa_stat_descs));
 			}
 		}
 		for (i = 0; i < ATL_MACSEC_MAX_SC; i++) {
@@ -843,14 +844,15 @@ static void atl_get_strings(struct net_device *ndev, uint32_t sset,
 				&nic->hw.macsec_cfg.atl_rxsc[i];
 			int assoc_num;
 
-			for (assoc_num = 0; assoc_num < MACSEC_NUM_AN; assoc_num++) {
+			for (assoc_num = 0; assoc_num < MACSEC_NUM_AN;
+			     assoc_num++) {
 				if (!test_bit(assoc_num,
 					      &atl_rxsc->rx_sa_idx_busy))
 					continue;
 				snprintf(prefix, sizeof(prefix), "rxsc%d_sa%d_",
 					 atl_rxsc->hw_sc_idx, assoc_num);
-				atl_copy_stats_strings(&p, prefix,
-					macsec_rx_sa_stat_descs,
+				atl_copy_stats_strings(
+					&p, prefix, macsec_rx_sa_stat_descs,
 					ARRAY_SIZE(macsec_rx_sa_stat_descs));
 			}
 		}
@@ -874,7 +876,7 @@ do {							\
 
 
 static void atl_get_ethtool_stats(struct net_device *ndev,
-	struct ethtool_stats *stats, u64 *data)
+				  struct ethtool_stats *stats, u64 *data)
 {
 	struct atl_nic *nic = netdev_priv(ndev);
 	int i;
@@ -917,20 +919,24 @@ static void atl_get_ethtool_stats(struct net_device *ndev,
 #endif
 #ifdef NETIF_F_HW_MACSEC
 	int assoc_num;
-	atl_write_stats(&nic->hw.macsec_cfg.stats, macsec_stat_descs, data, uint64_t);
+	atl_write_stats(&nic->hw.macsec_cfg.stats, macsec_stat_descs, data,
+			uint64_t);
 
-	for (i = 0; i < ATL_MACSEC_MAX_SECY; i++) {
-		if (!(test_bit(i, &nic->hw.macsec_cfg.secy_idx_busy)))
+	for (i = 0; i < ATL_MACSEC_MAX_SC; i++) {
+		if (!(test_bit(i, &nic->hw.macsec_cfg.txsc_idx_busy)))
 			continue;
-		struct atl_macsec_secy *atl_secy = &nic->hw.macsec_cfg.atl_secy[i];
+		struct atl_macsec_txsc *atl_txsc =
+			&nic->hw.macsec_cfg.atl_txsc[i];
 
-		atl_write_stats(&atl_secy->stats, macsec_tx_sc_stat_descs, data, uint64_t);
+		atl_write_stats(&atl_txsc->stats, macsec_tx_sc_stat_descs, data,
+				uint64_t);
 
 		for (assoc_num = 0; assoc_num < MACSEC_NUM_AN; assoc_num++) {
-			if (!test_bit(assoc_num, &atl_secy->tx_sa_idx_busy))
+			if (!test_bit(assoc_num, &atl_txsc->tx_sa_idx_busy))
 				continue;
-			atl_write_stats(&atl_secy->tx_sa_stats[assoc_num],
-					macsec_tx_sa_stat_descs, data, uint64_t);
+			atl_write_stats(&atl_txsc->tx_sa_stats[assoc_num],
+					macsec_tx_sa_stat_descs, data,
+					uint64_t);
 		}
 	}
 	for (i = 0; i < ATL_MACSEC_MAX_SC; i++) {

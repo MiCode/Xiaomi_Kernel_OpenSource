@@ -252,9 +252,10 @@ static int atlnl_cmd_generic_u32_args(struct nl_context *ctx,
 				      mnl_cb_t reply_cb, const int attr_count,
 				      ...)
 {
-	va_list args;
 	int ret = atlnl_msg_alloc(ctx, ctx->family_id, cmd,
 				  NLM_F_REQUEST | NLM_F_ACK, 1);
+	va_list args;
+	int i;
 
 	if (ret != 0) {
 		fprintf(stderr, "Error: %s\n", "message allocation failed.");
@@ -270,7 +271,7 @@ static int atlnl_cmd_generic_u32_args(struct nl_context *ctx,
 				  ctx->devname);
 
 	va_start(args, attr_count);
-	for (int i = 0; i != attr_count; i++) {
+	for (i = 0; i != attr_count; i++) {
 		const enum atlfwd_nl_attribute attr =
 			va_arg(args, enum atlfwd_nl_attribute);
 		const uint32_t value = va_arg(args, uint32_t);
@@ -297,9 +298,10 @@ err_msgfree:
 
 int main(int argc, char **argv)
 {
-	int result = EINVAL;
-	static struct nl_context nlctx;
 	struct atlfwd_args *args = parse_args(argc, argv);
+	static struct nl_context nlctx;
+	int result = EINVAL;
+	int ret = 0;
 
 	if (!args)
 		return result;
@@ -314,13 +316,15 @@ int main(int argc, char **argv)
 	if (!nlctx.sock)
 		return result;
 
+#ifdef NETLINK_EXT_ACK
 	/* request extended acknowledgment */
 	unsigned int true_val = 1;
-	int ret = mnl_socket_setsockopt(nlctx.sock, NETLINK_EXT_ACK, &true_val,
+	ret = mnl_socket_setsockopt(nlctx.sock, NETLINK_EXT_ACK, &true_val,
 					sizeof(true_val));
-
 	if (ret < 0)
 		goto err_sockclose;
+#endif
+
 	/* bind and get the port id */
 	ret = mnl_socket_bind(nlctx.sock, 0, MNL_SOCKET_AUTOPID);
 	if (ret < 0) {

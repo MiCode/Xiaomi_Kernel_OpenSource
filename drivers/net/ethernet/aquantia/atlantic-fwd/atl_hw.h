@@ -74,7 +74,6 @@ enum atl_nic_state {
 	ATL_ST_DETACHED,
 };
 #ifdef NETIF_F_HW_MACSEC
-#define ATL_MACSEC_MAX_SECY 32
 #define ATL_MACSEC_MAX_SC 32
 #define ATL_MACSEC_MAX_SA 32
 enum atl_macsec_sc_sa {
@@ -149,17 +148,18 @@ struct atl_macsec_tx_sc_stats {
 };
 
 struct atl_macsec_cfg {
-	unsigned long secy_idx_busy;
 	enum atl_macsec_sc_sa sc_sa;
-	struct atl_macsec_secy {
-		uint32_t sc_idx;
+	/* Egress channel configuration */
+	unsigned long txsc_idx_busy;
+	struct atl_macsec_txsc {
+		uint32_t hw_sc_idx;
 		unsigned long tx_sa_idx_busy;
 		const struct macsec_secy *sw_secy;
 		/* It is not OK to store key in driver but it is until ... */
 		u8 tx_sa_key[MACSEC_NUM_AN][MACSEC_KEYID_LEN];
 		struct atl_macsec_tx_sc_stats stats;
 		struct atl_macsec_tx_sa_stats tx_sa_stats[MACSEC_NUM_AN];
-	} atl_secy[ATL_MACSEC_MAX_SECY];
+	} atl_txsc[ATL_MACSEC_MAX_SC];
 	/* Ingress channel configuration */
 	unsigned long rxsc_idx_busy;
 	struct atl_macsec_rxsc {

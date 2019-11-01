@@ -625,6 +625,8 @@ void atl_fwd_release_event(struct atl_fwd_event *evt)
 
 	atl_fwd_disable_event(evt);
 
+	ring->evt = NULL;
+
 	if (evt->flags & ATL_FWD_EVT_TXWB)
 		return;
 
@@ -711,6 +713,8 @@ int atl_fwd_request_event(struct atl_fwd_event *evt)
 		ret = atl_fwd_init_event(evt);
 		if (ret)
 			goto fail;
+
+		return 0;
 	}
 
 	idx = find_next_zero_bit(map, ATL_NUM_MSI_VECS, ATL_FWD_MSI_BASE);
