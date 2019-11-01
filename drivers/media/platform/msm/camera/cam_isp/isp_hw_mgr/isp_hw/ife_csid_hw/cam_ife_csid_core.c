@@ -3260,7 +3260,54 @@ static int cam_ife_csid_set_sensor_dimension(
 				csid_hw->rdi_path_config[i].height);
 		}
 	}
+	return 0;
+}
 
+static int cam_ife_csid_dump_hw(
+	struct cam_ife_csid_hw *csid_hw, void *cmd_args)
+{
+	struct cam_hw_soc_info                         *soc_info;
+	struct cam_isp_hw_dump_args *dump_args =
+		(struct cam_isp_hw_dump_args *)cmd_args;
+	int i;
+	uint32_t *addr, *start;
+	uint32_t num_reg;
+	struct cam_isp_hw_dump_header *hdr;
+	uint8_t *dst;
+
+	if (!dump_args->cpu_addr || !dump_args->buf_len) {
+		CAM_ERR(CAM_ISP,
+			"lnvalid len %zu ", dump_args->buf_len);
+		return -EINVAL;
+	}
+	soc_info = &csid_hw->hw_info->soc_info;
+	/*100 bytes we store the meta info of the dump data*/
+	if ((dump_args->buf_len - dump_args->offset) <
+			soc_info->reg_map[0].size + 100) {
+		CAM_ERR(CAM_ISP, "Dump buffer exhaust");
+		return 0;
+	}
+	dst = (char *)dump_args->cpu_addr + dump_args->offset;
+	hdr = (struct cam_isp_hw_dump_header *)dst;
+	snprintf(hdr->tag, CAM_ISP_HW_DUMP_TAG_MAX_LEN,
+		"CSID_REG:");
+	addr = (uint32_t *)(dst + sizeof(struct cam_isp_hw_dump_header));
+
+	start = addr;
+	num_reg = soc_info->reg_map[0].size/4;
+	hdr->word_size = sizeof(uint32_t);
+	*addr = soc_info->index;
+	addr++;
+	for (i = 0; i < num_reg; i++) {
+		addr[0] = soc_info->mem_block[0]->start + (i*4);
+		addr[1] = cam_io_r(soc_info->reg_map[0].mem_base
+			+ (i*4));
+		addr += 2;
+	}
+	hdr->size = hdr->word_size * (addr - start);
+	dump_args->offset +=  hdr->size +
+		sizeof(struct cam_isp_hw_dump_header);
+	CAM_DBG(CAM_ISP, "offset %d", dump_args->offset);
 	return 0;
 }
 
@@ -3303,6 +3350,9 @@ static int cam_ife_csid_process_cmd(void *hw_priv,
 		break;
 	case CAM_IFE_CSID_SET_SENSOR_DIMENSION_CFG:
 		rc = cam_ife_csid_set_sensor_dimension(csid_hw, cmd_args);
+		break;
+	case CAM_ISP_HW_CMD_DUMP_HW:
+		rc = cam_ife_csid_dump_hw(csid_hw, cmd_args);
 		break;
 	default:
 		CAM_ERR(CAM_ISP, "CSID:%d unsupported cmd:%d",
