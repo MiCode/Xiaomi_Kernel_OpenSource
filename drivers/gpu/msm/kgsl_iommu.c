@@ -5,6 +5,7 @@
 
 #include <linux/bitfield.h>
 #include <linux/compat.h>
+#include <linux/io.h>
 #include <linux/iommu.h>
 #include <linux/of_platform.h>
 #include <linux/seq_file.h>
@@ -1427,10 +1428,6 @@ static void kgsl_iommu_close(struct kgsl_mmu *mmu)
 	kgsl_mmu_putpagetable(mmu->securepagetable);
 	mmu->securepagetable = NULL;
 
-
-	if (iommu->regbase != NULL)
-		iounmap(iommu->regbase);
-
 	kgsl_free_secure_page(kgsl_secure_guard_page);
 	kgsl_secure_guard_page = NULL;
 
@@ -1446,44 +1443,9 @@ static void kgsl_iommu_close(struct kgsl_mmu *mmu)
 
 	of_platform_depopulate(&iommu->pdev->dev);
 	platform_device_put(iommu->pdev);
-}
 
-static int kgsl_iommu_init(struct kgsl_mmu *mmu)
-{
-	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
-	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
-	int status = 0;
-
-	set_bit(KGSL_MMU_PAGED, &mmu->features);
-
-	iommu->regbase = ioremap(iommu->regstart, iommu->regsize);
-	if (iommu->regbase == NULL) {
-		dev_err(device->dev,
-			"Could not map IOMMU registers 0x%lx:0x%x\n",
-			iommu->regstart, iommu->regsize);
-		status = -ENOMEM;
-		goto done;
-	}
-
-	if (addr_entry_cache == NULL) {
-		addr_entry_cache = KMEM_CACHE(kgsl_iommu_addr_entry, 0);
-		if (addr_entry_cache == NULL) {
-			status = -ENOMEM;
-			goto done;
-		}
-	}
-
-	device->qdss_desc = kgsl_allocate_global_fixed(device,
-		"qcom,gpu-qdss-stm", "gpu-qdss");
-
-	device->qtimer_desc = kgsl_allocate_global_fixed(device,
-		"qcom,gpu-timer", "gpu-qtimer");
-
-done:
-	if (status)
-		kgsl_iommu_close(mmu);
-
-	return status;
+	kmem_cache_destroy(addr_entry_cache);
+	addr_entry_cache = NULL;
 }
 
 static int _setup_user_context(struct kgsl_mmu *mmu)
@@ -2543,7 +2505,7 @@ static struct kgsl_mmu_ops kgsl_iommu_ops;
 
 int kgsl_iommu_probe(struct kgsl_device *device)
 {
-	u32 reg_val[2];
+	u32 val[2];
 	int ret, i, index = 0;
 	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
 	struct platform_device *pdev;
@@ -2552,15 +2514,29 @@ int kgsl_iommu_probe(struct kgsl_device *device)
 
 	node = of_find_compatible_node(NULL, NULL, "qcom,kgsl-smmu-v2");
 
-	ret = of_property_read_u32_array(node, "reg", reg_val, 2);
+	/* Create a kmem cache for the pagetable address objects */
+	if (!addr_entry_cache) {
+		addr_entry_cache = KMEM_CACHE(kgsl_iommu_addr_entry, 0);
+		if (!addr_entry_cache) {
+			ret = -ENOMEM;
+			goto err;
+		}
+	}
+
+	ret = of_property_read_u32_array(node, "reg", val, 2);
 	if (ret) {
 		dev_err(device->dev,
 			"%pOF: Unable to read KGSL IOMMU register range\n",
 			node);
-		goto out;
+		goto err;
 	}
 
-	iommu->regsize = reg_val[1];
+	iommu->regbase = devm_ioremap(&device->pdev->dev, val[0], val[1]);
+	if (!iommu->regbase) {
+		dev_err(&device->pdev->dev, "Couldn't map IOMMU registers\n");
+		ret = -ENOMEM;
+		goto err;
+	}
 
 	pdev = of_find_device_by_node(node);
 	iommu->pdev = pdev;
@@ -2589,7 +2565,7 @@ int kgsl_iommu_probe(struct kgsl_device *device)
 		if (index >= KGSL_IOMMU_MAX_CLKS) {
 			dev_err(device->dev, "dt: too many clocks defined\n");
 			platform_device_put(pdev);
-			goto out;
+			goto err;
 		}
 
 		iommu->clks[index++] = c;
@@ -2597,6 +2573,8 @@ int kgsl_iommu_probe(struct kgsl_device *device)
 
 	/* Get the CX regulator if it is available */
 	iommu->cx_gdsc = devm_regulator_get(&pdev->dev, "vddcx");
+
+	set_bit(KGSL_MMU_PAGED, &mmu->features);
 
 	mmu->type = KGSL_MMU_TYPE_IOMMU;
 	mmu->mmu_ops = &kgsl_iommu_ops;
@@ -2612,7 +2590,7 @@ int kgsl_iommu_probe(struct kgsl_device *device)
 	if (ret) {
 		of_platform_depopulate(&pdev->dev);
 		platform_device_put(pdev);
-		goto out;
+		goto err;
 	}
 
 	/* Probe LPAC (this is optional) */
@@ -2620,13 +2598,25 @@ int kgsl_iommu_probe(struct kgsl_device *device)
 
 	/* Probe the secure pagetable (this is optional) */
 	iommu_probe_secure_context(device, node);
-out:
+	of_node_put(node);
+
+	device->qdss_desc = kgsl_allocate_global_fixed(device,
+		"qcom,gpu-qdss-stm", "gpu-qdss");
+
+	device->qtimer_desc = kgsl_allocate_global_fixed(device,
+		"qcom,gpu-timer", "gpu-qtimer");
+
+	return 0;
+
+err:
+	kmem_cache_destroy(addr_entry_cache);
+	addr_entry_cache = NULL;
+
 	of_node_put(node);
 	return ret;
 }
 
 static struct kgsl_mmu_ops kgsl_iommu_ops = {
-	.mmu_init = kgsl_iommu_init,
 	.mmu_close = kgsl_iommu_close,
 	.mmu_start = kgsl_iommu_start,
 	.mmu_set_pt = kgsl_iommu_set_pt,

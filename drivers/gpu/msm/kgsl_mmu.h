@@ -55,7 +55,6 @@ struct kgsl_pagetable {
 struct kgsl_mmu;
 
 struct kgsl_mmu_ops {
-	int (*mmu_init)(struct kgsl_mmu *mmu);
 	void (*mmu_close)(struct kgsl_mmu *mmu);
 	int (*mmu_start)(struct kgsl_mmu *mmu);
 	int (*mmu_set_pt)(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt);

@@ -631,14 +631,7 @@ static struct kgsl_pagetable *nommu_getpagetable(struct kgsl_mmu *mmu,
 	return pagetable;
 }
 
-static int nommu_init(struct kgsl_mmu *mmu)
-{
-	set_bit(KGSL_MMU_GLOBAL_PAGETABLE, &mmu->features);
-	return 0;
-}
-
 static struct kgsl_mmu_ops kgsl_nommu_ops = {
-	.mmu_init = nommu_init,
 	.mmu_init_pt = nommu_init_pt,
 	.mmu_getpagetable = nommu_getpagetable,
 };
@@ -646,18 +639,20 @@ static struct kgsl_mmu_ops kgsl_nommu_ops = {
 int kgsl_mmu_probe(struct kgsl_device *device)
 {
 	struct kgsl_mmu *mmu = &device->mmu;
+	int ret;
 
 	/*
 	 * Try to probe for the IOMMU and if it doesn't exist for some reason
 	 * go for the NOMMU option instead
 	 */
-	if (kgsl_iommu_probe(device)) {
-		mmu->mmu_ops = &kgsl_nommu_ops;
-		mmu->type = KGSL_MMU_TYPE_NONE;
-	}
+	ret = kgsl_iommu_probe(device);
+	if (!ret)
+		return 0;
 
-	if (MMU_OP_VALID(mmu, mmu_init))
-		return mmu->mmu_ops->mmu_init(mmu);
+	/* set up for NOMMU */
+	set_bit(KGSL_MMU_GLOBAL_PAGETABLE, &mmu->features);
 
+	mmu->mmu_ops = &kgsl_nommu_ops;
+	mmu->type = KGSL_MMU_TYPE_NONE;
 	return 0;
 }
