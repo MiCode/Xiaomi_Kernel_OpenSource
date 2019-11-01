@@ -3689,3 +3689,19 @@ unlock:
 	mutex_unlock(&mutex);
 	return ret;
 }
+
+void sched_set_refresh_rate(enum fps fps)
+{
+	int new_nr_ticks;
+
+	if (HZ == 250) {
+		if (fps > FPS90)
+			new_nr_ticks = 2;
+		else if (fps == FPS90)
+			new_nr_ticks = 3;
+		else
+			new_nr_ticks = 5;
+		sched_window_nr_ticks_change(new_nr_ticks);
+	}
+}
+EXPORT_SYMBOL(sched_set_refresh_rate);
