@@ -985,6 +985,11 @@ static int qmp_mbox_probe(struct platform_device *pdev)
 
 static int qmp_mbox_suspend(struct device *dev)
 {
+	return 0;
+}
+
+static int qmp_mbox_resume(struct device *dev)
+{
 	struct qmp_device *mdev = dev_get_drvdata(dev);
 	struct qmp_mbox *mbox;
 
@@ -1004,15 +1009,8 @@ static int qmp_mbox_suspend(struct device *dev)
 			mbox->rx_pkt.data = NULL;
 		}
 	}
-	return 0;
-}
-
-static int qmp_mbox_resume(struct device *dev)
-{
-	struct qmp_device *mdev = dev_get_drvdata(dev);
-
-		if (mdev->early_boot)
-			qmp_irq_handler(0, mdev);
+	if (mdev->early_boot)
+		qmp_irq_handler(0, mdev);
 
 	return 0;
 }
