@@ -16,6 +16,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 #include "atoll-atp.dtsi"
+#include "atoll-audio-overlay.dtsi"
 
 / {
 	model = "ATP";

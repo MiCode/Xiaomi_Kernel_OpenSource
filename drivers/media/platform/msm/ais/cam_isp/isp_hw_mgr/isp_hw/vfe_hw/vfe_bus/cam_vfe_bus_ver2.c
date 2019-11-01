@@ -165,6 +165,7 @@ struct cam_vfe_bus_ver2_wm_resource_data {
 	uint32_t             en_cfg;
 	uint32_t             is_dual;
 	uint32_t             is_lite;
+	uint32_t             is_streaming;
 };
 
 struct cam_vfe_bus_ver2_comp_grp_data {
@@ -1213,6 +1214,7 @@ static int cam_vfe_bus_start_wm(struct cam_isp_resource_node *wm_res)
 				ubwc_regs->mode_cfg_0);
 		} else if ((camera_hw_version == CAM_CPAS_TITAN_175_V100) ||
 			(camera_hw_version == CAM_CPAS_TITAN_175_V101) ||
+			(camera_hw_version == CAM_CPAS_TITAN_175_V111) ||
 			(camera_hw_version == CAM_CPAS_TITAN_175_V120)) {
 			struct cam_vfe_bus_ver2_reg_offset_ubwc_3_client
 				*ubwc_regs;
@@ -1246,6 +1248,7 @@ static int cam_vfe_bus_start_wm(struct cam_isp_resource_node *wm_res)
 	CAM_DBG(CAM_ISP, "enable WM res %d offset 0x%x val 0x%x",
 		rsrc_data->index, (uint32_t) rsrc_data->hw_regs->cfg,
 		rsrc_data->en_cfg);
+	rsrc_data->is_streaming = CAM_ISP_RESOURCE_STATE_STREAMING;
 
 	wm_res->res_state = CAM_ISP_RESOURCE_STATE_STREAMING;
 
@@ -1274,6 +1277,7 @@ static int cam_vfe_bus_stop_wm(struct cam_isp_resource_node *wm_res)
 			wm_res->irq_handle);
 
 	wm_res->res_state = CAM_ISP_RESOURCE_STATE_RESERVED;
+	rsrc_data->is_streaming = CAM_ISP_RESOURCE_STATE_RESERVED;
 
 	kfifo_reset(
 	&g_addr_fifo[rsrc_data->common_data->core_index][rsrc_data->index]);
@@ -2584,6 +2588,7 @@ static void cam_vfe_bus_update_ubwc_meta_addr(
 		break;
 	case CAM_CPAS_TITAN_175_V100:
 	case CAM_CPAS_TITAN_175_V101:
+	case CAM_CPAS_TITAN_175_V111:
 	case CAM_CPAS_TITAN_175_V120:
 		ubwc_3_regs =
 			(struct cam_vfe_bus_ver2_reg_offset_ubwc_3_client *)
@@ -2846,6 +2851,7 @@ static int cam_vfe_bus_update_ubwc_regs(
 		break;
 	case CAM_CPAS_TITAN_175_V100:
 	case CAM_CPAS_TITAN_175_V101:
+	case CAM_CPAS_TITAN_175_V111:
 	case CAM_CPAS_TITAN_175_V120:
 		rc = cam_vfe_bus_update_ubwc_3_regs(
 			wm_data, reg_val_pair, i, j);
@@ -3015,9 +3021,17 @@ static int cam_vfe_bus_update_wm(void *priv, void *cmd_args,
 					&output_image_buf,
 					sizeof(uint32_t));
 
-					cam_io_w_mb(output_image_buf,
-					bus_priv->common_data.mem_base +
-					wm_data->hw_regs->image_addr);
+					if (wm_data->is_streaming ==
+					CAM_ISP_RESOURCE_STATE_STREAMING)
+						cam_io_w_mb(output_image_buf,
+						bus_priv->common_data.mem_base +
+						wm_data->hw_regs->image_addr);
+					else
+						CAM_VFE_ADD_REG_VAL_PAIR(
+						reg_val_pair,
+						j,
+						wm_data->hw_regs->image_addr,
+						output_image_buf);
 
 					kfifo_in(
 					&bus_priv->addr_fifo[wm_data->index],

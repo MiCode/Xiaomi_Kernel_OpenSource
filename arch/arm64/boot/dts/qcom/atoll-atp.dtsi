@@ -296,3 +296,7 @@
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
 	qcom,platform-reset-gpio = <&pm6150l_gpios 3 0>;
 };
+
+&sde_dp {
+	 qcom,dp-aux-switch=<&fsa4480>;
+};

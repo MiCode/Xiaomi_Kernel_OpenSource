@@ -933,9 +933,8 @@ static void ipa_pkt_status_parse(
 		opcode = IPAHAL_PKT_STATUS_OPCODE_PACKET_2ND_PASS;
 		break;
 	default:
-		IPAHAL_ERR("unsupported Status Opcode 0x%x\n",
+		IPAHAL_ERR_RL("unsupported Status Opcode 0x%x\n",
 			hw_status->status_opcode);
-		WARN_ON(1);
 	};
 	status->status_opcode = opcode;
 
@@ -950,9 +949,8 @@ static void ipa_pkt_status_parse(
 		status->nat_type = IPAHAL_PKT_STATUS_NAT_DST;
 		break;
 	default:
-		IPAHAL_ERR("unsupported Status NAT type 0x%x\n",
+		IPAHAL_ERR_RL("unsupported Status NAT type 0x%x\n",
 			hw_status->nat_type);
-		WARN_ON(1);
 	};
 
 	switch (hw_status->exception) {
@@ -984,9 +982,8 @@ static void ipa_pkt_status_parse(
 		exception_type = IPAHAL_PKT_STATUS_EXCEPTION_CSUM;
 		break;
 	default:
-		IPAHAL_ERR("unsupported Status Exception type 0x%x\n",
+		IPAHAL_ERR_RL("unsupported Status Exception type 0x%x\n",
 			hw_status->exception);
-		WARN_ON(1);
 	};
 	status->exception = exception_type;
 

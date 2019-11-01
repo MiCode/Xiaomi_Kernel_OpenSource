@@ -74,6 +74,10 @@ static const struct ath10k_hw_params ath10k_hw_params_list[] = {
 		.spectral_bin_discard = 0,
 		.vht160_mcs_rx_highest = 0,
 		.vht160_mcs_tx_highest = 0,
+		.n_cipher_suites = 8,
+		.num_peers = TARGET_TLV_NUM_PEERS,
+		.ast_skid_limit = 0x10,
+		.num_wds_entries = 0x20,
 	},
 	{
 		.id = QCA9887_HW_1_0_VERSION,
@@ -97,6 +101,10 @@ static const struct ath10k_hw_params ath10k_hw_params_list[] = {
 		.spectral_bin_discard = 0,
 		.vht160_mcs_rx_highest = 0,
 		.vht160_mcs_tx_highest = 0,
+		.n_cipher_suites = 8,
+		.num_peers = TARGET_TLV_NUM_PEERS,
+		.ast_skid_limit = 0x10,
+		.num_wds_entries = 0x20,
 	},
 	{
 		.id = QCA6174_HW_2_1_VERSION,
@@ -119,6 +127,10 @@ static const struct ath10k_hw_params ath10k_hw_params_list[] = {
 		.spectral_bin_discard = 0,
 		.vht160_mcs_rx_highest = 0,
 		.vht160_mcs_tx_highest = 0,
+		.n_cipher_suites = 8,
+		.num_peers = TARGET_TLV_NUM_PEERS,
+		.ast_skid_limit = 0x10,
+		.num_wds_entries = 0x20,
 	},
 	{
 		.id = QCA6174_HW_2_1_VERSION,
@@ -141,6 +153,10 @@ static const struct ath10k_hw_params ath10k_hw_params_list[] = {
 		.spectral_bin_discard = 0,
 		.vht160_mcs_rx_highest = 0,
 		.vht160_mcs_tx_highest = 0,
+		.n_cipher_suites = 8,
+		.num_peers = TARGET_TLV_NUM_PEERS,
+		.ast_skid_limit = 0x10,
+		.num_wds_entries = 0x20,
 	},
 	{
 		.id = QCA6174_HW_3_0_VERSION,
@@ -163,6 +179,10 @@ static const struct ath10k_hw_params ath10k_hw_params_list[] = {
 		.spectral_bin_discard = 0,
 		.vht160_mcs_rx_highest = 0,
 		.vht160_mcs_tx_highest = 0,
+		.n_cipher_suites = 8,
+		.num_peers = TARGET_TLV_NUM_PEERS,
+		.ast_skid_limit = 0x10,
+		.num_wds_entries = 0x20,
 	},
 	{
 		.id = QCA6174_HW_3_2_VERSION,
@@ -188,6 +208,10 @@ static const struct ath10k_hw_params ath10k_hw_params_list[] = {
 		.spectral_bin_discard = 0,
 		.vht160_mcs_rx_highest = 0,
 		.vht160_mcs_tx_highest = 0,
+		.n_cipher_suites = 8,
+		.num_peers = TARGET_TLV_NUM_PEERS,
+		.ast_skid_limit = 0x10,
+		.num_wds_entries = 0x20,
 	},
 	{
 		.id = QCA99X0_HW_2_0_DEV_VERSION,
@@ -216,6 +240,10 @@ static const struct ath10k_hw_params ath10k_hw_params_list[] = {
 		.spectral_bin_discard = 4,
 		.vht160_mcs_rx_highest = 0,
 		.vht160_mcs_tx_highest = 0,
+		.n_cipher_suites = 11,
+		.num_peers = TARGET_TLV_NUM_PEERS,
+		.ast_skid_limit = 0x10,
+		.num_wds_entries = 0x20,
 	},
 	{
 		.id = QCA9984_HW_1_0_DEV_VERSION,
@@ -249,6 +277,10 @@ static const struct ath10k_hw_params ath10k_hw_params_list[] = {
 		 */
 		.vht160_mcs_rx_highest = 1560,
 		.vht160_mcs_tx_highest = 1560,
+		.n_cipher_suites = 11,
+		.num_peers = TARGET_TLV_NUM_PEERS,
+		.ast_skid_limit = 0x10,
+		.num_wds_entries = 0x20,
 	},
 	{
 		.id = QCA9888_HW_2_0_DEV_VERSION,
@@ -281,6 +313,10 @@ static const struct ath10k_hw_params ath10k_hw_params_list[] = {
 		 */
 		.vht160_mcs_rx_highest = 780,
 		.vht160_mcs_tx_highest = 780,
+		.n_cipher_suites = 11,
+		.num_peers = TARGET_TLV_NUM_PEERS,
+		.ast_skid_limit = 0x10,
+		.num_wds_entries = 0x20,
 	},
 	{
 		.id = QCA9377_HW_1_0_DEV_VERSION,
@@ -303,6 +339,10 @@ static const struct ath10k_hw_params ath10k_hw_params_list[] = {
 		.spectral_bin_discard = 0,
 		.vht160_mcs_rx_highest = 0,
 		.vht160_mcs_tx_highest = 0,
+		.n_cipher_suites = 8,
+		.num_peers = TARGET_TLV_NUM_PEERS,
+		.ast_skid_limit = 0x10,
+		.num_wds_entries = 0x20,
 	},
 	{
 		.id = QCA9377_HW_1_1_DEV_VERSION,
@@ -327,6 +367,10 @@ static const struct ath10k_hw_params ath10k_hw_params_list[] = {
 		.spectral_bin_discard = 0,
 		.vht160_mcs_rx_highest = 0,
 		.vht160_mcs_tx_highest = 0,
+		.n_cipher_suites = 8,
+		.num_peers = TARGET_TLV_NUM_PEERS,
+		.ast_skid_limit = 0x10,
+		.num_wds_entries = 0x20,
 	},
 	{
 		.id = QCA4019_HW_1_0_DEV_VERSION,
@@ -356,6 +400,28 @@ static const struct ath10k_hw_params ath10k_hw_params_list[] = {
 		.spectral_bin_discard = 4,
 		.vht160_mcs_rx_highest = 0,
 		.vht160_mcs_tx_highest = 0,
+		.n_cipher_suites = 11,
+		.num_peers = TARGET_TLV_NUM_PEERS,
+		.ast_skid_limit = 0x10,
+		.num_wds_entries = 0x20,
+	},
+	{
+		.id = WCN3990_HW_1_0_DEV_VERSION,
+		.dev_id = 0,
+		.name = "wcn3990 hw1.0",
+		.continuous_frag_desc = true,
+		.tx_chain_mask = 0x7,
+		.rx_chain_mask = 0x7,
+		.max_spatial_stream = 4,
+		.fw = {
+			.dir = WCN3990_HW_1_0_FW_DIR,
+		},
+		.sw_decrypt_mcast_mgmt = true,
+		.hw_ops = &wcn3990_ops,
+		.decap_align_bytes = 1,
+		.num_peers = TARGET_HL_10_TLV_NUM_PEERS,
+		.ast_skid_limit = TARGET_HL_10_TLV_AST_SKID_LIMIT,
+		.num_wds_entries = TARGET_HL_10_TLV_NUM_WDS_ENTRIES,
 	},
 };
 
@@ -377,6 +443,8 @@ static const char *const ath10k_core_fw_feature_str[] = {
 	[ATH10K_FW_FEATURE_BTCOEX_PARAM] = "btcoex-param",
 	[ATH10K_FW_FEATURE_SKIP_NULL_FUNC_WAR] = "skip-null-func-war",
 	[ATH10K_FW_FEATURE_ALLOWS_MESH_BCAST] = "allows-mesh-bcast",
+	[ATH10K_FW_FEATURE_NO_PS] = "no-ps",
+	[ATH10K_FW_FEATURE_MGMT_TX_BY_REF] = "mgmt-tx-by-reference",
 };
 
 static unsigned int ath10k_core_get_fw_feature_str(char *buf,
@@ -847,6 +915,28 @@ static int ath10k_core_check_smbios(struct ath10k *ar)
 	return 0;
 }
 
+static int ath10k_core_check_dt(struct ath10k *ar)
+{
+	struct device_node *node;
+	const char *variant = NULL;
+
+	node = ar->dev->of_node;
+	if (!node)
+		return -ENOENT;
+
+	of_property_read_string(node, "qcom,ath10k-calibration-variant",
+				&variant);
+	if (!variant)
+		return -ENODATA;
+
+	if (strscpy(ar->id.bdf_ext, variant, sizeof(ar->id.bdf_ext)) < 0)
+		ath10k_dbg(ar, ATH10K_DBG_BOOT,
+			   "bdf variant string is longer than the buffer can accommodate (variant: %s)\n",
+			    variant);
+
+	return 0;
+}
+
 static int ath10k_download_and_run_otp(struct ath10k *ar)
 {
 	u32 result, address = ar->hw_params.patch_load_addr;
@@ -1218,18 +1308,18 @@ static int ath10k_core_create_board_name(struct ath10k *ar, char *name,
 	/* strlen(',variant=') + strlen(ar->id.bdf_ext) */
 	char variant[9 + ATH10K_SMBIOS_BDF_EXT_STR_LENGTH] = { 0 };
 
-	if (ar->id.bmi_ids_valid) {
-		scnprintf(name, name_len,
-			  "bus=%s,bmi-chip-id=%d,bmi-board-id=%d",
-			  ath10k_bus_str(ar->hif.bus),
-			  ar->id.bmi_chip_id,
-			  ar->id.bmi_board_id);
-		goto out;
-	}
-
 	if (ar->id.bdf_ext[0] != '\0')
 		scnprintf(variant, sizeof(variant), ",variant=%s",
 			  ar->id.bdf_ext);
+
+	if (ar->id.bmi_ids_valid) {
+		scnprintf(name, name_len,
+			  "bus=%s,bmi-chip-id=%d,bmi-board-id=%d%s",
+			  ath10k_bus_str(ar->hif.bus),
+			  ar->id.bmi_chip_id,
+			  ar->id.bmi_board_id, variant);
+		goto out;
+	}
 
 	scnprintf(name, name_len,
 		  "bus=%s,vendor=%04x,device=%04x,subsystem-vendor=%04x,subsystem-device=%04x%s",
@@ -2330,7 +2420,11 @@ static int ath10k_core_probe_fw(struct ath10k *ar)
 
 	ret = ath10k_core_check_smbios(ar);
 	if (ret)
-		ath10k_dbg(ar, ATH10K_DBG_BOOT, "bdf variant name not set.\n");
+		ath10k_dbg(ar, ATH10K_DBG_BOOT, "SMBIOS bdf variant name not set.\n");
+
+	ret = ath10k_core_check_dt(ar);
+	if (ret)
+		ath10k_dbg(ar, ATH10K_DBG_BOOT, "DT bdf variant name not set.\n");
 
 	ret = ath10k_core_fetch_board_file(ar);
 	if (ret) {

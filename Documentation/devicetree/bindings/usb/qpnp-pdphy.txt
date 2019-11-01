@@ -40,9 +40,6 @@ Optional properties:
 - vconn-supply:		Regulator that enables VCONN source output. This will
 			be supplied on the USB CC line that is not used for
 			communication when Ra resistance is detected.
-- qcom,vconn-uses-external-source: Indicates whether VCONN supply is sourced
-			from an external regulator. If omitted, then it is
-			assumed it is connected to VBUS.
 - qcom,default-sink-caps: List of 32-bit values representing the nominal sink
 			capabilities in voltage (millivolts) and current
 			(milliamps) pairs.

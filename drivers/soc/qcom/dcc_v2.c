@@ -163,6 +163,28 @@ static int dcc_sram_writel(struct dcc_drvdata *drvdata,
 	return 0;
 }
 
+static void dcc_sram_memset(const struct device *dev, void __iomem *dst,
+			    int c, size_t count)
+{
+	u64 qc = (u8)c;
+
+	qc |= qc << 8;
+	qc |= qc << 16;
+
+	if (!count || !IS_ALIGNED((unsigned long)dst, 4)
+	    || !IS_ALIGNED((unsigned long)count, 4)) {
+		dev_err(dev,
+			"Target address or size not aligned with 4 bytes");
+		return;
+	}
+
+	while (count >= 4) {
+		__raw_writel_no_log(qc, dst);
+		dst += 4;
+		count -= 4;
+	}
+}
+
 static bool dcc_ready(struct dcc_drvdata *drvdata)
 {
 	uint32_t val;
@@ -540,7 +562,7 @@ static int __dcc_ll_cfg(struct dcc_drvdata *drvdata, int curr_list)
 	return 0;
 overstep:
 	ret = -EINVAL;
-	memset_io(drvdata->ram_base, 0, drvdata->ram_size);
+	dcc_sram_memset(drvdata->dev, drvdata->ram_base, 0, drvdata->ram_size);
 	dev_err(drvdata->dev, "DCC SRAM oversteps, 0x%x (0x%x)\n",
 		sram_offset, drvdata->ram_size);
 err:
@@ -576,18 +598,35 @@ static int dcc_valid_list(struct dcc_drvdata *drvdata, int curr_list)
 		return -EINVAL;
 
 	if (drvdata->enable[curr_list]) {
-		dev_err(drvdata->dev, "DCC is already enabled\n");
+		dev_err(drvdata->dev, "List %d is already enabled\n",
+				curr_list);
 		return -EINVAL;
 	}
 
 	lock_reg = dcc_readl(drvdata, DCC_LL_LOCK(curr_list));
 	if (lock_reg & 0x1) {
-		dev_err(drvdata->dev, "DCC is already enabled\n");
+		dev_err(drvdata->dev, "List %d is already locked\n",
+				curr_list);
 		return -EINVAL;
 	}
 
 	dev_err(drvdata->dev, "DCC list passed %d\n", curr_list);
 	return 0;
+}
+
+static bool is_dcc_enabled(struct dcc_drvdata *drvdata)
+{
+	bool dcc_enable = false;
+	int list;
+
+	for (list = 0; list < DCC_MAX_LINK_LIST; list++) {
+		if (drvdata->enable[list]) {
+			dcc_enable = true;
+			break;
+		}
+	}
+
+	return dcc_enable;
 }
 
 static int dcc_enable(struct dcc_drvdata *drvdata)
@@ -598,7 +637,10 @@ static int dcc_enable(struct dcc_drvdata *drvdata)
 
 	mutex_lock(&drvdata->mutex);
 
-	memset_io(drvdata->ram_base, 0xDE, drvdata->ram_size);
+	if (!is_dcc_enabled(drvdata)) {
+		dcc_sram_memset(drvdata->dev, drvdata->ram_base, 0xDE,
+			drvdata->ram_size);
+	}
 
 	for (list = 0; list < DCC_MAX_LINK_LIST; list++) {
 
@@ -673,26 +715,11 @@ static void dcc_disable(struct dcc_drvdata *drvdata)
 		dcc_writel(drvdata, 0, DCC_LL_LOCK(curr_list));
 		drvdata->enable[curr_list] = 0;
 	}
-	memset_io(drvdata->ram_base, 0, drvdata->ram_size);
+	dcc_sram_memset(drvdata->dev, drvdata->ram_base, 0, drvdata->ram_size);
 	drvdata->ram_cfg = 0;
 	drvdata->ram_start = 0;
 
 	mutex_unlock(&drvdata->mutex);
-}
-
-static bool is_dcc_enabled(struct dcc_drvdata *drvdata)
-{
-	bool dcc_enable = false;
-	int list;
-
-	for (list = 0; list < DCC_MAX_LINK_LIST; list++) {
-		if (drvdata->enable[list]) {
-			dcc_enable = true;
-			break;
-		}
-	}
-
-	return dcc_enable;
 }
 
 static ssize_t dcc_show_curr_list(struct device *dev,
@@ -1749,7 +1776,7 @@ static int dcc_probe(struct platform_device *pdev)
 		drvdata->nr_config[i] = 0;
 	}
 
-	memset_io(drvdata->ram_base, 0, drvdata->ram_size);
+	dcc_sram_memset(drvdata->dev, drvdata->ram_base, 0, drvdata->ram_size);
 
 	drvdata->curr_list = DCC_INVALID_LINK_LIST;
 

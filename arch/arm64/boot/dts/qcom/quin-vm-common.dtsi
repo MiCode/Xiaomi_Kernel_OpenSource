@@ -80,9 +80,13 @@
 &soc {
 	#address-cells = <1>;
 	#size-cells = <1>;
-	virtual-interrupt-parent = "gic";
+	interrupt-parent = <&intc>;
 	ranges = <0 0 0 0xffffffff>;
 	compatible = "simple-bus";
+
+	intc: vgic@0 {
+		qvm,vdev = "gic";
+	};
 
 	clock_gcc: qcom,gcc {
 		compatible = "qcom,dummycc";
@@ -267,7 +271,13 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 		reg = <0x1c800000 0x1100>;
-		interrupts = <GIC_SPI 43 IRQ_TYPE_NONE>;
+		interrupts = <GIC_SPI 45 IRQ_TYPE_NONE>;
 		status = "okay";
+	};
+
+	qcom,mpm2-sleep-counter@0xc221000 {
+		compatible = "qcom,mpm2-sleep-counter";
+		reg = <0xc221000 0x1000>;
+		clock-frequency = <32768>;
 	};
 };

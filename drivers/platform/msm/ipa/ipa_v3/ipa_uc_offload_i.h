@@ -471,33 +471,6 @@ enum ipa_cpu_2_hw_offload_commands {
 };
 
 /**
- * struct IpaOffloadStatschannel_info - channel info for uC
- * stats
- * @dir: Director of the channel ID DIR_CONSUMER =0,
- * DIR_PRODUCER = 1
- * @ch_id: Channel id of the IPA endpoint for which stats need
- * to be calculated, 0xFF means invalid channel or disable stats
- * on already stats enabled channel
- */
-struct IpaOffloadStatschannel_info {
-	uint8_t dir;
-	uint8_t ch_id;
-} __packed;
-
-/**
- * struct IpaHwOffloadStatsAllocCmdData_t - protocol info for uC
- * stats start
- * @protocol: Enum that indicates the protocol type
- * @ch_id_info: Channel id of the IPA endpoint for which stats
- * need to be calculated
- */
-struct IpaHwOffloadStatsAllocCmdData_t {
-	uint32_t protocol;
-	struct IpaOffloadStatschannel_info
-		ch_id_info[MAX_CH_STATS_SUPPORTED];
-} __packed;
-
-/**
  * struct IpaHwOffloadStatsDeAllocCmdData_t - protocol info for
  * uC stats stop
  * @protocol: Enum that indicates the protocol type

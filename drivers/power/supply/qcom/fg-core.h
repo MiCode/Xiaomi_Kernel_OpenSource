@@ -79,6 +79,8 @@
 #define FG_PARALLEL_EN_VOTER	"fg_parallel_en"
 #define MEM_ATTN_IRQ_VOTER	"fg_mem_attn_irq"
 
+#define DEBUG_BOARD_VOTER	"fg_debug_board"
+
 #define BUCKET_COUNT			8
 #define BUCKET_SOC_PCT			(256 / BUCKET_COUNT)
 
@@ -179,6 +181,7 @@ enum fg_sram_param_id {
 	FG_SRAM_VBAT_TAU,
 	FG_SRAM_VBAT_FINAL,
 	FG_SRAM_IBAT_FINAL,
+	FG_SRAM_IBAT_FLT,
 	FG_SRAM_ESR,
 	FG_SRAM_ESR_MDL,
 	FG_SRAM_ESR_ACT,
@@ -505,6 +508,8 @@ extern int fg_decode_voltage_24b(struct fg_sram_param *sp,
 extern int fg_decode_voltage_15b(struct fg_sram_param *sp,
 	enum fg_sram_param_id id, int val);
 extern int fg_decode_current_16b(struct fg_sram_param *sp,
+	enum fg_sram_param_id id, int val);
+extern int fg_decode_current_24b(struct fg_sram_param *sp,
 	enum fg_sram_param_id id, int val);
 extern int fg_decode_cc_soc(struct fg_sram_param *sp,
 	enum fg_sram_param_id id, int value);

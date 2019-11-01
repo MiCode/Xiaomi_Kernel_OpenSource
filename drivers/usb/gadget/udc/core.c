@@ -509,7 +509,7 @@ EXPORT_SYMBOL(usb_gsi_ep_op);
 int usb_gadget_func_wakeup(struct usb_gadget *gadget,
 	int interface_id)
 {
-	if (gadget->speed != USB_SPEED_SUPER)
+	if (gadget->speed < USB_SPEED_SUPER)
 		return -EOPNOTSUPP;
 
 	if (!gadget->ops->func_wakeup)

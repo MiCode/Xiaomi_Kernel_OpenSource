@@ -37,8 +37,8 @@
 static DEFINE_VDD_REGULATORS(vdd_scc_cx, VDD_NUM, 1, vdd_corner);
 
 enum {
-	P_AON_SLEEP_CLK,
 	P_AOSS_CC_RO_CLK,
+	P_AON_SLEEP_CLK,
 	P_CORE_PI_CXO_CLK,
 	P_QDSP6SS_PLL_OUT_AUX,
 	P_SCC_PLL_OUT_AUX,
@@ -74,7 +74,7 @@ static struct pll_vco scc_pll_vco[] = {
 };
 
 /* 600MHz configuration */
-static const struct alpha_pll_config scc_pll_config = {
+static struct alpha_pll_config scc_pll_config = {
 	.l = 0x1F,
 	.alpha_u = 0x40,
 	.alpha_en_mask = BIT(24),
@@ -93,6 +93,7 @@ static struct clk_alpha_pll scc_pll_out_aux2 = {
 	.offset = 0x0,
 	.vco_table = scc_pll_vco,
 	.num_vco = ARRAY_SIZE(scc_pll_vco),
+	.config = &scc_pll_config,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "scc_pll_out_aux2",
 		.parent_names = (const char *[]){ "bi_tcxo" },
@@ -540,10 +541,26 @@ static const struct of_device_id scc_sm6150_match_table[] = {
 };
 MODULE_DEVICE_TABLE(of, scc_sm6150_match_table);
 
+static int scc_sa6150_resume(struct device *dev)
+{
+	struct regmap *regmap = dev_get_drvdata(dev);
+
+	clk_alpha_pll_configure(&scc_pll_out_aux2, regmap,
+			scc_pll_out_aux2.config);
+
+	return 0;
+}
+
+static const struct dev_pm_ops scc_sa6150_pm_ops = {
+	.restore_early = scc_sa6150_resume,
+};
+
 static void scc_sm6150_fixup_sa6155(struct platform_device *pdev)
 {
 	vdd_scc_cx.num_levels = VDD_NUM_SA6155;
 	vdd_scc_cx.cur_level = VDD_NUM_SA6155;
+
+	pdev->dev.driver->pm =  &scc_sa6150_pm_ops;
 }
 
 static int scc_sm6150_probe(struct platform_device *pdev)
@@ -571,7 +588,8 @@ static int scc_sm6150_probe(struct platform_device *pdev)
 		return PTR_ERR(regmap);
 	}
 
-	clk_alpha_pll_configure(&scc_pll_out_aux2, regmap, &scc_pll_config);
+	clk_alpha_pll_configure(&scc_pll_out_aux2, regmap,
+			scc_pll_out_aux2.config);
 
 	ret = qcom_cc_really_probe(pdev, &scc_sm6150_desc, regmap);
 	if (ret) {
@@ -585,6 +603,9 @@ static int scc_sm6150_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to register with DFS!\n");
 		return ret;
 	}
+
+	if (is_sa6155)
+		dev_set_drvdata(&pdev->dev, regmap);
 
 	dev_info(&pdev->dev, "Registered SCC clocks\n");
 

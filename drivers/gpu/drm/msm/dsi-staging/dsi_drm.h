@@ -127,9 +127,11 @@ int dsi_conn_pre_kickoff(struct drm_connector *connector,
 /**
  * dsi_display_post_kickoff - program post kickoff-time features
  * @connector: Pointer to drm connector structure
+ * @params: Parameters for post kickoff programming
  * Returns: Zero on success
  */
-int dsi_conn_post_kickoff(struct drm_connector *connector);
+int dsi_conn_post_kickoff(struct drm_connector *connector,
+		struct msm_display_conn_params *params);
 
 /**
  * dsi_convert_to_drm_mode - Update drm mode with dsi mode information
@@ -141,4 +143,15 @@ void dsi_convert_to_drm_mode(const struct dsi_display_mode *dsi_mode,
 
 u64 dsi_drm_find_bit_clk_rate(void *display,
 			      const struct drm_display_mode *drm_mode);
+
+/**
+ * dsi_conn_prepare_commit - program pre commit time features
+ * @display: Pointer to private display structure
+ * @params: Parameters for pre commit programming
+ * Returns: Zero on success
+ */
+int dsi_conn_prepare_commit(void *display,
+		struct msm_display_conn_params *params);
+
+
 #endif /* _DSI_DRM_H_ */

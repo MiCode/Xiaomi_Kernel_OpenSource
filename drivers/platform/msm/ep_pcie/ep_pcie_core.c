@@ -41,6 +41,7 @@
 
 #define PCIE_MHI_STATUS(n)			((n) + 0x148)
 #define TCSR_PERST_SEPARATION_ENABLE		0x270
+#define PCIE_ISSUE_WAKE				1
 
 /* debug mask sys interface */
 static int ep_pcie_debug_mask;
@@ -566,7 +567,6 @@ static void ep_pcie_config_mmio(struct ep_pcie_dev_t *dev)
 	ep_pcie_write_reg(dev->mmio, PCIE20_MHIVER, 0x1000000);
 	ep_pcie_write_reg(dev->mmio, PCIE20_BHI_VERSION_LOWER, 0x2);
 	ep_pcie_write_reg(dev->mmio, PCIE20_BHI_VERSION_UPPER, 0x1);
-	ep_pcie_write_reg(dev->mmio, PCIE20_BHI_INTVEC, 0xffffffff);
 
 	dev->config_mmio_init = true;
 }
@@ -1632,6 +1632,14 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 	}
 
 checkbme:
+	/*
+	 * De-assert WAKE# GPIO following link until L2/3 and WAKE#
+	 * is triggered to send data from device to host at which point
+	 * it will assert WAKE#.
+	 */
+	gpio_set_value(dev->gpio[EP_PCIE_GPIO_WAKE].num,
+			1 - dev->gpio[EP_PCIE_GPIO_WAKE].on);
+
 	if (dev->active_config)
 		ep_pcie_write_reg(dev->dm_core, PCIE20_AUX_CLK_FREQ_REG, 0x14);
 
@@ -2577,9 +2585,36 @@ int ep_pcie_core_trigger_msi(u32 idx)
 	return EP_PCIE_ERROR;
 }
 
-int ep_pcie_core_wakeup_host(void)
+static void ep_pcie_core_issue_inband_pme(void)
 {
 	struct ep_pcie_dev_t *dev = &ep_pcie_dev;
+	unsigned long irqsave_flags;
+	u32 pm_ctrl = 0;
+
+	spin_lock_irqsave(&dev->isr_lock, irqsave_flags);
+
+	EP_PCIE_DBG(dev,
+		"PCIe V%d: request to assert inband wake\n",
+		dev->rev);
+
+	pm_ctrl = readl_relaxed(dev->parf + PCIE20_PARF_PM_CTRL);
+	ep_pcie_write_reg(dev->parf, PCIE20_PARF_PM_CTRL,
+						(pm_ctrl | BIT(4)));
+	ep_pcie_write_reg(dev->parf, PCIE20_PARF_PM_CTRL, pm_ctrl);
+
+	EP_PCIE_DBG(dev,
+		"PCIe V%d: completed assert for inband wake\n",
+		dev->rev);
+
+	spin_unlock_irqrestore(&dev->isr_lock, irqsave_flags);
+}
+
+static int ep_pcie_core_wakeup_host(enum ep_pcie_event event)
+{
+	struct ep_pcie_dev_t *dev = &ep_pcie_dev;
+
+	if (event == EP_PCIE_EVENT_PM_D3_HOT)
+		ep_pcie_core_issue_inband_pme();
 
 	if (dev->perst_deast && !dev->l23_ready) {
 		EP_PCIE_ERR(dev,
@@ -2594,8 +2629,9 @@ int ep_pcie_core_wakeup_host(void)
 		dev->rev, dev->wake_counter,
 		dev->perst_deast ? "" : "not",
 		dev->l23_ready ? "" : "not");
-	gpio_set_value(dev->gpio[EP_PCIE_GPIO_WAKE].num,
-			1 - dev->gpio[EP_PCIE_GPIO_WAKE].on);
+	/*
+	 * Assert WAKE# GPIO until link is back to L0.
+	 */
 	gpio_set_value(dev->gpio[EP_PCIE_GPIO_WAKE].num,
 			dev->gpio[EP_PCIE_GPIO_WAKE].on);
 	return 0;

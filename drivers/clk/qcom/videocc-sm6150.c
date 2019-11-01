@@ -85,7 +85,7 @@ static struct pll_vco video_cc_pll_vco[] = {
 };
 
 /* 600MHz configuration */
-static const struct alpha_pll_config video_pll0_config = {
+static struct alpha_pll_config video_pll0_config = {
 	.l = 0x1F,
 	.alpha_u = 0x40,
 	.alpha = 0x00,
@@ -103,6 +103,7 @@ static struct clk_alpha_pll video_pll0_out_main = {
 	.vco_table = video_cc_pll_vco,
 	.num_vco = ARRAY_SIZE(video_cc_pll_vco),
 	.flags = SUPPORTS_DYNAMIC_UPDATE,
+	.config = &video_pll0_config,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 			.name = "video_pll0_out_main",
@@ -364,7 +365,7 @@ static int video_cc_sm6150_probe(struct platform_device *pdev)
 	}
 
 	clk_alpha_pll_configure(&video_pll0_out_main, regmap,
-						&video_pll0_config);
+					video_pll0_out_main.config);
 
 	ret = qcom_cc_really_probe(pdev, &video_cc_sm6150_desc, regmap);
 	if (ret) {

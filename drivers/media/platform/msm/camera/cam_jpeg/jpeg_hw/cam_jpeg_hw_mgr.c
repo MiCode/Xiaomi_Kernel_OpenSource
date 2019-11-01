@@ -492,7 +492,7 @@ static int cam_jpeg_mgr_process_cmd(void *priv, void *data)
 			rc);
 		goto rel_cpu_buf;
 	}
-
+	cam_common_util_get_curr_timestamp(&p_cfg_req->submit_timestamp);
 	if (cam_mem_put_cpu_buf(
 		config_args->hw_update_entries[CAM_JPEG_CHBASE].handle))
 		CAM_WARN(CAM_JPEG, "unable to put info for cmd buf: 0x%x",
@@ -1043,6 +1043,116 @@ static int cam_jpeg_mgr_hw_flush(void *hw_mgr_priv, void *flush_hw_args)
 	return rc;
 }
 
+static int cam_jpeg_mgr_hw_dump(void *hw_mgr_priv, void *dump_hw_args)
+{
+	int rc = 0;
+	struct cam_hw_dump_args *dump_args =
+		(struct cam_hw_dump_args *)dump_hw_args;
+	struct cam_jpeg_hw_mgr *hw_mgr = hw_mgr_priv;
+	struct cam_jpeg_hw_ctx_data *ctx_data = NULL;
+	struct cam_jpeg_hw_cfg_req *p_cfg_req = NULL;
+	struct timeval cur_time;
+	uint32_t dev_type;
+	uint64_t diff;
+	uint64_t *addr, *start;
+	char *dst;
+	struct cam_jpeg_hw_dump_header *hdr;
+	uint32_t min_len, remain_len;
+	struct cam_jpeg_hw_dump_args jpeg_dump_args;
+
+	if (!hw_mgr || !dump_args || !dump_args->ctxt_to_hw_map) {
+		CAM_ERR(CAM_JPEG, "Invalid args");
+		return -EINVAL;
+	}
+	mutex_lock(&hw_mgr->hw_mgr_mutex);
+	ctx_data = (struct cam_jpeg_hw_ctx_data *)dump_args->ctxt_to_hw_map;
+	if (!ctx_data->in_use) {
+		CAM_ERR(CAM_JPEG, "ctx is not in use");
+		mutex_unlock(&hw_mgr->hw_mgr_mutex);
+		return -EINVAL;
+	}
+	dev_type = ctx_data->jpeg_dev_acquire_info.dev_type;
+	if (true == hw_mgr->device_in_use[dev_type][0]) {
+		p_cfg_req = hw_mgr->dev_hw_cfg_args[dev_type][0];
+		if (p_cfg_req  && p_cfg_req->req_id ==
+			    (uintptr_t)dump_args->request_id)
+			goto hw_dump;
+	}
+	mutex_unlock(&hw_mgr->hw_mgr_mutex);
+	return 0;
+
+hw_dump:
+	cam_common_util_get_curr_timestamp(&cur_time);
+	diff = cam_common_util_get_time_diff(&cur_time,
+		&p_cfg_req->submit_timestamp);
+	if (diff < CAM_JPEG_RESPONSE_TIME_THRESHOLD) {
+		CAM_INFO(CAM_JPEG,
+			"No error req %lld %ld:%06ld %ld:%06ld",
+			dump_args->request_id,
+			p_cfg_req->submit_timestamp.tv_sec,
+			p_cfg_req->submit_timestamp.tv_usec,
+			cur_time.tv_sec,
+			cur_time.tv_usec);
+		mutex_unlock(&hw_mgr->hw_mgr_mutex);
+		return 0;
+	}
+	CAM_INFO(CAM_JPEG,
+		"Error req %lld %ld:%06ld %ld:%06ld",
+		dump_args->request_id,
+		p_cfg_req->submit_timestamp.tv_sec,
+		p_cfg_req->submit_timestamp.tv_usec,
+		cur_time.tv_sec,
+		cur_time.tv_usec);
+	rc  = cam_mem_get_cpu_buf(dump_args->buf_handle,
+		&jpeg_dump_args.cpu_addr, &jpeg_dump_args.buf_len);
+	if (!jpeg_dump_args.cpu_addr || !jpeg_dump_args.buf_len || rc) {
+		CAM_ERR(CAM_JPEG,
+			"lnvalid addr %u len %zu rc %d",
+			dump_args->buf_handle, jpeg_dump_args.buf_len, rc);
+		goto end;
+	}
+	remain_len = jpeg_dump_args.buf_len - dump_args->offset;
+	min_len =  2 * (sizeof(struct cam_jpeg_hw_dump_header) +
+		    CAM_JPEG_HW_DUMP_TAG_MAX_LEN);
+	if (remain_len < min_len) {
+		CAM_ERR(CAM_JPEG, "dump buffer exhaust %d %d",
+			remain_len, min_len);
+		goto end;
+	}
+	dst = (char *)jpeg_dump_args.cpu_addr + dump_args->offset;
+	hdr = (struct cam_jpeg_hw_dump_header *)dst;
+	snprintf(hdr->tag, CAM_JPEG_HW_DUMP_TAG_MAX_LEN,
+		"JPEG_REQ:");
+	hdr->word_size = sizeof(uint64_t);
+	addr = (uint64_t *)(dst + sizeof(struct cam_jpeg_hw_dump_header));
+	start = addr;
+	*addr++ = dump_args->request_id;
+	*addr++ = p_cfg_req->submit_timestamp.tv_sec;
+	*addr++ = p_cfg_req->submit_timestamp.tv_usec;
+	*addr++ = cur_time.tv_sec;
+	*addr++ = cur_time.tv_usec;
+	hdr->size = hdr->word_size * (addr - start);
+	dump_args->offset += hdr->size +
+		sizeof(struct cam_jpeg_hw_dump_header);
+	jpeg_dump_args.request_id = dump_args->request_id;
+	jpeg_dump_args.offset = dump_args->offset;
+
+	if (hw_mgr->devices[dev_type][0]->hw_ops.process_cmd) {
+		rc = hw_mgr->devices[dev_type][0]->hw_ops.process_cmd(
+			hw_mgr->devices[dev_type][0]->hw_priv,
+			CAM_JPEG_CMD_HW_DUMP,
+			&jpeg_dump_args, sizeof(jpeg_dump_args));
+	}
+	dump_args->offset = jpeg_dump_args.offset;
+end:
+	rc  = cam_mem_put_cpu_buf(dump_args->buf_handle);
+	if (rc)
+		CAM_ERR(CAM_JPEG, "Cpu put failed handle %u",
+			dump_args->buf_handle);
+	mutex_unlock(&hw_mgr->hw_mgr_mutex);
+	return rc;
+}
+
 static int cam_jpeg_mgr_hw_stop(void *hw_mgr_priv, void *stop_hw_args)
 {
 	int rc;
@@ -1564,6 +1674,7 @@ int cam_jpeg_hw_mgr_init(struct device_node *of_node, uint64_t *hw_mgr_hdl,
 	hw_mgr_intf->hw_flush = cam_jpeg_mgr_hw_flush;
 	hw_mgr_intf->hw_stop = cam_jpeg_mgr_hw_stop;
 	hw_mgr_intf->hw_cmd = cam_jpeg_mgr_cmd;
+	hw_mgr_intf->hw_dump = cam_jpeg_mgr_hw_dump;
 
 	mutex_init(&g_jpeg_hw_mgr.hw_mgr_mutex);
 	spin_lock_init(&g_jpeg_hw_mgr.hw_mgr_lock);

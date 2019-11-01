@@ -41,9 +41,9 @@
 		S2E: pmxprairie_s2: regulator-pmxprairie-s2 {
 			regulator-name = "pmxprairie_s2";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
-			regulator-min-microvolt = <1224000>;
+			regulator-min-microvolt = <1280000>;
 			regulator-max-microvolt = <1400000>;
-			qcom,init-voltage = <1224000>;
+			qcom,init-voltage = <1280000>;
 		};
 	};
 
@@ -54,9 +54,9 @@
 		S3E: pmxprairie_s3: regulator-pmxprairie-s3 {
 			regulator-name = "pmxprairie_s3";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
-			regulator-min-microvolt = <800000>;
+			regulator-min-microvolt = <950000>;
 			regulator-max-microvolt = <1000000>;
-			qcom,init-voltage = <800000>;
+			qcom,init-voltage = <950000>;
 		};
 	};
 
@@ -516,5 +516,14 @@
 		startup-delay-us = <4000>;
 		enable-active-high;
 		gpio = <&pmxprairie_gpios 2 GPIO_ACTIVE_HIGH>;
+	};
+
+	/* PWR_CTR2_VDD_1P8 supply */
+	vreg_conn_1p8: vreg_conn_1p8 {
+		compatible = "regulator-fixed";
+		regulator-name = "vreg_conn_1p8";
+		startup-delay-us = <4000>;
+		enable-active-high;
+		gpio = <&pmxprairie_gpios 1 GPIO_ACTIVE_HIGH>;
 	};
 };

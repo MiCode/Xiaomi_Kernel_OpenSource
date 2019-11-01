@@ -1525,11 +1525,53 @@
 			};
 		};
 
-		usb3_id_det_default: usb2_id_det_default {
+		usb3_id_det_default: usb3_id_det_default {
 			config {
 				pins = "gpio116";
 				drive-strength = <2>;
 				bias-pull-up;
+				input-enable;
+			};
+		};
+
+		usb2_id_det_default: usb2_id_det_default {
+			mux {
+				pins = "gpio53";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio53";
+				drive-strength = <2>;
+				bias-pull-up;
+				input-enable;
+			};
+		};
+
+		usb2_vbus_boost_default: usb2_vbus_boost_default {
+			mux {
+				pins = "gpio108";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio108";
+				drive-strength = <2>;
+				bias-pull-down;
+				output-low;
+			};
+		};
+
+		usb2_vbus_det_default: usb2_vbus_det_default {
+			mux {
+				pins = "gpio116";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio116";
+				drive-strength = <2>;
+				bias-pull-down;
 				input-enable;
 			};
 		};
@@ -2698,6 +2740,32 @@
 					pins = "gpio61";
 					bias-disable;  /* NO pull */
 					drive-strength = <2>;
+				};
+			};
+
+			emac_phy_reset_state: emac_phy_reset_state {
+				mux {
+					pins = "gpio60";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio60";
+					bias-pull-up;
+					drive-strength = <16>;
+				};
+			};
+
+			vreg_emac_phy_reg: vreg_emac_phy_reg {
+				mux {
+					pins = "gpio92";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio92";
+					bias-pull-up;
+					drive-strength = <12>;
 				};
 			};
 		};

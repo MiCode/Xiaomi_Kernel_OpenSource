@@ -846,8 +846,13 @@ int tty_ldisc_init(struct tty_struct *tty)
  */
 void tty_ldisc_deinit(struct tty_struct *tty)
 {
-	if (tty->ldisc)
+	if (tty->ldisc) {
+#if defined(CONFIG_TTY_FLUSH_LOCAL_ECHO)
+		if (tty->echo_delayed_work.work.func)
+			cancel_delayed_work_sync(&tty->echo_delayed_work);
+#endif
 		tty_ldisc_put(tty->ldisc);
+	}
 	tty->ldisc = NULL;
 }
 

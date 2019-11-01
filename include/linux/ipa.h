@@ -20,6 +20,7 @@
 #include "linux/msm_gsi.h"
 
 #define IPA_APPS_MAX_BW_IN_MBPS 700
+#define IPA_MAX_CH_STATS_SUPPORTED 5
 /**
  * enum ipa_transport_type
  * transport type: either GSI or SPS
@@ -900,6 +901,33 @@ struct IpaHwBamStats_t {
 } __packed;
 
 /**
+ * struct IpaOffloadStatschannel_info - channel info for uC
+ * stats
+ * @dir: Direction of the channel ID DIR_CONSUMER =0,
+ * DIR_PRODUCER = 1
+ * @ch_id: GSI ch_id of the IPA endpoint for which stats need
+ * to be calculated, 0xFF means invalid channel or disable stats
+ * on already stats enabled channel
+ */
+struct IpaOffloadStatschannel_info {
+	u8 dir;
+	u8 ch_id;
+} __packed;
+
+/**
+ * struct IpaHwOffloadStatsAllocCmdData_t - protocol info for uC
+ * stats start
+ * @protocol: Enum that indicates the protocol type
+ * @ch_id_info: GSI ch_id and dir of the IPA endpoint for which stats
+ * need to be calculated
+ */
+struct IpaHwOffloadStatsAllocCmdData_t {
+	u32 protocol;
+	struct IpaOffloadStatschannel_info
+		ch_id_info[IPA_MAX_CH_STATS_SUPPORTED];
+} __packed;
+
+/**
  * struct IpaHwRingStats_t - Structure holding the Ring statistics
  *
  * @ringFull : Number of times Transfer Ring got full - For In Ch: Good,
@@ -918,6 +946,17 @@ struct IpaHwRingStats_t {
 	u32 ringUsageLow;
 	u32 RingUtilCount;
 } __packed;
+
+/**
+ * struct ipa_uc_dbg_ring_stats - uC dbg stats info for each
+ * offloading protocol
+ * @ring: ring stats for each channel
+ * @ch_num: number of ch supported for given protocol
+ */
+struct ipa_uc_dbg_ring_stats {
+	struct IpaHwRingStats_t ring[IPA_MAX_CH_STATS_SUPPORTED];
+	u8 num_ch;
+};
 
 /**
  * struct IpaHwStatsWDIRxInfoData_t - Structure holding the WDI Rx channel
@@ -1572,6 +1611,13 @@ enum ipa_transport_type ipa_get_transport_type(void);
 struct device *ipa_get_dma_dev(void);
 struct iommu_domain *ipa_get_smmu_domain(void);
 
+int ipa_uc_debug_stats_alloc(
+	struct IpaHwOffloadStatsAllocCmdData_t cmdinfo);
+int ipa_uc_debug_stats_dealloc(uint32_t protocol);
+void ipa_get_gsi_stats(int prot_id,
+	struct ipa_uc_dbg_ring_stats *stats);
+int ipa_get_prot_id(enum ipa_client_type client);
+
 int ipa_disable_apps_wan_cons_deaggr(uint32_t agg_size, uint32_t agg_count);
 
 const struct ipa_gsi_ep_config *ipa_get_gsi_ep_info
@@ -1629,6 +1675,7 @@ int ipa_get_smmu_params(struct ipa_smmu_in_params *in,
  * Returns: 0 on success, negative on failure
  */
 int ipa_is_vlan_mode(enum ipa_vlan_ifaces iface, bool *res);
+
 #else /* (CONFIG_IPA || CONFIG_IPA3) */
 
 /*
@@ -2472,6 +2519,27 @@ static inline int ipa_is_vlan_mode(enum ipa_vlan_ifaces iface, bool *res)
 {
 	return -EPERM;
 }
+
+static inline int ipa_uc_debug_stats_alloc(
+	struct IpaHwOffloadStatsAllocCmdData_t cmdinfo)
+{
+	return -EPERM;
+}
+static inline int ipa_uc_debug_stats_dealloc(uint32_t protocol)
+{
+	return -EPERM;
+}
+
+static inline void ipa_get_gsi_stats(int prot_id,
+	struct ipa_uc_dbg_ring_stats *stats)
+{
+}
+
+static inline int ipa_get_prot_id(enum ipa_client_type client)
+{
+	return -EPERM;
+}
+
 #endif /* (CONFIG_IPA || CONFIG_IPA3) */
 
 #endif /* _IPA_H_ */

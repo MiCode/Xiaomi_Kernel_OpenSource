@@ -34,10 +34,17 @@
 		#size-cells = <2>;
 		ranges = <0x01000000 0x0 0x60200000 0x60200000 0x0 0x100000>,
 			<0x02000000 0x0 0x60300000 0x60300000 0x0 0x3d00000>;
-		interrupts = <0 140 0>, <0 149 0>, <0 150 0>, <0 151 0>,
-			   <0 152 0>;
+		interrupt-parent = <&pcie0>;
+		interrupts = <0 1 2 3 4>;
 		interrupt-names = "int_global_int", "int_a", "int_b", "int_c",
 				"int_d";
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0 0 0 0xffffffff>;
+		interrupt-map = < 0 0 0 0 &intc 0 140 0
+				0 0 0 1 &intc 0 149 0
+				0 0 0 2 &intc 0 150 0
+				0 0 0 3 &intc 0 151 0
+				0 0 0 4 &intc 0 152 0>;
 
 		qcom,phy-sequence = <0x0840 0x03 0x0
 				0x0094 0x08 0x0

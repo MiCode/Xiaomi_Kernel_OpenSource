@@ -926,14 +926,13 @@ free_probe_cmd:
 
 		s_ctrl->sensor_state = CAM_SENSOR_ACQUIRE;
 		CAM_INFO(CAM_SENSOR,
-				"CAM_ACQUIRE_DEV Success %d",
+				"SENSOR_POWER_UP Success %d",
 				s_ctrl->soc_info.index);
 	}
 		break;
 
 	case AIS_SENSOR_POWER_DOWN: {
-		if ((s_ctrl->sensor_state == CAM_SENSOR_INIT) ||
-			(s_ctrl->sensor_state == CAM_SENSOR_START)) {
+		if (s_ctrl->sensor_state == CAM_SENSOR_START) {
 			rc = -EINVAL;
 			CAM_WARN(CAM_SENSOR,
 				"Not in right state to release %d (%d)",
@@ -952,7 +951,7 @@ free_probe_cmd:
 
 		s_ctrl->sensor_state = CAM_SENSOR_INIT;
 		CAM_INFO(CAM_SENSOR,
-			"CAM_RELEASE_DEV Success %d",
+			"SENSOR_POWER_DOWN Success %d",
 			s_ctrl->soc_info.index);
 	}
 		break;
@@ -1007,7 +1006,7 @@ free_probe_cmd:
 			goto release_mutex;
 		}
 
-		CAM_WARN(CAM_SENSOR, "Read 0x%x : 0x%x <- 0x%x",
+		CAM_DBG(CAM_SENSOR, "Read 0x%x : 0x%x <- 0x%x",
 			i2c_read.i2c_config.slave_addr,
 			i2c_read.reg_addr, i2c_read.reg_data);
 
@@ -1052,7 +1051,7 @@ free_probe_cmd:
 			goto release_mutex;
 		}
 
-		CAM_INFO(CAM_SENSOR,
+		CAM_DBG(CAM_SENSOR,
 			"Write 0x%x, 0x%x <- 0x%x [%d, %d]",
 			i2c_write.i2c_config.slave_addr,
 			i2c_write.wr_payload.reg_addr,
@@ -1166,7 +1165,7 @@ free_probe_cmd:
 			goto release_mutex;
 		}
 
-		CAM_INFO(CAM_SENSOR,
+		CAM_DBG(CAM_SENSOR,
 			"Write 0x%x, %d regs [%d, %d]",
 			i2c_write.i2c_config.slave_addr,
 			i2c_write.count,

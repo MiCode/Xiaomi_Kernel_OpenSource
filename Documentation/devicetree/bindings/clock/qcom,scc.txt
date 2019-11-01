@@ -2,7 +2,8 @@ Qualcomm Technologies, Inc. Sensor Clock Controller Bindings
 
 Required properties:
 - compatible: shall contain "qcom,scc-sm8150" or "qcom,scc-sm8150-v2" or
-		"qcom,scc-sm6150" or "qcom,scc-sa6155" or "qcom,scc-sa8195".
+		"qcom,scc-sm6150" or "qcom,scc-sa6155" or "qcom,scc-sa8195" or
+		"qcom,scc-sa8155" or "qcom,scc-sa8155-v2".
 - reg: shall contain base register location and length.
 - vdd_scc_cx-supply: the logic rail supply.
 - #clock-cells: shall contain 1.

@@ -37,6 +37,9 @@
 #define EDL_TAG_ID_HCI			(17)
 #define EDL_TAG_ID_DEEP_SLEEP		(27)
 
+#define ROME_VER_3_2		0x00440302
+#define HST_VER_2_0			0x02000200
+
 enum qca_bardrate {
 	QCA_BAUDRATE_115200 	= 0,
 	QCA_BAUDRATE_57600,
@@ -78,7 +81,24 @@ struct edl_event_hdr {
 	__u8 data[0];
 } __packed;
 
-struct rome_version {
+struct edl_hst_event_hdr {
+	__u8 status;
+	__u8 sbcode;
+	__u8 len;
+	__u8 data[0];
+} __packed;
+
+struct cmd_cpl_event {
+	__u8 type;
+	__u8 event;
+	__u8 len;
+	__u8 num;
+	__le16 opcode;
+	__u8 status;
+	__u8 sbcode;
+} __packed;
+
+struct qca_version {
 	__le32 product_id;
 	__le16 patch_ver;
 	__le16 rome_ver;
@@ -115,10 +135,14 @@ struct tlv_type_hdr {
 	__u8   data[0];
 } __packed;
 
+typedef int (*qca_enque_send_callback)(struct hci_dev *hdev,
+						struct sk_buff *skb);
+
 #if IS_ENABLED(CONFIG_BT_QCA)
 
 int qca_set_bdaddr_rome(struct hci_dev *hdev, const bdaddr_t *bdaddr);
-int qca_uart_setup_rome(struct hci_dev *hdev, uint8_t baudrate);
+int qca_uart_setup_rome(struct hci_dev *hdev, uint8_t baudrate,
+					qca_enque_send_callback callback);
 
 #else
 
@@ -127,7 +151,8 @@ static inline int qca_set_bdaddr_rome(struct hci_dev *hdev, const bdaddr_t *bdad
 	return -EOPNOTSUPP;
 }
 
-static inline int qca_uart_setup_rome(struct hci_dev *hdev, int speed)
+static inline int qca_uart_setup_rome(struct hci_dev *hdev, int speed,
+					qca_enque_send_callback callback)
 {
 	return -EOPNOTSUPP;
 }

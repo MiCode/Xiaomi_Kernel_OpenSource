@@ -174,7 +174,6 @@ static dma_addr_t __fast_smmu_alloc_iova(struct dma_fast_smmu_mapping *mapping,
 		nbits, align);
 	if (unlikely(bit > mapping->num_4k_pages)) {
 		/* try wrapping */
-		mapping->next_start = 0; /* TODO: SHOULD I REALLY DO THIS?!? */
 		bit = bitmap_find_next_zero_area(
 			mapping->bitmap, mapping->num_4k_pages, 0, nbits,
 			align);
@@ -201,7 +200,6 @@ static dma_addr_t __fast_smmu_alloc_iova(struct dma_fast_smmu_mapping *mapping,
 		bool skip_sync = (attrs & DMA_ATTR_SKIP_CPU_SYNC);
 
 		iommu_tlbiall(mapping->domain);
-		iommu_tlb_sync(mapping->domain);
 		mapping->have_stale_tlbs = false;
 		av8l_fast_clear_stale_ptes(mapping->pgtbl_pmds, skip_sync);
 	}

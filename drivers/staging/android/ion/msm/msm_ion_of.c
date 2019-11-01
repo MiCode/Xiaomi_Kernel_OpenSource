@@ -344,6 +344,62 @@ out:
 	return err;
 }
 
+static int msm_ion_pm_freeze(struct device *dev)
+{
+	struct ion_device *ion_dev = dev_get_drvdata(dev);
+	struct ion_heap *heap;
+	int ret;
+
+	plist_for_each_entry(heap, &ion_dev->heaps, node) {
+		if (heap->ops->pm.freeze) {
+			ret = heap->ops->pm.freeze(heap);
+			if (ret) {
+				dev_err(dev, "%s freeze callback failed\n",
+					heap->name);
+				goto undo;
+			}
+		}
+	}
+
+	return 0;
+
+undo:
+	list_for_each_entry_continue_reverse(heap, &ion_dev->heaps.node_list,
+					     node.node_list)
+		if (heap->ops->pm.restore)
+			heap->ops->pm.restore(heap);
+
+	return ret;
+}
+
+static int msm_ion_pm_restore(struct device *dev)
+{
+	struct ion_device *ion_dev = dev_get_drvdata(dev);
+	struct ion_heap *heap;
+	int ret = 0;
+
+	plist_for_each_entry(heap, &ion_dev->heaps, node) {
+		int rc;
+
+		if (heap->ops->pm.restore) {
+			rc = heap->ops->pm.restore(heap);
+			if (rc) {
+				dev_err(dev, "%s restore callback failed.\n",
+					heap->name);
+				if (!ret)
+					ret = rc;
+			}
+		}
+	}
+
+	return ret;
+}
+
+static const struct dev_pm_ops msm_ion_pm_ops = {
+	.freeze = msm_ion_pm_freeze,
+	.restore = msm_ion_pm_restore,
+};
+
 static const struct of_device_id msm_ion_match_table[] = {
 	{.compatible = ION_COMPAT_STR},
 	{},
@@ -354,6 +410,7 @@ static struct platform_driver msm_ion_driver = {
 	.driver = {
 		.name = "ion-msm",
 		.of_match_table = msm_ion_match_table,
+		.pm = &msm_ion_pm_ops,
 	},
 };
 

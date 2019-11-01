@@ -92,6 +92,8 @@ Optional properties:
 			regardless of the fact that it's requested to power-off
 			explicitly, the framework won't try to power it off again.
 
+- qcom,minidump-as-elf32: Boolean. If set, minidump is collected in ELF32 format.
+
 Example:
 	qcom,venus@fdce0000 {
 		compatible = "qcom,pil-tz-generic";

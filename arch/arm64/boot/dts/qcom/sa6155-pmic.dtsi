@@ -170,9 +170,7 @@
 	/delete-node/ display-lowf;
 	/delete-node/ wlan-lowf;
 	/delete-node/ camera-lowf;
-	soc {
-		/delete-property/ thermal-sensors;
-	};
+	/delete-node/ soc;
 };
 
 #include "sa6155-regulator.dtsi"

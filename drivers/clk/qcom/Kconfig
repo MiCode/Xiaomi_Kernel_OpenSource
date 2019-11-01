@@ -326,6 +326,15 @@ config MSM_CAMCC_SDMSHRIKE
           Say Y if you want to support camera devices and functionality such as
 	  capturing pictures.
 
+config MSM_DEBUGCC_SDMSHRIKE
+	tristate "SDMSHRIKE Debug Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the debug clock controller on Qualcomm Technologies, Inc
+	  SDMSHRIKE devices.
+	  Say Y if you want to support the clock measurement functionality for
+	  measuring the clock frequency.
+
 config MDM_GCC_QCS405
 	tristate "QCS405 Global Clock Controller"
 	select QCOM_GDSC

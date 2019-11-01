@@ -1049,11 +1049,12 @@
 			};
 
 			q6_hvx_trip1: q6-hvx-trip1 {
-				temperature = <105000>;
+				temperature = <100000>;
 				hysteresis = <5000>;
 				type = "passive";
 			};
 		};
+
 		cooling-maps {
 			cdsp-cdev0 {
 				trip = <&q6_hvx_trip0>;
@@ -1061,10 +1062,26 @@
 							THERMAL_NO_LIMIT>;
 			};
 
-			cdsp-cdev1 {
+			cdsp-cx-cdev0 {
 				trip = <&q6_hvx_trip1>;
 				cooling-device = <&cdsp_sw THERMAL_MAX_LIMIT
 							THERMAL_MAX_LIMIT>;
+			};
+
+			cdsp-cx-cdev1 {
+				trip = <&q6_hvx_trip1>;
+				cooling-device = <&msm_gpu (THERMAL_MAX_LIMIT-1)
+							(THERMAL_MAX_LIMIT-1)>;
+			};
+
+			cdsp-cx-cdev2 {
+				trip = <&q6_hvx_trip1>;
+				cooling-device = <&modem_proc 3 3>;
+			};
+
+			cdsp-cx-cdev3 {
+				trip = <&q6_hvx_trip1>;
+				cooling-device = <&modem_pa 3 3>;
 			};
 		};
 	};
@@ -1088,6 +1105,133 @@
 				cooling-device =
 					<&msm_npu THERMAL_NO_LIMIT
 						THERMAL_NO_LIMIT>;
+			};
+		};
+	};
+
+	quiet-therm-step {
+		polling-delay-passive = <2000>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm6150l_adc_tm ADC_AMUX_THM1_PU2>;
+		wake-capable-sensor;
+		trips {
+			skin_modem_trip0: modem-trip0 {
+				temperature = <48000>;
+				hysteresis = <4000>;
+				type = "passive";
+			};
+
+			skin_modem_trip1: modem-trip1 {
+				temperature = <50000>;
+				hysteresis = <2000>;
+				type = "passive";
+			};
+
+			skin_gold_hvx_trip: gold-hvx-trip {
+				temperature = <50000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+
+			skin_gpu_trip: skin-gpu-trip {
+				temperature = <52000>;
+				hysteresis = <4000>;
+				type = "passive";
+			};
+
+			skin_modem_trip2: modem-trip2 {
+				temperature = <52000>;
+				hysteresis = <2000>;
+				type = "passive";
+			};
+
+			skin_silver_trip: silver-trip {
+				temperature = <54000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+
+			skin_modem_trip3: modem-trip3 {
+				temperature = <58000>;
+				hysteresis = <4000>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			skin_cpu6 {
+				trip = <&skin_gold_hvx_trip>;
+				cooling-device =
+					/* throttle from fmax to 1708800KHz */
+					<&CPU6 THERMAL_NO_LIMIT
+						(THERMAL_MAX_LIMIT-7)>;
+			};
+			skin_cpu7 {
+				trip = <&skin_gold_hvx_trip>;
+				cooling-device =
+					<&CPU7 THERMAL_NO_LIMIT
+						(THERMAL_MAX_LIMIT-7)>;
+			};
+			skin_cpu0 {
+				trip = <&skin_silver_trip>;
+				/* throttle from fmax to 1516800KHz */
+				cooling-device = <&CPU0 THERMAL_NO_LIMIT
+						(THERMAL_MAX_LIMIT-7)>;
+			};
+			skin_cpu1 {
+				trip = <&skin_silver_trip>;
+				cooling-device = <&CPU1 THERMAL_NO_LIMIT
+						(THERMAL_MAX_LIMIT-7)>;
+			};
+			skin_cpu2 {
+				trip = <&skin_silver_trip>;
+				cooling-device = <&CPU2 THERMAL_NO_LIMIT
+						(THERMAL_MAX_LIMIT-7)>;
+			};
+			skin_cpu3 {
+				trip = <&skin_silver_trip>;
+				cooling-device = <&CPU3 THERMAL_NO_LIMIT
+						(THERMAL_MAX_LIMIT-7)>;
+			};
+			skin_cpu4 {
+				trip = <&skin_silver_trip>;
+				cooling-device = <&CPU4 THERMAL_NO_LIMIT
+						(THERMAL_MAX_LIMIT-7)>;
+			};
+			skin_cpu5 {
+				trip = <&skin_silver_trip>;
+				cooling-device = <&CPU5 THERMAL_NO_LIMIT
+						(THERMAL_MAX_LIMIT-7)>;
+			};
+			skin_gpu {
+				trip = <&skin_gpu_trip>;
+				cooling-device = <&msm_gpu (THERMAL_MAX_LIMIT-3)
+						(THERMAL_MAX_LIMIT-3)>;
+			};
+			skin_modem_proc0 {
+				trip = <&skin_modem_trip0>;
+				cooling-device = <&modem_proc 1 1>;
+			};
+			skin_modem_proc1 {
+				trip = <&skin_modem_trip3>;
+				cooling-device = <&modem_proc 3 3>;
+			};
+			skin_modem_pa0 {
+				trip = <&skin_modem_trip1>;
+				cooling-device = <&modem_pa 1 1>;
+			};
+			skin_modem_pa1 {
+				trip = <&skin_modem_trip2>;
+				cooling-device = <&modem_pa 2 2>;
+			};
+			skin_modem_pa2 {
+				trip = <&skin_modem_trip3>;
+				cooling-device = <&modem_pa 3 3>;
+			};
+			cdsp_cdev1 {
+				trip = <&skin_gold_hvx_trip>;
+				cooling-device = <&cdsp_sw THERMAL_NO_LIMIT 4>;
 			};
 		};
 	};

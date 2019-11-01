@@ -134,6 +134,10 @@
 			};
 		};
 	};
+
+	quiet-therm-step {
+		status = "disabled";
+	};
 };
 
 &pm6150a_amoled {
@@ -279,3 +283,8 @@
 				&nfc_clk_req_suspend>;
 	};
 };
+
+&sde_dp{
+	qcom,dp-aux-switch = <&fsa4480>;
+};
+

@@ -1208,6 +1208,26 @@ static ssize_t ipa3_read_odlstats(struct file *file, char __user *ubuf,
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
 }
 
+static ssize_t ipa3_read_page_recycle_stats(struct file *file,
+		char __user *ubuf, size_t count, loff_t *ppos)
+{
+	int nbytes;
+	int cnt = 0;
+
+	nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+			"COAL : Total number of packets replenished =%llu\n"
+			"COAL : Number of tmp alloc packets  =%llu\n"
+			"DEF  : Total number of packets replenished =%llu\n"
+			"DEF  : Number of tmp alloc packets  =%llu\n",
+			ipa3_ctx->stats.page_recycle_stats[0].total_replenished,
+			ipa3_ctx->stats.page_recycle_stats[0].tmp_alloc,
+			ipa3_ctx->stats.page_recycle_stats[1].total_replenished,
+			ipa3_ctx->stats.page_recycle_stats[1].tmp_alloc);
+
+	cnt += nbytes;
+
+	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
+}
 static ssize_t ipa3_read_wstats(struct file *file, char __user *ubuf,
 		size_t count, loff_t *ppos)
 {
@@ -1984,7 +2004,7 @@ static ssize_t ipa3_read_ipahal_regs(struct file *file, char __user *ubuf,
 static ssize_t ipa3_read_wdi_gsi_stats(struct file *file,
 		char __user *ubuf, size_t count, loff_t *ppos)
 {
-	struct ipa3_uc_dbg_ring_stats stats;
+	struct ipa_uc_dbg_ring_stats stats;
 	int nbytes;
 	int cnt = 0;
 
@@ -2034,7 +2054,7 @@ done:
 static ssize_t ipa3_read_wdi3_gsi_stats(struct file *file,
 		char __user *ubuf, size_t count, loff_t *ppos)
 {
-	struct ipa3_uc_dbg_ring_stats stats;
+	struct ipa_uc_dbg_ring_stats stats;
 	int nbytes;
 	int cnt = 0;
 
@@ -2103,6 +2123,7 @@ done:
 static ssize_t ipa3_read_aqc_gsi_stats(struct file *file,
 		char __user *ubuf, size_t count, loff_t *ppos)
 {
+	struct ipa_uc_dbg_ring_stats stats;
 	int nbytes;
 	int cnt = 0;
 
@@ -2114,7 +2135,36 @@ static ssize_t ipa3_read_aqc_gsi_stats(struct file *file,
 		cnt += nbytes;
 		goto done;
 	}
-	return 0;
+	if (!ipa3_get_aqc_gsi_stats(&stats)) {
+		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+			"TX ringFull=%u\n"
+			"TX ringEmpty=%u\n"
+			"TX ringUsageHigh=%u\n"
+			"TX ringUsageLow=%u\n"
+			"TX RingUtilCount=%u\n",
+			stats.ring[1].ringFull,
+			stats.ring[1].ringEmpty,
+			stats.ring[1].ringUsageHigh,
+			stats.ring[1].ringUsageLow,
+			stats.ring[1].RingUtilCount);
+		cnt += nbytes;
+		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
+			"RX ringFull=%u\n"
+			"RX ringEmpty=%u\n"
+			"RX ringUsageHigh=%u\n"
+			"RX ringUsageLow=%u\n"
+			"RX RingUtilCount=%u\n",
+			stats.ring[0].ringFull,
+			stats.ring[0].ringEmpty,
+			stats.ring[0].ringUsageHigh,
+			stats.ring[0].ringUsageLow,
+			stats.ring[0].RingUtilCount);
+		cnt += nbytes;
+	} else {
+		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+			"Fail to read AQC GSI stats\n");
+		cnt += nbytes;
+	}
 done:
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
 }
@@ -2122,7 +2172,7 @@ done:
 static ssize_t ipa3_read_mhip_gsi_stats(struct file *file,
 	char __user *ubuf, size_t count, loff_t *ppos)
 {
-	struct ipa3_uc_dbg_ring_stats stats;
+	struct ipa_uc_dbg_ring_stats stats;
 	int nbytes;
 	int cnt = 0;
 
@@ -2196,7 +2246,7 @@ done:
 static ssize_t ipa3_read_usb_gsi_stats(struct file *file,
 	char __user *ubuf, size_t count, loff_t *ppos)
 {
-	struct ipa3_uc_dbg_ring_stats stats;
+	struct ipa_uc_dbg_ring_stats stats;
 	int nbytes;
 	int cnt = 0;
 
@@ -2467,6 +2517,10 @@ static const struct ipa3_debugfs_file debugfs_files[] = {
 	}, {
 		"odlstats", IPA_READ_ONLY_MODE, NULL, {
 			.read = ipa3_read_odlstats,
+		}
+	}, {
+		"page_recycle_stats", IPA_READ_ONLY_MODE, NULL, {
+			.read = ipa3_read_page_recycle_stats,
 		}
 	}, {
 		"wdi", IPA_READ_ONLY_MODE, NULL, {

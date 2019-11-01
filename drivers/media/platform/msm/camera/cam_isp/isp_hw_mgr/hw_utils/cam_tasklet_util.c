@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -214,7 +214,7 @@ void cam_tasklet_enqueue_cmd(
 	list_add_tail(&tasklet_cmd->list,
 		&tasklet->used_cmd_list);
 	spin_unlock_irqrestore(&tasklet->tasklet_lock, flags);
-	tasklet_schedule(&tasklet->tasklet);
+	tasklet_hi_schedule(&tasklet->tasklet);
 }
 
 int cam_tasklet_init(
