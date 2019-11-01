@@ -193,9 +193,9 @@ int ethqos_init_gpio(struct qcom_ethqos *ethqos)
 {
 	struct pinctrl *pinctrl;
 	struct pinctrl_state *emac_pps_0;
+	int ret = 0;
 
 	ethqos->gpio_phy_intr_redirect = -1;
-	int ret = 0;
 
 	pinctrl = devm_pinctrl_get(&ethqos->pdev->dev);
 	if (IS_ERR_OR_NULL(pinctrl)) {
