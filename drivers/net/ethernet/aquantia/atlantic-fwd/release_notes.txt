@@ -1,3 +1,12 @@
+Version 1.0.29
+==============
+[ATLDRV-1139] - after ifconfig -multicast Unicast filters registers have valid values for multicast addresses
+[ATLDRV-1170] - macsec key cleaned on SA updates
+[ATLDRV-1171] - AQ066: MSI index leak for head pointer writeback event
+[ATLDRV-1172] - AQ068: shift-count-overflow error in DESCR_FIELD()
+[ATLDRV-1187] - atlfwdtool not compiled on Centos
+[ATLDRV-1186] - FWD: MACsec offload (cleanup)
+
 Version 1.0.28
 ==============
 [ATLDRV-1128] - Traffic ingress on FWD ring

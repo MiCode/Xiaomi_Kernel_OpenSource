@@ -630,11 +630,16 @@ void atl_set_rx_mode(struct net_device *ndev)
 {
 	struct atl_nic *nic = netdev_priv(ndev);
 	struct atl_hw *hw = &nic->hw;
-	int uc_count = netdev_uc_count(ndev), mc_count = netdev_mc_count(ndev);
-	int promisc_needed = !!(ndev->flags & IFF_PROMISC);
+	bool is_multicast_enabled = !!(ndev->flags & IFF_MULTICAST);
 	int all_multi_needed = !!(ndev->flags & IFF_ALLMULTI);
+	int promisc_needed = !!(ndev->flags & IFF_PROMISC);
+	int uc_count = netdev_uc_count(ndev);
+	int mc_count = 0;
 	int i = 1; /* UC filter 0 reserved for MAC address */
 	struct netdev_hw_addr *hwaddr;
+
+	if (is_multicast_enabled)
+		mc_count = netdev_mc_count(ndev);
 
 	if (uc_count > ATL_UC_FLT_NUM - 1)
 		promisc_needed |= 1;
@@ -655,11 +660,13 @@ void atl_set_rx_mode(struct net_device *ndev)
 	netdev_for_each_uc_addr(hwaddr, ndev)
 		atl_set_uc_flt(hw, i++, hwaddr->addr);
 
-	atl_set_all_multi(hw, all_multi_needed);
+	if (is_multicast_enabled) {
+		atl_set_all_multi(hw, all_multi_needed);
 
-	if (!all_multi_needed)
-		netdev_for_each_mc_addr(hwaddr, ndev)
-			atl_set_uc_flt(hw, i++, hwaddr->addr);
+		if (!all_multi_needed)
+			netdev_for_each_mc_addr(hwaddr, ndev)
+				atl_set_uc_flt(hw, i++, hwaddr->addr);
+	}
 
 	while (i < ATL_UC_FLT_NUM)
 		atl_disable_uc_flt(hw, i++);
