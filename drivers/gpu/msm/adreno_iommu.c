@@ -84,11 +84,11 @@ static unsigned int a3xx_vbif_unlock(struct adreno_device *adreno_dev,
 /* This function is only needed for A3xx targets */
 static unsigned int a3xx_cp_smmu_reg(struct adreno_device *adreno_dev,
 				unsigned int *cmds,
-				enum kgsl_iommu_reg_map reg,
+				u32 reg,
 				unsigned int num)
 {
 	unsigned int *start = cmds;
-	unsigned int offset = (A3XX_GPU_OFFSET + kgsl_iommu_reg_list[reg]) >> 2;
+	unsigned int offset = (A3XX_GPU_OFFSET + reg) >> 2;
 
 	*cmds++ = cp_packet(adreno_dev, CP_REG_WR_NO_CTXT, num + 1);
 	*cmds++ = offset;
@@ -102,7 +102,7 @@ static unsigned int a3xx_tlbiall(struct adreno_device *adreno_dev,
 {
 	unsigned int *start = cmds;
 	unsigned int tlbstatus = (A3XX_GPU_OFFSET +
-		kgsl_iommu_reg_list[KGSL_IOMMU_CTX_TLBSTATUS]) >> 2;
+		KGSL_IOMMU_CTX_TLBSTATUS) >> 2;
 
 	cmds += a3xx_cp_smmu_reg(adreno_dev, cmds, KGSL_IOMMU_CTX_TLBIALL, 1);
 	*cmds++ = 1;
