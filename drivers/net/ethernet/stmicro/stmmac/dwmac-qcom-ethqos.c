@@ -569,12 +569,13 @@ static irqreturn_t ETHQOS_PHY_ISR(int irq, void *dev_data)
 	struct qcom_ethqos *ethqos = (struct qcom_ethqos *)dev_data;
 
 	queue_work(system_wq, &ethqos->emac_phy_work);
+
+	return IRQ_HANDLED;
 }
 
 static int ethqos_phy_intr_enable(struct qcom_ethqos *ethqos)
 {
 	int ret = 0;
-	struct net_device *dev = platform_get_drvdata(ethqos->pdev);
 
 	INIT_WORK(&ethqos->emac_phy_work, ethqos_defer_phy_isr_work);
 	ret = request_irq(ethqos->phy_intr, ETHQOS_PHY_ISR,
