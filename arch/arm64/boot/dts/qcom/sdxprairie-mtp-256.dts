@@ -14,6 +14,7 @@
 
 #include "sdxprairie.dtsi"
 #include "sdxprairie-mtp-256.dtsi"
+#include "sdxprairie-bluetooth.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SDXPRAIRIE MTP(256MB)";
@@ -24,8 +25,4 @@
 
 &qnand_1 {
 	status = "ok";
-};
-
-&blsp1_uart2b_hs {
-	status = "okay";
 };
