@@ -224,6 +224,24 @@
 		};
 	};
 
+	rpmh-regulator-ldob7 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "ldob7";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_LPM
+			 RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 10000>;
+		L7B: pm8350_l7: regulator-pm8350-l7 {
+			regulator-name = "pm8350_l7";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <1704000>;
+			regulator-max-microvolt = <3600000>;
+			qcom,init-voltage = <2504000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
+		};
+	};
+
 	rpmh-regulator-lcxlvl {
 		compatible = "qcom,rpmh-arc-regulator";
 		qcom,resource-name = "lcx.lvl";
@@ -834,14 +852,6 @@
 
 /* Stub regulators: */
 / {
-	L7B: pm8350_l7: regulator-pm8350-l7 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8350_l7";
-		regulator-min-microvolt = <1704000>;
-		regulator-max-microvolt = <3600000>;
-		qcom,hpm-min-load = <10000>;
-	};
-
 	L1I: pm8008i_l1: regulator-pm8008i-l1 {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm8008i_l1";
