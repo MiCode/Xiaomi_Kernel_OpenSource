@@ -1052,6 +1052,11 @@ static int smblib_notifier_call(struct notifier_block *nb,
 		schedule_work(&chg->pl_update_work);
 	}
 
+	if (!strcmp(psy->desc->name, "charge_pump_master")) {
+		pm_stay_awake(chg->dev);
+		schedule_work(&chg->cp_status_change_work);
+	}
+
 	return NOTIFY_OK;
 }
 
@@ -7237,6 +7242,38 @@ static void smblib_lpd_detach_work(struct work_struct *work)
 		chg->lpd_stage = LPD_STAGE_NONE;
 }
 
+static void smblib_cp_status_change_work(struct work_struct *work)
+{
+	int rc;
+	union power_supply_propval pval;
+	struct smb_charger *chg = container_of(work, struct smb_charger,
+			cp_status_change_work);
+
+	if (!chg->cp_psy)
+		chg->cp_psy = power_supply_get_by_name("charge_pump_master");
+
+	if (!chg->cp_psy)
+		goto relax;
+
+	if (chg->cp_topo == -EINVAL) {
+		rc = power_supply_get_property(chg->cp_psy,
+				POWER_SUPPLY_PROP_PARALLEL_OUTPUT_MODE, &pval);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't read cp topo rc=%d\n", rc);
+			goto relax;
+		}
+
+		chg->cp_topo = pval.intval;
+
+		if (chg->cp_topo == POWER_SUPPLY_PL_OUTPUT_VBAT &&
+				chg->cp_reason == POWER_SUPPLY_CP_WIRELESS)
+			vote(chg->fcc_main_votable, WLS_PL_CHARGING_VOTER, true,
+					800000);
+	}
+relax:
+	pm_relax(chg->dev);
+}
+
 static int smblib_create_votables(struct smb_charger *chg)
 {
 	int rc = 0;
@@ -7413,6 +7450,7 @@ int smblib_init(struct smb_charger *chg)
 	INIT_WORK(&chg->pl_update_work, pl_update_work);
 	INIT_WORK(&chg->jeita_update_work, jeita_update_work);
 	INIT_WORK(&chg->dcin_aicl_work, dcin_aicl_work);
+	INIT_WORK(&chg->cp_status_change_work, smblib_cp_status_change_work);
 	INIT_DELAYED_WORK(&chg->clear_hdc_work, clear_hdc_work);
 	INIT_DELAYED_WORK(&chg->icl_change_work, smblib_icl_change_work);
 	INIT_DELAYED_WORK(&chg->pl_enable_work, smblib_pl_enable_work);
@@ -7471,6 +7509,7 @@ int smblib_init(struct smb_charger *chg)
 	chg->cp_reason = POWER_SUPPLY_CP_NONE;
 	chg->thermal_status = TEMP_BELOW_RANGE;
 	chg->typec_irq_en = true;
+	chg->cp_topo = -EINVAL;
 
 	switch (chg->mode) {
 	case PARALLEL_MASTER:
@@ -7567,6 +7606,7 @@ int smblib_deinit(struct smb_charger *chg)
 		cancel_work_sync(&chg->jeita_update_work);
 		cancel_work_sync(&chg->pl_update_work);
 		cancel_work_sync(&chg->dcin_aicl_work);
+		cancel_work_sync(&chg->cp_status_change_work);
 		cancel_delayed_work_sync(&chg->clear_hdc_work);
 		cancel_delayed_work_sync(&chg->icl_change_work);
 		cancel_delayed_work_sync(&chg->pl_enable_work);

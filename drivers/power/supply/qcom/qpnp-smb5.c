@@ -1500,6 +1500,7 @@ static int smb5_dc_prop_is_writeable(struct power_supply *psy,
 {
 	switch (psp) {
 	case POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION:
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		return 1;
 	default:
 		break;

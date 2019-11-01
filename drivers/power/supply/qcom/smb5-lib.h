@@ -440,6 +440,7 @@ struct smb_charger {
 	struct work_struct	moisture_protection_work;
 	struct work_struct	chg_termination_work;
 	struct work_struct	dcin_aicl_work;
+	struct work_struct	cp_status_change_work;
 	struct delayed_work	ps_change_timeout_work;
 	struct delayed_work	clear_hdc_work;
 	struct delayed_work	icl_change_work;
@@ -463,6 +464,7 @@ struct smb_charger {
 	bool			sec_cp_present;
 	int			sec_chg_selected;
 	int			cp_reason;
+	int			cp_topo;
 
 	/* pd */
 	int			voltage_min_uv;
