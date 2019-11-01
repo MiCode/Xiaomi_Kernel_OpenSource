@@ -19,6 +19,7 @@ Optional properties:
 - qcom,vote-for-bw: Boolean flag to check if ab/ib vote should be given
 		    as bandwidth or BCM threashold.
 - qcom,subsys-name: SSC QUPv3 subsystem name for SSR notification registration.
+- qcom,iommu-atomic-ctx: Boolean flag to enable iommu in atomic context.
 
 Optional subnodes:
 qcom,iommu_qupv3_geni_se_cb:	Child node representing the QUPV3 context
