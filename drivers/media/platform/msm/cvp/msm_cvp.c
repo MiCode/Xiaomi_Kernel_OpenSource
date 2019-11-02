@@ -1440,7 +1440,8 @@ static bool is_subblock_profile_existed(struct msm_cvp_inst *inst)
 {
 	return (inst->prop.od_cycles ||
 			inst->prop.mpu_cycles ||
-			inst->prop.fdu_cycles);
+			inst->prop.fdu_cycles ||
+			inst->prop.ica_cycles);
 }
 
 static void aggregate_power_update(struct msm_cvp_core *core,
