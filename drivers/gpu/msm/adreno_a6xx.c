@@ -324,6 +324,25 @@ static void a6xx_llc_configure_gpu_scid(struct adreno_device *adreno_dev);
 static void a6xx_llc_configure_gpuhtw_scid(struct adreno_device *adreno_dev);
 static void a6xx_llc_enable_overrides(struct adreno_device *adreno_dev);
 
+static void a6xx_set_secvid(struct kgsl_device *device)
+{
+	static bool set;
+
+	if (set || !device->mmu.secured)
+		return;
+
+	kgsl_regwrite(device, A6XX_RBBM_SECVID_TSB_CNTL, 0x0);
+	kgsl_regwrite(device, A6XX_RBBM_SECVID_TSB_TRUSTED_BASE_LO,
+		lower_32_bits(KGSL_IOMMU_SECURE_BASE(&device->mmu)));
+	kgsl_regwrite(device, A6XX_RBBM_SECVID_TSB_TRUSTED_BASE_HI,
+		upper_32_bits(KGSL_IOMMU_SECURE_BASE(&device->mmu)));
+	kgsl_regwrite(device, A6XX_RBBM_SECVID_TSB_TRUSTED_SIZE,
+		KGSL_IOMMU_SECURE_SIZE);
+
+	if (ADRENO_QUIRK(ADRENO_DEVICE(device), ADRENO_QUIRK_SECVID_SET_ONCE))
+		set = true;
+}
+
 /*
  * Some targets support marking certain transactions as always privileged which
  * allows us to mark more memory as privileged without having to explicitly set
@@ -576,6 +595,8 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_APRIV))
 		kgsl_regwrite(device, A6XX_CP_APRIV_CNTL, A6XX_APRIV_DEFAULT);
+
+	a6xx_set_secvid(device);
 }
 
 /*
@@ -2387,14 +2408,6 @@ static unsigned int a6xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 				A6XX_GMU_CM3_CFG),
 	ADRENO_REG_DEFINE(ADRENO_REG_GMU_RBBM_INT_UNMASKED_STATUS,
 				A6XX_GMU_RBBM_INT_UNMASKED_STATUS),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE,
-				A6XX_RBBM_SECVID_TSB_TRUSTED_BASE_LO),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE_HI,
-				A6XX_RBBM_SECVID_TSB_TRUSTED_BASE_HI),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_SIZE,
-				A6XX_RBBM_SECVID_TSB_TRUSTED_SIZE),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_SECVID_TSB_CONTROL,
-				A6XX_RBBM_SECVID_TSB_CNTL),
 };
 
 static int cpu_gpu_lock(struct cpu_gpu_lock *lock)

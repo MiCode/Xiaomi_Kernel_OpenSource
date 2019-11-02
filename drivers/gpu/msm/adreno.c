@@ -1898,28 +1898,6 @@ static bool regulators_left_on(struct kgsl_device *device)
 	return false;
 }
 
-static void _set_secvid(struct kgsl_device *device)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	static bool set;
-
-	/* Program GPU contect protection init values */
-	if (device->mmu.secured && !set) {
-		adreno_writereg(adreno_dev,
-				ADRENO_REG_RBBM_SECVID_TSB_CONTROL, 0x0);
-
-		adreno_writereg64(adreno_dev,
-			ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE,
-			ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE_HI,
-			KGSL_IOMMU_SECURE_BASE(&device->mmu));
-		adreno_writereg(adreno_dev,
-			ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_SIZE,
-			KGSL_IOMMU_SECURE_SIZE);
-		if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_SECVID_SET_ONCE))
-			set = true;
-	}
-}
-
 int adreno_switch_to_unsecure_mode(struct adreno_device *adreno_dev,
 				struct adreno_ringbuffer *rb)
 {
@@ -2076,8 +2054,6 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	status = gmu_core_dev_hfi_start_msg(device);
 	if (status)
 		goto error_oob_clear;
-
-	_set_secvid(device);
 
 	if (device->pwrctrl.bus_control) {
 		/* VBIF waiting for RAM */
@@ -2920,8 +2896,6 @@ int adreno_soft_reset(struct kgsl_device *device)
 	/* Set the page table back to the default page table */
 	adreno_ringbuffer_set_global(adreno_dev, 0);
 	kgsl_mmu_set_pt(&device->mmu, device->mmu.defaultpagetable);
-
-	_set_secvid(device);
 
 	/* Reinitialize the GPU */
 	gpudev->start(adreno_dev);
