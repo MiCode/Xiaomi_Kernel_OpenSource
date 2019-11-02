@@ -189,21 +189,68 @@ void ethqos_free_gpios(struct qcom_ethqos *ethqos)
 	ethqos->gpio_phy_intr_redirect = -1;
 }
 
-int ethqos_init_gpio(struct qcom_ethqos *ethqos)
+int ethqos_init_pinctrl(struct device *dev)
 {
 	struct pinctrl *pinctrl;
-	struct pinctrl_state *emac_pps_0;
+	struct pinctrl_state *pinctrl_state;
+	int i = 0;
+	int num_names;
+	const char *name;
 	int ret = 0;
 
-	ethqos->gpio_phy_intr_redirect = -1;
-
-	pinctrl = devm_pinctrl_get(&ethqos->pdev->dev);
+	pinctrl = devm_pinctrl_get(dev);
 	if (IS_ERR_OR_NULL(pinctrl)) {
 		ret = PTR_ERR(pinctrl);
 		ETHQOSERR("Failed to get pinctrl, err = %d\n", ret);
 		return ret;
 	}
-	ETHQOSDBG("get pinctrl succeed\n");
+
+	num_names = of_property_count_strings(dev->of_node, "pinctrl-names");
+	if (num_names < 0) {
+		dev_err(dev, "Cannot parse pinctrl-names: %d\n",
+			num_names);
+		return num_names;
+	}
+
+	for (i = 0; i < num_names; i++) {
+		ret = of_property_read_string_index(
+			dev->of_node, "pinctrl-names", i, &name);
+
+		if (!strcmp(name, PINCTRL_STATE_DEFAULT))
+			continue;
+
+		pinctrl_state = pinctrl_lookup_state(pinctrl, name);
+		if (IS_ERR_OR_NULL(pinctrl_state)) {
+			ret = PTR_ERR(pinctrl_state);
+			ETHQOSERR("lookup_state %s failed %d\n", name, ret);
+			return ret;
+		}
+
+		ETHQOSINFO("pinctrl_lookup_state %s succeded\n", name);
+
+		ret = pinctrl_select_state(pinctrl, pinctrl_state);
+		if (ret) {
+			ETHQOSERR("select_state %s failed %d\n", name, ret);
+			return ret;
+		}
+
+		ETHQOSINFO("pinctrl_select_state %s succeded\n", name);
+	}
+
+	return ret;
+}
+
+int ethqos_init_gpio(struct qcom_ethqos *ethqos)
+{
+	int ret = 0;
+
+	ethqos->gpio_phy_intr_redirect = -1;
+
+	ret = ethqos_init_pinctrl(&ethqos->pdev->dev);
+	if (ret) {
+		ETHQOSERR("ethqos_init_pinctrl failed");
+		return ret;
+	}
 
 	ret = setup_gpio_input_common(
 			&ethqos->pdev->dev, "qcom,phy-intr-redirect",
@@ -214,20 +261,6 @@ int ethqos_init_gpio(struct qcom_ethqos *ethqos)
 			  "qcom,phy-intr-redirect");
 		goto gpio_error;
 	}
-
-	emac_pps_0 = pinctrl_lookup_state(pinctrl, EMAC_PIN_PPS0);
-	if (IS_ERR_OR_NULL(emac_pps_0)) {
-		ret = PTR_ERR(emac_pps_0);
-		ETHQOSERR("Failed to get emac_pps_0, err = %d\n", ret);
-		return ret;
-	}
-	ETHQOSDBG("Get emac_pps_0 succeed\n");
-	ret = pinctrl_select_state(pinctrl, emac_pps_0);
-	if (ret)
-		ETHQOSERR("Unable to set emac_pps_0 state, err = %d\n",
-			  ret);
-	else
-		ETHQOSDBG("Set emac_pps_0 succeed\n");
 
 	return ret;
 
