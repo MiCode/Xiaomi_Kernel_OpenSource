@@ -1166,6 +1166,7 @@ static void status_change_work(struct work_struct *work)
 	union power_supply_propval pval;
 	bool usb_present = false, hw_ok_to_qnovo = false;
 	int rc, battery_health, charge_status;
+	struct votable *cp_disable_votable = find_votable("CP_DISABLE");
 
 	if (is_usb_available(chip)) {
 		rc = power_supply_get_property(chip->usb_psy,
@@ -1179,6 +1180,9 @@ static void status_change_work(struct work_struct *work)
 		cancel_delayed_work_sync(&chip->usb_debounce_work);
 		vote(chip->awake_votable, USB_READY_VOTER, false, 0);
 		vote(chip->chg_ready_votable, USB_READY_VOTER, false, 0);
+		if (cp_disable_votable)
+			vote(cp_disable_votable, QNOVO_VOTER, false, 0);
+
 		if (chip->pinctrl) {
 			rc = pinctrl_select_state(chip->pinctrl,
 					chip->pinctrl_state1);
