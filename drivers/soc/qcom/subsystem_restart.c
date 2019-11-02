@@ -1355,7 +1355,6 @@ static void subsys_device_release(struct device *dev)
 {
 	struct subsys_device *subsys = to_subsys(dev);
 
-	wakeup_source_unregister(subsys->ssr_wlock);
 	mutex_destroy(&subsys->track.lock);
 	ida_simple_remove(&subsys_ida, subsys->id);
 	kfree(subsys);
@@ -1769,13 +1768,6 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 
 	snprintf(subsys->wlname, sizeof(subsys->wlname), "ssr(%s)", desc->name);
 
-	subsys->ssr_wlock =
-		wakeup_source_register(&subsys->dev, subsys->wlname);
-	if (!subsys->ssr_wlock) {
-		kfree(subsys);
-		return ERR_PTR(-ENOMEM);
-	}
-
 	INIT_WORK(&subsys->work, subsystem_restart_wq_func);
 	INIT_WORK(&subsys->device_restart_work, device_restart_work_hdlr);
 	spin_lock_init(&subsys->track.s_lock);
@@ -1783,7 +1775,6 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 
 	subsys->id = ida_simple_get(&subsys_ida, 0, 0, GFP_KERNEL);
 	if (subsys->id < 0) {
-		wakeup_source_unregister(subsys->ssr_wlock);
 		ret = subsys->id;
 		kfree(subsys);
 		return ERR_PTR(ret);
@@ -1800,6 +1791,13 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 		return ERR_PTR(ret);
 	}
 
+	subsys->ssr_wlock =
+		wakeup_source_register(&subsys->dev, subsys->wlname);
+	if (!subsys->ssr_wlock) {
+		ret = -ENOMEM;
+		goto err_wakeup_src_register;
+	}
+
 	ret = subsys_char_device_add(subsys);
 	if (ret)
 		goto err_register;
@@ -1807,7 +1805,7 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 	if (ofnode) {
 		ret = subsys_parse_devicetree(desc);
 		if (ret)
-			goto err_register;
+			goto err_parse_device_tree;
 
 		subsys->restart_order = update_restart_order(subsys);
 
@@ -1857,8 +1855,11 @@ err_sysmon_glink_register:
 err_sysmon_notifier:
 	if (ofnode)
 		subsys_remove_restart_order(ofnode);
-err_register:
+err_parse_device_tree:
 	subsys_char_device_remove(subsys);
+err_register:
+	wakeup_source_unregister(subsys->ssr_wlock);
+err_wakeup_src_register:
 	device_unregister(&subsys->dev);
 	return ERR_PTR(ret);
 }
@@ -1891,6 +1892,7 @@ void subsys_unregister(struct subsys_device *subsys)
 		sysmon_notifier_unregister(subsys->desc);
 		if (subsys->desc->edge)
 			sysmon_glink_unregister(subsys->desc);
+		wakeup_source_unregister(subsys->ssr_wlock);
 		put_device(&subsys->dev);
 	}
 }
