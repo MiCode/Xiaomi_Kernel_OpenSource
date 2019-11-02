@@ -967,6 +967,11 @@ static int cnss_pci_set_mhi_state(struct cnss_pci_data *pci_priv,
 		break;
 	case CNSS_MHI_POWER_ON:
 		ret = mhi_sync_power_up(pci_priv->mhi_ctrl);
+		/* -ETIMEDOUT means MHI power up has succeeded but timed out
+		 * for firmware mission mode event, so handle it properly.
+		 */
+		if (ret == -ETIMEDOUT)
+			ret = 0;
 		break;
 	case CNSS_MHI_POWER_OFF:
 		mhi_power_down(pci_priv->mhi_ctrl, true);
