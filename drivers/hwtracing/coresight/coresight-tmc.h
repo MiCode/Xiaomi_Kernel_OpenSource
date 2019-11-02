@@ -209,6 +209,7 @@ struct tmc_drvdata {
 	struct etr_buf		*perf_buf;
 	struct coresight_csr	*csr;
 	const char		*csr_name;
+	bool			enable;
 };
 
 struct etr_buf_operations {
