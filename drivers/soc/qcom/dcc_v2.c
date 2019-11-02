@@ -711,21 +711,6 @@ static void dcc_disable(struct dcc_drvdata *drvdata)
 	mutex_unlock(&drvdata->mutex);
 }
 
-static bool is_dcc_enabled(struct dcc_drvdata *drvdata)
-{
-	bool dcc_enable = false;
-	int list;
-
-	for (list = 0; list < drvdata->nr_link_list; list++) {
-		if (drvdata->enable[list]) {
-			dcc_enable = true;
-			break;
-		}
-	}
-
-	return dcc_enable;
-}
-
 static ssize_t curr_list_show(struct device *dev,
 			       struct device_attribute *attr, char *buf)
 {
