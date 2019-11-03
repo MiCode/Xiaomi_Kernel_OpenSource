@@ -149,7 +149,7 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 		struct kgsl_drawobj_cmd *cmdobj,
 		struct adreno_submit_time *time);
 
-int adreno_ringbuffer_probe(struct adreno_device *adreno_dev);
+int adreno_ringbuffer_init(struct adreno_device *adreno_dev);
 
 int adreno_ringbuffer_start(struct adreno_device *adreno_dev);
 

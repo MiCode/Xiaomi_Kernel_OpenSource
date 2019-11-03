@@ -1368,6 +1368,8 @@ static const struct kgsl_functable adreno_functable;
 
 static void adreno_setup_device(struct adreno_device *adreno_dev)
 {
+	u32 i;
+
 	memset(adreno_dev, 0, sizeof(*adreno_dev));
 
 	adreno_dev->dev.name = "kgsl-3d0";
@@ -1403,6 +1405,12 @@ static void adreno_setup_device(struct adreno_device *adreno_dev)
 	/* Enable use of the LLC slices where applicable */
 	adreno_dev->gpu_llc_slice_enable = true;
 	adreno_dev->gpuhtw_llc_slice_enable = true;
+
+	for (i = 0; i < ARRAY_SIZE(adreno_dev->ringbuffers); i++) {
+		struct adreno_ringbuffer *rb = &adreno_dev->ringbuffers[i];
+
+		INIT_LIST_HEAD(&rb->events.group);
+	}
 }
 
 static int adreno_probe(struct platform_device *pdev)
@@ -1525,10 +1533,6 @@ static int adreno_probe(struct platform_device *pdev)
 
 	kgsl_device_snapshot_probe(device, size);
 
-	status = adreno_ringbuffer_probe(adreno_dev);
-	if (status)
-		goto out;
-
 	status = adreno_dispatcher_init(adreno_dev);
 	if (status)
 		goto out;
@@ -1575,7 +1579,6 @@ static int adreno_probe(struct platform_device *pdev)
 #endif
 out:
 	if (status) {
-		adreno_ringbuffer_close(adreno_dev);
 		kgsl_device_platform_remove(device);
 		device->pdev = NULL;
 	}
@@ -1812,6 +1815,10 @@ static int adreno_init(struct kgsl_device *device)
 	 */
 	if (test_bit(ADRENO_DEVICE_INITIALIZED, &adreno_dev->priv))
 		return 0;
+
+	ret = adreno_ringbuffer_init(adreno_dev);
+	if (ret)
+		return ret;
 
 	/*
 	 * Either the microcode read failed because the usermodehelper isn't
