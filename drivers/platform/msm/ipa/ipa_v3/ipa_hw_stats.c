@@ -252,7 +252,7 @@ int ipa_hw_stats_init(void)
 	return ret;
 }
 
-static void ipa_close_coal_frame(struct ipahal_imm_cmd_pyld *coal_cmd_pyld)
+static void ipa_close_coal_frame(struct ipahal_imm_cmd_pyld **coal_cmd_pyld)
 {
 	int i;
 	struct ipahal_reg_valmask valmask;
@@ -266,7 +266,7 @@ static void ipa_close_coal_frame(struct ipahal_imm_cmd_pyld *coal_cmd_pyld)
 	ipahal_get_aggr_force_close_valmask(i, &valmask);
 	reg_write_coal_close.value = valmask.val;
 	reg_write_coal_close.value_mask = valmask.mask;
-	coal_cmd_pyld = ipahal_construct_imm_cmd(
+	*coal_cmd_pyld = ipahal_construct_imm_cmd(
 		IPA_IMM_CMD_REGISTER_WRITE,
 		&reg_write_coal_close, false);
 }
@@ -321,7 +321,7 @@ int ipa_init_quota_stats(u32 pipe_bitmask)
 	/* IC to close the coal frame before HPS Clear if coal is enabled */
 	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) !=
 		IPA_EP_NOT_ALLOCATED) {
-		ipa_close_coal_frame(coal_cmd_pyld);
+		ipa_close_coal_frame(&coal_cmd_pyld);
 		if (!coal_cmd_pyld) {
 			IPAERR("failed to construct coal close IC\n");
 			ret = -ENOMEM;
@@ -459,7 +459,7 @@ int ipa_get_quota_stats(struct ipa_quota_stats_all *out)
 	/* IC to close the coal frame before HPS Clear if coal is enabled */
 	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) !=
 		IPA_EP_NOT_ALLOCATED) {
-		ipa_close_coal_frame(cmd_pyld[num_cmd]);
+		ipa_close_coal_frame(&cmd_pyld[num_cmd]);
 		if (!cmd_pyld[num_cmd]) {
 			IPAERR("failed to construct coal close IC\n");
 			ret = -ENOMEM;
@@ -666,7 +666,7 @@ int ipa_init_teth_stats(struct ipa_teth_stats_endpoints *in)
 	/* IC to close the coal frame before HPS Clear if coal is enabled */
 	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) !=
 		IPA_EP_NOT_ALLOCATED) {
-		ipa_close_coal_frame(coal_cmd_pyld);
+		ipa_close_coal_frame(&coal_cmd_pyld);
 		if (!coal_cmd_pyld) {
 			IPAERR("failed to construct coal close IC\n");
 			ret = -ENOMEM;
@@ -811,7 +811,7 @@ int ipa_get_teth_stats(void)
 	/* IC to close the coal frame before HPS Clear if coal is enabled */
 	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) !=
 		IPA_EP_NOT_ALLOCATED) {
-		ipa_close_coal_frame(cmd_pyld[num_cmd]);
+		ipa_close_coal_frame(&cmd_pyld[num_cmd]);
 		if (!cmd_pyld[num_cmd]) {
 			IPAERR("failed to construct coal close IC\n");
 			ret = -ENOMEM;
@@ -1095,7 +1095,7 @@ int ipa_init_flt_rt_stats(void)
 	/* IC to close the coal frame before HPS Clear if coal is enabled */
 	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) !=
 		IPA_EP_NOT_ALLOCATED) {
-		ipa_close_coal_frame(coal_cmd_pyld);
+		ipa_close_coal_frame(&coal_cmd_pyld);
 		if (!coal_cmd_pyld) {
 			IPAERR("failed to construct coal close IC\n");
 			ret = -ENOMEM;
@@ -1294,7 +1294,7 @@ static int __ipa_get_flt_rt_stats(struct ipa_ioc_flt_rt_query *query)
 	/* IC to close the coal frame before HPS Clear if coal is enabled */
 	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) !=
 		IPA_EP_NOT_ALLOCATED) {
-		ipa_close_coal_frame(cmd_pyld[num_cmd]);
+		ipa_close_coal_frame(&cmd_pyld[num_cmd]);
 		if (!cmd_pyld[num_cmd]) {
 			IPAERR("failed to construct coal close IC\n");
 			ret = -ENOMEM;
@@ -1552,7 +1552,7 @@ int ipa_init_drop_stats(u32 pipe_bitmask)
 	/* IC to close the coal frame before HPS Clear if coal is enabled */
 	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) !=
 		IPA_EP_NOT_ALLOCATED) {
-		ipa_close_coal_frame(coal_cmd_pyld);
+		ipa_close_coal_frame(&coal_cmd_pyld);
 		if (!coal_cmd_pyld) {
 			IPAERR("failed to construct coal close IC\n");
 			ret = -ENOMEM;
@@ -1691,7 +1691,7 @@ int ipa_get_drop_stats(struct ipa_drop_stats_all *out)
 	/* IC to close the coal frame before HPS Clear if coal is enabled */
 	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) !=
 		IPA_EP_NOT_ALLOCATED) {
-		ipa_close_coal_frame(cmd_pyld[num_cmd]);
+		ipa_close_coal_frame(&cmd_pyld[num_cmd]);
 		if (!cmd_pyld[num_cmd]) {
 			IPAERR("failed to construct coal close IC\n");
 			ret = -ENOMEM;
