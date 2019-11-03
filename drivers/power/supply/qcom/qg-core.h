@@ -58,6 +58,7 @@ struct qg_dt {
 	int			min_sleep_time_secs;
 	int			sys_min_volt_mv;
 	int			fvss_vbat_mv;
+	int			tcss_entry_soc;
 	bool			hold_soc_while_full;
 	bool			linearize_soc;
 	bool			cl_disable;
@@ -70,6 +71,7 @@ struct qg_dt {
 	bool			qg_fast_chg_cfg;
 	bool			fvss_enable;
 	bool			multi_profile_load;
+	bool			tcss_enable;
 };
 
 struct qg_esr_data {
@@ -135,6 +137,7 @@ struct qpnp_qg {
 	bool			charge_full;
 	bool			force_soc;
 	bool			fvss_active;
+	bool			tcss_active;
 	int			charge_status;
 	int			charge_type;
 	int			chg_iterm_ma;
@@ -145,6 +148,11 @@ struct qpnp_qg {
 	int			soc_reporting_ready;
 	int			last_fifo_v_uv;
 	int			last_fifo_i_ua;
+	int			prev_fifo_i_ua;
+	int			soc_tcss_entry;
+	int			ibat_tcss_entry;
+	int			soc_tcss;
+	int			tcss_entry_count;
 	u32			fifo_done_count;
 	u32			wa_flags;
 	u32			seq_no;
