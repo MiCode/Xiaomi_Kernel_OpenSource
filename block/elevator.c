@@ -856,6 +856,8 @@ int elv_register_queue(struct request_queue *q)
 		e->registered = 1;
 		if (!e->uses_mq && e->type->ops.sq.elevator_registered_fn)
 			e->type->ops.sq.elevator_registered_fn(q);
+		else if (e->uses_mq && e->type->ops.mq.elevator_registered_fn)
+			e->type->ops.mq.elevator_registered_fn(q);
 	}
 	return error;
 }
