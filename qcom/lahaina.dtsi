@@ -50,6 +50,7 @@
 			enable-method = "psci";
 			cache-size = <0x8000>;
 			cpu-release-addr = <0x0 0x90000000>;
+			qcom,freq-domain = <&cpufreq_hw 0 4>;
 			capacity-dmips-mhz = <1024>;
 			dynamic-power-coefficient = <100>;
 			cpu-idle-states = <&SLVR_RAIL_OFF>;
@@ -75,6 +76,7 @@
 			enable-method = "psci";
 			cache-size = <0x8000>;
 			cpu-release-addr = <0x0 0x90000000>;
+			qcom,freq-domain = <&cpufreq_hw 0 4>;
 			capacity-dmips-mhz = <1024>;
 			dynamic-power-coefficient = <100>;
 			cpu-idle-states = <&SLVR_RAIL_OFF>;
@@ -94,6 +96,7 @@
 			enable-method = "psci";
 			cache-size = <0x8000>;
 			cpu-release-addr = <0x0 0x90000000>;
+			qcom,freq-domain = <&cpufreq_hw 0 4>;
 			capacity-dmips-mhz = <1024>;
 			dynamic-power-coefficient = <100>;
 			cpu-idle-states = <&SLVR_RAIL_OFF>;
@@ -113,6 +116,7 @@
 			enable-method = "psci";
 			cache-size = <0x8000>;
 			cpu-release-addr = <0x0 0x90000000>;
+			qcom,freq-domain = <&cpufreq_hw 0 4>;
 			capacity-dmips-mhz = <1024>;
 			dynamic-power-coefficient = <100>;
 			cpu-idle-states = <&SLVR_RAIL_OFF>;
@@ -132,6 +136,7 @@
 			enable-method = "psci";
 			cache-size = <0x20000>;
 			cpu-release-addr = <0x0 0x90000000>;
+			qcom,freq-domain = <&cpufreq_hw 1 4>;
 			capacity-dmips-mhz = <1946>;
 			dynamic-power-coefficient = <454>;
 			cpu-idle-states = <&GOLD_RAIL_OFF>;
@@ -151,6 +156,7 @@
 			enable-method = "psci";
 			cache-size = <0x20000>;
 			cpu-release-addr = <0x0 0x90000000>;
+			qcom,freq-domain = <&cpufreq_hw 1 4>;
 			capacity-dmips-mhz = <1946>;
 			dynamic-power-coefficient = <454>;
 			cpu-idle-states = <&GOLD_RAIL_OFF>;
@@ -170,6 +176,7 @@
 			enable-method = "psci";
 			cache-size = <0x20000>;
 			cpu-release-addr = <0x0 0x90000000>;
+			qcom,freq-domain = <&cpufreq_hw 1 4>;
 			capacity-dmips-mhz = <1946>;
 			dynamic-power-coefficient = <454>;
 			cpu-idle-states = <&GOLD_RAIL_OFF>;
@@ -189,6 +196,7 @@
 			enable-method = "psci";
 			cache-size = <0x20000>;
 			cpu-release-addr = <0x0 0x90000000>;
+			qcom,freq-domain = <&cpufreq_hw 2 4>;
 			capacity-dmips-mhz = <2048>;
 			dynamic-power-coefficient = <704>;
 			cpu-idle-states = <&GOLD_RAIL_OFF>;
@@ -614,6 +622,22 @@
 		vdd_mx-supply = <&VDD_MXA_LEVEL>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
+	};
+
+	cpufreq_hw: qcom,cpufreq-hw {
+		compatible = "qcom,cpufreq-hw-epss";
+		reg = <0x18591000 0x1000>, <0x18592000 0x1000>,
+			<0x18593000 0x1000>;
+		reg-names = "freq-domain0", "freq-domain1",
+				"freq-domain2";
+
+		clocks = <&clock_rpmh RPMH_CXO_CLK>, <&clock_gcc GCC_GPLL0>;
+		clock-names = "xo", "alternate";
+
+		qcom,lut-row-size = <4>;
+		qcom,skip-enable-check;
+
+		#freq-domain-cells = <2>;
 	};
 
 	/* CAM_CC GDSCs */
