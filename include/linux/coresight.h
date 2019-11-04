@@ -282,6 +282,7 @@ extern int coresight_claim_device_unlocked(void __iomem *base);
 extern void coresight_disclaim_device(void __iomem *base);
 extern void coresight_disclaim_device_unlocked(void __iomem *base);
 
+extern bool coresight_loses_context_with_cpu(struct device *dev);
 #else
 static inline struct coresight_device *
 coresight_register(struct coresight_desc *desc) { return NULL; }
@@ -304,6 +305,10 @@ static inline int coresight_claim_device(void __iomem *base)
 static inline void coresight_disclaim_device(void __iomem *base) {}
 static inline void coresight_disclaim_device_unlocked(void __iomem *base) {}
 
+static inline bool coresight_loses_context_with_cpu(struct device *dev)
+{
+	return false;
+}
 #endif
 
 #ifdef CONFIG_OF
