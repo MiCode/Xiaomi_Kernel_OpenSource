@@ -43,9 +43,10 @@
  *                  to notify of various device events.
  *           5    - Removed ipa_eth_{gsi,uc}_iommu_*{} APIs that were used for
  *                  mapping memory to GSI and IPA uC IOMMU CBs.
+ *           6    - Added ipa_eth_ep_deinit()
  */
 
-#define IPA_ETH_API_VER 5
+#define IPA_ETH_API_VER 6
 
 /**
  * enum ipa_eth_dev_features - Features supported by an ethernet device or
@@ -447,6 +448,8 @@ struct ipa_eth_channel {
  * @flags: Device flags
  * @if_state: Interface state - one or more bit numbers IPA_ETH_IF_ST_*
  * @pm_handle: IPA PM client handle for the device
+ * @phdr_v4_handle: Partial header handle for IPv4
+ * @phdr_v6_handle: Partial header handle for IPv6
  * @bus_priv: Private field for use by offload subsystem bus layer
  * @ipa_priv: Private field for use by offload subsystem
  * @debugfs: Debugfs root for the device
@@ -487,6 +490,8 @@ struct ipa_eth_device {
 	unsigned long if_state;
 
 	u32 pm_handle;
+	u32 phdr_v4_handle;
+	u32 phdr_v6_handle;
 
 	void *bus_priv;
 	void *ipa_priv;
@@ -1014,6 +1019,7 @@ struct ipa_eth_resource *ipa_eth_net_ch_to_cb_mem(
 	enum ipa_eth_hw_type hw_type);
 
 int ipa_eth_ep_init(struct ipa_eth_channel *ch);
+int ipa_eth_ep_deinit(struct ipa_eth_channel *ch);
 int ipa_eth_ep_start(struct ipa_eth_channel *ch);
 int ipa_eth_ep_stop(struct ipa_eth_channel *ch);
 
