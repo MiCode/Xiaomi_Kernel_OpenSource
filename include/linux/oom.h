@@ -38,6 +38,12 @@ struct oom_control {
 	 */
 	const int order;
 
+	/*
+	 * Only kill positive adj tasks. Used to behave more like Android's
+	 * lowmemorykiller.
+	 */
+	const bool only_positive_adj;
+
 	/* Used by oom implementation, do not set */
 	unsigned long totalpages;
 	struct task_struct *chosen;
@@ -99,7 +105,7 @@ bool __oom_reap_task_mm(struct mm_struct *mm);
 
 extern unsigned long oom_badness(struct task_struct *p,
 		struct mem_cgroup *memcg, const nodemask_t *nodemask,
-		unsigned long totalpages);
+		unsigned long totalpages, bool only_positive_adj);
 
 extern bool out_of_memory(struct oom_control *oc);
 
@@ -135,5 +141,6 @@ extern int sysctl_reap_mem_on_sigkill;
 
 /* calls for LMK reaper */
 extern void add_to_oom_reaper(struct task_struct *p);
+extern void check_panic_on_foreground_kill(struct task_struct *p);
 #define ULMK_MAGIC "lmkd"
 #endif /* _INCLUDE_LINUX_OOM_H */
