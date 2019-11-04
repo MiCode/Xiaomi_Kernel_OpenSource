@@ -300,6 +300,9 @@ void cam_tasklet_stop(void  *tasklet_info)
 {
 	struct cam_tasklet_info  *tasklet = tasklet_info;
 
+	if (!atomic_read(&tasklet->tasklet_active))
+		return;
+
 	atomic_set(&tasklet->tasklet_active, 0);
 	tasklet_kill(&tasklet->tasklet);
 	tasklet_disable(&tasklet->tasklet);
