@@ -454,6 +454,7 @@ struct smb_charger {
 	struct delayed_work	usbov_dbc_work;
 	struct delayed_work	role_reversal_check;
 	struct delayed_work	pr_swap_detach_work;
+	struct delayed_work	pr_lock_clear_work;
 
 	struct alarm		lpd_recheck_timer;
 	struct alarm		moisture_protection_alarm;
@@ -470,10 +471,12 @@ struct smb_charger {
 	int			voltage_max_uv;
 	int			pd_active;
 	bool			pd_hard_reset;
+	bool			pr_lock_in_progress;
 	bool			pr_swap_in_progress;
 	bool			early_usb_attach;
 	bool			ok_to_pd;
 	bool			typec_legacy;
+	bool			typec_irq_en;
 
 	/* cached status */
 	bool			system_suspend_supported;
@@ -508,6 +511,7 @@ struct smb_charger {
 	int			hw_max_icl_ua;
 	int			auto_recharge_soc;
 	enum sink_src_mode	sink_src_mode;
+	enum power_supply_typec_power_role power_role;
 	enum jeita_cfg_stat	jeita_configured;
 	int			charger_temp_max;
 	int			smb_temp_max;
