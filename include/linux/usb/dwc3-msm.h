@@ -6,18 +6,16 @@
 #ifndef __LINUX_USB_DWC3_MSM_H
 #define __LINUX_USB_DWC3_MSM_H
 
+#include <linux/scatterlist.h>
+#include <linux/usb/gadget.h>
+
 /* used for struct usb_phy flags */
-#define ENABLE_DP_MANUAL_PULLUP		BIT(0)
-#define ENABLE_SECONDARY_PHY		BIT(1)
-#define PHY_HOST_MODE			BIT(2)
-#define PHY_CHARGER_CONNECTED		BIT(3)
-#define PHY_VBUS_VALID_OVERRIDE		BIT(4)
-#define DEVICE_IN_SS_MODE		BIT(5)
-#define PHY_LANE_A			BIT(6)
-#define PHY_LANE_B			BIT(7)
-#define PHY_HSFS_MODE			BIT(8)
-#define PHY_LS_MODE			BIT(9)
-#define PHY_USB_DP_CONCURRENT_MODE	BIT(10)
+#define PHY_HOST_MODE			BIT(0)
+#define DEVICE_IN_SS_MODE		BIT(1)
+#define PHY_LANE_A			BIT(2)
+#define PHY_LANE_B			BIT(3)
+#define PHY_HSFS_MODE			BIT(4)
+#define PHY_LS_MODE			BIT(5)
 
 /*
  * The following are bit fields describing the USB BAM options.

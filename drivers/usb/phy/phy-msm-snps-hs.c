@@ -18,6 +18,7 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 #include <linux/usb/phy.h>
+#include <linux/usb/dwc3-msm.h>
 #include <linux/reset.h>
 #include <linux/debugfs.h>
 
@@ -624,10 +625,7 @@ static int msm_hsphy_regulator_init(struct msm_hsphy *phy)
 	cfg.of_node = dev->of_node;
 
 	phy->dpdm_rdev = devm_regulator_register(dev, &phy->dpdm_rdesc, &cfg);
-	if (PTR_ERR_OR_ZERO(phy->dpdm_rdev))
-		return phy->dpdm_rdev;
-
-	return 0;
+	return PTR_ERR_OR_ZERO(phy->dpdm_rdev);
 }
 
 static void msm_hsphy_create_debugfs(struct msm_hsphy *phy)
