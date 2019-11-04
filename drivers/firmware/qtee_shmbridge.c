@@ -12,6 +12,7 @@
 #include <linux/platform_device.h>
 #include <linux/mod_devicetable.h>
 #include <linux/qcom_scm.h>
+#include <linux/dma-mapping.h>
 #include <soc/qcom/qseecomi.h>
 #include <linux/qtee_shmbridge.h>
 
@@ -62,6 +63,7 @@ struct bridge_info {
 	uint64_t handle;
 	int min_alloc_order;
 	struct gen_pool *genpool;
+	struct device *dev;
 };
 
 struct bridge_list {
@@ -301,11 +303,29 @@ void qtee_shmbridge_free_shm(struct qtee_shm *shm)
 }
 EXPORT_SYMBOL(qtee_shmbridge_free_shm);
 
+/* cache clean operation for buffer sub-allocated from default bridge */
+void qtee_shmbridge_flush_shm_buf(struct qtee_shm *shm)
+{
+	if (shm)
+		return dma_sync_single_for_device(default_bridge.dev,
+				shm->paddr, shm->size, DMA_TO_DEVICE);
+}
+EXPORT_SYMBOL(qtee_shmbridge_flush_shm_buf);
+
+/* cache invalidation operation for buffer sub-allocated from default bridge */
+void qtee_shmbridge_inv_shm_buf(struct qtee_shm *shm)
+{
+	if (shm)
+		return dma_sync_single_for_cpu(default_bridge.dev,
+				shm->paddr, shm->size, DMA_FROM_DEVICE);
+}
+EXPORT_SYMBOL(qtee_shmbridge_inv_shm_buf);
+
 /*
  * shared memory bridge initialization
  *
  */
-static int qtee_shmbridge_init(void)
+static int qtee_shmbridge_init(struct platform_device *pdev)
 {
 	int ret = 0;
 	uint32_t ns_vm_ids[] = {VMID_HLOS};
@@ -322,7 +342,15 @@ static int qtee_shmbridge_init(void)
 				get_order(default_bridge.size));
 	if (!default_bridge.vaddr)
 		return -ENOMEM;
-	default_bridge.paddr = virt_to_phys(default_bridge.vaddr);
+	default_bridge.paddr = dma_map_single(&pdev->dev,
+				default_bridge.vaddr, default_bridge.size,
+				DMA_TO_DEVICE);
+	if (dma_mapping_error(&pdev->dev, default_bridge.paddr)) {
+		pr_err("dma_map_single() failed\n");
+		ret = -ENOMEM;
+		goto exit_freebuf;
+	}
+	default_bridge.dev = &pdev->dev;
 
 	/* create a general mem pool */
 	default_bridge.min_alloc_order = PAGE_SHIFT; /* 4K page size aligned */
@@ -331,7 +359,7 @@ static int qtee_shmbridge_init(void)
 	if (!default_bridge.genpool) {
 		pr_err("gen_pool_add_virt() failed\n");
 		ret = -ENOMEM;
-		goto exit_freebuf;
+		goto exit_unmap;
 	}
 
 	gen_pool_set_algo(default_bridge.genpool, gen_pool_best_fit, NULL);
@@ -372,6 +400,9 @@ static int qtee_shmbridge_init(void)
 
 exit_destroy_pool:
 	gen_pool_destroy(default_bridge.genpool);
+exit_unmap:
+	dma_unmap_single(&pdev->dev, default_bridge.paddr, default_bridge.size,
+			DMA_TO_DEVICE);
 exit_freebuf:
 	free_pages((long)default_bridge.vaddr, get_order(default_bridge.size));
 exit:
@@ -380,7 +411,10 @@ exit:
 
 static int qtee_shmbridge_probe(struct platform_device *pdev)
 {
-	return qtee_shmbridge_init();
+#ifdef CONFIG_ARM64
+	dma_set_mask(&pdev->dev, DMA_BIT_MASK(64));
+#endif
+	return qtee_shmbridge_init(pdev);
 }
 
 static const struct of_device_id qtee_shmbridge_of_match[] = {
