@@ -668,9 +668,17 @@ static ssize_t ok_to_qnovo_show(struct class *c, struct class_attribute *attr,
 			char *buf)
 {
 	struct qnovo *chip = container_of(c, struct qnovo, qnovo_class);
-	int val = get_effective_result(chip->not_ok_to_qnovo_votable);
+	int val, cp_dis, not_ok =
+		get_effective_result(chip->not_ok_to_qnovo_votable);
+	struct votable *cp_disable_votable = find_votable("CP_DISABLE");
 
-	return snprintf(buf, PAGE_SIZE, "%d\n", !val);
+	val = !not_ok;
+	if (cp_disable_votable) {
+		cp_dis = get_effective_result(cp_disable_votable);
+		val = val && cp_dis;
+	}
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", val);
 }
 static CLASS_ATTR_RO(ok_to_qnovo);
 
