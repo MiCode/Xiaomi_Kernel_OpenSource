@@ -1143,6 +1143,9 @@ static inline int lease_modify(struct file_lock **before, int arg,
 }
 #endif /* !CONFIG_FILE_LOCKING */
 
+/* sb->s_iflags */
+#define SB_I_CGROUPWB	0x00000001	/* cgroup-aware writeback enabled */
+#define SB_I_NOEXEC	0x00000002	/* Ignore executables on this fs */
 
 struct fasync_struct {
 	spinlock_t		fa_lock;
@@ -1223,6 +1226,7 @@ struct super_block {
 	const struct quotactl_ops	*s_qcop;
 	const struct export_operations *s_export_op;
 	unsigned long		s_flags;
+	unsigned long		s_iflags;	/* internal SB_I_* flags */
 	unsigned long		s_magic;
 	struct dentry		*s_root;
 	struct rw_semaphore	s_umount;
@@ -2873,5 +2877,7 @@ static inline bool dir_relax(struct inode *inode)
 }
 
 extern void inode_nohighmem(struct inode *inode);
+
+extern bool path_noexec(const struct path *path);
 
 #endif /* _LINUX_FS_H */

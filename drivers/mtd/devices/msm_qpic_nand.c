@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2036,7 +2036,7 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 			 * and this will only handle about 64 pages being read
 			 * at a time i.e. one erase block worth of pages.
 			 */
-			fix_data_in_pages |= BIT(pages_read);
+			fix_data_in_pages |= BIT_ULL(pages_read);
 		}
 		/* check for correctable errors */
 		if (!rawerr) {

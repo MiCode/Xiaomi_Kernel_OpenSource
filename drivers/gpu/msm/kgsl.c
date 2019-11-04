@@ -442,6 +442,10 @@ static void kgsl_mem_entry_detach_process(struct kgsl_mem_entry *entry)
 
 	type = kgsl_memdesc_usermem_type(&entry->memdesc);
 	entry->priv->stats[type].cur -= entry->memdesc.size;
+
+	if (type != KGSL_MEM_ENTRY_ION)
+		entry->priv->gpumem_mapped -= entry->memdesc.mapsize;
+
 	spin_unlock(&entry->priv->mem_lock);
 
 	kgsl_mmu_put_gpuaddr(&entry->memdesc);
@@ -515,14 +519,21 @@ int kgsl_context_init(struct kgsl_device_private *dev_priv,
 	int ret = 0, id;
 	struct kgsl_process_private  *proc_priv = dev_priv->process_priv;
 
+	/*
+	 * Read and increment the context count under lock to make sure
+	 * no process goes beyond the specified context limit.
+	 */
+	spin_lock(&proc_priv->ctxt_count_lock);
 	if (atomic_read(&proc_priv->ctxt_count) > KGSL_MAX_CONTEXTS_PER_PROC) {
-		KGSL_DRV_ERR(device,
+		KGSL_DRV_ERR_RATELIMIT(device,
 			"Per process context limit reached for pid %u",
 			dev_priv->process_priv->pid);
+		spin_unlock(&proc_priv->ctxt_count_lock);
 		return -ENOSPC;
 	}
 
 	atomic_inc(&proc_priv->ctxt_count);
+	spin_unlock(&proc_priv->ctxt_count_lock);
 
 	id = _kgsl_get_context_id(device);
 	if (id == -ENOSPC) {
@@ -891,6 +902,7 @@ static struct kgsl_process_private *kgsl_process_private_new(
 
 	spin_lock_init(&private->mem_lock);
 	spin_lock_init(&private->syncsource_lock);
+	spin_lock_init(&private->ctxt_count_lock);
 
 	idr_init(&private->mem_idr);
 	idr_init(&private->syncsource_idr);
@@ -3383,13 +3395,18 @@ static int
 kgsl_gpumem_vm_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 {
 	struct kgsl_mem_entry *entry = vma->vm_private_data;
+	int ret;
 
 	if (!entry)
 		return VM_FAULT_SIGBUS;
 	if (!entry->memdesc.ops || !entry->memdesc.ops->vmfault)
 		return VM_FAULT_SIGBUS;
 
-	return entry->memdesc.ops->vmfault(&entry->memdesc, vma, vmf);
+	ret = entry->memdesc.ops->vmfault(&entry->memdesc, vma, vmf);
+	if ((ret == 0) || (ret == VM_FAULT_NOPAGE))
+		entry->priv->gpumem_mapped += PAGE_SIZE;
+
+	return ret;
 }
 
 static void
