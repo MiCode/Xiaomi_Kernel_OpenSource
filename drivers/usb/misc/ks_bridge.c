@@ -931,7 +931,27 @@ static void ksb_debugfs_exit(void) { }
 static const struct usb_device_id ksb_usb_ids[] = {
 
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9008, 0),
-		.driver_info = DEV_ID(0), },
+	.driver_info = DEV_ID(0), },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x90EF, 0),
+	.driver_info =  DEV_ID(0), },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x90F0, 0),
+	.driver_info =  DEV_ID(0), },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x90F3, 0),
+	.driver_info =	DEV_ID(0), },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x90FD, 0),
+	.driver_info =  DEV_ID(0), },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9102, 0),
+	.driver_info =  DEV_ID(0), },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9103, 0),
+	.driver_info =  DEV_ID(0), },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9104, 0),
+	.driver_info =  DEV_ID(0), },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9105, 0),
+	.driver_info =  DEV_ID(0), },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9106, 0),
+	.driver_info =  DEV_ID(0), },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9107, 0),
+	.driver_info =  DEV_ID(0), },
 
 	{} /* terminating entry */
 };
