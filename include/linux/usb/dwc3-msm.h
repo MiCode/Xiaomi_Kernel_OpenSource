@@ -6,6 +6,9 @@
 #ifndef __LINUX_USB_DWC3_MSM_H
 #define __LINUX_USB_DWC3_MSM_H
 
+#include <linux/scatterlist.h>
+#include <linux/usb/gadget.h>
+
 /* used for struct usb_phy flags */
 #define ENABLE_DP_MANUAL_PULLUP		BIT(0)
 #define ENABLE_SECONDARY_PHY		BIT(1)

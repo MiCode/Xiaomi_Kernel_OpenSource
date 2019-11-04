@@ -539,7 +539,6 @@ static void qdss_eps_disable(struct usb_function *f)
 
 	if (qdss->data_enabled) {
 		usb_ep_disable(qdss->port.data);
-		qdss->port.data->endless = false;
 		qdss->data_enabled = 0;
 	}
 }
@@ -681,12 +680,9 @@ static int qdss_set_alt(struct usb_function *f, unsigned int intf,
 			goto fail;
 		}
 
-		qdss->port.data->endless = true;
 		ret = usb_ep_enable(qdss->port.data);
-		if (ret) {
-			qdss->port.data->endless = false;
+		if (ret)
 			goto fail;
-		}
 
 		qdss->port.data->driver_data = qdss;
 		qdss->data_enabled = 1;

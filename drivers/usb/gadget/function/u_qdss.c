@@ -7,13 +7,13 @@
 #include <linux/device.h>
 #include <linux/usb_bam.h>
 #include <linux/dma-mapping.h>
+#include <linux/usb/dwc3-msm.h>
 
 #include "f_qdss.h"
 static int alloc_sps_req(struct usb_ep *data_ep)
 {
 	struct usb_request *req = NULL;
 	struct f_qdss *qdss = data_ep->driver_data;
-	u32 sps_params = 0;
 
 	pr_debug("send_sps_req\n");
 
@@ -24,9 +24,6 @@ static int alloc_sps_req(struct usb_ep *data_ep)
 	}
 
 	req->length = 32*1024;
-	sps_params = MSM_SPS_MODE | MSM_DISABLE_WB |
-			qdss->bam_info.usb_bam_pipe_idx;
-	req->udc_priv = sps_params;
 	qdss->endless_req = req;
 
 	return 0;
@@ -125,10 +122,14 @@ static int init_data(struct usb_ep *ep)
 {
 	struct f_qdss *qdss = ep->driver_data;
 	int res = 0;
+	u32 sps_params = 0;
 
 	pr_debug("%s\n", __func__);
 
-	res = msm_ep_config(ep, qdss->endless_req);
+	sps_params = MSM_SPS_MODE | MSM_DISABLE_WB |
+			qdss->bam_info.usb_bam_pipe_idx;
+
+	res = msm_ep_config(ep, qdss->endless_req, sps_params);
 	if (res)
 		pr_err("msm_ep_config failed\n");
 
