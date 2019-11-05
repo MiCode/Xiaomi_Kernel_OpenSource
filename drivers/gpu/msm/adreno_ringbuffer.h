@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
  */
 #ifndef __ADRENO_RINGBUFFER_H
 #define __ADRENO_RINGBUFFER_H
@@ -111,7 +111,7 @@ struct adreno_ringbuffer {
 	struct kgsl_event_group events;
 	struct adreno_context *drawctxt_active;
 	struct kgsl_memdesc *preemption_desc;
-	struct kgsl_memdesc secure_preemption_desc;
+	struct kgsl_memdesc *secure_preemption_desc;
 	struct kgsl_memdesc *perfcounter_save_restore_desc;
 	struct kgsl_memdesc *pagetable_desc;
 	struct adreno_dispatcher_drawqueue dispatch_q;

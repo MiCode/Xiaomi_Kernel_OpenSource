@@ -527,16 +527,6 @@ int kgsl_mmu_sparse_dummy_map(struct kgsl_pagetable *pagetable,
 	return 0;
 }
 
-u64 kgsl_mmu_get_global_base(struct kgsl_device *device)
-{
-	struct kgsl_mmu *mmu = &(device->mmu);
-
-	if (MMU_OP_VALID(mmu, mmu_get_global_base))
-		return mmu->mmu_ops->mmu_get_global_base(mmu);
-
-	return 0;
-}
-
 void kgsl_mmu_map_global(struct kgsl_device *device,
 		struct kgsl_memdesc *memdesc)
 {
