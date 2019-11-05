@@ -18,6 +18,9 @@ config DEFCONFIG_LIST
 
 config TOOLS_SUPPORT_RELR
 	bool "Declare tool support for RELR"
+	# Prevent this from being enabled by default in allyesconfig or
+	# allmodconfig builds.
+	depends on !COMPILE_TEST
 
 config CONSTRUCTORS
 	bool
