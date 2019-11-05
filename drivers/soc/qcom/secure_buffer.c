@@ -265,7 +265,7 @@ static int batched_hyp_assign(struct sg_table *table, struct scm_desc *desc)
 		batch_start += batches_processed;
 	}
 	total_delta = ktime_us_delta(ktime_get(), first_assign_ts);
-	trace_hyp_assign_end(total_delta, total_delta / i);
+	trace_hyp_assign_end(total_delta, div64_u64(total_delta, i));
 	kfree(sg_table_copy);
 	return ret;
 }
