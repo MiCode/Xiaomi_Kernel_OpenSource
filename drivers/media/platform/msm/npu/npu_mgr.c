@@ -60,7 +60,7 @@ static int npu_send_network_cmd(struct npu_device *npu_dev,
 	struct npu_network *network, void *cmd_ptr,
 	struct npu_network_cmd *cmd);
 static int npu_send_misc_cmd(struct npu_device *npu_dev, uint32_t q_idx,
-	void *cmd_ptr);
+	void *cmd_ptr, struct npu_misc_cmd *cmd);
 static int npu_queue_event(struct npu_client *client, struct npu_kevent *evt);
 static int npu_notify_aop(struct npu_device *npu_dev, bool on);
 static int npu_notify_fw_pwr_state(struct npu_device *npu_dev,
@@ -78,6 +78,15 @@ static struct npu_network_cmd *npu_alloc_network_cmd(struct npu_host_ctx *ctx,
 	uint32_t stats_buf_size);
 static void npu_free_network_cmd(struct npu_host_ctx *ctx,
 	struct npu_network_cmd *cmd);
+static struct npu_misc_cmd *npu_alloc_misc_cmd(struct npu_host_ctx *ctx);
+static void npu_free_misc_cmd(struct npu_host_ctx *ctx,
+	struct npu_misc_cmd *cmd);
+static void npu_queue_misc_cmd(struct npu_host_ctx *ctx,
+	struct npu_misc_cmd *cmd);
+static void npu_dequeue_misc_cmd(struct npu_host_ctx *ctx,
+	struct npu_misc_cmd *cmd);
+static struct npu_misc_cmd *npu_find_misc_cmd(struct npu_host_ctx *ctx,
+	uint32_t trans_id);
 
 /* -------------------------------------------------------------------------
  * Function Definitions - Init / Deinit
@@ -440,6 +449,7 @@ static int npu_notify_fw_pwr_state(struct npu_device *npu_dev,
 	struct ipc_cmd_notify_pwr_pkt pwr_notify_pkt;
 	int ret = 0;
 	uint32_t reg_val;
+	struct npu_misc_cmd *misc_cmd = NULL;
 
 	/* Clear PWR_NOTIFY bits before sending cmd */
 	reg_val = REGR(npu_dev, REG_NPU_FW_CTRL_STATUS);
@@ -464,8 +474,17 @@ static int npu_notify_fw_pwr_state(struct npu_device *npu_dev,
 	pwr_notify_pkt.notify_type = post ?
 		NPU_POWER_POST_NOTIFY : NPU_POWER_PRE_NOTIFY;
 
+	misc_cmd = npu_alloc_misc_cmd(host_ctx);
+	if (!misc_cmd) {
+		NPU_ERR("Can't allocate misc_cmd\n");
+		return -ENOMEM;
+	}
+
+	misc_cmd->cmd_type = NPU_IPC_CMD_NOTIFY_PWR;
+	misc_cmd->trans_id = pwr_notify_pkt.header.trans_id;
+
 	ret = npu_send_misc_cmd(npu_dev, IPC_QUEUE_CMD_HIGH_PRIORITY,
-		&pwr_notify_pkt);
+		&pwr_notify_pkt, misc_cmd);
 
 	if (ret) {
 		NPU_ERR("NPU_IPC_CMD_NOTIFY_PWR sent failed: %d\n", ret);
@@ -479,10 +498,9 @@ static int npu_notify_fw_pwr_state(struct npu_device *npu_dev,
 				ret = -EPERM;
 			}
 		}
-
-		/* allow to send another misc cmd if timedout */
-		host_ctx->misc_cmd_pending = false;
 	}
+
+	npu_free_misc_cmd(host_ctx, misc_cmd);
 
 	return ret;
 }
@@ -618,7 +636,6 @@ int npu_host_init(struct npu_device *npu_dev)
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 
 	memset(host_ctx, 0, sizeof(*host_ctx));
-	init_completion(&host_ctx->misc_cmd_done);
 	init_completion(&host_ctx->fw_deinit_done);
 	init_completion(&host_ctx->fw_bringup_done);
 	init_completion(&host_ctx->fw_shutdown_done);
@@ -662,6 +679,14 @@ int npu_host_init(struct npu_device *npu_dev)
 		goto fail;
 	}
 
+	host_ctx->misc_cmd_cache = kmem_cache_create("misc_cmd_cache",
+		sizeof(struct npu_misc_cmd), 0, 0, NULL);
+	if (!host_ctx->misc_cmd_cache) {
+		NPU_ERR("Failed to create misc_cmd_cache\n");
+		ret = -ENOMEM;
+		goto fail;
+	}
+
 	host_ctx->stats_buf_cache = kmem_cache_create_usercopy(
 		"stats_buf_cache", NPU_MAX_STATS_BUF_SIZE, 0, 0,
 		0, NPU_MAX_STATS_BUF_SIZE, NULL);
@@ -678,14 +703,7 @@ int npu_host_init(struct npu_device *npu_dev)
 		goto fail;
 	}
 
-	host_ctx->prop_buf = kzalloc(sizeof(struct msm_npu_property),
-		GFP_KERNEL);
-	if (!host_ctx->prop_buf) {
-		NPU_ERR("Failed to allocate prop buffer\n");
-		ret = -ENOMEM;
-		goto fail;
-	}
-
+	INIT_LIST_HEAD(&host_ctx->misc_cmd_list);
 	host_ctx->auto_pil_disable = false;
 
 	return 0;
@@ -694,6 +712,7 @@ fail:
 	kfree(host_ctx->ipc_msg_buf);
 	kmem_cache_destroy(host_ctx->stats_buf_cache);
 	kmem_cache_destroy(host_ctx->network_cmd_cache);
+	kmem_cache_destroy(host_ctx->misc_cmd_cache);
 	if (host_ctx->wq)
 		destroy_workqueue(host_ctx->wq);
 	if (host_ctx->wq_pri)
@@ -709,10 +728,10 @@ void npu_host_deinit(struct npu_device *npu_dev)
 {
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 
-	kfree(host_ctx->prop_buf);
 	kfree(host_ctx->ipc_msg_buf);
 	kmem_cache_destroy(host_ctx->stats_buf_cache);
 	kmem_cache_destroy(host_ctx->network_cmd_cache);
+	kmem_cache_destroy(host_ctx->misc_cmd_cache);
 	destroy_workqueue(host_ctx->wq);
 	destroy_workqueue(host_ctx->wq_pri);
 	subsys_notif_unregister_notifier(host_ctx->notif_hdle, &host_ctx->nb);
@@ -811,6 +830,7 @@ static int host_error_hdlr(struct npu_device *npu_dev, bool force)
 	struct npu_network *network = NULL;
 	struct npu_kevent kevt;
 	struct npu_network_cmd *cmd;
+	struct npu_misc_cmd *misc_cmd;
 	bool fw_alive = true;
 	int i, ret = 0;
 
@@ -918,7 +938,12 @@ fw_start_done:
 			}
 		}
 	}
-	complete_all(&host_ctx->misc_cmd_done);
+
+	list_for_each_entry(misc_cmd, &host_ctx->misc_cmd_list, list) {
+		NPU_DBG("complete misc cmd trans_id %d\n",
+			misc_cmd->trans_id);
+		complete(&misc_cmd->cmd_done);
+	}
 	mutex_unlock(&host_ctx->lock);
 
 	return ret;
@@ -1032,6 +1057,7 @@ static void turn_off_fw_logging(struct npu_device *npu_dev)
 {
 	struct ipc_cmd_log_state_pkt log_packet;
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
+	struct npu_misc_cmd *misc_cmd = NULL;
 	int ret = 0;
 
 	mutex_lock(&host_ctx->lock);
@@ -1042,16 +1068,25 @@ static void turn_off_fw_logging(struct npu_device *npu_dev)
 	log_packet.header.flags = 0xF;
 	log_packet.log_state.module_msk = 0;
 	log_packet.log_state.level_msk = 0;
+
+	misc_cmd = npu_alloc_misc_cmd(host_ctx);
+	if (!misc_cmd) {
+		NPU_ERR("Can't allocate misc_cmd\n");
+		return;
+	}
+
+	misc_cmd->cmd_type = NPU_IPC_CMD_CONFIG_LOG;
+	misc_cmd->trans_id = log_packet.header.trans_id;
+
 	ret = npu_send_misc_cmd(npu_dev, IPC_QUEUE_CMD_HIGH_PRIORITY,
-		&log_packet);
+		&log_packet, misc_cmd);
 
 	NPU_DBG("NPU_IPC_CMD_CONFIG_LOG sent status: %d\n", ret);
 
 	if (ret)
 		NPU_ERR("npu_host_ipc_send_cmd failed\n");
-	else
-		host_ctx->misc_cmd_pending = false;
 
+	npu_free_misc_cmd(host_ctx, misc_cmd);
 	mutex_unlock(&host_ctx->lock);
 }
 
@@ -1344,6 +1379,56 @@ static struct npu_network_cmd *npu_find_network_cmd(struct npu_network *network,
 	return NULL;
 }
 
+static struct npu_misc_cmd *npu_alloc_misc_cmd(struct npu_host_ctx *ctx)
+{
+	struct npu_misc_cmd *cmd = NULL;
+
+	cmd = kmem_cache_zalloc(ctx->misc_cmd_cache, GFP_KERNEL);
+	if (!cmd) {
+		NPU_ERR("Can't allocate misc cmd\n");
+		return NULL;
+	}
+
+	init_completion(&cmd->cmd_done);
+
+	return cmd;
+}
+
+static void npu_free_misc_cmd(struct npu_host_ctx *ctx,
+	struct npu_misc_cmd *cmd)
+{
+	kmem_cache_free(ctx->misc_cmd_cache, cmd);
+}
+
+static void npu_queue_misc_cmd(struct npu_host_ctx *ctx,
+	struct npu_misc_cmd *cmd)
+{
+	INIT_LIST_HEAD(&cmd->list);
+	list_add_tail(&cmd->list, &ctx->misc_cmd_list);
+}
+
+static void npu_dequeue_misc_cmd(struct npu_host_ctx *ctx,
+	struct npu_misc_cmd *cmd)
+{
+	list_del(&cmd->list);
+}
+
+static struct npu_misc_cmd *npu_find_misc_cmd(struct npu_host_ctx *ctx,
+	uint32_t trans_id)
+{
+	struct npu_misc_cmd *cmd;
+
+	list_for_each_entry(cmd, &ctx->misc_cmd_list, list) {
+		if (cmd->trans_id == trans_id) {
+			NPU_DBG("find misc cmd for trans_id %d\n", trans_id);
+			return cmd;
+		}
+	}
+
+	NPU_ERR("can't find misc cmd for trans_id %d\n", trans_id);
+	return NULL;
+}
+
 int npu_process_kevent(struct npu_client *client, struct npu_kevent *kevt)
 {
 	struct npu_device *npu_dev = client->npu_dev;
@@ -1405,6 +1490,7 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 	struct npu_kevent kevt;
 	struct npu_device *npu_dev = host_ctx->npu_dev;
 	struct npu_network_cmd *network_cmd = NULL;
+	struct npu_misc_cmd *misc_cmd = NULL;
 
 	msg_id = msg[1];
 	switch (msg_id) {
@@ -1588,9 +1674,17 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 
 		NPU_DBG("NPU_IPC_MSG_LOOPBACK_DONE loopbackParams: 0x%x\n",
 			lb_rsp_pkt->loopbackParams);
-		host_ctx->misc_cmd_result = lb_rsp_pkt->header.status;
-		host_ctx->misc_cmd_pending = false;
-		complete_all(&host_ctx->misc_cmd_done);
+
+		misc_cmd = npu_find_misc_cmd(host_ctx,
+			lb_rsp_pkt->header.trans_id);
+		if (!misc_cmd) {
+			NPU_ERR("can't find loopback cmd with trans_id:%d\n",
+				lb_rsp_pkt->header.trans_id);
+			break;
+		}
+
+		misc_cmd->ret_status = lb_rsp_pkt->header.status;
+		complete_all(&misc_cmd->cmd_done);
 		break;
 	}
 	case NPU_IPC_MSG_SET_PROPERTY_DONE:
@@ -1604,10 +1698,16 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 			prop_rsp_pkt->prop_id,
 			param[0]);
 
-		host_ctx->misc_cmd_result = prop_rsp_pkt->header.status;
-		host_ctx->misc_cmd_pending = false;
+		misc_cmd = npu_find_misc_cmd(host_ctx,
+			prop_rsp_pkt->header.trans_id);
+		if (!misc_cmd) {
+			NPU_ERR("can't find set_prop cmd with trans_id:%d\n",
+				prop_rsp_pkt->header.trans_id);
+			break;
+		}
 
-		complete_all(&host_ctx->misc_cmd_done);
+		misc_cmd->ret_status = prop_rsp_pkt->header.status;
+		complete(&misc_cmd->cmd_done);
 		break;
 	}
 	case NPU_IPC_MSG_GET_PROPERTY_DONE:
@@ -1624,17 +1724,28 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 			prop_rsp_pkt->num_params,
 			prop_rsp_pkt->prop_param[0]);
 
-		host_ctx->misc_cmd_result = prop_rsp_pkt->header.status;
-		host_ctx->misc_cmd_pending = false;
+		misc_cmd = npu_find_misc_cmd(host_ctx,
+			prop_rsp_pkt->header.trans_id);
+		if (!misc_cmd) {
+			NPU_ERR("can't find get_prop cmd with trans_id:%d\n",
+				prop_rsp_pkt->header.trans_id);
+			break;
+		}
+
+		misc_cmd->ret_status = prop_rsp_pkt->header.status;
 
 		if (prop_rsp_pkt->num_params > 0) {
 			/* Copy prop data to kernel buffer */
 			prop_size = prop_rsp_pkt->header.size -
 				sizeof(struct ipc_msg_header_pkt);
-			memcpy(host_ctx->prop_buf, prop_data, prop_size);
+			if (prop_size > sizeof(struct msm_npu_property)) {
+				NPU_WARN("Invalid prop size %d\n", prop_size);
+				prop_size = sizeof(struct msm_npu_property);
+			}
+			memcpy(&misc_cmd->u.prop, prop_data, prop_size);
 		}
 
-		complete_all(&host_ctx->misc_cmd_done);
+		complete_all(&misc_cmd->cmd_done);
 		break;
 	}
 	case NPU_IPC_MSG_GENERAL_NOTIFY:
@@ -1806,7 +1917,7 @@ static int npu_send_network_cmd(struct npu_device *npu_dev,
 }
 
 static int npu_send_misc_cmd(struct npu_device *npu_dev, uint32_t q_idx,
-	void *cmd_ptr)
+	void *cmd_ptr, struct npu_misc_cmd *cmd)
 {
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 	int ret = 0;
@@ -1816,17 +1927,10 @@ static int npu_send_misc_cmd(struct npu_device *npu_dev, uint32_t q_idx,
 	if (host_ctx->fw_error || (host_ctx->fw_state != FW_ENABLED)) {
 		NPU_ERR("fw is in error state or disabled\n");
 		ret = -EIO;
-	} else if (host_ctx->misc_cmd_pending) {
-		NPU_ERR("Another misc cmd is pending\n");
-		ret = -EBUSY;
 	} else {
-		NPU_DBG("Send cmd %d\n",
-			((struct ipc_cmd_header_pkt *)cmd_ptr)->cmd_type);
-		host_ctx->misc_cmd_pending = true;
-		reinit_completion(&host_ctx->misc_cmd_done);
+		NPU_DBG("Send cmd %d\n", cmd->cmd_type);
+		reinit_completion(&cmd->cmd_done);
 		ret = npu_host_ipc_send_cmd(npu_dev, q_idx, cmd_ptr);
-		if (ret)
-			host_ctx->misc_cmd_pending = false;
 	}
 
 	return ret;
@@ -1914,6 +2018,7 @@ int32_t npu_host_set_fw_property(struct npu_device *npu_dev,
 	struct ipc_cmd_prop_pkt *prop_packet = NULL;
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 	uint32_t num_of_params, pkt_size;
+	struct npu_misc_cmd *misc_cmd = NULL;
 
 	prop_id = property->prop_id;
 	num_of_params = min_t(uint32_t, property->num_of_params,
@@ -1956,18 +2061,29 @@ int32_t npu_host_set_fw_property(struct npu_device *npu_dev,
 		prop_packet->prop_param[i] = property->prop_param[i];
 
 	mutex_lock(&host_ctx->lock);
+	misc_cmd = npu_alloc_misc_cmd(host_ctx);
+	if (!misc_cmd) {
+		NPU_ERR("Can't allocate misc_cmd\n");
+		ret = -ENOMEM;
+		goto set_prop_exit;
+	}
+
+	misc_cmd->cmd_type = NPU_IPC_CMD_SET_PROPERTY;
+	misc_cmd->trans_id = prop_packet->header.trans_id;
+	npu_queue_misc_cmd(host_ctx, misc_cmd);
+
 	ret = npu_send_misc_cmd(npu_dev, IPC_QUEUE_APPS_EXEC,
-		prop_packet);
+		prop_packet, misc_cmd);
 	NPU_DBG("NPU_IPC_CMD_SET_PROPERTY sent status: %d\n", ret);
 
 	if (ret) {
 		NPU_ERR("NPU_IPC_CMD_SET_PROPERTY failed\n");
-		goto set_prop_exit;
+		goto free_misc_cmd;
 	}
 	mutex_unlock(&host_ctx->lock);
 
 	ret = wait_for_completion_interruptible_timeout(
-		&host_ctx->misc_cmd_done,
+		&misc_cmd->cmd_done,
 		(host_ctx->fw_dbg_mode & FW_DBG_MODE_INC_TIMEOUT) ?
 		NW_DEBUG_TIMEOUT : NW_CMD_TIMEOUT);
 
@@ -1975,16 +2091,19 @@ int32_t npu_host_set_fw_property(struct npu_device *npu_dev,
 	if (!ret) {
 		NPU_ERR("NPU_IPC_CMD_SET_PROPERTY time out\n");
 		ret = -ETIMEDOUT;
-		goto set_prop_exit;
+		goto free_misc_cmd;
 	} else if (ret < 0) {
 		NPU_ERR("Wait for set_property done interrupted by signal\n");
-		goto set_prop_exit;
+		goto free_misc_cmd;
 	}
 
-	ret = host_ctx->misc_cmd_result;
+	ret = misc_cmd->ret_status;
 	if (ret)
 		NPU_ERR("set fw property failed %d\n", ret);
 
+free_misc_cmd:
+	npu_dequeue_misc_cmd(host_ctx, misc_cmd);
+	npu_free_misc_cmd(host_ctx, misc_cmd);
 set_prop_exit:
 	mutex_unlock(&host_ctx->lock);
 	kfree(prop_packet);
@@ -1999,6 +2118,7 @@ int32_t npu_host_get_fw_property(struct npu_device *npu_dev,
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 	struct msm_npu_property *prop_from_fw;
 	uint32_t num_of_params, pkt_size;
+	struct npu_misc_cmd *misc_cmd = NULL;
 
 	if (property->prop_id < MSM_NPU_FW_PROP_ID_START) {
 		NPU_ERR("Not supproted fw property id %x\n",
@@ -2027,18 +2147,29 @@ int32_t npu_host_get_fw_property(struct npu_device *npu_dev,
 		prop_packet->prop_param[i] = property->prop_param[i];
 
 	mutex_lock(&host_ctx->lock);
+	misc_cmd = npu_alloc_misc_cmd(host_ctx);
+	if (!misc_cmd) {
+		NPU_ERR("Can't allocate misc_cmd\n");
+		ret = -ENOMEM;
+		goto get_prop_exit;
+	}
+
+	misc_cmd->cmd_type = NPU_IPC_CMD_GET_PROPERTY;
+	misc_cmd->trans_id = prop_packet->header.trans_id;
+	npu_queue_misc_cmd(host_ctx, misc_cmd);
+
 	ret = npu_send_misc_cmd(npu_dev, IPC_QUEUE_APPS_EXEC,
-		prop_packet);
+		prop_packet, misc_cmd);
 	NPU_DBG("NPU_IPC_CMD_GET_PROPERTY sent status: %d\n", ret);
 
 	if (ret) {
 		NPU_ERR("NPU_IPC_CMD_GET_PROPERTY failed\n");
-		goto get_prop_exit;
+		goto free_misc_cmd;
 	}
 	mutex_unlock(&host_ctx->lock);
 
 	ret = wait_for_completion_interruptible_timeout(
-		&host_ctx->misc_cmd_done,
+		&misc_cmd->cmd_done,
 		(host_ctx->fw_dbg_mode & FW_DBG_MODE_INC_TIMEOUT) ?
 		NW_DEBUG_TIMEOUT : NW_CMD_TIMEOUT);
 
@@ -2046,16 +2177,16 @@ int32_t npu_host_get_fw_property(struct npu_device *npu_dev,
 	if (!ret) {
 		pr_err_ratelimited("npu: NPU_IPC_CMD_GET_PROPERTY time out\n");
 		ret = -ETIMEDOUT;
-		goto get_prop_exit;
+		goto free_misc_cmd;
 	} else if (ret < 0) {
 		NPU_ERR("Wait for get_property done interrupted by signal\n");
-		goto get_prop_exit;
+		goto free_misc_cmd;
 	}
 
-	ret = host_ctx->misc_cmd_result;
+	ret = misc_cmd->ret_status;
 	if (!ret) {
 		/* Return prop data retrieved from fw to user */
-		prop_from_fw = (struct msm_npu_property *)(host_ctx->prop_buf);
+		prop_from_fw = &misc_cmd->u.prop;
 		if (property->prop_id == prop_from_fw->prop_id &&
 			property->network_hdl == prop_from_fw->network_hdl) {
 			property->num_of_params = num_of_params;
@@ -2067,6 +2198,9 @@ int32_t npu_host_get_fw_property(struct npu_device *npu_dev,
 		NPU_ERR("get fw property failed %d\n", ret);
 	}
 
+free_misc_cmd:
+	npu_dequeue_misc_cmd(host_ctx, misc_cmd);
+	npu_free_misc_cmd(host_ctx, misc_cmd);
 get_prop_exit:
 	mutex_unlock(&host_ctx->lock);
 	kfree(prop_packet);
@@ -2527,6 +2661,7 @@ int32_t npu_host_loopback_test(struct npu_device *npu_dev)
 {
 	struct ipc_cmd_loopback_pkt loopback_packet;
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
+	struct npu_misc_cmd *misc_cmd = NULL;
 	int32_t ret;
 
 	ret = enable_fw(npu_dev);
@@ -2542,17 +2677,29 @@ int32_t npu_host_loopback_test(struct npu_device *npu_dev)
 	loopback_packet.header.flags = 0;
 	loopback_packet.loopbackParams = 15;
 
-	ret = npu_send_misc_cmd(npu_dev, IPC_QUEUE_APPS_EXEC, &loopback_packet);
+	misc_cmd = npu_alloc_misc_cmd(host_ctx);
+	if (!misc_cmd) {
+		NPU_ERR("Can't allocate misc_cmd\n");
+		ret = -ENOMEM;
+		goto loopback_exit;
+	}
+
+	misc_cmd->cmd_type = NPU_IPC_CMD_LOOPBACK;
+	misc_cmd->trans_id = loopback_packet.header.trans_id;
+	npu_queue_misc_cmd(host_ctx, misc_cmd);
+
+	ret = npu_send_misc_cmd(npu_dev, IPC_QUEUE_APPS_EXEC, &loopback_packet,
+		misc_cmd);
 
 	if (ret) {
 		NPU_ERR("NPU_IPC_CMD_LOOPBACK sent failed: %d\n", ret);
-		goto loopback_exit;
+		goto free_misc_cmd;
 	}
 
 	mutex_unlock(&host_ctx->lock);
 
 	ret = wait_for_completion_interruptible_timeout(
-		&host_ctx->misc_cmd_done,
+		&misc_cmd->cmd_done,
 		(host_ctx->fw_dbg_mode & FW_DBG_MODE_INC_TIMEOUT) ?
 		NW_DEBUG_TIMEOUT : NW_CMD_TIMEOUT);
 
@@ -2565,9 +2712,12 @@ int32_t npu_host_loopback_test(struct npu_device *npu_dev)
 	} else if (ret < 0) {
 		NPU_ERR("Wait for loopback done interrupted by signal\n");
 	} else {
-		ret = host_ctx->misc_cmd_result;
+		ret = misc_cmd->ret_status;
 	}
 
+free_misc_cmd:
+	npu_dequeue_misc_cmd(host_ctx, misc_cmd);
+	npu_free_misc_cmd(host_ctx, misc_cmd);
 loopback_exit:
 	mutex_unlock(&host_ctx->lock);
 	disable_fw(npu_dev);
