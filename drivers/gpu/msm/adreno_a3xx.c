@@ -1233,10 +1233,10 @@ static int _load_firmware(struct kgsl_device *device, const char *fwfile,
 	const struct firmware *fw = NULL;
 	int ret;
 
-	ret = request_firmware(&fw, fwfile, device->dev);
+	ret = request_firmware(&fw, fwfile, &device->pdev->dev);
 
 	if (ret) {
-		dev_err(device->dev, "request_firmware(%s) failed: %d\n",
+		dev_err(&device->pdev->dev, "request_firmware(%s) failed: %d\n",
 			     fwfile, ret);
 		return ret;
 	}

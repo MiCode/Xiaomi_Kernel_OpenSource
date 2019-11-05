@@ -703,7 +703,7 @@ void kgsl_memdesc_init(struct kgsl_device *device,
 		memdesc->priv |= KGSL_MEMDESC_SECURE;
 
 	memdesc->flags = flags;
-	memdesc->dev = device->dev->parent;
+	memdesc->dev = &device->pdev->dev;
 
 	align = max_t(unsigned int,
 		(memdesc->flags & KGSL_MEMALIGN_MASK) >> KGSL_MEMALIGN_SHIFT,
@@ -1194,7 +1194,7 @@ static int kgsl_alloc_contiguous(struct kgsl_device *device,
 	memdesc->priv |= priv;
 
 	memdesc->ops = &kgsl_contiguous_ops;
-	ret = _kgsl_alloc_contiguous(device->dev->parent, memdesc, size, 0);
+	ret = _kgsl_alloc_contiguous(&device->pdev->dev, memdesc, size, 0);
 
 	if (!ret)
 		KGSL_STATS_ADD(size, &kgsl_driver.stats.coherent,

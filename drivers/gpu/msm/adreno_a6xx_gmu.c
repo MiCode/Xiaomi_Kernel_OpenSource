@@ -1153,9 +1153,9 @@ static int a6xx_gmu_load_firmware(struct kgsl_device *device)
 		return -EINVAL;
 
 	ret = request_firmware(&gmu->fw_image, a6xx_core->gmufw_name,
-			device->dev);
+			&gmu->pdev->dev);
 	if (ret) {
-		dev_err(device->dev, "request_firmware (%s) failed: %d\n",
+		dev_err(&gmu->pdev->dev, "request_firmware (%s) failed: %d\n",
 				a6xx_core->gmufw_name, ret);
 		return ret;
 	}

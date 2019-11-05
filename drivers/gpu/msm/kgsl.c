@@ -4825,6 +4825,7 @@ int kgsl_of_property_read_ddrtype(struct device_node *node, const char *base,
 
 int kgsl_device_platform_probe(struct kgsl_device *device)
 {
+	struct platform_device *pdev = device->pdev;
 	int status = -EINVAL;
 
 	status = _register_device(device);
@@ -4840,14 +4841,14 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	if (status)
 		goto error;
 
-	if (!devm_request_mem_region(device->dev, device->reg_phys,
+	if (!devm_request_mem_region(&pdev->dev, device->reg_phys,
 				device->reg_len, device->name)) {
 		dev_err(device->dev, "request_mem_region failed\n");
 		status = -ENODEV;
 		goto error_pwrctrl_close;
 	}
 
-	device->reg_virt = devm_ioremap(device->dev, device->reg_phys,
+	device->reg_virt = devm_ioremap(&pdev->dev, device->reg_phys,
 					device->reg_len);
 
 	if (device->reg_virt == NULL) {
@@ -4856,7 +4857,7 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 		goto error_pwrctrl_close;
 	}
 
-	status = kgsl_request_irq(device->pdev, "kgsl_3d0_irq",
+	status = kgsl_request_irq(pdev, "kgsl_3d0_irq",
 		kgsl_irq_handler, device);
 	if (status < 0)
 		goto error_pwrctrl_close;
@@ -4872,7 +4873,7 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 		goto error_pwrctrl_close;
 
 	/* Check to see if our device can perform DMA correctly */
-	status = dma_set_coherent_mask(&device->pdev->dev, KGSL_DMA_BIT_MASK);
+	status = dma_set_coherent_mask(&pdev->dev, KGSL_DMA_BIT_MASK);
 	if (status)
 		goto error_close_mmu;
 

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/firmware.h>
@@ -498,9 +498,9 @@ static int a6xx_rgmu_load_firmware(struct kgsl_device *device)
 	if (rgmu->fw_hostptr)
 		return 0;
 
-	ret = request_firmware(&fw, a6xx_core->gmufw_name, device->dev);
+	ret = request_firmware(&fw, a6xx_core->gmufw_name, &rgmu->pdev->dev);
 	if (ret < 0) {
-		pr_err("request_firmware (%s) failed: %d\n",
+		dev_err(&rgmu->pdev->dev, "request_firmware (%s) failed: %d\n",
 				a6xx_core->gmufw_name, ret);
 		return ret;
 	}
