@@ -28,7 +28,6 @@ struct page_owner {
 	depot_stack_handle_t handle;
 	int pid;
 	u64 ts_nsec;
-	u64 free_ts_nsec;
 };
 
 static bool page_owner_disabled =
@@ -120,15 +119,12 @@ void __reset_page_owner(struct page *page, unsigned int order)
 {
 	int i;
 	struct page_ext *page_ext;
-	u64 free_ts_nsec = local_clock();
 
 	for (i = 0; i < (1 << order); i++) {
 		page_ext = lookup_page_ext(page + i);
 		if (unlikely(!page_ext))
 			continue;
-		get_page_owner(page_ext)->free_ts_nsec = free_ts_nsec;
 		__clear_bit(PAGE_EXT_OWNER, &page_ext->flags);
-		__set_bit(PAGE_EXT_PG_FREE, &page_ext->flags);
 	}
 }
 
@@ -193,10 +189,8 @@ static inline void __set_page_owner_handle(struct page_ext *page_ext,
 	page_owner->last_migrate_reason = -1;
 	page_owner->pid = current->pid;
 	page_owner->ts_nsec = local_clock();
-	page_owner->free_ts_nsec = 0;
 
 	__set_bit(PAGE_EXT_OWNER, &page_ext->flags);
-	__clear_bit(PAGE_EXT_PG_FREE, &page_ext->flags);
 }
 
 noinline void __set_page_owner(struct page *page, unsigned int order,
@@ -204,24 +198,12 @@ noinline void __set_page_owner(struct page *page, unsigned int order,
 {
 	struct page_ext *page_ext = lookup_page_ext(page);
 	depot_stack_handle_t handle;
-	int i;
 
 	if (unlikely(!page_ext))
 		return;
 
 	handle = save_stack(gfp_mask);
 	__set_page_owner_handle(page_ext, handle, order, gfp_mask);
-
-	/* set page owner for tail pages if any */
-	for (i = 1; i < (1 << order); i++) {
-		page_ext = lookup_page_ext(page + i);
-
-		if (unlikely(!page_ext))
-			continue;
-
-		/* mark tail pages as order 0 individual pages */
-		__set_page_owner_handle(page_ext, handle, 0, gfp_mask);
-	}
 }
 
 void __set_page_owner_migrate_reason(struct page *page, int reason)
@@ -269,7 +251,6 @@ void __copy_page_owner(struct page *oldpage, struct page *newpage)
 	new_page_owner->handle = old_page_owner->handle;
 	new_page_owner->pid = old_page_owner->pid;
 	new_page_owner->ts_nsec = old_page_owner->ts_nsec;
-	new_page_owner->free_ts_nsec = old_page_owner->ts_nsec;
 
 	/*
 	 * We don't clear the bit on the oldpage as it's going to be freed
