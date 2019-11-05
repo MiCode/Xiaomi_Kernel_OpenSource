@@ -37,6 +37,7 @@ struct dp_aux_private {
 	struct drm_dp_aux drm_aux;
 
 	struct msm_dp_aux_bridge *aux_bridge;
+	struct msm_dp_aux_bridge *sim_bridge;
 	bool bridge_in_transfer;
 
 	bool cmd_busy;
@@ -480,6 +481,12 @@ error:
 	return ret;
 }
 
+static inline bool dp_aux_is_sideband_msg(u32 address, size_t size)
+{
+	return (address >= 0x1000 && address + size < 0x1800) ||
+			(address >= 0x2000 && address + size < 0x2200);
+}
+
 static ssize_t dp_aux_transfer_debug(struct drm_dp_aux *drm_aux,
 		struct drm_dp_aux_msg *msg)
 {
@@ -501,7 +508,8 @@ static ssize_t dp_aux_transfer_debug(struct drm_dp_aux *drm_aux,
 		goto end;
 	}
 
-	if ((msg->address + msg->size) > SZ_4K) {
+	if ((msg->address + msg->size) > SZ_4K &&
+		!dp_aux_is_sideband_msg(msg->address, msg->size)) {
 		pr_debug("invalid dpcd access: addr=0x%x, size=0x%lx\n",
 				msg->address, msg->size);
 		goto address_error;
@@ -514,7 +522,17 @@ static ssize_t dp_aux_transfer_debug(struct drm_dp_aux *drm_aux,
 
 		reinit_completion(&aux->comp);
 
-		if (aux->read) {
+		if (dp_aux_is_sideband_msg(msg->address, msg->size)) {
+			if (!aux->sim_bridge || !aux->sim_bridge->transfer) {
+				pr_err("no mst bridge available\n");
+				atomic_set(&aux->aborted, 1);
+				ret = -ETIMEDOUT;
+				goto end;
+			}
+
+			ret = aux->sim_bridge->transfer(aux->sim_bridge,
+				drm_aux, msg);
+		} else if (aux->read) {
 			timeout = wait_for_completion_timeout(&aux->comp, HZ);
 			if (!timeout) {
 				pr_err("read timeout 0x%x\n", msg->address);
@@ -765,7 +783,7 @@ static void dp_aux_dpcd_updated(struct dp_aux *dp_aux)
 }
 
 static void dp_aux_set_sim_mode(struct dp_aux *dp_aux, bool en,
-		u8 *edid, u8 *dpcd)
+		u8 *edid, u8 *dpcd, struct msm_dp_aux_bridge *sim_bridge)
 {
 	struct dp_aux_private *aux;
 
@@ -780,6 +798,7 @@ static void dp_aux_set_sim_mode(struct dp_aux *dp_aux, bool en,
 
 	aux->edid = edid;
 	aux->dpcd = dpcd;
+	aux->sim_bridge = sim_bridge;
 
 	if (en) {
 		atomic_set(&aux->aborted, 0);

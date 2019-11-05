@@ -28,17 +28,9 @@ enum dp_drv_state {
 	PM_SUSPEND,
 };
 
-struct dp_mst_hpd_info {
-	bool mst_protocol;
-	bool mst_hpd_sim;
-	u32 mst_port_cnt;
-	u8 *edid;
-};
-
 struct dp_mst_drm_cbs {
-	void (*hpd)(void *display, bool hpd_status,
-			struct dp_mst_hpd_info *info);
-	void (*hpd_irq)(void *display, struct dp_mst_hpd_info *info);
+	void (*hpd)(void *display, bool hpd_status);
+	void (*hpd_irq)(void *display);
 	void (*set_drv_state)(void *dp_display,
 			enum dp_drv_state mst_state);
 };

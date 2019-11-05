@@ -673,7 +673,6 @@ static void dp_display_process_mst_hpd_high(struct dp_display_private *dp,
 						bool mst_probe)
 {
 	bool is_mst_receiver;
-	struct dp_mst_hpd_info info;
 	const int clear_mstm_ctrl_timeout = 100000;
 	u8 old_mstm_ctrl;
 	int ret;
@@ -716,12 +715,8 @@ static void dp_display_process_mst_hpd_high(struct dp_display_private *dp,
 
 		dp_display_update_mst_state(dp, true);
 	} else if (dp->mst.mst_active && mst_probe) {
-		info.mst_protocol = dp->parser->has_mst_sideband;
-		info.mst_port_cnt = dp->debug->mst_port_cnt;
-		info.edid = dp->debug->get_edid(dp->debug);
-
 		if (dp->mst.cbs.hpd)
-			dp->mst.cbs.hpd(&dp->dp_display, true, &info);
+			dp->mst.cbs.hpd(&dp->dp_display, true);
 	}
 
 	DP_MST_DEBUG("mst_hpd_high. mst_active:%d\n", dp->mst.mst_active);
@@ -839,15 +834,12 @@ end:
 
 static void dp_display_process_mst_hpd_low(struct dp_display_private *dp)
 {
-	struct dp_mst_hpd_info info = {0};
-
 	if (dp->mst.mst_active) {
 		DP_MST_DEBUG("mst_hpd_low work\n");
 
-		if (dp->mst.cbs.hpd) {
-			info.mst_protocol = dp->parser->has_mst_sideband;
-			dp->mst.cbs.hpd(&dp->dp_display, false, &info);
-		}
+		if (dp->mst.cbs.hpd)
+			dp->mst.cbs.hpd(&dp->dp_display, false);
+
 		dp_display_update_mst_state(dp, false);
 	}
 
@@ -1102,13 +1094,8 @@ static int dp_display_stream_enable(struct dp_display_private *dp,
 
 static void dp_display_mst_attention(struct dp_display_private *dp)
 {
-	struct dp_mst_hpd_info hpd_irq = {0};
-
-	if (dp->mst.mst_active && dp->mst.cbs.hpd_irq) {
-		hpd_irq.mst_hpd_sim = dp->debug->mst_hpd_sim;
-		dp->mst.cbs.hpd_irq(&dp->dp_display, &hpd_irq);
-		dp->debug->mst_hpd_sim = false;
-	}
+	if (dp->mst.mst_active && dp->mst.cbs.hpd_irq)
+		dp->mst.cbs.hpd_irq(&dp->dp_display);
 
 	DP_MST_DEBUG("mst_attention_work. mst_active:%d\n", dp->mst.mst_active);
 }
