@@ -323,6 +323,8 @@ int ipa_eth_ep_register_interface(struct ipa_eth_device *eth_dev)
 		goto free_and_exit;
 
 	rc = ipa_register_intf(eth_dev->net_dev->name, &tx_intf, &rx_intf);
+	if (!rc)
+		ipa_eth_send_msg_connect(eth_dev);
 
 free_and_exit:
 	kzfree(tx_intf.prop);
@@ -338,7 +340,13 @@ free_and_exit:
  */
 int ipa_eth_ep_unregister_interface(struct ipa_eth_device *eth_dev)
 {
-	return ipa_deregister_intf(eth_dev->net_dev->name);
+	int rc;
+
+	rc = ipa_deregister_intf(eth_dev->net_dev->name);
+	if (!rc)
+		ipa_eth_send_msg_disconnect(eth_dev);
+
+	return rc;
 }
 
 /**
