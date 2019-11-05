@@ -7,6 +7,7 @@ Required properties:
 - compatible : one of:
 	- "qcom,msm-cvp"
 	- "qcom,lahaina-cvp" : Invokes driver specific data for Lahaina.
+	- "qcom,kona-cvp" : Invokes driver specific data for kona.
 
 Optional properties:
 - reg : offset and length of the CSR register set for the device.
