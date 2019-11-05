@@ -872,6 +872,9 @@ static int smb1390_disable_vote_cb(struct votable *votable, void *data,
 		return rc;
 	}
 
+	smb1390_dbg(chip, PR_INFO, "client: %s, master: %s\n",
+			client, (disable ? "disabled" : "enabled"));
+
 	/* charging may have been disabled by ILIM; send uevent */
 	if (chip->cp_master_psy && (disable != chip->disabled))
 		power_supply_changed(chip->cp_master_psy);
@@ -893,6 +896,9 @@ static int smb1390_slave_disable_vote_cb(struct votable *votable, void *data,
 				disable ? "disable" : "enable", rc);
 		return rc;
 	}
+
+	smb1390_dbg(chip, PR_INFO, "client: %s, slave: %s\n",
+			client, (disable ? "disabled" : "enabled"));
 
 	/* Re-distribute ILIM to Master CP when Slave is disabled */
 	if (disable && (chip->ilim_votable)) {
@@ -974,7 +980,7 @@ static int smb1390_ilim_vote_cb(struct votable *votable, void *data,
 			return rc;
 		}
 
-		smb1390_dbg(chip, PR_INFO, "ILIM set to %duA slave_enabled%d\n",
+		smb1390_dbg(chip, PR_INFO, "ILIM set to %duA slave_enabled = %d\n",
 						ilim_uA, slave_enabled);
 		vote(chip->disable_votable, ILIM_VOTER, false, 0);
 	}
