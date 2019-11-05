@@ -35,6 +35,7 @@
 #include "sde_crtc.h"
 #include "sde_plane.h"
 #include "shd_drm.h"
+#include "shd_hw.h"
 
 static LIST_HEAD(g_base_list);
 
@@ -593,6 +594,64 @@ static int shd_crtc_atomic_set_property(struct drm_crtc *crtc,
 
 	return shd_crtc->orig_funcs->atomic_set_property(crtc,
 		state, property, val);
+}
+
+u32 shd_get_shared_crtc_mask(struct drm_crtc *src_crtc)
+{
+	struct shd_crtc *shd_src_crtc, *shd_crtc;
+	struct drm_crtc *crtc;
+	u32 crtc_mask = 0;
+
+	if (!src_crtc)
+		return 0;
+
+	if (src_crtc->helper_private->atomic_check != shd_crtc_atomic_check)
+		return drm_crtc_mask(src_crtc);
+
+	shd_src_crtc = to_sde_crtc(src_crtc)->priv_handle;
+
+	drm_for_each_crtc(crtc, src_crtc->dev) {
+		if (crtc->helper_private->atomic_check !=
+				shd_crtc_atomic_check)
+			continue;
+
+		shd_crtc = to_sde_crtc(crtc)->priv_handle;
+
+		if (shd_src_crtc->display->base == shd_crtc->display->base)
+			crtc_mask |= drm_crtc_mask(crtc);
+	}
+
+	return crtc_mask;
+}
+
+void shd_skip_shared_plane_update(struct drm_plane *plane,
+		struct drm_crtc *crtc)
+{
+	struct sde_crtc *sde_crtc;
+	struct shd_crtc *shd_crtc;
+	enum sde_sspp sspp;
+	bool is_virtual;
+	int i;
+
+	if (!plane || !crtc) {
+		SDE_ERROR("invalid plane or crtc\n");
+		return;
+	}
+
+	if (crtc->funcs->atomic_set_property !=
+		shd_crtc_atomic_set_property) {
+		SDE_ERROR("not shared crtc\n");
+		return;
+	}
+
+	sde_crtc = to_sde_crtc(crtc);
+	shd_crtc = sde_crtc->priv_handle;
+	sspp = sde_plane_pipe(plane);
+	is_virtual = is_sde_plane_virtual(plane);
+
+	for (i = 0; i < sde_crtc->num_ctls; i++)
+		sde_shd_hw_skip_sspp_clear(
+			sde_crtc->mixers[i].hw_ctl, sspp, is_virtual);
 }
 
 static void shd_display_prepare_commit(struct msm_kms *kms,
