@@ -1068,43 +1068,43 @@ static int dwc3_gadget_int_events_show(struct seq_file *s, void *unused)
 
 		seq_printf(s, "\n\n===== dbg_ep_events for EP(%d) %s =====\n",
 			i, dep->name);
-		seq_printf(s, "xfercomplete:%u @ %llHz\n",
+		seq_printf(s, "xfercomplete:%u @ %lldHz\n",
 			dep->dbg_ep_events.xfercomplete,
 			ep_event_rate(xfercomplete, dep->dbg_ep_events,
 				dep->dbg_ep_events_diff, delta_ms));
-		seq_printf(s, "xfernotready:%u @ %llHz\n",
+		seq_printf(s, "xfernotready:%u @ %lldHz\n",
 			dep->dbg_ep_events.xfernotready,
 			ep_event_rate(xfernotready, dep->dbg_ep_events,
 				dep->dbg_ep_events_diff, delta_ms));
-		seq_printf(s, "control_data:%u @ %llHz\n",
+		seq_printf(s, "control_data:%u @ %lldHz\n",
 			dep->dbg_ep_events.control_data,
 			ep_event_rate(control_data, dep->dbg_ep_events,
 				dep->dbg_ep_events_diff, delta_ms));
-		seq_printf(s, "control_status:%u @ %llHz\n",
+		seq_printf(s, "control_status:%u @ %lldHz\n",
 			dep->dbg_ep_events.control_status,
 			ep_event_rate(control_status, dep->dbg_ep_events,
 				dep->dbg_ep_events_diff, delta_ms));
-		seq_printf(s, "xferinprogress:%u @ %llHz\n",
+		seq_printf(s, "xferinprogress:%u @ %lldHz\n",
 			dep->dbg_ep_events.xferinprogress,
 			ep_event_rate(xferinprogress, dep->dbg_ep_events,
 				dep->dbg_ep_events_diff, delta_ms));
-		seq_printf(s, "rxtxfifoevent:%u @ %llHz\n",
+		seq_printf(s, "rxtxfifoevent:%u @ %lldHz\n",
 			dep->dbg_ep_events.rxtxfifoevent,
 			ep_event_rate(rxtxfifoevent, dep->dbg_ep_events,
 				dep->dbg_ep_events_diff, delta_ms));
-		seq_printf(s, "streamevent:%u @ %llHz\n",
+		seq_printf(s, "streamevent:%u @ %lldHz\n",
 			dep->dbg_ep_events.streamevent,
 			ep_event_rate(streamevent, dep->dbg_ep_events,
 				dep->dbg_ep_events_diff, delta_ms));
-		seq_printf(s, "epcmdcomplt:%u @ %llHz\n",
+		seq_printf(s, "epcmdcomplt:%u @ %lldHz\n",
 			dep->dbg_ep_events.epcmdcomplete,
 			ep_event_rate(epcmdcomplete, dep->dbg_ep_events,
 				dep->dbg_ep_events_diff, delta_ms));
-		seq_printf(s, "unknown:%u @ %llHz\n",
+		seq_printf(s, "unknown:%u @ %lldHz\n",
 			dep->dbg_ep_events.unknown_event,
 			ep_event_rate(unknown_event, dep->dbg_ep_events,
 				dep->dbg_ep_events_diff, delta_ms));
-		seq_printf(s, "total:%u @ %llHz\n",
+		seq_printf(s, "total:%u @ %lldHz\n",
 			dep->dbg_ep_events.total,
 			ep_event_rate(total, dep->dbg_ep_events,
 				dep->dbg_ep_events_diff, delta_ms));
