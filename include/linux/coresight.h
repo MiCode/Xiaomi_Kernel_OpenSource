@@ -313,6 +313,8 @@ extern const char *coresight_alloc_device_name(struct coresight_dev_list *devs,
 					 struct device *dev);
 extern void coresight_disable_reg_clk(struct coresight_device *csdev);
 extern int coresight_enable_reg_clk(struct coresight_device *csdev);
+extern void coresight_disable_all_source_link(void);
+extern void coresight_enable_all_source_link(void);
 #else
 static inline struct coresight_device *
 coresight_register(struct coresight_desc *desc) { return NULL; }
@@ -339,6 +341,8 @@ static inline int coresight_enable_reg_clk(struct coresight_device *csdev)
 {
 	return -EINVAL;
 }
+static void coresight_disable_all_source_link(void) {};
+static void coresight_enable_all_source_link(void) {};
 #endif
 
 extern int coresight_get_cpu(struct device *dev);
