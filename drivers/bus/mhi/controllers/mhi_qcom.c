@@ -33,6 +33,7 @@ struct firmware_info {
 };
 
 static const struct firmware_info firmware_table[] = {
+	{.dev_id = 0x307, .fw_image = "sdx60m/sbl1.mbn"},
 	{.dev_id = 0x306, .fw_image = "sdx55m/sbl1.mbn"},
 	{.dev_id = 0x305, .fw_image = "sdx50m/sbl1.mbn"},
 	{.dev_id = 0x304, .fw_image = "sbl.mbn", .edl_image = "edl.mbn"},
@@ -856,6 +857,7 @@ static struct pci_device_id mhi_pcie_device_id[] = {
 	{PCI_DEVICE(MHI_PCIE_VENDOR_ID, 0x0304)},
 	{PCI_DEVICE(MHI_PCIE_VENDOR_ID, 0x0305)},
 	{PCI_DEVICE(MHI_PCIE_VENDOR_ID, 0x0306)},
+	{PCI_DEVICE(MHI_PCIE_VENDOR_ID, 0x0307)},
 	{PCI_DEVICE(MHI_PCIE_VENDOR_ID, MHI_PCIE_DEBUG_ID)},
 	{0},
 };
