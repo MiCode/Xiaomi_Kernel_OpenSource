@@ -14,8 +14,6 @@
 #include <linux/suspend.h>
 #include <linux/timer.h>
 
-#include <linux/msm_ipa.h>
-
 #include "ipa_eth_i.h"
 
 unsigned long ipa_eth_state;
@@ -105,13 +103,6 @@ static int ipa_eth_init_device(struct ipa_eth_device *eth_dev)
 		return rc;
 	}
 
-	rc = ipa_eth_ep_register_interface(eth_dev);
-	if (rc) {
-		ipa_eth_dev_err(eth_dev, "Failed to register EP interface");
-		eth_dev->of_state = IPA_ETH_OF_ST_ERROR;
-		return rc;
-	}
-
 	ipa_eth_dev_log(eth_dev, "Initialized device");
 
 	eth_dev->of_state = IPA_ETH_OF_ST_INITED;
@@ -128,13 +119,6 @@ static int ipa_eth_deinit_device(struct ipa_eth_device *eth_dev)
 
 	if (eth_dev->of_state != IPA_ETH_OF_ST_INITED)
 		return -EFAULT;
-
-	rc = ipa_eth_ep_unregister_interface(eth_dev);
-	if (rc) {
-		ipa_eth_dev_err(eth_dev, "Failed to unregister IPA interface");
-		eth_dev->of_state = IPA_ETH_OF_ST_ERROR;
-		return rc;
-	}
 
 	rc = ipa_eth_offload_deinit(eth_dev);
 	if (rc) {
@@ -164,13 +148,9 @@ static int ipa_eth_deinit_device(struct ipa_eth_device *eth_dev)
 	return 0;
 }
 
-static void ipa_eth_free_msg(void *buff, u32 len, u32 type) {}
-
 static int ipa_eth_start_device(struct ipa_eth_device *eth_dev)
 {
 	int rc;
-	struct ipa_msg_meta msg_meta;
-	struct ipa_ecm_msg ecm_msg;
 
 	if (eth_dev->of_state == IPA_ETH_OF_ST_STARTED)
 		return 0;
@@ -200,15 +180,12 @@ static int ipa_eth_start_device(struct ipa_eth_device *eth_dev)
 		return rc;
 	}
 
-	memset(&msg_meta, 0, sizeof(msg_meta));
-	memset(&ecm_msg, 0, sizeof(ecm_msg));
-
-	ecm_msg.ifindex = eth_dev->net_dev->ifindex;
-	strlcpy(ecm_msg.name, eth_dev->net_dev->name, IPA_RESOURCE_NAME_MAX);
-
-	msg_meta.msg_type = ECM_CONNECT;
-	msg_meta.msg_len = sizeof(struct ipa_ecm_msg);
-	(void) ipa_send_msg(&msg_meta, &ecm_msg, ipa_eth_free_msg);
+	rc = ipa_eth_ep_register_interface(eth_dev);
+	if (rc) {
+		ipa_eth_dev_err(eth_dev, "Failed to register EP interface");
+		eth_dev->of_state = IPA_ETH_OF_ST_ERROR;
+		return rc;
+	}
 
 	ipa_eth_dev_log(eth_dev, "Started device");
 
@@ -220,24 +197,19 @@ static int ipa_eth_start_device(struct ipa_eth_device *eth_dev)
 static int ipa_eth_stop_device(struct ipa_eth_device *eth_dev)
 {
 	int rc;
-	struct ipa_msg_meta msg_meta;
-	struct ipa_ecm_msg ecm_msg;
-
-	memset(&msg_meta, 0, sizeof(msg_meta));
-	memset(&ecm_msg, 0, sizeof(ecm_msg));
-
-	ecm_msg.ifindex = eth_dev->net_dev->ifindex;
-	strlcpy(ecm_msg.name, eth_dev->net_dev->name, IPA_RESOURCE_NAME_MAX);
-
-	msg_meta.msg_type = ECM_DISCONNECT;
-	msg_meta.msg_len = sizeof(struct ipa_ecm_msg);
-	(void) ipa_send_msg(&msg_meta, &ecm_msg, ipa_eth_free_msg);
 
 	if (eth_dev->of_state == IPA_ETH_OF_ST_DEINITED)
 		return 0;
 
 	if (eth_dev->of_state != IPA_ETH_OF_ST_STARTED)
 		return -EFAULT;
+
+	rc = ipa_eth_ep_unregister_interface(eth_dev);
+	if (rc) {
+		ipa_eth_dev_err(eth_dev, "Failed to unregister IPA interface");
+		eth_dev->of_state = IPA_ETH_OF_ST_ERROR;
+		return rc;
+	}
 
 	rc = ipa_eth_bus_enable_pc(eth_dev);
 	if (rc) {
