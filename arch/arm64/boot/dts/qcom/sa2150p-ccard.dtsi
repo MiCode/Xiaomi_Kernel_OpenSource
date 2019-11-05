@@ -84,7 +84,7 @@
 };
 
 &soc {
-	gpio_key {
+	gpio_keys {
 		status = "disabled";
 	};
 
