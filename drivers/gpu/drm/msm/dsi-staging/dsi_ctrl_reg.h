@@ -153,6 +153,7 @@
 #define DSI_SECURE_DISPLAY_STATUS                  (0x02CC)
 #define DSI_SECURE_DISPLAY_BLOCK_COMMAND_COLOR     (0x02D0)
 #define DSI_SECURE_DISPLAY_BLOCK_VIDEO_COLOR       (0x02D4)
+#define DSI_CPHY_MODE_CTRL                         (0x02D8)
 #define DSI_LOGICAL_LANE_SWAP_CTRL                 (0x0310)
 #define DSI_SPLIT_LINK                             (0x0330)
 

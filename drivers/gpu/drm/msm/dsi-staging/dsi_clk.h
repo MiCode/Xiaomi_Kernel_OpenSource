@@ -117,11 +117,13 @@ struct dsi_link_lp_clk_info {
 /**
  * struct link_clk_freq - Clock frequency information for Link clocks
  * @byte_clk_rate:   Frequency of DSI byte_clk in KHz.
+ * @byte_intf_clk_rate:   Frequency of DSI byte_intf_clk in KHz.
  * @pixel_clk_rate:  Frequency of DSI pixel_clk in KHz.
  * @esc_clk_rate:    Frequency of DSI escape clock in KHz.
  */
 struct link_clk_freq {
 	u32 byte_clk_rate;
+	u32 byte_intf_clk_rate;
 	u32 pix_clk_rate;
 	u32 esc_clk_rate;
 };
@@ -306,10 +308,12 @@ int dsi_clk_set_pixel_clk_rate(void *client, u64 pixel_clk, u32 index);
  * dsi_clk_set_byte_clk_rate() - set frequency for byte clock
  * @client:       DSI clock client pointer.
  * @byte_clk: Pixel clock rate in Hz.
+ * @byte_intf_clk: Byte interface clock rate in Hz.
  * @index:      Index of the DSI controller.
  * return: error code in case of failure or 0 for success.
  */
-int dsi_clk_set_byte_clk_rate(void *client, u64 byte_clk, u32 index);
+int dsi_clk_set_byte_clk_rate(void *client, u64 byte_clk,
+				u64 byte_intf_clk, u32 index);
 
 /**
  * dsi_clk_update_parent() - update parent clocks for specified clock
