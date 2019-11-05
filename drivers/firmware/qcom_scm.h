@@ -9,8 +9,11 @@
 #define QCOM_SCM_BOOT_SET_ADDR			0x01
 #define QCOM_SCM_BOOT_TERMINATE_PC		0x02
 #define QCOM_SCM_BOOT_SEC_WDOG_DIS		0x07
+#define QCOM_SCM_BOOT_SEC_WDOG_TRIGGER		0x08
 #define QCOM_SCM_BOOT_SET_REMOTE_STATE		0x0a
+#define QCOM_SCM_BOOT_SWITCH_MODE		0x0f
 #define QCOM_SCM_BOOT_SET_DLOAD_MODE		0x10
+#define QCOM_SCM_BOOT_CONFIG_CPU_ERRATA		0x12
 extern int __qcom_scm_set_cold_boot_addr(struct device *dev, void *entry,
 		const cpumask_t *cpus);
 extern int __qcom_scm_set_warm_boot_addr(struct device *dev, void *entry,
@@ -19,6 +22,7 @@ extern void __qcom_scm_cpu_power_down(struct device *dev, u32 flags);
 extern int __qcom_scm_sec_wdog_deactivate(struct device *dev);
 extern int __qcom_scm_set_remote_state(struct device *dev, u32 state, u32 id);
 extern int __qcom_scm_set_dload_mode(struct device *dev, bool enable);
+extern int __qcom_scm_config_cpu_errata(struct device *dev);
 #define QCOM_SCM_FLUSH_FLAG_MASK	0x3
 
 #define QCOM_SCM_SVC_PIL			0x02

@@ -729,6 +729,19 @@ int __qcom_scm_set_dload_mode(struct device *dev, bool enable)
 	return qcom_scm_call_atomic(dev, &desc);
 }
 
+int __qcom_scm_config_cpu_errata(struct device *dev)
+{
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_BOOT,
+		.cmd = QCOM_SCM_BOOT_CONFIG_CPU_ERRATA,
+		.owner = ARM_SMCCC_OWNER_SIP,
+	};
+
+	desc.arginfo = 0xffffffff;
+
+	return qcom_scm_call(dev, &desc);
+}
+
 bool __qcom_scm_pas_supported(struct device *dev, u32 peripheral)
 {
 	int ret;

@@ -153,6 +153,12 @@ static void qcom_scm_set_download_mode(bool enable)
 		dev_err(__scm->dev, "failed to set download mode: %d\n", ret);
 }
 
+int qcom_scm_config_cpu_errata(void)
+{
+	return __qcom_scm_config_cpu_errata(__scm->dev);
+}
+EXPORT_SYMBOL(qcom_scm_config_cpu_errata);
+
 /**
  * qcom_scm_pas_supported() - Check if the peripheral authentication service is
  *			      available for the given peripherial
@@ -343,6 +349,19 @@ int qcom_scm_io_reset(void)
 	return __qcom_scm_io_reset(__scm ? __scm->dev : NULL);
 }
 EXPORT_SYMBOL(qcom_scm_io_reset);
+
+bool qcom_scm_is_secure_wdog_trigger_available(void)
+{
+	return __qcom_scm_is_call_available(__scm->dev, QCOM_SCM_SVC_BOOT,
+						QCOM_SCM_BOOT_SEC_WDOG_TRIGGER);
+}
+
+bool qcom_scm_is_mode_switch_available(void)
+{
+	return __qcom_scm_is_call_available(__scm->dev, QCOM_SCM_SVC_BOOT,
+						QCOM_SCM_BOOT_SWITCH_MODE);
+}
+EXPORT_SYMBOL(qcom_scm_is_mode_switch_available);
 
 int qcom_scm_get_jtag_etm_feat_id(u64 *version)
 {
