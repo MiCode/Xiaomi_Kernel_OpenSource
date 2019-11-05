@@ -339,6 +339,15 @@
 			size = <0x0 0x800000>;
 		};
 
+		cdsp_mem: cdsp_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+			reusable;
+			alignment = <0x0 0x400000>;
+			size = <0x0 0x400000>;
+		};
+
+
 		cdsp_secure_heap: cdsp_secure_heap@9b200000 {
 			reg = <0x0 0x9b200000 0x0 0x4600000>;
 		};
@@ -1683,6 +1692,15 @@
 			qcom,iommu-group = <>;
 		};
 	};
+	qcom,cvpss@abb0000 {
+		compatible = "qcom,pil-tz-generic";
+		reg = <0xabb0000 0x2000>;
+		status = "ok";
+		qcom,pas-id = <26>;
+		qcom,firmware-name = "cvpss";
+
+		memory-region = <&pil_cvp_mem>;
+	};
 };
 
 #include "lahaina-regulators.dtsi"
@@ -1694,3 +1712,4 @@
 #include "lahaina-pm.dtsi"
 #include "lahaina-qupv3.dtsi"
 #include "lahaina-vidc.dtsi"
+#include "lahaina-cvp.dtsi"
