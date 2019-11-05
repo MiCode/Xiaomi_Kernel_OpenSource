@@ -93,65 +93,33 @@ static struct platform_device *eud_private;
 static void enable_eud(struct platform_device *pdev)
 {
 	struct eud_chip *priv = platform_get_drvdata(pdev);
-	struct power_supply *usb_psy = NULL;
-	union power_supply_propval pval = {0};
-	union power_supply_propval tval = {0};
 	int ret;
 
-	usb_psy = power_supply_get_by_name("usb");
-	if (!usb_psy) {
-		dev_warn(&pdev->dev, "%s: Could not get usb power_supply\n",
-					__func__);
-		return;
+	/* write into CSR to enable EUD */
+	writel_relaxed(BIT(0), priv->eud_reg_base + EUD_REG_CSR_EUD_EN);
+
+	/* Enable vbus, chgr & safe mode warning interrupts */
+	writel_relaxed(EUD_INT_VBUS | EUD_INT_CHGR | EUD_INT_SAFE_MODE,
+			priv->eud_reg_base + EUD_REG_INT1_EN_MASK);
+
+	/* Enable secure eud if supported */
+	if (priv->secure_eud_en) {
+		ret = scm_io_write(priv->eud_mode_mgr2_phys_base +
+				   EUD_REG_EUD_EN2, EUD_ENABLE_CMD);
+		if (ret)
+			dev_err(&pdev->dev,
+			"scm_io_write failed with rc:%d\n", ret);
 	}
 
-	ret = power_supply_get_property(usb_psy,
-			POWER_SUPPLY_PROP_PRESENT, &pval);
-	if (ret) {
-		dev_err(&pdev->dev, "%s: Unable to read USB PRESENT: %d\n",
-					__func__, ret);
-		return;
-	}
+	/* Ensure Register Writes Complete */
+	wmb();
 
-	ret = power_supply_get_property(usb_psy,
-			POWER_SUPPLY_PROP_REAL_TYPE, &tval);
-	if (ret) {
-		dev_err(&pdev->dev, "%s: Unable to read USB TYPE: %d\n",
-					__func__, ret);
-		return;
-	}
-
-	if (pval.intval && (tval.intval == POWER_SUPPLY_TYPE_USB ||
-	    tval.intval == POWER_SUPPLY_TYPE_USB_CDP)) {
-		/* write into CSR to enable EUD */
-		writel_relaxed(BIT(0), priv->eud_reg_base + EUD_REG_CSR_EUD_EN);
-		/* Enable vbus, chgr & safe mode warning interrupts */
-		writel_relaxed(EUD_INT_VBUS | EUD_INT_CHGR | EUD_INT_SAFE_MODE,
-				priv->eud_reg_base + EUD_REG_INT1_EN_MASK);
-		/* Enable secure eud if supported */
-		if (priv->secure_eud_en) {
-			ret = scm_io_write(priv->eud_mode_mgr2_phys_base +
-					   EUD_REG_EUD_EN2, EUD_ENABLE_CMD);
-			if (ret)
-				dev_err(&pdev->dev,
-				"scm_io_write failed with rc:%d\n", ret);
-		}
-
-		/* Ensure Register Writes Complete */
-		wmb();
-
-		/*
-		 * Set the default cable state to usb connect and charger
-		 * enable
-		 */
-		extcon_set_state_sync(priv->extcon, EXTCON_USB, true);
-		extcon_set_state_sync(priv->extcon, EXTCON_CHG_USB_SDP, true);
-	} else {
-		dev_warn(&pdev->dev,
-			"%s: Connect USB cable before enabling EUD\n",
-			__func__);
-		return;
-	}
+	/*
+	 * Set the default cable state to usb connect and charger
+	 * enable
+	 */
+	extcon_set_state_sync(priv->extcon, EXTCON_USB, true);
+	extcon_set_state_sync(priv->extcon, EXTCON_CHG_USB_SDP, true);
 
 	dev_dbg(&pdev->dev, "%s: EUD is Enabled\n", __func__);
 }
@@ -549,6 +517,7 @@ static int msm_eud_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, chip);
 
+	chip->dev = &pdev->dev;
 	chip->extcon = devm_extcon_dev_allocate(&pdev->dev, eud_extcon_cable);
 	if (IS_ERR(chip->extcon)) {
 		dev_err(chip->dev, "%s: failed to allocate extcon device\n",
