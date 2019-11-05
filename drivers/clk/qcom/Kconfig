@@ -375,4 +375,13 @@ config MSM_GPUCC_LAHAINA
 	  Say Y if you want to support graphics controller devices and
 	  functionality such as 3D graphics.
 
+config MSM_CAMCC_LAHAINA
+	tristate "Lahaina Camera Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the camera clock controller on Qualcomm Technologies, Inc.
+	  LAHAINA devices.
+	  Say Y if you want to support camera devices and functionality such as
+	  capturing pictures.
+
 endif
