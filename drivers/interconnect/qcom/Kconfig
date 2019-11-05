@@ -27,7 +27,6 @@ config INTERCONNECT_QCOM_LAHAINA
 	depends on INTERCONNECT_QCOM
 	depends on QCOM_RPMH && QCOM_COMMAND_DB && OF
 	select INTERCONNECT_QCOM_BCM_VOTER
-	select INTERCONNECT_QCOM_RPMH
 	help
 	  This is a driver for the Qualcomm Technologies, Inc. Network-on-Chip
 	  on lahaina-based platforms.
@@ -45,7 +44,4 @@ config INTERCONNECT_QCOM_SMD_RPM
 	tristate
 
 config INTERCONNECT_QCOM_BCM_VOTER
-	tristate
-
-config INTERCONNECT_QCOM_RPMH
 	tristate
