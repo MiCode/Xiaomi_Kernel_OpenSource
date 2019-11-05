@@ -322,6 +322,10 @@
 	status = "ok";
 };
 
+&pil_spss {
+	status = "ok";
+};
+
 &clock_scc {
 	vdd_scc_cx-supply = <&pm8195_3_l8_level>;
 	status = "ok";
