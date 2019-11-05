@@ -769,58 +769,6 @@ static const struct of_device_id adreno_match_table[] = {
 	{}
 };
 
-static void adreno_of_get_ca_target_pwrlevel(struct adreno_device *adreno_dev,
-		struct device_node *node)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	unsigned int ca_target_pwrlevel = 1;
-
-	of_property_read_u32(node, "qcom,ca-target-pwrlevel",
-		&ca_target_pwrlevel);
-
-	if (ca_target_pwrlevel >= device->pwrctrl.num_pwrlevels)
-		ca_target_pwrlevel = 1;
-
-	device->pwrscale.ctxt_aware_target_pwrlevel = ca_target_pwrlevel;
-}
-
-static void adreno_of_get_ca_aware_properties(struct adreno_device *adreno_dev,
-		struct device_node *parent)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct kgsl_pwrscale *pwrscale = &device->pwrscale;
-	struct device_node *node, *child;
-	unsigned int bin = 0;
-
-	pwrscale->ctxt_aware_enable =
-		of_property_read_bool(parent, "qcom,enable-ca-jump");
-
-	if (pwrscale->ctxt_aware_enable) {
-		if (of_property_read_u32(parent, "qcom,ca-busy-penalty",
-			&pwrscale->ctxt_aware_busy_penalty))
-			pwrscale->ctxt_aware_busy_penalty = 12000;
-
-		node = of_find_node_by_name(parent, "qcom,gpu-pwrlevel-bins");
-		if (node == NULL) {
-			adreno_of_get_ca_target_pwrlevel(adreno_dev, parent);
-			return;
-		}
-
-		for_each_child_of_node(node, child) {
-			if (of_property_read_u32(child, "qcom,speed-bin", &bin))
-				continue;
-
-			if (bin == adreno_dev->speed_bin) {
-				adreno_of_get_ca_target_pwrlevel(adreno_dev,
-					child);
-				return;
-			}
-		}
-
-		pwrscale->ctxt_aware_target_pwrlevel = 1;
-	}
-}
-
 /* Dynamically build the OPP table for the GPU device */
 static void adreno_build_opp_table(struct device *dev, struct kgsl_pwrctrl *pwr)
 {
@@ -1030,7 +978,7 @@ static int adreno_of_get_pwrlevels(struct adreno_device *adreno_dev,
 		if (of_property_read_u32(child, "qcom,speed-bin", &bin))
 			continue;
 
-		if (bin == adreno_dev->speed_bin) {
+		if (bin == device->speed_bin) {
 			int ret;
 
 			ret = adreno_of_parse_pwrlevels(adreno_dev, child);
@@ -1052,7 +1000,7 @@ static int adreno_of_get_pwrlevels(struct adreno_device *adreno_dev,
 
 	dev_err(&device->pdev->dev,
 		"GPU speed_bin:%d mismatch for efused bin:%d\n",
-		adreno_dev->speed_bin, bin);
+		device->speed_bin, bin);
 	return -ENODEV;
 }
 
@@ -1118,9 +1066,6 @@ static int adreno_of_get_power(struct adreno_device *adreno_dev,
 
 	if (adreno_of_get_pwrlevels(adreno_dev, node))
 		return -EINVAL;
-
-	/* Get context aware DCVS properties */
-	adreno_of_get_ca_aware_properties(adreno_dev, node);
 
 	l3_pwrlevel_probe(device, node);
 
@@ -1418,7 +1363,7 @@ static int adreno_bind(struct device *dev)
 	if (status < 0)
 		return status;
 
-	adreno_dev->speed_bin = status;
+	device->speed_bin = status;
 
 	/* Get the chip ID from the DT and set up target specific parameters */
 	if (adreno_identify_gpu(adreno_dev))
@@ -2507,7 +2452,7 @@ static int adreno_prop_u32(struct kgsl_device *device,
 	else if (param->type == KGSL_PROP_DEVICE_BITNESS)
 		val = adreno_support_64bit(adreno_dev) ? 48 : 32;
 	else if (param->type == KGSL_PROP_SPEED_BIN)
-		val = adreno_dev->speed_bin;
+		val = device->speed_bin;
 
 	return copy_prop(param, &val, sizeof(val));
 }
