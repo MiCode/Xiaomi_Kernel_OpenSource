@@ -25,6 +25,8 @@
 
 #define PDC_MAX_IRQS		168
 #define PDC_IPC_LOG_SZ		2
+
+#define PDC_MAX_IRQS		168
 #define PDC_MAX_GPIO_IRQS	256
 
 #define CLEAR_INTR(reg, intr)	(reg & ~(1 << intr))
@@ -42,8 +44,10 @@ struct pdc_pin_region {
 };
 
 struct spi_cfg_regs {
-	u64 start;
-	void __iomem *base;
+	union {
+		u64 start;
+		void __iomem *base;
+	};
 	resource_size_t size;
 	bool scm_io;
 };
@@ -149,7 +153,7 @@ static u32 __spi_pin_read(unsigned int pin)
 		qcom_scm_io_readl(scm_cfg_reg, &val);
 		return val;
 	} else {
-		return readl_relaxed(cfg_reg);
+		return readl(cfg_reg);
 	}
 }
 
@@ -161,7 +165,7 @@ static void __spi_pin_write(unsigned int pin, unsigned int val)
 	if (spi_cfg->scm_io)
 		qcom_scm_io_writel(scm_cfg_reg, val);
 	else
-		writel_relaxed(val, cfg_reg);
+		writel(val, cfg_reg);
 }
 
 static int spi_configure_type(irq_hw_number_t hwirq, unsigned int type)
@@ -270,6 +274,11 @@ static int qcom_pdc_gic_set_type(struct irq_data *d, unsigned int type)
 		if (ret)
 			return ret;
 	}
+
+	/* Additionally, configure (only) the GPIO in the f/w */
+	ret = spi_configure_type(parent_hwirq, type);
+	if (ret)
+		return ret;
 
 	return irq_chip_set_type_parent(d, type);
 }

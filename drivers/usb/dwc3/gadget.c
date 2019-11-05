@@ -824,6 +824,12 @@ static void dwc3_remove_requests(struct dwc3 *dwc, struct dwc3_ep *dep)
 		dwc3_gadget_giveback(dep, req, -ESHUTDOWN);
 	}
 
+	while (!list_empty(&dep->cancelled_list)) {
+		req = next_request(&dep->cancelled_list);
+
+		dwc3_gadget_giveback(dep, req, -ESHUTDOWN);
+	}
+
 	if (dep->number == 1 && dwc->ep0state != EP0_SETUP_PHASE) {
 		unsigned int dir;
 

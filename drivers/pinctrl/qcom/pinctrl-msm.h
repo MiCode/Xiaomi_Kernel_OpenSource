@@ -146,10 +146,10 @@ struct msm_pinctrl_soc_data {
 	const char *const *tiles;
 	unsigned int ntiles;
 	const int *reserved_gpios;
-	struct pinctrl_qup *qup_regs;
-	unsigned int nqup_regs;
 	const struct msm_gpio_wakeirq_map *wakeirq_map;
 	unsigned int nwakeirq_map;
+	struct pinctrl_qup *qup_regs;
+	unsigned int nqup_regs;
 };
 
 extern const struct dev_pm_ops msm_pinctrl_dev_pm_ops;

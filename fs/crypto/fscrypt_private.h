@@ -13,6 +13,9 @@
 
 #include <linux/fscrypt.h>
 #include <crypto/hash.h>
+#include <linux/bio-crypt-ctx.h>
+
+struct fscrypt_master_key;
 
 #define CONST_STRLEN(str)	(sizeof(str) - 1)
 
@@ -163,11 +166,16 @@ struct fscrypt_info {
 	/* The actual crypto transform used for encryption and decryption */
 	struct crypto_skcipher *ci_ctfm;
 
+#ifdef CONFIG_FS_ENCRYPTION_INLINE_CRYPT
 	/*
-	 * Cipher for ESSIV IV generation.  Only set for CBC contents
-	 * encryption, otherwise is NULL.
+	 * The raw key for inline encryption, if this file is using inline
+	 * encryption rather than the traditional filesystem layer encryption.
 	 */
-	struct crypto_cipher *ci_essiv_tfm;
+	const u8 *ci_inline_crypt_key;
+#endif
+
+	/* True if the key should be freed when this fscrypt_info is freed */
+	bool ci_owns_key;
 
 	/*
 	 * Encryption mode used for this inode.  It corresponds to either the
@@ -208,8 +216,6 @@ typedef enum {
 	FS_DECRYPT = 0,
 	FS_ENCRYPT,
 } fscrypt_direction_t;
-
-#define FS_CTX_REQUIRES_FREE_ENCRYPT_FL		0x00000001
 
 static inline bool fscrypt_valid_enc_modes(u32 contents_mode,
 					   u32 filenames_mode)
@@ -289,13 +295,62 @@ extern int fscrypt_init_hkdf(struct fscrypt_hkdf *hkdf, const u8 *master_key,
  */
 #define HKDF_CONTEXT_KEY_IDENTIFIER	1
 #define HKDF_CONTEXT_PER_FILE_KEY	2
-#define HKDF_CONTEXT_PER_MODE_KEY	3
+#define HKDF_CONTEXT_DIRECT_KEY		3
+#define HKDF_CONTEXT_IV_INO_LBLK_64_KEY	4
 
 extern int fscrypt_hkdf_expand(struct fscrypt_hkdf *hkdf, u8 context,
 			       const u8 *info, unsigned int infolen,
 			       u8 *okm, unsigned int okmlen);
 
 extern void fscrypt_destroy_hkdf(struct fscrypt_hkdf *hkdf);
+
+/* inline_crypt.c */
+#ifdef CONFIG_FS_ENCRYPTION_INLINE_CRYPT
+extern bool fscrypt_should_use_inline_encryption(const struct fscrypt_info *ci);
+
+extern int fscrypt_set_inline_crypt_key(struct fscrypt_info *ci,
+					const u8 *derived_key);
+
+extern void fscrypt_free_inline_crypt_key(struct fscrypt_info *ci);
+
+extern int fscrypt_setup_per_mode_inline_crypt_key(
+					struct fscrypt_info *ci,
+					struct fscrypt_master_key *mk);
+
+extern void fscrypt_evict_inline_crypt_keys(struct fscrypt_master_key *mk);
+
+#else /* CONFIG_FS_ENCRYPTION_INLINE_CRYPT */
+
+static inline bool fscrypt_should_use_inline_encryption(
+					const struct fscrypt_info *ci)
+{
+	return false;
+}
+
+static inline int fscrypt_set_inline_crypt_key(struct fscrypt_info *ci,
+					       const u8 *derived_key)
+{
+	WARN_ON(1);
+	return -EOPNOTSUPP;
+}
+
+static inline void fscrypt_free_inline_crypt_key(struct fscrypt_info *ci)
+{
+}
+
+static inline int fscrypt_setup_per_mode_inline_crypt_key(
+					struct fscrypt_info *ci,
+					struct fscrypt_master_key *mk)
+{
+	WARN_ON(1);
+	return -EOPNOTSUPP;
+}
+
+static inline void fscrypt_evict_inline_crypt_keys(
+					struct fscrypt_master_key *mk)
+{
+}
+#endif /* !CONFIG_FS_ENCRYPTION_INLINE_CRYPT */
 
 /* keyring.c */
 
@@ -386,9 +441,25 @@ struct fscrypt_master_key {
 	struct list_head	mk_decrypted_inodes;
 	spinlock_t		mk_decrypted_inodes_lock;
 
-	/* Per-mode tfms for DIRECT_KEY policies, allocated on-demand */
-	struct crypto_skcipher	*mk_mode_keys[__FSCRYPT_MODE_MAX + 1];
+	/* Crypto API transforms for DIRECT_KEY policies, allocated on-demand */
+	struct crypto_skcipher	*mk_direct_tfms[__FSCRYPT_MODE_MAX + 1];
 
+	/*
+	 * Crypto API transforms for filesystem-layer implementation of
+	 * IV_INO_LBLK_64 policies, allocated on-demand.
+	 */
+	struct crypto_skcipher	*mk_iv_ino_lblk_64_tfms[__FSCRYPT_MODE_MAX + 1];
+
+#ifdef CONFIG_FS_ENCRYPTION_INLINE_CRYPT
+	/* Raw keys for IV_INO_LBLK_64 policies, allocated on-demand */
+	u8			*mk_iv_ino_lblk_64_raw_keys[__FSCRYPT_MODE_MAX + 1];
+
+	/* The data unit size being used for inline encryption */
+	unsigned int		mk_data_unit_size;
+
+	/* The filesystem's block device */
+	struct block_device	*mk_bdev;
+#endif
 } __randomize_layout;
 
 static inline bool
@@ -443,9 +514,11 @@ struct fscrypt_mode {
 	const char *cipher_str;
 	int keysize;
 	int ivsize;
+	enum blk_crypto_mode_num blk_crypto_mode;
 	bool logged_impl_name;
-	bool needs_essiv;
 };
+
+extern struct fscrypt_mode fscrypt_modes[];
 
 static inline bool
 fscrypt_mode_supports_direct_key(const struct fscrypt_mode *mode)
