@@ -615,6 +615,13 @@ static int ipa3_attrib_dump(struct ipa_rule_attrib *attrib,
 			"ether_type:%x ",
 			attrib->ether_type);
 
+	if (attrib->attrib_mask & IPA_FLT_VLAN_ID)
+		nbytes += scnprintf(
+			dbg_buff + nbytes,
+			IPA_MAX_MSG_LEN - nbytes,
+			"vlan_id:%x ",
+			attrib->vlan_id);
+
 	if (attrib->attrib_mask & IPA_FLT_TCP_SYN)
 		nbytes += scnprintf(
 			dbg_buff + nbytes,
