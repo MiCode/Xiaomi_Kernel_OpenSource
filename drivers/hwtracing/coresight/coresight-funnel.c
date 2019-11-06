@@ -256,6 +256,7 @@ static int funnel_probe(struct device *dev, struct resource *res)
 
 	dev_set_drvdata(dev, drvdata);
 
+	spin_lock_init(&drvdata->spinlock);
 	desc.type = CORESIGHT_DEV_TYPE_LINK;
 	desc.subtype.link_subtype = CORESIGHT_DEV_SUBTYPE_LINK_MERG;
 	desc.ops = &funnel_cs_ops;
