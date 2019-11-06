@@ -244,13 +244,12 @@ static int spis_block_read_mem(struct spi_device *spi,
 		.tx_buf = ctx->tx_buf,
 		.rx_buf = ctx->rx_buf,
 		.len = sz,
-		.bits_per_word = 8,
-		/*.bits_per_word = 32,*/
+		.bits_per_word = 32,
 	};
 	u32 frame = 0xB << 24;
 
 	frame |= address & 0xFFFFFF;
-	frame = cpu_to_be32(frame);
+	frame = cpu_to_le32(frame);
 
 	/* Read length must be in 32 bit units */
 	if (length & 3) {
