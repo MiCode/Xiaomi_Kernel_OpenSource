@@ -149,6 +149,7 @@ enum ecm_ipa_operation {
  * @usb_to_ipa_client: producer client
  * @pm_hdl: handle for IPA PM
  * @is_vlan_mode: does the driver need to work in VLAN mode?
+ * @netif_rx_function: holds the correct network stack API, needed for NAPI
  */
 struct ecm_ipa_dev {
 	struct net_device *net;
@@ -166,6 +167,7 @@ struct ecm_ipa_dev {
 	enum ipa_client_type usb_to_ipa_client;
 	u32 pm_hdl;
 	bool is_vlan_mode;
+	int (*netif_rx_function)(struct sk_buff *skb);
 };
 
 static int ecm_ipa_open(struct net_device *net);
@@ -286,6 +288,13 @@ int ecm_ipa_init(struct ecm_ipa_params *params)
 	snprintf(net->name, sizeof(net->name), "%s%%d", "ecm");
 	net->netdev_ops = &ecm_ipa_netdev_ops;
 	net->watchdog_timeo = TX_TIMEOUT;
+	if (ipa_get_lan_rx_napi()) {
+		ecm_ipa_ctx->netif_rx_function = netif_receive_skb;
+		ECM_IPA_DEBUG("LAN RX NAPI enabled = True");
+	} else {
+		ecm_ipa_ctx->netif_rx_function = netif_rx_ni;
+		ECM_IPA_DEBUG("LAN RX NAPI enabled = False");
+	}
 	ECM_IPA_DEBUG("internal data structures were initialized\n");
 
 	if (!params->device_ready_notify)
@@ -655,7 +664,7 @@ static void ecm_ipa_packet_receive_notify
 		return;
 	}
 
-	if (evt != IPA_RECEIVE)	{
+	if (unlikely(evt != IPA_RECEIVE)) {
 		ECM_IPA_ERROR("A none IPA_RECEIVE event in ecm_ipa_receive\n");
 		return;
 	}
@@ -663,9 +672,9 @@ static void ecm_ipa_packet_receive_notify
 	skb->dev = ecm_ipa_ctx->net;
 	skb->protocol = eth_type_trans(skb, ecm_ipa_ctx->net);
 
-	result = netif_rx(skb);
-	if (result)
-		ECM_IPA_ERROR("fail on netif_rx\n");
+	result = ecm_ipa_ctx->netif_rx_function(skb);
+	if (unlikely(result))
+		ECM_IPA_ERROR("fail on netif_rx_function\n");
 	ecm_ipa_ctx->net->stats.rx_packets++;
 	ecm_ipa_ctx->net->stats.rx_bytes += packet_len;
 }

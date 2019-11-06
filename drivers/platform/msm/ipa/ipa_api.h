@@ -470,6 +470,8 @@ struct ipa_api_controller {
 		bool (*teth_port_state)(void), enum ipa_client_type client);
 
 	void (*ipa_deregister_client_callback)(enum ipa_client_type client);
+	bool (*ipa_get_lan_rx_napi)(void);
+
 };
 
 #ifdef CONFIG_IPA3
