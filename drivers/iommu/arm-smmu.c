@@ -5010,6 +5010,11 @@ static int qsmmuv500_tbu_halt(struct qsmmuv500_tbu_device *tbu,
 					(status & DEBUG_SR_HALT_ACK_VAL),
 					0, TBU_DBG_TIMEOUT_US)) {
 		dev_err(tbu->dev, "Couldn't halt TBU!\n");
+
+		halt = readl_relaxed(tbu_base + DEBUG_SID_HALT_REG);
+		halt &= ~DEBUG_SID_HALT_REQ;
+		writel_relaxed(halt, tbu_base + DEBUG_SID_HALT_REG);
+
 		spin_unlock_irqrestore(&tbu->halt_lock, flags);
 		return -ETIMEDOUT;
 	}
