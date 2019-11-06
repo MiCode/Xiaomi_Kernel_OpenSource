@@ -65,9 +65,10 @@ int wil_fw_copy_crash_dump(struct wil6210_priv *wil, void *dest, u32 size)
 	down_write(&wil->mem_lock);
 
 	if (test_bit(wil_status_suspending, wil->status) ||
-	    test_bit(wil_status_suspended, wil->status)) {
+	    test_bit(wil_status_suspended, wil->status) ||
+	    test_bit(wil_status_pci_linkdown, wil->status)) {
 		wil_err(wil,
-			"suspend/resume in progress. cannot copy crash dump\n");
+			"suspend/resume/pci linkdown in progress. cannot copy crash dump\n");
 		up_write(&wil->mem_lock);
 		return -EBUSY;
 	}
