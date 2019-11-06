@@ -4193,6 +4193,22 @@ int cam_ife_csid_hw_probe_init(struct cam_hw_intf  *csid_hw_intf,
 	for (i = 0; i <= CAM_IFE_PIX_PATH_RES_RDI_3; i++)
 		ife_csid_hw->rdi_path_config[i].measure_enabled = 0;
 
+	scnprintf(worker_name, sizeof(worker_name),
+		"csid%u_worker", ife_csid_hw->hw_intf->hw_idx);
+	CAM_DBG(CAM_ISP, "Create CSID worker %s", worker_name);
+	rc = cam_req_mgr_workq_create(worker_name,
+		CAM_CSID_WORKQ_NUM_TASK,
+		&ife_csid_hw->work, CRM_WORKQ_USAGE_IRQ, 0);
+
+	if (rc) {
+		CAM_ERR(CAM_ISP, "Unable to create a workq, rc=%d", rc);
+		goto err;
+	}
+
+	for (i = 0; i < CAM_CSID_WORKQ_NUM_TASK; i++)
+		ife_csid_hw->work->task.pool[i].payload =
+			&ife_csid_hw->work_data[i];
+
 	/* Check if ppi bridge is present or not? */
 	ife_csid_hw->ppi_enable = of_property_read_bool(
 		csid_hw_info->soc_info.pdev->dev.of_node,
@@ -4209,21 +4225,6 @@ int cam_ife_csid_hw_probe_init(struct cam_hw_intf  *csid_hw_intf,
 			break;
 		}
 	}
-	snprintf(worker_name, sizeof(worker_name),
-		"csid%u_worker", ife_csid_hw->hw_intf->hw_idx);
-	CAM_DBG(CAM_ISP, "Create CSID worker %s", worker_name);
-	rc = cam_req_mgr_workq_create(worker_name,
-		CAM_CSID_WORKQ_NUM_TASK,
-		&ife_csid_hw->work, CRM_WORKQ_USAGE_IRQ, 0);
-	if (rc) {
-		CAM_ERR(CAM_ISP, "Unable to create a workq, rc=%d", rc);
-		goto err;
-	}
-	for (i = 0; i < CAM_CSID_WORKQ_NUM_TASK; i++)
-		ife_csid_hw->work->task.pool[i].payload =
-			&ife_csid_hw->work_data[i];
-
-	return 0;
 err:
 	if (rc) {
 		kfree(ife_csid_hw->ipp_res.res_priv);
