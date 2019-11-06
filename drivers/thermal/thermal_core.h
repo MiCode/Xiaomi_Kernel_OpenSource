@@ -117,25 +117,29 @@ of_thermal_get_trip_points(struct thermal_zone_device *tz)
 }
 #endif
 #if (defined(CONFIG_QTI_THERMAL) && defined(CONFIG_THERMAL_OF))
-int of_thermal_aggregate_trip(struct thermal_zone_device *tz,
+int of_thermal_aggregate_trip(struct device *dev,
+			      struct thermal_zone_device *tz,
 			      enum thermal_trip_type type,
 			      int *low, int *high);
-void of_thermal_handle_trip(struct thermal_zone_device *tz);
-void of_thermal_handle_trip_temp(struct thermal_zone_device *tz,
-					int trip_temp);
+void of_thermal_handle_trip(struct device *dev,
+			    struct thermal_zone_device *tz);
+void of_thermal_handle_trip_temp(struct device *dev,
+				struct thermal_zone_device *tz,
+				int trip_temp);
 #else
-static inline int of_thermal_aggregate_trip(struct thermal_zone_device *tz,
+static inline int of_thermal_aggregate_trip(struct device *dev,
+					    struct thermal_zone_device *tz,
 					    enum thermal_trip_type type,
 					    int *low, int *high)
 {
 	return -ENODEV;
 }
 static inline
-void of_thermal_handle_trip(struct thermal_zone_device *tz)
+void of_thermal_handle_trip(struct device *dev, struct thermal_zone_device *tz)
 { }
 static inline
-void of_thermal_handle_trip_temp(struct thermal_zone_device *tz,
-					int trip_temp)
+void of_thermal_handle_trip_temp(struct device *dev,
+				 struct thermal_zone_device *tz, int trip_temp)
 { }
 #endif
 
