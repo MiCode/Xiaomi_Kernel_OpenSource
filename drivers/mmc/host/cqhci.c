@@ -721,6 +721,8 @@ static int cqhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		BUG();
 	}
 	mmc_log_string(mmc, "tag: %d\n", tag);
+	/* Make sure descriptors are ready before ringing the doorbell */
+	wmb();
 	cqhci_writel(cq_host, 1 << tag, CQHCI_TDBR);
 	/* Commit the doorbell write immediately */
 	wmb();
