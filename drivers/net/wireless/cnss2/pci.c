@@ -891,6 +891,8 @@ static int cnss_pci_check_mhi_state_bit(struct cnss_pci_data *pci_priv,
 	cnss_pr_err("Cannot set MHI state %s(%d) in current MHI state (0x%lx)\n",
 		    cnss_mhi_state_to_str(mhi_state), mhi_state,
 		    pci_priv->mhi_state);
+	if (mhi_state != CNSS_MHI_TRIGGER_RDDM)
+		CNSS_ASSERT(0);
 
 	return -EINVAL;
 }
@@ -965,6 +967,11 @@ static int cnss_pci_set_mhi_state(struct cnss_pci_data *pci_priv,
 		break;
 	case CNSS_MHI_POWER_ON:
 		ret = mhi_sync_power_up(pci_priv->mhi_ctrl);
+		/* -ETIMEDOUT means MHI power up has succeeded but timed out
+		 * for firmware mission mode event, so handle it properly.
+		 */
+		if (ret == -ETIMEDOUT)
+			ret = 0;
 		break;
 	case CNSS_MHI_POWER_OFF:
 		mhi_power_down(pci_priv->mhi_ctrl, true);
@@ -1665,6 +1672,11 @@ static int cnss_qca6290_shutdown(struct cnss_pci_data *pci_priv)
 		cnss_pci_collect_dump(pci_priv);
 	}
 
+	if (!cnss_is_device_powered_on(plat_priv)) {
+		cnss_pr_dbg("Device is already powered off, ignore\n");
+		goto skip_power_off;
+	}
+
 	cnss_pci_power_off_mhi(pci_priv);
 	ret = cnss_suspend_pci_link(pci_priv);
 	if (ret)
@@ -1674,6 +1686,7 @@ static int cnss_qca6290_shutdown(struct cnss_pci_data *pci_priv)
 
 	cnss_power_off_device(plat_priv);
 
+skip_power_off:
 	pci_priv->remap_window = 0;
 
 	clear_bit(CNSS_FW_READY, &plat_priv->driver_state);

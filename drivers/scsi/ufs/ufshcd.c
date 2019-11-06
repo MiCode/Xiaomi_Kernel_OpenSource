@@ -42,6 +42,7 @@
 #include <linux/nls.h>
 #include <linux/of.h>
 #include <linux/bitfield.h>
+#include <linux/blkdev.h>
 #include <linux/suspend.h>
 #include "ufshcd.h"
 #include "ufs_quirks.h"
@@ -49,6 +50,13 @@
 #include "ufs-sysfs.h"
 #include "ufs-debugfs.h"
 #include "ufs-qcom.h"
+
+static bool ufshcd_wb_sup(struct ufs_hba *hba);
+static int ufshcd_wb_ctrl(struct ufs_hba *hba, bool enable);
+static int ufshcd_wb_buf_flush_enable(struct ufs_hba *hba);
+static int ufshcd_wb_buf_flush_disable(struct ufs_hba *hba);
+static bool ufshcd_wb_is_buf_flush_needed(struct ufs_hba *hba);
+static int ufshcd_wb_toggle_flush_during_h8(struct ufs_hba *hba, bool set);
 
 #ifdef CONFIG_DEBUG_FS
 
@@ -376,6 +384,38 @@ static inline bool ufshcd_is_card_offline(struct ufs_hba *hba)
 	return (atomic_read(&hba->card_state) == UFS_CARD_STATE_OFFLINE);
 }
 
+static inline void ufshcd_wb_toggle_flush(struct ufs_hba *hba)
+{
+	/*
+	 * Query dAvailableWriteBoosterBufferSize attribute and enable
+	 * the Write BoosterBuffer Flush if only 30% Write Booster
+	 * Buffer is available.
+	 * In reduction case, flush only if 10% is available
+	 */
+	if (ufshcd_wb_is_buf_flush_needed(hba))
+		ufshcd_wb_buf_flush_enable(hba);
+	else
+		ufshcd_wb_buf_flush_disable(hba);
+}
+
+static inline void ufshcd_wb_config(struct ufs_hba *hba)
+{
+	int ret;
+
+	if (!ufshcd_wb_sup(hba))
+		return;
+
+	ret = ufshcd_wb_ctrl(hba, true);
+	if (ret)
+		dev_err(hba->dev, "%s: Enable WB failed: %d\n", __func__, ret);
+	else
+		dev_info(hba->dev, "%s: Write Booster Configured\n", __func__);
+	ret = ufshcd_wb_toggle_flush_during_h8(hba, true);
+	if (ret)
+		dev_err(hba->dev, "%s: En WB flush during H8: failed: %d\n",
+			__func__, ret);
+}
+
 static inline bool ufshcd_is_device_offline(struct ufs_hba *hba)
 {
 	if (hba->extcon && ufshcd_is_card_offline(hba))
@@ -430,6 +470,8 @@ static struct ufs_dev_fix ufs_fixups[] = {
 		UFS_DEVICE_NO_FASTAUTO),
 	UFS_FIX(UFS_VENDOR_SAMSUNG, UFS_ANY_MODEL,
 		UFS_DEVICE_QUIRK_HOST_PA_TACTIVATE),
+	UFS_FIX(UFS_VENDOR_WDC, UFS_ANY_MODEL,
+		UFS_DEVICE_QUIRK_HOST_PA_TACTIVATE),
 	UFS_FIX(UFS_VENDOR_SAMSUNG, UFS_ANY_MODEL, UFS_DEVICE_NO_VCCQ),
 	UFS_FIX(UFS_VENDOR_TOSHIBA, UFS_ANY_MODEL,
 		UFS_DEVICE_QUIRK_DELAY_BEFORE_LPM),
@@ -458,6 +500,8 @@ static struct ufs_dev_fix ufs_fixups[] = {
 		UFS_DEVICE_QUIRK_HS_G1_TO_HS_G3_SWITCH),
 	UFS_FIX(UFS_VENDOR_SKHYNIX, "hC8HL1",
 		UFS_DEVICE_QUIRK_HS_G1_TO_HS_G3_SWITCH),
+	UFS_FIX(UFS_VENDOR_SKHYNIX, "H9HQ16",
+		UFS_DEVICE_QUIRK_RECOVERY_FROM_DL_NAC_ERRORS),
 
 	END_FIX
 };
@@ -1831,6 +1875,10 @@ static int ufshcd_devfreq_scale(struct ufs_hba *hba, bool scale_up)
 				hba->clk_gating.delay_ms_pwr_save;
 	}
 
+	/* Enable Write Booster if we have scaled up else disable it */
+	up_write(&hba->lock);
+	ufshcd_wb_ctrl(hba, scale_up);
+	down_write(&hba->lock);
 	goto clk_scaling_unprepare;
 
 scale_up_gear:
@@ -5176,12 +5224,12 @@ more_wait:
 		if ((intr_status & UFSHCD_UIC_PWR_MASK) ||
 		    ((hba->ufs_stats.last_intr_status & UFSHCD_UIC_PWR_MASK) &&
 		     (ts_since_last_intr < (s64)UIC_CMD_TIMEOUT))) {
-			if (wait_retries--)
-				goto more_wait;
-
 			dev_info(hba->dev, "IS:0x%08x last_intr_sts:0x%08x last_intr_ts:%lld, retry-cnt:%d\n",
 				intr_status, hba->ufs_stats.last_intr_status,
 				hba->ufs_stats.last_intr_ts, wait_retries);
+			if (wait_retries--)
+				goto more_wait;
+
 			/*
 			 * If same state continues event after more wait time,
 			 * something must be hogging CPU.
@@ -6878,6 +6926,163 @@ out:
 				__func__, err);
 }
 
+static bool ufshcd_wb_sup(struct ufs_hba *hba)
+{
+	return !!(hba->dev_info.d_ext_ufs_feature_sup &
+		  UFS_DEV_WRITE_BOOSTER_SUP);
+}
+
+static int ufshcd_wb_ctrl(struct ufs_hba *hba, bool enable)
+{
+	int ret;
+	enum query_opcode opcode;
+
+	if (!ufshcd_wb_sup(hba))
+		return 0;
+
+	if (enable)
+		opcode = UPIU_QUERY_OPCODE_SET_FLAG;
+	else
+		opcode = UPIU_QUERY_OPCODE_CLEAR_FLAG;
+
+	ret = ufshcd_query_flag_retry(hba, opcode,
+				      QUERY_FLAG_IDN_WB_EN, NULL);
+	if (ret) {
+		dev_err(hba->dev, "%s write booster %s failed %d\n",
+			__func__, enable ? "enable" : "disable", ret);
+		return ret;
+	}
+
+	hba->wb_enabled = enable;
+	dev_dbg(hba->dev, "%s write booster %s %d\n",
+			__func__, enable ? "enable" : "disable", ret);
+
+	return ret;
+}
+
+static int ufshcd_wb_toggle_flush_during_h8(struct ufs_hba *hba, bool set)
+{
+	int val;
+
+	if (set)
+		val =  UPIU_QUERY_OPCODE_SET_FLAG;
+	else
+		val = UPIU_QUERY_OPCODE_CLEAR_FLAG;
+
+	return ufshcd_query_flag_retry(hba, val,
+			       QUERY_FLAG_IDN_WB_BUFF_FLUSH_DURING_HIBERN8,
+				       NULL);
+}
+
+static int ufshcd_wb_buf_flush_enable(struct ufs_hba *hba)
+{
+	int ret;
+
+	if (!ufshcd_wb_sup(hba) || hba->wb_buf_flush_enabled)
+		return 0;
+
+	ret = ufshcd_query_flag_retry(hba, UPIU_QUERY_OPCODE_SET_FLAG,
+				      QUERY_FLAG_IDN_WB_BUFF_FLUSH_EN, NULL);
+	if (ret)
+		dev_err(hba->dev, "%s WB - buf flush enable failed %d\n",
+			__func__, ret);
+	else
+		hba->wb_buf_flush_enabled = true;
+
+	dev_dbg(hba->dev, "WB - Flush enabled: %d\n", ret);
+	return ret;
+}
+
+static int ufshcd_wb_buf_flush_disable(struct ufs_hba *hba)
+{
+	int ret;
+
+	if (!ufshcd_wb_sup(hba) || !hba->wb_buf_flush_enabled)
+		return 0;
+
+	ret = ufshcd_query_flag_retry(hba, UPIU_QUERY_OPCODE_CLEAR_FLAG,
+				      QUERY_FLAG_IDN_WB_BUFF_FLUSH_EN, NULL);
+	if (ret) {
+		dev_warn(hba->dev, "%s: WB - buf flush disable failed %d\n",
+			__func__, ret);
+	} else {
+		hba->wb_buf_flush_enabled = false;
+		dev_dbg(hba->dev, "WB - Flush disabled: %d\n", ret);
+	}
+
+	return ret;
+}
+
+static bool ufshcd_wb_is_buf_flush_needed(struct ufs_hba *hba)
+{
+	int ret;
+	u32 cur_buf, status, avail_buf;
+
+	if (!ufshcd_wb_sup(hba))
+		return false;
+
+	ret = ufshcd_query_attr_retry(hba, UPIU_QUERY_OPCODE_READ_ATTR,
+				      QUERY_ATTR_IDN_AVAIL_WB_BUFF_SIZE,
+				      0, 0, &avail_buf);
+	if (ret) {
+		dev_warn(hba->dev, "%s dAvailableWriteBoosterBufferSize read failed %d\n",
+			 __func__, ret);
+		return false;
+	}
+
+	ret = ufshcd_vops_get_user_cap_mode(hba);
+	if (ret <= 0) {
+		dev_dbg(hba->dev, "Get user-cap reduction mode: failed: %d\n",
+			ret);
+		/* Most commonly used */
+		ret = UFS_WB_BUFF_PRESERVE_USER_SPACE;
+	}
+
+	hba->dev_info.keep_vcc_on = false;
+	if (ret == UFS_WB_BUFF_USER_SPACE_RED_EN) {
+		if (avail_buf <= UFS_WB_10_PERCENT_BUF_REMAIN) {
+			hba->dev_info.keep_vcc_on = true;
+			return true;
+		}
+		return false;
+	} else if (ret == UFS_WB_BUFF_PRESERVE_USER_SPACE) {
+		ret = ufshcd_query_attr_retry(hba, UPIU_QUERY_OPCODE_READ_ATTR,
+					      QUERY_ATTR_IDN_CURR_WB_BUFF_SIZE,
+					      0, 0, &cur_buf);
+		if (ret) {
+			dev_err(hba->dev, "%s dCurWriteBoosterBufferSize read failed %d\n",
+				 __func__, ret);
+			return false;
+		}
+
+		if (!cur_buf) {
+			dev_info(hba->dev, "dCurWBBuf: %d WB disabled until free-space is available\n",
+				 cur_buf);
+			return false;
+		}
+
+		ret = ufshcd_get_ee_status(hba, &status);
+		if (ret) {
+			dev_err(hba->dev, "%s: failed to get exception status %d\n",
+				__func__, ret);
+			if (avail_buf < UFS_WB_40_PERCENT_BUF_REMAIN) {
+				hba->dev_info.keep_vcc_on = true;
+				return true;
+			}
+			return false;
+		}
+
+		status &= hba->ee_ctrl_mask;
+
+		if ((status & MASK_EE_URGENT_BKOPS) ||
+		    (avail_buf < UFS_WB_40_PERCENT_BUF_REMAIN)) {
+			hba->dev_info.keep_vcc_on = true;
+			return true;
+		}
+	}
+	return false;
+}
+
 /**
  * ufshcd_exception_event_handler - handle exceptions raised by device
  * @work: pointer to work data
@@ -8351,6 +8556,21 @@ static int ufs_get_device_desc(struct ufs_hba *hba,
 
 	model_index = desc_buf[DEVICE_DESC_PARAM_PRDCT_NAME];
 
+
+	/* Enable WB only for UFS-3.1 OR if desc len >= 0x59 */
+	if ((dev_desc->wspecversion >= 0x310) ||
+	    (dev_desc->wmanufacturerid == UFS_VENDOR_TOSHIBA &&
+	     dev_desc->wspecversion >= 0x300 &&
+	     hba->desc_size.dev_desc >= 0x59))
+		hba->dev_info.d_ext_ufs_feature_sup =
+			desc_buf[DEVICE_DESC_PARAM_EXT_UFS_FEATURE_SUP]
+								<< 24 |
+			desc_buf[DEVICE_DESC_PARAM_EXT_UFS_FEATURE_SUP + 1]
+								<< 16 |
+			desc_buf[DEVICE_DESC_PARAM_EXT_UFS_FEATURE_SUP + 2]
+								<< 8 |
+			desc_buf[DEVICE_DESC_PARAM_EXT_UFS_FEATURE_SUP + 3];
+
 	/* Zero-pad entire buffer for string termination. */
 	memset(desc_buf, 0, buff_len);
 
@@ -8919,6 +9139,8 @@ reinit:
 
 	/* set the state as operational after switching to desired gear */
 	hba->ufshcd_state = UFSHCD_STATE_OPERATIONAL;
+
+	ufshcd_wb_config(hba);
 
 	/*
 	 * If we are in error handling context or in power management callbacks
@@ -10221,6 +10443,9 @@ static void ufshcd_vreg_set_lpm(struct ufs_hba *hba)
 	 *
 	 * Ignore the error returned by ufshcd_toggle_vreg() as device is anyway
 	 * in low power state which would save some power.
+	 *
+	 * If Write Booster is enabled and the device needs to flush the WB
+	 * buffer OR if bkops status is urgent for WB, keep Vcc on.
 	 */
 	if (ufshcd_is_ufs_dev_poweroff(hba) && ufshcd_is_link_off(hba) &&
 	    !hba->dev_info.is_lu_power_on_wp) {
@@ -10239,7 +10464,8 @@ static void ufshcd_vreg_set_lpm(struct ufs_hba *hba)
 		else
 			ufshcd_config_vreg_lpm(hba, hba->vreg_info.vccq2);
 	} else if (!ufshcd_is_ufs_dev_active(hba)) {
-		ufshcd_toggle_vreg(hba->dev, hba->vreg_info.vcc, false);
+		if (!hba->dev_info.keep_vcc_on)
+			ufshcd_toggle_vreg(hba->dev, hba->vreg_info.vcc, false);
 		if (!ufshcd_is_link_active(hba)) {
 			ufshcd_config_vreg_lpm(hba, hba->vreg_info.vccq);
 			ufshcd_config_vreg_lpm(hba, hba->vreg_info.vccq2);
@@ -10434,11 +10660,16 @@ static int ufshcd_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 			/* make sure that auto bkops is disabled */
 			ufshcd_disable_auto_bkops(hba);
 		}
+		ufshcd_wb_toggle_flush(hba);
+	} else if (!ufshcd_is_runtime_pm(pm_op)) {
+		ufshcd_wb_buf_flush_disable(hba);
+		hba->dev_info.keep_vcc_on = false;
 	}
 
 	if ((req_dev_pwr_mode != hba->curr_dev_pwr_mode) &&
-	     ((ufshcd_is_runtime_pm(pm_op) && !hba->auto_bkops_enabled) ||
-	       !ufshcd_is_runtime_pm(pm_op))) {
+	    ((ufshcd_is_runtime_pm(pm_op) && (!hba->auto_bkops_enabled)
+	      && !hba->wb_buf_flush_enabled) ||
+	     !ufshcd_is_runtime_pm(pm_op))) {
 		/* ensure that bkops is disabled */
 		ufshcd_disable_auto_bkops(hba);
 		ret = ufshcd_set_dev_pwr_mode(hba, req_dev_pwr_mode);
@@ -10467,6 +10698,12 @@ disable_clks:
 	if (ret)
 		goto set_link_active;
 
+	/*
+	 * Disable the host irq as host controller as there won't be any
+	 * host controller transaction expected till resume.
+	 */
+	ufshcd_disable_irq(hba);
+
 	if (!ufshcd_is_link_active(hba))
 		ret = ufshcd_disable_clocks(hba, false);
 	else
@@ -10483,16 +10720,13 @@ disable_clks:
 		trace_ufshcd_clk_gating(dev_name(hba->dev),
 					hba->clk_gating.state);
 	}
-	/*
-	 * Disable the host irq as host controller as there won't be any
-	 * host controller transaction expected till resume.
-	 */
-	ufshcd_disable_irq(hba);
+
 	/* Put the host controller in low power mode if possible */
 	ufshcd_hba_vreg_set_lpm(hba);
 	goto out;
 
 set_link_active:
+	ufshcd_enable_irq(hba);
 	if (hba->clk_scaling.is_allowed)
 		ufshcd_resume_clkscaling(hba);
 	ufshcd_vreg_set_hpm(hba);
@@ -10591,6 +10825,7 @@ static int ufshcd_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 			hba->hibern8_on_idle.state = HIBERN8_EXITED;
 	}
 
+	ufshcd_wb_buf_flush_disable(hba);
 	if (!ufshcd_is_ufs_dev_active(hba)) {
 		ret = ufshcd_set_dev_pwr_mode(hba, UFS_ACTIVE_PWR_MODE);
 		if (ret)

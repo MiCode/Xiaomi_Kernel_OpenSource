@@ -57,7 +57,8 @@ static void host_session_msg_hdlr(struct npu_device *npu_dev);
 static void host_session_log_hdlr(struct npu_device *npu_dev);
 static int host_error_hdlr(struct npu_device *npu_dev, bool force);
 static int npu_send_network_cmd(struct npu_device *npu_dev,
-	struct npu_network *network, void *cmd_ptr, bool async, bool force);
+	struct npu_network *network, void *cmd_ptr,
+	struct npu_network_cmd *cmd);
 static int npu_send_misc_cmd(struct npu_device *npu_dev, uint32_t q_idx,
 	void *cmd_ptr);
 static int npu_queue_event(struct npu_client *client, struct npu_kevent *evt);
@@ -67,6 +68,16 @@ static int npu_notify_fw_pwr_state(struct npu_device *npu_dev,
 static int load_fw_nolock(struct npu_device *npu_dev, bool enable);
 static void disable_fw_nolock(struct npu_device *npu_dev);
 static int update_dcvs_activity(struct npu_device *npu_dev, uint32_t activity);
+static void npu_queue_network_cmd(struct npu_network *network,
+	struct npu_network_cmd *cmd);
+static void npu_dequeue_network_cmd(struct npu_network *network,
+	struct npu_network_cmd *cmd);
+static struct npu_network_cmd *npu_find_network_cmd(struct npu_network *network,
+	uint32_t trans_id);
+static struct npu_network_cmd *npu_alloc_network_cmd(struct npu_host_ctx *ctx,
+	uint32_t stats_buf_size);
+static void npu_free_network_cmd(struct npu_host_ctx *ctx,
+	struct npu_network_cmd *cmd);
 
 /* -------------------------------------------------------------------------
  * Function Definitions - Init / Deinit
@@ -603,7 +614,7 @@ int npu_host_update_power(struct npu_device *npu_dev)
 
 int npu_host_init(struct npu_device *npu_dev)
 {
-	int sts = 0;
+	int ret = 0;
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 
 	memset(host_ctx, 0, sizeof(*host_ctx));
@@ -622,7 +633,7 @@ int npu_host_init(struct npu_device *npu_dev)
 		&host_ctx->nb);
 	if (IS_ERR(host_ctx->notif_hdle)) {
 		NPU_ERR("register event notification failed\n");
-		sts = PTR_ERR(host_ctx->notif_hdle);
+		ret = PTR_ERR(host_ctx->notif_hdle);
 		host_ctx->notif_hdle = NULL;
 		goto fail;
 	}
@@ -631,7 +642,7 @@ int npu_host_init(struct npu_device *npu_dev)
 	host_ctx->wq_pri =
 		alloc_workqueue("npu_ipc_wq", WQ_HIGHPRI | WQ_UNBOUND, 0);
 	if (!host_ctx->wq || !host_ctx->wq_pri) {
-		sts = -EPERM;
+		ret = -EPERM;
 		goto fail;
 	} else {
 		INIT_WORK(&host_ctx->ipc_irq_work, npu_ipc_irq_work);
@@ -643,25 +654,46 @@ int npu_host_init(struct npu_device *npu_dev)
 			npu_disable_fw_work);
 	}
 
+	host_ctx->network_cmd_cache = kmem_cache_create("network_cmd_cache",
+		sizeof(struct npu_network_cmd), 0, 0, NULL);
+	if (!host_ctx->network_cmd_cache) {
+		NPU_ERR("Failed to create network_cmd_cache\n");
+		ret = -ENOMEM;
+		goto fail;
+	}
+
+	host_ctx->stats_buf_cache = kmem_cache_create_usercopy(
+		"stats_buf_cache", NPU_MAX_STATS_BUF_SIZE, 0, 0,
+		0, NPU_MAX_STATS_BUF_SIZE, NULL);
+	if (!host_ctx->stats_buf_cache) {
+		NPU_ERR("Failed to create stats_buf_cache\n");
+		ret = -ENOMEM;
+		goto fail;
+	}
+
 	host_ctx->ipc_msg_buf = kzalloc(NPU_IPC_BUF_LENGTH, GFP_KERNEL);
 	if (!host_ctx->ipc_msg_buf) {
 		NPU_ERR("Failed to allocate ipc buffer\n");
-		sts = -ENOMEM;
+		ret = -ENOMEM;
 		goto fail;
 	}
 
 	host_ctx->prop_buf = kzalloc(sizeof(struct msm_npu_property),
 		GFP_KERNEL);
 	if (!host_ctx->prop_buf) {
-		sts = -ENOMEM;
+		NPU_ERR("Failed to allocate prop buffer\n");
+		ret = -ENOMEM;
 		goto fail;
 	}
 
 	host_ctx->auto_pil_disable = false;
 
-	return sts;
+	return 0;
+
 fail:
 	kfree(host_ctx->ipc_msg_buf);
+	kmem_cache_destroy(host_ctx->stats_buf_cache);
+	kmem_cache_destroy(host_ctx->network_cmd_cache);
 	if (host_ctx->wq)
 		destroy_workqueue(host_ctx->wq);
 	if (host_ctx->wq_pri)
@@ -670,7 +702,7 @@ fail:
 		subsys_notif_unregister_notifier(host_ctx->notif_hdle,
 			&host_ctx->nb);
 	mutex_destroy(&host_ctx->lock);
-	return sts;
+	return ret;
 }
 
 void npu_host_deinit(struct npu_device *npu_dev)
@@ -679,6 +711,8 @@ void npu_host_deinit(struct npu_device *npu_dev)
 
 	kfree(host_ctx->prop_buf);
 	kfree(host_ctx->ipc_msg_buf);
+	kmem_cache_destroy(host_ctx->stats_buf_cache);
+	kmem_cache_destroy(host_ctx->network_cmd_cache);
 	destroy_workqueue(host_ctx->wq);
 	destroy_workqueue(host_ctx->wq_pri);
 	subsys_notif_unregister_notifier(host_ctx->notif_hdle, &host_ctx->nb);
@@ -776,6 +810,7 @@ static int host_error_hdlr(struct npu_device *npu_dev, bool force)
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 	struct npu_network *network = NULL;
 	struct npu_kevent kevt;
+	struct npu_network_cmd *cmd;
 	bool fw_alive = true;
 	int i, ret = 0;
 
@@ -809,10 +844,6 @@ static int host_error_hdlr(struct npu_device *npu_dev, bool force)
 	}
 
 	NPU_INFO("npu subsystem is restarting\n");
-
-	/* clear FW_CTRL_STATUS register before restart */
-	REGW(npu_dev, REG_NPU_FW_CTRL_STATUS, 0x0);
-
 	reinit_completion(&host_ctx->npu_power_up_done);
 	ret = subsystem_restart_dev(host_ctx->subsystem_handle);
 	if (ret) {
@@ -862,19 +893,28 @@ fw_start_done:
 	/* flush all pending npu cmds */
 	for (i = 0; i < MAX_LOADED_NETWORK; i++) {
 		network = &host_ctx->networks[i];
-		if (network->is_valid && network->cmd_pending &&
-			network->fw_error) {
-			if (network->cmd_async) {
-				NPU_DBG("async cmd, queue ssr event\n");
-				kevt.evt.type = MSM_NPU_EVENT_TYPE_SSR;
-				kevt.evt.u.ssr.network_hdl =
-					network->network_hdl;
-				if (npu_queue_event(network->client, &kevt))
-					NPU_ERR("queue npu event failed\n");
-			} else {
-				NPU_DBG("complete network %llx\n",
-					network->id);
-				complete(&network->cmd_done);
+		if (!network->is_valid || !network->fw_error)
+			continue;
+
+		if (network->is_async) {
+			NPU_DBG("async cmd, queue ssr event\n");
+			kevt.evt.type = MSM_NPU_EVENT_TYPE_SSR;
+			kevt.evt.u.ssr.network_hdl =
+				network->network_hdl;
+			if (npu_queue_event(network->client, &kevt))
+				NPU_ERR("queue npu event failed\n");
+
+			while (!list_empty(&network->cmd_list)) {
+				cmd = list_first_entry(&network->cmd_list,
+					struct npu_network_cmd, list);
+				npu_dequeue_network_cmd(network, cmd);
+				npu_free_network_cmd(host_ctx, cmd);
+			}
+		} else {
+			list_for_each_entry(cmd, &network->cmd_list, list) {
+				NPU_DBG("complete network %llx trans_id %d\n",
+					network->id, cmd->trans_id);
+				complete(&cmd->cmd_done);
 			}
 		}
 	}
@@ -1127,15 +1167,9 @@ static struct npu_network *alloc_network(struct npu_host_ctx *ctx,
 
 	memset(network, 0, sizeof(struct npu_network));
 	network->id = i + 1;
-	init_completion(&network->cmd_done);
 	network->is_valid = true;
 	network->client = client;
-	network->stats_buf = kzalloc(NPU_MAX_STATS_BUF_SIZE,
-		GFP_KERNEL);
-	if (!network->stats_buf) {
-		memset(network, 0, sizeof(struct npu_network));
-		return NULL;
-	}
+	INIT_LIST_HEAD(&network->cmd_list);
 
 	ctx->network_num++;
 	return network;
@@ -1198,14 +1232,23 @@ static void free_network(struct npu_host_ctx *ctx, struct npu_client *client,
 	int64_t id)
 {
 	struct npu_network *network = NULL;
+	struct npu_network_cmd *cmd;
 
 	WARN_ON(!mutex_is_locked(&ctx->lock));
 
 	network = get_network_by_id(ctx, client, id);
 	if (network) {
 		network_put(network);
+		while (!list_empty(&network->cmd_list)) {
+			cmd = list_first_entry(&network->cmd_list,
+				struct npu_network_cmd, list);
+			NPU_WARN("Free cmd %x type %x\n", cmd->cmd_id,
+				cmd->cmd_type);
+			npu_dequeue_network_cmd(network, cmd);
+			npu_free_network_cmd(ctx, cmd);
+		}
+
 		if (atomic_read(&network->ref_cnt) == 0) {
-			kfree(network->stats_buf);
 			memset(network, 0, sizeof(struct npu_network));
 			ctx->network_num--;
 		} else {
@@ -1219,6 +1262,42 @@ static void free_network(struct npu_host_ctx *ctx, struct npu_client *client,
  * Function Definitions - IPC
  * -------------------------------------------------------------------------
  */
+static struct npu_network_cmd *npu_alloc_network_cmd(struct npu_host_ctx *ctx,
+	uint32_t stats_buf_size)
+{
+	struct npu_network_cmd *cmd = NULL;
+
+	cmd = kmem_cache_zalloc(ctx->network_cmd_cache, GFP_KERNEL);
+	if (!cmd) {
+		NPU_ERR("Can't allocate network cmd\n");
+		return NULL;
+	}
+
+	init_completion(&cmd->cmd_done);
+
+	if (stats_buf_size == 0)
+		return cmd;
+
+	cmd->stats_buf = kmem_cache_zalloc(ctx->stats_buf_cache,
+		GFP_KERNEL);
+	if (!cmd->stats_buf) {
+		NPU_ERR("Can't allocate stats buf\n");
+		kmem_cache_free(ctx->network_cmd_cache, cmd);
+		return NULL;
+	}
+	cmd->stats_buf_size = stats_buf_size;
+
+	return cmd;
+}
+
+static void npu_free_network_cmd(struct npu_host_ctx *ctx,
+	struct npu_network_cmd *cmd)
+{
+	if (cmd->stats_buf)
+		kmem_cache_free(ctx->stats_buf_cache, cmd->stats_buf);
+	kmem_cache_free(ctx->network_cmd_cache, cmd);
+}
+
 static int npu_queue_event(struct npu_client *client, struct npu_kevent *evt)
 {
 	struct npu_kevent *kevt = kmalloc(sizeof(*kevt), GFP_KERNEL);
@@ -1236,12 +1315,96 @@ static int npu_queue_event(struct npu_client *client, struct npu_kevent *evt)
 	return 0;
 }
 
+static void npu_queue_network_cmd(struct npu_network *network,
+	struct npu_network_cmd *cmd)
+{
+	INIT_LIST_HEAD(&cmd->list);
+	list_add_tail(&cmd->list, &network->cmd_list);
+}
+
+static void npu_dequeue_network_cmd(struct npu_network *network,
+	struct npu_network_cmd *cmd)
+{
+	list_del(&cmd->list);
+}
+
+static struct npu_network_cmd *npu_find_network_cmd(struct npu_network *network,
+	uint32_t trans_id)
+{
+	struct npu_network_cmd *cmd;
+
+	list_for_each_entry(cmd, &network->cmd_list, list) {
+		if (cmd->trans_id == trans_id) {
+			NPU_DBG("find cmd for trans_id %d\n", trans_id);
+			return cmd;
+		}
+	}
+
+	NPU_ERR("can't find cmd for trans_id %d\n", trans_id);
+	return NULL;
+}
+
+int npu_process_kevent(struct npu_client *client, struct npu_kevent *kevt)
+{
+	struct npu_device *npu_dev = client->npu_dev;
+	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
+	int ret = 0;
+
+	mutex_lock(&host_ctx->lock);
+
+	switch (kevt->evt.type) {
+	case MSM_NPU_EVENT_TYPE_EXEC_V2_DONE:
+	{
+		struct npu_network_cmd *cmd = NULL;
+		struct npu_network *network;
+
+		network = get_network_by_hdl(host_ctx,
+			client, kevt->reserved[0]);
+		if (!network) {
+			NPU_ERR("Can't find network %x\n", kevt->reserved[0]);
+			ret = -EINVAL;
+			break;
+		}
+
+		cmd = npu_find_network_cmd(network, kevt->reserved[1]);
+		if (!cmd) {
+			NPU_ERR("can't find exec cmd with trans_id:%d\n",
+				kevt->reserved[1]);
+			network_put(network);
+			ret = -EINVAL;
+			break;
+		}
+
+		kevt->evt.reserved[0] = cmd->cmd_id;
+		ret = copy_to_user((void __user *)cmd->stats_buf_u,
+			(void *)cmd->stats_buf,
+			kevt->evt.u.exec_v2_done.stats_buf_size);
+		if (ret) {
+			NPU_ERR("fail to copy to user\n");
+			kevt->evt.u.exec_v2_done.stats_buf_size = 0;
+			ret = -EFAULT;
+		}
+
+		npu_dequeue_network_cmd(network, cmd);
+		npu_free_network_cmd(host_ctx, cmd);
+		network_put(network);
+		break;
+	}
+	default:
+		break;
+	}
+	mutex_unlock(&host_ctx->lock);
+
+	return ret;
+}
+
 static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 {
 	uint32_t msg_id;
 	struct npu_network *network = NULL;
 	struct npu_kevent kevt;
 	struct npu_device *npu_dev = host_ctx->npu_dev;
+	struct npu_network_cmd *network_cmd = NULL;
 
 	msg_id = msg[1];
 	switch (msg_id) {
@@ -1262,19 +1425,19 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 			break;
 		}
 
-		if (network->trans_id != exe_rsp_pkt->header.trans_id) {
-			NPU_ERR("execute_pkt trans_id is not match %d:%d\n",
-				network->trans_id,
+		network_cmd = npu_find_network_cmd(network,
+			exe_rsp_pkt->header.trans_id);
+		if (!network_cmd) {
+			NPU_ERR("can't find exec cmd with trans_id:%d\n",
 				exe_rsp_pkt->header.trans_id);
 			network_put(network);
 			break;
 		}
 
-		network->cmd_pending = false;
-		network->cmd_ret_status = exe_rsp_pkt->header.status;
+		network_cmd->ret_status = exe_rsp_pkt->header.status;
 
-		if (!network->cmd_async) {
-			complete(&network->cmd_done);
+		if (!network_cmd->async) {
+			complete(&network_cmd->cmd_done);
 		} else {
 			NPU_DBG("async cmd, queue event\n");
 			kevt.evt.type = MSM_NPU_EVENT_TYPE_EXEC_DONE;
@@ -1307,10 +1470,12 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 			break;
 		}
 
-		if (network->trans_id != exe_rsp_pkt->header.trans_id) {
-			NPU_ERR("execute_pkt_v2 trans_id is not match %d:%d\n",
-				network->trans_id,
-				exe_rsp_pkt->header.trans_id);
+		network_cmd = npu_find_network_cmd(network,
+			exe_rsp_pkt->header.trans_id);
+		if (!network_cmd) {
+			NPU_ERR("can't find exec cmd with trans_id:%d:%d\n",
+				exe_rsp_pkt->header.trans_id,
+				exe_rsp_pkt->network_hdl);
 			network_put(network);
 			break;
 		}
@@ -1319,17 +1484,16 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 		stats_size = exe_rsp_pkt->header.size - sizeof(*exe_rsp_pkt);
 		NPU_DBG("stats_size %d:%d\n", exe_rsp_pkt->header.size,
 			stats_size);
-		stats_size = stats_size < network->stats_buf_size ?
-			stats_size : network->stats_buf_size;
+		stats_size = stats_size < network_cmd->stats_buf_size ?
+			stats_size : network_cmd->stats_buf_size;
 		if (stats_size)
-			memcpy(network->stats_buf, exe_rsp_pkt->stats_data,
+			memcpy(network_cmd->stats_buf, exe_rsp_pkt->stats_data,
 				stats_size);
 
-		network->stats_buf_size = stats_size;
-		network->cmd_pending = false;
-		network->cmd_ret_status = exe_rsp_pkt->header.status;
+		network_cmd->stats_buf_size = stats_size;
+		network_cmd->ret_status = exe_rsp_pkt->header.status;
 
-		if (network->cmd_async) {
+		if (network_cmd->async) {
 			NPU_DBG("async cmd, queue event\n");
 			kevt.evt.type = MSM_NPU_EVENT_TYPE_EXEC_V2_DONE;
 			kevt.evt.u.exec_v2_done.network_hdl =
@@ -1337,12 +1501,12 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 			kevt.evt.u.exec_v2_done.exec_result =
 				exe_rsp_pkt->header.status;
 			kevt.evt.u.exec_v2_done.stats_buf_size = stats_size;
-			kevt.reserved[0] = (uint64_t)network->stats_buf;
-			kevt.reserved[1] = (uint64_t)network->stats_buf_u;
+			kevt.reserved[0] = (uint64_t)network->network_hdl;
+			kevt.reserved[1] = (uint64_t)network_cmd->trans_id;
 			if (npu_queue_event(network->client, &kevt))
 				NPU_ERR("queue npu event failed\n");
 		} else {
-			complete(&network->cmd_done);
+			complete(&network_cmd->cmd_done);
 		}
 		network_put(network);
 		break;
@@ -1369,19 +1533,19 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 			break;
 		}
 
-		if (network->trans_id != load_rsp_pkt->header.trans_id) {
-			NPU_ERR("load_rsp_pkt trans_id is not match %d:%d\n",
-				network->trans_id,
+		network_cmd = npu_find_network_cmd(network,
+			load_rsp_pkt->header.trans_id);
+		if (!network_cmd) {
+			NPU_ERR("can't find load cmd with trans_id:%d\n",
 				load_rsp_pkt->header.trans_id);
 			network_put(network);
 			break;
 		}
 
 		network->network_hdl = load_rsp_pkt->network_hdl;
-		network->cmd_pending = false;
-		network->cmd_ret_status = load_rsp_pkt->header.status;
+		network_cmd->ret_status = load_rsp_pkt->header.status;
 
-		complete(&network->cmd_done);
+		complete(&network_cmd->cmd_done);
 		network_put(network);
 		break;
 	}
@@ -1402,18 +1566,18 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 			break;
 		}
 
-		if (network->trans_id != unload_rsp_pkt->header.trans_id) {
-			NPU_ERR("unload_rsp_pkt trans_id is not match %d:%d\n",
-				network->trans_id,
+		network_cmd = npu_find_network_cmd(network,
+			unload_rsp_pkt->header.trans_id);
+		if (!network_cmd) {
+			NPU_ERR("can't find unload cmd with trans_id:%d\n",
 				unload_rsp_pkt->header.trans_id);
 			network_put(network);
 			break;
 		}
 
-		network->cmd_pending = false;
-		network->cmd_ret_status = unload_rsp_pkt->header.status;
+		network_cmd->ret_status = unload_rsp_pkt->header.status;
 
-		complete(&network->cmd_done);
+		complete(&network_cmd->cmd_done);
 		network_put(network);
 		break;
 	}
@@ -1615,7 +1779,8 @@ int32_t npu_host_unmap_buf(struct npu_client *client,
 }
 
 static int npu_send_network_cmd(struct npu_device *npu_dev,
-	struct npu_network *network, void *cmd_ptr, bool async, bool force)
+	struct npu_network *network, void *cmd_ptr,
+	struct npu_network_cmd *cmd)
 {
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 	int ret = 0;
@@ -1626,22 +1791,15 @@ static int npu_send_network_cmd(struct npu_device *npu_dev,
 		(host_ctx->fw_state != FW_ENABLED)) {
 		NPU_ERR("fw is in error state or disabled\n");
 		ret = -EIO;
-	} else if (network->cmd_pending && !force) {
-		NPU_ERR("Another cmd is pending\n");
-		ret = -EBUSY;
 	} else {
-		network->cmd_async = async;
-		network->cmd_ret_status = 0;
-		network->cmd_pending = true;
-		network->trans_id = atomic_read(&host_ctx->ipc_trans_id);
-		reinit_completion(&network->cmd_done);
+		if (cmd)
+			reinit_completion(&cmd->cmd_done);
 		NPU_DBG("Send cmd %d network id %llx trans id %d\n",
 			((struct ipc_cmd_header_pkt *)cmd_ptr)->cmd_type,
-			network->id, network->trans_id);
+			network->id,
+			((struct ipc_cmd_header_pkt *)cmd_ptr)->trans_id);
 		ret = npu_host_ipc_send_cmd(npu_dev,
 			IPC_QUEUE_APPS_EXEC, cmd_ptr);
-		if (ret)
-			network->cmd_pending = false;
 	}
 
 	return ret;
@@ -1706,8 +1864,9 @@ static uint32_t find_networks_perf_mode(struct npu_host_ctx *host_ctx)
 		max_perf_mode = 1;
 	} else {
 		/* find the max level among all the networks */
-		for (i = 0; i < host_ctx->network_num; i++) {
-			if ((network->cur_perf_mode != 0) &&
+		for (i = 0; i < MAX_LOADED_NETWORK; i++) {
+			if ((network->id != 0) &&
+				(network->cur_perf_mode != 0) &&
 				(network->cur_perf_mode > max_perf_mode))
 				max_perf_mode = network->cur_perf_mode;
 			network++;
@@ -1841,6 +2000,12 @@ int32_t npu_host_get_fw_property(struct npu_device *npu_dev,
 	struct msm_npu_property *prop_from_fw;
 	uint32_t num_of_params, pkt_size;
 
+	if (property->prop_id < MSM_NPU_FW_PROP_ID_START) {
+		NPU_ERR("Not supproted fw property id %x\n",
+			property->prop_id);
+		return -EINVAL;
+	}
+
 	num_of_params = min_t(uint32_t, property->num_of_params,
 		(uint32_t)PROP_PARAM_MAX_SIZE);
 	pkt_size = sizeof(*prop_packet) + num_of_params * sizeof(uint32_t);
@@ -1919,6 +2084,7 @@ int32_t npu_host_load_network_v2(struct npu_client *client,
 	struct ipc_cmd_load_pkt_v2 *load_packet = NULL;
 	struct ipc_cmd_unload_pkt unload_packet;
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
+	struct npu_network_cmd *load_cmd = NULL;
 	uint32_t num_patch_params, pkt_size;
 
 	ret = enable_fw(npu_dev);
@@ -1983,16 +2149,30 @@ int32_t npu_host_load_network_v2(struct npu_client *client,
 	load_packet->buf_pkt.num_layers = network->num_layers;
 	load_packet->num_patch_params = num_patch_params;
 
-	ret = npu_send_network_cmd(npu_dev, network, load_packet, false, false);
+	load_cmd = npu_alloc_network_cmd(host_ctx, 0);
+	if (!load_cmd) {
+		NPU_ERR("Can't allocate load_cmd\n");
+		ret = -ENOMEM;
+		goto error_free_network;
+	}
+
+	load_cmd->cmd_id = 0;
+	load_cmd->cmd_type = NPU_IPC_CMD_LOAD_V2;
+	load_cmd->trans_id = load_packet->header.trans_id;
+	load_cmd->async = false;
+	npu_queue_network_cmd(network, load_cmd);
+
+	/* NPU_IPC_CMD_LOAD_V2 will go onto IPC_QUEUE_APPS_EXEC */
+	ret = npu_send_network_cmd(npu_dev, network, load_packet, load_cmd);
 	if (ret) {
 		NPU_ERR("NPU_IPC_CMD_LOAD_V2 sent failed: %d\n", ret);
-		goto error_free_network;
+		goto free_load_cmd;
 	}
 
 	mutex_unlock(&host_ctx->lock);
 
 	ret = wait_for_completion_timeout(
-		&network->cmd_done,
+		&load_cmd->cmd_done,
 		(host_ctx->fw_dbg_mode & FW_DBG_MODE_INC_TIMEOUT) ?
 		NW_DEBUG_TIMEOUT : NW_CMD_TIMEOUT);
 
@@ -2001,24 +2181,28 @@ int32_t npu_host_load_network_v2(struct npu_client *client,
 	if (network->fw_error) {
 		ret = -EIO;
 		NPU_ERR("fw is in error state during load_v2 network\n");
-		goto error_free_network;
+		goto free_load_cmd;
 	}
 
 	if (!ret) {
 		NPU_ERR("npu: NPU_IPC_CMD_LOAD time out %lld:%d\n",
-			network->id, network->trans_id);
+			network->id, load_cmd->trans_id);
 		npu_dump_debug_info(npu_dev);
 		ret = -ETIMEDOUT;
 		goto error_load_network;
 	}
 
-	ret = network->cmd_ret_status;
-	if (ret)
-		goto error_free_network;
+	ret = load_cmd->ret_status;
+	if (ret) {
+		NPU_ERR("load network failed status %d\n", ret);
+		goto free_load_cmd;
+	}
 
 	load_ioctl->network_hdl = network->network_hdl;
 	network->is_active = true;
 	kfree(load_packet);
+	npu_dequeue_network_cmd(network, load_cmd);
+	npu_free_network_cmd(host_ctx, load_cmd);
 	network_put(network);
 	mutex_unlock(&host_ctx->lock);
 
@@ -2033,9 +2217,12 @@ error_load_network:
 		atomic_add_return(1, &host_ctx->ipc_trans_id);
 	unload_packet.header.flags = 0;
 	unload_packet.network_hdl = (uint32_t)network->network_hdl;
-	npu_send_network_cmd(npu_dev, network, &unload_packet, false, true);
+	npu_send_network_cmd(npu_dev, network, &unload_packet, NULL);
 	/* wait 200 ms to make sure fw has processed this command */
 	msleep(200);
+free_load_cmd:
+	npu_dequeue_network_cmd(network, load_cmd);
+	npu_free_network_cmd(host_ctx, load_cmd);
 error_free_network:
 	kfree(load_packet);
 	network_put(network);
@@ -2054,6 +2241,7 @@ int32_t npu_host_unload_network(struct npu_client *client,
 	struct ipc_cmd_unload_pkt unload_packet;
 	struct npu_network *network;
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
+	struct npu_network_cmd *unload_cmd = NULL;
 
 	/* get the corresponding network for ipc trans id purpose */
 	mutex_lock(&host_ctx->lock);
@@ -2085,8 +2273,22 @@ int32_t npu_host_unload_network(struct npu_client *client,
 	unload_packet.header.flags = 0;
 	unload_packet.network_hdl = (uint32_t)network->network_hdl;
 
-	ret = npu_send_network_cmd(npu_dev, network, &unload_packet, false,
-		false);
+	unload_cmd = npu_alloc_network_cmd(host_ctx, 0);
+	if (!unload_cmd) {
+		NPU_ERR("Can't allocate unload_cmd\n");
+		ret = -ENOMEM;
+		goto free_network;
+	}
+
+	unload_cmd->cmd_id = 0;
+	unload_cmd->cmd_type = NPU_IPC_CMD_UNLOAD;
+	unload_cmd->trans_id = unload_packet.header.trans_id;
+	unload_cmd->async = false;
+	npu_queue_network_cmd(network, unload_cmd);
+
+	/* NPU_IPC_CMD_UNLOAD will go onto IPC_QUEUE_APPS_EXEC */
+	ret = npu_send_network_cmd(npu_dev, network, &unload_packet,
+		unload_cmd);
 
 	if (ret) {
 		NPU_ERR("NPU_IPC_CMD_UNLOAD sent failed: %d\n", ret);
@@ -2096,17 +2298,19 @@ int32_t npu_host_unload_network(struct npu_client *client,
 		 */
 		if (ret == -EBUSY) {
 			NPU_ERR("Network is running, retry later\n");
+			npu_dequeue_network_cmd(network, unload_cmd);
+			npu_free_network_cmd(host_ctx, unload_cmd);
 			network_put(network);
 			mutex_unlock(&host_ctx->lock);
 			return ret;
 		}
-		goto free_network;
+		goto free_unload_cmd;
 	}
 
 	mutex_unlock(&host_ctx->lock);
 
 	ret = wait_for_completion_timeout(
-		&network->cmd_done,
+		&unload_cmd->cmd_done,
 		(host_ctx->fw_dbg_mode & FW_DBG_MODE_INC_TIMEOUT) ?
 		NW_DEBUG_TIMEOUT : NW_CMD_TIMEOUT);
 
@@ -2120,16 +2324,18 @@ int32_t npu_host_unload_network(struct npu_client *client,
 
 	if (!ret) {
 		NPU_ERR("npu: NPU_IPC_CMD_UNLOAD time out %llx:%d\n",
-			network->id, network->trans_id);
+			network->id, unload_cmd->trans_id);
 		npu_dump_debug_info(npu_dev);
-		network->cmd_pending = false;
 		ret = -ETIMEDOUT;
-		goto free_network;
+		goto free_unload_cmd;
 	}
 
-	ret = network->cmd_ret_status;
+	ret = unload_cmd->ret_status;
 	NPU_DBG("unload network status %d\n", ret);
 
+free_unload_cmd:
+	npu_dequeue_network_cmd(network, unload_cmd);
+	npu_free_network_cmd(host_ctx, unload_cmd);
 free_network:
 	/*
 	 * free the network on the kernel if the corresponding ACO
@@ -2155,6 +2361,7 @@ int32_t npu_host_exec_network_v2(struct npu_client *client,
 {
 	struct npu_device *npu_dev = client->npu_dev;
 	struct ipc_cmd_execute_pkt_v2 *exec_packet;
+	struct npu_network_cmd *exec_cmd = NULL;
 	int32_t ret;
 	struct npu_network *network;
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
@@ -2182,6 +2389,14 @@ int32_t npu_host_exec_network_v2(struct npu_client *client,
 		ret = -EIO;
 		goto exec_v2_done;
 	}
+
+	if (network->is_async && !async_ioctl) {
+		NPU_ERR("network is in async mode\n");
+		ret = -EINVAL;
+		goto exec_v2_done;
+	}
+
+	network->is_async = async_ioctl;
 
 	NPU_DBG("execute_v2 network %lld\n", network->id);
 	num_patch_params = exec_ioctl->patch_buf_info_num;
@@ -2221,18 +2436,28 @@ int32_t npu_host_exec_network_v2(struct npu_client *client,
 	exec_packet->network_hdl = network->network_hdl;
 	exec_packet->num_patch_params = num_patch_params;
 
-	network->stats_buf_u = (void __user *)exec_ioctl->stats_buf_addr;
-	network->stats_buf_size = exec_ioctl->stats_buf_size;
+	exec_cmd = npu_alloc_network_cmd(host_ctx, exec_ioctl->stats_buf_size);
+	if (!exec_cmd) {
+		NPU_ERR("Can't allocate exec_cmd\n");
+		ret = -ENOMEM;
+		goto free_exec_packet;
+	}
+
+	exec_cmd->stats_buf_u = (void __user *)exec_ioctl->stats_buf_addr;
+	exec_cmd->cmd_id = exec_ioctl->async;
+	exec_cmd->cmd_type = NPU_IPC_CMD_EXECUTE_V2;
+	exec_cmd->trans_id = exec_packet->header.trans_id;
+	exec_cmd->async = async_ioctl;
+	npu_queue_network_cmd(network, exec_cmd);
 
 	NPU_DBG("Execute_v2 flags %x stats_buf_size %d\n",
 		exec_packet->header.flags, exec_ioctl->stats_buf_size);
 
-	ret = npu_send_network_cmd(npu_dev, network, exec_packet, async_ioctl,
-		false);
+	ret = npu_send_network_cmd(npu_dev, network, exec_packet, exec_cmd);
 
 	if (ret) {
 		NPU_ERR("NPU_IPC_CMD_EXECUTE_V2 sent failed: %d\n", ret);
-		goto free_exec_packet;
+		goto free_exec_cmd;
 	}
 
 	if (async_ioctl) {
@@ -2243,7 +2468,7 @@ int32_t npu_host_exec_network_v2(struct npu_client *client,
 	mutex_unlock(&host_ctx->lock);
 
 	ret = wait_for_completion_timeout(
-		&network->cmd_done,
+		&exec_cmd->cmd_done,
 		(host_ctx->fw_dbg_mode & FW_DBG_MODE_INC_TIMEOUT) ?
 		NW_DEBUG_TIMEOUT : NW_CMD_TIMEOUT);
 
@@ -2251,32 +2476,35 @@ int32_t npu_host_exec_network_v2(struct npu_client *client,
 	if (network->fw_error) {
 		ret = -EIO;
 		NPU_ERR("fw is in error state during execute_v2 network\n");
-		goto free_exec_packet;
+		goto free_exec_cmd;
 	}
 
 	if (!ret) {
 		NPU_ERR("npu: %llx:%d NPU_IPC_CMD_EXECUTE_V2 time out\n",
-			network->id, network->trans_id);
+			network->id, exec_cmd->trans_id);
 		npu_dump_debug_info(npu_dev);
-		network->cmd_pending = false;
 		ret = -ETIMEDOUT;
 		goto free_exec_packet;
 	}
 
-	ret = network->cmd_ret_status;
-	if (!ret) {
-		exec_ioctl->stats_buf_size = network->stats_buf_size;
-		if (copy_to_user(
-			(void __user *)exec_ioctl->stats_buf_addr,
-			network->stats_buf,
-			exec_ioctl->stats_buf_size)) {
-			NPU_ERR("copy stats to user failed\n");
-			exec_ioctl->stats_buf_size = 0;
-		}
-	} else {
+	ret = exec_cmd->ret_status;
+	if (ret) {
 		NPU_ERR("execution failed %d\n", ret);
+		goto free_exec_cmd;
 	}
 
+	exec_ioctl->stats_buf_size = exec_cmd->stats_buf_size;
+	if (copy_to_user(
+		(void __user *)exec_ioctl->stats_buf_addr,
+		exec_cmd->stats_buf,
+		exec_ioctl->stats_buf_size)) {
+		NPU_ERR("copy stats to user failed\n");
+		exec_ioctl->stats_buf_size = 0;
+	}
+
+free_exec_cmd:
+	npu_dequeue_network_cmd(network, exec_cmd);
+	npu_free_network_cmd(host_ctx, exec_cmd);
 free_exec_packet:
 	kfree(exec_packet);
 exec_v2_done:

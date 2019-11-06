@@ -3100,14 +3100,14 @@ static int ipa3_q6_clean_q6_flt_tbls(enum ipa_ip_type ip,
 	int retval = 0;
 	int pipe_idx;
 	int flt_idx = 0;
-	int num_cmds = 0;
+	int num_cmds = 0, count = 0;
 	int index;
 	u32 lcl_addr_mem_part;
 	u32 lcl_hdr_sz;
 	struct ipa_mem_buffer mem;
 	struct ipahal_reg_valmask valmask;
 	struct ipahal_imm_cmd_register_write reg_write_coal_close;
-	int i;
+	int coal_ep = IPA_EP_NOT_ALLOCATED;
 
 	IPADBG("Entry\n");
 
@@ -3163,14 +3163,14 @@ static int ipa3_q6_clean_q6_flt_tbls(enum ipa_ip_type ip,
 		goto free_cmd_pyld;
 	}
 
+	coal_ep = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS);
 	/* IC to close the coal frame before HPS Clear if coal is enabled */
-	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) != -1) {
-		i = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS);
+	if (coal_ep != IPA_EP_NOT_ALLOCATED) {
 		reg_write_coal_close.skip_pipeline_clear = false;
 		reg_write_coal_close.pipeline_clear_options = IPAHAL_HPS_CLEAR;
 		reg_write_coal_close.offset = ipahal_get_reg_ofst(
 			IPA_AGGR_FORCE_CLOSE);
-		ipahal_get_aggr_force_close_valmask(i, &valmask);
+		ipahal_get_aggr_force_close_valmask(coal_ep, &valmask);
 		reg_write_coal_close.value = valmask.val;
 		reg_write_coal_close.value_mask = valmask.mask;
 		cmd_pyld[num_cmds] = ipahal_construct_imm_cmd(
@@ -3196,7 +3196,12 @@ static int ipa3_q6_clean_q6_flt_tbls(enum ipa_ip_type ip,
 		if (!ipa3_ctx->ep[pipe_idx].valid ||
 		    ipa3_ctx->ep[pipe_idx].skip_ep_cfg) {
 
-			if (num_cmds >= ipa3_ctx->ep_flt_num) {
+			/*
+			 * When coal pipe is valid send close coalescing frame
+			 * command and increment the ep_flt_num accordingly.
+			 */
+			count = (coal_ep != IPA_EP_NOT_ALLOCATED) ? 1 : 0;
+			if (num_cmds >= (ipa3_ctx->ep_flt_num + count)) {
 				IPAERR("number of commands is out of range\n");
 				retval = -ENOBUFS;
 				goto free_empty_img;
@@ -4422,6 +4427,8 @@ static int ipa3_setup_apps_pipes(void)
 	sys_in.desc_fifo_sz = IPA_SYS_DESC_FIFO_SZ;
 	sys_in.notify = ipa3_lan_rx_cb;
 	sys_in.priv = NULL;
+	if (ipa3_ctx->lan_rx_napi_enable)
+		sys_in.napi_obj = &ipa3_ctx->napi_lan_rx;
 	sys_in.ipa_ep_cfg.hdr.hdr_len = IPA_LAN_RX_HEADER_LENGTH;
 	sys_in.ipa_ep_cfg.hdr_ext.hdr_little_endian = false;
 	sys_in.ipa_ep_cfg.hdr_ext.hdr_total_len_or_pad_valid = true;
@@ -5949,7 +5956,8 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 	mutex_lock(&ipa3_ctx->lock);
 	ipa3_ctx->ipa_initialization_complete = true;
 	mutex_unlock(&ipa3_ctx->lock);
-
+	if (ipa3_ctx->lan_rx_napi_enable)
+		napi_enable(&ipa3_ctx->napi_lan_rx);
 	ipa3_trigger_ipa_ready_cbs();
 	complete_all(&ipa3_ctx->init_completion_obj);
 	pr_info("IPA driver initialization was successful.\n");
@@ -6342,6 +6350,15 @@ static bool ipa_is_mem_dump_allowed(void)
 	return (desc.ret[0] == 1);
 }
 
+static int ipa3_lan_poll(struct napi_struct *napi, int budget)
+{
+	int rcvd_pkts = 0;
+
+	rcvd_pkts = ipa3_lan_rx_poll(ipa3_ctx->clnt_hdl_data_in,
+							NAPI_WEIGHT);
+	return rcvd_pkts;
+}
+
 /**
  * ipa3_pre_init() - Initialize the IPA Driver.
  * This part contains all initialization which doesn't require IPA HW, such
@@ -6448,6 +6465,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		resource_p->secure_debug_check_action;
 	ipa3_ctx->do_ram_collection_on_crash =
 		resource_p->do_ram_collection_on_crash;
+	ipa3_ctx->lan_rx_napi_enable = resource_p->lan_rx_napi_enable;
 
 	if (ipa3_ctx->secure_debug_check_action == USE_SCM) {
 		if (ipa_is_mem_dump_allowed())
@@ -6856,6 +6874,14 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	/* proxy vote for modem is added in ipa3_post_init() phase */
 	if (ipa3_ctx->ipa_hw_type != IPA_HW_v4_0)
 		ipa3_proxy_clk_unvote();
+
+	/* Create the dummy netdev for LAN RX NAPI*/
+	if (ipa3_ctx->lan_rx_napi_enable) {
+		init_dummy_netdev(&ipa3_ctx->lan_ndev);
+		netif_napi_add(&ipa3_ctx->lan_ndev, &ipa3_ctx->napi_lan_rx,
+			ipa3_lan_poll, NAPI_WEIGHT);
+	}
+
 	return 0;
 fail_cdev_add:
 fail_gsi_pre_fw_load_init:
@@ -7199,6 +7225,13 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 		"qcom,tethered-flow-control");
 	IPADBG(": Use apps based flow control = %s\n",
 		ipa_drv_res->tethered_flow_control
+		? "True" : "False");
+
+	ipa_drv_res->lan_rx_napi_enable =
+		of_property_read_bool(pdev->dev.of_node,
+		"qcom,lan-rx-napi");
+	IPADBG(": Enable LAN rx NAPI = %s\n",
+		ipa_drv_res->lan_rx_napi_enable
 		? "True" : "False");
 
 	/* Get IPA wrapper address */
@@ -8111,6 +8144,11 @@ int ipa3_ap_resume(struct device *dev)
 struct ipa3_context *ipa3_get_ctx(void)
 {
 	return ipa3_ctx;
+}
+
+bool ipa3_get_lan_rx_napi(void)
+{
+	return ipa3_ctx->lan_rx_napi_enable;
 }
 
 static void ipa_gsi_notify_cb(struct gsi_per_notify *notify)

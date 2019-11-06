@@ -58,6 +58,9 @@ int sysctl_oom_kill_allocating_task;
 int sysctl_oom_dump_tasks = 1;
 int sysctl_reap_mem_on_sigkill = 1;
 
+static int panic_on_adj_zero;
+module_param(panic_on_adj_zero, int, 0644);
+
 /*
  * Serializes oom killer invocations (out_of_memory()) from all contexts to
  * prevent from over eager oom killing (e.g. when the oom killer is invoked
@@ -290,7 +293,8 @@ static bool is_dump_unreclaim_slabs(void)
  * task consuming the most memory to avoid subsequent oom failures.
  */
 unsigned long oom_badness(struct task_struct *p, struct mem_cgroup *memcg,
-			  const nodemask_t *nodemask, unsigned long totalpages)
+			  const nodemask_t *nodemask, unsigned long totalpages,
+			  bool only_positive_adj)
 {
 	long points;
 	long adj;
@@ -309,6 +313,7 @@ unsigned long oom_badness(struct task_struct *p, struct mem_cgroup *memcg,
 	 */
 	adj = (long)p->signal->oom_score_adj;
 	if (adj == OOM_SCORE_ADJ_MIN ||
+			(only_positive_adj && adj < 0) ||
 			test_bit(MMF_OOM_SKIP, &p->mm->flags) ||
 			in_vfork(p)) {
 		task_unlock(p);
@@ -430,7 +435,8 @@ static int oom_evaluate_task(struct task_struct *task, void *arg)
 		goto select;
 	}
 
-	points = oom_badness(task, NULL, oc->nodemask, oc->totalpages);
+	points = oom_badness(task, NULL, oc->nodemask, oc->totalpages,
+				oc->only_positive_adj);
 	if (!points || points < oc->chosen_points)
 		goto next;
 
@@ -966,11 +972,12 @@ static void __oom_kill_process(struct task_struct *victim)
 	 */
 	do_send_sig_info(SIGKILL, SEND_SIG_FORCED, victim, PIDTYPE_TGID);
 	mark_oom_victim(victim);
-	pr_err("Killed process %d (%s) total-vm:%lukB, anon-rss:%lukB, file-rss:%lukB, shmem-rss:%lukB\n",
+	pr_err("Killed process %d (%s) total-vm:%lukB, anon-rss:%lukB, file-rss:%lukB, shmem-rss:%lukB oom_score_adj=%hd\n",
 		task_pid_nr(victim), victim->comm, K(victim->mm->total_vm),
 		K(get_mm_counter(victim->mm, MM_ANONPAGES)),
 		K(get_mm_counter(victim->mm, MM_FILEPAGES)),
-		K(get_mm_counter(victim->mm, MM_SHMEMPAGES)));
+		K(get_mm_counter(victim->mm, MM_SHMEMPAGES)),
+		p->signal->oom_score_adj);
 	task_unlock(victim);
 
 	/*
@@ -1028,7 +1035,8 @@ static int oom_kill_memcg_member(struct task_struct *task, void *unused)
 	return 0;
 }
 
-static void oom_kill_process(struct oom_control *oc, const char *message)
+static void oom_kill_process(struct oom_control *oc, const char *message,
+				bool quiet)
 {
 	struct task_struct *p = oc->chosen;
 	unsigned int points = oc->chosen_points;
@@ -1055,7 +1063,7 @@ static void oom_kill_process(struct oom_control *oc, const char *message)
 	}
 	task_unlock(p);
 
-	if (__ratelimit(&oom_rs))
+	if (!quiet && __ratelimit(&oom_rs))
 		dump_header(oc, p);
 
 	pr_err("%s: Kill process %d (%s) score %u or sacrifice child\n",
@@ -1085,7 +1093,8 @@ static void oom_kill_process(struct oom_control *oc, const char *message)
 			 * oom_badness() returns 0 if the thread is unkillable
 			 */
 			child_points = oom_badness(child,
-				oc->memcg, oc->nodemask, oc->totalpages);
+				oc->memcg, oc->nodemask, oc->totalpages,
+				oc->only_positive_adj);
 			if (child_points > victim_points) {
 				put_task_struct(victim);
 				victim = child;
@@ -1200,9 +1209,10 @@ bool out_of_memory(struct oom_control *oc)
 	 * The OOM killer does not compensate for IO-less reclaim.
 	 * pagefault_out_of_memory lost its gfp context so we have to
 	 * make sure exclude 0 mask - all other users should have at least
-	 * ___GFP_DIRECT_RECLAIM to get here.
+	 * ___GFP_DIRECT_RECLAIM to get here. But mem_cgroup_oom() has to
+	 * invoke the OOM killer even if it is a GFP_NOFS allocation.
 	 */
-	if (oc->gfp_mask && !(oc->gfp_mask & __GFP_FS))
+	if (oc->gfp_mask && !(oc->gfp_mask & __GFP_FS) && !is_memcg_oom(oc))
 		return true;
 
 	/*
@@ -1219,7 +1229,8 @@ bool out_of_memory(struct oom_control *oc)
 	    current->signal->oom_score_adj != OOM_SCORE_ADJ_MIN) {
 		get_task_struct(current);
 		oc->chosen = current;
-		oom_kill_process(oc, "Out of memory (oom_kill_allocating_task)");
+		oom_kill_process(oc, "Out of memory (oom_kill_allocating_task)",
+				 false);
 		return true;
 	}
 
@@ -1238,7 +1249,8 @@ bool out_of_memory(struct oom_control *oc)
 	}
 	if (oc->chosen && oc->chosen != (void *)-1UL)
 		oom_kill_process(oc, !is_memcg_oom(oc) ? "Out of memory" :
-				 "Memory cgroup out of memory");
+				 "Memory cgroup out of memory",
+			IS_ENABLED(CONFIG_HAVE_USERSPACE_LOW_MEMORY_KILLER));
 	return !!oc->chosen;
 }
 
@@ -1297,4 +1309,19 @@ void add_to_oom_reaper(struct task_struct *p)
 	}
 
 	put_task_struct(p);
+}
+
+/*
+ * Should be called prior to sending sigkill. To guarantee that the
+ * process to-be-killed is still untouched.
+ */
+void check_panic_on_foreground_kill(struct task_struct *p)
+{
+	if (unlikely(!strcmp(current->comm, ULMK_MAGIC)
+			&& p->signal->oom_score_adj == 0
+			&& panic_on_adj_zero)) {
+		show_mem(SHOW_MEM_FILTER_NODES, NULL);
+		show_mem_call_notifiers();
+		panic("Attempt to kill foreground task: %s", p->comm);
+	}
 }

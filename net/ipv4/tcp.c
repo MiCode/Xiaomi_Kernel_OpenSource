@@ -2534,6 +2534,9 @@ void tcp_write_queue_purge(struct sock *sk)
 	INIT_LIST_HEAD(&tcp_sk(sk)->tsorted_sent_queue);
 	sk_mem_reclaim(sk);
 	tcp_clear_all_retrans_hints(tcp_sk(sk));
+	tcp_sk(sk)->highest_sack = NULL;
+	tcp_sk(sk)->sacked_out = 0;
+	tcp_sk(sk)->wqp_called = 1;
 	tcp_sk(sk)->packets_out = 0;
 	inet_csk(sk)->icsk_backoff = 0;
 }

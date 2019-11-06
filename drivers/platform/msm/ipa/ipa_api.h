@@ -476,6 +476,8 @@ struct ipa_api_controller {
 
 	int (*ipa_uc_debug_stats_dealloc)(uint32_t prot_id);
 
+	bool (*ipa_get_lan_rx_napi)(void);
+
 	void (*ipa_get_gsi_stats)(int prot_id,
 		struct ipa_uc_dbg_ring_stats *stats);
 

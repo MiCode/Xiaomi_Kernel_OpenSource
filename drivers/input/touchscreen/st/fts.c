@@ -4223,7 +4223,7 @@ static int fts_fb_state_chg_callback(struct notifier_block *nb,
 
 		switch (blank) {
 		case DRM_PANEL_BLANK_POWERDOWN:
-			if (info->sensor_sleep)
+			if (info->sensor_sleep && info->aoi_notify_enabled)
 				break;
 
 			if (info->aoi_notify_enabled)
@@ -4231,13 +4231,18 @@ static int fts_fb_state_chg_callback(struct notifier_block *nb,
 			else
 				info->aoi_wake_on_suspend = false;
 
-			if (info->aoi_wake_on_suspend)
+			if (info->aoi_wake_on_suspend) {
 				info->sensor_sleep = true;
-			else
+				__pm_stay_awake(&info->wakeup_source);
+			} else {
 				queue_work(info->event_wq, &info->suspend_work);
+			}
 			break;
 
 		case DRM_PANEL_BLANK_UNBLANK:
+			if (info->aoi_wake_on_suspend)
+				__pm_relax(&info->wakeup_source);
+
 			if (!info->sensor_sleep)
 				break;
 
@@ -4968,6 +4973,7 @@ static int fts_probe(struct i2c_client *client, const struct i2c_device_id *idp)
 		return error;
 	}
 
+	device_init_wakeup(&client->dev, true);
 	return fts_probe_internal(client, idp);
 }
 
@@ -5036,6 +5042,7 @@ static int fts_remove(struct i2c_client *client)
 	kfree(info->i2c_data);
 	kfree(info);
 
+	device_init_wakeup(&client->dev, false);
 	return OK;
 }
 

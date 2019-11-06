@@ -174,6 +174,7 @@
 #define GCC_CAMSS_CPHY_1_CLK					166
 #define GCC_CAMSS_CPHY_2_CLK					167
 #define GCC_UFS_CLKREF_CLK					168
+#define GCC_DISP_GPLL0_CLK_SRC					169
 
 /* GCC resets */
 #define GCC_QUSB2PHY_PRIM_BCR					0
@@ -184,5 +185,7 @@
 #define GCC_VCODEC0_BCR						6
 #define GCC_VENUS_BCR						7
 #define GCC_VIDEO_INTERFACE_BCR					8
+#define GCC_USB3PHY_PHY_PRIM_SP0_BCR				9
+#define GCC_USB3_PHY_PRIM_SP0_BCR				10
 
 #endif

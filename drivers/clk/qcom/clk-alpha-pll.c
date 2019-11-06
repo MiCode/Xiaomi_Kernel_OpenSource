@@ -1865,7 +1865,8 @@ static int alpha_pll_lucid_set_rate(struct clk_hw *hw, unsigned long rate,
 	udelay(1);
 	regmap_read(pll->clkr.regmap, PLL_MODE(pll), &regval);
 	if (!(regval & ALPHA_PLL_ACK_LATCH)) {
-		WARN(1, "PLL latch failed. Output may be unstable!\n");
+		WARN_CLK(hw->core, clk_hw_get_name(hw), 1,
+				"PLL latch failed. Output may be unstable!\n");
 		return -EINVAL;
 	}
 

@@ -1337,6 +1337,23 @@ static int adreno_read_speed_bin(struct platform_device *pdev,
 	return 0;
 }
 
+static int adreno_probe_efuse(struct platform_device *pdev,
+					struct adreno_device *adreno_dev)
+{
+	int ret;
+
+	ret = adreno_read_speed_bin(pdev, adreno_dev);
+	if (ret)
+		return ret;
+
+	ret = nvmem_cell_read_u32(&pdev->dev, "isense_slope",
+					&adreno_dev->lm_slope);
+	if (ret && ret != -ENOENT)
+		return ret;
+
+	return 0;
+}
+
 static int adreno_probe(struct platform_device *pdev)
 {
 	const struct of_device_id *of_id;
@@ -1364,7 +1381,7 @@ static int adreno_probe(struct platform_device *pdev)
 
 	adreno_update_soc_hw_revision_quirks(adreno_dev, pdev);
 
-	status = adreno_read_speed_bin(pdev, adreno_dev);
+	status = adreno_probe_efuse(pdev, adreno_dev);
 	if (status)
 		return status;
 

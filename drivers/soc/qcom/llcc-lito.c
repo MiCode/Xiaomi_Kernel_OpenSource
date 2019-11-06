@@ -51,16 +51,16 @@
 	}
 
 static struct llcc_slice_config lito_data[] =  {
-	SCT_ENTRY(LLCC_CPUSS,    1, 1024, 1, 1, 0x0FF, 0x0, 0, 0, 0, 0, 1, 1),
-	SCT_ENTRY(LLCC_AUDIO,    6, 1024, 1, 1, 0x0FF, 0x0, 0, 0, 0, 0, 1, 0),
-	SCT_ENTRY(LLCC_MDM,      8, 512, 2, 0, 0x0FF, 0x0, 0, 0, 0, 0, 1, 0),
-	SCT_ENTRY(LLCC_GPUHTW,   11, 256, 1, 1, 0x0FF, 0x0, 0, 0, 0, 0, 1, 0),
-	SCT_ENTRY(LLCC_GPU,      12, 256, 1, 1, 0x0FF, 0x0, 0, 0, 0, 0, 1, 0),
-	SCT_ENTRY(LLCC_DISP,     16, 1024, 1, 1, 0x0FF, 0x0, 0, 0, 0, 0, 1, 0),
-	SCT_ENTRY(LLCC_MDMPNG,   21, 1024, 1, 1, 0x0FF, 0x0, 0, 0, 0, 0, 1, 0),
-	SCT_ENTRY(LLCC_AUDHW,    22, 1024, 1, 1, 0x0FF, 0x0, 0, 0, 0, 0, 1, 0),
-	SCT_ENTRY(LLCC_NPU,      23, 512, 2, 1, 0x0,  0xF00, 0, 0, 0, 0, 1, 0),
-	SCT_ENTRY(LLCC_MODEMVPE, 29, 128, 1, 1, 0x0FF, 0x0, 0, 0, 0, 0, 1, 0),
+	SCT_ENTRY(LLCC_CPUSS,    1, 1536, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 1),
+	SCT_ENTRY(LLCC_AUDIO,    6, 1024, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
+	SCT_ENTRY(LLCC_MDM,      8, 512, 2, 0, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
+	SCT_ENTRY(LLCC_GPUHTW,   11, 512, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
+	SCT_ENTRY(LLCC_GPU,      12, 1024, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
+	SCT_ENTRY(LLCC_DISP,     16, 1536, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
+	SCT_ENTRY(LLCC_MDMPNG,   21, 1024, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
+	SCT_ENTRY(LLCC_AUDHW,    22, 1024, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
+	SCT_ENTRY(LLCC_NPU,      23, 512, 2, 0, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
+	SCT_ENTRY(LLCC_MODEMVPE, 29, 128, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0),
 };
 
 static int lito_qcom_llcc_probe(struct platform_device *pdev)

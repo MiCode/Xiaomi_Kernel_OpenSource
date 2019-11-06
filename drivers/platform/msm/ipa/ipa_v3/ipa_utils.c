@@ -4280,7 +4280,11 @@ void ipa_init_ep_flt_bitmap(void)
 	}
 
 	for (cl = 0; cl < IPA_CLIENT_MAX ; cl++) {
-		if (ipa3_ep_mapping[hw_idx][cl].support_flt) {
+		/* In normal mode don't add filter support test pipes*/
+		if ((ipa3_ep_mapping[hw_idx][cl].support_flt &&
+				!IPA_CLIENT_IS_TEST(cl)) ||
+			ipa3_ctx->ipa3_hw_mode == IPA_HW_MODE_VIRTUAL ||
+			ipa3_ctx->ipa3_hw_mode == IPA_HW_MODE_EMULATION) {
 			gsi_ep_ptr =
 				&ipa3_ep_mapping[hw_idx][cl].ipa_gsi_ep_info;
 			pipe_num =
@@ -7063,6 +7067,7 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 		ipa3_get_gsi_stats;
 	api_ctrl->ipa_get_prot_id =
 		ipa3_get_prot_id;
+	api_ctrl->ipa_get_lan_rx_napi = ipa3_get_lan_rx_napi;
 	return 0;
 }
 
@@ -7699,7 +7704,7 @@ int ipa3_stop_gsi_channel(u32 clnt_hdl)
 
 static int _ipa_suspend_resume_pipe(enum ipa_client_type client, bool suspend)
 {
-	int ipa_ep_idx;
+	int ipa_ep_idx, coal_ep_idx;
 	struct ipa3_ep_context *ep;
 	int res;
 
@@ -7718,16 +7723,16 @@ static int _ipa_suspend_resume_pipe(enum ipa_client_type client, bool suspend)
 	if (!ep->valid)
 		return 0;
 
+	coal_ep_idx = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS);
+
 	IPADBG("%s pipe %d\n", suspend ? "suspend" : "unsuspend", ipa_ep_idx);
+
 	/*
-	 * move the channel to callback mode.
-	 * This needs to happen before starting the channel to make
-	 * sure we don't loose any interrupt
+	 * Configure the callback mode only one time after starting the channel
+	 * otherwise observing IEOB interrupt received before configure callmode
+	 * second time. It was leading race condition in updating current
+	 * polling state.
 	 */
-	if (!suspend && !atomic_read(&ep->sys->curr_polling_state) &&
-		!IPA_CLIENT_IS_APPS_PROD(client))
-		gsi_config_channel_mode(ep->gsi_chan_hdl,
-					GSI_CHAN_MODE_CALLBACK);
 
 	if (suspend) {
 		res = __ipa3_stop_gsi_channel(ipa_ep_idx);
@@ -7744,7 +7749,17 @@ static int _ipa_suspend_resume_pipe(enum ipa_client_type client, bool suspend)
 	}
 
 	/* Apps prod pipes use common event ring so cannot configure mode*/
-	if (IPA_CLIENT_IS_APPS_PROD(client))
+
+	/*
+	 * Skipping to configure mode for default wan pipe,
+	 * as both pipes using commong event ring. if both pipes
+	 * configure same event ring observing race condition in
+	 * updating current polling state.
+	 */
+
+	if (IPA_CLIENT_IS_APPS_PROD(client) ||
+		(client == IPA_CLIENT_APPS_WAN_CONS &&
+			coal_ep_idx != IPA_EP_NOT_ALLOCATED))
 		return 0;
 
 	if (suspend) {
@@ -7800,18 +7815,29 @@ void ipa3_force_close_coal(void)
 int ipa3_suspend_apps_pipes(bool suspend)
 {
 	int res;
-	enum ipa_client_type client;
 
 	if (suspend)
 		ipa3_force_close_coal();
 
-	for (client = 0; client < IPA_CLIENT_MAX; client++) {
-		if (IPA_CLIENT_IS_APPS_CONS(client)) {
-			res = _ipa_suspend_resume_pipe(client, suspend);
-			if (res)
-				goto undo_cons;
-		}
-	}
+	/* As per HPG first need start/stop coalescing channel
+	 * then default one. Coalescing client number was greater then
+	 * default one so starting the last client.
+	 */
+	res = _ipa_suspend_resume_pipe(IPA_CLIENT_APPS_WAN_COAL_CONS, suspend);
+	if (res == -EAGAIN)
+		goto undo_coal_cons;
+
+	res = _ipa_suspend_resume_pipe(IPA_CLIENT_APPS_WAN_CONS, suspend);
+	if (res == -EAGAIN)
+		goto undo_wan_cons;
+
+	res = _ipa_suspend_resume_pipe(IPA_CLIENT_APPS_LAN_CONS, suspend);
+	if (res == -EAGAIN)
+		goto undo_lan_cons;
+
+	res = _ipa_suspend_resume_pipe(IPA_CLIENT_ODL_DPL_CONS, suspend);
+	if (res == -EAGAIN)
+		goto undo_odl_cons;
 
 	if (suspend) {
 		struct ipahal_reg_tx_wrapper tx;
@@ -7827,7 +7853,7 @@ int ipa3_suspend_apps_pipes(bool suspend)
 			IPADBG("COAL frame is open 0x%x\n",
 				tx.coal_slave_open_frame);
 			res = -EAGAIN;
-			goto undo_cons;
+			goto undo_odl_cons;
 		}
 
 		usleep_range(IPA_TAG_SLEEP_MIN_USEC, IPA_TAG_SLEEP_MAX_USEC);
@@ -7836,28 +7862,37 @@ int ipa3_suspend_apps_pipes(bool suspend)
 			ipa3_ctx->ee);
 		if (res) {
 			IPADBG("suspend irq is pending 0x%x\n", res);
-			goto undo_cons;
+			goto undo_odl_cons;
 		}
 	}
 do_prod:
-	for (client = 0; client < IPA_CLIENT_MAX; client++) {
-		if (IPA_CLIENT_IS_APPS_PROD(client)) {
-			res = _ipa_suspend_resume_pipe(client, suspend);
-			if (res)
-				goto undo_prod;
-		}
-	}
+	res = _ipa_suspend_resume_pipe(IPA_CLIENT_APPS_LAN_PROD, suspend);
+	if (res == -EAGAIN)
+		goto undo_lan_prod;
+	res = _ipa_suspend_resume_pipe(IPA_CLIENT_APPS_WAN_PROD, suspend);
+	if (res == -EAGAIN)
+		goto undo_wan_prod;
 
 	return 0;
-undo_prod:
-	for (client; client <= IPA_CLIENT_MAX && client >= 0; client--)
-		if (IPA_CLIENT_IS_APPS_PROD(client))
-			_ipa_suspend_resume_pipe(client, !suspend);
-	client = IPA_CLIENT_MAX;
-undo_cons:
-	for (client; client <= IPA_CLIENT_MAX && client >= 0; client--)
-		if (IPA_CLIENT_IS_APPS_CONS(client))
-			_ipa_suspend_resume_pipe(client, !suspend);
+
+undo_wan_prod:
+	_ipa_suspend_resume_pipe(IPA_CLIENT_APPS_WAN_PROD, !suspend);
+
+undo_lan_prod:
+	_ipa_suspend_resume_pipe(IPA_CLIENT_APPS_LAN_PROD, !suspend);
+
+undo_odl_cons:
+	_ipa_suspend_resume_pipe(IPA_CLIENT_ODL_DPL_CONS, !suspend);
+undo_lan_cons:
+	_ipa_suspend_resume_pipe(IPA_CLIENT_APPS_LAN_CONS, !suspend);
+undo_wan_cons:
+	_ipa_suspend_resume_pipe(IPA_CLIENT_APPS_WAN_COAL_CONS, !suspend);
+	_ipa_suspend_resume_pipe(IPA_CLIENT_APPS_WAN_CONS, !suspend);
+	return res;
+
+undo_coal_cons:
+	_ipa_suspend_resume_pipe(IPA_CLIENT_APPS_WAN_COAL_CONS, !suspend);
+
 	return res;
 }
 

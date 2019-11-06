@@ -985,7 +985,7 @@ exit:
 static int msm_cvp_thread_fence_run(void *data)
 {
 	int i, rc = 0;
-	unsigned long timeout_ms = 1000;
+	unsigned long timeout_ms = 100;
 	int synx_obj;
 	struct cvp_hfi_device *hdev;
 	struct msm_cvp_fence_thread_data *fence_thread_data;
@@ -1038,21 +1038,21 @@ static int msm_cvp_thread_fence_run(void *data)
 					dprintk(CVP_ERR,
 						"%s: synx_import failed\n",
 						__func__);
-					goto exit;
+					synx_state = SYNX_STATE_SIGNALED_ERROR;
 				}
 				rc = synx_wait(synx_obj, timeout_ms);
 				if (rc) {
 					dprintk(CVP_ERR,
 						"%s: synx_wait failed\n",
 						__func__);
-					goto exit;
+					synx_state = SYNX_STATE_SIGNALED_ERROR;
 				}
 				rc = synx_release(synx_obj);
 				if (rc) {
 					dprintk(CVP_ERR,
 						"%s: synx_release failed\n",
 						__func__);
-					goto exit;
+					synx_state = SYNX_STATE_SIGNALED_ERROR;
 				}
 				if (i == 0) {
 					ica_enabled = 1;
@@ -1065,18 +1065,18 @@ static int msm_cvp_thread_fence_run(void *data)
 			}
 		}
 
-		mutex_lock(&inst->fence_lock);
-		rc = call_hfi_op(hdev, session_send,
-				(void *)inst->session, in_pkt);
-		if (rc) {
-			dprintk(CVP_ERR,
-				"%s: Failed in call_hfi_op %d, %x\n",
-				__func__, in_pkt->pkt_data[0],
-				in_pkt->pkt_data[1]);
-			synx_state = SYNX_STATE_SIGNALED_ERROR;
-		}
-
 		if (synx_state != SYNX_STATE_SIGNALED_ERROR) {
+			mutex_lock(&inst->fence_lock);
+			rc = call_hfi_op(hdev, session_send,
+					(void *)inst->session, in_pkt);
+			if (rc) {
+				dprintk(CVP_ERR,
+					"%s: Failed in call_hfi_op %d, %x\n",
+					__func__, in_pkt->pkt_data[0],
+					in_pkt->pkt_data[1]);
+				synx_state = SYNX_STATE_SIGNALED_ERROR;
+			}
+
 			rc = wait_for_sess_signal_receipt_fence(inst,
 					HAL_SESSION_DME_FRAME_CMD_DONE);
 			if (rc) {
@@ -1085,28 +1085,28 @@ static int msm_cvp_thread_fence_run(void *data)
 				__func__, rc);
 				synx_state = SYNX_STATE_SIGNALED_ERROR;
 			}
+			mutex_unlock(&inst->fence_lock);
 		}
-		mutex_unlock(&inst->fence_lock);
 
 		if (ica_enabled) {
 			rc = synx_import(fence[2], fence[3], &synx_obj);
 			if (rc) {
 				dprintk(CVP_ERR, "%s: synx_import failed\n",
 					__func__);
-				goto exit;
+				synx_state = SYNX_STATE_SIGNALED_ERROR;
 			}
 			rc = synx_signal(synx_obj, synx_state);
 			if (rc) {
 				dprintk(CVP_ERR, "%s: synx_signal failed\n",
 					__func__);
-				goto exit;
+				synx_state = SYNX_STATE_SIGNALED_ERROR;
 			}
 
 			rc = synx_release(synx_obj);
 			if (rc) {
 				dprintk(CVP_ERR, "%s: synx_release failed\n",
 					__func__);
-				goto exit;
+				synx_state = SYNX_STATE_SIGNALED_ERROR;
 			}
 		}
 
@@ -1115,18 +1115,18 @@ static int msm_cvp_thread_fence_run(void *data)
 				&synx_obj);
 		if (rc) {
 			dprintk(CVP_ERR, "%s: synx_import failed\n", __func__);
-			goto exit;
+			synx_state = SYNX_STATE_SIGNALED_ERROR;
 		}
 		rc = synx_signal(synx_obj, synx_state);
 		if (rc) {
 			dprintk(CVP_ERR, "%s: synx_signal failed\n", __func__);
-			goto exit;
+			synx_state = SYNX_STATE_SIGNALED_ERROR;
 		}
 		rc = synx_release(synx_obj);
 		if (rc) {
 			dprintk(CVP_ERR, "%s: synx_release failed\n",
 				__func__);
-			goto exit;
+			synx_state = SYNX_STATE_SIGNALED_ERROR;
 		}
 		break;
 	}
@@ -1440,7 +1440,8 @@ static bool is_subblock_profile_existed(struct msm_cvp_inst *inst)
 {
 	return (inst->prop.od_cycles ||
 			inst->prop.mpu_cycles ||
-			inst->prop.fdu_cycles);
+			inst->prop.fdu_cycles ||
+			inst->prop.ica_cycles);
 }
 
 static void aggregate_power_update(struct msm_cvp_core *core,
