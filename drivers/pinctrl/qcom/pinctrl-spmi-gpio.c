@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2014, 2016-2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, 2016-2019 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/gpio/driver.h>
@@ -14,6 +14,7 @@
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
 #include <linux/slab.h>
+#include <linux/spmi.h>
 #include <linux/types.h>
 
 #include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
@@ -170,6 +171,8 @@ struct pmic_gpio_state {
 	struct regmap	*map;
 	struct pinctrl_dev *ctrl;
 	struct gpio_chip chip;
+	u8 usid;
+	u8 pid_base;
 };
 
 static const struct pinconf_generic_params pmic_gpio_bindings[] = {
@@ -964,10 +967,26 @@ static int pmic_gpio_child_to_parent_hwirq(struct gpio_chip *chip,
 					   unsigned int *parent_hwirq,
 					   unsigned int *parent_type)
 {
-	*parent_hwirq = child_hwirq + 0xc0;
+	struct pmic_gpio_state *state = gpiochip_get_data(chip);
+
+	*parent_hwirq = child_hwirq + state->pid_base;
 	*parent_type = child_type;
 
 	return 0;
+}
+
+static void pmic_gpio_populate_parent_fwspec(struct gpio_chip *chip,
+					     struct irq_fwspec *fwspec,
+					     unsigned int parent_hwirq,
+					     unsigned int parent_type)
+{
+	struct pmic_gpio_state *state = gpiochip_get_data(chip);
+
+	fwspec->param_count = 4;
+	fwspec->param[0] = state->usid;
+	fwspec->param[1] = parent_hwirq;
+	fwspec->param[2] = 0;
+	fwspec->param[3] = parent_type;
 }
 
 static int pmic_gpio_probe(struct platform_device *pdev)
@@ -980,6 +999,7 @@ static int pmic_gpio_probe(struct platform_device *pdev)
 	struct pmic_gpio_pad *pad, *pads;
 	struct pmic_gpio_state *state;
 	struct gpio_irq_chip *girq;
+	const struct spmi_device *parent_spmi_dev;
 	int ret, npins, i;
 	u32 reg;
 
@@ -999,6 +1019,9 @@ static int pmic_gpio_probe(struct platform_device *pdev)
 
 	state->dev = &pdev->dev;
 	state->map = dev_get_regmap(dev->parent, NULL);
+	parent_spmi_dev = to_spmi_device(dev->parent);
+	state->usid = parent_spmi_dev->usid;
+	state->pid_base = reg >> 8;
 
 	pindesc = devm_kcalloc(dev, npins, sizeof(*pindesc), GFP_KERNEL);
 	if (!pindesc)
@@ -1066,7 +1089,7 @@ static int pmic_gpio_probe(struct platform_device *pdev)
 	girq->fwnode = of_node_to_fwnode(state->dev->of_node);
 	girq->parent_domain = parent_domain;
 	girq->child_to_parent_hwirq = pmic_gpio_child_to_parent_hwirq;
-	girq->populate_parent_fwspec = gpiochip_populate_parent_fwspec_fourcell;
+	girq->populate_parent_fwspec = pmic_gpio_populate_parent_fwspec;
 	girq->child_offset_to_irq = pmic_gpio_child_offset_to_irq;
 	girq->child_irq_domain_ops.translate = pmic_gpio_domain_translate;
 
