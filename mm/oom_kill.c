@@ -77,8 +77,21 @@ DEFINE_MUTEX(oom_lock);
  */
 
 #ifdef CONFIG_HAVE_USERSPACE_LOW_MEMORY_KILLER
+
+/* The maximum amount of time to loop in should_ulmk_retry() */
+#define ULMK_TIMEOUT (20 * HZ)
+
+#define ULMK_DBG_POLICY_TRIGGER (BIT(0))
+#define ULMK_DBG_POLICY_WDOG (BIT(1))
+#define ULMK_DBG_POLICY_POSITIVE_ADJ (BIT(2))
+#define ULMK_DBG_POLICY_ALL (BIT(3) - 1)
+static unsigned int ulmk_dbg_policy;
+module_param(ulmk_dbg_policy, uint, 0644);
+
+static atomic64_t ulmk_wdog_expired = ATOMIC64_INIT(0);
 static atomic64_t ulmk_kill_jiffies = ATOMIC64_INIT(INITIAL_JIFFIES);
 static unsigned long psi_emergency_jiffies = INITIAL_JIFFIES;
+/* Prevents contention on the mutex_trylock in psi_emergency_jiffies */
 static DEFINE_MUTEX(ulmk_retry_lock);
 
 static bool ulmk_kill_possible(void)
@@ -105,48 +118,79 @@ static bool ulmk_kill_possible(void)
 }
 
 /*
- * psi_emergency_jiffies represents the last ULMK emergency event.
- * Give ULMK a 2 second window to handle this event.
- * If ULMK has made some progress since then, send another.
- * Repeat as necessary.
+ * If CONFIG_DEBUG_PANIC_ON_OOM is enabled, attempt to determine *why*
+ * we are in this state.
+ * 1) No events were sent by PSI to userspace
+ * 2) PSI sent an event to userspace, but userspace was not able to
+ * receive the event. Possible causes of this include waiting for a
+ * mutex which is held by a process in direct relcaim. Or the userspace
+ * component has crashed.
+ * 3) Userspace received the event, but decided not to kill anything.
  */
-bool should_ulmk_retry(void)
+bool should_ulmk_retry(gfp_t gfp_mask)
 {
 	unsigned long now, last_kill;
-	bool ret = false;
+	bool ret = true;
+	bool wdog_expired, trigger_active;
 
-	mutex_lock(&ulmk_retry_lock);
+	struct oom_control oc = {
+		.zonelist = node_zonelist(first_memory_node, gfp_mask),
+		.nodemask = NULL,
+		.memcg = NULL,
+		.gfp_mask = gfp_mask,
+		.order = 0,
+		/* Also causes check_panic_on_oom not to panic */
+		.only_positive_adj = true,
+	};
+
+	if (!sysctl_panic_on_oom)
+		return false;
+
+	if (gfp_mask & __GFP_RETRY_MAYFAIL)
+		return false;
+
+	/* Someone else is already checking. */
+	if (!mutex_trylock(&ulmk_retry_lock))
+		return true;
+
 	now = jiffies;
 	last_kill = atomic64_read(&ulmk_kill_jiffies);
-	if (time_before(now, psi_emergency_jiffies + 2 * HZ)) {
-		ret = true;
-		goto out;
-	}
+	wdog_expired = atomic64_read(&ulmk_wdog_expired);
+	trigger_active = psi_is_trigger_active();
 
-	if (time_after_eq(last_kill, psi_emergency_jiffies)) {
+	if (time_after(last_kill, psi_emergency_jiffies)) {
 		psi_emergency_jiffies = now;
+		ret = true;
+	} else if (time_after(now, psi_emergency_jiffies + ULMK_TIMEOUT)) {
+		ret = false;
+	} else if (!trigger_active) {
+		BUG_ON(ulmk_dbg_policy & ULMK_DBG_POLICY_TRIGGER);
 		psi_emergency_trigger();
 		ret = true;
-		goto out;
+	} else if (wdog_expired) {
+		mutex_lock(&oom_lock);
+		ret = out_of_memory(&oc);
+		mutex_unlock(&oom_lock);
+		BUG_ON(!ret && ulmk_dbg_policy & ULMK_DBG_POLICY_POSITIVE_ADJ);
+	} else if (!ulmk_kill_possible()) {
+		BUG_ON(ulmk_dbg_policy & ULMK_DBG_POLICY_POSITIVE_ADJ);
+		ret = false;
 	}
 
-	/*
-	 * We reached here means no kill have had happened since the last
-	 * emergency trigger for 2*HZ window. We can't derive the status
-	 * of the low memory killer here. So, before falling back to OOM,
-	 * check for any +ve adj tasks left in the system in repeat for
-	 * next 20*HZ. Indirectly the below logic also giving 20HZ window
-	 * for the first emergency trigger.
-	 */
-	if (time_after(psi_emergency_jiffies + 20 * HZ, now) &&
-	    ulmk_kill_possible()) {
-		ret = true;
-		goto out;
-	}
-
-out:
 	mutex_unlock(&ulmk_retry_lock);
 	return ret;
+}
+
+void ulmk_watchdog_fn(struct timer_list *t)
+{
+	atomic64_set(&ulmk_wdog_expired, 1);
+	BUG_ON(ulmk_dbg_policy & ULMK_DBG_POLICY_WDOG);
+}
+
+void ulmk_watchdog_pet(struct timer_list *t)
+{
+	del_timer_sync(t);
+	atomic64_set(&ulmk_wdog_expired, 0);
 }
 
 void ulmk_update_last_kill(void)
@@ -1143,7 +1187,7 @@ static void check_panic_on_oom(struct oom_control *oc,
 			return;
 	}
 	/* Do not panic for oom kills triggered by sysrq */
-	if (is_sysrq_oom(oc))
+	if (is_sysrq_oom(oc) || oc->only_positive_adj)
 		return;
 	dump_header(oc, NULL);
 	panic("Out of memory: %s panic_on_oom is enabled\n",
@@ -1244,7 +1288,8 @@ bool out_of_memory(struct oom_control *oc)
 		 * system level, we cannot survive this and will enter
 		 * an endless loop in the allocator. Bail out now.
 		 */
-		if (!is_sysrq_oom(oc) && !is_memcg_oom(oc))
+		if (!is_sysrq_oom(oc) && !is_memcg_oom(oc) &&
+		    !oc->only_positive_adj)
 			panic("System is deadlocked on memory\n");
 	}
 	if (oc->chosen && oc->chosen != (void *)-1UL)

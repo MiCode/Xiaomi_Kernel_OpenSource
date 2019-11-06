@@ -24,6 +24,7 @@ void psi_memstall_leave(unsigned long *flags);
 int psi_show(struct seq_file *s, struct psi_group *group, enum psi_res res);
 
 void psi_emergency_trigger(void);
+bool psi_is_trigger_active(void);
 
 #ifdef CONFIG_CGROUPS
 int psi_cgroup_alloc(struct cgroup *cgrp);
@@ -46,6 +47,10 @@ static inline void psi_memstall_enter(unsigned long *flags) {}
 static inline void psi_memstall_leave(unsigned long *flags) {}
 
 static inline void psi_emergency_trigger(void){}
+static inline bool psi_is_trigger_active(void)
+{
+	return false;
+}
 
 #ifdef CONFIG_CGROUPS
 static inline int psi_cgroup_alloc(struct cgroup *cgrp)
