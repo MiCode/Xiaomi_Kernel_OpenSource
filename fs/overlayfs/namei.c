@@ -85,7 +85,7 @@ err_free:
 	kfree(buf);
 	return 0;
 fail:
-	pr_warn_ratelimited("overlayfs: failed to get redirect (%i)\n", res);
+	pr_warn_ratelimited("overlayfs: failed to get redirect (%zi)\n", res);
 	goto err_free;
 invalid:
 	pr_warn_ratelimited("overlayfs: invalid redirect (%s)\n", buf);
