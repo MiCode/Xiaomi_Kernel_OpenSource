@@ -234,6 +234,9 @@ config USB_F_CCID
 config USB_F_CDEV
 	tristate
 
+config USB_F_GSI
+	tristate
+
 # this first set of drivers all depend on bulk-capable hardware.
 
 config USB_CONFIGFS
@@ -569,6 +572,16 @@ config USB_CONFIGFS_F_CDEV
 	  function also supports a single interrupt IN endpoint for
 	  asynchronous notification to the host. This driver is typically
 	  used to support DUN/NMEA functions.
+
+config USB_CONFIGFS_F_GSI
+	tristate "USB GSI function"
+	select USB_F_GSI
+	depends on USB_CONFIGFS
+	help
+	  Generic function driver to support h/w acceleration to IPA
+	  over GSI. This driver provides USB RMNET/RNDIS/ECM/MBIM/DPL
+	  related functionalities using GSI hardware accelerated data
+	  path and control path.
 
 choice
 	tristate "USB Gadget precomposed configurations"
