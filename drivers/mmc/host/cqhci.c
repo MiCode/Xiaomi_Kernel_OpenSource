@@ -279,11 +279,9 @@ static void __cqhci_enable(struct cqhci_host *cq_host)
 	if (cqcap & CQHCI_CAP_CS) {
 		/*
 		 * In case host controller supports cryptographic operations
-		 * then, it uses 128bit task descriptor. Upper 64 bits of task
-		 * descriptor would be used to pass crypto specific informaton.
+		 * then, enable crypro support.
 		 */
-		cq_host->caps |= CQHCI_CAP_CRYPTO_SUPPORT |
-				CQHCI_TASK_DESC_SZ_128;
+		cq_host->caps |= CQHCI_CAP_CRYPTO_SUPPORT;
 		cqcfg |= CQHCI_ICE_ENABLE;
 		/*
 		 * For SDHC v5.0 onwards, ICE 3.0 specific registers are added
@@ -1258,6 +1256,7 @@ int cqhci_init(struct cqhci_host *cq_host, struct mmc_host *mmc,
 	      bool dma64)
 {
 	int err;
+	u32 cqcap = 0;
 
 	cq_host->dma64 = dma64;
 	cq_host->mmc = mmc;
@@ -1271,6 +1270,16 @@ int cqhci_init(struct cqhci_host *cq_host, struct mmc_host *mmc,
 	mmc->cqe_qdepth = NUM_SLOTS;
 	if (mmc->caps2 & MMC_CAP2_CQE_DCMD)
 		mmc->cqe_qdepth -= 1;
+
+	cqcap = cqhci_readl(cq_host, CQHCI_CAP);
+	if (cqcap & CQHCI_CAP_CS) {
+		/*
+		 * In case host controller supports cryptographic operations
+		 * then, it uses 128bit task descriptor. Upper 64 bits of task
+		 * descriptor would be used to pass crypto specific informaton.
+		 */
+		cq_host->caps |= CQHCI_TASK_DESC_SZ_128;
+	}
 
 	cq_host->slot = devm_kcalloc(mmc_dev(mmc), cq_host->num_slots,
 				     sizeof(*cq_host->slot), GFP_KERNEL);
