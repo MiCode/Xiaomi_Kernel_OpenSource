@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -96,7 +96,8 @@ static int ipa3_hdr_proc_ctx_to_hw_format(struct ipa_mem_buffer *mem,
 				entry->hdr->phys_base,
 				hdr_base_addr,
 				entry->hdr->offset_entry,
-				entry->l2tp_params);
+				&entry->l2tp_params,
+				&entry->generic_params);
 		if (ret)
 			return ret;
 	}
@@ -360,23 +361,27 @@ static int __ipa_add_hdr_proc_ctx(struct ipa_hdr_proc_ctx_add *proc_ctx,
 	entry->type = proc_ctx->type;
 	entry->hdr = hdr_entry;
 	entry->l2tp_params = proc_ctx->l2tp_params;
+	entry->generic_params = proc_ctx->generic_params;
 	if (add_ref_hdr)
 		hdr_entry->ref_cnt++;
 	entry->cookie = IPA_PROC_HDR_COOKIE;
 	entry->ipacm_installed = user_only;
 
 	needed_len = ipahal_get_proc_ctx_needed_len(proc_ctx->type);
-
-	if (needed_len <= ipa_hdr_proc_ctx_bin_sz[IPA_HDR_PROC_CTX_BIN0]) {
-		bin = IPA_HDR_PROC_CTX_BIN0;
-	} else if (needed_len <=
-			ipa_hdr_proc_ctx_bin_sz[IPA_HDR_PROC_CTX_BIN1]) {
-		bin = IPA_HDR_PROC_CTX_BIN1;
-	} else {
+	if ((needed_len < 0) ||
+		((needed_len > ipa_hdr_proc_ctx_bin_sz[IPA_HDR_PROC_CTX_BIN0])
+			&&
+			(needed_len >
+			ipa_hdr_proc_ctx_bin_sz[IPA_HDR_PROC_CTX_BIN1]))) {
 		IPAERR_RL("unexpected needed len %d\n", needed_len);
 		WARN_ON_RATELIMIT_IPA(1);
 		goto bad_len;
 	}
+
+	if (needed_len <= ipa_hdr_proc_ctx_bin_sz[IPA_HDR_PROC_CTX_BIN0])
+		bin = IPA_HDR_PROC_CTX_BIN0;
+	else
+		bin = IPA_HDR_PROC_CTX_BIN1;
 
 	mem_size = (ipa3_ctx->hdr_proc_ctx_tbl_lcl) ?
 		IPA_MEM_PART(apps_hdr_proc_ctx_size) :
@@ -867,7 +872,7 @@ int ipa3_add_hdr_proc_ctx(struct ipa_ioc_add_hdr_proc_ctx *proc_ctxs,
 	for (i = 0; i < proc_ctxs->num_proc_ctxs; i++) {
 		if (__ipa_add_hdr_proc_ctx(&proc_ctxs->proc_ctx[i],
 				true, user_only)) {
-			IPAERR_RL("failed to add hdr pric ctx %d\n", i);
+			IPAERR_RL("failed to add hdr proc ctx %d\n", i);
 			proc_ctxs->proc_ctx[i].status = -1;
 		} else {
 			proc_ctxs->proc_ctx[i].status = 0;
