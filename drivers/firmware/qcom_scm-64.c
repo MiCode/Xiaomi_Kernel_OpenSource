@@ -57,9 +57,9 @@ static DEFINE_MUTEX(qcom_scm_lock);
 #define QCOM_SCM_EBUSY_MAX_RETRY 20
 
 #define SMCCC_FUNCNUM(s, c)	((((s) & 0xFF) << 8) | ((c) & 0xFF))
-#define SMCCC_N_EXT_ARGS 7
-#define SMCCC_FIRST_EXT_IDX 3
-#define SMCCC_N_REG_ARGS (MAX_QCOM_SCM_ARGS - SMCCC_N_EXT_ARGS + 1)
+#define SMCCC_N_REG_ARGS	4
+#define SMCCC_FIRST_EXT_IDX	(SMCCC_N_REG_ARGS - 1)
+#define SMCCC_N_EXT_ARGS	(MAX_QCOM_SCM_ARGS - SMCCC_N_REG_ARGS + 1)
 
 static void __qcom_scm_call_do_quirk(const struct qcom_scm_desc *desc,
 			       struct arm_smccc_res *res, u32 fn_id,
