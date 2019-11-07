@@ -57,7 +57,8 @@ walt_proc_update_handler(struct ctl_table *table, int write,
 #if defined(CONFIG_PREEMPT_TRACER) || defined(CONFIG_DEBUG_PREEMPT)
 extern unsigned int sysctl_preemptoff_tracing_threshold_ns;
 #endif
-#if defined(CONFIG_PREEMPTIRQ_EVENTS) && defined(CONFIG_IRQSOFF_TRACER)
+#if defined(CONFIG_PREEMPTIRQ_EVENTS) && defined(CONFIG_IRQSOFF_TRACER) && \
+		!defined(CONFIG_PROVE_LOCKING)
 extern unsigned int sysctl_irqsoff_tracing_threshold_ns;
 #endif
 
