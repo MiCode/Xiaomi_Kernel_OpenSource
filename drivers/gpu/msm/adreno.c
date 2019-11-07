@@ -908,11 +908,9 @@ out:
 	return ret;
 }
 
-static void adreno_of_get_initial_pwrlevel(struct adreno_device *adreno_dev,
+static void adreno_of_get_initial_pwrlevel(struct kgsl_pwrctrl *pwr,
 		struct device_node *node)
 {
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	int init_level = 1;
 
 	of_property_read_u32(node, "qcom,initial-pwrlevel", &init_level);
@@ -959,14 +957,14 @@ static int adreno_of_get_legacy_pwrlevels(struct adreno_device *adreno_dev,
 	}
 
 	ret = adreno_of_parse_pwrlevels(adreno_dev, node);
-	if (ret)
-		return ret;
 
-	adreno_of_get_initial_pwrlevel(adreno_dev, parent);
+	if (!ret) {
+		adreno_of_get_initial_pwrlevel(&device->pwrctrl, parent);
+		adreno_of_get_limits(adreno_dev, parent);
+	}
 
-	adreno_of_get_limits(adreno_dev, parent);
-
-	return 0;
+	of_node_put(node);
+	return ret;
 }
 
 static int adreno_of_get_pwrlevels(struct adreno_device *adreno_dev,
@@ -989,10 +987,12 @@ static int adreno_of_get_pwrlevels(struct adreno_device *adreno_dev,
 			int ret;
 
 			ret = adreno_of_parse_pwrlevels(adreno_dev, child);
-			if (ret)
+			if (ret) {
+				of_node_put(child);
 				return ret;
+			}
 
-			adreno_of_get_initial_pwrlevel(adreno_dev, child);
+			adreno_of_get_initial_pwrlevel(&device->pwrctrl, child);
 
 			/*
 			 * Check for global throttle-pwrlevel first and override
@@ -1001,6 +1001,7 @@ static int adreno_of_get_pwrlevels(struct adreno_device *adreno_dev,
 			adreno_of_get_limits(adreno_dev, parent);
 			adreno_of_get_limits(adreno_dev, child);
 
+			of_node_put(child);
 			return 0;
 		}
 	}
@@ -1032,26 +1033,23 @@ l3_pwrlevel_probe(struct kgsl_device *device, struct device_node *node)
 		if (index >= device->num_l3_pwrlevels)
 			device->num_l3_pwrlevels = index + 1;
 
-		if (of_property_read_u32(child, "qcom,l3-freq",
-				&device->l3_freq[index]))
-			continue;
+		of_property_read_u32(child, "qcom,l3-freq",
+				&device->l3_freq[index]);
 	}
 
 	device->l3_clk = devm_clk_get(&device->pdev->dev, "l3_vote");
 
-	if (IS_ERR_OR_NULL(device->l3_clk)) {
+	if (IS_ERR_OR_NULL(device->l3_clk))
 		dev_err(&device->pdev->dev,
 			"Unable to get the l3_vote clock\n");
-		device->l3_clk = NULL;
-	}
 }
 
 static int adreno_of_get_power(struct adreno_device *adreno_dev,
 		struct platform_device *pdev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct device_node *node = pdev->dev.of_node;
 	struct resource *res;
+	int ret;
 
 	/* Get starting physical address of device registers */
 	res = platform_get_resource_byname(device->pdev, IORESOURCE_MEM,
@@ -1071,10 +1069,11 @@ static int adreno_of_get_power(struct adreno_device *adreno_dev,
 	device->reg_phys = res->start;
 	device->reg_len = resource_size(res);
 
-	if (adreno_of_get_pwrlevels(adreno_dev, node))
-		return -EINVAL;
+	ret = adreno_of_get_pwrlevels(adreno_dev, pdev->dev.of_node);
+	if (ret)
+		return ret;
 
-	l3_pwrlevel_probe(device, node);
+	l3_pwrlevel_probe(device, pdev->dev.of_node);
 
 	/* Default timeout is 80 ms across all targets */
 	device->pwrctrl.interval_timeout = msecs_to_jiffies(80);
@@ -1082,8 +1081,9 @@ static int adreno_of_get_power(struct adreno_device *adreno_dev,
 	/* Set default bus control to true on all targets */
 	device->pwrctrl.bus_control = true;
 
-	device->pwrctrl.input_disable = of_property_read_bool(node,
-		"qcom,disable-wake-on-touch");
+	device->pwrctrl.input_disable =
+		of_property_read_bool(pdev->dev.of_node,
+			"qcom,disable-wake-on-touch");
 
 	return 0;
 }
@@ -1267,7 +1267,7 @@ static int adreno_read_speed_bin(struct platform_device *pdev)
 	return val;
 }
 
-static void adreno_probe_llcc(struct adreno_device *adreno_dev,
+static int adreno_probe_llcc(struct adreno_device *adreno_dev,
 		struct platform_device *pdev)
 {
 	int ret;
@@ -1275,16 +1275,32 @@ static void adreno_probe_llcc(struct adreno_device *adreno_dev,
 	/* Get the system cache slice descriptor for GPU */
 	adreno_dev->gpu_llc_slice = llcc_slice_getd(LLCC_GPU);
 	ret = PTR_ERR_OR_ZERO(adreno_dev->gpu_llc_slice);
-	if (ret && ret != -ENOENT)
-		dev_warn(&pdev->dev, "Unable to get the GPU LLC slice: %d\n",
-			ret);
+
+	if (ret) {
+		/* Propagate EPROBE_DEFER back to the probe function */
+		if (ret == -EPROBE_DEFER)
+			return ret;
+
+		if (ret != -ENOENT)
+			dev_warn(&pdev->dev,
+				"Unable to get the GPU LLC slice: %d\n", ret);
+	}
 
 	/* Get the system cache slice descriptor for GPU pagetables */
 	adreno_dev->gpuhtw_llc_slice = llcc_slice_getd(LLCC_GPUHTW);
 	ret = PTR_ERR_OR_ZERO(adreno_dev->gpuhtw_llc_slice);
-	if (ret && ret != -ENOENT)
-		dev_warn(&pdev->dev, "Unable to get GPU HTW LLC slice: %d\n",
-			ret);
+	if (ret) {
+		if (ret == -EPROBE_DEFER) {
+			llcc_slice_putd(adreno_dev->gpu_llc_slice);
+			return ret;
+		}
+
+		if (ret != -ENOENT)
+			dev_warn(&pdev->dev,
+				"Unable to get GPU HTW LLC slice: %d\n", ret);
+	}
+
+	return 0;
 }
 
 static const struct kgsl_functable adreno_functable;
@@ -1317,10 +1333,6 @@ static void adreno_setup_device(struct adreno_device *adreno_dev)
 
 	INIT_LIST_HEAD(&adreno_dev->active_list);
 	spin_lock_init(&adreno_dev->active_list_lock);
-
-	/* Enable use of the LLC slices where applicable */
-	adreno_dev->gpu_llc_slice_enable = true;
-	adreno_dev->gpuhtw_llc_slice_enable = true;
 
 	for (i = 0; i < ARRAY_SIZE(adreno_dev->ringbuffers); i++) {
 		struct adreno_ringbuffer *rb = &adreno_dev->ringbuffers[i];
@@ -1375,10 +1387,8 @@ static int adreno_bind(struct device *dev)
 		return -ENODEV;
 
 	status = adreno_of_get_power(adreno_dev, pdev);
-	if (status) {
-		device->pdev = NULL;
+	if (status)
 		return status;
-	}
 
 	status = kgsl_bus_init(device, pdev);
 	if (status)
@@ -1407,8 +1417,10 @@ static int adreno_bind(struct device *dev)
 	device->mmu.secured = (IS_ENABLED(CONFIG_QCOM_SECURE_BUFFER) &&
 		ADRENO_FEATURE(adreno_dev, ADRENO_CONTENT_PROTECTION));
 
-	/* Probe the LLCC */
-	adreno_probe_llcc(adreno_dev, pdev);
+	/* Probe the LLCC - this could return -EPROBE_DEFER */
+	status = adreno_probe_llcc(adreno_dev, pdev);
+	if (status)
+		goto err;
 
 	/*
 	 * IF the GPU HTW slice was successsful set the MMU feature so the

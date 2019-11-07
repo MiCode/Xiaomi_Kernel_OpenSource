@@ -4835,8 +4835,7 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	/* Disable the sparse ioctl invocation as they are not used */
 	device->flags &= ~KGSL_FLAG_SPARSE;
 
-	kgsl_device_debugfs_init(device);
-
+	/* Can return -EPROBE_DEFER */
 	status = kgsl_pwrctrl_init(device);
 	if (status)
 		goto error;
@@ -4873,10 +4872,9 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	rwlock_init(&device->context_lock);
 	spin_lock_init(&device->submit_lock);
 
-	/* Check to see if our device can perform DMA correctly */
-	status = dma_set_coherent_mask(&pdev->dev, KGSL_DMA_BIT_MASK);
-	if (status)
-		goto error_close_mmu;
+	kgsl_device_debugfs_init(device);
+
+	dma_set_coherent_mask(&pdev->dev, KGSL_DMA_BIT_MASK);
 
 	/* Set up the GPU events for the device */
 	kgsl_device_events_probe(device);
@@ -4889,13 +4887,9 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 
 	return 0;
 
-error_close_mmu:
-	kgsl_mmu_close(device);
-	kgsl_free_globals(device);
 error_pwrctrl_close:
 	kgsl_pwrctrl_close(device);
 error:
-	kgsl_device_debugfs_close(device);
 	_unregister_device(device);
 	return status;
 }

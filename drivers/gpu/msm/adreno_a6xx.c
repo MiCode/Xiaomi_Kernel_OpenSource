@@ -2286,6 +2286,9 @@ static void a6xx_platform_setup(struct adreno_device *adreno_dev)
 	adreno_dev->preempt.skipsaverestore = true;
 	adreno_dev->preempt.usesgmem = true;
 
+	adreno_dev->gpu_llc_slice_enable = true;
+	adreno_dev->gpuhtw_llc_slice_enable = true;
+
 	if (adreno_has_gbif(adreno_dev)) {
 		a6xx_perfcounter_groups[KGSL_PERFCOUNTER_GROUP_VBIF].regs =
 				a6xx_perfcounters_gbif;
