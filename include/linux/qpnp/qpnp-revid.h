@@ -330,7 +330,7 @@ struct pmic_revid_data {
 	int		tp_rev;
 };
 
-#ifdef CONFIG_QPNP_REVID
+#if IS_ENABLED(CONFIG_QPNP_REVID)
 struct pmic_revid_data *get_revid_data(struct device_node *dev_node);
 #else
 static inline
