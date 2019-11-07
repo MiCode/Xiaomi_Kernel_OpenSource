@@ -604,7 +604,8 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 		lv = CPU_LEVEL_1;
 
 	else if ((val == 0x90) || (val == 0x09) ||
-					(val == 0x50) || (val == 0x0A))
+			(val == 0x50) || (val == 0x0A) || (val == 0xA0) ||
+			(val == 0x05) || (val == 0x60) || (val == 0x06))
 		lv = CPU_LEVEL_6;
 
 	if (ptp_val <= 0x10 && lv == CPU_LEVEL_0)
@@ -613,8 +614,8 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 	if (ptp_val <= 0x10 && lv == CPU_LEVEL_1)
 		lv = CPU_LEVEL_4;
 
-	tag_pr_info("%d, %d, (%d, %d)\n",
-		lv, turbo_flag, UP_SRATE, DOWN_SRATE);
+	tag_pr_info("%d %d, %d, (%d, %d)\n",
+		val, lv, turbo_flag, UP_SRATE, DOWN_SRATE);
 
 	return lv;
 }
