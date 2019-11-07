@@ -460,12 +460,17 @@ struct ath10k_ce_crash_hdr {
 	struct ath10k_ce_crash_data entries[];
 };
 
+#define MAX_MEM_DUMP_TYPE	5
+
 /* used for crash-dump storage, protected by data-lock */
 struct ath10k_fw_crash_data {
 	guid_t guid;
 	struct timespec64 timestamp;
 	__le32 registers[REG_DUMP_COUNT_QCA988X];
 	struct ath10k_ce_crash_data ce_crash_data[CE_COUNT_MAX];
+
+	u8 *ramdump_buf;
+	size_t ramdump_buf_len;
 };
 
 struct ath10k_debug {
@@ -1026,6 +1031,8 @@ static inline bool ath10k_peer_stats_enabled(struct ath10k *ar)
 
 	return false;
 }
+
+extern unsigned long ath10k_coredump_mask;
 
 struct ath10k *ath10k_core_create(size_t priv_size, struct device *dev,
 				  enum ath10k_bus bus,
