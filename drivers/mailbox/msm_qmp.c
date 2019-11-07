@@ -34,16 +34,12 @@
 
 #define QMP_IPC_LOG_PAGE_CNT 2
 #define QMP_INFO(ctxt, x, ...)						  \
-do {									  \
-	if (ctxt)							  \
-		ipc_log_string(ctxt, "[%s]: "x, __func__, ##__VA_ARGS__); \
-} while (0)
+	ipc_log_string(ctxt, "[%s]: "x, __func__, ##__VA_ARGS__)
 
-#define QMP_ERR(ctxt, x, ...)						  \
-do {									  \
-	pr_err_ratelimited("[%s]: "x, __func__, ##__VA_ARGS__);		  \
-	if (ctxt)							  \
-		ipc_log_string(ctxt, "[%s]: "x, __func__, ##__VA_ARGS__); \
+#define QMP_ERR(ctxt, x, ...)						    \
+do {									    \
+	printk_ratelimited("%s[%s]: "x, KERN_ERR, __func__, ##__VA_ARGS__); \
+	ipc_log_string(ctxt, "%s[%s]: "x, "", __func__, ##__VA_ARGS__);	    \
 } while (0)
 
 /**
