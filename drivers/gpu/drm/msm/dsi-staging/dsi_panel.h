@@ -180,6 +180,7 @@ struct dsi_panel {
 	struct dsi_video_engine_cfg video_config;
 	struct dsi_cmd_engine_cfg cmd_config;
 	enum dsi_op_mode panel_mode;
+	bool panel_mode_switch_enabled;
 
 	struct dsi_dfps_capabilities dfps_caps;
 	struct dsi_dyn_clk_caps dyn_clk_caps;
@@ -308,6 +309,14 @@ int dsi_panel_send_qsync_off_dcs(struct dsi_panel *panel,
 
 int dsi_panel_send_roi_dcs(struct dsi_panel *panel, int ctrl_idx,
 		struct dsi_rect *roi);
+
+int dsi_panel_pre_mode_switch_to_video(struct dsi_panel *panel);
+
+int dsi_panel_pre_mode_switch_to_cmd(struct dsi_panel *panel);
+
+int dsi_panel_mode_switch_to_cmd(struct dsi_panel *panel);
+
+int dsi_panel_mode_switch_to_vid(struct dsi_panel *panel);
 
 int dsi_panel_switch(struct dsi_panel *panel);
 
