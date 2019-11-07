@@ -577,7 +577,7 @@ static bool of_thermal_is_trips_triggered(struct thermal_zone_device *tz,
 	bool triggered = false;
 
 	mutex_lock(&tz->lock);
-	last_temp = tz->last_temperature;
+	last_temp = tz->temperature;
 	for (trip = 0; trip < data->ntrips; trip++) {
 
 		if (!tz->tzp->tracks_low) {
