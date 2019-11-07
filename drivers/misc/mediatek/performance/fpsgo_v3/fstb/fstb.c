@@ -58,6 +58,14 @@
 #define fpsgo_systrace_c_fstb_man(pid, val, fmt...) \
 	fpsgo_systrace_c(FPSGO_DEBUG_MANDATORY, pid, val, fmt)
 
+static int max_fps_limit = DEFAULT_DFPS;
+static int dfps_ceiling = DEFAULT_DFPS;
+static int min_fps_limit = CFG_MIN_FPS_LIMIT;
+static int fps_error_threshold = 10;
+static int QUANTILE = 50;
+static long long FRAME_TIME_WINDOW_SIZE_US = 1000000;
+static long long ADJUST_INTERVAL_US = 1000000;
+static int margin_mode;
 
 static void fstb_fps_stats(struct work_struct *work);
 static DECLARE_WORK(fps_stats_work,
@@ -981,7 +989,7 @@ void fpsgo_comp2fstb_queue_time_update(int pid,
 		new_frame_info->pid = pid;
 		new_frame_info->target_fps = max_fps_limit;
 		new_frame_info->target_fps_margin = 0;
-		new_frame_info->queue_fps = CFG_MAX_FPS_LIMIT;
+		new_frame_info->queue_fps = max_fps_limit;
 		new_frame_info->bufid = bufferid;
 		new_frame_info->asfc_flag = 0;
 		new_frame_info->check_asfc = 0;
@@ -1213,7 +1221,7 @@ static int calculate_fps_limit(struct FSTB_FRAME_INFO *iter, int target_fps)
 
 	if (ret_fps == 30)
 		margin = RESET_TOLERENCE;
-	else if (ret_fps == CFG_MAX_FPS_LIMIT)
+	else if (ret_fps == max_fps_limit)
 		margin = 0;
 
 	iter->target_fps_margin = margin;
@@ -1231,8 +1239,8 @@ out:
 
 static int cal_target_fps(struct FSTB_FRAME_INFO *iter)
 {
-	long long target_limit = 60;
-	unsigned long long tmp_target_limit = 60;
+	long long target_limit = max_fps_limit;
+	unsigned long long tmp_target_limit = max_fps_limit;
 	int cur_cpu_time, cur_gpu_time;
 	long long cur_pipe_time;
 
@@ -1275,7 +1283,7 @@ static int cal_target_fps(struct FSTB_FRAME_INFO *iter)
 		if (cur_pipe_time > 0)
 			do_div(tmp_target_limit, cur_pipe_time);
 		else
-			tmp_target_limit = CFG_MAX_FPS_LIMIT;
+			tmp_target_limit = max_fps_limit;
 
 		fpsgo_systrace_c_fstb(iter->pid,
 				(int)tmp_target_limit, "tmp_target_limit");
@@ -1353,8 +1361,8 @@ void fpsgo_fbt2fstb_query_fps(int pid, int *target_fps,
 		total_time = (int)FSTB_SEC_DIVIDER;
 		total_time =
 			div64_u64(total_time,
-			(*target_fps) + tolerence_fps > CFG_MAX_FPS_LIMIT ?
-			CFG_MAX_FPS_LIMIT : (*target_fps) + tolerence_fps);
+			(*target_fps) + tolerence_fps > max_fps_limit ?
+			max_fps_limit : (*target_fps) + tolerence_fps);
 		v_c_time = total_time;
 
 	} else {
@@ -1366,8 +1374,8 @@ void fpsgo_fbt2fstb_query_fps(int pid, int *target_fps,
 		total_time = (int)FSTB_SEC_DIVIDER;
 		total_time =
 			div64_u64(total_time,
-			(*target_fps) + tolerence_fps > CFG_MAX_FPS_LIMIT ?
-			CFG_MAX_FPS_LIMIT : (*target_fps) + tolerence_fps);
+			(*target_fps) + tolerence_fps > max_fps_limit ?
+			max_fps_limit : (*target_fps) + tolerence_fps);
 
 		if (total_time > 1000000ULL + iter->gblock_time &&
 				iter->gblock_time > 1000000ULL) {
@@ -2053,8 +2061,8 @@ static int fpsgo_status_read(struct seq_file *m, void *v)
 		put_task_struct(gtsk);
 
 		seq_printf(m, "%d\t\t",
-				iter->queue_fps > CFG_MAX_FPS_LIMIT ?
-				CFG_MAX_FPS_LIMIT : iter->queue_fps);
+				iter->queue_fps > max_fps_limit ?
+				max_fps_limit : iter->queue_fps);
 
 		seq_printf(m, "%d\t\t", iter->target_fps);
 
