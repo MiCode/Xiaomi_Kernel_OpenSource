@@ -834,6 +834,12 @@ int qcom_scm_qdss_invoke(phys_addr_t paddr, size_t size, u64 *out)
 }
 EXPORT_SYMBOL(qcom_scm_qdss_invoke);
 
+int qcom_scm_camera_protect_all(uint32_t protect, uint32_t param)
+{
+	return __qcom_scm_camera_protect_all(__scm->dev, protect, param);
+}
+EXPORT_SYMBOL(qcom_scm_camera_protect_all);
+
 int qcom_scm_camera_protect_phy_lanes(bool protect, u64 regmask)
 {
 	return __qcom_scm_camera_protect_phy_lanes(__scm->dev, protect,

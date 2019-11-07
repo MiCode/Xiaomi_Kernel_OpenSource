@@ -1739,6 +1739,22 @@ int __qcom_scm_qdss_invoke(struct device *dev, phys_addr_t addr, size_t size,
 	return ret ? : desc.res[0];
 }
 
+int __qcom_scm_camera_protect_all(struct device *dev, uint32_t protect,
+				  uint32_t param)
+{
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_CAMERA,
+		.cmd = QCOM_SCM_CAMERA_PROTECT_ALL,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.args[0] = protect;
+	desc.args[1] = param;
+	desc.arginfo = QCOM_SCM_ARGS(2, QCOM_SCM_VAL, QCOM_SCM_VAL);
+
+	return qcom_scm_call(dev, &desc);
+}
+
 int __qcom_scm_camera_protect_phy_lanes(struct device *dev, bool protect,
 					 u64 regmask)
 {

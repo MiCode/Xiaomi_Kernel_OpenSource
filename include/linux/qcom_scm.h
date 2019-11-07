@@ -164,6 +164,7 @@ extern int qcom_scm_smmu_change_pgtbl_format(u64 dev_id, int cbndx);
 extern int qcom_scm_qsmmu500_wait_safe_toggle(bool en);
 extern int qcom_scm_smmu_notify_secure_lut(u64 dev_id, bool secure);
 extern int qcom_scm_qdss_invoke(phys_addr_t addr, size_t size, u64 *out);
+extern int qcom_scm_camera_protect_all(uint32_t protect, uint32_t param);
 extern int qcom_scm_camera_protect_phy_lanes(bool protect, u64 regmask);
 extern int qcom_scm_ice_restore_cfg(void);
 extern int qcom_scm_get_tz_log_feat_id(u64 *version);
@@ -311,6 +312,8 @@ static inline int qcom_scm_smmu_notify_secure_lut(u64 dev_id, bool secure)
 		{ return -EINVAL; }
 static inline int qcom_scm_qdss_invoke(phys_addr_t data, size_t size, u64 *out)
 		{ return -EINVAL; }
+static inline int qcom_scm_camera_protect_all(uint32_t protect, uint32_t param)
+		{ return -ENODEV; }
 static inline int qcom_scm_camera_protect_phy_lanes(bool protect, u64 regmask)
 		{ return -EINVAL; }
 static inline int qcom_scm_ice_restore_cfg(void) { return -ENODEV; }

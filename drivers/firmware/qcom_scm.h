@@ -208,7 +208,10 @@ extern int __qcom_scm_qdss_invoke(struct device *dev, phys_addr_t addr,
 				  size_t size, u64 *out);
 
 #define QCOM_SCM_SVC_CAMERA			0x18
+#define QCOM_SCM_CAMERA_PROTECT_ALL		0x06
 #define QCOM_SCM_CAMERA_PROTECT_PHY_LANES	0x07
+extern int __qcom_scm_camera_protect_all(struct device *dev, uint32_t protect,
+						uint32_t param);
 extern int __qcom_scm_camera_protect_phy_lanes(struct device *dev,
 						bool protect, u64 regmask);
 
