@@ -243,7 +243,7 @@ enum fastrpc_control_type {
 
 struct fastrpc_ctrl_latency {
 	uint32_t enable;	/* latency control enable */
-	uint32_t level;		/* level of control */
+	uint32_t latency;	/* latency request in us */
 };
 
 struct fastrpc_ctrl_kalloc {
@@ -299,6 +299,21 @@ struct smq_msg {
 struct smq_invoke_rsp {
 	uint64_t ctx;			/* invoke caller context */
 	int retval;	             /* invoke return value */
+};
+
+enum fastrpc_response_flags {
+	NORMAL_RESPONSE = 0,
+	EARLY_RESPONSE = 1,
+	USER_EARLY_SIGNAL = 2,
+	COMPLETE_SIGNAL = 3
+};
+
+struct smq_invoke_rspv2 {
+	uint64_t ctx;		/* invoke caller context */
+	int retval;		/* invoke return value */
+	uint32_t flags;		/* early response flags */
+	uint32_t earlyWakeTime;	/* user predicted early wakeup time in us */
+	uint32_t version;	/* Version number for validation */
 };
 
 static inline struct smq_invoke_buf *smq_invoke_buf_start(remote_arg64_t *pra,
