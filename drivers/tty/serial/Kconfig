@@ -986,6 +986,15 @@ config SERIAL_MSM_GENI_CONSOLE
 	    Serial console driver for Qualcomm Technologies Inc's GENI based
 	    QUP hardware.
 
+config SERIAL_MSM_GENI_HALF_SAMPLING
+	bool "Changes clock divider which impacts sampling rate for QUP HW ver greater than 2.5.0"
+	depends on SERIAL_MSM_GENI
+	help
+	  Clock divider value should be doubled for QUP hardware version
+	  greater than 2.5.0.
+	  As earlycon can't have HW version awareness, decision is taken
+	  based on the configuration.
+
 config SERIAL_VT8500
 	bool "VIA VT8500 on-chip serial port support"
 	depends on ARCH_VT8500
