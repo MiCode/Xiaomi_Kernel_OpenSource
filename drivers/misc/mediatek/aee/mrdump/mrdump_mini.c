@@ -72,12 +72,11 @@ static char modules_info_buf[MODULES_INFO_BUF_SIZE];
 
 static bool dump_all_cpus;
 
-#if defined(CONFIG_GZ_LOG)
 __weak void get_gz_log_buffer(unsigned long *addr, unsigned long *paddr,
 			unsigned long *size, unsigned long *start)
 {
+	*addr = *paddr = *size = *start = 0;
 }
-#endif
 
 __weak void get_disp_err_buffer(unsigned long *addr, unsigned long *size,
 		unsigned long *start)
@@ -798,7 +797,6 @@ static void mrdump_mini_build_elf_misc(void)
 	unsigned long task_info_va =
 	    (unsigned long)((void *)mrdump_mini_ehdr + MRDUMP_MINI_HEADER_SIZE);
 	unsigned long task_info_pa = 0;
-#if defined(CONFIG_GZ_LOG)
 	unsigned long gz_log_pa = 0;
 
 	memset_io(&misc, 0, sizeof(struct mrdump_mini_elf_misc));
@@ -806,7 +804,6 @@ static void mrdump_mini_build_elf_misc(void)
 	if (gz_log_pa != 0)
 		mrdump_mini_add_misc_pa(misc.vaddr, gz_log_pa, misc.size,
 					misc.start, "_GZ_LOG_");
-#endif
 	if (mrdump_mini_addr != 0
 		&& mrdump_mini_size != 0
 		&& MRDUMP_MINI_HEADER_SIZE < mrdump_mini_size) {
