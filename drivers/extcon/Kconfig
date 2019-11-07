@@ -43,15 +43,6 @@ config EXTCON_GPIO
 	  Say Y here to enable GPIO based extcon support. Note that GPIO
 	  extcon supports single state per extcon instance.
 
-config EXTCON_STORAGE_CD_GPIO
-	tristate "Storage card detect GPIO extcon support"
-	depends on GPIOLIB || COMPILE_TEST
-	help
-	  Say Y here to enable removable storage card detect GPIO based
-	  extcon support. It helps when different kinds of storage cards
-	  share one detect GPIO. Note that storage card detect GPIO extcon
-	  supports single state per extcon instance.
-
 config EXTCON_INTEL_INT3496
 	tristate "Intel INT3496 ACPI device extcon driver"
 	depends on GPIOLIB && ACPI && (X86 || COMPILE_TEST)
