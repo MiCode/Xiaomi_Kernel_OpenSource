@@ -2942,11 +2942,7 @@ static inline enum sched_boost_policy task_boost_policy(struct task_struct *p)
 
 static inline bool is_min_capacity_cluster(struct sched_cluster *cluster)
 {
-	int cpu = cluster_first_cpu(cluster);
-
-	if (cpu >= num_possible_cpus())
-		return false;
-	return is_min_capacity_cpu(cpu);
+	return is_min_capacity_cpu(cluster_first_cpu(cluster));
 }
 
 #else	/* CONFIG_SCHED_WALT */
