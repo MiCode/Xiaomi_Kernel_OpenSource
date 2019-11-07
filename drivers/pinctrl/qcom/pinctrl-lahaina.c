@@ -536,10 +536,10 @@ DECLARE_MSM_GPIO_PINS(200);
 DECLARE_MSM_GPIO_PINS(201);
 DECLARE_MSM_GPIO_PINS(202);
 
-static const unsigned int sdc2_clk_pins[] = { 203 };
-static const unsigned int sdc2_cmd_pins[] = { 204 };
-static const unsigned int sdc2_data_pins[] = { 205 };
-static const unsigned int ufs_reset_pins[] = { 206 };
+static const unsigned int ufs_reset_pins[] = { 203 };
+static const unsigned int sdc2_clk_pins[] = { 204 };
+static const unsigned int sdc2_cmd_pins[] = { 205 };
+static const unsigned int sdc2_data_pins[] = { 206 };
 
 enum lahaina_functions {
 	msm_mux_gpio,
@@ -1843,10 +1843,10 @@ static const struct msm_pingroup lahaina_groups[] = {
 	[200] = PINGROUP(200, qdss_gpio15, NA, NA, NA, NA, NA, NA, NA, NA),
 	[201] = PINGROUP(201, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	[202] = PINGROUP(202, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	[203] = SDC_QDSD_PINGROUP(sdc2_clk, 0x1cf000, 14, 6),
-	[204] = SDC_QDSD_PINGROUP(sdc2_cmd, 0x1cf000, 11, 3),
-	[205] = SDC_QDSD_PINGROUP(sdc2_data, 0x1cf000, 9, 0),
-	[206] = UFS_RESET(ufs_reset, 0x1d8000),
+	[203] = UFS_RESET(ufs_reset, 0x1d8000),
+	[204] = SDC_QDSD_PINGROUP(sdc2_clk, 0x1cf000, 14, 6),
+	[205] = SDC_QDSD_PINGROUP(sdc2_cmd, 0x1cf000, 11, 3),
+	[206] = SDC_QDSD_PINGROUP(sdc2_data, 0x1cf000, 9, 0),
 };
 
 static const int lahaina_reserved_gpios[] = {
@@ -1886,7 +1886,7 @@ static const struct msm_pinctrl_soc_data lahaina_pinctrl = {
 	.groups = lahaina_groups,
 	.ngroups = ARRAY_SIZE(lahaina_groups),
 	.reserved_gpios = lahaina_reserved_gpios,
-	.ngpios = 203,
+	.ngpios = 204,
 	.qup_regs = lahaina_qup_regs,
 	.nqup_regs = ARRAY_SIZE(lahaina_qup_regs),
 	.wakeirq_map = lahaina_pdc_map,
