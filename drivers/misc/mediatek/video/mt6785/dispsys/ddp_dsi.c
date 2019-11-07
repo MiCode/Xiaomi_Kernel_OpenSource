@@ -960,7 +960,7 @@ void DSI_CPHY_Calc_VDO_Timing(enum DISP_MODULE_ENUM module,
 	unsigned int t_vfp, t_vbp, t_vsa;
 	unsigned int t_hfp, t_hbp, t_hsa;
 	unsigned int t_hbllp;
-	unsigned int lane_num;
+	unsigned int lane_num = 0;
 	unsigned int data_phy_cycle;
 
 	t_vfp = (mipi_clk_change_sta) ?
@@ -2564,9 +2564,9 @@ void DSI_CPHY_TIMCONFIG(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq
 
 	/* +3 is recommended from designer becauase of HW latency */
 	timcon0.HS_TRAIL = hs_trail;
-
+	//HS_PRPR=DATA_RATE*50.5/7000+1
 	timcon0.HS_PRPR = (dsi_params->HS_PRPR == 0) ?
-		(NS_TO_CYCLE(dsi_params->PLL_CLOCK * 2 * 50.5, 7000) + 1) :
+		(NS_TO_CYCLE(dsi_params->PLL_CLOCK * 101, 7000) + 1) :
 		dsi_params->HS_PRPR;
 
 	timcon0.HS_ZERO = (dsi_params->HS_ZERO == 0) ?
@@ -2584,12 +2584,12 @@ void DSI_CPHY_TIMCONFIG(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq
 		(0x4 * timcon0.LPX) : dsi_params->TA_GO;
 	/* --------------------------------------------------------------
 	 * NT35510 need fine tune timing
-	 * Data_hs_exit = 60 ns + 128UI
+	 * Data_hs_exit = data_rate*112.5/7000+1
 	 * Clk_post = 60 ns + 128 UI.
 	 * --------------------------------------------------------------
 	 */
 	timcon1.DA_HS_EXIT  = (dsi_params->DA_HS_EXIT == 0) ?
-		(NS_TO_CYCLE(dsi_params->PLL_CLOCK * 2 * 112.5, 7000) + 1) :
+		(NS_TO_CYCLE(dsi_params->PLL_CLOCK * 225, 7000) + 1) :
 		dsi_params->DA_HS_EXIT;
 
 	timcon2.CLK_TRAIL = ((dsi_params->CLK_TRAIL == 0) ?
