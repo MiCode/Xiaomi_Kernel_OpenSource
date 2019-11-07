@@ -43,6 +43,7 @@
 #define TS_REG_DOZE_CTRL	0x30F0
 #define TS_REG_DOZE_STAT	0x3100
 #define TS_REG_ESD_TICK_R	0x3103
+#define TS_REG_PID		0x4535
 
 #define CFG_XMAX_OFFSET (0x8052 - 0x8050)
 #define CFG_YMAX_OFFSET	(0x8054 - 0x8050)
@@ -717,6 +718,37 @@ int goodix_send_command(struct goodix_ts_device *dev,
 	return ret;
 }
 
+static int goodix_read_pid(struct goodix_ts_device *dev,
+		struct goodix_ts_version *version)
+{
+	u8 buffer[12] = {0};
+	u8 pid[] = GOODIX_TS_PID;
+	int r;
+	u8 pid_read_len = 4;
+
+	/*disable doze mode, just valid for normandy*/
+	/* this func must be used in pairs*/
+	goodix_set_i2c_doze_mode(dev, false);
+
+	/*read pid*/
+	r = goodix_i2c_read(dev, TS_REG_PID, buffer, pid_read_len);
+	if (r < 0) {
+		ts_err("Read pid failed");
+		if (version)
+			version->valid = false;
+		return -EINVAL;
+	}
+
+	goodix_set_i2c_doze_mode(dev, true);
+
+	if (strcmp(buffer, pid) == 0)
+		ts_info("pid = GT9886");
+	else {
+		ts_err("pid != GT9886");
+		return -EINVAL;
+	}
+	return 0;
+}
 
 static int goodix_read_version(struct goodix_ts_device *dev,
 		struct goodix_ts_version *version)
@@ -2077,6 +2109,7 @@ static const struct goodix_ts_hw_ops hw_i2c_ops = {
 	.suspend = goodix_hw_suspend,
 	.resume = goodix_hw_resume,
 	.check_hw = goodix_esd_check,
+	.read_pid = goodix_read_pid,
 };
 
 static struct platform_device *goodix_pdev;

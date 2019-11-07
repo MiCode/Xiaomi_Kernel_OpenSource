@@ -1931,7 +1931,6 @@ static int goodix_ts_probe(struct platform_device *pdev)
 	struct goodix_ts_device *ts_device;
 	struct goodix_ts_board_data *ts_bdata;
 	int r;
-	u8 read_val = 0;
 
 	ts_info("%s IN", __func__);
 
@@ -1993,9 +1992,11 @@ static int goodix_ts_probe(struct platform_device *pdev)
 	if (r < 0)
 		goto err;
 
+	usleep_range(100000, 101000);
+
 	/*i2c test*/
-	r = ts_device->hw_ops->read_trans(ts_device, 0x3100,
-			&read_val, 1);
+	r = ts_device->hw_ops->read_pid(ts_device,
+			&ts_device->chip_version);
 	if (!r)
 		ts_info("i2c test SUCCESS");
 	else {
