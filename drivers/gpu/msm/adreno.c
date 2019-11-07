@@ -653,37 +653,42 @@ static struct {
 };
 
 static struct device_node *
-adreno_get_soc_hw_revision_node(struct adreno_device *adreno_dev,
-	struct platform_device *pdev)
+adreno_get_soc_hw_revision_node(struct platform_device *pdev, u32 hwrev)
 {
 	struct device_node *node, *child;
-	unsigned int rev;
 
 	node = of_find_node_by_name(pdev->dev.of_node, "qcom,soc-hw-revisions");
 	if (node == NULL)
 		return NULL;
 
 	for_each_child_of_node(node, child) {
+		u32 rev;
+
 		if (of_property_read_u32(child, "qcom,soc-hw-revision", &rev))
 			continue;
 
-		if (rev == adreno_dev->soc_hw_rev)
+		if (rev == hwrev) {
+			of_node_put(node);
 			return child;
+		}
 	}
 
-	dev_warn(KGSL_DEVICE(adreno_dev)->dev,
-		      "No matching SOC HW revision found for efused HW rev=%u\n",
-		      adreno_dev->soc_hw_rev);
+	of_node_put(node);
+
+	dev_warn(&pdev->dev, "No matching SOC HW revision found for efused HW rev=%u\n",
+		hwrev);
+
 	return NULL;
 }
 
-static void adreno_update_soc_hw_revision_quirks(
-		struct adreno_device *adreno_dev, struct platform_device *pdev)
+static void
+adreno_update_soc_hw_revision_quirks(struct adreno_device *adreno_dev,
+		struct platform_device *pdev, u32 hwrev)
 {
 	struct device_node *node;
 	int i;
 
-	node = adreno_get_soc_hw_revision_node(adreno_dev, pdev);
+	node = adreno_get_soc_hw_revision_node(pdev, hwrev);
 	if (node == NULL)
 		node = pdev->dev.of_node;
 
@@ -691,8 +696,7 @@ static void adreno_update_soc_hw_revision_quirks(
 	if (of_property_read_u32(node, "qcom,chipid", &adreno_dev->chipid)) {
 		if (of_property_read_u32(pdev->dev.of_node,
 				"qcom,chipid", &adreno_dev->chipid)) {
-			dev_crit(KGSL_DEVICE(adreno_dev)->dev,
-				"No GPU chip ID was specified\n");
+			dev_crit(&pdev->dev, "No GPU chip ID was specified\n");
 			BUG();
 			return;
 		}
@@ -709,6 +713,9 @@ static void adreno_update_soc_hw_revision_quirks(
 		kgsl_mmu_set_feature(KGSL_DEVICE(adreno_dev),
 			KGSL_MMU_SECURE_CB_ALT);
 
+
+	if (node != pdev->dev.of_node)
+		of_node_put(node);
 }
 
 static int adreno_identify_gpu(struct adreno_device *adreno_dev)
@@ -1156,35 +1163,33 @@ static void adreno_isense_probe(struct kgsl_device *device)
 		dev_warn(device->dev, "isense ioremap failed\n");
 }
 
-static void adreno_efuse_read_soc_hw_rev(struct adreno_device *adreno_dev)
+static u32 adreno_efuse_read_soc_hw_rev(struct platform_device *pdev)
 {
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int val;
 	unsigned int soc_hw_rev[3];
 	int ret;
 
-	if (of_property_read_u32_array(
-		device->pdev->dev.of_node,
+	if (of_property_read_u32_array(pdev->dev.of_node,
 		"qcom,soc-hw-rev-efuse", soc_hw_rev, 3))
-		return;
+		return 0;
 
-	ret = adreno_efuse_map(device->pdev);
+	ret = adreno_efuse_map(pdev);
 	if (ret) {
-		dev_err(device->dev,
+		dev_err(&pdev->dev,
 			"Unable to map hardware revision fuse: ret=%d\n", ret);
-		return;
+		return 0;
 	}
 
 	ret = adreno_efuse_read_u32(soc_hw_rev[0], &val);
 	adreno_efuse_unmap();
 
 	if (ret) {
-		dev_err(device->dev,
+		dev_err(&pdev->dev,
 			"Unable to read hardware revision fuse: ret=%d\n", ret);
-		return;
+		return 0;
 	}
 
-	adreno_dev->soc_hw_rev = (val >> soc_hw_rev[1]) & soc_hw_rev[2];
+	return (val >> soc_hw_rev[1]) & soc_hw_rev[2];
 }
 
 static bool adreno_is_gpu_disabled(struct adreno_device *adreno_dev)
@@ -1332,7 +1337,7 @@ static int adreno_bind(struct device *dev)
 	struct kgsl_device *device;
 	int status;
 	unsigned int priv = 0;
-	u32 size;
+	u32 size, hwrev;
 
 	of_id = of_match_device(adreno_match_table, &pdev->dev);
 	if (!of_id)
@@ -1355,9 +1360,9 @@ static int adreno_bind(struct device *dev)
 	}
 
 	/* Identify SOC hardware revision to be used */
-	adreno_efuse_read_soc_hw_rev(adreno_dev);
+	hwrev = adreno_efuse_read_soc_hw_rev(pdev);
 
-	adreno_update_soc_hw_revision_quirks(adreno_dev, pdev);
+	adreno_update_soc_hw_revision_quirks(adreno_dev, pdev, hwrev);
 
 	status = adreno_read_speed_bin(pdev);
 	if (status < 0)
