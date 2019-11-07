@@ -4883,7 +4883,7 @@ static void __exit arm_smmu_exit(void)
 	return platform_driver_unregister(&arm_smmu_driver);
 }
 
-module_init(arm_smmu_init);
+subsys_initcall(arm_smmu_init);
 module_exit(arm_smmu_exit);
 
 #define TCU_HW_VERSION_HLOS1		(0x18)
