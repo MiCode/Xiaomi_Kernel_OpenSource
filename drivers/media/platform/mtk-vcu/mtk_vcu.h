@@ -15,8 +15,27 @@
 #ifndef MTK_VCU_H
 #define MTK_VCU_H
 
+#include <aee.h>
 #include <linux/fdtable.h>
 #include <linux/platform_device.h>
+
+#ifdef CONFIG_MTK_AEE_FEATURE
+#define vcu_aee_print(string, args...) do {\
+	char vcu_name[100];\
+	snprintf(vcu_name, 100, "[VCU] "string, ##args); \
+	aee_kernel_warning_api(__FILE__, __LINE__, \
+		DB_OPT_MMPROFILE_BUFFER | DB_OPT_NE_JBT_TRACES, \
+		vcu_name, "[VCU] error:"string, ##args); \
+	pr_info("[VCU] error:"string, ##args);  \
+	} while (0)
+#else
+#define vcu_aee_print(string, args...) do {\
+		char vcu_name[100];\
+		snprintf(vcu_name, 100, "[VCU] "string, ##args); \
+		pr_info("[VCU] error:"string, ##args);  \
+	} while (0)
+
+#endif
 
 /**
  * VCU (Video Communication/Controller Unit)
