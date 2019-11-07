@@ -10,6 +10,7 @@
 #include <dt-bindings/soc/qcom,ipcc.h>
 #include <dt-bindings/soc/qcom,rpmh-rsc.h>
 #include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
+#include <dt-bindings/gpio/gpio.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. Lahaina";
@@ -1016,6 +1017,8 @@
 			<0 0>,
 			<0 0>,
 			<0 0>;
+
+		reset-gpios = <&tlmm 203 GPIO_ACTIVE_LOW>;
 
 		status = "disabled";
 	};
