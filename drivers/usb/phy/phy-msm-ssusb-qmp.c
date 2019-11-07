@@ -16,7 +16,6 @@
 #include <linux/clk.h>
 #include <linux/extcon.h>
 #include <linux/reset.h>
-#include <linux/hrtimer.h>
 
 enum core_ldo_levels {
 	CORE_LEVEL_NONE = 0,
@@ -72,9 +71,6 @@ enum core_ldo_levels {
 #define USB3_MODE		BIT(0) /* enables USB3 mode */
 #define DP_MODE			BIT(1) /* enables DP mode */
 #define USB3_DP_COMBO_MODE	(USB3_MODE | DP_MODE) /*enables combo mode */
-
-/* USB3 Gen2 link training indicator */
-#define RX_EQUALIZATION_IN_PROGRESS	BIT(3)
 
 enum qmp_phy_rev_reg {
 	USB3_PHY_PCS_STATUS,
@@ -143,7 +139,6 @@ struct msm_ssphy_qmp {
 	int			reg_offset_cnt;
 	u32			*qmp_phy_init_seq;
 	int			init_seq_len;
-	struct hrtimer		timer;
 };
 
 static const struct of_device_id msm_usb_id_table[] = {
@@ -695,7 +690,6 @@ static int msm_ssphy_qmp_set_suspend(struct usb_phy *uphy, int suspend)
 		/* Make sure above write completed with PHY */
 		wmb();
 
-		hrtimer_cancel(&phy->timer);
 		msm_ssphy_qmp_enable_clks(phy, false);
 		phy->in_suspend = true;
 		msm_ssphy_power_enable(phy, 0);
@@ -715,74 +709,6 @@ static int msm_ssphy_qmp_set_suspend(struct usb_phy *uphy, int suspend)
 
 		phy->in_suspend = false;
 		dev_dbg(uphy->dev, "QMP PHY is resumed\n");
-	}
-
-	return 0;
-}
-
-static enum hrtimer_restart timer_fn(struct hrtimer *timer)
-{
-	struct msm_ssphy_qmp *phy =
-		container_of(timer, struct msm_ssphy_qmp, timer);
-	u8 status2, status2_1, sw1, mx1, sw2, mx2;
-	int timeout = 15000;
-
-	status2_1 = sw1 = sw2 = mx1 = mx2 = 0;
-
-	status2 = readl_relaxed(phy->base +
-			phy->phy_reg[USB3_DP_PCS_PCS_STATUS2]);
-	if (status2 & RX_EQUALIZATION_IN_PROGRESS) {
-		while (timeout > 0) {
-			status2_1 = readl_relaxed(phy->base +
-					phy->phy_reg[USB3_DP_PCS_PCS_STATUS2]);
-			if (status2_1 & RX_EQUALIZATION_IN_PROGRESS) {
-				timeout -= 500;
-				udelay(500);
-				continue;
-			}
-
-			writel_relaxed(0x08, phy->base +
-				phy->phy_reg[USB3_DP_PCS_INSIG_SW_CTRL3]);
-			writel_relaxed(0x08, phy->base +
-				phy->phy_reg[USB3_DP_PCS_INSIG_MX_CTRL3]);
-			sw1 = readl_relaxed(phy->base +
-				phy->phy_reg[USB3_DP_PCS_INSIG_SW_CTRL3]);
-			mx1 = readl_relaxed(phy->base +
-				phy->phy_reg[USB3_DP_PCS_INSIG_MX_CTRL3]);
-			udelay(1);
-			writel_relaxed(0x0, phy->base +
-				phy->phy_reg[USB3_DP_PCS_INSIG_SW_CTRL3]);
-			writel_relaxed(0x0, phy->base +
-				phy->phy_reg[USB3_DP_PCS_INSIG_MX_CTRL3]);
-			sw2 = readl_relaxed(phy->base +
-				phy->phy_reg[USB3_DP_PCS_INSIG_SW_CTRL3]);
-			mx2 = readl_relaxed(phy->base +
-				phy->phy_reg[USB3_DP_PCS_INSIG_MX_CTRL3]);
-
-			break;
-		}
-	}
-
-	dev_dbg(phy->phy.dev,
-		"st=%x st2=%x sw1=%x sw2=%x mx1=%x mx2=%x timeout=%d\n",
-		status2, status2_1, sw1, sw2, mx1, mx2, timeout);
-
-	hrtimer_forward_now(timer, ms_to_ktime(1));
-
-	return HRTIMER_RESTART;
-}
-
-static int msm_ssphy_qmp_link_training(struct usb_phy *uphy, bool start)
-{
-	struct msm_ssphy_qmp *phy = container_of(uphy, struct msm_ssphy_qmp,
-					phy);
-
-	if (start) {
-		hrtimer_start(&phy->timer, 0, HRTIMER_MODE_REL);
-		dev_dbg(uphy->dev, "link training start\n");
-	} else {
-		hrtimer_cancel(&phy->timer);
-		dev_dbg(uphy->dev, "link training stop\n");
 	}
 
 	return 0;
@@ -810,7 +736,6 @@ static int msm_ssphy_qmp_notify_disconnect(struct usb_phy *uphy,
 		phy->base + phy->phy_reg[USB3_PHY_POWER_DOWN_CONTROL]);
 	readl_relaxed(phy->base + phy->phy_reg[USB3_PHY_POWER_DOWN_CONTROL]);
 
-	hrtimer_cancel(&phy->timer);
 	dev_dbg(uphy->dev, "QMP phy disconnect notification\n");
 	dev_dbg(uphy->dev, " cable_connected=%d\n", phy->cable_connected);
 	phy->cable_connected = false;
@@ -1181,18 +1106,11 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 	if (of_property_read_bool(dev->of_node, "qcom,vbus-valid-override"))
 		phy->phy.flags |= PHY_VBUS_VALID_OVERRIDE;
 
-	hrtimer_init(&phy->timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
-	phy->timer.function = timer_fn;
-
 	phy->phy.dev			= dev;
 	phy->phy.init			= msm_ssphy_qmp_init;
 	phy->phy.set_suspend		= msm_ssphy_qmp_set_suspend;
 	phy->phy.notify_connect		= msm_ssphy_qmp_notify_connect;
 	phy->phy.notify_disconnect	= msm_ssphy_qmp_notify_disconnect;
-
-	if (of_property_read_bool(dev->of_node, "qcom,link-training-reset"))
-		phy->phy.link_training	= msm_ssphy_qmp_link_training;
-
 
 	if (phy->phy.type == USB_PHY_TYPE_USB3_AND_DP)
 		phy->phy.reset		= msm_ssphy_qmp_dp_combo_reset;
