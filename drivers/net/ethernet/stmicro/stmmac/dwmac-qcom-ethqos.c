@@ -611,6 +611,8 @@ static irqreturn_t ETHQOS_PHY_ISR(int irq, void *dev_data)
 	struct qcom_ethqos *ethqos = (struct qcom_ethqos *)dev_data;
 
 	queue_work(system_wq, &ethqos->emac_phy_work);
+
+	return IRQ_HANDLED;
 }
 
 static int ethqos_phy_intr_enable(struct qcom_ethqos *ethqos)
