@@ -1542,10 +1542,6 @@
 		qcom,pas-id = <23>;
 		qcom,firmware-name = "npu";
 		memory-region = <&pil_npu_mem>;
-
-		/* Outputs to npu */
-		qcom,smem-states = <&npu_smp2p_out 0>;
-		qcom,smem-state-names = "qcom,force-stop";
 	};
 
 	qcom,turing@8300000 {
@@ -2520,7 +2516,7 @@
 		compatible = "qcom,smp2p";
 		qcom,smem = <617>, <616>;
 		interrupts = <GIC_SPI 589 IRQ_TYPE_EDGE_RISING>;
-		mboxes = <&apcs_glb2 6>;
+		mboxes = <&msm_npu 6>;
 		qcom,local-pid = <0>;
 		qcom,remote-pid = <10>;
 
