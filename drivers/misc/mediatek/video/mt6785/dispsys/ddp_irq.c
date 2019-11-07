@@ -455,6 +455,9 @@ irqreturn_t disp_irq_handler(int irq, void *dev_id)
 				mmprofile_log_ex(
 					ddp_mmp_get_events()->MUTEX_IRQ[m_id],
 					MMPROFILE_FLAG_PULSE, reg_val, 0);
+				if (ddp_is_moudule_in_mutex(m_id,
+					DISP_MODULE_AAL0))
+					disp_aal_on_start_of_frame(DISP_AAL0);
 			}
 			if (reg_val & (0x1 << (m_id + DISP_MUTEX_TOTAL))) {
 				DDPIRQ("IRQ: mutex%d eof!\n", m_id);
