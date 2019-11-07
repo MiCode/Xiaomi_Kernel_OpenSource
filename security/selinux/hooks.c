@@ -100,7 +100,7 @@
 #include "audit.h"
 #include "avc_ss.h"
 
-struct selinux_state selinux_state;
+struct selinux_state selinux_state __rticdata;
 
 /* SECMARK reference count */
 static atomic_t selinux_secmark_refcount = ATOMIC_INIT(0);
