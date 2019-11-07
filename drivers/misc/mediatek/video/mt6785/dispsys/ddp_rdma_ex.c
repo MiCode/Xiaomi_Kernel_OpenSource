@@ -305,12 +305,6 @@ void rdma_cal_golden_setting(unsigned int idx, unsigned int bpp,
 	unsigned int fill_rate = 0; /* 100 times */
 	unsigned long long consume_rate = 0; /* 100 times */
 
-#ifdef CONFIG_MTK_HIGH_FRAME_RATE
-	/*ToDo*/
-	/*use gsc->fps*/
-	if_fps = gsc->fps;
-#endif
-
 	/* critical variable calc */
 	if (is_dc)
 		fill_rate = 96 * mmsys_clk; /* FIFO depth / us */

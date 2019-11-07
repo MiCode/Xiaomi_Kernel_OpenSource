@@ -313,8 +313,7 @@ unsigned int get_has_hrt_bw(void)
 }
 
 int prim_disp_request_hrt_bw(int overlap_num,
-			enum DDP_SCENARIO_ENUM scenario, const char *caller,
-			unsigned int active_cfg)
+			enum DDP_SCENARIO_ENUM scenario, const char *caller)
 {
 	unsigned long long bw_base;
 	unsigned int tmp;
@@ -329,7 +328,7 @@ int prim_disp_request_hrt_bw(int overlap_num,
 	} else
 		has_hrt_bw = 1;
 
-	bw_base = layering_get_frame_bw(active_cfg);
+	bw_base = layering_get_frame_bw();
 	bw_base /= 2;
 
 	tmp = bw_base * overlap_num;

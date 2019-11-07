@@ -1158,7 +1158,7 @@ int primary_display_get_debug_state(char *stringbuf, int buf_len)
 		primary_display_cmdq_enabled() ? "CMDQ On" : "CMDQ Off");
 
 	/* print HRT table */
-	copy_hrt_bound_table(0, hrt_table, pgc->active_cfg);
+	copy_hrt_bound_table(0, hrt_table);
 	len += scnprintf(stringbuf + len, buf_len - len, "|HRT table=[");
 	for (i = 0; i < HRT_LEVEL_NUM-1; i++)
 		len += scnprintf(stringbuf + len, buf_len - len, "%d, ",
@@ -1947,7 +1947,7 @@ static void directlink_path_add_memory(struct WDMA_CONFIG_STRUCT *p_wdma,
 	cmdqRecReset(cmdq_wait_handle);
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	prim_disp_request_hrt_bw(dvfs_last_ovl_req,
-		DDP_SCENARIO_PRIMARY_ALL, __func__, pgc->active_cfg);
+		DDP_SCENARIO_PRIMARY_ALL, __func__);
 #endif
 	/* configure config thread */
 	_cmdq_insert_wait_frame_done_token_mira(cmdq_handle);
@@ -2203,8 +2203,7 @@ static int _DL_switch_to_DC_fast(int block)
 	/* switch to lower gear */
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	prim_disp_request_hrt_bw(2,
-		DDP_SCENARIO_PRIMARY_RDMA0_COLOR0_DISP,
-		__func__, pgc->active_cfg);
+		DDP_SCENARIO_PRIMARY_RDMA0_COLOR0_DISP, __func__);
 #endif
 	/* ddp_mmp_rdma_layer(&rdma_config, 0, 20, 20); */
 
@@ -2370,7 +2369,7 @@ static int _DC_switch_to_DL_fast(int block)
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	/* switch back to last request gear */
 	prim_disp_request_hrt_bw(dvfs_last_ovl_req,
-			DDP_SCENARIO_PRIMARY_DISP, __func__, pgc->active_cfg);
+			DDP_SCENARIO_PRIMARY_DISP, __func__);
 #endif
 
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_switch_mode,
@@ -3546,22 +3545,11 @@ static int _ovl_fence_release_callback(unsigned long userdata)
 	cmdqBackupReadSlot(pgc->subtractor_when_free, 0, &real_hrt_level);
 	real_hrt_level >>= 16;
 	_primary_path_lock(__func__);
-#ifdef CONFIG_MTK_HIGH_FRAME_RATE
-	if (primary_display_is_support_DynFPS()) {
-		/*DynFPS update current disp fps*/
-		/*ToDo, read out fps value stored in slot when config
-		 */
-	} else {
-		out_fps = primary_display_get_default_disp_fps(0);
-	}
-#endif
-
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	if ((real_hrt_level >= dvfs_last_ovl_req) &&
 			(!primary_display_is_decouple_mode()))
 			prim_disp_request_hrt_bw(dvfs_last_ovl_req,
-				DDP_SCENARIO_PRIMARY_DISP,
-				__func__, pgc->active_cfg);
+				DDP_SCENARIO_PRIMARY_DISP, __func__);
 #endif
 	_primary_path_unlock(__func__);
 
@@ -4103,7 +4091,6 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 	}
 	/*add for ARR*/
 	/*ToDo: ARR,whether need init when resume*/
-	/*DynFPS*/
 	disp_fps_chg_cb_init();
 
 	_primary_path_lock(__func__);
@@ -4486,10 +4473,6 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 	ret = switch_dev_register(&disp_switch_data);
 #endif
 
-#ifdef CONFIG_MTK_HIGH_FRAME_RATE
-	/*DynFPS*/
-	primary_display_init_multi_cfg_info();
-#endif
 	DISPCHECK("%s: done\n", __func__);
 
 done:
@@ -4739,20 +4722,10 @@ int _display_set_lcm_refresh_rate(int fps)
 
 int primary_display_get_lcm_max_refresh_rate(void)
 {
-	unsigned int max_fps = 60;
 	if (disp_lcm_is_support_adjust_fps(pgc->plcm) != 0)
 		return 120;
 
-	/*ToDo, no use*/
-#ifdef CONFIG_MTK_HIGH_FRAME_RATE
-	if (primary_display_is_support_DynFPS()) {
-		/*ToDo, get max rate from lcm driver*/
-		max_fps = primary_display_get_default_disp_fps(0);
-	} else {
-		max_fps = primary_display_get_default_disp_fps(0);
-	}
-#endif
-	return max_fps;
+	return 60;
 }
 
 int primary_display_deinit(void)
@@ -5111,12 +5084,6 @@ int primary_display_suspend(void)
 			 MMPROFILE_FLAG_PULSE, 0, 8);
 
 	pgc->lcm_refresh_rate = 60;
-#ifdef CONFIG_MTK_HIGH_FRAME_RATE
-	/*DynFPS*/
-	/*ToDo: change to last dynfps*/
-	pgc->lcm_refresh_rate =
-		primary_display_get_default_disp_fps(0);
-#endif
 	/* pgc->state = DISP_SLEPT; */
 
 done:
@@ -5126,7 +5093,7 @@ done:
 	 * Request DVFS before slept state in case of invalid request
 	 */
 	prim_disp_request_hrt_bw(HRT_BW_UNREQ,
-			DDP_SCENARIO_PRIMARY_DISP, __func__, pgc->active_cfg);
+			DDP_SCENARIO_PRIMARY_DISP, __func__);
 #endif
 	primary_set_state(DISP_SLEPT);
 
@@ -5300,12 +5267,7 @@ int primary_display_resume(void)
 		primary_display_init_arr_fps();
 		dynamic_fps_changed = 0;
 	}
-#ifdef CONFIG_MTK_HIGH_FRAME_RATE
-	/*DynFPS*/
-	/* whether need init cfg*/
-	primary_display_init_multi_cfg_info();
-	in_fps = out_fps = primary_display_get_default_disp_fps(0);
-#endif
+
 
 	DISPDBG("dpmanager path power on[begin]\n");
 	dpmgr_path_power_on(pgc->dpmgr_handle, CMDQ_DISABLE);
@@ -6920,54 +6882,15 @@ static int _config_ovl_input(struct disp_frame_cfg_t *cfg,
 	hrt_level = HRT_GET_DVFS_LEVEL(cfg->overlap_layer_num);
 	pconfig->overlap_layer_num = hrt_level;
 
-#ifdef CONFIG_MTK_HIGH_FRAME_RATE
-	/*ToDo: move into a function*/
-	/*DynFPS*/
-	/* cfg->active_config --> get fps
-	 * last_dynfps
-	 */
-	/*ToDo, update pgc req fps and current fps*/
-	pgc->active_cfg = cfg->active_config;
-	pconfig->dynfps = primary_display_get_cfg_fps(cfg->active_config);
-	if (!pconfig->last_dynfps)
-		pconfig->last_dynfps = primary_display_get_default_disp_fps(0);
-	DISPDBG("%s,golden fps =%d\n",
-		__func__, (pconfig->p_golden_setting_context)->fps);
-	if (pconfig->dynfps != pconfig->last_dynfps) {
-		/*ToDo*/
-		/*check whether need update golden setting fps
-		 * if vfp solution no need update
-		 * if hfp/mipi clock solution need update
-		 */
-		DISPMSG("%s,fps %d-%d\n",
-			__func__, pconfig->last_dynfps, pconfig->dynfps);
-
-		if (primary_display_need_update_golden_fps(
-			pconfig->last_dynfps, pconfig->dynfps)) {
-
-			(pconfig->p_golden_setting_context)->fps =
-				pconfig->dynfps;
-		}
-		if (primary_display_need_update_hrt_fps(
-			pconfig->last_dynfps, pconfig->dynfps)) {
-			/*ToDo*/
-			/*update the following
-			 *prim_disp_request_hrt_bw parameter
-			 */
-			DISPMSG("need update hrt fps\n");
-		}
-	}
-#endif
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	if (primary_display_is_decouple_mode())
 		prim_disp_request_hrt_bw(2,
 			DDP_SCENARIO_PRIMARY_RDMA0_COLOR0_DISP,
-			__func__, cfg->active_config);
+			__func__);
 	else {
 		if ((overlap_num - dvfs_last_ovl_req) > 0)
 			prim_disp_request_hrt_bw(overlap_num,
-				DDP_SCENARIO_PRIMARY_DISP,
-				__func__, cfg->active_config);
+				DDP_SCENARIO_PRIMARY_DISP, __func__);
 		dvfs_last_ovl_req = overlap_num;
 	}
 
@@ -7152,10 +7075,6 @@ static int _config_ovl_input(struct disp_frame_cfg_t *cfg,
 			0, disp_addr_convert(DISP_REG_OVL_STA + ovl_base));
 	}
 
-#ifdef CONFIG_MTK_HIGH_FRAME_RATE
-	/*DynFPS*/
-	pconfig->last_dynfps = pconfig->dynfps;
-#endif
 done:
 #ifdef DEBUG_OVL_CONFIG_TIME
 	cmdqRecBackupRegisterToSlot(cmdq_handle, pgc->ovl_config_time,
@@ -7318,10 +7237,6 @@ out:
 int primary_display_frame_cfg(struct disp_frame_cfg_t *cfg)
 {
 	int ret = 0;
-#ifdef CONFIG_MTK_HIGH_FRAME_RATE
-	unsigned int default_fps = 60;
-	static unsigned int first_config = 1;
-#endif
 	struct disp_session_sync_info *s_info = NULL;
 	struct dprec_logger_event *input_event, *output_event, *trigger_event;
 
@@ -7339,21 +7254,6 @@ int primary_display_frame_cfg(struct disp_frame_cfg_t *cfg)
 #ifdef CONFIG_MTK_DISPLAY_120HZ_SUPPORT
 	if (pgc->request_fps && HRT_FPS(cfg->overlap_layer_num) == 120)
 		_display_set_lcm_refresh_rate(pgc->request_fps);
-#endif
-
-#ifdef CONFIG_MTK_HIGH_FRAME_RATE
-	/*DynFPS*/
-	/* inform fpsgo default fps first*/
-	/*ToDo:whether need re-call after resume*/
-	if (first_config) {
-		default_fps = disp_lcm_dynfps_get_def_fps(pgc->plcm);
-		default_fps = default_fps ? default_fps : 60;
-		if (default_fps != 60) {
-			disp_invoke_fps_chg_callbacks(default_fps);
-			DISPMSG("inform fpsgo fps changed\n");
-		}
-		first_config = 0;
-	}
 #endif
 
 	/* set input */
@@ -8123,7 +8023,6 @@ int primary_display_force_set_fps(unsigned int keep, unsigned int skip)
 
 unsigned int primary_display_force_get_vsync_fps(void/*int need_lock*/)
 {
-	unsigned int _vsync_fps = 60;
 #if 0
 	if (primary_display_is_idle()) {
 		DISPMSG("%s=50, currently it is idle\n", __func__);
@@ -8143,11 +8042,8 @@ unsigned int primary_display_force_get_vsync_fps(void/*int need_lock*/)
 		return pgc->dynamic_fps;
 	}
 
-#ifdef CONFIG_MTK_HIGH_FRAME_RATE
-	_vsync_fps = primary_display_get_default_disp_fps(0);
-#endif
-	DISPMSG("%s=%d, not support ARR\n", __func__, _vsync_fps);
-	return _vsync_fps;
+	DISPMSG("%s=%d, not support ARR\n", __func__, 60);
+	return 60;
 }
 
 int primary_display_force_set_vsync_fps(unsigned int fps, unsigned int scenario)
@@ -10383,237 +10279,4 @@ unsigned int primary_display_current_fps(enum arr_fps_type fps_type,
 }
 /*---------------- function for fps change end ------------------*/
 
-/*-----------------DynFPS start-------------------------------*/
-unsigned int primary_display_is_support_DynFPS(void)
-{
 
-	if (disp_helper_get_option(DISP_OPT_DYNAMIC_FPS) &&
-		primary_display_is_video_mode() &&
-		disp_lcm_is_dynfps_support(pgc->plcm)) {
-		DISPDBG("%s,support DynFPS\n", __func__);
-		return 1;
-	}
-	DISPDBG("%s,not support DynFPS\n", __func__);
-	return 0;
-}
-
-#if 0
-unsigned int primary_display_get_current_disp_fps(int need_lock)
-{
-	unsigned int _current_disp_fps = 60;
-	unsigned int _default_disp_fps = 60;
-
-	if (need_lock)
-		_primary_path_lock(__func__);
-
-	if (primary_display_is_support_DynFPS()) {
-		_current_disp_fps = pgc->current_disp_fps;
-	} else {
-		_default_disp_fps = disp_lcm_dynfps_get_def_fps(pgc->plcm);
-		_default_disp_fps = _default_disp_fps ? _default_disp_fps : 60;
-
-		_current_disp_fps = _default_disp_fps;
-	}
-	DISPDBG("%s,fps=%d\n", __func__, _current_disp_fps);
-
-	if (need_lock)
-		_primary_path_unlock(__func__);
-
-	return _current_disp_fps;
-
-}
-#endif
-void primary_display_init_multi_cfg_info(void)
-{
-	unsigned int def_vsync_fps = 60;
-	unsigned int def_width = 0, def_height = 0;
-
-	/*get default  fps info*/
-	def_vsync_fps = disp_lcm_dynfps_get_def_fps(pgc->plcm);
-	def_vsync_fps = def_vsync_fps ? def_vsync_fps : 60;
-
-	/*get default width height*/
-	def_width = primary_display_get_width();
-	def_height = primary_display_get_height();
-
-	if (primary_display_is_support_DynFPS()) {
-		/*ToDo*/
-		/*add */
-	} else {
-		pgc->multi_cfg_table.config_num = 1;
-		pgc->multi_cfg_table.dyn_cfgs[0].vsyncFPS = def_vsync_fps;
-		pgc->multi_cfg_table.dyn_cfgs[0].width = def_width;
-		pgc->multi_cfg_table.dyn_cfgs[0].height = def_height;
-
-		/*ToDo, get resolution switch info*/
-	}
-
-	pgc->current_disp_fps  = def_vsync_fps;
-	pgc->req_new_disp_fps = def_vsync_fps;
-	pgc->dynfps_update_hrt = 0;
-	pgc->dynfps_update_mmdvfs = 0;
-	pgc->dynfps_update_golden = 0;
-	pgc->lcm_refresh_rate = def_vsync_fps;
-	pgc->lcm_fps = def_vsync_fps;
-
-}
-
-unsigned int primary_display_get_req_disp_fps(int need_lock)
-{
-	unsigned int _req_disp_fps = 60;
-	unsigned int _default_disp_fps = 60;
-
-	if (need_lock)
-		_primary_path_lock(__func__);
-
-	if (primary_display_is_support_DynFPS()) {
-		_req_disp_fps = pgc->req_new_disp_fps;
-	} else {
-		_default_disp_fps = disp_lcm_dynfps_get_def_fps(pgc->plcm);
-		_default_disp_fps = _default_disp_fps ? _default_disp_fps : 60;
-
-		_req_disp_fps = _default_disp_fps;
-	}
-	DISPDBG("%s,fps=%d\n", __func__, _req_disp_fps);
-
-	if (need_lock)
-		_primary_path_unlock(__func__);
-
-	return _req_disp_fps;
-
-	/*ToDo*/
-	/*return pgc->req_disp_fps directly*/
-
-}
-unsigned int primary_display_get_default_disp_fps(int need_lock)
-{
-	unsigned int _default_disp_fps = 60;
-
-	if (need_lock)
-		_primary_path_lock(__func__);
-
-	_default_disp_fps = disp_lcm_dynfps_get_def_fps(pgc->plcm);
-	_default_disp_fps = _default_disp_fps ? _default_disp_fps : 60;
-
-	if (need_lock)
-		_primary_path_unlock(__func__);
-
-	return _default_disp_fps;
-}
-
-unsigned int primary_display_get_cfg_fps(int config_id)
-{
-	unsigned int cfg_fps = 60;
-	struct multi_configs *p_cfgs;
-
-	cfg_fps = primary_display_get_default_disp_fps(0);
-
-	/*ToDo*/
-	if (primary_display_is_support_DynFPS()) {
-		p_cfgs = &(pgc->multi_cfg_table);
-
-		if (config_id < p_cfgs->config_num)
-			cfg_fps = p_cfgs->dyn_cfgs[config_id].vsyncFPS;
-	}
-	DISPINFO("%s,cfg_id:%d,cfg_fps:%d\n", __func__, config_id, cfg_fps);
-	return cfg_fps;
-}
-
-bool primary_display_need_update_golden_fps(
-	unsigned int last_fps, unsigned int new_fps)
-{
-	unsigned int fps_change_index;
-
-	DISPINFO("%s,%d - %d\n", __func__, last_fps, new_fps);
-	if (last_fps == new_fps)
-		return false;
-
-	fps_change_index = disp_lcm_get_fps_change_index(
-							last_fps, new_fps);
-	if (fps_change_index == DYNFPS_NOT_DEFINED) {
-		DISPCHECK("%s,not support!\n", __func__);
-		return false;
-	}
-	if (fps_change_index == DYNFPS_DSI_VFP)
-		return false;
-	if (fps_change_index == DYNFPS_DSI_HFP ||
-		fps_change_index == DYNFPS_DSI_MIPI_CLK)
-		return true;
-	return false;
-}
-
-bool primary_display_need_update_hrt_fps(
-	unsigned int last_fps, unsigned int new_fps)
-{
-	unsigned int fps_change_index;
-
-	DISPINFO("%s,%d - %d\n", __func__, last_fps, new_fps);
-	if (last_fps == new_fps)
-		return false;
-
-	fps_change_index = disp_lcm_get_fps_change_index(
-							last_fps, new_fps);
-	if (fps_change_index == DYNFPS_NOT_DEFINED) {
-		DISPCHECK("%s,not support!\n", __func__);
-		return false;
-	}
-	if (fps_change_index == DYNFPS_DSI_VFP)
-		return false;
-	if (fps_change_index == DYNFPS_DSI_HFP ||
-		fps_change_index == DYNFPS_DSI_MIPI_CLK)
-		return true;
-	return false;
-}
-
-#if 0
-int primary_display_get_multi_configs(
-	struct multi_configs *p_cfgs)
-{
-/*ToDo*/
-
-	int ret = 0;
-	struct LCM_PARAMS *params;
-	unsigned int i = 0;
-	unsigned int tmp_fps_levl = 0;
-
-	if (!primary_display_is_support_ARR()) {
-		DISPCHECK("%s,not support arr!\n", __func__);
-		return -1;
-	}
-
-	params = pgc->plcm->params;
-	tmp_fps_levl = (params->dsi).dynamic_fps_levels;
-	tmp_fps_levl = tmp_fps_levl <  DYNAMIC_FPS_LEVELS
-		? tmp_fps_levl
-		: DYNAMIC_FPS_LEVELS;
-	DISPMSG("%s,fps level num :%d\n", __func__, tmp_fps_levl);
-
-	fps_levels->fps_level_num = tmp_fps_levl;
-	for (i = 0; i < tmp_fps_levl; i++) {
-		(fps_levels->fps_levels)[i] =
-			(params->dsi).dynamic_fps_table[i].fps;
-		DISPMSG("%s,fps_levels[%d] = %d\n",
-			__func__, i, (fps_levels->fps_levels)[i]);
-	}
-
-	return ret;
-
-}
-#endif
-
-unsigned int primary_display_get_current_disp_fps(void)
-{
-	return pgc->current_disp_fps;
-}
-
-unsigned int primary_display_get_current_cfg_id(void)
-{
-	/*ToDo add lock*/
-	return pgc->active_cfg;
-}
-void primary_display_update_cfg_id(int cfg_id)
-{
-	pgc->active_cfg = cfg_id;
-}
-
-/*-----------------DynFPS end-------------------------------*/
