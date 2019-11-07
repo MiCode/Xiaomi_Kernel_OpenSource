@@ -278,6 +278,61 @@ struct mmdvfs_adaptor mmdvfs_adaptor_obj_mt6739 = {
 	mmdvfs_get_cam_sys_clk,
 	mmdvfs_single_profile_dump,
 };
+
+#elif defined(SMI_SYL)
+struct mmdvfs_adaptor mmdvfs_adaptor_obj_mt6771 = {
+	KIR_MM,
+	0, 0, 0,
+	mt6771_clk_sources, MT6771_CLK_SOURCE_NUM,
+	mt6771_mmdvfs_clk_hw_map, MMDVFS_CLK_MUX_NUM,
+	mt6771_step_profile, MT6771_MMDVFS_OPP_MAX,
+	MT6771_MMDVFS_SMI_USER_CONTROL_SCEN_MASK,
+	mmdvfs_profile_dump,
+	mmdvfs_single_hw_configuration_dump,
+	mmdvfs_hw_configuration_dump,
+	mmdvfs_determine_step,
+	mmdvfs_apply_hw_configurtion_by_step,
+	mmdvfs_apply_vcore_hw_configurtion_by_step,
+	mmdvfs_apply_clk_hw_configurtion_by_step,
+	mmdvfs_get_cam_sys_clk,
+	mmdvfs_single_profile_dump,
+};
+
+struct mmdvfs_adaptor mmdvfs_adaptor_obj_mt6771_3600 = {
+	KIR_MM,
+	0, 0, 0,
+	mt6771_clk_sources, MT6771_CLK_SOURCE_NUM,
+	mt6771_mmdvfs_clk_hw_map, MMDVFS_CLK_MUX_NUM,
+	mt6771_step_profile_3600, MT6771_MMDVFS_OPP_MAX,
+	MT6771_MMDVFS_SMI_USER_CONTROL_SCEN_MASK,
+	mmdvfs_profile_dump,
+	mmdvfs_single_hw_configuration_dump,
+	mmdvfs_hw_configuration_dump,
+	mmdvfs_determine_step,
+	mmdvfs_apply_hw_configurtion_by_step,
+	mmdvfs_apply_vcore_hw_configurtion_by_step,
+	mmdvfs_apply_clk_hw_configurtion_by_step,
+	mmdvfs_get_cam_sys_clk,
+	mmdvfs_single_profile_dump,
+};
+
+struct mmdvfs_adaptor mmdvfs_adaptor_obj_mt6771_lp3 = {
+	KIR_MM,
+	0, 0, 0,
+	mt6771_clk_sources, MT6771_CLK_SOURCE_NUM,
+	mt6771_mmdvfs_clk_hw_map, MMDVFS_CLK_MUX_NUM,
+	mt6771_step_profile_lp3, MT6771_MMDVFS_OPP_MAX,
+	MT6771_MMDVFS_SMI_USER_CONTROL_SCEN_MASK,
+	mmdvfs_profile_dump,
+	mmdvfs_single_hw_configuration_dump,
+	mmdvfs_hw_configuration_dump,
+	mmdvfs_determine_step,
+	mmdvfs_apply_hw_configurtion_by_step,
+	mmdvfs_apply_vcore_hw_configurtion_by_step,
+	mmdvfs_apply_clk_hw_configurtion_by_step,
+	mmdvfs_get_cam_sys_clk,
+	mmdvfs_single_profile_dump,
+};
 #endif
 
 /* class: ISP PMQoS Handler */
@@ -295,6 +350,25 @@ struct mmdvfs_thresholds_dvfs_handler mmdvfs_thresholds_dvfs_handler_obj = {
 #if defined(SMI_ZIO)
 struct mmdvfs_thresholds_dvfs_handler dvfs_handler_mt6739 = {
 	mt6739_mmdvfs_threshold,
+	MMDVFS_PMQOS_NUM,
+	get_step_by_threshold
+};
+
+#elif defined(SMI_SYL)
+struct mmdvfs_thresholds_dvfs_handler dvfs_handler_mt6771 = {
+	mt6771_mmdvfs_threshold_settings,
+	MMDVFS_PMQOS_NUM,
+	get_step_by_threshold
+};
+struct mmdvfs_thresholds_dvfs_handler dvfs_handler_mt6771_3600 = {
+	mt6771_mmdvfs_threshold_settings_3600,
+	MMDVFS_PMQOS_NUM,
+	get_step_by_threshold
+};
+
+#elif defined(SMI_CAN)
+struct mmdvfs_thresholds_dvfs_handler dvfs_handler_mt6775 = {
+	mt6775_mmdvfs_threshold_settings,
 	MMDVFS_PMQOS_NUM,
 	get_step_by_threshold
 };
@@ -1100,6 +1174,40 @@ void mmdvfs_config_util_init(void)
 		g_mmdvfs_adaptor = &mmdvfs_adaptor_obj_mt6739;
 		g_mmdvfs_step_util = &mmdvfs_step_util_obj_mt6739;
 		g_dvfs_handler = &dvfs_handler_mt6739;
+#endif
+		break;
+	case MMDVFS_PROFILE_SYL:
+#if defined(SMI_SYL)
+		g_dvfs_handler = &dvfs_handler_mt6771;
+#if defined(USE_DDR_TYPE)
+		if (get_dram_type() == TYPE_LPDDR3) {
+			g_mmdvfs_adaptor = &mmdvfs_adaptor_obj_mt6771_lp3;
+			cam_sensor_threshold = 480000000;
+			disp_hrt_decrease_level1 = 150;
+			disp_hrt_decrease_default = 0;
+			MMDVFSMSG("g_mmdvfs_step_util init with lp3\n");
+		} else if (dram_steps_freq(0) == 3600) {
+			g_mmdvfs_adaptor = &mmdvfs_adaptor_obj_mt6771_3600;
+			g_dvfs_handler = &dvfs_handler_mt6771_3600;
+			legacy_to_qos_step[MMDVFS_FINE_STEP_OPP1].qos_step = 0;
+			cam_sensor_threshold = 1;
+			disp_hrt_decrease_level1 = 150;
+			disp_hrt_decrease_default = 0;
+			MMDVFSMSG(
+			"g_mmdvfs_step_util init with lp4 2-ch (3600)\n");
+		} else{
+			g_mmdvfs_adaptor = &mmdvfs_adaptor_obj_mt6771;
+			cam_sensor_threshold = 1;
+			disp_hrt_decrease_level1 = 150;
+			disp_hrt_decrease_default = 0;
+			MMDVFSMSG(
+			"g_mmdvfs_step_util init with lp4 2-ch\n");
+		}
+#else
+		g_mmdvfs_adaptor = &mmdvfs_adaptor_obj_mt6771;
+		MMDVFSMSG("g_mmdvfs_step_util init with lp4 2-ch\n");
+#endif
+		g_mmdvfs_step_util = &mmdvfs_step_util_obj_mt6771;
 #endif
 		break;
 	default:
