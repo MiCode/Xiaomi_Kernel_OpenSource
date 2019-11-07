@@ -634,15 +634,6 @@ static void vcu_gce_flush_callback(struct cmdq_cb_data data)
 	}
 
 	atomic_inc(&vcu->gce_info[j].flush_done);
-	wake_up(&vcu->gce_wq[i]);
-	cmds = (struct gce_cmds *)(unsigned long)buff->cmdq_buff.cmds_user_ptr;
-
-	pr_debug("[VCU] %s: buff %p type %d cnt %d order %d handle %llx\n",
-		__func__, buff, buff->cmdq_buff.codec_type,
-		cmds->cmd_cnt, buff->cmdq_buff.flush_order,
-		buff->cmdq_buff.gce_handle);
-
-	cmdq_pkt_destroy(buff->pkt_ptr);
 
 	mutex_lock(&vcu->vcu_gce_mutex[i]);
 	if (atomic_dec_and_test(&vcu->gce_job_cnt[i][core_id]) &&
@@ -652,6 +643,16 @@ static void vcu_gce_flush_callback(struct cmdq_cb_data data)
 				buff->cmdq_buff.core_id, &vcu->flags[i]);
 	}
 	mutex_unlock(&vcu->vcu_gce_mutex[i]);
+
+	wake_up(&vcu->gce_wq[i]);
+	cmds = (struct gce_cmds *)(unsigned long)buff->cmdq_buff.cmds_user_ptr;
+
+	pr_debug("[VCU] %s: buff %p type %d cnt %d order %d handle %llx\n",
+		__func__, buff, buff->cmdq_buff.codec_type,
+		cmds->cmd_cnt, buff->cmdq_buff.flush_order,
+		buff->cmdq_buff.gce_handle);
+
+	cmdq_pkt_destroy(buff->pkt_ptr);
 
 	kfree(cmds);
 	kfree(buff);
