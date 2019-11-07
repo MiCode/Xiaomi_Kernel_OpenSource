@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/delay.h>
+#include <linux/nvmem-consumer.h>
 
 #include "adreno.h"
 #include "adreno_a6xx.h"
@@ -647,16 +648,21 @@ static int hfi_verify_fw_version(struct kgsl_device *device,
 static int hfi_send_lm_feature_ctrl(struct gmu_device *gmu,
 		struct adreno_device *adreno_dev)
 {
-	struct hfi_set_value_cmd req = {
-		.type = HFI_VALUE_LM_CS0,
-		.subtype = 0,
-		.data = adreno_dev->lm_slope,
-	};
-	struct kgsl_device *device = &adreno_dev->dev;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct hfi_set_value_cmd req;
+	u32 slope = 0;
 	int ret;
 
 	if (!test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
 		return 0;
+
+	memset(&req, 0, sizeof(req));
+
+	nvmem_cell_read_u32(&device->pdev->dev, "isense_slope", &slope);
+
+	req.type = HFI_VALUE_LM_CS0;
+	req.subtype = 0;
+	req.data = slope;
 
 	ret = hfi_send_feature_ctrl(gmu, HFI_FEATURE_LM, 1,
 			device->pwrctrl.throttle_mask);
