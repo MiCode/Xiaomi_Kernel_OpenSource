@@ -6006,7 +6006,9 @@ static noinline int trace_circular_bug(struct lock_list *this,
 static const char * const critical_lock_list[] = {
 	/* these locks are used by workqueue */
 	"&(&pool->lock)->rlock",
-	"works_lock"
+	"works_lock",
+	/* the lock is used by console */
+	"&(&port->lock)->rlock"
 };
 
 static bool is_critical_lock_held(void)
