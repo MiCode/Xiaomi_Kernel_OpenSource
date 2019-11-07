@@ -5337,7 +5337,7 @@ static int ufshcd_link_recovery(struct ufs_hba *hba)
 	hba->ufshcd_state = UFSHCD_STATE_ERROR;
 	hba->force_host_reset = true;
 	ufshcd_set_eh_in_progress(hba);
-	schedule_work(&hba->eh_work);
+	queue_work(hba->recovery_wq, &hba->eh_work);
 
 	/* wait for the reset work to finish */
 	do {
@@ -6383,7 +6383,8 @@ ufshcd_transfer_rsp_status(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 				 * to avoid deadlock between ufshcd_suspend
 				 * and exception event handler.
 				 */
-				if (schedule_work(&hba->eeh_work))
+				if (queue_work(hba->recovery_wq,
+							&hba->eeh_work))
 					pm_runtime_get_noresume(hba->dev);
 			}
 			break;
@@ -6492,7 +6493,7 @@ static irqreturn_t ufshcd_uic_cmd_compl(struct ufs_hba *hba, u32 intr_status)
 			 * to printout the debug messages.
 			 */
 			hba->auto_h8_err = true;
-			schedule_work(&hba->eh_work);
+			queue_work(hba->recovery_wq, &hba->eh_work);
 			retval = IRQ_HANDLED;
 		}
 	}
@@ -7526,7 +7527,7 @@ static irqreturn_t ufshcd_update_uic_error(struct ufs_hba *hba)
 				}
 			}
 			if (!hba->full_init_linereset)
-				schedule_work(&hba->rls_work);
+				queue_work(hba->recovery_wq, &hba->rls_work);
 		}
 		retval |= IRQ_HANDLED;
 	}
@@ -7635,7 +7636,7 @@ static irqreturn_t ufshcd_check_errors(struct ufs_hba *hba)
 
 			hba->ufshcd_state = UFSHCD_STATE_EH_SCHEDULED;
 
-			schedule_work(&hba->eh_work);
+			queue_work(hba->recovery_wq, &hba->eh_work);
 		}
 		retval |= IRQ_HANDLED;
 	}
@@ -8273,7 +8274,7 @@ static int ufshcd_eh_host_reset_handler(struct scsi_cmnd *cmd)
 	 */
 	hba->ufshcd_state = UFSHCD_STATE_ERROR;
 	hba->force_host_reset = true;
-	schedule_work(&hba->eh_work);
+	queue_work(hba->recovery_wq, &hba->eh_work);
 
 	/* wait for the reset work to finish */
 	do {
@@ -10263,6 +10264,9 @@ static void ufshcd_hba_exit(struct ufs_hba *hba)
 				destroy_workqueue(hba->clk_scaling.workq);
 			ufshcd_devfreq_remove(hba);
 		}
+
+		if (hba->recovery_wq)
+			destroy_workqueue(hba->recovery_wq);
 		ufshcd_disable_clocks(hba, false);
 		ufshcd_setup_hba_vreg(hba, false);
 		hba->is_powered = false;
@@ -11233,6 +11237,7 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 	int err;
 	struct Scsi_Host *host = hba->host;
 	struct device *dev = hba->dev;
+	char recovery_wq_name[sizeof("ufs_recovery_00")];
 
 	if (!mmio_base) {
 		dev_err(hba->dev,
@@ -11304,6 +11309,16 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 	init_waitqueue_head(&hba->tm_tag_wq);
 
 	/* Initialize work queues */
+	snprintf(recovery_wq_name, ARRAY_SIZE(recovery_wq_name), "%s_%d",
+				"ufs_recovery_wq", host->host_no);
+	hba->recovery_wq = create_singlethread_workqueue(recovery_wq_name);
+	if (!hba->recovery_wq) {
+		dev_err(hba->dev, "%s: failed to create the workqueue\n",
+				__func__);
+		err = -ENOMEM;
+		goto out_disable;
+	}
+
 	INIT_WORK(&hba->eh_work, ufshcd_err_handler);
 	INIT_WORK(&hba->eeh_work, ufshcd_exception_event_handler);
 	INIT_DELAYED_WORK(&hba->card_detect_work, ufshcd_card_detect_handler);
