@@ -56,6 +56,10 @@
 		status = "okay";
 		compatible = "explore,ep92a6";
 		reg = <0x64>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <107 IRQ_TYPE_EDGE_FALLING>,
+			     <104 IRQ_TYPE_EDGE_RISING>;
+		mute-gpio = <&tlmm 104 0>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&ep_reset_n_active &ep_mute_active &ep_int_active>;
 	};
