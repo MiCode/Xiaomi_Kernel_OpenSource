@@ -810,10 +810,6 @@ static int host_error_hdlr(struct npu_device *npu_dev, bool force)
 	}
 
 	NPU_INFO("npu subsystem is restarting\n");
-
-	/* clear FW_CTRL_STATUS register before restart */
-	REGW(npu_dev, REG_NPU_FW_CTRL_STATUS, 0x0);
-
 	reinit_completion(&host_ctx->npu_power_up_done);
 	ret = subsystem_restart_dev(host_ctx->subsystem_handle);
 	if (ret) {

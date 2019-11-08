@@ -132,7 +132,7 @@ static int cam_csid_ppi_disable_hw(struct cam_csid_ppi_hw *ppi_hw)
 		ppi_hw->hw_intf->hw_idx);
 
 	if (!ppi_hw->hw_info->open_count) {
-		CAM_WARN(CAM_ISP, "PPI[%d] unbalanced disable hw",
+		CAM_WARN(CAM_ISP, "ppi[%d] unbalanced disable hw",
 			ppi_hw->hw_intf->hw_idx);
 		return -EINVAL;
 	}
@@ -141,7 +141,7 @@ static int cam_csid_ppi_disable_hw(struct cam_csid_ppi_hw *ppi_hw)
 
 	/* Check for ref count */
 	if (ppi_hw->hw_info->open_count)
-		return 0;
+		return rc;
 
 	soc_info = &ppi_hw->hw_info->soc_info;
 	ppi_reg = ppi_hw->ppi_info->ppi_reg;

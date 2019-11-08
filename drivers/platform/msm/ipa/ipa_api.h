@@ -443,6 +443,8 @@ struct ipa_api_controller {
 
 	bool (*ipa_pm_is_used)(void);
 
+	bool (*ipa_get_lan_rx_napi)(void);
+
 	int (*ipa_wigig_uc_init)(
 		struct ipa_wdi_uc_ready_params *inout,
 		ipa_wigig_misc_int_cb int_notify,

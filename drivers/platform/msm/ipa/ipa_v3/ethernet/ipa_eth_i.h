@@ -180,6 +180,7 @@ void ipa_eth_net_close_device(struct ipa_eth_device *eth_dev);
 int ipa_eth_net_save_regs(struct ipa_eth_device *eth_dev);
 
 int ipa_eth_ep_init_headers(struct ipa_eth_device *eth_dev);
+int ipa_eth_ep_deinit_headers(struct ipa_eth_device *eth_dev);
 int ipa_eth_ep_register_interface(struct ipa_eth_device *eth_dev);
 int ipa_eth_ep_unregister_interface(struct ipa_eth_device *eth_dev);
 void ipa_eth_ep_init_ctx(struct ipa_eth_channel *ch, bool vlan_mode);

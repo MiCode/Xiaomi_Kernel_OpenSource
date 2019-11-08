@@ -45,78 +45,79 @@ static void ipa_ep_client_notifier(void *priv, enum ipa_dp_evt_type evt,
 		handle_ipa_receive(ch, data);
 }
 
-static void ipa_eth_init_header_common(struct ipa_eth_device *eth_dev,
-				       struct ipa_hdr_add *hdr_add)
+enum ipa_eth_phdr_type {
+	IPA_ETH_PHDR_V4,
+	IPA_ETH_PHDR_V6,
+	IPA_ETH_PHDR_MAX = IPA_ETH_PHDR_V6,
+};
+
+#define IPA_ETH_PHDR_NUM (IPA_ETH_PHDR_MAX + 1)
+
+struct ipa_eth_phdr_add_ioc {
+	struct ipa_ioc_add_hdr ioc;
+	struct ipa_hdr_add hdrs[IPA_ETH_PHDR_NUM];
+};
+
+static const struct ipa_eth_phdr_add_ioc ADD_HDR_TEMPLATE = {
+	.ioc = {
+		.commit = 1,
+		.num_hdrs = IPA_ETH_PHDR_NUM,
+	},
+	.hdrs = {
+		[IPA_ETH_PHDR_V4] = {
+			.type = IPA_HDR_L2_ETHERNET_II,
+			.is_partial = 1,
+			.is_eth2_ofst_valid = 1,
+			.eth2_ofst = 0,
+		},
+		[IPA_ETH_PHDR_V6] = {
+			.type = IPA_HDR_L2_ETHERNET_II,
+			.is_partial = 1,
+			.is_eth2_ofst_valid = 1,
+			.eth2_ofst = 0,
+		},
+	},
+};
+
+static inline __be16 phdr_type_to_proto(enum ipa_eth_phdr_type type)
 {
-	hdr_add->type = IPA_HDR_L2_ETHERNET_II;
-	hdr_add->is_partial = 1;
-	hdr_add->is_eth2_ofst_valid = 1;
-	hdr_add->eth2_ofst = 0;
+	return (type == IPA_ETH_PHDR_V4) ?
+			htons(ETH_P_IP) : htons(ETH_P_IPV6);
 }
 
-static void ipa_eth_init_l2_header_v4(struct ipa_eth_device *eth_dev,
-				      struct ipa_hdr_add *hdr_add)
+static u8 ipa_eth_init_ethhdr(struct ethhdr *eth_hdr,
+				enum ipa_eth_phdr_type type,
+				struct net_device *net_dev)
 {
-	struct ethhdr eth_hdr;
+	memset(eth_hdr, 0, sizeof(*eth_hdr));
 
-	memset(&eth_hdr, 0, sizeof(eth_hdr));
-	memcpy(&eth_hdr.h_source, eth_dev->net_dev->dev_addr, ETH_ALEN);
-	eth_hdr.h_proto = htons(ETH_P_IP);
+	eth_hdr->h_proto = phdr_type_to_proto(type);
+	memcpy(&eth_hdr->h_source, net_dev->dev_addr, ETH_ALEN);
 
-	hdr_add->hdr_len = ETH_HLEN;
-	memcpy(hdr_add->hdr, &eth_hdr, hdr_add->hdr_len);
-
-	ipa_eth_init_header_common(eth_dev, hdr_add);
+	return ETH_HLEN;
 }
 
-static void ipa_eth_init_l2_header_v6(struct ipa_eth_device *eth_dev,
-				      struct ipa_hdr_add *hdr_add)
+static u8 ipa_eth_init_vlan_ethhdr(struct vlan_ethhdr *eth_hdr,
+				enum ipa_eth_phdr_type type,
+				struct net_device *net_dev)
 {
-	struct ethhdr eth_hdr;
+	memset(eth_hdr, 0, sizeof(*eth_hdr));
 
-	memset(&eth_hdr, 0, sizeof(eth_hdr));
-	memcpy(&eth_hdr.h_source, eth_dev->net_dev->dev_addr, ETH_ALEN);
-	eth_hdr.h_proto = htons(ETH_P_IPV6);
+	eth_hdr->h_vlan_proto = htons(ETH_P_8021Q);
+	eth_hdr->h_vlan_encapsulated_proto = phdr_type_to_proto(type);
+	memcpy(&eth_hdr->h_source, net_dev->dev_addr, ETH_ALEN);
 
-	hdr_add->hdr_len = ETH_HLEN;
-	memcpy(hdr_add->hdr, &eth_hdr, hdr_add->hdr_len);
-
-	ipa_eth_init_header_common(eth_dev, hdr_add);
+	return VLAN_ETH_HLEN;
 }
 
-static void ipa_eth_init_vlan_header_v4(struct ipa_eth_device *eth_dev,
-					struct ipa_hdr_add *hdr_add)
+static u8 ipa_eth_init_hdr(void *hdr,
+			bool vlan_mode,
+			enum ipa_eth_phdr_type type,
+			struct net_device *net_dev)
 {
-	struct vlan_ethhdr eth_hdr;
-
-	memset(&eth_hdr, 0, sizeof(eth_hdr));
-	memcpy(&eth_hdr.h_source, eth_dev->net_dev->dev_addr, ETH_ALEN);
-
-	eth_hdr.h_vlan_proto = htons(ETH_P_8021Q);
-	eth_hdr.h_vlan_encapsulated_proto = htons(ETH_P_IP);
-
-	hdr_add->hdr_len = VLAN_ETH_HLEN;
-	memcpy(hdr_add->hdr, &eth_hdr, hdr_add->hdr_len);
-
-	ipa_eth_init_header_common(eth_dev, hdr_add);
-}
-
-
-static void ipa_eth_init_vlan_header_v6(struct ipa_eth_device *eth_dev,
-					struct ipa_hdr_add *hdr_add)
-{
-	struct vlan_ethhdr eth_hdr;
-
-	memset(&eth_hdr, 0, sizeof(eth_hdr));
-	memcpy(&eth_hdr.h_source, eth_dev->net_dev->dev_addr, ETH_ALEN);
-
-	eth_hdr.h_vlan_proto = htons(ETH_P_8021Q);
-	eth_hdr.h_vlan_encapsulated_proto = htons(ETH_P_IPV6);
-
-	hdr_add->hdr_len = VLAN_ETH_HLEN;
-	memcpy(hdr_add->hdr, &eth_hdr, hdr_add->hdr_len);
-
-	ipa_eth_init_header_common(eth_dev, hdr_add);
+	return vlan_mode ?
+		ipa_eth_init_vlan_ethhdr(hdr, type, net_dev) :
+		ipa_eth_init_ethhdr(hdr, type, net_dev);
 }
 
 /**
@@ -129,14 +130,11 @@ static void ipa_eth_init_vlan_header_v6(struct ipa_eth_device *eth_dev,
  */
 int ipa_eth_ep_init_headers(struct ipa_eth_device *eth_dev)
 {
-	int rc = 0;
+	int rc;
 	bool vlan_mode;
-	const size_t num_hdrs = 2; /* one each for IPv4 and IPv6 */
-	size_t hdr_alloc_sz = sizeof(struct ipa_ioc_add_hdr) +
-				num_hdrs * sizeof(struct ipa_hdr_add);
-	struct ipa_hdr_add *hdr_v4 = NULL;
-	struct ipa_hdr_add *hdr_v6 = NULL;
-	struct ipa_ioc_add_hdr *hdrs = NULL;
+	struct ipa_eth_phdr_add_ioc phdr_add = ADD_HDR_TEMPLATE;
+	struct ipa_hdr_add *hdr_v4 = &phdr_add.hdrs[IPA_ETH_PHDR_V4];
+	struct ipa_hdr_add *hdr_v6 = &phdr_add.hdrs[IPA_ETH_PHDR_V6];
 
 	rc = ipa3_is_vlan_mode(IPA_VLAN_IF_ETH, &vlan_mode);
 	if (rc) {
@@ -144,41 +142,54 @@ int ipa_eth_ep_init_headers(struct ipa_eth_device *eth_dev)
 		return rc;
 	}
 
-	hdrs = kzalloc(hdr_alloc_sz, GFP_KERNEL);
-	if (hdrs == NULL) {
-		ipa_eth_dev_err(eth_dev, "Failed to alloc partial headers");
-		return -ENOMEM;
-	}
-
-	hdr_v4 = &hdrs->hdr[0];
-	hdr_v6 = &hdrs->hdr[1];
-
-	hdrs->commit = 1;
-	hdrs->num_hdrs = num_hdrs;
-
 	/* Initialize IPv4 headers */
 	snprintf(hdr_v4->name, sizeof(hdr_v4->name), "%s_ipv4",
 		eth_dev->net_dev->name);
 
-	if (!vlan_mode)
-		ipa_eth_init_l2_header_v4(eth_dev, hdr_v4);
-	else
-		ipa_eth_init_vlan_header_v4(eth_dev, hdr_v4);
+	hdr_v4->hdr_len = ipa_eth_init_hdr(hdr_v4->hdr,
+				vlan_mode, IPA_ETH_PHDR_V4, eth_dev->net_dev);
 
 	/* Initialize IPv6 headers */
 	snprintf(hdr_v6->name, sizeof(hdr_v6->name), "%s_ipv6",
 		eth_dev->net_dev->name);
 
-	if (!vlan_mode)
-		ipa_eth_init_l2_header_v6(eth_dev, hdr_v6);
-	else
-		ipa_eth_init_vlan_header_v6(eth_dev, hdr_v6);
+	hdr_v6->hdr_len = ipa_eth_init_hdr(hdr_v6->hdr,
+				vlan_mode, IPA_ETH_PHDR_V6, eth_dev->net_dev);
 
-	rc = ipa_add_hdr(hdrs);
-	if (rc)
+	rc = ipa_add_hdr(&phdr_add.ioc);
+	if (rc) {
 		ipa_eth_dev_err(eth_dev, "Failed to install partial headers");
+	} else {
+		eth_dev->phdr_v4_handle = hdr_v4->hdr_hdl;
+		eth_dev->phdr_v6_handle = hdr_v6->hdr_hdl;
+	}
 
-	kfree(hdrs);
+	return rc;
+}
+
+struct ipa_eth_phdr_del_ioc {
+	struct ipa_ioc_del_hdr ioc;
+	struct ipa_hdr_del hdrs[IPA_ETH_PHDR_NUM];
+};
+
+static const struct ipa_eth_phdr_del_ioc DEL_HDR_TEMPLATE = {
+	.ioc = {
+		.commit = 1,
+		.num_hdls = IPA_ETH_PHDR_NUM,
+	},
+};
+
+int ipa_eth_ep_deinit_headers(struct ipa_eth_device *eth_dev)
+{
+	int rc;
+	struct ipa_eth_phdr_del_ioc phdr_del = DEL_HDR_TEMPLATE;
+
+	phdr_del.hdrs[IPA_ETH_PHDR_V4].hdl = eth_dev->phdr_v4_handle;
+	phdr_del.hdrs[IPA_ETH_PHDR_V6].hdl = eth_dev->phdr_v6_handle;
+
+	rc = ipa_del_hdr(&phdr_del.ioc);
+	if (rc)
+		ipa_eth_dev_err(eth_dev, "Failed to remove partial headers");
 
 	return rc;
 }
@@ -371,16 +382,35 @@ void ipa_eth_ep_deinit_ctx(struct ipa_eth_channel *ch)
 	memset(ep_ctx, 0, offsetof(typeof(*ep_ctx), sys));
 }
 
+static int __ipa_eth_ep_init(struct ipa_eth_channel *ch,
+				struct ipa3_ep_context *ep_ctx)
+{
+	int rc;
+
+	rc = ipa3_cfg_ep(ch->ipa_ep_num, &ep_ctx->cfg);
+	if (rc) {
+		ipa_eth_dev_err(ch->eth_dev,
+				"Failed to configure EP %d", ch->ipa_ep_num);
+		goto err_exit;
+	}
+
+	if (IPA_CLIENT_IS_PROD(ch->ipa_client))
+		ipa3_install_dflt_flt_rules(ch->ipa_ep_num);
+
+err_exit:
+	return rc;
+}
+
 /**
- * ipa_eth_ep_init - Initialize IPA endpoint for a channel
+ * ipa_eth_ep_init() - Initialize IPA endpoint for a channel
  * @ch: Channel for which EP need to be initialized
  *
  * Return: 0 on success, negative errno otherwise
  */
 int ipa_eth_ep_init(struct ipa_eth_channel *ch)
 {
-	int rc = 0;
-	struct ipa3_ep_context *ep_ctx = NULL;
+	int rc;
+	struct ipa3_ep_context *ep_ctx;
 
 	ep_ctx = &ipa3_ctx->ep[ch->ipa_ep_num];
 	if (!ep_ctx->valid) {
@@ -389,24 +419,31 @@ int ipa_eth_ep_init(struct ipa_eth_channel *ch)
 	}
 
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
-
-	rc = ipa3_cfg_ep(ch->ipa_ep_num, &ep_ctx->cfg);
-	if (rc) {
-		ipa_eth_dev_err(ch->eth_dev,
-				"Failed to configure EP %d", ch->ipa_ep_num);
-		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
-		goto err_exit;
-	}
-
-	if (IPA_CLIENT_IS_PROD(ch->ipa_client))
-		ipa3_install_dflt_flt_rules(ch->ipa_ep_num);
-
+	rc = __ipa_eth_ep_init(ch, ep_ctx);
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
-err_exit:
 	return rc;
 }
 EXPORT_SYMBOL(ipa_eth_ep_init);
+
+/**
+ * ipa_eth_ep_deinit() - Deinitialize IPA endpoint for a channel
+ * @ch: Channel for which EP need to be deinitialized
+ *
+ * Return: 0 on success, negative errno otherwise
+ */
+int ipa_eth_ep_deinit(struct ipa_eth_channel *ch)
+{
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+
+	if (IPA_CLIENT_IS_PROD(ch->ipa_client))
+		ipa3_delete_dflt_flt_rules(ch->ipa_ep_num);
+
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
+
+	return 0;
+}
+EXPORT_SYMBOL(ipa_eth_ep_deinit);
 
 /**
  * ipa_eth_ep_start() - Start an IPA endpoint

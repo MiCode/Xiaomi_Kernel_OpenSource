@@ -495,7 +495,7 @@
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
 		regulator-enable-ramp-delay = <100>;
-		gpio = <&tlmm 89 GPIO_ACTIVE_HIGH>;
+		gpio = <&tlmm 102 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 	};
 
@@ -505,7 +505,7 @@
 		regulator-min-microvolt = <2500000>;
 		regulator-max-microvolt = <2500000>;
 		regulator-enable-ramp-delay = <100>;
-		gpio = <&tlmm 102 GPIO_ACTIVE_HIGH>;
+		gpio = <&tlmm 89 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 	};
 

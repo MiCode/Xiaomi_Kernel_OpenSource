@@ -150,6 +150,13 @@ static int ipa_eth_deinit_device(struct ipa_eth_device *eth_dev)
 		return rc;
 	}
 
+	rc = ipa_eth_ep_deinit_headers(eth_dev);
+	if (rc) {
+		ipa_eth_dev_err(eth_dev, "Failed to deinit EP headers");
+		eth_dev->of_state = IPA_ETH_OF_ST_ERROR;
+		return rc;
+	}
+
 	ipa_eth_dev_log(eth_dev, "Deinitialized device");
 
 	eth_dev->of_state = IPA_ETH_OF_ST_DEINITED;

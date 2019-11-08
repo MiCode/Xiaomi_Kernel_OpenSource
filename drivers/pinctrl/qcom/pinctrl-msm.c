@@ -1655,7 +1655,7 @@ static void msm_gpio_setup_dir_connects(struct msm_pinctrl *pctrl)
 		if (!gpio_in->init)
 			continue;
 
-		irq = irq_find_mapping(pctrl->chip.irqdomain, gpio_in->gpio);
+		irq = irq_create_mapping(pctrl->chip.irqdomain, gpio_in->gpio);
 		d = irq_get_irq_data(irq);
 		if (!d)
 			continue;

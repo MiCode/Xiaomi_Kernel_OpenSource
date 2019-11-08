@@ -1,7 +1,7 @@
 /*
  * QTI Crypto driver
  *
- * Copyright (c) 2010-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1354,10 +1354,6 @@ static void _qcrypto_remove_engine(struct crypto_engine *pengine)
 	cancel_work_sync(&pengine->bw_allocate_ws);
 	del_timer_sync(&pengine->bw_reaper_timer);
 
-	if (pengine->bus_scale_handle != 0)
-		msm_bus_scale_unregister_client(pengine->bus_scale_handle);
-	pengine->bus_scale_handle = 0;
-
 	kzfree(pengine->preq_pool);
 
 	if (cp->total_units)
@@ -1388,8 +1384,19 @@ static int _qcrypto_remove(struct platform_device *pdev)
 	mutex_lock(&cp->engine_lock);
 	_qcrypto_remove_engine(pengine);
 	mutex_unlock(&cp->engine_lock);
+
+	if (msm_bus_scale_client_update_request(pengine->bus_scale_handle, 1))
+		pr_err("%s Unable to set high bandwidth\n", __func__);
+
 	if (pengine->qce)
 		qce_close(pengine->qce);
+
+	if (msm_bus_scale_client_update_request(pengine->bus_scale_handle, 0))
+		pr_err("%s Unable to set low bandwidth\n", __func__);
+
+	msm_bus_scale_unregister_client(pengine->bus_scale_handle);
+	pengine->bus_scale_handle = 0;
+
 	kzfree(pengine);
 	return 0;
 }
@@ -5312,7 +5319,8 @@ exit_qce_close:
 	if (pengine->qce)
 		qce_close(pengine->qce);
 exit_free_pdata:
-	msm_bus_scale_client_update_request(pengine->bus_scale_handle, 0);
+	if (msm_bus_scale_client_update_request(pengine->bus_scale_handle, 0))
+		pr_err("%s Unable to set low bandwidth\n", __func__);
 	platform_set_drvdata(pdev, NULL);
 exit_kzfree:
 	kzfree(pengine);
