@@ -459,14 +459,14 @@ static struct sk_buff *rmnet_alloc_skb(struct rmnet_frag_descriptor *frag_desc,
 		if (frag_desc->trans_len)
 			skb_set_transport_header(head_skb, frag_desc->ip_len);
 
-		/* Packets that have no data portion don't need any frags */
-		if (hdr_len == skb_frag_size(&frag_desc->frag))
-			goto skip_frags;
-
 		/* If the headers we added are the start of the page,
 		 * we don't want to add them twice
 		 */
 		if (frag_desc->hdr_ptr == rmnet_frag_data_ptr(frag_desc)) {
+			/* "Header only" packets can be fast-forwarded */
+			if (hdr_len == skb_frag_size(&frag_desc->frag))
+				goto skip_frags;
+
 			if (!rmnet_frag_pull(frag_desc, port, hdr_len)) {
 				kfree_skb(head_skb);
 				return NULL;
