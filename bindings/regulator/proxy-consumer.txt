@@ -1,0 +1,80 @@
+Regulator Proxy Consumer Bindings
+
+Regulator proxy consumers provide a means to use a default regulator state
+during bootup only which is removed at the end of boot.  This feature can be
+used in situations where a shared regulator can be scaled between several
+possible voltages and hardware requires that it be at a high level at the
+beginning of boot before the consumer device responsible for requesting the
+high level has probed.
+
+Supported properties:
+
+- qcom,proxy-consumer-enable
+	Usage:      optional
+	Value type: <empty>
+	Definition: Boolean flag indicating that the regulator must be kept
+		    enabled during boot.
+
+- qcom,proxy-consumer-voltage
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: List of two integers corresponding the minimum and maximum
+		    voltage in microvolts allowed during boot.
+
+- qcom,proxy-consumer-current
+	Usage:      optional
+	Value type: <u32>
+	Definition: Minimum current in microamps required during boot.
+
+- qcom,proxy-consumer-name
+	Usage:      optional
+	Value type: <string>
+	Definition: Name of the proxy consumer supply.  If not specified,
+		    "proxy" is assumed.
+
+- <proxy-consumer-name>-supply
+	Usage:      required if qcom,proxy-consumer-enable,
+		    qcom,proxy-consumer-voltage, or qcom,proxy-consumer-current
+		    is specified
+	Value type: <phandle>
+	Definition: phandle of the regulator's own device node.
+		    <proxy-consumer-name> is defined in qcom,proxy-consumer-name
+		    or "proxy" if qcom,proxy-consumer-name isn't present.
+
+Examples:
+
+foo_vreg: regulator@0 {
+	regulator-name = "foo";
+	regulator-min-microvolt = <1000000>;
+	regulator-max-microvolt = <2000000>;
+	proxy-supply = <&foo_vreg>;
+	qcom,proxy-consumer-voltage = <1500000 2000000>;
+	qcom,proxy-consumer-current = <25000>;
+	qcom,proxy-consumer-enable;
+};
+
+pmic {
+	compatible = "foo_pmic";
+	ldo1-proxy-supply = <&ldo1>;
+	ldo2-proxy-supply = <&ldo2>;
+
+	ldo1: ldo1 {
+		regulator-name = "ldo1";
+		regulator-min-microvolt = <1000000>;
+		regulator-max-microvolt = <2000000>;
+		qcom,proxy-consumer-name = "ldo1-proxy";
+		qcom,proxy-consumer-voltage = <1500000 2000000>;
+		qcom,proxy-consumer-current = <25000>;
+		qcom,proxy-consumer-enable;
+	};
+
+	ldo2: ldo2 {
+		regulator-name = "ldo2";
+		regulator-min-microvolt = <2000000>;
+		regulator-max-microvolt = <3000000>;
+		qcom,proxy-consumer-name = "ldo2-proxy";
+		qcom,proxy-consumer-voltage = <2500000 3000000>;
+		qcom,proxy-consumer-current = <50000>;
+		qcom,proxy-consumer-enable;
+	};
+};
