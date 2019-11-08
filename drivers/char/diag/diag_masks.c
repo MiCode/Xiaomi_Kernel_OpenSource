@@ -2545,6 +2545,8 @@ static void __diag_mask_exit(struct diag_mask_info *mask_info)
 	mask_info->ptr = NULL;
 	kfree(mask_info->update_buf);
 	mask_info->update_buf = NULL;
+	kfree(mask_info->update_buf_client);
+	mask_info->update_buf_client = NULL;
 	mutex_unlock(&mask_info->lock);
 }
 
