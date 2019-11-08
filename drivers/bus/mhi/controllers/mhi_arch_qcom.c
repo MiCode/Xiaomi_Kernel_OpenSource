@@ -349,11 +349,8 @@ static  int mhi_arch_pcie_scale_bw(struct mhi_controller *mhi_cntrl,
 {
 	int ret;
 
-	mhi_cntrl->lpm_disable(mhi_cntrl, mhi_cntrl->priv_data);
 	ret = msm_pcie_set_link_bandwidth(pci_dev, link_info->target_link_speed,
 					  link_info->target_link_width);
-	mhi_cntrl->lpm_enable(mhi_cntrl, mhi_cntrl->priv_data);
-
 	if (ret)
 		return ret;
 
