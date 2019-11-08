@@ -65,6 +65,10 @@
 	status = "disabled";
 };
 
+&cnss_sdio {
+	status = "disabled";
+};
+
 &spi_6 {
 	status = "okay";
 
@@ -80,6 +84,10 @@
 };
 
 &soc {
+	gpio_keys {
+		status = "disabled";
+	};
+
 	vreg_emac_phy: emac_phy_regulator {
 		compatible = "regulator-fixed";
 		regulator-name = "emac_phy";
