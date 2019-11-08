@@ -34,7 +34,7 @@
 #define PCIE_MSI_CTRL_INT_N_MASK_OFFS(n) (PCIE_MSI_CTRL_BASE + 0xc + 0xc * n)
 #define PCIE_MSI_CTRL_INT_N_STATUS_OFFS(n) (PCIE_MSI_CTRL_BASE + 0x10 + 0xc * n)
 
-#define MSI_IRQ_NR_GRP (1)
+#define MSI_IRQ_NR_GRP (2)
 #define MSI_IRQ_PER_GRP (32)
 
 enum msi_type {
@@ -395,7 +395,7 @@ static int msm_msi_irq_domain_alloc(struct irq_domain *domain,
 	}
 
 	pos = bitmap_find_next_zero_area(msi->bitmap, msi->nr_virqs, 0,
-					nr_irqs, 0);
+					nr_irqs, nr_irqs - 1);
 	if (pos < msi->nr_virqs) {
 		bitmap_set(msi->bitmap, pos, nr_irqs);
 	} else {
@@ -658,6 +658,8 @@ int msm_msi_init(struct device *dev)
 
 	if (msi->type == MSM_MSI_TYPE_SNPS) {
 		struct msm_msi_grp *msi_grp;
+		/* all SNPS VIRQs are mapped to one PCIe MSI HWIRQ */
+		u32 snps_hwirq = msi->grps[0].irqs[0].hwirq;
 
 		for (i = 0; i < msi->nr_grps; i++) {
 			msi_grp = &msi->grps[i];
@@ -681,7 +683,7 @@ int msm_msi_init(struct device *dev)
 			msi_irq->grp = msi_grp;
 			msi_irq->grp_index = index;
 			msi_irq->pos = i;
-			msi_irq->hwirq = msi_grp->irqs[0].hwirq;
+			msi_irq->hwirq = snps_hwirq;
 		}
 	}
 
