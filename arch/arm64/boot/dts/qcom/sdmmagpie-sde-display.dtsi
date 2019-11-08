@@ -842,6 +842,11 @@
 &dsi_sharp_qsync_fhd_video {
 	qcom,mdss-dsi-t-clk-post = <0x0A>;
 	qcom,mdss-dsi-t-clk-pre = <0x20>;
+	qcom,dsi-supported-dfps-list = <120 90 60>;
+	qcom,mdss-dsi-pan-enable-dynamic-fps;
+	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
+	qcom,mdss-dsi-min-refresh-rate = <60>;
+	qcom,mdss-dsi-max-refresh-rate = <120>;
 	qcom,mdss-dsi-display-timings {
 		timing@0{
 			qcom,mdss-dsi-panel-phy-timings = [00 13 04 04 1F 1F 04
