@@ -58,6 +58,7 @@
 static DEFINE_SPINLOCK(pci_link_down_lock);
 static DEFINE_SPINLOCK(pci_reg_window_lock);
 static DEFINE_SPINLOCK(time_sync_lock);
+static DEFINE_SPINLOCK(pm_qos_lock);
 
 #define MHI_TIMEOUT_OVERWRITE_MS	(plat_priv->ctrl_params.mhi_timeout)
 #define MHI_M2_TIMEOUT_MS		(plat_priv->ctrl_params.mhi_m2_timeout)
@@ -1219,6 +1220,73 @@ static void cnss_pci_stop_time_sync_update(struct cnss_pci_data *pci_priv)
 	cancel_delayed_work_sync(&pci_priv->time_sync_work);
 }
 
+static int cnss_pci_pm_qos_notify(struct notifier_block *nb,
+				  unsigned long curr_val, void *cpus)
+{
+	struct cnss_pci_data *pci_priv =
+		container_of(nb, struct cnss_pci_data, pm_qos_nb);
+	unsigned long flags;
+
+	spin_lock_irqsave(&pm_qos_lock, flags);
+
+	if (!pci_priv->runtime_pm_prevented &&
+	    curr_val != PM_QOS_CPU_DMA_LAT_DEFAULT_VALUE) {
+		cnss_pci_pm_runtime_get_noresume(pci_priv);
+		pci_priv->runtime_pm_prevented = true;
+	} else if (pci_priv->runtime_pm_prevented &&
+		   curr_val == PM_QOS_CPU_DMA_LAT_DEFAULT_VALUE) {
+		cnss_pci_pm_runtime_put_noidle(pci_priv);
+		pci_priv->runtime_pm_prevented = false;
+	}
+
+	spin_unlock_irqrestore(&pm_qos_lock, flags);
+
+	return NOTIFY_DONE;
+}
+
+static int cnss_pci_pm_qos_add_notifier(struct cnss_pci_data *pci_priv)
+{
+	int ret;
+
+	if (pci_priv->device_id == QCA6174_DEVICE_ID)
+		return 0;
+
+	pci_priv->pm_qos_nb.notifier_call = cnss_pci_pm_qos_notify;
+	ret = pm_qos_add_notifier(PM_QOS_CPU_DMA_LATENCY,
+				  &pci_priv->pm_qos_nb);
+	if (ret)
+		cnss_pr_err("Failed to add qos notifier, err = %d\n",
+			    ret);
+
+	return ret;
+}
+
+static int cnss_pci_pm_qos_remove_notifier(struct cnss_pci_data *pci_priv)
+{
+	int ret;
+	unsigned long flags;
+
+	if (pci_priv->device_id == QCA6174_DEVICE_ID)
+		return 0;
+
+	ret = pm_qos_remove_notifier(PM_QOS_CPU_DMA_LATENCY,
+				     &pci_priv->pm_qos_nb);
+	if (ret)
+		cnss_pr_dbg("Failed to remove qos notifier, err = %d\n",
+			    ret);
+
+	spin_lock_irqsave(&pm_qos_lock, flags);
+
+	if (pci_priv->runtime_pm_prevented) {
+		cnss_pci_pm_runtime_put_noidle(pci_priv);
+		pci_priv->runtime_pm_prevented = false;
+	}
+
+	spin_unlock_irqrestore(&pm_qos_lock, flags);
+
+	return ret;
+}
+
 int cnss_pci_call_driver_probe(struct cnss_pci_data *pci_priv)
 {
 	int ret = 0;
@@ -1280,6 +1348,7 @@ int cnss_pci_call_driver_probe(struct cnss_pci_data *pci_priv)
 	}
 
 	cnss_pci_start_time_sync_update(pci_priv);
+	cnss_pci_pm_qos_add_notifier(pci_priv);
 
 	return 0;
 
@@ -1297,8 +1366,6 @@ int cnss_pci_call_driver_remove(struct cnss_pci_data *pci_priv)
 
 	plat_priv = pci_priv->plat_priv;
 
-	cnss_pci_stop_time_sync_update(pci_priv);
-
 	if (test_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state) ||
 	    test_bit(CNSS_FW_BOOT_RECOVERY, &plat_priv->driver_state) ||
 	    test_bit(CNSS_DRIVER_DEBUG, &plat_priv->driver_state)) {
@@ -1310,6 +1377,9 @@ int cnss_pci_call_driver_remove(struct cnss_pci_data *pci_priv)
 		cnss_pr_err("driver_ops is NULL\n");
 		return -EINVAL;
 	}
+
+	cnss_pci_pm_qos_remove_notifier(pci_priv);
+	cnss_pci_stop_time_sync_update(pci_priv);
 
 	if (test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state) &&
 	    test_bit(CNSS_DRIVER_PROBED, &plat_priv->driver_state)) {
