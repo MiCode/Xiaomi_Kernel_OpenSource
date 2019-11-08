@@ -22,7 +22,7 @@
 #include <linux/msm_rmnet.h>
 
 #define RMNET_VENDOR_ID 0x05c6
-#define RMNET_USB_DEV_NAME "rmnet_usb%d"
+#define RMNET_USB_DEV_NAME "rmnet_usb"
 #define RMNET_DATA_LEN 0x4000
 #define WATCHDOG_TIMEOUT (30 * HZ)
 
@@ -298,6 +298,7 @@ static int rmnet_usb_bind(struct usbnet *dev, struct usb_interface *iface)
 	struct usb_host_endpoint *bulk_in = NULL;
 	struct usb_host_endpoint *bulk_out = NULL;
 	struct usb_host_endpoint *int_in = NULL;
+	struct driver_info *info = NULL;
 	int status = 0;
 	int i;
 	int numends;
@@ -332,7 +333,9 @@ static int rmnet_usb_bind(struct usbnet *dev, struct usb_interface *iface)
 				   bulk_out->desc.bEndpointAddress &
 				   USB_ENDPOINT_NUMBER_MASK);
 	dev->status = int_in;
-	strlcpy(dev->net->name, RMNET_USB_DEV_NAME, IFNAMSIZ);
+	info = dev->driver_info;
+	snprintf(dev->net->name, IFNAMSIZ, "%s%c", RMNET_USB_DEV_NAME,
+		 info->description[strlen(info->description) - 1]);
 	intf = iface->cur_altsetting->desc.bInterfaceNumber;
 
 	/* Enable remote wakeup and set DTR (data terminal ready)
@@ -406,8 +409,17 @@ static void rmnet_usb_disconnect(struct usb_interface *intf)
 	usbnet_disconnect(intf);
 }
 
-static const struct driver_info rmnet_usb_info = {
-	.description = "RmNET device",
+static const struct driver_info rmnet_usb0_info = {
+	.description = "RmNET device 0",
+	.flags = FLAG_SEND_ZLP,
+	.bind = rmnet_usb_bind,
+	.unbind = rmnet_usb_unbind,
+	.manage_power = rmnet_usb_manage_power,
+	.rx_fixup = rmnet_usb_rx_fixup,
+};
+
+static const struct driver_info rmnet_usb1_info = {
+	.description = "RmNET device 1",
 	.flags = FLAG_SEND_ZLP,
 	.bind = rmnet_usb_bind,
 	.unbind = rmnet_usb_unbind,
@@ -418,47 +430,47 @@ static const struct driver_info rmnet_usb_info = {
 static const struct usb_device_id rmnet_usb_ids[] = {
 	{
 		USB_DEVICE_INTERFACE_NUMBER(RMNET_VENDOR_ID, 0x90EF, 2),
-		.driver_info = (unsigned long)&rmnet_usb_info,
+		.driver_info = (unsigned long)&rmnet_usb0_info,
 	},
 	{
 		USB_DEVICE_INTERFACE_NUMBER(RMNET_VENDOR_ID, 0x90F0, 2),
-		.driver_info = (unsigned long)&rmnet_usb_info,
+		.driver_info = (unsigned long)&rmnet_usb0_info,
 	},
 	{
 		USB_DEVICE_INTERFACE_NUMBER(RMNET_VENDOR_ID, 0x90F3, 1),
-		.driver_info = (unsigned long)&rmnet_usb_info,
+		.driver_info = (unsigned long)&rmnet_usb0_info,
 	},
 	{
 		USB_DEVICE_INTERFACE_NUMBER(RMNET_VENDOR_ID, 0x90FD, 2),
-		.driver_info = (unsigned long)&rmnet_usb_info,
+		.driver_info = (unsigned long)&rmnet_usb0_info,
 	},
 	{
 		USB_DEVICE_INTERFACE_NUMBER(RMNET_VENDOR_ID, 0x90FD, 3),
-		.driver_info = (unsigned long)&rmnet_usb_info,
+		.driver_info = (unsigned long)&rmnet_usb1_info,
 	},
 	{
 		USB_DEVICE_INTERFACE_NUMBER(RMNET_VENDOR_ID, 0x9102, 2),
-		.driver_info = (unsigned long)&rmnet_usb_info,
+		.driver_info = (unsigned long)&rmnet_usb0_info,
 	},
 	{
 		USB_DEVICE_INTERFACE_NUMBER(RMNET_VENDOR_ID, 0x9102, 3),
-		.driver_info = (unsigned long)&rmnet_usb_info,
+		.driver_info = (unsigned long)&rmnet_usb1_info,
 	},
 	{
 		USB_DEVICE_INTERFACE_NUMBER(RMNET_VENDOR_ID, 0x9103, 2),
-		.driver_info = (unsigned long)&rmnet_usb_info,
+		.driver_info = (unsigned long)&rmnet_usb0_info,
 	},
 	{
 		USB_DEVICE_INTERFACE_NUMBER(RMNET_VENDOR_ID, 0x9103, 3),
-		.driver_info = (unsigned long)&rmnet_usb_info,
+		.driver_info = (unsigned long)&rmnet_usb1_info,
 	},
 	{
 		USB_DEVICE_INTERFACE_NUMBER(RMNET_VENDOR_ID, 0x9106, 2),
-		.driver_info = (unsigned long)&rmnet_usb_info,
+		.driver_info = (unsigned long)&rmnet_usb1_info,
 	},
 	{
 		USB_DEVICE_INTERFACE_NUMBER(RMNET_VENDOR_ID, 0x9107, 2),
-		.driver_info = (unsigned long)&rmnet_usb_info,
+		.driver_info = (unsigned long)&rmnet_usb1_info,
 	},
 	{ } /* Terminating entry */
 };
