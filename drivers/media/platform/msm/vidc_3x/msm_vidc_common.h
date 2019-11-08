@@ -72,14 +72,13 @@ void msm_comm_session_clean(struct msm_vidc_inst *inst);
 int msm_comm_kill_session(struct msm_vidc_inst *inst);
 enum multi_stream msm_comm_get_stream_output_mode(struct msm_vidc_inst *inst);
 enum hal_buffer msm_comm_get_hal_output_buffer(struct msm_vidc_inst *inst);
-struct msm_smem *msm_comm_smem_alloc(struct msm_vidc_inst *inst,
+int msm_comm_smem_alloc(struct msm_vidc_inst *inst,
 			size_t size, u32 align, u32 flags,
-			enum hal_buffer buffer_type, int map_kernel);
+			enum hal_buffer buffer_type, int map_kernel,
+			struct msm_smem *smem);
 void msm_comm_smem_free(struct msm_vidc_inst *inst, struct msm_smem *mem);
 int msm_comm_smem_cache_operations(struct msm_vidc_inst *inst,
 		struct msm_smem *mem, enum smem_cache_ops cache_ops);
-struct msm_smem *msm_comm_smem_user_to_kernel(struct msm_vidc_inst *inst,
-			int fd, u32 offset, enum hal_buffer buffer_type);
 enum hal_video_codec get_hal_codec(int fourcc);
 enum hal_domain get_hal_domain(int session_type);
 int msm_comm_check_core_init(struct msm_vidc_core *core);

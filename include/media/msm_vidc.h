@@ -27,8 +27,10 @@ enum smem_type {
 };
 
 enum smem_prop {
-	SMEM_CACHED,
-	SMEM_SECURE,
+	SMEM_UNCACHED = 0x1,
+	SMEM_CACHED = 0x2,
+	SMEM_SECURE = 0x4,
+	SMEM_ADSP = 0x8,
 };
 
 /* NOTE: if you change this enum you MUST update the
@@ -58,6 +60,7 @@ struct dma_mapping_info {
 	struct sg_table *table;
 	struct dma_buf_attachment *attach;
 	struct dma_buf *buf;
+	void *cb_info;
 };
 
 struct msm_smem {
