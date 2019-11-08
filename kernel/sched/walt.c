@@ -2250,13 +2250,35 @@ static void walt_cpus_capacity_changed(const cpumask_t *cpus)
 }
 
 
-static cpumask_t all_cluster_cpus = CPU_MASK_NONE;
-DECLARE_BITMAP(all_cluster_ids, NR_CPUS);
 struct sched_cluster *sched_cluster[NR_CPUS];
-int num_clusters;
+static int num_sched_clusters;
 
 struct list_head cluster_head;
 cpumask_t asym_cap_sibling_cpus = CPU_MASK_NONE;
+
+static struct sched_cluster init_cluster = {
+	.list			=	LIST_HEAD_INIT(init_cluster.list),
+	.id			=	0,
+	.max_power_cost		=	1,
+	.min_power_cost		=	1,
+	.max_possible_capacity	=	1024,
+	.efficiency		=	1,
+	.cur_freq		=	1,
+	.max_freq		=	1,
+	.max_mitigated_freq	=	UINT_MAX,
+	.min_freq		=	1,
+	.max_possible_freq	=	1,
+	.exec_scale_factor	=	1024,
+	.aggr_grp_load		=	0,
+};
+
+void init_clusters(void)
+{
+	init_cluster.cpus = *cpu_possible_mask;
+	raw_spin_lock_init(&init_cluster.load_lock);
+	INIT_LIST_HEAD(&cluster_head);
+	list_add(&init_cluster.list, &cluster_head);
+}
 
 static void
 insert_cluster(struct sched_cluster *cluster, struct list_head *head)
@@ -2319,8 +2341,22 @@ static void add_cluster(const struct cpumask *cpus, struct list_head *head)
 		cpu_rq(i)->cluster = cluster;
 
 	insert_cluster(cluster, head);
-	set_bit(num_clusters, all_cluster_ids);
-	num_clusters++;
+	num_sched_clusters++;
+}
+
+static void cleanup_clusters(struct list_head *head)
+{
+	struct sched_cluster *cluster, *tmp;
+	int i;
+
+	list_for_each_entry_safe(cluster, tmp, head, list) {
+		for_each_cpu(i, &cluster->cpus)
+			cpu_rq(i)->cluster = &init_cluster;
+
+		list_del(&cluster->list);
+		num_sched_clusters--;
+		kfree(cluster);
+	}
 }
 
 static int compute_max_possible_capacity(struct sched_cluster *cluster)
@@ -2436,7 +2472,11 @@ void update_cluster_topology(void)
 
 	for_each_cpu(i, &cpus) {
 		cluster_cpus = topology_possible_sibling_cpumask(i);
-		cpumask_or(&all_cluster_cpus, &all_cluster_cpus, cluster_cpus);
+		if (cpumask_empty(cluster_cpus)) {
+			WARN(1, "WALT: Invalid cpu topology!!");
+			cleanup_clusters(&new_head);
+			return;
+		}
 		cpumask_andnot(&cpus, &cpus, cluster_cpus);
 		add_cluster(cluster_cpus, &new_head);
 	}
@@ -2458,30 +2498,6 @@ void update_cluster_topology(void)
 
 	if (cpumask_weight(&asym_cap_sibling_cpus) == 1)
 		cpumask_clear(&asym_cap_sibling_cpus);
-}
-
-struct sched_cluster init_cluster = {
-	.list			=	LIST_HEAD_INIT(init_cluster.list),
-	.id			=	0,
-	.max_power_cost		=	1,
-	.min_power_cost		=	1,
-	.max_possible_capacity	=	1024,
-	.efficiency		=	1,
-	.cur_freq		=	1,
-	.max_freq		=	1,
-	.max_mitigated_freq	=	UINT_MAX,
-	.min_freq		=	1,
-	.max_possible_freq	=	1,
-	.exec_scale_factor	=	1024,
-	.aggr_grp_load		=	0,
-};
-
-void init_clusters(void)
-{
-	bitmap_clear(all_cluster_ids, 0, NR_CPUS);
-	init_cluster.cpus = *cpu_possible_mask;
-	raw_spin_lock_init(&init_cluster.load_lock);
-	INIT_LIST_HEAD(&cluster_head);
 }
 
 static unsigned long cpu_max_table_freq[NR_CPUS];
