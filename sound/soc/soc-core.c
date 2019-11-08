@@ -43,7 +43,11 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/asoc.h>
 
+#ifdef CONFIG_AUDIO_QGKI
+#define NAME_SIZE	64
+#else
 #define NAME_SIZE	32
+#endif
 
 #ifdef CONFIG_DEBUG_FS
 struct dentry *snd_soc_debugfs_root;
