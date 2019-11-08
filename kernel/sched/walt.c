@@ -3722,3 +3722,109 @@ void sched_set_refresh_rate(enum fps fps)
 	}
 }
 EXPORT_SYMBOL(sched_set_refresh_rate);
+
+/* Migration margins */
+unsigned int sysctl_sched_capacity_margin_up[MAX_MARGIN_LEVELS] = {
+			[0 ... MAX_MARGIN_LEVELS-1] = 1078}; /* ~5% margin */
+unsigned int sysctl_sched_capacity_margin_down[MAX_MARGIN_LEVELS] = {
+			[0 ... MAX_MARGIN_LEVELS-1] = 1205}; /* ~15% margin */
+
+#ifdef CONFIG_PROC_SYSCTL
+static void sched_update_updown_migrate_values(bool up)
+{
+	int i = 0, cpu;
+	struct sched_cluster *cluster;
+	int cap_margin_levels = num_sched_clusters - 1;
+
+	if (cap_margin_levels > 1) {
+		/*
+		 * No need to worry about CPUs in last cluster
+		 * if there are more than 2 clusters in the system
+		 */
+		for_each_sched_cluster(cluster) {
+			for_each_cpu(cpu, &cluster->cpus) {
+
+				if (up)
+					sched_capacity_margin_up[cpu] =
+					sysctl_sched_capacity_margin_up[i];
+				else
+					sched_capacity_margin_down[cpu] =
+					sysctl_sched_capacity_margin_down[i];
+			}
+
+			if (++i >= cap_margin_levels)
+				break;
+		}
+	} else {
+		for_each_possible_cpu(cpu) {
+			if (up)
+				sched_capacity_margin_up[cpu] =
+					sysctl_sched_capacity_margin_up[0];
+			else
+				sched_capacity_margin_down[cpu] =
+					sysctl_sched_capacity_margin_down[0];
+		}
+	}
+}
+
+int sched_updown_migrate_handler(struct ctl_table *table, int write,
+				void __user *buffer, size_t *lenp,
+				loff_t *ppos)
+{
+	int ret, i;
+	unsigned int *data = (unsigned int *)table->data;
+	unsigned int *old_val;
+	static DEFINE_MUTEX(mutex);
+	int cap_margin_levels = num_sched_clusters ? num_sched_clusters - 1 : 0;
+
+	if (cap_margin_levels <= 0)
+		return -EINVAL;
+
+	mutex_lock(&mutex);
+
+	if (table->maxlen != (sizeof(unsigned int) * cap_margin_levels))
+		table->maxlen = sizeof(unsigned int) * cap_margin_levels;
+
+	if (!write) {
+		ret = proc_douintvec_capacity(table, write, buffer, lenp, ppos);
+		goto unlock_mutex;
+	}
+
+	/*
+	 * Cache the old values so that they can be restored
+	 * if either the write fails (for example out of range values)
+	 * or the downmigrate and upmigrate are not in sync.
+	 */
+	old_val = kmemdup(data, table->maxlen, GFP_KERNEL);
+	if (!old_val) {
+		ret = -ENOMEM;
+		goto unlock_mutex;
+	}
+
+	ret = proc_douintvec_capacity(table, write, buffer, lenp, ppos);
+
+	if (ret) {
+		memcpy(data, old_val, table->maxlen);
+		goto free_old_val;
+	}
+
+	for (i = 0; i < cap_margin_levels; i++) {
+		if (sysctl_sched_capacity_margin_up[i] >
+				sysctl_sched_capacity_margin_down[i]) {
+			memcpy(data, old_val, table->maxlen);
+			ret = -EINVAL;
+			goto free_old_val;
+		}
+	}
+
+	sched_update_updown_migrate_values(data ==
+					&sysctl_sched_capacity_margin_up[0]);
+
+free_old_val:
+	kfree(old_val);
+unlock_mutex:
+	mutex_unlock(&mutex);
+
+	return ret;
+}
+#endif
