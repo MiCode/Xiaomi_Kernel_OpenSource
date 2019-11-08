@@ -6196,6 +6196,7 @@ static int fg_gen4_probe(struct platform_device *pdev)
 	chip->ki_coeff_full_soc[1] = -EINVAL;
 	chip->esr_soh_cycle_count = -EINVAL;
 	chip->calib_level = -EINVAL;
+	chip->soh = -EINVAL;
 	fg->regmap = dev_get_regmap(fg->dev->parent, NULL);
 	if (!fg->regmap) {
 		dev_err(fg->dev, "Parent regmap is unavailable\n");
