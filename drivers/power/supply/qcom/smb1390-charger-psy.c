@@ -1068,7 +1068,7 @@ static void smb1390_status_change_work(struct work_struct *work)
 	struct smb1390 *chip = container_of(work, struct smb1390,
 					    status_change_work);
 	union power_supply_propval pval = {0, };
-	int rc;
+	int rc, dc_current_max = 0;
 
 	if (!is_psy_voter_available(chip))
 		goto out;
@@ -1096,6 +1096,12 @@ static void smb1390_status_change_work(struct work_struct *work)
 			goto out;
 		}
 
+		/*
+		 * Slave SMB1390 is not required for the power-rating of QC3
+		 */
+		if (pval.intval != POWER_SUPPLY_CP_HVDCP3)
+			vote(chip->slave_disable_votable, SRC_VOTER, false, 0);
+
 		/* Check for SOC threshold only once before enabling CP */
 		vote(chip->disable_votable, SRC_VOTER, false, 0);
 		if (!chip->batt_soc_validated) {
@@ -1109,11 +1115,21 @@ static void smb1390_status_change_work(struct work_struct *work)
 			vote(chip->ilim_votable, ICL_VOTER, false, 0);
 			rc = power_supply_get_property(chip->dc_psy,
 					POWER_SUPPLY_PROP_CURRENT_MAX, &pval);
-			if (rc < 0)
+			if (rc < 0) {
 				pr_err("Couldn't get dc icl rc=%d\n", rc);
-			else
-				vote(chip->ilim_votable, WIRELESS_VOTER, true,
-						pval.intval);
+			} else {
+				dc_current_max = pval.intval;
+
+				rc = power_supply_get_property(chip->dc_psy,
+						POWER_SUPPLY_PROP_AICL_DONE,
+						&pval);
+				if (rc < 0)
+					pr_err("Couldn't get aicl done rc=%d\n",
+							rc);
+				else if (pval.intval)
+					vote(chip->ilim_votable, WIRELESS_VOTER,
+							true, dc_current_max);
+			}
 		} else {
 			vote(chip->ilim_votable, WIRELESS_VOTER, false, 0);
 			smb1390_configure_ilim(chip, pval.intval);
@@ -1153,6 +1169,7 @@ static void smb1390_status_change_work(struct work_struct *work)
 		}
 	} else {
 		chip->batt_soc_validated = false;
+		vote(chip->slave_disable_votable, SRC_VOTER, true, 0);
 		vote(chip->disable_votable, SRC_VOTER, true, 0);
 		vote(chip->disable_votable, TAPER_END_VOTER, false, 0);
 		vote(chip->fcc_votable, CP_VOTER, false, 0);
@@ -1568,6 +1585,8 @@ static int smb1390_create_votables(struct smb1390 *chip)
 	if (IS_ERR(chip->slave_disable_votable))
 		return PTR_ERR(chip->slave_disable_votable);
 
+	/* Keep slave SMB disabled */
+	vote(chip->slave_disable_votable, SRC_VOTER, true, 0);
 	/*
 	 * charge pump is initially disabled; this indirectly votes to allow
 	 * traditional parallel charging if present

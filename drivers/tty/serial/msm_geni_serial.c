@@ -2006,13 +2006,13 @@ static void msm_geni_serial_set_termios(struct uart_port *uport,
 							__func__, ret);
 			return;
 		}
+		disable_irq(uport->irq);
+		msm_geni_serial_set_manual_flow(false, port);
 	}
 	/* Take a spinlock else stop_rx causes a race with an ISR due to Cancel
 	 * and FSM_RESET. This also has a potential race with the dma_map/unmap
 	 * operations of ISR.
 	 */
-	disable_irq(uport->irq);
-	msm_geni_serial_set_manual_flow(false, port);
 	spin_lock_irqsave(&uport->lock, flags);
 	msm_geni_serial_stop_rx(uport);
 	spin_unlock_irqrestore(&uport->lock, flags);
@@ -2116,8 +2116,10 @@ static void msm_geni_serial_set_termios(struct uart_port *uport,
 	IPC_LOG_MSG(port->ipc_log_misc, "BitsChar%d stop bit%d\n",
 				bits_per_char, stop_bit_len);
 exit_set_termios:
-	msm_geni_serial_set_manual_flow(true, port);
-	enable_irq(uport->irq);
+	if (!uart_console(uport)) {
+		msm_geni_serial_set_manual_flow(true, port);
+		enable_irq(uport->irq);
+	}
 	msm_geni_serial_start_rx(uport);
 	if (!uart_console(uport))
 		msm_geni_serial_power_off(uport);
@@ -2333,7 +2335,6 @@ msm_geni_serial_earlycon_setup(struct earlycon_device *dev,
 	 * it else we could end up in data loss scenarios.
 	 */
 	msm_geni_serial_poll_cancel_tx(uport);
-	msm_geni_serial_abort_rx(uport);
 
 	se_get_packing_config(8, 1, false, &cfg0, &cfg1);
 	geni_se_init(uport->membase, (DEF_FIFO_DEPTH_WORDS >> 1),
@@ -2345,14 +2346,8 @@ msm_geni_serial_earlycon_setup(struct earlycon_device *dev,
 							SE_UART_TX_TRANS_CFG);
 	geni_write_reg_nolog(tx_parity_cfg, uport->membase,
 							SE_UART_TX_PARITY_CFG);
-	geni_write_reg_nolog(rx_trans_cfg, uport->membase,
-							SE_UART_RX_TRANS_CFG);
-	geni_write_reg_nolog(rx_parity_cfg, uport->membase,
-							SE_UART_RX_PARITY_CFG);
 	geni_write_reg_nolog(bits_per_char, uport->membase,
 							SE_UART_TX_WORD_LEN);
-	geni_write_reg_nolog(bits_per_char, uport->membase,
-							SE_UART_RX_WORD_LEN);
 	geni_write_reg_nolog(stop_bit, uport->membase, SE_UART_TX_STOP_BIT_LEN);
 	geni_write_reg_nolog(s_clk_cfg, uport->membase, GENI_SER_M_CLK_CFG);
 	geni_write_reg_nolog(s_clk_cfg, uport->membase, GENI_SER_S_CLK_CFG);

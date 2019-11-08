@@ -396,7 +396,7 @@ int mhi_queue_skb(struct mhi_device *mhi_dev,
 
 	mhi_tre->ptr = MHI_TRE_DATA_PTR(buf_info->p_addr);
 	mhi_tre->dword[0] = MHI_TRE_DATA_DWORD0(buf_info->len);
-	mhi_tre->dword[1] = MHI_TRE_DATA_DWORD1(1, 1, 0, 0);
+	mhi_tre->dword[1] = MHI_TRE_DATA_DWORD1(mhi_chan->bei, 1, 0, 0);
 
 	MHI_VERB("chan:%d WP:0x%llx TRE:0x%llx 0x%08x 0x%08x\n", mhi_chan->chan,
 		 (u64)mhi_to_physical(tre_ring, mhi_tre), mhi_tre->ptr,
@@ -479,7 +479,7 @@ int mhi_queue_dma(struct mhi_device *mhi_dev,
 	} else {
 		mhi_tre->ptr = MHI_TRE_DATA_PTR(buf_info->p_addr);
 		mhi_tre->dword[0] = MHI_TRE_DATA_DWORD0(buf_info->len);
-		mhi_tre->dword[1] = MHI_TRE_DATA_DWORD1(1, 1, 0, 0);
+		mhi_tre->dword[1] = MHI_TRE_DATA_DWORD1(mhi_chan->bei, 1, 0, 0);
 	}
 
 	MHI_VERB("chan:%d WP:0x%llx TRE:0x%llx 0x%08x 0x%08x\n", mhi_chan->chan,
@@ -514,7 +514,7 @@ int mhi_gen_tre(struct mhi_controller *mhi_cntrl,
 	struct mhi_ring *buf_ring, *tre_ring;
 	struct mhi_tre *mhi_tre;
 	struct mhi_buf_info *buf_info;
-	int eot, eob, chain, bei;
+	int eot, eob, chain;
 	int ret;
 
 	buf_ring = &mhi_chan->buf_ring;
@@ -534,12 +534,11 @@ int mhi_gen_tre(struct mhi_controller *mhi_cntrl,
 	eob = !!(flags & MHI_EOB);
 	eot = !!(flags & MHI_EOT);
 	chain = !!(flags & MHI_CHAIN);
-	bei = !!(mhi_chan->intmod);
 
 	mhi_tre = tre_ring->wp;
 	mhi_tre->ptr = MHI_TRE_DATA_PTR(buf_info->p_addr);
 	mhi_tre->dword[0] = MHI_TRE_DATA_DWORD0(buf_len);
-	mhi_tre->dword[1] = MHI_TRE_DATA_DWORD1(bei, eot, eob, chain);
+	mhi_tre->dword[1] = MHI_TRE_DATA_DWORD1(mhi_chan->bei, eot, eob, chain);
 
 	MHI_VERB("chan:%d WP:0x%llx TRE:0x%llx 0x%08x 0x%08x\n", mhi_chan->chan,
 		 (u64)mhi_to_physical(tre_ring, mhi_tre), mhi_tre->ptr,
@@ -1195,8 +1194,7 @@ int mhi_process_ctrl_ev_ring(struct mhi_controller *mhi_cntrl,
 							MHI_PM_SYS_ERR_DETECT);
 				write_unlock_irq(&mhi_cntrl->pm_lock);
 				if (new_state == MHI_PM_SYS_ERR_DETECT)
-					schedule_work(
-						&mhi_cntrl->syserr_worker);
+					mhi_process_sys_err(mhi_cntrl);
 				break;
 			}
 			default:
@@ -1540,7 +1538,7 @@ void mhi_ctrl_ev_task(unsigned long data)
 		}
 		write_unlock_irq(&mhi_cntrl->pm_lock);
 		if (pm_state == MHI_PM_SYS_ERR_DETECT)
-			schedule_work(&mhi_cntrl->syserr_worker);
+			mhi_process_sys_err(mhi_cntrl);
 	}
 }
 
@@ -1625,7 +1623,7 @@ irqreturn_t mhi_intvec_threaded_handlr(int irq_number, void *dev)
 			mhi_cntrl->status_cb(mhi_cntrl, mhi_cntrl->priv_data,
 					     MHI_CB_FATAL_ERROR);
 		else
-			schedule_work(&mhi_cntrl->syserr_worker);
+			mhi_process_sys_err(mhi_cntrl);
 	}
 
 exit_intvec:
@@ -2018,7 +2016,8 @@ int mhi_debugfs_mhi_states_show(struct seq_file *m, void *d)
 	struct mhi_controller *mhi_cntrl = m->private;
 
 	seq_printf(m,
-		   "pm_state:%s dev_state:%s EE:%s M0:%u M2:%u M3:%u M3_Fast:%u wake:%d dev_wake:%u alloc_size:%u pending_pkts:%u\n",
+		   "[%llu ns]: pm_state:%s dev_state:%s EE:%s M0:%u M2:%u M3:%u M3_Fast:%u wake:%d dev_wake:%u alloc_size:%u pending_pkts:%u\n",
+		   sched_clock(),
 		   to_mhi_pm_state_str(mhi_cntrl->pm_state),
 		   TO_MHI_STATE_STR(mhi_cntrl->dev_state),
 		   TO_MHI_EXEC_STR(mhi_cntrl->ee),
@@ -2037,6 +2036,8 @@ int mhi_debugfs_mhi_event_show(struct seq_file *m, void *d)
 	struct mhi_event_ctxt *er_ctxt;
 
 	int i;
+
+	seq_printf(m, "[%llu ns]:\n", sched_clock());
 
 	er_ctxt = mhi_cntrl->mhi_ctxt->er_ctxt;
 	mhi_event = mhi_cntrl->mhi_event;
@@ -2068,6 +2069,8 @@ int mhi_debugfs_mhi_chan_show(struct seq_file *m, void *d)
 	struct mhi_chan *mhi_chan;
 	struct mhi_chan_ctxt *chan_ctxt;
 	int i;
+
+	seq_printf(m, "[%llu ns]:\n", sched_clock());
 
 	mhi_chan = mhi_cntrl->mhi_chan;
 	chan_ctxt = mhi_cntrl->mhi_ctxt->chan_ctxt;

@@ -14,6 +14,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/extcon-provider.h>
 #include "storm-watch.h"
+#include "battery.h"
 
 enum print_reason {
 	PR_INTERRUPT	= BIT(0),
@@ -124,6 +125,7 @@ enum {
 	USBIN_OV_WA			= BIT(3),
 	CHG_TERMINATION_WA		= BIT(4),
 	USBIN_ADC_WA			= BIT(5),
+	SKIP_MISC_PBS_IRQ_WA		= BIT(6),
 };
 
 enum jeita_cfg_stat {
@@ -376,7 +378,6 @@ struct smb_charger {
 	int			pd_disabled;
 	enum smb_mode		mode;
 	struct smb_chg_freq	chg_freq;
-	int			smb_version;
 	int			otg_delay_ms;
 	int			weak_chg_icl_ua;
 	bool			pd_not_supported;
@@ -439,6 +440,7 @@ struct smb_charger {
 	struct work_struct	moisture_protection_work;
 	struct work_struct	chg_termination_work;
 	struct work_struct	dcin_aicl_work;
+	struct work_struct	cp_status_change_work;
 	struct delayed_work	ps_change_timeout_work;
 	struct delayed_work	clear_hdc_work;
 	struct delayed_work	icl_change_work;
@@ -457,11 +459,13 @@ struct smb_charger {
 	struct alarm		chg_termination_alarm;
 	struct alarm		dcin_aicl_alarm;
 
+	struct charger_param	chg_param;
 	/* secondary charger config */
 	bool			sec_pl_present;
 	bool			sec_cp_present;
 	int			sec_chg_selected;
 	int			cp_reason;
+	int			cp_topo;
 
 	/* pd */
 	int			voltage_min_uv;
@@ -548,6 +552,8 @@ struct smb_charger {
 	int			init_thermal_ua;
 	u32			comp_clamp_level;
 	int			wls_icl_ua;
+	bool			dcin_aicl_done;
+	bool			hvdcp3_standalone_config;
 
 	/* workaround flag */
 	u32			wa_flags;
@@ -794,6 +800,7 @@ void smblib_apsd_enable(struct smb_charger *chg, bool enable);
 int smblib_force_vbus_voltage(struct smb_charger *chg, u8 val);
 int smblib_get_irq_status(struct smb_charger *chg,
 				union power_supply_propval *val);
+int smblib_get_qc3_main_icl_offset(struct smb_charger *chg, int *offset_ua);
 
 int smblib_init(struct smb_charger *chg);
 int smblib_deinit(struct smb_charger *chg);

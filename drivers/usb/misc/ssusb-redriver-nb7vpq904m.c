@@ -1142,8 +1142,8 @@ static int __maybe_unused redriver_i2c_suspend(struct device *dev)
 			__func__);
 
 	/* Disable redriver chip when USB cable disconnected */
-	if ((!redriver->vbus_active)
-			&& (!redriver->host_active))
+	if (!redriver->vbus_active && !redriver->host_active &&
+	    redriver->op_mode != OP_MODE_DP)
 		ssusb_redriver_gen_dev_set(redriver, false);
 
 	flush_workqueue(redriver->redriver_wq);

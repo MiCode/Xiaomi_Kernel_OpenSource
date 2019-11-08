@@ -429,6 +429,7 @@ enum MHI_ST_TRANSITION {
 	MHI_ST_TRANSITION_READY,
 	MHI_ST_TRANSITION_SBL,
 	MHI_ST_TRANSITION_MISSION_MODE,
+	MHI_ST_TRANSITION_DISABLE,
 	MHI_ST_TRANSITION_MAX,
 };
 
@@ -586,6 +587,7 @@ struct mhi_pm_transitions {
 struct state_transition {
 	struct list_head node;
 	enum MHI_ST_TRANSITION state;
+	enum MHI_PM_STATE pm_state;
 };
 
 struct mhi_ctxt {
@@ -663,7 +665,6 @@ struct mhi_chan {
 	struct mhi_ring buf_ring;
 	struct mhi_ring tre_ring;
 	u32 er_index;
-	u32 intmod;
 	enum mhi_ch_type type;
 	enum dma_data_direction dir;
 	struct db_cfg db_cfg;
@@ -671,6 +672,7 @@ struct mhi_chan {
 	enum MHI_XFER_TYPE xfer_type;
 	enum MHI_CH_STATE ch_state;
 	enum MHI_EV_CCS ccs;
+	bool bei; /* based on interrupt moderation, true if greater than 0 */
 	bool lpm_notify;
 	bool configured;
 	bool offload_ch;
@@ -744,7 +746,7 @@ int mhi_queue_state_transition(struct mhi_controller *mhi_cntrl,
 			       enum MHI_ST_TRANSITION state);
 void mhi_pm_st_worker(struct work_struct *work);
 void mhi_fw_load_worker(struct work_struct *work);
-void mhi_pm_sys_err_worker(struct work_struct *work);
+void mhi_process_sys_err(struct mhi_controller *mhi_cntrl);
 void mhi_low_priority_worker(struct work_struct *work);
 int mhi_ready_state_transition(struct mhi_controller *mhi_cntrl);
 void mhi_ctrl_ev_task(unsigned long data);

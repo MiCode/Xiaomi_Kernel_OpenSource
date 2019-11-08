@@ -214,6 +214,7 @@ enum adreno_gpurev {
 #define ADRENO_PREEMPT_FAULT BIT(4)
 #define ADRENO_GMU_FAULT BIT(5)
 #define ADRENO_CTX_DETATCH_TIMEOUT_FAULT BIT(6)
+#define ADRENO_GMU_FAULT_SKIP_SNAPSHOT BIT(7)
 
 #define ADRENO_SPTP_PC_CTRL 0
 #define ADRENO_LM_CTRL      1
@@ -442,6 +443,7 @@ enum gpu_coresight_sources {
  * @lm_limit: limiting value for LM
  * @lm_threshold_count: register value for counter for lm threshold breakin
  * @lm_threshold_cross: number of current peaks exceeding threshold
+ * @lm_slope: Slope value in the fused register for LM
  * @ifpc_count: Number of times the GPU went into IFPC
  * @speed_bin: Indicate which power level set to use
  * @highest_bank_bit: Value of the highest bank bit
@@ -517,6 +519,7 @@ struct adreno_device {
 	uint32_t lm_limit;
 	uint32_t lm_threshold_count;
 	uint32_t lm_threshold_cross;
+	u32 lm_slope;
 	uint32_t ifpc_count;
 
 	unsigned int speed_bin;

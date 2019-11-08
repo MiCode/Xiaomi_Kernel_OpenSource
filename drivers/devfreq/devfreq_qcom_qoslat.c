@@ -27,6 +27,9 @@ struct qoslat_data {
 	unsigned int			qos_level;
 };
 
+#define QOS_LEVEL_OFF	1
+#define QOS_LEVEL_ON	2
+
 #define MAX_MSG_LEN	96
 static int update_qos_level(struct device *dev, struct qoslat_data *d)
 {
@@ -35,7 +38,7 @@ static int update_qos_level(struct device *dev, struct qoslat_data *d)
 	char *qos_msg = "off";
 	int ret;
 
-	if (d->qos_level)
+	if (d->qos_level == QOS_LEVEL_ON)
 		qos_msg = "on";
 
 	snprintf(mbox_msg, MAX_MSG_LEN, "{class: ddr, perfmode: %s}", qos_msg);
@@ -106,7 +109,7 @@ static int devfreq_qcom_qoslat_probe(struct platform_device *pdev)
 		dev_err(dev, "Failed to get mailbox channel: %d\n", ret);
 		return ret;
 	}
-	d->qos_level = 0;
+	d->qos_level = QOS_LEVEL_OFF;
 
 	p = &d->profile;
 	p->target = dev_target;

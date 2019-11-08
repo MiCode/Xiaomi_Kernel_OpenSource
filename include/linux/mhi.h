@@ -313,6 +313,7 @@ struct mhi_controller {
 	enum mhi_dev_state dev_state;
 	enum mhi_dev_state saved_dev_state;
 	bool wake_set;
+	bool ignore_override;
 	atomic_t dev_wake;
 	atomic_t alloc_size;
 	atomic_t pending_pkts;
@@ -329,7 +330,6 @@ struct mhi_controller {
 	/* worker for different state transitions */
 	struct work_struct st_worker;
 	struct work_struct fw_worker;
-	struct work_struct syserr_worker;
 	struct work_struct low_priority_worker;
 	wait_queue_head_t state_event;
 
@@ -841,7 +841,12 @@ void mhi_debug_reg_dump(struct mhi_controller *mhi_cntrl);
 
 #else
 
-#define MHI_VERB(fmt, ...)
+#define MHI_VERB(fmt, ...) do { \
+		if (mhi_cntrl->log_buf && \
+		    (mhi_cntrl->log_lvl <= MHI_MSG_LVL_VERBOSE)) \
+			ipc_log_string(mhi_cntrl->log_buf, "[D][%s] " fmt, \
+				       __func__, ##__VA_ARGS__); \
+} while (0)
 
 #endif
 

@@ -88,6 +88,7 @@ enum ttf_param {
 	TTF_CHG_TYPE,
 	TTF_CHG_STATUS,
 	TTF_TTE_VALID,
+	TTF_CHG_DONE,
 };
 
 struct ttf_circ_buf {

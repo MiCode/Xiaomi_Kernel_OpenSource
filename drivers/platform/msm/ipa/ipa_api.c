@@ -3659,6 +3659,19 @@ int ipa_disable_wigig_pipe_i(enum ipa_client_type client)
 EXPORT_SYMBOL(ipa_disable_wigig_pipe_i);
 
 /**
+ * ipa_get_lan_rx_napi() - returns if NAPI is enabled in LAN RX
+ */
+bool ipa_get_lan_rx_napi(void)
+{
+	bool ret;
+
+	IPA_API_DISPATCH_RETURN_BOOL(ipa_get_lan_rx_napi);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_get_lan_rx_napi);
+
+/**
  * ipa_tz_unlock_reg() - Allow AP access to memory regions controlled by TZ
  */
 int ipa_tz_unlock_reg(struct ipa_tz_unlock_reg_info *reg_info, u16 num_regs)
@@ -3684,6 +3697,45 @@ void ipa_deregister_client_callback(enum ipa_client_type client)
 		client);
 }
 
+int ipa_uc_debug_stats_alloc(
+	struct IpaHwOffloadStatsAllocCmdData_t cmdinfo)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_uc_debug_stats_alloc, cmdinfo);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_uc_debug_stats_alloc);
+
+int ipa_uc_debug_stats_dealloc(uint32_t prot_id)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_uc_debug_stats_dealloc, prot_id);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_uc_debug_stats_dealloc);
+
+void ipa_get_gsi_stats(int prot_id,
+	struct ipa_uc_dbg_ring_stats *stats)
+{
+	IPA_API_DISPATCH(ipa_get_gsi_stats,
+		prot_id, stats);
+}
+EXPORT_SYMBOL(ipa_get_gsi_stats);
+
+int ipa_get_prot_id(enum ipa_client_type client)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_get_prot_id,
+		client);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_get_prot_id);
 
 static const struct dev_pm_ops ipa_pm_ops = {
 	.suspend_noirq = ipa_ap_suspend,

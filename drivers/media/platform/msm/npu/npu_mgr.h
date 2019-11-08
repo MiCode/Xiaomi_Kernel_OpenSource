@@ -36,6 +36,21 @@
  * Data Structures
  * -------------------------------------------------------------------------
  */
+
+struct npu_network_cmd {
+	struct list_head list;
+	uint32_t cmd_type;
+	uint32_t cmd_id;
+	uint32_t trans_id;
+	bool async;
+	struct completion cmd_done;
+	/* stats buf info */
+	uint32_t stats_buf_size;
+	void __user *stats_buf_u;
+	void *stats_buf;
+	int ret_status;
+};
+
 struct npu_network {
 	uint64_t id;
 	int buf_hdl;
@@ -47,19 +62,13 @@ struct npu_network {
 	uint32_t cur_perf_mode;
 	uint32_t init_perf_mode;
 	uint32_t num_layers;
-	void *stats_buf;
-	void __user *stats_buf_u;
-	uint32_t stats_buf_size;
-	uint32_t trans_id;
 	atomic_t ref_cnt;
 	bool is_valid;
 	bool is_active;
 	bool fw_error;
-	bool cmd_pending;
-	bool cmd_async;
-	int cmd_ret_status;
-	struct completion cmd_done;
+	bool is_async;
 	struct npu_client *client;
+	struct list_head cmd_list;
 };
 
 enum fw_state {
@@ -92,6 +101,8 @@ struct npu_host_ctx {
 	void *prop_buf;
 	int32_t network_num;
 	struct npu_network networks[MAX_LOADED_NETWORK];
+	struct kmem_cache *network_cmd_cache;
+	struct kmem_cache *stats_buf_cache;
 	bool sys_cache_disable;
 	bool auto_pil_disable;
 	uint32_t fw_dbg_mode;
@@ -129,6 +140,7 @@ int npu_host_ipc_send_cmd(struct npu_device *npu_dev, uint32_t queueIndex,
 	void *pCmd);
 int npu_host_ipc_read_msg(struct npu_device *npu_dev, uint32_t queueIndex,
 	uint32_t *pMsg);
+int npu_host_get_ipc_queue_size(struct npu_device *npu_dev, uint32_t q_idx);
 
 int32_t npu_host_get_info(struct npu_device *npu_dev,
 	struct msm_npu_get_info_ioctl *get_info_ioctl);

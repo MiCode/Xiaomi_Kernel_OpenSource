@@ -19,6 +19,7 @@ struct page_ext_operations {
 enum page_ext_flags {
 	PAGE_EXT_DEBUG_GUARD,
 	PAGE_EXT_OWNER,
+	PAGE_EXT_PG_FREE,
 #if defined(CONFIG_IDLE_PAGE_TRACKING) && !defined(CONFIG_64BIT)
 	PAGE_EXT_YOUNG,
 	PAGE_EXT_IDLE,

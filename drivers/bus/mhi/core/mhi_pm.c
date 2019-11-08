@@ -202,10 +202,12 @@ void mhi_assert_dev_wake(struct mhi_controller *mhi_cntrl, bool force)
 		spin_unlock_irqrestore(&mhi_cntrl->wlock, flags);
 	} else {
 		/* if resources requested already, then increment and exit */
-		if (likely(atomic_add_unless(&mhi_cntrl->dev_wake, 1, 0)))
-			return;
-
 		spin_lock_irqsave(&mhi_cntrl->wlock, flags);
+		if (likely(atomic_add_unless(&mhi_cntrl->dev_wake, 1, 0))) {
+			spin_unlock_irqrestore(&mhi_cntrl->wlock, flags);
+			return;
+		}
+
 		if ((atomic_inc_return(&mhi_cntrl->dev_wake) == 1) &&
 		    MHI_WAKE_DB_SET_VALID(mhi_cntrl->pm_state) &&
 		    !mhi_cntrl->wake_set) {
@@ -225,15 +227,20 @@ void mhi_deassert_dev_wake(struct mhi_controller *mhi_cntrl, bool override)
 		   atomic_read(&mhi_cntrl->dev_wake) == 0), "dev_wake == 0");
 
 	/* resources not dropping to 0, decrement and exit */
-	if (likely(atomic_add_unless(&mhi_cntrl->dev_wake, -1, 1)))
-		return;
-
 	spin_lock_irqsave(&mhi_cntrl->wlock, flags);
+	if (likely(atomic_add_unless(&mhi_cntrl->dev_wake, -1, 1))) {
+		if (!override)
+			mhi_cntrl->ignore_override = true;
+		spin_unlock_irqrestore(&mhi_cntrl->wlock, flags);
+		return;
+	}
+
 	if ((atomic_dec_return(&mhi_cntrl->dev_wake) == 0) &&
-	    MHI_WAKE_DB_CLEAR_VALID(mhi_cntrl->pm_state) && !override &&
-	    mhi_cntrl->wake_set) {
+	    MHI_WAKE_DB_CLEAR_VALID(mhi_cntrl->pm_state) && (!override ||
+	    mhi_cntrl->ignore_override) && mhi_cntrl->wake_set) {
 		mhi_write_db(mhi_cntrl, mhi_cntrl->wake_db, 0);
 		mhi_cntrl->wake_set = false;
+		mhi_cntrl->ignore_override = false;
 	}
 	spin_unlock_irqrestore(&mhi_cntrl->wlock, flags);
 }
@@ -542,20 +549,9 @@ static void mhi_pm_disable_transition(struct mhi_controller *mhi_cntrl,
 		to_mhi_pm_state_str(transition_state));
 
 	/* We must notify MHI control driver so it can clean up first */
-	if (transition_state == MHI_PM_SYS_ERR_PROCESS) {
-		/*
-		 * if controller support rddm, we do not process
-		 * sys error state, instead we will jump directly
-		 * to rddm state
-		 */
-		if (mhi_cntrl->rddm_image) {
-			MHI_LOG(
-				"Controller Support RDDM, skipping SYS_ERR_PROCESS\n");
-			return;
-		}
+	if (transition_state == MHI_PM_SYS_ERR_PROCESS)
 		mhi_cntrl->status_cb(mhi_cntrl, mhi_cntrl->priv_data,
 				     MHI_CB_SYS_ERROR);
-	}
 
 	mutex_lock(&mhi_cntrl->pm_mutex);
 	write_lock_irq(&mhi_cntrl->pm_lock);
@@ -628,7 +624,6 @@ static void mhi_pm_disable_transition(struct mhi_controller *mhi_cntrl,
 
 	MHI_LOG("Waiting for all pending threads to complete\n");
 	wake_up_all(&mhi_cntrl->state_event);
-	flush_work(&mhi_cntrl->st_worker);
 	flush_work(&mhi_cntrl->fw_worker);
 	flush_work(&mhi_cntrl->low_priority_worker);
 
@@ -718,7 +713,28 @@ int mhi_debugfs_trigger_reset(void *data, u64 val)
 	write_unlock_irq(&mhi_cntrl->pm_lock);
 
 	if (cur_state == MHI_PM_SYS_ERR_DETECT)
-		schedule_work(&mhi_cntrl->syserr_worker);
+		mhi_process_sys_err(mhi_cntrl);
+
+	return 0;
+}
+
+/* queue disable transition work item */
+int mhi_queue_disable_transition(struct mhi_controller *mhi_cntrl,
+				 enum MHI_PM_STATE pm_state)
+{
+	struct state_transition *item = kmalloc(sizeof(*item), GFP_ATOMIC);
+	unsigned long flags;
+
+	if (!item)
+		return -ENOMEM;
+
+	item->pm_state = pm_state;
+	item->state = MHI_ST_TRANSITION_DISABLE;
+	spin_lock_irqsave(&mhi_cntrl->transition_lock, flags);
+	list_add_tail(&item->node, &mhi_cntrl->transition_list);
+	spin_unlock_irqrestore(&mhi_cntrl->transition_lock, flags);
+
+	schedule_work(&mhi_cntrl->st_worker);
 
 	return 0;
 }
@@ -781,17 +797,18 @@ void mhi_low_priority_worker(struct work_struct *work)
 	}
 }
 
-void mhi_pm_sys_err_worker(struct work_struct *work)
+void mhi_process_sys_err(struct mhi_controller *mhi_cntrl)
 {
-	struct mhi_controller *mhi_cntrl = container_of(work,
-							struct mhi_controller,
-							syserr_worker);
+	/*
+	 * if controller supports rddm, we do not process sys error state,
+	 * instead we will jump directly to rddm state
+	 */
+	if (mhi_cntrl->rddm_image) {
+		MHI_LOG("Controller supports RDDM, skipping SYS_ERR_PROCESS\n");
+		return;
+	}
 
-	MHI_LOG("Enter with pm_state:%s MHI_STATE:%s\n",
-		to_mhi_pm_state_str(mhi_cntrl->pm_state),
-		TO_MHI_STATE_STR(mhi_cntrl->dev_state));
-
-	mhi_pm_disable_transition(mhi_cntrl, MHI_PM_SYS_ERR_PROCESS);
+	mhi_queue_disable_transition(mhi_cntrl, MHI_PM_SYS_ERR_PROCESS);
 }
 
 void mhi_pm_st_worker(struct work_struct *work)
@@ -831,6 +848,9 @@ void mhi_pm_st_worker(struct work_struct *work)
 			break;
 		case MHI_ST_TRANSITION_READY:
 			mhi_ready_state_transition(mhi_cntrl);
+			break;
+		case MHI_ST_TRANSITION_DISABLE:
+			mhi_pm_disable_transition(mhi_cntrl, itr->pm_state);
 			break;
 		default:
 			break;
@@ -1008,7 +1028,11 @@ void mhi_power_down(struct mhi_controller *mhi_cntrl, bool graceful)
 
 		transition_state = MHI_PM_SHUTDOWN_NO_ACCESS;
 	}
-	mhi_pm_disable_transition(mhi_cntrl, transition_state);
+
+	mhi_queue_disable_transition(mhi_cntrl, transition_state);
+
+	MHI_LOG("Wait for shutdown to complete\n");
+	flush_work(&mhi_cntrl->st_worker);
 
 	mhi_deinit_debugfs(mhi_cntrl);
 

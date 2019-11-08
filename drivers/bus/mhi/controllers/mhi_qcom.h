@@ -14,6 +14,10 @@
 #define MHI_PCIE_VENDOR_ID (0x17cb)
 #define MHI_PCIE_DEBUG_ID (0xffff)
 
+#define MHI_BHI_SERIAL_NUM_OFFS (0x40)
+#define MHI_BHI_OEMPKHASH(n) (0x64 + (0x4 * (n)))
+#define MHI_BHI_OEMPKHASH_SEG (16)
+
 /* runtime suspend timer */
 #define MHI_RPM_SUSPEND_TMR_MS (250)
 #define MHI_PCI_BAR_NUM (0)
@@ -48,6 +52,10 @@ struct mhi_dev {
 	dma_addr_t iova_start;
 	dma_addr_t iova_stop;
 	enum mhi_suspend_mode suspend_mode;
+
+	/* hardware info */
+	u32 serial_num;
+	u32 oem_pk_hash[MHI_BHI_OEMPKHASH_SEG];
 
 	unsigned int lpm_disable_depth;
 	/* lock to toggle low power modes */

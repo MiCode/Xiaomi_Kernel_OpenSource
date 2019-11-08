@@ -537,7 +537,22 @@ static int gmu_dcvs_set(struct kgsl_device *device,
 		dev_err_ratelimited(&gmu->pdev->dev,
 			"Failed to set GPU perf idx %d, bw idx %d\n",
 			req.freq, req.bw);
-		gmu_snapshot(device);
+
+		/*
+		 * We can be here in two situations. First, we send a dcvs
+		 * hfi so gmu knows at what level it must bring up the gpu.
+		 * If that fails, it is already being handled as part of
+		 * gmu boot failures. The other reason why we are here is
+		 * because we are trying to scale an active gpu. For this,
+		 * we need to do inline snapshot and dispatcher based
+		 * recovery.
+		 */
+		if (test_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv)) {
+			gmu_core_snapshot(device);
+			adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT |
+				ADRENO_GMU_FAULT_SKIP_SNAPSHOT);
+			adreno_dispatcher_schedule(device);
+		}
 	}
 
 	/* indicate actual clock change */
@@ -1593,7 +1608,10 @@ static int gmu_start(struct kgsl_device *device)
 			goto error_gmu;
 
 		/* Request default DCVS level */
-		kgsl_pwrctrl_set_default_gpu_pwrlevel(device);
+		ret = kgsl_pwrctrl_set_default_gpu_pwrlevel(device);
+		if (ret)
+			goto error_gmu;
+
 		msm_bus_scale_client_update_request(gmu->pcl, 0);
 		break;
 
@@ -1613,7 +1631,9 @@ static int gmu_start(struct kgsl_device *device)
 		if (ret)
 			goto error_gmu;
 
-		kgsl_pwrctrl_set_default_gpu_pwrlevel(device);
+		ret = kgsl_pwrctrl_set_default_gpu_pwrlevel(device);
+		if (ret)
+			goto error_gmu;
 		break;
 
 	case KGSL_STATE_RESET:

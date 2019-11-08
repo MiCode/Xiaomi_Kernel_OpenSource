@@ -129,3 +129,14 @@ config QTI_LIMITS_ISENSE_CDSP
           shared memory and enable sysfs file support to access this data. This
           driver is required for the chipsets where isense hardware is present
           as part of cdsp subsystem.
+
+config QTI_CX_IPEAK_COOLING_DEVICE
+	bool "CX IPeak cooling device"
+	depends on THERMAL_OF
+	help
+	  This implements a mitigation device to place a thermal client vote
+	  to CXIP LM hardware. When all pre-defined clients on CX rail including
+	  thermal client set their vote, CXIP LM hardware throttles the clients
+	  on the CX rail.
+
+	  If you want this support, you should say Y here.

@@ -218,6 +218,7 @@ static int qmi_tmd_send_state_request(struct qmi_cooling_device *qmi_cdev,
 			state, qmi_cdev->cdev_name, ret);
 		goto qmi_send_exit;
 	}
+	ret = 0;
 	pr_debug("Requested qmi state:%d for %s\n", state, qmi_cdev->cdev_name);
 
 qmi_send_exit:

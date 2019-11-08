@@ -470,6 +470,18 @@ struct ipa_api_controller {
 		bool (*teth_port_state)(void), enum ipa_client_type client);
 
 	void (*ipa_deregister_client_callback)(enum ipa_client_type client);
+
+	int (*ipa_uc_debug_stats_alloc)(
+		struct IpaHwOffloadStatsAllocCmdData_t cmdinfo);
+
+	int (*ipa_uc_debug_stats_dealloc)(uint32_t prot_id);
+
+	bool (*ipa_get_lan_rx_napi)(void);
+
+	void (*ipa_get_gsi_stats)(int prot_id,
+		struct ipa_uc_dbg_ring_stats *stats);
+
+	int (*ipa_get_prot_id)(enum ipa_client_type client);
 };
 
 #ifdef CONFIG_IPA3

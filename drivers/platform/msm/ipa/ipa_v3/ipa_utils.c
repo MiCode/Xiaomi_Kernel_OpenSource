@@ -7059,6 +7059,15 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 		ipa3_register_client_callback;
 	api_ctrl->ipa_deregister_client_callback =
 		ipa3_deregister_client_callback;
+	api_ctrl->ipa_uc_debug_stats_alloc =
+		ipa3_uc_debug_stats_alloc;
+	api_ctrl->ipa_uc_debug_stats_dealloc =
+		ipa3_uc_debug_stats_dealloc;
+	api_ctrl->ipa_get_gsi_stats =
+		ipa3_get_gsi_stats;
+	api_ctrl->ipa_get_prot_id =
+		ipa3_get_prot_id;
+	api_ctrl->ipa_get_lan_rx_napi = ipa3_get_lan_rx_napi;
 	return 0;
 }
 
@@ -7695,7 +7704,7 @@ int ipa3_stop_gsi_channel(u32 clnt_hdl)
 
 static int _ipa_suspend_resume_pipe(enum ipa_client_type client, bool suspend)
 {
-	int ipa_ep_idx;
+	int ipa_ep_idx, coal_ep_idx;
 	struct ipa3_ep_context *ep;
 	int res;
 
@@ -7714,16 +7723,16 @@ static int _ipa_suspend_resume_pipe(enum ipa_client_type client, bool suspend)
 	if (!ep->valid)
 		return 0;
 
+	coal_ep_idx = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS);
+
 	IPADBG("%s pipe %d\n", suspend ? "suspend" : "unsuspend", ipa_ep_idx);
+
 	/*
-	 * move the channel to callback mode.
-	 * This needs to happen before starting the channel to make
-	 * sure we don't loose any interrupt
+	 * Configure the callback mode only one time after starting the channel
+	 * otherwise observing IEOB interrupt received before configure callmode
+	 * second time. It was leading race condition in updating current
+	 * polling state.
 	 */
-	if (!suspend && !atomic_read(&ep->sys->curr_polling_state) &&
-		!IPA_CLIENT_IS_APPS_PROD(client))
-		gsi_config_channel_mode(ep->gsi_chan_hdl,
-					GSI_CHAN_MODE_CALLBACK);
 
 	if (suspend) {
 		res = __ipa3_stop_gsi_channel(ipa_ep_idx);
@@ -7740,7 +7749,17 @@ static int _ipa_suspend_resume_pipe(enum ipa_client_type client, bool suspend)
 	}
 
 	/* Apps prod pipes use common event ring so cannot configure mode*/
-	if (IPA_CLIENT_IS_APPS_PROD(client))
+
+	/*
+	 * Skipping to configure mode for default wan pipe,
+	 * as both pipes using commong event ring. if both pipes
+	 * configure same event ring observing race condition in
+	 * updating current polling state.
+	 */
+
+	if (IPA_CLIENT_IS_APPS_PROD(client) ||
+		(client == IPA_CLIENT_APPS_WAN_CONS &&
+			coal_ep_idx != IPA_EP_NOT_ALLOCATED))
 		return 0;
 
 	if (suspend) {
@@ -7796,18 +7815,29 @@ void ipa3_force_close_coal(void)
 int ipa3_suspend_apps_pipes(bool suspend)
 {
 	int res;
-	enum ipa_client_type client;
 
 	if (suspend)
 		ipa3_force_close_coal();
 
-	for (client = 0; client < IPA_CLIENT_MAX; client++) {
-		if (IPA_CLIENT_IS_APPS_CONS(client)) {
-			res = _ipa_suspend_resume_pipe(client, suspend);
-			if (res)
-				goto undo_cons;
-		}
-	}
+	/* As per HPG first need start/stop coalescing channel
+	 * then default one. Coalescing client number was greater then
+	 * default one so starting the last client.
+	 */
+	res = _ipa_suspend_resume_pipe(IPA_CLIENT_APPS_WAN_COAL_CONS, suspend);
+	if (res == -EAGAIN)
+		goto undo_coal_cons;
+
+	res = _ipa_suspend_resume_pipe(IPA_CLIENT_APPS_WAN_CONS, suspend);
+	if (res == -EAGAIN)
+		goto undo_wan_cons;
+
+	res = _ipa_suspend_resume_pipe(IPA_CLIENT_APPS_LAN_CONS, suspend);
+	if (res == -EAGAIN)
+		goto undo_lan_cons;
+
+	res = _ipa_suspend_resume_pipe(IPA_CLIENT_ODL_DPL_CONS, suspend);
+	if (res == -EAGAIN)
+		goto undo_odl_cons;
 
 	if (suspend) {
 		struct ipahal_reg_tx_wrapper tx;
@@ -7823,7 +7853,7 @@ int ipa3_suspend_apps_pipes(bool suspend)
 			IPADBG("COAL frame is open 0x%x\n",
 				tx.coal_slave_open_frame);
 			res = -EAGAIN;
-			goto undo_cons;
+			goto undo_odl_cons;
 		}
 
 		usleep_range(IPA_TAG_SLEEP_MIN_USEC, IPA_TAG_SLEEP_MAX_USEC);
@@ -7832,28 +7862,37 @@ int ipa3_suspend_apps_pipes(bool suspend)
 			ipa3_ctx->ee);
 		if (res) {
 			IPADBG("suspend irq is pending 0x%x\n", res);
-			goto undo_cons;
+			goto undo_odl_cons;
 		}
 	}
 do_prod:
-	for (client = 0; client < IPA_CLIENT_MAX; client++) {
-		if (IPA_CLIENT_IS_APPS_PROD(client)) {
-			res = _ipa_suspend_resume_pipe(client, suspend);
-			if (res)
-				goto undo_prod;
-		}
-	}
+	res = _ipa_suspend_resume_pipe(IPA_CLIENT_APPS_LAN_PROD, suspend);
+	if (res == -EAGAIN)
+		goto undo_lan_prod;
+	res = _ipa_suspend_resume_pipe(IPA_CLIENT_APPS_WAN_PROD, suspend);
+	if (res == -EAGAIN)
+		goto undo_wan_prod;
 
 	return 0;
-undo_prod:
-	for (client; client <= IPA_CLIENT_MAX && client >= 0; client--)
-		if (IPA_CLIENT_IS_APPS_PROD(client))
-			_ipa_suspend_resume_pipe(client, !suspend);
-	client = IPA_CLIENT_MAX;
-undo_cons:
-	for (client; client <= IPA_CLIENT_MAX && client >= 0; client--)
-		if (IPA_CLIENT_IS_APPS_CONS(client))
-			_ipa_suspend_resume_pipe(client, !suspend);
+
+undo_wan_prod:
+	_ipa_suspend_resume_pipe(IPA_CLIENT_APPS_WAN_PROD, !suspend);
+
+undo_lan_prod:
+	_ipa_suspend_resume_pipe(IPA_CLIENT_APPS_LAN_PROD, !suspend);
+
+undo_odl_cons:
+	_ipa_suspend_resume_pipe(IPA_CLIENT_ODL_DPL_CONS, !suspend);
+undo_lan_cons:
+	_ipa_suspend_resume_pipe(IPA_CLIENT_APPS_LAN_CONS, !suspend);
+undo_wan_cons:
+	_ipa_suspend_resume_pipe(IPA_CLIENT_APPS_WAN_COAL_CONS, !suspend);
+	_ipa_suspend_resume_pipe(IPA_CLIENT_APPS_WAN_CONS, !suspend);
+	return res;
+
+undo_coal_cons:
+	_ipa_suspend_resume_pipe(IPA_CLIENT_APPS_WAN_COAL_CONS, !suspend);
+
 	return res;
 }
 
@@ -8546,3 +8585,98 @@ u32 ipa3_get_r_rev_version(void)
 
 	return r_rev;
 }
+
+/**
+ * ipa3_get_gsi_stats() - Query gsi stats from uc
+ * @prot_id: IPA_HW_FEATURE_OFFLOAD protocol id
+ * @stats:	[inout] stats blob from client populated by driver
+ *
+ * @note Cannot be called from atomic context
+ *
+ */
+void ipa3_get_gsi_stats(int prot_id,
+	struct ipa_uc_dbg_ring_stats *stats)
+{
+	switch (prot_id) {
+	case IPA_HW_PROTOCOL_AQC:
+		stats->num_ch = MAX_AQC_CHANNELS;
+		ipa3_get_aqc_gsi_stats(stats);
+		break;
+	case IPA_HW_PROTOCOL_11ad:
+		break;
+	case IPA_HW_PROTOCOL_WDI:
+		stats->num_ch = MAX_WDI2_CHANNELS;
+		ipa3_get_wdi_gsi_stats(stats);
+		break;
+	case IPA_HW_PROTOCOL_WDI3:
+		stats->num_ch = MAX_WDI3_CHANNELS;
+		ipa3_get_wdi3_gsi_stats(stats);
+		break;
+	case IPA_HW_PROTOCOL_ETH:
+		break;
+	case IPA_HW_PROTOCOL_MHIP:
+		stats->num_ch = MAX_MHIP_CHANNELS;
+		ipa3_get_mhip_gsi_stats(stats);
+		break;
+	case IPA_HW_PROTOCOL_USB:
+		stats->num_ch = MAX_USB_CHANNELS;
+		ipa3_get_usb_gsi_stats(stats);
+		break;
+	default:
+		IPAERR("unsupported HW feature %d\n", prot_id);
+	}
+}
+
+/**
+ * ipa3_get_prot_id() - Query gsi protocol id
+ * @client: ipa_client_type
+ *
+ * return the prot_id based on the client type,
+ * return -EINVAL when no such mapping exists.
+ */
+int ipa3_get_prot_id(enum ipa_client_type client)
+{
+	int prot_id = -EINVAL;
+
+	switch (client) {
+	case IPA_CLIENT_AQC_ETHERNET_CONS:
+	case IPA_CLIENT_AQC_ETHERNET_PROD:
+		prot_id = IPA_HW_PROTOCOL_AQC;
+		break;
+	case IPA_CLIENT_MHI_PRIME_TETH_PROD:
+	case IPA_CLIENT_MHI_PRIME_TETH_CONS:
+	case IPA_CLIENT_MHI_PRIME_RMNET_PROD:
+	case IPA_CLIENT_MHI_PRIME_RMNET_CONS:
+		prot_id = IPA_HW_PROTOCOL_MHIP;
+		break;
+	case IPA_CLIENT_WLAN1_PROD:
+	case IPA_CLIENT_WLAN1_CONS:
+		prot_id = IPA_HW_PROTOCOL_WDI;
+		break;
+	case IPA_CLIENT_WLAN2_PROD:
+	case IPA_CLIENT_WLAN2_CONS:
+		prot_id = IPA_HW_PROTOCOL_WDI3;
+		break;
+	case IPA_CLIENT_USB_PROD:
+	case IPA_CLIENT_USB_CONS:
+		prot_id = IPA_HW_PROTOCOL_USB;
+		break;
+	case IPA_CLIENT_ETHERNET_PROD:
+	case IPA_CLIENT_ETHERNET_CONS:
+		prot_id = IPA_HW_PROTOCOL_ETH;
+		break;
+	case IPA_CLIENT_WIGIG_PROD:
+	case IPA_CLIENT_WIGIG1_CONS:
+	case IPA_CLIENT_WIGIG2_CONS:
+	case IPA_CLIENT_WIGIG3_CONS:
+	case IPA_CLIENT_WIGIG4_CONS:
+		prot_id = IPA_HW_PROTOCOL_11ad;
+		break;
+	default:
+		IPAERR("unknown prot_id for client %d\n",
+			client);
+	}
+
+	return prot_id;
+}
+

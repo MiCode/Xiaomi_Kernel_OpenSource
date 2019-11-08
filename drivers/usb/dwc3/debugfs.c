@@ -602,6 +602,11 @@ static int dwc3_tx_request_queue_show(struct seq_file *s, void *unused)
 	unsigned long		flags;
 	u32			val;
 
+	if (atomic_read(&dwc->in_lpm)) {
+		seq_puts(s, "USB device is powered off\n");
+		return 0;
+	}
+
 	spin_lock_irqsave(&dwc->lock, flags);
 	val = dwc3_core_fifo_space(dep, DWC3_TXREQQ);
 	seq_printf(s, "%u\n", val);
