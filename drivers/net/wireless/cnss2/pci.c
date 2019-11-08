@@ -1086,9 +1086,6 @@ static int cnss_pci_get_device_timestamp(struct cnss_pci_data *pci_priv,
 		return -EINVAL;
 	}
 
-	cnss_pci_reg_write(pci_priv, QCA6390_WLAON_GLOBAL_COUNTER_CTRL5,
-			   QCA6390_TIME_SYNC_ENABLE);
-
 	cnss_pci_reg_read(pci_priv, QCA6390_WLAON_GLOBAL_COUNTER_CTRL3, &low);
 	cnss_pci_reg_read(pci_priv, QCA6390_WLAON_GLOBAL_COUNTER_CTRL4, &high);
 
@@ -1097,6 +1094,18 @@ static int cnss_pci_get_device_timestamp(struct cnss_pci_data *pci_priv,
 	*time_us = device_ticks * 10;
 
 	return 0;
+}
+
+static void cnss_pci_enable_time_sync_counter(struct cnss_pci_data *pci_priv)
+{
+	cnss_pci_reg_write(pci_priv, QCA6390_WLAON_GLOBAL_COUNTER_CTRL5,
+			   QCA6390_TIME_SYNC_ENABLE);
+}
+
+static void cnss_pci_clear_time_sync_counter(struct cnss_pci_data *pci_priv)
+{
+	cnss_pci_reg_write(pci_priv, QCA6390_WLAON_GLOBAL_COUNTER_CTRL5,
+			   QCA6390_TIME_SYNC_CLEAR);
 }
 
 static int cnss_pci_update_timestamp(struct cnss_pci_data *pci_priv)
@@ -1116,10 +1125,11 @@ static int cnss_pci_update_timestamp(struct cnss_pci_data *pci_priv)
 		return ret;
 
 	spin_lock_irqsave(&time_sync_lock, flags);
-	cnss_pci_reg_write(pci_priv, QCA6390_WLAON_GLOBAL_COUNTER_CTRL5,
-			   QCA6390_TIME_SYNC_CLEAR);
+	cnss_pci_clear_time_sync_counter(pci_priv);
+	cnss_pci_enable_time_sync_counter(pci_priv);
 	host_time_us = cnss_get_host_timestamp(plat_priv);
 	ret = cnss_pci_get_device_timestamp(pci_priv, &device_time_us);
+	cnss_pci_clear_time_sync_counter(pci_priv);
 	spin_unlock_irqrestore(&time_sync_lock, flags);
 	if (ret)
 		goto force_wake_put;
