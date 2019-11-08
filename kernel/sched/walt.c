@@ -110,7 +110,7 @@ static void release_rq_locks_irqrestore(const cpumask_t *cpus,
 
 #define NR_WINDOWS_PER_SEC (NSEC_PER_SEC / MIN_SCHED_RAVG_WINDOW)
 
-__read_mostly unsigned int sysctl_sched_cpu_high_irqload = (10 * NSEC_PER_MSEC);
+__read_mostly unsigned int sysctl_sched_cpu_high_irqload = TICK_NSEC;
 
 unsigned int sysctl_sched_walt_rotate_big_tasks;
 unsigned int walt_rotation_enabled;
