@@ -39,10 +39,12 @@ struct ipa_wigig_init_in_params {
  *
  * @is_uC_ready: is uC ready. No API should be called until uC is ready.
  * @uc_db_pa: physical address of IPA uC doorbell
+ * @lan_rx_napi_enable: if we use NAPI in the LAN rx
  */
 struct ipa_wigig_init_out_params {
 	bool is_uc_ready;
 	phys_addr_t uc_db_pa;
+	bool lan_rx_napi_enable;
 };
 
 /*

@@ -128,7 +128,7 @@ static void wil_ipa_rx(struct wil_ipa *ipa, struct sk_buff *skb)
 
 	stats = &wil->sta[cid].stats;
 
-	wil_netif_rx(skb, ndev, cid, stats, false);
+	wil_netif_rx(skb, ndev, cid, stats, ipa->lan_rx_napi);
 
 	return;
 
@@ -901,6 +901,7 @@ static int wil_ipa_wigig_init(struct wil_ipa *ipa)
 	}
 
 	ipa->uc_db_pa = out.uc_db_pa;
+	ipa->lan_rx_napi = out.lan_rx_napi_enable;
 
 	return 0;
 
