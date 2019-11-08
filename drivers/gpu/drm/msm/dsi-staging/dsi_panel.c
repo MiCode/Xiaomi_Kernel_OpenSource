@@ -3504,9 +3504,12 @@ int dsi_panel_get_mode_count(struct dsi_panel *panel)
 		goto error;
 	}
 
-	/* No multiresolution support is available for video mode panels */
+	/* No multiresolution support is available for video mode panels.
+	 * Multi-mode is supported for video mode during POMS is enabled.
+	 */
 	if (panel->panel_mode != DSI_OP_CMD_MODE &&
-		!panel->host_config.ext_bridge_num)
+		!panel->host_config.ext_bridge_num &&
+		!panel->panel_mode_switch_enabled)
 		count = SINGLE_MODE_SUPPORT;
 
 	panel->num_timing_nodes = count;
