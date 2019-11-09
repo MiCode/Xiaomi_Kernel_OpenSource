@@ -51,6 +51,18 @@ struct npu_network_cmd {
 	int ret_status;
 };
 
+struct npu_misc_cmd {
+	struct list_head list;
+	uint32_t cmd_type;
+	uint32_t trans_id;
+	union {
+		struct msm_npu_property prop;
+		uint32_t data[32];
+	} u;
+	struct completion cmd_done;
+	int ret_status;
+};
+
 struct npu_network {
 	uint64_t id;
 	int buf_hdl;
@@ -93,15 +105,14 @@ struct npu_host_ctx {
 	struct delayed_work disable_fw_work;
 	struct workqueue_struct *wq;
 	struct workqueue_struct *wq_pri;
-	struct completion misc_cmd_done;
 	struct completion fw_deinit_done;
 	struct completion fw_bringup_done;
 	struct completion fw_shutdown_done;
 	struct completion npu_power_up_done;
-	void *prop_buf;
 	int32_t network_num;
 	struct npu_network networks[MAX_LOADED_NETWORK];
 	struct kmem_cache *network_cmd_cache;
+	struct kmem_cache *misc_cmd_cache;
 	struct kmem_cache *stats_buf_cache;
 	bool sys_cache_disable;
 	bool auto_pil_disable;
@@ -114,13 +125,12 @@ struct npu_host_ctx {
 	uint32_t wdg_irq_sts;
 	bool fw_error;
 	bool cancel_work;
-	bool misc_cmd_pending;
-	uint32_t misc_cmd_result;
 	struct notifier_block nb;
 	void *notif_hdle;
 	spinlock_t bridge_mbox_lock;
 	bool bridge_mbox_pwr_on;
 	void *ipc_msg_buf;
+	struct list_head misc_cmd_list;
 };
 
 struct npu_device;
