@@ -34,6 +34,11 @@
 #define OPMODE_MASK				(0x3 << 3)
 #define OPMODE_NONDRIVING			(0x1 << 3)
 #define SLEEPM					BIT(0)
+#define OPMODE_NORMAL				(0x00)
+#define TERMSEL					BIT(5)
+
+#define USB2_PHY_USB_PHY_UTMI_CTRL1		(0x40)
+#define XCVRSEL					BIT(0)
 
 #define USB2_PHY_USB_PHY_UTMI_CTRL5		(0x50)
 #define POR					BIT(1)
@@ -562,6 +567,63 @@ static int msm_hsphy_notify_disconnect(struct usb_phy *uphy,
 	return 0;
 }
 
+static int msm_hsphy_drive_dp_pulse(struct usb_phy *uphy,
+					unsigned int interval_ms)
+{
+	struct msm_hsphy *phy = container_of(uphy, struct msm_hsphy, phy);
+	int ret;
+
+	ret = msm_hsphy_enable_power(phy, true);
+	if (ret < 0) {
+		dev_dbg(uphy->dev,
+			"dpdm regulator enable failed:%d\n", ret);
+		return ret;
+	}
+	msm_hsphy_enable_clocks(phy, true);
+
+	/* set UTMI_PHY_CMN_CNTRL_OVERRIDE_EN &
+	 * UTMI_PHY_DATAPATH_CTRL_OVERRIDE_EN
+	 */
+	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_CFG0,
+				UTMI_PHY_CMN_CTRL_OVERRIDE_EN,
+				UTMI_PHY_CMN_CTRL_OVERRIDE_EN);
+	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_CFG0,
+				UTMI_PHY_DATAPATH_CTRL_OVERRIDE_EN,
+				UTMI_PHY_DATAPATH_CTRL_OVERRIDE_EN);
+	/* set OPMODE to normal i.e. 0x0 & termsel to fs */
+	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_UTMI_CTRL0,
+				OPMODE_MASK, OPMODE_NORMAL);
+	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_UTMI_CTRL0,
+				TERMSEL, TERMSEL);
+	/* set XCVRSEL to fs */
+	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_UTMI_CTRL1,
+					XCVRSEL, XCVRSEL);
+	msleep(interval_ms);
+	/* clear TERMSEL to fs */
+	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_UTMI_CTRL0,
+				TERMSEL, 0x00);
+	/* clear XCVRSEL */
+	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_UTMI_CTRL1,
+					XCVRSEL, 0x00);
+	/* clear UTMI_PHY_CMN_CNTRL_OVERRIDE_EN &
+	 * UTMI_PHY_DATAPATH_CTRL_OVERRIDE_EN
+	 */
+	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_CFG0,
+				UTMI_PHY_CMN_CTRL_OVERRIDE_EN, 0x00);
+	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_CFG0,
+				UTMI_PHY_DATAPATH_CTRL_OVERRIDE_EN, 0x00);
+
+	msleep(20);
+
+	msm_hsphy_enable_clocks(phy, false);
+	ret = msm_hsphy_enable_power(phy, false);
+	if (ret < 0) {
+		dev_dbg(uphy->dev,
+			"dpdm regulator disable failed:%d\n", ret);
+	}
+	return 0;
+}
+
 static int msm_hsphy_dpdm_regulator_enable(struct regulator_dev *rdev)
 {
 	int ret = 0;
@@ -880,6 +942,7 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 	phy->phy.notify_connect		= msm_hsphy_notify_connect;
 	phy->phy.notify_disconnect	= msm_hsphy_notify_disconnect;
 	phy->phy.type			= USB_PHY_TYPE_USB2;
+	phy->phy.drive_dp_pulse		= msm_hsphy_drive_dp_pulse;
 
 	ret = usb_add_phy_dev(&phy->phy);
 	if (ret)
