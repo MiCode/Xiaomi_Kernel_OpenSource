@@ -250,9 +250,9 @@ static void ipa3_del_a7_qmap_hdr(void)
 	hdl_entry = &del_hdr->hdl[0];
 	hdl_entry->hdl = rmnet_ipa3_ctx->qmap_hdr_hdl;
 
-	ret = ipa3_del_hdr(del_hdr);
+	ret = ipa_del_hdr(del_hdr);
 	if (ret || hdl_entry->status)
-		IPAWANERR("ipa3_del_hdr failed\n");
+		IPAWANERR("ipa_del_hdr failed\n");
 	else
 		IPAWANDBG("hdrs deletion done\n");
 
@@ -285,9 +285,9 @@ static void ipa3_del_qmap_hdr(uint32_t hdr_hdl)
 	hdl_entry = &del_hdr->hdl[0];
 	hdl_entry->hdl = hdr_hdl;
 
-	ret = ipa3_del_hdr(del_hdr);
+	ret = ipa_del_hdr(del_hdr);
 	if (ret || hdl_entry->status)
-		IPAWANERR("ipa3_del_hdr failed\n");
+		IPAWANERR("ipa_del_hdr failed\n");
 	else
 		IPAWANDBG("header deletion done\n");
 
@@ -457,7 +457,7 @@ static void ipa3_del_dflt_wan_rt_tables(void)
 
 	IPAWANERR("Deleting Route hdl:(0x%x) with ip type: %d\n",
 		rt_rule_entry->hdl, IPA_IP_v4);
-	if (ipa3_del_rt_rule(rt_rule) ||
+	if (ipa_del_rt_rule(rt_rule) ||
 			(rt_rule_entry->status)) {
 		IPAWANERR("Routing rule deletion failed\n");
 	}
@@ -466,7 +466,7 @@ static void ipa3_del_dflt_wan_rt_tables(void)
 	rt_rule_entry->hdl = rmnet_ipa3_ctx->dflt_v6_wan_rt_hdl;
 	IPAWANERR("Deleting Route hdl:(0x%x) with ip type: %d\n",
 		rt_rule_entry->hdl, IPA_IP_v6);
-	if (ipa3_del_rt_rule(rt_rule) ||
+	if (ipa_del_rt_rule(rt_rule) ||
 			(rt_rule_entry->status)) {
 		IPAWANERR("Routing rule deletion failed\n");
 	}
@@ -781,7 +781,7 @@ static int ipa3_wwan_add_ul_flt_rule_to_ipa(void)
 			sizeof(struct ipa_ipfltri_rule_eq));
 		memcpy(&(param->rules[0]), &flt_rule_entry,
 			sizeof(struct ipa_flt_rule_add));
-		if (ipa3_add_flt_rule((struct ipa_ioc_add_flt_rule *)param)) {
+		if (ipa_add_flt_rule((struct ipa_ioc_add_flt_rule *)param)) {
 			retval = -EFAULT;
 			IPAWANERR("add A7 UL filter rule(%d) failed\n", i);
 		} else {
@@ -793,7 +793,7 @@ static int ipa3_wwan_add_ul_flt_rule_to_ipa(void)
 
 	/* send ipa_fltr_installed_notif_req_msg_v01 to Q6*/
 	req->source_pipe_index =
-		ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_PROD);
+		ipa_get_ep_mapping(IPA_CLIENT_APPS_WAN_PROD);
 	if (req->source_pipe_index == IPA_EP_NOT_ALLOCATED) {
 		IPAWANERR("ep mapping failed\n");
 		retval = -EFAULT;
@@ -843,7 +843,7 @@ static int ipa3_wwan_del_ul_flt_rule_to_ipa(void)
 		IPAWANDBG("delete-IPA rule index(%d)\n", i);
 		memcpy(&(param->hdl[0]), &flt_rule_entry,
 			sizeof(struct ipa_flt_rule_del));
-		if (ipa3_del_flt_rule((struct ipa_ioc_del_flt_rule *)param)) {
+		if (ipa_del_flt_rule((struct ipa_ioc_del_flt_rule *)param)) {
 			IPAWANERR("del A7 UL filter rule(%d) failed\n", i);
 			kfree(param);
 			return -EFAULT;
@@ -1063,55 +1063,6 @@ static void ipa3_cleanup_deregister_intf(void)
 		}
 		rmnet_ipa3_ctx->mux_channel[i].ul_flt_reg = false;
 	}
-}
-
-int ipa3_wwan_update_mux_channel_prop(void)
-{
-	int ret = 0, i;
-	/* install UL filter rules */
-	if (rmnet_ipa3_ctx->egress_set) {
-		if (!ipa3_qmi_ctx->modem_cfg_emb_pipe_flt) {
-			IPAWANDBG("setup UL filter rules\n");
-			if (rmnet_ipa3_ctx->a7_ul_flt_set) {
-				IPAWANDBG("del previous UL filter rules\n");
-				/* delete rule hdlers */
-				ret = ipa3_wwan_del_ul_flt_rule_to_ipa();
-				if (ret) {
-					IPAWANERR("failed to del old rules\n");
-					return -EINVAL;
-				}
-				IPAWANDBG("deleted old UL rules\n");
-			}
-			ret = ipa3_wwan_add_ul_flt_rule_to_ipa();
-		}
-		if (ret)
-			IPAWANERR("failed to install UL rules\n");
-		else
-			rmnet_ipa3_ctx->a7_ul_flt_set = true;
-	}
-	/* update Tx/Rx/Ext property */
-	IPAWANDBG("update Tx/Rx/Ext property in IPA\n");
-	if (rmnet_ipa3_ctx->rmnet_index == 0) {
-		IPAWANDBG("no Tx/Rx/Ext property registered in IPA\n");
-		return ret;
-	}
-
-	ipa3_cleanup_deregister_intf();
-
-	for (i = 0; i < rmnet_ipa3_ctx->rmnet_index; i++) {
-		ret = ipa3_wwan_register_to_ipa(i);
-		if (ret < 0) {
-			IPAWANERR("failed to re-regist %s, mux %d, index %d\n",
-				rmnet_ipa3_ctx->mux_channel[i].vchannel_name,
-				rmnet_ipa3_ctx->mux_channel[i].mux_id,
-				i);
-			return -ENODEV;
-		}
-		IPAWANERR("dev(%s) has registered to IPA\n",
-		rmnet_ipa3_ctx->mux_channel[i].vchannel_name);
-		rmnet_ipa3_ctx->mux_channel[i].ul_flt_reg = true;
-	}
-	return ret;
 }
 
 #ifdef INIT_COMPLETION
@@ -1483,7 +1434,7 @@ static int handle3_ingress_format(struct net_device *dev,
 
 	IPAWANDBG("Get RMNET_IOCTL_SET_INGRESS_DATA_FORMAT\n");
 
-	ep_idx = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
+	ep_idx = ipa_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
 	if (ep_idx == IPA_EP_NOT_ALLOCATED) {
 		IPAWANDBG("Embedded datapath not supported\n");
 		return -EFAULT;
@@ -1559,7 +1510,7 @@ static int handle3_ingress_format(struct net_device *dev,
 		mutex_unlock(&rmnet_ipa3_ctx->pipe_handle_guard);
 		return -EFAULT;
 	}
-	ret = ipa3_setup_sys_pipe(&rmnet_ipa3_ctx->ipa_to_apps_ep_cfg,
+	ret = ipa_setup_sys_pipe(&rmnet_ipa3_ctx->ipa_to_apps_ep_cfg,
 	   &rmnet_ipa3_ctx->ipa3_to_apps_hdl);
 
 	mutex_unlock(&rmnet_ipa3_ctx->pipe_handle_guard);
@@ -1615,7 +1566,7 @@ static int handle3_egress_format(struct net_device *dev,
 		return rc;
 	}
 
-	ep_idx = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_PROD);
+	ep_idx = ipa_get_ep_mapping(IPA_CLIENT_APPS_WAN_PROD);
 	if (ep_idx == IPA_EP_NOT_ALLOCATED) {
 		IPAWANDBG("Embedded datapath not supported\n");
 		return -EFAULT;
@@ -1676,7 +1627,7 @@ static int handle3_egress_format(struct net_device *dev,
 		mutex_unlock(&rmnet_ipa3_ctx->pipe_handle_guard);
 		return -EFAULT;
 	}
-	rc = ipa3_setup_sys_pipe(
+	rc = ipa_setup_sys_pipe(
 		ipa_wan_ep_cfg, &rmnet_ipa3_ctx->apps_to_ipa3_hdl);
 	if (rc) {
 		IPAWANERR("failed to config egress endpoint\n");
@@ -1862,7 +1813,7 @@ static int ipa3_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		/*  Endpoint pair  */
 		case RMNET_IOCTL_GET_EP_PAIR:
 			IPAWANDBG("get ioctl: RMNET_IOCTL_GET_EP_PAIR\n");
-			wan_ep = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
+			wan_ep = ipa_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
 			if (wan_ep == IPA_EP_NOT_ALLOCATED) {
 				IPAWANERR("Embedded datapath not supported\n");
 				rc = -EFAULT;
@@ -1871,7 +1822,7 @@ static int ipa3_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 			ext_ioctl_data.u.ipa_ep_pair.producer_pipe_num =
 				wan_ep;
 
-			wan_ep = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_PROD);
+			wan_ep = ipa_get_ep_mapping(IPA_CLIENT_APPS_WAN_PROD);
 			if (wan_ep == IPA_EP_NOT_ALLOCATED) {
 				IPAWANERR("Embedded datapath not supported\n");
 				rc = -EFAULT;
@@ -2003,7 +1954,7 @@ static int ipa3_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 			memset(&msg_meta, 0, sizeof(struct ipa_msg_meta));
 			msg_meta.msg_type = WAN_XLAT_CONNECT;
 			msg_meta.msg_len = sizeof(struct ipa_wan_msg);
-			rc = ipa3_send_msg(&msg_meta, wan_msg,
+			rc = ipa_send_msg(&msg_meta, wan_msg,
 						ipa3_wwan_msg_free_cb);
 			if (rc) {
 				IPAWANERR("Failed to send XLAT_CONNECT msg\n");
@@ -2270,7 +2221,6 @@ static struct notifier_block ipa3_rmt_mdm_ssr_notifier = {
 	.notifier_call = ipa3_rmt_mdm_ssr_notifier_cb,
 };
 
-
 static int get_ipa_rmnet_dts_configuration(struct platform_device *pdev,
 		struct ipa3_rmnet_plat_drv_res *ipa_rmnet_drv_res)
 {
@@ -2311,7 +2261,7 @@ static int get_ipa_rmnet_dts_configuration(struct platform_device *pdev,
 
 struct ipa3_rmnet_context ipa3_rmnet_ctx;
 static int ipa3_wwan_probe(struct platform_device *pdev);
-struct platform_device *m_pdev;
+static struct platform_device *m_pdev;
 
 static void ipa3_delayed_probe(struct work_struct *work)
 {
@@ -2411,7 +2361,7 @@ static int ipa3_wwan_probe(struct platform_device *pdev)
 		}
 	}
 
-	wan_cons_ep = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
+	wan_cons_ep = ipa_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
 	ret = get_ipa_rmnet_dts_configuration(pdev, &ipa3_rmnet_res);
 	ipa3_rmnet_ctx.ipa_rmnet_ssr = ipa3_rmnet_res.ipa_rmnet_ssr;
 
@@ -2593,7 +2543,7 @@ static int ipa3_wwan_remove(struct platform_device *pdev)
 	/* No need to remove wwan_ioctl during SSR */
 	if (!atomic_read(&rmnet_ipa3_ctx->is_ssr))
 		ipa3_wan_ioctl_deinit();
-	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS) !=
+	if (ipa_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS) !=
 		IPA_EP_NOT_ALLOCATED) {
 		ipa3_del_dflt_wan_rt_tables();
 		ipa3_del_a7_qmap_hdr();
@@ -2806,7 +2756,7 @@ static int ipa3_lcl_mdm_ssr_notifier_cb(struct notifier_block *this,
 			ipa3_q6_pre_powerup_cleanup();
 		}
 		/* hold a proxy vote for the modem. */
-		ipa3_proxy_clk_vote();
+		ipa_proxy_clk_vote();
 		ipa3_reset_freeze_vote();
 		IPAWANINFO("IPA BEFORE_POWERUP handling is complete\n");
 		break;
@@ -3197,10 +3147,10 @@ int rmnet_ipa3_set_tether_client_pipe(
 		IPAWANDBG("UL index-%d pipe %d\n", i,
 			data->ul_src_pipe_list[i]);
 		if (data->reset_client)
-			ipa3_set_client(data->ul_src_pipe_list[i],
+			ipa_set_client(data->ul_src_pipe_list[i],
 				0, false);
 		else
-			ipa3_set_client(data->ul_src_pipe_list[i],
+			ipa_set_client(data->ul_src_pipe_list[i],
 				data->ipa_client, true);
 	}
 	number = data->dl_dst_pipe_len;
@@ -3208,10 +3158,10 @@ int rmnet_ipa3_set_tether_client_pipe(
 		IPAWANDBG("DL index-%d pipe %d\n", i,
 			data->dl_dst_pipe_list[i]);
 		if (data->reset_client)
-			ipa3_set_client(data->dl_dst_pipe_list[i],
+			ipa_set_client(data->dl_dst_pipe_list[i],
 				0, false);
 		else
-			ipa3_set_client(data->dl_dst_pipe_list[i],
+			ipa_set_client(data->dl_dst_pipe_list[i],
 				data->ipa_client, false);
 	}
 	return 0;
@@ -3693,7 +3643,6 @@ skip_nlo_stats:
 		con_stats->client[index].num_ipv4_bytes;
 	data->ipv6_tx_bytes +=
 		con_stats->client[index].num_ipv6_bytes;
-
 	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5 &&
 		ipa3_ctx->platform_type == IPA_PLAT_TYPE_MSM) {
 		index = IPA_CLIENT_Q6_UL_NLO_DATA_CONS;
@@ -3715,7 +3664,7 @@ skip_nlo_stats:
 			con_stats->client[index].num_ipv6_bytes;
 	}
 
-	if (ipa3_get_ep_mapping(IPA_CLIENT_WIGIG_PROD) !=
+	if (ipa_get_ep_mapping(IPA_CLIENT_WIGIG_PROD) !=
 			IPA_EP_NOT_ALLOCATED) {
 		/* query WIGIG UL stats */
 		memset(con_stats, 0, sizeof(struct ipa_quota_stats_all));
@@ -4323,7 +4272,7 @@ int rmnet_ipa3_set_lan_client_info(
 
 	/* Update the Source pipe. */
 	rmnet_ipa3_ctx->tether_device[data->device_type].ul_src_pipe =
-			ipa3_get_ep_mapping(data->ul_src_pipe);
+			ipa_get_ep_mapping(data->ul_src_pipe);
 
 	/* Update the header length if not set. */
 	if (!rmnet_ipa3_ctx->tether_device[data->device_type].hdr_len)
@@ -4761,7 +4710,7 @@ static void rmnet_ipa_debugfs_remove(void){}
 
 
 
-static int __init ipa3_wwan_init(void)
+int ipa3_wwan_init(void)
 {
 	int i, j;
 	struct ipa_tether_device_info *teth_ptr = NULL;
@@ -4809,6 +4758,7 @@ static int __init ipa3_wwan_init(void)
 		rmnet_ipa3_ctx->lcl_mdm_subsys_notify_handle = ssr_hdl;
 	else if (!rmnet_ipa3_ctx->ipa_config_is_apq) {
 		rc = PTR_ERR(ssr_hdl);
+		IPAWANERR_RL("local modem ssr register fail rc=%d\n", rc);
 		goto fail_dbgfs_rm;
 	}
 
@@ -4818,14 +4768,18 @@ static int __init ipa3_wwan_init(void)
 			&ipa3_rmt_mdm_ssr_notifier);
 		if (IS_ERR(ssr_hdl)) {
 			rc = PTR_ERR(ssr_hdl);
+			IPAWANERR_RL("remote modem ssr register fail rc=%d\n",
+				rc);
 			goto fail_unreg_lcl_mdm_ssr;
 		}
 		rmnet_ipa3_ctx->rmt_mdm_subsys_notify_handle = ssr_hdl;
 	}
 
 	rc = platform_driver_register(&rmnet_ipa_driver);
-	if (rc)
+	if (rc) {
+		IPAWANERR_RL("rmnet_ipa driver register fail rc=%d\n", rc);
 		goto fail_unreg_rmt_mdm_ssr;
+	}
 
 	return 0;
 
@@ -4848,7 +4802,7 @@ fail_dbgfs_rm:
 	return rc;
 }
 
-static void __exit ipa3_wwan_cleanup(void)
+void ipa3_wwan_cleanup(void)
 {
 	int ret;
 
@@ -4894,8 +4848,3 @@ static int ipa3_rmnet_poll(struct napi_struct *napi, int budget)
 	IPAWANDBG_LOW("rcvd packets: %d\n", rcvd_pkts);
 	return rcvd_pkts;
 }
-
-late_initcall(ipa3_wwan_init);
-module_exit(ipa3_wwan_cleanup);
-MODULE_DESCRIPTION("WWAN Network Interface");
-MODULE_LICENSE("GPL v2");

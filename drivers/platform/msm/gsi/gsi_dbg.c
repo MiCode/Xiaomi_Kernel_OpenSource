@@ -638,35 +638,35 @@ static ssize_t gsi_enable_ipc_low(struct file *file,
 	return count;
 }
 
-const struct file_operations gsi_ev_dump_ops = {
+static const struct file_operations gsi_ev_dump_ops = {
 	.write = gsi_dump_evt,
 };
 
-const struct file_operations gsi_ch_dump_ops = {
+static const struct file_operations gsi_ch_dump_ops = {
 	.write = gsi_dump_ch,
 };
 
-const struct file_operations gsi_stats_ops = {
+static const struct file_operations gsi_stats_ops = {
 	.write = gsi_dump_stats,
 };
 
-const struct file_operations gsi_enable_dp_stats_ops = {
+static const struct file_operations gsi_enable_dp_stats_ops = {
 	.write = gsi_enable_dp_stats,
 };
 
-const struct file_operations gsi_max_elem_dp_stats_ops = {
+static const struct file_operations gsi_max_elem_dp_stats_ops = {
 	.write = gsi_set_max_elem_dp_stats,
 };
 
-const struct file_operations gsi_rst_stats_ops = {
+static const struct file_operations gsi_rst_stats_ops = {
 	.write = gsi_rst_stats,
 };
 
-const struct file_operations gsi_print_dp_stats_ops = {
+static const struct file_operations gsi_print_dp_stats_ops = {
 	.write = gsi_print_dp_stats,
 };
 
-const struct file_operations gsi_ipc_low_ops = {
+static const struct file_operations gsi_ipc_low_ops = {
 	.write = gsi_enable_ipc_low,
 };
 

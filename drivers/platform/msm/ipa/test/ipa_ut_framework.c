@@ -689,7 +689,7 @@ unlock_mutex:
  *
  * Return: Zero in success, otherwise in failure
  */
-int ipa_ut_framework_load_suites(void)
+static int ipa_ut_framework_load_suites(void)
 {
 	int suite_idx;
 	int tst_idx;
@@ -1026,7 +1026,7 @@ static void ipa_ut_ipa_ready_cb(void *user_data)
  * If IPA driver already ready, continue initialization immediately.
  * if not, wait for IPA ready notification by IPA driver context
  */
-int __init ipa_ut_module_init(void)
+int ipa_ut_module_init(void)
 {
 	int ret = 0;
 	bool init_framewok = true;
@@ -1107,9 +1107,3 @@ void ipa_ut_module_exit(void)
 	ipa_ut_ctx = NULL;
 }
 
-#if !defined(CONFIG_IPA_EMULATION) /* On real UE, we have a module */
-module_init(ipa_ut_module_init);
-module_exit(ipa_ut_module_exit);
-MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("IPA Unit Test module");
-#endif

@@ -50,7 +50,7 @@ struct ecm_ipa_params {
 };
 
 
-#ifdef CONFIG_ECM_IPA
+#if IS_ENABLED(CONFIG_ECM_IPA)
 
 int ecm_ipa_init(struct ecm_ipa_params *params);
 
@@ -61,7 +61,7 @@ int ecm_ipa_disconnect(void *priv);
 
 void ecm_ipa_cleanup(void *priv);
 
-#else /* CONFIG_ECM_IPA*/
+#else /* IS_ENABLED(CONFIG_ECM_IPA) */
 
 static inline int ecm_ipa_init(struct ecm_ipa_params *params)
 {
@@ -83,6 +83,6 @@ static inline void ecm_ipa_cleanup(void *priv)
 {
 
 }
-#endif /* CONFIG_ECM_IPA*/
+#endif /* IS_ENABLED(CONFIG_ECM_IPA) */
 
 #endif /* _ECM_IPA_H_ */

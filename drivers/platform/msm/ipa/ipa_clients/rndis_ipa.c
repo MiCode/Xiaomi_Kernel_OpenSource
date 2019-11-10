@@ -287,10 +287,8 @@ static enum rndis_ipa_state rndis_ipa_next_state
 	(enum rndis_ipa_state current_state,
 	enum rndis_ipa_operation operation);
 static const char *rndis_ipa_state_string(enum rndis_ipa_state state);
-static int rndis_ipa_init_module(void);
-static void rndis_ipa_cleanup_module(void);
 
-struct rndis_ipa_dev *rndis_ipa;
+static struct rndis_ipa_dev *rndis_ipa;
 
 static const struct net_device_ops rndis_ipa_netdev_ops = {
 	.ndo_open		= rndis_ipa_open,
@@ -301,12 +299,12 @@ static const struct net_device_ops rndis_ipa_netdev_ops = {
 	.ndo_set_mac_address = eth_mac_addr,
 };
 
-const struct file_operations rndis_ipa_debugfs_atomic_ops = {
+static const struct file_operations rndis_ipa_debugfs_atomic_ops = {
 	.open = rndis_ipa_debugfs_atomic_open,
 	.read = rndis_ipa_debugfs_atomic_read,
 };
 
-const struct file_operations rndis_ipa_aggr_ops = {
+static const struct file_operations rndis_ipa_aggr_ops = {
 		.open = rndis_ipa_debugfs_aggr_open,
 		.write = rndis_ipa_debugfs_aggr_write,
 };
@@ -458,7 +456,7 @@ static struct ipa_ep_cfg usb_to_ipa_ep_cfg_deaggr_en = {
  * @data_len: set as skb length to get final size
  * @zeroes: make sure all OOB data is not used
  */
-struct rndis_pkt_hdr rndis_template_hdr = {
+static struct rndis_pkt_hdr rndis_template_hdr = {
 	.msg_type = RNDIS_IPA_PKT_TYPE,
 	.msg_len = sizeof(struct rndis_pkt_hdr),
 	.data_ofst = sizeof(struct rndis_pkt_hdr) - RNDIS_HDR_OFST(data_ofst),
@@ -1753,8 +1751,6 @@ static int  rndis_ipa_deregister_properties(char *netdev_name)
 	return 0;
 }
 
-
-
 static void rndis_ipa_pm_cb(void *p, enum ipa_pm_cb_event event)
 {
 	struct rndis_ipa_dev *rndis_ipa_ctx = p;
@@ -1777,7 +1773,6 @@ static void rndis_ipa_pm_cb(void *p, enum ipa_pm_cb_event event)
 
 	RNDIS_IPA_LOG_EXIT();
 }
-
 
 static int rndis_ipa_register_pm_client(struct rndis_ipa_dev *rndis_ipa_ctx)
 {
@@ -2418,18 +2413,18 @@ static ssize_t rndis_ipa_debugfs_atomic_read
 	return simple_read_from_buffer(ubuf, count, ppos, atomic_str, nbytes);
 }
 
-static int rndis_ipa_init_module(void)
+static int __init rndis_ipa_init_module(void)
 {
 	ipa_rndis_logbuf = ipc_log_context_create(IPA_RNDIS_IPC_LOG_PAGES,
 		"ipa_rndis", 0);
 	if (ipa_rndis_logbuf == NULL)
-		RNDIS_IPA_DEBUG("failed to create IPC log, continue...\n");
+		RNDIS_IPA_ERROR("failed to create IPC log, continue...\n");
 
 	pr_info("RNDIS_IPA module is loaded.\n");
 	return 0;
 }
 
-static void rndis_ipa_cleanup_module(void)
+static void __exit rndis_ipa_cleanup_module(void)
 {
 	if (ipa_rndis_logbuf)
 		ipc_log_context_destroy(ipa_rndis_logbuf);

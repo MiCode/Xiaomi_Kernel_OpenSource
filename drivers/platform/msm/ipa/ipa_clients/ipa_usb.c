@@ -220,7 +220,7 @@ static DECLARE_WORK(ipa3_usb_notify_remote_wakeup_work,
 static DECLARE_WORK(ipa3_usb_dpl_notify_remote_wakeup_work,
 	ipa3_usb_wq_dpl_notify_remote_wakeup);
 
-struct ipa3_usb_context *ipa3_usb_ctx;
+static struct ipa3_usb_context *ipa3_usb_ctx;
 
 static char *ipa3_usb_op_to_string(enum ipa3_usb_op op)
 {
@@ -492,7 +492,7 @@ static void ipa3_usb_notify_do(enum ipa3_usb_transport_type ttype,
  * This call-back is called from ECM or RNDIS drivers.
  * Both drivers are data tethering drivers and not DPL
  */
-void ipa3_usb_device_ready_notify_cb(void)
+static void ipa3_usb_device_ready_notify_cb(void)
 {
 	IPA_USB_DBG_LOW("entry\n");
 	ipa3_usb_notify_do(IPA_USB_TRANSPORT_TETH,
@@ -681,7 +681,7 @@ static bool ipa3_usb_is_teth_switch_valid(enum ipa_usb_teth_prot new_teth)
 	if (IPA3_USB_IS_TTYPE_DPL(IPA3_USB_GET_TTYPE(new_teth)))
 		return true;
 
-	if (ipa3_ctx->ipa_hw_type != IPA_HW_v4_5)
+	if (ipa_get_hw_type() != IPA_HW_v4_5)
 		return true;
 
 	ipa_r_rev = ipa3_get_r_rev_version();
@@ -869,7 +869,7 @@ int ipa_usb_init_teth_prot(enum ipa_usb_teth_prot teth_prot,
 		 * If needed we can include the same for IPA_PROD ep.
 		 * For IPA_USB_DIAG/DPL config there will not be any UL ep.
 		 */
-		ipa3_register_client_callback(&ipa_usb_set_lock_unlock,
+		ipa_register_client_callback(&ipa_usb_set_lock_unlock,
 			&ipa3_usb_get_teth_port_state, IPA_CLIENT_USB_PROD);
 		break;
 	case IPA_USB_DIAG:
@@ -908,7 +908,7 @@ bad_params:
 }
 EXPORT_SYMBOL(ipa_usb_init_teth_prot);
 
-void ipa3_usb_gsi_evt_err_cb(struct gsi_evt_err_notify *notify)
+static void ipa3_usb_gsi_evt_err_cb(struct gsi_evt_err_notify *notify)
 {
 	IPA_USB_DBG_LOW("entry\n");
 	if (!notify)
@@ -918,7 +918,7 @@ void ipa3_usb_gsi_evt_err_cb(struct gsi_evt_err_notify *notify)
 	IPA_USB_DBG_LOW("exit\n");
 }
 
-void ipa3_usb_gsi_chan_err_cb(struct gsi_chan_err_notify *notify)
+static void ipa3_usb_gsi_chan_err_cb(struct gsi_chan_err_notify *notify)
 {
 	IPA_USB_DBG_LOW("entry\n");
 	if (!notify)
@@ -1188,7 +1188,7 @@ static int ipa3_usb_request_xdci_channel(
 	chan_params.chan_params.ring_base_addr =
 		params->xfer_ring_base_addr_iova;
 	chan_params.chan_params.ring_base_vaddr = NULL;
-	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0)
+	if (ipa_get_hw_type() >= IPA_HW_v4_0)
 		chan_params.chan_params.use_db_eng = GSI_CHAN_DIRECT_MODE;
 	else
 		chan_params.chan_params.use_db_eng = GSI_CHAN_DB_MODE;
@@ -1220,7 +1220,7 @@ static int ipa3_usb_request_xdci_channel(
 	 * At IPA 4.0/4.1/4.2, we do not use MCS smart prefetch
 	 *  so keep the fields zero.
 	 */
-	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_0) {
+	if (ipa_get_hw_type() < IPA_HW_v4_0) {
 		chan_params.chan_scratch.xdci.outstanding_threshold =
 		((params->teth_prot == IPA_USB_MBIM) ? 1 : 2) *
 		chan_params.chan_params.re_size;
@@ -1329,7 +1329,6 @@ static int ipa3_usb_connect_teth_bridge(
 
 	return 0;
 }
-
 
 static int ipa3_usb_connect_teth_prot(enum ipa_usb_teth_prot teth_prot)
 {
@@ -1782,7 +1781,7 @@ static ssize_t ipa3_read_usb_state_info(struct file *file, char __user *ubuf,
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
 }
 
-const struct file_operations ipa3_ipa_usb_ops = {
+static const struct file_operations ipa3_ipa_usb_ops = {
 	.read = ipa3_read_usb_state_info,
 };
 
@@ -2043,7 +2042,7 @@ int ipa_usb_xdci_disconnect(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 		memset(&holb_cfg, 0, sizeof(holb_cfg));
 		holb_cfg.en = IPA_HOLB_TMR_EN;
 		holb_cfg.tmr_val = 0;
-		ipa3_cfg_ep_holb(dl_clnt_hdl, &holb_cfg);
+		ipa_cfg_ep_holb(dl_clnt_hdl, &holb_cfg);
 	}
 
 	spin_lock_irqsave(&ipa3_usb_ctx->state_lock, flags);
@@ -2562,7 +2561,7 @@ static int __init ipa3_usb_init(void)
 	int res;
 	struct ipa3_usb_pm_context *pm_ctx;
 
-	pr_debug("entry\n");
+	pr_info("ipa_usb driver init\n");
 	ipa3_usb_ctx = kzalloc(sizeof(struct ipa3_usb_context), GFP_KERNEL);
 	if (ipa3_usb_ctx == NULL) {
 		pr_err(":ipa_usb init failed\n");
@@ -2626,58 +2625,11 @@ static void ipa3_usb_exit(void)
 	 * If needed we can include the same for IPA_PROD ep.
 	 * For IPA_USB_DIAG/DPL config there will not be any UL config.
 	 */
-	ipa3_deregister_client_callback(IPA_CLIENT_USB_PROD);
+	ipa_deregister_client_callback(IPA_CLIENT_USB_PROD);
 
 	ipa_usb_debugfs_remove();
 	kfree(ipa3_usb_ctx);
 }
-
-/**
- * ipa3_get_usb_gsi_stats() - Query USB gsi stats from uc
- * @stats:	[inout] stats blob from client populated by driver
- *
- * Returns:	0 on success, negative on failure
- *
- * @note Cannot be called from atomic context
- *
- */
-int ipa3_get_usb_gsi_stats(struct ipa3_uc_dbg_ring_stats *stats)
-{
-	int i;
-
-	if (!ipa3_ctx->usb_ctx.dbg_stats.uc_dbg_stats_mmio) {
-		IPAERR("bad parms NULL usb_gsi_stats_mmio\n");
-		return -EINVAL;
-	}
-	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
-	for (i = 0; i < MAX_USB_CHANNELS; i++) {
-		stats->ring[i].ringFull = ioread32(
-			ipa3_ctx->usb_ctx.dbg_stats.uc_dbg_stats_mmio
-			+ i * IPA3_UC_DEBUG_STATS_OFF +
-			IPA3_UC_DEBUG_STATS_RINGFULL_OFF);
-		stats->ring[i].ringEmpty = ioread32(
-			ipa3_ctx->usb_ctx.dbg_stats.uc_dbg_stats_mmio
-			+ i * IPA3_UC_DEBUG_STATS_OFF +
-			IPA3_UC_DEBUG_STATS_RINGEMPTY_OFF);
-		stats->ring[i].ringUsageHigh = ioread32(
-			ipa3_ctx->usb_ctx.dbg_stats.uc_dbg_stats_mmio
-			+ i * IPA3_UC_DEBUG_STATS_OFF +
-			IPA3_UC_DEBUG_STATS_RINGUSAGEHIGH_OFF);
-		stats->ring[i].ringUsageLow = ioread32(
-			ipa3_ctx->usb_ctx.dbg_stats.uc_dbg_stats_mmio
-			+ i * IPA3_UC_DEBUG_STATS_OFF +
-			IPA3_UC_DEBUG_STATS_RINGUSAGELOW_OFF);
-		stats->ring[i].RingUtilCount = ioread32(
-			ipa3_ctx->usb_ctx.dbg_stats.uc_dbg_stats_mmio
-			+ i * IPA3_UC_DEBUG_STATS_OFF +
-			IPA3_UC_DEBUG_STATS_RINGUTILCOUNT_OFF);
-	}
-	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
-
-
-	return 0;
-}
-
 
 arch_initcall(ipa3_usb_init);
 module_exit(ipa3_usb_exit);

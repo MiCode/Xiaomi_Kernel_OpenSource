@@ -95,7 +95,7 @@ struct ipa_mhi_connect_params {
 /* bit #40 in address should be asserted for MHI transfers over pcie */
 #define IPA_MHI_HOST_ADDR(addr) ((addr) | BIT_ULL(40))
 
-#if defined CONFIG_IPA || defined CONFIG_IPA3
+#if IS_ENABLED(CONFIG_IPA3)
 
 int ipa_mhi_init(struct ipa_mhi_init_params *params);
 
@@ -111,7 +111,7 @@ int ipa_mhi_resume(void);
 
 void ipa_mhi_destroy(void);
 
-#else /* (CONFIG_IPA || CONFIG_IPA3) */
+#else /* IS_ENABLED(CONFIG_IPA3) */
 
 static inline int ipa_mhi_init(struct ipa_mhi_init_params *params)
 {
@@ -149,6 +149,6 @@ static inline void ipa_mhi_destroy(void)
 
 }
 
-#endif /* (CONFIG_IPA || CONFIG_IPA3) */
+#endif /* IS_ENABLED(CONFIG_IPA3) */
 
 #endif /* IPA_MHI_H_ */

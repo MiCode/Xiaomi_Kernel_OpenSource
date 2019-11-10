@@ -245,7 +245,7 @@ struct ipa_wigig_conn_tx_in_params_smmu {
 	u8 client_mac[IPA_MAC_ADDR_SIZE];
 };
 
-#if defined CONFIG_IPA || defined CONFIG_IPA3
+#if IS_ENABLED(CONFIG_IPA3)
 
 /*
  * ipa_wigig_init - Client should call this function to
@@ -402,7 +402,7 @@ int ipa_wigig_tx_dp(enum ipa_client_type dst, struct sk_buff *skb);
  */
 int ipa_wigig_set_perf_profile(u32 max_supported_bw_mbps);
 
-#else /* (CONFIG_IPA || CONFIG_IPA3) */
+#else /* IS_ENABLED(CONFIG_IPA3) */
 static inline int ipa_wigig_init(struct ipa_wigig_init_in_params *in,
 	struct ipa_wigig_init_out_params *out)
 {
@@ -482,5 +482,5 @@ int ipa_wigig_set_perf_profile(u32 max_supported_bw_mbps)
 {
 	return -EPERM;
 }
-#endif /* CONFIG_IPA3 */
+#endif /* IS_ENABLED(CONFIG_IPA3) */
 #endif /* _IPA_WIGIG_H_ */

@@ -1065,7 +1065,7 @@ struct gsi_chan_info {
 	uint64_t evt_rp;
 };
 
-#ifdef CONFIG_GSI
+#if IS_ENABLED(CONFIG_GSI)
 /**
  * gsi_register_device - Peripheral should call this function to
  * register itself with GSI before invoking any other APIs
@@ -1683,7 +1683,7 @@ int gsi_alloc_channel_ee(unsigned int chan_idx, unsigned int ee, int *code);
  * gsi_deregister_device
  *
  */
-#else
+#else /* IS_ENABLED(CONFIG_GSI) */
 static inline int gsi_register_device(struct gsi_per_props *props,
 		unsigned long *dev_hdl)
 {
@@ -1935,5 +1935,5 @@ static inline void gsi_wdi3_dump_register(unsigned long chan_hdl)
 {
 }
 
-#endif
+#endif /* IS_ENABLED(CONFIG_GSI) */
 #endif
