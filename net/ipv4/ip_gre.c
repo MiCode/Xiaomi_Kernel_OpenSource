@@ -592,6 +592,9 @@ static void erspan_fb_xmit(struct sk_buff *skb, struct net_device *dev,
 		truncate = true;
 	}
 
+	if (tun_info->options_len < sizeof(*md))
+		goto err_free_rt;
+
 	md = ip_tunnel_info_opts(tun_info);
 	if (!md)
 		goto err_free_rt;

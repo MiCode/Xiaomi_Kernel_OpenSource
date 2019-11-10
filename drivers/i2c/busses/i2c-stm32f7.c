@@ -219,7 +219,7 @@ struct stm32f7_i2c_dev {
 	struct stm32f7_i2c_timings timing;
 };
 
-/**
+/*
  * All these values are coming from I2C Specification, Version 6.0, 4th of
  * April 2014.
  *
