@@ -62,7 +62,7 @@ static struct dsa_switch_tree *dsa_add_dst(u32 tree)
 		return NULL;
 	dst->tree = tree;
 	INIT_LIST_HEAD(&dst->list);
-	list_add_tail(&dsa_switch_trees, &dst->list);
+	list_add_tail(&dst->list, &dsa_switch_trees);
 	kref_init(&dst->refcount);
 
 	return dst;
