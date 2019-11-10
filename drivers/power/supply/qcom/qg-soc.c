@@ -130,12 +130,111 @@ exit_soc_scale:
 	return sys_soc;
 }
 
+#define IBAT_HYST_PC			10
+#define TCSS_ENTRY_COUNT		2
+static int qg_process_tcss_soc(struct qpnp_qg *chip, int sys_soc)
+{
+	int rc, ibatt_diff = 0, ibat_inc_hyst = 0;
+	int qg_iterm_ua = (-1 * chip->dt.iterm_ma * 1000);
+	int soc_ibat, wt_ibat, wt_sys;
+	union power_supply_propval prop = {0, };
+
+	if (!chip->dt.tcss_enable)
+		goto exit_soc_scale;
+
+	if (chip->sys_soc < (chip->dt.tcss_entry_soc * 100))
+		goto exit_soc_scale;
+
+	if (chip->sys_soc >= QG_MAX_SOC && chip->soc_tcss >= QG_MAX_SOC)
+		goto exit_soc_scale;
+
+	rc = power_supply_get_property(chip->batt_psy,
+			POWER_SUPPLY_PROP_HEALTH, &prop);
+	if (!rc && (prop.intval == POWER_SUPPLY_HEALTH_COOL ||
+			prop.intval == POWER_SUPPLY_HEALTH_WARM))
+		goto exit_soc_scale;
+
+	if (chip->last_fifo_i_ua >= 0)
+		goto exit_soc_scale;
+	else if (++chip->tcss_entry_count < TCSS_ENTRY_COUNT)
+		goto skip_entry_count;
+
+	if (!chip->tcss_active) {
+		chip->soc_tcss = sys_soc;
+		chip->soc_tcss_entry = sys_soc;
+		chip->ibat_tcss_entry = min(chip->last_fifo_i_ua, qg_iterm_ua);
+		chip->prev_fifo_i_ua = chip->last_fifo_i_ua;
+		chip->tcss_active = true;
+	}
+
+	rc = power_supply_get_property(chip->batt_psy,
+			POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED, &prop);
+	if (!rc && prop.intval) {
+		qg_dbg(chip, QG_DEBUG_SOC,
+			"Input limited sys_soc=%d soc_tcss=%d\n",
+					sys_soc, chip->soc_tcss);
+		if (chip->soc_tcss > sys_soc)
+			sys_soc = chip->soc_tcss;
+		goto exit_soc_scale;
+	}
+
+	ibatt_diff = chip->last_fifo_i_ua - chip->prev_fifo_i_ua;
+	if (ibatt_diff > 0) {
+		/*
+		 * if the battery charge current has suddendly dropped, allow it
+		 * to decrease only by a small fraction to avoid a SOC jump.
+		 */
+		ibat_inc_hyst = (chip->prev_fifo_i_ua * IBAT_HYST_PC) / 100;
+		if (ibatt_diff > abs(ibat_inc_hyst))
+			chip->prev_fifo_i_ua -= ibat_inc_hyst;
+		else
+			chip->prev_fifo_i_ua = chip->last_fifo_i_ua;
+	}
+
+	chip->prev_fifo_i_ua = min(chip->prev_fifo_i_ua, qg_iterm_ua);
+	soc_ibat = qg_linear_interpolate(chip->soc_tcss_entry,
+					chip->ibat_tcss_entry,
+					QG_MAX_SOC,
+					qg_iterm_ua,
+					chip->prev_fifo_i_ua);
+	soc_ibat = CAP(QG_MIN_SOC, QG_MAX_SOC, soc_ibat);
+
+	wt_ibat = qg_linear_interpolate(1, chip->soc_tcss_entry,
+					10000, 10000, soc_ibat);
+	wt_ibat = CAP(QG_MIN_SOC, QG_MAX_SOC, wt_ibat);
+	wt_sys = 10000 - wt_ibat;
+
+	chip->soc_tcss = DIV_ROUND_CLOSEST((soc_ibat * wt_ibat) +
+					(wt_sys * sys_soc), 10000);
+	chip->soc_tcss = CAP(QG_MIN_SOC, QG_MAX_SOC, chip->soc_tcss);
+
+	qg_dbg(chip, QG_DEBUG_SOC,
+		"TCSS: fifo_i=%d prev_fifo_i=%d ibatt_tcss_entry=%d qg_term=%d soc_tcss_entry=%d sys_soc=%d soc_ibat=%d wt_ibat=%d wt_sys=%d soc_tcss=%d\n",
+			chip->last_fifo_i_ua, chip->prev_fifo_i_ua,
+			chip->ibat_tcss_entry, qg_iterm_ua,
+			chip->soc_tcss_entry, sys_soc, soc_ibat,
+			wt_ibat, wt_sys, chip->soc_tcss);
+
+	return chip->soc_tcss;
+
+exit_soc_scale:
+	chip->tcss_entry_count = 0;
+skip_entry_count:
+	chip->tcss_active = false;
+	qg_dbg(chip, QG_DEBUG_SOC, "TCSS: Quit - enabled=%d sys_soc=%d tcss_entry_count=%d fifo_i_ua=%d\n",
+			chip->dt.tcss_enable, sys_soc, chip->tcss_entry_count,
+			chip->last_fifo_i_ua);
+	return sys_soc;
+}
+
 int qg_adjust_sys_soc(struct qpnp_qg *chip)
 {
 	int soc, vbat_uv, rc;
 	int vcutoff_uv = chip->dt.vbatt_cutoff_mv * 1000;
 
 	chip->sys_soc = CAP(QG_MIN_SOC, QG_MAX_SOC, chip->sys_soc);
+
+	chip->sys_soc = qg_process_tcss_soc(chip, chip->sys_soc);
 
 	if (chip->sys_soc < 100) {
 		/* Hold SOC to 1% of VBAT has not dropped below cutoff */
