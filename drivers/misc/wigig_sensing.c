@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019, The Linux foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux foundation. All rights reserved.
  */
 #include <linux/cdev.h>
 #include <linux/circ_buf.h>
@@ -15,6 +15,7 @@
 #include <linux/ioctl.h>
 #include <linux/kernel.h>
 #include <linux/kfifo.h>
+#include <linux/ktime.h>
 #include <linux/list.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -43,6 +44,35 @@
 	((CIRC_SPACE((circ)->head, (circ)->tail, size)) & ~3)
 #define circ_space_to_end(circ, size) \
 	((CIRC_SPACE_TO_END((circ)->head, (circ)->tail, size)) & ~3)
+
+#ifdef CONFIG_DEBUG_FS
+#define SPI_STATS_MEAS_INIT(ctx, idx, name_str) \
+	do { \
+		strlcpy((ctx)->spi_stats[idx].name, name_str, \
+			SPI_STATS_MAX_NAME_LEN); \
+		atomic64_set(&(ctx)->spi_stats[idx].min, U64_MAX); \
+	} while (0)
+
+#define SPI_STATS_MEAS_START(ctx, idx) (ctx)->spi_stats[idx].start = ktime_get()
+
+#define SPI_STATS_MEAS_STOP(ctx, idx) \
+	do { \
+		struct spi_stats *ss = &(ctx)->spi_stats[idx]; \
+		u64 min = atomic64_read(&ss->min); \
+		u64 max = atomic64_read(&ss->max); \
+		\
+		ss->delta = ktime_sub(ktime_get(), ss->start); \
+		atomic64_set(&ss->min, (ktime_to_us(ss->delta) != 0) ? \
+			   min_t(u64, min, ss->delta) : min); \
+		atomic64_set(&ss->max, max_t(u64, max, ss->delta)); \
+		atomic64_add(ss->delta, &ss->acc); \
+		atomic_inc(&ss->num_meas); \
+	} while (0)
+#else /* CONFIG_DEBUG_FS */
+#define SPI_STATS_MEAS_INIT(ctx, idx, name_str)
+#define SPI_STATS_MEAS_START(ctx, idx)
+#define SPI_STATS_MEAS_STOP(ctx, idx)
+#endif /* CONFIG_DEBUG_FS */
 
 struct wigig_sensing_platform_data {
 	struct gpio_desc *dri_gpio;
@@ -809,17 +839,16 @@ static long wigig_sensing_ioctl(struct file *file, unsigned int cmd,
 	case WIGIG_SENSING_IOCTL_CHANGE_MODE:
 	{
 		struct wigig_sensing_change_mode req;
-
 		pr_info("Received WIGIG_SENSING_IOCTL_CHANGE_MODE command\n");
 
 		if (copy_from_user(&req, (void *)arg, sizeof(req)))
 			return -EFAULT;
 
+		SPI_STATS_MEAS_START(ctx, SPI_STATS_MEAS_CHANGE_MODE);
 		rc = wigig_sensing_ioc_change_mode(ctx, &req);
-
 		if (copy_to_user((void *)arg, &req, sizeof(req)))
 			return -EFAULT;
-
+		SPI_STATS_MEAS_STOP(ctx, SPI_STATS_MEAS_CHANGE_MODE);
 		break;
 	}
 	case WIGIG_SENSING_IOCTL_CLEAR_DATA:
@@ -1122,11 +1151,13 @@ static int wigig_sensing_chip_data_ready(struct wigig_sensing_ctx *ctx,
 
 		/* Read fill_level again */
 		pr_debug("Reading RGF_USER_SPI_SPI_MBOX_FILL_STATUS register\n");
+		SPI_STATS_MEAS_START(ctx, SPI_STATS_MEAS_MBOX_FILL_STATUS);
 		mutex_lock(&ctx->spi_lock);
 		rc = spis_read_reg(ctx->spi_dev,
 				   RGF_USER_SPI_SPI_MBOX_FILL_STATUS,
 				   &spi_status.v);
 		mutex_unlock(&ctx->spi_lock);
+		SPI_STATS_MEAS_STOP(ctx, SPI_STATS_MEAS_MBOX_FILL_STATUS);
 		if (rc) {
 			pr_err("Fail to read RGF_USER_SPI_SPI_MBOX_FILL_STATUS, err %d\n",
 			       rc);
@@ -1263,10 +1294,12 @@ static irqreturn_t wigig_sensing_dri_isr_thread(int irq, void *cookie)
 		}
 
 		pr_debug("Reading SANITY register\n");
+		SPI_STATS_MEAS_START(ctx, SPI_STATS_MEAS_SANITY);
 		mutex_lock(&ctx->spi_lock);
 		rc = spis_read_reg(ctx->spi_dev, SPIS_SANITY_REG_ADDR,
 				   &sanity_reg);
 		mutex_unlock(&ctx->spi_lock);
+		SPI_STATS_MEAS_STOP(ctx, SPI_STATS_MEAS_SANITY);
 		if (rc || sanity_reg != SPIS_SANITY_REG_VAL) {
 			pr_err("Fail to read SANITY, expected 0x%X found 0x%X err %d\n",
 			       SPIS_SANITY_REG_VAL, sanity_reg, (int)rc);
@@ -1285,11 +1318,12 @@ static irqreturn_t wigig_sensing_dri_isr_thread(int irq, void *cookie)
 	}
 
 	pr_debug("Reading RGF_USER_SPI_SPI_MBOX_FILL_STATUS register\n");
+	SPI_STATS_MEAS_START(ctx, SPI_STATS_MEAS_MBOX_FILL_STATUS);
 	mutex_lock(&ctx->spi_lock);
 	rc = spis_read_reg(ctx->spi_dev, RGF_USER_SPI_SPI_MBOX_FILL_STATUS,
 			   &spi_status.v);
 	mutex_unlock(&ctx->spi_lock);
-
+	SPI_STATS_MEAS_STOP(ctx, SPI_STATS_MEAS_MBOX_FILL_STATUS);
 	if (rc) {
 		pr_err("Fail to read RGF_USER_SPI_SPI_MBOX_FILL_STATUS, err %d\n",
 		       rc);
@@ -1335,12 +1369,14 @@ static irqreturn_t wigig_sensing_dri_isr_thread(int irq, void *cookie)
 		spi_status.v &= ~INT_FW_READY;
 	}
 	if (spi_status.b.int_data_ready) {
+		SPI_STATS_MEAS_START(ctx, SPI_STATS_MEAS_DATA_READY);
 		pr_debug("DATA READY INTERRUPT\n");
 		if (!ctx->stm.change_mode_in_progress)
 			wigig_sensing_chip_data_ready(
 			   ctx, spi_status.b.fill_level, ctx->stm.burst_size);
 		else
 			pr_debug("Change mode in progress, aborting data processing\n");
+		SPI_STATS_MEAS_STOP(ctx, SPI_STATS_MEAS_DATA_READY);
 
 		spi_status.v &= ~INT_DATA_READY;
 	}
@@ -1378,19 +1414,125 @@ static irqreturn_t wigig_sensing_dri_isr_thread(int irq, void *cookie)
 deassert_and_bail_out:
 	/* Notify FW we are done with interrupt handling */
 	if (!dont_deassert || additional_inb_command.b.mode != 0) {
+		SPI_STATS_MEAS_START(ctx, SPI_STATS_MEAS_DEASSERT);
 		rc = wigig_sensing_deassert_dri(ctx, additional_inb_command);
 		if (rc)
 			pr_err("wigig_sensing_deassert_dri() failed, rc=%d\n",
 			       rc);
+		SPI_STATS_MEAS_STOP(ctx, SPI_STATS_MEAS_DEASSERT);
 	}
 
 bail_out:
 	mutex_unlock(&ctx->dri_lock);
+	SPI_STATS_MEAS_STOP(ctx, SPI_STATS_MEAS_DRI_PROC);
+
 	return IRQ_HANDLED;
+}
+
+static int wigig_sensing_debugfs_spi_stats_show(struct seq_file *s, void *data)
+{
+	struct wigig_sensing_ctx *ctx = s->private;
+	int i;
+
+	if (ctx == NULL)
+		return -ENODEV;
+
+	seq_printf(s, "|%18s|%10s|%10s|%15s|%10s|%10s|\n",
+		   "Name", "Min [uS]", "Max [uS]", "Acc [uS]", "#", "Avg [uS]");
+	for (i = 0; i < SPI_STATS_MEAS_MAX; i++) {
+		struct spi_stats *ss = &ctx->spi_stats[i];
+		u64 min = atomic64_read(&ss->min);
+		u64 max = atomic64_read(&ss->max);
+		u64 acc = atomic64_read(&ss->acc);
+		u64 num_meas = atomic_read(&ss->num_meas);
+
+		seq_printf(s, "|%18s|%10lu|%10lu|%15llu|%10lu|%10lu|\n",
+			   ss->name,
+			   ktime_to_us(min),
+			   ktime_to_us(max),
+			   ktime_to_us(acc),
+			   num_meas,
+			   ktime_to_us((num_meas != 0) ? acc / num_meas : 0));
+	}
+
+	return 0;
+}
+
+static int wigig_sensing_seq_spi_stats_open(struct inode *inode,
+					    struct file *file)
+{
+	return single_open(file, wigig_sensing_debugfs_spi_stats_show,
+			   inode->i_private);
+}
+
+static const struct file_operations debugfs_spi_stats_fops = {
+	.open		= wigig_sensing_seq_spi_stats_open,
+	.release	= single_release,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+};
+
+static int wigig_sensing_debugfs_spi_stats_init_open(struct seq_file *s,
+						     void *data)
+{
+	struct wigig_sensing_ctx *ctx = s->private;
+	int i;
+
+	if (ctx == NULL)
+		return -ENODEV;
+
+	for (i = 0; i < SPI_STATS_MEAS_MAX; i++) {
+		struct spi_stats *ss = &ctx->spi_stats[i];
+
+		atomic64_set(&ss->min, U64_MAX);
+		atomic64_set(&ss->max, 0);
+		atomic64_set(&ss->acc, 0);
+		atomic_set(&ss->num_meas, 0);
+		ss->start = 0;
+		ss->delta = 0;
+	}
+
+	return 0;
+}
+
+static int wigig_sensing_seq_spi_stats_init_open(struct inode *inode,
+						 struct file *file)
+{
+	return single_open(file, wigig_sensing_debugfs_spi_stats_init_open,
+			   inode->i_private);
+}
+
+static const struct file_operations debugfs_spi_stats_init_fops = {
+	.open		= wigig_sensing_seq_spi_stats_init_open,
+	.release	= single_release,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+};
+
+static int wigig_sensing_debugfs_init(struct wigig_sensing_ctx *ctx)
+{
+	SPI_STATS_MEAS_INIT(ctx, SPI_STATS_MEAS_SANITY, "Sanity");
+	SPI_STATS_MEAS_INIT(ctx, SPI_STATS_MEAS_DEASSERT, "Deassert DRI");
+	SPI_STATS_MEAS_INIT(ctx, SPI_STATS_MEAS_DRI_PROC, "DRI proc");
+	SPI_STATS_MEAS_INIT(ctx, SPI_STATS_MEAS_MBOX_FILL_STATUS,
+			    "MBOX FILL STATUS");
+	SPI_STATS_MEAS_INIT(ctx, SPI_STATS_MEAS_CHANGE_MODE, "CHANGE MODE");
+	SPI_STATS_MEAS_INIT(ctx, SPI_STATS_MEAS_DATA_READY, "Data Ready");
+
+	ctx->debugfs_dent = debugfs_create_dir("wigig_sensing", NULL);
+	debugfs_create_file("spi_stats", 0644, ctx->debugfs_dent, ctx,
+			    &debugfs_spi_stats_fops);
+	debugfs_create_file("spi_stats_init", 0644, ctx->debugfs_dent, ctx,
+			    &debugfs_spi_stats_init_fops);
+
+	return 0;
 }
 
 static irqreturn_t wigig_sensing_dri_isr_hard(int irq, void *cookie)
 {
+	SPI_STATS_MEAS_START((struct wigig_sensing_ctx *)cookie,
+			     SPI_STATS_MEAS_DRI_PROC);
+
 	return IRQ_WAKE_THREAD;
 }
 
@@ -1475,6 +1617,9 @@ static int wigig_sensing_probe(struct spi_device *spi)
 		goto fail_gpiod_get;
 	}
 
+	/* Initialize debugfs */
+	wigig_sensing_debugfs_init(ctx);
+
 	return 0;
 
 fail_gpiod_get:
@@ -1502,6 +1647,7 @@ static int wigig_sensing_remove(struct spi_device *spi)
 	/* Make sure that FW is in STOP mode */
 	wigig_sensing_ioc_change_mode(ctx, &req);
 
+	debugfs_remove_recursive(ctx->debugfs_dent);
 	device_destroy(ctx->class, ctx->wigig_sensing_dev);
 	unregister_chrdev_region(ctx->wigig_sensing_dev, 1);
 	class_destroy(ctx->class);
