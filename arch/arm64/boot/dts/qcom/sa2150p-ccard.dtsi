@@ -120,6 +120,12 @@
 				&usb2_id_det_default
 				&usb2_vbus_boost_default>;
 	};
+
+	pps {
+		compatible = "pps-gpio";
+		gpios = <&tlmm 96 GPIO_ACTIVE_HIGH>;
+		status = "okay";
+	};
 };
 
 &usb3 {
