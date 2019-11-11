@@ -4183,7 +4183,7 @@ static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
 	 * invalid and all S2CRn as bypass unless overridden.
 	 */
 	if (!(smmu->options & ARM_SMMU_OPT_SKIP_INIT) ||
-			IS_ENABLED(CONFIG_HIBERNATION)) {
+		 (IS_ENABLED(CONFIG_HIBERNATION) && smmu->smmu_restore)) {
 		for (i = 0; i < smmu->num_mapping_groups; ++i)
 			arm_smmu_write_sme(smmu, i);
 
