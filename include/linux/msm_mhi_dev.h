@@ -168,7 +168,7 @@ int mhi_dev_open_channel(uint32_t chan_id,
 /**
  * mhi_dev_close_channel() - Channel close for a given client.
  */
-int mhi_dev_close_channel(struct mhi_dev_client *handle_client);
+void mhi_dev_close_channel(struct mhi_dev_client *handle_client);
 
 /**
  * mhi_dev_read_channel() - Channel read for a given client
