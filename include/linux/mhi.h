@@ -338,6 +338,7 @@ struct mhi_controller {
 	enum MHI_DEBUG_LEVEL log_lvl;
 
 	/* controller specific data */
+	const char *name;
 	void *priv_data;
 	void *log_buf;
 	struct dentry *dentry;
@@ -734,6 +735,12 @@ void mhi_control_error(struct mhi_controller *mhi_cntrl);
  * @mhi_cntrl: MHI controller
  */
 void mhi_debug_reg_dump(struct mhi_controller *mhi_cntrl);
+
+/**
+ * mhi_get_restart_reason - retrieve the subsystem failure reason
+ * @name: controller name
+ */
+char *mhi_get_restart_reason(const char *name);
 
 #ifndef CONFIG_ARCH_QCOM
 
