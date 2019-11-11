@@ -3048,6 +3048,9 @@ static int get_device_tree_data(struct platform_device *pdev)
 	pm_stay_awake(mhi->dev);
 	atomic_set(&mhi->mhi_dev_wake, 1);
 
+	mhi->enable_m2 = of_property_read_bool((&pdev->dev)->of_node,
+				"qcom,enable-m2");
+
 	mhi_log(MHI_MSG_VERBOSE, "acquiring wakelock\n");
 
 	return 0;
@@ -3148,6 +3151,8 @@ static int mhi_dev_resume_mmio_mhi_reinit(struct mhi_dev *mhi_ctx)
 		EP_PCIE_EVENT_PM_D3_COLD |
 		EP_PCIE_EVENT_PM_D0 |
 		EP_PCIE_EVENT_PM_RST_DEAST |
+		EP_PCIE_EVENT_L1SUB_TIMEOUT |
+		EP_PCIE_EVENT_L1SUB_TIMEOUT_EXIT |
 		EP_PCIE_EVENT_LINKDOWN;
 	if (!mhi_ctx->mhi_int)
 		mhi_ctx->event_reg.events |= EP_PCIE_EVENT_MHI_A7;
@@ -3312,6 +3317,8 @@ static int mhi_dev_resume_mmio_mhi_init(struct mhi_dev *mhi_ctx)
 		EP_PCIE_EVENT_PM_D3_COLD |
 		EP_PCIE_EVENT_PM_D0 |
 		EP_PCIE_EVENT_PM_RST_DEAST |
+		EP_PCIE_EVENT_L1SUB_TIMEOUT |
+		EP_PCIE_EVENT_L1SUB_TIMEOUT_EXIT |
 		EP_PCIE_EVENT_LINKDOWN;
 	if (!mhi_ctx->mhi_int)
 		mhi_ctx->event_reg.events |= EP_PCIE_EVENT_MHI_A7;
