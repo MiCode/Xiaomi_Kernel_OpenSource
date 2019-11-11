@@ -165,6 +165,7 @@ enum unit_desc_param {
 	UNIT_DESC_PARAM_PHY_MEM_RSRC_CNT	= 0x18,
 	UNIT_DESC_PARAM_CTX_CAPABILITIES	= 0x20,
 	UNIT_DESC_PARAM_LARGE_UNIT_SIZE_M1	= 0x22,
+	UNIT_DESC_PARAM_WB_BUF_ALLOC_UNITS	= 0x29,
 };
 
 /* Device descriptor parameters offsets in bytes*/
@@ -205,6 +206,8 @@ enum device_desc_param {
 	DEVICE_DESC_PARAM_PSA_TMT		= 0x29,
 	DEVICE_DESC_PARAM_PRDCT_REV		= 0x2A,
 	DEVICE_DESC_PARAM_EXT_UFS_FEATURE_SUP	= 0x4F,
+	DEVICE_DESC_PARAM_WB_TYPE		= 0x54,
+	DEVICE_DESC_PARAM_WB_SHARED_ALLOC_UNITS = 0x55,
 };
 
 /* Interconnect descriptor parameters offsets in bytes*/
@@ -600,6 +603,7 @@ struct ufs_dev_info {
 	u8	i_product_name;
 	u16	w_spec_version;
 	u32	d_ext_ufs_feature_sup;
+	u8	b_wb_buffer_type;
 
 	/* query flags */
 	bool f_power_on_wp_en;
@@ -613,6 +617,8 @@ struct ufs_dev_info {
 	unsigned int quirks;
 
 	bool keep_vcc_on;
+
+	bool wb_config_lun;
 };
 
 #define MAX_MODEL_LEN 16
