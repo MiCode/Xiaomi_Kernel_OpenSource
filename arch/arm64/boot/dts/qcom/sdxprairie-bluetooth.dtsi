@@ -10,15 +10,30 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
+&pmxprairie_gpios {
+	bt_en {
+		bt_en_default: bt_en_default {
+			pins = "gpio6";
+			function = "normal";
+			output-low;
+			bias-pull-down;
+			qcom,drive-strength = <2>;
+			power-source = <1>;
+		};
+	};
+};
 
-#include "sdxprairie-v2.dtsi"
-#include "sdxprairie-mtp.dtsi"
-#include "sdxprairie-bluetooth.dtsi"
+&soc {
+	bluetooth: bt_qca6390 {
+		compatible = "qca,qca6390";
+		pinctrl-names = "default";
+		pinctrl-0 = <&bt_en_default>;
+		qca,bt-reset-gpio = <&pmxprairie_gpios 6 0>;
+		qca,bt-vdd-core-supply = <&pmxprairie_s3>; /* VDD_PMU_AON_I */
+		qca,bt-vdd-core-voltage-level = <950000 950000>;
+	};
+};
 
-/ {
-	model = "Qualcomm Technologies, Inc. SDXPRAIRIE MTP V2";
-	compatible = "qcom,sdxprairie-mtp",
-		"qcom,sdxprairie", "qcom,mtp";
-	qcom,board-id = <0x5010008 0x0>;
+&blsp1_uart2b_hs {
+	status = "okay";
 };

@@ -48,14 +48,4 @@
 			input-enable;
 		};
 	};
-	bt_en {
-		bt_en_default: bt_en_default {
-			pins = "gpio6";
-			function = "normal";
-			output-low;
-			bias-pull-down;
-			qcom,drive-strength = <2>;
-			power-source = <1>;
-		};
-	};
 };
