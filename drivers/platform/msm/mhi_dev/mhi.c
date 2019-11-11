@@ -66,6 +66,10 @@
 #define TR_RING_ELEMENT_SZ	sizeof(struct mhi_dev_transfer_ring_element)
 #define RING_ELEMENT_TYPE_SZ	sizeof(union mhi_dev_ring_element_type)
 
+#define MHI_DEV_CH_CLOSE_TIMEOUT_MIN	5000
+#define MHI_DEV_CH_CLOSE_TIMEOUT_MAX	5100
+#define MHI_DEV_CH_CLOSE_TIMEOUT_COUNT	30
+
 uint32_t bhi_imgtxdb;
 enum mhi_msg_level mhi_msg_lvl = MHI_MSG_ERROR;
 enum mhi_msg_level mhi_ipc_msg_lvl = MHI_MSG_VERBOSE;
@@ -1206,7 +1210,7 @@ static int mhi_dev_process_stop_cmd(struct mhi_dev_ring *ring, uint32_t ch_id,
 		return 0;
 	} else if (mhi->ch_ctx_cache[ch_id].ch_type ==
 			MHI_DEV_CH_TYPE_INBOUND_CHANNEL &&
-			mhi->ch[ch_id].wr_request_active) {
+			(mhi->ch[ch_id].pend_wr_count > 0)) {
 		mhi_log(MHI_MSG_INFO, "Pending inbound transaction\n");
 		return 0;
 	}
@@ -1758,8 +1762,22 @@ static void mhi_dev_transfer_completion_cb(void *mreq)
 	rd_offset = req->rd_offset;
 	ch->curr_ereq->context = ch;
 
+	if (mhi->ch_ctx_cache[ch->ch_id].ch_type ==
+			MHI_DEV_CH_TYPE_INBOUND_CHANNEL)
+		ch->pend_wr_count--;
+
 	dma_unmap_single(&mhi_ctx->pdev->dev, req->dma,
 			req->len, DMA_FROM_DEVICE);
+
+	/*
+	 * Channel got closed with transfers pending
+	 * Do not trigger callback or send cmpl to host
+	 */
+	if (ch->state == MHI_DEV_CH_CLOSED) {
+		mhi_log(MHI_MSG_DBG, "Ch %d closed with %d writes pending\n",
+				ch->ch_id, ch->pend_wr_count + 1);
+		return;
+	}
 
 	/* Trigger client call back */
 	req->client_cb(req);
@@ -2306,9 +2324,27 @@ int mhi_dev_channel_isempty(struct mhi_dev_client *handle)
 }
 EXPORT_SYMBOL(mhi_dev_channel_isempty);
 
+bool mhi_dev_channel_has_pending_write(struct mhi_dev_client *handle)
+{
+	struct mhi_dev_channel *ch;
+
+	if (!handle) {
+		mhi_log(MHI_MSG_ERROR, "Invalid channel access\n");
+		return -EINVAL;
+	}
+
+	ch = handle->channel;
+	if (!ch)
+		return -EINVAL;
+
+	return ch->pend_wr_count ? true : false;
+}
+EXPORT_SYMBOL(mhi_dev_channel_has_pending_write);
+
 void mhi_dev_close_channel(struct mhi_dev_client *handle)
 {
 	struct mhi_dev_channel *ch;
+	int count = 0;
 
 	if (!handle) {
 		mhi_log(MHI_MSG_ERROR, "Invalid channel access:%d\n", -ENODEV);
@@ -2316,7 +2352,19 @@ void mhi_dev_close_channel(struct mhi_dev_client *handle)
 	}
 	ch = handle->channel;
 
+	do {
+		if (ch->pend_wr_count) {
+			usleep_range(MHI_DEV_CH_CLOSE_TIMEOUT_MIN,
+					MHI_DEV_CH_CLOSE_TIMEOUT_MAX);
+		} else
+			break;
+	} while (++count < MHI_DEV_CH_CLOSE_TIMEOUT_COUNT);
+
 	mutex_lock(&ch->ch_lock);
+
+	if (ch->pend_wr_count)
+		mhi_log(MHI_MSG_ERROR, "%d writes pending for channel %d\n",
+			ch->pend_wr_count, ch->ch_id);
 
 	if (ch->state != MHI_DEV_CH_PENDING_START)
 		if ((ch->ch_type == MHI_DEV_CH_TYPE_OUTBOUND_CHANNEL &&
@@ -2526,6 +2574,7 @@ int mhi_dev_write_channel(struct mhi_req *wreq)
 	size_t bytes_to_write = 0;
 	size_t bytes_written = 0;
 	uint32_t tre_len = 0, suspend_wait_timeout = 0;
+	bool async_wr_sched = false;
 
 	if (WARN_ON(!wreq || !wreq->client || !wreq->buf)) {
 		pr_err("%s: invalid parameters\n", __func__);
@@ -2569,12 +2618,12 @@ int mhi_dev_write_channel(struct mhi_req *wreq)
 
 	handle_client = wreq->client;
 	ch = handle_client->channel;
-	ch->wr_request_active = true;
 
 	ring = ch->ring;
 
 	mutex_lock(&ch->ch_lock);
 
+	ch->pend_wr_count++;
 	if (ch->state == MHI_DEV_CH_STOPPED) {
 		mhi_log(MHI_MSG_ERROR,
 			"channel %d already stopped\n", wreq->chan);
@@ -2625,7 +2674,8 @@ int mhi_dev_write_channel(struct mhi_req *wreq)
 					"Error while writing chan (%d) rc %d\n",
 					wreq->chan, rc);
 			goto exit;
-		}
+		} else if (wreq->mode == DMA_ASYNC)
+			async_wr_sched = true;
 		bytes_written += bytes_to_write;
 		usr_buf_remaining -= bytes_to_write;
 
@@ -2665,7 +2715,8 @@ int mhi_dev_write_channel(struct mhi_req *wreq)
 		}
 	}
 exit:
-	ch->wr_request_active = false;
+	if (wreq->mode == DMA_SYNC || !async_wr_sched)
+		ch->pend_wr_count--;
 	mutex_unlock(&ch->ch_lock);
 	mutex_unlock(&mhi_ctx->mhi_write_test);
 	return bytes_written;
