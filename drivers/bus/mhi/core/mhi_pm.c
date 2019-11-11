@@ -980,8 +980,11 @@ void mhi_control_error(struct mhi_controller *mhi_cntrl)
 		TO_MHI_STATE_STR(mhi_cntrl->dev_state));
 
 	/* copy subsystem failure reason string if supported */
-	if (sfr_info && sfr_info->buf_addr)
-		pr_err("mhi: sfr: %s\n", sfr_info->buf_addr);
+	if (sfr_info && sfr_info->buf_addr) {
+		memcpy(sfr_info->str, sfr_info->buf_addr, sfr_info->len);
+		pr_err("mhi: %s sfr: %s\n", mhi_cntrl->name,
+		       sfr_info->buf_addr);
+	}
 
 	write_lock_irq(&mhi_cntrl->pm_lock);
 	cur_state = mhi_tryset_pm_state(mhi_cntrl, MHI_PM_LD_ERR_FATAL_DETECT);

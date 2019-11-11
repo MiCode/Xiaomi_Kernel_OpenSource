@@ -761,6 +761,12 @@ void mhi_control_error(struct mhi_controller *mhi_cntrl);
  */
 void mhi_debug_reg_dump(struct mhi_controller *mhi_cntrl);
 
+/**
+ * mhi_get_restart_reason - retrieve the subsystem failure reason
+ * @name: controller name
+ */
+char *mhi_get_restart_reason(const char *name);
+
 #ifndef CONFIG_ARCH_QCOM
 
 #ifdef CONFIG_MHI_DEBUG

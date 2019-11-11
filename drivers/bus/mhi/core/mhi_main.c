@@ -23,6 +23,8 @@
 #include <linux/mhi.h>
 #include "mhi_internal.h"
 
+static char *mhi_generic_sfr = "unknown reason";
+
 static void __mhi_unprepare_channel(struct mhi_controller *mhi_cntrl,
 				    struct mhi_chan *mhi_chan);
 
@@ -2496,3 +2498,20 @@ void mhi_debug_reg_dump(struct mhi_controller *mhi_cntrl)
 	}
 }
 EXPORT_SYMBOL(mhi_debug_reg_dump);
+
+char *mhi_get_restart_reason(const char *name)
+{
+	struct mhi_controller *mhi_cntrl;
+	struct mhi_sfr_info *sfr_info;
+
+	mhi_cntrl = find_mhi_controller_by_name(name);
+	if (!mhi_cntrl)
+		return ERR_PTR(-ENODEV);
+
+	sfr_info = mhi_cntrl->mhi_sfr;
+	if (!sfr_info)
+		return ERR_PTR(-EINVAL);
+
+	return strlen(sfr_info->str) ? sfr_info->str : mhi_generic_sfr;
+}
+EXPORT_SYMBOL(mhi_get_restart_reason);

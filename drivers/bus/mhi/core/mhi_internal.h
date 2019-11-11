@@ -730,6 +730,7 @@ struct mhi_sfr_info {
 	void *buf_addr;
 	dma_addr_t dma_addr;
 	size_t len;
+	char *str;
 	enum MHI_EV_CCS ccs;
 	struct completion completion;
 };
@@ -742,6 +743,8 @@ struct mhi_bus {
 /* default MHI timeout */
 #define MHI_TIMEOUT_MS (1000)
 extern struct mhi_bus mhi_bus;
+
+struct mhi_controller *find_mhi_controller_by_name(const char *name);
 
 /* debug fs related functions */
 int mhi_debugfs_mhi_chan_show(struct seq_file *m, void *d);
