@@ -81,6 +81,7 @@
 
 &i2c_5 {
 	status = "okay";
+	qcom,clk-freq-out = <100000>;
 };
 
 &soc {
