@@ -63,6 +63,16 @@ struct cam_ife_csid_hw_caps {
 };
 
 /**
+ * struct cam_csid_hw_evt_payload- handle csid error
+ * @hw_idx :     Hw index of csid
+ * @evt_type :   Event type from CSID
+ */
+struct cam_csid_hw_evt_payload {
+	uint32_t            hw_idx;
+	uint32_t            evt_type;
+};
+
+/**
  * struct cam_csid_hw_reserve_resource- hw reserve
  * @res_type :    Reource type CID or PATH
  *                if type is CID, then res_id is not required,
@@ -78,6 +88,8 @@ struct cam_ife_csid_hw_caps {
  * @cid:          cid (DT_ID) value for path, this is applicable for CSID path
  *                reserve
  * @node_res :    Reserved resource structure pointer
+ * @event_cb :    CSID Event Callback to hw manager
+ * @ctx:          Hw Manager Context for this acquire
  *
  */
 struct cam_csid_hw_reserve_resource_args {
@@ -89,6 +101,8 @@ struct cam_csid_hw_reserve_resource_args {
 	uint32_t                                  master_idx;
 	uint32_t                                  cid;
 	struct cam_isp_resource_node             *node_res;
+	void                                     *ctx;
+	cam_hw_mgr_event_cb_func                  event_cb;
 };
 
 /**
