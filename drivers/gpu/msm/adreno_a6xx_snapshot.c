@@ -1603,6 +1603,8 @@ static void _a6xx_do_crashdump(struct kgsl_device *device)
 	if (a6xx_capturescript.gpuaddr == 0 ||
 		a6xx_crashdump_registers.gpuaddr == 0)
 		return;
+	if (!test_bit(KGSL_MMU_STARTED, &device->mmu.flags))
+		return;
 
 	/* IF the SMMU is stalled we cannot do a crash dump */
 	kgsl_regread(device, A6XX_RBBM_STATUS3, &val);
