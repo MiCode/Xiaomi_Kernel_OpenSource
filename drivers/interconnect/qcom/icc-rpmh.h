@@ -7,6 +7,8 @@
 #ifndef __DRIVERS_INTERCONNECT_QCOM_ICC_RPMH_H__
 #define __DRIVERS_INTERCONNECT_QCOM_ICC_RPMH_H__
 
+#include <linux/regmap.h>
+
 #define to_qcom_provider(_provider) \
 	container_of(_provider, struct qcom_icc_provider, provider)
 
@@ -24,6 +26,9 @@ struct qcom_icc_provider {
 	size_t num_bcms;
 	struct bcm_voter *voter;
 	struct list_head probe_list;
+	struct regmap *regmap;
+	struct clk_bulk_data *clks;
+	int num_clks;
 };
 
 /**
@@ -85,6 +90,9 @@ struct qcom_icc_node {
 	u64 max_peak[QCOM_ICC_NUM_BUCKETS];
 	struct qcom_icc_bcm *bcms[MAX_BCM_PER_NODE];
 	size_t num_bcms;
+	struct regmap *regmap;
+	struct qcom_icc_qosbox *qosbox;
+	const struct qcom_icc_noc_ops *noc_ops;
 };
 
 /**
@@ -125,6 +133,7 @@ struct qcom_icc_fabric {
 };
 
 struct qcom_icc_desc {
+	const struct regmap_config *config;
 	struct qcom_icc_node **nodes;
 	size_t num_nodes;
 	struct qcom_icc_bcm **bcms;
@@ -132,12 +141,14 @@ struct qcom_icc_desc {
 };
 
 #define DEFINE_QNODE(_name, _id, _channels, _buswidth,			\
-			_numlinks, ...)					\
+			_qosbox, _numlinks, ...)			\
 		static struct qcom_icc_node _name = {			\
 		.id = _id,						\
 		.name = #_name,						\
 		.channels = _channels,					\
 		.buswidth = _buswidth,					\
+		.qosbox = _qosbox,					\
+		.noc_ops = &qcom_qnoc4_ops,				\
 		.num_links = _numlinks,					\
 		.links = { __VA_ARGS__ },				\
 	}
