@@ -1,3 +1,19 @@
+Version 1.0.27
+==============
+[ATLDRV-1132] - Media detect is disabled after sleep
+[ATLDRV-1129] - Add support for egress FWD queue pause/resume
+
+Version 1.0.26
+==============
+[ATLDRV-660] - Wrong device ids are present in atl_main.c
+[ATLDRV-1113] - VLAN-PROMISC is turned off when PROMISC flag is set
+[ATLDRV-1124] - link is not up at 2.5G speed
+[ATLDRV-1105] - Allocate/destroy/disable/enable channels
+[ATLDRV-1114] - Send traffic via FWD ring
+[ATLDRV-1116] - Add support for FWD rings status / stats via ethtool
+[ATLDRV-1120] - reproduce descriptor writeback on disabled ring
+[ATLDRV-1126] - Print statistics for created FWD rings only
+
 Version 1.0.25
 ==============
 [ATLDRV-1118] - Page fault in atl_fwd_init_ring() upon ring creation (ATL_FWR_ALLOC_BUFS is not set)
