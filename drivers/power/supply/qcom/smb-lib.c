@@ -2759,6 +2759,10 @@ static int smblib_handle_usb_current(struct smb_charger *chg,
 			if (rc < 0)
 				return rc;
 		}
+	} else if (chg->real_charger_type == POWER_SUPPLY_TYPE_USB &&
+		usb_current == -ETIMEDOUT) {
+		rc = vote(chg->usb_icl_votable, USB_PSY_VOTER,
+					true, USBIN_100MA);
 	} else {
 		rc = vote(chg->usb_icl_votable, USB_PSY_VOTER,
 					true, usb_current);
