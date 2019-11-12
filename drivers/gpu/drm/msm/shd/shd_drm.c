@@ -242,6 +242,7 @@ static void shd_display_enable_base(struct drm_device *dev,
 	struct drm_connector *connector;
 	struct drm_crtc_state *crtc_state;
 	struct drm_connector_state *conn_state;
+	int ret;
 
 	SDE_DEBUG("enable base display %d\n", base->intf_idx);
 
@@ -274,7 +275,12 @@ static void shd_display_enable_base(struct drm_device *dev,
 	conn_state->best_encoder = base->encoder;
 	connector->encoder = base->encoder;
 
-	drm_atomic_set_mode_for_crtc(crtc_state, &base->mode);
+	ret = drm_atomic_set_mode_for_crtc(crtc_state, &base->mode);
+	if (ret) {
+		SDE_ERROR("failed to set mode for crtc\n");
+		goto out;
+	}
+
 	drm_mode_copy(&crtc_state->adjusted_mode, &base->mode);
 	drm_mode_copy(&base->crtc->mode, &base->mode);
 
@@ -324,6 +330,8 @@ static void shd_display_enable_base(struct drm_device *dev,
 
 	base->enabled = true;
 	base->enable_changed = true;
+out:
+	return;
 }
 
 static void shd_display_disable_base(struct drm_device *dev,
@@ -1041,13 +1049,13 @@ static int shd_drm_obj_init(struct shd_display *display)
 	memset(&info, 0x0, sizeof(info));
 	rc = shd_connector_get_info(NULL, &info, display);
 	if (rc) {
-		SDE_ERROR("shd get_info %d failed\n", i);
+		SDE_ERROR("shd get_info failed\n");
 		goto end;
 	}
 
 	encoder = sde_encoder_init_with_ops(dev, &info, &enc_ops);
 	if (IS_ERR_OR_NULL(encoder)) {
-		SDE_ERROR("shd encoder init failed %d\n", i);
+		SDE_ERROR("shd encoder init failed\n");
 		rc = -ENOENT;
 		goto end;
 	}
@@ -1072,7 +1080,7 @@ static int shd_drm_obj_init(struct shd_display *display)
 		priv->encoders[priv->num_encoders++] = encoder;
 		priv->connectors[priv->num_connectors++] = connector;
 	} else {
-		SDE_ERROR("shd %d connector init failed\n", i);
+		SDE_ERROR("shd connector init failed\n");
 		shd_drm_bridge_deinit(display);
 		sde_encoder_destroy(encoder);
 		rc = -ENOENT;
