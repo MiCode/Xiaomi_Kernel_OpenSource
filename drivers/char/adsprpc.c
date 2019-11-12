@@ -34,7 +34,6 @@
 #include <linux/iommu.h>
 #include <linux/sort.h>
 #include <linux/msm_dma_iommu_mapping.h>
-#include <asm/dma-iommu.h>
 #include "adsprpc_compat.h"
 #include "adsprpc_shared.h"
 #include <soc/qcom/ramdump.h>
@@ -140,10 +139,10 @@
 
 #define PERF(enb, cnt, ff) \
 	{\
-		struct timespec startT = {0};\
+		struct timespec64 startT = {0};\
 		int64_t *counter = cnt;\
 		if (enb && counter) {\
-			getnstimeofday(&startT);\
+			ktime_get_real_ts64(&startT);\
 		} \
 		ff ;\
 		if (enb && counter) {\
@@ -360,6 +359,9 @@ struct fastrpc_apps {
 	bool legacy_remote_heap;
 	/* Unique job id for each message */
 	uint64_t jobid[NUM_CHANNELS];
+	/* Secure subsystems like ADSP/SLPI will use secure client */
+	struct wakeup_source *wake_source_secure;
+	/* Non-secure subsystem like CDSP will use regular client */
 	struct wakeup_source *wake_source;
 };
 
@@ -516,17 +518,18 @@ static struct fastrpc_channel_ctx gcinfo[NUM_CHANNELS] = {
 static int hlosvm[1] = {VMID_HLOS};
 static int hlosvmperm[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
 
-static void fastrpc_pm_awake(int fl_wake_enable, bool *pm_awake_voted);
-static void fastrpc_pm_relax(bool *pm_awake_voted);
+static void fastrpc_pm_awake(int fl_wake_enable, bool *pm_awake_voted,
+			int channel_type);
+static void fastrpc_pm_relax(bool *pm_awake_voted, int channel_type);
 
-static inline int64_t getnstimediff(struct timespec *start)
+static inline int64_t getnstimediff(struct timespec64 *start)
 {
 	int64_t ns;
-	struct timespec ts, b;
+	struct timespec64 ts, b;
 
-	getnstimeofday(&ts);
-	b = timespec_sub(ts, *start);
-	ns = timespec_to_ns(&b);
+	ktime_get_real_ts64(&ts);
+	b = timespec64_sub(ts, *start);
+	ns = timespec64_to_ns(&b);
 	return ns;
 }
 
@@ -1429,7 +1432,8 @@ static void context_free(struct smq_invoke_ctx *ctx)
 static void context_notify_user(struct smq_invoke_ctx *ctx,
 		int retval, uint32_t rsp_flags, uint32_t early_wake_time)
 {
-	fastrpc_pm_awake(ctx->fl->wake_enable, &ctx->pm_awake_voted);
+	fastrpc_pm_awake(ctx->fl->wake_enable, &ctx->pm_awake_voted,
+		gcinfo[ctx->fl->cid].secure);
 	ctx->retval = retval;
 	switch (rsp_flags) {
 	case NORMAL_RESPONSE:
@@ -1831,10 +1835,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 					DMA_TO_DEVICE);
 				dma_buf_end_cpu_access(map->buf,
 					DMA_TO_DEVICE);
-			} else
-				dmac_flush_range(uint64_to_ptr(rpra[i].buf.pv),
-					uint64_to_ptr(rpra[i].buf.pv
-						+ rpra[i].buf.len));
+			}
 		}
 	}
 	PERF_END);
@@ -1939,10 +1940,6 @@ static void inv_args_pre(struct smq_invoke_ctx *ctx)
 					DMA_BIDIRECTIONAL);
 				dma_buf_end_cpu_access(map->buf,
 					DMA_BIDIRECTIONAL);
-			} else {
-				dmac_flush_range(
-					uint64_to_ptr(rpra[i].buf.pv), (char *)
-					uint64_to_ptr(rpra[i].buf.pv + 1));
 			}
 		}
 
@@ -1954,9 +1951,6 @@ static void inv_args_pre(struct smq_invoke_ctx *ctx)
 					DMA_BIDIRECTIONAL);
 				dma_buf_end_cpu_access(map->buf,
 					DMA_BIDIRECTIONAL);
-			} else {
-				dmac_flush_range((char *)end,
-					(char *)end + 1);
 			}
 		}
 	}
@@ -1992,10 +1986,7 @@ static void inv_args(struct smq_invoke_ctx *ctx)
 				DMA_FROM_DEVICE);
 			dma_buf_end_cpu_access(map->buf,
 				DMA_FROM_DEVICE);
-		} else
-			dmac_inv_range((char *)uint64_to_ptr(rpra[i].buf.pv),
-				(char *)uint64_to_ptr(rpra[i].buf.pv
-						 + rpra[i].buf.len));
+		}
 	}
 
 }
@@ -2069,23 +2060,30 @@ static void fastrpc_init(struct fastrpc_apps *me)
 	me->channel[CDSP_DOMAIN_ID].secure = NON_SECURE_CHANNEL;
 }
 
-static inline void fastrpc_pm_awake(int fl_wake_enable, bool *pm_awake_voted)
+static inline void fastrpc_pm_awake(int fl_wake_enable, bool *pm_awake_voted,
+				int channel_type)
 {
 	struct fastrpc_apps *me = &gfa;
 
 	if (!fl_wake_enable || *pm_awake_voted)
 		return;
-	__pm_stay_awake(me->wake_source);
+	if (channel_type == SECURE_CHANNEL)
+		__pm_stay_awake(me->wake_source_secure);
+	else if (channel_type == NON_SECURE_CHANNEL)
+		__pm_stay_awake(me->wake_source);
 	*pm_awake_voted = true;
 }
 
-static inline void fastrpc_pm_relax(bool *pm_awake_voted)
+static inline void fastrpc_pm_relax(bool *pm_awake_voted, int channel_type)
 {
 	struct fastrpc_apps *me = &gfa;
 
 	if (!(*pm_awake_voted))
 		return;
-	__pm_relax(me->wake_source);
+	if (channel_type == SECURE_CHANNEL)
+		__pm_relax(me->wake_source_secure);
+	else if (channel_type == NON_SECURE_CHANNEL)
+		__pm_relax(me->wake_source);
 	*pm_awake_voted = false;
 }
 
@@ -2182,7 +2180,7 @@ static void fastrpc_wait_for_completion(struct smq_invoke_ctx *ctx,
 }
 
 static void fastrpc_update_invoke_count(uint32_t handle, int64_t *perf_counter,
-					struct timespec *invoket)
+					struct timespec64 *invoket)
 {
 	/* update invoke count for dynamic handles */
 	if (handle != FASTRPC_STATIC_HANDLE_LISTENER) {
@@ -2206,14 +2204,22 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 	struct smq_invoke_ctx *ctx = NULL;
 	struct fastrpc_ioctl_invoke *invoke = &inv->inv;
 	int err = 0, interrupted = 0, cid = fl->cid;
-	struct timespec invoket = {0};
+	struct timespec64 invoket = {0};
 	int64_t *perf_counter = NULL;
 	bool pm_awake_voted = false;
 
-	fastrpc_pm_awake(fl->wake_enable, &pm_awake_voted);
+	VERIFY(err, cid >= 0 && cid < NUM_CHANNELS && fl->sctx != NULL);
+	if (err) {
+		pr_err("adsprpc: ERROR: %s: kernel session not initialized yet for %s\n",
+			__func__, current->comm);
+		err = EBADR;
+		goto bail;
+	}
+	fastrpc_pm_awake(fl->wake_enable, &pm_awake_voted, gcinfo[cid].secure);
+
 	if (fl->profile) {
 		perf_counter = getperfcounter(fl, PERF_COUNT);
-		getnstimeofday(&invoket);
+		ktime_get_real_ts64(&invoket);
 	}
 
 	if (!kernel) {
@@ -2226,14 +2232,6 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 				__func__, current->comm, cid, invoke->handle);
 			goto bail;
 		}
-	}
-
-	VERIFY(err, cid >= 0 && cid < NUM_CHANNELS && fl->sctx != NULL);
-	if (err) {
-		pr_err("adsprpc: ERROR: %s: kernel session not initialized yet for %s\n",
-			__func__, current->comm);
-		err = EBADR;
-		goto bail;
 	}
 
 	if (!kernel) {
@@ -2279,7 +2277,7 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 	if (err)
 		goto bail;
  wait:
-	fastrpc_pm_relax(&pm_awake_voted);
+	fastrpc_pm_relax(&pm_awake_voted, gcinfo[cid].secure);
 	fastrpc_wait_for_completion(ctx, &interrupted, kernel);
 	pm_awake_voted = ctx->pm_awake_voted;
 	VERIFY(err, 0 == (err = interrupted));
@@ -2320,7 +2318,7 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 	if (fl->profile && !interrupted)
 		fastrpc_update_invoke_count(invoke->handle, perf_counter,
 						&invoket);
-	fastrpc_pm_relax(&pm_awake_voted);
+	fastrpc_pm_relax(&pm_awake_voted, gcinfo[cid].secure);
 	return err;
 }
 
@@ -2417,7 +2415,7 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		inbuf.filelen = init->filelen;
 		fl->pd = 1;
 
-		VERIFY(err, access_ok(0, (void __user *)init->file,
+		VERIFY(err, access_ok((void __user *)init->file,
 			init->filelen));
 		if (err)
 			goto bail;
@@ -4866,11 +4864,21 @@ static int __init fastrpc_device_init(void)
 	}
 	me->rpmsg_register = 1;
 
-	me->wake_source = wakeup_source_register("adsprpc");
+	me->wake_source = wakeup_source_register(dev, "adsprpc-non_secure");
 	VERIFY(err, !IS_ERR_OR_NULL(me->wake_source));
 	if (err) {
-		pr_err("adsprpc: Error: %s: wakeup_source_register failed with err %ld\n",
-					__func__, PTR_ERR(me->wake_source));
+		pr_err("adsprpc: Error: %s: wakeup_source_register failed for %s with err %ld\n",
+			__func__, dev_name(dev), PTR_ERR(me->wake_source));
+		goto device_create_bail;
+	}
+
+	me->wake_source_secure = wakeup_source_register(secure_dev,
+							"adsprpc-secure");
+	VERIFY(err, !IS_ERR_OR_NULL(me->wake_source_secure));
+	if (err) {
+		pr_err("adsprpc: Error: %s: wakeup_source_register failed for %s with err %ld\n",
+			__func__, dev_name(secure_dev),
+			PTR_ERR(me->wake_source_secure));
 		goto device_create_bail;
 	}
 	return 0;
@@ -4925,6 +4933,8 @@ static void __exit fastrpc_device_exit(void)
 		unregister_rpmsg_driver(&fastrpc_rpmsg_client);
 	if (me->wake_source)
 		wakeup_source_unregister(me->wake_source);
+	if (me->wake_source_secure)
+		wakeup_source_unregister(me->wake_source_secure);
 	debugfs_remove_recursive(debugfs_root);
 }
 
