@@ -66,6 +66,18 @@
 	};
 };
 
+&usb2_phy0 {
+	status = "disabled";
+};
+
+&usb2_phy1 {
+	status = "disabled";
+};
+
+&usb_qmp_dp_phy {
+	status = "disabled";
+};
+
 &usb0 {
 	/delete-property/ extcon;
 	dwc3@a600000 {
