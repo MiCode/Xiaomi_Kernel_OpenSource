@@ -15,9 +15,10 @@
 #include <linux/of.h>
 #include <linux/skbuff.h>
 #include <linux/mhi.h>
+#include <soc/qcom/rmnet_ctl.h>
 #include "rmnet_ctl_client.h"
 
-#define RMNET_CTL_DEFAULT_MRU 1024
+#define RMNET_CTL_DEFAULT_MRU 256
 
 struct rmnet_ctl_mhi_dev {
 	struct mhi_device *mhi_dev;
@@ -56,6 +57,12 @@ static void rmnet_ctl_alloc_buffers(struct rmnet_ctl_mhi_dev *ctl_dev,
 	int no_tre, i, rc;
 
 	no_tre = mhi_get_no_free_descriptors(mhi_dev, DMA_FROM_DEVICE);
+
+	if (!no_tre && free_buf) {
+		kfree(free_buf);
+		return;
+	}
+
 	for (i = 0; i < no_tre; i++) {
 		if (free_buf) {
 			buf = free_buf;
@@ -84,7 +91,12 @@ static void rmnet_ctl_dl_callback(struct mhi_device *mhi_dev,
 {
 	struct rmnet_ctl_mhi_dev *ctl_dev = dev_get_drvdata(&mhi_dev->dev);
 
-	if (mhi_res->transaction_status || !mhi_res->buf_addr) {
+	if (mhi_res->transaction_status == -ENOTCONN) {
+		kfree(mhi_res->buf_addr);
+		return;
+	} else if (mhi_res->transaction_status ||
+		   !mhi_res->buf_addr || !mhi_res->bytes_xferd) {
+		rmnet_ctl_log_err("RXE", mhi_res->transaction_status, NULL, 0);
 		ctl_dev->dev.stats.rx_err++;
 	} else {
 		ctl_dev->dev.stats.rx_pkts++;
@@ -103,7 +115,14 @@ static void rmnet_ctl_ul_callback(struct mhi_device *mhi_dev,
 	struct sk_buff *skb = (struct sk_buff *)mhi_res->buf_addr;
 
 	if (skb) {
-		ctl_dev->dev.stats.tx_complete++;
+		if (mhi_res->transaction_status) {
+			rmnet_ctl_log_err("TXE", mhi_res->transaction_status,
+					  skb->data, skb->len);
+			ctl_dev->dev.stats.tx_err++;
+		} else {
+			rmnet_ctl_log_debug("TXC", skb->data, skb->len);
+			ctl_dev->dev.stats.tx_complete++;
+		}
 		kfree_skb(skb);
 	}
 }
