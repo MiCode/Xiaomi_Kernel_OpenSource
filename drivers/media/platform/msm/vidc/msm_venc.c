@@ -1352,6 +1352,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	struct hal_nal_stream_format_select stream_format;
 	struct hal_heic_frame_quality frame_quality;
 	struct hal_heic_grid_enable grid_enable;
+	enum hal_flip flip = HAL_FLIP_NONE;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
@@ -1656,6 +1657,14 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDC_VIDEO_FLIP:
 	{
 		dprintk(VIDC_DBG, "Flip %d\n", ctrl->val);
+		if (inst->state >= MSM_VIDC_START_DONE &&
+			inst->state <= MSM_VIDC_STOP_DONE) {
+			property_id = HAL_CONFIG_VPE_FLIP;
+			flip = msm_comm_v4l2_to_hal(
+				V4L2_CID_MPEG_VIDC_VIDEO_FLIP,
+				ctrl->val);
+			pdata = &flip;
+		}
 		break;
 	}
 	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE: {

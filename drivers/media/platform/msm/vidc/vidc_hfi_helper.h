@@ -388,6 +388,9 @@ struct hfi_buffer_info {
 #define HFI_PROPERTY_CONFIG_VPE_COMMON_START				\
 	(HFI_DOMAIN_BASE_VPE + HFI_ARCH_COMMON_OFFSET + 0x8000)
 
+#define HFI_PROPERTY_CONFIG_VPE_FLIP				\
+	(HFI_PROPERTY_CONFIG_VPE_COMMON_START + 0x001)
+
 struct hfi_pic_struct {
 	u32 progressive_only;
 };
