@@ -1157,6 +1157,12 @@ static void oom_kill_process(struct oom_control *oc, const char *message,
 	 */
 	oom_group = mem_cgroup_get_oom_group(victim, oc->memcg);
 
+	/*
+	 * If ->only_positive_adj = true in oom context,
+	 * consider them as kill from ulmk.
+	 */
+	if (oc->only_positive_adj)
+		ulmk_update_last_kill();
 	__oom_kill_process(victim);
 
 	/*
