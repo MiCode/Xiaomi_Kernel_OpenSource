@@ -744,7 +744,7 @@ static int recovery_do_recovery(void)
 
 static int recovery_init(struct syna_tcm_hcd *tcm_hcd)
 {
-	int retval;
+	int retval = 0;
 	int idx;
 
 	recovery_hcd = kzalloc(sizeof(*recovery_hcd), GFP_KERNEL);
