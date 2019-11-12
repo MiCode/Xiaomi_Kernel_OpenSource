@@ -65,8 +65,8 @@
 			<&apcs_glb2 6>;
 		mbox-names = "glink", "smp2p";
 		#mbox-cells = <1>;
-		qcom,npubw-devs = <&npu_npu_ddr_bw>;
-		qcom,npubw-dev-names = "ddr_bw";
+		qcom,npubw-devs = <&npu_npu_ddr_bw>, <&npudsp_npu_ddr_bw>;
+		qcom,npubw-dev-names = "ddr_bw", "dsp_ddr_bw";
 		qcom,src-dst-ports = <MSM_BUS_MASTER_NPU MSM_BUS_SLAVE_EBI_CH0>;
 		qcom,npu-pwrlevels {
 			#address-cells = <1>;
