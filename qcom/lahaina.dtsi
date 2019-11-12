@@ -1060,14 +1060,21 @@
 
 	aggre1_noc: interconnect@16e0000 {
 		compatible = "qcom,lahaina-aggre1_noc";
+		reg = <0x016E0000 0x1f180>;
 		#interconnect-cells = <1>;
 		qcom,bcm-voters = <&apps_bcm_voter>;
+		clocks = <&clock_gcc GCC_AGGRE_UFS_PHY_AXI_CLK>,
+			<&clock_gcc GCC_AGGRE_USB3_PRIM_AXI_CLK>,
+			<&clock_gcc GCC_AGGRE_USB3_SEC_AXI_CLK>;
 	};
 
 	aggre2_noc: interconnect@1700000 {
+		reg = <0x1700000 0x3d180>;
 		compatible = "qcom,lahaina-aggre2_noc";
 		#interconnect-cells = <1>;
 		qcom,bcm-voters = <&apps_bcm_voter>;
+		clocks = <&clock_gcc GCC_AGGRE_NOC_PCIE_0_AXI_CLK>,
+			<&clock_gcc GCC_AGGRE_NOC_PCIE_1_AXI_CLK>;
 	};
 
 	clk_virt: interconnect {
@@ -1077,24 +1084,28 @@
 	};
 
 	config_noc: interconnect@1500000 {
+		reg = <0x1500000 0x28000>;
 		compatible = "qcom,lahaina-config_noc";
 		#interconnect-cells = <1>;
 		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
 
 	dc_noc: interconnect@14e0000 {
+		reg = <0x90C0000 0x4200>;
 		compatible = "qcom,lahaina-dc_noc";
 		#interconnect-cells = <1>;
 		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
 
 	gem_noc: interconnect@1380000 {
+		reg = <0x9100000 0xae200>;
 		compatible = "qcom,lahaina-gem_noc";
 		#interconnect-cells = <1>;
 		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
 
-	lpass_ag_noc: interconnect@1480000 {
+	lpass_ag_noc: interconnect@3c40000 {
+		reg = <0x03c40000 0xf080>;
 		compatible = "qcom,lahaina-lpass_ag_noc";
 		#interconnect-cells = <1>;
 		qcom,bcm-voters = <&apps_bcm_voter>;
@@ -1107,18 +1118,21 @@
 	};
 
 	mmss_noc: interconnect@1740000 {
+		reg = <0x1740000 0x1f080>;
 		compatible = "qcom,lahaina-mmss_noc";
 		#interconnect-cells = <1>;
 		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
 
-	nsp_noc: interconnect@1750000 {
+	nsp_noc: interconnect@a0c0000 {
+		reg = <0x0a0c0000 0x10000>;
 		compatible = "qcom,lahaina-nsp_noc";
 		#interconnect-cells = <1>;
 		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
 
-	system_noc: interconnect@1620000 {
+	system_noc: interconnect@1680000 {
+		reg = <0x1680000 0x1EE00>;
 		compatible = "qcom,lahaina-system_noc";
 		#interconnect-cells = <1>;
 		qcom,bcm-voters = <&apps_bcm_voter>;
