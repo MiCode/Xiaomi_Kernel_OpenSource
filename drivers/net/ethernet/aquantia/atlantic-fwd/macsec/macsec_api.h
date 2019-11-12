@@ -1,7 +1,7 @@
 #ifndef __MACSEC_API_H__
 #define __MACSEC_API_H__
 
-#include "../atl_common.h"
+#include "atl_hw.h"
 #include "macsec_struct.h"
 
 

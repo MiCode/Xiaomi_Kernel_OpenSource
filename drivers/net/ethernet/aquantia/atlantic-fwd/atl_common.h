@@ -18,13 +18,14 @@
 #include <linux/netdevice.h>
 #include <linux/moduleparam.h>
 
-#define ATL_VERSION "1.0.29"
+#define ATL_VERSION "1.0.30"
 
 struct atl_nic;
 enum atl_fwd_notify;
 
 #include "atl_compat.h"
 #include "atl_hw.h"
+#include "atl_log.h"
 #include "atl_ring_desc.h"
 #include "atl_stats.h"
 
@@ -279,47 +280,6 @@ extern unsigned int atl_tx_clean_budget;
 extern unsigned int atl_tx_free_low;
 extern unsigned int atl_tx_free_high;
 
-/* Logging conviniency macros.
- *
- * atl_dev_xxx are for low-level contexts and implicitly reference
- * struct atl_hw *hw;
- *
- * atl_nic_xxx are for high-level contexts and implicitly reference
- * struct atl_nic *nic; */
-#define atl_dev_dbg(fmt, args...)			\
-	dev_dbg(&hw->pdev->dev, fmt, ## args)
-#define atl_dev_info(fmt, args...)			\
-	dev_info(&hw->pdev->dev, fmt, ## args)
-#define atl_dev_warn(fmt, args...)			\
-	dev_warn(&hw->pdev->dev, fmt, ## args)
-#define atl_dev_err(fmt, args...)			\
-	dev_err(&hw->pdev->dev, fmt, ## args)
-
-#define atl_nic_dbg(fmt, args...)		\
-	dev_dbg(&nic->hw.pdev->dev, fmt, ## args)
-#define atl_nic_info(fmt, args...)		\
-	dev_info(&nic->hw.pdev->dev, fmt, ## args)
-#define atl_nic_warn(fmt, args...)		\
-	dev_warn(&nic->hw.pdev->dev, fmt, ## args)
-#define atl_nic_err(fmt, args...)		\
-	dev_err(&nic->hw.pdev->dev, fmt, ## args)
-
-#define atl_dev_init_warn(fmt, args...)					\
-do {									\
-	if (hw)								\
-		atl_dev_warn(fmt, ## args);				\
-	else								\
-		printk(KERN_WARNING "%s: " fmt, atl_driver_name, ##args); \
-} while(0)
-
-#define atl_dev_init_err(fmt, args...)					\
-do {									\
-	if (hw)								\
-		atl_dev_warn(fmt, ## args);				\
-	else								\
-		printk(KERN_ERR "%s: " fmt, atl_driver_name, ##args);	\
-} while(0)
-
 #define atl_module_param(_name, _type, _mode)			\
 	module_param_named(_name, atl_ ## _name, _type, _mode)
 
@@ -383,16 +343,6 @@ static inline int atl_fwd_suspend_rings(struct atl_nic *nic) { return 0; }
 static inline int atl_fwd_resume_rings(struct atl_nic *nic) { return 0; }
 #endif
 int atl_get_lpi_timer(struct atl_nic *nic, uint32_t *lpi_delay);
-int atl_mdio_hwsem_get(struct atl_hw *hw);
-void atl_mdio_hwsem_put(struct atl_hw *hw);
-int __atl_mdio_read(struct atl_hw *hw, uint8_t prtad, uint8_t mmd,
-	uint16_t addr, uint16_t *val);
-int atl_mdio_read(struct atl_hw *hw, uint8_t prtad, uint8_t mmd,
-	uint16_t addr, uint16_t *val);
-int __atl_mdio_write(struct atl_hw *hw, uint8_t prtad, uint8_t mmd,
-	uint16_t addr, uint16_t val);
-int atl_mdio_write(struct atl_hw *hw, uint8_t prtad, uint8_t mmd,
-	uint16_t addr, uint16_t val);
 void atl_refresh_rxfs(struct atl_nic *nic);
 void atl_schedule_work(struct atl_nic *nic);
 int atl_hwmon_init(struct atl_nic *nic);
