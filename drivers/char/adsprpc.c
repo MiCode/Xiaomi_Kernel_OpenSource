@@ -2569,19 +2569,19 @@ static int fastrpc_mmap_remove_pdr(struct fastrpc_file *fl)
 			AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME, &session));
 	if (err)
 		goto bail;
-	if (me->channel[fl->cid].spd[session].pdrcount !=
-		me->channel[fl->cid].spd[session].prevpdrcount) {
-		if (fastrpc_mmap_remove_ssr(fl))
-			pr_err("ADSPRPC: SSR: Failed to unmap remote heap\n");
-		me->channel[fl->cid].spd[session].prevpdrcount =
-				me->channel[fl->cid].spd[session].pdrcount;
-	}
 	if (!me->channel[fl->cid].spd[session].ispdup) {
 		VERIFY(err, 0);
 		if (err) {
 			err = -ENOTCONN;
 			goto bail;
 		}
+	}
+	if (me->channel[fl->cid].spd[session].pdrcount !=
+		me->channel[fl->cid].spd[session].prevpdrcount) {
+		if (fastrpc_mmap_remove_ssr(fl))
+			pr_err("ADSPRPC: SSR: Failed to unmap remote heap\n");
+		me->channel[fl->cid].spd[session].prevpdrcount =
+				me->channel[fl->cid].spd[session].pdrcount;
 	}
 bail:
 	return err;
