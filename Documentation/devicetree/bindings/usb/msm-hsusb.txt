@@ -295,6 +295,8 @@ Optional properties :
 - qcom,usbeth-reset-gpio: If present then an external usb-to-eth is connected to
 	the USB host controller and its RESET_N signal is connected to this
 	usbeth-reset-gpio GPIO. It should be driven LOW to RESET the usb-to-eth.
+- qcom,enumeration-check-for-sdp: If present, start timer for SDP charger to check enumeration
+	happen or not.
 
 Example HSUSB OTG controller device node :
 	usb@f9690000 {
