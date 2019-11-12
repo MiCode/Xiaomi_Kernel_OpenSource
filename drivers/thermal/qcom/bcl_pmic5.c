@@ -82,6 +82,7 @@ struct bcl_device;
 
 struct bcl_peripheral_data {
 	int                     irq_num;
+	int                     status_bit_idx;
 	long int		trip_thresh;
 	int                     last_val;
 	struct mutex            state_trans_lock;
@@ -436,10 +437,14 @@ static irqreturn_t bcl_handle_irq(int irq, void *data)
 
 	bcl_perph = perph_data->dev;
 	bcl_read_register(bcl_perph, BCL_IRQ_STATUS, &irq_status);
-	pr_debug("Irq:%d triggered for bcl type:%s. status:%u\n",
+
+	if (irq_status & perph_data->status_bit_idx) {
+		pr_debug("Irq:%d triggered for bcl type:%s. status:%u\n",
 			irq, bcl_int_names[perph_data->type],
 			irq_status);
-	of_thermal_handle_trip(perph_data->tz_dev);
+		of_thermal_handle_trip_temp(perph_data->tz_dev,
+				perph_data->status_bit_idx);
+	}
 
 	return IRQ_HANDLED;
 }
@@ -563,13 +568,14 @@ static void bcl_probe_ibat(struct platform_device *pdev,
 }
 
 static void bcl_lvl_init(struct platform_device *pdev,
-			enum bcl_dev_type type, struct bcl_device *bcl_perph)
+	enum bcl_dev_type type, int sts_bit_idx, struct bcl_device *bcl_perph)
 {
 	struct bcl_peripheral_data *lbat = &bcl_perph->param[type];
 
 	mutex_init(&lbat->state_trans_lock);
 	lbat->type = type;
 	lbat->dev = bcl_perph;
+	lbat->status_bit_idx = sts_bit_idx;
 	bcl_fetch_trip(pdev, type, lbat, bcl_handle_irq);
 	if (lbat->irq_num <= 0)
 		return;
@@ -592,9 +598,9 @@ static void bcl_lvl_init(struct platform_device *pdev,
 static void bcl_probe_lvls(struct platform_device *pdev,
 					struct bcl_device *bcl_perph)
 {
-	bcl_lvl_init(pdev, BCL_LVL0, bcl_perph);
-	bcl_lvl_init(pdev, BCL_LVL1, bcl_perph);
-	bcl_lvl_init(pdev, BCL_LVL2, bcl_perph);
+	bcl_lvl_init(pdev, BCL_LVL0, BCL_IRQ_L0, bcl_perph);
+	bcl_lvl_init(pdev, BCL_LVL1, BCL_IRQ_L1, bcl_perph);
+	bcl_lvl_init(pdev, BCL_LVL2, BCL_IRQ_L2, bcl_perph);
 }
 
 static void bcl_configure_bcl_peripheral(struct bcl_device *bcl_perph)
