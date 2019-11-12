@@ -46,4 +46,4 @@ atlantic-fwd-$(CONFIG_MACSEC) += atl_macsec.o macsec/macsec_api.o
 atlantic-fwd-$(CONFIG_AQFWD_QCOM) += atl_qcom.o
 atlantic-fwd-$(CONFIG_AQFWD_QCOM_IPA) += atl_qcom_ipa.o
 
-CFLAGS_atl_trace.o := -I$(src)
+ccflags-y += -I$(src)

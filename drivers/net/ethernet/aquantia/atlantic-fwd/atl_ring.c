@@ -120,6 +120,7 @@ static netdev_tx_t atl_map_xmit_skb(struct sk_buff *skb,
 		desc->daddr = cpu_to_le64(daddr);
 		while (len > ATL_DATA_PER_TXD) {
 			desc->len = cpu_to_le16(ATL_DATA_PER_TXD);
+			trace_atl_tx_descr(ring->qvec->idx, idx, (u64 *)desc);
 			WRITE_ONCE(ring->hw.descs[idx].tx, *desc);
 			bump_ptr(idx, ring, 1);
 			daddr += ATL_DATA_PER_TXD;
@@ -131,6 +132,7 @@ static netdev_tx_t atl_map_xmit_skb(struct sk_buff *skb,
 		if (!frags)
 			break;
 
+		trace_atl_tx_descr(ring->qvec->idx, idx, (u64 *)desc);
 		WRITE_ONCE(ring->hw.descs[idx].tx, *desc);
 		bump_ptr(idx, ring, 1);
 		txbuf = &ring->txbufs[idx];
@@ -148,6 +150,7 @@ static netdev_tx_t atl_map_xmit_skb(struct sk_buff *skb,
 #if defined(ATL_TX_DESC_WB) || defined(ATL_TX_HEAD_WB)
 	desc->cmd |= tx_desc_cmd_wb;
 #endif
+	trace_atl_tx_descr(ring->qvec->idx, idx, (u64 *)desc);
 	WRITE_ONCE(ring->hw.descs[idx].tx, *desc);
 	first_buf->last = idx;
 	bump_ptr(idx, ring, 1);
@@ -230,6 +233,7 @@ static uint32_t atl_insert_context(struct atl_txbuf *txbuf,
 	if (tx_cmd) {
 		ctx->type = tx_desc_type_context;
 		ctx->idx = 0;
+		trace_atl_tx_context_descr(ring->qvec->idx, ring->tail, (u64 *)ctx);
 		COMMIT_DESC(ring, ring->tail, scratch);
 		bump_tail(ring, 1);
 	}
@@ -397,6 +401,7 @@ static bool atl_clean_tx(struct atl_desc_ring *ring)
 /* work around HW bugs in checksum calculation:
  * - packets less than 60 octets
  * - ip, tcp or udp checksum is 0xFFFF
+ * - non-zero padding
  */
 static bool atl_checksum_workaround(struct sk_buff *skb,
 				    struct atl_rx_desc_wb *desc)
@@ -404,19 +409,25 @@ static bool atl_checksum_workaround(struct sk_buff *skb,
 	int ip_header_offset = 14;
 	int l4_header_offset = 0;
 	struct iphdr *ip;
+	struct ipv6hdr *ipv6;
 	struct tcphdr *tcp;
 	struct udphdr *udp;
 
 	if (desc->pkt_len <= 60)
 		return true;
 
-	if ((desc->pkt_type & atl_rx_pkt_type_vlan_msk) ==
-	    atl_rx_pkt_type_vlan)
-		ip_header_offset += 4;
+	if (((desc->pkt_type & atl_rx_pkt_type_vlan_msk) ==
+	    atl_rx_pkt_type_vlan) &&
+	    !(desc->rx_estat & atl_rx_estat_vlan_stripped)) 
+		ip_header_offset += sizeof(struct vlan_hdr);
 
 	if ((desc->pkt_type & atl_rx_pkt_type_vlan_msk) ==
-	    atl_rx_pkt_type_dbl_vlan)
-		ip_header_offset += 8;
+	    atl_rx_pkt_type_dbl_vlan) {
+	    	if (desc->rx_estat & atl_rx_estat_vlan_stripped)
+			ip_header_offset += sizeof(struct vlan_hdr);
+		else
+			ip_header_offset += sizeof(struct vlan_hdr) * 2;
+	}
 
 	switch (desc->pkt_type & atl_rx_pkt_type_l3_msk) {
 	case atl_rx_pkt_type_ipv4:
@@ -425,9 +436,17 @@ static bool atl_checksum_workaround(struct sk_buff *skb,
 		if (ip->check == 0xFFFF)
 			return true;
 		l4_header_offset = ip->ihl << 2;
+		/* padding inside Ethernet frame */
+		if (ntohs(ip->tot_len) + ip_header_offset < desc->pkt_len)
+			return true;
 		break;
 	case atl_rx_pkt_type_ipv6:
+		ipv6 = (struct ipv6hdr *) &skb->data[ip_header_offset];
 		l4_header_offset = ip_header_offset + sizeof(struct ipv6hdr);
+		/* padding inside Ethernet frame */
+		if (ip_header_offset + sizeof(struct ipv6hdr) +
+		    ntohs(ipv6->payload_len) < desc->pkt_len)
+			return true;
 		break;
 	default:
 		return false;
@@ -445,6 +464,9 @@ static bool atl_checksum_workaround(struct sk_buff *skb,
 		udp = (struct udphdr *) &skb->data[ip_header_offset +
 						  l4_header_offset];
 		if (udp->check == 0xFFFF)
+			return true;
+		/* padding inside IP frame */
+		if (l4_header_offset + ntohs(udp->len) < desc->pkt_len)
 			return true;
 		break;
 	default:
@@ -1068,6 +1090,8 @@ int atl_clean_rx(struct atl_desc_ring *ring, int budget,
 		if (!wb->dd)
 			break;
 		DESC_RMB();
+
+		trace_atl_rx_descr(ring->qvec->idx, ring->head, (u64 *)wb);
 
 		skb = atl_process_rx_frag(ring, rxbuf, wb);
 
