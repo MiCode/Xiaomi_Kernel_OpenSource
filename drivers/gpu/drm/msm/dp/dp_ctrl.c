@@ -221,9 +221,13 @@ static int dp_ctrl_update_sink_vx_px(struct dp_ctrl_private *ctrl,
 static int dp_ctrl_update_vx_px(struct dp_ctrl_private *ctrl)
 {
 	struct dp_link *link = ctrl->link;
+	bool high = false;
 
+	if (ctrl->link->link_params.bw_code == DP_LINK_BW_5_4 ||
+		 ctrl->link->link_params.bw_code == DP_LINK_BW_8_1)
+		high = true;
 	ctrl->catalog->update_vx_px(ctrl->catalog,
-		link->phy_params.v_level, link->phy_params.p_level);
+		link->phy_params.v_level, link->phy_params.p_level, high);
 
 	return dp_ctrl_update_sink_vx_px(ctrl, link->phy_params.v_level,
 		link->phy_params.p_level);

@@ -217,7 +217,7 @@ static void dp_catalog_panel_config_msa_v200(struct dp_catalog_panel *panel,
 }
 
 static void dp_catalog_ctrl_update_vx_px_v200(struct dp_catalog_ctrl *ctrl,
-		u8 v_level, u8 p_level)
+		u8 v_level, u8 p_level, bool high)
 {
 	struct dp_catalog_private_v200 *catalog;
 	struct dp_io_data *io_data;
