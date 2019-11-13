@@ -1117,37 +1117,31 @@
 		wake-capable-sensor;
 		trips {
 			skin_modem_trip0: modem-trip0 {
+				temperature = <46000>;
+				hysteresis = <4000>;
+				type = "passive";
+			};
+
+			skin_gold_trip: gold-trip {
+				temperature = <47000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+
+			skin_modem_trip1_hvx_gpu: modem-trip1-hvx-gpu {
 				temperature = <48000>;
 				hysteresis = <4000>;
 				type = "passive";
 			};
 
-			skin_modem_trip1: modem-trip1 {
+			skin_modem_trip2: modem-trip2 {
 				temperature = <50000>;
-				hysteresis = <2000>;
-				type = "passive";
-			};
-
-			skin_gold_hvx_trip: gold-hvx-trip {
-				temperature = <50000>;
-				hysteresis = <0>;
-				type = "passive";
-			};
-
-			skin_gpu_trip: skin-gpu-trip {
-				temperature = <52000>;
 				hysteresis = <4000>;
 				type = "passive";
 			};
 
-			skin_modem_trip2: modem-trip2 {
-				temperature = <52000>;
-				hysteresis = <2000>;
-				type = "passive";
-			};
-
 			skin_silver_trip: silver-trip {
-				temperature = <54000>;
+				temperature = <50000>;
 				hysteresis = <0>;
 				type = "passive";
 			};
@@ -1161,14 +1155,14 @@
 
 		cooling-maps {
 			skin_cpu6 {
-				trip = <&skin_gold_hvx_trip>;
+				trip = <&skin_gold_trip>;
 				cooling-device =
 					/* throttle from fmax to 1708800KHz */
 					<&CPU6 THERMAL_NO_LIMIT
 						(THERMAL_MAX_LIMIT-7)>;
 			};
 			skin_cpu7 {
-				trip = <&skin_gold_hvx_trip>;
+				trip = <&skin_gold_trip>;
 				cooling-device =
 					<&CPU7 THERMAL_NO_LIMIT
 						(THERMAL_MAX_LIMIT-7)>;
@@ -1205,7 +1199,7 @@
 						(THERMAL_MAX_LIMIT-7)>;
 			};
 			skin_gpu {
-				trip = <&skin_gpu_trip>;
+				trip = <&skin_modem_trip1_hvx_gpu>;
 				cooling-device = <&msm_gpu (THERMAL_MAX_LIMIT-3)
 						(THERMAL_MAX_LIMIT-3)>;
 			};
@@ -1218,7 +1212,7 @@
 				cooling-device = <&modem_proc 3 3>;
 			};
 			skin_modem_pa0 {
-				trip = <&skin_modem_trip1>;
+				trip = <&skin_modem_trip1_hvx_gpu>;
 				cooling-device = <&modem_pa 1 1>;
 			};
 			skin_modem_pa1 {
@@ -1230,8 +1224,8 @@
 				cooling-device = <&modem_pa 3 3>;
 			};
 			cdsp_cdev1 {
-				trip = <&skin_gold_hvx_trip>;
-				cooling-device = <&cdsp_sw THERMAL_NO_LIMIT 4>;
+				trip = <&skin_modem_trip1_hvx_gpu>;
+				cooling-device = <&cdsp_sw 4 4>;
 			};
 		};
 	};
