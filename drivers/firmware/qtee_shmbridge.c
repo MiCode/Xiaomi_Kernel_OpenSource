@@ -13,7 +13,9 @@
 #include <linux/mod_devicetable.h>
 #include <soc/qcom/scm.h>
 #include <soc/qcom/qseecomi.h>
-#include <soc/qcom/qtee_shmbridge.h>
+#include <linux/qtee_shmbridge.h>
+
+#include "qtee_shmbridge_internal.h"
 
 #define DEFAULT_BRIDGE_SIZE	SZ_4M	/*4M*/
 /*
@@ -430,6 +432,12 @@ static struct platform_driver qtee_shmbridge_driver = {
 	},
 };
 
-module_platform_driver(qtee_shmbridge_driver);
+int __init qtee_shmbridge_driver_init(void)
+{
+	return platform_driver_register(&qtee_shmbridge_driver);
+}
 
-MODULE_LICENSE("GPL v2");
+void __exit qtee_shmbridge_driver_exit(void)
+{
+	platform_driver_unregister(&qtee_shmbridge_driver);
+}

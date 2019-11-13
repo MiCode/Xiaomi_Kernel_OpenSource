@@ -559,16 +559,6 @@ config QCOM_SOC_SLEEP_STATS
 	  various SoC level low power modes statistics and export to sysfs
 	  interface.
 
-config QTEE_SHM_BRIDGE
-	tristate "QTI TEE shared memory bridge"
-	depends on QCOM_SECURE_CHAN_MANAGER
-	help
-	  QTEE shared memory bridge driver provides kernel APIs to share
-	  memory between trustzone & other VMs through shared memory bridge.
-	  It allows kernel clients to create bridge, delete bridge, and do
-	  memory sub-allocation and free from the default kernel bridge
-	  created by bridge driver.
-
 config QCOM_WATCHDOG
 	tristate "Qualcomm Watchdog Support"
 	depends on ARCH_QCOM
