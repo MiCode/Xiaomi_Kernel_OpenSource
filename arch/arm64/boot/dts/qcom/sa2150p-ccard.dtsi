@@ -144,12 +144,6 @@
 	};
 };
 
-&usb3 {
-	dwc3@7580000 {
-		dr_mode = "otg";
-	};
-};
-
 &usb3_extcon {
 	id-gpio = <&tlmm 113 GPIO_ACTIVE_HIGH>;
 };
