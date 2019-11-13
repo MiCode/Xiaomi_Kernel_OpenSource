@@ -919,74 +919,52 @@ int dfc_bearer_flow_ctl(struct net_device *dev,
 			struct rmnet_bearer_map *bearer,
 			struct qos_info *qos)
 {
-	int rc = 0, qlen;
-	int enable;
-	int i;
+	bool enable;
 
-	enable = bearer->grant_size ? 1 : 0;
+	enable = bearer->grant_size ? true : false;
 
-	for (i = 0; i < MAX_MQ_NUM; i++) {
-		if (qos->mq[i].bearer == bearer) {
-			/* Do not flow disable ancillary q in tcp bidir */
-			if (qos->mq[i].ancillary &&
-			    bearer->tcp_bidir && !enable)
-				continue;
+	qmi_rmnet_flow_control(dev, bearer->mq_idx, enable);
+	trace_dfc_qmi_tc(dev->name, bearer->bearer_id,
+			 bearer->grant_size,
+			 0, bearer->mq_idx, enable);
 
-			qlen = qmi_rmnet_flow_control(dev, i, enable);
-			trace_dfc_qmi_tc(dev->name, bearer->bearer_id,
-					 bearer->grant_size,
-					 qlen, i, enable);
-			rc++;
-		}
+	/* Do not flow disable tcp ack q in tcp bidir */
+	if (bearer->ack_mq_idx != INVALID_MQ &&
+	    (enable || !bearer->tcp_bidir)) {
+		qmi_rmnet_flow_control(dev, bearer->ack_mq_idx, enable);
+		trace_dfc_qmi_tc(dev->name, bearer->bearer_id,
+				 bearer->grant_size,
+				 0, bearer->ack_mq_idx, enable);
 	}
 
-	if (enable == 0 && bearer->ack_req)
+	if (!enable && bearer->ack_req)
 		dfc_send_ack(dev, bearer->bearer_id,
 			     bearer->seq, qos->mux_id,
 			     DFC_ACK_TYPE_DISABLE);
 
-	return rc;
+	return 0;
 }
 
 static int dfc_all_bearer_flow_ctl(struct net_device *dev,
 				struct qos_info *qos, u8 ack_req, u32 ancillary,
 				struct dfc_flow_status_info_type_v01 *fc_info)
 {
-	struct rmnet_bearer_map *bearer_itm;
-	int rc = 0, qlen;
-	bool enable;
-	int i;
+	struct rmnet_bearer_map *bearer;
 
-	enable = fc_info->num_bytes > 0 ? 1 : 0;
+	list_for_each_entry(bearer, &qos->bearer_head, list) {
+		bearer->grant_size = fc_info->num_bytes;
+		bearer->grant_thresh =
+			qmi_rmnet_grant_per(bearer->grant_size);
+		bearer->seq = fc_info->seq_num;
+		bearer->ack_req = ack_req;
+		bearer->tcp_bidir = DFC_IS_TCP_BIDIR(ancillary);
+		bearer->last_grant = fc_info->num_bytes;
+		bearer->last_seq = fc_info->seq_num;
 
-	list_for_each_entry(bearer_itm, &qos->bearer_head, list) {
-		bearer_itm->grant_size = fc_info->num_bytes;
-		bearer_itm->grant_thresh =
-			qmi_rmnet_grant_per(bearer_itm->grant_size);
-		bearer_itm->seq = fc_info->seq_num;
-		bearer_itm->ack_req = ack_req;
-		bearer_itm->tcp_bidir = DFC_IS_TCP_BIDIR(ancillary);
-		bearer_itm->last_grant = fc_info->num_bytes;
-		bearer_itm->last_seq = fc_info->seq_num;
+		dfc_bearer_flow_ctl(dev, bearer, qos);
 	}
 
-	for (i = 0; i < MAX_MQ_NUM; i++) {
-		bearer_itm = qos->mq[i].bearer;
-		if (!bearer_itm)
-			continue;
-		qlen = qmi_rmnet_flow_control(dev, i, enable);
-		trace_dfc_qmi_tc(dev->name, bearer_itm->bearer_id,
-				 fc_info->num_bytes,
-				 qlen, i, enable);
-		rc++;
-	}
-
-	if (enable == 0 && ack_req)
-		dfc_send_ack(dev, fc_info->bearer_id,
-			     fc_info->seq_num, fc_info->mux_id,
-			     DFC_ACK_TYPE_DISABLE);
-
-	return rc;
+	return 0;
 }
 
 static int dfc_update_fc_map(struct net_device *dev, struct qos_info *qos,
@@ -1031,10 +1009,8 @@ static int dfc_update_fc_map(struct net_device *dev, struct qos_info *qos,
 
 		if (action)
 			rc = dfc_bearer_flow_ctl(dev, itm, qos);
-	} else {
-		pr_debug("grant %u before flow activate", fc_info->num_bytes);
-		qos->default_grant = fc_info->num_bytes;
 	}
+
 	return rc;
 }
 
