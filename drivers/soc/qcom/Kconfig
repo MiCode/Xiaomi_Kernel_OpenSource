@@ -426,6 +426,7 @@ config QCOM_SMP2P_SLEEPSTATE
 
 config SENSORS_SSC
 	tristate "Enable Sensors Driver Support for SSC"
+	depends on MSM_SUBSYSTEM_RESTART
 	help
 	  Say y or m here to enable Snapdragon Sensor Core(SSC)
 	  support for Qualcomm Technologies, Inc SoCs. SSC is used for
