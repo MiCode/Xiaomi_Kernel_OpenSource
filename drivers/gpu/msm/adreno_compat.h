@@ -24,7 +24,7 @@ long adreno_compat_ioctl(struct kgsl_device_private *dev_priv,
 #else
 
 static inline int adreno_getproperty_compat(struct kgsl_device *device,
-		struct kgsL_device_getproperty *param);
+		struct kgsl_device_getproperty *param)
 {
 	return -EINVAL;
 }

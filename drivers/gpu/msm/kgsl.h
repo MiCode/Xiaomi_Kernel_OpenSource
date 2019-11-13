@@ -9,6 +9,7 @@
 #include <linux/kthread.h>
 #include <linux/mm.h>
 #include <linux/uaccess.h>
+#include <linux/compat.h>
 #include <uapi/linux/msm_kgsl.h>
 
 #include "kgsl_gmu_core.h"

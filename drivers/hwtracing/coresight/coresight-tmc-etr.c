@@ -215,6 +215,20 @@ void tmc_free_sg_table(struct tmc_sg_table *sg_table)
 	tmc_free_data_pages(sg_table);
 }
 
+long tmc_sg_get_rwp_offset(struct tmc_drvdata *drvdata)
+{
+	struct etr_buf *etr_buf = drvdata->etr_buf;
+	struct etr_sg_table *etr_table = etr_buf->private;
+	struct tmc_sg_table *table = etr_table->sg_table;
+	u64 rwp;
+	long w_offset;
+
+	rwp = tmc_read_rwp(drvdata);
+	w_offset = tmc_sg_get_data_page_offset(table, rwp);
+
+	return w_offset;
+}
+
 /*
  * Alloc pages for the table. Since this will be used by the device,
  * allocate the pages closer to the device (i.e, dev_to_node(dev)
@@ -1217,7 +1231,7 @@ void __tmc_etr_disable_to_bam(struct tmc_drvdata *drvdata)
 	tmc_wait_for_flush(drvdata);
 	tmc_disable_hw(drvdata);
 
-	CS_LOCK(drvdata);
+	CS_LOCK(drvdata->base);
 
 	/* Disable CSR configuration */
 	msm_qdss_csr_disable_bam_to_usb(drvdata->csr);

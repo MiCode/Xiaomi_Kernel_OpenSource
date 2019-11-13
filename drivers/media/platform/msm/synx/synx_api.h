@@ -44,6 +44,16 @@ struct synx_register_params {
 	u32 type;
 };
 
+/**
+ * struct synx_initialization_params - Session params (optional)
+ *
+ * @name : Client session name
+ *         Only first 64 bytes are accepted, rest will be ignored
+ */
+struct synx_initialization_params {
+	const char *name;
+};
+
 /* Kernel APIs */
 
 /* @brief: Register operations for external synchronization
@@ -69,6 +79,25 @@ int synx_register_ops(const struct synx_register_params *params);
  * -EINVAL will be returned if client not found.
  */
 int synx_deregister_ops(const struct synx_register_params *params);
+
+/**
+ * @brief: Initializes a new client session
+ *
+ * @param params : Pointer to session init params
+ *
+ * @return Status of operation. Zero in case of success.
+ * -EINVAL will be returned if params is not valid.
+ * -ENOMEM will be returned if the kernel can't allocate space for
+ * new client
+ */
+int synx_initialize(struct synx_initialization_params *params);
+
+/**
+ * @brief: Destroys the client session
+ *
+ * @return Status of operation. Zero in case of success.
+ */
+int synx_uninitialize(void);
 
 /**
  * @brief: Creates a synx object

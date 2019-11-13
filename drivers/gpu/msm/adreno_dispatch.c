@@ -1380,6 +1380,22 @@ int adreno_dispatcher_queue_cmds(struct kgsl_device_private *dev_priv,
 
 	user_ts = *timestamp;
 
+	/*
+	 * If there is only one drawobj in the array and it is of
+	 * type SYNCOBJ_TYPE, skip comparing user_ts as it can be 0
+	 */
+	if (!(count == 1 && drawobj[0]->type == SYNCOBJ_TYPE) &&
+		(drawctxt->base.flags & KGSL_CONTEXT_USER_GENERATED_TS)) {
+		/*
+		 * User specified timestamps need to be greater than the last
+		 * issued timestamp in the context
+		 */
+		if (timestamp_cmp(drawctxt->timestamp, user_ts) >= 0) {
+			spin_unlock(&drawctxt->lock);
+			return -ERANGE;
+		}
+	}
+
 	for (i = 0; i < count; i++) {
 
 		switch (drawobj[i]->type) {
@@ -2120,8 +2136,11 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 		mutex_lock(&device->mutex);
 		adreno_readreg(adreno_dev, ADRENO_REG_RBBM_STATUS3, &val);
 		mutex_unlock(&device->mutex);
-		if (val & BIT(24))
-			return 0;
+		if (val & BIT(24)) {
+			dev_err(device->dev,
+				"SMMU is stalled without a pagefault\n");
+			return -EBUSY;
+		}
 	}
 
 	/* Turn off all the timers */
@@ -2182,7 +2201,8 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 		&adreno_dev->ft_pf_policy) && adreno_dev->cooperative_reset)
 		gmu_core_dev_cooperative_reset(device);
 
-	do_header_and_snapshot(device, fault, hung_rb, cmdobj);
+	if (!(fault & ADRENO_GMU_FAULT_SKIP_SNAPSHOT))
+		do_header_and_snapshot(device, fault, hung_rb, cmdobj);
 
 	/* Turn off the KEEPALIVE vote from the ISR for hard fault */
 	if (gpudev->gpu_keepalive && fault & ADRENO_HARD_FAULT)
@@ -2386,6 +2406,12 @@ static void _adreno_dispatch_check_timeout(struct adreno_device *adreno_dev,
 		drawobj->context->id, drawobj->timestamp);
 
 	adreno_set_gpu_fault(adreno_dev, ADRENO_TIMEOUT_FAULT);
+
+	/*
+	 * This makes sure dispatcher doesn't run endlessly in cases where
+	 * we couldn't run recovery
+	 */
+	drawqueue->expires = jiffies + msecs_to_jiffies(adreno_drawobj_timeout);
 }
 
 static int adreno_dispatch_process_drawqueue(struct adreno_device *adreno_dev,

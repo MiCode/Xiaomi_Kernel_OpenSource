@@ -53,17 +53,15 @@ ssize_t aoi_set_store(struct device *dev, struct device_attribute *attr,
 	if (bottom > Y_AXIS_MAX)
 		bottom = Y_AXIS_MAX;
 
-	if (left < 0 || left > X_AXIS_MAX || right < 0) {
-		info->aoi_notify_enabled = false;
+	if (left < 0 || left > X_AXIS_MAX || right < 0 ||
+		top > Y_AXIS_MAX || bottom < 0)
 		return -EINVAL;
-	}
-
-	if (top < 0 || top > Y_AXIS_MAX || bottom < 0) {
-		info->aoi_notify_enabled = false;
-		return -EINVAL;
-	}
 
 	if (left >= right || top >= bottom) {
+		info->aoi_left = 0;
+		info->aoi_top = 0;
+		info->aoi_right = 0;
+		info->aoi_bottom = 0;
 		info->aoi_notify_enabled = false;
 		return count;
 	}

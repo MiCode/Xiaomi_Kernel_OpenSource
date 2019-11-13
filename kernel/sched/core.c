@@ -3215,8 +3215,36 @@ void scheduler_tick(void)
 
 struct tick_work {
 	int			cpu;
+	atomic_t		state;
 	struct delayed_work	work;
 };
+/* Values for ->state, see diagram below. */
+#define TICK_SCHED_REMOTE_OFFLINE	0
+#define TICK_SCHED_REMOTE_OFFLINING	1
+#define TICK_SCHED_REMOTE_RUNNING	2
+
+/*
+ * State diagram for ->state:
+ *
+ *
+ *          TICK_SCHED_REMOTE_OFFLINE
+ *                    |   ^
+ *                    |   |
+ *                    |   | sched_tick_remote()
+ *                    |   |
+ *                    |   |
+ *                    +--TICK_SCHED_REMOTE_OFFLINING
+ *                    |   ^
+ *                    |   |
+ * sched_tick_start() |   | sched_tick_stop()
+ *                    |   |
+ *                    V   |
+ *          TICK_SCHED_REMOTE_RUNNING
+ *
+ *
+ * Other transitions get WARN_ON_ONCE(), except that sched_tick_remote()
+ * and sched_tick_start() are happy to leave the state in RUNNING.
+ */
 
 static struct tick_work __percpu *tick_work_cpu;
 
@@ -3229,6 +3257,7 @@ static void sched_tick_remote(struct work_struct *work)
 	struct task_struct *curr;
 	struct rq_flags rf;
 	u64 delta;
+	int os;
 
 	/*
 	 * Handle the tick only if it appears the remote CPU is running in full
@@ -3242,7 +3271,7 @@ static void sched_tick_remote(struct work_struct *work)
 
 	rq_lock_irq(rq, &rf);
 	curr = rq->curr;
-	if (is_idle_task(curr))
+	if (is_idle_task(curr) || cpu_is_offline(cpu))
 		goto out_unlock;
 
 	update_rq_clock(rq);
@@ -3262,13 +3291,18 @@ out_requeue:
 	/*
 	 * Run the remote tick once per second (1Hz). This arbitrary
 	 * frequency is large enough to avoid overload but short enough
-	 * to keep scheduler internal stats reasonably up to date.
+	 * to keep scheduler internal stats reasonably up to date.  But
+	 * first update state to reflect hotplug activity if required.
 	 */
-	queue_delayed_work(system_unbound_wq, dwork, HZ);
+	os = atomic_fetch_add_unless(&twork->state, -1, TICK_SCHED_REMOTE_RUNNING);
+	WARN_ON_ONCE(os == TICK_SCHED_REMOTE_OFFLINE);
+	if (os == TICK_SCHED_REMOTE_RUNNING)
+		queue_delayed_work(system_unbound_wq, dwork, HZ);
 }
 
 static void sched_tick_start(int cpu)
 {
+	int os;
 	struct tick_work *twork;
 
 	if (housekeeping_cpu(cpu, HK_FLAG_TICK))
@@ -3277,15 +3311,20 @@ static void sched_tick_start(int cpu)
 	WARN_ON_ONCE(!tick_work_cpu);
 
 	twork = per_cpu_ptr(tick_work_cpu, cpu);
-	twork->cpu = cpu;
-	INIT_DELAYED_WORK(&twork->work, sched_tick_remote);
-	queue_delayed_work(system_unbound_wq, &twork->work, HZ);
+	os = atomic_xchg(&twork->state, TICK_SCHED_REMOTE_RUNNING);
+	WARN_ON_ONCE(os == TICK_SCHED_REMOTE_RUNNING);
+	if (os == TICK_SCHED_REMOTE_OFFLINE) {
+		twork->cpu = cpu;
+		INIT_DELAYED_WORK(&twork->work, sched_tick_remote);
+		queue_delayed_work(system_unbound_wq, &twork->work, HZ);
+	}
 }
 
 #ifdef CONFIG_HOTPLUG_CPU
 static void sched_tick_stop(int cpu)
 {
 	struct tick_work *twork;
+	int os;
 
 	if (housekeeping_cpu(cpu, HK_FLAG_TICK))
 		return;
@@ -3293,7 +3332,10 @@ static void sched_tick_stop(int cpu)
 	WARN_ON_ONCE(!tick_work_cpu);
 
 	twork = per_cpu_ptr(tick_work_cpu, cpu);
-	cancel_delayed_work_sync(&twork->work);
+	/* There cannot be competing actions, but don't rely on stop-machine. */
+	os = atomic_xchg(&twork->state, TICK_SCHED_REMOTE_OFFLINING);
+	WARN_ON_ONCE(os != TICK_SCHED_REMOTE_RUNNING);
+	/* Don't cancel, as this would mess up the state machine. */
 }
 #endif /* CONFIG_HOTPLUG_CPU */
 
@@ -3301,7 +3343,6 @@ int __init sched_tick_offload_init(void)
 {
 	tick_work_cpu = alloc_percpu(struct tick_work);
 	BUG_ON(!tick_work_cpu);
-
 	return 0;
 }
 
@@ -3322,10 +3363,24 @@ struct preempt_store {
 	u64 ts;
 	unsigned long caddr[4];
 	bool irqs_disabled;
-	bool is_idle_task;
 };
 
 DEFINE_PER_CPU(struct preempt_store, the_ps);
+
+/*
+ * This is only called from __schedule() upon context switch.
+ *
+ * schedule() calls __schedule() with preemption disabled.
+ * if we had entered idle and exiting idle now, reset the preemption
+ * tracking otherwise we may think preemption is disabled the whole time
+ * when the non idle task re-enables the preemption in schedule().
+ */
+static inline void preempt_latency_reset(void)
+{
+	if (is_idle_task(this_rq()->curr))
+		this_cpu_ptr(&the_ps)->ts = 0;
+}
+
 /*
  * If the value passed in is equal to the current preempt count
  * then we just disabled preemption. Start timing the latency.
@@ -3333,7 +3388,6 @@ DEFINE_PER_CPU(struct preempt_store, the_ps);
 static inline void preempt_latency_start(int val)
 {
 	int cpu = raw_smp_processor_id();
-	struct rq *rq = cpu_rq(cpu);
 	struct preempt_store *ps = &per_cpu(the_ps, cpu);
 
 	if (preempt_count() == val) {
@@ -3347,7 +3401,6 @@ static inline void preempt_latency_start(int val)
 		ps->caddr[2] = CALLER_ADDR2;
 		ps->caddr[3] = CALLER_ADDR3;
 		ps->irqs_disabled = irqs_disabled();
-		ps->is_idle_task = (rq->curr == rq->idle);
 
 		trace_preempt_off(CALLER_ADDR0, ip);
 	}
@@ -3384,14 +3437,13 @@ static inline void preempt_latency_stop(int val)
 	if (preempt_count() == val) {
 		struct preempt_store *ps = &per_cpu(the_ps,
 				raw_smp_processor_id());
-		u64 delta = sched_clock() - ps->ts;
+		u64 delta = ps->ts ? (sched_clock() - ps->ts) : 0;
 
 		/*
 		 * Trace preempt disable stack if preemption
 		 * is disabled for more than the threshold.
 		 */
-		if (!ps->is_idle_task &&
-				delta > sysctl_preemptoff_tracing_threshold_ns)
+		if (delta > sysctl_preemptoff_tracing_threshold_ns)
 			trace_sched_preempt_disable(delta, ps->irqs_disabled,
 						ps->caddr[0], ps->caddr[1],
 						ps->caddr[2], ps->caddr[3]);
@@ -3424,6 +3476,7 @@ NOKPROBE_SYMBOL(preempt_count_sub);
 #else
 static inline void preempt_latency_start(int val) { }
 static inline void preempt_latency_stop(int val) { }
+static inline void preempt_latency_reset(void) { }
 #endif
 
 static inline unsigned long get_preempt_disable_ip(struct task_struct *p)
@@ -3647,6 +3700,7 @@ static void __sched notrace __schedule(bool preempt)
 		if (!prev->on_rq)
 			prev->last_sleep_ts = wallclock;
 
+		preempt_latency_reset();
 		update_task_ravg(prev, rq, PUT_PREV_TASK, wallclock, 0);
 		update_task_ravg(next, rq, PICK_NEXT_TASK, wallclock, 0);
 		rq->nr_switches++;
@@ -7184,10 +7238,6 @@ static int cpu_cgroup_can_attach(struct cgroup_taskset *tset)
 	cgroup_taskset_for_each(task, css, tset) {
 #ifdef CONFIG_RT_GROUP_SCHED
 		if (!sched_rt_can_attach(css_tg(css), task))
-			return -EINVAL;
-#else
-		/* We don't support RT-tasks being in separate groups */
-		if (task->sched_class != &fair_sched_class)
 			return -EINVAL;
 #endif
 		/*

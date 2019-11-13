@@ -303,11 +303,10 @@ static int smb5_chg_config_init(struct smb5 *chip)
 {
 	struct smb_charger *chg = &chip->chg;
 	struct pmic_revid_data *pmic_rev_id;
-	struct device_node *revid_dev_node;
+	struct device_node *revid_dev_node, *node = chg->dev->of_node;
 	int rc = 0;
 
-	revid_dev_node = of_parse_phandle(chip->chg.dev->of_node,
-					  "qcom,pmic-revid", 0);
+	revid_dev_node = of_parse_phandle(node, "qcom,pmic-revid", 0);
 	if (!revid_dev_node) {
 		pr_err("Missing qcom,pmic-revid property\n");
 		return -EINVAL;
@@ -326,20 +325,20 @@ static int smb5_chg_config_init(struct smb5 *chip)
 
 	switch (pmic_rev_id->pmic_subtype) {
 	case PM8150B_SUBTYPE:
-		chip->chg.smb_version = PM8150B_SUBTYPE;
+		chip->chg.chg_param.smb_version = PM8150B_SUBTYPE;
 		chg->param = smb5_pm8150b_params;
 		chg->name = "pm8150b_charger";
 		chg->wa_flags |= CHG_TERMINATION_WA;
 		break;
 	case PM7250B_SUBTYPE:
-		chip->chg.smb_version = PM7250B_SUBTYPE;
+		chip->chg.chg_param.smb_version = PM7250B_SUBTYPE;
 		chg->param = smb5_pm8150b_params;
 		chg->name = "pm7250b_charger";
 		chg->wa_flags |= CHG_TERMINATION_WA;
 		chg->uusb_moisture_protection_capable = true;
 		break;
 	case PM6150_SUBTYPE:
-		chip->chg.smb_version = PM6150_SUBTYPE;
+		chip->chg.chg_param.smb_version = PM6150_SUBTYPE;
 		chg->param = smb5_pm8150b_params;
 		chg->name = "pm6150_charger";
 		chg->wa_flags |= SW_THERM_REGULATION_WA | CHG_TERMINATION_WA;
@@ -348,9 +347,10 @@ static int smb5_chg_config_init(struct smb5 *chip)
 		chg->main_fcc_max = PM6150_MAX_FCC_UA;
 		break;
 	case PMI632_SUBTYPE:
-		chip->chg.smb_version = PMI632_SUBTYPE;
+		chip->chg.chg_param.smb_version = PMI632_SUBTYPE;
 		chg->wa_flags |= WEAK_ADAPTER_WA | USBIN_OV_WA
-				| CHG_TERMINATION_WA;
+				| CHG_TERMINATION_WA | USBIN_ADC_WA
+				| SKIP_MISC_PBS_IRQ_WA;
 		chg->param = smb5_pmi632_params;
 		chg->use_extcon = true;
 		chg->name = "pmi632_charger";
@@ -377,6 +377,12 @@ static int smb5_chg_config_init(struct smb5 *chip)
 	chg->chg_freq.freq_removal		= 1050;
 	chg->chg_freq.freq_below_otg_threshold	= 800;
 	chg->chg_freq.freq_above_otg_threshold	= 800;
+
+	if (of_property_read_bool(node, "qcom,disable-sw-thermal-regulation"))
+		chg->wa_flags &= ~SW_THERM_REGULATION_WA;
+
+	if (of_property_read_bool(node, "qcom,disable-fcc-restriction"))
+		chg->main_fcc_max = -EINVAL;
 
 out:
 	of_node_put(revid_dev_node);
@@ -429,6 +435,8 @@ static int smb5_configure_internal_pull(struct smb_charger *chg, int type,
 #define OTG_DEFAULT_DEGLITCH_TIME_MS	50
 #define DEFAULT_WD_BARK_TIME		64
 #define DEFAULT_WD_SNARL_TIME_8S	0x07
+#define DEFAULT_FCC_STEP_SIZE_UA	100000
+#define DEFAULT_FCC_STEP_UPDATE_DELAY_MS	1000
 static int smb5_parse_dt_misc(struct smb5 *chip, struct device_node *node)
 {
 	int rc = 0, byte_len;
@@ -565,6 +573,29 @@ static int smb5_parse_dt_misc(struct smb5 *chip, struct device_node *node)
 	chip->dt.adc_based_aicl = of_property_read_bool(node,
 					"qcom,adc-based-aicl");
 
+	of_property_read_u32(node, "qcom,fcc-step-delay-ms",
+					&chg->chg_param.fcc_step_delay_ms);
+	if (chg->chg_param.fcc_step_delay_ms <= 0)
+		chg->chg_param.fcc_step_delay_ms =
+					DEFAULT_FCC_STEP_UPDATE_DELAY_MS;
+
+	of_property_read_u32(node, "qcom,fcc-step-size-ua",
+					&chg->chg_param.fcc_step_size_ua);
+	if (chg->chg_param.fcc_step_size_ua <= 0)
+		chg->chg_param.fcc_step_size_ua = DEFAULT_FCC_STEP_SIZE_UA;
+
+	/*
+	 * If property is present parallel charging with CP is disabled
+	 * with HVDCP3 adapter.
+	 */
+	chg->hvdcp3_standalone_config = of_property_read_bool(node,
+					"qcom,hvdcp3-standalone-config");
+
+	of_property_read_u32(node, "qcom,hvdcp3-max-icl-ua",
+					&chg->chg_param.hvdcp3_max_icl_ua);
+	if (chg->chg_param.hvdcp3_max_icl_ua <= 0)
+		chg->chg_param.hvdcp3_max_icl_ua = MICRO_3PA;
+
 	return 0;
 }
 
@@ -637,7 +668,8 @@ static int smb5_parse_dt_currents(struct smb5 *chip, struct device_node *node)
 	rc = of_property_read_u32(node,
 				"qcom,otg-cl-ua", &chg->otg_cl_ua);
 	if (rc < 0)
-		chg->otg_cl_ua = (chip->chg.smb_version == PMI632_SUBTYPE) ?
+		chg->otg_cl_ua =
+			(chip->chg.chg_param.smb_version == PMI632_SUBTYPE) ?
 							MICRO_1PA : MICRO_3PA;
 
 	rc = of_property_read_u32(node, "qcom,chg-term-src",
@@ -1273,20 +1305,26 @@ static int smb5_usb_main_set_prop(struct power_supply *psy,
 	struct smb5 *chip = power_supply_get_drvdata(psy);
 	struct smb_charger *chg = &chip->chg;
 	union power_supply_propval pval = {0, };
-	int rc = 0;
+	int rc = 0, offset_ua = 0;
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		rc = smblib_set_charge_param(chg, &chg->param.fv, val->intval);
 		break;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
-		rc = smblib_set_charge_param(chg, &chg->param.fcc, val->intval);
+		/* Adjust Main FCC for QC3.0 + SMB1390 */
+		rc = smblib_get_qc3_main_icl_offset(chg, &offset_ua);
+		if (rc < 0)
+			offset_ua = 0;
+
+		rc = smblib_set_charge_param(chg, &chg->param.fcc,
+						val->intval + offset_ua);
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		rc = smblib_set_icl_current(chg, val->intval);
 		break;
 	case POWER_SUPPLY_PROP_FLASH_ACTIVE:
-		if ((chg->smb_version == PMI632_SUBTYPE)
+		if ((chg->chg_param.smb_version == PMI632_SUBTYPE)
 				&& (chg->flash_active != val->intval)) {
 			chg->flash_active = val->intval;
 
@@ -1332,6 +1370,9 @@ static int smb5_usb_main_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_FORCE_MAIN_ICL:
 		vote_override(chg->usb_icl_votable, CC_MODE_VOTER,
 				(val->intval < 0) ? false : true, val->intval);
+		/* Main ICL updated re-calculate ILIM */
+		if (chg->real_charger_type == POWER_SUPPLY_TYPE_USB_HVDCP_3)
+			rerun_election(chg->fcc_votable);
 		break;
 	case POWER_SUPPLY_PROP_COMP_CLAMP_LEVEL:
 		rc = smb5_set_prop_comp_clamp_level(chg, val);
@@ -1408,6 +1449,7 @@ static enum power_supply_property smb5_dc_props[] = {
 	POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION,
 	POWER_SUPPLY_PROP_REAL_TYPE,
 	POWER_SUPPLY_PROP_DC_RESET,
+	POWER_SUPPLY_PROP_AICL_DONE,
 };
 
 static int smb5_dc_get_prop(struct power_supply *psy,
@@ -1445,6 +1487,9 @@ static int smb5_dc_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_DC_RESET:
 		val->intval = 0;
+		break;
+	case POWER_SUPPLY_PROP_AICL_DONE:
+		val->intval = chg->dcin_aicl_done;
 		break;
 	default:
 		return -EINVAL;
@@ -1490,6 +1535,7 @@ static int smb5_dc_prop_is_writeable(struct power_supply *psy,
 {
 	switch (psp) {
 	case POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION:
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		return 1;
 	default:
 		break;
@@ -1734,8 +1780,14 @@ static int smb5_batt_set_prop(struct power_supply *psy,
 		vote(chg->fv_votable, BATT_PROFILE_VOTER, true, val->intval);
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_QNOVO:
-		vote(chg->fv_votable, QNOVO_VOTER, (val->intval >= 0),
-			val->intval);
+		if (val->intval == -EINVAL) {
+			vote(chg->fv_votable, BATT_PROFILE_VOTER, true,
+					chg->batt_profile_fv_uv);
+			vote(chg->fv_votable, QNOVO_VOTER, false, 0);
+		} else {
+			vote(chg->fv_votable, QNOVO_VOTER, true, val->intval);
+			vote(chg->fv_votable, BATT_PROFILE_VOTER, false, 0);
+		}
 		break;
 	case POWER_SUPPLY_PROP_STEP_CHARGING_ENABLED:
 		chg->step_chg_enabled = !!val->intval;
@@ -2046,7 +2098,7 @@ static int smb5_configure_typec(struct smb_charger *chg)
 		return rc;
 	}
 
-	if (chg->smb_version != PMI632_SUBTYPE) {
+	if (chg->chg_param.smb_version != PMI632_SUBTYPE) {
 		rc = smblib_masked_write(chg, USBIN_LOAD_CFG_REG,
 				USBIN_IN_COLLAPSE_GF_SEL_MASK |
 				USBIN_AICL_STEP_TIMING_SEL_MASK,
@@ -2107,9 +2159,10 @@ static int smb5_configure_micro_usb(struct smb_charger *chg)
 		}
 
 		/* Disable periodic monitoring of CC_ID pin */
-		rc = smblib_write(chg, ((chg->smb_version == PMI632_SUBTYPE) ?
-			PMI632_TYPEC_U_USB_WATER_PROTECTION_CFG_REG :
-			TYPEC_U_USB_WATER_PROTECTION_CFG_REG), 0);
+		rc = smblib_write(chg,
+			((chg->chg_param.smb_version == PMI632_SUBTYPE) ?
+				PMI632_TYPEC_U_USB_WATER_PROTECTION_CFG_REG :
+				TYPEC_U_USB_WATER_PROTECTION_CFG_REG), 0);
 		if (rc < 0) {
 			dev_err(chg->dev, "Couldn't disable periodic monitoring of CC_ID rc=%d\n",
 				rc);
@@ -2133,7 +2186,7 @@ static int smb5_configure_iterm_thresholds_adc(struct smb5 *chip)
 	s16 raw_hi_thresh, raw_lo_thresh, max_limit_ma;
 	struct smb_charger *chg = &chip->chg;
 
-	if (chip->chg.smb_version == PMI632_SUBTYPE)
+	if (chip->chg.chg_param.smb_version == PMI632_SUBTYPE)
 		max_limit_ma = ITERM_LIMITS_PMI632_MA;
 	else
 		max_limit_ma = ITERM_LIMITS_PM8150B_MA;
@@ -2194,7 +2247,7 @@ static int smb5_configure_iterm_thresholds(struct smb5 *chip)
 
 	switch (chip->dt.term_current_src) {
 	case ITERM_SRC_ADC:
-		if (chip->chg.smb_version == PM8150B_SUBTYPE) {
+		if (chip->chg.chg_param.smb_version == PM8150B_SUBTYPE) {
 			rc = smblib_masked_write(chg, CHGR_ADC_TERM_CFG_REG,
 					TERM_BASED_ON_SYNC_CONV_OR_SAMPLE_CNT,
 					TERM_BASED_ON_SAMPLE_CNT);
@@ -2266,7 +2319,7 @@ static int smb5_init_dc_peripheral(struct smb_charger *chg)
 	int rc = 0;
 
 	/* PMI632 does not have DC peripheral */
-	if (chg->smb_version == PMI632_SUBTYPE)
+	if (chg->chg_param.smb_version == PMI632_SUBTYPE)
 		return 0;
 
 	/* Set DCIN ICL to 100 mA */
@@ -2404,7 +2457,7 @@ static int smb5_init_connector_type(struct smb_charger *chg)
 	 * PMI632 can have the connector type defined by a dedicated register
 	 * PMI632_TYPEC_MICRO_USB_MODE_REG or by a common TYPEC_U_USB_CFG_REG.
 	 */
-	if (chg->smb_version == PMI632_SUBTYPE) {
+	if (chg->chg_param.smb_version == PMI632_SUBTYPE) {
 		rc = smblib_read(chg, PMI632_TYPEC_MICRO_USB_MODE_REG, &val);
 		if (rc < 0) {
 			dev_err(chg->dev, "Couldn't read USB mode rc=%d\n", rc);
@@ -2449,7 +2502,7 @@ static int smb5_init_connector_type(struct smb_charger *chg)
 	 *   boots with charger connected.
 	 * - Initialize flash module for PMI632
 	 */
-	if (chg->smb_version == PMI632_SUBTYPE) {
+	if (chg->chg_param.smb_version == PMI632_SUBTYPE) {
 		schgm_flash_init(chg);
 		smblib_rerun_apsd_if_required(chg);
 	}
@@ -3310,6 +3363,7 @@ static int smb5_probe(struct platform_device *pdev)
 	chg->connector_health = -EINVAL;
 	chg->otg_present = false;
 	chg->main_fcc_max = -EINVAL;
+	mutex_init(&chg->adc_lock);
 
 	chg->regmap = dev_get_regmap(chg->dev->parent, NULL);
 	if (!chg->regmap) {
@@ -3406,7 +3460,7 @@ static int smb5_probe(struct platform_device *pdev)
 		}
 	}
 
-	switch (chg->smb_version) {
+	switch (chg->chg_param.smb_version) {
 	case PM8150B_SUBTYPE:
 	case PM6150_SUBTYPE:
 	case PM7250B_SUBTYPE:

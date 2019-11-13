@@ -1313,20 +1313,11 @@ static int synx_open(struct inode *inode, struct file *filep)
 	return 0;
 }
 
-static int synx_close(struct inode *inode, struct file *filep)
+static void synx_table_cleanup(void)
 {
 	int rc = 0;
 	int i;
-	struct synx_device *synx_dev = NULL;
-	struct synx_client *client;
 	struct synx_import_data *data, *tmp_data;
-
-	pr_debug("Enter %s from pid: %d\n", __func__, current->pid);
-
-	synx_dev = get_synx_device(filep);
-	client = filep->private_data;
-
-	mutex_lock(&synx_dev->table_lock);
 
 	synx_dev->open_cnt--;
 	if (!synx_dev->open_cnt) {
@@ -1398,7 +1389,20 @@ static int synx_close(struct inode *inode, struct file *filep)
 			kfree(data);
 		}
 	}
+}
 
+static int synx_close(struct inode *inode, struct file *filep)
+{
+	struct synx_device *synx_dev = NULL;
+	struct synx_client *client;
+
+	pr_debug("Enter %s from pid: %d\n", __func__, current->pid);
+
+	synx_dev = get_synx_device(filep);
+	client = filep->private_data;
+
+	mutex_lock(&synx_dev->table_lock);
+	synx_table_cleanup();
 	list_del_init(&client->list);
 	kfree(client);
 	mutex_unlock(&synx_dev->table_lock);
@@ -1419,6 +1423,32 @@ static const struct file_operations synx_fops = {
 	.compat_ioctl = synx_ioctl,
 #endif
 };
+
+int synx_initialize(struct synx_initialization_params *params)
+{
+	pr_debug("Enter %s from pid: %d\n", __func__, current->pid);
+
+	mutex_lock(&synx_dev->table_lock);
+	synx_dev->open_cnt++;
+	mutex_unlock(&synx_dev->table_lock);
+
+	if (params)
+		pr_debug("synx client session initialized for %s\n",
+			params->name);
+	return 0;
+}
+
+int synx_uninitialize(void)
+{
+	pr_debug("Enter %s from pid: %d\n",
+		__func__, current->pid);
+
+	mutex_lock(&synx_dev->table_lock);
+	synx_table_cleanup();
+	mutex_unlock(&synx_dev->table_lock);
+
+	return 0;
+}
 
 int synx_register_ops(const struct synx_register_params *params)
 {

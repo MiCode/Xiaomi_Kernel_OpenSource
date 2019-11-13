@@ -585,6 +585,17 @@ config TEST_IRQ_REQUESTER
 
 	  If in doubt, say N.
 
+config WIGIG_SENSING_SPI
+	tristate "Sensing over 60GHz using wil6210 / SPI bus"
+	depends on SPI && WIL6210
+	default n
+	help
+	  This module adds support for various sensing use cases, like gesture
+	  detection, face recognition, proximity detection and more. The sensor
+	  operates over 60GHz frequency band, using low power SPI interface.
+	  The output of the driver is CIRs (Channel Impulse Response) which
+	  must be processed in user space in order to get meaningful results.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"

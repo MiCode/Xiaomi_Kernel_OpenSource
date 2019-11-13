@@ -170,6 +170,10 @@ static int ngd_slim_qmi_new_server(struct qmi_handle *hdl,
 	qmi->svc_info.sq_family = AF_QIPCRTR;
 	qmi->svc_info.sq_node = service->node;
 	qmi->svc_info.sq_port = service->port;
+	if (dev->lpass_mem_usage) {
+		dev->lpass_mem->start = dev->lpass_phy_base;
+		dev->lpass.base = dev->lpass_virt_base;
+	}
 	atomic_set(&dev->ssr_in_progress, 0);
 	schedule_work(&dev->dsp.dom_up);
 
@@ -692,8 +696,12 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 		*(puc++) = (txn->ec & 0xFF);
 		*(puc++) = (txn->ec >> 8)&0xFF;
 	}
-	if (txn->wbuf)
-		memcpy(puc, txn->wbuf, txn->len);
+	if (txn->wbuf) {
+		if (dev->lpass_mem_usage)
+			memcpy_toio(puc, txn->wbuf, txn->len);
+		else
+			memcpy(puc, txn->wbuf, txn->len);
+	}
 	if (txn->mt == SLIM_MSG_MT_DEST_REFERRED_USER &&
 		(txn->mc == SLIM_USR_MC_CONNECT_SRC ||
 		 txn->mc == SLIM_USR_MC_CONNECT_SINK ||
@@ -1750,6 +1758,7 @@ static int ngd_slim_probe(struct platform_device *pdev)
 	int ret;
 	struct resource		*bam_mem;
 	struct resource		*slim_mem;
+	struct resource		*lpass_mem;
 	struct resource		*irq, *bam_irq;
 	bool			rxreg_access = false;
 	bool			slim_mdm = false;
@@ -1790,6 +1799,16 @@ static int ngd_slim_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "no memory for MSM slimbus controller\n");
 		return PTR_ERR(dev);
 	}
+
+	dev->lpass_mem_usage = false;
+	lpass_mem = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+						"slimbus_lpass_mem");
+	if (lpass_mem) {
+		dev_dbg(&pdev->dev, "Slimbus lpass memory is used\n");
+		dev->lpass_mem_usage = true;
+		dev->lpass_phy_base = (unsigned long long)lpass_mem->start;
+	}
+
 	dev->wr_comp = kzalloc(sizeof(struct completion *) * MSM_TX_BUFS,
 				GFP_KERNEL);
 	if (!dev->wr_comp) {
@@ -1849,26 +1868,40 @@ static int ngd_slim_probe(struct platform_device *pdev)
 	} else
 		dev->sysfs_created = true;
 
-	dev->base = ioremap(slim_mem->start, resource_size(slim_mem));
+	dev->base = devm_ioremap(&pdev->dev, slim_mem->start,
+					resource_size(slim_mem));
 	if (!dev->base) {
 		dev_err(&pdev->dev, "IOremap failed\n");
 		ret = -ENOMEM;
 		goto err_ioremap_failed;
 	}
-	dev->bam.base = ioremap(bam_mem->start, resource_size(bam_mem));
+	dev->bam.base = devm_ioremap(&pdev->dev, bam_mem->start,
+					resource_size(bam_mem));
 	if (!dev->bam.base) {
 		dev_err(&pdev->dev, "BAM IOremap failed\n");
 		ret = -ENOMEM;
-		goto err_ioremap_bam_failed;
+		goto err_ioremap_failed;
 	}
+
+	if (lpass_mem) {
+		dev->lpass.base = devm_ioremap(&pdev->dev, lpass_mem->start,
+					resource_size(lpass_mem));
+		if (!dev->lpass.base) {
+			dev_err(&pdev->dev, "LPASS IOremap failed\n");
+			ret = -ENOMEM;
+			goto err_ioremap_failed;
+		}
+		dev->lpass_virt_base = dev->lpass.base;
+	}
+
 	if (pdev->dev.of_node) {
 
 		ret = of_property_read_u32(pdev->dev.of_node, "cell-index",
 					&dev->ctrl.nr);
 		if (ret) {
-			dev_err(&pdev->dev, "Cell index not specified:%d\n",
-								ret);
-			goto err_ctrl_failed;
+			dev_err(&pdev->dev,
+					"Cell index not specified:%d\n", ret);
+			goto err_ioremap_failed;
 		}
 		rxreg_access = of_property_read_bool(pdev->dev.of_node,
 					"qcom,rxreg-access");
@@ -1889,7 +1922,7 @@ static int ngd_slim_probe(struct platform_device *pdev)
 		if (ret) {
 			dev_err(dev->dev, "%s: Failed to of_platform_populate %d\n",
 				__func__, ret);
-			goto err_ctrl_failed;
+			goto err_ioremap_failed;
 		}
 	} else {
 		dev->ctrl.nr = pdev->id;
@@ -1918,6 +1951,7 @@ static int ngd_slim_probe(struct platform_device *pdev)
 	dev->ctrl.port_xfer = msm_slim_port_xfer;
 	dev->ctrl.port_xfer_status = msm_slim_port_xfer_status;
 	dev->bam_mem = bam_mem;
+	dev->lpass_mem = lpass_mem;
 	dev->rx_slim = ngd_slim_rx;
 
 	init_completion(&dev->reconf);
@@ -1946,7 +1980,7 @@ static int ngd_slim_probe(struct platform_device *pdev)
 	ret = slim_add_numbered_controller(&dev->ctrl);
 	if (ret) {
 		dev_err(dev->dev, "error adding controller\n");
-		goto err_ctrl_failed;
+		goto err_ioremap_failed;
 	}
 
 	dev->ctrl.dev.parent = &pdev->dev;
@@ -1968,7 +2002,7 @@ static int ngd_slim_probe(struct platform_device *pdev)
 
 	if (ret) {
 		dev_err(&pdev->dev, "request IRQ failed\n");
-		goto err_request_irq_failed;
+		goto err_ioremap_failed;
 	}
 
 	init_completion(&dev->qmi.qmi_comp);
@@ -2015,11 +2049,6 @@ err_notify_thread_create_failed:
 	kthread_stop(dev->rx_msgq_thread);
 err_rx_thread_create_failed:
 	free_irq(dev->irq, dev);
-err_request_irq_failed:
-err_ctrl_failed:
-	iounmap(dev->bam.base);
-err_ioremap_bam_failed:
-	iounmap(dev->base);
 err_ioremap_failed:
 	if (dev->sysfs_created)
 		sysfs_remove_file(&dev->dev->kobj,

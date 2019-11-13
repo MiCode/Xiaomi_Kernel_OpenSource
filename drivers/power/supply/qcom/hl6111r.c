@@ -393,6 +393,7 @@ static enum power_supply_property hl6111r_psy_props[] = {
 	POWER_SUPPLY_PROP_TEMP,
 	POWER_SUPPLY_PROP_VOLTAGE_AVG,
 	POWER_SUPPLY_PROP_CURRENT_AVG,
+	POWER_SUPPLY_PROP_VOLTAGE_STEP,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT,
 	POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION,
@@ -432,6 +433,13 @@ static int hl6111r_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_AVG:
 		rc = hl6111r_get_current_avg(chip, val);
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_STEP:
+		/*
+		 * Using only 20 mV for now, to correspond to range 0.
+		 * Return value in uV.
+		 */
+		*val = (hl6111r_vout_range[0].step_mv * 1000);
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN:
 		*val = HL6111R_MAX_VOLTAGE_UV;

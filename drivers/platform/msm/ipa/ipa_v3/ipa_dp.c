@@ -18,6 +18,8 @@
 #define IPA_WAN_AGGR_PKT_CNT 5
 #define IPA_WAN_NAPI_MAX_FRAMES (NAPI_WEIGHT / IPA_WAN_AGGR_PKT_CNT)
 #define IPA_WAN_PAGE_ORDER 3
+#define IPA_LAN_AGGR_PKT_CNT 5
+#define IPA_LAN_NAPI_MAX_FRAMES (NAPI_WEIGHT / IPA_LAN_AGGR_PKT_CNT)
 #define IPA_LAST_DESC_CNT 0xFFFF
 #define POLLING_INACTIVITY_RX 40
 #define POLLING_MIN_SLEEP_RX 1010
@@ -769,6 +771,26 @@ static int ipa3_handle_rx_core(struct ipa3_sys_context *sys, bool process_all,
 }
 
 /**
+ * __ipa3_update_curr_poll_state -> update current polling for default wan and
+ *                                  coalescing pipe.
+ * In RSC/RSB enabled cases using common event ring, so both the pipe
+ * polling state should be in sync.
+ */
+void __ipa3_update_curr_poll_state(enum ipa_client_type client, int state)
+{
+	int ep_idx = IPA_EP_NOT_ALLOCATED;
+
+	if (client == IPA_CLIENT_APPS_WAN_COAL_CONS)
+		ep_idx = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
+	if (client == IPA_CLIENT_APPS_WAN_CONS)
+		ep_idx = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS);
+
+	if (ep_idx != IPA_EP_NOT_ALLOCATED && ipa3_ctx->ep[ep_idx].sys)
+		atomic_set(&ipa3_ctx->ep[ep_idx].sys->curr_polling_state,
+									state);
+}
+
+/**
  * ipa3_rx_switch_to_intr_mode() - Operate the Rx data path in interrupt mode
  */
 static int ipa3_rx_switch_to_intr_mode(struct ipa3_sys_context *sys)
@@ -776,6 +798,8 @@ static int ipa3_rx_switch_to_intr_mode(struct ipa3_sys_context *sys)
 	int ret;
 
 	atomic_set(&sys->curr_polling_state, 0);
+	__ipa3_update_curr_poll_state(sys->ep->client, 0);
+
 	ipa3_dec_release_wakelock();
 	ret = gsi_config_channel_mode(sys->ep->gsi_chan_hdl,
 		GSI_CHAN_MODE_CALLBACK);
@@ -784,8 +808,10 @@ static int ipa3_rx_switch_to_intr_mode(struct ipa3_sys_context *sys)
 		if (ret == -GSI_STATUS_PENDING_IRQ) {
 			ipa3_inc_acquire_wakelock();
 			atomic_set(&sys->curr_polling_state, 1);
+			__ipa3_update_curr_poll_state(sys->ep->client, 1);
 		} else {
-			IPAERR("Failed to switch to intr mode.\n");
+			IPAERR("Failed to switch to intr mode %d ch_id %d\n",
+			 sys->curr_polling_state, sys->ep->gsi_chan_hdl);
 		}
 	}
 
@@ -927,7 +953,7 @@ static void ipa_pm_sys_pipe_cb(void *p, enum ipa_pm_cb_event event)
 int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 {
 	struct ipa3_ep_context *ep;
-	int i, ipa_ep_idx, wan_handle;
+	int i, ipa_ep_idx, wan_handle, coal_ep_id;
 	int result = -EINVAL;
 	struct ipahal_reg_coal_qmap_cfg qmap_cfg;
 	struct ipahal_reg_coal_evict_lru evict_lru;
@@ -957,6 +983,7 @@ int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		goto fail_gen;
 	}
 
+	coal_ep_id = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS);
 	/* save the input config parameters */
 	if (sys_in->client == IPA_CLIENT_APPS_WAN_COAL_CONS)
 		ep_cfg_copy = sys_in->ipa_ep_cfg;
@@ -1008,7 +1035,12 @@ int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		ep->sys->db_timer.function = ipa3_ring_doorbell_timer_fn;
 
 		/* create IPA PM resources for handling polling mode */
-		if (IPA_CLIENT_IS_CONS(sys_in->client)) {
+		if (sys_in->client == IPA_CLIENT_APPS_WAN_CONS &&
+			coal_ep_id != IPA_EP_NOT_ALLOCATED &&
+			ipa3_ctx->ep[coal_ep_id].valid == 1) {
+			/* Use coalescing pipe PM handle for default pipe also*/
+			ep->sys->pm_hdl = ipa3_ctx->ep[coal_ep_id].sys->pm_hdl;
+		} else if (IPA_CLIENT_IS_CONS(sys_in->client)) {
 			pm_reg.name = ipa_clients_strings[sys_in->client];
 			pm_reg.callback = ipa_pm_sys_pipe_cb;
 			pm_reg.user_data = ep->sys;
@@ -1979,9 +2011,9 @@ static void ipa3_replenish_rx_page_recycle(struct ipa3_sys_context *sys)
 			 * Could not find idle page at curr index.
 			 * Allocate a new one.
 			 */
-			ipa3_ctx->stats.page_recycle_stats[stats_i].tmp_alloc++;
 			if (curr_wq == atomic_read(&sys->repl->tail_idx))
 				break;
+			ipa3_ctx->stats.page_recycle_stats[stats_i].tmp_alloc++;
 			rx_pkt = sys->repl->cache[curr_wq];
 			curr_wq = (++curr_wq == sys->repl->capacity) ?
 								 0 : curr_wq;
@@ -2630,7 +2662,13 @@ static struct sk_buff *ipa3_skb_copy_for_client(struct sk_buff *skb, int len)
 {
 	struct sk_buff *skb2 = NULL;
 
-	skb2 = __dev_alloc_skb(len + IPA_RX_BUFF_CLIENT_HEADROOM, GFP_KERNEL);
+	if (!ipa3_ctx->lan_rx_napi_enable)
+		skb2 = __dev_alloc_skb(len + IPA_RX_BUFF_CLIENT_HEADROOM,
+					GFP_KERNEL);
+	else
+		skb2 = __dev_alloc_skb(len + IPA_RX_BUFF_CLIENT_HEADROOM,
+					GFP_ATOMIC);
+
 	if (likely(skb2)) {
 		/* Set the data pointer */
 		skb_reserve(skb2, IPA_RX_BUFF_CLIENT_HEADROOM);
@@ -2684,8 +2722,12 @@ static int ipa3_lan_rx_pyld_hdlr(struct sk_buff *skb,
 				sys->len_pad);
 		if (sys->len_rem <= skb->len) {
 			if (sys->prev_skb) {
-				skb2 = skb_copy_expand(sys->prev_skb, 0,
-						sys->len_rem, GFP_KERNEL);
+				if (!ipa3_ctx->lan_rx_napi_enable)
+					skb2 = skb_copy_expand(sys->prev_skb,
+						0, sys->len_rem, GFP_KERNEL);
+				else
+					skb2 = skb_copy_expand(sys->prev_skb,
+						0, sys->len_rem, GFP_ATOMIC);
 				if (likely(skb2)) {
 					memcpy(skb_put(skb2, sys->len_rem),
 						skb->data, sys->len_rem);
@@ -2711,8 +2753,12 @@ static int ipa3_lan_rx_pyld_hdlr(struct sk_buff *skb,
 			sys->len_pad = 0;
 		} else {
 			if (sys->prev_skb) {
-				skb2 = skb_copy_expand(sys->prev_skb, 0,
-					skb->len, GFP_KERNEL);
+				if (!ipa3_ctx->lan_rx_napi_enable)
+					skb2 = skb_copy_expand(sys->prev_skb, 0,
+						skb->len, GFP_KERNEL);
+				else
+					skb2 = skb_copy_expand(sys->prev_skb, 0,
+						skb->len, GFP_ATOMIC);
 				if (likely(skb2)) {
 					memcpy(skb_put(skb2, skb->len),
 						skb->data, skb->len);
@@ -2736,7 +2782,10 @@ begin:
 		if (skb->len < pkt_status_sz) {
 			WARN_ON(sys->prev_skb != NULL);
 			IPADBG_LOW("status straddles buffer\n");
-			sys->prev_skb = skb_copy(skb, GFP_KERNEL);
+			if (!ipa3_ctx->lan_rx_napi_enable)
+				sys->prev_skb = skb_copy(skb, GFP_KERNEL);
+			else
+				sys->prev_skb = skb_copy(skb, GFP_ATOMIC);
 			sys->len_partial = skb->len;
 			goto out;
 		}
@@ -2753,25 +2802,26 @@ begin:
 				sys->status_stat->curr = 0;
 		}
 
-		if ((status.status_opcode !=
-			IPAHAL_PKT_STATUS_OPCODE_DROPPED_PACKET) &&
-			(status.status_opcode !=
-			IPAHAL_PKT_STATUS_OPCODE_PACKET) &&
-			(status.status_opcode !=
-			IPAHAL_PKT_STATUS_OPCODE_SUSPENDED_PACKET) &&
-			(status.status_opcode !=
-			IPAHAL_PKT_STATUS_OPCODE_PACKET_2ND_PASS)) {
-			IPAERR("unsupported opcode(%d)\n",
+		switch (status.status_opcode) {
+		case IPAHAL_PKT_STATUS_OPCODE_DROPPED_PACKET:
+		case IPAHAL_PKT_STATUS_OPCODE_PACKET:
+		case IPAHAL_PKT_STATUS_OPCODE_SUSPENDED_PACKET:
+		case IPAHAL_PKT_STATUS_OPCODE_PACKET_2ND_PASS:
+		case IPAHAL_PKT_STATUS_OPCODE_NEW_FRAG_RULE:
+			break;
+		default:
+			IPAERR_RL("unsupported opcode(%d)\n",
 				status.status_opcode);
 			skb_pull(skb, pkt_status_sz);
 			continue;
 		}
+
 		IPA_STATS_EXCP_CNT(status.exception,
 				ipa3_ctx->stats.rx_excp_pkts);
 		if (status.endp_dest_idx >= ipa3_ctx->ipa_num_pipes ||
 			status.endp_src_idx >= ipa3_ctx->ipa_num_pipes) {
-			IPAERR("status fields invalid\n");
-			IPAERR("STATUS opcode=%d src=%d dst=%d len=%d\n",
+			IPAERR_RL("status fields invalid\n");
+			IPAERR_RL("STATUS opcode=%d src=%d dst=%d len=%d\n",
 				status.status_opcode, status.endp_src_idx,
 				status.endp_dest_idx, status.pkt_len);
 			WARN_ON(1);
@@ -2828,14 +2878,18 @@ begin:
 				IPAHAL_PKT_STATUS_EXCEPTION_NONE) {
 				WARN_ON(sys->prev_skb != NULL);
 				IPADBG_LOW("Ins header in next buffer\n");
-				sys->prev_skb = skb_copy(skb, GFP_KERNEL);
+				if (!ipa3_ctx->lan_rx_napi_enable)
+					sys->prev_skb = skb_copy(skb,
+						GFP_KERNEL);
+				else
+					sys->prev_skb = skb_copy(skb,
+						GFP_ATOMIC);
 				sys->len_partial = skb->len;
 				goto out;
 			}
 
 			pad_len_byte = ((status.pkt_len + 3) & ~3) -
 					status.pkt_len;
-
 			len = status.pkt_len + pad_len_byte;
 			IPADBG_LOW("pad %d pkt_len %d len %d\n", pad_len_byte,
 					status.pkt_len, len);
@@ -3812,7 +3866,16 @@ static int ipa3_assign_policy(struct ipa_sys_connect_params *in,
 		}  else if (in->client == IPA_CLIENT_ODL_DPL_CONS) {
 			IPADBG("assigning policy to ODL client:%d\n",
 				in->client);
-			sys->ep->status.status_en = true;
+			/* Status enabling is needed for DPLv2 with
+			 * IPA versions < 4.5.
+			 * Dont enable ipa_status for APQ, since MDM IPA
+			 * has IPA >= 4.5 with DPLv3.
+			 */
+			if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ &&
+				ipa3_is_mhip_offload_enabled())
+				sys->ep->status.status_en = false;
+			else
+				sys->ep->status.status_en = true;
 			sys->policy = IPA_POLICY_INTR_POLL_MODE;
 			INIT_WORK(&sys->work, ipa3_wq_handle_rx);
 			INIT_DELAYED_WORK(&sys->switch_to_intr_work,
@@ -4262,6 +4325,8 @@ void __ipa_gsi_irq_rx_scedule_poll(struct ipa3_sys_context *sys)
 	bool clk_off;
 
 	atomic_set(&sys->curr_polling_state, 1);
+	__ipa3_update_curr_poll_state(sys->ep->client, 1);
+
 	ipa3_inc_acquire_wakelock();
 
 	/*
@@ -4776,9 +4841,75 @@ static int ipa_poll_gsi_n_pkt(struct ipa3_sys_context *sys,
 	*actual_num = idx + poll_num;
 	return ret;
 }
+/**
+ * ipa3_lan_rx_poll() - Poll the LAN rx packets from IPA HW.
+ * This function is executed in the softirq context
+ *
+ * if input budget is zero, the driver switches back to
+ * interrupt mode.
+ *
+ * return number of polled packets, on error 0(zero)
+ */
+int ipa3_lan_rx_poll(u32 clnt_hdl, int weight)
+{
+	struct ipa3_ep_context *ep;
+	int ret;
+	int cnt = 0;
+	int remain_aggr_weight;
+	struct gsi_chan_xfer_notify notify;
+
+	if (unlikely(clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
+		ipa3_ctx->ep[clnt_hdl].valid == 0)) {
+		IPAERR("bad param 0x%x\n", clnt_hdl);
+		return cnt;
+	}
+	remain_aggr_weight = weight / IPA_LAN_AGGR_PKT_CNT;
+	if (unlikely(remain_aggr_weight > IPA_LAN_NAPI_MAX_FRAMES)) {
+		IPAERR("NAPI weight is higher than expected\n");
+		IPAERR("expected %d got %d\n",
+			IPA_LAN_NAPI_MAX_FRAMES, remain_aggr_weight);
+		return cnt;
+	}
+	ep = &ipa3_ctx->ep[clnt_hdl];
+
+start_poll:
+	while (remain_aggr_weight > 0 &&
+			atomic_read(&ep->sys->curr_polling_state)) {
+		atomic_set(&ipa3_ctx->transport_pm.eot_activity, 1);
+		ret = ipa_poll_gsi_pkt(ep->sys, &notify);
+		if (ret)
+			break;
+
+		if (IPA_CLIENT_IS_MEMCPY_DMA_CONS(ep->client))
+			ipa3_dma_memcpy_notify(ep->sys);
+		else if (IPA_CLIENT_IS_WLAN_CONS(ep->client))
+			ipa3_wlan_wq_rx_common(ep->sys, &notify);
+		else
+			ipa3_wq_rx_common(ep->sys, &notify);
+
+		remain_aggr_weight--;
+		if (ep->sys->len == 0) {
+			if (remain_aggr_weight == 0)
+				cnt--;
+			break;
+		}
+	}
+	cnt += weight - remain_aggr_weight * IPA_LAN_AGGR_PKT_CNT;
+	if (cnt < weight) {
+		napi_complete(ep->sys->napi_obj);
+		ret = ipa3_rx_switch_to_intr_mode(ep->sys);
+		if (ret == -GSI_STATUS_PENDING_IRQ &&
+				napi_reschedule(ep->sys->napi_obj))
+			goto start_poll;
+
+		ipa_pm_deferred_deactivate(ep->sys->pm_hdl);
+	}
+
+	return cnt;
+}
 
 /**
- * ipa3_rx_poll() - Poll the rx packets from IPA HW. This
+ * ipa3_rx_poll() - Poll the WAN rx packets from IPA HW. This
  * function is exectued in the softirq context
  *
  * if input budget is zero, the driver switches back to

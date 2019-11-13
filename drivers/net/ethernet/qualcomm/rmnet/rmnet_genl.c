@@ -52,8 +52,12 @@ spinlock_t rmnet_pid_ht_splock; /* Spinlock definition for pid hash table */
 
 #define RMNET_GENL_SEC_TO_MSEC(x)   ((x) * 1000)
 #define RMNET_GENL_SEC_TO_NSEC(x)   ((x) * 1000000000)
-#define RMNET_GENL_NSEC_TO_SEC(x)   ((x) / 1000000000)
 #define RMNET_GENL_BYTES_TO_BITS(x) ((x) * 8)
+#define RMNET_GENL_NSEC_TO_SEC(x) ({\
+	u64 __quotient = (x); \
+	do_div(__quotient, 1000000000); \
+	__quotient; \
+})
 
 int rmnet_core_userspace_connected;
 #define RMNET_QUERY_PERIOD_SEC (1) /* Period of pid/bps queries */
@@ -163,7 +167,7 @@ static void rmnet_create_pid_bps_resp(struct rmnet_core_pid_bps_resp
 	struct hlist_node *tmp;
 	struct rmnet_pid_node_s *node_p;
 	unsigned long ht_flags;
-	u64 tx_bytes_cur, byte_diff, time_diff_ns;
+	u64 tx_bytes_cur, byte_diff, time_diff_ns, tmp_bits;
 	int i;
 	u16 bkt;
 
@@ -195,8 +199,13 @@ static void rmnet_create_pid_bps_resp(struct rmnet_core_pid_bps_resp
 			time_diff_ns = (pid_bps_resp_ptr->timestamp -
 					node_p->timstamp_last_query);
 
-			node_p->tx_bps = (RMNET_GENL_BYTES_TO_BITS(byte_diff) /
-					RMNET_GENL_NSEC_TO_SEC(time_diff_ns));
+			tmp_bits = RMNET_GENL_BYTES_TO_BITS(byte_diff);
+			/* Note that do_div returns remainder and the */
+			/* numerator gets assigned the quotient */
+			/* Since do_div takes the numerator as a reference, */
+			/* a tmp_bits is used*/
+			do_div(tmp_bits, RMNET_GENL_NSEC_TO_SEC(time_diff_ns));
+			node_p->tx_bps = tmp_bits;
 
 			if (node_p->sched_boost_remaining_ms >=
 			    RMNET_GENL_SEC_TO_MSEC(RMNET_QUERY_PERIOD_SEC)) {

@@ -216,3 +216,15 @@ enum CNTXT_OFFS {
 #define GPI_GPII_n_CH_k_SCRATCH_3_OFFS(n, k) \
 	(0x2006C + (0x4000 * (n)) + (0x80 * (k)))
 
+/* Debug registers */
+#define GPI_DEBUG_PC_FOR_DEBUG (0x5048)
+#define GPI_DEBUG_SW_RF_n_READ(n) (0x5100 + (0x4 * n))
+
+/* GPI_DEBUG_QSB registers */
+#define GPI_DEBUG_QSB_LOG_SEL (0x5050)
+#define GPI_DEBUG_QSB_LOG_CLR (0x5058)
+#define GPI_DEBUG_QSB_LOG_ERR_TRNS_ID (0x5060)
+#define GPI_DEBUG_QSB_LOG_0 (0x5064)
+#define GPI_DEBUG_QSB_LOG_1 (0x5068)
+#define GPI_DEBUG_QSB_LOG_2 (0x506C)
+#define GPI_DEBUG_QSB_LOG_LAST_MISC_ID(n) (0x5070 + (0x4*n))

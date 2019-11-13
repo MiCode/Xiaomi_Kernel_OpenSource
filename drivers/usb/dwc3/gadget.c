@@ -899,8 +899,6 @@ static void dwc3_stop_active_transfers_to_halt(struct dwc3 *dwc)
 		}
 	}
 
-	dwc3_notify_event(dwc, DWC3_GSI_EVT_BUF_CLEAR, 0);
-
 	dbg_log_string("DONE");
 }
 
@@ -2129,13 +2127,24 @@ static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 
 	dwc3_writel(dwc->regs, DWC3_DCTL, reg);
 
+	/* Controller is not halted until the events are acknowledged */
+	if (!is_on) {
+		/*
+		 * Clear out any pending events (i.e. End Transfer Command
+		 * Complete).
+		 */
+		reg1 = dwc3_readl(dwc->regs, DWC3_GEVNTCOUNT(0));
+		reg1 &= DWC3_GEVNTCOUNT_MASK;
+		dbg_log_string("remaining EVNTCOUNT(0)=%d", reg1);
+		dwc3_writel(dwc->regs, DWC3_GEVNTCOUNT(0), reg1);
+		dwc3_notify_event(dwc, DWC3_GSI_EVT_BUF_CLEAR, 0);
+		dwc3_notify_event(dwc, DWC3_CONTROLLER_NOTIFY_CLEAR_DB, 0);
+	}
+
 	do {
 		reg = dwc3_readl(dwc->regs, DWC3_DSTS);
 		reg &= DWC3_DSTS_DEVCTRLHLT;
 	} while (--timeout && !(!is_on ^ !reg));
-
-	if (!is_on)
-		dwc3_notify_event(dwc, DWC3_CONTROLLER_NOTIFY_CLEAR_DB, 0);
 
 	if (!timeout) {
 		dev_err(dwc->dev, "failed to %s controller\n",
@@ -3184,8 +3193,6 @@ static void dwc3_gadget_reset_interrupt(struct dwc3 *dwc)
 {
 	u32			reg;
 
-	usb_phy_start_link_training(dwc->usb3_phy);
-
 	dwc->connected = true;
 
 	/*
@@ -3271,7 +3278,6 @@ static void dwc3_gadget_conndone_interrupt(struct dwc3 *dwc)
 	u8			speed;
 
 	dbg_event(0xFF, "CONNECT DONE", 0);
-	usb_phy_stop_link_training(dwc->usb3_phy);
 	reg = dwc3_readl(dwc->regs, DWC3_DSTS);
 	speed = reg & DWC3_DSTS_CONNECTSPD;
 	dwc->speed = speed;

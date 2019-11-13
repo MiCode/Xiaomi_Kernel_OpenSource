@@ -53,8 +53,8 @@ static const char * const gpu_cc_parent_names_0[] = {
 	"bi_tcxo",
 	"gpu_cc_pll0_out_main",
 	"gpu_cc_pll1_out_main",
-	"gpll0_out_main",
-	"gpll0_out_main_div",
+	"gcc_gpu_gpll0_clk_src",
+	"gcc_gpu_gpll0_div_clk_src",
 	"core_bi_pll_test_se",
 };
 
@@ -74,7 +74,7 @@ static const char * const gpu_cc_parent_names_1[] = {
 	"gpu_cc_pll0_out_aux2",
 	"gpu_cc_pll1_out_aux",
 	"gpu_cc_pll1_out_aux2",
-	"gpll0_out_main",
+	"gpll0",
 	"core_bi_pll_test_se",
 };
 
@@ -199,7 +199,7 @@ static struct clk_alpha_pll_postdiv gpu_cc_pll1_out_aux = {
 };
 
 static const struct freq_tbl ftbl_gpu_cc_gmu_clk_src[] = {
-	F(200000000, P_GPLL0_OUT_MAIN, 1.5, 0, 0),
+	F(200000000, P_GPLL0_OUT_MAIN, 3, 0, 0),
 	{ }
 };
 

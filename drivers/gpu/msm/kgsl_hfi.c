@@ -320,6 +320,8 @@ static int hfi_send_cmd(struct gmu_device *gmu, uint32_t queue_idx,
 	return rc;
 }
 
+#define HFI_ACK_ERROR 0xffffffff
+
 static int hfi_send_generic_req(struct gmu_device *gmu, uint32_t queue,
 		void *cmd)
 {
@@ -329,16 +331,14 @@ static int hfi_send_generic_req(struct gmu_device *gmu, uint32_t queue,
 	memset(&ret_cmd, 0, sizeof(ret_cmd));
 
 	rc = hfi_send_cmd(gmu, queue, cmd, &ret_cmd);
-	if (rc)
-		return rc;
 
-	if (ret_cmd.results[2])
-		dev_err(&gmu->pdev->dev,
-				"HFI ACK failure: Req 0x%8.8X Error 0x%X\n",
-				ret_cmd.results[1],
-				ret_cmd.results[2]);
+	if (!rc && ret_cmd.results[2] == HFI_ACK_ERROR) {
+		dev_err(&gmu->pdev->dev, "HFI ACK failure: Req 0x%8.8X\n",
+						ret_cmd.results[1]);
+		return -EINVAL;
+	}
 
-	return ret_cmd.results[2] ? -EINVAL : 0;
+	return rc;
 }
 
 static int hfi_send_gmu_init(struct gmu_device *gmu, uint32_t boot_state)
@@ -644,6 +644,29 @@ static int hfi_verify_fw_version(struct kgsl_device *device,
 	return 0;
 }
 
+static int hfi_send_lm_feature_ctrl(struct gmu_device *gmu,
+		struct adreno_device *adreno_dev)
+{
+	struct hfi_set_value_cmd req = {
+		.type = HFI_VALUE_LM_CS0,
+		.subtype = 0,
+		.data = adreno_dev->lm_slope,
+	};
+	struct kgsl_device *device = &adreno_dev->dev;
+	int ret;
+
+	if (!test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
+		return 0;
+
+	ret = hfi_send_feature_ctrl(gmu, HFI_FEATURE_LM, 1,
+			device->pwrctrl.throttle_mask);
+
+	if (!ret)
+		ret = hfi_send_req(gmu, H2F_MSG_SET_VALUE, &req);
+
+	return ret;
+}
+
 static int hfi_send_acd_feature_ctrl(struct gmu_device *gmu,
 		struct adreno_device *adreno_dev)
 {
@@ -723,12 +746,9 @@ int hfi_start(struct kgsl_device *device,
 		if (result)
 			return result;
 
-		if (test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag)) {
-			result = hfi_send_feature_ctrl(gmu, HFI_FEATURE_LM, 1,
-					device->pwrctrl.throttle_mask);
-			if (result)
-				return result;
-		}
+		result = hfi_send_lm_feature_ctrl(gmu, adreno_dev);
+		if (result)
+			return result;
 
 		result = hfi_send_core_fw_start(gmu);
 		if (result)

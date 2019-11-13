@@ -271,6 +271,7 @@ EXPORT_SYMBOL(cnss_wlan_enable);
 int cnss_wlan_disable(struct device *dev, enum cnss_driver_mode mode)
 {
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
+	int ret = 0;
 
 	if (plat_priv->device_id == QCA6174_DEVICE_ID)
 		return 0;
@@ -278,7 +279,10 @@ int cnss_wlan_disable(struct device *dev, enum cnss_driver_mode mode)
 	if (test_bit(QMI_BYPASS, &plat_priv->ctrl_params.quirks))
 		return 0;
 
-	return cnss_wlfw_wlan_mode_send_sync(plat_priv, CNSS_OFF);
+	ret = cnss_wlfw_wlan_mode_send_sync(plat_priv, CNSS_OFF);
+	cnss_bus_free_qdss_mem(plat_priv);
+
+	return ret;
 }
 EXPORT_SYMBOL(cnss_wlan_disable);
 
@@ -1310,6 +1314,7 @@ static int cnss_cold_boot_cal_done_hdlr(struct cnss_plat_data *plat_priv,
 	}
 
 	cnss_wlfw_wlan_mode_send_sync(plat_priv, CNSS_OFF);
+	cnss_bus_free_qdss_mem(plat_priv);
 	cnss_release_antenna_sharing(plat_priv);
 	cnss_bus_dev_shutdown(plat_priv);
 	msleep(COLD_BOOT_CAL_SHUTDOWN_DELAY_MS);

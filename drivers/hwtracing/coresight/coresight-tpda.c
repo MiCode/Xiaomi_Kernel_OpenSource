@@ -39,6 +39,7 @@ do {									\
 #define TPDA_FLUSH_CR		(0x090)
 #define TPDA_FLUSH_SR		(0x094)
 #define TPDA_FLUSH_ERR		(0x098)
+#define TPDA_SPARE		(0xefc)
 
 #define TPDA_MAX_INPORTS	32
 
@@ -224,6 +225,59 @@ static const struct coresight_ops_link tpda_link_ops = {
 static const struct coresight_ops tpda_cs_ops = {
 	.link_ops	= &tpda_link_ops,
 };
+
+static ssize_t legacy_ts_mode_enable_show(struct device *dev,
+					   struct device_attribute *attr,
+					   char *buf)
+{
+	struct tpda_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val;
+
+	mutex_lock(&drvdata->lock);
+
+	if (!drvdata->enable) {
+		mutex_unlock(&drvdata->lock);
+		return -EPERM;
+	}
+
+	TPDA_UNLOCK(drvdata);
+	val = tpda_readl(drvdata, TPDA_SPARE);
+	TPDA_LOCK(drvdata);
+
+	mutex_unlock(&drvdata->lock);
+	return scnprintf(buf, PAGE_SIZE, "%lx\n", val);
+}
+
+static ssize_t legacy_ts_mode_enable_store(struct device *dev,
+					    struct device_attribute *attr,
+					    const char *buf,
+					    size_t size)
+{
+	struct tpda_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val;
+
+	if (kstrtoul(buf, 16, &val))
+		return -EINVAL;
+
+	mutex_lock(&drvdata->lock);
+
+	if (!drvdata->enable) {
+		mutex_unlock(&drvdata->lock);
+		return -EPERM;
+	}
+
+	if (val) {
+		TPDA_UNLOCK(drvdata);
+		val = tpda_readl(drvdata, TPDA_SPARE);
+		val = val | BIT(0);
+		tpda_writel(drvdata, val, TPDA_SPARE);
+		TPDA_LOCK(drvdata);
+	}
+
+	mutex_unlock(&drvdata->lock);
+	return size;
+}
+static DEVICE_ATTR_RW(legacy_ts_mode_enable);
 
 static ssize_t trig_async_enable_show(struct device *dev,
 					   struct device_attribute *attr,
@@ -553,6 +607,7 @@ static struct attribute *tpda_attrs[] = {
 	&dev_attr_global_flush_req.attr,
 	&dev_attr_port_flush_req.attr,
 	&dev_attr_cmbchan_mode.attr,
+	&dev_attr_legacy_ts_mode_enable.attr,
 	NULL,
 };
 

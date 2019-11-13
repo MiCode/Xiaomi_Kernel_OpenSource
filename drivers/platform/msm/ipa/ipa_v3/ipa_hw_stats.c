@@ -36,7 +36,7 @@ int ipa_hw_stats_init(void)
 		teth_stats_init->prod_mask = (
 			IPA_CLIENT_BIT_32(IPA_CLIENT_MHI_PRIME_TETH_PROD) |
 			IPA_CLIENT_BIT_32(IPA_CLIENT_USB_PROD));
-		if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_5)
+		if (ipa3_ctx->ipa_wdi3_over_gsi)
 			teth_stats_init->prod_mask |=
 			IPA_CLIENT_BIT_32(IPA_CLIENT_WLAN2_PROD);
 		else
@@ -57,7 +57,7 @@ int ipa_hw_stats_init(void)
 			teth_stats_init->dst_ep_mask[ep_index] =
 				IPA_CLIENT_BIT_32(IPA_CLIENT_USB_CONS);
 
-			if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_5)
+			if (ipa3_ctx->ipa_wdi3_over_gsi)
 				teth_stats_init->dst_ep_mask[ep_index] |=
 				IPA_CLIENT_BIT_32(IPA_CLIENT_WLAN2_CONS);
 			else
@@ -78,7 +78,7 @@ int ipa_hw_stats_init(void)
 			IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_WAN_PROD) |
 			IPA_CLIENT_BIT_32(IPA_CLIENT_USB_PROD));
 
-		if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_5)
+		if (ipa3_ctx->ipa_wdi3_over_gsi)
 			teth_stats_init->prod_mask |=
 			IPA_CLIENT_BIT_32(IPA_CLIENT_WLAN2_PROD);
 		else
@@ -87,6 +87,10 @@ int ipa_hw_stats_init(void)
 
 		teth_stats_init->prod_mask |=
 			IPA_CLIENT_BIT_32(IPA_CLIENT_WIGIG_PROD);
+
+		if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5)
+			teth_stats_init->prod_mask |=
+			IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_DL_NLO_DATA_PROD);
 
 		if (IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_WAN_PROD)) {
 			ep_index = ipa3_get_ep_mapping(IPA_CLIENT_Q6_WAN_PROD);
@@ -98,7 +102,36 @@ int ipa_hw_stats_init(void)
 			teth_stats_init->dst_ep_mask[ep_index] =
 			IPA_CLIENT_BIT_32(IPA_CLIENT_USB_CONS);
 
-			if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_5)
+			if (ipa3_ctx->ipa_wdi3_over_gsi)
+				teth_stats_init->dst_ep_mask[ep_index] |=
+				IPA_CLIENT_BIT_32(IPA_CLIENT_WLAN2_CONS);
+			else
+				teth_stats_init->dst_ep_mask[ep_index] |=
+				IPA_CLIENT_BIT_32(IPA_CLIENT_WLAN1_CONS);
+
+			teth_stats_init->dst_ep_mask[ep_index] |=
+				IPA_CLIENT_BIT_32(IPA_CLIENT_WIGIG1_CONS);
+			teth_stats_init->dst_ep_mask[ep_index] |=
+				IPA_CLIENT_BIT_32(IPA_CLIENT_WIGIG2_CONS);
+			teth_stats_init->dst_ep_mask[ep_index] |=
+				IPA_CLIENT_BIT_32(IPA_CLIENT_WIGIG3_CONS);
+			teth_stats_init->dst_ep_mask[ep_index] |=
+				IPA_CLIENT_BIT_32(IPA_CLIENT_WIGIG4_CONS);
+		}
+
+		if (IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_DL_NLO_DATA_PROD) &&
+			(ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5)) {
+			ep_index = ipa3_get_ep_mapping(
+					IPA_CLIENT_Q6_DL_NLO_DATA_PROD);
+			if (ep_index == -1) {
+				IPAERR("Invalid client.\n");
+				kfree(teth_stats_init);
+				return -EINVAL;
+			}
+			teth_stats_init->dst_ep_mask[ep_index] =
+				IPA_CLIENT_BIT_32(IPA_CLIENT_USB_CONS);
+
+			if (ipa3_ctx->ipa_wdi3_over_gsi)
 				teth_stats_init->dst_ep_mask[ep_index] |=
 				IPA_CLIENT_BIT_32(IPA_CLIENT_WLAN2_CONS);
 			else
@@ -130,6 +163,10 @@ int ipa_hw_stats_init(void)
 					IPA_CLIENT_Q6_WAN_CONS) |
 				IPA_CLIENT_BIT_32(
 					IPA_CLIENT_MHI_PRIME_TETH_CONS));
+		else if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5)
+			teth_stats_init->dst_ep_mask[ep_index] =
+				(IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_WAN_CONS) |
+			IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_UL_NLO_DATA_CONS));
 		else
 			teth_stats_init->dst_ep_mask[ep_index] =
 				IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_WAN_CONS);
@@ -148,6 +185,10 @@ int ipa_hw_stats_init(void)
 				(IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_WAN_CONS) |
 				IPA_CLIENT_BIT_32(
 					IPA_CLIENT_MHI_PRIME_TETH_CONS));
+		else if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5)
+			teth_stats_init->dst_ep_mask[ep_index] =
+				(IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_WAN_CONS) |
+			IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_UL_NLO_DATA_CONS));
 		else
 			teth_stats_init->dst_ep_mask[ep_index] =
 				IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_WAN_CONS);
@@ -166,6 +207,10 @@ int ipa_hw_stats_init(void)
 				(IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_WAN_CONS) |
 				IPA_CLIENT_BIT_32(
 					IPA_CLIENT_MHI_PRIME_TETH_CONS));
+		else if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5)
+			teth_stats_init->dst_ep_mask[ep_index] =
+				(IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_WAN_CONS) |
+			IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_UL_NLO_DATA_CONS));
 		else
 			teth_stats_init->dst_ep_mask[ep_index] =
 				IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_WAN_CONS);
@@ -185,6 +230,10 @@ int ipa_hw_stats_init(void)
 				IPA_CLIENT_Q6_WAN_CONS) |
 				IPA_CLIENT_BIT_32(
 					IPA_CLIENT_MHI_PRIME_TETH_CONS));
+		else if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5)
+			teth_stats_init->dst_ep_mask[ep_index] =
+			(IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_WAN_CONS) |
+			IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_UL_NLO_DATA_CONS));
 		else
 			teth_stats_init->dst_ep_mask[ep_index] =
 			IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_WAN_CONS);
@@ -203,7 +252,7 @@ int ipa_hw_stats_init(void)
 	return ret;
 }
 
-static void ipa_close_coal_frame(struct ipahal_imm_cmd_pyld *coal_cmd_pyld)
+static void ipa_close_coal_frame(struct ipahal_imm_cmd_pyld **coal_cmd_pyld)
 {
 	int i;
 	struct ipahal_reg_valmask valmask;
@@ -217,7 +266,7 @@ static void ipa_close_coal_frame(struct ipahal_imm_cmd_pyld *coal_cmd_pyld)
 	ipahal_get_aggr_force_close_valmask(i, &valmask);
 	reg_write_coal_close.value = valmask.val;
 	reg_write_coal_close.value_mask = valmask.mask;
-	coal_cmd_pyld = ipahal_construct_imm_cmd(
+	*coal_cmd_pyld = ipahal_construct_imm_cmd(
 		IPA_IMM_CMD_REGISTER_WRITE,
 		&reg_write_coal_close, false);
 }
@@ -272,7 +321,7 @@ int ipa_init_quota_stats(u32 pipe_bitmask)
 	/* IC to close the coal frame before HPS Clear if coal is enabled */
 	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) !=
 		IPA_EP_NOT_ALLOCATED) {
-		ipa_close_coal_frame(coal_cmd_pyld);
+		ipa_close_coal_frame(&coal_cmd_pyld);
 		if (!coal_cmd_pyld) {
 			IPAERR("failed to construct coal close IC\n");
 			ret = -ENOMEM;
@@ -410,7 +459,7 @@ int ipa_get_quota_stats(struct ipa_quota_stats_all *out)
 	/* IC to close the coal frame before HPS Clear if coal is enabled */
 	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) !=
 		IPA_EP_NOT_ALLOCATED) {
-		ipa_close_coal_frame(cmd_pyld[num_cmd]);
+		ipa_close_coal_frame(&cmd_pyld[num_cmd]);
 		if (!cmd_pyld[num_cmd]) {
 			IPAERR("failed to construct coal close IC\n");
 			ret = -ENOMEM;
@@ -617,7 +666,7 @@ int ipa_init_teth_stats(struct ipa_teth_stats_endpoints *in)
 	/* IC to close the coal frame before HPS Clear if coal is enabled */
 	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) !=
 		IPA_EP_NOT_ALLOCATED) {
-		ipa_close_coal_frame(coal_cmd_pyld);
+		ipa_close_coal_frame(&coal_cmd_pyld);
 		if (!coal_cmd_pyld) {
 			IPAERR("failed to construct coal close IC\n");
 			ret = -ENOMEM;
@@ -762,7 +811,7 @@ int ipa_get_teth_stats(void)
 	/* IC to close the coal frame before HPS Clear if coal is enabled */
 	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) !=
 		IPA_EP_NOT_ALLOCATED) {
-		ipa_close_coal_frame(cmd_pyld[num_cmd]);
+		ipa_close_coal_frame(&cmd_pyld[num_cmd]);
 		if (!cmd_pyld[num_cmd]) {
 			IPAERR("failed to construct coal close IC\n");
 			ret = -ENOMEM;
@@ -1046,7 +1095,7 @@ int ipa_init_flt_rt_stats(void)
 	/* IC to close the coal frame before HPS Clear if coal is enabled */
 	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) !=
 		IPA_EP_NOT_ALLOCATED) {
-		ipa_close_coal_frame(coal_cmd_pyld);
+		ipa_close_coal_frame(&coal_cmd_pyld);
 		if (!coal_cmd_pyld) {
 			IPAERR("failed to construct coal close IC\n");
 			ret = -ENOMEM;
@@ -1245,7 +1294,7 @@ static int __ipa_get_flt_rt_stats(struct ipa_ioc_flt_rt_query *query)
 	/* IC to close the coal frame before HPS Clear if coal is enabled */
 	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) !=
 		IPA_EP_NOT_ALLOCATED) {
-		ipa_close_coal_frame(cmd_pyld[num_cmd]);
+		ipa_close_coal_frame(&cmd_pyld[num_cmd]);
 		if (!cmd_pyld[num_cmd]) {
 			IPAERR("failed to construct coal close IC\n");
 			ret = -ENOMEM;
@@ -1503,7 +1552,7 @@ int ipa_init_drop_stats(u32 pipe_bitmask)
 	/* IC to close the coal frame before HPS Clear if coal is enabled */
 	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) !=
 		IPA_EP_NOT_ALLOCATED) {
-		ipa_close_coal_frame(coal_cmd_pyld);
+		ipa_close_coal_frame(&coal_cmd_pyld);
 		if (!coal_cmd_pyld) {
 			IPAERR("failed to construct coal close IC\n");
 			ret = -ENOMEM;
@@ -1642,7 +1691,7 @@ int ipa_get_drop_stats(struct ipa_drop_stats_all *out)
 	/* IC to close the coal frame before HPS Clear if coal is enabled */
 	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) !=
 		IPA_EP_NOT_ALLOCATED) {
-		ipa_close_coal_frame(cmd_pyld[num_cmd]);
+		ipa_close_coal_frame(&cmd_pyld[num_cmd]);
 		if (!cmd_pyld[num_cmd]) {
 			IPAERR("failed to construct coal close IC\n");
 			ret = -ENOMEM;

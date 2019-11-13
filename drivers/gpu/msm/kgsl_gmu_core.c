@@ -101,14 +101,23 @@ bool gmu_core_gpmu_isenabled(struct kgsl_device *device)
 
 bool gmu_core_scales_bandwidth(struct kgsl_device *device)
 {
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
 	if (device->gmu_core.type == GMU_CORE_TYPE_PCC)
 		return false;
-	else {
-		struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
-		return gmu_core_gpmu_isenabled(device) &&
-			   (ADRENO_GPUREV(adreno_dev) >= ADRENO_REV_A640);
-	}
+	return gmu_core_gpmu_isenabled(device) &&
+		   (ADRENO_GPUREV(adreno_dev) >= ADRENO_REV_A640);
+}
+
+int gmu_core_init(struct kgsl_device *device)
+{
+	struct gmu_core_ops *gmu_core_ops = GMU_CORE_OPS(device);
+
+	if (gmu_core_ops && gmu_core_ops->init)
+		return gmu_core_ops->init(device);
+
+	return 0;
 }
 
 int gmu_core_start(struct kgsl_device *device)

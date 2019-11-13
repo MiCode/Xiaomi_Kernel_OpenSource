@@ -115,6 +115,7 @@ struct gmu_core_ops {
 	void (*remove)(struct kgsl_device *device);
 	int (*dcvs_set)(struct kgsl_device *device,
 			unsigned int gpu_pwrlevel, unsigned int bus_level);
+	int (*init)(struct kgsl_device *device);
 	int (*start)(struct kgsl_device *device);
 	void (*stop)(struct kgsl_device *device);
 	void (*snapshot)(struct kgsl_device *device);
@@ -178,6 +179,7 @@ extern struct gmu_core_ops rgmu_ops;
 /* GMU core functions */
 int gmu_core_probe(struct kgsl_device *device);
 void gmu_core_remove(struct kgsl_device *device);
+int gmu_core_init(struct kgsl_device *device);
 int gmu_core_start(struct kgsl_device *device);
 void gmu_core_stop(struct kgsl_device *device);
 int gmu_core_suspend(struct kgsl_device *device);

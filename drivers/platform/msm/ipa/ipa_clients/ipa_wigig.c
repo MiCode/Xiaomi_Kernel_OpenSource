@@ -173,6 +173,10 @@ int ipa_wigig_init(struct ipa_wigig_init_in_params *in,
 
 	out->is_uc_ready = inout.is_uC_ready;
 
+	out->lan_rx_napi_enable = ipa_get_lan_rx_napi();
+	IPA_WIGIG_DBG("LAN RX NAPI enabled = %s\n",
+				out->lan_rx_napi_enable ? "True" : "False");
+
 	IPA_WIGIG_DBG("exit\n");
 
 	return 0;

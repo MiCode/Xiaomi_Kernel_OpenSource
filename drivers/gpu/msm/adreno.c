@@ -627,6 +627,10 @@ static irqreturn_t adreno_irq_handler(struct kgsl_device *device)
 					"Status=0x%x Unmasked status=0x%x Mask=0x%x\n",
 					shadow_status & irq_params->mask,
 					shadow_status, irq_params->mask);
+				adreno_set_gpu_fault(adreno_dev,
+						ADRENO_GMU_FAULT);
+				adreno_dispatcher_schedule(KGSL_DEVICE
+						(adreno_dev));
 				goto done;
 			}
 			fence_retries++;
@@ -1337,6 +1341,23 @@ static int adreno_read_speed_bin(struct platform_device *pdev,
 	return 0;
 }
 
+static int adreno_probe_efuse(struct platform_device *pdev,
+					struct adreno_device *adreno_dev)
+{
+	int ret;
+
+	ret = adreno_read_speed_bin(pdev, adreno_dev);
+	if (ret)
+		return ret;
+
+	ret = nvmem_cell_read_u32(&pdev->dev, "isense_slope",
+					&adreno_dev->lm_slope);
+	if (ret && ret != -ENOENT)
+		return ret;
+
+	return 0;
+}
+
 static int adreno_probe(struct platform_device *pdev)
 {
 	const struct of_device_id *of_id;
@@ -1364,7 +1385,7 @@ static int adreno_probe(struct platform_device *pdev)
 
 	adreno_update_soc_hw_revision_quirks(adreno_dev, pdev);
 
-	status = adreno_read_speed_bin(pdev, adreno_dev);
+	status = adreno_probe_efuse(pdev, adreno_dev);
 	if (status)
 		return status;
 
@@ -1712,6 +1733,10 @@ static int adreno_init(struct kgsl_device *device)
 	 */
 
 	ret = gpudev->microcode_read(adreno_dev);
+	if (ret)
+		return ret;
+
+	ret = gmu_core_init(device);
 	if (ret)
 		return ret;
 

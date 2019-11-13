@@ -2403,8 +2403,6 @@ static int sdhci_msm_cqe_add_host(struct sdhci_host *host,
 	msm_host->cq_host = cq_host;
 
 	dma64 = host->flags & SDHCI_USE_64_BIT_DMA;
-	if (dma64)
-		cq_host->caps |= CQHCI_TASK_DESC_SZ_128;
 
 	ret = cqhci_init(cq_host, host->mmc, dma64);
 	if (ret) {

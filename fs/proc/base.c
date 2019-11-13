@@ -552,7 +552,7 @@ static int proc_oom_score(struct seq_file *m, struct pid_namespace *ns,
 	unsigned long totalpages = totalram_pages + total_swap_pages;
 	unsigned long points = 0;
 
-	points = oom_badness(task, NULL, NULL, totalpages) *
+	points = oom_badness(task, NULL, NULL, totalpages, false) *
 					1000 / totalpages;
 	seq_printf(m, "%lu\n", points);
 

@@ -6,6 +6,7 @@
 #include <linux/types.h>
 #include <linux/kref.h>
 #include <linux/wait.h>
+#include <linux/timer.h>
 
 #ifdef CONFIG_PSI
 
@@ -123,6 +124,10 @@ struct psi_trigger {
 
 	/* Refcounting to prevent premature destruction */
 	struct kref refcount;
+
+	/* Task that created the trigger */
+	char comm[TASK_COMM_LEN];
+	struct timer_list wdog_timer;
 };
 
 struct psi_group {

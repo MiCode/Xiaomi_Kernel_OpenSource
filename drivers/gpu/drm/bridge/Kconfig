@@ -129,6 +129,18 @@ config DRM_TI_TFP410
 	---help---
 	  Texas Instruments TFP410 DVI/HDMI Transmitter driver
 
+config DRM_LONTIUM_LT9611UXC
+	bool "LT LT9611 DSI/HDMI Bridge"
+	depends on OF
+	select DRM_KMS_HELPER
+	select REGMAP_I2C
+	select DRM_MIPI_DSI
+	help
+	  Say Y here if you want support for the HDMI interface.
+	  It is Lontium Semiconductor DSI/HDMI Transmitter driver.
+	  This only need to uploade firmware and do not need add
+	  too much other configs when running.
+
 source "drivers/gpu/drm/bridge/analogix/Kconfig"
 
 source "drivers/gpu/drm/bridge/adv7511/Kconfig"

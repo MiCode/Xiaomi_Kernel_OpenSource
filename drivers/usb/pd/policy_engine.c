@@ -1305,7 +1305,9 @@ int usbpd_register_svid(struct usbpd *pd, struct usbpd_svid_handler *hdlr)
 
 		for (i = 0; i < pd->num_svids; i++) {
 			if (pd->discovered_svids[i] == hdlr->svid) {
-				hdlr->connect(hdlr);
+				usbpd_dbg(&pd->dev, "Notify SVID: 0x%04x disconnect\n",
+						hdlr->svid);
+				hdlr->connect(hdlr, pd->peer_usb_comm);
 				hdlr->discovered = true;
 				break;
 			}
@@ -1501,7 +1503,10 @@ static void handle_vdm_resp_ack(struct usbpd *pd, u32 *vdos, u8 num_vdos,
 			if (svid) {
 				handler = find_svid_handler(pd, svid);
 				if (handler) {
-					handler->connect(handler);
+					usbpd_dbg(&pd->dev, "Notify SVID: 0x%04x disconnect\n",
+							handler->svid);
+					handler->connect(handler,
+							pd->peer_usb_comm);
 					handler->discovered = true;
 				}
 			}
@@ -1644,8 +1649,11 @@ static void handle_vdm_tx(struct usbpd *pd, enum pd_sop_type sop_type)
 	u32 vdm_hdr;
 	int ret;
 
-	if (!pd->vdm_tx)
+	mutex_lock(&pd->svid_handler_lock);
+	if (!pd->vdm_tx) {
+		mutex_unlock(&pd->svid_handler_lock);
 		return;
+	}
 
 	/* only send one VDM at a time */
 	vdm_hdr = pd->vdm_tx->data[0];
@@ -1659,6 +1667,7 @@ static void handle_vdm_tx(struct usbpd *pd, enum pd_sop_type sop_type)
 		pd->current_pr == PR_SRC && !in_src_ams(pd)) {
 		/* Set SinkTxNG and reschedule sm_work to send again */
 		start_src_ams(pd, true);
+		mutex_unlock(&pd->svid_handler_lock);
 		return;
 	}
 
@@ -1668,6 +1677,7 @@ static void handle_vdm_tx(struct usbpd *pd, enum pd_sop_type sop_type)
 		usbpd_err(&pd->dev, "Error (%d) sending VDM command %d\n",
 				ret, SVDM_HDR_CMD(pd->vdm_tx->data[0]));
 
+		mutex_unlock(&pd->svid_handler_lock);
 		/* retry when hitting PE_SRC/SNK_Ready again */
 		if (ret != -EBUSY && sop_type == SOP_MSG)
 			usbpd_set_state(pd, PE_SEND_SOFT_RESET);
@@ -1700,6 +1710,7 @@ static void handle_vdm_tx(struct usbpd *pd, enum pd_sop_type sop_type)
 	}
 
 	pd->vdm_tx = NULL;
+	mutex_unlock(&pd->svid_handler_lock);
 }
 
 static void reset_vdm_state(struct usbpd *pd)
@@ -1709,12 +1720,13 @@ static void reset_vdm_state(struct usbpd *pd)
 	mutex_lock(&pd->svid_handler_lock);
 	list_for_each_entry(handler, &pd->svid_handlers, entry) {
 		if (handler->discovered) {
+			usbpd_dbg(&pd->dev, "Notify SVID: 0x%04x disconnect\n",
+					handler->svid);
 			handler->disconnect(handler);
 			handler->discovered = false;
 		}
 	}
 
-	mutex_unlock(&pd->svid_handler_lock);
 	pd->vdm_state = VDM_NONE;
 	kfree(pd->vdm_tx_retry);
 	pd->vdm_tx_retry = NULL;
@@ -1725,6 +1737,7 @@ static void reset_vdm_state(struct usbpd *pd)
 	pd->vdm_tx = NULL;
 	pd->ss_lane_svid = 0x0;
 	pd->vdm_in_suspend = false;
+	mutex_unlock(&pd->svid_handler_lock);
 }
 
 static void handle_get_src_cap_extended(struct usbpd *pd)

@@ -53,8 +53,19 @@
 #define MAX_LEN 96
 #define NUM_OF_ENCRYPTED_KEY	3
 
+#define pil_log(msg, desc)	\
+	do {			\
+		if (pil_ipc_log)		\
+			pil_ipc("[%s]: %s", desc->name, msg); \
+		else		\
+			trace_pil_event(msg, desc);	\
+	} while (0)
+
+
 static void __iomem *pil_info_base;
 static struct md_global_toc *g_md_toc;
+
+void *pil_ipc_log;
 
 /**
  * proxy_timeout - Override for proxy vote timeouts
@@ -380,8 +391,8 @@ static int pil_do_minidump(struct pil_desc *desc, void *ramdump_dev)
 					      desc->num_aux_minidump_ids);
 
 	if (desc->minidump_as_elf32)
-		ret = do_elf_ramdump(ramdump_dev, ramdump_segs,
-				     ss_valid_seg_cnt);
+		ret = do_minidump_elf32(ramdump_dev, ramdump_segs,
+					ss_valid_seg_cnt);
 	else
 		ret = do_minidump(ramdump_dev, ramdump_segs, ss_valid_seg_cnt);
 	if (ret)
@@ -1245,7 +1256,7 @@ int pil_boot(struct pil_desc *desc)
 		goto release_fw;
 	}
 
-	trace_pil_event("before_init_image", desc);
+	pil_log("before_init_image", desc);
 	if (desc->ops->init_image)
 		ret = desc->ops->init_image(desc, fw->data, fw->size);
 	if (ret) {
@@ -1253,7 +1264,7 @@ int pil_boot(struct pil_desc *desc)
 		goto err_boot;
 	}
 
-	trace_pil_event("before_mem_setup", desc);
+	pil_log("before_mem_setup", desc);
 	if (desc->ops->mem_setup)
 		ret = desc->ops->mem_setup(desc, priv->region_start,
 				priv->region_end - priv->region_start);
@@ -1269,7 +1280,7 @@ int pil_boot(struct pil_desc *desc)
 		 * Also for secure boot devices, modem memory has to be released
 		 * after MBA is booted
 		 */
-		trace_pil_event("before_assign_mem", desc);
+		pil_log("before_assign_mem", desc);
 		if (desc->modem_ssr) {
 			ret = pil_assign_mem_to_linux(desc, priv->region_start,
 				(priv->region_end - priv->region_start));
@@ -1288,7 +1299,7 @@ int pil_boot(struct pil_desc *desc)
 		hyp_assign = true;
 	}
 
-	trace_pil_event("before_load_seg", desc);
+	pil_log("before_load_seg", desc);
 
 	/**
 	 * Fallback to serial loading of blobs if the
@@ -1307,7 +1318,7 @@ int pil_boot(struct pil_desc *desc)
 	}
 
 	if (desc->subsys_vmid > 0) {
-		trace_pil_event("before_reclaim_mem", desc);
+		pil_log("before_reclaim_mem", desc);
 		ret =  pil_reclaim_mem(desc, priv->region_start,
 				(priv->region_end - priv->region_start),
 				desc->subsys_vmid);
@@ -1319,14 +1330,14 @@ int pil_boot(struct pil_desc *desc)
 		hyp_assign = false;
 	}
 
-	trace_pil_event("before_auth_reset", desc);
+	pil_log("before_auth_reset", desc);
 	notify_before_auth_and_reset(desc->dev);
 	ret = desc->ops->auth_and_reset(desc);
 	if (ret) {
 		pil_err(desc, "Failed to bring out of reset(rc:%d)\n", ret);
 		goto err_auth_and_reset;
 	}
-	trace_pil_event("reset_done", desc);
+	pil_log("reset_done", desc);
 	pil_info(desc, "Brought out of reset\n");
 	desc->modem_ssr = false;
 err_auth_and_reset:
@@ -1651,6 +1662,9 @@ static int __init msm_pil_init(void)
 	if (!pil_wq)
 		pr_warn("pil: Defaulting to sequential firmware loading.\n");
 
+	pil_ipc_log = ipc_log_context_create(2, "PIL-IPC", 0);
+	if (!pil_ipc_log)
+		pr_warn("Failed to setup PIL ipc logging\n");
 out:
 	return register_pm_notifier(&pil_pm_notifier);
 }

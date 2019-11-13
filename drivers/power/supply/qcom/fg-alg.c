@@ -1413,7 +1413,8 @@ static void ttf_work(struct work_struct *work)
 {
 	struct ttf *ttf = container_of(work,
 				struct ttf, ttf_work.work);
-	int rc, ibatt_now, vbatt_now, ttf_now, charge_status, ibatt_avg;
+	int rc, ibatt_now, vbatt_now, ttf_now, charge_status, ibatt_avg,
+		msoc = 0, charge_done;
 	ktime_t ktime_now;
 
 	mutex_lock(&ttf->lock);
@@ -1422,8 +1423,25 @@ static void ttf_work(struct work_struct *work)
 		pr_err("failed to get charge_status rc=%d\n", rc);
 		goto end_work;
 	}
-	if (charge_status != POWER_SUPPLY_STATUS_CHARGING &&
-			charge_status != POWER_SUPPLY_STATUS_DISCHARGING)
+
+	rc =  ttf->get_ttf_param(ttf->data, TTF_CHG_DONE, &charge_done);
+	if (rc < 0) {
+		pr_err("failed to get charge_done rc=%d\n", rc);
+		goto end_work;
+	}
+
+	rc =  ttf->get_ttf_param(ttf->data, TTF_MSOC, &msoc);
+	if (rc < 0) {
+		pr_err("failed to get msoc, rc=%d\n", rc);
+		goto end_work;
+	}
+	pr_debug("TTF: charge_status:%d charge_done:%d msoc:%d\n",
+			charge_status, charge_done, msoc);
+	/*
+	 * Do not schedule ttf work when SOC is 100%
+	 * or charge terminated
+	 */
+	if ((msoc == 100) || charge_done)
 		goto end_work;
 
 	rc =  ttf->get_ttf_param(ttf->data, TTF_IBAT, &ibatt_now);
