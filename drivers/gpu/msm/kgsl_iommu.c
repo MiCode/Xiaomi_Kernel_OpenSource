@@ -1287,6 +1287,8 @@ static int _init_secure_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 	_enable_gpuhtw_llc(mmu, iommu_pt);
 
 	ret = _attach_pt(iommu_pt, ctx);
+	if (ret)
+		goto done;
 
 	if (MMU_FEATURE(mmu, KGSL_MMU_HYP_SECURE_ALLOC))
 		iommu_set_fault_handler(iommu_pt->domain,
@@ -1295,8 +1297,8 @@ static int _init_secure_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 	ret = iommu_domain_get_attr(iommu_pt->domain,
 				DOMAIN_ATTR_CONTEXT_BANK, &cb_num);
 	if (ret) {
-		dev_err(device->dev, "get DOMAIN_ATTR_PROCID failed: %d\n",
-				ret);
+		dev_err(device->dev, "get DOMAIN_ATTR_CONTEXT_BANK failed: %d\n",
+			ret);
 		goto done;
 	}
 
