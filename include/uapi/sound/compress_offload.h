@@ -126,6 +126,19 @@ struct snd_compr_codec_caps {
 	struct snd_codec_desc descriptor[MAX_NUM_CODEC_DESCRIPTORS];
 } __attribute__((packed, aligned(4)));
 
+#ifdef CONFIG_AUDIO_QGKI
+/**
+ * struct snd_compr_audio_info: compressed input audio information
+ * @frame_size: legth of the encoded frame with valid data
+ * @reserved: reserved for furture use
+ */
+struct snd_compr_audio_info {
+	__u32 frame_size;
+	__u32 reserved[15];
+} __attribute__((packed, aligned(4)));
+
+#define SND_COMPR_AUDIO_INFO
+#endif
 /**
  * enum sndrv_compress_encoder
  * @SNDRV_COMPRESS_ENCODER_PADDING: no of samples appended by the encoder at the
