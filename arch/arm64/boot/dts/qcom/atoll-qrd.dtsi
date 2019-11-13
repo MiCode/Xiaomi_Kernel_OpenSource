@@ -486,9 +486,10 @@
 };
 
 &sde_dp{
-	pinctrl-names = "mdss_dp_active", "mdss_dp_sleep";
+	pinctrl-names = "mdss_dp_active", "mdss_dp_sleep", "default";
 	pinctrl-0 = <&sde_dp_aux_active &sde_dp_usbplug_cc_active>;
 	pinctrl-1 = <&sde_dp_aux_suspend &sde_dp_usbplug_cc_suspend>;
+	pinctrl-2 = <&sde_dp_aux_suspend>;
 	qcom,aux-en-gpio = <&tlmm 55 0>;
 	qcom,aux-sel-gpio = <&tlmm 33 0>;
 	qcom,dp-gpio-aux-switch;
