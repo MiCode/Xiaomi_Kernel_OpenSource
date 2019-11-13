@@ -3836,12 +3836,6 @@ static int __cam_isp_ctx_stop_dev_in_activated_unlock(
 		(struct cam_isp_context *) ctx->ctx_priv;
 	struct cam_isp_stop_args         stop_isp;
 
-	/* Mask off all the incoming hardware events */
-	spin_lock_bh(&ctx->lock);
-	ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_HALT;
-	spin_unlock_bh(&ctx->lock);
-	CAM_DBG(CAM_ISP, "next substate %d", ctx_isp->substate_activated);
-
 	/* stop hw first */
 	if (ctx_isp->hw_ctx) {
 		stop.ctxt_to_hw_map = ctx_isp->hw_ctx;
@@ -3857,6 +3851,12 @@ static int __cam_isp_ctx_stop_dev_in_activated_unlock(
 		ctx->hw_mgr_intf->hw_stop(ctx->hw_mgr_intf->hw_mgr_priv,
 			&stop);
 	}
+
+	/* Mask off all the incoming hardware events */
+	spin_lock_bh(&ctx->lock);
+	ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_HALT;
+	spin_unlock_bh(&ctx->lock);
+	CAM_DBG(CAM_ISP, "next substate %d", ctx_isp->substate_activated);
 
 	while (!list_empty(&ctx->pending_req_list)) {
 		req = list_first_entry(&ctx->pending_req_list,
