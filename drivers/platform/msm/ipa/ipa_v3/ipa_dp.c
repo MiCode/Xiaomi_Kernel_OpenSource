@@ -1999,9 +1999,9 @@ static void ipa3_replenish_rx_page_recycle(struct ipa3_sys_context *sys)
 			 * Could not find idle page at curr index.
 			 * Allocate a new one.
 			 */
-			ipa3_ctx->stats.page_recycle_stats[stats_i].tmp_alloc++;
 			if (curr_wq == atomic_read(&sys->repl->tail_idx))
 				break;
+			ipa3_ctx->stats.page_recycle_stats[stats_i].tmp_alloc++;
 			rx_pkt = sys->repl->cache[curr_wq];
 			curr_wq = (++curr_wq == sys->repl->capacity) ?
 								 0 : curr_wq;
