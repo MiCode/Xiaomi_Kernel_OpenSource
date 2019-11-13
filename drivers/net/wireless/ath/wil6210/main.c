@@ -181,7 +181,8 @@ void wil_memcpy_toio_32(volatile void __iomem *dst, const void *src,
 	}
 }
 
-/* Device memory access is prohibited while reset or suspend.
+/* Device memory access is prohibited while reset, suspend or
+ * pci linkdown.
  * wil_mem_access_lock protects accessing device memory in these cases
  */
 int wil_mem_access_lock(struct wil6210_priv *wil)
@@ -190,7 +191,8 @@ int wil_mem_access_lock(struct wil6210_priv *wil)
 		return -EBUSY;
 
 	if (test_bit(wil_status_suspending, wil->status) ||
-	    test_bit(wil_status_suspended, wil->status)) {
+	    test_bit(wil_status_suspended, wil->status) ||
+	    test_bit(wil_status_pci_linkdown, wil->status)) {
 		up_read(&wil->mem_lock);
 		return -EBUSY;
 	}
