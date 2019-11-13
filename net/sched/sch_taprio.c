@@ -1152,7 +1152,7 @@ EXPORT_SYMBOL_GPL(taprio_offload_free);
  * offload state (PENDING, ACTIVE, INACTIVE) so it can be visible in dump().
  * This is left as TODO.
  */
-void taprio_offload_config_changed(struct taprio_sched *q)
+static void taprio_offload_config_changed(struct taprio_sched *q)
 {
 	struct sched_gate_list *oper, *admin;
 
@@ -1341,6 +1341,10 @@ static int taprio_parse_clockid(struct Qdisc *sch, struct nlattr **tb,
 		NL_SET_ERR_MSG(extack, "Specifying a 'clockid' is mandatory");
 		goto out;
 	}
+
+	/* Everything went ok, return success. */
+	err = 0;
+
 out:
 	return err;
 }

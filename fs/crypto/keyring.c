@@ -43,8 +43,12 @@ static void free_master_key(struct fscrypt_master_key *mk)
 
 	wipe_master_key_secret(&mk->mk_secret);
 
-	for (i = 0; i < ARRAY_SIZE(mk->mk_mode_keys); i++)
-		crypto_free_skcipher(mk->mk_mode_keys[i]);
+	for (i = 0; i <= __FSCRYPT_MODE_MAX; i++) {
+		crypto_free_skcipher(mk->mk_direct_tfms[i]);
+		crypto_free_skcipher(mk->mk_iv_ino_lblk_64_tfms[i]);
+	}
+
+	fscrypt_evict_inline_crypt_keys(mk);
 
 	key_put(mk->mk_users);
 	kzfree(mk);
@@ -704,11 +708,33 @@ static int check_for_busy_inodes(struct super_block *sb,
 	return -EBUSY;
 }
 
+static BLOCKING_NOTIFIER_HEAD(fscrypt_key_removal_notifiers);
+
+/*
+ * Register a function to be executed when the FS_IOC_REMOVE_ENCRYPTION_KEY
+ * ioctl has removed a key and is about to try evicting inodes.
+ */
+int fscrypt_register_key_removal_notifier(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_register(&fscrypt_key_removal_notifiers,
+						nb);
+}
+EXPORT_SYMBOL_GPL(fscrypt_register_key_removal_notifier);
+
+int fscrypt_unregister_key_removal_notifier(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_unregister(&fscrypt_key_removal_notifiers,
+						  nb);
+}
+EXPORT_SYMBOL_GPL(fscrypt_unregister_key_removal_notifier);
+
 static int try_to_lock_encrypted_files(struct super_block *sb,
 				       struct fscrypt_master_key *mk)
 {
 	int err1;
 	int err2;
+
+	blocking_notifier_call_chain(&fscrypt_key_removal_notifiers, 0, NULL);
 
 	/*
 	 * An inode can't be evicted while it is dirty or has dirty pages.

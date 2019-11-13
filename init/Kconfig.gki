@@ -4,6 +4,7 @@ config GKI_HIDDEN_DRM_CONFIGS
 	select DRM_GEM_CMA_HELPER
 	select DRM_KMS_CMA_HELPER
 	select DRM_MIPI_DSI
+	select SND_PCM_ELD
 	help
 	  Dummy config option used to enable hidden DRM configs.
 	  These are normally selected implicitely when including a
@@ -12,6 +13,7 @@ config GKI_HIDDEN_DRM_CONFIGS
 config GKI_HIDDEN_REGMAP_CONFIGS
 	bool "Hidden Regmap configs needed for GKI"
 	select REGMAP_IRQ
+	select REGMAP_MMIO
 	help
 	  Dummy config option used to enable hidden regmap configs.
 	  These are normally selected implicitely when a module
@@ -20,8 +22,17 @@ config GKI_HIDDEN_REGMAP_CONFIGS
 config GKI_HIDDEN_SND_SOC_CONFIGS
 	bool "Hidden SND_SOC configs needed for GKI"
 	select SND_SOC_GENERIC_DMAENGINE_PCM if (SND_SOC && SND)
+	select SND_PCM_IEC958
 	help
 	  Dummy config option used to enable hidden SND_SOC configs.
+	  These are normally selected implicitely when a module
+	  that relies on it is configured.
+
+config GKI_HIDDEN_MMC_CONFIGS
+	bool "Hidden MMC configs needed for GKI"
+	select MMC_SDHCI_IO_ACCESSORS if (MMC_SDHCI)
+	help
+	  Dummy config option used to enable hidden MMC configs.
 	  These are normally selected implicitely when a module
 	  that relies on it is configured.
 
@@ -31,6 +42,23 @@ config GKI_HIDDEN_GPIO_CONFIGS
 	select GPIO_PL061 if (HAS_IOMEM && ARM_AMBA && GPIOLIB)
 	help
 	  Dummy config option used to enable hidden GPIO configs.
+	  These are normally selected implicitely when a module
+	  that relies on it is configured.
+
+config GKI_HIDDEN_QCOM_CONFIGS
+	bool "Hidden QCOM configs needed for GKI"
+	select QCOM_SMEM_STATE
+	help
+	  Dummy config option used to enable hidden QCOM configs.
+	  These are normally selected implicitely when a module
+	  that relies on it is configured.
+
+config GKI_HIDDEN_MEDIA_CONFIGS
+	bool "Hidden Media configs needed for GKI"
+	select VIDEOBUF2_CORE
+	select MEDIA_SUPPORT
+	help
+	  Dummy config option used to enable hidden media configs.
 	  These are normally selected implicitely when a module
 	  that relies on it is configured.
 
@@ -65,8 +93,11 @@ config GKI_HACKS_TO_FIX
 	select GKI_HIDDEN_DRM_CONFIGS
 	select GKI_HIDDEN_REGMAP_CONFIGS
 	select GKI_HIDDEN_SND_SOC_CONFIGS
+	select GKI_HIDDEN_MMC_CONFIGS
 	select GKI_HIDDEN_GPIO_CONFIGS
+	select GKI_HIDDEN_QCOM_CONFIGS
 	select GKI_LEGACY_WEXT_ALLCONFIG
+	select GKI_HIDDEN_MEDIA_CONFIGS
 	help
 	  Dummy config option used to enable core functionality used by
 	  modules that may not be selectable in this config.

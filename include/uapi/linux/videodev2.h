@@ -70,7 +70,7 @@
  * Common stuff for both V4L1 and V4L2
  * Moved from videodev.h
  */
-#define VIDEO_MAX_FRAME               32
+#define VIDEO_MAX_FRAME               64
 #define VIDEO_MAX_PLANES               8
 
 /*
@@ -935,7 +935,9 @@ struct v4l2_requestbuffers {
  *			descriptor associated with this plane
  * @data_offset:	offset in the plane to the start of data; usually 0,
  *			unless there is a header in front of the data
- *
+ * @reserved:		few userspace clients and drivers use reserved fields
+ *			and it is up to them how these fields are used. v4l2
+ *			simply copy reserved fields between them.
  * Multi-planar buffers consist of one or more planes, e.g. an YCbCr buffer
  * with two planes can have one plane for Y, and another for interleaved CbCr
  * components. Each plane can reside in a separate memory buffer, or even in
@@ -950,6 +952,7 @@ struct v4l2_plane {
 		__s32		fd;
 	} m;
 	__u32			data_offset;
+	/* reserved fields used by few userspace clients and drivers */
 	__u32			reserved[11];
 };
 
