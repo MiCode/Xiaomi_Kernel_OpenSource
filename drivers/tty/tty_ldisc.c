@@ -638,6 +638,12 @@ static void tty_ldisc_kill(struct tty_struct *tty)
 {
 	if (!tty->ldisc)
 		return;
+
+#if defined(CONFIG_TTY_FLUSH_LOCAL_ECHO)
+	if (tty->echo_delayed_work.work.func)
+		cancel_delayed_work_sync(&tty->echo_delayed_work);
+#endif
+
 	/*
 	 * Now kill off the ldisc
 	 */
