@@ -38,9 +38,13 @@
 #include "adsprpc_compat.h"
 #include "adsprpc_shared.h"
 #include <soc/qcom/ramdump.h>
+#include <linux/delay.h>
 #include <linux/debugfs.h>
 #include <linux/pm_qos.h>
 #include <linux/stat.h>
+
+#define CREATE_TRACE_POINTS
+#include <trace/events/fastrpc.h>
 
 #define TZ_PIL_PROTECT_MEM_SUBSYS_ID 0x0C
 #define TZ_PIL_CLEAR_PROTECT_MEM_SUBSYS_ID 0x0D
@@ -48,6 +52,7 @@
 #define ADSP_MMAP_HEAP_ADDR 4
 #define ADSP_MMAP_REMOTE_HEAP_ADDR 8
 #define ADSP_MMAP_ADD_PAGES 0x1000
+#define ADSP_MMAP_ADD_PAGES_LLC  0x3000
 #define FASTRPC_DMAHANDLE_NOMAP (16)
 
 #define FASTRPC_ENOSUCH 39
@@ -98,12 +103,34 @@
 #define RH_CID ADSP_DOMAIN_ID
 
 #define PERF_KEYS \
-	"count:flush:map:copy:rpmsg:getargs:putargs:invalidate:invoke:tid:ptr"
+	"count:flush:map:copy:rpmsg:getargs:putargs:invalidate:invoke"
 #define FASTRPC_STATIC_HANDLE_PROCESS_GROUP (1)
 #define FASTRPC_STATIC_HANDLE_DSP_UTILITIES (2)
 #define FASTRPC_STATIC_HANDLE_LISTENER (3)
 #define FASTRPC_STATIC_HANDLE_MAX (20)
 #define FASTRPC_LATENCY_CTRL_ENB  (1)
+
+/* timeout in us for busy polling after early response from remote processor */
+#define FASTRPC_POLL_TIME (4000)
+
+/* timeout in us for polling without preempt */
+#define FASTRPC_POLL_TIME_WITHOUT_PREEMPT (500)
+
+/* timeout in us for polling completion signal after user early hint */
+#define FASTRPC_USER_EARLY_HINT_TIMEOUT (500)
+
+/* Early wake up poll completion number received from remote processor */
+#define FASTRPC_EARLY_WAKEUP_POLL (0xabbccdde)
+
+/* latency in us, early wake up signal used below this value */
+#define FASTRPC_EARLY_WAKEUP_LATENCY (200)
+
+/* response version number */
+#define FASTRPC_RSP_VERSION2 (2)
+
+/* CPU feature information to DSP */
+#define FASTRPC_CPUINFO_DEFAULT (0)
+#define FASTRPC_CPUINFO_EARLY_WAKEUP (1)
 
 #define INIT_FILELEN_MAX (2*1024*1024)
 #define INIT_MEMLEN_MAX  (8*1024*1024)
@@ -227,9 +254,9 @@ struct smq_invoke_ctx {
 	unsigned int *attrs;
 	struct fastrpc_mmap **maps;
 	struct fastrpc_buf *buf;
-	struct fastrpc_buf *lbuf;
 	size_t used;
 	struct fastrpc_file *fl;
+	uint32_t handle;
 	uint32_t sc;
 	struct overlap *overs;
 	struct overlap **overps;
@@ -237,6 +264,13 @@ struct smq_invoke_ctx {
 	uint32_t *crc;
 	unsigned int magic;
 	uint64_t ctxid;
+	/* response flags from remote processor */
+	enum fastrpc_response_flags rsp_flags;
+	/* user hint of completion time in us */
+	uint32_t early_wake_time;
+	/* work done status flag */
+	bool is_work_done;
+	bool pm_awake_voted;
 };
 
 struct fastrpc_ctx_lst {
@@ -302,6 +336,9 @@ struct fastrpc_channel_ctx {
 	int secure;
 	struct fastrpc_dsp_capabilities dsp_cap_kernel;
 	void *ipc_log_ctx;
+	/* cpu capabilities shared to DSP */
+	uint64_t cpuinfo_todsp;
+	bool cpuinfo_status;
 };
 
 struct fastrpc_apps {
@@ -324,7 +361,6 @@ struct fastrpc_apps {
 	/* Unique job id for each message */
 	uint64_t jobid[NUM_CHANNELS];
 	struct wakeup_source *wake_source;
-	int wake_count;
 };
 
 struct fastrpc_mmap {
@@ -434,6 +470,8 @@ static struct fastrpc_channel_ctx gcinfo[NUM_CHANNELS] = {
 				.cid = ADSP_DOMAIN_ID,
 			}
 		},
+		.cpuinfo_todsp = FASTRPC_CPUINFO_DEFAULT,
+		.cpuinfo_status = false,
 	},
 	{
 		.name = "mdsprpc-smd",
@@ -443,6 +481,8 @@ static struct fastrpc_channel_ctx gcinfo[NUM_CHANNELS] = {
 				.cid = MDSP_DOMAIN_ID,
 			}
 		},
+		.cpuinfo_todsp = FASTRPC_CPUINFO_DEFAULT,
+		.cpuinfo_status = false,
 	},
 	{
 		.name = "sdsprpc-smd",
@@ -457,6 +497,8 @@ static struct fastrpc_channel_ctx gcinfo[NUM_CHANNELS] = {
 				.cid = SDSP_DOMAIN_ID,
 			}
 		},
+		.cpuinfo_todsp = FASTRPC_CPUINFO_DEFAULT,
+		.cpuinfo_status = false,
 	},
 	{
 		.name = "cdsprpc-smd",
@@ -466,11 +508,16 @@ static struct fastrpc_channel_ctx gcinfo[NUM_CHANNELS] = {
 				.cid = CDSP_DOMAIN_ID,
 			}
 		},
+		.cpuinfo_todsp = FASTRPC_CPUINFO_EARLY_WAKEUP,
+		.cpuinfo_status = false,
 	},
 };
 
 static int hlosvm[1] = {VMID_HLOS};
 static int hlosvmperm[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
+
+static void fastrpc_pm_awake(int fl_wake_enable, bool *pm_awake_voted);
+static void fastrpc_pm_relax(bool *pm_awake_voted);
 
 static inline int64_t getnstimediff(struct timespec *start)
 {
@@ -522,6 +569,49 @@ bail:
 	return val;
 }
 
+static inline int poll_on_early_response(struct smq_invoke_ctx *ctx)
+{
+	int ii, jj, err = -EIO;
+	uint32_t sc = ctx->sc;
+	struct smq_invoke_buf *list;
+	struct smq_phy_page *pages;
+	uint64_t *fdlist;
+	uint32_t *crclist, *poll;
+	unsigned int inbufs, outbufs, handles;
+
+	/* calculate poll memory location */
+	inbufs = REMOTE_SCALARS_INBUFS(sc);
+	outbufs = REMOTE_SCALARS_OUTBUFS(sc);
+	handles = REMOTE_SCALARS_INHANDLES(sc) + REMOTE_SCALARS_OUTHANDLES(sc);
+	list = smq_invoke_buf_start(ctx->rpra, sc);
+	pages = smq_phy_page_start(sc, list);
+	fdlist = (uint64_t *)(pages + inbufs + outbufs + handles);
+	crclist = (uint32_t *)(fdlist + M_FDLIST);
+	poll = (uint32_t *)(crclist + M_CRCLIST);
+
+	/*
+	 * poll on memory for actual completion after receiving
+	 * early response from DSP. Return failure on timeout.
+	 */
+	preempt_disable();
+	for (ii = 0, jj = 0; ii < FASTRPC_POLL_TIME; ii++, jj++) {
+		if (*poll == FASTRPC_EARLY_WAKEUP_POLL) {
+			err = 0;
+			break;
+		}
+		if (jj == FASTRPC_POLL_TIME_WITHOUT_PREEMPT) {
+			/* limit preempt disable time with no rescheduling */
+			preempt_enable();
+			/* Wait for DSP to finish updating poll memory */
+			rmb();
+			preempt_disable();
+			jj = 0;
+		}
+		udelay(1);
+	}
+	preempt_enable_no_resched();
+	return err;
+}
 
 static void fastrpc_buf_free(struct fastrpc_buf *buf, int cache)
 {
@@ -556,6 +646,7 @@ static void fastrpc_buf_free(struct fastrpc_buf *buf, int cache)
 			hyp_assign_phys(buf->phys, buf_page_size(buf->size),
 				srcVM, 2, destVM, destVMperm, 1);
 		}
+		trace_fastrpc_dma_free(fl->cid, buf->phys, buf->size);
 		dma_free_attrs(fl->sctx->smmu.dev, buf->size, buf->virt,
 					buf->phys, buf->dma_attr);
 	}
@@ -668,8 +759,8 @@ static int fastrpc_mmap_find(struct fastrpc_file *fl, int fd,
 	return -ENOTTY;
 }
 
-static int dma_alloc_memory(dma_addr_t *region_phys, void **vaddr, size_t size,
-					unsigned long dma_attr)
+static int fastrpc_alloc_cma_memory(dma_addr_t *region_phys, void **vaddr,
+				size_t size, unsigned long dma_attr)
 {
 	struct fastrpc_apps *me = &gfa;
 
@@ -753,14 +844,17 @@ static void fastrpc_mmap_free(struct fastrpc_mmap *map, uint32_t flags)
 				map->flags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
 
 		if (me->dev == NULL) {
-			pr_err("failed to free remote heap allocation\n");
+			pr_err("adsprpc: %s: %s: failed to free remote heap allocation\n",
+				current->comm, __func__);
 			return;
 		}
+		trace_fastrpc_dma_free(-1, map->phys, map->size);
 		if (map->phys) {
 			dma_free_attrs(me->dev, map->size, (void *)map->va,
 			(dma_addr_t)map->phys, (unsigned long)map->attr);
 		}
 	} else if (map->flags == FASTRPC_DMAHANDLE_NOMAP) {
+		trace_fastrpc_dma_unmap(fl->cid, map->phys, map->size);
 		if (!IS_ERR_OR_NULL(map->table))
 			dma_buf_unmap_attachment(map->attach, map->table,
 					DMA_BIDIRECTIONAL);
@@ -784,7 +878,7 @@ static void fastrpc_mmap_free(struct fastrpc_mmap *map, uint32_t flags)
 			hyp_assign_phys(map->phys, buf_page_size(map->size),
 				srcVM, 2, destVM, destVMperm, 1);
 		}
-
+		trace_fastrpc_dma_unmap(fl->cid, map->phys, map->size);
 		if (!IS_ERR_OR_NULL(map->table))
 			dma_buf_unmap_attachment(map->attach, map->table,
 					DMA_BIDIRECTIONAL);
@@ -837,10 +931,12 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 		map->apps = me;
 		map->fl = NULL;
 		map->attr |= DMA_ATTR_SKIP_ZEROING | DMA_ATTR_NO_KERNEL_MAPPING;
-		VERIFY(err, !dma_alloc_memory(&region_phys, &region_vaddr,
-					len, (unsigned long) map->attr));
+		err = fastrpc_alloc_cma_memory(&region_phys, &region_vaddr,
+					len, (unsigned long) map->attr);
 		if (err)
 			goto bail;
+		trace_fastrpc_dma_alloc(fl->cid, (uint64_t)region_phys, len,
+			(unsigned long)map->attr, mflags);
 		map->phys = (uintptr_t)region_phys;
 		map->size = len;
 		map->va = (uintptr_t)region_vaddr;
@@ -871,10 +967,13 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 		if (err)
 			goto bail;
 		map->phys = sg_dma_address(map->table->sgl);
+		map->size = len;
+		trace_fastrpc_dma_map(fl->cid, fd, map->phys, map->size,
+			len, mflags, map->attach->dma_map_attrs);
 	} else {
 		if (map->attr && (map->attr & FASTRPC_ATTR_KEEP_MAP)) {
-			pr_info("adsprpc: buffer mapped with persist attr %x\n",
-				(unsigned int)map->attr);
+			pr_info("adsprpc: %s: buffer mapped with persist attr 0x%x\n",
+				__func__, (unsigned int)map->attr);
 			map->refs = 2;
 		}
 		VERIFY(err, !IS_ERR_OR_NULL(map->buf = dma_buf_get(fd)));
@@ -946,6 +1045,8 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 		} else {
 			map->size = buf_page_size(len);
 		}
+		trace_fastrpc_dma_map(fl->cid, fd, map->phys, map->size,
+			len, mflags, map->attach->dma_map_attrs);
 
 		vmid = fl->apps->channel[fl->cid].vmid;
 		if (!sess->smmu.enabled && !vmid) {
@@ -1036,13 +1137,16 @@ static int fastrpc_buf_alloc(struct fastrpc_file *fl, size_t size,
 		VERIFY(err, !IS_ERR_OR_NULL(buf->virt));
 	}
 	if (err) {
-		err = -ENOMEM;
+		err = ENOMEM;
 		pr_err("adsprpc: %s: %s: dma_alloc_attrs failed for size 0x%zx, returned %pK\n",
 			current->comm, __func__, size, buf->virt);
 		goto bail;
 	}
 	if (fl->sctx->smmu.cb)
 		buf->phys += ((uint64_t)fl->sctx->smmu.cb << 32);
+	trace_fastrpc_dma_alloc(fl->cid, buf->phys, size,
+		dma_attr, (int)rflags);
+
 	vmid = fl->apps->channel[fl->cid].vmid;
 	if (vmid) {
 		int srcVM[1] = {VMID_HLOS};
@@ -1231,6 +1335,7 @@ static int context_alloc(struct fastrpc_file *fl, uint32_t kernel,
 			goto bail;
 	}
 	ctx->crc = (uint32_t *)invokefd->crc;
+	ctx->handle = invoke->handle;
 	ctx->sc = invoke->sc;
 	if (bufs) {
 		VERIFY(err, 0 == context_build_overlap(ctx));
@@ -1242,6 +1347,9 @@ static int context_alloc(struct fastrpc_file *fl, uint32_t kernel,
 	ctx->tgid = fl->tgid;
 	init_completion(&ctx->work);
 	ctx->magic = FASTRPC_CTX_MAGIC;
+	ctx->rsp_flags = NORMAL_RESPONSE;
+	ctx->is_work_done = false;
+	ctx->pm_awake_voted = false;
 
 	spin_lock(&fl->hlock);
 	hlist_add_head(&ctx->hn, &clst->pending);
@@ -1263,7 +1371,8 @@ static int context_alloc(struct fastrpc_file *fl, uint32_t kernel,
 		pr_err("adsprpc: out of context memory\n");
 		goto bail;
 	}
-
+	trace_fastrpc_context_alloc((uint64_t)ctx,
+		ctx->ctxid | fl->pd, ctx->handle, ctx->sc);
 	*po = ctx;
 bail:
 	if (ctx && err)
@@ -1287,17 +1396,6 @@ static void context_free(struct smq_invoke_ctx *ctx)
 	struct fastrpc_apps *me = &gfa;
 	int nbufs = REMOTE_SCALARS_INBUFS(ctx->sc) +
 		    REMOTE_SCALARS_OUTBUFS(ctx->sc);
-	spin_lock(&ctx->fl->hlock);
-	hlist_del_init(&ctx->hn);
-	spin_unlock(&ctx->fl->hlock);
-	mutex_lock(&ctx->fl->map_mutex);
-	for (i = 0; i < nbufs; ++i)
-		fastrpc_mmap_free(ctx->maps[i], 0);
-	mutex_unlock(&ctx->fl->map_mutex);
-	fastrpc_buf_free(ctx->buf, 1);
-	fastrpc_buf_free(ctx->lbuf, 1);
-	ctx->magic = 0;
-	ctx->ctxid = 0;
 
 	spin_lock(&me->ctxlock);
 	for (i = 0; i < FASTRPC_CTX_MAX; i++) {
@@ -1308,15 +1406,57 @@ static void context_free(struct smq_invoke_ctx *ctx)
 	}
 	spin_unlock(&me->ctxlock);
 
+	spin_lock(&ctx->fl->hlock);
+	hlist_del_init(&ctx->hn);
+	spin_unlock(&ctx->fl->hlock);
+
+	mutex_lock(&ctx->fl->map_mutex);
+	for (i = 0; i < nbufs; ++i)
+		fastrpc_mmap_free(ctx->maps[i], 0);
+	mutex_unlock(&ctx->fl->map_mutex);
+
+	fastrpc_buf_free(ctx->buf, 1);
+	kfree(ctx->lrpra);
+	ctx->lrpra = NULL;
+	ctx->magic = 0;
+	ctx->ctxid = 0;
+
+	trace_fastrpc_context_free((uint64_t)ctx,
+		ctx->msg.invoke.header.ctx, ctx->handle, ctx->sc);
 	kfree(ctx);
 }
 
-static void context_notify_user(struct smq_invoke_ctx *ctx, int retval)
+static void context_notify_user(struct smq_invoke_ctx *ctx,
+		int retval, uint32_t rsp_flags, uint32_t early_wake_time)
 {
+	fastrpc_pm_awake(ctx->fl->wake_enable, &ctx->pm_awake_voted);
 	ctx->retval = retval;
+	switch (rsp_flags) {
+	case NORMAL_RESPONSE:
+		/* normal response with return value */
+		ctx->retval = retval;
+		ctx->is_work_done = true;
+		break;
+	case USER_EARLY_SIGNAL:
+		/* user hint of approximate time of completion */
+		ctx->early_wake_time = early_wake_time;
+		break;
+	case EARLY_RESPONSE:
+		/* rpc framework early response with return value */
+		ctx->retval = retval;
+		break;
+	case COMPLETE_SIGNAL:
+		/* rpc framework signal to clear if pending on ctx */
+		ctx->is_work_done = true;
+		break;
+	default:
+		break;
+	}
+	ctx->rsp_flags = (enum fastrpc_response_flags)rsp_flags;
+	trace_fastrpc_context_complete(ctx->fl->cid, (uint64_t)ctx, retval,
+		ctx->msg.invoke.header.ctx, ctx->handle, ctx->sc);
 	complete(&ctx->work);
 }
-
 
 static void fastrpc_notify_users(struct fastrpc_file *me)
 {
@@ -1325,9 +1465,17 @@ static void fastrpc_notify_users(struct fastrpc_file *me)
 
 	spin_lock(&me->hlock);
 	hlist_for_each_entry_safe(ictx, n, &me->clst.pending, hn) {
+		ictx->is_work_done = true;
+		trace_fastrpc_context_complete(me->cid, (uint64_t)ictx,
+			ictx->retval, ictx->msg.invoke.header.ctx,
+			ictx->handle, ictx->sc);
 		complete(&ictx->work);
 	}
 	hlist_for_each_entry_safe(ictx, n, &me->clst.interrupted, hn) {
+		ictx->is_work_done = true;
+		trace_fastrpc_context_complete(me->cid, (uint64_t)ictx,
+			ictx->retval, ictx->msg.invoke.header.ctx,
+			ictx->handle, ictx->sc);
 		complete(&ictx->work);
 	}
 	spin_unlock(&me->hlock);
@@ -1341,12 +1489,22 @@ static void fastrpc_notify_users_staticpd_pdr(struct fastrpc_file *me)
 
 	spin_lock(&me->hlock);
 	hlist_for_each_entry_safe(ictx, n, &me->clst.pending, hn) {
-		if (ictx->msg.pid)
+		if (ictx->msg.pid) {
+			ictx->is_work_done = true;
+			trace_fastrpc_context_complete(me->cid, (uint64_t)ictx,
+				ictx->retval, ictx->msg.invoke.header.ctx,
+				ictx->handle, ictx->sc);
 			complete(&ictx->work);
+		}
 	}
 	hlist_for_each_entry_safe(ictx, n, &me->clst.interrupted, hn) {
-		if (ictx->msg.pid)
+		if (ictx->msg.pid) {
+			ictx->is_work_done = true;
+			trace_fastrpc_context_complete(me->cid, (uint64_t)ictx,
+				ictx->retval, ictx->msg.invoke.header.ctx,
+				ictx->handle, ictx->sc);
 			complete(&ictx->work);
+		}
 	}
 	spin_unlock(&me->hlock);
 }
@@ -1454,10 +1612,15 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 	int mflags = 0;
 	uint64_t *fdlist;
 	uint32_t *crclist;
-	int64_t *perf_counter = getperfcounter(ctx->fl, PERF_COUNT);
+	uint32_t early_hint;
+	int64_t *perf_counter = NULL;
+
+	if (ctx->fl->profile)
+		perf_counter = getperfcounter(ctx->fl, PERF_COUNT);
 
 	/* calculate size of the metadata */
 	rpra = NULL;
+	lrpra = NULL;
 	list = smq_invoke_buf_start(rpra, sc);
 	pages = smq_phy_page_start(sc, list);
 	ipage = pages;
@@ -1493,20 +1656,19 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		ipage += 1;
 	}
 	mutex_unlock(&ctx->fl->map_mutex);
+
+	/* metalen includes meta data, fds, crc and early wakeup hint */
 	metalen = copylen = (size_t)&ipage[0] + (sizeof(uint64_t) * M_FDLIST) +
-				 (sizeof(uint32_t) * M_CRCLIST);
+			(sizeof(uint32_t) * M_CRCLIST) + sizeof(early_hint);
 
 	/* allocate new local rpra buffer */
 	lrpralen = (size_t)&list[0];
 	if (lrpralen) {
-		err = fastrpc_buf_alloc(ctx->fl, lrpralen, 0, 0, 0, &ctx->lbuf);
+		lrpra = kzalloc(lrpralen, GFP_KERNEL);
+		VERIFY(err, !IS_ERR_OR_NULL(lrpra));
 		if (err)
 			goto bail;
 	}
-	if (ctx->lbuf->virt)
-		memset(ctx->lbuf->virt, 0, lrpralen);
-
-	lrpra = ctx->lbuf->virt;
 	ctx->lrpra = lrpra;
 
 	/* calculate len required for copying */
@@ -1557,13 +1719,13 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 
 	/* map ion buffers */
 	PERF(ctx->fl->profile, GET_COUNTER(perf_counter, PERF_MAP),
-	for (i = 0; rpra && lrpra && i < inbufs + outbufs; ++i) {
+	for (i = 0; rpra && i < inbufs + outbufs; ++i) {
 		struct fastrpc_mmap *map = ctx->maps[i];
 		uint64_t buf = ptr_to_uint64(lpra[i].buf.pv);
 		size_t len = lpra[i].buf.len;
 
-		rpra[i].buf.pv = lrpra[i].buf.pv = 0;
-		rpra[i].buf.len = lrpra[i].buf.len = len;
+		rpra[i].buf.pv = 0;
+		rpra[i].buf.len = len;
 		if (!len)
 			continue;
 		if (map) {
@@ -1591,7 +1753,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 			pages[idx].addr = map->phys + offset;
 			pages[idx].size = num << PAGE_SHIFT;
 		}
-		rpra[i].buf.pv = lrpra[i].buf.pv = buf;
+		rpra[i].buf.pv = buf;
 	}
 	PERF_END);
 	for (i = bufs; i < bufs + handles; ++i) {
@@ -1601,15 +1763,16 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		pages[i].size = map->size;
 	}
 	fdlist = (uint64_t *)&pages[bufs + handles];
-	for (i = 0; i < M_FDLIST; i++)
-		fdlist[i] = 0;
 	crclist = (uint32_t *)&fdlist[M_FDLIST];
-	memset(crclist, 0, sizeof(uint32_t)*M_CRCLIST);
+	/* reset fds, crc and early wakeup hint memory */
+	/* remote process updates these values before responding */
+	memset(fdlist, 0, sizeof(uint64_t)*M_FDLIST +
+			sizeof(uint32_t)*M_CRCLIST + sizeof(early_hint));
 
 	/* copy non ion buffers */
 	PERF(ctx->fl->profile, GET_COUNTER(perf_counter, PERF_COPY),
 	rlen = copylen - metalen;
-	for (oix = 0; rpra && lrpra && oix < inbufs + outbufs; ++oix) {
+	for (oix = 0; rpra && oix < inbufs + outbufs; ++oix) {
 		int i = ctx->overps[oix]->raix;
 		struct fastrpc_mmap *map = ctx->maps[i];
 		size_t mlen;
@@ -1628,7 +1791,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		VERIFY(err, rlen >= mlen);
 		if (err)
 			goto bail;
-		rpra[i].buf.pv = lrpra[i].buf.pv =
+		rpra[i].buf.pv =
 			 (args - ctx->overps[oix]->offset);
 		pages[list[i].pgidx].addr = ctx->buf->phys -
 					    ctx->overps[oix]->offset +
@@ -1661,7 +1824,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		if (map && (map->attr & FASTRPC_ATTR_COHERENT))
 			continue;
 
-		if (rpra && lrpra && rpra[i].buf.len &&
+		if (rpra && rpra[i].buf.len &&
 			ctx->overps[oix]->mstart) {
 			if (map && map->buf) {
 				dma_buf_begin_cpu_access(map->buf,
@@ -1675,13 +1838,15 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		}
 	}
 	PERF_END);
-	for (i = bufs; rpra && lrpra && i < bufs + handles; i++) {
-		rpra[i].dma.fd = lrpra[i].dma.fd = ctx->fds[i];
-		rpra[i].dma.len = lrpra[i].dma.len = (uint32_t)lpra[i].buf.len;
-		rpra[i].dma.offset = lrpra[i].dma.offset =
-			 (uint32_t)(uintptr_t)lpra[i].buf.pv;
+	for (i = bufs; rpra && i < bufs + handles; i++) {
+		rpra[i].dma.fd = ctx->fds[i];
+		rpra[i].dma.len = (uint32_t)lpra[i].buf.len;
+		rpra[i].dma.offset = (uint32_t)(uintptr_t)lpra[i].buf.pv;
 	}
 
+	/* Copy rpra to local buffer */
+	if (ctx->lrpra && rpra && lrpralen > 0)
+		memcpy(ctx->lrpra, rpra, lrpralen);
  bail:
 	return err;
 }
@@ -1771,13 +1936,14 @@ static void inv_args_pre(struct smq_invoke_ctx *ctx)
 				uint64_to_ptr(rpra[i].buf.pv))) {
 			if (map && map->buf) {
 				dma_buf_begin_cpu_access(map->buf,
-					DMA_TO_DEVICE);
+					DMA_BIDIRECTIONAL);
 				dma_buf_end_cpu_access(map->buf,
-					DMA_TO_DEVICE);
-			} else
+					DMA_BIDIRECTIONAL);
+			} else {
 				dmac_flush_range(
 					uint64_to_ptr(rpra[i].buf.pv), (char *)
 					uint64_to_ptr(rpra[i].buf.pv + 1));
+			}
 		}
 
 		end = (uintptr_t)uint64_to_ptr(rpra[i].buf.pv +
@@ -1785,12 +1951,13 @@ static void inv_args_pre(struct smq_invoke_ctx *ctx)
 		if (!IS_CACHE_ALIGNED(end)) {
 			if (map && map->buf) {
 				dma_buf_begin_cpu_access(map->buf,
-					DMA_TO_DEVICE);
+					DMA_BIDIRECTIONAL);
 				dma_buf_end_cpu_access(map->buf,
-					DMA_TO_DEVICE);
-			} else
+					DMA_BIDIRECTIONAL);
+			} else {
 				dmac_flush_range((char *)end,
 					(char *)end + 1);
+			}
 		}
 	}
 }
@@ -1869,6 +2036,8 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 		goto bail;
 	}
 	err = rpmsg_send(channel_ctx->rpdev->ept, (void *)msg, sizeof(*msg));
+	trace_fastrpc_rpmsg_send(fl->cid, (uint64_t)ctx, msg->invoke.header.ctx,
+		handle, ctx->sc, msg->invoke.page.addr, msg->invoke.page.size);
 	LOG_FASTRPC_GLINK_MSG(channel_ctx->ipc_log_ctx,
 		"sent pkt %pK (sz %d): ctx 0x%llx, handle 0x%x, sc 0x%x (rpmsg err %d)",
 		(void *)msg, sizeof(*msg),
@@ -1900,7 +2069,135 @@ static void fastrpc_init(struct fastrpc_apps *me)
 	me->channel[CDSP_DOMAIN_ID].secure = NON_SECURE_CHANNEL;
 }
 
-static int fastrpc_release_current_dsp_process(struct fastrpc_file *fl);
+static inline void fastrpc_pm_awake(int fl_wake_enable, bool *pm_awake_voted)
+{
+	struct fastrpc_apps *me = &gfa;
+
+	if (!fl_wake_enable || *pm_awake_voted)
+		return;
+	__pm_stay_awake(me->wake_source);
+	*pm_awake_voted = true;
+}
+
+static inline void fastrpc_pm_relax(bool *pm_awake_voted)
+{
+	struct fastrpc_apps *me = &gfa;
+
+	if (!(*pm_awake_voted))
+		return;
+	__pm_relax(me->wake_source);
+	*pm_awake_voted = false;
+}
+
+static inline int fastrpc_wait_for_response(struct smq_invoke_ctx *ctx,
+						uint32_t kernel)
+{
+	int interrupted = 0;
+
+	if (kernel)
+		wait_for_completion(&ctx->work);
+	else
+		interrupted = wait_for_completion_interruptible(&ctx->work);
+
+	return interrupted;
+}
+
+static void fastrpc_wait_for_completion(struct smq_invoke_ctx *ctx,
+		 int *ptr_interrupted, uint32_t kernel)
+{
+	int interrupted = 0, err = 0;
+	int jj;
+	bool wait_resp;
+	uint32_t wTimeout = FASTRPC_USER_EARLY_HINT_TIMEOUT;
+	uint32_t wakeTime = 0;
+
+	if (!ctx) {
+		/* This failure is not expected */
+		err = *ptr_interrupted = EFAULT;
+		pr_err("Error %d: adsprpc: %s: %s: ctx is NULL, cannot wait for response\n",
+					err, current->comm, __func__);
+		return;
+	}
+	wakeTime = ctx->early_wake_time;
+
+	do {
+		switch (ctx->rsp_flags) {
+		/* try polling on completion with timeout */
+		case USER_EARLY_SIGNAL:
+			/* try wait if completion time is less than timeout */
+			/* disable preempt to avoid context switch latency */
+			preempt_disable();
+			jj = 0;
+			wait_resp = false;
+			for (; wakeTime < wTimeout && jj < wTimeout; jj++) {
+				wait_resp = try_wait_for_completion(&ctx->work);
+				if (wait_resp)
+					break;
+				udelay(1);
+			}
+			preempt_enable_no_resched();
+			if (!wait_resp) {
+				interrupted = fastrpc_wait_for_response(ctx,
+									kernel);
+				*ptr_interrupted = interrupted;
+				if (interrupted || ctx->is_work_done)
+					return;
+			}
+			break;
+
+		/* busy poll on memory for actual job done */
+		case EARLY_RESPONSE:
+			err = poll_on_early_response(ctx);
+
+			/* Mark job done if poll on memory successful */
+			/* Wait for completion if poll on memory timoeut */
+			if (!err) {
+				ctx->is_work_done = true;
+			} else if (!ctx->is_work_done) {
+				pr_info("adsprpc: %s: %s: poll timeout for handle 0x%x, sc 0x%x\n",
+				__func__, current->comm, ctx->handle, ctx->sc);
+				interrupted = fastrpc_wait_for_response(ctx,
+									kernel);
+				*ptr_interrupted = interrupted;
+				if (interrupted || ctx->is_work_done)
+					return;
+			}
+			break;
+
+		case COMPLETE_SIGNAL:
+		case NORMAL_RESPONSE:
+			interrupted = fastrpc_wait_for_response(ctx, kernel);
+			*ptr_interrupted = interrupted;
+			if (interrupted || ctx->is_work_done)
+				return;
+			break;
+
+		default:
+			*ptr_interrupted = EBADR;
+			pr_err("Error: adsprpc: %s: unsupported response flags 0x%x for handle 0x%x, sc 0x%x\n",
+			current->comm, ctx->rsp_flags, ctx->handle, ctx->sc);
+			return;
+		} /* end of switch */
+	} while (!ctx->is_work_done);
+}
+
+static void fastrpc_update_invoke_count(uint32_t handle, int64_t *perf_counter,
+					struct timespec *invoket)
+{
+	/* update invoke count for dynamic handles */
+	if (handle != FASTRPC_STATIC_HANDLE_LISTENER) {
+		int64_t *count = GET_COUNTER(perf_counter, PERF_INVOKE);
+
+		if (count)
+			*count += getnstimediff(invoket);
+	}
+	if (handle > FASTRPC_STATIC_HANDLE_MAX) {
+		int64_t *count = GET_COUNTER(perf_counter, PERF_COUNT);
+
+		if (count)
+			*count += 1;
+	}
+}
 
 static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 				   uint32_t kernel,
@@ -1908,24 +2205,16 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 {
 	struct smq_invoke_ctx *ctx = NULL;
 	struct fastrpc_ioctl_invoke *invoke = &inv->inv;
-	struct fastrpc_apps *me = &gfa;
-	int cid = fl->cid;
-	int interrupted = 0;
-	int err = 0, wake_enable = 0;
+	int err = 0, interrupted = 0, cid = fl->cid;
 	struct timespec invoket = {0};
-	int64_t *perf_counter = getperfcounter(fl, PERF_COUNT);
+	int64_t *perf_counter = NULL;
+	bool pm_awake_voted = false;
 
-	if (fl->wake_enable) {
-		spin_lock(&me->hlock);
-		wake_enable = 1;
-		if (!me->wake_count)
-			__pm_stay_awake(me->wake_source);
-		me->wake_count++;
-		spin_unlock(&me->hlock);
-	}
-
-	if (fl->profile)
+	fastrpc_pm_awake(fl->wake_enable, &pm_awake_voted);
+	if (fl->profile) {
+		perf_counter = getperfcounter(fl, PERF_COUNT);
 		getnstimeofday(&invoket);
+	}
 
 	if (!kernel) {
 		VERIFY(err, invoke->handle !=
@@ -1939,25 +2228,28 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 		}
 	}
 
-	VERIFY(err, fl->cid >= 0 && fl->cid < NUM_CHANNELS && fl->sctx != NULL);
+	VERIFY(err, cid >= 0 && cid < NUM_CHANNELS && fl->sctx != NULL);
 	if (err) {
-		pr_err("adsprpc: ERROR: %s: user application %s domain is not set\n",
+		pr_err("adsprpc: ERROR: %s: kernel session not initialized yet for %s\n",
 			__func__, current->comm);
-		err = -EBADR;
+		err = EBADR;
 		goto bail;
 	}
 
 	if (!kernel) {
-		VERIFY(err, 0 == context_restore_interrupted(fl, inv,
-								&ctx));
+		err = context_restore_interrupted(fl, inv, &ctx);
 		if (err)
 			goto bail;
 		if (fl->sctx->smmu.faults)
 			err = FASTRPC_ENOSUCH;
 		if (err)
 			goto bail;
-		if (ctx)
+		if (ctx) {
+			trace_fastrpc_context_restore(cid, (uint64_t)ctx,
+				ctx->msg.invoke.header.ctx,
+				ctx->handle, ctx->sc);
 			goto wait;
+		}
 	}
 
 	VERIFY(err, 0 == context_alloc(fl, kernel, inv, &ctx));
@@ -1972,11 +2264,13 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 			goto bail;
 	}
 
-	if (!fl->sctx->smmu.coherent) {
-		PERF(fl->profile, GET_COUNTER(perf_counter, PERF_INVARGS),
-		inv_args_pre(ctx);
-		PERF_END);
-	}
+	PERF(fl->profile, GET_COUNTER(perf_counter, PERF_INVARGS),
+	inv_args_pre(ctx);
+	PERF_END);
+
+	PERF(fl->profile, GET_COUNTER(perf_counter, PERF_INVARGS),
+	inv_args(ctx);
+	PERF_END);
 
 	PERF(fl->profile, GET_COUNTER(perf_counter, PERF_LINK),
 	VERIFY(err, 0 == fastrpc_invoke_send(ctx, kernel, invoke->handle));
@@ -1985,36 +2279,22 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 	if (err)
 		goto bail;
  wait:
-	if (wake_enable) {
-		spin_lock(&me->hlock);
-		wake_enable = 0;
-		me->wake_count--;
-		if (!me->wake_count)
-			__pm_relax(me->wake_source);
-		spin_unlock(&me->hlock);
-	}
-
-	if (kernel)
-		wait_for_completion(&ctx->work);
-	else
-		interrupted = wait_for_completion_interruptible(&ctx->work);
-
-	if (fl->wake_enable) {
-		spin_lock(&me->hlock);
-		wake_enable = 1;
-		if (!me->wake_count)
-			__pm_stay_awake(me->wake_source);
-		me->wake_count++;
-		spin_unlock(&me->hlock);
-	}
-
+	fastrpc_pm_relax(&pm_awake_voted);
+	fastrpc_wait_for_completion(ctx, &interrupted, kernel);
+	pm_awake_voted = ctx->pm_awake_voted;
 	VERIFY(err, 0 == (err = interrupted));
 	if (err)
 		goto bail;
 
+	if (!ctx->is_work_done) {
+		err = EPROTO;
+		pr_err("Error: adsprpc: %s: %s: WorkDone state is invalid for handle 0x%x, sc 0x%x\n",
+			__func__, current->comm, invoke->handle, ctx->sc);
+		goto bail;
+	}
+
 	PERF(fl->profile, GET_COUNTER(perf_counter, PERF_INVARGS),
-	if (!fl->sctx->smmu.coherent)
-		inv_args(ctx);
+	inv_args(ctx);
 	PERF_END);
 
 	VERIFY(err, 0 == (err = ctx->retval));
@@ -2027,35 +2307,20 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 	if (err)
 		goto bail;
  bail:
-	if (ctx && interrupted == -ERESTARTSYS)
+	if (ctx && interrupted == -ERESTARTSYS) {
+		trace_fastrpc_context_interrupt(cid, (uint64_t)ctx,
+			ctx->msg.invoke.header.ctx, ctx->handle, ctx->sc);
 		context_save_interrupted(ctx);
+	}
 	else if (ctx)
 		context_free(ctx);
 	if (fl->ssrcount != fl->apps->channel[cid].ssrcount)
 		err = ECONNRESET;
 
-	if (fl->profile && !interrupted) {
-		if (invoke->handle != FASTRPC_STATIC_HANDLE_LISTENER) {
-			int64_t *count = GET_COUNTER(perf_counter, PERF_INVOKE);
-
-			if (count)
-				*count += getnstimediff(&invoket);
-		}
-		if (invoke->handle > FASTRPC_STATIC_HANDLE_MAX) {
-			int64_t *count = GET_COUNTER(perf_counter, PERF_COUNT);
-
-			if (count)
-				*count = *count+1;
-		}
-	}
-	if (wake_enable) {
-		spin_lock(&me->hlock);
-		wake_enable = 0;
-		me->wake_count--;
-		if (!me->wake_count)
-			__pm_relax(me->wake_source);
-		spin_unlock(&me->hlock);
-	}
+	if (fl->profile && !interrupted)
+		fastrpc_update_invoke_count(invoke->handle, perf_counter,
+						&invoket);
+	fastrpc_pm_relax(&pm_awake_voted);
 	return err;
 }
 
@@ -2368,6 +2633,40 @@ static int fastrpc_kstat(const char *filename, struct kstat *stat)
 	set_fs(fs_old);
 
 	return result;
+}
+
+static int fastrpc_send_cpuinfo_to_dsp(struct fastrpc_file *fl)
+{
+	int err = 0;
+	uint64_t cpuinfo = 0;
+	struct fastrpc_apps *me = &gfa;
+	struct fastrpc_ioctl_invoke_crc ioctl;
+	remote_arg_t ra[2];
+
+	VERIFY(err, fl && fl->cid >= 0 && fl->cid < NUM_CHANNELS);
+	if (err)
+		goto bail;
+
+	cpuinfo = me->channel[fl->cid].cpuinfo_todsp;
+	/* return success if already updated to remote processor */
+	if (me->channel[fl->cid].cpuinfo_status)
+		return 0;
+
+	ra[0].buf.pv = (void *)&cpuinfo;
+	ra[0].buf.len = sizeof(cpuinfo);
+	ioctl.inv.handle = FASTRPC_STATIC_HANDLE_DSP_UTILITIES;
+	ioctl.inv.sc = REMOTE_SCALARS_MAKE(1, 1, 0);
+	ioctl.inv.pra = ra;
+	ioctl.fds = NULL;
+	ioctl.attrs = NULL;
+	ioctl.crc = NULL;
+	fl->pd = 1;
+
+	err = fastrpc_internal_invoke(fl, FASTRPC_MODE_PARALLEL, 1, &ioctl);
+	if (!err)
+		me->channel[fl->cid].cpuinfo_status = true;
+bail:
+	return err;
 }
 
 static int fastrpc_get_info_from_dsp(struct fastrpc_file *fl,
@@ -2768,11 +3067,6 @@ bail:
 	return err;
 }
 
-static int fastrpc_mmap_remove(struct fastrpc_file *fl, uintptr_t va,
-			     size_t len, struct fastrpc_mmap **ppmap);
-
-static void fastrpc_mmap_add(struct fastrpc_mmap *map);
-
 static inline void get_fastrpc_ioctl_mmap_64(
 			struct fastrpc_ioctl_mmap_64 *mmap64,
 			struct fastrpc_ioctl_mmap *immap)
@@ -2810,14 +3104,15 @@ static int fastrpc_internal_munmap(struct fastrpc_file *fl,
 	if (err) {
 		pr_err("adsprpc: ERROR: %s: user application %s trying to unmap without initialization\n",
 			 __func__, current->comm);
-		err = -EBADR;
+		err = EBADR;
 		goto bail;
 	}
 	mutex_lock(&fl->internal_map_mutex);
 
 	spin_lock(&fl->hlock);
 	hlist_for_each_entry_safe(rbuf, n, &fl->remote_bufs, hn_rem) {
-		if (rbuf->raddr && (rbuf->flags == ADSP_MMAP_ADD_PAGES)) {
+		if (rbuf->raddr && ((rbuf->flags == ADSP_MMAP_ADD_PAGES) ||
+				    (rbuf->flags == ADSP_MMAP_ADD_PAGES_LLC))) {
 			if ((rbuf->raddr == ud->vaddrout) &&
 				(rbuf->size == ud->size)) {
 				free = rbuf;
@@ -2872,7 +3167,7 @@ static int fastrpc_internal_munmap_fd(struct fastrpc_file *fl,
 	if (err) {
 		pr_err("adsprpc: ERROR: %s: user application %s trying to unmap without initialization\n",
 			__func__, current->comm);
-		err = -EBADR;
+		err = EBADR;
 		goto bail;
 	}
 	mutex_lock(&fl->map_mutex);
@@ -2905,13 +3200,14 @@ static int fastrpc_internal_mmap(struct fastrpc_file *fl,
 	if (err) {
 		pr_err("adsprpc: ERROR: %s: user application %s trying to map without initialization\n",
 			__func__, current->comm);
-		err = -EBADR;
+		err = EBADR;
 		goto bail;
 	}
 	mutex_lock(&fl->internal_map_mutex);
-	if (ud->flags == ADSP_MMAP_ADD_PAGES) {
+	if ((ud->flags == ADSP_MMAP_ADD_PAGES) ||
+	    (ud->flags == ADSP_MMAP_ADD_PAGES_LLC)) {
 		if (ud->vaddrin) {
-			err = -EINVAL;
+			err = EINVAL;
 			pr_err("adsprpc: %s: %s: ERROR: adding user allocated pages is not supported\n",
 					current->comm, __func__);
 			goto bail;
@@ -2920,6 +3216,8 @@ static int fastrpc_internal_mmap(struct fastrpc_file *fl,
 					DMA_ATTR_DELAYED_UNMAP |
 					DMA_ATTR_NO_KERNEL_MAPPING |
 					DMA_ATTR_FORCE_NON_COHERENT;
+		if (ud->flags == ADSP_MMAP_ADD_PAGES_LLC)
+			dma_attr |= DMA_ATTR_IOMMU_USE_UPSTREAM_HINT;
 		err = fastrpc_buf_alloc(fl, ud->size, dma_attr, ud->flags,
 								1, &rbuf);
 		if (err)
@@ -2982,9 +3280,12 @@ static int fastrpc_session_alloc_locked(struct fastrpc_channel_ctx *chan,
 				break;
 			}
 		}
-		VERIFY(err, idx < chan->sesscount);
-		if (err)
+		if (idx >= chan->sesscount) {
+			err = EUSERS;
+			pr_err("adsprpc: ERROR %d: %s: max concurrent sessions limit (%d) already reached on %s\n",
+				err, __func__, chan->sesscount, chan->subsys);
 			goto bail;
+		}
 		chan->session[idx].smmu.faults = 0;
 	} else {
 		VERIFY(err, me->dev != NULL);
@@ -3089,23 +3390,30 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 	int len, void *priv, u32 addr)
 {
 	struct smq_invoke_rsp *rsp = (struct smq_invoke_rsp *)data;
+	struct smq_invoke_rspv2 *rspv2 = NULL;
 	struct fastrpc_apps *me = &gfa;
-	uint32_t index;
-	int err = 0;
-#if IS_ENABLED(CONFIG_ADSPRPC_DEBUG)
-	int cid = -1;
-#endif
+	uint32_t index, rsp_flags = 0, early_wake_time = 0;
+	int err = 0, cid = -1;
 
 	VERIFY(err, (rsp && len >= sizeof(*rsp)));
 	if (err)
 		goto bail;
 
-#if IS_ENABLED(CONFIG_ADSPRPC_DEBUG)
+	if (len >= sizeof(struct smq_invoke_rspv2))
+		rspv2 = (struct smq_invoke_rspv2 *)data;
+
+	if (rspv2) {
+		early_wake_time = rspv2->early_wake_time;
+		rsp_flags = rspv2->flags;
+	}
 	cid = get_cid_from_rpdev(rpdev);
+	trace_fastrpc_rpmsg_response(cid, rsp->ctx,
+		rsp->retval, rsp_flags, early_wake_time);
+#if IS_ENABLED(CONFIG_ADSPRPC_DEBUG)
 	if (cid >= 0 && cid < NUM_CHANNELS) {
 		LOG_FASTRPC_GLINK_MSG(gcinfo[cid].ipc_log_ctx,
-			"recvd pkt %pK (sz %d): ctx 0x%llx, retVal %d",
-			data, len, rsp->ctx, rsp->retval);
+		"recvd pkt %pK (sz %d): ctx 0x%llx, retVal %d, flags %u, earlyWake %u",
+		data, len, rsp->ctx, rsp->retval, rsp_flags, early_wake_time);
 	}
 #endif
 
@@ -3123,7 +3431,13 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 	if (err)
 		goto bail;
 
-	context_notify_user(me->ctxtable[index], rsp->retval);
+	if (rspv2) {
+		VERIFY(err, rspv2->version == FASTRPC_RSP_VERSION2);
+		if (err)
+			goto bail;
+	}
+	context_notify_user(me->ctxtable[index], rsp->retval,
+				 rsp_flags, early_wake_time);
 bail:
 	if (err)
 		pr_err("adsprpc: ERROR: %s: invalid response (data %pK, len %d) from remote subsystem (err %d)\n",
@@ -3464,9 +3778,9 @@ static int fastrpc_channel_open(struct fastrpc_file *fl)
 
 	VERIFY(err, fl && fl->sctx && fl->cid >= 0 && fl->cid < NUM_CHANNELS);
 	if (err) {
-		pr_err("adsprpc: ERROR: %s: user application %s domain is not set\n",
+		pr_err("adsprpc: ERROR: %s: kernel session not initialized yet for %s\n",
 			__func__, current->comm);
-		err = -EBADR;
+		err = EBADR;
 		return err;
 	}
 	cid = fl->cid;
@@ -3606,8 +3920,8 @@ static int fastrpc_get_info(struct fastrpc_file *fl, uint32_t *info)
 		fl->cid = cid;
 		fl->ssrcount = fl->apps->channel[cid].ssrcount;
 		mutex_lock(&fl->apps->channel[cid].smd_mutex);
-		VERIFY(err, 0 == (err = fastrpc_session_alloc_locked(
-				&fl->apps->channel[cid], 0, &fl->sctx)));
+		err = fastrpc_session_alloc_locked(&fl->apps->channel[cid],
+				0, &fl->sctx);
 		mutex_unlock(&fl->apps->channel[cid].smd_mutex);
 		if (err)
 			goto bail;
@@ -3624,7 +3938,7 @@ static int fastrpc_internal_control(struct fastrpc_file *fl,
 					struct fastrpc_ioctl_control *cp)
 {
 	int err = 0;
-	int latency;
+	unsigned int latency;
 
 	VERIFY(err, !IS_ERR_OR_NULL(fl) && !IS_ERR_OR_NULL(fl->apps));
 	if (err)
@@ -3646,6 +3960,9 @@ static int fastrpc_internal_control(struct fastrpc_file *fl,
 			fl->qos_request = 1;
 		} else
 			pm_qos_update_request(&fl->pm_qos_req, latency);
+
+		/* Ensure CPU feature map updated to DSP for early WakeUp */
+		fastrpc_send_cpuinfo_to_dsp(fl);
 		break;
 	case FASTRPC_CONTROL_KALLOC:
 		cp->kalloc.kalloc_support = 1;
@@ -3654,7 +3971,7 @@ static int fastrpc_internal_control(struct fastrpc_file *fl,
 		fl->wake_enable = cp->wp.enable;
 		break;
 	default:
-		err = -ENOTTY;
+		err = -EBADRQC;
 		break;
 	}
 bail:
@@ -3713,7 +4030,7 @@ static int fastrpc_getperf(struct fastrpc_ioctl_perf *ioctl_perf,
 				param, sizeof(*ioctl_perf));
 	if (err)
 		goto bail;
-	ioctl_perf->numkeys = sizeof(struct fastrpc_perf)/sizeof(int64_t);
+	ioctl_perf->numkeys = PERF_KEY_MAX;
 	if (ioctl_perf->keys) {
 		char *keys = PERF_KEYS;
 
@@ -3977,7 +4294,7 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 	ctx = container_of(nb, struct fastrpc_channel_ctx, nb);
 	cid = ctx - &me->channel[0];
 	if (code == SUBSYS_BEFORE_SHUTDOWN) {
-		pr_debug("adsprpc: %s: %s subsystem is restarting\n",
+		pr_info("adsprpc: %s: %s subsystem is restarting\n",
 			__func__, gcinfo[cid].subsys);
 		mutex_lock(&me->channel[cid].smd_mutex);
 		ctx->ssrcount++;
@@ -3992,10 +4309,10 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 				me->channel[RH_CID].ramdumpenabled = 1;
 			}
 		}
-		pr_debug("adsprpc: %s: received RAMDUMP notification for %s\n",
+		pr_info("adsprpc: %s: received RAMDUMP notification for %s\n",
 			__func__, gcinfo[cid].subsys);
 	} else if (code == SUBSYS_AFTER_POWERUP) {
-		pr_debug("adsprpc: %s: %s subsystem is up\n",
+		pr_info("adsprpc: %s: %s subsystem is up\n",
 			__func__, gcinfo[cid].subsys);
 		ctx->issubsystemup = 1;
 	}
@@ -4012,7 +4329,7 @@ static int fastrpc_pdr_notifier_cb(struct notifier_block *pdrnb,
 
 	spd = container_of(pdrnb, struct fastrpc_static_pd, pdrnb);
 	if (code == SERVREG_NOTIF_SERVICE_STATE_DOWN_V01) {
-		pr_debug("adsprpc: %s: %s (%s) is down for PDR on %s\n",
+		pr_info("adsprpc: %s: %s (%s) is down for PDR on %s\n",
 			__func__, spd->spdname, spd->servloc_name,
 			gcinfo[spd->cid].subsys);
 		mutex_lock(&me->channel[spd->cid].smd_mutex);
@@ -4030,11 +4347,11 @@ static int fastrpc_pdr_notifier_cb(struct notifier_block *pdrnb,
 				me->channel[RH_CID].ramdumpenabled = 1;
 			}
 		}
-		pr_debug("adsprpc: %s: received %s RAMDUMP notification for %s (%s)\n",
+		pr_info("adsprpc: %s: received %s RAMDUMP notification for %s (%s)\n",
 			__func__, gcinfo[spd->cid].subsys,
 			spd->spdname, spd->servloc_name);
 	} else if (code == SERVREG_NOTIF_SERVICE_STATE_UP_V01) {
-		pr_debug("adsprpc: %s: %s (%s) is up on %s\n",
+		pr_info("adsprpc: %s: %s (%s) is up on %s\n",
 			__func__, spd->spdname, spd->servloc_name,
 			gcinfo[spd->cid].subsys);
 		spd->ispdup = 1;
@@ -4100,12 +4417,12 @@ pdr_register:
 	}
 
 	if (curr_state == SERVREG_NOTIF_SERVICE_STATE_UP_V01) {
-		pr_debug("adsprpc: %s: %s (%s) PDR service for %s is up\n",
+		pr_info("adsprpc: %s: %s (%s) PDR service for %s is up\n",
 			__func__, spd->servloc_name, pdr->domain_list[i].name,
 			gcinfo[spd->cid].subsys);
 		spd->ispdup = 1;
 	} else if (curr_state == SERVREG_NOTIF_SERVICE_STATE_UNINIT_V01) {
-		pr_debug("adsprpc: %s: %s (%s) PDR service for %s is uninitialized\n",
+		pr_info("adsprpc: %s: %s (%s) PDR service for %s is uninitialized\n",
 			__func__, spd->servloc_name, pdr->domain_list[i].name,
 			gcinfo[spd->cid].subsys);
 	}
@@ -4364,7 +4681,7 @@ static int fastrpc_probe(struct platform_device *pdev)
 				__func__, ret, AUDIO_PDR_ADSP_SERVICE_NAME,
 				AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME);
 		else
-			pr_debug("adsprpc: %s: service location enabled for %s (%s)\n",
+			pr_info("adsprpc: %s: service location enabled for %s (%s)\n",
 				__func__, AUDIO_PDR_ADSP_SERVICE_NAME,
 				AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME);
 	}
@@ -4385,7 +4702,7 @@ static int fastrpc_probe(struct platform_device *pdev)
 				__func__, ret, SENSORS_PDR_SLPI_SERVICE_NAME,
 				SENSORS_PDR_ADSP_SERVICE_LOCATION_CLIENT_NAME);
 		else
-			pr_debug("adsprpc: %s: service location enabled for %s (%s)\n",
+			pr_info("adsprpc: %s: service location enabled for %s (%s)\n",
 				__func__, SENSORS_PDR_SLPI_SERVICE_NAME,
 				SENSORS_PDR_ADSP_SERVICE_LOCATION_CLIENT_NAME);
 	}
@@ -4406,7 +4723,7 @@ static int fastrpc_probe(struct platform_device *pdev)
 				__func__, ret, SENSORS_PDR_SLPI_SERVICE_NAME,
 				SENSORS_PDR_SLPI_SERVICE_LOCATION_CLIENT_NAME);
 		else
-			pr_debug("adsprpc: %s: service location enabled for %s (%s)\n",
+			pr_info("adsprpc: %s: service location enabled for %s (%s)\n",
 				__func__, SENSORS_PDR_SLPI_SERVICE_NAME,
 				SENSORS_PDR_SLPI_SERVICE_LOCATION_CLIENT_NAME);
 	}
@@ -4552,7 +4869,7 @@ static int __init fastrpc_device_init(void)
 	me->wake_source = wakeup_source_register("adsprpc");
 	VERIFY(err, !IS_ERR_OR_NULL(me->wake_source));
 	if (err) {
-		pr_err("adsprpc: %s: wakeup_source_register failed with err %d\n",
+		pr_err("adsprpc: Error: %s: wakeup_source_register failed with err %ld\n",
 					__func__, PTR_ERR(me->wake_source));
 		goto device_create_bail;
 	}
