@@ -11,6 +11,7 @@
  */
 
 #include "sdxprairie.dtsi"
+#include "sdxprairie-cpe-memory-map.dtsi"
 #include "sdxprairie-cdp.dtsi"
 
 &qnand_1 {
