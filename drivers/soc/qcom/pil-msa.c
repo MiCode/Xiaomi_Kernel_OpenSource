@@ -243,9 +243,16 @@ static int pil_mss_restart_reg(struct q6v5_data *drv, u32 mss_restart)
 		mb();
 		udelay(2);
 	} else if (drv->restart_reg_sec) {
-		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_PIL,
-					MSS_RESTART_ID), &desc);
-		scm_ret = desc.ret[0];
+		if (!is_scm_armv8()) {
+			ret = scm_call(SCM_SVC_PIL, MSS_RESTART_ID,
+			&mss_restart, sizeof(mss_restart),
+					&scm_ret, sizeof(scm_ret));
+		} else {
+			ret = scm_call2(SCM_SIP_FNID(SCM_SVC_PIL,
+			MSS_RESTART_ID), &desc);
+			scm_ret = desc.ret[0];
+		}
+
 		if (ret || scm_ret)
 			pr_err("Secure MSS restart failed\n");
 	}
@@ -537,13 +544,18 @@ static int pil_mss_mem_setup(struct pil_desc *pil,
 	request.start_addr = addr;
 	request.len = size;
 
-	desc.args[0] = md->pas_id;
-	desc.args[1] = addr;
-	desc.args[2] = size;
-	desc.arginfo = SCM_ARGS(3);
-	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_PIL, PAS_MEM_SETUP_CMD),
-			&desc);
-	scm_ret = desc.ret[0];
+	if (!is_scm_armv8()) {
+		ret = scm_call(SCM_SVC_PIL, PAS_MEM_SETUP_CMD, &request,
+			sizeof(request), &scm_ret, sizeof(scm_ret));
+	} else {
+		desc.args[0] = md->pas_id;
+		desc.args[1] = addr;
+		desc.args[2] = size;
+		desc.arginfo = SCM_ARGS(3);
+		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_PIL, PAS_MEM_SETUP_CMD),
+								&desc);
+		scm_ret = desc.ret[0];
+	}
 
 	if (ret)
 		return ret;
