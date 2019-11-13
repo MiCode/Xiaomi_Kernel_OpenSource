@@ -33,6 +33,14 @@ Main node properties:
 	Set the length of buffer size to allocate. If not default
 	size MHI_MAX_MTU will be used.
 
+- mhi,name
+  Usage: optional
+  Value type: <string>
+  Definition: Name assigned to the controller for cases where caller is not an
+	MHI client.
+	Use "esoc" followed by numbers starting from 0 for external SOC's or
+	any other relevant names.
+
 ============================
 mhi channel node properties:
 ============================
