@@ -397,7 +397,7 @@ static int smb5_parse_dt(struct smb5 *chip)
 {
 	struct smb_charger *chg = &chip->chg;
 	struct device_node *node = chg->dev->of_node;
-	int rc, byte_len;
+	int rc, byte_len, tmp;
 
 	if (!node) {
 		pr_err("device tree node missing\n");
@@ -653,6 +653,12 @@ static int smb5_parse_dt(struct smb5 *chip)
 					&chg->chg_param.hvdcp3_max_icl_ua);
 	if (chg->chg_param.hvdcp3_max_icl_ua <= 0)
 		chg->chg_param.hvdcp3_max_icl_ua = MICRO_3PA;
+
+	chg->wls_icl_ua = DCIN_ICL_MAX_UA;
+	rc = of_property_read_u32(node, "qcom,wls-current-max-ua",
+			&tmp);
+	if (!rc && tmp < DCIN_ICL_MAX_UA)
+		chg->wls_icl_ua = tmp;
 
 	return 0;
 }

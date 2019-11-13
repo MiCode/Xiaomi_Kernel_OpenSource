@@ -563,6 +563,7 @@ struct smb_charger {
 	int			init_thermal_ua;
 	u32			comp_clamp_level;
 	bool			hvdcp3_standalone_config;
+	int			wls_icl_ua;
 
 	/* workaround flag */
 	u32			wa_flags;
