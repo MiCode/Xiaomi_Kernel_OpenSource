@@ -32,7 +32,6 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include "gbe_usedext.h"
-#include <linux/random.h>
 
 #define MAX_DEP_NUM 30
 #define MAIN_LOG_SIZE 256
@@ -42,10 +41,13 @@
 #define LOADING_TH 25
 #define NUM_FRAME_TO_FREE 5
 
+#define SYSTEMUI_STR "ndroid.systemui"
+
 static HLIST_HEAD(gbe_boost_units);
 static DEFINE_MUTEX(gbe_lock);
 struct dentry *gbe_debugfs_dir;
 static int gbe_enable;
+static int cluster_num;
 
 enum {
 	NEW_RENDER = 0,
@@ -112,7 +114,6 @@ static void gbe_trace_count(int tid, int val, const char *fmt, ...)
 	preempt_enable();
 }
 
-static int cluster_num = 2;
 static void gbe_boost_cpu(void)
 {
 	struct ppm_limit_data *pld;
@@ -227,7 +228,7 @@ static int check_dep_run_and_update(struct gbe_boost_unit *iter)
 	}
 
 	gbe_trace_printk(iter->pid, "gbe", dep_str);
-	gbe_trace_count(iter->pid, ret, "dep_run");
+	gbe_trace_count(iter->pid, ret, "gbe_dep_run");
 
 	return ret;
 }
@@ -251,7 +252,10 @@ static void gbe_do_timer2(struct work_struct *work)
 	} else if (iter->boost_cnt > MAX_BOOST_CNT) {
 		iter->state = FREE;
 		iter->boost_cnt = 0;
-		gbe_trace_count(iter->pid, iter->boost_cnt, "boost_cnt");
+		gbe_trace_count(iter->pid,
+			iter->boost_cnt, "gbe_boost_cnt");
+		gbe_trace_count(iter->pid,
+			iter->state, "gbe_state");
 		gbe_boost_cpu();
 		hrtimer_cancel(&iter->timer2);
 		hrtimer_start(&iter->timer2,
@@ -260,7 +264,7 @@ static void gbe_do_timer2(struct work_struct *work)
 		if (cur_ts_ms - iter->q_ts_ms > TIMER1_MS) {
 			iter->boost_cnt++;
 			gbe_trace_count(iter->pid,
-				iter->boost_cnt, "boost_cnt");
+				iter->boost_cnt, "gbe_boost_cnt");
 			hrtimer_cancel(&iter->timer2);
 			hrtimer_start(&iter->timer2,
 				ms_to_ktime(TIMER2_MS), HRTIMER_MODE_REL);
@@ -269,7 +273,9 @@ static void gbe_do_timer2(struct work_struct *work)
 			iter->boost_cnt = 0;
 			gbe_boost_cpu();
 			gbe_trace_count(iter->pid,
-				iter->boost_cnt, "boost_cnt");
+				iter->boost_cnt, "gbe_boost_cnt");
+			gbe_trace_count(iter->pid,
+				iter->state, "gbe_state");
 			hrtimer_cancel(&iter->timer1);
 			hrtimer_start(&iter->timer1,
 				ms_to_ktime(TIMER1_MS), HRTIMER_MODE_REL);
@@ -277,8 +283,10 @@ static void gbe_do_timer2(struct work_struct *work)
 	} else {
 		iter->state = FREE;
 		iter->boost_cnt = 0;
-		gbe_trace_count(iter->pid, iter->boost_cnt,
-			"boost_cnt");
+		gbe_trace_count(iter->pid,
+			iter->boost_cnt, "gbe_boost_cnt");
+		gbe_trace_count(iter->pid,
+			iter->state, "gbe_state");
 		gbe_boost_cpu();
 		hrtimer_cancel(&iter->timer2);
 		hrtimer_start(&iter->timer2,
@@ -324,12 +332,17 @@ static void gbe_do_timer1(struct work_struct *work)
 		iter->state = BOOSTING;
 		iter->boost_cnt = 1;
 		gbe_boost_cpu();
-		gbe_trace_count(iter->pid, iter->boost_cnt, "boost_cnt");
+		gbe_trace_count(iter->pid,
+			iter->boost_cnt, "gbe_boost_cnt");
+		gbe_trace_count(iter->pid,
+			iter->state, "gbe_state");
 		gbe_init_timer2(iter);
 		hrtimer_start(&iter->timer2, ms_to_ktime(TIMER2_MS),
 			HRTIMER_MODE_REL);
 	} else {
 		iter->state = FREE;
+		gbe_trace_count(iter->pid,
+			iter->state, "gbe_state");
 		gbe_init_timer2(iter);
 		hrtimer_start(&iter->timer2, ms_to_ktime(TIMER2_MS),
 			HRTIMER_MODE_REL);
@@ -357,10 +370,43 @@ static inline void gbe_init_timer1(struct gbe_boost_unit *iter)
 	INIT_WORK(&iter->work1, gbe_do_timer1);
 }
 
+static int ignore_systemui(int pid)
+{
+	struct task_struct *tsk, *gtsk;
+	int ret = 0;
+
+	rcu_read_lock();
+	tsk = find_task_by_vpid(pid);
+	if (tsk) {
+		get_task_struct(tsk);
+		gtsk = find_task_by_vpid(tsk->tgid);
+		put_task_struct(tsk);
+		if (gtsk)
+			get_task_struct(gtsk);
+		else {
+			rcu_read_unlock();
+			goto out;
+		}
+	} else {
+		rcu_read_unlock();
+		goto out;
+	}
+	rcu_read_unlock();
+
+	ret = !strncmp(SYSTEMUI_STR, gtsk->comm, 16);
+	put_task_struct(gtsk);
+
+out:
+	return ret;
+
+}
+
 void fpsgo_comp2gbe_frame_update(int pid)
 {
 	struct gbe_boost_unit *iter;
 
+	if (ignore_systemui(pid))
+		return;
 
 	mutex_lock(&gbe_lock);
 
@@ -395,8 +441,13 @@ void fpsgo_comp2gbe_frame_update(int pid)
 		gbe2xgf_get_dep_list(pid, iter->dep_num, iter->dep);
 		update_runtime(iter);
 
+		gbe_trace_count(iter->pid,
+			iter->state, "gbe_state");
 		iter->state = FPS_UPDATE;
-		gbe_trace_count(iter->pid, iter->boost_cnt, "boost_cnt");
+		gbe_trace_count(iter->pid,
+			iter->boost_cnt, "gbe_boost_cnt");
+		gbe_trace_count(iter->pid,
+			iter->state, "gbe_state");
 		gbe_init_timer1(iter);
 		hrtimer_start(&iter->timer1, ms_to_ktime(TIMER1_MS),
 			HRTIMER_MODE_REL);
@@ -529,6 +580,8 @@ static int __init gbe_init(void)
 			gbe_debugfs_dir,
 			NULL,
 			&gbe_boost_list_fops);
+
+	cluster_num = arch_get_nr_clusters();
 
 	return 0;
 }
