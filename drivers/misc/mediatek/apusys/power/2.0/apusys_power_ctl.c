@@ -18,7 +18,6 @@
 #include <linux/platform_device.h>
 #include <linux/seq_file.h>
 #include <linux/slab.h>
-#include "mtk_devinfo.h"
 #endif
 
 #include "apu_power_api.h"
@@ -36,26 +35,31 @@ struct apusys_dvfs_opps apusys_opps;
 
 bool dvfs_user_support(enum DVFS_USER user)
 {
-	uint32_t val = 0;
+	struct hal_param_seg_support  seg_data;
 
-	val = get_devinfo_with_index(30);
-	if (val == 0x1) {
-		if (user == VPU2 || user == MDLA1)
-			return false;
-	}
+	seg_data.user = user;
+
+	hal_config_power(PWR_CMD_SEGMENT_CHECK, VPU0, (void *)&seg_data);
+	if (seg_data.support == false)
+		return false;
 
 	return apusys_dvfs_user_support[user];
 }
 
 bool dvfs_power_domain_support(enum DVFS_VOLTAGE_DOMAIN domain)
 {
-	uint32_t val = 0;
+	struct hal_param_seg_support  seg_data;
 
-	val = get_devinfo_with_index(30);
-	if (val == 0x1) {
-		if (domain == V_VPU2 || domain == V_MDLA1)
+	seg_data.user = apusys_buck_domain_to_user[domain];
+
+	if (seg_data.user < APUSYS_DVFS_USER_NUM) {
+		hal_config_power(PWR_CMD_SEGMENT_CHECK,
+			VPU0, (void *)&seg_data);
+
+		if (seg_data.support == false)
 			return false;
 	}
+
 	return apusys_dvfs_buck_domain_support[domain];
 }
 
@@ -993,13 +997,17 @@ int apusys_power_off(enum DVFS_USER user)
 void apusys_power_init(enum DVFS_USER user, void *init_power_data)
 {
 	int i = 0, j = 0;
+	struct hal_param_seg_support  seg_data;
 
-	if (get_devinfo_with_index(30) == 0x1)
+	hal_config_power(PWR_CMD_SEGMENT_CHECK, VPU0, (void *)&seg_data);
+
+	if (seg_data.seg == SEGMENT_0)
 		apusys_opps.opps = dvfs_table_0;
-	else if (get_devinfo_with_index(30) == 0x10)
+	else if (seg_data.seg == SEGMENT_2)
 		apusys_opps.opps = dvfs_table_2;
 	else
 		apusys_opps.opps = dvfs_table_1;
+
 	for (i = 0; i < APUSYS_DVFS_USER_NUM; i++)	{
 		if (dvfs_user_support(user) == false)
 			continue;

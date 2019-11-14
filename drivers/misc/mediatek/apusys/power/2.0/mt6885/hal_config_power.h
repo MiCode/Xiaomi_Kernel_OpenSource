@@ -32,6 +32,7 @@ enum HAL_POWER_CMD {
 	PWR_CMD_REG_DUMP,		// 8
 	PWR_CMD_UNINIT_POWER,		// 9
 	PWR_CMD_DEBUG_FUNC,		//10
+	PWR_CMD_SEGMENT_CHECK,		//11
 };
 
 
@@ -89,6 +90,12 @@ struct hal_param_pwr_info {
 
 struct hal_param_pwr_mask {
 	uint8_t power_bit_mask;
+};
+
+struct hal_param_seg_support {
+	enum DVFS_USER user;
+	bool support;
+	enum SEGMENT_INFO seg;
 };
 
 // suspend, resume only

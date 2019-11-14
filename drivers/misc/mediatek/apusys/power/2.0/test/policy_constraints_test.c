@@ -88,8 +88,33 @@ void fix_dvfs_debug(void)
 
 u32 get_devinfo_with_index(unsigned int index)
 {
-	//return 1;	// 5G-L
-	return 2;
+	return 0x1;	// 5G-L , vpu2, mdla1 not support
+	//return 0x10; // 5G_H
+	//return 2;
+}
+
+static int segment_user_support_check(void *param)
+{
+	uint32_t val = 0;
+	struct hal_param_seg_support *seg_info =
+		(struct hal_param_seg_support *)param;
+
+	seg_info->support = true;
+	seg_info->seg = SEGMENT_1;
+
+	val = get_devinfo_with_index(30);
+	if (val == 0x1) {
+		seg_info->seg = SEGMENT_0;
+		if (seg_info->user == VPU2 || seg_info->user == MDLA1)
+			seg_info->support = false;
+	} else if (val == 0x10)
+		seg_info->seg = SEGMENT_2;
+
+	if (seg_info->support == false)
+		LOG_INF("%s user=%d, support=%d\n", __func__,
+		seg_info->user, seg_info->support);
+
+	return 0;
 }
 
 
@@ -228,6 +253,8 @@ int hal_config_power(enum HAL_POWER_CMD cmd, enum DVFS_USER user, void *param)
 				__func__);
 			exit(1);
 		}
+	} else if (cmd == PWR_CMD_SEGMENT_CHECK) {
+		segment_user_support_check(param);
 	} else {
 		LOG_INF("%s cmd = %d, user = %d\n", __func__, cmd, user);
 	}

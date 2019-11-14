@@ -21,6 +21,8 @@
 #include <helio-dvfsrc-opp.h>
 #define CREATE_TRACE_POINTS
 #include "apu_power_events.h"
+#include "mtk_devinfo.h"
+
 
 static int is_apu_power_initilized;
 static int force_pwr_on = 1;
@@ -63,6 +65,7 @@ static void hw_init_setting(void);
 static int buck_control(enum DVFS_USER user, int level);
 static int rpc_power_status_check(int domain_idx, unsigned int enable);
 static int apu_pm_handler(void *param);
+static int segment_user_support_check(void *param);
 
 /************************************
  * common power hal command
@@ -117,6 +120,9 @@ int hal_config_power(enum HAL_POWER_CMD cmd, enum DVFS_USER user, void *param)
 		break;
 	case PWR_CMD_DEBUG_FUNC:
 		power_debug_func();
+		break;
+	case PWR_CMD_SEGMENT_CHECK:
+		segment_user_support_check(param);
 		break;
 	default:
 		LOG_ERR("%s unknown power command : %d\n", __func__, cmd);
@@ -270,6 +276,30 @@ static int init_power_resource(void *param)
 	buck_control(VPU0, 3); // buck on
 	udelay(100);
 	buck_control(VPU0, 0); // buck off
+
+	return 0;
+}
+
+static int segment_user_support_check(void *param)
+{
+	uint32_t val = 0;
+	struct hal_param_seg_support *seg_info =
+		(struct hal_param_seg_support *)param;
+
+	seg_info->support = true;
+	seg_info->seg = SEGMENT_1;
+
+	val = get_devinfo_with_index(30);
+	if (val == 0x1) {
+		seg_info->seg = SEGMENT_0;
+		if (seg_info->user == VPU2 || seg_info->user == MDLA1)
+			seg_info->support = false;
+	} else if (val == 0x10)
+		seg_info->seg = SEGMENT_2;
+
+	if (seg_info->support == false)
+		LOG_INF("%s user=%d, support=%d\n", __func__,
+		seg_info->user, seg_info->support);
 
 	return 0;
 }

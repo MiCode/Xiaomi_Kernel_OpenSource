@@ -69,6 +69,12 @@
 #define VSRAM_HIGH_VOLT		DVFS_VOLT_00_825000_V
 #endif
 
+enum SEGMENT_INFO {
+	SEGMENT_0 = 0,	// 5G_l
+	SEGMENT_1 = 1,	// 5G
+	SEGMENT_2 = 2,	// 5G_H
+};
+
 
 enum DVFS_VPU0_PWR_PATH {
 	VPU0_VPU = 0,
