@@ -90,6 +90,8 @@ enum gce_event {
 	/* GCE handshake event 768~783 */
 	CMDQ_EVENT_HANDSHAKE = 768,
 
+	CMDQ_TOKEN_TPR_LOCK = 652,
+
 	/* GPR timer token, 994 to 1009 (for gpr r0 to r15) */
 	CMDQ_EVENT_GPR_TIMER = 994,
 };

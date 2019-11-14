@@ -54,6 +54,7 @@
 #define CMDQ_SYNC_TOKEN_UPD		0x68
 #define CMDQ_PREFETCH_GSIZE		0xC0
 #define CMDQ_TPR_MASK			0xD0
+#define CMDQ_TPR_TIMEOUT_EN		0xDC
 
 #define CMDQ_THR_BASE			0x100
 #define CMDQ_THR_SIZE			0x80
@@ -990,15 +991,18 @@ static void cmdq_thread_handle_timeout(unsigned long data)
 void cmdq_dump_core(struct mbox_chan *chan)
 {
 	struct cmdq *cmdq = dev_get_drvdata(chan->mbox->dev);
-	u32 irq, loaded, cycle, thd_timer;
+	u32 irq, loaded, cycle, thd_timer, tpr_mask, tpr_en;
 
 	irq = readl(cmdq->base + CMDQ_CURR_IRQ_STATUS);
 	loaded = readl(cmdq->base + CMDQ_CURR_LOADED_THR);
 	cycle = readl(cmdq->base + CMDQ_THR_EXEC_CYCLES);
 	thd_timer = readl(cmdq->base + CMDQ_THR_TIMEOUT_TIMER);
+	tpr_mask = readl(cmdq->base + CMDQ_TPR_MASK);
+	tpr_en = readl(cmdq->base + CMDQ_TPR_TIMEOUT_EN);
 
-	cmdq_util_msg("irq:%#x loaded:%#x cycle:%#x thd timer:%#x",
-		irq, loaded, cycle, thd_timer);
+	cmdq_util_msg(
+		"irq:%#x loaded:%#x cycle:%#x thd timer:%#x mask:%#x en:%#x",
+		irq, loaded, cycle, thd_timer, tpr_mask, tpr_en);
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 	cmdq_util_dump_dbg_reg(chan);
 #endif
@@ -1016,7 +1020,7 @@ void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
 
 	struct cmdq_pkt *pkt = NULL;
 	u32 warn_rst, en, suspend, status, irq, irq_en, curr_pa, end_pa, cnt,
-		wait_token, cfg, prefetch, pri = 0;
+		wait_token, cfg, prefetch, pri = 0, spr[4];
 	size_t size = 0;
 	u64 *end_va, *curr_va = NULL, inst = 0, last_inst[2] = {0};
 	void *va_base = NULL;
@@ -1046,6 +1050,10 @@ void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
 	wait_token = readl(thread->base + CMDQ_THR_WAIT_TOKEN);
 	cfg = readl(thread->base + CMDQ_THR_CFG);
 	prefetch = readl(thread->base + CMDQ_THR_PREFETCH);
+	spr[0] = readl(thread->base + CMDQ_THR_SPR);
+	spr[1] = readl(thread->base + CMDQ_THR_SPR + 4);
+	spr[2] = readl(thread->base + CMDQ_THR_SPR + 8);
+	spr[3] = readl(thread->base + CMDQ_THR_SPR + 12);
 
 	list_for_each_entry(task, &thread->task_busy_list, list_entry) {
 		empty = false;
@@ -1081,6 +1089,8 @@ void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
 	cmdq_util_msg(
 		"rst:%#x en:%#x suspend:%#x status:%#x irq:%x en:%#x cfg:%#x",
 		warn_rst, en, suspend, status, irq, irq_en, cfg);
+	cmdq_util_msg("spr:%#x %#x %#x %#x",
+		spr[0], spr[1], spr[2], spr[3]);
 	if (pkt) {
 		cmdq_util_msg(
 			"cur pkt:0x%p size:%zu va:0x%p pa:%pa priority:%u",

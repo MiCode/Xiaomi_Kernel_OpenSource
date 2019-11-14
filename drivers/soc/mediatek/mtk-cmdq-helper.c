@@ -59,6 +59,7 @@
 					CMDQ_WFE_WAIT_VALUE)
 #define CMDQ_TPR_MASK			0xD0
 #define CMDQ_TPR_TIMEOUT_EN		0xDC
+#define CMDQ_GPR_R0_OFF			0x80
 
 #define CMDQ_OPERAND_GET_IDX_VALUE(operand) \
 	((operand)->reg ? (operand)->idx : (operand)->value)
@@ -1036,7 +1037,9 @@ s32 cmdq_pkt_sleep(struct cmdq_pkt *pkt, u16 tick, u16 reg_gpr)
 	 */
 	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_SUBTRACT,
 		CMDQ_GPR_CNT_ID + reg_gpr, &lop, &rop);
+	cmdq_pkt_acquire_event(pkt, CMDQ_TOKEN_TPR_LOCK);
 	cmdq_pkt_write(pkt, NULL, timeout_en, tpr_en, tpr_en);
+	cmdq_pkt_clear_event(pkt, CMDQ_TOKEN_TPR_LOCK);
 	cmdq_pkt_clear_event(pkt, event);
 	rop.value = tick;
 	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, CMDQ_GPR_CNT_ID + reg_gpr,
@@ -1062,9 +1065,8 @@ s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 	/* assign compare value as compare target later */
 	cmdq_pkt_assign_command(pkt, reg_val, value);
 
-	/* init loop counter as 0 */
-	if (count != U16_MAX)
-		cmdq_pkt_assign_command(pkt, reg_counter, 0);
+	/* init loop counter as 0, counter can be count poll limit or debug */
+	cmdq_pkt_assign_command(pkt, reg_counter, 0);
 
 	/* mark begin offset of this operation */
 	begin_mark = pkt->cmd_buf_size;
@@ -1109,16 +1111,18 @@ s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 		rop.value = count;
 		cmdq_pkt_cond_jump_abs(pkt, reg_tmp, &lop, &rop,
 			CMDQ_GREATER_THAN_AND_EQUAL);
-		lop.reg = true;
-		lop.idx = reg_counter;
-		rop.reg = false;
-		rop.value = 1;
-		cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, reg_counter, &lop,
-			&rop);
 	}
 
-	/* sleep for 5 tick, which around 192us */
-	cmdq_pkt_sleep(pkt, 5, reg_gpr);
+	/* always inc counter */
+	lop.reg = true;
+	lop.idx = reg_counter;
+	rop.reg = false;
+	rop.value = 1;
+	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, reg_counter, &lop,
+		&rop);
+
+	/* sleep for 26000 tick, which around 1ms */
+	cmdq_pkt_sleep(pkt, 26000, reg_gpr);
 
 	/* loop to begin */
 	cmd_pa = cmdq_pkt_get_pa_by_offset(pkt, begin_mark);
@@ -1441,10 +1445,24 @@ static void cmdq_print_wait_summary(void *chan, dma_addr_t pc,
 {
 #define txt_len 128
 	char text[txt_len];
+	char text_gpr[30] = {0};
+	void *base;
+	u32 gprid, val;
 
 	cmdq_buf_print_wfe(text, txt_len, (u32)(pc & 0xFFFF), (void *)inst);
-	cmdq_util_msg("curr inst: %s value:%u",
-		text, cmdq_get_event(chan, inst->arg_a));
+
+	if (inst->arg_a >= CMDQ_EVENT_GPR_TIMER &&
+		inst->arg_a <= CMDQ_EVENT_GPR_TIMER + CMDQ_GPR_R15) {
+		base = cmdq_mbox_get_base(chan);
+		gprid = inst->arg_a - CMDQ_EVENT_GPR_TIMER;
+		val = readl(base + CMDQ_GPR_R0_OFF + gprid * 4);
+
+		snprintf(text_gpr, ARRAY_SIZE(text_gpr),
+			" GPR R%u:%#x", gprid, val);
+	}
+
+	cmdq_util_msg("curr inst: %s value:%u%s",
+		text, cmdq_get_event(chan, inst->arg_a), text_gpr);
 }
 #endif
 

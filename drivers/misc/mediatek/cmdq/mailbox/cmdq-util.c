@@ -31,6 +31,7 @@
 #define GCE_DBG_CTL			0x3000
 #define GCE_DBG0			0x3004
 #define GCE_DBG2			0x300C
+#define GCE_DBG3			0x3010
 
 #define util_time_to_us(start, end, duration)	\
 {	\
@@ -291,7 +292,7 @@ static atomic_t cmdq_dbg_ctrl = ATOMIC_INIT(0);
 void cmdq_util_dump_dbg_reg(void *chan)
 {
 	void *base = cmdq_mbox_get_base(chan);
-	u32 dbg0[3], dbg2[6], i;
+	u32 dbg0[3], dbg2[6], dbg3, i;
 	u32 id;
 
 	if (!base) {
@@ -320,10 +321,14 @@ void cmdq_util_dump_dbg_reg(void *chan)
 		dbg2[i] = readl(base + GCE_DBG2);
 	}
 
-	cmdq_util_msg("id:%u dbg0:%#x %#x %#x dbg2:%#x %#x %#x %#x %#x %#x\n",
+	dbg3 = readl(base + GCE_DBG3);
+
+	cmdq_util_msg(
+		"id:%u dbg0:%#x %#x %#x dbg2:%#x %#x %#x %#x %#x %#x dbg3:%#x",
 		id,
 		dbg0[0], dbg0[1], dbg0[2],
-		dbg2[0], dbg2[1], dbg2[2], dbg2[3], dbg2[4], dbg2[5]);
+		dbg2[0], dbg2[1], dbg2[2], dbg2[3], dbg2[4], dbg2[5],
+		dbg3);
 }
 
 void cmdq_util_track(struct cmdq_pkt *pkt)
