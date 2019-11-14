@@ -3353,11 +3353,26 @@ int smblib_get_prop_usb_voltage_now(struct smb_charger *chg,
 	}
 
 	/*
+	 * Skip reading voltage only if USB is not present and we are not in
+	 * OTG mode.
+	 */
+	if (!pval.intval) {
+		rc = smblib_read(chg, DCDC_CMD_OTG_REG, &reg);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't read CMD_OTG rc=%d", rc);
+			goto restore_adc_config;
+		}
+
+		if (!(reg & OTG_EN_BIT))
+			goto restore_adc_config;
+	}
+
+	/*
 	 * For PM8150B, use MID_CHG ADC channel because overvoltage is observed
 	 * to occur randomly in the USBIN channel, particularly at high
 	 * voltages.
 	 */
-	if (chg->chg_param.smb_version == PM8150B_SUBTYPE && pval.intval)
+	if (chg->chg_param.smb_version == PM8150B_SUBTYPE)
 		rc = smblib_read_mid_voltage_chan(chg, val);
 	else
 		rc = smblib_read_usbin_voltage_chan(chg, val);
@@ -3368,11 +3383,12 @@ int smblib_get_prop_usb_voltage_now(struct smb_charger *chg,
 
 restore_adc_config:
 	 /* Restore ADC channel config */
-	if (chg->wa_flags & USBIN_ADC_WA)
+	if (chg->wa_flags & USBIN_ADC_WA) {
 		rc = smblib_write(chg, BATIF_ADC_CHANNEL_EN_REG, reg);
 		if (rc < 0)
 			smblib_err(chg, "Couldn't write ADC config rc=%d\n",
 						rc);
+	}
 
 unlock:
 	mutex_unlock(&chg->adc_lock);
