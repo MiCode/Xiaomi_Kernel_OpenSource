@@ -247,14 +247,18 @@ static void print_vio_mask_sta(void)
 {
 	struct mtk_devapc_vio_info *vio_info = mtk_devapc_ctx->soc->vio_info;
 	uint32_t slave_type_num = mtk_devapc_ctx->soc->slave_type_num;
+	void __iomem *pd_vio_shift_sta_reg;
 	int slave_type, i;
 
 	for (slave_type = 0; slave_type < slave_type_num; slave_type++) {
 
-		pr_info(PFX "%s: %s: 0x%x\n", slave_type_to_string(slave_type),
+		pd_vio_shift_sta_reg = mtk_devapc_pd_get(slave_type,
+				VIO_SHIFT_STA, 0);
+
+		pr_info(PFX "[%s] %s: 0x%x\n",
+				slave_type_to_string(slave_type),
 				"VIO_SHIFT_STA",
-				readl(mtk_devapc_pd_get(slave_type,
-						VIO_SHIFT_STA, 0))
+				readl(pd_vio_shift_sta_reg)
 		       );
 
 		for (i = 0; i < vio_info->vio_mask_sta_num[slave_type]; i++)
@@ -749,7 +753,12 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 			if (!mtk_devapc_dump_vio_dbg(slave_type))
 				continue;
 
+		/* Ensure that violation info are written before
+		 * further operations
+		 */
+		smp_mb();
 		normal = true;
+
 		for (i = 0; i < ndevices[slave_type].vio_slave_num; i++) {
 			if (!device_info[slave_type][i].enable_vio_irq)
 				continue;
