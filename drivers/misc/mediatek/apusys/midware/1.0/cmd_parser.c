@@ -108,8 +108,8 @@ static int _set_data_to_cmdbuf(struct apusys_subcmd *sc)
 	sc->c_hdr->ip_time = sc->ip_time;
 	/* bandwidth */
 	sc->c_hdr->bandwidth = sc->bw;
-	/* tcm usage */
-	//sc->c_hdr->tcm_usage = sc->tcm_usage;
+	/* boost val */
+	sc->c_hdr->boost_val = sc->boost_val;
 
 	return 0;
 }
