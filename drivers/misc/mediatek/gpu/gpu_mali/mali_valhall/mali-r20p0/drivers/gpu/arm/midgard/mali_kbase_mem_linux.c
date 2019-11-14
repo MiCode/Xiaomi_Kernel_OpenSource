@@ -1268,6 +1268,7 @@ static struct kbase_va_region *kbase_mem_from_umm(struct kbase_context *kctx,
 	struct ion_handle *handle = NULL;
 	struct ion_mm_data mm_data;
 	int err = 0;
+	int retry_cnt = 0;
 
 	/* 64-bit address range is the max */
 	if (*va_pages > (U64_MAX / PAGE_SIZE))
@@ -1291,11 +1292,15 @@ static struct kbase_va_region *kbase_mem_from_umm(struct kbase_context *kctx,
 	mm_data.config_buffer_param.security = 0;
 	mm_data.config_buffer_param.coherent = 0;
 
+retry:
 	err = ion_kernel_ioctl(kctx->kbdev->client,
 		ION_CMD_MULTIMEDIA,
 		(unsigned long)&mm_data);
 
-	if (err) {
+	if (err == -ION_ERROR_CONFIG_CONFLICT && retry_cnt < 1000) {
+		retry_cnt++;
+		goto retry;
+	} else if (err) {
 		ion_free(kctx->kbdev->client, handle);
 		handle = NULL;
 
