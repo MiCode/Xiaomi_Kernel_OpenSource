@@ -539,7 +539,7 @@ static int vcu_gce_set_inst_id(void *ctx, u64 gce_handle)
 			vcu_ptr->gce_info[i].v4l2_ctx = ctx;
 			vcu_ptr->gce_info[i].user_hdl = gce_handle;
 			mutex_unlock(&vcu_ptr->vcu_share);
-			pr_info("[VCU] %s ctx %p hndl %llu create id %d\n",
+			pr_debug("[VCU] %s ctx %p hndl %llu create id %d\n",
 				__func__, ctx, gce_handle, i);
 			return i;
 		}
@@ -561,7 +561,7 @@ static int vcu_gce_get_inst_id(u64 gce_handle)
 		if (vcu_ptr->gce_info[i].user_hdl == gce_handle) {
 			temp = atomic_read(&vcu_ptr->gce_info[i].flush_done);
 			mutex_unlock(&vcu_ptr->vcu_share);
-			pr_info("[VCU] %s hndl %llu get id %d cnt %d\n",
+			pr_debug("[VCU] %s hndl %llu get id %d cnt %d\n",
 				__func__, gce_handle, i, temp);
 			return i;
 		}
@@ -590,7 +590,7 @@ static void vcu_gce_clear_inst_id(void *ctx)
 					"%s ctx %p hndl %llu free id %d cnt %d\n",
 					__func__, ctx, gce_handle, i, temp);
 			else
-				pr_info("[VCU] %s ctx %p hndl %llu free id %d cnt %d\n",
+				pr_debug("[VCU] %s ctx %p hndl %llu free id %d cnt %d\n",
 					__func__, ctx, gce_handle, i, temp);
 			return;
 		}
