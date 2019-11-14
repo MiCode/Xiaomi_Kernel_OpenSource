@@ -195,6 +195,9 @@ void vdec_decode_prepare(void *ctx_prepare,
 {
 	struct mtk_vcodec_ctx *ctx = (struct mtk_vcodec_ctx *)ctx_prepare;
 
+	if (ctx == NULL)
+		return;
+
 	mtk_vdec_pmqos_prelock(ctx, hw_id);
 	mtk_vdec_lock(ctx, hw_id);
 	mtk_vdec_pmqos_begin_frame(ctx, hw_id);
@@ -209,6 +212,9 @@ void vdec_decode_unprepare(void *ctx_unprepare,
 	int hw_id)
 {
 	struct mtk_vcodec_ctx *ctx = (struct mtk_vcodec_ctx *)ctx_unprepare;
+
+	if (ctx == NULL)
+		return;
 
 	if (ctx->dev->dec_sem[hw_id].count != 0) {
 		mtk_v4l2_err("HW not prepared, dec_sem[%d].count = %d",
