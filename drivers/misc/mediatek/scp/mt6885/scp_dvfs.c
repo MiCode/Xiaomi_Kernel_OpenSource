@@ -317,7 +317,8 @@ int scp_request_freq(void)
 		scp_awake_lock(SCP_A_ID);
 
 		/* do DVS before DFS if increasing frequency */
-		if (scp_current_freq < scp_expected_freq) {
+		if (scp_current_freq < scp_expected_freq
+				|| scp_current_freq == CLK_UNINIT) {
 			scp_vcore_request(scp_expected_freq);
 			is_increasing_freq = 1;
 		}
