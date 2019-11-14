@@ -2226,7 +2226,7 @@ void mtk_crtc_stop(struct mtk_drm_crtc *mtk_crtc)
 		mtk_crtc->gce_obj.client[CLIENT_CFG]);
 
 	if (crtc_id == 2) {
-		cmdq_pkt_wfe(cmdq_handle,
+		cmdq_pkt_wait_no_clear(cmdq_handle,
 			     mtk_crtc->gce_obj.event[EVENT_WDMA0_EOF]);
 	} else if (mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
 		/* 1. wait stream eof & clear tocken */
