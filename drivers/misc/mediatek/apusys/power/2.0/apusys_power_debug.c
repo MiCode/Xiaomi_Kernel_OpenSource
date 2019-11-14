@@ -38,6 +38,7 @@
 
 static int g_debug_option;
 bool is_power_debug_lock;
+int fixed_opp;
 
 static void change_log_level(int new_level)
 {
@@ -132,6 +133,63 @@ static int apu_power_dump_curr_status(struct seq_file *s, int oneline_str)
 	return 0;
 }
 
+void fix_dvfs_debug(void)
+{
+	int i = 0;
+	int opp = 0;
+
+		for (i = VPU0; i < VPU0 + APUSYS_VPU_NUM; i++)
+			apusys_opps.next_opp_index[i] = fixed_opp;
+
+		for (i = MDLA0; i < MDLA0 + APUSYS_MDLA_NUM; i++)
+			apusys_opps.next_opp_index[i] = fixed_opp;
+
+		// determine vpu / mdla / vcore voltage
+		apusys_opps.next_buck_volt[VPU_BUCK] =
+			apusys_opps.opps[fixed_opp][V_VPU0].voltage;
+		apusys_opps.next_buck_volt[MDLA_BUCK] =
+			apusys_opps.opps[fixed_opp][V_MDLA0].voltage;
+
+		#if VCORE_DVFS_SUPPORT
+		apusys_opps.next_buck_volt[VCORE_BUCK] =
+			apusys_opps.opps[fixed_opp][V_VCORE].voltage;
+		#else
+		if (apusys_opps.next_buck_volt[VPU_BUCK] ==
+			DVFS_VOLT_00_800000_V)
+			apusys_opps.next_buck_volt[VCORE_BUCK] =
+				DVFS_VOLT_00_600000_V;
+		else
+			apusys_opps.next_buck_volt[VCORE_BUCK] =
+				DVFS_VOLT_00_575000_V;
+		#endif
+
+		// determine buck domain opp
+		for (i = 0; i < APUSYS_BUCK_DOMAIN_NUM; i++) {
+			#if !VCORE_DVFS_SUPPORT
+			if (i == V_VCORE)
+				continue;
+			#endif
+			if (dvfs_power_domain_support(i) == false)
+				continue;
+			for (opp = 0; opp < APUSYS_MAX_NUM_OPPS; opp++) {
+				if ((i == V_APU_CONN ||	i == V_TOP_IOMMU) &&
+					(apusys_opps.opps[opp][i].voltage ==
+					apusys_opps.next_buck_volt[VPU_BUCK])) {
+					apusys_opps.next_opp_index[i] = opp;
+					break;
+				} else if (i == V_VCORE &&
+				apusys_opps.opps[opp][i].voltage ==
+				apusys_opps.next_buck_volt[VCORE_BUCK]) {
+					apusys_opps.next_opp_index[i] = opp;
+					break;
+				}
+			}
+		}
+
+		is_power_debug_lock = true;
+		apusys_dvfs_policy(0);
+}
+
 static int apusys_debug_power_show(struct seq_file *s, void *unused)
 {
 	switch (g_debug_option) {
@@ -162,7 +220,6 @@ int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 {
 	int ret = 0;
 	int i = 0, j = 0;
-	int opp = 0;
 
 	switch (param) {
 	case POWER_PARAM_FIX_OPP:
@@ -211,55 +268,10 @@ int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 		PWR_LOG_INF("@@test%d\n", argc);
 		PWR_LOG_INF("lock opp=%d\n", (int)(args[0]));
 
-		for (i = VPU0; i < VPU0 + APUSYS_VPU_NUM; i++)
-			apusys_opps.next_opp_index[i] = args[0];
+		fixed_opp = args[0];
 
-		for (i = MDLA0; i < MDLA0 + APUSYS_MDLA_NUM; i++)
-			apusys_opps.next_opp_index[i] = args[0];
+		fix_dvfs_debug();
 
-		// determine vpu / mdla / vcore voltage
-		apusys_opps.next_buck_volt[VPU_BUCK] =
-			apusys_opps.opps[args[0]][V_VPU0].voltage;
-		apusys_opps.next_buck_volt[MDLA_BUCK] =
-			apusys_opps.opps[args[0]][V_MDLA0].voltage;
-
-		if (apusys_opps.next_buck_volt[VPU_BUCK] ==
-			DVFS_VOLT_00_800000_V)
-			apusys_opps.next_buck_volt[VCORE_BUCK] =
-				DVFS_VOLT_00_600000_V;
-		else
-			apusys_opps.next_buck_volt[VCORE_BUCK] =
-				DVFS_VOLT_00_575000_V;
-		#if VCORE_DVFS_SUPPORT
-		apusys_opps.next_buck_volt[VCORE_BUCK] =
-			apusys_opps.opps[args[0]][V_VCORE].voltage;
-		#endif
-
-		// determine buck domain opp
-		for (i = 0; i < APUSYS_BUCK_DOMAIN_NUM; i++) {
-			#if !VCORE_DVFS_SUPPORT
-			if (i == V_VCORE)
-				continue;
-			#endif
-			if (dvfs_power_domain_support(i) == false)
-				continue;
-			for (opp = 0; opp < APUSYS_MAX_NUM_OPPS; opp++) {
-				if ((i == V_APU_CONN ||	i == V_TOP_IOMMU) &&
-					(apusys_opps.opps[opp][i].voltage ==
-					apusys_opps.next_buck_volt[VPU_BUCK])) {
-					apusys_opps.next_opp_index[i] = opp;
-					break;
-				} else if (i == V_VCORE &&
-				apusys_opps.opps[opp][i].voltage ==
-				apusys_opps.next_buck_volt[VCORE_BUCK]) {
-					apusys_opps.next_opp_index[i] = opp;
-					break;
-				}
-			}
-		}
-
-		is_power_debug_lock = true;
-		apusys_dvfs_policy(0);
 		break;
 #if 0
 	case POWER_PARAM_JTAG:

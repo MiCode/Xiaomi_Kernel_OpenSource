@@ -15,6 +15,7 @@
 #define _APUSYS_POWER_DEBUG_H_
 
 extern bool is_power_debug_lock;
+extern int fixed_opp;
 
 enum APUSYS_POWER_PARAM {
 	POWER_PARAM_FIX_OPP,
@@ -38,5 +39,6 @@ enum APUSYS_POWER_PARAM {
 
 void apusys_power_debugfs_init(void);
 void apusys_power_debugfs_exit(void);
+void fix_dvfs_debug(void);
 
 #endif
