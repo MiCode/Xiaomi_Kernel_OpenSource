@@ -147,7 +147,16 @@ static void phy_efuse_settings(struct mtk_phy_instance *instance)
 	}
 	evalue = (get_devinfo_with_index(107) & (0x1f << 0)) >> 0;
 	if (evalue) {
-		phy_printk(K_INFO, "g_ssusb_tx_impsel=0x%x\n",
+		phy_printk(K_INFO, "g_ssusb_tx_impsel=0x%x (R50)\n",
+			evalue);
+
+		if (evalue < 6)
+			evalue += 2;
+		else if (evalue >= 6 && evalue < 15)
+			evalue += 3;
+		else
+			evalue = 15;
+		phy_printk(K_INFO, "g_ssusb_tx_impsel=0x%x (R45)\n",
 			evalue);
 		u3phywrite32(U3D_PHYD_IMPCAL0,
 			RG_SSUSB_TX_IMPSEL_OFST,
@@ -430,6 +439,17 @@ static void usb_phy_tuning(struct mtk_phy_instance *instance)
 				RG_USB20_PHY_REV_6, u2_enhance);
 		}
 	}
+
+	phy_printk(K_INFO, "%s - SSUSB TX EYE Tuning\n", __func__);
+	u3phywrite32(U3D_PHYD_MIX6, RG_SSUSB_IDRVSEL_OFST,
+		RG_SSUSB_IDRVSEL, 0x19);
+	u3phywrite32(U3D_PHYD_MIX6, RG_SSUSB_FORCE_IDRVSEL_OFST,
+		RG_SSUSB_FORCE_IDRVSEL, 1);
+
+	u3phywrite32(U3D_PHYD_MIX6, RG_SSUSB_IDEMSEL_OFST,
+		RG_SSUSB_IDEMSEL, 0x1a);
+	u3phywrite32(U3D_PHYD_MIX6, RG_SSUSB_FORCE_IDEMSEL_OFST,
+		RG_SSUSB_FORCE_IDEMSEL, 1);
 }
 
 
