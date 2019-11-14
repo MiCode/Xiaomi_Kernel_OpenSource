@@ -64,7 +64,7 @@ struct scp_feature_tb feature_table[NUM_FEATURE_ID] = {
 #else
 	{
 		.feature        = VOW_BARGEIN_FEATURE_ID,
-		.freq           = 120,
+		.freq           = 250,
 		.enable         = 0,
 		.sys_id         = SCPSYS_CORE1,
 	},
