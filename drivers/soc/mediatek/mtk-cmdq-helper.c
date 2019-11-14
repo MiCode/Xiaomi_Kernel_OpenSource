@@ -1918,12 +1918,12 @@ static void cmdq_buf_print_move(char *text, u32 txt_sz,
 
 	if (cmdq_inst->arg_a)
 		snprintf(text, txt_sz,
-			"%#06x %#018llx [Move ] move %#llx to %s%#hhu",
+			"%#06x %#018llx [Move ] move %#llx to %s%hhu",
 			offset, *((u64 *)cmdq_inst), val,
 			"Reg Index GPR R", cmdq_inst->s_op);
 	else
 		snprintf(text, txt_sz,
-			"%#06x %#018llx [Move ] mask %#010x",
+			"%#06x %#018llx [Move ] mask %#014llx",
 			offset, *((u64 *)cmdq_inst), ~val);
 }
 

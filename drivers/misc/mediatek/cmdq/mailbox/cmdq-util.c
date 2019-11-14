@@ -20,7 +20,7 @@
 #include <devapc_public.h>
 #endif
 
-#define CMDQ_RECORD_NUM			256
+#define CMDQ_RECORD_NUM			512
 #define CMDQ_FIRST_ERR_SIZE		262144	/* 256k */
 
 #define CMDQ_CURR_IRQ_STATUS		0x10
@@ -83,7 +83,7 @@ struct cmdq_util {
 	struct cmdq_util_error	err;
 	struct cmdq_util_dentry	fs;
 	struct cmdq_record record[CMDQ_RECORD_NUM];
-	u8 record_idx;
+	u16 record_idx;
 	void *cmdq_mbox[4];
 	u32 mbox_cnt;
 };
