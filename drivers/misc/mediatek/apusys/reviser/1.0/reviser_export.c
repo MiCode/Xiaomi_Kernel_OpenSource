@@ -36,7 +36,7 @@ int reviser_get_vlm(uint32_t request_size, bool force,
 	if (!reviser_table_get_vlm(g_reviser_device,
 			request_size, force,
 			id, tcm_size)) {
-		LOG_INFO("request(0x%x) force(%d) ctxid(%lu) tcm_size(0x%x)\n",
+		LOG_DEBUG("request(0x%x) force(%d) ctxid(%lu) tcm_size(0x%x)\n",
 				request_size, force, *id, *tcm_size);
 	} else {
 		ret = -EINVAL;
@@ -64,7 +64,7 @@ int reviser_free_vlm(uint32_t ctxid)
 		return ret;
 	}
 
-	LOG_INFO("ctxid(%d)\n", ctxid);
+	LOG_DEBUG("ctxid(%d)\n", ctxid);
 	return ret;
 }
 EXPORT_SYMBOL(reviser_free_vlm);
@@ -101,7 +101,7 @@ int reviser_set_context(int type,
 		return ret;
 	}
 
-	LOG_INFO("type/index/ctxid(%d/%d/%d)\n", type, index, ctxid);
+	LOG_DEBUG("type/index/ctxid(%d/%d/%d)\n", type, index, ctxid);
 
 	return ret;
 }

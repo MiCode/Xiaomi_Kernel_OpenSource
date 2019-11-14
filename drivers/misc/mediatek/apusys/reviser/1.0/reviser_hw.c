@@ -1029,7 +1029,7 @@ int reviser_set_default_iova(void *drvinfo)
 	_reviser_set_default_iova(drvinfo, g_mem_sys.iova);
 #endif
 
-	LOG_INFO("Set IOVA %x\n", g_mem_sys.iova);
+	LOG_DEBUG("Set IOVA %x\n", g_mem_sys.iova);
 
 	return ret;
 }
@@ -1125,7 +1125,7 @@ int reviser_boundary_init(void *drvinfo, uint8_t boundary)
 
 	DEBUG_TAG;
 
-	LOG_INFO("boundary %u\n", boundary);
+	LOG_DEBUG("boundary %u\n", boundary);
 
 	for (i = 0; i < VLM_CTXT_MDLA_MAX; i++) {
 		if (reviser_set_boundary(

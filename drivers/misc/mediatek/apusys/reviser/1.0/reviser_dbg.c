@@ -407,13 +407,13 @@ static ssize_t reviser_dbg_read_mem_swap(struct file *filp, char *buffer,
 	addr = reviser_device->pvlm[g_reviser_mem_dram_ctxid].swap_addr;
 	if (addr == 0) {
 		LOG_ERR("copy dram no swap_addr 0x%llx\n", addr);
-		return res;
+		goto fail;
 	}
 
 	res = simple_read_from_buffer(buffer, length, offset,
 			(void *) addr + dram_offset,
 			VLM_BANK_SIZE);
-
+fail:
 	mutex_unlock(&reviser_device->mutex_vlm_pgtable);
 	return res;
 }
