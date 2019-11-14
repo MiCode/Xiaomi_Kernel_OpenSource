@@ -1529,13 +1529,19 @@ static void mtk_jpeg_clk_on_ctx(struct mtk_jpeg_ctx *ctx)
 			port.domain = 0;
 			port.Security = 0;
 			port.Virtuality = 1;
-			m4u_config_port(&port);
+
+			if (port.ePortID == jpeg->port_y_rdma[ctx->coreid] ||
+			port.ePortID == jpeg->port_c_rdma[ctx->coreid] ||
+			port.ePortID == jpeg->port_qtbl[ctx->coreid] ||
+			port.ePortID == jpeg->port_bsdma[ctx->coreid])
+				m4u_config_port(&port);
 		}
 	}
 	enable_irq(jpeg->irq[ctx->coreid]);
 
 	pr_info("%s -", __func__);
 }
+
 
 static void mtk_jpeg_clk_off_ctx(struct mtk_jpeg_ctx *ctx)
 {
