@@ -660,6 +660,10 @@
 #define CLK_CFG_16_SET 0x114
 #define CLK_CFG_16_CLR 0x118
 
+/* SCP_ADSP */
+#define SCP_ADSP_CK_CG	1
+#define SCP_ADSP_NR_CLK	2
+
 /* SCP_SYS */
 #define SCP_SYS_MD1	1
 #define SCP_SYS_CONN	2

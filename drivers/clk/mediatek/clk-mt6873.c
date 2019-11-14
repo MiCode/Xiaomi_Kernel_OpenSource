@@ -144,6 +144,8 @@ static DEFINE_SPINLOCK(meter_lock);
 #define AUDIO_TOP_CON1		(audio_base + 0x0004)
 #define AUDIO_TOP_CON2		(audio_base + 0x0008)
 
+#define AUDIODSP_CK_CG		(scp_adsp_base + 0x0180)
+
 #define CAMSYS_CG_CON		(cam_base + 0x0000)
 #define CAMSYS_CG_SET		(cam_base + 0x0004)
 #define CAMSYS_CG_CLR		(cam_base + 0x0008)
@@ -283,6 +285,8 @@ static DEFINE_SPINLOCK(meter_lock);
 #define AUDIO_CG0	0x1F1C0304
 #define AUDIO_CG1	0xF033F0F0
 #define AUDIO_CG2	0x5B
+
+#define AUDIODSP_CG	0x1
 
 #define CAMSYS_CG	0x3FFCF
 #define CAMRAWA_CG	0x7
@@ -2334,7 +2338,33 @@ static void mtk_audio_init(struct device_node *node)
 #endif
 }
 CLK_OF_DECLARE_DRIVER(mtk_audio, "mediatek,audio", mtk_audio_init);
+/******************* SCP AUDIODSP Subsys *******************************/
+static struct mtk_gate_regs scp_adsp_regs = {
+	.set_ofs = 0x180,
+	.clr_ofs = 0x180,
+	.sta_ofs = 0x180,
+};
 
+static struct mtk_gate scp_adsp_clks[] __initdata = {
+	/* SCP ADSP */
+	GATE_STA(SCP_ADSP_CK_CG, "SCP_ADSP_CK_CG", "adsp_sel",
+			 scp_adsp_regs, 0, 0),
+};
+
+static void __iomem *scp_adsp_base;
+static void mtk_scp_adsp_init(struct device_node *node)
+{
+	pr_notice("%s init begin\n", __func__);
+	scp_adsp_base = mtk_gate_common_init(node, "scp_adsp", scp_adsp_clks,
+				ARRAY_SIZE(scp_adsp_clks), SCP_ADSP_NR_CLK);
+	if (!scp_adsp_base)
+		return;
+#if MT_CCF_BRINGUP
+	clk_writel(AUDIODSP_CK_CG, clk_readl(AUDIODSP_CK_CG) & ~AUDIODSP_CG);
+	pr_notice("%s init done\n", __func__);
+#endif
+}
+CLK_OF_DECLARE_DRIVER(mtk_scp_adsp, "mediatek,scp_adsp", mtk_scp_adsp_init);
 /*******************  CAM Main Subsys *******************************/
 static struct mtk_gate_regs camsys_main_camsys_cg_regs = {
 	.set_ofs = 0x4,

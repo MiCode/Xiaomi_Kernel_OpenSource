@@ -1096,6 +1096,12 @@
 		reg = <0 0x10500000 0 0x0>;
 	};
 
+	scp_adsp: scp_adsp@10720000 {
+		compatible = "mediatek,scp_adsp", "syscon";
+		reg = <0 0x10720000 0 0x200>;
+		#clock-cells = <1>;
+	};
+
 	scp: scp@10700000 {
 		compatible = "mediatek,scp";
 		status = "okay";
