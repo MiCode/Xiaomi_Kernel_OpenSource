@@ -68,20 +68,31 @@ static void apu_power_dump_opp_table(struct seq_file *s)
 static void apu_power_dump_curr_status(struct seq_file *s)
 {
 	struct apu_power_info info;
-	int buck_domain;
-
-	seq_printf(s,
-		"|curr| vpu0| vpu1| vpu2|mdla0|mdla1| conn|iommu|vcore|\n| opp|");
-	for (buck_domain = 0 ; buck_domain < APUSYS_BUCK_DOMAIN_NUM;
-		buck_domain++) {
-		seq_printf(s, "  %d  |",
-			apusys_opps.cur_opp_index[buck_domain]);
-	}
-	seq_puts(s, "\n");
 
 	info.id = 0;
 	info.type = 1;
 	hal_config_power(PWR_CMD_GET_POWER_INFO, VPU0, &info);
+
+	seq_printf(s,
+		"|curr| vpu0| vpu1| vpu2|mdla0|mdla1| conn|iommu|vcore|\n| opp|");
+
+	seq_printf(s, "  %d  |", apusys_freq_to_opp(V_VPU0,
+					info.dsp1_freq * info.dump_div));
+	seq_printf(s, "  %d  |", apusys_freq_to_opp(V_VPU1,
+					info.dsp2_freq * info.dump_div));
+	seq_printf(s, "  %d  |", apusys_freq_to_opp(V_VPU2,
+					info.dsp3_freq * info.dump_div));
+	seq_printf(s, "  %d  |", apusys_freq_to_opp(V_MDLA0,
+					info.dsp6_freq * info.dump_div));
+	seq_printf(s, "  %d  |", apusys_freq_to_opp(V_MDLA1,
+					info.dsp6_freq * info.dump_div));
+	seq_printf(s, "  %d  |", apusys_freq_to_opp(V_APU_CONN,
+					info.dsp_freq * info.dump_div));
+	seq_printf(s, "  %d  |", apusys_freq_to_opp(V_TOP_IOMMU,
+					info.dsp7_freq * info.dump_div));
+	seq_printf(s, "  %d  |", apusys_freq_to_opp(V_VCORE,
+					info.ipuif_freq * info.dump_div));
+	seq_puts(s, "\n");
 
 	seq_printf(s,
 		"|freq| %03u | %03u | %03u | %03u | %03u | %03u | %03u | %03u |\n",

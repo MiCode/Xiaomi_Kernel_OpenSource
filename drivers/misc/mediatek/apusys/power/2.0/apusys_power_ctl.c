@@ -129,6 +129,21 @@ enum DVFS_FREQ apusys_opp_to_freq(enum DVFS_USER user, uint8_t opp)
 }
 EXPORT_SYMBOL(apusys_opp_to_freq);
 
+uint8_t apusys_freq_to_opp(enum DVFS_VOLTAGE_DOMAIN buck_domain, uint32_t freq)
+{
+	uint8_t opp = 0;
+	uint32_t next_freq = 0;
+
+	for (opp = 0 ; opp < APUSYS_MAX_NUM_OPPS - 1 ; opp++) {
+		next_freq = apusys_opps.opps[opp+1][buck_domain].freq + 1;
+		if (freq >= next_freq &&
+			freq <= (apusys_opps.opps[opp][buck_domain].freq + 1))
+			break;
+	}
+
+	return opp;
+}
+EXPORT_SYMBOL(apusys_freq_to_opp);
 
 int8_t apusys_get_opp(enum DVFS_USER user)
 {
