@@ -290,7 +290,7 @@ static int apu_pm_handler(void *param)
 		// TODO: do we have any action need to be handled in suspend?
 	} else {
 		// TODO: do we need to call init_power_resource again in resume?
-#if 0
+#if 1
 		enable_apu_vcore_clksrc();
 		enable_apu_conn_clksrc();
 		set_apu_clock_source(DVFS_FREQ_00_026000_F, V_VCORE);
@@ -559,7 +559,7 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 	int retry = 0;
 	int ret = 0;
 
-	LOG_INF("%s , user: %d , enable: %d\n", __func__, user, enable);
+	LOG_DBG("%s , user: %d , enable: %d\n", __func__, user, enable);
 
 	if (user == EDMA || user == EDMA2 || user == REVISER)
 		domain_idx = 0;
@@ -774,7 +774,7 @@ static void get_current_power_info(void *param)
 
 	trace_APUSYS_DFS(info, mdla_0, mdla_1);
 
-	LOG_WRN("APUPWR %s\n", log_str);
+	LOG_PM("APUPWR %s\n", log_str);
 }
 
 static int uninit_power_resource(void)
@@ -933,7 +933,7 @@ static int set_power_boot_up(enum DVFS_USER user, void *param)
 	if (ret)
 		LOG_ERR("%s fail, ret = %d\n", __func__, ret);
 	else
-		LOG_DBG("%s pass, ret = %d\n", __func__, ret);
+		LOG_PM("%s pass, ret = %d\n", __func__, ret);
 
 	power_on_counter++;
 	return ret;
@@ -967,7 +967,7 @@ static int set_power_shut_down(enum DVFS_USER user, void *param)
 	if (ret)
 		LOG_ERR("%s fail, ret = %d\n", __func__, ret);
 	else
-		LOG_DBG("%s pass, ret = %d\n", __func__, ret);
+		LOG_PM("%s pass, ret = %d\n", __func__, ret);
 
 	power_on_counter--;
 	return ret;

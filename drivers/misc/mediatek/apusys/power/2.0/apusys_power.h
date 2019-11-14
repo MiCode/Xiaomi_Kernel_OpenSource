@@ -26,6 +26,7 @@ extern int apu_power_device_register(enum DVFS_USER, struct platform_device*);
 extern void apu_power_device_unregister(enum DVFS_USER);
 extern int apu_device_power_on(enum DVFS_USER);
 extern int apu_device_power_off(enum DVFS_USER);
+extern int apu_device_power_suspend(enum DVFS_USER user, int suspend);
 extern void apu_device_set_opp(enum DVFS_USER user, uint8_t opp);
 extern void apu_get_power_info(void);
 extern bool apu_get_power_on_status(enum DVFS_USER user);
