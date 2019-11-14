@@ -17,6 +17,8 @@
 #include <linux/irqdomain.h>
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
+#include <linux/syscore_ops.h>
+#include <linux/wakeup_reason.h>
 
 #include "mtk-eint.h"
 #include "pinctrl-mtk-common-v2.h"
@@ -454,6 +456,38 @@ int mtk_eint_find_irq(struct mtk_eint *eint, unsigned long eint_n)
 	return irq;
 }
 
+static struct mtk_eint *g_eint;
+void mt_eint_show_resume_irq(void)
+{
+	unsigned int status, eint_num;
+	unsigned int offset;
+	const struct mtk_eint_regs *eint_offsets = g_eint->regs;
+	void __iomem *reg_base = mtk_eint_get_offset(g_eint, 0,
+		eint_offsets->stat);
+	unsigned int triggered_eint;
+
+	for (eint_num = 0; eint_num < g_eint->hw->ap_num;
+		reg_base += 4, eint_num += 32) {
+		/* read status register every 32 interrupts */
+		status = readl(reg_base);
+		if (!status)
+			continue;
+
+		while (status) {
+			offset = __ffs(status);
+			triggered_eint = eint_num + offset;
+			pr_info("EINT %d is pending\n", triggered_eint);
+			log_wakeup_reason(irq_find_mapping(g_eint->domain,
+				triggered_eint));
+			status &= ~BIT(offset);
+		}
+	}
+}
+
+static struct syscore_ops mtk_eint_syscore_ops = {
+	.resume = mt_eint_show_resume_irq,
+};
+
 int mtk_eint_do_init(struct mtk_eint *eint)
 {
 	int i;
@@ -494,6 +528,10 @@ int mtk_eint_do_init(struct mtk_eint *eint)
 
 	irq_set_chained_handler_and_data(eint->irq, mtk_eint_irq_handler,
 					 eint);
+
+	g_eint = eint;
+
+	register_syscore_ops(&mtk_eint_syscore_ops);
 
 	return 0;
 }
