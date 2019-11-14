@@ -351,16 +351,14 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd,
 		 * case 1 (status == 0): timeout, reason: HW timeout issue
 		 */
 		if (status == 0) {
-			/* check Zero Skip  timeout here */
-			if (mdla_zero_skip_detect(core_id) != 0) {
-				/* case 1: Zero Skip timeout */
-				break;
-			}
+			/* wakeup for check status */
+
 		}
 	}
 
 #ifdef __APUSYS_MDLA_UT__
-	mdla_cmd_debug("MREG_TOP_G_FIN0: %.8x, MREG_TOP_G_FIN1: %.8x\n",
+	mdla_cmd_debug("Core: %d, MREG_TOP_G_FIN0: %.8x, MREG_TOP_G_FIN1: %.8x\n",
+		core_id,
 		mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_FIN0),
 		mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_FIN1));
 
@@ -389,6 +387,7 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd,
 		mdla_timeout_debug("command: %d, max_cmd_id: %d\n",
 				id,
 				mdla_info->max_cmd_id);
+		mdla_zero_skip_detect(core_id);
 		mdla_dump_dbg(mdla_info, &ce);
 		//if (mdla_timeout_dbg)
 		//	BUG_ON(1);
@@ -408,11 +407,6 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd,
 	/* Calculate all performance index */
 	mdla_performance_index(wt, &ce);
 
-#if 0
-	mdla_perf_debug("exec: id:%d, res:%u, que_t:%llu, busy_t:%llu,bandwidth: %lu\n",
-			wt->id, wt->result, wt->queue_time,
-			wt->busy_time, wt->bandwidth);
-#endif
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
 	if (!pmu_apusys_pmu_addr_check(apusys_hd)) {
 		pmu_command_counter_prt(mdla_info);

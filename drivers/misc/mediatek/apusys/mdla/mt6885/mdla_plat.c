@@ -339,6 +339,29 @@ void mdla_multi_core_sync_rst_done(void)
 			udelay(10);
 }
 
+int mdla_zero_skip_detect(int core_id)
+{
+	u32 dde_debug_if_0, dde_debug_if_2, dde_it_front_c_invalid;
+
+	dde_debug_if_0 =
+		mdla_reg_read_with_mdlaid(core_id, MREG_DDE_DEBUG_IF_0);
+	dde_debug_if_2 =
+		mdla_reg_read_with_mdlaid(core_id, MREG_DDE_DEBUG_IF_2);
+	dde_it_front_c_invalid =
+		mdla_reg_read_with_mdlaid(core_id, MREG_DDE_IT_FRONT_C_INVALID);
+
+	if (dde_debug_if_0 == 0x6) {
+		if ((dde_debug_if_2 == dde_it_front_c_invalid) ||
+			(dde_debug_if_2 == (dde_it_front_c_invalid/2))) {
+			mdla_timeout_debug("core:%d, %s: match zero skip issue\n",
+				core_id,
+				__func__);
+			mdla_devices[core_id].mdla_dde_zero_skip_count++;
+			return -1;
+		}
+	}
+	return 0;
+}
 
 #ifndef __APUSYS_PREEMPTION__
 int mdla_process_command(int core_id, struct command_entry *ce)
@@ -384,28 +407,7 @@ int mdla_process_command(int core_id, struct command_entry *ce)
 	return ret;
 }
 #endif
-int mdla_zero_skip_detect(int core_id)
-{
-	u32 dde_debug_if_0, dde_debug_if_2, dde_it_front_c_invalid;
 
-	dde_debug_if_0 =
-		mdla_reg_read_with_mdlaid(core_id, MREG_DDE_DEBUG_IF_0);
-	dde_debug_if_2 =
-		mdla_reg_read_with_mdlaid(core_id, MREG_DDE_DEBUG_IF_2);
-	dde_it_front_c_invalid =
-		mdla_reg_read_with_mdlaid(core_id, MREG_DDE_IT_FRONT_C_INVALID);
-
-	if (dde_debug_if_0 == 0x6) {
-		if ((dde_debug_if_2 == dde_it_front_c_invalid) ||
-			(dde_debug_if_2 == (dde_it_front_c_invalid/2))) {
-			mdla_timeout_debug("%s: match zero skip issue\n",
-				__func__);
-			mdla_devices[core_id].mdla_dde_zero_skip_count++;
-			return -1;
-		}
-	}
-	return 0;
-}
 
 int mdla_run_command_codebuf_check(struct command_entry *ce)
 {
