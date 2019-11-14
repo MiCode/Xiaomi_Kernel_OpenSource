@@ -168,16 +168,26 @@ static int dsp_pcm_dev_probe(struct platform_device *pdev)
 
 	set_ipi_recv_private((void *)dsp);
 	set_dsp_base((void *)dsp);
-	init_mtk_adsp_dram_segment();
 	dsp_pcm_taskattr_init(pdev);
 
+	ret = init_mtk_adsp_dram_segment();
+	if (ret) {
+		pr_info("init_mtk_adsp_dram_segment fail\n");
+		goto err_platform;
+	}
+	dump_all_adsp_dram();
+
 	ret = mtk_adsp_init_gen_pool(dsp);
-	if (ret)
+	if (ret) {
 		pr_info("init_gen_pool fail\n");
+		goto err_platform;
+	}
 
 	ret = mtk_init_adsp_audio_share_mem(dsp);
-	if (ret)
+	if (ret) {
 		pr_info("init share mem fail\n");
+		goto err_platform;
+	}
 
 	mtk_audio_register_notify();
 

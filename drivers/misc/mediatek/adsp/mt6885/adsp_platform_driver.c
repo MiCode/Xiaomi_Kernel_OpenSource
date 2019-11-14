@@ -514,6 +514,8 @@ static int adsp_common_drv_probe(struct platform_device *pdev)
 
 	/* indicate if adsp images is loaded successfully */
 	of_property_read_u32(dev->of_node, "load", &adsp_load);
+	if (!adsp_load)
+		pr_info("%s adsp disable\n", __func__);
 
 	/* get resource from platform_device */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);

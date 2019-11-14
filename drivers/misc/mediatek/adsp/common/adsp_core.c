@@ -339,9 +339,10 @@ static int __init adsp_init(void)
 	int ret = 0;
 
 	ret = create_adsp_drivers();
-	if (!ret)
+	if (!ret) {
+		pr_info("%s fail\n", __func__);
 		return -ENODEV;
-
+	}
 	rwlock_init(&access_rwlock);
 
 	adsp_platform_init();
@@ -363,9 +364,10 @@ static int __init adsp_module_init(void)
 	int ret = 0, cid = 0;
 	struct adsp_priv *pdata;
 
-	if (!is_adsp_load())
+	if (!is_adsp_load()) {
+		ret = -ENODEV;
 		goto ERROR;
-
+	}
 	switch_adsp_power(true);
 
 	for (cid = 0; cid < ADSP_CORE_TOTAL; cid++) {
@@ -404,8 +406,11 @@ static int __init adsp_module_init(void)
 	}
 
 	adsp_deregister_feature(SYSTEM_FEATURE_ID);
-	pr_debug("[ADSP] module_init_done\n");
+	pr_info("%s done\n", __func__);
+	return ret;
+
 ERROR:
+	pr_info("%s fail ret(%d)\n", __func__, ret);
 	return ret;
 }
 

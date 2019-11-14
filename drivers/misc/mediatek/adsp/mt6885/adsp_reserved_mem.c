@@ -113,15 +113,17 @@ void adsp_init_reserve_memory(void)
 	size_t acc_size = 0;
 
 	if (!mem->phys_addr || !mem->size) {
-		pr_info("[ADSP] reserve memory illegal addr:%llu, size:%zu",
-			mem->phys_addr, mem->size);
+		pr_info("%s() reserve memory illegal addr:%llu, size:%zu\n",
+			__func__, mem->phys_addr, mem->size);
 		return;
 	}
 
 	mem->virt_addr = ioremap_wc(mem->phys_addr, mem->size);
 
-	if (!mem->virt_addr)
+	if (!mem->virt_addr) {
+		pr_info("%s() ioremap fail\n", __func__);
 		return;
+	}
 
 	/* assign to each memory block */
 	for (id = 0; id < ADSP_NUMS_MEM_ID; id++) {
@@ -173,7 +175,7 @@ void adsp_update_mpu_memory_info(struct adsp_priv *pdata)
 	mpu_info.share_dram_addr = (u32)adsp_reserve_mem.phys_addr;
 	mpu_info.share_dram_size = (u32)adsp_reserve_mem.size;
 
-	pr_debug("[ADSP] mpu info=(0x%x, 0x%x)\n",
+	pr_info("[ADSP] mpu info=(0x%x, 0x%x)\n",
 		 mpu_info.share_dram_addr, mpu_info.share_dram_size);
 	adsp_copy_to_sharedmem(pdata, ADSP_SHAREDMEM_MPUINFO,
 		&mpu_info, sizeof(struct adsp_mpu_info_t));
