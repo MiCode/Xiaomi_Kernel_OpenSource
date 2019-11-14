@@ -1388,12 +1388,25 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 			mem_priv =
 				mtk_vcu_get_buffer(vcu_queue, &mem_buff_data);
 			mem_buff_data.pa = 0;
+			if (IS_ERR(mem_priv) == true) {
+				pr_info("[VCU] Dma alloc buf failed!\n");
+				return PTR_ERR(mem_priv);
+			}
 		} else {
 			mem_priv =
 				cmdq_mbox_buf_alloc(dev, &temp_pa);
 			mem_buff_data.va = (unsigned long)mem_priv;
 			mem_buff_data.pa = (unsigned long)temp_pa;
 			mem_buff_data.iova = 0;
+			if (IS_ERR(mem_priv) == true) {
+				mem_buff_data.va = (unsigned long)-1;
+				mem_buff_data.pa = (unsigned long)-1;
+				ret = (long)copy_to_user(user_data_addr,
+					&mem_buff_data,
+					(unsigned long)sizeof(struct mem_obj));
+				pr_info("[VCU] GCE alloc PA buf failed!\n");
+				return PTR_ERR(mem_priv);
+			}
 			tmp = kmalloc(sizeof(struct vcu_pa_pages), GFP_KERNEL);
 			if (!tmp)
 				return -ENOMEM;
@@ -1404,11 +1417,6 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 		pr_debug("[VCU] VCU_ALLOCATION %d va %llx, pa %llx, iova %x\n",
 			cmd == VCU_MVA_ALLOCATION, mem_buff_data.va,
 			mem_buff_data.pa, mem_buff_data.iova);
-
-		if (IS_ERR(mem_priv) == true) {
-			pr_debug("[VCU] Dma alloc buf failed!\n");
-			return PTR_ERR(mem_priv);
-		}
 
 		ret = (long)copy_to_user(user_data_addr, &mem_buff_data,
 					 (unsigned long)sizeof(struct mem_obj));
