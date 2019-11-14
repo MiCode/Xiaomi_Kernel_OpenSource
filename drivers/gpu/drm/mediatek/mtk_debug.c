@@ -1020,6 +1020,7 @@ static const struct file_operations debug_fops = {
 static int idletime_set(void *data, u64 val)
 {
 	struct drm_crtc *crtc;
+	u64 ret = 0;
 
 	if (val < 33)
 		val = 33;
@@ -1032,7 +1033,9 @@ static int idletime_set(void *data, u64 val)
 		DDPPR_ERR("find crtc fail\n");
 		return -ENODEV;
 	}
-	mtk_drm_set_idle_check_interval(crtc, val);
+	ret = mtk_drm_set_idle_check_interval(crtc, val);
+	if (ret == 0)
+		return -ENODEV;
 
 	return 0;
 }
@@ -1048,6 +1051,8 @@ static int idletime_get(void *data, u64 *val)
 		return -ENODEV;
 	}
 	*val = mtk_drm_get_idle_check_interval(crtc);
+	if (*val == 0)
+		return -ENODEV;
 
 	return 0;
 }

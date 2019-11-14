@@ -216,12 +216,13 @@ mtk_drm_set_idle_check_interval(struct drm_crtc *crtc,
 				unsigned long long new_interval)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct mtk_drm_idlemgr *idlemgr = mtk_crtc->idlemgr;
-	struct mtk_drm_idlemgr_context *idlemgr_ctx = idlemgr->idlemgr_ctx;
+	unsigned long long old_interval = 0;
 
-	unsigned long long old_interval = idlemgr_ctx->idle_check_interval;
+	if (!(mtk_crtc && mtk_crtc->idlemgr && mtk_crtc->idlemgr->idlemgr_ctx))
+		return 0;
 
-	idlemgr_ctx->idle_check_interval = new_interval;
+	old_interval = mtk_crtc->idlemgr->idlemgr_ctx->idle_check_interval;
+	mtk_crtc->idlemgr->idlemgr_ctx->idle_check_interval = new_interval;
 
 	return old_interval;
 }
@@ -230,13 +231,11 @@ unsigned long long
 mtk_drm_get_idle_check_interval(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct mtk_drm_idlemgr *idlemgr = mtk_crtc->idlemgr;
-	struct mtk_drm_idlemgr_context *idlemgr_ctx = idlemgr->idlemgr_ctx;
 
-	if (idlemgr)
-		return idlemgr_ctx->idle_check_interval;
-	else
+	if (!(mtk_crtc && mtk_crtc->idlemgr && mtk_crtc->idlemgr->idlemgr_ctx))
 		return 0;
+
+	return mtk_crtc->idlemgr->idlemgr_ctx->idle_check_interval;
 }
 
 static int mtk_drm_idlemgr_monitor_thread(void *data)
