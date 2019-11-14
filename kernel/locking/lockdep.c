@@ -171,7 +171,7 @@ static unsigned int lock_mon_1st_th_ms = 2000; /* show name */
 static unsigned int lock_mon_2nd_th_ms = 5000; /* show backtrace */
 static unsigned int lock_mon_3rd_th_ms = 15000; /* trigger Kernel API dump */
 static unsigned int lock_mon_period_ms = 2500; /* check held locks */
-static unsigned int lock_mon_period_cnt = 3; /* show more information */
+static unsigned int lock_mon_period_cnt = 4; /* show more information */
 static unsigned int lock_mon_door;
 static struct delayed_work lock_mon_work;
 
@@ -183,6 +183,31 @@ static const char * const held_lock_white_list[] = {
 	"&of->mutex",
 	"&epfile->mutex"
 };
+
+#define lock_mon_enabled()	lock_mon_enable
+
+static void
+__add_held_lock(struct lockdep_map *lock, unsigned int subclass,
+		int trylock, int read, int check, int hardirqs_off,
+		struct lockdep_map *nest_lock, unsigned long ip,
+		int references, int pin_count);
+static void
+__remove_held_lock(struct lockdep_map *lock, int nested, unsigned long ip);
+#else
+#define lock_mon_enabled()	0
+
+static void
+__add_held_lock(struct lockdep_map *lock, unsigned int subclass,
+		int trylock, int read, int check, int hardirqs_off,
+		struct lockdep_map *nest_lock, unsigned long ip,
+		int references, int pin_count)
+{
+}
+
+static void
+__remove_held_lock(struct lockdep_map *lock, int nested, unsigned long ip)
+{
+}
 #endif
 
 static unsigned long long sec_high(unsigned long long nsec)
@@ -764,7 +789,7 @@ void held_lock_save_trace(struct stack_trace *trace, unsigned long *entries)
 	save_stack_trace(trace);
 
 	if (trace->nr_entries != 0 &&
-	    trace->entries[trace->nr_entries-1] == ULONG_MAX)
+	    trace->entries[trace->nr_entries - 1] == ULONG_MAX)
 		trace->nr_entries--;
 }
 
@@ -3623,8 +3648,12 @@ static int __lock_acquire(struct lockdep_map *lock, unsigned int subclass,
 	u64 chain_key;
 	int ret;
 
-	if (unlikely(!debug_locks))
+	if (unlikely(!debug_locks)) {
+		__add_held_lock(lock, subclass, trylock, read, check,
+				hardirqs_off, nest_lock, ip,
+				references, pin_count);
 		return 0;
+	}
 
 	/*
 	 * Lockdep should run with IRQs disabled, otherwise we could
@@ -4013,8 +4042,10 @@ __lock_release(struct lockdep_map *lock, int nested, unsigned long ip)
 	unsigned int depth;
 	int ret, i;
 
-	if (unlikely(!debug_locks))
+	if (unlikely(!debug_locks)) {
+		__remove_held_lock(lock, nested, ip);
 		return 0;
+	}
 
 	ret = lock_release_crosslock(lock);
 	/*
@@ -4810,7 +4841,7 @@ void debug_show_all_locks(void)
 	int count = 10;
 	int unlock = 1;
 
-	if (unlikely(!debug_locks)) {
+	if (unlikely(!debug_locks) && !lock_mon_enabled()) {
 		pr_warn("INFO: lockdep is turned off.\n");
 		return;
 	}
@@ -4872,7 +4903,7 @@ EXPORT_SYMBOL_GPL(debug_show_all_locks);
  */
 void debug_show_held_locks(struct task_struct *task)
 {
-	if (unlikely(!debug_locks)) {
+	if (unlikely(!debug_locks) && !lock_mon_enabled()) {
 		printk("INFO: lockdep is turned off.\n");
 		return;
 	}
@@ -5466,11 +5497,470 @@ static void get_lock_name(struct lock_class *class, char name[MAX_LOCK_NAME])
 	}
 }
 
+/*
+ * Duplicate debug functions and print log to trace.
+ * This prevents deadlock from some special locks.
+ */
+
+static void get_lock_name_usage(struct lock_class *class, char *lk_name)
+{
+	char buf[MAX_LOCK_NAME];
+	char usage[LOCK_USAGE_CHARS];
+
+	get_lock_name(class, buf);
+	get_usage_chars(class, usage);
+	snprintf(lk_name, MAX_LOCK_NAME, "(%s){%s}", buf, usage);
+}
+
+static void trace_lock(struct held_lock *hlock)
+{
+	char name[MAX_LOCK_NAME];
+	/*
+	 * We can be called locklessly through debug_show_all_locks() so be
+	 * extra careful, the hlock might have been released and cleared.
+	 */
+	unsigned int class_idx = hlock->class_idx;
+
+	/* Don't re-read hlock->class_idx,
+	 * can't use READ_ONCE() on bitfields:
+	 */
+	barrier();
+
+	if (!class_idx || (class_idx - 1) >= MAX_LOCKDEP_KEYS) {
+		lock_dbg("<RELEASED>");
+		return;
+	}
+
+	get_lock_name_usage(lock_classes + class_idx - 1, name);
+	lock_dbg("%s, at: [<%p>] %pS from [%lld.%06lu]",
+		 name, (void *)hlock->acquire_ip, (void *)hlock->acquire_ip,
+		 sec_high(hlock->timestamp), sec_low(hlock->timestamp));
+}
+
+static void lockdep_trace_held_locks(struct task_struct *curr)
+{
+	int i, j, depth = curr->lockdep_depth;
+	struct held_lock *hlock;
+
+	if (!depth) {
+		lock_dbg("no locks held by %s/%d.",
+			 curr->comm, task_pid_nr(curr));
+		return;
+	}
+	lock_dbg("%d lock%s held by %s/%d/[%ld] on CPU#%d:",
+		 depth, depth > 1 ? "s" : "", curr->comm,
+		 curr->pid, curr->state, task_cpu(curr));
+
+	hlock = curr->held_locks;
+	for (i = 0; i < depth; i++) {
+		char buf[256];
+		struct stack_trace *trace = &(hlock + i)->trace;
+
+		lock_dbg(" #%d: ", i);
+		trace_lock(hlock + i);
+
+		/* show backtrace */
+		if (!trace || !trace->entries)
+			continue;
+
+		for (j = 0; j < trace->nr_entries; j++) {
+			snprintf(buf, sizeof(buf), "%*c%pS", 6, ' ',
+				 (void *)trace->entries[j]);
+			lock_dbg("%s", buf);
+		}
+	}
+}
+
+static void dump_stack_to_trace(struct stack_trace *trace)
+{
+	int i;
+
+	if (!trace || !trace->entries)
+		return;
+
+	for (i = 0; i < trace->nr_entries; i++)
+		lock_dbg("%*c%pS", 7, ' ', (void *)trace->entries[i]);
+}
+
+static void dump_curr_stack(void)
+{
+	struct stack_trace trace;
+	unsigned long entries[32];
+
+	trace.nr_entries = 0;
+	trace.max_entries = ARRAY_SIZE(entries);
+	trace.entries = entries;
+	trace.skip = 0;
+
+	save_stack_trace_tsk(current, &trace);
+	dump_stack_to_trace(&trace);
+}
+
+static noinline int
+trace_circular_bug_entry(struct lock_list *target, int depth)
+{
+	char name[MAX_LOCK_NAME];
+
+	get_lock_name_usage(target->class, name);
+	lock_dbg("-> #%u: %s", depth, name);
+	dump_stack_to_trace(&target->trace);
+
+	return 0;
+}
+
+static noinline int
+trace_circular_bug_header(struct lock_list *entry, unsigned int depth,
+			  struct held_lock *check_src,
+			  struct held_lock *check_tgt)
+{
+	char name[MAX_LOCK_NAME];
+	struct task_struct *curr = current;
+
+	if (debug_locks_silent)
+		return 0;
+
+	lock_dbg("======================================================");
+	lock_dbg("WARNING: possible circular locking dependency detected");
+	lock_dbg("%s %.*s %s", init_utsname()->release,
+		 (int)strcspn(init_utsname()->version, " "),
+		 init_utsname()->version,
+		 print_tainted());
+	lock_dbg("------------------------------------------------------");
+	lock_dbg("%s/%d is trying to acquire lock:",
+		 curr->comm, task_pid_nr(curr));
+	trace_lock(check_src);
+
+	if (cross_lock(check_tgt->instance))
+		lock_dbg("but now in release context of a crosslock acquired at the following:");
+	else
+		lock_dbg("but task is already holding lock:");
+
+	trace_lock(check_tgt);
+	lock_dbg("which lock already depends on the new lock.");
+	lock_dbg("the existing dependency chain (in reverse order) is:");
+
+	get_lock_name_usage(entry->class, name);
+	lock_dbg("-> #%u: %s", depth, name);
+	dump_stack_to_trace(&entry->trace);
+	lockdep_aee();
+
+	return 0;
+}
+
+static noinline int
+trace_circular_bug(struct lock_list *this,
+		   struct lock_list *target,
+		   struct held_lock *check_src,
+		   struct held_lock *check_tgt,
+		   struct stack_trace *trace)
+{
+	struct task_struct *curr = current;
+	struct lock_list *parent;
+	struct lock_list *first_parent;
+	int depth;
+
+	if (!debug_locks_off_graph_unlock() || debug_locks_silent)
+		return 0;
+
+	if (cross_lock(check_tgt->instance))
+		this->trace = *trace;
+	else if (!save_trace(&this->trace))
+		return 0;
+
+	depth = get_lock_depth(target);
+
+	trace_circular_bug_header(target, depth, check_src, check_tgt);
+
+	parent = get_lock_parent(target);
+	first_parent = parent;
+
+	while (parent) {
+		trace_circular_bug_entry(parent, --depth);
+		parent = get_lock_parent(parent);
+	}
+
+	lock_dbg("other info that might help us debug this:");
+	lockdep_trace_held_locks(curr);
+
+	lock_dbg("current backtrace:");
+	dump_curr_stack();
+
+	return 0;
+}
+
 #ifdef MTK_LOCK_MONITOR
+static inline struct lock_class *
+__look_up_lock_class(struct lockdep_map *lock, unsigned int subclass)
+{
+	struct lockdep_subclass_key *key;
+	struct hlist_head *hash_head;
+	struct lock_class *class;
+	bool is_static = false;
+
+	if (unlikely(subclass >= MAX_LOCKDEP_SUBCLASSES)) {
+		pr_info("BUG: looking up invalid subclass: %u\n", subclass);
+		dump_stack();
+		return NULL;
+	}
+
+	/*
+	 * Static locks do not have their class-keys yet - for them the key
+	 * is the lock object itself. If the lock is in the per cpu area,
+	 * the canonical address of the lock (per cpu offset removed) is
+	 * used.
+	 */
+	if (unlikely(!lock->key)) {
+		unsigned long can_addr, addr = (unsigned long)lock;
+
+		if (__is_kernel_percpu_address(addr, &can_addr))
+			lock->key = (void *)can_addr;
+		else if (__is_module_percpu_address(addr, &can_addr))
+			lock->key = (void *)can_addr;
+		else if (static_obj(lock))
+			lock->key = (void *)lock;
+		else
+			return ERR_PTR(-EINVAL);
+		is_static = true;
+	}
+
+	/*
+	 * NOTE: the class-key must be unique. For dynamic locks, a static
+	 * lock_class_key variable is passed in through the mutex_init()
+	 * (or spin_lock_init()) call - which acts as the key. For static
+	 * locks we use the lock object itself as the key.
+	 */
+	BUILD_BUG_ON(sizeof(struct lock_class_key) >
+			sizeof(struct lockdep_map));
+
+	key = lock->key->subkeys + subclass;
+
+	hash_head = classhashentry(key);
+
+	/*
+	 * We do an RCU walk of the hash, see lockdep_free_key_range().
+	 */
+	if (DEBUG_LOCKS_WARN_ON(!irqs_disabled()))
+		return NULL;
+
+	hlist_for_each_entry_rcu(class, hash_head, hash_entry) {
+		if (class->key == key) {
+			/* Don't check class->name and lock->name. */
+			return class;
+		}
+	}
+
+	return is_static || static_obj(lock->key) ? NULL : ERR_PTR(-EINVAL);
+}
+
+static struct lock_class *
+__register_lock_class(struct lockdep_map *lock, unsigned int subclass,
+		      int force)
+{
+	struct lockdep_subclass_key *key;
+	struct hlist_head *hash_head;
+	struct lock_class *class;
+
+	DEBUG_LOCKS_WARN_ON(!irqs_disabled());
+
+	class = __look_up_lock_class(lock, subclass);
+	if (likely(!IS_ERR_OR_NULL(class)))
+		goto out_set_class_cache;
+
+	/*
+	 * Debug-check: all keys must be persistent!
+	 */
+	if (IS_ERR(class)) {
+		debug_locks_off();
+		pr_info("INFO: trying to register non-static key.\n");
+		pr_info("the code is fine but needs lockdep annotation.\n");
+		pr_info("turning off the locking correctness validator.\n");
+		dump_stack();
+		return NULL;
+	}
+
+	key = lock->key->subkeys + subclass;
+	hash_head = classhashentry(key);
+
+	arch_spin_lock(&lockdep_lock);
+	current->lockdep_recursion++;
+
+	/*
+	 * We have to do the hash-walk again, to avoid races
+	 * with another CPU:
+	 */
+	hlist_for_each_entry_rcu(class, hash_head, hash_entry) {
+		if (class->key == key)
+			goto out_unlock_set;
+	}
+
+	/*
+	 * Allocate a new key from the static array, and add it to
+	 * the hash:
+	 */
+	if (nr_lock_classes >= MAX_LOCKDEP_KEYS) {
+		if (!debug_locks_off_graph_unlock())
+			return NULL;
+
+		print_lockdep_off("BUG: MAX_LOCKDEP_KEYS too low!");
+		dump_stack();
+		return NULL;
+	}
+	class = lock_classes + nr_lock_classes++;
+	debug_atomic_inc(nr_unused_locks);
+	class->key = key;
+	class->name = lock->name;
+	class->subclass = subclass;
+	INIT_LIST_HEAD(&class->lock_entry);
+	INIT_LIST_HEAD(&class->locks_before);
+	INIT_LIST_HEAD(&class->locks_after);
+	class->name_version = count_matching_names(class);
+	/*
+	 * We use RCU's safe list-add method to make
+	 * parallel walking of the hash-list safe:
+	 */
+	hlist_add_head_rcu(&class->hash_entry, hash_head);
+	/*
+	 * Add it to the global list of classes:
+	 */
+	list_add_tail_rcu(&class->lock_entry, &all_lock_classes);
+
+out_unlock_set:
+	current->lockdep_recursion--;
+	arch_spin_unlock(&lockdep_lock);
+
+out_set_class_cache:
+	if (!subclass || force)
+		lock->class_cache[0] = class;
+	else if (subclass < NR_LOCKDEP_CACHING_CLASSES)
+		lock->class_cache[subclass] = class;
+
+	/*
+	 * Hash collision, did we smoke some? We found a class with a matching
+	 * hash but the subclass -- which is hashed in -- didn't match.
+	 */
+	if (DEBUG_LOCKS_WARN_ON(class->subclass != subclass))
+		return NULL;
+
+	return class;
+}
+
+static void __add_held_lock(struct lockdep_map *lock, unsigned int subclass,
+			    int trylock, int read, int check, int hardirqs_off,
+			    struct lockdep_map *nest_lock, unsigned long ip,
+			    int references, int pin_count)
+{
+	struct task_struct *curr = current;
+	struct lock_class *class = NULL;
+	struct held_lock *hlock;
+	unsigned int depth;
+	int class_idx;
+
+	if (subclass < NR_LOCKDEP_CACHING_CLASSES)
+		class = lock->class_cache[subclass];
+
+	if (unlikely(!class)) {
+		class = __register_lock_class(lock, subclass, 0);
+		if (!class)
+			return;
+	}
+
+	class_idx = class - lock_classes + 1;
+
+	depth = curr->lockdep_depth;
+	if (depth >= MAX_LOCK_DEPTH)
+		return;
+
+	hlock = curr->held_locks + depth;
+
+	hlock->class_idx = class_idx;
+	hlock->acquire_ip = ip;
+	hlock->instance = lock;
+	hlock->nest_lock = nest_lock;
+	hlock->irq_context = task_irq_context(curr);
+	hlock->trylock = trylock;
+	hlock->read = read;
+	hlock->check = check;
+	hlock->hardirqs_off = !!hardirqs_off;
+	hlock->references = references;
+#ifdef CONFIG_LOCK_STAT
+	hlock->waittime_stamp = 0;
+	hlock->holdtime_stamp = lockstat_clock();
+#endif
+	hlock->pin_count = pin_count;
+
+	/* MTK_LOCK_DEBUG_HELD_LOCK */
+	held_lock_save_trace(&hlock->trace, hlock->entries);
+
+	/* MTK_LOCK_MONITOR */
+	hlock->timestamp = sched_clock();
+
+	curr->lockdep_depth++;
+}
+
+static void
+__remove_held_lock(struct lockdep_map *lock, int nested, unsigned long ip)
+{
+	struct task_struct *curr = current;
+	struct held_lock *hlock;
+	unsigned int depth;
+	int i;
+
+	depth = curr->lockdep_depth;
+	if (depth <= 0)
+		return;
+
+	hlock = find_held_lock(curr, lock, depth, &i);
+	if (!hlock)
+		return;
+
+	/* MTK_LOCK_MONITOR */
+	hlock->timestamp = 0;
+
+	curr->lockdep_depth = i;
+}
+
+static void task_show_stack(struct task_struct *task, int output)
+{
+	struct stack_trace trace;
+	unsigned long entries[32];
+	char buf[256];
+	int i;
+
+	if (!mutex_trylock(&task->signal->cred_guard_mutex))
+		return;
+
+	trace.nr_entries = 0;
+	trace.max_entries = ARRAY_SIZE(entries);
+	trace.entries = entries;
+	trace.skip = 1;
+	save_stack_trace_tsk(task, &trace);
+
+	if (trace.nr_entries != 0 &&
+	    trace.entries[trace.nr_entries - 1] == ULONG_MAX)
+		trace.nr_entries--;
+
+	if (trace.nr_entries < 3) {
+		mutex_unlock(&task->signal->cred_guard_mutex);
+		return;
+	}
+
+	snprintf(buf, sizeof(buf), "  stack of %s/%d:%s",
+		 task->comm, task->pid, (output == TO_SRAM) ? "\n" : "");
+	lock_mon_msg(buf, output);
+
+	for (i = 0; i < trace.nr_entries; i++) {
+		snprintf(buf, sizeof(buf), "%*c%pS%s", 6, ' ',
+			 (void *)entries[i], (output == TO_SRAM) ? "\n" : "");
+		lock_mon_msg(buf, output);
+	}
+
+	mutex_unlock(&task->signal->cred_guard_mutex);
+}
+
 static void lockdep_check_held_locks(
 	struct task_struct *curr, bool en, bool aee)
 {
-	int i;
+	int i, show_task_stack = 1;
 	struct held_lock *hlock;
 	unsigned long long timestamp_bak;
 
@@ -5488,8 +5978,7 @@ static void lockdep_check_held_locks(
 		t_diff = sched_clock() - timestamp_bak;
 		do_div(t_diff, 1000000);
 
-		if (hlock->timestamp == 0 ||
-			hlock->timestamp != timestamp_bak)
+		if (hlock->timestamp == 0 || hlock->timestamp != timestamp_bak)
 			continue;
 
 		if (t_diff > lock_mon_1st_th_ms || aee) {
@@ -5523,20 +6012,20 @@ static void lockdep_check_held_locks(
 
 			/* locks might be unlocked in runtime */
 			if (skip_this || hlock->timestamp == 0 ||
-				hlock->timestamp != timestamp_bak)
+			    hlock->timestamp != timestamp_bak)
 				continue;
 
 			output1 = aee ? TO_SRAM : TO_BOTH;
 
 			snprintf(buf_lock, sizeof(buf_lock),
-				"[%p] (%s) held by %s/%d/[%ld] on CPU#%d/IRQ[%s] from [%lld.%06lu]%s",
-				hlock->instance, name,
-				curr->comm, curr->pid,
-				curr->state, task_cpu(curr),
-				hlock->hardirqs_off ? "off" : "on",
-				sec_high(hlock->timestamp),
-				sec_low(hlock->timestamp),
-				(output1 == TO_SRAM) ? "\n" : "");
+				 "[%p] (%s) held/waited by %s/%d/[%ld] on CPU#%d/IRQ[%s] from [%lld.%06lu]%s",
+				 hlock->instance, name,
+				 curr->comm, curr->pid,
+				 curr->state, task_cpu(curr),
+				 hlock->hardirqs_off ? "off" : "on",
+				 sec_high(hlock->timestamp),
+				 sec_low(hlock->timestamp),
+				 (output1 == TO_SRAM) ? "\n" : "");
 			lock_mon_msg(buf_lock, output1);
 
 			if (t_diff > lock_mon_2nd_th_ms && en)
@@ -5544,21 +6033,67 @@ static void lockdep_check_held_locks(
 			output2 = aee ? TO_SRAM : output2;
 
 			held_lock_show_trace(&hlock->trace, output2);
+			if (show_task_stack) {
+				task_show_stack(curr, output2);
+				show_task_stack = 0;
+			}
 		}
 	}
 }
 
-static DEFINE_SPINLOCK(lockdep_mon_lock);
+void mt_aee_dump_held_locks(void)
+{
+	struct task_struct *g, *p;
+	int count = 10;
+	int unlock = 1;
+	char buf[64];
+
+	snprintf(buf, sizeof(buf), "\n");
+	lock_mon_msg(buf, TO_SRAM);
+
+	if (unlikely(!debug_locks)) {
+		snprintf(buf, sizeof(buf), "debug_locks is off\n");
+		lock_mon_msg(buf, TO_SRAM);
+		return;
+	}
+	debug_locks = 0;
+
+	/*
+	 * Here we try to get the tasklist_lock as hard as possible,
+	 * if not successful after 2 seconds we ignore it (but keep
+	 * trying). This is to enable a debug printout even if a
+	 * tasklist_lock-holding task deadlocks or crashes.
+	 */
+retry:
+	if (!read_trylock(&tasklist_lock)) {
+		if (count) {
+			count--;
+			mdelay(200);
+			goto retry;
+		}
+		unlock = 0;
+	}
+
+	do_each_thread(g, p) {
+		if (p->lockdep_depth)
+			lockdep_check_held_locks(p, 0, 1);
+		if (!unlock)
+			if (read_trylock(&tasklist_lock))
+				unlock = 1;
+	} while_each_thread(g, p);
+
+	if (unlock)
+		read_unlock(&tasklist_lock);
+}
+
+static DEFINE_SPINLOCK(lock_mon_lock);
 void check_held_locks(int force)
 {
 	struct task_struct *g, *p;
 	int count = 10;
 	int unlock = 1;
 
-	if (unlikely(!debug_locks))
-		return;
-
-	if (!spin_trylock(&lockdep_mon_lock))
+	if (!spin_trylock(&lock_mon_lock))
 		return;
 
 	/*
@@ -5588,7 +6123,7 @@ retry:
 	if (unlock)
 		read_unlock(&tasklist_lock);
 
-	spin_unlock(&lockdep_mon_lock);
+	spin_unlock(&lock_mon_lock);
 }
 EXPORT_SYMBOL_GPL(check_held_locks);
 
@@ -5600,27 +6135,27 @@ static void check_debug_locks_stats(void)
 
 	if (nr_lock_classes >= MAX_LOCKDEP_KEYS) {
 		snprintf(buf, sizeof(buf),
-			"lock-classes [%lu]", nr_lock_classes);
+			 "lock-classes [%lu]", nr_lock_classes);
 		strlcat(str, buf, sizeof(str));
 	}
 	if (nr_list_entries >= MAX_LOCKDEP_ENTRIES) {
 		snprintf(buf, sizeof(buf),
-			"direct dependencies [%lu]", nr_list_entries);
+			 "direct dependencies [%lu]", nr_list_entries);
 		strlcat(str, buf, sizeof(str));
 	}
 	if (nr_lock_chains >= MAX_LOCKDEP_CHAINS) {
 		snprintf(buf, sizeof(buf),
-			"dependency chains [%lu]", nr_lock_chains);
+			 "dependency chains [%lu]", nr_lock_chains);
 		strlcat(str, buf, sizeof(str));
 	}
 	if (nr_chain_hlocks >= MAX_LOCKDEP_CHAIN_HLOCKS) {
 		snprintf(buf, sizeof(buf),
-			"dependency chain hlocks [%d]", nr_chain_hlocks);
+			 "dependency chain hlocks [%d]", nr_chain_hlocks);
 		strlcat(str, buf, sizeof(str));
 	}
 	if (nr_stack_trace_entries >= MAX_STACK_TRACE_ENTRIES) {
 		snprintf(buf, sizeof(buf),
-			"stack-trace entries [%lu]", nr_stack_trace_entries);
+			 "stack-trace entries [%lu]", nr_stack_trace_entries);
 		strlcat(str, buf, sizeof(str));
 	}
 	/* check debug_locks per 10 seconds */
@@ -5647,7 +6182,7 @@ static void lock_monitor_work(struct work_struct *work)
 	if (lock_mon_enable)
 		check_held_locks(force);
 	queue_delayed_work(system_unbound_wq, &lock_mon_work,
-		msecs_to_jiffies(lock_mon_period_ms));
+			   msecs_to_jiffies(lock_mon_period_ms));
 }
 
 #define DECLARE_LOCK_MONITOR_MATCH(name, param) \
@@ -5763,247 +6298,19 @@ void lock_monitor_init(void)
 	queue_delayed_work(system_unbound_wq, &lock_mon_work,
 		msecs_to_jiffies(lock_mon_period_ms));
 }
-void mt_aee_dump_held_locks(void)
+#else
+void check_held_locks(int force)
 {
-	struct task_struct *g, *p;
-	int count = 10;
-	int unlock = 1;
-	char buf[64];
-
-	snprintf(buf, sizeof(buf), "\n");
-	lock_mon_msg(buf, TO_SRAM);
-
-	if (unlikely(!debug_locks)) {
-		snprintf(buf, sizeof(buf), "debug_locks is off\n");
-		lock_mon_msg(buf, TO_SRAM);
-		return;
-	}
-	debug_locks = 0;
-
-	/*
-	 * Here we try to get the tasklist_lock as hard as possible,
-	 * if not successful after 2 seconds we ignore it (but keep
-	 * trying). This is to enable a debug printout even if a
-	 * tasklist_lock-holding task deadlocks or crashes.
-	 */
-retry:
-	if (!read_trylock(&tasklist_lock)) {
-		if (count) {
-			count--;
-			mdelay(200);
-			goto retry;
-		}
-		unlock = 0;
-	}
-
-	do_each_thread(g, p) {
-		if (p->lockdep_depth)
-			lockdep_check_held_locks(p, 0, 1);
-		if (!unlock)
-			if (read_trylock(&tasklist_lock))
-				unlock = 1;
-	} while_each_thread(g, p);
-
-	if (unlock)
-		read_unlock(&tasklist_lock);
 }
 #endif
-
-/*
- * Duplicate debug functions and print log to trace.
- * This prevents deadlock from some special locks.
- */
-
-static void get_lock_name_usage(struct lock_class *class, char *lk_name)
-{
-	char buf[MAX_LOCK_NAME];
-	char usage[LOCK_USAGE_CHARS];
-
-	get_lock_name(class, buf);
-	get_usage_chars(class, usage);
-	snprintf(lk_name, MAX_LOCK_NAME, "(%s){%s}", buf, usage);
-}
-
-static void trace_lock(struct held_lock *hlock)
-{
-	char name[MAX_LOCK_NAME];
-	/*
-	 * We can be called locklessly through debug_show_all_locks() so be
-	 * extra careful, the hlock might have been released and cleared.
-	 */
-	unsigned int class_idx = hlock->class_idx;
-
-	/* Don't re-read hlock->class_idx,
-	 * can't use READ_ONCE() on bitfields:
-	 */
-	barrier();
-
-	if (!class_idx || (class_idx - 1) >= MAX_LOCKDEP_KEYS) {
-		lock_dbg("<RELEASED>");
-		return;
-	}
-
-	get_lock_name_usage(lock_classes + class_idx - 1, name);
-	lock_dbg("%s, at: [<%p>] %pS from [%lld.%06lu]",
-		name, (void *)hlock->acquire_ip, (void *)hlock->acquire_ip,
-		sec_high(hlock->timestamp), sec_low(hlock->timestamp));
-}
-
-static void lockdep_trace_held_locks(struct task_struct *curr)
-{
-	int i, j, depth = curr->lockdep_depth;
-	struct held_lock *hlock;
-
-	if (!depth) {
-		lock_dbg("no locks held by %s/%d.",
-			curr->comm, task_pid_nr(curr));
-		return;
-	}
-	lock_dbg("%d lock%s held by %s/%d/[%ld] on CPU#%d:",
-		depth, depth > 1 ? "s" : "", curr->comm,
-		curr->pid, curr->state, task_cpu(curr));
-
-	hlock = curr->held_locks;
-	for (i = 0; i < depth; i++) {
-		char buf[256];
-		struct stack_trace *trace = &(hlock + i)->trace;
-
-		lock_dbg(" #%d: ", i);
-		trace_lock(hlock + i);
-
-		/* show backtrace */
-		if (!trace || !trace->entries)
-			continue;
-
-		for (j = 0; j < trace->nr_entries; j++) {
-			snprintf(buf, sizeof(buf), "%*c%pS", 6, ' ',
-				(void *)trace->entries[j]);
-			lock_dbg("%s", buf);
-		}
-	}
-}
-
-static void dump_stack_to_trace(struct stack_trace *trace)
-{
-	int i;
-
-	if (!trace || !trace->entries)
-		return;
-
-	for (i = 0; i < trace->nr_entries; i++)
-		lock_dbg("%*c%pS", 7, ' ', (void *)trace->entries[i]);
-}
-
-static void dump_curr_stack(void)
-{
-	struct stack_trace trace;
-	unsigned long entries[32];
-
-	trace.nr_entries = 0;
-	trace.max_entries = ARRAY_SIZE(entries);
-	trace.entries = entries;
-	trace.skip = 0;
-
-	save_stack_trace_tsk(current, &trace);
-	dump_stack_to_trace(&trace);
-}
-
-static noinline int
-trace_circular_bug_entry(struct lock_list *target, int depth)
-{
-	char name[MAX_LOCK_NAME];
-
-	get_lock_name_usage(target->class, name);
-	lock_dbg("-> #%u: %s", depth, name);
-	dump_stack_to_trace(&target->trace);
-
-	return 0;
-}
-
-static noinline int
-trace_circular_bug_header(struct lock_list *entry, unsigned int depth,
-			struct held_lock *check_src,
-			struct held_lock *check_tgt)
-{
-	char name[MAX_LOCK_NAME];
-	struct task_struct *curr = current;
-
-	if (debug_locks_silent)
-		return 0;
-
-	lock_dbg("======================================================");
-	lock_dbg("WARNING: possible circular locking dependency detected");
-	lock_dbg("%s %.*s %s", init_utsname()->release,
-		(int)strcspn(init_utsname()->version, " "),
-		init_utsname()->version,
-		print_tainted());
-	lock_dbg("------------------------------------------------------");
-	lock_dbg("%s/%d is trying to acquire lock:",
-		curr->comm, task_pid_nr(curr));
-	trace_lock(check_src);
-
-	if (cross_lock(check_tgt->instance))
-		lock_dbg("but now in release context of a crosslock acquired at the following:");
-	else
-		lock_dbg("but task is already holding lock:");
-
-	trace_lock(check_tgt);
-	lock_dbg("which lock already depends on the new lock.");
-	lock_dbg("the existing dependency chain (in reverse order) is:");
-
-	get_lock_name_usage(entry->class, name);
-	lock_dbg("-> #%u: %s", depth, name);
-	dump_stack_to_trace(&entry->trace);
-	lockdep_aee();
-
-	return 0;
-}
-
-static noinline int trace_circular_bug(struct lock_list *this,
-				struct lock_list *target,
-				struct held_lock *check_src,
-				struct held_lock *check_tgt,
-				struct stack_trace *trace)
-{
-	struct task_struct *curr = current;
-	struct lock_list *parent;
-	struct lock_list *first_parent;
-	int depth;
-
-	if (!debug_locks_off_graph_unlock() || debug_locks_silent)
-		return 0;
-
-	if (cross_lock(check_tgt->instance))
-		this->trace = *trace;
-	else if (!save_trace(&this->trace))
-		return 0;
-
-	depth = get_lock_depth(target);
-
-	trace_circular_bug_header(target, depth, check_src, check_tgt);
-
-	parent = get_lock_parent(target);
-	first_parent = parent;
-
-	while (parent) {
-		trace_circular_bug_entry(parent, --depth);
-		parent = get_lock_parent(parent);
-	}
-
-	lock_dbg("other info that might help us debug this:");
-	lockdep_trace_held_locks(curr);
-
-	lock_dbg("current backtrace:");
-	dump_curr_stack();
-
-	return 0;
-}
 
 #ifdef MTK_LOCK_DEBUG
 static const char * const critical_lock_list[] = {
 	/* these locks are used by workqueue */
 	"&(&pool->lock)->rlock",
-	"works_lock"
+	"works_lock",
+	/* the lock is used by console */
+	"&(&port->lock)->rlock"
 };
 
 static bool is_critical_lock_held(void)
