@@ -19,4 +19,9 @@ int edma_create_sysfs(struct device *dev);
 void edma_remove_sysfs(struct device *dev);
 int edma_dbg_check_ststus(int check_status);
 
+enum edma_dbg_cfg {
+	EDMA_DBG_DISABLE_PWR_OFF = 0x1,
+	EDMA_DBG_ALL = 0xFFFFFFF,
+};
+
 #endif /* __EDMA_DBGFS_H__ */

@@ -19,15 +19,6 @@
 
 #define DEBUG
 
-#define EDMA_TAG "[EDMA]"
-
-#define EDMA_LOG_INF(format, args...) \
-		pr_info(EDMA_TAG " " format, ##args)
-#define EDMA_LOG_WRN(format, args...) \
-		pr_info(EDMA_TAG "[warn] " format, ##args)
-#define EDMA_LOG_ERR(format, args...) \
-		pr_info(EDMA_TAG "[error] " format, ##args)
-
 #if 0
 #define edma_debug(mask, ...) do { if (edma_klog & mask) \
 		pr_debug(__VA_ARGS__); \
@@ -97,6 +88,7 @@ struct edma_device {
 	struct dentry *debug_root;
 
 	unsigned int dbgfs_reg_core;
+	unsigned int dbg_cfg;
 };
 
 struct edma_user {

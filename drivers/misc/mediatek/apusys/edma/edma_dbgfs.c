@@ -21,8 +21,6 @@
 #include "edma_dbgfs.h"
 #include "edma_reg.h"
 
-static int edma_disable_power_off;
-
 static ssize_t show_edma_register(struct device *dev,
 				   struct device_attribute *attr, char *buf)
 {
@@ -104,26 +102,23 @@ static ssize_t set_edma_power(struct device *dev,
 {
 	unsigned int input;
 	int ret;
+	struct edma_device *edma_device = dev_get_drvdata(dev);
 
 	ret = kstrtouint(buf, 10, &input);
 
 	dev_notice(dev, "input parameter is %d\n", input);
 
 	if (input == 666)
-		edma_disable_power_off = 1;
+		edma_device->dbg_cfg |= EDMA_DBG_DISABLE_PWR_OFF;
 	else
-		edma_disable_power_off = 0;
+		edma_device->dbg_cfg &= ~EDMA_DBG_DISABLE_PWR_OFF;
 
-	dev_notice(dev, "edma_disable_power_off =  %d\n",
-	edma_disable_power_off);
+	dev_notice(dev, "edma_device->dbg_cfg = 0x%x\n",
+	edma_device->dbg_cfg);
 
 	return count;
 }
 
-int edma_dbg_check_ststus(int check_status)
-{
-	return edma_disable_power_off;
-}
 
 DEVICE_ATTR(edma_register, 0644, show_edma_register,
 	    set_edma_register);
@@ -142,8 +137,6 @@ static const struct attribute_group edma_attr_group = {
 int edma_create_sysfs(struct device *dev)
 {
 	int ret;
-
-	edma_disable_power_off = 0;
 
 	ret = sysfs_create_group(&dev->kobj, &edma_attr_group);
 	if (ret)

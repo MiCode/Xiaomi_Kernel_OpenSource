@@ -65,6 +65,11 @@ int edma_initialize(struct edma_device *edma_device)
 
 	INIT_WORK(&edma_device->power_off_work,
 				edma_start_power_off);
+
+	edma_device->dbg_cfg = 0;
+	//real pwr state
+	edma_device->power_state = EDMA_POWER_OFF;
+
 	/* init hw and create task */
 	for (sub_id = 0; sub_id < edma_device->edma_sub_num; sub_id++) {
 		struct edma_sub *edma_sub = edma_device->edma_sub[sub_id];
