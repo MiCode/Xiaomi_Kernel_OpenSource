@@ -28,6 +28,7 @@ static int force_pwr_off;
 static int conn_mtcmos_on;
 static int buck_already_on;
 static int power_on_counter;
+static int hal_cmd_status[APUSYS_POWER_USER_NUM];
 
 void *g_APU_RPCTOP_BASE;
 void *g_APU_PCUTOP_BASE;
@@ -90,13 +91,17 @@ int hal_config_power(enum HAL_POWER_CMD cmd, enum DVFS_USER user, void *param)
 		ret = set_power_shut_down(user, param);
 		break;
 	case PWR_CMD_SET_VOLT:
+		hal_cmd_status[user] = PWR_CMD_SET_VOLT;
 		ret = set_power_voltage(user, param);
+		hal_cmd_status[user] = 0;
 		break;
 	case PWR_CMD_SET_REGULATOR_MODE:
 		ret = set_power_regulator_mode(param);
 		break;
 	case PWR_CMD_SET_FREQ:
+		hal_cmd_status[user] = PWR_CMD_SET_FREQ;
 		ret = set_power_frequency(param);
+		hal_cmd_status[user] = 0;
 		break;
 	case PWR_CMD_PM_HANDLER:
 		ret = apu_pm_handler(param);
@@ -939,8 +944,23 @@ static int set_power_shut_down(enum DVFS_USER user, void *param)
 	struct hal_param_mtcmos mtcmos_data;
 	struct hal_param_clk clk_data;
 	int ret = 0;
+	int timeout_round = 0;
 
 	if (user < APUSYS_DVFS_USER_NUM) {
+
+		// power off should be later until DVFS completed
+		while (hal_cmd_status[user]) {
+			if (timeout_round >= 50) {
+				LOG_ERR(
+				"%s, user:%d wait for hal_cmd:%d finish timeout !",
+				__func__, user, hal_cmd_status[user]);
+				break;
+			}
+
+			udelay(100);
+			timeout_round++;
+		}
+
 		// inner dummy cg won't be gated when you call disable
 		clk_data.enable = 0;
 		ret = set_power_clock(user, (void *)&clk_data);
