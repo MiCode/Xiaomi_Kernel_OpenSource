@@ -687,7 +687,7 @@ static void devapc_extra_handler(int slave_type, const char *vio_master,
 	/* Severity level */
 	if (dbg_stat->enable_KE) {
 		pr_info(PFX "Device APC Violation Issue/%s", dispatch_key);
-		BUG_ON(id != INFRA_SUBSYS_CONN && id != INFRA_SUBSYS_MD);
+		BUG_ON(id != INFRA_SUBSYS_CONN);
 
 	} else if (dbg_stat->enable_AEE) {
 
@@ -802,6 +802,7 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 	}
 
 	/* It's an abnormal status */
+	pr_info(PFX "WARNING: Abnormal Status\n");
 	for (slave_type = 0; slave_type < slave_type_num; slave_type++) {
 		for (i = 0; i < ndevices[slave_type].vio_slave_num; i++) {
 
@@ -815,6 +816,7 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 	}
 
 	print_vio_mask_sta();
+	BUG_ON(1);
 
 	spin_unlock_irqrestore(&devapc_lock, flags);
 	return IRQ_HANDLED;
