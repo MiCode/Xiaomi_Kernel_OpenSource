@@ -92,9 +92,15 @@ int mtk_session_set_mode(struct drm_device *dev, unsigned int session_mode)
 	struct mtk_drm_private *private = dev->dev_private;
 	const struct mtk_session_mode_tb *mode_tb = private->data->mode_tb;
 
-	if (session_mode >= MTK_DRM_SESSION_NUM || !mode_tb[session_mode].en) {
-		DDPPR_ERR("%s Invalid session mode:%d en:%d\n", __func__,
-			  session_mode, mode_tb[session_mode].en);
+	if (session_mode >= MTK_DRM_SESSION_NUM) {
+		DDPPR_ERR("%s Invalid session mode:%d\n",
+			  __func__, session_mode);
+		return -EINVAL;
+	}
+
+	if (!mode_tb[session_mode].en) {
+		DDPPR_ERR("%s Invalid mode_tb[%d].en = %d\n",
+			  __func__, session_mode, mode_tb[session_mode].en);
 		return -EINVAL;
 	}
 
