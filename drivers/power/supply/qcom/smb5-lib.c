@@ -3044,6 +3044,7 @@ int smblib_get_prop_dc_voltage_now(struct smb_charger *chg,
 int smblib_set_prop_dc_current_max(struct smb_charger *chg,
 				    const union power_supply_propval *val)
 {
+	chg->dcin_icl_user_set = true;
 	return smblib_set_charge_param(chg, &chg->param.dc_icl, val->intval);
 }
 
@@ -3070,9 +3071,11 @@ int smblib_set_prop_voltage_wls_output(struct smb_charger *chg,
 
 	/*
 	 * When WLS VOUT goes down, the power-constrained adaptor may be able
-	 * to supply more current, so allow it to do so.
+	 * to supply more current, so allow it to do so - unless userspace has
+	 * changed DCIN ICL value already due to thermal considerations.
 	 */
-	if ((val->intval > 0) && (val->intval < chg->last_wls_vout)) {
+	if (!chg->dcin_icl_user_set && (val->intval > 0) &&
+			(val->intval < chg->last_wls_vout)) {
 		alarm_start_relative(&chg->dcin_aicl_alarm,
 				ms_to_ktime(DCIN_AICL_RERUN_DELAY_MS));
 	}
@@ -6402,6 +6405,7 @@ irqreturn_t dc_plugin_irq_handler(int irq, void *data)
 							true, 1500000);
 		chg->last_wls_vout = 0;
 		chg->dcin_aicl_done = false;
+		chg->dcin_icl_user_set = false;
 	}
 
 	if (chg->dc_psy)
