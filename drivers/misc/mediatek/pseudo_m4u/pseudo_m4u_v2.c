@@ -512,15 +512,14 @@ static inline int pseudo_config_port(struct M4U_PORT_STRUCT *pM4uPort,
 	unsigned int larb, larb_port, bit32 = 0;
 	unsigned int old_value = 0, value;
 	int ret = 0;
-	char *name;
+	char name[128];
 
 	larb = m4u_get_larbid(pM4uPort->ePortID);
 	larb_port = m4u_port_2_larb_port(pM4uPort->ePortID);
-	name = iommu_get_port_name(pM4uPort->ePortID);
-#if 0
+	strcpy(name, iommu_get_port_name(pM4uPort->ePortID));
 	if (is_user && strcmp(name, pM4uPort->name)) {
-		M4U_MSG("port name(%s) not matched(%s)\n",
-			pM4uPort->name, name);
+		M4U_MSG("port:%d name(%s) not matched(%s)\n",
+			pM4uPort->ePortID, pM4uPort->name, name);
 		aee_kernel_warning_api(__FILE__, __LINE__,
 				       DB_OPT_DEFAULT |
 				       DB_OPT_NATIVE_BACKTRACE,
@@ -528,7 +527,6 @@ static inline int pseudo_config_port(struct M4U_PORT_STRUCT *pM4uPort,
 				       "dump user backtrace");
 		return -1;
 	}
-#endif
 	if (pM4uPort->Virtuality) {
 		bit32 = m4u_get_boundary(pM4uPort->ePortID);
 		if (bit32 < 0 ||
@@ -2238,11 +2236,10 @@ static int m4u_create_sgtable_user(unsigned long va_align,
 			/* ion va or ioremap vma has this flag */
 			/* VM_PFNMAP: Page-ranges managed without */
 			/* "struct page", just pure PFN */
-			ret = m4u_fill_sgtable_user(vma, va,
-							vma_page_num, &sg, 0);
-			M4U_MSG("VM_PFNMAP va=0x%lx, page_num=0x%x\n",
-				va,
-				vma_page_num);
+			M4U_MSG("VM_PFNMAP forbiden! va=0x%lx, page_num=0x%x\n",
+				va, vma_page_num);
+			ret = -2;
+			goto out;
 		} else {
 			/* Add one line comment for avoid kernel coding style*/
 			/* WARNING:BRACES: */
