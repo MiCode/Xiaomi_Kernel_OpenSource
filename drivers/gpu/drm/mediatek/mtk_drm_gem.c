@@ -389,7 +389,6 @@ struct ion_handle *mtk_drm_gem_ion_import_handle(struct ion_client *client,
 	int fd)
 {
 	struct ion_handle *handle = NULL;
-	struct ion_mm_data mm_data;
 
 	if (!client) {
 		DDPPR_ERR("invalid ion client!\n");
@@ -397,20 +396,8 @@ struct ion_handle *mtk_drm_gem_ion_import_handle(struct ion_client *client,
 	}
 	handle = ion_import_dma_buf_fd(client, fd);
 	if (IS_ERR(handle)) {
-		DDPPR_ERR("import ion handle failed!\n");
-		return NULL;
-	}
-	memset((void *)&mm_data, 0, sizeof(struct ion_mm_data));
-	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
-	mm_data.config_buffer_param.kernel_handle = handle;
-	mm_data.config_buffer_param.module_id = 0;
-	mm_data.config_buffer_param.security = 0;
-	mm_data.config_buffer_param.coherent = 0;
-
-	if (ion_kernel_ioctl(client, ION_CMD_MULTIMEDIA,
-		(unsigned long)&mm_data)) {
-		DDPPR_ERR("configure ion buffer failed!\n");
-		ion_free(client, handle);
+		DDPPR_ERR("import ion handle failed! fd:%d\n",
+			fd);
 		return NULL;
 	}
 
@@ -418,6 +405,9 @@ struct ion_handle *mtk_drm_gem_ion_import_handle(struct ion_client *client,
 }
 #endif
 
+/* Generate drm_gem_object from dma_buf which get from prime fd in DRM core
+ * check drm_gem_prime_fd_to_handle
+ */
 struct drm_gem_object *
 mtk_gem_prime_import(struct drm_device *dev, struct dma_buf *dma_buf)
 {

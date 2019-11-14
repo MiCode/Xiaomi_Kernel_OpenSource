@@ -83,6 +83,7 @@ struct drm_mtk_gem_submit {
 	int32_t fence_fd;
 	uint32_t interface_index;
 	int32_t interface_fence_fd;
+	int32_t ion_fd;
 };
 
 /**

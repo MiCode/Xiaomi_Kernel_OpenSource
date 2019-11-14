@@ -1281,10 +1281,10 @@ static void sub_cmdq_cb(struct cmdq_cb_data data)
 	intr_fence = *(unsigned int *)(cmdq_buf->va_base +
 			DISP_SLOT_CUR_INTERFACE_FENCE);
 
-	if (intr_fence) {
+	if (intr_fence >= 1) {
 		DDPINFO("intr fence_idx:%d\n", intr_fence);
 		mtk_release_fence(session_id,
-			mtk_fence_get_interface_timeline_id(), intr_fence);
+			mtk_fence_get_interface_timeline_id(), intr_fence - 1);
 	}
 
 	cmdq_pkt_destroy(cb_data->cmdq_handle);
@@ -1305,6 +1305,22 @@ void mtk_crtc_release_output_buffer_fence(
 		mtk_release_fence(session_id,
 			mtk_fence_get_output_timeline_id(), fence_idx);
 	}
+}
+
+struct drm_framebuffer *mtk_drm_framebuffer_lookup(struct drm_device *dev,
+	unsigned int id)
+{
+	struct drm_framebuffer *fb = NULL;
+
+	fb = drm_framebuffer_lookup(dev, NULL, id);
+
+	if (!fb)
+		return NULL;
+
+	/* CRITICAL: drop the reference we picked up in framebuffer lookup */
+	drm_framebuffer_put(fb);
+
+	return fb;
 }
 
 void mtk_crtc_dc_prim_path_update(struct drm_crtc *crtc)
@@ -1331,6 +1347,20 @@ void mtk_crtc_dc_prim_path_update(struct drm_crtc *crtc)
 	session_id = mtk_get_session_id(crtc);
 	mtk_crtc_release_output_buffer_fence(crtc, session_id);
 
+	/* find fb for RDMA */
+	fb_idx = *(unsigned int *)(cmdq_buf->va_base + DISP_SLOT_RDMA_FB_IDX);
+	fb_id = *(unsigned int *)(cmdq_buf->va_base + DISP_SLOT_RDMA_FB_ID);
+
+	/* 1-to-2*/
+	if (!fb_id)
+		goto end;
+
+	fb = mtk_drm_framebuffer_lookup(mtk_crtc->base.dev, fb_id);
+	if (fb == NULL) {
+		DDPPR_ERR("%s cannot find fb fb_id:%u\n", __func__, fb_id);
+		goto end;
+	}
+
 	cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
 	if (!cb_data) {
 		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
@@ -1346,12 +1376,7 @@ void mtk_crtc_dc_prim_path_update(struct drm_crtc *crtc)
 	mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle, DDP_SECOND_PATH);
 
 	ddp_ctx = &mtk_crtc->ddp_ctx[mtk_crtc->ddp_mode];
-	fb_idx = *(unsigned int *)(cmdq_buf->va_base + DISP_SLOT_RDMA_FB_IDX);
-	fb_id = *(unsigned int *)(cmdq_buf->va_base + DISP_SLOT_RDMA_FB_ID);
-	if (!fb_id)
-		goto end;
 
-	fb = drm_framebuffer_lookup(mtk_crtc->base.dev, NULL, fb_id);
 	plane_state.pending.enable = true;
 	plane_state.pending.pitch = fb->pitches[0];
 	plane_state.pending.format = fb->format->format;
@@ -2845,8 +2870,13 @@ static void mtk_crtc_wb_comp_config(struct drm_crtc *crtc,
 	memset(&cfg, 0x0, sizeof(struct mtk_ddp_config));
 	if (state->prop_val[CRTC_PROP_OUTPUT_ENABLE]) {
 		/* Output buffer configuration for virtual display */
-		comp->fb = drm_framebuffer_lookup(crtc->dev, NULL,
+		comp->fb = mtk_drm_framebuffer_lookup(crtc->dev,
 				state->prop_val[CRTC_PROP_OUTPUT_FB_ID]);
+		if (comp->fb == NULL) {
+			DDPPR_ERR("%s cannot find fb fb_id:%u\n", __func__,
+				state->prop_val[CRTC_PROP_OUTPUT_FB_ID]);
+			return;
+		}
 		cfg.w = state->prop_val[CRTC_PROP_OUTPUT_WIDTH];
 		cfg.h = state->prop_val[CRTC_PROP_OUTPUT_HEIGHT];
 		cfg.x = state->prop_val[CRTC_PROP_OUTPUT_X];
@@ -4224,6 +4254,8 @@ static void __mtk_crtc_old_sub_path_destroy(struct drm_crtc *crtc,
 	struct cmdq_pkt *cmdq_handle;
 	struct mtk_crtc_ddp_ctx *ddp_ctx;
 	int i;
+	struct mtk_ddp_comp *comp = NULL;
+	int index = drm_crtc_index(crtc);
 
 	if (!mtk_crtc_with_sub_path(crtc, mtk_crtc->ddp_mode))
 		return;
@@ -4245,6 +4277,15 @@ static void __mtk_crtc_old_sub_path_destroy(struct drm_crtc *crtc,
 
 	mtk_crtc_disconnect_single_path_cmdq(crtc, cmdq_handle,
 		DDP_FIRST_PATH,	mtk_crtc->ddp_mode, 1);
+
+	/* Workaround: if CRTC0, reset wdma->fb to NULL to prevent CRTC2
+	 * config wdma and cause KE
+	 */
+	if (index == 0) {
+		comp = mtk_ddp_comp_find_by_id(crtc, DDP_COMPONENT_WDMA0);
+		if (comp)
+			comp->fb = NULL;
+	}
 
 	cmdq_pkt_flush(cmdq_handle);
 	cmdq_pkt_destroy(cmdq_handle);

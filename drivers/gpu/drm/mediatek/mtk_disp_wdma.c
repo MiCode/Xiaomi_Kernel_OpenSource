@@ -757,9 +757,12 @@ static void mtk_wdma_config(struct mtk_ddp_comp *comp,
 	unsigned int addr = 0;
 	struct mtk_disp_wdma *wdma = comp_to_wdma(comp);
 	struct mtk_wdma_cfg_info *cfg_info = &wdma->cfg_info;
+	int crtc_idx = drm_crtc_index(&comp->mtk_crtc->base);
 
 	if (!comp->fb) {
-		DDPPR_ERR("%s fb is empty\n", __func__);
+		if (crtc_idx != 2)
+			DDPPR_ERR("%s fb is empty, CRTC%d\n",
+				__func__, crtc_idx);
 		return;
 	}
 
