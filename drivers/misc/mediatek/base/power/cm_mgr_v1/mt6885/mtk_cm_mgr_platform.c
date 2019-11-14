@@ -584,7 +584,7 @@ static int cm_mgr_fb_notifier_callback(struct notifier_block *self,
 	case FB_BLANK_POWERDOWN:
 		pr_info("#@# %s(%d) SCREEN OFF\n", __func__, __LINE__);
 		cm_mgr_blank_status = 1;
-		cm_mgr_set_dram_level(0);
+		cm_mgr_set_dram_level(-1);
 		cm_mgr_dram_opp_base = -1;
 		cm_mgr_perf_platform_set_status(0);
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)

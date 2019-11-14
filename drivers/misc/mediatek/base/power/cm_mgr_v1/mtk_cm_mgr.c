@@ -674,7 +674,7 @@ void cm_mgr_enable_fn(int enable)
 {
 	cm_mgr_enable = enable;
 	if (!cm_mgr_enable)
-		cm_mgr_set_dram_level(0);
+		cm_mgr_set_dram_level(-1);
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 	cm_mgr_to_sspm_command(IPI_CM_MGR_ENABLE,
 			cm_mgr_enable);
@@ -1135,7 +1135,7 @@ static ssize_t dbg_cm_mgr_proc_write(struct file *file,
 	if (!strcmp(cmd, "cm_mgr_opp_enable")) {
 		cm_mgr_opp_enable = val_1;
 		if (!cm_mgr_opp_enable)
-			cm_mgr_set_dram_level(0);
+			cm_mgr_set_dram_level(-1);
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 		cm_mgr_to_sspm_command(IPI_CM_MGR_OPP_ENABLE,
 				cm_mgr_opp_enable);
@@ -1143,7 +1143,7 @@ static ssize_t dbg_cm_mgr_proc_write(struct file *file,
 	} else if (!strcmp(cmd, "cm_mgr_enable")) {
 		cm_mgr_enable = val_1;
 		if (!cm_mgr_enable)
-			cm_mgr_set_dram_level(0);
+			cm_mgr_set_dram_level(-1);
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 		cm_mgr_to_sspm_command(IPI_CM_MGR_ENABLE,
 				cm_mgr_enable);
@@ -1170,7 +1170,7 @@ static ssize_t dbg_cm_mgr_proc_write(struct file *file,
 	} else if (!strcmp(cmd, "cm_mgr_disable_fb")) {
 		cm_mgr_disable_fb = val_1;
 		if (cm_mgr_disable_fb == 1 && cm_mgr_blank_status == 1)
-			cm_mgr_set_dram_level(0);
+			cm_mgr_set_dram_level(-1);
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 		cm_mgr_to_sspm_command(IPI_CM_MGR_DISABLE_FB,
 				cm_mgr_disable_fb);
