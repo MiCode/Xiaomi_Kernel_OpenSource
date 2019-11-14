@@ -568,11 +568,20 @@ bool mtk_crtc_get_vblank_timestamp(struct drm_device *dev, unsigned int pipe,
 	return true;
 }
 
+static void user_cmd_cmdq_cb(struct cmdq_cb_data data)
+{
+	struct mtk_cmdq_cb_data *cb_data = data.data;
+
+	cmdq_pkt_destroy(cb_data->cmdq_handle);
+	kfree(cb_data);
+}
+
 int mtk_crtc_user_cmd(struct drm_crtc *crtc, struct mtk_ddp_comp *comp,
 		unsigned int cmd, void *params)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct cmdq_pkt *cmdq_handle;
+	struct mtk_cmdq_cb_data *cb_data;
 	int index = 0;
 
 	if (!mtk_crtc) {
@@ -613,6 +622,15 @@ int mtk_crtc_user_cmd(struct drm_crtc *crtc, struct mtk_ddp_comp *comp,
 
 	mtk_drm_idlemgr_kick(__func__, crtc, 0);
 
+	cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
+	if (!cb_data) {
+		DDPPR_ERR("cb data creation failed\n");
+		CRTC_MMP_EVENT_END(index, user_cmd, 0, 3);
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+		return -1;
+	}
+
 	cmdq_handle = cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
 
 	if (mtk_crtc_with_sub_path(crtc, mtk_crtc->ddp_mode))
@@ -637,8 +655,8 @@ int mtk_crtc_user_cmd(struct drm_crtc *crtc, struct mtk_ddp_comp *comp,
 		cmdq_pkt_set_event(cmdq_handle,
 			mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
 
-	cmdq_pkt_flush(cmdq_handle);
-	cmdq_pkt_destroy(cmdq_handle);
+	cb_data->cmdq_handle = cmdq_handle;
+	cmdq_pkt_flush_threaded(cmdq_handle, user_cmd_cmdq_cb, cb_data);
 
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 
