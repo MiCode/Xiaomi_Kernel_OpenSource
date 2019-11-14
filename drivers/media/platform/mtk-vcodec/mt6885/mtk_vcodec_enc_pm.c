@@ -16,6 +16,7 @@
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
 #include <linux/pm_runtime.h>
+#include <linux/delay.h>
 //#include <soc/mediatek/smi.h>
 
 #include "mtk_vcodec_enc_pm.h"
@@ -790,6 +791,7 @@ int mtk_venc_ion_config_buff(struct dma_buf *dmabuf)
 {
 	struct ion_handle *handle = NULL;
 	struct ion_mm_data mm_data;
+	int count = 0;
 
 	mtk_v4l2_debug(4, "%p", dmabuf);
 
@@ -807,14 +809,22 @@ int mtk_venc_ion_config_buff(struct dma_buf *dmabuf)
 	mm_data.config_buffer_param.security = 0;
 	mm_data.config_buffer_param.coherent = 0;
 
-	if (ion_kernel_ioctl(ion_venc_client, ION_CMD_MULTIMEDIA,
-		(unsigned long)&mm_data)) {
-		mtk_v4l2_err("configure ion buffer failed!\n");
-		/* dma hold ref, ion directly free */
-		ion_free(ion_venc_client, handle);
+	while (1) {
+		int ion_config = 0;
 
-		return -1;
+		ion_config = ion_kernel_ioctl(ion_venc_client,
+			ION_CMD_MULTIMEDIA, (unsigned long)&mm_data);
+
+		if (ion_config != 0) {
+			udelay(1000);
+			count++;
+			mtk_v4l2_err("re-configure buffer! count: %d\n", count);
+		} else {
+			break;
+		}
 	}
+	if (count > 0)
+		mtk_v4l2_err("re-configure buffer done! count: %d\n", count);
 
 	/* dma hold ref, ion directly free */
 	ion_free(ion_venc_client, handle);
