@@ -991,6 +991,18 @@ static struct snd_soc_dai_link mt6885_mt6359_dai_links[] = {
 		.dpcm_playback = 1,
 		.ignore_suspend = 1,
 	},
+	{
+		.name = "Hostless_AAudio",
+		.stream_name = "Hostless_AAudio",
+		.cpu_dai_name = "Hostless AAudio DAI",
+		.codec_name = "snd-soc-dummy",
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.trigger = {SND_SOC_DPCM_TRIGGER_PRE,
+			    SND_SOC_DPCM_TRIGGER_PRE},
+		.dynamic = 1,
+		.dpcm_capture = 1,
+		.ignore_suspend = 1,
+	},
 	/* BTCVSD */
 #ifdef CONFIG_SND_SOC_MTK_BTCVSD
 	{
