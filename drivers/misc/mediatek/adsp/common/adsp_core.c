@@ -287,8 +287,7 @@ int adsp_reset(void)
 
 		adsp_mt_run(cid);
 
-		ret = wait_for_completion_timeout(&pdata->done,
-					    msecs_to_jiffies(1000));
+		ret = wait_for_completion_timeout(&pdata->done, HZ);
 
 		if (unlikely(ret == 0)) {
 			pr_warn("%s, core %d reset timeout\n", __func__, cid);
@@ -387,8 +386,7 @@ static int __init adsp_module_init(void)
 		adsp_sram_provide_snapshot(pdata);
 		adsp_mt_run(cid);
 
-		ret = wait_for_completion_timeout(&pdata->done,
-					    msecs_to_jiffies(1000));
+		ret = wait_for_completion_timeout(&pdata->done, HZ);
 
 		if (unlikely(ret == 0)) {
 			pr_warn("%s, core %d boot_up timeout\n", __func__, cid);

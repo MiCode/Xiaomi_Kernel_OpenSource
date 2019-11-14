@@ -26,6 +26,7 @@
 #include <mt-plat/mtk_secure_api.h> /* for SMC ID table */
 #include <mt6885-afe-common.h>
 
+struct wait_queue_head adsp_waitq;
 struct workqueue_struct *adsp_wq;
 void __iomem *adsp_secure_base;
 struct adsp_priv *adsp_cores[ADSP_CORE_TOTAL];
@@ -107,6 +108,8 @@ int adsp_core0_init(struct adsp_priv *pdata)
 
 	adsp_wq = alloc_workqueue("adsp_wq", WORK_CPU_UNBOUND | WQ_HIGHPRI, 0);
 	pdata->wq = adsp_wq;
+	init_waitqueue_head(&adsp_waitq);
+
 	init_adsp_feature_control(pdata->id, pdata->feature_set, 1100,
 				adsp_wq,
 				adsp_core0_suspend,
@@ -119,7 +122,7 @@ int adsp_core0_init(struct adsp_priv *pdata)
 		adsp_update_c2c_memory_info(pdata);
 
 	/* exception init & irq */
-	init_adsp_exception_control(adsp_wq);
+	init_adsp_exception_control(adsp_wq, &adsp_waitq);
 	adsp_irq_registration(pdata->id, ADSP_IRQ_WDT_ID, adsp_wdt_handler,
 			      "ADSP A WDT", pdata);
 
@@ -195,8 +198,7 @@ static bool is_adsp_core_suspend(struct adsp_priv *pdata)
 	if (pdata->id == ADSP_A_ID) {
 		return check_hifi_status(ADSP_A_IS_WFI) &&
 		       check_hifi_status(ADSP_AXI_BUS_IS_IDLE) &&
-		       (status == ADSP_SUSPEND) &&
-		       (get_adsp_state(adsp_cores[ADSP_B_ID]) == ADSP_SUSPEND);
+		       (status == ADSP_SUSPEND);
 	} else { /* ADSP_B_ID */
 		return check_hifi_status(ADSP_B_IS_WFI) &&
 		       (status == ADSP_SUSPEND);
@@ -217,14 +219,28 @@ int adsp_core0_suspend(void)
 			ret = -EPIPE;
 			goto ERROR;
 		}
-		ret = wait_for_completion_timeout(&pdata->done,
-						msecs_to_jiffies(2000));
+
+		/* wait core suspend ack timeout 2s */
+		ret = wait_for_completion_timeout(&pdata->done, 2 * HZ);
 
 		while (--retry && !is_adsp_core_suspend(pdata))
 			usleep_range(100, 200);
 
-		if (retry == 0) {
+		if (retry == 0 || get_adsp_state(pdata) == ADSP_RESET) {
 			ret = -ETIME;
+			goto ERROR;
+		}
+
+		/* wait another core suspend done, timeout 2s */
+		if (!wait_event_timeout(adsp_waitq,
+		    (adsp_cores[ADSP_B_ID]->state == ADSP_SUSPEND) ||
+		    (get_adsp_state(pdata) == ADSP_RESET), 2 * HZ)) {
+			ret = -EBUSY;
+			goto ERROR;
+		}
+
+		if (get_adsp_state(pdata) == ADSP_RESET) {
+			ret = -EFAULT;
 			goto ERROR;
 		}
 
@@ -258,8 +274,7 @@ int adsp_core0_resume(void)
 
 		reinit_completion(&pdata->done);
 		adsp_mt_run(pdata->id);
-		ret = wait_for_completion_timeout(&pdata->done,
-						msecs_to_jiffies(2000));
+		ret = wait_for_completion_timeout(&pdata->done, 2 * HZ);
 
 		if (get_adsp_state(pdata) != ADSP_RUNNING) {
 			pr_warn("%s, can't going to resume\n", __func__);
@@ -286,13 +301,14 @@ int adsp_core1_suspend(void)
 			ret = -EPIPE;
 			goto ERROR;
 		}
-		ret = wait_for_completion_timeout(&pdata->done,
-						msecs_to_jiffies(2000));
+
+		/* wait core suspend ack timeout 2s */
+		ret = wait_for_completion_timeout(&pdata->done, 2 * HZ);
 
 		while (--retry && !is_adsp_core_suspend(pdata))
 			usleep_range(100, 200);
 
-		if (retry == 0) {
+		if (retry == 0 || get_adsp_state(pdata) == ADSP_RESET) {
 			ret = -ETIME;
 			goto ERROR;
 		}
@@ -300,6 +316,9 @@ int adsp_core1_suspend(void)
 		adsp_mt_stop(pdata->id);
 		switch_adsp_clk_ctrl_cg(false, ADSP_CLK_CORE_1_EN);
 		set_adsp_state(pdata, ADSP_SUSPEND);
+
+		/* notify another core suspend done */
+		wake_up(&adsp_waitq);
 	}
 	pr_info("%s(), done elapse %lld us", __func__,
 		ktime_us_delta(ktime_get(), start));
@@ -325,8 +344,7 @@ int adsp_core1_resume(void)
 
 		reinit_completion(&pdata->done);
 		adsp_mt_run(pdata->id);
-		ret = wait_for_completion_timeout(&pdata->done,
-						msecs_to_jiffies(2000));
+		ret = wait_for_completion_timeout(&pdata->done, 2 * HZ);
 
 		if (get_adsp_state(pdata) != ADSP_RUNNING) {
 			pr_warn("%s, can't going to resume\n", __func__);

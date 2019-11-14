@@ -41,7 +41,8 @@ struct adsp_exception_control {
 	size_t buf_size;
 
 	struct mutex lock;
-	struct workqueue_struct *wq;
+	struct workqueue_struct *workq;
+	struct wait_queue_head *waitq;
 	struct work_struct aed_work;
 	struct wakeup_source wakeup_lock;
 	struct completion done;
@@ -52,6 +53,7 @@ struct adsp_exception_control {
 
 irqreturn_t adsp_wdt_handler(int irq, void *data);
 bool adsp_aed_dispatch(enum adsp_excep_id type, void *data);
-int init_adsp_exception_control(struct workqueue_struct *wq);
+int init_adsp_exception_control(struct workqueue_struct *wq,
+				struct wait_queue_head *waitq);
 
 #endif

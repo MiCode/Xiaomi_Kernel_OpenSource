@@ -101,8 +101,7 @@ static int dump_buffer(struct adsp_exception_control *ctrl, int coredump_id)
 
 	if (ctrl->buf_backup) {
 		/* wait last dump done, and release buf_backup */
-		ret = wait_for_completion_timeout(&ctrl->done,
-					    msecs_to_jiffies(10000));
+		ret = wait_for_completion_timeout(&ctrl->done, 10 * HZ);
 
 		/* if not release buf, return EBUSY */
 		if (ctrl->buf_backup)
@@ -213,6 +212,10 @@ void adsp_aed_worker(struct work_struct *ws)
 		complete_all(&pdata->done);
 	}
 
+	/* force wake up if suspend thread wait reset event */
+	if (ctrl->waitq)
+		wake_up(ctrl->waitq);
+
 	adsp_register_feature(SYSTEM_FEATURE_ID);
 	adsp_extern_notify_chain(ADSP_EVENT_STOP);
 
@@ -259,7 +262,7 @@ bool adsp_aed_dispatch(enum adsp_excep_id type, void *data)
 
 	ctrl->excep_id = type;
 	ctrl->priv_data = data;
-	return queue_work(ctrl->wq, &ctrl->aed_work);
+	return queue_work(ctrl->workq, &ctrl->aed_work);
 }
 
 static void adsp_wdt_counter_reset(unsigned long data)
@@ -271,11 +274,13 @@ static void adsp_wdt_counter_reset(unsigned long data)
 /*
  * init a work struct
  */
-int init_adsp_exception_control(struct workqueue_struct *wq)
+int init_adsp_exception_control(struct workqueue_struct *workq,
+				struct wait_queue_head *waitq)
 {
 	struct adsp_exception_control *ctrl = &excep_ctrl;
 
-	ctrl->wq = wq;
+	ctrl->waitq = waitq;
+	ctrl->workq = workq;
 	ctrl->buf_backup = NULL;
 	ctrl->buf_size = 0;
 	mutex_init(&ctrl->lock);
