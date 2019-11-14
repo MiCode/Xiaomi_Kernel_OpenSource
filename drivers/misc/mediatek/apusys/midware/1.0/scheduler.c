@@ -13,7 +13,6 @@
 
 #include <linux/mutex.h>
 #include <linux/sched.h>
-#include <linux/sched/clock.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
 #include <linux/kthread.h>
@@ -406,11 +405,15 @@ static void subcmd_done(void *isc)
 		}
 	}
 
+	/* System Load and boost */
+	deadline_task_end(sc);
+
 	if (apusys_subcmd_delete(sc)) {
 		LOG_ERR("delete sc(0x%llx/%d) fail\n",
 			cmd->cmd_id,
 			sc->idx);
 	}
+
 	mutex_unlock(&cmd->sc_mtx);
 
 	/* clear subcmd bit in cmd entry's status */
@@ -445,7 +448,7 @@ static int exec_cmd_func(void *isc, void *idev_info)
 	/* get subcmd information */
 	cmd_hnd.kva = (uint64_t)sc->codebuf;
 	cmd_hnd.size = sc->c_hdr->cb_info_size;
-	cmd_hnd.boost_val = sc->boost_val;
+	cmd_hnd.boost_val = deadline_task_boost(sc);
 	cmd_hnd.cmd_id = sc->par_cmd->cmd_id;
 	cmd_hnd.subcmd_idx = sc->idx;
 	cmd_hnd.priority = sc->par_cmd->hdr->priority;
@@ -724,7 +727,6 @@ int apusys_sched_del_cmd(struct apusys_cmd *cmd)
 	struct apusys_subcmd *sc = NULL;
 	struct apusys_res_mgr *res_mgr = res_get_mgr();
 
-
 	if (cmd->state == CMD_STATE_DONE) {
 		LOG_DEBUG("cmd done already\n");
 		return 0;
@@ -769,14 +771,17 @@ int apusys_sched_del_cmd(struct apusys_cmd *cmd)
 			mutex_unlock(&sc->mtx);
 			mutex_unlock(&res_mgr->mtx);
 
+			/* System Load and boost */
+			deadline_task_end(sc);
+
 			if (apusys_subcmd_delete(sc)) {
 				LOG_ERR("delete 0x%llx-#%d sc fail\n",
 					cmd->cmd_id, sc->idx);
 			}
 
-		LOG_DEBUG("delete 0x%llx-#%d sc\n",
-			cmd->cmd_id,
-			i);
+
+			LOG_DEBUG("delete 0x%llx-#%d sc\n",
+					cmd->cmd_id, i);
 
 		} else {
 			LOG_DEBUG("0x%llx-#%d sc already execute(%d)\n",
@@ -860,14 +865,13 @@ int apusys_sched_add_cmd(struct apusys_cmd *cmd)
 			ret = -EINVAL;
 			break;
 		}
+		/* Calc system Load and boost */
+		deadline_task_start(sc);
 
 		mutex_lock(&cmd->sc_mtx);
 
 		/* add sc to cmd's sc_list*/
 		if (check_sc_ready(cmd, i) == 0) {
-			// Set deadline from now + soft_limit
-			sc->deadline =
-				sched_clock() + sc->par_cmd->hdr->soft_limit;
 			ret = insert_subcmd_lock(sc);
 			if (ret) {
 				LOG_ERR("ins 0x%llx-#%d sc(%p) q(%d-#%d)\n",

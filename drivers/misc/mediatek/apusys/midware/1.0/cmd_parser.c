@@ -19,6 +19,7 @@
 #include <linux/bitops.h>
 #include <linux/time.h>
 #include <linux/delay.h>
+#include <linux/sched/clock.h>
 
 #include "apusys_cmn.h"
 #include "apusys_drv.h"
@@ -341,6 +342,9 @@ int apusys_subcmd_create(int idx, struct apusys_cmd *cmd,
 	sc->idx = idx;
 	sc->ctx_id = VALUE_SUBGRAPH_CTX_ID_NONE;
 	sc->state = CMD_STATE_IDLE;
+	sc->period = cmd->hdr->soft_limit;
+	sc->deadline = sched_clock() + sc->period;
+	sc->runtime = sc->c_hdr->driver_time;
 
 	/* check codebuf info size */
 	if (sc->c_hdr->cb_info_size == 0) {

@@ -33,6 +33,7 @@ struct dentry *apusys_dbg_device;
 struct dentry *apusys_dbg_trace;
 struct dentry *apusys_dbg_test;
 struct dentry *apusys_dbg_log;
+struct dentry *apusys_dbg_boost;
 
 u8 g_log_level = APUSYS_LOG_INFO;
 u8 cfg_apusys_trace;

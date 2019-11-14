@@ -23,7 +23,6 @@ enum {
 	APUSYS_DEVICE_VPU,
 	APUSYS_DEVICE_EDMA,
 	APUSYS_DEVICE_WAIT,// subgraph mean wait event
-
 	APUSYS_DEVICE_LAST,
 
 	APUSYS_DEVICE_MAX = 64, //total support 64 different devices

@@ -140,7 +140,7 @@ static ssize_t apusys_devapc_write(struct file *file, const char __user *buf,
 	struct devapc_ctx *dctx = (struct devapc_ctx *)file->private_data;
 	char input[32] = {0};
 	char *cmd_str, *param_str, *tmp_str;
-	unsigned int param;
+	unsigned int param = 0;
 	int ret, len;
 
 	if (!buf)

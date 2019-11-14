@@ -121,7 +121,9 @@ struct apusys_subcmd {
 	struct list_head q_list;  // priority queue
 	struct list_head pc_list; // pack cmd
 	struct rb_node node; // deadline queue
+	uint64_t period;
 	uint64_t deadline;
+	uint64_t runtime;
 };
 
 /* general functions */

@@ -158,7 +158,7 @@ int insert_subcmd(struct apusys_subcmd *sc)
 	sc->state = CMD_STATE_READY;
 
 	if (hdr->soft_limit) { /* Deadline Queue */
-		deadline_node_insert(&tab->deadline_q, sc);
+		deadline_task_insert(sc);
 	} else { /* Priority Queue */
 		ret = normal_task_insert(sc);
 		if (ret) {
@@ -205,8 +205,7 @@ int pop_subcmd(int type, struct apusys_subcmd **isc)
 		return -EINVAL;
 	}
 
-	/* pop from queue */
-	sc = deadline_node_pop_first(&tab->deadline_q);
+	sc = deadline_task_pop(type);
 	if (sc) { /* pop cmd from deadline queue */
 		LOG_DEBUG("pop 0x%llx-#%d from deadline_q(%d/%llu)\n",
 				sc->par_cmd->cmd_id,
@@ -224,9 +223,8 @@ int pop_subcmd(int type, struct apusys_subcmd **isc)
 		}
 	}
 
-	 /* check if both deadline/priority queue are empty */
-	if (normal_task_empty(type) &&
-			deadline_node_empty(&tab->deadline_q)) {
+	/* check if both deadline/priority queue are empty */
+	if (normal_task_empty(type) && deadline_task_empty(type)) {
 		LOG_DEBUG("device(%d) cmd empty\n", type);
 		bitmap_clear(g_res_mgr.cmd_exist, type, 1);
 	}
@@ -1220,8 +1218,8 @@ int apusys_register_device(struct apusys_device *dev)
 		mutex_init(&tab->mtx);
 
 		g_res_mgr.tab[tab->dev_type] = tab;
-		deadline_node_init(&tab->deadline_q); /* init deadline queue */
 		normal_queue_init(tab->dev_type); /* init normal queue */
+		deadline_queue_init(tab->dev_type); /* Init deadline queue */
 
 		bitmap_set(g_res_mgr.dev_support, tab->dev_type, 1);
 

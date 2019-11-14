@@ -87,6 +87,7 @@ struct apusys_res_table {
 	uint32_t normal_task_num;
 	uint32_t deadline_task_num;
 	struct mutex mtx;
+	uint8_t boost_mode; /* Need boost clk if load is over threshold */
 
 	/* reservation */
 	struct list_head acq_list;
@@ -150,6 +151,8 @@ int res_resume_dev(void);
 void res_mgt_dump(void *s_file);
 int res_mgt_init(void);
 int res_mgt_destroy(void);
+
+struct apusys_res_table *res_get_table(int type);
 
 #ifdef CONFIG_MTK_GZ_SUPPORT_SDSP
 extern mtee_sdsp_enable(u32 on);
