@@ -758,6 +758,7 @@ static void mtk_wdma_config(struct mtk_ddp_comp *comp,
 	struct mtk_disp_wdma *wdma = comp_to_wdma(comp);
 	struct mtk_wdma_cfg_info *cfg_info = &wdma->cfg_info;
 	int crtc_idx = drm_crtc_index(&comp->mtk_crtc->base);
+	int clip_w, clip_h;
 
 	if (!comp->fb) {
 		if (crtc_idx != 2)
@@ -776,11 +777,21 @@ static void mtk_wdma_config(struct mtk_ddp_comp *comp,
 		return;
 	}
 
+	clip_w = cfg->w;
+	clip_h = cfg->h;
+	if (is_yuv(comp->fb->format->format)) {
+		if ((cfg->x + cfg->w) % 2)
+			clip_w -= 1;
+
+		if ((cfg->y + cfg->h) % 2)
+			clip_h -= 1;
+	}
+
 	size = (cfg->w & 0x3FFFU) + ((cfg->h << 16U) & 0x3FFF0000U);
 	mtk_ddp_write(comp, size, DISP_REG_WDMA_SRC_SIZE, handle);
 	mtk_ddp_write(comp, (cfg->y << 16) | cfg->x,
 		DISP_REG_WDMA_CLIP_COORD, handle);
-	mtk_ddp_write(comp, (cfg->h << 16) | cfg->w,
+	mtk_ddp_write(comp, (clip_h << 16) | clip_w,
 		DISP_REG_WDMA_CLIP_SIZE, handle);
 	mtk_ddp_write_mask(comp, con, DISP_REG_WDMA_CFG,
 		WDMA_OUT_FMT | WDMA_CON_SWAP, handle);
