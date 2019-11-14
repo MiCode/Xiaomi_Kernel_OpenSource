@@ -32,6 +32,10 @@
 #define DISP_REG_CCORR_INTSTA                    (0x00C)
 #define DISP_REG_CCORR_CFG (0x020)
 #define DISP_REG_CCORR_SIZE (0x030)
+#define DISP_REG_CCORR_COLOR_OFFSET_0	(0x100)
+#define DISP_REG_CCORR_COLOR_OFFSET_1	(0x104)
+#define DISP_REG_CCORR_COLOR_OFFSET_2	(0x108)
+#define CCORR_COLOR_OFFSET_MASK	(0x07FFC000)
 
 #define CCORR_12BIT_MASK				0x0fff
 
@@ -45,7 +49,8 @@ static unsigned int g_ccorr_relay_value[DISP_CCORR_TOTAL];
 static atomic_t g_ccorr_is_clock_on[DISP_CCORR_TOTAL] = {
 	ATOMIC_INIT(0), ATOMIC_INIT(0) };
 
-static struct DISP_CCORR_COEF_T *g_disp_ccorr_coef[DISP_CCORR_TOTAL] = { NULL };
+static struct DRM_DISP_CCORR_COEF_T *g_disp_ccorr_coef[DISP_CCORR_TOTAL] = {
+	NULL };
 static int g_ccorr_color_matrix[3][3] = {
 	{1024, 0, 0},
 	{0, 1024, 0},
@@ -58,7 +63,7 @@ static int g_rgb_matrix[3][3] = {
 	{1024, 0, 0},
 	{0, 1024, 0},
 	{0, 0, 1024} };
-static struct DISP_CCORR_COEF_T g_multiply_matrix_coef;
+static struct DRM_DISP_CCORR_COEF_T g_multiply_matrix_coef;
 static int g_disp_ccorr_without_gamma;
 
 static DECLARE_WAIT_QUEUE_HEAD(g_ccorr_get_irq_wq);
@@ -177,10 +182,11 @@ static void disp_ccorr_multiply_3x3(unsigned int ccorrCoef[3][3],
 static int disp_ccorr_write_coef_reg(struct mtk_ddp_comp *comp,
 	struct cmdq_pkt *handle, int lock)
 {
-	struct DISP_CCORR_COEF_T *ccorr, *multiply_matrix;
+	struct DRM_DISP_CCORR_COEF_T *ccorr, *multiply_matrix;
 	int ret = 0;
 	int id = index_of_ccorr(comp->id);
 	unsigned int temp_matrix[3][3];
+	unsigned int cfg_val;
 
 	if (lock)
 		mutex_lock(&g_ccorr_global_lock);
@@ -203,6 +209,10 @@ static int disp_ccorr_write_coef_reg(struct mtk_ddp_comp *comp,
 
 	if (handle == NULL) {
 		/* use CPU to write */
+		writel(1, comp->regs + DISP_REG_CCORR_EN);
+		cfg_val = 0x2 | g_ccorr_relay_value[id] |
+			     (g_disp_ccorr_without_gamma << 2);
+		writel(cfg_val, comp->regs + DISP_REG_CCORR_CFG);
 		writel(((ccorr->coef[0][0] & CCORR_12BIT_MASK) << 16) |
 			(ccorr->coef[0][1] & CCORR_12BIT_MASK),
 			comp->regs + CCORR_REG(0));
@@ -217,27 +227,58 @@ static int disp_ccorr_write_coef_reg(struct mtk_ddp_comp *comp,
 			comp->regs + CCORR_REG(3));
 		writel(((ccorr->coef[2][2] & CCORR_12BIT_MASK) << 16),
 			comp->regs + CCORR_REG(4));
+		/* Ccorr Offset */
+		writel(((ccorr->offset[0] & CCORR_COLOR_OFFSET_MASK) |
+			(0x1 << 31)),
+			comp->regs + DISP_REG_CCORR_COLOR_OFFSET_0);
+		writel(((ccorr->offset[1] & CCORR_COLOR_OFFSET_MASK)),
+			comp->regs + DISP_REG_CCORR_COLOR_OFFSET_1);
+		writel(((ccorr->offset[2] & CCORR_COLOR_OFFSET_MASK)),
+			comp->regs + DISP_REG_CCORR_COLOR_OFFSET_2);
 	} else {
 		/* use CMDQ to write */
+
+		cmdq_pkt_write(handle, comp->cmdq_base,
+				comp->regs_pa + DISP_REG_CCORR_EN, 1, ~0);
+		cfg_val = 0x2 | g_ccorr_relay_value[id] |
+			     (g_disp_ccorr_without_gamma << 2);
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_REG_CCORR_CFG, cfg_val, 0x7);
+
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + CCORR_REG(0),
-			(ccorr->coef[0][0] & CCORR_12BIT_MASK << 16) |
+			((ccorr->coef[0][0] & CCORR_12BIT_MASK) << 16) |
 			(ccorr->coef[0][1] & CCORR_12BIT_MASK), ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + CCORR_REG(1),
-			(ccorr->coef[0][2] & CCORR_12BIT_MASK << 16) |
+			((ccorr->coef[0][2] & CCORR_12BIT_MASK) << 16) |
 			(ccorr->coef[1][0] & CCORR_12BIT_MASK), ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + CCORR_REG(2),
-			(ccorr->coef[1][1] & CCORR_12BIT_MASK << 16) |
+			((ccorr->coef[1][1] & CCORR_12BIT_MASK) << 16) |
 			(ccorr->coef[1][2] & CCORR_12BIT_MASK), ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + CCORR_REG(3),
-			(ccorr->coef[2][0] & CCORR_12BIT_MASK << 16) |
+			((ccorr->coef[2][0] & CCORR_12BIT_MASK) << 16) |
 			(ccorr->coef[2][1] & CCORR_12BIT_MASK), ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + CCORR_REG(4),
-			(ccorr->coef[2][2] & CCORR_12BIT_MASK << 16), ~0);
+			((ccorr->coef[2][2] & CCORR_12BIT_MASK) << 16), ~0);
+		/* Ccorr Offset */
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_REG_CCORR_COLOR_OFFSET_0,
+			(ccorr->offset[0] & CCORR_COLOR_OFFSET_MASK) |
+			(0x1 << 31), ~0);
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_REG_CCORR_COLOR_OFFSET_1,
+			(ccorr->offset[1] & CCORR_COLOR_OFFSET_MASK), ~0);
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_REG_CCORR_COLOR_OFFSET_2,
+			(ccorr->offset[2] & CCORR_COLOR_OFFSET_MASK), ~0);
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + CCORR_REG(0),
+			((ccorr->coef[0][0] & CCORR_12BIT_MASK) << 16) |
+			(ccorr->coef[0][1] & CCORR_12BIT_MASK), ~0);
 	}
 
 	DDPINFO("%s: finish\n", __func__);
@@ -431,15 +472,15 @@ void disp_pq_notify_backlight_changed(int bl_1024)
 }
 
 static int disp_ccorr_set_coef(
-	const struct DISP_CCORR_COEF_T *user_color_corr,
+	const struct DRM_DISP_CCORR_COEF_T *user_color_corr,
 	struct mtk_ddp_comp *comp,
 	struct cmdq_pkt *handle)
 {
 	int ret = 0;
-	struct DISP_CCORR_COEF_T *ccorr, *old_ccorr;
+	struct DRM_DISP_CCORR_COEF_T *ccorr, *old_ccorr;
 	int id = index_of_ccorr(comp->id);
 
-	ccorr = kmalloc(sizeof(struct DISP_CCORR_COEF_T), GFP_KERNEL);
+	ccorr = kmalloc(sizeof(struct DRM_DISP_CCORR_COEF_T), GFP_KERNEL);
 	if (ccorr == NULL) {
 		DDPPR_ERR("%s: no memory\n", __func__);
 		return -EFAULT;
@@ -450,7 +491,7 @@ static int disp_ccorr_set_coef(
 		kfree(ccorr);
 	} else {
 		memcpy(ccorr, user_color_corr,
-			sizeof(struct DISP_CCORR_COEF_T));
+			sizeof(struct DRM_DISP_CCORR_COEF_T));
 
 		if (id >= 0 && id < DISP_CCORR_TOTAL) {
 			mutex_lock(&g_ccorr_global_lock);
@@ -642,7 +683,7 @@ static int mtk_ccorr_user_cmd(struct mtk_ddp_comp *comp,
 	switch (cmd) {
 	case SET_CCORR:
 	{
-		struct DISP_CCORR_COEF_T *config = data;
+		struct DRM_DISP_CCORR_COEF_T *config = data;
 
 		if (disp_ccorr_set_coef(config,
 			comp, handle) < 0) {

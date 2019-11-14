@@ -412,6 +412,10 @@ struct DISP_PQ_PARAM {
 #define DRM_MTK_BYPASS_COLOR   0x2A
 #define DRM_MTK_PQ_SET_WINDOW   0x2B
 #define DRM_MTK_GET_LCM_INDEX   0x2C
+#define DRM_MTK_SUPPORT_COLOR_TRANSFORM    0x2D
+#define DRM_MTK_READ_SW_REG   0x2E
+#define DRM_MTK_WRITE_SW_REG   0x2F
+
 /* AAL */
 #define DRM_MTK_AAL_INIT_REG	0x30
 #define DRM_MTK_AAL_GET_HIST	0x31
@@ -540,6 +544,7 @@ enum drm_disp_ccorr_id_t {
 struct DRM_DISP_CCORR_COEF_T {
 	enum drm_disp_ccorr_id_t hw_id;
 	unsigned int coef[3][3];
+	unsigned int offset[3];
 };
 
 enum drm_disp_gamma_id_t {
@@ -603,7 +608,7 @@ struct DRM_DISP_WRITE_REG {
 		DRM_MTK_SEC_HND_TO_GEM_HND, struct drm_mtk_sec_gem_hnd)
 
 #define DRM_IOCTL_MTK_SET_CCORR     DRM_IOWR(DRM_COMMAND_BASE + \
-		DRM_MTK_SET_CCORR, struct DISP_CCORR_COEF_T)
+		DRM_MTK_SET_CCORR, struct DRM_DISP_CCORR_COEF_T)
 
 #define DRM_IOCTL_MTK_CCORR_EVENTCTL     DRM_IOWR(DRM_COMMAND_BASE + \
 		DRM_MTK_CCORR_EVENTCTL, unsigned int)
@@ -639,7 +644,16 @@ struct DRM_DISP_WRITE_REG {
 		DRM_MTK_PQ_SET_WINDOW, struct DISP_PQ_WIN_PARAM)
 
 #define DRM_IOCTL_MTK_GET_LCM_INDEX    DRM_IOWR(DRM_COMMAND_BASE + \
-			DRM_MTK_GET_LCM_INDEX, unsigned int)
+		DRM_MTK_GET_LCM_INDEX, unsigned int)
+
+#define DRM_IOCTL_MTK_SUPPORT_COLOR_TRANSFORM     DRM_IOWR(DRM_COMMAND_BASE + \
+		DRM_MTK_SUPPORT_COLOR_TRANSFORM, struct DISP_COLOR_TRANSFORM)
+
+#define DRM_IOCTL_MTK_READ_SW_REG     DRM_IOWR(DRM_COMMAND_BASE + \
+		DRM_MTK_READ_SW_REG, DISP_READ_REG)
+
+#define DRM_IOCTL_MTK_WRITE_SW_REG     DRM_IOWR(DRM_COMMAND_BASE + \
+		DRM_MTK_WRITE_SW_REG, DISP_WRITE_REG)
 
 /* AAL IOCTL */
 #define AAL_HIST_BIN            33	/* [0..32] */
