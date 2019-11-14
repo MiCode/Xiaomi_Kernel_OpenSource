@@ -2007,11 +2007,14 @@ void mtk_crtc_connect_default_path(struct mtk_drm_crtc *mtk_crtc)
 }
 
 /* restore ovl layer config and set dal layer if any */
-static void mtk_crtc_restore_plane_setting(struct mtk_drm_crtc *mtk_crtc,
-					   struct cmdq_pkt *cmdq_handle)
+void mtk_crtc_restore_plane_setting(struct mtk_drm_crtc *mtk_crtc)
 {
 	unsigned int i;
 	struct drm_crtc *crtc = &mtk_crtc->base;
+	struct cmdq_pkt *cmdq_handle;
+
+	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
+		mtk_crtc->gce_obj.client[CLIENT_CFG]);
 
 	for (i = 0; i < mtk_crtc->layer_nr; i++) {
 		struct mtk_drm_private *priv = crtc->dev->dev_private;
@@ -2041,6 +2044,9 @@ static void mtk_crtc_restore_plane_setting(struct mtk_drm_crtc *mtk_crtc,
 
 	if (mtk_drm_dal_enable() && drm_crtc_index(crtc) == 0)
 		drm_set_dal(&mtk_crtc->base, cmdq_handle);
+
+	cmdq_pkt_flush(cmdq_handle);
+	cmdq_pkt_destroy(cmdq_handle);
 }
 
 static void mtk_crtc_disable_plane_setting(struct mtk_drm_crtc *mtk_crtc)
@@ -2186,12 +2192,9 @@ void mtk_crtc_config_default_path(struct mtk_drm_crtc *mtk_crtc)
 			mtk_ddp_comp_bypass(comp, cmdq_handle);
 	}
 
-	/* 2. restore OVL setting */
-	mtk_crtc_restore_plane_setting(mtk_crtc, cmdq_handle);
-
-	/* 3. Althought some of the m4u port may be enabled in LK stage.
-	 *     To make sure the driver independent, we still enable all the
-	 *     componets port here.
+	/* Althought some of the m4u port may be enabled in LK stage.
+	 * To make sure the driver independent, we still enable all the
+	 * componets port here.
 	 */
 	mtk_crtc_enable_iommu(mtk_crtc, cmdq_handle);
 
@@ -2363,11 +2366,14 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 	/* 6. disconnect addon module and config */
 	mtk_crtc_connect_addon_module(crtc);
 
-	/* 7. set dirty for cmd mode */
+	/* 7. restore OVL setting */
+	mtk_crtc_restore_plane_setting(mtk_crtc);
+
+	/* 8. set dirty for cmd mode */
 	if (mtk_crtc_is_frame_trigger_mode(crtc))
 		mtk_crtc_set_dirty(mtk_crtc);
 
-	/* 8. set vblank*/
+	/* 9. set vblank*/
 	drm_crtc_vblank_on(crtc);
 
 	if (atomic_read(&mtk_crtc->pending_vblank_op) == 1) {
@@ -2377,15 +2383,15 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 		atomic_set(&mtk_crtc->pending_vblank_op, 0);
 	}
 #ifdef MTK_DRM_ESD_SUPPORT
-	/* 9. enable ESD check */
+	/* 10. enable ESD check */
 	if (mtk_drm_lcm_is_connect())
 		mtk_disp_esd_check_switch(crtc, true);
 #endif
 
-	/* 10. set CRTC SW status */
+	/* 11. set CRTC SW status */
 	mtk_crtc_set_status(crtc, true);
 
-	/* 11. enable fake vsync if need*/
+	/* 12. enable fake vsync if need*/
 	mtk_drm_fake_vsync_switch(crtc, true);
 }
 

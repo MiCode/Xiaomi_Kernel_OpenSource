@@ -603,6 +603,7 @@ void mtk_crtc_stop(struct mtk_drm_crtc *mtk_crtc);
 void mtk_crtc_connect_default_path(struct mtk_drm_crtc *mtk_crtc);
 void mtk_crtc_disconnect_default_path(struct mtk_drm_crtc *mtk_crtc);
 void mtk_crtc_config_default_path(struct mtk_drm_crtc *mtk_crtc);
+void mtk_crtc_restore_plane_setting(struct mtk_drm_crtc *mtk_crtc);
 void mtk_crtc_start_trig_loop(struct mtk_drm_crtc *mtk_crtc);
 bool mtk_crtc_set_status(struct drm_crtc *crtc, bool status);
 void mtk_crtc_connect_addon_module(struct drm_crtc *crtc);

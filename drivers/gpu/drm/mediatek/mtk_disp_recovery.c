@@ -409,6 +409,8 @@ static int mtk_drm_esd_recover(struct drm_crtc *crtc)
 
 	mtk_crtc_connect_addon_module(crtc);
 
+	mtk_crtc_restore_plane_setting(mtk_crtc);
+
 	mtk_crtc_hw_block_ready(crtc);
 	if (mtk_crtc_is_frame_trigger_mode(crtc)) {
 		struct cmdq_pkt *cmdq_handle;

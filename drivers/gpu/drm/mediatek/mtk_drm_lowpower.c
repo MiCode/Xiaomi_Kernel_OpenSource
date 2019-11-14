@@ -451,15 +451,18 @@ static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc)
 	/* 6. conect addon module and config */
 	mtk_crtc_connect_addon_module(crtc);
 
-	/* 7. restore HRT BW */
+	/* 7. restore OVL setting */
+	mtk_crtc_restore_plane_setting(mtk_crtc);
+
+	/* 8. restore HRT BW */
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	mtk_disp_set_hrt_bw(mtk_crtc, mtk_crtc->qos_ctx->last_hrt_req);
 #endif
 
-	/* 8. set vblank */
+	/* 9. set vblank */
 	drm_crtc_vblank_on(crtc);
 
-	/* 9. enable fake vsync if need */
+	/* 10. enable fake vsync if need */
 	mtk_drm_fake_vsync_switch(crtc, true);
 
 	DDPINFO("crtc%d do %s-\n", crtc_id, __func__);
