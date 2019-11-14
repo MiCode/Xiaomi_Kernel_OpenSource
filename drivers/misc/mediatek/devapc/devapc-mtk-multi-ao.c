@@ -723,6 +723,7 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 	const char *vio_master;
 	unsigned long flags;
 	uint8_t perm;
+	bool normal;
 
 	spin_lock_irqsave(&devapc_lock, flags);
 
@@ -731,6 +732,7 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 	device_info = mtk_devapc_ctx->soc->device_info;
 	vio_info = mtk_devapc_ctx->soc->vio_info;
 	ndevices = mtk_devapc_ctx->soc->ndevices;
+	normal = false;
 
 	/* There are multiple DEVAPC_PD */
 	for (slave_type = 0; slave_type < slave_type_num; slave_type++) {
@@ -739,6 +741,7 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 			if (!mtk_devapc_dump_vio_dbg(slave_type))
 				continue;
 
+		normal = true;
 		for (i = 0; i < ndevices[slave_type].vio_slave_num; i++) {
 			if (!device_info[slave_type][i].enable_vio_irq)
 				continue;
@@ -792,6 +795,26 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 			break;
 		}
 	}
+
+	if (normal) {
+		spin_unlock_irqrestore(&devapc_lock, flags);
+		return IRQ_HANDLED;
+	}
+
+	/* It's an abnormal status */
+	for (slave_type = 0; slave_type < slave_type_num; slave_type++) {
+		for (i = 0; i < ndevices[slave_type].vio_slave_num; i++) {
+
+			vio_idx = device_info[slave_type][i].vio_index;
+			if (clear_vio_status(slave_type, vio_idx))
+				pr_warn(PFX "%s, %s:0x%x, %s:0x%x\n",
+						"clear vio status failed",
+						"slave_type", slave_type,
+						"vio_index", vio_idx);
+		}
+	}
+
+	print_vio_mask_sta();
 
 	spin_unlock_irqrestore(&devapc_lock, flags);
 	return IRQ_HANDLED;
