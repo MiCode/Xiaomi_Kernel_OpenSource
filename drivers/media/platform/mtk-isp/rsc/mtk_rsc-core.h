@@ -26,6 +26,11 @@
 #include <mach/mt_clkmgr.h>
 #endif
 
+#define RSC_PMQOS_EN
+#if defined(RSC_PMQOS_EN) && defined(CONFIG_MTK_QOS_SUPPORT)
+#include <linux/pm_qos.h>
+#endif
+
 #include "mtk_rsc-dev.h"
 #include "mtk_rsc-ctx.h"
 
@@ -35,7 +40,7 @@ do { \
 	mb(); /* ensure written */ \
 } while (0)
 
-#define RES_RD32(addr)    ioread32((void *)addr)
+#define RSC_RD32(addr)    ioread32((void *)addr)
 
 #define SUPPORT_MAX_RSC_FRAME_REQUEST      6
 #define SUPPORT_MAX_RSC_REQUEST_RING_SIZE  4
@@ -110,9 +115,14 @@ struct rsc_device {
 	struct platform_device *v4l2_pdev;
 	/* for mtk_hcp  driver  */
 	struct platform_device *mtk_hcp_pdev;
+    /* for pm qos */
+#if defined(RSC_PMQOS_EN) && defined(CONFIG_MTK_QOS_SUPPORT)
+	struct pm_qos_request rsc_pm_qos_request;
+#endif
 	/* for gce */
 	struct cmdq_base       *cmdq_base;
 	struct cmdq_client     *cmdq_clt;
+	struct cmdq_pkt        *pkt;
 	s32                    cmdq_event_id;
 	/* for others */
 	void __iomem           *regs;

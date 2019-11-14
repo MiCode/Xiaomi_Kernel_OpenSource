@@ -240,30 +240,66 @@ static irqreturn_t isp_irq_rsc(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+void rsc_cmdq_cb_destroy(struct cmdq_cb_data data)
+{
+	struct rsc_device *rsc_hw_dev = (struct rsc_device *)data.data;
+
+	cmdq_pkt_destroy(rsc_hw_dev->pkt);
+#if defined(RSC_PMQOS_EN) && defined(CONFIG_MTK_QOS_SUPPORT)
+	pm_qos_update_request(&rsc_hw_dev->rsc_pm_qos_request, 0);
+#endif
+}
+
 static int config_hw_handler(void *data, unsigned int len, void *priv)
 {
 	struct rsc_device *rsc_hw_dev = (struct rsc_device *)priv;
-	struct cmdq_pkt *pkt;
 	uint32_t regData[30][2];
 	int i = 0;
+
+#if defined(RSC_PMQOS_EN) && defined(CONFIG_MTK_QOS_SUPPORT)
+	unsigned int w_imgi, h_imgi, w_mvio, h_mvio, w_bvo, h_bvo;
+	unsigned int dma_bandwidth, trig_num;
+#endif
 
 	if (data == NULL || len == 0)
 		return -1;
 
 	memcpy(regData, data, len);
 
-	pkt = cmdq_pkt_create(rsc_hw_dev->cmdq_clt);
+	rsc_hw_dev->pkt = cmdq_pkt_create(rsc_hw_dev->cmdq_clt);
 
 	for (i = 0; i < 29; i++) {
-		cmdq_pkt_write(pkt, rsc_hw_dev->cmdq_base, regData[i][0],
+		cmdq_pkt_write(rsc_hw_dev->pkt,
+			rsc_hw_dev->cmdq_base, regData[i][0],
 			regData[i][1], ~0);
 	}
 
-	cmdq_pkt_wfe(pkt, rsc_hw_dev->cmdq_event_id);
-	cmdq_pkt_write(pkt, rsc_hw_dev->cmdq_base, regData[29][0],
+	cmdq_pkt_wfe(rsc_hw_dev->pkt, rsc_hw_dev->cmdq_event_id);
+	cmdq_pkt_write(rsc_hw_dev->pkt, rsc_hw_dev->cmdq_base, regData[29][0],
 		regData[29][1], ~0);
-	cmdq_pkt_flush(pkt);
-	cmdq_pkt_destroy(pkt);
+
+#if defined(RSC_PMQOS_EN) && defined(CONFIG_MTK_QOS_SUPPORT)
+	trig_num = (regData[1][1] & 0x00000F00) >> 8;
+	w_imgi = regData[2][1] & 0x000001FF;
+	h_imgi = (regData[2][1] & 0x01FF0000) >> 16;
+
+	w_mvio = ((w_imgi + 1) >> 1) - 1;
+	w_mvio = ((w_mvio / 7) << 4) + (((((w_mvio % 7) + 1) * 18) + 7) >> 3);
+	h_mvio = (h_imgi + 1) >> 1;
+
+	w_bvo =  (w_imgi + 1) >> 1;
+	h_bvo =  (h_imgi + 1) >> 1;
+
+	dma_bandwidth = ((w_imgi * h_imgi) * 2 + (w_mvio * h_mvio) * 2 * 16 +
+			(w_bvo * h_bvo)) * trig_num * 30 / 1000000;
+
+	pm_qos_update_request(&rsc_hw_dev->rsc_pm_qos_request, dma_bandwidth);
+#endif
+	/* non-blocking API, Please  use cmdqRecFlushAsync() */
+	//cmdq_task_flush_async_destroy(handle);
+	/* flush and destroy in cmdq */
+	cmdq_pkt_flush_threaded(rsc_hw_dev->pkt,
+		rsc_cmdq_cb_destroy, (void *)rsc_hw_dev);
 
 	dev_info(&rsc_hw_dev->pdev->dev, "%s configure hw done", __func__);
 	return 0;
@@ -697,6 +733,10 @@ static int mtk_rsc_probe(struct platform_device *pdev)
 	/* init rsc user count */
 	atomic_set(&rsc_hw_dev->user_count, 0);
 
+#if defined(RSC_PMQOS_EN) && defined(CONFIG_MTK_QOS_SUPPORT)
+	pm_qos_add_request(&rsc_hw_dev->rsc_pm_qos_request,
+			PM_QOS_MM_MEMORY_BANDWIDTH, PM_QOS_DEFAULT_VALUE);
+#endif
 	/* init cmdq */
 	rsc_hw_dev->cmdq_base = cmdq_register_device(&pdev->dev);
 	rsc_hw_dev->cmdq_clt = cmdq_mbox_create(&pdev->dev, 0);
@@ -735,6 +775,9 @@ static int mtk_rsc_remove(struct platform_device *pdev)
 	irq_num = platform_get_irq(pdev, 0);
 	free_irq(irq_num, NULL);
 
+#if defined(RSC_PMQOS_EN) && defined(CONFIG_MTK_QOS_SUPPORT)
+	pm_qos_remove_request(&rsc_hw_dev->rsc_pm_qos_request);
+#endif
 	pm_runtime_disable(&pdev->dev);
 
 	kfree(rsc_hw_dev);

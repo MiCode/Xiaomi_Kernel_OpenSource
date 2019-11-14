@@ -68,7 +68,7 @@
 #include <smi_public.h>
 #include "../engine_request.h"
 
-/*#define RSC_PMQOS_EN*/
+#define RSC_PMQOS_EN
 #if defined(RSC_PMQOS_EN) && defined(CONFIG_MTK_QOS_SUPPORT)
 #include <linux/pm_qos.h>
 #endif
@@ -994,6 +994,14 @@ signed int rsc_deque_cb(struct frame *frames, void *req)
 	return 0;
 }
 
+void rsc_cmdq_cb_destroy(struct cmdq_cb_data data)
+{
+	cmdq_pkt_destroy((struct cmdq_pkt *)data.data);
+#if defined(RSC_PMQOS_EN) && defined(CONFIG_MTK_QOS_SUPPORT)
+	pm_qos_update_request(&rsc_pm_qos_request, 0);
+#endif
+}
+
 signed int CmdqRSCHW(struct frame *frame)
 {
 	struct RSC_Config *pRscConfig;
@@ -1109,8 +1117,28 @@ signed int CmdqRSCHW(struct frame *frame)
 	cmdq_pkt_wfe(pkt, cmdq_event_id);
 	cmdq_pkt_write(pkt, cmdq_base, RSC_START_HW, 0x0, ~0);
 	/* RSC Interrupt read-clear mode */
-	cmdq_pkt_flush(pkt);
-	cmdq_pkt_destroy(pkt);
+#if defined(RSC_PMQOS_EN) && defined(CONFIG_MTK_QOS_SUPPORT)
+	trig_num = (pRscConfig->RSC_CTRL & 0x00000F00) >> 8;
+	w_imgi = pRscConfig->RSC_SIZE & 0x000001FF;
+	h_imgi = (pRscConfig->RSC_SIZE & 0x01FF0000) >> 16;
+
+	w_mvio = ((w_imgi + 1) >> 1) - 1;
+	w_mvio = ((w_mvio / 7) << 4) + (((((w_mvio % 7) + 1) * 18) + 7) >> 3);
+	h_mvio = (h_imgi + 1) >> 1;
+
+	w_bvo =  (w_imgi + 1) >> 1;
+	h_bvo =  (h_imgi + 1) >> 1;
+
+	dma_bandwidth = ((w_imgi * h_imgi) * 2 + (w_mvio * h_mvio) * 2 * 16 +
+			(w_bvo * h_bvo)) * trig_num * 30 / 1000000;
+
+	pm_qos_update_request(&rsc_pm_qos_request, dma_bandwidth);
+#endif
+	/* non-blocking API, Please  use cmdqRecFlushAsync() */
+	//cmdq_task_flush_async_destroy(handle);
+	/* flush and destroy in cmdq */
+	cmdq_pkt_flush_threaded(pkt,
+		rsc_cmdq_cb_destroy, (void *)pkt);
 
 #else  // old cmdq function
 	cmdqRecCreate(CMDQ_SCENARIO_KERNEL_CONFIG_GENERAL, &handle);
@@ -1230,6 +1258,7 @@ static const struct engine_ops rsc_ops = {
 	.req_feedback_cb = rsc_feedback,
 };
 
+#if 0 // old cmdq command no more use in this version
 #if defined(RSC_PMQOS_EN) && defined(CONFIG_MTK_QOS_SUPPORT)
 void cmdq_pm_qos_start(struct TaskStruct *task, struct TaskStruct *task_list[],
 								u32 size)
@@ -1248,7 +1277,7 @@ void cmdq_pm_qos_stop(struct TaskStruct *task, struct TaskStruct *task_list[],
 	LOG_DBG("- PMQOS Bandwidth : %d\n", 0);
 }
 #endif
-
+#endif
 
 
 
@@ -3073,8 +3102,10 @@ static signed int RSC_probe(struct platform_device *pDev)
 #if defined(RSC_PMQOS_EN) && defined(CONFIG_MTK_QOS_SUPPORT)
 		pm_qos_add_request(&rsc_pm_qos_request,
 			PM_QOS_MM_MEMORY_BANDWIDTH, PM_QOS_DEFAULT_VALUE);
+#if 0   // old cmdq command and no more use
 		cmdqCoreRegisterTaskCycleCB(CMDQ_GROUP_RSC, cmdq_pm_qos_start,
 							cmdq_pm_qos_stop);
+#endif
 #endif
 		seqlock_init(&(rsc_reqs.seqlock));
 
