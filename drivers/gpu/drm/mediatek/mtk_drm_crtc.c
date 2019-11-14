@@ -860,8 +860,8 @@ _mtk_crtc_atmoic_addon_module_connect(
 }
 
 static void mtk_crtc_atmoic_ddp_config(struct drm_crtc *crtc,
-				       struct mtk_drm_lyeblob_ids *lyeblob_ids,
-				       struct cmdq_pkt *cmdq_handle)
+				struct mtk_drm_lyeblob_ids *lyeblob_ids,
+				struct cmdq_pkt *cmdq_handle)
 {
 	struct mtk_lye_ddp_state *lye_state, *old_lye_state;
 	struct drm_property_blob *blob;
@@ -869,43 +869,62 @@ static void mtk_crtc_atmoic_ddp_config(struct drm_crtc *crtc,
 	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 
-	blob = drm_property_lookup_blob(dev, lyeblob_ids->ddp_blob_id);
-	lye_state = (struct mtk_lye_ddp_state *)blob->data;
-	drm_property_unreference_blob(blob);
-	old_lye_state = &state->lye_state;
+	if (lyeblob_ids->ddp_blob_id) {
+		blob = drm_property_lookup_blob(dev, lyeblob_ids->ddp_blob_id);
+		lye_state = (struct mtk_lye_ddp_state *)blob->data;
+		drm_property_unreference_blob(blob);
+		old_lye_state = &state->lye_state;
 
-	_mtk_crtc_atmoic_addon_module_disconnect(crtc, mtk_crtc->ddp_mode,
-						 old_lye_state, cmdq_handle);
-	_mtk_crtc_atmoic_addon_module_connect(crtc, mtk_crtc->ddp_mode,
-					      lye_state, cmdq_handle);
+		_mtk_crtc_atmoic_addon_module_disconnect(crtc,
+							mtk_crtc->ddp_mode,
+							old_lye_state,
+							cmdq_handle);
+		_mtk_crtc_atmoic_addon_module_connect(crtc,
+							mtk_crtc->ddp_mode,
+							lye_state,
+							cmdq_handle);
 
-	state->lye_state = *lye_state;
+		state->lye_state = *lye_state;
+	}
+}
+
+static void mtk_crtc_free_ddpblob_ids(struct drm_crtc *crtc,
+				struct mtk_drm_lyeblob_ids *lyeblob_ids)
+{
+	struct drm_device *dev = crtc->dev;
+	struct drm_property_blob *blob;
+
+	if (lyeblob_ids->ddp_blob_id) {
+		blob = drm_property_lookup_blob(dev, lyeblob_ids->ddp_blob_id);
+		drm_property_unreference_blob(blob);
+		drm_property_unreference_blob(blob);
+
+		list_del(&lyeblob_ids->list);
+		kfree(lyeblob_ids);
+	}
 }
 
 static void mtk_crtc_free_lyeblob_ids(struct drm_crtc *crtc,
-				      struct mtk_drm_lyeblob_ids *lyeblob_ids)
+				struct mtk_drm_lyeblob_ids *lyeblob_ids)
 {
 	struct drm_device *dev = crtc->dev;
-	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct drm_property_blob *blob;
-	struct mtk_lye_ddp_state *lye_state;
-	int i;
+	int32_t blob_id;
+	int i, j;
 
-	blob = drm_property_lookup_blob(dev, lyeblob_ids->ddp_blob_id);
-	lye_state = (struct mtk_lye_ddp_state *)blob->data;
-	drm_property_unreference_blob(blob);
-	drm_property_unreference_blob(blob);
+	for (j = 0; j < MAX_CRTC; j++) {
+		if (!((lyeblob_ids->ref_cnt_mask >> j) & 0x1))
+			continue;
 
-	for (i = 0 ; i < mtk_crtc->layer_nr; i++) {
-		if (lyeblob_ids->lye_plane_blob_id[0][i] > 0) {
-			blob = drm_property_lookup_blob(
-				dev, (lyeblob_ids->lye_plane_blob_id[0][i]));
-			drm_property_unreference_blob(blob);
-			drm_property_unreference_blob(blob);
+		for (i = 0; i < OVL_LAYER_NR; i++) {
+			blob_id = lyeblob_ids->lye_plane_blob_id[j][i];
+			if (blob_id > 0) {
+				blob = drm_property_lookup_blob(dev, blob_id);
+				drm_property_unreference_blob(blob);
+				drm_property_unreference_blob(blob);
+			}
 		}
 	}
-	list_del(&lyeblob_ids->list);
-	kfree(lyeblob_ids);
 }
 
 static void mtk_crtc_get_plane_comp_state(struct drm_crtc *crtc,
@@ -1137,8 +1156,17 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 						   cmdq_handle);
 			break;
 		} else if (lyeblob_ids->lye_idx <
-			   crtc_state->prop_val[CRTC_PROP_LYE_IDX])
-			mtk_crtc_free_lyeblob_ids(crtc, lyeblob_ids);
+			   crtc_state->prop_val[CRTC_PROP_LYE_IDX]) {
+			if (lyeblob_ids->ref_cnt) {
+				lyeblob_ids->ref_cnt--;
+				if (!lyeblob_ids->ref_cnt) {
+					mtk_crtc_free_lyeblob_ids(crtc,
+							lyeblob_ids);
+					mtk_crtc_free_ddpblob_ids(crtc,
+							lyeblob_ids);
+				}
+			}
+		}
 	}
 	mutex_unlock(&mtk_drm->lyeblob_list_mutex);
 }

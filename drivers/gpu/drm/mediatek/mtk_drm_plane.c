@@ -322,10 +322,12 @@ static void _mtk_plane_get_comp_state(struct mtk_drm_lyeblob_ids *lyeblob_ids,
 				      unsigned int plane_index)
 {
 	int blob_id;
+	int ref_cnt;
 	struct drm_property_blob *blob;
 
 	blob_id = lyeblob_ids->lye_plane_blob_id[crtc->index][plane_index];
-	if (blob_id > 0) {
+	ref_cnt = lyeblob_ids->ref_cnt;
+	if (blob_id && ref_cnt) {
 		blob = drm_property_lookup_blob(crtc->dev, blob_id);
 		if (blob) {
 			memcpy(comp_state, blob->data,

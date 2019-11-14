@@ -200,8 +200,9 @@ static inline bool is_extended_layer(struct drm_mtk_layer_config *layer_info)
 static bool is_extended_base_layer_valid(struct drm_mtk_layer_config *configs,
 					 int layer_idx)
 {
-	if ((layer_idx == 0 && configs->src_fmt == MTK_DRM_FORMAT_DIM) ||
-	    mtk_has_layer_cap(configs, MTK_DISP_RSZ_LAYER))
+	if ((layer_idx == 0) ||
+		(configs->src_fmt == MTK_DRM_FORMAT_DIM) ||
+		mtk_has_layer_cap(configs, MTK_DISP_RSZ_LAYER))
 		return false;
 
 	/*
@@ -1876,7 +1877,9 @@ void mtk_register_layering_rule_ops(struct layering_rule_ops *ops,
 
 void lye_add_blob_ids(struct drm_mtk_layering_info *l_info,
 		      struct mtk_drm_lyeblob_ids *lyeblob_ids,
-		      struct drm_device *drm_dev)
+		      struct drm_device *drm_dev,
+		      int crtc_num,
+		      int crtc_mask)
 {
 	struct drm_property_blob *blob;
 	struct mtk_lye_ddp_state lye_state;
@@ -1891,6 +1894,8 @@ void lye_add_blob_ids(struct drm_mtk_layering_info *l_info,
 	lyeblob_ids->lye_idx = l_rule_info->hrt_idx;
 	lyeblob_ids->frame_weight = l_info->hrt_weight;
 	lyeblob_ids->ddp_blob_id = blob->base.id;
+	lyeblob_ids->ref_cnt = crtc_num;
+	lyeblob_ids->ref_cnt_mask = crtc_mask;
 	INIT_LIST_HEAD(&lyeblob_ids->list);
 	mutex_lock(&mtk_drm->lyeblob_list_mutex);
 	list_add_tail(&lyeblob_ids->list, &mtk_drm->lyeblob_head);
@@ -2089,6 +2094,57 @@ static unsigned int get_scn_decision_flag(
 	return scn_decision_flag;
 }
 
+static int get_crtc_num(
+	struct drm_mtk_layering_info *disp_info_user,
+	int *crtc_mask)
+{
+	int i;
+	int crtc_num;
+	int input_config_num;
+
+	if (!crtc_mask) {
+		DDPPR_ERR("%s:%d null crtc_mask\n",
+				__func__, __LINE__);
+		return 0;
+	}
+
+	switch (disp_info_user->disp_mode[0]) {
+	case MTK_DRM_SESSION_DL:
+	case MTK_DRM_SESSION_DC_MIRROR:
+		crtc_num = 1;
+		break;
+	case MTK_DRM_SESSION_DOUBLE_DL:
+		crtc_num = 2;
+		break;
+	case MTK_DRM_SESSION_TRIPLE_DL:
+		crtc_num = 1;
+		break;
+	default:
+		crtc_num = 0;
+		break;
+	}
+
+	/* check input config number */
+	input_config_num = 0;
+	*crtc_mask = 0;
+	for (i = 0; i < 3; i++) {
+		if (disp_info_user->input_config[i]) {
+			*crtc_mask |= (1 << i);
+			input_config_num++;
+		}
+	}
+
+	if (input_config_num != crtc_num) {
+		DDPPR_ERR("%s:%d mode[%d] num:%d not matched config num:%d\n",
+				__func__, __LINE__,
+				disp_info_user->disp_mode[0],
+				crtc_num, input_config_num);
+		crtc_num = min(crtc_num, input_config_num);
+	}
+
+	return crtc_num;
+}
+
 static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 			       int debug_mode, struct drm_device *dev)
 {
@@ -2097,6 +2153,7 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 	struct mtk_drm_lyeblob_ids *lyeblob_ids;
 	unsigned int scale_num = 0;
 	unsigned int scn_decision_flag = 0;
+	int crtc_num, crtc_mask;
 
 	DRM_MMP_EVENT_START(layering, (unsigned long)disp_info_user,
 			(unsigned long)dev);
@@ -2235,7 +2292,8 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 	 *		 (layering_info.layer_num[0] << 8) |
 	 *		 layering_info.layer_num[1]);
 	 */
-	lye_add_blob_ids(&layering_info, lyeblob_ids, dev);
+	crtc_num = get_crtc_num(disp_info_user, &crtc_mask);
+	lye_add_blob_ids(&layering_info, lyeblob_ids, dev, crtc_num, crtc_mask);
 
 	DRM_MMP_MARK(layering, layering_info.hrt_num,
 			(layering_info.gles_head[0] << 24) |

@@ -70,6 +70,8 @@ struct mtk_drm_lyeblob_ids {
 	uint32_t lye_idx;
 	uint32_t frame_weight;
 	int32_t ddp_blob_id;
+	int32_t ref_cnt;
+	int32_t ref_cnt_mask;
 	int32_t lye_plane_blob_id[MAX_CRTC][OVL_LAYER_NR];
 	struct list_head list;
 };

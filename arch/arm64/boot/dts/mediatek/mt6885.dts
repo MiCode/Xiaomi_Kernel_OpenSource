@@ -4028,7 +4028,7 @@ page_owner=on loop.max_part=7";
 			<1>, /*MTK_DRM_OPT_HRT*/
 			<1>, /*MTK_DRM_OPT_HRT_MODE*/
 			<0>, /*MTK_DRM_OPT_DELAYED_TRIGGER*/
-			<0>, /*MTK_DRM_OPT_OVL_EXT_LAYER*/
+			<1>, /*MTK_DRM_OPT_OVL_EXT_LAYER*/
 			<0>, /*MTK_DRM_OPT_AOD*/
 			<1>, /*MTK_DRM_OPT_RPO*/
 			<0>, /*MTK_DRM_OPT_DUAL_PIPE*/
