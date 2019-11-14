@@ -495,7 +495,7 @@ void mtk_venc_dvfs_begin(struct temp_job **job_list)
 		if (job->operation_rate > 30)
 			idx = 2;
 		else
-			idx = 1;
+			idx = 0;
 	} else if (area >= 1920 * 1080) {
 		if (job->operation_rate > 30) {
 			if (job->format == V4L2_PIX_FMT_H265)
