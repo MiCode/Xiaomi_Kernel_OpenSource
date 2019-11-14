@@ -579,7 +579,7 @@ static int vpu_suspend(struct platform_device *pdev, pm_message_t mesg)
 		__func__, vpu_pwr_cnt(vd), vd->state);
 
 	if (!vpu_pwr_cnt(vd) && (vd->state != VS_DOWN)) {
-		vpu_pwr_down_locked(vd);
+		vpu_pwr_suspend_locked(vd);
 		vpu_pwr_debug("%s: suspended\n", __func__);
 	}
 	mutex_unlock(&vd->cmd_lock);

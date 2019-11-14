@@ -28,6 +28,7 @@ void vpu_pwr_down(struct vpu_device *vd);
 
 int vpu_pwr_up_locked(struct vpu_device *vd, uint8_t boost, uint32_t off_timer);
 void vpu_pwr_down_locked(struct vpu_device *vd);
+void vpu_pwr_suspend_locked(struct vpu_device *vd);
 
 int vpu_pwr_get_locked(struct vpu_device *vd, uint8_t boost);
 void vpu_pwr_put_locked(struct vpu_device *vd);

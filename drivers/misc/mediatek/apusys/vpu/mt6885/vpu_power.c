@@ -18,7 +18,9 @@
 #include "vpu_algo.h"
 #include "apusys_power.h"
 
-static void vpu_pwr_off_locked(struct vpu_device *vd);
+static void vpu_pwr_off_locked(struct vpu_device *vd, int suspend);
+static void vpu_pwr_wake_lock(struct vpu_device *vd);
+static void vpu_pwr_wake_unlock(struct vpu_device *vd);
 
 /* Get APUSYS DVFS User ID from VPU ID */
 static inline int adu(int id)
@@ -42,6 +44,7 @@ static void vpu_pwr_release(struct kref *ref)
 	if (t) {
 		vpu_pwr_debug("%s: vpu%d: vpu_pwr_off_timer: %ld ms\n",
 			__func__, vd->id, t);
+		vpu_pwr_wake_unlock(vd);
 		vpu_pwr_off_timer(vd, t /* ms */);
 	}
 }
@@ -100,6 +103,7 @@ int vpu_pwr_get_locked(struct vpu_device *vd, uint8_t boost)
 	}
 
 	kref_init(&vd->pw_ref);
+	vpu_pwr_wake_lock(vd);
 	vpu_pwr_debug("%s: vpu%d: ref: 1\n", __func__, vd->id);
 
 out:
@@ -154,6 +158,24 @@ int vpu_pwr_up_locked(struct vpu_device *vd, uint8_t boost, uint32_t off_timer)
 }
 
 /**
+ * vpu_pwr_down_ext_locked() - unconditionally power down VPU
+ * @vd: vpu device
+ * @suspend: 0: normal power off flow, 1: suspend power off flow
+ * vd->lock or vd->cmd_lock must be locked before calling this function
+ */
+static void vpu_pwr_down_ext_locked(struct vpu_device *vd, int suspend)
+{
+	if (kref_read(&vd->pw_ref))
+		vpu_pwr_wake_unlock(vd);
+
+	refcount_set(&vd->pw_ref.refcount, 0);
+	cancel_delayed_work(&vd->pw_off_work);
+	vpu_pwr_off_locked(vd, suspend);
+	vpu_pwr_debug("%s: vpu%d: powered down(%d)\n",
+		__func__, vd->id, suspend);
+}
+
+/**
  * vpu_pwr_down_locked() - unconditionally power down VPU
  * @vd: vpu device
  *
@@ -161,10 +183,18 @@ int vpu_pwr_up_locked(struct vpu_device *vd, uint8_t boost, uint32_t off_timer)
  */
 void vpu_pwr_down_locked(struct vpu_device *vd)
 {
-	refcount_set(&vd->pw_ref.refcount, 0);
-	cancel_delayed_work(&vd->pw_off_work);
-	vpu_pwr_off_locked(vd);
-	vpu_pwr_debug("%s: vpu%d: powered down\n", __func__, vd->id);
+	vpu_pwr_down_ext_locked(vd, /* suspend */ 0);
+}
+
+/**
+ * vpu_pwr_suspend_locked() - power down VPU when suspend
+ * @vd: vpu device
+ *
+ * vd->lock or vd->cmd_lock must be locked before calling this function
+ */
+void vpu_pwr_suspend_locked(struct vpu_device *vd)
+{
+	vpu_pwr_down_ext_locked(vd, /* suspend */ 1);
 }
 
 /**
@@ -200,9 +230,10 @@ void vpu_pwr_down(struct vpu_device *vd)
 	mutex_unlock(&vd->lock);
 }
 
-static void vpu_pwr_off_locked(struct vpu_device *vd)
+static void vpu_pwr_off_locked(struct vpu_device *vd, int suspend)
 {
 	int ret;
+	int adu_id = adu(vd->id);
 
 	vpu_alg_unload(vd);
 
@@ -212,13 +243,13 @@ static void vpu_pwr_off_locked(struct vpu_device *vd)
 		return;
 	}
 
-	vpu_pwr_debug("%s: vpu%d: apu_device_power_off\n",
-		__func__, vd->id);
+	vpu_pwr_debug("%s: vpu%d: apu_device_power_suspend(%d, %d)\n",
+		__func__, vd->id, adu_id, suspend);
 
-	ret = apu_device_power_off(adu(vd->id));
+	ret = apu_device_power_suspend(adu_id, suspend);
 	if (ret)
-		vpu_pwr_debug("%s: vpu%d: apu_device_power_off: failed: %d\n",
-			__func__, vd->id, ret);
+		vpu_pwr_debug("%s: vpu%d: apu_device_power_suspend(%d, %d): failed: %d\n",
+			__func__, vd->id, adu_id, suspend, ret);
 
 	vd->state = VS_DOWN;
 }
@@ -230,10 +261,37 @@ static void vpu_pwr_off(struct work_struct *work)
 
 	mutex_lock(&vd->lock);
 	mutex_lock(&vd->cmd_lock);
-	vpu_pwr_off_locked(vd);
+	vpu_pwr_off_locked(vd, /* suspend */ 0);
 	mutex_unlock(&vd->cmd_lock);
 	mutex_unlock(&vd->lock);
 	wake_up_interruptible(&vd->pw_wait);
+}
+
+static void vpu_pwr_wake_lock(struct vpu_device *vd)
+{
+#ifdef CONFIG_PM_WAKELOCKS
+	__pm_stay_awake(&vd->pw_wake_lock);
+#else
+	wake_lock(&vd->pw_wake_lock);
+#endif
+}
+
+static void vpu_pwr_wake_unlock(struct vpu_device *vd)
+{
+#ifdef CONFIG_PM_WAKELOCKS
+	__pm_relax(&vd->pw_wake_lock);
+#else
+	wake_unlock(&vd->pw_wake_lock);
+#endif
+}
+
+static void vpu_pwr_wake_init(struct vpu_device *vd)
+{
+#ifdef CONFIG_PM_WAKELOCKS
+	wakeup_source_init(&vd->pw_wake_lock, vd->name);
+#else
+	wake_lock_init(&vd->pw_wake_lock, WAKE_LOCK_SUSPEND, vd->name);
+#endif
 }
 
 int vpu_init_dev_pwr(struct platform_device *pdev, struct vpu_device *vd)
@@ -253,6 +311,8 @@ int vpu_init_dev_pwr(struct platform_device *pdev, struct vpu_device *vd)
 	if (ret)
 		dev_info(&pdev->dev, "apu_power_device_register: %d\n",
 			ret);
+
+	vpu_pwr_wake_init(vd);
 
 	return ret;
 }

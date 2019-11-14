@@ -89,7 +89,7 @@ typedef uint8_t vpu_id_t;
  *     strncpy(algo_n->name, "algo_name", sizeof(algo_n->name));
  *     ioctl(fd, VPU_IOCTL_GET_ALGO_INFO, algo);
  *
- * - VPU_IOCTL_ENQUE_REQUEST: enque a request to user?s own queue.
+ * - VPU_IOCTL_ENQUE_REQUEST: enque a request to user's own queue.
  *
  *     struct vpu_request req;
  *     struct vpu_buffer *buf;

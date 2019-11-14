@@ -126,6 +126,11 @@ struct vpu_device {
 	struct delayed_work pw_off_work;
 	wait_queue_head_t pw_wait;
 	uint64_t pw_off_latency;   /* ms, 0 = always on */
+#ifdef CONFIG_PM_WAKELOCKS
+	struct wakeup_source pw_wake_lock;
+#else
+	struct wake_lock pw_wake_lock;
+#endif
 
 	/* iova settings */
 	struct vpu_iova iova_reset;
