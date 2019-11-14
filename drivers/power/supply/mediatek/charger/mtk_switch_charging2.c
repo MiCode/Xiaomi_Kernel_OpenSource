@@ -486,6 +486,7 @@ static int mtk_switch_chr_pe40_run(struct charger_manager *info)
 	struct pe40_data *data;
 	int ret = 0;
 
+	charger_dev_enable(info->chg1_dev, true);
 	select_pe40_charging_current_limit(info);
 
 	data = pe40_get_data();
@@ -590,13 +591,12 @@ static int select_pdc_charging_current_limit(struct charger_manager *info)
 
 static int mtk_switch_chr_pdc_run(struct charger_manager *info)
 {
-	struct charger_custom_data *pdata;
+	struct charger_custom_data *pdata = &info->data;
 	struct switch_charging_alg_data *swchgalg = info->algorithm_data;
 	struct pdc_data *data;
-	int ret;
+	int ret = 0;
 
-	pdata = &info->data;
-
+	charger_dev_enable(info->chg1_dev, true);
 	select_pdc_charging_current_limit(info);
 
 	data = pdc_get_data();
