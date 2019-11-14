@@ -34,54 +34,54 @@ static void _print_cmd_info(const struct apusys_cmd *cmd)
 {
 	struct apusys_cmd_hdr *hdr = cmd->hdr;
 
-	LOG_DEBUG("=====================================\n");
-	LOG_DEBUG(" apusys header(0x%llx)\n", (uint64_t)hdr);
-	LOG_DEBUG("-------------------------------------\n");
-	LOG_DEBUG(" cmd magic             = 0x%llx\n", hdr->magic);
-	LOG_DEBUG(" cmd uid               = 0x%llx\n", hdr->uid);
-	LOG_DEBUG(" version               = %d\n", hdr->version);
-	LOG_DEBUG(" priority              = %d\n", hdr->priority);
-	LOG_DEBUG(" hardlimit             = %hu\n", hdr->hard_limit);
-	LOG_DEBUG(" softlimit             = %hu\n", hdr->soft_limit);
-	LOG_DEBUG(" flag                  = 0x%llx\n", hdr->flag_bitmap);
-	LOG_DEBUG(" #subcmd               = %d\n", hdr->num_sc);
-	LOG_DEBUG(" dependency list offset= 0x%x\n", hdr->ofs_scr_list);
-	LOG_DEBUG(" depend cnt list offset= 0x%x\n", hdr->ofs_pdr_cnt_list);
-	LOG_DEBUG(" subcmd list offset    = 0x%x\n", hdr->scofs_list_entry);
-	LOG_DEBUG("-------------------------------------\n");
-	LOG_DEBUG(" cmd id                = 0x%llx\n", cmd->cmd_id);
-	LOG_DEBUG("=====================================\n");
+	CLOG_DEBUG("=====================================\n");
+	CLOG_DEBUG(" apusys header(0x%llx)\n", (uint64_t)hdr);
+	CLOG_DEBUG("-------------------------------------\n");
+	CLOG_DEBUG(" cmd magic             = 0x%llx\n", hdr->magic);
+	CLOG_DEBUG(" cmd uid               = 0x%llx\n", hdr->uid);
+	CLOG_DEBUG(" version               = %d\n", hdr->version);
+	CLOG_DEBUG(" priority              = %d\n", hdr->priority);
+	CLOG_DEBUG(" hardlimit             = %hu\n", hdr->hard_limit);
+	CLOG_DEBUG(" softlimit             = %hu\n", hdr->soft_limit);
+	CLOG_DEBUG(" flag                  = 0x%llx\n", hdr->flag_bitmap);
+	CLOG_DEBUG(" #subcmd               = %d\n", hdr->num_sc);
+	CLOG_DEBUG(" dependency list offset= 0x%x\n", hdr->ofs_scr_list);
+	CLOG_DEBUG(" depend cnt list offset= 0x%x\n", hdr->ofs_pdr_cnt_list);
+	CLOG_DEBUG(" subcmd list offset    = 0x%x\n", hdr->scofs_list_entry);
+	CLOG_DEBUG("-------------------------------------\n");
+	CLOG_DEBUG(" cmd id                = 0x%llx\n", cmd->cmd_id);
+	CLOG_DEBUG("=====================================\n");
 }
 
 void _print_sc_info(const struct apusys_subcmd *sc)
 {
 	struct apusys_sc_hdr_cmn *hdr = sc->c_hdr;
 
-	LOG_DEBUG("=====================================\n");
-	LOG_DEBUG(" apusys sc info(0x%llx)\n", (uint64_t)hdr);
-	LOG_DEBUG("-------------------------------------\n");
-	LOG_DEBUG(" type                 = %u\n", hdr->dev_type);
-	LOG_DEBUG(" driver time          = %u\n", hdr->driver_time);
-	LOG_DEBUG(" suggest time         = %u\n", hdr->suggest_time);
-	LOG_DEBUG(" bandwidth            = %u\n", hdr->bandwidth);
-	LOG_DEBUG(" tcm usage            = %d\n", hdr->tcm_usage);
-	LOG_DEBUG(" tcm force            = %d\n", hdr->tcm_force);
-	LOG_DEBUG(" boost value          = %d\n", hdr->boost_val);
-	LOG_DEBUG(" reserved             = %d\n", hdr->reserved);
-	LOG_DEBUG(" memory context       = %u\n", hdr->mem_ctx);
-	LOG_DEBUG(" codebuf info size    = %d\n", hdr->cb_info_size);
-	LOG_DEBUG(" codebuf info offset  = 0x%x\n", hdr->ofs_cb_info);
-	LOG_DEBUG("-------------------------------------\n");
-	LOG_DEBUG(" parent cmd           = 0x%llx\n", (uint64_t)sc->par_cmd);
-	LOG_DEBUG(" successor num        = %d\n", sc->scr_num);
-	LOG_DEBUG(" idx                  = %d\n", sc->idx);
-	LOG_DEBUG(" codebuf info         = 0x%llx\n", (uint64_t)sc->codebuf);
-	LOG_DEBUG(" codebuf fd           = %d\n", sc->codebuf_fd);
-	LOG_DEBUG(" codebuf mem hnd      = 0x%llx\n", sc->codebuf_mem_hnd);
-	LOG_DEBUG(" boost val            = %u/%u\n",
+	CLOG_DEBUG("=====================================\n");
+	CLOG_DEBUG(" apusys sc info(0x%llx)\n", (uint64_t)hdr);
+	CLOG_DEBUG("-------------------------------------\n");
+	CLOG_DEBUG(" type                 = %u\n", hdr->dev_type);
+	CLOG_DEBUG(" driver time          = %u\n", hdr->driver_time);
+	CLOG_DEBUG(" suggest time         = %u\n", hdr->suggest_time);
+	CLOG_DEBUG(" bandwidth            = %u\n", hdr->bandwidth);
+	CLOG_DEBUG(" tcm usage            = %d\n", hdr->tcm_usage);
+	CLOG_DEBUG(" tcm force            = %d\n", hdr->tcm_force);
+	CLOG_DEBUG(" boost value          = %d\n", hdr->boost_val);
+	CLOG_DEBUG(" reserved             = %d\n", hdr->reserved);
+	CLOG_DEBUG(" memory context       = %u\n", hdr->mem_ctx);
+	CLOG_DEBUG(" codebuf info size    = %d\n", hdr->cb_info_size);
+	CLOG_DEBUG(" codebuf info offset  = 0x%x\n", hdr->ofs_cb_info);
+	CLOG_DEBUG("-------------------------------------\n");
+	CLOG_DEBUG(" parent cmd           = 0x%llx\n", (uint64_t)sc->par_cmd);
+	CLOG_DEBUG(" successor num        = %d\n", sc->scr_num);
+	CLOG_DEBUG(" idx                  = %d\n", sc->idx);
+	CLOG_DEBUG(" codebuf info         = 0x%llx\n", (uint64_t)sc->codebuf);
+	CLOG_DEBUG(" codebuf fd           = %d\n", sc->codebuf_fd);
+	CLOG_DEBUG(" codebuf mem hnd      = 0x%llx\n", sc->codebuf_mem_hnd);
+	CLOG_DEBUG(" boost val            = %u/%u\n",
 		sc->boost_val,
 		hdr->boost_val);
-	LOG_DEBUG("=====================================\n");
+	CLOG_DEBUG("=====================================\n");
 }
 
 static unsigned long long _get_dp_entry(const struct apusys_cmd *cmd)
@@ -580,7 +580,7 @@ int apusys_subcmd_delete(struct apusys_subcmd *sc)
 }
 
 int apusys_cmd_create(int mem_fd, uint32_t offset,
-	struct apusys_cmd **icmd)
+	struct apusys_cmd **icmd, struct apusys_user *u)
 {
 	struct apusys_cmd *cmd = NULL;
 	struct apusys_cmd_hdr *cmd_hdr = NULL;
@@ -644,6 +644,8 @@ int apusys_cmd_create(int mem_fd, uint32_t offset,
 	}
 
 	/* assign value */
+	cmd->pid = u->open_pid;
+	cmd->tgid = u->open_tgid;
 	cmd->hdr = cmd_hdr;
 	cmd->mem_fd = mem_fd;
 	cmd->mem_hnd = mem.khandle;

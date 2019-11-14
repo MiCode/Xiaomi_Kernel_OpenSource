@@ -120,7 +120,7 @@ int ion_mem_alloc(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 		goto free_import;
 	}
 
-	LOG_INFO("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+	MLOG_DEBUG("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
 			mem->fd, mem->uva, mem->iova, mem->size,
 			mem->iova_size, mem->khandle, mem->kva);
 
@@ -170,7 +170,7 @@ int ion_mem_free(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 	/* free buffer by fd */
 	ion_free(mem_mgr->client, ion_hnd);
 
-	LOG_INFO("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+	MLOG_DEBUG("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
 			mem->fd, mem->uva, mem->iova, mem->size,
 			mem->iova_size, mem->khandle, mem->kva);
 
@@ -215,7 +215,7 @@ int ion_mem_import(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 		goto free_import;
 	}
 
-	LOG_INFO("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+	MLOG_DEBUG("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
 			mem->fd, mem->uva, mem->iova, mem->size,
 			mem->iova_size, mem->khandle, mem->kva);
 
@@ -265,7 +265,7 @@ int ion_mem_unimport(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 	/* free buffer by fd */
 	ion_free(mem_mgr->client, ion_hnd);
 
-	LOG_INFO("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+	MLOG_DEBUG("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
 			mem->fd, mem->uva, mem->iova, mem->size,
 			mem->iova_size, mem->khandle, mem->kva);
 	return 0;
@@ -282,7 +282,7 @@ int ion_mem_init(struct apusys_mem_mgr *mem_mgr)
 {
 	/* check init */
 	if (mem_mgr->is_init) {
-		LOG_INFO("apusys memory mgr is already inited\n");
+		LOG_WARN("apusys memory mgr is already inited\n");
 		return -EALREADY;
 	}
 
@@ -299,7 +299,7 @@ int ion_mem_init(struct apusys_mem_mgr *mem_mgr)
 
 	mem_mgr->is_init = 1;
 
-	MLOG_DEBUG("done\n");
+	LOG_DEBUG("done\n");
 
 	return 0;
 }
@@ -308,14 +308,14 @@ int ion_mem_destroy(struct apusys_mem_mgr *mem_mgr)
 	int ret = 0;
 
 	if (!mem_mgr->is_init) {
-		LOG_INFO("apusys memory mgr is not init, can't destroy\n");
+		LOG_WARN("apusys memory mgr is not init, can't destroy\n");
 		return -EALREADY;
 	}
 
 	mem_mgr->is_init = 0;
 	ion_client_destroy(mem_mgr->client);
 	mem_mgr->client = NULL;
-	MLOG_DEBUG("done\n");
+	LOG_DEBUG("done\n");
 
 	return ret;
 }
@@ -366,7 +366,7 @@ int ion_mem_map_kva(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 	mem->khandle = (uint64_t)ion_hnd;
 	mem->kva = (uint64_t)buffer;
 
-	MLOG_DEBUG("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+	LOG_DEBUG("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
 			mem->fd, mem->uva, mem->iova, mem->size,
 			mem->iova_size, mem->khandle, mem->kva);
 
@@ -421,7 +421,7 @@ int ion_mem_map_iova(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 	mem->iova = iova;
 	mem->iova_size = iova_size;
 
-	MLOG_DEBUG("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+	LOG_DEBUG("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
 			mem->fd, mem->uva, mem->iova, mem->size,
 			mem->iova_size, mem->khandle, mem->kva);
 
@@ -448,7 +448,7 @@ int ion_mem_unmap_iova(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 
 	ion_hnd = (struct ion_handle *) mem->khandle;
 
-	MLOG_DEBUG("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+	LOG_DEBUG("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
 			mem->fd, mem->uva, mem->iova, mem->size,
 			mem->iova_size, mem->khandle, mem->kva);
 
@@ -477,7 +477,7 @@ int ion_mem_unmap_kva(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 
 	ion_free(mem_mgr->client, ion_hnd);
 
-	MLOG_DEBUG("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+	LOG_DEBUG("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
 			mem->fd, mem->uva, mem->iova, mem->size,
 			mem->iova_size, mem->khandle, mem->kva);
 
@@ -499,6 +499,7 @@ int ion_mem_flush(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 		LOG_ERR("invalid argument\n");
 		return -EINVAL;
 	}
+	ion_hnd = (struct ion_handle *)mem->khandle;
 
 	va = ion_map_kernel(mem_mgr->client, ion_hnd);
 	sys_data.sys_cmd = ION_SYS_CACHE_SYNC;
@@ -529,7 +530,7 @@ int ion_mem_invalidate(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 		LOG_ERR("invalid argument\n");
 		return -EINVAL;
 	}
-	ion_hnd = (struct ion_handle *) mem->khandle;
+	ion_hnd = (struct ion_handle *)mem->khandle;
 
 	va = ion_map_kernel(mem_mgr->client, ion_hnd);
 

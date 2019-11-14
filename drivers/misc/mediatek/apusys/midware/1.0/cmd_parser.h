@@ -21,6 +21,7 @@
 #include "apusys_device.h"
 #include "apusys_cmn.h"
 #include "cmd_format.h"
+#include "apusys_user.h"
 
 struct apusys_subcmd;
 
@@ -46,6 +47,8 @@ struct pack_collect {
 
 struct apusys_cmd {
 	/* basic info */
+	pid_t pid;
+	pid_t tgid;
 	int mem_fd;
 	uint64_t mem_hnd;
 	uint64_t cmd_id;     // cmd unique id
@@ -135,7 +138,7 @@ uint64_t get_cmdformat_magic(void);
 
 /* apusys cmd parse functions */
 int apusys_cmd_create(int mem_fd, uint32_t offset,
-	struct apusys_cmd **icmd);
+	struct apusys_cmd **icmd, struct apusys_user *u);
 int apusys_cmd_delete(struct apusys_cmd *cmd);
 uint64_t get_subcmd_by_idx(const struct apusys_cmd *cmd, int idx);
 int check_sc_ready(const struct apusys_cmd *cmd, int idx);

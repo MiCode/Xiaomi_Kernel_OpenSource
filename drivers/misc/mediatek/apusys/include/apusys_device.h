@@ -83,7 +83,6 @@ struct apusys_kmem {
 	int fd;
 	unsigned long long khandle;
 	int property;
-
 };
 
 struct apusys_mdla_data {
@@ -97,6 +96,8 @@ struct apusys_cmd_hnd {
 	uint64_t kva;
 	uint32_t iova;
 	uint32_t size;
+
+	struct apusys_kmem *cmdbuf;
 
 	uint64_t cmd_id;
 	uint32_t subcmd_idx;

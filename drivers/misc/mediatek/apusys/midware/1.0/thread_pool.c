@@ -94,16 +94,12 @@ static int tp_service_routine(void *arg)
 		job_arg = NULL;
 		list_for_each_safe(list_ptr, tmp, &g_pool_mgr.job_list) {
 			job_arg = list_entry(list_ptr, struct job_inst, list);
+			list_del(&job_arg->list);
 			break;
 		}
-
-		/* if job_arg == null,  */
-		if (job_arg == NULL) {
-			mutex_unlock(&g_pool_mgr.job_mtx);
-			continue;
-		}
-		list_del(&job_arg->list);
 		mutex_unlock(&g_pool_mgr.job_mtx);
+		if (job_arg == NULL)
+			continue;
 
 		LOG_DEBUG("thread(%d) execute sc(%p)\n",
 			inst->idx, job_arg->sc);

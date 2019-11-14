@@ -709,10 +709,12 @@ static int exec_cmd_func(void *isc, void *idev_info)
 #endif
 
 	/* 3. get driver time start */
-#define APUSYS_EXECINFO_PRINT "0x%llx/0x%llx-#%d(%u) "\
+#define APUSYS_EXECINFO_PRINT "u(%d/%d) 0x%llx/0x%llx-#%d(%u) "\
 	"sc(%d): dev(%d-#%d) mp(%u/%u|0x%llx) "\
 	"ctx(%u/%d/0x%x/0x%x) boost(%u)\n"
 	LOG_INFO(APUSYS_EXECINFO_PRINT,
+		sc->par_cmd->pid,
+		sc->par_cmd->tgid,
 		sc->par_cmd->hdr->uid,
 		sc->par_cmd->cmd_id,
 		sc->idx,
@@ -1176,7 +1178,10 @@ int apusys_sched_pause(void)
 	}
 
 	/* check all device free */
-	res_suspend_dev();
+	if (res_suspend_dev())
+		LOG_WARN("suspend device fail\n");
+	else
+		LOG_INFO("suspend device done\n");
 
 	return 0;
 }
@@ -1195,7 +1200,10 @@ int apusys_sched_restart(void)
 		LOG_WARN("scheduler already resume\n");
 	}
 
-	res_resume_dev();
+	if (res_resume_dev())
+		LOG_WARN("resume device fail\n");
+	else
+		LOG_INFO("resume device done\n");
 	/* trigger sched thread */
 	complete(&res_mgr->sched_comp);
 

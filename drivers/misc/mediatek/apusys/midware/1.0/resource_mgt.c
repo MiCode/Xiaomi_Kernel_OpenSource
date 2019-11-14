@@ -714,14 +714,14 @@ int res_suspend_dev(void)
 				LOG_ERR("suspend dev(%d-#%d) fail(%d)\n",
 					dev_type, i, ret);
 			} else {
-				LOG_INFO("suspend dev(%d-#%d) done\n",
+				LOG_DEBUG("suspend dev(%d-#%d) done\n",
 					dev_type, i);
 			}
 		}
 		dev_type++;
 	}
 
-	return 0;
+	return ret;
 }
 
 int res_resume_dev(void)
@@ -759,14 +759,14 @@ int res_resume_dev(void)
 				LOG_ERR("resume dev(%d-#%d) fail(%d)\n",
 					dev_type, i, ret);
 			} else {
-				LOG_INFO("resume dev(%d-#%d) done\n",
+				LOG_DEBUG("resume dev(%d-#%d) done\n",
 					dev_type, i);
 			}
 		}
 		dev_type++;
 	}
 
-	return 0;
+	return ret;
 }
 
 int res_load_firmware(int dev_type, uint32_t magic, const char *name,

@@ -104,7 +104,7 @@ static int apusys_open(struct inode *inode, struct file *filp)
 
 	filp->private_data = u;
 
-	LOG_INFO("create user (0x%llx/%d/%d)\n",
+	LOG_DEBUG("create user (0x%llx/%d/%d)\n",
 		u->id,
 		u->open_pid,
 		u->open_tgid);
@@ -122,7 +122,7 @@ static int apusys_release(struct inode *inode, struct file *filp)
 		return -ENOMEM;
 	}
 
-	LOG_INFO("delete user %p(0x%llx/%d/%d)\n",
+	LOG_DEBUG("delete user %p(0x%llx/%d/%d)\n",
 		u,
 		u->id,
 		(int)u->open_pid,
@@ -338,7 +338,7 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				hs.begin.vlm_size = 0;
 			}
 
-			LOG_INFO("support dev(0x%llx)mem(0x%x/0x%x/%u)\n",
+			LOG_DEBUG("support dev(0x%llx)mem(0x%x/0x%x/%u)\n",
 				hs.begin.dev_support,
 				hs.begin.mem_support,
 				hs.begin.vlm_start,
@@ -563,7 +563,7 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 		/* parse command buffer, and get struct apusys_cmd */
 		ret = apusys_cmd_create
-			(ioctl_cmd.mem_fd, ioctl_cmd.offset, &a_cmd);
+			(ioctl_cmd.mem_fd, ioctl_cmd.offset, &a_cmd, user);
 		if (ret || a_cmd == NULL) {
 			LOG_ERR("parser cmd fail(%d/%p).\n", ret, a_cmd);
 			ret = -EINVAL;
@@ -631,7 +631,7 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 		/* parse command buffer, and get struct apusys_cmd */
 		ret = apusys_cmd_create
-			(ioctl_cmd.mem_fd, ioctl_cmd.offset, &a_cmd);
+			(ioctl_cmd.mem_fd, ioctl_cmd.offset, &a_cmd, user);
 		if (ret || a_cmd == NULL) {
 			LOG_ERR("parser cmd fail(%d/%p).\n", ret, a_cmd);
 			ret = -EINVAL;

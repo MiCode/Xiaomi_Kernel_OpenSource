@@ -165,7 +165,7 @@ int reviser_table_get_ctxID(void *drvinfo, unsigned long *ctxID)
 		g_ctxid_empty = true;
 		goto free_mutex;
 	}
-	LOG_INFO("[out] ctxID(%lu) table_ctxID(%08lx)\n",
+	LOG_DEBUG("[out] ctxID(%lu) table_ctxID(%08lx)\n",
 			*ctxID, table_ctxID[0]);
 
 	mutex_unlock(&reviser_device->mutex_ctxid);

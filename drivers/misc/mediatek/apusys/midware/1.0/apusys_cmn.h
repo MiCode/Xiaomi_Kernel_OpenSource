@@ -20,14 +20,15 @@
 extern u32 g_log_level;
 
 enum {
-	APUSYS_LOG_BITMAP_MIDWARE,
-	APUSYS_LOG_BITMAP_MEMORY,
+	APUSYS_LOG_BITMAP_INFO,
+	APUSYS_LOG_BITMAP_FLOW,
+	APUSYS_LOG_BITMAP_CMD,
+	APUSYS_LOG_BITMAP_MEM,
 	APUSYS_LOG_BITMAP_PERF,
-	APUSYS_LOG_BITMAP_LINETAG,
+	APUSYS_LOG_BITMAP_LINE,
 
 	APUSYS_LOG_BITMAP_MAX,
 };
-
 
 #define APUSYS_PREFIX "[apusys]"
 
@@ -36,17 +37,29 @@ enum {
 #define LOG_WARN(x, args...) \
 	pr_info(APUSYS_PREFIX "[warn] %s " x, __func__, ##args)
 #define LOG_INFO(x, args...) \
-	pr_info(APUSYS_PREFIX "%s " x, __func__, ##args)
+	{ \
+		if (g_log_level & (1 << APUSYS_LOG_BITMAP_INFO)) \
+			pr_info(APUSYS_PREFIX "%s "\
+			x, __func__, ##args);\
+	}
+
 #define LOG_DEBUG(x, args...) \
 	{ \
-		if (g_log_level & (1 << APUSYS_LOG_BITMAP_MIDWARE)) \
+		if (g_log_level & (1 << APUSYS_LOG_BITMAP_FLOW)) \
+			pr_info(APUSYS_PREFIX "[debug] %s/%d "\
+			x, __func__, __LINE__, ##args); \
+	}
+
+#define CLOG_DEBUG(x, args...) \
+	{ \
+		if (g_log_level & (1 << APUSYS_LOG_BITMAP_CMD)) \
 			pr_info(APUSYS_PREFIX "[debug] %s/%d "\
 			x, __func__, __LINE__, ##args); \
 	}
 
 #define MLOG_DEBUG(x, args...) \
 	{ \
-		if (g_log_level & (1 << APUSYS_LOG_BITMAP_MEMORY)) \
+		if (g_log_level & (1 << APUSYS_LOG_BITMAP_MEM)) \
 			pr_info(APUSYS_PREFIX "[debug] %s/%d "\
 			x, __func__, __LINE__, ##args); \
 	}
@@ -60,7 +73,7 @@ enum {
 
 #define LLOG_DEBUG(x, args...) \
 	{ \
-		if (g_log_level & (1 << APUSYS_LOG_BITMAP_LINETAG)) \
+		if (g_log_level & (1 << APUSYS_LOG_BITMAP_LINE)) \
 			pr_info(APUSYS_PREFIX "[debug] %s/%d "\
 			x, __func__, __LINE__, ##args); \
 	}
