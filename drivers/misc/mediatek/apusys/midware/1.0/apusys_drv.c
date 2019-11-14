@@ -86,7 +86,7 @@ static int apusys_open(struct inode *inode, struct file *filp)
 	struct apusys_user *u = NULL;
 	int ret = 0;
 
-	if (apusys_power_check() == false) {
+	if (!apusys_power_check()) {
 		LOG_ERR("apusys disable\n");
 		return -ENODEV;
 	}
@@ -138,12 +138,6 @@ static int apusys_probe(struct platform_device *pdev)
 	struct device *dev = NULL;
 
 	LOG_INFO("+\n");
-
-	if (apusys_power_check() == false) {
-		LOG_ERR("apusys disable\n");
-		LOG_INFO("-\n");
-		return -ENODEV;
-	}
 
 	g_apusys_device = &pdev->dev;
 
@@ -1318,6 +1312,11 @@ static struct platform_device midware_device = {
 
 static int __init apusys_init(void)
 {
+	if (!apusys_power_check()) {
+		LOG_ERR("apusys disable\n");
+		return -ENODEV;
+	}
+
 	if (platform_driver_register(&midware_driver)) {
 		LOG_ERR("failed to register apusys midware driver");
 		return -ENODEV;

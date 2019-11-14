@@ -63,11 +63,6 @@ static int sample_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 
-	if (apusys_power_check() == false) {
-		LOG_ERR("apusys disable\n");
-		return -ENODEV;
-	}
-
 	/* get major */
 	ret = alloc_chrdev_region(&sample_devt, 0, 1, APUSYS_SAMPLE_DEV_NAME);
 	if (ret < 0) {
@@ -155,6 +150,11 @@ static struct platform_device sample_device = {
 
 static int __init sample_init(void)
 {
+	if (!apusys_power_check()) {
+		LOG_ERR("apusys disable\n");
+		return -ENODEV;
+	}
+
 	if (platform_driver_register(&sample_driver)) {
 		LOG_ERR("failed to register apusys sample driver)\n");
 		return -ENODEV;
