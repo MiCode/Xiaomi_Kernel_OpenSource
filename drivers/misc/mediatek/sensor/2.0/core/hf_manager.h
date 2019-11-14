@@ -92,6 +92,7 @@ struct hf_manager {
 	struct kthread_work io_kthread_work;
 	struct hrtimer io_poll_timer;
 	atomic64_t io_poll_interval;
+	atomic64_t timestamp;
 	atomic_t io_enabled;
 	unsigned long flags;
 	struct hf_device *hf_dev;
@@ -99,7 +100,7 @@ struct hf_manager {
 	int (*report)(struct hf_manager *manager,
 		struct hf_manager_event *event);
 	void (*complete)(struct hf_manager *manager);
-	void (*interrupt)(struct hf_manager *manager);
+	void (*interrupt)(struct hf_manager *manager, int64_t timestamp);
 };
 
 struct hf_client {
@@ -113,6 +114,9 @@ struct hf_client {
 	pid_t leader_pid;
 	pid_t pid;
 };
+
+#define set_interrupt_timestamp(m, t) (atomic64_set(&m->timestamp, t))
+#define get_interrupt_timestamp(m) (atomic64_read(&m->timestamp))
 
 static inline void hf_device_set_private_data(struct hf_device *device,
 		void *data)

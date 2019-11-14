@@ -63,7 +63,7 @@ static int test_sample(struct hf_device *hfdev)
 	pr_debug("%s %s\n", __func__, driver_dev->hf_dev.dev_name);
 
 	memset(&event, 0, sizeof(struct hf_manager_event));
-	event.timestamp = ktime_get_boot_ns();
+	event.timestamp = get_interrupt_timestamp(manager);
 	event.sensor_type = driver_dev->hf_dev.support_list[0];
 	event.accurancy = SENSOR_ACCURANCY_HIGH;
 	event.action = DATA_ACTION;

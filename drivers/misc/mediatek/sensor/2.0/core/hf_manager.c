@@ -130,10 +130,12 @@ static int hf_manager_report_event(struct hf_client *client,
 	return 0;
 }
 
-static void hf_manager_io_schedule(struct hf_manager *manager)
+static void hf_manager_io_schedule(struct hf_manager *manager,
+		int64_t timestamp)
 {
 	if (!atomic_read(&manager->io_enabled))
 		return;
+	set_interrupt_timestamp(manager, timestamp);
 	if (READ_ONCE(manager->hf_dev->device_bus) == HF_DEVICE_IO_ASYNC)
 		tasklet_schedule(&manager->io_work_tasklet);
 	else if (READ_ONCE(manager->hf_dev->device_bus) == HF_DEVICE_IO_SYNC)
@@ -156,8 +158,6 @@ static int hf_manager_io_report(struct hf_manager *manager,
 static void hf_manager_io_complete(struct hf_manager *manager)
 {
 	clear_bit(HF_MANAGER_IO_IN_PROGRESS, &(manager->flags));
-	if (test_and_clear_bit(HF_MANAGER_IO_READY, &manager->flags))
-		hf_manager_io_schedule(manager);
 }
 
 static void hf_manager_io_sample(struct hf_manager *manager)
@@ -172,7 +172,6 @@ static void hf_manager_io_sample(struct hf_manager *manager)
 		if (retval) {
 			clear_bit(HF_MANAGER_IO_IN_PROGRESS,
 				  &manager->flags);
-			hf_manager_io_schedule(manager);
 		}
 	}
 }
@@ -192,12 +191,10 @@ static void hf_manager_io_kthread_work(struct kthread_work *work)
 	hf_manager_io_sample(manager);
 }
 
-static void hf_manager_sched_sample(struct hf_manager *manager)
+static void hf_manager_sched_sample(struct hf_manager *manager,
+		int64_t timestamp)
 {
-	if (!test_bit(HF_MANAGER_IO_IN_PROGRESS, &manager->flags))
-		hf_manager_io_schedule(manager);
-	else
-		set_bit(HF_MANAGER_IO_READY, &manager->flags);
+	hf_manager_io_schedule(manager, timestamp);
 }
 
 static enum hrtimer_restart hf_manager_io_poll(struct hrtimer *timer)
@@ -206,15 +203,16 @@ static enum hrtimer_restart hf_manager_io_poll(struct hrtimer *timer)
 		(struct hf_manager *)container_of(timer,
 			struct hf_manager, io_poll_timer);
 
-	hf_manager_sched_sample(manager);
+	hf_manager_sched_sample(manager, ktime_get_boot_ns());
 	hrtimer_forward_now(&manager->io_poll_timer,
 		ns_to_ktime(atomic64_read(&manager->io_poll_interval)));
 	return HRTIMER_RESTART;
 }
 
-static void hf_manager_io_interrupt(struct hf_manager *manager)
+static void hf_manager_io_interrupt(struct hf_manager *manager,
+		int64_t timestamp)
 {
-	hf_manager_sched_sample(manager);
+	hf_manager_sched_sample(manager, timestamp);
 }
 
 int hf_manager_create(struct hf_device *device)
