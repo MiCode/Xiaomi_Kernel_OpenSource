@@ -4519,7 +4519,7 @@ int mtk_crtc_path_switch(struct drm_crtc *crtc, unsigned int ddp_mode,
 	if (need_lock)
 		DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 
-	if (ddp_mode == mtk_crtc->ddp_mode || !mtk_crtc->enabled) {
+	if (ddp_mode == mtk_crtc->ddp_mode || !crtc->enabled) {
 		CRTC_MMP_MARK(index, path_switch, 0, 0);
 		goto done;
 	}
@@ -4563,13 +4563,13 @@ int mtk_crtc_path_switch(struct drm_crtc *crtc, unsigned int ddp_mode,
 	mtk_crtc_dc_fb_control(crtc, ddp_mode);
 done:
 	mtk_crtc->ddp_mode = ddp_mode;
-	if (mtk_crtc->enabled && mtk_crtc->ddp_mode != DDP_NO_USE)
+	if (crtc->enabled && mtk_crtc->ddp_mode != DDP_NO_USE)
 		mtk_crtc_update_ddp_sw_status(crtc, true);
 
 	if (need_lock)
 		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 
-	CRTC_MMP_EVENT_END(index, path_switch, mtk_crtc->enabled,
+	CRTC_MMP_EVENT_END(index, path_switch, crtc->enabled,
 			need_lock);
 
 	DDPINFO("%s:%d -\n", __func__, __LINE__);
