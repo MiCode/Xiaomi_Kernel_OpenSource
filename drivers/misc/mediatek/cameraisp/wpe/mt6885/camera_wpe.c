@@ -110,10 +110,6 @@ static unsigned long __read_mostly tracing_mark_write_addr;
 
 #include "inc/camera_wpe.h"
 
-#if (MTK_WPE_COUNT == 2)
-#define WPE_COUNT_IS_2
-#endif
-
 /* CCF */
 #include <linux/clk.h>
 struct WPE_CLK_STRUCT {
@@ -285,7 +281,7 @@ static int nr_WPE_devs;
 
 /* Get HW modules' base address from device nodes */
 #define WPE_DEV_NODE_IDX 0
-#define WPE_B_DEV_NODE_IDX 0
+#define WPE_B_DEV_NODE_IDX 1
 
 
 /* static unsigned long gISPSYS_Reg[WPE_IRQ_TYPE_AMOUNT]; */
@@ -968,6 +964,374 @@ static struct SV_LOG_STR gSvLog[WPE_IRQ_TYPE_AMOUNT];
 #define WPE_DMA_RSV3_REG                (ISP_WPE_BASE + 0x0504)
 #define WPE_DMA_RSV4_REG                (ISP_WPE_BASE + 0x0508)
 #define WPE_DMA_DEBUG_SEL_REG           (ISP_WPE_BASE + 0x050C)
+
+#define WPE_B_WPE_START_HW                (WPE_B_BASE_HW)
+#define WPE_B_CTL_MOD_EN_HW               (WPE_B_BASE_HW + 0x0004)
+#define WPE_B_CTL_DMA_EN_HW               (WPE_B_BASE_HW + 0x0008)
+#define WPE_B_CTL_CFG_HW                  (WPE_B_BASE_HW + 0x0010)
+#define WPE_B_CTL_FMT_SEL_HW              (WPE_B_BASE_HW + 0x0014)
+#define WPE_B_CTL_INT_EN_HW               (WPE_B_BASE_HW + 0x0018)
+#define WPE_B_CTL_INT_STATUS_HW           (WPE_B_BASE_HW + 0x0020)
+#define WPE_B_CTL_INT_STATUSX_HW          (WPE_B_BASE_HW + 0x0024)
+#define WPE_B_CTL_TDR_TILE_HW             (WPE_B_BASE_HW + 0x0028)
+#define WPE_B_CTL_TDR_DBG_STATUS_HW       (WPE_B_BASE_HW + 0x002C)
+#define WPE_B_CTL_TDR_TCM_EN_HW           (WPE_B_BASE_HW + 0x0030)
+#define WPE_B_CTL_SW_CTL_HW               (WPE_B_BASE_HW + 0x0034)
+#define WPE_B_CTL_SPARE0_HW               (WPE_B_BASE_HW + 0x0038)
+#define WPE_B_CTL_SPARE1_HW               (WPE_B_BASE_HW + 0x003C)
+#define WPE_B_CTL_SPARE2_HW               (WPE_B_BASE_HW + 0x0040)
+#define WPE_B_CTL_DONE_SEL_HW             (WPE_B_BASE_HW + 0x0044)
+#define WPE_B_CTL_DBG_SET_HW              (WPE_B_BASE_HW + 0x0048)
+#define WPE_B_CTL_DBG_PORT_HW             (WPE_B_BASE_HW + 0x004C)
+#define WPE_B_CTL_DATE_CODE_HW            (WPE_B_BASE_HW + 0x0050)
+#define WPE_B_CTL_PROJ_CODE_HW            (WPE_B_BASE_HW + 0x0054)
+#define WPE_B_CTL_WPE_DCM_DIS_HW          (WPE_B_BASE_HW + 0x0058)
+#define WPE_B_CTL_DMA_DCM_DIS_HW          (WPE_B_BASE_HW + 0x005C)
+#define WPE_B_CTL_WPE_DCM_STATUS_HW       (WPE_B_BASE_HW + 0x0060)
+#define WPE_B_CTL_DMA_DCM_STATUS_HW       (WPE_B_BASE_HW + 0x0064)
+#define WPE_B_CTL_WPE_REQ_STATUS_HW       (WPE_B_BASE_HW + 0x0068)
+#define WPE_B_CTL_DMA_REQ_STATUS_HW       (WPE_B_BASE_HW + 0x006C)
+#define WPE_B_CTL_WPE_RDY_STATUS_HW       (WPE_B_BASE_HW + 0x0070)
+#define WPE_B_CTL_DMA_RDY_STATUS_HW       (WPE_B_BASE_HW + 0x0074)
+#define WPE_B_CTL_DBG_R_BW_HW             (WPE_B_BASE_HW + 0x0090)
+#define WPE_B_CTL_DBG_W_BW_HW             (WPE_B_BASE_HW + 0x0094)
+#define WPE_B_CTL_DBG_RUNTIME_HW          (WPE_B_BASE_HW + 0x0098)
+#define WPE_B_RDMA1_PEND_DATA_CNT_HW      (WPE_B_BASE_HW + 0x00A0)
+
+#define WPE_B_VGEN_CTL_HW                 (WPE_B_BASE_HW + 0x00C0)
+#define WPE_B_VGEN_IN_IMG_HW              (WPE_B_BASE_HW + 0x00C4)
+#define WPE_B_VGEN_OUT_IMG_HW             (WPE_B_BASE_HW + 0x00C8)
+#define WPE_B_VGEN_HORI_STEP_HW           (WPE_B_BASE_HW + 0x00CC)
+#define WPE_B_VGEN_VERT_STEP_HW           (WPE_B_BASE_HW + 0x00D0)
+#define WPE_B_VGEN_HORI_INT_OFST_HW       (WPE_B_BASE_HW + 0x00D4)
+#define WPE_B_VGEN_HORI_SUB_OFST_HW       (WPE_B_BASE_HW + 0x00D8)
+#define WPE_B_VGEN_VERT_INT_OFST_HW       (WPE_B_BASE_HW + 0x00DC)
+#define WPE_B_VGEN_VERT_SUB_OFST_HW       (WPE_B_BASE_HW + 0x00E0)
+
+#define WPE_B_VGEN_POST_CTL_HW            (WPE_B_BASE_HW + 0x00E8)
+#define WPE_B_VGEN_POST_COMP_X_HW         (WPE_B_BASE_HW + 0x00EC)
+#define WPE_B_VGEN_POST_COMP_Y_HW         (WPE_B_BASE_HW + 0x00F0)
+#define WPE_B_VGEN_MAX_VEC_HW             (WPE_B_BASE_HW + 0x00F4)
+#define WPE_B_VFIFO_CTL_HW                (WPE_B_BASE_HW + 0x00F8)
+#define WPE_B_CFIFO_CTL_HW                (WPE_B_BASE_HW + 0x0140)
+#define WPE_B_RWCTL_CTL_HW                (WPE_B_BASE_HW + 0x0150)
+#define WPE_B_CACHI_SPECIAL_FUN_EN_HW     (WPE_B_BASE_HW + 0x0160)
+
+#define WPE_B_C24_TILE_EDGE_HW            (WPE_B_BASE_HW + 0x0170)
+#define WPE_B_MDP_CROP_X_HW               (WPE_B_BASE_HW + 0x0190)
+#define WPE_B_MDP_CROP_Y_HW               (WPE_B_BASE_HW + 0x0194)
+#define WPE_B_ISPCROP_CON1_HW             (WPE_B_BASE_HW + 0x01C0)
+#define WPE_B_ISPCROP_CON2_HW             (WPE_B_BASE_HW + 0x01C4)
+#define WPE_B_PSP_CTL_HW                  (WPE_B_BASE_HW + 0x01F0)
+#define WPE_B_PSP2_CTL_HW                 (WPE_B_BASE_HW + 0x01F4)
+#define WPE_B_PSP_BORDER_HW               (WPE_B_BASE_HW + 0x01F8)
+
+#define WPE_B_ADDR_GEN_SOFT_RSTSTAT_0_HW  (WPE_B_BASE_HW + 0x02C0)
+#define WPE_B_ADDR_GEN_BASE_ADDR_0_HW     (WPE_B_BASE_HW + 0x02C4)
+#define WPE_B_ADDR_GEN_OFFSET_ADDR_0_HW   (WPE_B_BASE_HW + 0x02C8)
+#define WPE_B_ADDR_GEN_STRIDE_0_HW        (WPE_B_BASE_HW + 0x02CC)
+#define WPE_B_CACHI_CON_0_HW              (WPE_B_BASE_HW + 0x02D0)
+#define WPE_B_CACHI_CON2_0_HW             (WPE_B_BASE_HW + 0x02D4)
+#define WPE_B_CACHI_CON3_0_HW             (WPE_B_BASE_HW + 0x02D8)
+#define WPE_B_ADDR_GEN_ERR_CTRL_0_HW      (WPE_B_BASE_HW + 0x02DC)
+#define WPE_B_ADDR_GEN_ERR_STAT_0_HW      (WPE_B_BASE_HW + 0x02E0)
+#define WPE_B_ADDR_GEN_RSV1_0_HW          (WPE_B_BASE_HW + 0x02E4)
+#define WPE_B_ADDR_GEN_DEBUG_SEL_0_HW     (WPE_B_BASE_HW + 0x02E8)
+
+#define WPE_B_ADDR_GEN_SOFT_RSTSTAT_1_HW  (WPE_B_BASE_HW + 0x02F0)
+#define WPE_B_ADDR_GEN_BASE_ADDR_1_HW     (WPE_B_BASE_HW + 0x02F4)
+#define WPE_B_ADDR_GEN_OFFSET_ADDR_1_HW   (WPE_B_BASE_HW + 0x02F8)
+#define WPE_B_ADDR_GEN_STRIDE_1_HW        (WPE_B_BASE_HW + 0x02FC)
+#define WPE_B_CACHI_CON_1_HW              (WPE_B_BASE_HW + 0x0300)
+#define WPE_B_CACHI_CON2_1_HW             (WPE_B_BASE_HW + 0x0304)
+#define WPE_B_CACHI_CON3_1_HW             (WPE_B_BASE_HW + 0x0308)
+#define WPE_B_ADDR_GEN_ERR_CTRL_1_HW      (WPE_B_BASE_HW + 0x030C)
+#define WPE_B_ADDR_GEN_ERR_STAT_1_HW      (WPE_B_BASE_HW + 0x0310)
+#define WPE_B_ADDR_GEN_RSV1_1_HW          (WPE_B_BASE_HW + 0x0314)
+#define WPE_B_ADDR_GEN_DEBUG_SEL_1_HW     (WPE_B_BASE_HW + 0x0318)
+
+#define WPE_B_ADDR_GEN_SOFT_RSTSTAT_2_HW  (WPE_B_BASE_HW + 0x0320)
+#define WPE_B_ADDR_GEN_BASE_ADDR_2_HW     (WPE_B_BASE_HW + 0x0324)
+#define WPE_B_ADDR_GEN_OFFSET_ADDR_2_HW   (WPE_B_BASE_HW + 0x0328)
+#define WPE_B_ADDR_GEN_STRIDE_2_HW        (WPE_B_BASE_HW + 0x032C)
+#define WPE_B_CACHI_CON_2_HW              (WPE_B_BASE_HW + 0x0330)
+#define WPE_B_CACHI_CON2_2_HW             (WPE_B_BASE_HW + 0x0334)
+#define WPE_B_CACHI_CON3_2_HW             (WPE_B_BASE_HW + 0x0338)
+#define WPE_B_ADDR_GEN_ERR_CTRL_2_HW      (WPE_B_BASE_HW + 0x033C)
+#define WPE_B_ADDR_GEN_ERR_STAT_2_HW      (WPE_B_BASE_HW + 0x0340)
+#define WPE_B_ADDR_GEN_RSV1_2_HW          (WPE_B_BASE_HW + 0x0344)
+#define WPE_B_ADDR_GEN_DEBUG_SEL_2_HW     (WPE_B_BASE_HW + 0x0348)
+
+#define WPE_B_ADDR_GEN_SOFT_RSTSTAT_3_HW  (WPE_B_BASE_HW + 0x0350)
+#define WPE_B_ADDR_GEN_BASE_ADDR_3_HW     (WPE_B_BASE_HW + 0x0354)
+#define WPE_B_ADDR_GEN_OFFSET_ADDR_3_HW   (WPE_B_BASE_HW + 0x0358)
+#define WPE_B_ADDR_GEN_STRIDE_3_HW        (WPE_B_BASE_HW + 0x035C)
+#define WPE_B_CACHI_CON_3_HW              (WPE_B_BASE_HW + 0x0360)
+#define WPE_B_CACHI_CON2_3_HW             (WPE_B_BASE_HW + 0x0364)
+#define WPE_B_CACHI_CON3_3_HW             (WPE_B_BASE_HW + 0x0368)
+#define WPE_B_ADDR_GEN_ERR_CTRL_3_HW      (WPE_B_BASE_HW + 0x036C)
+#define WPE_B_ADDR_GEN_ERR_STAT_3_HW      (WPE_B_BASE_HW + 0x0370)
+#define WPE_B_ADDR_GEN_RSV1_3_HW          (WPE_B_BASE_HW + 0x0374)
+#define WPE_B_ADDR_GEN_DEBUG_SEL_3_HW     (WPE_B_BASE_HW + 0x0378)
+
+#define WPE_B_DMA_SOFT_RSTSTAT_HW         (WPE_B_BASE_HW + 0x03C0)
+#define WPE_B_TDRI_BASE_ADDR_HW           (WPE_B_BASE_HW + 0x03C4)
+#define WPE_B_TDRI_OFST_ADDR_HW           (WPE_B_BASE_HW + 0x03C8)
+#define WPE_B_TDRI_XSIZE_HW               (WPE_B_BASE_HW + 0x03CC)
+#define WPE_B_VERTICAL_FLIP_EN_HW         (WPE_B_BASE_HW + 0x03D0)
+#define WPE_B_DMA_SOFT_RESET_HW           (WPE_B_BASE_HW + 0x03D4)
+#define WPE_B_LAST_ULTRA_EN_HW            (WPE_B_BASE_HW + 0x03D8)
+#define WPE_B_SPECIAL_FUN_EN_HW           (WPE_B_BASE_HW + 0x03DC)
+
+#define WPE_B_WPEO_BASE_ADDR_HW           (WPE_B_BASE_HW + 0x03F0)
+#define WPE_B_WPEO_OFST_ADDR_HW           (WPE_B_BASE_HW + 0x03F8)
+#define WPE_B_WPEO_XSIZE_HW               (WPE_B_BASE_HW + 0x0400)
+#define WPE_B_WPEO_YSIZE_HW               (WPE_B_BASE_HW + 0x0404)
+#define WPE_B_WPEO_STRIDE_HW              (WPE_B_BASE_HW + 0x0408)
+#define WPE_B_WPEO_CON_HW                 (WPE_B_BASE_HW + 0x040C)
+#define WPE_B_WPEO_CON2_HW                (WPE_B_BASE_HW + 0x0410)
+#define WPE_B_WPEO_CON3_HW                (WPE_B_BASE_HW + 0x0414)
+#define WPE_B_WPEO_CROP_HW                (WPE_B_BASE_HW + 0x0418)
+
+#define WPE_B_WPEO2_BASE_ADDR_HW          (WPE_B_BASE_HW + 0x0630)
+#define WPE_B_WPEO2_OFST_ADDR_HW          (WPE_B_BASE_HW + 0x0634)
+#define WPE_B_WPEO2_XSIZE_HW              (WPE_B_BASE_HW + 0x0638)
+#define WPE_B_WPEO2_YSIZE_HW              (WPE_B_BASE_HW + 0x063C)
+#define WPE_B_WPEO2_STRIDE_HW             (WPE_B_BASE_HW + 0x0640)
+#define WPE_B_WPEO2_CON2_HW               (WPE_B_BASE_HW + 0x0648)
+#define WPE_B_WPEO2_CON3_HW               (WPE_B_BASE_HW + 0x064C)
+#define WPE_B_WPEO2_FMT_HW                (WPE_B_BASE_HW + 0x0658)
+
+#define WPE_B_MSKO_BASE_ADDR_HW           (WPE_B_BASE_HW + 0x0420)
+#define WPE_B_MSKO_OFST_ADDR_HW           (WPE_B_BASE_HW + 0x0428)
+#define WPE_B_MSKO_XSIZE_HW               (WPE_B_BASE_HW + 0x0430)
+#define WPE_B_MSKO_YSIZE_HW               (WPE_B_BASE_HW + 0x0434)
+#define WPE_B_MSKO_STRIDE_HW              (WPE_B_BASE_HW + 0x0438)
+#define WPE_B_MSKO_CON_HW                 (WPE_B_BASE_HW + 0x043C)
+#define WPE_B_MSKO_CON2_HW                (WPE_B_BASE_HW + 0x0440)
+#define WPE_B_MSKO_CON3_HW                (WPE_B_BASE_HW + 0x0444)
+#define WPE_B_MSKO_CROP_HW                (WPE_B_BASE_HW + 0x0448)
+
+#define WPE_B_VECI_BASE_ADDR_HW           (WPE_B_BASE_HW + 0x0450)
+#define WPE_B_VECI_OFST_ADDR_HW           (WPE_B_BASE_HW + 0x0458)
+#define WPE_B_VECI_XSIZE_HW               (WPE_B_BASE_HW + 0x0460)
+#define WPE_B_VECI_YSIZE_HW               (WPE_B_BASE_HW + 0x0464)
+#define WPE_B_VECI_STRIDE_HW              (WPE_B_BASE_HW + 0x0468)
+#define WPE_B_VECI_CON_HW                 (WPE_B_BASE_HW + 0x046C)
+#define WPE_B_VECI_CON2_HW                (WPE_B_BASE_HW + 0x0470)
+#define WPE_B_VECI_CON3_HW                (WPE_B_BASE_HW + 0x0474)
+
+#define WPE_B_VEC2I_BASE_ADDR_HW          (WPE_B_BASE_HW + 0x0480)
+#define WPE_B_VEC2I_OFST_ADDR_HW          (WPE_B_BASE_HW + 0x0488)
+#define WPE_B_VEC2I_XSIZE_HW              (WPE_B_BASE_HW + 0x0490)
+#define WPE_B_VEC2I_YSIZE_HW              (WPE_B_BASE_HW + 0x0494)
+#define WPE_B_VEC2I_STRIDE_HW             (WPE_B_BASE_HW + 0x0498)
+#define WPE_B_VEC2I_CON_HW                (WPE_B_BASE_HW + 0x049C)
+#define WPE_B_VEC2I_CON2_HW               (WPE_B_BASE_HW + 0x04A0)
+#define WPE_B_VEC2I_CON3_HW               (WPE_B_BASE_HW + 0x04A4)
+
+#define WPE_B_VEC3I_BASE_ADDR_HW          (WPE_B_BASE_HW + 0x04B0)
+#define WPE_B_VEC3I_OFST_ADDR_HW          (WPE_B_BASE_HW + 0x04B8)
+#define WPE_B_VEC3I_XSIZE_HW              (WPE_B_BASE_HW + 0x04C0)
+#define WPE_B_VEC3I_YSIZE_HW              (WPE_B_BASE_HW + 0x04C4)
+#define WPE_B_VEC3I_STRIDE_HW             (WPE_B_BASE_HW + 0x04C8)
+#define WPE_B_VEC3I_CON_HW                (WPE_B_BASE_HW + 0x04CC)
+#define WPE_B_VEC3I_CON2_HW               (WPE_B_BASE_HW + 0x04D0)
+#define WPE_B_VEC3I_CON3_HW               (WPE_B_BASE_HW + 0x04D4)
+
+#define WPE_B_DMA_ERR_CTRL_HW             (WPE_B_BASE_HW + 0x04E0)
+#define WPE_B_WPEO_ERR_STAT_HW            (WPE_B_BASE_HW + 0x04E4)
+#define WPE_B_MSKO_ERR_STAT_HW            (WPE_B_BASE_HW + 0x04E8)
+#define WPE_B_VECI_ERR_STAT_HW            (WPE_B_BASE_HW + 0x04EC)
+#define WPE_B_VEC2I_ERR_STAT_HW           (WPE_B_BASE_HW + 0x04F0)
+#define WPE_B_VEC3I_ERR_STAT_HW           (WPE_B_BASE_HW + 0x04F4)
+#define WPE_B_DMA_DEBUG_ADDR_HW           (WPE_B_BASE_HW + 0x04F8)
+#define WPE_B_DMA_RSV1_HW                 (WPE_B_BASE_HW + 0x04FC)
+#define WPE_B_DMA_RSV2_HW                 (WPE_B_BASE_HW + 0x0500)
+#define WPE_B_DMA_RSV3_HW                 (WPE_B_BASE_HW + 0x0504)
+#define WPE_B_DMA_RSV4_HW                 (WPE_B_BASE_HW + 0x0508)
+#define WPE_B_DMA_DEBUG_SEL_HW            (WPE_B_BASE_HW + 0x050C)
+
+
+/*SW Access Registers : using mapped base address from DTS*/
+#define WPE_B_WPE_START_REG               (ISP_WPE_B_BASE)
+#define WPE_B_CTL_MOD_EN_REG              (ISP_WPE_B_BASE + 0x0004)
+#define WPE_B_CTL_DMA_EN_REG              (ISP_WPE_B_BASE + 0x0008)
+#define WPE_B_CTL_CFG_REG                 (ISP_WPE_B_BASE + 0x0010)
+#define WPE_B_CTL_FMT_SEL_REG             (ISP_WPE_B_BASE + 0x0014)
+#define WPE_B_CTL_INT_EN_REG              (ISP_WPE_B_BASE + 0x0018)
+#define WPE_B_CTL_INT_STATUS_REG          (ISP_WPE_B_BASE + 0x0020)
+#define WPE_B_CTL_INT_STATUSX_REG         (ISP_WPE_B_BASE + 0x0024)
+#define WPE_B_CTL_TDR_TILE_REG            (ISP_WPE_B_BASE + 0x0028)
+#define WPE_B_CTL_TDR_DBG_STATUS_REG      (ISP_WPE_B_BASE + 0x002C)
+#define WPE_B_CTL_TDR_TCM_EN_REG          (ISP_WPE_B_BASE + 0x0030)
+#define WPE_B_CTL_SW_CTL_REG              (ISP_WPE_B_BASE + 0x0034)
+#define WPE_B_CTL_SPARE0_REG              (ISP_WPE_B_BASE + 0x0038)
+#define WPE_B_CTL_SPARE1_REG              (ISP_WPE_B_BASE + 0x003C)
+#define WPE_B_CTL_SPARE2_REG              (ISP_WPE_B_BASE + 0x0040)
+#define WPE_B_CTL_DONE_SEL_REG            (ISP_WPE_B_BASE + 0x0044)
+#define WPE_B_CTL_DBG_SET_REG             (ISP_WPE_B_BASE + 0x0048)
+#define WPE_B_CTL_DBG_PORT_REG            (ISP_WPE_B_BASE + 0x004C)
+#define WPE_B_CTL_DATE_CODE_REG           (ISP_WPE_B_BASE + 0x0050)
+#define WPE_B_CTL_PROJ_CODE_REG           (ISP_WPE_B_BASE + 0x0054)
+#define WPE_B_CTL_WPE_DCM_DIS_REG         (ISP_WPE_B_BASE + 0x0058)
+#define WPE_B_CTL_DMA_DCM_DIS_REG         (ISP_WPE_B_BASE + 0x005C)
+#define WPE_B_CTL_WPE_DCM_STATUS_REG      (ISP_WPE_B_BASE + 0x0060)
+#define WPE_B_CTL_DMA_DCM_STATUS_REG      (ISP_WPE_B_BASE + 0x0064)
+#define WPE_B_CTL_WPE_REQ_STATUS_REG      (ISP_WPE_B_BASE + 0x0068)
+#define WPE_B_CTL_DMA_REQ_STATUS_REG      (ISP_WPE_B_BASE + 0x006C)
+#define WPE_B_CTL_WPE_RDY_STATUS_REG      (ISP_WPE_B_BASE + 0x0070)
+#define WPE_B_CTL_DMA_RDY_STATUS_REG      (ISP_WPE_B_BASE + 0x0074)
+#define WPE_B_CTL_DBG_R_BW_REG            (ISP_WPE_B_BASE + 0x0090)
+#define WPE_B_CTL_DBG_W_BW_REG            (ISP_WPE_B_BASE + 0x0094)
+#define WPE_B_CTL_DBG_RUNTIME_REG         (ISP_WPE_B_BASE + 0x0098)
+#define WPE_B_RDMA1_PEND_DATA_CNT_REG     (ISP_WPE_B_BASE + 0x00A0)
+#define WPE_B_VGEN_CTL_REG                (ISP_WPE_B_BASE + 0x00C0)
+#define WPE_B_VGEN_IN_IMG_REG             (ISP_WPE_B_BASE + 0x00C4)
+#define WPE_B_VGEN_OUT_IMG_REG            (ISP_WPE_B_BASE + 0x00C8)
+#define WPE_B_VGEN_HORI_STEP_REG          (ISP_WPE_B_BASE + 0x00CC)
+#define WPE_B_VGEN_VERT_STEP_REG          (ISP_WPE_B_BASE + 0x00D0)
+#define WPE_B_VGEN_HORI_INT_OFST_REG      (ISP_WPE_B_BASE + 0x00D4)
+#define WPE_B_VGEN_HORI_SUB_OFST_REG      (ISP_WPE_B_BASE + 0x00D8)
+#define WPE_B_VGEN_VERT_INT_OFST_REG      (ISP_WPE_B_BASE + 0x00DC)
+#define WPE_B_VGEN_VERT_SUB_OFST_REG      (ISP_WPE_B_BASE + 0x00E0)
+#define WPE_B_VGEN_POST_CTL_REG           (ISP_WPE_B_BASE + 0x00E8)
+#define WPE_B_VGEN_POST_COMP_X_REG        (ISP_WPE_B_BASE + 0x00EC)
+#define WPE_B_VGEN_POST_COMP_Y_REG        (ISP_WPE_B_BASE + 0x00F0)
+#define WPE_B_VGEN_MAX_VEC_REG            (ISP_WPE_B_BASE + 0x00F4)
+#define WPE_B_VFIFO_CTL_REG               (ISP_WPE_B_BASE + 0x00F8)
+#define WPE_B_CFIFO_CTL_REG               (ISP_WPE_B_BASE + 0x0140)
+#define WPE_B_RWCTL_CTL_REG               (ISP_WPE_B_BASE + 0x0150)
+#define WPE_B_CACHI_SPECIAL_FUN_EN_REG    (ISP_WPE_B_BASE + 0x0160)
+#define WPE_B_C24_TILE_EDGE_REG           (ISP_WPE_B_BASE + 0x0170)
+#define WPE_B_MDP_CROP_X_REG              (ISP_WPE_B_BASE + 0x0190)
+#define WPE_B_MDP_CROP_Y_REG              (ISP_WPE_B_BASE + 0x0194)
+#define WPE_B_ISPCROP_CON1_REG            (ISP_WPE_B_BASE + 0x01C0)
+#define WPE_B_ISPCROP_CON2_REG            (ISP_WPE_B_BASE + 0x01C4)
+#define WPE_B_PSP_CTL_REG                 (ISP_WPE_B_BASE + 0x01F0)
+#define WPE_B_PSP2_CTL_REG                (ISP_WPE_B_BASE + 0x01F4)
+#define WPE_B_PSP_BORDER_REG              (ISP_WPE_B_BASE + 0x01F8)
+
+#define WPE_B_ADDR_GEN_SOFT_RSTSTAT_0_REG (ISP_WPE_B_BASE + 0x02C0)
+#define WPE_B_ADDR_GEN_BASE_ADDR_0_REG    (ISP_WPE_B_BASE + 0x02C4)
+#define WPE_B_ADDR_GEN_OFFSET_ADDR_0_REG  (ISP_WPE_B_BASE + 0x02C8)
+#define WPE_B_ADDR_GEN_STRIDE_0_REG       (ISP_WPE_B_BASE + 0x02CC)
+#define WPE_B_CACHI_CON_0_REG             (ISP_WPE_B_BASE + 0x02D0)
+#define WPE_B_CACHI_CON2_0_REG            (ISP_WPE_B_BASE + 0x02D4)
+#define WPE_B_CACHI_CON3_0_REG            (ISP_WPE_B_BASE + 0x02D8)
+#define WPE_B_ADDR_GEN_ERR_CTRL_0_REG     (ISP_WPE_B_BASE + 0x02DC)
+#define WPE_B_ADDR_GEN_ERR_STAT_0_REG     (ISP_WPE_B_BASE + 0x02E0)
+#define WPE_B_ADDR_GEN_RSV1_0_REG         (ISP_WPE_B_BASE + 0x02E4)
+#define WPE_B_ADDR_GEN_DEBUG_SEL_0_REG    (ISP_WPE_B_BASE + 0x02E8)
+
+#define WPE_B_ADDR_GEN_SOFT_RSTSTAT_1_REG (ISP_WPE_B_BASE + 0x02F0)
+#define WPE_B_ADDR_GEN_BASE_ADDR_1_REG    (ISP_WPE_B_BASE + 0x02F4)
+#define WPE_B_ADDR_GEN_OFFSET_ADDR_1_REG  (ISP_WPE_B_BASE + 0x02F8)
+#define WPE_B_ADDR_GEN_STRIDE_1_REG       (ISP_WPE_B_BASE + 0x02FC)
+#define WPE_B_CACHI_CON_1_REG             (ISP_WPE_B_BASE + 0x0300)
+#define WPE_B_CACHI_CON2_1_REG            (ISP_WPE_B_BASE + 0x0304)
+#define WPE_B_CACHI_CON3_1_REG            (ISP_WPE_B_BASE + 0x0308)
+#define WPE_B_ADDR_GEN_ERR_CTRL_1_REG     (ISP_WPE_B_BASE + 0x030C)
+#define WPE_B_ADDR_GEN_ERR_STAT_1_REG     (ISP_WPE_B_BASE + 0x0310)
+#define WPE_B_ADDR_GEN_RSV1_1_REG         (ISP_WPE_B_BASE + 0x0314)
+#define WPE_B_ADDR_GEN_DEBUG_SEL_1_REG    (ISP_WPE_B_BASE + 0x0318)
+#define WPE_B_ADDR_GEN_SOFT_RSTSTAT_2_REG (ISP_WPE_B_BASE + 0x0320)
+#define WPE_B_ADDR_GEN_BASE_ADDR_2_REG    (ISP_WPE_B_BASE + 0x0324)
+#define WPE_B_ADDR_GEN_OFFSET_ADDR_2_REG  (ISP_WPE_B_BASE + 0x0328)
+#define WPE_B_ADDR_GEN_STRIDE_2_REG       (ISP_WPE_B_BASE + 0x032C)
+#define WPE_B_CACHI_CON_2_REG             (ISP_WPE_B_BASE + 0x0330)
+#define WPE_B_CACHI_CON2_2_REG            (ISP_WPE_B_BASE + 0x0334)
+#define WPE_B_CACHI_CON3_2_REG            (ISP_WPE_B_BASE + 0x0338)
+#define WPE_B_ADDR_GEN_ERR_CTRL_2_REG     (ISP_WPE_B_BASE + 0x033C)
+#define WPE_B_ADDR_GEN_ERR_STAT_2_REG     (ISP_WPE_B_BASE + 0x0340)
+#define WPE_B_ADDR_GEN_RSV1_2_REG         (ISP_WPE_B_BASE + 0x0344)
+#define WPE_B_ADDR_GEN_DEBUG_SEL_2_REG    (ISP_WPE_B_BASE + 0x0348)
+
+#define WPE_B_ADDR_GEN_SOFT_RSTSTAT_3_REG (ISP_WPE_B_BASE + 0x0350)
+#define WPE_B_ADDR_GEN_BASE_ADDR_3_REG    (ISP_WPE_B_BASE + 0x0354)
+#define WPE_B_ADDR_GEN_OFFSET_ADDR_3_REG  (ISP_WPE_B_BASE + 0x0358)
+#define WPE_B_ADDR_GEN_STRIDE_3_REG       (ISP_WPE_B_BASE + 0x035C)
+#define WPE_B_CACHI_CON_3_REG             (ISP_WPE_B_BASE + 0x0360)
+#define WPE_B_CACHI_CON2_3_REG            (ISP_WPE_B_BASE + 0x0364)
+#define WPE_B_CACHI_CON3_3_REG            (ISP_WPE_B_BASE + 0x0368)
+#define WPE_B_ADDR_GEN_ERR_CTRL_3_REG     (ISP_WPE_B_BASE + 0x036C)
+#define WPE_B_ADDR_GEN_ERR_STAT_3_REG     (ISP_WPE_B_BASE + 0x0370)
+#define WPE_B_ADDR_GEN_RSV1_3_REG         (ISP_WPE_B_BASE + 0x0374)
+#define WPE_B_ADDR_GEN_DEBUG_SEL_3_REG    (ISP_WPE_B_BASE + 0x0378)
+#define WPE_B_DMA_SOFT_RSTSTAT_REG        (ISP_WPE_B_BASE + 0x03C0)
+#define WPE_B_TDRI_BASE_ADDR_REG          (ISP_WPE_B_BASE + 0x03C4)
+#define WPE_B_TDRI_OFST_ADDR_REG          (ISP_WPE_B_BASE + 0x03C8)
+#define WPE_B_TDRI_XSIZE_REG              (ISP_WPE_B_BASE + 0x03CC)
+#define WPE_B_VERTICAL_FLIP_EN_REG        (ISP_WPE_B_BASE + 0x03D0)
+#define WPE_B_DMA_SOFT_RESET_REG          (ISP_WPE_B_BASE + 0x03D4)
+#define WPE_B_LAST_ULTRA_EN_REG           (ISP_WPE_B_BASE + 0x03D8)
+#define WPE_B_SPECIAL_FUN_EN_REG          (ISP_WPE_B_BASE + 0x03DC)
+#define WPE_B_WPEO_BASE_ADDR_REG          (ISP_WPE_B_BASE + 0x03F0)
+#define WPE_B_WPEO_OFST_ADDR_REG          (ISP_WPE_B_BASE + 0x03F8)
+#define WPE_B_WPEO_XSIZE_REG              (ISP_WPE_B_BASE + 0x0400)
+#define WPE_B_WPEO_YSIZE_REG              (ISP_WPE_B_BASE + 0x0404)
+#define WPE_B_WPEO_STRIDE_REG             (ISP_WPE_B_BASE + 0x0408)
+#define WPE_B_WPEO_CON_REG                (ISP_WPE_B_BASE + 0x040C)
+#define WPE_B_WPEO_CON2_REG               (ISP_WPE_B_BASE + 0x0410)
+#define WPE_B_WPEO_CON3_REG               (ISP_WPE_B_BASE + 0x0414)
+#define WPE_B_WPEO_CROP_REG               (ISP_WPE_B_BASE + 0x0418)
+
+#define WPE_B_WPEO2_BASE_ADDR_REG         (ISP_WPE_B_BASE + 0x0630)
+#define WPE_B_WPEO2_OFST_ADDR_REG         (ISP_WPE_B_BASE + 0x0634)
+#define WPE_B_WPEO2_XSIZE_REG             (ISP_WPE_B_BASE + 0x0638)
+#define WPE_B_WPEO2_YSIZE_REG             (ISP_WPE_B_BASE + 0x063C)
+#define WPE_B_WPEO2_STRIDE_REG            (ISP_WPE_B_BASE + 0x0640)
+#define WPE_B_WPEO2_CON2_REG              (ISP_WPE_B_BASE + 0x0648)
+#define WPE_B_WPEO2_CON3_REG              (ISP_WPE_B_BASE + 0x064C)
+#define WPE_B_WPEO2_FMT_REG               (ISP_WPE_B_BASE + 0x0658)
+
+#define WPE_B_MSKO_BASE_ADDR_REG          (ISP_WPE_B_BASE + 0x0420)
+#define WPE_B_MSKO_OFST_ADDR_REG          (ISP_WPE_B_BASE + 0x0428)
+#define WPE_B_MSKO_XSIZE_REG              (ISP_WPE_B_BASE + 0x0430)
+#define WPE_B_MSKO_YSIZE_REG              (ISP_WPE_B_BASE + 0x0434)
+#define WPE_B_MSKO_STRIDE_REG             (ISP_WPE_B_BASE + 0x0438)
+#define WPE_B_MSKO_CON_REG                (ISP_WPE_B_BASE + 0x043C)
+#define WPE_B_MSKO_CON2_REG               (ISP_WPE_B_BASE + 0x0440)
+#define WPE_B_MSKO_CON3_REG               (ISP_WPE_B_BASE + 0x0444)
+#define WPE_B_MSKO_CROP_REG               (ISP_WPE_B_BASE + 0x0448)
+
+#define WPE_B_VECI_BASE_ADDR_REG          (ISP_WPE_B_BASE + 0x0450)
+#define WPE_B_VECI_OFST_ADDR_REG          (ISP_WPE_B_BASE + 0x0458)
+#define WPE_B_VECI_XSIZE_REG              (ISP_WPE_B_BASE + 0x0460)
+#define WPE_B_VECI_YSIZE_REG              (ISP_WPE_B_BASE + 0x0464)
+#define WPE_B_VECI_STRIDE_REG             (ISP_WPE_B_BASE + 0x0468)
+#define WPE_B_VECI_CON_REG                (ISP_WPE_B_BASE + 0x046C)
+#define WPE_B_VECI_CON2_REG               (ISP_WPE_B_BASE + 0x0470)
+#define WPE_B_VECI_CON3_REG               (ISP_WPE_B_BASE + 0x0474)
+#define WPE_B_VEC2I_BASE_ADDR_REG         (ISP_WPE_B_BASE + 0x0480)
+#define WPE_B_VEC2I_OFST_ADDR_REG         (ISP_WPE_B_BASE + 0x0488)
+#define WPE_B_VEC2I_XSIZE_REG             (ISP_WPE_B_BASE + 0x0490)
+#define WPE_B_VEC2I_YSIZE_REG             (ISP_WPE_B_BASE + 0x0494)
+#define WPE_B_VEC2I_STRIDE_REG            (ISP_WPE_B_BASE + 0x0498)
+#define WPE_B_VEC2I_CON_REG               (ISP_WPE_B_BASE + 0x049C)
+#define WPE_B_VEC2I_CON2_REG              (ISP_WPE_B_BASE + 0x04A0)
+#define WPE_B_VEC2I_CON3_REG              (ISP_WPE_B_BASE + 0x04A4)
+#define WPE_B_VEC3I_BASE_ADDR_REG         (ISP_WPE_B_BASE + 0x04B0)
+#define WPE_B_VEC3I_OFST_ADDR_REG         (ISP_WPE_B_BASE + 0x04B8)
+#define WPE_B_VEC3I_XSIZE_REG             (ISP_WPE_B_BASE + 0x04C0)
+#define WPE_B_VEC3I_YSIZE_REG             (ISP_WPE_B_BASE + 0x04C4)
+#define WPE_B_VEC3I_STRIDE_REG            (ISP_WPE_B_BASE + 0x04C8)
+#define WPE_B_VEC3I_CON_REG               (ISP_WPE_B_BASE + 0x04CC)
+#define WPE_B_VEC3I_CON2_REG              (ISP_WPE_B_BASE + 0x04D0)
+#define WPE_B_VEC3I_CON3_REG              (ISP_WPE_B_BASE + 0x04D4)
+#define WPE_B_DMA_ERR_CTRL_REG            (ISP_WPE_B_BASE + 0x04E0)
+#define WPE_B_WPEO_ERR_STAT_REG           (ISP_WPE_B_BASE + 0x04E4)
+#define WPE_B_MSKO_ERR_STAT_REG           (ISP_WPE_B_BASE + 0x04E8)
+#define WPE_B_VECI_ERR_STAT_REG           (ISP_WPE_B_BASE + 0x04EC)
+#define WPE_B_VEC2I_ERR_STAT_REG          (ISP_WPE_B_BASE + 0x04F0)
+#define WPE_B_VEC3I_ERR_STAT_REG          (ISP_WPE_B_BASE + 0x04F4)
+#define WPE_B_DMA_DEBUG_ADDR_REG          (ISP_WPE_B_BASE + 0x04F8)
+#define WPE_B_DMA_RSV1_REG                (ISP_WPE_B_BASE + 0x04FC)
+#define WPE_B_DMA_RSV2_REG                (ISP_WPE_B_BASE + 0x0500)
+#define WPE_B_DMA_RSV3_REG                (ISP_WPE_B_BASE + 0x0504)
+#define WPE_B_DMA_RSV4_REG                (ISP_WPE_B_BASE + 0x0508)
+#define WPE_B_DMA_DEBUG_SEL_REG           (ISP_WPE_B_BASE + 0x050C)
+
 
 
 /***********************************************************************
@@ -2202,6 +2566,188 @@ static signed int WPE_DumpReg(void)
 		(unsigned int)(WPE_VEC3I_ERR_STAT_HW),
 		(unsigned int)WPE_RD32(WPE_VEC3I_ERR_STAT_REG));
 
+#if (MTK_WPE_COUNT == 2)
+	LOG_INF("WPE B Registers Info\n");
+	/* WPE Config0 */
+	LOG_INF("[0x%08X %08X] [0x%08X %08X] [0x%08X %08X] [0x%08X %08X]\n",
+		(unsigned int)(WPE_B_WPE_START_HW),
+		(unsigned int)WPE_RD32(WPE_B_WPE_START_REG),
+		(unsigned int)(WPE_B_CTL_MOD_EN_HW),
+		(unsigned int)WPE_RD32(WPE_B_CTL_MOD_EN_REG),
+		(unsigned int)(WPE_B_CTL_DMA_EN_HW),
+		(unsigned int)WPE_RD32(WPE_B_CTL_DMA_EN_REG),
+		(unsigned int)(WPE_B_CTL_CFG_HW),
+		(unsigned int)WPE_RD32(WPE_B_CTL_CFG_REG));
+	LOG_INF("[0x%08X %08X] [0x%08X %08X] [0x%08X %08X] [0x%08X %08X]\n",
+		(unsigned int)(WPE_B_CTL_FMT_SEL_HW),
+		(unsigned int)WPE_RD32(WPE_B_CTL_FMT_SEL_REG),
+		(unsigned int)(WPE_B_CTL_INT_EN_HW),
+		(unsigned int)WPE_RD32(WPE_B_CTL_INT_EN_REG),
+		(unsigned int)(WPE_B_CTL_INT_STATUS_HW),
+		(unsigned int)WPE_RD32(WPE_B_CTL_INT_STATUS_REG),
+		(unsigned int)(WPE_B_CTL_INT_STATUSX_HW),
+		(unsigned int)WPE_RD32(WPE_B_CTL_INT_STATUSX_REG));
+	LOG_INF("[0x%08X %08X] [0x%08X %08X] [0x%08X %08X]\n",
+		(unsigned int)(WPE_B_CTL_TDR_TILE_HW),
+		(unsigned int)WPE_RD32(WPE_B_CTL_TDR_TILE_REG),
+		(unsigned int)(WPE_B_CTL_TDR_DBG_STATUS_HW),
+		(unsigned int)WPE_RD32(WPE_B_CTL_TDR_DBG_STATUS_REG),
+		(unsigned int)(WPE_B_CTL_TDR_TCM_EN_HW),
+		(unsigned int)WPE_RD32(WPE_B_CTL_TDR_TCM_EN_REG));
+	LOG_INF("[0x%08X %08X] [0x%08X %08X] [0x%08X %08X] [0x%08X %08X]\n",
+		(unsigned int)(WPE_B_CTL_WPE_DCM_DIS_HW),
+		(unsigned int)WPE_RD32(WPE_B_CTL_WPE_DCM_DIS_REG),
+		(unsigned int)(WPE_B_CTL_DMA_DCM_DIS_HW),
+		(unsigned int)WPE_RD32(WPE_B_CTL_DMA_DCM_DIS_REG),
+		(unsigned int)(WPE_B_CTL_WPE_DCM_STATUS_HW),
+		(unsigned int)WPE_RD32(WPE_B_CTL_WPE_DCM_STATUS_REG),
+		(unsigned int)(WPE_B_CTL_DMA_DCM_STATUS_HW),
+		(unsigned int)WPE_RD32(WPE_B_CTL_DMA_DCM_STATUS_REG));
+	LOG_INF(
+		"[0x%08X %08X] [0x%08X %08X] [0x%08X %08X] [0x%08X %08X]\n",
+		(unsigned int)(WPE_B_CTL_DBG_R_BW_HW),
+		(unsigned int)WPE_RD32(WPE_B_CTL_DBG_R_BW_REG),
+		(unsigned int)(WPE_B_CTL_DBG_W_BW_HW),
+		(unsigned int)WPE_RD32(WPE_B_CTL_DBG_W_BW_REG),
+		(unsigned int)(WPE_B_CTL_DBG_RUNTIME_HW),
+		(unsigned int)WPE_RD32(WPE_B_CTL_DBG_RUNTIME_REG),
+		(unsigned int)(WPE_B_RDMA1_PEND_DATA_CNT_HW),
+		(unsigned int)WPE_RD32(WPE_B_RDMA1_PEND_DATA_CNT_REG));
+	LOG_INF(
+		"[0x%08X %08X] [0x%08X %08X] [0x%08X %08X] [0x%08X %08X]\n",
+		(unsigned int)(WPE_B_CTL_WPE_REQ_STATUS_HW),
+		(unsigned int)WPE_RD32(WPE_B_CTL_WPE_REQ_STATUS_REG),
+		(unsigned int)(WPE_B_CTL_DMA_REQ_STATUS_HW),
+		(unsigned int)WPE_RD32(WPE_B_CTL_DMA_REQ_STATUS_REG),
+		(unsigned int)(WPE_B_CTL_WPE_RDY_STATUS_HW),
+		(unsigned int)WPE_RD32(WPE_B_CTL_WPE_RDY_STATUS_REG),
+		(unsigned int)(WPE_B_CTL_DMA_RDY_STATUS_HW),
+		(unsigned int)WPE_RD32(WPE_B_CTL_DMA_RDY_STATUS_REG));
+	LOG_INF(
+		"[0x%08X %08X] [0x%08X %08X] [0x%08X %08X] [0x%08X %08X] [0x%08X %08X]\n",
+		(unsigned int)(WPE_B_VGEN_CTL_HW),
+		(unsigned int)WPE_RD32(WPE_B_VGEN_CTL_REG),
+		(unsigned int)(WPE_B_VGEN_IN_IMG_HW),
+		(unsigned int)WPE_RD32(WPE_B_VGEN_IN_IMG_REG),
+		(unsigned int)(WPE_B_VGEN_OUT_IMG_HW),
+		(unsigned int)WPE_RD32(WPE_B_VGEN_OUT_IMG_REG),
+		(unsigned int)(WPE_B_VGEN_HORI_STEP_HW),
+		(unsigned int)WPE_RD32(WPE_B_VGEN_HORI_STEP_REG),
+		(unsigned int)(WPE_B_VGEN_VERT_STEP_HW),
+		(unsigned int)WPE_RD32(WPE_B_VGEN_VERT_STEP_REG));
+	LOG_INF(
+		"[0x%08X %08X] [0x%08X %08X] [0x%08X %08X] [0x%08X %08X] [0x%08X %08X]\n",
+		(unsigned int)(WPE_B_VFIFO_CTL_HW),
+		(unsigned int)WPE_RD32(WPE_B_VFIFO_CTL_REG),
+		(unsigned int)(WPE_B_CFIFO_CTL_HW),
+		(unsigned int)WPE_RD32(WPE_B_CFIFO_CTL_REG),
+		(unsigned int)(WPE_B_C24_TILE_EDGE_HW),
+		(unsigned int)WPE_RD32(WPE_B_C24_TILE_EDGE_REG),
+		(unsigned int)(WPE_B_MDP_CROP_X_HW),
+		(unsigned int)WPE_RD32(WPE_B_MDP_CROP_X_REG),
+		(unsigned int)(WPE_B_MDP_CROP_Y_HW),
+		(unsigned int)WPE_RD32(WPE_B_MDP_CROP_Y_REG));
+	LOG_INF(
+		"[0x%08X %08X] [0x%08X %08X] [0x%08X %08X] [0x%08X %08X] [0x%08X %08X]\n",
+		(unsigned int)(WPE_B_ISPCROP_CON1_HW),
+		(unsigned int)WPE_RD32(WPE_B_ISPCROP_CON1_REG),
+		(unsigned int)(WPE_B_ISPCROP_CON2_HW),
+		(unsigned int)WPE_RD32(WPE_B_ISPCROP_CON2_REG),
+		(unsigned int)(WPE_B_PSP_CTL_HW),
+		(unsigned int)WPE_RD32(WPE_B_PSP_CTL_REG),
+		(unsigned int)(WPE_B_PSP2_CTL_HW),
+		(unsigned int)WPE_RD32(WPE_B_PSP2_CTL_REG),
+		(unsigned int)(WPE_B_PSP_BORDER_HW),
+		(unsigned int)WPE_RD32(WPE_B_PSP_BORDER_REG));
+	LOG_INF("[0x%08X %08X] [0x%08X %08X] [0x%08X %08X] [0x%08X %08X]\n",
+		(unsigned int)(WPE_B_ADDR_GEN_SOFT_RSTSTAT_0_HW),
+		(unsigned int)WPE_RD32(WPE_B_ADDR_GEN_SOFT_RSTSTAT_0_REG),
+		(unsigned int)(WPE_B_ADDR_GEN_BASE_ADDR_0_HW),
+		(unsigned int)WPE_RD32(WPE_B_ADDR_GEN_BASE_ADDR_0_REG),
+		(unsigned int)(WPE_B_ADDR_GEN_OFFSET_ADDR_0_HW),
+		(unsigned int)WPE_RD32(WPE_B_ADDR_GEN_OFFSET_ADDR_0_REG),
+		(unsigned int)(WPE_B_ADDR_GEN_STRIDE_0_HW),
+		(unsigned int)WPE_RD32(WPE_B_ADDR_GEN_STRIDE_0_REG));
+	LOG_INF("[0x%08X %08X] [0x%08X %08X] [0x%08X %08X] [0x%08X %08X]\n",
+		(unsigned int)(WPE_B_ADDR_GEN_SOFT_RSTSTAT_1_HW),
+		(unsigned int)WPE_RD32(WPE_B_ADDR_GEN_SOFT_RSTSTAT_1_REG),
+		(unsigned int)(WPE_B_ADDR_GEN_BASE_ADDR_1_HW),
+		(unsigned int)WPE_RD32(WPE_B_ADDR_GEN_BASE_ADDR_1_REG),
+		(unsigned int)(WPE_B_ADDR_GEN_OFFSET_ADDR_1_HW),
+		(unsigned int)WPE_RD32(WPE_B_ADDR_GEN_OFFSET_ADDR_1_REG),
+		(unsigned int)(WPE_B_ADDR_GEN_STRIDE_1_HW),
+		(unsigned int)WPE_RD32(WPE_B_ADDR_GEN_STRIDE_1_REG));
+	LOG_INF("[0x%08X %08X] [0x%08X %08X] [0x%08X %08X] [0x%08X %08X]\n",
+		(unsigned int)(WPE_B_DMA_SOFT_RSTSTAT_HW),
+		(unsigned int)WPE_RD32(WPE_B_DMA_SOFT_RSTSTAT_REG),
+		(unsigned int)(WPE_B_TDRI_BASE_ADDR_HW),
+		(unsigned int)WPE_RD32(WPE_B_TDRI_BASE_ADDR_REG),
+		(unsigned int)(WPE_B_TDRI_OFST_ADDR_HW),
+		(unsigned int)WPE_RD32(WPE_B_TDRI_OFST_ADDR_REG),
+		(unsigned int)(WPE_B_TDRI_XSIZE_HW),
+		(unsigned int)WPE_RD32(WPE_B_TDRI_XSIZE_REG));
+	LOG_INF(
+		"[0x%08X %08X] [0x%08X %08X] [0x%08X %08X] [0x%08X %08X] [0x%08X %08X]\n",
+		(unsigned int)(WPE_B_WPEO_BASE_ADDR_HW),
+		(unsigned int)WPE_RD32(WPE_B_WPEO_BASE_ADDR_REG),
+		(unsigned int)(WPE_B_WPEO_OFST_ADDR_HW),
+		(unsigned int)WPE_RD32(WPE_B_WPEO_OFST_ADDR_REG),
+		(unsigned int)(WPE_B_WPEO_XSIZE_HW),
+		(unsigned int)WPE_RD32(WPE_B_WPEO_XSIZE_REG),
+		(unsigned int)(WPE_B_WPEO_YSIZE_HW),
+		(unsigned int)WPE_RD32(WPE_B_WPEO_YSIZE_REG),
+		(unsigned int)(WPE_B_WPEO_STRIDE_HW),
+		(unsigned int)WPE_RD32(WPE_B_WPEO_STRIDE_REG));
+	LOG_INF(
+		"[0x%08X %08X] [0x%08X %08X] [0x%08X %08X] [0x%08X %08X][ 0x%08X %08X]\n",
+		(unsigned int)(WPE_B_VECI_BASE_ADDR_HW),
+		(unsigned int)WPE_RD32(WPE_B_VECI_BASE_ADDR_REG),
+		(unsigned int)(WPE_B_VECI_OFST_ADDR_HW),
+		(unsigned int)WPE_RD32(WPE_B_VECI_OFST_ADDR_REG),
+		(unsigned int)(WPE_B_VECI_XSIZE_HW),
+		(unsigned int)WPE_RD32(WPE_B_VECI_XSIZE_REG),
+		(unsigned int)(WPE_B_VECI_YSIZE_HW),
+		(unsigned int)WPE_RD32(WPE_B_VECI_YSIZE_REG),
+		(unsigned int)(WPE_B_VECI_STRIDE_HW),
+		(unsigned int)WPE_RD32(WPE_B_VECI_STRIDE_REG));
+	LOG_INF(
+		"[0x%08X %08X] [0x%08X %08X] [0x%08X %08X] [0x%08X %08X] [0x%08X %08X]\n",
+		(unsigned int)(WPE_B_VEC2I_BASE_ADDR_HW),
+		(unsigned int)WPE_RD32(WPE_B_VEC2I_BASE_ADDR_REG),
+		(unsigned int)(WPE_B_VEC2I_OFST_ADDR_HW),
+		(unsigned int)WPE_RD32(WPE_B_VEC2I_OFST_ADDR_REG),
+		(unsigned int)(WPE_B_VEC2I_XSIZE_HW),
+		(unsigned int)WPE_RD32(WPE_B_VEC2I_XSIZE_REG),
+		(unsigned int)(WPE_B_VEC2I_YSIZE_HW),
+		(unsigned int)WPE_RD32(WPE_B_VEC2I_YSIZE_REG),
+		(unsigned int)(WPE_B_VEC2I_STRIDE_HW),
+		(unsigned int)WPE_RD32(WPE_B_VEC2I_STRIDE_REG));
+	LOG_INF(
+		"[0x%08X %08X] [0x%08X %08X] [0x%08X %08X] [0x%08X %08X] [0x%08X %08X]\n",
+		(unsigned int)(WPE_B_VEC3I_BASE_ADDR_HW),
+		(unsigned int)WPE_RD32(WPE_B_VEC3I_BASE_ADDR_REG),
+		(unsigned int)(WPE_B_VEC3I_OFST_ADDR_HW),
+		(unsigned int)WPE_RD32(WPE_B_VEC3I_OFST_ADDR_REG),
+		(unsigned int)(WPE_B_VEC3I_XSIZE_HW),
+		(unsigned int)WPE_RD32(WPE_B_VEC3I_XSIZE_REG),
+		(unsigned int)(WPE_B_VEC3I_YSIZE_HW),
+		(unsigned int)WPE_RD32(WPE_B_VEC3I_YSIZE_REG),
+		(unsigned int)(WPE_B_VEC3I_STRIDE_HW),
+		(unsigned int)WPE_RD32(WPE_B_VEC3I_STRIDE_REG));
+	LOG_INF(
+		"[0x%08X %08X] [0x%08X %08X] [0x%08X %08X] [0x%08X %08X] [0x%08X %08X]\n",
+		(unsigned int)(WPE_B_DMA_ERR_CTRL_HW),
+		(unsigned int)WPE_RD32(WPE_B_DMA_ERR_CTRL_REG),
+		(unsigned int)(WPE_B_WPEO_ERR_STAT_HW),
+		(unsigned int)WPE_RD32(WPE_B_WPEO_ERR_STAT_REG),
+		(unsigned int)(WPE_B_VECI_ERR_STAT_HW),
+		(unsigned int)WPE_RD32(WPE_B_VECI_ERR_STAT_REG),
+		(unsigned int)(WPE_B_VEC2I_ERR_STAT_HW),
+		(unsigned int)WPE_RD32(WPE_B_VEC2I_ERR_STAT_REG),
+		(unsigned int)(WPE_B_VEC3I_ERR_STAT_HW),
+		(unsigned int)WPE_RD32(WPE_B_VEC3I_ERR_STAT_REG));
+#endif
+
 	for (i = 0; i < _SUPPORT_MAX_WPE_REQUEST_RING_SIZE_; i++) {
 		LOG_INF(
 			"WPE Req:State:%d, procID:0x%08X, callerID:0x%08X, enqReqNum:%d, FraWRIdx:%d, FraRDIdx:%d\n",
@@ -2236,6 +2782,7 @@ static signed int WPE_DumpReg(void)
 	return Ret;
 }
 #ifndef __WPE_EP_NO_CLKMGR__  /*CCF*/
+#if 0
 static inline void WPE_Prepare_ccf_clock(void)
 {
 	int ret;
@@ -2251,6 +2798,17 @@ static inline void WPE_Prepare_ccf_clock(void)
 	ret = clk_prepare(wpe_clk.CG_IMGSYS_WPE_A);
 	if (ret)
 		LOG_ERR("cannot prepare CG_IMGSYS_WPE_A clock\n");
+#if (MTK_WPE_COUNT == 2)
+	smi_bus_prepare_enable(SMI_LARB11, WPE_DEV_NAME);
+
+	ret = clk_prepare(wpe_clk.CG_IMGSYS_LARB11);
+	if (ret)
+		LOG_ERR("cannot prepare CG_IMGSYS_LARB11 clock\n");
+
+	ret = clk_prepare(wpe_clk.CG_IMGSYS_WPE_B);
+	if (ret)
+		LOG_ERR("cannot prepare CG_IMGSYS_WPE_B clock\n");
+#endif
 }
 
 static inline void WPE_Enable_ccf_clock(void)
@@ -2274,7 +2832,7 @@ static inline void WPE_Enable_ccf_clock(void)
 
 	ret = clk_enable(wpe_clk.CG_IMGSYS_LARB11);
 	if (ret)
-		LOG_ERR("cannot prepare IMG_LARB11 clock\n");
+		LOG_ERR("cannot prepare CG_IMGSYS_LARB11 clock\n");
 
 	ret = clk_enable(wpe_clk.CG_IMGSYS_WPE_B);
 	if (ret)
@@ -2282,7 +2840,7 @@ static inline void WPE_Enable_ccf_clock(void)
 #endif
 
 }
-
+#endif
 static inline void WPE_Prepare_Enable_ccf_clock(void)
 {
 	int ret;
@@ -2312,7 +2870,7 @@ static inline void WPE_Prepare_Enable_ccf_clock(void)
 #endif
 
 }
-
+#if 0
 static inline void WPE_Unprepare_ccf_clock(void)
 {
 	/* must keep this clk close order:*/
@@ -2322,6 +2880,13 @@ static inline void WPE_Unprepare_ccf_clock(void)
 	clk_unprepare(wpe_clk.CG_IMGSYS_LARB9);
 
 	smi_bus_disable_unprepare(SMI_LARB9, WPE_DEV_NAME);
+#if (MTK_WPE_COUNT == 2)
+	clk_unprepare(wpe_clk.CG_IMGSYS_WPE_B);
+	clk_unprepare(wpe_clk.CG_IMGSYS_LARB11);
+
+	//smi_bus_disable_unprepare(SMI_LARB11, WPE_DEV_NAME);
+#endif
+
 }
 
 static inline void WPE_Disable_ccf_clock(void)
@@ -2334,14 +2899,14 @@ static inline void WPE_Disable_ccf_clock(void)
 
 	smi_bus_disable_unprepare(SMI_LARB9, WPE_DEV_NAME);
 #if (MTK_WPE_COUNT == 2)
-	clk_disable_unprepare(wpe_clk.CG_IMGSYS_WPE_B);
-	clk_disable_unprepare(wpe_clk.CG_IMGSYS_LARB11);
+	clk_disable(wpe_clk.CG_IMGSYS_WPE_B);
+	clk_disable(wpe_clk.CG_IMGSYS_LARB11);
 
-	smi_bus_disable_unprepare(SMI_LARB11, WPE_DEV_NAME);
+	//smi_bus_disable_unprepare(SMI_LARB11, WPE_DEV_NAME);
 #endif
 
 }
-
+#endif
 static inline void WPE_Disable_Unprepare_ccf_clock(void)
 {
 	/* must keep this clk close order:*/
@@ -2352,6 +2917,13 @@ static inline void WPE_Disable_Unprepare_ccf_clock(void)
 
 	smi_bus_disable_unprepare(SMI_LARB9, WPE_DEV_NAME);
 	/*smi_bus_disable(SMI_LARB_IMGSYS1, "camera_wpe");*/
+#if (MTK_WPE_COUNT == 2)
+	clk_disable_unprepare(wpe_clk.CG_IMGSYS_WPE_B);
+	clk_disable_unprepare(wpe_clk.CG_IMGSYS_LARB11);
+
+	smi_bus_disable_unprepare(SMI_LARB11, WPE_DEV_NAME);
+#endif
+
 }
 #endif
 
@@ -4318,6 +4890,16 @@ static signed int WPE_mmap(
 			return -EAGAIN;
 		}
 		break;
+#if (MTK_WPE_COUNT == 2)
+	case WPE_B_BASE_HW:
+		if (length > WPE_REG_RANGE) {
+			LOG_ERR(
+				"mmap range error :module:0x%x length(0x%lx),WPE_REG_RANGE(0x%x)!",
+				pfn, length, WPE_REG_RANGE);
+			return -EAGAIN;
+		}
+		break;
+#endif
 	default:
 		LOG_ERR("Illegal starting HW addr for mmap!");
 		return -EAGAIN;
@@ -4607,6 +5189,33 @@ static signed int WPE_probe(struct platform_device *pDev)
 		WPEInfo.IrqInfo.Mask[WPE_IRQ_TYPE_INT_WPE_ST] =
 							INT_ST_MASK_WPE;
 	}
+	if (nr_WPE_devs == 2) {
+#ifdef EP_NO_CLKMGR
+
+#else
+#if (MTK_WPE_COUNT == 2)
+		 /*CCF*/
+		wpe_clk.CG_IMGSYS_LARB11 =
+			devm_clk_get(&pDev->dev, "WPE_CLK_IMG_LARB11");
+		LOG_INF("devm_clk_get CG_IMGSYS_LARB11");
+
+		if (IS_ERR(wpe_clk.CG_IMGSYS_LARB11)) {
+			LOG_ERR("cannot get CG_IMGSYS_LARB11 clock\n");
+			return PTR_ERR(wpe_clk.CG_IMGSYS_LARB11);
+		}
+
+		wpe_clk.CG_IMGSYS_WPE_B =
+			devm_clk_get(&pDev->dev, "WPE_CLK_IMG_WPE_B");
+		LOG_INF("devm_clk_get WPE_CLK_IMG_WPE_B");
+
+		if (IS_ERR(wpe_clk.CG_IMGSYS_WPE_B)) {
+			LOG_ERR("cannot get CG_IMGSYS_WPE_B clock\n");
+			return PTR_ERR(wpe_clk.CG_IMGSYS_WPE_B);
+		}
+#endif
+#endif
+
+	}
 
 EXIT:
 	if (Ret < 0)
@@ -4773,7 +5382,7 @@ int WPE_pm_restore_noirq(struct device *device)
  */
 static const struct of_device_id WPE_of_ids[] = {
 	{.compatible = "mediatek,wpe_a",},
-#ifdef WPE_COUNT_IS_2
+#if (MTK_WPE_COUNT == 2)
 	{.compatible = "mediatek,wpe_b",},
 #endif
 	{}

@@ -38,6 +38,7 @@
  *       for GCE to access physical register addresses
  */
 #define WPE_BASE_HW     0x15011000 /* WPE_A 0x15811000 WPE_B */
+#define WPE_B_BASE_HW   0x15811000
 
 /*This macro is for setting irq status represnted
  * by a local variable,WPEInfo.IrqInfo.Status[WPE_IRQ_TYPE_INT_WPE_ST]

@@ -4812,12 +4812,20 @@ page_owner=on loop.max_part=7";
 		interrupts = <GIC_SPI 347 IRQ_TYPE_LEVEL_HIGH>;
 		clocks =
 				<&imgsys_config IMGSYS1_LARB9_CGPDN>,
-				<&imgsys_config IMGSYS1_WPE_CGPDN>,
-				<&imgsys_config IMGSYS2_LARB11_CGPDN>,
-				<&imgsys_config IMGSYS2_WPE_CGPDN>;
+				<&imgsys_config IMGSYS1_WPE_CGPDN>;
 		clock-names =
 				"WPE_CLK_IMG_LARB9",
-				"WPE_CLK_IMG_WPE_A",
+				"WPE_CLK_IMG_WPE_A";
+	};
+
+	wpe_b@15811000 {
+		compatible = "mediatek,wpe_b";
+		reg = <0 0x15811000 0 0x1000>;
+		interrupts = <GIC_SPI 353 IRQ_TYPE_LEVEL_HIGH>;
+		clocks =
+				<&imgsys2_config IMGSYS2_LARB11_CGPDN>,
+				<&imgsys2_config IMGSYS2_WPE_CGPDN>;
+		clock-names =
 				"WPE_CLK_IMG_LARB11",
 				"WPE_CLK_IMG_WPE_B";
 	};
@@ -4950,12 +4958,6 @@ page_owner=on loop.max_part=7";
 	mfb@15810000 {
 		compatible = "mediatek,mfb";
 		reg = <0 0x15810000 0 0x1000>;
-	};
-
-	wpe_b@15811000 {
-		compatible = "mediatek,wpe_b";
-		reg = <0 0x15811000 0 0x1000>;
-		interrupts = <GIC_SPI 353 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	mfb@15812000 {
