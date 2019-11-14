@@ -327,16 +327,20 @@ static int MFB_MEM_USE_VIRTUL = 1;
 /******************************************************************************
  *
  ******************************************************************************/
+enum MFB_PROCESS_ID_ENUM {
+	MFB_PROCESS_ID_NONE,
+	MFB_PROCESS_ID_MSS,
+	MFB_PROCESS_ID_vMSS,
+	MFB_PROCESS_ID_MSF,
+	MFB_PROCESS_ID_vMSF,
+	MFB_PROCESS_ID_AMOUNT
+};
+
 struct  MFB_USER_INFO_STRUCT {
 	pid_t Pid;
 	pid_t Tid;
 	struct engine_requests *reqs;
-};
-enum MFB_PROCESS_ID_ENUM {
-	MFB_PROCESS_ID_NONE,
-	MFB_PROCESS_ID_MSS,
-	MFB_PROCESS_ID_MSF,
-	MFB_PROCESS_ID_AMOUNT
+	enum MFB_PROCESS_ID_ENUM streamtag;
 };
 
 /******************************************************************************
@@ -1060,7 +1064,7 @@ static void mss_vss_sirq(struct cmdq_cb_data data)
 		MFBInfo.IrqInfo
 		    .Status[MFB_IRQ_TYPE_INT_MSS_ST] |= MSS_INT_ST;
 		MFBInfo.IrqInfo
-		    .ProcessID[MFB_PROCESS_ID_MSS] = ProcessID;
+		    .ProcessID[MFB_PROCESS_ID_vMSS] = ProcessID;
 		MFBInfo.IrqInfo.MssIrqCnt++;
 	}
 	spin_unlock_irqrestore(&(MFBInfo.SpinLockIrq[MFB_IRQ_TYPE_INT_MSS_ST]),
@@ -2109,12 +2113,12 @@ EXIT:
 /******************************************************************************
  *
  ******************************************************************************/
-static signed int MSS_WaitIrq(struct MFB_WAIT_IRQ_STRUCT *WaitIrq)
+static signed int MSS_WaitIrq(struct MFB_WAIT_IRQ_STRUCT *WaitIrq,
+					enum MFB_PROCESS_ID_ENUM whichReq)
 {
 
 	signed int Ret = 0;
 	signed int Timeout = WaitIrq->Timeout;
-	enum MFB_PROCESS_ID_ENUM whichReq = MFB_PROCESS_ID_MSS;
 
 	/*unsigned int i;*/
 	unsigned long flags; /* old: unsigned int flags;*/
@@ -2527,25 +2531,27 @@ EXIT:
 /******************************************************************************
  *
  ******************************************************************************/
-static unsigned int mss_get_reqs(enum exec_mode exec,
+static enum MFB_PROCESS_ID_ENUM mss_get_reqs(enum exec_mode exec,
 					struct engine_requests **reqs)
 {
-	unsigned int ret = 0;
+	enum MFB_PROCESS_ID_ENUM tag;
 
 	switch (exec) {
 	case EXEC_MODE_NORM:
 		*reqs = &mss_reqs;
+		tag = MFB_PROCESS_ID_MSS;
 		break;
 	case EXEC_MODE_VSS:
 		*reqs = &vmss_reqs;
+		tag = MFB_PROCESS_ID_vMSS;
 		break;
 	default:
-		ret = 1;
+		tag = MFB_PROCESS_ID_NONE;
 		LOG_ERR("invalid tile irq mode\n");
 		break;
 	}
 
-	return ret;
+	return tag;
 }
 
 static unsigned int msf_get_reqs(enum exec_mode exec,
@@ -2747,13 +2753,14 @@ static long MFB_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				}
 
 				LOG_INF(
-					"MSS IRQ clear(%d), type(%d), userKey(%d), timeout(%d), status(%d)\n",
+					"MSS IRQ clear(%d), type(%d), userKey(%d), timeout(%d), status(%d), streamtag(%d)\n",
 					IrqInfo.Clear, IrqInfo.Type,
 					IrqInfo.UserKey, IrqInfo.Timeout,
-					IrqInfo.Status);
+					IrqInfo.Status, pUserInfo->streamtag);
 
 				IrqInfo.ProcessID = pUserInfo->Pid;
-				Ret = MSS_WaitIrq(&IrqInfo);
+				Ret = MSS_WaitIrq(&IrqInfo,
+							pUserInfo->streamtag);
 				if (Ret < 0) {
 					mfb_request_dump(&mss_reqs);
 					mfb_request_dump(&vmss_reqs);
@@ -2934,7 +2941,8 @@ static long MFB_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				goto EXIT;
 			}
 
-			mss_get_reqs(mfb_MssReq.exec, &reqs);
+			pUserInfo->streamtag = mss_get_reqs(mfb_MssReq.exec,
+									&reqs);
 			pUserInfo->reqs = reqs;
 			mutex_lock(&gMfbMssMutex);/* Protect the Multi Process*/
 
@@ -3591,6 +3599,7 @@ static signed int MFB_open(struct inode *pInode, struct file *pFile)
 		pUserInfo = (struct MFB_USER_INFO_STRUCT *) pFile->private_data;
 		pUserInfo->Pid = current->pid;
 		pUserInfo->Tid = current->tgid;
+		pUserInfo->streamtag = MFB_PROCESS_ID_NONE;
 	}
 	/*  */
 	if (MFBInfo.UserCount > 0) {
