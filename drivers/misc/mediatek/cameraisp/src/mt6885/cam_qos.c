@@ -600,6 +600,7 @@ void mtk_pmqos_set(enum ISP_IRQ_TYPE_ENUM module, u32 portID, struct ISP_BW bw)
 			break;
 		case _imgo_:
 		case _ltmso_:
+		case _lcesho_:
 		case _rrzo_:
 		case _lcso_:
 		case _aao_:
@@ -618,9 +619,11 @@ void mtk_pmqos_set(enum ISP_IRQ_TYPE_ENUM module, u32 portID, struct ISP_BW bw)
 		case _rsso_r2_:
 		case _yuvo_:
 		case _rawi_:
+		case _rawi_r3_:
 		case _bpci_:
 		case _lsci_:
 		case _bpci_r2_:
+		case _bpci_r3_:
 		case _pdi_:
 		case _cqi_r1_:
 		case _cqi_r2_:

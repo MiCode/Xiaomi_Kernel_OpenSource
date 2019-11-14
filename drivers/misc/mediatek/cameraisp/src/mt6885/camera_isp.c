@@ -142,7 +142,7 @@ static int camP1mem_use_m4u = 1;
 #define LOG_VRB(format, args...)                                               \
 	pr_debug(MyTag "[%s] " format, __func__, ##args)
 
-#define ISP_DEBUG
+/* #define ISP_DEBUG */
 #ifdef ISP_DEBUG
 #define LOG_DBG(format, args...) pr_info(MyTag "[%s] " format, __func__, ##args)
 #else
@@ -3090,9 +3090,10 @@ static int ISP_FLUSH_IRQ(struct ISP_WAIT_IRQ_STRUCT *irqinfo)
 {			     /* FIX to avoid build warning */
 	unsigned long flags; /* old: unsigned int flags; */
 
-	LOG_INF("type(%d)userKey(%d)St_type(%d)St(0x%x)", irqinfo->Type,
-		irqinfo->EventInfo.UserKey, irqinfo->EventInfo.St_type,
-		irqinfo->EventInfo.Status);
+	if (irqinfo->EventInfo.UserKey != 0)
+		LOG_INF("type(%d)userKey(%d)St_type(%d)St(0x%x)",
+			irqinfo->Type, irqinfo->EventInfo.UserKey,
+			irqinfo->EventInfo.St_type, irqinfo->EventInfo.Status);
 
 	if (irqinfo->Type >= ISP_IRQ_TYPE_AMOUNT) {
 		LOG_NOTICE("FLUSH_IRQ: type error(%d)", irqinfo->Type);
@@ -4286,8 +4287,8 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 
 				if (vf & 0x1) {
 					LOG_NOTICE(
-						"CAMSV_%d: vf already enabled\n",
-						DebugFlag[1]);
+					"CAMSV_%d: vf already enabled\n",
+					(DebugFlag[1] - ISP_CAMSV0_IDX));
 				} else {
 					ISP_WR32(CAMSV_REG_TG_VF_CON(
 							 DebugFlag[1]),
@@ -4306,7 +4307,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			}
 			case 10: {
 				LOG_INF("CAMSV_%d viewFinder is OFF\n",
-					DebugFlag[1]);
+					(DebugFlag[1] - ISP_CAMSV0_IDX));
 
 				vf = ISP_RD32(
 					CAMSV_REG_TG_VF_CON(DebugFlag[1]));
@@ -4317,8 +4318,8 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 						 (vf - 0x1));
 				} else {
 					LOG_NOTICE(
-						"CAMSV_%d: vf already disalbed\n",
-						DebugFlag[1]);
+					"CAMSV_%d: vf already disalbed\n",
+					(DebugFlag[1] - ISP_CAMSV0_IDX));
 				}
 				break;
 			}
