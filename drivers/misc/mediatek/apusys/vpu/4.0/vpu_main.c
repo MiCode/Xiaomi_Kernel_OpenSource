@@ -238,7 +238,6 @@ static struct vpu_device *vpu_alloc(struct platform_device *pdev)
 	/* initialize device (core specific) data */
 	rproc->fw_ops = &vpu_fw_ops;
 	vd = (struct vpu_device *)rproc->priv;
-	vd->dev = &pdev->dev;
 	vd->rproc = rproc;
 
 	return vd;
@@ -536,6 +535,7 @@ static int vpu_probe(struct platform_device *pdev)
 	if (!vd)
 		return -ENOMEM;
 
+	vd->dev = &pdev->dev;
 	platform_set_drvdata(pdev, vd);
 
 	if (of_property_read_u32(pdev->dev.of_node, "id", &vd->id)) {
