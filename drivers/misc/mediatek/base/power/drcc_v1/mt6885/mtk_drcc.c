@@ -66,6 +66,10 @@
 	#include <mt-plat/aee.h>
 #endif
 
+#ifdef CONFIG_OF_RESERVED_MEM
+	#include <of_reserved_mem.h>
+#endif
+
 /************************************************
  * Marco definition
  ************************************************/
@@ -262,6 +266,182 @@ int mtk_drcc_feature_enabled_check(void)
 
 	return status;
 }
+
+
+/************************************************
+ * log dump into reserved memory for AEE
+ ************************************************/
+#ifdef CONFIG_OF_RESERVED_MEM
+
+/* GAT log use */
+phys_addr_t drcc_mem_base_phys;
+phys_addr_t drcc_mem_size;
+phys_addr_t drcc_mem_base_virt;
+
+static int drcc_reserve_memory_dump(char *buf, unsigned int log_offset)
+{
+	unsigned int str_len = 0;
+	unsigned int i, value[drccNum][4], drcc_n = 0;
+	char *aee_log_buf = (char *) __get_free_page(GFP_USER);
+
+	if (!aee_log_buf) {
+		drcc_debug("[xxxxDRCC]unable to get free page!\n");
+		return -1;
+	}
+	drcc_debug("[xxxxDRCC] buf: 0x%llx, aee_log_buf: 0x%llx\n",
+		(unsigned long long)buf, (unsigned long long)aee_log_buf);
+
+	drcc_debug("log_offset = %u\n", log_offset);
+	if (log_offset == 0) {
+		str_len +=
+		 snprintf(aee_log_buf + str_len,
+		 (unsigned long long)drcc_mem_size - str_len,
+		 "\n[DRCC][Kernel Probe]\n");
+	} else if (log_offset == 1) {
+		str_len +=
+		 snprintf(aee_log_buf + str_len,
+		 (unsigned long long)drcc_mem_size - str_len,
+		 "\n[DRCC][Kernel ??]\n");
+	} else if (log_offset == 2) {
+		str_len +=
+		 snprintf(aee_log_buf + str_len,
+		 (unsigned long long)drcc_mem_size - str_len,
+		 "\n[DRCC][Kernel ??]\n");
+	} else {
+		str_len +=
+		 snprintf(aee_log_buf + str_len,
+		 (unsigned long long)drcc_mem_size - str_len,
+		 "\n[DRCC][Kernel ??]\n");
+	}
+
+	str_len += snprintf(aee_log_buf + str_len,
+		(unsigned long long)drcc_mem_size - str_len,
+		"[DRCC] default setting: 00133A1\n");
+
+	for (drcc_n = 0; drcc_n < drccNum; drcc_n++) {
+		str_len +=
+			snprintf(aee_log_buf + str_len,
+			(unsigned long long)drcc_mem_size - str_len,
+			"CPU(%d)_DRCC_AO_CONFIG reg=0x%llx,\t value=0x%x\n",
+			drcc_n,
+			DRCC_AO_REG_BASE + ((u64)0x200 * drcc_n),
+			mt_secure_call_drcc(
+				MTK_SIP_KERNEL_DRCC_READ,
+				DRCC_AO_REG_BASE + ((u64)0x200 * drcc_n),
+				0,
+				0,
+				0));
+
+		for (i = 0; i < 4; i++)
+			if (drcc_n < drcc_l_num) {
+				value[drcc_n][i] = mt_secure_call_drcc(
+					MTK_SIP_KERNEL_DRCC_READ,
+					DRCC_CONF0 +
+					(drcc_n * (u64)0x800) + (i * 4),
+					0,
+					0,
+					0);
+			} else {
+				value[drcc_n][i] = mt_secure_call_drcc(
+					MTK_SIP_KERNEL_DRCC_READ,
+					DRCC_B_CONF0 +
+					((drcc_n - 4) * (u64)0x800) + (i * 4),
+					0,
+					0,
+					0);
+			}
+
+		str_len +=
+			snprintf(aee_log_buf + str_len,
+			(unsigned long long)drcc_mem_size - str_len,
+			"CPU(%d), drcc_reg :", drcc_n);
+
+		for (i = 0; i < 4; i++)
+			if (drcc_n < drcc_l_num) {
+				str_len +=
+				snprintf(aee_log_buf + str_len,
+				(unsigned long long)drcc_mem_size - str_len,
+				"\t0x%llx = 0x%x",
+				DRCC_CONF0 +
+				(drcc_n * (u64)0x800) + (i * 4),
+				value[drcc_n][i]);
+			} else {
+				str_len +=
+				snprintf(aee_log_buf + str_len,
+				(unsigned long long)drcc_mem_size - str_len,
+				"\t0x%llx = 0x%x",
+				DRCC_B_CONF0 +
+				((drcc_n - 4) * (u64)0x800) + (i * 4),
+				value[drcc_n][i]);
+			}
+		str_len +=
+			snprintf(aee_log_buf + str_len,
+			(unsigned long long)drcc_mem_size - str_len,
+			"    .%d\n", i);
+	}
+
+	str_len +=
+		snprintf(aee_log_buf + str_len,
+		(unsigned long long)drcc_mem_size - str_len,
+		"MCUSYS_RESERVED_REG1 : 0x%llx = 0x%x\n",
+		(unsigned long long)MCUSYS_RESERVED_REG1,
+		mt_secure_call_drcc(
+			MTK_SIP_KERNEL_DRCC_READ,
+			MCUSYS_RESERVED_REG1,
+			0,
+			0,
+			0)
+		);
+
+	if (str_len > 0)
+		memcpy(buf, aee_log_buf, str_len+1);
+
+	drcc_debug("\n%s", aee_log_buf);
+	drcc_debug("\n%s", buf);
+
+	free_page((unsigned long)aee_log_buf);
+
+	return 0;
+}
+
+#define EEM_TEMPSPARE0		0x112788F0
+#define drcc_read(addr)		__raw_readl((void __iomem *)(addr))
+#define drcc_write(addr, val)	mt_reg_sync_writel(val, addr)
+
+static void drcc_reserve_memory_init(unsigned int log_offset)
+{
+	char *buf = NULL;
+
+	drcc_mem_base_virt = 0;
+	drcc_mem_size = 0x80000;
+	drcc_mem_base_phys =
+		drcc_read(ioremap(EEM_TEMPSPARE0, 0));
+
+	if ((char *)drcc_mem_base_phys != NULL) {
+		drcc_mem_base_virt =
+			(phys_addr_t)(uintptr_t)ioremap_wc(
+			drcc_mem_base_phys,
+			drcc_mem_size);
+	}
+
+	drcc_debug("[xxxxDRCC] phys:0x%llx, size:0x%llx, virt:0x%llx\n",
+		(unsigned long long)drcc_mem_base_phys,
+		(unsigned long long)drcc_mem_size,
+		(unsigned long long)drcc_mem_base_virt);
+
+	if ((char *)drcc_mem_base_virt != NULL) {
+		buf = (char *)(uintptr_t)
+			(drcc_mem_base_virt+0x20000+log_offset*0x1000);
+
+		if (buf != NULL) {
+			/* dump drcc register status into reserved memory */
+			drcc_reserve_memory_dump(buf, log_offset);
+		} else
+			drcc_debug("[xxxxDRCC]drcc_mem_base_virt is null !\n");
+	}
+}
+
+#endif  //CONFIG_OF_RESERVED_MEM
 
 void mtk_drcc_enable(unsigned int onOff,
 		unsigned int drcc_num)
@@ -1465,10 +1645,16 @@ static int drcc_probe(struct platform_device *pdev)
 	#ifdef CONFIG_MTK_RAM_CONSOLE
 	_mt_drcc_aee_init();
 	#endif
+
+#ifdef CONFIG_OF_RESERVED_MEM
+	drcc_reserve_memory_init(0);
+#endif
+
 	drcc_debug("drcc probe ok!!\n");
 
 	return 0;
 }
+
 
 static int drcc_suspend(struct platform_device *pdev, pm_message_t state)
 {
