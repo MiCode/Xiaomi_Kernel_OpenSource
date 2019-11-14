@@ -117,13 +117,19 @@ static enum IMGSENSOR_RETURN imgsensor_hw_power_sequence(
 	}
 #endif
 
-	while (ppwr_seq->idx != NULL &&
-		ppwr_seq < ppower_sequence + IMGSENSOR_HW_SENSOR_MAX_NUM &&
-		strcmp(ppwr_seq->idx, pcurr_idx)) {
+	while (ppwr_seq < ppower_sequence + IMGSENSOR_HW_SENSOR_MAX_NUM &&
+		ppwr_seq->name != NULL) {
+		if (!strcmp(ppwr_seq->name, PLATFORM_POWER_SEQ_NAME)) {
+			if (sensor_idx == ppwr_seq->_idx)
+				break;
+		} else {
+			if (!strcmp(ppwr_seq->name, pcurr_idx))
+				break;
+		}
 		ppwr_seq++;
 	}
 
-	if (ppwr_seq->idx == NULL)
+	if (ppwr_seq->name == NULL)
 		return IMGSENSOR_RETURN_ERROR;
 
 	ppwr_info = ppwr_seq->pwr_info;

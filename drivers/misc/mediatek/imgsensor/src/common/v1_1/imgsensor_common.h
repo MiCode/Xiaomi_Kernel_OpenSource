@@ -21,6 +21,7 @@
  * Debug configuration
  ******************************************************************************/
 #define PREFIX "[imgsensor]"
+#define PLATFORM_POWER_SEQ_NAME "platform_power_seq"
 
 #define DEBUG_CAMERA_HW_K
 #ifdef DEBUG_CAMERA_HW_K
