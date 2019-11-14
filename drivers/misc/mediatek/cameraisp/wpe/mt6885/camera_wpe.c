@@ -4816,6 +4816,13 @@ static int wpe_dump_read(struct seq_file *m, void *v)
 {
 	int i, j;
 
+	spin_lock(&WPEInfo.SpinLockWPE);
+	if (g_u4EnableClockCount == 0) {
+		spin_unlock(&WPEInfo.SpinLockWPE);
+		return 0;
+	}
+	spin_unlock(&WPEInfo.SpinLockWPE);
+
 	seq_puts(m, "\n============ wpe dump register============\n");
 	seq_puts(m, "WPE Config Info\n");
 
@@ -5084,8 +5091,10 @@ static signed int __init WPE_Init(void)
 	void *tmp;
 	/* FIX-ME: linux-3.10 procfs API changed */
 	/* use proc_create */
+#if 0
 	struct proc_dir_entry *proc_entry;
 	struct proc_dir_entry *isp_wpe_dir;
+#endif
 
 
 	int i;
@@ -5113,22 +5122,25 @@ static signed int __init WPE_Init(void)
 	LOG_DBG("ISP_WPE_BASE: %lx\n", ISP_WPE_BASE);
 #endif
 
+#if 0
 	isp_wpe_dir = proc_mkdir("wpe", NULL);
 	if (!isp_wpe_dir) {
 		LOG_ERR("[%s]: fail to mkdir /proc/wpe\n", __func__);
 		return 0;
 	}
+#endif
 
 	/* proc_entry = */
 	/*	proc_create("pll_test", S_IRUGO | */
 	/*		S_IWUSR, isp_wpe_dir, &pll_test_proc_fops); */
 
+#if 0
 	proc_entry = proc_create("wpe_dump", 0444, isp_wpe_dir,
 					&WPE_dump_proc_fops);
 
 	proc_entry = proc_create("wpe_reg", 0644, isp_wpe_dir,
 					&WPE_reg_proc_fops);
-
+#endif
 
 	/* isr log */
 	if (PAGE_SIZE <
