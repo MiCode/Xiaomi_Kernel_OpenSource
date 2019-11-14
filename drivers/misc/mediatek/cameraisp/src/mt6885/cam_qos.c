@@ -43,7 +43,7 @@
 #define LOG_VRB(format, args...)   \
 	pr_debug(MyTag "[%s] " format, __func__, ##args)
 
-#define ISP_DEBUG
+// #define ISP_DEBUG
 #ifdef ISP_DEBUG
 #define LOG_DBG(format, args...) \
 	pr_info(MyTag "[%s] " format, __func__, ##args)
@@ -876,7 +876,7 @@ int ISP_SetPMQOS(
 		mtk_dfs_set();
 		target_clk = *(u32 *)pvalue;
 		mtk_dfs_update(target_clk);
-		LOG_DBG("DFS Set clock :%d", *pvalue);
+		LOG_INF("DFS Set clock :%d", *pvalue);
 		break;
 	case E_CLK_SUPPORTED:
 		{
@@ -909,7 +909,7 @@ int ISP_SetPMQOS(
 		pvalue[0] = (unsigned int)mtk_dfs_cur();
 #endif
 		pvalue[1] = (unsigned int)target_clk;
-		LOG_DBG("cur clk:%d,tar clk:%d", pvalue[0], pvalue[1]);
+		LOG_INF("cur clk:%d,tar clk:%d", pvalue[0], pvalue[1]);
 		break;
 	case E_QOS_UNKNOWN:
 	default:
