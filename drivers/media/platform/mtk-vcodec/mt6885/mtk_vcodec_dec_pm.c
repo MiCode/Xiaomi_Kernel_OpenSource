@@ -377,7 +377,7 @@ void mtk_vdec_dvfs_begin(struct mtk_vcodec_ctx *ctx, int hw_id)
 	if ((ctx->q_data[MTK_Q_DATA_DST].coded_width *
 		ctx->q_data[MTK_Q_DATA_DST].coded_height) >=
 		3840*2160) {
-		vdec_req_freq[hw_id] = 450;
+		vdec_req_freq[hw_id] = 416;
 	} else {
 		vdec_req_freq[hw_id] = STD_VDEC_FREQ;
 	}
