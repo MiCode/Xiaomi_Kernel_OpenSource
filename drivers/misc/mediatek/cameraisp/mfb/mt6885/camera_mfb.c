@@ -2754,8 +2754,11 @@ static long MFB_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 
 				IrqInfo.ProcessID = pUserInfo->Pid;
 				Ret = MSS_WaitIrq(&IrqInfo);
-				if (Ret < 0)
+				if (Ret < 0) {
+					mfb_request_dump(&mss_reqs);
+					mfb_request_dump(&vmss_reqs);
 					MSS_DumpReg();
+				}
 
 				if (copy_to_user((void *)Param, &IrqInfo,
 				    sizeof(struct MFB_WAIT_IRQ_STRUCT)) != 0) {
