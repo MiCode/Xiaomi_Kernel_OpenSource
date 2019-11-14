@@ -55,6 +55,24 @@ struct mt_gpufreq_power_table_info {
 #define	LVTS_DEVICE_AUTO_RCK			(1)
 #endif
 
+/*
+ *There is no idle code in kernel since mt6885(big sw).
+ *Thus, kernel only can use "cpu pm notifier" to do idle scenario things.
+ *
+ *Release LVTS in thermal kernel driver
+ *1. SPM will pause LVTS thermal controllers before closing 26M
+ *2. After leaving SODI3, SPM will release LVTS thermal controllers
+ *    if controllers were paused properly.
+ *3. After leaving SODI3, Thermal driver will release LVTS thermal
+ *    controllers if SPM didn't release controller successfully
+ */
+#define LVTS_CPU_PM_NTFY_CALLBACK
+
+#if defined(LVTS_CPU_PM_NTFY_CALLBACK)
+#define CFG_THERM_SODI3_RELEASE
+//#define LVTS_CPU_PM_NTFY_PROFILE
+#endif
+
 /* public thermal sensor enum */
 
 enum thermal_sensor {
