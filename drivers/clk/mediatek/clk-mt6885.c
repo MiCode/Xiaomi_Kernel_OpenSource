@@ -23,6 +23,7 @@
 #include "clk-mux.h"
 #include "clk-mt6885-pg.h"
 #include <dt-bindings/clock/mt6885-clk.h>
+#include <mt-plat/aee.h>
 
 #define MT_CCF_BRINGUP		0
 #ifdef CONFIG_ARM64
@@ -4479,37 +4480,35 @@ void pll_if_on(void)
 		pr_notice("suspend warning: MMPLL is on!!!\n");
 		ret++;
 	}
-	if (clk_readl(ADSPPLL_CON0) & 0x1)
+	if (clk_readl(ADSPPLL_CON0) & 0x1) {
 		pr_notice("suspend warning: ADSPPLL is on!!!\n");
-	if (clk_readl(MSDCPLL_CON0) & 0x1)
+		ret++;
+	}
+	if (clk_readl(MSDCPLL_CON0) & 0x1) {
 		pr_notice("suspend warning: MSDCPLL is on!!!\n");
+		ret++;
+	}
 	if (clk_readl(TVDPLL_CON0) & 0x1) {
 		pr_notice("suspend warning: TVDPLL is on!!!\n");
 		ret++;
 	}
-	if (clk_readl(APLL1_CON0) & 0x1)
+	if (clk_readl(APLL1_CON0) & 0x1) {
 		pr_notice("suspend warning: APLL1 is on!!!\n");
-	if (clk_readl(APLL2_CON0) & 0x1)
+		ret++;
+	}
+	if (clk_readl(APLL2_CON0) & 0x1) {
 		pr_notice("suspend warning: APLL2 is on!!!\n");
-#if 0
-	if (ret > 0)
+		ret++;
+	}
+	if (ret > 0) {
+#ifdef CONFIG_MTK_ENG_BUILD
+		BUG_ON(1);
+#else
+		aee_kernel_warning("CCF MT6885",
+			"@%s():%d, PLLs are not off\n", __func__, __LINE__);
 		WARN_ON(1);
 #endif
-#if 0
-	pr_notice("%s: AP_PLL_CON3 = 0x%08x\r\n", __func__,
-		clk_readl(AP_PLL_CON3));
-	pr_notice("%s: AP_PLL_CON4 = 0x%08x\r\n", __func__,
-		clk_readl(AP_PLL_CON4));
-	pr_notice("%s: ARMPLL_LL = %dHZ\r\n", __func__, mt_get_abist_freq(22));
-	pr_notice("%s: ARMPLL_L = %dHZ\r\n", __func__, mt_get_abist_freq(20));
-	pr_notice("%s: UNIVPLL = %dHZ\r\n", __func__, mt_get_abist_freq(24));
-	pr_notice("%s: MFGPLL = %dHZ\r\n", __func__, mt_get_abist_freq(25));
-	pr_notice("%s: MMPLL = %dHZ\r\n", __func__, mt_get_abist_freq(27));
-	pr_notice("%s: MSDCPLL = %dHZ\r\n", __func__, mt_get_abist_freq(26));
-	pr_notice("%s: TVDPLL = %dHZ\r\n", __func__, mt_get_abist_freq(34));
-	pr_notice("%s: APLL1 = %dHZ\r\n", __func__, mt_get_abist_freq(28));
-	pr_notice("%s: APLL2 = %dHZ\r\n", __func__, mt_get_abist_freq(29));
-#endif
+	}
 }
 
 void pll_force_off(void)
