@@ -2075,20 +2075,17 @@ static void record_drb_skb(unsigned char q_num, unsigned short cur_idx,
 #endif
 }
 
-static void dpmaif_tx_check(void)
+static int dpmaif_tx_check(void)
 {
-	int i, pcnt, state;
+	int i, pcnt;
 
 	for (i = 0; i < DPMAIF_TXQ_NUM; i++) {
 		pcnt = dpmaif_ctrl->tx_pre_traffic_monitor[i]-
 			dpmaif_ctrl->tx_traffic_monitor[i];
 		if (pcnt) {
 			tx_last[i].tx_curr = tx_last[i].tx_prv;
-			msleep(5000);
-			state = ccci_fsm_get_md_state_for_user(
-					dpmaif_ctrl->md_id);
-			if (tx_last[i].tx_curr == tx_last[i].tx_prv
-				&& state == MD_STATE_READY) {
+			msleep(1000);
+			if (tx_last[i].tx_curr == tx_last[i].tx_prv) {
 				CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
 				"qno %d tx is timed out\n", i);
 				dpmaif_dump_register(dpmaif_ctrl,
@@ -2098,18 +2095,25 @@ static void dpmaif_tx_check(void)
 				dpmaif_dump_txq_remain(dpmaif_ctrl,
 					i, 0);
 #if defined(CONFIG_MTK_AEE_FEATURE)
-					aee_kernel_warning("ccci",
-					"warning : dpmaif tx is timed out");
+				aee_kernel_warning("ccci",
+				"warning : dpmaif tx is timed out");
 #endif
+				return 1;
 			}
 		}
 	}
+	return 0;
 }
 
 int ccci_tx_done_check(void *arg)
 {
+	int ret;
+
+	tx_done_check = 1;
 	while (1) {
-		dpmaif_tx_check();
+		ret = dpmaif_tx_check();
+		if (ret)
+			break;
 		msleep(1000);
 	}
 	return 0;
