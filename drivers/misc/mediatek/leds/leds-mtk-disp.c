@@ -15,6 +15,9 @@
 #include <linux/string.h>
 #include <linux/workqueue.h>
 
+#include "leds-mtk-disp.h"
+
+
 #ifdef CONFIG_DRM_MEDIATEK
 extern int mtkfb_set_backlight_level(unsigned int level);
 #endif
@@ -23,6 +26,7 @@ extern int mtkfb_set_backlight_level(unsigned int level);
 #include <mt-plat/met_drv.h>
 #endif
 
+#define CONFIG_LEDS_BRIGHTNESS_CHANGED
 /****************************************************************************
  * variables
  ***************************************************************************/
@@ -80,7 +84,37 @@ struct mtk_leds_info {
 
 static DEFINE_MUTEX(leds_mutex);
 struct leds_desp_info *leds_info;
+static BLOCKING_NOTIFIER_HEAD(mtk_leds_chain_head);
 
+int mtk_leds_register_notifier(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_register(&mtk_leds_chain_head, nb);
+}
+EXPORT_SYMBOL_GPL(mtk_leds_register_notifier);
+
+int mtk_leds_unregister_notifier(struct notifier_block *nb)
+
+{
+	return blocking_notifier_chain_unregister(&mtk_leds_chain_head, nb);
+}
+EXPORT_SYMBOL_GPL(mtk_leds_unregister_notifier);
+
+int mtk_leds_call_notifier(unsigned long action, void *data)
+{
+	return blocking_notifier_call_chain(&mtk_leds_chain_head, action, data);
+}
+EXPORT_SYMBOL_GPL(mtk_leds_call_notifier);
+
+
+static int call_notifier(struct mtk_led_data *led_dat)
+{
+	int err;
+
+	err = mtk_leds_call_notifier(1, &led_dat->cdev);
+	if (err)
+		pr_info("notifier_call_chain error\n");
+	return err;
+}
 
 /****************************************************************************
  * DEBUG MACROS
@@ -144,7 +178,7 @@ int setMaxBrightness(char *name, int percent, bool enable)
 	}
 	led_dat = container_of(leds_info->leds[index],
 		struct mtk_led_data, desp);
-	pr_info("getLedData: %s", led_dat->desp.name);
+//	pr_info("getLedData: %s", led_dat->desp.name);
 
 	max_l = led_dat->max_brightness;
 	limit_l = (percent * max_l) / 100;
@@ -173,23 +207,6 @@ int setMaxBrightness(char *name, int percent, bool enable)
 }
 EXPORT_SYMBOL(setMaxBrightness);
 
-int mt_leds_brightness_set(char *name, enum led_brightness level)
-{
-	struct mtk_led_data *led_dat;
-	int index;
-
-	index = getLedDespIndex(name);
-	if (index < 0) {
-		pr_notice("can not find leds by led_desp %s", name);
-		return -1;
-	}
-	led_dat = container_of(leds_info->leds[index],
-		struct mtk_led_data, desp);
-	pr_info("getLedData: %s, level: %d", led_dat->desp.name, level);
-
-	return led_level_set(&led_dat->cdev, level);
-}
-EXPORT_SYMBOL(mt_leds_brightness_set);
 
 /****************************************************************************
  * driver functions
@@ -197,7 +214,7 @@ EXPORT_SYMBOL(mt_leds_brightness_set);
 static int led_level_set_disp(struct mtk_led_data *s_led,
 	enum led_brightness brightness)
 {
-	unsigned int mappingLevel;
+	int mappingLevel;
 
 	if (s_led->level == brightness)
 		return 0;
@@ -213,7 +230,6 @@ static int led_level_set_disp(struct mtk_led_data *s_led,
 	if (enable_met_backlight_tag())
 		output_met_backlight_tag(level);
 #endif
-
 #ifdef CONFIG_DRM_MEDIATEK
 	return mtkfb_set_backlight_level(brightness);
 #endif
@@ -231,28 +247,53 @@ void mtk_led_work(struct work_struct *work)
 	mutex_unlock(&leds_mutex);
 }
 
+int mt_leds_brightness_set(char *name, int level)
+{
+	struct mtk_led_data *led_dat;
+	int index, led_Level;
+
+	index = getLedDespIndex(name);
+	if (index < 0) {
+		pr_notice("can not find leds by led_desp %s", name);
+		return -1;
+	}
+	led_dat = container_of(leds_info->leds[index],
+		struct mtk_led_data, desp);
+	led_Level = (
+		(((1 << led_dat->led_bits) - 1) * level
+		+ (((1 << led_dat->trans_bits) - 1) / 2))
+		/ ((1 << led_dat->trans_bits) - 1));
+
+//	pr_info("getLedData: %s, level: %d[%d]",
+//		led_dat->desp.name, level, led_Level);
+
+	schedule_work(&led_dat->work);
+	return led_level_set_disp(led_dat, led_Level);
+}
+EXPORT_SYMBOL(mt_leds_brightness_set);
+
 static int led_level_set(struct led_classdev *led_cdev,
 					  enum led_brightness brightness)
 {
+	int trans_level;
+
 	struct mtk_led_data *led_dat =
 		container_of(led_cdev, struct mtk_led_data, cdev);
 
-	if (!strcmp(led_dat->cdev.name, "lcd-backlight")) {
-		mutex_lock(&(led_dat->limit.lock));
-		led_dat->limit.set_l = brightness;
-		if (led_dat->limit.flag) {
-			if (led_dat->limit.limit_l < brightness)
-				brightness = led_dat->limit.limit_l;
-			pr_info("set level: %d->%d(%d)",
-				led_dat->level,
-				brightness,
-				led_dat->limit.limit_l);
-		}
-		mutex_unlock(&(led_dat->limit.lock));
-	}
 	if (led_dat->level == brightness)
 		return 0;
-	pr_debug("set level: %d->%d", led_dat->level, brightness);
+	trans_level = (
+		((1 << led_dat->trans_bits) - 1) * brightness
+		+ (((1 << led_dat->led_bits) - 1) / 2))
+		/ ((1 << led_dat->led_bits) - 1);
+	pr_debug("set level: %d->%d[%d]",
+		led_dat->level, brightness, trans_level);
+	disp_pq_notify_backlight_changed(trans_level);
+#ifdef CONFIG_LEDS_BRIGHTNESS_CHANGED
+#ifdef CONFIG_MTK_AAL_SUPPORT
+	return call_notifier(led_dat);
+#endif
+#endif
 	schedule_work(&led_dat->work);
 	return led_level_set_disp(led_dat, brightness);
 }

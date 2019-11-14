@@ -22,10 +22,13 @@
 #include <linux/soc/mediatek/mtk-cmdq.h>
 #include <linux/module.h>
 
-#if defined(CONFIG_MACH_MT6885)
+#define CONFIG_LEDS_BRIGHTNESS_CHANGED
+
+#ifdef CONFIG_LEDS_MTK_DISP
 #include <mtk_leds_drv.h>
+#include <leds-mtk-disp.h>
 #else
-#define backlight_brightness_set(x) do { } while (0)
+#define mt_leds_brightness_set(x, y) do { } while (0)
 #define MT65XX_LED_MODE_NONE (0)
 #define MT65XX_LED_MODE_CUST_LCM (4)
 #endif
@@ -221,6 +224,7 @@ static int disp_aal_get_cust_led(void)
 	return ret;
 }
 
+
 #define LOG_INTERVAL_TH 200
 #define LOG_BUFFER_SIZE 4
 static char g_aal_log_buffer[256] = "";
@@ -327,15 +331,6 @@ static void disp_aal_notify_backlight_log(int bl_1024)
 	memcpy(&g_aal_log_prevtime, &aal_time, sizeof(struct timeval));
 }
 
-static void backlight_brightness_set_with_lock(int bl_1024)
-{
-	mutex_lock(&default_comp->mtk_crtc->lock);
-	// FIXME
-	// backlight_brightness_set(bl_1024);
-
-	mutex_unlock(&default_comp->mtk_crtc->lock);
-}
-
 void disp_aal_notify_backlight_changed(int bl_1024)
 {
 	unsigned long flags, clockflags;
@@ -348,6 +343,7 @@ void disp_aal_notify_backlight_changed(int bl_1024)
 
 	// FIXME
 	//max_backlight = disp_pwm_get_max_backlight(DISP_PWM0);
+	max_backlight = 1024;
 	if (bl_1024 > max_backlight)
 		bl_1024 = max_backlight;
 
@@ -355,13 +351,7 @@ void disp_aal_notify_backlight_changed(int bl_1024)
 
 	service_flags = 0;
 	if (bl_1024 == 0) {
-
-		if (atomic_read(&g_led_mode) == MT65XX_LED_MODE_CUST_LCM) {
-			if (default_comp != NULL)
-				backlight_brightness_set_with_lock(0);
-		} // // FIXME else
-//			backlight_brightness_set(0);
-
+		mt_leds_brightness_set("lcd-backlight", 0);
 		/* set backlight = 0 may be not from AAL, */
 		/* we have to let AALService can turn on backlight */
 		/* on phone resumption */
@@ -370,12 +360,7 @@ void disp_aal_notify_backlight_changed(int bl_1024)
 		atomic_read(&g_aal_force_relay) == 1) {
 		/* AAL Service is not running */
 
-		if (atomic_read(&g_led_mode) == MT65XX_LED_MODE_CUST_LCM) {
-			if (default_comp != NULL)
-				backlight_brightness_set_with_lock(bl_1024);
-		} // // FIXME else
-//			backlight_brightness_set(bl_1024);
-
+		mt_leds_brightness_set("lcd-backlight", bl_1024);
 	}
 
 	spin_lock_irqsave(&g_aal_hist_lock, flags);
@@ -400,6 +385,41 @@ void disp_aal_notify_backlight_changed(int bl_1024)
 		mtk_crtc_check_trigger(default_comp->mtk_crtc, false);
 	}
 }
+
+#ifdef CONFIG_LEDS_MTK_DISP
+#ifdef CONFIG_LEDS_BRIGHTNESS_CHANGED
+int led_brightness_changed_event(struct notifier_block *nb, unsigned long event,
+	void *v)
+{
+	int trans_level;
+	struct led_classdev *led_cdev;
+
+	led_cdev = (struct led_classdev *)v;
+
+	switch (event) {
+	case 1:
+		trans_level = (
+			(((1 << 10) - 1) * led_cdev->brightness
+			+ ((led_cdev->max_brightness) / 2))
+			/ (led_cdev->max_brightness));
+
+		disp_aal_notify_backlight_changed(trans_level);
+		DDPINFO("%s: brightness changed: %d, %d\n",
+			__func__, led_cdev->brightness, trans_level);
+		break;
+
+	default:
+		break;
+	}
+
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block leds_init_notifier = {
+	.notifier_call = led_brightness_changed_event,
+};
+#endif
+#endif
 
 int mtk_drm_ioctl_aal_eventctl(struct drm_device *dev, void *data,
 	struct drm_file *file_priv)
@@ -988,24 +1008,11 @@ int disp_aal_set_param(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		struct DISP_AAL_PARAM *param)
 {
 	int ret = -EFAULT;
-	int backlight_value = 0;
 
-	/* Not need to protect g_aal_param, */
-	/* since only AALService can set AAL parameters. */
-	memcpy(&g_aal_param, param, sizeof(*param));
-	backlight_value = g_aal_param.FinalBacklight;
-	/* set cabc gain zero when detect backlight */
-	/* setting equal to zero */
-	if (backlight_value == 0)
-		g_aal_param.cabc_fltgain_force = 0;
 #ifdef DUMPAAL
 	dumpAALParam(&g_aal_param);
 #endif
 	ret = disp_aal_write_param_to_reg(comp, handle, &g_aal_param);
-	atomic_set(&g_aal_allowPartial, g_aal_param.allowPartial);
-
-	if (atomic_read(&g_aal_backlight_notified) == 0)
-		backlight_value = 0;
 
 /* FIXME
  *	if (ret == 0)
@@ -1013,9 +1020,6 @@ int disp_aal_set_param(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
  *			backlight_value, cmdq);
  */
 // FIXME
-//	backlight_brightness_set(backlight_value);
-
-	mtk_crtc_check_trigger(comp->mtk_crtc, false);
 
 	return ret;
 }
@@ -1037,8 +1041,27 @@ int mtk_drm_ioctl_aal_set_param(struct drm_device *dev, void *data,
 	struct mtk_drm_private *private = dev->dev_private;
 	struct mtk_ddp_comp *comp = private->ddp_comp[DDP_COMPONENT_AAL0];
 	struct drm_crtc *crtc = private->crtc[0];
+	int backlight_value = 0;
+	struct DISP_AAL_PARAM *param = (struct DISP_AAL_PARAM *) data;
+
+	/* Not need to protect g_aal_param, */
+	/* since only AALService can set AAL parameters. */
+	memcpy(&g_aal_param, param, sizeof(*param));
+	backlight_value = g_aal_param.FinalBacklight;
+	/* set cabc gain zero when detect backlight */
+	/* setting equal to zero */
+	if (backlight_value == 0)
+		g_aal_param.cabc_fltgain_force = 0;
 
 	ret = mtk_crtc_user_cmd(crtc, comp, SET_PARAM, data);
+
+	atomic_set(&g_aal_allowPartial, g_aal_param.allowPartial);
+
+	if (atomic_read(&g_aal_backlight_notified) == 0)
+		backlight_value = 0;
+
+	mt_leds_brightness_set("lcd-backlight", backlight_value);
+	mtk_crtc_check_trigger(comp->mtk_crtc, false);
 #ifdef DUMPAAL
 	dumpAALReg(comp);
 #endif
@@ -1955,6 +1978,13 @@ static int mtk_disp_aal_probe(struct platform_device *pdev)
 		pm_runtime_disable(dev);
 	}
 
+#ifdef CONFIG_LEDS_MTK_DISP
+#ifdef CONFIG_LEDS_BRIGHTNESS_CHANGED
+	mtk_leds_register_notifier(&leds_init_notifier);
+#endif
+#endif
+
+
 	DDPINFO("%s -\n", __func__);
 	return ret;
 }
@@ -1968,6 +1998,13 @@ static int mtk_disp_aal_remove(struct platform_device *pdev)
 
 	if (priv->dre3_hw.dev)
 		pm_runtime_disable(priv->dre3_hw.dev);
+
+#ifdef CONFIG_LEDS_MTK_DISP
+#ifdef CONFIG_LEDS_BRIGHTNESS_CHANGED
+	mtk_leds_unregister_notifier(&leds_init_notifier);
+#endif
+#endif
+
 	return 0;
 }
 
