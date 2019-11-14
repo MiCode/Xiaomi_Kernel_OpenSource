@@ -5697,11 +5697,8 @@ __look_up_lock_class(struct lockdep_map *lock, unsigned int subclass)
 	struct lock_class *class;
 	bool is_static = false;
 
-	if (unlikely(subclass >= MAX_LOCKDEP_SUBCLASSES)) {
-		pr_info("BUG: looking up invalid subclass: %u\n", subclass);
-		dump_stack();
+	if (unlikely(subclass >= MAX_LOCKDEP_SUBCLASSES))
 		return NULL;
-	}
 
 	/*
 	 * Static locks do not have their class-keys yet - for them the key
@@ -5769,14 +5766,8 @@ __register_lock_class(struct lockdep_map *lock, unsigned int subclass,
 	/*
 	 * Debug-check: all keys must be persistent!
 	 */
-	if (IS_ERR(class)) {
-		debug_locks_off();
-		pr_info("INFO: trying to register non-static key.\n");
-		pr_info("the code is fine but needs lockdep annotation.\n");
-		pr_info("turning off the locking correctness validator.\n");
-		dump_stack();
+	if (IS_ERR(class))
 		return NULL;
-	}
 
 	key = lock->key->subkeys + subclass;
 	hash_head = classhashentry(key);
@@ -5800,9 +5791,6 @@ __register_lock_class(struct lockdep_map *lock, unsigned int subclass,
 	if (nr_lock_classes >= MAX_LOCKDEP_KEYS) {
 		if (!debug_locks_off_graph_unlock())
 			return NULL;
-
-		print_lockdep_off("BUG: MAX_LOCKDEP_KEYS too low!");
-		dump_stack();
 		return NULL;
 	}
 	class = lock_classes + nr_lock_classes++;
@@ -6010,12 +5998,16 @@ static void lockdep_check_held_locks(
 			if (!strncmp(name, "kn->count", 9))
 				skip_this = 1;
 
-			/* locks might be unlocked in runtime */
-			if (skip_this || hlock->timestamp == 0 ||
-			    hlock->timestamp != timestamp_bak)
+			/* skip this warning */
+			if (skip_this)
 				continue;
 
 			output1 = aee ? TO_SRAM : TO_BOTH;
+
+			/* locks might be released in runtime */
+			if (hlock->timestamp == 0 ||
+			    hlock->timestamp != timestamp_bak)
+				continue;
 
 			snprintf(buf_lock, sizeof(buf_lock),
 				 "[%p] (%s) held/waited by %s/%d/[%ld] on CPU#%d/IRQ[%s] from [%lld.%06lu]%s",
@@ -6032,7 +6024,17 @@ static void lockdep_check_held_locks(
 				output2 = TO_BOTH;
 			output2 = aee ? TO_SRAM : output2;
 
+			/* locks might be released in runtime */
+			if (hlock->timestamp == 0 ||
+			    hlock->timestamp != timestamp_bak)
+				continue;
 			held_lock_show_trace(&hlock->trace, output2);
+
+			/* locks might be released in runtime */
+			if (hlock->timestamp == 0 ||
+			    hlock->timestamp != timestamp_bak)
+				continue;
+
 			if (show_task_stack) {
 				task_show_stack(curr, output2);
 				show_task_stack = 0;
