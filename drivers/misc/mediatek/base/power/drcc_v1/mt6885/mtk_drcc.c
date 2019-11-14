@@ -49,11 +49,11 @@
 
 #ifdef __KERNEL__
 	#include <linux/topology.h>
-
 	/* local includes (kernel-4.4)*/
 	#include <mt-plat/mtk_chip.h>
 	/* #include <mt-plat/mtk_gpio.h> */
 	#include "mtk_drcc.h"
+	#include <mt-plat/mtk_devinfo.h>
 #endif
 
 #ifdef CONFIG_OF
@@ -73,6 +73,10 @@
 /************************************************
  * Marco definition
  ************************************************/
+/* efuse: PTPOD index */
+#define DEVINFO_IDX_0 50 //ptp_ftpgm
+#define FAB_INFO3 133 //FAB_INFO3 (0x11C107AC)
+
 #define LOG_INTERVAL	(1LL * NSEC_PER_SEC)
 
 #ifdef TIME_LOG
@@ -282,14 +286,20 @@ static int drcc_reserve_memory_dump(char *buf, unsigned int log_offset)
 {
 	unsigned int str_len = 0;
 	unsigned int i, value[drccNum][4], drcc_n = 0;
+	unsigned int ptp_ftpgm = get_devinfo_with_index(DEVINFO_IDX_0) & 0xff;
+	unsigned int drcc_linearity_flag = 0;
 	char *aee_log_buf = (char *) __get_free_page(GFP_USER);
 
 	if (!aee_log_buf) {
 		drcc_debug("[xxxxDRCC]unable to get free page!\n");
 		return -1;
 	}
+
 	drcc_debug("[xxxxDRCC] buf: 0x%llx, aee_log_buf: 0x%llx\n",
 		(unsigned long long)buf, (unsigned long long)aee_log_buf);
+
+	if (ptp_ftpgm > 2)
+		drcc_linearity_flag = get_devinfo_with_index(FAB_INFO3);
 
 	drcc_debug("log_offset = %u\n", log_offset);
 	if (log_offset == 0) {
@@ -313,6 +323,13 @@ static int drcc_reserve_memory_dump(char *buf, unsigned int log_offset)
 		 (unsigned long long)drcc_mem_size - str_len,
 		 "\n[DRCC][Kernel ??]\n");
 	}
+
+	str_len +=
+		snprintf(aee_log_buf + str_len,
+		(unsigned long long)drcc_mem_size - str_len,
+		"[DRCC] ptp_ftpgm: %x; drcc linearity flag: %x\n",
+			ptp_ftpgm,
+			drcc_linearity_flag);
 
 	str_len += snprintf(aee_log_buf + str_len,
 		(unsigned long long)drcc_mem_size - str_len,
@@ -392,6 +409,7 @@ static int drcc_reserve_memory_dump(char *buf, unsigned int log_offset)
 			0,
 			0)
 		);
+
 
 	if (str_len > 0)
 		memcpy(buf, aee_log_buf, str_len+1);
@@ -1226,6 +1244,14 @@ static int drcc_reg_dump_proc_show(struct seq_file *m, void *v)
 {
 	unsigned long flags;
 	unsigned int i, value[drccNum][4], drcc_n = 0;
+	unsigned int ptp_ftpgm = get_devinfo_with_index(DEVINFO_IDX_0) & 0xff;
+	unsigned int drcc_linearity_flag = 0;
+
+	if (ptp_ftpgm > 2)
+		drcc_linearity_flag = get_devinfo_with_index(FAB_INFO3);
+	seq_printf(m, "[DRCC] ptp_ftpgm: %x; drcc linearity flag: %x\n",
+		ptp_ftpgm,
+		drcc_linearity_flag);
 
 	for (drcc_n = 0; drcc_n < drccNum; drcc_n++) {
 		mtk_drcc_lock(&flags);
@@ -1284,6 +1310,7 @@ static int drcc_reg_dump_proc_show(struct seq_file *m, void *v)
 			0,
 			0)
 		);
+
 	return 0;
 }
 
@@ -1384,6 +1411,10 @@ static int drcc_probe(struct platform_device *pdev)
 	struct device_node *node = NULL;
 	int rc = 0;
 	unsigned int drcc_n = 0;
+	int temp0 = 0xff, temp1 = 0xff, temp = 0;
+	unsigned int ptp_ftpgm = get_devinfo_with_index(DEVINFO_IDX_0) & 0xff;
+	unsigned int drcc_linearity_flag =
+		get_devinfo_with_index(FAB_INFO3) & 0xff;
 
 	node = pdev->dev.of_node;
 	if (!node) {
@@ -1396,9 +1427,33 @@ static int drcc_probe(struct platform_device *pdev)
 		drcc_debug("[xxxxdrcc] state from DTree; rc(%d) state(0x%x)\n",
 			rc,
 			state);
-		for (drcc_n = 0; drcc_n < drccNum; drcc_n++)
+		drcc_debug("[xxxxdrcc] ptp_ftpgm: %x; linearity flag: %x.",
+			ptp_ftpgm, drcc_linearity_flag);
+
+		if (state < 256) {
+			if (ptp_ftpgm > 2) {
+				if (drcc_linearity_flag != 0) {
+					if ((drcc_linearity_flag & 0x0f) != 0)
+						temp0 = ~(0x0f);
+					if ((drcc_linearity_flag & 0xf0) != 0)
+						temp1 = ~(0xf0);
+					temp = temp0 & temp1;
+					state = (temp & state);
+				}
+			}
+		} else {
+			if ((state >> 8) & 0x01)
+				temp0 = 0x0f;
+			if ((state >> 9) & 0x01)
+				temp1 = 0xf0;
+			state = temp0 | temp1;
+		}
+
+		for (drcc_n = 0; drcc_n < drccNum; drcc_n++) {
 			mtk_drcc_enable((state >> drcc_n) & 0x01,
 				drcc_n);
+		}
+
 	}
 
 	rc = of_property_read_u32(node, "drcc0_Vref", &drcc0_Vref);

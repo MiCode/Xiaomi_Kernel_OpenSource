@@ -7124,7 +7124,7 @@ page_owner=on";
 
 	drcc: drcc {
 		compatible = "mediatek,drcc";
-		state = <255>;
+		state = <240>;
 		drcc0_Vref = <255>;
 		drcc1_Vref = <255>;
 		drcc2_Vref = <255>;
