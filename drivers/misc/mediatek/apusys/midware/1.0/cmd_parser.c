@@ -461,12 +461,12 @@ int apusys_subcmd_create(int idx, struct apusys_cmd *cmd,
 	_print_sc_info(sc);
 	*isc = sc;
 
+	/* Calc system load and boost */
+	deadline_task_start(sc);
+
 	mutex_lock(&cmd->sc_mtx);
 	cmd->sc_list[sc->idx] = sc;
 	mutex_unlock(&cmd->sc_mtx);
-
-	/* Calc system load and boost */
-	deadline_task_start(sc);
 
 	return 0;
 
