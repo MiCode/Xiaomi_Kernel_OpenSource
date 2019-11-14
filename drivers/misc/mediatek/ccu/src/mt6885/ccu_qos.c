@@ -38,7 +38,7 @@ void ccu_qos_init(void)
 	mm_qos_add_request(&ccu_request_list, &pccu_i_request,
 		M4U_PORT_L13_CAM_CCUI_MDP);
 	mm_qos_add_request(&ccu_request_list, &pccu_g_request,
-		VIRTUAL_CCU_COMMON);
+		get_virtual_port(VIRTUAL_CCU_COMMON));
 	mm_qos_add_request(&ccu_request_list, &pccu_o_request,
 		M4U_PORT_L13_CAM_CCUO_MDP);
 
