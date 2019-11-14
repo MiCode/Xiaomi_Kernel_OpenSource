@@ -22,6 +22,9 @@
 #include "mt6885-afe-common.h"
 #include "../mtk-base-dsp.h"
 #include "../mtk-dsp-common.h"
+#include "audio_ipi_platform.h"
+#include "adsp_platform.h"
+
 
 /*
  * todo: let user space decide this
@@ -302,4 +305,19 @@ bool mtk_adsp_dai_id_support_share_mem(int dai_id)
 		return false;
 	}
 }
+
+/* base on dsp type get core_id */
+int mtk_get_core_id(int dsp_type)
+{
+	int ret = 0;
+
+	if (dsp_type == AUDIO_OPENDSP_USE_HIFI3_A)
+		ret = ADSP_A_ID;
+	else if (dsp_type == AUDIO_OPENDSP_USE_HIFI3_B)
+		ret = ADSP_B_ID;
+	else
+		ret = -1;
+	return ret;
+}
+
 

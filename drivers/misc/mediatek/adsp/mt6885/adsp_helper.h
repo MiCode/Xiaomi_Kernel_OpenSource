@@ -60,11 +60,12 @@ enum ADSP_NOTIFY_EVENT {
 };
 
 enum semaphore_3way_flag {
-	SEMA_3WAY_UART = 0,
-	SEMA_3WAY_C2C = 1,
-	SEMA_3WAY_DVFS = 2,
-	SEMA_3WAY_AUDIO = 3,
-	SEMA_3WAY_NUM = 7,
+	SEMA_3WAY_UART =  0,
+	SEMA_3WAY_C2C_A = 1,
+	SEMA_3WAY_C2C_B = 2,
+	SEMA_3WAY_DVFS =  3,
+	SEMA_3WAY_AUDIO = 4,
+	SEMA_3WAY_NUM =   7,
 };
 
 #define ADSP_OSTIMER_BUFFER    (adsp_timesync_ptr)

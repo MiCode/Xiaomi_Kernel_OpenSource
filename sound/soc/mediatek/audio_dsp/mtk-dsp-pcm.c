@@ -180,6 +180,7 @@ static int dsp_pcm_dev_probe(struct platform_device *pdev)
 		pr_info("init share mem fail\n");
 
 	mtk_audio_register_notify();
+
 	return 0;
 
 err_platform:

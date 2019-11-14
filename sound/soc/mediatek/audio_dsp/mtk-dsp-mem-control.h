@@ -16,6 +16,10 @@
 
 #include "mtk-base-dsp.h"
 
+/* page size */
+#define MIN_DSP_SHIFT (8)
+#define MIN_DSP_POOL_SIZE (1 << MIN_DSP_SHIFT)
+
 struct audio_dsp_dram;
 struct gen_pool;
 struct mtk_base_dsp;
@@ -77,6 +81,9 @@ unsigned int mtk_get_adsp_sharemem_size(int audio_task_id,
 /* init dsp share memory */
 int mtk_adsp_init_gen_pool(struct mtk_base_dsp *dsp);
 int mtk_init_adsp_audio_share_mem(struct mtk_base_dsp *dsp);
+/* here to init ap/adsp share memory */
+int adsp_core_mem_init(struct mtk_base_dsp *dsp);
+
 
 /* init task with certain task id */
 int adsp_task_init(int task_id, struct mtk_base_dsp *dsp);

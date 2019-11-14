@@ -824,7 +824,7 @@ static void mtk_dsp_dl_consume_handler(struct mtk_base_dsp *dsp,
 	    dsp->dsp_mem[id].adsp_work_buf.aud_buffer.buf_bridge.pRead;
 
 #ifdef DEBUG_VERBOSE_IRQ
-	dump_rbuf_s("+%s", __func__, &dsp->dsp_mem[id].ring_buf);
+	dump_rbuf_s("dl_consume", &dsp->dsp_mem[id].ring_buf);
 #endif
 
 	sync_ringbuf_readidx(
@@ -1376,6 +1376,74 @@ static int mtk_dsp_pcm_new(struct snd_soc_pcm_runtime *rtd)
 	return 0;
 }
 
+irqreturn_t audio_irq_handler(int irq, void *data, int core_id)
+{
+	struct mtk_base_dsp *dsp = (struct mtk_base_dsp *)data;
+	unsigned long task_value;
+	int dsp_scene, task_id;
+	unsigned long *pdtoa;
+
+	if (!dsp) {
+		pr_info("%s dsp[%p]\n", __func__, dsp);
+		goto IRQ_ERROR;
+	}
+	if (core_id >= ADSP_CORE_TOTAL) {
+		pr_info("%s core_id[%d]\n", __func__, core_id);
+		goto IRQ_ERROR;
+	}
+	if (!dsp->core_share_mem.ap_adsp_core_mem[core_id]) {
+		pr_info("%s core_id [%d] ap_adsp_core_mem[%p]\n",
+			__func__, core_id,
+			dsp->core_share_mem.ap_adsp_core_mem[core_id]);
+		goto IRQ_ERROR;
+	}
+
+	/* using semaphore to sync ap <=> adsp */
+	if (!get_adsp_semaphore(SEMA_3WAY_AUDIO))
+		pr_info("%s get semaphore fail\n", __func__);
+	pdtoa = (unsigned long *)
+		&dsp->core_share_mem.ap_adsp_core_mem[core_id]->dtoa_flag;
+	/* read dram data need mb()  */
+	mb();
+	do {
+		/* valid bits */
+		task_value = fls(*pdtoa);
+		if (task_value) {
+			dsp_scene = task_value - 1;
+			task_id = get_dspdaiid_by_dspscene(dsp_scene);
+#ifdef DEBUG_VERBOSE_IRQ
+			pr_info("+%s flag[%llx] task_id[%d] task_value[%lu]\n",
+			__func__, *pdtoa, task_id, task_value);
+#endif
+			clear_bit(dsp_scene, pdtoa);
+			/* read dram data need mb()  */
+			mb();
+			if (task_id >= 0)
+				mtk_dsp_dl_consume_handler(dsp, NULL, task_id);
+#ifdef DEBUG_VERBOSE_IRQ
+			pr_info("-%s flag[%llx] task_id[%d] task_value[%lu]\n",
+			__func__, *pdtoa, task_id, task_value);
+#endif
+		}
+	} while (*pdtoa && task_value);
+	release_adsp_semaphore(SEMA_3WAY_AUDIO);
+	return IRQ_HANDLED;
+IRQ_ERROR:
+	pr_info("IRQ_ERROR irq[%d] data[%p] core_id[%d] dsp[%p]\n",
+		irq, data, core_id, dsp);
+	return IRQ_HANDLED;
+}
+
+irqreturn_t audio_irq_a_handler(int irq, void *data)
+{
+	return audio_irq_handler(irq, data, ADSP_A_ID);
+}
+
+irqreturn_t audio_irq_b_handler(int irq, void *data)
+{
+	return audio_irq_handler(irq, data, ADSP_B_ID);
+}
+
 #ifdef CFG_RECOVERY_SUPPORT
 static int audio_send_reset_event(void)
 {
@@ -1425,8 +1493,10 @@ static int mtk_dsp_probe(struct snd_soc_platform *platform)
 {
 	int ret = 0;
 	int id = 0;
+	struct mtk_base_dsp *dsp = snd_soc_platform_get_drvdata(platform);
 
 	pr_info("%s\n", __func__);
+
 	aud_wake_lock_init(&adsp_audio_wakelock, "adsp_audio_wakelock");
 
 	snd_soc_add_platform_controls(platform,
@@ -1440,10 +1510,14 @@ static int mtk_dsp_probe(struct snd_soc_platform *platform)
 			return ret;
 	}
 
+	adsp_irq_registration(ADSP_A_ID, ADSP_IRQ_AUDIO_ID, audio_irq_a_handler,
+			      "ADSP_A_AUD ", dsp);
+	adsp_irq_registration(ADSP_B_ID, ADSP_IRQ_AUDIO_ID, audio_irq_b_handler,
+			      "ADSP_B_AUD ", dsp);
 	adsp_register_notify(&adsp_audio_notifier);
+
 	return ret;
 }
-
 
 static const struct snd_pcm_ops mtk_dsp_pcm_ops = {
 	.open = mtk_dsp_pcm_open,

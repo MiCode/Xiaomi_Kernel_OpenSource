@@ -22,6 +22,7 @@
 #include "mtk-dsp-mem-control.h"
 #include "mtk-base-dsp.h"
 #include "mtk-dsp-common.h"
+#include "audio_ipi_platform.h"
 
 #include <mtk_spm_resource_req.h>
 
@@ -29,8 +30,6 @@
 #include "mtk_mcdi_governor_hint.h"
 #endif
 
-/* page size */
-#define MIN_DSP_SHIFT (8)
 
 static DEFINE_MUTEX(adsp_control_mutex);
 static DEFINE_MUTEX(adsp_mutex_request_dram);
@@ -38,6 +37,7 @@ static bool binitadsp_share_mem;
 static struct audio_dsp_dram dsp_dram_buffer[AUDIO_DSP_SHARE_MEM_NUM];
 static struct gen_pool *dsp_dram_pool[AUDIO_DSP_SHARE_MEM_NUM];
 static struct snd_dma_buffer dma_audio_buffer[AUDIO_DSP_SHARE_MEM_NUM];
+
 
 /* function */
 static int get_dsp_dram_sement_by_id(struct audio_dsp_dram *buffer, int id);
@@ -767,6 +767,104 @@ int mtk_adsp_init_gen_pool(struct mtk_base_dsp *dsp)
 	return 0;
 }
 
+static int adsp_core_mem_initall(struct mtk_base_dsp *dsp,
+				 unsigned int task_scene)
+{
+	int ret = 0, core_id = 0, dsp_type;
+	unsigned long vaddr;
+	unsigned long long size;
+	dma_addr_t paddr;
+	struct audio_dsp_dram *pshare_dram;
+	struct gen_pool *gen_pool_buffer;
+	struct ipi_msg_t ipi_msg;
+	unsigned char ipi_payload_buf[MAX_PAYLOAD_SIZE];
+
+	dsp_type = audio_get_dsp_id(task_scene);
+
+	if (dsp_type == AUDIO_OPENDSP_ID_INVALID) {
+		pr_info("%s AUDIO_OPENDSP_ID_INVALID\n", __func__);
+		return -1;
+	}
+
+	if (dsp == NULL) {
+		pr_info("%s dsp == NULL\n", __func__);
+		return -1;
+	}
+
+	/* get gen pool*/
+	dsp->core_share_mem.gen_pool_buffer =
+		mtk_get_adsp_dram_gen_pool(AUDIO_DSP_AFE_SHARE_MEM_ID);
+	if (!dsp->core_share_mem.gen_pool_buffer) {
+		pr_info("%s get gen_pool_buffer NULL\n", __func__);
+		return -1;
+	}
+
+	/* allocate for adsp core share mem */
+	core_id = mtk_get_core_id(dsp_type);
+	if (core_id < 0) {
+		pr_info("%s core_id[%d] error\n", __func__, core_id);
+		return -1;
+	}
+
+	pshare_dram =
+		&dsp->core_share_mem.ap_adsp_share_buf[core_id];
+
+	gen_pool_buffer = dsp->core_share_mem.gen_pool_buffer;
+
+	/* allocate VA with gen pool*/
+	size = sizeof(struct audio_core_flag);
+	if (size <= MIN_DSP_POOL_SIZE)
+		size = MIN_DSP_POOL_SIZE;
+
+	if (pshare_dram->size == 0) {
+		vaddr = gen_pool_alloc(gen_pool_buffer,
+			sizeof(struct audio_core_flag));
+		paddr = gen_pool_virt_to_phys(gen_pool_buffer, vaddr);
+		pshare_dram->phy_addr = paddr;
+		pshare_dram->va_addr = vaddr;
+		pshare_dram->vir_addr = (char *)vaddr;
+		pshare_dram->size = size;
+	} else {
+		pr_info("%s get gen_pool_alloc size used\n", __func__);
+	}
+
+	dsp->core_share_mem.ap_adsp_core_mem[core_id] =
+		(struct audio_core_flag *)pshare_dram->vir_addr;
+
+	dump_mtk_adsp_dram(dsp->core_share_mem.ap_adsp_share_buf[core_id]);
+
+	/* send share message information to adsp side */
+	ret = copy_ipi_payload(
+		(void *)ipi_payload_buf,
+		(void *)pshare_dram,
+		sizeof(struct audio_dsp_dram));
+	pr_info("%s task_scene[%u] core_id[%d] dsp_type[%d]\n",
+		__func__, task_scene, core_id, dsp_type);
+	ret = audio_send_ipi_msg(
+		&ipi_msg, task_scene,
+		AUDIO_IPI_LAYER_TO_DSP, AUDIO_IPI_PAYLOAD,
+		AUDIO_IPI_MSG_BYPASS_ACK, AUDIO_DSP_TASK_COREMEM_SET,
+		sizeof(struct audio_dsp_dram), 0,
+		(char *)ipi_payload_buf);
+
+	return ret;
+}
+
+/* init for adsp/ap share mem ex:irq */
+int adsp_core_mem_init(struct mtk_base_dsp *dsp)
+{
+	int ret;
+
+	memset(&dsp->core_share_mem, 0, sizeof(struct mtk_ap_adsp_mem));
+	ret = adsp_core_mem_initall(dsp, TASK_SCENE_AUD_DAEMON_A);
+	if (ret)
+		pr_info("%s fail AUD_DAEMON_A\n", __func__);
+	ret = adsp_core_mem_initall(dsp, TASK_SCENE_AUD_DAEMON_B);
+	if (ret)
+		pr_info("%s fail AUD_DAEMON_B\n", __func__);
+	return 0;
+}
+
 int adsp_task_init(int task_id, struct mtk_base_dsp *dsp)
 {
 	int ret = 0;
@@ -849,6 +947,9 @@ int mtk_init_adsp_audio_share_mem(struct mtk_base_dsp *dsp)
 	/* init for dsp-audio task share memory address */
 	for (task_id = 0; task_id < AUDIO_TASK_DAI_NUM; task_id++)
 		adsp_task_init(task_id, dsp);
+
+	/* here to init ap/adsp share memory */
+	adsp_core_mem_init(dsp);
 
 	adsp_deregister_feature(AUDIO_CONTROLLER_FEATURE_ID);
 

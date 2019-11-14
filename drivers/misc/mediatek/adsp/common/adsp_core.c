@@ -166,9 +166,8 @@ static irqreturn_t adsp_irq_dispatcher(int irq, void *data)
 	adsp_mt_clr_spm(pdata->cid);
 	if (!pdata->irq_cb || !pdata->clear_irq)
 		return IRQ_NONE;
-	pdata->irq_cb(irq, pdata->data);
 	pdata->clear_irq(pdata->cid);
-
+	pdata->irq_cb(irq, pdata->data);
 	return IRQ_HANDLED;
 }
 
@@ -184,7 +183,6 @@ int adsp_irq_registration(u32 core_id, u32 irq_id, void *handler,
 	ret = request_irq(pdata->irq[irq_id].seq,
 			  (irq_handler_t)adsp_irq_dispatcher,
 			  IRQF_TRIGGER_HIGH, name, &pdata->irq[irq_id]);
-
 	return ret;
 }
 
