@@ -701,7 +701,7 @@ int res_suspend_dev(void)
 
 		/* call suspend */
 		for (i = 0; i < tab->dev_num; i++) {
-			LOG_DEBUG("suspend dev(%d-#%d)...\n", dev_type, i);
+			//LOG_DEBUG("suspend dev(%d-#%d)...\n", dev_type, i);
 
 			ret = tab->dev_list[i].dev->send_cmd(APUSYS_CMD_SUSPEND,
 				NULL, tab->dev_list[i].dev);
@@ -747,7 +747,7 @@ int res_resume_dev(void)
 			}
 
 			/* call resume */
-			LOG_DEBUG("resume dev(%d-#%d)...\n", dev_type, i);
+			//LOG_DEBUG("resume dev(%d-#%d)...\n", dev_type, i);
 			ret = tab->dev_list[i].dev->send_cmd(APUSYS_CMD_RESUME,
 				NULL, tab->dev_list[i].dev);
 			if (ret) {

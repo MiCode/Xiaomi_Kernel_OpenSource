@@ -206,7 +206,7 @@ int thread_pool_add_once(void)
 	memset(name, 0, sizeof(name));
 	/* critical seesion */
 	mutex_lock(&g_pool_mgr.mtx);
-	snprintf(name, sizeof(name)-1, "apusys_%d", g_pool_mgr.total);
+	snprintf(name, sizeof(name)-1, "apusys_worker%d", g_pool_mgr.total);
 	inst->status = APUSYS_THREAD_STATUS_IDLE;
 	inst->idx = g_pool_mgr.total;
 

@@ -62,8 +62,8 @@ struct sample_usercmd {
 };
 
 static struct sample_dev_info *sample_private[SAMPLE_DEVICE_NUM];
-
-static void _print_private(void *private)
+#if 0
+void _print_private(void *private)
 {
 	struct sample_dev_info *info = NULL;
 
@@ -82,7 +82,7 @@ static void _print_private(void *private)
 	LOG_INFO("=============================");
 
 }
-
+#endif
 static void _print_hnd(int type, void *hnd)
 {
 	struct apusys_cmd_hnd *cmd = NULL;
@@ -93,7 +93,7 @@ static void _print_hnd(int type, void *hnd)
 
 	/* check argument */
 	if (hnd == NULL) {
-		LOG_ERR("wrong hnd\n");
+		//LOG_ERR("wrong hnd\n");
 		return;
 	}
 
@@ -108,6 +108,10 @@ static void _print_hnd(int type, void *hnd)
 		LOG_INFO("--------------------------------");
 		LOG_INFO("| opp      = %-18d|\n", pwr->opp);
 		LOG_INFO("| boostval = %-18d|\n", pwr->boost_val);
+		break;
+
+	case APUSYS_CMD_SUSPEND:
+	case APUSYS_CMD_RESUME:
 		break;
 
 	case APUSYS_CMD_EXECUTE:
@@ -387,7 +391,6 @@ int sample_send_cmd(int type, void *hnd, struct apusys_device *dev)
 
 	LOG_INFO("send cmd: private ptr = %p\n", dev->private);
 
-	_print_private(dev);
 	_print_hnd(type, hnd);
 
 	switch (type) {

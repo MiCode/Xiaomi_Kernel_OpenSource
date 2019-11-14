@@ -16,6 +16,10 @@
 #include <linux/delay.h>
 #include <linux/slab.h>
 #include <linux/kthread.h>
+#include <linux/device.h>
+#ifdef CONFIG_PM_WAKELOCKS
+#include <linux/pm_wakeup.h>
+#endif
 
 #include "apusys_cmn.h"
 #include "apusys_options.h"
@@ -60,6 +64,56 @@ static struct pack_cmd_mgr g_pack_mgr;
 static struct task_struct *sched_task;
 
 //----------------------------------------------
+#ifdef CONFIG_PM_WAKELOCKS
+static struct wakeup_source *apusys_sched_ws;
+static uint32_t ws_count;
+static struct mutex ws_mutex;
+#endif
+
+static void sched_ws_init(void)
+{
+#ifdef CONFIG_PM_WAKELOCKS
+	ws_count = 0;
+	mutex_init(&ws_mutex);
+	apusys_sched_ws = wakeup_source_register("apusys_sched");
+	if (!apusys_sched_ws)
+		LOG_ERR("apusys sched wakelock register fail!\n");
+#else
+	LOG_DEBUG("not support pm wakelock\n");
+#endif
+}
+
+static void sched_ws_lock(void)
+{
+#ifdef CONFIG_PM_WAKELOCKS
+	mutex_lock(&ws_mutex);
+	//LOG_INFO("wakelock count(%d)\n", ws_count);
+	if (apusys_sched_ws && !ws_count) {
+		LOG_DEBUG("lock wakelock\n");
+		__pm_stay_awake(apusys_sched_ws);
+	}
+	ws_count++;
+	mutex_unlock(&ws_mutex);
+#else
+	LOG_DEBUG("not support pm wakelock\n");
+#endif
+}
+
+static void sched_ws_unlock(void)
+{
+#ifdef CONFIG_PM_WAKELOCKS
+	mutex_lock(&ws_mutex);
+	//LOG_INFO("wakelock count(%d)\n", ws_count);
+	ws_count--;
+	if (apusys_sched_ws && !ws_count) {
+		LOG_DEBUG("unlock wakelock\n");
+		__pm_relax(apusys_sched_ws);
+	}
+	mutex_unlock(&ws_mutex);
+#else
+	LOG_DEBUG("not support pm wakelock\n");
+#endif
+}
 struct mem_ctx_mgr {
 	struct mutex mtx;
 	unsigned long ctx[BITS_TO_LONGS(32)];
@@ -819,6 +873,7 @@ int apusys_sched_del_cmd(struct apusys_cmd *cmd)
 int apusys_sched_wait_cmd(struct apusys_cmd *cmd)
 {
 	int ret = 0, state = -1;
+	int retry = 20, retry_time = 50;
 	unsigned long timeout = usecs_to_jiffies(APUSYS_PARAM_WAIT_TIMEOUT);
 
 	if (cmd == NULL)
@@ -832,13 +887,30 @@ int apusys_sched_wait_cmd(struct apusys_cmd *cmd)
 	if (state == CMD_STATE_DONE)
 		return ret;
 
+	sched_ws_lock();
+
+start:
 	ret = wait_for_completion_interruptible_timeout(&cmd->comp, timeout);
-	if (ret <= 0) {
-		LOG_ERR("user ctx interrupt(%d)\n", ret);
-		cmd->cmd_ret = -ETIME;
+	if (ret == -ERESTARTSYS) {
+		LOG_WARN("user ctx interrupt(%d) cmd(0x%llx)\n",
+			ret, cmd->cmd_id);
+		if (retry) {
+			LOG_INFO("retry cmd(0x%llx)(%d)...\n",
+				cmd->cmd_id,
+				retry);
+			retry--;
+			msleep(retry_time);
+			goto start;
+		}
+	} else if (ret <= 0) {
+		LOG_ERR("user ctx interrupt(%d) cmd(0x%llx)\n",
+			ret, cmd->cmd_id);
+		cmd->cmd_ret = ret;
 	} else {
 		ret = 0;
 	}
+
+	sched_ws_unlock();
 
 	return ret;
 }
@@ -946,6 +1018,7 @@ int apusys_sched_init(void)
 	int ret = 0;
 
 	LOG_INFO("%s +\n", __func__);
+	sched_ws_init();
 
 	memset(&g_ctx_mgr, 0, sizeof(struct mem_ctx_mgr));
 	mutex_init(&g_ctx_mgr.mtx);

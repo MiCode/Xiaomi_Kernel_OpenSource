@@ -591,8 +591,14 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		/* wait cmd done */
 		ret = apusys_sched_wait_cmd(a_cmd);
 		if (ret) {
-			LOG_ERR("wait cmd(0x%llx) fail\n",
+			LOG_ERR("cmd(0x%llx) wait fail\n",
 				a_cmd->cmd_id);
+		} else {
+			ret = a_cmd->cmd_ret;
+			if (ret) {
+				LOG_ERR("cmd(0x%llx) exec fail(%d)\n",
+					a_cmd->cmd_id, ret);
+			}
 		}
 
 		/* delete cmd from user list */
@@ -601,9 +607,6 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			a_cmd->cmd_id);
 			ret = -EINVAL;
 		}
-
-		if (!ret)
-			ret = a_cmd->cmd_ret;
 
 		/* delete cmd */
 		if (apusys_cmd_delete(a_cmd)) {
@@ -690,15 +693,16 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			goto out;
 		}
 
-		if (a_cmd->cmd_ret) {
-			LOG_WARN("cmd result fail(%d)\n", a_cmd->cmd_ret);
+		/* wait cmd done */
+		ret = apusys_sched_wait_cmd(a_cmd);
+		if (ret) {
+			LOG_ERR("cmd(0x%llx) wait fail\n",
+				a_cmd->cmd_id);
 		} else {
-			/* wait cmd done */
-			ret = apusys_sched_wait_cmd(a_cmd);
+			ret = a_cmd->cmd_ret;
 			if (ret) {
-				LOG_ERR("wait cmd(0x%llx) fail",
-					a_cmd->cmd_id);
-				ret = -EINVAL;
+				LOG_ERR("cmd(0x%llx) exec fail(%d)\n",
+					a_cmd->cmd_id, ret);
 			}
 		}
 
