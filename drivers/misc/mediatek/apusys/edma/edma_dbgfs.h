@@ -24,4 +24,13 @@ enum edma_dbg_cfg {
 	EDMA_DBG_ALL = 0xFFFFFFF,
 };
 
+enum {
+	EDMA_LOG_WARN,
+	EDMA_LOG_INFO,
+	EDMA_LOG_DEBUG,
+};
+
+extern u8 g_edma_log_lv;
+
+
 #endif /* __EDMA_DBGFS_H__ */

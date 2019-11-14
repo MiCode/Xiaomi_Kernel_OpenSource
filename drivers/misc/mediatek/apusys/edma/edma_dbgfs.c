@@ -21,6 +21,9 @@
 #include "edma_dbgfs.h"
 #include "edma_reg.h"
 
+
+u8 g_edma_log_lv = EDMA_LOG_WARN;
+
 static ssize_t show_edma_register(struct device *dev,
 				   struct device_attribute *attr, char *buf)
 {
@@ -119,14 +122,44 @@ static ssize_t set_edma_power(struct device *dev,
 	return count;
 }
 
+static ssize_t show_edma_dbglv(struct device *dev,
+				   struct device_attribute *attr, char *buf)
+{
+	int count = 0;
+
+	count += scnprintf(buf + count, PAGE_SIZE - count,
+					"g_edma_log_lv =%d:\n", g_edma_log_lv);
+
+	return count;
+}
+
+static ssize_t set_edma_dbglv(struct device *dev,
+			   struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	unsigned int input;
+	int ret;
+
+	ret = kstrtouint(buf, 10, &input);
+
+	dev_notice(dev, "set debug lv = %d\n", input);
+
+	g_edma_log_lv = input;
+
+	return count;
+}
+
 
 DEVICE_ATTR(edma_register, 0644, show_edma_register,
 	    set_edma_register);
 DEVICE_ATTR(edma_power, 0644, show_edma_power, set_edma_power);
 
+DEVICE_ATTR(edma_debuglv, 0644, show_edma_dbglv, set_edma_dbglv);
+
 static struct attribute *edma_sysfs_entries[] = {
 	&dev_attr_edma_register.attr,
 	&dev_attr_edma_power.attr,
+	&dev_attr_edma_debuglv.attr,
 	NULL,
 };
 

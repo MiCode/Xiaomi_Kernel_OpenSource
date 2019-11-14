@@ -17,12 +17,8 @@
 
 #include <linux/interrupt.h>
 #include "edma_ioctl.h"
+#include "edma_dbgfs.h"
 
-enum {
-	EDMA_LOG_WARN,
-	EDMA_LOG_INFO,
-	EDMA_LOG_DEBUG,
-};
 
 #if 0
 #define EDMA_PREFIX "[edma]"
@@ -45,7 +41,15 @@ extern u8 g_edma_log_lv;
 #define EDMA_TAG "[edma]"
 #define EDMA_DEBUG
 #ifdef EDMA_DEBUG
-#define LOG_DBG(format, args...)    pr_debug(EDMA_TAG " " format, ##args)
+//#define LOG_DBG(format, args...)    pr_debug(EDMA_TAG " " format, ##args)
+
+#define LOG_DBG(x, args...) \
+	{ \
+		if (g_edma_log_lv >= EDMA_LOG_DEBUG) \
+			pr_info(EDMA_TAG "[debug] %s/%d "\
+			x, __func__, __LINE__, ##args); \
+	}
+
 #else
 #define LOG_DBG(format, args...)
 #endif

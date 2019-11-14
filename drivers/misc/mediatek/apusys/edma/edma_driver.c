@@ -178,6 +178,7 @@ static const struct of_device_id mtk_edma_sub_of_ids[] = {
 int edma_send_cmd(int cmd, void *hnd, struct apusys_device *adev)
 {
 	struct edma_sub *edma_sub;
+	int result = 0;
 
 	if (adev == NULL)
 		return -EINVAL;
@@ -185,27 +186,27 @@ int edma_send_cmd(int cmd, void *hnd, struct apusys_device *adev)
 	edma_sub = (struct edma_sub *)adev->private;
 
 #ifdef DEBUG
-		pr_notice("%s:cmd = %d, name = %s\n", __func__,
+		LOG_DBG("%s:cmd = %d, name = %s\n", __func__,
 		cmd, edma_sub->sub_name);
 #endif
 
 	switch (cmd) {
 	case APUSYS_CMD_POWERON:
 		/*pre-power on*/
-		edma_power_on(edma_sub);
+		return edma_power_on(edma_sub);
 		break;
 	case APUSYS_CMD_POWERDOWN:
-		edma_power_off(edma_sub, 1);
+		//return edma_power_off(edma_sub, 1);
 		break;
 	case APUSYS_CMD_RESUME:
+		return result;
 		break;
 	case APUSYS_CMD_SUSPEND:
-		edma_power_off(edma_sub, 1);
+		return edma_power_off(edma_sub, 1);
 		break;
 	case APUSYS_CMD_EXECUTE:{
 			struct apusys_cmd_hnd *cmd_hnd;
 			struct edma_ext *edma_ext;
-			int result;
 			if (hnd == NULL)
 				break;
 
@@ -223,6 +224,7 @@ int edma_send_cmd(int cmd, void *hnd, struct apusys_device *adev)
 			return result;
 		}
 	case APUSYS_CMD_PREEMPT:
+		return result;
 		break;
 	default:
 		break;

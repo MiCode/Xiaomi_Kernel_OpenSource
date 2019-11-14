@@ -1474,7 +1474,7 @@ void edma_start_power_off(struct work_struct *work)
 
 	ret = apu_device_power_off(EDMA);
 	if (ret != 0) {
-		LOG_ERR("%s power on fail\n", __func__);
+		LOG_ERR("%s power off fail\n", __func__);
 	} else {
 		pr_notice("%s: power off done!!\n", __func__);
 		edmaDev->power_state = EDMA_POWER_OFF;
@@ -1514,16 +1514,24 @@ int edma_power_off(struct edma_sub *edma_sub, u8 force)
 			del_timer(&edma_device->power_timer);
 
 		if (force == 1) {
-			ret = apu_device_power_off(EDMA);
-			pr_notice("%s: force power off!!\n", __func__);
-			if (!ret) {
-				LOG_INF("%s power off success\n",
-								__func__);
-				edma_device->power_state = EDMA_POWER_OFF;
-			} else {
-				LOG_ERR("%s power off fail\n",
-								__func__);
-			}
+
+			if (edma_device->power_state != EDMA_POWER_OFF) {
+				ret = apu_device_power_suspend(EDMA, 1);
+				pr_notice("%s: force power off!!\n", __func__);
+				if (!ret) {
+					LOG_INF("%s power off success\n",
+							__func__);
+					edma_device->power_state =
+						EDMA_POWER_OFF;
+				} else {
+					LOG_ERR("%s power off fail\n",
+						__func__);
+				}
+
+			} else
+				LOG_INF("%s force power off skip\n",
+						__func__);
+
 		} else {
 			edma_device->power_timer.expires = jiffies +
 			msecs_to_jiffies(EDMA_POWEROFF_TIME_DEFAULT);
@@ -1555,8 +1563,9 @@ int edma_execute(struct edma_sub *edma_sub, struct edma_ext *edma_ext)
 	exe_time = (((t2.tv_sec - t1.tv_sec) & 0xFFF) * 1000000 +
 		(t2.tv_usec - t1.tv_usec));
 
-	pr_notice("%s:ip time = %d\n", __func__, edma_sub->ip_time);
-	pr_notice("%s:function done, exe_time = %d\n", __func__, exe_time);
+	//pr_notice("%s:ip time = %d\n", __func__, edma_sub->ip_time);
+	pr_notice("%s:function done, exe_time = %d, ip time = %d\n",
+		__func__, exe_time, edma_sub->ip_time);
 #endif
 	return ret;
 }
