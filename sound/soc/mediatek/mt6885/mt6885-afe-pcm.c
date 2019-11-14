@@ -1001,11 +1001,10 @@ static int mt6885_sram_size_get(struct snd_kcontrol *kcontrol,
 {
 	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+	struct mtk_audio_sram *sram = afe->sram;
 
 	ucontrol->value.integer.value[0] =
-		mtk_audio_sram_get_size(afe->sram, MTK_AUDIO_SRAM_NORMAL_MODE);
-	ucontrol->value.integer.value[1] =
-		mtk_audio_sram_get_size(afe->sram, MTK_AUDIO_SRAM_COMPACT_MODE);
+		mtk_audio_sram_get_size(sram, sram->prefer_mode);
 
 	return 0;
 }
@@ -1522,7 +1521,7 @@ static const struct snd_kcontrol_new mt6885_pcm_kcontrols[] = {
 		       mt6885_primary_scene_get, mt6885_primary_scene_set),
 	SOC_SINGLE_EXT("voip_rx_scenario", SND_SOC_NOPM, 0, 0x1, 0,
 		       mt6885_voip_scene_get, mt6885_voip_scene_set),
-	SOC_DOUBLE_EXT("sram_size", SND_SOC_NOPM, 0, 1, 0xffffffff, 0,
+	SOC_SINGLE_EXT("sram_size", SND_SOC_NOPM, 0, 0xffffffff, 0,
 		       mt6885_sram_size_get, NULL),
 #if defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
 	SOC_SINGLE_EXT("vow_barge_in_irq_id", SND_SOC_NOPM, 0, 0x3ffff, 0,
