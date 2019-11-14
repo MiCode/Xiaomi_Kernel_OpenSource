@@ -166,14 +166,16 @@ struct core_swpm_index {
 	unsigned int write_bw;
 };
 
+/* sync with mt6885 emi in sspm */
+#define MAX_EMI_NUM (2)
 /* TODO: dram power index structure */
 struct mem_swpm_index {
 	unsigned int read_bw;
 	unsigned int write_bw;
-	unsigned int srr_pct;	/* self refresh rate */
-	unsigned int pdir_pct;	/* power-down idle rate */
-	unsigned int phr_pct;	/* page-hit rate */
-	unsigned int acc_util;	/* accumulate EMI utilization */
+	unsigned int srr_pct;			/* self refresh rate */
+	unsigned int pdir_pct[MAX_EMI_NUM];	/* power-down idle rate */
+	unsigned int phr_pct[MAX_EMI_NUM];	/* page-hit rate */
+	unsigned int acc_util[MAX_EMI_NUM];	/* accumulate EMI utilization */
 	unsigned int mr4;
 };
 
