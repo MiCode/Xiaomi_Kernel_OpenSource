@@ -276,9 +276,11 @@ static void cmdq_test_mbox_cpr(struct cmdq_test *test)
 
 		ret = readl((void *)va);
 		if (ret != pttn)
-			cmdq_err("ret:%#x not equal to pttn:%#x", ret, pttn);
+			cmdq_err("ret:%#x not equal to pttn:%#x for idx:%d",
+				ret, pttn, i + CMDQ_CPR_STRAT_ID);
 		else
-			cmdq_msg("ret:%#x equals to pttn:%#x", ret, pttn);
+			cmdq_msg("ret:%#x equals to pttn:%#x for idx:%d",
+				ret, pttn, i + CMDQ_CPR_STRAT_ID);
 	}
 	cmdq_pkt_destroy(pkt);
 	clk_disable_unprepare(test->gce.clk);
@@ -391,6 +393,8 @@ void cmdq_test_mbox_polling(
 
 	clk_disable_unprepare(test->gce.clk_timer);
 	clk_disable_unprepare(test->gce.clk);
+
+	cmdq_msg("%s end", __func__);
 }
 
 static void cmdq_test_mbox_large_cmd(struct cmdq_test *test)

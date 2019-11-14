@@ -1058,10 +1058,22 @@ s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 	const u16 reg_val = CMDQ_THR_SPR_IDX1;
 	const u16 reg_poll = CMDQ_THR_SPR_IDX2;
 	const u16 reg_counter = CMDQ_THR_SPR_IDX3;
-	u32 begin_mark, end_addr_mark, shift_pa;
+	u32 begin_mark, end_addr_mark, cnt_end_addr_mark = 0, shift_pa;
 	dma_addr_t cmd_pa;
 	struct cmdq_operand lop, rop;
 	struct cmdq_instruction *inst;
+	bool absolute = true;
+
+	if (pkt->avail_buf_size > PAGE_SIZE)
+		absolute = false;
+
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
+#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
+	IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+	if (pkt->sec_data)
+		absolute = false;
+#endif
+#endif
 
 	/* assign compare value as compare target later */
 	cmdq_pkt_assign_command(pkt, reg_val, value);
@@ -1102,16 +1114,27 @@ s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 	lop.idx = reg_poll;
 	rop.reg = true;
 	rop.idx = reg_val;
-	cmdq_pkt_cond_jump_abs(pkt, reg_tmp, &lop, &rop, CMDQ_EQUAL);
+	if (absolute)
+		cmdq_pkt_cond_jump_abs(pkt, reg_tmp, &lop, &rop, CMDQ_EQUAL);
+	else
+		cmdq_pkt_cond_jump(pkt, reg_tmp, &lop, &rop, CMDQ_EQUAL);
 
 	/* check if timeup and inc counter */
 	if (count != U16_MAX) {
+		if (!absolute) {
+			cnt_end_addr_mark = pkt->cmd_buf_size;
+			cmdq_pkt_assign_command(pkt, reg_tmp, 0);
+		}
 		lop.reg = true;
 		lop.idx = reg_counter;
 		rop.reg = false;
 		rop.value = count;
-		cmdq_pkt_cond_jump_abs(pkt, reg_tmp, &lop, &rop,
-			CMDQ_GREATER_THAN_AND_EQUAL);
+		if (absolute)
+			cmdq_pkt_cond_jump_abs(pkt, reg_tmp, &lop, &rop,
+				CMDQ_GREATER_THAN_AND_EQUAL);
+		else
+			cmdq_pkt_cond_jump(pkt, reg_tmp, &lop, &rop,
+				CMDQ_GREATER_THAN_AND_EQUAL);
 	}
 
 	/* always inc counter */
@@ -1126,8 +1149,13 @@ s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 	cmdq_pkt_sleep(pkt, 2600, reg_gpr);
 
 	/* loop to begin */
-	cmd_pa = cmdq_pkt_get_pa_by_offset(pkt, begin_mark);
-	cmdq_pkt_jump_addr(pkt, cmd_pa);
+	if (absolute) {
+		cmd_pa = cmdq_pkt_get_pa_by_offset(pkt, begin_mark);
+		cmdq_pkt_jump_addr(pkt, cmd_pa);
+	} else {
+		/* jump relative back to begin mark */
+		cmdq_pkt_jump(pkt, -(s32)(pkt->cmd_buf_size - begin_mark));
+	}
 
 	/* read current buffer pa as end mark and fill preview assign */
 	cmd_pa = cmdq_pkt_get_curr_buf_pa(pkt);
@@ -1139,9 +1167,27 @@ s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 	if (inst->op == CMDQ_CODE_JUMP)
 		inst = (struct cmdq_instruction *)cmdq_pkt_get_va_by_offset(
 			pkt, end_addr_mark + CMDQ_INST_SIZE);
-	shift_pa = CMDQ_REG_SHIFT_ADDR(cmd_pa);
+	if (absolute)
+		shift_pa = CMDQ_REG_SHIFT_ADDR(cmd_pa);
+	else
+		shift_pa = CMDQ_REG_SHIFT_ADDR(
+			pkt->cmd_buf_size - end_addr_mark - CMDQ_INST_SIZE);
 	inst->arg_b = CMDQ_GET_ARG_B(shift_pa);
 	inst->arg_c = CMDQ_GET_ARG_C(shift_pa);
+
+	/* relative case the counter have different offset */
+	if (cnt_end_addr_mark) {
+		inst = (struct cmdq_instruction *)cmdq_pkt_get_va_by_offset(
+			pkt, cnt_end_addr_mark);
+		if (inst->op == CMDQ_CODE_JUMP)
+			inst = (struct cmdq_instruction *)
+				cmdq_pkt_get_va_by_offset(
+				pkt, end_addr_mark + CMDQ_INST_SIZE);
+		shift_pa = CMDQ_REG_SHIFT_ADDR(
+			pkt->cmd_buf_size - cnt_end_addr_mark - CMDQ_INST_SIZE);
+		inst->arg_b = CMDQ_GET_ARG_B(shift_pa);
+		inst->arg_c = CMDQ_GET_ARG_C(shift_pa);
+	}
 
 	return 0;
 }

@@ -792,16 +792,20 @@ static irqreturn_t cmdq_irq_handler(int irq, void *dev)
 	bool secure_irq = false;
 
 	if (atomic_read(&cmdq->usage) <= 0) {
-#if 0
+		u32 irq_status_after;
+
 		clk_enable(cmdq->clock);
 		irq_status = readl(cmdq->base + CMDQ_CURR_IRQ_STATUS) &
 			CMDQ_IRQ_MASK;
-		cmdq_msg("cmdq not enable status:0x%x", irq_status);
+
+		for_each_clear_bit(bit, &irq_status, fls(CMDQ_IRQ_MASK))
+			writel(0, cmdq->thread[bit].base + CMDQ_THR_IRQ_STATUS);
+		irq_status_after = readl(cmdq->base + CMDQ_CURR_IRQ_STATUS);
+		cmdq_msg("cmdq not enable status:%#x to %#x",
+			irq_status, irq_status_after);
+
 		clk_disable(cmdq->clock);
-		if (!(irq_status ^ CMDQ_IRQ_MASK))
-			return IRQ_HANDLED;
-#endif
-		return IRQ_NONE;
+		return IRQ_HANDLED;
 	}
 
 	irq_status = readl(cmdq->base + CMDQ_CURR_IRQ_STATUS) & CMDQ_IRQ_MASK;

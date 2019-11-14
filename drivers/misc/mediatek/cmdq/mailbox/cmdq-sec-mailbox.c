@@ -411,9 +411,10 @@ static void cmdq_sec_irq_notify_work(struct work_struct *work_item)
 			cmdq_mbox_stop(cmdq->clt);
 			cmdq->notify_run = false;
 		}
+		cmdq_log("%s stop empty:%s gce:%#lx",
+			__func__, empty ? "true" : "false",
+			(unsigned long)cmdq->base_pa);
 		mutex_unlock(&cmdq->exec_lock);
-		cmdq_log("%s stop gce:%#lx",
-			__func__, (unsigned long)cmdq->base_pa);
 	}
 }
 
