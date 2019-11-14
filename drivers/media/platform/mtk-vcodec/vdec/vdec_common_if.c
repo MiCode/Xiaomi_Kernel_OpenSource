@@ -431,9 +431,6 @@ static void get_frame_sizes(struct vdec_inst *inst,
 static void get_color_desc(struct vdec_inst *inst,
 	struct mtk_color_desc *color_desc)
 {
-	if (inst->vsi == NULL)
-		return;
-
 	inst->vcu.ctx = inst->ctx;
 	memcpy(color_desc, &inst->vsi->color_desc, sizeof(*color_desc));
 }
@@ -577,6 +574,8 @@ static int vdec_get_param(unsigned long h_vdec,
 		break;
 
 	case GET_PARAM_COLOR_DESC:
+		if (inst->vsi == NULL)
+			return -EINVAL;
 		get_color_desc(inst, out);
 		break;
 
