@@ -20,7 +20,6 @@
 #include <linux/slab.h>
 #include <linux/types.h>
 
-#include <linux/qcom_scm.h>
 #include <linux/ipc_logging.h>
 
 #define PDC_MAX_IRQS		168
@@ -49,7 +48,6 @@ struct spi_cfg_regs {
 		void __iomem *base;
 	};
 	resource_size_t size;
-	bool scm_io;
 };
 
 static DEFINE_RAW_SPINLOCK(pdc_lock);
@@ -145,27 +143,15 @@ static void qcom_pdc_gic_unmask(struct irq_data *d)
 static u32 __spi_pin_read(unsigned int pin)
 {
 	void __iomem *cfg_reg = spi_cfg->base + pin * 4;
-	u64 scm_cfg_reg = spi_cfg->start + pin * 4;
 
-	if (spi_cfg->scm_io) {
-		unsigned int val;
-
-		qcom_scm_io_readl(scm_cfg_reg, &val);
-		return val;
-	} else {
-		return readl(cfg_reg);
-	}
+	return readl_relaxed(cfg_reg);
 }
 
 static void __spi_pin_write(unsigned int pin, unsigned int val)
 {
 	void __iomem *cfg_reg = spi_cfg->base + pin * 4;
-	u64 scm_cfg_reg = spi_cfg->start + pin * 4;
 
-	if (spi_cfg->scm_io)
-		qcom_scm_io_writel(scm_cfg_reg, val);
-	else
-		writel(val, cfg_reg);
+	writel_relaxed(val, cfg_reg);
 }
 
 static int spi_configure_type(irq_hw_number_t hwirq, unsigned int type)
@@ -518,17 +504,11 @@ static int qcom_pdc_init(struct device_node *node, struct device_node *parent)
 			ret = -ENOMEM;
 			goto remove;
 		}
-		spi_cfg->scm_io = of_find_property(node,
-						   "qcom,scm-spi-cfg", NULL);
 		spi_cfg->size = resource_size(&res);
-		if (spi_cfg->scm_io) {
-			spi_cfg->start = res.start;
-		} else {
-			spi_cfg->base = ioremap(res.start, spi_cfg->size);
-			if (!spi_cfg->base) {
-				ret = -ENOMEM;
-				goto remove;
-			}
+		spi_cfg->base = ioremap(res.start, spi_cfg->size);
+		if (!spi_cfg->base) {
+			ret = -ENOMEM;
+			goto remove;
 		}
 	}
 
