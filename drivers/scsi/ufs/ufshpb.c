@@ -557,6 +557,11 @@ static int ufshpb_set_pre_req(struct ufshpb_lu *hpb, struct scsi_cmnd *cmd,
 	pre_req->hpb = hpb;
 	pre_req->wb.lpn = ufshpb_get_lpn(cmd->request);
 	pre_req->wb.len = ufshpb_get_len(cmd->request);
+
+	/* MTK patch: make sure len is even for 16 bytes align */
+	if (pre_req->wb.len & 0x01)
+		pre_req->wb.len += 1;
+
 	ret = ufshpb_pre_req_add_bio_page(q, pre_req);
 	if (ret)
 		return ret;
@@ -741,17 +746,13 @@ int ufshpb_prepare_add_lrbp(struct ufsf_feature *ufsf, int add_tag)
 	if (err)
 		goto hold_err;
 
-	err = ufshcd_comp_scsi_upiu(hba, add_lrbp);
-	if (err)
-		goto map_err;
+	ufshcd_comp_scsi_upiu(hba, add_lrbp);
 
 	err = ufshcd_map_sg(hba, add_lrbp);
 	if (err)
 		goto map_err;
 
 	return 0;
-crypto_err:
-	scsi_dma_unmap(pre_cmd);
 map_err:
 	ufshcd_release(hba);
 hold_err:

@@ -271,13 +271,22 @@ void ufs_mtk_dbg_dump_trace(char **buff, unsigned long *size,
 				(u64)ufs_cmd_hlist[ptr].duration
 				);
 #if defined(CONFIG_UFSHPB)
-			SPREAD_PRINTF(buff, size, m,
-				",\tppn=0x%llx,\tregion=0x%x,\tsubregion=0x%x,\tresv=0x%x",
-				ufs_cmd_hlist[ptr].ppn,
-				ufs_cmd_hlist[ptr].region,
-				ufs_cmd_hlist[ptr].subregion,
-				ufs_cmd_hlist[ptr].resv
-				);
+			if (ufs_cmd_hlist[ptr].opcode == READ_16) {
+				SPREAD_PRINTF(buff, size, m,
+					",\tppn=0x%llx,\tregion=0x%x,\tsubregion=0x%x,\tresv=0x%x",
+					ufs_cmd_hlist[ptr].ppn,
+					ufs_cmd_hlist[ptr].region,
+					ufs_cmd_hlist[ptr].subregion,
+					ufs_cmd_hlist[ptr].resv
+					);
+			}
+			if (ufs_cmd_hlist[ptr].opcode == UFSHPB_WRITE_BUFFER) {
+				SPREAD_PRINTF(buff, size, m,
+					",\tlba=0x%llx,\tbuf_len=0x%x",
+					ufs_cmd_hlist[ptr].ppn,
+					ufs_cmd_hlist[ptr].region
+					);
+			}
 #endif
 			SPREAD_PRINTF(buff, size, m, "\n");
 		}

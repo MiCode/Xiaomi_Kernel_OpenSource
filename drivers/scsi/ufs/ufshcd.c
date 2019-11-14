@@ -400,6 +400,13 @@ static void ufshcd_cond_add_cmd_trace(struct ufs_hba *hba,
 				(((u64)(*(lrbp->cmd->cmnd+3))) << 0);
 			subregion = (((u64)(*(lrbp->cmd->cmnd+4))) << 8) |
 				(((u64)(*(lrbp->cmd->cmnd+5))) << 0);
+		} else if (opcode == UFSHPB_WRITE_BUFFER) {
+			ppn = (((u64)(*(lrbp->cmd->cmnd+2))) << 24) |
+				(((u64)(*(lrbp->cmd->cmnd+3))) << 16) |
+				(((u64)(*(lrbp->cmd->cmnd+4))) << 8) |
+				(((u64)(*(lrbp->cmd->cmnd+5))) << 0);
+			region = (((u64)(*(lrbp->cmd->cmnd+7))) << 8) |
+				(((u64)(*(lrbp->cmd->cmnd+8))) << 0);
 		#endif
 		}
 	} else if (lrbp->command_type == UTP_CMD_TYPE_DEV_MANAGE ||
@@ -2870,6 +2877,16 @@ send_orig_cmd:
 	/* issue command to the controller */
 	spin_lock_irqsave(hba->host->host_lock, flags);
 
+#if defined(CONFIG_UFSFEATURE) && defined(CONFIG_UFSHPB)
+	if (!pre_req_err) {
+		ufshcd_vops_setup_xfer_req(hba, add_tag,
+			(add_lrbp->cmd ? true : false));
+		ufshcd_send_command(hba, add_tag);
+		pre_req_err = -EBUSY;
+		atomic64_inc(&hba->ufsf.ufshpb_lup[add_lrbp->lun]->pre_req_cnt);
+	}
+#endif
+
 	ufshcd_vops_setup_xfer_req(hba, tag, (lrbp->cmd ? true : false));
 	ufshcd_send_command(hba, tag);
 
@@ -2884,14 +2901,6 @@ send_orig_cmd:
 out_unlock:
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 
-#if defined(CONFIG_UFSFEATURE) && defined(CONFIG_UFSHPB)
-	if (!pre_req_err) {
-		ufshcd_vops_setup_xfer_req(hba, add_tag, (add_lrbp->cmd ? true : false));
-		ufshcd_send_command(hba, add_tag);
-		pre_req_err = -EBUSY;
-		atomic64_inc(&hba->ufsf.ufshpb_lup[add_lrbp->lun]->pre_req_cnt);
-	}
-#endif
 	/*
 	 * MTK PATCH:
 	 *
@@ -7546,147 +7555,6 @@ out:
 	return ret;
 }
 
-#if defined(CONFIG_UFSHPB)
-static void print_buf(unsigned char *buf)
-{
-	int i, max;
-
-	max = buf[0];
-
-	for (i = 0; i < max; i++)  {
-		if (i % 16 == 0)
-			pr_info("(0x%.2x) :", i);
-		pr_info(" %.2x", buf[i]);
-
-		if ((i + 1) % 16 == 0)
-			pr_info("\n");
-	}
-
-	pr_info("\n");
-}
-
-int ufshcd_query_desc_for_ufshpb(struct ufs_hba *hba, int lun,
-	struct ufs_ioctl_query_data_hpb *ioctl_data, void __user *buffer)
-{
-	unsigned char *kernel_buf;
-	int opcode, selector;
-	int err = 0;
-	int index = 0;
-	int length = 0;
-
-	opcode = ioctl_data->opcode & 0xffff;
-	selector = 1;
-
-	if (ioctl_data->idn == QUERY_DESC_IDN_STRING)
-		kernel_buf = kzalloc(IOCTL_DEV_CTX_MAX_SIZE, GFP_KERNEL);
-	else
-		kernel_buf = kzalloc(QUERY_DESC_MAX_SIZE, GFP_KERNEL);
-
-	if (!kernel_buf) {
-		err = -ENOMEM;
-		goto out;
-	}
-
-	switch (opcode) {
-	case UPIU_QUERY_OPCODE_WRITE_DESC:
-		err = copy_from_user(kernel_buf, buffer +
-				sizeof(struct ufs_ioctl_query_data_hpb),
-				ioctl_data->buf_size);
-		pr_info("%s:%d bufsize %d\n", __func__, __LINE__,
-				ioctl_data->buf_size);
-		if (err)
-			goto out_release_mem;
-		print_buf(kernel_buf);
-		break;
-
-	case UPIU_QUERY_OPCODE_READ_DESC:
-		switch (ioctl_data->idn) {
-		case QUERY_DESC_IDN_UNIT:
-			if (!ufs_is_valid_unit_desc_lun(lun)) {
-				dev_err(hba->dev,
-					"%s: No unit descriptor for lun 0x%x\n",
-						__func__, lun);
-				err = -EINVAL;
-				goto out_release_mem;
-			}
-			index = lun;
-			pr_info("%s:%d read lu desc lun: %d\n",
-				__func__, __LINE__, index);
-			break;
-
-		case QUERY_DESC_IDN_STRING:
-			if (!ufs_is_valid_unit_desc_lun(lun)) {
-				dev_err(hba->dev,
-					"%s: No unit descriptor for lun 0x%x\n",
-						__func__, lun);
-				err = -EINVAL;
-				goto out_release_mem;
-			}
-			err = ufshpb_issue_req_dev_ctx(
-				hba->ufshpb_lup[lun],
-				kernel_buf,
-				ioctl_data->buf_size);
-			if (err < 0)
-				goto out_release_mem;
-
-			goto copy_buffer;
-
-		case QUERY_DESC_IDN_DEVICE:
-		case QUERY_DESC_IDN_GEOMETRY:
-		case QUERY_DESC_IDN_CONFIGURATION:
-			break;
-
-		default:
-			pr_err("%s:%d invalid idn %d\n",
-				__func__, __LINE__,
-				ioctl_data->idn);
-			err = -EINVAL;
-			goto out_release_mem;
-		}
-		break;
-	default:
-		err = -EINVAL;
-		pr_err("%s:%d invalid opcode %d\n", __func__, __LINE__,
-				opcode);
-		goto out_release_mem;
-	}
-
-	length = ioctl_data->buf_size;
-
-	err = ufshcd_query_descriptor_retry(hba, opcode, ioctl_data->idn, index,
-			selector, kernel_buf, &length);
-
-	if (err)
-		goto out_release_mem;
-	pr_info("%s:%d (len 0x%x) %.2x %.2x %.2x %.2x : %.2x %.2x %.2x %.2x\n",
-			__func__, __LINE__, length,
-			kernel_buf[0], kernel_buf[1],
-			kernel_buf[2], kernel_buf[3],
-			kernel_buf[4], kernel_buf[5],
-			kernel_buf[6], kernel_buf[7]);
-
-copy_buffer:
-	if (opcode == UPIU_QUERY_OPCODE_READ_DESC) {
-		err = copy_to_user(buffer, ioctl_data,
-				sizeof(struct ufs_ioctl_query_data_hpb));
-		if (err)
-			pr_err("%s:%d Failed copying back to user.\n",
-					__func__, __LINE__);
-		err = copy_to_user(buffer +
-			sizeof(struct ufs_ioctl_query_data_hpb),
-			kernel_buf, ioctl_data->buf_size);
-		if (err)
-			pr_err("%s:%d Failed copying to user : rsp_buffer.\n",
-					__func__, __LINE__);
-	}
-
-out_release_mem:
-	kfree(kernel_buf);
-out:
-	return err;
-}
-#endif
-
 /**
  * ufshcd_quirk_tune_host_pa_tactivate - Ensures that host PA_TACTIVATE is
  * less than device PA_TACTIVATE time.
@@ -8141,9 +8009,6 @@ static struct scsi_host_template ufshcd_driver_template = {
 	.eh_device_reset_handler = ufshcd_eh_device_reset_handler,
 	.eh_host_reset_handler   = ufshcd_eh_host_reset_handler,
 	.ioctl                   = ufshcd_ioctl, /* MTK PATCH */
-#ifdef CONFIG_COMPAT
-	.compat_ioctl		= ufshcd_ioctl,
-#endif
 	.eh_timed_out		= ufshcd_eh_timed_out,
 	.this_id		= -1,
 	.sg_tablesize		= SG_ALL,

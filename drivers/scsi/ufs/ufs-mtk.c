@@ -160,8 +160,9 @@ int ufs_mtk_di_cmp(struct ufs_hba *hba, struct scsi_cmnd *cmd)
 		return -EIO;
 	}
 
-	if (cmd->cmnd[0] == READ_16) /* HPB use READ_16, blk_cnt fix 1 */
-		blk_cnt = 1;
+	/* HPB use READ_16, Transfer_len in cmd[15]*/
+	if (cmd->cmnd[0] == READ_16)
+		blk_cnt = cmd->cmnd[15];
 	else
 		blk_cnt = cmd->cmnd[8] | (cmd->cmnd[7] << 8);
 	end_lba = lba + blk_cnt;
