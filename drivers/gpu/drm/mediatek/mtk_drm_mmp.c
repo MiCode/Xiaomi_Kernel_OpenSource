@@ -147,6 +147,10 @@ void init_crtc_mmp_event(void)
 			crtc_mmp_root, "path_switch");
 		g_CRTC_MMP_Events[i].user_cmd = mmprofile_register_event(
 			crtc_mmp_root, "user_cmd");
+		g_CRTC_MMP_Events[i].check_trigger = mmprofile_register_event(
+			crtc_mmp_root, "check_trigger");
+		g_CRTC_MMP_Events[i].atomic_commit = mmprofile_register_event(
+			crtc_mmp_root, "atomic_commit");
 	}
 }
 
