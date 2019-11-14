@@ -38,6 +38,8 @@ ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k6885tv1_64_aging"
 subdir-ccflags-y += -DAGING_MARGIN
 else ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k6889v1_64_aging")
 subdir-ccflags-y += -DAGING_MARGIN
+else ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k6885v1_64_lv_aging")
+subdir-ccflags-y += -DAGING_MARGIN
 endif
 
 #obj-y += vpu_dummy_driver.o
