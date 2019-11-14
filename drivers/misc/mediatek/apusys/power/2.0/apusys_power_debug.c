@@ -69,7 +69,7 @@ static void apu_power_dump_opp_table(struct seq_file *s)
 
 static int apu_power_dump_curr_status(struct seq_file *s, int oneline_str)
 {
-	struct apu_power_info info;
+	struct apu_power_info info = {0};
 
 	info.id = 0;
 	info.type = 1;

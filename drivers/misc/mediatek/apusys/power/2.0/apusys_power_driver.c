@@ -499,7 +499,7 @@ EXPORT_SYMBOL(apu_power_callback_device_unregister);
 
 static void d_work_power_info_func(struct work_struct *work)
 {
-	struct apu_power_info info;
+	struct apu_power_info info = {0};
 
 	spin_lock(&power_info_lock);
 	info.id = power_info_id;
@@ -536,7 +536,7 @@ static void default_power_on_func(void)
 static int apusys_power_task(void *arg)
 {
 	int keep_loop = 0;
-	struct	apu_power_info info;
+	struct apu_power_info info = {0};
 
 	set_current_state(TASK_INTERRUPTIBLE);
 
@@ -610,7 +610,7 @@ EXPORT_SYMBOL(apu_device_set_opp);
 static int apu_power_probe(struct platform_device *pdev)
 {
 	int ret = 0;
-	int err;
+	int err = 0;
 
 	if (!apusys_power_check())
 		return 0;

@@ -163,7 +163,7 @@ void constraints_check_stress(int opp)
 	int m = 0, n = 0, o = 0;
 	int count = 0;
 	int loop = opp;
-	struct apu_power_info info;
+	struct apu_power_info info = {0};
 
 for (loop = 0; loop < count; loop++) {
 	for (i = 0 ; i < APUSYS_MAX_NUM_OPPS ; i++) {
@@ -205,7 +205,7 @@ for (loop = 0; loop < count; loop++) {
 
 void voltage_constraint_check(void)
 {
-	struct apu_power_info info;
+	struct apu_power_info info = {0};
 
 	dump_voltage(&info);
 

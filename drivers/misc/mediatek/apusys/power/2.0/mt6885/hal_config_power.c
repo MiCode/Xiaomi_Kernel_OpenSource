@@ -806,7 +806,7 @@ static int buck_control(enum DVFS_USER user, int level)
 	struct hal_param_volt mdla_volt_data;
 	struct hal_param_volt vcore_volt_data;
 	struct hal_param_volt sram_volt_data;
-	struct apu_power_info info;
+	struct apu_power_info info = {0};
 	int ret = 0;
 
 	LOG_DBG("%s begin, level = %d\n", __func__, level);
