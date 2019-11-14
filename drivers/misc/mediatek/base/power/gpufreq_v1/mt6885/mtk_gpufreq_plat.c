@@ -55,12 +55,12 @@
 #if MT_GPUFREQ_STATIC_PWR_READY2USE
 #include "mtk_static_power.h"
 #endif
-#ifdef CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT
+#ifdef CONFIG_MTK_GPU_SUPPORT
 #include "ged_log.h"
 #include "ged_base.h"
 #endif
 
-#ifdef CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT
+#ifdef CONFIG_MTK_GPU_SUPPORT
 /* adb pull "/d/ged/logbufs/gfreq" */
 extern GED_LOG_BUF_HANDLE gpufreq_ged_log;
 #endif

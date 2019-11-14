@@ -26,7 +26,7 @@
 #define gpufreq_pr_info(fmt, args...)	pr_info(GPUFERQ_TAG fmt, ##args)
 #define gpufreq_pr_debug(fmt, args...)	pr_debug(GPUFERQ_TAG fmt, ##args)
 
-#ifdef CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT
+#ifdef CONFIG_MTK_GPU_SUPPORT
 #define gpufreq_pr_logbuf(fmt, args...)			\
 do {							\
 	gpufreq_pr_debug(fmt, ##args);			\
