@@ -117,7 +117,7 @@
 /*#define ENABLE_WAITIRQ_LOG*/ /* wait irq debug logs */
 /*#define ENABLE_STT_IRQ_LOG*/ /*show STT irq debug logs */
 
-#define Lafi_WAM_CQ_ERR (1)
+#define Lafi_WAM_CQ_ERR (0)
 /* Queue timestamp for deque. Update when non-drop frame @SOF */
 #define TIMESTAMP_QUEUE_EN (0)
 #if (TIMESTAMP_QUEUE_EN == 1)
@@ -631,9 +631,10 @@ static struct ISP_RAW_INT_STATUS g_ISPIntStatus_SMI[ISP_IRQ_TYPE_AMOUNT];
 
 /* ISP_CAM_A_IDX-ISP_CAM_C_IDX, each has 25 CQ thread. */
 static unsigned int g_cqBaseAddr[ISP_CAM_C_IDX-ISP_CAM_A_IDX+1][25] = {{0} };
+#if Lafi_WAM_CQ_ERR
 static unsigned int g_cqDoneStatus[ISP_CAM_C_IDX-ISP_CAM_A_IDX+1] = {0};
 static union FBC_CTRL_2 g_fbc_ctrl2[ISP_CAM_C_IDX-ISP_CAM_A_IDX+1][_cam_max_];
-
+#endif
 static unsigned int g_DmaErr_CAM[ISP_IRQ_TYPE_AMOUNT][_cam_max_] = {{0} };
 
 enum ISP_WAITQ_HEAD_IRQ_ENUM {
@@ -10329,8 +10330,10 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 	DmaStatus = ISP_RD32(CAM_REG_CTL_RAW_INT2_STATUS(reg_module));
 	cqDoneIndex = reg_module - ISP_CAM_A_IDX;
 	if (cqDoneIndex <= (ISP_CAM_C_IDX - ISP_CAM_A_IDX)) {
+#if Lafi_WAM_CQ_ERR
 		g_cqDoneStatus[cqDoneIndex] =
 			ISP_RD32(CAM_REG_CTL_RAW_INT6_STATUS(reg_module));
+#endif
 	}
 
 	WarnStatus = ISP_RD32(CAM_REG_CTL_RAW_INT5_STATUS(reg_module));
