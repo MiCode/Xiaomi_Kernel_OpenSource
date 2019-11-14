@@ -1819,6 +1819,7 @@ static unsigned short dpmaif_relase_tx_buffer(unsigned char q_num,
 	unsigned int release_cnt)
 {
 	unsigned int drb_entry_num, idx;
+	unsigned int *temp;
 	unsigned short cur_idx;
 	struct dpmaif_drb_pd *cur_drb, *drb_base =
 		(struct dpmaif_drb_pd *)(dpmaif_ctrl->txq[q_num].drb_base);
@@ -1846,12 +1847,16 @@ static unsigned short dpmaif_relase_tx_buffer(unsigned char q_num,
 				DMA_TO_DEVICE);
 			skb_free = cur_drb_skb->skb;
 			if (skb_free == NULL) {
-				CCCI_NORMAL_LOG(dpmaif_ctrl->md_id, TAG,
+				temp = (unsigned int *)cur_drb;
+				CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
 					"txq (%d)pkt(%d): drb check fail, (w/r/rel=%x, %x, %x)\n",
 					q_num, cur_idx,
 					txq->drb_wr_idx,
 					txq->drb_rd_idx,
 					txq->drb_rel_rd_idx);
+				CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
+					"drb pd: 0x%x, 0x%x\n",
+					temp[0], temp[1]);
 				dpmaif_dump_register(dpmaif_ctrl,
 					CCCI_DUMP_MEM_DUMP);
 				dpmaif_dump_txq_history(dpmaif_ctrl,
