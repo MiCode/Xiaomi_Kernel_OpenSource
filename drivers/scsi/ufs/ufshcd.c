@@ -706,6 +706,15 @@ void ufshcd_print_host_state(struct ufs_hba *hba,
 	SPREAD_DEV_PRINTF(buff, size, m, hba->dev,
 		"PM in progress=%d, sys. suspended=%d\n",
 		hba->pm_op_in_progress, hba->is_sys_suspended);
+	if (ufshcd_is_clkgating_allowed(hba))
+		SPREAD_DEV_PRINTF(buff, size, m, hba->dev,
+			"clk_gating state=%d, suspended=%d, active_reqs=%d\n",
+			hba->clk_gating.state,
+			hba->clk_gating.is_suspended,
+			hba->clk_gating.active_reqs);
+	else
+		SPREAD_DEV_PRINTF(buff, size, m, hba->dev,
+			"clk_gating not enabled\n");
 #ifdef CONFIG_PM
 	SPREAD_DEV_PRINTF(buff, size, m, hba->dev,
 		"Runtime PM: req=%d, status:%d, err:%d\n",

@@ -410,6 +410,13 @@ int ufs_mtk_pltfrm_ref_clk_ctrl(struct ufs_hba *hba, bool on)
 	int ret = 0;
 	u32 val = 0;
 
+	/*
+	 * skip when pm_op in progress
+	 * platform suspend / resume will handle ref_clk
+	 */
+	if (hba->pm_op_in_progress)
+		return 0;
+
 	if (on) {
 		/* Host need turn on clock by itself */
 		ret = ufs_mtk_pltfrm_xo_ufs_req(hba, true);
@@ -572,7 +579,8 @@ int ufs_mtk_pltfrm_host_sw_rst(struct ufs_hba *hba, u32 target)
 
 int ufs_mtk_pltfrm_init(void)
 {
-	ufs_mtk_hba->caps |= UFSHCD_CAP_CLK_GATING;
+	/* disable clk gating */
+	/* ufs_mtk_hba->caps |= UFSHCD_CAP_CLK_GATING; */
 
 	return 0;
 }
@@ -665,11 +673,16 @@ int ufs_mtk_pltfrm_parse_dt(struct ufs_hba *hba)
 
 int ufs_mtk_pltfrm_resume(struct ufs_hba *hba)
 {
+	ufs_mtk_pltfrm_xo_ufs_req(hba, true);
+
 	return 0;
 }
 
 int ufs_mtk_pltfrm_suspend(struct ufs_hba *hba)
 {
+	/* Disable MPHY 26MHz ref clock in H8 mode */
+	ufs_mtk_pltfrm_xo_ufs_req(hba, false);
+
 #if 0
 	/* TEST ONLY: emulate UFSHCI power off by HCI SW reset */
 	ufs_mtk_pltfrm_host_sw_rst(hba, SW_RST_TARGET_UFSHCI);

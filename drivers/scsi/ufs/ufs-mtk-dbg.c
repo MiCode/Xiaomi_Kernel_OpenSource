@@ -503,6 +503,12 @@ static ssize_t ufs_debug_proc_write(struct file *file, const char *buf,
 		handled = true;
 	}
 
+	if (ufs_mtk_hba)
+		ufs_mtk_dbg_add_trace(ufs_mtk_hba,
+			UFS_TRACE_DEBUG_PROC,
+			op, 0, atomic_read(&cmd_hist_enabled),
+			0, 0, 0, 0, 0, 0);
+
 	if (handled)
 		cmd_buf[0] = '\0';
 

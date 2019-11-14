@@ -71,6 +71,7 @@ enum ufs_trace_event {
 	UFS_TRACE_DI_FAIL,
 	UFS_TRACE_DEVICE_RESET,
 	UFS_TRACE_PERF_MODE,
+	UFS_TRACE_DEBUG_PROC,
 };
 
 enum {

@@ -911,9 +911,11 @@ static int ufs_mtk_perf_init_crypto(struct ufs_hba *hba)
 	pm_qos_add_request(host->req_vcore, PM_QOS_VCORE_OPP,
 			   PM_QOS_VCORE_OPP_DEFAULT_VALUE);
 out:
+#ifdef CONFIG_UFSTW
 	if (!err)
 		host->perf_mode = PERF_AUTO;
 	else
+#endif
 		host->perf_mode = PERF_FORCE_DISABLE;
 
 	return err;
