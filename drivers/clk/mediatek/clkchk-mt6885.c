@@ -14,6 +14,7 @@
 #include <linux/clk-provider.h>
 #include <linux/syscore_ops.h>
 #include <linux/version.h>
+#include "clk-mt6885-pg.h"
 
 #define WARN_ON_CHECK_PLL_FAIL	0
 #define CLKDBG_CCF_API_4_4	1
@@ -673,3 +674,343 @@ static int __init clkchk_init(void)
 	return 0;
 }
 subsys_initcall(clkchk_init);
+
+
+
+
+
+/*
+ *	Before MTCMOS off procedure, perform the Subsys CGs sanity check.
+ */
+struct pg_check_swcg {
+	struct clk *c;
+	const char *name;
+};
+
+#define SWCG(_name) {						\
+		.name = _name,					\
+	}
+
+struct subsys_cgs_check {
+	enum subsys_id id;		/* the Subsys id */
+	struct pg_check_swcg *swcgs;	/* those CGs that would be checked */
+	char *subsys_name;		/*
+					 * subsys_name is used in
+					 * print_subsys_reg() and can be NULL
+					 * if not porting ready yet.
+					 */
+};
+
+/*
+ * The clk names in Mediatek CCF.
+ */
+struct pg_check_swcg mm_swcgs[] = {
+	SWCG("MM_DISP_RSZ0"),
+	SWCG("MM_DISP_RSZ1"),
+	SWCG("MM_DISP_OVL0"),
+	SWCG("MM_INLINEROT"),
+	SWCG("MM_MDP_TDSHP4"),
+	SWCG("MM_MDP_TDSHP5"),
+	SWCG("MM_MDP_AAL4"),
+	SWCG("MM_MDP_AAL5"),
+	SWCG("MM_MDP_HDR4"),
+	SWCG("MM_MDP_HDR5"),
+	SWCG("MM_MDP_RSZ4"),
+	SWCG("MM_MDP_RSZ5"),
+	SWCG("MM_MDP_RDMA4"),
+	SWCG("MM_MDP_RDMA5"),
+	SWCG("MM_DISP_FAKE_ENG0"),
+	SWCG("MM_DISP_FAKE_ENG1"),
+	SWCG("MM_DISP_OVL0_2L"),
+	SWCG("MM_DISP_OVL1_2L"),
+	SWCG("MM_DISP_OVL2_2L"),
+	SWCG("MM_DISP_MUTEX0"),
+	SWCG("MM_DISP_OVL1"),
+	SWCG("MM_DISP_OVL3_2L"),
+	SWCG("MM_DISP_CCORR0"),
+	SWCG("MM_DISP_CCORR1"),
+	SWCG("MM_DISP_COLOR0"),
+	SWCG("MM_DISP_COLOR1"),
+	SWCG("MM_DISP_POSTMASK0"),
+	SWCG("MM_DISP_POSTMASK1"),
+	SWCG("MM_DISP_DITHER0"),
+	SWCG("MM_DISP_DITHER1"),
+	SWCG("MM_DISP_DSI0"),
+	SWCG("MM_DISP_DSI1"),
+	SWCG("MM_DISP_GAMMA0"),
+	SWCG("MM_DISP_GAMMA1"),
+	SWCG("MM_DISP_AAL0"),
+	SWCG("MM_DISP_AAL1"),
+	SWCG("MM_DISP_WDMA0"),
+	SWCG("MM_DISP_WDMA1"),
+	SWCG("MM_DISP_RDMA0"),
+	SWCG("MM_DISP_RDMA1"),
+	SWCG("MM_DISP_RDMA4"),
+	SWCG("MM_DISP_RDMA5"),
+	SWCG("MM_DISP_DSC_WRAP"),
+	SWCG("MM_DISP_DP_INTF"),
+	SWCG("MM_DISP_MERGE0"),
+	SWCG("MM_DISP_MERGE1"),
+	SWCG("MM_SMI_COMMON"),
+	SWCG("MM_SMI_GALS"),
+	SWCG("MM_SMI_INFRA"),
+	SWCG("MM_SMI_IOMMU"),
+	SWCG("MM_DSI_DSI0"),
+	SWCG("MM_DSI_DSI1"),
+	SWCG("MM_DP_INTF"),
+	SWCG("MM_26MHZ"),
+	SWCG("MM_32KHZ"),
+	SWCG(NULL),
+};
+struct pg_check_swcg mdp_swcgs[] = {
+	SWCG("MDP_MDP_RDMA0"),
+	SWCG("MDP_MDP_FG0"),
+	SWCG("MDP_MDP_HDR0"),
+	SWCG("MDP_MDP_AAL0"),
+	SWCG("MDP_MDP_RSZ0"),
+	SWCG("MDP_MDP_TDSHP0"),
+	SWCG("MDP_MDP_TCC0"),
+	SWCG("MDP_MDP_WROT0"),
+	SWCG("MDP_MDP_RDMA2"),
+	SWCG("MDP_MDP_AAL2"),
+	SWCG("MDP_MDP_RSZ2"),
+	SWCG("MDP_MDP_COLOR0"),
+	SWCG("MDP_MDP_TDSHP2"),
+	SWCG("MDP_MDP_TCC2"),
+	SWCG("MDP_MDP_WROT2"),
+	SWCG("MDP_MDP_MUTEX0"),
+	SWCG("MDP_MDP_RDMA1"),
+	SWCG("MDP_MDP_FG1"),
+	SWCG("MDP_MDP_HDR1"),
+	SWCG("MDP_MDP_AAL1"),
+	SWCG("MDP_MDP_RSZ1"),
+	SWCG("MDP_MDP_TDSHP1"),
+	SWCG("MDP_MDP_TCC1"),
+	SWCG("MDP_MDP_WROT1"),
+	SWCG("MDP_MDP_RDMA3"),
+	SWCG("MDP_MDP_AAL3"),
+	SWCG("MDP_MDP_RSZ3"),
+	SWCG("MDP_MDP_COLOR1"),
+	SWCG("MDP_MDP_TDSHP3"),
+	SWCG("MDP_MDP_TCC3"),
+	SWCG("MDP_MDP_WROT3"),
+	SWCG("MDP_APB_BUS"),
+	SWCG("MDP_MMSYSRAM"),
+	SWCG("MDP_APMCU_GALS"),
+	SWCG("MDP_MDP_FAKE_ENG0"),
+	SWCG("MDP_MDP_FAKE_ENG1"),
+	SWCG("MDP_SMI0"),
+	SWCG("MDP_IMG_DL_ASYNC0"),
+	SWCG("MDP_IMG_DL_ASYNC1"),
+	SWCG("MDP_IMG_DL_ASYNC2"),
+	SWCG("MDP_SMI1"),
+	SWCG("MDP_IMG_DL_ASYNC3"),
+	SWCG("MDP_SMI2"),
+	SWCG("MDP_IMG0_IMG_DL_ASYNC0"),
+	SWCG("MDP_IMG0_IMG_DL_ASYNC1"),
+	SWCG("MDP_IMG1_IMG_DL_ASYNC2"),
+	SWCG("MDP_IMG1_IMG_DL_ASYNC3"),
+	SWCG(NULL),
+};
+struct pg_check_swcg vde_swcgs[] = {
+	SWCG("vdec_soc_gcon_larb1_cken"),
+	SWCG("vdec_soc_gcon_lat_cken"),
+	SWCG("vdec_soc_gcon_lat_active"),
+	SWCG("vdec_soc_gcon_lat_cken_eng"),
+	SWCG("vdec_soc_gcon_vdec_cken"),
+	SWCG("vdec_soc_gcon_vdec_active"),
+	SWCG("vdec_soc_gcon_vdec_cken_eng"),
+	SWCG(NULL),
+};
+struct pg_check_swcg vde2_swcgs[] = {
+	SWCG("vdec_gcon_larb1_cken"),
+	SWCG("vdec_gcon_lat_cken"),
+	SWCG("vdec_gcon_lat_active"),
+	SWCG("vdec_gcon_lat_cken_eng"),
+	SWCG("vdec_gcon_vdec_cken"),
+	SWCG("vdec_gcon_vdec_active"),
+	SWCG("vdec_gcon_vdec_cken_eng"),
+	SWCG(NULL),
+};
+struct pg_check_swcg venc_swcgs[] = {
+	SWCG("venc_gcon_set0_larb"),
+	SWCG("venc_gcon_set1_venc"),
+	SWCG("venc_gcon_set2_jpgenc"),
+	SWCG("venc_gcon_set3_jpgdec"),
+	SWCG("venc_gcon_set4_jpgdec_c1"),
+	SWCG("venc_gcon_set5_gals"),
+	SWCG(NULL),
+};
+struct pg_check_swcg venc_c1_swcgs[] = {
+	SWCG("venc_c1_gcon_set0_larb"),
+	SWCG("venc_c1_gcon_set1_venc"),
+	SWCG("venc_c1_gcon_set2_jpgenc"),
+	SWCG("venc_c1_gcon_set3_jpgdec"),
+	SWCG("venc_c1_gcon_set4_jpgdec_c1"),
+	SWCG("venc_c1_gcon_set5_gals"),
+	SWCG(NULL),
+};
+struct pg_check_swcg img1_swcgs[] = {
+	SWCG("imgsys1_larb9_cgpdn"),
+	SWCG("imgsys1_larb10_cgpdn"),
+	SWCG("imgsys1_dip_cgpdn"),
+	SWCG("imgsys1_mfb_cgpdn"),
+	SWCG("imgsys1_wpe_cgpdn"),
+	SWCG("imgsys1_mss_cgpdn"),
+	SWCG(NULL),
+};
+struct pg_check_swcg img2_swcgs[] = {
+	SWCG("imgsys2_larb11_cgpdn"),
+	SWCG("imgsys2_larb12_cgpdn"),
+	SWCG("imgsys2_dip_cgpdn"),
+	SWCG("imgsys2_mfb_cgpdn"),
+	SWCG("imgsys2_wpe_cgpdn"),
+	SWCG("imgsys2_mss_cgpdn"),
+	SWCG(NULL),
+};
+struct pg_check_swcg ipe_swcgs[] = {
+	SWCG("ipesys_larb19_cgpdn"),
+	SWCG("ipesys_larb20_cgpdn"),
+	SWCG("ipesys_ipe_smi_subcom_cgpdn"),
+	SWCG("ipesys_fd_cgpdn"),
+	SWCG("ipesys_fe_cgpdn"),
+	SWCG("ipesys_rsc_cgpdn"),
+	SWCG("ipesys_dpe_cgpdn"),
+	SWCG(NULL),
+};
+struct pg_check_swcg cam_swcgs[] = {
+	SWCG("camsys_main_larb13_cgpdn"),
+	SWCG("camsys_main_dfp_vad_cgpdn"),
+	SWCG("camsys_main_cam_cgpdn"),
+	SWCG("camsys_main_camtg_cgpdn"),
+	SWCG("camsys_main_larb14_cgpdn"),
+	SWCG("camsys_main_larb15_cgpdn"),
+	SWCG("camsys_main_seninf_cgpdn"),
+	SWCG("camsys_main_camsv0_cgpdn"),
+	SWCG("camsys_main_camsv1_cgpdn"),
+	SWCG("camsys_main_camsv2_cgpdn"),
+	SWCG("camsys_main_camsv3_cgpdn"),
+	SWCG("camsys_main_ccu0_cgpdn"),
+	SWCG("camsys_main_ccu1_cgpdn"),
+	SWCG("camsys_main_mraw0_cgpdn"),
+	SWCG("camsys_main_mraw1_cgpdn"),
+	SWCG("camsys_main_fake_eng_cgpdn"),
+	SWCG(NULL),
+};
+struct pg_check_swcg cam_rawa_swcgs[] = {
+	SWCG("camsys_rawa_larbx_cgpdn"),
+	SWCG("camsys_rawa_cam_cgpdn"),
+	SWCG("camsys_rawa_camtg_cgpdn"),
+	SWCG(NULL),
+};
+struct pg_check_swcg cam_rawb_swcgs[] = {
+	SWCG("camsys_rawb_larbx_cgpdn"),
+	SWCG("camsys_rawb_cam_cgpdn"),
+	SWCG("camsys_rawb_camtg_cgpdn"),
+	SWCG(NULL),
+};
+struct pg_check_swcg cam_rawc_swcgs[] = {
+	SWCG("camsys_rawc_larbx_cgpdn"),
+	SWCG("camsys_rawc_cam_cgpdn"),
+	SWCG("camsys_rawc_camtg_cgpdn"),
+	SWCG(NULL),
+};
+
+struct subsys_cgs_check mtk_subsys_check[] = {
+	/*{SYS_DIS, mm_swcgs, NULL}, */
+	{SYS_DIS, mm_swcgs, "mmsys"},
+	{SYS_MDP, mdp_swcgs, "mdpsys"},
+	{SYS_VDE, vde_swcgs, "vdec_soc_sys"},
+	{SYS_VDE2, vde2_swcgs, "vdecsys"},
+	{SYS_VEN, venc_swcgs, "vencsys"},
+	{SYS_VEN_CORE1, venc_c1_swcgs, "venc_c1_sys"},
+	{SYS_ISP, img1_swcgs, "img1sys"},
+	{SYS_ISP2, img2_swcgs, "img2sys"},
+	{SYS_IPE, ipe_swcgs, "ipesys"},
+	{SYS_CAM, cam_swcgs, "camsys"},
+	{SYS_CAM_RAWA, cam_rawa_swcgs, "cam_rawa_sys"},
+	{SYS_CAM_RAWB, cam_rawb_swcgs, "cam_rawb_sys"},
+	{SYS_CAM_RAWC, cam_rawc_swcgs, "cam_rawc_sys"},
+};
+
+static unsigned int check_cg_state(struct pg_check_swcg *swcg)
+{
+	int enable_count = 0;
+
+	if (!swcg)
+		return 0;
+
+	while (swcg->name) {
+		if (!IS_ERR_OR_NULL(swcg->c)) {
+			if (__clk_get_enable_count(swcg->c) > 0) {
+				pr_notice("%s[%-17s: %3d]\n",
+				__func__,
+				__clk_get_name(swcg->c),
+				__clk_get_enable_count(swcg->c));
+				enable_count++;
+			}
+		}
+		swcg++;
+	}
+
+	return enable_count;
+}
+
+void mtk_check_subsys_swcg(enum subsys_id id)
+{
+	int i;
+	unsigned int ret = 0;
+
+	for (i = 0; i < ARRAY_SIZE(mtk_subsys_check); i++) {
+		if (mtk_subsys_check[i].id != id)
+			continue;
+
+		/* check if Subsys CGs are still on */
+		ret = check_cg_state(mtk_subsys_check[i].swcgs);
+		if (ret) {
+			pr_notice("%s:(%d) warning!\n", __func__, id);
+
+			/* print registers dump */
+			if (mtk_subsys_check[i].subsys_name)
+				print_subsys_reg(
+					mtk_subsys_check[i].subsys_name);
+		}
+		break;
+	}
+
+	if (ret) {
+		pr_notice("%s(%d): %d\n", __func__, id, ret);
+		BUG_ON(1);
+	}
+}
+
+static void __init pg_check_swcg_init_common(struct pg_check_swcg *swcg)
+{
+	if (!swcg)
+		return;
+
+	while (swcg->name) {
+		struct clk *c = __clk_lookup(swcg->name);
+
+		if (IS_ERR_OR_NULL(c))
+			pr_notice("[%17s: NULL]\n", swcg->name);
+		else
+			swcg->c = c;
+		swcg++;
+	}
+}
+
+/*
+ * Init procedure for CG checking before MTCMOS off.
+ */
+static int __init pg_check_swcg_init_mt6885(void)
+{
+	/* fill the 'struct clk *' ptr of every CGs*/
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(mtk_subsys_check); i++)
+		pg_check_swcg_init_common(mtk_subsys_check[i].swcgs);
+
+	return 0;
+}
+late_initcall(pg_check_swcg_init_mt6885);

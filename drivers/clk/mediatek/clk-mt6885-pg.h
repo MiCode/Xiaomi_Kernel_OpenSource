@@ -68,6 +68,8 @@ extern void print_enabled_clks_once(void);
 extern void mtk_wcn_cmb_stub_clock_fail_dump(void);
 extern int get_sw_req_vcore_opp(void);
 void enable_subsys_hwcg(enum subsys_id id);
+void mtk_check_subsys_swcg(enum subsys_id id);
+
 /*
  * Resident in clkdbg-mt6885.c
  * For debug use.
