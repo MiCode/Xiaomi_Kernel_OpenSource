@@ -218,6 +218,7 @@ int deadline_task_start(struct apusys_subcmd *sc)
 	root->total_subcmd++;
 	if (!root->total_period) {
 		LOG_ERR("total_period is 0\n");
+		mutex_unlock(&root->lock);
 		return -EINVAL;
 	}
 	load = (root->total_subcmd * root->total_runtime) / root->total_period;
