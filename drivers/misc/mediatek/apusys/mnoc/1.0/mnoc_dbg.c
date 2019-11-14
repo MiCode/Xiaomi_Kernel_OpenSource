@@ -38,6 +38,14 @@ static int mnoc_log_level_show(struct seq_file *m, void *v)
 {
 	seq_printf(m, "mnoc_log_level = %d\n", mnoc_log_level);
 
+#if MNOC_TIME_PROFILE
+	/* dump cmd qos profile info */
+	seq_printf(m, "sum_start = %lu, cnt_start = %d, avg = %lu\n",
+		sum_start, cnt_start, sum_start/cnt_start);
+	seq_printf(m, "sum_end = %lu, cnt_end = %d, avg = %lu\n",
+		sum_end, cnt_end, sum_end/cnt_end);
+#endif
+
 	return 0;
 }
 
@@ -113,7 +121,7 @@ static ssize_t mnoc_reg_rw_write(struct file *file,
 
 	buf[count] = '\0';
 
-	if (sscanf(buf, "%1s %x %x", &mnoc_rw, &addr_phy,
+	if (sscanf(buf, "%c %x %x", &mnoc_rw, &addr_phy,
 		&mnoc_value) == 3) {
 		if (mnoc_rw != 'w' && mnoc_rw != 'W')
 			goto out;
@@ -133,7 +141,7 @@ static ssize_t mnoc_reg_rw_write(struct file *file,
 			spin_unlock_irqrestore(&mnoc_spinlock, flags);
 #endif
 		}
-	} else if (sscanf(buf, "%1s %x", &mnoc_rw, &addr_phy) == 2) {
+	} else if (sscanf(buf, "%c %x", &mnoc_rw, &addr_phy) == 2) {
 		if (mnoc_rw != 'r' && mnoc_rw != 'R')
 			goto out;
 		if (addr_phy < APU_NOC_TOP_ADDR ||
@@ -193,7 +201,7 @@ static ssize_t mnoc_pmu_reg_write(struct file *file,
 
 	buf[count] = '\0';
 
-	if (sscanf(buf, "%1s %x %x", &mnoc_op, &pmu_addr_phy,
+	if (sscanf(buf, "%c %x %x", &mnoc_op, &pmu_addr_phy,
 		&mnoc_value) == 3) {
 		if (mnoc_op != 'w' && mnoc_op != 'W')
 			goto out;
@@ -209,7 +217,7 @@ static ssize_t mnoc_pmu_reg_write(struct file *file,
 			spin_unlock_irqrestore(&mnoc_spinlock, flags);
 			enque_pmu_reg(pmu_addr_phy, mnoc_value);
 		}
-	} else if (sscanf(buf, "%1s %d", &mnoc_op,
+	} else if (sscanf(buf, "%c %d", &mnoc_op,
 		&mnoc_value) == 2) {
 		if (mnoc_op != 'c' && mnoc_op != 'C')
 			goto out;
@@ -396,7 +404,7 @@ static ssize_t mnoc_tcm_endis_write(struct file *file,
 
 	buf[count] = '\0';
 
-	if (sscanf(buf, "%1s %d", &mnoc_tcm, &endis) == 2) {
+	if (sscanf(buf, "%c %d", &mnoc_tcm, &endis) == 2) {
 		if (mnoc_tcm != 't' && mnoc_tcm != 'T')
 			goto out;
 		if (endis == 1)
