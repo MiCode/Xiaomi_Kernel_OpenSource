@@ -55,9 +55,10 @@ enum subsys_id iommu_mtcmos_subsys[MTK_IOMMU_M4U_COUNT] = {
 };
 #endif
 
-unsigned int port_size_not_aligned[] = {
+unsigned int port_alloc_from_root[] = {
 	M4U_PORT_L21_APU_FAKE_CODE
 };
+
 const char *smi_larb_id = "mediatek,larb-id";
 
 #ifdef CONFIG_FPGA_EARLY_PORTING
