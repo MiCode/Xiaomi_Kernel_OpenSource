@@ -319,6 +319,18 @@ static void dpmaif_dump_txq_remain(struct hif_dpmaif_ctrl *hif_ctrl,
 	}
 }
 
+static void dpmaif_dump_bat_status(struct hif_dpmaif_ctrl *hif_ctrl)
+{
+	struct dpmaif_rx_queue *rxq = &hif_ctrl->rxq[0];
+
+	CCCI_MEM_LOG_TAG(hif_ctrl->md_id, TAG, "dump bid table\n");
+	ccci_util_mem_dump(hif_ctrl->md_id, CCCI_DUMP_MEM_DUMP,
+			rxq->bat_req.bid_btable, DPMAIF_DL_BAT_ENTRY_SIZE);
+	CCCI_MEM_LOG(hif_ctrl->md_id, TAG,
+			"bat_read: 0x%x, bat_rel: 0x%x, bat_write: 0x%x\n",
+			rxq->bat_req.bat_rd_idx, rxq->bat_req.bat_rel_rd_idx,
+			rxq->bat_req.bat_wr_idx);
+}
 /*actrually, length is dump flag's private argument*/
 static int dpmaif_dump_status(unsigned char hif_id,
 		enum MODEM_DUMP_FLAG flag, int length)
@@ -345,6 +357,7 @@ static int dpmaif_dump_status(unsigned char hif_id,
 		mt_irq_dump_status(hif_ctrl->dpmaif_irq_id);
 #endif
 	}
+	dpmaif_dump_bat_status(hif_ctrl);
 
 	return 0;
 }
