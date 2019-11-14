@@ -626,9 +626,6 @@ static int apu_power_probe(struct platform_device *pdev)
 		goto err_exit;
 	}
 
-	queue_work(wq, &d_work_power_init);
-	queue_work(wq, &d_work_power_info);
-
 	power_task_handle = kthread_create(apusys_power_task,
 						(void *)NULL, "apu_pwr_policy");
 	if (IS_ERR(power_task_handle)) {
@@ -636,11 +633,15 @@ static int apu_power_probe(struct platform_device *pdev)
 		goto err_exit;
 	}
 
-	wake_up_process(power_task_handle);
 	mutex_init(&power_device_list_mtx);
 	mutex_init(&power_ctl_mtx);
 	mutex_init(&power_opp_mtx);
 	spin_lock_init(&power_info_lock);
+	apu_pwr_wake_init();
+
+	queue_work(wq, &d_work_power_init);
+	queue_work(wq, &d_work_power_info);
+	wake_up_process(power_task_handle);
 
 	#if AUTO_BUCK_OFF_SUSPEND
 	// buck auto power off in suspend
@@ -656,7 +657,6 @@ static int apu_power_probe(struct platform_device *pdev)
 	pmic_ldo_vsram_md_lp(SRCLKEN2, 1, 1, HW_OFF);
 	#endif
 
-	apu_pwr_wake_init();
 	apusys_power_debugfs_init();
 
 	return 0;
