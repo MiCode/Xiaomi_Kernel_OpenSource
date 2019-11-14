@@ -26,6 +26,8 @@
 #include "mtk_log.h"
 #include "mtk_drm_crtc.h"
 #include "mtk_drm_helper.h"
+#include "mtk_log.h"
+#include "mtk_drm_mmp.h"
 
 #define to_drm_private(x) container_of(x, struct mtk_drm_private, fb_helper)
 #define ALIGN_TO_32(x) ALIGN_TO(x, 32)
@@ -48,25 +50,29 @@ unsigned int mtk_drm_fb_fm_auto_test(struct fb_info *info)
 		DDPPR_ERR("find crtc fail\n");
 		return -1;
 	}
-
 	mtk_crtc = to_mtk_crtc(crtc);
-	if (!crtc->enabled || mtk_crtc->ddp_mode == DDP_NO_USE) {
+
+	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+	if (!mtk_crtc->enabled || mtk_crtc->ddp_mode == DDP_NO_USE) {
 		DDPINFO("crtc 0 is already sleep, skip\n");
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 		return 0;
 	}
 
 	private = drm_dev->dev_private;
 	if (mtk_drm_helper_get_opt(private->helper_opt,
 			MTK_DRM_OPT_IDLE_MGR)) {
-		mtk_drm_idlemgr_kick(__func__, crtc, 0);
-		mtk_drm_set_idlemgr(crtc, 0, 1);
+		mtk_drm_set_idlemgr(crtc, 0, 0);
 	}
 
 	ret = mtk_crtc_lcm_ATA(crtc);
 
 	if (mtk_drm_helper_get_opt(private->helper_opt,
 			MTK_DRM_OPT_IDLE_MGR))
-		mtk_drm_set_idlemgr(crtc, 1, 1);
+		mtk_drm_set_idlemgr(crtc, 1, 0);
+
+	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 	if (ret == 0)
 		DDPPR_ERR("ATA LCM failed\n");

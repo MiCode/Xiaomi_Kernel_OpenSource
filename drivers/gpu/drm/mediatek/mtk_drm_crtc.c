@@ -4941,8 +4941,6 @@ int mtk_crtc_lcm_ATA(struct drm_crtc *crtc)
 
 	DDPINFO("%s\n", __func__);
 
-	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
-
 	mtk_disp_esd_check_switch(crtc, 0);
 	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
 	if (unlikely(!output_comp)) {
@@ -4983,7 +4981,6 @@ int mtk_crtc_lcm_ATA(struct drm_crtc *crtc)
 out:
 	mtk_disp_esd_check_switch(crtc, 1);
 
-	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 	return ret;
 }
 unsigned int mtk_drm_primary_display_get_debug_state(
