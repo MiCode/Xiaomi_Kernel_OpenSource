@@ -2023,6 +2023,8 @@ static void *get_sph_property_by_name(struct mt6885_afe_private *afe_priv,
 		return &(afe_priv->speech_md_headversion);
 	else if (strcmp(name, "Speech_MD_Version") == 0)
 		return &(afe_priv->speech_md_version);
+	else if (strcmp(name, "Speech_Cust_Param_Init") == 0)
+		return &(afe_priv->speech_cust_param_init);
 	else
 		return NULL;
 }
@@ -2117,6 +2119,9 @@ static const struct snd_kcontrol_new mt6885_afe_speech_controls[] = {
 		       speech_property_get, speech_property_set),
 	SOC_SINGLE_EXT("Speech_MD_Version",
 		       SND_SOC_NOPM, 0, 0xFFFFFFFF, 0,
+		       speech_property_get, speech_property_set),
+	SOC_SINGLE_EXT("Speech_Cust_Param_Init",
+		       SND_SOC_NOPM, 0, 0x1, 0,
 		       speech_property_get, speech_property_set),
 };
 

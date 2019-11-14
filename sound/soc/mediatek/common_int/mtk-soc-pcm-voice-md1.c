@@ -78,6 +78,7 @@ struct mtk_voice_property {
 	int speech_md_epof;
 	int speech_bt_sco_wb;
 	int speech_md_active;
+	int speech_cust_param_init;
 };
 
 /*
@@ -149,6 +150,7 @@ static struct mtk_voice_property voice_property = {
 	.speech_md_epof = 0,
 	.speech_bt_sco_wb = 0,
 	.speech_md_active = 0,
+	.speech_cust_param_init = 0,
 };
 
 /* speech mixctrl instead property usage */
@@ -179,6 +181,8 @@ static void *get_sph_property_by_name(struct mtk_voice_property *voice_priv,
 		return &(voice_priv->speech_bt_sco_wb);
 	else if (strcmp(name, "Speech_MD_Active") == 0)
 		return &(voice_priv->speech_md_active);
+	else if (strcmp(name, "Speech_Cust_Param_Init") == 0)
+		return &(voice_priv->speech_cust_param_init);
 	else
 		return NULL;
 }
@@ -250,6 +254,9 @@ static const struct snd_kcontrol_new mtk_voice_speech_controls[] = {
 		       SND_SOC_NOPM, 0, 0x1, 0,
 		       speech_property_get, speech_property_set),
 	SOC_SINGLE_EXT("Speech_MD_Active",
+		       SND_SOC_NOPM, 0, 0x1, 0,
+		       speech_property_get, speech_property_set),
+	SOC_SINGLE_EXT("Speech_Cust_Param_Init",
 		       SND_SOC_NOPM, 0, 0x1, 0,
 		       speech_property_get, speech_property_set),
 };
