@@ -256,7 +256,7 @@ page_owner=on";
 			};
 			dram_s1: dram_s1 {
 				id = <0x00000004>;
-				value = <1>;
+				value = <0>;
 			};
 		};
 		constraint-list {
