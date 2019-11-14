@@ -361,7 +361,7 @@ page_owner=on loop.max_part=7";
 			no-map;
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
 	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
-			size = <0 0x2000000>;
+			size = <0 0x800000>;
 			alignment = <0 0x1000000>;
 #else
 			size = <0 0x200000>;
