@@ -33,6 +33,7 @@
 #include "apu_power_api.h"
 #include "pmic_api_buck.h"
 #include "apusys_power_rule_check.h"
+#include "apusys_dbg.h"
 
 int g_pwr_log_level = APUSYS_PWR_LOG_INFO;
 int g_pm_procedure;
@@ -308,6 +309,7 @@ int apu_device_power_suspend(enum DVFS_USER user, int is_suspend)
 #endif // BYPASS_POWER_OFF
 
 	if (ret) {
+		apusys_reg_dump();
 		apu_aee_warn("APUPWR_OFF_FAIL", "user:%d, is_suspend:%d\n",
 							user, is_suspend);
 		return -ENODEV;
@@ -384,6 +386,7 @@ int apu_device_power_on(enum DVFS_USER user)
 				apu_get_power_info());
 
 	if (ret) {
+		apusys_reg_dump();
 		apu_aee_warn("APUPWR_ON_FAIL", "user:%d\n", user);
 		return -ENODEV;
 	} else {

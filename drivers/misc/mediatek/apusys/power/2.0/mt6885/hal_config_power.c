@@ -388,6 +388,26 @@ static unsigned int check_spm_register(struct apu_power_info *info, int log)
 		return 0x0;
 }
 
+static int check_if_rpc_alive(void)
+{
+	unsigned int regValue = 0x0;
+	int bit_offset = 26; // [31:26] is reserved for debug
+
+	regValue = DRV_Reg32(APU_RPC_TOP_SEL);
+	LOG_PM("%s , before: APU_RPC_TOP_SEL = 0x%x\n", __func__, regValue);
+	regValue |= (0x3a << bit_offset);
+	DRV_WriteReg32(APU_RPC_TOP_SEL, regValue);
+
+	regValue = 0x0;
+	regValue = DRV_Reg32(APU_RPC_TOP_SEL);
+	LOG_PM("%s , after: APU_RPC_TOP_SEL = 0x%x\n", __func__, regValue);
+
+	DRV_ClearBitReg32(APU_RPC_TOP_SEL, (BIT(26) | BIT(27) | BIT(28)
+					| BIT(29) | BIT(30) | BIT(31)));
+
+	return ((regValue >> bit_offset) & 0x3f) == 0x3a ? 1 : 0;
+}
+
 /*
  * domain_idx : 0 (conn), 2 (vpu0), 3 (vpu1), 4 (vpu2), 6 (mdla0), 7 (mdla1)
  * mode : 0 (disable), 1 (enable), 2 (disable mid stage)
@@ -405,6 +425,7 @@ static int rpc_power_status_check(int domain_idx, unsigned int mode)
 	unsigned int finished = 0x0;
 	unsigned int check_round = 0;
 	int fail_type = 0;
+	int rpc_alive = 0;
 
 	// check SPM_CROSS_WAKE_M01_REQ
 	spmValue = check_spm_register(NULL, 0);
@@ -428,25 +449,28 @@ static int rpc_power_status_check(int domain_idx, unsigned int mode)
 		if (++check_round >= REG_POLLING_TIMEOUT_ROUNDS) {
 
 			check_spm_register(NULL, 1);
+			rpc_alive = check_if_rpc_alive();
 			if (domain_idx == 0 && mode != 0) {
 				LOG_ERR(
-				"%s fail SPM Wakeup = 0x%x (idx:%d, mode:%d), timeout !\n",
-					__func__, spmValue, domain_idx, mode);
+				"%s fail SPM Wakeup = 0x%x, idx:%d, mode:%d, ra:%d, timeout !\n",
+					__func__, spmValue, domain_idx, mode,
+					rpc_alive);
 
 				apu_aee_warn(
 				"APUPWR_SPM_TIMEOUT",
-				"SPM Wakeup:0x%x, idx:%d, mode:%d, timeout\n",
-				spmValue, domain_idx, mode);
+				"SPM Wakeup:0x%x, idx:%d, mode:%d, ra:%d timeout\n",
+				spmValue, domain_idx, mode, rpc_alive);
 
 			} else {
 				LOG_ERR(
-				"%s fail APU_RPC_INTF_PWR_RDY = 0x%x (idx:%d, mode:%d), timeout !\n",
-					__func__, rpcValue, domain_idx, mode);
+				"%s fail APU_RPC_INTF_PWR_RDY = 0x%x, idx:%d, mode:%d, ra:%d, timeout !\n",
+					__func__, rpcValue, domain_idx, mode,
+					rpc_alive);
 
 				apu_aee_warn(
 				"APUPWR_RPC_TIMEOUT",
-				"APU_RPC_INTF_PWR_RDY:0x%x, idx:%d, mode:%d, timeout\n",
-				rpcValue, domain_idx, mode);
+				"APU_RPC_INTF_PWR_RDY:0x%x, idx:%d, mode:%d, ra:%d timeout\n",
+				rpcValue, domain_idx, mode, rpc_alive);
 			}
 
 			return -1;
@@ -466,15 +490,17 @@ static int rpc_power_status_check(int domain_idx, unsigned int mode)
 			fail_type = 3;
 
 		if (fail_type > 0) {
-			LOG_ERR(
-			"%s fail conn ctl type %d (mode:%d, spm:0x%x, rpc:0x%x)\n",
-			__func__, fail_type, mode, spmValue, rpcValue);
-
 			check_spm_register(NULL, 1);
+			rpc_alive = check_if_rpc_alive();
+			LOG_ERR(
+			"%s fail conn ctl type:%d, mode:%d, spm:0x%x, rpc:0x%x, ra:%d\n",
+			__func__, fail_type, mode, spmValue, rpcValue,
+			rpc_alive);
+
 			apu_aee_warn(
 				"APUPWR_RPC_CHK_FAIL",
-				"type:%d, mode:%d, spm:0x%x, rpc:0x%x\n",
-				fail_type, mode, spmValue, rpcValue);
+				"type:%d, mode:%d, spm:0x%x, rpc:0x%x, ra:%d\n",
+				fail_type, mode, spmValue, rpcValue, rpc_alive);
 #if 1
 			return -1;
 #endif

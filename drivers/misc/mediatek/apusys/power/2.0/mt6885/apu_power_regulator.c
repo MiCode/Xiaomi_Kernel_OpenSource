@@ -434,16 +434,16 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 	LOG_DBG("%s pmic_cmd = 0x%x\n", __func__, pmic_cmd);
 	DRV_WriteReg32(APU_PCU_PMIC_TAR_BUF, pmic_cmd);
 
-	while ((DRV_Reg32(APU_PCU_PMIC_IRQ) & 0x1) == 0) {
+	while ((DRV_Reg32(APU_PCU_PMIC_STATUS) & 0x1) == 0) {
 		udelay(50);
 		if (++check_round >= REG_POLLING_TIMEOUT_ROUNDS) {
-			LOG_ERR("%s wait APU_PCU_PMIC_IRQ timeout !\n",
+			LOG_ERR("%s wait APU_PCU_PMIC_STATUS timeout !\n",
 								__func__);
 			break;
 		}
 	}
 
-	DRV_WriteReg32(APU_PCU_PMIC_IRQ, 0x1);
+	DRV_WriteReg32(APU_PCU_PMIC_STATUS, 0x1);
 
 	LOG_DBG("read back from reg = 0x%x\n",
 				DRV_Reg32(APU_PCU_PMIC_CUR_BUF));

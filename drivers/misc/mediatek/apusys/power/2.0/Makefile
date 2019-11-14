@@ -21,6 +21,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/pmic/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/power/2.0/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/power/2.0/test/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/power/2.0/$(PDIR)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/midware/1.0/
 
 # FPGA environment
 ifeq ($(CONFIG_MTK_FPGA),y)
