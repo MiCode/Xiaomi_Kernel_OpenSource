@@ -24,6 +24,7 @@
 #undef pr_fmt
 #define pr_fmt(fmt) "Cache-QoS: " fmt
 
+#define LITTLE_NUM 4
 #define PFTCH_CPU_WIDTH 4
 #define PFTCH_MASK (0xf)
 #define GET_PREFETCH_CONFIG(x, cpu) \
@@ -60,6 +61,9 @@ __MODULE_PARM_TYPE(enable, "int");
 
 unsigned long ctl_pftch_thres_kb = (70 * 1024);
 module_param(ctl_pftch_thres_kb, ulong, 0600);
+
+unsigned long ctl_mcore_thres_kb = (550 * 1024 * 1024 / 16);
+module_param(ctl_mcore_thres_kb, ulong, 0600);
 /*
  * Macro for check type of variable, passed to `module_param`.
  * Just reuse already existed macro for `ulong` type.
@@ -180,6 +184,8 @@ static inline void control_prefetch(int cpu)
 		pftch_control_ca76(GET_PREFETCH_CONFIG(ctl_prefetch_mask, cpu));
 }
 
+static u64 cpu_cnt;
+
 void pftch_qos_tick(int cpu)
 {
 	struct ca_pmu_stats *cp_stats = &per_cpu(ca_pmu_stats, cpu);
@@ -187,6 +193,7 @@ void pftch_qos_tick(int cpu)
 	unsigned long now = sched_clock();
 	bool over_waste = false, pftch_disabled;
 	int i;
+	unsigned int total = 0;
 
 	if (!IS_BIG_CORE(cpu))
 		return;
@@ -217,6 +224,18 @@ void pftch_qos_tick(int cpu)
 			&& cp_stats->counters[L2_PF_ST] >
 			(cp_stats->counters[L2_PF_UNUSED] >> 1))
 		over_waste = true;
+
+	/* condition for multicore */
+	if (cp_stats->counters[L2_PF_UNUSED] > ctl_mcore_thres_kb)
+		cpu_cnt |= 0x1 << (cpu - LITTLE_NUM);
+	else
+		cpu_cnt &= ~(0x1 << (cpu - LITTLE_NUM));
+
+	total = (cpu_cnt & 0x1) + ((cpu_cnt>>1) & 0x1) +
+		((cpu_cnt>>2) & 0x1) + ((cpu_cnt>>3) & 0x1);
+
+	if (total < 2)
+		return;
 
 	pftch_disabled = is_pftch_disabled();
 	if ((over_waste || pftch_disabled)
