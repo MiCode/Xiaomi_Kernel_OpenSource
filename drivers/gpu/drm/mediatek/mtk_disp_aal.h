@@ -84,16 +84,15 @@
 
 #define DISP_Y_HISTOGRAM_00                     (0x504)
 
+#define MDP_AAL_TILE_00				(0x4EC)
+#define MDP_AAL_TILE_01				(0x4F0)
+#define MDP_AAL_TILE_02				(0x0F4)
+
 #define AAL_DRE30_GAIN_REGISTER_NUM		(544)
 #define AAL_DRE30_HIST_REGISTER_NUM		(768)
 
 #define AAL_U32_PTR(x) ((unsigned int *)(unsigned long)x)
 #define aal_u32_handle_t unsigned long long
-
-//#if defined(CONFIG_MACH_MT6799) || defined(CONFIG_MACH_MT6779)
-#if defined(CONFIG_MTK_DRE30_SUPPORT)
-#define AAL_HAS_DRE3            (1)
-#endif
 
 enum AAL_ESS_UD_MODE {
 	CONFIG_BY_CUSTOM_LIB = 0,

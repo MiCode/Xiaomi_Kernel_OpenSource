@@ -31,7 +31,10 @@
 #define DMDP_AAL_CFG_MAIN	0x0200
 #define DMDP_AAL_SIZE		0x0030
 #define DMDP_AAL_OUTPUT_SIZE	0x0034
+#define DMDP_AAL_DRE_BITPLUS_00 0x048C
 #define DMDP_AAL_DRE_BILATERAL	0x053C
+#define DMDP_AAL_Y2R_00		0x04BC
+#define DMDP_AAL_R2Y_00		0x04D4
 
 #define AAL_EN BIT(0)
 
@@ -39,6 +42,18 @@ struct mtk_dmdp_aal {
 	struct mtk_ddp_comp ddp_comp;
 	struct drm_crtc *crtc;
 };
+
+static void mtk_aal_write_mask(void __iomem *address, u32 data, u32 mask)
+{
+	u32 value = data;
+
+	if (mask != ~0) {
+		value = readl(address);
+		value &= ~mask;
+		value |= data;
+	}
+	writel(value, address);
+}
 
 static void mtk_dmdp_aal_start(struct mtk_ddp_comp *comp,
 	struct cmdq_pkt *handle)
@@ -52,6 +67,7 @@ static void mtk_dmdp_aal_start(struct mtk_ddp_comp *comp,
 static void mtk_dmdp_aal_stop(struct mtk_ddp_comp *comp,
 	struct cmdq_pkt *handle)
 {
+	DDPINFO("%s\n", __func__);
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DMDP_AAL_EN,
 		       0x0, ~0);
 }
@@ -76,22 +92,154 @@ static void mtk_dmdp_aal_config(struct mtk_ddp_comp *comp,
 {
 	unsigned int val = (cfg->w << 16) | (cfg->h);
 
+	DDPINFO("%s: 0x%08x\n", __func__, val);
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DMDP_AAL_SIZE,
 		       val, ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		       comp->regs_pa + DMDP_AAL_OUTPUT_SIZE, val, ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DMDP_AAL_DRE_BILATERAL, 0, ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DMDP_AAL_DRE_BITPLUS_00, 0, ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DMDP_AAL_Y2R_00, 0, ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DMDP_AAL_R2Y_00, 0, ~0);
+}
 
-	/* TODO: remove this */
-	mtk_dmdp_aal_bypass(comp, handle);
+static atomic_t g_aal_initialed = ATOMIC_INIT(0);
+struct aal_backup { /* structure for backup AAL register value */
+	unsigned int DRE_MAPPING;
+	unsigned int DRE_BLOCK_INFO_00;
+	unsigned int DRE_BLOCK_INFO_01;
+	unsigned int DRE_BLOCK_INFO_02;
+	unsigned int DRE_BLOCK_INFO_04;
+	unsigned int DRE_BLOCK_INFO_05;
+	unsigned int DRE_BLOCK_INFO_06;
+	unsigned int DRE_CHROMA_HIST_00;
+	unsigned int DRE_CHROMA_HIST_01;
+	unsigned int DRE_ALPHA_BLEND_00;
+	unsigned int SRAM_CFG;
+	unsigned int DUAL_PIPE_INFO_00;
+	unsigned int DUAL_PIPE_INFO_01;
+};
+static struct aal_backup g_aal_backup;
+
+#define DMDP_AAL_SRAM_CFG                       (0x0c4)
+#define DMDP_AAL_DRE_MAPPING_00                 (0x3b4)
+#define DMDP_AAL_DRE_BLOCK_INFO_00              (0x468)
+#define DMDP_AAL_DRE_BLOCK_INFO_01              (0x46c)
+#define DMDP_AAL_DRE_BLOCK_INFO_02              (0x470)
+#define DMDP_AAL_DRE_BLOCK_INFO_03              (0x474)
+#define DMDP_AAL_DRE_BLOCK_INFO_04              (0x478)
+#define DMDP_AAL_DRE_CHROMA_HIST_00             (0x480)
+#define DMDP_AAL_DRE_CHROMA_HIST_01             (0x484)
+#define DMDP_AAL_DRE_ALPHA_BLEND_00             (0x488)
+#define DMDP_AAL_DRE_BLOCK_INFO_05              (0x4b4)
+#define DMDP_AAL_DRE_BLOCK_INFO_06              (0x4b8)
+#define DMDP_AAL_DUAL_PIPE_INFO_00              (0x4d0)
+#define DMDP_AAL_DUAL_PIPE_INFO_01              (0x4d4)
+
+static void ddp_aal_dre3_backup(struct mtk_ddp_comp *comp)
+{
+	g_aal_backup.DRE_BLOCK_INFO_00 =
+		readl(comp->regs + DMDP_AAL_DRE_BLOCK_INFO_00);
+	g_aal_backup.DRE_BLOCK_INFO_01 =
+		readl(comp->regs + DMDP_AAL_DRE_BLOCK_INFO_01);
+	g_aal_backup.DRE_BLOCK_INFO_02 =
+		readl(comp->regs + DMDP_AAL_DRE_BLOCK_INFO_02);
+	g_aal_backup.DRE_BLOCK_INFO_04 =
+		readl(comp->regs + DMDP_AAL_DRE_BLOCK_INFO_04);
+	g_aal_backup.DRE_CHROMA_HIST_00 =
+		readl(comp->regs + DMDP_AAL_DRE_CHROMA_HIST_00);
+	g_aal_backup.DRE_CHROMA_HIST_01 =
+		readl(comp->regs + DMDP_AAL_DRE_CHROMA_HIST_01);
+	g_aal_backup.DRE_ALPHA_BLEND_00 =
+		readl(comp->regs + DMDP_AAL_DRE_ALPHA_BLEND_00);
+	g_aal_backup.DRE_BLOCK_INFO_05 =
+		readl(comp->regs + DMDP_AAL_DRE_BLOCK_INFO_05);
+	g_aal_backup.DRE_BLOCK_INFO_06 =
+		readl(comp->regs + DMDP_AAL_DRE_BLOCK_INFO_06);
+	g_aal_backup.SRAM_CFG =
+		readl(comp->regs + DMDP_AAL_SRAM_CFG);
+	/* FIXME */
+	g_aal_backup.DUAL_PIPE_INFO_00 =
+		readl(comp->regs + DMDP_AAL_DUAL_PIPE_INFO_00);
+	g_aal_backup.DUAL_PIPE_INFO_01 =
+		readl(comp->regs + DMDP_AAL_DUAL_PIPE_INFO_01);
+}
+
+static void ddp_aal_dre_backup(struct mtk_ddp_comp *comp)
+{
+	g_aal_backup.DRE_MAPPING =
+		readl(comp->regs + DMDP_AAL_DRE_MAPPING_00);
+}
+
+static void mtk_dmdp_aal_backup(struct mtk_ddp_comp *comp)
+{
+	DDPINFO("%s\n", __func__);
+	ddp_aal_dre_backup(comp);
+	ddp_aal_dre3_backup(comp);
+	atomic_set(&g_aal_initialed, 1);
+}
+
+static void ddp_aal_dre3_restore(struct mtk_ddp_comp *comp)
+{
+	mtk_aal_write_mask(comp->regs + DMDP_AAL_DRE_BLOCK_INFO_00,
+		g_aal_backup.DRE_BLOCK_INFO_00 & (0x1FFF << 13), 0x1FFF << 13);
+	mtk_aal_write_mask(comp->regs + DMDP_AAL_DRE_BLOCK_INFO_01,
+		g_aal_backup.DRE_BLOCK_INFO_01, ~0);
+	mtk_aal_write_mask(comp->regs + DMDP_AAL_DRE_BLOCK_INFO_02,
+		g_aal_backup.DRE_BLOCK_INFO_02, ~0);
+	mtk_aal_write_mask(comp->regs + DMDP_AAL_DRE_BLOCK_INFO_04,
+		g_aal_backup.DRE_BLOCK_INFO_04 & (0x3FF << 13), 0x3FF << 13);
+	mtk_aal_write_mask(comp->regs + DMDP_AAL_DRE_CHROMA_HIST_00,
+		g_aal_backup.DRE_CHROMA_HIST_00, ~0);
+	mtk_aal_write_mask(comp->regs + DMDP_AAL_DRE_CHROMA_HIST_01,
+		g_aal_backup.DRE_CHROMA_HIST_01 & 0xFFFF, 0xFFFF);
+	mtk_aal_write_mask(comp->regs + DMDP_AAL_DRE_ALPHA_BLEND_00,
+		g_aal_backup.DRE_ALPHA_BLEND_00, ~0);
+	mtk_aal_write_mask(comp->regs + DMDP_AAL_DRE_BLOCK_INFO_05,
+		g_aal_backup.DRE_BLOCK_INFO_05, ~0);
+	mtk_aal_write_mask(comp->regs + DMDP_AAL_DRE_BLOCK_INFO_06,
+		g_aal_backup.DRE_BLOCK_INFO_06, ~0);
+	mtk_aal_write_mask(comp->regs + DMDP_AAL_SRAM_CFG,
+		g_aal_backup.SRAM_CFG, 0x1);
+
+	/* FIXME */
+	mtk_aal_write_mask(comp->regs + DMDP_AAL_DUAL_PIPE_INFO_00,
+		g_aal_backup.DUAL_PIPE_INFO_00, ~0);
+	mtk_aal_write_mask(comp->regs + DMDP_AAL_DUAL_PIPE_INFO_01,
+		g_aal_backup.DUAL_PIPE_INFO_01, ~0);
+}
+
+static void ddp_aal_dre_restore(struct mtk_ddp_comp *comp)
+{
+	writel(g_aal_backup.DRE_MAPPING,
+		comp->regs + DMDP_AAL_DRE_MAPPING_00);
+}
+
+static void mtk_dmdp_aal_restore(struct mtk_ddp_comp *comp)
+{
+	if (atomic_read(&g_aal_initialed) != 1)
+		return;
+
+	DDPINFO("%s\n", __func__);
+	ddp_aal_dre_restore(comp);
+	ddp_aal_dre3_restore(comp);
 }
 
 static void mtk_dmdp_aal_prepare(struct mtk_ddp_comp *comp)
 {
+	DDPINFO("%s\n", __func__);
 	mtk_ddp_comp_clk_prepare(comp);
+	mtk_dmdp_aal_restore(comp);
 }
 
 static void mtk_dmdp_aal_unprepare(struct mtk_ddp_comp *comp)
 {
+	DDPINFO("%s\n", __func__);
+	mtk_dmdp_aal_backup(comp);
 	mtk_ddp_comp_clk_unprepare(comp);
 }
 

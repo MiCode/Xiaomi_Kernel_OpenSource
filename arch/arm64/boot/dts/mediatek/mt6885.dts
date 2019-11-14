@@ -3662,6 +3662,7 @@ page_owner=on";
 		reg = <0 0x14009000 0 0x1000>;
 		interrupts = <GIC_SPI 259 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&dispsys_config MM_DISP_AAL0>;
+		aal_dre3 = <&mdp_aal4>;
 	};
 
 	disp_gamma0: disp_gamma@1400a000 {
@@ -3722,12 +3723,13 @@ page_owner=on";
 		reg = <0 0x1400f000 0 0x1000>;
 	};
 
-	mdp_aal4@14010000 {
+	mdp_aal4: mdp_aal4@14010000 {
 		compatible = "mediatek,mdp_aal4",
 					"mediatek,mt6885-dmdp-aal";
 		reg = <0 0x14010000 0 0x1000>;
 		interrupts = <GIC_SPI 285 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&dispsys_config MM_MDP_AAL4>;
+		clock-names = "DRE3_AAL0";
 	};
 
 	mdp_hdr4@14011000 {
