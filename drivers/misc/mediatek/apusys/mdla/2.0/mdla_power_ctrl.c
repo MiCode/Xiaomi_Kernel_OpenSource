@@ -98,6 +98,8 @@ int mdla_pwr_on(int core_id)
 	} else {
 		mdla_cmd_debug("%s power on device %d fail\n",
 						__func__, register_user);
+		mutex_unlock(&mdla_devices[core_id].power_lock);
+		return ret;
 	}
 
 	mdla_drv_debug("mdla %d: power on info: apu_device_power_on_time: %llu\n",

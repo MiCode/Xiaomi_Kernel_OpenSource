@@ -132,13 +132,13 @@ struct mdla_wait_cmd {
 
 
 struct mdla_run_cmd {
-	void *kva;
+	uint32_t offset_code_buf;
+	uint32_t reserved;
 	uint32_t size;
 	uint32_t mva;
 	__u32 offset;        /* [in] command byte offset in buf */
 	__u32 count;         /* [in] # of commands */
 	__u32 id;            /* [out] command id */
-	//__u8 boost_value;    /* [in] dvfs boost value */
 };
 
 struct mdla_run_cmd_sync {

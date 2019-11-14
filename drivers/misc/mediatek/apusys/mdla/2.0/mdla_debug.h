@@ -20,6 +20,19 @@
 #include <linux/types.h>
 #include <linux/printk.h>
 #include <linux/seq_file.h>
+#include <aee.h>
+
+#ifdef CONFIG_MTK_AEE_FEATURE
+#define mdla_aee_warn(key, format, args...) \
+	do { \
+		pr_info(format, ##args); \
+		aee_kernel_warning("APUSYS_MDLA", \
+			"\nCRDISPATCH_KEY:" key "\n" format, ##args); \
+	} while (0)
+#else
+#define mnoc_aee_warn(key, format, args...)
+#endif
+
 extern int g_vpu_log_level;
 extern unsigned int g_mdla_func_mask;
 extern void *apu_conn_top;
@@ -84,7 +97,7 @@ int mdla_dump_register(struct seq_file *s);
 int mdla_dump_image_file(struct seq_file *s);
 
 /**
- * mdla_dump_mesg - dump the log buffer, which is wroted by VPU
+ * mdla_dump_mesg - dump the log buffer, which is wroted by MDLA
  * @s:          the pointer to seq_file.
  */
 int mdla_dump_mesg(struct seq_file *s);
@@ -100,6 +113,8 @@ int mdla_dump_mdla(struct seq_file *s);
  * @s:          the pointer to seq_file.
  */
 int mdla_dump_device_dbg(struct seq_file *s);
+
+int mdla_dump_dbg(int core_id, struct command_entry *ce);
 
 
 enum MDLA_DEBUG_MASK {

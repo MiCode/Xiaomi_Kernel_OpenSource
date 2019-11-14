@@ -11,14 +11,6 @@
  * GNU General Public License for more details.
  */
 
-#include "mdla_debug.h"
-#include "mdla.h"
-#include "mdla_hw_reg.h"
-#include "mdla_trace.h"
-//#include "mdla_dvfs.h"
-#include "mdla_pmu.h"
-#include "mdla_util.h"
-
 #include <linux/vmalloc.h>
 #include <linux/slab.h>
 #include <linux/mm.h>
@@ -32,6 +24,15 @@
 #include <linux/uaccess.h>
 #include <linux/string.h>
 #include <m4u.h>
+
+#include "mdla_debug.h"
+#include "mdla.h"
+#include "mdla_hw_reg.h"
+#include "mdla_trace.h"
+#include "mdla_pmu.h"
+#include "mdla_util.h"
+#include "mdla_plat_api.h"
+#include "apusys_dbg.h"
 
 #define ALGO_OF_MAX_POWER  (3)
 
@@ -478,6 +479,16 @@ int mdla_dump_register(struct seq_file *s)
 	seq_reg_top(MREG_TOP_G_FIN0);
 	seq_reg_top(MREG_TOP_G_FIN1);
 	seq_reg_top(MREG_TOP_G_FIN3);
+
+	return 0;
+}
+
+int mdla_dump_dbg(int core_id, struct command_entry *ce)
+{
+	mdla_dump_reg(core_id);
+	mdla_dump_ce(ce);
+	apusys_reg_dump();
+	mdla_aee_warn("APUSYS_MDLA", "MDLA Exception");
 
 	return 0;
 }

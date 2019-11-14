@@ -24,7 +24,7 @@
 #include "mdla_power_ctrl.h"
 #include "mdla_cmd_proc.h"
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
-#include "../../include/apusys_device.h"
+#include "apusys_device.h"
 #endif
 #include "apusys_power.h"
 #include "mtk_devinfo.h"
@@ -699,9 +699,8 @@ static long mdla_ioctl(struct file *filp, unsigned int command,
 				sizeof(cmd_data))) {
 			return -EFAULT;
 		}
-		mdla_cmd_debug("%s: RUN_CMD_SYNC: kva=%p, mva=0x%08x, phys_to_virt=%p\n",
+		mdla_cmd_debug("%s: RUN_CMD_SYNC: mva=0x%08x, phys_to_virt=%p\n",
 			__func__,
-			(void *)cmd_data.req.kva,
 			cmd_data.req.mva,
 			phys_to_virt(cmd_data.req.mva));
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__

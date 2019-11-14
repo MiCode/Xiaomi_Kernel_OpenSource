@@ -67,13 +67,17 @@
 
 #ifdef CONFIG_PM_WAKELOCKS
 static struct wakeup_source *mdla_ws;
+static uint32_t ws_count;
 #endif
 
 void mdla_wakeup_source_init(void)
 {
+#ifdef CONFIG_PM_WAKELOCKS
+	ws_count = 0;
 	mdla_ws = wakeup_source_register("mdla");
 	if (!mdla_ws)
 		pr_debug("mdla wakelock register fail!\n");
+#endif
 }
 
 /* if there's no more reqeusts
@@ -89,11 +93,16 @@ void mdla_command_done(int core_id)
 	mutex_unlock(&mdla_devices[core_id].power_lock);
 }
 
+#ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
+static void
+mdla_run_command_prepare(struct mdla_run_cmd *cd,
+	struct apusys_cmd_hnd *apusys_hd, struct command_entry *ce)
+#else
 static void
 mdla_run_command_prepare(struct mdla_run_cmd *cd, struct command_entry *ce)
+#endif
 {
 
-	char *ptr = (char *)cd->kva;
 	unsigned int size  = cd->size;
 
 	if (!ce)
@@ -101,31 +110,33 @@ mdla_run_command_prepare(struct mdla_run_cmd *cd, struct command_entry *ce)
 
 	ce->mva = cd->mva + cd->offset;
 
-
 	mdla_cmd_debug("%s: mva=%08x, offset=%08x, count: %u\n",
 			__func__,
 			cd->mva,
 			cd->offset,
 			cd->count);
 
-	mdla_cmd_debug("%s: kva=%p, size =%08x\n",
-			__func__,
-			ptr,
-			size);
-
 	ce->state = CE_NONE;
 	ce->flags = CE_NOP;
 	ce->bandwidth = 0;
 	ce->result = MDLA_CMD_SUCCESS;
 	ce->count = cd->count;
-#if 0
-	ce->khandle = cd->buf.ion_khandle;
-#endif
-	//ce->type = cd->buf.type;
-	//ce->priority = cd->priority;
-	//ce->boost_value = cd->boost_value;
 	ce->receive_t = sched_clock();
 	ce->kva = NULL;
+
+#ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
+	if (apusys_hd != NULL) {
+		ce->kva = (void *)(apusys_hd->cmd_entry+cd->offset_code_buf);
+		mdla_cmd_debug("%s: cmd_entry=%lld, offset_code_buf =%08x\n",
+			__func__,
+			apusys_hd->cmd_entry,
+			cd->offset_code_buf);
+		mdla_cmd_debug("%s: kva=%p, size =%08x\n",
+			__func__,
+			ce->kva,
+			size);
+	}
+#endif
 
 #ifdef __APUSYS_PREEMPTION__
 	// initialize members for preemption support
@@ -269,14 +280,18 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd,
 	mutex_lock(&mdla_info->cmd_lock);
 
 #ifdef CONFIG_PM_WAKELOCKS
-	if (mdla_ws)
+	if (mdla_ws && !ws_count)
 		__pm_stay_awake(mdla_ws);
+	ws_count++;
 #endif
 
-	mdla_run_command_prepare(cd, &ce);
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
+	mdla_run_command_prepare(cd, apusys_hd, &ce);
 	if (!pmu_apusys_pmu_addr_check(apusys_hd))
 		pmu_command_prepare(mdla_info, apusys_hd);
+#else
+	/*MDLA Pattern only*/
+	mdla_run_command_prepare(cd, &ce);
 #endif
 	/* Compute deadline */
 	deadline = get_jiffies_64() + msecs_to_jiffies(mdla_timeout);
@@ -289,10 +304,9 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd,
 			__func__, core_id, mdla_info->max_cmd_id, id);
 
 	ret = mdla_pwr_on(core_id);
-	if (ret) {
-		/*Power On failed*/
-		return ret;
-	}
+	if (ret)
+		goto mdla_cmd_done;
+
 
 	if (apusys_hd != NULL)
 		mdla_set_opp(core_id, apusys_hd->boost_val);
@@ -314,7 +328,6 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd,
 
 	/* Fill HW reg */
 	mdla_process_command(core_id, &ce);
-
 
 	/* Wait for timeout */
 	while (mdla_info->max_cmd_id < id &&
@@ -344,14 +357,11 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd,
 	}
 
 #ifdef __APUSYS_MDLA_UT__
-	pr_info("%s: MREG_TOP_G_INTP0: %.8x, MREG_TOP_G_FIN0: %.8x, MREG_TOP_G_FIN1: %.8x\n",
-		__func__,
-		mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_INTP0),
+	mdla_cmd_debug("MREG_TOP_G_FIN0: %.8x, MREG_TOP_G_FIN1: %.8x\n",
 		mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_FIN0),
 		mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_FIN1));
 
-	pr_info("%s: MREG_TOP_G_INTP3: %.8x\n",
-		__func__,
+	mdla_cmd_debug("MREG_TOP_G_FIN3: %.8x\n",
 		mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_FIN3));
 
 	mdla_cmd_debug("PMU_CFG_PMCR: %8x, pmu_clk_cnt: %.8x\n",
@@ -373,12 +383,10 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd,
 		wt->result = 0;
 	}
 	else { // Command timeout
-		pr_info("%s: command: %d, max_cmd_id: %d\n",
-				__func__, id,
+		mdla_timeout_debug("command: %d, max_cmd_id: %d\n",
+				id,
 				mdla_info->max_cmd_id);
-		mdla_dump_reg(core_id);
-		mdla_dump_ce(&ce);
-
+		mdla_dump_dbg(core_id, &ce);
 		// Enable & Relase bus protect
 		apu_device_power_off(MDLA0+core_id);
 		apu_device_power_on(MDLA0+core_id);
@@ -391,13 +399,6 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd,
 	mdla_command_done(core_id);
 
 	ce.wait_t = sched_clock();
-
-#ifdef CONFIG_PM_WAKELOCKS
-	if (mdla_ws)
-		__pm_relax(mdla_ws);
-#endif
-
-	mutex_unlock(&mdla_info->cmd_lock);
 
 	/* Calculate all performance index */
 	mdla_performance_index(wt, &ce);
@@ -414,6 +415,14 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd,
 	if (apusys_hd != NULL)
 		apusys_hd->ip_time = (uint32_t)(wt->busy_time/1000);
 #endif
+
+mdla_cmd_done:
+#ifdef CONFIG_PM_WAKELOCKS
+	ws_count--;
+	if (mdla_ws && !ws_count)
+		__pm_relax(mdla_ws);
+#endif
+	mutex_unlock(&mdla_info->cmd_lock);
 	return ret;
 }
 #endif

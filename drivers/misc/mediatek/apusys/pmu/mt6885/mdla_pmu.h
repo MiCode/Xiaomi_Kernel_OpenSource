@@ -17,7 +17,7 @@
 #include <linux/types.h>
 #include "mdla.h"
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
-#include "../../include/apusys_device.h"
+#include "apusys_device.h"
 #endif
 
 extern int get_power_on_status(int core_id);
