@@ -302,31 +302,105 @@
 		};
 
 		spi_2 {
-			spi_2_active: spi_2_active {
+			spi_2_mosi_a1_active: spi_2_mosi_a1_active {
 				mux {
-					pins = "gpio22", "gpio23",
-							"gpio24", "gpio25";
-					function = "blsp_spi1";
+					pins = "gpio22";
+					function = "blsp_spi_mosi_a1";
 				};
 
 				config {
-					pins = "gpio22", "gpio23",
-							"gpio24", "gpio25";
+					pins = "gpio22";
 					drive-strength = <6>;
 					bias-disable;
 				};
 			};
 
-			spi_2_sleep: spi_2_sleep {
+			spi_2_mosi_a1_sleep: spi_2_mosi_a1_sleep {
 				mux {
-					pins = "gpio22", "gpio23",
-							"gpio24", "gpio25";
-					function = "blsp_spi1";
+					pins = "gpio22";
+					function = "blsp_spi_mosi_a1";
 				};
 
 				config {
-					pins = "gpio22", "gpio23",
-							"gpio24", "gpio25";
+					pins = "gpio22";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+
+			spi_2_miso_a1_active: spi_2_miso_a1_active {
+				mux {
+					pins = "gpio23";
+					function = "blsp_spi_miso_a1";
+				};
+
+				config {
+					pins = "gpio23";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+
+			spi_2_miso_a1_sleep: spi_2_miso_a1_sleep {
+				mux {
+					pins = "gpio23";
+					function = "blsp_spi_miso_a1";
+				};
+
+				config {
+					pins = "gpio23";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+
+			spi_2_cs_n_a1_active: spi_2_cs_n_a1_active {
+				mux {
+					pins = "gpio24";
+					function = "blsp_spi_cs_n_a1";
+				};
+
+				config {
+					pins = "gpio24";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+
+			spi_2_cs_n_a1_sleep: spi_2_cs_n_a1_sleep {
+				mux {
+					pins = "gpio24";
+					function = "blsp_spi_cs_n_a1";
+				};
+
+				config {
+					pins = "gpio24";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+
+			spi_2_clk_a1_active: spi_2_clk_a1_active {
+				mux {
+					pins = "gpio25";
+					function = "blsp_spi_clk_a1";
+				};
+
+				config {
+					pins = "gpio25";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+
+			spi_2_clk_a1_sleep: spi_2_clk_a1_sleep {
+				mux {
+					pins = "gpio25";
+					function = "blsp_spi_clk_a1";
+				};
+
+				config {
+					pins = "gpio25";
 					drive-strength = <6>;
 					bias-disable;
 				};

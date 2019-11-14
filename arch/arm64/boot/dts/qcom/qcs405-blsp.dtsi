@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -228,8 +228,14 @@
 		qcom,master-id = <86>;
 		qcom,use-pinctrl;
 		pinctrl-names = "spi_default", "spi_sleep";
-		pinctrl-0 = <&spi_2_active>;
-		pinctrl-1 = <&spi_2_sleep>;
+		pinctrl-0 = <&spi_2_mosi_a1_active
+			&spi_2_miso_a1_active
+			&spi_2_cs_n_a1_active
+			&spi_2_clk_a1_active>;
+		pinctrl-1 = <&spi_2_mosi_a1_sleep
+			&spi_2_miso_a1_sleep
+			&spi_2_cs_n_a1_sleep
+			&spi_2_clk_a1_sleep>;
 		clock-names = "iface_clk", "core_clk";
 		clocks = <&clock_gcc GCC_BLSP1_AHB_CLK>,
 			 <&clock_gcc GCC_BLSP1_QUP1_SPI_APPS_CLK>;
