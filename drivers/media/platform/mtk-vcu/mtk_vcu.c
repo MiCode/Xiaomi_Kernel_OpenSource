@@ -896,11 +896,21 @@ EXPORT_SYMBOL_GPL(vcu_get_venc_hw_capa);
 void *vcu_mapping_dm_addr(struct platform_device *pdev,
 			  uintptr_t dtcm_dmem_addr)
 {
-	struct mtk_vcu *vcu = platform_get_drvdata(pdev);
-	uintptr_t d_vma = (uintptr_t)(dtcm_dmem_addr);
-	uintptr_t d_va_start = (uintptr_t)VCU_DMEM0_VIRT(vcu);
-	uintptr_t d_off = d_vma - VCU_DMEM0_VMA(vcu);
-	uintptr_t d_va;
+	struct mtk_vcu *vcu;
+	uintptr_t d_vma, d_va_start;
+	uintptr_t d_off, d_va;
+
+	if (!IS_ERR_OR_NULL(pdev))
+		vcu = platform_get_drvdata(pdev);
+	else {
+		dev_info(&pdev->dev, "[VCU] %s: Invalid pdev %p\n",
+			__func__, pdev);
+		return NULL;
+	}
+
+	d_vma = (uintptr_t)(dtcm_dmem_addr);
+	d_va_start = (uintptr_t)VCU_DMEM0_VIRT(vcu);
+	d_off = d_vma - VCU_DMEM0_VMA(vcu);
 
 	if (dtcm_dmem_addr == 0UL || d_off > VCU_DMEM0_LEN(vcu)) {
 		dev_dbg(&pdev->dev, "[VCU] %s: Invalid vma 0x%lx len %lx\n",
