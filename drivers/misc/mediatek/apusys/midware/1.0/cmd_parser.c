@@ -450,8 +450,6 @@ int apusys_subcmd_create(int idx, struct apusys_cmd *cmd,
 	INIT_LIST_HEAD(&sc->q_list);
 	mutex_init(&sc->mtx);
 
-	cmd->sc_list[sc->idx] = sc;
-	*isc = sc;
 	if (res_task_inc(sc)) {
 		LOG_WARN("inc 0x%llx-#%d sc softlimit(%u) fail",
 			cmd->cmd_id,
@@ -459,7 +457,13 @@ int apusys_subcmd_create(int idx, struct apusys_cmd *cmd,
 			cmd->hdr->soft_limit
 			);
 	}
+
 	_print_sc_info(sc);
+	*isc = sc;
+
+	mutex_lock(&cmd->sc_mtx);
+	cmd->sc_list[sc->idx] = sc;
+	mutex_unlock(&cmd->sc_mtx);
 
 	return 0;
 
