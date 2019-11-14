@@ -115,22 +115,15 @@ static int is_db_ok(struct mtu3_ep *mep)
 			epnum = (ep->bEndpointAddress & 0x0f);
 
 			/*
-			 * Under saving mode, some kinds of EPs have to be set
+			 * Under saving mode, ALL EPs will be set
 			 * as Single Buffer
-			 * ACM OUT-BULK - Signle
-			 * ACM IN-BULK - Double
-			 * ADB OUT-BULK - Signle
-			 * ADB IN-BULK - Single
 			 */
 
 			/* ep must be matched */
 			if (ep->bEndpointAddress == (mep->ep).address) {
 
-				if (gadget->speed == USB_SPEED_SUPER) {
-					if (!strcmp(f->name,
-						"Function FS Gadget"))
-						ret = 0;
-				}
+				if (gadget->speed == USB_SPEED_SUPER)
+					ret = 0;
 				goto end;
 			}
 		}

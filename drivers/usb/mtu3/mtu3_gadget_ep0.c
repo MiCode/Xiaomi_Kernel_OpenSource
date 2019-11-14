@@ -560,7 +560,7 @@ static void ep0_tx_state(struct mtu3 *mtu)
 	struct usb_request *req;
 	u32 csr;
 	u8 *src;
-	u8 count;
+	u16 count;
 	u32 maxp;
 
 	dev_dbg(mtu->dev, "%s\n", __func__);
