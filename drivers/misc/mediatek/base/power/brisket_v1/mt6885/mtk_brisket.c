@@ -234,9 +234,10 @@ static void brisket_reserve_memory_init(unsigned int log_offset)
 		(unsigned long long)brisket_mem_size,
 		(unsigned long long)brisket_mem_base_virt);
 
-	buf = (char *)(uintptr_t)(brisket_mem_base_virt+log_offset*0x1000);
+	if ((char *)brisket_mem_base_virt != NULL) {
+		buf = (char *)(uintptr_t)
+			(brisket_mem_base_virt+log_offset*0x1000);
 
-	if (buf != NULL) {
 		/* dump brisket register status into reserved memory */
 		brisket_reserve_memory_dump(buf, log_offset);
 	} else

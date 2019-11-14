@@ -260,10 +260,10 @@ static void credit_didt_reserve_memory_init(unsigned int log_offset)
 		(unsigned long long)credit_didt_mem_size,
 		(unsigned long long)credit_didt_mem_base_virt);
 
-	buf = (char *)(uintptr_t)
-		(credit_didt_mem_base_virt+0x10000+log_offset*0x1000);
+	if ((char *)credit_didt_mem_base_virt != NULL) {
+		buf = (char *)(uintptr_t)
+			(credit_didt_mem_base_virt+0x10000+log_offset*0x1000);
 
-	if (buf != NULL) {
 		/* dump credit_didt register status into reserved memory */
 		credit_didt_reserve_memory_dump(buf, log_offset);
 	} else
