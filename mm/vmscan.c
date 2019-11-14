@@ -1313,6 +1313,16 @@ static unsigned long shrink_page_list(struct list_head *page_list,
 					 * leave it off the LRU).
 					 */
 					nr_reclaimed++;
+
+					/*
+					 * If pagelist are from multiple nodes,
+					 * we should decrease NR_ISOLATED_ANON
+					 * + x on freed pages in here.
+					 */
+					if (!pgdat)
+						dec_node_page_state(page,
+						NR_ISOLATED_ANON +
+						page_is_file_cache(page));
 					continue;
 				}
 			}
