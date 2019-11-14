@@ -133,10 +133,12 @@ static struct snd_pcm_hardware mtk_dl1bt_pcm_hardware = {
 
 static int mtk_pcm_dl1Bt_stop(struct snd_pcm_substream *substream)
 {
+	/* disable memory interface */
+	SetMemoryPathEnable(bt_dl_mem_blk, false);
+	udelay(200);
 	/* here to turn off digital part */
 	SetIntfConnection(Soc_Aud_InterCon_DisConnect, bt_dl_mem_blk_io,
 			  Soc_Aud_AFE_IO_Block_DAI_BT_OUT);
-	SetMemoryPathEnable(bt_dl_mem_blk, false);
 
 	irq_remove_user(substream, irq_request_number(bt_dl_mem_blk));
 

@@ -159,6 +159,9 @@ static int mtk_voice_md2_bt_close(struct snd_pcm_substream *substream)
 		return 0;
 	}
 
+	/* disable memory interface */
+	SetMemoryPathEnable(Soc_Aud_Digital_Block_DAI_BT, false);
+	udelay(200);
 	/* interconnection setting */
 	SetIntfConnection(Soc_Aud_InterCon_DisConnect,
 			  Soc_Aud_AFE_IO_Block_DAI_BT_IN,
@@ -168,7 +171,6 @@ static int mtk_voice_md2_bt_close(struct snd_pcm_substream *substream)
 			  Soc_Aud_AFE_IO_Block_DAI_BT_OUT);
 
 	/* here start digital part */
-	SetMemoryPathEnable(Soc_Aud_Digital_Block_DAI_BT, false);
 	SetDaiBtEnable(false);
 	SetModemPcmEnable(MODEM_EXTERNAL, false);
 
