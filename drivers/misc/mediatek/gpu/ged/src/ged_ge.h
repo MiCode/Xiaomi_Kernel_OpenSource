@@ -18,7 +18,7 @@
 #include <ged_type.h>
 
 /* Must be the same as region_num in gralloc_extra/ge_config.h */
-#define GE_ALLOC_STRUCT_NUM 11
+#define GE_ALLOC_STRUCT_NUM 12
 
 int ged_ge_init(void);
 int ged_ge_exit(void);
