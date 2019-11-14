@@ -229,6 +229,9 @@ static long long vsync_period = GED_KPI_SEC_DIVIDER / GED_KPI_MAX_FPS;
 static GED_LOG_BUF_HANDLE ghLogBuf;
 static struct workqueue_struct *g_psWorkQueue;
 static GED_HASHTABLE_HANDLE gs_hashtable;
+#ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
+static spinlock_t gs_hashtableLock;
+#endif
 static GED_KPI g_asKPI[GED_KPI_TOTAL_ITEMS];
 static int g_i32Pos;
 static GED_THREAD_HANDLE ghThread;
@@ -1139,6 +1142,9 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 	u64 ulID;
 	unsigned long long phead_last1;
 	int target_FPS;
+#ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
+	unsigned long ulIRQFlags;
+#endif
 
 #ifdef GED_KPI_DEBUG
 	GED_LOGE("[GED_KPI] ts type = %d, pid = %d, wnd = %llu, frame = %lu\n",
@@ -1162,8 +1168,16 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 			if (psHead->i32Count < 1 && (psHead->sList.next == &(psHead->sList))) {
 				if (psHead == main_head)
 					main_head = NULL;
+#ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
+				spin_lock_irqsave(&gs_hashtableLock,
+					ulIRQFlags);
+#endif
 				ged_hashtable_remove(gs_hashtable
 					, (unsigned long)ulID);
+#ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
+				spin_unlock_irqrestore(&gs_hashtableLock,
+					ulIRQFlags);
+#endif
 				ged_free(psHead, sizeof(GED_KPI_HEAD));
 			}
 		} else {
@@ -1193,8 +1207,16 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 					GED_KPI_DEFAULT_FPS_MARGIN,
 					GED_KPI_FRC_DEFAULT_MODE, -1);
 				INIT_LIST_HEAD(&psHead->sList);
+#ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
+				spin_lock_irqsave(&gs_hashtableLock,
+					ulIRQFlags);
+#endif
 				ged_hashtable_set(gs_hashtable
 				, (unsigned long)ulID, (void *)psHead);
+#ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
+				spin_unlock_irqrestore(&gs_hashtableLock,
+					ulIRQFlags);
+#endif
 			} else {
 				GED_PR_DEBUG(
 				"[GED_KPI][Exception] ged_alloc_atomic");
@@ -2122,6 +2144,9 @@ GED_ERROR ged_kpi_system_init(void)
 		for (i = 0; i < GED_KPI_TOTAL_ITEMS; i++)
 			g_asKPI[i].ullWnd = 0x0 - 1;
 		gs_hashtable = ged_hashtable_create(10);
+#ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
+		spin_lock_init(&gs_hashtableLock);
+#endif
 		return gs_hashtable ? GED_OK : GED_ERROR_FAIL;
 	}
 	return GED_ERROR_FAIL;
@@ -2133,7 +2158,15 @@ GED_ERROR ged_kpi_system_init(void)
 void ged_kpi_system_exit(void)
 {
 #ifdef MTK_GED_KPI
+#ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
+	unsigned long ulIRQFlags;
+
+	spin_lock_irqsave(&gs_hashtableLock, ulIRQFlags);
+#endif
 	ged_hashtable_iterator_delete(gs_hashtable, ged_kpi_iterator_delete_func, NULL);
+#ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
+	spin_unlock_irqrestore(&gs_hashtableLock, ulIRQFlags);
+#endif
 	destroy_workqueue(g_psWorkQueue);
 	ged_thread_destroy(ghThread);
 	ged_log_buf_free(ghLogBuf);
@@ -2273,9 +2306,12 @@ GED_ERROR ged_kpi_timer_based_pick_riskyBQ(int *pT_gpu_real, int *pT_gpu_pipe,
 	unsigned int pre_TimeStamp2 = 0;
 	unsigned int loading = 0;
 	int i;
+	unsigned long ulIRQFlags;
 
+	spin_lock_irqsave(&gs_hashtableLock, ulIRQFlags);
 	ged_hashtable_iterator(gs_hashtable,
 		ged_kpi_find_riskyBQ_func, (void *)&sRiskyBQ);
+	spin_unlock_irqrestore(&gs_hashtableLock, ulIRQFlags);
 
 	if (sRiskyBQ.ullWnd == 0
 			|| sRiskyBQ.last_TimeStamp2 == 0
