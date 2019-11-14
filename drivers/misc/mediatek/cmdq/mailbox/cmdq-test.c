@@ -688,6 +688,8 @@ static void cmdq_test_mbox_write(
 	cmdq_pkt_destroy(pkt);
 
 	clk_disable_unprepare(test->gce.clk);
+
+	cmdq_msg("%s end", __func__);
 }
 
 static void cmdq_test_mbox_handshake_event(struct cmdq_test *test)
