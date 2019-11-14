@@ -22,6 +22,8 @@
 #include <linux/init.h>
 #include <linux/io.h>
 
+#include "apusys_power.h"
+
 #include "sample_drv.h"
 #include "sample_cmn.h"
 #include "sample_inf.h"
@@ -60,6 +62,11 @@ static int sample_release(struct inode *inode, struct file *file)
 static int sample_probe(struct platform_device *pdev)
 {
 	int ret = 0;
+
+	if (apusys_power_check() == false) {
+		LOG_ERR("apusys disable\n");
+		return -ENODEV;
+	}
 
 	/* get major */
 	ret = alloc_chrdev_region(&sample_devt, 0, 1, APUSYS_SAMPLE_DEV_NAME);
