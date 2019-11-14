@@ -102,10 +102,16 @@ static struct wdt_kick_info_t wdt_kick_info[MTK_WDT_KEEP_LAST_INFO];
 static unsigned int timeout;
 #endif
 
+#define WDT_CLR_IRQ	0
+
 static void mtk_wdt_clear_all(void)
 {
+#if WDT_CLR_IRQ
 	mt_reg_sync_writel(MTK_WDT_IRQ_CLR_MASK | MTK_WDT_IRQ_CLR_KEY,
 			     MTK_WDT_IRQ_CLR);
+#else
+	return;
+#endif
 }
 
 static enum wdt_rst_modes mtk_wdt_get_rst_mode(struct device_node *node)
