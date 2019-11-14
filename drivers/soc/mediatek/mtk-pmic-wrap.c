@@ -2022,7 +2022,7 @@ static void pwrap_sw_monitor_clr(void)
 	rdata = pwrap_readl(wrp, PMIF_SPI_PMIF_IRQ_EVENT_EN_3);
 
 	/* Clear and Reenable SW Monitor */
-	if (rdata | 0x8000000) {
+	if ((rdata & 0x8000000) != 0) {
 		/* Matching Mode */
 		pwrap_writel(wrp, 0x800, PMIF_SPI_PMIF_MONITOR_CTRL);
 		pwrap_writel(wrp, 0x405, PMIF_SPI_PMIF_MONITOR_CTRL);
