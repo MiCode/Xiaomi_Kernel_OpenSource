@@ -31,6 +31,7 @@ struct dentry *reviser_dbg_hw;
 struct dentry *reviser_dbg_remap_table;
 struct dentry *reviser_dbg_context_ID;
 struct dentry *reviser_dbg_boundary;
+struct dentry *reviser_dbg_iova;
 
 //table
 struct dentry *reviser_dbg_table;
@@ -177,6 +178,33 @@ static int reviser_dbg_boundary_open(struct inode *inode, struct file *file)
 
 static const struct file_operations reviser_dbg_fops_boundary = {
 	.open = reviser_dbg_boundary_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = seq_release,
+	//.write = seq_write,
+};
+//----------------------------------------------
+// context iova
+static int reviser_dbg_show_iova(struct seq_file *s, void *unused)
+{
+	struct reviser_dev_info *reviser_device = s->private;
+
+	if (!reviser_is_power(reviser_device)) {
+		LOG_ERR("Can Not Read when power disable\n");
+		return -EINVAL;
+	}
+
+	reviser_print_default_iova(reviser_device, s);
+	return 0;
+}
+
+static int reviser_dbg_iova_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, reviser_dbg_show_iova, inode->i_private);
+}
+
+static const struct file_operations reviser_dbg_fops_iova = {
+	.open = reviser_dbg_iova_open,
 	.read = seq_read,
 	.llseek = seq_lseek,
 	.release = seq_release,
@@ -530,6 +558,16 @@ int reviser_dbg_init(struct reviser_dev_info *reviser_device)
 	ret = IS_ERR_OR_NULL(reviser_dbg_boundary);
 	if (ret) {
 		LOG_ERR("failed to create debug node(boundary).\n");
+		goto out;
+	}
+
+	reviser_dbg_iova = debugfs_create_file("iova", 0644,
+			reviser_dbg_hw, reviser_device,
+			&reviser_dbg_fops_iova);
+
+	ret = IS_ERR_OR_NULL(reviser_dbg_iova);
+	if (ret) {
+		LOG_ERR("failed to create debug node(iova).\n");
 		goto out;
 	}
 

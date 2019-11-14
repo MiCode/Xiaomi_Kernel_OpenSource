@@ -36,7 +36,7 @@ void reviser_print_error(void *drvinfo, void *s_file);
 void reviser_print_boundary(void *drvinfo, void *s_file);
 void reviser_print_context_ID(void *drvinfo, void *s_file);
 void reviser_print_remap_table(void *drvinfo, void *s_file);
-void reviser_print_default_iova(void *drvinfo);
+void reviser_print_default_iova(void *drvinfo, void *s_file);
 int reviser_set_boundary(void *drvinfo,
 		enum REVISER_DEVICE_E type, int index, uint8_t boundary);
 int reviser_set_context_ID(void *drvinfo,

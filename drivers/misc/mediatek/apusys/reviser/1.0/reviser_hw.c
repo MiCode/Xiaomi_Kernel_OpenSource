@@ -51,12 +51,15 @@ static uint32_t _reviser_get_remap_offset(int index);
 
 APUSYS_ATTR_USE static void _reviser_set_contex_boundary(void *drvinfo,
 		uint32_t offset, uint8_t boundary);
-static void _reviser_set_context_ID(void *drvinfo,
+APUSYS_ATTR_USE static void _reviser_set_context_ID(void *drvinfo,
 		uint32_t offset, uint8_t ID);
-static void _reviser_set_remap_table(void *drvinfo,
+APUSYS_ATTR_USE static void _reviser_set_remap_table(void *drvinfo,
 		uint32_t offset, uint8_t valid, uint8_t ID,
 		uint8_t src_page, uint8_t dst_page);
-static void _reviser_set_default_iova(void *drvinfo,
+static uint32_t _reviser_get_remap_table_reg(
+		uint8_t valid, uint8_t ID,
+		uint8_t src_page, uint8_t dst_page);
+APUSYS_ATTR_USE static void _reviser_set_default_iova(void *drvinfo,
 		uint32_t iova);
 
 // Test INT for setting VPU
@@ -484,9 +487,10 @@ fail_offset:
 	LOG_ERR("invalid argument\n");
 }
 
-void reviser_print_default_iova(void *drvinfo)
+void reviser_print_default_iova(void *drvinfo, void *s_file)
 {
 	struct reviser_dev_info *reviser_device = NULL;
+	struct seq_file *s = (struct seq_file *)s_file;
 	uint32_t reg;
 
 	DEBUG_TAG;
@@ -500,11 +504,11 @@ void reviser_print_default_iova(void *drvinfo)
 
 	reg = _reviser_reg_read(reviser_device->pctrl_top, VLM_DEFAULT_MVA);
 
-	LOG_INFO("=============================");
-	LOG_INFO(" reviser driver default iova\n");
-	LOG_INFO("-----------------------------");
-	LOG_INFO("Default: %.8x\n", reg);
-	LOG_INFO("=============================");
+	LOG_CON(s, "=============================\n");
+	LOG_CON(s, " reviser driver default iova\n");
+	LOG_CON(s, "-----------------------------\n");
+	LOG_CON(s, "Default: %.8x\n", reg);
+	LOG_CON(s, "=============================\n");
 
 }
 
@@ -700,7 +704,26 @@ static void  _reviser_set_remap_table(void *drvinfo,
 		_reviser_reg_set(reviser_device->pctrl_top,
 				offset, (1 << VLM_REMAP_VALID_OFFSET));
 }
+static uint32_t  _reviser_get_remap_table_reg(
+		uint8_t valid, uint8_t ID,
+		uint8_t src_page, uint8_t dst_page)
+{
+	uint32_t value = 0;
 
+	DEBUG_TAG;
+
+	//if(valid) {
+	//	value = value | (1 << VLM_REMAP_VALID_OFFSET);
+	//}
+
+	value = value | (ID << VLM_REMAP_CTX_ID_OFFSET);
+	value = value | (src_page << VLM_REMAP_CTX_SRC_OFFSET);
+	value = value | (dst_page << VLM_REMAP_CTX_DST_OFFSET);
+
+	//LOG_INFO("value %.8x\n", value);
+
+	return value;
+}
 int reviser_type_convert(int type, enum REVISER_DEVICE_E *reviser_type)
 {
 	int ret = 0;
@@ -732,6 +755,8 @@ int reviser_set_remap_table(void *drvinfo,
 		uint8_t src_page, uint8_t dst_page)
 {
 	uint32_t offset = 0;
+	int ret = 0;
+	uint32_t value = 0;
 
 	DEBUG_TAG;
 
@@ -769,11 +794,23 @@ int reviser_set_remap_table(void *drvinfo,
 		LOG_ERR("invalid argument\n");
 		return -1;
 	}
+#if APUSYS_SECURE
 
+	value = _reviser_get_remap_table_reg(valid,
+			ID, src_page, dst_page);
+
+	ret = mt_secure_call(MTK_SIP_APUSYS_CONTROL,
+			MTK_APUSYS_KERNEL_OP_REVISER_SET_REMAP_TABLE,
+			offset, valid, value);
+	if (ret) {
+		LOG_ERR("Set HW RemapTable Fail\n");
+		return -1;
+	}
+#else
 	_reviser_set_remap_table(drvinfo,
 			offset, valid, ID, src_page, dst_page);
-
-	return 0;
+#endif
+	return ret;
 }
 
 int reviser_set_boundary(void *drvinfo,
@@ -851,6 +888,7 @@ int reviser_set_context_ID(void *drvinfo,
 		enum REVISER_DEVICE_E type, int index, uint8_t ID)
 {
 	uint32_t offset = 0;
+	int ret = 0;
 
 	DEBUG_TAG;
 
@@ -869,9 +907,20 @@ int reviser_set_context_ID(void *drvinfo,
 		LOG_ERR("invalid argument\n");
 		return -1;
 	}
+#if APUSYS_SECURE
+	ret = mt_secure_call(MTK_SIP_APUSYS_CONTROL,
+			MTK_APUSYS_KERNEL_OP_REVISER_SET_CONTEXT_ID,
+			offset, ID, 0);
+	if (ret) {
+		LOG_ERR("Set HW CtxID Fail\n");
+		return -1;
+	}
+#else
 	_reviser_set_context_ID(drvinfo, offset, ID);
+#endif
 
-	return 0;
+
+	return ret;
 }
 
 
@@ -879,6 +928,7 @@ static void _reviser_set_default_iova(void *drvinfo,
 		uint32_t iova)
 {
 	struct reviser_dev_info *reviser_device = NULL;
+
 
 	if (drvinfo == NULL) {
 		LOG_ERR("invalid argument\n");
@@ -898,6 +948,7 @@ int reviser_get_interrupt_offset(void *drvinfo)
 {
 	uint32_t offset = 0;
 	int ret = 0;
+	size_t reg_value;
 
 	struct reviser_dev_info *reviser_device = NULL;
 
@@ -943,8 +994,14 @@ int reviser_get_interrupt_offset(void *drvinfo)
 	}
 
 	if (offset > 0) {
+#if APUSYS_SECURE
+		ret = mt_secure_call_ret2(MTK_SIP_APUSYS_CONTROL,
+			MTK_APUSYS_KERNEL_OP_REVISER_GET_INTERRUPT_STATUS,
+			offset, 0, 0, &reg_value);
+#else
 		_reviser_reg_set(reviser_device->pctrl_top,
 				offset, 1);
+#endif
 	}
 
 
@@ -952,15 +1009,29 @@ int reviser_get_interrupt_offset(void *drvinfo)
 }
 int reviser_set_default_iova(void *drvinfo)
 {
+	int ret = 0;
+
 	if (g_mem_sys.iova == 0) {
 		LOG_ERR("invalid iova\n");
 		return -1;
 	}
+#if APUSYS_SECURE
+	ret = mt_secure_call(MTK_SIP_APUSYS_CONTROL,
+			MTK_APUSYS_KERNEL_OP_REVISER_SET_DEFAULT_IOVA,
+			g_mem_sys.iova, 0, 0);
+
+	if (ret) {
+		LOG_ERR("Set IOVA Fail\n");
+		return -1;
+	}
+
+#else
 	_reviser_set_default_iova(drvinfo, g_mem_sys.iova);
+#endif
 
 	LOG_INFO("Set IOVA %x\n", g_mem_sys.iova);
 
-	return 0;
+	return ret;
 }
 
 bool reviser_is_power(void *drvinfo)
