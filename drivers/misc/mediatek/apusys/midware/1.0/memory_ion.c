@@ -30,6 +30,7 @@
 #include "apusys_drv.h"
 #include "memory_mgt.h"
 #include "memory_ion.h"
+#include "apusys_user.h"
 
 #ifdef MTK_APUSYS_IOMMU_LEGACY
 #define APUSYS_IOMMU_PORT M4U_PORT_VPU
@@ -126,7 +127,11 @@ int ion_mem_alloc(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 	return 0;
 
 free_import:
+	LOG_ERR("mem fail(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+			mem->fd, mem->uva, mem->iova, mem->size,
+			mem->iova_size, mem->khandle, mem->kva);
 	ion_free(mem_mgr->client, ion_hnd);
+	//apusys_user_dump(NULL);
 	return ret;
 }
 
@@ -169,7 +174,13 @@ int ion_mem_free(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 			mem->fd, mem->uva, mem->iova, mem->size,
 			mem->iova_size, mem->khandle, mem->kva);
 
+	return 0;
+
 free_import:
+	LOG_ERR("mem fail(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+			mem->fd, mem->uva, mem->iova, mem->size,
+			mem->iova_size, mem->khandle, mem->kva);
+	//apusys_user_dump(NULL);
 	return ret;
 }
 
@@ -211,7 +222,11 @@ int ion_mem_import(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 	return 0;
 
 free_import:
+	LOG_ERR("mem fail(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+			mem->fd, mem->uva, mem->iova, mem->size,
+			mem->iova_size, mem->khandle, mem->kva);
 	ion_free(mem_mgr->client, ion_hnd);
+	//apusys_user_dump(NULL);
 	return ret;
 }
 
@@ -253,8 +268,13 @@ int ion_mem_unimport(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 	LOG_INFO("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
 			mem->fd, mem->uva, mem->iova, mem->size,
 			mem->iova_size, mem->khandle, mem->kva);
+	return 0;
 
 free_import:
+	LOG_ERR("mem fail(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+			mem->fd, mem->uva, mem->iova, mem->size,
+			mem->iova_size, mem->khandle, mem->kva);
+	//apusys_user_dump(NULL);
 	return ret;
 }
 
