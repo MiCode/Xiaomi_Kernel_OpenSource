@@ -256,10 +256,11 @@ static void __irq_count_tracer_work(struct irq_work *work)
 			continue;
 
 		snprintf(msg, sizeof(msg),
-			 "irq:%d %s count +%d in %lld ms, from %lld.%06lu to %lld.%06lu",
+			 "irq:%d %s count +%d in %lld ms, from %lld.%06lu to %lld.%06lu on CPU:%d",
 			 irq, irq_to_name(irq), count, t_diff,
 			 sec_high(irq_cnt->t_start), sec_low(irq_cnt->t_start),
-			 sec_high(irq_cnt->t_end), sec_low(irq_cnt->t_end));
+			 sec_high(irq_cnt->t_end), sec_low(irq_cnt->t_end),
+			 raw_smp_processor_id());
 		sched_mon_msg(TO_BOTH, msg);
 
 		if (irq_period_th2_ns && irq_count_aee_limit &&
