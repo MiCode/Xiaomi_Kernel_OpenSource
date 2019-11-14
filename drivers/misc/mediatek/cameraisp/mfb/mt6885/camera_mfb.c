@@ -665,7 +665,7 @@ static inline unsigned int MFB_UsToJiffies(unsigned int Us)
  *
  ******************************************************************************/
 static inline unsigned int MSS_GetIRQState(
-	unsigned int type, unsigned int userNumber, unsigned int stus,
+	unsigned int type, unsigned int *userNumber, unsigned int stus,
 	enum MFB_PROCESS_ID_ENUM whichReq, int ProcessID)
 {
 	unsigned int ret = 0;
@@ -680,8 +680,11 @@ static inline unsigned int MSS_GetIRQState(
 	} else {
 		LOG_ERR(
 		"WaitIRQ Status Error, type:%d, userNumber:%d, status:%d, whichReq:%d, ProcessID:0x%x\n",
-		     type, userNumber, stus, whichReq, ProcessID);
+		     type, *userNumber, stus, whichReq, ProcessID);
 	}
+	*userNumber = ret;
+	if (ret == 1)
+		MFBInfo.IrqInfo.ProcessID[whichReq] = 0;
 	spin_unlock_irqrestore(&(MFBInfo.SpinLockIrq[type]), flags);
 	/*  */
 	return ret;
@@ -2218,19 +2221,15 @@ static signed int MSS_WaitIrq(struct MFB_WAIT_IRQ_STRUCT *WaitIrq,
 
 	/* 2. start to wait signal */
 	Timeout = wait_event_interruptible_timeout(MFBInfo.WaitQueueHeadMss,
-				MSS_GetIRQState(WaitIrq->Type, WaitIrq->UserKey,
+				MSS_GetIRQState(WaitIrq->Type,
+				&WaitIrq->UserKey,
 				WaitIrq->Status, whichReq,
 				WaitIrq->ProcessID),
 				MFB_MsToJiffies(WaitIrq->Timeout));
 
 	/* check if user is interrupted by system signal */
 	if ((Timeout != 0) &&
-	    (!MSS_GetIRQState(
-		WaitIrq->Type,
-		WaitIrq->UserKey,
-		WaitIrq->Status,
-		whichReq,
-		WaitIrq->ProcessID))) {
+	    (!WaitIrq->UserKey)) {
 		LOG_INF(
 			"waked up by sys. signal,ret(%d),irq Type/User/Sts/whReq/Pid(0x%x/%d/0x%x/%d/%d)\n",
 			Timeout, WaitIrq->Type, WaitIrq->UserKey,
