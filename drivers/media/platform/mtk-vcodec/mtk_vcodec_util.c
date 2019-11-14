@@ -213,3 +213,25 @@ struct vdec_fb *mtk_vcodec_get_fb(struct mtk_vcodec_ctx *ctx)
 }
 EXPORT_SYMBOL(mtk_vcodec_get_fb);
 
+
+void v4l2_m2m_buf_queue_check(struct v4l2_m2m_ctx *m2m_ctx,
+		void *vbuf)
+{
+	struct v4l2_m2m_buffer *b = container_of(vbuf,
+				struct v4l2_m2m_buffer, vb);
+	mtk_v4l2_debug(8, "[Debug] b %p b->list.next %p prev %p %p %p\n",
+		b, b->list.next, b->list.prev,
+		LIST_POISON1, LIST_POISON2);
+
+	if (WARN_ON(IS_ERR_OR_NULL(m2m_ctx) ||
+		(b->list.next != LIST_POISON1 && b->list.next) ||
+		(b->list.prev != LIST_POISON2 && b->list.prev))) {
+		v4l2_aee_print("b %p next %p prev %p already in rdyq %p %p\n",
+			b, b->list.next, b->list.prev,
+			LIST_POISON1, LIST_POISON2);
+		return;
+	}
+	v4l2_m2m_buf_queue(m2m_ctx, vbuf);
+}
+EXPORT_SYMBOL(v4l2_m2m_buf_queue_check);
+

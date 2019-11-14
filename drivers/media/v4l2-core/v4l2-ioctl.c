@@ -1328,9 +1328,9 @@ static void v4l_fill_fmtdesc(struct v4l2_fmtdesc *fmt)
 		case V4L2_PIX_FMT_MT10:
 			descr = "MTK 10-bit compressed"; break;
 		case V4L2_PIX_FMT_P010S:
-			descr = "10-bit P010 LSB 6-bit not used single"; break;
+			descr = "10-bit P010 LSB 6-bit single"; break;
 		case V4L2_PIX_FMT_P010M:
-			descr = "10-bit P010 LSB 6-bit not used"; break;
+			descr = "10-bit P010 LSB 6-bit"; break;
 		case V4L2_PIX_FMT_NV12_AFBC:
 			descr = "AFBC NV12"; break;
 		case V4L2_PIX_FMT_NV12_10B_AFBC:

@@ -1408,7 +1408,7 @@ static int vidioc_encoder_cmd(struct file *file, void *priv,
 			return 0;
 		}
 		ctx->enc_flush_buf->lastframe = EOS;
-		v4l2_m2m_buf_queue(ctx->m2m_ctx, &ctx->enc_flush_buf->vb);
+		v4l2_m2m_buf_queue_check(ctx->m2m_ctx, &ctx->enc_flush_buf->vb);
 		v4l2_m2m_try_schedule(ctx->m2m_ctx);
 		break;
 
@@ -1613,7 +1613,7 @@ static void vb2ops_venc_buf_queue(struct vb2_buffer *vb)
 		ctx->param_change = MTK_ENCODE_PARAM_NONE;
 	}
 
-	v4l2_m2m_buf_queue(ctx->m2m_ctx, to_vb2_v4l2_buffer(vb));
+	v4l2_m2m_buf_queue_check(ctx->m2m_ctx, to_vb2_v4l2_buffer(vb));
 }
 
 static int vb2ops_venc_start_streaming(struct vb2_queue *q, unsigned int count)
@@ -2134,7 +2134,7 @@ static void mtk_venc_worker(struct work_struct *work)
 		src_vb2_v4l2->flags |= V4L2_BUF_FLAG_LAST;
 		dst_vb2_v4l2->flags |= V4L2_BUF_FLAG_LAST;
 		ctx->enc_flush_buf->lastframe = EOS;
-		v4l2_m2m_buf_queue(ctx->m2m_ctx, &ctx->enc_flush_buf->vb);
+		v4l2_m2m_buf_queue_check(ctx->m2m_ctx, &ctx->enc_flush_buf->vb);
 	}
 
 	memset(pfrm_buf, 0, sizeof(struct venc_frm_buf));

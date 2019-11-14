@@ -16,6 +16,7 @@
 #ifndef _MTK_VCODEC_UTIL_H_
 #define _MTK_VCODEC_UTIL_H_
 
+#include <aee.h>
 #include <linux/types.h>
 #include <linux/dma-direction.h>
 
@@ -110,6 +111,24 @@ extern bool mtk_vcodec_perf;
 
 #endif
 
+#ifdef CONFIG_MTK_AEE_FEATURE
+#define v4l2_aee_print(string, args...) do {\
+	char vcu_name[100];\
+	snprintf(vcu_name, 100, "[MTK_V4L2] "string, ##args); \
+	aee_kernel_warning_api(__FILE__, __LINE__, \
+		DB_OPT_MMPROFILE_BUFFER | DB_OPT_NE_JBT_TRACES, \
+		vcu_name, "[MTK_V4L2] error:"string, ##args); \
+	pr_info("[MTK_V4L2] error:"string, ##args);  \
+	} while (0)
+#else
+#define v4l2_aee_print(string, args...) do {\
+		char vcu_name[100];\
+		snprintf(vcu_name, 100, "[MTK_V4L2] "string, ##args); \
+		pr_info("[MTK_V4L2] error:"string, ##args);  \
+	} while (0)
+
+#endif
+
 void __iomem *mtk_vcodec_get_dec_reg_addr(struct mtk_vcodec_ctx *data,
 	unsigned int reg_idx);
 void __iomem *mtk_vcodec_get_enc_reg_addr(struct mtk_vcodec_ctx *data,
@@ -125,6 +144,7 @@ struct mtk_vcodec_ctx *mtk_vcodec_get_curr_ctx(struct mtk_vcodec_dev *dev,
 struct vdec_fb *mtk_vcodec_get_fb(struct mtk_vcodec_ctx *ctx);
 int mtk_vdec_put_fb(struct mtk_vcodec_ctx *ctx, int type);
 void mtk_enc_put_buf(struct mtk_vcodec_ctx *ctx);
-
+void v4l2_m2m_buf_queue_check(struct v4l2_m2m_ctx *m2m_ctx,
+		void *vbuf);
 
 #endif /* _MTK_VCODEC_UTIL_H_ */
