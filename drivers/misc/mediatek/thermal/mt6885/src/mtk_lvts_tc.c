@@ -472,11 +472,15 @@ void lvts_device_read_count_RC_N(void)
 			/* Set Device Single mode */
 			lvts_write_device(0x81030000, 0x06, 0x78, i);
 			/* Enable TS_EN */
-			lvts_write_device(0x81030000, 0x08, 0xF7, i);
+			lvts_write_device(0x81030000, 0x08, 0xF5, i);
+
 			/* Toggle TSDIV_EN & TSVCO_TG */
-			lvts_write_device(0x81030000, 0x08, 0xFE, i);
+			lvts_write_device(0x81030000, 0x08, 0xFC, i);
+
 			/* Toggle TSDIV_EN & TSVCO_TG */
-			lvts_write_device(0x81030000, 0x08, 0xF7, i);
+			lvts_write_device(0x81030000, 0x08, 0xF5, i);
+			lvts_write_device(0x81030000, 0x07, 0xA6, i);
+
 			/* Wait 8us for device settle + 2us buffer*/
 			udelay(10);
 			/* Kick-off RCK counting */
@@ -499,7 +503,7 @@ void lvts_device_read_count_RC_N(void)
 			udelay(5);
 
 			/* Disable TS_EN */
-			lvts_write_device(0x81030000, 0x08, 0xF3, i);
+			lvts_write_device(0x81030000, 0x08, 0xF1, i);
 
 			lvts_device_check_read_write_status(i);
 
@@ -870,11 +874,15 @@ void lvts_Device_Enable_Init_all_Devices(void)
 		 */
 
 		/* Enable TS_EN */
-		lvts_write_device(0x81030000, 0x08, 0xF7, i);
+		lvts_write_device(0x81030000, 0x08, 0xF5, i);
 		/* Toggle TSDIV_EN & TSVCO_TG */
-		lvts_write_device(0x81030000, 0x08, 0xFE, i);
-		/* Toggle TSDIV_EN & TSVCO_TG */
-		lvts_write_device(0x81030000, 0x08, 0xF7, i);
+		lvts_write_device(0x81030000, 0x08, 0xFC, i);
+		/* Enable TS_EN */
+		lvts_write_device(0x81030000, 0x08, 0xF5, i);
+
+		/*  Lantency */
+		lvts_write_device(0x81030000, 0x07, 0xA6, i);
+
 #endif
 	}
 }
