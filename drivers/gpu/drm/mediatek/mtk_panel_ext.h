@@ -91,6 +91,12 @@ struct mtk_panel_funcs {
 	 */
 	unsigned long (*doze_get_mode_flags)(
 		struct drm_panel *panel, int aod_en);
+
+	int (*hbm_set_cmdq)(struct drm_panel *panel, void *dsi_drv,
+			    dcs_write_gce cb, void *handle, bool en);
+	void (*hbm_get_state)(struct drm_panel *panel, bool *state);
+	void (*hbm_get_wait_state)(struct drm_panel *panel, bool *wait);
+	bool (*hbm_set_wait_state)(struct drm_panel *panel, bool wait);
 };
 
 enum MIPITX_PHY_PORT {
@@ -203,6 +209,8 @@ struct mtk_panel_params {
 		lane_swap[MIPITX_PHY_PORT_NUM][MIPITX_PHY_LANE_NUM];
 	struct mtk_panel_dsc_params dsc_params;
 	unsigned int output_mode;
+	unsigned int hbm_en_time;
+	unsigned int hbm_dis_time;
 };
 
 struct mtk_panel_ext {

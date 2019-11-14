@@ -30,6 +30,8 @@
 
 #include "mtk_drm_ddp_comp.h"
 #include "mtk_drm_crtc.h"
+#include "mtk_drm_drv.h"
+#include "mtk_drm_helper.h"
 #include "mtk_mipi_tx.h"
 #include "mtk_dump.h"
 #include "mtk_log.h"
@@ -310,6 +312,8 @@ struct mtk_dsi {
 
 	struct t_condition_wq enter_ulps_done;
 	struct t_condition_wq exit_ulps_done;
+	struct t_condition_wq te_rdy;
+	struct t_condition_wq frame_done;
 	unsigned int hs_trail;
 	unsigned int hs_prpr;
 	unsigned int hs_zero;
@@ -956,9 +960,13 @@ static void init_dsi_wq(struct mtk_dsi *dsi)
 {
 	init_waitqueue_head(&dsi->enter_ulps_done.wq);
 	init_waitqueue_head(&dsi->exit_ulps_done.wq);
+	init_waitqueue_head(&dsi->te_rdy.wq);
+	init_waitqueue_head(&dsi->frame_done.wq);
 
 	atomic_set(&dsi->enter_ulps_done.condition, 0);
 	atomic_set(&dsi->exit_ulps_done.condition, 0);
+	atomic_set(&dsi->te_rdy.condition, 0);
+	atomic_set(&dsi->frame_done.condition, 0);
 }
 
 static void reset_dsi_wq(struct t_condition_wq *wq)
@@ -1028,14 +1036,32 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 			wakeup_dsi_wq(&dsi->enter_ulps_done);
 
 		if (status & TE_RDY_INT_FLAG) {
+			struct mtk_drm_private *priv = NULL;
+
 			mtk_crtc = dsi->ddp_comp.mtk_crtc;
+
+			if (mtk_crtc && mtk_crtc->base.dev)
+				priv = mtk_crtc->base.dev->dev_private;
+			if (priv && mtk_drm_helper_get_opt(priv->helper_opt,
+							   MTK_DRM_OPT_HBM))
+				wakeup_dsi_wq(&dsi->te_rdy);
+
 			if (mtk_dsi_is_cmd_mode(&dsi->ddp_comp) &&
 				mtk_crtc && mtk_crtc->vblank_en)
 				mtk_crtc_vblank_irq(&mtk_crtc->base);
 		}
 
 		if (status & FRAME_DONE_INT_FLAG) {
+			struct mtk_drm_private *priv = NULL;
+
 			mtk_crtc = dsi->ddp_comp.mtk_crtc;
+
+			if (mtk_crtc && mtk_crtc->base.dev)
+				priv = mtk_crtc->base.dev->dev_private;
+			if (priv && mtk_drm_helper_get_opt(priv->helper_opt,
+							   MTK_DRM_OPT_HBM))
+				wakeup_dsi_wq(&dsi->frame_done);
+
 			if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp) &&
 				mtk_crtc && mtk_crtc->vblank_en)
 				mtk_crtc_vblank_irq(&mtk_crtc->base);
@@ -2834,6 +2860,65 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 					handle, *(int *)params);
 	}
 		break;
+	case DSI_HBM_SET:
+	{
+		panel_ext = mtk_dsi_get_panel_ext(comp);
+		if (!(panel_ext && panel_ext->funcs &&
+		      panel_ext->funcs->hbm_set_cmdq))
+			break;
+
+		panel_ext->funcs->hbm_set_cmdq(dsi->panel, dsi,
+					       mipi_dsi_dcs_write_gce, handle,
+					       *(bool *)params);
+		break;
+	}
+	case DSI_HBM_GET_STATE:
+	{
+		panel_ext = mtk_dsi_get_panel_ext(comp);
+		if (!(panel_ext && panel_ext->funcs &&
+		      panel_ext->funcs->hbm_get_state))
+			break;
+
+		panel_ext->funcs->hbm_get_state(dsi->panel, (bool *)params);
+		break;
+	}
+	case DSI_HBM_GET_WAIT_STATE:
+	{
+		panel_ext = mtk_dsi_get_panel_ext(comp);
+		if (!(panel_ext && panel_ext->funcs &&
+		      panel_ext->funcs->hbm_get_wait_state))
+			break;
+
+		panel_ext->funcs->hbm_get_wait_state(dsi->panel,
+						     (bool *)params);
+		break;
+	}
+	case DSI_HBM_SET_WAIT_STATE:
+	{
+		panel_ext = mtk_dsi_get_panel_ext(comp);
+		if (!(panel_ext && panel_ext->funcs &&
+		      panel_ext->funcs->hbm_set_wait_state))
+			break;
+
+		panel_ext->funcs->hbm_set_wait_state(dsi->panel,
+						     *(bool *)params);
+		break;
+	}
+	case DSI_HBM_WAIT:
+	{
+		int ret = 0;
+
+		if (mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
+			reset_dsi_wq(&dsi->te_rdy);
+			ret = wait_dsi_wq(&dsi->te_rdy, HZ);
+		} else {
+			reset_dsi_wq(&dsi->frame_done);
+			ret = wait_dsi_wq(&dsi->frame_done, HZ);
+		}
+		if (!ret)
+			DDPINFO("%s: DSI_HBM_WAIT failed\n", __func__);
+		break;
+	}
 	case LCM_ATA_CHECK:
 	{
 		struct mtk_dsi *dsi =
@@ -3100,6 +3185,9 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 		goto error;
 	}
 
+	/* init wq */
+	init_dsi_wq(dsi);
+
 	irq_num = platform_get_irq(pdev, 0);
 	if (irq_num < 0) {
 		dev_err(&pdev->dev, "failed to request dsi irq resource\n");
@@ -3135,9 +3223,6 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 
 	dsi->output_en = true;
 	dsi->clk_refcnt = 1;
-
-	/* init wq */
-	init_dsi_wq(dsi);
 
 	platform_set_drvdata(pdev, dsi);
 	DDPINFO("%s-\n", __func__);

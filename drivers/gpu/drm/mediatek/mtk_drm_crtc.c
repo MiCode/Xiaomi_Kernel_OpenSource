@@ -65,6 +65,7 @@ static struct mtk_drm_property mtk_crtc_property[CRTC_PROP_MAX] = {
 	{DRM_MODE_PROP_ATOMIC, "OUTPUT_FB_ID", 0, UINT_MAX, 0},
 	{DRM_MODE_PROP_ATOMIC, "INTF_BUFF_IDX", 0, UINT_MAX, 0},
 	{DRM_MODE_PROP_ATOMIC, "DISP_MODE_IDX", 0, UINT_MAX, 0},
+	{DRM_MODE_PROP_ATOMIC, "HBM_ENABLE", 0, UINT_MAX, 0},
 };
 
 static const char * const crtc_gce_client_str[] = {
@@ -531,6 +532,89 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 
 	CRTC_MMP_EVENT_END(index, backlight, (unsigned long)crtc,
 			level);
+
+	return 0;
+}
+
+static int mtk_drm_crtc_set_panel_hbm(struct drm_crtc *crtc, bool en)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_ddp_comp *comp = mtk_ddp_comp_request_output(mtk_crtc);
+	struct cmdq_pkt *cmdq_handle;
+	bool is_frame_mode;
+	bool state = false;
+
+	if (!(comp && comp->funcs && comp->funcs->io_cmd))
+		return -EINVAL;
+
+	comp->funcs->io_cmd(comp, NULL, DSI_HBM_GET_STATE, &state);
+	if (state == en)
+		return 0;
+
+	if (!(mtk_crtc->enabled)) {
+		DDPINFO("%s: skip, slept\n", __func__);
+		return -EINVAL;
+	}
+
+	mtk_drm_idlemgr_kick(__func__, crtc, 0);
+
+	DDPINFO("%s:set LCM hbm en:%d\n", __func__, en);
+
+	is_frame_mode = mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base);
+	cmdq_handle = cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
+
+	if (is_frame_mode) {
+		cmdq_pkt_wfe(cmdq_handle,
+			     mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+		cmdq_pkt_clear_event(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
+	}
+
+	mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle, DDP_FIRST_PATH);
+
+	comp->funcs->io_cmd(comp, cmdq_handle, DSI_HBM_SET, &en);
+
+	if (is_frame_mode)
+		cmdq_pkt_set_event(cmdq_handle,
+				   mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+
+	cmdq_pkt_flush(cmdq_handle);
+	cmdq_pkt_destroy(cmdq_handle);
+
+	return 0;
+}
+
+static int mtk_drm_crtc_hbm_wait(struct drm_crtc *crtc, bool en)
+{
+	struct mtk_panel_params *panel_ext = mtk_drm_get_lcm_ext_params(crtc);
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_ddp_comp *comp = mtk_ddp_comp_request_output(mtk_crtc);
+	bool wait = false;
+	unsigned int wait_count = 0;
+
+	if (!(comp && comp->funcs && comp->funcs->io_cmd))
+		return -EINVAL;
+
+	comp->funcs->io_cmd(comp, NULL, DSI_HBM_GET_WAIT_STATE, &wait);
+	if (wait != true)
+		return 0;
+
+	if (!panel_ext)
+		return -EINVAL;
+
+	wait_count = en ? panel_ext->hbm_en_time : panel_ext->hbm_dis_time;
+
+	DDPINFO("LCM hbm %s wait %u-TE\n", en ? "enable" : "disable",
+		wait_count);
+
+	while (wait_count) {
+		mtk_drm_idlemgr_kick(__func__, crtc, 0);
+		wait_count--;
+		comp->funcs->io_cmd(comp, NULL, DSI_HBM_WAIT, NULL);
+	}
+
+	wait = false;
+	comp->funcs->io_cmd(comp, NULL, DSI_HBM_SET_WAIT_STATE, &wait);
 
 	return 0;
 }
@@ -3349,6 +3433,14 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 
 	if (pending_planes)
 		mtk_crtc->pending_planes = true;
+
+	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_HBM)) {
+		bool hbm_en = false;
+
+		hbm_en = (bool)state->prop_val[CRTC_PROP_HBM_ENABLE];
+		mtk_drm_crtc_set_panel_hbm(crtc, hbm_en);
+		mtk_drm_crtc_hbm_wait(crtc, hbm_en);
+	}
 
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) {
 		if (crtc->state->color_mgmt_changed)

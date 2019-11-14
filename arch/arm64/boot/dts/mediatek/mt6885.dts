@@ -4006,7 +4006,8 @@ page_owner=on loop.max_part=7";
 			"MTK_DRM_OPT_REG_PARSER_RAW_DUMP",
 			"MTK_DRM_OPT_VP_PQ",
 			"MTK_DRM_OPT_GAME_PQ",
-			"MTK_DRM_OPT_MMPATH";
+			"MTK_DRM_OPT_MMPATH",
+			"MTK_DRM_OPT_HBM";
 
 		helper-value = <0>, /*MTK_DRM_OPT_STAGE*/
 			<1>, /*MTK_DRM_OPT_USE_CMDQ*/
@@ -4040,7 +4041,8 @@ page_owner=on loop.max_part=7";
 			<0>, /*MTK_DRM_OPT_REG_PARSER_RAW_DUMP*/
 			<0>, /*MTK_DRM_OPT_VP_PQ*/
 			<0>, /*MTK_DRM_OPT_GAME_PQ*/
-			<0>; /*MTK_DRM_OPT_MMPATH*/
+			<0>, /*MTK_DRM_OPT_MMPATH*/
+			<0>; /*MTK_DRM_OPT_HBM*/
 	};
 
 	disp_mutex0: disp_mutex@14117000 {

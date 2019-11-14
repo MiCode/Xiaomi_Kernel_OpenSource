@@ -67,6 +67,7 @@ static struct mtk_drm_helper help_info[] = {
 	{MTK_DRM_OPT_VP_PQ, 0, "MTK_DRM_OPT_VP_PQ"},
 	{MTK_DRM_OPT_GAME_PQ, 0, "MTK_DRM_OPT_GAME_PQ"},
 	{MTK_DRM_OPT_MMPATH, 0, "MTK_DRM_OPT_MMPATH"},
+	{MTK_DRM_OPT_HBM, 0, "MTK_DRM_OPT_HBM"},
 };
 
 static const char *mtk_drm_helper_opt_spy(struct mtk_drm_helper *helper_opt,
