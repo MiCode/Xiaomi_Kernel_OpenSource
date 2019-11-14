@@ -580,7 +580,7 @@ static ssize_t ufs_perf_proc_write(struct file *file, const char *ubuf,
 	loff_t buff_pos = 0;
 	int ret = 0, last_mode;
 
-	ret = simple_write_to_buffer(cmd, 16, &buff_pos, ubuf, count);
+	ret = simple_write_to_buffer(cmd, 15, &buff_pos, ubuf, count);
 	if (ret < 0) {
 		dev_info(host->hba->dev, "%s: failed to read user data\n",
 			__func__);
