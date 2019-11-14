@@ -23,6 +23,7 @@
 #include <asm/cpu.h>
 #include <asm/cputype.h>
 #include <asm/cpufeature.h>
+#include <asm/mmu_context.h>
 #include <asm/smp_plat.h>
 
 static bool __maybe_unused
@@ -643,6 +644,18 @@ needs_tx2_tvm_workaround(const struct arm64_cpu_capabilities *entry,
 	return false;
 }
 
+#ifdef CONFIG_ARM64_ERRATUM_1542418
+static void run_workaround_1542418_asid_rollover(const struct arm64_cpu_capabilities *c)
+{
+	/*
+	 * If this CPU is affected by the erratum, run the workaround
+	 * to protect us in case we are running on a kexec'ed kernel.
+	 */
+	if (c->matches(c, SCOPE_LOCAL_CPU))
+		arm64_workaround_1542418_asid_rollover();
+}
+#endif
+
 #ifdef CONFIG_HARDEN_EL2_VECTORS
 
 static const struct midr_range arm64_harden_el2_vectors[] = {
@@ -881,6 +894,7 @@ const struct arm64_cpu_capabilities arm64_errata[] = {
 		.desc = "ARM erratum 1542418",
 		.capability = ARM64_WORKAROUND_1542418,
 		ERRATA_MIDR_RANGE(MIDR_CORTEX_A77, 0, 0, 1, 0),
+		.cpu_enable = run_workaround_1542418_asid_rollover,
 	},
 #endif
 	{
