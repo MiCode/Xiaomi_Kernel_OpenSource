@@ -46,7 +46,6 @@
 #include "ged_kpi.h"
 #endif
 
-
 #define mtk_fstb_dprintk_always(fmt, args...) \
 	pr_debug("[FSTB]" fmt, ##args)
 
@@ -67,6 +66,8 @@ static int QUANTILE = 50;
 static long long FRAME_TIME_WINDOW_SIZE_US = 1000000;
 static long long ADJUST_INTERVAL_US = 1000000;
 static int margin_mode;
+static int margin_mode_dbnc_a = 9;
+static int margin_mode_dbnc_b = 1;
 
 static void fstb_fps_stats(struct work_struct *work);
 static DECLARE_WORK(fps_stats_work,
@@ -245,12 +246,38 @@ int switch_sample_window(long long time_usec)
 
 int switch_margin_mode(int mode)
 {
-	if (mode > 1 || mode < 0)
+	if (mode > 2 || mode < 0)
 		return -EINVAL;
 
 	mutex_lock(&fstb_lock);
 	if (mode != margin_mode)
 		margin_mode = mode;
+	mutex_unlock(&fstb_lock);
+
+	return 0;
+}
+
+int switch_margin_mode_dbnc_a(int val)
+{
+	if (val < 1)
+		return -EINVAL;
+
+	mutex_lock(&fstb_lock);
+	if (val != margin_mode_dbnc_a)
+		margin_mode_dbnc_a = val;
+	mutex_unlock(&fstb_lock);
+
+	return 0;
+}
+
+int switch_margin_mode_dbnc_b(int val)
+{
+	if (val < 1)
+		return -EINVAL;
+
+	mutex_lock(&fstb_lock);
+	if (val != margin_mode_dbnc_b)
+		margin_mode_dbnc_b = val;
 	mutex_unlock(&fstb_lock);
 
 	return 0;
@@ -992,10 +1019,11 @@ void fpsgo_comp2fstb_queue_time_update(int pid,
 		new_frame_info->pid = pid;
 		new_frame_info->target_fps = max_fps_limit;
 		new_frame_info->target_fps_margin = 0;
+		new_frame_info->target_fps_margin2 = 0;
+		new_frame_info->target_fps_margin_dbnc_a = margin_mode_dbnc_a;
+		new_frame_info->target_fps_margin_dbnc_b = margin_mode_dbnc_b;
 		new_frame_info->queue_fps = max_fps_limit;
 		new_frame_info->bufid = bufferid;
-		new_frame_info->asfc_flag = 0;
-		new_frame_info->check_asfc = 0;
 		new_frame_info->queue_time_begin = 0;
 		new_frame_info->queue_time_end = 0;
 		new_frame_info->weighted_cpu_time_begin = 0;
@@ -1075,7 +1103,6 @@ static int fstb_get_queue_fps(struct FSTB_FRAME_INFO *iter,
 	int i = iter->queue_time_begin, j;
 	unsigned long long queue_fps;
 	unsigned long long frame_interval_count = 0;
-	unsigned long long above_asfc_ths_count = 0;
 	unsigned long long avg_frame_interval = 0;
 	unsigned long long retval = 0;
 
@@ -1097,31 +1124,6 @@ static int fstb_get_queue_fps(struct FSTB_FRAME_INFO *iter,
 				 iter->queue_time_ts[j - 1]);
 			frame_interval_count++;
 		}
-
-		if (iter->asfc_flag &&
-			(iter->queue_time_ts[j] - iter->queue_time_ts[j - 1])
-			< ASFC_THRESHOLD_NS)
-			above_asfc_ths_count++;
-	}
-
-	if (iter->asfc_flag) {
-		unsigned long long result = above_asfc_ths_count * 100ULL;
-		int queue_cnt = iter->queue_time_end - i;
-
-		fpsgo_systrace_c_fstb(iter->pid,
-			(int)above_asfc_ths_count, "above_asfc_ths_count");
-		fpsgo_systrace_c_fstb(iter->pid,
-			queue_cnt, "queue_cnt");
-
-		if (queue_cnt > 0) {
-			do_div(result, queue_cnt);
-			iter->check_asfc =
-				result > ASFC_THRESHOLD_PERCENTAGE;
-		} else if (queue_cnt == 0)
-			iter->check_asfc = 0;
-
-		fpsgo_systrace_c_fstb(iter->pid,
-			(int)(iter->check_asfc), "check_asfc");
 	}
 
 	queue_fps = (long long)(iter->queue_time_end - i) * 1000000LL;
@@ -1162,7 +1164,7 @@ static int fps_update(struct FSTB_FRAME_INFO *iter)
 static int calculate_fps_limit(struct FSTB_FRAME_INFO *iter, int target_fps)
 {
 	int ret_fps = target_fps;
-	int margin = 0;
+	int asfc_turn = 0;
 	int i;
 	struct task_struct *tsk, *gtsk;
 	struct FSTB_RENDER_TARGET_FPS *rtfiter = NULL;
@@ -1213,21 +1215,72 @@ static int calculate_fps_limit(struct FSTB_FRAME_INFO *iter, int target_fps)
 			}
 
 			if (i < 0)
-				/* no need to set margin to reset fps*/
 				ret_fps = rtfiter->level[0].start;
 			else if (i && ret_fps == rtfiter->level[i].start)
-				margin = RESET_TOLERENCE;
+				asfc_turn = 1;
 
 			break;
 		}
 	}
 
-	if (ret_fps == 30)
-		margin = RESET_TOLERENCE;
-	else if (ret_fps == max_fps_limit)
-		margin = 0;
+	if (ret_fps == 30) {
+		if (rtfiter && rtfiter->level[0].start > 30)
+			asfc_turn = 1;
+		else if (!rtfiter)
+			asfc_turn = 1;
+	}
 
-	iter->target_fps_margin = margin;
+	switch (margin_mode) {
+	case 0:
+		iter->target_fps_margin =
+			ret_fps >= max_fps_limit ? 0 : RESET_TOLERENCE;
+		break;
+	case 1:
+		if (ret_fps >= max_fps_limit)
+			iter->target_fps_margin = 0;
+		else if (asfc_turn)
+			iter->target_fps_margin = RESET_TOLERENCE;
+		else
+			iter->target_fps_margin = 0;
+		break;
+	case 2:
+		if (ret_fps >= max_fps_limit)
+			iter->target_fps_margin = 0;
+		else if (asfc_turn) {
+			if (iter->target_fps_margin_dbnc_a > 0) {
+				iter->target_fps_margin = 0;
+				iter->target_fps_margin_dbnc_a--;
+			} else if (iter->target_fps_margin_dbnc_b > 0) {
+				iter->target_fps_margin = RESET_TOLERENCE;
+				iter->target_fps_margin_dbnc_b--;
+				if (iter->target_fps_margin_dbnc_b <= 0) {
+					iter->target_fps_margin_dbnc_a =
+						margin_mode_dbnc_a;
+					iter->target_fps_margin_dbnc_b =
+						margin_mode_dbnc_b;
+				}
+			} else {
+				iter->target_fps_margin = RESET_TOLERENCE;
+				iter->target_fps_margin_dbnc_a =
+					margin_mode_dbnc_a;
+				iter->target_fps_margin_dbnc_b =
+					margin_mode_dbnc_b;
+			}
+		} else {
+			iter->target_fps_margin = 0;
+			iter->target_fps_margin_dbnc_a =
+				margin_mode_dbnc_a;
+			iter->target_fps_margin_dbnc_b =
+				margin_mode_dbnc_b;
+		}
+		break;
+	default:
+		iter->target_fps_margin =
+			ret_fps >= max_fps_limit ? 0 : RESET_TOLERENCE;
+		break;
+	}
+
+	iter->target_fps_margin2 = asfc_turn ? RESET_TOLERENCE : 0;
 
 out:
 
@@ -1262,9 +1315,6 @@ static int cal_target_fps(struct FSTB_FRAME_INFO *iter)
 	if (iter->new_info == 1) {
 		iter->new_info = 0;
 		target_limit = max_fps_limit;
-		iter->asfc_flag = 0;
-		iter->check_asfc = 0;
-		fpsgo_systrace_c_fstb(iter->pid, iter->asfc_flag, "asfc_flag");
 		/*decrease*/
 	} else if (iter->target_fps - iter->queue_fps >
 			iter->target_fps * fps_error_threshold / 100) {
@@ -1278,7 +1328,7 @@ static int cal_target_fps(struct FSTB_FRAME_INFO *iter)
 				(int)target_limit, "tmp_target_limit");
 		/*increase*/
 	} else if (iter->queue_fps >=
-		iter->target_fps + iter->target_fps_margin) {
+		iter->target_fps + iter->target_fps_margin2) {
 
 		tmp_target_limit = 1000000000LL;
 		cur_pipe_time = (long long)max(cur_cpu_time, cur_gpu_time);
@@ -1320,21 +1370,9 @@ static int cal_target_fps(struct FSTB_FRAME_INFO *iter)
 		} else
 			target_limit = iter->target_fps;
 
-		if (iter->asfc_flag == 1 &&
-			(iter->queue_fps >= 33 || iter->check_asfc))
-			iter->asfc_flag = 0;
-
 		/*stable state*/
 	} else {
 		target_limit = iter->target_fps;
-	}
-
-	if (iter->asfc_flag && target_limit > 30)
-		target_limit = 30;
-
-	if (target_limit == 30) {
-		iter->asfc_flag = 1;
-		fpsgo_systrace_c_fstb(iter->pid, iter->asfc_flag, "asfc_flag");
 	}
 
 	return target_limit;
@@ -1359,8 +1397,7 @@ void fpsgo_fbt2fstb_query_fps(int pid, int *target_fps,
 
 	if (!iter) {
 		*target_fps = max_fps_limit;
-		if (!margin_mode)
-			tolerence_fps = RESET_TOLERENCE;
+		tolerence_fps = 0;
 		total_time = (int)FSTB_SEC_DIVIDER;
 		total_time =
 			div64_u64(total_time,
@@ -1372,8 +1409,6 @@ void fpsgo_fbt2fstb_query_fps(int pid, int *target_fps,
 
 		*target_fps = iter->target_fps;
 		tolerence_fps = iter->target_fps_margin;
-		if (!margin_mode)
-			tolerence_fps = RESET_TOLERENCE;
 		total_time = (int)FSTB_SEC_DIVIDER;
 		total_time =
 			div64_u64(total_time,
@@ -1441,6 +1476,14 @@ static void fstb_fps_stats(struct work_struct *work)
 					dfps_ceiling, "dfrc");
 			fpsgo_systrace_c_fstb(iter->pid,
 				iter->target_fps_margin, "target_fps_margin");
+			fpsgo_systrace_c_fstb(iter->pid,
+				iter->target_fps_margin2, "target_fps_margin2");
+			fpsgo_systrace_c_fstb(iter->pid,
+				iter->target_fps_margin_dbnc_a,
+				"target_fps_margin_dbnc_a");
+			fpsgo_systrace_c_fstb(iter->pid,
+				iter->target_fps_margin_dbnc_b,
+				"target_fps_margin_dbnc_b");
 			ged_kpi_set_target_FPS_margin(iter->bufid,
 				iter->target_fps, iter->target_fps_margin);
 			mtk_fstb_dprintk_always(
@@ -1877,6 +1920,78 @@ static const struct file_operations fstb_margin_mode_fops = {
 	.release = single_release,
 };
 
+static int fstb_margin_mode_dbnc_a_read(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%d\n", margin_mode_dbnc_a);
+	return 0;
+}
+
+static ssize_t fstb_margin_mode_dbnc_a_write(struct file *file,
+		const char __user *buffer,
+		size_t count, loff_t *data)
+{
+	int ret;
+	int arg;
+
+	if (!kstrtoint_from_user(buffer, count, 0, &arg))
+		ret = switch_margin_mode_dbnc_a(arg);
+	else
+		ret = -EINVAL;
+
+	return (ret < 0) ? ret : count;
+}
+
+static int fstb_margin_mode_dbnc_a_open(struct inode *inode,
+		struct file *file)
+{
+	return single_open(file, fstb_margin_mode_dbnc_a_read, NULL);
+}
+
+static const struct file_operations fstb_margin_mode_dbnc_a_fops = {
+	.owner = THIS_MODULE,
+	.open = fstb_margin_mode_dbnc_a_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.write = fstb_margin_mode_dbnc_a_write,
+	.release = single_release,
+};
+
+static int fstb_margin_mode_dbnc_b_read(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%d\n", margin_mode_dbnc_b);
+	return 0;
+}
+
+static ssize_t fstb_margin_mode_dbnc_b_write(struct file *file,
+		const char __user *buffer,
+		size_t count, loff_t *data)
+{
+	int ret;
+	int arg;
+
+	if (!kstrtoint_from_user(buffer, count, 0, &arg))
+		ret = switch_margin_mode_dbnc_b(arg);
+	else
+		ret = -EINVAL;
+
+	return (ret < 0) ? ret : count;
+}
+
+static int fstb_margin_mode_dbnc_b_open(struct inode *inode,
+		struct file *file)
+{
+	return single_open(file, fstb_margin_mode_dbnc_b_read, NULL);
+}
+
+static const struct file_operations fstb_margin_mode_dbnc_b_fops = {
+	.owner = THIS_MODULE,
+	.open = fstb_margin_mode_dbnc_b_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.write = fstb_margin_mode_dbnc_b_write,
+	.release = single_release,
+};
+
 static int fstb_tune_quantile_read(struct seq_file *m, void *v)
 {
 	seq_printf(m, "%d ", QUANTILE);
@@ -2146,7 +2261,6 @@ int mtk_fstb_init(void)
 			NULL,
 			&fstb_soft_level_fops);
 
-
 	debugfs_create_file("fstb_fps_list",
 			0664,
 			fstb_debugfs_dir,
@@ -2177,12 +2291,23 @@ int mtk_fstb_init(void)
 			NULL,
 			&fstb_tune_window_size_fops);
 
-
 	debugfs_create_file("margin_mode",
 			0664,
 			fstb_debugfs_dir,
 			NULL,
 			&fstb_margin_mode_fops);
+
+	debugfs_create_file("margin_mode_dbnc_a",
+			0664,
+			fstb_debugfs_dir,
+			NULL,
+			&fstb_margin_mode_dbnc_a_fops);
+
+	debugfs_create_file("margin_mode_dbnc_b",
+			0664,
+			fstb_debugfs_dir,
+			NULL,
+			&fstb_margin_mode_dbnc_b_fops);
 
 	reset_fps_level();
 
