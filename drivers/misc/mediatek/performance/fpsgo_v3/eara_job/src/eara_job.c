@@ -34,15 +34,18 @@
 #include "eara_job_usedext.h"
 #include "mtk_upower.h"
 
-#ifndef API_READY
-#undef CONFIG_MTK_VPU_SUPPORT
-#endif
+#if defined(CONFIG_MTK_APUSYS_SUPPORT)
+#include <linux/platform_device.h>
+#include "apusys_power.h"
+#include "apu_power_table.h"
+#else
 
 #if defined(CONFIG_MTK_VPU_SUPPORT)
 #include "vpu_dvfs.h"
 #endif
 #if defined(CONFIG_MTK_MDLA_SUPPORT)
 #include "mdla_dvfs.h"
+#endif
 #endif
 
 #define MAX_DEVICE 2
@@ -88,21 +91,21 @@ struct ppm_cobra_basic_pwr_data {
 };
 
 #if !defined(CONFIG_MTK_VPU_SUPPORT)
-#define VPU_OPP_NUM 1
+#define APU_OPP_NUM 1
 #endif
 #if !defined(CONFIG_MTK_MDLA_SUPPORT)
-#define MDLA_OPP_NUM 1
+#define APU_OPP_NUM 1
 #endif
 struct eara_vpu_dvfs_info {
-	unsigned int freq[VPU_OPP_NUM];
-	unsigned int capacity_ratio[VPU_OPP_NUM];
-	unsigned int power[VPU_OPP_NUM];
+	unsigned int freq[APU_OPP_NUM];
+	unsigned int capacity_ratio[APU_OPP_NUM];
+	unsigned int power[APU_OPP_NUM];
 };
 
 struct eara_mdla_dvfs_info {
-	unsigned int freq[MDLA_OPP_NUM];
-	unsigned int capacity_ratio[MDLA_OPP_NUM];
-	unsigned int power[MDLA_OPP_NUM];
+	unsigned int freq[APU_OPP_NUM];
+	unsigned int capacity_ratio[APU_OPP_NUM];
+	unsigned int power[APU_OPP_NUM];
 };
 
 struct ppm_cobra_data {
@@ -594,7 +597,7 @@ static unsigned int get_v_opp(unsigned int capacity_ratio)
 {
 	int opp;
 
-	for (opp = 0; opp < VPU_OPP_NUM &&
+	for (opp = 0; opp < APU_OPP_NUM &&
 		capacity_ratio < eara_vpu_table.capacity_ratio[opp]; opp++)
 		;
 
@@ -608,7 +611,7 @@ static unsigned int get_m_opp(unsigned int capacity_ratio)
 {
 	int opp;
 
-	for (opp = 0; opp < MDLA_OPP_NUM &&
+	for (opp = 0; opp < APU_OPP_NUM &&
 		capacity_ratio < eara_mdla_table.capacity_ratio[opp]; opp++)
 		;
 
@@ -668,9 +671,9 @@ static int decrease_xpu_cap(long long *t_c_time,
 	new_mdla_time = m_time;
 	new_cpu_opp = get_c_opp(c_cap);
 	new_vpu_opp =
-		v_time ? get_v_opp(v_cap) : VPU_OPP_NUM - 1;
+		v_time ? get_v_opp(v_cap) : APU_OPP_NUM - 1;
 	new_mdla_opp =
-		m_time ? get_m_opp(m_cap) : MDLA_OPP_NUM - 1;
+		m_time ? get_m_opp(m_cap) : APU_OPP_NUM - 1;
 
 	ori_cpu_power = c_time / 1000 *
 		eara_cpu_table.power[new_cpu_opp];
@@ -682,8 +685,8 @@ static int decrease_xpu_cap(long long *t_c_time,
 	while ((new_cpu_time + new_vpu_time + new_mdla_time * 100) <
 			t_t_t *TARGET_TIME_MARGIN &&
 			(new_cpu_opp < NR_FREQ_CPU - 1 ||
-			 new_vpu_opp < VPU_OPP_NUM - 1 ||
-			 new_mdla_opp < MDLA_OPP_NUM - 1)) {
+			 new_vpu_opp < APU_OPP_NUM - 1 ||
+			 new_mdla_opp < APU_OPP_NUM - 1)) {
 
 		dbg_cnt++;
 
@@ -707,7 +710,7 @@ static int decrease_xpu_cap(long long *t_c_time,
 				ori_cpu_power - new_cpu_power;
 		}
 
-		if (new_vpu_opp < VPU_OPP_NUM - 1) {
+		if (new_vpu_opp < APU_OPP_NUM - 1) {
 			new_vpu_opp = new_vpu_opp + 1;
 			new_vpu_cap =
 				eara_vpu_table.capacity_ratio[
@@ -721,7 +724,7 @@ static int decrease_xpu_cap(long long *t_c_time,
 				ori_vpu_power - new_vpu_power;
 		}
 
-		if (new_mdla_opp < MDLA_OPP_NUM - 1) {
+		if (new_mdla_opp < APU_OPP_NUM - 1) {
 			new_mdla_opp = new_mdla_opp + 1;
 			new_mdla_cap =
 				eara_mdla_table.capacity_ratio[
@@ -963,7 +966,9 @@ static int increase_xpu_cap(long long *t_c_time, long long *t_v_time,
 
 #if defined(CONFIG_MTK_VPU_SUPPORT)
 			if (power_diff_v != INT_MAX) {
-				new_vpu_opp++;
+				new_vpu_opp =
+					new_vpu_opp < APU_OPP_NUM - 1 ?
+					new_vpu_opp + 1 : APU_OPP_NUM - 1;
 				new_vpu_cap =
 					eara_vpu_table.capacity_ratio[
 					new_vpu_opp];
@@ -974,7 +979,9 @@ static int increase_xpu_cap(long long *t_c_time, long long *t_v_time,
 
 #if defined(CONFIG_MTK_MDLA_SUPPORT)
 			if (power_diff_m != INT_MAX) {
-				new_mdla_opp++;
+				new_mdla_opp =
+					new_mdla_opp < APU_OPP_NUM - 1 ?
+					new_mdla_opp + 1 : APU_OPP_NUM - 1;
 				new_mdla_cap =
 					eara_mdla_table.capacity_ratio[
 					new_mdla_opp];
@@ -1144,8 +1151,20 @@ static void get_pwr_tbl(void)
 	memcpy(&eara_cpu_table, &(cpu_dvfs[cluster_num - 1]),
 		sizeof(eara_cpu_table));
 
+	if (!apusys_power_check())
+		return;
+
 #if defined(CONFIG_MTK_VPU_SUPPORT)
-	for (opp = 0; opp < VPU_OPP_NUM; opp++) {
+	for (opp = 0; opp < APU_OPP_NUM; opp++) {
+#ifdef CONFIG_MTK_APUSYS_SUPPORT
+		eara_vpu_table.power[opp] =
+			vpu_power_table[opp].power;
+		eara_vpu_table.freq[opp] =
+			apusys_opp_to_freq(VPU0, opp);
+		eara_vpu_table.capacity_ratio[opp] =
+			apusys_opp_to_freq(VPU0, opp) *
+			100 / apusys_opp_to_freq(VPU0, 0);
+#else
 		eara_vpu_table.power[opp] =
 			vpu_power_table[opp].power;
 		eara_vpu_table.freq[opp] =
@@ -1153,11 +1172,21 @@ static void get_pwr_tbl(void)
 		eara_vpu_table.capacity_ratio[opp] =
 			get_vpu_opp_to_freq(opp) *
 			100 / get_vpu_opp_to_freq(0);
+#endif
 	}
 #endif
 
 #if defined(CONFIG_MTK_MDLA_SUPPORT)
-	for (opp = 0; opp < MDLA_OPP_NUM; opp++) {
+	for (opp = 0; opp < APU_OPP_NUM; opp++) {
+#ifdef CONFIG_MTK_APUSYS_SUPPORT
+		eara_mdla_table.power[opp] =
+			mdla_power_table[opp].power;
+		eara_mdla_table.freq[opp] =
+			apusys_opp_to_freq(MDLA0, opp);
+		eara_mdla_table.capacity_ratio[opp] =
+			apusys_opp_to_freq(MDLA0, opp) *
+			100 / apusys_opp_to_freq(MDLA0, 0);
+#else
 		eara_mdla_table.power[opp] =
 			mdla_power_table[opp].power;
 		eara_mdla_table.freq[opp] =
@@ -1165,6 +1194,7 @@ static void get_pwr_tbl(void)
 		eara_mdla_table.capacity_ratio[opp] =
 			get_mdla_opp_to_freq(opp) *
 			100 / get_mdla_opp_to_freq(0);
+#endif
 	}
 #endif
 }
@@ -1281,14 +1311,14 @@ static int eara_pwr_tbl_read(struct seq_file *m, void *v)
 				eara_cpu_table.power[opp]);
 
 	seq_puts(m, "VPU\n");
-	for (opp = 0; opp < VPU_OPP_NUM; opp++)
+	for (opp = 0; opp < APU_OPP_NUM; opp++)
 		seq_printf(m, "%d\t%d\t%d\n",
 				eara_vpu_table.freq[opp],
 				eara_vpu_table.capacity_ratio[opp],
 				eara_vpu_table.power[opp]);
 
 	seq_puts(m, "MDLA\n");
-	for (opp = 0; opp < MDLA_OPP_NUM; opp++)
+	for (opp = 0; opp < APU_OPP_NUM; opp++)
 		seq_printf(m, "%d\t%d\t%d\n",
 				eara_mdla_table.freq[opp],
 				eara_mdla_table.capacity_ratio[opp],
