@@ -1128,11 +1128,83 @@ static bool vow_stop_dump_wait(void)
 	return true;
 }
 
+static int vow_pcm_dump_notify(bool enable)
+{
+	unsigned int vow_ipi_buf[5] = {0};
+	bool ret;
+
+	/* if scp reset happened, need re-send PCM dump IPI to SCP again */
+	if (enable == true) {
+		/* dump flag */
+		vow_ipi_buf[1] = vowserv.dump_pcm_flag;
+#ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
+		/* TOTAL dram resrved size for barge in dump */
+		vow_ipi_buf[0] = bargein_resv_dram.size;
+		/* address for SCP using */
+		vow_ipi_buf[2] = bargein_resv_dram.phy_addr;
+
+		VOWDRV_DEBUG(
+		"[BargeIn]dump on, dump flag:%d, resv sz:0x%x, addr:0x%x\n",
+			     vow_ipi_buf[1],
+			     vow_ipi_buf[0],
+			     vow_ipi_buf[2]);
+#endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
+		/* TOTAL dram resrved size for recog data dump */
+		vow_ipi_buf[3] = recog_resv_dram.size;
+		/* address for SCP using */
+		vow_ipi_buf[4] = recog_resv_dram.phy_addr;
+
+		VOWDRV_DEBUG(
+		"[Recog]dump on, dump flag:%d, resv sz:0x%x, addr:0x%x\n",
+			    vow_ipi_buf[1],
+			    vow_ipi_buf[3],
+			    vow_ipi_buf[4]);
+
+		ret = vow_ipi_send(IPIMSG_VOW_PCM_DUMP_ON,
+				   5,
+				   &vow_ipi_buf[0],
+				   VOW_IPI_BYPASS_ACK);
+
+		if (ret == 0)
+			VOWDRV_DEBUG("PCM_DUMP_ON ipi send error\n");
+	} else {
+		/* dump flag */
+		vow_ipi_buf[1] = vowserv.dump_pcm_flag;
+#ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
+		/* TOTAL dram resrved size for barge in dump */
+		vow_ipi_buf[0] = bargein_resv_dram.size;
+		/* address for SCP using */
+		vow_ipi_buf[2] = bargein_resv_dram.phy_addr;
+
+		VOWDRV_DEBUG(
+		"[BargeIn]dump off, dump flag:%d, resv sz:0x%x, addr:0x%x\n",
+			     vow_ipi_buf[1],
+			     vow_ipi_buf[0],
+			     vow_ipi_buf[2]);
+#endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
+		/* TOTAL dram resrved size for recog data dump */
+		vow_ipi_buf[3] = recog_resv_dram.size;
+		/* address for SCP using */
+		vow_ipi_buf[4] = recog_resv_dram.phy_addr;
+
+		VOWDRV_DEBUG(
+		"[Recog]dump off, dump flag:%d, resv sz:0x%x, addr:0x%x\n",
+			    vow_ipi_buf[1],
+			    vow_ipi_buf[3],
+			    vow_ipi_buf[4]);
+
+		ret = vow_ipi_send(IPIMSG_VOW_PCM_DUMP_OFF,
+				   5,
+				   &vow_ipi_buf[0],
+				   VOW_IPI_BYPASS_ACK);
+		if (ret == 0)
+			VOWDRV_DEBUG("PCM_DUMP_OFF ipi send error\n");
+	}
+	return 0;
+}
+
 static int vow_pcm_dump_set(bool enable)
 {
-	bool ret;
-	unsigned int vow_ipi_buf[5] = {0};
-
 	VOWDRV_DEBUG("%s = %d, %d\n", __func__,
 		     vowserv.dump_pcm_flag,
 		     (unsigned int)enable);
@@ -1165,71 +1237,12 @@ static int vow_pcm_dump_set(bool enable)
 		vowserv.dump_pcm_flag = true;
 		vow_service_OpenDumpFile();
 
-		/* dump flag */
-		vow_ipi_buf[1] = vowserv.dump_pcm_flag;
-#ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
-		/* TOTAL dram resrved size for barge in dump */
-		vow_ipi_buf[0] = bargein_resv_dram.size;
-		/* address for SCP using */
-		vow_ipi_buf[2] = bargein_resv_dram.phy_addr;
-
-		VOWDRV_DEBUG(
-		"[BargeIn]dump on, dump flag:%d, resv sz:0x%x, phy addr:0x%x\n",
-			     vow_ipi_buf[1],
-			     vow_ipi_buf[0],
-			     vow_ipi_buf[2]);
-#endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
-		/* TOTAL dram resrved size for recog data dump */
-		vow_ipi_buf[3] = recog_resv_dram.size;
-		/* address for SCP using */
-		vow_ipi_buf[4] = recog_resv_dram.phy_addr;
-
-		VOWDRV_DEBUG(
-		"[Recog]dump on, dump flag:%d, resv sz:0x%x, phy addr:0x%x\n",
-			    vow_ipi_buf[1],
-			    vow_ipi_buf[3],
-			    vow_ipi_buf[4]);
-		ret = vow_ipi_send(IPIMSG_VOW_PCM_DUMP_ON,
-				   5,
-				   &vow_ipi_buf[0],
-				   VOW_IPI_BYPASS_ACK);
-		if (ret == 0)
-			VOWDRV_DEBUG("PCM_DUMP_ON ipi send error\n");
-
+		vow_pcm_dump_notify(true);
 	} else if ((vowserv.dump_pcm_flag == true) && (enable == false)) {
 		vowserv.dump_pcm_flag = false;
 
-		/* dump flag */
-		vow_ipi_buf[1] = vowserv.dump_pcm_flag;
-#ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
-		/* TOTAL dram resrved size for barge in dump */
-		vow_ipi_buf[0] = bargein_resv_dram.size;
-		/* address for SCP using */
-		vow_ipi_buf[2] = bargein_resv_dram.phy_addr;
+		vow_pcm_dump_notify(false);
 
-		VOWDRV_DEBUG(
-		"[BargeIn]dump off, dump flag:%d, resv sz:0x%x, phy addr:0x%x\n",
-			     vow_ipi_buf[1],
-			     vow_ipi_buf[0],
-			     vow_ipi_buf[2]);
-#endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
-		/* TOTAL dram resrved size for recog data dump */
-		vow_ipi_buf[3] = recog_resv_dram.size;
-		/* address for SCP using */
-		vow_ipi_buf[4] = recog_resv_dram.phy_addr;
-
-		VOWDRV_DEBUG(
-		"[Recog]dump off, dump flag:%d, resv sz:0x%x, phy addr:0x%x\n",
-			    vow_ipi_buf[1],
-			    vow_ipi_buf[3],
-			    vow_ipi_buf[4]);
-
-		ret = vow_ipi_send(IPIMSG_VOW_PCM_DUMP_OFF,
-				   5,
-				   &vow_ipi_buf[0],
-				   VOW_IPI_BYPASS_ACK);
-		if (ret == 0)
-			VOWDRV_DEBUG("PCM_DUMP_OFF ipi send error\n");
 		vow_stop_dump_wait();
 		vow_service_CloseDumpFile();
 	}
@@ -1990,7 +2003,7 @@ static bool VowDrv_SetFlag(int type, unsigned int set)
 	ret = vow_ipi_send(IPIMSG_VOW_SET_FLAG,
 			   2,
 			   &vow_ipi_buf[0],
-			   VOW_IPI_NEED_ACK);
+			   VOW_IPI_BYPASS_ACK);
 	if (ret == 0)
 		VOWDRV_DEBUG("IPIMSG_VOW_SET_FLAG ipi send error\n\r");
 
@@ -2760,6 +2773,20 @@ static int vow_scp_recover_event(struct notifier_block *this,
 		if (vowserv.scp_recovering) {
 			vowserv.vow_recovering = false;
 			VOWDRV_DEBUG("fail: vow recover3\n");
+			break;
+		}
+		/* pcm dump recover */
+		VOWDRV_DEBUG("recording_flag = %d, dump_pcm_flag = %d\n",
+				vowserv.recording_flag, vowserv.dump_pcm_flag);
+		if (vowserv.recording_flag == true)
+			VowDrv_SetFlag(VOW_FLAG_DEBUG, true);
+
+		if (vowserv.dump_pcm_flag == true)
+			vow_pcm_dump_notify(true);
+
+		if (vowserv.scp_recovering) {
+			vowserv.vow_recovering = false;
+			VOWDRV_DEBUG("fail: vow recover4\n");
 			break;
 		}
 		if (!vow_service_Enable())
