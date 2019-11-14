@@ -1319,6 +1319,42 @@ s32 cmdq_mdp_flush_async(struct cmdqCommandStruct *desc, bool user_space,
 	/* assign handle for mdp */
 	*handle_out = handle;
 
+#ifdef CMDQ_SECURE_PATH_SUPPORT
+	if (handle->pkt->sec_data) {
+		s32 i;
+		struct cmdq_sec_data *data;
+		struct cmdq_sec_addr_meta *meta;
+		u64 *inst;
+#ifdef DUMP_PKT
+		static bool dump_once = true;
+#endif
+
+		data = (struct cmdq_sec_data *)handle->pkt->sec_data;
+		meta = (struct cmdq_sec_addr_meta *)(unsigned long)
+				data->addrMetadatas;
+		for (i = 0; i < data->addrMetadataCount; i++) {
+			u32 base = meta[i].baseHandle + meta[i].blockOffset +
+				meta[i].offset;
+
+			inst = cmdq_pkt_get_va_by_offset(handle->pkt,
+				meta[i].instrIndex * CMDQ_INST_SIZE);
+			while ((*inst & 0xffffffff) != base) {
+				meta[i].instrIndex += 1;
+				inst = cmdq_pkt_get_va_by_offset(handle->pkt,
+					meta[i].instrIndex * CMDQ_INST_SIZE);
+			}
+		}
+
+		cmdq_sec_dump_secure_data(handle->pkt);
+#ifdef DUMP_PKT
+		if (dump_once) {
+			dump_once = false;
+			cmdq_dump_pkt(handle->pkt, 0, true);
+		}
+#endif
+	}
+#endif
+
 	/* Dispatch handle to get correct thread or wait in list.
 	 * Task may flush directly if no engine conflict and no waiting task
 	 * holds same engines.

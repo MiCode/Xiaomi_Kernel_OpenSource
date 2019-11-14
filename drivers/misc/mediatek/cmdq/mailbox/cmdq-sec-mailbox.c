@@ -656,8 +656,12 @@ static s32 cmdq_sec_session_send(struct cmdq_sec_context *context,
 	mem_ex1 = iwc_msg->iwcex_available & (1 << CMDQ_IWC_MSG1);
 	mem_ex2 = iwc_msg->iwcex_available & (1 << CMDQ_IWC_MSG2);
 
+	cmdq_msg("%s execute cmdq:%p task:%lx",
+		__func__, cmdq, (unsigned long)task);
 	err = cmdq_sec_execute_session(&context->tee, iwc_cmd, 3000,
 		mem_ex1, mem_ex2);
+	cmdq_msg("%s execute done cmdq:%p task:%lx",
+		__func__, cmdq, (unsigned long)task);
 	if (err)
 		return err;
 	context->state = IWC_SES_ON_TRANSACTED;
