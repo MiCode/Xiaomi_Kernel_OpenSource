@@ -1039,6 +1039,7 @@ s32 cmdq_pkt_sleep(struct cmdq_pkt *pkt, u16 tick, u16 reg_gpr)
 		CMDQ_GPR_CNT_ID + reg_gpr, &lop, &rop);
 	cmdq_pkt_acquire_event(pkt, CMDQ_TOKEN_TPR_LOCK);
 	cmdq_pkt_write(pkt, NULL, timeout_en, tpr_en, tpr_en);
+	cmdq_pkt_read(pkt, NULL, timeout_en, CMDQ_SPR_FOR_TEMP);
 	cmdq_pkt_clear_event(pkt, CMDQ_TOKEN_TPR_LOCK);
 	cmdq_pkt_clear_event(pkt, event);
 	rop.value = tick;
@@ -1121,8 +1122,8 @@ s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, reg_counter, &lop,
 		&rop);
 
-	/* sleep for 26000 tick, which around 1ms */
-	cmdq_pkt_sleep(pkt, 26000, reg_gpr);
+	/* sleep for 2600 tick, which around 100us */
+	cmdq_pkt_sleep(pkt, 2600, reg_gpr);
 
 	/* loop to begin */
 	cmd_pa = cmdq_pkt_get_pa_by_offset(pkt, begin_mark);
