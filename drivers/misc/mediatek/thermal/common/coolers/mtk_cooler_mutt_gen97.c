@@ -632,6 +632,31 @@ static int clmutt_disable_cooler_lv_ctrl(void)
 	return ret;
 }
 
+static int clmutt_resend_limit(void)
+{
+	int i;
+	unsigned int cmd;
+
+	if (clmutt_data.cur_limit) {
+		cmd = clmutt_data.cur_limit;
+	} else {
+		/* cur_limit = 0 due to previous command sent failed */
+		for_each_mutt_type(i) {
+			if (clmutt_data.cur_level ==
+				clmutt_data.cooler_param[i].target_level)
+				break;
+		}
+
+		if (i == NR_MUTT_TYPE)
+			cmd = MUTT_TMC_COOLER_LV_DISABLE;
+		else
+			cmd = clmutt_level_selection(clmutt_data.cur_level,
+				(enum mutt_type)i);
+	}
+
+	return clmutt_send_tmc_cmd(cmd);
+}
+
 /*
  * cooling device callback functions (mtk_cl_mdoff_ops)
  * 1 : True and 0 : False
@@ -729,8 +754,8 @@ static void mtk_cl_mutt_set_onIMS(enum mutt_type type, unsigned int state)
 		ret = clmutt_send_tmc_cmd(
 			clmutt_level_selection(target_lv, type));
 	else
-		/* just re-send if MD has been rebooted */
-		ret = clmutt_send_tmc_cmd(clmutt_data.cur_limit);
+		ret = clmutt_resend_limit();
+
 	if (ret != 0) {
 		clmutt_data.cur_limit = 0;
 		mtk_cooler_mutt_dprintk_always("[%s] %s:ret=%d\n", __func__,
@@ -866,8 +891,7 @@ static void mtk_cl_mutt_set_mutt_limit(enum mutt_type type)
 			__func__, clmutt_data.cooler_param[type].name,
 			target_lv, ret);
 	} else {
-		/* just re-send if MD has been rebooted */
-		ret = clmutt_send_tmc_cmd(clmutt_data.cur_limit);
+		ret = clmutt_resend_limit();
 	}
 
 	if (ret != 0) {
