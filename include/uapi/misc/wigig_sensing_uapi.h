@@ -77,11 +77,11 @@ enum wigig_sensing_event {
 	_IO(WIGIG_SENSING_IOC_MAGIC, WIGIG_SENSING_IOCTL_CLEAR_DATA)
 
 /**
- * Get number of bursts that where dropped due to data buffer overflow
+ * Get number of bursts that were dropped due to data buffer overflow
  */
 #define WIGIG_SENSING_IOC_GET_NUM_DROPPED_BURSTS \
 	_IOR(WIGIG_SENSING_IOC_MAGIC, \
-	     WIGIG_SENSING_IOCTL_GET_NUM_DROPPED_BURSTS, uint32_t)
+	     WIGIG_SENSING_IOCTL_GET_NUM_DROPPED_BURSTS, sizeof(uint32_t))
 
 /**
  * Get number of bursts that where dropped due to data buffer overflow
