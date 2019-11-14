@@ -81,7 +81,9 @@ static int mdla_release(struct inode *, struct file *);
 static long mdla_ioctl(struct file *filp, unsigned int cmd, unsigned long arg);
 static long mdla_compat_ioctl(struct file *file,
 unsigned int cmd, unsigned long arg);
+#if 0
 static int mdla_mmap(struct file *filp, struct vm_area_struct *vma);
+#endif
 #endif
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
 int apusys_mdla_handler(int type,
@@ -188,7 +190,9 @@ static const struct file_operations fops = {
 #ifdef CONFIG_COMPAT
 	.compat_ioctl = mdla_compat_ioctl,
 #endif
+#if 0
 	.mmap = mdla_mmap,
+#endif
 #endif
 	.release = mdla_release,
 };
@@ -203,10 +207,9 @@ void mdla_reset_lock(int core, int res)
 
 }
 
-#ifdef __APUSYS_MDLA_UT__
+#if 0//disable for Vulnerability Scan
 static int mdla_mmap(struct file *filp, struct vm_area_struct *vma)
 {
-
 	unsigned long offset = vma->vm_pgoff;
 	unsigned long size = vma->vm_end - vma->vm_start;
 	/*MDLA early verification*/
