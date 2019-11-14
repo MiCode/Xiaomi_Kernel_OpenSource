@@ -157,23 +157,47 @@ int apusys_mem_release(struct apusys_kmem *mem)
 	return ret;
 }
 
-int apusys_mem_flush(void)
+int apusys_mem_flush(struct apusys_kmem *mem)
 {
 	int ret = 0;
 
 	DEBUG_TAG;
 
-	ret = -EINVAL;
+	switch (g_mem_type) {
+	case APUSYS_MEM_DRAM_ION:
+		ret = ion_mem_flush(&g_mem_mgr, mem);
+		break;
+	case APUSYS_MEM_DRAM_DMA:
+		ret = -EINVAL;
+		break;
+	default:
+		LOG_ERR("invalid argument\n");
+		ret = -EINVAL;
+		break;
+	}
+
 	return ret;
 }
 
-int apusys_mem_invalidate(void)
+int apusys_mem_invalidate(struct apusys_kmem *mem)
 {
 	int ret = 0;
 
 	DEBUG_TAG;
 
-	ret = -EINVAL;
+	switch (g_mem_type) {
+	case APUSYS_MEM_DRAM_ION:
+		ret = ion_mem_invalidate(&g_mem_mgr, mem);
+		break;
+	case APUSYS_MEM_DRAM_DMA:
+		ret = -EINVAL;
+		break;
+	default:
+		LOG_ERR("invalid argument\n");
+		ret = -EINVAL;
+		break;
+	}
+
 	return ret;
 }
 
