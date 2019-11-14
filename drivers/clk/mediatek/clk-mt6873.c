@@ -604,6 +604,11 @@ static const char * const dsp_parents[] __initconst = {
 	"univpll_d3"
 };
 
+static const char * const dsp1_npupll_parents[] __initconst = {
+	"dsp1_sel",
+	"npupll_ck"
+};
+
 static const char * const dsp1_parents[] __initconst = {
 	"clk26m",
 	"npupll_ck",
@@ -1273,6 +1278,10 @@ static const struct mtk_mux top_muxes[] __initconst = {
 	MUX_CLR_SET_UPD(TOP_MUX_DSP1, "dsp1_sel", dsp1_parents,
 		CLK_CFG_3, CLK_CFG_3_SET, CLK_CFG_3_CLR,
 		8, 3, INV_MUX_GATE, INV_UPD_REG, INV_UPD_SHF),
+	MUX_CLR_SET_UPD(TOP_MUX_DSP1_NPUPLL, "dsp1_npupll_sel",
+		dsp1_npupll_parents,
+		CLK_CFG_3, CLK_CFG_3_SET, CLK_CFG_3_CLR,
+		11, 1, INV_MUX_GATE, INV_UPD_REG, INV_UPD_SHF),
 	MUX_CLR_SET_UPD(TOP_MUX_DSP2, "dsp2_sel", dsp2_parents,
 		CLK_CFG_3, CLK_CFG_3_SET, CLK_CFG_3_CLR,
 		16, 3, INV_MUX_GATE, INV_UPD_REG, INV_UPD_SHF),
@@ -1517,7 +1526,10 @@ static const struct mtk_mux top_muxes[] __initconst = {
 	MUX_CLR_SET_UPD(TOP_MUX_DSP1, "dsp1_sel", dsp1_parents,
 		CLK_CFG_3, CLK_CFG_3_SET, CLK_CFG_3_CLR,
 		8, 3, 15, CLK_CFG_UPDATE, TOP_MUX_DSP1_UPD_SHIFT),
-
+	MUX_CLR_SET_UPD(TOP_MUX_DSP1_NPUPLL, "dsp1_npupll_sel",
+		dsp1_npupll_parents,
+		CLK_CFG_3, CLK_CFG_3_SET, CLK_CFG_3_CLR,
+		11, 1, INV_MUX_GATE, INV_UPD_REG, INV_UPD_SHF),
 	MUX_CLR_SET_UPD(TOP_MUX_DSP2, "dsp2_sel", dsp2_parents,
 		CLK_CFG_3, CLK_CFG_3_SET, CLK_CFG_3_CLR,
 		16, 3, 23, CLK_CFG_UPDATE, TOP_MUX_DSP2_UPD_SHIFT),

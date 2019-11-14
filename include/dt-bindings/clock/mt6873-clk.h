@@ -181,7 +181,8 @@
 #define TOP_APLL12_DIV7			167	/* add manually */
 #define TOP_APLL12_DIV8			168	/* add manually */
 #define TOP_APLL12_DIV9			169	/* add manually */
-#define TOP_NR_CLK	170
+#define TOP_MUX_DSP1_NPUPLL 170
+#define TOP_NR_CLK	171
 
 /* APMIXED */
 #define APMIXED_MAINPLL 1
