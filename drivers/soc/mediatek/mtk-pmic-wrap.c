@@ -2172,7 +2172,6 @@ static int pwrap_wait_for_state(struct pmic_wrapper *wrp,
 
 				if (HAS_CAP(wrp->master->caps,
 					PWRAP_CAP_ARB_V3)) {
-					pwrap_reenable_pmic_logging();
 					pwrap_swinf_info();
 					pwrap_monitor_info();
 					pwrap_sw_monitor_clr();
