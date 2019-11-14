@@ -830,7 +830,7 @@ void apusys_power_init(enum DVFS_USER user, void *init_power_data)
 	apusys_opps.cur_buck_volt[VCORE_BUCK] = VCORE_DEFAULT_VOLT;
 	apusys_opps.next_buck_volt[VPU_BUCK] = DVFS_VOLT_00_575000_V;
 	apusys_opps.next_buck_volt[MDLA_BUCK] = DVFS_VOLT_00_575000_V;
-	apusys_opps.next_buck_volt[VCORE_BUCK] = DVFS_VOLT_00_575000_V;
+	apusys_opps.next_buck_volt[VCORE_BUCK] = VCORE_DEFAULT_VOLT;
 	apusys_opps.vsram_volatge = VSRAM_DEFAULT_VOLT;
 
 	apusys_opps.power_bit_mask = 0;
