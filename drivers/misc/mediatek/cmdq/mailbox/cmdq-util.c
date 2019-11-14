@@ -21,7 +21,7 @@
 #endif
 
 #define CMDQ_RECORD_NUM			256
-#define CMDQ_FIRST_ERR_SIZE		131072	/* 128k */
+#define CMDQ_FIRST_ERR_SIZE		262144	/* 256k */
 
 #define CMDQ_CURR_IRQ_STATUS		0x10
 #define CMDQ_CURR_LOADED_THR		0x18

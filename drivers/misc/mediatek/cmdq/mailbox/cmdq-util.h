@@ -87,5 +87,6 @@ const char *cmdq_thread_module_dispatch(phys_addr_t gce_pa, s32 thread);
 const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event,
 	s32 thread);
 u32 cmdq_util_hw_id(u32 pa);
+const char *cmdq_util_hw_name(void *chan);
 
 #endif

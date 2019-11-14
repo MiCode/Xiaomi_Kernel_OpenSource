@@ -164,3 +164,10 @@ u32 cmdq_test_get_subsys_list(u32 **regs_out)
 	*regs_out = regs;
 	return ARRAY_SIZE(regs);
 }
+
+const char *cmdq_util_hw_name(void *chan)
+{
+	u32 hw_id = cmdq_util_hw_id((u32)cmdq_mbox_get_base_pa(chan));
+
+	return hw_id ? "CMDQ-DISP" : "CMDQ-MDP";
+}

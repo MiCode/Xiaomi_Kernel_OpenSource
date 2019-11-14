@@ -1487,15 +1487,15 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 		item->err_cb(cb_data);
 	}
 
+	cmdq_dump_pkt(pkt, pc, true);
+	cmdq_util_dump_smi();
+
 #if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
 	IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 	/* for secure path dump more detail */
 	if (pkt->sec_data)
 		cmdq_sec_err_dump(pkt, client);
 #endif
-
-	cmdq_dump_pkt(pkt, pc, true);
-	cmdq_util_dump_smi();
 
 	cmdq_util_err("End of Error %u", err_num);
 	err_num++;
@@ -1506,18 +1506,21 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 		mod = cmdq_event_module_dispatch(gce_pa, inst->arg_a,
 			thread_id);
 		cmdq_util_aee(mod,
-			"DISPATCH:%s inst:%#018llx OP:WAIT EVENT:%hu thread:%d",
-			mod, *(u64 *)inst, inst->arg_a, thread_id);
+			"DISPATCH:%s(%s) inst:%#018llx OP:WAIT EVENT:%hu thread:%d",
+			mod, cmdq_util_hw_name(client->chan),
+			*(u64 *)inst, inst->arg_a, thread_id);
 	} else if (inst) {
 		mod = cmdq_thread_module_dispatch(gce_pa, inst->arg_a);
 
 		/* not sync case, print raw */
 		cmdq_util_aee(mod,
-			"DISPATCH:%s inst:%#018llx OP:%#02hhx thread:%d",
-			mod, *(u64 *)inst, inst->op, thread_id);
+			"DISPATCH:%s(%s) inst:%#018llx OP:%#02hhx thread:%d",
+			mod, cmdq_util_hw_name(client->chan),
+			*(u64 *)inst, inst->op, thread_id);
 	} else {
 		/* no inst available */
-		cmdq_util_aee(mod, "DISPATCH:%s unknown instruction", mod);
+		cmdq_util_aee(mod, "DISPATCH:%s(%s) unknown instruction",
+			mod, cmdq_util_hw_name(client->chan));
 	}
 
 #else
@@ -1910,16 +1913,14 @@ static const char *cmdq_parse_jump_c_sop(enum CMDQ_CONDITION_ENUM s_op)
 static void cmdq_buf_print_move(char *text, u32 txt_sz,
 	u32 offset, struct cmdq_instruction *cmdq_inst)
 {
-	u32 val = CMDQ_GET_32B_VALUE(cmdq_inst->arg_b, cmdq_inst->arg_c);
-	u32 addr = (u32)(cmdq_inst->s_op << CMDQ_SUBSYS_SHIFT) |
-		cmdq_inst->arg_a;
+	u64 val = (u64)cmdq_inst->arg_a |
+		CMDQ_GET_32B_VALUE(cmdq_inst->arg_b, cmdq_inst->arg_c);
 
-	if (cmdq_inst->arg_a_type)
+	if (cmdq_inst->arg_a)
 		snprintf(text, txt_sz,
-			"%#06x %#018llx [Move ] move %#010x to %s%#x",
+			"%#06x %#018llx [Move ] move %#llx to %s%#hhu",
 			offset, *((u64 *)cmdq_inst), val,
-			cmdq_inst->arg_a_type ? "*Reg Index " : "SubSys Reg ",
-			addr);
+			"Reg Index GPR R", cmdq_inst->s_op);
 	else
 		snprintf(text, txt_sz,
 			"%#06x %#018llx [Move ] mask %#010x",
@@ -2084,7 +2085,8 @@ s32 cmdq_pkt_dump_buf(struct cmdq_pkt *pkt, dma_addr_t curr_pa)
 	list_for_each_entry(buf, &pkt->buf, list_entry) {
 		if (list_is_last(&buf->list_entry, &pkt->buf)) {
 			size = CMDQ_CMD_BUFFER_SIZE - pkt->avail_buf_size;
-		} else if (cnt > 2) {
+		} else if (cnt > 2 && !(curr_pa >= buf->pa_base &&
+			curr_pa < buf->pa_base + CMDQ_BUF_ALLOC_SIZE)) {
 			cmdq_util_msg(
 				"buffer %u va:0x%p pa:%pa %#018llx (skip detail) %#018llx",
 				cnt, buf->va_base, &buf->pa_base,

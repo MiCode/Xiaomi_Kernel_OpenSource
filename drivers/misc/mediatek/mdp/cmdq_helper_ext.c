@@ -3220,13 +3220,13 @@ static void cmdq_core_attach_error_handle_by_state(
 
 	switch (op) {
 	case CMDQ_CODE_WFE:
-		CMDQ_AEE(module,
+		CMDQ_ERR(
 			"%s in CMDQ IRQ:0x%02x, INST:(0x%08x, 0x%08x), OP:WAIT EVENT:%s\n",
 			module, irq_flag, inst_a, inst_b,
 			cmdq_core_get_event_name(inst_a & (~0xFF000000)));
 		break;
 	default:
-		CMDQ_AEE(module,
+		CMDQ_ERR(
 			"%s in CMDQ IRQ:0x%02x, INST:(0x%08x, 0x%08x), OP:%s\n",
 			module, irq_flag, inst_a, inst_b,
 			cmdq_core_parse_op(op));
