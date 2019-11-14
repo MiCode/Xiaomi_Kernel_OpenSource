@@ -2295,10 +2295,16 @@ static int mtk_color_user_cmd(struct mtk_ddp_comp *comp,
 	case SET_COLOR_REG:
 	{
 		mutex_lock(&g_color_reg_lock);
-		memcpy(&g_color_reg, (struct DISPLAY_COLOR_REG *)data,
-			sizeof(struct DISPLAY_COLOR_REG));
 
-		color_write_hw_reg(comp, &g_color_reg, handle);
+		if (data != NULL) {
+			memcpy(&g_color_reg, (struct DISPLAY_COLOR_REG *)data,
+				sizeof(struct DISPLAY_COLOR_REG));
+
+			color_write_hw_reg(comp, &g_color_reg, handle);
+		} else {
+			DDPINFO("%s: data is NULL", __func__);
+		}
+
 		g_color_reg_valid = 1;
 		mutex_unlock(&g_color_reg_lock);
 	}
