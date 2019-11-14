@@ -1496,7 +1496,7 @@ static int jpeg_hybrid_dec_ioctl(unsigned int cmd, unsigned long arg,
 			}
 		} else {
 			JPEG_WRN("jpeg_drv_dec_hybrid_init failed (hw busy)\n");
-			return -EFAULT;
+			return -EBUSY;
 		}
 		break;
 	case JPEG_DEC_IOCTL_HYBRID_WAIT:
