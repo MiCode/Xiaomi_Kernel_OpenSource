@@ -750,6 +750,9 @@ struct ath10k_fw_components {
 	const struct firmware *board;
 	const void *board_data;
 	size_t board_len;
+	const struct firmware *ext_board;
+	const void *ext_board_data;
+	size_t ext_board_len;
 
 	struct ath10k_fw_file fw_file;
 };
@@ -849,7 +852,9 @@ struct ath10k {
 		bool qmi_ids_valid;
 		u32 qmi_board_id;
 		u8 bmi_board_id;
+		u8 bmi_eboard_id;
 		u8 bmi_chip_id;
+		bool ext_bid_supported;
 
 		char bdf_ext[ATH10K_SMBIOS_BDF_EXT_STR_LENGTH];
 	} id;
