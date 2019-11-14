@@ -143,6 +143,8 @@ struct apusys_dvfs_opps {
 extern char *user_str[APUSYS_DVFS_USER_NUM];
 extern char *buck_domain_str[APUSYS_BUCK_DOMAIN_NUM];
 extern char *buck_str[APUSYS_BUCK_NUM];
+extern bool apusys_dvfs_user_support[APUSYS_DVFS_USER_NUM];
+extern bool apusys_dvfs_buck_domain_support[APUSYS_BUCK_DOMAIN_NUM];
 extern enum DVFS_VOLTAGE_DOMAIN apusys_user_to_buck_domain
 					[APUSYS_DVFS_USER_NUM];
 extern enum DVFS_BUCK apusys_user_to_buck[APUSYS_DVFS_USER_NUM];

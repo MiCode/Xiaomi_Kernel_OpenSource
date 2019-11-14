@@ -47,6 +47,21 @@ char *buck_str[APUSYS_BUCK_NUM] = {
 	"VCORE_BUCK",
 };
 
+
+bool apusys_dvfs_user_support[APUSYS_DVFS_USER_NUM] = {
+	true, true, true, true, true
+};
+
+#if VCORE_DVFS_SUPPORT
+bool apusys_dvfs_buck_domain_support[APUSYS_BUCK_DOMAIN_NUM] = {
+	true, true, true, true, true, true, true, true
+};
+#else
+bool apusys_dvfs_buck_domain_support[APUSYS_BUCK_DOMAIN_NUM] = {
+	true, true, true, true, true, true, true, false
+};
+#endif
+
 enum DVFS_VOLTAGE_DOMAIN apusys_user_to_buck_domain[APUSYS_DVFS_USER_NUM] = {
 	V_VPU0, V_VPU1, V_VPU2, V_MDLA0, V_MDLA1
 };

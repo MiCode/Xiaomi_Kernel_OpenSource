@@ -37,27 +37,26 @@ struct apusys_dvfs_opps apusys_opps;
 bool dvfs_user_support(enum DVFS_USER user)
 {
 	uint32_t val = 0;
-	bool status = true;
 
 	val = get_devinfo_with_index(30);
 	if (val == 0x1) {
 		if (user == VPU2 || user == MDLA1)
-			status = false;
+			return false;
 	}
-	return status;
+
+	return apusys_dvfs_user_support[user];
 }
 
 bool dvfs_power_domain_support(enum DVFS_VOLTAGE_DOMAIN domain)
 {
 	uint32_t val = 0;
-	bool status = true;
 
 	val = get_devinfo_with_index(30);
 	if (val == 0x1) {
 		if (domain == V_VPU2 || domain == V_MDLA1)
-			status = false;
+			return false;
 	}
-	return status;
+	return apusys_dvfs_buck_domain_support[domain];
 }
 
 
@@ -350,10 +349,6 @@ void apusys_pwr_efficiency_check(void)
 
 	for (buck_domain_index = 0;
 	buck_domain_index < APUSYS_BUCK_DOMAIN_NUM; buck_domain_index++) {
-		#if !VCORE_DVFS_SUPPORT
-		if (buck_domain_index == V_VCORE)
-			continue;
-		#endif
 		if (dvfs_power_domain_support(buck_domain_index) == false)
 			continue;
 		buck_index = apusys_buck_domain_to_buck[buck_domain_index];
@@ -856,10 +851,6 @@ void apusys_dvfs_policy(uint64_t round_id)
 	for (buck_domain_num = 0;
 	buck_domain_num < APUSYS_BUCK_DOMAIN_NUM;
 	buck_domain_num++) {
-		#if !VCORE_DVFS_SUPPORT
-		if (buck_domain_num == V_VCORE)
-			continue;
-		#endif
 		if (dvfs_power_domain_support(buck_domain_num) == false)
 			continue;
 		apusys_opps.cur_opp_index[buck_domain_num] =

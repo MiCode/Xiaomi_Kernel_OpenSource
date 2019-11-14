@@ -165,10 +165,6 @@ void fix_dvfs_debug(void)
 
 		// determine buck domain opp
 		for (i = 0; i < APUSYS_BUCK_DOMAIN_NUM; i++) {
-			#if !VCORE_DVFS_SUPPORT
-			if (i == V_VCORE)
-				continue;
-			#endif
 			if (dvfs_power_domain_support(i) == false)
 				continue;
 			for (opp = 0; opp < APUSYS_MAX_NUM_OPPS; opp++) {
