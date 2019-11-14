@@ -341,8 +341,9 @@ static void scp_A_notify_ws(struct work_struct *ws)
 		writel(0xff, SCP_TO_SPM_REG); /* patch: clear SPM interrupt */
 		mutex_lock(&scp_A_notify_mutex);
 
+#if SCP_RECOVERY_SUPPORT
 		atomic_set(&scp_reset_status, RESET_STATUS_STOP);
-
+#endif
 		pr_debug("[SCP] notify blocking call\n");
 		blocking_notifier_call_chain(&scp_A_notifier_list
 			, SCP_EVENT_READY, NULL);
@@ -413,9 +414,6 @@ static void scp_A_set_ready(void)
 	pr_debug("[SCP] %s()\n", __func__);
 #if SCP_BOOT_TIME_OUT_MONITOR
 	del_timer(&scp_ready_timer[SCP_A_ID]);
-#endif
-#if SCP_RECOVERY_SUPPORT
-	atomic_set(&scp_reset_status, RESET_STATUS_STOP);
 #endif
 	scp_A_notify_work.flags = 1;
 	scp_schedule_work(&scp_A_notify_work);

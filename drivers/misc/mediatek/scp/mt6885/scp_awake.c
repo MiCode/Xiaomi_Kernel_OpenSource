@@ -120,6 +120,8 @@ int scp_awake_lock(enum scp_core_id scp_id)
 #if SCP_RECOVERY_SUPPORT
 		if (scp_set_reset_status() == RESET_STATUS_STOP) {
 			pr_notice("%s: start to reset scp...\n", __func__);
+			/* trigger halt isr, force scp enter wfi */
+			writel(B_GIPC4_SETCLR_0, R_GIPC_IN_SET);
 			scp_send_reset_wq(RESET_TYPE_AWAKE);
 		} else
 			pr_notice("%s: scp resetting\n", __func__);
