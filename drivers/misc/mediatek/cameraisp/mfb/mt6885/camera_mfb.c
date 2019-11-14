@@ -675,6 +675,10 @@ static inline unsigned int MSS_GetIRQState(
 	/*  */
 	spin_lock_irqsave(&(MFBInfo.SpinLockIrq[type]), flags);
 	if (stus & MSS_INT_ST) {
+		LOG_INF("%s MssIrqCnt[%d] is %d for pid %d", __func__,
+			whichReq,
+			MFBInfo.IrqInfo.MssIrqCnt[whichReq],
+			MFBInfo.IrqInfo.ProcessID[whichReq]);
 		ret = ((MFBInfo.IrqInfo.MssIrqCnt[whichReq] > 0)
 		       && (MFBInfo.IrqInfo.ProcessID[whichReq] == ProcessID));
 	} else {
@@ -683,8 +687,14 @@ static inline unsigned int MSS_GetIRQState(
 		     type, *userNumber, stus, whichReq, ProcessID);
 	}
 	*userNumber = ret;
-	if (ret == 1 && MFBInfo.IrqInfo.MssIrqCnt[whichReq] == 1)
+	if (ret == 1 && MFBInfo.IrqInfo.MssIrqCnt[whichReq] == 1) {
+		LOG_INF("%s last mssirqcnt %d clearing pid %d for proc %d",
+			__func__,
+			MFBInfo.IrqInfo.MssIrqCnt[whichReq],
+			MFBInfo.IrqInfo.ProcessID[whichReq],
+			whichReq);
 		MFBInfo.IrqInfo.ProcessID[whichReq] = 0;
+	}
 	spin_unlock_irqrestore(&(MFBInfo.SpinLockIrq[type]), flags);
 	/*  */
 	return ret;
@@ -704,6 +714,9 @@ static inline unsigned int MSF_GetIRQState(
 	/*  */
 	spin_lock_irqsave(&(MFBInfo.SpinLockIrq[type]), flags);
 	if (stus & MSF_INT_ST) {
+		LOG_INF("%s MsfIrqCnt is %d for pid %d", __func__,
+			MFBInfo.IrqInfo.MsfIrqCnt,
+			MFBInfo.IrqInfo.ProcessID[whichReq]);
 		ret = ((MFBInfo.IrqInfo.MsfIrqCnt > 0)
 		       && (MFBInfo.IrqInfo.ProcessID[whichReq] == ProcessID));
 	} else {
@@ -712,6 +725,13 @@ static inline unsigned int MSF_GetIRQState(
 		     type, userNumber, stus, whichReq, ProcessID);
 	}
 	spin_unlock_irqrestore(&(MFBInfo.SpinLockIrq[type]), flags);
+	if (ret == 1) {
+		LOG_INF("%s last msfirqcnt %d not clearing pid %d for proc %d",
+			__func__,
+			MFBInfo.IrqInfo.MsfIrqCnt,
+			MFBInfo.IrqInfo.ProcessID[whichReq],
+			whichReq);
+	}
 	/*  */
 	return ret;
 }
@@ -3584,7 +3604,7 @@ static long MFB_ioctl_compat(struct file *filp,
  ******************************************************************************/
 static signed int MFB_open(struct inode *pInode, struct file *pFile)
 {
-	signed int Ret = 0;
+	signed int Ret = 0, i = 0;
 	/*int q = 0, p = 0;*/
 	struct MFB_USER_INFO_STRUCT *pUserInfo;
 	unsigned long flags;
@@ -3623,9 +3643,24 @@ static signed int MFB_open(struct inode *pInode, struct file *pFile)
 	} else {
 		MFBInfo.UserCount++;
 		spin_unlock(&(MFBInfo.SpinLockMFBRef));
-		LOG_DBG(
-			"Curr UserCount(%d), (process, pid, tgid)=(%s, %d, %d), first user",
-			MFBInfo.UserCount, current->comm,
+
+		for (i = 0; i < MFB_PROCESS_ID_AMOUNT; i++)
+			MFBInfo.IrqInfo.MssIrqCnt[i] = 0;
+		MFBInfo.IrqInfo.MsfIrqCnt = 0;
+		/*  */
+		mfb_register_requests(&mss_reqs, sizeof(struct MFB_MSSConfig));
+		mfb_set_engine_ops(&mss_reqs, &mss_ops);
+		mfb_register_requests(&vmss_reqs, sizeof(struct MFB_MSSConfig));
+		mfb_set_engine_ops(&vmss_reqs, &vmss_ops);
+
+		mfb_register_requests(&msf_reqs, sizeof(struct MFB_MSFConfig));
+		mfb_set_engine_ops(&msf_reqs, &msf_ops);
+		mfb_register_requests(&vmsf_reqs, sizeof(struct MFB_MSFConfig));
+		mfb_set_engine_ops(&vmsf_reqs, &vmsf_ops);
+
+		LOG_INF(
+			"%s + 1st UserCount(%d), (process, pid, tgid)=(%s, %d, %d)",
+			__func__, MFBInfo.UserCount, current->comm,
 			current->pid, current->tgid);
 	}
 
@@ -3688,13 +3723,21 @@ static signed int MFB_release(struct inode *pInode, struct file *pFile)
 			MFBInfo.UserCount, current->comm,
 			current->pid, current->tgid);
 		goto EXIT;
-	} else
+	} else {
+		/*  */
+		LOG_INF(
+			"%s - last UserCount(%d), (process, pid, tgid)=(%s, %d, %d)",
+			__func__, MFBInfo.UserCount, current->comm,
+			current->pid, current->tgid);
+
+		mfb_unregister_requests(&mss_reqs);
+		mfb_unregister_requests(&msf_reqs);
+		mfb_unregister_requests(&vmss_reqs);
+		mfb_unregister_requests(&vmsf_reqs);
+
 		spin_unlock(&(MFBInfo.SpinLockMFBRef));
+	}
 	/*  */
-	LOG_DBG(
-		"Curr UserCount(%d), (process, pid, tgid)=(%s, %d, %d), last user",
-		MFBInfo.UserCount, current->comm,
-		current->pid, current->tgid);
 
 
 	/* Disable clock. */
@@ -4062,20 +4105,6 @@ static signed int MFB_probe(struct platform_device *pDev)
 		/*  */
 		MFBInfo.IrqInfo.Mask[MFB_IRQ_TYPE_INT_MSS_ST] = INT_ST_MASK_MSS;
 		MFBInfo.IrqInfo.Mask[MFB_IRQ_TYPE_INT_MSF_ST] = INT_ST_MASK_MSF;
-
-		for (i = 0; i < MFB_PROCESS_ID_AMOUNT; i++)
-			MFBInfo.IrqInfo.MssIrqCnt[i] = 0;
-		MFBInfo.IrqInfo.MsfIrqCnt = 0;
-		/*  */
-		mfb_register_requests(&mss_reqs, sizeof(struct MFB_MSSConfig));
-		mfb_set_engine_ops(&mss_reqs, &mss_ops);
-		mfb_register_requests(&vmss_reqs, sizeof(struct MFB_MSSConfig));
-		mfb_set_engine_ops(&vmss_reqs, &vmss_ops);
-
-		mfb_register_requests(&msf_reqs, sizeof(struct MFB_MSFConfig));
-		mfb_set_engine_ops(&msf_reqs, &msf_ops);
-		mfb_register_requests(&vmsf_reqs, sizeof(struct MFB_MSFConfig));
-		mfb_set_engine_ops(&vmsf_reqs, &vmsf_ops);
 	}
 
 	seqlock_init(&(mss_reqs.seqlock));
@@ -4103,12 +4132,6 @@ static signed int MFB_remove(struct platform_device *pDev)
 	int i;
 	/*  */
 	LOG_DBG("- E.");
-
-	/*  */
-	mfb_unregister_requests(&mss_reqs);
-	mfb_unregister_requests(&msf_reqs);
-	mfb_unregister_requests(&vmss_reqs);
-	mfb_unregister_requests(&vmsf_reqs);
 
 	destroy_workqueue(MFBInfo.wkqueueMss);
 	MFBInfo.wkqueueMss = NULL;
