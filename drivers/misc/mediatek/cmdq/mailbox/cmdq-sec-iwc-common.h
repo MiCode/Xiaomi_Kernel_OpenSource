@@ -250,7 +250,7 @@ enum cmdq_sec_meta_type {
 	CMDQ_METAEX_CQ,
 };
 
-struct iwcIspMessage {
+struct iwc_cq_meta {
 	uint32_t isp_cq_desc[CMDQ_SEC_ISP_CQ_SIZE / sizeof(uint32_t)];
 	uint32_t isp_cq_desc_size;
 	uint32_t isp_cq_virt[CMDQ_SEC_ISP_VIRT_SIZE / sizeof(uint32_t)];
@@ -267,7 +267,7 @@ struct iwcIspMessage {
 	uint32_t isp_dmgi_size;
 };
 
-struct iwcIspMessage2 {
+struct iwc_cq_meta2 {
 	struct iwcCmdqSecIspMeta handles;
 	uint32_t isp_lcei[CMDQ_SEC_ISP_LCEI_SIZE / sizeof(uint32_t)];
 	uint32_t isp_lcei_size;
@@ -313,7 +313,7 @@ struct iwcCmdqMessageEx_t {
 	uint32_t size;
 	union {
 		uint32_t data[CMDQ_SEC_DATA_SIZE_1 / sizeof(uint32_t)];
-		struct iwcIspMessage isp;
+		struct iwc_cq_meta isp;
 		struct iwcIspMeta meta;
 
 	};
@@ -323,10 +323,7 @@ struct iwcCmdqMessageEx2_t {
 	uint32_t size;
 	union {
 		uint32_t data[CMDQ_SEC_DATA_SIZE_2 / sizeof(uint32_t)];
-		struct {
-			struct iwcCmdqSecIspMeta isp_metadata;
-			struct iwcIspMessage2 isp;
-		};
+		struct iwc_cq_meta2 isp;
 	};
 };
 

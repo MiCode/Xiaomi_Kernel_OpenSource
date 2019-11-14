@@ -330,8 +330,13 @@ do { \
 static long cmdq_driver_destroy_secure_medadata(
 	struct cmdqCommandStruct *pCommand)
 {
+	u32 i;
+
 	kfree(CMDQ_U32_PTR(pCommand->secData.addrMetadatas));
 	pCommand->secData.addrMetadatas = 0;
+
+	for (i = 0; i < ARRAY_SIZE(pCommand->secData.ispMeta.ispBufs); i++)
+		CMDQ_PTR_FREE_NULL(pCommand->secData.ispMeta.ispBufs[i].va);
 
 	return 0;
 }
@@ -400,7 +405,8 @@ static long cmdq_driver_create_secure_medadata(
 	/* always clear to prevent free unknown memory */
 	pCommand->secData.addrMetadatas = 0;
 	for (i = 0; i < ARRAY_SIZE(pCommand->secData.ispMeta.ispBufs); i++) {
-		isp_bufs[i] = (void *)pCommand->secData.ispMeta.ispBufs[i].va;
+		isp_bufs[i] = (void *)(unsigned long)
+			pCommand->secData.ispMeta.ispBufs[i].va;
 		pCommand->secData.ispMeta.ispBufs[i].va = 0;
 	}
 
@@ -443,6 +449,26 @@ static long cmdq_driver_create_secure_medadata(
 	}
 	/* replace buffer with kernel buffer */
 	pCommand->secData.addrMetadatas = (cmdqU32Ptr_t)(unsigned long)meta_buf;
+
+	/* copy isp meta bufs */
+	for (i = 0; i < ARRAY_SIZE(pCommand->secData.ispMeta.ispBufs); i++) {
+		if (!isp_bufs[i])
+			continue;
+		meta_buf = NULL;
+		ret = cmdq_driver_copy_meta(isp_bufs[i], &meta_buf,
+			pCommand->secData.ispMeta.ispBufs[i].size,
+			isp_iwc_buf_size[i], true);
+		pCommand->secData.ispMeta.ispBufs[i].va =
+			(cmdqU32Ptr_t)(unsigned long)meta_buf;
+		if (ret < 0) {
+			CMDQ_ERR(
+				"[secData]copy meta %u size:%llu va:0x%llx ret:%d\n",
+				i, pCommand->secData.ispMeta.ispBufs[i].size,
+				pCommand->secData.ispMeta.ispBufs[i].va,
+				ret);
+			pCommand->secData.ispMeta.ispBufs[i].size = 0;
+		}
+	}
 #endif
 	return 0;
 }

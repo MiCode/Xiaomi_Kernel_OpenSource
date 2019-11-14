@@ -1106,8 +1106,8 @@ const u32 isp_iwc_buf_size[] = {
 
 static void cmdq_mdp_fill_isp_meta(struct cmdqSecIspMeta *meta,
 	struct cmdqRecStruct *handle,
-	struct iwcIspMessage *iwc_msg1,
-	struct iwcIspMessage2 *iwc_msg2)
+	struct iwc_cq_meta *iwc_msg1,
+	struct iwc_cq_meta2 *iwc_msg2)
 {
 	u32 i;
 	struct iwc_meta_buf {
@@ -1174,8 +1174,8 @@ static s32 cmdq_mdp_setup_sec(struct cmdqCommandStruct *desc,
 	cmdq_mdp_setup_sec_ext(desc, handle);
 
 	if (desc->secData.ispMeta.ispBufs[0].size) {
-		handle->sec_isp_msg1 = vzalloc(sizeof(struct iwcIspMessage));
-		handle->sec_isp_msg2 = vzalloc(sizeof(struct iwcIspMessage2));
+		handle->sec_isp_msg1 = vzalloc(sizeof(struct iwc_cq_meta));
+		handle->sec_isp_msg2 = vzalloc(sizeof(struct iwc_cq_meta2));
 		if (!handle->sec_isp_msg1 || !handle->sec_isp_msg2) {
 			CMDQ_ERR("fail to alloc isp msg\n");
 			vfree(handle->sec_isp_msg1);
@@ -1186,9 +1186,9 @@ static s32 cmdq_mdp_setup_sec(struct cmdqCommandStruct *desc,
 			handle->sec_isp_msg1, handle->sec_isp_msg2);
 		meta_type = CMDQ_METAEX_CQ;
 		cmdq_sec_pkt_set_payload(handle->pkt, 1,
-			sizeof(struct iwcIspMessage), handle->sec_isp_msg1);
+			sizeof(struct iwc_cq_meta), handle->sec_isp_msg1);
 		cmdq_sec_pkt_set_payload(handle->pkt, 2,
-			sizeof(struct iwcIspMessage2), handle->sec_isp_msg2);
+			sizeof(struct iwc_cq_meta2), handle->sec_isp_msg2);
 	}
 
 	cmdq_sec_pkt_set_data(handle->pkt, dapc, port,

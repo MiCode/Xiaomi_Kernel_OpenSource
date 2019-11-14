@@ -570,6 +570,7 @@ static s32 cmdq_sec_fill_iwc_msg(struct cmdq_sec_context *context,
 		data->enginesNeedPortSecurity;
 	iwc_msg->command.hNormalTask = (unsigned long)task;
 
+	iwc_msg->metaex_type = data->client_meta_type;
 	iwc_msg->iwcex_available = 0;
 	if (data->client_meta_size[CMDQ_IWC_MSG1] &&
 		data->client_meta[CMDQ_IWC_MSG1]) {

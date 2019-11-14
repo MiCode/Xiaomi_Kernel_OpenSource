@@ -58,7 +58,6 @@ struct cmdq_cmd_struct {
 /* mutex and spinlock in core, first define first lock */
 static DEFINE_MUTEX(cmdq_clock_mutex);
 static DEFINE_MUTEX(cmdq_res_mutex);
-static DEFINE_MUTEX(cmdq_err_mutex);
 static DEFINE_MUTEX(cmdq_handle_list_mutex);
 static DEFINE_MUTEX(cmdq_thread_mutex);
 static DEFINE_MUTEX(cmdq_inst_check_mutex);
@@ -2760,56 +2759,6 @@ static void cmdq_core_dump_handle_summary(const struct cmdqRecStruct *handle,
 
 }
 
-static atomic_t cmdq_sec_dbg_ctrl = ATOMIC_INIT(0);
-
-static void cmdq_core_dump_dbg(const char *tag)
-{
-	u32 dbg0[3], dbg2[6], i;
-
-	if (atomic_cmpxchg(&cmdq_sec_dbg_ctrl, 0, 1) == 0) {
-		struct arm_smccc_res res;
-
-		arm_smccc_smc(MTK_SIP_CMDQ_CONTROL, CMDQ_ENABLE_DEBUG,
-			1, 0, 0, 0, 0, 0, &res);
-	}
-
-	/* debug select */
-	for (i = 0; i < 6; i++) {
-		if (i < 3) {
-			CMDQ_REG_SET32(GCE_DBG_CTL, (i << 8) | i);
-			dbg0[i] = CMDQ_REG_GET32(GCE_DBG0);
-		} else {
-			/* only other part */
-			CMDQ_REG_SET32(GCE_DBG_CTL, i << 8);
-		}
-		dbg2[i] = CMDQ_REG_GET32(GCE_DBG2);
-	}
-
-	CMDQ_LOG("[%s]dbg0:%#x %#x %#x dbg2:%#x %#x %#x %#x %#x %#x\n",
-		tag, dbg0[0], dbg0[1], dbg0[2],
-		dbg2[0], dbg2[1], dbg2[2], dbg2[3], dbg2[4], dbg2[5]);
-}
-
-static void cmdq_core_dump_status(const char *tag)
-{
-	s32 coreExecThread = CMDQ_INVALID_THREAD;
-	u32 value[4] = { 0 };
-
-	value[0] = CMDQ_REG_GET32(CMDQ_CURR_LOADED_THR);
-	value[1] = CMDQ_REG_GET32(CMDQ_THR_EXEC_CYCLES);
-	value[2] = CMDQ_REG_GET32(CMDQ_THR_TIMEOUT_TIMER);
-	value[3] = CMDQ_REG_GET32(CMDQ_CURR_IRQ_STATUS);
-
-	/* this returns (1 + index of least bit set) or 0 if input is 0. */
-	coreExecThread = __builtin_ffs(value[0]) - 1;
-
-	CMDQ_LOG(
-		"[%s]IRQ:0x%08x Execing:%d Thread:%d CURR_LOADED_THR:0x%08x THR_EXEC_CYCLES:0x%08x\n",
-		tag, value[3], (0x80000000 & value[0]) ? 1 : 0,
-		 coreExecThread, value[0], value[1]);
-	cmdq_core_dump_dbg(tag);
-}
-
 void cmdq_core_dump_handle_buffer(const struct cmdq_pkt *pkt,
 	const char *tag)
 {
@@ -2938,9 +2887,6 @@ static void cmdq_core_dump_error_handle(const struct cmdqRecStruct *handle,
 
 	if (cmdq_ctx.errNum > 1)
 		return;
-
-	CMDQ_ERR("============ [CMDQ] CMDQ Status ============\n");
-	cmdq_core_dump_status("ERR");
 
 	CMDQ_ERR("============ [CMDQ] Clock Gating Status ============\n");
 	CMDQ_ERR("[CLOCK] common clock ref:%d\n",
@@ -3142,9 +3088,6 @@ static void cmdq_core_attach_error_handle_detail(
 		return;
 	}
 
-	/* prevent errors dump at same time */
-	mutex_lock(&cmdq_err_mutex);
-
 	cmdq_core_attach_cmdq_error(handle, thread, &pc, &nginfo);
 
 	if (nghandle_out && nginfo.nghandle)
@@ -3171,8 +3114,6 @@ static void cmdq_core_attach_error_handle_detail(
 
 	CMDQ_ERR("=========== [CMDQ] End of Full Error %d ==========\n",
 		error_num);
-
-	mutex_unlock(&cmdq_err_mutex);
 
 	cmdq_core_release_nghandleinfo(&nginfo);
 	if (aee_out)
@@ -3782,8 +3723,6 @@ s32 cmdq_core_suspend(void)
 			exec_thread, ref_count);
 		kill_task = true;
 	}
-
-	atomic_set(&cmdq_sec_dbg_ctrl, 0);
 
 	/* TODO:
 	 * We need to ensure the system is ready to suspend,

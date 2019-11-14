@@ -240,11 +240,12 @@ void cmdq_sec_dump_secure_data(struct cmdq_pkt *pkt)
 
 	data = (struct cmdq_sec_data *)pkt->sec_data;
 	cmdq_util_msg(
-		"meta cnt:%u addr:%#llx max:%u scen:%d dapc:%#llx port:%#llx wait:%d reset:%d",
+		"meta cnt:%u addr:%#llx max:%u scen:%d dapc:%#llx port:%#llx wait:%d reset:%d metatype:%u",
 		data->addrMetadataCount, data->addrMetadatas,
 		data->addrMetadataMaxCount, data->scenario,
 		data->enginesNeedDAPC, data->enginesNeedPortSecurity,
-		data->waitCookie, data->resetExecCnt);
+		data->waitCookie, data->resetExecCnt,
+		(u32)data->client_meta_type);
 
 	meta = (struct cmdq_sec_addr_meta *)(unsigned long)
 		data->addrMetadatas;

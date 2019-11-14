@@ -17,6 +17,7 @@
 #include "mdp_def.h"
 #include "cmdq_helper_ext.h"
 #include <linux/types.h>
+
 #ifdef CONFIG_MTK_SMI_EXT
 
 /* translate port */
@@ -33,6 +34,11 @@ typedef void (*CmdqInitPmqosMdp) (s32 index, struct plist_head *owner_list);
 typedef void (*CmdqInitPmqosIsp) (s32 index, struct plist_head *owner_list);
 
 #endif	/* CONFIG_MTK_SMI_EXT */
+
+
+#ifdef CMDQ_SECURE_PATH_SUPPORT
+extern const u32 isp_iwc_buf_size[];
+#endif
 
 /* dump mmsys config */
 typedef void (*CmdqDumpMMSYSConfig) (void);
