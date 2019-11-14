@@ -86,7 +86,6 @@ int vdec_if_init(struct mtk_vcodec_ctx *ctx, unsigned int fourcc)
 		return -EINVAL;
 	}
 #endif
-	mtk_vcodec_dec_clock_on(&ctx->dev->pm, MTK_VDEC_CORE);
 	if (!ctx->user_lock_hw) {
 		mtk_vdec_lock(ctx, MTK_VDEC_CORE);
 		mtk_vcodec_dec_clock_on(&ctx->dev->pm, MTK_VDEC_CORE);
@@ -187,7 +186,6 @@ void vdec_if_deinit(struct mtk_vcodec_ctx *ctx)
 		vdec_decode_unprepare(ctx, MTK_VDEC_CORE);
 
 	ctx->drv_handle = 0;
-	mtk_vcodec_dec_clock_off(&ctx->dev->pm, MTK_VDEC_CORE);
 }
 
 void vdec_decode_prepare(void *ctx_prepare,
