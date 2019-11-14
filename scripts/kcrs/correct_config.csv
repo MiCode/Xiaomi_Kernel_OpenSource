@@ -1350,3 +1350,7 @@ CONFIG_ZRAM_LZ4_COMPRESS,PROJECT,Chinwen.Chang,,,,,,,,,,,,,,
 CONFIG_ZRAM_LZ4K_COMPRESS,PROJECT,Chinwen.Chang,,,,,,,,,,,,,,
 CONFIG_ZSM,PROJECT,Robbin.Chiu,new config 84a52cb60725192d8ae0c80b58c363c35484cfd4,,,,,,,,,,,,,
 CONFIG_ZSMALLOC,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
+CONFIG_UFSFEATURE,PROJECT,Peter.Wang,,,,,,,,,,,,,,
+CONFIG_UFSTW,PROJECT,Peter.Wang,,,,,,,,,,,,,,
+CONFIG_UFSTW_IGNORE_GUARANTEE_BIT,PROJECT,Peter.Wang,,,,,,,,,,,,,,
+CONFIG_UFSHPB,PROJECT,Peter.Wang,,,,,,,,,,,,,,
