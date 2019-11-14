@@ -69,6 +69,9 @@
 #include <linux/soc/mediatek/mtk-cmdq.h>
 #include <dt-bindings/gce/mt6885-gce.h>
 #include <smi_public.h>
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
+#include <cmdq-util.h>
+#endif
 
 #define MFB_PMQOS
 #ifdef MFB_PMQOS
@@ -1436,11 +1439,11 @@ static signed int MSS_DumpReg(void)
 	signed int Ret = 0;
 	unsigned int i = 0;
 
-	LOG_INF("- E.");
+	cmdq_util_err("- E.");
 
-	LOG_INF("MSS Config Info\n");
+	cmdq_util_err("MSS Config Info\n");
 	for (i = 0; i < MSS_REG_RANGE; i = i + 0x10) {
-		LOG_INF(
+		cmdq_util_err(
 		"[0x%08X %08X][0x%08X %08X][0x%08X %08X][0x%08X %08X]\n",
 		ISP_MSS_BASE_HW + i + 0x0, MFB_RD32(ISP_MSS_BASE + i + 0x0),
 		ISP_MSS_BASE_HW + i + 0x4, MFB_RD32(ISP_MSS_BASE + i + 0x4),
@@ -1452,32 +1455,32 @@ for (i = 0; i < 3; i++) {
 	for (j = 1; j < 7; j++) {
 		MFB_WR32(MFB_MSS_DMA_DEBUG_SEL,
 			0x000F3F1F & ((i << 16) + (j << 8) + 0));
-		LOG_INF("debug_mux_data_%d 0x%08X\n",
+		cmdq_util_err("debug_mux_data_%d 0x%08X\n",
 			i, MFB_RD32(MFB_MSS_TOP_DBG_OUT2));
 	}
 }
 for (i = 1; i < 7; i++) {
 	MFB_WR32(MFB_MSS_DMA_DEBUG_SEL, 0x0000001F & i);
-	LOG_INF("dma_debug_data_%d 0x%08X\n",
+	cmdq_util_err("dma_debug_data_%d 0x%08X\n",
 			i, MFB_RD32(MFB_MSS_TOP_DBG_OUT2));
 }
 for (i = 0; i < 16; i++) {
 	MFB_WR32(MFB_MSS_DMA_DEBUG_SEL, 0x000F001F & ((i << 16) + 7));
-	LOG_INF("debug_cnt_data_%d 0x%08X\n",
+	cmdq_util_err("debug_cnt_data_%d 0x%08X\n",
 			i, MFB_RD32(MFB_MSS_TOP_DBG_OUT2));
 }
 for (i = 0; i < 24; i++) {
 	MFB_WR32(MFB_MSS_DMA_DEBUG_SEL, 0x00003F1F & ((i << 8) + 8));
-	LOG_INF("check_sum_debug_data_%d 0x%08X\n",
+	cmdq_util_err("check_sum_debug_data_%d 0x%08X\n",
 			i, MFB_RD32(MFB_MSS_TOP_DBG_OUT2));
 }
 for (i = 0; i < 15; i++) {
 	MFB_WR32(MFB_MSS_TOP_DBG_CTL0, 0x0000FF00 & (0x0 << 8));
-	LOG_INF("mod_debug_%d 0x%08X\n",
+	cmdq_util_err("mod_debug_%d 0x%08X\n",
 			i, MFB_RD32(MFB_MSS_TOP_DBG_OUT3));
 }
 #endif
-	LOG_INF("- X.");
+	cmdq_util_err("- X.");
 	/*  */
 	return Ret;
 }
@@ -1487,11 +1490,11 @@ static signed int MSF_DumpReg(void)
 	signed int Ret = 0;
 	unsigned int i = 0;
 
-	LOG_INF("- E.");
+	cmdq_util_err("- E.");
 
-	LOG_INF("MSF Config Info\n");
+	cmdq_util_err("MSF Config Info\n");
 	for (i = 0; i < MSF_REG_RANGE; i = i + 0x10) {
-		LOG_INF(
+		cmdq_util_err(
 		"[0x%08X %08X][0x%08X %08X][0x%08X %08X][0x%08X %08X]\n",
 		ISP_MSF_BASE_HW + i + 0x0, MFB_RD32(ISP_MSF_BASE + i + 0x0),
 		ISP_MSF_BASE_HW + i + 0x4, MFB_RD32(ISP_MSF_BASE + i + 0x4),
@@ -1501,59 +1504,60 @@ static signed int MSF_DumpReg(void)
 #if 0 /*YWtodo sel*/
 	for (i = 28; i < 32; i++) {
 		MFB_WR32(MFB_MSF_TOP_DEBUG_SEL, 0xFF000000 & (i << 24));
-		LOG_INF("mfb_top_rdy_ack_debug_%d 0x%08X\n",
+		cmdq_util_err("mfb_top_rdy_ack_debug_%d 0x%08X\n",
 				i, MFB_RD32(MFB_MSF_TOP_DEBUG_STA));
 	}
 	for (i = 1; i < 28; i++) {
 		MFB_WR32(MFB_MSF_TOP_DEBUG_SEL, 0xFF000000 & (i << 24));
-		LOG_INF("submodule_debug_sel_%d 0x%08X\n",
+		cmdq_util_err("submodule_debug_sel_%d 0x%08X\n",
 				i, MFB_RD32(MFB_MSF_TOP_DEBUG_STA));
 	}
 	MFB_WR32(MFB_MSF_TOP_DEBUG_SEL, 0xFF000000 & (0x0 << 24));
 	MFB_WR32(MFB_MSF_DMA_DEBUG_SEL, 0x0000001F & 18);
-	LOG_INF("dma_req_st 0x%08X\n", MFB_RD32(MFB_MSF_TOP_DEBUG_STA));
+	cmdq_util_err("dma_req_st 0x%08X\n", MFB_RD32(MFB_MSF_TOP_DEBUG_STA));
 	MFB_WR32(MFB_MSF_DMA_DEBUG_SEL, 0x0000001F & 19);
-	LOG_INF("dma_rdy_st 0x%08X\n", MFB_RD32(MFB_MSF_TOP_DEBUG_STA));
+	cmdq_util_err("dma_rdy_st 0x%08X\n", MFB_RD32(MFB_MSF_TOP_DEBUG_STA));
 	for (i = 0; i < 3; i++) {
 		for (j = 1; j < 20; j++) {
 			MFB_WR32(MFB_MSF_DMA_DEBUG_SEL,
 				0x000F3F1F & ((i << 16) + (j << 8) + 0));
-			LOG_INF("debug_mux_data_%d 0x%08X\n",
+			cmdq_util_err("debug_mux_data_%d 0x%08X\n",
 				i, MFB_RD32(MFB_MSF_TOP_DEBUG_STA));
 		}
 	}
 	for (i = 0; i < 16; i++) {
 		MFB_WR32(MFB_MSF_DMA_DEBUG_SEL, 0x000F001F & ((i << 16) + 16));
-		LOG_INF("debug_cnt_data_%d 0x%08X\n",
+		cmdq_util_err("debug_cnt_data_%d 0x%08X\n",
 				i, MFB_RD32(MFB_MSF_TOP_DEBUG_STA));
 	}
 	for (i = 0; i < 60; i++) {
 		MFB_WR32(MFB_MSF_DMA_DEBUG_SEL, 0x00003F1F & ((i << 8) + 17));
-		LOG_INF("check_sum_debug_data_%d 0x%08X\n",
+		cmdq_util_err("check_sum_debug_data_%d 0x%08X\n",
 				i, MFB_RD32(MFB_MSF_TOP_DEBUG_STA));
 	}
 	for (i = 1; i < 16; i++) {
 		MFB_WR32(MFB_MSF_DMA_DEBUG_SEL, 0x0000001F & i);
-		LOG_INF("dma_debug_data_%d 0x%08X\n",
+		cmdq_util_err("dma_debug_data_%d 0x%08X\n",
 				i, MFB_RD32(MFB_MSF_TOP_DEBUG_STA));
 	}
 	MFB_WR32(MFB_MSF_DMA_DEBUG_SEL, 0x0000001F & 20);
-	LOG_INF("wdma_otf_overflow 0x%08X\n", MFB_RD32(MFB_MSF_TOP_DEBUG_STA));
+	cmdq_util_err("wdma_otf_overflow 0x%08X\n",
+				MFB_RD32(MFB_MSF_TOP_DEBUG_STA));
 
 	for (i = 0; i < 112; i++) {
 		MFB_WR32(MFB_MSF_TOP_DEBUG_SEL,
 				0xFFFF0000 & ((3 << 24) + (i << 16)));
-		LOG_INF("submodule_check_sum_%d 0x%08X\n",
+		cmdq_util_err("submodule_check_sum_%d 0x%08X\n",
 				i, MFB_RD32(MFB_MSF_TOP_CRC_1));
 	}
 	for (i = 0; i < 29; i++) {
 		MFB_WR32(MFB_MSF_TOP_DEBUG_SEL,
 				0xFFFF0000 & ((4 << 24) + (i << 16)));
-		LOG_INF("submodule_CRC_%d 0x%08X\n",
+		cmdq_util_err("submodule_CRC_%d 0x%08X\n",
 				i, MFB_RD32(MFB_MSF_TOP_CRC_1));
 	}
 #endif
-	LOG_INF("- X.");
+	cmdq_util_err("- X.");
 	/*  */
 	return Ret;
 }
@@ -3637,9 +3641,6 @@ static signed int MFB_open(struct inode *pInode, struct file *pFile)
 	spin_unlock_irqrestore(
 		&(MFBInfo.SpinLockIrq[MFB_IRQ_TYPE_INT_MSF_ST]), flags);
 
-	MFBInfo.IrqInfo.MssIrqCnt = 0;
-	MFBInfo.IrqInfo.MsfIrqCnt = 0;
-
 #ifdef KERNEL_LOG
     /* In EP, Add MFB_DBG_WRITE_REG for debug. Should remove it after EP */
 	MFBInfo.DebugMaskMss =
@@ -3647,16 +3648,6 @@ static signed int MFB_open(struct inode *pInode, struct file *pFile)
 	MFBInfo.DebugMaskMsf =
 		(MFB_DBG_INT | MFB_DBG_DBGLOG | MFB_DBG_WRITE_REG);
 #endif
-	/*  */
-	mfb_register_requests(&mss_reqs, sizeof(struct MFB_MSSConfig));
-	mfb_set_engine_ops(&mss_reqs, &mss_ops);
-	mfb_register_requests(&vmss_reqs, sizeof(struct MFB_MSSConfig));
-	mfb_set_engine_ops(&vmss_reqs, &vmss_ops);
-
-	mfb_register_requests(&msf_reqs, sizeof(struct MFB_MSFConfig));
-	mfb_set_engine_ops(&msf_reqs, &msf_ops);
-	mfb_register_requests(&vmsf_reqs, sizeof(struct MFB_MSFConfig));
-	mfb_set_engine_ops(&vmsf_reqs, &vmsf_ops);
 
 EXIT:
 	LOG_DBG("- X. Ret: %d. UserCount: %d.", Ret, MFBInfo.UserCount);
@@ -3703,12 +3694,6 @@ static signed int MFB_release(struct inode *pInode, struct file *pFile)
 	/* Disable clock. */
 	MFB_EnableClock(MFALSE);
 	LOG_DBG("MFB release g_u4EnableClockCount: %d", g_u4EnableClockCount);
-
-	/*  */
-	mfb_unregister_requests(&mss_reqs);
-	mfb_unregister_requests(&msf_reqs);
-	mfb_unregister_requests(&vmss_reqs);
-	mfb_unregister_requests(&vmsf_reqs);
 
 EXIT:
 
@@ -4072,6 +4057,18 @@ static signed int MFB_probe(struct platform_device *pDev)
 		MFBInfo.IrqInfo.Mask[MFB_IRQ_TYPE_INT_MSS_ST] = INT_ST_MASK_MSS;
 		MFBInfo.IrqInfo.Mask[MFB_IRQ_TYPE_INT_MSF_ST] = INT_ST_MASK_MSF;
 
+		MFBInfo.IrqInfo.MssIrqCnt = 0;
+		MFBInfo.IrqInfo.MsfIrqCnt = 0;
+		/*  */
+		mfb_register_requests(&mss_reqs, sizeof(struct MFB_MSSConfig));
+		mfb_set_engine_ops(&mss_reqs, &mss_ops);
+		mfb_register_requests(&vmss_reqs, sizeof(struct MFB_MSSConfig));
+		mfb_set_engine_ops(&vmss_reqs, &vmss_ops);
+
+		mfb_register_requests(&msf_reqs, sizeof(struct MFB_MSFConfig));
+		mfb_set_engine_ops(&msf_reqs, &msf_ops);
+		mfb_register_requests(&vmsf_reqs, sizeof(struct MFB_MSFConfig));
+		mfb_set_engine_ops(&vmsf_reqs, &vmsf_ops);
 	}
 
 	seqlock_init(&(mss_reqs.seqlock));
@@ -4099,6 +4096,12 @@ static signed int MFB_remove(struct platform_device *pDev)
 	int i;
 	/*  */
 	LOG_DBG("- E.");
+
+	/*  */
+	mfb_unregister_requests(&mss_reqs);
+	mfb_unregister_requests(&msf_reqs);
+	mfb_unregister_requests(&vmss_reqs);
+	mfb_unregister_requests(&vmsf_reqs);
 
 	destroy_workqueue(MFBInfo.wkqueueMss);
 	MFBInfo.wkqueueMss = NULL;
