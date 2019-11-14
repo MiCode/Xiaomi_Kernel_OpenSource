@@ -38,6 +38,13 @@ static bool irq_count_tracer;
 static unsigned int irq_period_th1_ns = 200000; /* log */
 static unsigned int irq_period_th2_ns = 200000; /* aee */
 static unsigned int irq_count_aee_limit;
+/* period setting for specific irqs */
+struct irq_count_period_setting {
+	const char *name;
+	unsigned int period;
+} irq_count_plist[] = {
+	{"ufshcd", 10000} /* 100000 irqs per sec*/
+};
 #endif
 #ifdef CONFIG_MTK_IRQ_OFF_TRACER
 static bool irq_off_tracer;
@@ -161,12 +168,9 @@ DEFINE_SCHED_MON_OPS(preempt_aee_limit, unsigned int, 0, 100);
 		usec_high(per_cpu(data, cpu).end == 0 ? 0 : \
 		per_cpu(data, cpu).end - per_cpu(data, cpu).start))
 
-void show_irq_handle_info(int output)
+static void __show_irq_handle_info(int output)
 {
 	int cpu;
-
-	if (!irq_time_tracer)
-		return;
 
 	for_each_possible_cpu(cpu) {
 		sched_mon_msg(output, "CPU: %d", cpu);
@@ -175,6 +179,12 @@ void show_irq_handle_info(int output)
 		show_irq_handle(cpu, "SoftIRQ", softirq_note, output);
 		sched_mon_msg(output, "");
 	}
+}
+
+void show_irq_handle_info(int output)
+{
+	if (irq_time_tracer)
+		__show_irq_handle_info(output);
 }
 
 #ifdef CONFIG_MTK_IRQ_COUNT_TRACER
@@ -204,17 +214,15 @@ struct irq_count_stat {
 
 DEFINE_PER_CPU(struct irq_count_stat, irq_count_data);
 
-static void irq_count_tracer_work(struct irq_work *work)
+static void __irq_count_tracer_work(struct irq_work *work)
 {
 	struct irq_count_stat *irq_cnt = this_cpu_ptr(&irq_count_data);
 	int cpu = smp_processor_id();
-	int irq, irq_num;
+	int irq, irq_num, i, skip;
 	unsigned int count;
 	unsigned long long t_avg, t_diff;
 	char msg[128];
-
-	if (!irq_count_tracer)
-		return;
+	int list_num = ARRAY_SIZE(irq_count_plist);
 
 	irq_cnt->t_start = irq_cnt->t_end;
 	irq_cnt->t_end = sched_clock();
@@ -236,6 +244,17 @@ static void irq_count_tracer_work(struct irq_work *work)
 		if (t_avg > irq_period_th1_ns)
 			continue;
 
+		if (!irq_to_name(irq))
+			continue;
+
+		for (i = 0, skip = 0; i < list_num && !skip; i++) {
+			if (!strcmp(irq_to_name(irq), irq_count_plist[i].name))
+				if (t_avg > irq_count_plist[i].period)
+					skip = 1;
+		}
+		if (skip)
+			continue;
+
 		snprintf(msg, sizeof(msg),
 			 "irq:%d %s count +%d in %lld ms, from %lld.%06lu to %lld.%06lu",
 			 irq, irq_to_name(irq), count, t_diff,
@@ -249,6 +268,12 @@ static void irq_count_tracer_work(struct irq_work *work)
 			schedule_monitor_aee(msg, "BURST IRQ");
 		}
 	}
+}
+
+static void irq_count_tracer_work(struct irq_work *work)
+{
+	if (irq_count_tracer)
+		__irq_count_tracer_work(work);
 }
 
 static enum hrtimer_restart irq_count_polling_timer(struct hrtimer *unused)
@@ -281,12 +306,9 @@ static int __init init_irq_count_tracer(void)
 	return 0;
 }
 
-void show_irq_count_info(int output)
+static void __show_irq_count_info(int output)
 {
 	int cpu;
-
-	if (!irq_count_tracer)
-		return;
 
 	sched_mon_msg(output, "===== IRQ Status =====");
 
@@ -316,6 +338,12 @@ void show_irq_count_info(int output)
 		}
 		sched_mon_msg(output, "");
 	}
+}
+
+void show_irq_count_info(int output)
+{
+	if (irq_count_tracer)
+		__show_irq_count_info(output);
 }
 #endif /* CONFIG_MTK_IRQ_COUNT_TRACER */
 
@@ -357,11 +385,8 @@ static int trace_hardirqs_whitelist(void)
 	return 0;
 }
 
-inline void trace_hardirqs_off_time(void)
+static inline void __trace_hardirqs_off_time(void)
 {
-	if (!irq_off_tracer)
-		return;
-
 	if (irqsoff_on_tracing())
 		return;
 	irqsoff_tracing_lock();
@@ -381,14 +406,17 @@ inline void trace_hardirqs_off_time(void)
 	}
 }
 
-inline void trace_hardirqs_on_time(void)
+inline void trace_hardirqs_off_time(void)
+{
+	if (irq_off_tracer)
+		__trace_hardirqs_off_time();
+}
+
+static inline void __trace_hardirqs_on_time(void)
 {
 	unsigned long long t_off, t_on, t_diff;
 	char msg[128];
 	int output = TO_FTRACE;
-
-	if (!irq_off_tracer)
-		return;
 
 	if (irqsoff_not_on_tracing())
 		return;
@@ -447,6 +475,12 @@ inline void trace_hardirqs_on_time(void)
 	irqsoff_tracing_unlock();
 }
 
+inline void trace_hardirqs_on_time(void)
+{
+	if (irq_off_tracer)
+		__trace_hardirqs_on_time();
+}
+
 __init static int init_irq_off_tracer(void)
 {
 	int cpu;
@@ -473,11 +507,8 @@ __init static int init_irq_off_tracer(void)
 static DEFINE_PER_CPU(unsigned long long, preempt_off_timestamp);
 static DEFINE_PER_CPU(struct stack_trace, preempt_off_trace);
 
-inline void trace_preempt_off_time(void)
+static inline void __trace_preempt_off_time(void)
 {
-	if (!preempt_tracer)
-		return;
-
 	this_cpu_write(preempt_off_timestamp, sched_clock());
 
 	if (preempt_tracer_trace) {
@@ -493,14 +524,17 @@ inline void trace_preempt_off_time(void)
 	}
 }
 
-inline void trace_preempt_on_time(void)
+inline void trace_preempt_off_time(void)
+{
+	if (preempt_tracer)
+		__trace_preempt_off_time();
+}
+
+static inline void __trace_preempt_on_time(void)
 {
 	unsigned long long t_off, t_on, t_diff;
 	char msg[128];
 	int output = TO_FTRACE;
-
-	if (!preempt_tracer)
-		return;
 
 	/* skip <idle-0> task */
 	if (current->pid == 0)
@@ -542,6 +576,12 @@ inline void trace_preempt_on_time(void)
 		preempt_aee_limit--;
 		schedule_monitor_aee(msg, "PREEMPT OFF");
 	}
+}
+
+inline void trace_preempt_on_time(void)
+{
+	if (preempt_tracer)
+		__trace_preempt_on_time();
 }
 
 __init static int init_preempt_tracer(void)

@@ -72,25 +72,28 @@ DECLARE_PER_CPU(struct irq_handle_status, softirq_note);
 		time = sched_clock(); \
 } while (0)
 
-#define check_process_time(msg, ts, ...) do { \
-	if (irq_time_tracer) { \
-		unsigned long long te = sched_clock(); \
-		unsigned long long t_diff = te - ts; \
-						\
-		do_div(t_diff, 1000000); \
-		if (t_diff > irq_time_th1_ms) { \
-			struct timeval tv_start, tv_end; \
-			char msg_str[128]; \
-						\
-			tv_start = ns_to_timeval(ts); \
-			tv_end = ns_to_timeval(te); \
-			snprintf(msg_str, sizeof(msg_str), \
-				 msg WARN_INFO, ##__VA_ARGS__, t_diff, \
-				 tv_start.tv_sec, tv_start.tv_usec, \
-				 tv_end.tv_sec, tv_end.tv_usec); \
-			sched_mon_msg(TO_BOTH, msg_str); \
-		} \
+#define __check_process_time(msg, ts, ...) do { \
+	unsigned long long te = sched_clock(); \
+	unsigned long long t_diff = te - ts; \
+					\
+	do_div(t_diff, 1000000); \
+	if (t_diff > irq_time_th1_ms) { \
+		struct timeval tv_start, tv_end; \
+		char msg_str[128]; \
+					\
+		tv_start = ns_to_timeval(ts); \
+		tv_end = ns_to_timeval(te); \
+		snprintf(msg_str, sizeof(msg_str), \
+			 msg WARN_INFO, ##__VA_ARGS__, t_diff, \
+			 tv_start.tv_sec, tv_start.tv_usec, \
+			 tv_end.tv_sec, tv_end.tv_usec); \
+		sched_mon_msg(TO_BOTH, msg_str); \
 	} \
+} while (0)
+
+#define check_process_time(msg, ts, ...) do { \
+	if (irq_time_tracer) \
+		__check_process_time(msg, ts, ##__VA_ARGS__); \
 } while (0)
 
 #define check_preempt_count(count, msg, ...) do { \
@@ -115,33 +118,37 @@ DECLARE_PER_CPU(struct irq_handle_status, softirq_note);
 	} \
 } while (0)
 
-#define check_process_time_preempt(type, count, msg, ts, ...) do { \
-	if (irq_time_tracer) { \
-		unsigned long long te = sched_clock(); \
-		unsigned long long t_diff = te - ts; \
-						\
-		do_div(t_diff, 1000000); \
-		if (t_diff > irq_time_th1_ms) { \
-			struct timeval tv_start, tv_end; \
-			char msg_str[128]; \
-						\
-			tv_start = ns_to_timeval(ts); \
-			tv_end = ns_to_timeval(te); \
-			snprintf(msg_str, sizeof(msg_str), \
-				 msg WARN_INFO, ##__VA_ARGS__, t_diff, \
-				 tv_start.tv_sec, tv_start.tv_usec, \
-				 tv_end.tv_sec, tv_end.tv_usec); \
-			sched_mon_msg(TO_BOTH, msg_str); \
-			if (irq_time_th2_ms && irq_time_aee_limit && \
-			    t_diff > irq_time_th2_ms) { \
-				irq_time_aee_limit--; \
-				schedule_monitor_aee(msg_str, \
-					"IRQ PROCESSING TIME"); \
-			} \
+#define __check_process_time_preempt(type, count, msg, ts, ...) do { \
+	unsigned long long te = sched_clock(); \
+	unsigned long long t_diff = te - ts; \
+					\
+	do_div(t_diff, 1000000); \
+	if (t_diff > irq_time_th1_ms) { \
+		struct timeval tv_start, tv_end; \
+		char msg_str[128]; \
+					\
+		tv_start = ns_to_timeval(ts); \
+		tv_end = ns_to_timeval(te); \
+		snprintf(msg_str, sizeof(msg_str), \
+			 msg WARN_INFO, ##__VA_ARGS__, t_diff, \
+			 tv_start.tv_sec, tv_start.tv_usec, \
+			 tv_end.tv_sec, tv_end.tv_usec); \
+		sched_mon_msg(TO_BOTH, msg_str); \
+		if (irq_time_th2_ms && irq_time_aee_limit && \
+		    t_diff > irq_time_th2_ms) { \
+			irq_time_aee_limit--; \
+			schedule_monitor_aee(msg_str, \
+				"IRQ PROCESSING TIME"); \
 		} \
-		this_cpu_write(type.end, te); \
-		check_preempt_count(count, msg, ##__VA_ARGS__); \
 	} \
+	this_cpu_write(type.end, te); \
+	check_preempt_count(count, msg, ##__VA_ARGS__); \
+} while (0)
+
+#define check_process_time_preempt(type, count, msg, ts, ...) do { \
+	if (irq_time_tracer) \
+		__check_process_time_preempt(type, count, msg, ts, \
+					     ##__VA_ARGS__); \
 } while (0)
 
 #ifdef CONFIG_MTK_RAM_CONSOLE
