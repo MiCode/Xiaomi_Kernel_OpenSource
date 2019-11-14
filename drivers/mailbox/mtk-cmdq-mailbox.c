@@ -1095,6 +1095,9 @@ void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
 				"expect pkt:0x%p size:%zu va:0x%p pa:%pa priority:%u",
 				cl_pkt, cl_pkt->cmd_buf_size, buf->va_base,
 				&buf->pa_base, cl_pkt->priority);
+
+			curr_va = NULL;
+			curr_pa = 0;
 		}
 	} else {
 		/* empty or not found case is critical */
