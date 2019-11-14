@@ -112,6 +112,7 @@ struct mtk_iommu_data {
 	struct mtk_iommu_clks		*m4u_clks;
 	spinlock_t     reg_lock;
 	bool poweron;
+	unsigned long isr_ref;
 	struct timer_list iommu_isr_pause_timer;
 #else
 	struct mtk_iommu_domain	*m4u_dom;

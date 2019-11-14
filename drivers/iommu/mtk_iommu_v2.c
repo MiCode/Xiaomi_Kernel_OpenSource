@@ -1148,6 +1148,7 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	unsigned int m4uid = data->m4uid;
 	phys_addr_t pa;
 	unsigned long flags;
+	int ret = 0;
 
 	if (!data->base || IS_ERR(data->base)) {
 		pr_notice("%s, %d, invalid base addr\n",
@@ -1156,16 +1157,22 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	}
 
 #ifdef IOMMU_POWER_CLK_SUPPORT
+	spin_lock_irqsave(&data->reg_lock, flags);
 	if (!data->poweron) {
+		spin_unlock_irqrestore(&data->reg_lock, flags);
 		return 0;
 	}
+	data->isr_ref++;
+	spin_unlock_irqrestore(&data->reg_lock, flags);
 #endif
 	/* Read error info from registers */
 	int_state_l2 = readl_relaxed(data->base + REG_MMU_L2_FAULT_ST);
 	int_state = readl_relaxed(data->base + REG_MMU_FAULT_ST1);
 
-	if (!int_state_l2 && !int_state)
-		return 0;
+	if (!int_state_l2 && !int_state) {
+		ret = 0;
+		goto out;
+	}
 
 	pr_notice("iommu L2 int sta=0x%x, main sta=0x%x\n",
 		  int_state_l2, int_state);
@@ -1229,7 +1236,8 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 		iommu_set_field_by_mask(data->base, REG_MMU_INT_CONTROL0,
 					F_INT_CTL0_INT_CLR,
 					F_INT_CTL0_INT_CLR);
-		return 0;
+		ret = 0;
+		goto out;
 	}
 
 	if (int_state & F_INT_TRANSLATION_FAULT(slave_id)) {
@@ -1244,7 +1252,8 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 
 		if (port_id < 0) {
 			WARN_ON(1);
-			return 0;
+			ret = 0;
+			goto out;
 		}
 		/*pseudo_dump_port(port_id, true);*/
 
@@ -1266,7 +1275,8 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 					fault_larb, fault_port);
 		if (!domain) {
 			WARN_ON(1);
-			return 0;
+			ret = 0;
+			goto out;
 		}
 		pa = mtk_iommu_iova_to_phys(domain, fault_iova & PAGE_MASK);
 
@@ -1353,7 +1363,14 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	mtk_iommu_tlb_flush_all_lock(data, false);
 	mtk_iommu_isr_record(data);
 
-	return IRQ_HANDLED;
+	ret = IRQ_HANDLED;
+
+out:
+	spin_lock_irqsave(&data->reg_lock, flags);
+	data->isr_ref--;
+	spin_unlock_irqrestore(&data->reg_lock, flags);
+
+	return ret;
 }
 
 #ifdef MTK_M4U_SECURE_IRQ_SUPPORT
@@ -1361,10 +1378,11 @@ static int mtk_irq_sec[MTK_IOMMU_M4U_COUNT];
 
 irqreturn_t MTK_M4U_isr_sec(int irq, void *dev_id)
 {
-	const struct mtk_iommu_data *data = NULL;
+	struct mtk_iommu_data *data = NULL;
 	size_t tf_port = 0;
 	unsigned int m4u_id = 0;
 	int i, ret = 0;
+	unsigned long flags;
 
 	for (i = 0; i < MTK_IOMMU_M4U_COUNT; i++) {
 		if (irq == mtk_irq_sec[i]) {
@@ -1387,6 +1405,16 @@ irqreturn_t MTK_M4U_isr_sec(int irq, void *dev_id)
 		return 0;
 	}
 
+#ifdef IOMMU_POWER_CLK_SUPPORT
+	spin_lock_irqsave(&data->reg_lock, flags);
+	if (!data->poweron) {
+		spin_unlock_irqrestore(&data->reg_lock, flags);
+		return 0;
+	}
+	data->isr_ref++;
+	spin_unlock_irqrestore(&data->reg_lock, flags);
+#endif
+
 	pr_notice("iommu:%d secure bank irq in normal world!\n", m4u_id);
 	ret = __mtk_iommu_atf_call(IOMMU_ATF_DUMP_SECURE_REG,
 			m4u_id, 4, &tf_port);
@@ -1398,7 +1426,14 @@ irqreturn_t MTK_M4U_isr_sec(int irq, void *dev_id)
 				 MTK_IOMMU_TO_PORT(tf_port));
 	}
 
-	return IRQ_HANDLED;
+	ret = IRQ_HANDLED;
+
+out:
+	spin_lock_irqsave(&data->reg_lock, flags);
+	data->isr_ref--;
+	spin_unlock_irqrestore(&data->reg_lock, flags);
+
+	return ret;
 }
 #endif
 static void mtk_iommu_config(struct mtk_iommu_data *data,
@@ -3576,6 +3611,7 @@ static void mtk_iommu_pg_before_off(enum subsys_id sys)
 	struct mtk_iommu_data *data;
 	int ret = 0, i;
 	unsigned long flags;
+	unsigned long long start = 0, end = 0;
 
 	for (i = 0; i < MTK_IOMMU_M4U_COUNT; i++) {
 		if (iommu_mtcmos_subsys[i] != sys)
@@ -3589,6 +3625,21 @@ static void mtk_iommu_pg_before_off(enum subsys_id sys)
 		}
 
 		spin_lock_irqsave(&data->reg_lock, flags);
+		if (data->isr_ref) {
+			spin_unlock_irqrestore(&data->reg_lock, flags);
+			start = sched_clock();
+			/* waiting for irs handling done */
+			while (data->isr_ref) {
+				end = sched_clock();
+				if (end - start > 10000000ULL) { //10ms
+					break;
+				}
+			}
+			if (end)
+				pr_notice("%s pg waiting isr:%lluns, ref:%d\n",
+					  __func__, end - start, data->isr_ref);
+			spin_lock_irqsave(&data->reg_lock, flags);
+		}
 		ret = mtk_iommu_reg_backup(data);
 		if (ret) {
 			pr_notice("%s, %d, iommu:%d, sys:%d backup failed %d\n",
@@ -4008,6 +4059,7 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 		return ret;
 	}
 #ifdef IOMMU_POWER_CLK_SUPPORT
+	data->isr_ref = 0;
 	if (data->m4u_clks->nr_powers)
 		data->poweron = true;
 	else
