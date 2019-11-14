@@ -1033,9 +1033,9 @@ int ion_drv_remove(struct platform_device *pdev)
 
 static struct ion_platform_heap ion_drv_platform_heaps[] = {
 	{
-	 .type = (unsigned int)ION_HEAP_TYPE_SYSTEM_CONTIG,
-	 .id = ION_HEAP_TYPE_SYSTEM_CONTIG,
-	 .name = "ion_system_contig_heap",
+	 .type = (unsigned int)ION_HEAP_TYPE_SYSTEM,
+	 .id = ION_HEAP_TYPE_SYSTEM,
+	 .name = "ion_system_heap",
 	 .base = 0,
 	 .size = 0,
 	 .align = 0,

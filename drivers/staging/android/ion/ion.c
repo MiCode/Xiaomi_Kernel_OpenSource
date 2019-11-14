@@ -1056,8 +1056,9 @@ static int ion_dma_buf_attach(struct dma_buf *dmabuf, struct device *dev,
 		return -ENODEV;
 	buffer = dmabuf->priv;
 
-	if (!ion_iommu_heap_type(buffer)) {
-		IONMSG("%s not iommu device\n", __func__);
+	if (!ion_iommu_heap_type(buffer) &&
+	    buffer->heap->type != (int)ION_HEAP_TYPE_SYSTEM) {
+		IONMSG("%s not dma buf device\n", __func__);
 		return 0;
 	}
 
@@ -1101,8 +1102,9 @@ static void ion_dma_buf_detatch(struct dma_buf *dmabuf,
 		return;
 	buffer = dmabuf->priv;
 
-	if (!ion_iommu_heap_type(buffer)) {
-		IONMSG("%s not iommu device\n", __func__);
+	if (!ion_iommu_heap_type(buffer) &&
+	    buffer->heap->type != (int)ION_HEAP_TYPE_SYSTEM) {
+		IONMSG("%s not dma buf device\n", __func__);
 		return;
 	}
 
@@ -1137,15 +1139,18 @@ static struct sg_table *ion_map_dma_buf(struct dma_buf_attachment *attachment,
 		return ERR_PTR(-ENODEV);
 	buffer = dmabuf->priv;
 
-	if (!ion_iommu_heap_type(buffer)) {
+	if (!ion_iommu_heap_type(buffer) &&
+	    buffer->heap->type != (int)ION_HEAP_TYPE_SYSTEM) {
 		pr_debug("%s not iommu device\n", __func__);
 		ion_buffer_sync_for_device(buffer,
 					   attachment->dev,
 					   direction);
 		table = buffer->sg_table;
 	} else if (buffer->heap->type ==
-		(int)ION_HEAP_TYPE_MULTIMEDIA_SEC) {
-		pr_debug("%s secure heap type\n", __func__);
+		(int)ION_HEAP_TYPE_MULTIMEDIA_SEC ||
+		buffer->heap->type == (int)ION_HEAP_TYPE_SYSTEM) {
+		pr_debug("%s heap type:%d\n", __func__,
+			 buffer->heap->type);
 		table = a->table;
 		if (clone_sg_table(buffer->sg_table, table))
 			return ERR_PTR(-EINVAL);
@@ -1404,7 +1409,8 @@ static int ion_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 		vaddr = ion_buffer_kmap_get(buffer);
 		mutex_unlock(&buffer->lock);
 	}
-	if (ion_iommu_heap_type(buffer)) {
+	if (ion_iommu_heap_type(buffer) ||
+	    buffer->heap->type == (int)ION_HEAP_TYPE_SYSTEM) {
 		IONMSG("%s iommu device, to cache sync\n", __func__);
 
 		mutex_lock(&buffer->lock);
@@ -1432,7 +1438,8 @@ static int ion_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 		mutex_unlock(&buffer->lock);
 	}
 
-	if (ion_iommu_heap_type(buffer)) {
+	if (ion_iommu_heap_type(buffer) ||
+	    buffer->heap->type == (int)ION_HEAP_TYPE_SYSTEM) {
 		IONMSG("%s iommu device, to cache sync\n", __func__);
 
 		mutex_lock(&buffer->lock);
