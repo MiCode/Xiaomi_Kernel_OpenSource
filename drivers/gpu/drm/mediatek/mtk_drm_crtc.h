@@ -531,9 +531,9 @@ struct mtk_drm_crtc {
 	struct drm_display_mode *avail_modes;
 	struct timeval vblank_time;
 
-	atomic_t pending_vblank_op;
 	bool mipi_hopping_sta;
 	bool panel_osc_hopping_sta;
+	bool vblank_en;
 };
 
 struct mtk_crtc_state {

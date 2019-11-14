@@ -319,6 +319,7 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+#if 0
 static void mtk_rdma_enable_vblank(struct mtk_ddp_comp *comp,
 				   struct drm_crtc *crtc,
 				   struct cmdq_pkt *handle)
@@ -341,6 +342,7 @@ static void mtk_rdma_disable_vblank(struct mtk_ddp_comp *comp,
 		       comp->regs_pa + DISP_REG_RDMA_INT_ENABLE,
 		       RDMA_FRAME_END_INT, 0);
 }
+#endif
 
 static int mtk_rdma_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			   enum mtk_ddp_io_cmd io_cmd, void *params);
@@ -351,10 +353,15 @@ static void mtk_rdma_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	struct mtk_disp_rdma *rdma = comp_to_rdma(comp);
 	const struct mtk_disp_rdma_data *data = rdma->data;
 	bool *rdma_memory_mode = comp->comp_mode, en = 1;
+	unsigned int inten;
 
 	ret = pm_runtime_get_sync(comp->dev);
 	if (ret < 0)
 		DRM_ERROR("Failed to enable power domain: %d\n", ret);
+
+	inten = RDMA_FRAME_START_INT | RDMA_FRAME_END_INT |
+		RDMA_EOF_ABNORMAL_INT | RDMA_FIFO_UNDERFLOW_INT;
+	mtk_ddp_write(comp, inten, DISP_REG_RDMA_INT_ENABLE, handle);
 
 	mtk_ddp_write_mask(comp, MATRIX_INT_MTX_SEL_DEFAULT,
 			   DISP_REG_RDMA_SIZE_CON_0, 0xff0000, handle);
@@ -398,10 +405,10 @@ static void mtk_rdma_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	struct mtk_disp_rdma *rdma = comp_to_rdma(comp);
 	const struct mtk_disp_rdma_data *data = rdma->data;
 
+	mtk_ddp_write(comp, 0x0, DISP_REG_RDMA_INT_ENABLE, handle);
 	mtk_ddp_write(comp, RDMA_SOFT_RESET, DISP_REG_RDMA_GLOBAL_CON, handle);
 	mtk_ddp_write(comp, 0x0, DISP_REG_RDMA_GLOBAL_CON, handle);
-	cmdq_pkt_write(handle, comp->cmdq_base,
-		comp->regs_pa + DISP_REG_RDMA_INT_ENABLE, 0, ~0);
+	mtk_ddp_write(comp, 0x0, DISP_REG_RDMA_INT_STATUS, handle);
 
 	if (data && data->sodi_config)
 		data->sodi_config(comp->mtk_crtc->base.dev, comp->id, handle,
@@ -1172,8 +1179,10 @@ static const struct mtk_ddp_comp_funcs mtk_disp_rdma_funcs = {
 	.config = mtk_rdma_config,
 	.start = mtk_rdma_start,
 	.stop = mtk_rdma_stop,
+#if 0
 	.enable_vblank = mtk_rdma_enable_vblank,
 	.disable_vblank = mtk_rdma_disable_vblank,
+#endif
 	.io_cmd = mtk_rdma_io_cmd,
 	.prepare = mtk_rdma_prepare,
 	.unprepare = mtk_rdma_unprepare,

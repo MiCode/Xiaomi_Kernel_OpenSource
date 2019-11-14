@@ -266,9 +266,9 @@ static void mtk_wdma_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	const struct mtk_disp_wdma_data *data = wdma->data;
 	bool en = 0;
 
+	mtk_ddp_write(comp, 0x0, DISP_REG_WDMA_INTEN, handle);
 	mtk_ddp_write(comp, 0x0, DISP_REG_WDMA_EN, handle);
 	mtk_ddp_write(comp, 0x0, DISP_REG_WDMA_INTSTA, handle);
-	mtk_ddp_write(comp, 0x0, DISP_REG_WDMA_INTEN, handle);
 
 	if (data && data->sodi_config)
 		data->sodi_config(comp->mtk_crtc->base.dev,

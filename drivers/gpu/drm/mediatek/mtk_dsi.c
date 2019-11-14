@@ -1029,13 +1029,15 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 
 		if (status & TE_RDY_INT_FLAG) {
 			mtk_crtc = dsi->ddp_comp.mtk_crtc;
-			if (mtk_dsi_is_cmd_mode(&dsi->ddp_comp) && mtk_crtc)
+			if (mtk_dsi_is_cmd_mode(&dsi->ddp_comp) &&
+				mtk_crtc && mtk_crtc->vblank_en)
 				mtk_crtc_vblank_irq(&mtk_crtc->base);
 		}
 
 		if (status & FRAME_DONE_INT_FLAG) {
 			mtk_crtc = dsi->ddp_comp.mtk_crtc;
-			if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp) && mtk_crtc)
+			if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp) &&
+				mtk_crtc && mtk_crtc->vblank_en)
 				mtk_crtc_vblank_irq(&mtk_crtc->base);
 		}
 	}

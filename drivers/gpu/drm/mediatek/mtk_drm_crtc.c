@@ -403,7 +403,6 @@ static int mtk_crtc_enable_vblank_thread(void *data)
 	int ret = 0;
 	struct drm_crtc *crtc = (struct drm_crtc *)data;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct mtk_ddp_comp *comp = mtk_crtc_get_comp(&mtk_crtc->base, 0, 0);
 
 	while (1) {
 		ret = wait_event_interruptible(
@@ -411,9 +410,8 @@ static int mtk_crtc_enable_vblank_thread(void *data)
 			atomic_read(&mtk_crtc->vblank_enable_task_active));
 
 		DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
-
-		mtk_drm_idlemgr_kick(__func__, &mtk_crtc->base, 0);
-		mtk_ddp_comp_enable_vblank(comp, &mtk_crtc->base, NULL);
+		if (mtk_crtc->enabled)
+			mtk_drm_idlemgr_kick(__func__, &mtk_crtc->base, 0);
 		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 		atomic_set(&mtk_crtc->vblank_enable_task_active, 0);
 
@@ -432,26 +430,27 @@ int mtk_drm_crtc_enable_vblank(struct drm_device *drm, unsigned int pipe)
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(priv->crtc[pipe]);
 	struct mtk_ddp_comp *comp = mtk_crtc_get_comp(&mtk_crtc->base, 0, 0);
 
-	CRTC_MMP_EVENT_START(pipe, enable_vblank, (unsigned long)comp,
-			(unsigned long)&mtk_crtc->base);
+	mtk_crtc->vblank_en = 1;
+
 	if (!mtk_crtc->enabled) {
-		atomic_set(&mtk_crtc->pending_vblank_op, 1);
-		goto done;
+		CRTC_MMP_MARK(pipe, enable_vblank, 0xFFFFFFFF,
+			0xFFFFFFFF);
+		return 0;
 	}
+
+	/* We only consider CRTC0 vsync so far, need to modify to DPI, DPTX */
 	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_IDLE_MGR) &&
 	    drm_crtc_index(&mtk_crtc->base) == 0) {
 		/* The enable vblank is called in spinlock, so we create another
-		 * thread to
-		 *  kick idle mode and enable vblank
+		 * thread to kick idle mode for cmd mode vsync
 		 */
 		atomic_set(&mtk_crtc->vblank_enable_task_active, 1);
 		wake_up_interruptible(&mtk_crtc->vblank_enable_wq);
-	} else {
-		mtk_ddp_comp_enable_vblank(comp, &mtk_crtc->base, NULL);
 	}
-done:
-	CRTC_MMP_EVENT_END(pipe, enable_vblank, (unsigned long)comp,
+
+	CRTC_MMP_MARK(pipe, enable_vblank, (unsigned long)comp,
 			(unsigned long)&mtk_crtc->base);
+
 	return 0;
 }
 
@@ -543,16 +542,10 @@ void mtk_drm_crtc_disable_vblank(struct drm_device *drm, unsigned int pipe)
 	struct mtk_ddp_comp *comp = mtk_crtc_get_comp(&mtk_crtc->base, 0, 0);
 
 	DDPINFO("%s\n", __func__);
-	CRTC_MMP_EVENT_START(pipe, disable_vblank, (unsigned long)comp,
-			(unsigned long)&mtk_crtc->base);
-	if (!mtk_crtc->enabled)
-		goto done;
 
-	if (!mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_IDLE_MGR) &&
-	    drm_crtc_index(&mtk_crtc->base) == 0)
-		mtk_ddp_comp_disable_vblank(comp, NULL);
-done:
-	CRTC_MMP_EVENT_END(pipe, disable_vblank, (unsigned long)comp,
+	mtk_crtc->vblank_en = 0;
+
+	CRTC_MMP_MARK(pipe, disable_vblank, (unsigned long)comp,
 			(unsigned long)&mtk_crtc->base);
 }
 
@@ -2459,12 +2452,6 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 	/* 9. set vblank*/
 	drm_crtc_vblank_on(crtc);
 
-	if (atomic_read(&mtk_crtc->pending_vblank_op) == 1) {
-		mtk_ddp_comp_enable_vblank(
-			mtk_crtc_get_comp(crtc, 0, 0),
-			crtc, NULL);
-		atomic_set(&mtk_crtc->pending_vblank_op, 0);
-	}
 #ifdef MTK_DRM_ESD_SUPPORT
 	/* 10. enable ESD check */
 	if (mtk_drm_lcm_is_connect())
@@ -3946,7 +3933,7 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 	dma_set_coherent_mask(dev, DMA_BIT_MASK(32));
 	mtk_crtc_init_gce_obj(drm_dev, mtk_crtc);
 
-	atomic_set(&mtk_crtc->pending_vblank_op, 0);
+	mtk_crtc->vblank_en = 1;
 	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_IDLE_MGR) &&
 	    drm_crtc_index(&mtk_crtc->base) == 0) {
 		char name[50];

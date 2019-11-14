@@ -113,7 +113,7 @@ static void mtk_dsc_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 		mtk_ddp_write_mask(comp, DSC_EN, DISP_REG_DSC_CON,
 				DSC_EN, handle);
 
-	DDPMSG("%s, dsc_start:0x%x\n",
+	DDPINFO("%s, dsc_start:0x%x\n",
 		mtk_dump_comp_str(comp), readl(baddr + DISP_REG_DSC_CON));
 }
 
@@ -122,7 +122,7 @@ static void mtk_dsc_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	void __iomem *baddr = comp->regs;
 
 	mtk_ddp_write_mask(comp, 0x0, DISP_REG_DSC_CON, DSC_EN, handle);
-	DDPMSG("%s, dsc_stop:0x%x\n",
+	DDPINFO("%s, dsc_stop:0x%x\n",
 		mtk_dump_comp_str(comp), readl(baddr + DISP_REG_DSC_CON));
 }
 
@@ -154,7 +154,7 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 
 	dsc_params = &comp->mtk_crtc->panel_ext->params->dsc_params;
 	if (dsc_params->enable == 1) {
-		DDPMSG("%s, w:0x%x, h:0x%x, 0x%x, 0x%x, 0x%x, 0x%x\n",
+		DDPINFO("%s, w:0x%x, h:0x%x, 0x%x, 0x%x, 0x%x, 0x%x\n",
 			mtk_dump_comp_str(comp), cfg->w, cfg->h,
 			dsc_params->slice_mode,	dsc_params->slice_width,
 			dsc_params->slice_height, dsc_params->bit_per_pixel);
@@ -227,7 +227,7 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 		mtk_ddp_write_mask(comp, reg_val,
 					DISP_REG_DSC_MODE, 0xFFFF, handle);
 
-		DDPMSG("%s, init delay:0x%x\n",
+		DDPINFO("%s, init delay:0x%x\n",
 			mtk_dump_comp_str(comp), reg_val);
 
 		mtk_ddp_write_relaxed(comp,

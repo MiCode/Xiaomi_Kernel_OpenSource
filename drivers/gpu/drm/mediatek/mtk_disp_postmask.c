@@ -373,8 +373,13 @@ static void mtk_postmask_stop(struct mtk_ddp_comp *comp,
 {
 	DDPDBG("%s\n", __func__);
 
+
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		       comp->regs_pa + DISP_POSTMASK_INTEN, 0, ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		       comp->regs_pa + DISP_POSTMASK_EN, 0, ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		       comp->regs_pa + DISP_POSTMASK_INTSTA, 0, ~0);
 }
 
 static int mtk_disp_postmask_bind(struct device *dev, struct device *master,

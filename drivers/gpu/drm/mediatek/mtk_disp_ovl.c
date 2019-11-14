@@ -500,6 +500,7 @@ static irqreturn_t mtk_disp_ovl_irq_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+#if 0
 static void mtk_ovl_enable_vblank(struct mtk_ddp_comp *comp,
 				  struct drm_crtc *crtc,
 				  struct cmdq_pkt *handle)
@@ -517,6 +518,7 @@ static void mtk_ovl_disable_vblank(struct mtk_ddp_comp *comp,
 {
 	writel_relaxed(0x0, comp->regs + DISP_REG_OVL_INTEN);
 }
+#endif
 
 static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			  enum mtk_ddp_io_cmd io_cmd, void *params);
@@ -539,6 +541,10 @@ static void mtk_ovl_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DISP_REG_OVL_EN,
 		       0x1, 0x1);
+
+	cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_REG_OVL_INTEN,
+		       0x61F2, ~0);
 
 	/* In 6779 we need to set DISP_OVL_FORCE_RELAY_MODE */
 	if (compr_info && strncmp(compr_info->name, "PVRIC_V3_1", 10) == 0) {
@@ -579,8 +585,12 @@ static void mtk_ovl_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	if (ret < 0)
 		DRM_ERROR("Failed to disable power domain: %d\n", ret);
 
+	cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_REG_OVL_INTEN, 0, ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DISP_REG_OVL_EN,
 		       0x0, 0x1);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_REG_OVL_INTSTA, 0, ~0);
 
 	comp->qos_bw = 0;
 	DDPDBG("%s-\n", __func__);
@@ -2768,8 +2778,10 @@ static const struct mtk_ddp_comp_funcs mtk_disp_ovl_funcs = {
 	.config = mtk_ovl_config,
 	.start = mtk_ovl_start,
 	.stop = mtk_ovl_stop,
+#if 0
 	.enable_vblank = mtk_ovl_enable_vblank,
 	.disable_vblank = mtk_ovl_disable_vblank,
+#endif
 	.layer_on = mtk_ovl_layer_on,
 	.layer_off = mtk_ovl_layer_off,
 	.layer_config = mtk_ovl_layer_config,
