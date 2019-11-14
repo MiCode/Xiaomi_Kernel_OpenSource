@@ -2165,7 +2165,7 @@ int __init ccci_util_fo_init(void)
 
 	CCCI_UTIL_INF_MSG("Dump default setting(@P/K)\n");
 	ccci_dump_opt_tbl();
-	CCCI_UTIL_INF_MSG("ubin: num(%d),start(%d), end(%d)\n",
+	CCCI_UTIL_INF_MSG("ubin: num(%lu),start(%d), end(%lu)\n",
 			LEGACY_UBIN_NUM, LEGACY_UBIN_START_ID,
 			LEGACY_UBIN_END_ID);
 	if (collect_lk_boot_arguments() == 0) {
