@@ -4499,10 +4499,12 @@ void pll_if_on(void)
 	}
 	if (ret > 0) {
 #ifdef CONFIG_MTK_ENG_BUILD
+		print_enabled_clks_once();
 		BUG_ON(1);
 #else
 		aee_kernel_warning("CCF MT6885",
 			"@%s():%d, PLLs are not off\n", __func__, __LINE__);
+		print_enabled_clks_once();
 		WARN_ON(1);
 #endif
 	}
