@@ -6613,20 +6613,16 @@ page_owner=on";
 			<&iommu0 M4U_PORT_L20_IPE_RSC_WDMA_DISP>;
 	};
 
-	pseudo_m4u-ccu-disp {
+	pseudo_m4u-ccu-node {
 		compatible = "mediatek,mt-pseudo_m4u-port";
-		mediatek,larbid = <CCU_PSEUDO_LARBID_DISP>;
-		iommus = <&iommu0 M4U_PORT_L14_CAM_CCUI_DISP>,
-			<&iommu0 M4U_PORT_L14_CAM_CCUO_DISP>,
-			<&iommu0 M4U_PORT_L22_CCU_DISP>;
+		mediatek,larbid = <CCU_PSEUDO_LARBID_NODE>;
+		iommus = <&iommu1 M4U_PORT_L23_CCU_MDP>;
 	};
 
-	pseudo_m4u-ccu-mdp {
+	pseudo_m4u-ccu-larb {
 		compatible = "mediatek,mt-pseudo_m4u-port";
-		mediatek,larbid = <CCU_PSEUDO_LARBID_MDP>;
-		iommus = <&iommu1 M4U_PORT_L13_CAM_CCUI_MDP>,
-			<&iommu1 M4U_PORT_L13_CAM_CCUO_MDP>,
-			<&iommu1 M4U_PORT_L23_CCU_MDP>;
+		mediatek,larbid = <CCU_PSEUDO_LARBID_LARB>;
+		iommus = <&iommu1 M4U_PORT_L22_CCU_DISP>;
 	};
 
 	pseudo_m4u-vpu-code {
