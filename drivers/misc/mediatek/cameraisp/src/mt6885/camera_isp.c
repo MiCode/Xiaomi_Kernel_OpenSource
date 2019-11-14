@@ -5725,6 +5725,8 @@ static inline void ISP_StopHW(int module)
 	ktime_t time;
 	unsigned long long sec = 0, m_sec = 0;
 	unsigned long long timeoutMs = 500000000; /*500ms */
+	//3ms * (CAM_A~C + CAMSV0~7) = 33ms(if all timeout)
+	unsigned long long timeoutMsRst = 3000000; /*3ms */
 	char moduleName[128];
 
 	/* wait TG idle */
@@ -5817,8 +5819,11 @@ RESET:
 		time = ktime_get();
 		sec = time;
 		/* wait time>timeoutMs, break */
-		if ((sec - m_sec) > timeoutMs) {
+		if ((sec - m_sec) > timeoutMsRst) {
 			LOG_INF("%s: wait SW idle timeout\n", moduleName);
+			//dump smi for debugging
+			if (smi_debug_bus_hang_detect(false, "camera_isp") != 0)
+				LOG_NOTICE("ERR:smi_debug_bus_hang_detect");
 			break;
 		}
 		//add "regTGSt == 0" for workaround
@@ -5848,6 +5853,7 @@ static inline void ISP_StopSVHW(int module)
 	ktime_t time;
 	unsigned long long sec = 0, m_sec = 0;
 	unsigned long long timeoutMs = 500000000; /*500ms */
+	unsigned long long timeoutMsRst = 3000000; /*3ms */
 	char moduleName[128];
 
 	/* wait TG idle */
@@ -5969,7 +5975,7 @@ static inline void ISP_StopSVHW(int module)
 		time = ktime_get();
 		sec = time;
 		/* wait time>timeoutMs, break */
-		if ((sec - m_sec) > timeoutMs) {
+		if ((sec - m_sec) > timeoutMsRst) {
 			LOG_INF("%s: wait SW idle timeout\n", moduleName);
 			break;
 		}
