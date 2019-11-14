@@ -600,6 +600,7 @@ int md_cd_soft_power_on(struct ccci_modem *md, unsigned int mode)
 
 int md_start_platform(struct ccci_modem *md)
 {
+	struct arm_smccc_res res;
 	int timeout = 100; /* 100 * 20ms = 2s */
 	int ret = -1;
 	int retval = 0;
@@ -608,28 +609,36 @@ int md_start_platform(struct ccci_modem *md)
 		return 0;
 
 	while (timeout > 0) {
-		ret = mt_secure_call(MD_POWER_CONFIG, MD_READ_STATUS,
-					0, 0, 0, 0, 0);
+		ret = mt_secure_call(MD_POWER_CONFIG, MD_CHECK_DONE,
+			0, 0, 0, 0, 0);
 		if (!ret) {
-			CCCI_BOOTUP_LOG(md->index, TAG, "BROM Pass\n");
+			CCCI_BOOTUP_LOG(md->index, TAG, "BROM PASS\n");
 			break;
 		}
 		timeout--;
 		msleep(20);
 	}
+	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_POWER_CONFIG,
+		MD_CHECK_FLAG, 0, 0, 0, 0, 0, &res);
+	CCCI_BOOTUP_LOG(md->index, TAG,
+		"flag_1=%lu, flag_2=%lu, flag_3=%lu, flag_4=%lu\n",
+		res.a0, res.a1, res.a2, res.a3);
 	CCCI_BOOTUP_LOG(md->index, TAG, "dummy md sys clk\n");
 	retval = clk_prepare_enable(clk_table[0].clk_ref); /* match lk on */
 	if (retval)
 		CCCI_ERROR_LOG(md->index, TAG,
 			"dummy md sys clk fail: ret = %d\n", retval);
 	CCCI_BOOTUP_LOG(md->index, TAG, "dummy md sys clk done\n");
-	md_cd_dump_md_bootup_status(md);
+
+	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_POWER_CONFIG,
+		MD_BOOT_STATUS, 0, 0, 0, 0, 0, &res);
+	CCCI_BOOTUP_LOG(md->index, TAG,
+		"AP: boot_ret=%lu, boot_status_0=%lu, boot_status_1=%lu\n",
+		res.a0, res.a1, res.a2);
 
 	if (ret != 0) {
 		/* BROM */
 		CCCI_ERROR_LOG(md->index, TAG, "BROM Failed\n");
-		mt_secure_call(MD_POWER_CONFIG, MD_READ_STATUS,
-				0, 0, 0, 0, 0);
 	}
 	md_cd_power_off(md, 0);
 	return ret;
@@ -706,17 +715,18 @@ int md_cd_bootup_cleanup(struct ccci_modem *md, int success)
 
 int md_cd_let_md_go(struct ccci_modem *md)
 {
-	int kernel_secure_ret;
+	struct arm_smccc_res res;
 
 	if (MD_IN_DEBUG(md))
 		return -1;
 	CCCI_BOOTUP_LOG(md->index, TAG, "set MD boot slave\n");
 
 	/* make boot vector take effect */
-	kernel_secure_ret = mt_secure_call(MD_POWER_CONFIG, MD_KERNEL_BOOT_UP,
-						0, 0, 0, 0, 0);
-	CCCI_BOOTUP_LOG(md->index, TAG, "kernel_secure_ret=%d\n",
-				kernel_secure_ret);
+	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_POWER_CONFIG,
+		MD_KERNEL_BOOT_UP, 0, 0, 0, 0, 0, &res);
+	CCCI_BOOTUP_LOG(md->index, TAG,
+		"MD: boot_ret=%lu, boot_status_0=%lu, boot_status_1=%lu\n",
+		res.a0, res.a1, res.a2);
 
 	return 0;
 }

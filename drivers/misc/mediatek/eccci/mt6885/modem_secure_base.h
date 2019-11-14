@@ -37,7 +37,9 @@ enum MD_CLOCK_REG_ID {
 enum MD_POWER_CONFIG_ID {
 	MD_KERNEL_BOOT_UP,
 	MD_LK_BOOT_UP,
-	MD_READ_STATUS,
+	MD_CHECK_FLAG,
+	MD_CHECK_DONE,
+	MD_BOOT_STATUS,
 };
 
 #define mdreg_write32(reg_id, value)		\
