@@ -7,9 +7,11 @@
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/of.h>
+#include <linux/of_irq.h>
 #include <linux/of_address.h>
 #include <linux/io.h>
 #include <linux/rtc.h>
+#include <linux/wakeup_reason.h>
 
 #include <aee.h>
 #include <mtk_lpm.h>
@@ -60,9 +62,83 @@ const char *mt6885_wakesrc_str[32] = {
 	[31] = " R12_NOT_USED2",
 };
 
+struct spm_wakesrc_irq_list mt6885_spm_wakesrc_irqs[] = {
+	/* mtk-kpd */
+	{ WAKE_SRC_STA1_KP_IRQ_B, "mediatek,kp", 0, 0},
+	/* mt_wdt */
+	{ WAKE_SRC_STA1_APWDT_EVENT_B, "mediatek,toprgu", 0, 0},
+	/* BTCVSD_ISR_Handle */
+	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,mtk-btcvsd-snd", 0, 0},
+	/* BTIF_WAKEUP_IRQ */
+	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,bt", 0, 0},
+	/* BGF_SW_IRQ */
+	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,bt", 1, 0},
+	/* wlan0 */
+	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,wifi", 0, 0},
+	/* wlan0 */
+	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,wifi", 1, 0},
+	/* mt6358-irq */
+	{ WAKE_SRC_STA1_EINT_EVENT_B, "mediatek,apirq", 0, 0},
+	/* CCIF_AP_DATA */
+	{ WAKE_SRC_STA1_CCIF0_EVENT_B, "mediatek,ap_ccif0", 0, 0},
+	/* SCP IPC0 */
+	{ WAKE_SRC_STA1_SC_SCP2SPM_WAKEUP_B, "mediatek,scp", 0, 0},
+	/* SCP IPC1 */
+	{ WAKE_SRC_STA1_SC_SCP2SPM_WAKEUP_B, "mediatek,scp", 1, 0},
+	/* MBOX_ISR0 */
+	{ WAKE_SRC_STA1_SC_SCP2SPM_WAKEUP_B, "mediatek,scp", 2, 0},
+	/* MBOX_ISR1 */
+	{ WAKE_SRC_STA1_SC_SCP2SPM_WAKEUP_B, "mediatek,scp", 3, 0},
+	/* MBOX_ISR2 */
+	{ WAKE_SRC_STA1_SC_SCP2SPM_WAKEUP_B, "mediatek,scp", 4, 0},
+	/* MBOX_ISR3 */
+	{ WAKE_SRC_STA1_SC_SCP2SPM_WAKEUP_B, "mediatek,scp", 5, 0},
+	/* MBOX_ISR4 */
+	{ WAKE_SRC_STA1_SC_SCP2SPM_WAKEUP_B, "mediatek,scp", 6, 0},
+	/* ADSP_A_AUD */
+	{ WAKE_SRC_STA1_SC_ADSP2SPM_WAKEUP_B, "mediatek,adsp_core_0", 2, 0},
+	/* ADSP_B_AUD */
+	{ WAKE_SRC_STA1_SC_ADSP2SPM_WAKEUP_B, "mediatek,adsp_core_1", 2, 0},
+	/* CCIF0_AP */
+	{ WAKE_SRC_STA1_MD1_WDT_B, "mediatek,mddriver", 2, 0},
+	/* DPMAIF_AP */
+	{ WAKE_SRC_STA1_AP2AP_PEER_WAKEUPEVENT_B, "mediatek,dpmaif", 0, 0},
+};
+
 #define WORLD_CLK_CNTCV_L        (0x10017008)
 #define WORLD_CLK_CNTCV_H        (0x1001700C)
 #define plat_mmio_read(offset)	__raw_readl(mt6885_spm_base + offset)
+
+#define IRQ_NUMBER	\
+(sizeof(mt6885_spm_wakesrc_irqs)/sizeof(struct spm_wakesrc_irq_list))
+static void mt6885_get_spm_wakesrc_irq(void)
+{
+	int i;
+	struct device_node *node;
+
+	for (i = 0; i < IRQ_NUMBER; i++) {
+		if (mt6885_spm_wakesrc_irqs[i].name == NULL)
+			continue;
+
+		node = of_find_compatible_node(NULL, NULL,
+			mt6885_spm_wakesrc_irqs[i].name);
+		if (!node) {
+			pr_info("[name:spm&][SPM] find '%s' node failed\n",
+				mt6885_spm_wakesrc_irqs[i].name);
+			continue;
+		}
+
+		mt6885_spm_wakesrc_irqs[i].irq_no =
+			irq_of_parse_and_map(node,
+				mt6885_spm_wakesrc_irqs[i].order);
+
+		if (!mt6885_spm_wakesrc_irqs[i].irq_no) {
+			pr_info("[name:spm&][SPM] get '%s' failed\n",
+				mt6885_spm_wakesrc_irqs[i].name);
+		}
+	}
+}
+
 int mt6885_get_wakeup_status(struct mt6885_spm_wake_status *wakesta)
 {
 	if (!wakesta || !mt6885_spm_base)
@@ -122,6 +198,10 @@ int mt6885_get_wakeup_status(struct mt6885_spm_wake_status *wakesta)
 
 void mt6885_show_detailed_wakeup_reason(struct mt6885_spm_wake_status *wakesta)
 {
+	int i;
+	unsigned int irq_no;
+
+
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
 #ifdef CONFIG_MTK_CCCI_DEVICES
 	exec_ccci_kern_func_by_md_id(0, ID_DUMP_MD_SLEEP_MODE,
@@ -143,6 +223,17 @@ void mt6885_show_detailed_wakeup_reason(struct mt6885_spm_wake_status *wakesta)
 		NULL, 0);
 #endif
 #endif
+	/* Check if pending irq happen and log them */
+	for (i = 0; i < IRQ_NUMBER; i++) {
+		if (mt6885_spm_wakesrc_irqs[i].name == NULL ||
+			!mt6885_spm_wakesrc_irqs[i].irq_no)
+			continue;
+		if (mt6885_spm_wakesrc_irqs[i].wakesrc == wakesta->r12) {
+			irq_no = mt6885_spm_wakesrc_irqs[i].irq_no;
+			if (mt_irq_get_pending(irq_no))
+				log_wakeup_reason(irq_no);
+		}
+	}
 }
 
 int mt6885_show_log_message(int type, const char *prefix, void *data)
@@ -372,6 +463,9 @@ int __init mt6885_logger_init(void)
 	else
 		pr_info("[name:mtk_lpm][P] - Don't register the issue by error! (%s:%d)\n",
 			__func__, __LINE__);
+
+	mt6885_get_spm_wakesrc_irq();
+
 	return 0;
 }
 late_initcall_sync(mt6885_logger_init);

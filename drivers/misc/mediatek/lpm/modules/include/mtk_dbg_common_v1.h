@@ -66,5 +66,6 @@ struct dbg_ctrl {
 
 extern void mtk_suspend_gpio_dbg(void);
 extern void mtk_suspend_clk_dbg(void);
+extern u32 mt_irq_get_pending(unsigned int irq);
 
 #endif /* __MTK_DBG_COMMON_H__ */

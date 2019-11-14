@@ -139,13 +139,13 @@ PLAT_LEAVE_SUSPEND:
 void mt6885_suspend_reflect(int cpu,
 					const struct mtk_lpm_issuer *issuer)
 {
-	printk_deferred("[name:spm&][%s:%d] - prepare suspend resume\n",
+	printk_deferred("[name:spm&][%s:%d] - prepare resume\n",
 			__func__, __LINE__);
 
 	mt6885_suspend_common_resume(mt6885_suspend_status);
 	mt6885_do_mcusys_prepare_on();
 
-	printk_deferred("[name:spm&][%s:%d] - suspend resume\n",
+	printk_deferred("[name:spm&][%s:%d] - resume\n",
 			__func__, __LINE__);
 
 	if (issuer)
