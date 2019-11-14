@@ -836,8 +836,11 @@ static int dpmaif_set_rx_frag_to_skb(struct dpmaif_rx_queue *rxq,
 	struct dpmaif_bat_page_t *cur_page_info = ((struct dpmaif_bat_page_t *)
 		rxq->bat_frag.bat_skb_ptr + pkt_inf_t->buffer_id);
 	struct page *page = cur_page_info->page;
+#ifndef REFINE_BAT_OFFSET_REMOVE
 	unsigned long long data_phy_addr, data_base_addr;
-	int data_offset;
+#endif
+	int data_offset = 0;
+
 	unsigned int data_len;
 	int ret = 0;
 
@@ -851,12 +854,15 @@ static int dpmaif_set_rx_frag_to_skb(struct dpmaif_rx_queue *rxq,
 			pkt_inf_t->buffer_id, skb_idx);
 		return DATA_CHECK_FAIL;
 	}
+
+	#ifndef REFINE_BAT_OFFSET_REMOVE
 	/* 2. calculate data address && data len. */
 	data_phy_addr = pkt_inf_t->data_addr_ext;
 	data_phy_addr = (data_phy_addr<<32) + pkt_inf_t->p_data_addr;
 	data_base_addr = (unsigned long long)cur_page_info->data_phy_addr;
 
 	data_offset = (int)(data_phy_addr - data_base_addr);
+	#endif
 
 	data_len = pkt_inf_t->data_len;
 	/* 3. record to skb for user: fragment data to nr_frags */
@@ -1166,8 +1172,10 @@ static int dpmaif_rx_set_data_to_skb(struct dpmaif_rx_queue *rxq,
 	struct sk_buff *new_skb = NULL;
 	struct dpmaif_bat_skb_t *cur_skb_info = ((struct dpmaif_bat_skb_t *)
 		rxq->bat_req.bat_skb_ptr + pkt_inf_t->buffer_id);
+	#ifndef REFINE_BAT_OFFSET_REMOVE
 	unsigned long long data_phy_addr, data_base_addr;
-	int data_offset;
+	int data_offset = 0;
+	#endif
 	unsigned int data_len;
 	unsigned int *temp_u32;
 
@@ -1175,12 +1183,15 @@ static int dpmaif_rx_set_data_to_skb(struct dpmaif_rx_queue *rxq,
 	dma_unmap_single(ccci_md_get_dev_by_id(dpmaif_ctrl->md_id),
 		cur_skb_info->data_phy_addr, cur_skb_info->data_len,
 		DMA_FROM_DEVICE);
+
+	#ifndef REFINE_BAT_OFFSET_REMOVE
 	/* 2. calculate data address && data len. */
 	/* cur pkt physical address(in a buffer bid pointed) */
 	data_phy_addr = pkt_inf_t->data_addr_ext;
 	data_phy_addr = (data_phy_addr<<32) + pkt_inf_t->p_data_addr;
 	data_base_addr = (unsigned long long)cur_skb_info->data_phy_addr;
 	data_offset = (int)(data_phy_addr - data_base_addr);
+	#endif
 	data_len = pkt_inf_t->data_len; /* cur pkt data len */
 
 	/* 3. record to skb for user: wapper, enqueue */
@@ -1188,17 +1199,29 @@ static int dpmaif_rx_set_data_to_skb(struct dpmaif_rx_queue *rxq,
 	new_skb = cur_skb_info->skb;
 	new_skb->len = 0;
 	skb_reset_tail_pointer(new_skb);
+
+	#ifndef REFINE_BAT_OFFSET_REMOVE
 	/*set data len, data pointer*/
 	skb_reserve(new_skb, data_offset);
+	#endif
 	/* for debug: */
 	if (unlikely((new_skb->tail + data_len) > new_skb->end)) {
 		/*dump*/
+		#ifndef REFINE_BAT_OFFSET_REMOVE
 		CCCI_NORMAL_LOG(dpmaif_ctrl->md_id, TAG,
 			"pkt(%d/%d): len = 0x%x, offset=0x%llx-0x%llx, skb(%p, %p, 0x%x, 0x%x)\n",
 			rxq->pit_rd_idx, pkt_inf_t->buffer_id, data_len,
 			data_phy_addr, data_base_addr, new_skb->head,
 			new_skb->data, (unsigned int)new_skb->tail,
 			(unsigned int)new_skb->end);
+		#else
+		CCCI_NORMAL_LOG(dpmaif_ctrl->md_id, TAG,
+			"pkt(%d/%d): len = 0x%x, skb(%p, %p, 0x%x, 0x%x)\n",
+			rxq->pit_rd_idx, pkt_inf_t->buffer_id, data_len,
+			new_skb->head, new_skb->data,
+			(unsigned int)new_skb->tail,
+			(unsigned int)new_skb->end);
+		#endif
 
 		if (rxq->pit_rd_idx > 2) {
 			temp_u32 = (unsigned int *)

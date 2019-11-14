@@ -81,5 +81,6 @@
 #define FEATURE_CLK_BUF
 /*#define DPMAIF_DEBUG_LOG*/
 #define DEBUG_FOR_CCB
+#define REFINE_BAT_OFFSET_REMOVE
 #define PIT_USING_CACHE_MEM
 #endif
