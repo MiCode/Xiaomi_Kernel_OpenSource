@@ -2180,9 +2180,10 @@ static kal_uint32 streaming_control(kal_bool enable)
 	LOG_INF("streaming_enable(0=Sw Standby,1=streaming): %d\n", enable);
 	if (enable)
 		write_cmos_sensor_8(0x0100, 0X01);
-	else
+	else {
 		write_cmos_sensor_8(0x0100, 0x00);
 		check_streamoff();
+	}
 	return ERROR_NONE;
 }
 static void sensor_init(void)
