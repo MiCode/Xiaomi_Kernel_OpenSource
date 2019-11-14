@@ -350,7 +350,7 @@ int mtk_lpm_suspend_registry(const char *name, struct mtk_lpm_model *suspend)
 }
 EXPORT_SYMBOL(mtk_lpm_suspend_registry);
 
-static struct wakeup_source mtk_lpm_lock;
+static struct wakeup_source *mtk_lpm_lock;
 
 static int __init mtk_lpm_init(void)
 {
@@ -392,8 +392,12 @@ static int __init mtk_lpm_init(void)
 	spin_unlock_irqrestore(&mtk_lp_mod_locker, flags);
 
 	if (mtk_lpm_system.suspend.flag & MTK_LP_REQ_NOSUSPEND) {
-		wakeup_source_init(&mtk_lpm_lock, "mtk_lpm_lock");
-		__pm_stay_awake(&mtk_lpm_lock);
+		mtk_lpm_lock = wakeup_source_register("mtk_lpm_lock");
+		if (!mtk_lpm_lock) {
+			pr_info("[name:mtk_lpm][P] - initialize mtk_lpm_lock wakeup source fail\n");
+			return -1;
+		}
+		__pm_stay_awake(mtk_lpm_lock);
 		pr_info("[name:mtk_lpm][P] - device not support kernel suspend\n");
 	}
 
