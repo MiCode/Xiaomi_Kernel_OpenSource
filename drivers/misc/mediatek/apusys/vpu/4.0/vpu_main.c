@@ -38,6 +38,9 @@
 /* remote proc */
 #define VPU_REMOTE_PROC (0)
 
+static int vpu_suspend(struct vpu_device *vd);
+static int vpu_resume(struct vpu_device *vd);
+
 /* handle different user query */
 static int vpu_ucmd_handle(struct vpu_device *vd,
 			   struct apusys_usercmd_hnd *ucmd)
@@ -127,11 +130,11 @@ int vpu_send_cmd(int op, void *hnd, struct apusys_device *adev)
 	case APUSYS_CMD_RESUME:
 		vpu_cmd_debug("%s:vpu%d RESUME\n",
 			      __func__, vd->id);
-		break;
+		return vpu_resume(vd);
 	case APUSYS_CMD_SUSPEND:
 		vpu_cmd_debug("%s:vpu%d SUSPEND\n",
 			      __func__, vd->id);
-		break;
+		return vpu_suspend(vd);
 	case APUSYS_CMD_EXECUTE:
 		cmd = (struct apusys_cmd_hnd *)hnd;
 		req = (struct vpu_request *)cmd->kva;
@@ -634,10 +637,8 @@ static int vpu_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static int vpu_suspend(struct platform_device *pdev, pm_message_t mesg)
+static int vpu_suspend(struct vpu_device *vd)
 {
-	struct vpu_device *vd = platform_get_drvdata(pdev);
-
 	mutex_lock(&vd->lock);
 	mutex_lock(&vd->cmd_lock);
 	vpu_pwr_debug("%s: pw_ref: %d, state: %d\n",
@@ -653,44 +654,10 @@ static int vpu_suspend(struct platform_device *pdev, pm_message_t mesg)
 	return 0;
 }
 
-static int vpu_resume(struct platform_device *pdev)
+static int vpu_resume(struct vpu_device *vd)
 {
 	return 0;
 }
-
-/* device power management */
-#ifdef CONFIG_PM
-int vpu_pm_suspend(struct device *device)
-{
-	struct platform_device *pdev = to_platform_device(device);
-
-	WARN_ON(pdev == NULL);
-	return vpu_suspend(pdev, PMSG_SUSPEND);  // TODO: inplement vpu_suspend
-}
-
-int vpu_pm_resume(struct device *device)
-{
-	struct platform_device *pdev = to_platform_device(device);
-
-	WARN_ON(pdev == NULL);
-	return vpu_resume(pdev);  // TODO: implement vpu resume
-}
-
-int vpu_pm_restore_noirq(struct device *device)
-{
-	return 0;
-}
-
-static const struct dev_pm_ops vpu_pm_ops = {
-	.suspend = vpu_pm_suspend,
-	.resume = vpu_pm_resume,
-	.freeze = vpu_pm_suspend,
-	.thaw = vpu_pm_resume,
-	.poweroff = vpu_pm_suspend,
-	.restore = vpu_pm_resume,
-	.restore_noirq = vpu_pm_restore_noirq,
-};
-#endif
 
 static const struct of_device_id vpu_of_ids[] = {
 	{.compatible = "mediatek,vpu_core0",},
@@ -702,15 +669,10 @@ static const struct of_device_id vpu_of_ids[] = {
 static struct platform_driver vpu_plat_drv = {
 	.probe   = vpu_probe,
 	.remove  = vpu_remove,
-	.suspend = vpu_suspend,
-	.resume  = vpu_resume,
 	.driver  = {
 	.name = "vpu",
 	.owner = THIS_MODULE,
 	.of_match_table = vpu_of_ids,
-#ifdef CONFIG_PM
-	.pm = &vpu_pm_ops,
-#endif
 	}
 };
 
