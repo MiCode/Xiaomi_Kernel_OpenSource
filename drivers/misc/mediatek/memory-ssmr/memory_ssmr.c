@@ -61,7 +61,7 @@ static int is_pre_reserve_memory;
 
 static unsigned long ssmr_usage_count;
 static struct cma *cma;
-
+struct reserved_mem *mpu_reserved_1;
 struct page_change_data {
 	pgprot_t set_mask;
 	pgprot_t clear_mask;
@@ -1406,3 +1406,37 @@ static int __init memory_ssmr_debug_init(void)
 	return 0;
 }
 late_initcall(memory_ssmr_debug_init);
+
+#ifndef CONFIG_MACH_MT6873
+#include "memory/mediatek/emi.h"
+
+static int __init debug_mpu_init_1(struct reserved_mem *rmem)
+{
+	mpu_reserved_1 = rmem;
+	pr_info("%s, name: %s, base: 0x%pa, size: 0x%pa\n",
+	 __func__, mpu_reserved_1->name,
+	&mpu_reserved_1->base, &mpu_reserved_1->size);
+
+	return 0;
+}
+
+RESERVEDMEM_OF_DECLARE(debug_mpu_init_1, "mediatek,debug_1", debug_mpu_init_1);
+
+static int __init debug_mpu_setup_1(void)
+{
+	struct emimpu_region_t md_region;
+
+	if (mpu_reserved_1) {
+		mtk_emimpu_init_region(&md_region, 18);
+		mtk_emimpu_set_addr(&md_region, mpu_reserved_1->base,
+			mpu_reserved_1->base + mpu_reserved_1->size - 1);
+		mtk_emimpu_set_protection(&md_region);
+		mtk_emimpu_free_region(&md_region);
+	}
+	return 0;
+
+}
+
+late_initcall(debug_mpu_setup_1);
+
+#endif
