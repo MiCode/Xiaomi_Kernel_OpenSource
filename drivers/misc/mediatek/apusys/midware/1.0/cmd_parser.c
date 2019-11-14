@@ -343,7 +343,7 @@ int apusys_subcmd_create(int idx, struct apusys_cmd *cmd,
 	sc->ctx_id = VALUE_SUBGRAPH_CTX_ID_NONE;
 	sc->state = CMD_STATE_IDLE;
 	sc->period = cmd->hdr->soft_limit;
-	sc->deadline = sched_clock() + sc->period;
+	sc->deadline = jiffies + usecs_to_jiffies(sc->period);
 	sc->runtime = sc->c_hdr->driver_time;
 
 	/* check codebuf info size */

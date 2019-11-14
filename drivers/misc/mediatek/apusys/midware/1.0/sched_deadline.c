@@ -20,16 +20,9 @@
 
 #define MAX_BOOST (100)
 
+static bool first_boot = true;
 struct dentry *apusys_dbg_deadline;
 static u64 exp_decay_interval = 100;/* ms */
-
-static char dev_type_string[APUSYS_DEVICE_LAST][32] = {
-		"none",
-		"simple",
-		"mdla",
-		"vpu",
-		"edma",
-};
 
 #define EXP_0 (3353) // exp(-100/500)
 #define EXP_1 (3706) // exp(-100/1000)
@@ -102,22 +95,26 @@ int deadline_queue_init(int type)
 	mutex_init(&root->lock);
 	INIT_DELAYED_WORK(&root->work, deadline_load_tracing);
 
-	snprintf(root->name, 31, "%s", dev_type_string[type]);
-	apusys_dbg_deadline = debugfs_create_dir("deadline", apusys_dbg_root);
-	debugfs_create_u64("exp_decay_interval",
+	if (first_boot) {
+		apusys_dbg_deadline =
+			debugfs_create_dir("deadline", apusys_dbg_root);
+		debugfs_create_u64("exp_decay_interval",
 			0644, apusys_dbg_deadline, &exp_decay_interval);
-	debugfs_create_u64("exp_decay_factor_0",
+		debugfs_create_u64("exp_decay_factor_0",
 			0644, apusys_dbg_deadline, &exp_decay_factor[0]);
-	debugfs_create_u64("exp_decay_factor_1",
+		debugfs_create_u64("exp_decay_factor_1",
 			0644, apusys_dbg_deadline, &exp_decay_factor[1]);
-	debugfs_create_u64("exp_decay_factor_2",
+		debugfs_create_u64("exp_decay_factor_2",
 			0644, apusys_dbg_deadline, &exp_decay_factor[2]);
-	debugfs_create_u64("exp_decay_base",
+		debugfs_create_u64("exp_decay_base",
 			0644, apusys_dbg_deadline, &exp_decay_base);
-	debugfs_create_u64("exp_boost_threshold",
+		debugfs_create_u64("exp_boost_threshold",
 			0644, apusys_dbg_deadline, &exp_boost_threshold);
+		first_boot = false;
+	}
 
-	tmp = debugfs_create_dir(root->name, apusys_dbg_deadline);
+	tmp = tab->dbg_dir;
+
 	debugfs_create_bool("load_boost", 0444, tmp, &root->load_boost);
 	debugfs_create_bool("trace_boost", 0444, tmp, &root->trace_boost);
 	debugfs_create_u64("total_runtime", 0444, tmp, &root->total_runtime);
@@ -212,16 +209,21 @@ int deadline_task_start(struct apusys_subcmd *sc)
 	struct apusys_res_table *tab = res_get_table(sc->type);
 	struct deadline_root *root = &tab->deadline_q;
 
+	if (sc->period == 0 || tab == NULL) /* Not a deadline task*/
+		return 0;
+
+
 	mutex_lock(&root->lock);
 	root->total_period += sc->period;
 	root->total_runtime += sc->runtime;
 	root->total_subcmd++;
-	if (!root->total_period) {
-		LOG_ERR("total_period is 0\n");
-		mutex_unlock(&root->lock);
-		return -EINVAL;
-	}
-	load = (root->total_subcmd * root->total_runtime) / root->total_period;
+	load = (root->total_subcmd * root->total_runtime);
+
+	if (unlikely(root->total_period == 0))
+		load = 0;
+	else
+		load /= root->total_period;
+
 	if (tab->dev_num <= load && root->load_boost == 0) {
 		root->load_boost = 1;
 		LOG_DEBUG("load_boost: %llu, %llu, %llu, %llu\n", sc->runtime,
@@ -242,11 +244,20 @@ int deadline_task_end(struct apusys_subcmd *sc)
 	struct apusys_res_table *tab = res_get_table(sc->type);
 	struct deadline_root *root = &tab->deadline_q;
 
+	if (sc->period == 0 || tab == NULL) /* Not a deadline task*/
+		return 0;
+
 	mutex_lock(&root->lock);
 	root->total_period -= sc->period;
 	root->total_runtime -= sc->runtime;
 	root->total_subcmd--;
-	load = (root->total_subcmd * root->total_runtime) / root->total_period;
+	load = (root->total_subcmd * root->total_runtime);
+
+	if (unlikely(root->total_period == 0))
+		load = 0;
+	else
+		load /= root->total_period;
+
 	if (tab->dev_num > load && root->load_boost == 1) {
 		root->load_boost = 0;
 		LOG_DEBUG("load_boost: %llu, %llu, %llu, %llu\n", sc->runtime,
@@ -260,11 +271,12 @@ int deadline_task_boost(struct apusys_subcmd *sc)
 {
 	struct apusys_res_table *tab = res_get_table(sc->type);
 	struct deadline_root *root = &tab->deadline_q;
+	unsigned int suggest_time = sc->c_hdr->suggest_time * 1000;
 
 	if (sc->c_hdr->suggest_time != 0) {
-		if (sc->c_hdr->driver_time < sc->c_hdr->suggest_time)
+		if (sc->c_hdr->driver_time < suggest_time)
 			sc->boost_val -= 10;
-		else if (sc->c_hdr->driver_time > sc->c_hdr->suggest_time)
+		else if (sc->c_hdr->driver_time > suggest_time)
 			sc->boost_val += 10;
 
 		if (sc->boost_val > 100)
