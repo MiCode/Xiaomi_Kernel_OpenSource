@@ -1630,8 +1630,6 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 	unsigned int ovl_status = 0;
 
 	DDPINFO("%s:%d +\n", __func__, __LINE__);
-	DDPINFO("data:%px, cb_data:%px\n",
-		&data, cb_data);
 	DDPINFO("crtc_state:%px, atomic_state:%px, crtc:%px\n",
 		crtc_state,
 		atomic_state,
@@ -2807,8 +2805,7 @@ void mtk_drm_crtc_disable(struct drm_crtc *crtc, bool need_wait)
 			__func__);
 		goto end;
 	}
-	DDPINFO("%s:%d +\n", __func__, __LINE__);
-	DDPINFO("crtc%d\n", crtc_id);
+	DDPINFO("%s:%d crtc%d+\n", __func__, __LINE__, crtc_id);
 	CRTC_MMP_MARK(crtc_id, disable, 1, 0);
 
 	/* 1. kick idle */
@@ -3075,7 +3072,6 @@ void mtk_drm_crtc_plane_update(struct drm_crtc *crtc, struct drm_plane *plane,
 	addr = cmdq_buf->pa_base + DISP_SLOT_SUBTRACTOR_WHEN_FREE(plane_index);
 	cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base, addr, sub, ~0);
 
-	DDPINFO("%s-\n", __func__);
 }
 
 static void mtk_crtc_wb_comp_config(struct drm_crtc *crtc,
@@ -3098,6 +3094,8 @@ static void mtk_crtc_wb_comp_config(struct drm_crtc *crtc,
 	memset(&cfg, 0x0, sizeof(struct mtk_ddp_config));
 	if (state->prop_val[CRTC_PROP_OUTPUT_ENABLE]) {
 		/* Output buffer configuration for virtual display */
+		DDPINFO("lookup wb fb:%u\n",
+			state->prop_val[CRTC_PROP_OUTPUT_FB_ID]);
 		comp->fb = mtk_drm_framebuffer_lookup(crtc->dev,
 				state->prop_val[CRTC_PROP_OUTPUT_FB_ID]);
 		if (comp->fb == NULL) {

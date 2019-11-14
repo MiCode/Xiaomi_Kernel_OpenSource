@@ -278,7 +278,6 @@ static int _mtk_esd_check_eint(struct drm_crtc *crtc)
 			    HZ / 2) > 0)
 			ret = 0;
 	}
-	DDPINFO("[ESD]%s %d\n", __func__, __LINE__);
 
 	disable_irq(esd_ctx->eint_irq);
 	atomic_set(&esd_ctx->ext_te_event, 0);
