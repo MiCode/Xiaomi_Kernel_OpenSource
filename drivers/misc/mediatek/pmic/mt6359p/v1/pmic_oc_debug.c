@@ -89,7 +89,9 @@ static struct reg_oc_debug_t reg_oc_debug[] = {
 
 static int md_reg_oc_notify(struct reg_oc_debug_t *reg_oc_dbg)
 {
+#ifdef CONFIG_MTK_CCCI_DEVICES
 	int ret;
+#endif
 	int data_int32 = 0;
 
 	if (!strcmp(reg_oc_dbg->name, "vpa"))
