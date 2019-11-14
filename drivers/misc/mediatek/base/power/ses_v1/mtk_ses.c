@@ -311,14 +311,16 @@ static void ses_reserve_memory_init(unsigned int log_offset)
 		(unsigned long long)ses_mem_size,
 		(unsigned long long)ses_mem_base_virt);
 
-	buf = (char *)(uintptr_t)(ses_mem_base_virt+0x30000+log_offset*0x1000);
+	if ((char *)ses_mem_base_virt != NULL) {
+		buf = (char *)(uintptr_t)
+			(ses_mem_base_virt+0x30000+log_offset*0x1000);
 
-	if (buf != NULL) {
-		/* dump ses register status into reserved memory */
-		ses_reserve_memory_dump(buf, log_offset);
-	} else
-		ses_debug("ses_mem_base_virt is null !\n");
-
+		if (buf != NULL) {
+			/* dump ses register status into reserved memory */
+			ses_reserve_memory_dump(buf, log_offset);
+		} else
+			ses_debug("ses_mem_base_virt is null !\n");
+	}
 }
 
 #endif
