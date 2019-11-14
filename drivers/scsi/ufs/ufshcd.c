@@ -2730,10 +2730,11 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 			__func__, tag, cmd, cmd->request);
 		BUG();
 	}
-	ufs_mtk_biolog_queue_command(tag, cmd);  /* MTK PATCH */
 
 	if (!down_read_trylock(&hba->clk_scaling_lock))
 		return SCSI_MLQUEUE_HOST_BUSY;
+
+	ufs_mtk_biolog_queue_command(tag, cmd);
 
 	spin_lock_irqsave(hba->host->host_lock, flags);
 	switch (hba->ufshcd_state) {
@@ -2937,6 +2938,13 @@ out:
 		ufshcd_generic_log(hba,
 			 cmd->cmnd[0], err, line,
 			UFS_TRACE_GENERIC);
+
+	/*
+	 * All requests with errors shall complete biolog to make
+	 * q_depth and workload calculation right.
+	 */
+	if (err)
+		ufs_mtk_biolog_scsi_done_end(tag);
 
 	return err;
 }
