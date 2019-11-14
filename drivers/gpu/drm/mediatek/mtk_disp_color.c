@@ -45,6 +45,8 @@ static unsigned long g_color_dst_h[DISP_COLOR_TOTAL];
 static atomic_t g_color_is_clock_on[DISP_COLOR_TOTAL] = { ATOMIC_INIT(0),
 	ATOMIC_INIT(0)};
 
+static DEFINE_SPINLOCK(g_color_clock_lock);
+
 static int g_color_bypass[DISP_COLOR_TOTAL];
 
 static DEFINE_MUTEX(g_color_reg_lock);
@@ -1058,7 +1060,20 @@ static void ddp_color_cal_split_window(struct mtk_ddp_comp *comp,
 bool disp_color_reg_get(struct mtk_ddp_comp *comp,
 	unsigned long addr, int *value)
 {
-	*value = readl(comp->regs + addr);
+	unsigned long flags;
+
+	DDPDBG("%s @ %d......... spin_trylock_irqsave ++ ",
+		__func__, __LINE__);
+	if (spin_trylock_irqsave(&g_color_clock_lock, flags)) {
+		DDPDBG("%s @ %d......... spin_trylock_irqsave -- ",
+			__func__, __LINE__);
+		*value = readl(comp->regs + addr);
+		spin_unlock_irqrestore(&g_color_clock_lock, flags);
+	} else {
+		DDPINFO("%s @ %d......... Failed to spin_trylock_irqsave ",
+			__func__, __LINE__);
+	}
+
 	return true;
 }
 
@@ -2147,6 +2162,7 @@ int mtk_drm_ioctl_read_reg(struct drm_device *dev, void *data,
 	/* TODO: dual pipe */
 	struct mtk_drm_private *private = dev->dev_private;
 	struct mtk_ddp_comp *comp = private->ddp_comp[DDP_COMPONENT_COLOR0];
+	unsigned long flags;
 
 	pa = (unsigned int)rParams->reg;
 
@@ -2156,7 +2172,18 @@ int mtk_drm_ioctl_read_reg(struct drm_device *dev, void *data,
 	}
 
 	va = ioremap_nocache(pa, sizeof(va));
-	rParams->val = readl(va) & rParams->mask;
+
+	DDPDBG("%s @ %d......... spin_trylock_irqsave ++ ",
+		__func__, __LINE__);
+	if (spin_trylock_irqsave(&g_color_clock_lock, flags)) {
+		DDPDBG("%s @ %d......... spin_trylock_irqsave -- ",
+			__func__, __LINE__);
+		rParams->val = readl(va) & rParams->mask;
+		spin_unlock_irqrestore(&g_color_clock_lock, flags);
+	} else {
+		DDPINFO("%s @ %d......... Failed to spin_trylock_irqsave ",
+			__func__, __LINE__);
+	}
 
 	DDPINFO("read pa:0x%x(va:0x%lx) = 0x%x (0x%x)\n",
 		pa,
@@ -2193,7 +2220,7 @@ int mtk_drm_ioctl_bypass_color(struct drm_device *dev, void *data,
 	struct drm_crtc *crtc = private->crtc[0];
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 
-	ret = mtk_crtc_user_cmd(crtc, comp, SET_COLOR_REG, data);
+	ret = mtk_crtc_user_cmd(crtc, comp, BYPASS_COLOR, data);
 	mtk_crtc_check_trigger(mtk_crtc, false);
 
 	return ret;
@@ -2213,7 +2240,7 @@ int mtk_drm_ioctl_pq_set_window(struct drm_device *dev, void *data,
 		((g_split_window_x_end << 16) | g_split_window_x_start),
 		((g_split_window_y_end << 16) | g_split_window_y_start));
 
-	ret = mtk_crtc_user_cmd(crtc, comp, SET_COLOR_REG, data);
+	ret = mtk_crtc_user_cmd(crtc, comp, PQ_SET_WINDOW, data);
 	mtk_crtc_check_trigger(mtk_crtc, false);
 
 	return ret;
@@ -2351,7 +2378,14 @@ static void mtk_color_prepare(struct mtk_ddp_comp *comp)
 
 static void mtk_color_unprepare(struct mtk_ddp_comp *comp)
 {
+	unsigned long flags;
+
+	DDPINFO("%s @ %d......... spin_lock_irqsave ++ ", __func__, __LINE__);
+	spin_lock_irqsave(&g_color_clock_lock, flags);
+	DDPINFO("%s @ %d......... spin_lock_irqsave -- ", __func__, __LINE__);
 	atomic_set(&g_color_is_clock_on[index_of_color(comp->id)], 0);
+	spin_unlock_irqrestore(&g_color_clock_lock, flags);
+	DDPINFO("%s @ %d......... spin_unlock_irqrestore ", __func__, __LINE__);
 	mtk_ddp_comp_clk_unprepare(comp);
 }
 
