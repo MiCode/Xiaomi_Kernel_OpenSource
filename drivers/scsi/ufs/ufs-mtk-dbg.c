@@ -86,7 +86,8 @@ void ufs_mtk_dbg_add_trace(struct ufs_hba *hba,
 		atomic_set(&cmd_hist_enabled, 1);
 	}
 
-	if (!atomic_read(&cmd_hist_enabled))
+	if (!atomic_read(&cmd_hist_enabled)
+		&& event != UFS_TRACE_DEBUG_PROC)
 		return;
 
 	spin_lock_irqsave(&ufs_mtk_cmd_dump_lock, flags);
@@ -195,7 +196,8 @@ void ufs_mtk_dbg_dump_trace(char **buff, unsigned long *size,
 
 		if ((ufs_cmd_hlist[ptr].event >= UFS_TRACE_UIC_SEND) &&
 			(ufs_cmd_hlist[ptr].event <=
-			UFS_TRACE_UIC_CMPL_PWR_CTRL)) {
+			UFS_TRACE_UIC_CMPL_PWR_CTRL) ||
+			(ufs_cmd_hlist[ptr].event == UFS_TRACE_GENERIC)) {
 
 			SPREAD_PRINTF(buff, size, m,
 				"%3d-u,%5d,%2d,0x%2X,arg1=0x%X,arg2=0x%X,arg3=0x%X,%llu\n",
@@ -289,6 +291,26 @@ void ufs_mtk_dbg_dump_trace(char **buff, unsigned long *size,
 	}
 
 	spin_unlock_irqrestore(&ufs_mtk_cmd_dump_lock, flags);
+#endif
+}
+
+void ufs_mtk_dme_cmd_log(struct ufs_hba *hba, struct uic_command *ucmd,
+	enum ufs_trace_event event)
+{
+#ifdef CONFIG_MTK_UFS_DEBUG
+	u32 cmd;
+
+	if (event == UFS_TRACE_UIC_SEND)
+		cmd = ucmd->command;
+	else
+		cmd = ufshcd_readl(hba, REG_UIC_COMMAND);
+
+	ufs_mtk_dbg_add_trace(hba, event,
+		ufshcd_readl(hba, REG_UIC_COMMAND_ARG_1),
+		0,
+		ufshcd_readl(hba, REG_UIC_COMMAND_ARG_2),
+		ufshcd_readl(hba, REG_UIC_COMMAND_ARG_3),
+		cmd, 0, 0, 0, 0);
 #endif
 }
 

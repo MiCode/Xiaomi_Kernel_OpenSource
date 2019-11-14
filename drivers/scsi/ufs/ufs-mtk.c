@@ -2220,14 +2220,27 @@ int ufs_mtk_auto_hiber8_quirk_handler(struct ufs_hba *hba, bool enable)
 int ufs_mtk_generic_read_dme_no_check(u32 uic_cmd, u16 mib_attribute,
 	u16 gen_select_index, u32 *value, unsigned long retry_ms)
 {
-	u32 arg1, val;
+	struct ufs_hba *hba = ufs_mtk_hba;
+	struct uic_command ucmd = {0};
+	u32 val;
 	int ret = 0;
 	unsigned long elapsed_us = 0;
 	bool reenable_intr = false;
 
-	if (ufshcd_readl(ufs_mtk_hba, REG_INTERRUPT_ENABLE)
+	val = ufshcd_readl(hba, REG_CONTROLLER_STATUS);
+	if (!(val & UIC_COMMAND_READY) ||
+		hba->active_uic_cmd) {
+		dev_info(hba->dev,
+			"uic not rdy, host sta(0x%x), uic cmd(%d)\n",
+			val,
+			hba->active_uic_cmd ?
+			hba->active_uic_cmd->command : -1);
+		return -EIO;
+	}
+
+	if (ufshcd_readl(hba, REG_INTERRUPT_ENABLE)
 			& UIC_COMMAND_COMPL) {
-		ufshcd_disable_intr(ufs_mtk_hba, UIC_COMMAND_COMPL);
+		ufshcd_disable_intr(hba, UIC_COMMAND_COMPL);
 		/*
 		 * Make sure UIC command completion interrupt is disabled before
 		 * issuing UIC command.
@@ -2236,22 +2249,21 @@ int ufs_mtk_generic_read_dme_no_check(u32 uic_cmd, u16 mib_attribute,
 		reenable_intr = true;
 	}
 
-	arg1 = ((u32)mib_attribute << 16) | (u32)gen_select_index;
-	ufshcd_writel(ufs_mtk_hba, arg1, REG_UIC_COMMAND_ARG_1);
-	ufshcd_writel(ufs_mtk_hba, 0, REG_UIC_COMMAND_ARG_2);
-	ufshcd_writel(ufs_mtk_hba, 0, REG_UIC_COMMAND_ARG_3);
+	ucmd.command = uic_cmd;
+	ucmd.argument1 = UIC_ARG_MIB_SEL(
+		(u32)mib_attribute, (u32)gen_select_index);
+	ucmd.argument2 = 0;
+	ucmd.argument3 = 0;
 
-	/* add trace - uic send */
-	ufs_mtk_dbg_add_trace(ufs_mtk_hba, UFS_TRACE_UIC_SEND,
-		ufshcd_readl(ufs_mtk_hba, REG_UIC_COMMAND_ARG_1),
-		0,
-		ufshcd_readl(ufs_mtk_hba, REG_UIC_COMMAND_ARG_2),
-		ufshcd_readl(ufs_mtk_hba, REG_UIC_COMMAND_ARG_3),
-		uic_cmd, 0, 0, 0, 0);
+	ufshcd_writel(hba, ucmd.argument1, REG_UIC_COMMAND_ARG_1);
+	ufshcd_writel(hba, ucmd.argument2, REG_UIC_COMMAND_ARG_2);
+	ufshcd_writel(hba, ucmd.argument3, REG_UIC_COMMAND_ARG_3);
+	ufs_mtk_dme_cmd_log(hba, &ucmd, UFS_TRACE_UIC_SEND);
 
-	ufshcd_writel(ufs_mtk_hba, uic_cmd, REG_UIC_COMMAND);
+	ufshcd_writel(hba,
+		ucmd.command & COMMAND_OPCODE_MASK, REG_UIC_COMMAND);
 
-	while ((ufshcd_readl(ufs_mtk_hba,
+	while ((ufshcd_readl(hba,
 		REG_INTERRUPT_STATUS) & UIC_COMMAND_COMPL)
 		!= UIC_COMMAND_COMPL) {
 		/* busy waiting 1us */
@@ -2262,26 +2274,20 @@ int ufs_mtk_generic_read_dme_no_check(u32 uic_cmd, u16 mib_attribute,
 			goto out;
 		}
 	}
-	ufshcd_writel(ufs_mtk_hba, UIC_COMMAND_COMPL, REG_INTERRUPT_STATUS);
+	ufshcd_writel(hba, UIC_COMMAND_COMPL, REG_INTERRUPT_STATUS);
 
-	/* add trace - uic complete */
-	ufs_mtk_dbg_add_trace(ufs_mtk_hba, UFS_TRACE_UIC_CMPL_GENERAL,
-		ufshcd_readl(ufs_mtk_hba, REG_UIC_COMMAND_ARG_1),
-		0,
-		ufshcd_readl(ufs_mtk_hba, REG_UIC_COMMAND_ARG_2),
-		ufshcd_readl(ufs_mtk_hba, REG_UIC_COMMAND_ARG_3),
-		ufshcd_readl(ufs_mtk_hba, REG_UIC_COMMAND), 0, 0, 0, 0);
+	ufs_mtk_dme_cmd_log(hba, &ucmd, UFS_TRACE_UIC_CMPL_GENERAL);
 
-	val = ufshcd_readl(ufs_mtk_hba, REG_UIC_COMMAND_ARG_2);
+	val = ufshcd_readl(hba, REG_UIC_COMMAND_ARG_2);
 	if (val & MASK_UIC_COMMAND_RESULT) {
 		ret = val;
 		goto out;
 	}
 
-	*value = ufshcd_readl(ufs_mtk_hba, REG_UIC_COMMAND_ARG_3);
+	*value = ufshcd_readl(hba, REG_UIC_COMMAND_ARG_3);
 out:
 	if (reenable_intr)
-		ufshcd_enable_intr(ufs_mtk_hba, UIC_COMMAND_COMPL);
+		ufshcd_enable_intr(hba, UIC_COMMAND_COMPL);
 
 	return ret;
 }

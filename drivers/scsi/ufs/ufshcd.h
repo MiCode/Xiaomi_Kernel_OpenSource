@@ -1271,6 +1271,7 @@ int ufshcd_query_attr(struct ufs_hba *hba,
 int ufshcd_query_flag(struct ufs_hba *hba, enum query_opcode opcode,
 	enum flag_idn idn, bool *flag_res);
 int ufshcd_send_uic_cmd(struct ufs_hba *hba, struct uic_command *uic_cmd);
+int ufshcd_check_hibern8_exit(struct ufs_hba *hba); /* MTK PATCH */
 int ufshcd_uic_hibern8_exit(struct ufs_hba *hba);
 int ufshcd_query_descriptor_retry(struct ufs_hba *hba,
 	enum query_opcode opcode, enum desc_idn idn, u8 index,

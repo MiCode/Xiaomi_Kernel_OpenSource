@@ -451,6 +451,19 @@ static void ufshcd_device_reset_log(struct ufs_hba *hba)
 		0, 0, 0,
 		0, 0, 0, 0, 0, 0);
 }
+
+static void ufshcd_generic_log(struct ufs_hba *hba,
+	u32 arg1, u32 arg2, u32 arg3,
+	enum ufs_trace_event event)
+{
+	ufs_mtk_dbg_add_trace(hba, event,
+		arg1,
+		0,
+		arg2,
+		arg3,
+		0, 0, 0, 0, 0);
+}
+
 #else
 static void ufshcd_cond_add_cmd_trace(struct ufs_hba *hba,
 	unsigned int tag, enum ufs_trace_event event)
@@ -467,6 +480,12 @@ static void ufshcd_reg_cmd_log(struct ufs_hba *hba, bool on)
 }
 
 static void ufshcd_device_reset_log(struct ufs_hba *hba)
+{
+}
+
+static void ufshcd_generic_log(struct ufs_hba *hba,
+	u32 arg1, u32 arg2, u32 arg3,
+	enum ufs_trace_event event)
 {
 }
 #endif
@@ -1709,8 +1728,11 @@ static void ufshcd_ungate_work(struct work_struct *work)
 			if (ret)
 				dev_err(hba->dev, "%s: hibern8 exit failed %d\n",
 					__func__, ret);
-			else
+			else {
 				ufshcd_set_link_active(hba);
+				/* MTK PATCH */
+				ufshcd_vops_auto_hibern8(hba, true);
+			}
 		}
 		hba->clk_gating.is_suspended = false;
 	}
@@ -1728,6 +1750,7 @@ int ufshcd_hold(struct ufs_hba *hba, bool async)
 {
 	int rc = 0;
 	unsigned long flags;
+	bool wq;
 
 	if (!ufshcd_is_clkgating_allowed(hba))
 		goto out;
@@ -1753,7 +1776,15 @@ start:
 		if (ufshcd_can_hibern8_during_gating(hba) &&
 		    ufshcd_is_link_hibern8(hba)) {
 			spin_unlock_irqrestore(hba->host->host_lock, flags);
-			flush_work(&hba->clk_gating.ungate_work);
+			/* MTK PATCH */
+			/*
+			 * During suspend flow the link may already in h8,
+			 * but no ungate_work bring back to link up sate.
+			 * So just return when work is already idle.
+			 */
+			wq = flush_work(&hba->clk_gating.ungate_work);
+			if (!wq)
+				goto out;
 			spin_lock_irqsave(hba->host->host_lock, flags);
 			goto start;
 		}
@@ -1834,7 +1865,8 @@ static void ufshcd_gate_work(struct work_struct *work)
 
 	/* put the link into hibern8 mode before turning off clocks */
 	if (ufshcd_can_hibern8_during_gating(hba)) {
-		if (ufshcd_uic_hibern8_enter(hba)) {
+		if (ufshcd_check_hibern8_exit(hba) || /* MTK PATCH */
+			ufshcd_uic_hibern8_enter(hba)) {
 			hba->clk_gating.state = CLKS_ON;
 			trace_ufshcd_clk_gating(dev_name(hba->dev),
 						hba->clk_gating.state);
@@ -2651,6 +2683,7 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 	unsigned long flags;
 	int tag;
 	int err = 0;
+	u32 line = 0;
 #if defined(CONFIG_UFSFEATURE) && defined(CONFIG_UFSHPB)
 	struct scsi_cmnd *pre_cmd;
 	struct ufshcd_lrb *add_lrbp;
@@ -2674,7 +2707,6 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 
 		set_host_byte(cmd, DID_IMM_RETRY);
 		cmd->scsi_done(cmd);
-
 		return 0;
 	}
 
@@ -2697,6 +2729,7 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 	case UFSHCD_STATE_EH_SCHEDULED:
 	case UFSHCD_STATE_RESET:
 		err = SCSI_MLQUEUE_HOST_BUSY;
+		line = __LINE__;
 		goto out_unlock;
 	case UFSHCD_STATE_ERROR:
 		set_host_byte(cmd, DID_ERROR);
@@ -2707,6 +2740,7 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 				__func__, hba->ufshcd_state);
 		set_host_byte(cmd, DID_BAD_TARGET);
 		cmd->scsi_done(cmd);
+		line = __LINE__;
 		goto out_unlock;
 	}
 
@@ -2714,6 +2748,7 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 	if (ufshcd_eh_in_progress(hba)) {
 		set_host_byte(cmd, DID_ERROR);
 		cmd->scsi_done(cmd);
+		line = __LINE__;
 		goto out_unlock;
 	}
 
@@ -2730,6 +2765,7 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 		 * completion.
 		 */
 		err = SCSI_MLQUEUE_HOST_BUSY;
+		line = __LINE__;
 		goto out;
 	}
 
@@ -2737,6 +2773,7 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 	if (err) {
 		err = SCSI_MLQUEUE_HOST_BUSY;
 		clear_bit_unlock(tag, &hba->lrb_in_use);
+		line = __LINE__;
 		goto out;
 	}
 
@@ -2746,6 +2783,7 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 		clear_bit_unlock(tag, &hba->lrb_in_use);
 		err = SCSI_MLQUEUE_HOST_BUSY;
 		ufshcd_release(hba);
+		line = __LINE__;
 		goto out;
 	}
 
@@ -2805,6 +2843,7 @@ send_orig_cmd:
 
 			lrbp->cmd = NULL;
 			clear_bit_unlock(tag, &hba->lrb_in_use);
+			line = __LINE__;
 			goto out;
 		}
 	} else {
@@ -2822,6 +2861,7 @@ send_orig_cmd:
 	if (err) {
 		lrbp->cmd = NULL;
 		clear_bit_unlock(tag, &hba->lrb_in_use);
+		line = __LINE__;
 		goto out;
 	}
 	/* Make sure descriptors are ready before ringing the doorbell */
@@ -2877,6 +2917,12 @@ out:
 #endif
 
 	up_read(&hba->clk_scaling_lock);
+
+	if (err || line)
+		ufshcd_generic_log(hba,
+			 cmd->cmnd[0], err, line,
+			UFS_TRACE_GENERIC);
+
 	return err;
 }
 
@@ -4773,6 +4819,72 @@ static void ufshcd_update_reg_hist(struct ufs_err_reg_hist *reg_hist,
 	reg_hist->reg[reg_hist->pos] = reg;
 	reg_hist->tstamp[reg_hist->pos] = ktime_get();
 	reg_hist->pos = (reg_hist->pos + 1) % UFS_ERR_REG_HIST_LENGTH;
+}
+
+/* MTK PATCH */
+int ufshcd_check_hibern8_exit(struct ufs_hba *hba)
+{
+	int ret = 0;
+	u32 reg = 0;
+	unsigned long timeout;
+
+	/*
+	 * MTK PATCH
+	 * SK-Hynix device issue:
+	 * After device enters sleep mode, device allows only 1 time
+	 * entering/leaving h8 state. If multiple h8 entering/leaving
+	 * happens, device may stuck.
+	 *
+	 * Fail scenario:
+	 * 1. SSU device to enter sleep.
+	 * 2. Disable ah8 (may leave h8).
+	 * 3. Manually enter h8.
+	 *
+	 * SW workaround:
+	 * Change suspend flow to avoid above scenario:
+	 * 1. Disable ah8 (may leave h8).
+	 * 2. SSU device to enter sleep.
+	 * 3. Manually enter h8.
+	 */
+	ufshcd_vops_auto_hibern8(hba, false);
+	timeout = jiffies + msecs_to_jiffies(H8_POLL_TOUT_MS);
+	do {
+		/*
+		 * If host_lock is held at ufshcd_gate_work().
+		 * It will deadlock if call ufshcd_send_uic_cmd() here.
+		 */
+		ret = ufs_mtk_generic_read_dme_no_check(UIC_CMD_DME_GET,
+					VENDOR_POWERSTATE, 0, &reg, 100);
+		if (ret != 0)
+			dev_info(hba->dev,
+				"ufshcd_dme_get_ 0x%x fail, ret = %d!\n",
+				VENDOR_POWERSTATE, ret);
+
+		if (reg != VENDOR_POWERSTATE_HIBERNATE)
+			break;
+
+		/* sleep for max. 200us */
+		usleep_range(100, 200);
+	} while (time_before(jiffies, timeout));
+
+	/* Device is stuck in H8 state */
+	if (reg == VENDOR_POWERSTATE_HIBERNATE) {
+		dev_info(hba->dev, "exit h8 state fail\n");
+		ufshcd_print_host_regs(hba);
+
+		/* block commands from scsi mid-layer */
+		ufshcd_scsi_block_requests(hba);
+		hba->ufshcd_state = UFSHCD_STATE_ERROR;
+		hba->force_host_reset = true;
+		schedule_work(&hba->eh_work);
+
+		ufshcd_update_reg_hist(&hba->ufs_stats.auto_hibern8_err,
+			   UIC_CMD_DME_HIBER_EXIT);
+
+		ret = -EAGAIN;
+	}
+
+	return ret;
 }
 
 /**
@@ -8775,8 +8887,6 @@ static int ufshcd_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	enum ufs_pm_level pm_lvl;
 	enum ufs_dev_pwr_mode req_dev_pwr_mode;
 	enum uic_link_state req_link_state;
-	u32 reg = 0; /* MTK PATCH */
-	unsigned long timeout; /* MTK PATCH */
 
 	/* MTK PATCH: Lock deepidle/SODI @enter UFS suspend callback */
 	ufshcd_vops_deepidle_lock(hba, true);
@@ -8841,58 +8951,10 @@ static int ufshcd_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 		}
 	}
 
-	/*
-	 * MTK PATCH
-	 * SK-Hynix device issue:
-	 * After device enters sleep mode, device allows only 1 time
-	 * entering/leaving h8 state. If multiple h8 entering/leaving
-	 * happens, device may stuck.
-	 *
-	 * Fail scenario:
-	 * 1. SSU device to enter sleep.
-	 * 2. Disable ah8 (may leave h8).
-	 * 3. Manually enter h8.
-	 *
-	 * SW workaround:
-	 * Change suspend flow to avoid above scenario:
-	 * 1. Disable ah8 (may leave h8).
-	 * 2. SSU device to enter sleep.
-	 * 3. Manually enter h8.
-	 */
-	ufshcd_vops_auto_hibern8(hba, false);
-	timeout = jiffies + msecs_to_jiffies(H8_POLL_TOUT_MS);
-	do {
-		ret = ufshcd_dme_get(hba, UIC_ARG_MIB(VENDOR_POWERSTATE), &reg);
-		if (ret != 0)
-			dev_err(hba->dev,
-				"ufshcd_dme_get_ 0x%x fail, ret = %d!\n",
-				VENDOR_POWERSTATE, ret);
-
-		if (reg != VENDOR_POWERSTATE_HIBERNATE)
-			break;
-
-		/* sleep for max. 200us */
-		usleep_range(100, 200);
-	} while (time_before(jiffies, timeout));
-
-	/* Device is stuck in H8 state */
-	if (reg == VENDOR_POWERSTATE_HIBERNATE) {
-		dev_err(hba->dev, "exit h8 state fail\n");
-		ufshcd_print_host_regs(hba);
-
-		/* block commands from scsi mid-layer */
-		ufshcd_scsi_block_requests(hba);
-		hba->ufshcd_state = UFSHCD_STATE_ERROR;
-		hba->force_host_reset = true;
-		schedule_work(&hba->eh_work);
-
-		ufshcd_update_reg_hist(&hba->ufs_stats.auto_hibern8_err,
-		       UIC_CMD_DME_HIBER_EXIT);
-
-		ret = -EAGAIN;
+	/* MTK PATCH */
+	ret = ufshcd_check_hibern8_exit(hba);
+	if (ret)
 		goto enable_gating;
-	}
-
 
 	if ((req_dev_pwr_mode != hba->curr_dev_pwr_mode) &&
 	     ((ufshcd_is_runtime_pm(pm_op) && !hba->auto_bkops_enabled) ||
@@ -8992,11 +9054,11 @@ enable_gating:
 	if (hba->clk_scaling.is_allowed)
 		ufshcd_resume_clkscaling(hba);
 	hba->clk_gating.is_suspended = false;
-	ufshcd_release(hba);
 #if defined(CONFIG_UFSFEATURE)
 	ufsf_hpb_resume(&hba->ufsf);
 	ufsf_tw_resume(&hba->ufsf);
 #endif
+	ufshcd_release(hba);
 out:
 	hba->pm_op_in_progress = 0;
 
@@ -9105,12 +9167,11 @@ static int ufshcd_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	ufsf_hpb_resume(&hba->ufsf);
 	ufsf_tw_resume(&hba->ufsf);
 #endif
+	/* MTK PATCH: Enable auto-hibern8 if resume is successful */
+	ufshcd_vops_auto_hibern8(hba, true);
 
 	/* Schedule clock gating in case of no access to UFS device yet */
 	ufshcd_release(hba);
-
-	/* MTK PATCH: Enable auto-hibern8 if resume is successful */
-	ufshcd_vops_auto_hibern8(hba, true);
 
 	goto out;
 
@@ -9134,7 +9195,6 @@ out:
 
 	if (ret)
 		ufshcd_update_reg_hist(&hba->ufs_stats.resume_err, (u32)ret);
-
 	return ret;
 }
 
@@ -9222,6 +9282,9 @@ out:
 	/* MTK PATCH */
 	dev_info(hba->dev, "sr,ret %d,%d us\n", ret,
 		(int)ktime_to_us(ktime_sub(ktime_get(), start)));
+
+	if (!ret)
+		hba->is_sys_suspended = false;
 	return ret;
 }
 EXPORT_SYMBOL(ufshcd_system_resume);
