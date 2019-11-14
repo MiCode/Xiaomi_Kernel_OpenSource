@@ -1399,7 +1399,7 @@ irqreturn_t audio_irq_handler(int irq, void *data, int core_id)
 	}
 
 	/* using semaphore to sync ap <=> adsp */
-	if (!get_adsp_semaphore(SEMA_3WAY_AUDIO))
+	if (get_adsp_semaphore(SEMA_3WAY_AUDIO))
 		pr_info("%s get semaphore fail\n", __func__);
 	pdtoa = (unsigned long *)
 		&dsp->core_share_mem.ap_adsp_core_mem[core_id]->dtoa_flag;
