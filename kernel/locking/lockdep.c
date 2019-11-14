@@ -5789,8 +5789,7 @@ __register_lock_class(struct lockdep_map *lock, unsigned int subclass,
 	 * the hash:
 	 */
 	if (nr_lock_classes >= MAX_LOCKDEP_KEYS) {
-		if (!debug_locks_off_graph_unlock())
-			return NULL;
+		arch_spin_unlock(&lockdep_lock);
 		return NULL;
 	}
 	class = lock_classes + nr_lock_classes++;
