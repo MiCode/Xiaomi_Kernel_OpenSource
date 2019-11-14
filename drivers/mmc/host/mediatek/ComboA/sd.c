@@ -5464,9 +5464,6 @@ static int msdc_drv_remove(struct platform_device *pdev)
 static int msdc_runtime_suspend(struct device *dev)
 {
 	struct msdc_host *host = dev_get_drvdata(dev);
-#ifndef CONFIG_MTK_MSDC_BRING_UP_BYPASS
-	unsigned long flags;
-#endif
 
 	/* mclk = 0 means core layer suspend has disabled clk. */
 	if (host->mclk)
