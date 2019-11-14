@@ -351,6 +351,7 @@ int drv_dpmaif_dl_add_pit_remain_cnt(unsigned char q_num,
 		unsigned short pit_remain_cnt)
 {
 	unsigned int dl_update;
+	int count = 0;
 #if defined(_E1_SB_SW_WORKAROUND_)
 	int ret = 0;
 
@@ -368,11 +369,27 @@ int drv_dpmaif_dl_add_pit_remain_cnt(unsigned char q_num,
 			DPMA_WRITE_PD_DL(DPMAIF_PD_DL_PIT_ADD, dl_update);
 			break;
 		}
+		if (++count >= 1600000) {
+			CCCI_ERROR_LOG(0, TAG,
+				"1st DPMAIF_PD_DL_PIT_ADD read fail\n");
+			dpmaif_ctrl->ops->dump_status(
+				DPMAIF_HIF_ID, DUMP_FLAG_REG, -1);
+			count = 0;
+			return -1;
+		}
 	}
-
+	count = 0;
 	while ((DPMA_READ_PD_DL(DPMAIF_PD_DL_PIT_ADD) &
-		DPMAIF_DL_ADD_NOT_READY) == DPMAIF_DL_ADD_NOT_READY)
-		;
+		DPMAIF_DL_ADD_NOT_READY) == DPMAIF_DL_ADD_NOT_READY) {
+		if (++count >= 1600000) {
+			CCCI_ERROR_LOG(0, TAG,
+				 "2nd DPMAIF_PD_DL_PIT_ADD read fail\n");
+			dpmaif_ctrl->ops->dump_status(
+				DPMAIF_HIF_ID, DUMP_FLAG_REG, -1);
+			count = 0;
+			return -1;
+		}
+	}
 #if defined(_E1_SB_SW_WORKAROUND_)
 	drv_dpmaif_dl_set_idle(false);
 	return ret;

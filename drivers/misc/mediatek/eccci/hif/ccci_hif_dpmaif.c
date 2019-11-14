@@ -693,6 +693,12 @@ static int dpmaifq_rel_rx_pit_entry(struct dpmaif_rx_queue *rxq,
 	/*update to HW: in full interrupt*/
 #else
 	ret = drv_dpmaif_dl_add_pit_remain_cnt(rxq->index, rel_entry_num);
+	if (ret < 0) {
+#if defined(CONFIG_MTK_AEE_FEATURE)
+		aee_kernel_warning("ccci",
+			"dpmaif add pit cnt fail\n");
+#endif
+	}
 #endif
 	return ret;
 }
