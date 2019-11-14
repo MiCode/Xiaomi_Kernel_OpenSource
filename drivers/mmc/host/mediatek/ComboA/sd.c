@@ -5174,11 +5174,6 @@ static const struct cmdq_host_ops msdc_cmdq_ops = {
 };
 #endif
 
-/* use for SPM spm_resource_req */
-unsigned int msdc_cg_lock_init;
-unsigned int msdc_cg_cnt;
-spinlock_t msdc_cg_lock;
-
 static int msdc_drv_probe(struct platform_device *pdev)
 {
 	struct mmc_host *mmc = NULL;
@@ -5396,12 +5391,8 @@ static int msdc_drv_probe(struct platform_device *pdev)
 		}
 	}
 
-	/* init spinlock for SPM */
-	if (msdc_cg_lock_init == 0) {
-		msdc_cg_lock_init = 1;
-		spin_lock_init(&msdc_cg_lock);
-		msdc_cg_cnt = 2;
-	}
+	pm_qos_add_request(&host->msdc_pm_qos_req,
+		PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
 
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
@@ -5449,7 +5440,7 @@ static int msdc_drv_remove(struct platform_device *pdev)
 		clk_unprepare(host->aes_clk_ctl);
 #endif
 #endif
-
+	pm_qos_remove_request(&host->msdc_pm_qos_req);
 	pm_runtime_disable(&pdev->dev);
 	mmc_remove_host(host->mmc);
 
@@ -5473,7 +5464,7 @@ static int msdc_drv_remove(struct platform_device *pdev)
 static int msdc_runtime_suspend(struct device *dev)
 {
 	struct msdc_host *host = dev_get_drvdata(dev);
-#ifndef CONFIG_MACH_MT6885
+#ifndef CONFIG_MTK_MSDC_BRING_UP_BYPASS
 	unsigned long flags;
 #endif
 
@@ -5487,13 +5478,8 @@ static int msdc_runtime_suspend(struct device *dev)
 	if (host->hclk_ctl)
 		clk_unprepare(host->hclk_ctl);
 
-#ifndef CONFIG_MACH_MT6885
-	spin_lock_irqsave(&msdc_cg_lock, flags);
-	msdc_cg_cnt--;
-	if (msdc_cg_cnt == 0)
-		spm_resource_req(SPM_RESOURCE_USER_MSDC, SPM_RESOURCE_RELEASE);
-	spin_unlock_irqrestore(&msdc_cg_lock, flags);
-#endif
+	pm_qos_update_request(&host->msdc_pm_qos_req,
+		PM_QOS_DEFAULT_VALUE);
 
 	return 0;
 }
@@ -5502,15 +5488,7 @@ static int msdc_runtime_resume(struct device *dev)
 {
 	struct msdc_host *host = dev_get_drvdata(dev);
 
-#ifndef CONFIG_MACH_MT6885
-	unsigned long flags;
-
-	spin_lock_irqsave(&msdc_cg_lock, flags);
-	msdc_cg_cnt++;
-	if (msdc_cg_cnt == 1)
-		spm_resource_req(SPM_RESOURCE_USER_MSDC, SPM_RESOURCE_ALL);
-	spin_unlock_irqrestore(&msdc_cg_lock, flags);
-#endif
+	pm_qos_update_request(&host->msdc_pm_qos_req, 0);
 
 	(void)clk_prepare(host->clk_ctl);
 	if (host->aes_clk_ctl)

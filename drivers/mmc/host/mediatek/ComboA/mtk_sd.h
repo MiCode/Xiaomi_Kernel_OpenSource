@@ -26,6 +26,7 @@
 #include <linux/bitops.h>
 #include <linux/mmc/host.h>
 #include <linux/mmc/mmc.h>
+#include <linux/pm_qos.h>
 
 #include "msdc_cust.h"
 
@@ -420,6 +421,8 @@ struct msdc_host {
 	void    (*power_switch)(struct msdc_host *host, u32 on);
 	u32                     power_io;
 	u32                     power_flash;
+
+	struct pm_qos_request   msdc_pm_qos_req; /* use for pm qos */
 
 	struct clk              *clk_ctl;
 	struct clk              *aes_clk_ctl;
