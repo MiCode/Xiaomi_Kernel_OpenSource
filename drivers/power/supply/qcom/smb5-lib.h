@@ -1,4 +1,5 @@
 /* Copyright (c) 2018 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -81,12 +82,25 @@ enum print_reason {
 
 #define SDP_100_MA			100000
 #define SDP_CURRENT_UA			500000
-#define CDP_CURRENT_UA			1500000
-#define DCP_CURRENT_UA			1500000
+#define CDP_CURRENT_UA			1000000
+#ifdef PROJECT_PINE
+#define DCP_CURRENT_UA			2000000
+#define HVDCP_CURRENT_UA		2000000
+#else
+#define DCP_CURRENT_UA			3000000
 #define HVDCP_CURRENT_UA		3000000
+#endif
 #define TYPEC_DEFAULT_CURRENT_UA	900000
 #define TYPEC_MEDIUM_CURRENT_UA		1500000
+#ifdef PROJECT_PINE
+#define TYPEC_HIGH_CURRENT_UA		2000000
+#else
 #define TYPEC_HIGH_CURRENT_UA		3000000
+#endif
+#define SMBCHG_UPDATE_MS		1000
+
+#define DCP_CURRENT_UA_PINE_IDN		1000000
+#define DCP_CURRENT_UA_PINE_LIMIT		1300000
 
 enum smb_mode {
 	PARALLEL_MASTER = 0,
@@ -310,6 +324,7 @@ struct smb_charger {
 	struct mutex		lock;
 	struct mutex		ps_change_lock;
 	struct mutex		vadc_lock;
+	struct mutex		cool_current;
 
 	/* power supplies */
 	struct power_supply		*batt_psy;
@@ -355,6 +370,11 @@ struct smb_charger {
 	struct delayed_work	uusb_otg_work;
 	struct delayed_work	bb_removal_work;
 	struct delayed_work	usbov_dbc_work;
+	struct delayed_work	cool_limit_work;
+	struct delayed_work 	arb_monitor_work;
+#ifdef PROJECT_PINE
+	struct delayed_work	adapter_limit_work;
+#endif
 
 	/* alarm */
 	struct alarm		moisture_protection_alarm;
@@ -381,6 +401,7 @@ struct smb_charger {
 	int			fake_batt_status;
 	bool			step_chg_enabled;
 	bool			sw_jeita_enabled;
+	bool			hw_jeita_enabled;
 	bool			is_hdc;
 	bool			chg_done;
 	int			connector_type;
@@ -437,6 +458,17 @@ struct smb_charger {
 	u32			headroom_mode;
 	bool			flash_init_done;
 	bool			flash_active;
+#ifdef PROJECT_PINE
+	bool			is_adapter_idn;
+#endif
+
+#if defined(PROJECT_OLIVE) || defined(PROJECT_OLIVELITE)
+	unsigned long recent_collapse_time;
+	bool		  hvdcp_disabled;
+	bool		  collapsed;
+	struct delayed_work hw_suchg_detect_work;
+	int 		  count;
+#endif
 };
 
 int smblib_read(struct smb_charger *chg, u16 addr, u8 *val);

@@ -104,9 +104,31 @@ static ssize_t power_supply_show_property(struct device *dev,
 		}
 	}
 
+#ifndef PROJECT_PINE
+	if (value.intval == POWER_SUPPLY_TYPE_USB_PD) {
+		ret = power_supply_get_property(psy, off, &value);
+
+		if (ret < 0) {
+			if (ret == -ENODATA)
+				dev_dbg(dev, "driver has no data for `%s' property\n",
+					attr->attr.name);
+			else if (ret != -ENODEV && ret != -EAGAIN)
+				dev_err(dev, "driver failed to report `%s' property: %zd\n",
+					attr->attr.name, ret);
+			return ret;
+		}
+	}
+#endif
+
 	if (off == POWER_SUPPLY_PROP_STATUS)
 		return scnprintf(buf, PAGE_SIZE, "%s\n",
 				status_text[value.intval]);
+	else if (off == POWER_SUPPLY_PROP_HVDCP_TYPE3)
+		return scnprintf(buf, PAGE_SIZE, "%d\n",
+				value.intval);
+	else if (off == POWER_SUPPLY_PROP_BATTERY_ID)
+		return scnprintf(buf, PAGE_SIZE, "%d\n",
+				value.intval);
 	else if (off == POWER_SUPPLY_PROP_CHARGE_TYPE)
 		return scnprintf(buf, PAGE_SIZE, "%s\n",
 				charge_type[value.intval]);
@@ -350,6 +372,9 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(serial_number),
 	POWER_SUPPLY_ATTR(battery_type),
 	POWER_SUPPLY_ATTR(cycle_counts),
+	POWER_SUPPLY_ATTR(battery_id),
+	POWER_SUPPLY_ATTR(fvcomp),
+	POWER_SUPPLY_ATTR(hvdcp_type3),
 };
 
 static struct attribute *

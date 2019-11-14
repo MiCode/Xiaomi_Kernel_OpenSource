@@ -1,4 +1,5 @@
 /* Copyright (c) 2009-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,6 +34,9 @@ static const struct of_device_id msm_flash_dt_match[] = {
 	{.compatible = "qcom,camera-flash", .data = NULL},
 	{}
 };
+
+static struct msm_flash_ctrl_t *flashlight_ctrl;
+static unsigned char flashlight_brightness_value;
 
 static struct msm_flash_table msm_i2c_flash_table;
 static struct msm_flash_table msm_gpio_flash_table;
@@ -84,6 +88,89 @@ static struct led_classdev msm_torch_led[MAX_LED_TRIGGERS] = {
 		.brightness	= LED_OFF,
 	},
 };
+
+static void msm_flashlight_brightness_vince_set(struct led_classdev *led_cdev,
+		enum led_brightness value)
+{
+	int32_t i = 0;
+	/*
+	Define FLASH_ACTIVE_5V_ENABLE: If it supports QC3.0 charger;
+	Then we need to do call qpnp_flash_led_prepare() to enable flash triggers;
+	*/
+#ifdef FLASH_ACTIVE_5V_ENABLE
+	int32_t max_current = -EINVAL;
+	int32_t ret = 0;
+#endif
+	struct msm_flash_ctrl_t *flash_ctrl = flashlight_ctrl;
+
+	flashlight_brightness_value = value;
+	pr_err("%s:%d flashlight_brightness_value = %d\n",
+		   __func__, __LINE__, value);
+	if (value == 0) {
+		/* Turn off flash triggers */
+#ifdef FLASH_ACTIVE_5V_ENABLE
+		ret = qpnp_flash_led_prepare(flash_ctrl->switch_trigger,
+						DISABLE_REGULATOR, &max_current);
+		if (ret < 0) {
+			pr_err("%s:%d regulator disable failed ret = %d\n",
+				__func__, __LINE__, ret);
+		}
+#endif
+		for (i = 0; i < flash_ctrl->torch_num_sources; i++)
+			if (flash_ctrl->torch_trigger[i])
+				led_trigger_event(
+					flash_ctrl->torch_trigger[i], 0);
+		if (flash_ctrl->switch_trigger)
+			led_trigger_event(flash_ctrl->switch_trigger, 0);
+	} else {/* Turn on flash triggers */
+#ifdef FLASH_ACTIVE_5V_ENABLE
+		ret = qpnp_flash_led_prepare(flash_ctrl->switch_trigger,
+						ENABLE_REGULATOR, &max_current);
+		if (ret < 0) {
+			pr_err("%s:%d regulator enable failed ret = %d\n",
+				__func__, __LINE__, ret);
+		}
+#endif
+		for (i = 0; i < flash_ctrl->torch_num_sources; i++)
+			led_trigger_event(flash_ctrl->torch_trigger[i],
+							 flashlight_brightness_value);
+		if (flash_ctrl->switch_trigger)
+			led_trigger_event(flash_ctrl->switch_trigger, 1);
+	}
+}
+
+static enum led_brightness msm_flashlight_brightness_vince_get(
+		struct led_classdev *led_cdev)
+{
+	return flashlight_brightness_value;
+}
+
+static struct led_classdev msm_pmic_flashlight_led = {
+	.name           = "flashlight",
+	.brightness_set = msm_flashlight_brightness_vince_set,
+	.brightness_get = msm_flashlight_brightness_vince_get,
+	.brightness     = LED_OFF,
+};
+
+int32_t msm_flashlight_create_classdev(struct platform_device *pdev,
+		void *data)
+{
+	int32_t i = 0;
+	int32_t rc = 0;
+	struct msm_flash_ctrl_t *fctrl =
+		(struct msm_flash_ctrl_t *)data;
+	if (!fctrl) {
+		pr_err("Invalid fctrl\n");
+		return -EINVAL;
+	}
+	flashlight_ctrl = fctrl;
+	rc = led_classdev_register(&pdev->dev, &msm_pmic_flashlight_led);
+	if (rc) {
+		pr_err("Failed to register %d led dev. rc = %d\n", i, rc);
+		return rc;
+	}
+	return 0;
+}
 
 static int32_t msm_torch_create_classdev(struct platform_device *pdev,
 				void *data)
@@ -661,7 +748,7 @@ static int32_t msm_flash_low(
 				pr_debug("LED current clamped to %d\n",
 					curr);
 			}
-			CDBG("low_flash_current[%d] = %d", i, curr);
+			pr_err("low_flash_current[%d] = %d", i, curr);
 			led_trigger_event(flash_ctrl->torch_trigger[i],
 				curr);
 		}
@@ -698,7 +785,7 @@ static int32_t msm_flash_high(
 				pr_debug("LED flash_current[%d] clamped %d\n",
 					i, curr);
 			}
-			CDBG("high_flash_current[%d] = %d", i, curr);
+			pr_err("high_flash_current[%d] = %d", i, curr);
 			led_trigger_event(flash_ctrl->flash_trigger[i],
 				curr);
 		}
@@ -760,11 +847,13 @@ static int32_t msm_flash_config(struct msm_flash_ctrl_t *flash_ctrl,
 	switch (flash_data->cfg_type) {
 	case CFG_FLASH_INIT:
 		rc = msm_flash_init_prepare(flash_ctrl, flash_data);
+		flashlight_brightness_value = 0;
 		break;
 	case CFG_FLASH_RELEASE:
 		if (flash_ctrl->flash_state != MSM_CAMERA_FLASH_RELEASE) {
 			rc = flash_ctrl->func_tbl->camera_flash_release(
 				flash_ctrl);
+			flashlight_brightness_value = 0;
 		} else {
 			CDBG(pr_fmt("Invalid state : %d\n"),
 				flash_ctrl->flash_state);
@@ -775,6 +864,7 @@ static int32_t msm_flash_config(struct msm_flash_ctrl_t *flash_ctrl,
 			(flash_ctrl->flash_state != MSM_CAMERA_FLASH_OFF)) {
 			rc = flash_ctrl->func_tbl->camera_flash_off(
 				flash_ctrl, flash_data);
+		flashlight_brightness_value = 0;
 			if (!rc)
 				flash_ctrl->flash_state = MSM_CAMERA_FLASH_OFF;
 		} else {
@@ -787,6 +877,7 @@ static int32_t msm_flash_config(struct msm_flash_ctrl_t *flash_ctrl,
 			(flash_ctrl->flash_state == MSM_CAMERA_FLASH_INIT)) {
 			rc = flash_ctrl->func_tbl->camera_flash_low(
 				flash_ctrl, flash_data);
+			flashlight_brightness_value = 100;
 			if (!rc)
 				flash_ctrl->flash_state = MSM_CAMERA_FLASH_LOW;
 		} else {
@@ -799,6 +890,7 @@ static int32_t msm_flash_config(struct msm_flash_ctrl_t *flash_ctrl,
 			(flash_ctrl->flash_state == MSM_CAMERA_FLASH_INIT)) {
 			rc = flash_ctrl->func_tbl->camera_flash_high(
 				flash_ctrl, flash_data);
+			flashlight_brightness_value = 100;
 			if (!rc)
 				flash_ctrl->flash_state = MSM_CAMERA_FLASH_HIGH;
 		} else {
@@ -819,9 +911,7 @@ static int32_t msm_flash_config(struct msm_flash_ctrl_t *flash_ctrl,
 			__func__, __LINE__, rc);
 		return rc;
 	}
-
 	CDBG("Exit %s type %d\n", __func__, flash_data->cfg_type);
-
 	return rc;
 }
 
@@ -1336,7 +1426,7 @@ static int32_t msm_flash_platform_probe(struct platform_device *pdev)
 
 	if (flash_ctrl->flash_driver_type == FLASH_DRIVER_PMIC)
 		rc = msm_torch_create_classdev(pdev, flash_ctrl);
-
+	msm_flashlight_create_classdev(pdev, flash_ctrl);
 	CDBG("probe success\n");
 	return rc;
 }
@@ -1362,6 +1452,8 @@ static int __init msm_flash_init_module(void)
 	int32_t rc = 0;
 
 	CDBG("Enter\n");
+	flashlight_ctrl = NULL;
+	flashlight_brightness_value = 0;
 	rc = platform_driver_register(&msm_flash_platform_driver);
 	if (rc)
 		pr_err("platform probe for flash failed");

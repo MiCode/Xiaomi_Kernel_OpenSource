@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -306,6 +307,14 @@ static ssize_t qpnp_vib_store_duration(struct device *dev,
 	chip->vib_play_ms = val;
 	mutex_unlock(&chip->lock);
 
+#ifdef	FACTORY_VERSION_ENABLE
+	mutex_lock(&chip->lock);
+	hrtimer_cancel(&chip->stop_timer);
+	chip->state = val;
+	pr_debug("state = %d, time = %llums\n", chip->state, chip->vib_play_ms);
+	mutex_unlock(&chip->lock);
+	schedule_work(&chip->vib_work);
+#endif
 	return count;
 }
 

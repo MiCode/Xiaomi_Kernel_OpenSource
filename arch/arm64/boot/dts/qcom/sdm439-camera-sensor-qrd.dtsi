@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2016, 2018 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,155 +27,26 @@
 		qcom,cam-vreg-op-mode = <80000>;
 	};
 
-	actuator1: qcom,actuator@1 {
-		cell-index = <1>;
-		reg = <0x1>;
-		compatible = "qcom,actuator";
-		qcom,cci-master = <0>;
-		cam_vaf-supply = <&pm8953_l17>;
-		qcom,cam-vreg-name = "cam_vaf";
-		qcom,cam-vreg-min-voltage = <2850000>;
-		qcom,cam-vreg-max-voltage = <2850000>;
-		qcom,cam-vreg-op-mode = <80000>;
-	};
-
 	eeprom0: qcom,eeprom@0 {
 		cell-index = <0>;
+		qcom,eeprom-name = "pine_ov13855_qtech";
 		compatible = "qcom,eeprom";
+		qcom,slave-addr = <0xa0>;
 		qcom,cci-master = <0>;
-		reg = <0x0>;
-		cam_vana-supply = <&pm8953_l22>;
-		cam_vio-supply = <&pm8953_l6>;
-		cam_vaf-supply = <&pm8953_l17>;
-		cam_vdig-supply = <&pm8953_l3>;
-		qcom,cam-vreg-name = "cam_vana", "cam_vio",
-					"cam_vdig", "cam_vaf";
-		qcom,cam-vreg-min-voltage = <2800000 0 1200000 2850000>;
-		qcom,cam-vreg-max-voltage = <2800000 0 1200000 2850000>;
-		qcom,cam-vreg-op-mode = <80000 0 200000 100000>;
-		pinctrl-names = "cam_default", "cam_suspend";
-		pinctrl-0 = <&cam_sensor_mclk0_default
-			&cam_sensor_rear_reset
-			&cam_sensor_rear_vana>;
-		pinctrl-1 = <&cam_sensor_mclk0_sleep
-			&cam_sensor_rear_reset_sleep
-			&cam_sensor_rear_vana_sleep>;
-		gpios = <&tlmm 26 0>,
-			<&tlmm 36 0>,
-			<&tlmm 35 0>;
-		qcom,gpio-reset = <1>;
-		qcom,gpio-vana = <2>;
-		qcom,gpio-req-tbl-num = <0 1 2>;
-		qcom,gpio-req-tbl-flags = <1 0 0>;
-		qcom,gpio-req-tbl-label = "CAMIF_MCLK0",
-			"CAM_RESET0",
-			"CAM_VANA";
-		status = "ok";
-		clocks = <&clock_gcc clk_mclk0_clk_src>,
-			<&clock_gcc clk_gcc_camss_mclk0_clk>;
-		clock-names = "cam_src_clk", "cam_clk";
-		qcom,clock-rates = <19200000 0>;
-	};
-
-	eeprom1: qcom,eeprom@1 {
-		cell-index = <1>;
-		reg = <0x1>;
-		qcom,eeprom-name = "sunny_8865";
-		compatible = "qcom,eeprom";
-		qcom,slave-addr = <0x6c>;
-		qcom,cci-master = <0>;
-		qcom,num-blocks = <8>;
-
-		qcom,page0 = <1 0x0100 2 0x01 1 1>;
+		qcom,i2c-freq-mode = <1>;
+		reg = <0x00>;
+		qcom,num-blocks = <1>;
+		qcom,page0 = <0 0x0 2 0x01 1 1>;
 		qcom,poll0 = <0 0x0 2 0x0 1 0>;
-		qcom,mem0 = <0 0x0 2 0x0 1 0>;
-
-		qcom,page1 = <1 0x5002 2 0x00 1 0>;
-		qcom,poll1 = <0 0x0 2 0x0 1 0>;
-		qcom,mem1 = <0 0x0 2 0x0 1 0>;
-
-		qcom,page2 = <1 0x3d84 2 0xc0 1 0>;
-		qcom,poll2 = <0 0x0 2 0x0 1 0>;
-		qcom,mem2 = <0 0x0 2 0x0 1 0>;
-
-		qcom,page3 = <1 0x3d88 2 0x70 1 0>;
-		qcom,poll3 = <0 0x0 2 0x0 1 0>;
-		qcom,mem3 = <0 0x0 2 0x0 1 0>;
-
-		qcom,page4 = <1 0x3d89 2 0x10 1 0>;
-		qcom,poll4 = <0 0x0 2 0x0 1 0>;
-		qcom,mem4 = <0 0x0 2 0x0 1 0>;
-
-		qcom,page5 = <1 0x3d8a 2 0x70 1 0>;
-		qcom,poll5 = <0 0x0 2 0x0 1 0>;
-		qcom,mem5 = <0 0x0 2 0x0 1 0>;
-
-		qcom,page6 = <1 0x3d8b 2 0xf4 1 0>;
-		qcom,poll6 = <0 0x0 2 0x0 1 0>;
-		qcom,mem6 = <0 0x0 2 0x0 1 0>;
-
-		qcom,page7 = <1 0x3d81 2 0x01 1 10>;
-		qcom,poll7 = <0 0x0 2 0x0 1 1>;
-		qcom,mem7 = <1536 0x7010 2 0 1 0>;
-
-		cam_vdig-supply = <&pm8953_l23>;
+		qcom,mem0 = <8192 0x0 2 0x0 1 0>;
 		cam_vana-supply = <&pm8953_l22>;
 		cam_vio-supply = <&pm8953_l6>;
-		cam_vaf-supply = <&pm8953_l17>;
-		qcom,cam-vreg-name = "cam_vdig", "cam_vio",
-				"cam_vana", "cam_vaf";
-		qcom,cam-vreg-min-voltage = <1200000 0 2800000 2850000>;
-		qcom,cam-vreg-max-voltage = <1200000 0 2800000 2850000>;
-		qcom,cam-vreg-op-mode = <105000 0 80000 100000>;
-		qcom,gpio-no-mux = <0>;
-		pinctrl-names = "cam_default", "cam_suspend";
-		pinctrl-0 = <&cam_sensor_mclk2_default
-			&cam_sensor_front1_default>;
-		pinctrl-1 = <&cam_sensor_mclk2_sleep
-			&cam_sensor_front1_sleep>;
-		gpios = <&tlmm 28 0>,
-			<&tlmm 40 0>,
-			<&tlmm 39 0>;
-		qcom,gpio-reset = <1>;
-		qcom,gpio-standby = <2>;
-		qcom,gpio-req-tbl-num = <0 1 2>;
-		qcom,gpio-req-tbl-flags = <1 0 0>;
-		qcom,gpio-req-tbl-label = "CAMIF_MCLK2",
-					  "CAM_RESET2",
-					  "CAM_STANDBY2";
-		qcom,cam-power-seq-type = "sensor_vreg", "sensor_vreg",
-			"sensor_vreg",
-			"sensor_gpio", "sensor_gpio" , "sensor_clk";
-		qcom,cam-power-seq-val = "cam_vdig", "cam_vana", "cam_vio",
-			"sensor_gpio_reset", "sensor_gpio_standby",
-			"sensor_cam_mclk";
-		qcom,cam-power-seq-cfg-val = <1 1 1 1 1 24000000>;
-		qcom,cam-power-seq-delay = <1 1 1 30 30 5>;
-		status = "ok";
-		clocks = <&clock_gcc clk_mclk2_clk_src>,
-			<&clock_gcc clk_gcc_camss_mclk2_clk>;
-		clock-names = "cam_src_clk", "cam_clk";
-		qcom,clock-rates = <19200000 0>;
-	};
-
-	qcom,camera@0 {
-		cell-index = <0>;
-		compatible = "qcom,camera";
-		reg = <0x0>;
-		qcom,csiphy-sd-index = <0>;
-		qcom,csid-sd-index = <0>;
-		qcom,mount-angle = <90>;
-		qcom,led-flash-src = <&led_flash0>;
-		qcom,eeprom-src = <&eeprom0>;
-		qcom,actuator-src = <&actuator0>;
-		cam_vana-supply = <&pm8953_l22>;
-		cam_vio-supply = <&pm8953_l6>;
-		cam_vaf-supply = <&pm8953_l17>;
 		cam_vdig-supply = <&pm8953_l3>;
+		cam_vaf-supply = <&pm8953_l17>;
 		qcom,cam-vreg-name = "cam_vana", "cam_vio",
-				"cam_vdig", "cam_vaf";
-		qcom,cam-vreg-min-voltage = <2800000 0 1200000 2850000>;
-		qcom,cam-vreg-max-voltage = <2800000 0 1200000 2850000>;
+			"cam_vdig", "cam_vaf";
+		qcom,cam-vreg-min-voltage = <2900000 0 1200000 2850000>;
+		qcom,cam-vreg-max-voltage = <2900000 0 1200000 2850000>;
 		qcom,cam-vreg-op-mode = <80000 0 200000 100000>;
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cam_sensor_mclk0_default
@@ -193,12 +65,1968 @@
 		qcom,gpio-req-tbl-label = "CAMIF_MCLK0",
 			"CAM_RESET0",
 			"CAM_VANA";
+		status = "ok";
+		clocks = <&clock_gcc clk_mclk0_clk_src>,
+			<&clock_gcc clk_gcc_camss_mclk0_clk>;
+		clock-names = "cam_src_clk", "cam_clk";
+		qcom,clock-rates = <24000000 0>;
+		qcom,cam-power-seq-type = "sensor_vreg",
+			   "sensor_vreg", "sensor_clk",
+				"sensor_gpio", "sensor_gpio";
+		qcom,cam-power-seq-val = "cam_vdig", "cam_vio",
+			"sensor_cam_mclk","sensor_gpio_reset",
+			"sensor_gpio_standby";
+		qcom,cam-power-seq-cfg-val = <0 0 24000000 1 1>;
+		qcom,cam-power-seq-delay = <0 0 1 5 5>;
+	};
+	eeprom1: qcom,eeprom@1 {
+		cell-index = <1>;
+		reg = <0x1>;
+		compatible = "qcom,eeprom";
+		qcom,cci-master = <1>;
+		qcom,eeprom-name = "pine_gc5035_qtech";
+		qcom,slave-addr = <0x6e>;
+		qcom,num-blocks = <157>;
+		/* reading init */
+		qcom,page0 = <0x1 0x00fc 1 0x01 1 0>;
+		qcom,poll0 = <0x0 0 1 0x0 1 0>;
+		qcom,mem0  = <0x0 0 1 0x0 1 0>;
+		qcom,page1 = <0x1 0x00f4 1 0x40 1 0>;
+		qcom,poll1 = <0x0 0 1 0x0 1 1>;
+		qcom,mem1  = <0x0 0 1 0x0 1 0>;
+		qcom,page2 = <0x1 0xf5 1 0xe9 1 0>;
+		qcom,poll2 = <0x0 0 1 0x0 1 0>;
+		qcom,mem2  = <0x0 0 1 0x0 1 0>;
+		qcom,page3 = <0x1 0xf6 1 0x14 1 0>;
+		qcom,poll3 = <0x0 0 1 0x0 1 0>;
+		qcom,mem3  = <0x0 0 1 0x0 1 0>;
+		qcom,page4 = <0x1 0xf8 1 0x49 1 0>;
+		qcom,poll4 = <0x0 0 1 0x0 1 0>;
+		qcom,mem4  = <0x0 0 1 0x0 1 0>;
+		qcom,page5 = <0x1 0xf9 1 0x82 1 0>;
+		qcom,poll5 = <0x0 0 1 0x0 1 0>;
+		qcom,mem5  = <0x0 0 1 0x0 1 0>;
+		qcom,page6 = <0x1 0xfa 1 0x10 1 0>;
+		qcom,poll6 = <0x0 0 1 0x0 1 0>;
+		qcom,mem6  = <0x0 0 1 0x0 1 0>;
+		qcom,page7 = <0x1 0xfc 1 0x81 1 0>;
+		qcom,poll7 = <0x0 0 1 0x0 1 0>;
+		qcom,mem7  = <0x0 0 1 0x0 1 0>;
+		qcom,page8 = <0x1 0xfe 1 0x00 1 0>;
+		qcom,poll8 = <0x0 0 1 0x0 1 0>;
+		qcom,mem8  = <0x0 0 1 0x0 1 0>;
+		qcom,page9 = <0x1 0x36 1 0x01 1 0>;
+		qcom,poll9 = <0x0 0 1 0x0 1 0>;
+		qcom,mem9  = <0x0 0 1 0x0 1 0>;
+		qcom,page10 = <0x1 0xd3 1 0x87 1 0>;
+		qcom,poll10 = <0x0 0 1 0x0 1 0>;
+		qcom,mem10  = <0x0 0 1 0x0 1 0>;
+		qcom,page11 = <0x1 0x36 1 0x00 1 0>;
+		qcom,poll11 = <0x0 0 1 0x0 1 0>;
+		qcom,mem11  = <0x0 0 1 0x0 1 0>;
+		qcom,page12 = <0x1 0xf7 1 0x01 1 0>;
+		qcom,poll12 = <0x0 0 1 0x0 1 0>;
+		qcom,mem12  = <0x0 0 1 0x0 1 0>;
+		qcom,page13 = <0x1 0xfc 1 0x8f 1 0>;
+		qcom,poll13 = <0x0 0 1 0x0 1 0>;
+		qcom,mem13  = <0x0 0 1 0x0 1 0>;
+		qcom,page14 = <0x1 0xfc 1 0x8f 1 0>;
+		qcom,poll14 = <0x0 0 1 0x0 1 0>;
+		qcom,mem14  = <0x0 0 1 0x0 1 0>;
+		qcom,page15 = <0x1 0xfc 1 0x8e 1 0>;
+		qcom,poll15 = <0x0 0 1 0x0 1 0>;
+		qcom,mem15  = <0x0 0 1 0x0 1 0>;
+		qcom,page16 = <0x1 0xfe 1 0x02 1 0>;
+		qcom,poll16 = <0x0 0 1 0x0 1 0>;
+		qcom,mem16  = <0x0 0 1 0x0 1 0>;
+		qcom,page17 = <0x1 0x55 1 0x80 1 0>;
+		qcom,poll17 = <0x0 0 1 0x0 1 0>;
+		qcom,mem17  = <0x0 0 1 0x0 1 0>;
+		qcom,page18 = <0x1 0x65 1 0x7e 1 0>;
+		qcom,poll18 = <0x0 0 1 0x0 1 0>;
+		qcom,mem18  = <0x0 0 1 0x0 1 0>;
+		qcom,page19 = <0x1 0x66 1 0x03 1 0>;
+		qcom,poll19 = <0x0 0 1 0x0 1 0>;
+		qcom,mem19  = <0x0 0 1 0x0 1 0>;
+		/*page0 DD 3*/
+		qcom,page20 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll20 = <0x0 0 1 0x0 1 0>;
+		qcom,mem20  = <0x0 0 1 0x0 1 0>;
+		qcom,page21 = <0x1 0x68 1 0x11 1 0>;
+		qcom,poll21 = <0x0 0 1 0x0 1 0>;
+		qcom,mem21  = <0x0 0 1 0x0 1 0>;
+		qcom,page22 = <0x1 0xe0 1 0x00 1 0>;
+		qcom,poll22 = <0x0 0 1 0x0 1 0>;
+		qcom,mem22  = <0x0 0 1 0x0 1 0>;
+		qcom,page23 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll23 = <0x0 0 1 0x0 1 0>;
+		qcom,mem23  = <0x0 0 1 0x0 1 0>;
+		qcom,page24 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll24 = <0x0 0 1 0x0 1 0>;
+		qcom,mem24  = <3 0xcd 1 0 1 0>;
+		/* seting page 8*/
+		qcom,page25 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll25 = <0x0 0 1 0x0 1 0>;
+		qcom,mem25  = <0x0 0 1 0x0 1 0>;
+		qcom,page26 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll26 = <0x0 0 1 0x0 1 0>;
+		qcom,mem26  = <0x0 0 1 0x0 1 0>;
+		// page 8
+		qcom,page27 = <0x1 0xe0 1 0x08 1 0>;
+		qcom,poll27 = <0x0 0 1 0x0 1 0>;
+		qcom,mem27  = <0x0 0 1 0x0 1 0>;
+		qcom,page28 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll28 = <0x0 0 1 0x0 1 0>;
+		qcom,mem28  = <0x0 0 1 0x0 1 0>;
+		qcom,page29 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll29 = <0x0 0 1 0x0 1 0>;
+		qcom,mem29  = <0x10 0xd0 1 0x0 1 0>;
+		/*page9 REG 10*/
+		qcom,page30 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll30 = <0x0 0 1 0x0 1 0>;
+		qcom,mem30  = <0x0 0 1 0x0 1 0>;
+		qcom,page31 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll31 = <0x0 0 1 0x0 1 0>;
+		qcom,mem31  = <0x0 0 1 0x0 1 0>;
+		// page 9
+		qcom,page32 = <0x1 0xe0 1 0x09 1 0>;
+		qcom,poll32 = <0x0 0 1 0x0 1 0>;
+		qcom,mem32  = <0x0 0 1 0x0 1 0>;
+		qcom,page33 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll33 = <0x0 0 1 0x0 1 0>;
+		qcom,mem33  = <0x0 0 1 0x0 1 0>;
+		qcom,page34 = <0x1 0xf3 1 0x10 1 1>;
+		qcom,poll34 = <0x0 0 1 0x0 1 0>;
+		qcom,mem34  = <0x0A 0xC0 1 0x0 1 0>;
+		/*page31 info&WB 30*/
+		qcom,page35 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll35 = <0x0 0 1 0x0 1 0>;
+		qcom,mem35  = <0x0 0 1 0x0 1 0>;
+		qcom,page36 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll36 = <0x0 0 1 0x0 1 0>;
+		qcom,mem36  = <0x0 0 1 0x0 1 0>;
+		// page 31
+		qcom,page37 = <0x1 0xe0 1 0x1f 1 0>;
+		qcom,poll37 = <0x0 0 1 0x0 1 0>;
+		qcom,mem37  = <0x0 0 1 0x0 1 0>;
+		qcom,page38 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll38 = <0x0 0 1 0x0 1 0>;
+		qcom,mem38  = <0x0 0 1 0x0 1 0>;
+		qcom,page39 = <0x1 0xf3 1 0x10 1 1>;
+		qcom,poll39 = <0x0 0 1 0x0 1 0>;
+		qcom,mem39  = <0x1E 0xC2 1 0x0 1 0>;
+		/*page10 LSC 24*/
+		qcom,page40 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll40 = <0x0 0 1 0x0 1 0>;
+		qcom,mem40  = <0x0 0 1 0x0 1 0>;
+		qcom,page41 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll41 = <0x0 0 1 0x0 1 0>;
+		qcom,mem41  = <0x0 0 1 0x0 1 0>;
+		// page 10
+		qcom,page42 = <0x1 0xe0 1 0x0a 1 0>;
+		qcom,poll42 = <0x0 0 1 0x0 1 0>;
+		qcom,mem42  = <0x0 0 1 0x0 1 0>;
+		qcom,page43 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll43 = <0x0 0 1 0x0 1 0>;
+		qcom,mem43  = <0x0 0 1 0x0 1 0>;
+		qcom,page44 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll44 = <0x0 0 1 0x0 1 0>;
+		qcom,mem44  = <0x18 0xC8 1 0x0 1 0>;
+		/*page11 LSC 32*/
+		qcom,page45 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll45 = <0x0 0 1 0x0 1 0>;
+		qcom,mem45  = <0x0 0 1 0x0 1 0>;
+		qcom,page46 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll46 = <0x0 0 1 0x0 1 0>;
+		qcom,mem46  = <0x0 0 1 0x0 1 0>;
+		// page 11
+		qcom,page47 = <0x1 0xe0 1 0x0b 1 0>;
+		qcom,poll47 = <0x0 0 1 0x0 1 0>;
+		qcom,mem47  = <0x0 0 1 0x0 1 0>;
+		qcom,page48 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll48 = <0x0 0 1 0x0 1 0>;
+		qcom,mem48  = <0x0 0 1 0x0 1 0>;
+		qcom,page49 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll49 = <0x0 0 1 0x0 1 0>;
+		qcom,mem49  = <0x20 0xC0 1 0x0 1 0>;
+		/*page12 LSC 32*/
+		qcom,page50 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll50 = <0x0 0 1 0x0 1 0>;
+		qcom,mem50  = <0x0 0 1 0x0 1 0>;
+		qcom,page51 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll51 = <0x0 0 1 0x0 1 0>;
+		qcom,mem51  = <0x0 0 1 0x0 1 0>;
+		// page 12
+		qcom,page52 = <0x1 0xe0 1 0x0c 1 0>;
+		qcom,poll52 = <0x0 0 1 0x0 1 0>;
+		qcom,mem52  = <0x0 0 1 0x0 1 0>;
+		qcom,page53 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll53 = <0x0 0 1 0x0 1 0>;
+		qcom,mem53  = <0x0 0 1 0x0 1 0>;
+		qcom,page54 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll54 = <0x0 0 1 0x0 1 0>;
+		qcom,mem54  = <0x20 0xC0 1 0x0 1 0>;
+		/*page13 LSC 32*/
+		qcom,page55 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll55 = <0x0 0 1 0x0 1 0>;
+		qcom,mem55  = <0x0 0 1 0x0 1 0>;
+		qcom,page56 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll56 = <0x0 0 1 0x0 1 0>;
+		qcom,mem56  = <0x0 0 1 0x0 1 0>;
+		// page 13
+		qcom,page57 = <0x1 0xe0 1 0x0d 1 0>;
+		qcom,poll57 = <0x0 0 1 0x0 1 0>;
+		qcom,mem57  = <0x0 0 1 0x0 1 0>;
+		qcom,page58 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll58 = <0x0 0 1 0x0 1 0>;
+		qcom,mem58  = <0x0 0 1 0x0 1 0>;
+		qcom,page59 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll59 = <0x0 0 1 0x0 1 0>;
+		qcom,mem59  = <0x20 0xC0 1 0x0 1 0>;
+		/*page14 LSC 32*/
+		qcom,page60 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll60 = <0x0 0 1 0x0 1 0>;
+		qcom,mem60  = <0x0 0 1 0x0 1 0>;
+		qcom,page61 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll61 = <0x0 0 1 0x0 1 0>;
+		qcom,mem61  = <0x0 0 1 0x0 1 0>;
+		// page 14
+		qcom,page62 = <0x1 0xe0 1 0x0e 1 0>;
+		qcom,poll62 = <0x0 0 1 0x0 1 0>;
+		qcom,mem62  = <0x0 0 1 0x0 1 0>;
+		qcom,page63 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll63 = <0x0 0 1 0x0 1 0>;
+		qcom,mem63  = <0x0 0 1 0x0 1 0>;
+		qcom,page64 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll64 = <0x0 0 1 0x0 1 0>;
+		qcom,mem64  = <0x20 0xC0 1 0x0 1 0>;
+		/*page15 LSC 32*/
+		qcom,page65 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll65 = <0x0 0 1 0x0 1 0>;
+		qcom,mem65  = <0x0 0 1 0x0 1 0>;
+		qcom,page66 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll66 = <0x0 0 1 0x0 1 0>;
+		qcom,mem66  = <0x0 0 1 0x0 1 0>;
+		// page 15
+		qcom,page67 = <0x1 0xe0 1 0x0f 1 0>;
+		qcom,poll67 = <0x0 0 1 0x0 1 0>;
+		qcom,mem67  = <0x0 0 1 0x0 1 0>;
+		qcom,page68 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll68 = <0x0 0 1 0x0 1 0>;
+		qcom,mem68  = <0x0 0 1 0x0 1 0>;
+		qcom,page69 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll69 = <0x0 0 1 0x0 1 0>;
+		qcom,mem69  = <0x20 0xC0 1 0x0 1 0>;
+		/*page16 LSC 32*/
+		qcom,page70 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll70 = <0x0 0 1 0x0 1 0>;
+		qcom,mem70  = <0x0 0 1 0x0 1 0>;
+		qcom,page71 = <0x1 0x68 1 0x11 1 0>;
+		qcom,poll71 = <0x0 0 1 0x0 1 0>;
+		qcom,mem71  = <0x0 0 1 0x0 1 0>;
+		// page 16
+		qcom,page72 = <0x1 0xe0 1 0x10 1 0>;
+		qcom,poll72 = <0x0 0 1 0x0 1 0>;
+		qcom,mem72  = <0x0 0 1 0x0 1 0>;
+		qcom,page73 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll73 = <0x0 0 1 0x0 1 0>;
+		qcom,mem73  = <0x0 0 1 0x0 1 0>;
+		qcom,page74 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll74 = <0x0 0 1 0x0 1 0>;
+		qcom,mem74  = <0x20 0xC0 1 0x0 1 0>;
+		/*page17 LSC 32*/
+		qcom,page75 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll75 = <0x0 0 1 0x0 1 0>;
+		qcom,mem75  = <0x0 0 1 0x0 1 0>;
+		qcom,page76 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll76 = <0x0 0 1 0x0 1 0>;
+		qcom,mem76  = <0x0 0 1 0x0 1 0>;
+		// page 17
+		qcom,page77 = <0x1 0xe0 1 0x11 1 0>;
+		qcom,poll77 = <0x0 0 1 0x0 1 0>;
+		qcom,mem77  = <0x0 0 1 0x0 1 0>;
+		qcom,page78 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll78 = <0x0 0 1 0x0 1 0>;
+		qcom,mem78  = <0x0 0 1 0x0 1 0>;
+		qcom,page79 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll79 = <0x0 0 1 0x0 1 0>;
+		qcom,mem79  = <0x20 0xC0 1 0x0 1 0>;
+		/*page18 LSC 32*/
+		qcom,page80 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll80 = <0x0 0 1 0x0 1 0>;
+		qcom,mem80  = <0x0 0 1 0x0 1 0>;
+		qcom,page81 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll81 = <0x0 0 1 0x0 1 0>;
+		qcom,mem81  = <0x0 0 1 0x0 1 0>;
+		// page 18
+		qcom,page82 = <0x1 0xe0 1 0x12 1 0>;
+		qcom,poll82 = <0x0 0 1 0x0 1 0>;
+		qcom,mem82  = <0x0 0 1 0x0 1 0>;
+		qcom,page83 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll83 = <0x0 0 1 0x0 1 0>;
+		qcom,mem83  = <0x0 0 1 0x0 1 0>;
+		qcom,page84 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll84 = <0x0 0 1 0x0 1 0>;
+		qcom,mem84  = <0x20 0xC0 1 0x0 1 0>;
+		/*page19 LSC 32*/
+		qcom,page85 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll85 = <0x0 0 1 0x0 1 0>;
+		qcom,mem85  = <0x0 0 1 0x0 1 0>;
+		qcom,page86 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll86 = <0x0 0 1 0x0 1 0>;
+		qcom,mem86  = <0x0 0 1 0x0 1 0>;
+		// page 19
+		qcom,page87 = <0x1 0xe0 1 0x13 1 0>;
+		qcom,poll87 = <0x0 0 1 0x0 1 0>;
+		qcom,mem87  = <0x0 0 1 0x0 1 0>;
+		qcom,page88 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll88 = <0x0 0 1 0x0 1 0>;
+		qcom,mem88  = <0x0 0 1 0x0 1 0>;
+		qcom,page89 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll89 = <0x0 0 1 0x0 1 0>;
+		qcom,mem89  = <0x20 0xC0 1 0x0 1 0>;
+		/*page20 LSC 32*/
+		qcom,page90 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll90 = <0x0 0 1 0x0 1 0>;
+		qcom,mem90  = <0x0 0 1 0x0 1 0>;
+		qcom,page91 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll91 = <0x0 0 1 0x0 1 0>;
+		qcom,mem91  = <0x0 0 1 0x0 1 0>;
+		// page 20
+		qcom,page92 = <0x1 0xe0 1 0x14 1 0>;
+		qcom,poll92 = <0x0 0 1 0x0 1 0>;
+		qcom,mem92  = <0x0 0 1 0x0 1 0>;
+		qcom,page93 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll93 = <0x0 0 1 0x0 1 0>;
+		qcom,mem93  = <0x0 0 1 0x0 1 0>;
+		qcom,page94 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll94 = <0x0 0 1 0x0 1 0>;
+		qcom,mem94  = <0x20 0xC0 1 0x0 1 0>;
+		/*page21 LSC 32*/
+		qcom,page95 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll95 = <0x0 0 1 0x0 1 0>;
+		qcom,mem95  = <0x0 0 1 0x0 1 0>;
+		qcom,page96 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll96 = <0x0 0 1 0x0 1 0>;
+		qcom,mem96  = <0x0 0 1 0x0 1 0>;
+		// page 21
+		qcom,page97 = <0x1 0xe0 1 0x15 1 0>;
+		qcom,poll97 = <0x0 0 1 0x0 1 0>;
+		qcom,mem97  = <0x0 0 1 0x0 1 0>;
+		qcom,page98 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll98 = <0x0 0 1 0x0 1 0>;
+		qcom,mem98  = <0x0 0 1 0x0 1 0>;
+		qcom,page99 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll99 = <0x0 0 1 0x0 1 0>;
+		qcom,mem99  = <0x20 0xC0 1 0x0 1 0>;
+		/*page22 LSC 32*/
+		qcom,page100 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll100 = <0x0 0 1 0x0 1 0>;
+		qcom,mem100  = <0x0 0 1 0x0 1 0>;
+		qcom,page101 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll101 = <0x0 0 1 0x0 1 0>;
+		qcom,mem101  = <0x0 0 1 0x0 1 0>;
+		// page 22
+		qcom,page102 = <0x1 0xe0 1 0x16 1 0>;
+		qcom,poll102 = <0x0 0 1 0x0 1 0>;
+		qcom,mem102  = <0x0 0 1 0x0 1 0>;
+		qcom,page103 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll103 = <0x0 0 1 0x0 1 0>;
+		qcom,mem103  = <0x0 0 1 0x0 1 0>;
+		qcom,page104 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll104 = <0x0 0 1 0x0 1 0>;
+		qcom,mem104  = <0x20 0xC0 1 0x0 1 0>;
+		/*page23 LSC 32*/
+		qcom,page105 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll105 = <0x0 0 1 0x0 1 0>;
+		qcom,mem105  = <0x0 0 1 0x0 1 0>;
+		qcom,page106 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll106 = <0x0 0 1 0x0 1 0>;
+		qcom,mem106  = <0x0 0 1 0x0 1 0>;
+		// page 23
+		qcom,page107 = <0x1 0xe0 1 0x17 1 0>;
+		qcom,poll107 = <0x0 0 1 0x0 1 0>;
+		qcom,mem107  = <0x0 0 1 0x0 1 0>;
+		qcom,page108 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll108 = <0x0 0 1 0x0 1 0>;
+		qcom,mem108  = <0x0 0 1 0x0 1 0>;
+		qcom,page109 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll109 = <0x0 0 1 0x0 1 0>;
+		qcom,mem109  = <0x20 0xC0 1 0x0 1 0>;
+		/*page24 LSC 32*/
+		qcom,page110 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll110 = <0x0 0 1 0x0 1 0>;
+		qcom,mem110  = <0x0 0 1 0x0 1 0>;
+		qcom,page111 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll111 = <0x0 0 1 0x0 1 0>;
+		qcom,mem111  = <0x0 0 1 0x0 1 0>;
+		// page 24
+		qcom,page112 = <0x1 0xe0 1 0x18 1 0>;
+		qcom,poll112 = <0x0 0 1 0x0 1 0>;
+		qcom,mem112  = <0x0 0 1 0x0 1 0>;
+		qcom,page113 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll113 = <0x0 0 1 0x0 1 0>;
+		qcom,mem113  = <0x0 0 1 0x0 1 0>;
+		qcom,page114 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll114 = <0x0 0 1 0x0 1 0>;
+		qcom,mem114  = <0x20 0xC0 1 0x0 1 0>;
+		/*page25 LSC 32*/
+		qcom,page115 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll115 = <0x0 0 1 0x0 1 0>;
+		qcom,mem115  = <0x0 0 1 0x0 1 0>;
+		qcom,page116 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll116 = <0x0 0 1 0x0 1 0>;
+		qcom,mem116  = <0x0 0 1 0x0 1 0>;
+		// page 25
+		qcom,page117 = <0x1 0xe0 1 0x19 1 0>;
+		qcom,poll117 = <0x0 0 1 0x0 1 0>;
+		qcom,mem117  = <0x0 0 1 0x0 1 0>;
+		qcom,page118 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll118 = <0x0 0 1 0x0 1 0>;
+		qcom,mem118  = <0x0 0 1 0x0 1 0>;
+		qcom,page119 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll119 = <0x0 0 1 0x0 1 0>;
+		qcom,mem119  = <0x20 0xC0 1 0x0 1 0>;
+		/*page26 LSC 32*/
+		qcom,page120 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll120 = <0x0 0 1 0x0 1 0>;
+		qcom,mem120  = <0x0 0 1 0x0 1 0>;
+		qcom,page121 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll121 = <0x0 0 1 0x0 1 0>;
+		qcom,mem121  = <0x0 0 1 0x0 1 0>;
+		// page 26
+		qcom,page122 = <0x1 0xe0 1 0x1a 1 0>;
+		qcom,poll122 = <0x0 0 1 0x0 1 0>;
+		qcom,mem122  = <0x0 0 1 0x0 1 0>;
+		qcom,page123 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll123 = <0x0 0 1 0x0 1 0>;
+		qcom,mem123  = <0x0 0 1 0x0 1 0>;
+		qcom,page124 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll124 = <0x0 0 1 0x0 1 0>;
+		qcom,mem124  = <0x20 0xC0 1 0x0 1 0>;
+		/*page27 LSC 32*/
+		qcom,page125 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll125 = <0x0 0 1 0x0 1 0>;
+		qcom,mem125  = <0x0 0 1 0x0 1 0>;
+		qcom,page126 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll126 = <0x0 0 1 0x0 1 0>;
+		qcom,mem126  = <0x0 0 1 0x0 1 0>;
+		// page 27
+		qcom,page127 = <0x1 0xe0 1 0x1b 1 0>;
+		qcom,poll127 = <0x0 0 1 0x0 1 0>;
+		qcom,mem127  = <0x0 0 1 0x0 1 0>;
+		qcom,page128 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll128 = <0x0 0 1 0x0 1 0>;
+		qcom,mem128  = <0x0 0 1 0x0 1 0>;
+		qcom,page129 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll129 = <0x0 0 1 0x0 1 0>;
+		qcom,mem129  = <0x20 0xC0 1 0x0 1 0>;
+		/*page28 LSC 32*/
+		qcom,page130 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll130 = <0x0 0 1 0x0 1 0>;
+		qcom,mem130  = <0x0 0 1 0x0 1 0>;
+		qcom,page131 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll131 = <0x0 0 1 0x0 1 0>;
+		qcom,mem131  = <0x0 0 1 0x0 1 0>;
+		// page 28
+		qcom,page132 = <0x1 0xe0 1 0x1c 1 0>;
+		qcom,poll132 = <0x0 0 1 0x0 1 0>;
+		qcom,mem132  = <0x0 0 1 0x0 1 0>;
+		qcom,page133 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll133 = <0x0 0 1 0x0 1 0>;
+		qcom,mem133  = <0x0 0 1 0x0 1 0>;
+		qcom,page134 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll134 = <0x0 0 1 0x0 1 0>;
+		qcom,mem134  = <0x20 0xC0 1 0x0 1 0>;
+		/*page29 LSC 32*/
+		qcom,page135 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll135 = <0x0 0 1 0x0 1 0>;
+		qcom,mem135  = <0x0 0 1 0x0 1 0>;
+		qcom,page136 = <0x1 0x68 1 0x11 1 0>;
+		qcom,poll136 = <0x0 0 1 0x0 1 0>;
+		qcom,mem136  = <0x0 0 1 0x0 1 0>;
+		// page 29
+		qcom,page137 = <0x1 0xe0 1 0x1d 1 0>;
+		qcom,poll137 = <0x0 0 1 0x0 1 0>;
+		qcom,mem137  = <0x0 0 1 0x0 1 0>;
+		qcom,page138 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll138 = <0x0 0 1 0x0 1 0>;
+		qcom,mem138  = <0x0 0 1 0x0 1 0>;
+		qcom,page139 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll139 = <0x0 0 1 0x0 1 0>;
+		qcom,mem139  = <0x20 0xC0 1 0x0 1 0>;
+		/*page30 LSC 2*/
+		qcom,page140 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll140 = <0x0 0 1 0x0 1 0>;
+		qcom,mem140  = <0x0 0 1 0x0 1 0>;
+		qcom,page141 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll141 = <0x0 0 1 0x0 1 0>;
+		qcom,mem141  = <0x0 0 1 0x0 1 0>;
+		// page 30
+		qcom,page142 = <0x1 0xe0 1 0x1e 1 0>;
+		qcom,poll142 = <0x0 0 1 0x0 1 0>;
+		qcom,mem142  = <0x0 0 1 0x0 1 0>;
+		qcom,page143 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll143 = <0x0 0 1 0x0 1 0>;
+		qcom,mem143  = <0x0 0 1 0x0 1 0>;
+		qcom,page144 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll144 = <0x0 0 1 0x0 1 0>;
+		qcom,mem144  = <0x20 0xC0 1 0x0 1 0>;
+				/*page31 info&WB 30*/
+		qcom,page145 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll145 = <0x0 0 1 0x0 1 0>;
+		qcom,mem145  = <0x0 0 1 0x0 1 0>;
+		qcom,page146 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll146 = <0x0 0 1 0x0 1 0>;
+		qcom,mem146  = <0x0 0 1 0x0 1 0>;
+		// page 31
+		qcom,page147 = <0x1 0xe0 1 0x1f 1 0>;
+		qcom,poll147 = <0x0 0 1 0x0 1 0>;
+		qcom,mem147  = <0x0 0 1 0x0 1 0>;
+		qcom,page148 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll148 = <0x0 0 1 0x0 1 0>;
+		qcom,mem148  = <0x0 0 1 0x0 1 0>;
+		qcom,page149 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll149 = <0x0 0 1 0x0 1 0>;
+		qcom,mem149  = <0x3 0xC0 1 0x0 1 0>;
+
+		/*page0 wafer_ID fuse_id 10*/
+		qcom,page150 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll150 = <0x0 0 1 0x0 1 0>;
+		qcom,mem150  = <0x0 0 1 0x0 1 0>;
+		qcom,page151 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll151 = <0x0 0 1 0x0 1 0>;
+		qcom,mem151  = <0x0 0 1 0x0 1 0>;
+		// page 0
+		qcom,page152 = <0x1 0xe0 1 0x0 1 0>;
+		qcom,poll152 = <0x0 0 1 0x0 1 0>;
+		qcom,mem152  = <0x0 0 1 0x0 1 0>;
+		qcom,page153 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll153 = <0x0 0 1 0x0 1 0>;
+		qcom,mem153  = <0x0 0 1 0x0 1 0>;
+		qcom,page154 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll154 = <0x0 0 1 0x0 1 0>;
+		qcom,mem154  = <0xa 0xC3 1 0x0 1 0>;
+
+		/* read end */
+		qcom,page155 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll155 = <0x0 0 1 0x0 1 0>;
+		qcom,mem155  = <0x0 0 1 0x0 1 0>;
+		qcom,page156 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll156 = <0x0 0 1 0x0 1 0>;
+		qcom,mem156  = <0x0 0 1 0x0 1 0>;
+
+		cam_vana-supply = <&pm8953_l22>;
+		cam_vio-supply = <&pm8953_l6>;
+		cam_vdig-supply = <&pm8953_l3>;
+		qcom,cam-vreg-name = "cam_vana", "cam_vio", "cam_vdig";
+		qcom,cam-vreg-min-voltage = <2900000 0 1200000>;
+		qcom,cam-vreg-max-voltage = <2900000 0 1200000>;
+		qcom,cam-vreg-op-mode = <80000 0 200000>;
+		qcom,gpio-no-mux = <0>;
+		pinctrl-names = "cam_default", "cam_suspend";
+		pinctrl-0 = <&cam_sensor_mclk2_default &cam_sensor_front_default>;
+		pinctrl-1 = <&cam_sensor_mclk2_sleep &cam_sensor_front_sleep>;
+		gpios = <&tlmm 28 0>,
+			<&tlmm 38 0>;
+		qcom,gpio-reset = <1>;
+		qcom,gpio-req-tbl-num = <0 1>;
+		qcom,gpio-req-tbl-flags = <1 0>;
+		qcom,gpio-req-tbl-label = "CAMIF_MCLK2", "CAM_RESET2";
+		qcom,cam-power-seq-type = "sensor_gpio", "sensor_vreg", "sensor_vreg",
+				"sensor_vreg", "sensor_clk" , "sensor_gpio";
+		qcom,cam-power-seq-val = "sensor_gpio_reset", "cam_vio","cam_vdig","cam_vana",
+				"sensor_cam_mclk","sensor_gpio_reset";
+		qcom,cam-power-seq-cfg-val = <0 1 1 1 24000000 1>;
+		qcom,cam-power-seq-delay = <1 0 0 0 10 1>;
+		status = "ok";
+		clocks = <&clock_gcc clk_mclk2_clk_src>,
+			<&clock_gcc clk_gcc_camss_mclk2_clk>;
+		clock-names = "cam_src_clk", "cam_clk";
+		qcom,clock-rates = <24000000 0>;
+	};
+
+	eeprom2: qcom,eeprom@2 {
+		cell-index = <2>;
+		reg = <0x02>;
+		qcom,eeprom-name = "pine_ov13855_ofilm";
+		compatible = "qcom,eeprom";
+		qcom,slave-addr = <0xa0>;
+		qcom,cci-master = <0>;
+		qcom,i2c-freq-mode = <1>;
+		qcom,num-blocks = <1>;
+		qcom,page0 = <0 0x0 2 0x01 1 1>;
+		qcom,poll0 = <0 0x0 2 0x0 1 0>;
+		qcom,mem0 = <8192 0x0 2 0x0 1 0>;
+		cam_vana-supply = <&pm8953_l22>;
+		cam_vio-supply = <&pm8953_l6>;
+		cam_vdig-supply = <&pm8953_l3>;
+		cam_vaf-supply = <&pm8953_l17>;
+		qcom,cam-vreg-name = "cam_vana", "cam_vio", "cam_vdig", "cam_vaf";
+		qcom,cam-vreg-min-voltage = <2900000 0 1200000 2850000>;
+		qcom,cam-vreg-max-voltage = <2900000 0 1200000 2850000>;
+		qcom,cam-vreg-op-mode = <80000 0 200000 100000>;
+		pinctrl-names = "cam_default", "cam_suspend";
+		pinctrl-0 = <&cam_sensor_mclk0_default
+				&cam_sensor_rear_reset
+				&cam_sensor_rear_vana>;
+		pinctrl-1 = <&cam_sensor_mclk0_sleep
+				&cam_sensor_rear_reset_sleep
+				&cam_sensor_rear_vana_sleep>;
+		gpios = <&tlmm 26 0>,
+			<&tlmm 36 0>,
+			<&tlmm 35 0>;
+		qcom,gpio-reset = <1>;
+		qcom,gpio-vana = <2>;
+		qcom,gpio-req-tbl-num = <0 1 2>;
+		qcom,gpio-req-tbl-flags = <1 0 0>;
+		qcom,gpio-req-tbl-label = "CAMIF_MCLK0", "CAM_RESET0", "CAM_VANA";
+		status = "ok";
+		clocks = <&clock_gcc clk_mclk0_clk_src>,
+			<&clock_gcc clk_gcc_camss_mclk0_clk>;
+		clock-names = "cam_src_clk", "cam_clk";
+		qcom,clock-rates = <24000000 0>;
+		qcom,cam-power-seq-type = "sensor_vreg", "sensor_vreg", "sensor_clk",
+			"sensor_gpio", "sensor_gpio";
+		qcom,cam-power-seq-val = "cam_vdig", "cam_vio",
+			"sensor_cam_mclk","sensor_gpio_reset",
+			"sensor_gpio_standby";
+		qcom,cam-power-seq-cfg-val = <0 0 24000000 1 1>;
+		qcom,cam-power-seq-delay = <0 0 1 5 5>;
+	};
+	eeprom3: qcom,eeprom@3 {
+		cell-index = <3>;
+		reg = <0x3>;
+		compatible = "qcom,eeprom";
+		qcom,cci-master = <1>;
+		qcom,eeprom-name = "pine_gc5035_ofilm";
+		qcom,slave-addr = <0x6e>;
+		qcom,num-blocks = <157>;
+		/* reading init */
+		qcom,page0 = <0x1 0x00fc 1 0x01 1 0>;
+		qcom,poll0 = <0x0 0 1 0x0 1 0>;
+		qcom,mem0  = <0x0 0 1 0x0 1 0>;
+		qcom,page1 = <0x1 0x00f4 1 0x40 1 0>;
+		qcom,poll1 = <0x0 0 1 0x0 1 1>;
+		qcom,mem1  = <0x0 0 1 0x0 1 0>;
+		qcom,page2 = <0x1 0xf5 1 0xe9 1 0>;
+		qcom,poll2 = <0x0 0 1 0x0 1 0>;
+		qcom,mem2  = <0x0 0 1 0x0 1 0>;
+		qcom,page3 = <0x1 0xf6 1 0x14 1 0>;
+		qcom,poll3 = <0x0 0 1 0x0 1 0>;
+		qcom,mem3  = <0x0 0 1 0x0 1 0>;
+		qcom,page4 = <0x1 0xf8 1 0x49 1 0>;
+		qcom,poll4 = <0x0 0 1 0x0 1 0>;
+		qcom,mem4  = <0x0 0 1 0x0 1 0>;
+		qcom,page5 = <0x1 0xf9 1 0x82 1 0>;
+		qcom,poll5 = <0x0 0 1 0x0 1 0>;
+		qcom,mem5  = <0x0 0 1 0x0 1 0>;
+		qcom,page6 = <0x1 0xfa 1 0x10 1 0>;
+		qcom,poll6 = <0x0 0 1 0x0 1 0>;
+		qcom,mem6  = <0x0 0 1 0x0 1 0>;
+		qcom,page7 = <0x1 0xfc 1 0x81 1 0>;
+		qcom,poll7 = <0x0 0 1 0x0 1 0>;
+		qcom,mem7  = <0x0 0 1 0x0 1 0>;
+		qcom,page8 = <0x1 0xfe 1 0x00 1 0>;
+		qcom,poll8 = <0x0 0 1 0x0 1 0>;
+		qcom,mem8  = <0x0 0 1 0x0 1 0>;
+		qcom,page9 = <0x1 0x36 1 0x01 1 0>;
+		qcom,poll9 = <0x0 0 1 0x0 1 0>;
+		qcom,mem9  = <0x0 0 1 0x0 1 0>;
+		qcom,page10 = <0x1 0xd3 1 0x87 1 0>;
+		qcom,poll10 = <0x0 0 1 0x0 1 0>;
+		qcom,mem10  = <0x0 0 1 0x0 1 0>;
+		qcom,page11 = <0x1 0x36 1 0x00 1 0>;
+		qcom,poll11 = <0x0 0 1 0x0 1 0>;
+		qcom,mem11  = <0x0 0 1 0x0 1 0>;
+		qcom,page12 = <0x1 0xf7 1 0x01 1 0>;
+		qcom,poll12 = <0x0 0 1 0x0 1 0>;
+		qcom,mem12  = <0x0 0 1 0x0 1 0>;
+		qcom,page13 = <0x1 0xfc 1 0x8f 1 0>;
+		qcom,poll13 = <0x0 0 1 0x0 1 0>;
+		qcom,mem13  = <0x0 0 1 0x0 1 0>;
+		qcom,page14 = <0x1 0xfc 1 0x8f 1 0>;
+		qcom,poll14 = <0x0 0 1 0x0 1 0>;
+		qcom,mem14  = <0x0 0 1 0x0 1 0>;
+		qcom,page15 = <0x1 0xfc 1 0x8e 1 0>;
+		qcom,poll15 = <0x0 0 1 0x0 1 0>;
+		qcom,mem15  = <0x0 0 1 0x0 1 0>;
+		qcom,page16 = <0x1 0xfe 1 0x02 1 0>;
+		qcom,poll16 = <0x0 0 1 0x0 1 0>;
+		qcom,mem16  = <0x0 0 1 0x0 1 0>;
+		qcom,page17 = <0x1 0x55 1 0x80 1 0>;
+		qcom,poll17 = <0x0 0 1 0x0 1 0>;
+		qcom,mem17  = <0x0 0 1 0x0 1 0>;
+		qcom,page18 = <0x1 0x65 1 0x7e 1 0>;
+		qcom,poll18 = <0x0 0 1 0x0 1 0>;
+		qcom,mem18  = <0x0 0 1 0x0 1 0>;
+		qcom,page19 = <0x1 0x66 1 0x03 1 0>;
+		qcom,poll19 = <0x0 0 1 0x0 1 0>;
+		qcom,mem19  = <0x0 0 1 0x0 1 0>;
+		/*page0 DD 3*/
+		qcom,page20 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll20 = <0x0 0 1 0x0 1 0>;
+		qcom,mem20  = <0x0 0 1 0x0 1 0>;
+		qcom,page21 = <0x1 0x68 1 0x11 1 0>;
+		qcom,poll21 = <0x0 0 1 0x0 1 0>;
+		qcom,mem21  = <0x0 0 1 0x0 1 0>;
+		qcom,page22 = <0x1 0xe0 1 0x00 1 0>;
+		qcom,poll22 = <0x0 0 1 0x0 1 0>;
+		qcom,mem22  = <0x0 0 1 0x0 1 0>;
+		qcom,page23 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll23 = <0x0 0 1 0x0 1 0>;
+		qcom,mem23  = <0x0 0 1 0x0 1 0>;
+		qcom,page24 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll24 = <0x0 0 1 0x0 1 0>;
+		qcom,mem24  = <3 0xcd 1 0 1 0>;
+		/* seting page 8*/
+		qcom,page25 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll25 = <0x0 0 1 0x0 1 0>;
+		qcom,mem25  = <0x0 0 1 0x0 1 0>;
+		qcom,page26 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll26 = <0x0 0 1 0x0 1 0>;
+		qcom,mem26  = <0x0 0 1 0x0 1 0>;
+		// page 8
+		qcom,page27 = <0x1 0xe0 1 0x08 1 0>;
+		qcom,poll27 = <0x0 0 1 0x0 1 0>;
+		qcom,mem27  = <0x0 0 1 0x0 1 0>;
+		qcom,page28 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll28 = <0x0 0 1 0x0 1 0>;
+		qcom,mem28  = <0x0 0 1 0x0 1 0>;
+		qcom,page29 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll29 = <0x0 0 1 0x0 1 0>;
+		qcom,mem29  = <0x10 0xd0 1 0x0 1 0>;
+		/*page9 REG 10*/
+		qcom,page30 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll30 = <0x0 0 1 0x0 1 0>;
+		qcom,mem30  = <0x0 0 1 0x0 1 0>;
+		qcom,page31 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll31 = <0x0 0 1 0x0 1 0>;
+		qcom,mem31  = <0x0 0 1 0x0 1 0>;
+		// page 9
+		qcom,page32 = <0x1 0xe0 1 0x09 1 0>;
+		qcom,poll32 = <0x0 0 1 0x0 1 0>;
+		qcom,mem32  = <0x0 0 1 0x0 1 0>;
+		qcom,page33 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll33 = <0x0 0 1 0x0 1 0>;
+		qcom,mem33  = <0x0 0 1 0x0 1 0>;
+		qcom,page34 = <0x1 0xf3 1 0x10 1 1>;
+		qcom,poll34 = <0x0 0 1 0x0 1 0>;
+		qcom,mem34  = <0x0A 0xC0 1 0x0 1 0>;
+		/*page31 info&WB 30*/
+		qcom,page35 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll35 = <0x0 0 1 0x0 1 0>;
+		qcom,mem35  = <0x0 0 1 0x0 1 0>;
+		qcom,page36 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll36 = <0x0 0 1 0x0 1 0>;
+		qcom,mem36  = <0x0 0 1 0x0 1 0>;
+		// page 31
+		qcom,page37 = <0x1 0xe0 1 0x1f 1 0>;
+		qcom,poll37 = <0x0 0 1 0x0 1 0>;
+		qcom,mem37  = <0x0 0 1 0x0 1 0>;
+		qcom,page38 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll38 = <0x0 0 1 0x0 1 0>;
+		qcom,mem38  = <0x0 0 1 0x0 1 0>;
+		qcom,page39 = <0x1 0xf3 1 0x10 1 1>;
+		qcom,poll39 = <0x0 0 1 0x0 1 0>;
+		qcom,mem39  = <0x1E 0xC2 1 0x0 1 0>;
+		/*page10 LSC 24*/
+		qcom,page40 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll40 = <0x0 0 1 0x0 1 0>;
+		qcom,mem40  = <0x0 0 1 0x0 1 0>;
+		qcom,page41 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll41 = <0x0 0 1 0x0 1 0>;
+		qcom,mem41  = <0x0 0 1 0x0 1 0>;
+		// page 10
+		qcom,page42 = <0x1 0xe0 1 0x0a 1 0>;
+		qcom,poll42 = <0x0 0 1 0x0 1 0>;
+		qcom,mem42  = <0x0 0 1 0x0 1 0>;
+		qcom,page43 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll43 = <0x0 0 1 0x0 1 0>;
+		qcom,mem43  = <0x0 0 1 0x0 1 0>;
+		qcom,page44 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll44 = <0x0 0 1 0x0 1 0>;
+		qcom,mem44  = <0x18 0xC8 1 0x0 1 0>;
+		/*page11 LSC 32*/
+		qcom,page45 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll45 = <0x0 0 1 0x0 1 0>;
+		qcom,mem45  = <0x0 0 1 0x0 1 0>;
+		qcom,page46 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll46 = <0x0 0 1 0x0 1 0>;
+		qcom,mem46  = <0x0 0 1 0x0 1 0>;
+		// page 11
+		qcom,page47 = <0x1 0xe0 1 0x0b 1 0>;
+		qcom,poll47 = <0x0 0 1 0x0 1 0>;
+		qcom,mem47  = <0x0 0 1 0x0 1 0>;
+		qcom,page48 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll48 = <0x0 0 1 0x0 1 0>;
+		qcom,mem48  = <0x0 0 1 0x0 1 0>;
+		qcom,page49 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll49 = <0x0 0 1 0x0 1 0>;
+		qcom,mem49  = <0x20 0xC0 1 0x0 1 0>;
+		/*page12 LSC 32*/
+		qcom,page50 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll50 = <0x0 0 1 0x0 1 0>;
+		qcom,mem50  = <0x0 0 1 0x0 1 0>;
+		qcom,page51 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll51 = <0x0 0 1 0x0 1 0>;
+		qcom,mem51  = <0x0 0 1 0x0 1 0>;
+		// page 12
+		qcom,page52 = <0x1 0xe0 1 0x0c 1 0>;
+		qcom,poll52 = <0x0 0 1 0x0 1 0>;
+		qcom,mem52  = <0x0 0 1 0x0 1 0>;
+		qcom,page53 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll53 = <0x0 0 1 0x0 1 0>;
+		qcom,mem53  = <0x0 0 1 0x0 1 0>;
+		qcom,page54 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll54 = <0x0 0 1 0x0 1 0>;
+		qcom,mem54  = <0x20 0xC0 1 0x0 1 0>;
+		/*page13 LSC 32*/
+		qcom,page55 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll55 = <0x0 0 1 0x0 1 0>;
+		qcom,mem55  = <0x0 0 1 0x0 1 0>;
+		qcom,page56 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll56 = <0x0 0 1 0x0 1 0>;
+		qcom,mem56  = <0x0 0 1 0x0 1 0>;
+		// page 13
+		qcom,page57 = <0x1 0xe0 1 0x0d 1 0>;
+		qcom,poll57 = <0x0 0 1 0x0 1 0>;
+		qcom,mem57  = <0x0 0 1 0x0 1 0>;
+		qcom,page58 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll58 = <0x0 0 1 0x0 1 0>;
+		qcom,mem58  = <0x0 0 1 0x0 1 0>;
+		qcom,page59 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll59 = <0x0 0 1 0x0 1 0>;
+		qcom,mem59  = <0x20 0xC0 1 0x0 1 0>;
+		/*page14 LSC 32*/
+		qcom,page60 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll60 = <0x0 0 1 0x0 1 0>;
+		qcom,mem60  = <0x0 0 1 0x0 1 0>;
+		qcom,page61 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll61 = <0x0 0 1 0x0 1 0>;
+		qcom,mem61  = <0x0 0 1 0x0 1 0>;
+		// page 14
+		qcom,page62 = <0x1 0xe0 1 0x0e 1 0>;
+		qcom,poll62 = <0x0 0 1 0x0 1 0>;
+		qcom,mem62  = <0x0 0 1 0x0 1 0>;
+		qcom,page63 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll63 = <0x0 0 1 0x0 1 0>;
+		qcom,mem63  = <0x0 0 1 0x0 1 0>;
+		qcom,page64 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll64 = <0x0 0 1 0x0 1 0>;
+		qcom,mem64  = <0x20 0xC0 1 0x0 1 0>;
+		/*page15 LSC 32*/
+		qcom,page65 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll65 = <0x0 0 1 0x0 1 0>;
+		qcom,mem65  = <0x0 0 1 0x0 1 0>;
+		qcom,page66 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll66 = <0x0 0 1 0x0 1 0>;
+		qcom,mem66  = <0x0 0 1 0x0 1 0>;
+		// page 15
+		qcom,page67 = <0x1 0xe0 1 0x0f 1 0>;
+		qcom,poll67 = <0x0 0 1 0x0 1 0>;
+		qcom,mem67  = <0x0 0 1 0x0 1 0>;
+		qcom,page68 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll68 = <0x0 0 1 0x0 1 0>;
+		qcom,mem68  = <0x0 0 1 0x0 1 0>;
+		qcom,page69 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll69 = <0x0 0 1 0x0 1 0>;
+		qcom,mem69  = <0x20 0xC0 1 0x0 1 0>;
+		/*page16 LSC 32*/
+		qcom,page70 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll70 = <0x0 0 1 0x0 1 0>;
+		qcom,mem70  = <0x0 0 1 0x0 1 0>;
+		qcom,page71 = <0x1 0x68 1 0x11 1 0>;
+		qcom,poll71 = <0x0 0 1 0x0 1 0>;
+		qcom,mem71  = <0x0 0 1 0x0 1 0>;
+		// page 16
+		qcom,page72 = <0x1 0xe0 1 0x10 1 0>;
+		qcom,poll72 = <0x0 0 1 0x0 1 0>;
+		qcom,mem72  = <0x0 0 1 0x0 1 0>;
+		qcom,page73 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll73 = <0x0 0 1 0x0 1 0>;
+		qcom,mem73  = <0x0 0 1 0x0 1 0>;
+		qcom,page74 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll74 = <0x0 0 1 0x0 1 0>;
+		qcom,mem74  = <0x20 0xC0 1 0x0 1 0>;
+		/*page17 LSC 32*/
+		qcom,page75 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll75 = <0x0 0 1 0x0 1 0>;
+		qcom,mem75  = <0x0 0 1 0x0 1 0>;
+		qcom,page76 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll76 = <0x0 0 1 0x0 1 0>;
+		qcom,mem76  = <0x0 0 1 0x0 1 0>;
+		// page 17
+		qcom,page77 = <0x1 0xe0 1 0x11 1 0>;
+		qcom,poll77 = <0x0 0 1 0x0 1 0>;
+		qcom,mem77  = <0x0 0 1 0x0 1 0>;
+		qcom,page78 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll78 = <0x0 0 1 0x0 1 0>;
+		qcom,mem78  = <0x0 0 1 0x0 1 0>;
+		qcom,page79 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll79 = <0x0 0 1 0x0 1 0>;
+		qcom,mem79  = <0x20 0xC0 1 0x0 1 0>;
+		/*page18 LSC 32*/
+		qcom,page80 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll80 = <0x0 0 1 0x0 1 0>;
+		qcom,mem80  = <0x0 0 1 0x0 1 0>;
+		qcom,page81 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll81 = <0x0 0 1 0x0 1 0>;
+		qcom,mem81  = <0x0 0 1 0x0 1 0>;
+		// page 18
+		qcom,page82 = <0x1 0xe0 1 0x12 1 0>;
+		qcom,poll82 = <0x0 0 1 0x0 1 0>;
+		qcom,mem82  = <0x0 0 1 0x0 1 0>;
+		qcom,page83 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll83 = <0x0 0 1 0x0 1 0>;
+		qcom,mem83  = <0x0 0 1 0x0 1 0>;
+		qcom,page84 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll84 = <0x0 0 1 0x0 1 0>;
+		qcom,mem84  = <0x20 0xC0 1 0x0 1 0>;
+		/*page19 LSC 32*/
+		qcom,page85 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll85 = <0x0 0 1 0x0 1 0>;
+		qcom,mem85  = <0x0 0 1 0x0 1 0>;
+		qcom,page86 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll86 = <0x0 0 1 0x0 1 0>;
+		qcom,mem86  = <0x0 0 1 0x0 1 0>;
+		// page 19
+		qcom,page87 = <0x1 0xe0 1 0x13 1 0>;
+		qcom,poll87 = <0x0 0 1 0x0 1 0>;
+		qcom,mem87  = <0x0 0 1 0x0 1 0>;
+		qcom,page88 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll88 = <0x0 0 1 0x0 1 0>;
+		qcom,mem88  = <0x0 0 1 0x0 1 0>;
+		qcom,page89 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll89 = <0x0 0 1 0x0 1 0>;
+		qcom,mem89  = <0x20 0xC0 1 0x0 1 0>;
+		/*page20 LSC 32*/
+		qcom,page90 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll90 = <0x0 0 1 0x0 1 0>;
+		qcom,mem90  = <0x0 0 1 0x0 1 0>;
+		qcom,page91 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll91 = <0x0 0 1 0x0 1 0>;
+		qcom,mem91  = <0x0 0 1 0x0 1 0>;
+		// page 20
+		qcom,page92 = <0x1 0xe0 1 0x14 1 0>;
+		qcom,poll92 = <0x0 0 1 0x0 1 0>;
+		qcom,mem92  = <0x0 0 1 0x0 1 0>;
+		qcom,page93 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll93 = <0x0 0 1 0x0 1 0>;
+		qcom,mem93  = <0x0 0 1 0x0 1 0>;
+		qcom,page94 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll94 = <0x0 0 1 0x0 1 0>;
+		qcom,mem94  = <0x20 0xC0 1 0x0 1 0>;
+		/*page21 LSC 32*/
+		qcom,page95 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll95 = <0x0 0 1 0x0 1 0>;
+		qcom,mem95  = <0x0 0 1 0x0 1 0>;
+		qcom,page96 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll96 = <0x0 0 1 0x0 1 0>;
+		qcom,mem96  = <0x0 0 1 0x0 1 0>;
+		// page 21
+		qcom,page97 = <0x1 0xe0 1 0x15 1 0>;
+		qcom,poll97 = <0x0 0 1 0x0 1 0>;
+		qcom,mem97  = <0x0 0 1 0x0 1 0>;
+		qcom,page98 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll98 = <0x0 0 1 0x0 1 0>;
+		qcom,mem98  = <0x0 0 1 0x0 1 0>;
+		qcom,page99 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll99 = <0x0 0 1 0x0 1 0>;
+		qcom,mem99  = <0x20 0xC0 1 0x0 1 0>;
+		/*page22 LSC 32*/
+		qcom,page100 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll100 = <0x0 0 1 0x0 1 0>;
+		qcom,mem100  = <0x0 0 1 0x0 1 0>;
+		qcom,page101 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll101 = <0x0 0 1 0x0 1 0>;
+		qcom,mem101  = <0x0 0 1 0x0 1 0>;
+		// page 22
+		qcom,page102 = <0x1 0xe0 1 0x16 1 0>;
+		qcom,poll102 = <0x0 0 1 0x0 1 0>;
+		qcom,mem102  = <0x0 0 1 0x0 1 0>;
+		qcom,page103 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll103 = <0x0 0 1 0x0 1 0>;
+		qcom,mem103  = <0x0 0 1 0x0 1 0>;
+		qcom,page104 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll104 = <0x0 0 1 0x0 1 0>;
+		qcom,mem104  = <0x20 0xC0 1 0x0 1 0>;
+		/*page23 LSC 32*/
+		qcom,page105 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll105 = <0x0 0 1 0x0 1 0>;
+		qcom,mem105  = <0x0 0 1 0x0 1 0>;
+		qcom,page106 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll106 = <0x0 0 1 0x0 1 0>;
+		qcom,mem106  = <0x0 0 1 0x0 1 0>;
+		// page 23
+		qcom,page107 = <0x1 0xe0 1 0x17 1 0>;
+		qcom,poll107 = <0x0 0 1 0x0 1 0>;
+		qcom,mem107  = <0x0 0 1 0x0 1 0>;
+		qcom,page108 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll108 = <0x0 0 1 0x0 1 0>;
+		qcom,mem108  = <0x0 0 1 0x0 1 0>;
+		qcom,page109 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll109 = <0x0 0 1 0x0 1 0>;
+		qcom,mem109  = <0x20 0xC0 1 0x0 1 0>;
+		/*page24 LSC 32*/
+		qcom,page110 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll110 = <0x0 0 1 0x0 1 0>;
+		qcom,mem110  = <0x0 0 1 0x0 1 0>;
+		qcom,page111 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll111 = <0x0 0 1 0x0 1 0>;
+		qcom,mem111  = <0x0 0 1 0x0 1 0>;
+		// page 24
+		qcom,page112 = <0x1 0xe0 1 0x18 1 0>;
+		qcom,poll112 = <0x0 0 1 0x0 1 0>;
+		qcom,mem112  = <0x0 0 1 0x0 1 0>;
+		qcom,page113 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll113 = <0x0 0 1 0x0 1 0>;
+		qcom,mem113  = <0x0 0 1 0x0 1 0>;
+		qcom,page114 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll114 = <0x0 0 1 0x0 1 0>;
+		qcom,mem114  = <0x20 0xC0 1 0x0 1 0>;
+		/*page25 LSC 32*/
+		qcom,page115 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll115 = <0x0 0 1 0x0 1 0>;
+		qcom,mem115  = <0x0 0 1 0x0 1 0>;
+		qcom,page116 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll116 = <0x0 0 1 0x0 1 0>;
+		qcom,mem116  = <0x0 0 1 0x0 1 0>;
+		// page 25
+		qcom,page117 = <0x1 0xe0 1 0x19 1 0>;
+		qcom,poll117 = <0x0 0 1 0x0 1 0>;
+		qcom,mem117  = <0x0 0 1 0x0 1 0>;
+		qcom,page118 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll118 = <0x0 0 1 0x0 1 0>;
+		qcom,mem118  = <0x0 0 1 0x0 1 0>;
+		qcom,page119 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll119 = <0x0 0 1 0x0 1 0>;
+		qcom,mem119  = <0x20 0xC0 1 0x0 1 0>;
+		/*page26 LSC 32*/
+		qcom,page120 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll120 = <0x0 0 1 0x0 1 0>;
+		qcom,mem120  = <0x0 0 1 0x0 1 0>;
+		qcom,page121 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll121 = <0x0 0 1 0x0 1 0>;
+		qcom,mem121  = <0x0 0 1 0x0 1 0>;
+		// page 26
+		qcom,page122 = <0x1 0xe0 1 0x1a 1 0>;
+		qcom,poll122 = <0x0 0 1 0x0 1 0>;
+		qcom,mem122  = <0x0 0 1 0x0 1 0>;
+		qcom,page123 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll123 = <0x0 0 1 0x0 1 0>;
+		qcom,mem123  = <0x0 0 1 0x0 1 0>;
+		qcom,page124 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll124 = <0x0 0 1 0x0 1 0>;
+		qcom,mem124  = <0x20 0xC0 1 0x0 1 0>;
+		/*page27 LSC 32*/
+		qcom,page125 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll125 = <0x0 0 1 0x0 1 0>;
+		qcom,mem125  = <0x0 0 1 0x0 1 0>;
+		qcom,page126 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll126 = <0x0 0 1 0x0 1 0>;
+		qcom,mem126  = <0x0 0 1 0x0 1 0>;
+		// page 27
+		qcom,page127 = <0x1 0xe0 1 0x1b 1 0>;
+		qcom,poll127 = <0x0 0 1 0x0 1 0>;
+		qcom,mem127  = <0x0 0 1 0x0 1 0>;
+		qcom,page128 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll128 = <0x0 0 1 0x0 1 0>;
+		qcom,mem128  = <0x0 0 1 0x0 1 0>;
+		qcom,page129 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll129 = <0x0 0 1 0x0 1 0>;
+		qcom,mem129  = <0x20 0xC0 1 0x0 1 0>;
+		/*page28 LSC 32*/
+		qcom,page130 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll130 = <0x0 0 1 0x0 1 0>;
+		qcom,mem130  = <0x0 0 1 0x0 1 0>;
+		qcom,page131 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll131 = <0x0 0 1 0x0 1 0>;
+		qcom,mem131  = <0x0 0 1 0x0 1 0>;
+		// page 28
+		qcom,page132 = <0x1 0xe0 1 0x1c 1 0>;
+		qcom,poll132 = <0x0 0 1 0x0 1 0>;
+		qcom,mem132  = <0x0 0 1 0x0 1 0>;
+		qcom,page133 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll133 = <0x0 0 1 0x0 1 0>;
+		qcom,mem133  = <0x0 0 1 0x0 1 0>;
+		qcom,page134 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll134 = <0x0 0 1 0x0 1 0>;
+		qcom,mem134  = <0x20 0xC0 1 0x0 1 0>;
+		/*page29 LSC 32*/
+		qcom,page135 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll135 = <0x0 0 1 0x0 1 0>;
+		qcom,mem135  = <0x0 0 1 0x0 1 0>;
+		qcom,page136 = <0x1 0x68 1 0x11 1 0>;
+		qcom,poll136 = <0x0 0 1 0x0 1 0>;
+		qcom,mem136  = <0x0 0 1 0x0 1 0>;
+		// page 29
+		qcom,page137 = <0x1 0xe0 1 0x1d 1 0>;
+		qcom,poll137 = <0x0 0 1 0x0 1 0>;
+		qcom,mem137  = <0x0 0 1 0x0 1 0>;
+		qcom,page138 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll138 = <0x0 0 1 0x0 1 0>;
+		qcom,mem138  = <0x0 0 1 0x0 1 0>;
+		qcom,page139 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll139 = <0x0 0 1 0x0 1 0>;
+		qcom,mem139  = <0x20 0xC0 1 0x0 1 0>;
+		/*page30 LSC 2*/
+		qcom,page140 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll140 = <0x0 0 1 0x0 1 0>;
+		qcom,mem140  = <0x0 0 1 0x0 1 0>;
+		qcom,page141 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll141 = <0x0 0 1 0x0 1 0>;
+		qcom,mem141  = <0x0 0 1 0x0 1 0>;
+		// page 30
+		qcom,page142 = <0x1 0xe0 1 0x1e 1 0>;
+		qcom,poll142 = <0x0 0 1 0x0 1 0>;
+		qcom,mem142  = <0x0 0 1 0x0 1 0>;
+		qcom,page143 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll143 = <0x0 0 1 0x0 1 0>;
+		qcom,mem143  = <0x0 0 1 0x0 1 0>;
+		qcom,page144 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll144 = <0x0 0 1 0x0 1 0>;
+		qcom,mem144  = <0x20 0xC0 1 0x0 1 0>;
+				/*page31 info&WB 30*/
+		qcom,page145 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll145 = <0x0 0 1 0x0 1 0>;
+		qcom,mem145  = <0x0 0 1 0x0 1 0>;
+		qcom,page146 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll146 = <0x0 0 1 0x0 1 0>;
+		qcom,mem146  = <0x0 0 1 0x0 1 0>;
+		// page 31
+		qcom,page147 = <0x1 0xe0 1 0x1f 1 0>;
+		qcom,poll147 = <0x0 0 1 0x0 1 0>;
+		qcom,mem147  = <0x0 0 1 0x0 1 0>;
+		qcom,page148 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll148 = <0x0 0 1 0x0 1 0>;
+		qcom,mem148  = <0x0 0 1 0x0 1 0>;
+		qcom,page149 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll149 = <0x0 0 1 0x0 1 0>;
+		qcom,mem149  = <0x3 0xC0 1 0x0 1 0>;
+
+		/*page0 wafer_ID fuse_id 10*/
+		qcom,page150 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll150 = <0x0 0 1 0x0 1 0>;
+		qcom,mem150  = <0x0 0 1 0x0 1 0>;
+		qcom,page151 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll151 = <0x0 0 1 0x0 1 0>;
+		qcom,mem151  = <0x0 0 1 0x0 1 0>;
+		// page 0
+		qcom,page152 = <0x1 0xe0 1 0x0 1 0>;
+		qcom,poll152 = <0x0 0 1 0x0 1 0>;
+		qcom,mem152  = <0x0 0 1 0x0 1 0>;
+		qcom,page153 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll153 = <0x0 0 1 0x0 1 0>;
+		qcom,mem153  = <0x0 0 1 0x0 1 0>;
+		qcom,page154 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll154 = <0x0 0 1 0x0 1 0>;
+		qcom,mem154  = <0xa 0xC3 1 0x0 1 0>;
+
+		/* read end */
+		qcom,page155 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll155 = <0x0 0 1 0x0 1 0>;
+		qcom,mem155  = <0x0 0 1 0x0 1 0>;
+		qcom,page156 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll156 = <0x0 0 1 0x0 1 0>;
+		qcom,mem156  = <0x0 0 1 0x0 1 0>;
+
+		cam_vana-supply = <&pm8953_l22>;
+		cam_vio-supply = <&pm8953_l6>;
+		cam_vdig-supply = <&pm8953_l3>;
+		qcom,cam-vreg-name = "cam_vana", "cam_vio", "cam_vdig";
+		qcom,cam-vreg-min-voltage = <2900000 0 1200000>;
+		qcom,cam-vreg-max-voltage = <2900000 0 1200000>;
+		qcom,cam-vreg-op-mode = <80000 0 200000>;
+		qcom,gpio-no-mux = <0>;
+		pinctrl-names = "cam_default", "cam_suspend";
+		pinctrl-0 = <&cam_sensor_mclk2_default &cam_sensor_front_default>;
+		pinctrl-1 = <&cam_sensor_mclk2_sleep &cam_sensor_front_sleep>;
+		gpios = <&tlmm 28 0>,
+			<&tlmm 38 0>;
+		qcom,gpio-reset = <1>;
+		qcom,gpio-req-tbl-num = <0 1>;
+		qcom,gpio-req-tbl-flags = <1 0>;
+		qcom,gpio-req-tbl-label = "CAMIF_MCLK2", "CAM_RESET2";
+		qcom,cam-power-seq-type = "sensor_gpio", "sensor_vreg","sensor_vreg",
+			"sensor_vreg", "sensor_clk" , "sensor_gpio";
+		qcom,cam-power-seq-val = "sensor_gpio_reset", "cam_vio","cam_vdig", "cam_vana",
+			"sensor_cam_mclk", "sensor_gpio_reset";
+		qcom,cam-power-seq-cfg-val = <0 1 1 1 24000000 1>;
+		qcom,cam-power-seq-delay = <1 0 0 0 10 1>;
+		status = "ok";
+		clocks = <&clock_gcc clk_mclk2_clk_src>,
+				<&clock_gcc clk_gcc_camss_mclk2_clk>;
+		clock-names = "cam_src_clk", "cam_clk";
+		qcom,clock-rates = <24000000 0>;
+	};
+
+	eeprom4: qcom,eeprom@4 {
+		cell-index = <4>;
+		reg = <0x04>;
+		qcom,eeprom-name = "pine_imx486_holitech";
+		compatible = "qcom,eeprom";
+		qcom,slave-addr = <0xa8>;
+		qcom,cci-master = <0>;
+		qcom,i2c-freq-mode = <1>;
+		qcom,num-blocks = <1>;
+		qcom,page0 = <0 0x0 2 0x01 1 1>;
+		qcom,poll0 = <0 0x0 2 0x0 1 0>;
+		qcom,mem0 = <8192 0x0 2 0x0 1 0>;
+		cam_vana-supply = <&pm8953_l22>;
+		cam_vio-supply = <&pm8953_l6>;
+		cam_vdig-supply = <&pm8953_l3>;
+		cam_vaf-supply = <&pm8953_l17>;
+		qcom,cam-vreg-name = "cam_vana", "cam_vio",
+					"cam_vdig", "cam_vaf";
+		qcom,cam-vreg-min-voltage = <2900000 0 1200000 2850000>;
+		qcom,cam-vreg-max-voltage = <2900000 0 1200000 2850000>;
+		qcom,cam-vreg-op-mode = <80000 0 200000 100000>;
+		pinctrl-names = "cam_default", "cam_suspend";
+		pinctrl-0 = <&cam_sensor_mclk0_default
+				&cam_sensor_rear_reset
+				&cam_sensor_rear_vana>;
+		pinctrl-1 = <&cam_sensor_mclk0_sleep
+				&cam_sensor_rear_reset_sleep
+				&cam_sensor_rear_vana_sleep>;
+		gpios = <&tlmm 26 0>,
+			<&tlmm 36 0>,
+			<&tlmm 35 0>;
+		qcom,gpio-reset = <1>;
+		qcom,gpio-vana = <2>;
+		qcom,gpio-req-tbl-num = <0 1 2>;
+		qcom,gpio-req-tbl-flags = <1 0 0>;
+		qcom,gpio-req-tbl-label = "CAMIF_MCLK0",
+					"CAM_RESET0",
+					"CAM_VANA";
+		status = "ok";
+		clocks = <&clock_gcc clk_mclk0_clk_src>,
+			<&clock_gcc clk_gcc_camss_mclk0_clk>;
+		clock-names = "cam_src_clk", "cam_clk";
+		qcom,clock-rates = <24000000 0>;
+		qcom,cam-power-seq-type = "sensor_vreg",
+				"sensor_vreg", "sensor_clk",
+				"sensor_gpio", "sensor_gpio";
+		qcom,cam-power-seq-val = "cam_vdig", "cam_vio",
+			"sensor_cam_mclk","sensor_gpio_reset",
+					"sensor_gpio_standby";
+		qcom,cam-power-seq-cfg-val = <0 0 24000000 1 1>;
+		qcom,cam-power-seq-delay = <0 0 1 5 5>;
+	};
+
+		eeprom5: qcom,eeprom@5 {
+		cell-index = <5>;
+		reg = <0x5>;
+		compatible = "qcom,eeprom";
+		qcom,cci-master = <1>;
+		qcom,eeprom-name = "pine_gc5035_holitech";
+		qcom,slave-addr = <0x6e>;
+		qcom,num-blocks = <157>;
+		/* reading init */
+		qcom,page0 = <0x1 0x00fc 1 0x01 1 0>;
+		qcom,poll0 = <0x0 0 1 0x0 1 0>;
+		qcom,mem0  = <0x0 0 1 0x0 1 0>;
+		qcom,page1 = <0x1 0x00f4 1 0x40 1 0>;
+		qcom,poll1 = <0x0 0 1 0x0 1 1>;
+		qcom,mem1  = <0x0 0 1 0x0 1 0>;
+		qcom,page2 = <0x1 0xf5 1 0xe9 1 0>;
+		qcom,poll2 = <0x0 0 1 0x0 1 0>;
+		qcom,mem2  = <0x0 0 1 0x0 1 0>;
+		qcom,page3 = <0x1 0xf6 1 0x14 1 0>;
+		qcom,poll3 = <0x0 0 1 0x0 1 0>;
+		qcom,mem3  = <0x0 0 1 0x0 1 0>;
+		qcom,page4 = <0x1 0xf8 1 0x49 1 0>;
+		qcom,poll4 = <0x0 0 1 0x0 1 0>;
+		qcom,mem4  = <0x0 0 1 0x0 1 0>;
+		qcom,page5 = <0x1 0xf9 1 0x82 1 0>;
+		qcom,poll5 = <0x0 0 1 0x0 1 0>;
+		qcom,mem5  = <0x0 0 1 0x0 1 0>;
+		qcom,page6 = <0x1 0xfa 1 0x10 1 0>;
+		qcom,poll6 = <0x0 0 1 0x0 1 0>;
+		qcom,mem6  = <0x0 0 1 0x0 1 0>;
+		qcom,page7 = <0x1 0xfc 1 0x81 1 0>;
+		qcom,poll7 = <0x0 0 1 0x0 1 0>;
+		qcom,mem7  = <0x0 0 1 0x0 1 0>;
+		qcom,page8 = <0x1 0xfe 1 0x00 1 0>;
+		qcom,poll8 = <0x0 0 1 0x0 1 0>;
+		qcom,mem8  = <0x0 0 1 0x0 1 0>;
+		qcom,page9 = <0x1 0x36 1 0x01 1 0>;
+		qcom,poll9 = <0x0 0 1 0x0 1 0>;
+		qcom,mem9  = <0x0 0 1 0x0 1 0>;
+		qcom,page10 = <0x1 0xd3 1 0x87 1 0>;
+		qcom,poll10 = <0x0 0 1 0x0 1 0>;
+		qcom,mem10  = <0x0 0 1 0x0 1 0>;
+		qcom,page11 = <0x1 0x36 1 0x00 1 0>;
+		qcom,poll11 = <0x0 0 1 0x0 1 0>;
+		qcom,mem11  = <0x0 0 1 0x0 1 0>;
+		qcom,page12 = <0x1 0xf7 1 0x01 1 0>;
+		qcom,poll12 = <0x0 0 1 0x0 1 0>;
+		qcom,mem12  = <0x0 0 1 0x0 1 0>;
+		qcom,page13 = <0x1 0xfc 1 0x8f 1 0>;
+		qcom,poll13 = <0x0 0 1 0x0 1 0>;
+		qcom,mem13  = <0x0 0 1 0x0 1 0>;
+		qcom,page14 = <0x1 0xfc 1 0x8f 1 0>;
+		qcom,poll14 = <0x0 0 1 0x0 1 0>;
+		qcom,mem14  = <0x0 0 1 0x0 1 0>;
+		qcom,page15 = <0x1 0xfc 1 0x8e 1 0>;
+		qcom,poll15 = <0x0 0 1 0x0 1 0>;
+		qcom,mem15  = <0x0 0 1 0x0 1 0>;
+		qcom,page16 = <0x1 0xfe 1 0x02 1 0>;
+		qcom,poll16 = <0x0 0 1 0x0 1 0>;
+		qcom,mem16  = <0x0 0 1 0x0 1 0>;
+		qcom,page17 = <0x1 0x55 1 0x80 1 0>;
+		qcom,poll17 = <0x0 0 1 0x0 1 0>;
+		qcom,mem17  = <0x0 0 1 0x0 1 0>;
+		qcom,page18 = <0x1 0x65 1 0x7e 1 0>;
+		qcom,poll18 = <0x0 0 1 0x0 1 0>;
+		qcom,mem18  = <0x0 0 1 0x0 1 0>;
+		qcom,page19 = <0x1 0x66 1 0x03 1 0>;
+		qcom,poll19 = <0x0 0 1 0x0 1 0>;
+		qcom,mem19  = <0x0 0 1 0x0 1 0>;
+		/*page0 DD 3*/
+		qcom,page20 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll20 = <0x0 0 1 0x0 1 0>;
+		qcom,mem20  = <0x0 0 1 0x0 1 0>;
+		qcom,page21 = <0x1 0x68 1 0x11 1 0>;
+		qcom,poll21 = <0x0 0 1 0x0 1 0>;
+		qcom,mem21  = <0x0 0 1 0x0 1 0>;
+		qcom,page22 = <0x1 0xe0 1 0x00 1 0>;
+		qcom,poll22 = <0x0 0 1 0x0 1 0>;
+		qcom,mem22  = <0x0 0 1 0x0 1 0>;
+		qcom,page23 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll23 = <0x0 0 1 0x0 1 0>;
+		qcom,mem23  = <0x0 0 1 0x0 1 0>;
+		qcom,page24 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll24 = <0x0 0 1 0x0 1 0>;
+		qcom,mem24  = <3 0xcd 1 0 1 0>;
+		/* seting page 8*/
+		qcom,page25 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll25 = <0x0 0 1 0x0 1 0>;
+		qcom,mem25  = <0x0 0 1 0x0 1 0>;
+		qcom,page26 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll26 = <0x0 0 1 0x0 1 0>;
+		qcom,mem26  = <0x0 0 1 0x0 1 0>;
+		// page 8
+		qcom,page27 = <0x1 0xe0 1 0x08 1 0>;
+		qcom,poll27 = <0x0 0 1 0x0 1 0>;
+		qcom,mem27  = <0x0 0 1 0x0 1 0>;
+		qcom,page28 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll28 = <0x0 0 1 0x0 1 0>;
+		qcom,mem28  = <0x0 0 1 0x0 1 0>;
+		qcom,page29 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll29 = <0x0 0 1 0x0 1 0>;
+		qcom,mem29  = <0x10 0xd0 1 0x0 1 0>;
+		/*page9 REG 10*/
+		qcom,page30 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll30 = <0x0 0 1 0x0 1 0>;
+		qcom,mem30  = <0x0 0 1 0x0 1 0>;
+		qcom,page31 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll31 = <0x0 0 1 0x0 1 0>;
+		qcom,mem31  = <0x0 0 1 0x0 1 0>;
+		// page 9
+		qcom,page32 = <0x1 0xe0 1 0x09 1 0>;
+		qcom,poll32 = <0x0 0 1 0x0 1 0>;
+		qcom,mem32  = <0x0 0 1 0x0 1 0>;
+		qcom,page33 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll33 = <0x0 0 1 0x0 1 0>;
+		qcom,mem33  = <0x0 0 1 0x0 1 0>;
+		qcom,page34 = <0x1 0xf3 1 0x10 1 1>;
+		qcom,poll34 = <0x0 0 1 0x0 1 0>;
+		qcom,mem34  = <0x0A 0xC0 1 0x0 1 0>;
+		/*page31 info&WB 30*/
+		qcom,page35 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll35 = <0x0 0 1 0x0 1 0>;
+		qcom,mem35  = <0x0 0 1 0x0 1 0>;
+		qcom,page36 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll36 = <0x0 0 1 0x0 1 0>;
+		qcom,mem36  = <0x0 0 1 0x0 1 0>;
+		// page 31
+		qcom,page37 = <0x1 0xe0 1 0x1f 1 0>;
+		qcom,poll37 = <0x0 0 1 0x0 1 0>;
+		qcom,mem37  = <0x0 0 1 0x0 1 0>;
+		qcom,page38 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll38 = <0x0 0 1 0x0 1 0>;
+		qcom,mem38  = <0x0 0 1 0x0 1 0>;
+		qcom,page39 = <0x1 0xf3 1 0x10 1 1>;
+		qcom,poll39 = <0x0 0 1 0x0 1 0>;
+		qcom,mem39  = <0x1E 0xC2 1 0x0 1 0>;
+		/*page10 LSC 24*/
+		qcom,page40 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll40 = <0x0 0 1 0x0 1 0>;
+		qcom,mem40  = <0x0 0 1 0x0 1 0>;
+		qcom,page41 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll41 = <0x0 0 1 0x0 1 0>;
+		qcom,mem41  = <0x0 0 1 0x0 1 0>;
+		// page 10
+		qcom,page42 = <0x1 0xe0 1 0x0a 1 0>;
+		qcom,poll42 = <0x0 0 1 0x0 1 0>;
+		qcom,mem42  = <0x0 0 1 0x0 1 0>;
+		qcom,page43 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll43 = <0x0 0 1 0x0 1 0>;
+		qcom,mem43  = <0x0 0 1 0x0 1 0>;
+		qcom,page44 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll44 = <0x0 0 1 0x0 1 0>;
+		qcom,mem44  = <0x18 0xC8 1 0x0 1 0>;
+		/*page11 LSC 32*/
+		qcom,page45 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll45 = <0x0 0 1 0x0 1 0>;
+		qcom,mem45  = <0x0 0 1 0x0 1 0>;
+		qcom,page46 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll46 = <0x0 0 1 0x0 1 0>;
+		qcom,mem46  = <0x0 0 1 0x0 1 0>;
+		// page 11
+		qcom,page47 = <0x1 0xe0 1 0x0b 1 0>;
+		qcom,poll47 = <0x0 0 1 0x0 1 0>;
+		qcom,mem47  = <0x0 0 1 0x0 1 0>;
+		qcom,page48 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll48 = <0x0 0 1 0x0 1 0>;
+		qcom,mem48  = <0x0 0 1 0x0 1 0>;
+		qcom,page49 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll49 = <0x0 0 1 0x0 1 0>;
+		qcom,mem49  = <0x20 0xC0 1 0x0 1 0>;
+		/*page12 LSC 32*/
+		qcom,page50 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll50 = <0x0 0 1 0x0 1 0>;
+		qcom,mem50  = <0x0 0 1 0x0 1 0>;
+		qcom,page51 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll51 = <0x0 0 1 0x0 1 0>;
+		qcom,mem51  = <0x0 0 1 0x0 1 0>;
+		// page 12
+		qcom,page52 = <0x1 0xe0 1 0x0c 1 0>;
+		qcom,poll52 = <0x0 0 1 0x0 1 0>;
+		qcom,mem52  = <0x0 0 1 0x0 1 0>;
+		qcom,page53 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll53 = <0x0 0 1 0x0 1 0>;
+		qcom,mem53  = <0x0 0 1 0x0 1 0>;
+		qcom,page54 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll54 = <0x0 0 1 0x0 1 0>;
+		qcom,mem54  = <0x20 0xC0 1 0x0 1 0>;
+		/*page13 LSC 32*/
+		qcom,page55 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll55 = <0x0 0 1 0x0 1 0>;
+		qcom,mem55  = <0x0 0 1 0x0 1 0>;
+		qcom,page56 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll56 = <0x0 0 1 0x0 1 0>;
+		qcom,mem56  = <0x0 0 1 0x0 1 0>;
+		// page 13
+		qcom,page57 = <0x1 0xe0 1 0x0d 1 0>;
+		qcom,poll57 = <0x0 0 1 0x0 1 0>;
+		qcom,mem57  = <0x0 0 1 0x0 1 0>;
+		qcom,page58 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll58 = <0x0 0 1 0x0 1 0>;
+		qcom,mem58  = <0x0 0 1 0x0 1 0>;
+		qcom,page59 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll59 = <0x0 0 1 0x0 1 0>;
+		qcom,mem59  = <0x20 0xC0 1 0x0 1 0>;
+		/*page14 LSC 32*/
+		qcom,page60 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll60 = <0x0 0 1 0x0 1 0>;
+		qcom,mem60  = <0x0 0 1 0x0 1 0>;
+		qcom,page61 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll61 = <0x0 0 1 0x0 1 0>;
+		qcom,mem61  = <0x0 0 1 0x0 1 0>;
+		// page 14
+		qcom,page62 = <0x1 0xe0 1 0x0e 1 0>;
+		qcom,poll62 = <0x0 0 1 0x0 1 0>;
+		qcom,mem62  = <0x0 0 1 0x0 1 0>;
+		qcom,page63 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll63 = <0x0 0 1 0x0 1 0>;
+		qcom,mem63  = <0x0 0 1 0x0 1 0>;
+		qcom,page64 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll64 = <0x0 0 1 0x0 1 0>;
+		qcom,mem64  = <0x20 0xC0 1 0x0 1 0>;
+		/*page15 LSC 32*/
+		qcom,page65 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll65 = <0x0 0 1 0x0 1 0>;
+		qcom,mem65  = <0x0 0 1 0x0 1 0>;
+		qcom,page66 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll66 = <0x0 0 1 0x0 1 0>;
+		qcom,mem66  = <0x0 0 1 0x0 1 0>;
+		// page 15
+		qcom,page67 = <0x1 0xe0 1 0x0f 1 0>;
+		qcom,poll67 = <0x0 0 1 0x0 1 0>;
+		qcom,mem67  = <0x0 0 1 0x0 1 0>;
+		qcom,page68 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll68 = <0x0 0 1 0x0 1 0>;
+		qcom,mem68  = <0x0 0 1 0x0 1 0>;
+		qcom,page69 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll69 = <0x0 0 1 0x0 1 0>;
+		qcom,mem69  = <0x20 0xC0 1 0x0 1 0>;
+		/*page16 LSC 32*/
+		qcom,page70 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll70 = <0x0 0 1 0x0 1 0>;
+		qcom,mem70  = <0x0 0 1 0x0 1 0>;
+		qcom,page71 = <0x1 0x68 1 0x11 1 0>;
+		qcom,poll71 = <0x0 0 1 0x0 1 0>;
+		qcom,mem71  = <0x0 0 1 0x0 1 0>;
+		// page 16
+		qcom,page72 = <0x1 0xe0 1 0x10 1 0>;
+		qcom,poll72 = <0x0 0 1 0x0 1 0>;
+		qcom,mem72  = <0x0 0 1 0x0 1 0>;
+		qcom,page73 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll73 = <0x0 0 1 0x0 1 0>;
+		qcom,mem73  = <0x0 0 1 0x0 1 0>;
+		qcom,page74 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll74 = <0x0 0 1 0x0 1 0>;
+		qcom,mem74  = <0x20 0xC0 1 0x0 1 0>;
+		/*page17 LSC 32*/
+		qcom,page75 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll75 = <0x0 0 1 0x0 1 0>;
+		qcom,mem75  = <0x0 0 1 0x0 1 0>;
+		qcom,page76 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll76 = <0x0 0 1 0x0 1 0>;
+		qcom,mem76  = <0x0 0 1 0x0 1 0>;
+		// page 17
+		qcom,page77 = <0x1 0xe0 1 0x11 1 0>;
+		qcom,poll77 = <0x0 0 1 0x0 1 0>;
+		qcom,mem77  = <0x0 0 1 0x0 1 0>;
+		qcom,page78 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll78 = <0x0 0 1 0x0 1 0>;
+		qcom,mem78  = <0x0 0 1 0x0 1 0>;
+		qcom,page79 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll79 = <0x0 0 1 0x0 1 0>;
+		qcom,mem79  = <0x20 0xC0 1 0x0 1 0>;
+		/*page18 LSC 32*/
+		qcom,page80 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll80 = <0x0 0 1 0x0 1 0>;
+		qcom,mem80  = <0x0 0 1 0x0 1 0>;
+		qcom,page81 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll81 = <0x0 0 1 0x0 1 0>;
+		qcom,mem81  = <0x0 0 1 0x0 1 0>;
+		// page 18
+		qcom,page82 = <0x1 0xe0 1 0x12 1 0>;
+		qcom,poll82 = <0x0 0 1 0x0 1 0>;
+		qcom,mem82  = <0x0 0 1 0x0 1 0>;
+		qcom,page83 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll83 = <0x0 0 1 0x0 1 0>;
+		qcom,mem83  = <0x0 0 1 0x0 1 0>;
+		qcom,page84 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll84 = <0x0 0 1 0x0 1 0>;
+		qcom,mem84  = <0x20 0xC0 1 0x0 1 0>;
+		/*page19 LSC 32*/
+		qcom,page85 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll85 = <0x0 0 1 0x0 1 0>;
+		qcom,mem85  = <0x0 0 1 0x0 1 0>;
+		qcom,page86 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll86 = <0x0 0 1 0x0 1 0>;
+		qcom,mem86  = <0x0 0 1 0x0 1 0>;
+		// page 19
+		qcom,page87 = <0x1 0xe0 1 0x13 1 0>;
+		qcom,poll87 = <0x0 0 1 0x0 1 0>;
+		qcom,mem87  = <0x0 0 1 0x0 1 0>;
+		qcom,page88 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll88 = <0x0 0 1 0x0 1 0>;
+		qcom,mem88  = <0x0 0 1 0x0 1 0>;
+		qcom,page89 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll89 = <0x0 0 1 0x0 1 0>;
+		qcom,mem89  = <0x20 0xC0 1 0x0 1 0>;
+		/*page20 LSC 32*/
+		qcom,page90 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll90 = <0x0 0 1 0x0 1 0>;
+		qcom,mem90  = <0x0 0 1 0x0 1 0>;
+		qcom,page91 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll91 = <0x0 0 1 0x0 1 0>;
+		qcom,mem91  = <0x0 0 1 0x0 1 0>;
+		// page 20
+		qcom,page92 = <0x1 0xe0 1 0x14 1 0>;
+		qcom,poll92 = <0x0 0 1 0x0 1 0>;
+		qcom,mem92  = <0x0 0 1 0x0 1 0>;
+		qcom,page93 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll93 = <0x0 0 1 0x0 1 0>;
+		qcom,mem93  = <0x0 0 1 0x0 1 0>;
+		qcom,page94 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll94 = <0x0 0 1 0x0 1 0>;
+		qcom,mem94  = <0x20 0xC0 1 0x0 1 0>;
+		/*page21 LSC 32*/
+		qcom,page95 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll95 = <0x0 0 1 0x0 1 0>;
+		qcom,mem95  = <0x0 0 1 0x0 1 0>;
+		qcom,page96 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll96 = <0x0 0 1 0x0 1 0>;
+		qcom,mem96  = <0x0 0 1 0x0 1 0>;
+		// page 21
+		qcom,page97 = <0x1 0xe0 1 0x15 1 0>;
+		qcom,poll97 = <0x0 0 1 0x0 1 0>;
+		qcom,mem97  = <0x0 0 1 0x0 1 0>;
+		qcom,page98 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll98 = <0x0 0 1 0x0 1 0>;
+		qcom,mem98  = <0x0 0 1 0x0 1 0>;
+		qcom,page99 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll99 = <0x0 0 1 0x0 1 0>;
+		qcom,mem99  = <0x20 0xC0 1 0x0 1 0>;
+		/*page22 LSC 32*/
+		qcom,page100 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll100 = <0x0 0 1 0x0 1 0>;
+		qcom,mem100  = <0x0 0 1 0x0 1 0>;
+		qcom,page101 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll101 = <0x0 0 1 0x0 1 0>;
+		qcom,mem101  = <0x0 0 1 0x0 1 0>;
+		// page 22
+		qcom,page102 = <0x1 0xe0 1 0x16 1 0>;
+		qcom,poll102 = <0x0 0 1 0x0 1 0>;
+		qcom,mem102  = <0x0 0 1 0x0 1 0>;
+		qcom,page103 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll103 = <0x0 0 1 0x0 1 0>;
+		qcom,mem103  = <0x0 0 1 0x0 1 0>;
+		qcom,page104 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll104 = <0x0 0 1 0x0 1 0>;
+		qcom,mem104  = <0x20 0xC0 1 0x0 1 0>;
+		/*page23 LSC 32*/
+		qcom,page105 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll105 = <0x0 0 1 0x0 1 0>;
+		qcom,mem105  = <0x0 0 1 0x0 1 0>;
+		qcom,page106 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll106 = <0x0 0 1 0x0 1 0>;
+		qcom,mem106  = <0x0 0 1 0x0 1 0>;
+		// page 23
+		qcom,page107 = <0x1 0xe0 1 0x17 1 0>;
+		qcom,poll107 = <0x0 0 1 0x0 1 0>;
+		qcom,mem107  = <0x0 0 1 0x0 1 0>;
+		qcom,page108 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll108 = <0x0 0 1 0x0 1 0>;
+		qcom,mem108  = <0x0 0 1 0x0 1 0>;
+		qcom,page109 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll109 = <0x0 0 1 0x0 1 0>;
+		qcom,mem109  = <0x20 0xC0 1 0x0 1 0>;
+		/*page24 LSC 32*/
+		qcom,page110 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll110 = <0x0 0 1 0x0 1 0>;
+		qcom,mem110  = <0x0 0 1 0x0 1 0>;
+		qcom,page111 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll111 = <0x0 0 1 0x0 1 0>;
+		qcom,mem111  = <0x0 0 1 0x0 1 0>;
+		// page 24
+		qcom,page112 = <0x1 0xe0 1 0x18 1 0>;
+		qcom,poll112 = <0x0 0 1 0x0 1 0>;
+		qcom,mem112  = <0x0 0 1 0x0 1 0>;
+		qcom,page113 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll113 = <0x0 0 1 0x0 1 0>;
+		qcom,mem113  = <0x0 0 1 0x0 1 0>;
+		qcom,page114 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll114 = <0x0 0 1 0x0 1 0>;
+		qcom,mem114  = <0x20 0xC0 1 0x0 1 0>;
+		/*page25 LSC 32*/
+		qcom,page115 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll115 = <0x0 0 1 0x0 1 0>;
+		qcom,mem115  = <0x0 0 1 0x0 1 0>;
+		qcom,page116 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll116 = <0x0 0 1 0x0 1 0>;
+		qcom,mem116  = <0x0 0 1 0x0 1 0>;
+		// page 25
+		qcom,page117 = <0x1 0xe0 1 0x19 1 0>;
+		qcom,poll117 = <0x0 0 1 0x0 1 0>;
+		qcom,mem117  = <0x0 0 1 0x0 1 0>;
+		qcom,page118 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll118 = <0x0 0 1 0x0 1 0>;
+		qcom,mem118  = <0x0 0 1 0x0 1 0>;
+		qcom,page119 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll119 = <0x0 0 1 0x0 1 0>;
+		qcom,mem119  = <0x20 0xC0 1 0x0 1 0>;
+		/*page26 LSC 32*/
+		qcom,page120 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll120 = <0x0 0 1 0x0 1 0>;
+		qcom,mem120  = <0x0 0 1 0x0 1 0>;
+		qcom,page121 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll121 = <0x0 0 1 0x0 1 0>;
+		qcom,mem121  = <0x0 0 1 0x0 1 0>;
+		// page 26
+		qcom,page122 = <0x1 0xe0 1 0x1a 1 0>;
+		qcom,poll122 = <0x0 0 1 0x0 1 0>;
+		qcom,mem122  = <0x0 0 1 0x0 1 0>;
+		qcom,page123 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll123 = <0x0 0 1 0x0 1 0>;
+		qcom,mem123  = <0x0 0 1 0x0 1 0>;
+		qcom,page124 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll124 = <0x0 0 1 0x0 1 0>;
+		qcom,mem124  = <0x20 0xC0 1 0x0 1 0>;
+		/*page27 LSC 32*/
+		qcom,page125 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll125 = <0x0 0 1 0x0 1 0>;
+		qcom,mem125  = <0x0 0 1 0x0 1 0>;
+		qcom,page126 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll126 = <0x0 0 1 0x0 1 0>;
+		qcom,mem126  = <0x0 0 1 0x0 1 0>;
+		// page 27
+		qcom,page127 = <0x1 0xe0 1 0x1b 1 0>;
+		qcom,poll127 = <0x0 0 1 0x0 1 0>;
+		qcom,mem127  = <0x0 0 1 0x0 1 0>;
+		qcom,page128 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll128 = <0x0 0 1 0x0 1 0>;
+		qcom,mem128  = <0x0 0 1 0x0 1 0>;
+		qcom,page129 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll129 = <0x0 0 1 0x0 1 0>;
+		qcom,mem129  = <0x20 0xC0 1 0x0 1 0>;
+		/*page28 LSC 32*/
+		qcom,page130 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll130 = <0x0 0 1 0x0 1 0>;
+		qcom,mem130  = <0x0 0 1 0x0 1 0>;
+		qcom,page131 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll131 = <0x0 0 1 0x0 1 0>;
+		qcom,mem131  = <0x0 0 1 0x0 1 0>;
+		// page 28
+		qcom,page132 = <0x1 0xe0 1 0x1c 1 0>;
+		qcom,poll132 = <0x0 0 1 0x0 1 0>;
+		qcom,mem132  = <0x0 0 1 0x0 1 0>;
+		qcom,page133 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll133 = <0x0 0 1 0x0 1 0>;
+		qcom,mem133  = <0x0 0 1 0x0 1 0>;
+		qcom,page134 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll134 = <0x0 0 1 0x0 1 0>;
+		qcom,mem134  = <0x20 0xC0 1 0x0 1 0>;
+		/*page29 LSC 32*/
+		qcom,page135 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll135 = <0x0 0 1 0x0 1 0>;
+		qcom,mem135  = <0x0 0 1 0x0 1 0>;
+		qcom,page136 = <0x1 0x68 1 0x11 1 0>;
+		qcom,poll136 = <0x0 0 1 0x0 1 0>;
+		qcom,mem136  = <0x0 0 1 0x0 1 0>;
+		// page 29
+		qcom,page137 = <0x1 0xe0 1 0x1d 1 0>;
+		qcom,poll137 = <0x0 0 1 0x0 1 0>;
+		qcom,mem137  = <0x0 0 1 0x0 1 0>;
+		qcom,page138 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll138 = <0x0 0 1 0x0 1 0>;
+		qcom,mem138  = <0x0 0 1 0x0 1 0>;
+		qcom,page139 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll139 = <0x0 0 1 0x0 1 0>;
+		qcom,mem139  = <0x20 0xC0 1 0x0 1 0>;
+		/*page30 LSC 2*/
+		qcom,page140 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll140 = <0x0 0 1 0x0 1 0>;
+		qcom,mem140  = <0x0 0 1 0x0 1 0>;
+		qcom,page141 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll141 = <0x0 0 1 0x0 1 0>;
+		qcom,mem141  = <0x0 0 1 0x0 1 0>;
+		// page 30
+		qcom,page142 = <0x1 0xe0 1 0x1e 1 0>;
+		qcom,poll142 = <0x0 0 1 0x0 1 0>;
+		qcom,mem142  = <0x0 0 1 0x0 1 0>;
+		qcom,page143 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll143 = <0x0 0 1 0x0 1 0>;
+		qcom,mem143  = <0x0 0 1 0x0 1 0>;
+		qcom,page144 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll144 = <0x0 0 1 0x0 1 0>;
+		qcom,mem144  = <0x20 0xC0 1 0x0 1 0>;
+				/*page31 info&WB 30*/
+		qcom,page145 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll145 = <0x0 0 1 0x0 1 0>;
+		qcom,mem145  = <0x0 0 1 0x0 1 0>;
+		qcom,page146 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll146 = <0x0 0 1 0x0 1 0>;
+		qcom,mem146  = <0x0 0 1 0x0 1 0>;
+		// page 31
+		qcom,page147 = <0x1 0xe0 1 0x1f 1 0>;
+		qcom,poll147 = <0x0 0 1 0x0 1 0>;
+		qcom,mem147  = <0x0 0 1 0x0 1 0>;
+		qcom,page148 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll148 = <0x0 0 1 0x0 1 0>;
+		qcom,mem148  = <0x0 0 1 0x0 1 0>;
+		qcom,page149 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll149 = <0x0 0 1 0x0 1 0>;
+		qcom,mem149  = <0x3 0xC0 1 0x0 1 0>;
+
+		/*page0 wafer_ID fuse_id 10*/
+		qcom,page150 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll150 = <0x0 0 1 0x0 1 0>;
+		qcom,mem150  = <0x0 0 1 0x0 1 0>;
+		qcom,page151 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll151 = <0x0 0 1 0x0 1 0>;
+		qcom,mem151  = <0x0 0 1 0x0 1 0>;
+		// page 0
+		qcom,page152 = <0x1 0xe0 1 0x0 1 0>;
+		qcom,poll152 = <0x0 0 1 0x0 1 0>;
+		qcom,mem152  = <0x0 0 1 0x0 1 0>;
+		qcom,page153 = <0x1 0x67 1 0xf0 1 0>;
+		qcom,poll153 = <0x0 0 1 0x0 1 0>;
+		qcom,mem153  = <0x0 0 1 0x0 1 0>;
+		qcom,page154 = <0x1 0xf3 1 0x10 1 0>;
+		qcom,poll154 = <0x0 0 1 0x0 1 0>;
+		qcom,mem154  = <0xa 0xC3 1 0x0 1 0>;
+
+		/* read end */
+		qcom,page155 = <0x1 0x67 1 0xc0 1 0>;
+		qcom,poll155 = <0x0 0 1 0x0 1 0>;
+		qcom,mem155  = <0x0 0 1 0x0 1 0>;
+		qcom,page156 = <0x1 0xf3 1 0x00 1 0>;
+		qcom,poll156 = <0x0 0 1 0x0 1 0>;
+		qcom,mem156  = <0x0 0 1 0x0 1 0>;
+
+		cam_vana-supply = <&pm8953_l22>;
+		cam_vio-supply = <&pm8953_l6>;
+		cam_vdig-supply = <&pm8953_l3>;
+		qcom,cam-vreg-name = "cam_vana", "cam_vio", "cam_vdig";
+		qcom,cam-vreg-min-voltage = <2900000 0 1200000>;
+		qcom,cam-vreg-max-voltage = <2900000 0 1200000>;
+		qcom,cam-vreg-op-mode = <80000 0 200000>;
+		qcom,gpio-no-mux = <0>;
+		pinctrl-names = "cam_default", "cam_suspend";
+		pinctrl-0 = <&cam_sensor_mclk2_default &cam_sensor_front_default>;
+		pinctrl-1 = <&cam_sensor_mclk2_sleep &cam_sensor_front_sleep>;
+		gpios = <&tlmm 28 0>,
+			<&tlmm 38 0>;
+		qcom,gpio-reset = <1>;
+		qcom,gpio-req-tbl-num = <0 1>;
+		qcom,gpio-req-tbl-flags = <1 0>;
+		qcom,gpio-req-tbl-label = "CAMIF_MCLK2", "CAM_RESET2";
+		qcom,cam-power-seq-type = "sensor_gpio", "sensor_vreg","sensor_vreg",
+			"sensor_vreg", "sensor_clk" , "sensor_gpio";
+		qcom,cam-power-seq-val = "sensor_gpio_reset", "cam_vio","cam_vdig", "cam_vana",
+			"sensor_cam_mclk", "sensor_gpio_reset";
+		qcom,cam-power-seq-cfg-val = <0 1 1 1 24000000 1>;
+		qcom,cam-power-seq-delay = <1 0 0 0 10 1>;
+		status = "ok";
+		clocks = <&clock_gcc clk_mclk2_clk_src>,
+				<&clock_gcc clk_gcc_camss_mclk2_clk>;
+		clock-names = "cam_src_clk", "cam_clk";
+		qcom,clock-rates = <24000000 0>;
+	};
+
+	eeprom6: qcom,eeprom@6 {
+		cell-index = <6>;
+		reg = <0x06>;
+		qcom,eeprom-name = "pine_imx486_qtech";
+		compatible = "qcom,eeprom";
+		qcom,slave-addr = <0xa8>;
+		qcom,cci-master = <0>;
+		qcom,i2c-freq-mode = <1>;
+		qcom,num-blocks = <1>;
+		qcom,page0 = <0 0x0 2 0x01 1 1>;
+		qcom,poll0 = <0 0x0 2 0x0 1 0>;
+		qcom,mem0 = <8192 0x0 2 0x0 1 0>;
+		cam_vana-supply = <&pm8953_l22>;
+		cam_vio-supply = <&pm8953_l6>;
+		cam_vdig-supply = <&pm8953_l3>;
+		cam_vaf-supply = <&pm8953_l17>;
+		qcom,cam-vreg-name = "cam_vana", "cam_vio",
+					"cam_vdig", "cam_vaf";
+		qcom,cam-vreg-min-voltage = <2900000 0 1200000 2850000>;
+		qcom,cam-vreg-max-voltage = <2900000 0 1200000 2850000>;
+		qcom,cam-vreg-op-mode = <80000 0 200000 100000>;
+		pinctrl-names = "cam_default", "cam_suspend";
+		pinctrl-0 = <&cam_sensor_mclk0_default
+				&cam_sensor_rear_reset
+				&cam_sensor_rear_vana>;
+		pinctrl-1 = <&cam_sensor_mclk0_sleep
+				&cam_sensor_rear_reset_sleep
+				&cam_sensor_rear_vana_sleep>;
+		gpios = <&tlmm 26 0>,
+			<&tlmm 36 0>,
+			<&tlmm 35 0>;
+		qcom,gpio-reset = <1>;
+		qcom,gpio-vana = <2>;
+		qcom,gpio-req-tbl-num = <0 1 2>;
+		qcom,gpio-req-tbl-flags = <1 0 0>;
+		qcom,gpio-req-tbl-label = "CAMIF_MCLK0",
+					"CAM_RESET0",
+					"CAM_VANA";
+		status = "ok";
+		clocks = <&clock_gcc clk_mclk0_clk_src>,
+			<&clock_gcc clk_gcc_camss_mclk0_clk>;
+		clock-names = "cam_src_clk", "cam_clk";
+		qcom,clock-rates = <24000000 0>;
+		qcom,cam-power-seq-type = "sensor_vreg",
+				"sensor_vreg", "sensor_clk",
+				"sensor_gpio", "sensor_gpio";
+		qcom,cam-power-seq-val = "cam_vdig", "cam_vio",
+			"sensor_cam_mclk","sensor_gpio_reset",
+					"sensor_gpio_standby";
+		qcom,cam-power-seq-cfg-val = <0 0 24000000 1 1>;
+		qcom,cam-power-seq-delay = <0 0 1 5 5>;
+	};
+
+		eeprom8: qcom,eeprom@8 {
+		cell-index = <8>;
+		reg = <0x08>;
+		qcom,eeprom-name = "pine_imx486_ofilm";
+		compatible = "qcom,eeprom";
+		qcom,slave-addr = <0xa8>;
+		qcom,cci-master = <0>;
+		qcom,i2c-freq-mode = <1>;
+		qcom,num-blocks = <1>;
+		qcom,page0 = <0 0x0 2 0x01 1 1>;
+		qcom,poll0 = <0 0x0 2 0x0 1 0>;
+		qcom,mem0 = <8192 0x0 2 0x0 1 0>;
+		cam_vana-supply = <&pm8953_l22>;
+		cam_vio-supply = <&pm8953_l6>;
+		cam_vdig-supply = <&pm8953_l3>;
+		cam_vaf-supply = <&pm8953_l17>;
+		qcom,cam-vreg-name = "cam_vana", "cam_vio",
+					"cam_vdig", "cam_vaf";
+		qcom,cam-vreg-min-voltage = <2900000 0 1200000 2850000>;
+		qcom,cam-vreg-max-voltage = <2900000 0 1200000 2850000>;
+		qcom,cam-vreg-op-mode = <80000 0 200000 100000>;
+		pinctrl-names = "cam_default", "cam_suspend";
+		pinctrl-0 = <&cam_sensor_mclk0_default
+				&cam_sensor_rear_reset
+				&cam_sensor_rear_vana>;
+		pinctrl-1 = <&cam_sensor_mclk0_sleep
+				&cam_sensor_rear_reset_sleep
+				&cam_sensor_rear_vana_sleep>;
+		gpios = <&tlmm 26 0>,
+			<&tlmm 36 0>,
+			<&tlmm 35 0>;
+		qcom,gpio-reset = <1>;
+		qcom,gpio-vana = <2>;
+		qcom,gpio-req-tbl-num = <0 1 2>;
+		qcom,gpio-req-tbl-flags = <1 0 0>;
+		qcom,gpio-req-tbl-label = "CAMIF_MCLK0",
+					"CAM_RESET0",
+					"CAM_VANA";
+		status = "ok";
+		clocks = <&clock_gcc clk_mclk0_clk_src>,
+			<&clock_gcc clk_gcc_camss_mclk0_clk>;
+		clock-names = "cam_src_clk", "cam_clk";
+		qcom,clock-rates = <24000000 0>;
+		qcom,cam-power-seq-type = "sensor_vreg",
+				"sensor_vreg", "sensor_clk",
+				"sensor_gpio", "sensor_gpio";
+		qcom,cam-power-seq-val = "cam_vdig", "cam_vio",
+			"sensor_cam_mclk","sensor_gpio_reset",
+					"sensor_gpio_standby";
+		qcom,cam-power-seq-cfg-val = <0 0 24000000 1 1>;
+		qcom,cam-power-seq-delay = <0 0 1 5 5>;
+	};
+
+	qcom,camera@0 {
+		cell-index = <0>;
+		compatible = "qcom,camera";
+		reg = <0x0>;
+		qcom,csiphy-sd-index = <0>;
+		qcom,csid-sd-index = <0>;
+		qcom,mount-angle = <90>;
+		qcom,eeprom-src = <&eeprom0 &eeprom2 &eeprom4 &eeprom6 &eeprom8>;
+		qcom,led-flash-src = <&led_flash0>;
+		qcom,actuator-src = <&actuator0>;
+		cam_vana-supply = <&pm8953_l22>;
+		cam_vio-supply = <&pm8953_l6>;
+		cam_vdig-supply = <&pm8953_l3>;
+		cam_vaf-supply = <&pm8953_l17>;
+		qcom,cam-vreg-name = "cam_vana", "cam_vio", "cam_vdig", "cam_vaf";
+		qcom,cam-vreg-min-voltage = <2900000 0 1200000 2850000>;
+		qcom,cam-vreg-max-voltage = <2900000 0 1200000 2850000>;
+		qcom,cam-vreg-op-mode = <80000 0 200000 100000>;
+		pinctrl-names = "cam_default", "cam_suspend";
+		pinctrl-0 = <&cam_sensor_mclk0_default
+				&cam_sensor_rear_reset
+				&cam_sensor_rear_vana>;
+		pinctrl-1 = <&cam_sensor_mclk0_sleep
+				&cam_sensor_rear_reset_sleep
+				&cam_sensor_rear_vana_sleep>;
+		gpios = <&tlmm 26 0>,
+			<&tlmm 36 0>,
+			<&tlmm 35 0>;
+		qcom,gpio-reset = <1>;
+		qcom,gpio-vana = <2>;
+		qcom,gpio-req-tbl-num = <0 1 2>;
+		qcom,gpio-req-tbl-flags = <1 0 0>;
+		qcom,gpio-req-tbl-label = "CAMIF_MCLK0",
+			"CAM_RESET0", "CAM_VANA";
 		qcom,sensor-position = <0>;
 		qcom,sensor-mode = <0>;
 		qcom,cci-master = <0>;
 		status = "ok";
 		clocks = <&clock_gcc clk_mclk0_clk_src>,
-				<&clock_gcc clk_gcc_camss_mclk0_clk>;
+			<&clock_gcc clk_gcc_camss_mclk0_clk>;
 		clock-names = "cam_src_clk", "cam_clk";
 		qcom,clock-rates = <24000000 0>;
 	};
@@ -206,80 +2034,33 @@
 	qcom,camera@1 {
 		cell-index = <1>;
 		compatible = "qcom,camera";
+		qcom,eeprom-src = <&eeprom1 &eeprom3 &eeprom5>;
 		reg = <0x1>;
 		qcom,csiphy-sd-index = <1>;
 		qcom,csid-sd-index = <1>;
 		qcom,mount-angle = <270>;
-		cam_vdig-supply = <&pm8953_l3>;
 		cam_vana-supply = <&pm8953_l22>;
 		cam_vio-supply = <&pm8953_l6>;
-		cam_vaf-supply = <&pm8953_l17>;
-		qcom,cam-vreg-name = "cam_vdig", "cam_vio", "cam_vana",
-							"cam_vaf";
-		qcom,cam-vreg-min-voltage = <1200000 0 2800000 2850000>;
-		qcom,cam-vreg-max-voltage = <1200000 0 2800000 2850000>;
-		qcom,cam-vreg-op-mode = <200000 0 80000 100000>;
-		pinctrl-names = "cam_default", "cam_suspend";
-		pinctrl-0 = <&cam_sensor_mclk1_default
-				&cam_sensor_front_default>;
-		pinctrl-1 = <&cam_sensor_mclk1_sleep
-				&cam_sensor_front_sleep>;
-		gpios = <&tlmm 27 0>,
-			<&tlmm 38 0>,
-			<&tlmm 50 0>;
-		qcom,gpio-reset = <1>;
-		qcom,gpio-standby = <2>;
-		qcom,gpio-req-tbl-num = <0 1 2>;
-		qcom,gpio-req-tbl-flags = <1 0 0>;
-		qcom,gpio-req-tbl-label = "CAMIF_MCLK1",
-			"CAM_RESET1",
-			"CAM_STANDBY1";
-		qcom,sensor-position = <0x100>;
-		qcom,sensor-mode = <1>;
-		qcom,cci-master = <1>;
-		clocks = <&clock_gcc clk_mclk1_clk_src>,
-				<&clock_gcc clk_gcc_camss_mclk1_clk>;
-		clock-names = "cam_src_clk", "cam_clk";
-		qcom,clock-rates = <24000000 0>;
-	};
-
-	qcom,camera@2 {
-		cell-index = <2>;
-		compatible = "qcom,camera";
-		reg = <0x02>;
-		qcom,csiphy-sd-index = <1>;
-		qcom,csid-sd-index = <1>;
-		qcom,mount-angle = <270>;
-		qcom,eeprom-src = <&eeprom1>;
-		qcom,actuator-src = <&actuator1>;
 		cam_vdig-supply = <&pm8953_l3>;
-		cam_vana-supply = <&pm8953_l22>;
-		cam_vio-supply = <&pm8953_l6>;
-		cam_vaf-supply = <&pm8953_l17>;
-		qcom,cam-vreg-name = "cam_vdig", "cam_vio", "cam_vana",
-					"cam_vaf";
-		qcom,cam-vreg-min-voltage = <1200000 0 2800000 2850000>;
-		qcom,cam-vreg-max-voltage = <1200000 0 2800000 2850000>;
-		qcom,cam-vreg-op-mode = <105000 0 80000 100000>;
+		qcom,cam-vreg-name = "cam_vana", "cam_vio", "cam_vdig";
+		qcom,cam-vreg-min-voltage = <2900000 0 1200000>;
+		qcom,cam-vreg-max-voltage = <2900000 0 1200000>;
+		qcom,cam-vreg-op-mode = <80000 0 200000>;
 		qcom,gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cam_sensor_mclk2_default
-				&cam_sensor_front1_default>;
+				&cam_sensor_front_default>;
 		pinctrl-1 = <&cam_sensor_mclk2_sleep
-				&cam_sensor_front1_sleep>;
-		gpios = <&tlmm 27 0>,
-			<&tlmm 38 0>,
-			<&tlmm 39 0>;
+				&cam_sensor_front_sleep>;
+		gpios = <&tlmm 28 0>,
+			<&tlmm 38 0>;
 		qcom,gpio-reset = <1>;
-		qcom,gpio-standby = <2>;
-		qcom,gpio-req-tbl-num = <0 1 2>;
-		qcom,gpio-req-tbl-flags = <1 0 0>;
-		qcom,gpio-req-tbl-label = "CAMIF_MCLK2",
-					  "CAM_RESET2",
-					  "CAM_STANDBY2";
+		qcom,gpio-req-tbl-num = <0 1>;
+		qcom,gpio-req-tbl-flags = <1 0>;
+		qcom,gpio-req-tbl-label = "CAMIF_MCLK2", "CAM_RESET2";
 		qcom,sensor-position = <1>;
 		qcom,sensor-mode = <0>;
-		qcom,cci-master = <0>;
+		qcom,cci-master = <1>;
 		status = "ok";
 		clocks = <&clock_gcc clk_mclk2_clk_src>,
 			<&clock_gcc clk_gcc_camss_mclk2_clk>;

@@ -6,6 +6,7 @@
  * is being built with encryption support or not.
  *
  * Copyright (C) 2015, Google, Inc.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * Written by Michael Halcrow, 2015.
  * Modified by Jaegeuk Kim, 2015.

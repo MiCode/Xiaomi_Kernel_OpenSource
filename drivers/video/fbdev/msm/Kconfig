@@ -145,3 +145,8 @@ config FB_MSM_MDSS_FRC_DEBUG
 	cadence.
 
 endif
+
+config WPONIT_ADJUST_FUN
+	bool "XIAOMI whitepoint adjust"
+	---help---
+	Panel provides whitepoint x,y and r,g,b value.

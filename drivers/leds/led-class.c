@@ -65,6 +65,18 @@ unlock:
 }
 static DEVICE_ATTR_RW(brightness);
 
+static ssize_t status_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int leds_red_status;
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	leds_red_status = led_get_brightness(led_cdev);
+	if (leds_red_status)
+		return snprintf(buf, 10, "%u\n", 1);
+	else
+		return snprintf(buf, 10, "%u\n", 0);
+}
+static DEVICE_ATTR_RO(status);
 static ssize_t max_brightness_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -105,6 +117,7 @@ static const struct attribute_group led_trigger_group = {
 static struct attribute *led_class_attrs[] = {
 	&dev_attr_brightness.attr,
 	&dev_attr_max_brightness.attr,
+	&dev_attr_status.attr,
 	NULL,
 };
 

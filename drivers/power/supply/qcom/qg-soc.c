@@ -1,4 +1,5 @@
 /* Copyright (c) 2018 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,7 +37,7 @@ module_param_named(
 	soc_interval_ms, qg_delta_soc_interval_ms, int, 0600
 );
 
-static int qg_delta_soc_cold_interval_ms = 4000;
+static int qg_delta_soc_cold_interval_ms = 70000;
 module_param_named(
 	soc_cold_interval_ms, qg_delta_soc_cold_interval_ms, int, 0600
 );
@@ -70,10 +71,11 @@ int qg_adjust_sys_soc(struct qpnp_qg *chip)
 			soc = FULL_SOC - 1;
 	} else {
 		soc = DIV_ROUND_CLOSEST(chip->sys_soc, 100);
+		qg_dbg(chip, QG_DEBUG_SOC, "sys_soc=%d\n", chip->sys_soc);
 	}
 
-	qg_dbg(chip, QG_DEBUG_SOC, "last_adj_sys_soc=%d  adj_sys_soc=%d\n",
-					chip->last_adj_ssoc, soc);
+	qg_dbg(chip, QG_DEBUG_SOC, "last_adj_sys_soc=%d  adj_sys_soc=%d sys_soc=%d\n",
+					chip->last_adj_ssoc, soc, chip->sys_soc);
 	chip->last_adj_ssoc = soc;
 
 	return soc;
@@ -118,6 +120,12 @@ static void get_next_update_time(struct qpnp_qg *chip)
 
 static bool is_scaling_required(struct qpnp_qg *chip)
 {
+	bool usb_present = is_usb_present(chip);
+
+	qg_dbg(chip, QG_DEBUG_SOC,
+	"maint_soc=%d, msoc=%d, delta_soc=%d, catch_up_soc=%d, is_usb_present=%d\n",
+	chip->maint_soc, chip->msoc, chip->dt.delta_soc, chip->catch_up_soc, is_usb_present(chip));
+
 	if (!chip->profile_loaded)
 		return false;
 
@@ -134,10 +142,15 @@ static bool is_scaling_required(struct qpnp_qg *chip)
 		return false;
 
 
-	if (chip->catch_up_soc > chip->msoc && !is_usb_present(chip))
+	if (chip->catch_up_soc > chip->msoc && !usb_present)
 		/* USB is not present and SOC has increased */
 		return false;
 
+	if (chip->catch_up_soc > chip->msoc && usb_present &&
+	(chip->charge_status != POWER_SUPPLY_STATUS_CHARGING &&
+	chip->charge_status != POWER_SUPPLY_STATUS_FULL))
+		/*USB  is present,but not charging */
+		return false;
 	return true;
 }
 

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -269,8 +270,8 @@
 	rpm-regulator-ldoa19 {
 		status = "okay";
 		pm8937_l19: regulator-l19 {
-			regulator-min-microvolt = <1225000>;
-			regulator-max-microvolt = <1350000>;
+			regulator-min-microvolt = <1450000>;
+			regulator-max-microvolt = <1450000>;
 			qcom,init-voltage = <1225000>;
 			status = "okay";
 		};

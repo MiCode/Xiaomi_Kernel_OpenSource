@@ -2,6 +2,7 @@
  * ci13xxx_udc.c - MIPS USB IP core family device controller
  *
  * Copyright (C) 2008 Chipidea - MIPS Technologies, Inc. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * Author: David Lopo
  *
@@ -3504,12 +3505,54 @@ static int ci13xxx_vbus_draw(struct usb_gadget *_gadget, unsigned int mA)
 	return -ENOTSUPP;
 }
 
+
+static void ci13xxx_udc_connect(struct ci13xxx *udc)
+{
+	 struct usb_phy *phy = udc->transceiver;
+	 int temp;
+	 pr_err("xbt phy->flags=%d\n", phy->flags);
+
+#define MSM_USB_BASE (udc->regs)
+
+	 if (phy && (phy->flags & ENABLE_DP_MANUAL_PULLUP)) {
+		pr_err("xbt phy->flags=%d, ENABLE_DP_MANUAL_PULLUP\n", phy->flags);
+	 }
+	 usb_phy_io_write(phy,
+	 ULPI_MISC_A_VBUSVLDEXT |
+	 ULPI_MISC_A_VBUSVLDEXTSEL,
+	 ULPI_SET(ULPI_MISC_A));
+
+	 temp = readl_relaxed(USB_GENCONFIG_2);
+	 temp |= GENCONFIG_2_SESS_VLD_CTRL_EN;
+	 writel_relaxed(temp, USB_GENCONFIG_2);
+
+	 temp = readl_relaxed(USB_USBCMD);
+	 temp |= USBCMD_SESS_VLD_CTRL;
+	 writel_relaxed(temp, USB_USBCMD);
+
+	 /*
+	 * Add memory barrier as it is must to complete
+	 * above USB PHY and Link register writes before
+	 * moving ahead with USB peripheral mode enumeration,
+	 * otherwise USB peripheral mode may not work.
+	 */
+	 mb();
+#undef MSM_USB_BASE
+}
+
 static int ci13xxx_pullup(struct usb_gadget *_gadget, int is_active)
 {
 	struct ci13xxx *udc = container_of(_gadget, struct ci13xxx, gadget);
 	unsigned long flags;
 
 	spin_lock_irqsave(udc->lock, flags);
+	info("%s,softconnec=%d,is_active=%d\n", __func__, udc->softconnect, is_active);
+
+	if (!udc->softconnect && is_active) {
+		info("%s\n", __func__);
+		ci13xxx_udc_connect(udc);
+		mdelay(100);
+	}
 	udc->softconnect = is_active;
 	if (((udc->udc_driver->flags & CI13XXX_PULLUP_ON_VBUS) &&
 			!udc->vbus_active) || !udc->driver) {

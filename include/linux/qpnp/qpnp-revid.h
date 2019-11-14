@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -271,7 +272,8 @@ struct pmic_revid_data {
 	int		fab_id;
 	int		tp_rev;
 };
-
+#define PMIC_STRING_MAXLENGTH		80
+extern char hq_pmic_string[PMIC_STRING_MAXLENGTH];
 #ifdef CONFIG_QPNP_REVID
 struct pmic_revid_data *get_revid_data(struct device_node *dev_node);
 #else

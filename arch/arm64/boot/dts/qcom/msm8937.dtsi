@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -57,7 +58,7 @@
 		other_ext_mem: other_ext_region@0 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x85b00000 0x0 0xd00000>;
+			reg = <0x0 0x84a00000 0x0 0x1d00000>;
 		};
 
 		modem_mem: modem_region@0 {
@@ -988,7 +989,7 @@
 		reg = <0xb017000 0x1000>;
 		reg-names = "wdt-base";
 		interrupts = <0 3 0>, <0 4 0>;
-		qcom,bark-time = <11000>;
+		qcom,bark-time = <15000>;
 		qcom,pet-time = <9360>;
 		qcom,ipi-ping;
 		qcom,wakeup-enable;
@@ -1448,9 +1449,9 @@
 		status = "disabled";
 	};
 
-	qcom_seecom: qseecom@85b00000 {
+	qcom_seecom: qseecom@84a00000 {
 		compatible = "qcom,qseecom";
-		reg = <0x85b00000 0x800000>;
+		reg = <0x84a00000 0x1900000>;
 		reg-names = "secapp-region";
 		qcom,hlos-num-ce-hw-instances = <1>;
 		qcom,hlos-ce-hw-instance = <0>;
@@ -1755,7 +1756,7 @@
 		qcom,iris-vdddig-supply  = <&pm8937_l5>;
 
 		qcom,iris-vddxo-voltage-level = <1800000 0 1800000>;
-		qcom,iris-vddrfa-voltage-level = <1300000 0 1300000>;
+		qcom,iris-vddrfa-voltage-level = <1450000 0 1450000>;
 		qcom,iris-vddpa-voltage-level = <3300000 0 3300000>;
 		qcom,iris-vdddig-voltage-level = <1800000 0 1800000>;
 

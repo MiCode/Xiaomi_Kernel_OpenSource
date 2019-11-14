@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -50,7 +51,7 @@
 	qcom,msm-micbias2-ext-cap;
 	qcom,msm-mbhc-hphl-swh = <1>;
 	qcom,msm-mbhc-gnd-swh = <0>;
-	qcom,msm-hs-micbias-type = "external";
+	qcom,msm-hs-micbias-type = "internal";
 	/delete-property/ qcom,quin-mi2s-gpios;
 };
 
@@ -59,11 +60,11 @@
 };
 
 &wsa881x_i2c_f {
-	status = "okay";
+	status = "disabled";
 };
 
 &wsa881x_i2c_45 {
-	status = "okay";
+	status = "disabled";
 };
 
 &pm8953_gpios {
@@ -140,6 +141,20 @@
 			linux,can-disable;
 			gpio-key,wakeup;
 		};
+
+		camera_snapshot {
+			label = "camera_snapshot";
+			gpios = <&tlmm 127 0x1>;
+			linux,input-type = <1>;
+			linux,code = <0x2B1>;
+			debounce-interval = <15>;
+			linux,can-disable;
+			gpio-key,wakeup;
+		};
+	};
+	gpio_ldo_power {
+		compatible = "fm,fm_lan_enable";
+		qcom,fm_lan_enable_pin = <&tlmm 87 0>;
 	};
 
 	fpc1020 {
@@ -160,6 +175,8 @@
 		pinctrl-2 = <&fpc_int_low>;
 	};
 };
+
+
 
 &tlmm {
 	pmx_ts_rst_active {
@@ -218,18 +235,18 @@
 	pmx_mdss {
 		mdss_dsi_active: mdss_dsi_active {
 			mux {
-				pins = "gpio60";
+				pins = "gpio60","gpio132","gpio133";
 			};
 			config {
-				pins = "gpio60";
+				pins = "gpio60","gpio132","gpio133";
 			};
 		};
 		mdss_dsi_suspend: mdss_dsi_suspend {
 			mux {
-				pins = "gpio60";
+				pins = "gpio60","gpio132","gpio133";
 			};
 			config {
-				pins = "gpio60";
+				pins = "gpio60","gpio132","gpio133";
 			};
 		};
 	};

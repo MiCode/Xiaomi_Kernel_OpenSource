@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,7 +19,6 @@
 #include <linux/err.h>
 #include <linux/qpnp/qpnp-revid.h>
 #include <linux/of.h>
-
 #define REVID_REVISION1	0x0
 #define REVID_REVISION2	0x1
 #define REVID_REVISION3	0x2
@@ -159,17 +159,15 @@ static size_t build_pmic_string(char *buf, size_t n, int sid,
 }
 
 #define PMIC_PERIPHERAL_TYPE		0x51
-#define PMIC_STRING_MAXLENGTH		80
+char hq_pmic_string[PMIC_STRING_MAXLENGTH] = {'\0'};
 static int qpnp_revid_probe(struct platform_device *pdev)
 {
 	u8 rev1, rev2, rev3, rev4, pmic_type, pmic_subtype, pmic_status;
 	u8 option1, option2, option3, option4, spare0;
 	unsigned int base;
 	int rc, fab_id, tp_rev;
-	char pmic_string[PMIC_STRING_MAXLENGTH] = {'\0'};
 	struct revid_chip *revid_chip;
 	struct regmap *regmap;
-
 	regmap = dev_get_regmap(pdev->dev.parent, NULL);
 	if (!regmap) {
 		dev_err(&pdev->dev, "Couldn't get parent's regmap\n");
@@ -246,12 +244,11 @@ static int qpnp_revid_probe(struct platform_device *pdev)
 	option2 = (pmic_status >> 2) & 0x3;
 	option3 = (pmic_status >> 4) & 0x3;
 	option4 = (pmic_status >> 6) & 0x3;
-
-	build_pmic_string(pmic_string, PMIC_STRING_MAXLENGTH,
+	build_pmic_string(hq_pmic_string, PMIC_STRING_MAXLENGTH,
 			  to_spmi_device(pdev->dev.parent)->usid,
 			pmic_subtype, rev1, rev2, rev3, rev4);
 	pr_info("%s options: %d, %d, %d, %d\n",
-			pmic_string, option1, option2, option3, option4);
+			hq_pmic_string, option1, option2, option3, option4);
 	return 0;
 }
 

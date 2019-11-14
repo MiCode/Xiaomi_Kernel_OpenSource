@@ -1,4 +1,5 @@
 /* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -157,8 +158,8 @@ void compute_work_load(struct devfreq_dev_status *stats,
 	 * is done when the entry is read
 	 */
 	acc_total += stats->total_time;
-	acc_relative_busy += (stats->busy_time * stats->current_frequency) /
-				devfreq->profile->freq_table[0];
+	acc_relative_busy += (stats->busy_time * (stats->current_frequency/1000000)) /
+				(devfreq->profile->freq_table[0]/1000000);
 	spin_unlock(&sample_lock);
 }
 

@@ -1,4 +1,5 @@
 /* Copyright (c) 2018 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,6 +29,22 @@
 #define PERPH_SUBTYPE_OFFSET	0x05
 #define SUBTYPE_MASK		GENMASK(7, 0)
 #define INT_RT_STS_OFFSET	0x10
+
+#define COOL_0_TEMPERATURE 0
+#define COOL_5_TEMPERATURE 50
+#define COOL_10_TEMPERATURE 100
+#define COOL_15_TEMPERATURE 150
+#define COOL_ICL_400MA 0x20		/*JEITA_CCCOMP_COLD=(2000-400)/50*/
+#define COOL_ICL_1300MA 0x0E		/*JEITA_CCCOMP_COLD=(2000-1300)/50*/
+#define COOL_ICL_1950MA 0x01		/*JEITA_CCCOMP_COLD=(2000-1900)/50*/
+#define HOT_ICL_1000MA 0x14		/*JEITA_CCCOMP_HOT=(2000-1000)/50*/
+#define HOT_FV_4100MV 0x1D		/*JEITA_FVCOMP_HOT=(4390-4100)/10*/
+#define COOL_FV_4400MV 0		/*JEITA_FVCOMP_COLD=(4390-4390)/10*/
+
+#define COOL_ICL_OLIVE_1000MA 0x28		/*JEITA_CCCOMP_COLD=(3000-1000)/50*/
+#define COOL_ICL_OLIVE_1950MA 0x15		/*JEITA_CCCOMP_COLD=(3000-1950)/50*/
+#define COOL_ICL_OLIVE_2950MA 0x01		/*JEITA_CCCOMP_COLD=(3000-2950)/50*/
+#define HOT_ICL_OLIVE_2450MA 0x0B		/*JEITA_CCCOMP_HOT=(3000-2450)/50*/
 
 /********************************
  *  CHGR Peripheral Registers  *
@@ -102,6 +119,9 @@ enum {
 #define JEITA_EN_COLD_SL_FCV_BIT		BIT(2)
 #define JEITA_EN_HOT_SL_CCC_BIT			BIT(1)
 #define JEITA_EN_COLD_SL_CCC_BIT		BIT(0)
+
+#define JEITA_FVCOMP_CFG_COLD_REG	(CHGR_BASE + 0x86)
+#define JEITA_FVCOMP_CFG_HOT_REG		(CHGR_BASE + 0x91)
 
 #define JEITA_CCCOMP_CFG_HOT_REG		(CHGR_BASE + 0x92)
 #define JEITA_CCCOMP_CFG_COLD_REG		(CHGR_BASE + 0x93)
@@ -260,8 +280,11 @@ enum {
 
 #define USBIN_AICL_OPTIONS_CFG_REG		(USBIN_BASE + 0x80)
 #define USBIN_AICL_ADC_EN_BIT			BIT(3)
+#define USBIN_AICL_START_AT_MAX_BIT			BIT(5)
+#define SUSPEND_ON_COLLAPSE_USBIN_BIT			BIT(7)
 
 #define USBIN_5V_AICL_THRESHOLD_REG		(USBIN_BASE + 0x81)
+#define USBIN_9V_AICL_THRESHOLD_REG		(USBIN_BASE + 0x82)
 #define USBIN_CONT_AICL_THRESHOLD_REG		(USBIN_BASE + 0x84)
 /********************************
  *  DCIN Peripheral Registers   *
@@ -277,7 +300,19 @@ enum {
  *  TYPEC Peripheral Registers  *
  ********************************/
 #define TYPE_C_SNK_STATUS_REG			(TYPEC_BASE + 0x06)
+#if defined(PROJECT_OLIVE) || defined(PROJECT_OLIVELITE)
+#define DETECTED_SRC_TYPE_MASK			GENMASK(6, 0)
+#define SNK_RP_STD_DAM_BIT 		BIT(6)
+#define SNK_RP_1P5_DAM_BIT 		BIT(5)
+#define SNK_RP_3P0_DAM_BIT 		BIT(4)
+#define TYPE_C_DEBUG_ACCESS_SINK_REG		 (TYPEC_BASE + 0x4A)
+#define EN_CHG_ON_DEBUG_ACCESS_SNK		 BIT(1)
+#define DAM_DIS_AICL 		BIT(3)
+#define SCHG_USB_TYPE_C_CFG		(USBIN_BASE + 0x58)
+#define BC1P2_START_ON_CC			BIT(7)
+#else
 #define DETECTED_SRC_TYPE_MASK			GENMASK(3, 0)
+#endif
 #define SNK_RP_STD_BIT				BIT(3)
 #define SNK_RP_1P5_BIT				BIT(2)
 #define SNK_RP_3P0_BIT				BIT(1)

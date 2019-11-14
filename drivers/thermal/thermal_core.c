@@ -49,8 +49,10 @@ MODULE_AUTHOR("Zhang Rui");
 MODULE_DESCRIPTION("Generic thermal management sysfs support");
 MODULE_LICENSE("GPL v2");
 
-#define THERMAL_MAX_ACTIVE	16
+static int g_mtktsAP;
 
+#define THERMAL_MAX_ACTIVE	16
+#define SNPRINTF_MAXLEN 1024
 static DEFINE_IDR(thermal_tz_idr);
 static DEFINE_IDR(thermal_cdev_idr);
 static DEFINE_MUTEX(thermal_idr_lock);
@@ -1240,9 +1242,31 @@ int power_actor_set_power(struct thermal_cooling_device *cdev,
 	return 0;
 }
 
+
+static ssize_t
+ccc_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, SNPRINTF_MAXLEN, "%d\n", g_mtktsAP);
+}
+
+static ssize_t
+ccc_store(struct device *dev, struct device_attribute *attr,
+	   const char *buf, size_t count)
+{
+	int index;
+
+	if (kstrtoint(buf, 10, &index))
+		return -EINVAL;
+
+	g_mtktsAP = index;
+	return count;
+}
+
+
 static DEVICE_ATTR(type, 0444, type_show, NULL);
 static DEVICE_ATTR(temp, 0444, temp_show, NULL);
 static DEVICE_ATTR(mode, 0644, mode_show, mode_store);
+static DEVICE_ATTR(temp_state, 0664, ccc_show, ccc_store);
 static DEVICE_ATTR(passive, S_IRUGO | S_IWUSR, passive_show, passive_store);
 static DEVICE_ATTR(policy, S_IRUGO | S_IWUSR, policy_show, policy_store);
 static DEVICE_ATTR(available_policies, S_IRUGO, available_policies_show, NULL);
@@ -2606,6 +2630,75 @@ static struct notifier_block thermal_pm_nb = {
 	.notifier_call = thermal_pm_notify,
 };
 
+
+unsigned int sconfig;
+
+#define to_backlight_device(obj) container_of(obj, struct backlight_device, dev)
+ static ssize_t sconfig_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+
+
+
+
+	pr_err("sconfig_show sconfig = %d\n", sconfig);
+
+	return snprintf(buf, SNPRINTF_MAXLEN, "%d\n", sconfig);
+}
+
+
+static ssize_t sconfig_store(struct device *dev,
+    struct device_attribute *attr, const char *buf, size_t size)
+{
+
+	int ret;
+
+
+	sysfs_notify(&dev->kobj, NULL, "sconfig");
+
+	ret = kstrtoint(buf, 0, &sconfig);
+	if (ret)
+		return ret;
+
+	pr_err("sconfig_store sconfig = %d\n", sconfig);
+
+	return size;
+}
+
+
+static struct device_attribute dev_attr_thermal_config = {
+    .attr = {
+    .name = "sconfig",
+    .mode = 0666,
+    },
+    .show = sconfig_show,
+    .store = sconfig_store,
+};
+
+
+void thermalsconfig_init(void)
+{
+	   static struct device *dev;
+
+	   int result;
+
+	   dev = device_create(&thermal_class, NULL, MKDEV(0, 0), NULL, "thermal_message");
+	   if (IS_ERR(dev)) {
+		   result = PTR_ERR(dev);
+		   printk(KERN_ALERT "Failed to create device.\n");
+	   }
+	   #if 1
+	   result = device_create_file(dev, &dev_attr_thermal_config);
+    if (result < 0) {
+		   printk(KERN_ALERT"Failed to create attribute file.");
+	   }
+	   #endif
+    result = device_create_file(dev, &dev_attr_temp_state);
+    if (result < 0) {
+		   printk(KERN_ALERT"Failed to create attribute file.");
+	   }
+}
+
+
 static int __init thermal_init(void)
 {
 	int result;
@@ -2630,6 +2723,10 @@ static int __init thermal_init(void)
 	result = of_parse_thermal_zones();
 	if (result)
 		goto exit_zone_parse;
+
+
+    thermalsconfig_init();
+
 
 	result = register_pm_notifier(&thermal_pm_nb);
 	if (result)
