@@ -5619,7 +5619,7 @@ void testmbox_gpr_timer(void)
 	struct cmdq_pkt_buffer *buf;
 	const u16 reg_gpr = CMDQ_DATA_REG_DEBUG;
 	const u32 tpr_en = 1 << reg_gpr;
-	const u16 event = (u16)GCE_TOKEN_GPR_TIMER + reg_gpr;
+	const u16 event = (u16)CMDQ_EVENT_GPR_TIMER + reg_gpr;
 	struct cmdq_operand lop = {.reg = true, .idx = CMDQ_TPR_ID};
 	struct cmdq_operand rop = {.reg = false, .value = 100};
 	u32 cost;

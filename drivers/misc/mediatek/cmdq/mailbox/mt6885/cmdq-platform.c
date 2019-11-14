@@ -45,7 +45,7 @@ const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event,
 	case CMDQ_SYNC_TOKEN_MSF:
 		return "MSF";
 
-	case GCE_TOKEN_GPR_TIMER ... GCE_TOKEN_GPR_TIMER+32:
+	case CMDQ_EVENT_GPR_TIMER ... CMDQ_EVENT_GPR_TIMER+32:
 		return cmdq_thread_module_dispatch(gce_pa, thread);
 	}
 

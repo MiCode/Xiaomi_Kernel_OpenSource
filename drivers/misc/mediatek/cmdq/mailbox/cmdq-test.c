@@ -164,7 +164,7 @@ static void cmdq_test_mbox_gpr_sleep(struct cmdq_test *test, const bool sleep)
 	u32			*out_va, gce_time;
 	u64			cpu_time;
 	const u16		event =
-		(u16)GCE_TOKEN_GPR_TIMER + CMDQ_GPR_DEBUG_TIMER;
+		(u16)CMDQ_EVENT_GPR_TIMER + CMDQ_GPR_DEBUG_TIMER;
 
 	if (clk_prepare_enable(test->gce.clk)) {
 		cmdq_err("clk fail");

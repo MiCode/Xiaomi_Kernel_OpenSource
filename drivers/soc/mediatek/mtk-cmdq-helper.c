@@ -1024,7 +1024,7 @@ EXPORT_SYMBOL(cmdq_pkt_timer_en);
 s32 cmdq_pkt_sleep(struct cmdq_pkt *pkt, u16 tick, u16 reg_gpr)
 {
 	const u32 tpr_en = 1 << reg_gpr;
-	const u16 event = (u16)GCE_TOKEN_GPR_TIMER + reg_gpr;
+	const u16 event = (u16)CMDQ_EVENT_GPR_TIMER + reg_gpr;
 	struct cmdq_client *cl = (struct cmdq_client *)pkt->cl;
 	struct cmdq_operand lop = {.reg = true, .idx = CMDQ_TPR_ID};
 	struct cmdq_operand rop = {.reg = false, .value = 1};

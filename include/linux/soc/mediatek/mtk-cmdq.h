@@ -30,9 +30,6 @@
 #define CMDQ_CPR_STRAT_ID		0x8000
 #define SUBSYS_NO_SUPPORT		99
 
-/* GCE handshake event 768~783 */
-#define CMDQ_EVENT_HANDSHAKE		768
-
 /* GCE provide 26M timer, thus each tick 1/26M second,
  * which is, 1 microsecond = 26 ticks
  */
@@ -90,8 +87,11 @@ enum cmdq_gpr {
 
 /* Define GCE tokens which not change by platform */
 enum gce_event {
-	/* GPR timer token, 994 to 994+23 */
-	GCE_TOKEN_GPR_TIMER = 994,
+	/* GCE handshake event 768~783 */
+	CMDQ_EVENT_HANDSHAKE = 768,
+
+	/* GPR timer token, 994 to 1009 (for gpr r0 to r15) */
+	CMDQ_EVENT_GPR_TIMER = 994,
 };
 
 struct cmdq_pkt;
