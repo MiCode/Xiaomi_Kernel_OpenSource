@@ -270,6 +270,9 @@ static ssize_t pbl_cmac_show(struct device *dev,
 		return -EINVAL;
 	}
 
+	/* first make sure the pbl cmac is updated */
+	spss_get_pbl_and_apps_calc_cmac();
+
 	ret = snprintf(buf, PAGE_SIZE, "0x%08x,0x%08x,0x%08x,0x%08x\n",
 	    pbl_cmac_buf[0], pbl_cmac_buf[1], pbl_cmac_buf[2], pbl_cmac_buf[3]);
 
@@ -285,6 +288,9 @@ static ssize_t apps_cmac_show(struct device *dev,
 		pr_err("invalid param.\n");
 		return -EINVAL;
 	}
+
+	/* first make sure the pbl cmac is updated */
+	spss_get_pbl_and_apps_calc_cmac();
 
 	memcpy(buf, calc_apps_cmac, sizeof(calc_apps_cmac));
 
@@ -430,7 +436,6 @@ static long spss_utils_ioctl(struct file *file,
 		pr_debug("read pbl cmac from shared memory\n");
 		spss_set_fw_cmac(cmac_buf, sizeof(cmac_buf));
 		spss_set_saved_uefi_apps_cmac();
-		spss_get_pbl_and_apps_calc_cmac();
 		spss_get_saved_uefi_apps_cmac();
 		break;
 
@@ -924,7 +929,6 @@ static int spss_utils_iar_callback(struct notifier_block *nb,
 		break;
 	case SUBSYS_AFTER_POWERUP:
 		pr_debug("[SUBSYS_AFTER_POWERUP] event.\n");
-		spss_get_pbl_and_apps_calc_cmac();
 		break;
 	case SUBSYS_BEFORE_AUTH_AND_RESET:
 		pr_debug("[SUBSYS_BEFORE_AUTH_AND_RESET] event.\n");
