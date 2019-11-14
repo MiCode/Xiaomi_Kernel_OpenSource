@@ -137,6 +137,10 @@
 #define MTK_WDT_NONRST2_SSPM_RESET     (1 << 0)
 #define MTK_WDT_NONRST2_BYPASS_PWR_KEY (1 << 13)
 #define MTK_WDT_NONRST2_SUSPEND_DIS    (1 << 14)
+#define MTK_WDT_NONRST2_VPROC_BEFORE   (1 << 17)
+#define MTK_WDT_NONRST2_VPROC_AFTER    (1 << 18)
+#define MTK_WDT_NONRST2_FLUSH_AFTER    (1 << 19)
+#define MTK_WDT_NONRST2_RST_LAST       (1 << 20)
 /* 31:29: 3-bits for current stage */
 #define MTK_WDT_NONRST2_STAGE_OFS      (29)
 /* 28:26: 3-bits for last stage */
