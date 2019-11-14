@@ -132,7 +132,7 @@ struct apusys_dvfs_opps {
 	uint8_t user_opp_index[APUSYS_DVFS_USER_NUM];
 	uint8_t driver_opp_index[APUSYS_DVFS_USER_NUM];
 	bool is_power_on[APUSYS_POWER_USER_NUM];
-	uint8_t power_bit_mask;
+	uint32_t power_bit_mask;
 	uint64_t id;
 	enum DVFS_VOLTAGE vsram_volatge;
 };
