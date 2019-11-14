@@ -55,6 +55,12 @@ DEFINE_QNODE(xm_sdc2, MASTER_SDCC_2, 1, 8, 1,
 		SLAVE_A2NOC_SNOC);
 DEFINE_QNODE(xm_ufs_card, MASTER_UFS_CARD, 1, 8, 1,
 		SLAVE_A2NOC_SNOC);
+DEFINE_QNODE(qup0_core_master, MASTER_QUP_CORE_0, 1, 4, 1,
+		SLAVE_QUP_CORE_0);
+DEFINE_QNODE(qup1_core_master, MASTER_QUP_CORE_1, 1, 4, 1,
+		SLAVE_QUP_CORE_1);
+DEFINE_QNODE(qup2_core_master, MASTER_QUP_CORE_2, 1, 4, 1,
+		SLAVE_QUP_CORE_2);
 DEFINE_QNODE(qnm_gemnoc_cnoc, MASTER_GEM_NOC_CNOC, 1, 16, 56,
 		SLAVE_AHB2PHY_SOUTH, SLAVE_AHB2PHY_NORTH,
 		SLAVE_AOSS, SLAVE_APPSS,
@@ -192,6 +198,9 @@ DEFINE_QNODE(qns_a2noc_snoc, SLAVE_A2NOC_SNOC, 1, 16, 1,
 DEFINE_QNODE(qns_pcie_mem_noc, SLAVE_ANOC_PCIE_GEM_NOC, 1, 16, 1,
 		MASTER_ANOC_PCIE_GEM_NOC);
 DEFINE_QNODE(srvc_aggre2_noc, SLAVE_SERVICE_A2NOC, 1, 4, 0);
+DEFINE_QNODE(qup0_core_slave, SLAVE_QUP_CORE_0, 1, 4, 0);
+DEFINE_QNODE(qup1_core_slave, SLAVE_QUP_CORE_1, 1, 4, 0);
+DEFINE_QNODE(qup2_core_slave, SLAVE_QUP_CORE_2, 1, 4, 0);
 DEFINE_QNODE(qhs_ahb2phy0, SLAVE_AHB2PHY_SOUTH, 1, 4, 0);
 DEFINE_QNODE(qhs_ahb2phy1, SLAVE_AHB2PHY_NORTH, 1, 4, 0);
 DEFINE_QNODE(qhs_aoss, SLAVE_AOSS, 1, 4, 0);
@@ -367,7 +376,6 @@ DEFINE_QBCM(bcm_sn14, "SN14", 1, false,
 		&qns_pcie_mem_noc);
 
 static struct qcom_icc_bcm *aggre1_noc_bcms[] = {
-	&bcm_qup1,
 };
 
 static struct qcom_icc_node *aggre1_noc_nodes[] = {
@@ -390,9 +398,7 @@ static struct qcom_icc_desc lahaina_aggre1_noc = {
 };
 
 static struct qcom_icc_bcm *aggre2_noc_bcms[] = {
-	&bcm_qup0,
 	&bcm_ce0,
-	&bcm_qup2,
 	&bcm_sn5,
 	&bcm_sn6,
 	&bcm_sn14,
@@ -420,6 +426,28 @@ static struct qcom_icc_desc lahaina_aggre2_noc = {
 	.num_nodes = ARRAY_SIZE(aggre2_noc_nodes),
 	.bcms = aggre2_noc_bcms,
 	.num_bcms = ARRAY_SIZE(aggre2_noc_bcms),
+};
+
+static struct qcom_icc_bcm *clk_virt_bcms[] = {
+	&bcm_qup0,
+	&bcm_qup1,
+	&bcm_qup2,
+};
+
+static struct qcom_icc_node *clk_virt_nodes[] = {
+	[MASTER_QUP_CORE_0] = &qup0_core_master,
+	[MASTER_QUP_CORE_1] = &qup1_core_master,
+	[MASTER_QUP_CORE_2] = &qup2_core_master,
+	[SLAVE_QUP_CORE_0] = &qup0_core_slave,
+	[SLAVE_QUP_CORE_1] = &qup1_core_slave,
+	[SLAVE_QUP_CORE_2] = &qup2_core_slave,
+};
+
+static struct qcom_icc_desc lahaina_clk_virt = {
+	.nodes = clk_virt_nodes,
+	.num_nodes = ARRAY_SIZE(clk_virt_nodes),
+	.bcms = clk_virt_bcms,
+	.num_bcms = ARRAY_SIZE(clk_virt_bcms),
 };
 
 static struct qcom_icc_bcm *config_noc_bcms[] = {
@@ -777,6 +805,8 @@ static const struct of_device_id qnoc_of_match[] = {
 	  .data = &lahaina_aggre1_noc},
 	{ .compatible = "qcom,lahaina-aggre2_noc",
 	  .data = &lahaina_aggre2_noc},
+	{ .compatible = "qcom,lahaina-clk_virt",
+	  .data = &lahaina_clk_virt},
 	{ .compatible = "qcom,lahaina-config_noc",
 	  .data = &lahaina_config_noc},
 	{ .compatible = "qcom,lahaina-dc_noc",
