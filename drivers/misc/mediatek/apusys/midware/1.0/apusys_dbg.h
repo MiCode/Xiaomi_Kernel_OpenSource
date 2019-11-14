@@ -19,6 +19,8 @@
 extern bool apusys_dump_force;
 extern bool apusys_dump_skip;
 
+int dbg_get_multitest(void);
+
 int apusys_dbg_init(void);
 int apusys_dbg_destroy(void);
 

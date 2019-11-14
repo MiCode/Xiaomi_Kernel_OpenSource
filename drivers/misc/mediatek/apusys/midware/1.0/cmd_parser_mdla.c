@@ -21,7 +21,8 @@
 #include "cmd_parser.h"
 
 /* specific subgratph information */
-int parse_mdla_sg(struct apusys_subcmd *sc, struct apusys_cmd_hnd *hnd)
+int parse_mdla_codebuf_info(struct apusys_subcmd *sc,
+	struct apusys_cmd_hnd *hnd)
 {
 	struct apusys_sc_hdr_mdla *mdla_hdr = NULL;
 	struct apusys_cmd *cmd = NULL;
@@ -37,4 +38,41 @@ int parse_mdla_sg(struct apusys_subcmd *sc, struct apusys_cmd_hnd *hnd)
 	hnd->pmu_kva = (uint64_t)cmd->hdr + mdla_hdr->ofs_pmu_info;
 
 	return 0;
+}
+
+int set_multimdla_codebuf(struct apusys_subcmd *sc,
+	struct apusys_cmd_hnd *hnd, int idx)
+{
+	struct apusys_sc_hdr_mdla *mdla_hdr = NULL;
+	struct apusys_cmd *cmd = NULL;
+	uint64_t ofs = 0;
+
+	if (sc == NULL || hnd == NULL)
+		return -EINVAL;
+
+	cmd = sc->par_cmd;
+	mdla_hdr = (struct apusys_sc_hdr_mdla *)sc->d_hdr;
+	if (idx == 0)
+		ofs = mdla_hdr->ofs_cb_info_dual0;
+	else if (idx == 1)
+		ofs = mdla_hdr->ofs_cb_info_dual1;
+	else
+		return -EINVAL;
+
+	hnd->kva = (uint64_t)cmd->hdr + ofs;
+	LOG_DEBUG("set multi-mdla(%d) codebuf(0x%llx/0x%llx/0x%llx)\n",
+		idx, hnd->kva, (uint64_t)cmd->hdr, ofs);
+
+	return 0;
+}
+
+int check_multimdla_support(struct apusys_subcmd *sc)
+{
+	struct apusys_sc_hdr_mdla *mdla_hdr = NULL;
+
+	if (sc->type != APUSYS_DEVICE_MDLA)
+		return 0;
+
+	mdla_hdr = (struct apusys_sc_hdr_mdla *)sc->d_hdr;
+	return (mdla_hdr->ofs_cb_info_dual0 && mdla_hdr->ofs_cb_info_dual1);
 }

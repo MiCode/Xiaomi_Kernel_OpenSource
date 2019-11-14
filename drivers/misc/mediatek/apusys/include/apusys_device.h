@@ -105,6 +105,10 @@ struct apusys_cmd_hnd {
 	uint32_t ip_time;
 	int boost_val;
 
+	/* multicore info */
+	uint32_t multicore_total; // how many cores to exec this subcmd
+	uint32_t multicore_idx; // which part of subcmd
+
 	/* mdla specific */
 	uint64_t pmu_kva;
 	uint64_t cmd_entry;

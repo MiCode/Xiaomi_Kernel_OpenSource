@@ -299,7 +299,7 @@ int ion_mem_init(struct apusys_mem_mgr *mem_mgr)
 
 	mem_mgr->is_init = 1;
 
-	LOG_DEBUG("done\n");
+	MLOG_DEBUG("done\n");
 
 	return 0;
 }
@@ -315,7 +315,7 @@ int ion_mem_destroy(struct apusys_mem_mgr *mem_mgr)
 	mem_mgr->is_init = 0;
 	ion_client_destroy(mem_mgr->client);
 	mem_mgr->client = NULL;
-	LOG_DEBUG("done\n");
+	MLOG_DEBUG("done\n");
 
 	return ret;
 }
@@ -366,7 +366,7 @@ int ion_mem_map_kva(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 	mem->khandle = (uint64_t)ion_hnd;
 	mem->kva = (uint64_t)buffer;
 
-	LOG_DEBUG("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+	MLOG_DEBUG("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
 			mem->fd, mem->uva, mem->iova, mem->size,
 			mem->iova_size, mem->khandle, mem->kva);
 
@@ -421,7 +421,7 @@ int ion_mem_map_iova(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 	mem->iova = iova;
 	mem->iova_size = iova_size;
 
-	LOG_DEBUG("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+	MLOG_DEBUG("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
 			mem->fd, mem->uva, mem->iova, mem->size,
 			mem->iova_size, mem->khandle, mem->kva);
 
@@ -448,7 +448,7 @@ int ion_mem_unmap_iova(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 
 	ion_hnd = (struct ion_handle *) mem->khandle;
 
-	LOG_DEBUG("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+	MLOG_DEBUG("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
 			mem->fd, mem->uva, mem->iova, mem->size,
 			mem->iova_size, mem->khandle, mem->kva);
 
@@ -477,7 +477,7 @@ int ion_mem_unmap_kva(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 
 	ion_free(mem_mgr->client, ion_hnd);
 
-	LOG_DEBUG("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+	MLOG_DEBUG("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
 			mem->fd, mem->uva, mem->iova, mem->size,
 			mem->iova_size, mem->khandle, mem->kva);
 

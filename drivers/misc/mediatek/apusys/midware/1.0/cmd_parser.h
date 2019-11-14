@@ -99,10 +99,10 @@ struct apusys_subcmd {
 	int codebuf_fd;
 	uint64_t codebuf_mem_hnd;
 
-	struct timeval duration;
+	uint32_t driver_time;
 	uint32_t ip_time;
 	uint32_t bw;
-	uint32_t tcm_usage;
+	uint32_t tcm_real_usage;
 	uint32_t boost_val;       // boost value
 	uint32_t ctx_id;          // allocated from mem mgt
 
@@ -113,6 +113,8 @@ struct apusys_subcmd {
 
 	//unsigned long *dp_status; // dependency status
 	int state;
+	uint32_t exec_core_num;
+	uint64_t exec_core_bitmap;
 
 	struct mutex mtx;
 
@@ -127,7 +129,7 @@ struct apusys_subcmd {
 };
 
 /* general functions */
-void get_time_from_system(struct timeval *duration);
+uint32_t get_time_diff_from_system(struct timeval *duration);
 uint8_t get_cmdformat_version(void);
 uint64_t get_cmdformat_magic(void);
 
@@ -137,6 +139,7 @@ int apusys_cmd_create(int mem_fd, uint32_t offset,
 int apusys_cmd_delete(struct apusys_cmd *cmd);
 uint64_t get_subcmd_by_idx(const struct apusys_cmd *cmd, int idx);
 int check_sc_ready(const struct apusys_cmd *cmd, int idx);
+int get_sc_tcm_usage(struct apusys_subcmd *sc);
 int check_cmd_done(struct apusys_cmd *cmd);
 void decrease_pdr_cnt(struct apusys_cmd *cmd, int idx);
 

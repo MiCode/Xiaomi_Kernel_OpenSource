@@ -24,8 +24,12 @@
 	"[warn] " x, ##args)
 #define LOG_INFO(x, args...) pr_info(APUSYS_LOG_PREFIX\
 	x, ##args)
+#if 0
 #define LOG_DEBUG(x, args...) pr_debug(APUSYS_LOG_PREFIX\
 	"[debug] %s " x, __func__, ##args)
+#else
+#define LOG_DEBUG(x, args...)
+#endif
 
 #define DEBUG_TAG LOG_DEBUG("[%d]\n", __LINE__)
 

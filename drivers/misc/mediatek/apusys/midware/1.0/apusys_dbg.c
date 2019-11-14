@@ -30,21 +30,30 @@ struct dentry *apusys_dbg_root;
 struct dentry *apusys_dbg_user;
 struct dentry *apusys_dbg_devinfo;
 struct dentry *apusys_dbg_device;
+struct dentry *apusys_dbg_mem;
 struct dentry *apusys_dbg_trace;
 struct dentry *apusys_dbg_test;
 struct dentry *apusys_dbg_log;
 struct dentry *apusys_dbg_boost;
 
-u8 g_log_level = APUSYS_LOG_INFO;
+u32 g_log_level;
+u32 g_dbg_multi;
 u8 cfg_apusys_trace;
+
 EXPORT_SYMBOL(cfg_apusys_trace);
 
 enum {
 	APUSYS_DBG_TEST_SUSPEND,
 	APUSYS_DBG_TEST_LOCKDEV,
 	APUSYS_DBG_TEST_UNLOCKDEV,
+	APUSYS_DBG_TEST_MULTITEST,
 	APUSYS_DBG_TEST_MAX,
 };
+
+int dbg_get_multitest(void)
+{
+	return g_dbg_multi;
+}
 
 //----------------------------------------------
 // user table dump
@@ -89,16 +98,30 @@ static const struct file_operations apusys_dbg_fops_devinfo = {
 };
 
 //----------------------------------------------
+// mem dump
+static int apusys_dbg_dump_mem(struct seq_file *s, void *unused)
+{
+	LOG_CON(s, "not support yet.\n");
+	return 0;
+}
+
+static int apusys_dbg_open_mem(struct inode *inode, struct file *file)
+{
+	return single_open(file, apusys_dbg_dump_mem, inode->i_private);
+}
+
+static const struct file_operations apusys_dbg_fops_mem = {
+	.open = apusys_dbg_open_mem,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = seq_release,
+	//.write = seq_write,
+};
+
+//----------------------------------------------
 static int apusys_dbg_test_dump(struct seq_file *s, void *unused)
 {
-	LOG_CON(s, "|---------------------------------|\n");
-	LOG_CON(s, "| apusys test list                |\n");
-	LOG_CON(s, "|---------------------------------|\n");
-	LOG_CON(s, "| 1. suspend test                 |\n");
-	LOG_CON(s, "|        suspend 0 : resume       |\n");
-	LOG_CON(s, "|        suspend 1 : suspend      |\n");
-	LOG_CON(s, "|---------------------------------|\n");
-
+	LOG_CON(s, "%d\n", g_dbg_multi);
 	return 0;
 }
 
@@ -109,6 +132,8 @@ static int apusys_dbg_open_test(struct inode *inode, struct file *file)
 
 static void _apusys_dbg_test(int test, int *arg, int count)
 {
+	int mdla_num = 0;
+
 	switch (test) {
 	case APUSYS_DBG_TEST_SUSPEND:
 		if (count < 1)
@@ -128,6 +153,16 @@ static void _apusys_dbg_test(int test, int *arg, int count)
 		if (count < 2)
 			LOG_WARN("lock dev test need 2 args\n");
 		LOG_WARN("todo\n");
+		break;
+	case APUSYS_DBG_TEST_MULTITEST:
+		mdla_num = res_get_device_num(APUSYS_DEVICE_MDLA);
+		if (arg[0] > mdla_num) {
+			LOG_WARN("multicore not support: too much(%d/%d)\n",
+				arg[0], mdla_num);
+		} else {
+			g_dbg_multi = arg[0];
+			LOG_INFO("setup multi test %d\n", arg[0]);
+		}
 		break;
 	default:
 		LOG_WARN("no test(%d/%d/%d)\n", test, arg[0], count);
@@ -165,6 +200,8 @@ static ssize_t apusys_dbg_write_test(struct file *flip,
 		test = APUSYS_DBG_TEST_LOCKDEV;
 	else if (strcmp(token, "unlockdev") == 0)
 		test = APUSYS_DBG_TEST_UNLOCKDEV;
+	else if (strcmp(token, "multicore") == 0)
+		test = APUSYS_DBG_TEST_MULTITEST;
 	else {
 		ret = -EINVAL;
 		LOG_ERR("no test(%s)\n", token);
@@ -205,6 +242,9 @@ int apusys_dbg_init(void)
 
 	LOG_INFO("+\n");
 
+	g_log_level = 0;
+	g_dbg_multi = 1;
+
 	/* create debug root */
 	apusys_dbg_root = debugfs_create_dir(APUSYS_DBG_DIR, NULL);
 	ret = IS_ERR_OR_NULL(apusys_dbg_root);
@@ -239,6 +279,15 @@ int apusys_dbg_init(void)
 		goto out;
 	}
 
+	/* create user info */
+	apusys_dbg_mem = debugfs_create_file("mem", 0444,
+		apusys_dbg_root, NULL, &apusys_dbg_fops_mem);
+	ret = IS_ERR_OR_NULL(apusys_dbg_mem);
+	if (ret) {
+		LOG_ERR("failed to create debug node(mem).\n");
+		goto out;
+	}
+
 	/* create feature option info */
 	apusys_dbg_test = debugfs_create_file("test", 0644,
 		apusys_dbg_root, NULL, &apusys_dbg_fops_test);
@@ -249,7 +298,7 @@ int apusys_dbg_init(void)
 	}
 
 	/* create log level */
-	apusys_dbg_log = debugfs_create_u8("log_level", 0644,
+	apusys_dbg_log = debugfs_create_u32("klog", 0644,
 		apusys_dbg_root, &g_log_level);
 
 	/* create trace enable */

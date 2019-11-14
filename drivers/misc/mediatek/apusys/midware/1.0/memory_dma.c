@@ -36,7 +36,7 @@ int dma_mem_alloc(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 
 	mem->iova = dma_to_phys(mem_mgr->dev, dma_addr);
 
-	LOG_DEBUG("iova: %08x kva: %08llx\n", mem->iova, mem->kva);
+	MLOG_DEBUG("iova: %08x kva: %08llx\n", mem->iova, mem->kva);
 
 	return (mem->kva) ? 0 : -ENOMEM;
 }
@@ -45,7 +45,7 @@ int dma_mem_free(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 {
 	dma_free_attrs(mem_mgr->dev, mem->size,
 		(void *) mem->kva, mem->iova, 0);
-	LOG_DEBUG("Done\n");
+	MLOG_DEBUG("Done\n");
 	return 0;
 }
 
@@ -63,7 +63,7 @@ int dma_mem_init(struct apusys_mem_mgr *mem_mgr)
 
 	mem_mgr->is_init = 1;
 
-	LOG_DEBUG("done\n");
+	MLOG_DEBUG("done\n");
 
 	return 0;
 }
@@ -77,7 +77,7 @@ int dma_mem_destroy(struct apusys_mem_mgr *mem_mgr)
 	}
 
 	mem_mgr->is_init = 0;
-	LOG_DEBUG("done\n");
+	MLOG_DEBUG("done\n");
 
 	return ret;
 }

@@ -314,6 +314,7 @@ int put_apusys_device(struct apusys_dev_info *dev_info)
 			dev_info->sc_idx = 0;
 			dev_info->cur_owner = acq->owner;
 			acq->acq_num++;
+			acq->acq_bitmap |= (1ULL << dev_info->dev->idx);
 			LOG_DEBUG("dev(%d-#%d) add to acq(%d/%d)\n",
 				dev_info->dev->dev_type, dev_info->dev->idx,
 				acq->acq_num, acq->target_num);
@@ -328,7 +329,6 @@ int put_apusys_device(struct apusys_dev_info *dev_info)
 		}
 		DEBUG_TAG;
 	}
-	DEBUG_TAG;
 
 	/* get idle device from bitmap */
 	LOG_DEBUG("put dev(%d-#%d/%d) ok\n",
@@ -336,7 +336,7 @@ int put_apusys_device(struct apusys_dev_info *dev_info)
 	dev_info->cur_owner = APUSYS_DEV_OWNER_NONE;
 	dev_info->cmd_id = 0;
 	dev_info->sc_idx = 0;
-	dev_info->is_deadline = 0;
+	dev_info->is_deadline = false;
 	bitmap_clear(tab->dev_status, dev_info->dev->idx, 1); // clear status
 	tab->available_num++;
 
@@ -366,12 +366,13 @@ int acq_device_try(struct apusys_dev_aquire *acq)
 	int ret_num = 0, i = 0;
 
 	/* check arguments */
-	if (acq == NULL) {
+	if (acq == NULL || acq->target_num > APUSYS_DEV_TABLE_MAX) {
 		LOG_ERR("invalid argument\n");
 		return -EINVAL;
 	}
 
 	acq->acq_num = 0;
+	acq->acq_bitmap = 0;
 
 	/* get apusys_res_table*/
 	tab = res_get_table(acq->dev_type);
@@ -406,6 +407,7 @@ int acq_device_try(struct apusys_dev_aquire *acq)
 			tab->available_num--;
 
 			acq->acq_num++;
+			acq->acq_bitmap |= (1ULL << bit_idx);
 		} else {
 			LOG_ERR("can't find device(%d)\n", acq->dev_type);
 		}
@@ -481,6 +483,8 @@ int acq_device_async(struct apusys_dev_aquire *acq)
 
 	init_completion(&acq->comp);
 	INIT_LIST_HEAD(&acq->dev_info_list);
+	acq->acq_num = 0;
+	acq->acq_bitmap = 0;
 
 	DEBUG_TAG;
 
@@ -500,6 +504,7 @@ int acq_device_async(struct apusys_dev_aquire *acq)
 			tab->available_num--;
 
 			acq->acq_num++;
+			acq->acq_bitmap |= (1ULL << bit_idx);
 		} else {
 			LOG_ERR("can't find device(%d)\n", acq->dev_type);
 			return -EINVAL;

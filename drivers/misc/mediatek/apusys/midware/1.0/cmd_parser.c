@@ -27,6 +27,7 @@
 #include "cmd_parser.h"
 #include "memory_mgt.h"
 #include "resource_mgt.h"
+#include "apusys_dbg.h"
 
 //----------------------------------------------
 static void _print_cmd_info(const struct apusys_cmd *cmd)
@@ -102,8 +103,7 @@ static int _set_data_to_cmdbuf(struct apusys_subcmd *sc)
 	}
 
 	/* execution time */
-	sc->c_hdr->driver_time = (sc->duration.tv_sec * 1000000) +
-		sc->duration.tv_usec;
+	sc->c_hdr->driver_time = sc->driver_time;
 	/* ip time */
 	sc->c_hdr->ip_time = sc->ip_time;
 	/* bandwidth */
@@ -117,6 +117,7 @@ static int _set_data_to_cmdbuf(struct apusys_subcmd *sc)
 static int _get_multicore_sched(struct apusys_cmd *cmd)
 {
 	int multicore_sched = CMD_SCHED_NORMAL;
+	int dbg_multi = 0;
 	unsigned long long multi0 = 0, multi1 = 0;
 
 	if (cmd == NULL) {
@@ -124,15 +125,32 @@ static int _get_multicore_sched(struct apusys_cmd *cmd)
 		return CMD_SCHED_NORMAL;
 	}
 
-	multi0 = cmd->hdr->flag_bitmap & (1ULL << CMD_FLAG_BITMAP_MULTI0);
-	multi1 = cmd->hdr->flag_bitmap & (1ULL << CMD_FLAG_BITMAP_MULTI1);
-
-	if (!multi0 && multi1) /* bit62 = 0 and bit63 = 1, multi */
-		multicore_sched = CMD_SCHED_FORCE_MULTI;
-	else if (multi0 && !multi1) /* bit62 = 1 and bit63 = 0, single */
+	dbg_multi = dbg_get_multitest();
+	switch (dbg_multi) {
+	case 1:
+		LOG_DEBUG("multicore policy: force single\n");
 		multicore_sched = CMD_SCHED_FORCE_SINGLE;
-	else /* ohter, scheduler decide */
-		multicore_sched = CMD_SCHED_NORMAL;
+		break;
+	case 2:
+		LOG_DEBUG("multicore policy: force multi\n");
+		multicore_sched = CMD_SCHED_FORCE_MULTI;
+		break;
+	case 0:
+	default:
+		LOG_DEBUG("multicore policy: sched decide\n");
+		multi0 = cmd->hdr->flag_bitmap &
+			(1ULL << CMD_FLAG_BITMAP_MULTI0);
+		multi1 = cmd->hdr->flag_bitmap &
+			(1ULL << CMD_FLAG_BITMAP_MULTI1);
+
+		if (!multi0 && multi1) /* bit62 = 0 bit63 = 1, multi */
+			multicore_sched = CMD_SCHED_FORCE_MULTI;
+		else if (multi0 && !multi1) /* bit62 = 1 bit63 = 0, single */
+			multicore_sched = CMD_SCHED_FORCE_SINGLE;
+		else /* ohter, scheduler decide */
+			multicore_sched = CMD_SCHED_NORMAL;
+		break;
+	}
 
 	return multicore_sched;
 }
@@ -178,14 +196,18 @@ unsigned int get_pack_idx(const struct apusys_subcmd *sc)
 	return pack_idx;
 }
 
-void get_time_from_system(struct timeval *duration)
+uint32_t get_time_diff_from_system(struct timeval *duration)
 {
 	struct timeval now;
+	uint32_t diff = 0;
 
 	do_gettimeofday(&now);
-	duration->tv_sec = now.tv_sec - duration->tv_sec;
-	duration->tv_usec = now.tv_usec - duration->tv_usec;
+	diff = (now.tv_sec - duration->tv_sec)*1000000 +
+		now.tv_usec - duration->tv_usec;
+	duration->tv_sec = now.tv_sec;
+	duration->tv_usec = now.tv_usec;
 
+	return diff;
 }
 
 int check_sc_ready(const struct apusys_cmd *cmd, int idx)
@@ -232,6 +254,14 @@ int check_cmd_done(struct apusys_cmd *cmd)
 	}
 
 	return -EBUSY;
+}
+
+int get_sc_tcm_usage(struct apusys_subcmd *sc)
+{
+	if (sc == NULL)
+		return -EINVAL;
+
+	return sc->c_hdr->tcm_usage;
 }
 
 void decrease_pdr_cnt(struct apusys_cmd *cmd, int idx)
@@ -337,7 +367,6 @@ int apusys_subcmd_create(int idx, struct apusys_cmd *cmd,
 	sc->c_hdr = sc_hdr;
 	sc->d_hdr = (void *)sc_hdr + sizeof(struct apusys_sc_hdr_cmn);
 	sc->type = sc->c_hdr->dev_type;
-	sc->c_hdr->tcm_usage = 0;
 	sc->par_cmd = cmd;
 	sc->idx = idx;
 	sc->ctx_id = VALUE_SUBGRAPH_CTX_ID_NONE;
@@ -707,12 +736,16 @@ int apusys_cmd_create(int mem_fd, uint32_t offset,
 
 	*icmd = cmd;
 
-	LOG_INFO("create 0x%llx/0x%llx cmd(%u)(%u/%u/%u)(%u)\n",
+#define APUSYS_CMDINFO_PRINT "create cmd(0x%llx/0x%llx)"\
+	" sc_num(%u) prority(%u) deadline(%u/%u/%u)"\
+	" mp(%d) flag(0x%llx)\n"
+	LOG_INFO(APUSYS_CMDINFO_PRINT,
 		cmd->hdr->uid, cmd->cmd_id,
 		cmd->hdr->num_sc, cmd->hdr->priority,
 		cmd->hdr->hard_limit, cmd->hdr->soft_limit,
-		cmd->power_save);
-
+		cmd->power_save,
+		cmd->multicore_sched, cmd->hdr->flag_bitmap);
+#undef APUSYS_CMDINFO_PRINT
 	return ret;
 
 count_ctx_fail:

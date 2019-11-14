@@ -42,6 +42,7 @@ struct apusys_dev_aquire {
 
 	/* resource mgt use */
 	int acq_num;
+	uint64_t acq_bitmap;
 	int is_done;
 
 	struct list_head dev_info_list;
@@ -58,7 +59,7 @@ struct apusys_dev_info {
 	/* mgt info */
 	uint64_t cmd_id;
 	int sc_idx;
-	int is_deadline;
+	bool is_deadline;
 	uint64_t cur_owner; // record this
 
 	/* acquire */
