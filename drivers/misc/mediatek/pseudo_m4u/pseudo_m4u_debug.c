@@ -940,6 +940,11 @@ static int m4u_debug_set(void *data, u64 val)
 		mtk_iommu_tlb_flush_all(NULL);
 	}
 	break;
+	case 35:
+	{
+		pseudo_m4u_mpu_violation_debug(MTK_IOMMU_M4U_COUNT);
+	}
+	break;
 #ifdef M4U_TEE_SERVICE_ENABLE
 	case 50:
 	{
@@ -1101,6 +1106,8 @@ int m4u_debug_help_show(struct seq_file *s, void *unused)
 		      "echo 33 > /d/m4u/debug:	disable mau monitor interrupt\n");
 	M4U_PRINT_SEQ(s,
 		      "echo 34 > /d/m4u/debug:	TLB flush All\n");
+	M4U_PRINT_SEQ(s,
+		      "echo 35 > /d/m4u/debug:	do mpu violation debug of all iommu index\n");
 	M4U_PRINT_SEQ(s,
 		      "echo 50 > /d/m4u/debug:	init the Trustlet and T-drv of secure IOMMU\n");
 	M4U_PRINT_SEQ(s,

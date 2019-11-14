@@ -195,6 +195,7 @@ int m4u_get_boundary(int port);
 int pseudo_config_port_tee(int kernelport);
 int m4u_switch_acp(unsigned int port,
 		unsigned long iova, size_t size, bool is_acp);
+void pseudo_m4u_mpu_violation_debug(unsigned int m4uid);
 
 static inline bool m4u_enable_4G(void)
 {

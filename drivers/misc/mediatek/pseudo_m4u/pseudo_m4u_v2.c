@@ -638,7 +638,7 @@ int pseudo_dump_all_port_status(struct seq_file *s)
 	/* all the port will be attached by dma and configed by iommu driver */
 	unsigned long larb_base;
 	unsigned int larb, larb_port, count;
-	int regval = 0;
+	unsigned int regval = 0, regval_sec = 0;
 	int ret = 0;
 
 	for (larb = 0; larb < SMI_LARB_NR; larb++) {
@@ -661,12 +661,15 @@ int pseudo_dump_all_port_status(struct seq_file *s)
 
 			regval = pseudo_readreg32(larb_base,
 					  SMI_LARB_NON_SEC_CONx(larb_port));
+			regval_sec = pseudo_readreg32(larb_base,
+					  SMI_LARB_SEC_CONx(larb_port));
 			M4U_PRINT_SEQ(s,
-					"port%d:	%s	-- config:0x%x,	mmu:0x%x,	bit32:0x%x\n",
+					"port%d:	%s	-- normal:0x%x,	secure:0x%x	mmu:0x%x,	bit32:0x%x\n",
 					larb_port,
 					iommu_get_port_name(
 						MTK_M4U_ID(larb, larb_port)),
-					regval, regval & F_SMI_MMU_EN,
+					regval, regval_sec,
+					regval & F_SMI_MMU_EN,
 					F_SMI_ADDR_BIT32_VAL(regval));
 		}
 		larb_clock_off(larb, 1);
@@ -2394,6 +2397,39 @@ int m4u_config_port(struct M4U_PORT_STRUCT *pM4uPort)
 
 	return ret;
 }
+
+void pseudo_m4u_mpu_violation_debug(unsigned int m4uid)
+{
+	int i, j;
+
+	M4U_MSG("========iommu%d start mpu violation debug========\n",
+		m4uid);
+	if (m4uid < MTK_IOMMU_M4U_COUNT) {
+		mtk_iommu_power_switch_by_id(m4uid, true,
+					     "pseudo_mpu_debug");
+		for (i = 0; i < MTK_IOMMU_MMU_COUNT; i++)
+			mtk_dump_main_tlb(m4uid, i);
+		mtk_iommu_power_switch_by_id(m4uid, false,
+					     "pseudo_mpu_debug");
+		__m4u_dump_pgtable(NULL, MTK_PGTABLE_DUMP_LEVEL_ION, true, 0);
+	} else {
+		for (i = 0; i < MTK_IOMMU_M4U_COUNT; i++) {
+			mtk_iommu_power_switch_by_id(i, true,
+					     "pseudo_mpu_debug");
+			for (j = 0; j < MTK_IOMMU_MMU_COUNT; j++)
+				mtk_dump_main_tlb(i, j);
+			mtk_iommu_power_switch_by_id(i, false,
+					     "pseudo_mpu_debug");
+		}
+	}
+	//mtk_dump_pfh_tlb(m4uid);
+
+	pseudo_dump_all_port_status(NULL);
+
+	M4U_MSG("========iommu%d finish mpu violation debug========\n",
+		m4uid);
+}
+EXPORT_SYMBOL(pseudo_m4u_mpu_violation_debug);
 
 static int pseudo_release(struct inode *inode, struct file *file)
 {

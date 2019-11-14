@@ -216,6 +216,7 @@ void mtk_iommu_atf_test(unsigned int m4u_id, unsigned int cmd);
 bool mtk_dev_is_size_alignment(struct device *dev);
 char *mtk_iommu_get_port_name(unsigned int m4u_id,
 		unsigned int tf_id);
+int __mtk_dump_reg_for_hang_issue(unsigned int m4u_id);
 void mtk_dump_reg_for_hang_issue(unsigned int type);
 void mtk_iommu_switch_tf_test(bool enable, const char *msg);
 int mtk_iommu_power_switch_by_id(unsigned int m4uid,
