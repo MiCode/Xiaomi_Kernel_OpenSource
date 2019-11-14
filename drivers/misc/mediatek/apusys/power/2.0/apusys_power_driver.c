@@ -31,7 +31,8 @@
 #include "apu_platform_resource.h"
 #include "hal_config_power.h"
 #include "apu_power_api.h"
-#include "../../../pmic/include/pmic_api_buck.h"
+#include "pmic_api_buck.h"
+#include "apusys_power_rule_check.h"
 
 int g_pwr_log_level = APUSYS_PWR_LOG_INFO;
 int g_pm_procedure;
@@ -516,149 +517,17 @@ static void d_work_power_init_func(struct work_struct *work)
 
 static void default_power_on_func(void)
 {
+	int dev_id = 0;
+
 	LOG_WRN("### apusys power on all device ###\n");
-	apusys_power_on(VPU0);
-	udelay(200);
-	apusys_power_on(VPU1);
-	udelay(200);
-	apusys_power_on(VPU2);
-	udelay(200);
-	apusys_power_on(MDLA0);
-	udelay(200);
-	apusys_power_on(MDLA1);
-	udelay(200);
-	apu_power_counter++;
+
+	for (dev_id = 0 ; dev_id < APUSYS_DVFS_USER_NUM ; dev_id++) {
+		apu_power_counter++;
+		apusys_power_on(dev_id);
+		udelay(200);
+	}
 
 	apu_get_power_info();
-}
-
-static bool apu_get_conn_power_on_status(void)
-{
-	if (apu_get_power_on_status(VPU0) == true ||
-		apu_get_power_on_status(VPU1) == true ||
-		apu_get_power_on_status(VPU2) == true ||
-		apu_get_power_on_status(MDLA0) == true ||
-		apu_get_power_on_status(MDLA1) == true)
-		return true;
-	return false;
-}
-
-static void apu_power_assert_check(struct apu_power_info *info)
-{
-	int dsp_freq;
-	int dsp1_freq;
-	int dsp2_freq;
-	int dsp3_freq;
-	int dsp5_freq;
-	int dsp6_freq;
-	int dsp7_freq;
-	//int ipuif_freq = apusys_get_dvfs_freq(V_VCORE)/1000;
-
-	int vvpu = info->vvpu * info->dump_div;
-	int vmdla = info->vmdla * info->dump_div;
-	int vsram = info->vsram * info->dump_div;
-	int vcore = info->vcore * info->dump_div;
-
-	if (apu_get_power_on_status(VPU0) == true && info->dsp1_freq != 0) {
-		dsp1_freq = apusys_get_dvfs_freq(V_VPU0)/info->dump_div;
-		if ((abs(dsp1_freq - info->dsp1_freq) * 100) >
-			dsp1_freq * ASSERTION_PERCENTAGE) {
-			LOG_WRN("ASSERT dsp1_freq=%d, info->dsp1_freq=%d\n",
-				dsp1_freq, info->dsp1_freq);
-		}
-	}
-
-	if (apu_get_power_on_status(VPU1) == true && info->dsp2_freq != 0) {
-		dsp2_freq = apusys_get_dvfs_freq(V_VPU1)/info->dump_div;
-		if ((abs(dsp2_freq - info->dsp2_freq) * 100) >
-			dsp2_freq * ASSERTION_PERCENTAGE) {
-			LOG_WRN("ASSERT dsp2_freq=%d, info->dsp2_freq=%d\n",
-				dsp2_freq, info->dsp2_freq);
-		}
-	}
-
-	if (dvfs_user_support(VPU2) && apu_get_power_on_status(VPU2) == true &&
-		info->dsp3_freq != 0) {
-		dsp3_freq = apusys_get_dvfs_freq(V_VPU2)/info->dump_div;
-		if ((abs(dsp3_freq - info->dsp3_freq) * 100) >
-			dsp3_freq * ASSERTION_PERCENTAGE) {
-			LOG_WRN("ASSERT dsp3_freq=%d, info->dsp3_freq=%d\n",
-				dsp3_freq, info->dsp3_freq);
-		}
-	}
-
-	if ((apu_get_power_on_status(MDLA0) == true ||
-		(dvfs_user_support(MDLA1) &&
-		apu_get_power_on_status(MDLA1) == true)) &&
-		info->dsp6_freq != 0) {
-		dsp5_freq = apusys_get_dvfs_freq(V_MDLA0)/info->dump_div;
-		dsp6_freq = apusys_get_dvfs_freq(V_MDLA1)/info->dump_div;
-		if (((abs(dsp5_freq - info->dsp6_freq) * 100) >
-			dsp5_freq * ASSERTION_PERCENTAGE) &&
-			((abs(dsp6_freq - info->dsp6_freq) * 100) >
-			dsp6_freq * ASSERTION_PERCENTAGE)) {
-			LOG_WRN("ASSERT dsp5=%d, dsp6=%d, info->dsp6_freq=%d\n",
-				dsp5_freq, dsp6_freq, info->dsp6_freq);
-		}
-	}
-
-
-if (apu_get_conn_power_on_status() == true) {
-	if (info->dsp_freq != 0) {
-		dsp_freq = apusys_get_dvfs_freq(V_APU_CONN)/info->dump_div;
-		if ((abs(dsp_freq - info->dsp_freq) * 100) >
-			dsp_freq * ASSERTION_PERCENTAGE) {
-			LOG_WRN("ASSERT dsp_freq=%d, info->dsp_freq=%d\n",
-				dsp_freq, info->dsp_freq);
-		}
-	}
-
-	if (info->dsp7_freq != 0) {
-		dsp7_freq = apusys_get_dvfs_freq(V_TOP_IOMMU)/info->dump_div;
-		if ((abs(dsp7_freq - info->dsp7_freq) * 100) >
-			dsp7_freq * ASSERTION_PERCENTAGE) {
-			LOG_WRN("ASSERT dsp7_freq=%d, info->dsp7_freq=%d\n",
-				dsp7_freq, info->dsp7_freq);
-		}
-	}
-}
-
-
-#if 0	// dvfs don't use vcore
-		if (abs(ipuif_freq - info->ipuif_freq) >
-			ipuif_freq * ASSERTION_PERCENTAGE) {
-			apu_aee_warn("VCORE",
-				"ipuif_freq=%d, info->ipuif_freq=%d\n",
-				ipuif_freq, info->ipuif_freq)
-		}
-#endif
-
-	if (vvpu == DVFS_VOLT_00_575000_V && vmdla >= DVFS_VOLT_00_800000_V) {
-		LOG_WRN("ASSERT vvpu=%d, vmdla=%d\n",
-			vvpu, vmdla);
-	}
-
-	if (vmdla == DVFS_VOLT_00_575000_V && vvpu >= DVFS_VOLT_00_800000_V) {
-		LOG_WRN("ASSERT vvpu=%d, vmdla=%d\n",
-			vvpu, vmdla);
-	}
-
-	if (vcore == DVFS_VOLT_00_575000_V && vvpu >= DVFS_VOLT_00_800000_V) {
-		LOG_WRN("ASSERT vvpu=%d, vcore=%d\n",
-			vvpu, vcore);
-	}
-
-	if ((vvpu > VSRAM_TRANS_VOLT || vmdla > VSRAM_TRANS_VOLT)
-		&& vsram == VSRAM_LOW_VOLT) {
-		LOG_WRN("ASSERT vvpu=%d, vmdla=%d, vsram=%d\n",
-			vvpu, vmdla, vsram);
-	}
-
-	if ((vvpu < VSRAM_TRANS_VOLT && vmdla < VSRAM_TRANS_VOLT)
-		&& vsram == VSRAM_HIGH_VOLT) {
-		LOG_WRN("ASSERT vvpu=%d, vmdla=%d, vsram=%d\n",
-			vvpu, vmdla, vsram);
-	}
 }
 
 static int apusys_power_task(void *arg)
@@ -808,11 +677,6 @@ err_exit:
 int apu_power_power_stress(int type, int device, int opp)
 {
 	int id = 0;
-	int i = 0, j = 0;
-	int m = 0, n = 0, o = 0;
-	int count = 0;
-	int loop = opp; // for type = 5
-	struct	apu_power_info info;
 
 	LOG_WRN("%s begin with type %d +++\n", __func__, type);
 
@@ -888,36 +752,7 @@ int apu_power_power_stress(int type, int device, int opp)
 		hal_config_power(PWR_CMD_DEBUG_FUNC, VPU0, NULL);
 		break;
 	case 5:	// dvfs all combination test , opp = run count
-for (loop = 0; loop < count; loop++) {
-	for (i = 0 ; i < APUSYS_MAX_NUM_OPPS ; i++) {
-		apusys_set_opp(VPU0, i);
-		for (j = 0 ; j < APUSYS_MAX_NUM_OPPS; j++) {
-			apusys_set_opp(VPU1, j);
-			for (m = 0 ; m < APUSYS_MAX_NUM_OPPS; m++) {
-				apusys_set_opp(VPU2, m);
-				for (n = 0 ; n < APUSYS_MAX_NUM_OPPS; n++) {
-					apusys_set_opp(MDLA0, n);
-				for (o = 0 ; o < APUSYS_MAX_NUM_OPPS; o++) {
-					count++;
-			LOG_WRN("## dvfs conbinational test, count = %d ##\n",
-						count);
-					apusys_set_opp(MDLA1, o);
-					timestamp = get_current_time_us();
-					info.id = timestamp;
-					info.type = 0;
-
-					apusys_dvfs_policy(timestamp);
-
-					hal_config_power(PWR_CMD_GET_POWER_INFO,
-						VPU0, &info);
-					apu_power_assert_check(&info);
-					udelay(100);
-					}
-				}
-			}
-		}
-	}
-}
+		constraints_check_stress(opp);
 		break;
 	case 7: // power on/off suspend stress
 		if (power_on_off_stress == 0)

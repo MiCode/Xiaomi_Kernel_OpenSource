@@ -17,6 +17,7 @@
 #include "apusys_power_cust.h"
 #include "apusys_power_reg.h"
 #include "apu_log.h"
+#include "apusys_power_rule_check.h"
 #include <helio-dvfsrc-opp.h>
 #define CREATE_TRACE_POINTS
 #include "apu_power_events.h"
@@ -287,48 +288,6 @@ static int apu_pm_handler(void *param)
 	}
 
 	return 0;
-}
-
-static void voltage_constraint_check(void)
-{
-	struct apu_power_info info;
-
-	dump_voltage(&info);
-
-	if (info.vvpu == DVFS_VOLT_00_575000_V &&
-		info.vmdla >= DVFS_VOLT_00_800000_V) {
-		apu_aee_warn("APU PWR Constraint",
-			"ASSERT vvpu=%d, vmdla=%d\n",
-			info.vvpu, info.vmdla);
-	}
-
-	if (info.vmdla == DVFS_VOLT_00_575000_V &&
-		info.vvpu >= DVFS_VOLT_00_800000_V) {
-		apu_aee_warn("APU PWR Constraint",
-			"ASSERT vvpu=%d, vmdla=%d\n",
-			info.vvpu, info.vmdla);
-	}
-
-	if (info.vcore == DVFS_VOLT_00_575000_V &&
-		info.vvpu >= DVFS_VOLT_00_800000_V) {
-		apu_aee_warn("APU PWR Constraint",
-			"ASSERT vvpu=%d, vcore=%d\n",
-			info.vvpu, info.vcore);
-	}
-
-	if ((info.vvpu > VSRAM_TRANS_VOLT || info.vmdla > VSRAM_TRANS_VOLT)
-		&& info.vsram == VSRAM_LOW_VOLT) {
-		apu_aee_warn("APU PWR Constraint",
-			"ASSERT vvpu=%d, vmdla=%d, vsram=%d\n",
-			info.vvpu, info.vmdla, info.vsram);
-	}
-
-	if ((info.vvpu < VSRAM_TRANS_VOLT && info.vmdla < VSRAM_TRANS_VOLT)
-		&& info.vsram == VSRAM_HIGH_VOLT) {
-		apu_aee_warn("APU PWR Constraint",
-			"ASSERT vvpu=%d, vmdla=%d, vsram=%d\n",
-			info.vvpu, info.vmdla, info.vsram);
-	}
 }
 
 static int set_power_voltage(enum DVFS_USER user, void *param)
