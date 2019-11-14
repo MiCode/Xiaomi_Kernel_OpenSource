@@ -259,6 +259,36 @@ static int cmdq_driver_create_reg_address_buffer(
 	return 0;
 }
 
+static void cmdq_driver_dump_readback(u32 *addrs, u32 count, u32 *values)
+{
+	u32 i, n, len, cur;
+	char buf[72];
+
+	if (likely(!cmdq_core_profile_pqreadback_enabled() &&
+		!cmdq_core_profile_pqreadback_once_enabled()))
+		return;
+
+	CMDQ_LOG("read back dump begin ...\n");
+
+	i = 0;
+	while (i < count) {
+		len = snprintf(buf, sizeof(buf), "%#x:", addrs[i]);
+		cur = addrs[i] & 0xFFFFFFF0;
+
+		/* limit max num 4 in line */
+		for (n = 0; n < 4 && i < count &&
+			cur == (addrs[i] & 0xFFFFFFF0); n++) {
+			len += snprintf(buf + len, sizeof(buf) - len,
+				" %#010x", values[i]);
+			i++;
+		}
+
+		CMDQ_LOG("%s\n", buf);
+	}
+
+	CMDQ_LOG("read back dump end\n");
+}
+
 static void cmdq_driver_process_read_address_request(
 	struct cmdqReadAddressStruct *req_user)
 {
@@ -307,6 +337,7 @@ static void cmdq_driver_process_read_address_request(
 
 		/* actually read these PA write buffers */
 		cmdqCoreReadWriteAddressBatch(addrs, req_user->count, values);
+		cmdq_driver_dump_readback(addrs, req_user->count, values);
 
 		/* copy value to user */
 		if (copy_to_user(values_addr, values,

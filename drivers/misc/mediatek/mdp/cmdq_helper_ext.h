@@ -352,6 +352,8 @@ enum CMDQ_PROFILE_LEVEL {
 	CMDQ_PROFILE_MET = 1,
 	CMDQ_PROFILE_FTRACE = 2,
 	CMDQ_PROFILE_EXEC = 3,
+	CMDQ_PROFILE_PQRB_ONCE = 4,
+	CMDQ_PROFILE_PQRB = 5,
 
 	CMDQ_PROFILE_MAX	/* ALWAYS keep at the end */
 };
@@ -836,6 +838,8 @@ void cmdq_core_set_aee(bool enable);
 
 bool cmdq_core_ftrace_enabled(void);
 bool cmdq_core_profile_exec_enabled(void);
+bool cmdq_core_profile_pqreadback_once_enabled(void);
+bool cmdq_core_profile_pqreadback_enabled(void);
 void cmdq_long_string_init(bool force, char *buf, u32 *offset, s32 *max_size);
 void cmdq_long_string(char *buf, u32 *offset, s32 *max_size,
 	const char *string, ...);

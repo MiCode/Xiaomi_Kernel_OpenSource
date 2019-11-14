@@ -909,6 +909,21 @@ bool cmdq_core_profile_exec_enabled(void)
 	return cmdq_ctx.enableProfile & (1 << CMDQ_PROFILE_EXEC);
 }
 
+bool cmdq_core_profile_pqreadback_once_enabled(void)
+{
+	bool en = cmdq_ctx.enableProfile & (1 << CMDQ_PROFILE_PQRB_ONCE);
+
+	if (en)
+		cmdq_ctx.enableProfile = cmdq_ctx.enableProfile &
+			~(1 << CMDQ_PROFILE_PQRB_ONCE);
+	return en;
+}
+
+bool cmdq_core_profile_pqreadback_enabled(void)
+{
+	return cmdq_ctx.enableProfile & (1 << CMDQ_PROFILE_PQRB);
+}
+
 void cmdq_long_string_init(bool force, char *buf, u32 *offset, s32 *max_size)
 {
 	buf[0] = '\0';
