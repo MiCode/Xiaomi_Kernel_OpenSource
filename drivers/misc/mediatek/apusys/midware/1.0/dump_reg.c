@@ -330,7 +330,7 @@ void dump_gals(struct seq_file *sfile)
 	seq_printf(sfile, "VPU22CONN_GALS_TX: 0x%08x\n", gals_reg[33]);
 	seq_printf(sfile, "CONN2VPU2_GALS_RX: 0x%08x\n", gals_reg[34]);
 
-	seq_printf(sfile, "APUSYS2ACP_VCORE_GALS_TX: 0x%08x\n", gals_reg[34]);
+	seq_printf(sfile, "APUSYS2ACP_VCORE_GALS_TX: 0x%08x\n", gals_reg[35]);
 	seq_printf(sfile, "APUSYS2ACP_VCORE_GALS_RX: 0x%08x\n", gals_reg[36]);
 	seq_printf(sfile, "APUSYS2ACP_CONN_GALS_TX: 0x%08x\n", gals_reg[37]);
 }
@@ -339,8 +339,16 @@ void apusys_reg_dump(void)
 {
 	mutex_lock(&dbg_lock);
 	dump_gals_reg();
-	memcpy_fromio(reg_all_mem + 0x1000, apu_top+0x1000, 0x2F000);
-	memcpy_fromio(reg_all_mem + 0x50000, apu_top + 0x50000, 0xA2000);
+
+	 // skip mbox
+	memcpy_fromio(reg_all_mem + 0x1000, apu_top + 0x1000, 0x2F000);
+
+	// mdla, skip fin0 and fin3
+	memcpy_fromio(reg_all_mem + 0x34000, apu_top + 0x34000, 0x2534);
+	memcpy_fromio(reg_all_mem + 0x36538, apu_top + 0x36538, 0x4000);
+	memcpy_fromio(reg_all_mem + 0x3A538, apu_top + 0x3A538, 0xAC8);
+
+	memcpy_fromio(reg_all_mem + 0x50000, apu_top + 0x50000, 0xB0000);
 	mutex_unlock(&dbg_lock);
 }
 
@@ -359,10 +367,15 @@ static void *dump_next(struct seq_file *sfile, void *v, loff_t *pos)
 
 int apusys_dump_show(struct seq_file *sfile, void *v)
 {
-	uint64_t time;
+	u64 t;
+	u64 nanosec_rem;
 
-	time = sched_clock();
-	seq_puts(sfile, "------- dump GALS -------\n");
+	t = sched_clock();
+	nanosec_rem = do_div(t, 1000000000);
+
+	seq_printf(sfile, "[%5lu.%06lu] ------- dump GALS -------\n",
+		(unsigned long) t, (unsigned long) (nanosec_rem / 1000));
+	apusys_reg_dump();
 	dump_gals(sfile);
 	seq_puts(sfile, "------- dump from 0x1900_0000 to 0x1902_FFFF -------\n");
 	seq_puts(sfile, "------- dump from 0x1905_0000 to 0x190F_1FFF -------\n");
