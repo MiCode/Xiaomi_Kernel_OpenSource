@@ -1758,6 +1758,7 @@ int ufshcd_hold(struct ufs_hba *hba, bool async)
 	int rc = 0;
 	unsigned long flags;
 	bool wq;
+	u64 s_time;
 
 	if (!ufshcd_is_clkgating_allowed(hba))
 		goto out;
@@ -1824,11 +1825,16 @@ start:
 			hba->clk_gating.active_reqs--;
 			break;
 		}
-
+		s_time = sched_clock();
 		spin_unlock_irqrestore(hba->host->host_lock, flags);
 		flush_work(&hba->clk_gating.ungate_work);
 		/* Make sure state is CLKS_ON before returning */
 		spin_lock_irqsave(hba->host->host_lock, flags);
+		ufshcd_generic_log(hba,
+			hba->clk_gating.active_reqs,
+			(u32)(sched_clock() - s_time),
+			__LINE__,
+			UFS_TRACE_GENERIC);
 		goto start;
 	default:
 		dev_err(hba->dev, "%s: clk gating is in invalid state %d\n",

@@ -196,8 +196,7 @@ void ufs_mtk_dbg_dump_trace(char **buff, unsigned long *size,
 
 		if ((ufs_cmd_hlist[ptr].event >= UFS_TRACE_UIC_SEND) &&
 			(ufs_cmd_hlist[ptr].event <=
-			UFS_TRACE_UIC_CMPL_PWR_CTRL) ||
-			(ufs_cmd_hlist[ptr].event == UFS_TRACE_GENERIC)) {
+			UFS_TRACE_UIC_CMPL_PWR_CTRL)) {
 
 			SPREAD_PRINTF(buff, size, m,
 				"%3d-u,%5d,%2d,0x%2X,arg1=0x%X,arg2=0x%X,arg3=0x%X,%llu\n",
@@ -251,6 +250,19 @@ void ufs_mtk_dbg_dump_trace(char **buff, unsigned long *size,
 				(u8)ufs_cmd_hlist[ptr].lba & 0xFF,
 				(u8)(ufs_cmd_hlist[ptr].lba >> 8) & 0xFF,
 				(u8)(ufs_cmd_hlist[ptr].lba >> 16) & 0xFF,
+				(u64)ufs_cmd_hlist[ptr].time
+				);
+
+		} else if (ufs_cmd_hlist[ptr].event == UFS_TRACE_GENERIC) {
+
+			SPREAD_PRINTF(buff, size, m,
+				"%3d-u,%5d,%2d,G,arg1=0x%X,arg2=%d,arg3=%d,%llu\n",
+				ptr,
+				ufs_cmd_hlist[ptr].pid,
+				ufs_cmd_hlist[ptr].event,
+				ufs_cmd_hlist[ptr].tag,          /* argument1 */
+				ufs_cmd_hlist[ptr].transfer_len, /* argument2 */
+				(u32)ufs_cmd_hlist[ptr].lba,     /* argument3 */
 				(u64)ufs_cmd_hlist[ptr].time
 				);
 
