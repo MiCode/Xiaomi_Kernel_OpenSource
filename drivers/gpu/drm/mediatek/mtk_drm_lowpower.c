@@ -406,6 +406,9 @@ static void mtk_drm_idlemgr_disable_crtc(struct drm_crtc *crtc)
 	mtk_crtc_ddp_unprepare(mtk_crtc);
 	mtk_drm_idlemgr_disable_connector(crtc);
 
+	drm_crtc_vblank_off(crtc);
+
+	mtk_crtc_vblank_irq(&mtk_crtc->base);
 	/* 6. power off MTCMOS */
 	mtk_drm_top_clk_disable_unprepare(crtc->dev);
 

@@ -2593,6 +2593,8 @@ void mtk_drm_crtc_disable(struct drm_crtc *crtc)
 	/* 5. disconnect path */
 	mtk_crtc_disconnect_default_path(mtk_crtc);
 
+	drm_crtc_vblank_off(crtc);
+
 	/* 6. power off all modules in this CRTC */
 	mtk_crtc_ddp_unprepare(mtk_crtc);
 
