@@ -68,7 +68,6 @@ static void apu_power_dump_opp_table(struct seq_file *s)
 static void apu_power_dump_curr_status(struct seq_file *s)
 {
 	struct apu_power_info info;
-
 	info.id = 0;
 	info.type = 1;
 	hal_config_power(PWR_CMD_GET_POWER_INFO, VPU0, &info);
@@ -198,10 +197,10 @@ int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 
 
 		for (i = VPU0; i < VPU0 + APUSYS_VPU_NUM; i++)
-			apusys_opps.cur_opp_index[i] = args[0];
+			apusys_opps.next_opp_index[i] = args[0];
 
 		for (i = MDLA0; i < MDLA0 + APUSYS_MDLA_NUM; i++)
-			apusys_opps.cur_opp_index[i] = args[0];
+			apusys_opps.next_opp_index[i] = args[0];
 
 		// determine vpu / mdla / vcore voltage
 		apusys_opps.next_buck_volt[VPU_BUCK] =
@@ -225,12 +224,12 @@ int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 				if ((i == V_APU_CONN ||	i == V_TOP_IOMMU) &&
 					(apusys_opps.opps[opp][i].voltage ==
 					apusys_opps.next_buck_volt[VPU_BUCK])) {
-					apusys_opps.cur_opp_index[i] = opp;
+					apusys_opps.next_opp_index[i] = opp;
 					break;
 				} else if (i == V_VCORE &&
 				apusys_opps.opps[opp][i].voltage ==
 				apusys_opps.next_buck_volt[VCORE_BUCK]) {
-					apusys_opps.cur_opp_index[i] = opp;
+					apusys_opps.next_opp_index[i] = opp;
 					break;
 				}
 			}

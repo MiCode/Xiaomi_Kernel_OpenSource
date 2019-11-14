@@ -121,10 +121,10 @@ void apusys_set_dfvs_debug_test(void)
 	LOG_INF("lock opp = %d\n", (int)args[0]);
 
 	for (i = VPU0; i < VPU0 + APUSYS_VPU_NUM; i++)
-		apusys_opps.cur_opp_index[i] = args[0];
+		apusys_opps.next_opp_index[i] = args[0];
 
 	for (i = MDLA0; i < MDLA0 + APUSYS_MDLA_NUM; i++)
-		apusys_opps.cur_opp_index[i] = args[0];
+		apusys_opps.next_opp_index[i] = args[0];
 
 	apusys_opps.next_buck_volt[VPU_BUCK] =
 			apusys_opps.opps[args[0]][V_VPU0].voltage;
@@ -141,12 +141,12 @@ void apusys_set_dfvs_debug_test(void)
 				if ((i == V_APU_CONN ||	i == V_TOP_IOMMU) &&
 					(apusys_opps.opps[opp][i].voltage ==
 					apusys_opps.next_buck_volt[VPU_BUCK])) {
-					apusys_opps.cur_opp_index[i] = opp;
+					apusys_opps.next_opp_index[i] = opp;
 					break;
 				} else if (i == V_VCORE &&
 				apusys_opps.opps[opp][i].voltage ==
 				apusys_opps.next_buck_volt[VCORE_BUCK]) {
-					apusys_opps.cur_opp_index[i] = opp;
+					apusys_opps.next_opp_index[i] = opp;
 					break;
 				}
 			}

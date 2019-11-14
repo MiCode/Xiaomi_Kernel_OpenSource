@@ -445,7 +445,7 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 
 	DRV_WriteReg32(APU_PCU_PMIC_IRQ, 0x1);
 
-	LOG_DBG("%s read back from reg = 0x%x\n",
+	LOG_DBG("read back from reg = 0x%x\n",
 				DRV_Reg32(APU_PCU_PMIC_CUR_BUF));
 #else
 	if (buck == VPU_BUCK) {

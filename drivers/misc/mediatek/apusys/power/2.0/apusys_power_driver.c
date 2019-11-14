@@ -457,14 +457,26 @@ static void default_power_on_func(void)
 	apu_get_power_info();
 }
 
+static bool apu_get_conn_power_on_status(void)
+{
+	if (apu_get_power_on_status(VPU0) == true ||
+		apu_get_power_on_status(VPU1) == true ||
+		apu_get_power_on_status(VPU2) == true ||
+		apu_get_power_on_status(MDLA0) == true ||
+		apu_get_power_on_status(MDLA1) == true)
+		return true;
+	return false;
+}
+
 static void apu_power_assert_check(struct apu_power_info *info)
 {
-	int dsp_freq = apusys_get_dvfs_freq(V_APU_CONN)/info->dump_div;
-	int dsp1_freq = apusys_get_dvfs_freq(V_VPU0)/info->dump_div;
-	int dsp2_freq = apusys_get_dvfs_freq(V_VPU1)/info->dump_div;
-	int dsp3_freq = apusys_get_dvfs_freq(V_VPU2)/info->dump_div;
-	int dsp6_freq = apusys_get_dvfs_freq(V_MDLA0)/info->dump_div;
-	int dsp7_freq = apusys_get_dvfs_freq(V_TOP_IOMMU)/info->dump_div;
+	int dsp_freq;
+	int dsp1_freq;
+	int dsp2_freq;
+	int dsp3_freq;
+	int dsp5_freq;
+	int dsp6_freq;
+	int dsp7_freq;
 	//int ipuif_freq = apusys_get_dvfs_freq(V_VCORE)/1000;
 
 	int vvpu = info->vvpu * info->dump_div;
@@ -472,15 +484,8 @@ static void apu_power_assert_check(struct apu_power_info *info)
 	int vsram = info->vsram * info->dump_div;
 	int vcore = info->vcore * info->dump_div;
 
-	if (info->dsp_freq != 0) {
-		if ((abs(dsp_freq - info->dsp_freq) * 100) >
-			dsp_freq * ASSERTION_PERCENTAGE) {
-			LOG_WRN("ASSERT dsp_freq=%d, info->dsp_freq=%d\n",
-				dsp_freq, info->dsp_freq);
-		}
-	}
-
-	if (info->dsp1_freq != 0) {
+	if (apu_get_power_on_status(VPU0) == true && info->dsp1_freq != 0) {
+		dsp1_freq = apusys_get_dvfs_freq(V_VPU0)/info->dump_div;
 		if ((abs(dsp1_freq - info->dsp1_freq) * 100) >
 			dsp1_freq * ASSERTION_PERCENTAGE) {
 			LOG_WRN("ASSERT dsp1_freq=%d, info->dsp1_freq=%d\n",
@@ -488,7 +493,8 @@ static void apu_power_assert_check(struct apu_power_info *info)
 		}
 	}
 
-	if (info->dsp2_freq != 0) {
+	if (apu_get_power_on_status(VPU1) == true && info->dsp2_freq != 0) {
+		dsp2_freq = apusys_get_dvfs_freq(V_VPU1)/info->dump_div;
 		if ((abs(dsp2_freq - info->dsp2_freq) * 100) >
 			dsp2_freq * ASSERTION_PERCENTAGE) {
 			LOG_WRN("ASSERT dsp2_freq=%d, info->dsp2_freq=%d\n",
@@ -496,7 +502,9 @@ static void apu_power_assert_check(struct apu_power_info *info)
 		}
 	}
 
-	if (info->dsp3_freq != 0) {
+	if (dvfs_user_support(VPU2) && apu_get_power_on_status(VPU2) == true &&
+		info->dsp3_freq != 0) {
+		dsp3_freq = apusys_get_dvfs_freq(V_VPU2)/info->dump_div;
 		if ((abs(dsp3_freq - info->dsp3_freq) * 100) >
 			dsp3_freq * ASSERTION_PERCENTAGE) {
 			LOG_WRN("ASSERT dsp3_freq=%d, info->dsp3_freq=%d\n",
@@ -504,21 +512,41 @@ static void apu_power_assert_check(struct apu_power_info *info)
 		}
 	}
 
-	if (info->dsp6_freq != 0) {
-		if ((abs(dsp6_freq - info->dsp6_freq) * 100) >
-			dsp6_freq * ASSERTION_PERCENTAGE) {
-			LOG_WRN("ASSERT dsp6_freq=%d, info->dsp6_freq=%d\n",
-				dsp6_freq, info->dsp6_freq);
+	if ((apu_get_power_on_status(MDLA0) == true ||
+		(dvfs_user_support(MDLA1) &&
+		apu_get_power_on_status(MDLA1) == true)) &&
+		info->dsp6_freq != 0) {
+		dsp5_freq = apusys_get_dvfs_freq(V_MDLA0)/info->dump_div;
+		dsp6_freq = apusys_get_dvfs_freq(V_MDLA1)/info->dump_div;
+		if (((abs(dsp5_freq - info->dsp6_freq) * 100) >
+			dsp5_freq * ASSERTION_PERCENTAGE) &&
+			((abs(dsp6_freq - info->dsp6_freq) * 100) >
+			dsp6_freq * ASSERTION_PERCENTAGE)) {
+			LOG_WRN("ASSERT dsp5=%d, dsp6=%d, info->dsp6_freq=%d\n",
+				dsp5_freq, dsp6_freq, info->dsp6_freq);
+		}
+	}
+
+
+if (apu_get_conn_power_on_status() == true) {
+	if (info->dsp_freq != 0) {
+		dsp_freq = apusys_get_dvfs_freq(V_APU_CONN)/info->dump_div;
+		if ((abs(dsp_freq - info->dsp_freq) * 100) >
+			dsp_freq * ASSERTION_PERCENTAGE) {
+			LOG_WRN("ASSERT dsp_freq=%d, info->dsp_freq=%d\n",
+				dsp_freq, info->dsp_freq);
 		}
 	}
 
 	if (info->dsp7_freq != 0) {
+		dsp7_freq = apusys_get_dvfs_freq(V_TOP_IOMMU)/info->dump_div;
 		if ((abs(dsp7_freq - info->dsp7_freq) * 100) >
 			dsp7_freq * ASSERTION_PERCENTAGE) {
 			LOG_WRN("ASSERT dsp7_freq=%d, info->dsp7_freq=%d\n",
 				dsp7_freq, info->dsp7_freq);
 		}
 	}
+}
 
 
 #if 0	// dvfs don't use vcore
@@ -589,7 +617,7 @@ static int apusys_power_task(void *arg)
 			info.id = timestamp;
 			info.type = 0;
 			hal_config_power(PWR_CMD_GET_POWER_INFO, VPU0, &info);
-			#if ASSERTIOM_CHECK
+			#if DVFS_ASSERTION_CHECK
 			apu_power_assert_check(&info);
 			#endif
 		} else {

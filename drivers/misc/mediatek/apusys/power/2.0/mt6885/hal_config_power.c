@@ -302,6 +302,48 @@ static int apu_pm_handler(void *param)
 	return 0;
 }
 
+static void voltage_constraint_check(void)
+{
+	struct apu_power_info info;
+
+	dump_voltage(&info);
+
+	if (info.vvpu == DVFS_VOLT_00_575000_V &&
+		info.vmdla >= DVFS_VOLT_00_800000_V) {
+		apu_aee_warn("APU PWR Constraint",
+			"ASSERT vvpu=%d, vmdla=%d\n",
+			info.vvpu, info.vmdla);
+	}
+
+	if (info.vmdla == DVFS_VOLT_00_575000_V &&
+		info.vvpu >= DVFS_VOLT_00_800000_V) {
+		apu_aee_warn("APU PWR Constraint",
+			"ASSERT vvpu=%d, vmdla=%d\n",
+			info.vvpu, info.vmdla);
+	}
+
+	if (info.vcore == DVFS_VOLT_00_575000_V &&
+		info.vvpu >= DVFS_VOLT_00_800000_V) {
+		apu_aee_warn("APU PWR Constraint",
+			"ASSERT vvpu=%d, vcore=%d\n",
+			info.vvpu, info.vcore);
+	}
+
+	if ((info.vvpu > VSRAM_TRANS_VOLT || info.vmdla > VSRAM_TRANS_VOLT)
+		&& info.vsram == VSRAM_LOW_VOLT) {
+		apu_aee_warn("APU PWR Constraint",
+			"ASSERT vvpu=%d, vmdla=%d, vsram=%d\n",
+			info.vvpu, info.vmdla, info.vsram);
+	}
+
+	if ((info.vvpu < VSRAM_TRANS_VOLT && info.vmdla < VSRAM_TRANS_VOLT)
+		&& info.vsram == VSRAM_HIGH_VOLT) {
+		apu_aee_warn("APU PWR Constraint",
+			"ASSERT vvpu=%d, vmdla=%d, vsram=%d\n",
+			info.vvpu, info.vmdla, info.vsram);
+	}
+}
+
 static int set_power_voltage(enum DVFS_USER user, void *param)
 {
 	enum DVFS_BUCK buck = 0;
@@ -332,6 +374,10 @@ static int set_power_voltage(enum DVFS_USER user, void *param)
 	if (ret)
 		LOG_ERR("%s failed(%d), buck:%d, volt:%d\n",
 					__func__, ret, buck, target_volt);
+
+#ifdef ASSERTIOM_CHECK
+	voltage_constraint_check();
+#endif
 
 	return ret;
 }
@@ -475,6 +521,36 @@ static int rpc_power_status_check(int domain_idx, unsigned int mode)
 	return 0;
 }
 
+static int set_domain_to_default_clk(int domain_idx)
+{
+	int ret = 0;
+
+	if (domain_idx == 2)
+		ret |= set_apu_clock_source(BUCK_DOMAIN_DEFAULT_FREQ,
+								V_VPU0);
+	else if (domain_idx == 3)
+		ret |= set_apu_clock_source(BUCK_DOMAIN_DEFAULT_FREQ,
+								V_VPU1);
+	else if (domain_idx == 4)
+		ret |= set_apu_clock_source(BUCK_DOMAIN_DEFAULT_FREQ,
+								V_VPU2);
+	else if (domain_idx == 6)
+		ret |= set_apu_clock_source(BUCK_DOMAIN_DEFAULT_FREQ,
+								V_MDLA0);
+	else if (domain_idx == 7)
+		ret |= set_apu_clock_source(BUCK_DOMAIN_DEFAULT_FREQ,
+								V_MDLA1);
+	else {
+		ret |= set_apu_clock_source(BUCK_DOMAIN_DEFAULT_FREQ,
+								V_APU_CONN);
+		ret |= set_apu_clock_source(BUCK_DOMAIN_DEFAULT_FREQ,
+								V_TOP_IOMMU);
+	}
+
+	return ret;
+
+}
+
 static int set_power_mtcmos(enum DVFS_USER user, void *param)
 {
 	unsigned int enable = ((struct hal_param_mtcmos *)param)->enable;
@@ -563,6 +639,7 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 				retry++;
 			} while (rpc_power_status_check(domain_idx, enable));
 
+			ret |= set_domain_to_default_clk(domain_idx);
 			// disable clock source of this device
 			disable_apu_device_clksrc(user);
 		}
@@ -599,6 +676,8 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 
 			ret |= set_apu_clock_source(DVFS_FREQ_00_026000_F,
 								V_VCORE);
+
+			ret |= set_domain_to_default_clk(0);
 			disable_apu_conn_clksrc();
 
 			force_pwr_off = 0;

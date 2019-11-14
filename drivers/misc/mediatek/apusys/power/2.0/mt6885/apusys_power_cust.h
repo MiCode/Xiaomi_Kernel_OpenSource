@@ -28,9 +28,11 @@
 #define AUTO_BUCK_OFF_SUSPEND	(0)
 #define AUTO_BUCK_OFF_DEEPIDLE	(0)
 #define ASSERTIOM_CHECK (1)
+#define DVFS_ASSERTION_CHECK (1)
 #define VCORE_DVFS_SUPPORT	(0)
 #define ASSERTION_PERCENTAGE	(1)	// 1%
 #define BINNING_VOLTAGE_SUPPORT (1)
+#define SUPPORT_HW_CONTROL_PMIC	(0)
 
 
 #define APUSYS_MAX_NUM_OPPS                (10)
@@ -40,7 +42,6 @@
 #define APUSYS_MDLA_NUM						(2)
 #define APUSYS_DEFAULT_OPP					(9)
 
-#define SUPPORT_HW_CONTROL_PMIC	(0)
 
 // FIXME: check default value
 #define VCORE_DEFAULT_VOLT	DVFS_VOLT_00_600000_V
@@ -52,6 +53,8 @@
 #define VSRAM_SHUTDOWN_VOLT	DVFS_VOLT_00_750000_V
 #define VVPU_SHUTDOWN_VOLT	DVFS_VOLT_00_575000_V
 #define VMDLA_SHUTDOWN_VOLT	DVFS_VOLT_00_575000_V
+
+#define BUCK_DOMAIN_DEFAULT_FREQ DVFS_FREQ_00_208000_F
 
 #ifdef AGING_MARGIN
 #define VSRAM_TRANS_VOLT	750000
@@ -121,8 +124,8 @@ struct apusys_dvfs_opps {
 					[APUSYS_PATH_USER_NUM];
 	enum DVFS_VOLTAGE next_buck_volt[APUSYS_BUCK_NUM];
 	enum DVFS_VOLTAGE cur_buck_volt[APUSYS_BUCK_NUM];
+	uint8_t next_opp_index[APUSYS_BUCK_DOMAIN_NUM];
 	uint8_t cur_opp_index[APUSYS_BUCK_DOMAIN_NUM];
-	uint8_t prev_opp_index[APUSYS_BUCK_DOMAIN_NUM];
 	uint8_t power_lock_max_opp[APUSYS_DVFS_USER_NUM];
 	uint8_t power_lock_min_opp[APUSYS_DVFS_USER_NUM];
 	uint8_t thermal_opp[APUSYS_DVFS_USER_NUM];
