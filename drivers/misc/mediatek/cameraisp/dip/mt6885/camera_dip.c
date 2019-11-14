@@ -1056,6 +1056,34 @@ static signed int DIP_Dump_IMGSYS_DIP_Reg(void)
 			DipDumpTL[DIPNo].region,
 			DIP_RD32(dipRegBasAddr + 0x001C));
 
+		/*FM register dump*/
+		cmdq_util_err("dip: 0x%x8800(0x%x)-0x%x8804(0x%x)-0x%x8808(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x7800),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x7804),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x7808));
+		cmdqdebugcmd = 0x3c00;
+		DIP_WR32(dipRegBasAddr + 0x190, cmdqdebugcmd);
+		cmdq_util_err("FM debug:0x%x : dip: 0x%x2194(0x%x)",
+			cmdqdebugcmd,
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x194));
+
+		/*FE register dump*/
+		cmdq_util_err("dip: 0x%x8A40(0x%x)-0x%x8A44(0x%x)-0x%x8A48(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x7A40),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x7A44),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x7A48));
+		cmdq_util_err("dip: 0x%x8A4C(0x%x)-0x%x8A50(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x7A4C),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x7A50));
 
 		d1a_cq_en = DIP_RD32(dipRegBasAddr + 0x200);
 		d1a_cq_en = d1a_cq_en & 0xEFFFFFFF;
