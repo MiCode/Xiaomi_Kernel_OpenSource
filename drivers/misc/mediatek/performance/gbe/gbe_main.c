@@ -240,11 +240,7 @@ static void gbe_do_timer2(struct work_struct *work)
 
 	iter = container_of(work, struct gbe_boost_unit, work2);
 
-	if (iter == NULL)
-		return;
-
 	mutex_lock(&gbe_lock);
-
 
 	if (iter->state == FREE) {
 		hlist_del(&iter->hlist);
@@ -302,8 +298,6 @@ static enum hrtimer_restart gbe_timer2_tfn(struct hrtimer *timer)
 	struct gbe_boost_unit *iter;
 
 	iter = container_of(timer, struct gbe_boost_unit, timer2);
-	if (iter == NULL)
-		return HRTIMER_NORESTART;
 	schedule_work(&iter->work2);
 	return HRTIMER_NORESTART;
 }
@@ -323,9 +317,6 @@ static void gbe_do_timer1(struct work_struct *work)
 
 	iter = container_of(work, struct gbe_boost_unit, work1);
 
-	if (iter == NULL)
-		return;
-
 	mutex_lock(&gbe_lock);
 
 	if (check_dep_run_and_update(iter)) {
@@ -336,14 +327,12 @@ static void gbe_do_timer1(struct work_struct *work)
 			iter->boost_cnt, "gbe_boost_cnt");
 		gbe_trace_count(iter->pid,
 			iter->state, "gbe_state");
-		gbe_init_timer2(iter);
 		hrtimer_start(&iter->timer2, ms_to_ktime(TIMER2_MS),
 			HRTIMER_MODE_REL);
 	} else {
 		iter->state = FREE;
 		gbe_trace_count(iter->pid,
 			iter->state, "gbe_state");
-		gbe_init_timer2(iter);
 		hrtimer_start(&iter->timer2, ms_to_ktime(TIMER2_MS),
 			HRTIMER_MODE_REL);
 	}
@@ -355,8 +344,6 @@ static enum hrtimer_restart gbe_timer1_tfn(struct hrtimer *timer)
 	struct gbe_boost_unit *iter;
 
 	iter = container_of(timer, struct gbe_boost_unit, timer1);
-	if (iter == NULL)
-		return HRTIMER_NORESTART;
 	schedule_work(&iter->work1);
 	return HRTIMER_NORESTART;
 }
@@ -448,7 +435,10 @@ void fpsgo_comp2gbe_frame_update(int pid)
 			iter->boost_cnt, "gbe_boost_cnt");
 		gbe_trace_count(iter->pid,
 			iter->state, "gbe_state");
+
 		gbe_init_timer1(iter);
+		gbe_init_timer2(iter);
+
 		hrtimer_start(&iter->timer1, ms_to_ktime(TIMER1_MS),
 			HRTIMER_MODE_REL);
 		break;
