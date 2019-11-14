@@ -66,11 +66,6 @@ struct mtk_eint {
 	/* Used to fit into various pinctrl device */
 	void *pctl;
 	const struct mtk_eint_xt *gpio_xlate;
-
-	/* Used to support SW debounce */
-	struct timer_list *eint_timers;
-	int *eint_sw_debounce_en;
-	u32 *eint_sw_debounce;
 };
 
 #if IS_ENABLED(CONFIG_EINT_MTK)
