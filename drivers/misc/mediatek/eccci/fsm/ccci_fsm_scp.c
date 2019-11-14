@@ -34,6 +34,7 @@ static struct ccci_ipi_msg scp_ipi_rx_msg;
 static int ccci_scp_ipi_send(int md_id, int op_id, void *data)
 {
 	int ret = 0;
+	int ipi_status = 0;
 
 	if (atomic_read(&scp_state) == SCP_CCCI_STATE_INVALID) {
 		CCCI_ERROR_LOG(md_id, FSM,
@@ -52,9 +53,13 @@ static int ccci_scp_ipi_send(int md_id, int op_id, void *data)
 		scp_ipi_tx_msg.op_id, scp_ipi_tx_msg.data[0],
 		(int)sizeof(struct ccci_ipi_msg));
 #if (MD_GENERATION >= 6297)
-	if (mtk_ipi_send(&scp_ipidev, IPI_OUT_APCCCI_0, 0,
-		&scp_ipi_tx_msg, (sizeof(scp_ipi_tx_msg) / 4),
-				1) != IPI_ACTION_DONE) {
+	while (1) {
+		ipi_status = mtk_ipi_send(&scp_ipidev, IPI_OUT_APCCCI_0,
+		0, &scp_ipi_tx_msg, (sizeof(scp_ipi_tx_msg) / 4), 1);
+		if (ipi_status != IPI_PIN_BUSY)
+			break;
+	}
+	if (ipi_status == IPI_RPMSG_ERR) {
 		CCCI_ERROR_LOG(md_id, FSM, "IPI send fail!\n");
 		ret = -CCCI_ERR_MD_NOT_READY;
 	}
@@ -84,7 +89,9 @@ static void ccci_scp_md_state_sync_work(struct work_struct *work)
 		case MD_SYS1:
 			while (count < SCP_BOOT_TIMEOUT/EVENT_POLL_INTEVAL) {
 				if (atomic_read(&scp_state) ==
-					SCP_CCCI_STATE_BOOTING)
+					SCP_CCCI_STATE_BOOTING
+					|| atomic_read(&scp_state)
+					== SCP_CCCI_STATE_RBREADY)
 					break;
 				count++;
 				msleep(EVENT_POLL_INTEVAL);
