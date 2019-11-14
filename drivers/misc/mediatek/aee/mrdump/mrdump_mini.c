@@ -304,26 +304,6 @@ static int fill_psinfo(struct elf_prpsinfo *psinfo)
 	return 0;
 }
 
-/*
- * skip align checking purpose only
- */
-int strncmp_sac(const char *cs, const char *ct, size_t count)
-{
-	unsigned char c1, c2;
-
-	while (count) {
-		c1 = *cs++;
-		c2 = *ct++;
-		if (c1 != c2)
-			return c1 < c2 ? -1 : 1;
-		if (!c1)
-			break;
-		count--;
-	}
-	return 0;
-}
-#define strncmp strncmp_sac
-
 #ifndef __pa_nodebug
 #ifdef __pa_symbol_nodebug
 #define __pa_nodebug __pa_symbol_nodebug
@@ -927,14 +907,11 @@ static void *remap_lowmem(phys_addr_t start, phys_addr_t size)
 	struct page **pages;
 	phys_addr_t page_start;
 	unsigned int page_count;
-	pgprot_t prot;
 	unsigned int i;
 	void *vaddr;
 
 	page_start = start - offset_in_page(start);
 	page_count = DIV_ROUND_UP(size + offset_in_page(start), PAGE_SIZE);
-
-	prot = pgprot_noncached(PAGE_KERNEL);
 
 	pages = kmalloc_array(page_count, sizeof(struct page *), GFP_KERNEL);
 	if (!pages) {
@@ -948,7 +925,7 @@ static void *remap_lowmem(phys_addr_t start, phys_addr_t size)
 
 		pages[i] = pfn_to_page(addr >> PAGE_SHIFT);
 	}
-	vaddr = vmap(pages, page_count, VM_MAP, prot);
+	vaddr = vmap(pages, page_count, VM_MAP, PAGE_KERNEL);
 	kfree(pages);
 	if (!vaddr) {
 		LOGE("%s: Failed to map %u pages\n", __func__, page_count);
