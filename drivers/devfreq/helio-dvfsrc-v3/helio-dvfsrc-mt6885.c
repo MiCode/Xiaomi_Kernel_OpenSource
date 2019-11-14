@@ -524,7 +524,7 @@ static void vcorefs_get_src_ddr_req(void)
 		vcorefs_get_hifi_rising_ddr();
 
 	met_vcorefs_src[DDR_MD_LATENCY_IDX] =
-		vcorefs_get_md_rising_ddr();
+		vcorefs_get_md_imp_ddr();
 
 	met_vcorefs_src[DDR_MD_DDR_IDX] =
 		vcorefs_get_md_scenario_ddr();
@@ -572,7 +572,7 @@ static void vcorefs_get_src_misc_info(void)
 	qos_bw4 = dvfsrc_read(DVFSRC_SW_BW_4);
 
 	met_vcorefs_src[SRC_MD2SPM_IDX] =
-		vcorefs_get_md_scenario();
+		vcorefs_get_md_scenario() & 0x1FFFF;
 
 	met_vcorefs_src[SRC_SCP_REQ_IDX] =
 		vcorefs_get_scp_req_status();

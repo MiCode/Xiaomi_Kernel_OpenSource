@@ -33,6 +33,7 @@ extern u32 vcorefs_get_hifi_rising_ddr(void);
 extern u32 vcorefs_get_hrt_bw_ddr(void);
 extern u32 vcorefs_get_md_scenario(void);
 extern u32 vcorefs_get_md_scenario_ddr(void);
+extern u32 vcorefs_get_md_imp_ddr(void);
 
 
 extern u32 dvfsrc_calc_isp_hrt_opp(int data);

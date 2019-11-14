@@ -699,6 +699,18 @@ u32 vcorefs_get_hrt_bw_ddr(void)
 
 	return val;
 }
+
+u32 vcorefs_get_md_imp_ddr(void)
+{
+	u32 val;
+
+	val = dvfsrc_read(DVFSRC_DEBUG_STA_4);
+	val = (val >> MD_EMI_MD_IMP_SHIFT)
+		& MD_EMI_MD_IMP_MASK;
+
+	return val;
+}
+
 #endif
 
 #if defined(DVFSRC_IP_V2_1)
