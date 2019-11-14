@@ -1584,15 +1584,18 @@ static int dispatch_ovl_id(struct drm_mtk_layering_info *disp_info,
 			   struct drm_device *drm_dev)
 {
 	int disp_idx;
-	bool has_second_disp;
+	bool no_disp = true;
 
-	if (disp_info->layer_num[0] <= 0 && disp_info->layer_num[1] <= 0)
+	for (disp_idx = 0; disp_idx < HRT_TYPE_NUM; disp_idx++)
+		if (disp_info->layer_num[disp_idx] > 0) {
+			no_disp = false;
+			break;
+		}
+
+	if (no_disp) {
+		DDPINFO("There is no disp need dispatch\n");
 		return 0;
-
-	if (disp_info->layer_num[1] > 0)
-		has_second_disp = true;
-	else
-		has_second_disp = false;
+	}
 
 	/* Dispatch gles range if necessary */
 	if (disp_info->hrt_num > HRT_LEVEL_NUM - 1) {
@@ -1647,9 +1650,18 @@ static int dispatch_ovl_id(struct drm_mtk_layering_info *disp_info,
 static int check_layering_result(struct drm_mtk_layering_info *info)
 {
 	int disp_idx;
+	bool no_disp = true;
 
-	if (info->layer_num[0] <= 0 && info->layer_num[1] <= 0)
+	for (disp_idx = 0; disp_idx < HRT_TYPE_NUM; disp_idx++)
+		if (info->layer_num[disp_idx] > 0) {
+			no_disp = false;
+			break;
+		}
+
+	if (no_disp) {
+		DDPINFO("There is no disp need check\n");
 		return 0;
+	}
 
 	for (disp_idx = 0; disp_idx < HRT_TYPE_NUM; disp_idx++) {
 		int layer_num, max_ovl_id, ovl_layer_num;
@@ -2154,6 +2166,7 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 	unsigned int scale_num = 0;
 	unsigned int scn_decision_flag = 0;
 	int crtc_num, crtc_mask;
+	int disp_idx;
 
 	DRM_MMP_EVENT_START(layering, (unsigned long)disp_info_user,
 			(unsigned long)dev);
@@ -2295,11 +2308,12 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 	crtc_num = get_crtc_num(disp_info_user, &crtc_mask);
 	lye_add_blob_ids(&layering_info, lyeblob_ids, dev, crtc_num, crtc_mask);
 
-	DRM_MMP_MARK(layering, layering_info.hrt_num,
-			(layering_info.gles_head[0] << 24) |
-			(layering_info.gles_tail[0] << 16) |
-			(layering_info.layer_num[0] << 8) |
-			layering_info.layer_num[1]);
+	for (disp_idx = 0; disp_idx < HRT_TYPE_NUM; disp_idx++)
+		DRM_MMP_MARK(layering, layering_info.hrt_num,
+				(layering_info.gles_head[disp_idx] << 24) |
+				(layering_info.gles_tail[disp_idx] << 16) |
+				(layering_info.layer_num[disp_idx] << 8) |
+				disp_idx);
 
 	ret = copy_layer_info_to_user(disp_info_user, debug_mode);
 
