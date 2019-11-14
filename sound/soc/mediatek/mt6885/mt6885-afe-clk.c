@@ -323,10 +323,14 @@ int mt6885_afe_dram_request(struct device *dev)
 		 __func__, afe_priv->dram_resource_counter);
 
 	mutex_lock(&mutex_request_dram);
-	afe_priv->dram_resource_counter++;
+
 	/* use arm_smccc_smc to notify SPM */
-	arm_smccc_smc(MTK_SIP_AUDIO_CONTROL, MTK_AUDIO_SMC_OP_DRAM_REQUEST,
-		      0, 0, 0, 0, 0, 0, &res);
+	if (afe_priv->dram_resource_counter == 0)
+		arm_smccc_smc(MTK_SIP_AUDIO_CONTROL,
+			      MTK_AUDIO_SMC_OP_DRAM_REQUEST,
+			      0, 0, 0, 0, 0, 0, &res);
+
+	afe_priv->dram_resource_counter++;
 	mutex_unlock(&mutex_request_dram);
 	return 0;
 }
@@ -342,9 +346,12 @@ int mt6885_afe_dram_release(struct device *dev)
 
 	mutex_lock(&mutex_request_dram);
 	afe_priv->dram_resource_counter--;
+
 	/* use arm_smccc_smc to notify SPM */
-	arm_smccc_smc(MTK_SIP_AUDIO_CONTROL, MTK_AUDIO_SMC_OP_DRAM_RELEASE,
-		      0, 0, 0, 0, 0, 0, &res);
+	if (afe_priv->dram_resource_counter == 0)
+		arm_smccc_smc(MTK_SIP_AUDIO_CONTROL,
+			      MTK_AUDIO_SMC_OP_DRAM_RELEASE,
+			      0, 0, 0, 0, 0, 0, &res);
 
 	if (afe_priv->dram_resource_counter < 0) {
 		dev_warn(dev, "%s(), dram_resource_counter %d\n",
