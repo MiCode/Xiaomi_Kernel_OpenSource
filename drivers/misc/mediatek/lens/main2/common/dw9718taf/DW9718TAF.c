@@ -139,8 +139,8 @@ static int initAF(void)
 		u8 data = 0xFF;
 		int i4RetValue = 0;
 		char puSendCmd[2] = {0x00, 0x00}; /* soft power on */
-		char puSendCmd2[2] = {0x01, 0x39};
-		char puSendCmd3[2] = {0x05, 0x07};
+		char puSendCmd2[2] = {0x01, 0x19};
+		char puSendCmd3[2] = {0x05, 0x79};
 
 		g_pstAF_I2Cclient->addr = AF_I2C_SLAVE_ADDR;
 		g_pstAF_I2Cclient->addr = g_pstAF_I2Cclient->addr >> 1;

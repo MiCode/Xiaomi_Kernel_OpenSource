@@ -119,10 +119,40 @@ static int initAF(void)
 	LOG_INF("+\n");
 
 	if (*g_pAF_Opened == 1) {
+		char puSendCmd[2];
+		int ret = 0;
 
 		spin_lock(g_pAF_SpinLock);
 		*g_pAF_Opened = 2;
 		spin_unlock(g_pAF_SpinLock);
+
+		LOG_INF("Enable ISRC\n");
+		puSendCmd[0] = (char)(0xC2);
+		puSendCmd[1] = (char)(0x00);
+		ret = i2c_master_send(g_pstAF_I2Cclient, puSendCmd, 2);
+
+		if (ret < 0) {
+			LOG_INF("I2C write failed!!\n");
+			return -1;
+		}
+
+		puSendCmd[0] = (char)(0xC8);
+		puSendCmd[1] = (char)(0x01);
+		ret = i2c_master_send(g_pstAF_I2Cclient, puSendCmd, 2);
+
+		if (ret < 0) {
+			LOG_INF("I2C write failed!!\n");
+			return -1;
+		}
+
+		puSendCmd[0] = (char)(0xD0);
+		puSendCmd[1] = (char)(0x42);
+		ret = i2c_master_send(g_pstAF_I2Cclient, puSendCmd, 2);
+
+		if (ret < 0) {
+			LOG_INF("I2C write failed!!\n");
+			return -1;
+		}
 	}
 
 	LOG_INF("-\n");
