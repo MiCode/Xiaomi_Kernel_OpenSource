@@ -1864,19 +1864,21 @@ static int sde_connector_atomic_check(struct drm_connector *connector,
 		return -EINVAL;
 	}
 
-	c_conn = to_sde_connector(connector);
-	c_state = to_sde_connector_state(new_conn_state);
+	if (new_conn_state->crtc) {
+		c_conn = to_sde_connector(connector);
+		c_state = to_sde_connector_state(new_conn_state);
 
-	crtc_state = drm_atomic_get_new_crtc_state(new_conn_state->state,
-						   new_conn_state->crtc);
+		crtc_state = drm_atomic_get_new_crtc_state(
+			new_conn_state->state, new_conn_state->crtc);
 
-	qsync_dirty = msm_property_is_dirty(&c_conn->property_info,
+		qsync_dirty = msm_property_is_dirty(&c_conn->property_info,
 					&c_state->property_state,
 					CONNECTOR_PROP_QSYNC_MODE);
 
-	if (drm_atomic_crtc_needs_modeset(crtc_state) && qsync_dirty) {
-		SDE_ERROR("invalid qsync update during modeset\n");
-		return -EINVAL;
+		if (drm_atomic_crtc_needs_modeset(crtc_state) && qsync_dirty) {
+			SDE_ERROR("invalid qsync update during modeset\n");
+			return -EINVAL;
+		}
 	}
 
 	if (c_conn->ops.atomic_check)
