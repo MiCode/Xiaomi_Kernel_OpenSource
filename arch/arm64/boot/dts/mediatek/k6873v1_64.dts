@@ -47,6 +47,16 @@
 	};
 };
 
+
+&mt6360_pmu {
+	mt6360,intr_gpio_num = <24>; /* direct defined GPIO num */
+	mt6360,intr_gpio = <&pio 24 0x0>;
+};
+
+&mt6360_pmic {
+	pwr_off_seq = [02 00 02 02];
+};
+
 /* DISPSYS GPIO standardization */
 
 &pio {
