@@ -1379,10 +1379,19 @@ static void cmdq_pkt_err_irq_dump(struct cmdq_pkt *pkt)
 	const char *mod = "CMDQ";
 	struct cmdq_pkt_buffer *buf;
 	u32 size = pkt->cmd_buf_size, cnt = 0;
+	s32 thread_id = cmdq_mbox_chan_id(client->chan);
+	static u8 err_num;
 
 	cmdq_msg("%s pkt:%p", __func__, pkt);
 
+	cmdq_util_dump_lock();
+	cmdq_util_error_enable();
+
+	cmdq_util_err("begin of error irq %u", err_num++);
+
 	cmdq_task_get_thread_pc(client->chan, &pc);
+	cmdq_util_err("pkt:%lx thread:%d pc:%lx",
+		(unsigned long)pkt, thread_id, (unsigned long)pc);
 
 	if (pc) {
 		list_for_each_entry(buf, &pkt->buf, list_entry) {
@@ -1412,14 +1421,18 @@ static void cmdq_pkt_err_irq_dump(struct cmdq_pkt *pkt)
 	if (inst) {
 		/* not sync case, print raw */
 		cmdq_util_aee(mod,
-			"%s(%s) inst:%#018llx OP:%#x",
+			"%s(%s) inst:%#018llx thread:%d",
 			mod, cmdq_util_hw_name(client->chan),
-			*(u64 *)inst, inst->op);
+			*(u64 *)inst, thread_id);
 	} else {
 		/* no inst available */
-		cmdq_util_aee(mod, "%s(%s) instruction not available pc:%#llx",
-			mod, cmdq_util_hw_name(client->chan), pc);
+		cmdq_util_aee(mod,
+			"%s(%s) instruction not available pc:%#llx thread:%d",
+			mod, cmdq_util_hw_name(client->chan), pc, thread_id);
 	}
+
+	cmdq_util_error_disable();
+	cmdq_util_dump_unlock();
 }
 
 static void cmdq_flush_async_cb(struct cmdq_cb_data data)
@@ -1521,11 +1534,6 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 	cmdq_dump_pkt(pkt, pc, true);
 	cmdq_util_dump_smi();
 
-	cmdq_util_err("End of Error %u", err_num);
-	err_num++;
-
-	cmdq_util_dump_unlock();
-
 	if (inst && inst->op == CMDQ_CODE_WFE) {
 		mod = cmdq_event_module_dispatch(gce_pa, inst->arg_a,
 			thread_id);
@@ -1550,6 +1558,12 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 		cmdq_util_aee(mod, "DISPATCH:%s(%s) unknown instruction",
 			mod, cmdq_util_hw_name(client->chan));
 	}
+
+	cmdq_util_err("End of Error %u", err_num);
+	if (err_num == 0)
+		cmdq_util_error_disable();
+	err_num++;
+	cmdq_util_dump_unlock();
 
 #else
 	cmdq_err("cmdq error:%d", data.err);

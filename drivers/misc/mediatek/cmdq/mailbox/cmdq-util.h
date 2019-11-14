@@ -49,7 +49,7 @@ enum {
 		char tag[LINK_MAX]; \
 		snprintf(tag, LINK_MAX, "CRDISPATCH_KEY:%s", key); \
 		cmdq_aee(fmt, ##args); \
-		cmdq_util_error_save("[cmdq][aee] "fmt, ##args); \
+		cmdq_util_error_save("[cmdq][aee] "fmt"\n", ##args); \
 		cmdq_util_error_disable(); \
 		aee_kernel_warning_api(__FILE__, __LINE__, \
 			DB_OPT_CMDQ, tag, fmt, ##args); \
@@ -59,9 +59,8 @@ enum {
 	do { \
 		char tag[LINK_MAX]; \
 		snprintf(tag, LINK_MAX, "CRDISPATCH_KEY:%s", key); \
-		cmdq_aee("aee not ready"); \
-		cmdq_aee(fmt, ##args); \
-		cmdq_util_error_save("[cmdq][aee] "fmt, ##args); \
+		cmdq_aee(fmt" (aee not ready)", ##args); \
+		cmdq_util_error_save("[cmdq][aee] "fmt"\n", ##args); \
 		cmdq_util_error_disable(); \
 	} while (0)
 
