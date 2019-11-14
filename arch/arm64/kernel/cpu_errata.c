@@ -876,6 +876,13 @@ const struct arm64_cpu_capabilities arm64_errata[] = {
 		.matches = needs_tx2_tvm_workaround,
 	},
 #endif
+#ifdef CONFIG_ARM64_ERRATUM_1542418
+	{
+		.desc = "ARM erratum 1542418",
+		.capability = ARM64_WORKAROUND_1542418,
+		ERRATA_MIDR_RANGE(MIDR_CORTEX_A77, 0, 0, 1, 0),
+	},
+#endif
 	{
 	}
 };

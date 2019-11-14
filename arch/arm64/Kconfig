@@ -524,6 +524,22 @@ config ARM64_ERRATUM_1463225
 
 	  If unsure, say Y.
 
+config ARM64_ERRATUM_1542418
+	bool "Cortex-A77: The core might fetch a stale instuction, violating the ordering of instruction fetches"
+	default y
+	help
+	  This option adds a workaround for Arm Cortex-A77 erratum 1542418.
+
+	  On the affected Cortex-A77 cores (r0p0 and r1p0), software relying
+	  on the prefetch-speculation-protection instead of explicit
+	  synchronisation may fetch a stale instruction from a CPU-specific
+	  cache. This violates the ordering rules for instruction fetches.
+
+	  Work around the erratum by ensuring that 60 ASIDs are selected
+	  before any ASID is reused.
+
+	  If unsure, say Y.
+
 config CAVIUM_ERRATUM_22375
 	bool "Cavium erratum 22375, 24313"
 	default y
