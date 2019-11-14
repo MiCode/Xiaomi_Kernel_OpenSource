@@ -467,7 +467,7 @@ extern void mt_irq_dump_status(int irq);
  *
  * ========================================================
  */
-#define USING_BATCHING
+/* #define USING_BATCHING */
 
 #ifdef USING_BATCHING
 extern int ccmni_header(int md_id, int ccmni_idx, struct sk_buff *skb);
