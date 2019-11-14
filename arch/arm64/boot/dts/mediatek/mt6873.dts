@@ -294,9 +294,11 @@
 		reg = <0 0x10011000 0 0x1000>;
 	};
 
-	dvfsrc@10012000 {
+	dvfsrc: dvfsrc@10012000 {
 		compatible = "mediatek,dvfsrc";
-		reg = <0 0x10012000 0 0x1000>;
+		status = "disabled";
+		reg = <0 0x10012000 0 0x1000>,
+			<0 0x10006000 0 0x1000>;
 		interrupts = <GIC_SPI 249 IRQ_TYPE_LEVEL_HIGH>;
 	};
 

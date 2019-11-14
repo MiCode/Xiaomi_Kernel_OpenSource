@@ -76,6 +76,8 @@
 #define DVFSRC_BW_MON_THRES_1            (0xD4)
 #define DVFSRC_BW_MON_THRES_2            (0xD8)
 #define DVFSRC_MD_TURBO                  (0xDC)
+#define DVFSRC_PCIE_VCORE_REQ            (0xE0)
+#define DVFSRC_VCORE_USER_REQ            (0xE4)
 #define DVFSRC_DEBOUNCE_FOUR             (0xF0)
 #define DVFSRC_DEBOUNCE_RISE_FALL        (0xF4)
 #define DVFSRC_TIMEOUT_NEXTREQ           (0xF8)
@@ -121,6 +123,7 @@
 #define DVFSRC_QOS_EN                    (0x280)
 #define DVFSRC_MD_BW_URG                 (0x284)
 #define DVFSRC_ISP_HRT                   (0x290)
+#define DVFSRC_HRT_BW_BASE               (0x294)
 #define DVFSRC_SEC_SW_REQ                (0x304)
 #define DVFSRC_EMI_MON_DEBOUNCE_TIME     (0x308)
 #define DVFSRC_MD_LATENCY_IMPROVE        (0x30C)
@@ -398,6 +401,9 @@
 
 #define DEBUG_STA2_SCP_SHIFT 14
 #define DEBUG_STA2_SCP_MASK  0x1
+
+#define DEBUG_STA2_PCIE_SHIFT 27
+#define DEBUG_STA2_PCIE_MASK  0x1
 
 #define DEBUG_STA2_MD_EMI_LATENCY_SHIFT 12
 #define DEBUG_STA2_MD_EMI_LATENCY_MASK  0x3

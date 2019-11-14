@@ -15,7 +15,7 @@
 #define __HELIO_DVFSRC_IP_V2_H
 #include <helio-dvfsrc-qos.h>
 #include <mtk_dvfsrc_reg_v2.h>
-#if defined(CONFIG_MACH_MT6885)
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873)
 #include <mtk_dvfsrc_smc_reg.h>
 #endif
 
