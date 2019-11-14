@@ -884,8 +884,10 @@ static inline void smi_subsys_sspm_ipi(const bool ena, const u32 subsys)
 			IPI_SEND_POLLING, &ipi_data,
 			sizeof(ipi_data) / SSPM_MBOX_SLOT_SIZE, 2000);
 	} while (smi_dram.ackdata);
+#if 0
 	SMIDBG("ena:%d subsys:%#x smi_subsys_on:%#x ackdata:%d\n",
 		ena, subsys, smi_subsys_on, smi_dram.ackdata);
+#endif
 #else
 	do {
 		ret = sspm_ipi_send_sync(IPI_ID_SMI, IPI_OPT_POLLING, &ipi_data,
