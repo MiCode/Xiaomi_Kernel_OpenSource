@@ -402,6 +402,7 @@ config MACH_MT6885
 	select MTK_LPM
 	select MTK_LOW_POWER_MODULE
 	select MTK_LPM_MT6885
+	select MTK_SWPM
 	select COMMON_CLK_MT6885
 	select DEVAPC_MT6885
 	select DEVMPU_MT6885
