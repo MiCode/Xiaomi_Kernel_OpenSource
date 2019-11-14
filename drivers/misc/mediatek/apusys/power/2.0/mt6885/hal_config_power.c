@@ -467,16 +467,29 @@ static int rpc_power_status_check(int domain_idx, unsigned int mode)
 			finished = (chkValue >> domain_idx) & 0x1;
 
 		if (++check_round >= REG_POLLING_TIMEOUT_ROUNDS) {
-			if (domain_idx == 0 && mode != 0)
+
+			check_spm_register(NULL, 1);
+			if (domain_idx == 0 && mode != 0) {
 				LOG_ERR(
 				"%s fail SPM Wakeup = 0x%x (idx:%d, mode:%d), timeout !\n",
 					__func__, spmValue, domain_idx, mode);
-			else
+
+				apu_aee_warn(
+				"APUPWR_SPM_TIMEOUT",
+				"SPM Wakeup:0x%x, idx:%d, mode:%d, timeout\n",
+				spmValue, domain_idx, mode);
+
+			} else {
 				LOG_ERR(
 				"%s fail APU_RPC_INTF_PWR_RDY = 0x%x (idx:%d, mode:%d), timeout !\n",
 					__func__, rpcValue, domain_idx, mode);
 
-			check_spm_register(NULL, 1);
+				apu_aee_warn(
+				"APUPWR_RPC_TIMEOUT",
+				"APU_RPC_INTF_PWR_RDY:0x%x, idx:%d, mode:%d, timeout\n",
+				rpcValue, domain_idx, mode);
+			}
+
 			return -1;
 		}
 
@@ -497,7 +510,12 @@ static int rpc_power_status_check(int domain_idx, unsigned int mode)
 			LOG_ERR(
 			"%s fail conn ctl type %d (mode:%d, spm:0x%x, rpc:0x%x)\n",
 			__func__, fail_type, mode, spmValue, rpcValue);
+
 			check_spm_register(NULL, 1);
+			apu_aee_warn(
+				"APUPWR_RPC_CHK_FAIL",
+				"type:%d, mode:%d, spm:0x%x, rpc:0x%x\n",
+				fail_type, mode, spmValue, rpcValue);
 #if 1
 			return -1;
 #endif
