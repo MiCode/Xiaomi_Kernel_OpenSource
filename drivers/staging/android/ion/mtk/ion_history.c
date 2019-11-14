@@ -329,10 +329,10 @@ void history_rec_destroy(struct history_record *history_record)
 
 	debugfs_remove(history_record->debug_file);
 
+	spin_lock(&history_record->lock);
 	/* wait until no busy */
 	do {
 		busy = 0;
-		spin_lock(&history_record->lock);
 		for (i = 0; i < bitmap_longs; i++) {
 			if (history_record->bitmap_busy[i]) {
 				/* busy ! */
@@ -343,7 +343,6 @@ void history_rec_destroy(struct history_record *history_record)
 				break;
 			}
 		}
-		spin_unlock(&history_record->lock);
 	} while (busy);
 	/* we have history_record->lock locked here */
 
@@ -359,6 +358,7 @@ void history_rec_destroy(struct history_record *history_record)
 
 	vfree(history_record->record);
 	history_record->record = NULL;
+	spin_unlock(&history_record->lock);
 	kfree(history_record);
 }
 
@@ -498,6 +498,10 @@ static int ion_client_record_show(struct seq_file *seq, void *record,
 {
 	struct ion_client_record *client_record = record;
 
+	if (!client_record || !client_record->client_name ||
+	    !client_record->dbg_name)
+		return 0;
+
 	if (client_record->address > CLIENT_ADDRESS_FLAG_MAX) {
 		char *client_name = "none", *dbg_name = "none";
 
@@ -533,10 +537,14 @@ static int ion_client_destroy_record(void *record, void *priv)
 	struct ion_client_record *client_record = record;
 
 	if (client_record->address > CLIENT_ADDRESS_FLAG_MAX) {
-		if (client_record->client_name)
+		if (client_record->client_name) {
 			string_hash_put(client_record->client_name);
-		if (client_record->dbg_name)
+			client_record->client_name = NULL;
+		}
+		if (client_record->dbg_name) {
 			string_hash_put(client_record->dbg_name);
+			client_record->dbg_name = NULL;
+		}
 	}
 
 	return 0;
