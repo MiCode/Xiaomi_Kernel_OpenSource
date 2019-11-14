@@ -138,7 +138,7 @@ static void __iomem *ckgen_base;	/*ckgen*/
 #define POWERON_CONFIG_EN	SPM_REG(0x0000)
 #define PWR_STATUS		SPM_REG(0x016C)
 #define PWR_STATUS_2ND		SPM_REG(0x0170)
-//#define OTHER_PWR_STATUS	SPM_REG(0x0178)	/* for MT6873 VPU only */
+#define OTHER_PWR_STATUS	SPM_REG(0x0178)	/* for MT6873 VPU only */
 
 #define MD1_PWR_CON		SPM_REG(0x300)
 #define CONN_PWR_CON		SPM_REG(0x304)
@@ -171,6 +171,7 @@ static void __iomem *ckgen_base;	/*ckgen*/
 #define DP_TX_PWR_CON		SPM_REG(0x3AC)
 #define DPY2_PWR_CON		SPM_REG(0x3C4)
 #define MD_EXT_BUCK_ISO_CON	SPM_REG(0x398)
+#define EXT_BUCK_ISO		SPM_REG(0x39C)
 
 #define SPM_CROSS_WAKE_M01_REQ	SPM_REG(0x670)	/* for MT6873 VPU wakeup src */
 #define APMCU_WAKEUP_APU	(0x1 << 0)
@@ -3100,6 +3101,8 @@ int spm_mtcmos_ctrl_msdc(int state)
 		/* TINFO="Start to turn off MSDC" */
 		/* TINFO="Set SRAM_PDN = 1" */
 		spm_write(MSDC_PWR_CON, spm_read(MSDC_PWR_CON) | MSDC_SRAM_PDN);
+		/* TINFO="Delay 1us" */
+		udelay(1);
 #ifndef IGNORE_MTCMOS_CHECK
 #endif
 		/* TINFO="Set PWR_ISO = 1" */
@@ -3147,12 +3150,44 @@ int spm_mtcmos_ctrl_msdc(int state)
 		spm_write(MSDC_PWR_CON, spm_read(MSDC_PWR_CON) | PWR_RST_B);
 		/* TINFO="Set SRAM_PDN = 0" */
 		spm_write(MSDC_PWR_CON, spm_read(MSDC_PWR_CON) & ~(0x1 << 8));
+		/* TINFO="Delay 1us" */
+		udelay(1);
 		/* TINFO="Finish to turn on MSDC" */
 	}
 	return err;
 }
 
+int spm_mtcmos_vpu(int state)
+{
+	int err = 0;
 
+	DBG_ID = DBG_ID_VPU;
+	DBG_STA = state;
+	DBG_STEP = 0;
+
+	if (state == STA_POWER_DOWN) {
+		spm_write(SPM_CROSS_WAKE_M01_REQ,
+			spm_read(SPM_CROSS_WAKE_M01_REQ) &
+						~APMCU_WAKEUP_APU);
+		/* mt6885: no need to wait for power down.*/
+		INCREASE_STEPS;
+	} else {
+		spm_write(EXT_BUCK_ISO, spm_read(EXT_BUCK_ISO) &
+							~(0x00000021));
+
+		spm_write(SPM_CROSS_WAKE_M01_REQ,
+			spm_read(SPM_CROSS_WAKE_M01_REQ) |
+						APMCU_WAKEUP_APU);
+
+		while ((spm_read(OTHER_PWR_STATUS) & (0x1UL << 5)) !=
+							(0x1UL << 5)) {
+			ram_console_update();
+		}
+		INCREASE_STEPS;
+	}
+
+	return err;
+}
 
 /* auto-gen end*/
 
@@ -3393,9 +3428,9 @@ static int sys_get_state_op(struct subsys *sys)
 
 static int vpu_get_state_op(struct subsys *sys)
 {
-	//unsigned int sta = clk_readl(OTHER_PWR_STATUS);
+	unsigned int sta = clk_readl(OTHER_PWR_STATUS);
 
-	return 0;//(sta & sys->sta_mask);
+	return (sta & sys->sta_mask);
 }
 
 static struct subsys_ops MD1_sys_ops = {
@@ -3893,9 +3928,9 @@ struct mtk_power_gate {
 struct mtk_power_gate scp_clks[] __initdata = {
 	PGATE(SCP_SYS_MD1, "PG_MD1", NULL, NULL, SYS_MD1),
 	PGATE(SCP_SYS_CONN, "PG_CONN", NULL, NULL, SYS_CONN),
-	PGATE(SCP_SYS_MDP, "PG_MDP", NULL, "mdp_sel", SYS_MDP),
+	PGATE(SCP_SYS_MDP, "PG_MDP", "PG_DIS", "mdp_sel", SYS_MDP),
 	PGATE(SCP_SYS_DIS, "PG_DIS", NULL, "disp_sel", SYS_DIS),
-	PGATE(SCP_SYS_MFG0, "PG_MFG0", NULL, "mfg_sel", SYS_MFG0),
+	PGATE(SCP_SYS_MFG0, "PG_MFG0", NULL, "mfg_pll_sel", SYS_MFG0),
 	PGATE(SCP_SYS_MFG1, "PG_MFG1", "PG_MFG0", NULL, SYS_MFG1),
 	PGATE(SCP_SYS_MFG2, "PG_MFG2", "PG_MFG1", NULL, SYS_MFG2),
 	PGATE(SCP_SYS_MFG3, "PG_MFG3", "PG_MFG1", NULL, SYS_MFG3),
@@ -3906,12 +3941,13 @@ struct mtk_power_gate scp_clks[] __initdata = {
 	PGATE(SCP_SYS_ISP2, "PG_ISP2", "PG_DIS", "img2_sel", SYS_ISP2), /* MDP*/
 	PGATE(SCP_SYS_IPE, "PG_IPE", "PG_DIS", "ipe_sel", SYS_IPE), /* MDP */
 	PGATE(SCP_SYS_VDEC, "PG_VDEC", "PG_DIS", "vdec_sel", SYS_VDE),
-	PGATE(SCP_SYS_VDEC2, "PG_VDEC2", "PG_DIS", "vdec_sel", SYS_VDE2),
+	PGATE(SCP_SYS_VDEC2, "PG_VDEC2", "PG_VDEC", "vdec_sel", SYS_VDE2),
 	PGATE(SCP_SYS_VENC, "PG_VENC", "PG_DIS", "venc_sel", SYS_VEN),
 	//PGATE(SCP_SYS_VENC_CORE1, "PG_VENC_C1", "PG_DIS", "venc_sel",
 	//							SYS_VEN_CORE1),
 	PGATE3(SCP_SYS_AUDIO, "PG_AUDIO", NULL, "aud_intbus_sel",
-			"infracfg_ao_audio_26m_bclk_ck", NULL, SYS_AUDIO),
+			"infracfg_ao_audio_26m_bclk_ck",
+			"infracfg_ao_audio_cg", SYS_AUDIO),
 	PGATE(SCP_SYS_ADSP, "PG_ADSP", NULL, "adsp_sel", SYS_ADSP),
 	PGATE(SCP_SYS_CAM, "PG_CAM", "PG_DIS", "cam_sel", SYS_CAM),
 	PGATE(SCP_SYS_CAM_RAWA, "PG_CAM_RAWA", "PG_CAM", NULL, SYS_CAM_RAWA),
@@ -3920,7 +3956,7 @@ struct mtk_power_gate scp_clks[] __initdata = {
 	PGATE(SCP_SYS_DP_TX, "PG_DP_TX", "PG_DIS", NULL, SYS_DP_TX),
 	/* Gary Wang: no need to turn on disp mtcmos*/
 	PGATE3(SCP_SYS_VPU, "PG_VPU", NULL, "ipu_if_sel", "dsp_sel",
-							"dsp7_sel", SYS_VPU),
+						"dsp7_sel", SYS_VPU),
 	PGATE(SCP_SYS_MSDC, "PG_MSDC", NULL, NULL, SYS_MSDC),
 };
 
@@ -4340,7 +4376,7 @@ void subsys_if_on(void)
 {
 	unsigned int sta = spm_read(PWR_STATUS);
 	unsigned int sta_s = spm_read(PWR_STATUS_2ND);
-	//unsigned int other_sta = spm_read(OTHER_PWR_STATUS);
+	unsigned int other_sta = spm_read(OTHER_PWR_STATUS);
 	int ret = 0;
 
 	/* size_t cam_num, img_num, ipe_num, mm_num, venc_num, vdec_num = 0; */
@@ -4484,7 +4520,7 @@ void subsys_if_on(void)
 		pr_notice("suspend warning: MSDC is on!!\n");
 		ret++;
 	}
-#if 0
+#if 1
 	if (other_sta & (0x1 << 5)) {
 		pr_notice("suspend warning: VPU is on!!\n");
 		ret++;
