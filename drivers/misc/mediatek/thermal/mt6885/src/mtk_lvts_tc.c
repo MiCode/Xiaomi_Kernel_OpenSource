@@ -819,7 +819,7 @@ void lvts_device_identification(void)
 		/* udelay(100); */
 
 		/*  Read back Dev_ID with Update */
-		lvts_write_device(0x85020000, 0xFF, 0x55, tc_num);
+		lvts_write_device(0x85020000, 0xFC, 0x55, tc_num);
 
 		/*  Check LVTS device ID */
 		data = (readl(LVTS_ID_0 + offset) & _BITMASK_(7:0));
@@ -1777,10 +1777,11 @@ void lvts_tscpu_reset_thermal(void)
 	/* chip dependent, Have to confirm with DE */
 
 	int temp = 0;
+	int temp2 = 0;
 
 	lvts_dbg_printk("%s\n", __func__);
 
-	/* reset thremal ctrl */
+	/* reset AP thremal ctrl */
 	/* TODO: Is it necessary to read INFRA_GLOBALCON_RST_0_SET? */
 	temp = readl(INFRA_GLOBALCON_RST_0_SET);
 
@@ -1798,7 +1799,30 @@ void lvts_tscpu_reset_thermal(void)
 	temp |= 0x00000001;
 
 	mt_reg_sync_writel_print(temp, INFRA_GLOBALCON_RST_0_CLR);
+
+
+
+
+	/* reset MCU thremal ctrl */
+	/* TODO: Is it necessary to read INFRA_GLOBALCON_RST_0_SET? */
+	temp2 = readl(INFRA_GLOBALCON_RST_4_SET);
+
+	/* 1: Enables thermal control software reset */
+	temp2 |= 0x00000400;
+	mt_reg_sync_writel_print(temp2, INFRA_GLOBALCON_RST_4_SET);
+
+	/* TODO: How long to set the reset bit? */
+
+	/* un reset */
+	/* TODO: Is it necessary to read INFRA_GLOBALCON_RST_0_CLR? */
+	temp2 = readl(INFRA_GLOBALCON_RST_4_CLR);
+
+	/* 1: Enable reset Disables thermal control software reset */
+	temp2 |= 0x00000400;
+
+	mt_reg_sync_writel_print(temp2, INFRA_GLOBALCON_RST_4_CLR);
 }
+
 
 void get_lvts_slope_intercept(struct TS_PTPOD *ts_info, enum
 		thermal_bank_name ts_bank)

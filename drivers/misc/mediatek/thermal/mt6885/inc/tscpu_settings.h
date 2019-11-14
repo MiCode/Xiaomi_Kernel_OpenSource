@@ -749,6 +749,9 @@ extern void lvts_dump_time_profiling_result(struct seq_file *m);
 #define INFRA_GLOBALCON_RST_0_SET (INFRACFG_AO_BASE_2 + 0x120)
 #define INFRA_GLOBALCON_RST_0_CLR (INFRACFG_AO_BASE_2 + 0x124)
 #define INFRA_GLOBALCON_RST_0_STA (INFRACFG_AO_BASE_2 + 0x128)
+
+#define INFRA_GLOBALCON_RST_4_SET (INFRACFG_AO_BASE_2 + 0x730)
+#define INFRA_GLOBALCON_RST_4_CLR (INFRACFG_AO_BASE_2 + 0x734)
 /*******************************************************************************
  * APMixedSys Configuration Register Definition
  *****************************************************************************
