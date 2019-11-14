@@ -1672,9 +1672,35 @@ static int check_layering_result(struct drm_mtk_layering_info *info)
 static int check_disp_info(struct drm_mtk_layering_info *disp_info)
 {
 	int disp_idx, ghead, gtail;
+	int i;
 
 	if (disp_info == NULL) {
 		DDPPR_ERR("[HRT]disp_info is empty\n");
+		return -1;
+	}
+
+	for (i = 0; i < 3; i++) {
+		int mode = disp_info->disp_mode[i];
+		int layer_num = disp_info->layer_num[i];
+
+		if (mode < 0 || mode >= MTK_DRM_SESSION_NUM) {
+			DDPPR_ERR("[HRT] i %d, invalid mode %d\n", i, mode);
+			return -1;
+		}
+
+		if (layer_num < 0) {
+			DDPPR_ERR("[HRT] i %d, invalid layer num %d\n",
+				  i, layer_num);
+			return -1;
+		}
+	}
+
+	/* these are set by kernel, should be 0 */
+	if (disp_info->res_idx || disp_info->hrt_weight || disp_info->hrt_idx) {
+		DDPPR_ERR("[HRT] fail, res_idx %d, hrt_weight %u, hrt_idx %u\n",
+			  disp_info->res_idx,
+			  disp_info->hrt_weight,
+			  disp_info->hrt_idx);
 		return -1;
 	}
 
