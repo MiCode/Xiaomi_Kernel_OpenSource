@@ -683,9 +683,16 @@ int tz_system_nop_std32(uint32_t type, uint64_t value)
 	int ret;
 	uint32_t val_a = value;
 	uint32_t val_b = value >> 32;
-	uint32_t smcnr_nop = MTEE_SMCNR(SMCF_SC_NOP, tz_system_dev->dev.parent);
+	uint32_t smcnr_nop;
+
+	if (IS_ERR_OR_NULL(tz_system_dev)) {
+		KREE_ERR("GZ kree is not initialized\n");
+		return TZ_RESULT_ERROR_NO_DATA;
+	}
 
 	KREE_DEBUG("%s\n", __func__);
+
+	smcnr_nop = MTEE_SMCNR(SMCF_SC_NOP, tz_system_dev->dev.parent);
 
 	ret = trusty_std_call32(tz_system_dev->dev.parent, smcnr_nop,
 				type, val_a, val_b);
