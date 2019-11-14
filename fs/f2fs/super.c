@@ -1044,6 +1044,15 @@ static void f2fs_umount_end(struct super_block *sb, int flags)
 			struct cp_control cpc = {
 				.reason = CP_UMOUNT,
 			};
+			int locked, err;
+
+			/* only failed during mount/umount/freeze/quotactl */
+			locked = down_read_trylock(&sb->s_umount);
+			err = f2fs_quota_sync(sb, -1);
+			if (locked)
+				up_read(&sb->s_umount);
+			if (err)
+				return;
 			f2fs_write_checkpoint(F2FS_SB(sb), &cpc);
 		}
 	}
