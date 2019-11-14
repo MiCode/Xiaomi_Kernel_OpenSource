@@ -614,6 +614,7 @@ static int dpmaif_net_rx_push_thread(void *arg)
 		skb = ccci_skb_dequeue(&queue->skb_list);
 		if (!skb)
 			continue;
+		mtk_ccci_add_dl_pkt_size(skb->len);
 
 #ifdef CCCI_SKB_TRACE
 		per_md_data->netif_rx_profile[6] = sched_clock();
@@ -2592,6 +2593,45 @@ static irqreturn_t dpmaif_isr(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+#ifdef ENABLE_CPU_AFFINITY
+void mtk_ccci_affinity_rta(u64 dl, u64 ul)
+{
+	static int affinity_en;
+	struct cpumask imask, tmask;
+	int en;
+
+	if (affinity_en)
+		en = ((dl + ul) < 800000000LL) ? 0 : 1;
+	else
+		en = ((dl + ul) > 1000000000LL) ? 1 : 0;
+
+	if (affinity_en == en)
+		return;
+
+	affinity_en = en;
+	if (en) {
+		cpumask_clear(&imask);
+		cpumask_set_cpu(1, &imask);
+
+		cpumask_clear(&tmask);
+		cpumask_set_cpu(4, &tmask);
+		cpumask_set_cpu(5, &tmask);
+		cpumask_set_cpu(6, &tmask);
+		cpumask_set_cpu(7, &tmask);
+		CCCI_REPEAT_LOG(-1, TAG, "%s:en\r\n", __func__);
+	} else {
+		cpumask_setall(&imask);
+		cpumask_setall(&tmask);
+		CCCI_REPEAT_LOG(-1, TAG, "%s:dis\r\n", __func__);
+	}
+
+	if (dpmaif_ctrl->dpmaif_irq_id)
+		irq_force_affinity(dpmaif_ctrl->dpmaif_irq_id, &imask);
+	if (dpmaif_ctrl->rxq[0].rx_thread)
+		sched_setaffinity(dpmaif_ctrl->rxq[0].rx_thread->pid, &tmask);
+}
+#endif
+
 /* =======================================================
  *
  * Descriptions: State part start(1/3): init(RX) -- 1.1.2 rx sw init
@@ -3725,6 +3765,7 @@ int ccci_dpmaif_hif_init(unsigned char hif_id, unsigned char md_id)
 	hif_ctrl->traffic_monitor.data = (unsigned long)hif_ctrl;
 #endif
 	ccci_hif[hif_id] = (void *)hif_ctrl;
+	mtk_ccci_speed_monitor_init();
 	return 0;
 
 DPMAIF_INIT_FAIL:

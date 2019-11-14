@@ -320,3 +320,52 @@ unsigned int ccb_configs_len =
 			sizeof(ccb_configs)/sizeof(struct ccci_ccb_config);
 
 
+
+int mtk_ccci_cpu_freq_rta(u64 dl_speed, u64 ul_speed, int ref[], int n)
+{
+	static int last_lvl;
+
+	if (n != 2) {
+		CCCI_REPEAT_LOG(-1, "speed", "%s: cluster not 2(%d)\r\n",
+					__func__, n);
+		return 0;
+	}
+
+	if ((dl_speed + ul_speed) >= 1350000000LL) {
+		ref[0] = 1500000;
+		ref[1] = -1;
+		if (last_lvl != 1) {
+			last_lvl = 1;
+			CCCI_REPEAT_LOG(-1, "speed", "%s: lvl:%d\r\n",
+					__func__, last_lvl);
+			return 1;
+		}
+		return 0;
+	}
+	if ((dl_speed + ul_speed) >= 1000000000LL) {
+		ref[0] = 800000;
+		ref[1] = -1;
+		if (last_lvl != 2) {
+			last_lvl = 2;
+			CCCI_REPEAT_LOG(-1, "speed", "%s: lvl:%d\r\n",
+					__func__, last_lvl);
+			return 1;
+		}
+		return 0;
+	}
+
+	if ((dl_speed + ul_speed) < 800000000LL) {
+		ref[0] = -1;
+		ref[1] = -1;
+		if (last_lvl != 0) {
+			last_lvl = 0;
+			CCCI_REPEAT_LOG(-1, "speed", "%s: lvl:%d\r\n",
+					__func__, last_lvl);
+			return 1;
+		}
+		return 0;
+	}
+
+	return 0;
+}
+
