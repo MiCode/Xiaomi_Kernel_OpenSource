@@ -126,11 +126,11 @@ void apusys_set_dfvs_debug_test(void)
 	for (i = MDLA0; i < MDLA0 + APUSYS_MDLA_NUM; i++)
 		apusys_opps.cur_opp_index[i] = args[0];
 
-	apusys_opps.cur_buck_volt[VPU_BUCK] =
+	apusys_opps.next_buck_volt[VPU_BUCK] =
 			apusys_opps.opps[args[0]][V_VPU0].voltage;
-		apusys_opps.cur_buck_volt[MDLA_BUCK] =
+		apusys_opps.next_buck_volt[MDLA_BUCK] =
 			apusys_opps.opps[args[0]][V_MDLA0].voltage;
-		apusys_opps.cur_buck_volt[VCORE_BUCK] =
+		apusys_opps.next_buck_volt[VCORE_BUCK] =
 			apusys_opps.opps[args[0]][V_VCORE].voltage;
 
 		// determine buck domain opp
@@ -140,12 +140,12 @@ void apusys_set_dfvs_debug_test(void)
 			for (opp = 0; opp < APUSYS_MAX_NUM_OPPS; opp++) {
 				if ((i == V_APU_CONN ||	i == V_TOP_IOMMU) &&
 					(apusys_opps.opps[opp][i].voltage ==
-					apusys_opps.cur_buck_volt[VPU_BUCK])) {
+					apusys_opps.next_buck_volt[VPU_BUCK])) {
 					apusys_opps.cur_opp_index[i] = opp;
 					break;
 				} else if (i == V_VCORE &&
 				apusys_opps.opps[opp][i].voltage ==
-				apusys_opps.cur_buck_volt[VCORE_BUCK]) {
+				apusys_opps.next_buck_volt[VCORE_BUCK]) {
 					apusys_opps.cur_opp_index[i] = opp;
 					break;
 				}
@@ -178,8 +178,8 @@ int hal_config_power(enum HAL_POWER_CMD cmd, enum DVFS_USER user, void *param)
 			vcore_curr_volt = target_volt;
 		if (buck == SRAM_BUCK)
 			vsram_core_volt = target_volt;
-		//int vpu_curr_volt = apusys_opps.prev_buck_volt[VPU_BUCK];
-		//int mdla_curr_volt = apusys_opps.prev_buck_volt[MDLA_BUCK];
+		//int vpu_curr_volt = apusys_opps.cur_buck_volt[VPU_BUCK];
+		//int mdla_curr_volt = apusys_opps.cur_buck_volt[MDLA_BUCK];
 		//vsram_core_volt = apusys_opps.vsram_volatge;
 
 		LOG_INF("%s cmd = %d, buck = %d, voltage=%d\n",
@@ -226,9 +226,9 @@ int hal_config_power(enum HAL_POWER_CMD cmd, enum DVFS_USER user, void *param)
 
 int check_constraint_1(void)
 {
-	int vpu_curr_volt = apusys_opps.prev_buck_volt[VPU_BUCK];
-	int mdla_curr_volt = apusys_opps.prev_buck_volt[MDLA_BUCK];
-	int vcore_curr_volt = apusys_opps.prev_buck_volt[VCORE_BUCK];
+	int vpu_curr_volt = apusys_opps.cur_buck_volt[VPU_BUCK];
+	int mdla_curr_volt = apusys_opps.cur_buck_volt[MDLA_BUCK];
+	int vcore_curr_volt = apusys_opps.cur_buck_volt[VCORE_BUCK];
 
 	if ((vpu_curr_volt - mdla_curr_volt >= VOLT_CONSTRAINTS_1) ||
 		(mdla_curr_volt - vpu_curr_volt >= VOLT_CONSTRAINTS_1) ||

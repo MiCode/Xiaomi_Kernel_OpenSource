@@ -183,12 +183,12 @@ int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 			apusys_opps.cur_opp_index[i] = args[0];
 
 		// determine vpu / mdla / vcore voltage
-		apusys_opps.cur_buck_volt[VPU_BUCK] =
+		apusys_opps.next_buck_volt[VPU_BUCK] =
 			apusys_opps.opps[args[0]][V_VPU0].voltage;
-		apusys_opps.cur_buck_volt[MDLA_BUCK] =
+		apusys_opps.next_buck_volt[MDLA_BUCK] =
 			apusys_opps.opps[args[0]][V_MDLA0].voltage;
 		#if VCORE_DVFS_SUPPORT
-		apusys_opps.cur_buck_volt[VCORE_BUCK] =
+		apusys_opps.next_buck_volt[VCORE_BUCK] =
 			apusys_opps.opps[args[0]][V_VCORE].voltage;
 		#endif
 
@@ -203,12 +203,12 @@ int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 			for (opp = 0; opp < APUSYS_MAX_NUM_OPPS; opp++) {
 				if ((i == V_APU_CONN ||	i == V_TOP_IOMMU) &&
 					(apusys_opps.opps[opp][i].voltage ==
-					apusys_opps.cur_buck_volt[VPU_BUCK])) {
+					apusys_opps.next_buck_volt[VPU_BUCK])) {
 					apusys_opps.cur_opp_index[i] = opp;
 					break;
 				} else if (i == V_VCORE &&
 				apusys_opps.opps[opp][i].voltage ==
-				apusys_opps.cur_buck_volt[VCORE_BUCK]) {
+				apusys_opps.next_buck_volt[VCORE_BUCK]) {
 					apusys_opps.cur_opp_index[i] = opp;
 					break;
 				}

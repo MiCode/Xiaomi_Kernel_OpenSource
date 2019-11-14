@@ -207,6 +207,9 @@ void apusys_clk_path_update_pwr(enum DVFS_USER user, enum DVFS_VOLTAGE voltage)
 {
 	uint8_t  path_volt_index = 0;
 
+	if (apusys_opps.is_power_on[user] == false)
+		return;
+
 	for (path_volt_index = 0;
 	path_volt_index < APUSYS_PATH_USER_NUM; path_volt_index++){
 		apusys_opps.user_path_volt[user][path_volt_index] =
@@ -239,19 +242,21 @@ buck_index < APUSYS_BUCK_NUM; buck_index++) {
 	for (user_index = 0; user_index < APUSYS_DVFS_USER_NUM; user_index++) {
 		if (dvfs_user_support(user_index) == false)
 			continue;
+		if (apusys_opps.is_power_on[user_index] == false)
+			continue;
 		for (path_index = 0;
 		path_index < APUSYS_PATH_USER_NUM; path_index++) {
 			if (buck_shared[buck_index][user_index][path_index]
 		== true) {
-				apusys_opps.cur_buck_volt[buck_index] =
-		MAX(apusys_opps.cur_buck_volt[buck_index],
+				apusys_opps.next_buck_volt[buck_index] =
+		MAX(apusys_opps.next_buck_volt[buck_index],
 		apusys_opps.user_path_volt[user_index][path_index]);
 
 	if (g_pwr_log_level == APUSYS_PWR_LOG_DEBUG)
 		PWR_LOG_INF("%s, %s = %d,(%s,%d)=%d\n",
 		__func__,
 		buck_str[buck_index],
-		apusys_opps.cur_buck_volt[buck_index],
+		apusys_opps.next_buck_volt[buck_index],
 		user_str[user_index],
 		path_index,
 		apusys_opps.user_path_volt[user_index][path_index]);
@@ -276,34 +281,34 @@ void apusys_pwr_constraint_check(void)
 	    buck1 = dvfs_constraint_table[i].buck1;
 	    voltage0 = dvfs_constraint_table[i].voltage0;
 	    voltage1 = dvfs_constraint_table[i].voltage1;
-if (apusys_opps.cur_buck_volt[buck0] == voltage0 &&
-	apusys_opps.cur_buck_volt[buck1] == voltage1) {
+if (apusys_opps.next_buck_volt[buck0] == voltage0 &&
+	apusys_opps.next_buck_volt[buck1] == voltage1) {
 	for (opp_index = APUSYS_MAX_NUM_OPPS-1;
 		opp_index >= 0; opp_index--) {
 		if (voltage0 < voltage1) {
 			if (apusys_opps.opps[opp_index][buck0].voltage
 	> voltage0) {
-				apusys_opps.cur_buck_volt[buck0] =
+				apusys_opps.next_buck_volt[buck0] =
 			apusys_opps.opps[opp_index][buck0].voltage;
 
 				PWR_LOG_INF("%s, %s from %d --> %d\n",
 				__func__,
 				buck_str[buck0],
 				voltage0,
-			apusys_opps.cur_buck_volt[buck0]);
+			apusys_opps.next_buck_volt[buck0]);
 				break;
 				}
 		} else if (voltage0 > voltage1) {
 			if (apusys_opps.opps[opp_index][buck1].voltage
 			> voltage1) {
-				apusys_opps.cur_buck_volt[buck1] =
+				apusys_opps.next_buck_volt[buck1] =
 			apusys_opps.opps[opp_index][buck1].voltage;
 
 				PWR_LOG_INF("%s, %s from %d --> %d\n",
 				__func__,
 				buck_str[buck1],
 				voltage1,
-			apusys_opps.cur_buck_volt[buck1]);
+			apusys_opps.next_buck_volt[buck1]);
 				break;
 				}
 			}
@@ -331,7 +336,7 @@ void apusys_pwr_efficiency_check(void)
 		buck_index = apusys_buck_domain_to_buck[buck_domain_index];
 	for (opp_index = 0;	opp_index < APUSYS_MAX_NUM_OPPS; opp_index++) {
 		if (apusys_opps.opps[opp_index][buck_domain_index].voltage <=
-			apusys_opps.cur_buck_volt[buck_index]){
+			apusys_opps.next_buck_volt[buck_index]){
 			user = apusys_buck_domain_to_user[buck_domain_index];
 			if (user < APUSYS_DVFS_USER_NUM) {
 				if (apusys_opps.is_power_on[user] == false)
@@ -360,25 +365,25 @@ void apusys_buck_up_check(void)
 	uint8_t buck_small_index = 0, buck_large_index = 0;
 	struct hal_param_volt volt_data;
 
-	if (apusys_opps.prev_buck_volt[VCORE_BUCK] <
-			apusys_opps.cur_buck_volt[VCORE_BUCK]) {
+	if (apusys_opps.cur_buck_volt[VCORE_BUCK] <
+			apusys_opps.next_buck_volt[VCORE_BUCK]) {
 		volt_data.target_buck = VCORE_BUCK;
-		volt_data.target_volt = apusys_opps.cur_buck_volt[VCORE_BUCK];
+		volt_data.target_volt = apusys_opps.next_buck_volt[VCORE_BUCK];
 
 		hal_config_power(PWR_CMD_SET_VOLT, user, (void *)&volt_data);
 	}
 
-	if (apusys_opps.prev_buck_volt[VPU_BUCK] <
-		apusys_opps.prev_buck_volt[MDLA_BUCK]) {
+	if (apusys_opps.cur_buck_volt[VPU_BUCK] <
+		apusys_opps.cur_buck_volt[MDLA_BUCK]) {
 		buck_small_index = VPU_BUCK;
 		buck_large_index = MDLA_BUCK;
-	} else if (apusys_opps.prev_buck_volt[VPU_BUCK] >
-		apusys_opps.prev_buck_volt[MDLA_BUCK]){
+	} else if (apusys_opps.cur_buck_volt[VPU_BUCK] >
+		apusys_opps.cur_buck_volt[MDLA_BUCK]){
 		buck_small_index = MDLA_BUCK;
 		buck_large_index = VPU_BUCK;
 	} else {
-		if (apusys_opps.cur_buck_volt[VPU_BUCK] <
-		apusys_opps.cur_buck_volt[MDLA_BUCK]){
+		if (apusys_opps.next_buck_volt[VPU_BUCK] <
+		apusys_opps.next_buck_volt[MDLA_BUCK]){
 			buck_small_index = VPU_BUCK;
 			buck_large_index = MDLA_BUCK;
 		} else {
@@ -388,38 +393,38 @@ void apusys_buck_up_check(void)
 	}
 
 if (g_pwr_log_level == APUSYS_PWR_LOG_DEBUG)
-	PWR_LOG_INF("%s,prev vpu=%d, prev mdla=%d, vpu=%d, mdla=%d, vsrm=%d\n",
+	PWR_LOG_INF("%s,cur vpu=%d, cur mdla=%d, vpu=%d, mdla=%d, vsrm=%d\n",
 		__func__,
-		apusys_opps.prev_buck_volt[VPU_BUCK],
-		apusys_opps.prev_buck_volt[MDLA_BUCK],
 		apusys_opps.cur_buck_volt[VPU_BUCK],
 		apusys_opps.cur_buck_volt[MDLA_BUCK],
+		apusys_opps.next_buck_volt[VPU_BUCK],
+		apusys_opps.next_buck_volt[MDLA_BUCK],
 		apusys_opps.vsram_volatge);
 
 	if (apusys_opps.vsram_volatge == VSRAM_LOW_VOLT &&
-		(apusys_opps.cur_buck_volt[VPU_BUCK] > VSRAM_TRANS_VOLT ||
-		apusys_opps.cur_buck_volt[MDLA_BUCK] > VSRAM_TRANS_VOLT)) {
-		if ((apusys_opps.prev_buck_volt[buck_small_index] <
-			apusys_opps.cur_buck_volt[buck_small_index])) {
-			if (apusys_opps.cur_buck_volt[buck_small_index] >
+		(apusys_opps.next_buck_volt[VPU_BUCK] > VSRAM_TRANS_VOLT ||
+		apusys_opps.next_buck_volt[MDLA_BUCK] > VSRAM_TRANS_VOLT)) {
+		if ((apusys_opps.cur_buck_volt[buck_small_index] <
+			apusys_opps.next_buck_volt[buck_small_index])) {
+			if (apusys_opps.next_buck_volt[buck_small_index] >
 				VSRAM_TRANS_VOLT)
 				volt_data.target_volt = VSRAM_TRANS_VOLT;
 			else
 				volt_data.target_volt =
-				apusys_opps.cur_buck_volt[buck_small_index];
+				apusys_opps.next_buck_volt[buck_small_index];
 			volt_data.target_buck = buck_small_index;
 			hal_config_power(PWR_CMD_SET_VOLT, user,
 				(void *)&volt_data);
 		}
 
-		if ((apusys_opps.prev_buck_volt[buck_large_index] <
-			apusys_opps.cur_buck_volt[buck_large_index])) {
-			if (apusys_opps.cur_buck_volt[buck_large_index]
+		if ((apusys_opps.cur_buck_volt[buck_large_index] <
+			apusys_opps.next_buck_volt[buck_large_index])) {
+			if (apusys_opps.next_buck_volt[buck_large_index]
 				> VSRAM_TRANS_VOLT)
 				volt_data.target_volt = VSRAM_TRANS_VOLT;
 			else
 				volt_data.target_volt =
-				apusys_opps.cur_buck_volt[buck_large_index];
+				apusys_opps.next_buck_volt[buck_large_index];
 			volt_data.target_buck = buck_large_index;
 			hal_config_power(PWR_CMD_SET_VOLT, user,
 				(void *)&volt_data);
@@ -432,19 +437,19 @@ if (g_pwr_log_level == APUSYS_PWR_LOG_DEBUG)
 
 	}
 
-	if (apusys_opps.cur_buck_volt[buck_small_index] >
-		apusys_opps.prev_buck_volt[buck_small_index]) {
+	if (apusys_opps.next_buck_volt[buck_small_index] >
+		apusys_opps.cur_buck_volt[buck_small_index]) {
 		volt_data.target_buck = buck_small_index;
 		volt_data.target_volt =
-			apusys_opps.cur_buck_volt[buck_small_index];
+			apusys_opps.next_buck_volt[buck_small_index];
 	hal_config_power(PWR_CMD_SET_VOLT, user, (void *)&volt_data);
 	}
 
-	if (apusys_opps.cur_buck_volt[buck_large_index] >
-		apusys_opps.prev_buck_volt[buck_large_index]) {
+	if (apusys_opps.next_buck_volt[buck_large_index] >
+		apusys_opps.cur_buck_volt[buck_large_index]) {
 		volt_data.target_buck = buck_large_index;
 		volt_data.target_volt =
-			apusys_opps.cur_buck_volt[buck_large_index];
+			apusys_opps.next_buck_volt[buck_large_index];
 		hal_config_power(PWR_CMD_SET_VOLT, user, (void *)&volt_data);
 	}
 }
@@ -454,7 +459,6 @@ void apusys_frequency_check(void)
 {
 	uint8_t buck_domain_index = 0;
 	uint8_t cur_opp_index = 0, prev_opp_index = 0;
-	enum DVFS_USER user;
 	struct hal_param_freq  freq_data;
 
 	for (buck_domain_index = 0;
@@ -462,15 +466,15 @@ void apusys_frequency_check(void)
 	buck_domain_index++) {
 		if (dvfs_power_domain_support(buck_domain_index) == false)
 			continue;
-		user = apusys_buck_domain_to_user[buck_domain_index];
+
 		cur_opp_index = apusys_opps.cur_opp_index[buck_domain_index];
 		prev_opp_index = apusys_opps.prev_opp_index[buck_domain_index];
 		if (apusys_opps.opps[cur_opp_index][buck_domain_index].freq !=
 		apusys_opps.opps[prev_opp_index][buck_domain_index].freq){
 			freq_data.target_volt_domain = buck_domain_index;
-			freq_data.target_freq = apusys_opps.opps[cur_opp_index]
+		freq_data.target_freq = apusys_opps.opps[cur_opp_index]
 						[buck_domain_index].freq;
-		hal_config_power(PWR_CMD_SET_FREQ, user, (void *)&freq_data);
+		hal_config_power(PWR_CMD_SET_FREQ, VPU0, (void *)&freq_data);
 
 		if (g_pwr_log_level == APUSYS_PWR_LOG_DEBUG)
 			PWR_LOG_INF("%s, %s, freq from %d --> %d\n", __func__,
@@ -488,17 +492,17 @@ void apusys_buck_down_check(void)
 	uint8_t buck_small_index = 0, buck_large_index = 0;
 	struct hal_param_volt volt_data;
 
-	if (apusys_opps.prev_buck_volt[VPU_BUCK] <
-		apusys_opps.prev_buck_volt[MDLA_BUCK]) {
+	if (apusys_opps.cur_buck_volt[VPU_BUCK] <
+		apusys_opps.cur_buck_volt[MDLA_BUCK]) {
 		buck_small_index = VPU_BUCK;
 		buck_large_index = MDLA_BUCK;
-	} else if (apusys_opps.prev_buck_volt[VPU_BUCK] >
-		apusys_opps.prev_buck_volt[MDLA_BUCK]){
+	} else if (apusys_opps.cur_buck_volt[VPU_BUCK] >
+		apusys_opps.cur_buck_volt[MDLA_BUCK]){
 		buck_small_index = MDLA_BUCK;
 		buck_large_index = VPU_BUCK;
 	} else {
-		if (apusys_opps.cur_buck_volt[VPU_BUCK] <
-		apusys_opps.cur_buck_volt[MDLA_BUCK]){
+		if (apusys_opps.next_buck_volt[VPU_BUCK] <
+		apusys_opps.next_buck_volt[MDLA_BUCK]){
 			buck_small_index = VPU_BUCK;
 			buck_large_index = MDLA_BUCK;
 		} else {
@@ -508,36 +512,36 @@ void apusys_buck_down_check(void)
 	}
 
 if (g_pwr_log_level == APUSYS_PWR_LOG_DEBUG)
-	PWR_LOG_INF("%s,prev vpu=%d, prev mdla=%d, vpu=%d, mdla=%d, vsrm=%d\n",
+	PWR_LOG_INF("%s,cur vpu=%d, cur mdla=%d, vpu=%d, mdla=%d, vsrm=%d\n",
 		__func__,
-		apusys_opps.prev_buck_volt[VPU_BUCK],
-		apusys_opps.prev_buck_volt[MDLA_BUCK],
 		apusys_opps.cur_buck_volt[VPU_BUCK],
 		apusys_opps.cur_buck_volt[MDLA_BUCK],
+		apusys_opps.next_buck_volt[VPU_BUCK],
+		apusys_opps.next_buck_volt[MDLA_BUCK],
 		apusys_opps.vsram_volatge);
 
 	if (apusys_opps.vsram_volatge == VSRAM_HIGH_VOLT &&
-		(apusys_opps.cur_buck_volt[VPU_BUCK] <= VSRAM_TRANS_VOLT &&
-		apusys_opps.cur_buck_volt[MDLA_BUCK] <= VSRAM_TRANS_VOLT)) {
-		if (apusys_opps.prev_buck_volt[buck_large_index] >
-			apusys_opps.cur_buck_volt[buck_large_index]){
-			if (apusys_opps.cur_buck_volt[buck_large_index] <=
+		(apusys_opps.next_buck_volt[VPU_BUCK] <= VSRAM_TRANS_VOLT &&
+		apusys_opps.next_buck_volt[MDLA_BUCK] <= VSRAM_TRANS_VOLT)) {
+		if (apusys_opps.cur_buck_volt[buck_large_index] >
+			apusys_opps.next_buck_volt[buck_large_index]){
+			if (apusys_opps.next_buck_volt[buck_large_index] <=
 				VSRAM_TRANS_VOLT)
 				volt_data.target_volt = VSRAM_TRANS_VOLT;
 			else
 				volt_data.target_volt =
-				apusys_opps.cur_buck_volt[buck_large_index];
+				apusys_opps.next_buck_volt[buck_large_index];
 			volt_data.target_buck = buck_large_index;
 		hal_config_power(PWR_CMD_SET_VOLT, user, (void *)&volt_data);
 		}
-		if (apusys_opps.prev_buck_volt[buck_small_index] >
-			apusys_opps.cur_buck_volt[buck_small_index]){
-			if (apusys_opps.cur_buck_volt[buck_small_index] <=
+		if (apusys_opps.cur_buck_volt[buck_small_index] >
+			apusys_opps.next_buck_volt[buck_small_index]){
+			if (apusys_opps.next_buck_volt[buck_small_index] <=
 				VSRAM_TRANS_VOLT)
 				volt_data.target_volt = VSRAM_TRANS_VOLT;
 			else
 				volt_data.target_volt =
-				apusys_opps.cur_buck_volt[buck_small_index];
+				apusys_opps.next_buck_volt[buck_small_index];
 			volt_data.target_buck = buck_small_index;
 		hal_config_power(PWR_CMD_SET_VOLT, user, (void *)&volt_data);
 		}
@@ -549,26 +553,26 @@ if (g_pwr_log_level == APUSYS_PWR_LOG_DEBUG)
 
 	}
 
-	if (apusys_opps.prev_buck_volt[buck_large_index] >
-			apusys_opps.cur_buck_volt[buck_large_index]) {
+	if (apusys_opps.cur_buck_volt[buck_large_index] >
+			apusys_opps.next_buck_volt[buck_large_index]) {
 		volt_data.target_buck = buck_large_index;
 		volt_data.target_volt =
-			apusys_opps.cur_buck_volt[buck_large_index];
+			apusys_opps.next_buck_volt[buck_large_index];
 		hal_config_power(PWR_CMD_SET_VOLT, user, (void *)&volt_data);
 	}
 
-	if (apusys_opps.prev_buck_volt[buck_small_index] >
-			apusys_opps.cur_buck_volt[buck_small_index]) {
+	if (apusys_opps.cur_buck_volt[buck_small_index] >
+			apusys_opps.next_buck_volt[buck_small_index]) {
 		volt_data.target_buck = buck_small_index;
 		volt_data.target_volt =
-			apusys_opps.cur_buck_volt[buck_small_index];
+			apusys_opps.next_buck_volt[buck_small_index];
 		hal_config_power(PWR_CMD_SET_VOLT, user, (void *)&volt_data);
 	}
 
-	if (apusys_opps.prev_buck_volt[VCORE_BUCK] >
-			apusys_opps.cur_buck_volt[VCORE_BUCK]) {
+	if (apusys_opps.cur_buck_volt[VCORE_BUCK] >
+			apusys_opps.next_buck_volt[VCORE_BUCK]) {
 		volt_data.target_buck = VCORE_BUCK;
-		volt_data.target_volt = apusys_opps.cur_buck_volt[VCORE_BUCK];
+		volt_data.target_volt = apusys_opps.next_buck_volt[VCORE_BUCK];
 
 		hal_config_power(PWR_CMD_SET_VOLT, user, (void *)&volt_data);
 	}
@@ -619,12 +623,12 @@ void apusys_dvfs_info(void)
 		}
 	}
 	PWR_LOG_WRN(
-			"%s, VSRAM=%d, VVPU=%d, VMDLA=%d, VCORE=%d %llu\n",
+			"%s,next VSRAM=%d, VVPU=%d, VMDLA=%d, VCORE=%d %llu\n",
 			__func__,
 			apusys_opps.vsram_volatge,
-			apusys_opps.cur_buck_volt[VPU_BUCK],
-			apusys_opps.cur_buck_volt[MDLA_BUCK],
-			apusys_opps.cur_buck_volt[VCORE_BUCK],
+			apusys_opps.next_buck_volt[VPU_BUCK],
+			apusys_opps.next_buck_volt[MDLA_BUCK],
+			apusys_opps.next_buck_volt[VCORE_BUCK],
 			apusys_opps.id);
 }
 
@@ -649,6 +653,7 @@ void apusys_dvfs_policy(uint64_t round_id)
 	enum DVFS_VOLTAGE voltage;
 	uint8_t buck_domain_num = 0;
 	uint8_t buck_index;
+	uint8_t i = 0, j = 0;
 
 	apusys_opps.id = round_id;
 
@@ -698,21 +703,29 @@ void apusys_dvfs_policy(uint64_t round_id)
 			if (buck_index == VCORE_BUCK)
 				continue;
 			#endif
-			apusys_opps.prev_buck_volt[buck_index] =
-				apusys_opps.cur_buck_volt[buck_index];
-			apusys_opps.cur_buck_volt[buck_index] = 0;
+			apusys_opps.cur_buck_volt[buck_index] =
+				apusys_opps.next_buck_volt[buck_index];
+			apusys_opps.next_buck_volt[buck_index] =
+				DVFS_VOLT_00_575000_V;
 		}
-	}
 
+		for (i = 0; i < APUSYS_DVFS_USER_NUM; i++) {
+			for (j = 0; j < APUSYS_PATH_USER_NUM; j++)
+				apusys_opps.user_path_volt[i][j] =
+				DVFS_VOLT_00_575000_V;
+			}
+		}
 }
 
 void apusys_set_opp(enum DVFS_USER user, uint8_t opp)
 {
-	apusys_opps.user_opp_index[user] = opp;
+	if (apusys_opps.is_power_on[user] == true) {
+		apusys_opps.user_opp_index[user] = opp;
 
-	if (g_pwr_log_level == APUSYS_PWR_LOG_DEBUG)
-		PWR_LOG_INF("%s, %s, user_opp=%d\n", __func__,
-		user_str[user], opp);
+		if (g_pwr_log_level == APUSYS_PWR_LOG_DEBUG)
+			PWR_LOG_INF("%s, %s, user_opp=%d\n",
+			__func__, user_str[user], opp);
+	}
 }
 
 
@@ -734,18 +747,38 @@ bool apusys_check_opp_change(void)
 
 int apusys_power_on(enum DVFS_USER user)
 {
+	int ret = 0;
 	struct hal_param_pwr_mask pwr_mask;
 
-	apusys_opps.is_power_on[user] = true;
-	return hal_config_power(PWR_CMD_SET_BOOT_UP, user, (void *)&pwr_mask);
+	ret = hal_config_power(PWR_CMD_SET_BOOT_UP, user, (void *)&pwr_mask);
+	if (ret == 0) {
+		if (apusys_opps.power_bit_mask == 0) {	// first power on
+			apusys_opps.cur_buck_volt[VPU_BUCK] =
+				VVPU_DEFAULT_VOLT;
+			apusys_opps.cur_buck_volt[MDLA_BUCK] =
+				VMDLA_DEFAULT_VOLT;
+			apusys_opps.cur_buck_volt[VCORE_BUCK] =
+				VCORE_DEFAULT_VOLT;
+			apusys_opps.vsram_volatge = VSRAM_DEFAULT_VOLT;
+		}
+		apusys_opps.is_power_on[user] = true;
+		apusys_opps.power_bit_mask |= (1<<user);
+	}
+	return ret;
 }
 
 int apusys_power_off(enum DVFS_USER user)
 {
+	int ret = 0;
 	struct hal_param_pwr_mask pwr_mask;
 
-	apusys_opps.is_power_on[user] = false;
-	return hal_config_power(PWR_CMD_SET_SHUT_DOWN, user, (void *)&pwr_mask);
+	ret = hal_config_power(PWR_CMD_SET_SHUT_DOWN, user, (void *)&pwr_mask);
+	if (ret == 0) {
+		apusys_opps.is_power_on[user] = false;
+		apusys_opps.power_bit_mask &= (~(1<<user));
+	}
+
+	return ret;
 }
 
 void apusys_power_init(enum DVFS_USER user, void *init_power_data)
@@ -780,14 +813,13 @@ void apusys_power_init(enum DVFS_USER user, void *init_power_data)
 	apusys_opps.cur_buck_volt[VPU_BUCK] = VVPU_DEFAULT_VOLT;
 	apusys_opps.cur_buck_volt[MDLA_BUCK] = VMDLA_DEFAULT_VOLT;
 	apusys_opps.cur_buck_volt[VCORE_BUCK] = VCORE_DEFAULT_VOLT;
-
-	for (i = 0; i < APUSYS_BUCK_NUM; i++) {
-		apusys_opps.prev_buck_volt[i] =
-		apusys_opps.cur_buck_volt[i];
-	}
+	apusys_opps.next_buck_volt[VPU_BUCK] = DVFS_VOLT_00_575000_V;
+	apusys_opps.next_buck_volt[MDLA_BUCK] = DVFS_VOLT_00_575000_V;
+	apusys_opps.next_buck_volt[VCORE_BUCK] = DVFS_VOLT_00_575000_V;
+	apusys_opps.vsram_volatge = VSRAM_DEFAULT_VOLT;
 
 	apusys_opps.power_bit_mask = 0;
-	apusys_opps.vsram_volatge = DVFS_VOLT_00_750000_V;
+
 
 	hal_config_power(PWR_CMD_INIT_POWER, user, init_power_data);
 	PWR_LOG_INF("%s done,\n", __func__);

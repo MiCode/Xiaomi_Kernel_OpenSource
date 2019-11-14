@@ -119,8 +119,8 @@ struct apusys_dvfs_opps {
 	struct apusys_dvfs_steps (*opps)[APUSYS_BUCK_DOMAIN_NUM];
 	enum DVFS_VOLTAGE user_path_volt[APUSYS_DVFS_USER_NUM]
 					[APUSYS_PATH_USER_NUM];
+	enum DVFS_VOLTAGE next_buck_volt[APUSYS_BUCK_NUM];
 	enum DVFS_VOLTAGE cur_buck_volt[APUSYS_BUCK_NUM];
-	enum DVFS_VOLTAGE prev_buck_volt[APUSYS_BUCK_NUM];
 	uint8_t cur_opp_index[APUSYS_BUCK_DOMAIN_NUM];
 	uint8_t prev_opp_index[APUSYS_BUCK_DOMAIN_NUM];
 	uint8_t power_lock_max_opp[APUSYS_DVFS_USER_NUM];
