@@ -1238,7 +1238,6 @@ void mtk_crtc_wait_frame_done(struct mtk_drm_crtc *mtk_crtc,
 			      enum CRTC_DDP_PATH ddp_path)
 {
 	int gce_event;
-	struct mtk_crtc_state *state = to_mtk_crtc_state(mtk_crtc->base.state);
 
 	gce_event = get_path_wait_event(mtk_crtc, ddp_path);
 	if (gce_event < 0)
@@ -1247,7 +1246,7 @@ void mtk_crtc_wait_frame_done(struct mtk_drm_crtc *mtk_crtc,
 	    gce_event == mtk_crtc->gce_obj.event[EVENT_VDO_EOF]) {
 		cmdq_pkt_wait_no_clear(cmdq_handle, gce_event);
 	} else if (gce_event == mtk_crtc->gce_obj.event[EVENT_WDMA0_EOF]) {
-		if (!state || !state->prop_val[CRTC_PROP_OUTPUT_ENABLE])
+		if (mtk_crtc_is_dc_mode(&mtk_crtc->base))
 			cmdq_pkt_wfe(cmdq_handle, gce_event);
 	} else
 		DDPPR_ERR("The output component has not frame done event\n");
@@ -1319,7 +1318,7 @@ void mtk_crtc_release_output_buffer_fence(
 	fence_idx = *(unsigned int *)(cmdq_buf->va_base +
 			DISP_SLOT_CUR_OUTPUT_FENCE);
 	if (fence_idx) {
-		DDPINFO("output fence_idx:%d", fence_idx);
+		DDPINFO("output fence_idx:%d\n", fence_idx);
 		mtk_release_fence(session_id,
 			mtk_fence_get_output_timeline_id(), fence_idx);
 	}
@@ -3095,10 +3094,12 @@ void mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 			/* Decouple and Decouple mirror mode */
 			mtk_disp_mutex_enable_cmdq(mtk_crtc->mutex[1],
 					cmdq_handle, mtk_crtc->gce_obj.base);
-		else
+		else {
 			/* For virtual display write-back path */
+			cmdq_pkt_clear_event(cmdq_handle, gce_event);
 			mtk_disp_mutex_enable_cmdq(mtk_crtc->mutex[0],
 					cmdq_handle, mtk_crtc->gce_obj.base);
+		}
 
 		cmdq_pkt_wait_no_clear(cmdq_handle, gce_event);
 	} else if (mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base) &&
