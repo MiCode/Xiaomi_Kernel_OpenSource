@@ -21,6 +21,7 @@
 #include "mtk_devinfo.h"
 #endif
 
+#include "apu_power_api.h"
 #include "apusys_power_debug.h"
 #include "apusys_power_ctl.h"
 #include "apusys_power_cust.h"
@@ -482,12 +483,29 @@ void apusys_frequency_check(void)
 	uint8_t buck_domain_index = 0;
 	uint8_t next_opp_index = 0, cur_opp_index = 0;
 	struct hal_param_freq  freq_data;
+	enum DVFS_USER user;
 
 	for (buck_domain_index = 0;
 	buck_domain_index < APUSYS_BUCK_DOMAIN_NUM;
 	buck_domain_index++) {
 		if (dvfs_power_domain_support(buck_domain_index) == false)
 			continue;
+
+		user = apusys_buck_domain_to_user[buck_domain_index];
+		if (user < APUSYS_DVFS_USER_NUM) {
+			if (apusys_opps.is_power_on[user] == false)
+				continue;
+		} else {
+			if (apusys_opps.is_power_on[EDMA] == false &&
+				apusys_opps.is_power_on[EDMA2] == false &&
+				apusys_opps.is_power_on[REVISER] == false)
+				continue;
+		}
+
+		PWR_LOG_INF("%s, %s, freq from %d --> %d\n", __func__,
+		buck_domain_str[buck_domain_index],
+		apusys_opps.opps[cur_opp_index][buck_domain_index].freq,
+		apusys_opps.opps[next_opp_index][buck_domain_index].freq);
 
 		if (apusys_opps.cur_opp_index[buck_domain_index] ==
 			apusys_opps.next_opp_index[buck_domain_index])
@@ -608,6 +626,7 @@ if (g_pwr_log_level == APUSYS_PWR_LOG_DEBUG)
 
 void apusys_dvfs_info(void)
 {
+	struct apu_power_info info;
 	char log_str[128];
 	uint8_t buck_domain;
 	uint8_t cur_opp;
@@ -745,6 +764,12 @@ if (dvfs_power_domain_support(buck_domain) == false) {
 
 	PWR_LOG_WRN("APUPWR DVFS %s\n", log_str);
 	}
+
+	if (is_power_debug_lock == true) {
+		info.id = 0;
+		info.type = 0;
+		hal_config_power(PWR_CMD_GET_POWER_INFO, VPU0, &info);
+	}
 }
 
 
@@ -802,44 +827,46 @@ void apusys_dvfs_policy(uint64_t round_id)
 
 	apusys_dvfs_info();
 
-	if (is_power_debug_lock == false) {
-		for (buck_domain_num = 0;
-		buck_domain_num < APUSYS_BUCK_DOMAIN_NUM;
-		buck_domain_num++) {
-			#if !VCORE_DVFS_SUPPORT
-			if (buck_domain_num == V_VCORE)
-				continue;
-			#endif
-			if (dvfs_power_domain_support(buck_domain_num) == false)
-				continue;
-			apusys_opps.cur_opp_index[buck_domain_num] =
-				apusys_opps.next_opp_index[buck_domain_num];
-		}
+
+	for (buck_domain_num = 0;
+	buck_domain_num < APUSYS_BUCK_DOMAIN_NUM;
+	buck_domain_num++) {
+		#if !VCORE_DVFS_SUPPORT
+		if (buck_domain_num == V_VCORE)
+			continue;
+		#endif
+		if (dvfs_power_domain_support(buck_domain_num) == false)
+			continue;
+		apusys_opps.cur_opp_index[buck_domain_num] =
+			apusys_opps.next_opp_index[buck_domain_num];
+	}
 
 
-		for (buck_index = 0; buck_index < APUSYS_BUCK_NUM;
-		buck_index++) {
-			apusys_opps.cur_buck_volt[buck_index] =
-				apusys_opps.next_buck_volt[buck_index];
-			apusys_opps.next_buck_volt[buck_index] =
-				DVFS_VOLT_00_575000_V;
-		}
+	for (buck_index = 0; buck_index < APUSYS_BUCK_NUM;
+	buck_index++) {
+		apusys_opps.cur_buck_volt[buck_index] =
+			apusys_opps.next_buck_volt[buck_index];
+		apusys_opps.next_buck_volt[buck_index] =
+			DVFS_VOLT_00_575000_V;
+	}
 
-		for (i = 0; i < APUSYS_DVFS_USER_NUM; i++) {
-			for (j = 0; j < APUSYS_PATH_USER_NUM; j++)
-				apusys_opps.user_path_volt[i][j] =
-				DVFS_VOLT_00_575000_V;
-			}
-		}
+	for (i = 0; i < APUSYS_DVFS_USER_NUM; i++) {
+		for (j = 0; j < APUSYS_PATH_USER_NUM; j++)
+			apusys_opps.user_path_volt[i][j] =
+			DVFS_VOLT_00_575000_V;
+	}
+
 }
 
 void apusys_set_opp(enum DVFS_USER user, uint8_t opp)
 {
-	if (apusys_opps.is_power_on[user] == true) {
-		apusys_opps.user_opp_index[user] = opp;
+	if (is_power_debug_lock == false) {
+		if (apusys_opps.is_power_on[user] == true) {
+			apusys_opps.user_opp_index[user] = opp;
 
-		PWR_LOG_INF("%s, %s, user_opp=%d\n",
-		__func__, user_str[user], opp);
+			PWR_LOG_INF("%s, %s, user_opp=%d\n",
+			__func__, user_str[user], opp);
+		}
 	}
 }
 

@@ -273,70 +273,7 @@ int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 		fix_dvfs_debug();
 
 		break;
-#if 0
-	case POWER_PARAM_JTAG:
-		mdla_put_power(0);
-		#if 0
-		ret = (argc == 1) ? 0 : -EINVAL;
-		if (ret) {
-			PWR_LOG_INF(
-				"invalid argument, expected:1, received:%d\n",
-									argc);
-			goto out;
-		}
 
-		is_jtag_enabled = args[0];
-		ret = vpu_hw_enable_jtag(is_jtag_enabled);
-		#endif
-		break;
-
-	case POWER_PARAM_LOCK:
-
-		ret = (argc == 1) ? 0 : -EINVAL;
-		if (ret) {
-			PWR_LOG_INF(
-				"invalid argument, expected:1, received:%d\n",
-									argc);
-			goto out;
-		}
-
-		is_power_debug_lock = args[0];
-
-		ret = (argc == 1) ? 0 : -EINVAL;
-		if (ret) {
-			PWR_LOG_INF(
-				"invalid argument, expected:1, received:%d\n",
-									argc);
-			goto out;
-		}
-
-		ret = args[0] >= opps.count;
-		if (ret) {
-			PWR_LOG_INF("opp step(%d) is out-of-bound, count:%d\n",
-					(int)(args[0]), opps.count);
-			goto out;
-		}
-		PWR_LOG_INF("@@lock%d\n", argc);
-
-		opps.vcore.index = opps.vcore.opp_map[args[0]];
-		opps.vvpu.index = opps.vvpu.opp_map[args[0]];
-		opps.vmdla.index = opps.vmdla.opp_map[args[0]];
-		opps.dsp.index = opps.dsp.opp_map[args[0]];
-		opps.ipu_if.index = opps.ipu_if.opp_map[args[0]];
-		opps.mdlacore.index = opps.mdlacore.opp_map[args[0]];
-
-
-		mdla_opp_check(0, opps.dsp.index, opps.dsp.index);
-		//user->power_opp = power->opp_step;
-
-		ret = mdla_get_power(0);
-
-
-
-
-
-		break;
-#endif
 	case POWER_HAL_CTL:
 	{
 		ret = (argc == 3) ? 0 : -EINVAL;

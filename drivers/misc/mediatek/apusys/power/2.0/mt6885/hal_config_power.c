@@ -259,7 +259,7 @@ static int init_power_resource(void *param)
 	enable_apu_vcore_clksrc();
 	enable_apu_conn_clksrc();
 	hw_init_setting();
-	set_apu_clock_source(DVFS_FREQ_00_026000_F, V_VCORE);
+	set_apu_clock_source(VCORE_OFF_FREQ, V_VCORE);
 	disable_apu_conn_clksrc();
 
 	buck_control(VPU0, 3); // buck on
@@ -281,7 +281,7 @@ static int apu_pm_handler(void *param)
 #if 1
 		enable_apu_vcore_clksrc();
 		enable_apu_conn_clksrc();
-		set_apu_clock_source(DVFS_FREQ_00_026000_F, V_VCORE);
+		set_apu_clock_source(VCORE_OFF_FREQ, V_VCORE);
 		disable_apu_conn_clksrc();
 #endif
 		LOG_WRN("%s resume end\n", __func__);
@@ -577,7 +577,7 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 			LOG_DBG("%s enable wakeup signal\n", __func__);
 
 			ret |= enable_apu_conn_clksrc();
-			ret |= set_apu_clock_source(DVFS_FREQ_00_208000_F,
+			ret |= set_apu_clock_source(VCORE_ON_FREQ,
 								V_VCORE);
 
 			// CCF API assist to enable clock source of apu conn
@@ -669,7 +669,7 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 			// conn disable, checking APU_RPC_INTF_PWR_RDY
 			ret |= rpc_power_status_check(0, 0);
 
-			ret |= set_apu_clock_source(DVFS_FREQ_00_026000_F,
+			ret |= set_apu_clock_source(VCORE_OFF_FREQ,
 								V_VCORE);
 
 			ret |= set_domain_to_default_clk(0);
