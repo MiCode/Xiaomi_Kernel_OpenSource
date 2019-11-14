@@ -749,7 +749,7 @@ CONFIG_MTK_MAGHUB,PROJECT,weiqi.fu,new config in this commit ddc5d59450d236e7d37
 CONFIG_MTK_MBOX,PLATFORM,ts.kuo,new config in this commit e8c8b57bd4b43e51ffc94c62f20b675c02f96399,N,N,N,N,N,N,N,N,N,y,y,y,y
 CONFIG_MTK_MC3410_I2C,PROJECT,ruixue.su,SS6,O,O,O,O,O,O,O,O,O,O,O,O,O
 CONFIG_MTK_MC3410_NEW,PROJECT,jy.lan,,X,X,X,X,X,X,X,X,X,X,X,X,X
-CONFIG_MTK_MCIF_WIFI_SUPPORT,PLATFORM,cheng-dao.lee,MCIF connect WiFi driver,,,,,,,,,,,,,
+CONFIG_MTK_MCIF_WIFI_SUPPORT,PROJECT,cheng-dao.lee,MCIF connect WiFi driver,,,,,,,,,,,,,
 CONFIG_MTK_MD_DIRECT_TETHERING_SUPPORT,PROJECT,jun-quan.chen,,,,,,,,,,,,,,
 CONFIG_MTK_MD1_SUPPORT,PROJECT,yanbin.ren,,,,,,,,,,,,,,
 CONFIG_MTK_MD3_SUPPORT,PROJECT,yanbin.ren,,,,,,,,,,,,,,
