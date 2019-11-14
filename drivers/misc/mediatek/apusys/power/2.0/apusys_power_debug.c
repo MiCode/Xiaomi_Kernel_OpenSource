@@ -37,6 +37,7 @@
 #include "apu_power_api.h"
 
 static int g_debug_option;
+bool is_power_debug_lock;
 
 static void change_log_level(int new_level)
 {
@@ -68,8 +69,10 @@ static void apu_power_dump_opp_table(struct seq_file *s)
 static void apu_power_dump_curr_status(struct seq_file *s)
 {
 	struct apu_power_info info;
+
 	info.id = 0;
 	info.type = 1;
+
 	hal_config_power(PWR_CMD_GET_POWER_INFO, VPU0, &info);
 
 	seq_printf(s,
@@ -195,7 +198,6 @@ int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 		PWR_LOG_INF("@@test%d\n", argc);
 		PWR_LOG_INF("lock opp=%d\n", (int)(args[0]));
 
-
 		for (i = VPU0; i < VPU0 + APUSYS_VPU_NUM; i++)
 			apusys_opps.next_opp_index[i] = args[0];
 
@@ -207,6 +209,14 @@ int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 			apusys_opps.opps[args[0]][V_VPU0].voltage;
 		apusys_opps.next_buck_volt[MDLA_BUCK] =
 			apusys_opps.opps[args[0]][V_MDLA0].voltage;
+
+		if (apusys_opps.next_buck_volt[VPU_BUCK] ==
+			DVFS_VOLT_00_800000_V)
+			apusys_opps.next_buck_volt[VCORE_BUCK] =
+				DVFS_VOLT_00_600000_V;
+		else
+			apusys_opps.next_buck_volt[VCORE_BUCK] =
+				DVFS_VOLT_00_575000_V;
 		#if VCORE_DVFS_SUPPORT
 		apusys_opps.next_buck_volt[VCORE_BUCK] =
 			apusys_opps.opps[args[0]][V_VCORE].voltage;

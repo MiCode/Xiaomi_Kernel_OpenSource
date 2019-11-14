@@ -14,8 +14,7 @@
 #ifndef _APUSYS_POWER_DEBUG_H_
 #define _APUSYS_POWER_DEBUG_H_
 
-
-
+extern bool is_power_debug_lock;
 
 enum APUSYS_POWER_PARAM {
 	POWER_PARAM_FIX_OPP,

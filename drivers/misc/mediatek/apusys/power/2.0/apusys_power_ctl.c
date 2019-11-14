@@ -21,7 +21,7 @@
 #include "mtk_devinfo.h"
 #endif
 
-
+#include "apusys_power_debug.h"
 #include "apusys_power_ctl.h"
 #include "apusys_power_cust.h"
 #include "apusys_power.h"
@@ -30,10 +30,7 @@
 #include "apu_log.h"
 
 
-
-
 struct apusys_dvfs_opps apusys_opps;
-bool is_power_debug_lock;
 
 
 bool dvfs_user_support(enum DVFS_USER user)
@@ -687,26 +684,31 @@ void apusys_dvfs_policy(uint64_t round_id)
 
 	apusys_opps.id = round_id;
 
-	if (is_power_debug_lock == false) {
-		for (user = 0; user < APUSYS_DVFS_USER_NUM; user++) {
+
+	for (user = 0; user < APUSYS_DVFS_USER_NUM; user++) {
+		apusys_opps.driver_opp_index[user] =
+			apusys_opps.user_opp_index[user];
+		if (is_power_debug_lock == false) {
 			if (dvfs_user_support(user) == false)
 				continue;
-			apusys_opps.driver_opp_index[user] =
-				apusys_opps.user_opp_index[user];
 			opp = apusys_opps.driver_opp_index[user];
 			buck_domain = apusys_user_to_buck_domain[user];
 			use_opp = apusys_pwr_max_min_check(user, opp);
 
-		voltage = apusys_opps.opps[use_opp][buck_domain].voltage;
-		apusys_clk_path_update_pwr(user, voltage);
+			voltage =
+				apusys_opps.opps[use_opp][buck_domain].voltage;
+			apusys_clk_path_update_pwr(user, voltage);
 		}
+	}
 
+	if (is_power_debug_lock == false) {
 		apusys_final_volt_check();
 
 		apusys_pwr_constraint_check();
 
 		apusys_pwr_efficiency_check();
 	}
+
 
 	apusys_dvfs_state_machine();
 
@@ -786,6 +788,7 @@ int apusys_power_on(enum DVFS_USER user)
 			apusys_opps.next_opp_index[buck_domain] =
 				APUSYS_DEFAULT_OPP;
 		}
+
 		if (apusys_opps.power_bit_mask == 0) {	// first power on
 			PWR_LOG_INF("%s first power on\n", __func__);
 			apusys_opps.cur_buck_volt[VPU_BUCK] =
@@ -804,6 +807,7 @@ int apusys_power_on(enum DVFS_USER user)
 				APUSYS_DEFAULT_OPP;
 			apusys_opps.next_opp_index[V_TOP_IOMMU] =
 				APUSYS_DEFAULT_OPP;
+
 		}
 
 		apusys_opps.is_power_on[user] = true;
