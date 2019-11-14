@@ -479,6 +479,8 @@ static void fbt_set_cap_margin_locked(int set)
 		return;
 
 	fpsgo_main_trace("fpsgo set margin %d", set?1024:def_capacity_margin);
+	fpsgo_systrace_c_fbt_gm(-100, set?1024:def_capacity_margin,
+					"cap_margin");
 
 	if (set)
 		set_capacity_margin(1024);
@@ -1117,6 +1119,7 @@ static void fbt_do_jerk(struct work_struct *work)
 					thr->pid, pld[cluster].max,
 					"cluster%d ceiling_freq", cluster);
 				}
+				fbt_set_cap_margin_locked(0);
 			} else
 				jerk->postpone = 1;
 leave:
@@ -1428,6 +1431,14 @@ static void fbt_do_boost(unsigned int blc_wt, int pid)
 
 	update_userlimit_cpu_freq(CPU_KIR_FPSGO, cluster_num, pld);
 
+	if (blc_wt < cpu_dvfs[fbt_get_L_cluster_num()].capacity_ratio[0]
+		&& pld[fbt_get_L_cluster_num()].max != -1
+		&& pld[fbt_get_L_cluster_num()].max
+			< cpu_dvfs[fbt_get_L_cluster_num()].power[0])
+		fbt_set_cap_margin_locked(1);
+	else
+		fbt_set_cap_margin_locked(0);
+
 	kfree(pld);
 	kfree(clus_opp);
 	kfree(clus_floor_freq);
@@ -1732,9 +1743,6 @@ static int fbt_boost_policy(
 
 	if (!boost_ta)
 		fbt_set_min_cap_locked(thread_info, blc_wt, 1, 0);
-
-	if (blc_wt)
-		fbt_set_cap_margin_locked(1);
 
 	boost_info->target_time = target_time;
 	mutex_unlock(&fbt_mlock);
