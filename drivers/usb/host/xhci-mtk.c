@@ -921,6 +921,10 @@ static int __maybe_unused xhci_mtk_runtime_resume(struct device *dev)
 	struct xhci_hcd_mtk *mtk = dev_get_drvdata(dev);
 	struct xhci_hcd *xhci = hcd_to_xhci(mtk->hcd);
 
+	if ((xhci->xhc_state & XHCI_STATE_DYING) ||
+		(xhci->xhc_state & XHCI_STATE_REMOVING))
+		return -ENODEV;
+
 	xhci_info(xhci, "%s\n", __func__);
 	xhci_mtk_host_enable(mtk);
 #if IS_ENABLED(CONFIG_MTK_UAC_POWER_SAVING)
@@ -941,6 +945,10 @@ static int __maybe_unused xhci_mtk_suspend(struct device *dev)
 	struct xhci_hcd_mtk *mtk = dev_get_drvdata(dev);
 	struct usb_hcd *hcd = mtk->hcd;
 	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
+
+	if ((xhci->xhc_state & XHCI_STATE_DYING) ||
+		(xhci->xhc_state & XHCI_STATE_REMOVING))
+		return -ENODEV;
 
 	xhci_info(xhci, "%s\n", __func__);
 	xhci_dbg(xhci, "%s: stop port polling\n", __func__);
