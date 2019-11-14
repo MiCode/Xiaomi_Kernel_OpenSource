@@ -713,7 +713,9 @@ static void ged_kpi_statistics_and_remove(GED_KPI_HEAD *psHead, GED_KPI *psKPI)
 
 #ifdef GED_ENABLE_DVFS_LOADING_MODE
 	struct GpuUtilization_Ex util_ex;
-	unsigned int dvfs_loading_mode;
+	unsigned int dvfs_loading_mode = 0;
+
+	memset(&util_ex, 0, sizeof(util_ex));
 #endif
 	ged_kpi_calc_kpi_info(ulID, psKPI, psHead);
 	frame_attr |= ((psHead->isSF & GED_KPI_IS_SF_MASK) << GED_KPI_IS_SF_SHIFT);
@@ -1498,7 +1500,9 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 					/* not fallback mode */
 #ifdef GED_ENABLE_DVFS_LOADING_MODE
 					struct GpuUtilization_Ex util_ex;
-					unsigned int mode;
+					unsigned int mode = 0;
+
+					memset(&util_ex, 0, sizeof(util_ex));
 
 					mtk_get_dvfs_loading_mode(&mode);
 					ged_get_gpu_utli_ex(&util_ex);
