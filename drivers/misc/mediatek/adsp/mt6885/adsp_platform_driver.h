@@ -88,6 +88,7 @@ struct adsp_c2c_share_dram_info_t {
 };
 
 int create_adsp_drivers(void);
+bool is_adsp_load(void);
 
 extern struct attribute_group adsp_default_attr_group;
 extern struct attribute_group adsp_excep_attr_group;
@@ -95,6 +96,5 @@ extern const struct file_operations adsp_debug_ops;
 extern const struct file_operations adsp_common_file_ops;
 extern const struct file_operations adsp_core_file_ops;
 extern struct adsp_priv *adsp_cores[ADSP_CORE_TOTAL];
-extern u32 adsp_load;
 
 #endif

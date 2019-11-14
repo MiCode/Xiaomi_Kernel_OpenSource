@@ -177,6 +177,9 @@ int adsp_irq_registration(u32 core_id, u32 irq_id, void *handler,
 	int ret;
 	struct adsp_priv *pdata = get_adsp_core_by_id(core_id);
 
+	if (unlikely(!pdata))
+		return -EACCES;
+
 	pdata->irq[irq_id].cid = core_id;
 	pdata->irq[irq_id].irq_cb = handler;
 	pdata->irq[irq_id].data = data;
@@ -360,7 +363,7 @@ static int __init adsp_module_init(void)
 	int ret = 0, cid = 0;
 	struct adsp_priv *pdata;
 
-	if (adsp_load == 0)
+	if (!is_adsp_load())
 		goto ERROR;
 
 	switch_adsp_power(true);
@@ -415,7 +418,7 @@ static void __exit adsp_exit(void)
 }
 static int __init adsp_late_init(void)
 {
-	if (adsp_load == 0)
+	if (!is_adsp_load())
 		return -ENXIO;
 
 	adsp_set_emimpu_shared_region();

@@ -50,8 +50,14 @@ static struct adsp_reserve_mblock adsp_reserve_mblocks[] = {
 static struct adsp_reserve_mblock *adsp_get_reserve_mblock(
 					enum adsp_reserve_mem_id_t id)
 {
+	void *va_start = adsp_reserve_mblocks[0].virt_addr;
+
 	if (id >= ADSP_NUMS_MEM_ID) {
-		pr_info("[ADSP] no reserve memory for %d", id);
+		pr_info("%s no reserve memory for %d\n", __func__, id);
+		return NULL;
+	}
+	if (!va_start) {
+		pr_info("%s va_start is NULL\n", __func__);
 		return NULL;
 	}
 

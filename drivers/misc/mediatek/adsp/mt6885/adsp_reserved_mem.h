@@ -13,7 +13,7 @@
 
 /* adsp reserve memory ID definition*/
 enum adsp_reserve_mem_id_t {
-	ADSP_A_IPI_DMA_MEM_ID,
+	ADSP_A_IPI_DMA_MEM_ID = 0,
 	ADSP_B_IPI_DMA_MEM_ID,
 	ADSP_A_LOGGER_MEM_ID,
 	ADSP_B_LOGGER_MEM_ID,

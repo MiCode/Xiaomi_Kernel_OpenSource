@@ -30,7 +30,7 @@ struct wait_queue_head adsp_waitq;
 struct workqueue_struct *adsp_wq;
 void __iomem *adsp_secure_base;
 struct adsp_priv *adsp_cores[ADSP_CORE_TOTAL];
-u32 adsp_load;
+static u32 adsp_load;
 
 static int adsp_core0_init(struct adsp_priv *pdata);
 static int adsp_core0_suspend(void);
@@ -177,6 +177,11 @@ int adsp_core1_init(struct adsp_priv *pdata)
 
 	adsp_awake_init(pdata, ADSP_B_SW_INT);
 	return ret;
+}
+
+bool is_adsp_load(void)
+{
+	return adsp_load;
 }
 
 static int adsp_after_bootup(struct adsp_priv *pdata)
@@ -743,6 +748,6 @@ int create_adsp_drivers(void)
 	int ret = 0;
 
 	ret = platform_register_drivers(drivers, ARRAY_SIZE(drivers));
-	return (adsp_load && adsp_cores[0] && adsp_cores[1]  && ~ret);
+	return (is_adsp_load() && adsp_cores[0] && adsp_cores[1]  && ~ret);
 }
 
