@@ -35,6 +35,7 @@ struct reviser_dev_info {
 	bool init_done;
 	struct device *dev;
 	bool power;
+	int power_count;
 	dev_t reviser_devt;
 	struct cdev reviser_cdev;
 	struct dentry *debug_root;
@@ -43,6 +44,7 @@ struct reviser_dev_info {
 	struct mutex mutex_ctxid;
 	struct mutex mutex_vlm_pgtable;
 	struct mutex mutex_remap;
+	struct mutex mutex_power;
 
 	spinlock_t lock_power;
 	spinlock_t lock_dump;

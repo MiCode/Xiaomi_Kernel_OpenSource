@@ -55,5 +55,6 @@ int reviser_boundary_init(void *drvinfo, uint8_t boundary);
 void reviser_enable_interrupt(void *drvinfo, uint8_t enable);
 int reviser_alloc_tcm(void *drvinfo, void *usr);
 int reviser_free_tcm(void *drvinfo, void *usr);
-
+int reviser_power_on(void *drvinfo);
+int reviser_power_off(void *drvinfo);
 #endif

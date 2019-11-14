@@ -56,8 +56,8 @@ static long reviser_ioctl(struct file *filp,
 		unsigned int cmd, unsigned long arg);
 static long reviser_compat_ioctl(struct file *, unsigned int, unsigned long);
 
-static void reviser_power_on(void *para);
-static void reviser_power_off(void *para);
+static void reviser_power_on_cb(void *para);
+static void reviser_power_off_cb(void *para);
 
 
 irqreturn_t reviser_interrupt(int irq, void *private_data)
@@ -115,7 +115,7 @@ static const struct file_operations reviser_fops = {
 };
 
 
-static void reviser_power_on(void *para)
+static void reviser_power_on_cb(void *para)
 {
 	unsigned long flags;
 
@@ -138,7 +138,7 @@ static void reviser_power_on(void *para)
 
 }
 
-static void reviser_power_off(void *para)
+static void reviser_power_off_cb(void *para)
 {
 	unsigned long flags;
 
@@ -222,6 +222,7 @@ static int reviser_probe(struct platform_device *pdev)
 	mutex_init(&reviser_device->mutex_tcm);
 	mutex_init(&reviser_device->mutex_vlm_pgtable);
 	mutex_init(&reviser_device->mutex_remap);
+	mutex_init(&reviser_device->mutex_power);
 	init_waitqueue_head(&reviser_device->wait_ctxid);
 	init_waitqueue_head(&reviser_device->wait_tcm);
 	spin_lock_init(&reviser_device->lock_power);
@@ -389,7 +390,7 @@ static int reviser_probe(struct platform_device *pdev)
 	g_reviser_device = reviser_device;
 
 	ret = apu_power_callback_device_register(REVISOR,
-			reviser_power_on, reviser_power_off);
+			reviser_power_on_cb, reviser_power_off_cb);
 	if (ret) {
 		LOG_ERR("apu_power_callback_device_register return error(%d)\n",
 			ret);

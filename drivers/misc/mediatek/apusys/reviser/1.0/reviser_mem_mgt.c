@@ -14,7 +14,7 @@
 #include <linux/errno.h>
 #include <linux/slab.h>
 #include <linux/errno.h>
-#include <linux/platform_device.h>
+
 #include <linux/kernel.h>
 #include <linux/io.h>
 #include <linux/sched.h>
@@ -25,7 +25,7 @@
 #include "reviser_drv.h"
 #include "reviser_mem_mgt.h"
 #include "reviser_hw.h"
-#include "apusys_power.h"
+
 
 //static unsigned long pgtable_dram[BITS_TO_LONGS(VLM_DRAM_BANK_MAX)];
 static unsigned long table_tcm[BITS_TO_LONGS(TABLE_TCM_MAX)];
@@ -593,11 +593,11 @@ int reviser_table_get_vlm(void *drvinfo,
 		goto free_tcm;
 	}
 
-	if (!apu_device_power_on(REVISER)) {
+	if (!reviser_power_on(drvinfo)) {
 		/* Set HW remap table */
 		if (reviser_table_set_remap(drvinfo, ctxid)) {
 			LOG_ERR("Set Remap Fail and power off\n");
-			if (apu_device_power_off(REVISER))
+			if (reviser_power_off(drvinfo))
 				LOG_ERR("Power OFF Fail\n");
 
 			goto free_vlm;
@@ -684,7 +684,7 @@ int reviser_table_free_vlm(void *drvinfo, uint32_t ctxid)
 			ctxid, tcm_pgtable.page_num);
 
 power_off:
-	if (apu_device_power_off(REVISER)) {
+	if (reviser_power_off(drvinfo)) {
 		LOG_ERR("Power OFF Fail\n");
 		ret = -1;
 	}
