@@ -187,6 +187,7 @@ void ion_heap_freelist_add(struct ion_heap *heap, struct ion_buffer *buffer)
 	static long nice;
 	size_t free_list_size = 0;
 	size_t unit = 200 * 1024 * 1024; //200M
+
 	spin_lock(&heap->free_lock);
 	list_add(&buffer->list, &heap->free_list);
 	heap->free_list_size += buffer->size;
@@ -210,8 +211,9 @@ void ion_heap_freelist_add(struct ion_heap *heap, struct ion_buffer *buffer)
 		nice = -10;
 		break;
 	}
-	set_user_nice(heap->task, nice);
 	spin_unlock(&heap->free_lock);
+
+	set_user_nice(heap->task, nice);
 	wake_up(&heap->waitqueue);
 }
 
