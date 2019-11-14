@@ -375,7 +375,6 @@ int apusys_dump_show(struct seq_file *sfile, void *v)
 
 	seq_printf(sfile, "[%5lu.%06lu] ------- dump GALS -------\n",
 		(unsigned long) t, (unsigned long) (nanosec_rem / 1000));
-	apusys_reg_dump();
 	dump_gals(sfile);
 	seq_puts(sfile, "------- dump from 0x1900_0000 to 0x1902_FFFF -------\n");
 	seq_puts(sfile, "------- dump from 0x1905_0000 to 0x190F_1FFF -------\n");
