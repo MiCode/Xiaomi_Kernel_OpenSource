@@ -351,7 +351,7 @@ struct  MFB_USER_INFO_STRUCT {
  ******************************************************************************/
 struct MFB_IRQ_INFO_STRUCT {
 	unsigned int Status[MFB_IRQ_TYPE_AMOUNT];
-	signed int MssIrqCnt;
+	signed int MssIrqCnt[MFB_PROCESS_ID_AMOUNT];
 	signed int MsfIrqCnt;
 	pid_t ProcessID[MFB_PROCESS_ID_AMOUNT];
 	unsigned int Mask[MFB_IRQ_TYPE_AMOUNT];
@@ -675,7 +675,7 @@ static inline unsigned int MSS_GetIRQState(
 	/*  */
 	spin_lock_irqsave(&(MFBInfo.SpinLockIrq[type]), flags);
 	if (stus & MSS_INT_ST) {
-		ret = ((MFBInfo.IrqInfo.MssIrqCnt > 0)
+		ret = ((MFBInfo.IrqInfo.MssIrqCnt[whichReq] > 0)
 		       && (MFBInfo.IrqInfo.ProcessID[whichReq] == ProcessID));
 	} else {
 		LOG_ERR(
@@ -683,7 +683,7 @@ static inline unsigned int MSS_GetIRQState(
 		     type, *userNumber, stus, whichReq, ProcessID);
 	}
 	*userNumber = ret;
-	if (ret == 1)
+	if (ret == 1 && MFBInfo.IrqInfo.MssIrqCnt[whichReq] == 1)
 		MFBInfo.IrqInfo.ProcessID[whichReq] = 0;
 	spin_unlock_irqrestore(&(MFBInfo.SpinLockIrq[type]), flags);
 	/*  */
@@ -917,7 +917,7 @@ static void mss_norm_sirq(struct cmdq_cb_data data)
 		    .Status[MFB_IRQ_TYPE_INT_MSS_ST] |= MSS_INT_ST;
 		MFBInfo.IrqInfo
 		    .ProcessID[MFB_PROCESS_ID_MSS] = ProcessID;
-		MFBInfo.IrqInfo.MssIrqCnt++;
+		MFBInfo.IrqInfo.MssIrqCnt[MFB_PROCESS_ID_MSS]++;
 	}
 	spin_unlock_irqrestore(&(MFBInfo.SpinLockIrq[MFB_IRQ_TYPE_INT_MSS_ST]),
 									flag);
@@ -927,7 +927,8 @@ static void mss_norm_sirq(struct cmdq_cb_data data)
 	/* dump log, use tasklet */
 	IRQ_LOG_KEEPER(MFB_IRQ_TYPE_INT_MSS_ST, m_CurrentPPB, _LOG_INF,
 		       "%s: bResulst:%d, MssIrqCnt:0x%x\n",
-		       __func__, bResulst, MFBInfo.IrqInfo.MssIrqCnt);
+		       __func__, bResulst,
+			MFBInfo.IrqInfo.MssIrqCnt[MFB_PROCESS_ID_MSS]);
 
 	#if (REQUEST_REGULATION == FRAME_BASE_REGULATION)
 	queue_work(MFBInfo.wkqueueMss, &MFBInfo.ScheduleMssWork);
@@ -1071,7 +1072,7 @@ static void mss_vss_sirq(struct cmdq_cb_data data)
 		    .Status[MFB_IRQ_TYPE_INT_MSS_ST] |= MSS_INT_ST;
 		MFBInfo.IrqInfo
 		    .ProcessID[MFB_PROCESS_ID_vMSS] = ProcessID;
-		MFBInfo.IrqInfo.MssIrqCnt++;
+		MFBInfo.IrqInfo.MssIrqCnt[MFB_PROCESS_ID_vMSS]++;
 	}
 	spin_unlock_irqrestore(&(MFBInfo.SpinLockIrq[MFB_IRQ_TYPE_INT_MSS_ST]),
 									flag);
@@ -1081,7 +1082,8 @@ static void mss_vss_sirq(struct cmdq_cb_data data)
 	/* dump log, use tasklet */
 	IRQ_LOG_KEEPER(MFB_IRQ_TYPE_INT_MSS_ST, m_CurrentPPB, _LOG_INF,
 		       "%s: bResulst:%d, MssIrqCnt:0x%x\n",
-		       __func__, bResulst, MFBInfo.IrqInfo.MssIrqCnt);
+		       __func__, bResulst,
+			MFBInfo.IrqInfo.MssIrqCnt[MFB_PROCESS_ID_vMSS]);
 	tasklet_schedule(MFB_tasklet[MFB_IRQ_TYPE_INT_MSS_ST].pMFB_tkt);
 
 	#if (REQUEST_REGULATION == FRAME_BASE_REGULATION)
@@ -2257,7 +2259,7 @@ static signed int MSS_WaitIrq(struct MFB_WAIT_IRQ_STRUCT *WaitIrq,
 			WaitIrq->UserKey, whichReq, WaitIrq->ProcessID);
 		LOG_ERR(
 			"MssIrqCnt(0x%08X)\n",
-			MFBInfo.IrqInfo.MssIrqCnt);
+			MFBInfo.IrqInfo.MssIrqCnt[whichReq]);
 
 		if (WaitIrq->bDumpReg)
 			MSS_DumpReg();
@@ -2283,8 +2285,8 @@ static signed int MSS_WaitIrq(struct MFB_WAIT_IRQ_STRUCT *WaitIrq,
 				&(MFBInfo.SpinLockIrq[WaitIrq->Type]), flags);
 
 			if (WaitIrq->Status & MSS_INT_ST) {
-				MFBInfo.IrqInfo.MssIrqCnt--;
-				if (MFBInfo.IrqInfo.MssIrqCnt == 0)
+				MFBInfo.IrqInfo.MssIrqCnt[whichReq]--;
+				if (MFBInfo.IrqInfo.MssIrqCnt[whichReq] == 0)
 					MFBInfo.IrqInfo.Status[WaitIrq->Type] &=
 						(~WaitIrq->Status);
 			} else {
@@ -4056,7 +4058,8 @@ static signed int MFB_probe(struct platform_device *pDev)
 		MFBInfo.IrqInfo.Mask[MFB_IRQ_TYPE_INT_MSS_ST] = INT_ST_MASK_MSS;
 		MFBInfo.IrqInfo.Mask[MFB_IRQ_TYPE_INT_MSF_ST] = INT_ST_MASK_MSF;
 
-		MFBInfo.IrqInfo.MssIrqCnt = 0;
+		for (i = 0; i < MFB_PROCESS_ID_AMOUNT; i++)
+			MFBInfo.IrqInfo.MssIrqCnt[i] = 0;
 		MFBInfo.IrqInfo.MsfIrqCnt = 0;
 		/*  */
 		mfb_register_requests(&mss_reqs, sizeof(struct MFB_MSSConfig));
