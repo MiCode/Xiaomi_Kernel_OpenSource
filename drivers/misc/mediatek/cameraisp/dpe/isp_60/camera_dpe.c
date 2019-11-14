@@ -2844,13 +2844,13 @@ static inline int m4u_control_iommu_port(void)
 	for (i = 0; i < count_of_ports; i++) {
 		sPort.ePortID = M4U_PORT_L19_IPE_DVS_RDMA_DISP+i;
 		sPort.Virtuality = DPE_MEM_USE_VIRTUL;
-		LOG_INF("config M4U Port ePortID=%d\n", sPort.ePortID);
+		//LOG_INF("config M4U Port ePortID=%d\n", sPort.ePortID);
 		#if defined(CONFIG_MTK_M4U) || defined(CONFIG_MTK_PSEUDO_M4U)
 		ret = m4u_config_port(&sPort);
 		if (ret == 0) {
-			LOG_INF("config M4U Port %s to %s SUCCESS\n",
-			iommu_get_port_name(M4U_PORT_L19_IPE_DVS_RDMA_DISP+i),
-			DPE_MEM_USE_VIRTUL ? "virtual" : "physical");
+			//LOG_INF("config M4U Port %s to %s SUCCESS\n",
+			//iommu_get_port_name(M4U_PORT_L19_IPE_DVS_RDMA_DISP+i),
+			//DPE_MEM_USE_VIRTUL ? "virtual" : "physical");
 		} else {
 			LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
 			iommu_get_port_name(M4U_PORT_L19_IPE_DVS_RDMA_DISP+i),
