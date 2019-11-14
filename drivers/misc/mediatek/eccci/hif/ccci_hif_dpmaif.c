@@ -51,6 +51,11 @@
 #include "ccci_fsm.h"
 #include "ccci_port.h"
 
+
+#ifdef PIT_USING_CACHE_MEM
+#include <asm/cacheflush.h>
+#endif
+
 #if defined(CCCI_SKB_TRACE)
 #undef TRACE_SYSTEM
 #define TRACE_SYSTEM ccci
@@ -1465,7 +1470,9 @@ static int dpmaif_rx_start(struct dpmaif_rx_queue *rxq, unsigned short pit_cnt,
 		int blocking, unsigned long time_limit)
 {
 	struct dpmaif_rx_hw_notify notify_hw = {0};
+#ifndef PIT_USING_CACHE_MEM
 	struct dpmaifq_normal_pit pkt_inf_s;
+#endif
 	struct dpmaifq_normal_pit *pkt_inf_t;
 	unsigned short rx_cnt;
 	unsigned int pit_len = rxq->pit_size_cnt;
@@ -1473,7 +1480,29 @@ static int dpmaif_rx_start(struct dpmaif_rx_queue *rxq, unsigned short pit_cnt,
 	unsigned short recv_skb_cnt = 0;
 	int ret = 0, ret_hw = 0;
 
+#ifdef PIT_USING_CACHE_MEM
+	void *cache_start;
+#endif
+
 	cur_pit = rxq->pit_rd_idx;
+
+#ifdef PIT_USING_CACHE_MEM
+	cache_start = rxq->pit_base + sizeof(struct dpmaifq_normal_pit)
+				* cur_pit;
+	if ((cur_pit + pit_cnt) <= pit_len) {
+		__inval_dcache_area(cache_start,
+				sizeof(struct dpmaifq_normal_pit) * pit_cnt);
+	} else {
+		__inval_dcache_area(cache_start,
+			sizeof(struct dpmaifq_normal_pit)
+					* (pit_len - cur_pit));
+
+		cache_start = rxq->pit_base;
+		__inval_dcache_area(cache_start,
+			sizeof(struct dpmaifq_normal_pit)
+				* (cur_pit + pit_cnt - pit_len));
+	}
+#endif
 
 	for (rx_cnt = 0; rx_cnt < pit_cnt; rx_cnt++) {
 		if (!blocking && time_after_eq(jiffies, time_limit)) {
@@ -1483,9 +1512,14 @@ static int dpmaif_rx_start(struct dpmaif_rx_queue *rxq, unsigned short pit_cnt,
 			break;
 		}
 		/*GET_PKT_INFO_PTR(rxq, cur_pit); pit item */
+#ifndef PIT_USING_CACHE_MEM
 		pkt_inf_s = *((struct dpmaifq_normal_pit *)rxq->pit_base +
 			cur_pit);
 		pkt_inf_t = &pkt_inf_s;
+#else
+		pkt_inf_t = (struct dpmaifq_normal_pit *)rxq->pit_base +
+			cur_pit;
+#endif
 		if (pkt_inf_t->packet_type == DES_PT_MSG) {
 			dpmaif_rx_msg_pit(rxq,
 				(struct dpmaifq_msg_pit *)pkt_inf_t);
@@ -2588,6 +2622,7 @@ static int dpmaif_rx_buf_init(struct dpmaif_rx_queue *rxq)
 	/* PIT buffer init */
 	rxq->pit_size_cnt = DPMAIF_DL_PIT_ENTRY_SIZE;
 	/* alloc buffer for HW && AP SW */
+#ifndef PIT_USING_CACHE_MEM
 #if (DPMAIF_DL_PIT_SIZE > PAGE_SIZE)
 	rxq->pit_base = dma_alloc_coherent(
 		ccci_md_get_dev_by_id(dpmaif_ctrl->md_id),
@@ -2602,6 +2637,16 @@ static int dpmaif_rx_buf_init(struct dpmaif_rx_queue *rxq)
 #ifdef DPMAIF_DEBUG_LOG
 	CCCI_HISTORY_LOG(-1, TAG, "pit dma_pool_alloc\n");
 #endif
+#endif
+#else
+	CCCI_BOOTUP_LOG(-1, TAG, "Using cacheable PIT memory\r\n");
+	rxq->pit_base = kmalloc((rxq->pit_size_cnt
+			* sizeof(struct dpmaifq_normal_pit)), GFP_KERNEL);
+	if (!rxq->pit_base) {
+		CCCI_ERROR_LOG(-1, TAG, "alloc PIT memory fail\r\n");
+		return -1;
+	}
+	rxq->pit_phy_addr = virt_to_phys(rxq->pit_base);
 #endif
 	if (rxq->pit_base == NULL) {
 		CCCI_ERROR_LOG(-1, TAG, "pit request fail\n");
