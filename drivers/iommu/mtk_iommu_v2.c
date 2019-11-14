@@ -252,6 +252,9 @@ static struct iommu_group *mtk_iommu_get_group(
 
 bool mtk_dev_is_size_alignment(struct device *dev)
 {
+#ifdef MTK_IOMMU_SIZE_NOT_ALIGNMENT
+	return false;
+#else
 	struct iommu_fwspec *fwspec;
 	unsigned int larbid, portid, port;
 	int i, count;
@@ -270,6 +273,7 @@ bool mtk_dev_is_size_alignment(struct device *dev)
 			return false;
 
 	return true;
+#endif
 }
 EXPORT_SYMBOL_GPL(mtk_dev_is_size_alignment);
 

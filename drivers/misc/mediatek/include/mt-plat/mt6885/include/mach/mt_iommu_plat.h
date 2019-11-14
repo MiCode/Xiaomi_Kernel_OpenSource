@@ -680,6 +680,7 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 #define MTK_IOMMU_LOW_POWER_SUPPORT
 #endif
 
+#define MTK_IOMMU_SIZE_NOT_ALIGNMENT
 
 #if (defined(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
 	defined(CONFIG_MICROTRUST_TEE_SUPPORT)) && \
