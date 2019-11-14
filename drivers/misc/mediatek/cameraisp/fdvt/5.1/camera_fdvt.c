@@ -4057,8 +4057,10 @@ static signed int __init FDVT_Init(void)
 	void *tmp;
 	/* FIX-ME: linux-3.10 procfs API changed */
 	/* use proc_create */
+#if 0
 	struct proc_dir_entry *proc_entry;
 	struct proc_dir_entry *isp_fdvt_dir;
+#endif
 	int i;
 
 	/*  */
@@ -4086,20 +4088,24 @@ static signed int __init FDVT_Init(void)
 	log_dbg("ISP_FDVT_BASE: %lx\n", ISP_FDVT_BASE);
 #endif
 
+#if 0
 	isp_fdvt_dir = proc_mkdir("fdvt", NULL);
 	if (!isp_fdvt_dir) {
 		log_err("[%s]: fail to mkdir /proc/fdvt\n", __func__);
 		return 0;
 	}
+#endif
 
 	// proc_entry = proc_create("pll_test", S_IRUGO | S_IWUSR,
 	// isp_fdvt_dir, &pll_test_proc_fops);
 
+#if 0
 	proc_entry = proc_create("fdvt_dump", 0444,
 				 isp_fdvt_dir, &fdvt_dump_proc_fops);
 
 	proc_entry = proc_create("fdvt_reg", 0644,
 				 isp_fdvt_dir, &fdvt_reg_proc_fops);
+#endif
 
 	/* isr log */
 	if (PAGE_SIZE <
