@@ -19,8 +19,11 @@
 #endif
 #include "clkdbg.h"
 
+void print_subsys_reg(char *subsys_name);
+
 #define ALL_CLK_ON		0
 #define DUMP_INIT_STATE		0
+
 
 /*
  * clkdbg dump_regs
@@ -228,7 +231,7 @@ static struct regname rn[] = {
 	REGNAME(infracfg,  0x094, MODULE_SW_CG_1),
 	REGNAME(infracfg,  0x0ac, MODULE_SW_CG_2),
 	REGNAME(infracfg,  0x0c8, MODULE_SW_CG_3),
-
+	REGNAME(infracfg,  0xe98, MM_HANG_FREE),
 #if 0
 /*
  *	REGNAME(ipu0,  0x000, IPU0_CORE_CG),
@@ -471,6 +474,12 @@ static void devapc_dump_regs(void)
 		pr_notice("[%d]0x%08x\r\n", i, clk_readl(CLK_CFG_0 + (i << 4)));
 	pr_notice("[devapc] PWR_STATUS(0x160,0x164) = 0x%08x 0x%08x\n",
 		clk_readl(SPM_PWR_STATUS), clk_readl(SPM_PWR_STATUS_2ND));
+
+	pr_notice("====================== [devapc clk subsys dump] =======================\r\n");
+	print_subsys_reg("topckgen");
+	print_subsys_reg("infracfg");
+	print_subsys_reg("scpsys");
+	print_subsys_reg("apmixed");
 }
 
 static struct devapc_vio_callbacks devapc_vio_handle = {
@@ -911,7 +920,7 @@ static struct regname rn_mt6885[] = {
 	REGNAME_MT6885(infracfg,  0x094, MODULE_SW_CG_1),
 	REGNAME_MT6885(infracfg,  0x0ac, MODULE_SW_CG_2),
 	REGNAME_MT6885(infracfg,  0x0c8, MODULE_SW_CG_3),
-
+	REGNAME_MT6885(infracfg,  0xe98, MM_HANG_FREE),
 #if 0
 /*
  *	REGNAME_MT6885(ipu0,  0x000, IPU0_CORE_CG),
