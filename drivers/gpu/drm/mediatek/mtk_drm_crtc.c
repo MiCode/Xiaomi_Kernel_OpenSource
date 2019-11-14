@@ -3531,6 +3531,10 @@ static void mtk_crtc_get_output_comp_name(struct mtk_drm_crtc *mtk_crtc,
 			mtk_ddp_comp_get_name(comp, buf, buf_len);
 			return;
 		}
+
+	DDPPR_ERR("%s(), no output comp found for crtc%d, set buf to 0\n",
+		  __func__, drm_crtc_index(&mtk_crtc->base));
+	memset(buf, 0, buf_len);
 }
 static void mtk_crtc_get_event_name(struct mtk_drm_crtc *mtk_crtc, char *buf,
 				    int buf_len, int event_id)
@@ -3581,6 +3585,7 @@ static void mtk_crtc_get_event_name(struct mtk_drm_crtc *mtk_crtc, char *buf,
 		break;
 	default:
 		DDPPR_ERR("%s invalid event_id:%d\n", __func__, event_id);
+		memset(output_comp, 0, sizeof(output_comp));
 	}
 }
 static void mtk_crtc_init_gce_obj(struct drm_device *drm_dev,

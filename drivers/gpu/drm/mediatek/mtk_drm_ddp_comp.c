@@ -334,8 +334,12 @@ void mtk_ddp_comp_get_name(struct mtk_ddp_comp *comp, char *buf, int buf_len)
 {
 	int len;
 
-	if (comp->id < 0 || comp->id >= DDP_COMPONENT_ID_MAX)
+	if (comp->id < 0 || comp->id >= DDP_COMPONENT_ID_MAX) {
+		DDPPR_ERR("%s(), invalid id %d, set buf to 0\n",
+			  __func__, comp->id);
+		memset(buf, 0, buf_len);
 		return;
+	}
 
 	len = snprintf(buf, buf_len, "%s%d",
 		       mtk_ddp_comp_stem[mtk_ddp_matches[comp->id].type],
