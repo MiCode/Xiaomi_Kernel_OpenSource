@@ -4365,8 +4365,7 @@ unsigned int mt_get_ckgen_freq(unsigned int ID)
 	unsigned long flags;
 
 	fmeter_lock(flags);
-	while (clk_readl(CLK26CALI_0) & 0x1000)
-		;
+
 	clk_dbg_cfg = clk_readl(CLK_DBG_CFG);
 	clk_writel(CLK_DBG_CFG, (clk_dbg_cfg & 0xFFFFC0FC)|(ID << 8)|(0x1));
 
@@ -4422,8 +4421,6 @@ unsigned int mt_get_abist_freq(unsigned int ID)
 	int output = 0, i = 0;
 	unsigned int temp, clk_dbg_cfg, clk_misc_cfg_0, clk26cali_1 = 0;
 
-	while (clk_readl(CLK26CALI_0) & 0x1000)
-		;
 	clk_dbg_cfg = clk_readl(CLK_DBG_CFG);
 	clk_writel(CLK_DBG_CFG, (clk_dbg_cfg & 0xFFC0FFFC)|(ID << 16));
 
