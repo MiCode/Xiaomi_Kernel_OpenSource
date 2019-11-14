@@ -382,7 +382,7 @@ void kvm_arch_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 	 * We might get preempted before the vCPU actually runs, but
 	 * over-invalidation doesn't affect correctness.
 	 */
-	if (*last_ran != vcpu->vcpu_id) {
+	if (*last_ran != -1 && *last_ran != vcpu->vcpu_id) {
 		kvm_call_hyp(__kvm_tlb_flush_local_vmid, vcpu);
 
 		/*
@@ -390,9 +390,8 @@ void kvm_arch_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 		 *  conditions for Cortex-A77 erratum 1542418.
 		 */
 		kvm_workaround_1542418_vmid_rollover();
-
-		*last_ran = vcpu->vcpu_id;
 	}
+	*last_ran = vcpu->vcpu_id;
 
 	vcpu->cpu = cpu;
 	vcpu->arch.host_cpu_context = this_cpu_ptr(&kvm_host_cpu_state);
