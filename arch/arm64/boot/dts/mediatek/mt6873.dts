@@ -2648,3 +2648,6 @@
 #endif
 #include "mt6359p.dtsi"
 #include "cust_mt6873_msdc.dtsi"
+#ifdef CONFIG_MTK_ENABLE_GENIEZONE
+#include "trusty.dtsi"
+#endif
