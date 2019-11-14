@@ -1272,6 +1272,9 @@ static ssize_t tscpu_write
 			tscpu_dprintk("%s bad argument\n", __func__);
 			kfree(ptr_mtktscpu_data);
 			return -EINVAL;
+		} else if (num_trip == 1) {
+			tscpu_printk("%s only 1 reset cooler is binded!\n",
+				__func__);
 		}
 
 		/* modify for PTPOD, if disable Thermal,
@@ -1429,8 +1432,13 @@ static ssize_t tscpu_write
 				g_bind5, g_bind6, g_bind7, g_bind8, g_bind9);
 
 
-		for (i = 0; i < num_trip; i++)
+		for (i = 0; i < num_trip; i++) {
 			trip_temp[i] = ptr_mtktscpu_data->trip[i];
+			if (i != 0 && trip_temp[i] > 57000)
+				tscpu_printk(
+				"%s trip temp %d is over 57'C (%d)!\n",
+				__func__, i, trip_temp[i]);
+		}
 
 		interval = ptr_mtktscpu_data->time_msec;
 
