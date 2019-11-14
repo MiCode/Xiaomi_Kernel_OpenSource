@@ -710,7 +710,7 @@ static int mtk_rsc_ctx_core_job_start(struct mtk_rsc_ctx *dev_ctx,
 			buf_pre_rrzo_in->fmt.pix_mp.plane_fmt[0].sizeimage;
 	}
 
-	dev_info(&pdev->dev,
+	dev_dbg(&pdev->dev,
 		 "pre_rrzo_in info:width(%d) height(%d) stride(%d) size(%d) iova(0x%11x)\n",
 		 rsc_param.pre_rrzo_in[0].format.width,
 		 rsc_param.pre_rrzo_in[0].format.height,
@@ -733,7 +733,7 @@ static int mtk_rsc_ctx_core_job_start(struct mtk_rsc_ctx *dev_ctx,
 			buf_cur_rrzo_in->fmt.pix_mp.plane_fmt[0].sizeimage;
 	}
 
-	dev_info(&pdev->dev,
+	dev_dbg(&pdev->dev,
 		 "cur_rrzo_in info:width(%d) height(%d) stride(%d) size(%d) iova(0x%11x)\n",
 		 rsc_param.cur_rrzo_in[0].format.width,
 		 rsc_param.cur_rrzo_in[0].format.height,

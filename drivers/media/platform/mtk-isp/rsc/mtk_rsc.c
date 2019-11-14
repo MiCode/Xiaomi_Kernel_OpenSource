@@ -134,9 +134,6 @@ static int rsc_enqueue_work(void *data)
 		atomic_dec(&rsc_ctx->enqueue_param.queue_cnt);
 		spin_unlock(&rsc_ctx->enqueue_param.lock);
 
-		dev_info(&rsc_hw_dev->pdev->dev, " %s with frame_id:%d\n",
-			__func__, rsc_ctx->enqueue_param.frameparams.frame_id);
-
 		spin_lock(&rsc_ctx->dequeue_param.lock);
 		memcpy(&rsc_ctx->dequeue_param.frameparams,
 			&rsc_ctx->enqueue_param.frameparams,
@@ -150,7 +147,8 @@ static int rsc_enqueue_work(void *data)
 
 	}
 
-	dev_info(&rsc_hw_dev->pdev->dev, "- X. %s.\n", __func__);
+	dev_dbg(&rsc_hw_dev->pdev->dev, " %s -X frame_id:%d\n",
+		__func__, rsc_ctx->enqueue_param.frameparams.frame_id);
 
 	return ret;
 }
@@ -240,16 +238,6 @@ static irqreturn_t isp_irq_rsc(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-void rsc_cmdq_cb_destroy(struct cmdq_cb_data data)
-{
-	struct rsc_device *rsc_hw_dev = (struct rsc_device *)data.data;
-
-	cmdq_pkt_destroy(rsc_hw_dev->pkt);
-#if defined(RSC_PMQOS_EN) && defined(CONFIG_MTK_QOS_SUPPORT)
-	pm_qos_update_request(&rsc_hw_dev->rsc_pm_qos_request, 0);
-#endif
-}
-
 static int config_hw_handler(void *data, unsigned int len, void *priv)
 {
 	struct rsc_device *rsc_hw_dev = (struct rsc_device *)priv;
@@ -295,13 +283,13 @@ static int config_hw_handler(void *data, unsigned int len, void *priv)
 
 	pm_qos_update_request(&rsc_hw_dev->rsc_pm_qos_request, dma_bandwidth);
 #endif
-	/* non-blocking API, Please  use cmdqRecFlushAsync() */
-	//cmdq_task_flush_async_destroy(handle);
-	/* flush and destroy in cmdq */
-	cmdq_pkt_flush_threaded(rsc_hw_dev->pkt,
-		rsc_cmdq_cb_destroy, (void *)rsc_hw_dev);
+	cmdq_pkt_flush(rsc_hw_dev->pkt);
+	cmdq_pkt_destroy(rsc_hw_dev->pkt);
 
-	dev_info(&rsc_hw_dev->pdev->dev, "%s configure hw done", __func__);
+#if defined(RSC_PMQOS_EN) && defined(CONFIG_MTK_QOS_SUPPORT)
+	pm_qos_update_request(&rsc_hw_dev->rsc_pm_qos_request, 0);
+#endif
+	dev_dbg(&rsc_hw_dev->pdev->dev, "%s configure hw done", __func__);
 	return 0;
 }
 
@@ -362,7 +350,7 @@ static inline void rsc_enable_ccf_clock(struct rsc_device *rsc_hw_dev)
 	if (rsc_hw_dev->is_needed_reset_hw == MTRUE) {
 		/* Reset RSC flow */
 		RSC_WR32(0x1, RSC_RST_REG(rsc_hw_dev->regs));
-		dev_info(&rsc_hw_dev->pdev->dev, "RSC start reset...\n");
+		dev_dbg(&rsc_hw_dev->pdev->dev, "RSC start reset...\n");
 		while ((readl(RSC_RST_REG(rsc_hw_dev->regs)) & 0x02) != 0x2)
 			dev_dbg(&rsc_hw_dev->pdev->dev, "RSC resetting...\n");
 		RSC_WR32(0x11, RSC_RST_REG(rsc_hw_dev->regs));
@@ -431,7 +419,7 @@ int mtk_rsc_open(struct platform_device *pdev)
 		init_info.reg_range = resource_size(rsc_resource);
 
 		/* init enqeueu thread */
-		dev_info(&rsc_hw_dev->pdev->dev, "init enqueue work thread\n");
+		dev_dbg(&rsc_hw_dev->pdev->dev, "init enqueue work thread\n");
 		if (!rsc_hw_dev->rsc_ctx.enqueue_thread.thread) {
 			init_waitqueue_head(
 				&rsc_hw_dev->rsc_ctx.enqueue_thread.wq);
@@ -452,7 +440,7 @@ int mtk_rsc_open(struct platform_device *pdev)
 		spin_lock_init(&rsc_hw_dev->rsc_ctx.enqueue_param.lock);
 
 		/* init deqeueu thread */
-		dev_info(&rsc_hw_dev->pdev->dev, "init dequeue work thread\n");
+		dev_dbg(&rsc_hw_dev->pdev->dev, "init dequeue work thread\n");
 		if (!rsc_hw_dev->rsc_ctx.dequeue_thread.thread) {
 			init_waitqueue_head(
 				&rsc_hw_dev->rsc_ctx.dequeue_thread.wq);
@@ -497,7 +485,7 @@ int mtk_rsc_open(struct platform_device *pdev)
 		pm_runtime_get_sync(&pdev->dev);
 	}
 
-	dev_info(&rsc_hw_dev->pdev->dev,
+	dev_dbg(&rsc_hw_dev->pdev->dev,
 		"- X. %s ret:%d user_count:%d\n",
 		__func__, ret, atomic_read(&rsc_hw_dev->user_count));
 
@@ -543,7 +531,7 @@ int mtk_rsc_enqueue(struct platform_device *pdev,
 
 	wake_up_interruptible(&rsc_ctx->enqueue_thread.wq);
 
-	dev_info(&rsc_hw_dev->pdev->dev, "- X. %s\n", __func__);
+	dev_dbg(&rsc_hw_dev->pdev->dev, "- X. %s\n", __func__);
 
 	return 0;
 }
