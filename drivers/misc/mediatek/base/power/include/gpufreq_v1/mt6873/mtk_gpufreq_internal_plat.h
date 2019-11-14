@@ -306,7 +306,7 @@ struct g_pmic_info {
  * External functions declaration
  **************************************************/
 extern bool mtk_get_gpu_loading(unsigned int *pLoading);
-extern unsigned int mt_get_ckgen_freq(unsigned int idx);
+extern unsigned int mt_get_abist_freq(unsigned int idx);
 
 /**************************************************
  * global value definition

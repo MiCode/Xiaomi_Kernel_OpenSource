@@ -16,6 +16,8 @@
 
 #if defined(CONFIG_COMMON_CLK_MT6885)
 #include "clk-mt6885-fmeter.h"
+#elif defined(CONFIG_COMMON_CLK_MT6873)
+#include "clk-mt6873-fmeter.h"
 #endif
 
 #endif
