@@ -269,6 +269,17 @@ static SOC_VALUE_ENUM_SINGLE_AUTODISABLE_DECL(dptx_out_mux_map_enum,
 static const struct snd_kcontrol_new dptx_out_mux_control =
 	SOC_DAPM_ENUM("DPTX_OUT_MUX", dptx_out_mux_map_enum);
 
+
+static SOC_VALUE_ENUM_SINGLE_AUTODISABLE_DECL(dptx_virtual_out_mux_map_enum,
+					      SND_SOC_NOPM,
+					      0,
+					      1,
+					      tdm_out_mux_map,
+					      tdm_out_mux_map_value);
+
+static const struct snd_kcontrol_new dptx_virtual_out_mux_control =
+	SOC_DAPM_ENUM("DPTX_VIRTUAL_OUT_MUX", dptx_virtual_out_mux_map_enum);
+
 enum {
 	SUPPLY_SEQ_APLL,
 	SUPPLY_SEQ_TDM_MCK_EN,
@@ -384,6 +395,10 @@ static const struct snd_soc_dapm_widget mtk_dai_tdm_widgets[] = {
 			      SND_SOC_NOPM, 0, 0,
 			      mtk_tdm_mck_en_event,
 			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_MUX("DPTX_VIRTUAL_OUT_MUX",
+			 SND_SOC_NOPM, 0, 0, &dptx_virtual_out_mux_control),
+	SND_SOC_DAPM_OUTPUT("DPTX_VIRTUAL_OUT"),
 };
 
 static int mtk_afe_tdm_apll_connect(struct snd_soc_dapm_widget *source,
@@ -509,6 +524,9 @@ static const struct snd_soc_dapm_route mtk_dai_tdm_routes[] = {
 	{"TDM_MCK", NULL, APLL2_W_NAME, mtk_afe_tdm_apll_connect},
 	{"TDM_DPTX_MCK", NULL, APLL1_W_NAME, mtk_afe_tdm_apll_connect},
 	{"TDM_DPTX_MCK", NULL, APLL2_W_NAME, mtk_afe_tdm_apll_connect},
+
+	{"DPTX_VIRTUAL_OUT_MUX", "Connect", "TDM_DPTX"},
+	{"DPTX_VIRTUAL_OUT", NULL, "DPTX_VIRTUAL_OUT_MUX"},
 };
 
 /* dai ops */
