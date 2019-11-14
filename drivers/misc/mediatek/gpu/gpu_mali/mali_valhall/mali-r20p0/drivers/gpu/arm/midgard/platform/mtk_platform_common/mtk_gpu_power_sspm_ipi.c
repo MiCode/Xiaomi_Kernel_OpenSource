@@ -37,6 +37,7 @@ int gpu_pm_ipi_ackdata;
 static DEFINE_MUTEX(gpu_pmu_info_lock);
 static void gpu_send_enable_ipi(unsigned int type, unsigned int enable)
 {
+#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 	int cmd_len, ret;
 	struct gpu_pm_ipi_cmds ipi_cmd;
 	if (!ipi_register_flag) {
@@ -59,7 +60,9 @@ static void gpu_send_enable_ipi(unsigned int type, unsigned int enable)
 		pr_info("gpu_send_enable_ipi %d send fail,ret=%d\n",
 		ipi_cmd.cmd[0], ret);
 	}
-
+#else
+	return;
+#endif
 }
 
 static void MTKGPUPower_model_kbase_setup(int flag, unsigned int interval_ns) {
@@ -186,6 +189,7 @@ void MTKGPUPower_model_resume(void){
 EXPORT_SYMBOL(MTKGPUPower_model_resume);
 
 int MTKGPUPower_model_init(void) {
+#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 	int ret;
 
 	ret = mtk_ipi_register(&sspm_ipidev, IPIS_C_GPU_PM, NULL, NULL,
@@ -195,6 +199,7 @@ int MTKGPUPower_model_init(void) {
 		return -1;
 	}
 	ipi_register_flag = true;
+#endif
 	return 0;
 }
 
