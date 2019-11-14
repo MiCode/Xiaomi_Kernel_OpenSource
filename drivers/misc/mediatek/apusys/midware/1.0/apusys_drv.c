@@ -68,9 +68,9 @@ static const struct file_operations apusys_fops = {
 
 static int apusys_mmap(struct file *filp, struct vm_area_struct *vma)
 {
+#if 0
 	unsigned long offset = vma->vm_pgoff;
 	unsigned long size = vma->vm_end - vma->vm_start;
-
 	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
 	if (remap_pfn_range(vma, vma->vm_start, offset, size,
 			vma->vm_page_prot)) {
@@ -79,6 +79,11 @@ static int apusys_mmap(struct file *filp, struct vm_area_struct *vma)
 	}
 
 	return 0;
+#else
+	LOG_ERR("not support mmap(%p)(%lu/%lu)\n",
+		filp, vma->vm_start, vma->vm_end);
+	return -EINVAL;
+#endif
 }
 
 static int apusys_open(struct inode *inode, struct file *filp)
