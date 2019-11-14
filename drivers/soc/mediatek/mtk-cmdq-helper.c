@@ -1511,7 +1511,7 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 			mod, cmdq_util_hw_name(client->chan),
 			*(u64 *)inst, inst->arg_a, thread_id);
 	} else if (inst) {
-		mod = cmdq_thread_module_dispatch(gce_pa, inst->arg_a);
+		mod = cmdq_thread_module_dispatch(gce_pa, thread_id);
 
 		/* not sync case, print raw */
 		cmdq_util_aee(mod,
