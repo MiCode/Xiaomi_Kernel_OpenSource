@@ -14,6 +14,7 @@
 
 ccflags-y += -I$(src) -I$(src)/include
 ccflags-y += -I$(srctree)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/tee_sanity/
 teei-objs += teei_client_main.o
 teei-objs += global_function.o
 teei-objs += fdrv.o

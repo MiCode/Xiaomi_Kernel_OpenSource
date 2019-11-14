@@ -78,11 +78,23 @@ int32_t mtk_tee_log_tracing(u32 cpuid, u16 tee_pid, char *line, u32 line_len)
 	bool trace_start = false;
 	bool trace_end = false;
 
-	if (!strncmp(line, TEE_BEGIN_TRACE, strlen(TEE_BEGIN_TRACE)))
+	if (unlikely(line == NULL)) {
+		pr_err(PFX "%s:%d NULL pointer\n", __func__, __LINE__);
+		return TEE_TRACE_PREFIX_NOT_MATCH;
+	}
+
+	prefix = strstr(line, TEE_BEGIN_TRACE);
+	postfix = strstr(line, TEE_END_TRACE);
+
+	if (prefix) {
 		trace_start = true;
-	else if (!strncmp(line, TEE_END_TRACE, strlen(TEE_END_TRACE)))
+		line = prefix;
+
+	} else if (postfix) {
 		trace_end = true;
-	else
+		line = postfix;
+
+	} else
 		return TEE_TRACE_PREFIX_NOT_MATCH;
 
 	strncpy(trace_buf, line, (line_len >= sizeof(trace_buf)) ?

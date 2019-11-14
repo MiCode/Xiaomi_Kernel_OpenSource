@@ -135,4 +135,5 @@ void notify_smc_completed(void);
 int tz_load_drv_by_str(const char *buf);
 int tz_load_ta_by_str(const char *buf);
 int tz_move_core(uint32_t cpu_id);
+int get_current_cpuid(void);
 #endif /* __TEEI_CLIENT_MAIN_H__ */

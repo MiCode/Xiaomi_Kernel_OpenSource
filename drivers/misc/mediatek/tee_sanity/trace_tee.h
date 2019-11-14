@@ -21,13 +21,13 @@ TRACE_EVENT(tee_sched_start,
 		__field(u32, cpuid)
 		__array(char, ktime, TASK_COMM_LEN)
 		__field(u32, tpid)
-		__array(char, tbuf, TASK_COMM_LEN)
+		__array(char, tbuf, TASK_COMM_LEN * 2)
 	),
 	TP_fast_assign(
 		__entry->cpuid = p->cpuid;
 		memcpy(__entry->ktime, p->ktimestamp, TASK_COMM_LEN);
 		__entry->tpid = p->tee_pid;
-		memcpy(__entry->tbuf, p->tee_postfix, TASK_COMM_LEN);
+		memcpy(__entry->tbuf, p->tee_postfix, TASK_COMM_LEN * 2);
 	),
 	TP_printk("B|%d|%s[%u][%s]%03x-%s",
 		BEGINED_PID,

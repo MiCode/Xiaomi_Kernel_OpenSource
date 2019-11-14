@@ -26,6 +26,7 @@
 #include <linux/seq_file.h>
 
 #include <teei_client_main.h>
+#include <tee_sanity.h>
 #include "tz_log.h"
 
 #include "log_perf.h"
@@ -102,9 +103,11 @@ static void tz_driver_dump_logs(struct tz_log_state *s)
 		 * if log level >= KERN_INFO)
 		 */
 
-		if (likely(is_teei_ready()))
-			IMSG_PRINTK("[TZ_LOG] %s", s->line_buffer);
-		else
+		if (likely(is_teei_ready())) {
+			if (mtk_tee_log_tracing(get_current_cpuid(), 0,
+						s->line_buffer, read_chars))
+				IMSG_PRINTK("[TZ_LOG] %s", s->line_buffer);
+		} else
 			IMSG_PRINTK("[TZ_LOG] %s", s->line_buffer);
 
 		/*
