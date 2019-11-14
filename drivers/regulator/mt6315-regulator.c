@@ -627,7 +627,9 @@ static ssize_t dump_rec_pmic_show(struct device *dev,
 	} else
 		return -ENODEV;
 	sid = chip->slave_id;
-	/* log_size += sprintf(buf,  ""); */
+	ret = regmap_read(chip->regmap, MT6315_SPMI_DEBUG_CMD0, &rdata0);
+	log_size += sprintf(buf + log_size, "slvid:%d DBG. Last cmd idx:%d\n",
+			    sid, (((rdata0 & 0xc) >> 2) + 3) % 4);
 	/* log sequence, idx 0->1->2->3->0 */
 	for (offset = MT6315_SPMI_DEBUG_ADDR0;
 	     offset <= MT6315_SPMI_DEBUG_ADDR3; offset += 4) {
@@ -635,12 +637,6 @@ static ssize_t dump_rec_pmic_show(struct device *dev,
 		ret = regmap_read(chip->regmap, offset + 1, &rdata1);
 		ret = regmap_read(chip->regmap, offset + 2, &rdata2);
 		ret = regmap_read(chip->regmap, offset + 3, &rdata3);
-		if (offset == 0) {
-			log_size += sprintf(buf + log_size,
-					    "slvid:%d DBG. Last cmd idx:%d\n",
-					    sid,
-					    (((rdata3 & 0xc) >> 2) + 3) % 4);
-		}
 		log_size += sprintf(buf + log_size,
 				    "Idx:%d slvid:%d Type:0x%x, [0x%x]=0x%x\n",
 				    (offset - MT6315_SPMI_DEBUG_ADDR0) / 4,
