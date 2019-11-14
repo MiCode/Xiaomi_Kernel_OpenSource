@@ -1930,6 +1930,7 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 			       domain_idx,
 			       buffer->heap->type, client->name);
 			ret = -EINVAL;
+			ion_drv_put_kernel_handle(kernel_handle);
 			break;
 		}
 
@@ -1946,14 +1947,17 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 				    ("config error:%d-%d,name %16.s!!!\n",
 				     param.config_buffer_param.module_id,
 				     buffer->heap->type, client->name);
+				ion_drv_put_kernel_handle(kernel_handle);
 				return -EFAULT;
 			}
 
 			ret = mtk_ion_copy_param(1, domain_idx,
 						 mm_cmd, param,
 						 client->name, buffer);
-			if (ret)
+			if (ret) {
+				ion_drv_put_kernel_handle(kernel_handle);
 				return ret;
+			}
 
 			IONDBG(
 			       "config, bf:0x%p pt%d, dom:%d, tp:%d, clt:%16.s\n",
@@ -2052,6 +2056,7 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 			       param.config_buffer_param.module_id,
 			       domain_idx,
 			       buffer->heap->type, client->name);
+			ion_drv_put_kernel_handle(kernel_handle);
 			ret = -EINVAL;
 			break;
 		}
@@ -2079,6 +2084,7 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 						 client->name, buffer);
 			if (ret) {
 				mutex_unlock(&buffer_info->lock);
+				ion_drv_put_kernel_handle(kernel_handle);
 				return ret;
 			}
 
