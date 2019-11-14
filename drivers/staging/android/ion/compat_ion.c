@@ -865,7 +865,7 @@ long compat_ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		ret =  filp->f_op->unlocked_ioctl(filp, ION_IOC_FREE,
 							(unsigned long)data);
 		if (ret)
-			IONMSG("COMPAT_ION_IOC_FREE unlocked_ioctl fail\n");
+			IONDBG("COMPAT_ION_IOC_FREE unlocked_ioctl fail\n");
 
 		return ret;
 	}

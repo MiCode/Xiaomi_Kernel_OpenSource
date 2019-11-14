@@ -406,7 +406,7 @@ struct ion_handle *ion_handle_get_by_id_nolock(struct ion_client *client,
 	if (handle)
 		ion_handle_get(handle);
 	else
-		IONMSG("%s: can't get handle by id:%d\n", __func__, id);
+		IONDBG("%s: can't get handle by id:%d\n", __func__, id);
 	return handle ? handle : ERR_PTR(-EINVAL);
 }
 
@@ -1013,6 +1013,11 @@ static struct sg_table *dup_sg_table(struct sg_table *table)
 	int ret, i;
 	struct scatterlist *sg, *new_sg;
 
+	if (!table) {
+		IONMSG("%s invalid table\n", __func__);
+		return ERR_PTR(-EFAULT);
+	}
+
 	new_table = kzalloc(sizeof(*new_table), GFP_KERNEL);
 	if (!new_table)
 		return ERR_PTR(-ENOMEM);
@@ -1035,6 +1040,11 @@ static struct sg_table *dup_sg_table(struct sg_table *table)
 
 static void free_duped_table(struct sg_table *table)
 {
+	if (!table) {
+		IONMSG("%s invalid table\n", __func__);
+		return;
+	}
+
 	sg_free_table(table);
 	kfree(table);
 }
@@ -1052,8 +1062,15 @@ static int ion_dma_buf_attach(struct dma_buf *dmabuf, struct device *dev,
 	struct sg_table *table;
 	struct ion_buffer *buffer;
 
-	if (!dmabuf->priv)
+	if (!attachment) {
+		IONMSG("%s invalid attachment\n", __func__);
 		return -ENODEV;
+	}
+	if (!dmabuf || !dmabuf->priv) {
+		IONMSG("%s invalid dmabuf\n", __func__);
+		return -ENODEV;
+	}
+
 	buffer = dmabuf->priv;
 
 	if (!ion_iommu_heap_type(buffer) &&
@@ -1094,12 +1111,16 @@ static void ion_dma_buf_detatch(struct dma_buf *dmabuf,
 
 	if (!attachment ||
 	    !attachment->priv ||
-	    !attachment->dmabuf)
+	    !attachment->dmabuf) {
+		IONMSG("%s invalid attachment\n", __func__);
 		return;
+	}
 	a = attachment->priv;
 
-	if (!dmabuf->priv)
+	if (!dmabuf || !dmabuf->priv) {
+		IONMSG("%s invalid dmabuf\n", __func__);
 		return;
+	}
 	buffer = dmabuf->priv;
 
 	if (!ion_iommu_heap_type(buffer) &&
@@ -1127,6 +1148,9 @@ static struct sg_table *ion_map_dma_buf(struct dma_buf_attachment *attachment,
 	ion_phys_addr_t addr = 0x0;
 	size_t len = 0;
 	int ret = 0;
+#ifdef MTK_ION_MAPPING_PERF_DEBUG
+	unsigned long long start = 0, end = 0;
+#endif
 
 	if (!attachment ||
 	    !attachment->priv ||
@@ -1158,10 +1182,17 @@ static struct sg_table *ion_map_dma_buf(struct dma_buf_attachment *attachment,
 		pr_debug("%s iommu device, go iova mapping\n",
 			 __func__);
 		mutex_lock(&buffer->lock);
+#ifdef MTK_ION_MAPPING_PERF_DEBUG
+		start = sched_clock();
+#endif
 		ret = buffer->heap->ops->phys(buffer->heap,
 					      buffer,
 					      &addr,
 					      &len);
+#ifdef MTK_ION_MAPPING_PERF_DEBUG
+		end = sched_clock();
+#endif
+
 		if (ret) {
 			mutex_unlock(&buffer->lock);
 			IONMSG("%s, failed at get phys, ret:%d\n",
@@ -1170,7 +1201,7 @@ static struct sg_table *ion_map_dma_buf(struct dma_buf_attachment *attachment,
 				aee_kernel_warning_api(__FILE__, __LINE__,
 						       DB_OPT_DEFAULT |
 						       DB_OPT_NATIVE_BACKTRACE,
-						       "port name not matched",
+						       "ion phys failed",
 						       "dump user backtrace");
 			return ERR_PTR(ret);
 		}
@@ -1180,6 +1211,13 @@ static struct sg_table *ion_map_dma_buf(struct dma_buf_attachment *attachment,
 			return ERR_PTR(-EINVAL);
 		}
 		mutex_unlock(&buffer->lock);
+#ifdef MTK_ION_MAPPING_PERF_DEBUG
+		if (buffer->sg_table && ((end - start) /
+		    buffer->sg_table->nents > 500000ULL) ||
+		    (end - start > 50000000ULL))
+			IONMSG("warn: ion phys time: %lluns, nents:%u\n",
+			       end - start, buffer->sg_table->nents);
+#endif
 	}
     //pr_debug("%s, %d\n", __func__, __LINE__);
 
@@ -2088,6 +2126,9 @@ int ion_phys(struct ion_client *client, struct ion_handle *handle,
 {
 	struct ion_buffer *buffer;
 	int ret;
+#ifdef MTK_ION_MAPPING_PERF_DEBUG
+	unsigned long long start = 0, end = 0;
+#endif
 
 	/*avoid camelcase, will modify in a letter*/
 	mmprofile_log_ex(ion_mmp_events[PROFILE_GET_PHYS], MMPROFILE_FLAG_START,
@@ -2110,8 +2151,27 @@ int ion_phys(struct ion_client *client, struct ion_handle *handle,
 	}
 	mutex_unlock(&client->lock);
 	mutex_lock(&buffer->lock);
+#ifdef MTK_ION_MAPPING_PERF_DEBUG
+	start = sched_clock();
+#endif
 	ret = buffer->heap->ops->phys(buffer->heap, buffer, addr, len);
+#ifdef MTK_ION_MAPPING_PERF_DEBUG
+	end = sched_clock();
+#endif
 	mutex_unlock(&buffer->lock);
+#ifdef MTK_ION_MAPPING_PERF_DEBUG
+	if (buffer->sg_table && ((end - start) /
+	    buffer->sg_table->nents > 500000ULL) ||
+	    (end - start > 50000000ULL))
+		IONMSG("warn: ion phys time: %lluns, nents:%u\n",
+		       end - start, buffer->sg_table->nents);
+#endif
+	if (ret == -EDOM)
+		aee_kernel_warning_api(__FILE__, __LINE__,
+				       DB_OPT_DEFAULT |
+				       DB_OPT_NATIVE_BACKTRACE,
+				       "ion phys failed",
+				       "dump user backtrace");
 	/*avoid camelcase, will modify in a letter*/
 	mmprofile_log_ex(ion_mmp_events[PROFILE_GET_PHYS], MMPROFILE_FLAG_END,
 			 buffer->size, (unsigned long)*addr);
