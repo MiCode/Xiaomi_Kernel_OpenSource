@@ -128,5 +128,12 @@ static inline void *hf_device_get_private_data(struct hf_device *device)
 int hf_manager_create(struct hf_device *device);
 int hf_manager_destroy(struct hf_manager *manager);
 void coordinate_map(unsigned char direction, int32_t *data);
+struct hf_client *hf_client_create(void);
+void hf_client_destroy(struct hf_client *client);
+bool hf_client_find_sensor(struct hf_client *client, uint8_t sensor_type);
+int hf_client_control_sensor(struct hf_client *client,
+		struct hf_manager_cmd *cmd);
+int hf_client_poll_sensor(struct hf_client *client,
+		struct hf_manager_event *data, int count);
 
 #endif

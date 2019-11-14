@@ -58,8 +58,19 @@ static int test_sample(struct hf_device *hfdev)
 {
 	struct test_device *driver_dev = hf_device_get_private_data(hfdev);
 	struct hf_manager *manager = driver_dev->hf_dev.manager;
+	struct hf_manager_event event;
 
 	pr_debug("%s %s\n", __func__, driver_dev->hf_dev.dev_name);
+
+	memset(&event, 0, sizeof(struct hf_manager_event));
+	event.timestamp = ktime_get_boot_ns();
+	event.sensor_type = driver_dev->hf_dev.support_list[0];
+	event.accurancy = SENSOR_ACCURANCY_HIGH;
+	event.action = DATA_ACTION;
+	event.word[0] = 0;
+	event.word[1] = 0;
+	event.word[2] = 0;
+	manager->report(manager, &event);
 	manager->complete(manager);
 	return 0;
 }

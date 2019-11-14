@@ -697,18 +697,15 @@ static int hf_manager_drive_device(struct hf_client *client,
 	return err;
 }
 
-static int hf_manager_open(struct inode *inode, struct file *filp)
+struct hf_client *hf_client_create(void)
 {
-	int err = 0;
 	unsigned long flags;
 	struct hf_client *client = NULL;
 	struct hf_client_fifo *hf_fifo = NULL;
 
 	client = kzalloc(sizeof(*client), GFP_KERNEL);
-	if (!client) {
-		err = -ENOMEM;
+	if (!client)
 		goto err_out;
-	}
 
 	/* record process id and thread id for debug */
 	strlcpy(client->proc_comm, current->comm, sizeof(client->proc_comm));
@@ -730,36 +727,28 @@ static int hf_manager_open(struct inode *inode, struct file *filp)
 	hf_fifo->buffer =
 		kcalloc(hf_fifo->bufsize, sizeof(*hf_fifo->buffer),
 			GFP_KERNEL);
-	if (!hf_fifo->buffer) {
-		err = -ENOMEM;
+	if (!hf_fifo->buffer)
 		goto err_free;
-	}
 
 	spin_lock_init(&client->request_lock);
-
-	filp->private_data = client;
 
 	spin_lock_irqsave(&hf_client_list_lock, flags);
 	list_add(&client->list, &hf_client_list);
 	spin_unlock_irqrestore(&hf_client_list_lock, flags);
 
-	nonseekable_open(inode, filp);
-	return 0;
+	return client;
 err_free:
 	kfree(client);
 err_out:
-	return err;
+	return NULL;
 }
 
-static int hf_manager_release(struct inode *inode, struct file *filp)
+void hf_client_destroy(struct hf_client *client)
 {
 	unsigned long flags;
-	struct hf_client *client = filp->private_data;
 
 	pr_notice("%s: [%s][%d:%d]\n", __func__, current->comm,
 		current->group_leader->pid, current->pid);
-
-	filp->private_data = NULL;
 
 	spin_lock_irqsave(&hf_client_list_lock, flags);
 	list_del(&client->list);
@@ -767,10 +756,20 @@ static int hf_manager_release(struct inode *inode, struct file *filp)
 
 	kfree(client->hf_fifo.buffer);
 	kfree(client);
-	return 0;
 }
 
-static int hf_manager_fetch_next(struct hf_client_fifo *hf_fifo,
+bool hf_client_find_sensor(struct hf_client *client, uint8_t sensor_type)
+{
+	return test_bit(sensor_type, sensor_list_bitmap);
+}
+
+int hf_client_control_sensor(struct hf_client *client,
+		struct hf_manager_cmd *cmd)
+{
+	return hf_manager_drive_device(client, cmd);
+}
+
+static int fetch_next(struct hf_client_fifo *hf_fifo,
 				  struct hf_manager_event *event)
 {
 	unsigned long flags;
@@ -785,6 +784,51 @@ static int hf_manager_fetch_next(struct hf_client_fifo *hf_fifo,
 	}
 	spin_unlock_irqrestore(&hf_fifo->buffer_lock, flags);
 	return have_event;
+}
+
+int hf_client_poll_sensor(struct hf_client *client,
+		struct hf_manager_event *data, int count)
+{
+	int read = 0;
+	struct hf_client_fifo *hf_fifo = &client->hf_fifo;
+
+	wait_event_interruptible(hf_fifo->wait,
+		hf_fifo->head != hf_fifo->tail);
+
+	for (;;) {
+		if (hf_fifo->head == hf_fifo->tail)
+			return 0;
+		if (count == 0)
+			break;
+		while (read <= count &&
+			fetch_next(hf_fifo, &data[read])) {
+			read++;
+		}
+		if (read)
+			break;
+	}
+	return read;
+}
+
+static int hf_manager_open(struct inode *inode, struct file *filp)
+{
+	struct hf_client *client = hf_client_create();
+
+	if (!client)
+		return -ENOMEM;
+
+	filp->private_data = client;
+	nonseekable_open(inode, filp);
+	return 0;
+}
+
+static int hf_manager_release(struct inode *inode, struct file *filp)
+{
+	struct hf_client *client = filp->private_data;
+
+	filp->private_data = NULL;
+	hf_client_destroy(client);
+	return 0;
 }
 
 static ssize_t hf_manager_read(struct file *filp,
@@ -804,7 +848,7 @@ static ssize_t hf_manager_read(struct file *filp,
 		if (count == 0)
 			break;
 		while (read + sizeof(struct hf_manager_event) <= count &&
-			hf_manager_fetch_next(hf_fifo, &event)) {
+			fetch_next(hf_fifo, &event)) {
 			if (copy_to_user(buf + read,
 				&event, sizeof(struct hf_manager_event)))
 				return -EFAULT;
