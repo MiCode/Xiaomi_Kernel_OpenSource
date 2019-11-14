@@ -15,6 +15,8 @@
 #include <linux/mhi.h>
 #include "mhi_internal.h"
 
+static void mhi_special_events_pending(struct mhi_controller *mhi_cntrl);
+
 /*
  * Not all MHI states transitions are sync transitions. Linkdown, SSR, and
  * shutdown can happen anytime asynchronously. This function will transition to
@@ -524,6 +526,8 @@ static int mhi_pm_mission_mode_transition(struct mhi_controller *mhi_cntrl)
 
 	if (MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state))
 		mhi_timesync_log(mhi_cntrl);
+
+	mhi_special_events_pending(mhi_cntrl);
 
 	MHI_LOG("Adding new devices\n");
 
