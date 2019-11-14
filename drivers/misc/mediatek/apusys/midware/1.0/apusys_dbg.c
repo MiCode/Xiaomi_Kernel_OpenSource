@@ -202,6 +202,8 @@ int apusys_dbg_init(void)
 {
 	int ret = 0;
 
+	LOG_INFO("+\n");
+
 	/* create debug root */
 	apusys_dbg_root = debugfs_create_dir(APUSYS_DBG_DIR, NULL);
 	ret = IS_ERR_OR_NULL(apusys_dbg_root);
@@ -262,6 +264,8 @@ int apusys_dbg_init(void)
 
 	apusys_dump_init();
 out:
+
+	LOG_INFO("-\n");
 	return ret;
 }
 

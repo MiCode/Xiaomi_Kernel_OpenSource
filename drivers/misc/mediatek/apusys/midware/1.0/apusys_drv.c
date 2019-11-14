@@ -137,7 +137,14 @@ static int apusys_probe(struct platform_device *pdev)
 	int ret = 0;
 	struct device *dev = NULL;
 
-	LOG_DEBUG("+\n");
+	LOG_INFO("+\n");
+
+	if (apusys_power_check() == false) {
+		LOG_ERR("apusys disable\n");
+		LOG_INFO("-\n");
+		return -ENODEV;
+	}
+
 	g_apusys_device = &pdev->dev;
 
 	/* get major */
@@ -205,7 +212,7 @@ static int apusys_probe(struct platform_device *pdev)
 		goto dbg_init_fail;
 	}
 
-	LOG_DEBUG("-\n");
+	LOG_INFO("-\n");
 
 	return 0;
 

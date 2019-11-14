@@ -182,7 +182,7 @@ int apusys_mem_init(struct device *dev)
 
 	int ret = 0;
 
-	DEBUG_TAG;
+	LOG_INFO("+\n");
 	g_mem_mgr.dev = dev;
 	switch (g_mem_type) {
 	case APUSYS_MEM_DRAM_ION:
@@ -195,6 +195,8 @@ int apusys_mem_init(struct device *dev)
 		ret = -EINVAL;
 		break;
 	}
+
+	LOG_INFO("-\n");
 	return ret;
 
 }
