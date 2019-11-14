@@ -137,7 +137,7 @@ static ssize_t set_edma_dbglv(struct device *dev,
 			   struct device_attribute *attr,
 			   const char *buf, size_t count)
 {
-	unsigned int input;
+	unsigned int input = 0;
 	int ret;
 
 	ret = kstrtouint(buf, 10, &input);
