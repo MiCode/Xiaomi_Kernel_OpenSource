@@ -141,6 +141,10 @@ static int vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
 			handle_enc_waitisr_msg(vcu, data, 0);
 		ret = 1;
 		break;
+	case VCU_IPIMSG_ENC_PUT_BUFFER:
+		mtk_enc_put_buf(ctx);
+		ret = 1;
+		break;
 	case VCU_IPIMSG_ENC_ENCODE_ACK:
 		break;
 	default:

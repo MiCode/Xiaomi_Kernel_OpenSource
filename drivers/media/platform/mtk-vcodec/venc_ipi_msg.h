@@ -49,7 +49,8 @@ enum venc_ipi_msg_id {
 	VCU_IPIMSG_ENC_POWER_ON,
 	VCU_IPIMSG_ENC_POWER_OFF,
 	VCU_IPIMSG_ENC_WAIT_ISR,
-	VCU_IPIMSG_ENC_ENCODE_ACK
+	VCU_IPIMSG_ENC_ENCODE_ACK,
+	VCU_IPIMSG_ENC_PUT_BUFFER
 };
 
 /* enum venc_get_param_type - The type of set parameter used in

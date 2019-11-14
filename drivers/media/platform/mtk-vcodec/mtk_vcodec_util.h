@@ -124,5 +124,7 @@ struct mtk_vcodec_ctx *mtk_vcodec_get_curr_ctx(struct mtk_vcodec_dev *dev,
 	int hw_id);
 struct vdec_fb *mtk_vcodec_get_fb(struct mtk_vcodec_ctx *ctx);
 int mtk_vdec_put_fb(struct mtk_vcodec_ctx *ctx, int type);
+void mtk_enc_put_buf(struct mtk_vcodec_ctx *ctx);
+
 
 #endif /* _MTK_VCODEC_UTIL_H_ */

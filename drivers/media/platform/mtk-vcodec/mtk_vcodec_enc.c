@@ -120,7 +120,7 @@ static void get_free_buffers(struct mtk_vcodec_ctx *ctx,
 		pResult);
 }
 
-static void return_free_buffers(struct mtk_vcodec_ctx *ctx)
+void mtk_enc_put_buf(struct mtk_vcodec_ctx *ctx)
 {
 	struct venc_done_result rResult;
 	struct venc_frm_buf *pfrm;
@@ -129,6 +129,7 @@ static void return_free_buffers(struct mtk_vcodec_ctx *ctx)
 	struct vb2_v4l2_buffer *dst_vb2_v4l2, *src_vb2_v4l2;
 	struct vb2_buffer *dst_buf;
 
+	mutex_lock(&ctx->buf_lock);
 	do {
 		dst_vb2_v4l2 = NULL;
 		src_vb2_v4l2 = NULL;
@@ -182,8 +183,8 @@ static void return_free_buffers(struct mtk_vcodec_ctx *ctx)
 				mtk_v4l2_debug(1, "NULL enc dst buffer\n");
 		}
 	} while (rResult.bs_va != 0 || rResult.frm_va != 0);
+	mutex_unlock(&ctx->buf_lock);
 }
-
 
 static struct mtk_video_fmt *mtk_venc_find_format(struct v4l2_format *f,
 						  unsigned int t)
@@ -1699,7 +1700,7 @@ static void vb2ops_venc_stop_streaming(struct vb2_queue *q)
 	ret = venc_if_encode(ctx,
 		VENC_START_OPT_ENCODE_FRAME_FINAL,
 		NULL, NULL, &enc_result);
-	return_free_buffers(ctx);
+	mtk_enc_put_buf(ctx);
 
 	if (ret)
 		mtk_v4l2_err("venc_if_deinit failed=%d", ret);
@@ -2106,7 +2107,7 @@ static void mtk_venc_worker(struct work_struct *work)
 					mtk_venc_queue_error_event(ctx);
 				}
 			} else
-				return_free_buffers(ctx);
+				mtk_enc_put_buf(ctx);
 
 			v4l2_m2m_buf_done(dst_vb2_v4l2,
 				VB2_BUF_STATE_DONE);
@@ -2192,7 +2193,7 @@ static void mtk_venc_worker(struct work_struct *work)
 			mtk_venc_queue_error_event(ctx);
 		}
 	} else
-		return_free_buffers(ctx);
+		mtk_enc_put_buf(ctx);
 
 	v4l2_m2m_job_finish(ctx->dev->m2m_dev_enc, ctx->m2m_ctx);
 
