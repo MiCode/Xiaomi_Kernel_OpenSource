@@ -112,20 +112,20 @@ void adsp_mt_clr_sysirq(u32 cid)
 		return;
 
 	if (cid == ADSP_A_ID)
-		SET_BITS(ADSP_GENERAL_IRQ_CLR, ADSP_A_2HOST_IRQ_BIT);
+		writel(ADSP_A_2HOST_IRQ_BIT, ADSP_GENERAL_IRQ_CLR);
 	else
-		SET_BITS(ADSP_GENERAL_IRQ_CLR, ADSP_B_2HOST_IRQ_BIT);
+		writel(ADSP_B_2HOST_IRQ_BIT, ADSP_GENERAL_IRQ_CLR);
 }
 
 void adsp_mt_clr_auidoirq(u32 cid)
 {
 	if (unlikely(cid >= ADSP_CORE_TOTAL))
 		return;
-
+	/* just clear correct bits*/
 	if (cid == ADSP_A_ID)
-		SET_BITS(ADSP_GENERAL_IRQ_CLR, ADSP_A_AFE2HOST_IRQ_BIT);
+		writel(ADSP_A_AFE2HOST_IRQ_BIT, ADSP_GENERAL_IRQ_CLR);
 	else
-		SET_BITS(ADSP_GENERAL_IRQ_CLR, ADSP_B_AFE2HOST_IRQ_BIT);
+		writel(ADSP_B_AFE2HOST_IRQ_BIT, ADSP_GENERAL_IRQ_CLR);
 }
 
 void adsp_mt_disable_wdt(u32 cid)
