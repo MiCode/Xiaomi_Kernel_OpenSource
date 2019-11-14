@@ -796,7 +796,13 @@ static void mtk_dsp_dl_consume_handler(struct mtk_base_dsp *dsp,
 	unsigned long flags;
 	snd_pcm_state_t state;
 	void *ipi_audio_buf;
+
 	struct mtk_base_dsp_mem *dsp_mem = &dsp->dsp_mem[id];
+
+	if (!dsp->dsp_mem[id].substream) {
+		pr_info("%s substream NULL\n", __func__);
+		return;
+	}
 
 	state = dsp->dsp_mem[id].substream->runtime->status->state;
 
@@ -816,17 +822,23 @@ static void mtk_dsp_dl_consume_handler(struct mtk_base_dsp *dsp,
 
 	dsp->dsp_mem[id].adsp_buf.aud_buffer.buf_bridge.pRead =
 	    dsp->dsp_mem[id].adsp_work_buf.aud_buffer.buf_bridge.pRead;
-	/*
-	 *  dump_rbuf_s("+mtk_dsp_dl_consume_handler",
-	 *    &dsp->dsp_mem[id].ring_buf);
-	 */
+
+#ifdef DEBUG_VERBOSE_IRQ
+	dump_rbuf_s("+%s", __func__, &dsp->dsp_mem[id].ring_buf);
+#endif
+
 	sync_ringbuf_readidx(
 		&dsp->dsp_mem[id].ring_buf,
 		&dsp->dsp_mem[id].adsp_buf.aud_buffer.buf_bridge);
 
+	if (ipi_msg && ipi_msg->param2) {
+		pr_info("%s adsp resert id = %d\n", __func__, id);
+		RingBuf_Reset(&dsp->dsp_mem[id].ring_buf);
+	}
+
 	spin_unlock_irqrestore(&dsp_ringbuf_lock, flags);
 
-#ifdef DEBUG_VERBOSE
+#ifdef DEBUG_VERBOSE_IRQ
 	pr_info("%s id = %d\n", __func__, id);
 	dump_rbuf_s("dl_consume", &dsp->dsp_mem[id].ring_buf);
 #endif
@@ -1231,6 +1243,7 @@ static int mtk_dsp_pcm_copy_dl(struct snd_pcm_substream *substream,
 	} else {
 		pr_info("%s, id = %d, fail copy_size = %d availsize = %d\n",
 			__func__, id, copy_size, RingBuf_getFreeSpace(ringbuf));
+		return -1;
 	}
 
 	/* send audio_hw_buffer to SCP side*/
@@ -1363,6 +1376,51 @@ static int mtk_dsp_pcm_new(struct snd_soc_pcm_runtime *rtd)
 	return 0;
 }
 
+#ifdef CFG_RECOVERY_SUPPORT
+static int audio_send_reset_event(void)
+{
+	int ret = 0, i;
+
+	for (i = 0; i < TASK_SCENE_FAST; i++) {
+		if ((i == TASK_SCENE_DEEPBUFFER) ||
+			(i == TASK_SCENE_VOIP) ||
+			(i == TASK_SCENE_PRIMARY) ||
+			(i == TASK_SCENE_FAST)) {
+			ret = mtk_scp_ipi_send(i, AUDIO_IPI_MSG_ONLY,
+			AUDIO_IPI_MSG_BYPASS_ACK, AUDIO_DSP_TASK_RESET,
+			ADSP_EVENT_READY, 0, NULL);
+		}
+	}
+	return ret;
+}
+
+static int audio_event_receive(struct notifier_block *this, unsigned long event,
+			    void *ptr)
+{
+	int ret = 0;
+
+	switch (event) {
+	case ADSP_EVENT_STOP:
+		pr_info("%s event[%lu]\n", __func__, event);
+		break;
+	case ADSP_EVENT_READY: {
+		audio_send_reset_event();
+		pr_info("%s event[%lu]\n", __func__, event);
+		break;
+	}
+	default:
+		pr_info("%s event[%lu]\n", __func__, event);
+	}
+	return ret;
+}
+
+static struct notifier_block adsp_audio_notifier = {
+	.notifier_call = audio_event_receive,
+	.priority = PRIMARY_FEATURE_PRI,
+};
+
+#endif
+
 static int mtk_dsp_probe(struct snd_soc_platform *platform)
 {
 	int ret = 0;
@@ -1382,6 +1440,7 @@ static int mtk_dsp_probe(struct snd_soc_platform *platform)
 			return ret;
 	}
 
+	adsp_register_notify(&adsp_audio_notifier);
 	return ret;
 }
 
