@@ -95,7 +95,7 @@ static struct reg_config dvfsrc_init_configs[][128] = {
 		{ DVFSRC_95MD_SCEN_BW3_T,    0x60000000 },
 		{ DVFSRC_95MD_SCEN_BW0,      0x20222220 },
 		{ DVFSRC_95MD_SCEN_BW1,      0x22222222 },
-		{ DVFSRC_95MD_SCEN_BW2,      0x00400222 },
+		{ DVFSRC_95MD_SCEN_BW2,      0x00200222 },
 		{ DVFSRC_95MD_SCEN_BW3,      0x60000000 },
 		{ DVFSRC_95MD_SCEN_BW4,      0x00000006 },
 
