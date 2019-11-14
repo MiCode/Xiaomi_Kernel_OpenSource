@@ -277,8 +277,6 @@ void vpu_dmp_seq_core(struct seq_file *s, struct vpu_device *vd)
 	vpu_dmp_seq_bar(s, vd, "register");
 	vpu_dmp_seq_reg(s, vd);
 
-	apusys_dump_show(s, NULL);
-
 #define VPU_SEQ_IOVA(a, A) \
 	vpu_dmp_seq_iova(s, vd, &vd->iova_##a, #a" ", \
 		d->m_##a, VPU_DMP_##A##_SZ)

@@ -447,7 +447,7 @@ static const struct file_operations vpu_debug_ ## name ## _fops = { \
 	.open = vpu_debug_ ## name ## _open, \
 	.read = seq_read, \
 	.llseek = seq_lseek, \
-	.release = seq_release, \
+	.release = single_release, \
 }
 
 #define VPU_DEBUGFS_RW_DEF(name) \
@@ -457,7 +457,7 @@ static const struct file_operations vpu_debug_ ## name ## _fops = { \
 	.read = seq_read, \
 	.write = vpu_debug_ ## name ## _write, \
 	.llseek = seq_lseek, \
-	.release = seq_release, \
+	.release = single_release, \
 }
 
 VPU_DEBUGFS_DEF(algo);
