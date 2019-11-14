@@ -148,15 +148,10 @@ void ccci_reset_ccif_hw(unsigned char md_id,
 	struct ccci_smem_region *region;
 
 	{
-		int reset_bit = -1;
+		int ccif0_reset_bit = 8;
+		int ccif1_reset_bit = 7;
 
-		switch (ccif_id) {
-		case AP_MD1_CCIF:
-			reset_bit = 8;
-			break;
-		}
-
-		if (reset_bit == -1)
+		if (ccif_id != AP_MD1_CCIF)
 			return;
 
 		/*
@@ -164,9 +159,14 @@ void ccci_reset_ccif_hw(unsigned char md_id,
 		 *CCIF's busy/wch/irq, but not SRAM
 		 */
 		/*set reset bit*/
-		ccci_write32(infra_ao_base, 0x150, 1 << reset_bit);
+		ccci_write32(infra_ao_base, 0x150,
+						(1 << ccif0_reset_bit) |
+						(1 << ccif1_reset_bit));
+
 		/*clear reset bit*/
-		ccci_write32(infra_ao_base, 0x154, 1 << reset_bit);
+		ccci_write32(infra_ao_base, 0x154,
+						(1 << ccif0_reset_bit) |
+						(1 << ccif1_reset_bit));
 	}
 
 	/* clear SRAM */
