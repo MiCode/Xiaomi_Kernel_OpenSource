@@ -436,7 +436,9 @@ if (g_pwr_log_level == APUSYS_PWR_LOG_DEBUG)
 				volt_data.target_volt =
 				apusys_opps.next_buck_volt[buck_small_index];
 			volt_data.target_buck = buck_small_index;
-			hal_config_power(PWR_CMD_SET_VOLT, user,
+			if (apusys_opps.cur_buck_volt[buck_small_index] !=
+				volt_data.target_volt)
+				hal_config_power(PWR_CMD_SET_VOLT, user,
 				(void *)&volt_data);
 		}
 
@@ -449,7 +451,9 @@ if (g_pwr_log_level == APUSYS_PWR_LOG_DEBUG)
 				volt_data.target_volt =
 				apusys_opps.next_buck_volt[buck_large_index];
 			volt_data.target_buck = buck_large_index;
-			hal_config_power(PWR_CMD_SET_VOLT, user,
+			if (apusys_opps.cur_buck_volt[buck_large_index] !=
+				volt_data.target_volt)
+				hal_config_power(PWR_CMD_SET_VOLT, user,
 				(void *)&volt_data);
 		}
 
@@ -458,22 +462,42 @@ if (g_pwr_log_level == APUSYS_PWR_LOG_DEBUG)
 		hal_config_power(PWR_CMD_SET_VOLT, user, (void *)&volt_data);
 		apusys_opps.vsram_volatge = VSRAM_HIGH_VOLT;
 
-	}
-
-	if (apusys_opps.next_buck_volt[buck_small_index] >
-		apusys_opps.cur_buck_volt[buck_small_index]) {
-		volt_data.target_buck = buck_small_index;
-		volt_data.target_volt =
+		if ((apusys_opps.next_buck_volt[buck_small_index] >
+			VSRAM_TRANS_VOLT) &&
+		(apusys_opps.next_buck_volt[buck_small_index] >
+		apusys_opps.cur_buck_volt[buck_small_index])) {
+			volt_data.target_buck = buck_small_index;
+			volt_data.target_volt =
 			apusys_opps.next_buck_volt[buck_small_index];
-	hal_config_power(PWR_CMD_SET_VOLT, user, (void *)&volt_data);
-	}
+		hal_config_power(PWR_CMD_SET_VOLT, user, (void *)&volt_data);
+		}
 
-	if (apusys_opps.next_buck_volt[buck_large_index] >
-		apusys_opps.cur_buck_volt[buck_large_index]) {
-		volt_data.target_buck = buck_large_index;
-		volt_data.target_volt =
+		if ((apusys_opps.next_buck_volt[buck_large_index] >
+			VSRAM_TRANS_VOLT) &&
+			(apusys_opps.next_buck_volt[buck_large_index] >
+		apusys_opps.cur_buck_volt[buck_large_index])) {
+			volt_data.target_buck = buck_large_index;
+			volt_data.target_volt =
 			apusys_opps.next_buck_volt[buck_large_index];
 		hal_config_power(PWR_CMD_SET_VOLT, user, (void *)&volt_data);
+		}
+	} else {
+		if (apusys_opps.next_buck_volt[buck_small_index] >
+			apusys_opps.cur_buck_volt[buck_small_index]) {
+			volt_data.target_buck = buck_small_index;
+			volt_data.target_volt =
+				apusys_opps.next_buck_volt[buck_small_index];
+		hal_config_power(PWR_CMD_SET_VOLT, user, (void *)&volt_data);
+		}
+
+		if (apusys_opps.next_buck_volt[buck_large_index] >
+			apusys_opps.cur_buck_volt[buck_large_index]) {
+			volt_data.target_buck = buck_large_index;
+			volt_data.target_volt =
+				apusys_opps.next_buck_volt[buck_large_index];
+			hal_config_power(PWR_CMD_SET_VOLT, user,
+				(void *)&volt_data);
+		}
 	}
 }
 
@@ -577,7 +601,11 @@ if (g_pwr_log_level == APUSYS_PWR_LOG_DEBUG)
 				volt_data.target_volt =
 				apusys_opps.next_buck_volt[buck_large_index];
 			volt_data.target_buck = buck_large_index;
-		hal_config_power(PWR_CMD_SET_VOLT, user, (void *)&volt_data);
+
+		if (apusys_opps.cur_buck_volt[buck_large_index] !=
+				volt_data.target_volt)
+			hal_config_power(PWR_CMD_SET_VOLT, user,
+			(void *)&volt_data);
 		}
 		if (apusys_opps.cur_buck_volt[buck_small_index] >
 			apusys_opps.next_buck_volt[buck_small_index]){
@@ -588,7 +616,11 @@ if (g_pwr_log_level == APUSYS_PWR_LOG_DEBUG)
 				volt_data.target_volt =
 				apusys_opps.next_buck_volt[buck_small_index];
 			volt_data.target_buck = buck_small_index;
-		hal_config_power(PWR_CMD_SET_VOLT, user, (void *)&volt_data);
+
+		if (apusys_opps.cur_buck_volt[buck_small_index] !=
+			volt_data.target_volt)
+			hal_config_power(PWR_CMD_SET_VOLT, user,
+			(void *)&volt_data);
 		}
 
 		volt_data.target_buck = SRAM_BUCK;
