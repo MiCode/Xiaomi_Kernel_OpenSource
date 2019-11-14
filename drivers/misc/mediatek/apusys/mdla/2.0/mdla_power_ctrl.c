@@ -126,7 +126,7 @@ power_on_done:
 	return ret;
 }
 
-int mdla_pwr_off(int core_id)
+int mdla_pwr_off(int core_id, int suspend)
 {
 	int ret = 0;
 	int i;
@@ -159,7 +159,7 @@ int mdla_pwr_off(int core_id)
 		if (get_power_on_status(i) == PWR_OFF)
 			continue;
 
-		ret = apu_device_power_off(MDLA0+i);
+		ret = apu_device_power_suspend(MDLA0+i, suspend);
 		if (!ret) {
 			mdla_cmd_debug("%s power off device %d success\n",
 							__func__, MDLA0+i);
@@ -190,19 +190,19 @@ void mdla_set_opp(int core_id, int bootst_val)
 
 void mdla0_start_power_off(struct work_struct *work)
 {
-	mdla_start_power_off(0);
+	mdla_start_power_off(0, 0);
 }
 
 void mdla1_start_power_off(struct work_struct *work)
 {
-	mdla_start_power_off(1);
+	mdla_start_power_off(1, 0);
 }
 
-int mdla_start_power_off(int core_id)
+int mdla_start_power_off(int core_id, int suspend)
 {
 	int ret = 0;
 	mutex_lock(&mdla_devices[core_id].cmd_lock);
-	ret = mdla_pwr_off(core_id);
+	ret = mdla_pwr_off(core_id, suspend);
 	mutex_unlock(&mdla_devices[core_id].cmd_lock);
 	return ret;
 }
@@ -258,7 +258,7 @@ int mdla_unregister_power(struct platform_device *pdev)
 	int i;
 
 	for (i = 0; i < mdla_max_num_core; i++)
-		mdla_start_power_off(i);
+		mdla_start_power_off(i, 0);
 
 	for (i = 0; i < mdla_max_num_core; i++) {
 		register_user = MDLA0+i;

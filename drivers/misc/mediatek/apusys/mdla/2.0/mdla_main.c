@@ -364,7 +364,7 @@ static int mdla_remove(struct platform_device *pdev)
 	mdla_drv_debug("%s start -\n", __func__);
 
 	for (i = 0; i < mdla_max_num_core; i++)
-		mdla_start_power_off(i);
+		mdla_start_power_off(i, 0);
 
 	if (mdla_unregister_power(pdev)) {
 		dev_info(dev, "unregister mdla power fail\n");
@@ -409,9 +409,9 @@ static int mdla_suspend(struct platform_device *pdev, pm_message_t mesg)
 	int i;
 
 	for (i = 0; i < mdla_max_num_core; i++) {
-		mdla_start_power_off(i);
+		mdla_start_power_off(i, 1);
 	}
-	mdla_cmd_debug("%s: resume\n", __func__);
+	mdla_cmd_debug("%s: suspend\n", __func__);
 	return 0;
 }
 
@@ -531,12 +531,12 @@ int apusys_mdla_handler(int type,
 		retval = mdla_pwr_on(mdla_info->mdlaid);
 		break;
 	case APUSYS_CMD_POWERDOWN:
-		mdla_start_power_off(mdla_info->mdlaid);
+		mdla_start_power_off(mdla_info->mdlaid, 0);
 		break;
 	case APUSYS_CMD_RESUME:
 		break;
 	case APUSYS_CMD_SUSPEND:
-		mdla_start_power_off(mdla_info->mdlaid);
+		mdla_start_power_off(mdla_info->mdlaid, 1);
 		break;
 	case APUSYS_CMD_EXECUTE:
 	{

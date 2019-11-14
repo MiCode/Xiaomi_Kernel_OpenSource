@@ -43,6 +43,7 @@
 #include <linux/delay.h>
 #include <linux/jiffies.h>
 #include <linux/sched/clock.h>
+#include <linux/pm_wakeup.h>
 #ifdef CONFIG_OF
 #include <linux/cpu.h>
 #include <linux/of.h>
