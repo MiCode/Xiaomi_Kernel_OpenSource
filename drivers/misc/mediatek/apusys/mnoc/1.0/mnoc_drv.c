@@ -25,6 +25,7 @@
 #include <linux/platform_device.h>
 #include <linux/module.h>
 #include <linux/workqueue.h>
+#include <linux/mutex.h>
 
 
 #ifdef CONFIG_OF
@@ -59,17 +60,24 @@ void __iomem *mnoc_slp_prot_base2;
 bool mnoc_reg_valid;
 int mnoc_log_level;
 
+struct mutex mnoc_pwr_mtx;
+bool mnoc_pwr_is_on;
+
 #if MNOC_INT_ENABLE
 unsigned int mnoc_irq_number;
-static bool is_first_isr_after_pwr_on;
+bool is_first_isr_after_pwr_on;
 static struct work_struct mnoc_isr_work;
 
 static void mnoc_isr_work_func(struct work_struct *work)
 {
 	LOG_DEBUG("+\n");
 #if MNOC_AEE_WARN_ENABLE
-	apusys_reg_dump();
-	mnoc_aee_warn("APUSYS_MNOC", "MNOC Exception");
+	mutex_lock(&mnoc_pwr_mtx);
+	if (mnoc_pwr_is_on)
+		apusys_reg_dump();
+	mutex_unlock(&mnoc_pwr_mtx);
+	print_int_sta(NULL);
+	/* mnoc_aee_warn("APUSYS_MNOC", "MNOC Exception"); */
 #endif
 	LOG_DEBUG("-\n");
 }
@@ -93,6 +101,10 @@ static void mnoc_apusys_top_after_pwr_on(void *para)
 	mnoc_reg_valid = true;
 	spin_unlock_irqrestore(&mnoc_spinlock, flags);
 
+	mutex_lock(&mnoc_pwr_mtx);
+	mnoc_pwr_is_on = true;
+	mutex_unlock(&mnoc_pwr_mtx);
+
 	mnoc_int_endis(true);
 
 	LOG_DEBUG("-\n");
@@ -113,6 +125,10 @@ static void mnoc_apusys_top_before_pwr_off(void *para)
 	infra2apu_sram_dis();
 	notify_sspm_apusys_off();
 	apu_pm_qos_off();
+
+	mutex_lock(&mnoc_pwr_mtx);
+	mnoc_pwr_is_on = false;
+	mutex_unlock(&mnoc_pwr_mtx);
 
 	LOG_DEBUG("-\n");
 }
@@ -151,6 +167,7 @@ static irqreturn_t mnoc_isr(int irq, void *dev_id)
 		}
 		return IRQ_HANDLED;
 	}
+
 
 	LOG_DEBUG("INT NOT triggered by mnoc\n");
 
@@ -193,6 +210,9 @@ static int mnoc_probe(struct platform_device *pdev)
 			 sub_node->full_name);
 		return -EPROBE_DEFER;
 	}
+
+	mutex_init(&mnoc_pwr_mtx);
+	mnoc_pwr_is_on = false;
 
 	create_debugfs();
 	spin_lock_init(&mnoc_spinlock);

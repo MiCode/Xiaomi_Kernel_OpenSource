@@ -38,6 +38,16 @@ pr_info(APUSYS_MNOC_LOG_PREFIX "[info] %s " x, __func__, ##args)
 			x, __func__, __LINE__, ##args); \
 	}
 
+#define INT_STA_PRINTF(m, x, args...)\
+	{ \
+		if (m != NULL) \
+			seq_printf(m, x, ##args); \
+		else \
+			pr_info(APUSYS_MNOC_LOG_PREFIX "[isr_work] %s/%d "\
+			x, __func__, __LINE__, ##args); \
+	}
+
+
 extern void __iomem *mnoc_base;
 extern void __iomem *mnoc_int_base;
 extern void __iomem *mnoc_apu_conn_base;

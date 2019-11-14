@@ -762,7 +762,7 @@ static void print_int_sta_info(struct seq_file *m,
 	t = info->timestamp;
 	nanosec_rem = do_div(t, 1000000000);
 
-	seq_printf(m, "%s = 0x%x [%lu.%06lu]\n",
+	INT_STA_PRINTF(m, "%s = 0x%x [%lu.%06lu]\n",
 		str,
 		info->reg_val,
 		(unsigned long) t,
@@ -782,10 +782,10 @@ void print_int_sta(struct seq_file *m)
 	t = sched_clock();
 	nanosec_rem = do_div(t, 1000000000);
 
-	seq_printf(m, "[%lu.%06lu]\n",
+	INT_STA_PRINTF(m, "[%lu.%06lu]\n",
 		(unsigned long) t, (unsigned long) (nanosec_rem / 1000));
 
-	seq_printf(m, "count = %d\n", mnoc_int_dump.count);
+	INT_STA_PRINTF(m, "count = %d\n", mnoc_int_dump.count);
 
 	print_int_sta_info(m, "apusys_int_sta",
 		&(mnoc_int_dump.apusys_int_sta));
@@ -796,7 +796,7 @@ void print_int_sta(struct seq_file *m)
 		val = mnoc_int_dump.mni_int_sta[idx].reg_val;
 		for (ni_idx = 0; ni_idx < NR_MNOC_MNI; ni_idx++)
 			if ((val & (1 << ni_idx)) != 0)
-				seq_printf(m, "\t-From %s\n",
+				INT_STA_PRINTF(m, "\t-From %s\n",
 					mni_map_string[ni_idx]);
 	}
 
@@ -806,7 +806,7 @@ void print_int_sta(struct seq_file *m)
 		val = mnoc_int_dump.sni_int_sta[idx].reg_val;
 		for (ni_idx = 0; ni_idx < NR_MNOC_SNI; ni_idx++)
 			if ((val & (1 << ni_idx)) != 0)
-				seq_printf(m, "\t-From %s\n",
+				INT_STA_PRINTF(m, "\t-From %s\n",
 					sni_map_string[ni_idx]);
 	}
 
@@ -816,7 +816,7 @@ void print_int_sta(struct seq_file *m)
 		val = mnoc_int_dump.rt_int_sta[idx].reg_val;
 		for (ni_idx = 0; ni_idx < NR_MNOC_RT; ni_idx++)
 			if ((val & (1 << ni_idx)) != 0)
-				seq_printf(m, "\t-From RT %d\n", ni_idx);
+				INT_STA_PRINTF(m, "\t-From RT %d\n", ni_idx);
 	}
 
 	print_int_sta_info(m, "sw_irq_sta",
