@@ -40,19 +40,19 @@ struct reg_save_st {
 };
 
 struct reg_save_st reg_save_list[] = {
-	{0x10721000, 0x200},
-	{0x10724000, 0x200},
-	{0x10730000, 0x200},
-	{0x10731000, 0x500},
-	{0x10732000, 0x300},
-	{0x10733000, 0x200},
-	{0x10740000, 0x200},
-	{0x10741000, 0x500},
-	{0x10742000, 0x300},
-	{0x10743000, 0x200},
-	{0x107A0000, 0x800},
-	{0x107A4000, 0x500},
-	{0x107A5000, 0x200},
+	/* size must 16 byte alignment */
+	{0x10721000, 0x120},
+	{0x10724000, 0x160},
+	{0x10730000, 0x120},
+	{0x10732000, 0x260},
+	{0x10733000, 0x120},
+	{0x10740000, 0x120},
+	{0x10742000, 0x260},
+	{0x10743000, 0x120},
+	{0x10750000, 0x330},
+	{0x10752000, 0x340},
+	{0x107A5000, 0x110},
+	{0x10001B14, 0x10},
 };
 
 //static unsigned char *scp_A_dump_buffer;
@@ -119,6 +119,8 @@ void scp_do_regdump(uint32_t *out, uint32_t *out_end)
 		*buf = reg_save_list[i].size;
 		buf++;
 		from = scp_regdump_virt + (reg_save_list[i].addr & 0xfffff);
+		if ((reg_save_list[i].addr & 0xfff00000) < 0x10700000)
+			from = scpreg.scpsys + (reg_save_list[i].addr & 0xfff);
 		memcpy_from_scp(buf, from, reg_save_list[i].size);
 		buf += (reg_save_list[i].size / sizeof(uint32_t));
 	}
@@ -144,30 +146,38 @@ void scp_do_l1cdump(uint32_t *out, uint32_t *out_end)
 void scp_do_tbufdump(uint32_t *out, uint32_t *out_end)
 {
 	uint32_t *buf = out;
-	uint32_t tmp;
+	uint32_t tmp, index, offset, wbuf_ptr;
 	int i;
 
+	wbuf_ptr = readl(R_CORE0_TBUF_WPTR);
 	tmp = readl(R_CORE0_DBG_CTRL) & (~M_CORE_TBUF_DBG_SEL);
-	for (i = 0; i < 7; i++) {
-		writel(tmp | (i << S_CORE_TBUF_DBG_SEL), R_CORE0_DBG_CTRL);
-		*(buf + 0) = readl(R_CORE0_TBUF_DATA31_0);
-		*(buf + 1) = readl(R_CORE0_TBUF_DATA63_32);
-		*(buf + 2) = readl(R_CORE0_TBUF_DATA95_64);
-		*(buf + 3) = readl(R_CORE0_TBUF_DATA127_96);
-		buf += 4;
+	for (i = 0; i < 16; i++) {
+		index = (wbuf_ptr + i) / 2;
+		offset = ((wbuf_ptr + i) % 2) * 0x8;
+		writel(tmp | (index << S_CORE_TBUF_DBG_SEL), R_CORE0_DBG_CTRL);
+		*(buf) = readl(R_CORE0_TBUF_DATA31_0 + offset);
+		*(buf + 1) = readl(R_CORE0_TBUF_DATA63_32 + offset);
+		buf += 2;
 	}
+
+	wbuf_ptr = readl(R_CORE1_TBUF_WPTR);
 	tmp = readl(R_CORE1_DBG_CTRL) & (~M_CORE_TBUF_DBG_SEL);
-	for (i = 0; i < 7; i++) {
-		writel(tmp | (i << S_CORE_TBUF_DBG_SEL), R_CORE1_DBG_CTRL);
-		*(buf + 0) = readl(R_CORE1_TBUF_DATA31_0);
-		*(buf + 1) = readl(R_CORE1_TBUF_DATA63_32);
-		*(buf + 2) = readl(R_CORE1_TBUF_DATA95_64);
-		*(buf + 3) = readl(R_CORE1_TBUF_DATA127_96);
-		buf += 4;
+	for (i = 0; i < 16; i++) {
+		index = (wbuf_ptr + i) / 2;
+		offset = ((wbuf_ptr + i) % 2) * 0x8;
+		writel(tmp | (index << S_CORE_TBUF_DBG_SEL), R_CORE1_DBG_CTRL);
+		*(buf) = readl(R_CORE1_TBUF_DATA31_0 + offset);
+		*(buf + 1) = readl(R_CORE1_TBUF_DATA63_32 + offset);
+		buf += 2;
 	}
-	for (i = 0; i < 32; i++) {
-		pr_notice("[SCP] %02d:0x%08x::0x%08x\n",
-			i, *(out + i), *(out + i + 1));
+
+	for (i = 0; i < 16; i++) {
+		pr_notice("[SCP] C0:%02d:0x%08x::0x%08x\n",
+			i, *(out + i * 2), *(out + i * 2 + 1));
+	}
+	for (i = 0; i < 16; i++) {
+		pr_notice("[SCP] C1:%02d:0x%08x::0x%08x\n",
+			i, *(out + i * 2 + 16), *(out + i * 2 + 17));
 	}
 }
 
@@ -196,16 +206,15 @@ static unsigned int scp_crash_dump(struct MemoryDump *pMemoryDump,
 	memcpy_from_scp((void *)&(pMemoryDump->l2tcm),
 		(void *)(SCP_TCM),
 		(SCP_A_TCM_SIZE));
+	scp_do_l1cdump((void *)&(pMemoryDump->l1c),
+		(void *)&(pMemoryDump->regdump));
 	/* dump sys registers */
 	scp_do_regdump((void *)&(pMemoryDump->regdump),
-		(void *)&(pMemoryDump->l1c));
-	scp_do_l1cdump((void *)&(pMemoryDump->l1c),
 		(void *)&(pMemoryDump->tbuf));
 	scp_do_tbufdump((void *)&(pMemoryDump->tbuf),
 		(void *)&(pMemoryDump->dram));
-
-	scp_dump_size = MDUMP_L2TCM_SIZE + MDUMP_REGDUMP_SIZE
-		+ MDUMP_L1C_SIZE + MDUMP_TBUF_SIZE;
+	scp_dump_size = MDUMP_L2TCM_SIZE + MDUMP_L1C_SIZE
+		+ MDUMP_REGDUMP_SIZE + MDUMP_TBUF_SIZE;
 	/* dram support? */
 	if ((int)(scp_region_info->ap_dram_size) <= 0) {
 		pr_notice("[scp] ap_dram_size <=0\n");
