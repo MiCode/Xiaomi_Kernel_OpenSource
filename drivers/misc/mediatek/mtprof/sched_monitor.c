@@ -222,12 +222,17 @@ static void __irq_count_tracer_work(struct irq_work *work)
 	int cpu = smp_processor_id();
 	int irq, irq_num, i, skip;
 	unsigned int count;
-	unsigned long long t_avg, t_diff;
+	unsigned long long t_avg, t_diff, t_diff_ms;
 	char msg[128];
 	int list_num = ARRAY_SIZE(irq_count_plist);
 
+	/* skip checking if more than one work is blocked in queue */
+	if (sched_clock() - irq_cnt->t_end < 500000000ULL)
+		return;
+
 	irq_cnt->t_start = irq_cnt->t_end;
 	irq_cnt->t_end = sched_clock();
+	t_diff = irq_cnt->t_end - irq_cnt->t_start;
 
 	for (irq = 0; irq < nr_irqs; irq++) {
 		irq_num = kstat_irqs_cpu(irq, cpu);
@@ -238,10 +243,11 @@ static void __irq_count_tracer_work(struct irq_work *work)
 			continue;
 
 		irq_cnt->count[irq] = irq_num;
-		t_diff = irq_cnt->t_end - irq_cnt->t_start;
+
 		t_avg = t_diff;
+		t_diff_ms = t_diff;
 		do_div(t_avg, count);
-		do_div(t_diff, 1000000);
+		do_div(t_diff_ms, 1000000);
 
 		if (t_avg > irq_period_th1_ns)
 			continue;
@@ -259,7 +265,7 @@ static void __irq_count_tracer_work(struct irq_work *work)
 
 		snprintf(msg, sizeof(msg),
 			 "irq:%d %s count +%d in %lld ms, from %lld.%06lu to %lld.%06lu on CPU:%d",
-			 irq, irq_to_name(irq), count, t_diff,
+			 irq, irq_to_name(irq), count, t_diff_ms,
 			 sec_high(irq_cnt->t_start), sec_low(irq_cnt->t_start),
 			 sec_high(irq_cnt->t_end), sec_low(irq_cnt->t_end),
 			 raw_smp_processor_id());
