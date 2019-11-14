@@ -29,6 +29,10 @@
 
 #include "phy-mtk.h"
 
+#ifdef CONFIG_MTK_USB2JTAG_SUPPORT
+#include <mt-plat/mtk_usb2jtag.h>
+#endif
+
 #define MTK_USB_PHY_BASE		(phy_drv->phy_base)
 #define MTK_USB_PHY_PORT_BASE	(instance->port_base)
 #define MTK_USB_PHY_MISC_BASE   (instance->sif_misc)
@@ -243,6 +247,13 @@ static int phy_init_soc(struct mtk_phy_instance *instance)
 		bFirstUartCheck = false;
 #endif
 
+#ifdef CONFIG_MTK_USB2JTAG_SUPPORT
+	if (usb2jtag_mode()) {
+		phy_printk(K_INFO, "%s, bypass in usb2jtag mode\n", __func__);
+		return 0;
+	}
+#endif
+
 	/*switch to USB function. (system register, force ip into usb mode) */
 	u3phywrite32(U3D_U2PHYDTM0, FORCE_UART_EN_OFST,
 		FORCE_UART_EN, 0);
@@ -298,6 +309,13 @@ static void phy_savecurrent(struct mtk_phy_instance *instance)
 #ifdef CONFIG_MTK_UART_USB_SWITCH
 	if (instance->uart_mode)
 		goto reg_done;
+#endif
+
+#ifdef CONFIG_MTK_USB2JTAG_SUPPORT
+	if (usb2jtag_mode()) {
+		phy_printk(K_INFO, "%s, bypass in usb2jtag mode\n", __func__);
+		return;
+	}
 #endif
 
 	u3phywrite32(U3D_U2PHYDTM0, FORCE_UART_EN_OFST,
@@ -428,6 +446,13 @@ static void phy_recover(struct mtk_phy_instance *instance)
 #ifdef CONFIG_MTK_UART_USB_SWITCH
 	if (instance->uart_mode)
 		return;
+#endif
+
+#ifdef CONFIG_MTK_USB2JTAG_SUPPORT
+	if (usb2jtag_mode()) {
+		phy_printk(K_INFO, "%s, bypass in usb2jtag mode\n", __func__);
+		return;
+	}
 #endif
 
 	u3phywrite32(U3D_U2PHYDTM0, FORCE_UART_EN_OFST,
