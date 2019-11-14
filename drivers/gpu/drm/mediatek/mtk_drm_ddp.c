@@ -1265,6 +1265,9 @@ static char *ddp_signal_5_mt6885(int bit)
 			"MDP_TDSHP5__TO__MDP_TDSHP5_SOUT";
 	case 13:
 		return
+			"THP_LMT_DSI0__TO__DSI0";
+	case 14:
+		return
 			"THP_LMT_DSI1__TO__DSI1";
 	default:
 		return NULL;
@@ -2632,13 +2635,6 @@ void mtk_disp_mutex_unprepare(struct mtk_disp_mutex *mutex)
 		DRM_ERROR("Failed to disable power domain: %d\n", ret);
 }
 
-static phys_addr_t addr_va2pa(void __iomem *va)
-{
-	struct page *pg = vmalloc_to_page(va);
-
-	return (page_to_pfn(pg) << PAGE_SHIFT) + ((unsigned long)va & 0xfff);
-}
-
 void mtk_disp_mutex_add_comp(struct mtk_disp_mutex *mutex,
 			     enum mtk_ddp_comp_id id)
 {
@@ -2776,11 +2772,8 @@ void mtk_disp_mutex_add_comp_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 				       ddp->data->mutex_mod[id] & ~BIT(31),
 				       ddp->data->mutex_mod[id] & ~BIT(31));
 		}
-		DDPINFO("%s mutex%d add %d 0x%llx=0x%x\n", __func__, mutex->id,
-			id,
-			addr_va2pa(ddp->regs +
-				   DISP_REG_MUTEX_MOD(ddp->data, mutex->id)),
-			reg);
+		DDPINFO("mutex_add_comp /w cmdq mutex%d add %s\n", mutex->id,
+			mtk_dump_comp_str_id(id));
 
 		return;
 	}

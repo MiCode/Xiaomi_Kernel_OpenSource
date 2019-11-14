@@ -2176,9 +2176,15 @@ void mtk_crtc_check_trigger(struct mtk_drm_crtc *mtk_crtc, bool delay)
 		return;
 
 	if (delay) {
+		/* implicit way make sure wait queue was initiated */
+		if (unlikely(&mtk_crtc->trigger_delay_task == NULL))
+			return;
 		atomic_set(&mtk_crtc->trig_delay_act, 1);
 		wake_up_interruptible(&mtk_crtc->trigger_delay);
 	} else {
+		/* implicit way make sure wait queue was initiated */
+		if (unlikely(&mtk_crtc->trigger_event_task == NULL))
+			return;
 		atomic_set(&mtk_crtc->trig_event_act, 1);
 		wake_up_interruptible(&mtk_crtc->trigger_event);
 	}
@@ -3876,16 +3882,16 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 		wake_up_process(mtk_crtc->dc_main_path_commit_task);
 	}
 
+	init_waitqueue_head(&mtk_crtc->trigger_event);
 	mtk_crtc->trigger_event_task =
 		kthread_create(_mtk_crtc_check_trigger,
 					mtk_crtc, "ddp_trig");
-	init_waitqueue_head(&mtk_crtc->trigger_event);
 	wake_up_process(mtk_crtc->trigger_event_task);
 
+	init_waitqueue_head(&mtk_crtc->trigger_delay);
 	mtk_crtc->trigger_delay_task =
 		kthread_create(_mtk_crtc_check_trigger_delay,
 					mtk_crtc, "ddp_trig_d");
-	init_waitqueue_head(&mtk_crtc->trigger_delay);
 	wake_up_process(mtk_crtc->trigger_delay_task);
 
 	/* init wakelock resources */
@@ -4272,6 +4278,7 @@ static void __mtk_crtc_prim_path_switch(struct drm_crtc *crtc,
 			crtc, mtk_crtc->ddp_mode, &crtc_state->lye_state,
 			cmdq_handle);
 	}
+	mtk_crtc_addon_connector_disconnect(crtc, cmdq_handle);
 	mtk_crtc_disconnect_single_path_cmdq(crtc, cmdq_handle, cur_path_idx,
 					     mtk_crtc->ddp_mode, 0);
 
@@ -4281,6 +4288,8 @@ static void __mtk_crtc_prim_path_switch(struct drm_crtc *crtc,
 	/* 3. Connect new primary path and add component mutexs */
 	mtk_crtc_connect_single_path_cmdq(crtc, cmdq_handle, next_path_idx,
 					  ddp_mode, 0);
+	/* TODO: refine addon_connector */
+	mtk_crtc_addon_connector_connect(crtc, cmdq_handle);
 
 	/* 4. Primary path configurations */
 	cfg->p_golden_setting_context =

@@ -21,6 +21,14 @@ const char *mtk_dump_comp_str(struct mtk_ddp_comp *comp)
 	return ddp_comp_str[comp->id];
 }
 
+const char *mtk_dump_comp_str_id(unsigned int id)
+{
+	if (likely(id < DDP_COMPONENT_ID_MAX))
+		return ddp_comp_str[id];
+
+	return "invalid";
+}
+
 int mtk_dump_reg(struct mtk_ddp_comp *comp)
 {
 	switch (comp->id) {
@@ -115,6 +123,9 @@ int mtk_dump_analysis(struct mtk_ddp_comp *comp)
 	case DDP_COMPONENT_POSTMASK0:
 	case DDP_COMPONENT_POSTMASK1:
 		mtk_postmask_analysis(comp);
+		break;
+	case DDP_COMPONENT_DSC0:
+		mtk_dsc_analysis(comp);
 		break;
 	default:
 		return 0;
