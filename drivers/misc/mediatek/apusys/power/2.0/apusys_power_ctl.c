@@ -238,7 +238,7 @@ void apusys_clk_path_update_pwr(enum DVFS_USER user, enum DVFS_VOLTAGE voltage)
 			__func__,
 			user_str[user],
 			path_volt_index,
-			voltage);
+			apusys_opps.user_path_volt[user][path_volt_index]);
 	}
 }
 
@@ -290,6 +290,8 @@ void apusys_pwr_constraint_check(void)
 	enum DVFS_BUCK buck1;
 	enum DVFS_VOLTAGE voltage0;
 	enum DVFS_VOLTAGE voltage1;
+	enum DVFS_VOLTAGE_DOMAIN buck_domain;
+	bool vcore_constraint = false;
 
 	for (i = 0; i < APUSYS_DVFS_CONSTRAINT_NUM; i++) {
 		buck0 = dvfs_constraint_table[i].buck0;
@@ -298,13 +300,16 @@ void apusys_pwr_constraint_check(void)
 	    voltage1 = dvfs_constraint_table[i].voltage1;
 if (apusys_opps.next_buck_volt[buck0] == voltage0 &&
 	apusys_opps.next_buck_volt[buck1] == voltage1) {
+	if (buck0 == VCORE_BUCK)
+		vcore_constraint = true;
 	for (opp_index = APUSYS_MAX_NUM_OPPS-1;
 		opp_index >= 0; opp_index--) {
 		if (voltage0 < voltage1) {
-			if (apusys_opps.opps[opp_index][buck0].voltage
+			buck_domain = apusys_buck_to_buck_domain[buck0];
+			if (apusys_opps.opps[opp_index][buck_domain].voltage
 	> voltage0) {
 				apusys_opps.next_buck_volt[buck0] =
-			apusys_opps.opps[opp_index][buck0].voltage;
+			apusys_opps.opps[opp_index][buck_domain].voltage;
 
 				PWR_LOG_INF("%s, %s from %d --> %d\n",
 				__func__,
@@ -314,10 +319,11 @@ if (apusys_opps.next_buck_volt[buck0] == voltage0 &&
 				break;
 				}
 		} else if (voltage0 > voltage1) {
-			if (apusys_opps.opps[opp_index][buck1].voltage
+			buck_domain = apusys_buck_to_buck_domain[buck1];
+			if (apusys_opps.opps[opp_index][buck_domain].voltage
 			> voltage1) {
 				apusys_opps.next_buck_volt[buck1] =
-			apusys_opps.opps[opp_index][buck1].voltage;
+			apusys_opps.opps[opp_index][buck_domain].voltage;
 
 				PWR_LOG_INF("%s, %s from %d --> %d\n",
 				__func__,
@@ -330,6 +336,10 @@ if (apusys_opps.next_buck_volt[buck0] == voltage0 &&
 		}
 	}
 }
+
+	if (vcore_constraint == false)
+		apusys_opps.next_buck_volt[VCORE_BUCK] = VCORE_DEFAULT_VOLT;
+
 }
 
 
@@ -721,10 +731,6 @@ void apusys_dvfs_policy(uint64_t round_id)
 
 		for (buck_index = 0; buck_index < APUSYS_BUCK_NUM;
 		buck_index++) {
-			#if !VCORE_DVFS_SUPPORT
-			if (buck_index == VCORE_BUCK)
-				continue;
-			#endif
 			apusys_opps.cur_buck_volt[buck_index] =
 				apusys_opps.next_buck_volt[buck_index];
 			apusys_opps.next_buck_volt[buck_index] =

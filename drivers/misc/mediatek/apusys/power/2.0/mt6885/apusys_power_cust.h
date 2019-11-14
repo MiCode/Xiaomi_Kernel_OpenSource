@@ -44,11 +44,10 @@
 
 
 // FIXME: check default value
-
-#define VCORE_DEFAULT_VOLT	DVFS_VOLT_00_600000_V
-#define VSRAM_DEFAULT_VOLT	DVFS_VOLT_00_825000_V
-#define VVPU_DEFAULT_VOLT	DVFS_VOLT_00_800000_V
-#define VMDLA_DEFAULT_VOLT	DVFS_VOLT_00_800000_V
+#define VCORE_DEFAULT_VOLT	DVFS_VOLT_00_575000_V
+#define VSRAM_DEFAULT_VOLT	DVFS_VOLT_00_750000_V
+#define VVPU_DEFAULT_VOLT	DVFS_VOLT_00_575000_V
+#define VMDLA_DEFAULT_VOLT	DVFS_VOLT_00_575000_V
 
 #define VCORE_SHUTDOWN_VOLT	DVFS_VOLT_00_575000_V
 #define VSRAM_SHUTDOWN_VOLT	DVFS_VOLT_00_750000_V
@@ -146,6 +145,7 @@ extern enum DVFS_VOLTAGE_DOMAIN apusys_user_to_buck_domain
 extern enum DVFS_BUCK apusys_user_to_buck[APUSYS_DVFS_USER_NUM];
 extern enum DVFS_USER apusys_buck_domain_to_user[APUSYS_BUCK_DOMAIN_NUM];
 extern enum DVFS_BUCK apusys_buck_domain_to_buck[APUSYS_BUCK_DOMAIN_NUM];
+extern enum DVFS_VOLTAGE_DOMAIN apusys_buck_to_buck_domain[APUSYS_BUCK_NUM];
 extern uint8_t dvfs_clk_path[APUSYS_DVFS_USER_NUM][APUSYS_PATH_USER_NUM];
 extern uint8_t dvfs_buck_for_clk_path[APUSYS_DVFS_USER_NUM][APUSYS_BUCK_NUM];
 extern enum DVFS_VOLTAGE

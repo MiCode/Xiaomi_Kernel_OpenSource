@@ -71,6 +71,11 @@ enum DVFS_BUCK apusys_buck_domain_to_buck[APUSYS_BUCK_DOMAIN_NUM] = {
 };
 
 
+enum DVFS_VOLTAGE_DOMAIN apusys_buck_to_buck_domain[APUSYS_BUCK_NUM] = {
+	V_VPU0, V_MDLA0, V_VCORE
+};
+
+
 // voltage for clk path
 uint8_t dvfs_clk_path[APUSYS_DVFS_USER_NUM][APUSYS_PATH_USER_NUM] = {
 	{VPU0_VPU, VPU0_APU_CONN, VPU0_TOP_IOMMU, VPU0_VCORE},
@@ -130,7 +135,7 @@ bool buck_shared[APUSYS_BUCK_NUM]
 	},
 };
 
-
+// small voltage first
 struct apusys_dvfs_constraint
 	dvfs_constraint_table[APUSYS_DVFS_CONSTRAINT_NUM] = {
 	{VPU_BUCK, DVFS_VOLT_00_575000_V, MDLA_BUCK, DVFS_VOLT_00_825000_V},
