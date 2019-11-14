@@ -493,6 +493,7 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			goto out;
 		}
 
+		memset(&kmem, 0, sizeof(struct apusys_kmem));
 		apusys_mem_copy_from_user(&mem, &kmem);
 
 		/* free memory, free kernel memory ref count */
@@ -826,6 +827,8 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		if (dev_info == NULL) {
 			LOG_ERR("can't find device(%d/0x%llx) user(%p)\n",
 				dev_alloc.dev_type, dev_alloc.handle, user);
+			ret = -ENODEV;
+			goto out;
 		}
 		ret = put_device_lock(dev_info);
 		if (ret) {

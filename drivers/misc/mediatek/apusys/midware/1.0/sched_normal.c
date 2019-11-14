@@ -122,13 +122,12 @@ int normal_task_remove(struct apusys_subcmd *sc)
 						sc->type, 1);
 				}
 			}
+			return 0;
 		}
 	}
 
-	if (i >= APUSYS_PRIORITY_MAX)
-		return -ENODATA;
-
-	return 0;
+	//if (i >= APUSYS_PRIORITY_MAX)
+	return -ENODATA;
 }
 
 struct apusys_subcmd *normal_task_pop(int type)

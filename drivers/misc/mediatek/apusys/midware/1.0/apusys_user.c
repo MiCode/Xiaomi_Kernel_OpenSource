@@ -642,13 +642,13 @@ int apusys_delete_user(struct apusys_user *u)
 		if (dev_info != NULL) {
 
 			/* power off and release secure mode before put dev */
-			if (!(dev_bit & (1 << dev_info->dev->dev_type))) {
+			if (!(dev_bit & (1ULL << dev_info->dev->dev_type))) {
 				if (res_secure_off(
 					dev_info->dev->dev_type)) {
 					LOG_ERR("dev(%d) secmode off fail\n",
 						dev_info->dev->dev_type);
 				}
-				dev_bit |= (1 << dev_info->dev->dev_type);
+				dev_bit |= (1ULL << dev_info->dev->dev_type);
 			}
 			if (res_power_off(dev_info->dev->dev_type,
 				dev_info->dev->idx)) {
