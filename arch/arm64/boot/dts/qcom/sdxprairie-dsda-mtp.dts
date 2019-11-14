@@ -23,8 +23,18 @@
 };
 
 /* delete pm8150b nodes */
-&soc {
-	/delete-node/ thermal-zones;
+&thermal_zones {
+	/delete-node/ pm8150b-wp-therm;
+	/delete-node/ pm8150b_tz;
+	/delete-node/ pm8150b-ibat-lvl0;
+	/delete-node/ pm8150b-ibat-lvl1;
+	/delete-node/ pm8150b-vbat-lvl0;
+	/delete-node/ pm8150b-vbat-lvl1;
+	/delete-node/ pm8150b-vbat-lvl2;
+	/delete-node/ pm8150b-bcl-lvl0;
+	/delete-node/ pm8150b-bcl-lvl1;
+	/delete-node/ pm8150b-bcl-lvl2;
+	/delete-node/ soc;
 };
 
 &usb {
