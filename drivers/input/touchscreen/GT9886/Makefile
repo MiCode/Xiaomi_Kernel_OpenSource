@@ -9,4 +9,3 @@ obj-y += goodix_ts_i2c.o
 obj-y += goodix_ts_core.o
 obj-y += goodix_cfg_bin.o
 obj-y += goodix_gtx8_update.o
-obj-y += goodix_ts_tools.o
