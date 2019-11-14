@@ -881,6 +881,71 @@ int has_xgf_dep(pid_t tid)
 	return ret;
 }
 
+int gbe2xgf_get_dep_list_num(int pid)
+{
+	struct xgf_render *render_iter;
+	struct hlist_node *n;
+	struct rb_node *out_rbn;
+	struct rb_node *pre_rbn;
+	struct xgf_dep *out_iter;
+	struct xgf_dep *pre_iter;
+	int counts = 0;
+
+	if (!pid)
+		goto out;
+
+	xgf_lock(__func__);
+
+	hlist_for_each_entry_safe(render_iter, n, &xgf_renders, hlist) {
+		if (render_iter->render != pid)
+			continue;
+
+		out_rbn = rb_first(&render_iter->out_deps_list);
+		pre_rbn = rb_first(&render_iter->prev_deps_list);
+
+		while (out_rbn != NULL && pre_rbn != NULL) {
+			out_iter = rb_entry(out_rbn, struct xgf_dep, rb_node);
+			pre_iter = rb_entry(pre_rbn, struct xgf_dep, rb_node);
+
+			if (out_iter->tid < pre_iter->tid) {
+				if (out_iter->render_dep)
+					counts++;
+				out_rbn = rb_next(out_rbn);
+			} else if (out_iter->tid > pre_iter->tid) {
+				if (pre_iter->render_dep)
+					counts++;
+				pre_rbn = rb_next(pre_rbn);
+			} else {
+				if (out_iter->render_dep
+						|| pre_iter->render_dep)
+					counts++;
+				out_rbn = rb_next(out_rbn);
+				pre_rbn = rb_next(pre_rbn);
+			}
+		}
+
+		while (out_rbn != NULL) {
+			out_iter = rb_entry(out_rbn, struct xgf_dep, rb_node);
+			if (out_iter->render_dep)
+				counts++;
+			out_rbn = rb_next(out_rbn);
+		}
+
+		while (pre_rbn != NULL) {
+			pre_iter = rb_entry(pre_rbn, struct xgf_dep, rb_node);
+			if (pre_iter->render_dep)
+				counts++;
+			pre_rbn = rb_next(pre_rbn);
+		}
+	}
+
+	xgf_unlock(__func__);
+
+out:
+	return counts;
+}
+
+
 int fpsgo_fteh2xgf_get_dep_list_num(int pid)
 {
 	struct xgf_render *render_iter;
@@ -944,6 +1009,81 @@ int fpsgo_fteh2xgf_get_dep_list_num(int pid)
 out:
 	return counts;
 }
+
+int gbe2xgf_get_dep_list(int pid, int count, struct gbe_runtime *arr)
+{
+	struct xgf_render *render_iter;
+	struct hlist_node *n;
+	struct rb_node *out_rbn;
+	struct rb_node *pre_rbn;
+	struct xgf_dep *out_iter;
+	struct xgf_dep *pre_iter;
+	int index = 0;
+
+	if (!pid || !count)
+		return 0;
+
+	xgf_lock(__func__);
+
+	hlist_for_each_entry_safe(render_iter, n, &xgf_renders, hlist) {
+		if (render_iter->render != pid)
+			continue;
+
+		out_rbn = rb_first(&render_iter->out_deps_list);
+		pre_rbn = rb_first(&render_iter->prev_deps_list);
+
+		while (out_rbn != NULL && pre_rbn != NULL) {
+			out_iter = rb_entry(out_rbn, struct xgf_dep, rb_node);
+			pre_iter = rb_entry(pre_rbn, struct xgf_dep, rb_node);
+
+			if (out_iter->tid < pre_iter->tid) {
+				if (out_iter->render_dep && index < count) {
+					arr[index].pid = out_iter->tid;
+					index++;
+				}
+				out_rbn = rb_next(out_rbn);
+			} else if (out_iter->tid > pre_iter->tid) {
+				if (pre_iter->render_dep && index < count) {
+					arr[index].pid = pre_iter->tid;
+					index++;
+				}
+				pre_rbn = rb_next(pre_rbn);
+			} else {
+				if ((out_iter->render_dep
+						|| pre_iter->render_dep)
+						&& index < count) {
+					arr[index].pid = out_iter->tid;
+					index++;
+				}
+				out_rbn = rb_next(out_rbn);
+				pre_rbn = rb_next(pre_rbn);
+			}
+		}
+
+		while (out_rbn != NULL) {
+			out_iter = rb_entry(out_rbn, struct xgf_dep, rb_node);
+			if (out_iter->render_dep && index < count) {
+				arr[index].pid = out_iter->tid;
+				index++;
+			}
+			out_rbn = rb_next(out_rbn);
+		}
+
+		while (pre_rbn != NULL) {
+			pre_iter = rb_entry(pre_rbn, struct xgf_dep, rb_node);
+			if (pre_iter->render_dep && index < count) {
+				arr[index].pid = pre_iter->tid;
+				index++;
+			}
+			pre_rbn = rb_next(pre_rbn);
+		}
+	}
+
+	xgf_unlock(__func__);
+
+	return index;
+}
+
 
 int fpsgo_fteh2xgf_get_dep_list(int pid, int count, struct fpsgo_loading *arr)
 {

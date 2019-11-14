@@ -15,5 +15,6 @@
 #
 
 MTK_TOP = $(srctree)/drivers/misc/mediatek/
-ccflags-y  += -I$(MTK_TOP)/performance/fpsgo_v3/fstb/
+ccflags-y  += -I$(MTK_TOP)/performance/fpsgo_v3/base/include/
+
 obj-y += gbe_main.o

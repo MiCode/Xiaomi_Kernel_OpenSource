@@ -48,7 +48,7 @@ static int debug_fix_boost;
 static int cur_uclamp_min[NR_CGROUP];
 static unsigned long uclamp_policy_mask[NR_CGROUP];
 #endif
-static int uclamp_min[NR_CGROUP][EAS_MAX_KIR];
+static int uclamp_min[NR_CGROUP][EAS_UCLAMP_MAX_KIR];
 static int debug_uclamp_min[NR_CGROUP];
 
 static int cur_schedplus_down_throttle_ns;

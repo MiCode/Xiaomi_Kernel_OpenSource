@@ -142,6 +142,12 @@ struct fpsgo_loading {
 	int loading;
 };
 
+struct gbe_runtime {
+	int pid;
+	unsigned long long runtime;
+	unsigned long long loading;
+};
+
 #ifdef FPSGO_DEBUG
 #define FPSGO_LOGI(...)	pr_debug("FPSGO:" __VA_ARGS__)
 #else

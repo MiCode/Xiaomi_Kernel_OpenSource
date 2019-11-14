@@ -14,12 +14,15 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef GBE_USEDEXT_H
-#define GBE_USEDEXT_H
-#include "fpsgo_base.h"
+#ifndef GBE_H
+#define GBE_H
 
-extern int gbe2xgf_get_dep_list_num(int pid);
-extern int gbe2xgf_get_dep_list(int pid, int count, struct gbe_runtime *arr);
+#if defined(CONFIG_MTK_GBE)
+void fpsgo_comp2gbe_frame_update(int pid);
+#else
+static inline void fpsgo_comp2gbe_frame_update(int pid)
+{ }
+#endif
 
 #endif
 

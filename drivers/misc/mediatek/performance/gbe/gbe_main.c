@@ -24,6 +24,7 @@
 #include <linux/kallsyms.h>
 #include <linux/trace_events.h>
 #include "cpu_ctrl.h"
+#include "eas_ctrl.h"
 
 #include <linux/workqueue.h>
 #include <linux/unistd.h>
@@ -31,26 +32,44 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include "gbe_usedext.h"
-#include "fstb_usedext.h"
+#include <linux/random.h>
 
-enum GBE_NOTIFIER_PUSH_TYPE {
-	GBE_NOTIFIER_SWITCH_GBE			= 0x00,
-	GBE_NOTIFIER_RTID		= 0x01,
-};
+#define MAX_DEP_NUM 30
+#define MAIN_LOG_SIZE 256
+#define TIMER1_MS 100
+#define TIMER2_MS 1000
+#define MAX_BOOST_CNT 15
+#define LOADING_TH 25
+#define NUM_FRAME_TO_FREE 5
 
-struct GBE_NOTIFIER_PUSH_TAG {
-	enum GBE_NOTIFIER_PUSH_TYPE ePushType;
-
-	struct hlist_head *list;
-	int enable;
-
-	struct work_struct sWork;
-};
-
-static struct mutex gbe_list_lock;
-static struct workqueue_struct *g_psNotifyWorkQueue;
+static HLIST_HEAD(gbe_boost_units);
+static DEFINE_MUTEX(gbe_lock);
+struct dentry *gbe_debugfs_dir;
 static int gbe_enable;
-static int cluster_num;
+
+enum {
+	NEW_RENDER = 0,
+	FPS_UPDATE,
+	BOOSTING,
+	FREE,
+};
+
+struct gbe_boost_unit {
+	int pid;
+	int state;
+	int boost_cnt;
+	int dep_num;
+	struct gbe_runtime dep[MAX_DEP_NUM]; //latest dep, no accumulate
+	unsigned long long q_ts_ms;
+	unsigned long long runtime_ts_ns;
+
+	struct hrtimer timer1;
+	struct hrtimer timer2;
+	struct work_struct work1;
+	struct work_struct work2;
+
+	struct hlist_node hlist;
+};
 
 static unsigned long __read_mostly tracing_mark_write_addr;
 static inline void __mt_update_tracing_mark_write_addr(void)
@@ -59,6 +78,15 @@ static inline void __mt_update_tracing_mark_write_addr(void)
 		tracing_mark_write_addr =
 			kallsyms_lookup_name("tracing_mark_write");
 }
+static void gbe_trace_printk(int pid, char *module, char *string)
+{
+	__mt_update_tracing_mark_write_addr();
+	preempt_disable();
+	event_trace_printk(tracing_mark_write_addr, "%d [%s] %s\n",
+			pid, module, string);
+	preempt_enable();
+}
+
 static void gbe_trace_count(int tid, int val, const char *fmt, ...)
 {
 	char log[32];
@@ -84,42 +112,21 @@ static void gbe_trace_count(int tid, int val, const char *fmt, ...)
 	preempt_enable();
 }
 
-/* TODO: event register & dispatch */
-int gbe_is_enable(void)
-{
-	int enable;
-
-	mutex_lock(&gbe_list_lock);
-	enable = gbe_enable;
-	mutex_unlock(&gbe_list_lock);
-
-	return enable;
-}
-
-void enable_gbe(int enable)
-{
-	mutex_lock(&gbe_list_lock);
-	gbe_enable = !!enable;
-	mutex_unlock(&gbe_list_lock);
-}
-
-static unsigned long long gbe_get_time(void)
-{
-	unsigned long long temp;
-
-	preempt_disable();
-	temp = cpu_clock(smp_processor_id());
-	preempt_enable();
-
-	return temp;
-}
-
-/***********************************************************/
-/*main logic*/
-static void gbe_boost_cpu(int boost)
+static int cluster_num = 2;
+static void gbe_boost_cpu(void)
 {
 	struct ppm_limit_data *pld;
+	struct gbe_boost_unit *iter;
+	int uclamp_pct;
 	int i;
+	int boost = 0;
+
+	hlist_for_each_entry(iter, &gbe_boost_units, hlist) {
+		if (iter->boost_cnt) {
+			boost = 1;
+			break;
+		}
+	}
 
 	pld =
 		kcalloc(cluster_num, sizeof(struct ppm_limit_data),
@@ -133,271 +140,293 @@ static void gbe_boost_cpu(int boost)
 			pld[i].max = 3000000;
 			pld[i].min = 3000000;
 		}
+		uclamp_pct = 100;
 	} else {
 		for (i = 0; i < cluster_num; i++) {
 			pld[i].max = -1;
 			pld[i].min = -1;
 		}
+		uclamp_pct = 0;
 	}
 
 	update_userlimit_cpu_freq(CPU_KIR_GBE, cluster_num, pld);
+	update_eas_uclamp_min(EAS_UCLAMP_KIR_GBE, CGROUP_TA, uclamp_pct);
 	kfree(pld);
 }
 
-static void gbe_ctrl2comp_fstb_poll(struct hlist_head *list)
+static void update_runtime(struct gbe_boost_unit *iter)
 {
-	struct GBE_FSTB_TID_LIST *iter;
-	struct task_struct *tsk, *gtsk, *sib;
-	struct GBE_BOOST_LIST *gbe_list_iter = NULL;
-	struct hlist_node *t;
-	int tid = 0;
-	int tgid = 0;
-	int boost = 0;
+	int i;
+	struct task_struct *p;
 
-	if (!gbe_is_enable()) {
-		gbe_boost_cpu(0);
-		return;
-	}
+	iter->runtime_ts_ns = ktime_to_ns(ktime_get());
 
-	mutex_lock(&gbe_list_lock);
-
-	hlist_for_each_entry(iter, list, hlist) {
-		tid = iter->tid;
-
+	for (i = 0; i < iter->dep_num; i++) {
 		rcu_read_lock();
-		tsk = find_task_by_vpid(tid);
-
-		if (!tsk) {
+		p = find_task_by_vpid(iter->dep[i].pid);
+		if (!p) {
+			iter->dep[i].runtime = 0;
 			rcu_read_unlock();
-			continue;
-		}
-
-		get_task_struct(tsk);
-		gtsk = tsk->group_leader;
-
-		if (!gtsk) {
-			put_task_struct(tsk);
+		} else {
+			get_task_struct(p);
 			rcu_read_unlock();
-			continue;
-		}
-
-		get_task_struct(gtsk);
-		tgid = gtsk->pid;
-		list_for_each_entry(sib, &gtsk->thread_group, thread_group) {
-			if (!sib)
-				continue;
-
-			get_task_struct(sib);
-
-			hlist_for_each_entry(gbe_list_iter,
-					&gbe_boost_list, hlist) {
-
-				if ((!strncmp("*",
-					gbe_list_iter->process_name, 1) ||
-					!strncmp(gtsk->comm,
-					gbe_list_iter->process_name, 15)) &&
-					!strncmp(sib->comm,
-					gbe_list_iter->thread_name, 15)) {
-
-					gbe_list_iter->pid = tgid;
-					gbe_list_iter->tid = sib->pid;
-					gbe_list_iter->now_task_runtime =
-						task_sched_runtime(sib);
-				}
-			}
-
-			put_task_struct(sib);
-		}
-		put_task_struct(gtsk);
-		put_task_struct(tsk);
-
-		rcu_read_unlock();
-	}
-
-	hlist_for_each_entry(gbe_list_iter, &gbe_boost_list, hlist) {
-
-		gbe_list_iter->cur_ts = gbe_get_time();
-
-		gbe_list_iter->runtime_percent =
-			1000ULL *
-			(gbe_list_iter->now_task_runtime -
-			 gbe_list_iter->last_task_runtime) /
-			(gbe_list_iter->cur_ts - gbe_list_iter->last_ts);
-
-		if (gbe_list_iter->runtime_percent)
-			gbe_trace_count(gbe_list_iter->tid,
-					gbe_list_iter->runtime_percent,
-					"runtime_percent");
-
-		gbe_list_iter->last_task_runtime =
-			gbe_list_iter->now_task_runtime;
-		gbe_list_iter->last_ts = gbe_list_iter->cur_ts;
-
-		if (gbe_list_iter->runtime_percent >
-				gbe_list_iter->runtime_thrs) {
-			boost = 1;
-			gbe_list_iter->boost_cnt++;
-			gbe_trace_count(gbe_list_iter->tid, 1, "gbe_boost");
+			iter->dep[i].runtime = task_sched_runtime(p);
+			put_task_struct(p);
 		}
 	}
 
-	hlist_for_each_entry_safe(iter, t,
-			&gbe_fstb_tid_list, hlist) {
+}
+
+static int check_dep_run_and_update(struct gbe_boost_unit *iter)
+{
+	int i;
+	int ret  = 0;
+	struct task_struct *p;
+	unsigned long long cur_ts_ns = ktime_to_ns(ktime_get());
+	char dep_str[MAIN_LOG_SIZE] = {"\0"};
+	char temp[MAIN_LOG_SIZE] = {"\0"};
+	unsigned long long new_runtime = 0;
+
+	for (i = 0; i < iter->dep_num; i++) {
+		rcu_read_lock();
+		p = find_task_by_vpid(iter->dep[i].pid);
+		if (!p) {
+			iter->dep[i].runtime = 0;
+			iter->dep[i].loading = 0;
+			rcu_read_unlock();
+		} else {
+			get_task_struct(p);
+			rcu_read_unlock();
+			//iter->dep[i].runtime = p->se.avg.util_avg;
+			new_runtime = task_sched_runtime(p);
+			put_task_struct(p);
+
+			iter->dep[i].loading =
+				(new_runtime - iter->dep[i].runtime) * 100
+				/ (cur_ts_ns - iter->runtime_ts_ns);
+			iter->dep[i].runtime = new_runtime;
+		}
+	}
+
+	iter->runtime_ts_ns = cur_ts_ns;
+
+
+	for (i = 0; i < iter->dep_num; i++) {
+		if (iter->dep[i].loading > LOADING_TH)
+			ret = 1;
+
+		if (strlen(dep_str) == 0)
+			snprintf(temp, sizeof(temp), "%d(%llu)",
+				iter->dep[i].pid, iter->dep[i].loading);
+		else
+			snprintf(temp, sizeof(temp), ",%d(%llu)",
+				iter->dep[i].pid, iter->dep[i].loading);
+
+		if (strlen(dep_str) + strlen(temp) < MAIN_LOG_SIZE)
+			strncat(dep_str, temp, strlen(temp));
+	}
+
+	gbe_trace_printk(iter->pid, "gbe", dep_str);
+	gbe_trace_count(iter->pid, ret, "dep_run");
+
+	return ret;
+}
+
+static void gbe_do_timer2(struct work_struct *work)
+{
+	struct gbe_boost_unit *iter;
+	unsigned long long cur_ts_ms = ktime_to_ms(ktime_get());
+
+	iter = container_of(work, struct gbe_boost_unit, work2);
+
+	if (iter == NULL)
+		return;
+
+	mutex_lock(&gbe_lock);
+
+
+	if (iter->state == FREE) {
 		hlist_del(&iter->hlist);
 		kfree(iter);
+	} else if (iter->boost_cnt > MAX_BOOST_CNT) {
+		iter->state = FREE;
+		iter->boost_cnt = 0;
+		gbe_trace_count(iter->pid, iter->boost_cnt, "boost_cnt");
+		gbe_boost_cpu();
+		hrtimer_cancel(&iter->timer2);
+		hrtimer_start(&iter->timer2,
+			ms_to_ktime(TIMER2_MS), HRTIMER_MODE_REL);
+	} else if (check_dep_run_and_update(iter)) {
+		if (cur_ts_ms - iter->q_ts_ms > TIMER1_MS) {
+			iter->boost_cnt++;
+			gbe_trace_count(iter->pid,
+				iter->boost_cnt, "boost_cnt");
+			hrtimer_cancel(&iter->timer2);
+			hrtimer_start(&iter->timer2,
+				ms_to_ktime(TIMER2_MS), HRTIMER_MODE_REL);
+		} else {
+			iter->state = FPS_UPDATE;
+			iter->boost_cnt = 0;
+			gbe_boost_cpu();
+			gbe_trace_count(iter->pid,
+				iter->boost_cnt, "boost_cnt");
+			hrtimer_cancel(&iter->timer1);
+			hrtimer_start(&iter->timer1,
+				ms_to_ktime(TIMER1_MS), HRTIMER_MODE_REL);
+		}
+	} else {
+		iter->state = FREE;
+		iter->boost_cnt = 0;
+		gbe_trace_count(iter->pid, iter->boost_cnt,
+			"boost_cnt");
+		gbe_boost_cpu();
+		hrtimer_cancel(&iter->timer2);
+		hrtimer_start(&iter->timer2,
+			ms_to_ktime(TIMER2_MS), HRTIMER_MODE_REL);
 	}
 
-	gbe_boost_cpu(boost);
 
-	mutex_unlock(&gbe_list_lock);
+	mutex_unlock(&gbe_lock);
 }
-/***********************************************************/
 
-static void gbe_notifier_wq_cb_rtid(struct hlist_head *list)
+static enum hrtimer_restart gbe_timer2_tfn(struct hrtimer *timer)
 {
+	struct gbe_boost_unit *iter;
 
-	if (!gbe_is_enable()) {
-		gbe_boost_cpu(0);
+	iter = container_of(timer, struct gbe_boost_unit, timer2);
+	if (iter == NULL)
+		return HRTIMER_NORESTART;
+	schedule_work(&iter->work2);
+	return HRTIMER_NORESTART;
+}
+
+static inline void gbe_init_timer2(struct gbe_boost_unit *iter)
+{
+	if (iter == NULL)
+		return;
+	hrtimer_init(&iter->timer2, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	iter->timer2.function = &gbe_timer2_tfn;
+	INIT_WORK(&iter->work2, gbe_do_timer2);
+}
+
+static void gbe_do_timer1(struct work_struct *work)
+{
+	struct gbe_boost_unit *iter;
+
+	iter = container_of(work, struct gbe_boost_unit, work1);
+
+	if (iter == NULL)
+		return;
+
+	mutex_lock(&gbe_lock);
+
+	if (check_dep_run_and_update(iter)) {
+		iter->state = BOOSTING;
+		iter->boost_cnt = 1;
+		gbe_boost_cpu();
+		gbe_trace_count(iter->pid, iter->boost_cnt, "boost_cnt");
+		gbe_init_timer2(iter);
+		hrtimer_start(&iter->timer2, ms_to_ktime(TIMER2_MS),
+			HRTIMER_MODE_REL);
+	} else {
+		iter->state = FREE;
+		gbe_init_timer2(iter);
+		hrtimer_start(&iter->timer2, ms_to_ktime(TIMER2_MS),
+			HRTIMER_MODE_REL);
+	}
+	mutex_unlock(&gbe_lock);
+}
+
+static enum hrtimer_restart gbe_timer1_tfn(struct hrtimer *timer)
+{
+	struct gbe_boost_unit *iter;
+
+	iter = container_of(timer, struct gbe_boost_unit, timer1);
+	if (iter == NULL)
+		return HRTIMER_NORESTART;
+	schedule_work(&iter->work1);
+	return HRTIMER_NORESTART;
+}
+
+static inline void gbe_init_timer1(struct gbe_boost_unit *iter)
+{
+	if (iter == NULL)
+		return;
+	hrtimer_init(&iter->timer1, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	iter->timer1.function = &gbe_timer1_tfn;
+	INIT_WORK(&iter->work1, gbe_do_timer1);
+}
+
+void fpsgo_comp2gbe_frame_update(int pid)
+{
+	struct gbe_boost_unit *iter;
+
+
+	mutex_lock(&gbe_lock);
+
+	if (!gbe_enable) {
+		mutex_unlock(&gbe_lock);
 		return;
 	}
 
-	gbe_ctrl2comp_fstb_poll(list);
-}
+	hlist_for_each_entry(iter, &gbe_boost_units, hlist) {
+		if (iter->pid == pid)
+			break;
+	}
 
-#define GBE_CONTAINER_OF(ptr, type, member) \
-	((type *)(((char *)ptr) - offsetof(type, member)))
+	if (iter == NULL) {
+		iter =
+			kzalloc(sizeof(*iter), GFP_KERNEL);
 
-static void gbe_notifier_wq_cb(struct work_struct *psWork)
-{
-	struct GBE_NOTIFIER_PUSH_TAG *vpPush =
-		GBE_CONTAINER_OF(psWork,
-				struct GBE_NOTIFIER_PUSH_TAG, sWork);
+		if (iter == NULL)
+			goto out;
 
-	if (!vpPush)
-		return;
+		iter->pid = pid;
+		iter->state = NEW_RENDER;
+		hlist_add_head(&iter->hlist,
+			&gbe_boost_units);
+	}
 
-	switch (vpPush->ePushType) {
-	case GBE_NOTIFIER_RTID:
-		gbe_notifier_wq_cb_rtid(vpPush->list);
+	switch (iter->state) {
+	case NEW_RENDER:
+		iter->dep_num = gbe2xgf_get_dep_list_num(pid);
+		iter->dep_num = iter->dep_num > MAX_DEP_NUM ?
+			MAX_DEP_NUM : iter->dep_num;
+		gbe2xgf_get_dep_list(pid, iter->dep_num, iter->dep);
+		update_runtime(iter);
+
+		iter->state = FPS_UPDATE;
+		gbe_trace_count(iter->pid, iter->boost_cnt, "boost_cnt");
+		gbe_init_timer1(iter);
+		hrtimer_start(&iter->timer1, ms_to_ktime(TIMER1_MS),
+			HRTIMER_MODE_REL);
+		break;
+	case FPS_UPDATE:
+		iter->dep_num = gbe2xgf_get_dep_list_num(pid);
+		iter->dep_num = iter->dep_num > MAX_DEP_NUM ?
+			MAX_DEP_NUM : iter->dep_num;
+		gbe2xgf_get_dep_list(pid, iter->dep_num, iter->dep);
+		update_runtime(iter);
+
+		hrtimer_cancel(&iter->timer1);
+		hrtimer_start(&iter->timer1, ms_to_ktime(TIMER1_MS),
+			HRTIMER_MODE_REL);
+		break;
+	case BOOSTING:
+		iter->q_ts_ms = ktime_to_ms(ktime_get());
+		break;
+	case FREE:
 		break;
 	default:
 		break;
 	}
 
-	kfree(vpPush);
-}
-
-void gbe_notify_fstb_poll(struct hlist_head *list)
-{
-	struct GBE_NOTIFIER_PUSH_TAG *vpPush;
-	struct GBE_FSTB_TID_LIST *gbe_iter;
-	struct FSTB_FRAME_INFO *fstb_iter;
-
-
-	if (!gbe_is_enable())
-		return;
-
-	vpPush =
-		(struct GBE_NOTIFIER_PUSH_TAG *)
-		kmalloc(sizeof(struct GBE_NOTIFIER_PUSH_TAG), GFP_ATOMIC);
-
-	if (!vpPush)
-		return;
-
-	if (!g_psNotifyWorkQueue) {
-		kfree(vpPush);
-		return;
-	}
-
-
-	hlist_for_each_entry(fstb_iter, list, hlist) {
-
-		gbe_iter = kzalloc(sizeof(*gbe_iter), GFP_KERNEL);
-
-		if (gbe_iter) {
-			gbe_iter->tid = fstb_iter->pid;
-			hlist_add_head(&gbe_iter->hlist, &gbe_fstb_tid_list);
-		}
-	}
-
-	vpPush->ePushType = GBE_NOTIFIER_RTID;
-	vpPush->list = &gbe_fstb_tid_list;
-
-	INIT_WORK(&vpPush->sWork, gbe_notifier_wq_cb);
-	queue_work(g_psNotifyWorkQueue, &vpPush->sWork);
-}
-
-#define MAX_GBE_BOOST_LIST_LENGTH 20
-static int gbe_boost_list_length;
-int set_gbe_boost_list(char *proc_name,
-		char *thrd_name, unsigned long long runtime_thrs)
-{
-	struct GBE_BOOST_LIST *new_gbe_boost_list;
-	int retval = 0;
-
-	mutex_lock(&gbe_list_lock);
-
-	if (!strncmp("0", proc_name, 1) &&
-			!strncmp("0", thrd_name, 1) &&
-			runtime_thrs == 0) {
-
-		struct GBE_BOOST_LIST *iter;
-		struct hlist_node *t;
-
-		hlist_for_each_entry_safe(iter, t,
-				&gbe_boost_list, hlist) {
-			hlist_del(&iter->hlist);
-			kfree(iter);
-		}
-
-		gbe_boost_list_length = 0;
-		goto out;
-	}
-
-	if (gbe_boost_list_length >= MAX_GBE_BOOST_LIST_LENGTH) {
-		retval = -ENOMEM;
-		goto out;
-	}
-
-	new_gbe_boost_list =
-		kzalloc(sizeof(*new_gbe_boost_list), GFP_KERNEL);
-	if (new_gbe_boost_list == NULL) {
-		retval = -ENOMEM;
-		goto out;
-	}
-
-	if (!strncpy(
-				new_gbe_boost_list->process_name,
-				proc_name, 16)) {
-		kfree(new_gbe_boost_list);
-		retval = -ENOMEM;
-		goto out;
-	}
-	new_gbe_boost_list->process_name[15] = '\0';
-
-	if (!strncpy(
-				new_gbe_boost_list->thread_name,
-				thrd_name, 16)) {
-		kfree(new_gbe_boost_list);
-		retval = -ENOMEM;
-		goto out;
-	}
-	new_gbe_boost_list->thread_name[15] = '\0';
-
-	new_gbe_boost_list->runtime_thrs = runtime_thrs;
-
-	hlist_add_head(&new_gbe_boost_list->hlist,
-			&gbe_boost_list);
-
-	gbe_boost_list_length++;
-
 out:
-	mutex_unlock(&gbe_list_lock);
+	mutex_unlock(&gbe_lock);
 
-	return retval;
 }
 
-#define FPSGO_DEBUGFS_ENTRY(name) \
+#define GBE_DEBUGFS_ENTRY(name) \
 	static int gbe_##name##_open(struct inode *i, struct file *file) \
 { \
 	return single_open(file, gbe_##name##_show, i->i_private); \
@@ -414,61 +443,58 @@ static const struct file_operations gbe_##name##_fops = { \
 
 static int gbe_enable_show(struct seq_file *m, void *unused)
 {
-	seq_printf(m, "%d\n", gbe_is_enable());
+	mutex_lock(&gbe_lock);
+	seq_printf(m, "%d\n", gbe_enable);
+	mutex_unlock(&gbe_lock);
 	return 0;
 }
 
 static ssize_t gbe_enable_write(struct file *flip,
 		const char *ubuf, size_t cnt, loff_t *data)
 {
-	char buf[64];
-	int val;
+
 	int ret;
+	int val;
 
-	if (cnt >= sizeof(buf))
-		return -EINVAL;
-
-	if (copy_from_user(buf, ubuf, cnt))
-		return -EFAULT;
-
-	buf[cnt] = 0;
-
-	ret = kstrtoint(buf, 10, &val);
-	if (ret < 0)
+	ret = kstrtoint_from_user(ubuf, cnt, 0, &val);
+	if (ret)
 		return ret;
 
-	enable_gbe(val);
+	if ((val < 0) || (val > 1))
+		return -EINVAL;
+
+	mutex_lock(&gbe_lock);
+	gbe_enable = val;
+	mutex_unlock(&gbe_lock);
 
 	return cnt;
 }
 
-FPSGO_DEBUGFS_ENTRY(enable);
+GBE_DEBUGFS_ENTRY(enable);
 
 static int gbe_boost_list_show(struct seq_file *m, void *unused)
 {
-	struct GBE_BOOST_LIST *gbe_list_iter = NULL;
+	struct gbe_boost_unit *iter;
+	int i;
 
-	seq_printf(m, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-			"process_name",
-			"thread_name",
-			"pid",
-			"tid",
-			"runtime_thrs",
-			"runtime_percent",
-			"now_task_runtime",
-			"boost_cnt");
-
-	hlist_for_each_entry(gbe_list_iter, &gbe_boost_list, hlist) {
-		seq_printf(m, "%s\t%s\t%d\t%d\t%llu\t\t%llu\t\t%llu\t\t%llu\n",
-				gbe_list_iter->process_name,
-				gbe_list_iter->thread_name,
-				gbe_list_iter->pid,
-				gbe_list_iter->tid,
-				gbe_list_iter->runtime_thrs,
-				gbe_list_iter->runtime_percent,
-				gbe_list_iter->now_task_runtime,
-				gbe_list_iter->boost_cnt);
+	mutex_lock(&gbe_lock);
+	hlist_for_each_entry(iter, &gbe_boost_units, hlist) {
+		seq_printf(m, "%s\t%s\t%s\t%s\n",
+				"pid",
+				"state",
+				"boost_cnt",
+				"dep_num");
+		seq_printf(m, "%d\t%d\t%d\t%d\n",
+				iter->pid,
+				iter->state,
+				iter->boost_cnt,
+				iter->dep_num);
+		seq_puts(m, "dep-list:\n");
+		for (i = 0; i < iter->dep_num; i++)
+			seq_printf(m, "%d ", iter->dep[i].pid);
+		seq_puts(m, "\n");
 	}
+	mutex_unlock(&gbe_lock);
 
 	return 0;
 }
@@ -476,45 +502,16 @@ static int gbe_boost_list_show(struct seq_file *m, void *unused)
 static ssize_t gbe_boost_list_write(struct file *flip,
 		const char *buffer, size_t count, loff_t *data)
 {
-	int ret = count;
-	char *buf;
-	char proc_name[16], thrd_name[16];
-	unsigned long long runtime_thrs;
-
-	if (count > 256)
-		return -ENOMEM;
-
-	buf = kmalloc(count + 1, GFP_KERNEL);
-	if (buf == NULL)
-		return -ENOMEM;
-
-	if (copy_from_user(buf, buffer, count)) {
-		ret = -EFAULT;
-		goto err;
-	}
-	buf[count] = '\0';
-
-	if (sscanf(buf, "%16s %16s %llu",
-			proc_name,
-			thrd_name,
-			&runtime_thrs) != 3) {
-		ret = -EINVAL;
-		goto err;
-	}
-
-	if (set_gbe_boost_list(proc_name, thrd_name, runtime_thrs))
-		ret = -EINVAL;
-
-
-err:
-	kfree(buf);
-	return ret;
+	return count;
 }
 
-FPSGO_DEBUGFS_ENTRY(boost_list);
+GBE_DEBUGFS_ENTRY(boost_list);
 
-struct dentry *gbe_debugfs_dir;
-int init_gbe_common(void)
+static void __exit gbe_exit(void)
+{
+}
+
+static int __init gbe_init(void)
 {
 	gbe_debugfs_dir = debugfs_create_dir("gbe", NULL);
 	if (!gbe_debugfs_dir)
@@ -532,22 +529,6 @@ int init_gbe_common(void)
 			gbe_debugfs_dir,
 			NULL,
 			&gbe_boost_list_fops);
-
-	return 0;
-}
-
-static void __exit gbe_exit(void)
-{
-}
-
-static int __init gbe_init(void)
-{
-	gbe_fstb2gbe_poll_fp = gbe_notify_fstb_poll;
-	g_psNotifyWorkQueue =
-		create_singlethread_workqueue("gbe_notifier_wq");
-	cluster_num = 2;
-
-	init_gbe_common();
 
 	return 0;
 }
