@@ -415,6 +415,10 @@ s64 gpu_pwr_lmt_latest_delay;
 unsigned int gpu_pwr_lmt_cnt = 1;
 #endif
 
+
+#if defined(THERMAL_APU_UNLIMIT)
+static unsigned long total_apu_polling_time;
+#endif
 /*=============================================================
  *Local function prototype
  *=============================================================
@@ -1043,7 +1047,14 @@ EXPORT_SYMBOL(tscpu_get_min_gpu_pwr);
 #if defined(THERMAL_VPU_SUPPORT)
 int tscpu_get_min_vpu_pwr(void)
 {
+#if defined(THERMAL_APU_UNLIMIT)
+	if (cl_get_apu_status() == 1)
+		return MAXIMUM_VPU_POWER;
+	else
+		return MINIMUM_VPU_POWER;
+#else
 	return MINIMUM_VPU_POWER;
+#endif
 }
 EXPORT_SYMBOL(tscpu_get_min_vpu_pwr);
 #endif
@@ -1051,7 +1062,14 @@ EXPORT_SYMBOL(tscpu_get_min_vpu_pwr);
 #if defined(THERMAL_MDLA_SUPPORT)
 int tscpu_get_min_mdla_pwr(void)
 {
+#if defined(THERMAL_APU_UNLIMIT)
+	if (cl_get_apu_status() == 1)
+		return MAXIMUM_MDLA_POWER;
+	else
+		return MINIMUM_MDLA_POWER;
+#else
 	return MINIMUM_MDLA_POWER;
+#endif
 }
 EXPORT_SYMBOL(tscpu_get_min_mdla_pwr);
 #endif
@@ -1176,12 +1194,17 @@ static int adjust_gpu_power(int power)
 static int EARA_handled(int total_power)
 {
 #if defined(EARA_THERMAL_SUPPORT)
-	int ret;
+	int ret = 0;
 	int total_power_eara;
 
 #if defined(CATM_TPCB_EXTEND)
 	if (!g_turbo_bin)
 		return 0;
+#endif
+#if defined(THERMAL_APU_UNLIMIT)
+	if (cl_get_apu_status() == 1) {/*APU hint*/
+		total_power = 0;/*let EARA unlimit VPU/MDLA freq*/
+	}
 #endif
 
 #if defined(THERMAL_VPU_SUPPORT) && defined(THERMAL_MDLA_SUPPORT)
@@ -1424,22 +1447,50 @@ static int P_adaptive(int total_power, unsigned int gpu_loading)
 	tscpu_dprintk("%s cpu %d, gpu %d\n", __func__, cpu_power, gpu_power);
 
 #if defined(THERMAL_VPU_SUPPORT)
+	/*APU hint*/
+#if defined(THERMAL_APU_UNLIMIT)
+	if (cl_get_apu_status() == 1) {
+		set_adaptive_vpu_power_limit(0);
+	} else {
+		if (vpu_power != last_vpu_power) {
+			if (vpu_power >= MAXIMUM_VPU_POWER)
+				set_adaptive_vpu_power_limit(0);
+			else
+				set_adaptive_vpu_power_limit(vpu_power);
+		}
+	}
+#else
 	if (vpu_power != last_vpu_power) {
 		if (vpu_power >= MAXIMUM_VPU_POWER)
 			set_adaptive_vpu_power_limit(0);
 		else
 			set_adaptive_vpu_power_limit(vpu_power);
 	}
+#endif
 	tscpu_dprintk("%s vpu %d\n",
 		__func__, vpu_power);
 #endif
 #if defined(THERMAL_MDLA_SUPPORT)
+	/*APU hint*/
+#if defined(THERMAL_APU_UNLIMIT)
+	if (cl_get_apu_status() == 1) {
+		set_adaptive_mdla_power_limit(0);
+	} else {
+		if (mdla_power != last_mdla_power) {
+			if (mdla_power >= MAXIMUM_MDLA_POWER)
+				set_adaptive_mdla_power_limit(0);
+			else
+				set_adaptive_mdla_power_limit(mdla_power);
+		}
+	}
+#else
 	if (mdla_power != last_mdla_power) {
 		if (mdla_power >= MAXIMUM_MDLA_POWER)
 			set_adaptive_mdla_power_limit(0);
 		else
 			set_adaptive_mdla_power_limit(mdla_power);
 	}
+#endif
 	tscpu_dprintk("%s mdla %d\n",
 		__func__, mdla_power);
 #endif
@@ -3512,6 +3563,25 @@ exit:
 #endif
 
 	polling_time = atm_get_timeout_time(atm_curr_maxtj);
+
+#if defined(THERMAL_APU_UNLIMIT)
+	if (cl_get_apu_status() == 1) {/*flag not be cleared*/
+		total_apu_polling_time =
+			total_apu_polling_time + polling_time;
+	} else {
+		/*flag is cleared, clear timer*/
+		total_apu_polling_time = 0;
+	}
+
+	/*count till 10 sec(10000ms) timeout*/
+	if (total_apu_polling_time >= 10000) {
+		total_apu_polling_time = 0;
+		cl_set_apu_status(0);//clear apu flag
+
+		tscpu_printk("%s ainr: total_apu_polling_time = 0\n",
+			__func__);
+	}
+#endif
 
 #if KRTATM_TIMER == KRTATM_HR
 
