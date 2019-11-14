@@ -5399,7 +5399,7 @@ struct mtk_power_gate scp_clks[] __initdata = {
 	PGATE(SCP_SYS_MFG4, "PG_MFG4", "PG_MFG1", NULL, SYS_MFG4),
 	PGATE(SCP_SYS_MFG5, "PG_MFG5", "PG_MFG1", NULL, SYS_MFG5),
 	PGATE(SCP_SYS_MFG6, "PG_MFG6", "PG_MFG1", NULL, SYS_MFG6),
-	PGATE(SCP_SYS_ISP, "PG_ISP", "PG_DIS", "img1_sel", SYS_ISP),
+	PGATE(SCP_SYS_ISP, "PG_ISP", "PG_MDP", "img1_sel", SYS_ISP),
 	PGATE(SCP_SYS_ISP2, "PG_ISP2", "PG_DIS", "img2_sel", SYS_ISP2), /* MDP*/
 	PGATE(SCP_SYS_IPE, "PG_IPE", "PG_DIS", "ipe_sel", SYS_IPE), /* MDP */
 	PGATE(SCP_SYS_VDEC, "PG_VDEC", "PG_DIS", "vdec_sel", SYS_VDE),
