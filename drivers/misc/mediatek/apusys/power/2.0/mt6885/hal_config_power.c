@@ -754,7 +754,7 @@ static void get_current_power_info(void *param)
 		check_spm_register(info);
 
 		snprintf(log_str, sizeof(log_str),
-			"v[%u,%u,%u,%u]f[%u,%u,%u,%u,%u,%u,%u]r[%x,%x,%x,%x,%x,%x,%x,%x,%x]",
+			"v[%u,%u,%u,%u]f[%u,%u,%u,%u,%u,%u,%u]r[%x,%x,%x,%x,%x,%x,%x,%x,%x]%llu",
 			info->vvpu, info->vmdla, info->vcore, info->vsram,
 			info->dsp_freq, info->dsp1_freq, info->dsp2_freq,
 			info->dsp3_freq, info->dsp6_freq, info->dsp7_freq,
@@ -762,14 +762,14 @@ static void get_current_power_info(void *param)
 			info->vcore_cg_stat, info->conn_cg_stat,
 			info->vpu0_cg_stat, info->vpu1_cg_stat,
 			info->vpu2_cg_stat, info->mdla0_cg_stat,
-			info->mdla1_cg_stat);
+			info->mdla1_cg_stat, info->id);
 	} else {
 		snprintf(log_str, sizeof(log_str),
-			"v[%u,%u,%u,%u]f[%u,%u,%u,%u,%u,%u,%u]",
+			"v[%u,%u,%u,%u]f[%u,%u,%u,%u,%u,%u,%u]%llu",
 			info->vvpu, info->vmdla, info->vcore, info->vsram,
 			info->dsp_freq, info->dsp1_freq, info->dsp2_freq,
 			info->dsp3_freq, info->dsp6_freq, info->dsp7_freq,
-			info->ipuif_freq);
+			info->ipuif_freq, info->id);
 	}
 
 	trace_APUSYS_DFS(info, mdla_0, mdla_1);
@@ -933,7 +933,7 @@ static int set_power_boot_up(enum DVFS_USER user, void *param)
 	if (ret)
 		LOG_ERR("%s fail, ret = %d\n", __func__, ret);
 	else
-		LOG_PM("%s pass, ret = %d\n", __func__, ret);
+		LOG_DBG("%s pass, ret = %d\n", __func__, ret);
 
 	power_on_counter++;
 	return ret;
@@ -967,7 +967,7 @@ static int set_power_shut_down(enum DVFS_USER user, void *param)
 	if (ret)
 		LOG_ERR("%s fail, ret = %d\n", __func__, ret);
 	else
-		LOG_PM("%s pass, ret = %d\n", __func__, ret);
+		LOG_DBG("%s pass, ret = %d\n", __func__, ret);
 
 	power_on_counter--;
 	return ret;

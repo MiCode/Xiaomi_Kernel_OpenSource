@@ -17,6 +17,7 @@
 #include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/mutex.h>
+#include <linux/spinlock_types.h>
 #include <linux/jiffies.h>
 #include <linux/sched.h>
 #include <linux/kthread.h>
@@ -37,6 +38,7 @@ int g_pm_procedure;
 static int apu_power_counter;
 static int apusys_power_broken;
 static int power_on_off_stress;
+static uint64_t power_info_id;
 
 bool apusys_power_check(void)
 {
@@ -75,6 +77,7 @@ static LIST_HEAD(power_callback_device_list);
 static struct mutex power_device_list_mtx;
 static struct mutex power_ctl_mtx;
 static struct mutex power_opp_mtx;
+static spinlock_t power_info_lock;
 static int power_callback_counter;
 static struct task_struct *power_task_handle;
 static uint64_t timestamp;
@@ -127,9 +130,15 @@ uint64_t get_current_time_us(void)
 	return ((t.tv_sec & 0xFFF) * 1000000 + t.tv_usec);
 }
 
-void apu_get_power_info(void)
+uint64_t apu_get_power_info(void)
 {
+	spin_lock(&power_info_lock);
+	power_info_id = get_current_time_us();
+	spin_unlock(&power_info_lock);
+
 	queue_work(wq, &d_work_power_info);
+
+	return power_info_id;
 }
 EXPORT_SYMBOL(apu_get_power_info);
 
@@ -238,7 +247,7 @@ int apu_device_power_suspend(enum DVFS_USER user, int is_suspend)
 		return -1;
 	}
 
-	LOG_PM("%s waiting for lock, user = %d\n", __func__, user);
+	LOG_DBG("%s waiting for lock, user = %d\n", __func__, user);
 	mutex_lock(&power_ctl_mtx);
 
 	if (is_suspend)
@@ -246,19 +255,22 @@ int apu_device_power_suspend(enum DVFS_USER user, int is_suspend)
 
 	if (apusys_power_broken) {
 		mutex_unlock(&power_ctl_mtx);
-		LOG_ERR("APUPWR_BROKEN, user:%d fail to pwr off\n", user);
+		LOG_ERR(
+		"APUPWR_BROKEN, user:%d fail to pwr off, is_suspend:%d\n",
+							user, is_suspend);
 		return -ENODEV;
 	}
 
 	if (pwr_dev->is_power_on == 0) {
 		mutex_unlock(&power_ctl_mtx);
-		LOG_ERR("APUPWR_OFF_FAIL, not allow user:%d to pwr off twice\n",
-									user);
+		LOG_ERR(
+		"APUPWR_OFF_FAIL, not allow user:%d to pwr off twice, is_suspend:%d\n",
+							user, is_suspend);
 		return -ECANCELED;
 	}
 
-	LOG_INF("%s for user : %d, cnt : %d\n", __func__,
-						user, apu_power_counter);
+	LOG_DBG("%s for user:%d, cnt:%d, is_suspend:%d\n", __func__,
+				user, power_callback_counter, is_suspend);
 
 	if (!g_pm_procedure)
 		apu_pwr_wake_lock();
@@ -288,13 +300,17 @@ int apu_device_power_suspend(enum DVFS_USER user, int is_suspend)
 		apu_pwr_wake_unlock();
 
 	mutex_unlock(&power_ctl_mtx);
-	apu_get_power_info();
+	LOG_PM("%s for user:%d, ret:%d, cnt:%d, is_suspend:%d, info_id: %llu\n",
+					__func__, user, ret,
+					power_callback_counter, is_suspend,
+					apu_get_power_info());
 #else
 	LOG_WRN("%s by user:%d bypass\n", __func__, user);
 #endif // BYPASS_POWER_OFF
 
 	if (ret) {
-		LOG_ERR("APUPWR_OFF_FAIL, user:%d\n", user);
+		apu_aee_warn("APUPWR_OFF_FAIL", "user:%d, is_suspend:%d\n",
+							user, is_suspend);
 		return -ENODEV;
 	} else {
 		return 0;
@@ -318,7 +334,7 @@ int apu_device_power_on(enum DVFS_USER user)
 		return -1;
 	}
 
-	LOG_PM("%s waiting for lock, user = %d\n", __func__, user);
+	LOG_DBG("%s waiting for lock, user:%d\n", __func__, user);
 	mutex_lock(&power_ctl_mtx);
 
 	g_pm_procedure = 0;
@@ -336,8 +352,8 @@ int apu_device_power_on(enum DVFS_USER user)
 		return -ECANCELED;
 	}
 
-	LOG_INF("%s for user : %d, cnt : %d\n", __func__,
-						user, apu_power_counter);
+	LOG_DBG("%s for user:%d, cnt:%d\n", __func__,
+						user, power_callback_counter);
 
 	if (!g_pm_procedure)
 		apu_pwr_wake_lock();
@@ -364,10 +380,12 @@ int apu_device_power_on(enum DVFS_USER user)
 		apu_pwr_wake_unlock();
 
 	mutex_unlock(&power_ctl_mtx);
-	apu_get_power_info();
+	LOG_PM("%s for user:%d, ret:%d, cnt:%d, info_id: %llu\n",
+				__func__, user, ret, power_callback_counter,
+				apu_get_power_info());
 
 	if (ret) {
-		LOG_ERR("APUPWR_ON_FAIL, user=%d\n", user);
+		apu_aee_warn("APUPWR_ON_FAIL", "user:%d\n", user);
 		return -ENODEV;
 	} else {
 		return 0;
@@ -481,7 +499,10 @@ static void d_work_power_info_func(struct work_struct *work)
 {
 	struct apu_power_info info;
 
-	info.id = timestamp;
+	spin_lock(&power_info_lock);
+	info.id = power_info_id;
+	spin_unlock(&power_info_lock);
+
 	info.type = 1;
 	hal_config_power(PWR_CMD_GET_POWER_INFO, VPU0, &info);
 }
@@ -749,6 +770,7 @@ static int apu_power_probe(struct platform_device *pdev)
 	mutex_init(&power_device_list_mtx);
 	mutex_init(&power_ctl_mtx);
 	mutex_init(&power_opp_mtx);
+	spin_lock_init(&power_info_lock);
 
 	#if AUTO_BUCK_OFF_SUSPEND
 	// buck auto power off in suspend
