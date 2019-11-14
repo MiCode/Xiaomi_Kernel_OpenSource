@@ -1482,8 +1482,8 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 	int session_id, id;
 	unsigned int ovl_status = 0;
 
-	DDPINFO("%s:%d, data:%px, cb_data:%px\n",
-		__func__, __LINE__,
+	DDPINFO("%s:%d +\n", __func__, __LINE__);
+	DDPINFO("data:%px, cb_data:%px\n",
 		&data, cb_data);
 	DDPINFO("crtc_state:%px, atomic_state:%px, crtc:%px\n",
 		crtc_state,
@@ -1527,6 +1527,7 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 	cmdq_pkt_destroy(cb_data->cmdq_handle);
 	kfree(cb_data);
 
+	DDPINFO("%s:%d -\n", __func__, __LINE__);
 }
 
 #else
@@ -1665,6 +1666,22 @@ static void mtk_crtc_comp_trigger(struct mtk_drm_crtc *mtk_crtc,
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
 		mtk_ddp_comp_config_trigger(comp, cmdq_handle, trig_flag);
 }
+
+int mtk_crtc_comp_is_busy(struct mtk_drm_crtc *mtk_crtc)
+{
+	int ret = 0;
+	int i, j;
+	struct mtk_ddp_comp *comp;
+
+	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) {
+		ret = mtk_ddp_comp_is_busy(comp);
+		if (ret)
+			return ret;
+	}
+
+	return ret;
+}
+
 /* TODO: need to remove this in vdo mode for lowpower */
 static void trig_done_cb(struct cmdq_cb_data data)
 {
@@ -2160,11 +2177,17 @@ void mtk_crtc_stop(struct mtk_drm_crtc *mtk_crtc)
 	struct mtk_ddp_comp *comp;
 	int i, j;
 	u32 bw_mode = DISP_BW_NORMAL_MODE;
+	unsigned int crtc_id = drm_crtc_index(&mtk_crtc->base);
+
+	DDPINFO("%s:%d +\n", __func__, __LINE__);
 
 	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
 		mtk_crtc->gce_obj.client[CLIENT_CFG]);
 
-	if (mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
+	if (crtc_id == 2) {
+		cmdq_pkt_wfe(cmdq_handle,
+			     mtk_crtc->gce_obj.event[EVENT_WDMA0_EOF]);
+	} else if (mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
 		/* 1. wait stream eof & clear tocken */
 		/* clear eof token to prevent any config after this command */
 		cmdq_pkt_wfe(cmdq_handle,
@@ -2195,6 +2218,8 @@ void mtk_crtc_stop(struct mtk_drm_crtc *mtk_crtc)
 	/* 4. stop trig loop  */
 	if (mtk_crtc_with_trigger_loop(&mtk_crtc->base))
 		mtk_crtc_stop_trig_loop(mtk_crtc);
+
+	DDPINFO("%s:%d -\n", __func__, __LINE__);
 }
 
 /* TODO: how to remove add-on module? */
@@ -2550,7 +2575,8 @@ void mtk_drm_crtc_disable(struct drm_crtc *crtc)
 			__func__);
 		return;
 	}
-	DDPMSG("%s, crtc%d\n", __func__, crtc_id);
+	DDPINFO("%s:%d +\n", __func__, __LINE__);
+	DDPINFO("crtc%d\n", crtc_id);
 
 	/* 1. kick idle */
 	mtk_drm_idlemgr_kick(__func__, crtc, 0);
@@ -2579,6 +2605,8 @@ void mtk_drm_crtc_disable(struct drm_crtc *crtc)
 
 	/* 9. disable fake vsync if need */
 	mtk_drm_fake_vsync_switch(crtc, false);
+
+	DDPINFO("%s:%d -\n", __func__, __LINE__);
 }
 
 #ifdef MTK_DRM_FENCE_SUPPORT
@@ -4338,8 +4366,9 @@ int mtk_crtc_path_switch(struct drm_crtc *crtc, unsigned int ddp_mode,
 		goto done;
 	}
 
-	DDPINFO("%s crtc%d path switch(%d->%d)\n",
-		__func__, drm_crtc_index(crtc),
+	DDPINFO("%s:%d +\n", __func__, __LINE__);
+	DDPINFO("crtc%d path switch(%d->%d)\n",
+		drm_crtc_index(crtc),
 		mtk_crtc->ddp_mode, ddp_mode);
 	mtk_drm_idlemgr_kick(__func__, crtc, 0);
 
@@ -4385,7 +4414,7 @@ done:
 	CRTC_MMP_EVENT_END(index, path_switch, crtc->enabled,
 			need_lock);
 
-	DDPINFO("%s-\n", __func__);
+	DDPINFO("%s:%d -\n", __func__, __LINE__);
 	return 0;
 }
 

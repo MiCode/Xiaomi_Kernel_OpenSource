@@ -277,6 +277,18 @@ static void mtk_wdma_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	mtk_ddp_write(comp, 0x00, DISP_REG_WDMA_RST, handle);
 }
 
+static int mtk_wdma_is_busy(struct mtk_ddp_comp *comp)
+{
+	int ret, tmp;
+
+	tmp = readl(comp->regs + DISP_REG_WDMA_FLOW_CTRL_DBG);
+	ret = ((tmp & FLOW_CTRL_DBG_FLD_WDMA_STA_FLOW_CTRL) != 0x1) ? 1 : 0;
+
+	DDPINFO("%s:%d is:%d regs:0x%x\n", __func__, __LINE__, ret, tmp);
+
+	return ret;
+}
+
 static void mtk_wdma_prepare(struct mtk_ddp_comp *comp)
 {
 	mtk_ddp_comp_clk_prepare(comp);
@@ -1091,6 +1103,7 @@ static const struct mtk_ddp_comp_funcs mtk_disp_wdma_funcs = {
 	.stop = mtk_wdma_stop,
 	.prepare = mtk_wdma_prepare,
 	.unprepare = mtk_wdma_unprepare,
+	.is_busy = mtk_wdma_is_busy,
 };
 
 static int mtk_disp_wdma_bind(struct device *dev, struct device *master,

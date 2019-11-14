@@ -269,6 +269,7 @@ struct mtk_ddp_comp_funcs {
 		      unsigned int cmd, void *params);
 	void (*connect)(struct mtk_ddp_comp *comp, enum mtk_ddp_comp_id prev,
 			enum mtk_ddp_comp_id next);
+	int (*is_busy)(struct mtk_ddp_comp *comp);
 };
 
 struct mtk_ddp_comp {
@@ -420,6 +421,17 @@ static inline int mtk_ddp_comp_io_cmd(struct mtk_ddp_comp *comp,
 
 	if (comp && comp->funcs && comp->funcs->io_cmd)
 		ret = comp->funcs->io_cmd(comp, handle, io_cmd, params);
+
+	return ret;
+}
+
+static inline int
+mtk_ddp_comp_is_busy(struct mtk_ddp_comp *comp)
+{
+	int ret = 0;
+
+	if (comp && comp->funcs && comp->funcs->is_busy)
+		ret = comp->funcs->is_busy(comp);
 
 	return ret;
 }

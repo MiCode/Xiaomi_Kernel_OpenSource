@@ -2055,6 +2055,19 @@ static void mtk_dsi_config_trigger(struct mtk_ddp_comp *comp,
 	}
 }
 
+static int mtk_dsi_is_busy(struct mtk_ddp_comp *comp)
+{
+	int ret, tmp;
+	struct mtk_dsi *dsi = container_of(comp, struct mtk_dsi, ddp_comp);
+
+	tmp = readl(dsi->regs + DSI_INTSTA);
+	ret = (tmp & DSI_BUSY) ? 1 : 0;
+
+	DDPINFO("%s:%d is:%d regs:0x%x\n", __func__, __LINE__, ret, tmp);
+
+	return ret;
+}
+
 bool mtk_dsi_is_cmd_mode(struct mtk_ddp_comp *comp)
 {
 	struct mtk_dsi *dsi = container_of(comp, struct mtk_dsi, ddp_comp);
@@ -2885,6 +2898,7 @@ static const struct mtk_ddp_comp_funcs mtk_dsi_funcs = {
 	.unprepare = mtk_dsi_ddp_unprepare,
 	.config_trigger = mtk_dsi_config_trigger,
 	.io_cmd = mtk_dsi_io_cmd,
+	.is_busy = mtk_dsi_is_busy,
 };
 
 static int mtk_dsi_bind(struct device *dev, struct device *master, void *data)
