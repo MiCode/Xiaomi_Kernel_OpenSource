@@ -12,6 +12,7 @@ Required properties :
 - compatible : shall contain only one of the following:
 			"qcom,lahaina-aggre1_noc",
 			"qcom,lahaina-aggre2_noc",
+			"qcom,lahaina-clk_virt",
 			"qcom,lahaina-config_noc",
 			"qcom,lahaina-dc_noc",
 			"qcom,lahaina-gem_noc",
