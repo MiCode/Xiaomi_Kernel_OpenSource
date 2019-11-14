@@ -594,17 +594,16 @@ int mtk_crtc_path_switch(struct drm_crtc *crtc, unsigned int path_sel,
 
 void mtk_drm_crtc_first_enable(struct drm_crtc *crtc);
 void mtk_drm_crtc_enable(struct drm_crtc *crtc);
-void mtk_drm_crtc_disable(struct drm_crtc *crtc);
+void mtk_drm_crtc_disable(struct drm_crtc *crtc, bool need_wait);
 bool mtk_crtc_with_sub_path(struct drm_crtc *crtc, unsigned int ddp_mode);
 
 void mtk_crtc_ddp_prepare(struct mtk_drm_crtc *mtk_crtc);
 void mtk_crtc_ddp_unprepare(struct mtk_drm_crtc *mtk_crtc);
-void mtk_crtc_stop(struct mtk_drm_crtc *mtk_crtc);
+void mtk_crtc_stop(struct mtk_drm_crtc *mtk_crtc, bool need_wait);
 void mtk_crtc_connect_default_path(struct mtk_drm_crtc *mtk_crtc);
 void mtk_crtc_disconnect_default_path(struct mtk_drm_crtc *mtk_crtc);
 void mtk_crtc_config_default_path(struct mtk_drm_crtc *mtk_crtc);
 void mtk_crtc_restore_plane_setting(struct mtk_drm_crtc *mtk_crtc);
-void mtk_crtc_start_trig_loop(struct mtk_drm_crtc *mtk_crtc);
 bool mtk_crtc_set_status(struct drm_crtc *crtc, bool status);
 void mtk_crtc_connect_addon_module(struct drm_crtc *crtc);
 void mtk_crtc_disconnect_addon_module(struct drm_crtc *crtc);
@@ -635,6 +634,7 @@ void mtk_drm_fake_vsync_switch(struct drm_crtc *crtc, bool enable);
 void mtk_crtc_check_trigger(struct mtk_drm_crtc *mtk_crtc, bool delay);
 
 bool mtk_crtc_is_dc_mode(struct drm_crtc *crtc);
+void mtk_crtc_clear_wait_event(struct drm_crtc *crtc);
 void mtk_crtc_hw_block_ready(struct drm_crtc *crtc);
 int mtk_crtc_lcm_ATA(struct drm_crtc *crtc);
 int mtk_crtc_mipi_freq_switch(struct drm_crtc *crtc, int en,
@@ -650,8 +650,9 @@ unsigned int mtk_drm_primary_frame_bw(struct drm_crtc *crtc);
 unsigned int mtk_drm_primary_display_get_debug_state(
 	struct mtk_drm_private *priv, char *stringbuf, int buf_len);
 
-void mtk_crtc_stop_trig_loop(struct mtk_drm_crtc *mtk_crtc);
-void mtk_crtc_start_trig_loop(struct mtk_drm_crtc *mtk_crtc);
+bool mtk_crtc_with_trigger_loop(struct drm_crtc *crtc);
+void mtk_crtc_stop_trig_loop(struct drm_crtc *crtc);
+void mtk_crtc_start_trig_loop(struct drm_crtc *crtc);
 
 void mtk_crtc_change_output_mode(struct drm_crtc *crtc, int aod_en);
 int mtk_crtc_user_cmd(struct drm_crtc *crtc, struct mtk_ddp_comp *comp,

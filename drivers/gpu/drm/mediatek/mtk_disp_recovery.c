@@ -403,7 +403,7 @@ static int mtk_drm_esd_recover(struct drm_crtc *crtc)
 
 	mtk_ddp_comp_io_cmd(output_comp, NULL, CONNECTOR_PANEL_DISABLE, NULL);
 
-	mtk_drm_crtc_disable(crtc);
+	mtk_drm_crtc_disable(crtc, true);
 	CRTC_MMP_MARK(drm_crtc_index(crtc), esd_recovery, 0, 2);
 
 	mtk_drm_crtc_enable(crtc);

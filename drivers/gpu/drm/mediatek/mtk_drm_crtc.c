@@ -1138,7 +1138,7 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 				 list) {
 		if (lyeblob_ids->lye_idx >
 		    crtc_state->prop_val[CRTC_PROP_LYE_IDX]) {
-			DRM_WARN("lyeblob lost ID:%d\n",
+			DDPMSG("lyeblob lost ID:%d\n",
 				 crtc_state->prop_val[CRTC_PROP_LYE_IDX]);
 			break;
 		} else if (lyeblob_ids->lye_idx ==
@@ -1758,17 +1758,44 @@ static void trig_done_cb(struct cmdq_cb_data data)
 	CRTC_MMP_MARK((unsigned long)data.data, trig_loop_done, 0, 0);
 }
 
-void mtk_crtc_start_trig_loop(struct mtk_drm_crtc *mtk_crtc)
+void mtk_crtc_clear_wait_event(struct drm_crtc *crtc)
+{
+	struct cmdq_pkt *cmdq_handle;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+
+	if (mtk_crtc_is_frame_trigger_mode(crtc)) {
+		mtk_crtc_pkt_create(&cmdq_handle, crtc,
+			mtk_crtc->gce_obj.client[CLIENT_CFG]);
+		cmdq_pkt_set_event(cmdq_handle,
+				   mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
+		cmdq_pkt_set_event(cmdq_handle,
+				   mtk_crtc->gce_obj.event[EVENT_ESD_EOF]);
+		cmdq_pkt_set_event(cmdq_handle,
+				   mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+		cmdq_pkt_flush(cmdq_handle);
+		cmdq_pkt_destroy(cmdq_handle);
+	}
+
+}
+
+void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 {
 	int ret = 0;
-	struct cmdq_pkt *cmdq_handle, *cmdq_handle2;
-	unsigned long crtc_id = (unsigned long)drm_crtc_index(&mtk_crtc->base);
+	struct cmdq_pkt *cmdq_handle;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	unsigned long crtc_id = (unsigned long)drm_crtc_index(crtc);
+
+	if (crtc_id) {
+		DDPPR_ERR("%s:%d invalid crtc:%ld\n",
+			__func__, __LINE__, crtc_id);
+		return;
+	}
 
 	mtk_crtc->trig_loop_cmdq_handle = cmdq_pkt_create(
 		mtk_crtc->gce_obj.client[CLIENT_TRIG_LOOP]);
 	cmdq_handle = mtk_crtc->trig_loop_cmdq_handle;
 
-	if (mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
+	if (mtk_crtc_is_frame_trigger_mode(crtc)) {
 		cmdq_pkt_wfe(cmdq_handle,
 			     mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
 		cmdq_pkt_wait_no_clear(cmdq_handle,
@@ -1812,18 +1839,7 @@ void mtk_crtc_start_trig_loop(struct mtk_drm_crtc *mtk_crtc)
 	cmdq_pkt_finalize_loop(cmdq_handle);
 	ret = cmdq_pkt_flush_async(cmdq_handle, trig_done_cb, (void *)crtc_id);
 
-	if (mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
-		mtk_crtc_pkt_create(&cmdq_handle2, &mtk_crtc->base,
-			mtk_crtc->gce_obj.client[CLIENT_CFG]);
-		cmdq_pkt_set_event(cmdq_handle2,
-				   mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
-		cmdq_pkt_set_event(cmdq_handle2,
-				   mtk_crtc->gce_obj.event[EVENT_ESD_EOF]);
-		cmdq_pkt_set_event(cmdq_handle2,
-				   mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
-		cmdq_pkt_flush(cmdq_handle2);
-		cmdq_pkt_destroy(cmdq_handle2);
-	}
+	mtk_crtc_clear_wait_event(crtc);
 }
 
 void mtk_crtc_hw_block_ready(struct drm_crtc *crtc)
@@ -1840,8 +1856,10 @@ void mtk_crtc_hw_block_ready(struct drm_crtc *crtc)
 	cmdq_pkt_destroy(cmdq_handle);
 }
 
-void mtk_crtc_stop_trig_loop(struct mtk_drm_crtc *mtk_crtc)
+void mtk_crtc_stop_trig_loop(struct drm_crtc *crtc)
 {
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+
 	cmdq_mbox_stop(mtk_crtc->gce_obj.client[CLIENT_TRIG_LOOP]);
 	cmdq_pkt_destroy(mtk_crtc->trig_loop_cmdq_handle);
 }
@@ -2286,27 +2304,31 @@ void mtk_crtc_stop_ddp(struct mtk_drm_crtc *mtk_crtc,
 }
 
 /* Stop trig loop and stop all modules in this CRTC */
-void mtk_crtc_stop(struct mtk_drm_crtc *mtk_crtc)
+void mtk_crtc_stop(struct mtk_drm_crtc *mtk_crtc, bool need_wait)
 {
 	struct cmdq_pkt *cmdq_handle;
 	struct mtk_ddp_comp *comp;
 	int i, j;
 	u32 bw_mode = DISP_BW_NORMAL_MODE;
 	unsigned int crtc_id = drm_crtc_index(&mtk_crtc->base);
+	struct drm_crtc *crtc = &mtk_crtc->base;
 
 	DDPINFO("%s:%d +\n", __func__, __LINE__);
 
 	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
 		mtk_crtc->gce_obj.client[CLIENT_CFG]);
 
+	if (!need_wait)
+		goto skip;
+
 	if (crtc_id == 2) {
 		cmdq_pkt_wait_no_clear(cmdq_handle,
-			     mtk_crtc->gce_obj.event[EVENT_WDMA0_EOF]);
+				 mtk_crtc->gce_obj.event[EVENT_WDMA0_EOF]);
 	} else if (mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
 		/* 1. wait stream eof & clear tocken */
 		/* clear eof token to prevent any config after this command */
 		cmdq_pkt_wfe(cmdq_handle,
-			     mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
+				 mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
 
 		/* clear dirty token to prevent trigger loop start */
 		cmdq_pkt_clear_event(
@@ -2317,9 +2339,10 @@ void mtk_crtc_stop(struct mtk_drm_crtc *mtk_crtc)
 		 * Do not wait frame done in this case.
 		 */
 		cmdq_pkt_wfe(cmdq_handle,
-			     mtk_crtc->gce_obj.event[EVENT_VDO_EOF]);
+				 mtk_crtc->gce_obj.event[EVENT_VDO_EOF]);
 	}
 
+skip:
 	/* 2. stop all modules in this CRTC */
 	mtk_crtc_stop_ddp(mtk_crtc, cmdq_handle);
 
@@ -2331,8 +2354,8 @@ void mtk_crtc_stop(struct mtk_drm_crtc *mtk_crtc)
 		mtk_ddp_comp_io_cmd(comp, NULL, PMQOS_SET_BW, &bw_mode);
 
 	/* 4. stop trig loop  */
-	if (mtk_crtc_with_trigger_loop(&mtk_crtc->base))
-		mtk_crtc_stop_trig_loop(mtk_crtc);
+	if (mtk_crtc_with_trigger_loop(crtc))
+		mtk_crtc_stop_trig_loop(crtc);
 
 	DDPINFO("%s:%d -\n", __func__, __LINE__);
 }
@@ -2376,7 +2399,7 @@ void mtk_crtc_disconnect_default_path(struct mtk_drm_crtc *mtk_crtc)
 void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	unsigned int crtc_id = drm_crtc_index(&mtk_crtc->base);
+	unsigned int crtc_id = drm_crtc_index(crtc);
 
 	CRTC_MMP_EVENT_START(crtc_id, enable,
 			mtk_crtc->enabled, 0);
@@ -2404,8 +2427,8 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 	mtk_crtc_ddp_prepare(mtk_crtc);
 
 	/* 3. start trigger loop first to keep gce alive */
-	if (mtk_crtc_with_trigger_loop(&mtk_crtc->base))
-		mtk_crtc_start_trig_loop(mtk_crtc);
+	if (mtk_crtc_with_trigger_loop(crtc))
+		mtk_crtc_start_trig_loop(crtc);
 
 	if (mtk_crtc_is_mem_mode(crtc) || mtk_crtc_is_dc_mode(crtc)) {
 		struct golden_setting_context *ctx =
@@ -2438,8 +2461,8 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 
 	if (atomic_read(&mtk_crtc->pending_vblank_op) == 1) {
 		mtk_ddp_comp_enable_vblank(
-			mtk_crtc_get_comp(&mtk_crtc->base, 0, 0),
-			&mtk_crtc->base, NULL);
+			mtk_crtc_get_comp(crtc, 0, 0),
+			crtc, NULL);
 		atomic_set(&mtk_crtc->pending_vblank_op, 0);
 	}
 #ifdef MTK_DRM_ESD_SUPPORT
@@ -2666,7 +2689,7 @@ void mtk_drm_crtc_first_enable(struct drm_crtc *crtc)
 
 	/* 2. start trigger loop first to keep gce alive */
 	if (mtk_crtc_with_trigger_loop(crtc))
-		mtk_crtc_start_trig_loop(mtk_crtc);
+		mtk_crtc_start_trig_loop(crtc);
 
 	/* 3. Regsister configuration */
 	mtk_crtc_first_enable_ddp_config(mtk_crtc);
@@ -2694,7 +2717,7 @@ void mtk_drm_crtc_first_enable(struct drm_crtc *crtc)
 	mtk_crtc_set_status(crtc, true);
 }
 
-void mtk_drm_crtc_disable(struct drm_crtc *crtc)
+void mtk_drm_crtc_disable(struct drm_crtc *crtc, bool need_wait)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	unsigned int crtc_id = drm_crtc_index(&mtk_crtc->base);
@@ -2731,7 +2754,7 @@ void mtk_drm_crtc_disable(struct drm_crtc *crtc)
 	drm_crtc_vblank_off(crtc);
 
 	/* 5. stop CRTC */
-	mtk_crtc_stop(mtk_crtc);
+	mtk_crtc_stop(mtk_crtc, need_wait);
 
 	/* 6. disconnect addon module and recover config */
 	mtk_crtc_disconnect_addon_module(crtc);
@@ -2803,7 +2826,7 @@ void mtk_drm_crtc_suspend(struct drm_crtc *crtc)
 	CRTC_MMP_EVENT_START(index, suspend,
 			mtk_crtc->enabled, 0);
 
-	mtk_drm_crtc_disable(crtc);
+	mtk_drm_crtc_disable(crtc, true);
 
 	mtk_crtc_disable_plane_setting(mtk_crtc);
 
@@ -3130,7 +3153,7 @@ void mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 		}
 
 		cmdq_pkt_wait_no_clear(cmdq_handle, gce_event);
-	} else if (mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base) &&
+	} else if (mtk_crtc_is_frame_trigger_mode(crtc) &&
 					mtk_crtc_with_trigger_loop(crtc)) {
 		/* DL with trigger loop */
 		cmdq_pkt_set_event(cmdq_handle,
@@ -4540,6 +4563,7 @@ int mtk_crtc_path_switch(struct drm_crtc *crtc, unsigned int ddp_mode,
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_ddp_config cfg;
 	int index = drm_crtc_index(crtc);
+	bool need_wait;
 
 	CRTC_MMP_EVENT_START(index, path_switch, mtk_crtc->ddp_mode,
 			ddp_mode);
@@ -4564,7 +4588,11 @@ int mtk_crtc_path_switch(struct drm_crtc *crtc, unsigned int ddp_mode,
 	 */
 	if (ddp_mode == DDP_NO_USE) {
 		CRTC_MMP_MARK(index, path_switch, 0, 1);
-		mtk_drm_crtc_disable(crtc);
+		if ((mtk_crtc->ddp_mode == DDP_MAJOR) && (index == 2))
+			need_wait = false;
+		else
+			need_wait = true;
+		mtk_drm_crtc_disable(crtc, need_wait);
 		goto done;
 	} else if (mtk_crtc->ddp_mode == DDP_NO_USE) {
 		CRTC_MMP_MARK(index, path_switch, 0, 2);

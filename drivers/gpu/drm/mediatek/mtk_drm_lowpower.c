@@ -398,7 +398,7 @@ static void mtk_drm_idlemgr_disable_crtc(struct drm_crtc *crtc)
 	}
 
 	/* 1. stop CRTC */
-	mtk_crtc_stop(mtk_crtc);
+	mtk_crtc_stop(mtk_crtc, true);
 
 	/* 2. disconnect addon module and recover config */
 	mtk_crtc_disconnect_addon_module(crtc);
@@ -431,7 +431,7 @@ static void mtk_drm_idlemgr_disable_crtc(struct drm_crtc *crtc)
 static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	unsigned int crtc_id = drm_crtc_index(&mtk_crtc->base);
+	unsigned int crtc_id = drm_crtc_index(crtc);
 	bool mode = mtk_crtc_is_dc_mode(crtc);
 
 	DDPINFO("crtc%d do %s+\n", crtc_id, __func__);
@@ -450,9 +450,9 @@ static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc)
 	mtk_crtc_ddp_prepare(mtk_crtc);
 
 	/* 3. start trigger loop first to keep gce alive */
-	if (drm_crtc_index(&mtk_crtc->base) == 0) {
-		mtk_crtc_start_trig_loop(mtk_crtc);
-		mtk_crtc_hw_block_ready(&mtk_crtc->base);
+	if (crtc_id == 0) {
+		mtk_crtc_start_trig_loop(crtc);
+		mtk_crtc_hw_block_ready(crtc);
 	}
 
 	/* 4. connect path */
