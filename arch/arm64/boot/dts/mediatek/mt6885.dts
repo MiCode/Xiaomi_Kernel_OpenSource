@@ -227,7 +227,7 @@ page_owner=on";
 		#size-cells = <2>;
 		ranges;
 		suspend-method = "system";
-		irq-remain = <&edge_keypad>;
+		irq-remain = <&edge_keypad &edge_mdwdt>;
 		resource-ctrl = <&bus26m &infra &syspll>,
 				<&dram_s0 &dram_s1>;
 		constraints = <&rc_bus26m &rc_syspll &rc_dram>;
@@ -235,6 +235,10 @@ page_owner=on";
 			edge_keypad: edge_keypad {
 				target = <&keypad>;
 				value = <1 0 0 0x40>;
+			};
+			edge_mdwdt: edge_mdwdt {
+				target = <&mddriver>;
+				value = <1 0 0 0x02000000>;
 			};
 		};
 		resource-ctrl-list {
