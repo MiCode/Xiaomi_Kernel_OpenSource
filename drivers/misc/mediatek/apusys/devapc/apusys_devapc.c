@@ -376,14 +376,14 @@ static int shift_vio_dbg(int shift_bit)
 
 static void print_vio_mask_sta(void)
 {
-	pr_info("%s VIO_MASK 0:0x%x, 1:0x%x, 2:0x%x, 3:0x%x\n",
+	pr_debug("%s VIO_MASK 0:0x%x, 1:0x%x, 2:0x%x, 3:0x%x\n",
 		__func__,
 		readl(DEVAPC_VIO_MASK(0)),
 		readl(DEVAPC_VIO_MASK(1)),
 		readl(DEVAPC_VIO_MASK(2)),
 		readl(DEVAPC_VIO_MASK(3)));
 
-	pr_info("%s VIO_STA 0:0x%x, 1:0x%x, 2:0x%x, 3:0x%x\n",
+	pr_debug("%s VIO_STA 0:0x%x, 1:0x%x, 2:0x%x, 3:0x%x\n",
 		__func__,
 		readl(DEVAPC_VIO_STA(0)),
 		readl(DEVAPC_VIO_STA(1)),

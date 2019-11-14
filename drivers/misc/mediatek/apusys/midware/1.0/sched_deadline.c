@@ -17,6 +17,8 @@
 #include <linux/ktime.h>
 #include "sched_deadline.h"
 #include "resource_mgt.h"
+#define CREATE_TRACE_POINTS
+#include "apu_sched_events.h"
 
 #define MAX_BOOST (100)
 
@@ -65,6 +67,8 @@ static void deadline_load_tracing(struct work_struct *data)
 		root->avg_load[1],
 		root->avg_load[2],
 		boost_threshold);
+
+	trace_deadline_load(tab->name, root->avg_load);
 
 	/* Disable load tracing timer */
 	if (l[0] == 0 && l[1] == 0 && l[2] == 0) {
@@ -192,8 +196,14 @@ struct apusys_subcmd *deadline_task_pop(int type)
 
 int deadline_task_remove(struct apusys_subcmd *sc)
 {
-	struct apusys_res_table *tab = res_get_table(sc->type);
-	struct deadline_root *root = &tab->deadline_q;
+	struct apusys_res_table *tab;
+	struct deadline_root *root;
+
+	if (sc == NULL)
+		return 0;
+
+	tab = res_get_table(sc->type);
+	root = &tab->deadline_q;
 
 	mutex_lock(&root->lock);
 	if (sc)
@@ -206,8 +216,14 @@ int deadline_task_remove(struct apusys_subcmd *sc)
 int deadline_task_start(struct apusys_subcmd *sc)
 {
 	uint64_t load = 0;
-	struct apusys_res_table *tab = res_get_table(sc->type);
-	struct deadline_root *root = &tab->deadline_q;
+	struct apusys_res_table *tab;
+	struct deadline_root *root;
+
+	if (sc == NULL)
+		return 0;
+
+	tab = res_get_table(sc->type);
+	root = &tab->deadline_q;
 
 	if (sc->period == 0 || tab == NULL) /* Not a deadline task*/
 		return 0;
@@ -234,6 +250,7 @@ int deadline_task_start(struct apusys_subcmd *sc)
 		schedule_delayed_work(&root->work, 0);
 		root->need_timer = false;
 	}
+	trace_deadline_task(tab->name, true, load);
 	mutex_unlock(&root->lock);
 	return 0;
 }
@@ -241,8 +258,14 @@ int deadline_task_start(struct apusys_subcmd *sc)
 int deadline_task_end(struct apusys_subcmd *sc)
 {
 	uint64_t load = 0;
-	struct apusys_res_table *tab = res_get_table(sc->type);
-	struct deadline_root *root = &tab->deadline_q;
+	struct apusys_res_table *tab;
+	struct deadline_root *root;
+
+	if (sc == NULL)
+		return 0;
+
+	tab = res_get_table(sc->type);
+	root = &tab->deadline_q;
 
 	if (sc->period == 0 || tab == NULL) /* Not a deadline task*/
 		return 0;
@@ -263,15 +286,23 @@ int deadline_task_end(struct apusys_subcmd *sc)
 		LOG_DEBUG("load_boost: %llu, %llu, %llu, %llu\n", sc->runtime,
 			sc->period, root->total_period, root->total_runtime);
 	}
+	trace_deadline_task(tab->name, false, load);
 	mutex_unlock(&root->lock);
 	return 0;
 }
 
 int deadline_task_boost(struct apusys_subcmd *sc)
 {
-	struct apusys_res_table *tab = res_get_table(sc->type);
-	struct deadline_root *root = &tab->deadline_q;
+	struct apusys_res_table *tab;
+	struct deadline_root *root;
 	unsigned int suggest_time = sc->c_hdr->suggest_time * 1000;
+
+	if (sc == NULL)
+		return 0;
+
+	tab = res_get_table(sc->type);
+	root = &tab->deadline_q;
+
 
 	if (sc->c_hdr->suggest_time != 0) {
 		if (sc->c_hdr->driver_time < suggest_time)
