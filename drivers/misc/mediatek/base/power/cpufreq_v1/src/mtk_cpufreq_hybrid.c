@@ -610,6 +610,12 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 
 #define OFFS_HAS_ADVISE_FREQ_S  0x1218  /* 1158 */
 #define OFFS_HAS_ADVISE_FREQ_E  0x1220  /* 1160 */
+#define CPUDVFS_CLUSTER_ON	0x43434f4e
+#define CPUDVFS_CLUSTER_OFF	0x43434f46
+
+/* Schedule assist idx */
+#define OFFS_CLUSTER_ONOFF_S	0x1224	/* 1161 */
+#define OFFS_CLUSTER_ONOFF_E	0x1248	/* 1170 */
 
 #define ADVI			0x41445649
 #define NOAD			0x4E4F4144
@@ -783,7 +789,9 @@ int cpuhvfs_set_init_sta(void)
 
 int cpuhvfs_set_cluster_on_off(int cluster_id, int state)
 {
-#ifdef BYPASS_CLUSTER_ONOFF
+#ifdef ENABLE_CLUSTER_ONOFF_SRAM
+	csram_write((OFFS_CLUSTER_ONOFF_S + (cluster_id * 4)),
+			state ? CPUDVFS_CLUSTER_ON : CPUDVFS_CLUSTER_OFF);
 #else
 	struct cdvfs_data cdvfs_d;
 

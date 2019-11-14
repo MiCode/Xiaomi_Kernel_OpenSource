@@ -29,7 +29,7 @@
 #define IMAX_INIT_STATE         1
 /* #define CPU_DVFS_NOT_READY	1 */
 #define REPORT_IDLE_FREQ	1
-#define BYPASS_CLUSTER_ONOFF	1
+#define ENABLE_CLUSTER_ONOFF_SRAM	1
 #else
 /* #define SUPPORT_VOLT_HW_AUTO_TRACK 1 */
 /* #define CPU_DVFS_NOT_READY	1 */
