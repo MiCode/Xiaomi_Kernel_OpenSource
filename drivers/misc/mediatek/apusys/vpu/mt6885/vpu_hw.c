@@ -141,6 +141,7 @@ static void vpu_emi_mpu_set(unsigned long start, unsigned int size)
 			   MTK_EMIMPU_NO_PROTECTION);
 	mtk_emimpu_lock_region(&md_region, true);
 	mtk_emimpu_set_protection(&md_region);
+	mtk_emimpu_free_region(&md_region);
 }
 
 /* called by vpu_probe() */
