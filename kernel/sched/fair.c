@@ -7674,7 +7674,8 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 					}
 
 					/* find the max spare capacity cpu */
-					if (new_util < min_cpu_util) {
+					if (!turning &&
+						(new_util < min_cpu_util)) {
 						min_target_capacity =
 							capacity_orig;
 						min_cpu_util = new_util;
@@ -7774,7 +7775,7 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 				}
 
 				/* find the max spare capacity cpu */
-				if (new_util < min_cpu_util) {
+				if (!turning && (new_util < min_cpu_util)) {
 					best_idle_min_cap_orig =
 						capacity_orig;
 					min_cpu_util = new_util;
@@ -7830,10 +7831,12 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 				continue;
 			}
 
-			target_max_spare_cap = spare_cap;
-			target_capacity = capacity_orig;
-			target_util = new_util;
-			target_cpu = i;
+			if (!turning) {
+				target_max_spare_cap = spare_cap;
+				target_capacity = capacity_orig;
+				target_util = new_util;
+				target_cpu = i;
+			}
 		}
 
 	} while (sg = sg->next, sg != sd->groups);
