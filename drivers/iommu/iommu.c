@@ -1646,8 +1646,10 @@ static size_t __iommu_unmap(struct iommu_domain *domain,
 		if (!unmapped_page)
 			break;
 
+#ifndef MTK_IOMMU_PERFORMANCE_IMPROVEMENT
 		if (sync && ops->iotlb_range_add)
 			ops->iotlb_range_add(domain, iova, pgsize);
+#endif
 
 		pr_debug("unmapped: iova 0x%lx size 0x%zx\n",
 			 iova, unmapped_page);
@@ -1656,8 +1658,15 @@ static size_t __iommu_unmap(struct iommu_domain *domain,
 		unmapped += unmapped_page;
 	}
 
+#ifdef MTK_IOMMU_PERFORMANCE_IMPROVEMENT
+	if (ops->iotlb_range_add)
+		ops->iotlb_range_add(domain, orig_iova, size);
+	if (ops->iotlb_sync)
+		ops->iotlb_sync(domain);
+#else
 	if (sync && ops->iotlb_sync)
 		ops->iotlb_sync(domain);
+#endif
 
 	trace_unmap(orig_iova, size, unmapped);
 #ifdef CONFIG_MTK_IOMMU_V2
@@ -1687,6 +1696,9 @@ size_t default_iommu_map_sg(struct iommu_domain *domain, unsigned long iova,
 	size_t mapped = 0;
 	unsigned int i, min_pagesz;
 	int ret;
+#ifdef MTK_IOMMU_PERFORMANCE_IMPROVEMENT
+	const struct iommu_ops *ops = domain->ops;
+#endif
 
 	if (unlikely(domain->pgsize_bitmap == 0UL))
 		return 0;
@@ -1748,6 +1760,13 @@ size_t default_iommu_map_sg(struct iommu_domain *domain, unsigned long iova,
 #endif
 		mapped += s->length;
 	}
+
+#ifdef MTK_IOMMU_PERFORMANCE_IMPROVEMENT
+	if (ops->iotlb_range_add)
+		ops->iotlb_range_add(domain, iova, mapped);
+	if (ops->iotlb_sync)
+		ops->iotlb_sync(domain);
+#endif
 
 	return mapped;
 

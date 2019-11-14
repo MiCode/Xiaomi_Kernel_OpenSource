@@ -1014,6 +1014,32 @@ static void mtk_iommu_tlb_sync(void *cookie)
 }
 #endif
 
+#ifdef MTK_IOMMU_PERFORMANCE_IMPROVEMENT
+static void mtk_iommu_tlb_add_flush_nosync_dummy(unsigned long iova,
+					   size_t size,
+					   size_t granule, bool leaf,
+					   void *cookie)
+{
+	/* do nothing for each sg table pa node sync
+	 * but do one time tlb sync at then end of page table ops
+	 */
+}
+
+void mtk_iommu_tlb_flush_all_dummy(void *cookie)
+{
+	/* do nothing for each sg table pa node sync
+	 * but do one time tlb sync at then end of page table ops
+	 */
+}
+
+static void mtk_iommu_tlb_sync_dummy(void *cookie)
+{
+	/* do nothing for each sg table pa node sync
+	 * but do one time tlb sync at then end of page table ops
+	 */
+}
+
+#endif
 void mtk_iommu_tlb_flush_all(void *cookie)
 {
 	mtk_iommu_tlb_flush_all_lock(cookie, true);
@@ -1041,9 +1067,15 @@ static void mtk_iommu_iotlb_sync(struct iommu_domain *domain)
 }
 
 static const struct iommu_gather_ops mtk_iommu_gather_ops = {
+#ifdef MTK_IOMMU_PERFORMANCE_IMPROVEMENT
+	.tlb_add_flush = mtk_iommu_tlb_add_flush_nosync_dummy,
+	.tlb_flush_all = mtk_iommu_tlb_flush_all_dummy,
+	.tlb_sync = mtk_iommu_tlb_sync_dummy,
+#else
 	.tlb_flush_all = mtk_iommu_tlb_flush_all,
 	.tlb_add_flush = mtk_iommu_tlb_add_flush_nosync,
 	.tlb_sync = mtk_iommu_tlb_sync,
+#endif
 };
 
 static inline void mtk_iommu_intr_modify_all(unsigned long enable)
@@ -1987,6 +2019,10 @@ int mtk_iommu_switch_acp(struct device *dev,
 
 	spin_lock_irqsave(&pgtable->pgtlock, flags);
 	ret = pgtable->iop->switch_acp(pgtable->iop, iova, size, is_acp);
+#ifdef MTK_IOMMU_PERFORMANCE_IMPROVEMENT
+	mtk_iommu_tlb_add_flush_nosync(iova, size, 0, 0, dom);
+	mtk_iommu_tlb_sync(dom);
+#endif
 	spin_unlock_irqrestore(&pgtable->pgtlock, flags);
 
 	if (ret)

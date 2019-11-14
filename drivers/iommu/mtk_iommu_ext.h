@@ -19,6 +19,7 @@
 #include <aee.h>
 #endif
 
+#define MTK_IOMMU_PERFORMANCE_IMPROVEMENT
 #define MMU_INT_REPORT(mmu, mmu_2nd_id, id) \
 	pr_notice( \
 	"iommu%d_%d " #id "(0x%x) int happens!!\n",\
