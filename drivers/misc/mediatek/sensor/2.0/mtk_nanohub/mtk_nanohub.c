@@ -1699,7 +1699,7 @@ static int mtk_nanohub_enable(struct hf_device *hfdev,
 {
 	if (sensor_type <= 0)
 		return 0;
-	pr_notice("%s [%d,%d]\n", __func__, sensor_type, en);
+	/* pr_notice("%s [%d,%d]\n", __func__, sensor_type, en); */
 	return mtk_nanohub_enable_to_hub(type_to_id(sensor_type), en);
 }
 
@@ -1708,7 +1708,9 @@ static int mtk_nanohub_batch(struct hf_device *hfdev,
 {
 	if (sensor_type <= 0)
 		return 0;
-	pr_notice("%s [%d,%lld,%lld]\n", __func__, sensor_type, delay, latency);
+	/* pr_notice("%s [%d,%lld,%lld]\n", __func__,
+	 *	sensor_type, delay, latency);
+	 */
 	return mtk_nanohub_batch_to_hub(type_to_id(sensor_type),
 		0, delay, latency);
 }
