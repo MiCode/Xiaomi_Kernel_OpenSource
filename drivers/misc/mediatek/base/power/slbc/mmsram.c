@@ -196,7 +196,7 @@ int mmsram_power_on(void)
 
 	set_clk_enable(true);
 	init_mmsram_reg();
-	pr_notice("mmsram power on\n");
+	pr_debug("mmsram power on\n");
 	return ret;
 }
 EXPORT_SYMBOL_GPL(mmsram_power_on);
@@ -204,7 +204,7 @@ EXPORT_SYMBOL_GPL(mmsram_power_on);
 void mmsram_power_off(void)
 {
 	set_clk_enable(false);
-	pr_notice("mmsram power off\n");
+	pr_debug("mmsram power off\n");
 }
 EXPORT_SYMBOL_GPL(mmsram_power_off);
 
