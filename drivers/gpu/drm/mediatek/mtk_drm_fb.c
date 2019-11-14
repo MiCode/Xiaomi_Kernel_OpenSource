@@ -52,6 +52,9 @@ size_t mtk_fb_get_size(struct drm_framebuffer *fb)
 		return 0;
 
 	mtk_gem = to_mtk_gem_obj(mtk_fb->gem_obj);
+	if (!mtk_gem)
+		return 0;
+
 	return mtk_gem->size;
 }
 
@@ -64,6 +67,9 @@ dma_addr_t mtk_fb_get_dma(struct drm_framebuffer *fb)
 		return 0;
 
 	mtk_gem = to_mtk_gem_obj(mtk_fb->gem_obj);
+	if (!mtk_gem)
+		return 0;
+
 	return mtk_gem->dma_addr;
 }
 

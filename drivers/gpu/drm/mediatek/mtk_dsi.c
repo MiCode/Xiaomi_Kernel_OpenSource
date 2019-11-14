@@ -1459,12 +1459,15 @@ static void mtk_dsi_encoder_disable(struct drm_encoder *encoder)
 	struct drm_crtc *crtc = encoder->crtc;
 	int index = drm_crtc_index(crtc);
 
-	CRTC_MMP_EVENT_START(index, suspend,
+	CRTC_MMP_EVENT_START(index, dsi_suspend,
 			(unsigned long)crtc, index);
 
 	DDPINFO("%s\n", __func__);
 	mtk_drm_idlemgr_kick(__func__, crtc, 0);
 	mtk_output_dsi_disable(dsi, false);
+
+	CRTC_MMP_EVENT_END(index, dsi_suspend,
+			(unsigned long)dsi->output_en, 0);
 }
 
 static void mtk_dsi_encoder_enable(struct drm_encoder *encoder)
@@ -1473,10 +1476,14 @@ static void mtk_dsi_encoder_enable(struct drm_encoder *encoder)
 	struct drm_crtc *crtc = encoder->crtc;
 	int index = drm_crtc_index(crtc);
 
+	CRTC_MMP_EVENT_START(index, dsi_resume,
+			(unsigned long)crtc, index);
+
 	DDPINFO("%s\n", __func__);
 	mtk_output_dsi_enable(dsi, false);
 
-	CRTC_MMP_EVENT_END(index, resume, 0, 0);
+	CRTC_MMP_EVENT_END(index, dsi_resume,
+			(unsigned long)dsi->output_en, 0);
 }
 
 static enum drm_connector_status

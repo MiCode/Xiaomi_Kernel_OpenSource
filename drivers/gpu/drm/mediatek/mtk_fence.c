@@ -436,7 +436,8 @@ void mtk_release_fence(unsigned int session_id, unsigned int layer_id,
 		list_del_init(&buf->list);
 #ifdef CONFIG_MTK_IOMMU_V2
 		if (buf->hnd)
-			mtk_drm_gem_ion_free_handle(buf->client, buf->hnd);
+			mtk_drm_gem_ion_free_handle(buf->client, buf->hnd,
+					__func__, __LINE__);
 #endif
 		ion_release_count++;
 

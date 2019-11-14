@@ -768,6 +768,12 @@ static void mtk_wdma_config(struct mtk_ddp_comp *comp,
 	}
 
 	addr = (u32)mtk_fb_get_dma(comp->fb);
+	if (!addr) {
+		DDPPR_ERR("%s:%d C%d no dma_buf\n",
+				__func__, __LINE__,
+				crtc_idx);
+		return;
+	}
 	addr += comp->fb->offsets[0];
 	con = wdma_fmt_convert(comp->fb->format->format);
 	DDPINFO("%s fmt:0x%x, con:0x%x\n", __func__,

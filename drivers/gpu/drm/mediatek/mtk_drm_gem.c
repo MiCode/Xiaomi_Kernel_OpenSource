@@ -119,7 +119,8 @@ static void mtk_gem_vmap_pa_legacy(phys_addr_t pa, uint size,
 	if (ion_kernel_ioctl(client, ION_CMD_MULTIMEDIA,
 				 (unsigned long)&mm_data) < 0) {
 		DDPPR_ERR("ion config failed, handle:0x%p\n", handle);
-		ion_free(client, handle);
+		mtk_drm_gem_ion_free_handle(client, handle,
+				__func__, __LINE__);
 		return;
 	}
 
@@ -127,6 +128,39 @@ static void mtk_gem_vmap_pa_legacy(phys_addr_t pa, uint size,
 	mtk_gem->dma_addr = (unsigned int)phy_addr;
 	mtk_gem->size = mva_size;
 #endif
+}
+
+static inline void *mtk_gem_dma_alloc(struct device *dev, size_t size,
+				       dma_addr_t *dma_handle, gfp_t flag,
+				       unsigned long attrs, const char *name,
+				       int line)
+{
+	void *va;
+
+	DDPINFO("D_ALLOC:%s[%d], dma:0x%p, size:%ld\n", name, line,
+			dma_handle, size);
+	DRM_MMP_EVENT_START(dma_alloc, line, 0);
+	va = dma_alloc_attrs(dev, size, dma_handle,
+					flag, attrs);
+
+	DRM_MMP_EVENT_END(dma_alloc, (unsigned long)dma_handle,
+			(unsigned long)size);
+	return va;
+}
+
+static inline void mtk_gem_dma_free(struct device *dev, size_t size,
+				     void *cpu_addr, dma_addr_t dma_handle,
+				     unsigned long attrs, const char *name,
+				     int line)
+{
+	DDPINFO("D_FREE:%s[%d], dma:0x%llx, size:%ld\n", name, line,
+			dma_handle, size);
+	DRM_MMP_EVENT_START(dma_free, (unsigned long)dma_handle,
+			(unsigned long)size);
+	dma_free_attrs(dev, size, cpu_addr, dma_handle,
+					attrs);
+
+	DRM_MMP_EVENT_END(dma_free, line, 0);
 }
 
 struct mtk_drm_gem_obj *mtk_drm_fb_gem_insert(struct drm_device *dev,
@@ -158,8 +192,10 @@ struct mtk_drm_gem_obj *mtk_drm_fb_gem_insert(struct drm_device *dev,
 		mtk_gem->dma_addr = (dma_addr_t)fb_pa;
 		mtk_gem->size = size;
 		mtk_gem->cookie =
-			dma_alloc_attrs(priv->dma_dev, size, &mtk_gem->dma_addr,
-					GFP_KERNEL, mtk_gem->dma_attrs);
+			mtk_gem_dma_alloc(priv->dma_dev, size,
+					&mtk_gem->dma_addr, GFP_KERNEL,
+					mtk_gem->dma_attrs, __func__,
+					__LINE__);
 		mtk_gem->kvaddr = mtk_gem->cookie;
 	}
 
@@ -188,8 +224,9 @@ struct mtk_drm_gem_obj *mtk_drm_gem_create(struct drm_device *dev, size_t size,
 		mtk_gem->dma_attrs |= DMA_ATTR_NO_KERNEL_MAPPING;
 	//	mtk_gem->dma_attrs |= DMA_ATTR_NO_WARN;
 	mtk_gem->cookie =
-		dma_alloc_attrs(priv->dma_dev, obj->size, &mtk_gem->dma_addr,
-				GFP_KERNEL, mtk_gem->dma_attrs);
+		mtk_gem_dma_alloc(priv->dma_dev, obj->size, &mtk_gem->dma_addr,
+				GFP_KERNEL, mtk_gem->dma_attrs, __func__,
+				__LINE__);
 	if (!mtk_gem->cookie) {
 		DRM_ERROR("failed to allocate %zx byte dma buffer", obj->size);
 		ret = -ENOMEM;
@@ -219,11 +256,13 @@ void mtk_drm_gem_free_object(struct drm_gem_object *obj)
 	if (mtk_gem->sg)
 		drm_prime_gem_destroy(obj, mtk_gem->sg);
 	else if (!mtk_gem->sec)
-		dma_free_attrs(priv->dma_dev, obj->size, mtk_gem->cookie,
-			       mtk_gem->dma_addr, mtk_gem->dma_attrs);
+		mtk_gem_dma_free(priv->dma_dev, obj->size, mtk_gem->cookie,
+			       mtk_gem->dma_addr, mtk_gem->dma_attrs,
+			       __func__, __LINE__);
 
 	if (mtk_gem->handle && priv->client)
-		mtk_drm_gem_ion_free_handle(priv->client, mtk_gem->handle);
+		mtk_drm_gem_ion_free_handle(priv->client, mtk_gem->handle,
+				__func__, __LINE__);
 	else
 		DDPPR_ERR("invaild ion handle or client\n");
 	/* release file pointer to gem object. */
@@ -337,6 +376,44 @@ int mtk_drm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 }
 
 #if defined(CONFIG_MTK_IOMMU_V2)
+struct ion_handle *mtk_gem_ion_import_dma_buf(struct ion_client *client,
+		struct dma_buf *dmabuf, const char *name, int line)
+{
+	struct ion_handle *handle;
+
+	DRM_MMP_EVENT_START(ion_import_dma, (unsigned long)client, line);
+	handle = ion_import_dma_buf(client, dmabuf);
+
+	DRM_MMP_EVENT_END(ion_import_dma, (unsigned long)handle,
+			(unsigned long)dmabuf);
+
+	return handle;
+}
+
+struct ion_handle *mtk_gem_ion_import_dma_fd(struct ion_client *client,
+		int fd, const char *name, int line)
+{
+	struct ion_handle *handle;
+	struct dma_buf *dmabuf;
+
+	DRM_MMP_EVENT_START(ion_import_fd, (unsigned long)client, line);
+	handle = ion_import_dma_buf_fd(client, fd);
+
+	dmabuf = dma_buf_get(fd);
+	if (IS_ERR(dmabuf)) {
+		DDPPR_ERR("%s:%d dma_buf_get fail fd=%d ret=0x%p\n",
+		       __func__, __LINE__, fd, dmabuf);
+		return ERR_CAST(dmabuf);
+	}
+
+	DRM_MMP_EVENT_END(ion_import_fd, (unsigned long)handle,
+			(unsigned long)dmabuf);
+
+	dma_buf_put(dmabuf);
+
+	return handle;
+}
+
 struct ion_client *mtk_drm_gem_ion_create_client(const char *name)
 {
 	struct ion_client *disp_ion_client = NULL;
@@ -365,18 +442,26 @@ void mtk_drm_gem_ion_destroy_client(struct ion_client *client)
 }
 
 void mtk_drm_gem_ion_free_handle(struct ion_client *client,
-	struct ion_handle *handle)
+	struct ion_handle *handle, const char *name, int line)
 {
+	DRM_MMP_EVENT_START(ion_import_free, (unsigned long)handle, 0);
+
 	if (!client) {
 		DDPPR_ERR("invalid ion client!\n");
+		DRM_MMP_MARK(ion_import_free, 0, 1);
+		DRM_MMP_EVENT_END(ion_import_free, (unsigned long)client, line);
 		return;
 	}
 	if (!handle) {
 		DDPPR_ERR("invalid ion handle!\n");
+		DRM_MMP_MARK(ion_import_free, 0, 2);
+		DRM_MMP_EVENT_END(ion_import_free, (unsigned long)client, line);
 		return;
 	}
 
 	ion_free(client, handle);
+
+	DRM_MMP_EVENT_END(ion_import_free, (unsigned long)client, line);
 }
 
 /**
@@ -394,7 +479,8 @@ struct ion_handle *mtk_drm_gem_ion_import_handle(struct ion_client *client,
 		DDPPR_ERR("invalid ion client!\n");
 		return handle;
 	}
-	handle = ion_import_dma_buf_fd(client, fd);
+	handle = mtk_gem_ion_import_dma_fd(client, fd,
+			__func__, __LINE__);
 	if (IS_ERR(handle)) {
 		DDPPR_ERR("import ion handle failed! fd:%d\n",
 			fd);
@@ -424,7 +510,8 @@ mtk_gem_prime_import(struct drm_device *dev, struct dma_buf *dma_buf)
 			(unsigned long)dma_buf);
 	client = priv->client;
 	DRM_MMP_MARK(prime_import, 1, 0);
-	handle = ion_import_dma_buf(client, dma_buf);
+	handle = mtk_gem_ion_import_dma_buf(client, dma_buf,
+			__func__, __LINE__);
 	if (IS_ERR(handle)) {
 		DDPPR_ERR("ion import failed, client:0x%p, dmabuf:0x%p\n",
 				client, dma_buf);
@@ -454,7 +541,8 @@ retry:
 	} else if (ret < 0) {
 		DDPPR_ERR("ion config failed, handle:0x%p, ret:%d\n",
 			handle, ret);
-		ion_free(client, handle);
+		mtk_drm_gem_ion_free_handle(client, handle,
+				__func__, __LINE__);
 		DRM_MMP_MARK(prime_import, 0, 1);
 		DRM_MMP_EVENT_END(prime_import, (unsigned long)handle,
 				(unsigned long)client);
@@ -473,6 +561,7 @@ retry:
 	DRM_MMP_MARK(prime_import, 1, 4);
 	mtk_gem = to_mtk_gem_obj(obj);
 	mtk_gem->handle = handle;
+
 	DRM_MMP_EVENT_END(prime_import, (unsigned long)obj,
 			(unsigned long)handle);
 

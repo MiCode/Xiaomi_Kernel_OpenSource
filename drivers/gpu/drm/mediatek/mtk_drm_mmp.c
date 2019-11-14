@@ -76,6 +76,16 @@ void init_drm_mmp_event(void)
 		mmprofile_register_event(g_DRM_MMP_Events.drm, "PID");
 	g_DRM_MMP_Events.prime_import_sg =
 		mmprofile_register_event(g_DRM_MMP_Events.drm, "PIS");
+	g_DRM_MMP_Events.dma_alloc =
+		mmprofile_register_event(g_DRM_MMP_Events.drm, "D_ALLOC");
+	g_DRM_MMP_Events.dma_free =
+		mmprofile_register_event(g_DRM_MMP_Events.drm, "D_FREE");
+	g_DRM_MMP_Events.ion_import_dma =
+		mmprofile_register_event(g_DRM_MMP_Events.drm, "I_DMA");
+	g_DRM_MMP_Events.ion_import_fd =
+		mmprofile_register_event(g_DRM_MMP_Events.drm, "I_FD");
+	g_DRM_MMP_Events.ion_import_free =
+		mmprofile_register_event(g_DRM_MMP_Events.drm, "I_FREE");
 
 	g_DRM_MMP_Events.ddp =
 		mmprofile_register_event(g_DRM_MMP_Events.IRQ, "MUTEX");
@@ -141,6 +151,10 @@ void init_crtc_mmp_event(void)
 			crtc_mmp_root, "suspend");
 		g_CRTC_MMP_Events[i].resume = mmprofile_register_event(
 			crtc_mmp_root, "resume");
+		g_CRTC_MMP_Events[i].dsi_suspend = mmprofile_register_event(
+			crtc_mmp_root, "dsi_suspend");
+		g_CRTC_MMP_Events[i].dsi_resume = mmprofile_register_event(
+			crtc_mmp_root, "dsi_resume");
 		g_CRTC_MMP_Events[i].backlight = mmprofile_register_event(
 			crtc_mmp_root, "backlight");
 		g_CRTC_MMP_Events[i].path_switch = mmprofile_register_event(

@@ -2351,15 +2351,21 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	unsigned int crtc_id = drm_crtc_index(&mtk_crtc->base);
 
+	CRTC_MMP_EVENT_START(crtc_id, enable,
+			mtk_crtc->enabled, 0);
+
 	if (mtk_crtc->enabled) {
+		CRTC_MMP_MARK(crtc_id, enable, 0, 0);
 		DDPINFO("crtc%d skip %s\n", crtc_id, __func__);
-		return;
+		goto end;
 	} else if (mtk_crtc->ddp_mode == DDP_NO_USE) {
+		CRTC_MMP_MARK(crtc_id, enable, 0, 1);
 		DDPINFO("crtc%d skip %s, ddp_mode: NO_USE\n", crtc_id,
 			__func__);
-		return;
+		goto end;
 	}
 	DDPINFO("crtc%d do %s\n", crtc_id, __func__);
+	CRTC_MMP_MARK(crtc_id, enable, 1, 0);
 
 	/* attach the crtc to each componet */
 	mtk_crtc_attach_ddp_comp(crtc, mtk_crtc->ddp_mode, true);
@@ -2380,6 +2386,7 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 		ctx->is_dc = 1;
 	}
 
+	CRTC_MMP_MARK(crtc_id, enable, 1, 1);
 	/* 4. connect path */
 	mtk_crtc_connect_default_path(mtk_crtc);
 
@@ -2419,6 +2426,10 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 
 	/* 12. enable fake vsync if need*/
 	mtk_drm_fake_vsync_switch(crtc, true);
+
+end:
+	CRTC_MMP_EVENT_END(crtc_id, enable,
+			mtk_crtc->enabled, 0);
 }
 
 void mtk_drm_crtc_resume(struct drm_crtc *crtc)
@@ -2439,13 +2450,16 @@ void mtk_drm_crtc_atomic_resume(struct drm_crtc *crtc,
 	int index = drm_crtc_index(crtc);
 
 	CRTC_MMP_EVENT_START(index, resume,
-			(unsigned long)crtc, index);
+			mtk_crtc->enabled, index);
 
 	/* hold wakelock */
 	DDPMSG("%s hold wakelock\n", __func__);
 	__pm_stay_awake(&mtk_crtc->wk_lock);
 
 	mtk_drm_crtc_enable(crtc);
+
+	CRTC_MMP_EVENT_END(index, resume,
+			mtk_crtc->enabled, 0);
 }
 
 bool mtk_crtc_with_sub_path(struct drm_crtc *crtc, unsigned int ddp_mode);
@@ -2657,48 +2671,69 @@ void mtk_drm_crtc_disable(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	unsigned int crtc_id = drm_crtc_index(&mtk_crtc->base);
+	struct mtk_ddp_comp *comp = NULL;
+
+	CRTC_MMP_EVENT_START(crtc_id, disable,
+			mtk_crtc->enabled, 0);
 
 	if (!mtk_crtc->enabled) {
+		CRTC_MMP_MARK(crtc_id, disable, 0, 0);
 		DDPMSG("crtc%d skip %s\n", crtc_id, __func__);
-		return;
+		goto end;
 	} else if (mtk_crtc->ddp_mode == DDP_NO_USE) {
+		CRTC_MMP_MARK(crtc_id, disable, 0, 1);
 		DDPINFO("crtc%d skip %s, ddp_mode: NO_USE\n", crtc_id,
 			__func__);
-		return;
+		goto end;
 	}
 	DDPINFO("%s:%d +\n", __func__, __LINE__);
 	DDPINFO("crtc%d\n", crtc_id);
+	CRTC_MMP_MARK(crtc_id, disable, 1, 0);
 
 	/* 1. kick idle */
 	mtk_drm_idlemgr_kick(__func__, crtc, 0);
 
-	/* 2. disable ESD check */
-	mtk_disp_esd_check_switch(crtc, false);
+	/* 2. disable fake vsync if need */
+	mtk_drm_fake_vsync_switch(crtc, false);
 
-	/* 3. stop CRTC */
-	mtk_crtc_stop(mtk_crtc);
+	/* 3. disable ESD check */
+	if (mtk_drm_lcm_is_connect())
+		mtk_disp_esd_check_switch(crtc, false);
 
-	/* 4. disconnect addon module and recover config */
-	mtk_crtc_disconnect_addon_module(crtc);
-
-	/* 5. disconnect path */
-	mtk_crtc_disconnect_default_path(mtk_crtc);
-
+	/* 4. disable vblank */
 	drm_crtc_vblank_off(crtc);
 
-	/* 6. power off all modules in this CRTC */
+	/* 5. stop CRTC */
+	mtk_crtc_stop(mtk_crtc);
+
+	/* 6. disconnect addon module and recover config */
+	mtk_crtc_disconnect_addon_module(crtc);
+
+	/* 7. disconnect path */
+	mtk_crtc_disconnect_default_path(mtk_crtc);
+
+	/* 8. power off all modules in this CRTC */
 	mtk_crtc_ddp_unprepare(mtk_crtc);
 
-	/* 7. power off MTCMOS*/
+	/* 9. power off MTCMOS*/
 	/* TODO: need to check how to unprepare MTCMOS */
 	mtk_drm_top_clk_disable_unprepare(crtc->dev);
 
-	/* 8. set CRTC SW status */
+	/* Workaround: if CRTC2, reset wdma->fb to NULL to prevent CRTC2
+	 * config wdma and cause KE
+	 */
+	if (crtc_id == 2) {
+		comp = mtk_ddp_comp_find_by_id(crtc, DDP_COMPONENT_WDMA0);
+		if (comp)
+			comp->fb = NULL;
+	}
+
+	/* 10. set CRTC SW status */
 	mtk_crtc_set_status(crtc, false);
 
-	/* 9. disable fake vsync if need */
-	mtk_drm_fake_vsync_switch(crtc, false);
-
+end:
+	CRTC_MMP_EVENT_END(crtc_id, disable,
+			mtk_crtc->enabled, 0);
 	DDPINFO("%s:%d -\n", __func__, __LINE__);
 }
 
@@ -2738,6 +2773,9 @@ void mtk_drm_crtc_suspend(struct drm_crtc *crtc)
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	int index = drm_crtc_index(crtc);
 
+	CRTC_MMP_EVENT_START(index, suspend,
+			mtk_crtc->enabled, 0);
+
 	mtk_drm_crtc_disable(crtc);
 
 	mtk_crtc_disable_plane_setting(mtk_crtc);
@@ -2751,7 +2789,8 @@ void mtk_drm_crtc_suspend(struct drm_crtc *crtc)
 	DDPMSG("%s release wakelock\n", __func__);
 	__pm_relax(&mtk_crtc->wk_lock);
 
-	CRTC_MMP_EVENT_END(index, suspend, 0, 0);
+	CRTC_MMP_EVENT_END(index, suspend,
+			mtk_crtc->enabled, 0);
 }
 
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
@@ -4479,7 +4518,7 @@ int mtk_crtc_path_switch(struct drm_crtc *crtc, unsigned int ddp_mode,
 	if (need_lock)
 		DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 
-	if (ddp_mode == mtk_crtc->ddp_mode || !crtc->enabled) {
+	if (ddp_mode == mtk_crtc->ddp_mode || !mtk_crtc->enabled) {
 		CRTC_MMP_MARK(index, path_switch, 0, 0);
 		goto done;
 	}
@@ -4523,13 +4562,13 @@ int mtk_crtc_path_switch(struct drm_crtc *crtc, unsigned int ddp_mode,
 	mtk_crtc_dc_fb_control(crtc, ddp_mode);
 done:
 	mtk_crtc->ddp_mode = ddp_mode;
-	if (crtc->enabled && mtk_crtc->ddp_mode != DDP_NO_USE)
+	if (mtk_crtc->enabled && mtk_crtc->ddp_mode != DDP_NO_USE)
 		mtk_crtc_update_ddp_sw_status(crtc, true);
 
 	if (need_lock)
 		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 
-	CRTC_MMP_EVENT_END(index, path_switch, crtc->enabled,
+	CRTC_MMP_EVENT_END(index, path_switch, mtk_crtc->enabled,
 			need_lock);
 
 	DDPINFO("%s:%d -\n", __func__, __LINE__);

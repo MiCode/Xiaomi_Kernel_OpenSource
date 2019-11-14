@@ -387,8 +387,15 @@ static void mtk_drm_idlemgr_disable_crtc(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	unsigned int crtc_id = drm_crtc_index(&mtk_crtc->base);
+	bool mode = mtk_crtc_is_dc_mode(crtc);
 
 	DDPINFO("%s, crtc%d+\n", __func__, crtc_id);
+
+	if (mode) {
+		DDPINFO("crtc%d mode:%d bypass enter idle\n", crtc_id, mode);
+		DDPINFO("crtc%d do %s-\n", crtc_id, __func__);
+		return;
+	}
 
 	/* 1. stop CRTC */
 	mtk_crtc_stop(mtk_crtc);
@@ -425,8 +432,15 @@ static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	unsigned int crtc_id = drm_crtc_index(&mtk_crtc->base);
+	bool mode = mtk_crtc_is_dc_mode(crtc);
 
 	DDPINFO("crtc%d do %s+\n", crtc_id, __func__);
+
+	if (mode) {
+		DDPINFO("crtc%d mode:%d bypass exit idle\n", crtc_id, mode);
+		DDPINFO("crtc%d do %s-\n", crtc_id, __func__);
+		return;
+	}
 
 	/* 1. power on mtcmos */
 	mtk_drm_top_clk_prepare_enable(crtc->dev);

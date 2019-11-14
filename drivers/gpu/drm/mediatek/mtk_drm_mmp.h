@@ -55,6 +55,11 @@ struct DRM_MMP_Events {
 	mmp_event prime_import;
 	mmp_event prime_import_dev;
 	mmp_event prime_import_sg;
+	mmp_event dma_alloc;
+	mmp_event dma_free;
+	mmp_event ion_import_dma;
+	mmp_event ion_import_fd;
+	mmp_event ion_import_free;
 };
 
 /* if changed, need to update init_crtc_mmp_event() */
@@ -74,6 +79,8 @@ struct CRTC_MMP_Events {
 	mmp_event frame_cfg;
 	mmp_event suspend;
 	mmp_event resume;
+	mmp_event dsi_suspend;
+	mmp_event dsi_resume;
 	mmp_event backlight;
 	mmp_event path_switch;
 	mmp_event user_cmd;

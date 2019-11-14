@@ -68,7 +68,7 @@ int mtk_drm_gem_mmap_buf(struct drm_gem_object *obj,
 struct ion_client *mtk_drm_gem_ion_create_client(const char *name);
 void mtk_drm_gem_ion_destroy_client(struct ion_client *client);
 void mtk_drm_gem_ion_free_handle(struct ion_client *client,
-	struct ion_handle *handle);
+	struct ion_handle *handle, const char *name, int line);
 struct ion_handle *mtk_drm_gem_ion_import_handle(struct ion_client *client,
 	int fd);
 #endif
