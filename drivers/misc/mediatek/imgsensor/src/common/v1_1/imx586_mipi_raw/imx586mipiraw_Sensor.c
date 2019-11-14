@@ -361,6 +361,10 @@ static struct SET_PD_BLOCK_INFO_T imgsensor_pd_info_binning = {
 		    {0, 0}, {80, 420}, {0, 0}, {0, 0}, {0, 0} },
 };
 
+static kal_uint16 imx586_QSC_setting[2304 * 2];
+static kal_uint16 imx586_LRC_setting[384 * 2];
+
+
 static kal_uint16 read_cmos_sensor(kal_uint32 addr)
 {
 	kal_uint16 get_byte = 0;
@@ -379,7 +383,6 @@ static void write_cmos_sensor(kal_uint16 addr, kal_uint16 para)
 	/* Add this func to set i2c speed by each sensor */
 	iWriteRegI2C(pusendcmd, 4, imgsensor.i2c_write_id);
 }
-
 
 static kal_uint16 read_cmos_sensor_8(kal_uint16 addr)
 {
@@ -418,46 +421,54 @@ static void imx586_set_pdaf_reg_setting(MUINT32 regNum, kal_uint16 *regDa)
 		pr_debug("%x %x", regDa[idx], regDa[idx+1]);
 	}
 }
-#ifdef VENDOR_EDIT
-static kal_uint16 imx586_QSC_setting[2304 * 2];
-static kal_uint16 imx586_LRC_setting[384 * 2];
-#endif
+
+static kal_uint16 read_cmos_eeprom_8(kal_uint16 addr)
+{
+	kal_uint16 get_byte = 0;
+	char pusendcmd[2] = {(char)(addr >> 8), (char)(addr & 0xFF) };
+
+	iReadRegI2C(pusendcmd, 2, (u8 *)&get_byte, 1, 0xA0);
+	return get_byte;
+}
+
+static void read_sensor_Cali(void)
+{
+	kal_uint16 idx = 0, addr_qsc = 0xC90, sensor_lrc = 0x7F00;
+	kal_uint16 eeprom_lrc_0 = 0x1620, eeprom_lrc_1 = 0x16E0;
+	kal_uint16 sensor_lrc_0 = 0x7510, sensor_lrc_1 = 0x7600;
+
+	for (idx = 0; idx < 2304; idx++) {
+		addr_qsc = 0xC90 + idx;
+		sensor_lrc = 0x7F00 + idx;
+		imx586_QSC_setting[2 * idx] = sensor_lrc;
+		imx586_QSC_setting[2 * idx + 1] = read_cmos_eeprom_8(addr_qsc);
+	}
+
+	for (idx = 0; idx < 192; idx++) {
+		imx586_LRC_setting[2 * idx] = sensor_lrc_0 + idx;
+		imx586_LRC_setting[2 * idx + 1] =
+			read_cmos_eeprom_8(eeprom_lrc_0 + idx);
+		imx586_LRC_setting[2 * idx + 192 * 2] =
+			sensor_lrc_1 + idx;
+		imx586_LRC_setting[2 * idx + 1 + 192 * 2] =
+			read_cmos_eeprom_8(eeprom_lrc_1 + idx);
+	}
+}
 
 static void write_sensor_QSC(void)
 {
-	write_cmos_sensor_8(0x3621, 0x01);/*enable QSC*/
-#ifdef VENDOR_EDIT
 	#if USE_BURST_MODE
 	imx586_table_write_cmos_sensor(imx586_QSC_setting,
-		sizeof(imx586_QSC_setting)/sizeof(kal_uint16));
+		sizeof(imx586_QSC_setting) / sizeof(kal_uint16));
 	#else
 	kal_uint16 idx = 0, addr_qsc = 0x7F00;
-
 	for (idx = 0; idx < 2304; idx++) {
 		addr_qsc = 0x7F00 + idx;
 		write_cmos_sensor_8(addr_qsc, imx586_QSC_setting[2 * idx + 1]);
 	}
 	#endif
-#endif
 }
-#ifdef VENDOR_EDIT
-static void write_sensor_LRC(void)
-{
-	#if USE_BURST_MODE
-	imx586_table_write_cmos_sensor(imx586_LRC_setting,
-		sizeof(imx586_LRC_setting)/sizeof(kal_uint16));
-	#else
-	kal_uint16 idx = 0, sensor_lrc_0 = 0x7510, sensor_lrc_1 = 0x7600;
 
-	for (idx = 0; idx < 192; idx++) {
-		write_cmos_sensor_8(sensor_lrc_0+idx,
-			imx586_LRC_setting[2 * idx + 1]);
-		write_cmos_sensor_8(sensor_lrc_1+idx,
-			imx586_LRC_setting[2 * idx + 1 + 192]);
-	}
-	#endif
-}
-#endif
 static void set_dummy(void)
 {
 	pr_debug("dummyline = %d, dummypixels = %d\n",
@@ -569,6 +580,7 @@ static void write_shutter(kal_uint32 shutter)
 	} else {
 		/* Extend frame length*/
 		write_cmos_sensor_8(0x0104, 0x01);
+		write_cmos_sensor_8(0x0350, 0x01); /* Enable auto extend */
 		write_cmos_sensor_8(0x0340, imgsensor.frame_length >> 8);
 		write_cmos_sensor_8(0x0341, imgsensor.frame_length & 0xFF);
 		write_cmos_sensor_8(0x0104, 0x00);
@@ -2331,7 +2343,7 @@ static kal_uint16 imx586_custom3_setting[] = {
 	0x0310, 0x01,
 	/*Other Setting*/
 	0x3620, 0x01,
-	0x3621, 0x01,
+	0x3621, 0x00,
 	0x3C11, 0x08,
 	0x3C12, 0x08,
 	0x3C13, 0x2A,
@@ -3262,6 +3274,7 @@ static kal_uint32 get_imgsensor_id(UINT32 *sensor_id)
 			if (*sensor_id == imgsensor_info.sensor_id) {
 				pr_debug("i2c write id: 0x%x, sensor id: 0x%x\n",
 					imgsensor.i2c_write_id, *sensor_id);
+				read_sensor_Cali();
 				return ERROR_NONE;
 			}
 
@@ -3335,9 +3348,7 @@ static kal_uint32 open(void)
 
 	/* initail sequence write in  */
 	sensor_init();
-#ifdef VENDOR_EDIT
-	write_sensor_LRC();
-#endif
+
 	spin_lock(&imgsensor_drv_lock);
 
 	imgsensor.autoflicker_en = KAL_FALSE;
