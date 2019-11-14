@@ -494,6 +494,77 @@
 		reg = <0 0x10208000 0 0x1000>;
 	};
 
+	ufshci:ufshci@11270000 {
+		compatible = "mediatek,ufshci";
+		reg = <0 0x11270000 0 0x2300>;
+		interrupts = <GIC_SPI 105 IRQ_TYPE_LEVEL_HIGH>;
+
+		#ifndef CONFIG_FPGA_EARLY_PORTING
+		clocks =
+			<&infracfg_ao INFRACFG_AO_UFS_CG>,
+			<&infracfg_ao INFRACFG_AO_UNIPRO_SYSCLK_CG>,
+			<&infracfg_ao INFRACFG_AO_UFS_MP_SAP_BCLK_CG>,
+			<&infracfg_ao INFRACFG_AO_AES_UFSFDE_CG>,
+			<&topckgen TOP_MUX_AES_UFSFDE>,
+			<&topckgen TOP_UNIVPLL_D6>,
+			<&topckgen TOP_MAINPLL_D4>;
+		clock-names =
+			"ufs-clk",
+			"ufs-unipro-clk",
+			"ufs-mp-clk",
+			"ufs-crypto-clk",
+			"ufs-vendor-crypto-clk-mux",
+			"ufs-vendor-crypto-normal-parent-clk",
+			"ufs-vendor-crypto-perf-parent-clk";
+		freq-table-hz =
+			<0 0>,
+			<0 0>,
+			<0 0>,
+			<0 0>,
+			<0 0>,
+			<0 0>,
+			<0 0>;
+		#endif
+
+		/* Regulators */
+		/* In MT67xx, only VCC is available to be controlled by UFS */
+		/* driver */
+		/* VCCQ2:  Provided by external LDO. SW control is not */
+		/* necessary */
+		/* VCCQ: Not supported by current UFS devices */
+		#ifndef CONFIG_FPGA_EARLY_PORTING
+		vcc-supply = <&mt_pmic_vemc_ldo_reg>;
+		vcc-fixed-regulator;
+		#endif
+
+		/* Number of lanes available per direction - either 1 or 2 */
+		lanes-per-direction = <1>;
+
+		/* Auto-Hibern8 Timer. Unit: ms	(0 means disabled) */
+		mediatek,auto-hibern8-timer = <10>;
+
+		/* System Suspend Level */
+		mediatek,spm-level = <3>;
+
+		/* Runtime Suspend Configuration */
+		/* 1. Runtime PM on/off (on: 1, off: 0) */
+		mediatek,rpm-enable = <0>;
+
+		/* 2. Auto Suspend Delay. Unit: ms */
+		mediatek,rpm-autosuspend-delay = <2000>;
+
+		/* 3. Runtime Suspend Level */
+		mediatek,rpm-level = <3>;
+
+		/* Performance Mode */
+		mediatek,perf-crypto-vcore = <2>;
+	};
+
+	ufs_mphy@11fa0000 {
+		compatible = "mediatek,ufs_mphy";
+		reg = <0 0x11fa0000 0 0xc000>;
+	};
+
 	ap_ccif0@10209000 {
 		compatible = "mediatek,ap_ccif0";
 		reg = <0 0x10209000 0 0x1000>;

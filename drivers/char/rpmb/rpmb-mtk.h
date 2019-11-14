@@ -17,7 +17,9 @@
 #include <linux/mmc/ioctl.h>
 #include <linux/mmc/card.h>
 
+#if defined(CONFIG_MMC_MTK_PRO)
 extern struct msdc_host *mtk_msdc_host[];
+#endif
 
 /************************************************************************
  *
