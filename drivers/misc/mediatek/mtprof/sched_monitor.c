@@ -44,7 +44,8 @@ struct irq_count_period_setting {
 	unsigned int period;
 } irq_count_plist[] = {
 	{"ufshcd", 10000}, /* 100000 irqs per sec*/
-	{"arch_timer", 50000} /* 20000 irqs per sec*/
+	{"arch_timer", 50000}, /* 20000 irqs per sec*/
+	{"musb-hdrc", 16666} /* 60000 irqs per sec*/
 };
 #endif
 #ifdef CONFIG_MTK_IRQ_OFF_TRACER
