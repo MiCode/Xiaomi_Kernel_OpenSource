@@ -373,7 +373,7 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 	int ret = 0;
 	int voltage_MAX = voltage_mV + 50000;
 	int settle_time = 0;
-
+	bool binning_voltage = false;
 
 #if BINNING_VOLTAGE_SUPPORT
 	unsigned int vpu_efuse_val = 0;
@@ -388,6 +388,7 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 		else if (vpu_efuse_val == 3)
 			voltage_mV = DVFS_VOLT_00_750000_V;
 
+		binning_voltage = true;
 		LOG_WRN("Binning Voltage!!, vpu_efuse=%d, vol=%d\n",
 			vpu_efuse_val, voltage_mV);
 	} else if (buck == MDLA_BUCK && voltage_mV == DVFS_VOLT_00_825000_V
@@ -397,7 +398,7 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 		else if (mdla_efuse_val == 3)
 			voltage_mV = DVFS_VOLT_00_775000_V;
 
-
+		binning_voltage = true;
 		LOG_WRN("Binning Voltage!!, mdla_efuse=%d, vol=%d\n",
 			mdla_efuse_val, voltage_mV);
 	}
@@ -434,12 +435,14 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 	LOG_DBG("%s pmic_cmd = 0x%x\n", __func__, pmic_cmd);
 	DRV_WriteReg32(APU_PCU_PMIC_TAR_BUF, pmic_cmd);
 
-	while ((DRV_Reg32(APU_PCU_PMIC_STATUS) & 0x1) == 0) {
-		udelay(50);
+	if (binning_voltage == false) {
+		while ((DRV_Reg32(APU_PCU_PMIC_STATUS) & 0x1) == 0) {
+			udelay(50);
 		if (++check_round >= REG_POLLING_TIMEOUT_ROUNDS) {
 			LOG_ERR("%s wait APU_PCU_PMIC_STATUS timeout !\n",
 								__func__);
 			break;
+			}
 		}
 	}
 

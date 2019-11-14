@@ -508,6 +508,7 @@ void apusys_frequency_check(void)
 	uint8_t next_opp_index = 0, cur_opp_index = 0;
 	struct hal_param_freq  freq_data;
 	enum DVFS_USER user;
+	bool apusys_power_on = false;
 
 	for (buck_domain_index = 0;
 	buck_domain_index < APUSYS_BUCK_DOMAIN_NUM;
@@ -519,17 +520,15 @@ void apusys_frequency_check(void)
 		if (user < APUSYS_DVFS_USER_NUM) {
 			if (apusys_opps.is_power_on[user] == false)
 				continue;
+			else
+				apusys_power_on = true;
 		} else {
-			if (apusys_opps.is_power_on[EDMA] == false &&
-				apusys_opps.is_power_on[EDMA2] == false &&
-				apusys_opps.is_power_on[REVISER] == false)
+			if (apusys_power_on == false &&
+			apusys_opps.is_power_on[EDMA] == false &&
+			apusys_opps.is_power_on[EDMA2] == false &&
+			apusys_opps.is_power_on[REVISER] == false)
 				continue;
 		}
-
-		PWR_LOG_INF("%s, %s, freq from %d --> %d\n", __func__,
-		buck_domain_str[buck_domain_index],
-		apusys_opps.opps[cur_opp_index][buck_domain_index].freq,
-		apusys_opps.opps[next_opp_index][buck_domain_index].freq);
 
 		if (apusys_opps.cur_opp_index[buck_domain_index] ==
 			apusys_opps.next_opp_index[buck_domain_index])
@@ -658,7 +657,6 @@ if (g_pwr_log_level == APUSYS_PWR_LOG_DEBUG)
 
 void apusys_dvfs_info(void)
 {
-	struct apu_power_info info;
 	char log_str[128];
 	uint8_t buck_domain;
 	uint8_t cur_opp;
@@ -797,11 +795,6 @@ if (dvfs_power_domain_support(buck_domain) == false) {
 	PWR_LOG_WRN("APUPWR DVFS %s\n", log_str);
 	}
 
-	if (is_power_debug_lock == true) {
-		info.id = 0;
-		info.type = 0;
-		hal_config_power(PWR_CMD_GET_POWER_INFO, VPU0, &info);
-	}
 }
 
 
@@ -985,6 +978,10 @@ int apusys_power_off(enum DVFS_USER user)
 				APUSYS_DEFAULT_OPP;
 			apusys_opps.next_opp_index[buck_domain] =
 				APUSYS_DEFAULT_OPP;
+			apusys_opps.user_opp_index[user] =
+				 APUSYS_DEFAULT_OPP;
+			apusys_opps.driver_opp_index[user] =
+				 APUSYS_DEFAULT_OPP;
 		}
 		if (apusys_opps.power_bit_mask == 0) {
 			PWR_LOG_INF("%s all power off\n", __func__);
