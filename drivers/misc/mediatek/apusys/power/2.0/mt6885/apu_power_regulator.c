@@ -561,7 +561,8 @@ void dump_voltage(struct apu_power_info *info)
 	info->vmdla = vmdla / dump_div;
 	info->vcore = vcore / dump_div;
 	info->vsram = vsram / dump_div;
-
+#if 0
 	LOG_DBG("vvpu=%d, vmdla=%d, vcore=%d, vsram=%d\n",
 						vvpu, vmdla, vcore, vsram);
+#endif
 }

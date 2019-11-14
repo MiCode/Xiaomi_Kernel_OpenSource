@@ -32,10 +32,20 @@ struct apu_power_info {
 	unsigned int dsp7_freq;		// iommu
 	unsigned int apupll_freq;	// apupll for mdla usage
 	unsigned int ipuif_freq;	// ipu interface
+	unsigned int spm_wakeup;
+	unsigned int rpc_intf_rdy;
+	unsigned int vcore_cg_stat;
+	unsigned int conn_cg_stat;
+	unsigned int vpu0_cg_stat;
+	unsigned int vpu1_cg_stat;
+	unsigned int vpu2_cg_stat;
+	unsigned int mdla0_cg_stat;
+	unsigned int mdla1_cg_stat;
 	unsigned int max_opp_limit;
 	unsigned int min_opp_limit;
 	unsigned int thermal_cond;
 	unsigned int power_lock;
+	unsigned int type;
 	unsigned long long id;
 };
 

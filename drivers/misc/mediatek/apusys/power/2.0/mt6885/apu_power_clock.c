@@ -919,7 +919,7 @@ void dump_frequency(struct apu_power_info *info)
 	info->dsp7_freq = dsp7_freq / dump_div;
 	info->apupll_freq = apupll_freq / dump_div;
 	info->ipuif_freq = ipuif_freq / dump_div;
-
+#if 0
 	LOG_DBG("dsp_freq = %d\n", dsp_freq);
 	LOG_DBG("dsp1_freq = %d\n", dsp1_freq);
 	LOG_DBG("dsp2_freq = %d\n", dsp2_freq);
@@ -928,4 +928,5 @@ void dump_frequency(struct apu_power_info *info)
 	LOG_DBG("dsp7_freq = %d\n", dsp7_freq);
 	LOG_DBG("apupll_freq = %d\n", apupll_freq);
 	LOG_DBG("ipuif_freq = %d\n", ipuif_freq);
+#endif
 }

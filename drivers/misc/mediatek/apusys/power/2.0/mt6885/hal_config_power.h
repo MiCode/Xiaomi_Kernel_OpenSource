@@ -27,11 +27,12 @@ enum HAL_POWER_CMD {
 	PWR_CMD_SET_VOLT,		// 3
 	PWR_CMD_SET_REGULATOR_MODE,	// 4
 	PWR_CMD_SET_FREQ,		// 5
-	PWR_CMD_GET_POWER_INFO,		// 6
-	PWR_CMD_REG_DUMP,		// 7
-	PWR_CMD_UNINIT_POWER,		// 8
-	PWR_CMD_DEBUG_MTCMOS_ON,	// 9
-	PWR_CMD_DEBUG_MTCMOS_OFF,	// 10
+	PWR_CMD_PM_HANDLER,		// 6
+	PWR_CMD_GET_POWER_INFO,		// 7
+	PWR_CMD_REG_DUMP,		// 8
+	PWR_CMD_UNINIT_POWER,		// 9
+	PWR_CMD_DEBUG_MTCMOS_ON,	// 10
+	PWR_CMD_DEBUG_MTCMOS_OFF,	// 11
 // do not control mtcmos and clock individually
 #if 0
 	PWR_CMD_SET_MTCMOS,
@@ -94,6 +95,11 @@ struct hal_param_pwr_info {
 
 struct hal_param_pwr_mask {
 	uint8_t power_bit_mask;
+};
+
+// suspend, resume only
+struct hal_param_pm {
+	uint8_t is_suspend;
 };
 
 /************************************

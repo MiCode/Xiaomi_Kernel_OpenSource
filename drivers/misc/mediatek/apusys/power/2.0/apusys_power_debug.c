@@ -80,6 +80,7 @@ static void apu_power_dump_curr_status(struct seq_file *s)
 	seq_puts(s, "\n");
 
 	info.id = 0;
+	info.type = 1;
 	hal_config_power(PWR_CMD_GET_POWER_INFO, VPU0, &info);
 
 	seq_printf(s,
@@ -94,6 +95,15 @@ static void apu_power_dump_curr_status(struct seq_file *s)
 	seq_printf(s, "vvpu:%u(mV), vmdla:%u(mV), vcore:%u(mV), vsram:%u(mV)\n",
 			info.vvpu, info.vmdla, info.vcore, info.vsram);
 
+	seq_puts(s, "\n");
+	seq_printf(s,
+	"rpc_intf_rdy:0x%x, spm_wakeup:0x%x\nvcore_cg_con:0x%x, conn_cg_con:0x%x\nvpu0_cg_con:0x%x, vpu1_cg_con:0x%x, vpu2_cg_con:0x%x\nmdla0_cg_con:0x%x, mdla1_cg_con:0x%x\n",
+		info.rpc_intf_rdy, info.spm_wakeup,
+		info.vcore_cg_stat, info.conn_cg_stat,
+		info.vpu0_cg_stat, info.vpu1_cg_stat, info.vpu2_cg_stat,
+		info.mdla0_cg_stat, info.mdla1_cg_stat);
+
+	seq_puts(s, "\n");
 }
 
 static int apusys_debug_power_show(struct seq_file *s, void *unused)

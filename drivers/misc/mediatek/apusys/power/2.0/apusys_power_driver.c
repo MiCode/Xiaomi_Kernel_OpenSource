@@ -252,7 +252,6 @@ int apu_device_power_off(enum DVFS_USER user)
 
 	if (ret) {
 		LOG_ERR("APUPWR_OFF_FAIL, user:%d\n", user);
-		apu_power_reg_dump();
 		return -ENODEV;
 	} else {
 		return 0;
@@ -313,7 +312,6 @@ int apu_device_power_on(enum DVFS_USER user)
 
 	if (ret) {
 		LOG_ERR("APUPWR_ON_FAIL, user=%d\n", user);
-		apu_power_reg_dump();
 		return -ENODEV;
 	} else {
 		return 0;
@@ -428,6 +426,7 @@ static void d_work_power_info_func(struct work_struct *work)
 	struct apu_power_info info;
 
 	info.id = timestamp;
+	info.type = 1;
 	hal_config_power(PWR_CMD_GET_POWER_INFO, VPU0, &info);
 }
 
@@ -455,7 +454,7 @@ static void default_power_on_func(void)
 	udelay(200);
 	apu_power_counter++;
 
-	apu_power_reg_dump();
+	apu_get_power_info();
 }
 
 static void apu_power_assert_check(struct apu_power_info *info)
@@ -588,7 +587,7 @@ static int apusys_power_task(void *arg)
 			// call dvfs API and bring timestamp to id
 			apusys_dvfs_policy(timestamp);
 			info.id = timestamp;
-//			apu_get_power_info();
+			info.type = 0;
 			hal_config_power(PWR_CMD_GET_POWER_INFO, VPU0, &info);
 			#if ASSERTIOM_CHECK
 			apu_power_assert_check(&info);
@@ -804,6 +803,7 @@ for (loop = 0; loop < count; loop++) {
 					apusys_set_opp(MDLA1, o);
 					timestamp = get_current_time_us();
 					info.id = timestamp;
+					info.type = 0;
 
 					apusys_dvfs_policy(timestamp);
 
@@ -843,12 +843,10 @@ for (loop = 0; loop < count; loop++) {
 					__func__, BINNING_VOLTAGE_SUPPORT);
 		LOG_WRN("%s, g_pwr_log_level : %d\n",
 					__func__, g_pwr_log_level);
-		apu_power_reg_dump();
 		apu_get_power_info();
 		break;
 	case 9: // config to force power on
 		default_power_on_func();
-		apu_get_power_info();
 		break;
 	default:
 		LOG_WRN("%s invalid type %d !\n", __func__, type);
@@ -859,6 +857,29 @@ for (loop = 0; loop < count; loop++) {
 	return 0;
 }
 
+static int apu_power_suspend(struct platform_device *pdev, pm_message_t mesg)
+{
+	struct hal_param_pm pm;
+
+	mutex_lock(&power_ctl_mtx);
+	pm.is_suspend = 1;
+	hal_config_power(PWR_CMD_PM_HANDLER, VPU0, &pm);
+	mutex_unlock(&power_ctl_mtx);
+
+	return 0;
+}
+
+static int apu_power_resume(struct platform_device *pdev)
+{
+	struct hal_param_pm pm;
+
+	mutex_lock(&power_ctl_mtx);
+	pm.is_suspend = 0;
+	hal_config_power(PWR_CMD_PM_HANDLER, VPU0, &pm);
+	mutex_unlock(&power_ctl_mtx);
+
+	return 0;
+}
 
 static int apu_power_remove(struct platform_device *pdev)
 {
@@ -891,6 +912,8 @@ static const struct of_device_id apu_power_of_match[] = {
 static struct platform_driver apu_power_driver = {
 	.probe	= apu_power_probe,
 	.remove	= apu_power_remove,
+	.suspend = apu_power_suspend,
+	.resume = apu_power_resume,
 	.driver = {
 		.name = "apusys_power",
 		.of_match_table = apu_power_of_match,

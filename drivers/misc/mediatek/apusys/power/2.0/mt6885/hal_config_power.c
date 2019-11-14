@@ -55,12 +55,13 @@ static int set_power_clock(enum DVFS_USER, void *param);
 static int set_power_frequency(void *param);
 static void get_current_power_info(void *param);
 static int uninit_power_resource(void);
-static int apusys_power_reg_dump(void);
+static int apusys_power_reg_dump(struct apu_power_info *info);
 static void debug_power_mtcmos_on(void);
 static void debug_power_mtcmos_off(void);
 static void hw_init_setting(void);
 static int buck_control(enum DVFS_USER user, int level);
 static int rpc_power_status_check(int domain_idx, unsigned int enable);
+static int apu_pm_handler(void *param);
 
 /************************************
  * common power hal command
@@ -106,11 +107,14 @@ int hal_config_power(enum HAL_POWER_CMD cmd, enum DVFS_USER user, void *param)
 	case PWR_CMD_SET_FREQ:
 		ret = set_power_frequency(param);
 		break;
+	case PWR_CMD_PM_HANDLER:
+		ret = apu_pm_handler(param);
+		break;
 	case PWR_CMD_GET_POWER_INFO:
 		get_current_power_info(param);
 		break;
 	case PWR_CMD_REG_DUMP:
-		apusys_power_reg_dump();
+		apusys_power_reg_dump(NULL);
 		break;
 	case PWR_CMD_UNINIT_POWER:
 		ret = uninit_power_resource();
@@ -277,6 +281,27 @@ static int init_power_resource(void *param)
 	return 0;
 }
 
+static int apu_pm_handler(void *param)
+{
+	int suspend = ((struct hal_param_pm *)param)->is_suspend;
+
+	if (suspend) {
+		LOG_WRN("%s suspend begin\n", __func__);
+		// TODO: do we have any action need to be handled in suspend?
+	} else {
+		// TODO: do we need to call init_power_resource again in resume?
+#if 0
+		enable_apu_vcore_clksrc();
+		enable_apu_conn_clksrc();
+		set_apu_clock_source(DVFS_FREQ_00_026000_F, V_VCORE);
+		disable_apu_conn_clksrc();
+#endif
+		LOG_WRN("%s resume end\n", __func__);
+	}
+
+	return 0;
+}
+
 static int set_power_voltage(enum DVFS_USER user, void *param)
 {
 	enum DVFS_BUCK buck = 0;
@@ -347,16 +372,21 @@ static void rpc_fifo_check(void)
 #endif
 }
 
-static unsigned int check_spm_register(void)
+static unsigned int check_spm_register(struct apu_power_info *info)
 {
 	unsigned int spm_wake_bit = DRV_Reg32(SPM_CROSS_WAKE_M01_REQ);
 
-	LOG_WRN("APUREG, SPM OTHER_PWR_STATUS = 0x%x\n",
-					DRV_Reg32(OTHER_PWR_STATUS));
-	LOG_WRN("APUREG, SPM BUCK_ISOLATION = 0x%x\n",
-					DRV_Reg32(BUCK_ISOLATION));
-	LOG_WRN("APUREG, SPM SPM_CROSS_WAKE_M01_REQ = 0x%x\n",
-					spm_wake_bit);
+	if (info != NULL) {
+		info->spm_wakeup = spm_wake_bit;
+
+	} else {
+		LOG_WRN("APUREG, SPM SPM_CROSS_WAKE_M01_REQ = 0x%x\n",
+							spm_wake_bit);
+		LOG_WRN("APUREG, SPM OTHER_PWR_STATUS = 0x%x\n",
+						DRV_Reg32(OTHER_PWR_STATUS));
+		LOG_WRN("APUREG, SPM BUCK_ISOLATION = 0x%x\n",
+						DRV_Reg32(BUCK_ISOLATION));
+	}
 
 	if (spm_wake_bit == 0x1)
 		return 0x1;
@@ -366,48 +396,82 @@ static unsigned int check_spm_register(void)
 
 /*
  * domain_idx : 0 (conn), 2 (vpu0), 3 (vpu1), 4 (vpu2), 6 (mdla0), 7 (mdla1)
- * enable : 0 (disable), 1 (enable), 2 (disable mid stage)
+ * mode : 0 (disable), 1 (enable), 2 (disable mid stage)
  * explain :
  *	conn enable - check SPM flag to 0x1 only
  *	conn disable mid stage - check SPM flag to 0x0 before sleep request
  *	conn disable - check APU_RPC_INTF_PWR_RDY after sleep request
  *	other devices enable/disable - check APU_RPC_INTF_PWR_RDY only
  */
-static int rpc_power_status_check(int domain_idx, unsigned int enable)
+static int rpc_power_status_check(int domain_idx, unsigned int mode)
 {
-	unsigned int regValue = 0;
-#if 1
-	unsigned int finished = 0;
+	unsigned int spmValue = 0x0;
+	unsigned int rpcValue = 0x0;
+	unsigned int chkValue = 0x0;
+	unsigned int finished = 0x0;
 	unsigned int check_round = 0;
+	int fail_type = 0;
+
+	// check SPM_CROSS_WAKE_M01_REQ
+	spmValue = check_spm_register(NULL);
 
 	do {
 		udelay(10);
 
-		// check SPM_CROSS_WAKE_M01_REQ
-		if (domain_idx == 0 && enable != 0)
-			regValue = check_spm_register();
-		else // check APU_RPC_INTF_PWR_RDY
-			regValue = DRV_Reg32(APU_RPC_INTF_PWR_RDY);
+		// check APU_RPC_INTF_PWR_RDY
+		rpcValue = DRV_Reg32(APU_RPC_INTF_PWR_RDY);
 
-		if (enable == 1)
-			finished = !((regValue >> domain_idx) & 0x1);
-		else // enable equals to 0 (disable) or 2 (disable mid stage)
-			finished = (regValue >> domain_idx) & 0x1;
+		if (domain_idx == 0 && mode != 0)
+			chkValue = spmValue;
+		else
+			chkValue = rpcValue;
+
+		if (mode == 1)
+			finished = !((chkValue >> domain_idx) & 0x1);
+		else // mode equals to 0 (disable) or 2 (disable mid stage)
+			finished = (chkValue >> domain_idx) & 0x1;
 
 		if (++check_round >= REG_POLLING_TIMEOUT_ROUNDS) {
-			LOG_ERR(
-			"%s APU_RPC_INTF_PWR_RDY = 0x%x (idx:%d, en:%d), timeout !\n",
-					__func__, regValue, domain_idx, enable);
+			if (domain_idx == 0 && mode != 0)
+				LOG_ERR(
+				"%s SPM Wakeup = 0x%x (idx:%d, mode:%d), timeout !\n",
+					__func__, spmValue, domain_idx, mode);
+			else
+				LOG_ERR(
+				"%s APU_RPC_INTF_PWR_RDY = 0x%x (idx:%d, mode:%d), timeout !\n",
+					__func__, rpcValue, domain_idx, mode);
 			return -1;
 		}
 
 	} while (finished);
-#else
-	udelay(500);
-	regValue = DRV_Reg32(APU_RPC_INTF_PWR_RDY);
+
+	if (domain_idx == 0) {
+
+		if (mode == 0 && rpcValue != 0x2)
+			fail_type = 1;
+
+		if (mode == 1 && rpcValue != 0x3)
+			fail_type = 2;
+
+		if (mode != 2 && spmValue != (rpcValue & 0x1))
+			fail_type = 3;
+
+		if (fail_type > 0) {
+			LOG_ERR(
+			"%s conn ctl check fail type %d (mode:%d, spm:0x%x, rpc:0x%x)\n",
+			__func__, fail_type, mode, spmValue, rpcValue);
+#if 1
+			return -1;
 #endif
-	LOG_WRN("%s APU_RPC_INTF_PWR_RDY = 0x%x (idx:%d, en:%d)\n",
-					__func__, regValue, domain_idx, enable);
+		}
+	}
+
+	if (domain_idx == 0 && mode != 0)
+		LOG_WRN("%s SPM Wakeup = 0x%x (idx:%d, mode:%d)\n",
+					__func__, spmValue, domain_idx, mode);
+	else
+		LOG_WRN("%s APU_RPC_INTF_PWR_RDY = 0x%x (idx:%d, mode:%d)\n",
+					__func__, rpcValue, domain_idx, mode);
 	return 0;
 }
 
@@ -589,7 +653,7 @@ static int set_power_frequency(void *param)
 static void get_current_power_info(void *param)
 {
 	struct apu_power_info *info = ((struct apu_power_info *)param);
-	char log_str[60];
+	char log_str[128];
 	unsigned int mdla_0 = 0, mdla_1 = 0;
 
 	info->dump_div = 1000;
@@ -603,12 +667,31 @@ static void get_current_power_info(void *param)
 	mdla_0 = (apu_get_power_on_status(MDLA0)) ? info->dsp6_freq : 0;
 	mdla_1 = (apu_get_power_on_status(MDLA1)) ? info->dsp6_freq : 0;
 
-	snprintf(log_str, sizeof(log_str),
-			"v[%u,%u,%u,%u]f[%u,%u,%u,%u,%u,%u,%u,%u]%llu",
+	if (info->type == 1) {
+		// including APUsys pwr related reg
+		apusys_power_reg_dump(info);
+
+		// including SPM related pwr reg
+		check_spm_register(info);
+
+		snprintf(log_str, sizeof(log_str),
+			"v[%u,%u,%u,%u]f[%u,%u,%u,%u,%u,%u,%u]r[%x,%x,%x,%x,%x,%x,%x,%x,%x]",
 			info->vvpu, info->vmdla, info->vcore, info->vsram,
 			info->dsp_freq, info->dsp1_freq, info->dsp2_freq,
 			info->dsp3_freq, info->dsp6_freq, info->dsp7_freq,
-			info->apupll_freq, info->ipuif_freq, info->id);
+			info->ipuif_freq, info->spm_wakeup, info->rpc_intf_rdy,
+			info->vcore_cg_stat, info->conn_cg_stat,
+			info->vpu0_cg_stat, info->vpu1_cg_stat,
+			info->vpu2_cg_stat, info->mdla0_cg_stat,
+			info->mdla1_cg_stat);
+	} else {
+		snprintf(log_str, sizeof(log_str),
+			"v[%u,%u,%u,%u]f[%u,%u,%u,%u,%u,%u,%u]",
+			info->vvpu, info->vmdla, info->vcore, info->vsram,
+			info->dsp_freq, info->dsp1_freq, info->dsp2_freq,
+			info->dsp3_freq, info->dsp6_freq, info->dsp7_freq,
+			info->ipuif_freq);
+	}
 
 	trace_APUSYS_DFS(info, mdla_0, mdla_1);
 
@@ -811,64 +894,138 @@ static int set_power_shut_down(enum DVFS_USER user, void *param)
 	return ret;
 }
 
-static int apusys_power_reg_dump(void)
+static int apusys_power_reg_dump(struct apu_power_info *info)
 {
 	unsigned int regVal = 0x0;
+	unsigned int tmpVal = 0x0;
 
-	// keep 26M vcore clk make we can dump reg directly
-#if 0
+	// FIXME: remove this code if 26MHz always on is ready after resume
+#if 1
 	if (conn_mtcmos_on == 0) {
-		LOG_ERR("APUREG APU_RPC_INTF_PWR_RDY dump fail (mtcmos off)\n");
+		LOG_WRN("APUREG dump fail (conn mtcmos off)\n");
+		if (info != NULL) {
+			info->rpc_intf_rdy = 0xdb;
+			info->vcore_cg_stat = 0xdb;
+			info->conn_cg_stat = 0xdb;
+			info->vpu0_cg_stat = 0xdb;
+			info->vpu1_cg_stat = 0xdb;
+			info->vpu2_cg_stat = 0xdb;
+			info->mdla0_cg_stat = 0xdb;
+			info->mdla1_cg_stat = 0xdb;
+		}
 		return -1;
 	}
+#else
+	// keep 26M vcore clk make we can dump reg directly
 #endif
-	regVal = DRV_Reg32(APU_RPC_INTF_PWR_RDY);
-
 	// dump mtcmos status
-	LOG_WRN("APUREG APU_RPC_INTF_PWR_RDY = 0x%x, conn_mtcmos_on = %d\n",
+	regVal = DRV_Reg32(APU_RPC_INTF_PWR_RDY);
+	if (info != NULL)
+		info->rpc_intf_rdy = regVal;
+	else
+		LOG_WRN(
+		"APUREG APU_RPC_INTF_PWR_RDY = 0x%x, conn_mtcmos_on = %d\n",
 							regVal, conn_mtcmos_on);
 
-	check_spm_register();
-
 	if (((regVal & BIT(0))) == 0x1) {
-		LOG_WRN("APUREG APU_VCORE_CG_CON = 0x%x\n",
-					DRV_Reg32(APU_VCORE_CG_CON));
-		LOG_WRN("APUREG APU_CONN_CG_CON = 0x%x\n",
-					DRV_Reg32(APU_CONN_CG_CON));
+		tmpVal = DRV_Reg32(APU_VCORE_CG_CON);
+		if (info != NULL)
+			info->vcore_cg_stat = tmpVal;
+		else
+			LOG_WRN("APUREG APU_VCORE_CG_CON = 0x%x\n", tmpVal);
+
+		tmpVal = DRV_Reg32(APU_CONN_CG_CON);
+		if (info != NULL)
+			info->conn_cg_stat = tmpVal;
+		else
+			LOG_WRN("APUREG APU_CONN_CG_CON = 0x%x\n", tmpVal);
+
 	} else {
-		LOG_WRN("APUREG conn_vcore mtcmos not ready, bypass CG dump\n");
+		if (info != NULL) {
+			info->vcore_cg_stat = 0xdb;
+			info->conn_cg_stat = 0xdb;
+		} else {
+			LOG_WRN(
+			"APUREG conn_vcore mtcmos not ready, bypass CG dump\n");
+		}
 		return -1;
 	}
 
-	if (((regVal & BIT(2)) >> 2) == 0x1)
-		LOG_WRN("APUREG APU0_APU_CG_CON = 0x%x\n",
-					DRV_Reg32(APU0_APU_CG_CON));
-	else
-		LOG_WRN("APUREG vpu0 mtcmos not ready, bypass CG dump\n");
+	if (((regVal & BIT(2)) >> 2) == 0x1) {
+		tmpVal = DRV_Reg32(APU0_APU_CG_CON);
+		if (info != NULL)
+			info->vpu0_cg_stat = tmpVal;
+		else
+			LOG_WRN("APUREG APU0_APU_CG_CON = 0x%x\n", tmpVal);
 
-	if (((regVal & BIT(3)) >> 3) == 0x1)
-		LOG_WRN("APUREG APU1_APU_CG_CON = 0x%x\n",
-					DRV_Reg32(APU1_APU_CG_CON));
-	else
-		LOG_WRN("APUREG vpu1 mtcmos not ready, bypass CG dump\n");
+	} else {
+		if (info != NULL)
+			info->vpu0_cg_stat = 0xdb;
+		else
+			LOG_WRN(
+			"APUREG vpu0 mtcmos not ready, bypass CG dump\n");
+	}
 
-	if (((regVal & BIT(4)) >> 4) == 0x1)
-		LOG_WRN("APUREG APU2_APU_CG_CON = 0x%x\n",
-					DRV_Reg32(APU2_APU_CG_CON));
-	else
-		LOG_WRN("APUREG vpu2 mtcmos not ready, bypass CG dump\n");
+	if (((regVal & BIT(3)) >> 3) == 0x1) {
+		tmpVal = DRV_Reg32(APU1_APU_CG_CON);
+		if (info != NULL)
+			info->vpu1_cg_stat = tmpVal;
+		else
+			LOG_WRN("APUREG APU1_APU_CG_CON = 0x%x\n", tmpVal);
 
-	if (((regVal & BIT(6)) >> 6) == 0x1)
-		LOG_WRN("APUREG APU_MDLA0_APU_MDLA_CG_CON = 0x%x\n",
-					DRV_Reg32(APU_MDLA0_APU_MDLA_CG_CON));
-	else
-		LOG_WRN("APUREG mdla0 mtcmos not ready, bypass CG dump\n");
+	} else {
+		if (info != NULL)
+			info->vpu1_cg_stat = 0xdb;
+		else
+			LOG_WRN(
+			"APUREG vpu1 mtcmos not ready, bypass CG dump\n");
+	}
 
-	if (((regVal & BIT(7)) >> 7) == 0x1)
-		LOG_WRN("APUREG APU_MDLA1_APU_MDLA_CG_CON = 0x%x\n",
-					DRV_Reg32(APU_MDLA1_APU_MDLA_CG_CON));
-	else
-		LOG_WRN("APUREG mdla1 mtcmos not ready, bypass CG dump\n");
+	if (((regVal & BIT(4)) >> 4) == 0x1) {
+		tmpVal = DRV_Reg32(APU2_APU_CG_CON);
+		if (info != NULL)
+			info->vpu2_cg_stat = tmpVal;
+		else
+			LOG_WRN("APUREG APU2_APU_CG_CON = 0x%x\n", tmpVal);
+
+	} else {
+		if (info != NULL)
+			info->vpu2_cg_stat = 0xdb;
+		else
+			LOG_WRN(
+			"APUREG vpu2 mtcmos not ready, bypass CG dump\n");
+	}
+
+	if (((regVal & BIT(6)) >> 6) == 0x1) {
+		tmpVal = DRV_Reg32(APU_MDLA0_APU_MDLA_CG_CON);
+		if (info != NULL)
+			info->mdla0_cg_stat = tmpVal;
+		else
+			LOG_WRN("APUREG APU_MDLA0_APU_MDLA_CG_CON = 0x%x\n",
+									tmpVal);
+
+	} else {
+		if (info != NULL)
+			info->mdla0_cg_stat = 0xdb;
+		else
+			LOG_WRN(
+			"APUREG mdla0 mtcmos not ready, bypass CG dump\n");
+	}
+
+	if (((regVal & BIT(7)) >> 7) == 0x1) {
+		tmpVal = DRV_Reg32(APU_MDLA1_APU_MDLA_CG_CON);
+		if (info != NULL)
+			info->mdla1_cg_stat = tmpVal;
+		else
+			LOG_WRN("APUREG APU_MDLA1_APU_MDLA_CG_CON = 0x%x\n",
+									tmpVal);
+	} else {
+		if (info != NULL)
+			info->mdla1_cg_stat = 0xdb;
+		else
+			LOG_WRN(
+			"APUREG mdla1 mtcmos not ready, bypass CG dump\n");
+	}
 
 	return 0;
 }
