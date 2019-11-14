@@ -417,7 +417,9 @@ struct intel_engine_cs {
 
 	struct intel_engine_hangcheck hangcheck;
 
-	bool needs_cmd_parser;
+#define I915_ENGINE_USING_CMD_PARSER	BIT(0)
+#define I915_ENGINE_REQUIRES_CMD_PARSER	BIT(3)
+	unsigned int flags;
 
 	/*
 	 * Table of commands the command parser needs to know about
@@ -443,6 +445,18 @@ struct intel_engine_cs {
 	 */
 	u32 (*get_cmd_length_mask)(u32 cmd_header);
 };
+
+static inline bool
+intel_engine_using_cmd_parser(const struct intel_engine_cs *engine)
+{
+	return engine->flags & I915_ENGINE_USING_CMD_PARSER;
+}
+
+static inline bool
+intel_engine_requires_cmd_parser(const struct intel_engine_cs *engine)
+{
+	return engine->flags & I915_ENGINE_REQUIRES_CMD_PARSER;
+}
 
 static inline unsigned int
 intel_engine_flag(const struct intel_engine_cs *engine)
