@@ -290,7 +290,8 @@ enum device_desc_param {
 #if defined(CONFIG_UFSTW)
 	DEVICE_DESC_PARAM_TW_RETURN_TO_USER	= 0x53,
 	DEVICE_DESC_PARAM_TW_BUF_TYPE		= 0x54,
-	DEVICE_DESC_PARAM_TW_VER		= 0x55,
+	DEVICE_DESC_PARAM_TW_VER		= 0x55, /* Sasmung version */
+	DEVICE_DESC_PARAM_NUM_SHARED_WB_BUF_AU	= 0x55, /* JEDEC version */
 #endif
 };
 

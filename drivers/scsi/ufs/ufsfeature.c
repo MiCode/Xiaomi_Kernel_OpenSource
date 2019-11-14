@@ -38,6 +38,7 @@
 
 #include "ufsfeature.h"
 #include "ufshcd.h"
+#include "ufs_quirks.h"
 
 #if defined(CONFIG_UFSHPB)
 #include "ufshpb.h"
@@ -69,6 +70,7 @@ int ufsf_query_flag(struct ufs_hba *hba, enum query_opcode opcode,
 {
 	struct ufs_query_req *request = NULL;
 	struct ufs_query_res *response = NULL;
+	u8 selector;
 	int err;
 
 	BUG_ON(!hba);
@@ -76,11 +78,16 @@ int ufsf_query_flag(struct ufs_hba *hba, enum query_opcode opcode,
 	ufshcd_hold(hba, false);
 	mutex_lock(&hba->dev_cmd.lock);
 
+	if (hba->card->wmanufacturerid == UFS_VENDOR_SAMSUNG)
+		selector = UFSFEATURE_SELECTOR;
+	else
+		selector = 0;
+
 	/*
 	 * Init the query response and request parameters
 	 */
 	ufsf_init_query(hba, &request, &response, opcode, idn, index,
-			UFSFEATURE_SELECTOR);
+			selector);
 
 	switch (opcode) {
 	case UPIU_QUERY_OPCODE_SET_FLAG:
@@ -152,10 +159,16 @@ int ufsf_query_attr_retry(struct ufs_hba *hba, enum query_opcode opcode,
 {
 	int ret;
 	int retries;
+	u8 selector;
+
+	if (hba->card->wmanufacturerid == UFS_VENDOR_SAMSUNG)
+		selector = UFSFEATURE_SELECTOR;
+	else
+		selector = 0;
 
 	for (retries = 0; retries < UFSF_QUERY_REQ_RETRIES; retries++) {
 		ret = ufshcd_query_attr(hba, opcode, idn, idx,
-					UFSFEATURE_SELECTOR, attr_val);
+					selector, attr_val);
 		if (ret)
 			dev_dbg(hba->dev,
 				"%s: failed with error %d, retries %d\n",
@@ -281,26 +294,32 @@ void ufsf_device_check(struct ufs_hba *hba)
 	struct ufsf_feature *ufsf = &hba->ufsf;
 	int ret, lun;
 	u32 status;
+	u8 selector;
 
 	ufsf->slave_conf_cnt = 0;
 
 	ufsf->hba = hba;
 
+	if (hba->card->wmanufacturerid == UFS_VENDOR_SAMSUNG)
+		selector = UFSFEATURE_SELECTOR;
+	else
+		selector = 0;
+
 	ufshcd_query_attr(ufsf->hba, UPIU_QUERY_OPCODE_READ_ATTR,
 			  QUERY_ATTR_IDN_SUP_VENDOR_OPTIONS, 0, 0, &status);
 	INIT_INFO("UFS FEATURE SELECTOR Dev %d - D/D %d", status,
-		  UFSFEATURE_SELECTOR);
+		  selector);
 
-	ret = ufsf_read_dev_desc(ufsf, UFSFEATURE_SELECTOR);
+	ret = ufsf_read_dev_desc(ufsf, selector);
 	if (ret)
 		return;
 
-	ret = ufsf_read_geo_desc(ufsf, UFSFEATURE_SELECTOR);
+	ret = ufsf_read_geo_desc(ufsf, selector);
 	if (ret)
 		return;
 
 	seq_scan_lu(lun) {
-		ret = ufsf_read_unit_desc(ufsf, lun, UFSFEATURE_SELECTOR);
+		ret = ufsf_read_unit_desc(ufsf, lun, selector);
 		if (ret == -ENOMEM)
 			goto out_free_mem;
 	}

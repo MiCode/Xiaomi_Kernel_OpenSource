@@ -38,6 +38,7 @@
 
 #include "ufshcd.h"
 #include "ufstw.h"
+#include "ufs_quirks.h"
 
 #define UFS_MTK_TW_AWAYS_ON
 
@@ -526,6 +527,12 @@ static inline int ufstw_version_check(struct ufstw_dev_info *tw_dev_info)
 
 void ufstw_get_dev_info(struct ufstw_dev_info *tw_dev_info, u8 *desc_buf)
 {
+	struct ufsf_feature *ufsf;
+	struct ufs_hba *hba;
+
+	ufsf = container_of(tw_dev_info, struct ufsf_feature, tw_dev_info);
+	hba = ufsf->hba;
+
 	tw_dev_info->tw_device = false;
 
 	if (UFSF_EFS_TURBO_WRITE
@@ -539,10 +546,17 @@ void ufstw_get_dev_info(struct ufstw_dev_info *tw_dev_info, u8 *desc_buf)
 		desc_buf[DEVICE_DESC_PARAM_TW_RETURN_TO_USER];
 	tw_dev_info->tw_buf_type = desc_buf[DEVICE_DESC_PARAM_TW_BUF_TYPE];
 
-	tw_dev_info->tw_ver = LI_EN_16(&desc_buf[DEVICE_DESC_PARAM_TW_VER]);
+	if (hba->card->wmanufacturerid == UFS_VENDOR_SAMSUNG) {
+		/* Only check TW if samsung version */
+		tw_dev_info->tw_ver =
+			LI_EN_16(&desc_buf[DEVICE_DESC_PARAM_TW_VER]);
 
-	if (!ufstw_version_check(tw_dev_info))
+		if (!ufstw_version_check(tw_dev_info))
+			tw_dev_info->tw_device = true;
+	} else {
+		/* Set TW device if JEDEC version */
 		tw_dev_info->tw_device = true;
+	}
 
 	INFO_MSG("tw_dev [53] bTurboWriteBufferNoUserSpaceReductionEn %u",
 		 tw_dev_info->tw_buf_no_reduct);

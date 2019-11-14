@@ -26,6 +26,7 @@
 #include "ufshcd.h"
 #include "ufshcd-pltfrm.h"
 #include "unipro.h"
+#include "ufs_quirks.h"
 #include "ufs-mtk.h"
 #include "ufs-mtk-block.h"
 #include "ufs-mtk-platform.h"
@@ -1823,7 +1824,9 @@ int ufs_mtk_ioctl_query(struct ufs_hba *hba, u8 lun, void __user *buf_user)
 	u32 att = 0;
 	u8 *desc = NULL;
 	u8 read_desc, read_attr, write_attr, read_flag;
-
+#if defined(CONFIG_UFSFEATURE)
+	u8 selector;
+#endif
 	idata = kzalloc(sizeof(struct ufs_ioctl_query_data), GFP_KERNEL);
 	if (!idata) {
 		err = -ENOMEM;
@@ -1841,10 +1844,15 @@ int ufs_mtk_ioctl_query(struct ufs_hba *hba, u8 lun, void __user *buf_user)
 	}
 
 #if defined(CONFIG_UFSFEATURE)
+	if (hba->card->wmanufacturerid == UFS_VENDOR_SAMSUNG)
+		selector = UFSFEATURE_SELECTOR;
+	else
+		selector = 0;
+
 	if (ufsf_check_query(idata->opcode)) {
 		err = ufsf_query_ioctl(&hba->ufsf, lun, buf_user,
 				(struct ufs_ioctl_query_data_hpb *)idata,
-				UFSFEATURE_SELECTOR);
+				selector);
 		goto out_release_mem;
 	}
 #endif
