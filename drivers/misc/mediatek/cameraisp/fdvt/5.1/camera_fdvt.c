@@ -3806,6 +3806,13 @@ static int fdvt_dump_read(struct seq_file *m, void *v)
 	struct FDVT_REQUEST_STRUCT *request;
 	signed int *hw_process_idx;
 
+	spin_lock(&fdvt_info.spinlock_fdvt);
+	if (clock_enable_count == 0) {
+		spin_unlock(&fdvt_info.spinlock_fdvt);
+		return 0;
+	}
+	spin_unlock(&fdvt_info.spinlock_fdvt);
+
 	seq_puts(m, "\n============ fdvt dump register============\n");
 	seq_puts(m, "FDVT Config Info\n");
 
