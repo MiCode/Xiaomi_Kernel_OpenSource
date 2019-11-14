@@ -486,6 +486,11 @@ static void mtk_dsi_phy_reset(struct mtk_dsi *dsi)
 	mtk_dsi_mask(dsi, DSI_CON_CTRL, DSI_PHY_RESET, 0);
 }
 
+static void mtk_dsi_clear_rxrd_irq(struct mtk_dsi *dsi)
+{
+	mtk_dsi_mask(dsi, DSI_INTSTA, LPRX_RD_RDY_INT_FLAG, 0);
+}
+
 static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 {
 	struct device *dev = dsi->dev;
@@ -860,11 +865,10 @@ static void mtk_dsi_set_interrupt_enable(struct mtk_dsi *dsi)
 {
 	u32 inten;
 
-	inten = LPRX_RD_RDY_INT_FLAG | CMD_DONE_INT_FLAG |
-		BUFFER_UNDERRUN_INT_FLAG | INP_UNFINISH_INT_EN;
+	inten = BUFFER_UNDERRUN_INT_FLAG | INP_UNFINISH_INT_EN;
 
 	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp))
-		inten |= VM_DONE_INT_FLAG | FRAME_DONE_INT_FLAG;
+		inten |= FRAME_DONE_INT_FLAG;
 	else
 		inten |= TE_RDY_INT_FLAG;
 
@@ -1407,6 +1411,7 @@ static void mtk_output_dsi_disable(struct mtk_dsi *dsi,
 	mtk_dsi_enter_ulps(dsi);
 
 	mtk_dsi_disable(dsi);
+	mtk_dsi_stop(dsi);
 
 	mtk_dsi_poweroff(dsi);
 	dsi->output_en = false;
@@ -1727,10 +1732,10 @@ int mtk_dsi_read_gce(struct mtk_ddp_comp *comp, void *handle,
 
 	cmdq_pkt_mem_move(handle, comp->cmdq_base,
 		comp->regs_pa + DSI_RX_DATA0, read_slot + (i * 2) * 0x4,
-		CMDQ_THR_SPR_IDX1);
+		CMDQ_THR_SPR_IDX3);
 	cmdq_pkt_mem_move(handle, comp->cmdq_base,
 		comp->regs_pa + DSI_RX_DATA1, read_slot + (i * 2 + 1) * 0x4,
-		CMDQ_THR_SPR_IDX1);
+		CMDQ_THR_SPR_IDX3);
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_RACK,
 		0x1, 0x1);
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_INTSTA,
@@ -1802,6 +1807,9 @@ int mtk_dsi_esd_cmp(struct mtk_ddp_comp *comp, void *handle, void *slot)
 			chk_val = tmp1 & 0xff;
 		else
 			chk_val = (tmp0 >> 8) & 0xff;
+
+		if (lcm_esd_tb->mask_list[0])
+			chk_val = chk_val & lcm_esd_tb->mask_list[0];
 
 		if (chk_val == lcm_esd_tb->para_list[0]) {
 			ret = 0;
@@ -2712,6 +2720,9 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		break;
 	case ESD_CHECK_CMP:
 		return mtk_dsi_esd_cmp(comp, handle, params);
+	case CONNECTOR_READ_EPILOG:
+		mtk_dsi_clear_rxrd_irq(dsi);
+		break;
 	case REQ_ESD_EINT_COMPAT:
 		out_params = (void **)params;
 
@@ -2731,6 +2742,9 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		break;
 	case CONNECTOR_DISABLE:
 		mtk_dsi_enter_idle(dsi);
+		break;
+	case CONNECTOR_RESET:
+		mtk_dsi_reset_engine(dsi);
 		break;
 	case CONNECTOR_IS_ENABLE:
 		enable = (bool *)params;
@@ -2773,11 +2787,10 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			return 0;
 		}
 
-		inten = LPRX_RD_RDY_INT_FLAG | CMD_DONE_INT_FLAG |
-			BUFFER_UNDERRUN_INT_FLAG | INP_UNFINISH_INT_EN;
+		inten = BUFFER_UNDERRUN_INT_FLAG | INP_UNFINISH_INT_EN;
 
 		if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
-			inten |= VM_DONE_INT_FLAG | FRAME_DONE_INT_FLAG;
+			inten |= FRAME_DONE_INT_FLAG;
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa + DSI_INTEN, inten, inten);
 		} else {

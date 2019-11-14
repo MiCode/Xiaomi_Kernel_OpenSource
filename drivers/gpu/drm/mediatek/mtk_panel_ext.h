@@ -33,6 +33,7 @@ struct esd_check_item {
 	unsigned char cmd;
 	unsigned char count;
 	unsigned char para_list[RT_MAX_NUM];
+	unsigned char mask_list[RT_MAX_NUM];
 };
 
 enum MTK_PANEL_MODE_SWITCH_STAGE {
