@@ -465,6 +465,9 @@ int apusys_subcmd_create(int idx, struct apusys_cmd *cmd,
 	cmd->sc_list[sc->idx] = sc;
 	mutex_unlock(&cmd->sc_mtx);
 
+	/* Calc system load and boost */
+	deadline_task_start(sc);
+
 	return 0;
 
 check_size_fail:
@@ -489,6 +492,9 @@ int apusys_subcmd_delete(struct apusys_subcmd *sc)
 
 	if (sc == NULL)
 		return -EINVAL;
+
+	/* Calc system load and boost */
+	deadline_task_end(sc);
 
 	/* write time back to cmdbuf */
 	LOG_DEBUG("0x%llx-#%d sc: time(%u) bw(%u) st(%d)\n",

@@ -459,9 +459,6 @@ static void subcmd_done(void *isc)
 		}
 	}
 
-	/* System Load and boost */
-	deadline_task_end(sc);
-
 	if (apusys_subcmd_delete(sc)) {
 		LOG_ERR("delete sc(0x%llx/%d) fail\n",
 			cmd->cmd_id,
@@ -825,9 +822,6 @@ int apusys_sched_del_cmd(struct apusys_cmd *cmd)
 			mutex_unlock(&sc->mtx);
 			mutex_unlock(&res_mgr->mtx);
 
-			/* System Load and boost */
-			deadline_task_end(sc);
-
 			if (apusys_subcmd_delete(sc)) {
 				LOG_ERR("delete 0x%llx-#%d sc fail\n",
 					cmd->cmd_id, sc->idx);
@@ -937,8 +931,6 @@ int apusys_sched_add_cmd(struct apusys_cmd *cmd)
 			ret = -EINVAL;
 			break;
 		}
-		/* Calc system Load and boost */
-		deadline_task_start(sc);
 
 		mutex_lock(&cmd->sc_mtx);
 

@@ -1219,8 +1219,6 @@ int apusys_register_device(struct apusys_device *dev)
 
 		g_res_mgr.tab[tab->dev_type] = tab;
 		normal_queue_init(tab->dev_type); /* init normal queue */
-		deadline_queue_init(tab->dev_type); /* Init deadline queue */
-
 		bitmap_set(g_res_mgr.dev_support, tab->dev_type, 1);
 
 		/* create queue length for query */
@@ -1228,6 +1226,8 @@ int apusys_register_device(struct apusys_device *dev)
 			LOG_ERR("create queue length node(%d) fail\n",
 			tab->dev_type);
 		}
+
+		deadline_queue_init(tab->dev_type); /* Init deadline queue */
 
 		LOG_DEBUG("register dev(%d-#%d/%d/%p) ok\n",
 			dev->dev_type, dev->idx,
