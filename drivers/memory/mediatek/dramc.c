@@ -354,9 +354,11 @@ static int dramc_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, dramc_dev_ptr);
+	pr_info("%s: DRAM data type = %d\n", __func__,
+		mtk_dramc_get_ddr_type());
+
 	pr_info("%s: DRAM data rate = %d\n", __func__,
 		mtk_dramc_get_data_rate());
-
 	return ret;
 }
 
@@ -571,5 +573,18 @@ unsigned int mtk_dramc_get_mr4(unsigned int ch)
 }
 EXPORT_SYMBOL(mtk_dramc_get_mr4);
 
+/*
+ * mtk_dramc_get_ddr_type - get DRAM type
+ *
+ * Returns the DRAM type
+ */
+unsigned int mtk_dramc_get_ddr_type(void)
+{
+	struct dramc_dev_t *dramc_dev_ptr =
+		(struct dramc_dev_t *)platform_get_drvdata(dramc_pdev);
+
+	return dramc_dev_ptr->dram_type;
+}
+EXPORT_SYMBOL(mtk_dramc_get_ddr_type);
 MODULE_DESCRIPTION("MediaTek DRAMC Driver v0.1");
 
