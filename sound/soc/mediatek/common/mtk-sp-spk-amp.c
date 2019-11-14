@@ -175,6 +175,12 @@ int mtk_spk_update_dai_link(struct snd_soc_card *card,
 		return -ENODEV;
 	}
 
+	if (mtk_spk_type == MTK_SPK_NOT_SMARTPA) {
+		dev_info(&pdev->dev, "%s(), no need to update dailink\n",
+			 __func__);
+		return 0;
+	}
+
 	/* find dai link of i2s in and i2s out */
 	for (i = 0; i < card->num_links; i++) {
 		dai_link = &card->dai_link[i];
