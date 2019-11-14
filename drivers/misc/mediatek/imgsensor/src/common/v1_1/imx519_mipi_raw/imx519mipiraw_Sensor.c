@@ -786,7 +786,7 @@ static void set_shutter_frame_length(kal_uint16 shutter,
 	LOG_INF(
 		"Exit! shutter =%d, framelength =%d/%d, dummy_line=%d, auto_extend=%d\n",
 		shutter, imgsensor.frame_length, frame_length,
-		dummy_line, read_cmos_sensor(0x0350));
+		dummy_line, read_cmos_sensor_8(0x0350));
 
 }	/* set_shutter_frame_length */
 
