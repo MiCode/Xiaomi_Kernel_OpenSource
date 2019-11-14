@@ -97,8 +97,10 @@ extern unsigned int mt_gpufreq_update_volt(unsigned int pmic_volt[],
 		unsigned int array_size);
 extern unsigned int mt_gpufreq_get_freq_by_real_idx(unsigned int idx);
 extern unsigned int mt_gpufreq_get_volt_by_real_idx(unsigned int idx);
+extern unsigned int mt_gpufreq_get_vsram_by_real_idx(unsigned int idx);
 extern unsigned int mt_gpufreq_get_freq_by_idx(unsigned int idx);
 extern unsigned int mt_gpufreq_get_volt_by_idx(unsigned int idx);
+extern unsigned int mt_gpufreq_get_vsram_by_idx(unsigned int idx);
 extern unsigned int mt_gpufreq_get_ori_opp_idx(unsigned int idx);
 extern struct mt_gpufreq_power_table_info *pass_gpu_table_to_eara(void);
 extern unsigned int mt_gpufreq_get_seg_max_opp_index(void);

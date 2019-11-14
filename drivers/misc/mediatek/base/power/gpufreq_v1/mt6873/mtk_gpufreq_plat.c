@@ -890,7 +890,6 @@ unsigned int mt_gpufreq_get_real_dvfs_table_num(void)
 }
 
 /* API : get frequency via OPP table index */
-/* need to add g_segment_max_opp_idx to map to real idx */
 unsigned int mt_gpufreq_get_freq_by_idx(unsigned int idx)
 {
 	idx += g_segment_max_opp_idx;
@@ -909,7 +908,7 @@ unsigned int mt_gpufreq_get_freq_by_real_idx(unsigned int idx)
 		return 0;
 }
 
-/* API : get voltage via OPP table index */
+/* API : get vgpu via OPP table index */
 unsigned int mt_gpufreq_get_volt_by_idx(unsigned int idx)
 {
 	idx += g_segment_max_opp_idx;
@@ -919,11 +918,30 @@ unsigned int mt_gpufreq_get_volt_by_idx(unsigned int idx)
 		return 0;
 }
 
-/* API : get voltage via OPP table real index */
+/* API : get vgpu via OPP table real index */
 unsigned int mt_gpufreq_get_volt_by_real_idx(unsigned int idx)
 {
 	if (idx < g_max_opp_idx_num)
 		return g_opp_table[idx].gpufreq_vgpu;
+	else
+		return 0;
+}
+
+/* API : get vsram via OPP table index */
+unsigned int mt_gpufreq_get_vsram_by_idx(unsigned int idx)
+{
+	idx += g_segment_max_opp_idx;
+	if (idx < g_max_opp_idx_num)
+		return g_opp_table[idx].gpufreq_vsram;
+	else
+		return 0;
+}
+
+/* API : get vsram via OPP table index */
+unsigned int mt_gpufreq_get_vsram_by_real_idx(unsigned int idx)
+{
+	if (idx < g_max_opp_idx_num)
+		return g_opp_table[idx].gpufreq_vsram;
 	else
 		return 0;
 }
