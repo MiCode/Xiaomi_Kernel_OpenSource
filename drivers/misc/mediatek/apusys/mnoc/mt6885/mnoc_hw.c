@@ -22,6 +22,7 @@
 #include <linux/io.h>
 #include <linux/spinlock.h>
 #include <linux/seq_file.h>
+#include <linux/sched/clock.h>
 
 #include "apusys_device.h"
 #include "mnoc_hw.h"
@@ -181,6 +182,10 @@ int apusys_dev_to_core_id(int dev_type, int dev_core)
 		if (dev_core >= 0 && dev_core < NR_APU_ENGINE_EDMA)
 			ret = NR_APU_ENGINE_VPU + NR_APU_ENGINE_MDLA + dev_core;
 		break;
+	/* for midware UT */
+	case APUSYS_DEVICE_SAMPLE:
+		ret = NR_APU_QOS_ENGINE;
+		break;
 	default:
 		ret = -1;
 		break;
@@ -208,7 +213,7 @@ static void mnoc_qos_reg_init(void)
 		mnoc_write_field(MNI_QOS_REG(MNI_QOS_CTRL_BASE,
 			16, mni_map[i]), 1:0, 0x1);
 
-		/* 26M cycle count = {QW_LT_PRD,8’h0} << QW_LT_PRD_SHF */
+		/* 26M cycle count = {QW_LT_PRD,8'h0} << QW_LT_PRD_SHF */
 		/* QW_LT_PRD = 0x80, QW_LT_PRD_SHF = 0x0 */
 		/* QoS watcher LT time slot set to 1.26 ms */
 		mnoc_write_field(MNI_QOS_REG(MNI_QOS_CTRL_BASE,
@@ -314,29 +319,37 @@ static void mnoc_reg_init(void)
 	LOG_DEBUG("-\n");
 }
 
-/*
- * GIC SPI IRQ 406 is shared, need to return IRQ_NONE
- * if not triggered by mnoc
- */
 bool mnoc_check_int_status(void)
 {
 	bool mnoc_irq_triggered = false;
-	unsigned int val;
+	unsigned int val, int_sta;
 	int int_idx, ni_idx;
+	struct mnoc_int_dump *d = &mnoc_int_dump;
+	uint64_t cur_timestamp;
 
 	LOG_DEBUG("+\n");
 
-	LOG_DEBUG("APUSYS INT STA = 0x%x\n", mnoc_read(APUSYS_INT_STA));
+	int_sta = mnoc_read(APUSYS_INT_STA);
 
-	if ((mnoc_read(APUSYS_INT_STA) & MNOC_INT_MAP) == 0)
+	LOG_DEBUG("APUSYS INT STA = 0x%x\n", int_sta);
+
+	cur_timestamp = sched_clock();
+
+	if (int_sta != 0) {
+		d->apusys_int_sta.reg_val = int_sta;
+		d->apusys_int_sta.timestamp = cur_timestamp;
+	}
+
+	if ((int_sta & MNOC_INT_MAP) == 0)
 		return mnoc_irq_triggered;
 
-	mnoc_int_dump.count++;
+	d->count++;
 
 	for (int_idx = 0; int_idx < NR_MNI_INT_STA; int_idx++) {
 		val = mnoc_read(MNOC_REG(mni_int_sta_offset[int_idx]));
 		if ((val & 0xFFFF) != 0) {
-			mnoc_int_dump.mni_int_sta[int_idx] = val;
+			d->mni_int_sta[int_idx].reg_val = val;
+			d->mni_int_sta[int_idx].timestamp = cur_timestamp;
 			LOG_DEBUG("%s = 0x%x\n",
 				mni_int_sta_string[int_idx], val);
 			for (ni_idx = 0; ni_idx < NR_MNOC_MNI; ni_idx++)
@@ -353,7 +366,8 @@ bool mnoc_check_int_status(void)
 	for (int_idx = 0; int_idx < NR_SNI_INT_STA; int_idx++) {
 		val = mnoc_read(MNOC_REG(sni_int_sta_offset[int_idx]));
 		if ((val & 0xFFFF) != 0) {
-			mnoc_int_dump.sni_int_sta[int_idx] = val;
+			d->sni_int_sta[int_idx].reg_val = val;
+			d->sni_int_sta[int_idx].timestamp = cur_timestamp;
 			LOG_DEBUG("%s = 0x%x\n",
 				sni_int_sta_string[int_idx], val);
 			for (ni_idx = 0; ni_idx < NR_MNOC_SNI; ni_idx++)
@@ -370,7 +384,8 @@ bool mnoc_check_int_status(void)
 	for (int_idx = 0; int_idx < NR_MNI_INT_STA; int_idx++) {
 		val = mnoc_read(MNOC_REG(rt_int_sta_offset[int_idx]));
 		if ((val & 0x1F) != 0) {
-			mnoc_int_dump.rt_int_sta[int_idx] = val;
+			d->rt_int_sta[int_idx].reg_val = val;
+			d->rt_int_sta[int_idx].timestamp = cur_timestamp;
 			LOG_DEBUG("%s = 0x%x\n",
 				rt_int_sta_string[int_idx], val);
 			for (ni_idx = 0; ni_idx < NR_MNOC_RT; ni_idx++)
@@ -386,7 +401,8 @@ bool mnoc_check_int_status(void)
 	/* additional check: sw triggered irq */
 	val = mnoc_read_field(MNOC_REG(MISC_CTRL), 18:16);
 	if (val != 0) {
-		mnoc_int_dump.sw_irq_sta = val;
+		d->sw_irq_sta.reg_val = val;
+		d->sw_irq_sta.timestamp = cur_timestamp;
 		LOG_DEBUG("From SW_IRQ = 0x%x\n", val);
 		mnoc_write_field(MNOC_REG(MISC_CTRL),
 			18:16, 0x0);
@@ -544,7 +560,7 @@ static void set_lt_guardian_pre_ultra_locked(unsigned int idx, bool endis)
 		mnoc_write_field(
 			MNI_QOS_REG(MNI_QOS_CTRL_BASE, 20, mni_map[idx]),
 			28:16, QG_LT_THL_PRE_ULTRA);
-		/* set QCC_LT_LV_DIS[3:0] = 4’b1001 */
+		/* set QCC_LT_LV_DIS[3:0] = 4'b1001 */
 		mnoc_write_field(
 			MNI_QOS_REG(MNI_QOS_CTRL_BASE, 29, mni_map[idx]),
 			11:8, 0x9);
@@ -565,7 +581,7 @@ static void set_lt_guardian_pre_ultra_locked(unsigned int idx, bool endis)
 		mnoc_write_field(
 			MNI_QOS_REG(MNI_QOS_CTRL_BASE, 20, mni_map[idx]),
 			28:16, 0x0);
-		/* set QCC_LT_LV_DIS[3:0] = 4’b0000 */
+		/* set QCC_LT_LV_DIS[3:0] = 4'b0000 */
 		mnoc_write_field(
 			MNI_QOS_REG(MNI_QOS_CTRL_BASE, 29, mni_map[idx]),
 			11:8, 0x0);
@@ -723,15 +739,6 @@ void mnoc_hw_reinit(void)
 
 	LOG_DEBUG("+\n");
 
-	mnoc_int_dump.count = 0;
-	for (idx = 0; idx < NR_MNI_INT_STA; idx++)
-		mnoc_int_dump.mni_int_sta[idx] = 0;
-	for (idx = 0; idx < NR_SNI_INT_STA; idx++)
-		mnoc_int_dump.sni_int_sta[idx] = 0;
-	for (idx = 0; idx < NR_RT_INT_STA; idx++)
-		mnoc_int_dump.rt_int_sta[idx] = 0;
-	mnoc_int_dump.sw_irq_sta = 0;
-
 	mnoc_qos_reg_init();
 	mnoc_reg_init();
 
@@ -747,27 +754,98 @@ void mnoc_hw_reinit(void)
 	LOG_DEBUG("-\n");
 }
 
+static void print_int_sta_info(struct seq_file *m,
+	const char *str, struct int_sta_info *info)
+{
+	uint64_t t, nanosec_rem;
+
+	t = info->timestamp;
+	nanosec_rem = do_div(t, 1000000000);
+
+	seq_printf(m, "%s = 0x%x [%lu.%06lu]\n",
+		str,
+		info->reg_val,
+		(unsigned long) t,
+		(unsigned long) (nanosec_rem / 1000));
+}
+
 /*
  * print mnoc interrupt count and
  * last snapshot when each type of interrupt happened
  */
 void print_int_sta(struct seq_file *m)
 {
-	int idx;
+	int idx, ni_idx;
+	uint64_t t, nanosec_rem;
+	unsigned int val;
+
+	t = sched_clock();
+	nanosec_rem = do_div(t, 1000000000);
+
+	seq_printf(m, "[%lu.%06lu]\n",
+		(unsigned long) t, (unsigned long) (nanosec_rem / 1000));
 
 	seq_printf(m, "count = %d\n", mnoc_int_dump.count);
 
-	for (idx = 0; idx < NR_MNI_INT_STA; idx++)
-		seq_printf(m, "%s = 0x%x\n", mni_int_sta_string[idx],
-			mnoc_int_dump.mni_int_sta[idx]);
+	print_int_sta_info(m, "apusys_int_sta",
+		&(mnoc_int_dump.apusys_int_sta));
 
-	for (idx = 0; idx < NR_SNI_INT_STA; idx++)
-		seq_printf(m, "%s = 0x%x\n", sni_int_sta_string[idx],
-			mnoc_int_dump.sni_int_sta[idx]);
+	for (idx = 0; idx < NR_MNI_INT_STA; idx++) {
+		print_int_sta_info(m, mni_int_sta_string[idx],
+			&(mnoc_int_dump.mni_int_sta[idx]));
+		val = mnoc_int_dump.mni_int_sta[idx].reg_val;
+		for (ni_idx = 0; ni_idx < NR_MNOC_MNI; ni_idx++)
+			if ((val & (1 << ni_idx)) != 0)
+				seq_printf(m, "\t-From %s\n",
+					mni_map_string[ni_idx]);
+	}
 
-	for (idx = 0; idx < NR_RT_INT_STA; idx++)
-		seq_printf(m, "%s = 0x%x\n", rt_int_sta_string[idx],
-			mnoc_int_dump.rt_int_sta[idx]);
+	for (idx = 0; idx < NR_SNI_INT_STA; idx++) {
+		print_int_sta_info(m, sni_int_sta_string[idx],
+			&(mnoc_int_dump.sni_int_sta[idx]));
+		val = mnoc_int_dump.sni_int_sta[idx].reg_val;
+		for (ni_idx = 0; ni_idx < NR_MNOC_SNI; ni_idx++)
+			if ((val & (1 << ni_idx)) != 0)
+				seq_printf(m, "\t-From %s\n",
+					sni_map_string[ni_idx]);
+	}
 
-	seq_printf(m, "sw_irq_sta = 0x%x\n", mnoc_int_dump.sw_irq_sta);
+	for (idx = 0; idx < NR_RT_INT_STA; idx++) {
+		print_int_sta_info(m, rt_int_sta_string[idx],
+			&(mnoc_int_dump.rt_int_sta[idx]));
+		val = mnoc_int_dump.rt_int_sta[idx].reg_val;
+		for (ni_idx = 0; ni_idx < NR_MNOC_RT; ni_idx++)
+			if ((val & (1 << ni_idx)) != 0)
+				seq_printf(m, "\t-From RT %d\n", ni_idx);
+	}
+
+	print_int_sta_info(m, "sw_irq_sta",
+		&(mnoc_int_dump.sw_irq_sta));
+}
+
+void mnoc_hw_init(void)
+{
+	int idx;
+
+	LOG_DEBUG("+\n");
+
+	mnoc_int_dump.count = 0;
+	mnoc_int_dump.apusys_int_sta.reg_val = 0;
+	mnoc_int_dump.apusys_int_sta.timestamp = 0;
+	for (idx = 0; idx < NR_MNI_INT_STA; idx++) {
+		mnoc_int_dump.mni_int_sta[idx].reg_val = 0;
+		mnoc_int_dump.mni_int_sta[idx].timestamp = 0;
+	}
+	for (idx = 0; idx < NR_SNI_INT_STA; idx++) {
+		mnoc_int_dump.sni_int_sta[idx].reg_val = 0;
+		mnoc_int_dump.sni_int_sta[idx].timestamp = 0;
+	}
+	for (idx = 0; idx < NR_RT_INT_STA; idx++) {
+		mnoc_int_dump.rt_int_sta[idx].reg_val = 0;
+		mnoc_int_dump.rt_int_sta[idx].timestamp = 0;
+	}
+	mnoc_int_dump.sw_irq_sta.reg_val = 0;
+	mnoc_int_dump.sw_irq_sta.timestamp = 0;
+
+	LOG_DEBUG("-\n");
 }

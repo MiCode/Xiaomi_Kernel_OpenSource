@@ -161,13 +161,17 @@ static void update_cmd_qos(struct qos_bound *qos_info, struct cmd_qos *cmd_qos)
 {
 	int idx = 0, qos_smi_idx = 0;
 
-	qos_smi_idx = get_qosbound_enum(cmd_qos->core);
+	/* sample device has no BW */
+	if (cmd_qos->core < NR_APU_QOS_ENGINE)
+		qos_smi_idx = get_qosbound_enum(cmd_qos->core);
+
 	/* sum current bw value to cmd_qos */
 	mutex_lock(&cmd_qos->mtx);
 	idx = cmd_qos->last_idx;
 	while (idx != ((qos_info->idx + 1) % MTK_QOS_BUF_SIZE)) {
-		cmd_qos->total_bw +=
-		qos_info->stats[idx].smibw_mon[qos_smi_idx];
+		if (cmd_qos->core < NR_APU_QOS_ENGINE)
+			cmd_qos->total_bw +=
+			qos_info->stats[idx].smibw_mon[qos_smi_idx];
 		cmd_qos->count++;
 		idx = (idx + 1) % MTK_QOS_BUF_SIZE;
 	}
@@ -707,17 +711,25 @@ int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id)
 			mutex_lock(&cmd_qos->mtx);
 
 			if (cmd_qos->total_bw < total_bw) {
-				LOG_ERR("cmd(0x%llx/0x%llx) total_bw(%d) < %d",
-					cmd_qos->cmd_id, cmd_qos->sub_cmd_id,
-					cmd_qos->total_bw, total_bw);
+				/* ignore sample device */
+				if (cmd_qos->core < NR_APU_QOS_ENGINE)
+					LOG_ERR(
+						"cmd(0x%llx/0x%llx) total_bw(%d) < %d",
+						cmd_qos->cmd_id,
+						cmd_qos->sub_cmd_id,
+						cmd_qos->total_bw, total_bw);
 				cmd_qos->total_bw = 0;
 			} else
 				cmd_qos->total_bw -= total_bw;
 
 			if (cmd_qos->count < total_count) {
-				LOG_ERR("cmd(0x%llx/0x%llx) count(%d) < %d",
-					cmd_qos->cmd_id, cmd_qos->sub_cmd_id,
-					cmd_qos->count, total_count);
+				/* ignore sample device */
+				if (cmd_qos->core < NR_APU_QOS_ENGINE)
+					LOG_ERR(
+						"cmd(0x%llx/0x%llx) count(%d) < %d",
+						cmd_qos->cmd_id,
+						cmd_qos->sub_cmd_id,
+						cmd_qos->count, total_count);
 				cmd_qos->count = 0;
 			} else
 				cmd_qos->count -= total_count;

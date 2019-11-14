@@ -24,6 +24,7 @@
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
 #include <linux/module.h>
+#include <linux/workqueue.h>
 
 
 #ifdef CONFIG_OF
@@ -37,6 +38,7 @@
 
 #include "apusys_power.h"
 #include "apusys_power_cust.h"
+#include "apusys_dbg.h"
 
 #include "mnoc_drv.h"
 #include "mnoc_hw.h"
@@ -45,10 +47,6 @@
 #include "mnoc_pmu.h"
 #include "mnoc_option.h"
 
-
-#if MNOC_INT_ENABLE
-	unsigned int mnoc_irq_number = 0;
-#endif
 
 DEFINE_SPINLOCK(mnoc_spinlock);
 
@@ -60,6 +58,22 @@ void __iomem *mnoc_slp_prot_base2;
 
 bool mnoc_reg_valid;
 int mnoc_log_level;
+
+#if MNOC_INT_ENABLE
+unsigned int mnoc_irq_number;
+static bool is_first_isr_after_pwr_on;
+static struct work_struct mnoc_isr_work;
+
+static void mnoc_isr_work_func(struct work_struct *work)
+{
+	LOG_DEBUG("+\n");
+#if MNOC_AEE_WARN_ENABLE
+	apusys_reg_dump();
+	mnoc_aee_warn("APUSYS_MNOC", "MNOC Exception");
+#endif
+	LOG_DEBUG("-\n");
+}
+#endif
 
 static void mnoc_apusys_top_after_pwr_on(void *para)
 {
@@ -73,6 +87,9 @@ static void mnoc_apusys_top_after_pwr_on(void *para)
 	notify_sspm_apusys_on();
 
 	spin_lock_irqsave(&mnoc_spinlock, flags);
+#if MNOC_INT_ENABLE
+	is_first_isr_after_pwr_on = true;
+#endif
 	mnoc_reg_valid = true;
 	spin_unlock_irqrestore(&mnoc_spinlock, flags);
 
@@ -101,6 +118,10 @@ static void mnoc_apusys_top_before_pwr_off(void *para)
 }
 
 #if MNOC_INT_ENABLE
+/*
+ * GIC SPI IRQ 406 is shared, need to return IRQ_NONE
+ * if not triggered by mnoc
+ */
 static irqreturn_t mnoc_isr(int irq, void *dev_id)
 {
 	unsigned long flags;
@@ -123,6 +144,11 @@ static irqreturn_t mnoc_isr(int irq, void *dev_id)
 
 	if (mnoc_irq_triggered) {
 		LOG_DEBUG("INT triggered by mnoc\n");
+		/* Prevent overwhelming interrupts paralyzing system */
+		if (is_first_isr_after_pwr_on) {
+			is_first_isr_after_pwr_on = false;
+			schedule_work(&mnoc_isr_work);
+		}
 		return IRQ_HANDLED;
 	}
 
@@ -172,6 +198,7 @@ static int mnoc_probe(struct platform_device *pdev)
 	spin_lock_init(&mnoc_spinlock);
 	apu_qos_counter_init();
 	mnoc_pmu_init();
+	mnoc_hw_init();
 
 	node = pdev->dev.of_node;
 	if (!node) {
@@ -187,10 +214,11 @@ static int mnoc_probe(struct platform_device *pdev)
 	mnoc_slp_prot_base2 = of_iomap(node, 4);
 
 #if MNOC_INT_ENABLE
+	INIT_WORK(&mnoc_isr_work, &mnoc_isr_work_func);
 	mnoc_irq_number = irq_of_parse_and_map(node, 0);
 	LOG_DEBUG("mnoc_irq_number = %d\n", mnoc_irq_number);
 
-	/* set mnoc IRQ(GIC SPI pin shared with axi-reviser) */
+	/* set mnoc IRQ(GIC SPI pin shared with axi-reviser/devapc) */
 	ret = request_irq(mnoc_irq_number, mnoc_isr,
 			IRQF_TRIGGER_HIGH | IRQF_SHARED,
 			APUSYS_MNOC_DEV_NAME, dev);
@@ -253,6 +281,7 @@ static int mnoc_remove(struct platform_device *pdev)
 
 #if MNOC_INT_ENABLE
 	free_irq(mnoc_irq_number, dev);
+	cancel_work_sync(&mnoc_isr_work);
 #endif
 	iounmap(mnoc_base);
 	iounmap(mnoc_int_base);
