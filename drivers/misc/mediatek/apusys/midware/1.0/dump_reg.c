@@ -15,14 +15,18 @@
 #include <linux/mutex.h>
 #include <linux/io.h>
 #include <linux/sched/clock.h>
+#include <apusys_secure.h>
 
 #define APUSYS_REG_SIZE (0x100000)
 #define APUSYS_BASE (0x19000000)
+#define APUSYS_TO_INFRA_BASE (0x10000000)
 #define NA	(-1)
 extern struct dentry *apusys_dbg_root;
 char reg_all_mem[APUSYS_REG_SIZE];
-
+bool apusys_dump_force;
+bool apusys_dump_skip_gals;
 static void *apu_top;
+static void *apu_to_infra_top;
 static struct dentry *debug_node;
 static struct mutex dbg_lock;
 
@@ -146,11 +150,8 @@ static void set_vpu2_apu_gals_m_ctl_sel(int val)
 
 static void set_ao_dbg_sel(int val)
 {
-	u32 tmp = ioread32(apu_top + 0xf2034);
-
-	tmp = (tmp & ~(0x1)) | (val);
-	iowrite32(tmp, apu_top + 0xf2034);
-	ioread32(apu_top + 0xf2034);
+	mt_secure_call(MTK_SIP_APUSYS_CONTROL,
+			MTK_APUSYS_KERNEL_OP_SET_AO_DBG_SEL, val, 0, 0);
 }
 
 u32 dbg_read(void *addr, int d, int e, int f,
@@ -285,6 +286,14 @@ void dump_gals_reg(void)
 			NA, NA, NA, NA, NA, NA, NA);
 	gals_reg[37] = dbg_read(addr, 0, 7, NA, 3, NA, NA, 5,
 			NA, NA, NA, NA, NA, NA, NA);
+	gals_reg[38] = dbg_read(addr, 1, NA, 7, NA, NA, NA, NA,
+				NA, NA, NA, NA, NA, NA, 1);
+	gals_reg[39] = dbg_read(addr, 1, NA, 7, NA, NA, NA, NA,
+				NA, NA, NA, NA, NA, NA, 0);
+	gals_reg[40] = ioread32(apu_to_infra_top + 0x12C0);
+	gals_reg[41] = ioread32(apu_to_infra_top + 0x1220);
+	gals_reg[42] = ioread32(apu_to_infra_top + 0x612C);
+
 }
 
 
@@ -333,12 +342,30 @@ void dump_gals(struct seq_file *sfile)
 	seq_printf(sfile, "APUSYS2ACP_VCORE_GALS_TX: 0x%08x\n", gals_reg[35]);
 	seq_printf(sfile, "APUSYS2ACP_VCORE_GALS_RX: 0x%08x\n", gals_reg[36]);
 	seq_printf(sfile, "APUSYS2ACP_CONN_GALS_TX: 0x%08x\n", gals_reg[37]);
+	seq_printf(sfile, "APUSYS_AO_DBG_RPC: 0x%08x\n", gals_reg[38]);
+	seq_printf(sfile, "APUSYS_AO_DBG_PCU: 0x%08x\n", gals_reg[39]);
+	seq_printf(sfile, "0x100012C0: 0x%08x\n", gals_reg[40]);
+	seq_printf(sfile, "0x10001220: 0x%08x\n", gals_reg[41]);
+	seq_printf(sfile, "0x1000612C: 0x%08x\n", gals_reg[42]);
+}
+
+
+void apusys_dump_reg_skip_gals(int onoff)
+{
+	mutex_lock(&dbg_lock);
+	if (onoff)
+		apusys_dump_skip_gals = true;
+	else
+		apusys_dump_skip_gals = false;
+	mutex_unlock(&dbg_lock);
 }
 
 void apusys_reg_dump(void)
 {
 	mutex_lock(&dbg_lock);
-	dump_gals_reg();
+
+	if (!apusys_dump_skip_gals)
+		dump_gals_reg();
 
 	 // skip mbox
 	memcpy_fromio(reg_all_mem + 0x1000, apu_top + 0x1000, 0x2F000);
@@ -372,6 +399,9 @@ int apusys_dump_show(struct seq_file *sfile, void *v)
 
 	t = sched_clock();
 	nanosec_rem = do_div(t, 1000000000);
+
+	if (apusys_dump_force)
+		apusys_reg_dump();
 
 	seq_printf(sfile, "[%5lu.%06lu] ------- dump GALS -------\n",
 		(unsigned long) t, (unsigned long) (nanosec_rem / 1000));
@@ -415,13 +445,19 @@ void apusys_dump_init(void)
 	debugfs_create_file("apusys_reg_all", 0444,
 			debug_node, NULL, &apu_dump_debug_fops);
 
+	debugfs_create_bool("force_dump", 0644,
+			debug_node, &apusys_dump_force);
 	apu_top = ioremap_nocache(APUSYS_BASE, APUSYS_REG_SIZE);
+	apu_to_infra_top = ioremap_nocache(APUSYS_TO_INFRA_BASE, 0x10000);
+
 	memset(reg_all_mem, 0, APUSYS_REG_SIZE);
-	apusys_reg_dump();
+	apusys_dump_force = false;
+	apusys_dump_skip_gals = false;
 }
 
 void apusys_dump_exit(void)
 {
 	debugfs_remove_recursive(debug_node);
 	iounmap(apu_top);
+	iounmap(apu_to_infra_top);
 }

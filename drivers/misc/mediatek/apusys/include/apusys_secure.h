@@ -11,21 +11,17 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __APUSYS_DEBUG_H__
-#define __APUSYS_DEBUG_H__
+#ifndef __APUSYS_SECURE_H__
+#define __APUSYS_SECURE_H__
 
-#define APUSYS_DBG_DIR "apusys_midware"
+#include <mt-plat/mtk_secure_api.h>
 
-extern bool apusys_dump_force;
-extern bool apusys_dump_skip;
 
-int apusys_dbg_init(void);
-int apusys_dbg_destroy(void);
+enum MTK_APUSYS_KERNEL_OP {
+	MTK_APUSYS_KERNEL_OP_REVISER_SET_BOUNDARY = 0,
+	MTK_APUSYS_KERNEL_OP_SET_AO_DBG_SEL,
+	MTK_APUSYS_KERNEL_OP_NUM
+};
 
-void apusys_dump_init(void);
-void apusys_reg_dump(void);
-void apusys_dump_exit(void);
-int apusys_dump_show(struct seq_file *sfile, void *v);
-void apusys_dump_reg_skip(int onoff);
 
 #endif

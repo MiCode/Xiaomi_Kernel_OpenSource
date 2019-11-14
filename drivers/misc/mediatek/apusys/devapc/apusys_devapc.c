@@ -513,7 +513,10 @@ static int apusys_devapc_probe(struct platform_device *pdev)
 	struct device_node *devapc_node;
 	struct devapc_ctx *dctx;
 
-	dev_dbg(&pdev->dev, "%s +\n", __func__);
+	dev_info(&pdev->dev, "%s +\n", __func__);
+
+	if (!apusys_power_check())
+		return 0;
 
 	devapc_node = pdev->dev.of_node;
 	if (!devapc_node) {
@@ -560,7 +563,7 @@ static int apusys_devapc_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, dctx);
 
-	dev_dbg(&pdev->dev, "%s -\n", __func__);
+	dev_info(&pdev->dev, "%s -\n", __func__);
 
 	return 0;
 
