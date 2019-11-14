@@ -21,6 +21,7 @@
 #include <linux/vmalloc.h>
 #include <linux/bug.h>
 #include <linux/compiler.h>
+#include <linux/printk.h>
 #include <linux/sizes.h>
 #include <linux/spinlock.h>
 #include <linux/stacktrace.h>
@@ -825,6 +826,12 @@ static void mrdump_mini_build_elf_misc(void)
 	get_pidmap_aee_buffer(&misc.vaddr, &misc.size);
 	misc.start = 0;
 	mrdump_mini_add_misc(misc.vaddr, misc.size, misc.start, "_PIDMAP_");
+
+	memset_io(&misc, 0, sizeof(struct mrdump_mini_elf_misc));
+	misc.vaddr = (unsigned long)(void *)linux_banner;
+	misc.size = strlen(linux_banner);
+	misc.start = 0;
+	mrdump_mini_add_misc(misc.vaddr, misc.size, misc.start, "_VERSION_BR");
 }
 
 static void mrdump_mini_add_loads(void)
