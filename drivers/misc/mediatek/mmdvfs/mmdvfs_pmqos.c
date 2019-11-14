@@ -31,6 +31,7 @@
 
 #if defined(USE_MEDIATEK_EMI)
 #include <memory/mediatek/emi.h>
+#include <memory/mediatek/dramc.h>
 #elif defined(USE_MTK_DRAMC)
 #include <mtk_dramc.h>
 #endif
@@ -755,8 +756,16 @@ static s32 get_total_used_hrt_bw(void)
 #if defined(USE_MEDIATEK_EMI)
 static s32 get_io_width(void)
 {
-	/* Todo: Use EMI API */
-	return 2;
+	s32 io_width;
+	s32 ddr_type = mtk_dramc_get_ddr_type();
+
+	if (ddr_type == TYPE_LPDDR4 || ddr_type == TYPE_LPDDR4X
+	    || ddr_type == TYPE_LPDDR4P)
+		io_width = 2;
+	else
+		io_width = 4;
+
+	return io_width;
 }
 #elif defined(USE_MTK_DRAMC)
 static s32 get_io_width(void)
