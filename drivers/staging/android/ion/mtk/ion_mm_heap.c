@@ -2076,8 +2076,10 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 			ret = mtk_ion_copy_param(2, domain_idx,
 						 mm_cmd, param,
 						 client->name, buffer);
-			if (ret)
+			if (ret) {
+				mutex_unlock(&buffer_info->lock);
 				return ret;
+			}
 
 			/* get mva */
 			phy_addr = param.get_phys_param.phy_addr;
@@ -2085,6 +2087,7 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 			if (ion_phys(client, kernel_handle, &phy_addr,
 				     (size_t *)&param.get_phys_param.len) <
 			    0) {
+				mutex_unlock(&buffer_info->lock);
 				param.get_phys_param.phy_addr = 0;
 				param.get_phys_param.len = 0;
 				IONMSG(" %s: Error. Cannot get iova.\n",
