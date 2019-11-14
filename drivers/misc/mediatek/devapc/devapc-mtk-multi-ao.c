@@ -243,7 +243,7 @@ static const char *slave_type_to_string(uint32_t slave_type)
 		return slave_type_arr[slave_type_num];
 }
 
-static void print_vio_mask_sta(void)
+static void print_vio_mask_sta(bool debug)
 {
 	struct mtk_devapc_vio_info *vio_info = mtk_devapc_ctx->soc->vio_info;
 	uint32_t slave_type_num = mtk_devapc_ctx->soc->slave_type_num;
@@ -261,8 +261,9 @@ static void print_vio_mask_sta(void)
 				readl(pd_vio_shift_sta_reg)
 		       );
 
-		for (i = 0; i < vio_info->vio_mask_sta_num[slave_type]; i++)
-			pr_debug(PFX "%s: %s_%d: 0x%x, %s_%d: 0x%x\n",
+		for (i = 0; i < vio_info->vio_mask_sta_num[slave_type]; i++) {
+			if (debug)
+				pr_info(PFX "%s: %s_%d: 0x%x, %s_%d: 0x%x\n",
 					slave_type_to_string(slave_type),
 					"VIO_MASK", i,
 					readl(mtk_devapc_pd_get(slave_type,
@@ -270,7 +271,18 @@ static void print_vio_mask_sta(void)
 					"VIO_STA", i,
 					readl(mtk_devapc_pd_get(slave_type,
 							VIO_STA, i))
-				);
+					);
+			else
+				pr_debug(PFX "%s: %s_%d: 0x%x, %s_%d: 0x%x\n",
+					slave_type_to_string(slave_type),
+					"VIO_MASK", i,
+					readl(mtk_devapc_pd_get(slave_type,
+							VIO_MASK, i)),
+					"VIO_STA", i,
+					readl(mtk_devapc_pd_get(slave_type,
+							VIO_STA, i))
+					);
+		}
 	}
 }
 
@@ -331,9 +343,9 @@ static void start_devapc(void)
 	void __iomem *pd_vio_shift_sta_reg;
 	void __iomem *pd_apc_con_reg;
 	uint32_t vio_shift_sta;
-	int slave_type, i;
+	int slave_type, i, vio_idx;
 
-	print_vio_mask_sta();
+	print_vio_mask_sta(false);
 	ndevices = mtk_devapc_ctx->soc->ndevices;
 
 	device_info = mtk_devapc_ctx->soc->device_info;
@@ -362,7 +374,6 @@ static void start_devapc(void)
 					"slave_type", slave_type,
 					"VIO_SHIFT_STA", vio_shift_sta,
 					readl(pd_vio_shift_sta_reg));
-
 		}
 
 		check_type2_vio_status(slave_type);
@@ -372,20 +383,20 @@ static void start_devapc(void)
 			if (!device_info[slave_type][i].enable_vio_irq)
 				continue;
 
-			if ((check_vio_status(slave_type, i) ==
+			vio_idx = device_info[slave_type][i].vio_index;
+			if ((check_vio_status(slave_type, vio_idx) ==
 					VIOLATION_TRIGGERED) &&
-					clear_vio_status(slave_type, i))
+					clear_vio_status(slave_type, vio_idx))
 				pr_warn(PFX "%s, %s:0x%x, %s:0x%x\n",
 					"clear vio status failed",
 					"slave_type", slave_type,
-					"vio_index",
-					device_info[slave_type][i].vio_index);
+					"vio_index", vio_idx);
 
 			mask_module_irq(slave_type, i, false);
 		}
 	}
 
-	print_vio_mask_sta();
+	print_vio_mask_sta(false);
 
 	/* register subsys test cb */
 	register_devapc_vio_callback(&devapc_test_handle);
@@ -538,35 +549,54 @@ static uint8_t get_permission(int slave_type, int module_index, int domain)
  *
  * Returns the value of violation shift status reg
  */
-static uint32_t mtk_devapc_vio_check(int slave_type)
+static void mtk_devapc_vio_check(int slave_type, int *shift_bit)
 {
 	uint32_t slave_type_num = mtk_devapc_ctx->soc->slave_type_num;
+	uint32_t vio_shift_sta;
+	int i;
 
-	if (slave_type < slave_type_num)
-		return readl(mtk_devapc_pd_get(slave_type, VIO_SHIFT_STA, 0));
+	if (slave_type >= slave_type_num) {
+		pr_err(PFX "%s: param check failed, %s:0x%x\n",
+				__func__, "slave_type", slave_type);
+		return;
+	}
 
-	pr_err(PFX "%s: param check failed, %s:0x%x\n",
-			__func__, "slave_type", slave_type);
+	vio_shift_sta = readl(mtk_devapc_pd_get(slave_type, VIO_SHIFT_STA, 0));
 
-	return 0;
+	if (!vio_shift_sta) {
+		pr_info(PFX "violation is triggered before\n");
+
+	} else if (vio_shift_sta & (0x1 << *shift_bit)) {
+		pr_info(PFX "%s: 0x%x is matched with %s:%d\n",
+				"vio_shift_sta", vio_shift_sta,
+				"shift_bit", *shift_bit);
+
+	} else {
+		pr_info(PFX "%s: 0x%x is not matched with %s:%d\n",
+				"vio_shift_sta", vio_shift_sta,
+				"shift_bit", *shift_bit);
+
+		for (i = 0; i < MOD_NO_IN_1_DEVAPC * 2; i++) {
+			if (vio_shift_sta & (0x1 << i)) {
+				*shift_bit = i;
+				break;
+			}
+		}
+	}
 }
 
-/*
- * mtk_devapc_dump_vio_dbg - shift & dump the violation debug information.
- */
-static bool mtk_devapc_dump_vio_dbg(int slave_type)
+static void devapc_extract_vio_dbg(int slave_type)
 {
 	uint32_t slave_type_num = mtk_devapc_ctx->soc->slave_type_num;
 	void __iomem *vio_dbg0_reg, *vio_dbg1_reg, *vio_dbg2_reg;
 	const struct mtk_infra_vio_dbg_desc *vio_dbgs;
 	struct mtk_devapc_vio_info *vio_info;
 	uint32_t dbg0;
-	int i;
 
 	if (slave_type >= slave_type_num) {
 		pr_err(PFX "%s: param check failed, %s:0x%x\n",
 				__func__, "slave_type", slave_type);
-		return false;
+		return;
 	}
 
 	vio_dbg0_reg = mtk_devapc_pd_get(slave_type, VIO_DBG0, 0);
@@ -576,48 +606,82 @@ static bool mtk_devapc_dump_vio_dbg(int slave_type)
 	vio_dbgs = mtk_devapc_ctx->soc->vio_dbgs;
 	vio_info = mtk_devapc_ctx->soc->vio_info;
 
-	for (i = 0; i < MOD_NO_IN_1_DEVAPC * 2; ++i) {
-		if (mtk_devapc_vio_check(slave_type) & (0x1 << i)) {
+	/* Extract violation information */
+	dbg0 = readl(vio_dbg0_reg);
+	vio_info->master_id = readl(vio_dbg1_reg);
+	vio_info->vio_addr = readl(vio_dbg2_reg);
 
-			if (!sync_vio_dbg(slave_type, i))
-				continue;
+	vio_info->domain_id = (dbg0 & vio_dbgs->vio_dbg_dmnid)
+		>> vio_dbgs->vio_dbg_dmnid_start_bit;
+	vio_info->write = ((dbg0 & vio_dbgs->vio_dbg_w_vio)
+			>> vio_dbgs->vio_dbg_w_vio_start_bit) == 1;
+	vio_info->read = ((dbg0 & vio_dbgs->vio_dbg_r_vio)
+			>> vio_dbgs->vio_dbg_r_vio_start_bit) == 1;
+	vio_info->vio_addr_high = (dbg0 & vio_dbgs->vio_addr_high)
+		>> vio_dbgs->vio_addr_high_start_bit;
 
-			/* Extract violation information */
-			dbg0 = readl(vio_dbg0_reg);
-			vio_info->master_id = readl(vio_dbg1_reg);
-			vio_info->vio_addr = readl(vio_dbg2_reg);
+	/* Print violation information */
+	if (vio_info->write)
+		pr_info(PFX "Write Violation\n");
+	else if (vio_info->read)
+		pr_info(PFX "Read Violation\n");
+	else
+		pr_err(PFX "R/W Violation are not raised\n");
 
-			vio_info->domain_id = (dbg0 & vio_dbgs->vio_dbg_dmnid)
-				>> vio_dbgs->vio_dbg_dmnid_start_bit;
-			vio_info->write = ((dbg0 & vio_dbgs->vio_dbg_w_vio)
-				>> vio_dbgs->vio_dbg_w_vio_start_bit) == 1;
-			vio_info->read = ((dbg0 & vio_dbgs->vio_dbg_r_vio)
-				>> vio_dbgs->vio_dbg_r_vio_start_bit) == 1;
-			vio_info->vio_addr_high =
-				(dbg0 & vio_dbgs->vio_addr_high)
-				>> vio_dbgs->vio_addr_high_start_bit;
+	pr_info(PFX "%s%x, %s%x, %s%x, %s%x\n",
+			"Vio Addr:0x", vio_info->vio_addr,
+			"High:0x", vio_info->vio_addr_high,
+			"Bus ID:0x", vio_info->master_id,
+			"Dom ID:0x", vio_info->domain_id);
 
-			/* Print violation information */
-			if (vio_info->write)
-				pr_info(PFX "Write Violation\n");
-			else if (vio_info->read)
-				pr_info(PFX "Read Violation\n");
-			else
-				pr_err(PFX "R/W Violation are not raised\n");
+	pr_info(PFX "%s - %s%s, %s%x\n",
+			"Violation",
+			"Current Process:", current->comm,
+			"PID:", current->pid);
+}
 
-			pr_info(PFX "%s%x, %s%x, %s%x, %s%x\n",
-					"Vio Addr:0x", vio_info->vio_addr,
-					"High:0x", vio_info->vio_addr_high,
-					"Bus ID:0x", vio_info->master_id,
-					"Dom ID:0x", vio_info->domain_id);
+/*
+ * mtk_devapc_dump_vio_dbg - shift & dump the violation debug information.
+ */
+static bool mtk_devapc_dump_vio_dbg(int slave_type, int *vio_idx, int *index)
+{
+	const struct mtk_device_info **device_info;
+	const struct mtk_device_num *ndevices;
+	void __iomem *pd_vio_shift_sta_reg;
+	uint32_t shift_bit;
+	int i;
 
-			pr_info(PFX "%s - %s%s, %s%x\n",
-					"Violation",
-					"Current Process:", current->comm,
-					"PID:", current->pid);
+	if (unlikely(vio_idx == NULL)) {
+		pr_err(PFX "%s:%d NULL pointer\n", __func__, __LINE__);
+		return NULL;
+	}
 
-			return true;
-		}
+	device_info = mtk_devapc_ctx->soc->device_info;
+	ndevices = mtk_devapc_ctx->soc->ndevices;
+
+	pd_vio_shift_sta_reg = mtk_devapc_pd_get(slave_type, VIO_SHIFT_STA, 0);
+
+	for (i = 0; i < ndevices[slave_type].vio_slave_num; i++) {
+		if (!device_info[slave_type][i].enable_vio_irq)
+			continue;
+
+		*vio_idx = device_info[slave_type][i].vio_index;
+		if (check_vio_status(slave_type, *vio_idx) !=
+				VIOLATION_TRIGGERED)
+			continue;
+
+		shift_bit = mtk_devapc_ctx->soc->shift_group_get(
+				slave_type, *vio_idx);
+
+		mtk_devapc_vio_check(slave_type, &shift_bit);
+
+		if (!sync_vio_dbg(slave_type, shift_bit))
+			continue;
+
+		devapc_extract_vio_dbg(slave_type);
+		*index = i;
+
+		return true;
 	}
 
 	pr_info(PFX "check_devapc_vio_status: no violation for %s:0x%x\n",
@@ -731,7 +795,7 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 	const struct mtk_device_info **device_info;
 	const struct mtk_device_num *ndevices;
 	struct mtk_devapc_vio_info *vio_info;
-	int slave_type, i, vio_idx;
+	int slave_type, vio_idx, index;
 	const char *vio_master;
 	unsigned long flags;
 	uint8_t perm;
@@ -739,18 +803,20 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 
 	spin_lock_irqsave(&devapc_lock, flags);
 
-	print_vio_mask_sta();
+	print_vio_mask_sta(false);
 
 	device_info = mtk_devapc_ctx->soc->device_info;
 	vio_info = mtk_devapc_ctx->soc->vio_info;
 	ndevices = mtk_devapc_ctx->soc->ndevices;
 	normal = false;
+	vio_idx = index = -1;
 
 	/* There are multiple DEVAPC_PD */
 	for (slave_type = 0; slave_type < slave_type_num; slave_type++) {
 
 		if (!check_type2_vio_status(slave_type))
-			if (!mtk_devapc_dump_vio_dbg(slave_type))
+			if (!mtk_devapc_dump_vio_dbg(slave_type, &vio_idx,
+						&index))
 				continue;
 
 		/* Ensure that violation info are written before
@@ -759,58 +825,45 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 		smp_mb();
 		normal = true;
 
-		for (i = 0; i < ndevices[slave_type].vio_slave_num; i++) {
-			if (!device_info[slave_type][i].enable_vio_irq)
-				continue;
+		mask_module_irq(slave_type, vio_idx, true);
 
-			vio_idx = device_info[slave_type][i].vio_index;
+		if (clear_vio_status(slave_type, vio_idx))
+			pr_warn(PFX "%s, %s:0x%x, %s:0x%x\n",
+					"clear vio status failed",
+					"slave_type", slave_type,
+					"vio_index", vio_idx);
 
-			if (!check_vio_status(slave_type, vio_idx))
-				continue;
+		perm = get_permission(slave_type, index, vio_info->domain_id);
 
-			mask_module_irq(slave_type, vio_idx, true);
+		vio_master = mtk_devapc_ctx->soc->master_get(
+				vio_info->master_id,
+				vio_info->vio_addr);
 
-			if (clear_vio_status(slave_type, vio_idx))
-				pr_warn(PFX "%s, %s:0x%x, %s:0x%x\n",
-						"clear vio status failed",
-						"slave_type", slave_type,
-						"vio_index", vio_idx);
+		if (!vio_master) {
+			pr_warn(PFX "master_get failed\n");
+			vio_master = "UNKNOWN_MASTER";
+		}
 
-			perm = get_permission(slave_type, i,
-					vio_info->domain_id);
+		pr_info(PFX "%s - %s:0x%x, %s:0x%x, %s:0x%x, %s:0x%x\n",
+				"Violation", "slave_type", slave_type,
+				"sys_index",
+				device_info[slave_type][index].sys_index,
+				"ctrl_index",
+				device_info[slave_type][index].ctrl_index,
+				"vio_index",
+				device_info[slave_type][index].vio_index);
 
-			vio_master = mtk_devapc_ctx->soc->master_get(
-					vio_info->master_id,
-					vio_info->vio_addr);
-
-			if (!vio_master) {
-				pr_warn(PFX "master_get failed\n");
-				vio_master = "UNKNOWN_MASTER";
-			}
-
-			pr_info(PFX "%s - %s:0x%x, %s:0x%x, %s:0x%x, %s:0x%x\n",
-					"Violation", "slave_type", slave_type,
-					"sys_index",
-					device_info[slave_type][i].sys_index,
-					"ctrl_index",
-					device_info[slave_type][i].ctrl_index,
-					"vio_index",
-					device_info[slave_type][i].vio_index);
-
-			pr_info(PFX "%s %s %s %s\n",
+		pr_info(PFX "%s %s %s %s\n",
 				"Violation - master:", vio_master,
 				"access violation slave:",
-				device_info[slave_type][i].device);
+				device_info[slave_type][index].device);
 
-			devapc_vio_reason(perm);
+		devapc_vio_reason(perm);
 
-			devapc_extra_handler(slave_type, vio_master, vio_idx,
-					vio_info->vio_addr);
+		devapc_extra_handler(slave_type, vio_master, vio_idx,
+				vio_info->vio_addr);
 
-			mask_module_irq(slave_type, vio_idx, false);
-
-			break;
-		}
+		mask_module_irq(slave_type, vio_idx, false);
 	}
 
 	if (normal) {
@@ -820,19 +873,7 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 
 	/* It's an abnormal status */
 	pr_info(PFX "WARNING: Abnormal Status\n");
-	for (slave_type = 0; slave_type < slave_type_num; slave_type++) {
-		for (i = 0; i < ndevices[slave_type].vio_slave_num; i++) {
-
-			vio_idx = device_info[slave_type][i].vio_index;
-			if (clear_vio_status(slave_type, vio_idx))
-				pr_warn(PFX "%s, %s:0x%x, %s:0x%x\n",
-						"clear vio status failed",
-						"slave_type", slave_type,
-						"vio_index", vio_idx);
-		}
-	}
-
-	print_vio_mask_sta();
+	print_vio_mask_sta(true);
 	BUG_ON(1);
 
 	spin_unlock_irqrestore(&devapc_lock, flags);

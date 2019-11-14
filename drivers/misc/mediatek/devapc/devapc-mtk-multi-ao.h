@@ -160,6 +160,7 @@ struct mtk_devapc_soc {
 	void (*mm2nd_vio_handler)(void __iomem *infracfg,
 			struct mtk_devapc_vio_info *vio_info,
 			bool mdp_vio, bool disp2_vio, bool mmsys_vio);
+	uint32_t (*shift_group_get)(int slave_type, uint32_t vio_index);
 };
 
 extern int mtk_devapc_probe(struct platform_device *pdev,

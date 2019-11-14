@@ -1668,6 +1668,134 @@ static void mm2nd_vio_handler(void __iomem *infracfg,
 	vio_info->write = (rw == 1);
 }
 
+static uint32_t mt6885_shift_group_get(int slave_type, uint32_t vio_idx)
+{
+	if (slave_type == SLAVE_TYPE_INFRA) {
+		if ((vio_idx >= 0 && vio_idx <= 8) || vio_idx == 412)
+			return 0;
+		else if ((vio_idx >= 9 && vio_idx <= 14) || vio_idx == 413)
+			return 1;
+		else if ((vio_idx >= 15 && vio_idx <= 16) || vio_idx == 414)
+			return 2;
+		else if ((vio_idx >= 17 && vio_idx <= 18) || vio_idx == 415)
+			return 3;
+		else if (vio_idx >= 19 && vio_idx <= 70)
+			return 4;
+		else if (vio_idx >= 71 && vio_idx <= 369)
+			return 5;
+		else if (vio_idx >= 370 && vio_idx <= 409)
+			return 6;
+		else if (vio_idx == 410 || vio_idx == 416)
+			return 7;
+		else if (vio_idx == 411 || vio_idx == 417)
+			return 8;
+
+		pr_err(PFX "%s:%d Wrong vio_idx:0x%x\n",
+				__func__, __LINE__, vio_idx);
+
+	} else if (slave_type == SLAVE_TYPE_PERI) {
+		if (vio_idx >= 0 && vio_idx <= 4)
+			return 0;
+		else if (vio_idx >= 5 && vio_idx <= 6)
+			return 1;
+		else if ((vio_idx >= 7 && vio_idx <= 38) || vio_idx == 216 ||
+				(vio_idx >= 217 && vio_idx <= 248) ||
+				vio_idx == 346)
+			return 2;
+		else if ((vio_idx >= 39 && vio_idx <= 61) || vio_idx == 249)
+			return 3;
+		else if ((vio_idx >= 62 && vio_idx <= 72) || vio_idx == 250)
+			return 4;
+		else if ((vio_idx >= 73 && vio_idx <= 74) || vio_idx == 251)
+			return 5;
+		else if ((vio_idx >= 75 && vio_idx <= 78) || vio_idx == 252)
+			return 6;
+		else if ((vio_idx >= 79 && vio_idx <= 121) || vio_idx == 253)
+			return 7;
+		else if ((vio_idx >= 122 && vio_idx <= 124) || vio_idx == 254)
+			return 8;
+		else if (vio_idx == 125 || vio_idx == 255 ||
+				vio_idx == 256 || vio_idx == 347)
+			return 9;
+		else if (vio_idx == 126 || vio_idx == 257)
+			return 10;
+		else if (vio_idx == 127 || vio_idx == 128)
+			return 11;
+		else if (vio_idx == 129 || vio_idx == 130)
+			return 12;
+		else if ((vio_idx >= 131 && vio_idx <= 142) ||
+				(vio_idx >= 258 && vio_idx <= 269) ||
+				vio_idx == 348)
+			return 13;
+		else if ((vio_idx >= 143 && vio_idx <= 172) || vio_idx == 270 ||
+				(vio_idx >= 271 && vio_idx <= 300) ||
+				vio_idx == 349)
+			return 14;
+		else if ((vio_idx >= 173 && vio_idx <= 202) || vio_idx == 301 ||
+				(vio_idx >= 302 && vio_idx <= 331) ||
+				vio_idx == 350)
+			return 15;
+		else if ((vio_idx >= 203 && vio_idx <= 215) ||
+				(vio_idx >= 332 && vio_idx <= 345) ||
+				vio_idx == 351)
+			return 16;
+
+		pr_err(PFX "%s:%d Wrong vio_idx:0x%x\n",
+				__func__, __LINE__, vio_idx);
+
+	} else if (slave_type == SLAVE_TYPE_PERI2) {
+		if ((vio_idx >= 0 && vio_idx <= 8) ||
+				(vio_idx >= 130 && vio_idx <= 139) ||
+				vio_idx == 252)
+			return 0;
+		else if (vio_idx >= 9 && vio_idx <= 12)
+			return 1;
+		else if (vio_idx >= 13 && vio_idx <= 16)
+			return 2;
+		else if (vio_idx >= 17 && vio_idx <= 20)
+			return 3;
+		else if (vio_idx >= 21 && vio_idx <= 24)
+			return 4;
+		else if ((vio_idx >= 25 && vio_idx <= 40) ||
+				(vio_idx >= 140 && vio_idx <= 156) ||
+				vio_idx == 253)
+			return 5;
+		else if ((vio_idx >= 41 && vio_idx <= 48) ||
+				(vio_idx >= 157 && vio_idx <= 165) ||
+				vio_idx == 254)
+			return 6;
+		else if ((vio_idx >= 49 && vio_idx <= 64) ||
+				(vio_idx >= 166 && vio_idx <= 182) ||
+				vio_idx == 255)
+			return 7;
+		else if ((vio_idx >= 65 && vio_idx <= 80) ||
+				(vio_idx >= 183 && vio_idx <= 199) ||
+				vio_idx == 256)
+			return 8;
+		else if ((vio_idx >= 81 && vio_idx <= 88) ||
+				(vio_idx >= 200 && vio_idx <= 208) ||
+				vio_idx == 257)
+			return 9;
+		else if ((vio_idx >= 89 && vio_idx <= 111) ||
+				(vio_idx >= 209 && vio_idx <= 232) ||
+				vio_idx == 258)
+			return 10;
+		else if ((vio_idx >= 112 && vio_idx <= 40) ||
+				(vio_idx >= 233 && vio_idx <= 251) ||
+				vio_idx == 259)
+			return 11;
+
+		pr_err(PFX "%s:%d Wrong vio_idx:0x%x\n",
+				__func__, __LINE__, vio_idx);
+
+	} else {
+		pr_err(PFX "%s:%d Wrong slave_type:0x%x\n",
+				__func__, __LINE__, slave_type);
+	}
+
+	return 31;
+}
+
 void devapc_catch_illegal_range(phys_addr_t phys_addr, size_t size)
 {
 	phys_addr_t test_pa = 0x17a54c50;
@@ -1771,6 +1899,7 @@ static struct mtk_devapc_soc mt6885_data = {
 	.subsys_get = &index_to_subsys,
 	.master_get = &mt6885_bus_id_to_master,
 	.mm2nd_vio_handler = &mm2nd_vio_handler,
+	.shift_group_get = mt6885_shift_group_get,
 };
 
 static const struct of_device_id mt6885_devapc_dt_match[] = {
