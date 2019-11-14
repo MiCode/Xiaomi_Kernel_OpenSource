@@ -97,8 +97,6 @@ static void mtk_gem_vmap_pa_legacy(phys_addr_t pa, uint size,
 	struct ion_client *client;
 	struct ion_handle *handle;
 	struct ion_mm_data mm_data;
-	size_t mva_size;
-	ion_phys_addr_t phy_addr = 0;
 
 	mtk_gem->cookie = (void *)ioremap_nocache(pa, size);
 	mtk_gem->kvaddr = mtk_gem->cookie;
@@ -112,10 +110,13 @@ static void mtk_gem_vmap_pa_legacy(phys_addr_t pa, uint size,
 		return;
 	}
 
+	/* use get_iova replace config_buffer & get_phys*/
 	memset((void *)&mm_data, 0, sizeof(struct ion_mm_data));
-	mm_data.config_buffer_param.module_id = 0;
-	mm_data.config_buffer_param.kernel_handle = handle;
-	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
+	/* should use Your HW port id, please don't use other's port id */
+	mm_data.get_phys_param.module_id = 0;
+	mm_data.get_phys_param.kernel_handle = handle;
+	mm_data.mm_cmd = ION_MM_GET_IOVA;
+
 	if (ion_kernel_ioctl(client, ION_CMD_MULTIMEDIA,
 				 (unsigned long)&mm_data) < 0) {
 		DDPPR_ERR("ion config failed, handle:0x%p\n", handle);
@@ -123,10 +124,8 @@ static void mtk_gem_vmap_pa_legacy(phys_addr_t pa, uint size,
 				__func__, __LINE__);
 		return;
 	}
-
-	ion_phys(client, handle, &phy_addr, &mva_size);
-	mtk_gem->dma_addr = (unsigned int)phy_addr;
-	mtk_gem->size = mva_size;
+	mtk_gem->dma_addr = (unsigned int)mm_data.get_phys_param.phy_addr;
+	mtk_gem->size = mm_data.get_phys_param.len;
 #endif
 }
 
@@ -503,8 +502,6 @@ mtk_gem_prime_import(struct drm_device *dev, struct dma_buf *dma_buf)
 	struct mtk_drm_private *priv = dev->dev_private;
 	struct ion_client *client;
 	struct ion_handle *handle;
-	struct ion_mm_data mm_data;
-	int ret, retry_cnt = 0;
 
 	DRM_MMP_EVENT_START(prime_import, (unsigned long)priv,
 			(unsigned long)dma_buf);
@@ -521,33 +518,8 @@ mtk_gem_prime_import(struct drm_device *dev, struct dma_buf *dma_buf)
 		return ERR_PTR(-EINVAL);
 	}
 
-retry:
 	DRM_MMP_MARK(prime_import, 1, 1);
-	memset((void *)&mm_data, 0, sizeof(struct ion_mm_data));
 	DRM_MMP_MARK(prime_import, 1, 2);
-	mm_data.config_buffer_param.module_id = 0;
-	mm_data.config_buffer_param.kernel_handle = handle;
-	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
-	ret = ion_kernel_ioctl(client, ION_CMD_MULTIMEDIA,
-				 (unsigned long)&mm_data);
-
-	/* try 10s */
-	if (ret == -ION_ERROR_CONFIG_CONFLICT && retry_cnt < 10000) {
-		retry_cnt++;
-		DDPPR_ERR("ion config conflict, retry:%d, handle:0x%p\n",
-			retry_cnt, handle);
-		usleep_range(1000, 1500); /* delay 1ms */
-		goto retry;
-	} else if (ret < 0) {
-		DDPPR_ERR("ion config failed, handle:0x%p, ret:%d\n",
-			handle, ret);
-		mtk_drm_gem_ion_free_handle(client, handle,
-				__func__, __LINE__);
-		DRM_MMP_MARK(prime_import, 0, 1);
-		DRM_MMP_EVENT_END(prime_import, (unsigned long)handle,
-				(unsigned long)client);
-		return ERR_PTR(ret);
-	}
 #endif
 	DRM_MMP_MARK(prime_import, 1, 3);
 	obj = drm_gem_prime_import(dev, dma_buf);

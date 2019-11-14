@@ -73,8 +73,6 @@ int reviser_mem_alloc(struct reviser_mem *mem)
 	struct ion_handle *handle;
 	struct ion_client *ion_client;
 	void *buffer = NULL;
-	unsigned long pa;
-	size_t pa_size;
 
 
 	//ion_client = ion_client_create(g_ion_device, "vpu");
@@ -99,39 +97,33 @@ int reviser_mem_alloc(struct reviser_mem *mem)
 		goto free_alloc;
 	}
 
-	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
-	mm_data.config_buffer_param.kernel_handle = handle;
-	mm_data.config_buffer_param.module_id = M4U_PORT_L21_APU_FAKE_VLM;
-	mm_data.config_buffer_param.security = 0;
-	mm_data.config_buffer_param.coherent = 1;
+	/* use get_iova replace config_buffer & get_phys*/
+	memset((void *)&mm_data, 0, sizeof(mm_data));
+	mm_data.mm_cmd = ION_MM_GET_IOVA;
+	mm_data.get_phys_param.kernel_handle = handle;
+	mm_data.get_phys_param.module_id = M4U_PORT_L21_APU_FAKE_VLM;
+	mm_data.get_phys_param.coherent = 1;
+	//mm_data.get_phys_param.reserve_iova_start = 0x60000000;
+	//mm_data.get_phys_param.reserve_iova_end = 0x82600000;
 
-	//mm_data.config_buffer_param.reserve_iova_start = 0x60000000;
-	//mm_data.config_buffer_param.reserve_iova_end = 0x82600000;
-
+	//mm_data.get_phys_param.phy_addr =
+	//	((unsigned long)M4U_PORT_VPU<<24) | ION_FLAG_GET_FIXED_PHYS;
+	mm_data.get_phys_param.phy_addr =
+		((unsigned long) M4U_PORT_L21_APU_FAKE_VLM<<24);
+	//mm_data.get_phys_param.len = ION_FLAG_GET_FIXED_PHYS;
 	if (ion_kernel_ioctl(ion_client, ION_CMD_MULTIMEDIA,
 			(unsigned long)&mm_data)) {
-		LOG_ERR("ion_config_buffer: ION_CMD_MULTIMEDIA failed\n");
+		LOG_ERR("Get MVA failed: ION_CMD_MULTIMEDIA failed\n");
 		goto free_map;
 	}
-
-
-	//pa = ((unsigned long)M4U_PORT_VPU<<24) | ION_FLAG_GET_FIXED_PHYS;
-	pa = ((unsigned long) M4U_PORT_L21_APU_FAKE_VLM<<24);
-	//pa_size = ION_FLAG_GET_FIXED_PHYS;
-
-	if (ion_phys(ion_client, handle, &pa, &pa_size)) {
-		LOG_ERR("Get MVA failed\n");
-		goto free_map;
-	}
-
 
 	mem->kva = (uint64_t)buffer;
 	mem->handle = (uint64_t) handle;
-	mem->iova = pa;
+	mem->iova = mm_data.get_phys_param.phy_addr;
 
 	LOG_INFO("mem(%p/0x%x/%d/0x%lx/0x%llx/0x%llx)\n",
 			ion_client, mem->iova, mem->size,
-			pa_size, mem->handle, mem->kva);
+			mm_data.get_phys_param.len, mem->handle, mem->kva);
 
 	return 0;
 free_map:

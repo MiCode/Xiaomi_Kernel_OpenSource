@@ -382,8 +382,6 @@ int ion_mem_map_iova(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 	int ret = 0;
 	struct ion_handle *ion_hnd = NULL;
 	struct ion_mm_data mm_data;
-	unsigned long iova = 0;
-	size_t iova_size = 0;
 
 	/* check argument */
 	if (_ion_mem_check_arg(mem)) {
@@ -398,11 +396,14 @@ int ion_mem_map_iova(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 	if (IS_ERR_OR_NULL(ion_hnd))
 		return -ENOMEM;
 
-	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
-	mm_data.config_buffer_param.kernel_handle = ion_hnd;
-	mm_data.config_buffer_param.module_id = APUSYS_IOMMU_PORT;
-	mm_data.config_buffer_param.security = 0;
-	mm_data.config_buffer_param.coherent = 1;
+	/* use get_iova replace config_buffer & get_phys*/
+	memset((void *)&mm_data, 0, sizeof(struct ion_mm_data));
+	mm_data.mm_cmd = ION_MM_GET_IOVA;
+	mm_data.get_phys_param.kernel_handle = ion_hnd;
+	mm_data.get_phys_param.module_id = APUSYS_IOMMU_PORT;
+	mm_data.get_phys_param.coherent = 1;
+	mm_data.get_phys_param.phy_addr =
+		((unsigned long) APUSYS_IOMMU_PORT << 24);
 
 	if (ion_kernel_ioctl(mem_mgr->client, ION_CMD_MULTIMEDIA,
 			(unsigned long)&mm_data)) {
@@ -411,15 +412,8 @@ int ion_mem_map_iova(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 		goto free_import;
 	}
 
-	iova = ((unsigned long) APUSYS_IOMMU_PORT << 24);
-	if (ion_phys(mem_mgr->client, ion_hnd, &iova, &iova_size)) {
-		LOG_ERR("Get MVA failed\n");
-		ret = -ENOMEM;
-		goto free_import;
-	}
-
-	mem->iova = iova;
-	mem->iova_size = iova_size;
+	mem->iova = mm_data.get_phys_param.phy_addr;
+	mem->iova_size = mm_data.get_phys_param.len;
 
 	LOG_DEBUG("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
 			mem->fd, mem->uva, mem->iova, mem->size,

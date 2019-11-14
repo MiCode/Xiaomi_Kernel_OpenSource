@@ -2009,7 +2009,6 @@ static signed int dip_allocbuf(struct dip_imem_memory *pMemInfo)
 {
 	int ret = 0;
 	struct ion_mm_data mm_data;
-	struct ion_sys_data sys_data;
 	struct ion_handle *handle = NULL;
 
 	if (pMemInfo == NULL) {
@@ -2043,26 +2042,17 @@ static signed int dip_allocbuf(struct dip_imem_memory *pMemInfo)
 		goto dip_allocbuf_exit;
 	}
 
-	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
-	mm_data.config_buffer_param.kernel_handle = handle;
-	mm_data.config_buffer_param.module_id = 0;
-	mm_data.config_buffer_param.security = 0;
-	mm_data.config_buffer_param.coherent = 1;
+	/* use get_iova replace config_buffer & get_phys*/
+	memset((void *)&mm_data, 0, sizeof(mm_data));
+	mm_data.mm_cmd = ION_MM_GET_IOVA;
+	mm_data.get_phys_param.kernel_handle = handle;
+	/* should use Your HW port id, please don't use other's port id */
+	mm_data.get_phys_param.module_id = 0;
+	mm_data.get_phys_param.coherent = 1;
 	ret = ion_kernel_ioctl(dip_p2_ion_client,
 		ION_CMD_MULTIMEDIA,
 		(unsigned long)&mm_data);
-	if (ret) {
-		LOG_ERR("fail to config ion buffer, ret=%d\n", ret);
-		ret = -ENOMEM;
-		goto dip_allocbuf_exit;
-	}
-
-	sys_data.sys_cmd = ION_SYS_GET_PHYS;
-	sys_data.get_phys_param.kernel_handle = handle;
-	ret = ion_kernel_ioctl(dip_p2_ion_client,
-		ION_CMD_SYSTEM,
-		(unsigned long)&sys_data);
-	pMemInfo->pa = sys_data.get_phys_param.phy_addr;
+	pMemInfo->pa = mm_data.get_phys_param.phy_addr;
 
 dip_allocbuf_exit:
 

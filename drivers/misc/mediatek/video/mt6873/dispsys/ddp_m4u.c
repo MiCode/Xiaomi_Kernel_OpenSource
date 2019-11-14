@@ -224,47 +224,30 @@ int disp_ion_get_mva(struct ion_client *client, struct ion_handle *handle,
 {
 #if defined(CONFIG_MTK_IOMMU_V2)
 	struct ion_mm_data mm_data;
-	//struct ion_sys_data sys_data;
 	size_t mva_size;
-#ifndef CONFIG_MTK_IOMMU_V2
-	ion_phys_addr_t phy_addr;
-	size_t len;
-#endif
 
 	memset((void *)&mm_data, 0, sizeof(struct ion_mm_data));
-	mm_data.config_buffer_param.module_id = port;
-	mm_data.config_buffer_param.kernel_handle = handle;
+	mm_data.mm_cmd = ION_MM_GET_IOVA;
+	mm_data.get_phys_param.module_id = port;
+	mm_data.get_phys_param.kernel_handle = handle;
 	if (fixed_mva > 0) {
-		mm_data.mm_cmd = ION_MM_CONFIG_BUFFER_EXT;
-		mm_data.config_buffer_param.reserve_iova_start = fixed_mva;
-		mm_data.config_buffer_param.reserve_iova_end = fixed_mva;
-	} else {
-		mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
+		mm_data.get_phys_param.phy_addr =
+			(port << 24) | ION_FLAG_GET_FIXED_PHYS;
+		mm_data.get_phys_param.len = ION_FLAG_GET_FIXED_PHYS;
+		mm_data.get_phys_param.reserve_iova_start = fixed_mva;
+		mm_data.get_phys_param.reserve_iova_end = fixed_mva;
 	}
+
 	if (ion_kernel_ioctl(client, ION_CMD_MULTIMEDIA,
 		(unsigned long)&mm_data) < 0) {
-		DISPERR("%s: config buffer failed.%p -%p\n",
+		DISPERR("%s: get mva failed.%p -%p\n",
 			__func__, client, handle);
 		ion_free(client, handle);
 		return -1;
 	}
 
-#ifdef CONFIG_MTK_IOMMU_V2
-	ion_phys(client, handle,
-		(ion_phys_addr_t *)mva, &mva_size);
-#else
-	if (fixed_mva == 0) {
-		ion_phys(client, handle,
-			(ion_phys_addr_t *)mva, &mva_size);
-	} else {
-		phy_addr = (port << 24) | ION_FLAG_GET_FIXED_PHYS;
-		len = ION_FLAG_GET_FIXED_PHYS;
-		ion_phys(client, handle,
-			&phy_addr, &len);
-		*mva = phy_addr;
-		mva_size = len;
-	}
-#endif
+	*mva = mm_data.get_phys_param.phy_addr;
+	mva_size = mm_data.get_phys_param.len;
 	if (*mva == 0)
 		DDPERR("alloc mmu addr hnd=0x%p,mva=0x%08lx\n",
 			handle, *mva);
@@ -276,8 +259,6 @@ struct ion_handle *disp_ion_import_handle(struct ion_client *client, int fd)
 {
 	struct ion_handle *handle = NULL;
 #if defined(CONFIG_MTK_IOMMU_V2)
-	struct ion_mm_data mm_data;
-
 	/* If no need Ion support, do nothing! */
 	if (fd <= 0) {
 		DDPERR("NO NEED ion support, fd %d\n", fd);
@@ -294,15 +275,6 @@ struct ion_handle *disp_ion_import_handle(struct ion_client *client, int fd)
 		DDPERR("import ion handle failed!\n");
 		return NULL;
 	}
-	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
-	mm_data.config_buffer_param.kernel_handle = handle;
-	mm_data.config_buffer_param.module_id = 0;
-	mm_data.config_buffer_param.security = 0;
-	mm_data.config_buffer_param.coherent = 0;
-
-	if (ion_kernel_ioctl(client, ION_CMD_MULTIMEDIA,
-		(unsigned long)&mm_data))
-		DDPERR("configure ion buffer failed!\n");
 
 	DDPDBG("import ion handle fd=%d,hnd=0x%p\n", fd, handle);
 #endif

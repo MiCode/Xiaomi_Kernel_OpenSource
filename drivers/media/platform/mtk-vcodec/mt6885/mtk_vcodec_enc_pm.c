@@ -789,6 +789,12 @@ void mtk_venc_pmqos_gce_done(struct mtk_vcodec_ctx *ctx, int core_id,
 
 int mtk_venc_ion_config_buff(struct dma_buf *dmabuf)
 {
+/* for dma-buf using ion buffer, ion will check portid in dts
+ * So, don't need to config buffer at user side, but remember
+ * set iommus attribute in dts file.
+ */
+#if 0
+
 	struct ion_handle *handle = NULL;
 	struct ion_mm_data mm_data;
 	int count = 0;
@@ -828,7 +834,7 @@ int mtk_venc_ion_config_buff(struct dma_buf *dmabuf)
 
 	/* dma hold ref, ion directly free */
 	ion_free(ion_venc_client, handle);
-
+#endif
 	return 0;
 }
 

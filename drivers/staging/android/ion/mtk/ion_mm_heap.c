@@ -1767,6 +1767,7 @@ int ion_mm_cp_sf_buf_info(struct ion_mm_sf_buf_info *src,
 	return 0;
 }
 
+/* non-lock function, should hold buffer lock before call it */
 static int mtk_ion_copy_param(unsigned int type,
 			      unsigned int domain_idx,
 			      enum ION_MM_CMDS mm_cmd,
@@ -1777,14 +1778,12 @@ static int mtk_ion_copy_param(unsigned int type,
 	struct ion_mm_buffer_info *buffer_info =
 		    buffer->priv_virt;
 
-	mutex_lock(&buffer->lock);
 	switch (type) {
 	case 1:
 #if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
 	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 		if (mm_cmd == ION_MM_CONFIG_BUFFER &&
 		    buffer_info->module_id != -1) {
-			mutex_unlock(&buffer->lock);
 			IONMSG
 			    ("corrupt with %d, %d-%d,name %16.s!!!\n",
 			     buffer_info->module_id,
@@ -1795,7 +1794,6 @@ static int mtk_ion_copy_param(unsigned int type,
 
 		if (mm_cmd == ION_MM_CONFIG_BUFFER_EXT &&
 		    buffer_info->fix_module_id != -1) {
-			mutex_unlock(&buffer->lock);
 			IONMSG
 			    ("corrupt with %d, %d-%d,name %16.s!!!\n",
 			     buffer_info->fix_module_id,
@@ -1844,7 +1842,6 @@ static int mtk_ion_copy_param(unsigned int type,
 	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 		if (mm_cmd == ION_MM_GET_IOVA &&
 		    buffer_info->module_id != -1) {
-			mutex_unlock(&buffer->lock);
 			IONMSG
 			    ("corrupt with %d, %d-%d,name %16.s!!!\n",
 			     buffer_info->module_id,
@@ -1853,7 +1850,6 @@ static int mtk_ion_copy_param(unsigned int type,
 			return -ION_ERROR_CONFIG_CONFLICT;
 		} else if (mm_cmd == ION_MM_GET_IOVA_EXT &&
 		    buffer_info->fix_module_id != -1) {
-			mutex_unlock(&buffer->lock);
 			IONMSG
 			    ("corrupt with %d, %d-%d,name %16.s!!!\n",
 			     buffer_info->fix_module_id,
@@ -1901,7 +1897,6 @@ static int mtk_ion_copy_param(unsigned int type,
 		break;
 	}
 
-	mutex_unlock(&buffer->lock);
 	return 0;
 }
 
@@ -1985,9 +1980,16 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 				return -EFAULT;
 			}
 
+			/* use same lock with get_iova,
+			 * make sure it will be excute after or before
+			 * get_iova, rather than do between config_buf
+			 * and get_phys in get_iova.
+			 */
+			mutex_lock(&buffer->lock);
 			ret = mtk_ion_copy_param(1, domain_idx,
 						 mm_cmd, param,
 						 client->name, buffer);
+			mutex_unlock(&buffer->lock);
 			if (ret) {
 				ion_drv_put_kernel_handle(kernel_handle);
 				return ret;
@@ -2101,14 +2103,14 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 			enum ION_MM_CMDS mm_cmd = param.mm_cmd;
 			ion_phys_addr_t phy_addr;
 
-			mutex_lock(&buffer_info->lock);
-
+			/* make sure get_iova can't break by config_buffer */
+			mutex_lock(&buffer->lock);
 			if (param.get_phys_param.module_id < 0) {
 				IONMSG(
 					"get iova error:%d-%d,name %16.s!!!\n",
 				     param.get_phys_param.module_id,
 				     buffer->heap->type, client->name);
-				mutex_unlock(&buffer_info->lock);
+				mutex_unlock(&buffer->lock);
 				ion_drv_put_kernel_handle(kernel_handle);
 				return -EFAULT;
 			}
@@ -2117,18 +2119,18 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 						 mm_cmd, param,
 						 client->name, buffer);
 			if (ret) {
-				mutex_unlock(&buffer_info->lock);
+				mutex_unlock(&buffer->lock);
 				ion_drv_put_kernel_handle(kernel_handle);
 				return ret;
 			}
 
 			/* get mva */
 			phy_addr = param.get_phys_param.phy_addr;
-
-			if (ion_phys(client, kernel_handle, &phy_addr,
-				     (size_t *)&param.get_phys_param.len) <
-			    0) {
-				mutex_unlock(&buffer_info->lock);
+			ret = ion_mm_heap_phys(buffer->heap, buffer, &phy_addr,
+					       (size_t *)
+					       &param.get_phys_param.len);
+			if (ret < 0) {
+				mutex_unlock(&buffer->lock);
 				param.get_phys_param.phy_addr = 0;
 				param.get_phys_param.len = 0;
 				IONMSG(" %s: Error. Cannot get iova.\n",
@@ -2137,7 +2139,7 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 			}
 			param.get_phys_param.phy_addr = (unsigned int)phy_addr;
 
-			mutex_unlock(&buffer_info->lock);
+			mutex_unlock(&buffer->lock);
 
 		} else {
 			IONMSG
