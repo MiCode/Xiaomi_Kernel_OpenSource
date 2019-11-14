@@ -4438,8 +4438,6 @@ static void cmdq_pkt_flush_handler(struct cmdq_cb_data data)
 
 	CMDQ_PROF_MMP(cmdq_mmp_get_event()->CMDQ_IRQ, MMPROFILE_FLAG_PULSE,
 		(unsigned long)handle, handle->thread);
-
-	wake_up(&cmdq_wait_queue[handle->thread]);
 }
 
 s32 cmdq_pkt_dump_command(struct cmdqRecStruct *handle)
@@ -4492,6 +4490,7 @@ s32 cmdq_pkt_dump_command(struct cmdqRecStruct *handle)
 
 s32 cmdq_pkt_wait_flush_ex_result(struct cmdqRecStruct *handle)
 {
+	s32 waitq;
 	s32 status;
 	struct cmdq_client *client;
 
@@ -4511,7 +4510,31 @@ s32 cmdq_pkt_wait_flush_ex_result(struct cmdqRecStruct *handle)
 			handle->thread, client->chan->mbox,
 			client->chan->mbox->dev);
 
+	do {
+		/* wait event and pre-dump */
+		waitq = wait_event_timeout(
+			cmdq_wait_queue[handle->thread],
+			handle->pkt->flush_item != NULL,
+			msecs_to_jiffies(CMDQ_PREDUMP_TIMEOUT_MS));
+
+		if (waitq)
+			break;
+
+		CMDQ_LOG("wait flush handle:%p thread:%d\n",
+			handle, handle->thread);
+		cmdq_dump_pkt(handle->pkt, 0, false);
+	} while (1);
+
 	status = cmdq_pkt_wait_complete(handle->pkt);
+
+	if (handle->profile_exec) {
+		u32 *va = cmdq_pkt_get_perf_ret(handle->pkt);
+
+		if (va[0] == 0xdeaddead || va[1] == 0xdeaddead)
+			CMDQ_ERR(
+				"task may not execute handle:%p pkt:%p exec:%#x %#x",
+				handle, handle->pkt, va[0], va[1]);
+	}
 
 	CMDQ_PROF_MMP(cmdq_mmp_get_event()->wait_task_done,
 		MMPROFILE_FLAG_PULSE, ((unsigned long)handle),
@@ -4641,6 +4664,8 @@ static s32 cmdq_pkt_flush_async_ex_impl(struct cmdqRecStruct *handle,
 	}
 	err = cmdq_pkt_flush_async(handle->pkt, cmdq_pkt_flush_handler,
 		(void *)handle);
+	wake_up(&cmdq_wait_queue[handle->thread]);
+
 	CMDQ_SYSTRACE_END();
 
 	if (err < 0) {
