@@ -1204,10 +1204,14 @@ static s32 cmdq_mdp_setup_sec(struct cmdqCommandStruct *desc,
 		struct iwcCmdqAddrMetadata_t *addr =
 			(struct iwcCmdqAddrMetadata_t *)
 			(unsigned long)data->addrMetadatas;
+		const u32 max_inst = CMDQ_BUF_ALLOC_SIZE / CMDQ_INST_SIZE;
 		u32 i;
 
-		for (i = 0; i < data->addrMetadataCount; i++)
+		for (i = 0; i < data->addrMetadataCount; i++) {
 			addr[i].instrIndex += cnt;
+			/* adjumst for buffer jump */
+			addr[i].instrIndex += addr[i].instrIndex / max_inst;
+		}
 
 		CMDQ_MSG("%s append cmd count:%u\n", __func__, cnt);
 	}

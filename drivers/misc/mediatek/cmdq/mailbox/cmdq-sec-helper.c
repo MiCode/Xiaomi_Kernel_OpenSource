@@ -232,6 +232,7 @@ void cmdq_sec_dump_secure_data(struct cmdq_pkt *pkt)
 	struct cmdq_sec_data *data;
 	struct cmdq_sec_addr_meta *meta;
 	s32 i;
+	u64 *inst;
 
 	if (!pkt || !pkt->sec_data) {
 		cmdq_msg("pkt without sec_data");
@@ -249,12 +250,16 @@ void cmdq_sec_dump_secure_data(struct cmdq_pkt *pkt)
 
 	meta = (struct cmdq_sec_addr_meta *)(unsigned long)
 		data->addrMetadatas;
-	for (i = 0; i < data->addrMetadataCount; i++)
+	for (i = 0; i < data->addrMetadataCount; i++) {
+		inst = cmdq_pkt_get_va_by_offset(pkt,
+			meta[i].instrIndex * CMDQ_INST_SIZE);
 		cmdq_util_msg(
-			"meta:%d instr:%u type:%u base:%#llx block:%u ofst:%u size:%u port:%u",
+			"meta:%d instr:%u type:%u base:%#llx block:%u ofst:%u size:%u port:%u inst:%#018llx",
 			i, meta[i].instrIndex, meta[i].type,
 			meta[i].baseHandle, meta[i].blockOffset, meta[i].offset,
-			meta[i].size, meta[i].port);
+			meta[i].size, meta[i].port,
+			inst ? *inst : 0);
+	}
 }
 EXPORT_SYMBOL(cmdq_sec_dump_secure_data);
 

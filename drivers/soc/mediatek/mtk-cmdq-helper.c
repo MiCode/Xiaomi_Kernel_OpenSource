@@ -1553,10 +1553,13 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 #if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
 	IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 	/* for secure path dump more detail */
-	if (pkt->sec_data)
+	if (pkt->sec_data) {
+		cmdq_util_msg("thd:%d Hidden thread info since it's secure",
+			thread_id);
 		cmdq_sec_err_dump(pkt, client, (u64 **)&inst, &mod);
-	else
+	} else {
 		cmdq_thread_dump(client->chan, pkt, (u64 **)&inst, &pc);
+	}
 #else
 	cmdq_thread_dump(client->chan, pkt, (u64 **)&inst, &pc);
 #endif

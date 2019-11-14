@@ -22,8 +22,6 @@
 #define CMDQ_THR_SIZE		(0x80)
 #define CMDQ_THR_EXEC_CNT_PA	(0x28)
 
-#define CMDQ_SYNC_TOKEN_SEC_DONE	(694)
-
 /* CMDQ secure context struct
  * note it is not global data, each process has its own CMDQ sec context
  */
@@ -219,7 +217,7 @@ s32 cmdq_sec_insert_backup_cookie(struct cmdq_pkt *pkt)
 		thread->idx * sizeof(u32), CMDQ_THR_SPR_IDX1, ~0);
 	if (err)
 		return err;
-	return cmdq_pkt_set_event(pkt, CMDQ_SYNC_TOKEN_SEC_DONE);
+	return cmdq_pkt_set_event(pkt, CMDQ_TOKEN_SECURE_THR_EOF);
 }
 EXPORT_SYMBOL(cmdq_sec_insert_backup_cookie);
 
@@ -453,9 +451,9 @@ static s32 cmdq_sec_irq_notify_start(struct cmdq_sec *cmdq)
 		INIT_WORK(&cmdq->irq_notify_work, cmdq_sec_irq_notify_work);
 	}
 
-	cmdq_pkt_wfe(cmdq->clt_pkt, CMDQ_SYNC_TOKEN_SEC_DONE);
+	cmdq_pkt_wfe(cmdq->clt_pkt, CMDQ_TOKEN_SECURE_THR_EOF);
 	cmdq_pkt_finalize_loop(cmdq->clt_pkt);
-	cmdq_clear_event(cmdq->clt->chan, CMDQ_SYNC_TOKEN_SEC_DONE);
+	cmdq_clear_event(cmdq->clt->chan, CMDQ_TOKEN_SECURE_THR_EOF);
 
 	err = cmdq_pkt_flush_async(cmdq->clt_pkt,
 		cmdq_sec_irq_notify_callback, (void *)cmdq);
@@ -575,7 +573,6 @@ static s32 cmdq_sec_fill_iwc_msg(struct cmdq_sec_context *context,
 
 	if (data->addrMetadataCount) {
 		struct iwcCmdqAddrMetadata_t *addr;
-		s32 i;
 
 		iwc_msg->command.metadata.addrListLength =
 			data->addrMetadataCount;
@@ -584,11 +581,6 @@ static s32 cmdq_sec_fill_iwc_msg(struct cmdq_sec_context *context,
 			data->addrMetadataCount * sizeof(*addr));
 
 		addr = iwc_msg->command.metadata.addrList;
-		for (i = 0; i <
-			ARRAY_SIZE(iwc_msg->command.metadata.addrList); i++)
-			addr[i].instrIndex = addr[i].instrIndex +
-				addr[i].instrIndex /
-				(CMDQ_NUM_CMD(CMDQ_CMD_BUFFER_SIZE) - 1);
 	}
 	iwc_msg->command.metadata.enginesNeedDAPC = data->enginesNeedDAPC;
 	iwc_msg->command.metadata.enginesNeedPortSecurity =
