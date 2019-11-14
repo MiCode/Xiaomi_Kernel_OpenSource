@@ -34,7 +34,6 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 #include <linux/syscore_ops.h>
-#include <linux/time.h>
 #if defined(CONFIG_MTK_AEE_FEATURE)
 #include <mt-plat/aee.h>
 #endif
@@ -62,14 +61,8 @@
 #define UIDMASK 0x80000000
 #define TAG "dpmaif"
 
-struct tx_process_check {
-	u64 tx_prv;
-	u64 tx_curr;
-};
-
 struct hif_dpmaif_ctrl *dpmaif_ctrl;
-static int tx_done_check;
-static struct tx_process_check tx_last[DPMAIF_TXQ_NUM];
+
 
 #ifdef USING_BATCHING
 #define BATCHING_PUSH_THRESH 176
@@ -1981,7 +1974,6 @@ static void dpmaif_tx_done(struct work_struct *work)
 		/* enable tx done interrupt */
 		drv_dpmaif_unmask_ul_interrupt(txq->index);
 	}
-	tx_last[txq->index].tx_prv = sched_clock();
 }
 
 static void set_drb_msg(unsigned char q_num, unsigned short cur_idx,
@@ -2073,50 +2065,6 @@ static void record_drb_skb(unsigned char q_num, unsigned short cur_idx,
 		"txq(%d)0x%p: drb skb(%d): 0x%x, 0x%x, 0x%x, 0x%x\n",
 		q_num, drb_skb, cur_idx, temp[0], temp[1], temp[2], temp[3]);
 #endif
-}
-
-static int dpmaif_tx_check(void)
-{
-	int i, pcnt;
-
-	for (i = 0; i < DPMAIF_TXQ_NUM; i++) {
-		pcnt = dpmaif_ctrl->tx_pre_traffic_monitor[i]-
-			dpmaif_ctrl->tx_traffic_monitor[i];
-		if (pcnt) {
-			tx_last[i].tx_curr = tx_last[i].tx_prv;
-			msleep(1000);
-			if (tx_last[i].tx_curr == tx_last[i].tx_prv) {
-				CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
-				"qno %d tx is timed out\n", i);
-				dpmaif_dump_register(dpmaif_ctrl,
-					CCCI_DUMP_MEM_DUMP);
-				dpmaif_dump_txq_history(dpmaif_ctrl,
-					i, 0);
-				dpmaif_dump_txq_remain(dpmaif_ctrl,
-					i, 0);
-#if defined(CONFIG_MTK_AEE_FEATURE)
-				aee_kernel_warning("ccci",
-				"warning : dpmaif tx is timed out");
-#endif
-				return 1;
-			}
-		}
-	}
-	return 0;
-}
-
-int ccci_tx_done_check(void *arg)
-{
-	int ret;
-
-	tx_done_check = 1;
-	while (1) {
-		ret = dpmaif_tx_check();
-		if (ret)
-			break;
-		msleep(1000);
-	}
-	return 0;
 }
 
 static int dpmaif_tx_send_skb(unsigned char hif_id, int qno,
@@ -2874,10 +2822,8 @@ static void dpmaif_tx_hw_init(struct dpmaif_tx_queue *txq)
 
 static int dpmaif_txq_init(struct dpmaif_tx_queue *txq)
 {
-	int ret = -1, i = 0;
+	int ret = -1;
 
-	for (i = 0; i < DPMAIF_TXQ_NUM; i++)
-		memset(&tx_last, 0, sizeof(struct tx_process_check));
 	init_waitqueue_head(&txq->req_wq);
 	atomic_set(&txq->tx_budget, DPMAIF_UL_DRB_ENTRY_SIZE);
 	ret = dpmaif_tx_buf_init(txq);
@@ -2900,10 +2846,6 @@ static int dpmaif_txq_init(struct dpmaif_tx_queue *txq)
 #ifdef DPMAIF_DEBUG_LOG
 	dpmaif_dump_txq_remain(dpmaif_ctrl, txq->index, 0);
 #endif
-	if (!tx_done_check) {
-		kthread_run(ccci_tx_done_check, NULL, "ccci_tx_done_check");
-		tx_done_check = 1;
-	}
 	return 0;
 }
 
