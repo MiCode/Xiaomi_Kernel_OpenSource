@@ -35,9 +35,10 @@
 #define DISP_REG_CCORR_COLOR_OFFSET_0	(0x100)
 #define DISP_REG_CCORR_COLOR_OFFSET_1	(0x104)
 #define DISP_REG_CCORR_COLOR_OFFSET_2	(0x108)
-#define CCORR_COLOR_OFFSET_MASK	(0x07FFC000)
+#define CCORR_COLOR_OFFSET_MASK	(0x3FFFFFF)
 
 #define CCORR_12BIT_MASK				0x0fff
+#define CCORR_13BIT_MASK				0x1fff
 
 #define CCORR_REG(idx) (idx * 4 + 0x80)
 #define CCORR_CLIP(val, min, max) ((val >= max) ? \
@@ -187,6 +188,7 @@ static int disp_ccorr_write_coef_reg(struct mtk_ddp_comp *comp,
 	int id = index_of_ccorr(comp->id);
 	unsigned int temp_matrix[3][3];
 	unsigned int cfg_val;
+	int i, j;
 
 	if (lock)
 		mutex_lock(&g_ccorr_global_lock);
@@ -205,7 +207,18 @@ static int disp_ccorr_write_coef_reg(struct mtk_ddp_comp *comp,
 		disp_ccorr_multiply_3x3(temp_matrix, g_rgb_matrix,
 			multiply_matrix->coef);
 		ccorr = multiply_matrix;
+
+		ccorr->offset[0] = g_disp_ccorr_coef[id]->offset[0];
+		ccorr->offset[1] = g_disp_ccorr_coef[id]->offset[1];
+		ccorr->offset[2] = g_disp_ccorr_coef[id]->offset[2];
 	}
+
+#if defined(CONFIG_MACH_MT6885)
+	// For 6885 need to left shift one bit
+	for (i = 0; i < 3; i++)
+		for (j = 0; j < 3; j++)
+			ccorr->coef[i][j] = ccorr->coef[i][j]<<1;
+#endif
 
 	if (handle == NULL) {
 		/* use CPU to write */
@@ -213,19 +226,19 @@ static int disp_ccorr_write_coef_reg(struct mtk_ddp_comp *comp,
 		cfg_val = 0x2 | g_ccorr_relay_value[id] |
 			     (g_disp_ccorr_without_gamma << 2);
 		writel(cfg_val, comp->regs + DISP_REG_CCORR_CFG);
-		writel(((ccorr->coef[0][0] & CCORR_12BIT_MASK) << 16) |
-			(ccorr->coef[0][1] & CCORR_12BIT_MASK),
+		writel(((ccorr->coef[0][0] & CCORR_13BIT_MASK) << 16) |
+			(ccorr->coef[0][1] & CCORR_13BIT_MASK),
 			comp->regs + CCORR_REG(0));
-		writel(((ccorr->coef[0][2] & CCORR_12BIT_MASK) << 16) |
-			(ccorr->coef[1][0] & CCORR_12BIT_MASK),
+		writel(((ccorr->coef[0][2] & CCORR_13BIT_MASK) << 16) |
+			(ccorr->coef[1][0] & CCORR_13BIT_MASK),
 			comp->regs + CCORR_REG(1));
-		writel(((ccorr->coef[1][1] & CCORR_12BIT_MASK) << 16) |
-			(ccorr->coef[1][2] & CCORR_12BIT_MASK),
+		writel(((ccorr->coef[1][1] & CCORR_13BIT_MASK) << 16) |
+			(ccorr->coef[1][2] & CCORR_13BIT_MASK),
 			comp->regs + CCORR_REG(2));
 		writel(((ccorr->coef[2][0] & CCORR_12BIT_MASK) << 16) |
-			(ccorr->coef[2][1] & CCORR_12BIT_MASK),
+			(ccorr->coef[2][1] & CCORR_13BIT_MASK),
 			comp->regs + CCORR_REG(3));
-		writel(((ccorr->coef[2][2] & CCORR_12BIT_MASK) << 16),
+		writel(((ccorr->coef[2][2] & CCORR_13BIT_MASK) << 16),
 			comp->regs + CCORR_REG(4));
 		/* Ccorr Offset */
 		writel(((ccorr->offset[0] & CCORR_COLOR_OFFSET_MASK) |
@@ -238,32 +251,31 @@ static int disp_ccorr_write_coef_reg(struct mtk_ddp_comp *comp,
 	} else {
 		/* use CMDQ to write */
 
+		cfg_val = 0x2 | g_ccorr_relay_value[index_of_ccorr(comp->id)] |
+			     (g_disp_ccorr_without_gamma << 2 | (0x1 << 10));
+
 		cmdq_pkt_write(handle, comp->cmdq_base,
-				comp->regs_pa + DISP_REG_CCORR_EN, 1, ~0);
-		cfg_val = 0x2 | g_ccorr_relay_value[id] |
-			     (g_disp_ccorr_without_gamma << 2);
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + DISP_REG_CCORR_CFG, cfg_val, 0x7);
+			comp->regs_pa + DISP_REG_CCORR_CFG, cfg_val, ~0);
 
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + CCORR_REG(0),
-			((ccorr->coef[0][0] & CCORR_12BIT_MASK) << 16) |
-			(ccorr->coef[0][1] & CCORR_12BIT_MASK), ~0);
+			((ccorr->coef[0][0] & CCORR_13BIT_MASK) << 16) |
+			(ccorr->coef[0][1] & CCORR_13BIT_MASK), ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + CCORR_REG(1),
-			((ccorr->coef[0][2] & CCORR_12BIT_MASK) << 16) |
-			(ccorr->coef[1][0] & CCORR_12BIT_MASK), ~0);
+			((ccorr->coef[0][2] & CCORR_13BIT_MASK) << 16) |
+			(ccorr->coef[1][0] & CCORR_13BIT_MASK), ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + CCORR_REG(2),
-			((ccorr->coef[1][1] & CCORR_12BIT_MASK) << 16) |
-			(ccorr->coef[1][2] & CCORR_12BIT_MASK), ~0);
+			((ccorr->coef[1][1] & CCORR_13BIT_MASK) << 16) |
+			(ccorr->coef[1][2] & CCORR_13BIT_MASK), ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + CCORR_REG(3),
-			((ccorr->coef[2][0] & CCORR_12BIT_MASK) << 16) |
-			(ccorr->coef[2][1] & CCORR_12BIT_MASK), ~0);
+			((ccorr->coef[2][0] & CCORR_13BIT_MASK) << 16) |
+			(ccorr->coef[2][1] & CCORR_13BIT_MASK), ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + CCORR_REG(4),
-			((ccorr->coef[2][2] & CCORR_12BIT_MASK) << 16), ~0);
+			((ccorr->coef[2][2] & CCORR_13BIT_MASK) << 16), ~0);
 		/* Ccorr Offset */
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_REG_CCORR_COLOR_OFFSET_0,
@@ -275,10 +287,6 @@ static int disp_ccorr_write_coef_reg(struct mtk_ddp_comp *comp,
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_REG_CCORR_COLOR_OFFSET_2,
 			(ccorr->offset[2] & CCORR_COLOR_OFFSET_MASK), ~0);
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + CCORR_REG(0),
-			((ccorr->coef[0][0] & CCORR_12BIT_MASK) << 16) |
-			(ccorr->coef[0][1] & CCORR_12BIT_MASK), ~0);
 	}
 
 	DDPINFO("%s: finish\n", __func__);
@@ -525,6 +533,7 @@ int disp_ccorr_set_color_matrix(struct mtk_ddp_comp *comp,
 	int i, j;
 	int ccorr_without_gamma = 0;
 	bool need_refresh = false;
+	int id = index_of_ccorr(comp->id);
 
 	if (handle == NULL) {
 		DDPPR_ERR("%s: cmdq can not be NULL\n", __func__);
@@ -548,6 +557,27 @@ int disp_ccorr_set_color_matrix(struct mtk_ddp_comp *comp,
 				ccorr_without_gamma = 1;
 		}
 	}
+
+#if defined(CONFIG_MACH_MT6885)
+
+	// offset part
+	g_disp_ccorr_coef[id]->offset[0] = (matrix[12] << 1) << 14;
+	g_disp_ccorr_coef[id]->offset[1] = (matrix[13] << 1) << 14;
+	g_disp_ccorr_coef[id]->offset[2] = (matrix[14] << 1) << 14;
+#endif
+
+	for (i = 0; i < 3; i += 1) {
+		DDPDBG("g_ccorr_color_matrix[%d][0-2] = {%d, %d, %d}\n",
+				i,
+				g_ccorr_color_matrix[i][0],
+				g_ccorr_color_matrix[i][1],
+				g_ccorr_color_matrix[i][2]);
+	}
+
+	DDPDBG("g_ccorr_color_matrix offset {%d, %d, %d}\n",
+		g_disp_ccorr_coef[id]->offset[0],
+		g_disp_ccorr_coef[id]->offset[1],
+		g_disp_ccorr_coef[id]->offset[2]);
 
 	g_disp_ccorr_without_gamma = ccorr_without_gamma;
 
@@ -646,6 +676,44 @@ int mtk_drm_ioctl_ccorr_get_irq(struct drm_device *dev, void *data,
 
 	return ret;
 }
+
+int mtk_drm_ioctl_support_color_matrix(struct drm_device *dev, void *data,
+		struct drm_file *file_priv)
+{
+	int ret = 0;
+	struct DISP_COLOR_TRANSFORM *color_transform;
+
+	if (data == NULL)
+		ret = -EFAULT;
+
+	color_transform = data;
+
+#if defined(CONFIG_MACH_MT6885)
+	// Check offset for 3x4 support.
+	// AOSP is 4x3 matrix. Offset is located at 4th row
+	if (color_transform->matrix[3][0] != 0 &&
+		color_transform->matrix[3][1] != 0 &&
+		color_transform->matrix[3][2] != 0) {
+		DDPINFO("supported 3x4 matrix");
+		ret = 0; //Zero: support color matrix.
+	} else {
+		DDPINFO("unsupported matrix");
+		ret = -EFAULT;
+	}
+#else
+	// 3x3 support
+	for (i = 0 ; i < 3; i++) {
+		if (color_transform->matrix[3][i] != 0 ||
+				color_transform->matrix[i][3] != 0) {
+			DDPINFO("unsupported matrix");
+			ret = -EFAULT;
+		}
+	}
+#endif
+
+	return ret;
+}
+
 
 static void mtk_ccorr_config(struct mtk_ddp_comp *comp,
 			     struct mtk_ddp_config *cfg,
