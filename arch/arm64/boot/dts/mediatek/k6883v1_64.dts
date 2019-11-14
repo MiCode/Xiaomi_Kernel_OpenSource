@@ -153,7 +153,7 @@
 		goodix,panel-key-map = <158 172 217>; /*BACK,HOMEPAGE,SEARCH*/
 		goodix,power-on-delay-us = <10000>; /*10ms*/
 		goodix,power-off-delay-us = <5000>;
-		goodix,firmware-version = "6885af";
+		goodix,firmware-version = "6885b1";
 		goodix,config-version = "6885v9c";
 		/*goodix,swap-axis;*/
 		goodix,x2x;
