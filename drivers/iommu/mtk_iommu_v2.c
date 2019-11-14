@@ -4177,7 +4177,7 @@ static int mtk_iommu_remove(struct platform_device *pdev)
 		bus_set_iommu(&platform_bus_type, NULL);
 
 #ifdef IOMMU_POWER_CLK_SUPPORT
-	if (!data->m4u_clks->nr_powers)
+	if (data->m4u_clks->nr_powers)
 		devm_free_irq(&pdev->dev, data->irq, data);
 #endif
 	component_master_del(&pdev->dev, &mtk_iommu_com_ops);
