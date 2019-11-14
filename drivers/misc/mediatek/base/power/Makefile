@@ -82,6 +82,7 @@ obj-$(CONFIG_MACH_MT6885) += udi_v2/
 obj-$(CONFIG_MACH_MT6885) += ses_v1/
 obj-$(CONFIG_MACH_MT6785) += cpuhotplug/
 obj-$(CONFIG_MACH_MT6885) += ppm_v3/
+obj-$(CONFIG_MACH_MT6873) += ppm_v3/
 obj-$(CONFIG_MACH_MT6771) += spm_v4/
 obj-$(CONFIG_MACH_MT6739) += spm_v4/
 obj-$(CONFIG_MACH_MT6771) += clkbuf_v1/
