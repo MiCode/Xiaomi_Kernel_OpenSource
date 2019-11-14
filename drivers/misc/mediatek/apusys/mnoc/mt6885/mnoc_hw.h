@@ -171,6 +171,17 @@ enum rt_int_sta {
 #define QG_LT_THL_PRE_ULTRA (0x1FFF)
 #define QG_LT_THH_PRE_ULTRA (0x1FFF)
 
+/* to deal with dual IOMMU tfrp addr hash aware problem */
+#define NR_IOMMU (2)
+#define APU_TFRP_ALIGN (0x1000)
+#define INFRA_AO_BASE (0x10001000)
+#define INFRA_AO_REG_SIZE (0x2000)
+#define EMI_HASH_RULE_OFFSET (0x1050)
+#define F_VAL(val, msb, lsb) (((val)&((1<<(msb-lsb+1))-1))<<lsb)
+#define F_MSK(msb, lsb)	F_VAL(0xffffffff, msb, lsb)
+/* F_RP_PA_REG_BIT32 = 0x7 */
+#define F_RP_PA_REG_BIT32 F_MSK(2, 0)
+
 struct int_sta_info {
 	uint32_t reg_val;
 	uint64_t timestamp;
@@ -199,5 +210,7 @@ void apu2infra_bus_protect_en(void);
 void apu2infra_bus_protect_dis(void);
 void print_int_sta(struct seq_file *m);
 void mnoc_hw_init(void);
+void mnoc_hw_exit(void);
+int mnoc_alloc_iommu_tfrp(void);
 
 #endif

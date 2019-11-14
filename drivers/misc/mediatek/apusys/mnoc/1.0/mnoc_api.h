@@ -21,4 +21,6 @@ int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id);
 void mnoc_set_mni_pre_ultra(int dev_type, int dev_core, bool endis);
 void mnoc_set_lt_guardian_pre_ultra(int dev_type, int dev_core, bool endis);
 
+phys_addr_t get_apu_iommu_tfrp(unsigned int id);
+
 #endif

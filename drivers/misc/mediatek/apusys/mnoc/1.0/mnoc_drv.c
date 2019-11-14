@@ -77,7 +77,7 @@ static void mnoc_isr_work_func(struct work_struct *work)
 		apusys_reg_dump();
 	mutex_unlock(&mnoc_pwr_mtx);
 	print_int_sta(NULL);
-	/* mnoc_aee_warn("APUSYS_MNOC", "MNOC Exception"); */
+	/* mnoc_aee_warn("MNOC", "MNOC Exception"); */
 #endif
 	LOG_DEBUG("-\n");
 }
@@ -292,6 +292,7 @@ static int mnoc_remove(struct platform_device *pdev)
 	remove_debugfs();
 	apu_qos_counter_destroy();
 	mnoc_pmu_exit();
+	mnoc_hw_exit();
 
 	node = pdev->dev.of_node;
 	if (!node) {

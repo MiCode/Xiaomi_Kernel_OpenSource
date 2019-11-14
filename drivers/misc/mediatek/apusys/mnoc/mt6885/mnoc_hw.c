@@ -19,10 +19,13 @@
 
 /* system includes */
 #include <linux/printk.h>
+#include <linux/slab.h>
 #include <linux/io.h>
 #include <linux/spinlock.h>
 #include <linux/seq_file.h>
 #include <linux/sched/clock.h>
+#include <linux/device.h>
+#include <linux/io.h>
 
 #include "apusys_device.h"
 #include "mnoc_hw.h"
@@ -163,6 +166,15 @@ static bool arr_mni_pre_ultra[NR_APU_QOS_MNI] = {0};
 static bool arr_mni_lt_guardian_pre_ultra[NR_APU_QOS_MNI] = {0};
 
 static struct mnoc_int_dump mnoc_int_dump;
+
+/*
+ * south -> iommu2 -> emi1
+ * north -> iommu3 -> emi0
+ */
+static int iommu_emi_rule[NR_IOMMU] = {1, 0};
+static phys_addr_t iommu_tfrp[NR_IOMMU];
+void *protect[NR_IOMMU];
+bool iommu_tfrp_init_flag;
 
 
 int apusys_dev_to_core_id(int dev_type, int dev_core)
@@ -847,5 +859,125 @@ void mnoc_hw_init(void)
 	mnoc_int_dump.sw_irq_sta.reg_val = 0;
 	mnoc_int_dump.sw_irq_sta.timestamp = 0;
 
+	for (idx = 0; idx < NR_IOMMU; idx++)
+		iommu_tfrp[idx] = 0;
+
 	LOG_DEBUG("-\n");
+}
+
+void mnoc_hw_exit(void)
+{
+	int i;
+
+	LOG_DEBUG("+\n");
+
+	if (iommu_tfrp_init_flag)
+		for (i = 0; i < NR_IOMMU; i++)
+			if (protect[i] != NULL)
+				kfree(protect[i]);
+
+	LOG_DEBUG("-\n");
+}
+
+static unsigned int unary_xor(uint32_t a)
+{
+	unsigned int ret = 0;
+	int i;
+
+	for (i = 0; i < 32; i++)
+		ret ^= ((a >> i) & 0x1);
+
+	return ret;
+}
+
+int mnoc_alloc_iommu_tfrp(void)
+{
+	void *infra_ao_base;
+	uint64_t protect_va;
+	phys_addr_t protect_base;
+	uint32_t hash_rule;
+	uint32_t dispatch_emi = 0, dispatch_channel = 0;
+	uint32_t addr_extract = 0, offset = 0;
+	unsigned int emi_id = 0, channel_id = 0;
+	int i;
+
+	LOG_DEBUG("+\n");
+
+	infra_ao_base = ioremap_nocache(INFRA_AO_BASE, INFRA_AO_REG_SIZE);
+	hash_rule = mnoc_read(infra_ao_base + EMI_HASH_RULE_OFFSET);
+	iounmap(infra_ao_base);
+
+	if (((hash_rule & 0x100) == 0) && ((hash_rule & 0xFF0000) != 0)) {
+		dispatch_emi = (hash_rule & 0xF00000) >> 20;
+		dispatch_channel = (hash_rule & 0xF0000) >> 16;
+	} else {
+		dispatch_emi = (hash_rule & 0xF0) >> 4;
+		dispatch_channel = hash_rule & (0xF);
+	}
+
+	LOG_INFO("hash_rule = 0x%x(0x%x/0x%x)\n",
+		hash_rule, dispatch_emi, dispatch_channel);
+
+	for (i = 0; i < NR_IOMMU; i++) {
+		protect[i] = kzalloc((size_t) (APU_TFRP_ALIGN * 2), GFP_KERNEL);
+		if (!protect[i]) {
+			LOG_ERR("apu_iommu(%d) tfrd buf allocation fail\n", i);
+			return -ENOMEM;
+		}
+		protect_va = virt_to_phys(protect[i]);
+		protect_base = ALIGN(protect_va, APU_TFRP_ALIGN);
+
+		if (i == 0) {
+			/* South IOMMU, dispatch emi = 1 */
+			offset = (((~dispatch_emi) & 0xF) + 1) << 8;
+			protect_base += offset;
+		} else if (i == 1) {
+			/* North IOMMU, dispatch emi = 0 */
+			offset = ((~dispatch_emi) & 0xF) << 8;
+			protect_base += offset;
+		}
+
+		/* if (protect_va > 0xffffffff)
+		 *	protect_base |= ((protect_va >> 32) &
+		 *			F_RP_PA_REG_BIT32);
+		 */
+
+		addr_extract = (protect_base & (0xf00)) >> 8;
+		emi_id = unary_xor(addr_extract & dispatch_emi);
+		channel_id = unary_xor(addr_extract & dispatch_channel);
+
+		LOG_INFO("apu_iommu(%d): protect_va = 0x%llx, offset = 0x%x\n",
+			i, protect_va, offset);
+		LOG_INFO("emi/channel(%d/%d), protect_base = 0x%llx\n",
+			emi_id, channel_id, protect_base);
+
+		if ((dispatch_emi != 0) && (emi_id != iommu_emi_rule[i])) {
+			LOG_ERR("apu_iommu(%d) tfrd violates hash rule\n", i);
+			return -1;
+		}
+
+		iommu_tfrp[i] = protect_base;
+	}
+
+	LOG_DEBUG("-\n");
+	return 0;
+}
+
+phys_addr_t get_apu_iommu_tfrp(unsigned int id)
+{
+	int ret;
+
+	if (id >= NR_IOMMU) {
+		LOG_ERR("id >= NR_IOMMU(%d)\n", NR_IOMMU);
+		return 0;
+	}
+
+	if (!iommu_tfrp_init_flag) {
+		ret = mnoc_alloc_iommu_tfrp();
+		if (ret)
+			LOG_ERR("APU IOMMU tfrp allocation fail\n");
+		iommu_tfrp_init_flag = true;
+	}
+
+	return iommu_tfrp[id];
 }
