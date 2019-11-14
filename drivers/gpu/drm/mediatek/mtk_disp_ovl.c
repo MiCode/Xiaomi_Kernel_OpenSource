@@ -1199,6 +1199,7 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 	unsigned int con;
 	unsigned int lye_idx = 0, ext_lye_idx = 0;
 	unsigned int alpha;
+	unsigned int alpha_con;
 	unsigned int value = 0, mask = 0, fmt_ex = 0;
 	unsigned long long temp_bw;
 
@@ -1234,13 +1235,15 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 
 	mtk_ovl_color_manage(comp, idx, state, handle);
 
+	alpha_con = pending->prop_val[PLANE_PROP_ALPHA_CON];
 	alpha = 0xFF & pending->prop_val[PLANE_PROP_PLANE_ALPHA];
-	con = ovl_fmt_convert(ovl, fmt, state->pending.modifier);
-	con |= OVL_CON_AEN | alpha;
 	if (alpha == 0xFF &&
 	    (fmt == DRM_FORMAT_RGBX8888 || fmt == DRM_FORMAT_BGRX8888 ||
 	     fmt == DRM_FORMAT_XRGB8888 || fmt == DRM_FORMAT_XBGR8888))
-		con &= ~OVL_CON_AEN;
+		alpha_con = 0;
+
+	con = ovl_fmt_convert(ovl, fmt, state->pending.modifier);
+	con |= (alpha_con << 8) | alpha;
 
 	if (fmt == DRM_FORMAT_UYVY || fmt == DRM_FORMAT_YUYV) {
 		unsigned int prop = pending->prop_val[PLANE_PROP_DATASPACE];

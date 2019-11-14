@@ -3061,6 +3061,7 @@ static void mtk_drm_crtc_enable_fake_layer(struct drm_crtc *crtc,
 		else
 			pending->enable = false;
 
+		pending->prop_val[PLANE_PROP_ALPHA_CON] = 0x1;
 		pending->prop_val[PLANE_PROP_PLANE_ALPHA] = 0xFF;
 		pending->prop_val[PLANE_PROP_COMPRESS] = 0;
 

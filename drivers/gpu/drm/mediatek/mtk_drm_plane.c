@@ -145,6 +145,7 @@ char *mtk_get_format_name(uint32_t format)
 static struct mtk_drm_property mtk_plane_property[PLANE_PROP_MAX] = {
 	{DRM_MODE_PROP_ATOMIC, "NEXT_BUFF_IDX", 0, UINT_MAX, 0},
 	{DRM_MODE_PROP_ATOMIC, "LYE_BLOB_IDX", 0, UINT_MAX, 0},
+	{DRM_MODE_PROP_ATOMIC, "PLANE_PROP_ALPHA_CON", 0, 0x1, 0x1},
 	{DRM_MODE_PROP_ATOMIC, "PLANE_PROP_PLANE_ALPHA", 0, 0xFF, 0xFF},
 	{DRM_MODE_PROP_ATOMIC, "DATASPACE", 0, INT_MAX, 0},
 	{DRM_MODE_PROP_ATOMIC, "VPITCH", 0, UINT_MAX, 0},
@@ -166,6 +167,7 @@ static void mtk_plane_reset(struct drm_plane *plane)
 			return;
 		plane->state = &state->base;
 	}
+	state->prop_val[PLANE_PROP_ALPHA_CON] = 0x1;
 	state->prop_val[PLANE_PROP_PLANE_ALPHA] = 0xFF;
 	state->base.plane = plane;
 	state->pending.format = DRM_FORMAT_RGB565;
@@ -188,6 +190,8 @@ mtk_plane_duplicate_state(struct drm_plane *plane)
 			__func__, __LINE__,
 			state->base.plane, plane);
 
+	state->prop_val[PLANE_PROP_ALPHA_CON] =
+		old_state->prop_val[PLANE_PROP_ALPHA_CON];
 	state->prop_val[PLANE_PROP_PLANE_ALPHA] =
 		old_state->prop_val[PLANE_PROP_PLANE_ALPHA];
 	state->pending = old_state->pending;
