@@ -30,6 +30,8 @@
 #define FAKE_CONTEX_REG_NUM 9
 #define FAKE_REMAP_REG_NUM 13
 
+#define UNKNOWN_INT_MAX (500000)
+
 #define REG_DEBUG 0
 
 static uint32_t g_ctx_reg[FAKE_CONTEX_REG_NUM];
@@ -57,6 +59,50 @@ static void _reviser_set_remap_table(void *drvinfo,
 static void _reviser_set_default_iova(void *drvinfo,
 		uint32_t iova);
 
+// Test INT for setting VPU
+void reviser_print_rw(void *drvinfo, void *s_file)
+{
+	struct reviser_dev_info *reviser_device = NULL;
+	struct seq_file *s = (struct seq_file *)s_file;
+	uint32_t reg_base0, reg_base1;
+
+	DEBUG_TAG;
+
+	if (drvinfo == NULL) {
+		LOG_ERR("invalid argument\n");
+		return;
+	}
+
+	reviser_device = (struct reviser_dev_info *)drvinfo;
+
+
+	LOG_CON(s, "=============================\n");
+	LOG_CON(s, " reviser driver rw\n");
+	LOG_CON(s, "-----------------------------\n");
+	reg_base0 = _reviser_reg_read(reviser_device->pctrl_top,
+			VP6_CORE0_BASE_0);
+	reg_base1 = _reviser_reg_read(reviser_device->pctrl_top,
+			VP6_CORE0_BASE_1);
+	LOG_CON(s, "reg_base0: %.8x\n", reg_base0);
+	LOG_CON(s, "reg_base1: %.8x\n", reg_base1);
+	_reviser_reg_write(reviser_device->pctrl_top,
+			VP6_CORE0_BASE_0, 0x1D000001);
+	_reviser_reg_write(reviser_device->pctrl_top,
+			VP6_CORE0_BASE_1, 0x1D000001);
+	LOG_CON(s, " After driver rw\n");
+
+
+	reg_base0 = _reviser_reg_read(reviser_device->pctrl_top,
+			VP6_CORE0_BASE_0);
+	reg_base1 = _reviser_reg_read(reviser_device->pctrl_top,
+			VP6_CORE0_BASE_1);
+	LOG_CON(s, "reg_base0: %.8x\n", reg_base0);
+	LOG_CON(s, "reg_base1: %.8x\n", reg_base1);
+
+	LOG_CON(s, "=============================\n");
+	return;
+
+}
 void reviser_print_private(void *drvinfo)
 {
 	struct reviser_dev_info *reviser_device = NULL;
@@ -76,7 +122,136 @@ void reviser_print_private(void *drvinfo)
 	LOG_INFO("=============================");
 
 }
+void reviser_print_dram(void *drvinfo, void *s_file)
+{
+	struct reviser_dev_info *reviser_device = NULL;
+	int index;
+	unsigned char *data;
+	struct seq_file *s = (struct seq_file *)s_file;
 
+	DEBUG_TAG;
+
+	if (drvinfo == NULL) {
+		LOG_ERR("invalid argument\n");
+		return;
+	}
+
+	reviser_device = (struct reviser_dev_info *)drvinfo;
+	data = (unsigned char *)reviser_device->dram_base;
+
+	LOG_CON(s, "=============================\n");
+	LOG_CON(s, " reviser dram table info\n");
+	LOG_CON(s, "-----------------------------\n");
+	LOG_CON(s, "== PAGE[NUM] == [BANK0][BANK1][BANK2][BANK3]\n");
+	LOG_CON(s, "-----------------------------\n");
+
+	for (index = 0; index < VLM_CTXT_CTX_ID_MAX; index++) {
+		LOG_CON(s, "== PAGE[%02d] == [%02x][%02x][%02x][%02x]\n",
+					index,
+					*(data + 0x200000*index + 0x40000*0),
+					*(data + 0x200000*index + 0x40000*1),
+					*(data + 0x200000*index + 0x40000*2),
+					*(data + 0x200000*index + 0x40000*3));
+
+
+	}
+
+
+	LOG_CON(s, "=============================\n");
+	return;
+
+}
+
+void reviser_print_tcm(void *drvinfo, void *s_file)
+{
+	struct reviser_dev_info *reviser_device = NULL;
+	uint32_t offset;
+	uint8_t bank0[32], bank1[32], bank2[32], bank3[32];
+	struct seq_file *s = (struct seq_file *)s_file;
+
+	DEBUG_TAG;
+
+	if (drvinfo == NULL) {
+		LOG_ERR("invalid argument\n");
+		return;
+	}
+
+	reviser_device = (struct reviser_dev_info *)drvinfo;
+
+	offset = 0;
+
+	memcpy_fromio(bank0, reviser_device->tcm_base + 0x40000*0, 32);
+	memcpy_fromio(bank1, reviser_device->tcm_base + 0x40000*1, 32);
+	memcpy_fromio(bank2, reviser_device->tcm_base + 0x40000*2, 32);
+	memcpy_fromio(bank3, reviser_device->tcm_base + 0x40000*3, 32);
+	LOG_CON(s, "=============================\n");
+	LOG_CON(s, " reviser tcm table info\n");
+	LOG_CON(s, "-----------------------------\n");
+	LOG_CON(s, "== BANK[NUM] == [DATA][DATA][DATA][DATA]\n");
+	LOG_CON(s, "-----------------------------\n");
+	LOG_CON(s, "== BANK[0] == [%02x][%02x][%02x]\n",
+					*(bank0), *(bank0 + 1), *(bank0 + 2));
+	LOG_CON(s, "== BANK[1] == [%02x][%02x][%02x]\n",
+					*(bank1), *(bank1 + 1), *(bank1 + 2));
+	LOG_CON(s, "== BANK[2] == [%02x][%02x][%02x]\n",
+					*(bank2), *(bank2 + 1), *(bank2 + 2));
+	LOG_CON(s, "== BANK[3] == [%02x][%02x][%02x]\n",
+					*(bank3), *(bank3 + 1), *(bank3 + 2));
+	LOG_CON(s, "=============================\n");
+	return;
+
+}
+
+
+void reviser_print_exception(void *drvinfo, void *s_file)
+{
+	struct reviser_dev_info *reviser_device = NULL;
+	struct seq_file *s = (struct seq_file *)s_file;
+	uint32_t reg[FAKE_CONTEX_REG_NUM];
+	uint32_t reg_state = 0;
+
+	DEBUG_TAG;
+
+	if (drvinfo == NULL) {
+		LOG_ERR("invalid argument\n");
+		return;
+	}
+
+	reviser_device = (struct reviser_dev_info *)drvinfo;
+
+	reg[0] = _reviser_reg_read(reviser_device->pctrl_top,
+			AXI_EXCEPTION_MDLA_0);
+	reg[1] = _reviser_reg_read(reviser_device->pctrl_top,
+			AXI_EXCEPTION_MDLA_1);
+	reg[2] = _reviser_reg_read(reviser_device->pctrl_top,
+			AXI_EXCEPTION_VPU_0);
+	reg[3] = _reviser_reg_read(reviser_device->pctrl_top,
+			AXI_EXCEPTION_VPU_1);
+	reg[4] = _reviser_reg_read(reviser_device->pctrl_top,
+			AXI_EXCEPTION_VPU_2);
+	reg[5] = _reviser_reg_read(reviser_device->pctrl_top,
+			AXI_EXCEPTION_EDMA_0);
+	reg[6] = _reviser_reg_read(reviser_device->pctrl_top,
+			AXI_EXCEPTION_EDMA_1);
+	reg_state = _reviser_reg_read(reviser_device->int_base,
+			APUSYS_EXCEPT_INT);
+
+	LOG_CON(s, "=============================\n");
+	LOG_CON(s, " reviser exception info\n");
+	LOG_CON(s, "-----------------------------\n");
+
+	LOG_CON(s, "MDLA0: %.8x\n", reg[0]);
+	LOG_CON(s, "MDLA1: %.8x\n", reg[1]);
+	LOG_CON(s, "VPU0:  %.8x\n", reg[2]);
+	LOG_CON(s, "VPU1:  %.8x\n", reg[3]);
+	LOG_CON(s, "VPU2:  %.8x\n", reg[4]);
+	LOG_CON(s, "EDMA0: %.8x\n", reg[5]);
+	LOG_CON(s, "EDMA1: %.8x\n", reg[6]);
+	LOG_CON(s, "reg_state: %.8x\n", reg_state);
+	LOG_CON(s, "=============================\n");
+	return;
+
+}
 void reviser_print_error(void *drvinfo, void *s_file)
 {
 	struct reviser_dev_info *reviser_device = NULL;
@@ -680,7 +855,8 @@ int reviser_set_context_ID(void *drvinfo,
 	DEBUG_TAG;
 
 	if (ID >= VLM_CTXT_CTX_ID_MAX) {
-		LOG_ERR("invalid ID (out of range) %d\n", VLM_CTXT_CTX_ID_MAX);
+		LOG_ERR("invalid ID (out of range %d) %d\n",
+				VLM_CTXT_CTX_ID_MAX, ID);
 		return -1;
 	}
 
@@ -909,7 +1085,6 @@ void reviser_enable_interrupt(void *drvinfo,
 		uint8_t enable)
 {
 	struct reviser_dev_info *reviser_device = NULL;
-	uint32_t value = 0;
 
 	if (drvinfo == NULL) {
 		LOG_ERR("invalid argument\n");
@@ -919,16 +1094,14 @@ void reviser_enable_interrupt(void *drvinfo,
 	reviser_device = (struct reviser_dev_info *)drvinfo;
 
 	if (enable) {
-		_reviser_reg_clr(reviser_device->int_base,
-				REVISER_INT_EN, REVISER_INT_EN_MASK);
-	} else {
 		_reviser_reg_set(reviser_device->int_base,
-				REVISER_INT_EN, REVISER_INT_EN_MASK);
+						REVISER_INT_EN,
+						REVISER_INT_EN_MASK);
+	} else {
+		_reviser_reg_clr(reviser_device->int_base,
+						REVISER_INT_EN,
+						REVISER_INT_EN_MASK);
 	}
-
-	value = _reviser_reg_read(reviser_device->int_base, REVISER_INT_EN);
-
-	LOG_DEBUG("value: %x\n", value);
 
 
 }
@@ -1012,4 +1185,36 @@ int reviser_power_off(void *drvinfo)
 	return ret;
 }
 
+int reviser_check_int_valid(void *drvinfo)
+{
+	struct reviser_dev_info *reviser_device = NULL;
+	int ret = -1;
+	uint32_t value = 0;
+	unsigned int unknown_count = 0;
+	unsigned long flags;
 
+	reviser_device = (struct reviser_dev_info *)drvinfo;
+
+	value = _reviser_reg_read(reviser_device->int_base, APUSYS_EXCEPT_INT);
+
+	if ((value & REVISER_INT_EN_MASK) > 0) {
+		//LOG_ERR("APUSYS_EXCEPT_INT  (%x)\n", value);
+		ret = 0;
+	} else {
+		//LOG_ERR("Not Reviser INT (%x)\n", value);
+		spin_lock_irqsave(&reviser_device->lock_dump, flags);
+		reviser_device->dump.unknown_count++;
+		unknown_count = reviser_device->dump.unknown_count;
+		spin_unlock_irqrestore(&reviser_device->lock_dump, flags);
+
+		//Show unknown INT
+		if (unknown_count % UNKNOWN_INT_MAX == UNKNOWN_INT_MAX - 1) {
+			LOG_ERR("unknown INT over %u (%.8x)\n",
+					UNKNOWN_INT_MAX, value);
+		}
+
+		ret = -1;
+	}
+
+	return ret;
+}

@@ -26,6 +26,9 @@
 #include "reviser_mem_mgt.h"
 #include "reviser_hw.h"
 
+//ONLY FOR DEBUGGING
+#define _FORCE_SET_REMAP 0
+
 
 //static unsigned long pgtable_dram[BITS_TO_LONGS(VLM_DRAM_BANK_MAX)];
 static unsigned long table_tcm[BITS_TO_LONGS(TABLE_TCM_MAX)];
@@ -40,9 +43,55 @@ static int _reviser_set_vlm_pgtable(void *drvinfo,
 		unsigned long ctxID, struct table_vlm *vlm_pgtable);
 static int _reviser_clear_vlm_pgtable(void *drvinfo,
 		unsigned long ctxID, struct table_tcm *tcm_pgtable);
+static int _reviser_force_remap(void *drvinfo);
 
+static int _reviser_force_remap(void *drvinfo)
+{
+	int ret = 0;
+/* Debug ONLY */
+#if _FORCE_SET_REMAP
 
+	int valid = 0;
+	int ctxid = 0;
 
+	/* Set HW remap table */
+	if (reviser_set_remap_table(drvinfo, 0, valid, ctxid, 0, 0)) {
+		ret = -1;
+		goto out;
+	}
+	if (reviser_set_remap_table(drvinfo, 1, valid, ctxid, 0, 1)) {
+		ret = -1;
+		goto out;
+	}
+	if (reviser_set_remap_table(drvinfo, 2, valid, ctxid, 2, 2)) {
+		ret = -1;
+		goto out;
+	}
+	if (reviser_set_remap_table(drvinfo, 3, valid, ctxid, 3, 3)) {
+		ret = -1;
+		goto out;
+	}
+	if (reviser_set_remap_table(drvinfo, 4, valid, ctxid, 0, 1)) {
+		ret = -1;
+		goto out;
+	}
+	if (reviser_set_remap_table(drvinfo, 5, valid, ctxid, 1, 2)) {
+		ret = -1;
+		goto out;
+	}
+	if (reviser_set_remap_table(drvinfo, 6, valid, ctxid, 2, 3)) {
+		ret = -1;
+		goto out;
+	}
+	if (reviser_set_remap_table(drvinfo, 7, valid, ctxid, 3, 0)) {
+		ret = -1;
+		goto out;
+	}
+out:
+#endif
+
+	return ret;
+}
 int reviser_table_init_ctxID(void *drvinfo)
 {
 	struct reviser_dev_info *reviser_device = NULL;
@@ -607,7 +656,6 @@ int reviser_table_get_vlm(void *drvinfo,
 		goto free_vlm;
 	}
 
-
 	LOG_DEBUG("[out] vlm page_num(%u) tcm_valid(%lx) ctxid(%lu)\n",
 			vlm_pgtable.tcm_pgtable.page_num,
 			vlm_pgtable.tcm_pgtable.table_tcm[0], ctxid);
@@ -755,16 +803,16 @@ int reviser_table_set_remap(void *drvinfo, unsigned long ctxid)
 		g_vlm_pgtable[ctxid].page[i].vlm = index;
 
 		bitmap_set(g_table_remap.valid, index, 1);
-
 		/* Set HW remap table */
 		if (reviser_set_remap_table(drvinfo, index, 1,
 				ctxid, i, g_vlm_pgtable[ctxid].page[i].dst)) {
 			goto free_mutex;
 		}
 
-
 		index++;
 	}
+	/* DEBUG and force set remap to specific value*/
+	_reviser_force_remap(drvinfo);
 	//setbits = bitmap_weight(g_table_remap.valid, VLM_REMAP_TABLE_MAX);
 	//LOG_DEBUG("Done setbits [%d]\n", setbits);
 
@@ -815,11 +863,14 @@ int reviser_table_clear_remap(void *drvinfo, unsigned long ctxid)
 		index = g_vlm_pgtable[ctxid].page[i].vlm;
 
 		bitmap_clear(g_table_remap.valid, index, 1);
+
 		if (reviser_set_remap_table(drvinfo,
 				index, 0, ctxid, index, index))
 			goto free_mutex;
-
 	}
+	/* DEBUG and force set remap to specific value*/
+	_reviser_force_remap(drvinfo);
+
 	LOG_DEBUG("ctxid [%lu]\n", ctxid);
 
 	mutex_unlock(&reviser_device->mutex_vlm_pgtable);

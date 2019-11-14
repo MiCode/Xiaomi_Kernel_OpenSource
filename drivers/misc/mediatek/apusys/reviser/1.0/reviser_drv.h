@@ -21,7 +21,8 @@
 #include <linux/wait.h>
 
 struct reviser_dump {
-	int err_count;
+	unsigned int err_count;
+	unsigned int unknown_count;
 };
 /* reviser driver's private structure */
 struct reviser_dev_info {

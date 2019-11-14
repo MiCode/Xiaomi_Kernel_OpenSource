@@ -31,6 +31,7 @@ struct dentry *reviser_dbg_hw;
 struct dentry *reviser_dbg_remap_table;
 struct dentry *reviser_dbg_context_ID;
 struct dentry *reviser_dbg_boundary;
+
 //table
 struct dentry *reviser_dbg_table;
 struct dentry *reviser_dbg_table_vlm;
@@ -42,6 +43,8 @@ struct dentry *reviser_dbg_mem;
 struct dentry *reviser_dbg_mem_tcm;
 struct dentry *reviser_dbg_mem_tcm_bank;
 
+struct dentry *reviser_dbg_mem_vlm;
+
 struct dentry *reviser_dbg_mem_dram;
 struct dentry *reviser_dbg_mem_dram_bank;
 struct dentry *reviser_dbg_mem_dram_ctxid;
@@ -50,12 +53,47 @@ struct dentry *reviser_dbg_log;
 
 struct dentry *reviser_dbg_err;
 struct dentry *reviser_dbg_err_info;
+struct dentry *reviser_dbg_err_reg;
+
+struct dentry *reviser_dbg_rw;
 
 u8 g_reviser_log_level = REVISER_LOG_INFO;
 uint32_t g_reviser_vlm_ctxid;
 uint32_t g_reviser_mem_tcm_bank;
 uint32_t g_reviser_mem_dram_bank;
 uint32_t g_reviser_mem_dram_ctxid;
+
+//----------------------------------------------
+// test node
+static int reviser_dbg_show_rw(struct seq_file *s, void *unused)
+{
+	struct reviser_dev_info *reviser_device = s->private;
+
+	//test node for INT
+	return -EINVAL;
+
+	if (!reviser_is_power(reviser_device)) {
+		LOG_ERR("Can Not Read when power disable\n");
+		return -EINVAL;
+	}
+
+	reviser_print_rw(reviser_device, s);
+	return 0;
+}
+
+static int reviser_dbg_rw_open(struct inode *inode, struct file *file)
+{
+	return single_open(file,
+			reviser_dbg_show_rw, inode->i_private);
+}
+
+static const struct file_operations reviser_dbg_fops_rw = {
+	.open = reviser_dbg_rw_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = seq_release,
+	//.write = seq_write,
+};
 
 //----------------------------------------------
 // user table dump
@@ -177,6 +215,7 @@ static int reviser_dbg_show_table_ctxid(struct seq_file *s, void *unused)
 	struct reviser_dev_info *reviser_device = s->private;
 
 	reviser_table_print_ctxID(reviser_device, s);
+
 	return 0;
 }
 
@@ -201,6 +240,7 @@ static int reviser_dbg_show_table_tcm(struct seq_file *s, void *unused)
 	struct reviser_dev_info *reviser_device = s->private;
 
 	reviser_table_print_tcm(reviser_device, s);
+
 	return 0;
 }
 
@@ -382,7 +422,62 @@ static const struct file_operations reviser_dbg_fops_err_info = {
 };
 
 //----------------------------------------------
+//----------------------------------------------
+// show vlm
+static int reviser_dbg_show_mem_vlm(struct seq_file *s, void *unused)
+{
+	struct reviser_dev_info *reviser_device = s->private;
 
+	reviser_print_dram(reviser_device, s);
+
+	if (!reviser_is_power(reviser_device)) {
+		LOG_ERR("Can Not Read when power disable\n");
+		return 0;
+	}
+	reviser_print_tcm(reviser_device, s);
+	return 0;
+}
+
+static int reviser_dbg_mem_vlm_open(struct inode *inode, struct file *file)
+{
+	return single_open(file,
+			reviser_dbg_show_mem_vlm, inode->i_private);
+}
+
+static const struct file_operations reviser_dbg_fops_mem_vlm = {
+	.open = reviser_dbg_mem_vlm_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = seq_release,
+	//.write = seq_write,
+};//----------------------------------------------
+// show exception reg
+static int reviser_dbg_show_err_reg(struct seq_file *s, void *unused)
+{
+	struct reviser_dev_info *reviser_device = s->private;
+
+	if (!reviser_is_power(reviser_device)) {
+		LOG_ERR("Can Not Read when power disable\n");
+		return 0;
+	}
+	reviser_print_exception(reviser_device, s);
+	return 0;
+}
+
+static int reviser_dbg_err_reg_open(struct inode *inode, struct file *file)
+{
+	return single_open(file,
+			reviser_dbg_show_err_reg, inode->i_private);
+}
+
+static const struct file_operations reviser_dbg_fops_err_reg = {
+	.open = reviser_dbg_err_reg_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = seq_release,
+	//.write = seq_write,
+};
+//----------------------------------------------
 int reviser_dbg_init(struct reviser_dev_info *reviser_device)
 {
 	int ret = 0;
@@ -541,6 +636,7 @@ int reviser_dbg_init(struct reviser_dev_info *reviser_device)
 	reviser_dbg_log = debugfs_create_u8("log_level", 0644,
 			reviser_dbg_root, &g_reviser_log_level);
 
+
 	reviser_dbg_err_info = debugfs_create_file("info", 0644,
 			reviser_dbg_err, reviser_device,
 			&reviser_dbg_fops_err_info);
@@ -548,6 +644,37 @@ int reviser_dbg_init(struct reviser_dev_info *reviser_device)
 	ret = IS_ERR_OR_NULL(reviser_dbg_err_info);
 	if (ret) {
 		LOG_ERR("failed to create debug node(count).\n");
+		goto out;
+	}
+
+	reviser_dbg_mem_vlm = debugfs_create_file("vlm", 0644,
+			reviser_dbg_mem, reviser_device,
+			&reviser_dbg_fops_mem_vlm);
+
+	ret = IS_ERR_OR_NULL(reviser_dbg_mem_vlm);
+	if (ret) {
+		LOG_ERR("failed to create debug node(vlm).\n");
+		goto out;
+	}
+
+
+	reviser_dbg_rw = debugfs_create_file("rw", 0644,
+			reviser_dbg_root, reviser_device,
+			&reviser_dbg_fops_rw);
+
+	ret = IS_ERR_OR_NULL(reviser_dbg_rw);
+	if (ret) {
+		LOG_ERR("failed to create debug node(rw).\n");
+		goto out;
+	}
+
+	reviser_dbg_err_reg = debugfs_create_file("reg", 0644,
+			reviser_dbg_err, reviser_device,
+			&reviser_dbg_fops_err_reg);
+
+	ret = IS_ERR_OR_NULL(reviser_dbg_err_reg);
+	if (ret) {
+		LOG_ERR("failed to create debug node(reg).\n");
 		goto out;
 	}
 

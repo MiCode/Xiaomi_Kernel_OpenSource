@@ -27,8 +27,11 @@ enum REVISER_DEVICE_E {
 };
 
 
-
+void reviser_print_rw(void *drvinfo, void *s_file);
 void reviser_print_private(void *drvinfo);
+void reviser_print_dram(void *drvinfo, void *s_file);
+void reviser_print_tcm(void *drvinfo, void *s_file);
+void reviser_print_exception(void *drvinfo, void *s_file);
 void reviser_print_error(void *drvinfo, void *s_file);
 void reviser_print_boundary(void *drvinfo, void *s_file);
 void reviser_print_context_ID(void *drvinfo, void *s_file);
@@ -57,4 +60,5 @@ int reviser_alloc_tcm(void *drvinfo, void *usr);
 int reviser_free_tcm(void *drvinfo, void *usr);
 int reviser_power_on(void *drvinfo);
 int reviser_power_off(void *drvinfo);
+int reviser_check_int_valid(void *drvinfo);
 #endif

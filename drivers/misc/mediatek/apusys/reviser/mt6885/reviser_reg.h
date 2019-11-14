@@ -40,7 +40,11 @@
 #define REVISER_DEFAULT          (0xFFFFFFFF)
 
 #define REVISER_INT_EN           (0x80)
+#define APUSYS_EXCEPT_INT        (0x34)
 #define REVISER_INT_EN_MASK      (0xFE000)
+
+#define VP6_CORE0_BASE_0         (0x0100)
+#define VP6_CORE0_BASE_1         (0x0108)
 
 #define VLM_REMAP_TABLE_BASE     (0x0200)
 #define VLM_DEFAULT_MVA          (VLM_REMAP_TABLE_BASE + 0x00)

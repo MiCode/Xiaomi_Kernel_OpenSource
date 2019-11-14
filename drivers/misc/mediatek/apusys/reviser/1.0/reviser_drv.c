@@ -62,11 +62,14 @@ static void reviser_power_off_cb(void *para);
 
 irqreturn_t reviser_interrupt(int irq, void *private_data)
 {
+
 	struct reviser_dev_info *reviser_device;
 	unsigned long flags;
 	irqreturn_t ret = IRQ_NONE;
 
+
 	DEBUG_TAG;
+
 
 	reviser_device = (struct reviser_dev_info *)private_data;
 
@@ -74,18 +77,24 @@ irqreturn_t reviser_interrupt(int irq, void *private_data)
 		//LOG_ERR("Can Not Read when power disable\n");
 		return IRQ_NONE;
 	}
-	spin_lock_irqsave(&g_reviser_device->lock_dump, flags);
+
+	// Check if INT is for reviser
+	if (reviser_check_int_valid(reviser_device)) {
+		//LOG_ERR("INT NOT triggered by reviser\n");
+		return IRQ_NONE;
+	}
+
 	if (!reviser_get_interrupt_offset(private_data)) {
-		reviser_print_remap_table(private_data, NULL);
-		reviser_print_context_ID(private_data, NULL);
+		//reviser_print_remap_table(private_data, NULL);
+		//reviser_print_context_ID(private_data, NULL);
+		spin_lock_irqsave(&g_reviser_device->lock_dump, flags);
 		reviser_device->dump.err_count++;
+		spin_unlock_irqrestore(&g_reviser_device->lock_dump, flags);
 		ret = IRQ_HANDLED;
 	} else {
 		//LOG_ERR("INT NOT triggered by reviser\n");
 		ret = IRQ_NONE;
 	}
-
-	spin_unlock_irqrestore(&g_reviser_device->lock_dump, flags);
 
 	return ret;
 
@@ -127,6 +136,9 @@ static void reviser_power_on_cb(void *para)
 	g_reviser_device->power = true;
 	spin_unlock_irqrestore(&g_reviser_device->lock_power, flags);
 
+
+	reviser_enable_interrupt(g_reviser_device, 1);
+
 	if (reviser_boundary_init(g_reviser_device, BOUNDARY_APUSYS)) {
 		LOG_ERR("Set Boundary Fail\n");
 		return;
@@ -146,7 +158,7 @@ static void reviser_power_off_cb(void *para)
 		LOG_ERR("Not Found reviser_device\n");
 		return;
 	}
-
+	reviser_enable_interrupt(g_reviser_device, 0);
 
 	spin_lock_irqsave(&g_reviser_device->lock_power, flags);
 	g_reviser_device->power = false;
