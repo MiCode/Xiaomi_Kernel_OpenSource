@@ -143,8 +143,11 @@ int vpu_send_cmd(int op, void *hnd, struct apusys_device *adev)
 		vpu_cmd_debug("%s:vpu%d EXECUTE, kva: %lx cmd_id: 0x%llx subcmd_idx: 0x%x\n",
 			      __func__, vd->id, (unsigned long)cmd->kva,
 			      cmd->cmd_id, cmd->subcmd_idx);
+		/* overwrite vpu_req->boost from apusys_cmd */
+		req->power_param.boost_value = cmd->boost_val;
 		ret = vpu_execute(vd, req);
 		vpu_trace_end("%s|end", __func__);
+		/* report vpu_req exe time to apusy_cmd */
 		cmd->ip_time = req->busy_time / 1000;
 		return ret;
 	case APUSYS_CMD_PREEMPT:
