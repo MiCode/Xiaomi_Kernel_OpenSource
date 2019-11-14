@@ -266,7 +266,7 @@ ssize_t musb_sib_enable_show(struct device *dev,
 ssize_t musb_sib_enable_store(struct device *dev, struct device_attribute *attr,
 			    const char *buf, size_t count)
 {
-	unsigned int mode;
+	unsigned int mode = 0;
 	struct ssusb_mtk *ssusb;
 
 	if (!dev) {
