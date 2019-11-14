@@ -870,10 +870,13 @@ static const enum mtk_ddp_comp_id mt6885_mtk_ddp_main[] = {
 	DDP_COMPONENT_OVL0_2L,		DDP_COMPONENT_OVL0,
 	DDP_COMPONENT_OVL0_VIRTUAL0,	DDP_COMPONENT_RDMA0,
 	DDP_COMPONENT_RDMA0_VIRTUAL0,	DDP_COMPONENT_COLOR0,
-	DDP_COMPONENT_CCORR0,		DDP_COMPONENT_AAL0,
-	DDP_COMPONENT_GAMMA0,		DDP_COMPONENT_POSTMASK0,
-	DDP_COMPONENT_DITHER0,		DDP_COMPONENT_DSI0,
-	DDP_COMPONENT_PWM0,
+	DDP_COMPONENT_CCORR0,
+#ifdef CONFIG_MTK_DRE30_SUPPORT
+	DDP_COMPONENT_DMDP_AAL0,
+#endif
+	DDP_COMPONENT_AAL0,		DDP_COMPONENT_GAMMA0,
+	DDP_COMPONENT_POSTMASK0,	DDP_COMPONENT_DITHER0,
+	DDP_COMPONENT_DSI0,		DDP_COMPONENT_PWM0,
 };
 
 static const enum mtk_ddp_comp_id mt6885_mtk_ddp_main_wb_path[] = {
@@ -889,11 +892,14 @@ static const enum mtk_ddp_comp_id mt6885_mtk_ddp_main_minor[] = {
 
 
 static const enum mtk_ddp_comp_id mt6885_mtk_ddp_main_minor_sub[] = {
-	DDP_COMPONENT_RDMA0,    DDP_COMPONENT_RDMA0_VIRTUAL0,
-	DDP_COMPONENT_COLOR0,   DDP_COMPONENT_CCORR0,
-	DDP_COMPONENT_AAL0,      DDP_COMPONENT_GAMMA0,
-	DDP_COMPONENT_POSTMASK0, DDP_COMPONENT_DITHER0,
-	DDP_COMPONENT_DSI0,     DDP_COMPONENT_PWM0,
+	DDP_COMPONENT_RDMA0,		DDP_COMPONENT_RDMA0_VIRTUAL0,
+	DDP_COMPONENT_COLOR0,		DDP_COMPONENT_CCORR0,
+#ifdef CONFIG_MTK_DRE30_SUPPORT
+	DDP_COMPONENT_DMDP_AAL0,
+#endif
+	DDP_COMPONENT_AAL0,		DDP_COMPONENT_GAMMA0,
+	DDP_COMPONENT_POSTMASK0,	DDP_COMPONENT_DITHER0,
+	DDP_COMPONENT_DSI0,		DDP_COMPONENT_PWM0,
 };
 
 static const enum mtk_ddp_comp_id mt6885_mtk_ddp_ext[] = {
@@ -1998,6 +2004,8 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	 .data = (void *)MTK_DISP_POSTMASK},
 	{.compatible = "mediatek,mt6885-disp-dsc",
 	 .data = (void *)MTK_DISP_DSC},
+	{.compatible = "mediatek,mt6885-dmdp-aal",
+	 .data = (void *)MTK_DMDP_AAL},
 	{} };
 
 static int mtk_drm_probe(struct platform_device *pdev)
@@ -2101,7 +2109,8 @@ static int mtk_drm_probe(struct platform_device *pdev)
 		    comp_type == MTK_DISP_RDMA || comp_type == MTK_DISP_WDMA ||
 		    comp_type == MTK_DISP_RSZ ||
 		    comp_type == MTK_DISP_POSTMASK || comp_type == MTK_DSI ||
-		    comp_type == MTK_DPI || comp_type == MTK_DISP_DSC) {
+		    comp_type == MTK_DPI || comp_type == MTK_DISP_DSC ||
+		    comp_type == MTK_DMDP_AAL) {
 			dev_info(dev, "Adding component match for %s\n",
 				 node->full_name);
 			component_match_add(dev, &match, compare_of, node);
@@ -2249,6 +2258,7 @@ static struct platform_driver *const mtk_drm_drivers[] = {
 	&mtk_disp_ccorr_driver,
 	&mtk_disp_gamma_driver,
 	&mtk_disp_aal_driver,
+	&mtk_dmdp_aal_driver,
 	&mtk_disp_postmask_driver,
 	&mtk_disp_dither_driver,
 	&mtk_disp_ovl_driver,

@@ -26,6 +26,7 @@ void mtk_color_dump(struct mtk_ddp_comp *comp);
 void mtk_ccorr_dump(struct mtk_ddp_comp *comp);
 void mtk_dither_dump(struct mtk_ddp_comp *comp);
 void mtk_aal_dump(struct mtk_ddp_comp *comp);
+void mtk_dmdp_aal_dump(struct mtk_ddp_comp *comp);
 void mtk_gamma_dump(struct mtk_ddp_comp *comp);
 void mtk_dsc_dump(struct mtk_ddp_comp *comp);
 

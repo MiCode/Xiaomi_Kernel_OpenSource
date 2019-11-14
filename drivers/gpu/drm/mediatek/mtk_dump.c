@@ -60,6 +60,9 @@ int mtk_dump_reg(struct mtk_ddp_comp *comp)
 	case DDP_COMPONENT_AAL1:
 		mtk_aal_dump(comp);
 		break;
+	case DDP_COMPONENT_DMDP_AAL0:
+		mtk_dmdp_aal_dump(comp);
+		break;
 	case DDP_COMPONENT_DITHER0:
 	case DDP_COMPONENT_DITHER1:
 		mtk_dither_dump(comp);

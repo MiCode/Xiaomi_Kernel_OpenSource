@@ -3723,9 +3723,11 @@ page_owner=on";
 	};
 
 	mdp_aal4@14010000 {
-		compatible = "mediatek,mdp_aal4";
+		compatible = "mediatek,mdp_aal4",
+					"mediatek,mt6885-dmdp-aal";
 		reg = <0 0x14010000 0 0x1000>;
 		interrupts = <GIC_SPI 285 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&dispsys_config MM_MDP_AAL4>;
 	};
 
 	mdp_hdr4@14011000 {

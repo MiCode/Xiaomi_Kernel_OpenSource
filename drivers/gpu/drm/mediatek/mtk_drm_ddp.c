@@ -263,13 +263,19 @@
 #define DSI_SEL_IN_BLS 0x0
 
 #define MT6885_DISP_AAL0_SEL_IN		0x650
+	#define DISP_AAL0_SEL_IN_FROM_DISP_MDP_AAL4_SOUT	0x0
 	#define DISP_AAL0_SEL_IN_FROM_DISP_CCORR0_SOUT	0x1
 #define MT6885_DISP_COLOR0_OUT_SEL_IN	0x658
 	#define DISP_COLOR0_OUT_SEL_IN_FROM_DISP_COLOR0	0x0
 #define MT6885_DISP_COLOR1_OUT_SEL_IN	0x65C
 	#define DISP_COLOR1_OUT_SEL_IN_FROM_DISP_COLOR1	0x0
 #define MT6885_DISP_CCORR0_SOUT_SEL	0xEB4
+	#define DISP_CCORR0_SOUT_SEL_TO_DMDP_AAL0_SEL	0x0
 	#define DISP_CCORR0_SOUT_SEL_TO_DISP_AAL0_SEL	0x1
+#define MT6885_DISP_MDP_AAL4_SEL_IN	0xEB8
+	#define DISP_MDP_AAL4_SEL_IN_FROM_DISP_CCORR0_SOUT	0x0
+#define MT6885_DISP_MDP_AAL4_SOUT_SEL	0xEC0
+	#define DISP_MDP_AAL4_SOUT_SEL_TO_DISP_AAL0_SEL	0x0
 #define MT6885_DISP_RDMA1_RSZ1_SEL_IN	0xF0C
 	#define DISP_RDMA1_RSZ1_SEL_IN_FROM_DISP_RDMA1_SOUT	0x0
 #define MT6885_DISP_TOVL0_OUT0_MOUT_EN	0xF10
@@ -564,6 +570,7 @@ static const unsigned int mt6885_mutex_mod[DDP_COMPONENT_ID_MAX] = {
 		[DDP_COMPONENT_POSTMASK0] = MT6885_MUTEX_MOD0_DISP_POSTMASK0,
 		[DDP_COMPONENT_POSTMASK1] = MT6885_MUTEX_MOD0_DISP_POSTMASK1,
 		[DDP_COMPONENT_DSC0] = MT6885_MUTEX_MOD0_DISP_DSC0,
+		[DDP_COMPONENT_DMDP_AAL0] = MT6885_MUTEX_MOD1_MDP_AAL4,
 };
 
 
@@ -1360,6 +1367,16 @@ static char *ddp_get_mutex_module0_name_mt6885(unsigned int bit)
 	}
 	return "unknown-mutex";
 }
+static char *ddp_get_mutex_module1_name_mt6885(unsigned int bit)
+{
+	switch (bit) {
+	case 0:
+		return "mdp_aal4";
+	default:
+		break;
+	}
+	return "unknown-mutex";
+}
 
 char *mtk_ddp_get_mutex_sof_name_mt6885(unsigned int regval)
 {
@@ -2003,6 +2020,10 @@ static int mtk_ddp_sel_in_MT6885(const struct mtk_mmsys_reg_data *data,
 		next == DDP_COMPONENT_AAL0) {
 		*addr = MT6885_DISP_AAL0_SEL_IN;
 		value = DISP_AAL0_SEL_IN_FROM_DISP_CCORR0_SOUT;
+	} else if (cur == DDP_COMPONENT_DMDP_AAL0 &&
+		next == DDP_COMPONENT_AAL0) {
+		*addr = MT6885_DISP_AAL0_SEL_IN;
+		value = DISP_AAL0_SEL_IN_FROM_DISP_MDP_AAL4_SOUT;
 	} else if (cur == DDP_COMPONENT_CCORR1 &&
 		next == DDP_COMPONENT_AAL1) {
 		*addr = MT6885_DISP_AAL1_SEL_IN;
@@ -2023,6 +2044,10 @@ static int mtk_ddp_sel_in_MT6885(const struct mtk_mmsys_reg_data *data,
 		next == DDP_COMPONENT_WDMA1) {
 		*addr = MT6885_DISP_WDMA1_SEL_IN;
 		value = WDMA1_SEL_IN_FROM_DISP_TOVL3_2L_OUT0_MOUT;
+	} else if (cur == DDP_COMPONENT_CCORR0 &&
+		next == DDP_COMPONENT_DMDP_AAL0) {
+		*addr = MT6885_DISP_MDP_AAL4_SEL_IN;
+		value = DISP_MDP_AAL4_SEL_IN_FROM_DISP_CCORR0_SOUT;
 	} else {
 		value = -1;
 	}
@@ -2087,10 +2112,18 @@ static int mtk_ddp_sout_sel_MT6885(const struct mtk_mmsys_reg_data *data,
 		next == DDP_COMPONENT_AAL0) {
 		*addr = MT6885_DISP_CCORR0_SOUT_SEL;
 		value = DISP_CCORR0_SOUT_SEL_TO_DISP_AAL0_SEL;
+	} else if (cur == DDP_COMPONENT_CCORR0 &&
+		next == DDP_COMPONENT_DMDP_AAL0) {
+		*addr = MT6885_DISP_CCORR0_SOUT_SEL;
+		value = DISP_CCORR0_SOUT_SEL_TO_DMDP_AAL0_SEL;
 	} else if (cur == DDP_COMPONENT_CCORR1 &&
 		next == DDP_COMPONENT_AAL1) {
 		*addr = MT6885_DISP_CCORR1_SOUT_SEL;
 		value = DISP_CCORR1_SOUT_SEL_TO_DISP_AAL1_SEL;
+	} else if (cur == DDP_COMPONENT_DMDP_AAL0 &&
+		next == DDP_COMPONENT_AAL0) {
+		*addr = MT6885_DISP_MDP_AAL4_SOUT_SEL;
+		value = DISP_MDP_AAL4_SOUT_SEL_TO_DISP_AAL0_SEL;
 	} else {
 		value = -1;
 	}
@@ -3140,6 +3173,8 @@ void mutex_dump_analysis_mt6885(struct mtk_disp_mutex *mutex)
 
 	DDPDUMP("== DISP Mutex Analysis ==\n");
 	for (i = 0; i < 5; i++) {
+		unsigned int mod0, mod1;
+
 		p = mutex_module;
 		len = 0;
 		if (readl_relaxed(ddp->regs +
@@ -3157,13 +3192,22 @@ void mutex_dump_analysis_mt6885(struct mtk_disp_mutex *mutex)
 			      REG_FLD_VAL_GET(SOF_FLD_MUTEX0_SOF_WAIT, val));
 
 		p += len;
-		for (j = 0; j < 32; j++) {
-			unsigned int regval = readl_relaxed(
-				ddp->regs + DISP_REG_MUTEX_MOD(ddp->data, i));
 
-			if ((regval & (1 << j))) {
+		mod0 = readl_relaxed(ddp->regs +
+			DISP_REG_MUTEX_MOD(ddp->data, i));
+		for (j = 0; j < 32; j++) {
+			if ((mod0 & (1 << j))) {
 				len = sprintf(p, "%s,",
 					ddp_get_mutex_module0_name_mt6885(j));
+				p += len;
+			}
+		}
+		mod1 = readl_relaxed(ddp->regs +
+			DISP_REG_MUTEX_MOD2(mutex->id));
+		for (j = 0; j < 32; j++) {
+			if ((mod1 & (1 << j))) {
+				len = sprintf(p, "%s,",
+					ddp_get_mutex_module1_name_mt6885(j));
 				p += len;
 			}
 		}

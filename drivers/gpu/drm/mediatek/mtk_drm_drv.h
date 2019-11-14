@@ -172,6 +172,7 @@ extern struct platform_driver mtk_disp_color_driver;
 extern struct platform_driver mtk_disp_ccorr_driver;
 extern struct platform_driver mtk_disp_gamma_driver;
 extern struct platform_driver mtk_disp_aal_driver;
+extern struct platform_driver mtk_dmdp_aal_driver;
 extern struct platform_driver mtk_disp_postmask_driver;
 extern struct platform_driver mtk_disp_dither_driver;
 extern struct platform_driver mtk_disp_ovl_driver;
