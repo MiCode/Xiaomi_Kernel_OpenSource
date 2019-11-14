@@ -4543,6 +4543,7 @@ static s32 cmdq_pkt_flush_async_ex_impl(struct cmdqRecStruct *handle,
 	struct cmdqRecStruct **pmqos_handle_list = NULL;
 	struct ContextStruct *ctx;
 	u32 handle_count;
+	static wait_queue_head_t *wait_q;
 
 	if (!handle->finalized) {
 		CMDQ_ERR("handle not finalized:0x%p scenario:%d\n",
@@ -4601,9 +4602,10 @@ static s32 cmdq_pkt_flush_async_ex_impl(struct cmdqRecStruct *handle,
 			handle->pkt->cl, client);
 		handle->pkt->cl = client;
 	}
+	wait_q = &cmdq_wait_queue[handle->thread];
 	err = cmdq_pkt_flush_async(handle->pkt, cmdq_pkt_flush_handler,
 		(void *)handle);
-	wake_up(&cmdq_wait_queue[handle->thread]);
+	wake_up(wait_q);
 
 	CMDQ_SYSTRACE_END();
 
