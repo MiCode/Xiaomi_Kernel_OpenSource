@@ -50,6 +50,7 @@
 #include "mtk_drm_trace.h"
 #include "cmdq-sec.h"
 #include "cmdq-sec-iwc-common.h"
+#include "mtk_disp_ccorr.h"
 
 static struct mtk_drm_property mtk_crtc_property[CRTC_PROP_MAX] = {
 	{DRM_MODE_PROP_ATOMIC, "OVERLAP_LAYER_NUM", 0, UINT_MAX, 0},
@@ -66,6 +67,7 @@ static struct mtk_drm_property mtk_crtc_property[CRTC_PROP_MAX] = {
 	{DRM_MODE_PROP_ATOMIC, "INTF_BUFF_IDX", 0, UINT_MAX, 0},
 	{DRM_MODE_PROP_ATOMIC, "DISP_MODE_IDX", 0, UINT_MAX, 0},
 	{DRM_MODE_PROP_ATOMIC, "HBM_ENABLE", 0, UINT_MAX, 0},
+	{DRM_MODE_PROP_ATOMIC, "COLOR_TRANSFORM", 0, UINT_MAX, 0},
 };
 
 static const char * const crtc_gce_client_str[] = {
@@ -1445,6 +1447,49 @@ struct drm_framebuffer *mtk_drm_framebuffer_lookup(struct drm_device *dev,
 	return fb;
 }
 
+static void mtk_crtc_dc_config_color_matrix(struct drm_crtc *crtc,
+				struct cmdq_pkt *cmdq_handle)
+{
+	int i, mode, ccorr_matrix[16], all_zero = 1;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
+	struct mtk_crtc_ddp_ctx *ddp_ctx;
+	bool set = false;
+
+	/* Get color matrix data from backup slot*/
+	mode = *(int *)(cmdq_buf->va_base + DISP_SLOT_COLOR_MATRIX_PARAMS(0));
+	for (i = 0; i < 16; i++)
+		ccorr_matrix[i] = *(int *)(cmdq_buf->va_base +
+					DISP_SLOT_COLOR_MATRIX_PARAMS(i + 1));
+
+	for (i = 0; i <= 15; i += 5) {
+		if (ccorr_matrix[i] != 0) {
+			all_zero = 0;
+			break;
+		}
+	}
+
+	if (all_zero)
+		DDPPR_ERR("CCORR color matrix backup param is zero matrix\n");
+	else {
+		ddp_ctx = &mtk_crtc->ddp_ctx[mtk_crtc->ddp_mode];
+		for (i = 0; i < ddp_ctx->ddp_comp_nr[DDP_SECOND_PATH]; i++) {
+			struct mtk_ddp_comp *comp =
+					ddp_ctx->ddp_comp[DDP_SECOND_PATH][i];
+
+			if (comp->id == DDP_COMPONENT_CCORR0) {
+				disp_ccorr_set_color_matrix(comp, cmdq_handle,
+							ccorr_matrix, mode);
+				set = true;
+				break;
+			}
+		}
+
+		if (!set)
+			DDPPR_ERR("Cannot not find DDP_COMPONENT_CCORR0\n");
+	}
+}
+
 void mtk_crtc_dc_prim_path_update(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
@@ -1516,6 +1561,7 @@ void mtk_crtc_dc_prim_path_update(struct drm_crtc *crtc)
 	mtk_ddp_comp_layer_config(ddp_ctx->ddp_comp[DDP_SECOND_PATH][0], 0,
 				  &plane_state, cmdq_handle);
 
+	mtk_crtc_dc_config_color_matrix(crtc, cmdq_handle);
 	if (mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base))
 		cmdq_pkt_set_event(cmdq_handle,
 				   mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
@@ -3192,17 +3238,127 @@ int mtk_crtc_gec_flush_check(struct drm_crtc *crtc)
 	return 0;
 }
 
+static struct disp_ccorr_config *mtk_crtc_get_color_matrix_data(
+						struct drm_crtc *crtc)
+{
+	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
+	int blob_id;
+	struct disp_ccorr_config *ccorr_config = NULL;
+	struct drm_property_blob *blob;
+	int *color_matrix;
+
+	blob_id = state->prop_val[CRTC_PROP_COLOR_TRANSFORM];
+
+	/* if blod_id == 0 means this time no new color matrix need to set */
+	if (!blob_id)
+		goto end;
+
+	blob = drm_property_lookup_blob(crtc->dev, blob_id);
+	if (!blob) {
+		DDPPR_ERR("Cannot get color matrix blob: %d!\n", blob_id);
+		goto end;
+	}
+
+	ccorr_config = (struct disp_ccorr_config *)blob->data;
+	drm_property_unreference_blob(blob);
+
+	if (ccorr_config) {
+		int i = 0, all_zero = 1;
+
+		color_matrix = ccorr_config->color_matrix;
+		for (i = 0; i <= 15; i += 5) {
+			if (color_matrix[i] != 0) {
+				all_zero = 0;
+				break;
+			}
+		}
+		if (all_zero) {
+			DDPPR_ERR("HWC set zero color matrix!\n");
+			goto end;
+		}
+	} else
+		DDPPR_ERR("Blob cannot get ccorr_config data!\n");
+
+end:
+	return ccorr_config;
+}
+
+static void mtk_crtc_backup_color_matrix_data(struct drm_crtc *crtc,
+				struct disp_ccorr_config *ccorr_config,
+				struct cmdq_pkt *cmdq_handle)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
+	dma_addr_t addr;
+	int i;
+
+	if (!ccorr_config)
+		return;
+
+	addr = cmdq_buf->pa_base + DISP_SLOT_COLOR_MATRIX_PARAMS(0);
+		cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base,
+			addr, ccorr_config->mode, ~0);
+
+	for (i = 0; i < 16; i++) {
+		addr = cmdq_buf->pa_base +
+				DISP_SLOT_COLOR_MATRIX_PARAMS(i + 1);
+		cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base,
+		addr, ccorr_config->color_matrix[i], ~0);
+	}
+}
+
+static void mtk_crtc_dl_config_color_matrix(struct drm_crtc *crtc,
+				struct disp_ccorr_config *ccorr_config,
+				struct cmdq_pkt *cmdq_handle)
+{
+
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_crtc_ddp_ctx *ddp_ctx;
+	bool set =  false;
+	int i;
+
+	if (!ccorr_config)
+		return;
+
+	ddp_ctx = &mtk_crtc->ddp_ctx[mtk_crtc->ddp_mode];
+	for (i = 0; i < ddp_ctx->ddp_comp_nr[DDP_FIRST_PATH]; i++) {
+		struct mtk_ddp_comp *comp =
+		ddp_ctx->ddp_comp[DDP_FIRST_PATH][i];
+
+		if (comp->id == DDP_COMPONENT_CCORR0) {
+			disp_ccorr_set_color_matrix(comp, cmdq_handle,
+					ccorr_config->color_matrix,
+					ccorr_config->mode);
+			set = true;
+			break;
+		}
+	}
+
+	if (set)
+		mtk_crtc_backup_color_matrix_data(crtc, ccorr_config,
+						cmdq_handle);
+	else
+		DDPPR_ERR("Cannot not find DDP_COMPONENT_CCORR0\n");
+}
+
 void mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 	void *cb_data, struct cmdq_pkt *cmdq_handle)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
+	struct disp_ccorr_config *ccorr_config = NULL;
 
 	if (mtk_crtc_gec_flush_check(crtc) < 0)	{
 		cmdq_pkt_destroy(cmdq_handle);
 		kfree(cb_data);
 		return;
 	}
+
+	/* apply color matrix if crtc0 is DL */
+	ccorr_config = mtk_crtc_get_color_matrix_data(crtc);
+	if (drm_crtc_index(crtc) == 0 && (!mtk_crtc_is_dc_mode(crtc)))
+		mtk_crtc_dl_config_color_matrix(crtc, ccorr_config,
+						cmdq_handle);
 
 	if (mtk_crtc_is_dc_mode(crtc) ||
 		state->prop_val[CRTC_PROP_OUTPUT_ENABLE]) {
@@ -3237,6 +3393,11 @@ void mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 	if (mtk_crtc_is_dc_mode(crtc) ||
 		state->prop_val[CRTC_PROP_OUTPUT_ENABLE]) {
 		mtk_crtc_wb_backup_to_slot(crtc, cmdq_handle);
+
+		/* backup color matrix for DC and DC Mirror for RDMA update*/
+		if (mtk_crtc_is_dc_mode(crtc))
+			mtk_crtc_backup_color_matrix_data(crtc, ccorr_config,
+							cmdq_handle);
 	}
 
 #ifdef MTK_DRM_CMDQ_ASYNC
@@ -3665,6 +3826,26 @@ static void mtk_crtc_get_event_name(struct mtk_drm_crtc *mtk_crtc, char *buf,
 		memset(output_comp, 0, sizeof(output_comp));
 	}
 }
+
+static void mtk_crtc_init_color_matrix_data_slot(
+					struct mtk_drm_crtc *mtk_crtc)
+{
+	struct cmdq_pkt *cmdq_handle;
+	struct disp_ccorr_config ccorr_config = {.mode = 1,
+						 .color_matrix = {
+						 1024, 0, 0, 0,
+						 0, 1024, 0, 0,
+						 0, 0, 1024, 0,
+						 0, 0, 0, 1024} };
+
+	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
+			mtk_crtc->gce_obj.client[CLIENT_CFG]);
+	mtk_crtc_backup_color_matrix_data(&mtk_crtc->base, &ccorr_config,
+					cmdq_handle);
+	cmdq_pkt_flush(cmdq_handle);
+	cmdq_pkt_destroy(cmdq_handle);
+}
+
 static void mtk_crtc_init_gce_obj(struct drm_device *drm_dev,
 				  struct mtk_drm_crtc *mtk_crtc)
 {
@@ -3720,13 +3901,8 @@ static void mtk_crtc_init_gce_obj(struct drm_device *drm_dev,
 		mtk_crtc->gce_obj.client[CLIENT_CFG]->chan->mbox->dev,
 		&(cmdq_buf->pa_base));
 	memset(cmdq_buf->va_base, 0, DISP_SLOT_SIZE);
-	if (mtk_crtc->gce_obj.client[CLIENT_SUB_CFG]) {
-		cmdq_buf->va_base = cmdq_mbox_buf_alloc(
-			mtk_crtc->gce_obj.client[CLIENT_SUB_CFG]
-				->chan->mbox->dev,
-			&(cmdq_buf->pa_base));
-		memset(cmdq_buf->va_base, 0, DISP_SLOT_SIZE);
-	}
+
+	mtk_crtc_init_color_matrix_data_slot(mtk_crtc);
 
 	mtk_crtc->gce_obj.base = cmdq_register_device(dev);
 }

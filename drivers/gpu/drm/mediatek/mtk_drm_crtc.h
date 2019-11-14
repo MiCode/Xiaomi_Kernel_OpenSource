@@ -43,6 +43,7 @@
 #define MTK_MAX_BPC 10
 #define MTK_MIN_BPC 3
 #define BW_MODULE 17
+#define COLOR_MATRIX_PARAMS 17
 
 #define PRIMARY_OVL_PHY_LAYER_NR 6L
 #define PRIMARY_OVL_EXT_LAYER_NR 6L
@@ -90,7 +91,10 @@ enum DISP_PMQOS_SLOT {
 #define DISP_SLOT_CUR_HRT_LEVEL (DISP_SLOT_CUR_HRT_IDX + 0x4)
 #define DISP_SLOT_CUR_OUTPUT_FENCE (DISP_SLOT_CUR_HRT_LEVEL + 0x4)
 #define DISP_SLOT_CUR_INTERFACE_FENCE (DISP_SLOT_CUR_OUTPUT_FENCE + 0x4)
-#define DISP_SLOT_OVL_STATUS (DISP_SLOT_CUR_INTERFACE_FENCE + 0x4)
+#define DISP_SLOT_COLOR_MATRIX_PARAMS(n)                                      \
+	(DISP_SLOT_CUR_INTERFACE_FENCE + (n) * 0x4)
+#define DISP_SLOT_OVL_STATUS                                        \
+	(DISP_SLOT_COLOR_MATRIX_PARAMS(COLOR_MATRIX_PARAMS) + 0x4)
 
 /* TODO: figure out Display pipe which need report PMQOS BW */
 #define DISP_SLOT_SIZE (DISP_SLOT_OVL_STATUS)
@@ -307,6 +311,7 @@ enum MTK_CRTC_PROP {
 	CRTC_PROP_INTF_FENCE_IDX,
 	CRTC_PROP_DISP_MODE_IDX,
 	CRTC_PROP_HBM_ENABLE,
+	CRTC_PROP_COLOR_TRANSFORM,
 	CRTC_PROP_MAX,
 };
 
@@ -451,6 +456,12 @@ struct mtk_drm_fake_layer {
 	struct drm_framebuffer *fake_layer_buf[PRIMARY_OVL_PHY_LAYER_NR];
 	bool init;
 	bool first_dis;
+};
+
+
+struct disp_ccorr_config {
+	int mode;
+	int color_matrix[16];
 };
 
 /**
