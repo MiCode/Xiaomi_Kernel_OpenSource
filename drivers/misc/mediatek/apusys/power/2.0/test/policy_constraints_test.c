@@ -14,19 +14,22 @@
 #include <time.h>
 //#include <sync_write.h>
 
-
 #include "test.h"
 
+#include "apu_log.h"
+#include "apusys_power_debug.h"
 #include "apusys_power_ctl.h"
 #include "apusys_power_cust.h"
 #include "hal_config_power.h"
-#include "apu_log.h"
 
-#define ALL_COMBINATION
 
+#define ALL_COMBINATION 0
 
 #define VOLT_CONSTRAINTS_1	(225000)
 #define CONSTRAINTS_2_SIZE 37
+
+int g_pwr_log_level = APUSYS_PWR_LOG_INFO;
+bool is_power_debug_lock;
 
 enum DVFS_VOLTAGE sram_constraint[CONSTRAINTS_2_SIZE][3] = {
 	{DVFS_VOLT_00_825000_V, DVFS_VOLT_00_825000_V, DVFS_VOLT_00_825000_V},
@@ -76,6 +79,12 @@ enum DVFS_VOLTAGE sram_constraint[CONSTRAINTS_2_SIZE][3] = {
 
 
 struct hal_param_init_power init_power_data;
+
+
+void fix_dvfs_debug(void)
+{
+
+}
 
 u32 get_devinfo_with_index(unsigned int index)
 {
@@ -162,10 +171,10 @@ int hal_config_power(enum HAL_POWER_CMD cmd, enum DVFS_USER user, void *param)
 	int target_volt = 0;
 	enum DVFS_BUCK buck = 0;
 	int i = 0;
-	static int vpu_curr_volt = DVFS_VOLT_00_800000_V;
-	static int mdla_curr_volt = DVFS_VOLT_00_825000_V;
-	static int vsram_core_volt = DVFS_VOLT_00_825000_V;
-	static int vcore_curr_volt = DVFS_VOLT_00_725000_V;
+	static int vpu_curr_volt = VVPU_DEFAULT_VOLT;
+	static int mdla_curr_volt = VMDLA_DEFAULT_VOLT;
+	static int vsram_core_volt = VSRAM_DEFAULT_VOLT;
+	static int vcore_curr_volt = VCORE_DEFAULT_VOLT;
 
 	if (cmd == PWR_CMD_SET_VOLT) {
 		buck = ((struct hal_param_volt *)param)->target_buck;
@@ -286,7 +295,7 @@ void test_case(int power_on_round, int opp_change_round, int fail_stop)
 		for (j = 1 ; j <= opp_change_round ; j++) {
 			LOG_INF("## opp change round #%d start ##\n", j);
 
-		#ifdef ALL_COMBINATION
+		#if ALL_COMBINATION
 for (k = 0 ; k < APUSYS_MAX_NUM_OPPS ; k++) {
 	apusys_set_opp(VPU0, k);
 	for (m = 0 ; m < APUSYS_MAX_NUM_OPPS ; m++) {
@@ -307,10 +316,11 @@ for (k = 0 ; k < APUSYS_MAX_NUM_OPPS ; k++) {
 
 		#else
 			for (k = 0 ; k < APUSYS_DVFS_USER_NUM ; k++) {
-				//if (dvfs_user_support(k) == false)
-					//continue;
+				if (dvfs_user_support(k) == false)
+					continue;
 				opp = rand() % APUSYS_MAX_NUM_OPPS;
 				//opp = 0;
+				apusys_opps.is_power_on[k] = true;
 				apusys_set_opp(k, opp);
 			}
 

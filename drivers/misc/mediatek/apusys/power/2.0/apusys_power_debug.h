@@ -14,6 +14,10 @@
 #ifndef _APUSYS_POWER_DEBUG_H_
 #define _APUSYS_POWER_DEBUG_H_
 
+#ifdef BUILD_POLICY_TEST
+#include <stdbool.h>
+#endif
+
 extern bool is_power_debug_lock;
 extern int fixed_opp;
 

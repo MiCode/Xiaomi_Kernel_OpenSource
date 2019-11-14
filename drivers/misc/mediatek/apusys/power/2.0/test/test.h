@@ -23,6 +23,17 @@
 
 #define u32 unsigned int
 
+
+extern int g_pwr_log_level;
+extern int g_pm_procedure;
+
+enum {
+	APUSYS_PWR_LOG_WARN,
+	APUSYS_PWR_LOG_INFO,
+	APUSYS_PWR_LOG_DEBUG,
+};
+
+
 #define DVFS_TAG "[DVFS]"
 #define PWR_LOG_INF(format, args...)	printf(format, ##args)
 #define PWR_LOG_WRN(format, args...)	printf(format, ##args)
