@@ -201,7 +201,7 @@ char *mtk_iommu_get_mm_port_name(unsigned int m4uid,
 int mtk_dump_main_tlb(int m4u_id, int m4u_slave_id);
 int mtk_dump_pfh_tlb(int m4u_id);
 int mtk_iommu_dump_reg(int m4u_index, unsigned int start,
-		unsigned int end);
+		unsigned int end, char *user);
 int mtk_iommu_get_boundary_id(struct device *dev);
 int mtk_iommu_get_iova_space(struct device *dev,
 		unsigned long *base, unsigned long *max,

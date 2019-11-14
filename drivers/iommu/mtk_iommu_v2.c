@@ -596,18 +596,32 @@ void mtk_dump_reg_for_hang_issue(unsigned int type)
 }
 EXPORT_SYMBOL_GPL(mtk_dump_reg_for_hang_issue);
 
-int mtk_iommu_dump_reg(int m4u_id, unsigned int start, unsigned int end)
+int mtk_iommu_dump_reg(int m4u_id, unsigned int start,
+	unsigned int end, char *user)
 {
 	int ret = 0;
-	const struct mtk_iommu_data *data = mtk_iommu_get_m4u_data(m4u_id);
+	struct mtk_iommu_data *data = mtk_iommu_get_m4u_data(m4u_id);
+	unsigned long flags;
 
-	pr_notice("====== dump reg of iommu:%d from 0x%x to 0x%x =======>\n",
-		  m4u_id, start, end);
+	if (!data || !user)
+		return -1;
+
+	spin_lock_irqsave(&data->reg_lock, flags);
+#ifdef IOMMU_POWER_CLK_SUPPORT
+	if (!data->poweron) {
+		spin_unlock_irqrestore(&data->reg_lock, flags);
+		return 0;
+	}
+#endif
+
+	pr_notice("====== [%s] dump reg of iommu:%d from 0x%x to 0x%x =======>\n",
+		  user, m4u_id, start, end);
 
 	ret = mtk_switch_secure_debug_func(m4u_id, 1);
 	if (ret) {
 		pr_notice("%s, %d, failed to enable secure debug signal\n",
 			  __func__, __LINE__);
+		spin_unlock_irqrestore(&data->reg_lock, flags);
 		return 0;
 	}
 
@@ -618,6 +632,8 @@ int mtk_iommu_dump_reg(int m4u_id, unsigned int start, unsigned int end)
 	if (ret)
 		pr_notice("%s, %d, failed to disable secure debug signal\n",
 			  __func__, __LINE__);
+
+	spin_unlock_irqrestore(&data->reg_lock, flags);
 	return 0;
 }
 

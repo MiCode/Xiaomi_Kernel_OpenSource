@@ -1131,6 +1131,7 @@ const struct file_operations m4u_debug_help_fops = {
 
 int m4u_debug_domain_show(struct seq_file *s, void *unused)
 {
+	pr_notice("[iommu][debug]: %s\n", __func__);
 	pseudo_dump_iova_reserved_region(s);
 	return 0;
 }
@@ -1149,6 +1150,7 @@ const struct file_operations m4u_debug_domain_fops = {
 
 int m4u_debug_port_show(struct seq_file *s, void *unused)
 {
+	pr_notice("[iommu][debug]: %s\n", __func__);
 	pseudo_dump_all_port_status(s);
 	return 0;
 }
@@ -1167,6 +1169,7 @@ const struct file_operations m4u_debug_port_fops = {
 
 int m4u_debug_buf_show(struct seq_file *s, void *unused)
 {
+	pr_notice("[iommu][debug]: %s\n", __func__);
 	__m4u_dump_pgtable(s, 1, true, 0);
 	return 0;
 }
@@ -1187,6 +1190,7 @@ int m4u_debug_monitor_show(struct seq_file *s, void *unused)
 {
 	int i, j;
 
+	pr_notice("[iommu][debug]: %s\n", __func__);
 	for (i = 0; i < MTK_IOMMU_M4U_COUNT; i++)
 		for (j = 0; j < MTK_IOMMU_MMU_COUNT; j++)
 			iommu_perf_print_counter(i, j, "monitor");
@@ -1209,8 +1213,9 @@ int m4u_debug_register_show(struct seq_file *s, void *unused)
 {
 	int i;
 
+	pr_notice("[iommu][debug]: %s\n", __func__);
 	for (i = 0; i < MTK_IOMMU_M4U_COUNT; i++)
-		mtk_iommu_dump_reg(i, 0, 400);
+		mtk_iommu_dump_reg(i, 0, 400, "/d/m4u/register");
 
 	return 0;
 }
