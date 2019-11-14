@@ -496,8 +496,6 @@ s32 smi_sysram_enable(const u32 master_id, const bool enable, const char *user)
 	val = readl(smi_dev[larb]->base + SMI_LARB_NON_SEC_CON(port));
 	writel(val | ((enable ? 0xf : 0) << 16),
 		smi_dev[larb]->base + SMI_LARB_NON_SEC_CON(port));
-	SMIDBG("%s set larb%u port%u sysram %d succeeded\n",
-		user, larb, port, enable);
 	smi_bus_disable_unprepare(larb, user);
 #endif
 	return 0;
