@@ -617,6 +617,7 @@ static int tscpu_get_temp
 #else
 	curr_temp = tscpu_get_curr_temp();
 #endif
+
 	tscpu_dprintk("%s CPU T=%d\n", __func__, curr_temp);
 
 	if ((curr_temp > (trip_temp[0] - 15000))
@@ -1548,6 +1549,11 @@ static int tscpu_thermal_suspend
 	if (talking_flag == false) {
 		tscpu_dprintk("%s no talking\n", __func__);
 
+#if defined(THERMAL_KERNEL_SUSPEND_RESUME_NOTIFY)
+	lvts_ipi_send_sspm_thermal_suspend_resume(1);
+#endif
+
+
 #if (CONFIG_THERMAL_AEE_RR_REC == 1)
 		aee_rr_rec_thermal_status(TSCPU_SUSPEND);
 #endif
@@ -1733,6 +1739,10 @@ static int tscpu_thermal_resume(struct platform_device *dev)
 #endif
 #else
 		tscpu_config_all_tc_hw_protect(trip_temp[0], tc_mid_trip);
+#endif
+
+#if defined(THERMAL_KERNEL_SUSPEND_RESUME_NOTIFY)
+	lvts_ipi_send_sspm_thermal_suspend_resume(0);
 #endif
 	}
 

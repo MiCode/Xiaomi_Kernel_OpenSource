@@ -1037,6 +1037,22 @@ void lvts_ipi_send_sspm_thermal_thtottle(void)
 		udelay(100);
 }
 #endif
+
+#if defined(THERMAL_KERNEL_SUSPEND_RESUME_NOTIFY)
+void lvts_ipi_send_sspm_thermal_suspend_resume(int is_suspend)
+{
+	struct thermal_ipi_data thermal_data;
+
+	//lvts_printk("%s, is_suspend %d\n", __func__, is_suspend);
+
+	thermal_data.u.data.arg[0] = is_suspend;
+	thermal_data.u.data.arg[1] = 0;
+	thermal_data.u.data.arg[2] = 0;
+	while (thermal_to_sspm(THERMAL_IPI_SUSPEND_RESUME_NOTIFY,
+		&thermal_data) != 0)
+		udelay(100);
+}
+#endif
 #endif
 
 static unsigned int lvts_temp_to_raw(int temp, enum lvts_sensor_enum ts_name)

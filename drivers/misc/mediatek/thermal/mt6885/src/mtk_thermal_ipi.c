@@ -151,6 +151,23 @@ unsigned int thermal_to_sspm(
 			tscpu_printk("cmd(%d) return error(%d)\n",
 				cmd, ackData);
 		break;
+	case THERMAL_IPI_SUSPEND_RESUME_NOTIFY:
+		thermal_data->cmd = cmd;
+		//tscpu_printk("cmd(%d) kernel suspend/resume(%d)\n",
+		//		cmd, ack_data);
+
+		ackData = ack_data;
+
+		ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_THERMAL,
+			IPI_SEND_WAIT, thermal_data, THERMAL_SLOT_NUM, 2000);
+
+		if (ret != 0)
+			tscpu_printk("sspm_ipi_send err cmd %d,ret:%d - %d\n",
+					cmd, ret, ackData);
+		else if (ackData < 0)
+			tscpu_printk("cmd(%d) return error(%d)\n",
+				cmd, ackData);
+		break;
 
 	default:
 		tscpu_printk("cmd(%d) wrong!!\n", cmd);
