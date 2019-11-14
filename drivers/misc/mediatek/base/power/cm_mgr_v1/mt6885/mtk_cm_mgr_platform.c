@@ -904,8 +904,8 @@ void cm_mgr_set_dram_level(int level)
 {
 	int dram_level;
 
-	if (cm_mgr_disable_fb == 1 && cm_mgr_blank_status == 1 && level != 0)
-		dram_level = virt_to_phy_dram_level[0];
+	if ((cm_mgr_disable_fb == 1 && cm_mgr_blank_status == 1) || (level < 0))
+		dram_level = 0;
 	else
 		dram_level = virt_to_phy_dram_level[level];
 	dvfsrc_set_power_model_ddr_request(dram_level);
