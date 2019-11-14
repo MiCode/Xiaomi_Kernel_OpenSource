@@ -73,7 +73,7 @@ static int s4AF_WriteReg(u16 a_u2Data)
 {
 	int i4RetValue = 0;
 
-	char puSendCmd[2] = {(char)(((a_u2Data >> 8) & 0x03) | 0xC0),
+	char puSendCmd[2] = {(char)(((a_u2Data >> 8) & 0x03) | 0xC4),
 			     (char)(a_u2Data & 0xFF)};
 
 	g_pstAF_I2Cclient->addr = AF_I2C_SLAVE_ADDR;
