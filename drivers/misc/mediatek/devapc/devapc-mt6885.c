@@ -1539,6 +1539,7 @@ const char *index_to_subsys(int slave_type, uint32_t vio_index,
 		case MFG_START ... MFG_END:
 			return "MFGSYS";
 		case MM_DISP_START ... MM_DISP_END:
+		case MM_DISP2_START ... MM_DISP2_END:
 			return "MMSYS_DISP";
 		case MM_SSRAM_VIO_INDEX:
 		case MM_MDP_START ... MM_MDP_END:
