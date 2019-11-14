@@ -49,5 +49,8 @@ void cmdq_sec_mbox_enable(void *chan);
 void cmdq_sec_mbox_disable(void *chan);
 s32 cmdq_sec_mbox_chan_id(void *chan);
 void cmdq_sec_dump_notify_loop(void *chan);
+void cmdq_sec_dump_response(void *chan, struct cmdq_pkt *pkt,
+	u64 **inst, const char **dispatch);
+
 
 #endif

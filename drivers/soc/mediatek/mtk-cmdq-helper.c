@@ -1479,7 +1479,7 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 	struct cmdq_instruction *inst = NULL;
 	dma_addr_t pc = 0;
 	phys_addr_t gce_pa = cmdq_mbox_get_base_pa(client->chan);
-	const char *mod = "CMDQ";
+	const char *mod = NULL;
 	s32 thread_id = cmdq_mbox_chan_id(client->chan);
 
 	cmdq_util_dump_lock();
@@ -1490,7 +1490,18 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 	cmdq_util_err("Begin of Error %u", err_num);
 
 	cmdq_dump_core(client->chan);
+
+#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
+	IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+	/* for secure path dump more detail */
+	if (pkt->sec_data)
+		cmdq_sec_err_dump(pkt, client, (u64 **)&inst, &mod);
+	else
+		cmdq_thread_dump(client->chan, pkt, (u64 **)&inst, &pc);
+#else
 	cmdq_thread_dump(client->chan, pkt, (u64 **)&inst, &pc);
+#endif
+
 	if (inst && inst->op == CMDQ_CODE_WFE)
 		cmdq_print_wait_summary(client->chan, pc, inst);
 	else if (inst)
@@ -1510,13 +1521,6 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 	cmdq_dump_pkt(pkt, pc, true);
 	cmdq_util_dump_smi();
 
-#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
-	IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
-	/* for secure path dump more detail */
-	if (pkt->sec_data)
-		cmdq_sec_err_dump(pkt, client);
-#endif
-
 	cmdq_util_err("End of Error %u", err_num);
 	err_num++;
 
@@ -1530,7 +1534,8 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 			mod, cmdq_util_hw_name(client->chan),
 			*(u64 *)inst, inst->arg_a, thread_id);
 	} else if (inst) {
-		mod = cmdq_thread_module_dispatch(gce_pa, thread_id);
+		if (!mod)
+			mod = cmdq_thread_module_dispatch(gce_pa, thread_id);
 
 		/* not sync case, print raw */
 		cmdq_util_aee(mod,
@@ -1538,6 +1543,9 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 			mod, cmdq_util_hw_name(client->chan),
 			*(u64 *)inst, inst->op, thread_id);
 	} else {
+		if (!mod)
+			mod = "CMDQ";
+
 		/* no inst available */
 		cmdq_util_aee(mod, "DISPATCH:%s(%s) unknown instruction",
 			mod, cmdq_util_hw_name(client->chan));

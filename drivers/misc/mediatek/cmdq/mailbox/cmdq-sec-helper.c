@@ -294,10 +294,12 @@ int cmdq_sec_pkt_wait_complete(struct cmdq_pkt *pkt,
 }
 EXPORT_SYMBOL(cmdq_sec_pkt_wait_complete);
 
-void cmdq_sec_err_dump(struct cmdq_pkt *pkt, struct cmdq_client *client)
+void cmdq_sec_err_dump(struct cmdq_pkt *pkt, struct cmdq_client *client,
+	u64 **inst, const char **dispatch)
 {
 	cmdq_sec_dump_notify_loop(client->chan);
 	cmdq_sec_dump_secure_data(pkt);
+	cmdq_sec_dump_response(client->chan, pkt, inst, dispatch);
 }
 EXPORT_SYMBOL(cmdq_sec_err_dump);
 

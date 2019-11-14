@@ -146,6 +146,10 @@ struct cmdq_sec_data {
 
 	u32 client_meta_size[4];
 	void *client_meta[4];
+
+	/* response */
+	s32 response;
+	struct iwcCmdqSecStatus_t sec_status;
 };
 
 /* implementation in cmdq-sec-helper.c */
@@ -162,6 +166,7 @@ s32 cmdq_sec_pkt_assign_metadata(struct cmdq_pkt *pkt,
 void cmdq_sec_dump_secure_data(struct cmdq_pkt *pkt);
 int cmdq_sec_pkt_wait_complete(struct cmdq_pkt *pkt,
 	struct completion *cmplt);
-void cmdq_sec_err_dump(struct cmdq_pkt *pkt, struct cmdq_client *client);
+void cmdq_sec_err_dump(struct cmdq_pkt *pkt, struct cmdq_client *client,
+	u64 **inst, const char **dispatch);
 
 #endif
