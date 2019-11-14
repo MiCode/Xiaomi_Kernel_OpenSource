@@ -33,7 +33,6 @@
 #include "cam_cal.h"
 
 #define DEV_NODE_NAME_PREFIX "camera_eeprom"
-#define DEV_NAME_STR_LEN_MAX 50
 #define DEV_NAME_FMT "camera_eeprom%u"
 #define DEV_CLASS_NAME_FMT "camera_eepromdrv%u"
 #define EEPROM_DEVICE_NNUMBER 255
@@ -349,7 +348,8 @@ static inline int eeprom_driver_register(struct i2c_client *client,
 		return -EAGAIN;
 	}
 
-	pinst->pclass = class_create(THIS_MODULE, class_drv_name);
+	memcpy(pinst->class_name, class_drv_name, DEV_NAME_STR_LEN_MAX);
+	pinst->pclass = class_create(THIS_MODULE, pinst->class_name);
 	if (IS_ERR(pinst->pclass)) {
 		int ret = PTR_ERR(pinst->pclass);
 

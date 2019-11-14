@@ -22,10 +22,13 @@
 // TODO: Move to Kconfig
 #define MAX_EEPROM_NUMBER 5
 
+#define DEV_NAME_STR_LEN_MAX 50
+
 struct EEPROM_DRV {
 	dev_t dev_no;
 	struct cdev cdev;
 	struct class *pclass;
+	char class_name[DEV_NAME_STR_LEN_MAX];
 
 	struct i2c_client *pi2c_client;
 	struct mutex eeprom_mutex;
