@@ -97,7 +97,7 @@ struct setupfw_t {
 
 static void setupfw_timer_callback(unsigned long _data)
 {
-//#ifdef MTK_QOS_FRAMEWORK
+#ifdef MTK_QOS_FRAMEWORK
 	struct qos_ipi_data qos_d;
 	int ret;
 	struct setupfw_t data = *(struct setupfw_t *)_data;
@@ -122,7 +122,7 @@ static void setupfw_timer_callback(unsigned long _data)
 		timer_setupFW.expires = jiffies + HZ * 5;
 		add_timer(&timer_setupFW);
 	}
-//#endif
+#endif
 }
 
 static void _MTKGPUQoS_setupFW(phys_addr_t phyaddr, size_t size)
