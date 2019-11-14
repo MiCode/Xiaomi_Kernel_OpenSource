@@ -41,9 +41,9 @@
 #define MUTT_ACTIVATED_FILTER		(0x00FF0000)
 #define MUTT_SUSPEND_FILTER		(0xFF000000)
 #define MUTT_LEVEL_CTRL_CMD_FILTER	(0x0000FFFF)
-#define TMC_IMS_ONLY_LEVEL	(6)
-#define TMC_NO_IMS_LEVEL	(7)
-#define TMC_MD_OFF_LEVEL	(8)
+#define TMC_IMS_ONLY_LEVEL		(TMC_COOLER_LV7)
+#define TMC_NO_IMS_LEVEL		(TMC_COOLER_LV8)
+#define TMC_MD_OFF_LEVEL		(0xFF)
 #define TMC_CA_CTRL_CA_ON \
 	(TMC_CTRL_CMD_CA_CTRL | TMC_CA_ON << 8)
 #define TMC_CA_CTRL_CA_OFF \
@@ -93,7 +93,7 @@
 #endif
 
 /* State of "MD off & noIMS" are not included. */
-#define MAX_NUM_INSTANCE_MTK_COOLER_MUTT  7
+#define MAX_NUM_INSTANCE_MTK_COOLER_MUTT  8
 
 #define MTK_CL_MUTT_GET_LIMIT(limit, state) \
 { (limit) = (short) (((unsigned long) (state))>>16); }
@@ -109,9 +109,9 @@ do { \
 		state |= 0x1; \
 } while (0)
 
-#define IS_MD_OFF(lv)			(lv == (int)TMC_COOLER_LV8)
-#define IS_MD_OFF_OR_NO_IMS(lv)		(lv >= (int)TMC_COOLER_LV7)
-#define IS_IMS_ONLY(lv)			(lv == (int)TMC_COOLER_LV6)
+#define IS_MD_OFF(lv)			(lv == (int)TMC_MD_OFF_LEVEL)
+#define IS_MD_OFF_OR_NO_IMS(lv)		(lv >= (int)TMC_NO_IMS_LEVEL)
+#define IS_IMS_ONLY(lv)			(lv == (int)TMC_IMS_ONLY_LEVEL)
 #define IS_MUTT_TYPE_VALID(type)	((unsigned int)type < NR_MUTT_TYPE)
 
 #define for_each_mutt_type(i)	for (i = 0; i < NR_MUTT_TYPE; i++)
@@ -1672,9 +1672,11 @@ static ssize_t clmutt_cooler_lv_proc_write(struct file *filp,
 
 		mutex_lock(&clmutt_data.lock);
 
-		if (lv < 0) {
+		/* not support MD off by setting cooler LV */
+		if (lv < 0 || lv > MAX_NUM_INSTANCE_MTK_COOLER_MUTT) {
 			limit = MUTT_TMC_COOLER_LV_DISABLE;
 			ret = clmutt_disable_cooler_lv_ctrl();
+			lv = -1;
 		} else {
 			limit = clmutt_level_selection(lv, type);
 			ret = clmutt_send_tmc_cmd(limit);
