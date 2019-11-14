@@ -454,6 +454,14 @@ config MACH_MT6873
 	select MTK_BOUNCING_CHECK if AEE_FEATURE
 	select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
 	select MTK_TIMER_SYSTIMER
+	select OVERLAY_FS
+	select EXT4_FS
+	select EXT4_FS_SECURITY
+	select EXT4_ENCRYPTION
+	select F2FS_FS
+	select F2FS_FS_ENCRYPTION
+	select F2FS_FS_SECURITY
+	select F2FS_FS_XATTR
 	help
 	  This enables support for MediaTek MT6873
 	  Support for aarch64 Architecture
