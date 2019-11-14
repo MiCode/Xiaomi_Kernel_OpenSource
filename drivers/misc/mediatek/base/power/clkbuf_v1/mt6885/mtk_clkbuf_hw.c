@@ -22,6 +22,7 @@
 #include <mtk_clkbuf_common.h>
 #include <linux/arm-smccc.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
+#include <linux/syscore_ops.h>
 
 /* TODO: UFS no use clockbuff*/
 #if defined(CONFIG_MTK_UFS_SUPPORT)
@@ -1564,6 +1565,40 @@ void pwrap_clk_buf_inf(void)
 #endif
 }
 
+static int clkbuf_syscore_dbg_suspend(void)
+{
+	u32 rg_auxout = 0;
+
+	rg_auxout = dcxo_dbg_read_auxout(6);
+	clk_buf_pr_dbg("%s: sel io_dbg5: rg_auxout=0x%x\n",
+		__func__, rg_auxout);
+	xo_en_stat[XO_SOC] = (rg_auxout & (0x1 << 13)) >> 13;
+	xo_en_stat[XO_WCN] = (rg_auxout & (0x1 << 11)) >> 11;
+	xo_en_stat[XO_NFC] = (rg_auxout & (0x1 << 9)) >> 9;
+	xo_en_stat[XO_CEL] = (rg_auxout & (0x1 << 7)) >> 7;
+	xo_en_stat[XO_PD] = (rg_auxout & (0x1 << 5)) >> 5;
+	xo_en_stat[XO_EXT] = (rg_auxout & (0x1 << 3)) >> 3;
+
+	if (xo_en_stat[XO_WCN])
+		pr_info("suspend warning: XO_WCN is on!!");
+	if (xo_en_stat[XO_NFC])
+		pr_info("suspend warning: XO_NFC is on!!");
+	if (xo_en_stat[XO_CEL])
+		pr_info("suspend warning: XO_CEL is on!!");
+	if (xo_en_stat[XO_PD])
+		pr_info("suspend warning: XO_PD is on!!");
+	if (xo_en_stat[XO_EXT])
+		pr_info("suspend warning: XO_EXT is on!!");
+
+	return 0;
+}
+static void clkbuf_syscore_dbg_resume(void) {}
+
+static struct syscore_ops clkbuf_dbg_syscore_ops = {
+	.suspend = clkbuf_syscore_dbg_suspend,
+	.resume = clkbuf_syscore_dbg_resume,
+};
+
 void clk_buf_post_init(void)
 {
 #if 0
@@ -1619,5 +1654,7 @@ void clk_buf_post_init(void)
 	pwrap_dcxo_en_init = clkbuf_readl(PMIFSPI_OTHER_INF_EN);
 	pwrap_rc_spi_en_init = clkbuf_readl(PMIFSPI_INF_EN);
 	pwrap_clk_buf_inf();
+
+	register_syscore_ops(&clkbuf_dbg_syscore_ops);
 }
 
