@@ -140,6 +140,23 @@ static void __arm64_workaround_1542418_asid_rollover(void)
 	 */
 }
 
+void arm64_workaround_1542418_asid_rollover(void)
+{
+	u64 ttbr0 = read_sysreg(ttbr0_el1);
+
+	lockdep_assert_irqs_disabled();
+
+	/* Mirror check_and_switch_context() */
+	if (system_supports_cnp())
+		cpu_set_reserved_ttbr0();
+
+	__arm64_workaround_1542418_asid_rollover();
+	isb();
+
+	write_sysreg(ttbr0, ttbr0_el1);
+	isb();
+}
+
 static void flush_context(unsigned int cpu)
 {
 	int i;
