@@ -233,7 +233,7 @@ static int ion_mm_pool_total(struct ion_system_heap *heap,
 	return count;
 }
 
-#define MTK_GET_DOMAIN_IGNORE DOMAIN_NUM
+#define MTK_GET_DOMAIN_IGNORE (DOMAIN_NUM + 1)
 static int ion_get_domain_id(int from_kernel, int *port)
 {
 	int domain_idx = 0;
@@ -1836,6 +1836,7 @@ static int mtk_ion_copy_param(unsigned int type,
 			else
 				buffer_info->module_id =
 				    param.get_phys_param.module_id;
+			break;
 		}
 #ifndef CONFIG_MTK_IOMMU_V2
 		if ((buffer_info->MVA[domain_idx] == 0 &&
