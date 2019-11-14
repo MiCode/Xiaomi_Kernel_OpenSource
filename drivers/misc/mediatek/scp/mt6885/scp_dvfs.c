@@ -84,6 +84,12 @@ static int scp_dvfs_flag = 1;
  */
 static int scp_sleep_flag = 1;
 
+/*
+ * -1: SCP Debug CMD: off,
+ * 0-4: SCP DVFS Debug OPP.
+ */
+static int scp_dvfs_debug_flag = -1;
+
 static int pre_pll_sel = -1;
 static struct mt_scp_pll_t *mt_scp_pll;
 static struct wakeup_source scp_suspend_lock;
@@ -215,6 +221,27 @@ uint32_t scp_get_freq(void)
 		return_freq = CLK_OPP4;
 		pr_debug("warning: request freq %d > max opp %d\n",
 				sum, CLK_OPP4);
+	}
+
+	/*
+	 * return fix opp if it meets following two cond.
+	 * 1. in debug mode
+	 * 2. fix opp > request opp.
+	 */
+	if (scp_dvfs_debug_flag != -1) {
+		pr_info("warning: SCP DVFS is in debug mode, fix opp%d\n",
+				scp_dvfs_debug_flag);
+
+		if (scp_dvfs_debug_flag == 0 && return_freq < CLK_OPP0)
+			return_freq = CLK_OPP0;
+		else if (scp_dvfs_debug_flag == 1 && return_freq < CLK_OPP1)
+			return_freq = CLK_OPP1;
+		else if (scp_dvfs_debug_flag == 2 && return_freq < CLK_OPP2)
+			return_freq = CLK_OPP2;
+		else if (scp_dvfs_debug_flag == 3 && return_freq < CLK_OPP3)
+			return_freq = CLK_OPP3;
+		else if (scp_dvfs_debug_flag == 4 && return_freq < CLK_OPP4)
+			return_freq = CLK_OPP4;
 	}
 
 	return return_freq;
@@ -663,9 +690,15 @@ static ssize_t mt_scp_dvfs_ctrl_proc_write(
 		} else if (!strcmp(cmd, "opp")) {
 			if (dvfs_opp == -1) {
 				pr_info("remove the opp setting of command\n");
+
 				feature_table[VCORE_TEST_FEATURE_ID].freq = 0;
+
 				scp_deregister_feature(VCORE_TEST_FEATURE_ID);
+
+				scp_dvfs_debug_flag = dvfs_opp;
 			} else if (dvfs_opp >= 0 && dvfs_opp <= 4) {
+				scp_dvfs_debug_flag = dvfs_opp;
+
 				_mt_scp_dvfs_set_test_opp(dvfs_opp);
 
 				scp_register_feature(VCORE_TEST_FEATURE_ID);
