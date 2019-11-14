@@ -137,22 +137,25 @@ int pe40_stop(void)
 	if (pe4 == NULL)
 		return -1;
 
-	adapter_set_cap_end(5000, 2000);
+	if (pe4->is_connect == true) {
+		adapter_set_cap_end(5000, 2000);
 
-	pe40_set_mivr(pe4->data.min_charger_voltage);
-	pmic_enable_hw_vbus_ovp(true);
-	enable_vbus_ovp(true);
-	chr_err("set TD true\n");
-	charger_enable_termination(true);
+		pe40_set_mivr(pe4->data.min_charger_voltage);
+		pmic_enable_hw_vbus_ovp(true);
+		enable_vbus_ovp(true);
+		chr_err("set TD true\n");
+		charger_enable_termination(true);
 
-	pe4->state = PE40_INIT;
-	pe4->cap.nr = 0;
-	pe4->pe4_input_current_limit = -1;
-	pe4->pe4_input_current_limit_setting = -1;
-	pe4->max_vbus = pe4->data.pe40_max_vbus;
-	pe4->max_ibus = pe4->data.pe40_max_ibus;
-	pe4->max_charger_ibus = pe4->data.pe40_max_ibus *
-				(100 - pe4->data.ibus_err) / 100;
+		pe4->state = PE40_INIT;
+		pe4->is_connect = false;
+		pe4->cap.nr = 0;
+		pe4->pe4_input_current_limit = -1;
+		pe4->pe4_input_current_limit_setting = -1;
+		pe4->max_vbus = pe4->data.pe40_max_vbus;
+		pe4->max_ibus = pe4->data.pe40_max_ibus;
+		pe4->max_charger_ibus = pe4->data.pe40_max_ibus *
+					(100 - pe4->data.ibus_err) / 100;
+	}
 
 	return 0;
 }
@@ -378,6 +381,7 @@ int pe40_init_state(void)
 	enable_vbus_ovp(false);
 
 	adapter_get_pps_cap(&pe4->cap);
+	pe4->is_connect = true;
 
 	voltage = 0;
 	pe40_get_setting_by_watt(&voltage, &adapter_ibus,
@@ -797,6 +801,7 @@ int pe40_init(void)
 
 		pe4 = pe40;
 		pe4->state = PE40_INIT;
+		pe4->is_connect = false;
 
 		pe4->data.input_current_limit = 3000000;
 		pe4->data.charging_current_limit = 3000000;

@@ -476,6 +476,16 @@ static int select_pe40_charging_current_limit(struct charger_manager *info)
 	if (ret != -ENOTSUPP && pdata->input_current_limit < aicr1_min)
 		pdata->input_current_limit = 0;
 
+	chr_err("force:%d thermal:%d,%d setting:%d %d type:%d usb_unlimited:%d usbif:%d usbsm:%d aicl:%d atm:%d\n",
+		_uA_to_mA(pdata->force_charging_current),
+		_uA_to_mA(pdata->thermal_input_current_limit),
+		_uA_to_mA(pdata->thermal_charging_current_limit),
+		_uA_to_mA(pdata->input_current_limit),
+		_uA_to_mA(pdata->charging_current_limit),
+		info->chr_type, info->usb_unlimited,
+		IS_ENABLED(CONFIG_USBIF_COMPLIANCE), info->usb_state,
+		pdata->input_current_limit_by_aicl, info->atm_enabled);
+
 	return 0;
 }
 
@@ -585,6 +595,16 @@ static int select_pdc_charging_current_limit(struct charger_manager *info)
 	ret = charger_dev_get_min_input_current(info->chg1_dev, &aicr1_min);
 	if (ret != -ENOTSUPP && pdata->input_current_limit < aicr1_min)
 		pdata->input_current_limit = 0;
+
+	chr_err("force:%d thermal:%d,%d setting:%d %d type:%d usb_unlimited:%d usbif:%d usbsm:%d aicl:%d atm:%d\n",
+		_uA_to_mA(pdata->force_charging_current),
+		_uA_to_mA(pdata->thermal_input_current_limit),
+		_uA_to_mA(pdata->thermal_charging_current_limit),
+		_uA_to_mA(pdata->input_current_limit),
+		_uA_to_mA(pdata->charging_current_limit),
+		info->chr_type, info->usb_unlimited,
+		IS_ENABLED(CONFIG_USBIF_COMPLIANCE), info->usb_state,
+		pdata->input_current_limit_by_aicl, info->atm_enabled);
 
 	return 0;
 }

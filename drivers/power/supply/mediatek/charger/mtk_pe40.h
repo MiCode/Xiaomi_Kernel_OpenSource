@@ -67,6 +67,7 @@ struct pe40_data {
 
 struct pe40 {
 	int state;
+	bool is_connect;
 	bool can_query;
 	struct pps_cap cap;
 	struct pe40_data data;
