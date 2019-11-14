@@ -4358,12 +4358,115 @@ void mipi_26m_en(unsigned int module_idx, int en)
 }
 #endif
 
+static int mux_table[64][2] = {
+	/* ID offset pdn_bit */
+	{0, 0}, //dummy index
+	{0x10, 7},//axi=1
+	{0x10, 15},//spm
+	{0x10, 23},//scp
+	{0x10, 31},//aximem
+
+	{0x20, 7},//disp
+	{0x20, 15},//mdp
+	{0x20, 23},//img1
+	{0x20, 31},//img2
+
+	{0x30, 7},//ipe
+	{0x30, 15},//dpe
+	{0x30, 23},//cam
+	{0x30, 31},//ccu
+
+	{0x40, 7},//dsp
+	{0x40, 15},//dsp1
+	{0x40, 23},//dsp2
+	{0x40, 31},//dsp3
+
+	{0x50, 7},//dsp4
+	{0x50, 15},//dsp5
+	{0x50, 23},//dsp6
+	{0x50, 31},//dsp7
+
+	{0x60, 7},//ipu if
+	{0x60, 15},//mfg
+	{0x60, 23},//camtg
+	{0x60, 31},//camtg2
+
+	{0x70, 7},//camtg3
+	{0x70, 15},//camtg4
+	{0x70, 23},//uart
+	{0x70, 31},//spi
+
+	{0x80, 7},//msdc50_0_hclk
+	{0x80, 15},//msdc50_0
+	{0x80, 23},//msdc30_1
+	{0x80, 31},//audio
+
+	{0x90, 7},//aud_intbus
+	{0x90, 15},//pwrap_ulposc
+	{0x90, 23},//atb
+	{0x90, 31},//sspm
+
+	{0xA0, 7},//dp
+	{0xA0, 15},//scam
+	{0xA0, 23},//disp_pwm
+	{0xA0, 31},//usb top
+
+	{0xB0, 7},//ssusb xhci
+	{0xB0, 15},//i2c
+	{0xB0, 23},//seninf
+
+	{0x100, 31},//mcupm
+	{0x110, 7},//spmi mst
+	{0x110, 15},//dvfsrc
+	{0xC0, 23},//dxcc
+	{0xC0, 31},//aud_engen1
+
+	{0xD0, 7},//aud_engen2
+	{0xD0, 15},//aes ufsfde
+	{0xD0, 23},//ufs
+	{0xD0, 31},//aud_1
+
+	{0xE0, 7},//aud_2
+	{0xE0, 15},//adsp
+	{0xE0, 23},//dpmaif
+	{0xE0, 31},//venc
+
+	{0xF0, 7},//vdec
+	{0xF0, 15},//vdec_lat
+	{0xF0, 23},//camtm
+	{0xF0, 31},//pwm
+
+	{0x100, 7},//audio_h
+	{0x100, 15},//camtg5
+	{0x100, 23},//camtg6=63
+};
+
+unsigned int check_mux_pdn(unsigned int ID)
+{
+#if 0
+	pr_notice("%s: ID=%d, check:%08x, %08x(%08x)\r\n",
+			__func__, ID, mux_table[ID][0], BIT(mux_table[ID][1]),
+			clk_readl(cksys_base + mux_table[ID][0])
+				& BIT(mux_table[ID][1]));
+#endif
+	if ((ID <= 0) ||
+		(clk_readl(cksys_base + mux_table[ID][0])
+			& BIT(mux_table[ID][1])))
+		return 1;
+	else
+		return 0;
+}
+
 unsigned int mt_get_ckgen_freq(unsigned int ID)
 {
 	int output = 0, i = 0;
 	unsigned int temp, clk_dbg_cfg, clk_misc_cfg_0, clk26cali_1 = 0;
 	unsigned long flags;
 
+	if (check_mux_pdn(ID)) {
+		//pr_notice("ID-%d: MUX PDN, return 0.\r\n", ID);
+		return 0;
+	}
 	fmeter_lock(flags);
 
 	clk_dbg_cfg = clk_readl(CLK_DBG_CFG);
