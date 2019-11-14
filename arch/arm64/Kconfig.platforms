@@ -414,6 +414,7 @@ config MACH_MT6885
 	select F2FS_FS_ENCRYPTION
 	select F2FS_FS_SECURITY
 	select F2FS_FS_XATTR
+	select DM_BOW
 	select MTK_SYSTRACKER_V2
 	select MTK_SECURITY_SW_SUPPORT
 	select MTK_PLAT_SRAM_FLAG
@@ -462,6 +463,7 @@ config MACH_MT6873
 	select F2FS_FS_ENCRYPTION
 	select F2FS_FS_SECURITY
 	select F2FS_FS_XATTR
+	select DM_BOW
 	help
 	  This enables support for MediaTek MT6873
 	  Support for aarch64 Architecture
