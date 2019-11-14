@@ -1322,6 +1322,11 @@ static int dpmaif_send_skb_to_net(struct dpmaif_rx_queue *rxq,
 	struct lhif_header *lhif_h; /* for uplayer: port/ccmni */
 	struct ccci_header ccci_h; /* for collect debug info. */
 
+	if (rxq->pit_dp) {
+		dev_kfree_skb_any(new_skb);
+		goto END;
+	}
+
 	/* md put the ccmni_index to the msg pkt,
 	 * so we need push it by self. maybe no need
 	 */
@@ -1346,7 +1351,7 @@ static int dpmaif_send_skb_to_net(struct dpmaif_rx_queue *rxq,
 	ret = ccci_skb_to_list(&rxq->skb_list, new_skb);
 	if (ret < 0)
 		return ret;
-
+END:
 	cur_skb->skb = NULL;
 	rxq->bat_req.bid_btable[skb_idx] = 0;
 	return ret;
@@ -1473,6 +1478,7 @@ static int dpmaif_rx_start(struct dpmaif_rx_queue *rxq, unsigned short pit_cnt,
 			dpmaif_rx_msg_pit(rxq,
 				(struct dpmaifq_msg_pit *)pkt_inf_t);
 			rxq->skb_idx = -1;
+			rxq->pit_dp = ((struct dpmaifq_msg_pit *)pkt_inf_t)->dp;
 		} else if (pkt_inf_t->packet_type == DES_PT_PD) {
 #ifdef HW_FRG_FEATURE_ENABLE
 			if (pkt_inf_t->buffer_type != PKT_BUF_FRAG) {

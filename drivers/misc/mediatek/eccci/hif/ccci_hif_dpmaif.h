@@ -260,6 +260,7 @@ struct dpmaif_rx_queue {
 	int skb_idx;
 
 	struct ccci_skb_queue skb_list;
+	unsigned int pit_dp;
 };
 
 /****************************************************************************
