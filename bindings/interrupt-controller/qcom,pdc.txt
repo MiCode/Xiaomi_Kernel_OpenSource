@@ -51,12 +51,6 @@ Properties:
 		    The second element is the GIC hwirq number for the PDC port.
 		    The third element is the number of interrupts in sequence.
 
-- qcom,scm-spi-cfg:
-	Usage: optional
-	Value type: <bool>
-	Definition: Specifies if the SPI configuration registers have to be
-		    written from the firmware.
-
 Example:
 
 	pdc: interrupt-controller@b220000 {
@@ -66,7 +60,6 @@ Example:
 		#interrupt-cells = <2>;
 		interrupt-parent = <&intc>;
 		interrupt-controller;
-		qcom,scm-spi-cfg;
 	};
 
 DT binding of a device that wants to use the GIC SPI 514 as a wakeup
