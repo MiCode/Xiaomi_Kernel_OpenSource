@@ -4399,12 +4399,20 @@ static inline bool spf_p4d_flunked(p4d_t *p4d)
 }
 #endif
 
+#ifndef spf_access_check
+static inline bool spf_access_error(unsigned long access_vm,
+				  unsigned long vma_flags)
+{
+	return vma_flags & access_vm ? false : true;
+}
+#endif
+
 /*
  * Tries to handle the page fault in a speculative way, without grabbing the
  * mmap_sem.
  */
 int __handle_speculative_fault(struct mm_struct *mm, unsigned long address,
-			       unsigned int flags)
+			       unsigned int flags, unsigned long access_vm)
 {
 	struct vm_fault vmf = {
 		.address = address,
@@ -4433,6 +4441,10 @@ int __handle_speculative_fault(struct mm_struct *mm, unsigned long address,
 
 	vmf.vma_flags = READ_ONCE(vma->vm_flags);
 	vmf.vma_page_prot = READ_ONCE(vma->vm_page_prot);
+
+	/* check whether it is an access_error */
+	if (spf_access_error(access_vm, vmf.vma_flags))
+		goto out_put;
 
 	if (vma_is_anonymous(vma)) {
 		/*
