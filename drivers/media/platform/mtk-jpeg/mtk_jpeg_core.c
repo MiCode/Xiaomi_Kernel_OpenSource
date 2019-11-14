@@ -316,7 +316,7 @@ void mtk_jpeg_update_bw_request(struct mtk_jpeg_ctx *ctx,
 
 
 	if (config->enc_format == JPEG_YUV_FORMAT_YUYV ||
-		config->enc_format == JPEG_YUV_FORMAT_YUYV) {
+		config->enc_format == JPEG_YUV_FORMAT_YVYU) {
 		mm_qos_set_request(&jpeg->jpeg_y_rdma, emi_bw * 2,
 				 0, BW_COMP_NONE);
 		mm_qos_set_request(&jpeg->jpeg_c_rdma, emi_bw,
