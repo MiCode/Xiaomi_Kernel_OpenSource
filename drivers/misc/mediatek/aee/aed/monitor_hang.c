@@ -1568,10 +1568,7 @@ static void ShowStatus(int flag)
 #ifdef CONFIG_MTK_GPU_SUPPORT
 		mtk_dump_gpu_memory_usage();
 #endif
-#ifdef CONFIG_MTK_WQ_DEBUG
-		wq_debug_dump();
-#endif
-
+		show_workqueue_state();
 	}
 }
 
