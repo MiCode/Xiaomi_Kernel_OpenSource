@@ -428,7 +428,7 @@ int mtk_drm_ioctl_aal_eventctl(struct drm_device *dev, void *data,
 	struct mtk_ddp_comp *comp = private->ddp_comp[DDP_COMPONENT_AAL0];
 	struct mtk_disp_aal *aal_data = comp_to_aal(comp);
 
-	int ret = IRQ_NONE;
+	int ret = 0;
 	unsigned long flags, clockflags;
 	int *enabled = (int *)data;
 
@@ -441,12 +441,11 @@ int mtk_drm_ioctl_aal_eventctl(struct drm_device *dev, void *data,
 		*enabled = 1;
 	}
 	if (spin_trylock_irqsave(&g_aal_clock_lock, clockflags)) {
-		if (atomic_read(&aal_data->is_clock_on) != 1)
+		if (atomic_read(&aal_data->is_clock_on) != 1) {
 			DDPPR_ERR("%s: clock is off\n", __func__);
-		else {
+			ret = -EFAULT;
+		} else
 			disp_aal_set_interrupt(comp, *enabled);
-			ret = IRQ_HANDLED;
-		}
 		spin_unlock_irqrestore(&g_aal_clock_lock, clockflags);
 	}
 	spin_unlock_irqrestore(&g_aal_irq_en_lock, flags);
