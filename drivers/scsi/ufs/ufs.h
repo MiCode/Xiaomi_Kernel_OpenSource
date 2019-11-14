@@ -73,7 +73,6 @@ enum {
 	UFS_UPIU_RPMB_WLUN		= 0xC4,
 };
 
-#if defined(CONFIG_UFSHPB)
 /**
  * ufs_is_valid_unit_desc_lun - checks if the given LUN has a unit descriptor
  * @lun: LU number to check
@@ -83,7 +82,6 @@ static inline bool ufs_is_valid_unit_desc_lun(u8 lun)
 {
 	return (lun == UFS_UPIU_RPMB_WLUN || (lun < UFS_UPIU_MAX_GENERAL_LUN));
 }
-#endif
 
 /*
  * UFS Protocol Information Unit related definitions
@@ -147,6 +145,11 @@ enum flag_idn {
 	QUERY_FLAG_IDN_BKOPS_EN         = 0x04,
 	/* MTK PATCH: flag for fw update feasibility check */
 	QUERY_FLAG_IDN_PERMANENTLY_DISABLE_FW_UPDATE = 0xB,
+#if defined(CONFIG_UFSTW)
+	QUERY_FLAG_IDN_TW_EN				= 0x0E,
+	QUERY_FLAG_IDN_TW_BUF_FLUSH_EN			= 0x0F,
+	QUERY_FLAG_IDN_TW_FLUSH_DURING_HIBERN = 0x10,
+#endif
 };
 
 /* Attribute idn for Query requests */
@@ -159,6 +162,14 @@ enum attr_idn {
 	QUERY_ATTR_IDN_EE_STATUS	= 0x0E,
 	/* MTK PATCH: attribute for FFU status check */
 	QUERY_ATTR_IDN_DEVICE_FFU_STATUS = 0x14,
+#if defined(CONFIG_UFSTW)
+	QUERY_ATTR_IDN_TW_FLUSH_STATUS		= 0x1C,
+	QUERY_ATTR_IDN_TW_BUF_SIZE		= 0x1D,
+	QUERY_ATTR_IDN_TW_BUF_LIFETIME_EST	= 0x1E,
+#endif
+#if defined(CONFIG_UFSFEATURE)
+	QUERY_ATTR_IDN_SUP_VENDOR_OPTIONS	= 0xFF,
+#endif
 };
 
 /* MTK PATCH: status of FFU */
@@ -208,12 +219,6 @@ enum geometry_desc_param_offset {
 	GEOMETRY_DESC_LEN		= 0x0,
 	GEOMETRY_DESC_TYPE		= 0x1,
 	GEOMETRY_DESC_RPMB_RW_SIZE	= 0x17,
-#if defined(CONFIG_UFSHPB)
-	GEOMETRY_DESC_HPB_REGION_SIZE			= 0x48,
-	GEOMETRY_DESC_HPB_NUMBER_LU			= 0x49,
-	GEOMETRY_DESC_HPB_SUBREGION_SIZE		= 0x4A,
-	GEOMETRY_DESC_HPB_DEVICE_MAX_ACTIVE_REGIONS	= 0x4B,
-#endif
 };
 
 /* Unit descriptor parameters offsets in bytes*/
@@ -238,6 +243,9 @@ enum unit_desc_param {
 	UNIT_DESC_HPB_LU_MAX_ACTIVE_REGIONS		= 0x23,
 	UNIT_DESC_HPB_LU_PIN_REGION_START_OFFSET	= 0x25,
 	UNIT_DESC_HPB_LU_NUM_PIN_REGIONS		= 0x27,
+#endif
+#if defined(CONFIG_UFSTW)
+	UNIT_DESC_TW_LU_MAX_BUF_SIZE			= 0x29,
 #endif
 };
 
@@ -270,13 +278,37 @@ enum device_desc_param {
 	DEVICE_DESC_PARAM_UD_LEN		= 0x1B,
 	DEVICE_DESC_PARAM_RTT_CAP		= 0x1C,
 	DEVICE_DESC_PARAM_FRQ_RTC		= 0x1D,
-#if defined(CONFIG_UFSHPB)
 	DEVICE_DESC_PARAM_FEAT_SUP		= 0x1F,
-#endif
 	/* MTK PATCH: Product Revision Level index in String Descriptor */
 	DEVICE_DESC_PARAM_PRDCT_REV		= 0x2A,
 #if defined(CONFIG_UFSHPB)
 	DEVICE_DESC_PARAM_HPB_VER		= 0x40,
+#endif
+#if defined(CONFIG_UFSFEATURE)
+	DEVICE_DESC_PARAM_EX_FEAT_SUP		= 0x4F,
+#endif
+#if defined(CONFIG_UFSTW)
+	DEVICE_DESC_PARAM_TW_RETURN_TO_USER	= 0x53,
+	DEVICE_DESC_PARAM_TW_BUF_TYPE		= 0x54,
+	DEVICE_DESC_PARAM_TW_VER		= 0x55,
+#endif
+};
+
+enum geometry_desc_param {
+	GEOMETRY_DESC_SEGMENT_SIZE = 0x0D,
+#if defined(CONFIG_UFSHPB)
+	GEOMETRY_DESC_HPB_REGION_SIZE			= 0x48,
+	GEOMETRY_DESC_HPB_NUMBER_LU			= 0x49,
+	GEOMETRY_DESC_HPB_SUBREGION_SIZE		= 0x4A,
+	GEOMETRY_DESC_HPB_DEVICE_MAX_ACTIVE_REGIONS	= 0x4B,
+#endif
+#if defined(CONFIG_UFSTW)
+	GEOMETRY_DESC_TW_MAX_SIZE			= 0x4F,
+	GEOMETRY_DESC_TW_NUMBER_LU			= 0x53,
+	GEOMETRY_DESC_TW_CAP_ADJ_FAC			= 0x54,
+	GEOMETRY_DESC_TW_SUPPORT_USER_REDUCTION_TYPES	= 0x55,
+	GEOMETRY_DESC_TW_SUPPORT_BUF_TYPE		= 0x56,
+	GEOMETRY_DESC_TW_GROUP_NUM_CAP			= 0x57,
 #endif
 };
 
@@ -321,6 +353,9 @@ enum power_desc_param_offset {
 enum {
 	MASK_EE_STATUS		= 0xFFFF,
 	MASK_EE_URGENT_BKOPS	= (1 << 2),
+#if defined(CONFIG_UFSTW)
+	MASK_EE_TW		= (1 << 5),
+#endif
 };
 
 /* Background operation status */

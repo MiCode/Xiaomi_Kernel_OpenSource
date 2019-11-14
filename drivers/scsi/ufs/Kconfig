@@ -102,18 +102,6 @@ config SCSI_UFS_QCOM
 	  Select this if you have UFS controller on QCOM chipset.
 	  If unsure, say N.
 
-config UFSHPB
-	bool "UFSHPB (EXPERIMENTAL)"
-	depends on SCSI_UFSHCD
-	---help---
-	  This selects the UFSHPB v1.0 test driver.
-	  HPB can improve UFS storage random read performance over 1G.
-	  This is the new feature for UFS.
-
-	  Say Y if you want to use UFSHPB as default support.
-
-	  If unsure, say N.
-
 config MTK_UFS_SUPPORT
 	bool "MTK specific hooks to UFS controller platform driver"
 	depends on SCSI_UFSHCD_PLATFORM
@@ -138,3 +126,28 @@ config MTK_UFS_BLOCK_IO_LOG
 	  Say Y if you want to have IO trace.
 
 	  If unsure, say N
+
+config UFSFEATURE
+	bool "UFS feature activate"
+	depends on SCSI_UFSHCD
+	---help---
+	UFS feature activate such as hpb, tw and etc.
+
+config UFSHPB
+	bool "UFSHPB"
+	depends on SCSI_UFSHCD && UFSFEATURE
+	---help---
+	UFS HPB Feature Enable
+
+config UFSTW
+	bool "UFSTW"
+	depends on SCSI_UFSHCD && UFSFEATURE
+	---help---
+	UFS TW Feature Enable
+
+config UFSTW_IGNORE_GUARANTEE_BIT
+	bool "UFSTW_IGNORE_GUARANTEE_BIT"
+	default n
+	depends on SCSI_UFSHCD && UFSFEATURE && UFSTW
+	---help---
+	ignore the guarantee bit[31] of dTurboWriteBufferLifeTimeEst for PoC

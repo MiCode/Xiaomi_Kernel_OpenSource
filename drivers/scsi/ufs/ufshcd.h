@@ -68,8 +68,8 @@
 
 #include "ufs.h"
 #include "ufshci.h"
-#if defined(CONFIG_UFSHPB)
-#include "ufshpb.h"
+#if defined(CONFIG_UFSFEATURE)
+#include "ufsfeature.h"
 #endif
 
 /* MTK PATCH */
@@ -203,6 +203,10 @@ struct ufshcd_lrb {
 	u64 issue_time_stamp;
 	u64 complete_time_stamp; /* only in memory dump */
 	bool req_abort_skip;
+
+#if defined(CONFIG_UFSFEATURE) && defined(CONFIG_UFSHPB)
+	int hpb_ctx_id;
+#endif
 
 	/* MTK PATCH */
 	u32 crypto_en;
@@ -850,6 +854,10 @@ struct ufs_hba {
 
 	bool full_init_linereset;
 	bool force_host_reset;
+
+#if defined(CONFIG_UFSFEATURE)
+	struct ufsf_feature ufsf;
+#endif
 };
 
 /* MTK PATCH */
@@ -1081,6 +1089,12 @@ int ufshcd_query_flag(struct ufs_hba *hba, enum query_opcode opcode,
 	enum flag_idn idn, bool *flag_res);
 int ufshcd_hold(struct ufs_hba *hba, bool async);
 void ufshcd_release(struct ufs_hba *hba);
+#if defined(CONFIG_UFSFEATURE)
+int ufshcd_exec_dev_cmd(struct ufs_hba *hba,
+			enum dev_cmd_type cmd_type, int timeout);
+int ufshcd_comp_scsi_upiu(struct ufs_hba *hba, struct ufshcd_lrb *lrbp);
+int ufshcd_map_sg(struct ufs_hba *hba, struct ufshcd_lrb *lrbp);
+#endif
 
 int ufshcd_map_desc_id_to_length(struct ufs_hba *hba, enum desc_idn desc_id,
 	int *desc_length);

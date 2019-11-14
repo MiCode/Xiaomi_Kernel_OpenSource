@@ -22,7 +22,10 @@
 #define UFS_IOCTL_FFU           0x5389  /* Do firmware upgrade */
 #define UFS_IOCTL_GET_FW_VER    0x5390  /* Query production revision level */
 #define UFS_IOCTL_RPMB          0x5391  /* For RPMB access */
-#define HPB_QUERY_OPCODE        0x5500
+
+#if defined(CONFIG_UFSFEATURE)
+#define UFSFEATURE_QUERY_OPCODE		0x5500
+#endif
 
 #define UFS_IOCTL_FFU_MAX_FW_SIZE_BYTES             (512L * 1024)
 #define UFS_IOCTL_FFU_MAX_FW_VER_BYTES              (4)
@@ -93,8 +96,8 @@ struct ufs_ioctl_query_data_hpb {
 	 * placeholder for the start of the data buffer where kernel will copy
 	 * the query data (attribute/flag/descriptor) read from the UFS device
 	 * Note:
-	 * For Read Attribute you will have to allocate 4 bytes
-	 * For Read Flag you will have to allocate 1 byte
+	 * For Read/Write Attribute you will have to allocate 4 bytes
+	 * For Read/Write Flag you will have to allocate 1 byte
 	 */
 	__u8 buffer[0];
 };
