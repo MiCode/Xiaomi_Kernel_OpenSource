@@ -2673,6 +2673,9 @@
 		aed = <0x1a>;
 	};
 
+	accdet: accdet {
+		compatible = "mediatek,pmic-accdet";
+	};
 };
 
 &spmi_bus {
