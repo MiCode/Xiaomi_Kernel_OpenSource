@@ -169,5 +169,11 @@ const char *cmdq_util_hw_name(void *chan)
 {
 	u32 hw_id = cmdq_util_hw_id((u32)cmdq_mbox_get_base_pa(chan));
 
-	return hw_id ? "CMDQ-DISP" : "CMDQ-MDP";
+	if (hw_id == 0)
+		return "GCE-D";
+
+	if (hw_id == 1)
+		return "GCE-M";
+
+	return "CMDQ";
 }

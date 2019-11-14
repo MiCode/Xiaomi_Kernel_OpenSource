@@ -1407,12 +1407,13 @@ static void cmdq_pkt_err_irq_dump(struct cmdq_pkt *pkt)
 	if (inst) {
 		/* not sync case, print raw */
 		cmdq_util_aee(mod,
-			"%s inst:%#018llx OP:%#x",
-			mod, *(u64 *)inst, inst->op);
+			"%s(%s) inst:%#018llx OP:%#x",
+			mod, cmdq_util_hw_name(client->chan),
+			*(u64 *)inst, inst->op);
 	} else {
 		/* no inst available */
-		cmdq_util_aee(mod, "%s instruction not available pc:%#llx",
-			mod, pc);
+		cmdq_util_aee(mod, "%s(%s) instruction not available pc:%#llx",
+			mod, cmdq_util_hw_name(client->chan), pc);
 	}
 }
 
@@ -1514,7 +1515,7 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 
 		/* not sync case, print raw */
 		cmdq_util_aee(mod,
-			"DISPATCH:%s(%s) inst:%#018llx OP:%#02hhx thread:%d",
+			"DISPATCH:%s(%s) inst:%#018llx OP:%#04hhx thread:%d",
 			mod, cmdq_util_hw_name(client->chan),
 			*(u64 *)inst, inst->op, thread_id);
 	} else {
