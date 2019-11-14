@@ -335,6 +335,9 @@ static ssize_t regmap_data_read_file(struct file *file, char __user *user_buf,
 	else if (*ppos >= map->dump_address * map->debugfs_tot_len
 			+ map->dump_count * map->debugfs_tot_len)
 		return 0;
+	else if (*ppos < map->dump_address * map->debugfs_tot_len)
+		return 0;
+
 	return regmap_read_debugfs(map, 0, map->max_register, user_buf,
 			new_count, ppos);
 }
