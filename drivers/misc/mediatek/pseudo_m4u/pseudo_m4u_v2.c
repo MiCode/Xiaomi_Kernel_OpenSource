@@ -504,6 +504,14 @@ int m4u_get_boundary(int port)
 #endif
 }
 
+int m4u_get_dma_buf_port(struct device *dev)
+{
+	if (!dev)
+		return -1;
+
+	return mtk_iommu_get_port_id(dev);
+}
+
 static inline int pseudo_config_port(struct M4U_PORT_STRUCT *pM4uPort,
 	bool is_user)
 {

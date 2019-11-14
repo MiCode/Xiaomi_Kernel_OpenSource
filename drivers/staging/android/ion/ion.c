@@ -1179,12 +1179,21 @@ static struct sg_table *ion_map_dma_buf(struct dma_buf_attachment *attachment,
 		if (clone_sg_table(buffer->sg_table, table))
 			return ERR_PTR(-EINVAL);
 	} else {
-		pr_debug("%s iommu device, go iova mapping\n",
-			 __func__);
 		mutex_lock(&buffer->lock);
 #ifdef MTK_ION_MAPPING_PERF_DEBUG
 		start = sched_clock();
 #endif
+		if (buffer->heap->ops->dma_buf_config) {
+			ret = buffer->heap->ops->dma_buf_config(
+						      buffer, attachment->dev);
+			if (ret) {
+				mutex_unlock(&buffer->lock);
+				IONMSG("%s, failed at dmabuf process, ret:%d\n",
+				       __func__, ret);
+				return ERR_PTR(ret);
+			}
+		}
+
 		ret = buffer->heap->ops->phys(buffer->heap,
 					      buffer,
 					      &addr,

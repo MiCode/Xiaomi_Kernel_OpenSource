@@ -1026,6 +1026,37 @@ int ion_mm_heap_pool_total(struct ion_heap *heap)
 	return total;
 }
 
+#ifdef MTK_ION_DMABUF_SUPPORT
+static int ion_mm_heap_dma_buf_config(
+			    struct ion_buffer *buffer,
+			    struct device *dev)
+{
+	struct ion_mm_buffer_info *buffer_info =
+	    (struct ion_mm_buffer_info *)buffer->priv_virt;
+	int port_id = 0;
+
+	port_id = m4u_get_dma_buf_port(dev);
+
+	if (port_id < 0 ||
+	    port_id >= M4U_PORT_UNKNOWN)
+		return 0;
+
+	if (buffer_info->module_id != -1 ||
+	    buffer_info->fix_module_id != -1) {
+		IONMSG(
+		       "dmabuf config buffer of port:%d failed, conflict with port:%d/%d\n",
+		       port_id, buffer_info->module_id,
+		       buffer_info->fix_module_id);
+		return -2;
+	}
+
+	buffer_info->module_id = port_id;
+	IONDBG("%s, dmabuf config buffer:0x%lx with port:%d\n",
+	       __func__, buffer, port_id);
+	return 0;
+}
+#endif
+
 static struct ion_heap_ops ion_mm_heap_ops = {
 	.allocate = ion_mm_heap_allocate,
 	.free = ion_mm_heap_free,
@@ -1039,6 +1070,9 @@ static struct ion_heap_ops ion_mm_heap_ops = {
 #if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
 	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 	.get_table = ion_mm_heap_get_table,
+#endif
+#ifdef MTK_ION_DMABUF_SUPPORT
+	.dma_buf_config = ion_mm_heap_dma_buf_config,
 #endif
 };
 

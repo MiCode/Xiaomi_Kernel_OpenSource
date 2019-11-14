@@ -207,6 +207,12 @@ struct ion_heap_ops {
 	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 	void (*get_table)(struct ion_buffer *buffer, struct sg_table *table);
 #endif
+#ifdef MTK_ION_DMABUF_SUPPORT
+	/* For user with dma-buf standard flow to get iova, we can get port
+	 * id from struct device*, users no need to do config buffer.
+	 */
+	int (*dma_buf_config)(struct ion_buffer *buffer, struct device *dev);
+#endif
 };
 
 /**

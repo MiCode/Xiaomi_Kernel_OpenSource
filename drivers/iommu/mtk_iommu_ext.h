@@ -224,4 +224,5 @@ int mtk_iommu_power_switch_by_id(unsigned int m4uid,
 			bool enable, char *master);
 unsigned int mtk_iommu_power_support(void);
 void mtk_iommu_tlb_flush_all(void *cookie);
+int mtk_iommu_get_port_id(struct device *dev);
 #endif

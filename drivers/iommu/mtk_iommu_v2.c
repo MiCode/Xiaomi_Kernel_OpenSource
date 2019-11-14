@@ -198,6 +198,22 @@ static unsigned int mtk_iommu_get_domain_id(
 	return domain_id;
 }
 
+int mtk_iommu_get_port_id(struct device *dev)
+{
+	struct iommu_fwspec *fwspec;
+	unsigned int larbid, portid, domain_id = 0;
+
+	if (!dev)
+		return -1;
+
+	if (!dev->iommu_fwspec ||
+	    !dev->iommu_fwspec->iommu_priv)
+		return -2;
+
+	return dev->iommu_fwspec->ids[0];
+}
+EXPORT_SYMBOL_GPL(mtk_iommu_get_port_id);
+
 static struct iommu_domain *__mtk_iommu_get_domain(
 				const struct mtk_iommu_data *data,
 				unsigned int larbid, unsigned int portid)
