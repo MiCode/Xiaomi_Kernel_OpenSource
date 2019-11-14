@@ -298,6 +298,8 @@ struct mtk_vcu {
 	bool abort;
 	struct semaphore vpud_killed;
 	bool is_entering_suspend;
+	u32 gce_gpr[GCE_THNUM_MAX];
+	/* for gce poll timer, multi-thread sync */
 };
 
 struct gce_callback_data {
@@ -600,7 +602,7 @@ static void vcu_gce_clear_inst_id(void *ctx)
 
 static void vcu_set_gce_cmd(struct cmdq_pkt *pkt,
 	struct mtk_vcu *vcu, unsigned char cmd,
-	u64 addr, u64 data, u32 mask)
+	u64 addr, u64 data, u32 mask, u32 gpr)
 {
 	switch (cmd) {
 	case CMD_READ:
@@ -610,7 +612,7 @@ static void vcu_set_gce_cmd(struct cmdq_pkt *pkt,
 		cmdq_pkt_write(pkt, vcu->clt_base, addr, data, mask);
 	break;
 	case CMD_POLL_REG:
-		cmdq_pkt_poll_addr(pkt, data, addr, mask, CMDQ_GPR_R10);
+		cmdq_pkt_poll_addr(pkt, data, addr, mask, gpr);
 	break;
 	case CMD_WAIT_EVENT:
 		if (data < GCE_EVENT_MAX)
@@ -625,7 +627,7 @@ static void vcu_set_gce_cmd(struct cmdq_pkt *pkt,
 	break;
 	case CMD_POLL_ADDR:
 		cmdq_pkt_poll_timeout(pkt, data, SUBSYS_NO_SUPPORT,
-			addr, mask, ~0, CMDQ_GPR_R10);
+			addr, mask, ~0, gpr);
 	break;
 	default:
 		pr_debug("[VCU] unknown GCE cmd %d\n", cmd);
@@ -801,7 +803,7 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 	for (i = 0; i < cmds->cmd_cnt; i++) {
 		vcu_set_gce_cmd(pkt_ptr, vcu, cmds->cmd[i],
 			cmds->addr[i], cmds->data[i],
-			cmds->mask[i]);
+			cmds->mask[i], vcu->gce_gpr[core_id]);
 	}
 
 	pkt_ptr->err_cb.cb = vcu_gce_timeout_callback;
@@ -1955,6 +1957,13 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 				      &vcu->gce_th_num[VCU_VENC]);
 	if (ret != 0 || vcu->gce_th_num[VCU_VENC] > GCE_THNUM_MAX)
 		vcu->gce_th_num[VCU_VENC] = 1;
+
+	for (i = 0; i < ARRAY_SIZE(vcu->gce_gpr); i++) {
+		ret = of_property_read_u32_index(dev->of_node, "gce-gpr",
+			i, &vcu->gce_gpr[i]);
+		if (ret < 0)
+			break;
+	}
 
 	vcu->clt_base = cmdq_register_device(dev);
 	for (i = 0; i < vcu->gce_th_num[VCU_VDEC]; i++)

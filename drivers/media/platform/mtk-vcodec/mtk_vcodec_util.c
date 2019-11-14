@@ -144,7 +144,7 @@ struct vdec_fb *mtk_vcodec_get_fb(struct mtk_vcodec_ctx *ctx)
 {
 	struct vb2_buffer *dst_buf, *src_buf;
 	struct vdec_fb *pfb;
-	struct mtk_video_dec_buf *dst_buf_info, *src_buf_info;
+	struct mtk_video_dec_buf *dst_buf_info;
 	struct vb2_v4l2_buffer *dst_vb2_v4l2, *src_vb2_v4l2;
 	int i;
 
@@ -156,11 +156,10 @@ struct vdec_fb *mtk_vcodec_get_fb(struct mtk_vcodec_ctx *ctx)
 	/* for getting timestamp*/
 	src_buf = v4l2_m2m_next_src_buf(ctx->m2m_ctx);
 	src_vb2_v4l2 = container_of(src_buf, struct vb2_v4l2_buffer, vb2_buf);
-	src_buf_info = container_of(src_vb2_v4l2, struct mtk_video_dec_buf, vb);
 
 	mtk_v4l2_debug_enter();
 	dst_buf = v4l2_m2m_next_dst_buf(ctx->m2m_ctx);
-	if (dst_buf != NULL && src_buf_info != NULL) {
+	if (dst_buf != NULL) {
 		dst_vb2_v4l2 = container_of(
 			dst_buf, struct vb2_v4l2_buffer, vb2_buf);
 		dst_buf_info = container_of(
@@ -196,10 +195,6 @@ struct vdec_fb *mtk_vcodec_get_fb(struct mtk_vcodec_ctx *ctx)
 				pfb->dma_general_buf,
 				pfb->general_buf_fd);
 
-		dst_buf_info->vb.vb2_buf.timestamp
-			= src_buf_info->vb.vb2_buf.timestamp;
-		dst_buf_info->vb.timecode
-			= src_buf_info->vb.timecode;
 		mutex_lock(&ctx->buf_lock);
 		dst_buf_info->used = true;
 		mutex_unlock(&ctx->buf_lock);

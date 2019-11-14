@@ -244,10 +244,10 @@ static int vdec_decode(unsigned long h_vdec, struct mtk_vcodec_mem *bs,
 	for (i = 0; i < num_planes; i++)
 		inst->vsi->dec.fb_dma[i] = fb_dma[i];
 
-	inst->vsi->dec.vdec_fb_va = vdec_fb_va;
 	inst->vsi->dec.bs_fd = (uint64_t)get_mapped_fd(bs->dmabuf);
 
 	if (fb != NULL) {
+		inst->vsi->dec.vdec_fb_va = vdec_fb_va;
 		inst->vsi->dec.index = fb->index;
 		for (i = 0; i < num_planes; i++) {
 			inst->vsi->dec.fb_fd[i] =

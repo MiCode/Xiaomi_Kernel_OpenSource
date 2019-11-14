@@ -5145,6 +5145,7 @@ page_owner=on";
 			<&gce_mbox CMDQ_EVENT_VENC_C0_CMDQ_WP_2ND_STAGE_DONE>,
 			<&gce_mbox CMDQ_EVENT_VENC_C0_CMDQ_WP_3RD_STAGE_DONE>;
 
+		gce-gpr = <GCE_GPR_R10>, <GCE_GPR_R11>;
 	};
 
 	vdec@16000000 {
