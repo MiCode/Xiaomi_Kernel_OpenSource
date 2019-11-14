@@ -820,10 +820,14 @@ static int adsp_core_mem_initall(struct mtk_base_dsp *dsp,
 		vaddr = gen_pool_alloc(gen_pool_buffer,
 			sizeof(struct audio_core_flag));
 		paddr = gen_pool_virt_to_phys(gen_pool_buffer, vaddr);
-		pshare_dram->phy_addr = paddr;
-		pshare_dram->va_addr = vaddr;
-		pshare_dram->vir_addr = (char *)vaddr;
-		pshare_dram->size = size;
+		if (vaddr) {
+			pshare_dram->phy_addr = paddr;
+			pshare_dram->va_addr = vaddr;
+			pshare_dram->vir_addr = (char *)vaddr;
+			pshare_dram->size = size;
+			memset(pshare_dram->vir_addr, 0,
+			       pshare_dram->size);
+		}
 	} else {
 		pr_info("%s get gen_pool_alloc size used\n", __func__);
 	}

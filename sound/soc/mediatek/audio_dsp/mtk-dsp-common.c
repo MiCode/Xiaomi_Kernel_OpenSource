@@ -185,7 +185,7 @@ int get_dspdaiid_by_dspscene(int dspscene)
 	case TASK_SCENE_KTV:
 		return AUDIO_TASK_KTV_ID;
 	default:
-		pr_warn("%s() err\n", __func__);
+		pr_warn("%s() err dspscene=%d\n", __func__, dspscene);
 		return -1;
 	}
 	return 0;
