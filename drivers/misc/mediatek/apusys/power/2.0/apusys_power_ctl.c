@@ -691,8 +691,6 @@ void apusys_dvfs_policy(uint64_t round_id)
 		for (user = 0; user < APUSYS_DVFS_USER_NUM; user++) {
 			if (dvfs_user_support(user) == false)
 				continue;
-			if (apusys_opps.is_power_on[user] == false)
-				continue;
 			apusys_opps.driver_opp_index[user] =
 				apusys_opps.user_opp_index[user];
 			opp = apusys_opps.driver_opp_index[user];
