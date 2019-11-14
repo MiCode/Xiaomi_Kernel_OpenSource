@@ -293,6 +293,7 @@ void dump_gals_reg(void)
 	gals_reg[40] = ioread32(apu_to_infra_top + 0x12C0);
 	gals_reg[41] = ioread32(apu_to_infra_top + 0x1220);
 	gals_reg[42] = ioread32(apu_to_infra_top + 0x612C);
+	gals_reg[43] = ioread32(apu_to_infra_top + 0x2050);
 
 }
 
@@ -347,6 +348,7 @@ void dump_gals(struct seq_file *sfile)
 	seq_printf(sfile, "0x100012C0: 0x%08x\n", gals_reg[40]);
 	seq_printf(sfile, "0x10001220: 0x%08x\n", gals_reg[41]);
 	seq_printf(sfile, "0x1000612C: 0x%08x\n", gals_reg[42]);
+	seq_printf(sfile, "0x10002050: 0x%08x\n", gals_reg[43]);
 }
 
 
@@ -367,15 +369,20 @@ void apusys_reg_dump(void)
 	if (!apusys_dump_skip_gals)
 		dump_gals_reg();
 
-	 // skip mbox
-	memcpy_fromio(reg_all_mem + 0x1000, apu_top + 0x1000, 0x2F000);
-
-	// mdla, skip fin0 and fin3
+	/* Skip undefine reg */
+	memcpy_fromio(reg_all_mem + 0x01000, apu_top + 0x01000, 0x2000);
+	memcpy_fromio(reg_all_mem + 0x10000, apu_top + 0x10000, 0x10000);
+	memcpy_fromio(reg_all_mem + 0x20000, apu_top + 0x20000, 0xA000);
+	memcpy_fromio(reg_all_mem + 0x30000, apu_top + 0x30000, 0x3000);
 	memcpy_fromio(reg_all_mem + 0x34000, apu_top + 0x34000, 0x2534);
 	memcpy_fromio(reg_all_mem + 0x36538, apu_top + 0x36538, 0x4000);
 	memcpy_fromio(reg_all_mem + 0x3A538, apu_top + 0x3A538, 0xAC8);
-
-	memcpy_fromio(reg_all_mem + 0x50000, apu_top + 0x50000, 0xB0000);
+	memcpy_fromio(reg_all_mem + 0x50000, apu_top + 0x50000, 0x1000);
+	memcpy_fromio(reg_all_mem + 0x64000, apu_top + 0x64000, 0x2000);
+	memcpy_fromio(reg_all_mem + 0x6C000, apu_top + 0x6C000, 0x1000);
+	memcpy_fromio(reg_all_mem + 0x6C000, apu_top + 0x6C000, 0x3000);
+	memcpy_fromio(reg_all_mem + 0xF0000, apu_top + 0xF0000, 0x3000);
+	memcpy_fromio(reg_all_mem + 0xF8000, apu_top + 0xF8000, 0x8000);
 	mutex_unlock(&dbg_lock);
 }
 
