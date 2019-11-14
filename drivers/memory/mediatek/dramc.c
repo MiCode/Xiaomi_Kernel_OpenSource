@@ -503,8 +503,14 @@ static unsigned int fmeter_v1(struct dramc_dev_t *dramc_dev_ptr)
 		(sdmpcw_val >> 8)) >> posdiv_val >> ckdiv4_val >>
 		pll_md_val >> cldiv2_val << fbksel;
 
-	if (sopendq)
-		vco_freq >>= 2;
+	if (vco_freq == 3718)
+		vco_freq = 3733;
+	else if (vco_freq == 1859)
+		vco_freq = 1866;
+	else if (vco_freq == 1144)
+		vco_freq = 1200;
+	else if (vco_freq == 3016)
+		vco_freq = 800;
 
 	return vco_freq;
 }
