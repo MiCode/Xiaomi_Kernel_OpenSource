@@ -60,6 +60,7 @@ obj-$(CONFIG_MACH_MT8167) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 obj-$(CONFIG_MACH_MT6739) += power_gs_v1/
 obj-$(CONFIG_MACH_MT6771) += power_gs_v1/
 obj-$(CONFIG_MACH_MT6885) += power_gs_v1/
+obj-$(CONFIG_MACH_MT6873) += power_gs_v1/
 obj-$(CONFIG_MACH_MT6885) += gpufreq_v1/
 obj-$(CONFIG_MACH_MT6873) += gpufreq_v1/
 endif
