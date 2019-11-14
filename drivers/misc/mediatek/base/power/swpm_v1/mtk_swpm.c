@@ -206,7 +206,7 @@ static int gpu_debug_proc_show(struct seq_file *m, void *v)
 static ssize_t gpu_debug_proc_write(struct file *file,
 		const char __user *buffer, size_t count, loff_t *pos)
 {
-	int enable_time;
+	int enable_time = 0;
 
 	char *buf = _copy_from_user_for_proc(buffer, count);
 
@@ -243,7 +243,7 @@ static int debug_proc_show(struct seq_file *m, void *v)
 static ssize_t debug_proc_write(struct file *file,
 		const char __user *buffer, size_t count, loff_t *pos)
 {
-	int enable;
+	int enable = 0;
 
 	char *buf = _copy_from_user_for_proc(buffer, count);
 
@@ -358,7 +358,7 @@ static int profile_proc_show(struct seq_file *m, void *v)
 static ssize_t profile_proc_write(struct file *file,
 		const char __user *buffer, size_t count, loff_t *pos)
 {
-	int enable;
+	int enable = 0;
 
 	char *buf = _copy_from_user_for_proc(buffer, count);
 
@@ -388,7 +388,7 @@ static int avg_window_proc_show(struct seq_file *m, void *v)
 static ssize_t avg_window_proc_write(struct file *file,
 	const char __user *buffer, size_t count, loff_t *pos)
 {
-	int window;
+	int window = 0;
 
 	char *buf = _copy_from_user_for_proc(buffer, count);
 
@@ -413,7 +413,7 @@ static int log_interval_proc_show(struct seq_file *m, void *v)
 static ssize_t log_interval_proc_write(struct file *file,
 	const char __user *buffer, size_t count, loff_t *pos)
 {
-	unsigned int interval;
+	unsigned int interval = 0;
 
 	char *buf = _copy_from_user_for_proc(buffer, count);
 
@@ -438,7 +438,7 @@ static int log_mask_proc_show(struct seq_file *m, void *v)
 static ssize_t log_mask_proc_write(struct file *file,
 	const char __user *buffer, size_t count, loff_t *pos)
 {
-	unsigned int mask;
+	unsigned int mask = 0;
 
 	char *buf = _copy_from_user_for_proc(buffer, count);
 
