@@ -25,6 +25,7 @@
 #include <dt-bindings/clock/mt6873-clk.h>
 #include <dt-bindings/memory/mt6873-larb-port.h>
 #include <dt-bindings/spmi/spmi.h>
+#include "mt6360.dtsi"
 
 / {
 	model = "MT6873";
