@@ -833,6 +833,11 @@ static void mss_pkt_tcmds(struct cmdq_pkt *handle,
 			pMssConfig->MSSCQLP_ENG_EN, CMDQ_REG_MASK);
 	for (t = 0; t < pMssConfig->tpipe_used; t++) {
 		/* cq */
+		if (pMssConfig->MSSCMDQ_BASE[t] == 0) {
+			LOG_ERR("tpipe_used = %d MSSCMDQ_BASE = 0",
+					pMssConfig->tpipe_used);
+			break;
+		}
 		cmdq_pkt_write(handle, NULL, (dma_addr_t)MFB_MSS_CMDQ_ENABLE_HW,
 				pMssConfig->MSSCMDQ_ENABLE[t], CMDQ_REG_MASK);
 		cmdq_pkt_write(handle, NULL,
