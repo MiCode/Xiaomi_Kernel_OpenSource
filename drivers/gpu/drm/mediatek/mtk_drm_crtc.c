@@ -4760,7 +4760,8 @@ static void mtk_crtc_dc_fb_control(struct drm_crtc *crtc,
 	DDPINFO("%s\n", __func__);
 
 	ddp_ctx = &mtk_crtc->ddp_ctx[ddp_mode];
-	if (mtk_crtc_target_is_dc_mode(crtc, ddp_mode)) {
+	if (mtk_crtc_target_is_dc_mode(crtc, ddp_mode) &&
+		ddp_ctx->dc_fb == NULL) {
 		ddp_ctx = &mtk_crtc->ddp_ctx[ddp_mode];
 		mode.width = crtc->state->adjusted_mode.hdisplay;
 		mode.height = crtc->state->adjusted_mode.vdisplay;
@@ -4773,6 +4774,8 @@ static void mtk_crtc_dc_fb_control(struct drm_crtc *crtc,
 							    &mtk_gem->base);
 	}
 
+	/* do not create wb_fb & dc buffer repeatedly */
+#if 0
 	ddp_ctx = &mtk_crtc->ddp_ctx[mtk_crtc->ddp_mode];
 	if (!mtk_crtc_target_is_dc_mode(crtc, mtk_crtc->ddp_mode)
 		&& ddp_ctx->dc_fb) {
@@ -4784,6 +4787,7 @@ static void mtk_crtc_dc_fb_control(struct drm_crtc *crtc,
 		drm_framebuffer_cleanup(ddp_ctx->wb_fb);
 		ddp_ctx->wb_fb = NULL;
 	}
+#endif
 }
 
 void mtk_crtc_path_switch_prepare(struct drm_crtc *crtc, unsigned int ddp_mode,

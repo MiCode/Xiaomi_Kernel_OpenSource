@@ -352,7 +352,7 @@ static void mtk_rdma_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	int ret;
 	struct mtk_disp_rdma *rdma = comp_to_rdma(comp);
 	const struct mtk_disp_rdma_data *data = rdma->data;
-	bool *rdma_memory_mode = comp->comp_mode, en = 1;
+	bool en = 1;
 	unsigned int inten;
 
 	ret = pm_runtime_get_sync(comp->dev);
@@ -365,28 +365,6 @@ static void mtk_rdma_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 
 	mtk_ddp_write_mask(comp, MATRIX_INT_MTX_SEL_DEFAULT,
 			   DISP_REG_RDMA_SIZE_CON_0, 0xff0000, handle);
-
-	if (*rdma_memory_mode == true) {
-		struct drm_mode_fb_cmd2 mode = {0};
-		struct mtk_drm_gem_obj *mtk_gem;
-
-		mtk_gem = mtk_drm_gem_create(
-			rdma->drm_dev,
-			RDMA_DUMMY_BUFFER_SIZE(rdma->dummy_w, rdma->dummy_h),
-			false);
-		mode.pixel_format = DRM_FORMAT_ARGB8888;
-		mode.width = rdma->dummy_w;
-		mode.height = rdma->dummy_h;
-		mode.pitches[0] = RDMA_DUMMY_BUFFER_PITCH(rdma->dummy_h);
-		comp->fb = mtk_drm_framebuffer_create(rdma->drm_dev, &mode,
-						      &mtk_gem->base);
-		mtk_ddp_write_relaxed(comp,
-				      (u32)mtk_gem->dma_addr & 0xFFFFFFFFU,
-				      DISP_RDMA_MEM_START_ADDR, handle);
-	} else {
-		mtk_ddp_write_relaxed(comp, 0, DISP_RDMA_MEM_START_ADDR,
-				      handle);
-	}
 
 	mtk_rdma_io_cmd(comp, handle, IRQ_LEVEL_ALL, NULL);
 
@@ -401,7 +379,7 @@ static void mtk_rdma_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 static void mtk_rdma_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 {
 	int ret;
-	bool *rdma_memory_mode = comp->comp_mode, en = 0;
+	bool en = 0;
 	struct mtk_disp_rdma *rdma = comp_to_rdma(comp);
 	const struct mtk_disp_rdma_data *data = rdma->data;
 
@@ -413,9 +391,6 @@ static void mtk_rdma_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	if (data && data->sodi_config)
 		data->sodi_config(comp->mtk_crtc->base.dev, comp->id, handle,
 				  &en);
-
-	if (*rdma_memory_mode == true)
-		drm_framebuffer_remove(comp->fb);
 
 	ret = pm_runtime_put(comp->dev);
 	if (ret < 0)
@@ -715,6 +690,8 @@ static void mtk_rdma_config(struct mtk_ddp_comp *comp,
 		mtk_ddp_write_relaxed(comp, 0, DISP_REG_RDMA_MEM_CON, handle);
 		mtk_ddp_write_mask(comp, 0, DISP_REG_RDMA_GLOBAL_CON,
 				   RDMA_MODE_MEMORY, handle);
+		mtk_ddp_write_relaxed(comp, 0, DISP_RDMA_MEM_START_ADDR,
+				      handle);
 	}
 
 #if 0
@@ -1138,6 +1115,8 @@ static void mtk_rdma_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 
 	if (pending->height == 0u || pending->width == 0u)
 		return;
+
+	DDPINFO("%s addr: 0x%x\n", __func__, addr);
 
 	con = rdma_fmt_convert(rdma, fmt);
 	mtk_ddp_write_relaxed(comp, con, DISP_RDMA_MEM_CON, handle);
