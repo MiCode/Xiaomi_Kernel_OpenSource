@@ -709,7 +709,7 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 #endif
 
 #define MTK_IOMMU_PAGE_TABLE_SHARE (1)
-
+#define MTK_APU_TFRP_SUPPORT
 #define IOMMU_POWER_CLK_SUPPORT
 #ifdef IOMMU_POWER_CLK_SUPPORT
 #define MTK_IOMMU_LOW_POWER_SUPPORT

@@ -6,6 +6,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmp/
 ccflags-$(CONFIG_MTK_PSEUDO_M4U) += -I$(srctree)/drivers/misc/mediatek/pseudo_m4u/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/power/2.0/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/power/2.0/$(MTK_PLATFORM)/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/mnoc/1.0/
 ccflags-y += -I$(srctree)/drivers/clk/mediatek/
 
 obj-$(CONFIG_IOMMU_API) += iommu.o

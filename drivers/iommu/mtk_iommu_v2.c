@@ -49,6 +49,10 @@
 	defined(IOMMU_POWER_CLK_SUPPORT)
 #include "apusys_power.h"
 #endif
+#if defined(APU_IOMMU_INDEX) && \
+	defined(MTK_APU_TFRP_SUPPORT)
+#include "mnoc_api.h"
+#endif
 
 #define PREALLOC_DMA_DEBUG_ENTRIES 4096
 
@@ -1316,8 +1320,10 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 					REG_MMU_INVLD_PA(slave_id));
 		fault_pa |= (unsigned long)(regval &
 					F_MMU_FAULT_PA_BIT32) << 26;
-		pr_notice("fault_pa=0x%lx,fault_iova=%lx,mapping to pa=%x\n",
-			  fault_pa, fault_iova, (unsigned int)pa);
+		regval = readl_relaxed(data->base +
+					REG_MMU_TFRP_PADDR);
+		pr_notice("fault_pa=0x%lx,fault_iova=%lx,mapping to pa=%x, protect=0x%x\n",
+			  fault_pa, fault_iova, (unsigned int)pa, regval);
 #ifdef APU_IOMMU_INDEX
 		if (m4uid >= APU_IOMMU_INDEX) {
 			is_vpu = true;
@@ -4019,7 +4025,7 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 	struct resource *res;
 	resource_size_t ioaddr;
 	void *protect;
-	unsigned long protect_va;
+	unsigned long protect_pa;
 	int ret = 0;
 	unsigned int id = 0, slave = 0, mau = 0;
 
@@ -4047,15 +4053,30 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 	data->plat_data = of_device_get_match_data(dev);
 
 	/* Protect memory. HW will access here while translation fault.*/
+#if defined(APU_IOMMU_INDEX) && \
+	defined(MTK_APU_TFRP_SUPPORT)
+	if (id >= APU_IOMMU_INDEX) {
+		protect_pa = get_apu_iommu_tfrp(id - APU_IOMMU_INDEX);
+		if (!protect_pa)
+			return -ENOMEM;
+		data->protect_base = protect_pa;
+	} else {
+		protect = devm_kzalloc(dev,
+				       MTK_PROTECT_PA_ALIGN * 2, GFP_KERNEL);
+		if (!protect)
+			return -ENOMEM;
+		protect_pa = virt_to_phys(protect);
+		data->protect_base = ALIGN(protect_pa,
+					   MTK_PROTECT_PA_ALIGN);
+	}
+#else
 	protect = devm_kzalloc(dev, MTK_PROTECT_PA_ALIGN * 2, GFP_KERNEL);
 	if (!protect)
 		return -ENOMEM;
-	protect_va = virt_to_phys(protect);
-	data->protect_base = ALIGN(protect_va & 0xffffffff,
+	protect_pa = virt_to_phys(protect);
+	data->protect_base = ALIGN(protect_pa,
 				   MTK_PROTECT_PA_ALIGN);
-	if (protect_va > 0xffffffff)
-		data->protect_base |= ((protect_va >> 32) &
-					F_RP_PA_REG_BIT32);
+#endif
 
 	/* Whether the current dram is over 4GB */
 	data->enable_4GB = !!(max_pfn > (BIT_ULL(32) >> PAGE_SHIFT));
