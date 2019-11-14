@@ -30,6 +30,7 @@
 #include <mt-plat/aee.h>
 #endif
 #include "apusys_devapc.h"
+#include "apusys_power.h"
 
 static void __iomem *devapc_virt;
 
@@ -131,7 +132,7 @@ static ssize_t apusys_devapc_read(struct file *file, char __user *buf,
 	return len;
 }
 
-static int start_apusys_devapc(void);
+static void start_apusys_devapc(void *data);
 
 static ssize_t apusys_devapc_write(struct file *file, const char __user *buf,
 				   size_t size, loff_t *ppos)
@@ -197,7 +198,7 @@ static ssize_t apusys_devapc_write(struct file *file, const char __user *buf,
 		pr_info("APUSYS devapc %s IRQ\n",
 			dctx->enable_irq ? "enable" : "disable");
 	} else if (!strncmp(cmd_str, "restart", sizeof("restart"))) {
-		start_apusys_devapc();
+		start_apusys_devapc(NULL);
 		pr_info("APUSYS devapc restarted\n");
 	} else if (!strncmp(cmd_str, "trigger_vio", sizeof("trigger_vio"))) {
 		pr_info("APUSYS devapc trigger vio test %d +\n", param);
@@ -351,7 +352,7 @@ static int shift_vio_dbg(int shift_bit)
 	mt_reg_sync_writel(0x1,	DEVAPC_VIO_SHIFT_CON);
 
 	/* wait for shift done */
-	while ((readl(DEVAPC_VIO_SHIFT_CON) & 0x3) != 0x3)
+	while (((readl(DEVAPC_VIO_SHIFT_CON) & 0x3) != 0x3) && (count < 100))
 		count++;
 
 	pr_debug("Shift done %d, %d, SHIFT_SEL: 0x%x, SHIFT_CON=0x%x\n",
@@ -479,13 +480,13 @@ static irqreturn_t devapc_vio_handler(int irq_number, void *data)
 		}
 	}
 
-	//print_vio_mask_sta();
+	print_vio_mask_sta();
 	enable_irq(irq_number);
 
 	return IRQ_HANDLED;
 }
 
-static int start_apusys_devapc(void)
+static void start_apusys_devapc(void *data)
 {
 	int i = 0;
 
@@ -493,7 +494,7 @@ static int start_apusys_devapc(void)
 	/* start apusys devapc violation irq */
 	mt_reg_sync_writel(0x80000000, DEVAPC_APC_CON);
 
-	//print_vio_mask_sta();
+	print_vio_mask_sta();
 
 	/* enable violation irq */
 	for (i = 0; i < ARRAY_SIZE(apusys_modules); i++) {
@@ -504,8 +505,6 @@ static int start_apusys_devapc(void)
 	}
 	print_vio_mask_sta();
 	pr_debug("%s -\n", __func__);
-
-	return 0;
 }
 
 static int apusys_devapc_probe(struct platform_device *pdev)
@@ -547,7 +546,12 @@ static int apusys_devapc_probe(struct platform_device *pdev)
 
 	dctx->enable_ke = dctx->enable_aee = dctx->enable_irq = 1;
 
-	start_apusys_devapc();
+	start_apusys_devapc(NULL);
+
+	ret = apu_power_callback_device_register(DEVAPC, start_apusys_devapc,
+						 NULL);
+	if (ret)
+		dev_err(&pdev->dev, "callback register return error %d\n", ret);
 
 	dctx->dbg_file = debugfs_create_file("apusys_devapc", 0644,
 				NULL, dctx, &apusys_devapc_fops);
@@ -578,6 +582,7 @@ static int apusys_devapc_remove(struct platform_device *pdev)
 	iounmap(dctx->virt);
 	debugfs_remove(dctx->dbg_file);
 	kfree(dctx);
+	apu_power_callback_device_unregister(DEVAPC);
 
 	dev_dbg(&pdev->dev, "%s -\n", __func__);
 
@@ -609,7 +614,7 @@ static void __exit apusys_devapc_exit(void)
 	platform_driver_unregister(&apusys_devapc_driver);
 }
 
-module_init(apusys_devapc_init);
+late_initcall(apusys_devapc_init);
 module_exit(apusys_devapc_exit);
 
 MODULE_DESCRIPTION("MTK APUSYS DEVAPC Driver");
