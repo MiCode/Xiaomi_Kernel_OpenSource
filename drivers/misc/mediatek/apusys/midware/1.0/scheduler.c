@@ -709,13 +709,15 @@ static int exec_cmd_func(void *isc, void *idev_info)
 #endif
 
 	/* 3. get driver time start */
-#define APUSYS_EXECINFO_PRINT "0x%llx/0x%llx-#%d(%d) "\
-	"sc: dev(%d-#%d) mp(%u/%u|0x%llx) "\
+#define APUSYS_EXECINFO_PRINT "0x%llx/0x%llx-#%d(%u) "\
+	"sc(%d): dev(%d-#%d) mp(%u/%u|0x%llx) "\
 	"ctx(%u/%d/0x%x/0x%x) boost(%u)\n"
 	LOG_INFO(APUSYS_EXECINFO_PRINT,
-	sc->par_cmd->hdr->uid,
+		sc->par_cmd->hdr->uid,
 		sc->par_cmd->cmd_id,
-		sc->idx, sc->type,
+		sc->idx,
+		sc->par_cmd->hdr->num_sc,
+		sc->type,
 		dev_info->dev->dev_type,
 		dev_info->dev->idx,
 		cmd_hnd.multicore_idx,
@@ -734,10 +736,11 @@ static int exec_cmd_func(void *isc, void *idev_info)
 	ret = dev_info->dev->send_cmd(APUSYS_CMD_EXECUTE,
 		(void *)&cmd_hnd, dev_info->dev);
 	if (ret) {
-		LOG_ERR("0x%llx/0x%llx-%d(%d) sc: dev(%d-#%d) fail(%d)\n",
+		LOG_ERR("0x%llx/0x%llx-#%d(%u) sc(%d): dev(%d-#%d) fail(%d)\n",
 			sc->par_cmd->hdr->uid,
 			sc->par_cmd->cmd_id,
 			sc->idx,
+			sc->par_cmd->hdr->num_sc,
 			sc->type,
 			dev_info->dev->dev_type,
 			dev_info->dev->idx,
@@ -745,10 +748,11 @@ static int exec_cmd_func(void *isc, void *idev_info)
 
 		sc->par_cmd->cmd_ret = ret;
 	} else {
-		LOG_INFO("0x%llx/0x%llx-#%d(%d) sc: dev(%d-#%d) done\n",
+		LOG_INFO("0x%llx/0x%llx-#%d(%u) sc(%d): dev(%d-#%d) done\n",
 			sc->par_cmd->hdr->uid,
 			sc->par_cmd->cmd_id,
 			sc->idx,
+			sc->par_cmd->hdr->num_sc,
 			sc->type,
 			dev_info->dev->dev_type,
 			dev_info->dev->idx);
