@@ -1398,6 +1398,36 @@
 		#clock-cells = <1>;
 	};
 
+	smi_larb13: smi_larb13@1a001000 {
+		compatible = "mediatek,smi_larb13", "mediatek,smi_larb";
+		reg = <0 0x1a001000 0 0x1000>;
+		mediatek,larb-id = <13>;
+	};
+
+	smi_larb14: smi_larb14@1a002000 {
+		compatible = "mediatek,smi_larb14", "mediatek,smi_larb";
+		reg = <0 0x1a002000 0 0x1000>;
+		mediatek,larb-id = <14>;
+	};
+
+	smi_larb16: smi_larb16@1a00f000 {
+		compatible = "mediatek,smi_larb16", "mediatek,smi_larb";
+		reg = <0 0x1a00f000 0 0x1000>;
+		mediatek,larb-id = <16>;
+	};
+
+	smi_larb17: smi_larb17@1a010000 {
+		compatible = "mediatek,smi_larb17", "mediatek,smi_larb";
+		reg = <0 0x1a010000 0 0x1000>;
+		mediatek,larb-id = <17>;
+	};
+
+	smi_larb18: smi_larb18@1a011000 {
+		compatible = "mediatek,smi_larb18", "mediatek,smi_larb";
+		reg = <0 0x1a011000 0 0x1000>;
+		mediatek,larb-id = <18>;
+	};
+
 	camsys_rawa: camsys_rawa@1a04f000 {
 		compatible = "mediatek,camsys_rawa", "syscon";
 		reg = <0 0x1a04f000 0 0x1000>;
@@ -1434,6 +1464,12 @@
 		#clock-cells = <1>;
 	};
 
+	smi_larb5: smi_larb5@1600d000 {
+		compatible = "mediatek,smi_larb5", "mediatek,smi_larb";
+		reg = <0 0x1600d000 0 0x1000>;
+		mediatek,larb-id = <5>;
+	};
+
 	vdec_gcon: vdec_gcon@1602f000 {
 		compatible = "mediatek,vdec_gcon", "syscon";
 		reg = <0 0x1602f000 0 0x10000>;
@@ -1444,6 +1480,12 @@
 		compatible = "mediatek,vdec_soc_gcon", "syscon";
 		reg = <0 0x1600f000 0 0x10000>;
 		#clock-cells = <1>;
+	};
+
+	smi_larb4: smi_larb4@1602e000 {
+		compatible = "mediatek,smi_larb4", "mediatek,smi_larb";
+		reg = <0 0x1602e000 0 0x1000>;
+		mediatek,larb-id = <4>;
 	};
 
 	venc_gcon: venc_gcon@17000000 {
@@ -1790,18 +1832,18 @@
 		iommus = <&iommu0 M4U_PORT_L7_VENC_RCPU>,
 			<&iommu0 M4U_PORT_L7_VENC_REC>,
 			<&iommu0 M4U_PORT_L7_VENC_BSDMA>,
-			<&iommu0 M4U_PORT_L7_VENC_SUB_W_LUMA>,
 			<&iommu0 M4U_PORT_L7_VENC_SV_COMV>,
 			<&iommu0 M4U_PORT_L7_VENC_RD_COMV>,
-			<&iommu0 M4U_PORT_L7_JPGENC_Y_RDMA>,
-			<&iommu0 M4U_PORT_L7_JPGENC_C_RDMA>,
-			<&iommu0 M4U_PORT_L7_JPGENC_Q_TABLE>,
-			<&iommu0 M4U_PORT_L7_JPGENC_BSDMA>,
-			<&iommu0 M4U_PORT_L7_VENC_SUB_R_LUMA>,
 			<&iommu0 M4U_PORT_L7_VENC_CUR_LUMA>,
 			<&iommu0 M4U_PORT_L7_VENC_CUR_CHROMA>,
 			<&iommu0 M4U_PORT_L7_VENC_REF_LUMA>,
-			<&iommu0 M4U_PORT_L7_VENC_REF_CHROMA>;
+			<&iommu0 M4U_PORT_L7_VENC_REF_CHROMA>,
+			<&iommu0 M4U_PORT_L7_JPGENC_Y_RDMA>,
+			<&iommu0 M4U_PORT_L7_JPGENC_Q_RDMA>,
+			<&iommu0 M4U_PORT_L7_JPGENC_C_TABLE>,
+			<&iommu0 M4U_PORT_L7_JPGENC_BSDMA>,
+			<&iommu0 M4U_PORT_L7_VENC_SUB_R_LUMA>,
+			<&iommu0 M4U_PORT_L7_VENC_SUB_W_LUMA>;
 	};
 
 	pseudo_m4u-larb8 {
@@ -2058,7 +2100,15 @@
 		cell-index = <0>;
 		compatible = "mediatek,iommu_v0";
 		reg = <0 0x1401d000 0 0x1000>;
+		mediatek,larbs = <&smi_larb0 &smi_larb1 &smi_larb2>,
+				<&smi_larb4 &smi_larb5 &smi_larb7>,
+				<&smi_larb9 &smi_larb11 &smi_larb13>,
+				<&smi_larb14 &smi_larb16 &smi_larb17>,
+				<&smi_larb18 &smi_larb19 &smi_larb20>;
 		interrupts = <GIC_SPI 309 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&dispsys_config MM_SMI_IOMMU>,
+			 <&scpsys SCP_SYS_DIS>;
+		clock-names = "disp-iommu-ck", "power";
 		#iommu-cells = <1>;
 	};
 
@@ -2074,6 +2124,9 @@
 		compatible = "mediatek,iommu_v0";
 		reg = <0 0x19010000 0 0x1000>;
 		interrupts = <GIC_SPI 426 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&apu_conn APU_CONN_IOMMU_0_CG>,
+			 <&scpsys SCP_SYS_VPU>;
+		clock-names = "clock", "power";
 		#iommu-cells = <1>;
 	};
 
@@ -2165,9 +2218,10 @@
 		reg = <0 0x1502c000 0 0x1000>;
 	};
 
-	smi_larb9@1502e000 {
-		compatible = "mediatek,smi_larb9";
+	smi_larb9: smi_larb9@1502e000 {
+		compatible = "mediatek,smi_larb9", "mediatek,smi_larb";
 		reg = <0 0x1502e000 0 0x1000>;
+		mediatek,larb-id = <9>;
 		interrupts = <GIC_SPI 344 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
@@ -2255,9 +2309,10 @@
 		reg = <0 0x1582c000 0 0x1000>;
 	};
 
-	smi_larb11@1582e000 {
-		compatible = "mediatek,smi_larb11";
+	smi_larb11: smi_larb11@1582e000 {
+		compatible = "mediatek,smi_larb11", "mediatek,smi_larb";
 		reg = <0 0x1582e000 0 0x1000>;
+		mediatek,larb-id = <11>;
 		interrupts = <GIC_SPI 351 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
@@ -2284,9 +2339,10 @@
 		interrupts = <GIC_SPI 502 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
-	smi_larb7@17010000 {
-		compatible = "mediatek,smi_larb7";
+	smi_larb7: smi_larb7@17010000 {
+		compatible = "mediatek,smi_larb7", "mediatek,smi_larb";
 		reg = <0 0x17010000 0 0x10000>;
+		mediatek,larb-id = <7>;
 		interrupts = <GIC_SPI 308 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
@@ -2330,10 +2386,10 @@
 		reg = <0 0x1b00e000 0 0x1000>;
 	};
 
-	smi_larb8@1b00f000 {
-		compatible = "mediatek,smi_larb8";
+	smi_larb20: smi_larb20@1b00f000 {
+		compatible = "mediatek,smi_larb20", "mediatek,smi_larb";
 		reg = <0 0x1b00f000 0 0x1000>;
-		interrupts = <GIC_SPI 313 IRQ_TYPE_LEVEL_HIGH>;
+		mediatek,larb-id = <20>;
 	};
 
 	depth@1b100000 {
@@ -2342,9 +2398,10 @@
 		interrupts = <GIC_SPI 361 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
-	smi_larb7@1b10f000 {
-		compatible = "mediatek,smi_larb7";
+	smi_larb19: smi_larb19@1b10f000 {
+		compatible = "mediatek,smi_larb19", "mediatek,smi_larb";
 		reg = <0 0x1b10f000 0 0x1000>;
+		mediatek,larb-id = <19>;
 	};
 
 	mmsys_config@1f000000 {
@@ -2356,6 +2413,12 @@
 		compatible = "mediatek,mdp_rdma0";
 		reg = <0 0x1f001000 0 0x1000>;
 		interrupts = <GIC_SPI 253 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	smi_larb2: smi_larb2@1f002000 {
+		compatible = "mediatek,smi_larb2", "mediatek,smi_larb";
+		reg = <0 0x1f002000 0 0x1000>;
+		mediatek,larb-id = <2>;
 	};
 
 	mdp_rdma1@1f002000 {
