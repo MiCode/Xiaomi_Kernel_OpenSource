@@ -249,7 +249,14 @@ static void print_vio_mask_sta(void)
 	uint32_t slave_type_num = mtk_devapc_ctx->soc->slave_type_num;
 	int slave_type, i;
 
-	for (slave_type = 0; slave_type < slave_type_num; slave_type++)
+	for (slave_type = 0; slave_type < slave_type_num; slave_type++) {
+
+		pr_info(PFX "%s: %s: 0x%x\n", slave_type_to_string(slave_type),
+				"VIO_SHIFT_STA",
+				readl(mtk_devapc_pd_get(slave_type,
+						VIO_SHIFT_STA, 0))
+		       );
+
 		for (i = 0; i < vio_info->vio_mask_sta_num[slave_type]; i++)
 			pr_debug(PFX "%s: %s_%d: 0x%x, %s_%d: 0x%x\n",
 					slave_type_to_string(slave_type),
@@ -260,6 +267,7 @@ static void print_vio_mask_sta(void)
 					readl(mtk_devapc_pd_get(slave_type,
 							VIO_STA, i))
 				);
+	}
 }
 
 static bool check_type2_vio_status(int slave_type)
