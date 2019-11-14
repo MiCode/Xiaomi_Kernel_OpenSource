@@ -36,7 +36,7 @@
 #include "vpu_ioctl.h"
 
 /* remote proc */
-#define VPU_FIRMWARE_NAME "mtk_vpu"
+#define VPU_REMOTE_PROC (0)
 
 /* handle different user query */
 static int vpu_ucmd_handle(struct vpu_device *vd,
@@ -170,6 +170,33 @@ int vpu_send_cmd(int op, void *hnd, struct apusys_device *adev)
 	return -EINVAL;
 }
 
+#if VPU_REMOTE_PROC
+#define VPU_FIRMWARE_NAME "mtk_vpu"
+
+static int vpu_start(struct rproc *rproc)
+{
+	/* enable power and clock */
+	return 0;
+}
+
+static int vpu_stop(struct rproc *rproc)
+{
+	/* disable regulator and clock */
+	return 0;
+}
+
+static void *vpu_da_to_va(struct rproc *rproc, u64 da, int len)
+{
+	/* convert device address to kernel virtual address */
+	return 0;
+}
+
+static const struct rproc_ops vpu_ops = {
+	.start = vpu_start,
+	.stop = vpu_stop,
+	.da_to_va = vpu_da_to_va,
+};
+
 static int vpu_load(struct rproc *rproc, const struct firmware *fw)
 {
 	return 0;
@@ -190,6 +217,81 @@ static const struct rproc_fw_ops vpu_fw_ops = {
 	.find_rsc_table = vpu_rsc_table,
 	.load = vpu_load,
 };
+#endif
+
+static struct vpu_device *vpu_alloc(struct platform_device *pdev)
+{
+	struct vpu_device *vd;
+	struct rproc *rproc;
+
+	rproc = rproc_alloc(&pdev->dev, pdev->name, &vpu_ops,
+		VPU_FIRMWARE_NAME, sizeof(*vd));
+
+	if (!rproc) {
+		dev_info(&pdev->dev, "failed to allocate rproc\n");
+		return NULL;
+	}
+
+	/* initialize device (core specific) data */
+	rproc->fw_ops = &vpu_fw_ops;
+	vd = (struct vpu_device *)rproc->priv;
+	vd->dev = &pdev->dev;
+	vd->rproc = rproc;
+
+	return vd;
+}
+
+static void vpu_free(struct platform_device *pdev)
+{
+	struct vpu_device *vd = platform_get_drvdata(pdev);
+
+	rproc_free(vd->rproc);
+}
+
+static int vpu_dev_add(struct platform_device *pdev)
+{
+	struct vpu_device *vd = platform_get_drvdata(pdev);
+	int ret;
+
+	ret = rproc_add(vd->rproc);
+	if (ret)
+		dev_info(&pdev->dev, "rproc_add: %d\n", ret);
+
+	return ret;
+}
+
+static void vpu_dev_del(struct platform_device *pdev)
+{
+	struct vpu_device *vd = platform_get_drvdata(pdev);
+
+	rproc_del(vd->rproc);
+}
+
+#else
+static struct vpu_device *vpu_alloc(struct platform_device *pdev)
+{
+	struct vpu_device *vd;
+
+	vd = kzalloc(sizeof(struct vpu_device), GFP_KERNEL);
+	return vd;
+}
+
+static void vpu_free(struct platform_device *pdev)
+{
+	struct vpu_device *vd = platform_get_drvdata(pdev);
+
+	kfree(vd);
+	platform_set_drvdata(pdev, NULL);
+}
+
+static int vpu_dev_add(struct platform_device *pdev)
+{
+	return 0;
+}
+
+static void vpu_dev_del(struct platform_device *pdev)
+{
+}
 #endif
 
 struct vpu_driver *vpu_drv;
@@ -220,30 +322,6 @@ void vpu_drv_get(void)
 {
 	kref_get(&vpu_drv->ref);
 }
-
-static int vpu_start(struct rproc *rproc)
-{
-	/* enable power and clock */
-	return 0;
-}
-
-static int vpu_stop(struct rproc *rproc)
-{
-	/* disable regulator and clock */
-	return 0;
-}
-
-static void *vpu_da_to_va(struct rproc *rproc, u64 da, int len)
-{
-	/* convert device address to kernel virtual address */
-	return 0;
-}
-
-static const struct rproc_ops vpu_ops = {
-	.start = vpu_start,
-	.stop = vpu_stop,
-	.da_to_va = vpu_da_to_va,
-};
 
 static int vpu_init_bin(void)
 {
@@ -449,28 +527,18 @@ static int vpu_init_dev_irq(struct platform_device *pdev,
 static int vpu_probe(struct platform_device *pdev)
 {
 	struct vpu_device *vd;
-	struct rproc *rproc;
 	int ret;
 
-	rproc = rproc_alloc(&pdev->dev, pdev->name, &vpu_ops,
-		VPU_FIRMWARE_NAME, sizeof(*vd));
-
-	if (!rproc) {
-		dev_info(&pdev->dev, "failed to allocate rproc\n");
+	vd = vpu_alloc(pdev);
+	if (!vd)
 		return -ENOMEM;
-	}
 
-	/* initialize device (core specific) data */
-	rproc->fw_ops = &vpu_fw_ops;
-	vd = (struct vpu_device *)rproc->priv;
-	vd->dev = &pdev->dev;
-	vd->rproc = rproc;
 	platform_set_drvdata(pdev, vd);
 
 	if (of_property_read_u32(pdev->dev.of_node, "id", &vd->id)) {
 		dev_info(&pdev->dev, "unable to get core id from dts\n");
 		ret = -ENODEV;
-		goto free_rproc;
+		goto free;
 	}
 
 	snprintf(vd->name, sizeof(vd->name), "vpu%d", vd->id);
@@ -479,7 +547,7 @@ static int vpu_probe(struct platform_device *pdev)
 	if (vpu_is_disabled(vd)) {
 		ret = -ENODEV;
 		vd->state = VS_DISALBED;
-		goto free_rproc;
+		goto free;
 	} else {
 		vd->state = VS_DOWN;
 	}
@@ -487,27 +555,27 @@ static int vpu_probe(struct platform_device *pdev)
 	/* allocate resources */
 	ret = vpu_init_dev_mem(pdev, vd);
 	if (ret)
-		goto free_rproc;
+		goto free;
 
 	ret = vpu_init_dev_irq(pdev, vd);
 	if (ret)
-		goto free_rproc;
+		goto free;
 
 	/* device hw initialization */
 	ret = vpu_init_dev_hw(pdev, vd);
 	if (ret)
-		goto free_rproc;
+		goto free;
 
 	/* power initialization */
 	ret = vpu_init_dev_pwr(pdev, vd);
 	if (ret)
-		goto free_rproc;
+		goto free;
 
 	/* device algo initialization */
 	INIT_LIST_HEAD(&vd->algo);
 	ret = vpu_init_dev_algo(pdev, vd);
 	if (ret)
-		goto free_rproc;
+		goto free;
 
 	/* register device to APUSYS */
 	vd->adev.dev_type = APUSYS_DEVICE_VPU;
@@ -519,20 +587,17 @@ static int vpu_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_info(&pdev->dev, "apusys_register_device: %d\n",
 			ret);
-		goto free_rproc;
+		goto free;
 	}
 
 	/* register debugfs nodes */
 	ret = vpu_init_dev_debug(pdev, vd);
 	if (ret)
-		goto free_rproc;
+		goto free;
 
-	/* add to remoteproc */
-	ret = rproc_add(rproc);
-	if (ret) {
-		dev_info(&pdev->dev, "rproc_add: %d\n", ret);
-		goto free_rproc;
-	}
+	ret = vpu_dev_add(pdev);
+	if (ret)
+		goto free;
 
 	/* add to vd list */
 	mutex_lock(&vpu_drv->lock);
@@ -545,8 +610,8 @@ static int vpu_probe(struct platform_device *pdev)
 
 	// TODO: add error handling free algo
 
-free_rproc:
-	rproc_free(rproc);
+free:
+	vpu_free(pdev);
 	dev_info(&pdev->dev, "%s: failed\n", __func__);
 	return ret;
 }
@@ -561,9 +626,9 @@ static int vpu_remove(struct platform_device *pdev)
 	vpu_exit_dev_mem(pdev, vd);
 	disable_irq(vd->irq_num);
 	apusys_unregister_device(&vd->adev);
-	rproc_del(vd->rproc);
-	rproc_free(vd->rproc);
 	vpu_exit_dev_pwr(pdev, vd);
+	vpu_dev_del(pdev);
+	vpu_free(pdev);
 	vpu_drv_put();
 
 	return 0;
