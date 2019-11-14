@@ -640,6 +640,7 @@ static unsigned int g_DmaErr_CAM[ISP_IRQ_TYPE_AMOUNT][_cam_max_] = {{0} };
 enum ISP_WAITQ_HEAD_IRQ_ENUM {
 	ISP_WAITQ_HEAD_IRQ_SOF = 0,
 	ISP_WAITQ_HEAD_IRQ_SW_P1_DONE,
+	ISP_WAITQ_HEAD_IRQ_HW_P1_DONE,
 	ISP_WAITQ_HEAD_IRQ_AAO_DONE,
 	ISP_WAITQ_HEAD_IRQ_FLKO_DONE,
 	ISP_WAITQ_HEAD_IRQ_AFO_DONE,
@@ -1231,7 +1232,8 @@ static int32_t ISP_CheckUseCamWaitQ(enum ISP_IRQ_TYPE_ENUM type,
 	if (type >= ISP_IRQ_TYPE_INT_CAM_A_ST &&
 	    type <= ISP_IRQ_TYPE_INT_CAM_C_ST) {
 		if (st_type == SIGNAL_INT) {
-			if (status == SOF_INT_ST || status == SW_PASS1_DON_ST)
+			if (status == SOF_INT_ST || status == SW_PASS1_DON_ST ||
+			    status == HW_PASS1_DON_ST)
 				return 1;
 		} else if (st_type == DMA_INT) {
 			if (status == AAO_DONE_ST || status == FLKO_DONE_ST ||
@@ -1303,6 +1305,8 @@ static int32_t ISP_GetWaitQCamIrqIndex(enum ISP_ST_ENUM st_type,
 			index = ISP_WAITQ_HEAD_IRQ_SOF;
 		else if (status == SW_PASS1_DON_ST)
 			index = ISP_WAITQ_HEAD_IRQ_SW_P1_DONE;
+		else if (status == HW_PASS1_DON_ST)
+			index = ISP_WAITQ_HEAD_IRQ_HW_P1_DONE;
 	} else if (st_type == DMA_INT) {
 		if (status == AAO_DONE_ST)
 			index = ISP_WAITQ_HEAD_IRQ_AAO_DONE;
@@ -11064,6 +11068,11 @@ LB_CAM_SOF_IGNORE:
 		wake_up_interruptible(
 			&IspInfo.WaitQHeadCam[ISP_GetWaitQCamIndex(module)]
 					     [ISP_WAITQ_HEAD_IRQ_SW_P1_DONE]);
+	}
+	if (IrqStatus & HW_PASS1_DON_ST) {
+		wake_up_interruptible(
+			&IspInfo.WaitQHeadCam[ISP_GetWaitQCamIndex(module)]
+					     [ISP_WAITQ_HEAD_IRQ_HW_P1_DONE]);
 	}
 	if (DmaStatus & AAO_DONE_ST) {
 		wake_up_interruptible(
