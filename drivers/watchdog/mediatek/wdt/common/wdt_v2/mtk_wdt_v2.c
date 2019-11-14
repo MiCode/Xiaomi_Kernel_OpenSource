@@ -951,6 +951,11 @@ int mtk_wdt_request_en_set(int mark_bit, enum wk_req_en en)
 		res =  -1;
 
 	mt_reg_sync_writel(tmp, MTK_WDT_REQ_MODE);
+
+	/* disable all reset source's reset and irq mode */
+	if (g_apwdt_en_doe == 0)
+		mt_reg_sync_writel(MTK_WDT_REQ_MODE_KEY, MTK_WDT_REQ_MODE);
+
 	spin_unlock(&rgu_reg_operation_spinlock);
 	return res;
 }
@@ -1003,6 +1008,11 @@ int mtk_wdt_request_mode_set(int mark_bit, enum wk_req_mode mode)
 	} else
 		res =  -1;
 	mt_reg_sync_writel(tmp, MTK_WDT_REQ_IRQ_EN);
+
+	/* disable all reset source's reset and irq mode */
+	if (g_apwdt_en_doe == 0)
+		mt_reg_sync_writel(MTK_WDT_REQ_IRQ_KEY, MTK_WDT_REQ_IRQ_EN);
+
 	spin_unlock(&rgu_reg_operation_spinlock);
 	return res;
 }
