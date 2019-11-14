@@ -3502,6 +3502,9 @@ static void mtk_crtc_init_gce_obj(struct drm_device *drm_dev,
 
 	/* Load CRTC GCE client */
 	for (i = 0; i < CLIENT_TYPE_MAX; i++) {
+		DRM_INFO("%s(), %s, %d", __func__,
+			 crtc_gce_client_str[i],
+			 drm_crtc_index(&mtk_crtc->base));
 		len = snprintf(buf, sizeof(buf), "%s%d", crtc_gce_client_str[i],
 			       drm_crtc_index(&mtk_crtc->base));
 		index = of_property_match_string(dev->of_node,
