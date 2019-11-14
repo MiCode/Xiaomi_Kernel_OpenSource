@@ -179,9 +179,7 @@ bool apu_get_power_on_status(enum DVFS_USER user)
 	if (pwr_dev == NULL)
 		return false;
 
-	mutex_lock(&power_ctl_mtx);
 	power_on_status = pwr_dev->is_power_on;
-	mutex_unlock(&power_ctl_mtx);
 
 	return power_on_status;
 }
@@ -192,13 +190,13 @@ static void power_callback_caller(int power_on)
 {
 	struct power_callback_device *pwr_dev = NULL;
 
-	LOG_WRN("%s begin (%d)\n", __func__, power_on);
+	LOG_DBG("%s begin (%d)\n", __func__, power_on);
 
 	if (!list_empty(&power_callback_device_list)) {
 		list_for_each_entry(pwr_dev,
 			&power_callback_device_list, list) {
 
-			LOG_WRN("%s calling %d in state %d\n", __func__,
+			LOG_DBG("%s calling %d in state %d\n", __func__,
 					pwr_dev->power_callback_usr, power_on);
 
 			if (power_on) {
@@ -211,7 +209,7 @@ static void power_callback_caller(int power_on)
 		}
 	}
 
-	LOG_WRN("%s end (%d)\n", __func__, power_on);
+	LOG_DBG("%s end (%d)\n", __func__, power_on);
 }
 #endif
 
@@ -698,14 +696,14 @@ static int apusys_power_task(void *arg)
 			apu_power_assert_check(&info);
 			#endif
 		} else {
-			LOG_INF("%s enter sleep\n", __func__);
+			LOG_DBG("%s enter sleep\n", __func__);
 			set_current_state(TASK_INTERRUPTIBLE);
 			schedule();
 		}
 
 	}
 
-	LOG_INF("%s task stop\n", __func__);
+	LOG_WRN("%s task stop\n", __func__);
 	return 0;
 }
 
@@ -886,12 +884,8 @@ int apu_power_power_stress(int type, int device, int opp)
 			apu_device_power_off(device);
 		}
 		break;
-
-	case 3: // config conn mtcmos on
-		// hal_config_power(PWR_CMD_DEBUG_MTCMOS_ON, VPU0, NULL);
-		break;
-	case 4: // config conn mtcmos off
-		// hal_config_power(PWR_CMD_DEBUG_MTCMOS_OFF, VPU0, NULL);
+	case 4: // power driver debug func
+		hal_config_power(PWR_CMD_DEBUG_FUNC, VPU0, NULL);
 		break;
 	case 5:	// dvfs all combination test , opp = run count
 for (loop = 0; loop < count; loop++) {
@@ -925,7 +919,7 @@ for (loop = 0; loop < count; loop++) {
 	}
 }
 		break;
-	case 7: // power on/off stress
+	case 7: // power on/off suspend stress
 		if (power_on_off_stress == 0)
 			power_on_off_stress = 1;
 		else

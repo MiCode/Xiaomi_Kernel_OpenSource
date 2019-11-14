@@ -136,7 +136,7 @@ int enable_regulator(enum DVFS_BUCK buck)
 			LOG_ERR("regulator_enable vvpu_reg_id failed\n");
 			return ret;
 		} else {
-			LOG_INF("enable vvpu success\n");
+			LOG_DBG("enable vvpu success\n");
 		}
 
 	} else if (buck == MDLA_BUCK) {
@@ -151,7 +151,7 @@ int enable_regulator(enum DVFS_BUCK buck)
 			LOG_ERR("regulator_enable vmdla_reg_id failed\n");
 			return ret;
 		} else {
-			LOG_INF("enable vmdla success\n");
+			LOG_DBG("enable vmdla success\n");
 		}
 
 
@@ -175,7 +175,7 @@ int enable_regulator(enum DVFS_BUCK buck)
 			LOG_ERR("regulator_enable vsram_reg_id failed\n");
 			return ret;
 		} else {
-			LOG_INF("enable vsram success\n");
+			LOG_DBG("enable vsram success\n");
 		}
 
 	} else {
@@ -207,7 +207,7 @@ int disable_regulator(enum DVFS_BUCK buck)
 			LOG_ERR("regulator_disable vvpu_reg_id failed\n");
 			return ret;
 		} else {
-			LOG_INF("disable vvpu success\n");
+			LOG_DBG("disable vvpu success\n");
 		}
 
 	} else if (buck == MDLA_BUCK) {
@@ -222,7 +222,7 @@ int disable_regulator(enum DVFS_BUCK buck)
 			LOG_ERR("regulator_disable vmdla_reg_id failed\n");
 			return ret;
 		} else {
-			LOG_INF("disable vmdla success\n");
+			LOG_DBG("disable vmdla success\n");
 		}
 
 	} else if (buck == VCORE_BUCK) {
@@ -244,7 +244,7 @@ int disable_regulator(enum DVFS_BUCK buck)
 			LOG_ERR("regulator_disable vsram_reg_id failed\n");
 			return ret;
 		} else {
-			LOG_INF("disable vsram success\n");
+			LOG_DBG("disable vsram success\n");
 		}
 
 	} else {
@@ -402,7 +402,7 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 			mdla_efuse_val, voltage_mV);
 	}
 #endif
-	LOG_WRN("%s try to config buck : %d to %d(max:%d)\n", __func__,
+	LOG_DBG("%s try to config buck : %d to %d(max:%d)\n", __func__,
 						buck, voltage_mV, voltage_MAX);
 
 	if (voltage_mV <= DVFS_VOLT_NOT_SUPPORT
@@ -437,7 +437,7 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 	while ((DRV_Reg32(APU_PCU_PMIC_IRQ) & 0x1) == 0) {
 		udelay(50);
 		if (++check_round >= REG_POLLING_TIMEOUT_ROUNDS) {
-			LOG_WRN("%s wait APU_PCU_PMIC_IRQ timeout !\n",
+			LOG_ERR("%s wait APU_PCU_PMIC_IRQ timeout !\n",
 								__func__);
 			break;
 		}
@@ -521,9 +521,12 @@ int config_regulator_mode(enum DVFS_BUCK buck, int is_normal)
 		udelay(100); // slew rate:rising10mV/us
 
 	} else if (buck == SRAM_BUCK) {
+		// pmic do not support to adjust the mode of vsram
+#if 0
 		ret = regulator_set_mode(vsram_reg_id, is_normal ?
 				REGULATOR_MODE_NORMAL : REGULATOR_MODE_FAST);
 		udelay(100); // slew rate:rising10mV/us
+#endif
 
 	} else {
 		LOG_ERR("%s not support buck : %d\n", __func__, buck);

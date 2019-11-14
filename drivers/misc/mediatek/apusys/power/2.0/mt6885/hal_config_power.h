@@ -31,13 +31,7 @@ enum HAL_POWER_CMD {
 	PWR_CMD_GET_POWER_INFO,		// 7
 	PWR_CMD_REG_DUMP,		// 8
 	PWR_CMD_UNINIT_POWER,		// 9
-	PWR_CMD_DEBUG_MTCMOS_ON,	// 10
-	PWR_CMD_DEBUG_MTCMOS_OFF,	// 11
-// do not control mtcmos and clock individually
-#if 0
-	PWR_CMD_SET_MTCMOS,
-	PWR_CMD_SET_CLK,
-#endif
+	PWR_CMD_DEBUG_FUNC,		//10
 };
 
 

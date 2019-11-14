@@ -66,7 +66,7 @@ static void apu_power_dump_opp_table(struct seq_file *s)
 	}
 }
 
-static void apu_power_dump_curr_status(struct seq_file *s)
+static int apu_power_dump_curr_status(struct seq_file *s, int oneline_str)
 {
 	struct apu_power_info info;
 
@@ -74,6 +74,18 @@ static void apu_power_dump_curr_status(struct seq_file *s)
 	info.type = 1;
 
 	hal_config_power(PWR_CMD_GET_POWER_INFO, VPU0, &info);
+
+	// for thermal request, we print vpu and mdla freq
+	if (oneline_str) {
+		seq_printf(s, "%03u,%03u,%03u,%03u,%03u\n",
+			((info.rpc_intf_rdy >> 2) & 0x1) ? info.dsp1_freq : 0,
+			((info.rpc_intf_rdy >> 3) & 0x1) ? info.dsp2_freq : 0,
+			((info.rpc_intf_rdy >> 4) & 0x1) ? info.dsp3_freq : 0,
+			((info.rpc_intf_rdy >> 6) & 0x1) ? info.dsp6_freq : 0,
+			((info.rpc_intf_rdy >> 7) & 0x1) ? info.dsp6_freq : 0);
+
+		return 0;
+	}
 
 	seq_printf(s,
 		"|curr| vpu0| vpu1| vpu2|mdla0|mdla1| conn|iommu|vcore|\n| opp|");
@@ -117,6 +129,7 @@ static void apu_power_dump_curr_status(struct seq_file *s)
 		info.mdla0_cg_stat, info.mdla1_cg_stat);
 
 	seq_puts(s, "\n");
+	return 0;
 }
 
 static int apusys_debug_power_show(struct seq_file *s, void *unused)
@@ -126,13 +139,13 @@ static int apusys_debug_power_show(struct seq_file *s, void *unused)
 		apu_power_dump_opp_table(s);
 		break;
 	case POWER_PARAM_CURR_STATUS:
-		apu_power_dump_curr_status(s);
+		apu_power_dump_curr_status(s, 0);
 		break;
 	case POWER_PARAM_LOG_LEVEL:
 		seq_printf(s, "g_pwr_log_level = %d\n", g_pwr_log_level);
 		break;
 	default:
-		seq_puts(s, "please echo power node first\n");
+		apu_power_dump_curr_status(s, 1); // one line string
 	}
 
 	return 0;
