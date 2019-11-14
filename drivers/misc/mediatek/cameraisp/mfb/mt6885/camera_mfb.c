@@ -762,7 +762,7 @@ void MFBQOS_Uninit(void)
 
 void MFBQOS_Update(bool start, unsigned int bw)
 {
-	LOG_INF("MFB bw: %d", bw);
+	LOG_DBG("MFB bw: %d", bw);
 	if (start) { /* start MFB, configure MMDVFS to highest CLK */
 		if (bw > 20000000)
 			pm_qos_update_request(&mfb_pmqos_request, max_img_freq);

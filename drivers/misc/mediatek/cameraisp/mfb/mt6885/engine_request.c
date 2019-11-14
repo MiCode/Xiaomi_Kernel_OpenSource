@@ -158,7 +158,7 @@ signed int mfb_register_requests(struct engine_requests *eng, size_t size)
 	_data = vmalloc(len);
 
 	if (_data == NULL) {
-		LOG_INF("[%s] vmalloc failed", __func__);
+		LOG_ERR("[%s] vmalloc failed", __func__);
 		return -1;
 	}
 
