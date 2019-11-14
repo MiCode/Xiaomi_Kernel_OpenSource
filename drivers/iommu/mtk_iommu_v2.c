@@ -3631,7 +3631,7 @@ static void mtk_iommu_pg_before_off(enum subsys_id sys)
 			/* waiting for irs handling done */
 			while (data->isr_ref) {
 				end = sched_clock();
-				if (end - start > 10000000ULL) { //10ms
+				if (end - start > 1000000000ULL) { //10ms
 					break;
 				}
 			}
