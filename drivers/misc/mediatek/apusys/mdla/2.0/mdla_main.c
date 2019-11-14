@@ -105,6 +105,7 @@ u32 mdla_timeout = MDLA_TIMEOUT_DEFAULT;
 u32 mdla_e1_detect_timeout = MDLA_POLLING_LATENCY;
 u32 mdla_poweroff_time = MDLA_POWEROFF_TIME_DEFAULT;
 u32 mdla_dvfs_rand;
+u32 mdla_timeout_dbg;
 
 /*MDLA Multi-Core or per command info*/
 struct mdla_dev mdla_devices[] = {
@@ -118,6 +119,9 @@ struct mdla_dev mdla_devices[] = {
 			__MUTEX_INITIALIZER(mdla_devices[0].cmd_list_lock),
 		.power_pdn_work = mdla0_start_power_off,
 		.power_lock =  __MUTEX_INITIALIZER(mdla_devices[0].power_lock),
+		.cmd_buf_dmp_lock =
+			__MUTEX_INITIALIZER(mdla_devices[0].cmd_buf_dmp_lock),
+		.cmd_buf_len = 0,
 
 	},
 	{
@@ -130,6 +134,9 @@ struct mdla_dev mdla_devices[] = {
 			__MUTEX_INITIALIZER(mdla_devices[1].cmd_list_lock),
 		.power_pdn_work = mdla1_start_power_off,
 		.power_lock =  __MUTEX_INITIALIZER(mdla_devices[1].power_lock),
+		.cmd_buf_dmp_lock =
+			__MUTEX_INITIALIZER(mdla_devices[1].cmd_buf_dmp_lock),
+		.cmd_buf_len = 0,
 	},
 };
 struct mdla_irq_desc mdla_irqdesc[] = {

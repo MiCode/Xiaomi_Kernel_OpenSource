@@ -55,6 +55,7 @@ extern u32 mdla_poweroff_time;
 extern u32 mdla_e1_detect_timeout;
 extern u32 mdla_max_num_core;
 extern u32 mdla_dvfs_rand;
+extern u32 mdla_timeout_dbg;
 
 enum CMD_MODE {
 	NORMAL = 0,
@@ -177,6 +178,9 @@ struct mdla_dev {
 	struct mdla_scheduler *scheduler;
 #endif
 	struct mdla_pmu_info pmu;
+	void *cmd_buf_dmp;
+	u32 cmd_buf_len;
+	struct mutex cmd_buf_dmp_lock;
 };
 
 struct mdla_irq_desc {

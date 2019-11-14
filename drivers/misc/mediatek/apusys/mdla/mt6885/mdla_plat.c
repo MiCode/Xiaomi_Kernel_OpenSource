@@ -407,6 +407,37 @@ int mdla_zero_skip_detect(int core_id)
 	return 0;
 }
 
+int mdla_run_command_codebuf_check(struct command_entry *ce)
+{
+	int i;
+	__u32 *cmd_addr;
+
+	if (ce->kva != NULL) {
+		for (i = 0; i < ce->count; i++) {
+			cmd_addr = (u32 *)(((char *)ce->kva) +
+				(i * MREG_CMD_SIZE));
+			if ((cmd_addr[36]&0xffff) == 0) {
+				mdla_cmd_debug("%s: c_tile_shape_k=%08x, count: %u\n",
+						__func__,
+						(cmd_addr[36]&0xffff),
+						i);
+				return -1;
+			}
+		}
+		cmd_addr = (u32 *)(((char *)ce->kva) +
+			((ce->count-1) * MREG_CMD_SIZE));
+		if ((cmd_addr[85] & 0x1000000) == 0) {
+			mdla_cmd_debug("%s: mreg_cmd_tile_cnt_int=%08x, count: %u\n",
+					__func__,
+					cmd_addr[85],
+					ce->count);
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
 
 #ifdef __APUSYS_PREEMPTION__
 static inline struct mdla_scheduler *mdla_get_scheduler(unsigned int core_id)

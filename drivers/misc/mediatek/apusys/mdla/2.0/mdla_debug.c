@@ -98,9 +98,7 @@ static const struct file_operations mdla_debug_ ## name ## _fops = {   \
 
 
 IMPLEMENT_MDLA_DEBUGFS(register);
-//IMPLEMENT_MDLA_DEBUGFS(opp_table);
-
-
+IMPLEMENT_MDLA_DEBUGFS(mdla_memory);
 
 #undef IMPLEMENT_MDLA_DEBUGFS
 
@@ -221,6 +219,7 @@ static const struct file_operations mdla_debug_prof_fops = {
 	DEFINE_MDLA_DEBUGFS(root);
 	DEFINE_MDLA_DEBUGFS(timeout);
 	DEFINE_MDLA_DEBUGFS(dvfs_rand);
+	DEFINE_MDLA_DEBUGFS(timeout_dbg);
 #if 0
 	DEFINE_MDLA_DEBUGFS(e1_detect_timeout);
 	DEFINE_MDLA_DEBUGFS(e1_detect_count);
@@ -228,8 +227,8 @@ static const struct file_operations mdla_debug_prof_fops = {
 	DEFINE_MDLA_DEBUGFS(poweroff_time);
 	DEFINE_MDLA_DEBUGFS(klog);
 	DEFINE_MDLA_DEBUGFS(register);
-	//DEFINE_MDLA_DEBUGFS(opp_table);
 	DEFINE_MDLA_DEBUGFS(power);
+	DEFINE_MDLA_DEBUGFS(mdla_memory);
 
 	DEFINE_MDLA_DEBUGFS(eng0);
 	DEFINE_MDLA_DEBUGFS(eng1);
@@ -272,6 +271,7 @@ void mdla_debugfs_init(void)
 	mdla_klog = 0x40; /* print timeout info by default */
 #endif
 	mdla_dvfs_rand = 0;
+	mdla_timeout_dbg = 0;
 
 	mdla_droot = debugfs_create_dir("mdla", NULL);
 
@@ -286,6 +286,11 @@ void mdla_debugfs_init(void)
 
 	mdla_ddvfs_rand = debugfs_create_u32("dvfs_rand", 0660, mdla_droot,
 		&mdla_dvfs_rand);
+
+	mdla_dtimeout_dbg = debugfs_create_u32("timeout_dbg",
+		0660,
+		mdla_droot,
+		&mdla_timeout_dbg);
 #if 0
 	mdla_de1_detect_timeout = debugfs_create_u32("e1_detect_timeout",
 			0660, mdla_droot, &mdla_e1_detect_timeout);
@@ -360,9 +365,9 @@ void mdla_debugfs_init(void)
 	}
 
 	CREATE_MDLA_DEBUGFS(register);
-	//CREATE_MDLA_DEBUGFS(opp_table);
 	CREATE_MDLA_DEBUGFS(power);
 	CREATE_MDLA_DEBUGFS(prof);
+	CREATE_MDLA_DEBUGFS(mdla_memory);
 
 #undef CREATE_MDLA_DEBUGFS
 	cfg_eng0 = 0x0;
@@ -380,7 +385,6 @@ void mdla_debugfs_exit(void)
 	REMOVE_MDLA_DEBUGFS(poweroff_time);
 	REMOVE_MDLA_DEBUGFS(klog);
 	REMOVE_MDLA_DEBUGFS(register);
-	//REMOVE_MDLA_DEBUGFS(opp_table);
 	REMOVE_MDLA_DEBUGFS(power);
 	REMOVE_MDLA_DEBUGFS(prof_start);
 	REMOVE_MDLA_DEBUGFS(prof);
@@ -409,6 +413,7 @@ void mdla_debugfs_exit(void)
 	REMOVE_MDLA_DEBUGFS(c14);
 	REMOVE_MDLA_DEBUGFS(c15);
 	REMOVE_MDLA_DEBUGFS(root);
+	REMOVE_MDLA_DEBUGFS(mdla_memory);
 }
 
 void mdla_dump_buf(int mask, void *kva, int group, u32 size)
@@ -443,6 +448,81 @@ void mdla_dump_ce(struct command_entry *ce)
 	}
 }
 
+int mdla_create_dmp_cmd_buf(struct command_entry *ce,
+	struct mdla_dev *mdla_info)
+{
+	int ret = 0;
+	int i;
+	__u32 *cmd_addr;
+
+	if (ce->kva == NULL)
+		return ret;
+
+	mutex_lock(&mdla_info->cmd_buf_dmp_lock);
+	mdla_info->cmd_buf_dmp = kvmalloc(ce->count*MREG_CMD_SIZE, GFP_KERNEL);
+	if (!mdla_info->cmd_buf_dmp) {
+		ret = -ENOMEM;
+		mdla_timeout_debug("%s: kvmalloc: failed\n",
+			__func__);
+		goto out;
+	}
+	mdla_info->cmd_buf_len = ce->count*MREG_CMD_SIZE;
+	memcpy(mdla_info->cmd_buf_dmp, ce->kva, mdla_info->cmd_buf_len);
+
+	if (mdla_timeout_dbg) {
+		cmd_addr = mdla_info->cmd_buf_dmp;
+		for (i = 0; i < (mdla_info->cmd_buf_len/4); i++)
+			mdla_timeout_debug("count: %d, offset: %.8x, val: %.8x\n",
+				(i*4)/MREG_CMD_SIZE,
+				(i*4)%MREG_CMD_SIZE,
+				cmd_addr[i]);
+	}
+out:
+	mutex_unlock(&mdla_info->cmd_buf_dmp_lock);
+	return ret;
+
+}
+
+static void mdla_dump_cmd_buf_free(int core_id)
+{
+	mutex_lock(&mdla_devices[core_id].cmd_buf_dmp_lock);
+	if (mdla_devices[core_id].cmd_buf_len != 0) {
+		mdla_devices[core_id].cmd_buf_len = 0;
+		kfree(mdla_devices[core_id].cmd_buf_dmp);
+		mdla_devices[core_id].cmd_buf_dmp = NULL;
+	}
+	mutex_unlock(&mdla_devices[core_id].cmd_buf_dmp_lock);
+
+}
+
+int mdla_dump_mdla_memory(struct seq_file *s)
+{
+	int i, core_id;
+	__u32 *cmd_addr;
+	__u64 t;
+	__u64 nanosec_rem;
+
+	t = sched_clock();
+	nanosec_rem = do_div(t, 1000000000);
+
+	seq_printf(s, "[%5lu.%06lu] ------- dump MDLA code buf -------\n",
+		(unsigned long) t, (unsigned long) (nanosec_rem / 1000));
+
+	for (core_id = 0; core_id < mdla_max_num_core; core_id++) {
+		if (mdla_devices[core_id].cmd_buf_len == 0)
+			continue;
+		seq_printf(s, "mdla %d code buf:\n", core_id);
+		mutex_lock(&mdla_devices[core_id].cmd_buf_dmp_lock);
+		cmd_addr = mdla_devices[core_id].cmd_buf_dmp;
+		for (i = 0; i < (mdla_devices[core_id].cmd_buf_len/4); i++)
+			seq_printf(s, "count: %d, offset: %.8x, val: %.8x\n",
+				(i*4)/MREG_CMD_SIZE,
+				(i*4)%MREG_CMD_SIZE,
+				cmd_addr[i]);
+		mutex_unlock(&mdla_devices[core_id].cmd_buf_dmp_lock);
+	}
+	return 0;
+}
 
 int mdla_dump_register(struct seq_file *s)
 {
@@ -483,12 +563,15 @@ int mdla_dump_register(struct seq_file *s)
 	return 0;
 }
 
-int mdla_dump_dbg(int core_id, struct command_entry *ce)
+int mdla_dump_dbg(struct mdla_dev *mdla_info, struct command_entry *ce)
 {
-	mdla_dump_reg(core_id);
-	mdla_dump_ce(ce);
+	mdla_dump_reg(mdla_info->mdlaid);
+	mdla_dump_cmd_buf_free(mdla_info->mdlaid);
+	mdla_create_dmp_cmd_buf(ce, mdla_info);
+	mdla_run_command_codebuf_check(ce);
 	apusys_reg_dump();
-	mdla_aee_warn("APUSYS_MDLA", "MDLA Exception");
+	mdla_aee_warn("MDLA", "MDLA timeout");
 
 	return 0;
 }
+

@@ -26,7 +26,7 @@
 #define mdla_aee_warn(key, format, args...) \
 	do { \
 		pr_info(format, ##args); \
-		aee_kernel_warning("APUSYS_MDLA", \
+		aee_kernel_warning("MDLA", \
 			"\nCRDISPATCH_KEY:" key "\n" format, ##args); \
 	} while (0)
 #else
@@ -114,7 +114,13 @@ int mdla_dump_mdla(struct seq_file *s);
  */
 int mdla_dump_device_dbg(struct seq_file *s);
 
-int mdla_dump_dbg(int core_id, struct command_entry *ce);
+/**
+ * mdla_dump_memory - dump the mdla code code buffer
+ * @s:		the pointer to seq_file.
+ */
+int mdla_dump_mdla_memory(struct seq_file *s);
+
+int mdla_dump_dbg(struct mdla_dev *mdla_info, struct command_entry *ce);
 
 
 enum MDLA_DEBUG_MASK {

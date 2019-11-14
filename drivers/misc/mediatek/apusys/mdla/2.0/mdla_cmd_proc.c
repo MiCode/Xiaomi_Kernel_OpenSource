@@ -64,6 +64,8 @@
 #include "mdla_hw_reg.h"
 #include "mdla_pmu.h"
 #include "apusys_power.h"
+#include <asm-generic/bug.h>       /* BUG_ON */
+
 
 #ifdef CONFIG_PM_WAKELOCKS
 static struct wakeup_source *mdla_ws;
@@ -272,6 +274,7 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd,
 
 	if (!cd || !mdla_info || (mdla_info->mdlaid >= mdla_max_num_core))
 		return -EINVAL;
+
 	memset(&ce, 0, sizeof(ce));
 	core_id = mdla_info->mdlaid;
 	ce.queue_t = sched_clock();
@@ -386,7 +389,9 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd,
 		mdla_timeout_debug("command: %d, max_cmd_id: %d\n",
 				id,
 				mdla_info->max_cmd_id);
-		mdla_dump_dbg(core_id, &ce);
+		mdla_dump_dbg(mdla_info, &ce);
+		//if (mdla_timeout_dbg)
+		//	BUG_ON(1);
 		// Enable & Relase bus protect
 		apu_device_power_off(MDLA0+core_id);
 		apu_device_power_on(MDLA0+core_id);
