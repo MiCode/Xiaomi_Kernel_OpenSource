@@ -66,6 +66,7 @@ Optional property:
 		 can be resumed after subsytem restart. By default slimbus driver
 		 register with ADSP subsystem.
  - qcom,iommu-s1-bypass: Boolean flag to bypass IOMMU stage 1 translation.
+ - qcom,iommu-atomic-ctx: Boolean flag to enable IOMMU in atomic context
 
 Optional subnodes:
 qcom,iommu_slim_ctrl_cb : Child node representing the Slimbus controller
