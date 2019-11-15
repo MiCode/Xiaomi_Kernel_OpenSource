@@ -577,6 +577,17 @@ static struct platform_driver msm_ion_driver = {
 		.of_match_table = msm_ion_match_table,
 	},
 };
-module_platform_driver(msm_ion_driver);
+
+static int __init msm_ion_init(void)
+{
+	return platform_driver_register(&msm_ion_driver);
+}
+subsys_initcall_sync(msm_ion_init);
+
+static void __exit msm_ion_exit(void)
+{
+	return platform_driver_unregister(&msm_ion_driver);
+}
+module_exit(msm_ion_exit);
 
 MODULE_LICENSE("GPL v2");
