@@ -300,7 +300,8 @@ struct ipa_api_controller {
 			bool LPTransitionRejected,
 			bool brstmode_enabled,
 			union __packed gsi_channel_scratch ch_scratch,
-			u8 index);
+			u8 index,
+			bool is_switch_to_dbmode);
 
 	int  (*ipa_mhi_destroy_channel)(enum ipa_client_type client);
 
