@@ -460,6 +460,16 @@ config MSM_GLINK_SSR
 	  will be used for drivers on MSMs.
 	  Say M if you want to enable this
 
+config QTI_PMIC_GLINK
+	tristate "Enable support for PMIC GLINK"
+	depends on QCOM_GLINK
+	help
+	  The PMIC Glink driver provides the interface for clients to
+	  communicate over GLink for sending and receiving data to charger
+	  firmware that runs on a remote subsystem like DSP which supports
+	  charging and gauging.
+	  This enables clients to read and write battery charging parameters.
+
 config MSM_CDSP_LOADER
 	tristate "CDSP loader support"
 	help
