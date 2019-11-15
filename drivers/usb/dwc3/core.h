@@ -994,6 +994,7 @@ struct dwc3_scratchpad_array {
  * @bh_handled_evt_cnt: no. of events handled by tasklet per interrupt
  * @bh_dbg_index: index for capturing bh_completion_time and bh_handled_evt_cnt
  * @last_run_stop: timestamp denoting the last run_stop update
+ * @num_gsi_eps: number of GSI based hardware accelerated endpoints
  */
 struct dwc3 {
 	struct work_struct	drd_work;
@@ -1212,6 +1213,7 @@ struct dwc3 {
 	bool			host_poweroff_in_pm_suspend;
 	int			retries_on_error;
 	ktime_t			last_run_stop;
+	u32			num_gsi_eps;
 };
 
 #define work_to_dwc(w)		(container_of((w), struct dwc3, drd_work))

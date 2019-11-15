@@ -1169,6 +1169,7 @@ static void dwc3_get_properties(struct dwc3 *dwc)
 					"snps,usb3-u1u2-disable");
 	dwc->disable_clk_gating = device_property_read_bool(dev,
 					"snps,disable-clk-gating");
+	device_property_read_u32(dev, "num-gsi-eps", &dwc->num_gsi_eps);
 
 	dwc->dis_metastability_quirk = device_property_read_bool(dev,
 				"snps,dis_metastability_quirk");
