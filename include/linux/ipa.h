@@ -2539,7 +2539,8 @@ static inline int ipa_release_wdi_mapping(u32 num_buffers,
 	return -EINVAL;
 }
 
-static inline int ipa_disable_apps_wan_cons_deaggr(void)
+static inline int ipa_disable_apps_wan_cons_deaggr(uint32_t agg_size,
+		uint32_t agg_count)
 {
 	return -EINVAL;
 }
