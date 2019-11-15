@@ -34,6 +34,8 @@
 #define REMOTE_TIME_REMAINDER_US(x) (REMOTE_TICKS_TO_US((x)) % \
 					(REMOTE_TICKS_TO_SEC((x)) * 1000000ULL))
 
+#define MHI_MAX_SFR_LEN (256)
+
 extern const char * const mhi_ee_str[MHI_EE_MAX];
 #define TO_MHI_EXEC_STR(ee) (ee >= MHI_EE_MAX ? "INVALID_EE" : mhi_ee_str[ee])
 
