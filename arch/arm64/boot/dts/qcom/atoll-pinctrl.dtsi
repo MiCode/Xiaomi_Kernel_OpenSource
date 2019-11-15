@@ -239,7 +239,7 @@
 
 			config {
 				pins = "gpio55", "gpio33";
-				bias-pull-down;
+				bias-disable = <0>;
 				drive-strength = <2>;
 			};
 		};
