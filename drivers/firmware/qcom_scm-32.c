@@ -423,33 +423,31 @@ void __qcom_scm_cpu_power_down(u32 flags)
 			flags & QCOM_SCM_FLUSH_FLAG_MASK);
 }
 
-int __qcom_scm_is_call_available(struct device *dev, u32 svc_id, u32 cmd_id)
+int __qcom_scm_set_remote_state(struct device *dev, u32 state, u32 id)
 {
+	struct {
+		__le32 state;
+		__le32 id;
+	} req;
+	__le32 scm_ret = 0;
 	int ret;
-	__le32 svc_cmd = cpu_to_le32((svc_id << 10) | cmd_id);
-	__le32 ret_val = 0;
 
-	ret = qcom_scm_call(dev, QCOM_SCM_SVC_INFO, QCOM_SCM_INFO_IS_CALL_AVAIL,
-			    &svc_cmd, sizeof(svc_cmd), &ret_val,
-			    sizeof(ret_val));
-	if (ret)
-		return ret;
+	req.state = cpu_to_le32(state);
+	req.id = cpu_to_le32(id);
 
-	return le32_to_cpu(ret_val);
+	ret = qcom_scm_call(dev, QCOM_SCM_SVC_BOOT,
+			    QCOM_SCM_BOOT_SET_REMOTE_STATE,
+			    &req, sizeof(req), &scm_ret, sizeof(scm_ret));
+
+	return ret ? : le32_to_cpu(scm_ret);
 }
 
-int __qcom_scm_hdcp_req(struct device *dev, struct qcom_scm_hdcp_req *req,
-			u32 req_cnt, u32 *resp)
+int __qcom_scm_set_dload_mode(struct device *dev, bool enable)
 {
-	if (req_cnt > QCOM_SCM_HDCP_MAX_REQ_CNT)
-		return -ERANGE;
-
-	return qcom_scm_call(dev, QCOM_SCM_SVC_HDCP, QCOM_SCM_HDCP_INVOKE,
-		req, req_cnt * sizeof(*req), resp, sizeof(*resp));
-}
-
-void __qcom_scm_init(void)
-{
+	return qcom_scm_call_atomic2(QCOM_SCM_SVC_BOOT,
+				     QCOM_SCM_BOOT_SET_DLOAD_MODE,
+				     enable ? QCOM_SCM_BOOT_SET_DLOAD_MODE : 0,
+				     0);
 }
 
 bool __qcom_scm_pas_supported(struct device *dev, u32 peripheral)
@@ -554,38 +552,37 @@ int __qcom_scm_pas_mss_reset(struct device *dev, bool reset)
 	return ret ? : le32_to_cpu(out);
 }
 
-int __qcom_scm_set_dload_mode(struct device *dev, bool enable)
+int __qcom_scm_io_readl(struct device *dev, phys_addr_t addr,
+			unsigned int *val)
 {
-	return qcom_scm_call_atomic2(QCOM_SCM_SVC_BOOT,
-				     QCOM_SCM_BOOT_SET_DLOAD_MODE,
-				     enable ? QCOM_SCM_BOOT_SET_DLOAD_MODE : 0,
-				     0);
-}
-
-int __qcom_scm_set_remote_state(struct device *dev, u32 state, u32 id)
-{
-	struct {
-		__le32 state;
-		__le32 id;
-	} req;
-	__le32 scm_ret = 0;
 	int ret;
 
-	req.state = cpu_to_le32(state);
-	req.id = cpu_to_le32(id);
+	ret = qcom_scm_call_atomic1(QCOM_SCM_SVC_IO, QCOM_SCM_IO_READ, addr);
+	if (ret >= 0)
+		*val = ret;
 
-	ret = qcom_scm_call(dev, QCOM_SCM_SVC_BOOT,
-			    QCOM_SCM_BOOT_SET_REMOTE_STATE,
-			    &req, sizeof(req), &scm_ret, sizeof(scm_ret));
-
-	return ret ? : le32_to_cpu(scm_ret);
+	return ret < 0 ? ret : 0;
 }
 
-int __qcom_scm_assign_mem(struct device *dev, phys_addr_t mem_region,
-			  size_t mem_sz, phys_addr_t src, size_t src_sz,
-			  phys_addr_t dest, size_t dest_sz)
+int __qcom_scm_io_writel(struct device *dev, phys_addr_t addr, unsigned int val)
 {
-	return -ENODEV;
+	return qcom_scm_call_atomic2(QCOM_SCM_SVC_IO, QCOM_SCM_IO_WRITE,
+				     addr, val);
+}
+
+int __qcom_scm_is_call_available(struct device *dev, u32 svc_id, u32 cmd_id)
+{
+	int ret;
+	__le32 svc_cmd = cpu_to_le32((svc_id << 10) | cmd_id);
+	__le32 ret_val = 0;
+
+	ret = qcom_scm_call(dev, QCOM_SCM_SVC_INFO, QCOM_SCM_INFO_IS_CALL_AVAIL,
+			    &svc_cmd, sizeof(svc_cmd), &ret_val,
+			    sizeof(ret_val));
+	if (ret)
+		return ret;
+
+	return le32_to_cpu(ret_val);
 }
 
 int __qcom_scm_restore_sec_cfg(struct device *dev, u32 device_id,
@@ -606,25 +603,28 @@ int __qcom_scm_iommu_secure_ptbl_init(struct device *dev, u64 addr, u32 size,
 	return -ENODEV;
 }
 
-int __qcom_scm_io_readl(struct device *dev, phys_addr_t addr,
-			unsigned int *val)
+int __qcom_scm_assign_mem(struct device *dev, phys_addr_t mem_region,
+			  size_t mem_sz, phys_addr_t src, size_t src_sz,
+			  phys_addr_t dest, size_t dest_sz)
 {
-	int ret;
-
-	ret = qcom_scm_call_atomic1(QCOM_SCM_SVC_IO, QCOM_SCM_IO_READ, addr);
-	if (ret >= 0)
-		*val = ret;
-
-	return ret < 0 ? ret : 0;
+	return -ENODEV;
 }
 
-int __qcom_scm_io_writel(struct device *dev, phys_addr_t addr, unsigned int val)
+int __qcom_scm_hdcp_req(struct device *dev, struct qcom_scm_hdcp_req *req,
+			u32 req_cnt, u32 *resp)
 {
-	return qcom_scm_call_atomic2(QCOM_SCM_SVC_IO, QCOM_SCM_IO_WRITE,
-				     addr, val);
+	if (req_cnt > QCOM_SCM_HDCP_MAX_REQ_CNT)
+		return -ERANGE;
+
+	return qcom_scm_call(dev, QCOM_SCM_SVC_HDCP, QCOM_SCM_HDCP_INVOKE,
+		req, req_cnt * sizeof(*req), resp, sizeof(*resp));
 }
 
 int __qcom_scm_qsmmu500_wait_safe_toggle(struct device *dev, bool enable)
 {
 	return -ENODEV;
+}
+
+void __qcom_scm_init(void)
+{
 }
