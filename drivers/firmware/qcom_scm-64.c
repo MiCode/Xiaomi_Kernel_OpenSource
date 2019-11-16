@@ -54,6 +54,10 @@ struct qcom_scm_desc {
 	u32 owner;
 };
 
+struct arm_smccc_args {
+	unsigned long a[8];
+};
+
 static u64 qcom_smccc_convention = -1;
 static DEFINE_MUTEX(qcom_scm_lock);
 
@@ -64,28 +68,24 @@ static DEFINE_MUTEX(qcom_scm_lock);
 #define SMCCC_N_REG_ARGS	4
 #define SMCCC_FIRST_EXT_IDX	(SMCCC_N_REG_ARGS - 1)
 #define SMCCC_N_EXT_ARGS	(MAX_QCOM_SCM_ARGS - SMCCC_N_REG_ARGS + 1)
+#define SMCCC_FIRST_REG_IDX	2
+#define SMCCC_LAST_REG_IDX	(SMCCC_FIRST_REG_IDX + SMCCC_N_REG_ARGS - 1)
 
-static void __qcom_scm_call_do_quirk(const struct qcom_scm_desc *desc,
-			       struct arm_smccc_res *res, u64 x5, u32 type)
+static void __qcom_scm_call_do_quirk(const struct arm_smccc_args *smc,
+				     struct arm_smccc_res *res)
 {
-	u64 cmd;
+	unsigned long a0 = smc->a[0];
 	struct arm_smccc_quirk quirk = { .id = ARM_SMCCC_QUIRK_QCOM_A6 };
-
-	cmd = ARM_SMCCC_CALL_VAL(
-		type,
-		qcom_smccc_convention,
-		desc->owner,
-		SMCCC_FUNCNUM(desc->svc, desc->cmd));
 
 	quirk.state.a6 = 0;
 
 	do {
-		arm_smccc_smc_quirk(cmd, desc->arginfo, desc->args[0],
-				    desc->args[1], desc->args[2], x5,
-				    quirk.state.a6, 0, res, &quirk);
+		arm_smccc_smc_quirk(a0, smc->a[1], smc->a[2], smc->a[3],
+				    smc->a[4], smc->a[5], quirk.state.a6,
+				    smc->a[7], res, &quirk);
 
 		if (res->a0 == QCOM_SCM_INTERRUPTED)
-			cmd = res->a0;
+			a0 = res->a0;
 
 	} while (res->a0 == QCOM_SCM_INTERRUPTED);
 }
@@ -95,12 +95,22 @@ static int ___qcom_scm_call_smccc(struct device *dev,
 {
 	int arglen = desc->arginfo & 0xf;
 	int i;
-	u64 x5 = desc->args[SMCCC_FIRST_EXT_IDX];
 	dma_addr_t args_phys = 0;
 	void *args_virt = NULL;
 	size_t alloc_len;
 	gfp_t flag = atomic ? GFP_ATOMIC : GFP_KERNEL;
+	u32 smccc_call_type = atomic ? ARM_SMCCC_FAST_CALL : ARM_SMCCC_STD_CALL;
 	struct arm_smccc_res res;
+	struct arm_smccc_args smc = {{0}};
+
+	smc.a[0] = ARM_SMCCC_CALL_VAL(
+		smccc_call_type,
+		qcom_smccc_convention,
+		desc->owner,
+		SMCCC_FUNCNUM(desc->svc, desc->cmd));
+	smc.a[1] = desc->arginfo;
+	for (i = 0; i < SMCCC_N_REG_ARGS; i++)
+		smc.a[i + SMCCC_FIRST_REG_IDX] = desc->args[i];
 
 	if (unlikely(arglen > SMCCC_N_REG_ARGS)) {
 		alloc_len = SMCCC_N_EXT_ARGS * sizeof(u64);
@@ -131,19 +141,18 @@ static int ___qcom_scm_call_smccc(struct device *dev,
 			return -ENOMEM;
 		}
 
-		x5 = args_phys;
+		smc.a[SMCCC_LAST_REG_IDX] = args_phys;
 	}
 
 	if (atomic) {
-		__qcom_scm_call_do_quirk(desc, &res, x5, ARM_SMCCC_FAST_CALL);
+		__qcom_scm_call_do_quirk(&smc, &res);
 	} else {
 		int retry_count = 0;
 
 		do {
 			mutex_lock(&qcom_scm_lock);
 
-			__qcom_scm_call_do_quirk(desc, &res, x5,
-						 ARM_SMCCC_STD_CALL);
+			__qcom_scm_call_do_quirk(&smc, &res);
 
 			mutex_unlock(&qcom_scm_lock);
 
