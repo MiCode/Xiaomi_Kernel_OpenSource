@@ -119,6 +119,8 @@ static int batched_hyp_assign(struct sg_table *table, struct scm_desc *desc)
 
 		trace_hyp_assign_batch_end(ret, ktime_us_delta(ktime_get(),
 					   batch_assign_start_ts));
+		dma_unmap_single(qcom_secure_buffer_dev, entries_dma_addr,
+				 entries_size, DMA_TO_DEVICE);
 		i++;
 
 		if (ret) {
