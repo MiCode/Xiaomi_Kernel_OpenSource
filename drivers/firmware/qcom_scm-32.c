@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2010,2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010,2015,2019 The Linux Foundation. All rights reserved.
  * Copyright (C) 2015 Linaro Ltd.
  */
 
@@ -39,22 +39,22 @@ static struct qcom_scm_entry qcom_scm_wb[] = {
 static DEFINE_MUTEX(qcom_scm_lock);
 
 /**
- * struct qcom_scm_command - one SCM command buffer
+ * struct qcom_scm_legacy_command - one SCM command buffer
  * @len: total available memory for command and response
  * @buf_offset: start of command buffer
  * @resp_hdr_offset: start of response buffer
  * @id: command to be executed
- * @buf: buffer returned from qcom_scm_get_command_buffer()
+ * @buf: buffer returned from legacy_get_command_buffer()
  *
  * An SCM command is laid out in memory as follows:
  *
- *	------------------- <--- struct qcom_scm_command
+ *	------------------- <--- struct qcom_scm_legacy_command
  *	| command header  |
- *	------------------- <--- qcom_scm_get_command_buffer()
+ *	------------------- <--- legacy_get_command_buffer()
  *	| command buffer  |
- *	------------------- <--- struct qcom_scm_response and
- *	| response header |      qcom_scm_command_to_response()
- *	------------------- <--- qcom_scm_get_response_buffer()
+ *	------------------- <--- struct qcom_scm_legacy_response and
+ *	| response header |      legacy_command_to_response()
+ *	------------------- <--- legacy_get_response_buffer()
  *	| response buffer |
  *	-------------------
  *
@@ -62,7 +62,7 @@ static DEFINE_MUTEX(qcom_scm_lock);
  * you should always use the appropriate qcom_scm_get_*_buffer() routines
  * to access the buffers in a safe manner.
  */
-struct qcom_scm_command {
+struct qcom_scm_legacy_command {
 	__le32 len;
 	__le32 buf_offset;
 	__le32 resp_hdr_offset;
@@ -71,52 +71,55 @@ struct qcom_scm_command {
 };
 
 /**
- * struct qcom_scm_response - one SCM response buffer
+ * struct qcom_scm_legacy_response - one SCM response buffer
  * @len: total available memory for response
- * @buf_offset: start of response data relative to start of qcom_scm_response
+ * @buf_offset: start of response data relative to start of
+ *              qcom_scm_legacy_response
  * @is_complete: indicates if the command has finished processing
  */
-struct qcom_scm_response {
+struct qcom_scm_legacy_response {
 	__le32 len;
 	__le32 buf_offset;
 	__le32 is_complete;
 };
 
 /**
- * qcom_scm_command_to_response() - Get a pointer to a qcom_scm_response
+ * legacy_command_to_response() - Get a pointer to a qcom_scm_legacy_response
  * @cmd: command
  *
  * Returns a pointer to a response for a command.
  */
-static inline struct qcom_scm_response *qcom_scm_command_to_response(
-		const struct qcom_scm_command *cmd)
+static inline struct qcom_scm_legacy_response *legacy_command_to_response(
+		const struct qcom_scm_legacy_command *cmd)
 {
 	return (void *)cmd + le32_to_cpu(cmd->resp_hdr_offset);
 }
 
 /**
- * qcom_scm_get_command_buffer() - Get a pointer to a command buffer
+ * legacy_get_command_buffer() - Get a pointer to a command buffer
  * @cmd: command
  *
  * Returns a pointer to the command buffer of a command.
  */
-static inline void *qcom_scm_get_command_buffer(const struct qcom_scm_command *cmd)
+static inline void *legacy_get_command_buffer(
+		const struct qcom_scm_legacy_command *cmd)
 {
 	return (void *)cmd->buf;
 }
 
 /**
- * qcom_scm_get_response_buffer() - Get a pointer to a response buffer
+ * legacy_get_response_buffer() - Get a pointer to a response buffer
  * @rsp: response
  *
  * Returns a pointer to a response buffer of a response.
  */
-static inline void *qcom_scm_get_response_buffer(const struct qcom_scm_response *rsp)
+static inline void *legacy_get_response_buffer(
+		const struct qcom_scm_legacy_response *rsp)
 {
 	return (void *)rsp + le32_to_cpu(rsp->buf_offset);
 }
 
-static u32 smc(u32 cmd_addr)
+static u32 __qcom_scm_call_do(u32 cmd_addr)
 {
 	int context_id;
 	register u32 r0 asm("r0") = 1;
@@ -164,8 +167,8 @@ static int qcom_scm_call(struct device *dev, u32 svc_id, u32 cmd_id,
 			 size_t resp_len)
 {
 	int ret;
-	struct qcom_scm_command *cmd;
-	struct qcom_scm_response *rsp;
+	struct qcom_scm_legacy_command *cmd;
+	struct qcom_scm_legacy_response *rsp;
 	size_t alloc_len = sizeof(*cmd) + cmd_len + sizeof(*rsp) + resp_len;
 	dma_addr_t cmd_phys;
 
@@ -179,9 +182,9 @@ static int qcom_scm_call(struct device *dev, u32 svc_id, u32 cmd_id,
 
 	cmd->id = cpu_to_le32((svc_id << 10) | cmd_id);
 	if (cmd_buf)
-		memcpy(qcom_scm_get_command_buffer(cmd), cmd_buf, cmd_len);
+		memcpy(legacy_get_command_buffer(cmd), cmd_buf, cmd_len);
 
-	rsp = qcom_scm_command_to_response(cmd);
+	rsp = legacy_command_to_response(cmd);
 
 	cmd_phys = dma_map_single(dev, cmd, alloc_len, DMA_TO_DEVICE);
 	if (dma_mapping_error(dev, cmd_phys)) {
@@ -190,7 +193,7 @@ static int qcom_scm_call(struct device *dev, u32 svc_id, u32 cmd_id,
 	}
 
 	mutex_lock(&qcom_scm_lock);
-	ret = smc(cmd_phys);
+	ret = __qcom_scm_call_do(cmd_phys);
 	if (ret < 0)
 		ret = qcom_scm_remap_error(ret);
 	mutex_unlock(&qcom_scm_lock);
@@ -206,7 +209,7 @@ static int qcom_scm_call(struct device *dev, u32 svc_id, u32 cmd_id,
 		dma_sync_single_for_cpu(dev, cmd_phys + sizeof(*cmd) + cmd_len +
 					le32_to_cpu(rsp->buf_offset),
 					resp_len, DMA_FROM_DEVICE);
-		memcpy(resp_buf, qcom_scm_get_response_buffer(rsp),
+		memcpy(resp_buf, legacy_get_response_buffer(rsp),
 		       resp_len);
 	}
 out:
@@ -215,11 +218,12 @@ out:
 	return ret;
 }
 
-#define SCM_CLASS_REGISTER	(0x2 << 8)
-#define SCM_MASK_IRQS		BIT(5)
-#define SCM_ATOMIC(svc, cmd, n) (((((svc) << 10)|((cmd) & 0x3ff)) << 12) | \
-				SCM_CLASS_REGISTER | \
-				SCM_MASK_IRQS | \
+#define LEGACY_CLASS_REGISTER		(0x2 << 8)
+#define LEGACY_MASK_IRQS		BIT(5)
+#define LEGACY_ATOMIC_ID(svc, cmd, n) \
+				(((((svc) << 10)|((cmd) & 0x3ff)) << 12) | \
+				LEGACY_CLASS_REGISTER | \
+				LEGACY_MASK_IRQS | \
 				(n & 0xf))
 
 /**
@@ -235,7 +239,7 @@ static s32 qcom_scm_call_atomic1(u32 svc, u32 cmd, u32 arg1)
 {
 	int context_id;
 
-	register u32 r0 asm("r0") = SCM_ATOMIC(svc, cmd, 1);
+	register u32 r0 asm("r0") = LEGACY_ATOMIC_ID(svc, cmd, 1);
 	register u32 r1 asm("r1") = (u32)&context_id;
 	register u32 r2 asm("r2") = arg1;
 
@@ -268,7 +272,7 @@ static s32 qcom_scm_call_atomic2(u32 svc, u32 cmd, u32 arg1, u32 arg2)
 {
 	int context_id;
 
-	register u32 r0 asm("r0") = SCM_ATOMIC(svc, cmd, 2);
+	register u32 r0 asm("r0") = LEGACY_ATOMIC_ID(svc, cmd, 2);
 	register u32 r1 asm("r1") = (u32)&context_id;
 	register u32 r2 asm("r2") = arg1;
 	register u32 r3 asm("r3") = arg2;
