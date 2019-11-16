@@ -38,6 +38,8 @@ static struct qcom_scm_entry qcom_scm_wb[] = {
 
 static DEFINE_MUTEX(qcom_scm_lock);
 
+#define LEGACY_FUNCNUM(s, c)	(((s) << 10) | ((c) & 0x3ff))
+
 /**
  * struct qcom_scm_legacy_command - one SCM command buffer
  * @len: total available memory for command and response
@@ -180,7 +182,7 @@ static int qcom_scm_call(struct device *dev, u32 svc_id, u32 cmd_id,
 	cmd->buf_offset = cpu_to_le32(sizeof(*cmd));
 	cmd->resp_hdr_offset = cpu_to_le32(sizeof(*cmd) + cmd_len);
 
-	cmd->id = cpu_to_le32((svc_id << 10) | cmd_id);
+	cmd->id = cpu_to_le32(LEGACY_FUNCNUM(svc_id, cmd_id));
 	if (cmd_buf)
 		memcpy(legacy_get_command_buffer(cmd), cmd_buf, cmd_len);
 
@@ -221,7 +223,7 @@ out:
 #define LEGACY_CLASS_REGISTER		(0x2 << 8)
 #define LEGACY_MASK_IRQS		BIT(5)
 #define LEGACY_ATOMIC_ID(svc, cmd, n) \
-				(((((svc) << 10)|((cmd) & 0x3ff)) << 12) | \
+				((LEGACY_FUNCNUM(svc, cmd) << 12) | \
 				LEGACY_CLASS_REGISTER | \
 				LEGACY_MASK_IRQS | \
 				(n & 0xf))
