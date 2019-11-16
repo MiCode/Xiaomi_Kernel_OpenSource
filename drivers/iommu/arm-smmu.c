@@ -2740,8 +2740,6 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	struct iommu_fwspec *fwspec = dev->iommu_fwspec;
 	struct arm_smmu_device *smmu;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	bool atomic_domain = test_bit(DOMAIN_ATTR_ATOMIC,
-				      smmu_domain->attributes);
 	int s1_bypass = 0;
 
 	if (!fwspec || fwspec->ops != &arm_smmu_ops.iommu_ops) {
@@ -2808,7 +2806,7 @@ out_power_off:
 	 * Keep an additional vote for non-atomic power until domain is
 	 * detached
 	 */
-	if (!ret && atomic_domain) {
+	if (!ret && test_bit(DOMAIN_ATTR_ATOMIC, smmu_domain->attributes)) {
 		WARN_ON(arm_smmu_power_on(smmu->pwr));
 		arm_smmu_power_off_atomic(smmu, smmu->pwr);
 	}
