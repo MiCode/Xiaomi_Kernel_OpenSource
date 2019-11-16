@@ -90,31 +90,6 @@ static void __qcom_scm_call_do_quirk(const struct qcom_scm_desc *desc,
 	} while (res->a0 == QCOM_SCM_INTERRUPTED);
 }
 
-static void qcom_scm_call_do_smccc(const struct qcom_scm_desc *desc,
-			     struct arm_smccc_res *res, u64 x5, bool atomic)
-{
-	int retry_count = 0;
-
-	if (atomic) {
-		__qcom_scm_call_do_quirk(desc, res, x5, ARM_SMCCC_FAST_CALL);
-		return;
-	}
-
-	do {
-		mutex_lock(&qcom_scm_lock);
-
-		__qcom_scm_call_do_quirk(desc, res, x5, ARM_SMCCC_STD_CALL);
-
-		mutex_unlock(&qcom_scm_lock);
-
-		if (res->a0 == QCOM_SCM_V2_EBUSY) {
-			if (retry_count++ > QCOM_SCM_EBUSY_MAX_RETRY)
-				break;
-			msleep(QCOM_SCM_EBUSY_WAIT_MS);
-		}
-	}  while (res->a0 == QCOM_SCM_V2_EBUSY);
-}
-
 static int ___qcom_scm_call_smccc(struct device *dev,
 				  struct qcom_scm_desc *desc, bool atomic)
 {
@@ -159,7 +134,26 @@ static int ___qcom_scm_call_smccc(struct device *dev,
 		x5 = args_phys;
 	}
 
-	qcom_scm_call_do_smccc(desc, &res, x5, atomic);
+	if (atomic) {
+		__qcom_scm_call_do_quirk(desc, &res, x5, ARM_SMCCC_FAST_CALL);
+	} else {
+		int retry_count = 0;
+
+		do {
+			mutex_lock(&qcom_scm_lock);
+
+			__qcom_scm_call_do_quirk(desc, &res, x5,
+						 ARM_SMCCC_STD_CALL);
+
+			mutex_unlock(&qcom_scm_lock);
+
+			if (res.a0 == QCOM_SCM_V2_EBUSY) {
+				if (retry_count++ > QCOM_SCM_EBUSY_MAX_RETRY)
+					break;
+				msleep(QCOM_SCM_EBUSY_WAIT_MS);
+			}
+		} while (res.a0 == QCOM_SCM_V2_EBUSY);
+	}
 
 	if (args_virt) {
 		dma_unmap_single(dev, args_phys, alloc_len, DMA_TO_DEVICE);
