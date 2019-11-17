@@ -1893,6 +1893,21 @@
 		hyplog-address-offset = <0x410>;
 		hyplog-size-offset = <0x414>;
 	};
+
+	qcom,spcom {
+		compatible = "qcom,spcom";
+
+		/* predefined channels, remote side is server */
+		qcom,spcom-ch-names = "sp_kernel", "sp_ssr";
+		/* sp2soc rmb shared register physical address and bmsk */
+		qcom,spcom-sp2soc-rmb-reg-addr = <0x01881020>;
+		qcom,spcom-sp2soc-rmb-initdone-bit = <24>;
+		qcom,spcom-sp2soc-rmb-pbldone-bit = <25>;
+		/* soc2sp rmb shared register physical address */
+		qcom,spcom-soc2sp-rmb-reg-addr = <0x01881030>;
+		qcom,spcom-soc2sp-rmb-sp-ssr-bit = <0>;
+		status = "ok";
+	};
 };
 
 #include "lahaina-regulators.dtsi"
