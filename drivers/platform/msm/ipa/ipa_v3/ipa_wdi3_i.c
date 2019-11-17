@@ -887,9 +887,9 @@ int ipa3_write_qmapid_wdi3_gsi_pipe(u32 clnt_hdl, u8 qmap_id)
 {
 	int result = 0;
 	struct ipa3_ep_context *ep;
-	union __packed gsi_channel_scratch ch_scratch;
+	union __packed gsi_wdi3_channel_scratch2_reg scratch2_reg;
 
-	memset(&ch_scratch, 0, sizeof(ch_scratch));
+	memset(&scratch2_reg, 0, sizeof(scratch2_reg));
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
 		ipa3_ctx->ep[clnt_hdl].valid == 0) {
 		IPAERR_RL("bad parm, %d\n", clnt_hdl);
@@ -897,30 +897,19 @@ int ipa3_write_qmapid_wdi3_gsi_pipe(u32 clnt_hdl, u8 qmap_id)
 	}
 	ep = &ipa3_ctx->ep[clnt_hdl];
 	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
-	result = gsi_read_channel_scratch(ep->gsi_chan_hdl, &ch_scratch);
+	result = gsi_read_wdi3_channel_scratch2_reg(ep->gsi_chan_hdl,
+			&scratch2_reg);
 
 	if (result != GSI_STATUS_SUCCESS) {
-		IPAERR("failed to read channel scratch %d\n", result);
-		goto exit;
-	}
-	result = gsi_stop_channel(ep->gsi_chan_hdl);
-	if (result != GSI_STATUS_SUCCESS && result != -GSI_STATUS_AGAIN &&
-		result != -GSI_STATUS_TIMED_OUT) {
-		IPAERR("failed to stop gsi channel %d\n", result);
+		IPAERR("failed to read channel scratch2 reg %d\n", result);
 		goto exit;
 	}
 
-	ch_scratch.wdi3.qmap_id = qmap_id;
-	result = gsi_write_channel_scratch(ep->gsi_chan_hdl,
-			ch_scratch);
+	scratch2_reg.wdi.qmap_id = qmap_id;
+	result = gsi_write_wdi3_channel_scratch2_reg(ep->gsi_chan_hdl,
+			scratch2_reg);
 	if (result != GSI_STATUS_SUCCESS) {
-		IPAERR("failed to write channel scratch %d\n", result);
-		goto exit;
-	}
-
-	result =  gsi_start_channel(ep->gsi_chan_hdl);
-	if (result != GSI_STATUS_SUCCESS) {
-		IPAERR("failed to start gsi channel %d\n", result);
+		IPAERR("failed to write channel scratch2 reg %d\n", result);
 		goto exit;
 	}
 
