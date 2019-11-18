@@ -239,7 +239,7 @@ static struct gmu_memdesc *allocate_gmu_kmem(struct gmu_device *gmu,
 
 	case GMU_NONCACHED_USER:
 		/* Set start address for first uncached user alloc */
-		if (next_uncached_kernel_alloc == 0)
+		if (next_uncached_user_alloc == 0)
 			next_uncached_user_alloc = gmu->vma[mem_type].start;
 
 		if (addr == 0)
