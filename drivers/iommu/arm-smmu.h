@@ -415,7 +415,7 @@ struct arm_smmu_domain {
 	spinlock_t			cb_lock; /* Serialises ATS1* ops */
 	spinlock_t			sync_lock; /* Serialises TLB syncs */
 	struct msm_io_pgtable_info	pgtbl_info;
-	u64 attributes;
+	DECLARE_BITMAP(attributes, DOMAIN_ATTR_EXTENDED_MAX);
 	u32				secure_vmid;
 	struct list_head		pte_info_list;
 	struct list_head		unassign_list;
