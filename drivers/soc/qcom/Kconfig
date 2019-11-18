@@ -914,6 +914,15 @@ config QCOM_ADSP_MANUAL_VOTE
 	  This driver sends message over QMI to the service which is running on
 	  ADSP.
 
+config MSM_BAM_DMUX
+	bool "BAM Data Mux Driver"
+	depends on SPS
+	help
+	  Support Muxed Data Channels over BAM interface.
+	  BAM has a limited number of pipes.  This driver
+	  provides a means to support more logical channels
+	  via muxing than BAM could without muxing.
+
 endmenu
 
 config QCOM_HYP_CORE_CTL
