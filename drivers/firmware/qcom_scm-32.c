@@ -78,6 +78,9 @@ struct qcom_scm_desc {
 	u64 res[MAX_QCOM_SCM_RETS];
 	u32 owner;
 };
+struct arm_smccc_args {
+	unsigned long a[8];
+};
 
 #define LEGACY_FUNCNUM(s, c)	(((s) << 10) | ((c) & 0x3ff))
 
@@ -162,16 +165,13 @@ static inline void *legacy_get_response_buffer(
 	return (void *)rsp + le32_to_cpu(rsp->buf_offset);
 }
 
-static u32 __qcom_scm_call_do(u32 cmd_addr)
+static void __qcom_scm_call_do(const struct arm_smccc_args *smc,
+			      struct arm_smccc_res *res)
 {
-	int context_id;
-	struct arm_smccc_res res;
 	do {
-		arm_smccc_smc(1, (unsigned long)&context_id, cmd_addr,
-			      0, 0, 0, 0, 0, &res);
-	} while (res.a0 == QCOM_SCM_INTERRUPTED);
-
-	return res.a0;
+		arm_smccc_smc(smc->a[0], smc->a[1], smc->a[2], smc->a[3],
+			      smc->a[4], smc->a[5], smc->a[6], smc->a[7], res);
+	} while (res->a0 == QCOM_SCM_INTERRUPTED);
 }
 
 /**
@@ -196,10 +196,12 @@ static u32 __qcom_scm_call_do(u32 cmd_addr)
 static int qcom_scm_call(struct device *dev, struct qcom_scm_desc *desc)
 {
 	int arglen = desc->arginfo & 0xf;
-	int ret;
+	int ret = 0, context_id;
 	size_t i;
 	struct qcom_scm_legacy_command *cmd;
 	struct qcom_scm_legacy_response *rsp;
+	struct arm_smccc_args smc = {{0}};
+	struct arm_smccc_res res;
 	const size_t cmd_len = arglen * sizeof(__le32);
 	const size_t resp_len = MAX_QCOM_SCM_RETS * sizeof(__le32);
 	size_t alloc_len = sizeof(*cmd) + cmd_len + sizeof(*rsp) + resp_len;
@@ -228,10 +230,14 @@ static int qcom_scm_call(struct device *dev, struct qcom_scm_desc *desc)
 		return -ENOMEM;
 	}
 
+	smc.a[0] = 1;
+	smc.a[1] = (unsigned long)&context_id;
+	smc.a[2] = cmd_phys;
+
 	mutex_lock(&qcom_scm_lock);
-	ret = __qcom_scm_call_do(cmd_phys);
-	if (ret < 0)
-		ret = qcom_scm_remap_error(ret);
+	__qcom_scm_call_do(&smc, &res);
+	if (res.a0)
+		ret = qcom_scm_remap_error(res.a0);
 	mutex_unlock(&qcom_scm_lock);
 	if (ret)
 		goto out;
@@ -274,10 +280,14 @@ out:
 static s32 qcom_scm_call_atomic1(u32 svc, u32 cmd, u32 arg1)
 {
 	int context_id;
+	struct arm_smccc_args smc = {0};
 	struct arm_smccc_res res;
 
-	arm_smccc_smc(LEGACY_ATOMIC_ID(svc, cmd, 1), (unsigned long)&context_id,
-		      arg1, 0, 0, 0, 0, 0, &res);
+	smc.a[0] = LEGACY_ATOMIC_ID(svc, cmd, 1);
+	smc.a[1] = (unsigned long)&context_id;
+	smc.a[2] = arg1;
+	arm_smccc_smc(smc.a[0], smc.a[1], smc.a[2], smc.a[3],
+		      smc.a[4], smc.a[5], smc.a[6], smc.a[7], &res);
 
 	return res.a0;
 }
@@ -295,10 +305,15 @@ static s32 qcom_scm_call_atomic1(u32 svc, u32 cmd, u32 arg1)
 static s32 qcom_scm_call_atomic2(u32 svc, u32 cmd, u32 arg1, u32 arg2)
 {
 	int context_id;
+	struct arm_smccc_args smc = {0};
 	struct arm_smccc_res res;
 
-	arm_smccc_smc(LEGACY_ATOMIC_ID(svc, cmd, 2), (unsigned long)&context_id,
-		      arg1, arg2, 0, 0, 0, 0, &res);
+	smc.a[0] = LEGACY_ATOMIC_ID(svc, cmd, 2);
+	smc.a[1] = (unsigned long)&context_id;
+	smc.a[2] = arg1;
+	smc.a[3] = arg2;
+	arm_smccc_smc(smc.a[0], smc.a[1], smc.a[2], smc.a[3],
+		      smc.a[4], smc.a[5], smc.a[6], smc.a[7], &res);
 
 	return res.a0;
 }
