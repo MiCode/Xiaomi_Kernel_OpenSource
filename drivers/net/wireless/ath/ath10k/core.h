@@ -769,6 +769,16 @@ struct ath10k_per_peer_tx_stats {
 	u32	reserved2;
 };
 
+enum ath10k_dev_type {
+	ATH10K_DEV_TYPE_LL,
+	ATH10K_DEV_TYPE_HL,
+};
+
+struct ath10k_bus_params {
+	u32 chip_id;
+	enum ath10k_dev_type dev_type;
+};
+
 struct ath10k {
 	struct ath_common ath_common;
 	struct ieee80211_hw *hw;
@@ -779,6 +789,7 @@ struct ath10k {
 	enum ath10k_hw_rev hw_rev;
 	u16 dev_id;
 	u32 chip_id;
+	enum ath10k_dev_type dev_type;
 	u32 target_version;
 	u8 fw_version_major;
 	u32 fw_version_minor;
@@ -1051,7 +1062,8 @@ int ath10k_core_start(struct ath10k *ar, enum ath10k_firmware_mode mode,
 		      const struct ath10k_fw_components *fw_components);
 int ath10k_wait_for_suspend(struct ath10k *ar, u32 suspend_opt);
 void ath10k_core_stop(struct ath10k *ar);
-int ath10k_core_register(struct ath10k *ar, u32 chip_id);
+int ath10k_core_register(struct ath10k *ar,
+			 const struct ath10k_bus_params *bus_params);
 void ath10k_core_unregister(struct ath10k *ar);
 
 #endif /* _CORE_H_ */
