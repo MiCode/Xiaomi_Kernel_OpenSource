@@ -629,6 +629,16 @@ static int wigig_sensing_ioc_get_num_dropped_bursts(
 	return ctx->dropped_bursts;
 }
 
+static int wigig_sensing_ioc_get_num_avail_bursts(
+	struct wigig_sensing_ctx *ctx)
+{
+	if (ctx->stm.burst_size)
+		return circ_cnt(&ctx->cir_data.b, ctx->cir_data.size_bytes) /
+			ctx->stm.burst_size;
+	else
+		return 0;
+}
+
 static int wigig_sensing_ioc_get_event(struct wigig_sensing_ctx *ctx)
 {
 	return 0;
@@ -813,6 +823,10 @@ static long wigig_sensing_ioctl(struct file *file, unsigned int cmd,
 	case WIGIG_SENSING_IOCTL_GET_EVENT:
 		pr_info("Received WIGIG_SENSING_IOCTL_GET_EVENT command\n");
 		rc = wigig_sensing_ioc_get_event(ctx);
+		break;
+	case WIGIG_SENSING_IOCTL_GET_NUM_AVAIL_BURSTS:
+		pr_info("Received WIGIG_SENSING_IOCTL_GET_NUM_AVAIL_BURSTS command\n");
+		rc = wigig_sensing_ioc_get_num_avail_bursts(ctx);
 		break;
 	default:
 		rc = -EINVAL;
