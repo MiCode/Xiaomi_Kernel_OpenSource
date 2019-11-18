@@ -3419,11 +3419,6 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 				    & (1ULL << DOMAIN_ATTR_EARLY_MAP));
 		ret = 0;
 		break;
-	case DOMAIN_ATTR_BITMAP_IOVA_ALLOCATOR:
-		*((int *)data) = !!(smmu_domain->attributes
-				& (1ULL << DOMAIN_ATTR_BITMAP_IOVA_ALLOCATOR));
-		ret = 0;
-		break;
 	case DOMAIN_ATTR_PAGE_TABLE_IS_COHERENT:
 		if (!smmu_domain->smmu) {
 			ret = -ENODEV;
@@ -3651,7 +3646,6 @@ static int __arm_smmu_domain_set_attr2(struct iommu_domain *domain,
 		}
 		break;
 	}
-	case DOMAIN_ATTR_BITMAP_IOVA_ALLOCATOR:
 	case DOMAIN_ATTR_CB_STALL_DISABLE:
 	case DOMAIN_ATTR_NO_CFRE:
 		if (*((int *)data))
