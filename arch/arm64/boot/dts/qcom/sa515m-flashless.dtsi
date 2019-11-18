@@ -10,15 +10,12 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
+#include "sdxprairie.dtsi"
 
-#include "sdxprairie-v2.dtsi"
-#include "sa515m-ccard.dtsi"
-#include "sa515m-flashless.dtsi"
+&mpss_adsp_mem {
+	reg = <0x90800000 0xdc00000>;
+};
 
-/ {
-	model = "Qualcomm Technologies, Inc. SA515M CCARD FLASHLESS USB-EP";
-	compatible = "qcom,sa515m-ccard",
-		"qcom,sdxprairie","qcom,ccard";
-	qcom,board-id = <25 4>, <25 0x104>;
+&pil_modem {
+	qcom,auto-boot;
 };
