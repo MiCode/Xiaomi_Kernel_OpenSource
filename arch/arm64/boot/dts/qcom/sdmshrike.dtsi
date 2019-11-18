@@ -2616,6 +2616,6 @@
 #include "sdmshrike-qupv3.dtsi"
 #include "sm8150-audio.dtsi"
 #include "sm8150-vidc.dtsi"
-#include "sm8150-pm.dtsi"
+#include "sdmshrike-pm.dtsi"
 #include "sdmshrike-gpu.dtsi"
 #include "sdmshrike-thermal.dtsi"
