@@ -3262,7 +3262,13 @@ static void ipa3_recycle_rx_wrapper(struct ipa3_rx_pkt_wrapper *rx_pkt)
 
 static void ipa3_recycle_rx_page_wrapper(struct ipa3_rx_pkt_wrapper *rx_pkt)
 {
-	/* no-op */
+	struct ipa_rx_page_data rx_page;
+
+	rx_page = rx_pkt->page_data;
+
+	/* Free rx_wrapper only for tmp alloc pages*/
+	if (rx_page.is_tmp_alloc)
+		kmem_cache_free(ipa3_ctx->rx_pkt_wrapper_cache, rx_pkt);
 }
 
 /**
