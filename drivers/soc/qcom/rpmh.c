@@ -66,7 +66,7 @@ struct cache_req {
 struct batch_cache_req {
 	struct list_head list;
 	int count;
-	struct rpmh_request rpm_msgs[];
+	struct rpmh_request *rpm_msgs;
 };
 
 static struct rpmh_ctrlr *get_rpmh_ctrlr(const struct device *dev)
@@ -373,8 +373,10 @@ static void invalidate_batch(struct rpmh_ctrlr *ctrlr)
 	struct batch_cache_req *req, *tmp;
 
 	spin_lock(&ctrlr->cache_lock);
-	list_for_each_entry_safe(req, tmp, &ctrlr->batch_cache, list)
+	list_for_each_entry_safe(req, tmp, &ctrlr->batch_cache, list) {
+		list_del(&req->list);
 		kfree(req);
+	}
 	INIT_LIST_HEAD(&ctrlr->batch_cache);
 	spin_unlock(&ctrlr->cache_lock);
 }
@@ -430,10 +432,11 @@ int rpmh_write_batch(const struct device *dev, enum rpmh_state state,
 		return -ENOMEM;
 
 	req = ptr;
+	rpm_msgs = ptr + sizeof(*req);
 	compls = ptr + sizeof(*req) + count * sizeof(*rpm_msgs);
 
 	req->count = count;
-	rpm_msgs = req->rpm_msgs;
+	req->rpm_msgs = rpm_msgs;
 
 	for (i = 0; i < count; i++) {
 		__fill_rpmh_msg(rpm_msgs + i, state, cmd, n[i]);
