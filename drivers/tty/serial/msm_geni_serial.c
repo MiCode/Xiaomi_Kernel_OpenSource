@@ -197,6 +197,8 @@ static void msm_geni_serial_stop_rx(struct uart_port *uport);
 static int msm_geni_serial_runtime_resume(struct device *dev);
 static int msm_geni_serial_runtime_suspend(struct device *dev);
 static int msm_geni_serial_get_ver_info(struct uart_port *uport);
+static void msm_geni_serial_set_manual_flow(bool enable,
+				struct msm_geni_serial_port *port);
 static int uart_line_id;
 
 #define GET_DEV_PORT(uport) \
@@ -623,6 +625,7 @@ static void msm_geni_serial_poll_cancel_tx(struct uart_port *uport)
 static void msm_geni_serial_abort_rx(struct uart_port *uport)
 {
 	unsigned int irq_clear = S_CMD_DONE_EN;
+	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
 
 	geni_abort_s_cmd(uport->membase);
 	/* Ensure this goes through before polling. */
@@ -631,6 +634,8 @@ static void msm_geni_serial_abort_rx(struct uart_port *uport)
 	msm_geni_serial_poll_bit(uport, SE_GENI_S_CMD_CTRL_REG,
 					S_GENI_CMD_ABORT, false);
 	geni_write_reg_nolog(irq_clear, uport->membase, SE_GENI_S_IRQ_CLEAR);
+	/* FORCE_DEFAULT makes RFR default high, hence set manually Low */
+	msm_geni_serial_set_manual_flow(true, port);
 	geni_write_reg(FORCE_DEFAULT, uport->membase, GENI_FORCE_DEFAULT_REG);
 }
 
