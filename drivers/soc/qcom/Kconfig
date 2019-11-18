@@ -904,6 +904,16 @@ config QTI_CRYPTO_TZ
 	 performing hardware based file encryption. This means keys are
 	 programmed and managed through SCM calls to TZ where ICE driver
 	 will configure keys.
+
+config MSM_BAM_DMUX
+	bool "BAM Data Mux Driver"
+	depends on SPS
+	help
+	 Support Muxed Data Channels over BAM interface.
+	 BAM has a limited number of pipes.  This driver
+	 provides a means to support more logical channels
+	 via muxing than BAM could without muxing.
+
 endmenu
 
 config QCOM_HYP_CORE_CTL
