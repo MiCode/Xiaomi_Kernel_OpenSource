@@ -5,11 +5,11 @@
 
 #include <linux/devfreq.h>
 #include <linux/module.h>
-#include <linux/msm_adreno_devfreq.h>
 #include <linux/slab.h>
 
 #include "devfreq_trace.h"
-#include "governor.h"
+#include "../../devfreq/governor.h"
+#include "msm_adreno_devfreq.h"
 
 #define MIN_BUSY                1000
 #define LONG_FLOOR              50000
@@ -95,7 +95,7 @@ static int devfreq_gpubw_get_target(struct devfreq *df,
 	} else {
 		/* GPU votes for IB not AB so don't under vote the system */
 		norm_cycles = (100 * norm_cycles) / TARGET;
-		act_level = b.buslevel + b.mod;
+		act_level = b.buslevel;
 		act_level = (act_level < 0) ? 0 : act_level;
 		act_level = (act_level >= priv->bus.num) ?
 		(priv->bus.num - 1) : act_level;
@@ -157,16 +157,20 @@ static int gpubw_start(struct devfreq *devfreq)
 
 	/* Set up the cut-over percentages for the bus calculation. */
 	for (i = 0; i < priv->bus.num; i++) {
-		t1 = (u32)(100 * priv->bus.ib[i]) /
-				(u32)priv->bus.ib[priv->bus.num - 1];
+		t1 = (u32)(100 * priv->bus.ib_kbps[i]) /
+				(u32)priv->bus.ib_kbps[priv->bus.num - 1];
 		priv->bus.p_up[i] = t1 - HIST;
 		priv->bus.p_down[i] = t2 - 2 * HIST;
 		t2 = t1;
 	}
 	/* Set the upper-most and lower-most bounds correctly. */
 	priv->bus.p_down[0] = 0;
-	priv->bus.p_down[1] = (priv->bus.p_down[1] > (2 * HIST)) ?
-				priv->bus.p_down[1] : (2 * HIST);
+
+	for (i = 0; i < priv->bus.num; i++) {
+		if (priv->bus.p_down[i] < 2 * HIST)
+			priv->bus.p_down[i] = 2 * HIST;
+	}
+
 	if (priv->bus.num >= 1)
 		priv->bus.p_up[priv->bus.num - 1] = 100;
 	_update_cutoff(priv, priv->bus.max);

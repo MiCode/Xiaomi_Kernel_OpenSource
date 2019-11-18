@@ -390,7 +390,6 @@ int kgsl_devfreq_get_dev_status(struct device *dev,
 
 		last_b->ram_time = device->pwrscale.accum_stats.ram_time;
 		last_b->ram_wait = device->pwrscale.accum_stats.ram_wait;
-		last_b->mod = device->pwrctrl.bus_mod;
 		last_b->buslevel = device->pwrctrl.cur_buslevel;
 	}
 

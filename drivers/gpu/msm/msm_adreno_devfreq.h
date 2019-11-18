@@ -31,7 +31,6 @@ int kgsl_devfreq_del_notifier(struct device *device,
 struct xstats {
 	u64 ram_time;
 	u64 ram_wait;
-	int mod;
 	int buslevel;
 };
 
