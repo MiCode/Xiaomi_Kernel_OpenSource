@@ -22,6 +22,7 @@
 #include "adreno_compat.h"
 #include "adreno_iommu.h"
 #include "adreno_trace.h"
+#include "kgsl_bus.h"
 #include "kgsl_trace.h"
 #include "kgsl_util.h"
 
@@ -1445,6 +1446,12 @@ static int adreno_probe(struct platform_device *pdev)
 		return -ENODEV;
 
 	status = adreno_of_get_power(adreno_dev, pdev);
+	if (status) {
+		device->pdev = NULL;
+		return status;
+	}
+
+	status = kgsl_bus_init(device, pdev);
 	if (status) {
 		device->pdev = NULL;
 		return status;

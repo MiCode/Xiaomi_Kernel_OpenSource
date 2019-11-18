@@ -169,8 +169,6 @@ struct icc_path;
  * @load_mode: GMU FW load/boot mode
  * @wakeup_pwrlevel: GPU wake up power/DCVS level in case different
  *		than default power level
- * @pcl: GPU BW scaling client
- * @ccl: CNOC BW scaling client
  * @idle_level: Minimal GPU idle power level
  * @fault_count: GMU fault count
  * @mailbox: Messages to AOP for ACD enable/disable go through this
@@ -213,8 +211,6 @@ struct gmu_device {
 	struct clk *gmu_clk;
 	enum gmu_load_mode load_mode;
 	unsigned int wakeup_pwrlevel;
-	unsigned int pcl;
-	unsigned int ccl;
 	unsigned int idle_level;
 	unsigned int fault_count;
 	struct kgsl_mailbox mailbox;

@@ -7,9 +7,9 @@
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/firmware.h>
+#include <linux/interconnect.h>
 #include <linux/io.h>
 #include <linux/iommu.h>
-#include <linux/msm-bus.h>
 #include <linux/of_platform.h>
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
@@ -490,6 +490,7 @@ static int gmu_dcvs_set(struct kgsl_device *device,
 		int gpu_pwrlevel, int bus_level)
 {
 	int ret = 0;
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(device);
@@ -515,7 +516,7 @@ static int gmu_dcvs_set(struct kgsl_device *device,
 	if (gpu_pwrlevel < gmu->num_gpupwrlevels - 1)
 		req.freq = gmu->num_gpupwrlevels - gpu_pwrlevel - 1;
 
-	if (bus_level < gmu->num_bwlevels && bus_level > 0)
+	if (bus_level < pwr->ddr_table_count && bus_level > 0)
 		req.bw = bus_level;
 
 	/* GMU will vote for slumber levels through the sleep sequence */
@@ -793,6 +794,9 @@ static int gmu_bus_vote_init(struct gmu_device *gmu, struct kgsl_pwrctrl *pwr)
 	struct msm_bus_tcs_handle hdl;
 	struct rpmh_votes_t *votes = &gmu->rpmh_votes;
 	int ret;
+
+	if (!gmu->num_bwlevels)
+		return 0;
 
 	usecases  = kcalloc(gmu->num_bwlevels, sizeof(*usecases), GFP_KERNEL);
 	if (!usecases)
@@ -1418,6 +1422,7 @@ static int gmu_start(struct kgsl_device *device)
 	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(device);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+	unsigned long ib;
 
 	switch (device->state) {
 	case KGSL_STATE_INIT:
@@ -1432,7 +1437,9 @@ static int gmu_start(struct kgsl_device *device)
 		gmu_dev_ops->irq_enable(device);
 
 		/* Vote for minimal DDR BW for GMU to init */
-		icc_set_bw(gmu->icc_path, 0, MBps_to_icc(1171));
+		level = pwr->pwrlevels[pwr->default_pwrlevel].bus_min;
+		icc_set_bw(gmu->icc_path, 0,
+			MBps_to_icc(pwr->ddr_table[level]));
 
 		ret = gmu_dev_ops->rpmh_gpu_pwrctrl(device, GMU_FW_START,
 				GMU_COLD_BOOT, 0);
@@ -1447,8 +1454,6 @@ static int gmu_start(struct kgsl_device *device)
 		ret = kgsl_pwrctrl_set_default_gpu_pwrlevel(device);
 		if (ret)
 			goto error_gmu;
-
-		icc_set_bw(gmu->icc_path, 0, 0);
 		break;
 
 	case KGSL_STATE_SLUMBER:

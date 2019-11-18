@@ -10,20 +10,13 @@
 #include <linux/thermal.h>
 
 #include "kgsl_device.h"
+#include "kgsl_bus.h"
 #include "kgsl_pwrscale.h"
 #include "kgsl_trace.h"
-
-#define KGSL_PWRFLAGS_POWER_ON 0
-#define KGSL_PWRFLAGS_CLK_ON   1
-#define KGSL_PWRFLAGS_AXI_ON   2
-#define KGSL_PWRFLAGS_IRQ_ON   3
-#define KGSL_PWRFLAGS_NAP_OFF  5
 
 #define UPDATE_BUSY_VAL		1000000
 
 #define KGSL_MAX_BUSLEVELS	20
-
-#define DEFAULT_BUS_P 25
 
 /* Order deeply matters here because reasons. New entries go on the end */
 static const char * const clocks[] = {
@@ -61,41 +54,6 @@ static void _gpu_clk_prepare_enable(struct kgsl_device *device,
 				struct clk *clk, const char *name);
 static void _bimc_clk_prepare_enable(struct kgsl_device *device,
 				struct clk *clk, const char *name);
-
-#ifdef CONFIG_DEVFREQ_GOV_QCOM_GPUBW_MON
-#include <soc/qcom/devfreq_devbw.h>
-
-/**
- * kgsl_get_bw() - Return latest msm bus IB vote
- */
-static void kgsl_get_bw(unsigned long *ib, unsigned long *ab, void *data)
-{
-	struct kgsl_device *device = (struct kgsl_device *)data;
-	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-
-	if (gmu_core_scales_bandwidth(device))
-		*ib = 0;
-	else
-		*ib = (unsigned long)
-			device->pwrctrl.bus_ibs[pwr->cur_buslevel];
-
-	*ab = last_ab;
-}
-#endif
-
-static u32 _ab_buslevel_update(struct kgsl_pwrctrl *pwr, u32 ib)
-{
-	if (!ib)
-		return 0;
-
-	if ((!pwr->bus_percent_ab) && (!pwr->bus_ab_mbytes))
-		return DEFAULT_BUS_P * ib / 100;
-
-	if (pwr->bus_width)
-		return pwr->bus_ab_mbytes;
-
-	return (pwr->bus_percent_ab * pwr->bus_max) / 100;
-}
 
 /**
  * _adjust_pwrlevel() - Given a requested power level do bounds checking on the
@@ -144,42 +102,6 @@ static unsigned int _adjust_pwrlevel(struct kgsl_pwrctrl *pwr, int level,
 	return level;
 }
 
-#ifdef CONFIG_DEVFREQ_GOV_QCOM_GPUBW_MON
-static void kgsl_pwrctrl_vbif_update(u32 ib, u32 ab)
-{
-	/* ask a governor to vote on behalf of us */
-	devfreq_vbif_update_bw((unsigned long) ib, (unsigned long) ab);
-}
-#else
-static void kgsl_pwrctrl_vbif_update(u32 ib, u32 ab)
-{
-}
-#endif
-
-/**
- * kgsl_bus_scale_request() - set GPU BW vote
- * @device: Pointer to the kgsl_device struct
- * @buslevel: index of bw vector[] table
- */
-static int kgsl_bus_scale_request(struct kgsl_device *device,
-		unsigned int buslevel)
-{
-	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	int ret = 0;
-
-	/* GMU scales BW */
-	if (gmu_core_scales_bandwidth(device))
-		ret = gmu_core_dcvs_set(device, INVALID_DCVS_IDX, buslevel);
-	else if (pwr->pcl)
-		/* Linux bus driver scales BW */
-		icc_set_bw(pwr->icc_path, 0, MBps_to_icc(pwr->bus_ibs[i]));
-
-	if (ret)
-		dev_err(device->dev, "GPU BW scaling failure: %d\n", ret);
-
-	return ret;
-}
-
 /**
  * kgsl_clk_set_rate() - set GPU clock rate
  * @device: Pointer to the kgsl_device struct
@@ -205,49 +127,6 @@ int kgsl_clk_set_rate(struct kgsl_device *device,
 			     ret);
 
 	return ret;
-}
-
-/**
- * kgsl_pwrctrl_buslevel_update() - Recalculate the bus vote and send it
- * @device: Pointer to the kgsl_device struct
- * @on: true for setting and active bus vote, false to turn off the vote
- */
-void kgsl_pwrctrl_buslevel_update(struct kgsl_device *device,
-			bool on)
-{
-	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	int cur = pwr->pwrlevels[pwr->active_pwrlevel].bus_freq;
-	int buslevel = 0;
-	u32 ab;
-
-	/* the bus should be ON to update the active frequency */
-	if (on && !(test_bit(KGSL_PWRFLAGS_AXI_ON, &pwr->power_flags)))
-		return;
-	/*
-	 * If the bus should remain on calculate our request and submit it,
-	 * otherwise request bus level 0, off.
-	 */
-	if (on) {
-		buslevel = min_t(int, pwr->pwrlevels[0].bus_max,
-				cur + pwr->bus_mod);
-		buslevel = max_t(int, buslevel, 1);
-	} else {
-		/* If the bus is being turned off, reset to default level */
-		pwr->bus_mod = 0;
-		pwr->bus_percent_ab = 0;
-		pwr->bus_ab_mbytes = 0;
-	}
-	trace_kgsl_buslevel(device, pwr->active_pwrlevel, buslevel);
-	pwr->cur_buslevel = buslevel;
-
-	/* buslevel is the IB vote, update the AB */
-	ab = _ab_buslevel_update(pwr, pwr->bus_ibs[buslevel]);
-
-	last_ab = ab;
-
-	kgsl_bus_scale_request(device, buslevel);
-
-	kgsl_pwrctrl_vbif_update(pwr->bus_ibs[buslevel], ab);
 }
 
 /**
@@ -350,7 +229,7 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 	 * Update the bus before the GPU clock to prevent underrun during
 	 * frequency increases.
 	 */
-	kgsl_pwrctrl_buslevel_update(device, true);
+	kgsl_bus_update(device, true);
 
 	pwrlevel = &pwr->pwrlevels[pwr->active_pwrlevel];
 	/* Change register settings if any  BEFORE pwrlevel change*/
@@ -1340,28 +1219,6 @@ static void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
 	}
 }
 
-#ifdef CONFIG_DEVFREQ_GOV_QCOM_GPUBW_MON
-static void kgsl_pwrctrl_suspend_devbw(struct kgsl_pwrctrl *pwr)
-{
-	if (pwr->devbw)
-		devfreq_suspend_devbw(pwr->devbw);
-}
-
-static void kgsl_pwrctrl_resume_devbw(struct kgsl_pwrctrl *pwr)
-{
-	if (pwr->devbw)
-		devfreq_resume_devbw(pwr->devbw);
-}
-#else
-static void kgsl_pwrctrl_suspend_devbw(struct kgsl_pwrctrl *pwr)
-{
-}
-
-static void kgsl_pwrctrl_resume_devbw(struct kgsl_pwrctrl *pwr)
-{
-}
-#endif
-
 static void kgsl_pwrctrl_axi(struct kgsl_device *device, int state)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
@@ -1373,17 +1230,13 @@ static void kgsl_pwrctrl_axi(struct kgsl_device *device, int state)
 		if (test_and_clear_bit(KGSL_PWRFLAGS_AXI_ON,
 			&pwr->power_flags)) {
 			trace_kgsl_bus(device, state);
-			kgsl_pwrctrl_buslevel_update(device, false);
-
-			kgsl_pwrctrl_suspend_devbw(pwr);
+			kgsl_bus_update(device, false);
 		}
 	} else if (state == KGSL_PWRFLAGS_ON) {
 		if (!test_and_set_bit(KGSL_PWRFLAGS_AXI_ON,
 			&pwr->power_flags)) {
 			trace_kgsl_bus(device, state);
-			kgsl_pwrctrl_buslevel_update(device, true);
-
-			kgsl_pwrctrl_resume_devbw(pwr);
+			kgsl_bus_update(device, true);
 		}
 	}
 }
@@ -1471,17 +1324,6 @@ static void kgsl_pwrctrl_irq(struct kgsl_device *device, int state)
 		}
 	}
 }
-
-#ifdef CONFIG_DEVFREQ_GOV_QCOM_GPUBW_MON
-static void kgsl_pwrctrl_vbif_init(struct kgsl_device *device)
-{
-	devfreq_vbif_register_callback(kgsl_get_bw, device);
-}
-#else
-static void kgsl_pwrctrl_vbif_init(struct kgsl_device *device)
-{
-}
-#endif
 
 static int _get_clocks(struct kgsl_device *device)
 {
@@ -1584,41 +1426,13 @@ static int kgsl_pwrctrl_clk_set_rate(struct clk *grp_clk, unsigned int freq,
 	return ret;
 }
 
-static u32 *kgsl_bus_get_table(struct platform_device *pdev, int *count)
-{
-	u32 *levels;
-	int i, num = of_property_count_elems_of_size(pdev->dev.of_node,
-		"qcom,bus-table-ddr", sizeof(u32));
-
-	if (num <= 0)
-		return NULL;
-
-	levels = kcalloc(num, sizeof(*levels), GFP_KERNEL);
-	if (!levels)
-		return NULL;
-
-	for (i = 0; i < num; i++)
-		of_property_read_u32_index(pdev->dev.of_node,
-			"qcom,bus-table-ddr", i, &levels[i]);
-
-	*count = num;
-	return levels;
-}
-
 static void kgsl_idle_check(struct work_struct *work);
 
 int kgsl_pwrctrl_init(struct kgsl_device *device)
 {
-	int i, result, freq, levels_count;
+	int i, result, freq;
 	struct platform_device *pdev = device->pdev;
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	struct device_node *gpubw_dev_node = NULL;
-	struct platform_device *p2dev;
-	u32 *levels;
-
-	levels = kgsl_bus_get_table(pdev, &levels_count);
-	if (!levels)
-		return -EINVAL;
 
 	result = _get_clocks(device);
 	if (result)
@@ -1681,61 +1495,11 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 
 	pm_runtime_enable(&pdev->dev);
 
-	/* Check if gpu bandwidth vote device is defined in dts */
-	if (pwr->bus_control)
-		/* Check if gpu bandwidth vote device is defined in dts */
-		gpubw_dev_node = of_parse_phandle(pdev->dev.of_node,
-					"qcom,gpubw-dev", 0);
-
-	/*
-	 * Governor support enables the gpu bus scaling via governor
-	 * and hence no need to register for bus scaling client
-	 * if gpubw-dev is defined.
-	 */
-	if (gpubw_dev_node) {
-		p2dev = of_find_device_by_node(gpubw_dev_node);
-		if (p2dev)
-			pwr->devbw = &p2dev->dev;
-	} else {
-		/* Register for interconnect */
-		pwr->icc_path = of_icc_get(&pdev->dev, NULL);
-	}
-
-	pwr->bus_ibs = kzalloc(levels_count, sizeof(*pwr->bus_ib), GFP_KERNEL);
-	if (pwr->bus_ibs == NULL) {
-		result = -ENOMEM;
-		goto error_disable_pm;
-	}
-
-	pwr->bus_ibs_count = levels_count;
-
-	/*
-	 * Pull the BW vote out of the bus table.  They will be used to
-	 * calculate the ratio between the votes.
-	 */
-
-	for (i = 0; i < levels_count; i++) {
-		/* Convert the KBps value from the table to MBps */
-		pwr->bus_ibs[i] = DIV_ROUND_UP_ULL(levels[i], 1000);
-
-		pwr->bus_max = max(pwr->bus_max, pwr->bus_ibs[i]);
-	}
-
-	kfree(levels);
-
-	kgsl_pwrctrl_vbif_init(device);
-
 	/* temperature sensor name */
 	of_property_read_string(pdev->dev.of_node, "qcom,tzone-name",
 		&pwr->tzone_name);
 
-	return result;
-
-error_disable_pm:
-	pm_runtime_disable(&pdev->dev);
-	kfree(levels);
-
-	return result;
+	return 0;
 }
 
 void kgsl_pwrctrl_close(struct kgsl_device *device)
@@ -1744,9 +1508,7 @@ void kgsl_pwrctrl_close(struct kgsl_device *device)
 
 	pwr->power_flags = 0;
 
-	kfree(pwr->bus_ibs);
-
-	icc_put(pwr->icc_path);
+	kgsl_bus_close(device);
 
 	pm_runtime_disable(&device->pdev->dev);
 }

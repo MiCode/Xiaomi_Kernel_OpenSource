@@ -6,6 +6,7 @@
 #include <linux/devfreq_cooling.h>
 #include <linux/slab.h>
 
+#include "kgsl_bus.h"
 #include "kgsl_device.h"
 #include "kgsl_pwrscale.h"
 #include "kgsl_trace.h"
@@ -586,7 +587,7 @@ int kgsl_busmon_target(struct device *dev, unsigned long *freq, u32 flags)
 	if ((pwr->bus_mod != b) || (pwr->bus_ab_mbytes != ab_mbytes)) {
 		pwr->bus_percent_ab = device->pwrscale.bus_profile.percent_ab;
 		pwr->bus_ab_mbytes = ab_mbytes;
-		kgsl_pwrctrl_buslevel_update(device, true);
+		kgsl_bus_update(device, true);
 	}
 
 	mutex_unlock(&device->mutex);
@@ -786,8 +787,8 @@ int kgsl_pwrscale_init(struct kgsl_device *device, struct platform_device *pdev,
 	 * the bus bandwidth vote.
 	 */
 	if (pwr->bus_control) {
-		adreno_tz_data.bus.num = pwr->bus_ibs_count;
-		adreno_tz_data.bus.ib_mbps = pwr->bus_ibs;
+		adreno_tz_data.bus.num = pwr->ddr_table_count;
+		adreno_tz_data.bus.ib_kbps = pwr->ddr_table;
 		adreno_tz_data.bus.width = pwr->bus_width;
 
 		if (!kgsl_of_property_read_ddrtype(device->pdev->dev.of_node,

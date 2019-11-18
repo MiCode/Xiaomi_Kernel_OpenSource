@@ -5,6 +5,7 @@ obj-$(CONFIG_QCOM_KGSL) += msm_kgsl.o
 
 msm_kgsl-y = \
 	kgsl.o \
+	kgsl_bus.o \
 	kgsl_drawobj.o \
 	kgsl_events.o \
 	kgsl_ioctl.o \
