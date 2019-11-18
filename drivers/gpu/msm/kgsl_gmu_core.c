@@ -285,3 +285,12 @@ bool gmu_core_is_initialized(struct kgsl_device *device)
 	return false;
 }
 
+u64 gmu_core_dev_read_ao_counter(struct kgsl_device *device)
+{
+	struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
+
+	if (ops && ops->read_ao_counter)
+		return ops->read_ao_counter(device);
+
+	return 0;
+}
