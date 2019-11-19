@@ -4763,13 +4763,12 @@ out_exit_power_resources:
  * delay setting bus ops until we're sure every possible SMMU is ready,
  * and that way ensure that no add_device() calls get missed.
  */
-static int arm_smmu_legacy_bus_init(void)
+static int __maybe_unused arm_smmu_legacy_bus_init(void)
 {
 	if (using_legacy_binding)
 		arm_smmu_bus_init();
 	return 0;
 }
-device_initcall_sync(arm_smmu_legacy_bus_init);
 
 static int arm_smmu_device_remove(struct platform_device *pdev)
 {
