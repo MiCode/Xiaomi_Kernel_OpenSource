@@ -237,7 +237,7 @@ static struct clk_regmap_mux gcc_usb3_prim_phy_pipe_clk_src = {
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_usb3_prim_phy_pipe_clk_src",
 			.parent_data = gcc_parent_data_5,
-			.num_parents = 4,
+			.num_parents = 3,
 			.ops = &clk_regmap_mux_closest_ops,
 		},
 	},
@@ -269,7 +269,7 @@ static struct clk_regmap_mux gcc_usb3_sec_phy_pipe_clk_src = {
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_usb3_sec_phy_pipe_clk_src",
 			.parent_data = gcc_parent_data_6,
-			.num_parents = 4,
+			.num_parents = 3,
 			.ops = &clk_regmap_mux_closest_ops,
 		},
 	},
