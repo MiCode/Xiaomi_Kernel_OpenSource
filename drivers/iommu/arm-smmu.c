@@ -4763,12 +4763,6 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 				 sizeof(*smmu->cbs), GFP_KERNEL);
 	if (!smmu->cbs)
 		return -ENOMEM;
-	for (i = 0; i < smmu->num_context_banks; i++) {
-		void __iomem *cb_base;
-
-		cb_base = ARM_SMMU_CB(smmu, i);
-		smmu->cbs[i].actlr = readl_relaxed(cb_base + ARM_SMMU_CB_ACTLR);
-	}
 
 	/* ID2 */
 	id = readl_relaxed(gr0_base + ARM_SMMU_GR0_ID2);
