@@ -591,9 +591,9 @@ static void ethqos_handle_phy_interrupt(struct qcom_ethqos *ethqos)
 		 ethqos_mdio_read(
 		    priv, priv->plat->phy_addr, DWC_ETH_QOS_PHY_INTR_STATUS);
 
-		if (phy_intr_status & LINK_UP_STATE)
+		if (dev->phydev && (phy_intr_status & LINK_UP_STATE))
 			phy_mac_interrupt(dev->phydev, LINK_UP);
-		else if (phy_intr_status & LINK_DOWN_STATE)
+		else if (dev->phydev && (phy_intr_status & LINK_DOWN_STATE))
 			phy_mac_interrupt(dev->phydev, LINK_DOWN);
 	}
 }
