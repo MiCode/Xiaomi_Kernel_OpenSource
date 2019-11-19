@@ -391,6 +391,7 @@ struct snd_codec_desc {
  * @align: Block alignment in bytes of an audio sample.
  *		Only required for PCM or IEC formats.
  * @options: encoder-specific settings
+ * @compr_passthr: compressed bitstream passthrough
  * @reserved: reserved for future use
  */
 
@@ -409,7 +410,8 @@ struct snd_codec {
 	union snd_codec_options options;
 #ifdef CONFIG_AUDIO_QGKI
 	__u32 flags;
-	__u32 reserved[2];
+	__u32 compr_passthr;
+	__u32 reserved[1];
 #else
 	__u32 reserved[3];
 #endif
@@ -430,6 +432,9 @@ struct snd_codec_metadata {
 	__u64 timestamp;
 	__u32 reserved[4];
 };
+
+#define SND_CODEC_COMPRESS_PASSTHROUGH
 #endif
+
 
 #endif
