@@ -4043,7 +4043,7 @@ static int ipa_fltrt_alloc_lcl_bdy(
 			params->nhash_bdy.size);
 
 alloc1:
-		params->nhash_bdy.base = dma_zalloc_coherent(
+		params->nhash_bdy.base = dma_alloc_coherent(
 			ipahal_ctx->ipa_pdev, params->nhash_bdy.size,
 			&params->nhash_bdy.phys_base, flag);
 		if (!params->nhash_bdy.base) {
@@ -4078,7 +4078,7 @@ alloc1:
 			params->hash_bdy.size);
 
 alloc2:
-		params->hash_bdy.base = dma_zalloc_coherent(
+		params->hash_bdy.base = dma_alloc_coherent(
 			ipahal_ctx->ipa_pdev, params->hash_bdy.size,
 			&params->hash_bdy.phys_base, flag);
 		if (!params->hash_bdy.base) {
