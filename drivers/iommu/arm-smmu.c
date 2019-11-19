@@ -835,8 +835,8 @@ static int arm_smmu_domain_power_on(struct iommu_domain *domain,
 				struct arm_smmu_device *smmu)
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	int atomic_domain = smmu_domain->attributes &
-		(1ULL << DOMAIN_ATTR_ATOMIC);
+	bool atomic_domain = !!(smmu_domain->attributes &
+				(1ULL << DOMAIN_ATTR_ATOMIC));
 
 	if (atomic_domain)
 		return arm_smmu_power_on_atomic(smmu->pwr);
@@ -852,8 +852,8 @@ static void arm_smmu_domain_power_off(struct iommu_domain *domain,
 				struct arm_smmu_device *smmu)
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	int atomic_domain = smmu_domain->attributes &
-		(1ULL << DOMAIN_ATTR_ATOMIC);
+	bool atomic_domain = !!(smmu_domain->attributes &
+				(1ULL << DOMAIN_ATTR_ATOMIC));
 
 	if (atomic_domain) {
 		arm_smmu_power_off_atomic(smmu, smmu->pwr);
@@ -2432,8 +2432,8 @@ static void arm_smmu_detach_dev(struct iommu_domain *domain,
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	struct iommu_fwspec *fwspec = dev->iommu_fwspec;
 	int dynamic = smmu_domain->attributes & (1ULL << DOMAIN_ATTR_DYNAMIC);
-	int atomic_domain = smmu_domain->attributes &
-		(1ULL << DOMAIN_ATTR_ATOMIC);
+	bool atomic_domain = !!(smmu_domain->attributes &
+				(1ULL << DOMAIN_ATTR_ATOMIC));
 
 	if (dynamic)
 		return;
@@ -2739,8 +2739,8 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	struct iommu_fwspec *fwspec = dev->iommu_fwspec;
 	struct arm_smmu_device *smmu;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	int atomic_domain = smmu_domain->attributes &
-		(1ULL << DOMAIN_ATTR_ATOMIC);
+	bool atomic_domain = !!(smmu_domain->attributes &
+				(1ULL << DOMAIN_ATTR_ATOMIC));
 	int s1_bypass = 0;
 
 	if (!fwspec || fwspec->ops != &arm_smmu_ops.iommu_ops) {
