@@ -27,6 +27,22 @@ enum msm_gpi_tre_type {
 
 #define MSM_GPI_TRE_TYPE(tre) ((tre->dword[3] >> 16) & 0xFF)
 
+/* Lock TRE */
+#define MSM_GPI_LOCK_TRE_DWORD0 (0)
+#define MSM_GPI_LOCK_TRE_DWORD1 (0)
+#define MSM_GPI_LOCK_TRE_DWORD2 (0)
+#define MSM_GPI_LOCK_TRE_DWORD3(link_rx, bei, ieot, ieob, ch) \
+	((0x3 << 20) | (0x0 << 16) | (link_rx << 11) | (bei << 10) | \
+	(ieot << 9) | (ieob << 8) | ch)
+
+/* Unlock TRE */
+#define MSM_GPI_UNLOCK_TRE_DWORD0 (0)
+#define MSM_GPI_UNLOCK_TRE_DWORD1 (0)
+#define MSM_GPI_UNLOCK_TRE_DWORD2 (0)
+#define MSM_GPI_UNLOCK_TRE_DWORD3(link_rx, bei, ieot, ieob, ch) \
+	((0x3 << 20) | (0x1 << 16) | (link_rx << 11) | (bei << 10) | \
+	(ieot << 9) | (ieob << 8) | ch)
+
 /* DMA w. Buffer TRE */
 #ifdef CONFIG_ARM64
 #define MSM_GPI_DMA_W_BUFFER_TRE_DWORD0(ptr) ((u32)ptr)

@@ -397,7 +397,7 @@ static struct msm_gpi_tre *setup_go_tre(int cmd, int cs, int rx_len, int flags,
 	if (cmd == SPI_RX_ONLY) {
 		eot = 0;
 		chain = 0;
-		eob = 1;
+		eob = 0;
 	} else {
 		eot = 0;
 		chain = 1;
