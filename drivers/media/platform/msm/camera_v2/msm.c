@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -636,7 +636,7 @@ static inline int __msm_remove_session_cmd_ack_q(void *d1, void *d2)
 {
 	struct msm_command_ack *cmd_ack = d1;
 
-	if (!(&cmd_ack->command_q))
+	if (&cmd_ack->command_q == NULL)
 		return 0;
 
 	msm_queue_drain(&cmd_ack->command_q, struct msm_command, list);
@@ -646,7 +646,7 @@ static inline int __msm_remove_session_cmd_ack_q(void *d1, void *d2)
 
 static void msm_remove_session_cmd_ack_q(struct msm_session *session)
 {
-	if ((!session) || !(&session->command_ack_q))
+	if ((!session) || (&session->command_ack_q == NULL))
 		return;
 
 	mutex_lock(&session->lock);
