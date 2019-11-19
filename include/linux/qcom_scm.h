@@ -76,7 +76,9 @@ extern int qcom_scm_set_cold_boot_addr(void *entry, const cpumask_t *cpus);
 extern int qcom_scm_set_warm_boot_addr(void *entry, const cpumask_t *cpus);
 extern void qcom_scm_cpu_power_down(u32 flags);
 extern int qcom_scm_sec_wdog_deactivate(void);
+extern int qcom_scm_sec_wdog_trigger(void);
 extern int qcom_scm_set_remote_state(u32 state, u32 id);
+extern int qcom_scm_spin_cpu(void);
 extern int qcom_scm_config_cpu_errata(void);
 extern bool qcom_scm_pas_supported(u32 peripheral);
 extern int qcom_scm_pas_init_image(u32 peripheral, const void *metadata,
@@ -188,8 +190,10 @@ int qcom_scm_set_warm_boot_addr(void *entry, const cpumask_t *cpus)
 		{ return -ENODEV; }
 static inline void qcom_scm_cpu_power_down(u32 flags) {}
 static inline int qcom_scm_sec_wdog_deactivate(void) { return -ENODEV; }
+static inline int qcom_scm_sec_wdog_trigger(void) { return -ENODEV; }
 static inline u32 qcom_scm_set_remote_state(u32 state, u32 id)
 		{ return -ENODEV; }
+static inline int qcom_scm_spin_cpu(void) { return -ENODEV; }
 static inline int qcom_scm_config_cpu_errata(void)
 		{ return -ENODEV; }
 static inline bool qcom_scm_pas_supported(u32 peripheral) { return false; }

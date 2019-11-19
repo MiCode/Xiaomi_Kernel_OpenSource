@@ -124,11 +124,23 @@ int qcom_scm_sec_wdog_deactivate(void)
 }
 EXPORT_SYMBOL(qcom_scm_sec_wdog_deactivate);
 
+int qcom_scm_sec_wdog_trigger(void)
+{
+	return __qcom_scm_sec_wdog_trigger(__scm->dev);
+}
+EXPORT_SYMBOL(qcom_scm_sec_wdog_trigger);
+
 int qcom_scm_set_remote_state(u32 state, u32 id)
 {
 	return __qcom_scm_set_remote_state(__scm->dev, state, id);
 }
 EXPORT_SYMBOL(qcom_scm_set_remote_state);
+
+int qcom_scm_spin_cpu(void)
+{
+	return __qcom_scm_spin_cpu(__scm->dev);
+}
+EXPORT_SYMBOL(qcom_scm_spin_cpu);
 
 static void qcom_scm_set_download_mode(bool enable)
 {
