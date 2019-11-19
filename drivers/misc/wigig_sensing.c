@@ -711,6 +711,12 @@ static ssize_t wigig_sensing_read(struct file *filp, char __user *buf,
 	if (ctx->stm.change_mode_in_progress)
 		return -EINVAL;
 
+	/* Read buffer too small */
+	if (count < ctx->stm.burst_size) {
+		pr_err("Read buffer must be larger than burst size\n");
+		return -EINVAL;
+	}
+
 	/* No data in the buffer */
 	while (circ_cnt(&d->b, d->size_bytes) == 0) {
 		if (filp->f_flags & O_NONBLOCK)
@@ -720,11 +726,11 @@ static ssize_t wigig_sensing_read(struct file *filp, char __user *buf,
 			circ_cnt(&d->b, d->size_bytes) != 0))
 			return -ERESTARTSYS;
 	}
-
 	if (mutex_lock_interruptible(&d->lock))
 		return -ERESTARTSYS;
 
 	copy_size = min_t(u32, circ_cnt(&d->b, d->size_bytes), count);
+	copy_size -= copy_size % ctx->stm.burst_size;
 	size_to_end = circ_cnt_to_end(&d->b, d->size_bytes);
 	tail = d->b.tail;
 	pr_debug("copy_size=%u, size_to_end=%u, head=%u, tail=%u\n",
