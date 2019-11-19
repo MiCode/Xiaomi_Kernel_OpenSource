@@ -296,6 +296,8 @@ config QTI_GVM
 config QTI_GVM_QUIN
 	bool "Enable virtualization Support for MSM kernel required for Quin platform"
 	depends on QTI_GVM
+	select COMMON_CLK
+	select COMMON_CLK_QCOM
 	help
 		This enables support for MSM Kernel based virtual
 		machine for Quin platform.
