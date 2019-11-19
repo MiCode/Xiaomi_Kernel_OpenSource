@@ -706,11 +706,8 @@ static int dwc3_msm_dbm_disable_updxfer(struct dwc3 *dwc, u8 usb_ep)
 	dev_dbg(mdwc->dev, "%s\n", __func__);
 
 	dbm_ep = find_matching_dbm_ep(mdwc, usb_ep);
-
-	if (dbm_ep < 0) {
-		pr_err("usb ep index %d has no corresponding dbm ep\n", usb_ep);
-		return -ENODEV;
-	}
+	if (dbm_ep < 0)
+		return dbm_ep;
 
 	data = msm_dbm_read_reg(mdwc, DBM_DISABLE_UPDXFER);
 	data |= (0x1 << dbm_ep);
@@ -871,11 +868,8 @@ int msm_dwc3_reset_dbm_ep(struct usb_ep *ep)
 	int dbm_ep;
 
 	dbm_ep = find_matching_dbm_ep(mdwc, dep->number);
-
-	if (dbm_ep >= mdwc->dbm_num_eps) {
-		pr_err("Invalid DBM ep index %d\n", dbm_ep);
-		return -ENODEV;
-	}
+	if (dbm_ep < 0)
+		return dbm_ep;
 
 	dev_dbg(mdwc->dev, "Resetting endpoint %d, DBM ep %d\n", dep->number,
 			dbm_ep);
@@ -1820,11 +1814,8 @@ static int dbm_ep_config(struct dwc3_msm *mdwc, u8 usb_ep, u8 bam_pipe,
 	dev_dbg(mdwc->dev, "Configuring DBM ep\n");
 
 	dbm_ep = find_matching_dbm_ep(mdwc, usb_ep);
-
-	if (dbm_ep < 0) {
-		pr_err("usb ep index %d has no corresponding dbm ep\n", usb_ep);
-		return -ENODEV;
-	}
+	if (dbm_ep < 0)
+		return dbm_ep;
 
 	/* Due to HW issue, EP 7 can be set as IN EP only */
 	if (!mdwc->dbm_is_1p4 && dbm_ep == 7 && producer) {
@@ -1987,12 +1978,8 @@ static int dbm_ep_unconfig(struct dwc3_msm *mdwc, u8 usb_ep)
 	dev_dbg(mdwc->dev, "Unconfiguring DB ep\n");
 
 	dbm_ep = find_matching_dbm_ep(mdwc, usb_ep);
-
-	if (dbm_ep < 0) {
-		dev_info(mdwc->dev, "usb ep index %d has no corespondng dbm ep\n",
-				usb_ep);
-		return -ENODEV;
-	}
+	if (dbm_ep < 0)
+		return dbm_ep;
 
 	mdwc->dbm_ep_num_mapping[dbm_ep] = 0;
 
