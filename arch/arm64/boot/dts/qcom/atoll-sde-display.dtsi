@@ -153,10 +153,13 @@
 			 <&mdss_dsi0_pll PCLK_MUX_0_CLK>,
 			 <&mdss_dsi0_pll BYTECLK_SRC_0_CLK>,
 			 <&mdss_dsi0_pll PCLK_SRC_0_CLK>,
+			<&mdss_dsi0_pll CPHY_BYTECLK_SRC_0_CLK>,
+			<&mdss_dsi0_pll CPHY_PCLK_SRC_0_CLK>,
 			 <&mdss_dsi0_pll SHADOW_BYTECLK_SRC_0_CLK>,
 			 <&mdss_dsi0_pll SHADOW_PCLK_SRC_0_CLK>;
 		clock-names = "mux_byte_clk0", "mux_pixel_clk0",
 				"src_byte_clk0", "src_pixel_clk0",
+				"cphy_byte_clk0", "cphy_pixel_clk0",
 				"shadow_byte_clk0", "shadow_pixel_clk0";
 
 		pinctrl-names = "panel_active", "panel_suspend";
