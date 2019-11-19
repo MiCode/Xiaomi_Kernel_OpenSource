@@ -707,6 +707,9 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 	if (gi2c->se_mode == GSI_ONLY) {
 		ret = geni_i2c_gsi_xfer(adap, msgs, num);
 		goto geni_i2c_txn_ret;
+	} else {
+		/* Don't set shared flag in non-GSI mode */
+		gi2c->is_shared = false;
 	}
 
 	qcom_geni_i2c_conf(gi2c, 0);
