@@ -67,6 +67,8 @@ enum qcom_smc_convention {
 
 static enum qcom_smc_convention qcom_smc_convention = SMC_CONVENTION_UNKNOWN;
 static DEFINE_MUTEX(qcom_scm_lock);
+static bool has_queried;
+static DEFINE_SPINLOCK(query_lock);
 
 #define QCOM_SCM_EBUSY_WAIT_MS 30
 #define QCOM_SCM_EBUSY_MAX_RETRY 20
@@ -200,6 +202,9 @@ static int qcom_scm_call_smccc(struct device *dev,
 		smc.a[i + SMCCC_FIRST_REG_IDX] = desc->args[i];
 
 	if (unlikely(arglen > SMCCC_N_REG_ARGS)) {
+		if (!dev)
+			return -EPROBE_DEFER;
+
 		alloc_len = SMCCC_N_EXT_ARGS * sizeof(u64);
 		args_virt = kzalloc(PAGE_ALIGN(alloc_len), flag);
 
@@ -342,6 +347,9 @@ static int qcom_scm_call_legacy(struct device *dev, struct qcom_scm_desc *desc)
 	__le32 *arg_buf;
 	__le32 *res_buf;
 
+	if (!dev)
+		return -EPROBE_DEFER;
+
 	cmd = kzalloc(PAGE_ALIGN(alloc_len), GFP_KERNEL);
 	if (!cmd)
 		return -ENOMEM;
@@ -426,6 +434,48 @@ static int qcom_scm_call_atomic_legacy(struct device *dev,
 	return res.a0;
 }
 
+static void __query_convention(void)
+{
+	unsigned long flags;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_INFO,
+		.cmd = QCOM_SCM_INFO_IS_CALL_AVAIL,
+		.args[0] = SMCCC_FUNCNUM(QCOM_SCM_SVC_INFO,
+					 QCOM_SCM_INFO_IS_CALL_AVAIL) |
+			   (ARM_SMCCC_OWNER_SIP << ARM_SMCCC_OWNER_SHIFT),
+		.arginfo = QCOM_SCM_ARGS(1),
+		.owner = ARM_SMCCC_OWNER_SIP,
+	};
+	int ret;
+
+	spin_lock_irqsave(&query_lock, flags);
+	if (has_queried)
+		goto out;
+
+	qcom_smc_convention = SMC_CONVENTION_ARM_64;
+	ret = qcom_scm_call_smccc(NULL, &desc, true);
+	if (!ret && desc.res[0] == 1)
+		goto out;
+
+	qcom_smc_convention = SMC_CONVENTION_ARM_32;
+	ret = qcom_scm_call_smccc(NULL, &desc, true);
+	if (!ret && desc.res[0] == 1)
+		goto out;
+
+	qcom_smc_convention = SMC_CONVENTION_LEGACY;
+out:
+	has_queried = true;
+	spin_unlock_irqrestore(&query_lock, flags);
+	pr_debug("QCOM SCM SMC Convention: %d\n", qcom_smc_convention);
+}
+
+static inline enum qcom_smc_convention __get_convention(void)
+{
+	if (unlikely(!has_queried))
+		__query_convention();
+	return qcom_smc_convention;
+}
+
 /**
  * qcom_scm_call() - Invoke a syscall in the secure world
  * @dev:	device
@@ -439,7 +489,7 @@ static int qcom_scm_call_atomic_legacy(struct device *dev,
 static int qcom_scm_call(struct device *dev, struct qcom_scm_desc *desc)
 {
 	might_sleep();
-	switch (qcom_smc_convention) {
+	switch (__get_convention()) {
 	case SMC_CONVENTION_ARM_32:
 	case SMC_CONVENTION_ARM_64:
 		return qcom_scm_call_smccc(dev, desc, false);
@@ -464,7 +514,7 @@ static int qcom_scm_call(struct device *dev, struct qcom_scm_desc *desc)
  */
 static int qcom_scm_call_atomic(struct device *dev, struct qcom_scm_desc *desc)
 {
-	switch (qcom_smc_convention) {
+	switch (__get_convention()) {
 	case SMC_CONVENTION_ARM_32:
 	case SMC_CONVENTION_ARM_64:
 		return qcom_scm_call_smccc(dev, desc, true);
@@ -770,7 +820,7 @@ int __qcom_scm_is_call_available(struct device *dev, u32 svc_id, u32 cmd_id)
 	};
 
 	desc.arginfo = QCOM_SCM_ARGS(1);
-	switch (qcom_smc_convention) {
+	switch (__get_convention()) {
 	case SMC_CONVENTION_ARM_32:
 	case SMC_CONVENTION_ARM_64:
 		desc.args[0] = SMCCC_FUNCNUM(svc_id, cmd_id) |
@@ -929,28 +979,5 @@ int __qcom_scm_qsmmu500_wait_safe_toggle(struct device *dev, bool en)
 
 void __qcom_scm_init(void)
 {
-	int ret;
-	struct qcom_scm_desc desc = {
-		.svc = QCOM_SCM_SVC_INFO,
-		.cmd = QCOM_SCM_INFO_IS_CALL_AVAIL,
-		.args[1] = SMCCC_FUNCNUM(QCOM_SCM_SVC_INFO,
-					 QCOM_SCM_INFO_IS_CALL_AVAIL) |
-			   (ARM_SMCCC_OWNER_SIP << ARM_SMCCC_OWNER_SHIFT),
-		.arginfo = QCOM_SCM_ARGS(1);
-		.owner = ARM_SMCCC_OWNER_SIP,
-	};
-
-	qcom_smcc_convention = ARM_SMCCC_SMC_64;
-	ret = qcom_scm_call_smccc(NULL, &desc, true);
-	if (!ret && desc.res[0] == 1)
-		goto out;
-
-	qcom_smcc_convention = ARM_SMCCC_SMC_32;
-	ret = qcom_scm_call_smccc(NULL, &desc, true);
-	if (!ret && desc.res[0] == 1)
-		goto out;
-
-	qcom_smc_convention = SMC_CONVENTION_LEGACY;
-out:
-	pr_debug("QCOM SCM SMC Convention: %d\n", qcom_smc_convention);
+	__query_convention();
 }
