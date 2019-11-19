@@ -58,6 +58,8 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,lito")
 #define early_machine_is_bengal()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,bengal")
+#define early_machine_is_lagoon()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,lagoon")
 #define early_machine_is_sdmshrike()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sdmshrike")
 #define early_machine_is_sm6150()	\
@@ -91,6 +93,7 @@
 #define early_machine_is_kona()		0
 #define early_machine_is_lito()		0
 #define early_machine_is_bengal()	0
+#define early_machine_is_lagoon()	0
 #define early_machine_is_sdmshrike()	0
 #define early_machine_is_sm6150()	0
 #define early_machine_is_qcs405()	0
@@ -121,6 +124,7 @@ enum msm_cpu {
 	MSM_CPU_KONA,
 	MSM_CPU_LITO,
 	MSM_CPU_BENGAL,
+	MSM_CPU_LAGOON,
 	MSM_CPU_SDMSHRIKE,
 	MSM_CPU_SM6150,
 	MSM_CPU_QCS405,
