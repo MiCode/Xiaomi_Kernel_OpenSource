@@ -342,6 +342,13 @@ Required properties:
 		property enable apr driver to receive subsystem up/down
 		notification from modem/adsp.
 
+Optional properties:
+
+ - compatible : "qcom,msm-audio-apr-dummy"
+		Add this compatible as child device to msm-audio-apr device.
+		This child device is added after lpass is up to invoke
+		deferred probe devices.
+
 * msm-ocmem-audio
 
 Required properties:
@@ -483,6 +490,22 @@ Required properties:
 
  - compatible :                            "qcom,msm-ext-disp-audio-codec-rx"
 
+* SDM660 ASoC Machine driver
+
+Required properties:
+- compatible : "qcom,sdm660-asoc-snd"
+
+* sdm660-asoc-snd-tasha
+
+Required properties:
+
+ - compatible : "qcom,sdm660-asoc-snd-tasha"
+
+* sdm660-asoc-snd-tavil
+
+Required properties:
+
+ - compatible : "qcom,sdm660-asoc-snd-tavil"
 Example:
 
 	qcom,msm-pcm {
