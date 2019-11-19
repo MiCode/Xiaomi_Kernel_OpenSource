@@ -304,20 +304,6 @@ static int ufshcd_parse_pinctrl_info(struct ufs_hba *hba)
 	return ret;
 }
 
-static int ufshcd_parse_extcon_info(struct ufs_hba *hba)
-{
-	struct extcon_dev *extcon;
-
-	extcon = extcon_get_edev_by_phandle(hba->dev, 0);
-	if (IS_ERR(extcon) && PTR_ERR(extcon) != -ENODEV)
-		return PTR_ERR(extcon);
-
-	if (!IS_ERR(extcon))
-		hba->extcon = extcon;
-
-	return 0;
-}
-
 static void ufshcd_parse_gear_limits(struct ufs_hba *hba)
 {
 	struct device *dev = hba->dev;
@@ -527,9 +513,6 @@ int ufshcd_pltfrm_init(struct platform_device *pdev,
 	ufshcd_parse_gear_limits(hba);
 	ufshcd_parse_cmd_timeout(hba);
 	ufshcd_parse_force_g4_flag(hba);
-	err = ufshcd_parse_extcon_info(hba);
-	if (err)
-		goto dealloc_host;
 
 	if (!dev->dma_mask)
 		dev->dma_mask = &dev->coherent_dma_mask;
