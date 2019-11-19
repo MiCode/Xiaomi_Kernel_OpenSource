@@ -41,6 +41,12 @@ Main node properties:
 	Use "esoc" followed by numbers starting from 0 for external SOC's or
 	any other relevant names.
 
+- mhi,sfr-support
+  Usage: optional
+  Value type: <bool>
+  Definition: Set to true if MHI device supports sending subsystem failure
+	reason upon assert in case PCIe link is functional.
+
 ============================
 mhi channel node properties:
 ============================
