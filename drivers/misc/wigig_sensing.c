@@ -546,7 +546,8 @@ static int wigig_sensing_ioc_change_mode(struct wigig_sensing_ctx *ctx,
 	int rc;
 	u32 ch;
 
-	pr_info("mode = %d, channel = %d\n", req.mode, req.channel);
+	pr_info("mode = %d, channel = %d, has_channel = %d\n",
+		req.mode, req.channel, req.has_channel);
 	if (!ctx)
 		return -EINVAL;
 
@@ -583,12 +584,13 @@ static int wigig_sensing_ioc_change_mode(struct wigig_sensing_ctx *ctx,
 		/* Interrupted by a signal */
 		pr_err("wait_event_interruptible_timeout() interrupted by a signal (%d)\n",
 		       rc);
-		return rc;
+		goto End;
 	}
 	if (rc == 0) {
 		/* Timeout, FW did not respond in time */
 		pr_err("wait_event_interruptible_timeout() timed out\n");
-		return -ETIME;
+		rc = -ETIME;
+		goto End;
 	}
 
 	/* Change internal state */
@@ -605,7 +607,8 @@ static int wigig_sensing_ioc_change_mode(struct wigig_sensing_ctx *ctx,
 	ctx->stm.change_mode_in_progress = false;
 
 End:
-	return ctx->stm.burst_size;
+	ctx->stm.change_mode_in_progress = false;
+	return (rc == 0) ? ctx->stm.burst_size : rc;
 }
 
 static int wigig_sensing_ioc_clear_data(struct wigig_sensing_ctx *ctx)
