@@ -128,6 +128,7 @@ static int ipa3_generate_hdr_proc_ctx_hw_tbl(u64 hdr_sys_addr,
 	struct ipa_mem_buffer *mem, struct ipa_mem_buffer *aligned_mem)
 {
 	u64 hdr_base_addr;
+	gfp_t flag = GFP_KERNEL;
 
 	mem->size = (ipa3_ctx->hdr_proc_ctx_tbl.end) ? : 4;
 
@@ -136,9 +137,14 @@ static int ipa3_generate_hdr_proc_ctx_hw_tbl(u64 hdr_sys_addr,
 
 	IPADBG_LOW("tbl_sz=%d\n", ipa3_ctx->hdr_proc_ctx_tbl.end);
 
+alloc:
 	mem->base = dma_alloc_coherent(ipa3_ctx->pdev, mem->size,
-			&mem->phys_base, GFP_KERNEL);
+			&mem->phys_base, flag);
 	if (!mem->base) {
+		if (flag == GFP_KERNEL) {
+			flag = GFP_ATOMIC;
+			goto alloc;
+		}
 		IPAERR("fail to alloc DMA buff of size %d\n", mem->size);
 		return -ENOMEM;
 	}

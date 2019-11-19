@@ -273,22 +273,26 @@ static struct clk_fixed_factor npu_cc_crc_div = {
 static const struct freq_tbl ftbl_npu_cc_cal_hm0_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
 	F(100000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
+	F(192000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
 	F(200000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
-	F(400000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
+	F(268800000, P_NPU_CC_CRC_DIV, 1, 0, 0),
+	F(403200000, P_NPU_CC_CRC_DIV, 1, 0, 0),
 	F(515000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
 	F(650000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
-	F(800000000, P_NPU_CC_CRC_DIV, 1, 0, 0),
+	F(748800000, P_NPU_CC_CRC_DIV, 1, 0, 0),
 	{ }
 };
 
 static const struct freq_tbl ftbl_npu_cc_cal_hm0_clk_no_crc_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
 	F(100000000, P_NPU_CC_CRC_DIV, 2, 0, 0),
+	F(192000000, P_NPU_CC_CRC_DIV, 2, 0, 0),
 	F(200000000, P_NPU_CC_CRC_DIV, 2, 0, 0),
-	F(400000000, P_NPU_CC_CRC_DIV, 2, 0, 0),
+	F(268800000, P_NPU_CC_CRC_DIV, 2, 0, 0),
+	F(403200000, P_NPU_CC_CRC_DIV, 2, 0, 0),
 	F(515000000, P_NPU_CC_CRC_DIV, 2, 0, 0),
 	F(650000000, P_NPU_CC_CRC_DIV, 2, 0, 0),
-	F(800000000, P_NPU_CC_CRC_DIV, 2, 0, 0),
+	F(748800000, P_NPU_CC_CRC_DIV, 2, 0, 0),
 	{ }
 };
 
@@ -309,11 +313,11 @@ static struct clk_rcg2 npu_cc_cal_hm0_clk_src = {
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_MIN] = 100000000,
-			[VDD_LOWER] = 200000000,
-			[VDD_LOW] = 400000000,
-			[VDD_LOW_L1] = 515000000,
-			[VDD_NOMINAL] = 650000000,
-			[VDD_HIGH] = 800000000},
+			[VDD_LOWER] = 192000000,
+			[VDD_LOW] = 268800000,
+			[VDD_LOW_L1] = 403200000,
+			[VDD_NOMINAL] = 515000000,
+			[VDD_HIGH] = 748800000},
 	},
 };
 

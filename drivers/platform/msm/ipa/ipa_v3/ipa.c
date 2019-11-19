@@ -8025,6 +8025,11 @@ struct ipa3_context *ipa3_get_ctx(void)
 	return ipa3_ctx;
 }
 
+bool ipa3_get_lan_rx_napi(void)
+{
+	return false;
+}
+
 static void ipa_gsi_notify_cb(struct gsi_per_notify *notify)
 {
 	/*

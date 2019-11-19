@@ -120,6 +120,7 @@ struct dsi_display_boot_param {
 struct dsi_display_clk_info {
 	struct dsi_clk_link_set src_clks;
 	struct dsi_clk_link_set mux_clks;
+	struct dsi_clk_link_set cphy_clks;
 	struct dsi_clk_link_set shadow_clks;
 	struct dsi_clk_link_set xo_clks;
 };

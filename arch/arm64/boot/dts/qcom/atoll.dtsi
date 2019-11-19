@@ -431,7 +431,7 @@
 				1996800	1562
 				2112000	1801
 				2208000	2000
-				2304000	2326
+				2323200	2341
 				2400000	2568
 			>;
 			idle-cost-data = <
@@ -471,7 +471,7 @@
 				1996800	54
 				2112000	60
 				2208000	61
-				2304000	62
+				2323200	62
 				2400000	63
 			>;
 			idle-cost-data = <
@@ -1344,6 +1344,28 @@
 		qcom,no-clock-support;
 		iommus = <&apps_smmu 0x0426 0x0011>,
 			<&apps_smmu 0x0436 0x0011>;
+
+		qcom_cedev_ns_cb {
+			compatible = "qcom,qcedev,context-bank";
+			label = "ns_context";
+			iommus = <&apps_smmu 0x432 0>,
+				<&apps_smmu 0x438 0x1>,
+				<&apps_smmu 0x43F 0>;
+			virtual-addr = <0x60000000>;
+			virtual-size = <0x40000000>;
+		};
+
+		qcom_cedev_s_cb {
+			compatible = "qcom,qcedev,context-bank";
+			label = "secure_context";
+			iommus = <&apps_smmu 0x433 0>,
+				<&apps_smmu 0x43C 0x1>,
+				<&apps_smmu 0x43E 0>;
+			qcom,iommu-vmid = <0x9>; /* VMID_CP_BITSTREAM */
+			qcom,secure-context-bank;
+			virtual-addr = <0xa0000000>;
+			virtual-size = <0x40000000>;
+		};
 	};
 
 	qcom,msm-rtb {
@@ -1520,10 +1542,6 @@
 		qcom,pas-id = <23>;
 		qcom,firmware-name = "npu";
 		memory-region = <&pil_npu_mem>;
-
-		/* Outputs to npu */
-		qcom,smem-states = <&npu_smp2p_out 0>;
-		qcom,smem-state-names = "qcom,force-stop";
 	};
 
 	qcom,turing@8300000 {
@@ -1690,9 +1708,9 @@
 		reg = <0x62400000 0x00100>;
 
 		vdd_lpi_cx-supply = <&L8A_LEVEL>;
-		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 0>;
+		qcom,vdd_lpi_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 0>;
 		vdd_lpi_mx-supply = <&L7A_LEVEL>;
-		qcom,vdd_mx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 0>;
+		qcom,vdd_lpi_mx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 0>;
 		qcom,proxy-reg-names = "vdd_lpi_cx", "vdd_lpi_mx";
 
 		clocks = <&clock_rpmh RPMH_CXO_CLK>;
@@ -2498,7 +2516,7 @@
 		compatible = "qcom,smp2p";
 		qcom,smem = <617>, <616>;
 		interrupts = <GIC_SPI 589 IRQ_TYPE_EDGE_RISING>;
-		mboxes = <&apcs_glb2 6>;
+		mboxes = <&msm_npu 6>;
 		qcom,local-pid = <0>;
 		qcom,remote-pid = <10>;
 
@@ -3043,7 +3061,7 @@
 		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
 		qcom,apps-ch-pipes = <0x700000>;
 		qcom,ea-pc = <0x340>;
-		qcom,iommu-s1-bypass;
+		qcom,iommu-atomic-ctx;
 		status = "ok";
 
 		iommu_slim_aud_ctrl_cb: qcom,iommu_slim_ctrl_cb {
@@ -3395,7 +3413,7 @@
 		governor = "performance";
 		qcom,src-dst-ports = <MSM_BUS_MASTER_NPU MSM_BUS_SLAVE_EBI_CH0>;
 		operating-points-v2 = <&suspendable_ddr_bw_opp_table>;
-		status = "disabled";
+		status = "ok";
 	};
 
 	npudsp_npu_ddr_bwmon: qcom,npudsp-npu-ddr-bwmon@70300 {
@@ -3413,7 +3431,7 @@
 		qcom,hw-timer-hz = <19200000>;
 		qcom,target-dev = <&npudsp_npu_ddr_bw>;
 		qcom,count-unit = <0x10000>;
-		status = "disabled";
+		status = "ok";
 	};
 
 	/delete-node/gpu-bw-tbl;

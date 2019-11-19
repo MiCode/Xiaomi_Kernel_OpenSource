@@ -156,6 +156,7 @@ static void dfc_qmap_send_inband_ack(struct dfc_qmi_data *dfc,
 	skb->protocol = htons(ETH_P_MAP);
 	skb->dev = rmnet_get_real_dev(dfc->rmnet_port);
 
+	rmnet_ctl_log_debug("TXI", skb->data, skb->len);
 	trace_dfc_qmap(skb->data, skb->len, false);
 	dev_queue_xmit(skb);
 }
@@ -441,6 +442,7 @@ static void dfc_qmap_send_end_marker_cnf(struct qos_info *qos,
 	skb->dev = qos->real_dev;
 
 	/* This cmd needs to be sent in-band */
+	rmnet_ctl_log_info("TXI", skb->data, skb->len);
 	trace_dfc_qmap(skb->data, skb->len, false);
 	rmnet_map_tx_qmap_cmd(skb);
 }

@@ -46,7 +46,7 @@
 
 	pri_mi2s_gpios: pri_mi2s_pinctrl {
 		compatible = "qcom,msm-cdc-pinctrl";
-		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-names = "aud_active", "aud_sleep", "aud_alt_active";
 		pinctrl-0 = <&pri_mi2s_sck_active &pri_mi2s_ws_active
 		&pri_mi2s_sd0_active &pri_mi2s_sd1_active
 		&pri_mi2s_sd2_active &pri_mi2s_sd3_active
@@ -57,6 +57,10 @@
 		&pri_mi2s_sd2_sleep &pri_mi2s_sd3_sleep
 		&pri_mi2s_sd4_sleep &pri_mi2s_sd5_sleep
 		&pri_mi2s_sd6_sleep &pri_mi2s_sd7_sleep>;
+		pinctrl-2 = <&pri_mi2s_dsd_sck_active &pri_mi2s_dsd_d0_active
+		&pri_mi2s_dsd_d1_active &pri_mi2s_dsd_d2_active
+		&pri_mi2s_dsd_d3_active &pri_mi2s_dsd_d4_active
+		&pri_mi2s_dsd_d5_active>;
 	};
 
 	sec_mi2s_gpios: sec_mi2s_pinctrl {
@@ -72,11 +76,19 @@
 
 	quat_mi2s_gpios: quat_mi2s_pinctrl {
 		compatible = "qcom,msm-cdc-pinctrl";
-		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-names = "aud_active", "aud_sleep", "aud_alt_active";
 		pinctrl-0 = <&quat_mi2s_sck_active &quat_mi2s_ws_active
-		&quat_mi2s_sd0_active &quat_mi2s_sd1_active>;
+		&quat_mi2s_sd0_active &quat_mi2s_sd1_active
+		&quat_mi2s_sd2_active &quat_mi2s_sd3_active
+		&quat_mi2s_sd4_active>;
 		pinctrl-1 = <&quat_mi2s_sck_sleep &quat_mi2s_ws_sleep
-		&quat_mi2s_sd0_sleep &quat_mi2s_sd1_sleep>;
+		&quat_mi2s_sd0_sleep &quat_mi2s_sd1_sleep
+		&quat_mi2s_sd2_sleep &quat_mi2s_sd3_sleep
+		&quat_mi2s_sd4_sleep>;
+		pinctrl-2 = <&quat_mi2s_dsd_sck_active &quat_mi2s_dsd_d0_active
+		&quat_mi2s_dsd_d1_active &quat_mi2s_dsd_d2_active
+		&quat_mi2s_dsd_d3_active &quat_mi2s_dsd_d4_active
+		&quat_mi2s_dsd_d5_active>;
 	};
 };
 
@@ -95,6 +107,8 @@
 	qcom,va-bolero-codec = <1>;
 	qcom,tasha-codec = <1>;
 	qcom,csra-codec = <1>;
+	tcsr_i2s_dsd_prim = <0x1959000>;
+	tcsr_i2s_dsd_quat = <0x195A000>;
 	asoc-codec = <&stub_codec>, <&bolero>;
 	asoc-codec-names = "msm-stub-codec.1", "bolero_codec";
 	qcom,csra-max-devs = <8>;
@@ -156,9 +170,13 @@
 	qcom,msm-mi2s-rx-lines = <0xff>;
 };
 
+&dai_mi2s3 {
+	qcom,msm-mi2s-tx-lines = <0x3f>;
+};
+
 &dai_meta_mi2s0 {
 	qcom,msm-mi2s-num-members =  <2>;
-	qcom,msm-mi2s-member-id =  <0>, <3>;
+	qcom,msm-mi2s-member-id =  <0>, <1>;
 	qcom,msm-mi2s-rx-lines = <0xff>, <0x03>;
 };
 

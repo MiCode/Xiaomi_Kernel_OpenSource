@@ -48,3 +48,7 @@
 &mhi_dev_qrtr {
 	status = "disabled";
 };
+
+&usb {
+	qcom,smmu-s1-bypass;
+};

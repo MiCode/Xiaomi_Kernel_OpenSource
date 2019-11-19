@@ -214,6 +214,9 @@ extern void cnss_request_pm_qos(struct device *dev, u32 qos_val);
 extern void cnss_remove_pm_qos(struct device *dev);
 extern void cnss_lock_pm_sem(struct device *dev);
 extern void cnss_release_pm_sem(struct device *dev);
+extern void cnss_pci_lock_reg_window(struct device *dev, unsigned long *flags);
+extern void cnss_pci_unlock_reg_window(struct device *dev,
+				       unsigned long *flags);
 extern int cnss_wlan_pm_control(struct device *dev, bool vote);
 extern int cnss_auto_suspend(struct device *dev);
 extern int cnss_auto_resume(struct device *dev);

@@ -21,6 +21,7 @@
 #define CAM_IFE_CSID_HW_RES_MAX      4
 #define CAM_IFE_CSID_CID_RES_MAX     4
 #define CAM_IFE_CSID_RDI_MAX         4
+#define CAM_CSID_WORKQ_NUM_TASK      10
 
 #define CSID_CSI2_RX_INFO_PHY_DL0_EOT_CAPTURED    BIT(0)
 #define CSID_CSI2_RX_INFO_PHY_DL1_EOT_CAPTURED    BIT(1)
@@ -98,6 +99,22 @@ enum cam_csid_path_timestamp_stb_sel {
 	CSID_TIMESTAMP_STB_POST_HALT,
 	CSID_TIMESTAMP_STB_POST_IRQ,
 	CSID_TIMESTAMP_STB_MAX,
+};
+
+/**
+ *enum cam_csid_irq_status - csid irq status to keep track
+ * various status registers
+ */
+enum cam_csid_irq_status {
+	CSID_IRQ_STATUS_TOP,
+	CSID_IRQ_STATUS_RX,
+	CSID_IRQ_STATUS_IPP,
+	CSID_IRQ_STATUS_PPP,
+	CSID_IRQ_STATUS_RDI0,
+	CSID_IRQ_STATUS_RDI1,
+	CSID_IRQ_STATUS_RDI2,
+	CSID_IRQ_STATUS_RDI3,
+	CSID_IRQ_STATUS_MAX,
 };
 
 struct cam_ife_csid_pxl_reg_offset {
@@ -400,6 +417,17 @@ struct cam_ife_csid_cid_data {
 	uint32_t                     tpg_set;
 };
 
+/**
+ * struct cam_csid_hw_work_data- work data for csid
+ * Later other fields can be added to this data
+ * @evt_type   : Event type from CSID
+ * @irq_status : IRQ Status register
+ *
+ */
+struct cam_csid_hw_work_data {
+	uint32_t           evt_type;
+	uint32_t           irq_status[CSID_IRQ_STATUS_MAX];
+};
 
 /**
  * struct cam_ife_csid_path_cfg- csid path configuration details. It is stored
@@ -490,10 +518,17 @@ struct cam_ife_csid_path_cfg {
  * @init_frame_drop           Initial frame drop number
  * @res_sof_cnt               path resource sof count value. it used for initial
  *                            frame drop
- * @first_sof_ts              flag to mark the first sof has been registered
+ * @prev_boot_timestamp       first bootime stamp at the start
+ * @prev_qtimer_ts            stores csid timestamp
  * @ppi_hw_intf               interface to ppi hardware
  * @ppi_enabled               flag to specify if the hardware has ppi bridge
  *                            or not
+ * @fatal_err_detected        flag to indicate fatal errror is reported
+ * @ctx                       Hw manager context
+ * @work                      Work queue to handle CSID IRQ work
+ * @work_data                 Work data to be passed to work queue
+ * @event_cb                  Callback to hw manager if CSID event reported
+ *
  */
 struct cam_ife_csid_hw {
 	struct cam_hw_intf              *hw_intf;
@@ -529,9 +564,15 @@ struct cam_ife_csid_hw {
 	uint32_t                         dual_usage;
 	uint32_t                         init_frame_drop;
 	uint32_t                         res_sof_cnt[CAM_IFE_PIX_PATH_RES_MAX];
-	uint32_t                         first_sof_ts;
+	uint64_t                         prev_boot_timestamp;
+	uint64_t                         prev_qtimer_ts;
 	struct cam_hw_intf              *ppi_hw_intf[CAM_CSID_PPI_HW_MAX];
 	bool                             ppi_enable;
+	bool                             fatal_err_detected;
+	void                            *ctx;
+	struct cam_req_mgr_core_workq   *work;
+	struct cam_csid_hw_work_data     work_data[CAM_CSID_WORKQ_NUM_TASK];
+	cam_hw_mgr_event_cb_func         event_cb;
 };
 
 int cam_ife_csid_hw_probe_init(struct cam_hw_intf  *csid_hw_intf,

@@ -1418,7 +1418,7 @@ static int ipa_mpm_vote_unvote_pcie_clk(enum ipa_mpm_clk_vote_type vote,
 	}
 	mutex_unlock(&ipa_mpm_ctx->md[probe_id].mhi_mutex);
 
-	IPA_MPM_ERR("PCIe clock vote/unvote = %d probe_id = %d clk_cnt = %d\n",
+	IPA_MPM_DBG("PCIe clock vote/unvote = %d probe_id = %d clk_cnt = %d\n",
 		vote, probe_id,
 		atomic_read(&ipa_mpm_ctx->md[probe_id].clk_cnt.pcie_clk_cnt));
 
@@ -1462,7 +1462,7 @@ static void ipa_mpm_vote_unvote_ipa_clk(enum ipa_mpm_clk_vote_type vote,
 	if (vote > CLK_OFF)
 		return;
 
-	IPA_MPM_ERR("IPA clock vote/unvote = %d probe_id = %d clk_cnt = %d\n",
+	IPA_MPM_DBG("IPA clock vote/unvote = %d probe_id = %d clk_cnt = %d\n",
 		vote, probe_id,
 		atomic_read(&ipa_mpm_ctx->md[probe_id].clk_cnt.ipa_clk_cnt));
 
@@ -1829,7 +1829,7 @@ static void ipa_mpm_read_channel(enum ipa_client_type chan)
 
 	ep = &ipa3_ctx->ep[ipa_ep_idx];
 
-	IPA_MPM_ERR("Reading channel for chan %d, ep = %d, gsi_chan_hdl = %d\n",
+	IPA_MPM_DBG("Reading channel for chan %d, ep = %d, gsi_chan_hdl = %d\n",
 		chan, ep, ep->gsi_chan_hdl);
 
 	res = ipa3_get_gsi_chan_info(&chan_info, ep->gsi_chan_hdl);
@@ -2187,12 +2187,20 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 	case IPA_MPM_TETH_INIT:
 		if (ul_prod != IPA_CLIENT_MAX) {
 			/* No teth started yet, disable UL channel */
+			ipa_ep_idx = ipa3_get_ep_mapping(ul_prod);
+			if (ipa_ep_idx == IPA_EP_NOT_ALLOCATED) {
+				IPA_MPM_ERR("fail to alloc EP.\n");
+				goto fail_stop_channel;
+			}
 			ret = ipa3_stop_gsi_channel(ipa_ep_idx);
 			if (ret) {
 				IPA_MPM_ERR("MHIP Stop channel err = %d\n",
 					ret);
 				goto fail_stop_channel;
 			}
+			ipa_mpm_change_gsi_state(probe_id,
+				IPA_MPM_MHIP_CHAN_UL,
+				GSI_STOPPED);
 		}
 		if (is_acted)
 			ipa_mpm_vote_unvote_pcie_clk(CLK_OFF, probe_id,
@@ -2202,7 +2210,6 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 	case IPA_MPM_TETH_CONNECTED:
 		IPA_MPM_DBG("UL channel is already started, continue\n");
 		ipa_mpm_change_teth_state(probe_id, IPA_MPM_TETH_CONNECTED);
-
 
 		if (probe_id == IPA_MPM_MHIP_CH_ID_1) {
 			/* Lift the delay for rmnet USB prod pipe */
@@ -2220,7 +2227,7 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 	/* Check if ODL pipe is connected to MHIP DPL pipe before probe */
 	if (probe_id == IPA_MPM_MHIP_CH_ID_2 &&
 		ipa3_is_odl_connected()) {
-		IPA_MPM_ERR("setting DPL DMA to ODL\n");
+		IPA_MPM_DBG("setting DPL DMA to ODL\n");
 		ret = ipa_mpm_set_dma_mode(IPA_CLIENT_MHI_PRIME_DPL_PROD,
 			IPA_CLIENT_USB_DPL_CONS, false);
 	}

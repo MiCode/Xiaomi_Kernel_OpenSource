@@ -122,6 +122,7 @@ struct cam_isp_ctx_irq_ops {
  * @hw_update_data:        HW update data for this request
  * @event_timestamp:       Timestamp for different stage of request
  * @bubble_detected:       Flag to indicate if bubble detected
+ * @reapply:               True if reapplying after bubble
  *
  */
 struct cam_isp_ctx_req {
@@ -140,6 +141,7 @@ struct cam_isp_ctx_req {
 	struct timeval                        event_timestamp
 	    [CAM_ISP_CTX_EVENT_MAX];
 	bool                                  bubble_detected;
+	bool                                  reapply;
 };
 
 /**
@@ -217,9 +219,7 @@ struct cam_isp_context_event_record {
  * @req_isp:                   ISP private request object storage
  * @hw_ctx:                    HW object returned by the acquire device command
  * @sof_timestamp_val:         Captured time stamp value at sof hw event
- * @prev_sof_timestamp_val     Holds last notified sof time stamp
  * @boot_timestamp:            Boot time stamp for a given req_id
- * @prev_boot_timestamp        Holds last notified boot time stamp
  * @active_req_cnt:            Counter for the active request
  * @subscribe_event:           The irq event mask that CRM subscribes to, IFE
  *                             will invoke CRM cb at those event.
@@ -253,9 +253,7 @@ struct cam_isp_context {
 
 	void                            *hw_ctx;
 	uint64_t                         sof_timestamp_val;
-	uint64_t                         prev_sof_timestamp_val;
 	uint64_t                         boot_timestamp;
-	uint64_t                         prev_boot_timestamp;
 	int32_t                          active_req_cnt;
 	uint32_t                         subscribe_event;
 	atomic64_t                       state_monitor_head;
