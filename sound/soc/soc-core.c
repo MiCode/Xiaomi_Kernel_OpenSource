@@ -902,8 +902,17 @@ static int soc_bind_dai_link(struct snd_soc_card *card,
 	/* FIXME: we need multi CPU support in the future */
 	rtd->cpu_dai = snd_soc_find_dai(dai_link->cpus);
 	if (!rtd->cpu_dai) {
+#ifdef CONFIG_AUDIO_QGKI
+		if (dai_link->cpus->dai_name)
+			dev_info(card->dev, "ASoC: CPU DAI %s not registered\n",
+				dai_link->cpus->dai_name);
+		else if (dai_link->cpus->of_node)
+			dev_info(card->dev,  "ASoC: CPU DAI %s not registered\n",
+				dai_link->cpus->of_node->full_name);
+#else
 		dev_info(card->dev, "ASoC: CPU DAI %s not registered\n",
-			 dai_link->cpus->dai_name);
+			dai_link->cpus->dai_name);
+#endif
 		goto _err_defer;
 	}
 	snd_soc_rtdcom_add(rtd, rtd->cpu_dai->component);
