@@ -2336,6 +2336,11 @@ static int wil_cfg80211_change_beacon(struct wiphy *wiphy,
 	struct wil6210_vif *vif = ndev_to_vif(ndev);
 	int rc;
 	u32 privacy = 0;
+	u16 len = 0, proberesp_len = 0;
+	u8 *ies = NULL, *proberesp;
+	bool ssid_changed = false;
+	const u8 *ie;
+
 
 	wil_dbg_misc(wil, "change_beacon, mid=%d\n", vif->mid);
 	wil_print_bcon_data(bcon);
@@ -2347,6 +2352,27 @@ static int wil_cfg80211_change_beacon(struct wiphy *wiphy,
 
 	memcpy(vif->ssid, wdev->ssid, wdev->ssid_len);
 	vif->ssid_len = wdev->ssid_len;
+
+	/* extract updated SSID from the probe response IE */
+	proberesp = _wil_cfg80211_get_proberesp_ies(bcon->probe_resp,
+						    bcon->probe_resp_len,
+						    &proberesp_len);
+	rc = _wil_cfg80211_merge_extra_ies(proberesp,
+					   proberesp_len,
+					   bcon->proberesp_ies,
+					   bcon->proberesp_ies_len,
+					   &ies, &len);
+
+	if (!rc) {
+		ie = cfg80211_find_ie(WLAN_EID_SSID, ies, len);
+		if (ie && ie[1] <= IEEE80211_MAX_SSID_LEN)
+			if (ie[1] != vif->ssid_len ||
+			    memcmp(&ie[2], vif->ssid, ie[1])) {
+				memcpy(vif->ssid, &ie[2], ie[1]);
+				vif->ssid_len = ie[1];
+				ssid_changed = true;
+			}
+	}
 
 	/* in case privacy has changed, need to restart the AP */
 	if (vif->privacy != privacy) {
@@ -2361,9 +2387,20 @@ static int wil_cfg80211_change_beacon(struct wiphy *wiphy,
 					    vif->hidden_ssid,
 					    vif->pbss);
 	} else {
+		if (ssid_changed) {
+			rc = wmi_set_ssid(vif, vif->ssid_len, vif->ssid);
+			if (rc)
+				goto out;
+		}
 		rc = _wil_cfg80211_set_ies(vif, bcon);
 	}
 
+	if (ssid_changed) {
+		wdev->ssid_len = vif->ssid_len;
+		memcpy(wdev->ssid, vif->ssid, vif->ssid_len);
+	}
+
+out:
 	return rc;
 }
 
