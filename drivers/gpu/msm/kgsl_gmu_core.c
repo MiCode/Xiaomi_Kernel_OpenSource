@@ -302,7 +302,7 @@ int gmu_core_dev_wait_for_lowest_idle(struct kgsl_device *device)
 	struct gmu_dev_ops *ops = GMU_DEVICE_OPS(device);
 
 	if (ops && ops->wait_for_lowest_idle)
-		ops->wait_for_lowest_idle(device);
+		return ops->wait_for_lowest_idle(device);
 
 	return 0;
 }
