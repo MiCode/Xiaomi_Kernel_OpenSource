@@ -26,6 +26,16 @@ PM8008 chip specific properties:
   Value type: <phandle>
   Definition: pinctrol handle for chip enable GPIO.
 
+- interrupts:
+  Usage: optional
+  Value type: <prop encoded array>
+  Definition: PM8008 LDO over current protection (OCP) summary interrupt.
+
+- interrupt-names
+  Usage: required if 'interrupts' property is specified.
+  Value type: <string>
+  Definition: This should be "ocp" for the PM8008 LDO OCP interrupt.
+
 - regulator sub-node:
   Usage: required
   Value type: <child sub node>
@@ -34,8 +44,9 @@ PM8008 chip specific properties:
 Example:
 	qcom,pm8008-chip@900 {
 		compatible = "qcom,pm8008-chip";
-		pinctrl-names = "default";
-		pinctrl-0 = <&pincontrol handle>; // chip enable GPIO
+
+		interrupts = <0x09 4 IRQ_TYPE_EDGE_RISING>;
+		interrupt-names = "ocp";
 
 		PM8008_EN: qcom,pm8008-chip-en {
 			regulator-name = "pm8008-chip-en";
@@ -70,6 +81,13 @@ PM8008 chip regulator specific properties:
   Value type: <phandle>
   Definition: Reference to PM8008 chip enable regulator, which manages
 		chip enable functionlity of PM8008.
+
+- qcom,enable-ocp-broadcast:
+  Usage: optional
+  Value type: <bool>
+  Definition: Property if present enables the LDO OCP broadcast bit.
+	      This property is required only when the "ocp" interrupt
+	      in the pm8008 chip module is enabled.
 
 ============================================================================
 Second Level Nodes - PM8008 regulator peripherals of PM8008 regulator device
@@ -109,6 +127,7 @@ Example:
 
 		pm8008_en-supply = <&PM8008_EN>;
 		vdd_l1_l2-supply = <&parent-supply>;
+		qcom,enable-ocp-broadcast;
 		...
 
 		L1: qcom,pm8008-l1@4000 {
