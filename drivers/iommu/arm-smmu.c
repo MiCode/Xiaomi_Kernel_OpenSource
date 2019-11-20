@@ -80,10 +80,6 @@
 #define ARM_SMMU_ICC_PEAK_BW_LOW	0
 
 static int force_stage;
-/*
- * not really modular, but the easiest way to keep compat with existing
- * bootargs behaviour is to continue using module_param() here.
- */
 module_param(force_stage, int, S_IRUGO);
 MODULE_PARM_DESC(force_stage,
 	"Force SMMU mappings to be installed at a particular stage of translation. A value of '1' or '2' forces the corresponding stage. All other values are ignored (i.e. no stage is forced). Note that selecting a specific stage will disable support for nested translation.");
@@ -4764,13 +4760,12 @@ out_exit_power_resources:
  * delay setting bus ops until we're sure every possible SMMU is ready,
  * and that way ensure that no add_device() calls get missed.
  */
-static int arm_smmu_legacy_bus_init(void)
+static int __maybe_unused arm_smmu_legacy_bus_init(void)
 {
 	if (using_legacy_binding)
 		arm_smmu_bus_init();
 	return 0;
 }
-device_initcall_sync(arm_smmu_legacy_bus_init);
 
 static int arm_smmu_device_remove(struct platform_device *pdev)
 {
@@ -5531,3 +5526,5 @@ static struct platform_driver qsmmuv500_tbu_driver = {
 	},
 	.probe	= qsmmuv500_tbu_probe,
 };
+
+MODULE_LICENSE("GPL v2");
