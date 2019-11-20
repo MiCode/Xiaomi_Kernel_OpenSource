@@ -7,6 +7,7 @@
 #define __WIGIG_SENSING_H__
 #include <linux/cdev.h>
 #include <linux/circ_buf.h>
+#include <linux/kfifo.h>
 #include <linux/slab.h>
 #include <uapi/misc/wigig_sensing_uapi.h>
 
@@ -193,6 +194,7 @@ struct wigig_sensing_ctx {
 	struct cir_data cir_data;
 	u8 *temp_buffer;
 	bool event_pending;
+	DECLARE_KFIFO(events_fifo, enum wigig_sensing_event, 8);
 	u32 dropped_bursts;
 };
 
