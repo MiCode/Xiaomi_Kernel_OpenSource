@@ -2699,12 +2699,12 @@
 		quat_tdm_din {
 			quat_tdm_din_sleep: quat_tdm_din_sleep {
 				mux {
-					pins = "gpio139";
+					pins = "gpio139", "gpio141";
 					function = "gpio";
 				};
 
 				config {
-					pins = "gpio139";
+					pins = "gpio139", "gpio141";
 					drive-strength = <2>;   /* 2 mA */
 					bias-pull-down;         /* PULL DOWN */
 					input-enable;
@@ -2713,12 +2713,12 @@
 
 			quat_tdm_din_active: quat_tdm_din_active {
 				mux {
-					pins = "gpio139";
+					pins = "gpio139", "gpio141";
 					function = "qua_mi2s";
 				};
 
 				config {
-					pins = "gpio139";
+					pins = "gpio139", "gpio141";
 					drive-strength = <8>;   /* 8 mA */
 					bias-disable;           /* NO PULL */
 				};
@@ -2728,12 +2728,12 @@
 		quat_tdm_dout {
 			quat_tdm_dout_sleep: quat_tdm_dout_sleep {
 				mux {
-					pins = "gpio140";
+					pins = "gpio140", "gpio142";
 					function = "gpio";
 				};
 
 				config {
-					pins = "gpio140";
+					pins = "gpio140", "gpio142";
 					drive-strength = <2>;   /* 2 mA */
 					bias-pull-down;         /* PULL DOWN */
 					input-enable;
@@ -2742,12 +2742,12 @@
 
 			quat_tdm_dout_active: quat_tdm_dout_active {
 				mux {
-					pins = "gpio140";
+					pins = "gpio140", "gpio142";
 					function = "qua_mi2s";
 				};
 
 				config {
-					pins = "gpio140";
+					pins = "gpio140", "gpio142";
 					drive-strength = <8>;   /* 8 mA */
 					bias-disable;           /* NO PULL */
 				};
