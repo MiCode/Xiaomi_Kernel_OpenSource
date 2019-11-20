@@ -167,6 +167,7 @@ extern struct emac_emb_smmu_cb_ctx emac_emb_smmu_ctx;
 			&emac_emb_smmu_ctx.smmu_pdev->dev : priv->device)
 
 int ethqos_handle_prv_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
+int ethqos_init_pps(struct stmmac_priv *priv);
 
 extern bool phy_intr_en;
 int stmmac_mdio_unregister(struct net_device *ndev);
