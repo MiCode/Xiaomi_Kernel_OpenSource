@@ -837,7 +837,18 @@ static struct platform_driver qnoc_driver = {
 		.of_match_table = qnoc_of_match,
 	},
 };
-module_platform_driver(qnoc_driver);
+
+static int __init qnoc_driver_init(void)
+{
+	return platform_driver_register(&qnoc_driver);
+}
+core_initcall(qnoc_driver_init);
+
+static void __exit qnoc_driver_exit(void)
+{
+	platform_driver_unregister(&qnoc_driver);
+}
+module_exit(qnoc_driver_exit);
 
 MODULE_DESCRIPTION("Lahaina NoC driver");
 MODULE_LICENSE("GPL v2");
