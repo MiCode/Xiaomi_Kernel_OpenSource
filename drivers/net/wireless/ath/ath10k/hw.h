@@ -590,6 +590,11 @@ struct ath10k_hw_params {
 
 	/* target supporting retention restore on ddr */
 	bool rri_on_ddr;
+
+	/* targets which require hw filter reset during boot up,
+	 * to avoid it sending spurious acks.
+	 */
+	bool hw_filter_reset_required;
 };
 
 struct htt_rx_desc;
