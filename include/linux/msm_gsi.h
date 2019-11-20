@@ -162,6 +162,7 @@ enum gsi_evt_ring_elem_size {
 	GSI_EVT_RING_RE_SIZE_4B = 4,
 	GSI_EVT_RING_RE_SIZE_8B = 8,
 	GSI_EVT_RING_RE_SIZE_16B = 16,
+	GSI_EVT_RING_RE_SIZE_32B = 32,
 };
 
 /**
@@ -335,6 +336,7 @@ enum gsi_chan_ring_elem_size {
 	GSI_CHAN_RE_SIZE_8B = 8,
 	GSI_CHAN_RE_SIZE_16B = 16,
 	GSI_CHAN_RE_SIZE_32B = 32,
+	GSI_CHAN_RE_SIZE_64B = 64,
 };
 
 enum gsi_chan_use_db_eng {

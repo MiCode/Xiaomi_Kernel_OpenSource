@@ -477,6 +477,11 @@
 #define GSI_EE_n_GSI_CH_k_CNTXT_1_R_LENGTH_BMSK 0xffff
 #define GSI_EE_n_GSI_CH_k_CNTXT_1_R_LENGTH_SHFT 0x0
 
+#define GSI_V2_9_EE_n_GSI_CH_k_CNTXT_1_OFFS(k, n) \
+	(GSI_GSI_REG_BASE_OFFS + 0x0000f004 + 0x4000 * (n) + 0x80 * (k))
+#define GSI_V2_9_EE_n_GSI_CH_k_CNTXT_1_R_LENGTH_BMSK 0xfffff
+#define GSI_V2_9_EE_n_GSI_CH_k_CNTXT_1_R_LENGTH_SHFT 0x0
+
 #define GSI_EE_n_GSI_CH_k_CNTXT_2_OFFS(k, n) \
 	(GSI_GSI_REG_BASE_OFFS + 0x0000f008 + 0x4000 * (n) + 0x80 * (k))
 #define GSI_EE_n_GSI_CH_k_CNTXT_2_R_BASE_ADDR_LSBS_BMSK 0xffffffff
@@ -604,6 +609,11 @@
 	(GSI_GSI_REG_BASE_OFFS + 0x00010004 + 0x4000 * (n) + 0x80 * (k))
 #define GSI_EE_n_EV_CH_k_CNTXT_1_R_LENGTH_BMSK 0xffff
 #define GSI_EE_n_EV_CH_k_CNTXT_1_R_LENGTH_SHFT 0x0
+
+#define GSI_V2_9_EE_n_EV_CH_k_CNTXT_1_OFFS(k, n) \
+	(GSI_GSI_REG_BASE_OFFS + 0x00010004 + 0x4000 * (n) + 0x80 * (k))
+#define GSI_V2_9_EE_n_EV_CH_k_CNTXT_1_R_LENGTH_BMSK 0xfffff
+#define GSI_V2_9_EE_n_EV_CH_k_CNTXT_1_R_LENGTH_SHFT 0x0
 
 #define GSI_EE_n_EV_CH_k_CNTXT_2_OFFS(k, n) \
 	(GSI_GSI_REG_BASE_OFFS + 0x00010008 + 0x4000 * (n) + 0x80 * (k))
