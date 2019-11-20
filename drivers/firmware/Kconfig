@@ -235,17 +235,14 @@ config INTEL_STRATIX10_RSU
 	  Say Y here if you want Intel RSU support.
 
 config QCOM_SCM
-	bool
+	bool "Qualcomm Technologies, Inc. SCM Interface"
 	depends on ARM || ARM64
 	select RESET_CONTROLLER
-
-config QCOM_SCM_32
-	def_bool y
-	depends on QCOM_SCM && ARM
-
-config QCOM_SCM_64
-	def_bool y
-	depends on QCOM_SCM && ARM64
+	help
+	  This option enables support for communicating with
+	  Qualcomm Technologies, Inc. secure worlds using
+	  Qualcomm Technologies, Inc. "Secure Channel Manager"
+	  interface.
 
 config QCOM_SCM_DOWNLOAD_MODE_DEFAULT
 	bool "Qualcomm download mode enabled by default"
@@ -257,6 +254,16 @@ config QCOM_SCM_DOWNLOAD_MODE_DEFAULT
 	  The feature can be enabled/disabled on the kernel command line.
 
 	  Say Y here to enable "download mode" by default.
+
+config QTEE_SHM_BRIDGE
+	bool "QTI TEE shared memory bridge"
+	depends on QCOM_SCM
+	help
+	  QTEE shared memory bridge driver provides kernel APIs to share
+	  memory between trustzone & other VMs through shared memory bridge.
+	  It allows kernel clients to create bridge, delete bridge, and do
+	  memory sub-allocation and free from the default kernel bridge
+	  created by bridge driver.
 
 config TI_SCI_PROTOCOL
 	tristate "TI System Control Interface (TISCI) Message Protocol"

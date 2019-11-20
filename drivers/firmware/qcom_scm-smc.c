@@ -12,6 +12,10 @@
 #include <linux/arm-smccc.h>
 #include <linux/dma-mapping.h>
 
+#include <asm/cacheflush.h>
+
+#include <linux/qtee_shmbridge.h>
+
 #include "qcom_scm.h"
 
 #define MAX_QCOM_SCM_ARGS 10
@@ -180,17 +184,17 @@ static int qcom_scm_call_smccc(struct device *dev,
 				  struct qcom_scm_desc *desc, bool atomic)
 {
 	int arglen = desc->arginfo & 0xf;
-	int i;
-	dma_addr_t args_phys = 0;
-	void *args_virt = NULL;
+	int i, ret;
 	size_t alloc_len;
-	gfp_t flag = atomic ? GFP_ATOMIC : GFP_KERNEL;
+	gfp_t flag = atomic ? GFP_ATOMIC : GFP_NOIO;
 	u32 smccc_call_type = atomic ? ARM_SMCCC_FAST_CALL : ARM_SMCCC_STD_CALL;
 	u32 qcom_smccc_convention =
 		(qcom_smc_convention == SMC_CONVENTION_ARM_32) ?
 		ARM_SMCCC_SMC_32 : ARM_SMCCC_SMC_64;
 	struct arm_smccc_res res;
 	struct arm_smccc_args smc = {{0}};
+	struct qtee_shm shm = {0};
+	bool use_qtee_shmbridge;
 
 	smc.a[0] = ARM_SMCCC_CALL_VAL(
 		smccc_call_type,
@@ -206,34 +210,43 @@ static int qcom_scm_call_smccc(struct device *dev,
 			return -EPROBE_DEFER;
 
 		alloc_len = SMCCC_N_EXT_ARGS * sizeof(u64);
-		args_virt = kzalloc(PAGE_ALIGN(alloc_len), flag);
-
-		if (!args_virt)
-			return -ENOMEM;
+		use_qtee_shmbridge = qtee_shmbridge_is_enabled();
+		if (use_qtee_shmbridge) {
+			ret = qtee_shmbridge_allocate_shm(alloc_len, &shm);
+			if (ret)
+				return ret;
+		} else {
+			shm.vaddr = kzalloc(alloc_len, flag);
+			if (!shm.vaddr)
+				return -ENOMEM;
+		}
 
 		if (qcom_smc_convention == SMC_CONVENTION_ARM_32) {
-			__le32 *args = args_virt;
+			__le32 *args = shm.vaddr;
 
 			for (i = 0; i < SMCCC_N_EXT_ARGS; i++)
 				args[i] = cpu_to_le32(desc->args[i +
 						      SMCCC_FIRST_EXT_IDX]);
 		} else {
-			__le64 *args = args_virt;
+			__le64 *args = shm.vaddr;
 
 			for (i = 0; i < SMCCC_N_EXT_ARGS; i++)
 				args[i] = cpu_to_le64(desc->args[i +
 						      SMCCC_FIRST_EXT_IDX]);
 		}
 
-		args_phys = dma_map_single(dev, args_virt, alloc_len,
-					   DMA_TO_DEVICE);
+		shm.paddr = dma_map_single(dev, shm.vaddr, alloc_len,
+						DMA_TO_DEVICE);
 
-		if (dma_mapping_error(dev, args_phys)) {
-			kfree(args_virt);
+		if (dma_mapping_error(dev, shm.paddr)) {
+			if (use_qtee_shmbridge)
+				qtee_shmbridge_free_shm(&shm);
+			else
+				kfree(shm.vaddr);
 			return -ENOMEM;
 		}
 
-		smc.a[SMCCC_LAST_REG_IDX] = args_phys;
+		smc.a[SMCCC_LAST_REG_IDX] = shm.paddr;
 	}
 
 	if (atomic) {
@@ -256,9 +269,13 @@ static int qcom_scm_call_smccc(struct device *dev,
 		} while (res.a0 == QCOM_SCM_V2_EBUSY);
 	}
 
-	if (args_virt) {
-		dma_unmap_single(dev, args_phys, alloc_len, DMA_TO_DEVICE);
-		kfree(args_virt);
+	if (unlikely(arglen > SMCCC_N_REG_ARGS)) {
+		dma_unmap_single(dev, shm.paddr, alloc_len,
+					DMA_TO_DEVICE);
+		if (use_qtee_shmbridge)
+			qtee_shmbridge_free_shm(&shm);
+		else
+			kfree(shm.vaddr);
 	}
 
 	desc->res[0] = res.a1;
@@ -634,6 +651,20 @@ void __qcom_scm_cpu_power_down(struct device *dev, u32 flags)
 	qcom_scm_call_atomic(dev, &desc);
 }
 
+int __qcom_scm_sec_wdog_deactivate(struct device *dev)
+{
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_BOOT,
+		.cmd = QCOM_SCM_BOOT_SEC_WDOG_DIS,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.args[0] = 1;
+	desc.arginfo = QCOM_SCM_ARGS(1);
+
+	return qcom_scm_call(dev, &desc);
+}
+
 int __qcom_scm_set_remote_state(struct device *dev, u32 state, u32 id)
 {
 	struct qcom_scm_desc desc = {
@@ -839,6 +870,44 @@ int __qcom_scm_is_call_available(struct device *dev, u32 svc_id, u32 cmd_id)
 	return ret ? : desc.res[0];
 }
 
+int __qcom_scm_get_feat_version(struct device *dev, u64 feat_id, u64 *version)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_INFO,
+		.cmd = QCOM_SCM_INFO_GET_FEAT_VERSION_CMD,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.args[0] = feat_id;
+	desc.arginfo = QCOM_SCM_ARGS(1);
+
+	ret = qcom_scm_call(dev, &desc);
+
+	if (version)
+		*version = desc.res[0];
+
+	return ret;
+}
+
+void __qcom_scm_mmu_sync(struct device *dev, bool sync)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_PWR,
+		.cmd = QCOM_SCM_PWR_MMU_SYNC,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.args[0] = sync;
+	desc.arginfo = QCOM_SCM_ARGS(1);
+
+	ret = qcom_scm_call_atomic(dev, &desc);
+
+	if (ret)
+		pr_err("MMU sync with Hypervisor off %x\n", ret);
+}
+
 int __qcom_scm_restore_sec_cfg(struct device *dev, u32 device_id, u32 spare)
 {
 	struct qcom_scm_desc desc = {
@@ -901,6 +970,58 @@ int __qcom_scm_iommu_secure_ptbl_init(struct device *dev, u64 addr, u32 size,
 		ret = 0;
 
 	return ret;
+}
+
+int __qcom_scm_iommu_secure_map(struct device *dev, phys_addr_t sg_list_addr,
+			size_t num_sg, size_t sg_block_size, u64 sec_id,
+			int cbndx, unsigned long iova, size_t total_len)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_MP,
+		.cmd = QCOM_SCM_MP_IOMMU_SECURE_MAP2_FLAT,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.args[0] = sg_list_addr;
+	desc.args[1] = num_sg;
+	desc.args[2] = sg_block_size;
+	desc.args[3] = sec_id;
+	desc.args[4] = cbndx;
+	desc.args[5] = iova;
+	desc.args[6] = total_len;
+	desc.args[7] = 0;
+
+
+	desc.arginfo = QCOM_SCM_ARGS(8, QCOM_SCM_RW, QCOM_SCM_VAL, QCOM_SCM_VAL,
+			QCOM_SCM_VAL, QCOM_SCM_VAL, QCOM_SCM_VAL, QCOM_SCM_VAL,
+			QCOM_SCM_VAL);
+
+	ret = qcom_scm_call(dev, &desc);
+
+	return ret ? : desc.res[0];
+}
+
+int __qcom_scm_iommu_secure_unmap(struct device *dev, u64 sec_id, int cbndx,
+			unsigned long iova, size_t total_len)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_MP,
+		.cmd = QCOM_SCM_MP_IOMMU_SECURE_UNMAP2_FLAT,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.args[0] = sec_id;
+	desc.args[1] = cbndx;
+	desc.args[2] = iova;
+	desc.args[3] = total_len;
+	desc.args[4] = QCOM_SCM_IOMMU_TLBINVAL_FLAG;
+	desc.arginfo = QCOM_SCM_ARGS(5);
+
+	ret = qcom_scm_call(dev, &desc);
+
+	return ret ? : desc.res[0];
 }
 
 int __qcom_scm_assign_mem(struct device *dev, phys_addr_t mem_region,
@@ -975,6 +1096,19 @@ int __qcom_scm_qsmmu500_wait_safe_toggle(struct device *dev, bool en)
 	desc.arginfo = QCOM_SCM_ARGS(2);
 
 	return qcom_scm_call_atomic(dev, &desc);
+}
+
+int __qcom_scm_ice_restore_cfg(struct device *dev)
+{
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_KEYSTORE,
+		.cmd = QCOM_SCM_ICE_RESTORE_KEY_ID,
+		.owner = ARM_SMCCC_OWNER_TRUSTED_OS
+	};
+
+	desc.arginfo = QCOM_SCM_ARGS(0);
+
+	return qcom_scm_call(dev, &desc);
 }
 
 void __qcom_scm_init(void)

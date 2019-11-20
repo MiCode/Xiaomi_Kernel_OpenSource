@@ -10,7 +10,7 @@
 #include <linux/sysfs.h>
 #include <linux/kobject.h>
 #include <linux/slab.h>
-#include <soc/qcom/scm.h>
+#include <linux/qcom_scm.h>
 #include <linux/platform_device.h>
 
 /* pmu event max value */
@@ -102,7 +102,10 @@ static ssize_t show_threshold(struct kobject *kobj, struct attribute *attr,
 	struct hang_detect *device =  to_core_hang_dev(kobj);
 	u32 threshold_val;
 
-	threshold_val = scm_io_read(device->threshold[0]);
+	if (qcom_scm_io_readl(device->threshold[0], &threshold_val)) {
+		pr_err("%s: Failed to get threshold for core0\n", __func__);
+		return -EIO;
+	}
 
 	return scnprintf(buf, MAX_SYSFS_LEN, "0x%x\n", threshold_val);
 }
@@ -125,7 +128,8 @@ static size_t store_threshold(struct kobject *kobj, struct attribute *attr,
 		if (!hang_dev->threshold[cpu])
 			continue;
 
-		if (scm_io_write(hang_dev->threshold[cpu], threshold_val)) {
+		if (qcom_scm_io_writel(hang_dev->threshold[cpu],
+					threshold_val)) {
 			pr_err("%s: Failed to set threshold for core%d\n",
 					__func__, cpu);
 			return -EIO;
@@ -163,8 +167,12 @@ static size_t store_pmu_event_sel(struct kobject *kobj, struct attribute *attr,
 		if (!hang_dev->config[cpu])
 			continue;
 
-		reg_value = scm_io_read(hang_dev->config[cpu]);
-		if (scm_io_write(hang_dev->config[cpu],
+		if (qcom_scm_io_readl(hang_dev->config[cpu], &reg_value)) {
+			pr_err("%s: Failed to get pmu config for core%d\n",
+					__func__, cpu);
+			return -EIO;
+		}
+		if (qcom_scm_io_writel(hang_dev->config[cpu],
 			_WRITE(pmu_event_sel, reg_value, PMU_MUX))) {
 			pr_err("%s: Failed to set pmu event for core%d\n",
 					__func__, cpu);
@@ -180,10 +188,13 @@ CORE_HANG_ATTR(pmu_event_sel, 0644, show_pmu_event_sel, store_pmu_event_sel);
 static ssize_t show_enable(struct kobject *kobj, struct attribute *attr,
 				char *buf)
 {
-	struct hang_detect *hang_dev = to_core_hang_dev(kobj);
 	u32 enabled;
+	struct hang_detect *hang_dev = to_core_hang_dev(kobj);
 
-	enabled = scm_io_read(hang_dev->config[0]);
+	if (qcom_scm_io_readl(hang_dev->config[0], &enabled)) {
+		pr_err("%s: Failed to get pmu config for core0\n", __func__);
+		return -EIO;
+	}
 	enabled = _GET_BITS(enabled, ENABLE);
 
 	return scnprintf(buf, MAX_SYSFS_LEN, "%u\n", enabled);
@@ -205,8 +216,12 @@ static size_t store_enable(struct kobject *kobj, struct attribute *attr,
 		if (!hang_dev->config[cpu])
 			continue;
 
-		reg_value = scm_io_read(hang_dev->config[cpu]);
-		if (scm_io_write(hang_dev->config[cpu],
+		if (qcom_scm_io_readl(hang_dev->config[cpu], &reg_value)) {
+			pr_err("%s: Failed to get pmu event for core%d\n",
+					__func__, cpu);
+			return -EIO;
+		}
+		if (qcom_scm_io_writel(hang_dev->config[cpu],
 			_WRITE(enabled, reg_value, ENABLE))) {
 			pr_err("%s: Failed to set enable for core%d\n",
 					__func__, cpu);

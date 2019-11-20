@@ -18,6 +18,7 @@
 #include <linux/reset-controller.h>
 
 #include "qcom_scm.h"
+#include "qtee_shmbridge_internal.h"
 
 static bool download_mode = IS_ENABLED(CONFIG_QCOM_SCM_DOWNLOAD_MODE_DEFAULT);
 module_param(download_mode, bool, 0);
@@ -126,6 +127,15 @@ void qcom_scm_cpu_power_down(u32 flags)
 	__qcom_scm_cpu_power_down(__scm ? __scm->dev : NULL, flags);
 }
 EXPORT_SYMBOL(qcom_scm_cpu_power_down);
+
+/**
+ * qcm_scm_sec_wdog_deactivate() - Deactivate secure watchdog
+ */
+int qcom_scm_sec_wdog_deactivate(void)
+{
+	return __qcom_scm_sec_wdog_deactivate(__scm->dev);
+}
+EXPORT_SYMBOL(qcom_scm_sec_wdog_deactivate);
 
 int qcom_scm_set_remote_state(u32 state, u32 id)
 {
@@ -324,6 +334,19 @@ int qcom_scm_io_writel(phys_addr_t addr, unsigned int val)
 }
 EXPORT_SYMBOL(qcom_scm_io_writel);
 
+int qcom_scm_get_jtag_etm_feat_id(u64 *version)
+{
+	return __qcom_scm_get_feat_version(__scm ? __scm->dev : NULL,
+					QCOM_SCM_TZ_DBG_ETM_FEAT_ID, version);
+}
+EXPORT_SYMBOL(qcom_scm_get_jtag_etm_feat_id);
+
+void qcom_scm_mmu_sync(bool sync)
+{
+	__qcom_scm_mmu_sync(__scm ? __scm->dev : NULL, sync);
+}
+EXPORT_SYMBOL(qcom_scm_mmu_sync);
+
 int qcom_scm_restore_sec_cfg(u32 device_id, u32 spare)
 {
 	return __qcom_scm_restore_sec_cfg(__scm->dev, device_id, spare);
@@ -341,6 +364,23 @@ int qcom_scm_iommu_secure_ptbl_init(u64 addr, u32 size, u32 spare)
 	return __qcom_scm_iommu_secure_ptbl_init(__scm->dev, addr, size, spare);
 }
 EXPORT_SYMBOL(qcom_scm_iommu_secure_ptbl_init);
+
+int qcom_scm_iommu_secure_map(phys_addr_t sg_list_addr, size_t num_sg,
+				size_t sg_block_size, u64 sec_id, int cbndx,
+				unsigned long iova, size_t total_len)
+{
+	return __qcom_scm_iommu_secure_map(__scm->dev, sg_list_addr, num_sg,
+				sg_block_size, sec_id, cbndx, iova, total_len);
+}
+EXPORT_SYMBOL(qcom_scm_iommu_secure_map);
+
+int qcom_scm_iommu_secure_unmap(u64 sec_id, int cbndx, unsigned long iova,
+				size_t total_len)
+{
+	return __qcom_scm_iommu_secure_unmap(__scm->dev, sec_id, cbndx, iova,
+						total_len);
+}
+EXPORT_SYMBOL(qcom_scm_iommu_secure_unmap);
 
 /**
  * qcom_scm_assign_mem() - Make a secure call to reassign memory ownership
@@ -472,6 +512,12 @@ int qcom_scm_qsmmu500_wait_safe_toggle(bool en)
 }
 EXPORT_SYMBOL(qcom_scm_qsmmu500_wait_safe_toggle);
 
+int qcom_scm_ice_restore_cfg(void)
+{
+	return __qcom_scm_ice_restore_cfg(__scm->dev);
+}
+EXPORT_SYMBOL(qcom_scm_ice_restore_cfg);
+
 /**
  * qcom_scm_is_available() - Checks if SCM is available
  */
@@ -579,6 +625,12 @@ static int qcom_scm_probe(struct platform_device *pdev)
 
 	__qcom_scm_init();
 
+#if CONFIG_ARM64
+	ret = dma_set_mask(&pdev->dev, DMA_BIT_MASK(64));
+	if (ret)
+		return ret;
+#endif
+
 	/*
 	 * If requested enable "download mode", from this point on warmboot
 	 * will cause the the boot stages to enter download mode, unless
@@ -632,6 +684,21 @@ static struct platform_driver qcom_scm_driver = {
 
 static int __init qcom_scm_init(void)
 {
-	return platform_driver_register(&qcom_scm_driver);
+	int ret;
+
+	ret = platform_driver_register(&qcom_scm_driver);
+	if (ret)
+		return ret;
+
+	return qtee_shmbridge_driver_init();
 }
 subsys_initcall(qcom_scm_init);
+
+#if IS_MODULE(CONFIG_QCOM_SCM)
+static void __exit qcom_scm_exit(void)
+{
+	platform_driver_unregister(&qcom_scm_driver);
+	qtee_shmbridge_driver_exit();
+}
+module_exit(qcom_scm_exit);
+#endif

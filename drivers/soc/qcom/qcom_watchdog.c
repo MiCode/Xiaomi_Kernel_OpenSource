@@ -18,7 +18,7 @@
 #include <linux/cpu_pm.h>
 #include <linux/platform_device.h>
 #include <linux/wait.h>
-#include <soc/qcom/scm.h>
+#include <linux/qcom_scm.h>
 #include <soc/qcom/minidump.h>
 #include <soc/qcom/watchdog.h>
 #include <linux/dma-mapping.h>
@@ -40,8 +40,6 @@
 #define UNMASKED_INT_EN 1
 
 #define MASK_SIZE		32
-#define SCM_SET_REGSAVE_CMD	0x2
-#define SCM_SVC_SEC_WDOG_DIS	0x7
 #define MAX_CPU_CTX_SIZE	2048
 #define WDT_HZ			32765
 
@@ -225,7 +223,6 @@ static ssize_t wdog_disable_set(struct device *dev,
 				const char *buf, size_t count)
 {
 	struct msm_watchdog_data *wdog_dd = dev_get_drvdata(dev);
-	struct scm_desc desc = {0};
 	u8 disable;
 	int ret;
 
@@ -243,10 +240,7 @@ static ssize_t wdog_disable_set(struct device *dev,
 		}
 		disable = 1;
 
-		desc.args[0] = 1;
-		desc.arginfo = SCM_ARGS(1);
-		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_BOOT,
-						SCM_SVC_SEC_WDOG_DIS), &desc);
+		ret = qcom_scm_sec_wdog_deactivate();
 		if (ret) {
 			dev_err(wdog_dd->dev,
 					"Failed to deactivate secure wdog\n");

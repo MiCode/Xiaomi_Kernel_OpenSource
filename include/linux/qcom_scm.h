@@ -38,6 +38,7 @@ struct qcom_scm_vmperm {
 extern int qcom_scm_set_cold_boot_addr(void *entry, const cpumask_t *cpus);
 extern int qcom_scm_set_warm_boot_addr(void *entry, const cpumask_t *cpus);
 extern void qcom_scm_cpu_power_down(u32 flags);
+extern int qcom_scm_sec_wdog_deactivate(void);
 extern int qcom_scm_set_remote_state(u32 state, u32 id);
 extern bool qcom_scm_pas_supported(u32 peripheral);
 extern int qcom_scm_pas_init_image(u32 peripheral, const void *metadata,
@@ -48,9 +49,16 @@ extern int qcom_scm_pas_auth_and_reset(u32 peripheral);
 extern int qcom_scm_pas_shutdown(u32 peripheral);
 extern int qcom_scm_io_readl(phys_addr_t addr, unsigned int *val);
 extern int qcom_scm_io_writel(phys_addr_t addr, unsigned int val);
+extern int qcom_scm_get_jtag_etm_feat_id(u64 *version);
+extern void qcom_scm_mmu_sync(bool sync);
 extern int qcom_scm_restore_sec_cfg(u32 device_id, u32 spare);
 extern int qcom_scm_iommu_secure_ptbl_size(u32 spare, size_t *size);
 extern int qcom_scm_iommu_secure_ptbl_init(u64 addr, u32 size, u32 spare);
+extern int qcom_scm_iommu_secure_map(phys_addr_t sg_list_addr, size_t num_sg,
+				size_t sg_block_size, u64 sec_id, int cbndx,
+				unsigned long iova, size_t total_len);
+extern int qcom_scm_iommu_secure_unmap(u64 sec_id, int cbndx,
+				unsigned long iova, size_t total_len);
 extern int qcom_scm_assign_mem(phys_addr_t mem_addr, size_t mem_sz,
 			       unsigned int *src,
 			       const struct qcom_scm_vmperm *newvm,
@@ -59,6 +67,7 @@ extern bool qcom_scm_hdcp_available(void);
 extern int qcom_scm_hdcp_req(struct qcom_scm_hdcp_req *req, u32 req_cnt,
 			     u32 *resp);
 extern int qcom_scm_qsmmu500_wait_safe_toggle(bool en);
+extern int qcom_scm_ice_restore_cfg(void);
 extern bool qcom_scm_is_available(void);
 #else
 
@@ -71,6 +80,7 @@ static inline
 int qcom_scm_set_warm_boot_addr(void *entry, const cpumask_t *cpus)
 		{ return -ENODEV; }
 static inline void qcom_scm_cpu_power_down(u32 flags) {}
+static inline int qcom_scm_sec_wdog_deactivate(void) { return -ENODEV; }
 static inline u32 qcom_scm_set_remote_state(u32 state, u32 id)
 		{ return -ENODEV; }
 static inline bool qcom_scm_pas_supported(u32 peripheral) { return false; }
@@ -85,12 +95,20 @@ static inline int qcom_scm_io_readl(phys_addr_t addr, unsigned int *val)
 		{ return -ENODEV; }
 static inline int qcom_scm_io_writel(phys_addr_t addr, unsigned int val)
 		{ return -ENODEV; }
+static inline int qcom_scm_get_jtag_etm_feat_id(u64 *version)
+		{ return -ENODEV; }
+static inline void qcom_scm_mmu_sync(bool sync) {}
 static inline int qcom_scm_restore_sec_cfg(u32 device_id, u32 spare)
 		{ return -ENODEV; }
 static inline int qcom_scm_iommu_secure_ptbl_size(u32 spare, size_t *size)
 		{ return -ENODEV; }
 static inline int qcom_scm_iommu_secure_ptbl_init(u64 addr, u32 size, u32 spare)
 		{ return -ENODEV; }
+static inline int qcom_scm_iommu_secure_map(phys_addr_t sg_list_addr,
+		size_t num_sg, size_t sg_block_size, u64 sec_id, int cbndx,
+		unsigned long iova, size_t total_len) { return -ENODEV; }
+static inline int qcom_scm_iommu_secure_unmap(u64 sec_id, int cbndx,
+		unsigned long iova, size_t total_len) { return -ENODEV; }
 static inline int qcom_scm_assign_mem(phys_addr_t mem_addr, size_t mem_sz,
 				      unsigned int *src,
 				      const struct qcom_scm_vmperm *newvm,
@@ -100,6 +118,7 @@ static inline int qcom_scm_hdcp_req(struct qcom_scm_hdcp_req *req, u32 req_cnt,
 				    u32 *resp) { return -ENODEV; }
 static inline int qcom_scm_qsmmu500_wait_safe_toggle(bool en)
 		{ return -ENODEV; }
+static inline int qcom_scm_ice_restore_cfg(void) { return -ENODEV; }
 static inline bool qcom_scm_is_available(void) { return false; }
 #endif
 #endif

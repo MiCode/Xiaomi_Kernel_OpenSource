@@ -4,9 +4,11 @@
 #ifndef __QCOM_SCM_INT_H
 #define __QCOM_SCM_INT_H
 
+// SIP Services and Function IDs
 #define QCOM_SCM_SVC_BOOT			0x01
 #define QCOM_SCM_BOOT_SET_ADDR			0x01
 #define QCOM_SCM_BOOT_TERMINATE_PC		0x02
+#define QCOM_SCM_BOOT_SEC_WDOG_DIS		0x07
 #define QCOM_SCM_BOOT_SET_REMOTE_STATE		0x0a
 #define QCOM_SCM_BOOT_SET_DLOAD_MODE		0x10
 extern int __qcom_scm_set_cold_boot_addr(struct device *dev, void *entry,
@@ -14,6 +16,7 @@ extern int __qcom_scm_set_cold_boot_addr(struct device *dev, void *entry,
 extern int __qcom_scm_set_warm_boot_addr(struct device *dev, void *entry,
 		const cpumask_t *cpus);
 extern void __qcom_scm_cpu_power_down(struct device *dev, u32 flags);
+extern int __qcom_scm_sec_wdog_deactivate(struct device *dev);
 extern int __qcom_scm_set_remote_state(struct device *dev, u32 state, u32 id);
 extern int __qcom_scm_set_dload_mode(struct device *dev, bool enable);
 #define QCOM_SCM_FLUSH_FLAG_MASK	0x3
@@ -42,13 +45,23 @@ extern int __qcom_scm_io_writel(struct device *dev, phys_addr_t addr, unsigned i
 
 #define QCOM_SCM_SVC_INFO			0x06
 #define QCOM_SCM_INFO_IS_CALL_AVAIL		0x01
+#define QCOM_SCM_INFO_GET_FEAT_VERSION_CMD	0x03
 extern int __qcom_scm_is_call_available(struct device *dev, u32 svc_id,
 		u32 cmd_id);
+extern int __qcom_scm_get_feat_version(struct device *dev, u64 feat_id,
+					u64 *version);
+#define QCOM_SCM_TZ_DBG_ETM_FEAT_ID		0x08
+
+#define QCOM_SCM_SVC_PWR			0x09
+#define QCOM_SCM_PWR_MMU_SYNC			0x08
+extern void __qcom_scm_mmu_sync(struct device *dev, bool sync);
 
 #define QCOM_SCM_SVC_MP				0x0c
 #define QCOM_SCM_MP_RESTORE_SEC_CFG		0x02
 #define QCOM_SCM_MP_IOMMU_SECURE_PTBL_SIZE	0x03
 #define QCOM_SCM_MP_IOMMU_SECURE_PTBL_INIT	0x04
+#define QCOM_SCM_MP_IOMMU_SECURE_MAP2_FLAT	0x12
+#define QCOM_SCM_MP_IOMMU_SECURE_UNMAP2_FLAT	0x13
 #define QCOM_SCM_MP_ASSIGN			0x16
 extern int __qcom_scm_restore_sec_cfg(struct device *dev, u32 device_id,
 				      u32 spare);
@@ -56,10 +69,18 @@ extern int __qcom_scm_iommu_secure_ptbl_size(struct device *dev, u32 spare,
 					     size_t *size);
 extern int __qcom_scm_iommu_secure_ptbl_init(struct device *dev, u64 addr,
 					     u32 size, u32 spare);
+extern int __qcom_scm_iommu_secure_map(struct device *dev,
+				phys_addr_t sg_list_addr, size_t num_sg,
+				size_t sg_block_size, u64 sec_id, int cbndx,
+				unsigned long iova, size_t total_len);
+extern int __qcom_scm_iommu_secure_unmap(struct device *dev, u64 sec_id,
+				int cbndx, unsigned long iova,
+				size_t total_len);
 extern int  __qcom_scm_assign_mem(struct device *dev,
 				  phys_addr_t mem_region, size_t mem_sz,
 				  phys_addr_t src, size_t src_sz,
 				  phys_addr_t dest, size_t dest_sz);
+#define QCOM_SCM_IOMMU_TLBINVAL_FLAG    0x00000001
 
 #define QCOM_SCM_SVC_HDCP			0x11
 #define QCOM_SCM_HDCP_INVOKE			0x01
@@ -71,6 +92,11 @@ extern int __qcom_scm_hdcp_req(struct device *dev,
 extern int __qcom_scm_qsmmu500_wait_safe_toggle(struct device *dev,
 						bool enable);
 #define QCOM_SCM_SMMU_CONFIG_ERRATA1_CLIENT_ALL	0x2
+
+// TOS Services and Function IDs
+#define QCOM_SCM_SVC_KEYSTORE		0x05
+#define QCOM_SCM_ICE_RESTORE_KEY_ID	0x06
+extern int __qcom_scm_ice_restore_cfg(struct device *dev);
 
 extern void __qcom_scm_init(void);
 
