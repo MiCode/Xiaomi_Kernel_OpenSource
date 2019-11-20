@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2005-2011 Atheros Communications Inc.
- * Copyright (c) 2011-2013 Qualcomm Atheros, Inc.
+ * Copyright (c) 2011-2017 Qualcomm Atheros, Inc.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -40,6 +40,7 @@ static struct wmi_cmd_map wmi_cmd_map = {
 	.stop_scan_cmdid = WMI_STOP_SCAN_CMDID,
 	.scan_chan_list_cmdid = WMI_SCAN_CHAN_LIST_CMDID,
 	.scan_sch_prio_tbl_cmdid = WMI_SCAN_SCH_PRIO_TBL_CMDID,
+	.scan_prob_req_oui_cmdid = WMI_CMD_UNSUPPORTED,
 	.pdev_set_regdomain_cmdid = WMI_PDEV_SET_REGDOMAIN_CMDID,
 	.pdev_set_channel_cmdid = WMI_PDEV_SET_CHANNEL_CMDID,
 	.pdev_set_param_cmdid = WMI_PDEV_SET_PARAM_CMDID,
@@ -204,6 +205,7 @@ static struct wmi_cmd_map wmi_10x_cmd_map = {
 	.stop_scan_cmdid = WMI_10X_STOP_SCAN_CMDID,
 	.scan_chan_list_cmdid = WMI_10X_SCAN_CHAN_LIST_CMDID,
 	.scan_sch_prio_tbl_cmdid = WMI_CMD_UNSUPPORTED,
+	.scan_prob_req_oui_cmdid = WMI_CMD_UNSUPPORTED,
 	.pdev_set_regdomain_cmdid = WMI_10X_PDEV_SET_REGDOMAIN_CMDID,
 	.pdev_set_channel_cmdid = WMI_10X_PDEV_SET_CHANNEL_CMDID,
 	.pdev_set_param_cmdid = WMI_10X_PDEV_SET_PARAM_CMDID,
@@ -370,6 +372,7 @@ static struct wmi_cmd_map wmi_10_2_4_cmd_map = {
 	.stop_scan_cmdid = WMI_10_2_STOP_SCAN_CMDID,
 	.scan_chan_list_cmdid = WMI_10_2_SCAN_CHAN_LIST_CMDID,
 	.scan_sch_prio_tbl_cmdid = WMI_CMD_UNSUPPORTED,
+	.scan_prob_req_oui_cmdid = WMI_CMD_UNSUPPORTED,
 	.pdev_set_regdomain_cmdid = WMI_10_2_PDEV_SET_REGDOMAIN_CMDID,
 	.pdev_set_channel_cmdid = WMI_10_2_PDEV_SET_CHANNEL_CMDID,
 	.pdev_set_param_cmdid = WMI_10_2_PDEV_SET_PARAM_CMDID,
@@ -536,6 +539,7 @@ static struct wmi_cmd_map wmi_10_4_cmd_map = {
 	.stop_scan_cmdid = WMI_10_4_STOP_SCAN_CMDID,
 	.scan_chan_list_cmdid = WMI_10_4_SCAN_CHAN_LIST_CMDID,
 	.scan_sch_prio_tbl_cmdid = WMI_10_4_SCAN_SCH_PRIO_TBL_CMDID,
+	.scan_prob_req_oui_cmdid = WMI_CMD_UNSUPPORTED,
 	.pdev_set_regdomain_cmdid = WMI_10_4_PDEV_SET_REGDOMAIN_CMDID,
 	.pdev_set_channel_cmdid = WMI_10_4_PDEV_SET_CHANNEL_CMDID,
 	.pdev_set_param_cmdid = WMI_10_4_PDEV_SET_PARAM_CMDID,
@@ -1333,6 +1337,7 @@ static struct wmi_cmd_map wmi_10_2_cmd_map = {
 	.stop_scan_cmdid = WMI_10_2_STOP_SCAN_CMDID,
 	.scan_chan_list_cmdid = WMI_10_2_SCAN_CHAN_LIST_CMDID,
 	.scan_sch_prio_tbl_cmdid = WMI_CMD_UNSUPPORTED,
+	.scan_prob_req_oui_cmdid = WMI_CMD_UNSUPPORTED,
 	.pdev_set_regdomain_cmdid = WMI_10_2_PDEV_SET_REGDOMAIN_CMDID,
 	.pdev_set_channel_cmdid = WMI_10_2_PDEV_SET_CHANNEL_CMDID,
 	.pdev_set_param_cmdid = WMI_10_2_PDEV_SET_PARAM_CMDID,
@@ -4693,7 +4698,6 @@ static void ath10k_wmi_event_service_ready_work(struct work_struct *work)
 		return;
 	}
 
-	memset(&ar->wmi.svc_map, 0, sizeof(ar->wmi.svc_map));
 	ath10k_wmi_map_svc(ar, arg.service_map, ar->wmi.svc_map,
 			   arg.service_map_len);
 
@@ -4903,6 +4907,21 @@ int ath10k_wmi_event_ready(struct ath10k *ar, struct sk_buff *skb)
 	return 0;
 }
 
+void ath10k_wmi_event_service_available(struct ath10k *ar, struct sk_buff *skb)
+{
+	int ret;
+	struct wmi_svc_avail_ev_arg arg = {};
+
+	ret = ath10k_wmi_pull_svc_avail(ar, skb, &arg);
+	if (ret) {
+		ath10k_warn(ar, "failed to parse servive available event: %d\n",
+			    ret);
+	}
+
+	ath10k_wmi_map_svc_ext(ar, arg.service_map_ext, ar->wmi.svc_map,
+			       __le32_to_cpu(arg.service_map_ext_len));
+}
+
 static int ath10k_wmi_event_temperature(struct ath10k *ar, struct sk_buff *skb)
 {
 	const struct wmi_pdev_temperature_event *ev;
@@ -5098,6 +5117,9 @@ static void ath10k_wmi_op_rx(struct ath10k *ar, struct sk_buff *skb)
 	case WMI_READY_EVENTID:
 		ath10k_wmi_event_ready(ar, skb);
 		ath10k_wmi_queue_set_coverage_class_work(ar);
+		break;
+	case WMI_SERVICE_AVAILABLE_EVENTID:
+		ath10k_wmi_event_service_available(ar, skb);
 		break;
 	default:
 		ath10k_warn(ar, "Unknown eventid: %d\n", id);
@@ -5506,6 +5528,8 @@ int ath10k_wmi_connect(struct ath10k *ar)
 	int status;
 	struct ath10k_htc_svc_conn_req conn_req;
 	struct ath10k_htc_svc_conn_resp conn_resp;
+
+	memset(&ar->wmi.svc_map, 0, sizeof(ar->wmi.svc_map));
 
 	memset(&conn_req, 0, sizeof(conn_req));
 	memset(&conn_resp, 0, sizeof(conn_resp));

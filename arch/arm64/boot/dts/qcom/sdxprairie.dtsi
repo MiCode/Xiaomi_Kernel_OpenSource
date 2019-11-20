@@ -1405,6 +1405,50 @@
 		status = "disabled";
 	};
 
+	ethqos_hw: qcom,ethernet@00020000 {
+		compatible = "qcom,sdxprairie-ethqos";
+		qcom,arm-smmu;
+		reg = <0x20000 0x10000>,
+			<0x36000 0x100>,
+			<0xf100000 0x300000>;
+		reg-names = "stmmaceth", "rgmii","tlmm-central-base";
+		clocks = <&clock_gcc GCC_ETH_AXI_CLK>,
+			<&clock_gcc GCC_ETH_SLAVE_AHB_CLK>,
+			<&clock_gcc GCC_ETH_PTP_CLK>,
+			<&clock_gcc GCC_ETH_RGMII_CLK>;
+		clock-names = "stmmaceth", "pclk", "ptp_ref", "rgmii";
+		interrupts-extended = <&pdc 0 62 4>, <&pdc 0 60 4>,
+			<&tlmm 90 2>, <&pdc 0 290 1>, <&pdc 0 291 1>;
+		interrupt-names = "macirq", "eth_lpi",
+			"phy-intr",	"ptp_pps_irq_0", "ptp_pps_irq_1";
+
+		snps,tso;
+		rx-fifo-depth = <4096>;
+		tx-fifo-depth = <4096>;
+
+		vreg_rgmii-supply = <&pmxprairie_vref_rgmii>;
+		vreg_emac_phy-supply =  <&vreg_emac_phy>;
+		vreg_rgmii_io_pads-supply = <&vreg_rgmii_io_pads>;
+		gdsc_emac-supply = <&gdsc_emac>;
+
+		qcom,phy-intr-redirect = <&tlmm 90 GPIO_ACTIVE_LOW>;
+		pinctrl-names = "dev-emac_pin_pps_0", "dev-emac_pin_pps_1";
+		pinctrl-0 = <&emac_pin_pps_0>;
+		pinctrl-1 = <&emac_pin_pps_1>;
+
+		snps,reset-gpio = <&tlmm 91 GPIO_ACTIVE_LOW>;
+
+		snps,reset-active-low;
+		snps,reset-delays-us = <0 10000 100000>;
+		phy-mode = "rgmii";
+
+		ethqos_emb_smmu: ethqos_emb_smmu {
+			compatible = "qcom,emac-smmu-embedded";
+			iommus = <&apps_smmu 0x1c0 0xf>;
+			qcom,iova-mapping = <0x80000000 0x40000000>;
+		};
+	};
+
 	emac_hw: qcom,emac@00020000 {
 		compatible = "qcom,emac-dwc-eqos";
 		qcom,arm-smmu;

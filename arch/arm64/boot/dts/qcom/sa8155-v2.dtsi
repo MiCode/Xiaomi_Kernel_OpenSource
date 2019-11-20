@@ -118,3 +118,7 @@
 		};
 	};
 };
+
+&clock_scc {
+	compatible = "qcom,scc-sa8155-v2";
+};

@@ -86,3 +86,53 @@ int atl_compat_pci_alloc_irq_vectors(struct pci_dev *dev,
 }
 
 #endif
+
+#ifdef ATL_COMPAT_PCI_ENABLE_MSIX_RANGE
+/* from commit 302a2523c277bea0bbe8340312b09507905849ed */
+int atl_compat_pci_enable_msi_range(struct pci_dev *dev, int minvec, int maxvec)
+{
+	int nvec = maxvec;
+	int rc;
+
+	if (maxvec < minvec)
+		return -ERANGE;
+
+	do {
+		rc = pci_enable_msi_block(dev, nvec);
+		if (rc < 0) {
+			return rc;
+		} else if (rc > 0) {
+			if (rc < minvec)
+				return -ENOSPC;
+			nvec = rc;
+		}
+	} while (rc);
+
+	return nvec;
+}
+
+int atl_compat_pci_enable_msix_range(struct pci_dev *dev,
+				     struct msix_entry *entries,
+				     int minvec, int maxvec)
+{
+	int nvec = maxvec;
+	int rc;
+
+	if (maxvec < minvec)
+		return -ERANGE;
+
+	do {
+		rc = pci_enable_msix(dev, entries, nvec);
+		if (rc < 0) {
+			return rc;
+		} else if (rc > 0) {
+			if (rc < minvec)
+				return -ENOSPC;
+			nvec = rc;
+		}
+	} while (rc);
+
+	return nvec;
+}
+
+#endif

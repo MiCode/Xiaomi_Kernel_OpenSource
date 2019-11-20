@@ -2436,8 +2436,8 @@ static struct clk_branch gcc_gpu_cfg_ahb_clk = {
 	},
 };
 
-static struct clk_gate2 gcc_gpu_gpll0_clk_src = {
-	.udelay = 500,
+static struct clk_branch gcc_gpu_gpll0_clk_src = {
+	.halt_check = BRANCH_HALT_DELAY,
 	.clkr = {
 		.enable_reg = 0x52004,
 		.enable_mask = BIT(15),
@@ -2448,13 +2448,13 @@ static struct clk_gate2 gcc_gpu_gpll0_clk_src = {
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
-			.ops = &clk_gate2_ops,
+			.ops = &clk_branch2_ops,
 		},
 	},
 };
 
-static struct clk_gate2 gcc_gpu_gpll0_div_clk_src = {
-	.udelay = 500,
+static struct clk_branch gcc_gpu_gpll0_div_clk_src = {
+	.halt_check = BRANCH_HALT_DELAY,
 	.clkr = {
 		.enable_reg = 0x52004,
 		.enable_mask = BIT(16),
@@ -2465,7 +2465,7 @@ static struct clk_gate2 gcc_gpu_gpll0_div_clk_src = {
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
-			.ops = &clk_gate2_ops,
+			.ops = &clk_branch2_ops,
 		},
 	},
 };
@@ -2543,8 +2543,8 @@ static struct clk_branch gcc_npu_cfg_ahb_clk = {
 	},
 };
 
-static struct clk_gate2 gcc_npu_gpll0_clk_src = {
-	.udelay = 500,
+static struct clk_branch gcc_npu_gpll0_clk_src = {
+	.halt_check = BRANCH_HALT_DELAY,
 	.clkr = {
 		.enable_reg = 0x52004,
 		.enable_mask = BIT(18),
@@ -2555,13 +2555,13 @@ static struct clk_gate2 gcc_npu_gpll0_clk_src = {
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
-			.ops = &clk_gate2_ops,
+			.ops = &clk_branch2_ops,
 		},
 	},
 };
 
-static struct clk_gate2 gcc_npu_gpll0_div_clk_src = {
-	.udelay = 500,
+static struct clk_branch gcc_npu_gpll0_div_clk_src = {
+	.halt_check = BRANCH_HALT_DELAY,
 	.clkr = {
 		.enable_reg = 0x52004,
 		.enable_mask = BIT(19),
@@ -2572,7 +2572,7 @@ static struct clk_gate2 gcc_npu_gpll0_div_clk_src = {
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
-			.ops = &clk_gate2_ops,
+			.ops = &clk_branch2_ops,
 		},
 	},
 };
@@ -4087,38 +4087,41 @@ static struct clk_branch gcc_ufs_card_phy_aux_hw_ctl_clk = {
 	},
 };
 
-static struct clk_gate2 gcc_ufs_card_rx_symbol_0_clk = {
-	.udelay = 500,
+static struct clk_branch gcc_ufs_card_rx_symbol_0_clk = {
+	.halt_reg = 0x7501c,
+	.halt_check = BRANCH_HALT_DELAY,
 	.clkr = {
 		.enable_reg = 0x7501c,
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_ufs_card_rx_symbol_0_clk",
-			.ops = &clk_gate2_ops,
+			.ops = &clk_branch2_ops,
 		},
 	},
 };
 
-static struct clk_gate2 gcc_ufs_card_rx_symbol_1_clk = {
-	.udelay = 500,
+static struct clk_branch gcc_ufs_card_rx_symbol_1_clk = {
+	.halt_reg = 0x750ac,
+	.halt_check = BRANCH_HALT_DELAY,
 	.clkr = {
 		.enable_reg = 0x750ac,
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_ufs_card_rx_symbol_1_clk",
-			.ops = &clk_gate2_ops,
+			.ops = &clk_branch2_ops,
 		},
 	},
 };
 
-static struct clk_gate2 gcc_ufs_card_tx_symbol_0_clk = {
-	.udelay = 500,
+static struct clk_branch gcc_ufs_card_tx_symbol_0_clk = {
+	.halt_reg = 0x75018,
+	.halt_check = BRANCH_HALT_DELAY,
 	.clkr = {
 		.enable_reg = 0x75018,
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_ufs_card_tx_symbol_0_clk",
-			.ops = &clk_gate2_ops,
+			.ops = &clk_branch2_ops,
 		},
 	},
 };
@@ -4298,38 +4301,41 @@ static struct clk_branch gcc_ufs_phy_phy_aux_hw_ctl_clk = {
 	},
 };
 
-static struct clk_gate2 gcc_ufs_phy_rx_symbol_0_clk = {
-	.udelay = 500,
+static struct clk_branch gcc_ufs_phy_rx_symbol_0_clk = {
+	.halt_reg = 0x7701c,
+	.halt_check = BRANCH_HALT_SKIP,
 	.clkr = {
 		.enable_reg = 0x7701c,
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_ufs_phy_rx_symbol_0_clk",
-			.ops = &clk_gate2_ops,
+			.ops = &clk_branch2_ops,
 		},
 	},
 };
 
-static struct clk_gate2 gcc_ufs_phy_rx_symbol_1_clk = {
-	.udelay = 500,
+static struct clk_branch gcc_ufs_phy_rx_symbol_1_clk = {
+	.halt_reg = 0x770ac,
+	.halt_check = BRANCH_HALT_SKIP,
 	.clkr = {
 		.enable_reg = 0x770ac,
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_ufs_phy_rx_symbol_1_clk",
-			.ops = &clk_gate2_ops,
+			.ops = &clk_branch2_ops,
 		},
 	},
 };
 
-static struct clk_gate2 gcc_ufs_phy_tx_symbol_0_clk = {
-	.udelay = 500,
+static struct clk_branch gcc_ufs_phy_tx_symbol_0_clk = {
+	.halt_reg = 0x77018,
+	.halt_check = BRANCH_HALT_SKIP,
 	.clkr = {
 		.enable_reg = 0x77018,
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_ufs_phy_tx_symbol_0_clk",
-			.ops = &clk_gate2_ops,
+			.ops = &clk_branch2_ops,
 		},
 	},
 };
@@ -4559,7 +4565,7 @@ static struct clk_branch gcc_usb3_mp_phy_com_aux_clk = {
 
 static struct clk_branch gcc_usb3_mp_phy_pipe_0_clk = {
 	.halt_reg = 0xa6058,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_SKIP,
 	.clkr = {
 		.enable_reg = 0xa6058,
 		.enable_mask = BIT(0),
@@ -4572,7 +4578,7 @@ static struct clk_branch gcc_usb3_mp_phy_pipe_0_clk = {
 
 static struct clk_branch gcc_usb3_mp_phy_pipe_1_clk = {
 	.halt_reg = 0xa605c,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_SKIP,
 	.clkr = {
 		.enable_reg = 0xa605c,
 		.enable_mask = BIT(0),
@@ -4632,14 +4638,15 @@ static struct clk_branch gcc_usb3_prim_phy_com_aux_clk = {
 	},
 };
 
-static struct clk_gate2 gcc_usb3_prim_phy_pipe_clk = {
-	.udelay = 500,
+static struct clk_branch gcc_usb3_prim_phy_pipe_clk = {
+	.halt_reg = 0xf058,
+	.halt_check = BRANCH_HALT_SKIP,
 	.clkr = {
 		.enable_reg = 0xf058,
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_usb3_prim_phy_pipe_clk",
-			.ops = &clk_gate2_ops,
+			.ops = &clk_branch2_ops,
 		},
 	},
 };
@@ -4693,14 +4700,15 @@ static struct clk_branch gcc_usb3_sec_phy_com_aux_clk = {
 	},
 };
 
-static struct clk_gate2 gcc_usb3_sec_phy_pipe_clk = {
-	.udelay = 500,
+static struct clk_branch gcc_usb3_sec_phy_pipe_clk = {
+	.halt_reg = 0x10058,
+	.halt_check = BRANCH_HALT_SKIP,
 	.clkr = {
 		.enable_reg = 0x10058,
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_usb3_sec_phy_pipe_clk",
-			.ops = &clk_gate2_ops,
+			.ops = &clk_branch2_ops,
 		},
 	},
 };

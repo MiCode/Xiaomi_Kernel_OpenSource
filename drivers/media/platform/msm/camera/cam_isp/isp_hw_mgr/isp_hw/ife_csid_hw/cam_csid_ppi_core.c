@@ -323,7 +323,6 @@ err:
 irqreturn_t cam_csid_ppi_irq(int irq_num, void *data)
 {
 	uint32_t      irq_status = 0;
-	uint32_t      i, ppi_cfg_val = 0;
 	bool          fatal_err_detected = false;
 
 	struct cam_csid_ppi_hw                *ppi_hw;
@@ -370,11 +369,13 @@ handle_fatal_error:
 	if (fatal_err_detected) {
 		CAM_ERR(CAM_ISP, "PPI: %d irq_status:0x%x",
 			ppi_hw->hw_intf->hw_idx, irq_status);
-		/* disable lanes */
-		for (i = 0; i < CAM_CSID_PPI_LANES_MAX; i++)
-			ppi_cfg_val &= ~PPI_CFG_CPHY_DLX_EN(i);
 
-		cam_io_w_mb(ppi_cfg_val, soc_info->reg_map[0].mem_base +
+		/* disable the interrupt */
+		cam_io_w_mb(0, soc_info->reg_map[0].mem_base +
+			ppi_reg->ppi_irq_mask_addr);
+
+		/* disable lanes */
+		cam_io_w_mb(0, soc_info->reg_map[0].mem_base +
 			ppi_reg->ppi_module_cfg_addr);
 	}
 ret:

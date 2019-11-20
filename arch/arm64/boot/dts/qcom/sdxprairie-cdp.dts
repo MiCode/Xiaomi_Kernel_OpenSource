@@ -16,6 +16,7 @@
 #include "sdxprairie-cdp.dtsi"
 #include "sdxprairie-display.dtsi"
 #include "qpic-panel-ili-hvga.dtsi"
+#include "sdxprairie-bluetooth.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SDXPRAIRIE CDP";
@@ -26,8 +27,4 @@
 
 &qnand_1 {
 	status = "ok";
-};
-
-&blsp1_uart2b_hs {
-	status = "okay";
 };

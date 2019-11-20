@@ -92,7 +92,8 @@ static inline bool usb_gsi_remote_wakeup_allowed(struct usb_function *f)
 	struct f_gsi *gsi = func_to_gsi(f);
 
 	if (f->config->cdev->gadget->speed >= USB_SPEED_SUPER)
-		remote_wakeup_allowed = f->func_wakeup_allowed;
+		remote_wakeup_allowed =
+			 f->func_is_suspended ? f->func_wakeup_allowed : false;
 	else
 		remote_wakeup_allowed = f->config->cdev->gadget->remote_wakeup;
 

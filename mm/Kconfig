@@ -536,6 +536,15 @@ config CMA_DEBUGFS
 	help
 	  Turns on the DebugFS interface for CMA.
 
+config  CMA_ALLOW_WRITE_DEBUGFS
+	depends on CMA_DEBUGFS
+	bool "Allow CMA debugfs write"
+	help
+	  Say 'y' here to allow the CMA debugfs write.
+	  CMA debugfs write could be risky as it allows
+	  cma allocation, so it is not recommended to
+	  enable this option on any production device.
+
 config CMA_AREAS
 	int "Maximum count of the CMA areas"
 	depends on CMA

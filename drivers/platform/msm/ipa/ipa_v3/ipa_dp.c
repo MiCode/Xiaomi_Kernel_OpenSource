@@ -939,7 +939,7 @@ static void ipa_pm_sys_pipe_cb(void *p, enum ipa_pm_cb_event event)
 int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 {
 	struct ipa3_ep_context *ep;
-	int i, ipa_ep_idx, wan_handle;
+	int i, ipa_ep_idx, wan_handle, coal_ep_id;
 	int result = -EINVAL;
 	struct ipahal_reg_coal_qmap_cfg qmap_cfg;
 	struct ipahal_reg_coal_evict_lru evict_lru;
@@ -969,6 +969,7 @@ int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		goto fail_gen;
 	}
 
+	coal_ep_id = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS);
 	/* save the input config parameters */
 	if (sys_in->client == IPA_CLIENT_APPS_WAN_COAL_CONS)
 		ep_cfg_copy = sys_in->ipa_ep_cfg;
@@ -1020,8 +1021,13 @@ int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		ep->sys->db_timer.function = ipa3_ring_doorbell_timer_fn;
 
 		/* create IPA PM resources for handling polling mode */
-		if (ipa3_ctx->use_ipa_pm &&
-			IPA_CLIENT_IS_CONS(sys_in->client)) {
+		if (sys_in->client == IPA_CLIENT_APPS_WAN_CONS &&
+			coal_ep_id != IPA_EP_NOT_ALLOCATED &&
+			ipa3_ctx->ep[coal_ep_id].valid == 1) {
+			/* Use coalescing pipe PM handle for default pipe also*/
+			ep->sys->pm_hdl = ipa3_ctx->ep[coal_ep_id].sys->pm_hdl;
+		} else if (ipa3_ctx->use_ipa_pm &&
+				IPA_CLIENT_IS_CONS(sys_in->client)) {
 			pm_reg.name = ipa_clients_strings[sys_in->client];
 			pm_reg.callback = ipa_pm_sys_pipe_cb;
 			pm_reg.user_data = ep->sys;
@@ -1993,9 +1999,9 @@ static void ipa3_replenish_rx_page_recycle(struct ipa3_sys_context *sys)
 			 * Could not find idle page at curr index.
 			 * Allocate a new one.
 			 */
-			ipa3_ctx->stats.page_recycle_stats[stats_i].tmp_alloc++;
 			if (curr_wq == atomic_read(&sys->repl->tail_idx))
 				break;
+			ipa3_ctx->stats.page_recycle_stats[stats_i].tmp_alloc++;
 			rx_pkt = sys->repl->cache[curr_wq];
 			curr_wq = (++curr_wq == sys->repl->capacity) ?
 								 0 : curr_wq;
@@ -3251,6 +3257,25 @@ static struct sk_buff *handle_skb_completion(struct gsi_chan_xfer_notify
 	if (notify->bytes_xfered)
 		rx_pkt->len = notify->bytes_xfered;
 
+	/*Drop packets when WAN consumer channel receive EOB event*/
+	if ((notify->evt_id == GSI_CHAN_EVT_EOB ||
+		sys->skip_eot) &&
+		sys->ep->client == IPA_CLIENT_APPS_WAN_CONS) {
+		dma_unmap_single(ipa3_ctx->pdev, rx_pkt->data.dma_addr,
+			sys->rx_buff_sz, DMA_FROM_DEVICE);
+		sys->free_skb(rx_pkt->data.skb);
+		sys->free_rx_wrapper(rx_pkt);
+		sys->eob_drop_cnt++;
+		if (notify->evt_id == GSI_CHAN_EVT_EOB) {
+			IPADBG("EOB event on WAN consumer channel, drop\n");
+			sys->skip_eot = true;
+		} else {
+			IPADBG("Reset skip eot flag.\n");
+			sys->skip_eot = false;
+		}
+		return NULL;
+	}
+
 	rx_skb = rx_pkt->data.skb;
 	skb_set_tail_pointer(rx_skb, rx_pkt->len);
 	rx_skb->len = rx_pkt->len;
@@ -3263,13 +3288,6 @@ static struct sk_buff *handle_skb_completion(struct gsi_chan_xfer_notify
 	if (notify->veid >= GSI_VEID_MAX) {
 		WARN_ON(1);
 		return NULL;
-	}
-
-	/*Assesrt when WAN consumer channel receive EOB event*/
-	if (notify->evt_id == GSI_CHAN_EVT_EOB &&
-		sys->ep->client == IPA_CLIENT_APPS_WAN_CONS) {
-		IPAERR("EOB event received on WAN consumer channel\n");
-		ipa_assert();
 	}
 
 	head = &rx_pkt->sys->pending_pkts[notify->veid];

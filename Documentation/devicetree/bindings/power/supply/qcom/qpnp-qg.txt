@@ -426,6 +426,21 @@ First Level Node - QGAUGE device
 		    multiple battery profiles to be specified for a battery for
 		    proper functionality.
 
+- qcom,tcss-enable
+	Usage:      optional
+	Value type: bool
+	Definition: Enable Termination current based SOC scaling.
+		    This logic enables SOC scaling to report
+		    100% at the QG termination current defined by
+		    qcom,qg-iterm-ma.
+
+- qcom,tcss-entry-soc
+	Usage:      optional
+	Value type: <u32>
+	Definition: SOC threshold at which TCSS starts. The default
+		    value is 90%. This property is valid only if
+		    qcom,tcss-enable is defined.
+
 ==========================================================
 Second Level Nodes - Peripherals managed by QGAUGE driver
 ==========================================================

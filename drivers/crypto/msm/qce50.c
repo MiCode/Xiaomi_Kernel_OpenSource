@@ -1,7 +1,7 @@
 /*
  * QTI Crypto Engine driver.
  *
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -6125,6 +6125,7 @@ err_mem:
 		dma_free_coherent(pce_dev->pdev, pce_dev->memsize,
 			pce_dev->coh_vmem, pce_dev->coh_pmem);
 err_iobase:
+	arm_iommu_detach_device(pce_dev->pdev);
 	if (pce_dev->enable_s1_smmu)
 		qce_iommu_release_iomapping(pce_dev);
 
@@ -6157,6 +6158,7 @@ int qce_close(void *handle)
 	kfree(pce_dev->dummyreq_in_buf);
 	kfree(pce_dev->iovec_vmem);
 
+	arm_iommu_detach_device(pce_dev->pdev);
 	if (pce_dev->enable_s1_smmu)
 		qce_iommu_release_iomapping(pce_dev);
 

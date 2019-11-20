@@ -431,7 +431,7 @@
 				1996800	1562
 				2112000	1801
 				2208000	2000
-				2304000	2326
+				2323200	2341
 				2400000	2568
 			>;
 			idle-cost-data = <
@@ -471,7 +471,7 @@
 				1996800	54
 				2112000	60
 				2208000	61
-				2304000	62
+				2323200	62
 				2400000	63
 			>;
 			idle-cost-data = <
@@ -634,8 +634,8 @@
 			label = "cont_splash_region";
 		};
 
-		dfps_data_memory: dfps_data_region@9df00000 {
-			reg = <0x0 0x9df00000 0x0 0x0100000>;
+		dfps_data_memory: dfps_data_region@9d700000 {
+			reg = <0x0 0x9d700000 0x0 0x0100000>;
 			label = "dfps_data_region";
 		};
 
@@ -1537,10 +1537,6 @@
 		qcom,pas-id = <23>;
 		qcom,firmware-name = "npu";
 		memory-region = <&pil_npu_mem>;
-
-		/* Outputs to npu */
-		qcom,smem-states = <&npu_smp2p_out 0>;
-		qcom,smem-state-names = "qcom,force-stop";
 	};
 
 	qcom,turing@8300000 {
@@ -2515,7 +2511,7 @@
 		compatible = "qcom,smp2p";
 		qcom,smem = <617>, <616>;
 		interrupts = <GIC_SPI 589 IRQ_TYPE_EDGE_RISING>;
-		mboxes = <&apcs_glb2 6>;
+		mboxes = <&msm_npu 6>;
 		qcom,local-pid = <0>;
 		qcom,remote-pid = <10>;
 
@@ -3060,7 +3056,7 @@
 		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
 		qcom,apps-ch-pipes = <0x700000>;
 		qcom,ea-pc = <0x340>;
-		qcom,iommu-s1-bypass;
+		qcom,iommu-atomic-ctx;
 		status = "ok";
 
 		iommu_slim_aud_ctrl_cb: qcom,iommu_slim_ctrl_cb {
@@ -3383,7 +3379,7 @@
 		governor = "performance";
 		qcom,src-dst-ports = <MSM_BUS_MASTER_NPU MSM_BUS_SLAVE_EBI_CH0>;
 		operating-points-v2 = <&suspendable_ddr_bw_opp_table>;
-		status = "disabled";
+		status = "ok";
 	};
 
 	npudsp_npu_ddr_bwmon: qcom,npudsp-npu-ddr-bwmon@70300 {
@@ -3401,7 +3397,7 @@
 		qcom,hw-timer-hz = <19200000>;
 		qcom,target-dev = <&npudsp_npu_ddr_bw>;
 		qcom,count-unit = <0x10000>;
-		status = "disabled";
+		status = "ok";
 	};
 
 	keepalive_opp_table: keepalive-opp-table {

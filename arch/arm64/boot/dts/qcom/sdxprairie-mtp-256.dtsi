@@ -181,17 +181,6 @@
 	};
 };
 
-&soc {
-	bluetooth: bt_qca6390 {
-		compatible = "qca,qca6390";
-		pinctrl-names = "default";
-		pinctrl-0 = <&bt_en_default>;
-		qca,bt-reset-gpio = <&pmxprairie_gpios 6 0>;
-		qca,bt-vdd-core-supply = <&pmxprairie_s3>; /* VDD_PMU_AON_I */
-		qca,bt-vdd-core-voltage-level = <950000 950000>;
-	};
-};
-
 &pm8150b_charger {
 	qcom,sec-charger-config = <0>;
 	qcom,auto-recharge-soc = <98>;

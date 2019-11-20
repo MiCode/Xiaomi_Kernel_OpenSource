@@ -65,6 +65,26 @@
 	status = "disabled";
 };
 
+&cnss_sdio {
+	status = "disabled";
+};
+
+&spi_2 {
+	status = "okay";
+
+	can-controller@0 {
+		compatible = "qcom,nxp,mpc5746c";
+		reg = <0>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <34 0>;
+		spi-max-frequency = <5000000>;
+		qcom,clk-freq-mhz = <40000000>;
+		qcom,max-can-channels = <2>;
+		qcom,bits-per-word = <8>;
+		qcom,support-can-fd;
+	};
+};
+
 &spi_6 {
 	status = "okay";
 
@@ -77,9 +97,14 @@
 
 &i2c_5 {
 	status = "okay";
+	qcom,clk-freq-out = <100000>;
 };
 
 &soc {
+	gpio_keys {
+		status = "disabled";
+	};
+
 	vreg_emac_phy: emac_phy_regulator {
 		compatible = "regulator-fixed";
 		regulator-name = "emac_phy";
@@ -111,11 +136,11 @@
 				&usb2_id_det_default
 				&usb2_vbus_boost_default>;
 	};
-};
 
-&usb3 {
-	dwc3@7580000 {
-		dr_mode = "otg";
+	pps {
+		compatible = "pps-gpio";
+		gpios = <&tlmm 96 GPIO_ACTIVE_HIGH>;
+		status = "okay";
 	};
 };
 

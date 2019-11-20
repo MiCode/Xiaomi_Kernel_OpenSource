@@ -255,6 +255,7 @@
 
 	cd-gpios = <&tlmm 99 1>;
 
+	qcom,restore-after-cx-collapse;
 	status = "ok";
 };
 

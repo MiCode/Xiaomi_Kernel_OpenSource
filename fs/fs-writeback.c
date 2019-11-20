@@ -2187,7 +2187,7 @@ void __mark_inode_dirty(struct inode *inode, int flags)
 			if (inode_unhashed(inode))
 				goto out_unlock_inode;
 		}
-		if (inode->i_state & I_FREEING)
+		if (inode->i_state & (I_WILL_FREE | I_FREEING))
 			goto out_unlock_inode;
 
 		/*
@@ -2216,6 +2216,12 @@ void __mark_inode_dirty(struct inode *inode, int flags)
 
 			wakeup_bdi = inode_io_list_move_locked(inode, wb,
 							       dirty_list);
+
+			if (inode->i_state & (I_WILL_FREE | I_FREEING)) {
+				inode_io_list_del_locked(inode, wb);
+				spin_unlock(&wb->list_lock);
+				return;
+			}
 
 			spin_unlock(&wb->list_lock);
 			trace_writeback_dirty_inode_enqueue(inode);
