@@ -143,6 +143,7 @@ static pgprot_t __get_dma_pgprot(unsigned long attrs, pgprot_t prot,
 	return prot;
 }
 
+#ifdef CONFIG_ARM_DMA_USE_IOMMU
 static bool is_dma_coherent(struct device *dev, unsigned long attrs,
 			    bool is_coherent)
 {
@@ -155,6 +156,7 @@ static bool is_dma_coherent(struct device *dev, unsigned long attrs,
 
 	return is_coherent;
 }
+#endif
 
 /**
  * arm_dma_map_page - map a portion of a page for streaming DMA
