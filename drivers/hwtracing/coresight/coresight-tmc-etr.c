@@ -1617,9 +1617,13 @@ int tmc_read_prepare_etr(struct tmc_drvdata *drvdata)
 	}
 
 	/* Disable the TMC if need be */
-	if (drvdata->mode == CS_MODE_SYSFS)
-		tmc_etr_disable_hw(drvdata, true);
+	if (drvdata->mode == CS_MODE_SYSFS) {
+		spin_unlock_irqrestore(&drvdata->spinlock, flags);
+		coresight_disable_all_source_link();
+		spin_lock_irqsave(&drvdata->spinlock, flags);
 
+		tmc_etr_disable_hw(drvdata, true);
+	}
 	drvdata->reading = true;
 out:
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
@@ -1639,6 +1643,7 @@ int tmc_read_unprepare_etr(struct tmc_drvdata *drvdata)
 	mutex_lock(&drvdata->mem_lock);
 	spin_lock_irqsave(&drvdata->spinlock, flags);
 
+	drvdata->reading = false;
 	/* RE-enable the TMC if need be */
 	if (drvdata->mode == CS_MODE_SYSFS) {
 		/*
@@ -1647,6 +1652,10 @@ int tmc_read_unprepare_etr(struct tmc_drvdata *drvdata)
 		 * be NULL.
 		 */
 		tmc_etr_enable_hw(drvdata);
+
+		spin_unlock_irqrestore(&drvdata->spinlock, flags);
+		coresight_enable_all_source_link();
+		spin_lock_irqsave(&drvdata->spinlock, flags);
 	} else {
 		/*
 		 * The ETR is not tracing and the buffer was just read.
@@ -1656,13 +1665,11 @@ int tmc_read_unprepare_etr(struct tmc_drvdata *drvdata)
 		drvdata->etr_buf = NULL;
 	}
 
-	drvdata->reading = false;
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
 	/* Free allocated memory out side of the spinlock */
 	if (etr_buf)
 		tmc_free_etr_buf(etr_buf);
-
 
 	mutex_unlock(&drvdata->mem_lock);
 	return 0;
