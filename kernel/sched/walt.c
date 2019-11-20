@@ -108,6 +108,8 @@ static void release_rq_locks_irqrestore(const cpumask_t *cpus,
 /* Max window size (in ns) = 1s */
 #define MAX_SCHED_RAVG_WINDOW 1000000000
 
+#define NR_WINDOWS_PER_SEC (NSEC_PER_SEC / MIN_SCHED_RAVG_WINDOW)
+
 __read_mostly unsigned int sysctl_sched_cpu_high_irqload = (10 * NSEC_PER_MSEC);
 
 unsigned int sysctl_sched_walt_rotate_big_tasks;
@@ -121,10 +123,14 @@ static __read_mostly unsigned int sched_io_is_busy = 1;
 __read_mostly unsigned int sysctl_sched_window_stats_policy =
 	WINDOW_STATS_MAX_RECENT_AVG;
 
+__read_mostly unsigned int sysctl_sched_ravg_window_nr_ticks =
+	(HZ / NR_WINDOWS_PER_SEC);
+
 /* Window size (in ns) */
 __read_mostly unsigned int sched_ravg_window = MIN_SCHED_RAVG_WINDOW;
 __read_mostly unsigned int new_sched_ravg_window = MIN_SCHED_RAVG_WINDOW;
 
+u64 sched_ravg_window_change_time;
 /*
  * A after-boot constant divisor for cpu_util_freq_walt() to apply the load
  * boost.
@@ -287,7 +293,11 @@ update_window_start(struct rq *rq, u64 wallclock, int event)
 	u64 old_window_start = rq->window_start;
 
 	delta = wallclock - rq->window_start;
-	BUG_ON(delta < 0);
+	if (delta < 0) {
+		printk_deferred("WALT-BUG CPU%d; wallclock=%llu is lesser than window_start=%llu",
+			rq->cpu, wallclock, rq->window_start);
+		SCHED_BUG_ON(1);
+	}
 	if (delta < sched_ravg_window)
 		return old_window_start;
 
@@ -296,6 +306,7 @@ update_window_start(struct rq *rq, u64 wallclock, int event)
 
 	rq->cum_window_demand_scaled =
 			rq->walt_stats.cumulative_runnable_avg_scaled;
+	rq->prev_window_size = sched_ravg_window;
 
 	return old_window_start;
 }
@@ -639,10 +650,10 @@ static inline void account_load_subtractions(struct rq *rq)
 		ls[i].new_subs = 0;
 	}
 
-	BUG_ON((s64)rq->prev_runnable_sum < 0);
-	BUG_ON((s64)rq->curr_runnable_sum < 0);
-	BUG_ON((s64)rq->nt_prev_runnable_sum < 0);
-	BUG_ON((s64)rq->nt_curr_runnable_sum < 0);
+	SCHED_BUG_ON((s64)rq->prev_runnable_sum < 0);
+	SCHED_BUG_ON((s64)rq->curr_runnable_sum < 0);
+	SCHED_BUG_ON((s64)rq->nt_prev_runnable_sum < 0);
+	SCHED_BUG_ON((s64)rq->nt_curr_runnable_sum < 0);
 }
 
 static inline void create_subtraction_entry(struct rq *rq, u64 ws, int index)
@@ -740,15 +751,50 @@ static inline void inter_cluster_migration_fixup
 	dest_rq->curr_runnable_sum += p->ravg.curr_window;
 	dest_rq->prev_runnable_sum += p->ravg.prev_window;
 
-	src_rq->curr_runnable_sum -=  p->ravg.curr_window_cpu[task_cpu];
-	src_rq->prev_runnable_sum -=  p->ravg.prev_window_cpu[task_cpu];
+	if (src_rq->curr_runnable_sum < p->ravg.curr_window_cpu[task_cpu]) {
+		printk_deferred("WALT-BUG pid=%u CPU%d -> CPU%d src_crs=%llu is lesser than task_contrib=%llu",
+			p->pid, src_rq->cpu, dest_rq->cpu,
+			src_rq->curr_runnable_sum,
+			p->ravg.curr_window_cpu[task_cpu]);
+		walt_task_dump(p);
+		SCHED_BUG_ON(1);
+	}
+	src_rq->curr_runnable_sum -= p->ravg.curr_window_cpu[task_cpu];
+
+	if (src_rq->prev_runnable_sum < p->ravg.prev_window_cpu[task_cpu]) {
+		printk_deferred("WALT-BUG pid=%u CPU%d -> CPU%d src_prs=%llu is lesser than task_contrib=%llu",
+			p->pid, src_rq->cpu, dest_rq->cpu,
+			src_rq->prev_runnable_sum,
+			p->ravg.prev_window_cpu[task_cpu]);
+		walt_task_dump(p);
+		SCHED_BUG_ON(1);
+	}
+	src_rq->prev_runnable_sum -= p->ravg.prev_window_cpu[task_cpu];
 
 	if (new_task) {
 		dest_rq->nt_curr_runnable_sum += p->ravg.curr_window;
 		dest_rq->nt_prev_runnable_sum += p->ravg.prev_window;
 
+		if (src_rq->nt_curr_runnable_sum <
+				p->ravg.curr_window_cpu[task_cpu]) {
+			printk_deferred("WALT-BUG pid=%u CPU%d -> CPU%d src_nt_crs=%llu is lesser than task_contrib=%llu",
+				p->pid, src_rq->cpu, dest_rq->cpu,
+				src_rq->nt_curr_runnable_sum,
+				p->ravg.curr_window_cpu[task_cpu]);
+			walt_task_dump(p);
+			SCHED_BUG_ON(1);
+		}
 		src_rq->nt_curr_runnable_sum -=
 				p->ravg.curr_window_cpu[task_cpu];
+		if (src_rq->nt_prev_runnable_sum <
+				p->ravg.prev_window_cpu[task_cpu]) {
+			printk_deferred("WALT-BUG pid=%u CPU%d -> CPU%d src_nt_prs=%llu is lesser than task_contrib=%llu",
+				p->pid, src_rq->cpu, dest_rq->cpu,
+				src_rq->nt_prev_runnable_sum,
+				p->ravg.prev_window_cpu[task_cpu]);
+			walt_task_dump(p);
+			SCHED_BUG_ON(1);
+		}
 		src_rq->nt_prev_runnable_sum -=
 				p->ravg.prev_window_cpu[task_cpu];
 	}
@@ -758,11 +804,6 @@ static inline void inter_cluster_migration_fixup
 
 	update_cluster_load_subtractions(p, task_cpu,
 			src_rq->window_start, new_task);
-
-	BUG_ON((s64)src_rq->prev_runnable_sum < 0);
-	BUG_ON((s64)src_rq->curr_runnable_sum < 0);
-	BUG_ON((s64)src_rq->nt_prev_runnable_sum < 0);
-	BUG_ON((s64)src_rq->nt_curr_runnable_sum < 0);
 }
 
 static u32 load_to_index(u32 load)
@@ -1334,6 +1375,9 @@ static void rollover_task_window(struct task_struct *p, bool full_window)
 		p->ravg.prev_window_cpu[i] = curr_cpu_windows[i];
 		p->ravg.curr_window_cpu[i] = 0;
 	}
+
+	if (p->ravg.active_time < NEW_TASK_ACTIVE_TIME)
+		p->ravg.active_time += p->ravg.last_win_size;
 }
 
 void sched_set_io_is_busy(int val)
@@ -1456,7 +1500,7 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 	int p_is_curr_task = (p == rq->curr);
 	u64 mark_start = p->ravg.mark_start;
 	u64 window_start = rq->window_start;
-	u32 window_size = sched_ravg_window;
+	u32 window_size = rq->prev_window_size;
 	u64 delta;
 	u64 *curr_runnable_sum = &rq->curr_runnable_sum;
 	u64 *prev_runnable_sum = &rq->prev_runnable_sum;
@@ -1468,11 +1512,8 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 	u32 old_curr_window = p->ravg.curr_window;
 
 	new_window = mark_start < window_start;
-	if (new_window) {
+	if (new_window)
 		full_window = (window_start - mark_start) >= window_size;
-		if (p->ravg.active_windows < USHRT_MAX)
-			p->ravg.active_windows++;
-	}
 
 	new_task = is_new_task(p);
 
@@ -1658,7 +1699,7 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 		 * started at wallclock - irqtime.
 		 */
 
-		BUG_ON(!is_idle_task(p));
+		SCHED_BUG_ON(!is_idle_task(p));
 		mark_start = wallclock - irqtime;
 
 		/*
@@ -2012,7 +2053,7 @@ update_task_rq_cpu_cycles(struct task_struct *p, struct rq *rq, int event,
 			rq->cc.time = irqtime;
 		else
 			rq->cc.time = wallclock - p->ravg.mark_start;
-		BUG_ON((s64)rq->cc.time < 0);
+		SCHED_BUG_ON((s64)rq->cc.time < 0);
 	}
 
 	p->cpu_cycles = cur_cycles;
@@ -2068,6 +2109,7 @@ void update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 
 done:
 	p->ravg.mark_start = wallclock;
+	p->ravg.last_win_size = sched_ravg_window;
 
 	run_walt_irq_work(old_window_start, rq);
 }
@@ -2460,8 +2502,8 @@ static int cpufreq_notifier_policy(struct notifier_block *nb,
 	if (min_max_freq == 1)
 		min_max_freq = UINT_MAX;
 	min_max_freq = min(min_max_freq, policy->cpuinfo.max_freq);
-	BUG_ON(!min_max_freq);
-	BUG_ON(!policy->max);
+	SCHED_BUG_ON(!min_max_freq);
+	SCHED_BUG_ON(!policy->max);
 
 	for_each_cpu(i, &policy_cluster)
 		cpu_max_table_freq[i] = policy->cpuinfo.max_freq;
@@ -3132,11 +3174,46 @@ static void transfer_busy_time(struct rq *rq, struct related_thread_group *grp,
 		src_nt_prev_runnable_sum = &rq->nt_prev_runnable_sum;
 		dst_nt_prev_runnable_sum = &cpu_time->nt_prev_runnable_sum;
 
+		if (*src_curr_runnable_sum < p->ravg.curr_window_cpu[cpu]) {
+			printk_deferred("WALT-BUG pid=%u CPU=%d event=%d src_crs=%llu is lesser than task_contrib=%llu",
+				p->pid, cpu, event, *src_curr_runnable_sum,
+				p->ravg.curr_window_cpu[cpu]);
+			walt_task_dump(p);
+			SCHED_BUG_ON(1);
+		}
 		*src_curr_runnable_sum -= p->ravg.curr_window_cpu[cpu];
+
+		if (*src_prev_runnable_sum < p->ravg.prev_window_cpu[cpu]) {
+			printk_deferred("WALT-BUG pid=%u CPU=%d event=%d src_prs=%llu is lesser than task_contrib=%llu",
+				p->pid, cpu, event, *src_prev_runnable_sum,
+				p->ravg.prev_window_cpu[cpu]);
+			walt_task_dump(p);
+			SCHED_BUG_ON(1);
+		}
 		*src_prev_runnable_sum -= p->ravg.prev_window_cpu[cpu];
+
 		if (new_task) {
+			if (*src_nt_curr_runnable_sum <
+					p->ravg.curr_window_cpu[cpu]) {
+				printk_deferred("WALT-BUG pid=%u CPU=%d event=%d src_nt_crs=%llu is lesser than task_contrib=%llu",
+					p->pid, cpu, event,
+					*src_nt_curr_runnable_sum,
+					p->ravg.curr_window_cpu[cpu]);
+				walt_task_dump(p);
+				SCHED_BUG_ON(1);
+			}
 			*src_nt_curr_runnable_sum -=
 					p->ravg.curr_window_cpu[cpu];
+
+			if (*src_nt_prev_runnable_sum <
+					p->ravg.prev_window_cpu[cpu]) {
+				printk_deferred("WALT-BUG pid=%u CPU=%d event=%d src_nt_prs=%llu is lesser than task_contrib=%llu",
+					p->pid, cpu, event,
+					*src_nt_prev_runnable_sum,
+					p->ravg.prev_window_cpu[cpu]);
+				walt_task_dump(p);
+				SCHED_BUG_ON(1);
+			}
 			*src_nt_prev_runnable_sum -=
 					p->ravg.prev_window_cpu[cpu];
 		}
@@ -3157,10 +3234,43 @@ static void transfer_busy_time(struct rq *rq, struct related_thread_group *grp,
 		src_nt_prev_runnable_sum = &cpu_time->nt_prev_runnable_sum;
 		dst_nt_prev_runnable_sum = &rq->nt_prev_runnable_sum;
 
+		if (*src_curr_runnable_sum < p->ravg.curr_window) {
+			printk_deferred("WALT-UG pid=%u CPU=%d event=%d src_crs=%llu is lesser than task_contrib=%llu",
+				p->pid, cpu, event, *src_curr_runnable_sum,
+				p->ravg.curr_window);
+			walt_task_dump(p);
+			SCHED_BUG_ON(1);
+		}
 		*src_curr_runnable_sum -= p->ravg.curr_window;
+
+		if (*src_prev_runnable_sum < p->ravg.prev_window) {
+			printk_deferred("WALT-BUG pid=%u CPU=%d event=%d src_prs=%llu is lesser than task_contrib=%llu",
+				p->pid, cpu, event, *src_prev_runnable_sum,
+				p->ravg.prev_window);
+			walt_task_dump(p);
+			SCHED_BUG_ON(1);
+		}
 		*src_prev_runnable_sum -= p->ravg.prev_window;
+
 		if (new_task) {
+			if (*src_nt_curr_runnable_sum < p->ravg.curr_window) {
+				printk_deferred("WALT-BUG pid=%u CPU=%d event=%d src_nt_crs=%llu is lesser than task_contrib=%llu",
+					p->pid, cpu, event,
+					*src_nt_curr_runnable_sum,
+					p->ravg.curr_window);
+				walt_task_dump(p);
+				SCHED_BUG_ON(1);
+			}
 			*src_nt_curr_runnable_sum -= p->ravg.curr_window;
+
+			if (*src_nt_prev_runnable_sum < p->ravg.prev_window) {
+				printk_deferred("WALT-BUG pid=%u CPU=%d event=%d src_nt_prs=%llu is lesser than task_contrib=%llu",
+					p->pid, cpu, event,
+					*src_nt_prev_runnable_sum,
+					p->ravg.prev_window);
+				walt_task_dump(p);
+				SCHED_BUG_ON(1);
+			}
 			*src_nt_prev_runnable_sum -= p->ravg.prev_window;
 		}
 
@@ -3193,11 +3303,6 @@ static void transfer_busy_time(struct rq *rq, struct related_thread_group *grp,
 	p->ravg.prev_window_cpu[cpu] = p->ravg.prev_window;
 
 	trace_sched_migration_update_sum(p, migrate_type, rq);
-
-	BUG_ON((s64)*src_curr_runnable_sum < 0);
-	BUG_ON((s64)*src_prev_runnable_sum < 0);
-	BUG_ON((s64)*src_nt_curr_runnable_sum < 0);
-	BUG_ON((s64)*src_nt_prev_runnable_sum < 0);
 }
 
 bool is_rtgb_active(void)
@@ -3339,9 +3444,11 @@ void walt_irq_work(struct irq_work *irq_work)
 	 */
 	if (!is_migration) {
 		if (sched_ravg_window != new_sched_ravg_window) {
-			printk_deferred("ALERT: changing window size from %u to %u\n",
+			sched_ravg_window_change_time = sched_ktime_clock();
+			printk_deferred("ALERT: changing window size from %u to %u at %lu\n",
 					sched_ravg_window,
-					new_sched_ravg_window);
+					new_sched_ravg_window,
+					sched_ravg_window_change_time);
 			sched_ravg_window = new_sched_ravg_window;
 			walt_tunables_fixup();
 		}
@@ -3490,6 +3597,7 @@ void walt_sched_init_rq(struct rq *rq)
 	cpumask_set_cpu(cpu_of(rq), &rq->freq_domain_cpumask);
 
 	rq->walt_stats.cumulative_runnable_avg_scaled = 0;
+	rq->prev_window_size = sched_ravg_window;
 	rq->window_start = 0;
 	rq->walt_stats.nr_big_tasks = 0;
 	rq->walt_flags = 0;
@@ -3548,6 +3656,35 @@ int walt_proc_user_hint_handler(struct ctl_table *table,
 		goto unlock;
 
 	irq_work_queue(&walt_migration_irq_work);
+
+unlock:
+	mutex_unlock(&mutex);
+	return ret;
+}
+
+static inline void sched_window_nr_ticks_change(int new_nr_ticks)
+{
+	new_sched_ravg_window = new_nr_ticks * (NSEC_PER_SEC / HZ);
+}
+
+int sched_ravg_window_handler(struct ctl_table *table,
+				int write, void __user *buffer, size_t *lenp,
+				loff_t *ppos)
+{
+	int ret;
+	static DEFINE_MUTEX(mutex);
+	unsigned int prev_value;
+
+	mutex_lock(&mutex);
+
+	prev_value = sysctl_sched_ravg_window_nr_ticks;
+	ret = proc_douintvec_ravg_window(table, write, buffer, lenp, ppos);
+	if (ret || !write ||
+			(prev_value == sysctl_sched_ravg_window_nr_ticks) ||
+			(sysctl_sched_ravg_window_nr_ticks == 0))
+		goto unlock;
+
+	sched_window_nr_ticks_change(sysctl_sched_ravg_window_nr_ticks);
 
 unlock:
 	mutex_unlock(&mutex);
