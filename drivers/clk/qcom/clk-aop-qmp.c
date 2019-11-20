@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "%s: " fmt, __func__
@@ -9,6 +9,7 @@
 #include <linux/clk.h>
 #include <linux/err.h>
 #include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/mailbox_client.h>
@@ -330,6 +331,7 @@ static const struct of_device_id aop_qmp_clk_of_match[] = {
 	{ .compatible = "qcom,aop-qmp-clk", },
 	{}
 };
+MODULE_DEVICE_TABLE(of, aop_qmp_clk_of_match);
 
 static struct platform_driver aop_qmp_clk_driver = {
 	.driver = {
@@ -344,3 +346,12 @@ static int __init aop_qmp_clk_init(void)
 	return platform_driver_register(&aop_qmp_clk_driver);
 }
 subsys_initcall(aop_qmp_clk_init);
+
+static void __exit aop_qmp_clk_exit(void)
+{
+	platform_driver_unregister(&aop_qmp_clk_driver);
+}
+module_exit(aop_qmp_clk_exit);
+
+MODULE_DESCRIPTION("QTI CLK-AOP-QMP Driver");
+MODULE_LICENSE("GPL v2");
