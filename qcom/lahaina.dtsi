@@ -365,6 +365,12 @@
 	};
 
 	chosen { };
+
+	firmware: firmware {
+		scm {
+			compatible = "qcom,scm";
+		};
+	};
 };
 
 &soc {
