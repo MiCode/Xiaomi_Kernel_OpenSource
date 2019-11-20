@@ -175,10 +175,10 @@ static int qiib_restart_notifier_cb(struct notifier_block *this,
  *
  * Return: POLLIN for interrupt intercepted case and POLLRDHUP for SSR.
  */
-static unsigned int qiib_poll(struct file *file, poll_table *wait)
+static __poll_t qiib_poll(struct file *file, poll_table *wait)
 {
 	struct qiib_dev *devp = file->private_data;
-	unsigned int mask = 0;
+	__poll_t mask = 0;
 	unsigned long flags;
 
 	if (!devp) {
