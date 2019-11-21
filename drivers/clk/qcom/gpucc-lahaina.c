@@ -109,8 +109,9 @@ static const struct clk_parent_data gpu_cc_parent_data_0_ao[] = {
 	{ .fw_name = "bi_tcxo_ao", .name = "bi_tcxo_ao" },
 	{ .hw = &gpu_cc_pll0.clkr.hw },
 	{ .hw = &gpu_cc_pll1.clkr.hw },
-	{ .fw_name = "gpll0_out_main", .name = "gpll0_out_main" },
-	{ .fw_name = "gpll0_out_main_div", .name = "gpll0_out_main_div" },
+	{ .fw_name = "gcc_gpu_gpll0_clk_src", .name = "gcc_gpu_gpll0_clk_src" },
+	{ .fw_name = "gcc_gpu_gpll0_div_clk_src", .name =
+		"gcc_gpu_gpll0_div_clk_src" },
 	{ .fw_name = "core_bi_pll_test_se", .name = "core_bi_pll_test_se" },
 };
 
@@ -125,8 +126,9 @@ static const struct parent_map gpu_cc_parent_map_1[] = {
 static const struct clk_parent_data gpu_cc_parent_data_1_ao[] = {
 	{ .fw_name = "bi_tcxo_ao", .name = "bi_tcxo_ao" },
 	{ .hw = &gpu_cc_pll1.clkr.hw },
-	{ .fw_name = "gpll0_out_main", .name = "gpll0_out_main" },
-	{ .fw_name = "gpll0_out_main_div", .name = "gpll0_out_main_div" },
+	{ .fw_name = "gcc_gpu_gpll0_clk_src", .name = "gcc_gpu_gpll0_clk_src" },
+	{ .fw_name = "gcc_gpu_gpll0_div_clk_src", .name =
+		"gcc_gpu_gpll0_div_clk_src" },
 	{ .fw_name = "core_bi_pll_test_se", .name = "core_bi_pll_test_se" },
 };
 
