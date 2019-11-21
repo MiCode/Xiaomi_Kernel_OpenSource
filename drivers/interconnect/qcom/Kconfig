@@ -32,6 +32,15 @@ config INTERCONNECT_QCOM_LAHAINA
 	  This is a driver for the Qualcomm Technologies, Inc. Network-on-Chip
 	  on lahaina-based platforms.
 
+config INTERCONNECT_QCOM_EPSS_L3
+	tristate "LAHAINA EPSS L3 driver"
+	depends on INTERCONNECT_QCOM
+	help
+	  This is a driver for the Qualcomm Technologies, Inc. EPSS
+	  L3 control found on lahaina-based platforms. The EPSS L3 provider
+	  collects and aggregates consumer requests to satisfy constraints
+	  placed on L3 performance states.
+
 config INTERCONNECT_QCOM_SMD_RPM
 	tristate
 
