@@ -1298,7 +1298,7 @@
 			100000000 200000000 4294967295>;
 
 		qcom,clk-rates = <400000 20000000 25000000
-					50000000 100000000>;
+					50000000 100000000 200000000>;
 		qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50",
 				      "SDR104";
 
@@ -1308,23 +1308,16 @@
 			<&clock_gcc GCC_SDCC2_APPS_CLK>;
 		clock-names = "iface_clk", "core_clk";
 
-		/* VDD is an external regulator eLDO5 */
-		vdd-io-supply = <&pms405_l6>;
-		qcom,vdd-io-voltage-level = <1800000 1800000>;
-		qcom,vdd-io-current-level = <0 24200>;
-		post-power-on-delay-ms = <100>;
+		qcom,nonhotplug;
 
-		qcom,core_3_0v_support;
-		qcom,nonremovable;
+		/* VDD is an external regulator eLDO5 */
+		vdd-io-supply = <&pms405_l11>;
+		qcom,vdd-io-voltage-level = <1800000 2950000>;
+		qcom,vdd-io-current-level = <0 24200>;
 
 		pinctrl-names = "active", "sleep";
-		pinctrl-0 = <&sdc2_clk_on  &sdc2_cmd_on &sdc2_data_on
-			&sdc2_wlan_on>;
-		pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off
-			&sdc2_wlan_off>;
-
-		/delete-property/ qcom,devfreq,freq-table;
-		/delete-property/ cd-gpios;
+		pinctrl-0 = <&sdc2_clk_on  &sdc2_cmd_on &sdc2_data_on>;
+		pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off>;
 
 		status = "ok";
 	};

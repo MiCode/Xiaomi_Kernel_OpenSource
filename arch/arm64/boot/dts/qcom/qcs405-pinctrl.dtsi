@@ -1542,28 +1542,56 @@
 			};
 		};
 
-		sdc2_wlan_on: sdc2_wlan_on {
+		sdc2_wlan_on1: sdc2_wlan_on1 {
 			mux {
-				pins = "gpio116";
+				pins = "gpio109";
 				function = "gpio";
 			};
 
 			config {
-				pins = "gpio116";
+				pins = "gpio109";
 				drive-strength = <10>;
 				bias-pull-up;
 				output-high;
 			};
 		};
 
-		sdc2_wlan_off: sdc2_wlan_off {
+		sdc2_wlan_off1: sdc2_wlan_off1 {
 			mux {
-				pins = "gpio116";
+				pins = "gpio109";
 				function = "gpio";
 			};
 
 			config {
-				pins = "gpio116";
+				pins = "gpio109";
+				drive-strength = <2>;
+				bias-pull-down;
+				output-low;
+			};
+		};
+
+		sdc2_wlan_on4: sdc2_wlan_on4 {
+			mux {
+				pins = "gpio47";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio47";
+				drive-strength = <10>;
+				bias-pull-up;
+				output-high;
+			};
+		};
+
+		sdc2_wlan_off4: sdc2_wlan_off4 {
+			mux {
+				pins = "gpio47";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio47";
 				drive-strength = <2>;
 				bias-pull-down;
 				output-low;
