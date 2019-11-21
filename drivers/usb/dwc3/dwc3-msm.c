@@ -1046,17 +1046,20 @@ static void gsi_ring_db(struct usb_ep *ep, struct usb_gsi_request *request)
 	int num_trbs = (dep->direction) ? (2 * (request->num_bufs) + 2)
 					: (request->num_bufs + 2);
 
-	gsi_dbl_address_lsb = devm_ioremap_nocache(mdwc->dev,
-				request->db_reg_phs_addr_lsb, sizeof(u32));
+	gsi_dbl_address_lsb = ioremap_nocache(request->db_reg_phs_addr_lsb,
+				sizeof(u32));
 	if (!gsi_dbl_address_lsb) {
-		dev_err(mdwc->dev, "Failed to get GSI DBL address LSB\n");
+		dev_err(mdwc->dev, "Failed to map GSI DBL address LSB 0x%x\n",
+				request->db_reg_phs_addr_lsb);
 		return;
 	}
 
-	gsi_dbl_address_msb = devm_ioremap_nocache(mdwc->dev,
-			request->db_reg_phs_addr_msb, sizeof(u32));
+	gsi_dbl_address_msb = ioremap_nocache(request->db_reg_phs_addr_msb,
+				sizeof(u32));
 	if (!gsi_dbl_address_msb) {
-		dev_err(mdwc->dev, "Failed to get GSI DBL address MSB\n");
+		dev_err(mdwc->dev, "Failed to map GSI DBL address MSB 0x%x\n",
+				request->db_reg_phs_addr_msb);
+		iounmap(gsi_dbl_address_lsb);
 		return;
 	}
 
@@ -1072,6 +1075,9 @@ static void gsi_ring_db(struct usb_ep *ep, struct usb_gsi_request *request)
 	readl_relaxed(gsi_dbl_address_lsb);
 	writel_relaxed(0, gsi_dbl_address_msb);
 	readl_relaxed(gsi_dbl_address_msb);
+
+	iounmap(gsi_dbl_address_lsb);
+	iounmap(gsi_dbl_address_msb);
 }
 
 /**
