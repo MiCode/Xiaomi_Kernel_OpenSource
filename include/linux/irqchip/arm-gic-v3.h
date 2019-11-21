@@ -597,6 +597,8 @@ static inline bool gic_enable_sre(void)
 	return !!(val & ICC_SRE_EL1_SRE);
 }
 
+void gic_show_pending_irqs(void);
+unsigned int get_gic_highpri_irq(void);
 #endif
 
 #endif

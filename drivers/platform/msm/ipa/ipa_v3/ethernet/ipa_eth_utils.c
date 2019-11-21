@@ -29,6 +29,39 @@ const char *ipa_eth_device_event_name(enum ipa_eth_device_event event)
 	return name;
 }
 
+static void __ipa_eth_free_msg(void *buff, u32 len, u32 type) {}
+
+static int ipa_eth_send_ecm_msg(struct ipa_eth_device *eth_dev,
+		enum ipa_ecm_event ecm_event)
+{
+	struct ipa_msg_meta msg_meta;
+	struct ipa_ecm_msg ecm_msg;
+
+	if (!eth_dev || !eth_dev->net_dev)
+		return -EFAULT;
+
+	memset(&msg_meta, 0, sizeof(msg_meta));
+	memset(&ecm_msg, 0, sizeof(ecm_msg));
+
+	ecm_msg.ifindex = eth_dev->net_dev->ifindex;
+	strlcpy(ecm_msg.name, eth_dev->net_dev->name, IPA_RESOURCE_NAME_MAX);
+
+	msg_meta.msg_type = ecm_event;
+	msg_meta.msg_len = sizeof(struct ipa_ecm_msg);
+
+	return ipa_send_msg(&msg_meta, &ecm_msg, __ipa_eth_free_msg);
+}
+
+int ipa_eth_send_msg_connect(struct ipa_eth_device *eth_dev)
+{
+	return ipa_eth_send_ecm_msg(eth_dev, ECM_CONNECT);
+}
+
+int ipa_eth_send_msg_disconnect(struct ipa_eth_device *eth_dev)
+{
+	return ipa_eth_send_ecm_msg(eth_dev, ECM_DISCONNECT);
+}
+
 /* IPC Logging */
 
 bool ipa_eth_ipc_logdbg = IPA_ETH_IPC_LOGDBG_DEFAULT;

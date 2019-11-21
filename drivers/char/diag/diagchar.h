@@ -226,9 +226,9 @@
 #define NUM_PERIPHERALS		7
 #define APPS_DATA		(NUM_PERIPHERALS)
 
-#define UPD_WLAN		7
-#define UPD_AUDIO		8
-#define UPD_SENSORS		9
+#define UPD_WLAN		8
+#define UPD_AUDIO		9
+#define UPD_SENSORS		10
 #define NUM_UPD			3
 
 #define MAX_PERIPHERAL_UPD			2
