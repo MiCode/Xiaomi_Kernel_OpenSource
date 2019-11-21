@@ -711,6 +711,17 @@ struct net_device *rmnet_get_real_dev(void *port)
 }
 EXPORT_SYMBOL(rmnet_get_real_dev);
 
+int rmnet_get_dlmarker_info(void *port)
+{
+	if (!port)
+		return 0;
+
+	return ((struct rmnet_port *)port)->data_format &
+		(RMNET_INGRESS_FORMAT_DL_MARKER_V1 |
+		RMNET_INGRESS_FORMAT_DL_MARKER_V2);
+}
+EXPORT_SYMBOL(rmnet_get_dlmarker_info);
+
 #endif
 
 /* Startup/Shutdown */
