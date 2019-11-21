@@ -21,6 +21,16 @@ config QCOM_SPMI_TEMP_ALARM
 	  real time die temperature if an ADC is present or an estimate of the
 	  temperature based upon the over temperature stage value.
 
+config QTI_QMI_SENSOR
+	tristate "QTI QMI sensor driver"
+	depends on QCOM_QMI_HELPERS && THERMAL_OF && QTI_THERMAL
+	help
+	   This enables to list the QTI remote subsystem temperature sensors.
+	   This driver can read the temperature of the remote sensor.
+	   These sensors can take thresholds and notify the thermal
+	   framework when the threshold is reached.
+
+
 config QTI_CPU_ISOLATE_COOLING_DEVICE
 	tristate "QTI CPU Isolate cooling devices"
 	depends on THERMAL_OF && QTI_THERMAL
