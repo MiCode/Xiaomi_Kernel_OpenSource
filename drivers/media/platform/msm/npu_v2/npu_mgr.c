@@ -1261,6 +1261,11 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 			NPU_ERR("execute_pkt trans_id is not match %d:%d\n",
 				network->trans_id,
 				exe_rsp_pkt->header.trans_id);
+			NPU_ERR("execute_pkt network hdl check %d:%d\n",
+				network->network_hdl,
+				exe_rsp_pkt->network_hdl);
+			NPU_ERR("execute_pkt network_id check %x\n",
+				network->id);
 			network_put(network);
 			break;
 		}
@@ -1306,6 +1311,11 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 			NPU_ERR("execute_pkt_v2 trans_id is not match %d:%d\n",
 				network->trans_id,
 				exe_rsp_pkt->header.trans_id);
+			NPU_ERR("execute_pkt_v2 network hdl check %d:%d\n",
+				network->network_hdl,
+				exe_rsp_pkt->network_hdl);
+			NPU_ERR("execute_pkt_v2 network id check %x\n",
+				network->id);
 			network_put(network);
 			break;
 		}
