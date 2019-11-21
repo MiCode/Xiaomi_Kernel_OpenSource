@@ -221,7 +221,7 @@ struct ipa_wdi_perf_profile {
 	u32 max_supported_bw_mbps;
 };
 
-#if defined CONFIG_IPA || defined CONFIG_IPA3
+#if IS_ENABLED(CONFIG_IPA3)
 
 /**
  * ipa_wdi_init - Client should call this function to
@@ -370,7 +370,7 @@ int ipa_wdi_bw_monitor(struct ipa_wdi_bw_info *info);
  */
 int ipa_wdi_sw_stats(struct ipa_wdi_tx_info *info);
 
-#else /* (CONFIG_IPA || CONFIG_IPA3) */
+#else /* IS_ENABLED(CONFIG_IPA3) */
 
 static inline int ipa_wdi_init(struct ipa_wdi_init_in_params *in,
 	struct ipa_wdi_init_out_params *out)
@@ -448,6 +448,6 @@ static inline int ipa_wdi_sw_stats(struct ipa_wdi_tx_info *info)
 	return -EPERM;
 }
 
-#endif /* CONFIG_IPA3 */
+#endif /* IS_ENABLED(CONFIG_IPA3) */
 
 #endif /* _IPA_WDI3_H_ */

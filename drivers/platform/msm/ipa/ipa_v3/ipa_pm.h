@@ -82,7 +82,7 @@ struct ipa_pm_register_params {
 	bool skip_clk_vote;
 };
 
-#ifdef CONFIG_IPA3
+#if IS_ENABLED(CONFIG_IPA3)
 
 int ipa_pm_register(struct ipa_pm_register_params *params, u32 *hdl);
 int ipa_pm_associate_ipa_cons_to_client(u32 hdl, enum ipa_client_type consumer);
@@ -102,7 +102,7 @@ int ipa_pm_stat(char *buf, int size);
 int ipa_pm_exceptions_stat(char *buf, int size);
 void ipa_pm_set_clock_index(int index);
 
-#else
+#else /* IS_ENABLED(CONFIG_IPA3) */
 
 static inline int ipa_pm_register(
 	struct ipa_pm_register_params *params, u32 *hdl)
@@ -176,6 +176,6 @@ static inline int ipa_pm_exceptions_stat(char *buf, int size)
 {
 	return -EPERM;
 }
-#endif
+#endif /* IS_ENABLED(CONFIG_IPA3) */
 
 #endif /* _IPA_PM_H_ */

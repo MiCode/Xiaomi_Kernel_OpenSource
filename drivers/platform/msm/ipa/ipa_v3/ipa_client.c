@@ -203,6 +203,7 @@ reset_chan_fail:
 		IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 	return result;
 }
+EXPORT_SYMBOL(ipa3_reset_gsi_channel);
 
 int ipa3_reset_gsi_event_ring(u32 clnt_hdl)
 {
@@ -240,6 +241,7 @@ reset_evt_fail:
 		IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 	return result;
 }
+EXPORT_SYMBOL(ipa3_reset_gsi_event_ring);
 
 static bool ipa3_is_legal_params(struct ipa_request_gsi_channel_params *params)
 {
@@ -351,6 +353,7 @@ int ipa3_smmu_map_peer_reg(phys_addr_t phys_addr, bool map,
 
 	return 0;
 }
+EXPORT_SYMBOL(ipa3_smmu_map_peer_reg);
 
 int ipa3_smmu_map_peer_buff(u64 iova, u32 size, bool map, struct sg_table *sgt,
 	enum ipa_smmu_cb_type cb_type)
@@ -430,6 +433,7 @@ int ipa3_smmu_map_peer_buff(u64 iova, u32 size, bool map, struct sg_table *sgt,
 	IPADBG("Peer buff %s 0x%llx\n", map ? "map" : "unmap", iova);
 	return 0;
 }
+EXPORT_SYMBOL(ipa3_smmu_map_peer_buff);
 
 static enum ipa_client_cb_type ipa_get_client_cb_type(
 					enum ipa_client_type client_type)
@@ -696,6 +700,7 @@ ipa_cfg_ep_fail:
 fail:
 	return result;
 }
+EXPORT_SYMBOL(ipa3_request_gsi_channel);
 
 int ipa3_set_usb_max_packet_size(
 	enum ipa_usb_max_usb_packet_size usb_max_packet_size)
@@ -721,6 +726,53 @@ int ipa3_set_usb_max_packet_size(
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	IPADBG("exit\n");
+	return 0;
+}
+EXPORT_SYMBOL(ipa3_set_usb_max_packet_size);
+
+/**
+ * ipa3_get_usb_gsi_stats() - Query USB gsi stats from uc
+ * @stats:	[inout] stats blob from client populated by driver
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * @note Cannot be called from atomic context
+ *
+ */
+int ipa3_get_usb_gsi_stats(struct ipa3_uc_dbg_ring_stats *stats)
+{
+	int i;
+
+	if (!ipa3_ctx->usb_ctx.dbg_stats.uc_dbg_stats_mmio) {
+		IPAERR("bad parms NULL usb_gsi_stats_mmio\n");
+		return -EINVAL;
+	}
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+	for (i = 0; i < MAX_USB_CHANNELS; i++) {
+		stats->ring[i].ringFull = ioread32(
+			ipa3_ctx->usb_ctx.dbg_stats.uc_dbg_stats_mmio
+			+ i * IPA3_UC_DEBUG_STATS_OFF +
+			IPA3_UC_DEBUG_STATS_RINGFULL_OFF);
+		stats->ring[i].ringEmpty = ioread32(
+			ipa3_ctx->usb_ctx.dbg_stats.uc_dbg_stats_mmio
+			+ i * IPA3_UC_DEBUG_STATS_OFF +
+			IPA3_UC_DEBUG_STATS_RINGEMPTY_OFF);
+		stats->ring[i].ringUsageHigh = ioread32(
+			ipa3_ctx->usb_ctx.dbg_stats.uc_dbg_stats_mmio
+			+ i * IPA3_UC_DEBUG_STATS_OFF +
+			IPA3_UC_DEBUG_STATS_RINGUSAGEHIGH_OFF);
+		stats->ring[i].ringUsageLow = ioread32(
+			ipa3_ctx->usb_ctx.dbg_stats.uc_dbg_stats_mmio
+			+ i * IPA3_UC_DEBUG_STATS_OFF +
+			IPA3_UC_DEBUG_STATS_RINGUSAGELOW_OFF);
+		stats->ring[i].RingUtilCount = ioread32(
+			ipa3_ctx->usb_ctx.dbg_stats.uc_dbg_stats_mmio
+			+ i * IPA3_UC_DEBUG_STATS_OFF +
+			IPA3_UC_DEBUG_STATS_RINGUTILCOUNT_OFF);
+	}
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
+
+
 	return 0;
 }
 
@@ -763,7 +815,7 @@ exit:
 	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 	return result;
 }
-
+EXPORT_SYMBOL(ipa3_xdci_connect);
 
 /* This function called as part of usb pipe connect */
 int ipa3_xdci_start(u32 clnt_hdl, u8 xferrscidx, bool xferrscidx_valid)
@@ -825,6 +877,7 @@ write_chan_scratch_fail:
 	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 	return result;
 }
+EXPORT_SYMBOL(ipa3_xdci_start);
 
 int ipa3_get_gsi_chan_info(struct gsi_chan_info *gsi_chan_info,
 	unsigned long chan_hdl)
@@ -1348,6 +1401,7 @@ void ipa3_xdci_ep_delay_rm(u32 clnt_hdl)
 		}
 	}
 }
+EXPORT_SYMBOL(ipa3_xdci_ep_delay_rm);
 
 int ipa3_xdci_disconnect(u32 clnt_hdl, bool should_force_clear, u32 qmi_req_id)
 {
@@ -1402,6 +1456,7 @@ stop_chan_fail:
 		IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 	return result;
 }
+EXPORT_SYMBOL(ipa3_xdci_disconnect);
 
 int ipa3_release_gsi_channel(u32 clnt_hdl)
 {
@@ -1449,6 +1504,7 @@ dealloc_chan_fail:
 		IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 	return result;
 }
+EXPORT_SYMBOL(ipa3_release_gsi_channel);
 
 int ipa3_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 	bool should_force_clear, u32 qmi_req_id, bool is_dpl)
@@ -1589,6 +1645,7 @@ disable_clk_and_exit:
 	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(dl_clnt_hdl));
 	return result;
 }
+EXPORT_SYMBOL(ipa3_xdci_suspend);
 
 int ipa3_start_gsi_channel(u32 clnt_hdl)
 {
@@ -1627,6 +1684,7 @@ start_chan_fail:
 		IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 	return result;
 }
+EXPORT_SYMBOL(ipa3_start_gsi_channel);
 
 int ipa3_xdci_resume(u32 ul_clnt_hdl, u32 dl_clnt_hdl, bool is_dpl)
 {
@@ -1677,6 +1735,8 @@ int ipa3_xdci_resume(u32 ul_clnt_hdl, u32 dl_clnt_hdl, bool is_dpl)
 	IPADBG("exit\n");
 	return 0;
 }
+EXPORT_SYMBOL(ipa3_xdci_resume);
+
 /**
  * ipa3_clear_endpoint_delay() - Remove ep delay set on the IPA pipe before
  * client disconnect.

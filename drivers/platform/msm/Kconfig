@@ -4,7 +4,7 @@ menu "Qualcomm technologies inc. MSM specific device drivers"
 	depends on ARCH_QCOM
 
 config GSI
-	bool "GSI support"
+	tristate "GSI support"
 	help
 	  This driver provides the transport needed to talk to the
 	  IPA core. It replaces the BAM transport used previously.
@@ -25,8 +25,7 @@ config GSI_REGISTER_VERSION_2
 
 config IPA3
 	tristate "IPA3 support"
-	select GSI
-	depends on NET
+	depends on NET && GSI
 	help
 	  This driver supports the Internet Packet Accelerator (IPA3) core.
 	  IPA is a programmable protocol processor HW block.
@@ -36,6 +35,15 @@ config IPA3
 	  for the IPA core.
 	  Kernel and user-space processes can call the IPA driver
 	  to configure IPA core.
+
+config IPA_USB
+	tristate "IPA USB offload support"
+	depends on IPA3 && ARCH_QCOM
+	help
+	  This driver supports control of USB data traffic offload via IPA.
+	  Using xDCI GSI protocol, IPA USB enables USB to configure IPA to
+	  offload traffic with different USB functions. The supported functions
+	  are RNDIS, ECM, MBIM, RMNET as well as DPL (data packet logging).
 
 config IPA_DEBUG
 	bool "IPA DEBUG for non-perf build"
@@ -57,8 +65,8 @@ config IPA_WDI_UNIFIED_API
 	  interface.
 
 config RMNET_IPA3
-	tristate "IPA3 RMNET WWAN Network Device"
-	depends on IPA3
+	bool "IPA3 RMNET WWAN Network Device"
+	depends on IPA3 && ARCH_QCOM
 	select QCOM_QMI_HELPERS
 	help
 	  This WWAN Network Driver implements network stack class device.
@@ -68,7 +76,7 @@ config RMNET_IPA3
 
 config ECM_IPA
 	tristate "STD ECM LAN Driver support"
-	depends on IPA3
+	depends on IPA_USB
 	help
 	  Enables LAN between applications processor and a tethered
 	  host using the STD ECM protocol.
@@ -77,7 +85,7 @@ config ECM_IPA
 
 config RNDIS_IPA
 	tristate "RNDIS_IPA Network Interface Driver support"
-	depends on IPA3
+	depends on IPA_USB
 	help
 	  Enables LAN between applications processor and a tethered
 	  host using the RNDIS protocol.
@@ -85,7 +93,7 @@ config RNDIS_IPA
 	  IPA core while using RNDIS protocol.
 
 config IPA3_MHI_PROXY
-	tristate "IPA3 MHI proxy driver"
+	bool "IPA3 MHI proxy driver"
 	depends on RMNET_IPA3
 	help
 	  This driver is used as a proxy between modem and MHI host driver.
@@ -97,7 +105,7 @@ config IPA3_MHI_PROXY
 
 config IPA3_MHI_PRIME_MANAGER
 	tristate "IPA3_MHI Prime Manager driver"
-	depends on IPA3
+	depends on RMNET_IPA3
 	help
 	  This driver functionality is to setup MHI Prime channels between Host and
 	  modem and enable the ability for MHI Prime communication.
@@ -105,7 +113,7 @@ config IPA3_MHI_PRIME_MANAGER
 	  the Host without AP involvement for tethering data offload.
 
 config IPA_UT
-	tristate "IPA Unit-Test Framework and Test Suites"
+	bool "IPA Unit-Test Framework and Test Suites"
 	depends on IPA3 && DEBUG_FS
 	help
 	  This Module implements IPA in-kernel test framework.

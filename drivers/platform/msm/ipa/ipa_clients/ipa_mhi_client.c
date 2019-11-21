@@ -2478,6 +2478,7 @@ int ipa_mhi_handle_ipa_config_req(struct ipa_config_req_msg_v01 *config_req)
 	IPA_MHI_FUNC_EXIT();
 	return 0;
 }
+EXPORT_SYMBOL(ipa_mhi_handle_ipa_config_req);
 
 int ipa_mhi_is_using_dma(bool *flag)
 {

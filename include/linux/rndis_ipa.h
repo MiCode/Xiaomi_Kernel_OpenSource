@@ -49,7 +49,7 @@ struct ipa_usb_init_params {
 	bool skip_ep_cfg;
 };
 
-#ifdef CONFIG_RNDIS_IPA
+#if IS_ENABLED(CONFIG_RNDIS_IPA)
 
 int rndis_ipa_init(struct ipa_usb_init_params *params);
 
@@ -64,7 +64,7 @@ int rndis_ipa_pipe_disconnect_notify(void *private);
 
 void rndis_ipa_cleanup(void *private);
 
-#else /* CONFIG_RNDIS_IPA*/
+#else /* IS_ENABLED(CONFIG_RNDIS_IPA) */
 
 static inline int rndis_ipa_init(struct ipa_usb_init_params *params)
 {
@@ -88,8 +88,8 @@ static inline int rndis_ipa_pipe_disconnect_notify(void *private)
 
 static inline void rndis_ipa_cleanup(void *private)
 {
-
 }
-#endif /* CONFIG_RNDIS_IPA */
+
+#endif /* IS_ENABLED(CONFIG_RNDIS_IPA) */
 
 #endif /* _RNDIS_IPA_H_ */

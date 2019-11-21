@@ -196,7 +196,7 @@ struct ipa_uc_ready_params {
 	enum ipa_uc_offload_proto proto;
 };
 
-#if defined CONFIG_IPA || defined CONFIG_IPA3
+#if IS_ENABLED(CONFIG_IPA3)
 
 /**
  * ipa_uc_offload_reg_intf - Client should call this function to
@@ -269,7 +269,7 @@ int ipa_uc_offload_reg_rdyCB(struct ipa_uc_ready_params *param);
  */
 void ipa_uc_offload_dereg_rdyCB(enum ipa_uc_offload_proto proto);
 
-#else /* (CONFIG_IPA || CONFIG_IPA3) */
+#else /* IS_ENABLED(CONFIG_IPA3) */
 
 static inline int ipa_uc_offload_reg_intf(
 		struct ipa_uc_offload_intf_params *in,

@@ -228,7 +228,7 @@ struct ipa3_rmnet_context {
 
 extern struct ipa3_rmnet_context ipa3_rmnet_ctx;
 
-#ifdef CONFIG_RMNET_IPA3
+#if IS_ENABLED(CONFIG_RMNET_IPA3)
 
 int ipa3_qmi_service_init(uint32_t wan_platform_type);
 
@@ -265,8 +265,6 @@ int ipa3_qmi_disable_force_clear_datapath_send(
 
 int ipa3_copy_ul_filter_rule_to_ipa(struct ipa_install_fltr_rule_req_msg_v01
 	*rule_req);
-
-int ipa3_wwan_update_mux_channel_prop(void);
 
 int ipa3_wan_ioctl_init(void);
 
@@ -345,7 +343,11 @@ void ipa3_qmi_init(void);
 
 void ipa3_qmi_cleanup(void);
 
-#else /* CONFIG_RMNET_IPA3 */
+int ipa3_wwan_init(void);
+
+void ipa3_wwan_cleanup(void);
+
+#else /* IS_ENABLED(CONFIG_RMNET_IPA3) */
 
 static inline int ipa3_qmi_service_init(uint32_t wan_platform_type)
 {
@@ -368,7 +370,7 @@ static inline int ipa3_qmi_add_offload_request_send(
 }
 
 static inline int ipa3_qmi_rmv_offload_request_send(
-	struct ipa_rmv_offload_connection_req_msg_v01 *req)
+	struct ipa_remove_offload_connection_req_msg_v01 *req)
 {
 	return -EPERM;
 }
@@ -406,11 +408,6 @@ static inline int ipa3_qmi_disable_force_clear_datapath_send(
 
 static inline int ipa3_copy_ul_filter_rule_to_ipa(
 	struct ipa_install_fltr_rule_req_msg_v01 *rule_req)
-{
-	return -EPERM;
-}
-
-static inline int ipa3_wwan_update_mux_channel_prop(void)
 {
 	return -EPERM;
 }
@@ -481,7 +478,7 @@ static inline int ipa3_qmi_send_mhi_ready_indication(
 	return -EPERM;
 }
 
-static int ipa3_qmi_send_rsc_pipe_indication(
+static inline int ipa3_qmi_send_rsc_pipe_indication(
 	struct ipa_endp_desc_indication_msg_v01 *req)
 {
 	return -EPERM;
@@ -528,6 +525,16 @@ static inline void ipa3_qmi_cleanup(void)
 
 }
 
-#endif /* CONFIG_RMNET_IPA3 */
+static inline int ipa3_wwan_init(void)
+{
+	return -EPERM;
+}
+
+static inline void ipa3_wwan_cleanup(void)
+{
+
+}
+
+#endif /* IS_ENABLED(CONFIG_RMNET_IPA3) */
 
 #endif /* IPA_QMI_SERVICE_H */

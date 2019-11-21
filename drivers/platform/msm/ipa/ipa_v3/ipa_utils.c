@@ -8015,6 +8015,7 @@ int ipa3_stop_gsi_channel(u32 clnt_hdl)
 
 	return res;
 }
+EXPORT_SYMBOL(ipa3_stop_gsi_channel);
 
 static int _ipa_suspend_resume_pipe(enum ipa_client_type client, bool suspend)
 {
@@ -8899,6 +8900,7 @@ u32 ipa3_get_r_rev_version(void)
 
 	return r_rev;
 }
+EXPORT_SYMBOL(ipa3_get_r_rev_version);
 
 /**
  * ipa3_ctx_get_type() - to get platform type, hw type

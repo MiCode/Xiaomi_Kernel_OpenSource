@@ -5995,6 +5995,9 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_enable_napi_lan_rx();
 	ipa3_trigger_ipa_ready_cbs();
 	complete_all(&ipa3_ctx->init_completion_obj);
+
+	ipa_ut_module_init();
+
 	pr_info("IPA driver initialization was successful.\n");
 
 	return 0;
@@ -6941,7 +6944,10 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	/* Create the dummy netdev for LAN RX NAPI*/
 	ipa3_enable_napi_netdev();
 
+	ipa3_wwan_init();
+
 	return 0;
+
 fail_cdev_add:
 fail_gsi_pre_fw_load_init:
 	ipa3_dma_shutdown();

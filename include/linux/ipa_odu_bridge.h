@@ -45,7 +45,7 @@ struct ipa_bridge_init_params {
 	void (*wakeup_request)(void *cl_priv);
 };
 
-#ifdef CONFIG_IPA3
+#if IS_ENABLED(CONFIG_IPA3)
 
 int ipa_bridge_init(struct ipa_bridge_init_params *params, u32 *hdl);
 
@@ -64,7 +64,7 @@ int ipa_bridge_tx_dp(u32 hdl, struct sk_buff *skb,
 
 int ipa_bridge_cleanup(u32 hdl);
 
-#else
+#else /* IS_ENABLED(CONFIG_IPA3) */
 
 static inline int ipa_bridge_init(struct odu_bridge_params *params, u32 *hdl)
 {
@@ -107,10 +107,10 @@ static inline int ipa_bridge_cleanup(u32 hdl)
 	return -EPERM;
 }
 
-#endif /* CONFIG_IPA3 */
+#endif /* IS_ENABLED(CONFIG_IPA3) */
 
 /* Below API is deprecated. Please use the API above */
-# if defined CONFIG_IPA || defined CONFIG_IPA3
+#if IS_ENABLED(CONFIG_IPA3)
 
 int odu_bridge_init(struct odu_bridge_params *params);
 
@@ -122,7 +122,7 @@ int odu_bridge_tx_dp(struct sk_buff *skb, struct ipa_tx_meta *metadata);
 
 int odu_bridge_cleanup(void);
 
-#else
+#else /* IS_ENABLED(CONFIG_IPA3) */
 
 static inline int odu_bridge_init(struct odu_bridge_params *params)
 {
@@ -150,6 +150,6 @@ static inline int odu_bridge_cleanup(void)
 	return -EPERM;
 }
 
-#endif /* CONFIG_IPA || defined CONFIG_IPA3 */
+#endif /* IS_ENABLED(CONFIG_IPA3) */
 
 #endif /* _IPA_ODO_BRIDGE_H */

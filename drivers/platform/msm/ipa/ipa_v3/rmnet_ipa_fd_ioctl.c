@@ -526,7 +526,7 @@ static int ipa3_wan_ioctl_open(struct inode *inode, struct file *filp)
 	return 0;
 }
 
-const struct file_operations rmnet_ipa3_fops = {
+static const struct file_operations rmnet_ipa3_fops = {
 	.owner = THIS_MODULE,
 	.open = ipa3_wan_ioctl_open,
 	.read = NULL,

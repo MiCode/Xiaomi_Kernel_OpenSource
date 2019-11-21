@@ -545,7 +545,7 @@ static int ipa3_qmi_init_modem_send_sync_msg(void)
 	} else {
 		req.ctrl_comm_dest_end_pt_valid = true;
 		req.ctrl_comm_dest_end_pt =
-			ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
+			ipa_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
 	}
 
 	req.hdr_proc_ctx_tbl_info_valid =
@@ -1718,7 +1718,7 @@ static void ipa3_qmi_service_init_worker(struct work_struct *work)
 	IPAWANDBG("IPA A7 QMI init OK :>>>>\n");
 
 	ipa3_qmi_ctx->modem_cfg_emb_pipe_flt =
-		ipa3_get_modem_cfg_emb_pipe_flt();
+		ipa_get_modem_cfg_emb_pipe_flt();
 
 	ipa3_qmi_ctx->num_ipa_offload_connection = 0;
 	ipa3_svc_handle = vzalloc(sizeof(*ipa3_svc_handle));

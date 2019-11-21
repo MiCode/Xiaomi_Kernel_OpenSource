@@ -213,7 +213,7 @@ static const struct net_device_ops ecm_ipa_netdev_ops = {
 	.ndo_get_stats = ecm_ipa_get_stats,
 };
 
-const struct file_operations ecm_ipa_debugfs_atomic_ops = {
+static const struct file_operations ecm_ipa_debugfs_atomic_ops = {
 	.open = ecm_ipa_debugfs_atomic_open,
 	.read = ecm_ipa_debugfs_atomic_read,
 };
@@ -1455,9 +1455,10 @@ static const char *ecm_ipa_state_string(enum ecm_ipa_state state)
  * ecm_ipa_init_module() - module initialization
  *
  */
-static int ecm_ipa_init_module(void)
+static int __init ecm_ipa_init_module(void)
 {
 	ECM_IPA_LOG_ENTRY();
+	pr_info("ecm driver init\n");
 	ipa_ecm_logbuf = ipc_log_context_create(IPA_ECM_IPC_LOG_PAGES,
 			"ipa_ecm", 0);
 	if (ipa_ecm_logbuf == NULL)
@@ -1470,7 +1471,7 @@ static int ecm_ipa_init_module(void)
  * ecm_ipa_cleanup_module() - module cleanup
  *
  */
-static void ecm_ipa_cleanup_module(void)
+static void __exit ecm_ipa_cleanup_module(void)
 {
 	ECM_IPA_LOG_ENTRY();
 	if (ipa_ecm_logbuf)

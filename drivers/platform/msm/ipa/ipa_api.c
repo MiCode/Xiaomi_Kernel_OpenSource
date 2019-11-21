@@ -372,6 +372,7 @@ int ipa_smmu_store_sgt(struct sg_table **out_ch_ptr,
 	}
 	return 0;
 }
+EXPORT_SYMBOL(ipa_smmu_store_sgt);
 
 int ipa_smmu_free_sgt(struct sg_table **out_sgt_ptr)
 {
@@ -383,6 +384,7 @@ int ipa_smmu_free_sgt(struct sg_table **out_sgt_ptr)
 	}
 	return 0;
 }
+EXPORT_SYMBOL(ipa_smmu_free_sgt);
 
 /**
  * ipa_clear_endpoint_delay() - Clear ep_delay.
@@ -3406,6 +3408,7 @@ void ipa_assert(void)
 	pr_err("IPA: unrecoverable error has occurred, asserting\n");
 	BUG();
 }
+EXPORT_SYMBOL(ipa_assert);
 
 /**
  * ipa_rx_poll() - Poll the rx packets from IPA HW in the
@@ -3694,12 +3697,14 @@ void ipa_register_client_callback(int (*client_cb)(bool is_lock),
 	IPA_API_DISPATCH(ipa_register_client_callback,
 		client_cb, teth_port_state, client);
 }
+EXPORT_SYMBOL(ipa_register_client_callback);
 
 void ipa_deregister_client_callback(enum ipa_client_type client)
 {
 	IPA_API_DISPATCH(ipa_deregister_client_callback,
 		client);
 }
+EXPORT_SYMBOL(ipa_deregister_client_callback);
 
 
 static const struct dev_pm_ops ipa_pm_ops = {
@@ -3757,16 +3762,11 @@ static int ipa_pci_probe(
 	if (result && result != -EPROBE_DEFER)
 		pr_err("ipa: ipa3_pci_drv_probe failed\n");
 
-	if (running_emulation)
-		ipa_ut_module_init();
-
 	return result;
 }
 
 static void ipa_pci_remove(struct pci_dev *pci_dev)
 {
-	if (running_emulation)
-		ipa_ut_module_exit();
 }
 
 static void ipa_pci_shutdown(struct pci_dev *pci_dev)
@@ -3800,6 +3800,15 @@ static int __init ipa_module_init(void)
 	return platform_driver_register(&ipa_plat_drv);
 }
 subsys_initcall(ipa_module_init);
+
+static void __exit ipa_module_exit(void)
+{
+	if (running_emulation)
+		pci_unregister_driver(&ipa_pci_driver);
+	platform_driver_unregister(&ipa_plat_drv);
+}
+module_exit(ipa_module_exit);
+
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("IPA HW device driver");

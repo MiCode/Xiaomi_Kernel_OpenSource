@@ -2970,6 +2970,12 @@ static int __init ipa_mpm_init(void)
 	return platform_driver_register(&ipa_ipa_mpm_driver);
 }
 
+static void __exit ipa_mpm_exit(void)
+{
+	IPA_MPM_DBG("unregister ipa_mpm platform device\n");
+	platform_driver_unregister(&ipa_ipa_mpm_driver);
+}
+
 /**
  * ipa3_is_mhip_offload_enabled() - check if IPA MPM module was initialized
  * successfully. If it is initialized, MHIP is enabled for teth
@@ -3137,5 +3143,6 @@ int ipa3_mpm_enable_adpl_over_odl(bool enable)
 }
 
 late_initcall(ipa_mpm_init);
+module_exit(ipa_mpm_exit);
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("MHI Proxy Manager Driver");
