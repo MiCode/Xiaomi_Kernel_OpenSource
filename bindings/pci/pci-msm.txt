@@ -138,10 +138,15 @@ Main node
 	Definition: List of CX voltage corner and rate change clock frequency
 		pair for each PCIe GEN speed
 
-- qcom,msm-bus,<bus-field>:
+interconnect-names:
+	Usage: optional
+	Value type: <stringlist>
+	Definition: As specified in interconnect.txt
+
+interconnects:
 	Usage: required
-	Value type: <prop-encoded>
-	Definition: As specified in msm_bus.txt
+	Value type: <prop-encoded-array>
+	Definition: As specified in interconnect.txt
 
 - clocks:
 	Usage: required
@@ -465,12 +470,8 @@ Example
 				RPMH_REGULATOR_LEVEL_LOW_SVS 19200000 /* Gen2 */
 				RPMH_REGULATOR_LEVEL_NOM 100000000>; /* Gen3 */
 
-		qcom,msm-bus,name = "pcie0";
-		qcom,msm-bus,num-cases = <2>;
-		qcom,msm-bus,num-paths = <1>;
-		qcom,msm-bus,vectors-KBps =
-				<45 512 0 0>,
-				<45 512 500 800>;
+		interconnect-names = "icc_path";
+		interconnects = <&aggre2_noc MASTER_PCIE_0 &mc_virt SLAVE_EBI1>;
 
 		clocks = <&clock_gcc GCC_PCIE_0_PIPE_CLK>,
 			<&clock_rpmh RPMH_CXO_CLK>,
