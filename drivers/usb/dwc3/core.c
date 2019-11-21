@@ -1557,7 +1557,7 @@ static int dwc3_probe(struct platform_device *pdev)
 	if (dev->of_node) {
 		dwc->num_clks = ARRAY_SIZE(dwc3_core_clks);
 
-		ret = devm_clk_bulk_get(dev, dwc->num_clks, dwc->clks);
+		ret = devm_clk_bulk_get_optional(dev, dwc->num_clks, dwc->clks);
 		if (ret == -EPROBE_DEFER)
 			goto err0;
 		/*
