@@ -496,6 +496,7 @@ struct smb_charger {
 	int			connector_type;
 	bool			otg_en;
 	bool			suspend_input_on_debug_batt;
+	bool			fake_chg_status_on_debug_batt;
 	int			default_icl_ua;
 	int			otg_cl_ua;
 	bool			uusb_apsd_rerun_done;
