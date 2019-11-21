@@ -309,11 +309,11 @@ enum fastrpc_response_flags {
 };
 
 struct smq_invoke_rspv2 {
-	uint64_t ctx;		/* invoke caller context */
-	int retval;		/* invoke return value */
-	uint32_t flags;		/* early response flags */
-	uint32_t earlyWakeTime;	/* user predicted early wakeup time in us */
-	uint32_t version;	/* Version number for validation */
+	uint64_t ctx;		  /* invoke caller context */
+	int retval;		  /* invoke return value */
+	uint32_t flags;		  /* early response flags */
+	uint32_t early_wake_time; /* user predicted early wakeup time in us */
+	uint32_t version;	  /* Version number for validation */
 };
 
 static inline struct smq_invoke_buf *smq_invoke_buf_start(remote_arg64_t *pra,

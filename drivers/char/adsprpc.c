@@ -41,6 +41,7 @@
 #include <linux/debugfs.h>
 #include <linux/pm_qos.h>
 #include <linux/stat.h>
+#include <linux/preempt.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/fastrpc.h>
@@ -98,7 +99,6 @@
 #define MDSP_DOMAIN_ID (1)
 #define SDSP_DOMAIN_ID (2)
 #define CDSP_DOMAIN_ID (3)
-
 #define RH_CID ADSP_DOMAIN_ID
 
 #define PERF_KEYS \
@@ -612,7 +612,7 @@ static inline int poll_on_early_response(struct smq_invoke_ctx *ctx)
 		}
 		udelay(1);
 	}
-	preempt_enable_no_resched();
+	preempt_enable();
 	return err;
 }
 
@@ -1052,16 +1052,6 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 			len, mflags, map->attach->dma_map_attrs);
 
 		vmid = fl->apps->channel[fl->cid].vmid;
-		if (!sess->smmu.enabled && !vmid) {
-			VERIFY(err, map->phys >= me->range.addr &&
-			map->phys + map->size <=
-			me->range.addr + me->range.size);
-			if (err) {
-				pr_err("adsprpc: %s: phys addr 0x%llx (size 0x%zx) out of CMA heap range\n",
-					__func__, map->phys, map->size);
-				goto bail;
-			}
-		}
 		if (vmid) {
 			int srcVM[1] = {VMID_HLOS};
 			int destVM[2] = {VMID_HLOS, vmid};
@@ -2133,7 +2123,7 @@ static void fastrpc_wait_for_completion(struct smq_invoke_ctx *ctx,
 					break;
 				udelay(1);
 			}
-			preempt_enable_no_resched();
+			preempt_enable();
 			if (!wait_resp) {
 				interrupted = fastrpc_wait_for_response(ctx,
 									kernel);
@@ -3602,10 +3592,6 @@ static ssize_t fastrpc_debugfs_read(struct file *filp, char __user *buffer,
 			DEBUGFS_SIZE - len, "--%s%s---\n",
 			single_line, single_line);
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
-			"0x%-18llX", me->range.addr);
-		len += scnprintf(fileinfo + len,
-			DEBUGFS_SIZE - len, "|0x%-18llX\n", me->range.size);
-		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
 			"\n==========%s %s %s===========\n",
 			title, " GMAPS ", title);
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
@@ -4586,11 +4572,6 @@ static int fastrpc_probe(struct platform_device *pdev)
 	int err = 0;
 	struct fastrpc_apps *me = &gfa;
 	struct device *dev = &pdev->dev;
-	struct smq_phy_page range;
-	struct device_node *ion_node, *node;
-	struct platform_device *ion_pdev;
-	struct cma *cma;
-	uint32_t val;
 	int ret = 0;
 	uint32_t secure_domains;
 	int session = -1, cid = -1;
@@ -4621,43 +4602,6 @@ static int fastrpc_probe(struct platform_device *pdev)
 	if (of_device_is_compatible(dev->of_node,
 					"qcom,msm-adsprpc-mem-region")) {
 		me->dev = dev;
-		range.addr = 0;
-		ion_node = of_find_compatible_node(NULL, NULL, "qcom,msm-ion");
-		if (ion_node) {
-			for_each_available_child_of_node(ion_node, node) {
-				if (of_property_read_u32(node, "reg", &val))
-					continue;
-				if (val != ION_ADSP_HEAP_ID)
-					continue;
-				ion_pdev = of_find_device_by_node(node);
-				if (!ion_pdev)
-					break;
-				cma = dev_get_cma_area(&ion_pdev->dev);
-				if (cma) {
-					range.addr = cma_get_base(cma);
-					range.size = (size_t)cma_get_size(cma);
-				}
-				break;
-			}
-		}
-		if (range.addr && !of_property_read_bool(dev->of_node,
-							 "restrict-access")) {
-			int srcVM[1] = {VMID_HLOS};
-			int destVM[4] = {VMID_HLOS, VMID_MSS_MSA, VMID_SSC_Q6,
-						VMID_ADSP_Q6};
-			int destVMperm[4] = {PERM_READ | PERM_WRITE | PERM_EXEC,
-				PERM_READ | PERM_WRITE | PERM_EXEC,
-				PERM_READ | PERM_WRITE | PERM_EXEC,
-				PERM_READ | PERM_WRITE | PERM_EXEC,
-				};
-
-			err = hyp_assign_phys(range.addr, range.size,
-					srcVM, 1, destVM, destVMperm, 4);
-			if (err)
-				goto bail;
-			me->range.addr = range.addr;
-			me->range.size = range.size;
-		}
 		return 0;
 	}
 	me->legacy_remote_heap = of_property_read_bool(dev->of_node,
@@ -4938,7 +4882,7 @@ static void __exit fastrpc_device_exit(void)
 	debugfs_remove_recursive(debugfs_root);
 }
 
-late_initcall(fastrpc_device_init);
+module_init(fastrpc_device_init);
 module_exit(fastrpc_device_exit);
 
 MODULE_LICENSE("GPL v2");
