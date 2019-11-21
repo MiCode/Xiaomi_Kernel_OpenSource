@@ -159,6 +159,7 @@ struct ipa_mhi_client_ctx {
 	bool test_mode;
 	u32 pm_hdl;
 	u32 modem_pm_hdl;
+	enum ipa_mhi_mstate mhi_mstate;
 };
 
 static struct ipa_mhi_client_ctx *ipa_mhi_client_ctx;
@@ -1865,10 +1866,12 @@ static int ipa_mhi_resume_channels(bool LPTransitionRejected,
 		struct ipa_mhi_channel_ctx *channels, int max_channels)
 {
 	int i;
-	int res;
 	struct ipa_mhi_channel_ctx *channel;
+	bool is_switch_to_dbmode;
+	int res = 0;
 
 	IPA_MHI_FUNC_ENTRY();
+
 	for (i = 0; i < max_channels; i++) {
 		if (!channels[i].valid)
 			continue;
@@ -1876,11 +1879,41 @@ static int ipa_mhi_resume_channels(bool LPTransitionRejected,
 		    IPA_HW_MHI_CHANNEL_STATE_SUSPEND)
 			continue;
 		channel = &channels[i];
-		IPA_MHI_DBG("resuming channel %d\n", channel->id);
+		mutex_lock(&mhi_client_general_mutex);
+		IPA_MHI_DBG("resuming channel %d, mstate = %d\n",
+			channel->id, ipa_mhi_client_ctx->mhi_mstate);
+		switch (ipa_mhi_client_ctx->mhi_mstate) {
+		case IPA_MHI_STATE_M3:
+			is_switch_to_dbmode = true;
+			break;
+		case IPA_MHI_STATE_M2:
+		case IPA_MHI_STATE_M1:
+			is_switch_to_dbmode = false;
+			break;
+		case IPA_MHI_STATE_M0:
+			IPA_MHI_ERR("Resume in M0 - not expected\n");
+			res = -EINVAL;
+			break;
+		case IPA_MHI_STATE_M_MAX:
+			IPA_MHI_ERR("No knowledge of M state\n");
+			res = -EINVAL;
+			break;
+		default:
+			IPA_MHI_ERR("Unknown Mstart %d\n",
+				ipa_mhi_client_ctx->mhi_mstate);
+			res = -EINVAL;
+			break;
+		}
+		mutex_unlock(&mhi_client_general_mutex);
 
+		if (res)
+			return res;
+
+		IPA_MHI_DBG("is DB mode? %d\n", is_switch_to_dbmode);
 		res = ipa_mhi_resume_channels_internal(channel->client,
 			LPTransitionRejected, channel->brstmode_enabled,
-			channel->ch_scratch, channel->index);
+			channel->ch_scratch, channel->index,
+			is_switch_to_dbmode);
 
 		if (res) {
 			IPA_MHI_ERR("failed to resume channel %d error %d\n",
@@ -1893,6 +1926,7 @@ static int ipa_mhi_resume_channels(bool LPTransitionRejected,
 	}
 
 	IPA_MHI_FUNC_EXIT();
+
 	return 0;
 }
 
@@ -2138,6 +2172,42 @@ fail_stop_event_update_dl_channel:
 fail_suspend_dl_channel:
 		return res;
 }
+
+/**
+ * ipa_mhi_update_mstate() - Provides M state info
+ * @mstate_info:
+ *	state_m0:  in case of resume happening because of mhi going
+ *		into M0 state.
+ *	state_m2:  in case of suspend/resume happening because of mhi going
+ *		into M2 state.
+ *	state_m3:  in case of suspend/resume happening because of mhi going
+ *		into M3 state.
+ *
+ * This function is called by MHI client driver before MHI suspend/ resume.
+ * This function is called before MHI suspend or after MHI resume.
+ * When this function returns device can move to M1/M2/M3/D3cold state.
+ *
+ * Return codes: 0	  : success
+ *		 negative : error
+ */
+int ipa_mhi_update_mstate(enum ipa_mhi_mstate mstate_info)
+{
+	IPA_MHI_FUNC_ENTRY();
+
+	if (!ipa_mhi_client_ctx) {
+		IPA_MHI_ERR("ipa_mhi_client_ctx not created yet %d mstate\n",
+			mstate_info);
+		return -EPERM;
+	}
+
+	IPA_MHI_DBG("Req update mstate to %d\n", mstate_info);
+	mutex_lock(&mhi_client_general_mutex);
+	ipa_mhi_client_ctx->mhi_mstate = mstate_info;
+	mutex_unlock(&mhi_client_general_mutex);
+	IPA_MHI_FUNC_EXIT();
+	return 0;
+}
+
 
 /**
  * ipa_mhi_suspend() - Suspend MHI accelerated channels
@@ -2783,6 +2853,7 @@ int ipa_mhi_init(struct ipa_mhi_init_params *params)
 	ipa_mhi_client_ctx->use_ipadma = true;
 	ipa_mhi_client_ctx->assert_bit40 = !!params->assert_bit40;
 	ipa_mhi_client_ctx->test_mode = params->test_mode;
+	ipa_mhi_client_ctx->mhi_mstate = IPA_MHI_STATE_M0;
 
 	ipa_mhi_client_ctx->wq = create_singlethread_workqueue("ipa_mhi_wq");
 	if (!ipa_mhi_client_ctx->wq) {
