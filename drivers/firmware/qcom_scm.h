@@ -37,6 +37,10 @@ extern int  __qcom_scm_pas_auth_and_reset(struct device *dev, u32 peripheral);
 extern int  __qcom_scm_pas_shutdown(struct device *dev, u32 peripheral);
 extern int  __qcom_scm_pas_mss_reset(struct device *dev, bool reset);
 
+#define QCOM_SCM_SVC_UTIL			0x03
+#define QCOM_SCM_UTIL_GET_SEC_DUMP_STATE	0x10
+extern int __qcom_scm_get_sec_dump_state(struct device *dev, u32 *dump_state);
+
 #define QCOM_SCM_SVC_IO				0x05
 #define QCOM_SCM_IO_READ			0x01
 #define QCOM_SCM_IO_WRITE			0x02
@@ -60,6 +64,7 @@ extern void __qcom_scm_mmu_sync(struct device *dev, bool sync);
 #define QCOM_SCM_MP_RESTORE_SEC_CFG		0x02
 #define QCOM_SCM_MP_IOMMU_SECURE_PTBL_SIZE	0x03
 #define QCOM_SCM_MP_IOMMU_SECURE_PTBL_INIT	0x04
+#define QCOM_SCM_MP_MEM_PROTECT_REGION_ID	0x10
 #define QCOM_SCM_MP_IOMMU_SECURE_MAP2_FLAT	0x12
 #define QCOM_SCM_MP_IOMMU_SECURE_UNMAP2_FLAT	0x13
 #define QCOM_SCM_MP_ASSIGN			0x16
@@ -69,6 +74,8 @@ extern int __qcom_scm_iommu_secure_ptbl_size(struct device *dev, u32 spare,
 					     size_t *size);
 extern int __qcom_scm_iommu_secure_ptbl_init(struct device *dev, u64 addr,
 					     u32 size, u32 spare);
+extern int __qcom_scm_mem_protect_region_id(struct device *dev,
+					phys_addr_t paddr, size_t size);
 extern int __qcom_scm_iommu_secure_map(struct device *dev,
 				phys_addr_t sg_list_addr, size_t num_sg,
 				size_t sg_block_size, u64 sec_id, int cbndx,

@@ -322,6 +322,13 @@ static const struct reset_control_ops qcom_scm_pas_reset_ops = {
 	.deassert = qcom_scm_pas_reset_deassert,
 };
 
+int qcom_scm_get_sec_dump_state(u32 *dump_state)
+{
+	return __qcom_scm_get_sec_dump_state(__scm->dev,
+						dump_state);
+}
+EXPORT_SYMBOL(qcom_scm_get_sec_dump_state);
+
 int qcom_scm_io_readl(phys_addr_t addr, unsigned int *val)
 {
 	return __qcom_scm_io_readl(__scm->dev, addr, val);
@@ -364,6 +371,12 @@ int qcom_scm_iommu_secure_ptbl_init(u64 addr, u32 size, u32 spare)
 	return __qcom_scm_iommu_secure_ptbl_init(__scm->dev, addr, size, spare);
 }
 EXPORT_SYMBOL(qcom_scm_iommu_secure_ptbl_init);
+
+int qcom_scm_mem_protect_region_id(phys_addr_t paddr, size_t size)
+{
+	return __qcom_scm_mem_protect_region_id(__scm->dev, paddr, size);
+}
+EXPORT_SYMBOL(qcom_scm_mem_protect_region_id);
 
 int qcom_scm_iommu_secure_map(phys_addr_t sg_list_addr, size_t num_sg,
 				size_t sg_block_size, u64 sec_id, int cbndx,
