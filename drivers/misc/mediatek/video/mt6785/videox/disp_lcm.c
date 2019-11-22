@@ -20,6 +20,7 @@
 #include "disp_drv_platform.h"
 #include "ddp_manager.h"
 #include "disp_lcm.h"
+#include "primary_display.h"
 
 #if defined(MTK_LCM_DEVICE_TREE_SUPPORT)
 #include <linux/of.h>
@@ -1503,6 +1504,11 @@ int disp_lcm_set_backlight(struct disp_lcm_handle *plcm,
 	DISPFUNC();
 	if (!_is_lcm_inited(plcm)) {
 		DISP_PR_ERR("lcm_drv is null\n");
+		return -1;
+	}
+
+	if (pgc->state == DISP_SLEPT) {
+		DISP_PR_INFO("Sleep State set backlight invalid\n");
 		return -1;
 	}
 
