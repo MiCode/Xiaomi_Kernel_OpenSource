@@ -1268,7 +1268,7 @@ struct cmdqRecStruct *cmdq_mdp_get_valid_handle(unsigned long job)
 s32 cmdq_mdp_wait(struct cmdqRecStruct *handle,
 	struct cmdqRegValueStruct *results)
 {
-	s32 status, waitq;
+	s32 status, waitq, wait_cnt;
 	u32 i;
 	u64 exec_cost;
 
@@ -1310,6 +1310,15 @@ s32 cmdq_mdp_wait(struct cmdqRecStruct *handle,
 
 	CMDQ_MSG("%s wait handle:0x%p thread:%d\n",
 		__func__, handle, handle->thread);
+
+	wait_cnt = atomic_inc_return(&handle->wait_protect);
+	if (wait_cnt != 1) {
+		CMDQ_ERR(
+			"wait twice:%d submit:%llu trigger:%llu wait:%llu irq:%llu wakeup:%llu\n",
+			wait_cnt,
+			handle->submit, handle->trigger, handle->beginWait,
+			handle->gotIRQ, handle->wakedUp);
+	}
 
 	/* wait handle flush done */
 	exec_cost = sched_clock();
