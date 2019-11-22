@@ -50,9 +50,14 @@ enum spcom_cmd_id {
 	SPCOM_CMD_UNLOCK_ION_BUF = 0x554C434B, /* "ULCK" = 0x4C4F434B */
 	SPCOM_CMD_FSSR		= 0x46535352, /* "FSSR" = 0x46535352 */
 	SPCOM_CMD_CREATE_CHANNEL = 0x43524554, /* "CRET" = 0x43524554 */
+
+#define SPCOM_CMD_ENABLE_SSR \
+	SPCOM_CMD_ENABLE_SSR
+	SPCOM_CMD_ENABLE_SSR     = 0x45535352,   /* "ESSR" =0x45535352*/
+
 #define SPCOM_CMD_RESTART_SP \
 	SPCOM_CMD_RESTART_SP
-	SPCOM_CMD_RESTART_SP    = 0x52535452, /* "RSTR" = 0x52535452 */
+	SPCOM_CMD_RESTART_SP         = 0x52535452,   /* "RSTR" = 0x52535452 */
 };
 
 /*
@@ -94,6 +99,8 @@ struct spcom_user_create_channel_command {
 struct spcom_user_restart_sp_command {
 	enum spcom_cmd_id cmd_id;
 	uint32_t arg;
+#define SPCOM_IS_UPDATED_SUPPORETED
+	uint32_t is_updated;
 } __packed;
 
 /* maximum ION buf for send-modfied-command */

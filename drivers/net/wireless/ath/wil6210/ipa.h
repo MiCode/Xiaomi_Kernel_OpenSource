@@ -53,6 +53,7 @@ struct wil_ipa {
 	struct wil_ipa_rx_buf rx_buf; /* contiguous memory split into rx bufs */
 	struct msi_msg orig_msi_msg;
 	atomic_t outstanding_pkts;
+	u8 lan_rx_napi;
 };
 
 static inline bool wil_ipa_offload(void) {return ipa_offload; }

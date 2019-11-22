@@ -83,6 +83,7 @@ const char *ipa3_hdr_l2_type_name[] = {
 	__stringify(IPA_HDR_L2_NONE),
 	__stringify(IPA_HDR_L2_ETHERNET_II),
 	__stringify(IPA_HDR_L2_802_3),
+	__stringify(IPA_HDR_L2_802_1Q),
 };
 
 const char *ipa3_hdr_proc_type_name[] = {
@@ -93,10 +94,11 @@ const char *ipa3_hdr_proc_type_name[] = {
 	__stringify(IPA_HDR_PROC_802_3_TO_802_3),
 	__stringify(IPA_HDR_PROC_L2TP_HEADER_ADD),
 	__stringify(IPA_HDR_PROC_L2TP_HEADER_REMOVE),
+	__stringify(IPA_HDR_PROC_ETHII_TO_ETHII_EX),
 };
 
 static struct dentry *dent;
-static char dbg_buff[IPA_MAX_MSG_LEN];
+static char dbg_buff[IPA_MAX_MSG_LEN + 1];
 static char *active_clients_buf;
 
 static s8 ep_reg_idx;

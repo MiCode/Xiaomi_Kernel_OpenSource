@@ -56,8 +56,6 @@ static void drm_dp_send_link_address(struct drm_dp_mst_topology_mgr *mgr,
 static int drm_dp_send_enum_path_resources(struct drm_dp_mst_topology_mgr *mgr,
 					   struct drm_dp_mst_branch *mstb,
 					   struct drm_dp_mst_port *port);
-static int drm_dp_send_clear_payload_table(struct drm_dp_mst_topology_mgr *mgr,
-				  struct drm_dp_mst_branch *mstb);
 static bool drm_dp_validate_guid(struct drm_dp_mst_topology_mgr *mgr,
 				 u8 *guid);
 
@@ -591,8 +589,6 @@ static bool drm_dp_sideband_parse_reply(struct drm_dp_sideband_msg_rx *raw,
 	case DP_POWER_DOWN_PHY:
 	case DP_POWER_UP_PHY:
 		return drm_dp_sideband_parse_power_updown_phy_ack(raw, msg);
-	case DP_CLEAR_PAYLOAD_ID_TABLE:
-		return true;
 	default:
 		DRM_ERROR("Got unknown reply 0x%02x\n", msg->req_type);
 		return false;
@@ -732,15 +728,6 @@ static int build_power_updown_phy(struct drm_dp_sideband_msg_tx *msg,
 	req.u.port_num.port_number = port_num;
 	drm_dp_encode_sideband_req(&req, msg);
 	msg->path_msg = true;
-	return 0;
-}
-
-static int build_clear_payload_id_table(struct drm_dp_sideband_msg_tx *msg)
-{
-	struct drm_dp_sideband_msg_req_body req;
-
-	req.req_type = DP_CLEAR_PAYLOAD_ID_TABLE;
-	drm_dp_encode_sideband_req(&req, msg);
 	return 0;
 }
 
@@ -1877,32 +1864,6 @@ int drm_dp_send_power_updown_phy(struct drm_dp_mst_topology_mgr *mgr,
 }
 EXPORT_SYMBOL(drm_dp_send_power_updown_phy);
 
-static int drm_dp_send_clear_payload_table(struct drm_dp_mst_topology_mgr *mgr,
-				  struct drm_dp_mst_branch *mstb)
-{
-	struct drm_dp_sideband_msg_tx *txmsg;
-	int len, ret;
-
-	txmsg = kzalloc(sizeof(*txmsg), GFP_KERNEL);
-	if (!txmsg)
-		return -ENOMEM;
-
-	txmsg->dst = mstb;
-	len = build_clear_payload_id_table(txmsg);
-	drm_dp_queue_down_tx(mgr, txmsg);
-
-	ret = drm_dp_mst_wait_tx_reply(mstb, txmsg);
-	if (ret > 0) {
-		if (txmsg->reply.reply_type == 1)
-			ret = -EINVAL;
-		else
-			ret = 0;
-	}
-	kfree(txmsg);
-
-	return ret;
-}
-
 int drm_dp_mst_get_dsc_info(struct drm_dp_mst_topology_mgr *mgr,
 		struct drm_dp_mst_port *port,
 		struct drm_dp_mst_dsc_info *dsc_info)
@@ -2361,8 +2322,6 @@ int drm_dp_mst_topology_mgr_set_mst(struct drm_dp_mst_topology_mgr *mgr, bool ms
 			reset_pay.num_slots = 0x3f;
 			drm_dp_dpcd_write_payload(mgr, 0, &reset_pay);
 		}
-
-		drm_dp_send_clear_payload_table(mgr, mstb);
 
 		queue_work(system_long_wq, &mgr->work);
 

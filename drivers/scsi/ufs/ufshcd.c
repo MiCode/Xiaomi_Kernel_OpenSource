@@ -9097,7 +9097,7 @@ reinit:
 	 * during system suspend events. This will cause the UFS
 	 * device to re-initialize upon system resume events.
 	 */
-	if ((hba->dev_info.w_spec_version >= 0x300 &&
+	if ((hba->dev_info.w_spec_version >= 0x300 && hba->vreg_info.vccq &&
 		hba->vreg_info.vccq->sys_suspend_pwr_off) ||
 		(hba->dev_info.w_spec_version < 0x300 &&
 		hba->vreg_info.vccq2->sys_suspend_pwr_off))
@@ -10451,6 +10451,7 @@ static void ufshcd_vreg_set_lpm(struct ufs_hba *hba)
 	    !hba->dev_info.is_lu_power_on_wp) {
 		ufshcd_toggle_vreg(hba->dev, hba->vreg_info.vcc, false);
 		if (hba->dev_info.w_spec_version >= 0x300 &&
+			hba->vreg_info.vccq &&
 			hba->vreg_info.vccq->sys_suspend_pwr_off)
 			ufshcd_toggle_vreg(hba->dev,
 				hba->vreg_info.vccq, false);
@@ -10489,6 +10490,7 @@ static int ufshcd_vreg_set_hpm(struct ufs_hba *hba)
 			goto vcc_disable;
 
 		if (hba->dev_info.w_spec_version >= 0x300 &&
+			hba->vreg_info.vccq &&
 			hba->vreg_info.vccq->sys_suspend_pwr_off)
 			ret = ufshcd_toggle_vreg(hba->dev,
 				hba->vreg_info.vccq, true);
@@ -11082,6 +11084,9 @@ static void ufshcd_shutdown_clkscaling(struct ufs_hba *hba)
 int ufshcd_shutdown(struct ufs_hba *hba)
 {
 	int ret = 0;
+
+	if (!hba->is_powered)
+		goto out;
 
 	if (ufshcd_is_ufs_dev_poweroff(hba) && ufshcd_is_link_off(hba))
 		goto out;

@@ -350,7 +350,7 @@ ENDPROC(v7_flush_kern_dcache_area)
  *	- start   - virtual start address of region
  *	- end     - virtual end address of region
  */
-v7_dma_inv_range:
+ENTRY(v7_dma_inv_range)
 	dcache_line_size r2, r3
 	sub	r3, r2, #1
 	tst	r0, r3
@@ -380,7 +380,7 @@ ENDPROC(v7_dma_inv_range)
  *	- start   - virtual start address of region
  *	- end     - virtual end address of region
  */
-v7_dma_clean_range:
+ENTRY(v7_dma_clean_range)
 	dcache_line_size r2, r3
 	sub	r3, r2, #1
 	bic	r0, r0, r3
@@ -466,6 +466,8 @@ ENDPROC(v7_dma_unmap_area)
 
 	globl_equ	b15_dma_map_area,		v7_dma_map_area
 	globl_equ	b15_dma_unmap_area,		v7_dma_unmap_area
+	globl_equ	b15_dma_inv_range,		v7_dma_inv_range
+	globl_equ	b15_dma_clean_range,		v7_dma_clean_range
 	globl_equ	b15_dma_flush_range,		v7_dma_flush_range
 
 	define_cache_functions b15

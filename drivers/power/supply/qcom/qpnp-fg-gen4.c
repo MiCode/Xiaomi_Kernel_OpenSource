@@ -224,6 +224,7 @@ struct fg_dt_props {
 	int	delta_soc_thr;
 	int	vbatt_scale_thr_mv;
 	int	scale_timer_ms;
+	int	force_calib_level;
 	int	esr_timer_chg_fast[NUM_ESR_TIMERS];
 	int	esr_timer_chg_slow[NUM_ESR_TIMERS];
 	int	esr_timer_dischg_fast[NUM_ESR_TIMERS];
@@ -1144,6 +1145,9 @@ static int fg_gen4_set_calibrate_level(struct fg_gen4_chip *chip, int val)
 	if (!chip->pbs_dev)
 		return -ENODEV;
 
+	if (is_debug_batt_id(fg))
+		return 0;
+
 	if (val < 0 || val > 0x83) {
 		pr_err("Incorrect calibration level %d\n", val);
 		return -EINVAL;
@@ -1151,6 +1155,9 @@ static int fg_gen4_set_calibrate_level(struct fg_gen4_chip *chip, int val)
 
 	if (val == chip->calib_level)
 		return 0;
+
+	if (chip->dt.force_calib_level != -EINVAL)
+		val = chip->dt.force_calib_level;
 
 	buf = (u8)val;
 	rc = fg_write(fg, SDAM1_MEM_124_REG, &buf, 1);
@@ -3333,13 +3340,16 @@ static void fg_gen4_exit_soc_scale(struct fg_gen4_chip *chip)
 
 	if (chip->soc_scale_mode) {
 		alarm_cancel(&chip->soc_scale_alarm_timer);
-		cancel_work_sync(&chip->soc_scale_work);
+		if (work_busy(&chip->soc_scale_work) != WORK_BUSY_RUNNING)
+			cancel_work_sync(&chip->soc_scale_work);
+
 		/* While exiting soc_scale_mode, Update MSOC register */
 		fg_gen4_write_scale_msoc(chip);
 	}
 
 	chip->soc_scale_mode = false;
-	fg_dbg(fg, FG_FVSS, "Exit FVSS mode\n");
+	fg_dbg(fg, FG_FVSS, "Exit FVSS mode, work_status=%d\n",
+				work_busy(&chip->soc_scale_work));
 }
 
 static int fg_gen4_validate_soc_scale_mode(struct fg_gen4_chip *chip)
@@ -4054,6 +4064,12 @@ static void soc_scale_work(struct work_struct *work)
 	rc = fg_gen4_validate_soc_scale_mode(chip);
 	if (rc < 0)
 		pr_err("Failed to validate SOC scale mode, rc=%d\n", rc);
+
+	/* re-validate soc scale mode as we may have exited FVSS */
+	if (!chip->soc_scale_mode) {
+		fg_dbg(fg, FG_FVSS, "exit soc scale mode\n");
+		return;
+	}
 
 	if (chip->vbatt_res <= 0)
 		chip->vbatt_res = 0;
@@ -6059,6 +6075,10 @@ static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
 					&chip->dt.scale_timer_ms);
 	}
 
+	chip->dt.force_calib_level = -EINVAL;
+	of_property_read_u32(node, "qcom,force-calib-level",
+					&chip->dt.force_calib_level);
+
 	rc = fg_parse_ki_coefficients(fg);
 	if (rc < 0)
 		pr_err("Error in parsing Ki coefficients, rc=%d\n", rc);
@@ -6196,6 +6216,7 @@ static int fg_gen4_probe(struct platform_device *pdev)
 	chip->ki_coeff_full_soc[1] = -EINVAL;
 	chip->esr_soh_cycle_count = -EINVAL;
 	chip->calib_level = -EINVAL;
+	chip->soh = -EINVAL;
 	fg->regmap = dev_get_regmap(fg->dev->parent, NULL);
 	if (!fg->regmap) {
 		dev_err(fg->dev, "Parent regmap is unavailable\n");

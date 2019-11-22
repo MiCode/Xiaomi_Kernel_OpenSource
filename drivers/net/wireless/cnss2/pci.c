@@ -58,6 +58,7 @@
 static DEFINE_SPINLOCK(pci_link_down_lock);
 static DEFINE_SPINLOCK(pci_reg_window_lock);
 static DEFINE_SPINLOCK(time_sync_lock);
+static DEFINE_SPINLOCK(pm_qos_lock);
 
 #define MHI_TIMEOUT_OVERWRITE_MS	(plat_priv->ctrl_params.mhi_timeout)
 #define MHI_M2_TIMEOUT_MS		(plat_priv->ctrl_params.mhi_m2_timeout)
@@ -395,9 +396,11 @@ static int cnss_pci_reg_read(struct cnss_pci_data *pci_priv,
 {
 	int ret;
 
-	ret = cnss_pci_check_link_status(pci_priv);
-	if (ret)
-		return ret;
+	if (!in_interrupt() && !irqs_disabled()) {
+		ret = cnss_pci_check_link_status(pci_priv);
+		if (ret)
+			return ret;
+	}
 
 	if (pci_priv->pci_dev->device == QCA6174_DEVICE_ID ||
 	    offset < MAX_UNWINDOWED_ADDRESS) {
@@ -420,9 +423,11 @@ static int cnss_pci_reg_write(struct cnss_pci_data *pci_priv, u32 offset,
 {
 	int ret;
 
-	ret = cnss_pci_check_link_status(pci_priv);
-	if (ret)
-		return ret;
+	if (!in_interrupt() && !irqs_disabled()) {
+		ret = cnss_pci_check_link_status(pci_priv);
+		if (ret)
+			return ret;
+	}
 
 	if (pci_priv->pci_dev->device == QCA6174_DEVICE_ID ||
 	    offset < MAX_UNWINDOWED_ADDRESS) {
@@ -1086,11 +1091,6 @@ static int cnss_pci_get_device_timestamp(struct cnss_pci_data *pci_priv,
 		return -EINVAL;
 	}
 
-	cnss_pci_reg_write(pci_priv, QCA6390_WLAON_GLOBAL_COUNTER_CTRL5,
-			   QCA6390_TIME_SYNC_CLEAR);
-	cnss_pci_reg_write(pci_priv, QCA6390_WLAON_GLOBAL_COUNTER_CTRL5,
-			   QCA6390_TIME_SYNC_ENABLE);
-
 	cnss_pci_reg_read(pci_priv, QCA6390_WLAON_GLOBAL_COUNTER_CTRL3, &low);
 	cnss_pci_reg_read(pci_priv, QCA6390_WLAON_GLOBAL_COUNTER_CTRL4, &high);
 
@@ -1099,6 +1099,18 @@ static int cnss_pci_get_device_timestamp(struct cnss_pci_data *pci_priv,
 	*time_us = device_ticks * 10;
 
 	return 0;
+}
+
+static void cnss_pci_enable_time_sync_counter(struct cnss_pci_data *pci_priv)
+{
+	cnss_pci_reg_write(pci_priv, QCA6390_WLAON_GLOBAL_COUNTER_CTRL5,
+			   QCA6390_TIME_SYNC_ENABLE);
+}
+
+static void cnss_pci_clear_time_sync_counter(struct cnss_pci_data *pci_priv)
+{
+	cnss_pci_reg_write(pci_priv, QCA6390_WLAON_GLOBAL_COUNTER_CTRL5,
+			   QCA6390_TIME_SYNC_CLEAR);
 }
 
 static int cnss_pci_update_timestamp(struct cnss_pci_data *pci_priv)
@@ -1118,8 +1130,11 @@ static int cnss_pci_update_timestamp(struct cnss_pci_data *pci_priv)
 		return ret;
 
 	spin_lock_irqsave(&time_sync_lock, flags);
+	cnss_pci_clear_time_sync_counter(pci_priv);
+	cnss_pci_enable_time_sync_counter(pci_priv);
 	host_time_us = cnss_get_host_timestamp(plat_priv);
 	ret = cnss_pci_get_device_timestamp(pci_priv, &device_time_us);
+	cnss_pci_clear_time_sync_counter(pci_priv);
 	spin_unlock_irqrestore(&time_sync_lock, flags);
 	if (ret)
 		goto force_wake_put;
@@ -1209,6 +1224,73 @@ static void cnss_pci_stop_time_sync_update(struct cnss_pci_data *pci_priv)
 	cancel_delayed_work_sync(&pci_priv->time_sync_work);
 }
 
+static int cnss_pci_pm_qos_notify(struct notifier_block *nb,
+				  unsigned long curr_val, void *cpus)
+{
+	struct cnss_pci_data *pci_priv =
+		container_of(nb, struct cnss_pci_data, pm_qos_nb);
+	unsigned long flags;
+
+	spin_lock_irqsave(&pm_qos_lock, flags);
+
+	if (!pci_priv->runtime_pm_prevented &&
+	    curr_val != PM_QOS_CPU_DMA_LAT_DEFAULT_VALUE) {
+		cnss_pci_pm_runtime_get_noresume(pci_priv);
+		pci_priv->runtime_pm_prevented = true;
+	} else if (pci_priv->runtime_pm_prevented &&
+		   curr_val == PM_QOS_CPU_DMA_LAT_DEFAULT_VALUE) {
+		cnss_pci_pm_runtime_put_noidle(pci_priv);
+		pci_priv->runtime_pm_prevented = false;
+	}
+
+	spin_unlock_irqrestore(&pm_qos_lock, flags);
+
+	return NOTIFY_DONE;
+}
+
+static int cnss_pci_pm_qos_add_notifier(struct cnss_pci_data *pci_priv)
+{
+	int ret;
+
+	if (pci_priv->device_id == QCA6174_DEVICE_ID)
+		return 0;
+
+	pci_priv->pm_qos_nb.notifier_call = cnss_pci_pm_qos_notify;
+	ret = pm_qos_add_notifier(PM_QOS_CPU_DMA_LATENCY,
+				  &pci_priv->pm_qos_nb);
+	if (ret)
+		cnss_pr_err("Failed to add qos notifier, err = %d\n",
+			    ret);
+
+	return ret;
+}
+
+static int cnss_pci_pm_qos_remove_notifier(struct cnss_pci_data *pci_priv)
+{
+	int ret;
+	unsigned long flags;
+
+	if (pci_priv->device_id == QCA6174_DEVICE_ID)
+		return 0;
+
+	ret = pm_qos_remove_notifier(PM_QOS_CPU_DMA_LATENCY,
+				     &pci_priv->pm_qos_nb);
+	if (ret)
+		cnss_pr_dbg("Failed to remove qos notifier, err = %d\n",
+			    ret);
+
+	spin_lock_irqsave(&pm_qos_lock, flags);
+
+	if (pci_priv->runtime_pm_prevented) {
+		cnss_pci_pm_runtime_put_noidle(pci_priv);
+		pci_priv->runtime_pm_prevented = false;
+	}
+
+	spin_unlock_irqrestore(&pm_qos_lock, flags);
+
+	return ret;
+}
+
 int cnss_pci_call_driver_probe(struct cnss_pci_data *pci_priv)
 {
 	int ret = 0;
@@ -1270,6 +1352,7 @@ int cnss_pci_call_driver_probe(struct cnss_pci_data *pci_priv)
 	}
 
 	cnss_pci_start_time_sync_update(pci_priv);
+	cnss_pci_pm_qos_add_notifier(pci_priv);
 
 	return 0;
 
@@ -1287,8 +1370,6 @@ int cnss_pci_call_driver_remove(struct cnss_pci_data *pci_priv)
 
 	plat_priv = pci_priv->plat_priv;
 
-	cnss_pci_stop_time_sync_update(pci_priv);
-
 	if (test_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state) ||
 	    test_bit(CNSS_FW_BOOT_RECOVERY, &plat_priv->driver_state) ||
 	    test_bit(CNSS_DRIVER_DEBUG, &plat_priv->driver_state)) {
@@ -1300,6 +1381,9 @@ int cnss_pci_call_driver_remove(struct cnss_pci_data *pci_priv)
 		cnss_pr_err("driver_ops is NULL\n");
 		return -EINVAL;
 	}
+
+	cnss_pci_pm_qos_remove_notifier(pci_priv);
+	cnss_pci_stop_time_sync_update(pci_priv);
 
 	if (test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state) &&
 	    test_bit(CNSS_DRIVER_PROBED, &plat_priv->driver_state)) {

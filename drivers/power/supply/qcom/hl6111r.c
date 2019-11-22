@@ -31,6 +31,7 @@ struct hl6111r {
 
 struct vout_range {
 	int min_mv;
+	int max_mv;
 	int step_mv;
 };
 
@@ -255,11 +256,11 @@ static int hl6111r_get_temp(struct hl6111r *chip, int *val)
 }
 
 static const struct vout_range hl6111r_vout_range[] = {
-	/* {Range's min value (mV), Range's step size (mV) */
-	{4940, 20},
-	{7410, 30},
-	{9880, 40},
-	{3952, 16}
+	/* {Range's min value (mV), max value (mV), Range's step size (mV) */
+	{4940, 10040, 20},
+	{7410, 15060, 30},
+	{9880, 20080, 40},
+	{3952, 8032, 16}
 };
 
 static int hl6111r_get_vout_target(struct hl6111r *chip, int *val)
@@ -393,6 +394,7 @@ static enum power_supply_property hl6111r_psy_props[] = {
 	POWER_SUPPLY_PROP_TEMP,
 	POWER_SUPPLY_PROP_VOLTAGE_AVG,
 	POWER_SUPPLY_PROP_CURRENT_AVG,
+	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_VOLTAGE_STEP,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT,
@@ -433,6 +435,10 @@ static int hl6111r_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_AVG:
 		rc = hl6111r_get_current_avg(chip, val);
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
+		/* Return only range 0's max value for now */
+		*val = (hl6111r_vout_range[0].max_mv * 1000);
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_STEP:
 		/*

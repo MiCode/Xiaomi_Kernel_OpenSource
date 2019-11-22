@@ -18,6 +18,7 @@
 #define MAX_NO_OF_MAC_ADDR		4
 #define QMI_WLFW_MAX_TIMESTAMP_LEN	32
 #define QMI_WLFW_MAX_NUM_MEM_SEG	32
+#define QMI_WLFW_MAX_BUILD_ID_LEN	128
 #define CNSS_RDDM_TIMEOUT_MS		20000
 #define RECOVERY_TIMEOUT		60000
 #define TIME_CLOCK_FREQ_HZ		19200000
@@ -325,6 +326,7 @@ struct cnss_plat_data {
 	struct wlfw_rf_board_info board_info;
 	struct wlfw_soc_info soc_info;
 	struct wlfw_fw_version_info fw_version_info;
+	char fw_build_id[QMI_WLFW_MAX_BUILD_ID_LEN + 1];
 	u32 otp_version;
 	u32 fw_mem_seg_len;
 	struct cnss_fw_mem fw_mem[QMI_WLFW_MAX_NUM_MEM_SEG];

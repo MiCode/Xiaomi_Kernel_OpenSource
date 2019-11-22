@@ -8,5 +8,6 @@ obj-$(CONFIG_PHY_QCOM_UFS)		+= phy-qcom-ufs.o
 obj-$(CONFIG_PHY_QCOM_UFS)		+= phy-qcom-ufs-qrbtc-sdm845.o
 obj-$(CONFIG_PHY_QCOM_UFS) 		+= phy-qcom-ufs-qmp-v4.o
 obj-$(CONFIG_PHY_QCOM_UFS) 		+= phy-qcom-ufs-qmp-v4-lito.o
+obj-$(CONFIG_PHY_QCOM_UFS)		+= phy-qcom-ufs-qmp-v3-660.o
 obj-$(CONFIG_PHY_QCOM_USB_HS) 		+= phy-qcom-usb-hs.o
 obj-$(CONFIG_PHY_QCOM_USB_HSIC) 	+= phy-qcom-usb-hsic.o
