@@ -127,6 +127,15 @@ config MTK_LENS_AK7345AF_SUPPORT
 	  lens driver for the camera sensor module
 	  Set as y if the driver is used in this project
 
+config MTK_LENS_DW9800WAF_SUPPORT
+	bool "DW9800WAF Lens Driver"
+	default n
+	help
+	  DW9800WAF Lens Driver
+	  This config is used to enable the corresponding
+	  lens driver for the camera sensor module
+	  Set as y if the driver is used in this project
+
 config MTK_LENS_DW9718AF_SUPPORT
 	bool "DW9718AF Lens Driver"
 	default n
