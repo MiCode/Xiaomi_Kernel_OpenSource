@@ -990,7 +990,7 @@ static void process_dbg_opt(const char *opt)
 		}
 	} else if (strncmp(opt, "dst_switch:", 11) == 0) {
 		char *p = (char *)opt + 11;
-		UINT32 mode;
+		UINT32 mode = 0;
 
 		ret = kstrtouint(p, 0, &mode);
 		if (ret) {
@@ -1001,7 +1001,7 @@ static void process_dbg_opt(const char *opt)
 		return;
 	} else if (strncmp(opt, "cv_switch:", 10) == 0) {
 		char *p = (char *)opt + 10;
-		UINT32 mode;
+		UINT32 mode = 0;
 
 		ret = kstrtouint(p, 0, &mode);
 		if (ret) {
@@ -1054,7 +1054,7 @@ static void process_dbg_opt(const char *opt)
 		primary_display_esd_recovery();
 	} else if (strncmp(opt, "set_esd_mode:", 13) == 0) {
 		char *p = (char *)opt + 13;
-		unsigned int mode;
+		unsigned int mode = 0;
 
 		ret = kstrtouint(p, 0, &mode);
 		if (ret) {

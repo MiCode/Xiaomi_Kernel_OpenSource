@@ -648,15 +648,20 @@ int set_emi_bound_tb(int idx, int num, int *val)
 
 void layering_rule_init(void)
 {
+	int opt = 0;
+
 	l_rule_info.primary_fps = 60;
 	/* initialize max HRT level */
 	layering_rule_set_max_hrt_level();
 	register_layering_rule_ops(&l_rule_ops, &l_rule_info);
 
-	set_layering_opt(LYE_OPT_RPO,
-		disp_helper_get_option(DISP_OPT_RPO));
-	set_layering_opt(LYE_OPT_EXT_LAYER,
-		disp_helper_get_option(DISP_OPT_OVL_EXT_LAYER));
+	opt = disp_helper_get_option(DISP_OPT_RPO);
+	if (opt != -1)
+		set_layering_opt(LYE_OPT_RPO, opt);
+
+	opt = disp_helper_get_option(DISP_OPT_OVL_EXT_LAYER);
+	if (opt != -1)
+		set_layering_opt(LYE_OPT_EXT_LAYER, opt);
 }
 
 int layering_rule_get_mm_freq_table(enum HRT_OPP_LEVEL opp_level)
