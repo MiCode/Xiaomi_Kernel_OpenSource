@@ -476,6 +476,7 @@ class MT6768(ChipObj):
 
     def init_objs(self):
         ChipObj.init_objs(self)
+        ChipObj.replace_obj(self, 'adc', AdcObj_MT6785())
         ChipObj.replace_obj(self, 'pmic', PmicObj_MT6758())
         ChipObj.replace_obj(self, 'gpio', GpioObj_MT6768())
         ChipObj.replace_obj(self, 'eint', EintObj_MT6739(ChipObj.get_gpioObj(self)))
