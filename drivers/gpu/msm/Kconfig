@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config QCOM_KGSL
+	tristate "Qualcomm Technologies, Inc. 3D Graphics driver"
+	depends on ARCH_QCOM
+	depends on QCOM_QFPROM
+	help
+	  3D graphics driver for the Adreno family of GPUs from QTI.
+	  Required to use hardware accelerated OpenGL, compute and Vulkan
+	  on QTI targets. This includes power management, memory management,
+	  and scheduling for the Adreno GPUs.
+
+config QCOM_ADRENO_DEFAULT_GOVERNOR
+	string "devfreq governor for the adreno core"
+	default "simple_ondemand"
+	depends on QCOM_KGSL
