@@ -189,13 +189,12 @@ static void ethqos_register_pps_isr(struct stmmac_priv *priv, int ch)
 
 static void ethqos_unregister_pps_isr(struct stmmac_priv *priv, int ch)
 {
-	int ret;
 	struct qcom_ethqos *ethqos = priv->plat->bsp_priv;
 
 	if (ch == DWC_ETH_QOS_PPS_CH_2) {
-		ret = free_irq(ethqos->pps_class_a_irq, priv);
+		free_irq(ethqos->pps_class_a_irq, priv);
 	} else if (ch == DWC_ETH_QOS_PPS_CH_3) {
-		ret = free_irq(ethqos->pps_class_b_irq, priv);
+		free_irq(ethqos->pps_class_b_irq, priv);
 	}
 }
 
@@ -266,7 +265,6 @@ int ppsout_config(struct stmmac_priv *priv, struct ifr_data_struct *req)
 int ethqos_init_pps(struct stmmac_priv *priv)
 {
 	u32 value;
-	struct qcom_ethqos *ethqos = priv->plat->bsp_priv;
 	struct ifr_data_struct req = {0};
 	struct pps_cfg eth_pps_cfg = {0};
 
