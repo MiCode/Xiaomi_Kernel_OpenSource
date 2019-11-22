@@ -69,6 +69,8 @@ struct wake_lock fdvt_wake_lock;
 
 #include <smi_public.h>
 
+#include <m4u.h>
+
 #define FDVT_DEVNAME     "camera-fdvt"
 
 #define LOG_VRB(format, args...) \
@@ -384,6 +386,25 @@ void FDVT_basic_config(void)
 	FDVT_WR32(0x00000000, FDVT_LFD_INFO_YPOS_14);
 	FDVT_WR32(0x00000000, FDVT_INT_EN);
 	FDVT_WR32(0x0190012C, FDVT_SRC_WD_HT);
+}
+
+/**************************************************************
+ *
+ **************************************************************/
+enum m4u_callback_ret_t FDVT_M4U_TranslationFault_callback(int port,
+	unsigned int mva, void *data)
+{
+	unsigned int u4RegValue = 0;
+	unsigned int u4Index = 0;
+
+	pr_info("[FDVT_M4U]fault call port=%d, mva=0x%x", port, mva);
+
+	for (u4Index = 0x0; u4Index < 0x180; u4Index += 4) {
+		u4RegValue = ioread32((void *)(FDVT_ADDR + u4Index));
+		LOG_DBG("+0x%x 0x%x\n", u4Index, u4RegValue);
+	}
+
+	return M4U_CALLBACK_HANDLED;
 }
 
 /***********************************************************
@@ -1376,6 +1397,21 @@ static int __init FDVT_driver_init(void)
 	register_early_suspend(&FDVT_early_suspend_desc);
 	#endif
 
+#if (MTK_FD_LARB == 2)
+	m4u_register_fault_callback(M4U_PORT_CAM_FD_RP,
+			FDVT_M4U_TranslationFault_callback, NULL);
+	m4u_register_fault_callback(M4U_PORT_CAM_FD_WR,
+			FDVT_M4U_TranslationFault_callback, NULL);
+	m4u_register_fault_callback(M4U_PORT_CAM_FD_RB,
+			FDVT_M4U_TranslationFault_callback, NULL);
+#else
+	m4u_register_fault_callback(M4U_PORT_CAM_FDVT_RP,
+			FDVT_M4U_TranslationFault_callback, NULL);
+	m4u_register_fault_callback(M4U_PORT_CAM_FDVT_WR,
+			FDVT_M4U_TranslationFault_callback, NULL);
+	m4u_register_fault_callback(M4U_PORT_CAM_FDVT_RB,
+			FDVT_M4U_TranslationFault_callback, NULL);
+#endif
 	LOG_DBG("[FDVT_DEBUG] Done\n");
 
 	return 0;
