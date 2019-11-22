@@ -7,3 +7,4 @@ obj-$(CONFIG_QCOM_SPMI_TEMP_ALARM)	+= qcom-spmi-temp-alarm.o
 obj-$(CONFIG_QTI_QMI_SENSOR) += qti_qmi_sensor.o
 qti_qmi_sensor-y += thermal_sensor_service_v01.o qmi_sensors.o
 obj-$(CONFIG_QTI_CPU_ISOLATE_COOLING_DEVICE) += cpu_isolate.o
+obj-$(CONFIG_QTI_BCL_PMIC5) += bcl_pmic5.o

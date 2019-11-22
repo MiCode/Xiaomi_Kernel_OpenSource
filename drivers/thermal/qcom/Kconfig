@@ -30,6 +30,15 @@ config QTI_QMI_SENSOR
 	   These sensors can take thresholds and notify the thermal
 	   framework when the threshold is reached.
 
+config QTI_BCL_PMIC5
+	tristate "BCL driver for BCL peripherals in PMIC5"
+	depends on SPMI && THERMAL_OF && QTI_THERMAL
+	help
+	  This driver provides routines to configure and monitor the BCL
+	  PMIC peripheral. This driver registers the battery current and
+	  voltage sensors with the thermal core framework and can take
+	  threshold input and notify the thermal core when the threshold is
+	  reached.
 
 config QTI_CPU_ISOLATE_COOLING_DEVICE
 	tristate "QTI CPU Isolate cooling devices"
