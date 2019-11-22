@@ -1194,8 +1194,7 @@ int mhi_process_ctrl_ev_ring(struct mhi_controller *mhi_cntrl,
 							MHI_PM_SYS_ERR_DETECT);
 				write_unlock_irq(&mhi_cntrl->pm_lock);
 				if (new_state == MHI_PM_SYS_ERR_DETECT)
-					schedule_work(
-						&mhi_cntrl->syserr_worker);
+					mhi_process_sys_err(mhi_cntrl);
 				break;
 			}
 			default:
@@ -1407,29 +1406,25 @@ int mhi_process_bw_scale_ev_ring(struct mhi_controller *mhi_cntrl,
 	struct mhi_link_info link_info, *cur_info = &mhi_cntrl->mhi_link_info;
 	int result, ret = 0;
 
-	mutex_lock(&mhi_cntrl->pm_mutex);
-
 	if (unlikely(MHI_EVENT_ACCESS_INVALID(mhi_cntrl->pm_state))) {
 		MHI_LOG("No EV access, PM_STATE:%s\n",
 			to_mhi_pm_state_str(mhi_cntrl->pm_state));
 		ret = -EIO;
-		goto exit_bw_process;
+		goto exit_no_lock;
 	}
 
-	/*
-	 * BW change is not process during suspend since we're suspending link,
-	 * host will process it during resume
-	 */
-	if (MHI_PM_IN_SUSPEND_STATE(mhi_cntrl->pm_state)) {
-		ret = -EACCES;
-		goto exit_bw_process;
-	}
+	ret = __mhi_device_get_sync(mhi_cntrl);
+	if (ret)
+		goto exit_no_lock;
+
+	mutex_lock(&mhi_cntrl->pm_mutex);
 
 	spin_lock_bh(&mhi_event->lock);
 	dev_rp = mhi_to_virtual(ev_ring, er_ctxt->rp);
 
 	if (ev_ring->rp == dev_rp) {
 		spin_unlock_bh(&mhi_event->lock);
+		MHI_VERB("no pending event found\n");
 		goto exit_bw_process;
 	}
 
@@ -1474,12 +1469,15 @@ int mhi_process_bw_scale_ev_ring(struct mhi_controller *mhi_cntrl,
 		mhi_write_reg(mhi_cntrl, mhi_cntrl->bw_scale_db, 0,
 			      MHI_BW_SCALE_RESULT(result,
 						  link_info.sequence_num));
+
+	mhi_cntrl->wake_put(mhi_cntrl, false);
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 
 exit_bw_process:
-	MHI_VERB("exit er_index:%u\n", mhi_event->er_index);
-
 	mutex_unlock(&mhi_cntrl->pm_mutex);
+
+exit_no_lock:
+	MHI_VERB("exit er_index:%u\n", mhi_event->er_index);
 
 	return ret;
 }
@@ -1539,7 +1537,7 @@ void mhi_ctrl_ev_task(unsigned long data)
 		}
 		write_unlock_irq(&mhi_cntrl->pm_lock);
 		if (pm_state == MHI_PM_SYS_ERR_DETECT)
-			schedule_work(&mhi_cntrl->syserr_worker);
+			mhi_process_sys_err(mhi_cntrl);
 	}
 }
 
@@ -1624,7 +1622,7 @@ irqreturn_t mhi_intvec_threaded_handlr(int irq_number, void *dev)
 			mhi_cntrl->status_cb(mhi_cntrl, mhi_cntrl->priv_data,
 					     MHI_CB_FATAL_ERROR);
 		else
-			schedule_work(&mhi_cntrl->syserr_worker);
+			mhi_process_sys_err(mhi_cntrl);
 	}
 
 exit_intvec:
@@ -1643,7 +1641,8 @@ irqreturn_t mhi_intvec_handlr(int irq_number, void *dev)
 	wake_up_all(&mhi_cntrl->state_event);
 	MHI_VERB("Exit\n");
 
-	schedule_work(&mhi_cntrl->low_priority_worker);
+	if (MHI_IN_MISSION_MODE(mhi_cntrl->ee))
+		schedule_work(&mhi_cntrl->low_priority_worker);
 
 	return IRQ_WAKE_THREAD;
 }

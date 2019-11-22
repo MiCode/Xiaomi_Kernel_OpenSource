@@ -330,7 +330,6 @@ struct mhi_controller {
 	/* worker for different state transitions */
 	struct work_struct st_worker;
 	struct work_struct fw_worker;
-	struct work_struct syserr_worker;
 	struct work_struct low_priority_worker;
 	wait_queue_head_t state_event;
 

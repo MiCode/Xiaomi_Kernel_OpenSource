@@ -589,6 +589,21 @@ struct ipahal_pkt_status {
 };
 
 /*
+ * struct ipahal_pkt_status_thin - this struct is used to parse only
+ *  a few fields from the status packet, needed for LAN optimization.
+ * @exception: The first exception that took place.
+ * @metadata: meta data value used by packet
+ * @endp_src_idx: Source end point index.
+ * @ucp: UC Processing flag
+ */
+struct ipahal_pkt_status_thin {
+	enum ipahal_pkt_status_exception exception;
+	u32 metadata;
+	u8 endp_src_idx;
+	bool ucp;
+};
+
+/*
  * ipahal_pkt_status_get_size() - Get H/W size of packet status
  */
 u32 ipahal_pkt_status_get_size(void);
@@ -600,6 +615,17 @@ u32 ipahal_pkt_status_get_size(void);
  */
 void ipahal_pkt_status_parse(const void *unparsed_status,
 	struct ipahal_pkt_status *status);
+
+/*
+ * ipahal_pkt_status_parse_thin() - Parse some of the packet status fields
+ * for specific usage in the LAN rx data path where parsing needs to be done
+ * but only for specific fields.
+ * @unparsed_status: Pointer to H/W format of the packet status as read from HW
+ * @status: Pointer to pre-allocated buffer where the parsed info will be
+ * stored
+ */
+void ipahal_pkt_status_parse_thin(const void *unparsed_status,
+	struct ipahal_pkt_status_thin *status);
 
 /*
  * ipahal_pkt_status_exception_str() - returns string represents exception type
@@ -630,6 +656,7 @@ void ipahal_cp_hdr_to_hw_buff(void *base, u32 offset, u8 *hdr, u32 hdr_len);
  * @hdr_base_addr: base address in table
  * @offset_entry: offset from hdr_base_addr in table
  * @l2tp_params: l2tp parameters
+ * @generic_params: generic proc_ctx params
  * @is_64: Indicates whether header base address/dma base address is 64 bit.
  */
 int ipahal_cp_proc_ctx_to_hw_buff(enum ipa_hdr_proc_type type,
@@ -637,7 +664,9 @@ int ipahal_cp_proc_ctx_to_hw_buff(enum ipa_hdr_proc_type type,
 		bool is_hdr_proc_ctx, dma_addr_t phys_base,
 		u64 hdr_base_addr,
 		struct ipa_hdr_offset_entry *offset_entry,
-		struct ipa_l2tp_hdr_proc_ctx_params l2tp_params, bool is_64);
+		struct ipa_l2tp_hdr_proc_ctx_params *l2tp_params,
+		struct ipa_eth_II_to_eth_II_ex_procparams *generic_params,
+		bool is_64);
 
 /*
  * ipahal_get_proc_ctx_needed_len() - calculates the needed length for addition

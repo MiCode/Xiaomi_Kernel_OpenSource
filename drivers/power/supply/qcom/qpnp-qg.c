@@ -4006,6 +4006,7 @@ static int qg_parse_cl_dt(struct qpnp_qg *chip)
 #define DEFAULT_SLEEP_TIME_SECS		1800 /* 30 mins */
 #define DEFAULT_SYS_MIN_VOLT_MV		2800
 #define DEFAULT_FVSS_VBAT_MV		3500
+#define DEFAULT_TCSS_ENTRY_SOC		90
 static int qg_parse_dt(struct qpnp_qg *chip)
 {
 	int rc = 0;
@@ -4247,6 +4248,18 @@ static int qg_parse_dt(struct qpnp_qg *chip)
 			chip->dt.fvss_vbat_mv = DEFAULT_FVSS_VBAT_MV;
 		else
 			chip->dt.fvss_vbat_mv = temp;
+	}
+
+	if (of_property_read_bool(node, "qcom,tcss-enable")) {
+
+		chip->dt.tcss_enable = true;
+
+		rc = of_property_read_u32(node,
+				"qcom,tcss-entry-soc", &temp);
+		if (rc < 0)
+			chip->dt.tcss_entry_soc = DEFAULT_TCSS_ENTRY_SOC;
+		else
+			chip->dt.tcss_entry_soc = temp;
 	}
 
 	chip->dt.multi_profile_load = of_property_read_bool(node,

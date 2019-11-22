@@ -83,6 +83,7 @@ const char *ipa3_hdr_l2_type_name[] = {
 	__stringify(IPA_HDR_L2_NONE),
 	__stringify(IPA_HDR_L2_ETHERNET_II),
 	__stringify(IPA_HDR_L2_802_3),
+	__stringify(IPA_HDR_L2_802_1Q),
 };
 
 const char *ipa3_hdr_proc_type_name[] = {
@@ -93,10 +94,11 @@ const char *ipa3_hdr_proc_type_name[] = {
 	__stringify(IPA_HDR_PROC_802_3_TO_802_3),
 	__stringify(IPA_HDR_PROC_L2TP_HEADER_ADD),
 	__stringify(IPA_HDR_PROC_L2TP_HEADER_REMOVE),
+	__stringify(IPA_HDR_PROC_ETHII_TO_ETHII_EX),
 };
 
 static struct dentry *dent;
-static char dbg_buff[IPA_MAX_MSG_LEN];
+static char dbg_buff[IPA_MAX_MSG_LEN + 1];
 static char *active_clients_buf;
 
 static s8 ep_reg_idx;
@@ -440,24 +442,24 @@ static int ipa3_attrib_dump(struct ipa_rule_attrib *attrib,
 	int i;
 
 	if (attrib->attrib_mask & IPA_FLT_IS_PURE_ACK)
-		pr_err("is_pure_ack ");
+		pr_cont("is_pure_ack ");
 
 	if (attrib->attrib_mask & IPA_FLT_TOS)
-		pr_err("tos:%d ", attrib->u.v4.tos);
+		pr_cont("tos:%d ", attrib->u.v4.tos);
 
 	if (attrib->attrib_mask & IPA_FLT_TOS_MASKED) {
-		pr_err("tos_value:%d ", attrib->tos_value);
-		pr_err("tos_mask:%d ", attrib->tos_mask);
+		pr_cont("tos_value:%d ", attrib->tos_value);
+		pr_cont("tos_mask:%d ", attrib->tos_mask);
 	}
 
 	if (attrib->attrib_mask & IPA_FLT_PROTOCOL)
-		pr_err("protocol:%d ", attrib->u.v4.protocol);
+		pr_cont("protocol:%d ", attrib->u.v4.protocol);
 
 	if (attrib->attrib_mask & IPA_FLT_SRC_ADDR) {
 		if (ip == IPA_IP_v4) {
 			addr[0] = htonl(attrib->u.v4.src_addr);
 			mask[0] = htonl(attrib->u.v4.src_addr_mask);
-			pr_err(
+			pr_cont(
 					"src_addr:%pI4 src_addr_mask:%pI4 ",
 					addr + 0, mask + 0);
 		} else if (ip == IPA_IP_v6) {
@@ -465,7 +467,7 @@ static int ipa3_attrib_dump(struct ipa_rule_attrib *attrib,
 				addr[i] = htonl(attrib->u.v6.src_addr[i]);
 				mask[i] = htonl(attrib->u.v6.src_addr_mask[i]);
 			}
-			pr_err(
+			pr_cont(
 					   "src_addr:%pI6 src_addr_mask:%pI6 ",
 					   addr + 0, mask + 0);
 		}
@@ -474,7 +476,7 @@ static int ipa3_attrib_dump(struct ipa_rule_attrib *attrib,
 		if (ip == IPA_IP_v4) {
 			addr[0] = htonl(attrib->u.v4.dst_addr);
 			mask[0] = htonl(attrib->u.v4.dst_addr_mask);
-			pr_err(
+			pr_cont(
 					   "dst_addr:%pI4 dst_addr_mask:%pI4 ",
 					   addr + 0, mask + 0);
 		} else if (ip == IPA_IP_v6) {
@@ -482,81 +484,84 @@ static int ipa3_attrib_dump(struct ipa_rule_attrib *attrib,
 				addr[i] = htonl(attrib->u.v6.dst_addr[i]);
 				mask[i] = htonl(attrib->u.v6.dst_addr_mask[i]);
 			}
-			pr_err(
+			pr_cont(
 					   "dst_addr:%pI6 dst_addr_mask:%pI6 ",
 					   addr + 0, mask + 0);
 		}
 	}
 	if (attrib->attrib_mask & IPA_FLT_SRC_PORT_RANGE) {
-		pr_err("src_port_range:%u %u ",
+		pr_cont("src_port_range:%u %u ",
 				   attrib->src_port_lo,
 			     attrib->src_port_hi);
 	}
 	if (attrib->attrib_mask & IPA_FLT_DST_PORT_RANGE) {
-		pr_err("dst_port_range:%u %u ",
+		pr_cont("dst_port_range:%u %u ",
 				   attrib->dst_port_lo,
 			     attrib->dst_port_hi);
 	}
 	if (attrib->attrib_mask & IPA_FLT_TYPE)
-		pr_err("type:%d ", attrib->type);
+		pr_cont("type:%d ", attrib->type);
 
 	if (attrib->attrib_mask & IPA_FLT_CODE)
-		pr_err("code:%d ", attrib->code);
+		pr_cont("code:%d ", attrib->code);
 
 	if (attrib->attrib_mask & IPA_FLT_SPI)
-		pr_err("spi:%x ", attrib->spi);
+		pr_cont("spi:%x ", attrib->spi);
 
 	if (attrib->attrib_mask & IPA_FLT_SRC_PORT)
-		pr_err("src_port:%u ", attrib->src_port);
+		pr_cont("src_port:%u ", attrib->src_port);
 
 	if (attrib->attrib_mask & IPA_FLT_DST_PORT)
-		pr_err("dst_port:%u ", attrib->dst_port);
+		pr_cont("dst_port:%u ", attrib->dst_port);
 
 	if (attrib->attrib_mask & IPA_FLT_TC)
-		pr_err("tc:%d ", attrib->u.v6.tc);
+		pr_cont("tc:%d ", attrib->u.v6.tc);
 
 	if (attrib->attrib_mask & IPA_FLT_FLOW_LABEL)
-		pr_err("flow_label:%x ", attrib->u.v6.flow_label);
+		pr_cont("flow_label:%x ", attrib->u.v6.flow_label);
 
 	if (attrib->attrib_mask & IPA_FLT_NEXT_HDR)
-		pr_err("next_hdr:%d ", attrib->u.v6.next_hdr);
+		pr_cont("next_hdr:%d ", attrib->u.v6.next_hdr);
 
 	if (attrib->attrib_mask & IPA_FLT_META_DATA) {
-		pr_err(
+		pr_cont(
 				   "metadata:%x metadata_mask:%x ",
 				   attrib->meta_data, attrib->meta_data_mask);
 	}
 
 	if (attrib->attrib_mask & IPA_FLT_FRAGMENT)
-		pr_err("frg ");
+		pr_cont("frg ");
 
 	if ((attrib->attrib_mask & IPA_FLT_MAC_SRC_ADDR_ETHER_II) ||
 		(attrib->attrib_mask & IPA_FLT_MAC_SRC_ADDR_802_3)) {
-		pr_err("src_mac_addr:%pM ", attrib->src_mac_addr);
+		pr_cont("src_mac_addr:%pM ", attrib->src_mac_addr);
 	}
 
 	if ((attrib->attrib_mask & IPA_FLT_MAC_DST_ADDR_ETHER_II) ||
 		(attrib->attrib_mask & IPA_FLT_MAC_DST_ADDR_802_3) ||
 		(attrib->attrib_mask & IPA_FLT_MAC_DST_ADDR_L2TP)) {
-		pr_err("dst_mac_addr:%pM ", attrib->dst_mac_addr);
+		pr_cont("dst_mac_addr:%pM ", attrib->dst_mac_addr);
 	}
 
 	if (attrib->attrib_mask & IPA_FLT_MAC_ETHER_TYPE)
-		pr_err("ether_type:%x ", attrib->ether_type);
+		pr_cont("ether_type:%x ", attrib->ether_type);
+
+	if (attrib->attrib_mask & IPA_FLT_VLAN_ID)
+		pr_cont("vlan_id:%x ", attrib->vlan_id);
 
 	if (attrib->attrib_mask & IPA_FLT_TCP_SYN)
-		pr_err("tcp syn ");
+		pr_cont("tcp syn ");
 
 	if (attrib->attrib_mask & IPA_FLT_TCP_SYN_L2TP)
-		pr_err("tcp syn l2tp ");
+		pr_cont("tcp syn l2tp ");
 
 	if (attrib->attrib_mask & IPA_FLT_L2TP_INNER_IP_TYPE)
-		pr_err("l2tp inner ip type: %d ", attrib->type);
+		pr_cont("l2tp inner ip type: %d ", attrib->type);
 
 	if (attrib->attrib_mask & IPA_FLT_L2TP_INNER_IPV4_DST_ADDR) {
 		addr[0] = htonl(attrib->u.v4.dst_addr);
 		mask[0] = htonl(attrib->u.v4.dst_addr_mask);
-		pr_err("dst_addr:%pI4 dst_addr_mask:%pI4 ", addr, mask);
+		pr_cont("dst_addr:%pI4 dst_addr_mask:%pI4 ", addr, mask);
 	}
 
 	pr_err("\n");

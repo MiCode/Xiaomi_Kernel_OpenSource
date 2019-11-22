@@ -740,9 +740,9 @@ static ssize_t standalone_show(struct class *c, struct class_attribute *attr,
 	if (!cp_disable_votable)
 		return -ENODEV;
 
-	val = get_effective_result(cp_disable_votable);
+	val = get_client_vote(cp_disable_votable, QNOVO_VOTER);
 
-	return scnprintf(ubuf, PAGE_SIZE, "%d\n", !val);
+	return scnprintf(ubuf, PAGE_SIZE, "%d\n", val);
 }
 
 static ssize_t standalone_store(struct class *c, struct class_attribute *attr,

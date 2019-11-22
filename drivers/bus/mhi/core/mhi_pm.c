@@ -155,9 +155,6 @@ enum MHI_PM_STATE __must_check mhi_tryset_pm_state(
 	MHI_VERB("Transition to pm state from:%s to:%s\n",
 		 to_mhi_pm_state_str(cur_state), to_mhi_pm_state_str(state));
 
-	if (MHI_REG_ACCESS_VALID(cur_state) || MHI_REG_ACCESS_VALID(state))
-		mhi_timesync_log(mhi_cntrl);
-
 	mhi_cntrl->pm_state = state;
 	return mhi_cntrl->pm_state;
 }
@@ -459,22 +456,24 @@ int mhi_pm_m3_transition(struct mhi_controller *mhi_cntrl)
 static int mhi_pm_mission_mode_transition(struct mhi_controller *mhi_cntrl)
 {
 	int i, ret;
+	enum mhi_ee ee = 0;
 	struct mhi_event *mhi_event;
 
 	MHI_LOG("Processing Mission Mode Transition\n");
 
 	write_lock_irq(&mhi_cntrl->pm_lock);
 	if (MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state))
-		mhi_cntrl->ee = mhi_get_exec_env(mhi_cntrl);
+		ee = mhi_get_exec_env(mhi_cntrl);
 	write_unlock_irq(&mhi_cntrl->pm_lock);
 
-	if (!MHI_IN_MISSION_MODE(mhi_cntrl->ee))
+	if (!MHI_IN_MISSION_MODE(ee))
 		return -EIO;
-
-	wake_up_all(&mhi_cntrl->state_event);
 
 	mhi_cntrl->status_cb(mhi_cntrl, mhi_cntrl->priv_data,
 			     MHI_CB_EE_MISSION_MODE);
+	mhi_cntrl->ee = ee;
+
+	wake_up_all(&mhi_cntrl->state_event);
 
 	/* force MHI to be in M0 state before continuing */
 	ret = __mhi_device_get_sync(mhi_cntrl);
@@ -513,6 +512,9 @@ static int mhi_pm_mission_mode_transition(struct mhi_controller *mhi_cntrl)
 	/* setup support for time sync */
 	mhi_init_timesync(mhi_cntrl);
 
+	if (MHI_REG_ACCESS_VALID(mhi_cntrl->pm_state))
+		mhi_timesync_log(mhi_cntrl);
+
 	MHI_LOG("Adding new devices\n");
 
 	/* add supported devices */
@@ -549,20 +551,9 @@ static void mhi_pm_disable_transition(struct mhi_controller *mhi_cntrl,
 		to_mhi_pm_state_str(transition_state));
 
 	/* We must notify MHI control driver so it can clean up first */
-	if (transition_state == MHI_PM_SYS_ERR_PROCESS) {
-		/*
-		 * if controller support rddm, we do not process
-		 * sys error state, instead we will jump directly
-		 * to rddm state
-		 */
-		if (mhi_cntrl->rddm_image) {
-			MHI_LOG(
-				"Controller Support RDDM, skipping SYS_ERR_PROCESS\n");
-			return;
-		}
+	if (transition_state == MHI_PM_SYS_ERR_PROCESS)
 		mhi_cntrl->status_cb(mhi_cntrl, mhi_cntrl->priv_data,
 				     MHI_CB_SYS_ERROR);
-	}
 
 	mutex_lock(&mhi_cntrl->pm_mutex);
 	write_lock_irq(&mhi_cntrl->pm_lock);
@@ -724,7 +715,7 @@ int mhi_debugfs_trigger_reset(void *data, u64 val)
 	write_unlock_irq(&mhi_cntrl->pm_lock);
 
 	if (cur_state == MHI_PM_SYS_ERR_DETECT)
-		schedule_work(&mhi_cntrl->syserr_worker);
+		mhi_process_sys_err(mhi_cntrl);
 
 	return 0;
 }
@@ -802,21 +793,20 @@ void mhi_low_priority_worker(struct work_struct *work)
 		 TO_MHI_EXEC_STR(mhi_cntrl->ee));
 
 	/* check low priority event rings and process events */
-	list_for_each_entry(mhi_event, &mhi_cntrl->lp_ev_rings, node) {
-		if (MHI_IN_MISSION_MODE(mhi_cntrl->ee))
-			mhi_event->process_event(mhi_cntrl, mhi_event, U32_MAX);
-	}
+	list_for_each_entry(mhi_event, &mhi_cntrl->lp_ev_rings, node)
+		mhi_event->process_event(mhi_cntrl, mhi_event, U32_MAX);
 }
 
-void mhi_pm_sys_err_worker(struct work_struct *work)
+void mhi_process_sys_err(struct mhi_controller *mhi_cntrl)
 {
-	struct mhi_controller *mhi_cntrl = container_of(work,
-							struct mhi_controller,
-							syserr_worker);
-
-	MHI_LOG("Enter with pm_state:%s MHI_STATE:%s\n",
-		to_mhi_pm_state_str(mhi_cntrl->pm_state),
-		TO_MHI_STATE_STR(mhi_cntrl->dev_state));
+	/*
+	 * if controller supports rddm, we do not process sys error state,
+	 * instead we will jump directly to rddm state
+	 */
+	if (mhi_cntrl->rddm_image) {
+		MHI_LOG("Controller supports RDDM, skipping SYS_ERR_PROCESS\n");
+		return;
+	}
 
 	mhi_queue_disable_transition(mhi_cntrl, MHI_PM_SYS_ERR_PROCESS);
 }
@@ -1071,7 +1061,7 @@ int mhi_sync_power_up(struct mhi_controller *mhi_cntrl)
 			   MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state),
 			   msecs_to_jiffies(mhi_cntrl->timeout_ms));
 
-	return (MHI_IN_MISSION_MODE(mhi_cntrl->ee)) ? 0 : -EIO;
+	return (MHI_IN_MISSION_MODE(mhi_cntrl->ee)) ? 0 : -ETIMEDOUT;
 }
 EXPORT_SYMBOL(mhi_sync_power_up);
 

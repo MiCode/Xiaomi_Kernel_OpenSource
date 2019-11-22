@@ -2832,7 +2832,6 @@ static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba, bool no_sleep)
 
 static u32 ufs_qcom_get_user_cap_mode(struct ufs_hba *hba)
 {
-	/* QCom prefers no user-space reduction mode */
 	return UFS_WB_BUFF_PRESERVE_USER_SPACE;
 }
 

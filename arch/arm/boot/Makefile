@@ -33,10 +33,20 @@ targets := Image zImage xipImage bootpImage uImage
 DTB_NAMES := $(subst $\",,$(CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES))
 ifneq ($(DTB_NAMES),)
 DTB_LIST := $(addsuffix .dtb,$(DTB_NAMES))
-else
-DTB_LIST := $(dtb-y)
-endif
 DTB_OBJS := $(addprefix $(obj)/dts/,$(DTB_LIST))
+else
+# Use the same way as ARM64 does to have dtb files appended
+#  to kernel image.
+# For dt overlay support, currently there isn't have any
+# uniform list for dtb files. There is only one uniform list
+# for overlay's dtbo files which is managered by dtbo-y. And
+# dtb files are derived from each dtbo file's dtbo-base. so
+# it use a simple way just to find all dtb files which
+# generated during the build.
+# Note that dtb obj directory will always be cleaned at the
+# beginning of kernel build.
+DTB_OBJS := $(shell find $(obj)/dts/ -name \*.dtb)
+endif
 
 ifeq ($(CONFIG_XIP_KERNEL),y)
 

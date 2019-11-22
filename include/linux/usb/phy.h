@@ -164,7 +164,6 @@ struct usb_phy {
 			enum usb_device_speed speed);
 	int	(*notify_disconnect)(struct usb_phy *x,
 			enum usb_device_speed speed);
-	int	(*link_training)(struct usb_phy *x, bool start);
 
 	/*
 	 * Charger detection method can be implemented if you need to
@@ -174,6 +173,7 @@ struct usb_phy {
 
 	/* reset the PHY clocks */
 	int     (*reset)(struct usb_phy *x);
+	int	(*drive_dp_pulse)(struct usb_phy *x, unsigned int pulse_width);
 };
 
 /* for board-specific init logic */
@@ -237,6 +237,15 @@ usb_phy_reset(struct usb_phy *x)
 {
 	if (x && x->reset)
 		return x->reset(x);
+
+	return 0;
+}
+
+static inline int
+usb_phy_drive_dp_pulse(struct usb_phy *x, unsigned int pulse_width)
+{
+	if (x && x->drive_dp_pulse)
+		return x->drive_dp_pulse(x, pulse_width);
 
 	return 0;
 }
@@ -349,24 +358,6 @@ usb_phy_notify_connect(struct usb_phy *x, enum usb_device_speed speed)
 {
 	if (x && x->notify_connect)
 		return x->notify_connect(x, speed);
-	else
-		return 0;
-}
-
-static inline int
-usb_phy_start_link_training(struct usb_phy *x)
-{
-	if (x && x->link_training)
-		return x->link_training(x, true);
-	else
-		return 0;
-}
-
-static inline int
-usb_phy_stop_link_training(struct usb_phy *x)
-{
-	if (x && x->link_training)
-		return x->link_training(x, false);
 	else
 		return 0;
 }

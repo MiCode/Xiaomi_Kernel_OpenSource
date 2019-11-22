@@ -787,8 +787,10 @@ static int mhi_sat_rpmsg_cb(struct rpmsg_device *rpdev, void *data, int len,
 
 	/* find controller packet was sent for */
 	sat_cntrl = find_sat_cntrl_by_id(subsys, hdr->dev_id);
-
-	MHI_SAT_ASSERT(!sat_cntrl, "Packet for unknown device!\n");
+	if (!sat_cntrl) {
+		MHI_SAT_ERR("Message for unknown device!\n");
+		return 0;
+	}
 
 	/* handle events directly regardless of controller active state */
 	if (hdr->msg_id == SAT_MSG_ID_EVT) {

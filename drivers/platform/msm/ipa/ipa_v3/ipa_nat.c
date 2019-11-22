@@ -1365,14 +1365,24 @@ int ipa3_table_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma)
 	int i;
 	struct ipahal_reg_valmask valmask;
 	struct ipahal_imm_cmd_register_write reg_write_coal_close;
+	int max_dma_table_cmds = IPA_MAX_NUM_OF_TABLE_DMA_CMD_DESC;
 
 	IPADBG("\n");
 
 	memset(desc, 0, sizeof(desc));
 	memset(cmd_pyld, 0, sizeof(cmd_pyld));
 
+	/**
+	 * We use a descriptor for closing coalsceing endpoint
+	 * by immediate command. So, DMA entries should be less than
+	 * IPA_MAX_NUM_OF_TABLE_DMA_CMD_DESC - 1 to overcome
+	 * buffer overflow of ipa3_desc array.
+	 */
+	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) != -1)
+		max_dma_table_cmds -= 1;
+
 	if (!dma->entries ||
-		dma->entries >= IPA_MAX_NUM_OF_TABLE_DMA_CMD_DESC) {
+		dma->entries > (max_dma_table_cmds - 1)) {
 		IPAERR_RL("Invalid number of entries %d\n",
 			dma->entries);
 		result = -EPERM;

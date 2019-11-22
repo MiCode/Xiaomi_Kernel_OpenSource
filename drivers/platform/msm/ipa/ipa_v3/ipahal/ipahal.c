@@ -863,11 +863,53 @@ struct ipahal_imm_cmd_pyld *ipahal_construct_nop_imm_cmd(
 	(status->status_mask |= \
 		((hw_status->status_mask & (__hw_bit_msk) ? 1 : 0) << (__shft)))
 
+static enum ipahal_pkt_status_exception pkt_status_parse_exception(
+	bool is_ipv6, u64 exception)
+{
+	enum ipahal_pkt_status_exception exception_type = 0;
+
+	switch (exception) {
+	case 0:
+		exception_type = IPAHAL_PKT_STATUS_EXCEPTION_NONE;
+		break;
+	case 1:
+		exception_type = IPAHAL_PKT_STATUS_EXCEPTION_DEAGGR;
+		break;
+	case 4:
+		exception_type = IPAHAL_PKT_STATUS_EXCEPTION_IPTYPE;
+		break;
+	case 8:
+		exception_type = IPAHAL_PKT_STATUS_EXCEPTION_PACKET_LENGTH;
+		break;
+	case 16:
+		exception_type = IPAHAL_PKT_STATUS_EXCEPTION_FRAG_RULE_MISS;
+		break;
+	case 32:
+		exception_type = IPAHAL_PKT_STATUS_EXCEPTION_SW_FILT;
+		break;
+	case 64:
+		if (is_ipv6)
+			exception_type = IPAHAL_PKT_STATUS_EXCEPTION_IPV6CT;
+		else
+			exception_type = IPAHAL_PKT_STATUS_EXCEPTION_NAT;
+		break;
+	case 229:
+		exception_type = IPAHAL_PKT_STATUS_EXCEPTION_CSUM;
+		break;
+	default:
+		IPAHAL_ERR("unsupported Status Exception type 0x%x\n",
+			exception);
+		WARN_ON(1);
+	}
+
+	return exception_type;
+}
+
+
 static void ipa_pkt_status_parse(
 	const void *unparsed_status, struct ipahal_pkt_status *status)
 {
 	enum ipahal_pkt_status_opcode opcode = 0;
-	enum ipahal_pkt_status_exception exception_type = 0;
 	bool is_ipv6;
 
 	struct ipa_pkt_status_hw *hw_status =
@@ -945,40 +987,8 @@ static void ipa_pkt_status_parse(
 		IPAHAL_ERR_RL("unsupported Status NAT type 0x%x\n",
 			hw_status->nat_type);
 	}
-
-	switch (hw_status->exception) {
-	case 0:
-		exception_type = IPAHAL_PKT_STATUS_EXCEPTION_NONE;
-		break;
-	case 1:
-		exception_type = IPAHAL_PKT_STATUS_EXCEPTION_DEAGGR;
-		break;
-	case 4:
-		exception_type = IPAHAL_PKT_STATUS_EXCEPTION_IPTYPE;
-		break;
-	case 8:
-		exception_type = IPAHAL_PKT_STATUS_EXCEPTION_PACKET_LENGTH;
-		break;
-	case 16:
-		exception_type = IPAHAL_PKT_STATUS_EXCEPTION_FRAG_RULE_MISS;
-		break;
-	case 32:
-		exception_type = IPAHAL_PKT_STATUS_EXCEPTION_SW_FILT;
-		break;
-	case 64:
-		if (is_ipv6)
-			exception_type = IPAHAL_PKT_STATUS_EXCEPTION_IPV6CT;
-		else
-			exception_type = IPAHAL_PKT_STATUS_EXCEPTION_NAT;
-		break;
-	case 229:
-		exception_type = IPAHAL_PKT_STATUS_EXCEPTION_CSUM;
-		break;
-	default:
-		IPAHAL_ERR_RL("unsupported Status Exception type 0x%x\n",
-			hw_status->exception);
-	}
-	status->exception = exception_type;
+	status->exception = pkt_status_parse_exception(is_ipv6,
+						hw_status->exception);
 
 	IPA_PKT_STATUS_SET_MSK(0x1, IPAHAL_PKT_STATUS_MASK_FRAG_PROCESS_SHFT);
 	IPA_PKT_STATUS_SET_MSK(0x2, IPAHAL_PKT_STATUS_MASK_FILT_PROCESS_SHFT);
@@ -1003,15 +1013,49 @@ static void ipa_pkt_status_parse(
 }
 
 /*
+ * ipa_pkt_status_parse_thin() - Parse some of the packet status fields
+ * for specific usage in the LAN rx data path where parsing needs to be done
+ * but only for specific fields.
+ * @unparsed_status: Pointer to H/W format of the packet status as read from HW
+ * @status: Pointer to pre-allocated buffer where the parsed info will be
+ * stored
+ */
+static void ipa_pkt_status_parse_thin(const void *unparsed_status,
+	struct ipahal_pkt_status_thin *status)
+{
+	struct ipa_pkt_status_hw *hw_status =
+		(struct ipa_pkt_status_hw *)unparsed_status;
+	bool is_ipv6;
+
+	is_ipv6 = (hw_status->status_mask & 0x80) ? false : true;
+	if (!unparsed_status || !status) {
+		IPAHAL_ERR("Input Error: unparsed_status=%pK status=%pK\n",
+			unparsed_status, status);
+		return;
+	}
+
+	IPAHAL_DBG_LOW("Parse Thin Status Packet\n");
+	status->metadata = hw_status->metadata;
+	status->endp_src_idx = hw_status->endp_src_idx;
+	status->ucp = hw_status->ucp;
+	status->exception = pkt_status_parse_exception(is_ipv6,
+						hw_status->exception);
+}
+
+/*
  * struct ipahal_pkt_status_obj - Pakcet Status H/W information for
  *  specific IPA version
  * @size: H/W size of the status packet
  * @parse: CB that parses the H/W packet status into the abstracted structure
+ * @parse_thin: light weight CB that parses only some of the fields for
+ * data path optimization
  */
 struct ipahal_pkt_status_obj {
 	u32 size;
 	void (*parse)(const void *unparsed_status,
 		struct ipahal_pkt_status *status);
+	void (*parse_thin)(const void *unparsed_status,
+			struct ipahal_pkt_status_thin *status);
 };
 
 /*
@@ -1027,6 +1071,7 @@ static struct ipahal_pkt_status_obj ipahal_pkt_status_objs[IPA_HW_MAX] = {
 	[IPA_HW_v3_0] = {
 		IPA3_0_PKT_STATUS_SIZE,
 		ipa_pkt_status_parse,
+		ipa_pkt_status_parse_thin,
 		},
 };
 
@@ -1050,6 +1095,8 @@ static int ipahal_pkt_status_init(enum ipa_hw_type ipa_hw_type)
 	/*
 	 * Since structure alignment is implementation dependent,
 	 * add test to avoid different and incompatible data layouts.
+	 * If test fails it also means that ipahal_pkt_status_parse_thin
+	 * need to be checked.
 	 *
 	 * In case new H/W has different size or structure of status packet,
 	 * add a compile time validty check for it like below (as well as
@@ -1079,6 +1126,12 @@ static int ipahal_pkt_status_init(enum ipa_hw_type ipa_hw_type)
 			if (!ipahal_pkt_status_objs[i+1].parse) {
 				IPAHAL_ERR(
 				  "Packet Status without Parse func ipa_ver=%d\n",
+				  i+1);
+				WARN_ON(1);
+			}
+			if (!ipahal_pkt_status_objs[i+1].parse_thin) {
+				IPAHAL_ERR(
+				  "Packet Status without Parse_thin func ipa_ver=%d\n",
 				  i+1);
 				WARN_ON(1);
 			}
@@ -1114,6 +1167,26 @@ void ipahal_pkt_status_parse(const void *unparsed_status,
 	memset(status, 0, sizeof(*status));
 	ipahal_pkt_status_objs[ipahal_ctx->hw_type].parse(unparsed_status,
 		status);
+}
+
+/*
+ * ipahal_pkt_status_parse_thin() - Similar to iphal_pkt_status_parse,
+ * the difference is it only parses some of the status packet fields
+ * used for TP optimization.
+ * @unparsed_status: Pointer to H/W format of the packet status as read from H/W
+ * @status: Pointer to pre-allocated buffer where the parsed info will be stored
+ */
+void ipahal_pkt_status_parse_thin(const void *unparsed_status,
+	struct ipahal_pkt_status_thin *status)
+{
+	if (!unparsed_status || !status) {
+		IPAHAL_ERR("Input Error: unparsed_status=%pK status=%pK\n",
+			unparsed_status, status);
+		return;
+	}
+	IPAHAL_DBG_LOW("Parse_thin Status Packet\n");
+	ipahal_pkt_status_objs[ipahal_ctx->hw_type].parse_thin(unparsed_status,
+				status);
 }
 
 /*
@@ -1199,6 +1272,7 @@ static void ipahal_cp_hdr_to_hw_buff_v3(void *const base, u32 offset,
  * @hdr_base_addr: base address in table
  * @offset_entry: offset from hdr_base_addr in table
  * @l2tp_params: l2tp parameters
+ * @generic_params: generic proc_ctx params
  * @is_64: Indicates whether header base address/dma base address is 64 bit.
  */
 static int ipahal_cp_proc_ctx_to_hw_buff_v3(enum ipa_hdr_proc_type type,
@@ -1206,7 +1280,9 @@ static int ipahal_cp_proc_ctx_to_hw_buff_v3(enum ipa_hdr_proc_type type,
 		u32 hdr_len, bool is_hdr_proc_ctx,
 		dma_addr_t phys_base, u64 hdr_base_addr,
 		struct ipa_hdr_offset_entry *offset_entry,
-		struct ipa_l2tp_hdr_proc_ctx_params l2tp_params, bool is_64)
+		struct ipa_l2tp_hdr_proc_ctx_params *l2tp_params,
+		struct ipa_eth_II_to_eth_II_ex_procparams *generic_params,
+		bool is_64)
 {
 	u64 hdr_addr;
 
@@ -1250,11 +1326,11 @@ static int ipahal_cp_proc_ctx_to_hw_buff_v3(enum ipa_hdr_proc_type type,
 		ctx->l2tp_params.tlv.value =
 				IPA_HDR_UCP_L2TP_HEADER_ADD;
 		ctx->l2tp_params.l2tp_params.eth_hdr_retained =
-			l2tp_params.hdr_add_param.eth_hdr_retained;
+			l2tp_params->hdr_add_param.eth_hdr_retained;
 		ctx->l2tp_params.l2tp_params.input_ip_version =
-			l2tp_params.hdr_add_param.input_ip_version;
+			l2tp_params->hdr_add_param.input_ip_version;
 		ctx->l2tp_params.l2tp_params.output_ip_version =
-			l2tp_params.hdr_add_param.output_ip_version;
+			l2tp_params->hdr_add_param.output_ip_version;
 
 		IPAHAL_DBG("command id %d\n", ctx->l2tp_params.tlv.value);
 		ctx->end.type = IPA_PROC_CTX_TLV_TYPE_END;
@@ -1281,15 +1357,15 @@ static int ipahal_cp_proc_ctx_to_hw_buff_v3(enum ipa_hdr_proc_type type,
 		ctx->l2tp_params.tlv.value =
 				IPA_HDR_UCP_L2TP_HEADER_REMOVE;
 		ctx->l2tp_params.l2tp_params.hdr_len_remove =
-			l2tp_params.hdr_remove_param.hdr_len_remove;
+			l2tp_params->hdr_remove_param.hdr_len_remove;
 		ctx->l2tp_params.l2tp_params.eth_hdr_retained =
-			l2tp_params.hdr_remove_param.eth_hdr_retained;
+			l2tp_params->hdr_remove_param.eth_hdr_retained;
 		ctx->l2tp_params.l2tp_params.hdr_ofst_pkt_size_valid =
-			l2tp_params.hdr_remove_param.hdr_ofst_pkt_size_valid;
+			l2tp_params->hdr_remove_param.hdr_ofst_pkt_size_valid;
 		ctx->l2tp_params.l2tp_params.hdr_ofst_pkt_size =
-			l2tp_params.hdr_remove_param.hdr_ofst_pkt_size;
+			l2tp_params->hdr_remove_param.hdr_ofst_pkt_size;
 		ctx->l2tp_params.l2tp_params.hdr_endianness =
-			l2tp_params.hdr_remove_param.hdr_endianness;
+			l2tp_params->hdr_remove_param.hdr_endianness;
 		IPAHAL_DBG("hdr ofst valid: %d, hdr ofst pkt size: %d\n",
 			ctx->l2tp_params.l2tp_params.hdr_ofst_pkt_size_valid,
 			ctx->l2tp_params.l2tp_params.hdr_ofst_pkt_size);
@@ -1297,6 +1373,33 @@ static int ipahal_cp_proc_ctx_to_hw_buff_v3(enum ipa_hdr_proc_type type,
 			ctx->l2tp_params.l2tp_params.hdr_endianness);
 
 		IPAHAL_DBG("command id %d\n", ctx->l2tp_params.tlv.value);
+		ctx->end.type = IPA_PROC_CTX_TLV_TYPE_END;
+		ctx->end.length = 0;
+		ctx->end.value = 0;
+	}  else if (type == IPA_HDR_PROC_ETHII_TO_ETHII_EX) {
+		struct ipa_hw_hdr_proc_ctx_add_hdr_cmd_seq_ex *ctx;
+
+		ctx = (struct ipa_hw_hdr_proc_ctx_add_hdr_cmd_seq_ex *)
+			(base + offset);
+
+		ctx->hdr_add.tlv.type = IPA_PROC_CTX_TLV_TYPE_HDR_ADD;
+		ctx->hdr_add.tlv.length = 1;
+		ctx->hdr_add.tlv.value = hdr_len;
+		ctx->hdr_add.hdr_addr = is_hdr_proc_ctx ? phys_base :
+			hdr_base_addr + offset_entry->offset;
+		IPAHAL_DBG("header address 0x%x\n",
+			ctx->hdr_add.hdr_addr);
+
+		ctx->hdr_add_ex.tlv.type = IPA_PROC_CTX_TLV_TYPE_PROC_CMD;
+		ctx->hdr_add_ex.tlv.length = 1;
+		ctx->hdr_add_ex.tlv.value = IPA_HDR_UCP_ETHII_TO_ETHII_EX;
+
+		ctx->hdr_add_ex.params.input_ethhdr_negative_offset =
+			generic_params->input_ethhdr_negative_offset;
+		ctx->hdr_add_ex.params.output_ethhdr_negative_offset =
+			generic_params->output_ethhdr_negative_offset;
+		ctx->hdr_add_ex.params.reserved = 0;
+
 		ctx->end.type = IPA_PROC_CTX_TLV_TYPE_END;
 		ctx->end.length = 0;
 		ctx->end.value = 0;
@@ -1354,9 +1457,35 @@ static int ipahal_cp_proc_ctx_to_hw_buff_v3(enum ipa_hdr_proc_type type,
  */
 static int ipahal_get_proc_ctx_needed_len_v3(enum ipa_hdr_proc_type type)
 {
-	return (type == IPA_HDR_PROC_NONE) ?
-			sizeof(struct ipa_hw_hdr_proc_ctx_add_hdr_seq) :
-			sizeof(struct ipa_hw_hdr_proc_ctx_add_hdr_cmd_seq);
+	int ret;
+
+	switch (type) {
+	case IPA_HDR_PROC_NONE:
+		ret = sizeof(struct ipa_hw_hdr_proc_ctx_add_hdr_seq);
+		break;
+	case IPA_HDR_PROC_ETHII_TO_ETHII:
+	case IPA_HDR_PROC_ETHII_TO_802_3:
+	case IPA_HDR_PROC_802_3_TO_ETHII:
+	case IPA_HDR_PROC_802_3_TO_802_3:
+		ret = sizeof(struct ipa_hw_hdr_proc_ctx_add_hdr_cmd_seq);
+		break;
+	case IPA_HDR_PROC_L2TP_HEADER_ADD:
+		ret = sizeof(struct ipa_hw_hdr_proc_ctx_add_l2tp_hdr_cmd_seq);
+		break;
+	case IPA_HDR_PROC_L2TP_HEADER_REMOVE:
+		ret =
+		sizeof(struct ipa_hw_hdr_proc_ctx_remove_l2tp_hdr_cmd_seq);
+		break;
+	case IPA_HDR_PROC_ETHII_TO_ETHII_EX:
+		ret = sizeof(struct ipa_hw_hdr_proc_ctx_add_hdr_cmd_seq_ex);
+		break;
+	default:
+		/* invalid value to make sure failure */
+		IPAHAL_ERR_RL("invalid ipa_hdr_proc_type %d\n", type);
+		ret = -1;
+	}
+
+	return ret;
 }
 
 /*
@@ -1373,7 +1502,9 @@ struct ipahal_hdr_funcs {
 			bool is_hdr_proc_ctx, dma_addr_t phys_base,
 			u64 hdr_base_addr,
 			struct ipa_hdr_offset_entry *offset_entry,
-			struct ipa_l2tp_hdr_proc_ctx_params l2tp_params,
+			struct ipa_l2tp_hdr_proc_ctx_params *l2tp_params,
+			struct ipa_eth_II_to_eth_II_ex_procparams
+			*generic_params,
 			bool is_64);
 
 	int (*ipahal_get_proc_ctx_needed_len)(enum ipa_hdr_proc_type type);
@@ -1440,13 +1571,16 @@ void ipahal_cp_hdr_to_hw_buff(void *base, u32 offset, u8 *const hdr,
  * @hdr_base_addr: base address in table
  * @offset_entry: offset from hdr_base_addr in table
  * @l2tp_params: l2tp parameters
+ * @generic_params: generic proc_ctx params
  * @is_64: Indicates whether header base address/dma base address is 64 bit.
  */
 int ipahal_cp_proc_ctx_to_hw_buff(enum ipa_hdr_proc_type type,
 		void *const base, u32 offset, u32 hdr_len,
 		bool is_hdr_proc_ctx, dma_addr_t phys_base,
 		u64 hdr_base_addr, struct ipa_hdr_offset_entry *offset_entry,
-		struct ipa_l2tp_hdr_proc_ctx_params l2tp_params, bool is_64)
+		struct ipa_l2tp_hdr_proc_ctx_params *l2tp_params,
+		struct ipa_eth_II_to_eth_II_ex_procparams *generic_params,
+		bool is_64)
 {
 	IPAHAL_DBG(
 		"type %d, base %pK, offset %d, hdr_len %d, is_hdr_proc_ctx %d, hdr_base_addr %llu, offset_entry %pK, bool %d\n"
@@ -1467,7 +1601,8 @@ int ipahal_cp_proc_ctx_to_hw_buff(enum ipa_hdr_proc_type type,
 
 	return hdr_funcs.ipahal_cp_proc_ctx_to_hw_buff(type, base, offset,
 			hdr_len, is_hdr_proc_ctx, phys_base,
-			hdr_base_addr, offset_entry, l2tp_params, is_64);
+			hdr_base_addr, offset_entry, l2tp_params,
+			generic_params, is_64);
 }
 
 /*

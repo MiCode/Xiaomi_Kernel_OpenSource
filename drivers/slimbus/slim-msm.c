@@ -170,26 +170,37 @@ int msm_slim_sps_mem_alloc(
 
 	mem->size = len;
 	mem->min_size = 0;
-	mem->base = dma_alloc_coherent(dma_dev, mem->size, &phys, GFP_KERNEL);
+	mem->base = dev->lpass_mem_usage ? dev->lpass.base :
+		dma_alloc_coherent(dma_dev, mem->size, &phys, GFP_KERNEL);
 
 	if (!mem->base) {
-		dev_err(dma_dev, "dma_alloc_coherent(%d) failed\n", len);
+		dev_err(dma_dev, "dma_alloc_coherent (%d) failed\n", len);
 		return -ENOMEM;
 	}
 
-	mem->phys_base = phys;
-	memset(mem->base, 0x00, mem->size);
+	mem->phys_base = dev->lpass_mem_usage ?
+			(unsigned long long)dev->lpass_mem->start : phys;
+	if (dev->lpass_mem_usage) {
+		memset_io(mem->base, 0x00, mem->size);
+		dev->lpass.base = dev->lpass.base + mem->size;
+		dev->lpass_mem->start = dev->lpass_mem->start + mem->size;
+	} else {
+		memset(mem->base, 0x00, mem->size);
+	}
 	return 0;
 }
 
 void
 msm_slim_sps_mem_free(struct msm_slim_ctrl *dev, struct sps_mem_buffer *mem)
 {
-	if (mem->base && mem->phys_base)
-		dma_free_coherent(dev->dev, mem->size, mem->base,
+	if (!dev->lpass_mem_usage) {
+		if (mem->base && mem->phys_base)
+			dma_free_coherent(dev->dev, mem->size, mem->base,
 							mem->phys_base);
-	else
-		dev_err(dev->dev, "cant dma free. they are NULL\n");
+		else
+			dev_err(dev->dev, "Cannot free DMA as it is NULL\n");
+	}
+
 	mem->size = 0;
 	mem->base = NULL;
 	mem->phys_base = 0;

@@ -3333,13 +3333,16 @@ static void fg_gen4_exit_soc_scale(struct fg_gen4_chip *chip)
 
 	if (chip->soc_scale_mode) {
 		alarm_cancel(&chip->soc_scale_alarm_timer);
-		cancel_work_sync(&chip->soc_scale_work);
+		if (work_busy(&chip->soc_scale_work) != WORK_BUSY_RUNNING)
+			cancel_work_sync(&chip->soc_scale_work);
+
 		/* While exiting soc_scale_mode, Update MSOC register */
 		fg_gen4_write_scale_msoc(chip);
 	}
 
 	chip->soc_scale_mode = false;
-	fg_dbg(fg, FG_FVSS, "Exit FVSS mode\n");
+	fg_dbg(fg, FG_FVSS, "Exit FVSS mode, work_status=%d\n",
+				work_busy(&chip->soc_scale_work));
 }
 
 static int fg_gen4_validate_soc_scale_mode(struct fg_gen4_chip *chip)
@@ -4054,6 +4057,12 @@ static void soc_scale_work(struct work_struct *work)
 	rc = fg_gen4_validate_soc_scale_mode(chip);
 	if (rc < 0)
 		pr_err("Failed to validate SOC scale mode, rc=%d\n", rc);
+
+	/* re-validate soc scale mode as we may have exited FVSS */
+	if (!chip->soc_scale_mode) {
+		fg_dbg(fg, FG_FVSS, "exit soc scale mode\n");
+		return;
+	}
 
 	if (chip->vbatt_res <= 0)
 		chip->vbatt_res = 0;
@@ -6196,6 +6205,7 @@ static int fg_gen4_probe(struct platform_device *pdev)
 	chip->ki_coeff_full_soc[1] = -EINVAL;
 	chip->esr_soh_cycle_count = -EINVAL;
 	chip->calib_level = -EINVAL;
+	chip->soh = -EINVAL;
 	fg->regmap = dev_get_regmap(fg->dev->parent, NULL);
 	if (!fg->regmap) {
 		dev_err(fg->dev, "Parent regmap is unavailable\n");

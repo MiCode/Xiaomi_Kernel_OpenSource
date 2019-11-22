@@ -257,6 +257,7 @@ struct msm_slim_bulk_wr {
 
 struct msm_slim_iommu {
 	struct device			*cb_dev;
+	struct dma_iommu_mapping	*iommu_map;
 	bool				s1_bypass;
 };
 
@@ -266,6 +267,11 @@ struct msm_slim_ctrl {
 	struct device		*dev;
 	struct msm_slim_iommu	iommu_desc;
 	void __iomem		*base;
+	struct msm_slim_sps_bam	lpass;
+	struct resource		*lpass_mem;
+	u32			lpass_phy_base;
+	void __iomem		*lpass_virt_base;
+	bool			lpass_mem_usage;
 	struct resource		*slew_mem;
 	struct resource		*bam_mem;
 	u32			curr_bw;
