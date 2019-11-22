@@ -6001,8 +6001,11 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 		memcpy(&(tag_desc[0]), desc, descs_num *
 			sizeof(tag_desc[0]));
 		desc_idx += descs_num;
-	} else
+	} else {
+		res = -EFAULT;
+		IPAERR("desc is NULL\n");
 		goto fail_free_tag_desc;
+	}
 
 	/* IC to close the coal frame before HPS Clear if coal is enabled */
 	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) != -1) {
