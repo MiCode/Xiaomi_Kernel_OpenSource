@@ -4548,21 +4548,13 @@ PVRSRV_ERROR RGXDumpRGXRegisters(DUMPDEBUG_PRINTF_FUNC *pfnDumpDebugPrintf,
 	IMG_BOOL     bS7Infra = RGX_IS_FEATURE_SUPPORTED(psDevInfo, S7_TOP_INFRASTRUCTURE);
 	void __iomem *pvRegsBaseKM = psDevInfo->pvRegsBaseKM;
 	PVRSRV_ERROR eError;
-	RGXFWIF_INIT *psRGXFWInit = NULL;
 
 	PVR_DUMPDEBUG_LOG("------[ RGX registers ]------");
 	PVR_DUMPDEBUG_LOG("RGX Register Base Address (Linear):   0x%p", psDevInfo->pvRegsBaseKM);
 	PVR_DUMPDEBUG_LOG("RGX Register Base Address (Physical): 0x%08lX", (unsigned long)psDevInfo->sRegsPhysBase.uiAddr);
 
 	/* Check if firmware perf was set at Init time */
-	eError = DevmemAcquireCpuVirtAddr(psDevInfo->psRGXFWIfInitMemDesc, (void**)&psRGXFWInit);
-	if (eError != PVRSRV_OK)
-	{
-		PVR_DPF((PVR_DBG_ERROR, "Failed to acquire kernel FW IF Init struct"));
-		return eError;
-	}
-	bFirmwarePerf = (psRGXFWInit->eFirmwarePerf != FW_PERF_CONF_NONE);
-	DevmemReleaseCpuVirtAddr(psDevInfo->psRGXFWIfInitMemDesc);
+	bFirmwarePerf = (psDevInfo->psRGXFWIfInit->eFirmwarePerf != FW_PERF_CONF_NONE);
 
 /* Helper macros to emit data */
 #define REG32_FMTSPEC   "%-30s: 0x%08X"
@@ -4971,7 +4963,6 @@ void RGXDebugRequestProcess(DUMPDEBUG_PRINTF_FUNC *pfnDumpDebugPrintf,
 	PVRSRV_ERROR eError;
 	PVRSRV_DATA *psPVRSRVData = PVRSRVGetPVRSRVData();
 	PVRSRV_DEVICE_NODE *psDeviceNode = psDevInfo->psDeviceNode;
-	RGXFWIF_INIT *psRGXFWInit = NULL;
 	PVRSRV_DEV_POWER_STATE  ePowerState;
 	IMG_BOOL                bRGXPoweredON;
 	const IMG_CHAR          *Bit32 = "32 Bit", *Bit64 = "64 Bit";
@@ -4987,12 +4978,6 @@ void RGXDebugRequestProcess(DUMPDEBUG_PRINTF_FUNC *pfnDumpDebugPrintf,
 		return;
 	}
 
-	eError = DevmemAcquireCpuVirtAddr(psDevInfo->psRGXFWIfInitMemDesc, (void**)&psRGXFWInit);
-	if (eError != PVRSRV_OK)
-	{
-		PVR_DPF((PVR_DBG_ERROR, "Failed to acquire kernel FW IF Init struct"));
-		goto ExitUnlock;
-	}
 	if (!pfnDumpDebugPrintf)
 	{
 		switch (ui32VerbLevel)
@@ -5009,7 +4994,7 @@ void RGXDebugRequestProcess(DUMPDEBUG_PRINTF_FUNC *pfnDumpDebugPrintf,
 		}
 	}
 
-	ui8FwOsCount = psRGXFWInit->sRGXCompChecks.sInitOptions.ui8OsCountSupport;
+	ui8FwOsCount = psDevInfo->psRGXFWIfInit->sRGXCompChecks.sInitOptions.ui8OsCountSupport;
 
 	eError = PVRSRVGetDevicePowerState(psDeviceNode, &ePowerState);
 	if (eError != PVRSRV_OK)
@@ -5024,9 +5009,9 @@ void RGXDebugRequestProcess(DUMPDEBUG_PRINTF_FUNC *pfnDumpDebugPrintf,
 	PVR_DUMPDEBUG_LOG("------[ Driver Info ]------");
 	PVR_DUMP_DRIVER_INFO("UM", psPVRSRVData->sDriverInfo.sUMBuildInfo);
 	PVR_DUMP_DRIVER_INFO("KM", psPVRSRVData->sDriverInfo.sKMBuildInfo);
-	if (psRGXFWInit->sRGXCompChecks.bUpdated)
+	if (psDevInfo->psRGXFWIfInit->sRGXCompChecks.bUpdated)
 	{
-		PVR_DUMP_FIRMWARE_INFO(psRGXFWInit->sRGXCompChecks);
+		PVR_DUMP_FIRMWARE_INFO(psDevInfo->psRGXFWIfInit->sRGXCompChecks);
 	}
 	else
 	{
@@ -5368,8 +5353,6 @@ void RGXDebugRequestProcess(DUMPDEBUG_PRINTF_FUNC *pfnDumpDebugPrintf,
 	}
 
 Exit:
-	DevmemReleaseCpuVirtAddr(psDevInfo->psRGXFWIfInitMemDesc);
-ExitUnlock:
 	PVRSRVPowerUnlock(psDeviceNode);
 }
 
