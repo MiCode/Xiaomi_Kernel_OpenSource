@@ -14,6 +14,12 @@
 #define QCOM_SCM_CPU_PWR_DOWN_L2_OFF	0x1
 #define QCOM_SCM_HDCP_MAX_REQ_CNT	5
 
+enum qcom_download_mode {
+	QCOM_DOWNLOAD_NODUMP	= 0x00,
+	QCOM_DOWNLOAD_EDL	= 0x01,
+	QCOM_DOWNLOAD_FULLDUMP	= 0x10,
+};
+
 struct qcom_scm_hdcp_req {
 	u32 addr;
 	u32 val;
@@ -79,6 +85,7 @@ extern int qcom_scm_sec_wdog_deactivate(void);
 extern int qcom_scm_sec_wdog_trigger(void);
 extern int qcom_scm_set_remote_state(u32 state, u32 id);
 extern int qcom_scm_spin_cpu(void);
+extern void qcom_scm_set_download_mode(enum qcom_download_mode mode);
 extern int qcom_scm_config_cpu_errata(void);
 extern bool qcom_scm_pas_supported(u32 peripheral);
 extern int qcom_scm_pas_init_image(u32 peripheral, const void *metadata,
@@ -194,6 +201,7 @@ static inline int qcom_scm_sec_wdog_trigger(void) { return -ENODEV; }
 static inline u32 qcom_scm_set_remote_state(u32 state, u32 id)
 		{ return -ENODEV; }
 static inline int qcom_scm_spin_cpu(void) { return -ENODEV; }
+static inline void qcom_scm_set_download_mode(enum qcom_download_mode mode) {}
 static inline int qcom_scm_config_cpu_errata(void)
 		{ return -ENODEV; }
 static inline bool qcom_scm_pas_supported(u32 peripheral) { return false; }

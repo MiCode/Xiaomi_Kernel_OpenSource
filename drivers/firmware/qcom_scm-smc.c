@@ -767,7 +767,7 @@ int __qcom_scm_spin_cpu(struct device *dev)
 	return qcom_scm_call(dev, &desc);
 }
 
-int __qcom_scm_set_dload_mode(struct device *dev, bool enable)
+int __qcom_scm_set_dload_mode(struct device *dev, enum qcom_download_mode mode)
 {
 	struct qcom_scm_desc desc = {
 		.svc = QCOM_SCM_SVC_BOOT,
@@ -775,8 +775,8 @@ int __qcom_scm_set_dload_mode(struct device *dev, bool enable)
 		.owner = ARM_SMCCC_OWNER_SIP,
 	};
 
-	desc.args[0] = QCOM_SCM_BOOT_SET_DLOAD_MODE;
-	desc.args[1] = enable ? QCOM_SCM_BOOT_SET_DLOAD_MODE : 0;
+	desc.args[0] = mode;
+	desc.args[1] = 0;
 	desc.arginfo = QCOM_SCM_ARGS(2);
 
 	return qcom_scm_call_atomic(dev, &desc);

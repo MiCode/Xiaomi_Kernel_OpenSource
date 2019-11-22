@@ -21,9 +21,6 @@
 #include "qcom_scm.h"
 #include "qtee_shmbridge_internal.h"
 
-static bool download_mode = IS_ENABLED(CONFIG_QCOM_SCM_DOWNLOAD_MODE_DEFAULT);
-module_param(download_mode, bool, 0);
-
 #define SCM_HAS_CORE_CLK	BIT(0)
 #define SCM_HAS_IFACE_CLK	BIT(1)
 #define SCM_HAS_BUS_CLK		BIT(2)
@@ -143,7 +140,7 @@ int qcom_scm_spin_cpu(void)
 }
 EXPORT_SYMBOL(qcom_scm_spin_cpu);
 
-static void qcom_scm_set_download_mode(bool enable)
+void qcom_scm_set_download_mode(enum qcom_download_mode mode)
 {
 	bool avail;
 	int ret = 0;
@@ -152,11 +149,10 @@ static void qcom_scm_set_download_mode(bool enable)
 					     QCOM_SCM_SVC_BOOT,
 					     QCOM_SCM_BOOT_SET_DLOAD_MODE);
 	if (avail) {
-		ret = __qcom_scm_set_dload_mode(__scm->dev, enable);
+		ret = __qcom_scm_set_dload_mode(__scm->dev, mode);
 	} else if (__scm->dload_mode_addr) {
 		ret = __qcom_scm_io_writel(__scm->dev, __scm->dload_mode_addr,
-					   enable ? QCOM_SCM_BOOT_SET_DLOAD_MODE
-					     : 0);
+					   mode);
 	} else {
 		dev_err(__scm->dev,
 			"No available mechanism for setting download mode\n");
@@ -165,6 +161,7 @@ static void qcom_scm_set_download_mode(bool enable)
 	if (ret)
 		dev_err(__scm->dev, "failed to set download mode: %d\n", ret);
 }
+EXPORT_SYMBOL(qcom_scm_set_download_mode);
 
 int qcom_scm_config_cpu_errata(void)
 {
@@ -1024,22 +1021,7 @@ static int qcom_scm_probe(struct platform_device *pdev)
 		return ret;
 #endif
 
-	/*
-	 * If requested enable "download mode", from this point on warmboot
-	 * will cause the the boot stages to enter download mode, unless
-	 * disabled below by a clean shutdown/reboot.
-	 */
-	if (download_mode)
-		qcom_scm_set_download_mode(true);
-
 	return 0;
-}
-
-static void qcom_scm_shutdown(struct platform_device *pdev)
-{
-	/* Clean shutdown, disable download mode to allow normal restart */
-	if (download_mode)
-		qcom_scm_set_download_mode(false);
 }
 
 static const struct of_device_id qcom_scm_dt_match[] = {
@@ -1072,7 +1054,6 @@ static struct platform_driver qcom_scm_driver = {
 		.of_match_table = qcom_scm_dt_match,
 	},
 	.probe = qcom_scm_probe,
-	.shutdown = qcom_scm_shutdown,
 };
 
 static int __init qcom_scm_init(void)

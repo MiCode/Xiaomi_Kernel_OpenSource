@@ -24,7 +24,8 @@ extern int __qcom_scm_sec_wdog_deactivate(struct device *dev);
 extern int __qcom_scm_sec_wdog_trigger(struct device *dev);
 extern int __qcom_scm_set_remote_state(struct device *dev, u32 state, u32 id);
 extern int __qcom_scm_spin_cpu(struct device *dev);
-extern int __qcom_scm_set_dload_mode(struct device *dev, bool enable);
+extern int __qcom_scm_set_dload_mode(struct device *dev,
+				     enum qcom_download_mode mode);
 extern int __qcom_scm_config_cpu_errata(struct device *dev);
 #define QCOM_SCM_FLUSH_FLAG_MASK	0x3
 
