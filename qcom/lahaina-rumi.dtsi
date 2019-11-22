@@ -31,6 +31,10 @@
 	rpm-level = <0>;
 	spm-level = <0>;
 
+	iommus = <&apps_smmu 0xE0 0x0>;
+	qcom,iommu-dma = "bypass";
+	dma-coherent;
+
 	status = "ok";
 };
 
