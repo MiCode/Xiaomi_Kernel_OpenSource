@@ -192,6 +192,9 @@ enum ufs_hs_gear_tag {
 	UFS_HS_G1,		/* HS Gear 1 (default for reset) */
 	UFS_HS_G2,		/* HS Gear 2 */
 	UFS_HS_G3,		/* HS Gear 3 */
+#ifdef CONFIG_SCSI_UFSHCD_QTI
+	UFS_HS_G4,		/* HS Gear 4 */
+#endif
 };
 
 enum ufs_unipro_ver {
