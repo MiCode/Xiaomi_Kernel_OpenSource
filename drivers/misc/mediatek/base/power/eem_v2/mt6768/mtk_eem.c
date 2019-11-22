@@ -211,6 +211,9 @@ unsigned int ptp_data[3] = {0, 0, 0};
 unsigned int gpu_opp0_t_volt[6] = {
 	105000, 105000, 102500, 100000, 97500, 95000
 };
+unsigned int gpu_vb[3] = {95000, 91250, 87500};
+unsigned int gpu_vb_flag;
+unsigned int gpu_vb_volt;
 
 #ifdef CONFIG_OF
 void __iomem *eem_base;
@@ -245,6 +248,7 @@ static int get_devinfo(void)
 	unsigned int tmp;
 #endif
 	struct eem_det *det;
+	unsigned int efuse_val;
 	int ret = 0, i = 0;
 	int *val;
 
@@ -263,6 +267,13 @@ static int get_devinfo(void)
 	val[8] = get_devinfo_with_index(DEVINFO_IDX_10);
 	val[9] = get_devinfo_with_index(DEVINFO_IDX_11);
 	val[10] = get_devinfo_with_index(DEVINFO_IDX_12);
+	efuse_val = get_devinfo_with_index(GPU_VB_IDX) & 0x7;
+	if (efuse_val && efuse_val <= 3) {
+		gpu_vb_volt = gpu_vb[efuse_val - 1];
+		gpu_vb_flag = 1;
+
+	} else
+		gpu_vb_flag = 0;
 
 	if (g_fake_efuse) {
 		/* for verification */
@@ -1683,9 +1694,17 @@ static void get_volt_table_in_thread(struct eem_det *det)
 				ndet->volt_tbl_orig[i] + ndet->volt_clamp);
 			break;
 		case EEM_CTRL_GPU:
-			if ((i == 0) && (ndet->turn_pt != 0))
-				ndet->volt_tbl_pmic[i] = ndet->volt_tbl_orig[i]
-				+ ndet->volt_offset + ndet->volt_aging[i];
+			if (i == 0 && gpu_vb_flag) {
+				ndet->volt_tbl_pmic[i] = min(
+				(unsigned int)(clamp(
+				ndet->ops->eem_2_pmic(ndet,
+				(ndet->ops->volt_2_eem(ndet, gpu_vb_volt))),
+				ndet->ops->eem_2_pmic(ndet, ndet->VMIN),
+				ndet->ops->eem_2_pmic(ndet, VMAX_VAL_GPU)) +
+				low_temp_offset),
+				ndet->volt_tbl_orig[i] + ndet->volt_clamp);
+			}
+
 			else
 				ndet->volt_tbl_pmic[i] = min(
 				(unsigned int)(clamp(
