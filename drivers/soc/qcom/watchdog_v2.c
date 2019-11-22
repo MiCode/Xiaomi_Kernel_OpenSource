@@ -254,7 +254,6 @@ static ssize_t wdog_disable_set(struct device *dev,
 	int ret;
 	u8 disable;
 	struct msm_watchdog_data *wdog_dd = dev_get_drvdata(dev);
-	struct scm_desc desc = {0};
 
 	ret = kstrtou8(buf, 10, &disable);
 	if (ret) {
@@ -269,11 +268,17 @@ static ssize_t wdog_disable_set(struct device *dev,
 			return count;
 		}
 		disable = 1;
+		if (!is_scm_armv8()) {
+			ret = scm_call(SCM_SVC_BOOT, SCM_SVC_SEC_WDOG_DIS,
+				       &disable, sizeof(disable), NULL, 0);
+		} else {
+			struct scm_desc desc = {0};
 
-		desc.args[0] = 1;
-		desc.arginfo = SCM_ARGS(1);
-		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_BOOT,
-						SCM_SVC_SEC_WDOG_DIS), &desc);
+			desc.args[0] = 1;
+			desc.arginfo = SCM_ARGS(1);
+			ret = scm_call2(SCM_SIP_FNID(SCM_SVC_BOOT,
+					SCM_SVC_SEC_WDOG_DIS), &desc);
+		}
 		if (ret) {
 			dev_err(wdog_dd->dev,
 					"Failed to deactivate secure wdog\n");

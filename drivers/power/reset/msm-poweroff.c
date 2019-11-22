@@ -128,6 +128,9 @@ int scm_set_dload_mode(int arg1, int arg2)
 
 		return 0;
 	}
+	if (!is_scm_armv8())
+		return scm_call_atomic2(SCM_SVC_BOOT, SCM_DLOAD_CMD, arg1,
+					arg2);
 
 	return scm_call2_atomic(SCM_SIP_FNID(SCM_SVC_BOOT, SCM_DLOAD_CMD),
 				&desc);
@@ -240,7 +243,11 @@ static void scm_disable_sdi(void)
 	};
 
 	/* Needed to bypass debug image on some chips */
-	ret = scm_call2_atomic(SCM_SIP_FNID(SCM_SVC_BOOT,
+	if (!is_scm_armv8())
+		ret = scm_call_atomic2(SCM_SVC_BOOT,
+			SCM_WDOG_DEBUG_BOOT_PART, 1, 0);
+	else
+		ret = scm_call2_atomic(SCM_SIP_FNID(SCM_SVC_BOOT,
 			  SCM_WDOG_DEBUG_BOOT_PART), &desc);
 	if (ret)
 		pr_err("Failed to disable secure wdog debug: %d\n", ret);
@@ -267,7 +274,11 @@ static void halt_spmi_pmic_arbiter(void)
 
 	if (scm_pmic_arbiter_disable_supported) {
 		pr_crit("Calling SCM to disable SPMI PMIC arbiter\n");
-		scm_call2_atomic(SCM_SIP_FNID(SCM_SVC_PWR,
+		if (!is_scm_armv8())
+			scm_call_atomic1(SCM_SVC_PWR,
+					SCM_IO_DISABLE_PMIC_ARBITER, 0);
+		else
+			scm_call2_atomic(SCM_SIP_FNID(SCM_SVC_PWR,
 				SCM_IO_DISABLE_PMIC_ARBITER), &desc);
 	}
 }
