@@ -32,6 +32,7 @@ Required properties :
 			"qcom,gcc-sa6155"
 			"qcom,gcc-sdxprairie-v2"
 			"qcom,atoll-gcc"
+			"qcom,gcc-sdm660"
 
 - reg : shall contain base register location and length
 - #clock-cells : shall contain 1
