@@ -340,7 +340,6 @@ static void __init reset_cpu_topology(void)
 		cpu_topo->llc_id = -1;
 
 		clear_cpu_topology(cpu);
-		cpumask_set_cpu(cpu, &cpu_topo->core_possible_sibling);
 	}
 }
 
