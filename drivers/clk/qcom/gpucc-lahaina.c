@@ -22,6 +22,9 @@
 #include "clk-regmap-mux.h"
 #include "clk-regmap-divider.h"
 #include "reset.h"
+#include "vdd-level.h"
+
+static DEFINE_VDD_REGULATORS(vdd_mx, VDD_NUM, 1, vdd_corner);
 
 enum {
 	P_BI_TCXO,
@@ -63,6 +66,15 @@ static struct clk_alpha_pll gpu_cc_pll0 = {
 			.num_parents = 1,
 			.ops = &clk_alpha_pll_lucid_5lpe_ops,
 		},
+		.vdd_data = {
+			.vdd_class = &vdd_mx,
+			.num_rate_max = VDD_NUM,
+			.rate_max = (unsigned long[VDD_NUM]) {
+				[VDD_MIN] = 615000000,
+				[VDD_LOW] = 1066000000,
+				[VDD_LOW_L1] = 1600000000,
+				[VDD_NOMINAL] = 2000000000},
+		},
 	},
 };
 
@@ -92,6 +104,15 @@ static struct clk_alpha_pll gpu_cc_pll1 = {
 			},
 			.num_parents = 1,
 			.ops = &clk_alpha_pll_lucid_5lpe_ops,
+		},
+		.vdd_data = {
+			.vdd_class = &vdd_mx,
+			.num_rate_max = VDD_NUM,
+			.rate_max = (unsigned long[VDD_NUM]) {
+				[VDD_MIN] = 615000000,
+				[VDD_LOW] = 1066000000,
+				[VDD_LOW_L1] = 1600000000,
+				[VDD_NOMINAL] = 2000000000},
 		},
 	},
 };
@@ -566,6 +587,13 @@ static int gpu_cc_lahaina_probe(struct platform_device *pdev)
 {
 	struct regmap *regmap;
 	int ret;
+
+	vdd_mx.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_mx");
+	if (IS_ERR(vdd_mx.regulator[0])) {
+		if (PTR_ERR(vdd_mx.regulator[0]) != -EPROBE_DEFER)
+			dev_err(&pdev->dev, "Unable to get vdd_mx regulator\n");
+		return PTR_ERR(vdd_mx.regulator[0]);
+	}
 
 	regmap = qcom_cc_map(pdev, &gpu_cc_lahaina_desc);
 	if (IS_ERR(regmap)) {
