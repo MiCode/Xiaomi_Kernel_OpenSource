@@ -2,7 +2,6 @@
 /*
  * Copyright (c) 2019, The Linux foundation. All rights reserved.
  */
-
 #include <linux/cdev.h>
 #include <linux/circ_buf.h>
 #include <linux/clk.h>
@@ -15,6 +14,7 @@
 #include <linux/io.h>
 #include <linux/ioctl.h>
 #include <linux/kernel.h>
+#include <linux/kfifo.h>
 #include <linux/list.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -629,9 +629,29 @@ static int wigig_sensing_ioc_get_num_dropped_bursts(
 	return ctx->dropped_bursts;
 }
 
-static int wigig_sensing_ioc_get_event(struct wigig_sensing_ctx *ctx)
+static int wigig_sensing_ioc_get_num_avail_bursts(
+	struct wigig_sensing_ctx *ctx)
 {
-	return 0;
+	if (ctx->stm.burst_size)
+		return circ_cnt(&ctx->cir_data.b, ctx->cir_data.size_bytes) /
+			ctx->stm.burst_size;
+	else
+		return 0;
+}
+
+static int wigig_sensing_ioc_get_event(struct wigig_sensing_ctx *ctx,
+				       enum wigig_sensing_event *event)
+{
+	u32 copied;
+
+	if (!ctx->event_pending)
+		return -EINVAL;
+
+	if (kfifo_len(&ctx->events_fifo) == 1)
+		ctx->event_pending = false;
+
+	return kfifo_to_user(&ctx->events_fifo, event,
+			     sizeof(enum wigig_sensing_event), &copied);
 }
 
 static int wigig_sensing_open(struct inode *inode, struct file *filp)
@@ -759,7 +779,7 @@ static int wigig_sensing_release(struct inode *inode, struct file *filp)
 }
 
 static long wigig_sensing_ioctl(struct file *file, unsigned int cmd,
-				unsigned long arg)
+				__user unsigned long arg)
 {
 	int rc;
 	struct wigig_sensing_ctx *ctx = file->private_data;
@@ -812,7 +832,12 @@ static long wigig_sensing_ioctl(struct file *file, unsigned int cmd,
 		break;
 	case WIGIG_SENSING_IOCTL_GET_EVENT:
 		pr_info("Received WIGIG_SENSING_IOCTL_GET_EVENT command\n");
-		rc = wigig_sensing_ioc_get_event(ctx);
+		rc = wigig_sensing_ioc_get_event(ctx,
+			(enum wigig_sensing_event *)arg);
+		break;
+	case WIGIG_SENSING_IOCTL_GET_NUM_AVAIL_BURSTS:
+		pr_info("Received WIGIG_SENSING_IOCTL_GET_NUM_AVAIL_BURSTS command\n");
+		rc = wigig_sensing_ioc_get_num_avail_bursts(ctx);
 		break;
 	default:
 		rc = -EINVAL;
@@ -1124,6 +1149,22 @@ cmd_reply_buf_alloc_failed:
 	return rc;
 }
 
+static int wigig_sensing_send_event(struct wigig_sensing_ctx *ctx,
+				    enum wigig_sensing_event event)
+{
+	if (kfifo_is_full(&ctx->events_fifo)) {
+		pr_err("events fifo is full, unable to send event\n");
+		return -EFAULT;
+	}
+
+	kfifo_in(&ctx->events_fifo, &event, 1);
+	ctx->event_pending = true;
+
+	wake_up_interruptible(&ctx->cmd_wait_q);
+
+	return 0;
+}
+
 static irqreturn_t wigig_sensing_dri_isr_thread(int irq, void *cookie)
 {
 	struct wigig_sensing_ctx *ctx = cookie;
@@ -1211,6 +1252,9 @@ static irqreturn_t wigig_sensing_dri_isr_thread(int irq, void *cookie)
 		wigig_sensing_change_state(ctx, &ctx->stm,
 					   WIGIG_SENSING_STATE_READY_STOPPED);
 
+		/* Send asynchronous FW_READY event to application */
+		wigig_sensing_send_event(ctx, WIGIG_SENSING_EVENT_FW_READY);
+
 		spi_status.v &= ~INT_FW_READY;
 	}
 	if (spi_status.b.int_data_ready) {
@@ -1232,6 +1276,9 @@ static irqreturn_t wigig_sensing_dri_isr_thread(int irq, void *cookie)
 		if (rc != 0 ||
 		    ctx->stm.state != WIGIG_SENSING_STATE_SYS_ASSERT)
 			pr_err("State change to WIGIG_SENSING_SYS_ASSERT failed\n");
+
+		/* Send asynchronous RESET event to application */
+		wigig_sensing_send_event(ctx, WIGIG_SENSING_EVENT_RESET);
 
 		ctx->stm.spi_malfunction = true;
 		spi_status.v &= ~INT_SYSASSERT;
@@ -1305,6 +1352,7 @@ static int wigig_sensing_probe(struct spi_device *spi)
 	init_waitqueue_head(&ctx->cmd_wait_q);
 	init_waitqueue_head(&ctx->data_wait_q);
 	ctx->stm.state = WIGIG_SENSING_STATE_INITIALIZED;
+	INIT_KFIFO(ctx->events_fifo);
 
 	/* Allocate memory for the CIRs */
 	/* Allocate a 2MB == 2^21 buffer for CIR data */

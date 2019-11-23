@@ -886,7 +886,7 @@ static int a6xx_gmu_wait_for_lowest_idle(struct kgsl_device *device)
 	unsigned long t;
 	uint64_t ts1, ts2, ts3;
 
-	ts1 = read_AO_counter(device);
+	ts1 = a6xx_gmu_read_ao_counter(device);
 
 	t = jiffies + msecs_to_jiffies(GMU_IDLE_TIMEOUT);
 	do {
@@ -901,7 +901,7 @@ static int a6xx_gmu_wait_for_lowest_idle(struct kgsl_device *device)
 		usleep_range(10, 100);
 	} while (!time_after(jiffies, t));
 
-	ts2 = read_AO_counter(device);
+	ts2 = a6xx_gmu_read_ao_counter(device);
 	/* Check one last time */
 
 	gmu_core_regread(device, A6XX_GPU_GMU_CX_GMU_RPMH_POWER_STATE, &reg);
@@ -910,7 +910,7 @@ static int a6xx_gmu_wait_for_lowest_idle(struct kgsl_device *device)
 	if (idle_trandition_complete(gmu->idle_level, reg, reg1))
 		return 0;
 
-	ts3 = read_AO_counter(device);
+	ts3 = a6xx_gmu_read_ao_counter(device);
 
 	/* Collect abort data to help with debugging */
 	gmu_core_regread(device, A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS, &reg2);
@@ -954,14 +954,14 @@ static int a6xx_gmu_wait_for_idle(struct kgsl_device *device)
 	unsigned int status2;
 	uint64_t ts1;
 
-	ts1 = read_AO_counter(device);
+	ts1 = a6xx_gmu_read_ao_counter(device);
 	if (timed_poll_check(device, A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS,
 			0, GMU_START_TIMEOUT, CXGXCPUBUSYIGNAHB)) {
 		gmu_core_regread(device,
 				A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS2, &status2);
 		dev_err(&gmu->pdev->dev,
 				"GMU not idling: status2=0x%x %llx %llx\n",
-				status2, ts1, read_AO_counter(device));
+				status2, ts1, a6xx_gmu_read_ao_counter(device));
 		return -ETIMEDOUT;
 	}
 
@@ -1722,6 +1722,31 @@ static int a6xx_gmu_wait_for_active_transition(
 	return -ETIMEDOUT;
 }
 
+/*
+ * a6xx_gmu_read_ao_counter() - Returns the 64bit always on counter value
+ *
+ * @device: Pointer to KGSL device
+ */
+u64 a6xx_gmu_read_ao_counter(struct kgsl_device *device)
+{
+	unsigned int l, h, h1;
+
+	gmu_core_regread(device, A6XX_GMU_CX_GMU_ALWAYS_ON_COUNTER_H, &h);
+	gmu_core_regread(device, A6XX_GMU_CX_GMU_ALWAYS_ON_COUNTER_L, &l);
+	gmu_core_regread(device, A6XX_GMU_CX_GMU_ALWAYS_ON_COUNTER_H, &h1);
+
+	/*
+	 * If there's no change in COUNTER_H we have no overflow so return,
+	 * otherwise read COUNTER_L again
+	 */
+
+	if (h == h1)
+		return (uint64_t) l | ((uint64_t) h << 32);
+
+	gmu_core_regread(device, A6XX_GMU_CX_GMU_ALWAYS_ON_COUNTER_L, &l);
+	return (uint64_t) l | ((uint64_t) h1 << 32);
+}
+
 struct gmu_dev_ops adreno_a6xx_gmudev = {
 	.load_firmware = a6xx_gmu_load_firmware,
 	.oob_set = a6xx_gmu_oob_set,
@@ -1739,6 +1764,7 @@ struct gmu_dev_ops adreno_a6xx_gmudev = {
 	.snapshot = a6xx_gmu_snapshot,
 	.cooperative_reset = a6xx_gmu_cooperative_reset,
 	.wait_for_active_transition = a6xx_gmu_wait_for_active_transition,
+	.read_ao_counter = a6xx_gmu_read_ao_counter,
 	.gmu2host_intr_mask = HFI_IRQ_MASK,
 	.gmu_ao_intr_mask = GMU_AO_INT_MASK,
 };

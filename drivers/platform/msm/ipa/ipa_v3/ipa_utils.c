@@ -65,6 +65,7 @@
 
 #define IPA_FILT_ROUT_HASH_REG_VAL_v4_2 (0x00000000)
 #define IPA_DMA_TASK_FOR_GSI_TIMEOUT_MSEC (15)
+#define IPA_COAL_CLOSE_FRAME_CMD_TIMEOUT_MSEC (500)
 
 #define IPA_AGGR_BYTE_LIMIT (\
 		IPA_ENDP_INIT_AGGR_N_AGGR_BYTE_LIMIT_BMSK >> \
@@ -6339,7 +6340,7 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 	struct ipahal_imm_cmd_ip_packet_tag_status status;
 	int i;
 	struct sk_buff *dummy_skb;
-	int res;
+	int res = 0;
 	struct ipa3_tag_completion *comp;
 	int ep_idx;
 	u32 retry_cnt = 0;
@@ -6373,8 +6374,11 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 		memcpy(&(tag_desc[0]), desc, descs_num *
 			sizeof(tag_desc[0]));
 		desc_idx += descs_num;
-	} else
+	} else {
+		res = -EFAULT;
+		IPAERR("desc is NULL\n");
 		goto fail_free_tag_desc;
+	}
 
 	/* IC to close the coal frame before HPS Clear if coal is enabled */
 	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) != -1) {
@@ -7805,7 +7809,7 @@ void ipa3_force_close_coal(void)
 
 	IPADBG("Sending 1 descriptor for coal force close\n");
 	if (ipa3_send_cmd_timeout(1, &desc,
-		IPA_DMA_TASK_FOR_GSI_TIMEOUT_MSEC)) {
+		IPA_COAL_CLOSE_FRAME_CMD_TIMEOUT_MSEC)) {
 		IPAERR("ipa3_send_cmd failed\n");
 		ipa_assert();
 	}
@@ -7815,9 +7819,6 @@ void ipa3_force_close_coal(void)
 int ipa3_suspend_apps_pipes(bool suspend)
 {
 	int res;
-
-	if (suspend)
-		ipa3_force_close_coal();
 
 	/* As per HPG first need start/stop coalescing channel
 	 * then default one. Coalescing client number was greater then

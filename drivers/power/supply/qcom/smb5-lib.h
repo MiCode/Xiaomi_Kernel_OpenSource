@@ -554,6 +554,7 @@ struct smb_charger {
 	int			wls_icl_ua;
 	bool			dcin_aicl_done;
 	bool			hvdcp3_standalone_config;
+	bool			dcin_icl_user_set;
 
 	/* workaround flag */
 	u32			wa_flags;

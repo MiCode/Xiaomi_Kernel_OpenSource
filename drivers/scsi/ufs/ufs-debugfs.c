@@ -1204,8 +1204,8 @@ static int ufsdbg_config_pwr_mode(struct ufs_hba *hba,
 	/* let's not get into low power until clock scaling is completed */
 	hba->ufs_stats.clk_hold.ctx = DBGFS_CFG_PWR_MODE;
 	ufshcd_hold(hba, false);
-	ufshcd_scsi_block_requests(hba);
 	down_write(&hba->lock);
+	ufshcd_scsi_block_requests(hba);
 	if (ufshcd_wait_for_doorbell_clr(hba, DOORBELL_CLR_TOUT_US)) {
 		ret = -EBUSY;
 		goto out;
@@ -1511,54 +1511,6 @@ static const struct file_operations ufsdbg_req_stats_desc = {
 	.write		= ufsdbg_req_stats_write,
 };
 
-
-static int ufsdbg_reset_controller_show(struct seq_file *file, void *data)
-{
-	seq_puts(file, "echo 1 > /sys/kernel/debug/.../reset_controller\n");
-	seq_puts(file, "resets the UFS controller and restores its operational state\n\n");
-
-	return 0;
-}
-
-static int ufsdbg_reset_controller_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, ufsdbg_reset_controller_show,
-						inode->i_private);
-}
-
-static ssize_t ufsdbg_reset_controller_write(struct file *filp,
-		const char __user *ubuf, size_t cnt, loff_t *ppos)
-{
-	struct ufs_hba *hba = filp->f_mapping->host->i_private;
-	unsigned long flags;
-
-	pm_runtime_get_sync(hba->dev);
-	ufshcd_hold(hba, false);
-
-	spin_lock_irqsave(hba->host->host_lock, flags);
-	/*
-	 * simulating a dummy error in order to "convince"
-	 * eh_work to actually reset the controller
-	 */
-	hba->saved_err |= INT_FATAL_ERRORS;
-	hba->silence_err_logs = true;
-	schedule_work(&hba->eh_work);
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
-
-	flush_work(&hba->eh_work);
-
-	ufshcd_release(hba, false);
-	pm_runtime_put_sync(hba->dev);
-
-	return cnt;
-}
-
-static const struct file_operations ufsdbg_reset_controller = {
-	.open		= ufsdbg_reset_controller_open,
-	.read		= seq_read,
-	.write		= ufsdbg_reset_controller_write,
-};
-
 static int ufsdbg_clear_err_state(void *data, u64 val)
 {
 	struct ufs_hba *hba = data;
@@ -1744,17 +1696,6 @@ void ufsdbg_add_debugfs(struct ufs_hba *hba)
 		dev_err(hba->dev,
 			"%s:  failed create req_stats debugfs entry\n",
 			__func__);
-		goto err;
-	}
-
-	hba->debugfs_files.reset_controller =
-		debugfs_create_file("reset_controller", 0600,
-			hba->debugfs_files.debugfs_root, hba,
-			&ufsdbg_reset_controller);
-	if (!hba->debugfs_files.reset_controller) {
-		dev_err(hba->dev,
-			"%s: failed create reset_controller debugfs entry\n",
-				__func__);
 		goto err;
 	}
 

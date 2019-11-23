@@ -718,8 +718,10 @@ int ipa3_send_cmd_timeout(u16 num_desc, struct ipa3_desc *descr, u32 timeout)
 
 	completed = wait_for_completion_timeout(
 		&comp->comp, msecs_to_jiffies(timeout));
-	if (!completed)
+	if (!completed) {
 		IPADBG("timeout waiting for imm-cmd ACK\n");
+		result = -EBUSY;
+	}
 
 	if (atomic_dec_return(&comp->cnt) == 0)
 		kfree(comp);
@@ -3208,13 +3210,13 @@ static void ipa3_free_skb_rx(struct sk_buff *skb)
 void ipa3_lan_rx_cb(void *priv, enum ipa_dp_evt_type evt, unsigned long data)
 {
 	struct sk_buff *rx_skb = (struct sk_buff *)data;
-	struct ipahal_pkt_status status;
+	struct ipahal_pkt_status_thin status;
 	struct ipa3_ep_context *ep;
 	unsigned int src_pipe;
 	u32 metadata;
 	u8 ucp;
 
-	ipahal_pkt_status_parse(rx_skb->data, &status);
+	ipahal_pkt_status_parse_thin(rx_skb->data, &status);
 	src_pipe = status.endp_src_idx;
 	metadata = status.metadata;
 	ucp = status.ucp;

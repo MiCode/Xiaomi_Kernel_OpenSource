@@ -586,6 +586,9 @@ static irqreturn_t adreno_irq_handler(struct kgsl_device *device)
 	unsigned int status = 0, fence = 0, fence_retries = 0, tmp, int_bit;
 	unsigned int shadow_status = 0;
 	int i;
+	u64 ts, ts1, ts2;
+
+	ts = gmu_core_dev_read_ao_counter(device);
 
 	atomic_inc(&adreno_dev->pending_irq_refcnt);
 	/* Ensure this increment is done before the IRQ status is updated */
@@ -612,6 +615,8 @@ static irqreturn_t adreno_irq_handler(struct kgsl_device *device)
 				&fence);
 
 		while (fence != 0) {
+			ts1 =  gmu_core_dev_read_ao_counter(device);
+
 			/* Wait for small time before trying again */
 			udelay(1);
 			adreno_readreg(adreno_dev,
@@ -619,14 +624,17 @@ static irqreturn_t adreno_irq_handler(struct kgsl_device *device)
 					&fence);
 
 			if (fence_retries == FENCE_RETRY_MAX && fence != 0) {
+				ts2 =  gmu_core_dev_read_ao_counter(device);
+
 				adreno_readreg(adreno_dev,
 					ADRENO_REG_GMU_RBBM_INT_UNMASKED_STATUS,
 					&shadow_status);
 
 				dev_crit_ratelimited(device->dev,
-					"Status=0x%x Unmasked status=0x%x Mask=0x%x\n",
+					"Status=0x%x Unmasked status=0x%x Timestamps:%llx %llx %llx\n",
 					shadow_status & irq_params->mask,
-					shadow_status, irq_params->mask);
+					shadow_status, ts, ts1, ts2);
+
 				adreno_set_gpu_fault(adreno_dev,
 						ADRENO_GMU_FAULT);
 				adreno_dispatcher_schedule(KGSL_DEVICE

@@ -1345,6 +1345,8 @@ struct dwc3 {
 	 */
 	bool			host_poweroff_in_pm_suspend;
 	int			retries_on_error;
+	/*  If true, GDSC collapse will happen in HOST mode bus suspend */
+	bool			gdsc_collapse_in_host_suspend;
 };
 
 #define INCRX_BURST_MODE 0

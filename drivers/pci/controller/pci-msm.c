@@ -1461,6 +1461,7 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 	static void __iomem *loopback_lbar_vir;
 	int ret, i;
 	u32 base_sel_size = 0;
+	u32 wr_ofst = 0;
 
 	switch (testcase) {
 	case MSM_PCIE_OUTPUT_PCIE_INFO:
@@ -1655,22 +1656,24 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 			break;
 		}
 
+		wr_ofst = wr_offset;
+
 		PCIE_DBG_FS(dev,
 			"base: %s: 0x%pK\nwr_offset: 0x%x\nwr_mask: 0x%x\nwr_value: 0x%x\n",
 			dev->res[base_sel - 1].name,
 			dev->res[base_sel - 1].base,
-			wr_offset, wr_mask, wr_value);
+			wr_ofst, wr_mask, wr_value);
 
 		base_sel_size = resource_size(dev->res[base_sel - 1].resource);
 
-		if (wr_offset >  base_sel_size - 4 ||
-			msm_pcie_check_align(dev, wr_offset))
+		if (wr_ofst >  base_sel_size - 4 ||
+			msm_pcie_check_align(dev, wr_ofst))
 			PCIE_DBG_FS(dev,
 				"PCIe: RC%d: Invalid wr_offset: 0x%x. wr_offset should be no more than 0x%x\n",
-				dev->rc_idx, wr_offset, base_sel_size - 4);
+				dev->rc_idx, wr_ofst, base_sel_size - 4);
 		else
 			msm_pcie_write_reg_field(dev->res[base_sel - 1].base,
-				wr_offset, wr_mask, wr_value);
+				wr_ofst, wr_mask, wr_value);
 
 		break;
 	case MSM_PCIE_DUMP_PCIE_REGISTER_SPACE:
@@ -6427,6 +6430,9 @@ int msm_pcie_set_link_bandwidth(struct pci_dev *pci_dev, u16 target_link_speed,
 		return -EINVAL;
 
 	root_pci_dev = pci_find_pcie_root_port(pci_dev);
+	if (!root_pci_dev)
+		return -ENODEV;
+
 	pcie_dev = PCIE_BUS_PRIV_DATA(root_pci_dev->bus);
 
 	pcie_capability_read_word(root_pci_dev, PCI_EXP_LNKSTA, &link_status);
@@ -7133,6 +7139,7 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 	struct msm_pcie_drv_info *drv_info = pcie_dev->drv_info;
 	struct msm_pcie_drv_msg *drv_disable = &drv_info->drv_disable;
 	struct msm_pcie_clk_info_t *clk_info;
+	u32 current_link_speed;
 	int ret, i;
 
 	mutex_lock(&pcie_dev->recovery_lock);
@@ -7185,6 +7192,14 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 				pcie_dev->rc_idx);
 		}
 	}
+
+	/* scale CX and rate change based on current GEN speed */
+	current_link_speed = readl_relaxed(pcie_dev->dm_core +
+					PCIE20_CAP_LINKCTRLSTATUS);
+	current_link_speed = ((current_link_speed >> 16) &
+				PCI_EXP_LNKSTA_CLS);
+
+	msm_pcie_scale_link_bandwidth(pcie_dev, current_link_speed);
 
 	/* always ungate clkreq */
 	msm_pcie_write_reg_field(pcie_dev->parf,

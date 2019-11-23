@@ -38,10 +38,14 @@ enum {
 	DRM_PANEL_BLANK_UNBLANK,
 	/* panel: power off */
 	DRM_PANEL_BLANK_POWERDOWN,
+	/* panel: low power mode */
+	DRM_PANEL_BLANK_LP,
 };
 
 struct drm_panel_notifier {
+	int refresh_rate;
 	void *data;
+	uint32_t id;
 };
 
 struct device_node;

@@ -2994,7 +2994,23 @@ int smblib_get_prop_dc_current_max(struct smb_charger *chg,
 int smblib_get_prop_dc_voltage_max(struct smb_charger *chg,
 				    union power_supply_propval *val)
 {
+	int rc;
 	val->intval = MICRO_12V;
+
+	if (!chg->wls_psy)
+		chg->wls_psy = power_supply_get_by_name("wireless");
+
+	if (chg->wls_psy) {
+		rc = power_supply_get_property(chg->wls_psy,
+				POWER_SUPPLY_PROP_VOLTAGE_MAX,
+				val);
+		if (rc < 0) {
+			dev_err(chg->dev, "Couldn't get VOLTAGE_MAX, rc=%d\n",
+					rc);
+			return rc;
+		}
+	}
+
 	return 0;
 }
 
@@ -3028,6 +3044,7 @@ int smblib_get_prop_dc_voltage_now(struct smb_charger *chg,
 int smblib_set_prop_dc_current_max(struct smb_charger *chg,
 				    const union power_supply_propval *val)
 {
+	chg->dcin_icl_user_set = true;
 	return smblib_set_charge_param(chg, &chg->param.dc_icl, val->intval);
 }
 
@@ -3054,9 +3071,11 @@ int smblib_set_prop_voltage_wls_output(struct smb_charger *chg,
 
 	/*
 	 * When WLS VOUT goes down, the power-constrained adaptor may be able
-	 * to supply more current, so allow it to do so.
+	 * to supply more current, so allow it to do so - unless userspace has
+	 * changed DCIN ICL value already due to thermal considerations.
 	 */
-	if ((val->intval > 0) && (val->intval < chg->last_wls_vout)) {
+	if (!chg->dcin_icl_user_set && (val->intval > 0) &&
+			(val->intval < chg->last_wls_vout)) {
 		alarm_start_relative(&chg->dcin_aicl_alarm,
 				ms_to_ktime(DCIN_AICL_RERUN_DELAY_MS));
 	}
@@ -3353,11 +3372,26 @@ int smblib_get_prop_usb_voltage_now(struct smb_charger *chg,
 	}
 
 	/*
+	 * Skip reading voltage only if USB is not present and we are not in
+	 * OTG mode.
+	 */
+	if (!pval.intval) {
+		rc = smblib_read(chg, DCDC_CMD_OTG_REG, &reg);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't read CMD_OTG rc=%d", rc);
+			goto restore_adc_config;
+		}
+
+		if (!(reg & OTG_EN_BIT))
+			goto restore_adc_config;
+	}
+
+	/*
 	 * For PM8150B, use MID_CHG ADC channel because overvoltage is observed
 	 * to occur randomly in the USBIN channel, particularly at high
 	 * voltages.
 	 */
-	if (chg->chg_param.smb_version == PM8150B_SUBTYPE && pval.intval)
+	if (chg->chg_param.smb_version == PM8150B_SUBTYPE)
 		rc = smblib_read_mid_voltage_chan(chg, val);
 	else
 		rc = smblib_read_usbin_voltage_chan(chg, val);
@@ -3368,11 +3402,12 @@ int smblib_get_prop_usb_voltage_now(struct smb_charger *chg,
 
 restore_adc_config:
 	 /* Restore ADC channel config */
-	if (chg->wa_flags & USBIN_ADC_WA)
+	if (chg->wa_flags & USBIN_ADC_WA) {
 		rc = smblib_write(chg, BATIF_ADC_CHANNEL_EN_REG, reg);
 		if (rc < 0)
 			smblib_err(chg, "Couldn't write ADC config rc=%d\n",
 						rc);
+	}
 
 unlock:
 	mutex_unlock(&chg->adc_lock);
@@ -6266,7 +6301,7 @@ irqreturn_t dc_plugin_irq_handler(int irq, void *data)
 	union power_supply_propval pval;
 	int input_present;
 	bool dcin_present, vbus_present;
-	int rc, wireless_vout = 0;
+	int rc, wireless_vout = 0, wls_set = 0;
 	int sec_charger;
 
 	rc = smblib_get_prop_vph_voltage_now(chg, &pval);
@@ -6301,9 +6336,8 @@ irqreturn_t dc_plugin_irq_handler(int irq, void *data)
 
 		/*
 		 * Remove USB's CP ILIM vote - inapplicable for wireless
-		 * parallel charging. Also undo FCC STEPPER's 1.5 A vote.
+		 * parallel charging.
 		 */
-		vote(chg->fcc_votable, FCC_STEPPER_VOTER, false, 0);
 		if (chg->cp_ilim_votable)
 			vote(chg->cp_ilim_votable, ICL_CHANGE_VOTER, false, 0);
 
@@ -6316,7 +6350,15 @@ irqreturn_t dc_plugin_irq_handler(int irq, void *data)
 				vote(chg->fcc_main_votable,
 					WLS_PL_CHARGING_VOTER, true, 800000);
 
-			pval.intval = wireless_vout;
+			rc = smblib_get_prop_batt_status(chg, &pval);
+			if (rc < 0)
+				smblib_err(chg, "Couldn't read batt status rc=%d\n",
+						rc);
+
+			wls_set = (pval.intval == POWER_SUPPLY_STATUS_FULL) ?
+				MICRO_5V : wireless_vout;
+
+			pval.intval = wls_set;
 			rc = smblib_set_prop_voltage_wls_output(chg, &pval);
 			if (rc < 0)
 				dev_err(chg->dev, "Couldn't set dc voltage to 2*vph  rc=%d\n",
@@ -6356,13 +6398,18 @@ irqreturn_t dc_plugin_irq_handler(int irq, void *data)
 		vote(chg->dc_suspend_votable, CHG_TERMINATION_VOTER, false, 0);
 		vote(chg->fcc_main_votable, WLS_PL_CHARGING_VOTER, false, 0);
 
-		/* Force 1500mA FCC on WLS removal if fcc stepper is enabled */
-		if (chg->fcc_stepper_enable)
-			vote(chg->fcc_votable, FCC_STEPPER_VOTER,
-							true, 1500000);
 		chg->last_wls_vout = 0;
 		chg->dcin_aicl_done = false;
+		chg->dcin_icl_user_set = false;
 	}
+
+	/*
+	 * Vote for 1500mA FCC upon WLS detach and remove vote upon attach if
+	 * FCC stepper is enabled.
+	 */
+	if (chg->fcc_stepper_enable && !vbus_present)
+		vote(chg->fcc_votable, FCC_STEPPER_VOTER, !dcin_present,
+				dcin_present ? 0 : 1500000);
 
 	if (chg->dc_psy)
 		power_supply_changed(chg->dc_psy);

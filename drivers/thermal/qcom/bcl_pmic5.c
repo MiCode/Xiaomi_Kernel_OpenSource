@@ -74,6 +74,7 @@ struct bcl_device;
 
 struct bcl_peripheral_data {
 	int                     irq_num;
+	int                     status_bit_idx;
 	long			trip_thresh;
 	int                     last_val;
 	struct mutex            state_trans_lock;
@@ -92,6 +93,7 @@ struct bcl_device {
 
 static struct bcl_device *bcl_devices[MAX_PERPH_COUNT];
 static int bcl_device_ct;
+static bool ibat_use_qg_adc;
 
 static int bcl_read_register(struct bcl_device *bcl_perph, int16_t reg_offset,
 				unsigned int *data)
@@ -159,12 +161,20 @@ static void convert_ibat_to_adc_val(int *val)
 	 * Threshold register is bit shifted from ADC MSB.
 	 * So the scaling factor is half.
 	 */
-	*val = (*val * 2000) / BCL_IBAT_SCALING_UA;
+	if (ibat_use_qg_adc)
+		*val = (int)div_s64(*val * 2000 * 2, BCL_IBAT_SCALING_UA);
+	else
+		*val = (int)div_s64(*val * 2000, BCL_IBAT_SCALING_UA);
+
 }
 
 static void convert_adc_to_ibat_val(int *val)
 {
-	*val = (*val * BCL_IBAT_SCALING_UA) / 1000;
+	/* Scaling factor will be half if ibat_use_qg_adc is true */
+	if (ibat_use_qg_adc)
+		*val = (int)div_s64(*val * BCL_IBAT_SCALING_UA, 2 * 1000);
+	else
+		*val = (int)div_s64(*val * BCL_IBAT_SCALING_UA, 1000);
 }
 
 static int bcl_set_ibat(void *data, int low, int high)
@@ -419,10 +429,14 @@ static irqreturn_t bcl_handle_irq(int irq, void *data)
 
 	bcl_perph = perph_data->dev;
 	bcl_read_register(bcl_perph, BCL_IRQ_STATUS, &irq_status);
-	pr_debug("Irq:%d triggered for bcl type:%s. status:%u\n",
+
+	if (irq_status & perph_data->status_bit_idx) {
+		pr_debug("Irq:%d triggered for bcl type:%s. status:%u\n",
 			irq, bcl_int_names[perph_data->type],
 			irq_status);
-	of_thermal_handle_trip(perph_data->tz_dev);
+		of_thermal_handle_trip_temp(perph_data->tz_dev,
+				perph_data->status_bit_idx);
+	}
 
 	return IRQ_HANDLED;
 }
@@ -442,6 +456,9 @@ static int bcl_get_devicetree_data(struct platform_device *pdev,
 		dev_err(&pdev->dev, "No fg_bcl registers found\n");
 		return -ENODEV;
 	}
+
+	ibat_use_qg_adc =  of_property_read_bool(dev_node,
+				"qcom,ibat-use-qg-adc-5a");
 
 	return ret;
 }
@@ -543,13 +560,14 @@ static void bcl_probe_ibat(struct platform_device *pdev,
 }
 
 static void bcl_lvl_init(struct platform_device *pdev,
-			enum bcl_dev_type type, struct bcl_device *bcl_perph)
+	enum bcl_dev_type type, int sts_bit_idx, struct bcl_device *bcl_perph)
 {
 	struct bcl_peripheral_data *lbat = &bcl_perph->param[type];
 
 	mutex_init(&lbat->state_trans_lock);
 	lbat->type = type;
 	lbat->dev = bcl_perph;
+	lbat->status_bit_idx = sts_bit_idx;
 	bcl_fetch_trip(pdev, type, lbat, bcl_handle_irq);
 	if (lbat->irq_num <= 0)
 		return;
@@ -572,9 +590,9 @@ static void bcl_lvl_init(struct platform_device *pdev,
 static void bcl_probe_lvls(struct platform_device *pdev,
 					struct bcl_device *bcl_perph)
 {
-	bcl_lvl_init(pdev, BCL_LVL0, bcl_perph);
-	bcl_lvl_init(pdev, BCL_LVL1, bcl_perph);
-	bcl_lvl_init(pdev, BCL_LVL2, bcl_perph);
+	bcl_lvl_init(pdev, BCL_LVL0, BCL_IRQ_L0, bcl_perph);
+	bcl_lvl_init(pdev, BCL_LVL1, BCL_IRQ_L1, bcl_perph);
+	bcl_lvl_init(pdev, BCL_LVL2, BCL_IRQ_L2, bcl_perph);
 }
 
 static void bcl_configure_bcl_peripheral(struct bcl_device *bcl_perph)

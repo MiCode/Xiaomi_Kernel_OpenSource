@@ -174,6 +174,15 @@ config PINCTRL_LITO
 	  Qualcomm Technologies Inc TLMM block found on the Qualcomm
 	  Technologies Inc LITO platform.
 
+config PINCTRL_LAGOON
+	tristate "Qualcomm Technologies Inc LAGOON pin controller driver"
+	depends on GPIOLIB && OF
+	select PINCTRL_MSM
+	help
+	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
+	  Qualcomm Technologies Inc TLMM block found on the Qualcomm
+	  Technologies Inc LAGOON platform.
+
 config PINCTRL_BENGAL
 	tristate "Qualcomm Technologies Inc BENGAL pin controller driver"
 	depends on GPIOLIB && OF

@@ -396,9 +396,11 @@ static int cnss_pci_reg_read(struct cnss_pci_data *pci_priv,
 {
 	int ret;
 
-	ret = cnss_pci_check_link_status(pci_priv);
-	if (ret)
-		return ret;
+	if (!in_interrupt() && !irqs_disabled()) {
+		ret = cnss_pci_check_link_status(pci_priv);
+		if (ret)
+			return ret;
+	}
 
 	if (pci_priv->pci_dev->device == QCA6174_DEVICE_ID ||
 	    offset < MAX_UNWINDOWED_ADDRESS) {
@@ -421,9 +423,11 @@ static int cnss_pci_reg_write(struct cnss_pci_data *pci_priv, u32 offset,
 {
 	int ret;
 
-	ret = cnss_pci_check_link_status(pci_priv);
-	if (ret)
-		return ret;
+	if (!in_interrupt() && !irqs_disabled()) {
+		ret = cnss_pci_check_link_status(pci_priv);
+		if (ret)
+			return ret;
+	}
 
 	if (pci_priv->pci_dev->device == QCA6174_DEVICE_ID ||
 	    offset < MAX_UNWINDOWED_ADDRESS) {
