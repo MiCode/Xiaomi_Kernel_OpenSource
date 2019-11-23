@@ -3554,7 +3554,7 @@ static int ipa3_q6_set_ex_path_to_apps(void)
 	/* Set the exception path to AP */
 	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++) {
 		ep_idx = ipa3_get_ep_mapping(client_idx);
-		if (ep_idx == -1)
+		if (ep_idx == -1 || (ep_idx >= IPA3_MAX_NUM_PIPES))
 			continue;
 
 		/* disable statuses for all modem controlled prod pipes */
