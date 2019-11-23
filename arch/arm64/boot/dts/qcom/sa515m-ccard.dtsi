@@ -233,6 +233,17 @@
 	qcom,phy-reset-delay-msecs = <10>;
 };
 
+&ethqos_hw {
+	/delete-property/ vreg_rgmii-supply;
+	pinctrl-names = "default",
+		"dev-emac_pin_pps_0",
+		"dev-emac_pin_pps_1";
+	pinctrl-0 = <&vreg_rgmii_off_default>;
+	pinctrl-1 = <&emac_pin_pps_0>;
+	pinctrl-2 = <&emac_pin_pps_1>;
+	qcom,phy-reset-delay-msecs = <10>;
+};
+
 &vreg_rgmii_io_pads {
 	regulator-min-microvolt = <1800000>;
 	regulator-max-microvolt = <1800000>;
