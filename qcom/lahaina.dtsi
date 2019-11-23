@@ -259,69 +259,73 @@
 			reg = <0x0 0x80900000 0x0 0x200000>;
 		};
 
-		removed_mem: removed_region@80b00000 {
+		cpucp_fw_mem: cpucp_fw_region@80b00000 {
 			no-map;
-			reg = <0x0 0x80b00000 0x0 0x5300000>;
+			reg = <0x0 0x80b00000 0x0 0x100000>;
 		};
 
-		cpucp_fw_mem: cpucp_fw_region@86200000 {
-			no-map;
-			reg = <0x0 0x86200000 0x0 0x100000>;
+		cdsp_secure_heap: cdsp_secure_heap@80c00000 {
+			reg = <0x0 0x80c00000 0x0 0x4600000>;
 		};
 
-		pil_camera_mem: pil_camera_region@86300000 {
+		pil_camera_mem: pil_camera_region@85200000 {
 			no-map;
-			reg = <0x0 0x86300000 0x0 0x500000>;
+			reg = <0x0 0x85200000 0x0 0x500000>;
 		};
 
-		pil_ipa_fw_mem: pil_ipa_fw_region@86800000 {
+		pil_video_mem: pil_video_region@85700000 {
 			no-map;
-			reg = <0x0 0x86800000 0x0 0x10000>;
+			reg = <0x0 0x85700000 0x0 0x500000>;
 		};
 
-		pil_ipa_gsi_mem: pil_ipa_gsi_region@86810000 {
+		pil_cvp_mem: pil_cvp_region@85c00000 {
 			no-map;
-			reg = <0x0 0x86810000 0x0 0xa000>;
+			reg = <0x0 0x85c00000 0x0 0x500000>;
 		};
 
-		pil_gpu_mem: pil_gpu_region@8681a000 {
+		pil_adsp_mem: pil_adsp_region@86100000 {
 			no-map;
-			reg = <0x0 0x8681a000 0x0 0x2000>;
+			reg = <0x0 0x86100000 0x0 0x2000000>;
 		};
 
-		pil_video_mem: pil_video_region@86900000 {
+		pil_slpi_mem: pil_slpi_region@88100000 {
 			no-map;
-			reg = <0x0 0x86900000 0x0 0x500000>;
+			reg = <0x0 0x88100000 0x0 0x1500000>;
 		};
 
-		pil_cvp_mem: pil_cvp_region@86e00000 {
+		pil_cdsp_mem: pil_cdsp_region@89600000 {
 			no-map;
-			reg = <0x0 0x86e00000 0x0 0x500000>;
+			reg = <0x0 0x89600000 0x0 0x1400000>;
 		};
 
-		pil_adsp_mem: pil_adsp_region@87300000 {
+		pil_spss_mem: pil_spss_region@8aa00000 {
 			no-map;
-			reg = <0x0 0x87300000 0x0 0x2000000>;
+			reg = <0x0 0x8aa00000 0x0 0x100000>;
 		};
 
-		pil_slpi_mem: pil_slpi_region@89300000 {
+		pil_ipa_fw_mem: pil_ipa_fw_region@8ab00000 {
 			no-map;
-			reg = <0x0 0x89300000 0x0 0x1500000>;
+			reg = <0x0 0x8ab00000 0x0 0x10000>;
 		};
 
-		pil_modem_mem: modem_region@8a800000 {
+		pil_ipa_gsi_mem: pil_ipa_gsi_region@8ab10000 {
 			no-map;
-			reg = <0x0 0x8a800000 0x0 0xe000000>;
+			reg = <0x0 0x8ab10000 0x0 0xa000>;
 		};
 
-		pil_spss_mem: pil_spss_region@98800000 {
+		pil_gpu_mem: pil_gpu_region@8ab1a000 {
 			no-map;
-			reg = <0x0 0x98800000 0x0 0x100000>;
+			reg = <0x0 0x8ab1a000 0x0 0x2000>;
 		};
 
-		pil_cdsp_mem: pil_cdsp_region@98900000 {
+		pil_modem_mem: modem_region@8ac00000 {
 			no-map;
-			reg = <0x0 0x98900000 0x0 0x1400000>;
+			reg = <0x0 0x8ac00000 0x0 0x10000000>;
+		};
+
+		removed_mem: removed_region@c0000000 {
+			no-map;
+			reg = <0x0 0xc0000000 0x0 0x5100000>;
 		};
 
 		adsp_mem: adsp_region {
@@ -346,11 +350,6 @@
 			reusable;
 			alignment = <0x0 0x400000>;
 			size = <0x0 0x400000>;
-		};
-
-
-		cdsp_secure_heap: cdsp_secure_heap@9b200000 {
-			reg = <0x0 0x9b200000 0x0 0x4600000>;
 		};
 
 		/* global autoconfigured region for contiguous allocations */
