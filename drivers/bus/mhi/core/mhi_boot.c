@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -416,10 +416,9 @@ static void mhi_firmware_copy(struct mhi_controller *mhi_cntrl,
 	}
 }
 
-void mhi_fw_load_worker(struct work_struct *work)
+void mhi_fw_load_handler(struct mhi_controller *mhi_cntrl)
 {
 	int ret;
-	struct mhi_controller *mhi_cntrl;
 	const char *fw_name;
 	const struct firmware *firmware = NULL;
 	struct image_info *image_info;
@@ -427,17 +426,7 @@ void mhi_fw_load_worker(struct work_struct *work)
 	dma_addr_t dma_addr;
 	size_t size;
 
-	mhi_cntrl = container_of(work, struct mhi_controller, fw_worker);
-
-	MHI_LOG("Waiting for device to enter PBL from EE:%s\n",
-		TO_MHI_EXEC_STR(mhi_cntrl->ee));
-
-	ret = wait_event_timeout(mhi_cntrl->state_event,
-				 MHI_IN_PBL(mhi_cntrl->ee) ||
-				 MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state),
-				 msecs_to_jiffies(mhi_cntrl->timeout_ms));
-
-	if (!ret || MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state)) {
+	if (MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state)) {
 		MHI_ERR("MHI is not in valid state\n");
 		return;
 	}
