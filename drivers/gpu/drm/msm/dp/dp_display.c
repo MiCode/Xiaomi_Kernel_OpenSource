@@ -1021,7 +1021,7 @@ static int dp_display_handle_disconnect(struct dp_display_private *dp)
 	}
 
 	mutex_lock(&dp->session_lock);
-	if (rc && dp->power_on)
+	if (dp->power_on)
 		dp_display_clean(dp);
 
 	dp_display_host_deinit(dp);
