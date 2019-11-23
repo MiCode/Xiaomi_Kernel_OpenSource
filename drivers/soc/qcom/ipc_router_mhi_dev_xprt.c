@@ -29,7 +29,7 @@ if (ipc_router_mhi_dev_xprt_debug_mask) \
 #define MODULE_NAME "ipc_router_mhi_dev_xprt"
 #define XPRT_NAME_LEN 32
 #define IPC_ROUTER_MHI_XPRT_MAX_PKT_SIZE 8192
-#define MHI_IPCR_ASYNC_TIMEOUT msecs_to_jiffies(100)
+#define MHI_IPCR_ASYNC_TIMEOUT msecs_to_jiffies(1000)
 #define MAX_IPCR_WR_REQ 128
 
 /**

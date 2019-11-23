@@ -12,7 +12,7 @@
 
 /dts-v1/;
 
-#include "sdxpoorwills-cdp.dtsi"
+#include "sa415m-cdp.dtsi"
 #include "sdxpoorwills-display.dtsi"
 #include "qpic-panel-ili-hvga.dtsi"
 
@@ -29,8 +29,4 @@
 
 &mss_mem {
 	reg = <0x86400000 0x9300000>;
-};
-
-&smb138x {
-	status = "disabled";
 };

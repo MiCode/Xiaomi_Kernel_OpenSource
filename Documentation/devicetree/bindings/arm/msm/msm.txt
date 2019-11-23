@@ -149,6 +149,9 @@ SoCs:
 - SDM429W
   compatible = "qcom,sdm429w"
 
+- SDA429W
+  compatible = "qcom,sda429w"
+
 - QM215
   compatible = "qcom, qm215"
 

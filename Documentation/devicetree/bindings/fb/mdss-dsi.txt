@@ -67,6 +67,7 @@ Optional properties:
 - qcom,mmss-ulp-clamp-ctrl-offset:	Specifies the offset for dsi ulps clamp control register.
 - qcom,mmss-phyreset-ctrl-offset:	Specifies the offset for dsi phy reset control register.
 - qcom,dsi-clk-ln-recovery:		Boolean which enables the clk lane recovery
+- qcom,mdss-skip-clamp:			Boolean which skip clamp for lanes.
 
 mdss-dsi-ctrl is a dsi controller device which is treated as a subnode of the mdss-dsi device.
 

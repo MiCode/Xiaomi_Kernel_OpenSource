@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1212,13 +1212,6 @@ static unsigned long vco_10nm_recalc_rate(struct clk_hw *hw,
 	struct dsi_pll_vco_clk *vco = to_vco_clk_hw(hw);
 	struct mdss_pll_resources *pll = vco->priv;
 	int rc;
-	u64 ref_clk = vco->ref_clk_rate;
-	u64 vco_rate;
-	u64 multiplier;
-	u32 frac;
-	u32 dec;
-	u32 outdiv;
-	u64 pll_freq, tmp64;
 
 	if (!vco->priv)
 		pr_err("vco priv is null\n");
@@ -1229,12 +1222,10 @@ static unsigned long vco_10nm_recalc_rate(struct clk_hw *hw,
 	}
 
 	/*
-	 * Calculate the vco rate from HW registers only for handoff cases.
-	 * For other cases where a vco_10nm_set_rate() has already been
-	 * called, just return the rate that was set earlier. This is due
-	 * to the fact that recalculating VCO rate requires us to read the
-	 * correct value of the pll_out_div divider clock, which is only set
-	 * afterwards.
+	 * In the case when vco arte is set, the recalculation function should
+	 * return the current rate as to avoid trying to set the vco rate
+	 * again. However durng handoff, recalculation should set the flag
+	 * according to the status of PLL.
 	 */
 	if (pll->vco_current_rate != 0) {
 		pr_debug("returning vco rate = %lld\n", pll->vco_current_rate);
@@ -1251,40 +1242,9 @@ static unsigned long vco_10nm_recalc_rate(struct clk_hw *hw,
 	if (!dsi_pll_10nm_lock_status(pll))
 		pll->handoff_resources = true;
 
-	dec = MDSS_PLL_REG_R(pll->pll_base, PLL_DECIMAL_DIV_START_1);
-	dec &= 0xFF;
-
-	frac = MDSS_PLL_REG_R(pll->pll_base, PLL_FRAC_DIV_START_LOW_1);
-	frac |= ((MDSS_PLL_REG_R(pll->pll_base, PLL_FRAC_DIV_START_MID_1) &
-		  0xFF) <<
-		8);
-	frac |= ((MDSS_PLL_REG_R(pll->pll_base, PLL_FRAC_DIV_START_HIGH_1) &
-		  0x3) <<
-		16);
-
-	/* OUTDIV_1:0 field is (log(outdiv, 2)) */
-	outdiv = MDSS_PLL_REG_R(pll->pll_base, PLL_PLL_OUTDIV_RATE);
-	outdiv &= 0x3;
-	outdiv = 1 << outdiv;
-
-	/*
-	 * TODO:
-	 *	1. Assumes prescaler is disabled
-	 *	2. Multiplier is 2^18. it should be 2^(num_of_frac_bits)
-	 **/
-	multiplier = 1 << 18;
-	pll_freq = dec * (ref_clk * 2);
-	tmp64 = (ref_clk * 2 * frac);
-	pll_freq += div_u64(tmp64, multiplier);
-
-	vco_rate = div_u64(pll_freq, outdiv);
-
-	pr_debug("dec=0x%x, frac=0x%x, outdiv=%d, vco=%llu\n",
-		 dec, frac, outdiv, vco_rate);
-
 	(void)mdss_pll_resource_enable(pll, false);
 
-	return (unsigned long)vco_rate;
+	return rc;
 }
 
 static int pixel_clk_get_div(void *context, unsigned int reg, unsigned int *div)

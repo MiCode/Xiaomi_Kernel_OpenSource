@@ -124,3 +124,21 @@ led_flash_rear: qcom,camera-flash@0 {
 		qcom,max-current = <1500>;
 		qcom,max-duration = <1200>;
 	};
+
+
+Example:
+
+flash0: qcom,camera-flash {
+		cell-index = <0>;
+		compatible = "qcom,qm215-gpio-flash";
+		qcom,flash-type = <2>;
+		gpios = <&tlmm 34 0>;
+			<&tlmm 33 0>;
+		qcom,gpio-req-tbl-num = <0 1>;
+		qcom,gpio-req-tbl-flags = <1 0>;
+		qcom,gpio-flash-en = <0>;
+		qcom,gpio-flash-now = <1>;
+		qcom,gpio-req-tbl-label = "CAM_FLASH",
+			"CAM_TORCH";
+		status = "ok";
+	};

@@ -80,6 +80,9 @@ static const char * const iommu_ports[] = {
 #define SDE_DEBUGFS_DIR "msm_sde"
 #define SDE_DEBUGFS_HWMASKNAME "hw_log_mask"
 
+#define SDE_KMS_MODESET_LOCK_TIMEOUT_US 500
+#define SDE_KMS_MODESET_LOCK_MAX_TRIALS 20
+
 /**
  * sdecustom - enable certain driver customizations for sde clients
  *	Enabling this modifies the standard DRM behavior slightly and assumes
@@ -2768,12 +2771,79 @@ static bool sde_kms_check_for_splash(struct msm_kms *kms)
 	return sde_kms->splash_data.cont_splash_en;
 }
 
+static void _sde_kms_null_commit(struct drm_device *dev,
+		struct drm_encoder *enc)
+{
+	struct drm_modeset_acquire_ctx ctx;
+	struct drm_connector *conn = NULL;
+	struct drm_connector *tmp_conn = NULL;
+	struct drm_atomic_state *state = NULL;
+	struct drm_crtc_state *crtc_state = NULL;
+	struct drm_connector_state *conn_state = NULL;
+	int retry_cnt = 0;
+	int ret = 0;
+
+	drm_modeset_acquire_init(&ctx, 0);
+
+retry:
+	ret = drm_modeset_lock_all_ctx(dev, &ctx);
+	if (ret == -EDEADLK && retry_cnt < SDE_KMS_MODESET_LOCK_MAX_TRIALS) {
+		drm_modeset_backoff(&ctx);
+		retry_cnt++;
+		udelay(SDE_KMS_MODESET_LOCK_TIMEOUT_US);
+		goto retry;
+	} else if (WARN_ON(ret)) {
+		goto end;
+	}
+
+	state = drm_atomic_state_alloc(dev);
+	if (!state) {
+		DRM_ERROR("failed to allocate atomic state, %d\n", ret);
+		goto end;
+	}
+
+	state->acquire_ctx = &ctx;
+	drm_for_each_connector(tmp_conn, dev) {
+		if (enc == tmp_conn->state->best_encoder) {
+			conn = tmp_conn;
+			break;
+		}
+	}
+
+	if (!conn) {
+		SDE_ERROR("error in finding conn for enc:%d\n", DRMID(enc));
+		goto end;
+	}
+
+	crtc_state = drm_atomic_get_crtc_state(state, enc->crtc);
+	conn_state = drm_atomic_get_connector_state(state, conn);
+	if (IS_ERR(conn_state)) {
+		SDE_ERROR("error %d getting connector %d state\n",
+				ret, DRMID(conn));
+		goto end;
+	}
+
+	crtc_state->active = true;
+	ret = drm_atomic_set_crtc_for_connector(conn_state, enc->crtc);
+
+	ret = drm_atomic_commit(state);
+	if (ret)
+		SDE_ERROR("Commit failed with %d error\n", ret);
+end:
+	if (state)
+		drm_atomic_state_free(state);
+
+	drm_modeset_drop_locks(&ctx);
+	drm_modeset_acquire_fini(&ctx);
+}
+
 static int sde_kms_pm_suspend(struct device *dev)
 {
 	struct drm_device *ddev;
 	struct drm_modeset_acquire_ctx ctx;
 	struct drm_connector *conn;
 	struct drm_atomic_state *state;
+	struct drm_encoder *enc;
 	struct sde_kms *sde_kms;
 	int ret = 0, num_crtcs = 0;
 
@@ -2789,6 +2859,12 @@ static int sde_kms_pm_suspend(struct device *dev)
 
 	/* disable hot-plug polling */
 	drm_kms_helper_poll_disable(ddev);
+
+	/* if a display stuck in CS trigger a null commit to complete handoff */
+	drm_for_each_encoder(enc, ddev) {
+		if (sde_kms && sde_kms->splash_data.cont_splash_en && enc->crtc)
+			_sde_kms_null_commit(ddev, enc);
+	}
 
 	/* acquire modeset lock(s) */
 	drm_modeset_acquire_init(&ctx, 0);

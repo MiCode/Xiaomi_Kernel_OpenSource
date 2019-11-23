@@ -3369,6 +3369,8 @@ static ssize_t sde_hw_rotator_show_caps(struct sde_rot_mgr *mgr,
 	if (hw_data->downscale_caps)
 		SPRINT("downscale_ratios=%s\n", hw_data->downscale_caps);
 
+	SPRINT("max_line_width=%d\n", sde_rotator_get_maxlinewidth(mgr));
+
 #undef SPRINT
 	return cnt;
 }

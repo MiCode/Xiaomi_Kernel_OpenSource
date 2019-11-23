@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1381,6 +1381,7 @@ static int tx_short_data(struct glink_transport_if *if_ptr,
 	mutex_lock(&einfo->write_lock);
 	if (glink_bgcom_get_tx_avail(einfo) <= sizeof(cmd)/WORD_SIZE) {
 		einfo->tx_resume_needed = true;
+		send_tx_blocked_signal(einfo);
 		mutex_unlock(&einfo->write_lock);
 		srcu_read_unlock(&einfo->use_ref, rcu_id);
 		return -EAGAIN;
