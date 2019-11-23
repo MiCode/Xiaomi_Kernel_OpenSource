@@ -25,6 +25,7 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/regulator/of_regulator.h>
+#include <linux/regulator/proxy-consumer.h>
 #include <linux/regulator/machine.h>
 #include <linux/clk.h>
 
@@ -249,6 +250,11 @@ static int reg_fixed_voltage_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	ret = devm_regulator_proxy_consumer_register(dev, dev->of_node);
+	if (ret)
+		dev_err(dev, "failed to register proxy consumer, ret=%d\n",
+			ret);
+
 	platform_set_drvdata(pdev, drvdata);
 
 	dev_dbg(&pdev->dev, "%s supplying %duV\n", drvdata->desc.name,
@@ -278,6 +284,7 @@ static struct platform_driver regulator_fixed_voltage_driver = {
 	.driver		= {
 		.name		= "reg-fixed-voltage",
 		.of_match_table = of_match_ptr(fixed_of_match),
+		.sync_state	= regulator_proxy_consumer_sync_state,
 	},
 };
 
