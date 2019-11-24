@@ -552,18 +552,23 @@ static int ipa3_attrib_dump(struct ipa_rule_attrib *attrib,
 		pr_err("frg ");
 
 	if ((attrib->attrib_mask & IPA_FLT_MAC_SRC_ADDR_ETHER_II) ||
-		(attrib->attrib_mask & IPA_FLT_MAC_SRC_ADDR_802_3)) {
+		(attrib->attrib_mask & IPA_FLT_MAC_SRC_ADDR_802_3) ||
+		(attrib->attrib_mask & IPA_FLT_MAC_SRC_ADDR_802_1Q)) {
 		pr_err("src_mac_addr:%pM ", attrib->src_mac_addr);
 	}
 
 	if ((attrib->attrib_mask & IPA_FLT_MAC_DST_ADDR_ETHER_II) ||
 		(attrib->attrib_mask & IPA_FLT_MAC_DST_ADDR_802_3) ||
-		(attrib->attrib_mask & IPA_FLT_MAC_DST_ADDR_L2TP)) {
+		(attrib->attrib_mask & IPA_FLT_MAC_DST_ADDR_L2TP) ||
+		(attrib->attrib_mask & IPA_FLT_MAC_DST_ADDR_802_1Q)) {
 		pr_err("dst_mac_addr:%pM ", attrib->dst_mac_addr);
 	}
 
 	if (attrib->attrib_mask & IPA_FLT_MAC_ETHER_TYPE)
 		pr_err("ether_type:%x ", attrib->ether_type);
+
+	if (attrib->attrib_mask & IPA_FLT_VLAN_ID)
+		pr_err("vlan_id:%x ", attrib->vlan_id);
 
 	if (attrib->attrib_mask & IPA_FLT_TCP_SYN)
 		pr_err("tcp syn ");

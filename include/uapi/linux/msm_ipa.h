@@ -206,6 +206,9 @@
 #define IPA_FLT_L2TP_INNER_IP_TYPE	(1ul << 25)
 #define IPA_FLT_L2TP_INNER_IPV4_DST_ADDR (1ul << 26)
 #define IPA_FLT_IS_PURE_ACK		(1ul << 27)
+#define IPA_FLT_VLAN_ID			(1ul << 28)
+#define IPA_FLT_MAC_SRC_ADDR_802_1Q	(1ul << 29)
+#define IPA_FLT_MAC_DST_ADDR_802_1Q	(1ul << 30)
 
 /**
  * maximal number of NAT PDNs in the PDN config table
@@ -800,6 +803,7 @@ enum ipa_hw_type {
  * @u.v6.src_addr_mask: src address mask
  * @u.v6.dst_addr: dst address val
  * @u.v6.dst_addr_mask: dst address mask
+ * @vlan_id: vlan id value
  */
 struct ipa_rule_attrib {
 	uint32_t attrib_mask;
@@ -840,6 +844,7 @@ struct ipa_rule_attrib {
 			uint32_t dst_addr_mask[4];
 		} v6;
 	} u;
+	uint16_t vlan_id;
 };
 
 /*! @brief The maximum number of Mask Equal 32 Eqns */
