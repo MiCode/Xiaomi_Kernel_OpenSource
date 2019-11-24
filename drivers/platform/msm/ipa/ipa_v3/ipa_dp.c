@@ -4974,8 +4974,8 @@ start_poll:
 	}
 	cnt += weight - remain_aggr_weight * IPA_WAN_AGGR_PKT_CNT;
 	/* call repl_hdlr before napi_reschedule / napi_complete */
-	if (cnt)
-		ep->sys->repl_hdlr(ep->sys);
+	ep->sys->repl_hdlr(ep->sys);
+
 	/* When not able to replenish enough descriptors pipe wait
 	 * until minimum number descripotrs to replish.
 	 */
@@ -4988,7 +4988,7 @@ start_poll:
 		ipa_pm_deferred_deactivate(ep->sys->pm_hdl);
 	} else {
 		cnt = weight;
-		IPADBG("Client = %d not replenished free descripotrs\n",
+		IPADBG_LOW("Client = %d not replenished free descripotrs\n",
 				ep->client);
 	}
 	return cnt;
