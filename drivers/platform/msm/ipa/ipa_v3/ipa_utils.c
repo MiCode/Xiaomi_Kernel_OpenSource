@@ -7879,9 +7879,6 @@ static int _ipa_suspend_resume_pipe(enum ipa_client_type client, bool suspend)
 
 void ipa3_force_close_coal(void)
 {
-	struct ipahal_imm_cmd_pyld *cmd_pyld = NULL;
-	struct ipahal_imm_cmd_register_write reg_write_cmd = { 0 };
-	struct ipahal_reg_valmask valmask;
 	struct ipa3_desc desc;
 	int ep_idx;
 
@@ -7889,28 +7886,11 @@ void ipa3_force_close_coal(void)
 	if (ep_idx == IPA_EP_NOT_ALLOCATED || (!ipa3_ctx->ep[ep_idx].valid))
 		return;
 
-	reg_write_cmd.skip_pipeline_clear = false;
-	reg_write_cmd.pipeline_clear_options = IPAHAL_HPS_CLEAR;
-	reg_write_cmd.offset = ipahal_get_reg_ofst(IPA_AGGR_FORCE_CLOSE);
-	ipahal_get_aggr_force_close_valmask(ep_idx, &valmask);
-	reg_write_cmd.value = valmask.val;
-	reg_write_cmd.value_mask = valmask.mask;
-	cmd_pyld = ipahal_construct_imm_cmd(IPA_IMM_CMD_REGISTER_WRITE,
-		&reg_write_cmd, false);
-	if (!cmd_pyld) {
-		IPAERR("fail construct register_write imm cmd\n");
-		ipa_assert();
-		return;
-	}
-	ipa3_init_imm_cmd_desc(&desc, cmd_pyld);
+	ipa3_init_imm_cmd_desc(&desc, ipa3_ctx->coal_cmd_pyld);
 
 	IPADBG("Sending 1 descriptor for coal force close\n");
-	if (ipa3_send_cmd_timeout(1, &desc,
-		IPA_DMA_TASK_FOR_GSI_TIMEOUT_MSEC)) {
-		IPAERR("ipa3_send_cmd failed\n");
-		ipa_assert();
-	}
-	ipahal_destroy_imm_cmd(cmd_pyld);
+	if (ipa3_send_cmd(1, &desc))
+		IPADBG("ipa3_send_cmd timedout\n");
 }
 
 int ipa3_suspend_apps_pipes(bool suspend)
@@ -8042,6 +8022,39 @@ void ipa3_free_dma_task_for_gsi(void)
 	memset(&ipa3_ctx->dma_task_info, 0, sizeof(ipa3_ctx->dma_task_info));
 }
 
+int ipa3_allocate_coal_close_frame(void)
+{
+	struct ipahal_imm_cmd_register_write reg_write_cmd = { 0 };
+	struct ipahal_reg_valmask valmask;
+	int ep_idx;
+
+	ep_idx = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS);
+	if (ep_idx == IPA_EP_NOT_ALLOCATED)
+		return 0;
+	IPADBG("Allocate coal close frame cmd\n");
+	reg_write_cmd.skip_pipeline_clear = false;
+	reg_write_cmd.pipeline_clear_options = IPAHAL_HPS_CLEAR;
+	reg_write_cmd.offset = ipahal_get_reg_ofst(IPA_AGGR_FORCE_CLOSE);
+	ipahal_get_aggr_force_close_valmask(ep_idx, &valmask);
+	reg_write_cmd.value = valmask.val;
+	reg_write_cmd.value_mask = valmask.mask;
+	ipa3_ctx->coal_cmd_pyld =
+		ipahal_construct_imm_cmd(IPA_IMM_CMD_REGISTER_WRITE,
+			&reg_write_cmd, false);
+	if (!ipa3_ctx->coal_cmd_pyld) {
+		IPAERR("fail construct register_write imm cmd\n");
+		ipa_assert();
+		return 0;
+	}
+
+	return 0;
+}
+
+void ipa3_free_coal_close_frame(void)
+{
+	if (ipa3_ctx->coal_cmd_pyld)
+		ipahal_destroy_imm_cmd(ipa3_ctx->coal_cmd_pyld);
+}
 /**
  * ipa3_inject_dma_task_for_gsi()- Send DMA_TASK to IPA for GSI stop channel
  *
