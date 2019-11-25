@@ -1035,4 +1035,8 @@ struct snd_ctl_event {
 #define SNDRV_CTL_NAME_IEC958_PCM_STREAM		"PCM Stream"
 #define SNDRV_CTL_NAME_IEC958(expl,direction,what)	"IEC958 " expl SNDRV_CTL_NAME_##direction SNDRV_CTL_NAME_IEC958_##what
 
+#ifdef CONFIG_AUDIO_QGKI
+#define SNDRV_AUDIO_QGKI 1
+#endif
+
 #endif /* _UAPI__SOUND_ASOUND_H */
