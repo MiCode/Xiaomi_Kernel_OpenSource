@@ -177,9 +177,16 @@ struct st_asm330lhh_sensor {
  * @state: hw operational state.
  * @enable_mask: Enabled sensor bitmask.
  * @ts_offset: Hw timestamp offset.
+ * @hw_val: Latest hw timestamp value.
+ * @hw_val_old: The hw saved timestamp value.
  * @hw_ts: Latest hw timestamp from the sensor.
- * @ts: Latest timestamp from irq handler.
+ * @hw_ts_high: MSB of HW timestamp for rollover mamagenemt.
  * @delta_ts: Delta time between two consecutive interrupts.
+ * @ts: Latest timestamp from irq handler.
+ * @tsample: Sample timestamp.
+ * @hw_ts_old: Prev. timestamp value.
+ * @delta_hw_ts: Estimated delta hw timestamp.
+ * @odr: Timestamp sample ODR.
  * @iio_devs: Pointers to acc/gyro iio_dev instances.
  * @tf: Transfer function structure used by I/O operations.
  * @tb: Transfer buffers used by SPI I/O operations.
@@ -206,7 +213,6 @@ struct st_asm330lhh_hw {
 	s64 hw_ts_old;
 	s64 delta_hw_ts;
 
-	/* Timestamp sample ODR */
 	u16 odr;
 
 	struct iio_dev *iio_devs[ST_ASM330LHH_ID_MAX];
