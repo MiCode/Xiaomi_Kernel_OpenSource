@@ -1,4 +1,3 @@
-
 config IIO_ST_ASM330LHH
 	tristate "STMicroelectronics ASM330LHH sensor"
 	depends on (I2C || SPI)
