@@ -978,71 +978,32 @@ End:
 	return rc;
 }
 
-static int wigig_sensing_chip_data_ready(struct wigig_sensing_ctx *ctx,
-					 u16 fill_level, u32 burst_size)
+static int wigig_sensing_chip_data_ready_internal(struct wigig_sensing_ctx *ctx,
+						  u16 fill_level, u32 *offset)
 {
 	int rc = 0;
-	enum wigig_sensing_stm_e stm_state = ctx->stm.state;
 	struct spi_fifo *spi_fifo = &ctx->spi_fifo;
 	struct cir_data *d = &ctx->cir_data;
 	struct circ_buf local;
 	u32 bytes_to_read;
-	u32 idx = 0;
 	u32 spi_transaction_size;
 	u32 available_space_to_end;
 	u32 orig_head;
 
-	if (stm_state == WIGIG_SENSING_STATE_INITIALIZED ||
-	    stm_state == WIGIG_SENSING_STATE_READY_STOPPED ||
-	    stm_state == WIGIG_SENSING_STATE_SYS_ASSERT) {
-		pr_err("Received data ready interrupt in an unexpected stm_state, disregarding\n");
-		return 0;
-	}
-
-	if (!ctx->cir_data.b.buf)
-		return -EFAULT;
-
 	/*
-	 * Read data from FIFO over SPI
-	 * Disregard the lowest 2 bits of fill_level as SPI can read in 32 bit
-	 * units. Additionally, HW reports the fill_level as one more than
-	 * there is actually (1 when the FIFO is empty)
+	 * Make sure that fill_level is in 32 bit units
 	 */
-	if (fill_level == 0 || fill_level == 1) {
-		pr_err("Wrong fill_level received\n");
-		return -EFAULT;
-	}
-	fill_level = (fill_level - 1) & ~0x3;
-
-	if (fill_level > burst_size) {
-		pr_err("FIFO fill level too large, fill_level = %u, burst_size = %u\n",
-		       fill_level, burst_size);
-		return -EFAULT;
-	}
-
-	/*
-	 * In case there is not enough space in the buffer, discard an old
-	 * burst
-	 */
-	if (circ_space(&d->b, d->size_bytes) < fill_level) {
-		mutex_lock(&d->lock);
-		if (circ_space(&d->b, d->size_bytes) < fill_level) {
-			pr_debug("Buffer full, dropping burst\n");
-			d->b.tail = (d->b.tail + burst_size) &
-				(d->size_bytes - 1);
-			ctx->dropped_bursts++;
-		}
-		mutex_unlock(&d->lock);
-	}
+	fill_level = fill_level & ~0x3;
 
 	spi_transaction_size =
 		calc_spi_transaction_size(fill_level, SPI_MAX_TRANSACTION_SIZE);
 	local = d->b;
+	local.head = (local.head + *offset) & (d->size_bytes - 1);
 	orig_head = local.head;
 	mutex_lock(&ctx->spi_lock);
 	while (fill_level > 0) {
 		if (ctx->stm.change_mode_in_progress) {
-			local.head = orig_head;
+			rc = -EFAULT;
 			break;
 		}
 
@@ -1050,28 +1011,30 @@ static int wigig_sensing_chip_data_ready(struct wigig_sensing_ctx *ctx,
 			fill_level : spi_transaction_size;
 		available_space_to_end =
 			circ_space_to_end(&local, d->size_bytes);
-		pr_debug("fill_level=%u, bytes_to_read=%u, idx=%u, available_space_to_end = %u\n",
-			 fill_level, bytes_to_read, idx,
+		pr_debug("fill_level=%u, bytes_to_read=%u, offset=%u, available_space_to_end = %u\n",
+			 fill_level, bytes_to_read, *offset,
 			 available_space_to_end);
 		/* Determine transaction type */
 		if (available_space_to_end >= bytes_to_read) {
 			rc = spis_block_read_mem(ctx->spi_dev,
-						 spi_fifo->base_addr + idx,
+						 spi_fifo->base_addr + *offset,
 						 &d->b.buf[local.head],
 						 bytes_to_read,
-						 ctx->last_read_length
-			);
+						 ctx->last_read_length);
+			if (rc)
+				break;
 		} else {
 			/*
 			 * There is not enough place in the CIR buffer, copy to
 			 * a temporay buffer and then split
 			 */
 			rc = spis_block_read_mem(ctx->spi_dev,
-						 spi_fifo->base_addr + idx,
+						 spi_fifo->base_addr + *offset,
 						 ctx->temp_buffer,
 						 bytes_to_read,
-						 ctx->last_read_length
-			);
+						 ctx->last_read_length);
+			if (rc)
+				break;
 			memcpy(&d->b.buf[local.head], ctx->temp_buffer,
 			       available_space_to_end);
 			memcpy(&d->b.buf[0],
@@ -1080,14 +1043,82 @@ static int wigig_sensing_chip_data_ready(struct wigig_sensing_ctx *ctx,
 		}
 
 		fill_level -= bytes_to_read;
-		idx += bytes_to_read;
+		*offset += bytes_to_read;
 		local.head = (local.head + bytes_to_read) & (d->size_bytes - 1);
 	}
 	mutex_unlock(&ctx->spi_lock);
 
+	return rc;
+}
+
+static int wigig_sensing_chip_data_ready(struct wigig_sensing_ctx *ctx,
+					 u16 fill_level,
+					 u32 burst_size)
+{
+	int rc = 0;
+	u32 read_bytes = 0;
+	enum wigig_sensing_stm_e stm_state = ctx->stm.state;
+	struct cir_data *d = &ctx->cir_data;
+	union user_rgf_spi_status spi_status;
+
+	if (stm_state == WIGIG_SENSING_STATE_INITIALIZED ||
+	    stm_state == WIGIG_SENSING_STATE_READY_STOPPED ||
+	    stm_state == WIGIG_SENSING_STATE_SYS_ASSERT) {
+		pr_err("Received data ready interrupt in an unexpected state, disregarding\n");
+		return 0;
+	}
+
+	if (!ctx->cir_data.b.buf)
+		return -EFAULT;
+
+	/*
+	 * In case there is not enough space in the buffer, discard an old
+	 * burst
+	 */
+	if (circ_space(&d->b, d->size_bytes) < burst_size) {
+		mutex_lock(&d->lock);
+		if (circ_space(&d->b, d->size_bytes) < burst_size) {
+			pr_debug("Buffer full, dropping burst\n");
+			d->b.tail = (d->b.tail + burst_size) &
+				(d->size_bytes - 1);
+			ctx->dropped_bursts++;
+		}
+		mutex_unlock(&d->lock);
+	}
+
+	while (read_bytes < burst_size) {
+		rc = wigig_sensing_chip_data_ready_internal(ctx, fill_level,
+							    &read_bytes);
+		if (rc) {
+			if (ctx->stm.change_mode_in_progress)
+				pr_err("change_mode_in_progress, aborting SPI transactions\n");
+			else
+				pr_err("wigig_sensing_chip_data_ready_internal failed, err %d\n",
+				       rc);
+			return rc;
+		}
+
+		if (read_bytes == burst_size)
+			break;
+
+		/* Read fill_level again */
+		pr_debug("Reading RGF_USER_SPI_SPI_MBOX_FILL_STATUS register\n");
+		mutex_lock(&ctx->spi_lock);
+		rc = spis_read_reg(ctx->spi_dev,
+				   RGF_USER_SPI_SPI_MBOX_FILL_STATUS,
+				   &spi_status.v);
+		mutex_unlock(&ctx->spi_lock);
+		if (rc) {
+			pr_err("Fail to read RGF_USER_SPI_SPI_MBOX_FILL_STATUS, err %d\n",
+			       rc);
+			return rc;
+		}
+		fill_level = spi_status.b.fill_level;
+	}
+
 	/* Increment destination rd_ptr */
 	mutex_lock(&d->lock);
-	d->b.head = local.head;
+	d->b.head = (d->b.head + read_bytes) & (d->size_bytes - 1);
 	pr_debug("head=%u, tail=%u\n", d->b.head, d->b.tail);
 	mutex_unlock(&d->lock);
 
@@ -1280,8 +1311,7 @@ static irqreturn_t wigig_sensing_dri_isr_thread(int irq, void *cookie)
 		pr_debug("DATA READY INTERRUPT\n");
 		if (!ctx->stm.change_mode_in_progress)
 			wigig_sensing_chip_data_ready(ctx,
-						      spi_status.b.fill_level,
-						      ctx->stm.burst_size);
+				spi_status.b.fill_level, ctx->stm.burst_size);
 		else
 			pr_debug("Change mode in progress, aborting data processing\n");
 		spi_status.v &= ~INT_DATA_READY;
