@@ -105,6 +105,7 @@ struct qvr_external_sensor {
 
 static DECLARE_WAIT_QUEUE_HEAD(wq);
 static struct qvr_external_sensor qvr_external_sensor;
+static uint8_t DEBUG_ORIENTATION;
 
 static int read_calibration_len(void)
 {
@@ -237,7 +238,6 @@ static int control_imu_stream(bool status)
 	return -ETIME;
 }
 
-
 static int qvr_send_package_wrap(u8 *message, int msize, struct hid_device *hid)
 {
 	struct qvr_external_sensor *sensor = &qvr_external_sensor;
@@ -254,7 +254,32 @@ static int qvr_send_package_wrap(u8 *message, int msize, struct hid_device *hid)
 
 	memcpy((void *)&imuData, (void *)message,
 		sizeof(struct external_imu_format));
-
+	if (!sensor->ts_base) {
+		if (imuData.gNumerator == 1 && imuData.aNumerator == 1)
+			DEBUG_ORIENTATION = 1;
+		else
+			DEBUG_ORIENTATION = 0;
+		pr_debug("qvr msize = %d reportID=%d padding=%d\n"
+			"qvr version=%d numImu=%d nspip=%d pSize=%d\n"
+			"qvr imuID=%d sampleID=%d temp=%d\n",
+			msize, imuData.reportID, imuData.padding,
+			imuData.version, imuData.numIMUs,
+			imuData.numSamplesPerImuPacket,
+			imuData.totalPayloadSize, imuData.imuID,
+			imuData.sampleID, imuData.temperature);
+		pr_debug("qvr gts0=%llu num=%d denom=%d\n"
+			"qvr gx0=%d gy0=%d gz0=%d\n",
+			imuData.gts0, imuData.gNumerator, imuData.gDenominator,
+			imuData.gx0, imuData.gy0, imuData.gz0);
+		pr_debug("qvr ats0=%llu num=%d denom=%d\n"
+			"qvr ax0=%d ay0=%d az0=%d\n",
+			imuData.ats0, imuData.aNumerator, imuData.aDenominator,
+			imuData.ax0, imuData.ay0, imuData.az0);
+		pr_debug("qvr mts0=%llu num=%d denom=%d\n"
+			"mx0=%d my0=%d mz0=%d\n",
+			imuData.mts0, imuData.mNumerator, imuData.mDenominator,
+			imuData.mx0, imuData.my0, imuData.mz0);
+	}
 	if (!sensor->ts_base)
 		sensor->ts_base = ktime_to_ns(ktime_get_boottime());
 	if (!sensor->ts_offset)
@@ -276,15 +301,28 @@ static int qvr_send_package_wrap(u8 *message, int msize, struct hid_device *hid)
 	else
 		data->mts = data->ats;
 	data->gts = data->ats;
-	data->ax = -imuData.ax0;
-	data->ay = imuData.ay0;
-	data->az = -imuData.az0;
-	data->gx = -imuData.gx0;
-	data->gy = imuData.gy0;
-	data->gz = -imuData.gz0;
-	data->mx = -imuData.my0;
-	data->my = -imuData.mx0;
-	data->mz = -imuData.mz0;
+
+	if (DEBUG_ORIENTATION == 1) {
+		data->ax = -imuData.ax0;
+		data->ay = imuData.ay0;
+		data->az = -imuData.az0;
+		data->gx = -imuData.gx0;
+		data->gy = imuData.gy0;
+		data->gz = -imuData.gz0;
+		data->mx = -imuData.my0;
+		data->my = -imuData.mx0;
+		data->mz = -imuData.mz0;
+	} else {
+		data->ax = -imuData.ay0;
+		data->ay = -imuData.ax0;
+		data->az = -imuData.az0;
+		data->gx = -imuData.gy0;
+		data->gy = -imuData.gx0;
+		data->gz = -imuData.gz0;
+		data->mx = -imuData.my0;
+		data->my = -imuData.mx0;
+		data->mz = -imuData.mz0;
+	}
 
 	trace_qvr_recv_sensor("gyro", data->gts, data->gx, data->gy, data->gz);
 	trace_qvr_recv_sensor("accel", data->ats, data->ax, data->ay, data->az);
