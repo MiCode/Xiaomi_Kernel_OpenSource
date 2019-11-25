@@ -391,7 +391,7 @@ static int msm_cvp_map_buf_user_persist(struct msm_cvp_inst *inst,
 		return -EINVAL;
 	}
 
-	if (in_buf->fd > 0) {
+	if (in_buf->fd >= 0) {
 		dma_buf = msm_cvp_smem_get_dma_buf(in_buf->fd);
 		if (!dma_buf) {
 			dprintk(CVP_ERR, "%s: Invalid fd=%d", __func__,
@@ -462,7 +462,7 @@ static int msm_cvp_map_buf_cpu(struct msm_cvp_inst *inst,
 		return -EINVAL;
 	}
 
-	if (in_buf->fd > 0) {
+	if (in_buf->fd >= 0) {
 		dma_buf = msm_cvp_smem_get_dma_buf(in_buf->fd);
 		if (!dma_buf) {
 			dprintk(CVP_ERR, "%s: Invalid fd=%d", __func__,
@@ -738,7 +738,7 @@ static int msm_cvp_map_user_persist(struct msm_cvp_inst *inst,
 			return -EINVAL;
 		}
 
-		if (new_buf->fd <= 0 && !new_buf->dbuf)
+		if ((new_buf->fd < 0 || new_buf->size == 0) && !new_buf->dbuf)
 			continue;
 
 		rc = msm_cvp_map_buf_user_persist(inst, new_buf, &iova);
@@ -817,7 +817,8 @@ static int msm_cvp_map_buf(struct msm_cvp_inst *inst,
 				return -EINVAL;
 			}
 
-			if (new_buf->fd <= 0 && !new_buf->dbuf)
+			if ((new_buf->fd < 0 || new_buf->size == 0) &&
+				!new_buf->dbuf)
 				continue;
 
 			rc = msm_cvp_map_buf_cpu(inst, new_buf, &iova, frame);
