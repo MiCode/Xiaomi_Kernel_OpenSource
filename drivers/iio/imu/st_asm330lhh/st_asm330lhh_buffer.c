@@ -84,6 +84,8 @@ static inline int st_asm330lhh_reset_hwts(struct st_asm330lhh_hw *hw)
 	hw->ts_offset = hw->ts;
 	hw->hw_ts_old = 0ull;
 	hw->tsample = 0ull;
+	hw->hw_ts_high = 0ull;
+	hw->hw_val_old = 0ull;
 
 	return hw->tf->write(hw->dev, ST_ASM330LHH_REG_TS2_ADDR, sizeof(data),
 			     &data);
@@ -277,14 +279,12 @@ static int st_asm330lhh_read_fifo(struct st_asm330lhh_hw *hw)
 	struct iio_dev *iio_dev;
 	__le16 fifo_status;
 	u16 fifo_depth;
-	u32 val;
 	int ts_processed = 0;
 	s64 hw_ts = 0ull, delta_hw_ts, cpu_timestamp;
 
 	ts_irq = hw->ts - hw->delta_ts;
 
-	do
-	{
+	do {
 		err = hw->tf->read(hw->dev, ST_ASM330LHH_REG_FIFO_DIFFL_ADDR,
 				   sizeof(fifo_status), (u8 *)&fifo_status);
 		if (err < 0)
@@ -309,8 +309,14 @@ static int st_asm330lhh_read_fifo(struct st_asm330lhh_hw *hw)
 				tag = buf[i] >> 3;
 
 				if (tag == ST_ASM330LHH_TS_TAG) {
-					val = get_unaligned_le32(ptr);
-					hw->hw_ts = val * ST_ASM330LHH_TS_DELTA_NS;
+					hw->hw_val = get_unaligned_le32(ptr);
+
+					/* check for timer rollover */
+					if (hw->hw_val < hw->hw_val_old)
+						hw->hw_ts_high++;
+					hw->hw_ts =
+					(hw->hw_val + (hw->hw_ts_high << 32))
+						* ST_ASM330LHH_TS_DELTA_NS;
 					ts_delta_hw_ts = hw->hw_ts - hw->hw_ts_old;
 					hw_ts += ts_delta_hw_ts;
 					ts_delta_offs =
@@ -321,6 +327,7 @@ static int st_asm330lhh_read_fifo(struct st_asm330lhh_hw *hw)
 
 					ts_irq += (hw->hw_ts + ts_delta_offs);
 					hw->hw_ts_old = hw->hw_ts;
+					hw->hw_val_old = hw->hw_val;
 					ts_processed++;
 
 					if (!hw->tsample)
