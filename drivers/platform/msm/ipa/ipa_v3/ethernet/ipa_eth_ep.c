@@ -65,13 +65,11 @@ static const struct ipa_eth_phdr_add_ioc ADD_HDR_TEMPLATE = {
 	},
 	.hdrs = {
 		[IPA_ETH_PHDR_V4] = {
-			.type = IPA_HDR_L2_ETHERNET_II,
 			.is_partial = 1,
 			.is_eth2_ofst_valid = 1,
 			.eth2_ofst = 0,
 		},
 		[IPA_ETH_PHDR_V6] = {
-			.type = IPA_HDR_L2_ETHERNET_II,
 			.is_partial = 1,
 			.is_eth2_ofst_valid = 1,
 			.eth2_ofst = 0,
@@ -110,14 +108,20 @@ static u8 ipa_eth_init_vlan_ethhdr(struct vlan_ethhdr *eth_hdr,
 	return VLAN_ETH_HLEN;
 }
 
-static u8 ipa_eth_init_hdr(void *hdr,
+static void ipa_eth_init_hdr_add(struct ipa_hdr_add *hdr_add,
 			bool vlan_mode,
 			enum ipa_eth_phdr_type type,
 			struct net_device *net_dev)
 {
-	return vlan_mode ?
-		ipa_eth_init_vlan_ethhdr(hdr, type, net_dev) :
-		ipa_eth_init_ethhdr(hdr, type, net_dev);
+	const char *fmt_str = (type == IPA_ETH_PHDR_V4) ? "%s_ipv4" : "%s_ipv6";
+
+	snprintf(hdr_add->name, sizeof(hdr_add->name), fmt_str, net_dev->name);
+
+	hdr_add->hdr_len = vlan_mode ?
+		ipa_eth_init_vlan_ethhdr((void *)hdr_add->hdr, type, net_dev) :
+		ipa_eth_init_ethhdr((void *)hdr_add->hdr, type, net_dev);
+
+	hdr_add->type = vlan_mode ? IPA_HDR_L2_802_1Q : IPA_HDR_L2_ETHERNET_II;
 }
 
 /**
@@ -132,6 +136,7 @@ int ipa_eth_ep_init_headers(struct ipa_eth_device *eth_dev)
 {
 	int rc;
 	bool vlan_mode;
+	struct net_device *net_dev = eth_dev->net_dev;
 	struct ipa_eth_phdr_add_ioc phdr_add = ADD_HDR_TEMPLATE;
 	struct ipa_hdr_add *hdr_v4 = &phdr_add.hdrs[IPA_ETH_PHDR_V4];
 	struct ipa_hdr_add *hdr_v6 = &phdr_add.hdrs[IPA_ETH_PHDR_V6];
@@ -142,19 +147,8 @@ int ipa_eth_ep_init_headers(struct ipa_eth_device *eth_dev)
 		return rc;
 	}
 
-	/* Initialize IPv4 headers */
-	snprintf(hdr_v4->name, sizeof(hdr_v4->name), "%s_ipv4",
-		eth_dev->net_dev->name);
-
-	hdr_v4->hdr_len = ipa_eth_init_hdr(hdr_v4->hdr,
-				vlan_mode, IPA_ETH_PHDR_V4, eth_dev->net_dev);
-
-	/* Initialize IPv6 headers */
-	snprintf(hdr_v6->name, sizeof(hdr_v6->name), "%s_ipv6",
-		eth_dev->net_dev->name);
-
-	hdr_v6->hdr_len = ipa_eth_init_hdr(hdr_v6->hdr,
-				vlan_mode, IPA_ETH_PHDR_V6, eth_dev->net_dev);
+	ipa_eth_init_hdr_add(hdr_v4, vlan_mode, IPA_ETH_PHDR_V4, net_dev);
+	ipa_eth_init_hdr_add(hdr_v6, vlan_mode, IPA_ETH_PHDR_V6, net_dev);
 
 	rc = ipa_add_hdr(&phdr_add.ioc);
 	if (rc) {
@@ -194,61 +188,54 @@ int ipa_eth_ep_deinit_headers(struct ipa_eth_device *eth_dev)
 	return rc;
 }
 
-static void ipa_eth_ep_init_tx_props_v4(struct ipa_eth_device *eth_dev,
-		struct ipa_eth_channel *ch,
-		struct ipa_ioc_tx_intf_prop *props)
+static inline size_t __list_size(struct list_head *head)
 {
-	props->ip = IPA_IP_v4;
-	props->dst_pipe = ch->ipa_client;
+	size_t count = 0;
+	struct list_head *l;
 
-	props->hdr_l2_type = IPA_HDR_L2_ETHERNET_II;
-	snprintf(props->hdr_name, sizeof(props->hdr_name), "%s_ipv4",
-		eth_dev->net_dev->name);
+	list_for_each(l, head)
+		count++;
 
+	return count;
 }
 
-static void ipa_eth_ep_init_tx_props_v6(struct ipa_eth_device *eth_dev,
+static void ipa_eth_ep_init_rx_props(
+		struct ipa_ioc_rx_intf_prop *props,
 		struct ipa_eth_channel *ch,
-		struct ipa_ioc_tx_intf_prop *props)
+		bool is_ipv4, bool vlan_mode)
 {
-	props->ip = IPA_IP_v6;
-	props->dst_pipe = ch->ipa_client;
-
-	props->hdr_l2_type = IPA_HDR_L2_ETHERNET_II;
-	snprintf(props->hdr_name, sizeof(props->hdr_name), "%s_ipv6",
-		eth_dev->net_dev->name);
-}
-
-static void ipa_eth_ep_init_rx_props_v4(struct ipa_eth_device *eth_dev,
-		struct ipa_eth_channel *ch,
-		struct ipa_ioc_rx_intf_prop *props)
-{
-	props->ip = IPA_IP_v4;
+	props->ip = is_ipv4 ? IPA_IP_v4 : IPA_IP_v6;
 	props->src_pipe = ch->ipa_client;
-
-	props->hdr_l2_type = IPA_HDR_L2_ETHERNET_II;
+	props->hdr_l2_type = vlan_mode ?
+			IPA_HDR_L2_802_1Q : IPA_HDR_L2_ETHERNET_II;
 }
 
-static void ipa_eth_ep_init_rx_props_v6(struct ipa_eth_device *eth_dev,
+static void ipa_eth_ep_init_tx_props(
+		struct ipa_ioc_tx_intf_prop *props,
 		struct ipa_eth_channel *ch,
-		struct ipa_ioc_rx_intf_prop *props)
+		bool is_ipv4, bool vlan_mode)
 {
-	props->ip = IPA_IP_v6;
-	props->src_pipe = ch->ipa_client;
+	const char *fmt_str = is_ipv4 ? "%s_ipv4" : "%s_ipv6";
 
-	props->hdr_l2_type = IPA_HDR_L2_ETHERNET_II;
+	props->ip = is_ipv4 ? IPA_IP_v4 : IPA_IP_v6;
+	props->dst_pipe = ch->ipa_client;
+	props->hdr_l2_type = vlan_mode ?
+			IPA_HDR_L2_802_1Q : IPA_HDR_L2_ETHERNET_II;
+
+	snprintf(props->hdr_name, sizeof(props->hdr_name), fmt_str,
+			ch->eth_dev->net_dev->name);
 }
 
-static int ipa_eth_ep_init_tx_intf(struct ipa_eth_device *eth_dev,
-		struct ipa_tx_intf *tx_intf)
+static int ipa_eth_ep_init_tx_intf(
+		struct ipa_eth_device *eth_dev,
+		struct ipa_tx_intf *tx_intf,
+		bool vlan_mode)
 {
 	u32 num_props;
-	struct list_head *l;
 	struct ipa_eth_channel *ch;
 
-	num_props = 0;
-	list_for_each(l, &eth_dev->tx_channels)
-		num_props += 2; /* one each for IPv4 and IPv6 */
+	/* one each for IPv4 and IPv6 */
+	num_props = __list_size(&eth_dev->tx_channels) * 2;
 
 	tx_intf->prop = kcalloc(num_props, sizeof(*tx_intf->prop), GFP_KERNEL);
 	if (!tx_intf->prop) {
@@ -258,25 +245,26 @@ static int ipa_eth_ep_init_tx_intf(struct ipa_eth_device *eth_dev,
 
 	tx_intf->num_props = 0;
 	list_for_each_entry(ch, &eth_dev->tx_channels, channel_list) {
-		ipa_eth_ep_init_tx_props_v4(eth_dev, ch,
-			&tx_intf->prop[tx_intf->num_props++]);
-		ipa_eth_ep_init_tx_props_v6(eth_dev, ch,
-			&tx_intf->prop[tx_intf->num_props++]);
+		ipa_eth_ep_init_tx_props(&tx_intf->prop[tx_intf->num_props++],
+			ch, true, vlan_mode);
+
+		ipa_eth_ep_init_tx_props(&tx_intf->prop[tx_intf->num_props++],
+			ch, false, vlan_mode);
 	}
 
 	return 0;
 }
 
-static int ipa_eth_ep_init_rx_intf(struct ipa_eth_device *eth_dev,
-		struct ipa_rx_intf *rx_intf)
+static int ipa_eth_ep_init_rx_intf(
+		struct ipa_eth_device *eth_dev,
+		struct ipa_rx_intf *rx_intf,
+		bool vlan_mode)
 {
 	u32 num_props;
-	struct list_head *l;
 	struct ipa_eth_channel *ch;
 
-	num_props = 0;
-	list_for_each(l, &eth_dev->rx_channels)
-		num_props += 2; /* one each for IPv4 and IPv6 */
+	/* one each for IPv4 and IPv6 */
+	num_props = __list_size(&eth_dev->rx_channels) * 2;
 
 	rx_intf->prop = kcalloc(num_props, sizeof(*rx_intf->prop), GFP_KERNEL);
 	if (!rx_intf->prop) {
@@ -286,10 +274,11 @@ static int ipa_eth_ep_init_rx_intf(struct ipa_eth_device *eth_dev,
 
 	rx_intf->num_props = 0;
 	list_for_each_entry(ch, &eth_dev->rx_channels, channel_list) {
-		ipa_eth_ep_init_rx_props_v4(eth_dev, ch,
-			&rx_intf->prop[rx_intf->num_props++]);
-		ipa_eth_ep_init_rx_props_v6(eth_dev, ch,
-			&rx_intf->prop[rx_intf->num_props++]);
+		ipa_eth_ep_init_rx_props(&rx_intf->prop[rx_intf->num_props++],
+			ch, true, vlan_mode);
+
+		ipa_eth_ep_init_rx_props(&rx_intf->prop[rx_intf->num_props++],
+			ch, false, vlan_mode);
 	}
 
 	return 0;
@@ -308,17 +297,24 @@ static int ipa_eth_ep_init_rx_intf(struct ipa_eth_device *eth_dev,
 int ipa_eth_ep_register_interface(struct ipa_eth_device *eth_dev)
 {
 	int rc;
+	bool vlan_mode;
 	struct ipa_tx_intf tx_intf;
 	struct ipa_rx_intf rx_intf;
 
 	memset(&tx_intf, 0, sizeof(tx_intf));
 	memset(&rx_intf, 0, sizeof(rx_intf));
 
-	rc = ipa_eth_ep_init_tx_intf(eth_dev, &tx_intf);
+	rc = ipa3_is_vlan_mode(IPA_VLAN_IF_ETH, &vlan_mode);
+	if (rc) {
+		ipa_eth_dev_err(eth_dev, "Could not determine IPA VLAN mode");
+		goto free_and_exit;
+	}
+
+	rc = ipa_eth_ep_init_tx_intf(eth_dev, &tx_intf, vlan_mode);
 	if (rc)
 		goto free_and_exit;
 
-	rc = ipa_eth_ep_init_rx_intf(eth_dev, &rx_intf);
+	rc = ipa_eth_ep_init_rx_intf(eth_dev, &rx_intf, vlan_mode);
 	if (rc)
 		goto free_and_exit;
 
