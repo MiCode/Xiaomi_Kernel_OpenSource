@@ -111,13 +111,27 @@ void *idr_get_next(struct idr *idr, int *nextid)
 {
 	struct radix_tree_iter iter;
 	void __rcu **slot;
+	void *entry = NULL;
 
-	slot = radix_tree_iter_find(&idr->idr_rt, &iter, *nextid);
+	radix_tree_for_each_slot(slot, &idr->idr_rt, &iter, *nextid) {
+		entry = rcu_dereference_raw(*slot);
+		if (!entry)
+			continue;
+		if (!radix_tree_deref_retry(entry))
+			break;
+		if (slot != (void *)&idr->idr_rt.rnode &&
+				entry != (void *)RADIX_TREE_INTERNAL_NODE)
+			break;
+		slot = radix_tree_iter_retry(&iter);
+	}
 	if (!slot)
 		return NULL;
 
+	if (WARN_ON_ONCE(iter.index > INT_MAX))
+		return NULL;
+
 	*nextid = iter.index;
-	return rcu_dereference_raw(*slot);
+	return entry;
 }
 EXPORT_SYMBOL(idr_get_next);
 
