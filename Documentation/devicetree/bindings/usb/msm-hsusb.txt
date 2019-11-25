@@ -21,6 +21,7 @@ Required properties:
 - compatible:   Should contain:
   "qcom,usb-otg-ci" for chipsets with ChipIdea 45nm PHY
   "qcom,usb-otg-snps" for chipsets with Synopsys 28nm PHY
+  "qcom,hsusb-otg"  for chipsets with ChipIdea 45nm PHY
 
 - regs:         Offset and length of the register set in the memory map
 - interrupts:   interrupt-specifier for the OTG interrupt.
