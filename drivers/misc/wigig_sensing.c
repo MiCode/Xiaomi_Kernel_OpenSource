@@ -1269,8 +1269,26 @@ static irqreturn_t wigig_sensing_dri_isr_thread(int irq, void *cookie)
 		goto bail_out;
 	}
 
+	if (spi_status.b.int_sysassert) {
+		pr_info_ratelimited("SYSASSERT INTERRUPT\n");
+		ctx->stm.fw_is_ready = false;
+
+		rc = wigig_sensing_change_state(ctx, &ctx->stm,
+				WIGIG_SENSING_STATE_SYS_ASSERT);
+		if (rc != 0 ||
+		    ctx->stm.state != WIGIG_SENSING_STATE_SYS_ASSERT)
+			pr_err("State change to WIGIG_SENSING_SYS_ASSERT failed\n");
+
+		/* Send asynchronous RESET event to application */
+		wigig_sensing_send_event(ctx, WIGIG_SENSING_EVENT_RESET);
+
+		ctx->stm.spi_malfunction = true;
+		memset(&ctx->inb_cmd, 0, sizeof(ctx->inb_cmd));
+		spi_status.v &= ~INT_SYSASSERT;
+		goto deassert_and_bail_out;
+	}
 	if (spi_status.b.int_fw_ready) {
-		pr_debug("FW READY INTERRUPT\n");
+		pr_info_ratelimited("FW READY INTERRUPT\n");
 		ctx->stm.fw_is_ready = true;
 		ctx->stm.channel_request = 0;
 		ctx->stm.burst_size = 0;
@@ -1295,27 +1313,11 @@ static irqreturn_t wigig_sensing_dri_isr_thread(int irq, void *cookie)
 			pr_debug("Change mode in progress, aborting data processing\n");
 		spi_status.v &= ~INT_DATA_READY;
 	}
-	if (spi_status.b.int_sysassert) {
-		pr_debug("SYSASSERT INTERRUPT\n");
-		ctx->stm.fw_is_ready = false;
-
-		rc = wigig_sensing_change_state(ctx, &ctx->stm,
-				WIGIG_SENSING_STATE_SYS_ASSERT);
-		if (rc != 0 ||
-		    ctx->stm.state != WIGIG_SENSING_STATE_SYS_ASSERT)
-			pr_err("State change to WIGIG_SENSING_SYS_ASSERT failed\n");
-
-		/* Send asynchronous RESET event to application */
-		wigig_sensing_send_event(ctx, WIGIG_SENSING_EVENT_RESET);
-
-		ctx->stm.spi_malfunction = true;
-		spi_status.v &= ~INT_SYSASSERT;
-	}
 	if (spi_status.b.int_deep_sleep_exit ||
 	    (ctx->stm.waiting_for_deep_sleep_exit &&
 	     ctx->stm.waiting_for_deep_sleep_exit_first_pass)) {
 		if (spi_status.b.int_deep_sleep_exit)
-			pr_debug("DEEP SLEEP EXIT INTERRUPT\n");
+			pr_info_ratelimited("DEEP SLEEP EXIT INTERRUPT\n");
 
 		if (ctx->stm.waiting_for_deep_sleep_exit) {
 			additional_inb_command = ctx->inb_cmd;
@@ -1328,7 +1330,7 @@ static irqreturn_t wigig_sensing_dri_isr_thread(int irq, void *cookie)
 		spi_status.v &= ~INT_DEEP_SLEEP_EXIT;
 	}
 	if (spi_status.b.int_fifo_ready) {
-		pr_debug("FIFO READY INTERRUPT\n");
+		pr_info_ratelimited("FIFO READY INTERRUPT\n");
 		wigig_sensing_handle_fifo_ready_dri(ctx);
 
 		spi_status.v &= ~INT_FIFO_READY;
@@ -1342,6 +1344,7 @@ static irqreturn_t wigig_sensing_dri_isr_thread(int irq, void *cookie)
 		pr_err("Unexpected interrupt received, spi_status=0x%X\n",
 		       spi_status.v & CLEAR_LOW_23_BITS);
 
+deassert_and_bail_out:
 	/* Notify FW we are done with interrupt handling */
 	rc = wigig_sensing_deassert_dri(ctx, additional_inb_command);
 	if (rc)
