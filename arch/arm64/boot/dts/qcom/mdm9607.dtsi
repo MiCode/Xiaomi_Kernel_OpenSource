@@ -1821,7 +1821,7 @@
 	};
 };
 
-#include "mdm9607-rpm-regulator.dtsi"
+#include "pm8019-rpm-regulator.dtsi"
 #include "pm8019.dtsi"
 #include "mdm9607-regulator.dtsi"
 
