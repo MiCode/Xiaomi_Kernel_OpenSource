@@ -768,7 +768,7 @@ void __tmc_etr_disable_to_bam(struct tmc_drvdata *drvdata)
 	tmc_wait_for_flush(drvdata);
 	tmc_disable_hw(drvdata);
 
-	CS_LOCK(drvdata);
+	CS_LOCK(drvdata->base);
 
 	/* Disable CSR configuration */
 	msm_qdss_csr_disable_bam_to_usb(drvdata->csr);
