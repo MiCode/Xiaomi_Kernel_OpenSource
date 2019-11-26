@@ -3279,12 +3279,14 @@
 		evb_tlmm_gpio_key{
 			tlmm_gpio_key_active: tlmm_gpio_key_active {
 				mux {
-					pins = "gpio21","gpio52","gpio54";
+					pins = "gpio21","gpio52","gpio54",
+							"gpio115";
 					function = "gpio";
 				};
 
 				config {
-					pins = "gpio21","gpio52","gpio54";
+					pins = "gpio21","gpio52","gpio54",
+							"gpio115";
 					drive-strength = <2>;
 					bias-pull-up;
 				};
@@ -3292,12 +3294,14 @@
 
 			tlmm_gpio_key_suspend: tlmm_gpio_key_suspend {
 				mux {
-					pins = "gpio21","gpio52","gpio54";
+					pins = "gpio21","gpio52","gpio54",
+							"gpio115";
 					function = "gpio";
 				};
 
 				config {
-					pins = "gpio21","gpio52","gpio54";
+					pins = "gpio21","gpio52","gpio54",
+							"gpio115";
 					drive-strength = <2>;
 					bias-disable;
 				};
