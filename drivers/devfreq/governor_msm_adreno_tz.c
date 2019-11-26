@@ -15,6 +15,7 @@
 #include <asm/cacheflush.h>
 #include <soc/qcom/scm.h>
 #include <soc/qcom/qtee_shmbridge.h>
+#include <linux/of_platform.h>
 #include "governor.h"
 
 static DEFINE_SPINLOCK(tz_lock);
@@ -552,11 +553,18 @@ static int tz_suspend(struct devfreq *devfreq)
 static int tz_handler(struct devfreq *devfreq, unsigned int event, void *data)
 {
 	int result;
+	struct msm_adreno_extended_profile *gpu_profile;
+	struct device_node *node = devfreq->dev.parent->of_node;
 
-	struct msm_adreno_extended_profile *gpu_profile = container_of(
-					(devfreq->profile),
-					struct msm_adreno_extended_profile,
-					profile);
+	/*
+	 * We want to restrict this governor be set only for
+	 * gpu devfreq devices.
+	 */
+	if (!of_device_is_compatible(node, "qcom,kgsl-3d0"))
+		return -EINVAL;
+
+	gpu_profile = container_of((devfreq->profile),
+		struct msm_adreno_extended_profile, profile);
 
 	switch (event) {
 	case DEVFREQ_GOV_START:
