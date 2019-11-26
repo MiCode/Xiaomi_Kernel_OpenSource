@@ -1851,6 +1851,44 @@
 		mbox-names = "slpi-pil";
 	};
 
+	/* PIL spss node - for loading Secure Processor */
+	qcom,spss@1880000 {
+		compatible = "qcom,pil-tz-generic";
+		reg = <0x188101c 0x4>,
+		      <0x1881024 0x4>,
+		      <0x1881028 0x4>,
+		      <0x188103c 0x4>,
+		      <0x1882014 0x4>;
+		reg-names = "sp2soc_irq_status", "sp2soc_irq_clr",
+			    "sp2soc_irq_mask", "rmb_err", "rmb_err_spare2";
+		interrupts = <0 352 1>;
+
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		qcom,proxy-reg-names = "vdd_cx";
+		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
+		vdd_mx-supply = <&VDD_MXA_LEVEL>;
+		vdd_mx-uV = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
+
+		clocks = <&clock_rpmh RPMH_CXO_CLK>;
+		clock-names = "xo";
+		qcom,proxy-clock-names = "xo";
+		qcom,pil-generic-irq-handler;
+		status = "ok";
+
+		qcom,signal-aop;
+		qcom,complete-ramdump;
+
+		qcom,pas-id = <14>;
+		qcom,proxy-timeout-ms = <10000>;
+		qcom,firmware-name = "spss";
+		memory-region = <&pil_spss_mem>;
+		qcom,spss-scsr-bits = <24 25>;
+		qcom,extra-size = <4096>;
+
+		mboxes = <&qmp_aop 0>;
+		mbox-names = "spss-pil";
+	};
+
 	ssc_sensors: qcom,msm-ssc-sensors {
 		compatible = "qcom,msm-ssc-sensors";
 		status = "ok";
