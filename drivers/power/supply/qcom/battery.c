@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020 The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "QCOM-BATT: %s: " fmt, __func__
@@ -194,7 +194,8 @@ static int get_hvdcp3_icl_limit(struct pl_data *chip)
 {
 	int main_icl, target_icl = -EINVAL;
 
-	if (chip->charger_type != POWER_SUPPLY_TYPE_USB_HVDCP_3)
+	if (chip->charger_type != POWER_SUPPLY_TYPE_USB_HVDCP_3 &&
+		chip->charger_type != POWER_SUPPLY_TYPE_USB_HVDCP_3P5)
 		return target_icl;
 
 	/*
