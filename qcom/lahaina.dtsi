@@ -3751,3 +3751,5 @@
 		rtc6226,vio-supply-voltage = <1800000 1800000 >;
 	};
 };
+
+#include "camera/lahaina-camera.dtsi"

@@ -141,3 +141,5 @@
 &usb1 {
 	extcon = <&extcon_usb1>;
 };
+
+#include "camera/lahaina-camera-sensor-mtp.dtsi"
