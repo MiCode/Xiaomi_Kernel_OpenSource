@@ -2197,6 +2197,27 @@
 		qcom,spcom-soc2sp-rmb-sp-ssr-bit = <0>;
 		status = "ok";
 	};
+
+	spss_utils: qcom,spss_utils {
+		compatible = "qcom,spss-utils";
+		/* spss fuses physical address */
+		qcom,spss-fuse1-addr = <0x00780204>;
+		qcom,spss-fuse1-bit = <9>;
+		qcom,spss-fuse2-addr = <0x00780204>;
+		qcom,spss-fuse2-bit = <8>;
+		qcom,spss-fuse3-addr = <0x007801C0>; // IAR_FEATURE_ENABLED fuse
+		qcom,spss-fuse3-bit = <10>;
+		qcom,spss-fuse4-addr = <0x00780204>; // IAR_STATE fuse
+		qcom,spss-fuse4-bit = <25>; // 0x00780204 bits 25-27
+		qcom,spss-dev-firmware-name  = "spss1d";  /* 8 chars max */
+		qcom,spss-test-firmware-name = "spss1t";  /* 8 chars max */
+		qcom,spss-prod-firmware-name = "spss1p";  /* 8 chars max */
+		qcom,spss-debug-reg-addr = <0x01886020>;
+		qcom,spss-emul-type-reg-addr = <0x01fc8004>;
+		pil-mem = <&pil_spss_mem>;
+		qcom,pil-size = <0x0F0000>; // padding to 960 KB
+		status = "ok";
+	};
 };
 
 #include "lahaina-regulators.dtsi"
