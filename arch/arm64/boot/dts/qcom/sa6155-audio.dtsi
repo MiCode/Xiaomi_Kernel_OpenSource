@@ -269,7 +269,7 @@
 		qcom,msm-cpudai-tdm-group-num-ports = <5>;
 		qcom,msm-cpudai-tdm-group-port-id = <36912 36914 36916
 							36918 36926>;
-		qcom,msm-cpudai-tdm-lane-mask = /bits/ 16 <3>;
+		qcom,msm-cpudai-tdm-lane-mask = /bits/ 16 <10>;
 		qcom,msm-cpudai-tdm-clk-rate = <24576000>;
 		qcom,msm-cpudai-tdm-clk-internal = <1>;
 		qcom,msm-cpudai-tdm-sync-mode = <1>;
@@ -279,9 +279,11 @@
 		qcom,msm-cpudai-tdm-data-delay = <0>;
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&quat_tdm_sclk_active &quat_tdm_ws_active
-				&quat_tdm_data0_active &quat_tdm_data1_active>;
+				&quat_tdm_data0_active &quat_tdm_data1_active
+				&quat_tdm_data2_active &quat_tdm_data3_active>;
 		pinctrl-1 = <&quat_tdm_sclk_sleep &quat_tdm_ws_sleep
-				&quat_tdm_data0_sleep &quat_tdm_data1_sleep>;
+				&quat_tdm_data0_sleep &quat_tdm_data1_sleep
+				&quat_tdm_data2_sleep &quat_tdm_data3_sleep>;
 		dai_quat_tdm_rx_0: qcom,msm-dai-q6-tdm-quat-rx-0 {
 			compatible = "qcom,msm-dai-q6-tdm";
 			qcom,msm-cpudai-tdm-dev-id = <36912>;
@@ -318,7 +320,7 @@
 		qcom,msm-cpudai-tdm-group-num-ports = <5>;
 		qcom,msm-cpudai-tdm-group-port-id = <36913 36915 36917
 							36919 36927>;
-		qcom,msm-cpudai-tdm-lane-mask = /bits/ 16 <12>;
+		qcom,msm-cpudai-tdm-lane-mask = /bits/ 16 <5>;
 		qcom,msm-cpudai-tdm-clk-rate = <24576000>;
 		qcom,msm-cpudai-tdm-clk-internal = <1>;
 		qcom,msm-cpudai-tdm-sync-mode = <1>;

@@ -301,6 +301,58 @@
 			};
 		};
 
+		quat_tdm_data3_active: quat_tdm_data3_active {
+			mux {
+				pins = "gpio28";
+				function = "func2";
+			};
+
+			config {
+				pins = "gpio28";
+				drive-strength = <8>;
+				bias-disable;
+			};
+		};
+
+		quat_tdm_data3_sleep: quat_tdm_data3_sleep {
+			mux {
+				pins = "gpio28";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio28";
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
+		quat_tdm_data2_active: quat_tdm_data2_active {
+			mux {
+				pins = "gpio27";
+				function = "func2";
+			};
+
+			config {
+				pins = "gpio27";
+				drive-strength = <8>;
+				bias-disable;
+			};
+		};
+
+		quat_tdm_data2_sleep: quat_tdm_data2_sleep {
+			mux {
+				pins = "gpio27";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio27";
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
 		quat_tdm_data1_active: quat_tdm_data1_active {
 			mux {
 				pins = "gpio26";
