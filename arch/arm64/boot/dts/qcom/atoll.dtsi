@@ -1539,6 +1539,8 @@
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x9800000 0x800000>;
 
+		qcom,ssctl-instance-id = <0x18>;
+		qcom,smem-id = <622>;
 		qcom,pas-id = <23>;
 		qcom,firmware-name = "npu";
 		memory-region = <&pil_npu_mem>;
