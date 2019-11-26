@@ -40,6 +40,11 @@
 #include <linux/types.h>
 #include <uapi/scsi/scsi_bsg_ufs.h>
 
+#ifdef CONFIG_SCSI_UFSHCD_QTI
+#define MAX_QUERY_IDN		0x12
+#define MAX_CDB_SIZE		16
+#endif
+
 #define GENERAL_UPIU_REQUEST_SIZE (sizeof(struct utp_upiu_req))
 #define QUERY_DESC_MAX_SIZE       255
 #define QUERY_DESC_MIN_SIZE       2
@@ -168,6 +173,7 @@ enum attr_idn {
 	QUERY_ATTR_IDN_FFU_STATUS		= 0x14,
 	QUERY_ATTR_IDN_PSA_STATE		= 0x15,
 	QUERY_ATTR_IDN_PSA_DATA_SIZE		= 0x16,
+	QUERY_ATTR_IDN_REF_CLK_GATING_WAIT_TIME = 0x17,
 };
 
 /* Descriptor idn for Query requests */
@@ -376,6 +382,9 @@ enum query_opcode {
 	UPIU_QUERY_OPCODE_SET_FLAG	= 0x6,
 	UPIU_QUERY_OPCODE_CLEAR_FLAG	= 0x7,
 	UPIU_QUERY_OPCODE_TOGGLE_FLAG	= 0x8,
+#ifdef CONFIG_SCSI_UFSHCD_QTI
+	UPIU_QUERY_OPCODE_MAX,
+#endif
 };
 
 /* bRefClkFreq attribute values */
@@ -517,6 +526,13 @@ struct ufs_vreg {
 	int min_uV;
 	int max_uV;
 	int max_uA;
+#ifdef CONFIG_SCSI_UFSHCD_QTI
+	bool low_voltage_sup;
+	bool low_voltage_active;
+	bool sys_suspend_pwr_off;
+	int min_uA;
+	bool unused;
+#endif
 };
 
 struct ufs_vreg_info {
@@ -526,10 +542,27 @@ struct ufs_vreg_info {
 	struct ufs_vreg *vdd_hba;
 };
 
+#ifdef CONFIG_SCSI_UFSHCD_QTI
+enum {
+	UFS_DEV_EMBEDDED_BOOTABLE = 0x00,
+	UFS_DEV_EMBEDDED_NON_BOOTABLE = 0x01,
+	UFS_DEV_REMOVABLE_BOOTABLE = 0x02,
+	UFS_DEV_REMOVABLE_NON_BOOTABLE = 0x03,
+};
+#endif
+
 struct ufs_dev_info {
 	bool f_power_on_wp_en;
 	/* Keeps information if any of the LU is power on write protected */
 	bool is_lu_power_on_wp;
+#ifdef CONFIG_SCSI_UFSHCD_QTI
+	u8 b_device_sub_class;
+	u16 w_spec_version;
+	u16 w_manufacturer_id;
+	u8 i_product_name;
+	/* is Unit Attention Condition cleared on UFS Device LUN? */
+	unsigned is_ufs_dev_wlun_ua_cleared:1;
+#endif
 };
 
 #define MAX_MODEL_LEN 16
@@ -542,6 +575,9 @@ struct ufs_dev_info {
 struct ufs_dev_desc {
 	u16 wmanufacturerid;
 	u8 *model;
+#ifdef CONFIG_SCSI_UFSHCD_QTI
+	u16 wspecversion;
+#endif
 };
 
 /**
