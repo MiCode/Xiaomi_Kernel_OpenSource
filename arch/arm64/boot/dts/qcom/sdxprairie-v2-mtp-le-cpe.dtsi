@@ -22,3 +22,6 @@
 	qcom,force-warm-reboot;
 };
 
+&sdx_ext_ipc {
+	status = "ok";
+};
