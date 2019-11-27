@@ -3628,7 +3628,7 @@ retry:
 		 *  3) ALLOC_HARDER - Allow (__GFP_ATOMIC && !__GFP_NOMEMALLOC),
 		 *			of the others.
 		 */
-		if (unlikely(!order && (alloc_flags & ALLOC_WMARK_MIN) &&
+		if (unlikely(!order && !(alloc_flags & ALLOC_WMARK_MASK) &&
 		     (alloc_flags & (ALLOC_HARDER | ALLOC_HIGH)))) {
 			mark = zone->_watermark[WMARK_MIN];
 		}
