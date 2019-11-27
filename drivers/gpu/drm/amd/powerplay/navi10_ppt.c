@@ -205,7 +205,7 @@ static struct smu_11_0_cmn2aisc_mapping navi10_workload_map[PP_SMC_POWER_PROFILE
 	WORKLOAD_MAP(PP_SMC_POWER_PROFILE_POWERSAVING,		WORKLOAD_PPLIB_POWER_SAVING_BIT),
 	WORKLOAD_MAP(PP_SMC_POWER_PROFILE_VIDEO,		WORKLOAD_PPLIB_VIDEO_BIT),
 	WORKLOAD_MAP(PP_SMC_POWER_PROFILE_VR,			WORKLOAD_PPLIB_VR_BIT),
-	WORKLOAD_MAP(PP_SMC_POWER_PROFILE_COMPUTE,		WORKLOAD_PPLIB_CUSTOM_BIT),
+	WORKLOAD_MAP(PP_SMC_POWER_PROFILE_COMPUTE,		WORKLOAD_PPLIB_COMPUTE_BIT),
 	WORKLOAD_MAP(PP_SMC_POWER_PROFILE_CUSTOM,		WORKLOAD_PPLIB_CUSTOM_BIT),
 };
 
@@ -759,6 +759,12 @@ static int navi10_force_clk_levels(struct smu_context *smu,
 	case SMU_UCLK:
 	case SMU_DCEFCLK:
 	case SMU_FCLK:
+		/* There is only 2 levels for fine grained DPM */
+		if (navi10_is_support_fine_grained_dpm(smu, clk_type)) {
+			soft_max_level = (soft_max_level >= 1 ? 1 : 0);
+			soft_min_level = (soft_min_level >= 1 ? 1 : 0);
+		}
+
 		ret = smu_get_dpm_freq_by_index(smu, clk_type, soft_min_level, &min_freq);
 		if (ret)
 			return size;

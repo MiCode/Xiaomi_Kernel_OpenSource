@@ -32,7 +32,6 @@
 #include <linux/iopoll.h>
 #include <linux/module.h>
 #include <linux/interconnect.h>
-#include <linux/moduleparam.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
@@ -469,6 +468,12 @@ static void arm_smmu_arch_write_sync(struct arm_smmu_device *smmu)
 	rmb();
 }
 
+static struct platform_driver arm_smmu_driver;
+static struct msm_iommu_ops arm_smmu_ops;
+
+#ifdef CONFIG_ARM_SMMU_LEGACY_DT_BINDINGS
+static int arm_smmu_bus_init(struct iommu_ops *ops);
+
 static struct device_node *dev_get_dev_node(struct device *dev)
 {
 	if (dev_is_pci(dev)) {
@@ -503,9 +508,6 @@ static int __find_legacy_master_phandle(struct device *dev, void *data)
 	it->node = np;
 	return err == -ENOENT ? 0 : err;
 }
-
-static struct platform_driver arm_smmu_driver;
-static struct msm_iommu_ops arm_smmu_ops;
 
 static int arm_smmu_register_legacy_master(struct device *dev,
 					   struct arm_smmu_device **smmu)
@@ -558,6 +560,27 @@ static int arm_smmu_register_legacy_master(struct device *dev,
 	kfree(sids);
 	return err;
 }
+
+/*
+ * With the legacy DT binding in play, we have no guarantees about
+ * probe order, but then we're also not doing default domains, so we can
+ * delay setting bus ops until we're sure every possible SMMU is ready,
+ * and that way ensure that no add_device() calls get missed.
+ */
+static int arm_smmu_legacy_bus_init(void)
+{
+	if (using_legacy_binding)
+		return arm_smmu_bus_init(&arm_smmu_ops);
+	return 0;
+}
+device_initcall_sync(arm_smmu_legacy_bus_init);
+#else
+static int arm_smmu_register_legacy_master(struct device *dev,
+					   struct arm_smmu_device **smmu)
+{
+	return -ENODEV;
+}
+#endif /* CONFIG_ARM_SMMU_LEGACY_DT_BINDINGS */
 
 static int __arm_smmu_alloc_bitmap(unsigned long *map, int start, int end)
 {
@@ -3847,6 +3870,7 @@ static struct msm_iommu_ops arm_smmu_ops = {
 		.put_resv_regions	= arm_smmu_put_resv_regions,
 		/* Restricted during device attach */
 		.pgsize_bitmap		= -1UL,
+		.owner			= THIS_MODULE,
 	}
 };
 
@@ -4531,25 +4555,50 @@ static inline int arm_smmu_device_acpi_probe(struct platform_device *pdev,
 }
 #endif
 
-static void arm_smmu_bus_init(void)
+static int arm_smmu_bus_init(struct iommu_ops *ops)
 {
+	int err;
+
 	/* Oh, for a proper bus abstraction */
-	if (!iommu_present(&platform_bus_type))
-		bus_set_iommu(&platform_bus_type, &arm_smmu_ops.iommu_ops);
+	if (!iommu_present(&platform_bus_type)) {
+		err = bus_set_iommu(&platform_bus_type, ops);
+		if (err)
+			return err;
+	}
 #ifdef CONFIG_ARM_AMBA
-	if (!iommu_present(&amba_bustype))
-		bus_set_iommu(&amba_bustype, &arm_smmu_ops.iommu_ops);
+	if (!iommu_present(&amba_bustype)) {
+		err = bus_set_iommu(&amba_bustype, ops);
+		if (err)
+			goto err_reset_platform_ops;
+	}
 #endif
 #ifdef CONFIG_PCI
 	if (!iommu_present(&pci_bus_type)) {
-		pci_request_acs();
-		bus_set_iommu(&pci_bus_type, &arm_smmu_ops.iommu_ops);
+		err = bus_set_iommu(&pci_bus_type, ops);
+		if (err)
+			goto err_reset_amba_ops;
 	}
 #endif
 #ifdef CONFIG_FSL_MC_BUS
-	if (!iommu_present(&fsl_mc_bus_type))
-		bus_set_iommu(&fsl_mc_bus_type, &arm_smmu_ops);
+	if (!iommu_present(&fsl_mc_bus_type)) {
+		err = bus_set_iommu(&fsl_mc_bus_type, ops);
+		if (err)
+			goto err_reset_pci_ops;
+	}
 #endif
+	return 0;
+
+err_reset_pci_ops: __maybe_unused;
+#ifdef CONFIG_PCI
+	bus_set_iommu(&pci_bus_type, NULL);
+#endif
+err_reset_amba_ops: __maybe_unused;
+#ifdef CONFIG_ARM_AMBA
+	bus_set_iommu(&amba_bustype, NULL);
+#endif
+err_reset_platform_ops: __maybe_unused;
+	bus_set_iommu(&platform_bus_type, NULL);
+	return err;
 }
 
 static int qsmmuv500_tbu_register(struct device *dev, void *data);
@@ -4564,8 +4613,10 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 
 	legacy_binding = of_find_property(dev->of_node, "mmu-masters", NULL);
 	if (legacy_binding && !using_generic_binding) {
-		if (!using_legacy_binding)
-			pr_notice("deprecated \"mmu-masters\" DT property in use; DMA API support unavailable\n");
+		if (!using_legacy_binding) {
+			pr_notice("deprecated \"mmu-masters\" DT property in use; %s support unavailable\n",
+				  IS_ENABLED(CONFIG_ARM_SMMU_LEGACY_DT_BINDINGS) ? "DMA API" : "SMMU");
+		}
 		using_legacy_binding = true;
 	} else if (!legacy_binding && !using_legacy_binding) {
 		using_generic_binding = true;
@@ -4727,7 +4778,7 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	 * ready to handle default domain setup as soon as any SMMU exists.
 	 */
 	if (!using_legacy_binding)
-		arm_smmu_bus_init();
+		return arm_smmu_bus_init(&arm_smmu_ops.iommu_ops);
 
 	return 0;
 
@@ -4738,19 +4789,6 @@ out_exit_power_resources:
 	arm_smmu_exit_power_resources(smmu->pwr);
 
 	return err;
-}
-
-/*
- * With the legacy DT binding in play, though, we have no guarantees about
- * probe order, but then we're also not doing default domains, so we can
- * delay setting bus ops until we're sure every possible SMMU is ready,
- * and that way ensure that no add_device() calls get missed.
- */
-static int __maybe_unused arm_smmu_legacy_bus_init(void)
-{
-	if (using_legacy_binding)
-		arm_smmu_bus_init();
-	return 0;
 }
 
 static int arm_smmu_device_remove(struct platform_device *pdev)
@@ -4766,6 +4804,7 @@ static int arm_smmu_device_remove(struct platform_device *pdev)
 	if (!bitmap_empty(smmu->context_map, ARM_SMMU_MAX_CBS))
 		dev_err(&pdev->dev, "removing device with active domains!\n");
 
+	arm_smmu_bus_init(NULL);
 	idr_destroy(&smmu->asid_idr);
 
 	/* Turn the thing off */
@@ -4829,10 +4868,10 @@ static const struct dev_pm_ops arm_smmu_pm_ops = {
 
 static struct platform_driver arm_smmu_driver = {
 	.driver	= {
-		.name		= "arm-smmu",
-		.of_match_table	= of_match_ptr(arm_smmu_of_match),
-		.pm		= &arm_smmu_pm_ops,
-		.suppress_bind_attrs = true,
+		.name			= "arm-smmu",
+		.of_match_table		= of_match_ptr(arm_smmu_of_match),
+		.pm			= &arm_smmu_pm_ops,
+		.suppress_bind_attrs    = true,
 	},
 	.probe	= arm_smmu_device_dt_probe,
 	.remove	= arm_smmu_device_remove,
@@ -5513,4 +5552,6 @@ static struct platform_driver qsmmuv500_tbu_driver = {
 	.probe	= qsmmuv500_tbu_probe,
 };
 
+MODULE_DESCRIPTION("IOMMU API for ARM architected SMMU implementations");
+MODULE_AUTHOR("Will Deacon <will@kernel.org>");
 MODULE_LICENSE("GPL v2");
