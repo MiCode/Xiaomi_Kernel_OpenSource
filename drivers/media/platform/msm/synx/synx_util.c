@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  */
 #define pr_fmt(fmt) "synx: " fmt
 
@@ -623,13 +623,14 @@ struct bind_operations *synx_util_get_bind_ops(u32 type)
 }
 
 int synx_util_alloc_cb_entry(struct synx_client *client,
+	struct synx_kernel_payload *data,
 	u32 *cb_idx)
 {
 	bool bit;
 	long idx;
 	struct synx_client_cb *cb;
 
-	if (!client || !cb_idx)
+	if (!client || !data || !cb_idx)
 		return -EINVAL;
 
 	do {
@@ -644,28 +645,53 @@ int synx_util_alloc_cb_entry(struct synx_client *client,
 
 	cb = &client->cb_table[idx];
 	memset(cb, 0, sizeof(*cb));
-	cb->idx = idx;
-	*cb_idx = idx;
-	pr_debug("[sess: %u] allocated cb index %u\n", client->id, idx);
-	return 0;
-}
-
-int synx_util_update_cb_entry(struct synx_client *client,
-	void *data,
-	u32 cb_idx)
-{
-	struct synx_client_cb *cb;
-
-	if (!client || !data || (cb_idx >= SYNX_MAX_OBJS))
-		return -EINVAL;
-
-	cb = &client->cb_table[cb_idx];
 	cb->is_valid = true;
+	cb->client = client;
+	cb->idx = idx;
 	memcpy(&cb->kernel_cb, data,
 		sizeof(cb->kernel_cb));
 
-	pr_debug("[sess: %u] updated cb index %u\n", client->id, cb_idx);
+	*cb_idx = idx;
+	pr_debug("[sess: %u] allocated cb index %u\n", client->id, *cb_idx);
 	return 0;
+}
+
+int synx_util_clear_cb_entry(struct synx_client *client,
+	struct synx_client_cb *cb)
+{
+	int rc = 0;
+	u32 idx;
+
+	if (!cb)
+		return -EINVAL;
+
+	idx = cb->idx;
+	memset(cb, 0, sizeof(*cb));
+	if (idx && idx < SYNX_MAX_OBJS) {
+		clear_bit(idx, client->cb_bitmap);
+	} else {
+		pr_err("%s: found invalid index\n", __func__);
+		rc = -EINVAL;
+	}
+
+	return rc;
+}
+
+void synx_util_default_user_callback(s32 h_synx,
+	int status, void *data)
+{
+	struct synx_client_cb *cb = data;
+
+	if (cb && cb->client) {
+		pr_debug("user cb queued for handle %d\n", h_synx);
+		cb->kernel_cb.status = status;
+		mutex_lock(&cb->client->event_q_lock);
+		list_add_tail(&cb->node, &cb->client->event_q);
+		mutex_unlock(&cb->client->event_q_lock);
+		wake_up_all(&cb->client->event_wq);
+	} else {
+		pr_err("%s: invalid params\n", __func__);
+	}
 }
 
 void synx_util_callback_dispatch(struct synx_coredata *synx_obj, u32 status)
@@ -693,7 +719,8 @@ void synx_util_cb_dispatch(struct work_struct *cb_dispatch)
 		container_of(cb_dispatch, struct synx_cb_data, cb_dispatch);
 	struct synx_client *client;
 	struct synx_client_cb *cb;
-	struct synx_kernel_payload *payload;
+	struct synx_kernel_payload payload;
+	u32 status;
 
 	client = synx_get_client(synx_cb->session_id);
 	if (!client) {
@@ -702,26 +729,46 @@ void synx_util_cb_dispatch(struct work_struct *cb_dispatch)
 		goto free;
 	}
 
-	if (synx_cb->idx >= SYNX_MAX_OBJS) {
-		pr_err("[sess: %u] invalid cb index\n",
-			client->id);
+	if (synx_cb->idx == 0 ||
+		synx_cb->idx >= SYNX_MAX_OBJS) {
+		pr_err("[sess: %u] invalid cb index %u\n",
+			client->id, synx_cb->idx);
 		goto fail;
 	}
 
+	status = synx_cb->status;
 	cb = &client->cb_table[synx_cb->idx];
 	if (!cb->is_valid) {
 		pr_err("invalid cb payload\n");
 		goto fail;
 	}
 
-	payload = &cb->kernel_cb;
+	memcpy(&payload, &cb->kernel_cb, sizeof(cb->kernel_cb));
+	payload.status = status;
+
+	if (payload.cb_func == synx_util_default_user_callback) {
+		/*
+		 * need to send client cb data for default
+		 * user cb (userspace cb)
+		 */
+		payload.data = cb;
+	} else {
+		/*
+		 * clear the cb entry. userspace cb entry
+		 * will be cleared after data read by the
+		 * polling thread or when client is destroyed
+		 */
+		if (synx_util_clear_cb_entry(client, cb))
+			pr_err("%s: [sess: %u] error clearing cb entry\n",
+				__func__, client->id);
+	}
+
 	pr_debug("[sess: %u] kernel cb dispatch for handle %d\n",
-		client->id, payload->h_synx);
+		client->id, payload.h_synx);
 
 	/* dispatch kernel callback */
-	payload->cb_func(payload->h_synx,
-		synx_cb->status,
-		payload->data);
+	payload.cb_func(payload.h_synx,
+		payload.status, payload.data);
 
 fail:
 	synx_put_client(client);
@@ -926,7 +973,7 @@ static void synx_client_destroy(struct kref *kref)
 	memset(client_metadata, 0, sizeof(*client_metadata));
 	clear_bit(client->id, synx_dev->bitmap);
 
-	pr_debug("[sess: %u] session destroyed %s\n",
+	pr_info("[sess: %u] session destroyed %s\n",
 		client->id, client->name);
 	kfree(client);
 }
