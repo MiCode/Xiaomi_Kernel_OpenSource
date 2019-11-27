@@ -986,4 +986,7 @@ static inline unsigned long timeout_to_jiffies(const ktime_t *timeout)
 	return remaining_jiffies;
 }
 
+int msm_get_mixer_count(struct msm_drm_private *priv,
+		const struct drm_display_mode *mode,
+		u32 max_mixer_width, u32 *num_lm);
 #endif /* __MSM_DRV_H__ */
