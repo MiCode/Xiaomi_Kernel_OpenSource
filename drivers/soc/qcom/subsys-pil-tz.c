@@ -18,10 +18,10 @@
 #include <linux/interconnect.h>
 #include <dt-bindings/interconnect/qcom,lahaina.h>
 #include <linux/dma-mapping.h>
+#include <linux/qcom_scm.h>
 
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/ramdump.h>
-#include <soc/qcom/scm.h>
 
 #include <linux/soc/qcom/smem.h>
 #include <linux/soc/qcom/smem_state.h>
@@ -109,13 +109,6 @@ struct pil_tz_data {
 	void __iomem *err_status;
 	void __iomem *err_status_spare;
 	u32 bits_arr[2];
-};
-
-enum scm_cmd {
-	PAS_INIT_IMAGE_CMD = 1,
-	PAS_MEM_SETUP_CMD,
-	PAS_AUTH_AND_RESET_CMD = 5,
-	PAS_SHUTDOWN_CMD,
 };
 
 enum pas_id {
@@ -557,10 +550,7 @@ static int pil_init_image_trusted(struct pil_desc *pil,
 {
 	struct pil_tz_data *d = desc_to_data(pil);
 	u32 scm_ret = 0;
-	void *mdata_buf;
-	dma_addr_t mdata_phys;
 	int ret;
-	struct scm_desc desc = {0};
 
 	if (d->subsys_desc.no_auth)
 		return 0;
@@ -569,28 +559,9 @@ static int pil_init_image_trusted(struct pil_desc *pil,
 	if (ret)
 		return ret;
 
-	dma_set_mask(pil->dev, DMA_BIT_MASK(sizeof(dma_addr_t) * 8));
-	mdata_buf = dma_alloc_coherent(pil->dev, size, &mdata_phys, GFP_KERNEL);
-	if (!mdata_buf) {
-		pr_err("scm-pas: Allocation for metadata failed.\n");
-		scm_pas_disable_bw();
-		return -ENOMEM;
-	}
-
-	memcpy(mdata_buf, metadata, size);
-
-	desc.args[0] = d->pas_id;
-	desc.args[1] = mdata_phys;
-	desc.arginfo = SCM_ARGS(2, SCM_VAL, SCM_RW);
-	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_PIL, PAS_INIT_IMAGE_CMD),
-			&desc);
-	scm_ret = desc.ret[0];
-
-	dma_free_coherent(pil->dev, size, mdata_buf, mdata_phys);
+	scm_ret = qcom_scm_pas_init_image(d->pas_id, metadata, size);
 
 	scm_pas_disable_bw();
-	if (ret)
-		return ret;
 	return scm_ret;
 }
 
@@ -599,22 +570,12 @@ static int pil_mem_setup_trusted(struct pil_desc *pil, phys_addr_t addr,
 {
 	struct pil_tz_data *d = desc_to_data(pil);
 	u32 scm_ret = 0;
-	int ret;
-	struct scm_desc desc = {0};
 
 	if (d->subsys_desc.no_auth)
 		return 0;
 
-	desc.args[0] = d->pas_id;
-	desc.args[1] = addr;
-	desc.args[2] = size;
-	desc.arginfo = SCM_ARGS(3);
-	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_PIL, PAS_MEM_SETUP_CMD),
-			&desc);
-	scm_ret = desc.ret[0];
+	scm_ret = qcom_scm_pas_mem_setup(d->pas_id, addr, size);
 
-	if (ret)
-		return ret;
 	return scm_ret;
 }
 
@@ -622,14 +583,10 @@ static int pil_auth_and_reset(struct pil_desc *pil)
 {
 	struct pil_tz_data *d = desc_to_data(pil);
 	int rc;
-	u32 proc, scm_ret = 0;
-	struct scm_desc desc = {0};
+	u32 scm_ret = 0;
 
 	if (d->subsys_desc.no_auth)
 		return 0;
-
-	desc.args[0] = proc = d->pas_id;
-	desc.arginfo = SCM_ARGS(1);
 
 	rc = scm_pas_enable_bw();
 	if (rc)
@@ -643,9 +600,7 @@ static int pil_auth_and_reset(struct pil_desc *pil)
 	if (rc)
 		goto err_clks;
 
-	rc = scm_call2(SCM_SIP_FNID(SCM_SVC_PIL,
-		       PAS_AUTH_AND_RESET_CMD), &desc);
-	scm_ret = desc.ret[0];
+	scm_ret = qcom_scm_pas_auth_and_reset(d->pas_id);
 
 	scm_pas_disable_bw();
 	if (rc)
@@ -663,15 +618,11 @@ err_clks:
 static int pil_shutdown_trusted(struct pil_desc *pil)
 {
 	struct pil_tz_data *d = desc_to_data(pil);
-	u32 proc, scm_ret = 0;
+	u32 scm_ret = 0;
 	int rc;
-	struct scm_desc desc = {0};
 
 	if (d->subsys_desc.no_auth)
 		return 0;
-
-	desc.args[0] = proc = d->pas_id;
-	desc.arginfo = SCM_ARGS(1);
 
 	rc = do_bus_scaling_request(pil, 1);
 	if (rc)
@@ -687,9 +638,7 @@ static int pil_shutdown_trusted(struct pil_desc *pil)
 	if (rc)
 		goto err_clks;
 
-	rc = scm_call2(SCM_SIP_FNID(SCM_SVC_PIL, PAS_SHUTDOWN_CMD),
-		       &desc);
-	scm_ret = desc.ret[0];
+	scm_ret = qcom_scm_pas_shutdown(d->pas_id);
 
 	disable_unprepare_clocks(d->proxy_clks, d->proxy_clk_count);
 	disable_regulators(d, d->proxy_regs, d->proxy_reg_count, false);
@@ -715,23 +664,11 @@ err_regulators:
 static int pil_deinit_image_trusted(struct pil_desc *pil)
 {
 	struct pil_tz_data *d = desc_to_data(pil);
-	u32 proc, scm_ret = 0;
-	int rc;
-	struct scm_desc desc = {0};
 
 	if (d->subsys_desc.no_auth)
 		return 0;
 
-	desc.args[0] = proc = d->pas_id;
-	desc.arginfo = SCM_ARGS(1);
-
-	rc = scm_call2(SCM_SIP_FNID(SCM_SVC_PIL, PAS_SHUTDOWN_CMD),
-			       &desc);
-	scm_ret = desc.ret[0];
-
-	if (rc)
-		return rc;
-	return scm_ret;
+	return qcom_scm_pas_shutdown(d->pas_id);
 }
 
 static struct pil_reset_ops pil_ops_trusted = {

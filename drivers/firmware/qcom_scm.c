@@ -37,19 +37,6 @@ struct qcom_scm {
 	u64 dload_mode_addr;
 };
 
-struct qcom_scm_current_perm_info {
-	__le32 vmid;
-	__le32 perm;
-	__le64 ctx;
-	__le32 ctx_size;
-	__le32 unused;
-};
-
-struct qcom_scm_mem_map_info {
-	__le64 mem_addr;
-	__le64 mem_size;
-};
-
 static struct qcom_scm *__scm;
 
 static int qcom_scm_clk_enable(void)
@@ -137,11 +124,23 @@ int qcom_scm_sec_wdog_deactivate(void)
 }
 EXPORT_SYMBOL(qcom_scm_sec_wdog_deactivate);
 
+int qcom_scm_sec_wdog_trigger(void)
+{
+	return __qcom_scm_sec_wdog_trigger(__scm->dev);
+}
+EXPORT_SYMBOL(qcom_scm_sec_wdog_trigger);
+
 int qcom_scm_set_remote_state(u32 state, u32 id)
 {
 	return __qcom_scm_set_remote_state(__scm->dev, state, id);
 }
 EXPORT_SYMBOL(qcom_scm_set_remote_state);
+
+int qcom_scm_spin_cpu(void)
+{
+	return __qcom_scm_spin_cpu(__scm->dev);
+}
+EXPORT_SYMBOL(qcom_scm_spin_cpu);
 
 static void qcom_scm_set_download_mode(bool enable)
 {
@@ -165,6 +164,12 @@ static void qcom_scm_set_download_mode(bool enable)
 	if (ret)
 		dev_err(__scm->dev, "failed to set download mode: %d\n", ret);
 }
+
+int qcom_scm_config_cpu_errata(void)
+{
+	return __qcom_scm_config_cpu_errata(__scm->dev);
+}
+EXPORT_SYMBOL(qcom_scm_config_cpu_errata);
 
 /**
  * qcom_scm_pas_supported() - Check if the peripheral authentication service is
@@ -329,17 +334,46 @@ int qcom_scm_get_sec_dump_state(u32 *dump_state)
 }
 EXPORT_SYMBOL(qcom_scm_get_sec_dump_state);
 
+int qcom_scm_tz_blsp_modify_owner(int food, u64 subsystem, int *out)
+{
+	return __qcom_scm_tz_blsp_modify_owner(__scm->dev, subsystem, food,
+					       out);
+}
+EXPORT_SYMBOL(qcom_scm_tz_blsp_modify_owner);
+
 int qcom_scm_io_readl(phys_addr_t addr, unsigned int *val)
 {
-	return __qcom_scm_io_readl(__scm->dev, addr, val);
+	return __qcom_scm_io_readl(__scm ? __scm->dev : NULL, addr, val);
 }
 EXPORT_SYMBOL(qcom_scm_io_readl);
 
 int qcom_scm_io_writel(phys_addr_t addr, unsigned int val)
 {
-	return __qcom_scm_io_writel(__scm->dev, addr, val);
+	return __qcom_scm_io_writel(__scm ? __scm->dev : NULL, addr, val);
 }
 EXPORT_SYMBOL(qcom_scm_io_writel);
+
+/**
+ * qcom_scm_io_reset()
+ */
+int qcom_scm_io_reset(void)
+{
+	return __qcom_scm_io_reset(__scm ? __scm->dev : NULL);
+}
+EXPORT_SYMBOL(qcom_scm_io_reset);
+
+bool qcom_scm_is_secure_wdog_trigger_available(void)
+{
+	return __qcom_scm_is_call_available(__scm->dev, QCOM_SCM_SVC_BOOT,
+						QCOM_SCM_BOOT_SEC_WDOG_TRIGGER);
+}
+
+bool qcom_scm_is_mode_switch_available(void)
+{
+	return __qcom_scm_is_call_available(__scm->dev, QCOM_SCM_SVC_BOOT,
+						QCOM_SCM_BOOT_SWITCH_MODE);
+}
+EXPORT_SYMBOL(qcom_scm_is_mode_switch_available);
 
 int qcom_scm_get_jtag_etm_feat_id(u64 *version)
 {
@@ -372,11 +406,28 @@ int qcom_scm_iommu_secure_ptbl_init(u64 addr, u32 size, u32 spare)
 }
 EXPORT_SYMBOL(qcom_scm_iommu_secure_ptbl_init);
 
+int qcom_scm_mem_protect_video(u32 cp_start, u32 cp_size,
+			       u32 cp_nonpixel_start, u32 cp_nonpixel_size)
+{
+	return __qcom_scm_mem_protect_video(__scm->dev, cp_start, cp_size,
+					cp_nonpixel_start, cp_nonpixel_size);
+}
+EXPORT_SYMBOL(qcom_scm_mem_protect_video);
+
 int qcom_scm_mem_protect_region_id(phys_addr_t paddr, size_t size)
 {
 	return __qcom_scm_mem_protect_region_id(__scm->dev, paddr, size);
 }
 EXPORT_SYMBOL(qcom_scm_mem_protect_region_id);
+
+int qcom_scm_mem_protect_lock_id2_flat(phys_addr_t list_addr,
+				size_t list_size, size_t chunk_size,
+				size_t memory_usage, int lock)
+{
+	return __qcom_scm_mem_protect_lock_id2_flat(__scm->dev, list_addr,
+				list_size, chunk_size, memory_usage, lock);
+}
+EXPORT_SYMBOL(qcom_scm_mem_protect_lock_id2_flat);
 
 int qcom_scm_iommu_secure_map(phys_addr_t sg_list_addr, size_t num_sg,
 				size_t sg_block_size, u64 sec_id, int cbndx,
@@ -394,6 +445,39 @@ int qcom_scm_iommu_secure_unmap(u64 sec_id, int cbndx, unsigned long iova,
 						total_len);
 }
 EXPORT_SYMBOL(qcom_scm_iommu_secure_unmap);
+
+/**
+ * qcom_scm_assign_mem_regions() - Make a secure call to reassign memory
+ *				   ownership of several memory regions
+ * @mem_regions:    A buffer describing the set of memory regions that need to
+ *		    be reassigned
+ * @mem_regions_sz: The size of the buffer describing the set of memory
+ *                  regions that need to be reassigned (in bytes)
+ * @srcvms:	    A buffer populated with he vmid(s) for the current set of
+ *		    owners
+ * @src_sz:	    The size of the src_vms buffer (in bytes)
+ * @newvms:	    A buffer populated with the new owners and corresponding
+ *		    permission flags.
+ * @newvms_sz:	    The size of the new_vms buffer (in bytes)
+ *
+ * NOTE: It is up to the caller to ensure that the buffers that will be accessed
+ * by the secure world are cache aligned, and have been flushed prior to
+ * invoking this call.
+ *
+ * Return negative errno on failure, 0 on success.
+ */
+int qcom_scm_assign_mem_regions(struct qcom_scm_mem_map_info *mem_regions,
+				size_t mem_regions_sz, u32 *srcvms,
+				size_t src_sz,
+				struct qcom_scm_current_perm_info *newvms,
+				size_t newvms_sz)
+{
+	return __qcom_scm_assign_mem(__scm ? __scm->dev : NULL,
+				     virt_to_phys(mem_regions), mem_regions_sz,
+				     virt_to_phys(srcvms), src_sz,
+				     virt_to_phys(newvms), newvms_sz);
+}
+EXPORT_SYMBOL(qcom_scm_assign_mem_regions);
 
 /**
  * qcom_scm_assign_mem() - Make a secure call to reassign memory ownership
@@ -478,6 +562,160 @@ int qcom_scm_assign_mem(phys_addr_t mem_addr, size_t mem_sz,
 EXPORT_SYMBOL(qcom_scm_assign_mem);
 
 /**
+ * qcom_scm_mem_protect_sd_ctrl() - SDE memory protect.
+ *
+ */
+int qcom_scm_mem_protect_sd_ctrl(u32 devid, phys_addr_t mem_addr, u64 mem_size,
+				u32 vmid)
+{
+	return __qcom_scm_mem_protect_sd_ctrl(__scm->dev, devid, mem_addr,
+						mem_size, vmid);
+}
+EXPORT_SYMBOL(qcom_scm_mem_protect_sd_ctrl);
+
+bool qcom_scm_kgsl_set_smmu_aperture_available(void)
+{
+	int ret;
+
+	ret = __qcom_scm_is_call_available(__scm->dev, QCOM_SCM_SVC_MP,
+					QCOM_SCM_MP_CP_SMMU_APERTURE_ID);
+
+	return ret > 0;
+}
+EXPORT_SYMBOL(qcom_scm_kgsl_set_smmu_aperture_available);
+
+int qcom_scm_kgsl_set_smmu_aperture(unsigned int num_context_bank)
+{
+	return __qcom_scm_kgsl_set_smmu_aperture(__scm->dev,
+						num_context_bank);
+}
+EXPORT_SYMBOL(qcom_scm_kgsl_set_smmu_aperture);
+
+int qcom_scm_enable_shm_bridge(void)
+{
+	return __qcom_scm_enable_shm_bridge(__scm ? __scm->dev : NULL);
+}
+EXPORT_SYMBOL(qcom_scm_enable_shm_bridge);
+
+int qcom_scm_delete_shm_bridge(u64 handle)
+{
+	return __qcom_scm_delete_shm_bridge(__scm ? __scm->dev : NULL, handle);
+}
+EXPORT_SYMBOL(qcom_scm_delete_shm_bridge);
+
+int qcom_scm_create_shm_bridge(u64 pfn_and_ns_perm_flags,
+	u64 ipfn_and_s_perm_flags, u64 size_and_flags, u64 ns_vmids,
+	u64 *handle)
+{
+	return __qcom_scm_create_shm_bridge(__scm ? __scm->dev : NULL,
+				pfn_and_ns_perm_flags, ipfn_and_s_perm_flags,
+				size_and_flags, ns_vmids, handle);
+}
+EXPORT_SYMBOL(qcom_scm_create_shm_bridge);
+
+int qcom_scm_smmu_prepare_atos_id(u64 dev_id, int cb_num, int operation)
+{
+	return __qcom_scm_smmu_prepare_atos_id(__scm->dev, dev_id, cb_num,
+						operation);
+}
+EXPORT_SYMBOL(qcom_scm_smmu_prepare_atos_id);
+
+/**
+ * qcom_mdf_assign_memory_to_subsys - SDE memory protect.
+ *
+ */
+int qcom_mdf_assign_memory_to_subsys(u64 start_addr, u64 end_addr,
+		phys_addr_t paddr, u64 size)
+{
+	return __qcom_mdf_assign_memory_to_subsys(__scm->dev,
+		start_addr, end_addr, paddr, size);
+}
+EXPORT_SYMBOL(qcom_mdf_assign_memory_to_subsys);
+
+int qcom_scm_get_feat_version_cp(u64 *version)
+{
+	return __qcom_scm_get_feat_version(__scm->dev, QCOM_SCM_MP_CP_FEAT_ID,
+						version);
+}
+EXPORT_SYMBOL(qcom_scm_get_feat_version_cp);
+
+/**
+ * qcom_scm_dcvs_core_available() - check if core DCVS operations are available
+ */
+bool qcom_scm_dcvs_core_available(void)
+{
+	return __qcom_scm_dcvs_core_available(__scm ? __scm->dev : NULL);
+}
+EXPORT_SYMBOL(qcom_scm_dcvs_core_available);
+
+/**
+ * qcom_scm_dcvs_ca_available() - check if context aware DCVS operations are
+ * available
+ */
+bool qcom_scm_dcvs_ca_available(void)
+{
+	return __qcom_scm_dcvs_ca_available(__scm ? __scm->dev : NULL);
+}
+EXPORT_SYMBOL(qcom_scm_dcvs_ca_available);
+
+/**
+ * qcom_scm_dcvs_reset()
+ */
+int qcom_scm_dcvs_reset(void)
+{
+	return __qcom_scm_dcvs_reset(__scm ? __scm->dev : NULL);
+}
+EXPORT_SYMBOL(qcom_scm_dcvs_reset);
+
+int qcom_scm_dcvs_init_v2(phys_addr_t addr, size_t size, int *version)
+{
+	return __qcom_scm_dcvs_init_v2(__scm->dev, addr, size, version);
+}
+EXPORT_SYMBOL(qcom_scm_dcvs_init_v2);
+
+int qcom_scm_dcvs_init_ca_v2(phys_addr_t addr, size_t size)
+{
+	return __qcom_scm_dcvs_init_ca_v2(__scm->dev, addr, size);
+}
+EXPORT_SYMBOL(qcom_scm_dcvs_init_ca_v2);
+
+int qcom_scm_dcvs_update(int level, s64 total_time, s64 busy_time)
+{
+	return __qcom_scm_dcvs_update(__scm->dev, level, total_time, busy_time);
+}
+EXPORT_SYMBOL(qcom_scm_dcvs_update);
+
+int qcom_scm_dcvs_update_v2(int level, s64 total_time, s64 busy_time)
+{
+	return __qcom_scm_dcvs_update_v2(__scm->dev, level, total_time,
+					 busy_time);
+}
+EXPORT_SYMBOL(qcom_scm_dcvs_update_v2);
+
+int qcom_scm_dcvs_update_ca_v2(int level, s64 total_time, s64 busy_time,
+			       int context_count)
+{
+	return __qcom_scm_dcvs_update_ca_v2(__scm->dev, level, total_time,
+					    busy_time, context_count);
+}
+EXPORT_SYMBOL(qcom_scm_dcvs_update_ca_v2);
+
+int qcom_scm_config_set_ice_key(uint32_t index, phys_addr_t paddr, size_t size,
+				uint32_t cipher, unsigned int data_unit,
+				unsigned int food)
+{
+	return __qcom_scm_config_set_ice_key(__scm->dev, index, paddr, size,
+					     cipher, data_unit, food);
+}
+EXPORT_SYMBOL(qcom_scm_config_set_ice_key);
+
+int qcom_scm_clear_ice_key(uint32_t index,  unsigned int food)
+{
+	return __qcom_scm_clear_ice_key(__scm->dev, index, food);
+}
+EXPORT_SYMBOL(qcom_scm_clear_ice_key);
+
+/**
  * qcom_scm_hdcp_available() - Check if secure environment supports HDCP.
  *
  * Return true if HDCP is supported, false if not.
@@ -519,17 +757,143 @@ int qcom_scm_hdcp_req(struct qcom_scm_hdcp_req *req, u32 req_cnt, u32 *resp)
 }
 EXPORT_SYMBOL(qcom_scm_hdcp_req);
 
+bool qcom_scm_is_lmh_debug_set_available(void)
+{
+	return __qcom_scm_is_call_available(__scm->dev, QCOM_SCM_SVC_LMH,
+					QCOM_SCM_LMH_DEBUG_SET);
+}
+EXPORT_SYMBOL(qcom_scm_is_lmh_debug_set_available);
+
+bool qcom_scm_is_lmh_debug_read_buf_size_available(void)
+{
+	return __qcom_scm_is_call_available(__scm->dev, QCOM_SCM_SVC_LMH,
+					QCOM_SCM_LMH_DEBUG_READ_BUF_SIZE);
+}
+EXPORT_SYMBOL(qcom_scm_is_lmh_debug_read_buf_size_available);
+
+bool qcom_scm_is_lmh_debug_read_buf_available(void)
+{
+	return __qcom_scm_is_call_available(__scm->dev, QCOM_SCM_SVC_LMH,
+					QCOM_SCM_LMH_DEBUG_READ);
+}
+EXPORT_SYMBOL(qcom_scm_is_lmh_debug_read_buf_available);
+
+bool qcom_scm_is_lmh_debug_get_type_available(void)
+{
+	return __qcom_scm_is_call_available(__scm->dev, QCOM_SCM_SVC_LMH,
+					QCOM_SCM_LMH_DEBUG_GET_TYPE);
+}
+EXPORT_SYMBOL(qcom_scm_is_lmh_debug_get_type_available);
+
+int qcom_scm_lmh_read_buf_size(int *size)
+{
+	return __qcom_scm_lmh_read_buf_size(__scm->dev, size);
+}
+EXPORT_SYMBOL(qcom_scm_lmh_read_buf_size);
+
+int qcom_scm_lmh_limit_dcvsh(phys_addr_t payload, uint32_t payload_size,
+			u64 limit_node, uint32_t node_id, u64 version)
+{
+	return __qcom_scm_lmh_limit_dcvsh(__scm->dev, payload, payload_size,
+					limit_node, node_id, version);
+}
+EXPORT_SYMBOL(qcom_scm_lmh_limit_dcvsh);
+
+int qcom_scm_lmh_debug_read(phys_addr_t payload, uint32_t size)
+{
+	return __qcom_scm_lmh_debug_read(__scm->dev, payload, size);
+}
+EXPORT_SYMBOL(qcom_scm_lmh_debug_read);
+
+int qcom_scm_lmh_debug_set_config_write(phys_addr_t payload, int payload_size,
+					uint32_t *buf, int buf_size)
+{
+	return __qcom_scm_lmh_debug_config_write(__scm->dev,
+			QCOM_SCM_LMH_DEBUG_SET, payload, payload_size, buf,
+			buf_size);
+}
+EXPORT_SYMBOL(qcom_scm_lmh_debug_set_config_write);
+
+int qcom_scm_lmh_get_type(phys_addr_t payload, u64 payload_size,
+		u64 debug_type, uint32_t get_from, uint32_t *size)
+{
+	return __qcom_scm_lmh_get_type(__scm->dev, payload, payload_size,
+					debug_type, get_from, size);
+}
+EXPORT_SYMBOL(qcom_scm_lmh_get_type);
+
+int qcom_scm_smmu_change_pgtbl_format(u64 dev_id, int cbndx)
+{
+	return __qcom_scm_smmu_change_pgtbl_format(__scm->dev, dev_id, cbndx);
+}
+EXPORT_SYMBOL(qcom_scm_smmu_change_pgtbl_format);
+
 int qcom_scm_qsmmu500_wait_safe_toggle(bool en)
 {
 	return __qcom_scm_qsmmu500_wait_safe_toggle(__scm->dev, en);
 }
 EXPORT_SYMBOL(qcom_scm_qsmmu500_wait_safe_toggle);
 
+int qcom_scm_smmu_notify_secure_lut(u64 dev_id, bool secure)
+{
+	return __qcom_scm_smmu_notify_secure_lut(__scm->dev, dev_id, secure);
+}
+EXPORT_SYMBOL(qcom_scm_smmu_notify_secure_lut);
+
+int qcom_scm_qdss_invoke(phys_addr_t paddr, size_t size, u64 *out)
+{
+	return __qcom_scm_qdss_invoke(__scm->dev, paddr, size, out);
+}
+EXPORT_SYMBOL(qcom_scm_qdss_invoke);
+
+int qcom_scm_camera_protect_all(uint32_t protect, uint32_t param)
+{
+	return __qcom_scm_camera_protect_all(__scm->dev, protect, param);
+}
+EXPORT_SYMBOL(qcom_scm_camera_protect_all);
+
+int qcom_scm_camera_protect_phy_lanes(bool protect, u64 regmask)
+{
+	return __qcom_scm_camera_protect_phy_lanes(__scm->dev, protect,
+						    regmask);
+}
+EXPORT_SYMBOL(qcom_scm_camera_protect_phy_lanes);
+
 int qcom_scm_ice_restore_cfg(void)
 {
 	return __qcom_scm_ice_restore_cfg(__scm->dev);
 }
 EXPORT_SYMBOL(qcom_scm_ice_restore_cfg);
+
+int qcom_scm_get_tz_log_feat_id(u64 *version)
+{
+	return __qcom_scm_get_feat_version(__scm->dev, QCOM_SCM_FEAT_LOG_ID,
+					   version);
+}
+EXPORT_SYMBOL(qcom_scm_get_tz_log_feat_id);
+
+int qcom_scm_register_qsee_log_buf(phys_addr_t buf, size_t len)
+{
+	return __qcom_scm_register_qsee_log_buf(__scm->dev, buf, len);
+}
+EXPORT_SYMBOL(qcom_scm_register_qsee_log_buf);
+
+int qcom_scm_invoke_smc(phys_addr_t in_buf, size_t in_buf_size,
+		phys_addr_t out_buf, size_t out_buf_size, int32_t *result,
+		u64 *response_type, unsigned int *data)
+{
+	return __qcom_scm_invoke_smc(__scm->dev, in_buf, in_buf_size, out_buf,
+			out_buf_size, result, response_type, data);
+}
+EXPORT_SYMBOL(qcom_scm_invoke_smc);
+
+int qcom_scm_invoke_callback_response(phys_addr_t out_buf,
+	size_t out_buf_size, int32_t *result, u64 *response_type,
+	unsigned int *data)
+{
+	return __qcom_scm_invoke_callback_response(__scm->dev, out_buf,
+			out_buf_size, result, response_type, data);
+}
 
 /**
  * qcom_scm_is_available() - Checks if SCM is available
