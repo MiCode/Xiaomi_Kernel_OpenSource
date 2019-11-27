@@ -434,6 +434,7 @@ static int wigig_sensing_change_state(struct wigig_sensing_ctx *ctx,
 {
 	enum wigig_sensing_stm_e curr_state;
 	bool transition_allowed = true;
+	int rc = 0;
 
 	if (!state) {
 		pr_err("state is NULL\n");
@@ -449,42 +450,52 @@ static int wigig_sensing_change_state(struct wigig_sensing_ctx *ctx,
 
 	/* Moving to SYS_ASSEERT state is always allowed */
 	if (new_state == WIGIG_SENSING_STATE_SYS_ASSERT)
-		transition_allowed = true;
+		goto skip;
+
 	/*
 	 * Moving from INITIALIZED state is allowed only to READY_STOPPED state
 	 */
 	else if (curr_state == WIGIG_SENSING_STATE_INITIALIZED &&
-	    new_state != WIGIG_SENSING_STATE_READY_STOPPED)
+	    new_state != WIGIG_SENSING_STATE_READY_STOPPED) {
 		transition_allowed = false;
+		rc = -EFAULT;
+	}
 	/*
 	 * Moving to GET_PARAMS state is allowed only from READY_STOPPED state
 	 */
 	else if (curr_state != WIGIG_SENSING_STATE_READY_STOPPED &&
-		 new_state == WIGIG_SENSING_STATE_GET_PARAMS)
+		 new_state == WIGIG_SENSING_STATE_GET_PARAMS) {
 		transition_allowed = false;
+		rc = -EFAULT;
+	}
 	/*
 	 * Moving from GET_PARAMS state is allowed only to READY_STOPPED state
 	 */
 	else if (curr_state == WIGIG_SENSING_STATE_GET_PARAMS &&
-		 new_state != WIGIG_SENSING_STATE_READY_STOPPED)
+		 new_state != WIGIG_SENSING_STATE_READY_STOPPED) {
 		transition_allowed = false;
+		rc = -EFAULT;
+	}
 	/*
 	 * Moving from SYS_ASSERT state is allowed only to READY_STOPPED state
 	 */
 	else if (curr_state == WIGIG_SENSING_STATE_SYS_ASSERT &&
-		 new_state != WIGIG_SENSING_STATE_READY_STOPPED)
+		 new_state != WIGIG_SENSING_STATE_READY_STOPPED) {
 		transition_allowed = false;
+		rc = -ENODEV;
+	}
 
+skip:
 	if (transition_allowed) {
 		pr_info("state transition (%d) --> (%d)\n", curr_state,
 			new_state);
 		state->state = new_state;
 	} else {
-		pr_info("state transition rejected (%d) xx> (%d)\n",
-			curr_state, new_state);
+		pr_err("state transition rejected (%d) xx> (%d)\n",
+		       curr_state, new_state);
 	}
 
-	return 0;
+	return rc;
 }
 
 static int wigig_sensing_ioc_set_auto_recovery(struct wigig_sensing_ctx *ctx)
@@ -522,9 +533,8 @@ static int wigig_sensing_ioc_change_mode(struct wigig_sensing_ctx *ctx,
 	sim_state = ctx->stm;
 	rc = wigig_sensing_change_state(ctx, &sim_state,
 					ctx->stm.state_request);
-	if (rc || sim_state.state != ctx->stm.state_request) {
+	if (rc) {
 		pr_err("State change not allowed\n");
-		rc = -EFAULT;
 		goto End;
 	}
 
@@ -562,8 +572,11 @@ static int wigig_sensing_ioc_change_mode(struct wigig_sensing_ctx *ctx,
 	}
 
 	if (ctx->stm.state != ctx->stm.state_request) {
-		pr_err("wigig_sensing_change_state() failed\n");
-		rc = -EFAULT;
+		pr_err("%s() failed\n", __func__);
+		if (ctx->stm.state == WIGIG_SENSING_STATE_SYS_ASSERT)
+			rc = -ENODEV;
+		else
+			rc = -EFAULT;
 	}
 
 End:
@@ -667,9 +680,8 @@ static ssize_t wigig_sensing_read(struct file *filp, char __user *buf,
 	struct cir_data *d = &ctx->cir_data;
 
 	/* Driver not ready to send data */
-	if ((!ctx) ||
-	    (!ctx->spi_dev) ||
-	    (!d->b.buf))
+	if (!ctx || !ctx->spi_dev || !d->b.buf ||
+	    ctx->stm.state == WIGIG_SENSING_STATE_SYS_ASSERT)
 		return -ENODEV;
 
 	if (ctx->stm.change_mode_in_progress)
@@ -947,9 +959,8 @@ static int wigig_sensing_handle_fifo_ready_dri(struct wigig_sensing_ctx *ctx)
 
 	/* Change internal state */
 	rc = wigig_sensing_change_state(ctx, &ctx->stm, ctx->stm.state_request);
-	if (rc || ctx->stm.state != ctx->stm.state_request) {
+	if (rc) {
 		pr_err("wigig_sensing_change_state() failed\n");
-		rc = -EFAULT;
 		goto End;
 	}
 
@@ -1233,17 +1244,18 @@ static irqreturn_t wigig_sensing_dri_isr_thread(int irq, void *cookie)
 	}
 
 	if (spi_status.b.int_sysassert) {
+		enum wigig_sensing_stm_e old_state = ctx->stm.state;
+
 		pr_info_ratelimited("SYSASSERT INTERRUPT\n");
 		ctx->stm.fw_is_ready = false;
 
-		rc = wigig_sensing_change_state(ctx, &ctx->stm,
-				WIGIG_SENSING_STATE_SYS_ASSERT);
-		if (rc != 0 ||
-		    ctx->stm.state != WIGIG_SENSING_STATE_SYS_ASSERT)
-			pr_err("State change to WIGIG_SENSING_SYS_ASSERT failed\n");
+		wigig_sensing_change_state(ctx, &ctx->stm,
+					   WIGIG_SENSING_STATE_SYS_ASSERT);
 
 		/* Send asynchronous RESET event to application */
-		wigig_sensing_send_event(ctx, WIGIG_SENSING_EVENT_RESET);
+		if (old_state != WIGIG_SENSING_STATE_READY_STOPPED)
+			wigig_sensing_send_event(ctx,
+						 WIGIG_SENSING_EVENT_RESET);
 
 		ctx->stm.spi_malfunction = true;
 		memset(&ctx->inb_cmd, 0, sizeof(ctx->inb_cmd));
