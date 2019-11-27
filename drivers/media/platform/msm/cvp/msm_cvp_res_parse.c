@@ -677,6 +677,9 @@ int cvp_read_platform_resources_from_drv_data(
 
 	dprintk(CVP_DBG, "Firmware filename: %s\n", res->fw_name);
 
+	res->auto_pil = find_key_value(platform_data,
+			"qcom,aut-pil");
+
 	res->max_load = find_key_value(platform_data,
 			"qcom,max-hw-load");
 

@@ -267,6 +267,11 @@ void *msm_cvp_open(int core_id, int session_type)
 		goto err_invalid_core;
 	}
 
+	if (!core->resources.auto_pil && session_type == MSM_CVP_BOOT) {
+		dprintk(CVP_DBG, "Auto PIL disabled, bypass CVP init at boot");
+		goto err_invalid_core;
+	}
+
 	core->resources.max_inst_count = MAX_SUPPORTED_INSTANCES;
 	if (msm_cvp_check_for_inst_overload(core)) {
 		dprintk(CVP_ERR, "Instance num reached Max, rejecting session");
