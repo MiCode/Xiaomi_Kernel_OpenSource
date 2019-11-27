@@ -1946,7 +1946,7 @@ ENTRY(aesni_set_key)
 ENDPROC(aesni_set_key)
 
 /*
- * void aesni_enc(struct crypto_aes_ctx *ctx, u8 *dst, const u8 *src)
+ * void aesni_enc(const void *ctx, u8 *dst, const u8 *src)
  */
 ENTRY(aesni_enc)
 	FRAME_BEGIN
@@ -2137,7 +2137,7 @@ _aesni_enc4:
 ENDPROC(_aesni_enc4)
 
 /*
- * void aesni_dec (struct crypto_aes_ctx *ctx, u8 *dst, const u8 *src)
+ * void aesni_dec (const void *ctx, u8 *dst, const u8 *src)
  */
 ENTRY(aesni_dec)
 	FRAME_BEGIN
@@ -2726,8 +2726,8 @@ ENDPROC(aesni_ctr_enc)
 	pxor CTR, IV;
 
 /*
- * void aesni_xts_crypt8(struct crypto_aes_ctx *ctx, const u8 *dst, u8 *src,
- *			 bool enc, u8 *iv)
+ * void aesni_xts_crypt8(const struct crypto_aes_ctx *ctx, u8 *dst,
+ *			 const u8 *src, bool enc, le128 *iv)
  */
 ENTRY(aesni_xts_crypt8)
 	FRAME_BEGIN
