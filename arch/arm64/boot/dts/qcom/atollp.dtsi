@@ -17,3 +17,13 @@
 	qcom,msm-name = "ATOLLP";
 	qcom,msm-id = <424 0>;
 };
+
+&soc {
+	qcom,rmnet-ipa {
+		status="disabled";
+	};
+};
+
+&ipa_hw {
+	status="disabled";
+};
