@@ -335,5 +335,72 @@
 			};
 		};
 	};
+
+	tlmm: pinctrl@f100000 {
+		i2c_4 {
+			i2c_4_active: i2c_4_active {
+				mux {
+					pins = "gpio78", "gpio79";
+					function = "blsp_i2c4";
+				};
+
+				config {
+					pins = "gpio78", "gpio79";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+		};
+	};
 };
 
+&i2c_4 {
+	status = "okay";
+	smi130_gyro@68 {
+		compatible = "smi130_gyro";
+		reg = <0x68>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&sensor_int1_default>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <84 IRQ_TYPE_EDGE_RISING>;
+		smi130_gyro,gpio_irq = <&tlmm 84 IRQ_TYPE_EDGE_RISING>;
+	};
+
+	smi130_acc@18 {
+		compatible = "smi130_acc";
+		reg = <0x18>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&sensor_int2_default>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <85 IRQ_TYPE_EDGE_RISING>;
+	};
+
+	iam20680@69 {
+		compatible = "inven,iam20680";
+		reg = <0x69>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&sensor_int1_default>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <84 IRQ_TYPE_EDGE_RISING>;
+		axis_map_x = <1>;
+		axis_map_y = <0>;
+		axis_map_z = <2>;
+		negate_x = <1>;
+		negate_y = <0>;
+		negate_z = <0>;
+		inven,secondary_type = "none";
+		inven,aux_type = "none";
+		inven,read_only_slave_type = "none";
+	};
+
+	asm330@6a {
+		compatible = "st,asm330lhh";
+		reg = <0x6a>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&sensor_int1_default>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <84 IRQ_TYPE_EDGE_RISING>;
+		st,drdy-int-pin= <2>;
+		qcom,regulator_check = <0>; /* 0:Disable 1:Enable */
+	};
+};
