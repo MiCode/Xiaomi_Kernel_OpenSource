@@ -314,6 +314,18 @@
 		regulator-min-microvolt = <RPMH_REGULATOR_LEVEL_RETENTION>;
 		regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
 	};
+	qcom_seecom: qseecom@87a00000 {
+		compatible = "qcom,qseecom";
+		reg = <0x87a00000 0x2100000>;
+		reg-names = "secapp-region";
+		memory-region = <&qseecom_mem>;
+		qcom,hlos-num-ce-hw-instances = <1>;
+		qcom,hlos-ce-hw-instance = <0>;
+		qcom,qsee-ce-hw-instance = <0>;
+		qcom,disk-encrypt-pipe-pair = <2>;
+		qcom,no-clock-support;
+		qcom,qsee-reentrancy-support = <2>;
+	};
 
 	sdhc_2: sdhci@8804000 {
 		compatible = "qcom,sdhci-msm-v5";
