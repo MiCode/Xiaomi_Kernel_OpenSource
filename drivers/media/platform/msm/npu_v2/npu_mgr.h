@@ -25,8 +25,12 @@
  * Defines
  * -------------------------------------------------------------------------
  */
-#define NW_CMD_TIMEOUT_MS (1000 * 5) /* set for 5 seconds */
+#define NW_RSC_TIMEOUT_MS (1000 * 5) /* set for 5 seconds */
+#define NW_RSC_TIMEOUT msecs_to_jiffies(NW_RSC_TIMEOUT_MS)
+#define NW_CMD_TIMEOUT_MS (1000 * 20) /* set for 20 seconds */
 #define NW_CMD_TIMEOUT msecs_to_jiffies(NW_CMD_TIMEOUT_MS)
+#define NW_PWR_UP_TIMEOUT_MS (1000 * 60) /* set for 60 seconds */
+#define NW_PWR_UP_TIMEOUT msecs_to_jiffies(NW_PWR_UP_TIMEOUT_MS)
 #define NW_DEBUG_TIMEOUT_MS (1000 * 60 * 30) /* set for 30 minutes */
 #define NW_DEBUG_TIMEOUT msecs_to_jiffies(NW_DEBUG_TIMEOUT_MS)
 #define NPU_MBOX_IDLE_TIMEOUT_MS 500 /* set for 500ms */
