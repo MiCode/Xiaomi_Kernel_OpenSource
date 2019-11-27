@@ -43,6 +43,7 @@ static ssize_t synx_table_read(struct file *file,
 	struct synx_device *dev = file->private_data;
 	struct error_node *err_node, *err_node_tmp;
 	struct synx_client *client;
+	struct synx_handle_coredata *synx_data;
 	struct synx_coredata *row;
 	char *dbuf, *cur, *end;
 
@@ -68,22 +69,31 @@ static ssize_t synx_table_read(struct file *file,
 	cur += scnprintf(cur, end - cur, "\n");
 
 	for (j = 0; j < SYNX_MAX_CLIENTS; j++) {
-		struct synx_session session;
+		struct synx_client_metadata *client_meta;
 
-		session.client_id = j;
-		client = synx_get_client(session);
-		if (!client)
+		mutex_lock(&synx_dev->dev_table_lock);
+		client_meta = &synx_dev->client_table[j];
+		if (!client_meta->client) {
+			mutex_unlock(&synx_dev->dev_table_lock);
 			continue;
+		}
+		kref_get(&client_meta->refcount);
+		client = client_meta->client;
+		mutex_unlock(&synx_dev->dev_table_lock);
 
 		cur += scnprintf(cur, end - cur,
 			"=============== session %08u ===============\n",
 			client->id);
+		cur += scnprintf(cur, end - cur,
+			"session name ::: %s\n",
+			client->name);
 		for (i = 0; i < SYNX_MAX_OBJS; i++) {
-			row = synx_util_acquire_object(client, i);
-			if (!row)
+			synx_data = synx_util_acquire_handle(client, i);
+			row = synx_util_obtain_object(synx_data);
+			if (!row || !row->fence)
 				continue;
 
-			spin_lock_bh(&row->lock);
+			mutex_lock(&row->obj_lock);
 			if (columns & NAME_COLUMN)
 				cur += scnprintf(cur, end - cur,
 					"|%10s|", row->name);
@@ -95,7 +105,7 @@ static ssize_t synx_table_read(struct file *file,
 					"|%11d|", row->num_bound_synxs);
 			if (columns & STATE_COLUMN) {
 				status =
-					synx_util_get_object_status_locked(row);
+					synx_util_get_object_status(row);
 				cur += scnprintf(cur, end - cur,
 					"|%10d|", status);
 			}
@@ -107,9 +117,9 @@ static ssize_t synx_table_read(struct file *file,
 					cur,
 					end);
 			}
-			spin_unlock_bh(&row->lock);
+			mutex_unlock(&row->obj_lock);
 			cur += scnprintf(cur, end - cur, "\n");
-			synx_util_release_object(client, i);
+			synx_util_release_handle(synx_data);
 		}
 		cur += scnprintf(cur, end - cur,
 			"\n================================================\n\n");

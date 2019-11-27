@@ -19,23 +19,17 @@
 #define SYNX_DEVICE_NAME            "synx_device"
 
 #define SYNX_CLIENT_HANDLE_SHIFT    8
-#define SYNX_SECURE_KEY_SHIFT       16
+#define SYNX_OBJ_HANDLE_SHIFT       10
 
 #define MAX_TIMESTAMP_SIZE          32
 #define SYNX_OBJ_NAME_LEN           64
 #define SYNX_MAX_CLIENTS            (1UL<<SYNX_CLIENT_HANDLE_SHIFT)
-#define SYNX_MAX_OBJS               1024
+#define SYNX_MAX_OBJS               (1UL<<SYNX_OBJ_HANDLE_SHIFT)
 #define SYNX_MAX_REF_COUNTS         2048
 #define SYNX_PAYLOAD_WORDS          4
 
-#define SYNX_SECURE_KEY_SIZE        (1UL<<SYNX_SECURE_KEY_SHIFT)
-#define SYNX_SECURE_KEY_MASK        (SYNX_SECURE_KEY_SIZE-1)
 #define SYNX_CLIENT_HANDLE_MASK     (SYNX_MAX_CLIENTS-1)
-
-#define SYNX_OBJ_TYPE_LOCAL         0x1
-#define SYNX_OBJ_TYPE_MERGED        0x2
-
-#define SYNX_STATE_FORCED_RELEASE   5
+#define SYNX_OBJ_HANDLE_MASK        (SYNX_MAX_OBJS-1)
 
 /**
  * struct synx_external_data - data passed over to external sync objects
@@ -152,9 +146,10 @@ struct synx_registered_ops {
  * of all metadata associated with each individual synx object
  *
  * @name              : Optional string representation of the synx object
- * @fence             : Dma fence backing the synx object
- * @merged_fence      : Pointer to dma fence backing merged synx object
- * @lock              : Spinlock
+ * @fence             : Pointer to dma fence backing synx object
+ * @fence_cb          : Callback struct registered with external fence
+ * @obj_lock          : Mutex lock for coredata access
+ * @refcount          : References by the various client
  * @type              : Synx object type
  * @num_bound_synxs   : Number of external bound synx objects
  * @bound_synxs       : Array of bound external sync objects
@@ -162,9 +157,10 @@ struct synx_registered_ops {
  */
 struct synx_coredata {
 	char name[SYNX_OBJ_NAME_LEN];
-	struct dma_fence fence;
-	struct dma_fence *merged_fence;
-	spinlock_t lock;
+	struct dma_fence *fence;
+	struct dma_fence_cb fence_cb;
+	struct mutex obj_lock;
+	struct kref refcount;
 	u32 type;
 	u32 num_bound_synxs;
 	struct synx_bind_desc bound_synxs[SYNX_MAX_NUM_BINDINGS];
@@ -191,7 +187,7 @@ struct synx_handle_coredata {
 	struct synx_coredata *synx_obj;
 	struct kref internal_refcount;
 	struct kref import_refcount;
-	u32 id;
+	u32 handle;
 	u16 key;
 };
 
@@ -284,5 +280,16 @@ int synx_signal_core(struct synx_coredata *synx_obj,
 	u32 status,
 	bool cb_signal,
 	s32 ext_sync_id);
+
+/**
+ * @brief: Internal function to signal the synx fence
+ *
+ * @param synx_obj : Pointer to the synx object to signal
+ * @param status   : Signaling status
+ *
+ * @return Status of operation. Negative in case of error. Zero otherwise.
+ */
+int synx_signal_fence(struct synx_coredata *synx_obj,
+	u32 status);
 
 #endif /* __SYNX_PRIVATE_H__ */

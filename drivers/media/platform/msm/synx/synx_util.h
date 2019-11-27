@@ -10,6 +10,9 @@
 
 extern struct synx_device *synx_dev;
 
+extern void synx_fence_callback(struct dma_fence *fence,
+	struct dma_fence_cb *cb);
+
 /**
  * @brief: Function to check if the external obj type is valid
  *
@@ -17,7 +20,13 @@ extern struct synx_device *synx_dev;
  *
  * @return True if valid. False otherwise
  */
-bool synx_util_is_valid_bind_type(u32 type);
+static inline bool synx_util_is_valid_bind_type(u32 type)
+{
+	if (type < SYNX_MAX_BIND_TYPES)
+		return true;
+
+	return false;
+}
 
 /**
  * @brief: Function to get the synx object type
@@ -26,7 +35,35 @@ bool synx_util_is_valid_bind_type(u32 type);
  *
  * @return Synx object type. Zero if invalid
  */
-u32 synx_util_get_object_type(struct synx_coredata *synx_obj);
+static inline u32 synx_util_get_object_type(
+	struct synx_coredata *synx_obj)
+{
+	return synx_obj->type;
+}
+
+/**
+ * @brief: Function to get the client metadata index from session id
+ *
+ * @param client_id : Client session id
+ *
+ * @return Client metadata index.
+ */
+static inline u32 synx_util_client_index(u32 client_id)
+{
+	return (client_id & SYNX_CLIENT_HANDLE_MASK);
+}
+
+/**
+ * @brief: Function to get the client synx table index from handle
+ *
+ * @param h_synx : Synx object handle
+ *
+ * @return Synx object index.
+ */
+static inline u32 synx_util_handle_index(s32 h_synx)
+{
+	return (h_synx & SYNX_OBJ_HANDLE_MASK);
+}
 
 /**
  * @brief: Function to check if the synx object is a composite (merged)
@@ -35,17 +72,49 @@ u32 synx_util_get_object_type(struct synx_coredata *synx_obj);
  *
  * @return True if merged object. False otherwise
  */
-bool synx_util_is_merged_object(struct synx_coredata *synx_obj);
+static inline bool synx_util_is_merged_object(
+	struct synx_coredata *synx_obj)
+{
+	if (synx_obj->type & SYNX_FLAG_MERGED_FENCE)
+		return true;
+
+	return false;
+}
 
 /**
- * @brief: Function to get the dma fence backing the synx object
+ * @brief: Function to check if object is of global type
  *
  * @param synx_obj : Pointer to synx object
  *
- * @return Dma fence. NULL if synx_obj is invalid
+ * @return True if global object. False otherwise.
  */
-struct dma_fence *synx_util_get_fence(
-	struct synx_coredata *synx_obj);
+static inline bool synx_util_is_global_object(
+	struct synx_coredata *synx_obj)
+{
+	if (synx_obj->type & SYNX_FLAG_GLOBAL_FENCE)
+		return true;
+
+	return false;
+}
+
+/**
+ * @brief: Function to check if object is of external type
+ *
+ * The dma fence backing the external synx object is created and
+ * managed outside the synx framework.
+ *
+ * @param synx_obj : Pointer to synx object
+ *
+ * @return True if external object. False otherwise.
+ */
+static inline bool synx_util_is_external_object(
+	struct synx_coredata *synx_obj)
+{
+	if (synx_obj->type & SYNX_FLAG_EXTERNAL_FENCE)
+		return true;
+
+	return false;
+}
 
 /**
  * @brief: Function to acquire reference to synx object
@@ -107,6 +176,16 @@ int synx_util_init_group_coredata(struct synx_coredata *synx_obj,
  * @param synx_obj : Pointer to synx object
  */
 void synx_util_object_destroy(struct synx_coredata *synx_obj);
+
+/**
+ * @brief: Function to find a free index from the bitmap
+ *
+ * @param bitmap : Pointer to bitmap
+ * @param size   : Max index
+ *
+ * @return Free index if available.
+ */
+long synx_util_get_free_handle(unsigned long *bitmap, unsigned int size);
 
 /**
  * @brief: Function to allocate synx_client_cb entry from cb table
@@ -245,42 +324,45 @@ u32 synx_util_get_object_status(struct synx_coredata *synx_obj);
 u32 synx_util_get_object_status_locked(struct synx_coredata *synx_obj);
 
 /**
- * @brief: Function to obtain the synx object metadata for the client
+ * @brief: Function to acquire the synx object handle
+ *
+ * This function increments the reference count of synx handle data.
+ * The reference should be released by calling synx_util_release_handle
  *
  * @param client : Pointer to client session
  * @param h_synx : Synx object handle
  *
- * @return Pointer to synx object metadata for the client.
- * NULL if invalid synx handle.
+ * @return Pointer to synx handle data on success. NULL otherwise.
  */
-struct synx_handle_coredata *synx_util_obtain_handle(
+struct synx_handle_coredata *synx_util_acquire_handle(
 	struct synx_client *client, s32 h_synx);
 
 /**
- * @brief: Function to acquire the synx object
+ * @brief: Function to obtain the synx object
  *
- * This function increments the reference count of the dma fence.
+ * @param synx_data : Pointer to synx object handle data
  *
- * @param client : Pointer to client session
- * @param h_synx : Synx object handle
- *
- * @return Pointer to synx object. NULL if invalid synx handle.
+ * @return Pointer to synx object on success. NULL otherwise.
  */
-struct synx_coredata *synx_util_acquire_object(
-	struct synx_client *client, s32 h_synx);
+static inline struct synx_coredata *synx_util_obtain_object(
+	struct synx_handle_coredata *synx_data) {
+	if (!synx_data)
+		return NULL;
+
+	return synx_data->synx_obj;
+}
 
 /**
- * @brief: Function to release the synx object
+ * @brief: Function to release the synx object handle
  *
- * This function decrements the reference count of the dma fence and
- * implicitly calls up the synx object cleanup if count reaches 0.
- * Synx object should not be derefrenced in the function after
+ * This function decrements the reference count of the synx handle and
+ * implicitly calls up the synx object release if count reaches 0.
+ * Synx handle data should not be derefrenced in the function after
  * calling this.
  *
- * @param client : Pointer to client session
- * @param h_synx : Synx object handle
+ * @param synx_data : Pointer to synx object handle data
  */
-void synx_util_release_object(struct synx_client *client, s32 h_synx);
+void synx_util_release_handle(struct synx_handle_coredata *synx_data);
 
 /**
  * @brief: Function called implicitly when import refcount reaches zero
