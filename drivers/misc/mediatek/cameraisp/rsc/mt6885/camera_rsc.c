@@ -1560,6 +1560,14 @@ static signed int RSC_ReadReg(struct RSC_REG_IO_STRUCT *pRegIo)
 	/* unsigned int* pData = (unsigned int*)pRegIo->Data; */
 	struct RSC_REG_STRUCT *pData = (struct RSC_REG_STRUCT *) pRegIo->pData;
 
+	if ((pRegIo->pData == NULL) || (pRegIo->Count == 0) ||
+		(pRegIo->Count > (RSC_REG_RANGE>>2))) {
+		LOG_ERR("RSC ReadReg pData is NULL or Count:%d is larger!!",
+			pRegIo->Count);
+		Ret = -EFAULT;
+		goto EXIT;
+	}
+
 	for (i = 0; i < pRegIo->Count; i++) {
 		if (get_user(reg.Addr, (unsigned int *) &pData->Addr) != 0) {
 			LOG_ERR("get_user failed");
@@ -1664,12 +1672,14 @@ static signed int RSC_WriteReg(struct RSC_REG_IO_STRUCT *pRegIo)
 		goto EXIT;
 	}
 	/*  */
-	if ((pRegIo->pData == NULL) || (pRegIo->Count == 0)) {
-		LOG_ERR("ERROR: pRegIo->pData is NULL or Count:%d\n",
-								pRegIo->Count);
+	if ((pRegIo->pData == NULL) || (pRegIo->Count == 0) ||
+		(pRegIo->Count > (RSC_REG_RANGE>>2))) {
+		LOG_ERR("RSC WriteReg pData is NULL or Count:%d is larger!!",
+			pRegIo->Count);
 		Ret = -EFAULT;
 		goto EXIT;
 	}
+
 	if (copy_from_user
 	    (pData, (void __user *)(pRegIo->pData),
 			pRegIo->Count * sizeof(struct RSC_REG_STRUCT)) != 0) {
