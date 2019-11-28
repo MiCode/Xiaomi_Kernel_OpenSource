@@ -4047,7 +4047,7 @@ static struct mtk_gate mdpsys_config_clks[] __initdata = {
 	GATE(MDP_APB_BUS, "MDP_APB_BUS", "mdp_sel", mdp_cg0, 31, 0),
 	/* MDPSYS_CG_CON1 */
 	GATE(MDP_MMSYSRAM, "MDP_MMSYSRAM", "mdp_sel", mdp_cg1, 0, 0),
-	GATE(MDP_APMCU_GALS, "MDP_APMCU_GALS", "mdp_sel", mdp_cg1, 1, 0),
+	GATE_DUMMY(MDP_APMCU_GALS, "MDP_APMCU_GALS", "mdp_sel", mdp_cg1, 1, 0),
 	GATE(MDP_MDP_FAKE_ENG0, "MDP_MDP_FAKE_ENG0", "mdp_sel",
 		mdp_cg1, 2, 0),
 	GATE(MDP_MDP_FAKE_ENG1, "MDP_MDP_FAKE_ENG1", "mdp_sel",
