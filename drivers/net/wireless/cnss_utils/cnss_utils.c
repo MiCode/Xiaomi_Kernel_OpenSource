@@ -12,11 +12,11 @@
 
 #define pr_fmt(fmt) "cnss_utils: " fmt
 
-#include <linux/module.h>
-#include <linux/kernel.h>
-#include <linux/slab.h>
-#include <linux/etherdevice.h>
 #include <linux/debugfs.h>
+#include <linux/etherdevice.h>
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/slab.h>
 #include <net/cnss_utils.h>
 
 #define CNSS_MAX_CH_NUM 45
