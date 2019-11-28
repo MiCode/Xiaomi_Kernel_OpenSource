@@ -3586,6 +3586,20 @@ long lcd_enp_bias_setting(unsigned int value)
 {
 	long ret = 0;
 
+#ifdef CONFIG_FPGA_EARLY_PORTING
+	DDPMSG("In FPGA stage, no need to control gate power ic by gpio\n");
+#else
+	if (value) { /* power on gate power ic */
+		disp_dts_gpio_select_state(DTS_GPIO_STATE_LCD_BIAS_ENP1);
+		mdelay(2);
+		disp_dts_gpio_select_state(DTS_GPIO_STATE_LCD_BIAS_ENN1);
+	} else { /* power off gate power ic */
+		disp_dts_gpio_select_state(DTS_GPIO_STATE_LCD_BIAS_ENN0);
+		mdelay(1);
+		disp_dts_gpio_select_state(DTS_GPIO_STATE_LCD_BIAS_ENP0);
+	}
+#endif
+
 	return ret;
 }
 
