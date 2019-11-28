@@ -4146,31 +4146,47 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 	} else {
 		DPEInfo.UserCount++;
 		spin_unlock(&(DPEInfo.SpinLockDPERef));
+
+		/* do wait queue head init when re-enter in camera */
+		/*  */
+		for (i = 0; i < _SUPPORT_MAX_DPE_REQUEST_RING_SIZE_; i++) {
+			/* DPE */
+			g_DPE_ReqRing.DPEReq_Struct[i].processID = 0x0;
+			g_DPE_ReqRing.DPEReq_Struct[i].callerID = 0x0;
+			g_DPE_ReqRing.DPEReq_Struct[i].enqueReqNum = 0x0;
+			/* g_DPE_ReqRing.DPEReq_Struct[i].enqueIdx = 0x0; */
+			g_DPE_ReqRing.DPEReq_Struct[i].State =
+				DPE_REQUEST_STATE_EMPTY;
+			g_DPE_ReqRing.DPEReq_Struct[i].FrameWRIdx = 0x0;
+			g_DPE_ReqRing.DPEReq_Struct[i].RrameRDIdx = 0x0;
+			for (j = 0; j < _SUPPORT_MAX_DPE_FRAME_REQUEST_; j++) {
+				g_DPE_ReqRing.DPEReq_Struct[i].DpeFrameStatus[
+					j] = DPE_FRAME_STATUS_EMPTY;
+			}
+
+		}
+		g_DPE_ReqRing.WriteIdx = 0x0;
+		g_DPE_ReqRing.ReadIdx = 0x0;
+		g_DPE_ReqRing.HWProcessIdx = 0x0;
+
+		for (i = 0; i < DPE_IRQ_TYPE_AMOUNT; i++)
+			DPEInfo.IrqInfo.Status[i] = 0;
+
+		for (i = 0; i < _SUPPORT_MAX_DPE_FRAME_REQUEST_; i++)
+			DPEInfo.ProcessID[i] = 0;
+
+		DPEInfo.WriteReqIdx = 0;
+		DPEInfo.ReadReqIdx = 0;
+		DPEInfo.IrqInfo.DpeIrqCnt = 0;
+
+		/*  */
+		dpe_register_requests(&dpe_reqs, sizeof(struct DPE_Config));
+		dpe_set_engine_ops(&dpe_reqs, &dpe_ops);
+
 		LOG_DBG("Cur Usr(%d), (proc, pid, tgid)=(%s, %d, %d), 1st user",
 			DPEInfo.UserCount, current->comm, current->pid,
 								current->tgid);
 	}
-
-	/* do wait queue head init when re-enter in camera */
-	/*  */
-	for (i = 0; i < _SUPPORT_MAX_DPE_REQUEST_RING_SIZE_; i++) {
-		/* DPE */
-		g_DPE_ReqRing.DPEReq_Struct[i].processID = 0x0;
-		g_DPE_ReqRing.DPEReq_Struct[i].callerID = 0x0;
-		g_DPE_ReqRing.DPEReq_Struct[i].enqueReqNum = 0x0;
-		/* g_DPE_ReqRing.DPEReq_Struct[i].enqueIdx = 0x0; */
-		g_DPE_ReqRing.DPEReq_Struct[i].State = DPE_REQUEST_STATE_EMPTY;
-		g_DPE_ReqRing.DPEReq_Struct[i].FrameWRIdx = 0x0;
-		g_DPE_ReqRing.DPEReq_Struct[i].RrameRDIdx = 0x0;
-		for (j = 0; j < _SUPPORT_MAX_DPE_FRAME_REQUEST_; j++) {
-			g_DPE_ReqRing.DPEReq_Struct[i].DpeFrameStatus[j] =
-			    DPE_FRAME_STATUS_EMPTY;
-		}
-
-	}
-	g_DPE_ReqRing.WriteIdx = 0x0;
-	g_DPE_ReqRing.ReadIdx = 0x0;
-	g_DPE_ReqRing.HWProcessIdx = 0x0;
 
 	/* Enable clock */
 	DPE_EnableClock(MTRUE);
@@ -4178,24 +4194,12 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 	LOG_INF("DPE open g_u4EnableClockCount: %d", g_u4EnableClockCount);
 	/*  */
 
-	for (i = 0; i < DPE_IRQ_TYPE_AMOUNT; i++)
-		DPEInfo.IrqInfo.Status[i] = 0;
-
-	for (i = 0; i < _SUPPORT_MAX_DPE_FRAME_REQUEST_; i++)
-		DPEInfo.ProcessID[i] = 0;
-
-	DPEInfo.WriteReqIdx = 0;
-	DPEInfo.ReadReqIdx = 0;
-	DPEInfo.IrqInfo.DpeIrqCnt = 0;
-
 /*#define KERNEL_LOG*/
 #ifdef KERNEL_LOG
     /* In EP, Add DPE_DBG_WRITE_REG for debug. Should remove it after EP */
 	DPEInfo.DebugMask = (DPE_DBG_INT | DPE_DBG_DBGLOG | DPE_DBG_WRITE_REG);
 #endif
-	/*  */
-	dpe_register_requests(&dpe_reqs, sizeof(struct DPE_Config));
-	dpe_set_engine_ops(&dpe_reqs, &dpe_ops);
+
 
 
 EXIT:
@@ -4235,8 +4239,10 @@ static signed int DPE_release(struct inode *pInode, struct file *pFile)
 			DPEInfo.UserCount, current->comm, current->pid,
 								current->tgid);
 		goto EXIT;
-	} else
+	} else {
 		spin_unlock(&(DPEInfo.SpinLockDPERef));
+		dpe_unregister_requests(&dpe_reqs);
+	}
 	/*  */
 	LOG_INF("Curr UsrCnt(%d), (process, pid, tgid)=(%s, %d, %d), last user",
 		DPEInfo.UserCount, current->comm, current->pid, current->tgid);
@@ -4246,7 +4252,7 @@ static signed int DPE_release(struct inode *pInode, struct file *pFile)
 	LOG_DBG("DPE release g_u4EnableClockCount: %d", g_u4EnableClockCount);
 
 	/*  */
-	dpe_unregister_requests(&dpe_reqs);
+
 
 
 EXIT:
