@@ -196,7 +196,6 @@ int ion_mem_import(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 		return -EINVAL;
 	}
 
-
 	/* allocate buffer by fd */
 	ion_hnd = ion_import_dma_buf_fd(mem_mgr->client,
 	mem->fd);
@@ -205,10 +204,13 @@ int ion_mem_import(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 		return -ENOMEM;
 
 	/* map kernel va*/
+#if 0
 	if (ion_mem_map_kva(mem_mgr, mem)) {
 		ret = -ENOMEM;
 		goto free_import;
 	}
+#endif
+
 	/* map iova*/
 	if (ion_mem_map_iova(mem_mgr, mem)) {
 		ret = -ENOMEM;
@@ -242,6 +244,7 @@ int ion_mem_unimport(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 		//LOG_ERR("invalid argument\n");
 		return -EINVAL;
 	}
+
 	/* check argument */
 	if (mem->khandle == 0) {
 		LOG_ERR("invalid argument\n");
@@ -255,12 +258,13 @@ int ion_mem_unimport(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 		ret = -ENOMEM;
 		goto free_import;
 	}
-
+#if 0
 	/* unmap kernel va*/
 	if (ion_mem_unmap_kva(mem_mgr, mem)) {
 		ret = -ENOMEM;
 		goto free_import;
 	}
+#endif
 
 	/* free buffer by fd */
 	ion_free(mem_mgr->client, ion_hnd);
@@ -363,7 +367,9 @@ int ion_mem_map_kva(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 		ret = -ENOMEM;
 		goto free_import;
 	}
-	mem->khandle = (uint64_t)ion_hnd;
+
+	if (mem->khandle == 0)
+		mem->khandle = (uint64_t)ion_hnd;
 	mem->kva = (uint64_t)buffer;
 
 	LOG_DEBUG("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
@@ -415,6 +421,9 @@ int ion_mem_map_iova(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 	mem->iova = mm_data.get_phys_param.phy_addr;
 	mem->iova_size = mm_data.get_phys_param.len;
 
+	if (mem->khandle == 0)
+		mem->khandle = (uint64_t)ion_hnd;
+
 	LOG_DEBUG("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
 			mem->fd, mem->uva, mem->iova, mem->size,
 			mem->iova_size, mem->khandle, mem->kva);
@@ -434,6 +443,7 @@ int ion_mem_unmap_iova(struct apusys_mem_mgr *mem_mgr, struct apusys_kmem *mem)
 		//LOG_ERR("invalid argument\n");
 		return -EINVAL;
 	}
+
 	/* check argument */
 	if (mem->khandle == 0) {
 		LOG_ERR("invalid argument\n");
