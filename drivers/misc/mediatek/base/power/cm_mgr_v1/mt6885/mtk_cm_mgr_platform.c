@@ -659,7 +659,7 @@ static void cm_mgr_ratio_timer_fn(unsigned long data)
 	int i;
 
 	for (i = 0; i < CM_MGR_CPU_COUNT; i++) {
-		trace_CM_MGR__stall_raio(
+		trace_CM_MGR__stall_ratio(
 				(int)i,
 				(unsigned int)cm_mgr_read(
 					CPU_AVG_STALL_RATIO(i)));
@@ -718,10 +718,10 @@ void cm_mgr_perf_platform_set_status(int enable)
 					PM_QOS_DDR_OPP_DEFAULT_VALUE);
 				pm_qos_update_request_status = enable;
 				debounce_times_perf_down_local = -1;
-				return;
+				goto trace;
 			}
 			if (ktime_ms_delta(ktime_get(), perf_now) < PERF_TIME)
-				return;
+				goto trace;
 			cm_mgr_dram_opp_base = -1;
 		}
 
@@ -740,6 +740,12 @@ void cm_mgr_perf_platform_set_status(int enable)
 			debounce_times_perf_down_local = -1;
 		}
 	}
+
+trace:
+	trace_CM_MGR__perf_hint(0, enable,
+			cm_mgr_dram_opp, cm_mgr_dram_opp_base,
+			debounce_times_perf_down_local,
+			debounce_times_perf_down_force_local);
 }
 
 void cm_mgr_perf_platform_set_force_status(int enable)
@@ -794,6 +800,11 @@ void cm_mgr_perf_platform_set_force_status(int enable)
 			}
 		}
 	}
+
+	trace_CM_MGR__perf_hint(1, enable,
+			cm_mgr_dram_opp, cm_mgr_dram_opp_base,
+			debounce_times_perf_down_local,
+			debounce_times_perf_down_force_local);
 }
 
 int cm_mgr_register_init(void)

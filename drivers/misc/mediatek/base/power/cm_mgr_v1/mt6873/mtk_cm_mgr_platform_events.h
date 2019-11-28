@@ -19,7 +19,7 @@
 
 #include <linux/tracepoint.h>
 
-TRACE_EVENT(CM_MGR__stall_raio,
+TRACE_EVENT(CM_MGR__stall_ratio,
 	TP_PROTO(int _id,
 		unsigned int _ratio),
 	TP_ARGS(_id,
@@ -34,6 +34,44 @@ TRACE_EVENT(CM_MGR__stall_raio,
 	),
 	TP_printk("CPU0_config_reg__CPU_AVG_STALL_RATIO=%d, _id=%d",
 		__entry->_ratio, __entry->_id)
+);
+
+TRACE_EVENT(CM_MGR__perf_hint,
+	TP_PROTO(int _force,
+		int _enable,
+		int _opp,
+		int _base,
+		int _count,
+		int _foece_count),
+	TP_ARGS(_force,
+		_enable,
+		_opp,
+		_base,
+		_count,
+		_foece_count),
+	TP_STRUCT__entry(
+		__field(int, _force)
+		__field(int, _enable)
+		__field(int, _opp)
+		__field(int, _base)
+		__field(int, _count)
+		__field(int, _foece_count)
+	),
+	TP_fast_assign(
+		__entry->_force = _force;
+		__entry->_enable = _enable;
+		__entry->_opp = _opp;
+		__entry->_base = _base;
+		__entry->_count = _count;
+		__entry->_foece_count = _foece_count;
+	),
+	TP_printk("cm_mgr perf hint %s=%d %s=%d %s=%d %s=%d %s=%d %s=%d",
+			"force", __entry->_force,
+			"enable", __entry->_enable,
+			"opp", __entry->_opp,
+			"base", __entry->_base,
+			"count", __entry->_count,
+			"force_count", __entry->_foece_count)
 );
 
 #endif /* _TRACE_MTK_CM_MGR_EVENTS_H */

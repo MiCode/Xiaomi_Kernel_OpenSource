@@ -583,7 +583,7 @@ static int cm_mgr_fb_notifier_callback(struct notifier_block *self,
 	case FB_BLANK_POWERDOWN:
 		pr_info("#@# %s(%d) SCREEN OFF\n", __func__, __LINE__);
 		cm_mgr_blank_status = 1;
-		cm_mgr_set_dram_level(0);
+		cm_mgr_set_dram_level(-1);
 		cm_mgr_dram_opp_base = -1;
 		cm_mgr_perf_platform_set_status(0);
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
@@ -658,7 +658,7 @@ static void cm_mgr_ratio_timer_fn(unsigned long data)
 	int i;
 
 	for (i = 0; i < CM_MGR_CPU_COUNT; i++) {
-		trace_CM_MGR__stall_raio(
+		trace_CM_MGR__stall_ratio(
 				(int)i,
 				(unsigned int)cm_mgr_read(
 					CPU_AVG_STALL_RATIO(i)));
@@ -717,10 +717,10 @@ void cm_mgr_perf_platform_set_status(int enable)
 					PM_QOS_DDR_OPP_DEFAULT_VALUE);
 				pm_qos_update_request_status = enable;
 				debounce_times_perf_down_local = -1;
-				return;
+				goto trace;
 			}
 			if (ktime_ms_delta(ktime_get(), perf_now) < PERF_TIME)
-				return;
+				goto trace;
 			cm_mgr_dram_opp_base = -1;
 		}
 
@@ -739,6 +739,12 @@ void cm_mgr_perf_platform_set_status(int enable)
 			debounce_times_perf_down_local = -1;
 		}
 	}
+
+trace:
+	trace_CM_MGR__perf_hint(0, enable,
+			cm_mgr_dram_opp, cm_mgr_dram_opp_base,
+			debounce_times_perf_down_local,
+			debounce_times_perf_down_force_local);
 }
 
 void cm_mgr_perf_platform_set_force_status(int enable)
@@ -793,6 +799,11 @@ void cm_mgr_perf_platform_set_force_status(int enable)
 			}
 		}
 	}
+
+	trace_CM_MGR__perf_hint(1, enable,
+			cm_mgr_dram_opp, cm_mgr_dram_opp_base,
+			debounce_times_perf_down_local,
+			debounce_times_perf_down_force_local);
 }
 
 int cm_mgr_register_init(void)
