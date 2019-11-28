@@ -439,6 +439,9 @@ static int rsu_get_mdla_usage(__u32 pid)
 			rsu_systrace_c(RSU_DEBUG_MDLA, pid, curr,
 					"RSU_MDLA_CURR_FREQ[%d]", i);
 
+			if (!ceiling)
+				continue;
+
 			curr *= 100;
 			vRet += (curr / ceiling);
 		}
@@ -494,6 +497,9 @@ static int rsu_get_vpu_usage(__u32 pid)
 					"RSU_VPU_CEILING_FREQ[%d]", i);
 			rsu_systrace_c(RSU_DEBUG_VPU, pid, curr,
 					"RSU_VPU_CURR_FREQ[%d]", i);
+
+			if (!ceiling)
+				continue;
 
 			curr *= 100;
 			vRet += (curr / ceiling);
