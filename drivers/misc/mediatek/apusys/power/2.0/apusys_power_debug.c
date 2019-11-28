@@ -579,6 +579,8 @@ void apusys_power_debugfs_init(void)
 
 	PWR_LOG_INF("%s\n", __func__);
 
+	mutex_init(&power_fix_dvfs_mtx);
+
 	apusys_power_dir = debugfs_create_dir("apusys", NULL);
 
 	ret = IS_ERR_OR_NULL(apusys_power_dir);
