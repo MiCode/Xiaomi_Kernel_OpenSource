@@ -81,6 +81,7 @@ struct ion_sys_cache_sync_param {
 	void *va;
 	unsigned int size;
 	enum ION_CACHE_SYNC_TYPE sync_type;
+	unsigned long iova;
 };
 
 enum ION_DMA_TYPE {

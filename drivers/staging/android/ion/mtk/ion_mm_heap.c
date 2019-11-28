@@ -948,10 +948,10 @@ static int ion_mm_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 #endif
 
 	} else {
-		*(unsigned int *)addr = (port_info.flags
-					 == M4U_FLAGS_FIX_MVA) ?
-		    buffer_info->FIXED_MVA[domain_idx] :
-				buffer_info->MVA[domain_idx];
+		*addr =
+			(port_info.flags == M4U_FLAGS_FIX_MVA) ?
+			buffer_info->FIXED_MVA[domain_idx] :
+			buffer_info->MVA[domain_idx];
 #if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
 	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 		buffer->sg_table = &buffer_info->table[domain_idx];
@@ -2146,7 +2146,7 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 				       __func__);
 				ret = -EFAULT;
 			}
-			param.get_phys_param.phy_addr = (unsigned int)phy_addr;
+			param.get_phys_param.phy_addr = phy_addr;
 
 			mutex_unlock(&buffer->lock);
 
