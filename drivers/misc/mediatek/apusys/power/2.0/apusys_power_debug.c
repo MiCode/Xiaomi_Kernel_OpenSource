@@ -56,7 +56,7 @@ int apu_power_power_stress(int type, int device, int opp)
 		return -1;
 	}
 
-	if (device != 9 && (device < 0 || device >= APUSYS_DVFS_USER_NUM)) {
+	if (device != 9 && (device < 0 || device >= APUSYS_POWER_USER_NUM)) {
 		LOG_ERR("%s err with device = %d\n", __func__, device);
 		return -1;
 	}
@@ -83,7 +83,7 @@ int apu_power_power_stress(int type, int device, int opp)
 
 	case 1: // config power on
 		if (device == 9) { // all devices
-			for (id = 0 ; id < APUSYS_DVFS_USER_NUM ; id++) {
+			for (id = 0 ; id < APUSYS_POWER_USER_NUM ; id++) {
 				if (dvfs_power_domain_support(id) == false)
 					continue;
 
@@ -96,7 +96,7 @@ int apu_power_power_stress(int type, int device, int opp)
 
 	case 2: // config power off
 		if (device == 9) { // all devices
-			for (id = 0 ; id < APUSYS_DVFS_USER_NUM ; id++) {
+			for (id = 0 ; id < APUSYS_POWER_USER_NUM ; id++) {
 				if (dvfs_power_domain_support(id) == false)
 					continue;
 
@@ -149,7 +149,7 @@ int apu_power_power_stress(int type, int device, int opp)
 				__func__, g_pwr_log_level);
 		LOG_WRN("%s, power_on_off_stress : %d\n",
 				__func__, power_on_off_stress);
-		apu_get_power_info();
+		apu_get_power_info(0);
 		break;
 
 	default:

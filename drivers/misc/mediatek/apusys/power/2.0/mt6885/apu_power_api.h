@@ -46,6 +46,7 @@ struct apu_power_info {
 	unsigned int thermal_cond;
 	unsigned int power_lock;
 	unsigned int type;
+	unsigned int force_print;
 	unsigned long long id;
 };
 

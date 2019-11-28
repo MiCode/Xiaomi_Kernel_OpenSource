@@ -941,6 +941,7 @@ int apusys_power_on(enum DVFS_USER user)
 
 int apusys_power_off(enum DVFS_USER user)
 {
+	int id = 0; // dvfs user id
 	int ret = 0;
 	struct hal_param_pwr_mask pwr_mask;
 	enum DVFS_VOLTAGE_DOMAIN buck_domain;
@@ -974,7 +975,14 @@ int apusys_power_off(enum DVFS_USER user)
 				APUSYS_DEFAULT_OPP;
 		}
 
-		event_trigger_dvfs_policy();
+		for (id = 0 ; id < APUSYS_DVFS_USER_NUM ; id++) {
+			if (dvfs_user_support(id)
+			&& apusys_opps.is_power_on[id]) {
+				PWR_LOG_INF("%s trigger DVFS\n", __func__);
+				event_trigger_dvfs_policy();
+				break;
+			}
+		}
 	}
 
 	return ret;

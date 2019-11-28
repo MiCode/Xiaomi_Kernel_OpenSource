@@ -525,23 +525,25 @@ static int rpc_power_status_check(int domain_idx, unsigned int mode)
 
 		if (mode != 2 && spmValue != (rpcValue & 0x1))
 			fail_type = 3;
+	}
 
-		if (fail_type > 0) {
-			check_spm_register(NULL, 1);
-			rpc_alive = check_if_rpc_alive();
-			LOG_ERR(
-			"%s fail conn ctl type:%d, mode:%d, spm:0x%x, rpc:0x%x, ra:%d\n",
-			__func__, fail_type, mode, spmValue, rpcValue,
-			rpc_alive);
+	if (chkValue == rpcValue && (rpcValue >> 8) != 0x0)
+		fail_type = 4;
 
-			apu_aee_warn(
-				"APUPWR_RPC_CHK_FAIL",
-				"type:%d, mode:%d, spm:0x%x, rpc:0x%x, ra:%d\n",
-				fail_type, mode, spmValue, rpcValue, rpc_alive);
+	if (fail_type > 0) {
+		check_spm_register(NULL, 1);
+		rpc_alive = check_if_rpc_alive();
+		LOG_ERR(
+		"%s fail conn ctl type:%d, mode:%d, spm:0x%x, rpc:0x%x, ra:%d\n",
+		__func__, fail_type, mode, spmValue, rpcValue, rpc_alive);
+
+		apu_aee_warn(
+			"APUPWR_RPC_CHK_FAIL",
+			"type:%d, mode:%d, spm:0x%x, rpc:0x%x, ra:%d\n",
+			fail_type, mode, spmValue, rpcValue, rpc_alive);
 #if 1
-			return -1;
+		return -1;
 #endif
-		}
 	}
 
 	if (domain_idx == 0 && mode != 0)
@@ -558,22 +560,17 @@ static int set_domain_to_default_clk(int domain_idx)
 	int ret = 0;
 
 	if (domain_idx == 2)
-		ret |= set_apu_clock_source(BUCK_DOMAIN_DEFAULT_FREQ,
-								V_VPU0);
+		ret = set_apu_clock_source(BUCK_DOMAIN_DEFAULT_FREQ, V_VPU0);
 	else if (domain_idx == 3)
-		ret |= set_apu_clock_source(BUCK_DOMAIN_DEFAULT_FREQ,
-								V_VPU1);
+		ret = set_apu_clock_source(BUCK_DOMAIN_DEFAULT_FREQ, V_VPU1);
 	else if (domain_idx == 4)
-		ret |= set_apu_clock_source(BUCK_DOMAIN_DEFAULT_FREQ,
-								V_VPU2);
+		ret = set_apu_clock_source(BUCK_DOMAIN_DEFAULT_FREQ, V_VPU2);
 	else if (domain_idx == 6)
-		ret |= set_apu_clock_source(BUCK_DOMAIN_DEFAULT_FREQ,
-								V_MDLA0);
+		ret = config_apupll(BUCK_DOMAIN_DEFAULT_FREQ, V_MDLA0);
 	else if (domain_idx == 7)
-		ret |= set_apu_clock_source(BUCK_DOMAIN_DEFAULT_FREQ,
-								V_MDLA1);
+		ret = config_apupll(BUCK_DOMAIN_DEFAULT_FREQ, V_MDLA1);
 	else {
-		ret |= set_apu_clock_source(BUCK_DOMAIN_DEFAULT_FREQ,
+		ret = set_apu_clock_source(BUCK_DOMAIN_DEFAULT_FREQ,
 								V_APU_CONN);
 		ret |= set_apu_clock_source(BUCK_DOMAIN_DEFAULT_FREQ,
 								V_TOP_IOMMU);
@@ -806,7 +803,10 @@ static void get_current_power_info(void *param)
 
 	trace_APUSYS_DFS(info, mdla_0, mdla_1);
 
-	LOG_PM("APUPWR %s\n", log_str);
+	if (info->force_print)
+		LOG_ERR("APUPWR %s\n", log_str);
+	else
+		LOG_PM("APUPWR %s\n", log_str);
 }
 
 static int uninit_power_resource(void)

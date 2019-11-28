@@ -41,6 +41,7 @@ int power_on_off_stress;
 static int apu_power_counter;
 static int apusys_power_broken;
 static uint64_t power_info_id;
+static uint8_t power_info_force_print;
 
 bool apusys_power_check(void)
 {
@@ -132,10 +133,11 @@ uint64_t get_current_time_us(void)
 	return ((t.tv_sec & 0xFFF) * 1000000 + t.tv_usec);
 }
 
-uint64_t apu_get_power_info(void)
+uint64_t apu_get_power_info(int force)
 {
 	spin_lock(&power_info_lock);
 	power_info_id = get_current_time_us();
+	power_info_force_print = force;
 	spin_unlock(&power_info_lock);
 
 	queue_work(wq, &d_work_power_info);
@@ -255,6 +257,7 @@ int apu_device_power_suspend(enum DVFS_USER user, int is_suspend)
 
 	if (apusys_power_broken) {
 		mutex_unlock(&power_ctl_mtx);
+		apu_get_power_info(1);
 		LOG_ERR(
 		"APUPWR_BROKEN, user:%d fail to pwr off, is_suspend:%d\n",
 							user, is_suspend);
@@ -302,12 +305,13 @@ int apu_device_power_suspend(enum DVFS_USER user, int is_suspend)
 	LOG_PM("%s for user:%d, ret:%d, cnt:%d, is_suspend:%d, info_id: %llu\n",
 					__func__, user, ret,
 					power_callback_counter, is_suspend,
-					apu_get_power_info());
+					apu_get_power_info(0));
 #else
 	LOG_WRN("%s by user:%d bypass\n", __func__, user);
 #endif // BYPASS_POWER_OFF
 
 	if (ret) {
+		apu_get_power_info(1);
 		apusys_reg_dump();
 		apu_aee_warn("APUPWR_OFF_FAIL", "user:%d, is_suspend:%d\n",
 							user, is_suspend);
@@ -341,6 +345,7 @@ int apu_device_power_on(enum DVFS_USER user)
 
 	if (apusys_power_broken) {
 		mutex_unlock(&power_ctl_mtx);
+		apu_get_power_info(1);
 		LOG_ERR("APUPWR_BROKEN, user:%d fail to pwr on\n", user);
 		return -ENODEV;
 	}
@@ -382,9 +387,10 @@ int apu_device_power_on(enum DVFS_USER user)
 	mutex_unlock(&power_ctl_mtx);
 	LOG_PM("%s for user:%d, ret:%d, cnt:%d, info_id: %llu\n",
 				__func__, user, ret, power_callback_counter,
-				apu_get_power_info());
+				apu_get_power_info(0));
 
 	if (ret) {
+		apu_get_power_info(1);
 		apusys_reg_dump();
 		apu_aee_warn("APUPWR_ON_FAIL", "user:%d\n", user);
 		return -ENODEV;
@@ -502,6 +508,7 @@ static void d_work_power_info_func(struct work_struct *work)
 
 	spin_lock(&power_info_lock);
 	info.id = power_info_id;
+	info.force_print = power_info_force_print;
 	spin_unlock(&power_info_lock);
 
 	info.type = 1;
@@ -521,7 +528,7 @@ static void default_power_on_func(void)
 		udelay(200);
 	}
 
-	apu_get_power_info();
+	apu_get_power_info(1);
 }
 #endif
 
