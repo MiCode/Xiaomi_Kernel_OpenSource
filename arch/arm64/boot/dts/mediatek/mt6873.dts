@@ -276,6 +276,31 @@
 		#clock-cells = <1>;
 	};
 
+	scp_dvfs {
+		compatible = "mediatek,scp_dvfs";
+		clocks =
+			<&topckgen TOP_MUX_SCP>,
+			<&clk26m>,
+			<&topckgen TOP_UNIVPLL_D5>,
+			<&topckgen TOP_MAINPLL_D6_D2>,
+			<&topckgen TOP_MAINPLL_D6>,
+			<&topckgen TOP_UNIVPLL_D6>,
+			<&topckgen TOP_MAINPLL_D4_D2>,
+			<&topckgen TOP_MAINPLL_D5_D2>,
+			<&topckgen TOP_UNIVPLL_D4_D2>;
+
+		clock-names =
+			"clk_mux",
+			"clk_pll_0",
+			"clk_pll_1",
+			"clk_pll_2",
+			"clk_pll_3",
+			"clk_pll_4",
+			"clk_pll_5",
+			"clk_pll_6",
+			"clk_pll_7";
+	};
+
 	apmixed: apmixed@1000c000 {
 		compatible = "mediatek,apmixed", "syscon";
 		reg = <0 0x1000c000 0 0xe00>;
