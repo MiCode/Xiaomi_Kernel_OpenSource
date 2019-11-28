@@ -17,6 +17,7 @@
 #include "sspm_ipi_id.h"
 
 /* debug API */
+#include <memory/mediatek/emi.h>
 __weak void dump_emi_outstanding(void) {}
 __weak void mtk_spm_dump_debug_info(void) {}
 __weak void usb_dump_debug_register(void) {}
@@ -48,6 +49,7 @@ void sspm_ipi_timeout_cb(int ipi_id)
 		ipi_id, pin_name[ipi_id]);
 
 	ipi_monitor_dump(&sspm_ipidev);
+	mtk_emidbg_dump();
 
 	BUG_ON(1);
 }
