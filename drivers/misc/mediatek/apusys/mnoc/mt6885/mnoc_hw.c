@@ -331,9 +331,9 @@ static void mnoc_reg_init(void)
 	LOG_DEBUG("-\n");
 }
 
-bool mnoc_check_int_status(void)
+int mnoc_check_int_status(void)
 {
-	bool mnoc_irq_triggered = false;
+	int mnoc_irq_triggered = 0;
 	unsigned int val, int_sta;
 	int int_idx, ni_idx;
 	struct mnoc_int_dump *d = &mnoc_int_dump;
@@ -371,7 +371,7 @@ bool mnoc_check_int_status(void)
 			mnoc_write_field(
 				MNOC_REG(mni_int_sta_offset[int_idx]),
 				15:0, 0xFFFF);
-			mnoc_irq_triggered = true;
+			mnoc_irq_triggered = 1;
 		}
 	}
 
@@ -389,7 +389,7 @@ bool mnoc_check_int_status(void)
 			mnoc_write_field(
 				MNOC_REG(sni_int_sta_offset[int_idx]),
 				15:0, 0xFFFF);
-			mnoc_irq_triggered = true;
+			mnoc_irq_triggered = 1;
 		}
 	}
 
@@ -406,7 +406,15 @@ bool mnoc_check_int_status(void)
 			mnoc_write_field(
 				MNOC_REG(rt_int_sta_offset[int_idx]),
 				4:0, 0x1F);
-			mnoc_irq_triggered = true;
+			/* timeout interrupt may be only perf
+			 * hint but not actually hang
+			 */
+			if (mnoc_irq_triggered == 0 && (
+				int_idx == MNOC_INT_REQRT_TO_ERR_FLAG ||
+				int_idx == MNOC_INT_RSPRT_TO_ERR_FLAG))
+				mnoc_irq_triggered = 2;
+			else
+				mnoc_irq_triggered = 1;
 		}
 	}
 
@@ -418,7 +426,7 @@ bool mnoc_check_int_status(void)
 		LOG_DEBUG("From SW_IRQ = 0x%x\n", val);
 		mnoc_write_field(MNOC_REG(MISC_CTRL),
 			18:16, 0x0);
-		mnoc_irq_triggered = true;
+		mnoc_irq_triggered = 1;
 	}
 
 	LOG_DEBUG("-\n");

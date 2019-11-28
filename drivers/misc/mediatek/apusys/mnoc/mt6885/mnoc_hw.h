@@ -196,7 +196,7 @@ struct mnoc_int_dump {
 	struct int_sta_info sw_irq_sta;
 };
 
-bool mnoc_check_int_status(void);
+int mnoc_check_int_status(void);
 int apusys_dev_to_core_id(int dev_type, int dev_core);
 void mnoc_get_pmu_counter(unsigned int *buf);
 void mnoc_tcm_hash_set(unsigned int sel, unsigned int en0, unsigned int en1);

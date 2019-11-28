@@ -141,7 +141,7 @@ static void mnoc_apusys_top_before_pwr_off(void *para)
 static irqreturn_t mnoc_isr(int irq, void *dev_id)
 {
 	unsigned long flags;
-	bool mnoc_irq_triggered = false;
+	int mnoc_irq_triggered = 0;
 
 	LOG_DEBUG("+\n");
 
@@ -158,10 +158,10 @@ static irqreturn_t mnoc_isr(int irq, void *dev_id)
 
 	spin_unlock_irqrestore(&mnoc_spinlock, flags);
 
-	if (mnoc_irq_triggered) {
+	if (mnoc_irq_triggered != 0) {
 		LOG_DEBUG("INT triggered by mnoc\n");
 		/* Prevent overwhelming interrupts paralyzing system */
-		if (is_first_isr_after_pwr_on) {
+		if (mnoc_irq_triggered == 1 && is_first_isr_after_pwr_on) {
 			is_first_isr_after_pwr_on = false;
 			schedule_work(&mnoc_isr_work);
 		}
