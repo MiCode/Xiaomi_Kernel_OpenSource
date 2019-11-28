@@ -2506,7 +2506,10 @@ int mtk_drm_ioctl_read_sw_reg(struct drm_device *dev, void *data,
 		private->ddp_comp[DDP_COMPONENT_GAMMA0];
 	struct mtk_ddp_comp *aal_comp =
 		private->ddp_comp[DDP_COMPONENT_AAL0];
-
+#if defined(CCORR_SUPPORT)
+	struct mtk_ddp_comp *ccorr_comp =
+		private->ddp_comp[DDP_COMPONENT_CCORR0];
+#endif
 	unsigned int ret = 0;
 	unsigned int reg_id = rParams->reg;
 
