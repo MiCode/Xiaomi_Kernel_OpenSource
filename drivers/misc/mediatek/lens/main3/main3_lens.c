@@ -89,6 +89,8 @@ static struct stAF_DrvList g_stAF_DrvList[MAX_NUM_OF_LENS] = {
 	{1, AFDRV_AK7371AF, AK7371AF_SetI2Cclient, AK7371AF_Ioctl,
 	 AK7371AF_Release, AK7371AF_GetFileName, NULL},
 #endif
+	{1, AFDRV_BU24253AF, BU24253AF_SetI2Cclient, BU24253AF_Ioctl,
+	 BU24253AF_Release, BU24253AF_GetFileName, NULL},
 };
 
 static struct stAF_DrvList *g_pstAF_CurDrv;
