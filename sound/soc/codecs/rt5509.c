@@ -325,17 +325,28 @@ static int rt5509_io_write(struct snd_soc_codec *codec,
 
 static inline int rt5509_power_on(struct rt5509_chip *chip, bool en)
 {
-	int ret = 0;
-
 	dev_dbg(chip->dev, "%s: en %d\n", __func__, en);
-	if (en)
-		ret = rt5509_clr_bits(chip->i2c, RT5509_REG_CHIPEN,
-				RT5509_CHIPPD_ENMASK);
-	else
-		ret = rt5509_set_bits(chip->i2c, RT5509_REG_CHIPEN,
-				RT5509_CHIPPD_ENMASK);
-	mdelay(1);
-	return ret;
+	mutex_lock(&chip->var_lock);
+	if (en) {
+		if (chip->power_count++ == 0) {
+			rt5509_clr_bits(chip->i2c, RT5509_REG_CHIPEN,
+					RT5509_CHIPPD_ENMASK);
+			mdelay(1);
+		}
+	} else {
+		if (--chip->power_count == 0) {
+			rt5509_set_bits(chip->i2c, RT5509_REG_CHIPEN,
+					RT5509_CHIPPD_ENMASK);
+		}
+		/* just use to prevent unpaired on off */
+		if (chip->power_count < 0) {
+			dev_err(chip->dev, "no paired on off floww\n");
+			chip->power_count = 0;
+		}
+	}
+	dev_info(chip->dev, "power count = %d\n", chip->power_count);
+	mutex_unlock(&chip->var_lock);
+	return 0;
 }
 
 static int rt5509_set_bias_level(struct snd_soc_codec *codec,
@@ -366,18 +377,16 @@ static int rt5509_set_bias_level(struct snd_soc_codec *codec,
 			RT5509_BIAS_ENMASK, RT5509_BIAS_ENMASK);
 		if (ret < 0)
 			goto out_set_bias;
-		ret = snd_soc_write(codec, RT5509_REG_BST_MODE,
-				    chip->mode_store);
+		/* initial change to adaptive mode */
+		ret = snd_soc_update_bits(codec, RT5509_REG_BST_MODE,
+			0x03, 0x03);
 		if (ret < 0)
 			goto out_set_bias;
 		dapm->bias_level = level;
 		ret = 0;
 		break;
 	case SND_SOC_BIAS_OFF:
-		ret = snd_soc_read(codec, RT5509_REG_BST_MODE);
-		if (ret < 0)
-			goto out_set_bias;
-		chip->mode_store = ret;
+		/* change to disable mode for power consumption */
 		ret = snd_soc_update_bits(codec, RT5509_REG_BST_MODE,
 					  0x03, 0x00);
 		if (ret < 0)
@@ -438,7 +447,7 @@ static int rt5509_init_adaptive_setting(struct snd_soc_codec *codec)
 static int rt5509_init_general_setting(struct snd_soc_codec *codec)
 {
 	struct rt5509_chip *chip = snd_soc_codec_get_drvdata(codec);
-	const struct reg_config *reg_cfg;
+	const struct reg_config *reg_cfg = NULL;
 	int reg_cfg_size = 0;
 	int i = 0, ret = 0;
 
@@ -499,7 +508,7 @@ bypass_tcsense_overflow:
 
 static int rt5509_adap_coefficent_fix(struct snd_soc_codec *codec)
 {
-	int i, ret = 0;
+	int i = 0, ret = 0;
 	int64_t x = 0, y = 0, z = 0, w = 0;
 
 	dev_dbg(codec->dev, "%s\n", __func__);
@@ -543,7 +552,7 @@ static int rt5509_adap_coefficent_fix(struct snd_soc_codec *codec)
 
 static int rt5509_init_impedance_ctrl_fix(struct snd_soc_codec *codec)
 {
-	u32 gsense_otp, rspk_otp, result;
+	u32 gsense_otp = 0, rspk_otp = 0, result = 0;
 	int ret = 0;
 
 	dev_dbg(codec->dev, "%s\n", __func__);
@@ -567,8 +576,8 @@ static int rt5509_init_proprietary_setting(struct snd_soc_codec *codec)
 {
 	struct rt5509_chip *chip = snd_soc_codec_get_drvdata(codec);
 	struct rt5509_proprietary_param *p_param = chip->pdata->p_param;
-	const u8 *cfg;
-	u32 cfg_size;
+	const u8 *cfg = NULL;
+	u32 cfg_size = 0;
 	int i = 0, j = 0;
 	int ret = 0;
 
@@ -617,8 +626,8 @@ static ssize_t rt5509_proprietary_show(struct device *dev,
 	struct rt5509_chip *chip = dev_get_drvdata(dev);
 	struct rt5509_proprietary_param *param = chip->pdata->p_param;
 	int i = 0, j = 0;
-	const u8 *cfg;
-	u32 cfg_size;
+	const u8 *cfg = NULL;
+	u32 cfg_size = 0;
 
 	dev_dbg(chip->dev, "%s\n", __func__);
 	if (!param) {
@@ -648,7 +657,7 @@ static ssize_t rt5509_proprietary_store(struct device *dev,
 	struct snd_soc_dapm_context *dapm = snd_soc_codec_get_dapm(chip->codec);
 	struct rt5509_proprietary_param *param = NULL;
 	int i = 0, size = 0;
-	const u8 *bin_offset;
+	const u8 *bin_offset = NULL;
 	u32 *sptr;
 
 	dev_dbg(chip->dev, "%s, size %d\n", __func__, (int)cnt);
@@ -704,12 +713,10 @@ static ssize_t rt5509_proprietary_store(struct device *dev,
 	chip->pdata->p_param = param;
 	if (dapm->bias_level != SND_SOC_BIAS_OFF)
 		goto out_param_write;
-	if (rt5509_power_on(chip, true) < 0)
-		goto out_param_write;
+	rt5509_power_on(chip, true);
 	rt5509_do_tcsense_fix(chip->codec);
 	rt5509_init_proprietary_setting(chip->codec);
-	if (rt5509_power_on(chip, false) < 0)
-		goto out_param_write;
+	rt5509_power_on(chip, false);
 	return cnt;
 out_param_write:
 	return -EINVAL;
@@ -724,9 +731,13 @@ static struct device_attribute rt5509_proprietary_attr = {
 	.store = rt5509_proprietary_store,
 };
 
+struct rt5509_param_platform_data {
+	struct rt5509_chip *chip;
+};
+
 static int rt5509_param_probe(struct platform_device *pdev)
 {
-	struct rt5509_chip *chip = dev_get_drvdata(pdev->dev.parent);
+	struct rt5509_param_platform_data *pdata = dev_get_platdata(&pdev->dev);
 	int ret = 0;
 
 	ret = device_create_file(&pdev->dev, &rt5509_proprietary_attr);
@@ -734,7 +745,7 @@ static int rt5509_param_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "create file error\n");
 		return ret;
 	}
-	platform_set_drvdata(pdev, chip);
+	platform_set_drvdata(pdev, pdata->chip);
 	return 0;
 }
 
@@ -752,25 +763,23 @@ static struct platform_driver rt5509_param_driver = {
 	.probe = rt5509_param_probe,
 	.remove = rt5509_param_remove,
 };
-static int param_drv_registered;
 
 static int rt5509_param_create(struct rt5509_chip *chip)
 {
-	chip->pdev = platform_device_register_data(chip->dev, "rt5509_param",
-						   chip->dev_cnt, NULL, 0);
+	struct rt5509_param_platform_data param_data;
+
+	param_data.chip = chip;
+	chip->pdev = platform_device_register_data(NULL, "rt5509_param",
+						   chip->dev_cnt, &param_data,
+						   sizeof(param_data));
 	if (!chip->pdev)
 		return -EFAULT;
-	if (!param_drv_registered) {
-		param_drv_registered = 1;
-		return platform_driver_register(&rt5509_param_driver);
-	}
 	return 0;
 }
 
 static void rt5509_param_destroy(struct rt5509_chip *chip)
 {
 	platform_device_unregister(chip->pdev);
-	platform_driver_unregister(&rt5509_param_driver);
 }
 
 static int rt5509_codec_probe(struct snd_soc_codec *codec)
@@ -780,10 +789,7 @@ static int rt5509_codec_probe(struct snd_soc_codec *codec)
 
 	dev_dbg(codec->dev, "%s\n", __func__);
 	/* CHIP Enable */
-	ret = snd_soc_update_bits(codec, RT5509_REG_CHIPEN,
-		RT5509_CHIPPD_ENMASK, ~RT5509_CHIPPD_ENMASK);
-	if (ret < 0)
-		goto err_out_probe;
+	rt5509_power_on(chip, true);
 	ret = rt5509_init_general_setting(codec);
 	if (ret < 0)
 		goto err_out_probe;
@@ -954,10 +960,7 @@ static int rt5509_boost_event(struct snd_soc_dapm_widget *w,
 			0x38, 0x38);
 		if (ret < 0)
 			goto out_boost_event;
-		ret = snd_soc_read(codec, RT5509_REG_BST_MODE);
-		if (ret < 0)
-			goto out_boost_event;
-		chip->mode_store = ret;
+		/* change to battery mode to prevent pop */
 		ret = snd_soc_update_bits(codec, RT5509_REG_BST_MODE,
 			0x03, 0x01);
 		if (ret < 0)
@@ -984,8 +987,9 @@ static int rt5509_boost_event(struct snd_soc_dapm_widget *w,
 			if (ret < 0)
 				goto out_boost_event;
 		}
+		/* change to adaptive mode after analog part ready */
 		ret = snd_soc_update_bits(codec, RT5509_REG_BST_MODE,
-			0x03, chip->mode_store);
+			0x03, 0x03);
 		if (ret < 0)
 			goto out_boost_event;
 		if (!chip->recv_spec_set) {
@@ -1183,20 +1187,13 @@ static int rt5509_alcfixed_gain_put(struct snd_kcontrol *kcontrol,
 	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	struct rt5509_chip *chip = snd_soc_codec_get_drvdata(codec);
 	struct soc_enum *se = (struct soc_enum *)kcontrol->private_value;
-	int orig_pwron = 0, val = 0, ret = 0;
+	int val = 0, ret = 0;
 
 	if (ucontrol->value.enumerated.item[0] >= se->items)
 		return -EINVAL;
 	if (!chip->rlr_func)
 		return -EINVAL;
-	ret = snd_soc_read(codec, RT5509_REG_CHIPEN);
-	if (ret < 0)
-		return ret;
-	orig_pwron = (ret & RT5509_CHIPPD_ENMASK) ? 0 : 1;
-	ret = snd_soc_update_bits(codec, RT5509_REG_CHIPEN,
-				  RT5509_CHIPPD_ENMASK, ~RT5509_CHIPPD_ENMASK);
-	if (ret < 0)
-		return ret;
+	rt5509_power_on(chip, true);
 	val = ucontrol->value.enumerated.item[0];
 	ret = snd_soc_write(codec, RT5509_REG_ALCMINGAIN, val);
 	if (ret < 0)
@@ -1205,13 +1202,7 @@ static int rt5509_alcfixed_gain_put(struct snd_kcontrol *kcontrol,
 	ret = snd_soc_write(codec, RT5509_REG_ALCGAIN, val);
 	if (ret < 0)
 		return ret;
-	if (!orig_pwron) {
-		ret = snd_soc_update_bits(codec, RT5509_REG_CHIPEN,
-					  RT5509_CHIPPD_ENMASK,
-					  RT5509_CHIPPD_ENMASK);
-		if (ret < 0)
-			return ret;
-	}
+	rt5509_power_on(chip, false);
 	return 0;
 }
 
@@ -1231,7 +1222,7 @@ static int rt5509_rlrfunc_put(struct snd_kcontrol *kcontrol,
 	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	struct rt5509_chip *chip = snd_soc_codec_get_drvdata(codec);
 	struct soc_enum *se = (struct soc_enum *)kcontrol->private_value;
-	int orig_pwron = 0, orig_proton = 0, ret = 0;
+	int orig_proton = 0, ret = 0;
 
 	if (ucontrol->value.enumerated.item[0] >= se->items)
 		return -EINVAL;
@@ -1240,11 +1231,10 @@ static int rt5509_rlrfunc_put(struct snd_kcontrol *kcontrol,
 	ret = snd_soc_read(codec, RT5509_REG_CHIPEN);
 	if (ret < 0)
 		return ret;
-	orig_pwron = (ret & RT5509_CHIPPD_ENMASK) ? 0 : 1;
 	orig_proton = (ret & RT5509_SPKPROT_ENMASK) ? 1 : 0;
+	rt5509_power_on(chip, true);
 	ret = snd_soc_update_bits(codec, RT5509_REG_CHIPEN,
-				  RT5509_CHIPPD_ENMASK | RT5509_SPKPROT_ENMASK,
-				  0);
+				  RT5509_SPKPROT_ENMASK, 0);
 	if (ret < 0)
 		return ret;
 	if (ucontrol->value.enumerated.item[0]) {
@@ -1309,12 +1299,7 @@ static int rt5509_rlrfunc_put(struct snd_kcontrol *kcontrol,
 		if (ret < 0)
 			return ret;
 	}
-	if (!orig_pwron) {
-		ret = snd_soc_update_bits(codec, RT5509_REG_CHIPEN,
-					  RT5509_CHIPPD_ENMASK, 0xff);
-		if (ret < 0)
-			return ret;
-	}
+	rt5509_power_on(chip, false);
 	chip->rlr_func = ucontrol->value.enumerated.item[0];
 	return 0;
 }
@@ -1345,10 +1330,7 @@ static int rt5509_recv_config_put(struct snd_kcontrol *kcontrol,
 	if (ret < 0)
 		return ret;
 	orig_pwron = (ret & RT5509_CHIPPD_ENMASK) ? 0 : 1;
-	ret = snd_soc_update_bits(codec, RT5509_REG_CHIPEN,
-				  RT5509_CHIPPD_ENMASK, ~RT5509_CHIPPD_ENMASK);
-	if (ret < 0)
-		return ret;
+	rt5509_power_on(chip, true);
 	if (ucontrol->value.enumerated.item[0]) {
 		/* backup gain ++ */
 		ret = snd_soc_read(codec, RT5509_REG_SPKGAIN);
@@ -1425,13 +1407,7 @@ static int rt5509_recv_config_put(struct snd_kcontrol *kcontrol,
 			return ret;
 		/* restore gain -- */
 	}
-	if (!orig_pwron) {
-		ret = snd_soc_update_bits(codec, RT5509_REG_CHIPEN,
-					  RT5509_CHIPPD_ENMASK,
-					  RT5509_CHIPPD_ENMASK);
-		if (ret < 0)
-			return ret;
-	}
+	rt5509_power_on(chip, false);
 	chip->recv_spec_set = ucontrol->value.enumerated.item[0];
 	return 0;
 }
@@ -1452,20 +1428,13 @@ static int rt5509_bypassdsp_put(struct snd_kcontrol *kcontrol,
 	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	struct rt5509_chip *chip = snd_soc_codec_get_drvdata(codec);
 	struct soc_enum *se = (struct soc_enum *)kcontrol->private_value;
-	int orig_pwron = 0, ret = 0;
+	int ret = 0;
 
 	if (ucontrol->value.enumerated.item[0] >= se->items)
 		return -EINVAL;
 	if (ucontrol->value.enumerated.item[0] == chip->bypass_dsp)
 		return 0;
-	ret = snd_soc_read(codec, RT5509_REG_CHIPEN);
-	if (ret < 0)
-		return ret;
-	orig_pwron = (ret & RT5509_CHIPPD_ENMASK) ? 0 : 1;
-	ret = snd_soc_update_bits(codec, RT5509_REG_CHIPEN,
-				  RT5509_CHIPPD_ENMASK, ~RT5509_CHIPPD_ENMASK);
-	if (ret < 0)
-		return ret;
+	rt5509_power_on(chip, true);
 	if (ucontrol->value.enumerated.item[0]) {
 		ret = snd_soc_read(codec, RT5509_REG_FUNCEN);
 		if (ret < 0)
@@ -1498,13 +1467,7 @@ static int rt5509_bypassdsp_put(struct snd_kcontrol *kcontrol,
 		if (ret < 0)
 			return ret;
 	}
-	if (!orig_pwron) {
-		ret = snd_soc_update_bits(codec, RT5509_REG_CHIPEN,
-					  RT5509_CHIPPD_ENMASK,
-					  RT5509_CHIPPD_ENMASK);
-		if (ret < 0)
-			return ret;
-	}
+	rt5509_power_on(chip, false);
 	chip->bypass_dsp = ucontrol->value.enumerated.item[0];
 	return 0;
 }
@@ -1513,23 +1476,14 @@ static int rt5509_put_spk_volsw(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
-	struct snd_soc_dapm_context *dapm = snd_soc_codec_get_dapm(codec);
-	int orig_pwron = 0, ret = 0;
+	struct rt5509_chip *chip = snd_soc_codec_get_drvdata(codec);
+	int ret = 0;
 
-	orig_pwron = (dapm->bias_level == SND_SOC_BIAS_OFF) ? 0 : 1;
-	if (!orig_pwron) {
-		ret = rt5509_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
-		if (ret < 0)
-			return ret;
-	}
+	rt5509_power_on(chip, true);
 	ret = snd_soc_put_volsw(kcontrol, ucontrol);
 	if (ret < 0)
 		return ret;
-	if (!orig_pwron) {
-		ret = rt5509_set_bias_level(codec, SND_SOC_BIAS_OFF);
-		if (ret < 0)
-			return ret;
-	}
+	rt5509_power_on(chip, false);
 	return 0;
 }
 
@@ -1537,23 +1491,14 @@ static int rt5509_put_enum_double(struct snd_kcontrol *kcontrol,
 				  struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
-	struct snd_soc_dapm_context *dapm = snd_soc_codec_get_dapm(codec);
-	int orig_pwron = 0, ret = 0;
+	struct rt5509_chip *chip = snd_soc_codec_get_drvdata(codec);
+	int ret = 0;
 
-	orig_pwron = (dapm->bias_level == SND_SOC_BIAS_OFF) ? 0 : 1;
-	if (!orig_pwron) {
-		ret = rt5509_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
-		if (ret < 0)
-			return ret;
-	}
+	rt5509_power_on(chip, true);
 	ret = snd_soc_put_enum_double(kcontrol, ucontrol);
 	if (ret < 0)
 		return ret;
-	if (!orig_pwron) {
-		ret = rt5509_set_bias_level(codec, SND_SOC_BIAS_OFF);
-		if (ret < 0)
-			return ret;
-	}
+	rt5509_power_on(chip, false);
 	return 0;
 }
 
@@ -1579,20 +1524,13 @@ static int rt5509_recv_model_put(struct snd_kcontrol *kcontrol,
 	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	struct rt5509_chip *chip = snd_soc_codec_get_drvdata(codec);
 	struct soc_enum *se = (struct soc_enum *)kcontrol->private_value;
-	int orig_pwron = 0, ret = 0;
+	int ret = 0;
 
 	if (ucontrol->value.enumerated.item[0] >= se->items)
 		return -EINVAL;
 	if (!chip->recv_spec_set)
 		return -EINVAL;
-	ret = snd_soc_read(codec, RT5509_REG_CHIPEN);
-	if (ret < 0)
-		return ret;
-	orig_pwron = (ret & RT5509_CHIPPD_ENMASK) ? 0 : 1;
-	ret = snd_soc_update_bits(codec, RT5509_REG_CHIPEN,
-				  RT5509_CHIPPD_ENMASK, ~RT5509_CHIPPD_ENMASK);
-	if (ret < 0)
-		return ret;
+	rt5509_power_on(chip, true);
 	if (ucontrol->value.enumerated.item[0]) {
 		ret = snd_soc_update_bits(codec, RT5509_REG_SPKGAIN,
 					  0xe0, 0x20);
@@ -1610,13 +1548,49 @@ static int rt5509_recv_model_put(struct snd_kcontrol *kcontrol,
 		if (ret < 0)
 			return ret;
 	}
-	if (!orig_pwron) {
-		ret = snd_soc_update_bits(codec, RT5509_REG_CHIPEN,
-					  RT5509_CHIPPD_ENMASK,
-					  RT5509_CHIPPD_ENMASK);
-		if (ret < 0)
-			return ret;
+	rt5509_power_on(chip, false);
+	return 0;
+}
+
+static int rt5509_put_calib_start(struct snd_kcontrol *kcontrol,
+				  struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct rt5509_chip *chip = snd_soc_codec_get_drvdata(codec);
+	struct rt5509_calib_classdev *cdev = &chip->calib_dev;
+	int ret = 0;
+
+	if (ucontrol->value.integer.value[0] != 5526799)
+		return -EINVAL;
+
+	ret = cdev->trigger_read(cdev);
+	if (ret < 0) {
+		dev_err(cdev->dev, "failed to trigger_read action\n");
+		return ret;
 	}
+
+	ret = cdev->trigger_calculation(cdev);
+	if (ret < 0) {
+		dev_err(cdev->dev, "failed to trigger_calculation action\n");
+		return ret;
+	}
+
+	ret = cdev->trigger_write(cdev);
+	if (ret < 0) {
+		dev_err(cdev->dev, "failed to trigger_write action\n");
+		return ret;
+	}
+
+	return 0;
+}
+
+static int rt5509_get_calib_flag(struct snd_kcontrol *kcontrol,
+				 struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct rt5509_chip *chip = snd_soc_codec_get_drvdata(codec);
+
+	ucontrol->value.integer.value[0] = chip->calibrated;
 	return 0;
 }
 
@@ -1680,6 +1654,8 @@ static const struct snd_kcontrol_new rt5509_controls[] = {
 		snd_soc_get_volsw, rt5509_put_spk_volsw, predspvol_tlv),
 	SOC_ENUM_EXT("Recv_Model_Set", rt5509_enum[4], rt5509_recv_model_get,
 		rt5509_recv_model_put),
+	SOC_SINGLE_EXT("Calib_Start", SND_SOC_NOPM, 0, 0, 0,
+		rt5509_get_calib_flag, rt5509_put_calib_start),
 };
 
 static const struct snd_soc_codec_driver rt5509_codec_drv = {
@@ -2029,9 +2005,9 @@ static inline int _rt5509_power_on(struct rt5509_chip *chip, bool en)
 static inline int rt5509_parse_dt(struct device *dev,
 				  struct rt5509_pdata *pdata)
 {
-	struct device_node *param_np;
-	struct property *prop;
-	struct rt5509_proprietary_param *p_param;
+	struct device_node *param_np = NULL;
+	struct property *prop = NULL;
+	struct rt5509_proprietary_param *p_param = NULL;
 	u32 len = 0;
 	int i = 0;
 
@@ -2073,7 +2049,7 @@ int rt5509_i2c_probe(struct i2c_client *client,
 		     const struct i2c_device_id *id)
 {
 	struct rt5509_pdata *pdata = client->dev.platform_data;
-	struct rt5509_chip *chip;
+	struct rt5509_chip *chip = NULL;
 	static int dev_cnt;
 	int ret = 0;
 
@@ -2081,9 +2057,6 @@ int rt5509_i2c_probe(struct i2c_client *client,
 
 	if (client->dev.of_node) {
 		pdata = devm_kzalloc(&client->dev, sizeof(*pdata), GFP_KERNEL);
-		if (!pdata)
-			return -ENOMEM;
-
 		ret = rt5509_parse_dt(&client->dev, pdata);
 		if (ret < 0)
 			goto err_parse_dt;
@@ -2114,12 +2087,8 @@ int rt5509_i2c_probe(struct i2c_client *client,
 #endif /* #if RT5509_SIMULATE_DEVICE */
 
 	sema_init(&chip->io_semaphore, 1);
-#ifdef CONFIG_PM_RUNTIME
-	pm_runtime_set_active(chip->dev);
-	pm_runtime_enable(chip->dev);
-#else
-	atomic_set(&chip->power_count, 1);
-#endif /* #ifdef CONFIG_PM_RUNTIME */
+	mutex_init(&chip->var_lock);
+	chip->power_count = 1;
 	/* before sw_reset, set CHIP_PD = 0 */
 	ret = _rt5509_power_on(chip, true);
 	if (ret < 0) {
@@ -2186,12 +2155,6 @@ err_regmap:
 err_pm_init:
 	_rt5509_power_on(chip, false);
 err_sw_reset:
-#ifdef CONFIG_PM_RUNTIME
-	pm_runtime_disable(chip->dev);
-	pm_runtime_set_suspended(chip->dev);
-#else
-	atomic_dec(&chip->power_count);
-#endif /* #ifdef CONFIG_PM_RUNTIME */
 #if RT5509_SIMULATE_DEVICE
 	devm_kfree(chip->dev, chip->sim);
 err_simulate:
@@ -2214,12 +2177,6 @@ int rt5509_i2c_remove(struct i2c_client *client)
 #ifdef CONFIG_RT_REGMAP
 	rt_regmap_device_unregister(chip->rd);
 #endif /* #ifdef CONFIG_RT_REGMAP */
-#ifdef CONFIG_PM_RUNTIME
-	pm_runtime_disable(chip->dev);
-	pm_runtime_set_suspended(chip->dev);
-#else
-	atomic_set(&chip->power_count, 0);
-#endif /* #ifdef CONFIG_PM_RUNTIME */
 	_rt5509_power_on(chip, false);
 #if RT5509_SIMULATE_DEVICE
 	devm_kfree(chip->dev, chip->sim);
@@ -2248,6 +2205,7 @@ EXPORT_SYMBOL(rt5509_i2c_shutdown);
 static int __init rt5509_driver_init(void)
 {
 	pr_info("%s\n", __func__);
+	platform_driver_register(&rt5509_param_driver);
 	return 0;
 }
 module_init(rt5509_driver_init);
@@ -2255,10 +2213,11 @@ module_init(rt5509_driver_init);
 static void __exit rt5509_driver_exit(void)
 {
 	pr_info("%s\n", __func__);
+	platform_driver_unregister(&rt5509_param_driver);
 }
 module_exit(rt5509_driver_exit);
 
 MODULE_AUTHOR("CY_Huang <cy_huang@richtek.com>");
 MODULE_DESCRIPTION("RT5509 SPKAMP Driver");
 MODULE_LICENSE("GPL");
-MODULE_VERSION("1.0.14_M");
+MODULE_VERSION(RT5509_DRV_VER);
