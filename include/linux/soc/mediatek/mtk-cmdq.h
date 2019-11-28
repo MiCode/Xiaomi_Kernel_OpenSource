@@ -25,6 +25,7 @@
 #define CMDQ_THR_SPR_MAX		4
 #define CMDQ_TPR_ID			56
 #define CMDQ_HANDSHAKE_REG		59
+#define CMDQ_CPR_TPR_MASK		0x8000
 
 #define CMDQ_GPR_CNT_ID			32
 #define CMDQ_CPR_STRAT_ID		0x8000

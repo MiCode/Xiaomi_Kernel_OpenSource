@@ -148,8 +148,6 @@ struct cmdq_pkt {
 	void			*sec_data;
 #endif
 #endif	/* end of CONFIG_MTK_CMDQ_MBOX_EXT */
-	u32			evt_revert;
-	u32			evt_revert_end;
 };
 
 struct cmdq_thread {

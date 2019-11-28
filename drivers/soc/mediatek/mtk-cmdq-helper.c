@@ -1028,28 +1028,44 @@ s32 cmdq_pkt_sleep(struct cmdq_pkt *pkt, u16 tick, u16 reg_gpr)
 	const u32 tpr_en = 1 << reg_gpr;
 	const u16 event = (u16)CMDQ_EVENT_GPR_TIMER + reg_gpr;
 	struct cmdq_client *cl = (struct cmdq_client *)pkt->cl;
-	struct cmdq_operand lop = {.reg = true, .idx = CMDQ_TPR_ID};
-	struct cmdq_operand rop = {.reg = false, .value = 1};
+	struct cmdq_operand lop, rop;
 	const u32 timeout_en = cmdq_mbox_get_base_pa(cl->chan) +
 		CMDQ_TPR_TIMEOUT_EN;
 
 	/* set target gpr value to max to avoid event trigger
 	 * before new value write to gpr
 	 */
+	lop.reg = true;
+	lop.idx = CMDQ_TPR_ID;
+	rop.reg = false;
+	rop.value = 1;
 	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_SUBTRACT,
 		CMDQ_GPR_CNT_ID + reg_gpr, &lop, &rop);
 
-	cmdq_pkt_acquire_event(pkt, CMDQ_TOKEN_TPR_LOCK);
-	pkt->evt_revert = pkt->cmd_buf_size;
-	cmdq_pkt_write(pkt, NULL, timeout_en, tpr_en, tpr_en);
-	pkt->evt_revert_end = pkt->cmd_buf_size;
-	cmdq_pkt_clear_event(pkt, CMDQ_TOKEN_TPR_LOCK);
+	lop.reg = true;
+	lop.idx = CMDQ_CPR_TPR_MASK;
+	rop.reg = false;
+	rop.value = tpr_en;
+	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_OR, CMDQ_CPR_TPR_MASK,
+		&lop, &rop);
+	cmdq_pkt_write_indriect(pkt, NULL, timeout_en, CMDQ_CPR_TPR_MASK, ~0);
 	cmdq_pkt_read(pkt, NULL, timeout_en, CMDQ_SPR_FOR_TEMP);
 	cmdq_pkt_clear_event(pkt, event);
+
+	lop.reg = true;
+	lop.idx = CMDQ_TPR_ID;
+	rop.reg = false;
 	rop.value = tick;
 	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, CMDQ_GPR_CNT_ID + reg_gpr,
 		&lop, &rop);
 	cmdq_pkt_wfe(pkt, event);
+
+	lop.reg = true;
+	lop.idx = CMDQ_CPR_TPR_MASK;
+	rop.reg = false;
+	rop.value = ~tpr_en;
+	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_AND, CMDQ_CPR_TPR_MASK,
+		&lop, &rop);
 
 	return 0;
 }
@@ -1443,11 +1459,6 @@ static void cmdq_pkt_err_irq_dump(struct cmdq_pkt *pkt)
 	cmdq_util_err("pkt:%lx thread:%d pc:%lx",
 		(unsigned long)pkt, thread_id, (unsigned long)pc);
 
-	if (pkt->evt_revert_end)
-		cmdq_util_msg("revert offset:%u %u lock:%u",
-			pkt->evt_revert, pkt->evt_revert_end,
-			cmdq_get_event(client->chan, CMDQ_TOKEN_TPR_LOCK));
-
 	if (pc) {
 		list_for_each_entry(buf, &pkt->buf, list_entry) {
 			if (pc < buf->pa_base ||
@@ -1589,11 +1600,6 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 
 		item->err_cb(cb_data);
 	}
-
-	if (pkt->evt_revert_end)
-		cmdq_util_msg("revert offset:%u %u lock:%u",
-			pkt->evt_revert, pkt->evt_revert_end,
-			cmdq_get_event(client->chan, CMDQ_TOKEN_TPR_LOCK));
 
 	cmdq_dump_pkt(pkt, pc, true);
 	cmdq_util_dump_smi();

@@ -664,31 +664,6 @@ static void cmdq_buf_dump_schedule(struct cmdq_task *task, bool timeout,
 		inst ? *inst : -1);
 }
 
-static void cmdq_task_reset_event(struct cmdq_task *task)
-{
-	struct cmdq_thread *thread = task->thread;
-	u32 offset = 0;
-	phys_addr_t pc = cmdq_thread_get_pc(thread);
-	struct cmdq_pkt_buffer *buf;
-
-	list_for_each_entry(buf, &task->pkt->buf, list_entry) {
-		if (pc >= buf->pa_base &&
-			pc < buf->pa_base + CMDQ_CMD_BUFFER_SIZE) {
-			offset += pc - buf->pa_base;
-			break;
-		}
-
-		offset += CMDQ_CMD_BUFFER_SIZE;
-	}
-
-	if (offset >= task->pkt->evt_revert &&
-		offset < task->pkt->evt_revert_end) {
-		cmdq_util_err("revert TPR lock");
-		cmdq_clear_event(thread->chan, CMDQ_TOKEN_TPR_LOCK);
-	}
-
-}
-
 static void cmdq_task_handle_error(struct cmdq_task *task)
 {
 	struct cmdq_thread *thread = task->thread;
@@ -971,9 +946,6 @@ static void cmdq_thread_handle_timeout_work(struct work_struct *work_item)
 
 		spin_lock_irqsave(&thread->chan->lock, flags);
 		thread->dirty = false;
-
-		if (timeout_task && timeout_task->pkt->evt_revert_end)
-			cmdq_task_reset_event(task);
 
 		task = list_first_entry_or_null(&thread->task_busy_list,
 			struct cmdq_task, list_entry);
