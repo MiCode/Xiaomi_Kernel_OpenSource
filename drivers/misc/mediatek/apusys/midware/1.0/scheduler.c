@@ -401,7 +401,7 @@ static void subcmd_done(struct apusys_subcmd *sc, int dev_idx)
 {
 	struct apusys_subcmd *scr = NULL;
 	struct apusys_cmd *cmd = NULL;
-	int ret = 0, done_idx = 0, state = 0, i = 0;
+	int ret = 0, done_idx = 0, i = 0;
 	struct apusys_res_mgr *res_mgr = res_get_mgr();
 
 	if (sc == NULL) {
@@ -478,11 +478,8 @@ static void subcmd_done(struct apusys_subcmd *sc, int dev_idx)
 	mutex_unlock(&cmd->sc_mtx);
 
 	/* clear subcmd bit in cmd entry's status */
-	if (check_cmd_done(cmd) == 0)
-		state = cmd->state;
-
 	/* if whole apusys cmd done, wakeup user context thread */
-	if (state == CMD_STATE_DONE) {
+	if (check_cmd_done(cmd) == 0) {
 		LOG_DEBUG("apusys cmd(0x%llx) done\n",
 			cmd->cmd_id);
 		LOG_DEBUG("wakeup user context thread\n");
@@ -688,17 +685,15 @@ static int exec_cmd_func(void *isc, void *idev_info)
 		goto out;
 	}
 
-	//mutex_lock(&sc->mtx);
-
 	/* execute reviser to switch VLM */
 	reviser_set_context(dev_info->dev->dev_type,
 			dev_info->dev->idx, sc->ctx_id);
 
 #ifdef APUSYS_OPTIONS_INF_MNOC
 	/* 2. start count cmd qos */
-	LOG_DEBUG("mnoc: cmd qos start 0x%llx-#%d dev(%d-#%d)\n",
+	LOG_DEBUG("mnoc: cmd qos start 0x%llx-#%d dev(%s-#%d)\n",
 		sc->par_cmd->cmd_id, sc->idx,
-		sc->type, dev_info->dev->idx);
+		dev_info->name, dev_info->dev->idx);
 
 	/* count qos start */
 	if (apu_cmd_qos_start(sc->par_cmd->cmd_id, sc->idx,
@@ -709,10 +704,10 @@ static int exec_cmd_func(void *isc, void *idev_info)
 #endif
 
 	/* 3. get driver time start */
-#define APUSYS_EXECINFO_PRINT "u(%d/%d) 0x%llx/0x%llx-#%d(%u) "\
-	"sc(%d): dev(%d-#%d) mp(%u/%u|0x%llx) "\
+#define APUSYS_PRINT_EXECINFO "pid(%d/%d) 0x%llx/0x%llx-#%d(%u)"\
+	" sc(%d): dev(%s-#%d) mp(%u/%u|0x%llx) "\
 	"ctx(%u/%d/0x%x/0x%x) boost(%u)\n"
-	LOG_INFO(APUSYS_EXECINFO_PRINT,
+	LOG_INFO(APUSYS_PRINT_EXECINFO,
 		sc->par_cmd->pid,
 		sc->par_cmd->tgid,
 		sc->par_cmd->hdr->uid,
@@ -720,7 +715,7 @@ static int exec_cmd_func(void *isc, void *idev_info)
 		sc->idx,
 		sc->par_cmd->hdr->num_sc,
 		sc->type,
-		dev_info->dev->dev_type,
+		dev_info->name,
 		dev_info->dev->idx,
 		cmd_hnd.multicore_idx,
 		sc->exec_core_num,
@@ -730,65 +725,72 @@ static int exec_cmd_func(void *isc, void *idev_info)
 		sc->c_hdr->tcm_usage,
 		sc->tcm_real_usage,
 		cmd_hnd.boost_val);
-#undef APUSYS_EXECINFO_PRINT
+#undef APUSYS_PRINT_EXECINFO
 	memset(&driver_time, 0, sizeof(driver_time));
 	t_diff = get_time_diff_from_system(&driver_time);
 
 	/* 4. execute subcmd */
 	ret = dev_info->dev->send_cmd(APUSYS_CMD_EXECUTE,
 		(void *)&cmd_hnd, dev_info->dev);
-	if (ret) {
-		LOG_ERR("0x%llx/0x%llx-#%d(%u) sc(%d): dev(%d-#%d) fail(%d)\n",
-			sc->par_cmd->hdr->uid,
-			sc->par_cmd->cmd_id,
-			sc->idx,
-			sc->par_cmd->hdr->num_sc,
-			sc->type,
-			dev_info->dev->dev_type,
-			dev_info->dev->idx,
-			ret);
-
-		sc->par_cmd->cmd_ret = ret;
-	} else {
-		LOG_INFO("0x%llx/0x%llx-#%d(%u) sc(%d): dev(%d-#%d) done\n",
-			sc->par_cmd->hdr->uid,
-			sc->par_cmd->cmd_id,
-			sc->idx,
-			sc->par_cmd->hdr->num_sc,
-			sc->type,
-			dev_info->dev->dev_type,
-			dev_info->dev->idx);
-	}
 
 	/* 5. get driver time and ip time */
 	t_diff = get_time_diff_from_system(&driver_time);
-	PLOG_DEBUG("0x%llx/0x%llx-#%d(%d) sc: dev(%d-#%d) time(%u/%u)\n",
-		sc->par_cmd->hdr->uid,
-		sc->par_cmd->cmd_id,
-		sc->idx,
-		sc->type,
-		dev_info->dev->dev_type,
-		dev_info->dev->idx,
-		t_diff,
-		cmd_hnd.ip_time);
-	/* setup max ip/driver time into sc */
+
+	/* 6. check execution result */
+	if (ret) {
+#define APUSYS_PRINT_EXECFAIL "pid(%d/%d) 0x%llx/0x%llx-#%d(%u)"\
+	" sc(%d): dev(%s-#%d) time(%u/%u) fail(%d)\n"
+		LOG_ERR(APUSYS_PRINT_EXECFAIL,
+			sc->par_cmd->pid,
+			sc->par_cmd->tgid,
+			sc->par_cmd->hdr->uid,
+			sc->par_cmd->cmd_id,
+			sc->idx,
+			sc->par_cmd->hdr->num_sc,
+			sc->type,
+			dev_info->name,
+			dev_info->dev->idx,
+			cmd_hnd.ip_time,
+			t_diff,
+			ret);
+#undef APUSYS_PRINT_EXECFAIL
+		sc->par_cmd->cmd_ret = ret;
+	} else {
+#define APUSYS_PRINT_EXECOK "pid(%d/%d) 0x%llx/0x%llx-#%d(%u)"\
+	" sc(%d): dev(%s-#%d) time(%u/%u) done\n"
+		LOG_INFO(APUSYS_PRINT_EXECOK,
+			sc->par_cmd->pid,
+			sc->par_cmd->tgid,
+			sc->par_cmd->hdr->uid,
+			sc->par_cmd->cmd_id,
+			sc->idx,
+			sc->par_cmd->hdr->num_sc,
+			sc->type,
+			dev_info->name,
+			dev_info->dev->idx,
+			cmd_hnd.ip_time,
+			t_diff);
+#undef APUSYS_PRINT_EXECOK
+	}
+
+	/* 7. setup max ip/driver time into sc */
+	mutex_lock(&sc->mtx);
 	sc->driver_time = sc->driver_time > t_diff ?
 		sc->driver_time:t_diff;
 	sc->ip_time = sc->ip_time > cmd_hnd.ip_time ?
 		sc->ip_time:cmd_hnd.ip_time;
+	mutex_unlock(&sc->mtx);
 
 #ifdef APUSYS_OPTIONS_INF_MNOC
-	/* 6. count qos end */
+	/* 8. count qos end */
 	sc->bw = apu_cmd_qos_end(sc->par_cmd->cmd_id, sc->idx);
 	LOG_DEBUG("mnoc: cmd qos end 0x%llx-#%d dev(%d/%d) bw(%d)\n",
 		sc->par_cmd->cmd_id, dev_info->dev->idx, sc->type,
 		dev_info->dev->idx, sc->bw);
 #endif
 
-	//mutex_unlock(&sc->mtx);
-
 out:
-	/* 8. put device back */
+	/* 9. put device back */
 	if (put_device_lock(dev_info)) {
 		LOG_ERR("return dev(%d-#%d) fail\n",
 			dev_info->dev->dev_type,
@@ -1073,9 +1075,9 @@ int apusys_sched_wait_cmd(struct apusys_cmd *cmd)
 		return -EINVAL;
 
 	/* wait all subcmd completed */
-	mutex_lock(&cmd->sc_mtx);
+	mutex_lock(&cmd->mtx);
 	state = cmd->state;
-	mutex_unlock(&cmd->sc_mtx);
+	mutex_unlock(&cmd->mtx);
 
 	if (state == CMD_STATE_DONE)
 		return ret;

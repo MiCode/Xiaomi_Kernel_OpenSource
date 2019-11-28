@@ -1173,6 +1173,11 @@ int apusys_register_device(struct apusys_device *dev)
 			tab->dev_list[i].dev = dev; // setup dev
 			bitmap_clear(tab->dev_status, i, 1); // setup status
 
+			/* setup devinfo name */
+			strncpy(tab->dev_list[tab->dev_num].name,
+				dev_type_string[tab->dev_type],
+				strlen(dev_type_string[tab->dev_type]));
+
 			if (i >= tab->dev_num)
 				tab->dev_num++;
 
@@ -1206,15 +1211,23 @@ int apusys_register_device(struct apusys_device *dev)
 		tab->dev_list[tab->dev_num].cur_owner = APUSYS_DEV_OWNER_NONE;
 		bitmap_clear(tab->dev_status, tab->dev_num, 1); //status
 		tab->dev_type = dev->dev_type;// type
+
+		/* setup devinfo/devtable name */
 		if (tab->dev_type < APUSYS_DEVICE_LAST) {
 			strncpy(tab->name, dev_type_string[tab->dev_type],
 				strlen(dev_type_string[tab->dev_type]));
+			strncpy(tab->dev_list[tab->dev_num].name,
+				dev_type_string[tab->dev_type],
+				strlen(dev_type_string[tab->dev_type]));
 		}
+
+		/* check idx */
 		if (dev->idx != tab->dev_num) {
 			LOG_WARN("dev(%d) idx not match(%d/%d)\n",
 				dev->dev_type, dev->idx, tab->dev_num);
 			dev->idx = tab->dev_num;
 		}
+
 		tab->dev_num++; //dev number
 		for (i = 0; i < APUSYS_DEV_TABLE_MAX; i++)
 			INIT_LIST_HEAD(&tab->dev_list[i].acq_list);
