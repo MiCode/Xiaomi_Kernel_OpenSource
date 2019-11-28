@@ -1564,6 +1564,9 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 
 	cmdq_util_dump_lock();
 
+	/* assign error during dump cb */
+	item->err = data.err;
+
 	if (err_num == 0)
 		cmdq_util_error_enable();
 
