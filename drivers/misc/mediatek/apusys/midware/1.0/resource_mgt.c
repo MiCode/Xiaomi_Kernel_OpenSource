@@ -365,8 +365,8 @@ int put_apusys_device(struct apusys_dev_info *dev_info)
 	/* query list to find mem in apusys user */
 	list_for_each_safe(list_ptr, tmp, &tab->acq_list) {
 		acq = list_entry(list_ptr, struct apusys_dev_aquire, tab_list);
-		LOG_DEBUG("dev(%d) has acquire(%p/%d) waiting, put device\n",
-			dev_info->dev->dev_type, acq, acq->is_done);
+		LOG_DEBUG("dev(%s-#%d) has acquire(%p/%d), put device\n",
+			dev_info->name, dev_info->dev->idx, acq, acq->is_done);
 		if (acq->is_done == 0) {
 			DEBUG_TAG;
 
@@ -375,8 +375,8 @@ int put_apusys_device(struct apusys_dev_info *dev_info)
 			dev_info->cur_owner = acq->owner;
 			acq->acq_num++;
 			acq->acq_bitmap |= (1ULL << dev_info->dev->idx);
-			LOG_DEBUG("dev(%d-#%d) add to acq(%d/%d)\n",
-				dev_info->dev->dev_type, dev_info->dev->idx,
+			LOG_DEBUG("dev(%s-#%d) add to acq(%d/%d)\n",
+				dev_info->name, dev_info->dev->idx,
 				acq->acq_num, acq->target_num);
 			if (acq->acq_num == acq->target_num)
 				acq->is_done = 1;
@@ -391,8 +391,8 @@ int put_apusys_device(struct apusys_dev_info *dev_info)
 	}
 
 	/* get idle device from bitmap */
-	LOG_DEBUG("put dev(%d-#%d/%d) ok\n",
-		dev_info->dev->dev_type, dev_info->dev->idx, tab->dev_num);
+	LOG_DEBUG("put dev(%s-#%d/%d) ok\n",
+		dev_info->name, dev_info->dev->idx, tab->dev_num);
 	dev_info->cur_owner = APUSYS_DEV_OWNER_NONE;
 	dev_info->cmd_id = 0;
 	dev_info->sc_idx = 0;
@@ -777,8 +777,8 @@ int res_power_off(int dev_type, uint32_t idx)
 	memset(&pwr, 0, sizeof(struct apusys_power_hnd));
 	ret = info->dev->send_cmd(APUSYS_CMD_POWERDOWN, &pwr, info->dev);
 	if (ret) {
-		LOG_ERR("powerdown dev(%d-#%u) fail(%d)\n",
-			dev_type, idx, ret);
+		LOG_ERR("powerdown dev(%s-#%u) fail(%d)\n",
+			info->name, idx, ret);
 	}
 
 	return ret;
@@ -789,6 +789,7 @@ int res_suspend_dev(void)
 	int dev_type = 0, i = 0, j = 0, ret = 0, times = 30, wait_ms = 100;
 	struct apusys_res_mgr *res_mgr = res_get_mgr();
 	struct apusys_res_table *tab = NULL;
+
 
 	/* check all device done then call suspend callback() */
 	while (1) {
@@ -806,31 +807,42 @@ int res_suspend_dev(void)
 		/* check owner */
 		for (i = 0; i < tab->dev_num; i++) {
 			for (j = 0; j < times; j++) {
-				if (tab->dev_list[i].cur_owner
-					!= APUSYS_DEV_OWNER_SCHEDULER)
+				mutex_lock(&g_res_mgr.mtx);
+				if (tab->dev_list[i].cmd_id == 0) {
+					mutex_unlock(&g_res_mgr.mtx);
 					break;
+				}
+				mutex_unlock(&g_res_mgr.mtx);
 
 				msleep(wait_ms);
 			}
 			if (j >= times) {
-				LOG_WARN("dev(%d-#%d) busy too long\n",
-					dev_type, i);
+				LOG_WARN("dev(%s-#%d) busy too long\n",
+					tab->dev_list[i].name, i);
 			}
 		}
 
 		/* call suspend */
 		for (i = 0; i < tab->dev_num; i++) {
 			//LOG_DEBUG("suspend dev(%d-#%d)...\n", dev_type, i);
-
-			ret = tab->dev_list[i].dev->send_cmd(APUSYS_CMD_SUSPEND,
-				NULL, tab->dev_list[i].dev);
-			if (ret) {
-				LOG_ERR("suspend dev(%d-#%d) fail(%d)\n",
-					dev_type, i, ret);
-			} else {
-				LOG_DEBUG("suspend dev(%d-#%d) done\n",
-					dev_type, i);
+			mutex_lock(&g_res_mgr.mtx);
+			if (tab->dev_list[i].cur_owner ==
+				APUSYS_DEV_OWNER_SECURE) {
+				LOG_WARN("dev(%s-#%d) in secure, no poweroff\n",
+					tab->dev_list[i].name,
+					tab->dev_list[i].dev->idx);
+				continue;
 			}
+			ret |= tab->dev_list[i].dev->send_cmd(
+				APUSYS_CMD_SUSPEND, NULL, tab->dev_list[i].dev);
+			if (ret) {
+				LOG_ERR("suspend dev(%s-#%d) fail(%d)\n",
+					tab->name, i, ret);
+			} else {
+				LOG_DEBUG("suspend dev(%s-#%d) done\n",
+					tab->name, i);
+			}
+			mutex_unlock(&g_res_mgr.mtx);
 		}
 		dev_type++;
 	}
@@ -858,11 +870,11 @@ int res_resume_dev(void)
 		}
 
 		for (i = 0; i < tab->dev_num; i++) {
-			if (tab->dev_list[i].cur_owner ==
-				APUSYS_DEV_OWNER_SCHEDULER) {
-				LOG_WARN("dev(%d-#%d) owner(%llu) not normal\n",
-					dev_type, i,
-					tab->dev_list[i].cur_owner);
+			if (tab->dev_list[i].cmd_id != 0) {
+				LOG_WARN("dev(%s-#%d)s(%llu/0x%llx)abnormal\n",
+					tab->dev_list[i].name, i,
+					tab->dev_list[i].cur_owner,
+					tab->dev_list[i].cmd_id);
 			}
 
 			/* call resume */
@@ -870,11 +882,11 @@ int res_resume_dev(void)
 			ret = tab->dev_list[i].dev->send_cmd(APUSYS_CMD_RESUME,
 				NULL, tab->dev_list[i].dev);
 			if (ret) {
-				LOG_ERR("resume dev(%d-#%d) fail(%d)\n",
-					dev_type, i, ret);
+				LOG_ERR("resume dev(%s-#%d) fail(%d)\n",
+					tab->dev_list[i].name, i, ret);
 			} else {
-				LOG_DEBUG("resume dev(%d-#%d) done\n",
-					dev_type, i);
+				LOG_DEBUG("resume dev(%s-#%d) done\n",
+					tab->dev_list[i].name, i);
 			}
 		}
 		dev_type++;
@@ -901,8 +913,8 @@ int res_load_firmware(int dev_type, uint32_t magic, const char *name,
 	}
 
 	if (idx >= tab->dev_num) {
-		LOG_ERR("invalid device idx(%d-#%d/%d)\n",
-			dev_type, idx, tab->dev_num);
+		LOG_ERR("invalid device idx(%s-#%d/%d)\n",
+			tab->name, idx, tab->dev_num);
 		return -EINVAL;
 	}
 
@@ -964,9 +976,9 @@ int res_send_ucmd(int dev_type, int idx,
 
 	ret = info->dev->send_cmd(APUSYS_CMD_USER, &hnd, info->dev);
 	if (ret) {
-		LOG_ERR("send user cmd(0x%llx/0x%x/%d) dev(%d-#%d) fail(%d)",
-			kva, iova, size,
-			dev_type, idx, ret);
+		LOG_WARN("send dev(%s-#%d) ucmd(0x%llx/0x%x/%d) fail(%d)",
+			info->name, info->dev->idx,
+			kva, iova, size, ret);
 	}
 
 	return ret;

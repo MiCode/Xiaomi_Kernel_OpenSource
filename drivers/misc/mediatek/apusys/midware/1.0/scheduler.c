@@ -1202,7 +1202,7 @@ int apusys_sched_pause(void)
 	if (res_suspend_dev())
 		LOG_WARN("suspend device fail\n");
 	else
-		LOG_INFO("suspend device done\n");
+		LOG_WARN("suspend device done\n");
 
 	return 0;
 }
@@ -1224,7 +1224,7 @@ int apusys_sched_restart(void)
 	if (res_resume_dev())
 		LOG_WARN("resume device fail\n");
 	else
-		LOG_INFO("resume device done\n");
+		LOG_WARN("resume device done\n");
 	/* trigger sched thread */
 	complete(&res_mgr->sched_comp);
 

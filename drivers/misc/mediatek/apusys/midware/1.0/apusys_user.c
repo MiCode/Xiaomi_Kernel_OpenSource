@@ -615,7 +615,7 @@ int apusys_user_delete_sectype(struct apusys_user *u, int dev_type)
 		user_dev = list_entry(list_ptr, struct apusys_user_dev, list);
 		if (user_dev->dev_info->dev->dev_type == dev_type) {
 			list_del(&user_dev->list);
-			LOG_INFO("del stype(%p/%d) u(0x%llx) done\n",
+			LOG_DEBUG("del stype(%p/%d) u(0x%llx) done\n",
 				user_dev->dev_info->dev,
 				user_dev->dev_info->dev->dev_type,
 				u->id);

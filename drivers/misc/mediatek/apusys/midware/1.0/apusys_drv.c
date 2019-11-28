@@ -1020,10 +1020,6 @@ check_unfw_size_fail:
 		/* send ucmd to driver */
 		ret = res_send_ucmd(ioctl_ucmd.dev_type, ioctl_ucmd.idx,
 				kmem.kva, kmem.iova, kmem.size);
-		if (ret) {
-			LOG_ERR("send user cmd(%d) fail\n",
-				ioctl_ucmd.mem_fd);
-		}
 
 check_ucmd_size_fail:
 		/* unmap iova */
@@ -1072,7 +1068,7 @@ check_ucmd_size_fail:
 		acq.target_num = dev_num;
 		acq.dev_type = ioctl_sec.dev_type;
 		acq.is_done = 0;
-		acq.owner = user->open_pid;
+		acq.owner = APUSYS_DEV_OWNER_SECURE;
 		if (acq_device_sync(&acq) <= 0) {
 			LOG_ERR("[sec]lock alloc dev(%d) u(0x%llx) fail\n",
 				ioctl_sec.dev_type,
@@ -1097,8 +1093,8 @@ check_ucmd_size_fail:
 			ret = res_power_off(dev_info->dev->dev_type,
 					dev_info->dev->idx);
 			if (ret) {
-				LOG_ERR("[sec]dev(%d/%d) poweroff fail\n",
-					dev_info->dev->dev_type,
+				LOG_ERR("[sec]dev(%s-#%d) poweroff fail\n",
+					dev_info->name,
 					dev_info->dev->idx);
 				break;
 			}
@@ -1108,8 +1104,8 @@ check_ucmd_size_fail:
 					dev_info->dev->idx, 100,
 					APUSYS_SETPOWER_TIMEOUT_ALLON);
 			if (ret) {
-				LOG_ERR("[sec]dev(%d/%d) poweron fail\n",
-					dev_info->dev->dev_type,
+				LOG_ERR("[sec]dev(%s-#%d) poweron fail\n",
+					dev_info->name,
 					dev_info->dev->idx);
 				break;
 			}
@@ -1157,23 +1153,23 @@ check_ucmd_size_fail:
 			/* power off */
 			if (res_power_off(dev_info->dev->dev_type,
 					dev_info->dev->idx)) {
-				LOG_ERR("[sec]dev(%d/%d) poweroff fail\n",
-					dev_info->dev->dev_type,
+				LOG_ERR("[sec]dev(%s-#%d) poweroff fail\n",
+					dev_info->name,
 					dev_info->dev->idx);
 				ret = -ENODEV;
 			}
 
 			if (put_device_lock(dev_info)) {
-				LOG_ERR("[sec]put dev(%d/%d) fail\n",
-					dev_info->dev->dev_type,
+				LOG_ERR("[sec]put dev(%s-#%d) fail\n",
+					dev_info->name,
 					dev_info->dev->idx);
 				ret = -ENODEV;
 			}
 
 			if (val < count) {
 				if (apusys_user_delete_secdev(user, dev_info)) {
-					LOG_ERR("[sec]del secdev(%d/%d) fail\n",
-						dev_info->dev->dev_type,
+					LOG_ERR("[sec]del secdev(%s-#%d)fail\n",
+						dev_info->name,
 						dev_info->dev->idx);
 					ret = -ENODEV;
 				}
