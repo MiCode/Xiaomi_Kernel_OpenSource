@@ -152,6 +152,8 @@ static void __iomem *infracfg_base;	/*infracfg_ao*/
 static void __iomem *spm_base;
 static void __iomem *ckgen_base;	/*ckgen*/
 
+void __iomem *spm_base_debug;
+
 #define INFRACFG_REG(offset)		(infracfg_base + offset)
 #define SPM_REG(offset)			(spm_base + offset)
 #define CKGEN_REG(offset)		(ckgen_base + offset)
@@ -4996,6 +4998,7 @@ static void __init init_clk_scpsys(void __iomem *infracfg_reg,
 
 	infracfg_base = infracfg_reg;
 	spm_base = spm_reg;
+	spm_base_debug = spm_reg;
 
 	for (i = 0; i < ARRAY_SIZE(scp_clks); i++) {
 		struct mtk_power_gate *pg = &scp_clks[i];

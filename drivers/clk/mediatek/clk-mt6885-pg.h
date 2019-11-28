@@ -88,4 +88,14 @@ void print_subsys_reg(char *subsys_name);
 extern void aee_rr_rec_clk(int id, u32 val);
 #endif
 
+/* for cam debug only */
+extern void __iomem *cam_base, *cam_rawa_base, *cam_rawb_base, *cam_rawc_base;
+extern void __iomem *spm_base_debug;
+extern unsigned int mt_get_ckgen_freq(unsigned int ID);
+extern void mtk_ccf_cam_debug(const char *str1, const char *str2,
+							const char *str3);
+/* for cam debug only */
+
+
+
 #endif				/* __DRV_CLK_MT6885_PG_H */

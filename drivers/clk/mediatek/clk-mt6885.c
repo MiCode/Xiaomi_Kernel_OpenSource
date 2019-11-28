@@ -60,6 +60,41 @@ static DEFINE_SPINLOCK(meter_lock);
 #define fmeter_lock(flags)   spin_lock_irqsave(&meter_lock, flags)
 #define fmeter_unlock(flags) spin_unlock_irqrestore(&meter_lock, flags)
 
+#define CAMSYS_CG_CON		(cam_base + 0x0000)
+#define CAMSYS_RAWA_CG_CON	(cam_rawa_base + 0x0000)
+#define CAMSYS_RAWB_CG_CON	(cam_rawb_base + 0x0000)
+#define CAMSYS_RAWC_CG_CON	(cam_rawc_base + 0x0000)
+#define PWR_STATUS		(spm_base_debug + 0x016C)
+#define CAM_DEBUG_PRINT(prompt)						\
+	do {								\
+		if (strstr(__clk_get_name(hw->clk), "camsys_")) {	\
+			mtk_ccf_cam_debug(__func__, prompt,		\
+					__clk_get_name(hw->clk));	\
+		}							\
+	} while (0)
+
+void mtk_ccf_cam_debug(const char *str1, const char *str2,
+							const char *str3)
+{
+	unsigned int rate = mt_get_ckgen_freq(1);
+
+	rate = mt_get_ckgen_freq(11);
+	pr_notice("[CCF] %-24s %-27s %-3s cg:0x%08x, raw a:0x%08x, b:0x%08x, c:0x%08x, rate:%d, pwrsta:%08x\n",
+		str1 ? str1 : "N/A",
+		str3 ? str3 : "N/A",
+		str2 ? str2 : "N/A",
+		clk_readl(PWR_STATUS) & (0x1UL << 23) ?
+				clk_readl(CAMSYS_CG_CON) : 0xDEADBEEF,
+		clk_readl(PWR_STATUS) & (0x1UL << 24) ?
+				clk_readl(CAMSYS_RAWA_CG_CON) : 0xDEADBEEF,
+		clk_readl(PWR_STATUS) & (0x1UL << 25) ?
+				clk_readl(CAMSYS_RAWB_CG_CON) : 0xDEADBEEF,
+		clk_readl(PWR_STATUS) & (0x1UL << 26) ?
+				clk_readl(CAMSYS_RAWC_CG_CON) : 0xDEADBEEF,
+		rate,
+		clk_readl(PWR_STATUS));
+}
+
 
 /* CKSYS */
 #define CLK_MISC_CFG_0		(cksys_base + 0x140)
@@ -1979,7 +2014,9 @@ static void mtk_cg_clr_bit_no_setclr(struct clk_hw *hw)
 
 static int mtk_cg_enable(struct clk_hw *hw)
 {
+	CAM_DEBUG_PRINT("b4");
 	mtk_cg_clr_bit(hw);
+	CAM_DEBUG_PRINT("af");
 
 	return 0;
 }
@@ -2029,6 +2066,7 @@ static void mtk_cg_disable_inv_no_setclr(struct clk_hw *hw)
 
 static void mtk_cg_disable_dummy(struct clk_hw *hw)
 {
+	CAM_DEBUG_PRINT("du");
 	/* do nothing */
 }
 
@@ -2056,6 +2094,38 @@ const struct clk_ops mtk_clk_gate_ops_no_setclr_inv_dummy = {
 	.disable	= mtk_cg_disable_dummy,
 };
 
+static int mtk_cg_bit_is_cleared_for_camdebug(struct clk_hw *hw)
+{
+	struct mtk_clk_gate *cg = to_mtk_clk_gate(hw);
+	u32 val;
+
+	regmap_read(cg->regmap, cg->sta_ofs, &val);
+	val &= BIT(cg->bit);
+
+	return val == 0;
+}
+
+
+static int mtk_cg_enable_forcam(struct clk_hw *hw)
+{
+	CAM_DEBUG_PRINT("b4");
+	mtk_cg_clr_bit(hw);
+	CAM_DEBUG_PRINT("af");
+	return 0;
+}
+
+static void mtk_cg_disable_forcam(struct clk_hw *hw)
+{
+	CAM_DEBUG_PRINT("b4");
+	mtk_cg_set_bit(hw);
+	CAM_DEBUG_PRINT("af");
+}
+
+const struct clk_ops mtk_clk_gate_ops_setclr_for_camdebug = {
+	.is_enabled     = mtk_cg_bit_is_cleared_for_camdebug,
+	.enable         = mtk_cg_enable_forcam,
+	.disable        = mtk_cg_disable_forcam,
+};
 
 #if MT_CCF_BRINGUP
 #define GATE		GATE_DUMMY		/* set/clr */
@@ -2070,7 +2140,7 @@ const struct clk_ops mtk_clk_gate_ops_no_setclr_inv_dummy = {
 		.regs = &_regs,					\
 		.shift = _shift,				\
 		.flags = _flags,				\
-		.ops = &mtk_clk_gate_ops_setclr,		\
+		.ops = &mtk_clk_gate_ops_setclr_for_camdebug,	\
 	}
 #define GATE_INV(_id, _name, _parent, _regs, _shift, _flags) {  \
 		.id = _id,					\
@@ -2640,7 +2710,7 @@ static struct mtk_gate camsys_main_clks[] __initdata = {
 			 camsys_main_camsys_cg_regs, 17, 0),
 };
 
-static void __iomem *cam_base;
+void __iomem *cam_base;
 static void mtk_camsys_init(struct device_node *node)
 {
 	pr_notice("%s(): init begin\n", __func__);
@@ -2671,7 +2741,7 @@ static struct mtk_gate camsys_rawa_clks[] __initdata = {
 			 camsys_rawa_camsys_cg_regs, 2, 0),
 };
 
-static void __iomem *cam_rawa_base;
+void __iomem *cam_rawa_base;
 static void mtk_camsys_rawa_init(struct device_node *node)
 {
 	pr_notice("%s(): init begin\n", __func__);
@@ -2704,7 +2774,7 @@ static struct mtk_gate camsys_rawb_clks[] __initdata = {
 			 camsys_rawb_camsys_cg_regs, 2, 0),
 };
 
-static void __iomem *cam_rawb_base;
+void __iomem *cam_rawb_base;
 static void mtk_camsys_rawb_init(struct device_node *node)
 {
 	pr_notice("%s(): init begin\n", __func__);
@@ -2737,7 +2807,7 @@ static struct mtk_gate camsys_rawc_clks[] __initdata = {
 			 camsys_rawc_camsys_cg_regs, 2, 0),
 };
 
-static void __iomem *cam_rawc_base;
+void __iomem *cam_rawc_base;
 static void mtk_camsys_rawc_init(struct device_node *node)
 {
 	pr_notice("%s(): init begin\n", __func__);
