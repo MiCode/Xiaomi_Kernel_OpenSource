@@ -156,6 +156,14 @@
 		method = "smc";
 	};
 
+	mtk_lpm: mtk_lpm {
+		compatible = "mediatek,mtk-lpm";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+		suspend-method = "disable";
+	};
+
 	memory {
 		device_type = "memory";
 		reg = <0 0x40000000 0 0x3e605000>;
