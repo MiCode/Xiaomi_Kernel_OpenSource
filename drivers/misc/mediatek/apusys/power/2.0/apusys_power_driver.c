@@ -35,7 +35,7 @@
 #include "apusys_power_rule_check.h"
 #include "apusys_dbg.h"
 
-int g_pwr_log_level = APUSYS_PWR_LOG_INFO;
+int g_pwr_log_level = APUSYS_PWR_LOG_ERR;
 int g_pm_procedure;
 static int apu_power_counter;
 static int apusys_power_broken;
