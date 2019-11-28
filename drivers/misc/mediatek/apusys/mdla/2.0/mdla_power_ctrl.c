@@ -92,7 +92,7 @@ int mdla_pwr_on(int core_id)
 
 	ret = apu_device_power_on(register_user);
 	if (!ret) {
-		mdla_cmd_debug("%s power on device %d success\n",
+		mdla_drv_debug("%s power on device %d success\n",
 						__func__, register_user);
 		mdla_devices[core_id].mdla_power_status = PWR_ON;
 	} else {
@@ -153,9 +153,6 @@ int mdla_pwr_off(int core_id, int suspend)
 		if (get_sw_power_on_status(i) == PWR_ON)
 			goto power_off_done;
 	}
-
-	mdla_drv_debug("%s: MDLA %d start power off\n",
-			__func__, core_id);
 
 	for (i = 0; i < mdla_max_num_core; i++) {
 		if (get_power_on_status(i) == PWR_OFF)

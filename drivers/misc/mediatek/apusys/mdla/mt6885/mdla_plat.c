@@ -260,7 +260,7 @@ void mdla_reset(int core, int res)
 	unsigned long flags;
 
 	/*use power down==>power on apis insted bus protect init*/
-	pr_info("%s: MDLA RESET: %s(%d)\n", __func__,
+	mdla_drv_debug("%s: MDLA RESET: %s(%d)\n", __func__,
 		str, res);
 
 	spin_lock_irqsave(&mdla_devices[core].hw_lock, flags);
@@ -371,8 +371,6 @@ int mdla_process_command(int core_id, struct command_entry *ce)
 	int ret = 0;
 	unsigned long flags;
 
-	mdla_timeout_debug("mdla_run\n");
-
 	if (ce == NULL) {
 		mdla_cmd_debug("%s: invalid command entry: ce=%p\n",
 			__func__, ce);
@@ -382,7 +380,7 @@ int mdla_process_command(int core_id, struct command_entry *ce)
 	addr = ce->mva;
 	count = ce->count;
 
-	mdla_cmd_debug("%s: count: %d, addr: %lx\n",
+	mdla_drv_debug("%s: count: %d, addr: %lx\n",
 		__func__, ce->count,
 		(unsigned long)addr);
 

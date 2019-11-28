@@ -11,7 +11,6 @@
  * GNU General Public License for more details.
  */
 
-
 #include <linux/semaphore.h>
 #include <linux/completion.h>
 #include <linux/module.h>
@@ -65,6 +64,7 @@
 #include "mdla_pmu.h"
 #include "apusys_power.h"
 #include <asm-generic/bug.h>       /* BUG_ON */
+#include "apusys_device.h"
 
 
 #ifdef CONFIG_PM_WAKELOCKS
@@ -105,8 +105,6 @@ mdla_run_command_prepare(struct mdla_run_cmd *cd, struct command_entry *ce)
 #endif
 {
 
-	unsigned int size  = cd->size;
-
 	if (!ce)
 		return;
 
@@ -125,20 +123,6 @@ mdla_run_command_prepare(struct mdla_run_cmd *cd, struct command_entry *ce)
 	ce->count = cd->count;
 	ce->receive_t = sched_clock();
 	ce->kva = NULL;
-
-#ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
-	if (apusys_hd != NULL) {
-		ce->kva = (void *)(apusys_hd->cmd_entry+cd->offset_code_buf);
-		mdla_cmd_debug("%s: cmd_entry=%lld, offset_code_buf =%08x\n",
-			__func__,
-			apusys_hd->cmd_entry,
-			cd->offset_code_buf);
-		mdla_cmd_debug("%s: kva=%p, size =%08x\n",
-			__func__,
-			ce->kva,
-			size);
-	}
-#endif
 
 #ifdef __APUSYS_PREEMPTION__
 	// initialize members for preemption support
@@ -329,10 +313,12 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd,
 	ce.poweron_t = sched_clock();
 	ce.req_start_t = sched_clock();
 
+
 	if (mdla_timeout_dbg) {
 		mdla_dump_cmd_buf_free(mdla_info->mdlaid);
 		mdla_create_dmp_cmd_buf(&ce, mdla_info);
 	}
+
 
 	/* Fill HW reg */
 	mdla_process_command(core_id, &ce);
@@ -361,20 +347,17 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd,
 		}
 	}
 
-#ifdef __APUSYS_MDLA_UT__
-	mdla_cmd_debug("Core: %d, MREG_TOP_G_FIN0: %.8x, MREG_TOP_G_FIN1: %.8x\n",
+	mdla_cmd_debug("%s: C:%d,FIN0:%.8x,FIN1: %.8x,FIN3: %.8x\n",
+		__func__,
 		core_id,
 		mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_FIN0),
-		mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_FIN1));
-
-	mdla_cmd_debug("MREG_TOP_G_FIN3: %.8x\n",
+		mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_FIN1),
 		mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_FIN3));
 
-	mdla_cmd_debug("PMU_CFG_PMCR: %8x, pmu_clk_cnt: %.8x\n",
-				pmu_reg_read_with_mdlaid(core_id, PMU_CFG_PMCR),
-				pmu_reg_read_with_mdlaid(core_id, PMU_CYCLE));
-
-#endif
+	mdla_pmu_debug("%s: PMU_CFG_PMCR: %8x, pmu_clk_cnt: %.8x\n",
+		__func__,
+		pmu_reg_read_with_mdlaid(core_id, PMU_CFG_PMCR),
+		pmu_reg_read_with_mdlaid(core_id, PMU_CYCLE));
 
 	ce.req_end_t = sched_clock();
 
@@ -385,6 +368,10 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd,
 
 	cd->id = mdla_info->max_cmd_id;
 
+	if (mdla_timeout_dbg)
+		mdla_cmd_debug("STE dst addr:%.8x\n",
+		mdla_reg_read_with_mdlaid(core_id, 0xE3C));
+
 	if (mdla_info->max_cmd_id >= id) {
 		wt->result = 0;
 	}
@@ -394,8 +381,6 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd,
 				mdla_info->max_cmd_id);
 		mdla_zero_skip_detect(core_id);
 		mdla_dump_dbg(mdla_info, &ce);
-		//if (mdla_timeout_dbg)
-		//	BUG_ON(1);
 		// Enable & Relase bus protect
 		apu_device_power_off(MDLA0+core_id);
 		apu_device_power_on(MDLA0+core_id);

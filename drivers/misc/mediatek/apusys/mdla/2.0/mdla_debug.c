@@ -265,11 +265,7 @@ void mdla_debugfs_init(void)
 {
 	int ret;
 
-#ifdef __APUSYS_MDLA_UT__
-	mdla_klog = 0x47; /* open all debug info for UT */
-#else
-	mdla_klog = 0x40; /* print timeout info by default */
-#endif
+	mdla_klog = 0x44; /* print timeout info by default */
 	mdla_dvfs_rand = 0;
 	mdla_timeout_dbg = 0;
 
