@@ -2703,6 +2703,7 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 	int add_tag;
 	int pre_req_err = -EBUSY;
 	int lun = ufshcd_scsi_to_upiu_lun(cmd->device->lun);
+	bool req_sent = false;
 #endif
 
 	hba = shost_priv(host);
@@ -2733,8 +2734,6 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 
 	if (!down_read_trylock(&hba->clk_scaling_lock))
 		return SCSI_MLQUEUE_HOST_BUSY;
-
-	ufs_mtk_biolog_queue_command(tag, cmd);
 
 	spin_lock_irqsave(hba->host->host_lock, flags);
 	switch (hba->ufshcd_state) {
@@ -2881,6 +2880,12 @@ send_orig_cmd:
 	/* Make sure descriptors are ready before ringing the doorbell */
 	wmb();
 
+#if defined(CONFIG_UFSFEATURE) && defined(CONFIG_UFSHPB)
+	if (!pre_req_err)
+		ufs_mtk_biolog_queue_command(add_tag, add_lrbp->cmd);
+#endif
+	ufs_mtk_biolog_queue_command(tag, lrbp->cmd);
+
 	/* issue command to the controller */
 	spin_lock_irqsave(hba->host->host_lock, flags);
 
@@ -2889,11 +2894,11 @@ send_orig_cmd:
 		ufshcd_vops_setup_xfer_req(hba, add_tag,
 			(add_lrbp->cmd ? true : false));
 		ufshcd_send_command(hba, add_tag);
+		req_sent = true;
 		pre_req_err = -EBUSY;
 		atomic64_inc(&hba->ufsf.ufshpb_lup[add_lrbp->lun]->pre_req_cnt);
 	}
 #endif
-
 	ufshcd_vops_setup_xfer_req(hba, tag, (lrbp->cmd ? true : false));
 	ufshcd_send_command(hba, tag);
 
@@ -2909,17 +2914,20 @@ out_unlock:
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 
 	/*
-	 * MTK PATCH:
-	 *
 	 * Logging "send_cmd" in blocktag after command is actually sent.
 	 *
-	 * We use "err" as condition because command will be sent only
+	 * Use "err" here as condition because command will be sent only
 	 * if "err" is 0.
 	 *
 	 * Note we always try to avoid logging while holding mutexes.
 	 */
+#if defined(CONFIG_UFSFEATURE) && defined(CONFIG_UFSHPB)
+	if (req_sent)
+		ufs_mtk_biolog_send_command(add_tag);
+#endif
 	if (!err)
 		ufs_mtk_biolog_send_command(tag);
+
 out:
 #if defined(CONFIG_UFSFEATURE) && defined(CONFIG_UFSHPB)
 	if (!pre_req_err) {
@@ -2938,13 +2946,6 @@ out:
 		ufshcd_generic_log(hba,
 			 cmd->cmnd[0], err, line,
 			UFS_TRACE_GENERIC);
-
-	/*
-	 * All requests with errors shall complete biolog to make
-	 * q_depth and workload calculation right.
-	 */
-	if (err)
-		ufs_mtk_biolog_scsi_done_end(tag);
 
 	return err;
 }
