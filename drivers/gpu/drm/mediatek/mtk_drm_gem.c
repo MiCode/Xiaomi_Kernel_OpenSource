@@ -259,11 +259,13 @@ void mtk_drm_gem_free_object(struct drm_gem_object *obj)
 			       mtk_gem->dma_addr, mtk_gem->dma_attrs,
 			       __func__, __LINE__);
 
+	/* No ion handle in dumb buffer */
 	if (mtk_gem->handle && priv->client)
 		mtk_drm_gem_ion_free_handle(priv->client, mtk_gem->handle,
 				__func__, __LINE__);
-	else
+	else if (!mtk_gem->is_dumb)
 		DDPPR_ERR("invaild ion handle or client\n");
+
 	/* release file pointer to gem object. */
 	drm_gem_object_release(obj);
 
@@ -293,6 +295,8 @@ int mtk_drm_gem_dumb_create(struct drm_file *file_priv, struct drm_device *dev,
 
 	/* drop reference from allocate - handle holds it now. */
 	drm_gem_object_unreference_unlocked(&mtk_gem->base);
+
+	mtk_gem->is_dumb = 1;
 
 	return 0;
 

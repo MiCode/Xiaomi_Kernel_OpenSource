@@ -13,7 +13,6 @@
  */
 
 #include <drm/drmP.h>
-#include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_gem.h>
@@ -62,12 +61,6 @@
 #define DRIVER_MAJOR 1
 #define DRIVER_MINOR 0
 
-struct mtk_atomic_state {
-	struct drm_atomic_state base;
-	struct list_head list;
-	struct kref kref;
-};
-
 atomic_t _mtk_fence_idx = ATOMIC_INIT(-1);
 atomic_t _mtk_fence_update_event = ATOMIC_INIT(0);
 wait_queue_head_t _mtk_fence_wq;
@@ -106,7 +99,7 @@ void mtk_atomic_state_get(struct drm_atomic_state *state)
 	kref_get(&state->ref);
 }
 
-static void mtk_atomic_state_put(struct drm_atomic_state *state)
+void mtk_atomic_state_put(struct drm_atomic_state *state)
 {
 	struct mtk_atomic_state *mtk_state = to_mtk_state(state);
 
@@ -728,6 +721,7 @@ static int mtk_atomic_commit(struct drm_device *drm,
 		mtk_atomic_schedule(private, state);
 	else
 		mtk_atomic_complete(private, state);
+	mtk_atomic_state_put(state);
 
 	mutex_nested_time_end = sched_clock();
 	mutex_nested_time_period =

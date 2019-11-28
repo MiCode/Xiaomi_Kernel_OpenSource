@@ -2007,7 +2007,7 @@ bool mtk_crtc_set_status(struct drm_crtc *crtc, bool status)
 	mtk_crtc->enabled = status;
 	wake_up(&mtk_crtc->crtc_status_wq);
 
-	if (private->fb_helper.fb && status) {
+	if (drm_crtc_index(crtc) == 0 && private->fb_helper.fb && status) {
 		crtc->primary->fb = private->fb_helper.fb;
 		drm_mode_object_reference(&private->fb_helper.fb->base);
 	}
@@ -3654,6 +3654,8 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	cb_data->cmdq_handle = cmdq_handle;
 	cb_data->misc = mtk_crtc->ddp_mode;
 
+	/* This refcnt would be release in ddp_cmdq_cb */
+	mtk_atomic_state_get(old_crtc_state->state);
 #ifdef MTK_DRM_CMDQ_ASYNC
 	mtk_crtc_gce_flush(crtc, ddp_cmdq_cb, cb_data, cmdq_handle);
 #else

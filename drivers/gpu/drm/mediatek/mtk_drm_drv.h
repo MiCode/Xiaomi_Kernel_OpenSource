@@ -18,6 +18,7 @@
 #include <drm/mediatek_drm.h>
 #include <linux/types.h>
 #include <linux/io.h>
+#include <drm/drm_atomic.h>
 #include "mtk_drm_ddp_comp.h"
 #include "mtk_drm_plane.h"
 #include "mtk_drm_crtc.h"
@@ -42,6 +43,12 @@ struct drm_property;
 struct regmap;
 struct mm_qos_request;
 struct pm_qos_request;
+
+struct mtk_atomic_state {
+	struct drm_atomic_state base;
+	struct list_head list;
+	struct kref kref;
+};
 
 struct mtk_fake_eng_reg {
 	unsigned int CG_idx;
@@ -188,6 +195,8 @@ extern struct platform_driver mtk_lvds_driver;
 extern struct platform_driver mtk_lvds_tx_driver;
 extern struct platform_driver mtk_disp_dsc_driver;
 
+void mtk_atomic_state_get(struct drm_atomic_state *state);
+void mtk_atomic_state_put(struct drm_atomic_state *state);
 void mtk_atomic_state_put_queue(struct drm_atomic_state *state);
 void mtk_drm_fence_update(unsigned int fence_idx);
 void drm_trigger_repaint(enum DRM_REPAINT_TYPE type,

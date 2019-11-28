@@ -49,6 +49,7 @@ struct mtk_drm_gem_obj {
 	struct ion_handle *handle;
 #endif
 	bool sec;
+	bool is_dumb;
 };
 
 #define to_mtk_gem_obj(x) container_of(x, struct mtk_drm_gem_obj, base)
