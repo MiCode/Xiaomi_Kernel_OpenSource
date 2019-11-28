@@ -233,7 +233,10 @@ struct gce_ctx_info {
 	void *v4l2_ctx;
 	u64 user_hdl;
 	atomic_t flush_done;
+	/* gce callbacked but user not waited cnt */
 	struct gce_callback_data buff[GCE_PENDING_CNT];
+	atomic_t flush_pending;
+	/* gce not callbacked cnt */
 };
 
 /**
@@ -597,7 +600,7 @@ static int vcu_gce_get_inst_id(u64 gce_handle)
 
 static void vcu_gce_clear_inst_id(void *ctx)
 {
-	int i, temp;
+	int i, temp, temp2;
 	u64 gce_handle;
 
 	mutex_lock(&vcu_ptr->vcu_share);
@@ -606,16 +609,26 @@ static void vcu_gce_clear_inst_id(void *ctx)
 			gce_handle = vcu_ptr->gce_info[i].user_hdl;
 			vcu_ptr->gce_info[i].v4l2_ctx = NULL;
 			vcu_ptr->gce_info[i].user_hdl = 0;
-			temp = atomic_read(&vcu_ptr->gce_info[i].flush_done);
+			temp = atomic_read(&vcu_ptr->gce_info[i].flush_pending);
+			/* flush_pending > 0, ctx hw not unprepared */
+			temp2 = atomic_read(&vcu_ptr->gce_info[i].flush_done);
+			/* flush_done > 0, user event not waited */
 			atomic_set(&vcu_ptr->gce_info[i].flush_done, 0);
+			atomic_set(&vcu_ptr->gce_info[i].flush_pending, 0);
 			mutex_unlock(&vcu_ptr->vcu_share);
 			if (temp > 0)
 				vcu_aee_print(
-					"%s ctx %p hndl %llu free id %d cnt %d\n",
-					__func__, ctx, gce_handle, i, temp);
+					"%s ctx %p hndl %llu free id %d cnt %d %d\n",
+					__func__, ctx, gce_handle,
+					i, temp, temp2);
+			else if (temp2 > 0)
+				pr_info("[VCU] %s ctx %p hndl %llu free id %d cnt %d %d\n",
+					__func__, ctx, gce_handle,
+					i, temp, temp2);
 			else
-				pr_debug("[VCU] %s ctx %p hndl %llu free id %d cnt %d\n",
-					__func__, ctx, gce_handle, i, temp);
+				pr_debug("[VCU] %s ctx %p hndl %llu free id %d cnt %d %d\n",
+					__func__, ctx, gce_handle,
+					i, temp, temp2);
 			return;
 		}
 	}
@@ -679,6 +692,7 @@ static void vcu_gce_flush_callback(struct cmdq_cb_data data)
 	}
 
 	atomic_inc(&vcu->gce_info[j].flush_done);
+	atomic_dec(&vcu->gce_info[j].flush_pending);
 
 	mutex_lock(&vcu->vcu_gce_mutex[i]);
 	venc_encode_pmqos_gce_end(vcu->gce_info[j].v4l2_ctx, core_id,
@@ -842,6 +856,8 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 	/* flush cmd async */
 	cmdq_pkt_flush_threaded(pkt_ptr,
 		vcu_gce_flush_callback, (void *)&vcu_ptr->gce_info[j].buff[i]);
+
+	atomic_inc(&vcu_ptr->gce_info[j].flush_pending);
 	time_check_end(100, strlen(vcodec_param_string));
 
 	return ret;
@@ -1937,6 +1953,7 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 	atomic_set(&vcu->vdec_log_got, 0);
 	for (i = 0; i < (int)VCODEC_INST_MAX; i++) {
 		atomic_set(&vcu->gce_info[i].flush_done, 0);
+		atomic_set(&vcu->gce_info[i].flush_pending, 0);
 		vcu->gce_info[i].user_hdl = 0;
 		vcu->gce_info[i].v4l2_ctx = NULL;
 	}
