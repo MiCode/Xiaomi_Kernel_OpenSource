@@ -38,6 +38,7 @@
 #include <linux/idr.h>
 #include <linux/sched/task.h>
 #include <linux/sched/clock.h>
+#include <linux/delay.h>
 #include "ion.h"
 #include "ion_priv.h"
 #include "compat_ion.h"
@@ -1184,9 +1185,10 @@ retry:
 			if (ret) {
 				mutex_unlock(&buffer->lock);
 				if (ret == -ION_ERROR_CONFIG_CONFLICT &&
-				    retry++ < 3) {
+				    retry++ < 50) {
 					IONMSG("%s, corrupt, retry%d...\n",
 					       __func__, retry);
+					usleep_range(20, 40);
 					goto retry;
 				}
 				IONMSG("%s, failed at dmabuf process, ret:%d\n",
