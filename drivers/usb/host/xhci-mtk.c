@@ -908,6 +908,11 @@ static int __maybe_unused xhci_mtk_runtime_suspend(struct device *dev)
 	struct xhci_hcd_mtk *mtk = dev_get_drvdata(dev);
 	struct xhci_hcd *xhci = hcd_to_xhci(mtk->hcd);
 
+	if ((xhci->xhc_state & XHCI_STATE_REMOVING) ||
+		(xhci->xhc_state & XHCI_STATE_HALTED)) {
+		return -ESHUTDOWN;
+	}
+
 	xhci_info(xhci, "%s, xhc_state=0x%x\n",
 			   __func__, xhci->xhc_state);
 
