@@ -675,7 +675,7 @@ unsigned int drv_dpmaif_ul_get_ridx(unsigned char q_num)
 	unsigned int ridx;
 
 #ifdef MT6297
-	ridx = DPMA_READ_AO_UL(DPMAIF_ULQ_STA0_n(q_num)) & 0x0000ffff;
+	ridx = (DPMA_READ_AO_UL(DPMAIF_ULQ_STA0_n(q_num)) >> 16) & 0x0000ffff;
 #else
 	ridx = DPMA_READ_PD_UL(DPMAIF_ULQ_STA0_n(q_num)) & 0x0000ffff;
 #endif
