@@ -2820,6 +2820,14 @@
 		pwm_ch = <3>;
 		pwm_data_invert = <0>;
 	};
+
+	pmic_clock_buffer_ctrl: pmic_clock_buffer_ctrl {
+		compatible = "mediatek,pmic_clock_buffer";
+		mediatek,clkbuf-quantity = <7>;
+		mediatek,clkbuf-config = <2 1 1 2 0 0 1>;
+		mediatek,clkbuf-output-impedance = <6 6 4 6 0 0 4>;
+		mediatek,clkbuf-controls-for-desense = <0 4 0 4 0 0 0>;
+	};
 };
 
 &spmi_bus {
