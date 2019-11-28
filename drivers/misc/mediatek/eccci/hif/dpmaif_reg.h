@@ -31,6 +31,8 @@ extern struct hif_dpmaif_ctrl *dpmaif_ctrl;
 #define DPMAIF_AO_RST_MASK (1 << 6)
 #define INFRA_DPMAIF_CTRL_REG  (0xC00)
 #define DPMAIF_IP_BUSY_MASK   (0x3 << 12)
+#define SW_CG_2_STA (0xAC)
+#define SW_CG_3_STA (0xC8)
 
 #ifdef MT6297
 #define INFRA_PROT_DPMAIF_BIT		(1 << 10)
@@ -65,6 +67,7 @@ extern struct hif_dpmaif_ctrl *dpmaif_ctrl;
 #define BASE_NADDR_NRL2_DPMAIF_AO_UL             0
 #define BASE_NADDR_NRL2_DPMAIF_AO_DL             0
 #define BASE_NADDR_NRL2_DPMAIF_DL_AO_CFG         0
+#define BASE_NADDR_NRL2_DPMAIF_PD_MD_MISC        0
 #endif
 #else
  #ifdef DVT_DEFINITION
@@ -352,6 +355,10 @@ extern struct hif_dpmaif_ctrl *dpmaif_ctrl;
 				(BASE_NADDR_NRL2_DPMAIF_DL_AO_CFG + 0x5C)
 #define NRL2_DPMAIF_AXI_MAS_SECURE		\
 				(BASE_NADDR_NRL2_DPMAIF_DL_AO_CFG + 0x60)
+#define NRL2_DPMAIF_PD_MD_IP_BUSY		\
+				(BASE_NADDR_NRL2_DPMAIF_PD_MD_MISC + 0x0000)
+#define NRL2_DPMAIF_PD_MD_IP_BUSY_MASK		\
+				(BASE_NADDR_NRL2_DPMAIF_PD_MD_MISC + 0x0040)
 
 /*DPMAIF AO UL CONFIG: 0x10014000 / ao + 0*/
 #define DPMAIF_AO_UL_CHNL0_STA            NRL2_DPMAIF_AO_UL_CH0_STA
@@ -477,6 +484,8 @@ extern struct hif_dpmaif_ctrl *dpmaif_ctrl;
 #define DPMAIF_AXI_MAS_SECURE             NRL2_DPMAIF_AXI_MAS_SECURE
 
 /*DPMAIF PD MD MISC CONFIG: 0x1022C000 */
+#define DPMAIF_PD_MD_IP_BUSY              NRL2_DPMAIF_PD_MD_IP_BUSY
+#define DPMAIF_PD_MD_IP_BUSY_MASK         NRL2_DPMAIF_PD_MD_IP_BUSY_MASK
 
 
 #else /*MT6297*/

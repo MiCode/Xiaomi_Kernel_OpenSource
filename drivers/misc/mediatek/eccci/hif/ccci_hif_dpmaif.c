@@ -151,6 +151,11 @@ static void dpmaif_dump_register(struct hif_dpmaif_ctrl *hif_ctrl, int buf_type)
 	ccci_util_mem_dump(hif_ctrl->md_id, buf_type,
 		hif_ctrl->dpmaif_ao_md_dl_base + DPMAIF_MISC_AO_CFG0,
 		DPMAIF_AXI_MAS_SECURE - DPMAIF_MISC_AO_CFG0 + 4);
+	CCCI_BUF_LOG_TAG(hif_ctrl->md_id, buf_type, TAG,
+		"dump MD DPMAIF MISC pd register\n");
+	ccci_util_mem_dump(hif_ctrl->md_id, buf_type,
+		hif_ctrl->dpmaif_pd_md_misc_base + DPMAIF_PD_MD_IP_BUSY,
+		DPMAIF_PD_MD_IP_BUSY_MASK - DPMAIF_PD_MD_IP_BUSY + 4);
 
 	/* open sram clock for debug sram needs sram clock. */
 	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_CG_EN, 0x36);
@@ -159,6 +164,12 @@ static void dpmaif_dump_register(struct hif_dpmaif_ctrl *hif_ctrl, int buf_type)
 	ccci_util_mem_dump(hif_ctrl->md_id, buf_type,
 		hif_ctrl->dpmaif_pd_sram_base + 0x00,
 		0x1FF);
+	CCCI_BUF_LOG_TAG(hif_ctrl->md_id, buf_type, TAG,
+		"dump SW CG register\n");
+	ccci_util_mem_dump(hif_ctrl->md_id, buf_type,
+		(void *)(infra_ao_base + SW_CG_2_STA), 0x0F);
+	ccci_util_mem_dump(hif_ctrl->md_id, buf_type,
+		(void *)(infra_ao_base + SW_CG_3_STA), 0x0F);
 }
 
 void dpmaif_dump_reg(void)
