@@ -103,6 +103,7 @@ static void adsp_check_dram_watch_region(void)
 {
 	int cid = 0, ret = 0;
 	struct adsp_priv *pdata = NULL;
+	static bool err_flag;
 
 	for (cid = 0; cid < ADSP_CORE_TOTAL; cid++) {
 		pdata = adsp_cores[cid];
@@ -113,15 +114,17 @@ static void adsp_check_dram_watch_region(void)
 		ret = memcmp(pdata->sysram + pdata->watch_offset,
 			pdata->watch_dram_golden, pdata->watch_size);
 
-		if (ret) {
+		if (ret)
 			pr_info("%s fail: cid(%d) ret(%d) offset(0x%x) size(0x%x)",
 				__func__, cid, ret,
 				pdata->watch_offset, pdata->watch_size);
 
+		if (ret && !err_flag) {
 			aee_kernel_exception_api(__FILE__, __LINE__,
 						DB_OPT_DEFAULT,
 						"[ADSP]",
 						"ADSP Memory Corruption");
+			err_flag = true;
 		}
 	}
 }
