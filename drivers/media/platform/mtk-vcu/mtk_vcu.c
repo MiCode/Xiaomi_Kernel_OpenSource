@@ -77,7 +77,7 @@
 
 #define VCU_FW_VER_LEN          16
 #define VCODEC_INST_MAX         64
-#define GCE_EVENT_MAX           32
+#define GCE_EVENT_MAX           64
 #define GCE_THNUM_MAX           2
 /*mtk vcu support mpd max value*/
 #define MTK_VCU_NR_MAX       3
@@ -715,14 +715,19 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 	unsigned int suspend_block_cnt = 0;
 	unsigned int core_id;
 
+	pr_debug("[VCU] %s +\n", __func__);
+
 	buff = (struct gce_callback_data *)
 		kzalloc(sizeof(struct gce_callback_data), GFP_KERNEL);
-	if (!buff)
+	if (!buff) {
+		pr_info("[VCU] %s alloc gce_callback_data fail\n", __func__);
 		return -ENOMEM;
+	}
 	cmds = (struct gce_cmds *)
 		kzalloc(sizeof(struct gce_cmds), GFP_KERNEL);
 	if (!cmds) {
 		kfree(buff);
+		pr_info("[VCU] %s alloc gce_cmds fail\n", __func__);
 		return -ENOMEM;
 	}
 
@@ -800,8 +805,10 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 	}
 	pr_debug("vcu gce_info[%d].v4l2_ctx %p\n",
 		j, vcu->gce_info[j].v4l2_ctx);
-	venc_encode_pmqos_gce_begin(vcu->gce_info[j].v4l2_ctx, core_id,
+	if (i == VCU_VENC) {
+		venc_encode_pmqos_gce_begin(vcu->gce_info[j].v4l2_ctx, core_id,
 			vcu->gce_job_cnt[i][core_id].counter);
+	}
 	atomic_inc(&vcu->gce_job_cnt[i][core_id]);
 	mutex_unlock(&vcu->vcu_gce_mutex[i]);
 
@@ -2008,7 +2015,6 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 
 	for (i = 0; i < GCE_EVENT_MAX; i++)
 		vcu->gce_codec_eid[i] = -1;
-	/*
 	vcu->gce_codec_eid[VDEC_EVENT_0] =
 		cmdq_dev_get_event(dev, "vdec_pic_start");
 	vcu->gce_codec_eid[VDEC_EVENT_1] =
@@ -2033,7 +2039,35 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 		cmdq_dev_get_event(dev, "vdec_wp_tble_done");
 	vcu->gce_codec_eid[VDEC_EVENT_11] =
 		cmdq_dev_get_event(dev, "vdec_count_sram_clr_done");
-	*/
+	vcu->gce_codec_eid[VDEC_EVENT_15] =
+		cmdq_dev_get_event(dev, "vdec_gce_cnt_op_threshold");
+	vcu->gce_codec_eid[VDEC_LAT_EVENT_0] =
+		cmdq_dev_get_event(dev, "vdec_lat_pic_start");
+	vcu->gce_codec_eid[VDEC_LAT_EVENT_1] =
+		cmdq_dev_get_event(dev, "vdec_lat_decode_done");
+	vcu->gce_codec_eid[VDEC_LAT_EVENT_2] =
+		cmdq_dev_get_event(dev, "vdec_lat_pause");
+	vcu->gce_codec_eid[VDEC_LAT_EVENT_3] =
+		cmdq_dev_get_event(dev, "vdec_lat_dec_error");
+	vcu->gce_codec_eid[VDEC_LAT_EVENT_4] =
+		cmdq_dev_get_event(dev, "vdec_lat_mc_busy_overflow_timeout");
+	vcu->gce_codec_eid[VDEC_LAT_EVENT_5] =
+		cmdq_dev_get_event(dev, "vdec_lat_all_dram_req_done");
+	vcu->gce_codec_eid[VDEC_LAT_EVENT_6] =
+		cmdq_dev_get_event(dev, "vdec_lat_ini_fetch_rdy");
+	vcu->gce_codec_eid[VDEC_LAT_EVENT_7] =
+		cmdq_dev_get_event(dev, "vdec_lat_process_flag");
+	vcu->gce_codec_eid[VDEC_LAT_EVENT_8] =
+		cmdq_dev_get_event(dev, "vdec_lat_search_start_code_done");
+	vcu->gce_codec_eid[VDEC_LAT_EVENT_9] =
+		cmdq_dev_get_event(dev, "vdec_lat_ref_reorder_done");
+	vcu->gce_codec_eid[VDEC_LAT_EVENT_10] =
+		cmdq_dev_get_event(dev, "vdec_lat_wp_tble_done");
+	vcu->gce_codec_eid[VDEC_LAT_EVENT_11] =
+		cmdq_dev_get_event(dev, "vdec_lat_count_sram_clr_done");
+	vcu->gce_codec_eid[VDEC_LAT_EVENT_15] =
+		cmdq_dev_get_event(dev, "vdec_lat_gce_cnt_op_threshold");
+
 	vcu->gce_codec_eid[VENC_EOF] =
 		cmdq_dev_get_event(dev, "venc_eof");
 	vcu->gce_codec_eid[VENC_CMDQ_PAUSE_DONE] =
