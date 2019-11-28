@@ -15,9 +15,9 @@
 #define MT_LP_RQ_ID_ALL_USAGE	(-1)
 
 
-int mt6885_dbg_idle_fs_init(void);
+int mt6885_dbg_lpm_fs_init(void);
 
-int mt6885_dbg_idle_fs_deinit(void);
+int mt6885_dbg_lpm_fs_deinit(void);
 
 int mt6885_dbg_spm_fs_init(void);
 

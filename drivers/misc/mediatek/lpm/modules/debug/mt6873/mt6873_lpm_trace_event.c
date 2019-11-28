@@ -116,7 +116,7 @@ ssize_t set_spm_resource_req_timer_enable(char *ToUserBuf
 	return -EINVAL;
 }
 
-static const struct mtk_spm_sysfs_op spm_resource_req_timer_enable_fops = {
+static const struct mtk_lp_sysfs_op spm_resource_req_timer_enable_fops = {
 	.fs_read = get_spm_resource_req_timer_enable,
 	.fs_write = set_spm_resource_req_timer_enable,
 };
@@ -138,7 +138,7 @@ int __init mt6873_lpm_trace_init(void)
 		of_node_put(node);
 	}
 
-	mtk_spm_sysfs_entry_create();
+	mtk_spm_sysfs_root_entry_create();
 	mtk_spm_sysfs_entry_node_add("spm_dump_res_req_enable", 0444
 			, &spm_resource_req_timer_enable_fops, NULL);
 

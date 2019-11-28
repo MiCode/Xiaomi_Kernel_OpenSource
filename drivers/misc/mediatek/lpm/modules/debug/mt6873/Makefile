@@ -8,7 +8,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/lpm/modules/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/lpm/modules/include/mt6873/
 
 obj-y += mt6873_dbg_fs.o
-obj-y += mt6873_dbg_idle_fs.o
+obj-y += mt6873_dbg_lpm_rc_fs.o
 obj-y += mt6873_dbg_spm_fs.o
 obj-y += mt6873_logger.o
 obj-y += mt6873_lpm_trace_event.o

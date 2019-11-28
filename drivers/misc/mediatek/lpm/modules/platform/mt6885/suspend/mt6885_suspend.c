@@ -183,7 +183,7 @@ void mt6885_suspend_reflect(int cpu,
 			__func__, __LINE__);
 
 	if (issuer)
-		issuer->log(MT_LPM_ISSUER_CPUIDLE, "suspend", NULL);
+		issuer->log(MT_LPM_ISSUER_SUSPEND, "suspend", NULL);
 
 	/* show md sleep duration during AP suspend */
 	after_md_sleep_time = get_md_sleep_time();

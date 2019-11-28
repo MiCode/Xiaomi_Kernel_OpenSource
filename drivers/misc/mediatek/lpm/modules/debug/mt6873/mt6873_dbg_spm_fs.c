@@ -1688,7 +1688,7 @@ static ssize_t mt6873_spm_res_rq_write(char *FromUserBuf, size_t sz, void *priv)
 	return -EINVAL;
 }
 
-static const struct mtk_spm_sysfs_op mt6873_spm_res_rq_fops = {
+static const struct mtk_lp_sysfs_op mt6873_spm_res_rq_fops = {
 	.fs_read = mt6873_spm_res_rq_read,
 	.fs_write = mt6873_spm_res_rq_write,
 };
@@ -1697,12 +1697,12 @@ int mt6873_dbg_spm_fs_init(void)
 {
 	int r;
 
-	mtk_spm_sysfs_entry_create();
+	mtk_spm_sysfs_root_entry_create();
 	mtk_spm_sysfs_entry_node_add("spm_resource_req", 0444
 			, &mt6873_spm_res_rq_fops, NULL);
 
 	/* create /sys/power/spm/xxx */
-	r = mtk_idle_sysfs_power_create_group(&pwrctrl_attr_group);
+	r = mtk_spm_sysfs_power_create_group(&pwrctrl_attr_group);
 	if (r)
 		pr_info("[SPM] FAILED TO CREATE /sys/power/spm (%d)\n", r);
 	return r;

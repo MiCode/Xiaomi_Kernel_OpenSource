@@ -31,8 +31,12 @@ int __init mtk_lpm_rc_parsing(struct device_node *parent)
 		of_property_read_u32(np, MTK_LPM_RC_VALUE, &value);
 		of_node_put(np);
 
-		mtk_lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_DOE_RC,
-				    MT_LPM_SMC_ACT_SET, id, value);
+		if (!!value)
+			mtk_lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_DOE_RC,
+					MT_LPM_SMC_ACT_SET, id, 0);
+		else
+			mtk_lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_DOE_RC,
+					MT_LPM_SMC_ACT_CLR, id, 0);
 	}
 
 	return ret;

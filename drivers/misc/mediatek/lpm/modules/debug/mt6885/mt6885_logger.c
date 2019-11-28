@@ -23,9 +23,25 @@
 #include <mtk_dbg_common_v1.h>
 #include <mtk_power_gs_api.h>
 #include <mt-plat/mtk_ccci_common.h>
+#include <mtk_lpm_timer.h>
+#include <mtk_lpm_sysfs.h>
+
+#define MT6885_LOG_MONITOR_STATE_NAME	"mcusysoff"
+#define MT6885_LOG_DEFAULT_MS		5000
 
 static struct mt6885_spm_wake_status mt6885_wake;
 void __iomem *mt6885_spm_base;
+
+struct mt6885_log_helper {
+	short cur;
+	short prev;
+	struct mt6885_spm_wake_status *wakesrc;
+};
+struct mt6885_log_helper mt6885_logger_help = {
+	.wakesrc = &mt6885_wake,
+	.cur = 0,
+	.prev = 0,
+};
 
 const char *mt6885_wakesrc_str[32] = {
 	[0] = " R12_PCM_TIMER",
@@ -139,60 +155,75 @@ static void mt6885_get_spm_wakesrc_irq(void)
 	}
 }
 
-int mt6885_get_wakeup_status(struct mt6885_spm_wake_status *wakesta)
+struct mt6885_logger_timer {
+	struct mt_lpm_timer tm;
+	unsigned int fired;
+};
+struct mt6885_logger_fired_info {
+	unsigned int fired;
+	int state_index;
+};
+
+static struct mt6885_logger_timer mt6885_log_timer;
+static struct mt6885_logger_fired_info mt6885_logger_fired;
+
+int mt6885_get_wakeup_status(struct mt6885_log_helper *help)
 {
-	if (!wakesta || !mt6885_spm_base)
+	if (!help->wakesrc || !mt6885_spm_base)
 		return -EINVAL;
 
-	wakesta->r12 = plat_mmio_read(SPM_BK_WAKE_EVENT);
-	wakesta->r12_ext = plat_mmio_read(SPM_WAKEUP_STA);
-	wakesta->raw_sta = plat_mmio_read(SPM_WAKEUP_STA);
-	wakesta->raw_ext_sta = plat_mmio_read(SPM_WAKEUP_EXT_STA);
-	wakesta->md32pcm_wakeup_sta = plat_mmio_read(MD32PCM_WAKEUP_STA);
-	wakesta->md32pcm_event_sta = plat_mmio_read(MD32PCM_EVENT_STA);
+	help->wakesrc->r12 = plat_mmio_read(SPM_BK_WAKE_EVENT);
+	help->wakesrc->r12_ext = plat_mmio_read(SPM_WAKEUP_STA);
+	help->wakesrc->raw_sta = plat_mmio_read(SPM_WAKEUP_STA);
+	help->wakesrc->raw_ext_sta = plat_mmio_read(SPM_WAKEUP_EXT_STA);
+	help->wakesrc->md32pcm_wakeup_sta = plat_mmio_read(MD32PCM_WAKEUP_STA);
+	help->wakesrc->md32pcm_event_sta = plat_mmio_read(MD32PCM_EVENT_STA);
 
-	wakesta->src_req = plat_mmio_read(SPM_SRC_REQ);
+	help->wakesrc->src_req = plat_mmio_read(SPM_SRC_REQ);
 
 	/* backup of SPM_WAKEUP_MISC */
-	wakesta->wake_misc = plat_mmio_read(SPM_BK_WAKE_MISC);
+	help->wakesrc->wake_misc = plat_mmio_read(SPM_BK_WAKE_MISC);
 
 	/* get sleep time */
 	/* backup of PCM_TIMER_OUT */
-	wakesta->timer_out = plat_mmio_read(SPM_BK_PCM_TIMER);
+	help->wakesrc->timer_out = plat_mmio_read(SPM_BK_PCM_TIMER);
 
 	/* get other SYS and co-clock status */
-	wakesta->r13 = plat_mmio_read(PCM_REG13_DATA);
-	wakesta->idle_sta = plat_mmio_read(SUBSYS_IDLE_STA);
-	wakesta->req_sta0 = plat_mmio_read(SRC_REQ_STA_0);
-	wakesta->req_sta1 = plat_mmio_read(SRC_REQ_STA_1);
-	wakesta->req_sta2 = plat_mmio_read(SRC_REQ_STA_2);
-	wakesta->req_sta3 = plat_mmio_read(SRC_REQ_STA_3);
-	wakesta->req_sta4 = plat_mmio_read(SRC_REQ_STA_4);
+	help->wakesrc->r13 = plat_mmio_read(PCM_REG13_DATA);
+	help->wakesrc->idle_sta = plat_mmio_read(SUBSYS_IDLE_STA);
+	help->wakesrc->req_sta0 = plat_mmio_read(SRC_REQ_STA_0);
+	help->wakesrc->req_sta1 = plat_mmio_read(SRC_REQ_STA_1);
+	help->wakesrc->req_sta2 = plat_mmio_read(SRC_REQ_STA_2);
+	help->wakesrc->req_sta3 = plat_mmio_read(SRC_REQ_STA_3);
+	help->wakesrc->req_sta4 = plat_mmio_read(SRC_REQ_STA_4);
 
 	/* get HW CG check status */
-	wakesta->cg_check_sta = plat_mmio_read(SPM_CG_CHECK_STA);
+	help->wakesrc->cg_check_sta = plat_mmio_read(SPM_CG_CHECK_STA);
 
 	/* get debug flag for PCM execution check */
-	wakesta->debug_flag = plat_mmio_read(PCM_WDT_LATCH_SPARE_0);
-	wakesta->debug_flag1 = plat_mmio_read(PCM_WDT_LATCH_SPARE_1);
+	help->wakesrc->debug_flag = plat_mmio_read(PCM_WDT_LATCH_SPARE_0);
+	help->wakesrc->debug_flag1 = plat_mmio_read(PCM_WDT_LATCH_SPARE_1);
 
 	/* get backup SW flag status */
-	wakesta->b_sw_flag0 = plat_mmio_read(SPM_SW_RSV_7);
-	wakesta->b_sw_flag1 = plat_mmio_read(SPM_SW_RSV_8);
+	help->wakesrc->b_sw_flag0 = plat_mmio_read(SPM_SW_RSV_7);
+	help->wakesrc->b_sw_flag1 = plat_mmio_read(SPM_SW_RSV_8);
 
 	/* get ISR status */
-	wakesta->isr = plat_mmio_read(SPM_IRQ_STA);
+	help->wakesrc->isr = plat_mmio_read(SPM_IRQ_STA);
 
 	/* get SW flag status */
-	wakesta->sw_flag0 = plat_mmio_read(SPM_SW_FLAG_0);
-	wakesta->sw_flag1 = plat_mmio_read(SPM_SW_FLAG_1);
+	help->wakesrc->sw_flag0 = plat_mmio_read(SPM_SW_FLAG_0);
+	help->wakesrc->sw_flag1 = plat_mmio_read(SPM_SW_FLAG_1);
 
 	/* get CLK SETTLE */
-	wakesta->clk_settle = plat_mmio_read(SPM_CLK_SETTLE);
+	help->wakesrc->clk_settle = plat_mmio_read(SPM_CLK_SETTLE);
 	/* check abort */
-	wakesta->is_abort = wakesta->debug_flag & DEBUG_ABORT_MASK;
-	wakesta->is_abort |= wakesta->debug_flag1 & DEBUG_ABORT_MASK_1;
+	help->wakesrc->is_abort =
+		help->wakesrc->debug_flag & DEBUG_ABORT_MASK;
+	help->wakesrc->is_abort |=
+		help->wakesrc->debug_flag1 & DEBUG_ABORT_MASK_1;
 
+	help->cur += 1;
 	return 0;
 }
 
@@ -236,11 +267,12 @@ void mt6885_show_detailed_wakeup_reason(struct mt6885_spm_wake_status *wakesta)
 	}
 }
 
-int mt6885_show_log_message(int type, const char *prefix, void *data)
+static int mt6885_show_message(struct mt6885_spm_wake_status *wakesrc, int type,
+					const char *prefix, void *data)
 {
 	#define LOG_BUF_SIZE		256
 	#define LOG_BUF_OUT_SZ		768
-	#define IS_WAKE_MISC(x)	(mt6885_wake.wake_misc & x)
+	#define IS_WAKE_MISC(x)	(wakesrc->wake_misc & x)
 	#define IS_LOGBUF(ptr, newstr) \
 		((strlen(ptr) + strlen(newstr)) < LOG_BUF_SIZE)
 
@@ -253,45 +285,44 @@ int mt6885_show_log_message(int type, const char *prefix, void *data)
 	unsigned int wr = WR_UNKNOWN;
 	const char *scenario = prefix ?: "UNKNOWN";
 
-	mt6885_get_wakeup_status(&mt6885_wake);
-
 	/* Disable rcu lock checking */
-	rcu_irq_enter_irqson();
+	if (type == MT_LPM_ISSUER_SUSPEND)
+		rcu_irq_enter_irqson();
 
-	if (mt6885_wake.is_abort != 0) {
+	if (wakesrc->is_abort != 0) {
 		/* add size check for vcoredvfs */
 		aee_sram_printk("SPM ABORT (%s), r13 = 0x%x, ",
-			scenario, mt6885_wake.r13);
+			scenario, wakesrc->r13);
 		log_size += scnprintf(log_buf + log_size,
 			LOG_BUF_OUT_SZ - log_size,
 			"[SPM] ABORT (%s), r13 = 0x%x, ",
-			scenario, mt6885_wake.r13);
+			scenario, wakesrc->r13);
 
 		aee_sram_printk(" debug_flag = 0x%x 0x%x",
-			mt6885_wake.debug_flag, mt6885_wake.debug_flag1);
+			wakesrc->debug_flag, wakesrc->debug_flag1);
 		log_size += scnprintf(log_buf + log_size,
 			LOG_BUF_OUT_SZ - log_size,
 			" debug_flag = 0x%x 0x%x",
-			mt6885_wake.debug_flag, mt6885_wake.debug_flag1);
+			wakesrc->debug_flag, wakesrc->debug_flag1);
 
 		aee_sram_printk(" sw_flag = 0x%x 0x%x",
-			mt6885_wake.sw_flag0, mt6885_wake.sw_flag1);
+			wakesrc->sw_flag0, wakesrc->sw_flag1);
 		log_size += scnprintf(log_buf + log_size,
 			LOG_BUF_OUT_SZ - log_size,
 			" sw_flag = 0x%x 0x%x\n",
-			mt6885_wake.sw_flag0, mt6885_wake.sw_flag1);
+			wakesrc->sw_flag0, wakesrc->sw_flag1);
 
 		aee_sram_printk(" b_sw_flag = 0x%x 0x%x",
-			mt6885_wake.b_sw_flag0, mt6885_wake.b_sw_flag1);
+			wakesrc->b_sw_flag0, wakesrc->b_sw_flag1);
 		log_size += scnprintf(log_buf + log_size,
 			LOG_BUF_OUT_SZ - log_size,
 			" b_sw_flag = 0x%x 0x%x",
-			mt6885_wake.b_sw_flag0, mt6885_wake.b_sw_flag1);
+			wakesrc->b_sw_flag0, wakesrc->b_sw_flag1);
 
 		wr =  WR_ABORT;
 	} else {
-		if (mt6885_wake.r12 & R12_PCM_TIMER) {
-			if (mt6885_wake.wake_misc & WAKE_MISC_PCM_TIMER_EVENT) {
+		if (wakesrc->r12 & R12_PCM_TIMER) {
+			if (wakesrc->wake_misc & WAKE_MISC_PCM_TIMER_EVENT) {
 				local_ptr = " PCM_TIMER";
 				if (IS_LOGBUF(buf, local_ptr))
 					strncat(buf, local_ptr,
@@ -300,7 +331,7 @@ int mt6885_show_log_message(int type, const char *prefix, void *data)
 			}
 		}
 
-		if (mt6885_wake.r12 & R12_TWAM_IRQ_B) {
+		if (wakesrc->r12 & R12_TWAM_IRQ_B) {
 			if (IS_WAKE_MISC(WAKE_MISC_DVFSRC_IRQ)) {
 				local_ptr = " DVFSRC";
 				if (IS_LOGBUF(buf, local_ptr))
@@ -366,7 +397,7 @@ int mt6885_show_log_message(int type, const char *prefix, void *data)
 			}
 		}
 		for (i = 1; i < 32; i++) {
-			if (mt6885_wake.r12 & (1U << i)) {
+			if (wakesrc->r12 & (1U << i)) {
 				if (IS_LOGBUF(buf, mt6885_wakesrc_str[i]))
 					strncat(buf, mt6885_wakesrc_str[i],
 						strlen(mt6885_wakesrc_str[i]));
@@ -379,46 +410,46 @@ int mt6885_show_log_message(int type, const char *prefix, void *data)
 		log_size += scnprintf(log_buf + log_size,
 			LOG_BUF_OUT_SZ - log_size,
 			"%s wake up by %s, timer_out = %u, r13 = 0x%x, debug_flag = 0x%x 0x%x, ",
-			scenario, buf, mt6885_wake.timer_out, mt6885_wake.r13,
-			mt6885_wake.debug_flag, mt6885_wake.debug_flag1);
+			scenario, buf, wakesrc->timer_out, wakesrc->r13,
+			wakesrc->debug_flag, wakesrc->debug_flag1);
 
 		log_size += scnprintf(log_buf + log_size,
 			LOG_BUF_OUT_SZ - log_size,
 			"r12 = 0x%x, r12_ext = 0x%x, raw_sta = 0x%x 0x%x 0x%x, idle_sta = 0x%x, ",
-			mt6885_wake.r12, mt6885_wake.r12_ext,
-			mt6885_wake.raw_sta,
-			mt6885_wake.md32pcm_wakeup_sta,
-			mt6885_wake.md32pcm_event_sta,
-			mt6885_wake.idle_sta);
+			wakesrc->r12, wakesrc->r12_ext,
+			wakesrc->raw_sta,
+			wakesrc->md32pcm_wakeup_sta,
+			wakesrc->md32pcm_event_sta,
+			wakesrc->idle_sta);
 
 		log_size += scnprintf(log_buf + log_size,
 			  LOG_BUF_OUT_SZ - log_size,
 			  " req_sta =  0x%x 0x%x 0x%x 0x%x 0x%x, cg_check_sta =0x%x, isr = 0x%x, ",
-			  mt6885_wake.req_sta0, mt6885_wake.req_sta1,
-			  mt6885_wake.req_sta2, mt6885_wake.req_sta3,
-			  mt6885_wake.req_sta4, mt6885_wake.cg_check_sta,
-			  mt6885_wake.isr);
+			  wakesrc->req_sta0, wakesrc->req_sta1,
+			  wakesrc->req_sta2, wakesrc->req_sta3,
+			  wakesrc->req_sta4, wakesrc->cg_check_sta,
+			  wakesrc->isr);
 
 		log_size += scnprintf(log_buf + log_size,
 				LOG_BUF_OUT_SZ - log_size,
 				"raw_ext_sta = 0x%x, wake_misc = 0x%x, pcm_flag = 0x%x 0x%x 0x%x 0x%x, req = 0x%x, ",
-				mt6885_wake.raw_ext_sta,
-				mt6885_wake.wake_misc,
-				mt6885_wake.sw_flag0,
-				mt6885_wake.sw_flag1, mt6885_wake.b_sw_flag0,
-				mt6885_wake.b_sw_flag0,
-				mt6885_wake.src_req);
+				wakesrc->raw_ext_sta,
+				wakesrc->wake_misc,
+				wakesrc->sw_flag0,
+				wakesrc->sw_flag1, wakesrc->b_sw_flag0,
+				wakesrc->b_sw_flag0,
+				wakesrc->src_req);
 
 		log_size += scnprintf(log_buf + log_size,
 				LOG_BUF_OUT_SZ - log_size,
-				" clk_settle = 0x%x, ", mt6885_wake.clk_settle);
+				" clk_settle = 0x%x, ", wakesrc->clk_settle);
 
-		if (!strcmp(scenario, "suspend")) {
+		if (type == MT_LPM_ISSUER_SUSPEND) {
 			/* calculate 26M off percentage in suspend period */
-			if (mt6885_wake.timer_out != 0) {
+			if (wakesrc->timer_out != 0) {
 				spm_26M_off_pct =
 					(100 * plat_mmio_read(SPM_BK_VTCXO_DUR))
-							/ mt6885_wake.timer_out;
+							/ wakesrc->timer_out;
 			}
 
 			log_size += scnprintf(log_buf + log_size,
@@ -431,25 +462,134 @@ int mt6885_show_log_message(int type, const char *prefix, void *data)
 	}
 	WARN_ON(log_size >= LOG_BUF_OUT_SZ);
 
-	printk_deferred("[name:spm&][SPM] %s", log_buf);
+	if (type == MT_LPM_ISSUER_SUSPEND) {
+		printk_deferred("[name:spm&][SPM] %s", log_buf);
+		mt6885_show_detailed_wakeup_reason(wakesrc);
 
-	if (!strcmp(scenario, "suspend"))
-		mt6885_show_detailed_wakeup_reason(&mt6885_wake);
-
-	/* Eable rcu lock checking */
-	rcu_irq_exit_irqson();
+		/* Eable rcu lock checking */
+		rcu_irq_exit_irqson();
+	} else
+		pr_info("[name:spm&][SPM] %s", log_buf);
 
 	return wr;
 }
 
+int mt6885_issuer_func(int type, const char *prefix, void *data)
+{
+	mt6885_get_wakeup_status(&mt6885_logger_help);
+	return mt6885_show_message(mt6885_logger_help.wakesrc,
+					type, prefix, data);
+}
 
 struct mtk_lpm_issuer mt6885_issuer = {
-	.log = mt6885_show_log_message,
+	.log = mt6885_issuer_func,
 };
+
+static int mt6885_log_timer_func(unsigned long long dur, void *priv)
+{
+	struct mt6885_logger_timer *timer =
+			(struct mt6885_logger_timer *)priv;
+	struct mt6885_logger_fired_info *info = &mt6885_logger_fired;
+
+	if (timer->fired != info->fired) {
+		/* if the wake src had beed update before
+		 * then won't do wake src update
+		 */
+		if (mt6885_logger_help.prev == mt6885_logger_help.cur)
+			mt6885_get_wakeup_status(&mt6885_logger_help);
+		mt6885_show_message(mt6885_logger_help.wakesrc,
+					MT_LPM_ISSUER_CPUIDLE,
+					"MCUSYSOFF", NULL);
+		mt6885_logger_help.prev = mt6885_logger_help.cur;
+	} else
+		pr_info("[name:spm&][SPM] MCUSYSOFF Didn't enter low power scenario\n");
+
+	timer->fired = info->fired;
+	return 0;
+}
+
+static int mt6885_logger_nb_func(struct notifier_block *nb,
+			unsigned long action, void *data)
+{
+	struct mtk_lpm_nb_data *nb_data = (struct mtk_lpm_nb_data *)data;
+	struct mt6885_logger_fired_info *info = &mt6885_logger_fired;
+
+	if (nb_data && (action == MTK_LPM_NB_BEFORE_REFLECT)
+	    && (nb_data->index == info->state_index))
+		info->fired++;
+
+	return NOTIFY_OK;
+}
+
+struct notifier_block mt6885_logger_nb = {
+	.notifier_call = mt6885_logger_nb_func,
+};
+
+static ssize_t mt6885_logger_debugfs_read(char *ToUserBuf,
+					size_t sz, void *priv)
+{
+	char *p = ToUserBuf;
+	int len;
+
+	if (priv == ((void *)&mt6885_log_timer)) {
+		len = scnprintf(p, sz, "%lu\n",
+			mtk_lpm_timer_interval(&mt6885_log_timer.tm));
+		p += len;
+		sz -= len;
+	}
+
+	return (p - ToUserBuf);
+}
+
+static ssize_t mt6885_logger_debugfs_write(char *FromUserBuf,
+				   size_t sz, void *priv)
+{
+	if (priv == ((void *)&mt6885_log_timer)) {
+		unsigned int val;
+
+		if (!kstrtouint(FromUserBuf, 10, &val)) {
+			if (val == 0)
+				mtk_lpm_timer_stop(&mt6885_log_timer.tm);
+			else
+				mtk_lpm_timer_interval_update(
+						&mt6885_log_timer.tm, val);
+		}
+	}
+	return sz;
+}
+
+struct MT6886_LOGGER_NODE {
+	struct mtk_lp_sysfs_handle handle;
+	struct mtk_lp_sysfs_op op;
+};
+#define MT6885_LOGGER_NODE_INIT(_n, _priv) ({\
+	_n.op.fs_read = mt6885_logger_debugfs_read;\
+	_n.op.fs_write = mt6885_logger_debugfs_write;\
+	_n.op.priv = _priv; })\
+
+
+struct mtk_lp_sysfs_handle mt6885_log_tm_node;
+struct MT6886_LOGGER_NODE mt6885_log_tm_interval;
+
+int mt6885_logger_timer_debugfs_init(void)
+{
+	mtk_lpm_sysfs_sub_entry_add("logger", 0644,
+				NULL, &mt6885_log_tm_node);
+
+	MT6885_LOGGER_NODE_INIT(mt6885_log_tm_interval,
+				&mt6885_log_timer);
+	mtk_lpm_sysfs_sub_entry_node_add("interval", 0644,
+				&mt6885_log_tm_interval.op,
+				&mt6885_log_tm_node,
+				&mt6885_log_tm_interval.handle);
+	return 0;
+}
 
 int __init mt6885_logger_init(void)
 {
 	struct device_node *node = NULL;
+	struct cpuidle_driver *drv;
+	struct cpuidle_device *dev;
 
 	node = of_find_compatible_node(NULL, NULL, "mediatek,sleep");
 
@@ -465,7 +605,33 @@ int __init mt6885_logger_init(void)
 			__func__, __LINE__);
 
 	mt6885_get_spm_wakesrc_irq();
+	mtk_lpm_sysfs_root_entry_create();
+	mt6885_logger_timer_debugfs_init();
 
+	dev = cpuidle_get_device();
+	drv = cpuidle_get_cpu_driver(dev);
+	mt6885_logger_fired.state_index = -1;
+
+	if (drv) {
+		int idx;
+
+		for (idx = 0; idx < drv->state_count; ++idx) {
+			if (!strcmp(MT6885_LOG_MONITOR_STATE_NAME,
+					drv->states[idx].name)) {
+				mt6885_logger_fired.state_index = idx;
+				break;
+			}
+		}
+	}
+
+	mtk_lpm_notifier_register(&mt6885_logger_nb);
+
+	mt6885_log_timer.tm.timeout = mt6885_log_timer_func;
+	mt6885_log_timer.tm.priv = &mt6885_log_timer;
+	mtk_lpm_timer_init(&mt6885_log_timer.tm, MTK_LPM_TIMER_REPEAT);
+	mtk_lpm_timer_interval_update(&mt6885_log_timer.tm,
+					MT6885_LOG_DEFAULT_MS);
+	mtk_lpm_timer_start(&mt6885_log_timer.tm);
 	return 0;
 }
 late_initcall_sync(mt6885_logger_init);

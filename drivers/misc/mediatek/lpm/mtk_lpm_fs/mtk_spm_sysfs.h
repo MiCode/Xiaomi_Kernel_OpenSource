@@ -9,15 +9,6 @@
 #include "mtk_lp_sysfs.h"
 #include "mtk_lp_kernfs.h"
 
-/* For legacy definition*/
-#define mtk_spm_sysfs_handle		mtk_lp_sysfs_handle
-#define mtk_spm_sysfs_op		mtk_lp_sysfs_op
-
-#define mtk_spm_sysfs_entry_func_create		mtk_lp_sysfs_entry_func_create
-#define mtk_spm_sysfs_entry_func_node_add	mtk_lp_sysfs_entry_func_node_add
-#define mtk_spm_sysfs_entry_create		mtk_spm_sysfs_root_entry_create
-
-
 /*Get the mtk idle system fs root entry handle*/
 int mtk_spm_sysfs_entry_root_get(struct mtk_lp_sysfs_handle **handle);
 

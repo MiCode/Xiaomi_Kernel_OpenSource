@@ -9,7 +9,6 @@
 #include "mt6885.h"
 #include "mt6885_ipi_sspm.h"
 
-#include <idles/mt6885_mcusys.h>
 #include <suspend/mt6885_suspend.h>
 
 static unsigned int mt6885_lp_pwr_state;
@@ -55,7 +54,6 @@ int mt6885_do_mcusys_prepare_on_ex(unsigned int clr_status)
 static int __init mt6885_init(void)
 {
 	mtk_lp_plat_apmcu_init();
-	mt6885_model_mcusys_init();
 	mt6885_model_suspend_init();
 	return 0;
 }

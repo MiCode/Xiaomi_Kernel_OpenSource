@@ -26,6 +26,8 @@
 #define MT_LPM_SMC_ACT_SET		(1<<0)
 #define MT_LPM_SMC_ACT_CLR		(1<<1)
 #define MT_LPM_SMC_ACT_GET		(1<<2UL)
+/* compatible action for legacy smc from lk */
+#define MT_LPM_SMC_ACT_COMPAT		(1<<7UL)
 
 
 #define MT_LPM_SMC_MAGIC		0xDA000000
@@ -116,6 +118,9 @@ enum MT_SPM_DBG_SMC_UID {
 	MT_SPM_DBG_SMC_UID_RES_USER_NAME,
 	MT_SPM_DBG_SMC_UID_DOE_RESOURCE_CTRL,
 	MT_SPM_DBG_SMC_UID_DOE_RC,
+	MT_SPM_DBG_SMC_UID_RC_COND_CTRL,
+	MT_SPM_DBG_SMC_UID_RC_RES_CTRL,
+	MT_SPM_DBG_SMC_UID_RC_RES_INFO,
 };
 
 #define mtk_lpm_smc_spm_dbg(_lp_id, _act, _val1, _val2) ({\
