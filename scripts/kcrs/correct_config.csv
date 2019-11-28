@@ -655,7 +655,7 @@ CONFIG_MTK_FM_CHIP,PROJECT,xueqin.wang,,,,,,,,,,,,,,
 CONFIG_MTK_FM_SUPPORT,PROJECT,xueqin.wang,,,,,,,,,,,,,,
 CONFIG_MTK_FMRADIO,PROJECT,xueqin.wang,,,,,,,,,,,,,,
 CONFIG_MTK_FPSGO_V3,PROJECT,poting.chen,,,,,,,,,,,,,,
-CONFIG_MTK_FREQ_HOPPING,COMMON,konrad.wei,,y,y,y,y,y,y,y,y,y,y,y,y,y
+CONFIG_MTK_FREQ_HOPPING,PROJECT,konrad.wei,,,,,,,,,,,,,,
 CONFIG_MTK_FTRACE_DEFAULT_ENABLE,USER;PROJECT,neil.yang,,,,,,,,,,,,,,
 CONFIG_MTK_GAMEROTVECHUB,PROJECT,weiqi.fu,new config in this commit 6cf72299191fe832dffff96cd9233bcf981b52a0,,,,,,,,,,,,,
 CONFIG_MTK_GAUGE_VERSION,PROJECT,weiching.lin,,,,,,,,,,,,,,
