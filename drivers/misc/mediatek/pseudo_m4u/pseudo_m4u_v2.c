@@ -1905,11 +1905,8 @@ int pseudo_put_sgtable_pages(struct sg_table *table, int nents)
 
 		if (IS_ERR(page))
 			return 0;
-		if (page) {
-			if (!PageReserved(page))
-				SetPageDirty(page);
+		if (page)
 			put_page(page);
-		}
 	}
 	return 0;
 }
