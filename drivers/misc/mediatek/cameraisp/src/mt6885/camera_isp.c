@@ -6043,8 +6043,8 @@ static inline void ISP_StopSVHW(int module)
 				(sec - m_sec));
 		}
 	}
-
-	LOG_INF("%s: reset\n", moduleName);
+	if ((module >= ISP_CAMSV0_IDX) && (module <= ISP_CAMSV3_IDX))
+		LOG_INF("%s: reset\n", moduleName);
 	/* timer */
 	time = ktime_get();
 	m_sec = time;
