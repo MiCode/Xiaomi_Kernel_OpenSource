@@ -55,6 +55,10 @@ extern "C" {
 #include "mtk_unified_power_mt6885.h"
 #endif
 
+#if defined(CONFIG_MACH_MT6873)
+#include "mtk_unified_power_mt6873.h"
+#endif
+
 #define UPOWER_TAG "[UPOWER]"
 
 #define upower_error(fmt, args...) pr_debug(UPOWER_TAG fmt, ##args)
@@ -151,5 +155,4 @@ extern void print_diff_results(unsigned int type);
 #ifdef __cplusplus
 }
 #endif
-
 #endif
