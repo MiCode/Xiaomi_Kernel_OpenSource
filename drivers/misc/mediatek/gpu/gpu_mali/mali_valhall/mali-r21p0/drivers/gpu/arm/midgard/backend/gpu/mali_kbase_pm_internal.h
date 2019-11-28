@@ -682,4 +682,22 @@ extern bool corestack_driver_control;
  * Return: true if l2 need to power on
  */
 bool kbase_pm_is_l2_desired(struct kbase_device *kbdev);
+#ifdef ENABLE_COMMON_DVFS
+struct kbase_device *mtk_get_mali_dev(void);
+
+#ifdef GED_ENABLE_DVFS_LOADING_MODE
+void MTKCalGpuUtilization_ex(unsigned int *pui32Loading,
+							unsigned int *pui32Block,
+							unsigned int *pui32Idle,
+							void *Util_Ex);
+#else
+void MTKCalGpuUtilization(unsigned int *pui32Loading,
+						unsigned int *pui32Block,
+						unsigned int *pui32Idle);
+#endif
+u32 kbasep_get_gl_utilization(void);
+u32 kbasep_get_cl_js0_utilization(void);
+u32 kbasep_get_cl_js1_utilization(void);
+#endif /* ENABLE_COMMON_DVFS */
+
 #endif /* _KBASE_BACKEND_PM_INTERNAL_H_ */

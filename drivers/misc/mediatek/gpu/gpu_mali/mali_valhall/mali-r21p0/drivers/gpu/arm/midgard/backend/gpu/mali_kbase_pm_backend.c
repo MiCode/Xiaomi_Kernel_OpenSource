@@ -337,9 +337,11 @@ static void kbase_pm_l2_clock_slow(struct kbase_device *kbdev)
 	if (WARN_ON_ONCE(!clk))
 		return;
 
+#ifndef ENABLE_COMMON_DVFS
 	/* Stop the metrics gathering framework */
 	if (kbase_pm_metrics_is_active(kbdev))
 		kbase_pm_metrics_stop(kbdev);
+#endif /*ENABLE_COMMON_DVFS */
 
 	/* Keep the current freq to restore it upon resume */
 	kbdev->previous_frequency = clk_get_rate(clk);

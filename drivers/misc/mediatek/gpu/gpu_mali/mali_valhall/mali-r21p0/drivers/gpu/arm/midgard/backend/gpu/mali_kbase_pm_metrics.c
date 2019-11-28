@@ -45,6 +45,11 @@
 #define KBASE_PM_TIME_SHIFT			8
 
 #ifdef CONFIG_MALI_MIDGARD_DVFS
+#ifdef ENABLE_COMMON_DVFS
+int g_current_sample_gl_utilization;
+int g_current_sample_cl_utilization[2] = {0};
+#endif /* ENABLE_COMMON_DVFS */
+#ifndef ENABLE_COMMON_DVFS
 static enum hrtimer_restart dvfs_callback(struct hrtimer *timer)
 {
 	unsigned long flags;
@@ -66,6 +71,7 @@ static enum hrtimer_restart dvfs_callback(struct hrtimer *timer)
 
 	return HRTIMER_NORESTART;
 }
+#endif /* ENABLE_COMMON_DVFS */
 #endif /* CONFIG_MALI_MIDGARD_DVFS */
 
 int kbasep_pm_metrics_init(struct kbase_device *kbdev)
@@ -88,14 +94,24 @@ int kbasep_pm_metrics_init(struct kbase_device *kbdev)
 	kbdev->pm.backend.metrics.values.busy_cl[1] = 0;
 	kbdev->pm.backend.metrics.values.busy_gl = 0;
 
+#ifdef GED_ENABLE_DVFS_LOADING_MODE
+	kbdev->pm.backend.metrics.values.busy_gl_plus[0] = 0;
+	kbdev->pm.backend.metrics.values.busy_gl_plus[1] = 0;
+	kbdev->pm.backend.metrics.values.busy_gl_plus[2] = 0;
+#endif
+
 	spin_lock_init(&kbdev->pm.backend.metrics.lock);
 
 #ifdef CONFIG_MALI_MIDGARD_DVFS
+#ifndef ENABLE_COMMON_DVFS
 	hrtimer_init(&kbdev->pm.backend.metrics.timer, CLOCK_MONOTONIC,
 							HRTIMER_MODE_REL);
 	kbdev->pm.backend.metrics.timer.function = dvfs_callback;
 
 	kbase_pm_metrics_start(kbdev);
+#else
+	kbdev->pm.backend.metrics.timer_active = false;
+#endif /* ENABLE_COMMON_DVFS */
 #endif /* CONFIG_MALI_MIDGARD_DVFS */
 
 	return 0;
@@ -105,6 +121,7 @@ KBASE_EXPORT_TEST_API(kbasep_pm_metrics_init);
 void kbasep_pm_metrics_term(struct kbase_device *kbdev)
 {
 #ifdef CONFIG_MALI_MIDGARD_DVFS
+#ifndef ENABLE_COMMON_DVFS
 	unsigned long flags;
 
 	KBASE_DEBUG_ASSERT(kbdev != NULL);
@@ -114,6 +131,7 @@ void kbasep_pm_metrics_term(struct kbase_device *kbdev)
 	spin_unlock_irqrestore(&kbdev->pm.backend.metrics.lock, flags);
 
 	hrtimer_cancel(&kbdev->pm.backend.metrics.timer);
+#endif /* ENABLE_COMMON_DVFS */
 #endif /* CONFIG_MALI_MIDGARD_DVFS */
 }
 
@@ -147,6 +165,14 @@ static void kbase_pm_get_dvfs_utilisation_calc(struct kbase_device *kbdev,
 			kbdev->pm.backend.metrics.values.busy_gl += ns_time;
 		if (kbdev->pm.backend.metrics.active_gl_ctx[2])
 			kbdev->pm.backend.metrics.values.busy_gl += ns_time;
+#ifdef GED_ENABLE_DVFS_LOADING_MODE
+		if (kbdev->pm.backend.metrics.active_gl_ctx[0])
+			kbdev->pm.backend.metrics.values.busy_gl_plus[0] += ns_time;
+		if (kbdev->pm.backend.metrics.active_gl_ctx[1])
+			kbdev->pm.backend.metrics.values.busy_gl_plus[1] += ns_time;
+		if (kbdev->pm.backend.metrics.active_gl_ctx[2])
+			kbdev->pm.backend.metrics.values.busy_gl_plus[2] += ns_time;
+#endif
 	} else {
 		kbdev->pm.backend.metrics.values.time_idle += (u32) (ktime_to_ns(diff)
 							>> KBASE_PM_TIME_SHIFT);
@@ -172,6 +198,11 @@ void kbase_pm_get_dvfs_metrics(struct kbase_device *kbdev,
 	diff->busy_cl[0] = cur->busy_cl[0] - last->busy_cl[0];
 	diff->busy_cl[1] = cur->busy_cl[1] - last->busy_cl[1];
 	diff->busy_gl = cur->busy_gl - last->busy_gl;
+#ifdef GED_ENABLE_DVFS_LOADING_MODE
+	diff->busy_gl_plus[0]= cur->busy_gl_plus[0]- last->busy_gl_plus[0];
+	diff->busy_gl_plus[1] = cur->busy_gl_plus[1]- last->busy_gl_plus[1];
+	diff->busy_gl_plus[2] = cur->busy_gl_plus[2]- last->busy_gl_plus[2];
+#endif
 
 	*last = *cur;
 
@@ -181,6 +212,102 @@ KBASE_EXPORT_TEST_API(kbase_pm_get_dvfs_metrics);
 #endif
 
 #ifdef CONFIG_MALI_MIDGARD_DVFS
+#ifdef ENABLE_COMMON_DVFS
+#ifdef GED_ENABLE_DVFS_LOADING_MODE
+
+struct GpuUtilization_Ex
+{
+	unsigned int util_active;
+	unsigned int util_3d;
+	unsigned int util_ta;
+	unsigned int util_compute;
+};
+
+void MTKCalGpuUtilization_ex(unsigned int *pui32Loading,
+							unsigned int *pui32Block,
+							unsigned int *pui32Idle,
+							void *Util_Ex)
+#else
+void MTKCalGpuUtilization(unsigned int *pui32Loading,
+							unsigned int *pui32Block,
+							unsigned int *pui32Idle)
+#endif
+{
+	struct kbase_device *kbdev = (struct kbase_device *)mtk_get_mali_dev();
+	int utilisation, util_gl_share;
+	int util_cl_share[2];
+	int busy;
+	struct kbasep_pm_metrics *diff;
+#ifdef GED_ENABLE_DVFS_LOADING_MODE
+	struct GpuUtilization_Ex *util_ex =
+			(struct GpuUtilization_Ex *) Util_Ex;
+#endif
+
+	KBASE_DEBUG_ASSERT(kbdev != NULL);
+
+	diff = &kbdev->pm.backend.metrics.dvfs_diff;
+
+	kbase_pm_get_dvfs_metrics(kbdev, &kbdev->pm.backend.metrics.dvfs_last, diff);
+
+	utilisation = (100 * diff->time_busy) /
+			max(diff->time_busy + diff->time_idle, 1u);
+
+	busy = max(diff->busy_gl + diff->busy_cl[0] + diff->busy_cl[1], 1u);
+
+	util_gl_share = (100 * diff->busy_gl) / busy;
+	util_cl_share[0] = (100 * diff->busy_cl[0]) / busy;
+	util_cl_share[1] = (100 * diff->busy_cl[1]) / busy;
+
+#ifdef GED_ENABLE_DVFS_LOADING_MODE
+	util_ex->util_active = utilisation; /* active cycles */
+	util_ex->util_3d = (100 * diff->busy_gl_plus[0]) /
+			max(diff->time_busy + diff->time_idle, 1u);/* 3D */
+	util_ex->util_ta = (100 * (diff->busy_gl_plus[1]+diff->busy_gl_plus[2])) /
+			max(diff->time_busy + diff->time_idle, 1u);/* TA */
+	util_ex->util_compute = (100 * (diff->busy_cl[0]+diff->busy_cl[1])) /
+			max(diff->time_busy + diff->time_idle, 1u);/* compute */
+#endif
+
+	if (pui32Loading)
+		*pui32Loading = utilisation;
+
+	if (pui32Idle)
+		*pui32Idle = 100 - utilisation;
+
+	if (utilisation < 0 || util_gl_share < 0 || util_cl_share[0] < 0 ||
+			util_cl_share[1] < 0) {
+		utilisation = 0;
+		util_gl_share = 0;
+		util_cl_share[0] = 0;
+		util_cl_share[1] = 0;
+	} else {
+		g_current_sample_gl_utilization = utilisation;
+		g_current_sample_cl_utilization[0] = util_cl_share[0];
+		g_current_sample_cl_utilization[1] = util_cl_share[1];
+	}
+}
+
+#ifdef CONFIG_PROC_FS
+u32 kbasep_get_gl_utilization(void)
+{
+	return g_current_sample_gl_utilization;
+}
+KBASE_EXPORT_TEST_API(kbasep_get_gl_utilization)
+
+u32 kbasep_get_cl_js0_utilization(void)
+{
+	return g_current_sample_cl_utilization[0];
+}
+KBASE_EXPORT_TEST_API(kbasep_get_cl_js0_utilization)
+
+u32 kbasep_get_cl_js1_utilization(void)
+{
+	return g_current_sample_cl_utilization[1];
+}
+KBASE_EXPORT_TEST_API(kbasep_get_cl_js1_utilization)
+#endif /* COMFIG_PROC_FS */
+#endif /* ENABLE_COMMON_DVFS */
+
 void kbase_pm_get_dvfs_action(struct kbase_device *kbdev)
 {
 	int utilisation, util_gl_share;
@@ -202,9 +329,12 @@ void kbase_pm_get_dvfs_action(struct kbase_device *kbdev)
 	util_cl_share[0] = (100 * diff->busy_cl[0]) / busy;
 	util_cl_share[1] = (100 * diff->busy_cl[1]) / busy;
 
+#if 0 /* #ifdef CONFIG_MALI_MIDGARD_DVFS */
 	kbase_platform_dvfs_event(kbdev, utilisation, util_gl_share, util_cl_share);
+#endif /*CONFIG_MALI_MIDGARD_DVFS */
 }
 
+#ifndef ENABLE_COMMON_DVFS
 bool kbase_pm_metrics_is_active(struct kbase_device *kbdev)
 {
 	bool isactive;
@@ -241,7 +371,7 @@ void kbase_pm_metrics_stop(struct kbase_device *kbdev)
 	spin_unlock_irqrestore(&kbdev->pm.backend.metrics.lock, flags);
 	hrtimer_cancel(&kbdev->pm.backend.metrics.timer);
 }
-
+#endif /*ENABLE_COMMON_DVFS */
 
 #endif /* CONFIG_MALI_MIDGARD_DVFS */
 

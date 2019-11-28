@@ -103,6 +103,8 @@
 
 #include <mali_kbase_as_fault_debugfs.h>
 
+#include <mtk_gpufreq.h>
+
 /* GPU IRQ Tags */
 #define	JOB_IRQ_TAG	0
 #define MMU_IRQ_TAG	1
@@ -114,6 +116,36 @@ static DEFINE_MUTEX(kbase_dev_list_lock);
 static LIST_HEAD(kbase_dev_list);
 
 #define KERNEL_SIDE_DDK_VERSION_STRING "K:" MALI_RELEASE_NAME "(GPL)"
+
+#include <linux/of.h>
+#include <linux/of_address.h>
+#include "platform/mtk_platform_common.h"
+
+#ifdef ENABLE_COMMON_DVFS
+/* MTK GPU DVFS */
+#include <mali_kbase_pm_internal.h>
+static struct kbase_device *g_malidev;
+
+struct kbase_device *mtk_get_mali_dev(void)
+{
+	return g_malidev;
+}
+
+void mtk_gpu_dvfs_commit(unsigned long ui32NewFreqID, GED_DVFS_COMMIT_TYPE eCommitType, int *pbCommited)
+{
+	int ret;
+
+	ret = mtk_set_mt_gpufreq_target(ui32NewFreqID);
+
+	if (pbCommited) {
+		if (ret == 0)
+			*pbCommited = true;
+		else
+			*pbCommited = false;
+	}
+
+}
+#endif /* ENABLE_COMMON_DVFS */
 
 /**
  * kbase_file_new - Create an object representing a device file
@@ -3910,6 +3942,9 @@ static int kbase_platform_device_remove(struct platform_device *pdev)
 	}
 #endif
 
+	if (mtk_common_deinit(pdev, kbdev))
+		pr_info("[MALI] fail to mtk_common_deinit\n");
+
 	if (kbdev->inited_subsys & inited_dev_list) {
 		dev_list = kbase_dev_list_get();
 		list_del(&kbdev->entry);
@@ -4071,6 +4106,15 @@ int kbase_backend_devfreq_init(struct kbase_device *kbdev)
  * initialization time. The buffer size can be changed later via debugfs. */
 #define KBASEP_DEFAULT_REGISTER_HISTORY_SIZE ((u16)512)
 
+/* the lock prove have false alarm when driver probe. skip it*/
+#define MTK_SKIP_LOCK_PROVE 1
+
+#if MTK_SKIP_LOCK_PROVE
+#define RETURN_ERROR(X) do { lockdep_on(); return X; } while (0)
+#else
+#define RETURN_ERROR(X) do { return X; } while (0)
+#endif
+
 static int kbase_platform_device_probe(struct platform_device *pdev)
 {
 	struct kbase_device *kbdev;
@@ -4080,11 +4124,25 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 	const struct list_head *dev_list;
 	int err = 0;
 
+#if MTK_SKIP_LOCK_PROVE
+	lockdep_off();
+#endif
+
+	/* MTK */
+	/* make sure gpufreq driver is ready */
+	pr_info("%s start\n", __func__);
+
+	if (mt_gpufreq_not_ready()) {
+		pr_info("gpufreq driver is not ready: %d\n", -EPROBE_DEFER);
+		RETURN_ERROR(-EPROBE_DEFER);
+	}
+	/********/
+
 	kbdev = kbase_device_alloc();
 	if (!kbdev) {
 		dev_err(&pdev->dev, "Allocate device failed\n");
 		kbase_platform_device_remove(pdev);
-		return -ENOMEM;
+		RETURN_ERROR(-ENOMEM);
 	}
 
 	kbdev->dev = &pdev->dev;
@@ -4095,23 +4153,32 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 	if (err) {
 		dev_err(&pdev->dev, "Dummy model initialization failed\n");
 		kbase_platform_device_remove(pdev);
-		return err;
+		RETURN_ERROR(err);
 	}
 	kbdev->inited_subsys |= inited_gpu_device;
 #endif /* CONFIG_MALI_NO_MALI */
+
+	/* MTK */
+	err |= mtk_common_init(pdev, kbdev);
+	err |= mtk_platform_init(pdev, kbdev);
+	if (err) {
+		pr_err("[MALI] GPU: mtk_platform_init fail!\n");
+		RETURN_ERROR(err);
+	}
+	/********/
 
 	err = assign_irqs(pdev);
 	if (err) {
 		dev_err(&pdev->dev, "IRQ search failed\n");
 		kbase_platform_device_remove(pdev);
-		return err;
+		RETURN_ERROR(err);
 	}
 
 	err = registers_map(kbdev);
 	if (err) {
 		dev_err(&pdev->dev, "Register map failed\n");
 		kbase_platform_device_remove(pdev);
-		return err;
+		RETURN_ERROR(err);
 	}
 	kbdev->inited_subsys |= inited_registers_map;
 
@@ -4119,7 +4186,7 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 	if (err) {
 		dev_err(&pdev->dev, "Power control initialization failed\n");
 		kbase_platform_device_remove(pdev);
-		return err;
+		RETURN_ERROR(err);
 	}
 	kbdev->inited_subsys |= inited_power_control;
 
@@ -4128,7 +4195,7 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 	if (err) {
 		dev_err(&pdev->dev, "Register access history initialization failed\n");
 		kbase_platform_device_remove(pdev);
-		return -ENOMEM;
+		RETURN_ERROR(-ENOMEM);
 	}
 	kbdev->inited_subsys |= inited_io_history;
 
@@ -4136,7 +4203,7 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 	if (err) {
 		dev_err(kbdev->dev, "Early backend initialization failed\n");
 		kbase_platform_device_remove(pdev);
-		return err;
+		RETURN_ERROR(err);
 	}
 	kbdev->inited_subsys |= inited_backend_early;
 
@@ -4160,7 +4227,7 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 	if (err) {
 		dev_err(kbdev->dev, "Device initialization failed (%d)\n", err);
 		kbase_platform_device_remove(pdev);
-		return err;
+		RETURN_ERROR(err);
 	}
 	kbdev->inited_subsys |= inited_device;
 
@@ -4169,7 +4236,7 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 		dev_err(kbdev->dev, "Context scheduler initialization failed (%d)\n",
 				err);
 		kbase_platform_device_remove(pdev);
-		return err;
+		RETURN_ERROR(err);
 	}
 	kbdev->inited_subsys |= inited_ctx_sched;
 
@@ -4177,7 +4244,7 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 	if (err) {
 		dev_err(kbdev->dev, "Memory subsystem initialization failed\n");
 		kbase_platform_device_remove(pdev);
-		return err;
+		RETURN_ERROR(err);
 	}
 	kbdev->inited_subsys |= inited_mem;
 
@@ -4191,7 +4258,7 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 	if (err) {
 		dev_err(kbdev->dev, "Protected mode subsystem initialization failed\n");
 		kbase_platform_device_remove(pdev);
-		return err;
+		RETURN_ERROR(err);
 	}
 	kbdev->inited_subsys |= inited_protected;
 
@@ -4204,7 +4271,7 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 	if (err) {
 		dev_err(kbdev->dev, "Job JS devdata initialization failed\n");
 		kbase_platform_device_remove(pdev);
-		return err;
+		RETURN_ERROR(err);
 	}
 	kbdev->inited_subsys |= inited_js;
 
@@ -4213,7 +4280,7 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 	if (err) {
 		dev_err(kbdev->dev, "Timeline stream initialization failed\n");
 		kbase_platform_device_remove(pdev);
-		return err;
+		RETURN_ERROR(err);
 	}
 	kbdev->inited_subsys |= inited_tlstream;
 
@@ -4221,7 +4288,7 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 	if (err) {
 		dev_err(kbdev->dev, "GPU hwcnt backend creation failed\n");
 		kbase_platform_device_remove(pdev);
-		return err;
+		RETURN_ERROR(err);
 	}
 	kbdev->inited_subsys |= inited_hwcnt_gpu_iface;
 
@@ -4231,7 +4298,7 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 		dev_err(kbdev->dev,
 			"GPU hwcnt context initialization failed\n");
 		kbase_platform_device_remove(pdev);
-		return err;
+		RETURN_ERROR(err);
 	}
 	kbdev->inited_subsys |= inited_hwcnt_gpu_ctx;
 
@@ -4243,7 +4310,7 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 		dev_err(kbdev->dev,
 			"GPU hwcnt virtualizer initialization failed\n");
 		kbase_platform_device_remove(pdev);
-		return err;
+		RETURN_ERROR(err);
 	}
 	kbdev->inited_subsys |= inited_hwcnt_gpu_virt;
 
@@ -4252,7 +4319,7 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 		dev_err(kbdev->dev,
 			"Virtual instrumentation initialization failed\n");
 		kbase_platform_device_remove(pdev);
-		return -EINVAL;
+		RETURN_ERROR(-EINVAL);
 	}
 	kbdev->inited_subsys |= inited_vinstr;
 
@@ -4263,7 +4330,7 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 	if (err) {
 		dev_err(kbdev->dev, "Late backend initialization failed\n");
 		kbase_platform_device_remove(pdev);
-		return err;
+		RETURN_ERROR(err);
 	}
 	kbdev->inited_subsys |= inited_backend_late;
 
@@ -4273,15 +4340,22 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 	if (err) {
 		dev_err(kbdev->dev, "Job fault debug initialization failed\n");
 		kbase_platform_device_remove(pdev);
-		return err;
+		RETURN_ERROR(err);
 	}
 	kbdev->inited_subsys |= inited_job_fault;
+#ifdef ENABLE_MTK_MEMINFO
+	mtk_kbase_gpu_memory_debug_init();
+#endif /* ENABLE_MTK_MEMINFO */
+
+#ifdef CONFIG_PROC_FS
+	proc_mali_register();
+#endif /* CONFIG_PROC_FS */
 
 	err = kbase_device_debugfs_init(kbdev);
 	if (err) {
 		dev_err(kbdev->dev, "DebugFS initialization failed");
 		kbase_platform_device_remove(pdev);
-		return err;
+		RETURN_ERROR(err);
 	}
 	kbdev->inited_subsys |= inited_debugfs;
 
@@ -4308,7 +4382,7 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 	if (err) {
 		dev_err(&pdev->dev, "SysFS group creation failed\n");
 		kbase_platform_device_remove(pdev);
-		return err;
+		RETURN_ERROR(err);
 	}
 	kbdev->inited_subsys |= inited_sysfs_group;
 
@@ -4317,7 +4391,7 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 		dev_err(kbdev->dev, "Misc device registration failed for %s\n",
 			kbdev->devname);
 		kbase_platform_device_remove(pdev);
-		return err;
+		RETURN_ERROR(err);
 	}
 	kbdev->inited_subsys |= inited_misc_register;
 
@@ -4340,8 +4414,19 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 	if (err) {
 		dev_err(&pdev->dev, "GPU property population failed");
 		kbase_platform_device_remove(pdev);
-		return err;
+		RETURN_ERROR(err);
 	}
+
+#ifdef ENABLE_COMMON_DVFS
+	g_malidev = kbdev;
+
+#ifdef GED_ENABLE_DVFS_LOADING_MODE
+	ged_dvfs_cal_gpu_utilization_ex_fp = MTKCalGpuUtilization_ex;
+#else
+	ged_dvfs_cal_gpu_utilization_fp = MTKCalGpuUtilization;
+#endif
+	ged_dvfs_gpu_freq_commit_fp = mtk_gpu_dvfs_commit;
+#endif /* ENABLE_COMMON_DVFS */
 
 	dev_info(kbdev->dev,
 			"Probed as %s\n", dev_name(kbdev->mdev.this_device));
@@ -4349,7 +4434,8 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 	kbase_dev_nr++;
 #endif /* MALI_KBASE_BUILD */
 
-	return err;
+
+	RETURN_ERROR(err);
 }
 
 #undef KBASEP_DEFAULT_REGISTER_HISTORY_SIZE
@@ -4531,7 +4617,7 @@ static const struct dev_pm_ops kbase_pm_ops = {
 #ifdef CONFIG_OF
 static const struct of_device_id kbase_dt_ids[] = {
 	{ .compatible = "arm,malit6xx" },
-	{ .compatible = "arm,mali-midgard" },
+	{ .compatible = "arm,mali-valhall" },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, kbase_dt_ids);

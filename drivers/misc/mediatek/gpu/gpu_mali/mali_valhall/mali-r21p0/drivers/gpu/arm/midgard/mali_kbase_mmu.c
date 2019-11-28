@@ -48,6 +48,8 @@
 
 #define KBASE_MMU_PAGE_ENTRIES 512
 
+#include <mtk_gpufreq.h>
+
 /**
  * kbase_mmu_flush_invalidate() - Flush and invalidate the GPU caches.
  * @kctx: The KBase context.
@@ -2326,6 +2328,7 @@ static void kbase_mmu_report_fault_and_kill(struct kbase_context *kctx,
 	int access_type;
 	int source_id;
 	int as_no;
+	int idx, freq, vgpu, vsram;
 	struct kbase_device *kbdev;
 	struct kbasep_js_device_data *js_devdata;
 
@@ -2340,6 +2343,14 @@ static void kbase_mmu_report_fault_and_kill(struct kbase_context *kctx,
 	exception_type = fault->status & 0xFF;
 	access_type = (fault->status >> 8) & 0x3;
 	source_id = (fault->status >> 16);
+
+	/* MTK add for gpu_freq information */
+	idx = mt_gpufreq_get_cur_freq_index();
+	freq = mt_gpufreq_get_freq_by_idx(idx);
+	vgpu = mt_gpufreq_get_volt_by_idx(idx);
+	vsram = mt_gpufreq_get_vsram_by_idx(idx);
+	pr_info("gpu_freq info: idx: %d, freq: %d, vgpu: %d, vsram_gpu: %d\n",
+			idx, freq, vgpu, vsram);
 
 	/* terminal fault, print info about the fault */
 	dev_err(kbdev->dev,

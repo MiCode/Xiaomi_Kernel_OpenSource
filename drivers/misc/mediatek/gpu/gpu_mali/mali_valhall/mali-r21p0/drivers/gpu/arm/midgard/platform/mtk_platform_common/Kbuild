@@ -1,0 +1,23 @@
+#MTK port custom Kbuild
+#To Add 1.environment variable
+include $(src)/Kbuild-mtk-custom-env
+
+curr := platform/mtk_platform_common
+
+obj-y += $(curr)/mtk_platform_common.o
+obj-y += $(curr)/mtk_mfg_counter.o
+
+obj-y += $(curr)/mtk_gpu_power_sspm_ipi.o
+
+ccflags-y += -I$(srctree)/drivers/devfreq/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/swpm_v1/
+ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT), y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(CONFIG_MTK_PLATFORM)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/qos/$(CONFIG_MTK_PLATFORM)
+endif
+
+#ifdef CONFIG_MTK_PERF_TRACKER
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/perf/
+#endif

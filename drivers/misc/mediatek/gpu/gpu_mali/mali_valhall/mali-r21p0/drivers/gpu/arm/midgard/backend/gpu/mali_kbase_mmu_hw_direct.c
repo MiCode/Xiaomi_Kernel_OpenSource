@@ -158,6 +158,11 @@ void kbase_mmu_interrupt(struct kbase_device *kbdev, u32 irq_stat)
 		 * for not-found here
 		 */
 		as_no = ffs(bf_bits | pf_bits) - 1;
+
+		/* MTK add for build error */
+		if (as_no < 0)
+			return;
+
 		as = &kbdev->as[as_no];
 
 		/* find the fault type */
