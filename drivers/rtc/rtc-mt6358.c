@@ -190,6 +190,7 @@ struct mt6358_rtc {
 	struct completion comp;
 };
 static struct mt6358_rtc *mt_rtc;
+static struct wakeup_source *mt6358_rtc_suspend_lock;
 
 static int rtc_show_time;
 static int rtc_show_alarm = 1;
@@ -581,7 +582,7 @@ static void mtk_rtc_work_queue(struct work_struct *work)
 
 static void mtk_rtc_reboot(void)
 {
-	pm_stay_awake(mt_rtc->dev);
+	__pm_stay_awake(mt6358_rtc_suspend_lock);
 
 	init_completion(&mt_rtc->comp);
 	schedule_work_on(cpumask_first(cpu_online_mask), &mt_rtc->work);
@@ -1050,6 +1051,9 @@ static int mtk_rtc_pdrv_probe(struct platform_device *pdev)
 	}
 
 	device_init_wakeup(&pdev->dev, 1);
+
+	mt6358_rtc_suspend_lock =
+		wakeup_source_register("mt6358-rtc suspend wakelock");
 
 	/* register rtc device (/dev/rtc0) */
 	rtc->rtc_dev = rtc_device_register(RTC_NAME,
