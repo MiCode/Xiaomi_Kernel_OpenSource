@@ -596,8 +596,14 @@ static irqreturn_t mtk_mbox_isr(int irq, void *dev_id)
 	mtk_mbox_set_lock(mbdev, MBOX_DONE);
 	spin_unlock_irqrestore(&minfo->mbox_lock, flags);
 
-	if (irq_temp == 0 && irq_status != 0)
-		pr_err("[MBOX ISR]dev=%s pin table err", mbdev->name);
+	if (irq_temp == 0 && irq_status != 0) {
+		pr_err("[MBOX ISR]dev=%s pin table err, status=%x",
+			mbdev->name, irq_status);
+		for (i = 0; i < mbdev->recv_count; i++) {
+			pin_recv = &(mbdev->pin_recv_table[i]);
+			mtk_mbox_dump_recv_pin(mbdev, pin_recv);
+		}
+	}
 
 	/*notify all receive pin handler*/
 	for (i = 0; i < mbdev->recv_count; i++) {
