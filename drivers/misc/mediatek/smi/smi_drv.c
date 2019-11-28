@@ -43,10 +43,10 @@
 #include <mmdvfs_mgr.h>
 #endif
 
-#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && IS_ENABLED(SMI_SSPM)
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
 #include <sspm_define.h>
 #include <sspm_reservedmem_define.h>
-#if IS_ENABLED(CONFIG_MACH_MT6885)
+#if IS_ENABLED(SMI_5G)
 #include <sspm_ipi_id.h>
 static bool smi_sspm_ipi_register;
 #else
@@ -294,16 +294,24 @@ s32 smi_bus_prepare_enable(const u32 id, const char *user)
 			return ret;
 		break;
 	}
+#else
+#if IS_ENABLED(CONFIG_MACH_MT6873)
+	if (id == 3 || id == 6 || id == 10 || id == 12 || id == 15) {
+		SMIDBG("Invalid id:%u user:%s\n", id, user);
+		return -EINVAL;
+	}
+#endif
+	ret = smi_unit_prepare_enable(SMI_LARB_NUM);
+	if (ret || id == SMI_LARB_NUM)
+		return ret;
+#endif
 
+#if IS_ENABLED(SMI_5G)
 	if (id == 4) {
 		ret = smi_unit_prepare_enable(5);
 		if (ret)
 			return ret;
 	}
-#else // !CONFIG_MACH_MT6885
-	ret = smi_unit_prepare_enable(SMI_LARB_NUM);
-	if (ret || id == SMI_LARB_NUM)
-		return ret;
 #endif
 	return smi_unit_prepare_enable(id);
 }
@@ -332,6 +340,11 @@ s32 smi_bus_disable_unprepare(const u32 id, const char *user)
 		SMIDBG("Invalid id:%u user:%s\n", id, user);
 		return -EINVAL;
 	}
+#elif IS_ENABLED(CONFIG_MACH_MT6873)
+	if (id == 3 || id == 6 || id == 10 || id == 12 || id == 15) {
+		SMIDBG("Invalid id:%u user:%s\n", id, user);
+		return -EINVAL;
+	}
 #endif
 
 	if (ATOMR_CLK(id) == 1 && readl(smi_dev[id]->base + SMI_LARB_STAT)) {
@@ -340,11 +353,12 @@ s32 smi_bus_disable_unprepare(const u32 id, const char *user)
 			"larb%u disable by %s but still busy\n", id, user);
 	}
 	smi_unit_disable_unprepare(id);
-
-#if IS_ENABLED(CONFIG_MACH_MT6885)
+#if IS_ENABLED(SMI_5G)
 	if (id == 4)
 		smi_unit_disable_unprepare(5);
+#endif
 
+#if IS_ENABLED(CONFIG_MACH_MT6885)
 	switch (id) {
 	case 2:
 	case 3:
@@ -409,7 +423,7 @@ s32 smi_bus_disable_unprepare(const u32 id, const char *user)
 		smi_unit_disable_unprepare(21); // disp
 		break;
 	}
-#else // !CONFIG_MACH_MT6885
+#else
 	smi_unit_disable_unprepare(SMI_LARB_NUM);
 #endif
 	return 0;
@@ -864,7 +878,7 @@ static const struct file_operations smi_file_opers = {
 
 static inline void smi_subsys_sspm_ipi(const bool ena, const u32 subsys)
 {
-#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && IS_ENABLED(SMI_SSPM)
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
 	struct smi_ipi_data_s ipi_data;
 	s32 ret;
 
@@ -875,7 +889,7 @@ static inline void smi_subsys_sspm_ipi(const bool ena, const u32 subsys)
 
 	ipi_data.cmd = SMI_IPI_ENABLE;
 	ipi_data.u.logger.enable = smi_subsys_on;
-#if IS_ENABLED(CONFIG_MACH_MT6885)
+#if IS_ENABLED(SMI_5G)
 	if (!smi_sspm_ipi_register)
 		return;
 
@@ -944,7 +958,7 @@ static void smi_subsys_before_off(enum subsys_id sys)
 #endif
 }
 
-#if IS_ENABLED(CONFIG_MACH_MT6785) || IS_ENABLED(CONFIG_MACH_MT6885)
+#if IS_ENABLED(CONFIG_MACH_MT6785) || IS_ENABLED(SMI_5G)
 static void smi_subsys_debug_dump(enum subsys_id sys)
 {
 	if (!smi_subsys_to_larbs[sys])
@@ -956,7 +970,7 @@ static void smi_subsys_debug_dump(enum subsys_id sys)
 static struct pg_callbacks smi_clk_subsys_handle = {
 	.after_on = smi_subsys_after_on,
 	.before_off = smi_subsys_before_off,
-#if IS_ENABLED(CONFIG_MACH_MT6785) || IS_ENABLED(CONFIG_MACH_MT6885)
+#if IS_ENABLED(CONFIG_MACH_MT6785) || IS_ENABLED(SMI_5G)
 	.debug_dump = smi_subsys_debug_dump,
 #endif
 };
@@ -1103,12 +1117,12 @@ static inline void smi_mmp_init(void)
 
 static inline void smi_dram_init(void)
 {
-#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && IS_ENABLED(SMI_SSPM)
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
 	phys_addr_t phys = sspm_reserve_mem_get_phys(SMI_MEM_ID);
 	struct smi_ipi_data_s ipi_data;
 	s32 ret;
 
-#if IS_ENABLED(CONFIG_MACH_MT6885)
+#if IS_ENABLED(SMI_5G)
 	ret = mtk_ipi_register(&sspm_ipidev, IPIS_C_SMI, NULL, NULL,
 		(void *)&smi_dram.ackdata);
 	if (ret) {
@@ -1126,7 +1140,7 @@ static inline void smi_dram_init(void)
 	ipi_data.cmd = SMI_IPI_INIT;
 	ipi_data.u.ctrl.phys = phys;
 	ipi_data.u.ctrl.size = smi_dram.size;
-#if IS_ENABLED(CONFIG_MACH_MT6885)
+#if IS_ENABLED(SMI_5G)
 	ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_SMI, IPI_SEND_POLLING,
 		&ipi_data, sizeof(ipi_data) / SSPM_MBOX_SLOT_SIZE, 2000);
 #else
@@ -1139,7 +1153,7 @@ static inline void smi_dram_init(void)
 #endif
 	ipi_data.cmd = SMI_IPI_ENABLE;
 	ipi_data.u.logger.enable = (smi_dram.dump << 31) | smi_subsys_on;
-#if IS_ENABLED(CONFIG_MACH_MT6885)
+#if IS_ENABLED(SMI_5G)
 	ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_SMI, IPI_SEND_POLLING,
 		&ipi_data, sizeof(ipi_data) / SSPM_MBOX_SLOT_SIZE, 2000);
 #else
@@ -1184,7 +1198,7 @@ int smi_dram_dump_set(const char *val, const struct kernel_param *kp)
 	ret = kstrtoint(val, 0, &arg);
 	if (ret)
 		SMIDBG("Invalid val: %s, ret=%d\n", val, ret);
-#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && IS_ENABLED(SMI_SSPM)
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
 	else if (arg && !smi_dram.dump) {
 		struct smi_ipi_data_s ipi_data;
 
@@ -1192,7 +1206,7 @@ int smi_dram_dump_set(const char *val, const struct kernel_param *kp)
 		ipi_data.cmd = SMI_IPI_ENABLE;
 		ipi_data.u.logger.enable =
 			(smi_dram.dump << 31) | smi_subsys_on;
-#if IS_ENABLED(CONFIG_MACH_MT6885)
+#if IS_ENABLED(SMI_5G)
 		mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_SMI, IPI_SEND_WAIT,
 		&ipi_data, sizeof(ipi_data) / SSPM_MBOX_SLOT_SIZE, 2000);
 #else
