@@ -203,7 +203,7 @@ enum mt_cpu_dvfs_id {
 #define DEVINFO_4 0x4B140057 /* CCI */
 #define DEVINFO_5 0x0 /* GPU_LO + CCI */
 #define DEVINFO_6 0x0 /* GPU_LO */
-#define DEVINFO_7 0x1B031B03 /* APU */
+#define DEVINFO_7 0x74100057 /* APU */
 #define DEVINFO_8 0x56100076 /* L_HI + APU */
 #define DEVINFO_9 0x2DEF00A6 /* L_HI */
 #define DEVINFO_10 0x0919002C /* B_HI */
@@ -223,7 +223,7 @@ enum mt_cpu_dvfs_id {
 #define DEVINFO_4 0x4B140057 /* CCI */
 #define DEVINFO_5 0x0 /* GPU_LO + CCI */
 #define DEVINFO_6 0x0 /* GPU_L0 */
-#define DEVINFO_7 0x1B031B03 /* APU */
+#define DEVINFO_7 0x74100057 /* APU */
 #define DEVINFO_8 0x56100076 /* L_HI + APU */
 #define DEVINFO_9 0x2DEE00B5 /* L_HI */
 #define DEVINFO_10 0x0919002C /* B_HI */
