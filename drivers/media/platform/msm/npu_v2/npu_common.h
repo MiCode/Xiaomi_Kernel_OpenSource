@@ -343,5 +343,5 @@ void disable_fw(struct npu_device *npu_dev);
 int load_fw(struct npu_device *npu_dev);
 int unload_fw(struct npu_device *npu_dev);
 int npu_set_bw(struct npu_device *npu_dev, int new_ib, int new_ab);
-
+int npu_process_kevent(struct npu_client *client, struct npu_kevent *kevt);
 #endif /* _NPU_COMMON_H */
