@@ -2954,6 +2954,20 @@
 		compatible = "mediatek,pmic-accdet";
 	};
 
+	mt6359_gauge {
+		compatible = "mediatek,mt6359_gauge";
+		gauge_name = "gauge";
+		alias_name = "MT6359";
+	};
+
+	gauge_timer {
+		compatible = "mediatek,gauge_timer_service";
+	};
+
+#if (CONFIG_MTK_GAUGE_VERSION == 30)
+	#include "bat_setting/mt6873_battery_prop.dtsi"
+#endif
+
 	irtx_pwm:irtx_pwm {
 		compatible = "mediatek,irtx-pwm";
 		pwm_ch = <3>;
