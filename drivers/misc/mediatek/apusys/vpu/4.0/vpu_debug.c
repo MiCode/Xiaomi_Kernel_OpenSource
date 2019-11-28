@@ -20,6 +20,23 @@
 #include "vpu_hw.h"
 #include "vpu_power.h"
 
+enum message_level {
+	VPU_DBG_MSG_LEVEL_NONE,
+	VPU_DBG_MSG_LEVEL_CTRL,
+	VPU_DBG_MSG_LEVEL_DATA,
+	VPU_DBG_MSG_LEVEL_DEBUG,
+	VPU_DBG_MSG_LEVEL_TOTAL,
+};
+
+struct vpu_message_ctrl {
+	unsigned int mutex;
+	int head;
+	int tail;
+	int buf_size;
+	unsigned int level_mask;
+	unsigned int data;
+};
+
 u32 vpu_klog;
 
 const char *g_vpu_prop_type_names[VPU_NUM_PROP_TYPES] = {
@@ -183,21 +200,140 @@ err_pwr:
 	return 0;
 }
 
+static void *vpu_mesg_pa_to_va(struct vpu_mem *work_buf, unsigned int phys_addr)
+{
+	unsigned long ret = 0;
+	int offset = 0;
+
+	if (!phys_addr)
+		return NULL;
+
+	offset = phys_addr - work_buf->pa;
+	ret = work_buf->va + offset;
+
+	return (void *)(ret);
+}
+
+static void vpu_mesg_init(struct vpu_device *vd)
+{
+	u64 log_buf = 0;
+
+	struct vpu_message_ctrl *msg = NULL;
+
+	if (!vd->iova_work.m.va)
+		return;
+
+	log_buf = vd->iova_work.m.va + VPU_OFFSET_LOG + VPU_SIZE_LOG_HEADER;
+	msg = (struct vpu_message_ctrl *)log_buf;
+	memset(msg, 0, VPU_SIZE_LOG_DATA);
+	msg->level_mask = (1 << VPU_DBG_MSG_LEVEL_CTRL);
+}
+
+static void vpu_mesg_clr(struct vpu_device *vd)
+{
+	char *data = NULL;
+	u64 log_buf = 0;
+	struct vpu_message_ctrl *msg = NULL;
+
+	if (!vd->iova_work.m.va)
+		return;
+
+	log_buf = vd->iova_work.m.va + VPU_OFFSET_LOG + VPU_SIZE_LOG_HEADER;
+	msg = (struct vpu_message_ctrl *)log_buf;
+	data = (char *)vpu_mesg_pa_to_va(&vd->iova_work.m, msg->data);
+
+	msg->head = 0;
+	msg->tail = 0;
+
+	if (data)
+		memset(data, 0,
+		       VPU_SIZE_LOG_DATA - sizeof(struct vpu_message_ctrl));
+}
+
+static int vpu_mesg_level_set(void *data, u64 val)
+{
+	u64 log_buf = 0;
+	struct vpu_message_ctrl *msg = NULL;
+	struct vpu_device *vd = data;
+	int level = (int)val;
+
+	if (!vd)
+		return -ENOENT;
+
+	if (!level) {
+		vpu_mesg_clr(vd);
+		return 0;
+	}
+
+	if (level < -1 || level >= VPU_DBG_MSG_LEVEL_TOTAL) {
+		pr_info("val: %d\n", level);
+		return -ENOENT;
+	}
+
+	if (!vd->iova_work.m.va)
+		return -EFAULT;
+
+	log_buf = vd->iova_work.m.va + VPU_OFFSET_LOG + VPU_SIZE_LOG_HEADER;
+	msg = (struct vpu_message_ctrl *)log_buf;
+
+	if (level != -1)
+		msg->level_mask ^= (1 << level);
+	else
+		msg->level_mask = 0;
+	return 0;
+}
+
+static int vpu_mesg_level_get(void *data, u64 *val)
+{
+	u64 log_buf = 0;
+	struct vpu_message_ctrl *msg = NULL;
+	struct vpu_device *vd = data;
+
+	if (!vd)
+		return -ENOENT;
+
+	if (!vd->iova_work.m.va)
+		return -EFAULT;
+
+	log_buf = vd->iova_work.m.va + VPU_OFFSET_LOG + VPU_SIZE_LOG_HEADER;
+	msg = (struct vpu_message_ctrl *)log_buf;
+	*val = msg->level_mask;
+	return 0;
+}
+
 int vpu_mesg_seq(struct seq_file *s, struct vpu_device *vd)
 {
-	char *head, *body, *tail;
+	int i, wrap = false;
+	char *data = NULL;
+	u64 log_buf = 0;
+	struct vpu_message_ctrl *msg = NULL;
 
 	if (!s)
 		return -ENOENT;
 
-	head = (char *)(vd->iova_work.m.va + VPU_OFFSET_LOG);
-	body = head + VPU_SIZE_LOG_HEADER;
-	tail = head + VPU_SIZE_LOG_BUF - 1;
+	if (!vd->iova_work.m.va)
+		return -ENOENT;
 
-	*tail = '\0';
+	log_buf = vd->iova_work.m.va + VPU_OFFSET_LOG + VPU_SIZE_LOG_HEADER;
+	msg = (struct vpu_message_ctrl *)log_buf;
+	data = (char *)vpu_mesg_pa_to_va(&vd->iova_work.m, msg->data);
+	i = msg->head;
+	do {
+		if (msg->head == msg->tail || i == msg->tail)
+			seq_printf(s, "%s", "<empty log>\n");
+		while (i != msg->tail && data) {
+			if (i > msg->tail && wrap)
+				break;
 
-	seq_printf(s, "=== VPU_%d Log Buffer ===\n", vd->id);
-	seq_printf(s, "%s\n", body);
+			seq_printf(s, "%s", data + i);
+			i += strlen(data + i) + 1;
+
+			if (i >= msg->buf_size) {
+				i = 0;
+				wrap = true;
+			}
+		}
+	} while (0);
 
 	return 0;
 
@@ -472,6 +608,10 @@ static struct dentry *vpu_djtag;
 DEFINE_SIMPLE_ATTRIBUTE(vpu_debug_jtag_fops, vpu_debug_jtag_get,
 			vpu_debug_jtag_set, "%lld\n");
 
+static struct dentry *vpu_dmesg_level;
+DEFINE_SIMPLE_ATTRIBUTE(vpu_debug_mesg_level_fops, vpu_mesg_level_get,
+			vpu_mesg_level_set, "%lld\n");
+
 #define VPU_DEBUGFS_CREATE(name) \
 { \
 	vpu_d##name = debugfs_create_file(#name, 0644, \
@@ -511,12 +651,14 @@ int vpu_init_dev_debug(struct platform_device *pdev, struct vpu_device *vd)
 		&vd->state);
 
 	vpu_dmp_init(vd);
+	vpu_mesg_init(vd);
 
 	VPU_DEBUGFS_CREATE(algo);
 	VPU_DEBUGFS_CREATE(dump);
 	VPU_DEBUGFS_CREATE(mesg);
 	VPU_DEBUGFS_CREATE(reg);
 	VPU_DEBUGFS_CREATE(jtag);
+	VPU_DEBUGFS_CREATE(mesg_level);
 out:
 	return ret;
 }
