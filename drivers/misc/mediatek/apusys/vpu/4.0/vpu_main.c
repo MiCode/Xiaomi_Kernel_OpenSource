@@ -137,15 +137,16 @@ int vpu_send_cmd(int op, void *hnd, struct apusys_device *adev)
 	case APUSYS_CMD_EXECUTE:
 		cmd = (struct apusys_cmd_hnd *)hnd;
 		req = (struct vpu_request *)cmd->kva;
-		vpu_trace_begin("%s|cmd execute cmd_id: 0x%08llx",
-				__func__, cmd->cmd_id);
+
+		vpu_trace_begin("vpu-%d|%s|cmd execute cmd_id: 0x%08llx",
+			vd->id,	__func__, cmd->cmd_id);
 		vpu_cmd_debug("%s:vpu%d EXECUTE, kva: %lx cmd_id: 0x%llx subcmd_idx: 0x%x\n",
-			      __func__, vd->id, (unsigned long)cmd->kva,
-			      cmd->cmd_id, cmd->subcmd_idx);
+			__func__, vd->id, (unsigned long)cmd->kva,
+			cmd->cmd_id, cmd->subcmd_idx);
 		/* overwrite vpu_req->boost from apusys_cmd */
 		req->power_param.boost_value = cmd->boost_val;
 		ret = vpu_execute(vd, req);
-		vpu_trace_end("%s|end", __func__);
+		vpu_trace_end("vpu-%d|%s|end", vd->id, __func__);
 		/* report vpu_req exe time to apusy_cmd */
 		cmd->ip_time = req->busy_time / 1000;
 		return ret;
