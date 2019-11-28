@@ -679,7 +679,7 @@ static inline unsigned int MSS_GetIRQState(
 	/*  */
 	spin_lock_irqsave(&(MFBInfo.SpinLockIrq[type]), flags);
 	if (stus & MSS_INT_ST) {
-		LOG_INF("%s MssIrqCnt[%d] is %d for pid %d", __func__,
+		LOG_DBG("%s MssIrqCnt[%d] is %d for pid %d", __func__,
 			whichReq,
 			MFBInfo.IrqInfo.MssIrqCnt[whichReq],
 			MFBInfo.IrqInfo.ProcessID[whichReq]);
@@ -692,7 +692,7 @@ static inline unsigned int MSS_GetIRQState(
 	}
 	*userNumber = ret;
 	if (ret == 1 && MFBInfo.IrqInfo.MssIrqCnt[whichReq] == 1) {
-		LOG_INF("%s last mssirqcnt %d clearing pid %d for proc %d",
+		LOG_DBG("%s last mssirqcnt %d clearing pid %d for proc %d",
 			__func__,
 			MFBInfo.IrqInfo.MssIrqCnt[whichReq],
 			MFBInfo.IrqInfo.ProcessID[whichReq],
@@ -718,7 +718,7 @@ static inline unsigned int MSF_GetIRQState(
 	/*  */
 	spin_lock_irqsave(&(MFBInfo.SpinLockIrq[type]), flags);
 	if (stus & MSF_INT_ST) {
-		LOG_INF("%s MsfIrqCnt is %d for pid %d", __func__,
+		LOG_DBG("%s MsfIrqCnt is %d for pid %d", __func__,
 			MFBInfo.IrqInfo.MsfIrqCnt,
 			MFBInfo.IrqInfo.ProcessID[whichReq]);
 		ret = ((MFBInfo.IrqInfo.MsfIrqCnt > 0)
@@ -730,7 +730,7 @@ static inline unsigned int MSF_GetIRQState(
 	}
 	spin_unlock_irqrestore(&(MFBInfo.SpinLockIrq[type]), flags);
 	if (ret == 1) {
-		LOG_INF("%s last msfirqcnt %d not clearing pid %d for proc %d",
+		LOG_DBG("%s last msfirqcnt %d not clearing pid %d for proc %d",
 			__func__,
 			MFBInfo.IrqInfo.MsfIrqCnt,
 			MFBInfo.IrqInfo.ProcessID[whichReq],
@@ -792,9 +792,9 @@ void MFBQOS_Uninit(void)
 
 void MFBQOS_Update(bool start, unsigned int scen, unsigned int bw)
 {
-	LOG_INF("MFB scen: %d, bw: %d", scen, bw);
+	LOG_DBG("MFB scen: %d, bw: %d", scen, bw);
 	if (start) { /* start MFB, configure MMDVFS to highest CLK */
-		LOG_INF("MFB total: %d", qos_total);
+		LOG_DBG("MFB total: %d", qos_total);
 		spin_lock(&(SpinLockMfbPmqos));
 		qos_scen[scen] = bw;
 		qos_total = qos_total + bw;
@@ -806,7 +806,7 @@ void MFBQOS_Update(bool start, unsigned int scen, unsigned int bw)
 			pm_qos_update_request(&mfb_pmqos_request, 0);
 		}
 	} else { /* finish MFB, config MMDVFS to lowest CLK */
-		LOG_INF("MFB total: %d", qos_total);
+		LOG_DBG("MFB total: %d", qos_total);
 		spin_lock(&(SpinLockMfbPmqos));
 		qos_total = qos_total - qos_scen[scen];
 		if (qos_total > 20000000) {
@@ -921,11 +921,11 @@ static void mss_pkt_tcmds(struct cmdq_pkt *handle,
 				0x1, CMDQ_REG_MASK);
 		LOG_DBG("MSS_CMDQ_ENABLE%d = 0x%x", t,
 						pMssConfig->MSSCMDQ_ENABLE[t]);
-		LOG_INF("MSSCMDQ_BASE%d = 0x%x", t,
+		LOG_DBG("MSSCMDQ_BASE%d = 0x%x", t,
 						pMssConfig->MSSCMDQ_BASE[t]);
 		LOG_DBG("MSSCQLP_CMD_NUM%d = 0x%x", t,
 						pMssConfig->MSSCQLP_CMD_NUM[t]);
-		LOG_INF("MSSDMT_TDRI_BASE%d = 0x%x", t,
+		LOG_DBG("MSSDMT_TDRI_BASE%d = 0x%x", t,
 					pMssConfig->MSSDMT_TDRI_BASE[t]);
 	}
 	LOG_DBG("%s: tpipe_used is %d", __func__, pMssConfig->tpipe_used);
@@ -1055,7 +1055,7 @@ signed int mss_enque_cb(struct frame *frames, void *req)
 
 	fcnt = _req->m_ReqNum;
 	for (f = 0; f < fcnt; f++) {
-		LOG_INF("[%s]request enque frame(%d/%d) 0x%p",
+		LOG_DBG("[%s]request enque frame(%d/%d) 0x%p",
 					__func__, f, fcnt, frames[f].data);
 		memcpy(frames[f].data, &_req->m_pMssConfig[f],
 						sizeof(struct MFB_MSSConfig));
@@ -1223,11 +1223,11 @@ static void msf_pkt_tcmds(struct cmdq_pkt *handle,
 				0x1, CMDQ_REG_MASK);
 		LOG_DBG("MSF_CMDQ_ENABLE%d = 0x%x", t,
 						pMsfConfig->MSFCMDQ_ENABLE[t]);
-		LOG_INF("MSFCMDQ_BASE%d = 0x%x", t,
+		LOG_DBG("MSFCMDQ_BASE%d = 0x%x", t,
 						pMsfConfig->MSFCMDQ_BASE[t]);
 		LOG_DBG("MSFCQLP_CMD_NUM%d = 0x%x", t,
 						pMsfConfig->MSFCQLP_CMD_NUM[t]);
-		LOG_INF("MSFDMT_TDRI_BASE%d = 0x%x", t,
+		LOG_DBG("MSFDMT_TDRI_BASE%d = 0x%x", t,
 					pMsfConfig->MFBDMT_TDRI_BASE[t]);
 	}
 	LOG_DBG("%s: tpipe_used is %d", __func__, pMsfConfig->tpipe_used);
