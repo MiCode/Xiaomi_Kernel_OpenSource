@@ -787,8 +787,10 @@ void ufstw_init(struct ufsf_feature *ufsf)
 #endif
 	return;
 out_free_mem:
-	seq_scan_lu(lun)
+	seq_scan_lu(lun) {
 		kfree(ufsf->tw_lup[lun]);
+		ufsf->tw_lup[lun] = NULL;
+	}
 
 	ufsf->tw_dev_info.tw_device = false;
 	atomic_set(&ufsf->tw_state, TW_NOT_SUPPORTED);
