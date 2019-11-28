@@ -315,7 +315,7 @@ int apusys_dbg_init(void)
 
 	g_log_level = 0;
 	memset(g_dbg_prop, 0, sizeof(g_dbg_prop));
-	g_dbg_prop[DBG_PROP_MULTICORE] = 1;
+	//g_dbg_prop[DBG_PROP_MULTICORE] = 1;
 
 	/* create debug root */
 	apusys_dbg_root = debugfs_create_dir(APUSYS_DBG_DIR, NULL);
