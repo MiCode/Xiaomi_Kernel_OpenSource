@@ -386,6 +386,11 @@
 		interrupts = <GIC_SPI 222 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
+	srclken@10006500 {
+		compatible = "mediatek,srclken";
+		reg = <0 0x10006500 0 0x1000>;
+	};
+
 	toprgu@10007000 {
 		compatible = "mediatek,toprgu";
 		reg = <0 0x10007000 0 0x1000>;
