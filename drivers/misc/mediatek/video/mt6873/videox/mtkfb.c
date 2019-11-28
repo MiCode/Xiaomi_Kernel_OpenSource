@@ -815,6 +815,13 @@ static int mtkfb_check_var(struct fb_var_screeninfo *var, struct fb_info *fbi)
 		var->yres_virtual, var->xoffset, var->yoffset,
 		var->bits_per_pixel);
 
+	DISPMSG(
+		"%s: bpp=%d, length=(%u,%u,%u),offset=(%u,%u,%u)\n",
+		__func__, bpp,
+		var->red.length, var->green.length, var->blue.length,
+		var->red.offset, var->green.offset, var->blue.offset,
+		var->bits_per_pixel);
+
 	if (bpp == 16) {
 		var->red.offset = 11;
 		var->red.length = 5;
@@ -835,8 +842,10 @@ static int mtkfb_check_var(struct fb_var_screeninfo *var, struct fb_info *fbi)
 		var->red.length = var->green.length =
 			var->blue.length = var->transp.length = 8;
 
-		ASSERT(var->red.offset + var->blue.offset == 16);
-		ASSERT((var->red.offset == 16 || var->red.offset == 0));
+		ASSERT((var->red.offset + var->blue.offset == 16) ||
+			(var->red.offset + var->blue.offset == 32));
+		ASSERT((var->red.offset == 16 || var->red.offset == 0) ||
+			(var->red.offset == 24 || var->red.offset == 8));
 	}
 
 	var->red.msb_right = var->green.msb_right =

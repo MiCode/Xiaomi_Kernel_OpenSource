@@ -78,15 +78,18 @@ enum DDP_CLK_ID disp_pwm_get_clkid(unsigned int clk_req)
 
 	switch (clk_req) {
 	case 0:
-		clkid = ULPOSC1_D8;
+		clkid = OSC_D4;
 		break;
 	case 1:
-		clkid = ULPOSC1_D2;
+		clkid = OSC_D16;
 		break;
 	case 2:
-		clkid = UNIVPLL2_D4;
+		clkid = OSC_D2;
 		break;
 	case 3:
+		clkid = UNIVPLL_D6_D4;
+		break;
+	case 4:
 		clkid = CLK26M; /* Bypass config:default 26M */
 		break;
 	default:
@@ -170,130 +173,6 @@ int disp_pwm_set_pwmmux(unsigned int clk_req)
 	return 0;
 }
 
-static void __iomem *disp_pmw_osc_base;
-
-/*
- *
- * get disp pwm source osc
- *
- */
-static int get_ulposc_base(void)
-{
-	int ret = 0;
-	struct device_node *node;
-
-	if (disp_pmw_osc_base != NULL) {
-		pr_debug("[PWM]SLEEP node exist");
-		return 0;
-	}
-
-	node = of_find_compatible_node(NULL, NULL, "mediatek,sleep");
-	if (!node) {
-		pr_info("[PWM]DISP find SLEEP node failed\n");
-		return -1;
-	}
-	disp_pmw_osc_base = of_iomap(node, 0);
-	if (!disp_pmw_osc_base) {
-		pr_info("[PWM]DISP find SLEEP base failed\n");
-		return -1;
-	}
-
-	return ret;
-}
-
-static int get_ulposc_status(void)
-{
-	unsigned int regosc;
-	int ret = -1;
-
-	if (get_ulposc_base() == -1) {
-		pr_info("[PWM]get ULPOSC status fail");
-		return ret;
-	}
-
-	regosc = clk_readl(OSC_ULPOSC_ADDR);
-	if ((regosc & 0x5) != 0x5) {
-		pr_debug("[PWM]ULPOSC is off (%x)", regosc);
-		ret = 0;
-	} else {
-		pr_debug("[PWM]ULPOSC is on (%x)", regosc);
-		ret = 1;
-	}
-
-	return ret;
-}
-
-/*
- *
- * hardcode turn on/off ROSC api
- *
- */
-static int ulposc_on(void)
-{
-	unsigned int regosc;
-
-	if (get_ulposc_base() == -1)
-		return -1;
-
-	regosc = clk_readl(OSC_ULPOSC_ADDR);
-	/* pr_debug("[PWM]ULPOSC config : 0x%08x", regosc); */
-
-	regosc = regosc | 0x1;
-	clk_writel(OSC_ULPOSC_ADDR, regosc);
-	/* pr_debug("[PWM]ULPOSC config : 0x%08x after en", regosc); */
-	udelay(150);
-
-	regosc = clk_readl(OSC_ULPOSC_ADDR);
-	regosc = regosc | 0x4;
-	clk_writel(OSC_ULPOSC_ADDR, regosc);
-	/* udelay(150); */
-	/* regosc = clk_readl(OSC_ULPOSC_ADDR); */
-	/* pr_debug("[PWM]ULPOSC config : 0x%08x after rst 1", regosc); */
-
-	return 0;
-}
-
-static int ulposc_off(void)
-{
-	unsigned int regosc;
-
-	if (get_ulposc_base() == -1)
-		return -1;
-
-	regosc = clk_readl(OSC_ULPOSC_ADDR);
-
-	regosc = regosc & (~0x4);
-	clk_writel(OSC_ULPOSC_ADDR, regosc);
-
-	udelay(150);
-	regosc = clk_readl(OSC_ULPOSC_ADDR);
-	/* pr_debug("[PWM]ULPOSC config : 0x%08x after cg_en", regosc); */
-
-	regosc = regosc & (~0x1);
-	clk_writel(OSC_ULPOSC_ADDR, regosc);
-	/* udelay(150); */
-	/* regosc = clk_readl(OSC_ULPOSC_ADDR); */
-	/* pr_debug("[PWM]ULPOSC config : 0x%08x after en", regosc); */
-
-	return 0;
-}
-
-static int ulposc_enable(enum DDP_CLK_ID clkid)
-{
-	ulposc_on();
-	get_ulposc_status();
-
-	return 0;
-}
-
-static int ulposc_disable(enum DDP_CLK_ID clkid)
-{
-	ulposc_off();
-	get_ulposc_status();
-
-	return 0;
-}
-
 /*
  *
  * disp pwm clock source power on /power off api
@@ -301,40 +180,12 @@ static int ulposc_disable(enum DDP_CLK_ID clkid)
  */
 int disp_pwm_clksource_enable(int clk_req)
 {
-	int ret = 0;
-	enum DDP_CLK_ID clkid = -1;
-
-	clkid = disp_pwm_get_clkid(clk_req);
-
-	switch (clkid) {
-	case ULPOSC1_D2:
-	case ULPOSC1_D8:
-		ulposc_enable(clkid);
-		break;
-	default:
-		break;
-	}
-
-	return ret;
+	return 0;
 }
 
 int disp_pwm_clksource_disable(int clk_req)
 {
-	int ret = 0;
-	enum DDP_CLK_ID clkid = -1;
-
-	clkid = disp_pwm_get_clkid(clk_req);
-
-	switch (clkid) {
-	case ULPOSC1_D2:
-	case ULPOSC1_D8:
-		ulposc_disable(clkid);
-		break;
-	default:
-		break;
-	}
-
-	return ret;
+	return 0;
 }
 
 /*

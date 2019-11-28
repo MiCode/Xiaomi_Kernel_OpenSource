@@ -3689,9 +3689,9 @@ static void replace_fb_addr_to_mva(void)
 	struct ddp_fb_info fb_info;
 	int i;
 #ifdef CONFIG_MTK_IOMMU_V2
-	/*int mode = 0x1;*/
+	int mode = 0x1;
 #else
-	/*int mode = 0x0;*/
+	int mode = 0x0;
 #endif
 
 	fb_info.fb_mva = pgc->framebuffer_mva;
@@ -3699,9 +3699,12 @@ static void replace_fb_addr_to_mva(void)
 	fb_info.fb_size = DISP_GetFBRamSize();
 	dpmgr_path_ioctl(pgc->dpmgr_handle, pgc->cmdq_handle_config,
 		DDP_OVL_MVA_REPLACEMENT, &fb_info);
-	for (i = 0; i < 4; i++)
+	for (i = 0; i < 15; i++) {
 		DISP_REG_SET_FIELD(pgc->cmdq_handle_config, REG_FLD_MMU_EN,
-			DISP_REG_SMI_LARB0_NON_SEC_CON + i * 4, 0x1);
+			DISP_REG_SMI_LARB0_NON_SEC_CON + i * 4, mode);
+		DISP_REG_SET_FIELD(pgc->cmdq_handle_config, REG_FLD_MMU_EN,
+			DISP_REG_SMI_LARB1_NON_SEC_CON + i * 4, mode);
+	}
 #endif
 }
 

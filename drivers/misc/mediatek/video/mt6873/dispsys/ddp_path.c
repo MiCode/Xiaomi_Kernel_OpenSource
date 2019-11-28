@@ -914,6 +914,7 @@ int ddp_path_top_clock_on(void)
 	/*ddp_clk_prepare_enable(TOP_26M);*/
 #ifdef CONFIG_MTK_SMI_EXT
 	smi_bus_prepare_enable(SMI_LARB0, "DISP");
+	smi_bus_prepare_enable(SMI_LARB1, "DISP");
 #else
 	ddp_clk_prepare_enable(CLK_SMI_COMMON);
 	ddp_clk_prepare_enable(CLK_SMI_GALS);
@@ -953,6 +954,7 @@ int ddp_path_top_clock_off(void)
 
 	ddp_clk_disable_unprepare(CLK_MM_26M);
 #ifdef CONFIG_MTK_SMI_EXT
+	smi_bus_disable_unprepare(SMI_LARB1, "DISP");
 	smi_bus_disable_unprepare(SMI_LARB0, "DISP");
 #else
 	ddp_clk_disable_unprepare(CLK_SMI_IOMMU);

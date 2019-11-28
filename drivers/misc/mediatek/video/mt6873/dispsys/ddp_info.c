@@ -428,7 +428,12 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 "pwm0",
 	 0,
 	 NULL,
-	 {reg_magic,}
+	 {"mediatek,disp_pwm0",
+	  0x1100E000,
+	  0,
+	  0,
+	  0,
+	  0}
 	 },
 
 	{DISP_MODULE_DSIDUAL,

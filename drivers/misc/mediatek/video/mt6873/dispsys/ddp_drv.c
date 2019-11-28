@@ -548,15 +548,18 @@ static int disp_probe_1(void)
 
 	/* power on MMSYS for early porting */
 #if 1  //#ifdef CONFIG_FPGA_EARLY_PORTING
-	DDPMSG("[FPGA Only] before power on MMSYS:0x%x,0x%x\n",
+	DDPMSG("[FPGA Only] before power on MMSYS:0x%x,0x%x,0x%x\n",
 	       DISP_REG_GET(DISP_REG_CONFIG_MMSYS_CG_CON0),
-	       DISP_REG_GET(DISP_REG_CONFIG_MMSYS_CG_CON1));
+	       DISP_REG_GET(DISP_REG_CONFIG_MMSYS_CG_CON1),
+	       DISP_REG_GET(DISP_REG_CONFIG_MMSYS_CG_CON2));
 
 	DISP_REG_SET(NULL, DISP_REG_CONFIG_MMSYS_CG_CLR0, 0xFFFFFFFF);
 	DISP_REG_SET(NULL, DISP_REG_CONFIG_MMSYS_CG_CLR1, 0xFFFFFFFF);
-	DDPMSG("[FPGA Only] before power on MMSYS:0x%x,0x%x\n",
+	DISP_REG_SET(NULL, DISP_REG_CONFIG_MMSYS_CG_CLR2, 0xFFFFFFFF);
+	DDPMSG("[FPGA Only] before power on MMSYS:0x%x,0x%x,0x%x\n",
 	       DISP_REG_GET(DISP_REG_CONFIG_MMSYS_CG_CON0),
-	       DISP_REG_GET(DISP_REG_CONFIG_MMSYS_CG_CON1));
+	       DISP_REG_GET(DISP_REG_CONFIG_MMSYS_CG_CON1),
+	       DISP_REG_GET(DISP_REG_CONFIG_MMSYS_CG_CON2));
 #endif
 	ddp_path_init();
 	disp_m4u_init();

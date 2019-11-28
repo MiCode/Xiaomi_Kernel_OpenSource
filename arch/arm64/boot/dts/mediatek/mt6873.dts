@@ -2399,6 +2399,7 @@
 			<&dispsys_config MM_SMI_IOMMU>,
 			<&dispsys_config MM_DISP_OVL0>,
 			<&dispsys_config MM_DISP_OVL0_2L>,
+			<&dispsys_config MM_DISP_OVL2_2L>,
 			<&dispsys_config MM_DISP_RDMA0>,
 			<&dispsys_config MM_DISP_WDMA0>,
 			<&dispsys_config MM_DISP_COLOR0>,
@@ -2408,14 +2409,19 @@
 			<&dispsys_config MM_DISP_POSTMASK0>,
 			<&dispsys_config MM_DISP_DITHER0>,
 			<&dispsys_config MM_DSI0>,
-			<&dispsys_config TOP_F26M_CK_D2>,
+			<&dispsys_config MM_DSI_DSI0>,
+			<&dispsys_config MM_26MHZ>,
+			<&dispsys_config MM_DISP_MUTEX0>,
+			<&dispsys_config MM_DISP_CONFIG>,
 			<&dispsys_config MM_DISP_RSZ0>,
 			<&apmixed APMIXED_MIPID0_26M>,
 			<&topckgen TOP_MUX_DISP_PWM>,
 			<&infracfg_ao INFRACFG_AO_DISP_PWM_CG>,
 			<&clk26m>,
-			<&topckgen TOP_MUX_DISP>,
-			<&topckgen TOP_UNIVPLL_D4>;
+			<&topckgen TOP_UNIVPLL_D6_D4>,
+			<&topckgen TOP_OSC_D2>,
+			<&topckgen TOP_OSC_D4>,
+			<&topckgen TOP_OSC_D16>;
 
 		clock-names = "MMSYS_MTCMOS",
 			"MMSYS_SMI_COMMON",
@@ -2424,6 +2430,7 @@
 			"MMSYS_SMI_IOMMU",
 			"MMSYS_DISP_OVL0",
 			"MMSYS_DISP_OVL0_2L",
+			"MMSYS_DISP_OVL2_2L",
 			"MMSYS_DISP_RDMA0",
 			"MMSYS_DISP_WDMA0",
 			"MMSYS_DISP_COLOR0",
@@ -2432,15 +2439,26 @@
 			"MMSYS_DISP_GAMMA0",
 			"MMSYS_DISP_POSTMASK0",
 			"MMSYS_DISP_DITHER0",
-			"MMSYS_DSI0",
+			"MMSYS_DSI0_MM_CK",
+			"MMSYS_DSI0_IF_CK",
 			"MMSYS_26M",
+			"MMSYS_DISP_MUTEX0",
+			"MMSYS_DISP_CONFIG",
 			"MMSYS_DISP_RSZ0",
 			"APMIXED_MIPI_26M",
 			"TOP_MUX_DISP_PWM",
 			"DISP_PWM",
 			"TOP_26M",
-			"TOP_MUX_DISP",
-			"TOP_UNIVPLL2_D4";
+			"TOP_UNIVPLL_D6_D4",
+			"TOP_OSC_D2",
+			"TOP_OSC_D4",
+			"TOP_OSC_D16";
+	};
+
+	disp_pwm: disp_pwm0@1100e000 {
+		compatible = "mediatek,disp_pwm0";
+		reg = <0 0x1100e000 0 0x1000>;
+		interrupts = <GIC_SPI 171 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	dsi_te: dsi_te {

@@ -3390,7 +3390,7 @@ int DSI_Send_ROI(enum DISP_MODULE_ENUM module, void *handle, unsigned int x,
 
 static void lcm_set_reset_pin(UINT32 value)
 {
-#if 1
+#ifdef CONFIG_FPGA_EARLY_PORTING
 	DSI_OUTREG32(NULL, DISP_REG_CONFIG_MMSYS_LCM_RST_B, value);
 #else
 #if !defined(CONFIG_MTK_LEGACY)
@@ -3816,7 +3816,6 @@ int ddp_dsi_init(enum DISP_MODULE_ENUM module, void *cmdq)
 		if (module == DISP_MODULE_DSI0 ||
 			module == DISP_MODULE_DSIDUAL) {
 			ddp_clk_prepare_enable(CLK_DSI0_MM_CLK);
-			ddp_clk_prepare_enable(CLK_IMG_DL_RELAY);
 			ddp_clk_prepare_enable(CLK_DSI0_IF_CLK);
 		}
 
@@ -4846,7 +4845,6 @@ int ddp_dsi_power_on(enum DISP_MODULE_ENUM module, void *cmdq_handle)
 
 	if (module == DISP_MODULE_DSI0 || module == DISP_MODULE_DSIDUAL) {
 		ddp_clk_prepare_enable(CLK_DSI0_MM_CLK);
-		ddp_clk_prepare_enable(CLK_IMG_DL_RELAY);
 		ddp_clk_prepare_enable(CLK_DSI0_IF_CLK);
 	}
 
@@ -4882,7 +4880,6 @@ int ddp_dsi_power_off(enum DISP_MODULE_ENUM module, void *cmdq_handle)
 #ifdef ENABLE_CLK_MGR
 	if (module == DISP_MODULE_DSI0 || module == DISP_MODULE_DSIDUAL) {
 		ddp_clk_disable_unprepare(CLK_DSI0_MM_CLK);
-		ddp_clk_disable_unprepare(CLK_IMG_DL_RELAY);
 		ddp_clk_disable_unprepare(CLK_DSI0_IF_CLK);
 	}
 #endif
