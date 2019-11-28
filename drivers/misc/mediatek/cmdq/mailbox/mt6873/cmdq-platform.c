@@ -41,7 +41,6 @@ const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event,
 	case CMDQ_EVENT_VDEC_CORE0_SOF_0 ... CMDQ_EVENT_VDEC_CORE0_ENG_EVENT_7:
 		return "VDEC";
 	case CMDQ_EVENT_ISP_FRAME_DONE_A ... CMDQ_EVENT_CQ_VR_SNAP_C_INT:
-	case CMDQ_EVENT_FDVT_DONE ... CMDQ_EVENT_DVP_DONE_ASYNC_SHOT:
 		return "ISP";
 	case CMDQ_EVENT_VENC_CMDQ_FRAME_DONE ... CMDQ_EVENT_VENC_CMDQ_VPS_DONE:
 		return "VENC";
