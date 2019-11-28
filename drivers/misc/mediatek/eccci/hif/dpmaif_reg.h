@@ -810,8 +810,13 @@ extern struct hif_dpmaif_ctrl *dpmaif_ctrl;
 	((DPMAIF_PD_UL_CHNL0_CON0) + (0x10 * (q_num)))
 #define DPMAIF_UL_DRBSIZE_ADDRH_n(q_num)    \
 	((DPMAIF_PD_UL_CHNL0_CON1) + (0x10 * (q_num)))
+#ifdef MT6297
+#define DPMAIF_ULQ_STA0_n(q_num)     \
+	((NRL2_DPMAIF_AO_UL_CH0_STA) + (0x04 * (q_num)))
+#else
 #define DPMAIF_ULQ_STA0_n(q_num)            \
 	((DPMAIF_PD_UL_CHNL0_STA0) + (0x04 * (q_num)))
+#endif
 
 /*DPMAIF_PD_UL_DBG_STA2*/
 #define DPMAIF_UL_STS_CUR_SHIFT        (26)
