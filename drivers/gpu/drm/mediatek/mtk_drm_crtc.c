@@ -68,6 +68,7 @@ static struct mtk_drm_property mtk_crtc_property[CRTC_PROP_MAX] = {
 	{DRM_MODE_PROP_ATOMIC, "DISP_MODE_IDX", 0, UINT_MAX, 0},
 	{DRM_MODE_PROP_ATOMIC, "HBM_ENABLE", 0, UINT_MAX, 0},
 	{DRM_MODE_PROP_ATOMIC, "COLOR_TRANSFORM", 0, UINT_MAX, 0},
+	{DRM_MODE_PROP_ATOMIC, "USER_SCEN", 0, UINT_MAX, 0},
 };
 
 static const char * const crtc_gce_client_str[] = {
@@ -3240,6 +3241,15 @@ void mtk_drm_crtc_plane_update(struct drm_crtc *crtc, struct drm_plane *plane,
 #else
 		mtk_wb_atomic_commit(mtk_crtc);
 #endif
+	} else if (state->prop_val[CRTC_PROP_USER_SCEN] &
+		USER_SCEN_BLANK) {
+	/* plane disable at mtk_crtc_get_plane_comp_state() actually */
+	/* following statement is for disable all layers during suspend */
+
+		comp = mtk_crtc_get_plane_comp(crtc, plane_state);
+
+		mtk_ddp_comp_layer_config(comp, plane_index, plane_state,
+					  cmdq_handle);
 	}
 	last_fence = *(unsigned int *)(cmdq_buf->va_base +
 				       DISP_SLOT_CUR_CONFIG_FENCE(plane_index));
