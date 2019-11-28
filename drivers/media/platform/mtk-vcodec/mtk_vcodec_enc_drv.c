@@ -212,7 +212,8 @@ static int mtk_vcodec_enc_suspend_notifier(struct notifier_block *nb,
 	case PM_SUSPEND_PREPARE:
 		venc_dev->is_codec_suspending = 1;
 		for (i = 0; i < MTK_VENC_HW_NUM; i++) {
-			do {
+			val = down_trylock(&venc_dev->enc_sem[i]);
+			while (val == 1) {
 				usleep_range(10000, 20000);
 				wait_cnt++;
 				/* Current task is still not finished, don't
@@ -223,7 +224,7 @@ static int mtk_vcodec_enc_suspend_notifier(struct notifier_block *nb,
 					return NOTIFY_DONE;
 				}
 				val = down_trylock(&venc_dev->enc_sem[i]);
-			} while (val == 1);
+			}
 			up(&venc_dev->enc_sem[i]);
 		}
 		return NOTIFY_OK;

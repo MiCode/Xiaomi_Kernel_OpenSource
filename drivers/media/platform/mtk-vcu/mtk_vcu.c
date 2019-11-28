@@ -79,6 +79,7 @@
 #define VCODEC_INST_MAX         64
 #define GCE_EVENT_MAX           64
 #define GCE_THNUM_MAX           2
+#define GCE_PENDING_CNT         10
 /*mtk vcu support mpd max value*/
 #define MTK_VCU_NR_MAX       3
 
@@ -222,10 +223,17 @@ struct vcu_pa_pages {
 	struct list_head list;
 };
 
+struct gce_callback_data {
+	struct gce_cmdq_obj cmdq_buff;
+	struct mtk_vcu *vcu_ptr;
+	struct cmdq_pkt *pkt_ptr;
+};
+
 struct gce_ctx_info {
 	void *v4l2_ctx;
 	u64 user_hdl;
 	atomic_t flush_done;
+	struct gce_callback_data buff[GCE_PENDING_CNT];
 };
 
 /**
@@ -302,6 +310,7 @@ struct mtk_vcu {
 	struct vcu_pa_pages pa_pages;
 	int gce_th_num[VCU_CODEC_MAX];
 	int gce_codec_eid[GCE_EVENT_MAX];
+	struct gce_cmds *gce_cmds[VCU_CODEC_MAX];
 	void *curr_ctx[VCU_CODEC_MAX];
 	wait_queue_head_t gce_wq[VCU_CODEC_MAX];
 	struct gce_ctx_info gce_info[VCODEC_INST_MAX];
@@ -313,12 +322,6 @@ struct mtk_vcu {
 	bool is_entering_suspend;
 	u32 gce_gpr[GCE_THNUM_MAX];
 	/* for gce poll timer, multi-thread sync */
-};
-
-struct gce_callback_data {
-	struct gce_cmdq_obj cmdq_buff;
-	struct mtk_vcu *vcu_ptr;
-	struct cmdq_pkt *pkt_ptr;
 };
 
 static inline bool vcu_running(struct mtk_vcu *vcu)
@@ -661,7 +664,6 @@ static void vcu_gce_flush_callback(struct cmdq_cb_data data)
 	int i, j;
 	struct gce_callback_data *buff;
 	struct mtk_vcu *vcu;
-	struct gce_cmds *cmds;
 	unsigned int core_id;
 
 	buff = (struct gce_callback_data *)data.data;
@@ -690,17 +692,12 @@ static void vcu_gce_flush_callback(struct cmdq_cb_data data)
 	mutex_unlock(&vcu->vcu_gce_mutex[i]);
 
 	wake_up(&vcu->gce_wq[i]);
-	cmds = (struct gce_cmds *)(unsigned long)buff->cmdq_buff.cmds_user_ptr;
 
-	pr_info("[VCU][%d] %s: buff %p type %d cnt %d order %d handle %llx\n",
+	pr_info("[VCU][%d] %s: buff %p type %d order %d handle %llx\n",
 		core_id, __func__, buff, buff->cmdq_buff.codec_type,
-		cmds->cmd_cnt, buff->cmdq_buff.flush_order,
-		buff->cmdq_buff.gce_handle);
+		buff->cmdq_buff.flush_order, buff->cmdq_buff.gce_handle);
 
 	cmdq_pkt_destroy(buff->pkt_ptr);
-
-	kfree(cmds);
-	kfree(buff);
 }
 
 static void vcu_gce_timeout_callback(struct cmdq_cb_data data)
@@ -721,7 +718,7 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 {
 	int i, j, ret;
 	unsigned char *user_data_addr = NULL;
-	struct gce_callback_data *buff;
+	struct gce_callback_data buff;
 	struct cmdq_pkt *pkt_ptr;
 	struct cmdq_client *cl;
 	struct gce_cmds *cmds;
@@ -731,64 +728,47 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 	pr_debug("[VCU] %s +\n", __func__);
 
 	time_check_start();
-	buff = (struct gce_callback_data *)
-		kzalloc(sizeof(struct gce_callback_data), GFP_KERNEL);
-	if (!buff) {
-		pr_info("[VCU] %s alloc gce_callback_data fail\n", __func__);
-		return -ENOMEM;
-	}
-	cmds = (struct gce_cmds *)
-		kzalloc(sizeof(struct gce_cmds), GFP_KERNEL);
-	if (!cmds) {
-		kfree(buff);
-		pr_info("[VCU] %s alloc gce_cmds fail\n", __func__);
-		return -ENOMEM;
-	}
-	time_check_end(100, strlen(vcodec_param_string));
-
-	time_check_start();
 	user_data_addr = (unsigned char *)arg;
-	ret = (long)copy_from_user(&buff->cmdq_buff, user_data_addr,
+	ret = (long)copy_from_user(&buff.cmdq_buff, user_data_addr,
 				   (unsigned long)sizeof(struct gce_cmdq_obj));
 	if (ret != 0L)
 		pr_info("[VCU] %s(%d) gce_cmdq_obj copy_from_user failed!%d\n",
 			__func__, __LINE__, ret);
 
+	i = (buff.cmdq_buff.codec_type == VCU_VDEC) ? VCU_VDEC : VCU_VENC;
+	cmds = vcu->gce_cmds[i];
+
 	user_data_addr = (unsigned char *)
-				   (unsigned long)buff->cmdq_buff.cmds_user_ptr;
+				   (unsigned long)buff.cmdq_buff.cmds_user_ptr;
 	ret = (long)copy_from_user(cmds, user_data_addr,
 				   (unsigned long)sizeof(struct gce_cmds));
 	if (ret != 0L)
 		pr_info("[VCU] %s(%d) gce_cmds copy_from_user failed!%d\n",
 			__func__, __LINE__, ret);
 
-	buff->cmdq_buff.cmds_user_ptr = (u64)(unsigned long)cmds;
-	core_id = buff->cmdq_buff.core_id;
+	buff.cmdq_buff.cmds_user_ptr = (u64)(unsigned long)cmds;
+	core_id = buff.cmdq_buff.core_id;
 
-	if (buff->cmdq_buff.codec_type >= VCU_CODEC_MAX ||
+	if (buff.cmdq_buff.codec_type >= VCU_CODEC_MAX ||
 		core_id >=
-		vcu->gce_th_num[buff->cmdq_buff.codec_type]) {
+		vcu->gce_th_num[buff.cmdq_buff.codec_type]) {
 		pr_info("[VCU] %s invalid core(th) id %d\n",
 			__func__, core_id);
-		kfree(cmds);
-		kfree(buff);
 		return -EINVAL;
 	}
 
-	cl = (buff->cmdq_buff.codec_type == VCU_VDEC) ?
+	cl = (buff.cmdq_buff.codec_type == VCU_VDEC) ?
 		vcu->clt_vdec[core_id] :
 		vcu->clt_venc[core_id];
 
 	if (cl == NULL) {
 		pr_info("[VCU] %s gce thread is null id %d type %d\n",
 			__func__, core_id,
-			buff->cmdq_buff.codec_type);
-		kfree(cmds);
-		kfree(buff);
+			buff.cmdq_buff.codec_type);
 		return -EINVAL;
 	}
 
-	buff->vcu_ptr = vcu;
+	buff.vcu_ptr = vcu;
 
 	while (vcu_ptr->is_entering_suspend == 1) {
 		suspend_block_cnt++;
@@ -799,15 +779,12 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 		usleep_range(10000, 20000);
 	}
 
-	i = (buff->cmdq_buff.codec_type == VCU_VDEC) ? VCU_VDEC : VCU_VENC;
-	j = vcu_gce_get_inst_id(buff->cmdq_buff.gce_handle);
+	j = vcu_gce_get_inst_id(buff.cmdq_buff.gce_handle);
 
 	if (j < 0)
 		j = vcu_gce_set_inst_id(vcu->curr_ctx[i],
-			buff->cmdq_buff.gce_handle);
+			buff.cmdq_buff.gce_handle);
 	if (j < 0) {
-		kfree(cmds);
-		kfree(buff);
 		return -EINVAL;
 	}
 	time_check_end(100, strlen(vcodec_param_string));
@@ -837,7 +814,7 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 		pr_info("[VCU] cmdq_pkt_create fail\n");
 		pkt_ptr = NULL;
 	}
-	buff->pkt_ptr = pkt_ptr;
+	buff.pkt_ptr = pkt_ptr;
 
 	if (cmds->cmd_cnt >= VCODEC_CMDQ_CMD_MAX) {
 		pr_info("[VCU] cmd_cnt (%d) overflow!!\n", cmds->cmd_cnt);
@@ -850,17 +827,21 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 			cmds->mask[i], vcu->gce_gpr[core_id]);
 	}
 
+	i = buff.cmdq_buff.flush_order % GCE_PENDING_CNT;
+	memcpy(&vcu_ptr->gce_info[j].buff[i], &buff, sizeof(buff));
+
 	pkt_ptr->err_cb.cb = vcu_gce_timeout_callback;
-	pkt_ptr->err_cb.data = (void *)buff;
+	pkt_ptr->err_cb.data = (void *)&vcu_ptr->gce_info[j].buff[i];
 
 	pr_info("[VCU][%d] %s: buff %p type %d cnt %d order %d hndl %llx %d %d\n",
-		core_id, __func__, buff, buff->cmdq_buff.codec_type,
-		cmds->cmd_cnt, buff->cmdq_buff.flush_order,
-		buff->cmdq_buff.gce_handle, ret, j);
+		core_id, __func__, &vcu_ptr->gce_info[j].buff[i],
+		buff.cmdq_buff.codec_type,
+		cmds->cmd_cnt, buff.cmdq_buff.flush_order,
+		buff.cmdq_buff.gce_handle, ret, j);
 
 	/* flush cmd async */
 	cmdq_pkt_flush_threaded(pkt_ptr,
-		vcu_gce_flush_callback, (void *)buff);
+		vcu_gce_flush_callback, (void *)&vcu_ptr->gce_info[j].buff[i]);
 	time_check_end(100, strlen(vcodec_param_string));
 
 	return ret;
@@ -2104,6 +2085,12 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 	vcu->gce_codec_eid[VENC_WP_3ND_DONE] =
 		cmdq_dev_get_event(dev, "venc_wp_3nd_done");
 
+	for (i = 0; i < (int)VCU_CODEC_MAX; i++) {
+		vcu->gce_cmds[i] = devm_kzalloc(dev,
+			sizeof(struct gce_cmds), GFP_KERNEL);
+		if (vcu->gce_cmds[i] == NULL)
+			return -ENOMEM;
+	}
 	sema_init(&vcu->vpud_killed, 1);
 
 	for (i = 0; i < (int)VCU_CODEC_MAX; i++)

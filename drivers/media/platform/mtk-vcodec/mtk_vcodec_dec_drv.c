@@ -222,9 +222,10 @@ static int mtk_vcodec_dec_suspend_notifier(struct notifier_block *nb,
 	mtk_v4l2_debug(1, "action = %ld", action);
 	switch (action) {
 	case PM_SUSPEND_PREPARE:
+		vdec_dev->is_codec_suspending = 1;
 		for (i = 0; i < MTK_VDEC_HW_NUM; i++) {
-			vdec_dev->is_codec_suspending = 1;
-			do {
+			val = down_trylock(&vdec_dev->dec_sem[i]);
+			while (val == 1) {
 				usleep_range(10000, 20000);
 				wait_cnt++;
 				/* Current task is still not finished, don't
@@ -233,8 +234,9 @@ static int mtk_vcodec_dec_suspend_notifier(struct notifier_block *nb,
 				if (wait_cnt > 5) {
 					mtk_v4l2_err("waiting fail");
 					return NOTIFY_DONE;
-				} val = down_trylock(&vdec_dev->dec_sem[i]);
-			} while (val == 1);
+				}
+				val = down_trylock(&vdec_dev->dec_sem[i]);
+			}
 			up(&vdec_dev->dec_sem[i]);
 		}
 		return NOTIFY_OK;
