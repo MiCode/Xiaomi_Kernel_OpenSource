@@ -913,9 +913,8 @@ static int pl_fcc_vote_callback(struct votable *votable, void *data,
 {
 	struct pl_data *chip = data;
 	int master_fcc_ua = total_fcc_ua, slave_fcc_ua = 0;
-	int cp_fcc_ua = 0, fcc_thr_ua = 0, rc;
+	int cp_fcc_ua = 0, rc = 0;
 	union power_supply_propval pval = {0, };
-	bool is_cc_mode = false;
 
 	if (total_fcc_ua < 0)
 		return 0;
@@ -937,29 +936,6 @@ static int pl_fcc_vote_callback(struct votable *votable, void *data,
 		chip->cp_slave_disable_votable =
 			find_votable("CP_SLAVE_DISABLE");
 
-	if (!chip->usb_psy)
-		chip->usb_psy = power_supply_get_by_name("usb");
-
-	if (chip->usb_psy) {
-		rc = power_supply_get_property(chip->usb_psy,
-					POWER_SUPPLY_PROP_ADAPTER_CC_MODE,
-					&pval);
-		if (rc < 0)
-			pr_err("Couldn't get PPS CC mode status rc=%d\n", rc);
-		else
-			is_cc_mode = pval.intval;
-	}
-
-	if (chip->cp_master_psy) {
-		rc = power_supply_get_property(chip->cp_master_psy,
-					POWER_SUPPLY_PROP_MIN_ICL, &pval);
-		if (rc < 0)
-			pr_err("Couldn't get MIN ICL threshold rc=%d\n", rc);
-		else
-			fcc_thr_ua = is_cc_mode ? (3 * pval.intval) :
-							(4 * pval.intval);
-	}
-
 	/*
 	 * CP charger current = Total FCC - Main charger's FCC.
 	 * Main charger FCC is userspace's override vote on main.
@@ -969,13 +945,21 @@ static int pl_fcc_vote_callback(struct votable *votable, void *data,
 		"cp_fcc_ua=%d total_fcc_ua=%d forced_main_fcc=%d\n",
 		cp_fcc_ua, total_fcc_ua, chip->chg_param->forced_main_fcc);
 	if (cp_fcc_ua > 0) {
+		if (chip->cp_master_psy) {
+			rc = power_supply_get_property(chip->cp_master_psy,
+					POWER_SUPPLY_PROP_MIN_ICL, &pval);
+			if (rc < 0)
+				pr_err("Couldn't get MIN ICL threshold rc=%d\n",
+									rc);
+		}
+
 		if (chip->cp_slave_psy && chip->cp_slave_disable_votable) {
 			/*
 			 * Disable Slave CP if FCC share
-			 * falls below threshold.
+			 * falls below 3 * min ICL threshold.
 			 */
 			vote(chip->cp_slave_disable_votable, FCC_VOTER,
-				(cp_fcc_ua < fcc_thr_ua), 0);
+				(cp_fcc_ua < (3 * pval.intval)), 0);
 		}
 
 		if (chip->cp_disable_votable) {
