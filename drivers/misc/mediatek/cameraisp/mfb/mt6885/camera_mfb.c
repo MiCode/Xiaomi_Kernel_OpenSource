@@ -898,11 +898,11 @@ static void mss_pkt_tcmds(struct cmdq_pkt *handle,
 				0x1, CMDQ_REG_MASK);
 		LOG_DBG("MSS_CMDQ_ENABLE%d = 0x%x", t,
 						pMssConfig->MSSCMDQ_ENABLE[t]);
-		LOG_DBG("MSSCMDQ_BASE%d = 0x%x", t,
+		LOG_INF("MSSCMDQ_BASE%d = 0x%x", t,
 						pMssConfig->MSSCMDQ_BASE[t]);
 		LOG_DBG("MSSCQLP_CMD_NUM%d = 0x%x", t,
 						pMssConfig->MSSCQLP_CMD_NUM[t]);
-		LOG_DBG("MSSDMT_TDRI_BASE%d = 0x%x", t,
+		LOG_INF("MSSDMT_TDRI_BASE%d = 0x%x", t,
 					pMssConfig->MSSDMT_TDRI_BASE[t]);
 	}
 	LOG_DBG("%s: tpipe_used is %d", __func__, pMssConfig->tpipe_used);
@@ -1200,11 +1200,11 @@ static void msf_pkt_tcmds(struct cmdq_pkt *handle,
 				0x1, CMDQ_REG_MASK);
 		LOG_DBG("MSF_CMDQ_ENABLE%d = 0x%x", t,
 						pMsfConfig->MSFCMDQ_ENABLE[t]);
-		LOG_DBG("MSFCMDQ_BASE%d = 0x%x", t,
+		LOG_INF("MSFCMDQ_BASE%d = 0x%x", t,
 						pMsfConfig->MSFCMDQ_BASE[t]);
 		LOG_DBG("MSFCQLP_CMD_NUM%d = 0x%x", t,
 						pMsfConfig->MSFCQLP_CMD_NUM[t]);
-		LOG_DBG("MSFDMT_TDRI_BASE%d = 0x%x", t,
+		LOG_INF("MSFDMT_TDRI_BASE%d = 0x%x", t,
 					pMsfConfig->MFBDMT_TDRI_BASE[t]);
 	}
 	LOG_DBG("%s: tpipe_used is %d", __func__, pMsfConfig->tpipe_used);
