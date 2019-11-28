@@ -466,6 +466,7 @@ config MACH_MT6873
 	select F2FS_FS_SECURITY
 	select F2FS_FS_XATTR
 	select DM_BOW
+	select MTK_BASE_POWER
 	help
 	  This enables support for MediaTek MT6873
 	  Support for aarch64 Architecture
