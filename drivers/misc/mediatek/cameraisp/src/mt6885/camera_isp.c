@@ -333,6 +333,9 @@ struct ISP_CLK_STRUCT {
 	struct clk *ISP_CAM_CAMSV1;
 	struct clk *ISP_CAM_CAMSV2;
 	struct clk *ISP_CAM_CAMSV3;
+	struct clk *CAMSYS_SENINF_CGPDN;
+	struct clk *CAMSYS_TOP_MUX_CCU;
+	struct clk *CAMSYS_CCU0_CGPDN;
 	struct clk *CAMSYS_LARB13_CGPDN;
 	struct clk *CAMSYS_LARB14_CGPDN;
 	struct clk *CAMSYS_LARB15_CGPDN;
@@ -2078,6 +2081,18 @@ static inline void Prepare_Enable_ccf_clock(void)
 	if (ret)
 		LOG_NOTICE("cannot pre-en ISP_SCP_SYS_CAM clock\n");
 
+	ret = clk_prepare_enable(isp_clk.ISP_SCP_SYS_RAWA);
+	if (ret)
+		LOG_NOTICE("cannot pre-en ISP_SCP_SYS_RAWA clock\n");
+
+	ret = clk_prepare_enable(isp_clk.ISP_SCP_SYS_RAWB);
+	if (ret)
+		LOG_NOTICE("cannot pre-en ISP_SCP_SYS_RAWB clock\n");
+
+	ret = clk_prepare_enable(isp_clk.ISP_SCP_SYS_RAWC);
+	if (ret)
+		LOG_NOTICE("cannot pre-en ISP_SCP_SYS_RAWC clock\n");
+
 	ret = clk_prepare_enable(isp_clk.CAMSYS_LARB13_CGPDN);
 	if (ret)
 		LOG_NOTICE("cannot pre-en CAMSYS_LARB13_CGPDN clock\n");
@@ -2090,17 +2105,17 @@ static inline void Prepare_Enable_ccf_clock(void)
 	if (ret)
 		LOG_NOTICE("cannot pre-en CAMSYS_LARB15_CGPDN clock\n");
 
-	ret = clk_prepare_enable(isp_clk.ISP_SCP_SYS_RAWA);
+	ret = clk_prepare_enable(isp_clk.CAMSYS_SENINF_CGPDN);
 	if (ret)
-		LOG_NOTICE("cannot pre-en ISP_SCP_SYS_RAWA clock\n");
+		LOG_NOTICE("cannot pre-en CAMSYS_SENINF_CGPDN clock\n");
 
-	ret = clk_prepare_enable(isp_clk.ISP_SCP_SYS_RAWB);
+	ret = clk_prepare_enable(isp_clk.CAMSYS_TOP_MUX_CCU);
 	if (ret)
-		LOG_NOTICE("cannot pre-en ISP_SCP_SYS_RAWB clock\n");
+		LOG_NOTICE("cannot pre-en CAMSYS_TOP_MUX_CCU clock\n");
 
-	ret = clk_prepare_enable(isp_clk.ISP_SCP_SYS_RAWC);
+	ret = clk_prepare_enable(isp_clk.CAMSYS_CCU0_CGPDN);
 	if (ret)
-		LOG_NOTICE("cannot pre-en ISP_SCP_SYS_RAWC clock\n");
+		LOG_NOTICE("cannot pre-en CAMSYS_CCU0_CGPDN clock\n");
 
 	ret = clk_prepare_enable(isp_clk.ISP_CAM_CAMSYS);
 	if (ret)
@@ -2180,12 +2195,15 @@ static inline void Disable_Unprepare_ccf_clock(void)
 	clk_disable_unprepare(isp_clk.ISP_CAM_CAMSV3);
 	clk_disable_unprepare(isp_clk.ISP_CAM_CAMTG);
 	clk_disable_unprepare(isp_clk.ISP_CAM_CAMSYS);
-	clk_disable_unprepare(isp_clk.ISP_SCP_SYS_RAWC);
-	clk_disable_unprepare(isp_clk.ISP_SCP_SYS_RAWB);
-	clk_disable_unprepare(isp_clk.ISP_SCP_SYS_RAWA);
+	clk_disable_unprepare(isp_clk.CAMSYS_CCU0_CGPDN);
+	clk_disable_unprepare(isp_clk.CAMSYS_TOP_MUX_CCU);
+	clk_disable_unprepare(isp_clk.CAMSYS_SENINF_CGPDN);
 	clk_disable_unprepare(isp_clk.CAMSYS_LARB15_CGPDN);
 	clk_disable_unprepare(isp_clk.CAMSYS_LARB14_CGPDN);
 	clk_disable_unprepare(isp_clk.CAMSYS_LARB13_CGPDN);
+	clk_disable_unprepare(isp_clk.ISP_SCP_SYS_RAWC);
+	clk_disable_unprepare(isp_clk.ISP_SCP_SYS_RAWB);
+	clk_disable_unprepare(isp_clk.ISP_SCP_SYS_RAWA);
 	clk_disable_unprepare(isp_clk.ISP_SCP_SYS_CAM);
 	clk_disable_unprepare(isp_clk.ISP_SCP_SYS_MDP);
 	/* disable through smi API */
@@ -6548,6 +6566,15 @@ static int ISP_probe(struct platform_device *pDev)
 		isp_clk.CAMSYS_LARB15_CGPDN =
 			devm_clk_get(&pDev->dev, "CAMSYS_LARB15_CGPDN");
 
+		isp_clk.CAMSYS_SENINF_CGPDN =
+			devm_clk_get(&pDev->dev, "CAMSYS_SENINF_CGPDN");
+
+		isp_clk.CAMSYS_TOP_MUX_CCU =
+			devm_clk_get(&pDev->dev, "TOPCKGEN_TOP_MUX_CCU");
+
+		isp_clk.CAMSYS_CCU0_CGPDN =
+			devm_clk_get(&pDev->dev, "CAMSYS_CCU0_CGPDN");
+
 		isp_clk.ISP_SCP_SYS_RAWA =
 			devm_clk_get(&pDev->dev, "ISP_SCP_SYS_RAWA");
 
@@ -6615,6 +6642,18 @@ static int ISP_probe(struct platform_device *pDev)
 		if (IS_ERR(isp_clk.CAMSYS_LARB15_CGPDN)) {
 			LOG_NOTICE("cannot get CAMSYS_LARB15_CGPDN clock\n");
 			return PTR_ERR(isp_clk.CAMSYS_LARB15_CGPDN);
+		}
+		if (IS_ERR(isp_clk.CAMSYS_SENINF_CGPDN)) {
+			LOG_NOTICE("cannot get CAMSYS_SENINF_CGPDN clock\n");
+			return PTR_ERR(isp_clk.CAMSYS_SENINF_CGPDN);
+		}
+		if (IS_ERR(isp_clk.CAMSYS_TOP_MUX_CCU)) {
+			LOG_NOTICE("cannot get CAMSYS_TOP_MUX_CCU clock\n");
+			return PTR_ERR(isp_clk.CAMSYS_TOP_MUX_CCU);
+		}
+		if (IS_ERR(isp_clk.CAMSYS_CCU0_CGPDN)) {
+			LOG_NOTICE("cannot get CAMSYS_CCU0_CGPDN clock\n");
+			return PTR_ERR(isp_clk.CAMSYS_CCU0_CGPDN);
 		}
 		if (IS_ERR(isp_clk.ISP_SCP_SYS_RAWA)) {
 			LOG_NOTICE("cannot get ISP_SCP_SYS_RAWA clock\n");

@@ -4452,6 +4452,8 @@ page_owner=on loop.max_part=7";
 				<&camsys CAMSYS_MAIN_LARB13_CGPDN>,
 				<&camsys CAMSYS_MAIN_LARB14_CGPDN>,
 				<&camsys CAMSYS_MAIN_LARB15_CGPDN>,
+				<&camsys CAMSYS_MAIN_CCU0_CGPDN>,
+				<&camsys CAMSYS_MAIN_SENINF_CGPDN>,
 				<&camsys_rawa CAMSYS_RAWA_LARBX_CGPDN>,
 				<&camsys_rawa CAMSYS_RAWA_CAM_CGPDN>,
 				<&camsys_rawa CAMSYS_RAWA_CAMTG_CGPDN>,
@@ -4461,6 +4463,7 @@ page_owner=on loop.max_part=7";
 				<&camsys_rawc CAMSYS_RAWC_LARBX_CGPDN>,
 				<&camsys_rawc CAMSYS_RAWC_CAM_CGPDN>,
 				<&camsys_rawc CAMSYS_RAWC_CAMTG_CGPDN>,
+				<&topckgen TOP_MUX_CCU>,
 				<&topckgen TOP_MUX_CAMTM>;
 		clock-names = "ISP_SCP_SYS_MDP",
 				"ISP_SCP_SYS_CAM",
@@ -4476,6 +4479,8 @@ page_owner=on loop.max_part=7";
 				"CAMSYS_LARB13_CGPDN",
 				"CAMSYS_LARB14_CGPDN",
 				"CAMSYS_LARB15_CGPDN",
+				"CAMSYS_CCU0_CGPDN",
+				"CAMSYS_SENINF_CGPDN",
 				"CAMSYS_RAWALARB16_CGPDN",
 				"CAMSYS_RAWACAM_CGPDN",
 				"CAMSYS_RAWATG_CGPDN",
@@ -4485,6 +4490,7 @@ page_owner=on loop.max_part=7";
 				"CAMSYS_RAWCLARB18_CGPDN",
 				"CAMSYS_RAWCCAM_CGPDN",
 				"CAMSYS_RAWCTG_CGPDN",
+				"TOPCKGEN_TOP_MUX_CCU",
 				"TOPCKGEN_TOP_MUX_CAMTM";
 	};
 
