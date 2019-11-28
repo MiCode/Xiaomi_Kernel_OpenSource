@@ -51,6 +51,7 @@
 
 #ifdef CONFIG_MTK_IOMMU_V2
 #include <asm/cacheflush.h>
+static DEFINE_MUTEX(config_ion_buffer_lock_mutex);
 #endif
 
 #if ((KERNEL_VERSION(5, 3, 0) <= LINUX_VERSION_CODE) || \
@@ -1061,12 +1062,48 @@ static int kbase_mem_umm_map_attachment(struct kbase_context *kctx,
 	int err;
 	size_t count = 0;
 	struct kbase_mem_phy_alloc *alloc = reg->gpu_alloc;
+#ifdef CONFIG_MTK_IOMMU_V2
+	struct ion_mm_data mm_data;
+	int retry_cnt = 0;
+#endif
 
 	WARN_ON_ONCE(alloc->type != KBASE_MEM_TYPE_IMPORTED_UMM);
 	WARN_ON_ONCE(alloc->imported.umm.sgt);
 
+#ifdef CONFIG_MTK_IOMMU_V2
+	mutex_lock(&config_ion_buffer_lock_mutex);
+
+	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
+	mm_data.config_buffer_param.kernel_handle =
+		alloc->imported.umm.ion_handle;
+	mm_data.config_buffer_param.module_id = M4U_PORT_GPU;
+	mm_data.config_buffer_param.security = 0;
+	mm_data.config_buffer_param.coherent = 0;
+
+retry:
+	err = ion_kernel_ioctl(kctx->kbdev->client,
+		ION_CMD_MULTIMEDIA,
+		(unsigned long)&mm_data);
+
+	if (err == -ION_ERROR_CONFIG_CONFLICT && retry_cnt < 1000) {
+		retry_cnt++;
+		goto retry;
+	} else if (err) {
+		dev_warn(kctx->kbdev->dev,
+		"fail to config ion buffer, err=%d, retry_cnt %d\n",
+		err, retry_cnt);
+		mutex_unlock(&config_ion_buffer_lock_mutex);
+		return -EINVAL;
+	}
+#endif
+
 	sgt = dma_buf_map_attachment(alloc->imported.umm.dma_attachment,
 			DMA_BIDIRECTIONAL);
+
+#ifdef CONFIG_MTK_IOMMU_V2
+	mutex_unlock(&config_ion_buffer_lock_mutex);
+#endif
+
 	if (IS_ERR_OR_NULL(sgt))
 		return -EINVAL;
 
@@ -1263,55 +1300,8 @@ static struct kbase_va_region *kbase_mem_from_umm(struct kbase_context *kctx,
 	struct dma_buf_attachment *dma_attachment;
 	bool shared_zone = false;
 	int group_id;
-
 #ifdef CONFIG_MTK_IOMMU_V2
 	struct ion_handle *handle = NULL;
-	struct ion_mm_data mm_data;
-	int err = 0;
-	int retry_cnt = 0;
-
-	/* 64-bit address range is the max */
-	if (*va_pages > (U64_MAX / PAGE_SIZE))
-		return NULL;
-
-	if (kctx->kbdev->client == NULL) {
-		dev_warn(kctx->kbdev->dev, "invalid ion client!\n");
-		goto skip_ion_buf_config;
-	}
-
-	handle = ion_import_dma_buf_fd(kctx->kbdev->client, fd);
-
-	if (IS_ERR(handle)) {
-		dev_warn(kctx->kbdev->dev, "import ion handle failed!\n");
-		goto skip_ion_buf_config;
-	}
-
-	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
-	mm_data.config_buffer_param.kernel_handle = handle;
-	mm_data.config_buffer_param.module_id = M4U_PORT_GPU;
-	mm_data.config_buffer_param.security = 0;
-	mm_data.config_buffer_param.coherent = 0;
-
-retry:
-	err = ion_kernel_ioctl(kctx->kbdev->client,
-		ION_CMD_MULTIMEDIA,
-		(unsigned long)&mm_data);
-
-	if (err == -ION_ERROR_CONFIG_CONFLICT && retry_cnt < 1000) {
-		retry_cnt++;
-		goto retry;
-	} else if (err) {
-		ion_free(kctx->kbdev->client, handle);
-		handle = NULL;
-
-		dev_warn(kctx->kbdev->dev,
-			"fail to config ion buffer, err=%d\n",
-			err);
-		goto skip_ion_buf_config;
-	}
-
-/* If not ion_buf, then skip it. */
-skip_ion_buf_config:
 #endif
 
 	dma_buf = dma_buf_get(fd);
@@ -1405,6 +1395,22 @@ skip_ion_buf_config:
 	reg->gpu_alloc->imported.umm.current_mapping_usage_count = 0;
 
 #ifdef CONFIG_MTK_IOMMU_V2
+	/* 64-bit address range is the max */
+	if (*va_pages > (U64_MAX / PAGE_SIZE))
+		return NULL;
+
+	if (kctx->kbdev->client == NULL) {
+		dev_warn(kctx->kbdev->dev, "invalid ion client!\n");
+		return NULL;
+	}
+
+	handle = ion_import_dma_buf_fd(kctx->kbdev->client, fd);
+
+	if (IS_ERR(handle)) {
+		dev_warn(kctx->kbdev->dev, "import ion handle failed!\n");
+		return NULL;
+	}
+
 	reg->gpu_alloc->imported.umm.ion_client = kctx->kbdev->client;
 	reg->gpu_alloc->imported.umm.ion_handle = handle;
 #endif
@@ -1421,6 +1427,11 @@ skip_ion_buf_config:
 			dev_warn(kctx->kbdev->dev,
 				 "Failed to map dma-buf %pK on GPU: %d\n",
 				 dma_buf, err);
+
+#ifdef CONFIG_MTK_IOMMU_V2
+			ion_free(kctx->kbdev->client, handle);
+			handle = NULL;
+#endif
 			goto error_out;
 		}
 
