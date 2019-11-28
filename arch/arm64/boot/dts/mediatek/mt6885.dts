@@ -6253,8 +6253,7 @@ page_owner=on loop.max_part=7";
 	vpu_core0@19030000 {
 		compatible = "mediatek,vpu_core0";
 		reg = <0 0x19030000 0 0x1000>,
-			<0 0x1D100000 0 0x3E000>,
-			<0 0x1D13E000 0 0x2000>,
+			<0 0x1D100000 0 0x40000>,
 			<0 0x1D140000 0 0x30000>;
 		interrupts = <GIC_SPI 419 IRQ_TYPE_LEVEL_HIGH>;
 		id = <0>;
@@ -6273,8 +6272,7 @@ page_owner=on loop.max_part=7";
 	vpu_core1@19031000 {
 		compatible = "mediatek,vpu_core1";
 		reg = <0 0x19031000 0 0x1000>,
-			<0 0x1D200000 0 0x3E000>,
-			<0 0x1D23E000 0 0x2000>,
+			<0 0x1D200000 0 0x40000>,
 			<0 0x1D240000 0 0x30000>;
 		interrupts = <GIC_SPI 420 IRQ_TYPE_LEVEL_HIGH>;
 		id = <1>;
@@ -6293,8 +6291,7 @@ page_owner=on loop.max_part=7";
 	vpu_core2@19032000 {
 		compatible = "mediatek,vpu_core2";
 		reg = <0 0x19032000 0 0x1000>,
-			<0 0x1D300000 0 0x3E000>,
-			<0 0x1D33E000 0 0x2000>,
+			<0 0x1D300000 0 0x40000>,
 			<0 0x1D340000 0 0x30000>;
 		interrupts = <GIC_SPI 421 IRQ_TYPE_LEVEL_HIGH>;
 		id = <2>;
