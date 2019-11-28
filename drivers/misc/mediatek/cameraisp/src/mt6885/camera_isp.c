@@ -262,6 +262,15 @@ static const struct of_device_id isp_of_ids[] = {
 		.compatible = "mediatek,camsys_rawc",
 	},
 	{
+		.compatible = "mediatek,cam1_inner",
+	},
+	{
+		.compatible = "mediatek,cam2_inner",
+	},
+	{
+		.compatible = "mediatek,cam3_inner",
+	},
+	{
 		.compatible = "mediatek,cam1",
 	},
 	{
@@ -393,6 +402,9 @@ static struct mutex open_isp_mutex;
 #define ISP_CAM_A_BASE (isp_devs[ISP_CAM_A_IDX].regs)
 #define ISP_CAM_B_BASE (isp_devs[ISP_CAM_B_IDX].regs)
 #define ISP_CAM_C_BASE (isp_devs[ISP_CAM_C_IDX].regs)
+#define ISP_CAM_A_INNER_BASE (isp_devs[ISP_CAM_A_INNER_IDX].regs)
+#define ISP_CAM_B_INNER_BASE (isp_devs[ISP_CAM_B_INNER_IDX].regs)
+#define ISP_CAM_C_INNER_BASE (isp_devs[ISP_CAM_C_INNER_IDX].regs)
 #define ISP_CAMSV0_BASE (isp_devs[ISP_CAMSV0_IDX].regs)
 #define ISP_CAMSV1_BASE (isp_devs[ISP_CAMSV1_IDX].regs)
 #define ISP_CAMSV2_BASE (isp_devs[ISP_CAMSV2_IDX].regs)
@@ -479,6 +491,9 @@ static struct T_ION_TBL gION_TBL[ISP_DEV_NODE_NUM] = {
 	{ISP_DEV_NODE_NUM, NULL, NULL, NULL, NULL},
 	{ISP_DEV_NODE_NUM, NULL, NULL, NULL, NULL},
 	{ISP_DEV_NODE_NUM, NULL, NULL, NULL, NULL},
+	{ISP_DEV_NODE_NUM, NULL, NULL, NULL, NULL}, /* inner */
+	{ISP_DEV_NODE_NUM, NULL, NULL, NULL, NULL}, /* inner */
+	{ISP_DEV_NODE_NUM, NULL, NULL, NULL, NULL}, /* inner */
 	{ISP_CAM_A_IDX, (int *)G_WRDMA_IonCt[ISP_CAM_A_IDX - ISP_CAM_A_IDX],
 	 (int *)G_WRDMA_IonFd[ISP_CAM_A_IDX - ISP_CAM_A_IDX],
 	 (struct ion_handle **)G_WRDMA_IonHnd[ISP_CAM_A_IDX - ISP_CAM_A_IDX],
@@ -11034,7 +11049,7 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 
 			IRQ_LOG_KEEPER(
 				module, m_CurrentPPB, _LOG_INF,
-				"CAM_%c P1_SOF_%d_%d(0x%08x_0x%08x,0x%08x_0x%08x,0x%08x,0x%08x,0x%x),int_us:%d,cq:0x%08x,CRZO(0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x)\n",
+				"CAM_%c P1_SOF_%d_%d(0x%08x_0x%08x,0x%08x_0x%08x,0x%08x,0x%08x,0x%x),int_us:%d,cq:0x%08x,CRZO(0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x,0x%x_0x%x)\n",
 				'A' + cardinalNum, sof_count[module], cur_v_cnt,
 				(unsigned int)(ISP_RD32(
 					CAM_REG_FBC_IMGO_CTL1(reg_module))),
@@ -11054,27 +11069,57 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 				(unsigned int)ISP_RD32(
 					CAM_REG_CTL_DMA_EN(ISP_CAM_B_IDX)),
 				(unsigned int)ISP_RD32(
+					CAM_REG_CTL_DMA_EN(
+						ISP_CAM_B_INNER_IDX)),
+				(unsigned int)ISP_RD32(
 					CAM_REG_CTL_DMA_EN(ISP_CAM_C_IDX)),
 				(unsigned int)ISP_RD32(
-				CAM_REG_DMA_FRAME_HEADER_EN1(ISP_CAM_B_IDX)),
+					CAM_REG_CTL_DMA_EN(
+						ISP_CAM_C_INNER_IDX)),
 				(unsigned int)ISP_RD32(
-				CAM_REG_DMA_FRAME_HEADER_EN1(ISP_CAM_C_IDX)),
+					CAM_REG_DMA_FRAME_HEADER_EN1(
+						ISP_CAM_B_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_DMA_FRAME_HEADER_EN1(
+						ISP_CAM_B_INNER_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_DMA_FRAME_HEADER_EN1(
+						ISP_CAM_C_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_DMA_FRAME_HEADER_EN1(
+						ISP_CAM_C_INNER_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_FBC_CRZO_CTL2(ISP_CAM_B_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_FBC_CRZO_CTL2(
+						ISP_CAM_B_INNER_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_FBC_CRZO_CTL2(ISP_CAM_C_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_FBC_CRZO_CTL2(
+						ISP_CAM_C_INNER_IDX)),
 				(unsigned int)ISP_RD32(
 					CAM_REG_CRZO_BASE_ADDR(ISP_CAM_B_IDX)),
 				(unsigned int)ISP_RD32(
+					CAM_REG_CRZO_BASE_ADDR(
+						ISP_CAM_B_INNER_IDX)),
+				(unsigned int)ISP_RD32(
 					CAM_REG_CRZO_BASE_ADDR(ISP_CAM_C_IDX)),
 				(unsigned int)ISP_RD32(
-					CAM_REG_CRZO_OFST_ADDR(ISP_CAM_B_IDX)),
+					CAM_REG_CRZO_BASE_ADDR(
+						ISP_CAM_C_INNER_IDX)),
 				(unsigned int)ISP_RD32(
-					CAM_REG_CRZO_OFST_ADDR(ISP_CAM_C_IDX)),
+					CAM_REG_CRZO_FH_BASE_ADDR(
+						ISP_CAM_B_IDX)),
 				(unsigned int)ISP_RD32(
-					CAM_REG_CRZO_XSIZE(ISP_CAM_B_IDX)),
+					CAM_REG_CRZO_FH_BASE_ADDR(
+						ISP_CAM_B_INNER_IDX)),
 				(unsigned int)ISP_RD32(
-					CAM_REG_CRZO_XSIZE(ISP_CAM_C_IDX)),
+					CAM_REG_CRZO_FH_BASE_ADDR(
+						ISP_CAM_C_IDX)),
 				(unsigned int)ISP_RD32(
-					CAM_REG_CRZ_IN_IMG(ISP_CAM_B_IDX)),
-				(unsigned int)ISP_RD32(
-					CAM_REG_CRZ_IN_IMG(ISP_CAM_C_IDX)));
+					CAM_REG_CRZO_FH_BASE_ADDR(
+						ISP_CAM_C_INNER_IDX)));
 
 #ifdef ENABLE_STT_IRQ_LOG /*STT addr */
 			IRQ_LOG_KEEPER(

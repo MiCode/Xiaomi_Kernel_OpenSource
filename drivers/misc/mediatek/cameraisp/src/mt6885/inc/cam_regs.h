@@ -686,6 +686,8 @@ enum{
 #define CAM_REG_RRZ_HORI_STEP(module)           (isp_devs[module].regs + 0x110C)
 #define CAM_REG_RRZ_VERT_STEP(module)           (isp_devs[module].regs + 0x1110)
 
+#define CAM_REG_CRZO_FH_BASE_ADDR(module)       (isp_devs[module].regs + 0x4B5C)
+
 /* MRAW */
 /* MRAW WDMA */
 #define CAM_REG_IMGO_M1_DRS(module)             LOG_NOTICE("MRAW TBD\n")
