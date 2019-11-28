@@ -27,10 +27,9 @@ struct apu_power_info {
 	unsigned int dsp_freq;		// dsp conn
 	unsigned int dsp1_freq;		// vpu core0
 	unsigned int dsp2_freq;		// vpu core1
-	unsigned int dsp3_freq;		// vpu core2
-	unsigned int dsp6_freq;		// mdla core0 & core1
-	unsigned int dsp7_freq;		// iommu
+	unsigned int dsp5_freq;		// mdla core0
 	unsigned int apupll_freq;	// apupll for mdla usage
+	unsigned int npupll_freq;	// npupll for vpu usage
 	unsigned int ipuif_freq;	// ipu interface
 	unsigned int spm_wakeup;
 	unsigned int rpc_intf_rdy;
@@ -38,14 +37,13 @@ struct apu_power_info {
 	unsigned int conn_cg_stat;
 	unsigned int vpu0_cg_stat;
 	unsigned int vpu1_cg_stat;
-	unsigned int vpu2_cg_stat;
 	unsigned int mdla0_cg_stat;
-	unsigned int mdla1_cg_stat;
 	unsigned int max_opp_limit;
 	unsigned int min_opp_limit;
 	unsigned int thermal_cond;
 	unsigned int power_lock;
 	unsigned int type;
+	unsigned int force_print;
 	unsigned long long id;
 };
 
@@ -78,6 +76,7 @@ void disable_apu_device_clksrc(enum DVFS_USER user);
 
 int set_apu_clock_source(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain);
 int config_apupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain);
+int config_npupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain);
 
 void dump_voltage(struct apu_power_info *info);
 void dump_frequency(struct apu_power_info *info);

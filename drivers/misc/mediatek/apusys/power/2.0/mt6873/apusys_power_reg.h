@@ -49,9 +49,7 @@ extern void *g_APU_INFRA_BCRM_BASE;
 extern void *g_APU_CONN_BASE;
 extern void *g_APU_VPU0_BASE;
 extern void *g_APU_VPU1_BASE;
-extern void *g_APU_VPU2_BASE;
 extern void *g_APU_MDLA0_BASE;
-extern void *g_APU_MDLA1_BASE;
 extern void *g_APU_SPM_BASE;
 
 #define REG_POLLING_TIMEOUT_ROUNDS	(50) // 50 * 10us = 500us
@@ -123,12 +121,6 @@ extern void *g_APU_SPM_BASE;
 #define	APU1_BASE			(g_APU_VPU1_BASE)
 #define APU1_APU_CG_CON			(void *)(APU1_BASE+0x100)
 
-#define	APU2_BASE			(g_APU_VPU2_BASE)
-#define APU2_APU_CG_CON			(void *)(APU2_BASE+0x100)
-
 #define	APU_MDLA0_BASE			(g_APU_MDLA0_BASE)
 #define APU_MDLA0_APU_MDLA_CG_CON	(void *)(APU_MDLA0_BASE+0x000)
-
-#define	APU_MDLA1_BASE			(g_APU_MDLA1_BASE)
-#define APU_MDLA1_APU_MDLA_CG_CON	(void *)(APU_MDLA1_BASE+0x000)
 

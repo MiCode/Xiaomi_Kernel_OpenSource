@@ -27,9 +27,7 @@ static bool apusys_get_conn_power_on_status(void)
 {
 	if (apusys_get_power_on_status(VPU0) == true ||
 		apusys_get_power_on_status(VPU1) == true ||
-		apusys_get_power_on_status(VPU2) == true ||
-		apusys_get_power_on_status(MDLA0) == true ||
-		apusys_get_power_on_status(MDLA1) == true)
+		apusys_get_power_on_status(MDLA0) == true)
 		return true;
 
 	return false;
@@ -40,16 +38,12 @@ void apu_power_assert_check(struct apu_power_info *info)
 	int dsp_freq;
 	int dsp1_freq;
 	int dsp2_freq;
-	int dsp3_freq;
 	int dsp5_freq;
-	int dsp6_freq;
-	int dsp7_freq;
 	//int ipuif_freq = apusys_get_dvfs_freq(V_VCORE)/1000;
 
 	int vvpu = info->vvpu * info->dump_div;
 	int vmdla = info->vmdla * info->dump_div;
 	int vsram = info->vsram * info->dump_div;
-	int vcore = info->vcore * info->dump_div;
 
 	if (apusys_get_power_on_status(VPU0) == true && info->dsp1_freq != 0) {
 		dsp1_freq = apusys_get_dvfs_freq(V_VPU0)/info->dump_div;
@@ -69,29 +63,12 @@ void apu_power_assert_check(struct apu_power_info *info)
 		}
 	}
 
-	if (dvfs_user_support(VPU2) &&
-		apusys_get_power_on_status(VPU2) == true &&
-			info->dsp3_freq != 0) {
-		dsp3_freq = apusys_get_dvfs_freq(V_VPU2)/info->dump_div;
-		if ((abs(dsp3_freq - info->dsp3_freq) * 100) >
-			dsp3_freq * ASSERTION_PERCENTAGE) {
-			LOG_WRN("ASSERT dsp3_freq=%d, info->dsp3_freq=%d\n",
-						dsp3_freq, info->dsp3_freq);
-		}
-	}
-
-	if ((apusys_get_power_on_status(MDLA0) == true ||
-				(dvfs_user_support(MDLA1) &&
-				 apusys_get_power_on_status(MDLA1) == true)) &&
-			info->dsp6_freq != 0) {
+	if (apusys_get_power_on_status(MDLA0) == true && info->dsp5_freq != 0) {
 		dsp5_freq = apusys_get_dvfs_freq(V_MDLA0)/info->dump_div;
-		dsp6_freq = apusys_get_dvfs_freq(V_MDLA1)/info->dump_div;
-		if (((abs(dsp5_freq - info->dsp6_freq) * 100) >
-			dsp5_freq * ASSERTION_PERCENTAGE) &&
-			((abs(dsp6_freq - info->dsp6_freq) * 100) >
-			dsp6_freq * ASSERTION_PERCENTAGE)) {
-			LOG_WRN("ASSERT dsp5=%d, dsp6=%d, info->dsp6_freq=%d\n",
-					dsp5_freq, dsp6_freq, info->dsp6_freq);
+		if ((abs(dsp5_freq - info->dsp5_freq) * 100) >
+			dsp5_freq * ASSERTION_PERCENTAGE) {
+			LOG_WRN("ASSERT dsp5=%d, info->dsp5_freq=%d\n",
+					dsp5_freq, info->dsp5_freq);
 		}
 	}
 
@@ -107,17 +84,6 @@ void apu_power_assert_check(struct apu_power_info *info)
 						dsp_freq, info->dsp_freq);
 			}
 		}
-
-		if (info->dsp7_freq != 0) {
-			dsp7_freq =
-			apusys_get_dvfs_freq(V_TOP_IOMMU)/info->dump_div;
-			if ((abs(dsp7_freq - info->dsp7_freq) * 100) >
-					dsp7_freq * ASSERTION_PERCENTAGE) {
-				LOG_WRN(
-				"ASSERT dsp7_freq=%d, info->dsp7_freq=%d\n",
-						dsp7_freq, info->dsp7_freq);
-			}
-		}
 	}
 
 
@@ -129,21 +95,6 @@ void apu_power_assert_check(struct apu_power_info *info)
 				ipuif_freq, info->ipuif_freq)
 	}
 #endif
-
-	if (vvpu == DVFS_VOLT_00_575000_V && vmdla >= DVFS_VOLT_00_800000_V) {
-		LOG_WRN("ASSERT vvpu=%d, vmdla=%d\n",
-				vvpu, vmdla);
-	}
-
-	if (vmdla == DVFS_VOLT_00_575000_V && vvpu >= DVFS_VOLT_00_800000_V) {
-		LOG_WRN("ASSERT vvpu=%d, vmdla=%d\n",
-				vvpu, vmdla);
-	}
-
-	if (vcore == DVFS_VOLT_00_575000_V && vvpu >= DVFS_VOLT_00_800000_V) {
-		LOG_WRN("ASSERT vvpu=%d, vcore=%d\n",
-				vvpu, vcore);
-	}
 
 	if ((vvpu > VSRAM_TRANS_VOLT || vmdla > VSRAM_TRANS_VOLT)
 			&& vsram == VSRAM_LOW_VOLT) {
@@ -161,7 +112,7 @@ void apu_power_assert_check(struct apu_power_info *info)
 void constraints_check_stress(int opp)
 {
 	int i = 0, j = 0;
-	int m = 0, n = 0, o = 0;
+	int m = 0;
 	int count = 0;
 	int loop = opp;
 	struct apu_power_info info = {0};
@@ -172,31 +123,23 @@ for (loop = 0; loop < count; loop++) {
 		for (j = 0 ; j < APUSYS_MAX_NUM_OPPS; j++) {
 			apusys_set_opp(VPU1, j);
 			for (m = 0 ; m < APUSYS_MAX_NUM_OPPS; m++) {
-				apusys_set_opp(VPU2, m);
-				for (n = 0 ; n < APUSYS_MAX_NUM_OPPS;
-					n++) {
-					apusys_set_opp(MDLA0, n);
-					for (o = 0 ; o < APUSYS_MAX_NUM_OPPS;
-					o++) {
-						count++;
-						LOG_WRN(
-						"## dvfs conbinational test, count = %d ##\n",
-								count);
-						apusys_set_opp(
-							MDLA1, o);
-						info.id = 0;
-						info.type = 0;
+				count++;
+				LOG_WRN(
+				"## dvfs conbinational test, count = %d ##\n",
+						count);
+				apusys_set_opp(
+					MDLA0, m);
+				info.id = 0;
+				info.type = 0;
 
-						apusys_dvfs_policy(0);
+				apusys_dvfs_policy(0);
 
-						hal_config_power(
-						PWR_CMD_GET_POWER_INFO,
-							VPU0, &info);
-						apu_power_assert_check(
-								&info);
-						udelay(100);
-					}
-				}
+				hal_config_power(
+				PWR_CMD_GET_POWER_INFO,
+					VPU0, &info);
+				apu_power_assert_check(
+						&info);
+				udelay(100);
 			}
 		}
 	}
@@ -209,27 +152,6 @@ void voltage_constraint_check(void)
 	struct apu_power_info info = {0};
 
 	dump_voltage(&info);
-
-	if (info.vvpu == DVFS_VOLT_00_575000_V &&
-			info.vmdla >= DVFS_VOLT_00_800000_V) {
-		apu_aee_warn("APU PWR Constraint",
-				"ASSERT vvpu=%d, vmdla=%d\n",
-				info.vvpu, info.vmdla);
-	}
-
-	if (info.vmdla == DVFS_VOLT_00_575000_V &&
-			info.vvpu >= DVFS_VOLT_00_800000_V) {
-		apu_aee_warn("APU PWR Constraint",
-				"ASSERT vvpu=%d, vmdla=%d\n",
-				info.vvpu, info.vmdla);
-	}
-
-	if (info.vcore == DVFS_VOLT_00_575000_V &&
-			info.vvpu >= DVFS_VOLT_00_800000_V) {
-		apu_aee_warn("APU PWR Constraint",
-				"ASSERT vvpu=%d, vcore=%d\n",
-				info.vvpu, info.vcore);
-	}
 
 	if ((info.vvpu > VSRAM_TRANS_VOLT || info.vmdla > VSRAM_TRANS_VOLT)
 			&& info.vsram == VSRAM_LOW_VOLT) {

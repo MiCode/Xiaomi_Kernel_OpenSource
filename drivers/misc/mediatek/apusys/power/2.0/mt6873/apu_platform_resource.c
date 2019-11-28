@@ -37,9 +37,7 @@ struct hal_param_init_power *init_power_data)
 	struct device_node *apusys_conn_node = NULL;
 	struct device_node *apusys_vpu0_node = NULL;
 	struct device_node *apusys_vpu1_node = NULL;
-	struct device_node *apusys_vpu2_node = NULL;
 	struct device_node *apusys_mdla0_node = NULL;
-	struct device_node *apusys_mdla1_node = NULL;
 
 	LOG_INF("%s pdev id = %d name = %s, name = %s\n", __func__,
 						pdev->id, pdev->name,
@@ -167,19 +165,6 @@ struct hal_param_init_power *init_power_data)
 		}
 	}
 
-	// apusys vpu2
-	apusys_vpu2_node = of_find_compatible_node(NULL, NULL,
-							"mediatek,apu2");
-	if (apusys_vpu2_node) {
-		init_power_data->vpu2_base_addr = of_iomap(
-							apusys_vpu2_node, 0);
-
-		if (IS_ERR((void *)init_power_data->vpu2_base_addr)) {
-			LOG_ERR("Unable to iomap vpu2_base_addr\n");
-			goto err_exit;
-		}
-	}
-
 	// apusys mdla0
 	apusys_mdla0_node = of_find_compatible_node(NULL, NULL,
 							"mediatek,apu_mdla0");
@@ -189,19 +174,6 @@ struct hal_param_init_power *init_power_data)
 
 		if (IS_ERR((void *)init_power_data->mdla0_base_addr)) {
 			LOG_ERR("Unable to iomap mdla0_base_addr\n");
-			goto err_exit;
-		}
-	}
-
-	// apusys mdla1
-	apusys_mdla1_node = of_find_compatible_node(NULL, NULL,
-							"mediatek,apu_mdla1");
-	if (apusys_mdla1_node) {
-		init_power_data->mdla1_base_addr = of_iomap(
-							apusys_mdla1_node, 0);
-
-		if (IS_ERR((void *)init_power_data->mdla1_base_addr)) {
-			LOG_ERR("Unable to iomap mdla1_base_addr\n");
 			goto err_exit;
 		}
 	}
@@ -218,9 +190,7 @@ err_exit:
 	init_power_data->conn_base_addr = NULL;
 	init_power_data->vpu0_base_addr = NULL;
 	init_power_data->vpu1_base_addr = NULL;
-	init_power_data->vpu2_base_addr = NULL;
 	init_power_data->mdla0_base_addr = NULL;
-	init_power_data->mdla1_base_addr = NULL;
 
 	return err;
 }

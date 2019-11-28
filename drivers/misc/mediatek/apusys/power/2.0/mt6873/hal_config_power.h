@@ -51,9 +51,7 @@ struct hal_param_init_power {
 	void *conn_base_addr;
 	void *vpu0_base_addr;
 	void *vpu1_base_addr;
-	void *vpu2_base_addr;
 	void *mdla0_base_addr;
-	void *mdla1_base_addr;
 };
 
 // regulator only

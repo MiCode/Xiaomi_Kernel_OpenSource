@@ -27,7 +27,7 @@ void apu_power_dump_opp_table(struct seq_file *s)
 	int buck_domain;
 
 	seq_printf(s,
-		"|opp| vpu0| vpu1| vpu2|mdla0|mdla1| conn|iommu|ipuif|\n");
+		"|opp| vpu0| vpu1|mdla0| conn|ipuif|\n");
 	seq_printf(s,
 		"|---------------------------------------------------|\n");
 	for (opp_num = 0 ; opp_num < APUSYS_MAX_NUM_OPPS ; opp_num++) {
@@ -53,56 +53,48 @@ int apu_power_dump_curr_status(struct seq_file *s, int oneline_str)
 
 	// for thermal request, we print vpu and mdla freq
 	if (oneline_str) {
-		seq_printf(s, "%03u,%03u,%03u,%03u,%03u\n",
+		seq_printf(s, "%03u,%03u,%03u\n",
 			((info.rpc_intf_rdy >> 2) & 0x1) ? info.dsp1_freq : 0,
 			((info.rpc_intf_rdy >> 3) & 0x1) ? info.dsp2_freq : 0,
-			((info.rpc_intf_rdy >> 4) & 0x1) ? info.dsp3_freq : 0,
-			((info.rpc_intf_rdy >> 6) & 0x1) ? info.dsp6_freq : 0,
-			((info.rpc_intf_rdy >> 7) & 0x1) ? info.dsp6_freq : 0);
+			((info.rpc_intf_rdy >> 6) & 0x1) ? info.dsp5_freq : 0);
 
 		return 0;
 	}
 
 	seq_printf(s,
-		"|curr| vpu0| vpu1| vpu2|mdla0|mdla1| conn|iommu|vcore|\n| opp|");
+		"|curr| vpu0| vpu1| mdla0|conn|vcore|\n| opp|");
 
 	seq_printf(s, "  %d  |", apusys_freq_to_opp(V_VPU0,
 					info.dsp1_freq * info.dump_div));
 	seq_printf(s, "  %d  |", apusys_freq_to_opp(V_VPU1,
 					info.dsp2_freq * info.dump_div));
-	seq_printf(s, "  %d  |", apusys_freq_to_opp(V_VPU2,
-					info.dsp3_freq * info.dump_div));
 	seq_printf(s, "  %d  |", apusys_freq_to_opp(V_MDLA0,
-					info.dsp6_freq * info.dump_div));
-	seq_printf(s, "  %d  |", apusys_freq_to_opp(V_MDLA1,
-					info.dsp6_freq * info.dump_div));
+					info.dsp5_freq * info.dump_div));
 	seq_printf(s, "  %d  |", apusys_freq_to_opp(V_APU_CONN,
 					info.dsp_freq * info.dump_div));
-	seq_printf(s, "  %d  |", apusys_freq_to_opp(V_TOP_IOMMU,
-					info.dsp7_freq * info.dump_div));
 	seq_printf(s, "  %d  |", apusys_freq_to_opp(V_VCORE,
 					info.ipuif_freq * info.dump_div));
 	seq_puts(s, "\n");
 
 	seq_printf(s,
-		"|freq| %03u | %03u | %03u | %03u | %03u | %03u | %03u | %03u |\n",
-		info.dsp1_freq, info.dsp2_freq, info.dsp3_freq,
-		info.dsp6_freq, info.dsp6_freq, info.dsp_freq,
-		info.dsp7_freq, info.ipuif_freq);
+		"|freq| %03u | %03u | %03u | %03u | %03u |\n",
+		info.dsp1_freq, info.dsp2_freq,
+		info.dsp5_freq, info.dsp_freq,
+		info.ipuif_freq);
 
 	seq_printf(s,
-		"| clk| dsp1| dsp2| dsp3| dsp6| dsp6|  dsp| dsp7|ipuif|\n(unit: MHz)\n\n");
+		"| clk| dsp1| dsp2| dsp5| dsp| ipuif|\n(unit: MHz)\n\n");
 
 	seq_printf(s, "vvpu:%u(mV), vmdla:%u(mV), vcore:%u(mV), vsram:%u(mV)\n",
 			info.vvpu, info.vmdla, info.vcore, info.vsram);
 
 	seq_puts(s, "\n");
 	seq_printf(s,
-	"rpc_intf_rdy:0x%x, spm_wakeup:0x%x\nvcore_cg_con:0x%x, conn_cg_con:0x%x\nvpu0_cg_con:0x%x, vpu1_cg_con:0x%x, vpu2_cg_con:0x%x\nmdla0_cg_con:0x%x, mdla1_cg_con:0x%x\n",
+	"rpc_intf_rdy:0x%x, spm_wakeup:0x%x\nvcore_cg_con:0x%x, conn_cg_con:0x%x\nvpu0_cg_con:0x%x, vpu1_cg_con:0x%x, mdla0_cg_con:0x%x\n",
 		info.rpc_intf_rdy, info.spm_wakeup,
 		info.vcore_cg_stat, info.conn_cg_stat,
-		info.vpu0_cg_stat, info.vpu1_cg_stat, info.vpu2_cg_stat,
-		info.mdla0_cg_stat, info.mdla1_cg_stat);
+		info.vpu0_cg_stat, info.vpu1_cg_stat,
+		info.mdla0_cg_stat);
 
 	seq_puts(s, "\n");
 	return 0;

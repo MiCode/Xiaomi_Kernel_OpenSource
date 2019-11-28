@@ -40,9 +40,7 @@ void *g_APU_INFRA_BCRM_BASE;
 void *g_APU_CONN_BASE;
 void *g_APU_VPU0_BASE;
 void *g_APU_VPU1_BASE;
-void *g_APU_VPU2_BASE;
 void *g_APU_MDLA0_BASE;
-void *g_APU_MDLA1_BASE;
 void *g_APU_SPM_BASE;
 
 /************************************
@@ -199,9 +197,6 @@ static void hw_init_setting(void)
 	// IMEM_ICACHE sleep type for VPU1
 	DRV_WriteReg32(APU_RPC_SW_TYPE3, 0x2);
 
-	// IMEM_ICACHE sleep type for VPU2
-	DRV_WriteReg32(APU_RPC_SW_TYPE4, 0x2);
-
 	// mask RPC IRQ and bypass WFI
 	regValue = DRV_Reg32(APU_RPC_TOP_SEL);
 	regValue |= 0x9E;
@@ -241,9 +236,7 @@ static int init_power_resource(void *param)
 	g_APU_CONN_BASE = init_data->conn_base_addr;
 	g_APU_VPU0_BASE = init_data->vpu0_base_addr;
 	g_APU_VPU1_BASE = init_data->vpu1_base_addr;
-	g_APU_VPU2_BASE = init_data->vpu2_base_addr;
 	g_APU_MDLA0_BASE = init_data->mdla0_base_addr;
-	g_APU_MDLA1_BASE = init_data->mdla1_base_addr;
 
 	LOG_DBG("%s , g_APU_RPCTOP_BASE 0x%p\n", __func__, g_APU_RPCTOP_BASE);
 	LOG_DBG("%s , g_APU_PCUTOP_BASE 0x%p\n", __func__, g_APU_PCUTOP_BASE);
@@ -256,9 +249,7 @@ static int init_power_resource(void *param)
 	LOG_DBG("%s , g_APU_CONN_BASE 0x%p\n", __func__, g_APU_CONN_BASE);
 	LOG_DBG("%s , g_APU_VPU0_BASE 0x%p\n", __func__, g_APU_VPU0_BASE);
 	LOG_DBG("%s , g_APU_VPU1_BASE 0x%p\n", __func__, g_APU_VPU1_BASE);
-	LOG_DBG("%s , g_APU_VPU2_BASE 0x%p\n", __func__, g_APU_VPU2_BASE);
 	LOG_DBG("%s , g_APU_MDLA0_BASE 0x%p\n", __func__, g_APU_MDLA0_BASE);
-	LOG_DBG("%s , g_APU_MDLA1_BASE 0x%p\n", __func__, g_APU_MDLA1_BASE);
 	LOG_DBG("%s , g_APU_SPM_BASE 0x%p\n", __func__, g_APU_SPM_BASE);
 
 	if (!is_apu_power_initilized) {
@@ -293,8 +284,10 @@ static int segment_user_support_check(void *param)
 	val = get_devinfo_with_index(30);
 	if (val == 0x1) {
 		seg_info->seg = SEGMENT_0;
+#if 0 //[Fix me]
 		if (seg_info->user == VPU2 || seg_info->user == MDLA1)
 			seg_info->support = false;
+#endif
 	} else if (val == 0x10)
 		seg_info->seg = SEGMENT_2;
 
@@ -525,23 +518,25 @@ static int rpc_power_status_check(int domain_idx, unsigned int mode)
 
 		if (mode != 2 && spmValue != (rpcValue & 0x1))
 			fail_type = 3;
+	}
 
-		if (fail_type > 0) {
-			check_spm_register(NULL, 1);
-			rpc_alive = check_if_rpc_alive();
-			LOG_ERR(
-			"%s fail conn ctl type:%d, mode:%d, spm:0x%x, rpc:0x%x, ra:%d\n",
-			__func__, fail_type, mode, spmValue, rpcValue,
-			rpc_alive);
+	if (chkValue == rpcValue && (rpcValue >> 8) != 0x0)
+		fail_type = 4;
 
-			apu_aee_warn(
-				"APUPWR_RPC_CHK_FAIL",
-				"type:%d, mode:%d, spm:0x%x, rpc:0x%x, ra:%d\n",
-				fail_type, mode, spmValue, rpcValue, rpc_alive);
+	if (fail_type > 0) {
+		check_spm_register(NULL, 1);
+		rpc_alive = check_if_rpc_alive();
+		LOG_ERR(
+		"%s fail conn ctl type:%d, mode:%d, spm:0x%x, rpc:0x%x, ra:%d\n",
+		__func__, fail_type, mode, spmValue, rpcValue, rpc_alive);
+
+		apu_aee_warn(
+			"APUPWR_RPC_CHK_FAIL",
+			"type:%d, mode:%d, spm:0x%x, rpc:0x%x, ra:%d\n",
+			fail_type, mode, spmValue, rpcValue, rpc_alive);
 #if 1
-			return -1;
+		return -1;
 #endif
-		}
 	}
 
 	if (domain_idx == 0 && mode != 0)
@@ -558,25 +553,14 @@ static int set_domain_to_default_clk(int domain_idx)
 	int ret = 0;
 
 	if (domain_idx == 2)
-		ret |= set_apu_clock_source(BUCK_DOMAIN_DEFAULT_FREQ,
-								V_VPU0);
+		ret = config_npupll(BUCK_DOMAIN_DEFAULT_FREQ, V_VPU0);
 	else if (domain_idx == 3)
-		ret |= set_apu_clock_source(BUCK_DOMAIN_DEFAULT_FREQ,
-								V_VPU1);
-	else if (domain_idx == 4)
-		ret |= set_apu_clock_source(BUCK_DOMAIN_DEFAULT_FREQ,
-								V_VPU2);
+		ret = config_npupll(BUCK_DOMAIN_DEFAULT_FREQ, V_VPU1);
 	else if (domain_idx == 6)
-		ret |= set_apu_clock_source(BUCK_DOMAIN_DEFAULT_FREQ,
-								V_MDLA0);
-	else if (domain_idx == 7)
-		ret |= set_apu_clock_source(BUCK_DOMAIN_DEFAULT_FREQ,
-								V_MDLA1);
+		ret = config_apupll(BUCK_DOMAIN_DEFAULT_FREQ, V_MDLA0);
 	else {
-		ret |= set_apu_clock_source(BUCK_DOMAIN_DEFAULT_FREQ,
+		ret = set_apu_clock_source(BUCK_DOMAIN_DEFAULT_FREQ,
 								V_APU_CONN);
-		ret |= set_apu_clock_source(BUCK_DOMAIN_DEFAULT_FREQ,
-								V_TOP_IOMMU);
 	}
 
 	return ret;
@@ -593,18 +577,14 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 
 	LOG_DBG("%s , user: %d , enable: %d\n", __func__, user, enable);
 
-	if (user == EDMA || user == EDMA2 || user == REVISER)
+	if (user == EDMA || user == REVISER)
 		domain_idx = 0;
 	else if (user == VPU0)
 		domain_idx = 2;
 	else if (user == VPU1)
 		domain_idx = 3;
-	else if (user == VPU2)
-		domain_idx = 4;
 	else if (user == MDLA0)
 		domain_idx = 6;
-	else if (user == MDLA1)
-		domain_idx = 7;
 	else
 		LOG_WRN("%s not support user : %d\n", __func__, user);
 
@@ -747,8 +727,10 @@ static int set_power_frequency(void *param)
 	domain = ((struct hal_param_freq *)param)->target_volt_domain;
 
 	if (domain < APUSYS_BUCK_DOMAIN_NUM) {
-		if (domain == V_MDLA0 || domain == V_MDLA1)
+		if (domain == V_MDLA0)
 			ret = config_apupll(freq, domain);
+		else if ((domain == V_VPU0) || (domain == V_VPU1))
+			ret = config_npupll(freq, domain);
 		else
 			ret = set_apu_clock_source(freq, domain);
 	} else {
@@ -765,7 +747,7 @@ static void get_current_power_info(void *param)
 {
 	struct apu_power_info *info = ((struct apu_power_info *)param);
 	char log_str[128];
-	unsigned int mdla_0 = 0, mdla_1 = 0;
+	unsigned int mdla_0 = 0;
 
 	info->dump_div = 1000;
 
@@ -775,8 +757,7 @@ static void get_current_power_info(void *param)
 	// including APUsys related freq
 	dump_frequency(info);
 
-	mdla_0 = (apu_get_power_on_status(MDLA0)) ? info->dsp6_freq : 0;
-	mdla_1 = (apu_get_power_on_status(MDLA1)) ? info->dsp6_freq : 0;
+	mdla_0 = (apu_get_power_on_status(MDLA0)) ? info->dsp5_freq : 0;
 
 	if (info->type == 1) {
 		// including APUsys pwr related reg
@@ -786,27 +767,28 @@ static void get_current_power_info(void *param)
 		check_spm_register(info, 0);
 
 		snprintf(log_str, sizeof(log_str),
-			"v[%u,%u,%u,%u]f[%u,%u,%u,%u,%u,%u,%u]r[%x,%x,%x,%x,%x,%x,%x,%x,%x]%llu",
+			"v[%u,%u,%u,%u]f[%u,%u,%u,%u,%u]r[%x,%x,%x,%x,%x,%x,%x,%x,%x]%llu",
 			info->vvpu, info->vmdla, info->vcore, info->vsram,
 			info->dsp_freq, info->dsp1_freq, info->dsp2_freq,
-			info->dsp3_freq, info->dsp6_freq, info->dsp7_freq,
-			info->ipuif_freq, info->spm_wakeup, info->rpc_intf_rdy,
+			info->dsp5_freq, info->ipuif_freq,
+			info->spm_wakeup, info->rpc_intf_rdy,
 			info->vcore_cg_stat, info->conn_cg_stat,
 			info->vpu0_cg_stat, info->vpu1_cg_stat,
-			info->vpu2_cg_stat, info->mdla0_cg_stat,
-			info->mdla1_cg_stat, info->id);
+			info->mdla0_cg_stat, info->id);
 	} else {
 		snprintf(log_str, sizeof(log_str),
-			"v[%u,%u,%u,%u]f[%u,%u,%u,%u,%u,%u,%u]%llu",
+			"v[%u,%u,%u,%u]f[%u,%u,%u,%u,%u]%llu",
 			info->vvpu, info->vmdla, info->vcore, info->vsram,
 			info->dsp_freq, info->dsp1_freq, info->dsp2_freq,
-			info->dsp3_freq, info->dsp6_freq, info->dsp7_freq,
-			info->ipuif_freq, info->id);
+			info->dsp5_freq, info->ipuif_freq, info->id);
 	}
 
-	trace_APUSYS_DFS(info, mdla_0, mdla_1);
+	trace_APUSYS_DFS(info, mdla_0);
 
-	LOG_PM("APUPWR %s\n", log_str);
+	if (info->force_print)
+		LOG_ERR("APUPWR %s\n", log_str);
+	else
+		LOG_PM("APUPWR %s\n", log_str);
 }
 
 static int uninit_power_resource(void)
@@ -1034,9 +1016,7 @@ static int apusys_power_reg_dump(struct apu_power_info *info)
 			info->conn_cg_stat = 0xdb;
 			info->vpu0_cg_stat = 0xdb;
 			info->vpu1_cg_stat = 0xdb;
-			info->vpu2_cg_stat = 0xdb;
 			info->mdla0_cg_stat = 0xdb;
-			info->mdla1_cg_stat = 0xdb;
 		}
 		return -1;
 	}
@@ -1106,21 +1086,6 @@ static int apusys_power_reg_dump(struct apu_power_info *info)
 			"APUREG vpu1 mtcmos not ready, bypass CG dump\n");
 	}
 
-	if (((regVal & BIT(4)) >> 4) == 0x1) {
-		tmpVal = DRV_Reg32(APU2_APU_CG_CON);
-		if (info != NULL)
-			info->vpu2_cg_stat = tmpVal;
-		else
-			LOG_WRN("APUREG APU2_APU_CG_CON = 0x%x\n", tmpVal);
-
-	} else {
-		if (info != NULL)
-			info->vpu2_cg_stat = 0xdb;
-		else
-			LOG_WRN(
-			"APUREG vpu2 mtcmos not ready, bypass CG dump\n");
-	}
-
 	if (((regVal & BIT(6)) >> 6) == 0x1) {
 		tmpVal = DRV_Reg32(APU_MDLA0_APU_MDLA_CG_CON);
 		if (info != NULL)
@@ -1135,21 +1100,6 @@ static int apusys_power_reg_dump(struct apu_power_info *info)
 		else
 			LOG_WRN(
 			"APUREG mdla0 mtcmos not ready, bypass CG dump\n");
-	}
-
-	if (((regVal & BIT(7)) >> 7) == 0x1) {
-		tmpVal = DRV_Reg32(APU_MDLA1_APU_MDLA_CG_CON);
-		if (info != NULL)
-			info->mdla1_cg_stat = tmpVal;
-		else
-			LOG_WRN("APUREG APU_MDLA1_APU_MDLA_CG_CON = 0x%x\n",
-									tmpVal);
-	} else {
-		if (info != NULL)
-			info->mdla1_cg_stat = 0xdb;
-		else
-			LOG_WRN(
-			"APUREG mdla1 mtcmos not ready, bypass CG dump\n");
 	}
 
 	return 0;
