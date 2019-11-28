@@ -65,13 +65,6 @@ static DEFINE_SPINLOCK(meter_lock);
 #define CAMSYS_RAWB_CG_CON	(cam_rawb_base + 0x0000)
 #define CAMSYS_RAWC_CG_CON	(cam_rawc_base + 0x0000)
 #define PWR_STATUS		(spm_base_debug + 0x016C)
-#define CAM_DEBUG_PRINT(prompt)						\
-	do {								\
-		if (strstr(__clk_get_name(hw->clk), "camsys_")) {	\
-			mtk_ccf_cam_debug(__func__, prompt,		\
-					__clk_get_name(hw->clk));	\
-		}							\
-	} while (0)
 
 void mtk_ccf_cam_debug(const char *str1, const char *str2,
 							const char *str3)
@@ -2014,9 +2007,7 @@ static void mtk_cg_clr_bit_no_setclr(struct clk_hw *hw)
 
 static int mtk_cg_enable(struct clk_hw *hw)
 {
-	CAM_DEBUG_PRINT("b4");
 	mtk_cg_clr_bit(hw);
-	CAM_DEBUG_PRINT("af");
 
 	return 0;
 }
@@ -2066,7 +2057,6 @@ static void mtk_cg_disable_inv_no_setclr(struct clk_hw *hw)
 
 static void mtk_cg_disable_dummy(struct clk_hw *hw)
 {
-	CAM_DEBUG_PRINT("du");
 	/* do nothing */
 }
 
@@ -2094,39 +2084,6 @@ const struct clk_ops mtk_clk_gate_ops_no_setclr_inv_dummy = {
 	.disable	= mtk_cg_disable_dummy,
 };
 
-static int mtk_cg_bit_is_cleared_for_camdebug(struct clk_hw *hw)
-{
-	struct mtk_clk_gate *cg = to_mtk_clk_gate(hw);
-	u32 val;
-
-	regmap_read(cg->regmap, cg->sta_ofs, &val);
-	val &= BIT(cg->bit);
-
-	return val == 0;
-}
-
-
-static int mtk_cg_enable_forcam(struct clk_hw *hw)
-{
-	CAM_DEBUG_PRINT("b4");
-	mtk_cg_clr_bit(hw);
-	CAM_DEBUG_PRINT("af");
-	return 0;
-}
-
-static void mtk_cg_disable_forcam(struct clk_hw *hw)
-{
-	CAM_DEBUG_PRINT("b4");
-	mtk_cg_set_bit(hw);
-	CAM_DEBUG_PRINT("af");
-}
-
-const struct clk_ops mtk_clk_gate_ops_setclr_for_camdebug = {
-	.is_enabled     = mtk_cg_bit_is_cleared_for_camdebug,
-	.enable         = mtk_cg_enable_forcam,
-	.disable        = mtk_cg_disable_forcam,
-};
-
 #if MT_CCF_BRINGUP
 #define GATE		GATE_DUMMY		/* set/clr */
 #define GATE_INV	GATE_INV_DUMMY		/* set/clr inverse */
@@ -2140,7 +2097,7 @@ const struct clk_ops mtk_clk_gate_ops_setclr_for_camdebug = {
 		.regs = &_regs,					\
 		.shift = _shift,				\
 		.flags = _flags,				\
-		.ops = &mtk_clk_gate_ops_setclr_for_camdebug,	\
+		.ops = &mtk_clk_gate_ops_setclr,		\
 	}
 #define GATE_INV(_id, _name, _parent, _regs, _shift, _flags) {  \
 		.id = _id,					\
