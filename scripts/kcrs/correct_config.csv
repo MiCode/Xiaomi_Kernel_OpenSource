@@ -880,7 +880,7 @@ CONFIG_MTK_SVP,PROJECT,tehsin.lin,new config in this commit 127c1a282ad9be25750e
 CONFIG_MTK_SVP_DISABLE_SODI,PROJECT,tryout.chen,,,,,,,,,,,,,,
 CONFIG_MTK_SVP_RAM_SIZE,PROJECT,tehsin.lin,new config in this commit 127c1a282ad9be25750ea4a3fb5b64324301b7f3,,,,,,,,,,,,,
 CONFIG_MTK_SWCHR_SUPPORT,PLATFORM,elvin.lin,,y,y,X,y,y,X,X,X,X,X,X,X,X
-CONFIG_MTK_SWPM,PLATFORM,brian-sy.yang,,X,X,y,X,X,y,y,y,y,y,y,y,y
+CONFIG_MTK_SWPM,PLATFORM,brian-sy.yang,,X,X,y,X,X,y,y,y,y,X,X,X,X
 CONFIG_MTK_SYNC,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_MTK_SYSENV,PROJECT,ying.jiang,,,,,,,,,,,,,,
 CONFIG_MTK_TASK_TURBO,PROJECT,Jian-Min Liu,new config in this commit 40c03ca963d9e33a1c54a57f50239a80bc2ca766,X,X,X,X,X,X,X,X,X,y,y,y,y
