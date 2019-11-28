@@ -96,6 +96,7 @@ struct cmdq_flush_item {
 	cmdq_async_flush_cb err_cb;
 	void *err_data;
 	s32 err;
+	bool done;
 };
 
 static s8 cmdq_subsys_base_to_id(struct cmdq_base *clt_base, u32 base)
@@ -1037,10 +1038,13 @@ s32 cmdq_pkt_sleep(struct cmdq_pkt *pkt, u16 tick, u16 reg_gpr)
 	 */
 	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_SUBTRACT,
 		CMDQ_GPR_CNT_ID + reg_gpr, &lop, &rop);
+
 	cmdq_pkt_acquire_event(pkt, CMDQ_TOKEN_TPR_LOCK);
+	pkt->evt_revert = pkt->cmd_buf_size;
 	cmdq_pkt_write(pkt, NULL, timeout_en, tpr_en, tpr_en);
-	cmdq_pkt_read(pkt, NULL, timeout_en, CMDQ_SPR_FOR_TEMP);
+	pkt->evt_revert_end = pkt->cmd_buf_size;
 	cmdq_pkt_clear_event(pkt, CMDQ_TOKEN_TPR_LOCK);
+	cmdq_pkt_read(pkt, NULL, timeout_en, CMDQ_SPR_FOR_TEMP);
 	cmdq_pkt_clear_event(pkt, event);
 	rop.value = tick;
 	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, CMDQ_GPR_CNT_ID + reg_gpr,
@@ -1464,6 +1468,10 @@ static void cmdq_pkt_err_irq_dump(struct cmdq_pkt *pkt)
 		}
 	}
 
+	if (pkt->evt_revert_end)
+		cmdq_util_err("revert offset:%u %u",
+			pkt->evt_revert, pkt->evt_revert_end);
+
 	if (inst) {
 		/* not sync case, print raw */
 		cmdq_util_aee(mod,
@@ -1496,6 +1504,7 @@ static void cmdq_flush_async_cb(struct cmdq_cb_data data)
 	if (item->cb)
 		item->cb(user_data);
 	complete(&item->cmplt);
+	item->done = true;
 }
 #endif
 
