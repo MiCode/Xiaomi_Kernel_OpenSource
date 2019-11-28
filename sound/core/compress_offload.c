@@ -657,8 +657,14 @@ snd_compr_set_metadata(struct snd_compr_stream *stream, unsigned long arg)
 static inline int
 snd_compr_tstamp(struct snd_compr_stream *stream, unsigned long arg)
 {
-	struct snd_compr_tstamp tstamp = {0};
 	int ret;
+#ifdef AUDIO_QGKI
+	struct snd_compr_tstamp tstamp;
+
+	memset(&tstamp, 0, sizeof(tstamp));
+#else
+	struct snd_compr_tstamp tstamp = {0};
+#endif
 
 	ret = snd_compr_update_tstamp(stream, &tstamp);
 	if (ret == 0)
