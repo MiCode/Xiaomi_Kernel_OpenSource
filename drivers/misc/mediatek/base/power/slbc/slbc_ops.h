@@ -57,10 +57,18 @@ enum slbc_type {
 	TP_CACHE,
 };
 
+#define ACP_ONLY_BIT	2
 enum slbc_flag {
 	FG_SECURE = BIT(0),
 	FG_POWER = BIT(1),
+	FG_ACP_ONLY = BIT(ACP_ONLY_BIT),
+	FG_ACP_1_4 = BIT(ACP_ONLY_BIT + 1),
+	FG_ACP_2_4 = BIT(ACP_ONLY_BIT + 2),
+	FG_ACP_3_4 = BIT(ACP_ONLY_BIT + 3),
+	FG_ACP_4_4 = BIT(ACP_ONLY_BIT + 4),
 };
+
+#define FG_ACP_BITS (FG_ACP_1_4 | FG_ACP_2_4 | FG_ACP_3_4 | FG_ACP_4_4)
 
 #define SLBC_TRY_FLAG_BIT(d, bit) (((d)->flag & (bit)) == (bit))
 

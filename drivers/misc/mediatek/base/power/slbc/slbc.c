@@ -36,6 +36,8 @@
 static struct mmsram_data mmsram;
 #endif /* CONFIG_MTK_SLBC_MMSRAM */
 
+#include <l3c_part.h>
+
 /* #define SLBC_THREAD */
 /* #define SLBC_TRACE */
 
@@ -53,6 +55,7 @@ static int buffer_ref;
 static int cache_ref;
 static int slbc_ref;
 static int uid_ref[UID_MAX];
+static struct slbc_data test_d;
 
 static LIST_HEAD(slbc_ops_list);
 static DEFINE_MUTEX(slbc_ops_lock);
@@ -610,7 +613,7 @@ int slbc_request(struct slbc_data *d)
 
 	mutex_lock(&slbc_ops_lock);
 	if ((d->type) == TP_BUFFER) {
-		slbc_debug_log("%s: TP_BUFFER\n", __func__, __LINE__);
+		slbc_debug_log("%s: TP_BUFFER\n", __func__);
 #ifdef CONFIG_MTK_SLBC_MMSRAM
 		if (!buffer_ref) {
 			d->pwr_ref++;
@@ -623,10 +626,29 @@ int slbc_request(struct slbc_data *d)
 		buffer_ref++;
 	}
 	if ((d->type) == TP_CACHE) {
-		slbc_debug_log("%s: TP_CACHE\n", __func__, __LINE__);
+		slbc_debug_log("%s: TP_CACHE\n", __func__);
 		if (cache_ref++ == 0) {
-			/* FIXME: */
-			/* acp_enable(); */
+			const unsigned long ratio_bits = d->flag & FG_ACP_BITS;
+			int ratio = find_first_bit(&ratio_bits, 32)
+				- ACP_ONLY_BIT;
+
+			slbc_debug_log("%s: before %s:0x%x, %s:0x%x\n",
+					__func__,
+					"MTK_L3C_PART_MCU",
+					mtk_l3c_get_part(MTK_L3C_PART_MCU),
+					"MTK_L3C_PART_ACP",
+					mtk_l3c_get_part(MTK_L3C_PART_ACP));
+			if (d->flag & FG_ACP_ONLY)
+				mtk_l3c_set_mcu_part(4 - ratio);
+			else
+				mtk_l3c_set_mcu_part(4);
+			mtk_l3c_set_acp_part(ratio);
+			slbc_debug_log("%s: after %s:0x%x, %s:0x%x\n",
+					__func__,
+					"MTK_L3C_PART_MCU",
+					mtk_l3c_get_part(MTK_L3C_PART_MCU),
+					"MTK_L3C_PART_ACP",
+					mtk_l3c_get_part(MTK_L3C_PART_ACP));
 		}
 	}
 	mutex_unlock(&slbc_ops_lock);
@@ -715,7 +737,7 @@ int slbc_release(struct slbc_data *d)
 
 	mutex_lock(&slbc_ops_lock);
 	if ((d->type) == TP_BUFFER) {
-		slbc_debug_log("%s: TP_BUFFER\n", __func__, __LINE__);
+		slbc_debug_log("%s: TP_BUFFER\n", __func__);
 
 		buffer_ref--;
 		WARN_ON(buffer_ref < 0);
@@ -730,10 +752,22 @@ int slbc_release(struct slbc_data *d)
 #endif /* CONFIG_MTK_SLBC_MMSRAM */
 	}
 	if ((d->type) == TP_CACHE) {
-		slbc_debug_log("%s: TP_CACHE\n", __func__, __LINE__);
+		slbc_debug_log("%s: TP_CACHE\n", __func__);
 		if (--cache_ref == 0) {
-			/* FIXME: */
-			/* acp_disable(); */
+			slbc_debug_log("%s: before %s:0x%x, %s:0x%x\n",
+					__func__,
+					"MTK_L3C_PART_MCU",
+					mtk_l3c_get_part(MTK_L3C_PART_MCU),
+					"MTK_L3C_PART_ACP",
+					mtk_l3c_get_part(MTK_L3C_PART_ACP));
+			mtk_l3c_set_mcu_part(4);
+			mtk_l3c_set_acp_part(1);
+			slbc_debug_log("%s: after %s:0x%x, %s:0x%x\n",
+					__func__,
+					"MTK_L3C_PART_MCU",
+					mtk_l3c_get_part(MTK_L3C_PART_MCU),
+					"MTK_L3C_PART_ACP",
+					mtk_l3c_get_part(MTK_L3C_PART_ACP));
 		}
 		WARN_ON(cache_ref < 0);
 	}
@@ -978,7 +1012,7 @@ static ssize_t dbg_slbc_proc_write(struct file *file,
 
 	buf[count] = '\0';
 
-	ret = sscanf(buf, "%63s %ld %ld", cmd, &val_1, &val_2);
+	ret = sscanf(buf, "%63s %lx %lx", cmd, &val_1, &val_2);
 	if (ret < 1) {
 		ret = -EPERM;
 		goto out;
@@ -1009,6 +1043,17 @@ static ssize_t dbg_slbc_proc_write(struct file *file,
 		slbc_release_status = val_1;
 	else if (!strcmp(cmd, "slbc_slot_status"))
 		slbc_slot_status = val_1;
+	else if (!strcmp(cmd, "test_request")) {
+		test_d.uid = UID_TEST;
+		test_d.type  = TP_CACHE;
+		test_d.flag = val_1;
+		slbc_request(&test_d);
+	} else if (!strcmp(cmd, "test_release")) {
+		test_d.uid = UID_TEST;
+		test_d.type  = TP_CACHE;
+		test_d.flag = val_1;
+		slbc_release(&test_d);
+	}
 
 out:
 	free_page((unsigned long)buf);
