@@ -1,0 +1,26 @@
+* RPM RBCPR
+
+The RBCPR(Rapid Bridge Core Power Reduction) is  module on RPM that controls
+the voltage level on the chip based on feedback received through various
+sensors on the chip that allow compensation of the chip process variation,
+temperature etc.
+RPM maintains RBCPR (Rapid Bridge Core Power Reduction) related stats in
+data memory. This module allows users to read those stats.
+
+The required properties for rpm-stats are:
+
+- compatible: "qcom,rpmrbcpr-stats"
+- reg: Pointer to the start of the RPM Data Memory. The size of the memory
+		is inclusive of the entire RPM data memory.
+- qcom,start_offset: The offset at which the RBCPR stats are maintained. The
+			driver module reads this parameter to get another offset
+			that contain the rbcpr stats.
+
+
+Example:
+
+qcom,rpm-rbcpr-stats@fc000000 {
+	compatible = "qcom,rpmrbcpr-stats";
+	reg = <0xfc000000 0x1a0000>;
+	qcom,start-offset = <0x190010>;
+};
