@@ -35,31 +35,11 @@ struct apusys_dvfs_opps apusys_opps;
 
 bool dvfs_user_support(enum DVFS_USER user)
 {
-	struct hal_param_seg_support  seg_data;
-
-	seg_data.user = user;
-
-	hal_config_power(PWR_CMD_SEGMENT_CHECK, VPU0, (void *)&seg_data);
-	if (seg_data.support == false)
-		return false;
-
 	return apusys_dvfs_user_support[user];
 }
 
 bool dvfs_power_domain_support(enum DVFS_VOLTAGE_DOMAIN domain)
 {
-	struct hal_param_seg_support  seg_data;
-
-	seg_data.user = apusys_buck_domain_to_user[domain];
-
-	if (seg_data.user < APUSYS_DVFS_USER_NUM) {
-		hal_config_power(PWR_CMD_SEGMENT_CHECK,
-			VPU0, (void *)&seg_data);
-
-		if (seg_data.support == false)
-			return false;
-	}
-
 	return apusys_dvfs_buck_domain_support[domain];
 }
 
@@ -998,6 +978,7 @@ void apusys_power_init(enum DVFS_USER user, void *init_power_data)
 {
 	int i = 0, j = 0;
 	struct hal_param_seg_support  seg_data;
+	enum DVFS_VOLTAGE_DOMAIN domain;
 
 	hal_config_power(PWR_CMD_SEGMENT_CHECK, VPU0, (void *)&seg_data);
 
@@ -1009,6 +990,12 @@ void apusys_power_init(enum DVFS_USER user, void *init_power_data)
 		apusys_opps.opps = dvfs_table_1;
 
 	for (i = 0; i < APUSYS_DVFS_USER_NUM; i++)	{
+		seg_data.user = i;
+		hal_config_power(PWR_CMD_SEGMENT_CHECK,
+			VPU0, (void *)&seg_data);
+		domain = apusys_user_to_buck_domain[i];
+		apusys_dvfs_user_support[i] = seg_data.support;
+		apusys_dvfs_buck_domain_support[domain] = seg_data.support;
 		if (dvfs_user_support(user) == false)
 			continue;
 		apusys_opps.thermal_opp[i] = 0;
