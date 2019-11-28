@@ -109,7 +109,7 @@ static int cpufreq_power_mode_proc_show(struct seq_file *m, void *v)
 static ssize_t cpufreq_power_mode_proc_write(struct file *file,
 	const char __user *buffer, size_t count, loff_t *pos)
 {
-	unsigned int mode;
+	unsigned int mode = 0;
 
 	char *buf = _copy_from_user_for_proc(buffer, count);
 
