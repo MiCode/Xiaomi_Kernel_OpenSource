@@ -10,19 +10,22 @@
 const char *cmdq_thread_module_dispatch(phys_addr_t gce_pa, s32 thread)
 {
 	switch (thread) {
+	case 0 ... 6:
+	case 8 ... 9:
+		return "DISP";
 	case 7:
 		return "VDEC";
+	case 10:
+	case 19 ... 22:
+		return "MDP";
+	case 11:
+	case 13 ... 14:
+	case 16 ... 18:
+		return "ISP";
 	case 12:
 		return "VENC";
 	case 15:
 		return "CMDQ";
-	case 0 ... 9:
-		return "DISP";
-	case 11 ... 18:
-		return "ISP";
-	case 10:
-	case 19 ... 22:
-		return "MDP";
 	case 23:
 		return "SMI";
 	default:
@@ -34,19 +37,18 @@ const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event,
 	s32 thread)
 {
 	switch (event) {
-	case CMDQ_EVENT_FDVT_DONE:
-		return "FDVT";
-	case CMDQ_EVENT_RSC_DONE:
-		return "RSC";
 	case CMDQ_EVENT_VDEC_LAT_SOF_0 ... CMDQ_EVENT_VDEC_LAT_ENG_EVENT_7:
-	case CMDQ_EVENT_VENC_CMDQ_FRAME_DONE ... CMDQ_EVENT_VENC_CMDQ_VPS_DONE:
+	case CMDQ_EVENT_VDEC_CORE0_SOF_0 ... CMDQ_EVENT_VDEC_CORE0_ENG_EVENT_7:
 		return "VDEC";
 	case CMDQ_EVENT_ISP_FRAME_DONE_A ... CMDQ_EVENT_CQ_VR_SNAP_C_INT:
 	case CMDQ_EVENT_FDVT_DONE ... CMDQ_EVENT_DVP_DONE_ASYNC_SHOT:
 		return "ISP";
 	case CMDQ_EVENT_VENC_CMDQ_FRAME_DONE ... CMDQ_EVENT_VENC_CMDQ_VPS_DONE:
-	case CMDQ_EVENT_VDEC_CORE0_SOF_0 ... CMDQ_EVENT_VDEC_CORE0_ENG_EVENT_7:
 		return "VENC";
+	case CMDQ_EVENT_FDVT_DONE:
+		return "FDVT";
+	case CMDQ_EVENT_RSC_DONE:
+		return "RSC";
 	case CMDQ_EVENT_IMG2_DIP_FRAME_DONE_P2_0
 		... CMDQ_EVENT_IMG1_MSS_DONE_LINK_MISC:
 		return "DIP";
