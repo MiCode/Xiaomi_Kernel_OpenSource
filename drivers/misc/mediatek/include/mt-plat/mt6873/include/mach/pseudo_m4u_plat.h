@@ -34,7 +34,7 @@ struct pseudo_device pseudo_dev_larb_fake[] = {
 		.larbid = CCU0_PSEUDO_LARBID,
 		.port = {
 			M4U_PORT_L13_CAM_CCUI,
-			M4U_PORT_L13_CAM_CCUO,//hc2
+			M4U_PORT_L13_CAM_CCUO,
 			M4U_PORT_L22_CCU0, -1},
 		.name = "ccu0",
 	},

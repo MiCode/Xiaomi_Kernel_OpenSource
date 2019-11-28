@@ -22,14 +22,18 @@
 
 #ifdef IOMMU_POWER_CLK_SUPPORT
 #define MTK_IOMMU_LOW_POWER_SUPPORT
-#include "clk-mt6873-pg.h"//hc2
+#include "clk-mt6873-pg.h"
+
+enum subsys_id iommu_mtcmos_subsys[MTK_IOMMU_M4U_COUNT] = {
+	SYS_DIS, SYS_VPU
+};
 #endif
 
 #if (defined(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
 	defined(CONFIG_MICROTRUST_TEE_SUPPORT)) && \
 	defined(CONFIG_MTK_TEE_GP_SUPPORT)
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-#define MTK_M4U_SECURE_IRQ_SUPPORT //hc2
+#define MTK_M4U_SECURE_IRQ_SUPPORT
 #elif defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 #define MTK_M4U_SECURE_IRQ_SUPPORT
 #elif defined(CONFIG_MTK_GZ_SUPPORT_SDSP)
@@ -62,12 +66,6 @@ char *smi_clk_name[MTK_IOMMU_LARB_NR] = {
 	"iommu_larb18", "iommu_larb19", "iommu_larb20",
 	"iommu_fake_larb21", "iommu_fake_larb22", "iommu_fake_larb23"
 };
-
-#ifdef MTK_IOMMU_LOW_POWER_SUPPORT
-enum subsys_id iommu_mtcmos_subsys[MTK_IOMMU_M4U_COUNT] = {
-	SYS_DIS, SYS_MDP, SYS_VPU, SYS_VPU//hc2
-};
-#endif
 
 unsigned int port_size_not_aligned[] = {
 	M4U_PORT_L21_APU_FAKE_CODE

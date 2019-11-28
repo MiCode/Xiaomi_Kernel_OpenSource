@@ -548,7 +548,10 @@ struct mtk_iommu_port iommu_port[] = {
 		SLAVE_L20, 20, TF_LARB_L20, 4),
 	MTK_IOMMU_PORT_INIT("L20_IPE_RSC_WDMA", 0,
 		SLAVE_L20, 20, TF_LARB_L20, 5),
-	/*Larb21 -- 3 */ //hc2 no need
+	/* only atf maybe need it, but kernel can't delete it,
+	 *  otherwise it affect index.
+	 */
+	/*Larb21 -- 3 */
 	MTK_IOMMU_PORT_INIT("L21_APU_FAKE_CODE", 1,
 		SLAVE_APU, 21, TF_APU, 0),
 	MTK_IOMMU_PORT_INIT("L21_APU_FAKE_DATA", 1,
