@@ -308,6 +308,7 @@ static unsigned int qos_total;
 
 struct  MSS_CONFIG_STRUCT {
 	struct MFB_MSSConfig MssFrameConfig[_SUPPORT_MAX_MFB_FRAME_REQUEST_];
+	struct MFB_MSSConfig vMssFrameConfig[_SUPPORT_MAX_MFB_FRAME_REQUEST_];
 };
 
 static struct MSS_CONFIG_STRUCT g_MssEnqueReq_Struct;
@@ -2641,6 +2642,7 @@ static long MFB_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 	struct MFB_MSFRequest mfb_MsfReq;
 	struct MFB_USER_INFO_STRUCT *pUserInfo;
 	struct engine_requests *reqs = NULL;
+	struct MFB_MSSConfig *msscfgs = NULL;
 	int dequeNum;
 	unsigned long flags; /* old: unsigned int flags;*/
 			     /* FIX to avoid build warning */
@@ -2983,7 +2985,20 @@ static long MFB_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				goto EXIT;
 			}
 
-			if (copy_from_user(g_MssEnqueReq_Struct.MssFrameConfig,
+			switch (mfb_MssReq.exec) {
+			case EXEC_MODE_NORM:
+				msscfgs = g_MssEnqueReq_Struct.MssFrameConfig;
+				break;
+			case EXEC_MODE_VSS:
+				msscfgs = g_MssEnqueReq_Struct.vMssFrameConfig;
+				break;
+			default:
+				msscfgs = g_MssEnqueReq_Struct.MssFrameConfig;
+				LOG_WRN("invalid irq mode\n");
+				break;
+			}
+
+			if (copy_from_user(msscfgs,
 				(void *)mfb_MssReq.m_pMssConfig,
 				mfb_MssReq.m_ReqNum * sizeof(
 					struct MFB_MSSConfig)
@@ -3003,8 +3018,7 @@ static long MFB_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				&(MFBInfo.SpinLockIrq[MFB_IRQ_TYPE_INT_MSS_ST]),
 				flags);
 			kMssReq.m_ReqNum = mfb_MssReq.m_ReqNum;
-			kMssReq.m_pMssConfig =
-					g_MssEnqueReq_Struct.MssFrameConfig;
+			kMssReq.m_pMssConfig = msscfgs;
 			mfb_enque_request(reqs, kMssReq.m_ReqNum, &kMssReq,
 								pUserInfo->Pid);
 			spin_unlock_irqrestore(
