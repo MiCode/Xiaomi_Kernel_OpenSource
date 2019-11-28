@@ -23,13 +23,13 @@
 #include "hal_config_power.h"
 
 
-static bool apu_get_conn_power_on_status(void)
+static bool apusys_get_conn_power_on_status(void)
 {
-	if (apu_get_power_on_status(VPU0) == true ||
-		apu_get_power_on_status(VPU1) == true ||
-		apu_get_power_on_status(VPU2) == true ||
-		apu_get_power_on_status(MDLA0) == true ||
-		apu_get_power_on_status(MDLA1) == true)
+	if (apusys_get_power_on_status(VPU0) == true ||
+		apusys_get_power_on_status(VPU1) == true ||
+		apusys_get_power_on_status(VPU2) == true ||
+		apusys_get_power_on_status(MDLA0) == true ||
+		apusys_get_power_on_status(MDLA1) == true)
 		return true;
 
 	return false;
@@ -51,7 +51,7 @@ void apu_power_assert_check(struct apu_power_info *info)
 	int vsram = info->vsram * info->dump_div;
 	int vcore = info->vcore * info->dump_div;
 
-	if (apu_get_power_on_status(VPU0) == true && info->dsp1_freq != 0) {
+	if (apusys_get_power_on_status(VPU0) == true && info->dsp1_freq != 0) {
 		dsp1_freq = apusys_get_dvfs_freq(V_VPU0)/info->dump_div;
 		if ((abs(dsp1_freq - info->dsp1_freq) * 100) >
 			dsp1_freq * ASSERTION_PERCENTAGE) {
@@ -60,7 +60,7 @@ void apu_power_assert_check(struct apu_power_info *info)
 		}
 	}
 
-	if (apu_get_power_on_status(VPU1) == true && info->dsp2_freq != 0) {
+	if (apusys_get_power_on_status(VPU1) == true && info->dsp2_freq != 0) {
 		dsp2_freq = apusys_get_dvfs_freq(V_VPU1)/info->dump_div;
 		if ((abs(dsp2_freq - info->dsp2_freq) * 100) >
 			dsp2_freq * ASSERTION_PERCENTAGE) {
@@ -69,7 +69,8 @@ void apu_power_assert_check(struct apu_power_info *info)
 		}
 	}
 
-	if (dvfs_user_support(VPU2) && apu_get_power_on_status(VPU2) == true &&
+	if (dvfs_user_support(VPU2) &&
+		apusys_get_power_on_status(VPU2) == true &&
 			info->dsp3_freq != 0) {
 		dsp3_freq = apusys_get_dvfs_freq(V_VPU2)/info->dump_div;
 		if ((abs(dsp3_freq - info->dsp3_freq) * 100) >
@@ -79,9 +80,9 @@ void apu_power_assert_check(struct apu_power_info *info)
 		}
 	}
 
-	if ((apu_get_power_on_status(MDLA0) == true ||
+	if ((apusys_get_power_on_status(MDLA0) == true ||
 				(dvfs_user_support(MDLA1) &&
-				 apu_get_power_on_status(MDLA1) == true)) &&
+				 apusys_get_power_on_status(MDLA1) == true)) &&
 			info->dsp6_freq != 0) {
 		dsp5_freq = apusys_get_dvfs_freq(V_MDLA0)/info->dump_div;
 		dsp6_freq = apusys_get_dvfs_freq(V_MDLA1)/info->dump_div;
@@ -95,7 +96,7 @@ void apu_power_assert_check(struct apu_power_info *info)
 	}
 
 
-	if (apu_get_conn_power_on_status() == true) {
+	if (apusys_get_conn_power_on_status() == true) {
 		if (info->dsp_freq != 0) {
 			dsp_freq =
 			apusys_get_dvfs_freq(V_APU_CONN)/info->dump_div;

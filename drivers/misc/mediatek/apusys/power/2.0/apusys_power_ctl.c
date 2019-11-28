@@ -1047,3 +1047,7 @@ enum DVFS_FREQ apusys_get_dvfs_freq(enum DVFS_VOLTAGE_DOMAIN domain)
 	return apusys_opps.opps[apusys_opps.cur_opp_index[domain]][domain].freq;
 }
 
+bool apusys_get_power_on_status(enum DVFS_USER user)
+{
+	return apusys_opps.is_power_on[user];
+}
