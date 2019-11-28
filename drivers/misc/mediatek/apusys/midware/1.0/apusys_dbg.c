@@ -242,7 +242,7 @@ int apusys_dbg_init(void)
 
 	LOG_INFO("+\n");
 
-	g_log_level = (1UL << APUSYS_LOG_BITMAP_INFO);
+	g_log_level = 0;
 	g_dbg_multi = 1;
 
 	/* create debug root */

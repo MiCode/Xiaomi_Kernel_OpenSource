@@ -121,7 +121,7 @@ struct mem_ctx_mgr {
 
 static struct mem_ctx_mgr g_ctx_mgr;
 
-static int mem_alloc_ctx(uint32_t req_size, uint8_t tcm_force,
+static int mem_alloc_ctx(uint8_t tcm_force, uint32_t req_size,
 	unsigned long *ctx, uint32_t *allocated_size)
 {
 /*
@@ -144,7 +144,7 @@ static int mem_alloc_ctx(uint32_t req_size, uint8_t tcm_force,
 	mutex_unlock(&g_ctx_mgr.mtx);
 	return ctx;
 #else
-	return reviser_get_vlm(0x100000, tcm_force, ctx, allocated_size);
+	return reviser_get_vlm(req_size, tcm_force, ctx, allocated_size);
 /*
 	if (!ret) {
 		LOG_INFO("request(0x%x) force(%u) ctxid(%lu) mem_size(0x%x)\n",
