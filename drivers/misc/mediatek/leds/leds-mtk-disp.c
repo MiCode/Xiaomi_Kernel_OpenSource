@@ -106,11 +106,11 @@ int mtk_leds_call_notifier(unsigned long action, void *data)
 EXPORT_SYMBOL_GPL(mtk_leds_call_notifier);
 
 
-static int call_notifier(struct mtk_led_data *led_dat)
+static int call_notifier(int event, struct mtk_led_data *led_dat)
 {
 	int err;
 
-	err = mtk_leds_call_notifier(1, &led_dat->cdev);
+	err = mtk_leds_call_notifier(event, &led_dat->cdev);
 	if (err)
 		pr_info("notifier_call_chain error\n");
 	return err;
@@ -286,15 +286,15 @@ static int led_level_set(struct led_classdev *led_cdev,
 		((1 << led_dat->trans_bits) - 1) * brightness
 		+ (((1 << led_dat->led_bits) - 1) / 2))
 		/ ((1 << led_dat->led_bits) - 1);
-	pr_debug("set level: %d->%d[%d]",
-		led_dat->level, brightness, trans_level);
+	pr_debug("set level: %d->%d,%d[%d]",
+		led_dat->level, brightness, led_cdev->brightness, trans_level);
 
 #ifdef CONFIG_LEDS_BRIGHTNESS_CHANGED
 #ifdef CONFIG_MTK_AAL_SUPPORT
 		disp_pq_notify_backlight_changed(trans_level);
-		return call_notifier(led_dat);
+		return call_notifier(1, led_dat);
 #else
-		call_notifier(led_dat);
+		call_notifier(1, led_dat);
 #endif
 #endif
 	schedule_work(&led_dat->work);
@@ -492,7 +492,7 @@ static void mtk_leds_shutdown(struct platform_device *pdev)
 		if (!&(m_leds->leds[i]))
 			continue;
 #ifdef CONFIG_LEDS_BRIGHTNESS_CHANGED
-		call_notifier(&m_leds->leds[i]);
+		call_notifier(2, &m_leds->leds[i]);
 #ifdef CONFIG_MTK_AAL_SUPPORT
 		continue;
 #endif

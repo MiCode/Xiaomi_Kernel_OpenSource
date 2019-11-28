@@ -397,7 +397,6 @@ int led_brightness_changed_event(struct notifier_block *nb, unsigned long event,
 	struct led_classdev *led_cdev;
 
 	led_cdev = (struct led_classdev *)v;
-
 	switch (event) {
 	case 1:
 		trans_level = (
@@ -408,6 +407,9 @@ int led_brightness_changed_event(struct notifier_block *nb, unsigned long event,
 		disp_aal_notify_backlight_changed(trans_level);
 		DDPINFO("%s: brightness changed: %d, %d\n",
 			__func__, led_cdev->brightness, trans_level);
+		break;
+	case 2:
+		disp_aal_notify_backlight_changed(0);
 		break;
 
 	default:
