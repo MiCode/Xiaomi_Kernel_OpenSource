@@ -920,8 +920,27 @@ void mtk_vcodec_dec_empty_queues(struct file *file, struct mtk_vcodec_ctx *ctx)
 			VB2_BUF_STATE_ERROR);
 
 	while ((dst_buf = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx))) {
+		struct vb2_v4l2_buffer *vb2_v4l2 = NULL;
+		struct mtk_video_dec_buf *mtkbuf = NULL;
+
 		for (i = 0; i < dst_buf->num_planes; i++)
 			vb2_set_plane_payload(dst_buf, i, 0);
+
+		vb2_v4l2 = container_of(dst_buf,
+			struct vb2_v4l2_buffer, vb2_buf);
+		mtkbuf = container_of(vb2_v4l2, struct mtk_video_dec_buf, vb);
+		if (mtkbuf != NULL) {
+			if (mtkbuf->dma_general_buf != 0) {
+				mtk_v4l2_debug(4,
+					"[%d] general_buf_fd = %d, buf = %p",
+					ctx->id,
+					mtkbuf->general_buf_fd,
+					mtkbuf->dma_general_buf);
+				dma_buf_put(mtkbuf->dma_general_buf);
+				mtkbuf->dma_general_buf = 0;
+			}
+		}
+
 		v4l2_m2m_buf_done(to_vb2_v4l2_buffer(dst_buf),
 			VB2_BUF_STATE_ERROR);
 	}
@@ -2333,8 +2352,27 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 	ctx->state = MTK_STATE_FLUSH;
 
 	while ((dst_buf = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx))) {
+		struct vb2_v4l2_buffer *vb2_v4l2 = NULL;
+		struct mtk_video_dec_buf *mtkbuf = NULL;
+
 		for (i = 0; i < dst_buf->num_planes; i++)
 			vb2_set_plane_payload(dst_buf, i, 0);
+
+		vb2_v4l2 = container_of(dst_buf,
+			struct vb2_v4l2_buffer, vb2_buf);
+		mtkbuf = container_of(vb2_v4l2, struct mtk_video_dec_buf, vb);
+		if (mtkbuf != NULL) {
+			if (mtkbuf->dma_general_buf != 0) {
+				mtk_v4l2_debug(4,
+					"[%d] general_buf_fd = %d, buf = %p",
+					ctx->id,
+					mtkbuf->general_buf_fd,
+					mtkbuf->dma_general_buf);
+				dma_buf_put(mtkbuf->dma_general_buf);
+				mtkbuf->dma_general_buf = 0;
+			}
+		}
+
 		v4l2_m2m_buf_done(to_vb2_v4l2_buffer(dst_buf),
 						  VB2_BUF_STATE_ERROR);
 	}
