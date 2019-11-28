@@ -260,7 +260,7 @@ static void disp_aal_set_interrupt(struct mtk_ddp_comp *comp, int enable)
 		if (atomic_read(&aal_data->dirty_frame_retrieved) == 1) {
 			if (comp == NULL)
 				writel(0x0,
-					 default_comp->regs + DISP_AAL_INTEN);
+					default_comp->regs + DISP_AAL_INTEN);
 			else
 				writel(0x0, comp->regs + DISP_AAL_INTEN);
 			DDPINFO("%s: interrupt disabled", __func__);
@@ -487,21 +487,12 @@ static void mtk_aal_init(struct mtk_ddp_comp *comp,
 static void mtk_aal_config(struct mtk_ddp_comp *comp,
 	struct mtk_ddp_config *cfg, struct cmdq_pkt *handle)
 {
-	unsigned long flags;
 	unsigned int val = 0;
-	struct mtk_disp_aal *aal_data = comp_to_aal(comp);
 #if defined(CONFIG_MTK_DRE30_SUPPORT)
 	int dre_alg_mode = 0;
 	phys_addr_t dre3_pa = mtk_aal_dre3_pa(comp);
 #endif
 	DDPINFO("%s +\n", __func__);
-	if (spin_trylock_irqsave(&g_aal_clock_lock, flags)) {
-		if (atomic_read(&aal_data->is_clock_on) != 1)
-			DDPPR_ERR("%s: clock is off\n", __func__);
-		else
-			disp_aal_set_interrupt(comp, true);
-		spin_unlock_irqrestore(&g_aal_clock_lock, flags);
-	}
 	//if (pConfig->dst_dirty)
 	{
 		int width = cfg->w, height = cfg->h;
@@ -546,13 +537,8 @@ static void mtk_aal_config(struct mtk_ddp_comp *comp,
 
 		basic_cmdq_write(handle, comp,
 			DISP_AAL_EN, 0x1, 0x1);
-/*
- *		DDPPR_ERR("module:(%d), AAL_CFG = 0x%x,
- *			AAL_SIZE = 0x%x(%d, %d)",
- *			module, DISP_REG_GET(DISP_AAL_CFG + offset),
- *			DISP_REG_GET(DISP_AAL_SIZE + offset),
- *			width, height);
- */
+		DDPINFO("%s: AAL_CFG=0x%x\n", __func__,
+			readl(comp->regs + DISP_AAL_CFG));
 	}
 
 /*
@@ -1024,12 +1010,25 @@ int disp_aal_set_param(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 }
 
 #ifdef DUMPAAL
+#define PRINT_AAL_REG(x1, x2, x3, x4) \
+	pr_notice("0x%x=0x%x 0x%x=0x%x 0x%x=0x%x 0x%x=0x%x", \
+		x1, readl(comp->regs + x1), x2, readl(comp->regs + x2), \
+		x3, readl(comp->regs + x3), x4, readl(comp->regs + x4))
 void dumpAALReg(struct mtk_ddp_comp *comp)
 {
-	int i = 0;
+	unsigned long flags;
+	struct mtk_disp_aal *aal_data = comp_to_aal(comp);
 
-	for (i = 0; i < 320; i++)
-		DDPINFO("0x%x 0x%x", i * 4, readl(comp->regs + i * 0x4));
+	if (spin_trylock_irqsave(&g_aal_clock_lock, flags)) {
+		if (atomic_read(&aal_data->is_clock_on)) {
+			PRINT_AAL_REG(0x0, 0x8, 0x10, 0x20);
+			PRINT_AAL_REG(0x30, 0xFC, 0x160, 0x200);
+			PRINT_AAL_REG(0x204, 0x20C, 0x3B4, 0x45C);
+			PRINT_AAL_REG(0x460, 0x464, 0x468, 0x4D8);
+			PRINT_AAL_REG(0x4DC, 0x500, 0x224, 0x504);
+		}
+		spin_unlock_irqrestore(&g_aal_clock_lock, flags);
+	}
 }
 #endif
 
@@ -1465,7 +1464,8 @@ static void disp_aal_single_pipe_hist_update(struct mtk_ddp_comp *comp)
 	do {
 		intsta = readl(comp->regs + DISP_AAL_INTSTA);
 		DDPINFO("%s: AAL Module, intsta: 0x%x", __func__, intsta);
-
+		DDPINFO("%s: AAL_CFG=0x%x\n", __func__,
+			readl(comp->regs + DISP_AAL_CFG));
 		/* Only process end of frame state */
 		if ((intsta & 0x2) == 0x0) {
 			DDPPR_ERR("%s: break", __func__);
@@ -1799,12 +1799,40 @@ static void mtk_aal_unprepare(struct mtk_ddp_comp *comp)
 #endif
 }
 
+void mtk_aal_first_cfg(struct mtk_ddp_comp *comp,
+	       struct mtk_ddp_config *cfg, struct cmdq_pkt *handle)
+{
+	DDPINFO("%s\n", __func__);
+	mtk_aal_config(comp, cfg, handle);
+}
+
+int mtk_aal_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
+	      enum mtk_ddp_io_cmd cmd, void *params)
+{
+	unsigned long flags;
+	struct mtk_disp_aal *aal_data = comp_to_aal(comp);
+
+	if (cmd == FRAME_DIRTY) {
+		DDPINFO("%s: FRAME_DIRTY\n", __func__);
+		if (spin_trylock_irqsave(&g_aal_clock_lock, flags)) {
+			if (atomic_read(&aal_data->is_clock_on) != 1)
+				DDPINFO("%s: clock is off\n", __func__);
+			else
+				disp_aal_set_interrupt(comp, true);
+			spin_unlock_irqrestore(&g_aal_clock_lock, flags);
+		}
+	}
+	return 0;
+}
+
 static const struct mtk_ddp_comp_funcs mtk_disp_aal_funcs = {
 	.config = mtk_aal_config,
+	.first_cfg = mtk_aal_first_cfg,
 	.start = mtk_aal_start,
 	.stop = mtk_aal_stop,
 	.bypass = mtk_aal_bypass,
 	.user_cmd = mtk_aal_user_cmd,
+	.io_cmd = mtk_aal_io_cmd,
 	.prepare = mtk_aal_prepare,
 	.unprepare = mtk_aal_unprepare,
 };

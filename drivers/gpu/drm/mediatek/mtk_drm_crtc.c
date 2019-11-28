@@ -2790,9 +2790,14 @@ static void mtk_drm_crtc_init_para(struct drm_crtc *crtc)
 
 void mtk_crtc_first_enable_ddp_config(struct mtk_drm_crtc *mtk_crtc)
 {
+	struct drm_crtc *crtc = &mtk_crtc->base;
 	struct cmdq_pkt *cmdq_handle;
 	struct mtk_ddp_comp *comp;
+	struct mtk_ddp_config cfg = {0};
 	int i, j;
+
+	cfg.w = crtc->mode.hdisplay;
+	cfg.h = crtc->mode.vdisplay;
 
 	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
 		mtk_crtc->gce_obj.client[CLIENT_CFG]);
@@ -2811,10 +2816,11 @@ void mtk_crtc_first_enable_ddp_config(struct mtk_drm_crtc *mtk_crtc)
 	/*3. Enable M4U port and replace OVL address to mva */
 	mtk_crtc_enable_iommu_runtime(mtk_crtc, cmdq_handle);
 
-	/*4. Enable Frame done IRQ */
-	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
+	/*4. Enable Frame done IRQ &  process first config */
+	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) {
+		mtk_ddp_comp_first_cfg(comp, &cfg, cmdq_handle);
 		mtk_ddp_comp_io_cmd(comp, cmdq_handle, IRQ_LEVEL_ALL, NULL);
-
+	}
 	cmdq_pkt_flush(cmdq_handle);
 	cmdq_pkt_destroy(cmdq_handle);
 
@@ -3653,6 +3659,8 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 			mtk_ddp_gamma_set(comp, crtc->state, cmdq_handle);
 		mtk_ddp_comp_io_cmd(comp, cmdq_handle,
 				PMQOS_UPDATE_BW, &bw_mode);
+		mtk_ddp_comp_io_cmd(comp, cmdq_handle,
+				FRAME_DIRTY, NULL);
 	}
 
 	if ((priv->data->shadow_register) == true) {

@@ -214,6 +214,7 @@ enum mtk_ddp_io_cmd {
 	BACKUP_OVL_STATUS,
 	MIPI_HOPPING,
 	PANEL_OSC_HOPPING,
+	FRAME_DIRTY,
 };
 
 struct golden_setting_context {
@@ -261,6 +262,8 @@ struct mtk_ddp_comp_funcs {
 	void (*gamma_set)(struct mtk_ddp_comp *comp,
 			  struct drm_crtc_state *state,
 			  struct cmdq_pkt *handle);
+	void (*first_cfg)(struct mtk_ddp_comp *comp,
+		       struct mtk_ddp_config *cfg, struct cmdq_pkt *handle);
 	void (*bypass)(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle);
 	void (*config_trigger)(struct mtk_ddp_comp *comp,
 			       struct cmdq_pkt *handle,
@@ -399,6 +402,14 @@ static inline void mtk_ddp_comp_bypass(struct mtk_ddp_comp *comp,
 {
 	if (comp && comp->funcs && comp->funcs->bypass)
 		comp->funcs->bypass(comp, handle);
+}
+
+static inline void mtk_ddp_comp_first_cfg(struct mtk_ddp_comp *comp,
+				       struct mtk_ddp_config *cfg,
+				       struct cmdq_pkt *handle)
+{
+	if (comp && comp->funcs && comp->funcs->first_cfg)
+		comp->funcs->first_cfg(comp, cfg, handle);
 }
 
 static inline void
