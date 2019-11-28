@@ -984,7 +984,8 @@ s32 cmdq_pkt_dump_command(struct cmdqRecStruct *handle);
 
 s32 cmdq_pkt_wait_flush_ex_result(struct cmdqRecStruct *handle);
 
-s32 cmdq_pkt_auto_release_task(struct cmdqRecStruct *handle);
+s32 cmdq_pkt_auto_release_task(struct cmdqRecStruct *handle,
+	bool destroy);
 
 s32 cmdq_pkt_flush_ex(struct cmdqRecStruct *handle);
 

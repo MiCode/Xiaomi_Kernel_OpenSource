@@ -3734,8 +3734,7 @@ void cmdq_core_release_handle_by_file_node(void *file_node)
 
 	mutex_lock(&cmdq_handle_list_mutex);
 	list_for_each_entry(handle, &cmdq_ctx.handle_active, list_entry) {
-		if (!(handle->state != TASK_STATE_IDLE &&
-			handle->node_private == file_node))
+		if (handle->node_private != file_node)
 			continue;
 		CMDQ_LOG(
 			"[warn]running handle 0x%p auto release because file node 0x%p closed\n",
@@ -3753,7 +3752,7 @@ void cmdq_core_release_handle_by_file_node(void *file_node)
 		 */
 		client = cmdq_clients[handle->thread];
 		cmdq_mbox_thread_remove_task(client->chan, handle->pkt);
-		cmdq_pkt_auto_release_task(handle);
+		cmdq_pkt_auto_release_task(handle, true);
 	}
 	mutex_unlock(&cmdq_handle_list_mutex);
 }
@@ -4556,7 +4555,8 @@ static void cmdq_pkt_auto_release_work(struct work_struct *work)
 
 	handle = container_of(work, struct cmdqRecStruct, auto_release_work);
 	if (unlikely(!handle)) {
-		CMDQ_ERR("leak task! cannot get task from work item:0x%p\n",
+		CMDQ_ERR(
+			"auto release leak task! cannot get task from work item:0x%p\n",
 			work);
 		return;
 	}
@@ -4572,7 +4572,26 @@ static void cmdq_pkt_auto_release_work(struct work_struct *work)
 		cb(user_data);
 }
 
-s32 cmdq_pkt_auto_release_task(struct cmdqRecStruct *handle)
+static void cmdq_pkt_auto_release_destroy_work(struct work_struct *work)
+{
+	struct cmdqRecStruct *handle;
+
+	handle = container_of(work, struct cmdqRecStruct, auto_release_work);
+	if (unlikely(!handle)) {
+		CMDQ_ERR(
+			"auto w/ destroy leak task! cannot get task from work item:0x%p\n",
+			work);
+		return;
+	}
+
+	cmdq_pkt_auto_release_work(work);
+	CMDQ_LOG("in auto release destroy task:%p\n", handle);
+	cmdq_task_destroy(handle);
+}
+
+
+s32 cmdq_pkt_auto_release_task(struct cmdqRecStruct *handle,
+	bool destroy)
 {
 	if (handle->thread == CMDQ_INVALID_THREAD) {
 		CMDQ_ERR(
@@ -4584,10 +4603,20 @@ s32 cmdq_pkt_auto_release_task(struct cmdqRecStruct *handle)
 	CMDQ_PROF_MMP(cmdq_mmp_get_event()->autoRelease_add,
 		MMPROFILE_FLAG_PULSE, ((unsigned long)handle), handle->thread);
 
-	/* the work item is embedded in pTask already
-	 * but we need to initialized it
-	 */
-	INIT_WORK(&handle->auto_release_work, cmdq_pkt_auto_release_work);
+	if (destroy) {
+		/* the work item is embedded in pTask already
+		 * but we need to initialized it
+		 */
+		INIT_WORK(&handle->auto_release_work,
+			cmdq_pkt_auto_release_destroy_work);
+	} else {
+		/* use for mdp release by file node case,
+		 * helps destroy task since user space not wait.
+		 */
+		INIT_WORK(&handle->auto_release_work,
+			cmdq_pkt_auto_release_work);
+	}
+
 	queue_work(cmdq_ctx.taskThreadAutoReleaseWQ[handle->thread],
 		&handle->auto_release_work);
 	return 0;
@@ -4720,7 +4749,7 @@ s32 cmdq_pkt_flush_async_ex(struct cmdqRecStruct *handle,
 	}
 
 	if (auto_release) {
-		err = cmdq_pkt_auto_release_task(handle);
+		err = cmdq_pkt_auto_release_task(handle, false);
 		if (err < 0) {
 			CMDQ_ERR("wait flush failed err:%d\n", err);
 			return err;

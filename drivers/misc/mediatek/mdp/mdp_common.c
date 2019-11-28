@@ -1583,10 +1583,7 @@ void cmdq_mdp_release_task_by_file_node(void *file_node)
 
 	list_for_each_entry_safe(handle, temp, &mdp_ctx.tasks_wait,
 		list_entry) {
-		if (!(handle->state != TASK_STATE_IDLE &&
-			handle->node_private == file_node &&
-			cmdq_mdp_is_request_from_user_space(
-			handle->scenario)))
+		if (handle->node_private != file_node)
 			continue;
 		CMDQ_LOG(
 			"[warn]waiting handle 0x%p release because file node 0x%p closed\n",
@@ -1600,7 +1597,7 @@ void cmdq_mdp_release_task_by_file_node(void *file_node)
 		 * hold mdp_task_mutex.
 		 */
 		list_del_init(&handle->list_entry);
-		cmdq_pkt_release_handle(handle);
+		cmdq_task_destroy(handle);
 	}
 
 	/* ask core to auto release by file node
