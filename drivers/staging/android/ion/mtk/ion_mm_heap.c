@@ -1775,9 +1775,14 @@ static int mtk_ion_copy_param(unsigned int type,
 			      const char *client_name,
 			      struct ion_buffer *buffer)
 {
-	struct ion_mm_buffer_info *buffer_info =
-		    buffer->priv_virt;
+	struct ion_mm_buffer_info *buffer_info;
 
+	if (!buffer || !buffer->priv_virt) {
+		IONMSG("invalid buffer info\n");
+		return -1;
+	}
+
+	buffer_info = buffer->priv_virt;
 	switch (type) {
 	case 1:
 #if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
@@ -1788,7 +1793,8 @@ static int mtk_ion_copy_param(unsigned int type,
 			    ("corrupt with %d, %d-%d,name %16.s!!!\n",
 			     buffer_info->module_id,
 			     param.config_buffer_param.module_id,
-			     buffer->heap->type, client_name);
+			     buffer->heap->type,
+			     (*client_name) ? client_name : "null");
 			return -ION_ERROR_CONFIG_CONFLICT;
 		}
 
@@ -1798,7 +1804,8 @@ static int mtk_ion_copy_param(unsigned int type,
 			    ("corrupt with %d, %d-%d,name %16.s!!!\n",
 			     buffer_info->fix_module_id,
 			     param.config_buffer_param.module_id,
-			     buffer->heap->type, client_name);
+			     buffer->heap->type,
+			     (*client_name) ? client_name : "null");
 			return -ION_ERROR_CONFIG_CONFLICT;
 		}
 #endif
@@ -1846,7 +1853,8 @@ static int mtk_ion_copy_param(unsigned int type,
 			    ("corrupt with %d, %d-%d,name %16.s!!!\n",
 			     buffer_info->module_id,
 			     param.get_phys_param.module_id,
-			     buffer->heap->type, client_name);
+			     buffer->heap->type,
+			     (*client_name) ? client_name : "null");
 			return -ION_ERROR_CONFIG_CONFLICT;
 		} else if (mm_cmd == ION_MM_GET_IOVA_EXT &&
 		    buffer_info->fix_module_id != -1) {
@@ -1854,7 +1862,8 @@ static int mtk_ion_copy_param(unsigned int type,
 			    ("corrupt with %d, %d-%d,name %16.s!!!\n",
 			     buffer_info->fix_module_id,
 			     param.get_phys_param.module_id,
-			     buffer->heap->type, client_name);
+			     buffer->heap->type,
+			     (*client_name) ? client_name : "null");
 			return -ION_ERROR_CONFIG_CONFLICT;
 		}
 #endif
