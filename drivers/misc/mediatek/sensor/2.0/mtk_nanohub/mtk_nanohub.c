@@ -582,49 +582,60 @@ static void init_sensor_config_cmd(struct ConfigCmd *cmd,
 static int mtk_nanohub_report_data(struct data_unit_t *data_t)
 {
 	int err = 0, sensor_type = 0, sensor_id = 0;
+	int64_t raw_time = 0, comp_time = 0;
 
 	sensor_id = data_t->sensor_type;
-	sensor_type = id_to_type(sensor_id);
-
-	if (unlikely(data_t->time_stamp <
-			raw_ts_reverse_debug[sensor_type])) {
-		pr_err("raw reverse %d,%lld,%lld\n", sensor_type,
-			raw_ts_reverse_debug[sensor_type],
-			data_t->time_stamp);
-	}
-	raw_ts_reverse_debug[sensor_type] = data_t->time_stamp;
-
-	data_t->time_stamp += get_filter_output(&moving_average_algo);
-
-	if (unlikely(data_t->time_stamp <
-			comp_ts_reverse_debug[sensor_type])) {
-		pr_err("comp reverse %d,%lld,%lld,%lld\n", sensor_type,
-			raw_ts_reverse_debug[sensor_type],
-			comp_ts_reverse_debug[sensor_type],
-			data_t->time_stamp);
-	}
-	comp_ts_reverse_debug[sensor_type] = data_t->time_stamp;
-
 	if (sensor_id >= ID_SENSOR_MAX || sensor_id < 0) {
 		pr_err("invalid sensor id %d\n", sensor_id);
 		return 0;
 	}
-	/* must check report return value for retry sending */
-	if (data_t->flush_action != FLUSH_ACTION) {
-		err = mtk_nanohub_report_to_manager(data_t);
-	} else {
-		/* for flush only !err true we decrease flushcnt */
-		mutex_lock(&flush_mtx);
-		if (sensor_state[sensor_type].flushcnt > 0) {
+
+	sensor_type = id_to_type(sensor_id);
+	raw_time = data_t->time_stamp;
+	data_t->time_stamp += get_filter_output(&moving_average_algo);
+	comp_time = data_t->time_stamp;
+
+	do {
+		/* must check report return value for retry sending */
+		if (data_t->flush_action != FLUSH_ACTION) {
 			err = mtk_nanohub_report_to_manager(data_t);
-			if (!err)
-				sensor_state[sensor_type].flushcnt--;
 		} else {
-			/* no need flush err must reset to 0 */
-			err = 0;
+			/* for flush only !err true we decrease flushcnt */
+			mutex_lock(&flush_mtx);
+			if (sensor_state[sensor_type].flushcnt > 0) {
+				err = mtk_nanohub_report_to_manager(data_t);
+				if (!err)
+					sensor_state[sensor_type].flushcnt--;
+			} else {
+				/* no need flush err must reset to 0 */
+				err = 0;
+			}
+			mutex_unlock(&flush_mtx);
 		}
-		mutex_unlock(&flush_mtx);
-	}
+		/* for debugging timestamp reverse */
+		if (data_t->flush_action == DATA_ACTION && !err) {
+			if (unlikely(raw_time <
+					raw_ts_reverse_debug[sensor_type])) {
+				pr_err("raw reverse %d,%lld,%lld\n",
+					sensor_type,
+					raw_ts_reverse_debug[sensor_type],
+					raw_time);
+			}
+			raw_ts_reverse_debug[sensor_type] = raw_time;
+			if (unlikely(comp_time <
+					comp_ts_reverse_debug[sensor_type])) {
+				pr_err("comp reverse %d,%lld,%lld,%lld\n",
+					sensor_type,
+					raw_ts_reverse_debug[sensor_type],
+					comp_ts_reverse_debug[sensor_type],
+					comp_time);
+			}
+			comp_ts_reverse_debug[sensor_type] = comp_time;
+		}
+		if (err < 0)
+			usleep_range(2000, 4000);
+	} while (err < 0);
+
 	return err;
 }
 
@@ -632,9 +643,8 @@ static int mtk_nanohub_server_dispatch_data(uint32_t *currWp)
 {
 	struct mtk_nanohub_device *device = mtk_nanohub_dev;
 	char *pStart, *pEnd, *rp, *wp;
-	struct data_unit_t event, event_copy;
+	struct data_unit_t event;
 	uint32_t wp_copy;
-	int err = 0;
 
 	pStart = (char *)READ_ONCE(device->scp_sensor_fifo) +
 		offsetof(struct sensor_fifo, data);
@@ -662,38 +672,19 @@ static int mtk_nanohub_server_dispatch_data(uint32_t *currWp)
 	if (rp < wp) {
 		while (rp < wp) {
 			memcpy_fromio(&event, rp, SENSOR_DATA_SIZE);
-			/* sleep safe enough, data save in dram and not lost */
-			do {
-				/* init event_copy when retry */
-				event_copy = event;
-				err = mtk_nanohub_report_data(&event_copy);
-				if (err < 0)
-					usleep_range(2000, 4000);
-			} while (err < 0);
+			mtk_nanohub_report_data(&event);
 			rp += SENSOR_DATA_SIZE;
 		}
 	} else if (rp > wp) {
 		while (rp < pEnd) {
 			memcpy_fromio(&event, rp, SENSOR_DATA_SIZE);
-			do {
-				/* init event_copy when retry */
-				event_copy = event;
-				err = mtk_nanohub_report_data(&event_copy);
-				if (err < 0)
-					usleep_range(2000, 4000);
-			} while (err < 0);
+			mtk_nanohub_report_data(&event);
 			rp += SENSOR_DATA_SIZE;
 		}
 		rp = pStart;
 		while (rp < wp) {
 			memcpy_fromio(&event, rp, SENSOR_DATA_SIZE);
-			do {
-				/* init event_copy when retry */
-				event_copy = event;
-				err = mtk_nanohub_report_data(&event_copy);
-				if (err < 0)
-					usleep_range(2000, 4000);
-			} while (err < 0);
+			mtk_nanohub_report_data(&event);
 			rp += SENSOR_DATA_SIZE;
 		}
 	}

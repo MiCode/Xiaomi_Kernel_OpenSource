@@ -89,20 +89,36 @@ static int hf_manager_report_event(struct hf_client *client,
 {
 	unsigned long flags;
 	unsigned int next = 0;
+	int64_t hang_time = 0;
+	const int64_t max_hang_time = 1000000000LL;
 	struct hf_client_fifo *hf_fifo = &client->hf_fifo;
 
 	spin_lock_irqsave(&hf_fifo->buffer_lock, flags);
 	if (unlikely(hf_fifo->buffull == true)) {
-		pr_err_ratelimited("%s [%s][%d:%d] buffer full, [%d,%lld]\n",
-			__func__, client->proc_comm, client->leader_pid,
-			client->pid, event->sensor_type, event->timestamp);
-		spin_unlock_irqrestore(&hf_fifo->buffer_lock, flags);
-		wake_up_interruptible(&hf_fifo->wait);
-		/*
-		 * must return -1 when buffer full, tell caller retry
-		 * send data some times later.
-		 */
-		return -1;
+		hang_time = ktime_get_boot_ns() - hf_fifo->hang_begin;
+		if (hang_time >= max_hang_time) {
+			/* reset buffer */
+			hf_fifo->buffull = false;
+			hf_fifo->head = 0;
+			hf_fifo->tail = 0;
+			pr_err_ratelimited(
+				"%s [%s][%d:%d] hang(%lld) to reset buffer\n",
+				__func__, client->proc_comm,
+				client->leader_pid, client->pid, hang_time);
+		} else {
+			pr_err_ratelimited(
+				"%s [%s][%d:%d] buffer full, [%d,%lld]\n",
+				__func__, client->proc_comm,
+				client->leader_pid, client->pid,
+				event->sensor_type, event->timestamp);
+			spin_unlock_irqrestore(&hf_fifo->buffer_lock, flags);
+			wake_up_interruptible(&hf_fifo->wait);
+			/*
+			 * must return -1 when buffer full, tell caller retry
+			 * send data some times later.
+			 */
+			return -1;
+		}
 	}
 	/* only data action run filter event */
 	if (likely(event->action == DATA_ACTION) &&
@@ -779,6 +795,7 @@ static int fetch_next(struct hf_client_fifo *hf_fifo,
 		*event = hf_fifo->buffer[hf_fifo->tail++];
 		hf_fifo->tail &= hf_fifo->bufsize - 1;
 		hf_fifo->buffull = false;
+		hf_fifo->hang_begin = ktime_get_boot_ns();
 	}
 	spin_unlock_irqrestore(&hf_fifo->buffer_lock, flags);
 	return have_event;
