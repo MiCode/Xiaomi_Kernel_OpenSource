@@ -546,6 +546,8 @@ struct mtk_drm_crtc {
 	bool mipi_hopping_sta;
 	bool panel_osc_hopping_sta;
 	bool vblank_en;
+
+	atomic_t already_config;
 };
 
 struct mtk_crtc_state {

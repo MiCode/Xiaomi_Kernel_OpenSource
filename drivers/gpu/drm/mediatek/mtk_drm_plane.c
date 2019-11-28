@@ -444,6 +444,9 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 		return;
 	}
 
+	if (state->pending.enable)
+		atomic_set(&mtk_crtc->already_config, 1);
+
 	mtk_drm_crtc_plane_update(crtc, plane, state);
 }
 

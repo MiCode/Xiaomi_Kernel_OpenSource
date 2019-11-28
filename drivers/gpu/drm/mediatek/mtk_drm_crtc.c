@@ -2269,13 +2269,19 @@ static int __mtk_check_trigger(struct mtk_drm_crtc *mtk_crtc)
 {
 	struct drm_crtc *crtc = &mtk_crtc->base;
 	int index = drm_crtc_index(crtc);
+	struct mtk_crtc_state *mtk_state = to_mtk_crtc_state(crtc->state);
 
 	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 	CRTC_MMP_EVENT_START(index, check_trigger, 0, 0);
 
 	mtk_drm_idlemgr_kick(__func__, &mtk_crtc->base, 0);
 
-	mtk_crtc_set_dirty(mtk_crtc);
+	if (!mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE] ||
+		(mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE] &&
+		atomic_read(&mtk_crtc->already_config))) {
+		mtk_crtc_set_dirty(mtk_crtc);
+	} else
+		DDPINFO("%s skip mtk_crtc_set_dirty\n", __func__);
 
 	CRTC_MMP_EVENT_END(index, check_trigger, 0, 0);
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
@@ -2521,6 +2527,7 @@ void mtk_crtc_disconnect_default_path(struct mtk_drm_crtc *mtk_crtc)
 void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_crtc_state *mtk_state = to_mtk_crtc_state(crtc->state);
 	unsigned int crtc_id = drm_crtc_index(crtc);
 	struct cmdq_client *client;
 
@@ -2583,7 +2590,8 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 	mtk_crtc_restore_plane_setting(mtk_crtc);
 
 	/* 9. set dirty for cmd mode */
-	if (mtk_crtc_is_frame_trigger_mode(crtc))
+	if (mtk_crtc_is_frame_trigger_mode(crtc) &&
+		!mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE])
 		mtk_crtc_set_dirty(mtk_crtc);
 
 	/* 10. set vblank*/
@@ -3000,6 +3008,7 @@ void mtk_drm_crtc_suspend(struct drm_crtc *crtc)
 #ifdef MTK_DRM_FENCE_SUPPORT
 	mtk_drm_crtc_release_fence(crtc);
 #endif
+	atomic_set(&mtk_crtc->already_config, 0);
 
 	/* release wakelock */
 	mtk_drm_crtc_wk_lock(crtc, 0, __func__, __LINE__);
