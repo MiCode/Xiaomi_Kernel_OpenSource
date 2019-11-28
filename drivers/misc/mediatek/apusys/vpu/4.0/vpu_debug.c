@@ -690,7 +690,7 @@ int vpu_init_debug(void)
 	}
 
 	vpu_drv->droot = droot;
-	vpu_klog = (VPU_DBG_DRV | VPU_DBG_PWR);
+	vpu_klog = VPU_DBG_DRV;
 	debugfs_create_u32("klog", 0660, droot, &vpu_klog);
 
 	VPU_DEBUGFS_CREATE(vpu_memory);
