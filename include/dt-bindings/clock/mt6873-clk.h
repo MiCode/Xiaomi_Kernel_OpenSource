@@ -149,8 +149,8 @@
 #define TOP_OSC_D10 135
 #define TOP_OSC_D16 136
 #define TOP_OSC_D20 137
-#define TOP_CLK26M				138	/* add manually */
-#define TOP_CLK13M				139	/* add manually */
+#define TOP_CLK26M			138	/* add manually */
+#define TOP_CLK13M			139	/* add manually */
 #define TOP_F26M_CK_D2			140//used	/* add manually */
 #define TOP_UNIVP_192M_CK		141	/* add manually */
 #define TOP_UNIVP_192M_D2		142	/* add manually */
@@ -552,7 +552,7 @@
 #define MM_DISP_DPI0	31
 #define MM_SMI_IOMMU	32
 #define MM_DSI_DSI0	33
-#define MM_DSI_DSI1	34
+#define MM_DPI_DPI0	34
 #define MM_DP_INTF	35
 #define MM_26MHZ	36
 #define MM_32KHZ	37

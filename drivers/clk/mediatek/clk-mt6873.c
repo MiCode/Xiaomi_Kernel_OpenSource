@@ -3383,7 +3383,7 @@ static struct mtk_gate mmsys_config_clks[] __initdata = {
 	/* MMSYS_CG_CON2 */
 	GATE(MM_DSI_DSI0, "MM_DSI_DSI0", "disp_sel",
 			 mmsys_config_mmsys_cg_con2_regs, 0, 0),
-	GATE(MM_DSI_DSI1, "MM_DSI_DSI1", "disp_sel",
+	GATE(MM_DPI_DPI0, "MM_DPI_DPI0", "dpi_sel",
 			 mmsys_config_mmsys_cg_con2_regs, 8, 0),
 	GATE(MM_26MHZ, "MM_26MHZ", "f26m_sel",
 			 mmsys_config_mmsys_cg_con2_regs, 24, 0),
