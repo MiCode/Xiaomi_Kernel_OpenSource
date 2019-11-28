@@ -227,7 +227,8 @@ int mt6885_get_wakeup_status(struct mt6885_log_helper *help)
 	return 0;
 }
 
-void mt6885_show_detailed_wakeup_reason(struct mt6885_spm_wake_status *wakesta)
+static void mt6885_suspend_show_detailed_wakeup_reason
+	(struct mt6885_spm_wake_status *wakesta)
 {
 	int i;
 	unsigned int irq_no;
@@ -267,9 +268,96 @@ void mt6885_show_detailed_wakeup_reason(struct mt6885_spm_wake_status *wakesta)
 	}
 }
 
+static void mt6885_suspend_spm_rsc_req_check
+	(struct mt6885_spm_wake_status *wakesta)
+{
+#define LOG_BUF_SIZE		        256
+#define IS_BLOCKED_OVER_TIMES		10
+#define AVOID_OVERFLOW (0xF0000000)
+static u32 is_blocked_cnt;
+	char log_buf[LOG_BUF_SIZE] = { 0 };
+	int log_size = 0;
+	u32 is_no_blocked = 0;
+	u32 req_sta_0, req_sta_1, req_sta_4;
+	u32 src_req;
+
+	if (is_blocked_cnt >= AVOID_OVERFLOW)
+		is_blocked_cnt = 0;
+
+	/* Check if ever enter deepest System LPM */
+	is_no_blocked = wakesta->debug_flag & 0x2;
+
+	/* Check if System LPM ever is blocked over 10 times */
+	if (!is_no_blocked)
+		is_blocked_cnt++;
+	else
+		is_blocked_cnt = 0;
+
+	if (is_blocked_cnt < IS_BLOCKED_OVER_TIMES)
+		return;
+
+	/* Show who is blocking system LPM */
+	log_size += scnprintf(log_buf + log_size,
+		LOG_BUF_SIZE - log_size,
+		"suspend warning:(OneShot) System LPM is blocked by ");
+
+	req_sta_0 = plat_mmio_read(SRC_REQ_STA_0);
+	if (req_sta_0 & 0xFFF)
+		log_size += scnprintf(log_buf + log_size,
+			LOG_BUF_SIZE - log_size, "md ");
+
+	if (req_sta_0 & (0x3F << 12))
+		log_size += scnprintf(log_buf + log_size,
+			LOG_BUF_SIZE - log_size, "conn ");
+
+	if (req_sta_0 & (0x7 << 18))
+		log_size += scnprintf(log_buf + log_size,
+			LOG_BUF_SIZE - log_size, "nfc ");
+
+	if (req_sta_0 & (0xF << 26))
+		log_size += scnprintf(log_buf + log_size,
+			LOG_BUF_SIZE - log_size, "disp ");
+
+	req_sta_1 = plat_mmio_read(SRC_REQ_STA_1);
+	if (req_sta_1 & 0x1F)
+		log_size += scnprintf(log_buf + log_size,
+			LOG_BUF_SIZE - log_size, "scp ");
+
+	if (req_sta_1 & (0x1F << 5))
+		log_size += scnprintf(log_buf + log_size,
+			LOG_BUF_SIZE - log_size, "adsp ");
+
+	if (req_sta_1 & (0x1F << 10))
+		log_size += scnprintf(log_buf + log_size,
+			LOG_BUF_SIZE - log_size, "ufs ");
+
+	if (req_sta_1 & (0xF << 15))
+		log_size += scnprintf(log_buf + log_size,
+			LOG_BUF_SIZE - log_size, "gce ");
+
+	if (req_sta_1 & (0x3FF << 21))
+		log_size += scnprintf(log_buf + log_size,
+			LOG_BUF_SIZE - log_size, "msdc ");
+
+	req_sta_4 = plat_mmio_read(SRC_REQ_STA_4);
+	if (req_sta_4 & 0x1F)
+		log_size += scnprintf(log_buf + log_size,
+			LOG_BUF_SIZE - log_size, "apu ");
+
+	src_req = plat_mmio_read(SPM_SRC_REQ);
+	if (src_req & 0x9B)
+		log_size += scnprintf(log_buf + log_size,
+			LOG_BUF_SIZE - log_size, "spm ");
+
+	WARN_ON(strlen(log_buf) >= LOG_BUF_SIZE);
+
+	printk_deferred("[name:spm&][SPM] %s", log_buf);
+}
+
 static int mt6885_show_message(struct mt6885_spm_wake_status *wakesrc, int type,
 					const char *prefix, void *data)
 {
+#undef LOG_BUF_SIZE
 	#define LOG_BUF_SIZE		256
 	#define LOG_BUF_OUT_SZ		768
 	#define IS_WAKE_MISC(x)	(wakesrc->wake_misc & x)
@@ -464,7 +552,8 @@ static int mt6885_show_message(struct mt6885_spm_wake_status *wakesrc, int type,
 
 	if (type == MT_LPM_ISSUER_SUSPEND) {
 		printk_deferred("[name:spm&][SPM] %s", log_buf);
-		mt6885_show_detailed_wakeup_reason(wakesrc);
+		mt6885_suspend_show_detailed_wakeup_reason(wakesrc);
+		mt6885_suspend_spm_rsc_req_check(wakesrc);
 
 		/* Eable rcu lock checking */
 		rcu_irq_exit_irqson();
