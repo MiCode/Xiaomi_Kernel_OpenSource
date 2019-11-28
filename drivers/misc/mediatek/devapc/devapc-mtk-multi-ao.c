@@ -726,12 +726,14 @@ static void devapc_extra_handler(int slave_type, const char *vio_master,
 {
 	const struct mtk_device_info **device_info;
 	struct mtk_devapc_dbg_status *dbg_stat;
+	struct mtk_devapc_vio_info *vio_info;
 	struct devapc_vio_callbacks *viocb;
 	char dispatch_key[48] = {0};
 	enum infra_subsys_id id;
 
 	device_info = mtk_devapc_ctx->soc->device_info;
 	dbg_stat = mtk_devapc_ctx->soc->dbg_stat;
+	vio_info = mtk_devapc_ctx->soc->vio_info;
 
 	pr_info(PFX "%s:%d\n", "vio_trigger_times",
 			mtk_devapc_ctx->soc->vio_info->vio_trigger_times++);
@@ -766,7 +768,10 @@ static void devapc_extra_handler(int slave_type, const char *vio_master,
 		strncpy(dispatch_key, "GCE", sizeof(dispatch_key));
 
 	} else if (!strncasecmp(vio_master, "APMCU", 5))
-		id = INFRA_SUBSYS_APMCU;
+		if (vio_info->domain_id == 0)
+			id = INFRA_SUBSYS_APMCU;
+		else
+			id = INFRA_SUBSYS_GZ;
 	else
 		id = DEVAPC_SUBSYS_RESERVED;
 
