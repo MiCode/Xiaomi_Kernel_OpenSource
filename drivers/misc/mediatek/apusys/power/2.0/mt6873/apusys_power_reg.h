@@ -79,7 +79,7 @@ extern void *g_APU_SPM_BASE;
 #define	APU_PCUTOP_BASE		(g_APU_PCUTOP_BASE)
 #define	APU_PCU_PMIC_TAR_BUF	(void *)(APU_PCUTOP_BASE + 0x120)
 #define	APU_PCU_PMIC_CUR_BUF	(void *)(APU_PCUTOP_BASE + 0x124)
-#define APU_PCU_PMIC_IRQ        (void *)(APU_PCUTOP_BASE + 0x128)
+#define APU_PCU_PMIC_STATUS	(void *)(APU_PCUTOP_BASE + 0x128)
 
 /**************************************************
  * APU_VCORE related register

@@ -18,7 +18,7 @@
 
 #include "apu_log.h"
 
-#if 0
+#if 0 //[Fix me]
 extern unsigned int mt_get_ckgen_freq(unsigned int ID);
 extern unsigned int mt_get_abist_freq(unsigned int ID);
 extern void check_vpu_clk_sts(void);
@@ -51,8 +51,10 @@ static inline void check_vpu_clk_sts(void) { }
 #define ENABLE_CLK(clk) \
 	{ \
 		ret = clk_prepare_enable(clk); \
-		if (ret) \
+		if (ret) { \
 			LOG_ERR("fail to prepare & enable clk:%s\n", #clk); \
+			apu_aee_warn("APUPWR_CLK_EN_FAIL", "clk:%s\n", #clk); \
+		} \
 		ret_all |= ret; \
 	}
 

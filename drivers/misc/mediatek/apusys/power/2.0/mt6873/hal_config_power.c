@@ -17,9 +17,12 @@
 #include "apusys_power_cust.h"
 #include "apusys_power_reg.h"
 #include "apu_log.h"
+#include "apusys_power_rule_check.h"
 #include <helio-dvfsrc-opp.h>
 #define CREATE_TRACE_POINTS
 #include "apu_power_events.h"
+#include "mtk_devinfo.h"
+
 
 static int is_apu_power_initilized;
 static int force_pwr_on = 1;
@@ -27,6 +30,7 @@ static int force_pwr_off;
 static int conn_mtcmos_on;
 static int buck_already_on;
 static int power_on_counter;
+static int hal_cmd_status[APUSYS_POWER_USER_NUM];
 
 void *g_APU_RPCTOP_BASE;
 void *g_APU_PCUTOP_BASE;
@@ -56,12 +60,12 @@ static int set_power_frequency(void *param);
 static void get_current_power_info(void *param);
 static int uninit_power_resource(void);
 static int apusys_power_reg_dump(struct apu_power_info *info);
-static void debug_power_mtcmos_on(void);
-static void debug_power_mtcmos_off(void);
+static void power_debug_func(void);
 static void hw_init_setting(void);
 static int buck_control(enum DVFS_USER user, int level);
 static int rpc_power_status_check(int domain_idx, unsigned int enable);
 static int apu_pm_handler(void *param);
+static int segment_user_support_check(void *param);
 
 /************************************
  * common power hal command
@@ -73,7 +77,8 @@ int hal_config_power(enum HAL_POWER_CMD cmd, enum DVFS_USER user, void *param)
 
 	LOG_DBG("%s power command : %d, by user : %d\n", __func__, cmd, user);
 
-	if (cmd != PWR_CMD_INIT_POWER && is_apu_power_initilized == 0) {
+	if (cmd != PWR_CMD_INIT_POWER && cmd != PWR_CMD_SEGMENT_CHECK &&
+		is_apu_power_initilized == 0) {
 		LOG_ERR("%s apu power state : %d, force return!\n",
 					__func__, is_apu_power_initilized);
 		return -1;
@@ -90,22 +95,17 @@ int hal_config_power(enum HAL_POWER_CMD cmd, enum DVFS_USER user, void *param)
 		ret = set_power_shut_down(user, param);
 		break;
 	case PWR_CMD_SET_VOLT:
+		hal_cmd_status[user] = PWR_CMD_SET_VOLT;
 		ret = set_power_voltage(user, param);
+		hal_cmd_status[user] = 0;
 		break;
 	case PWR_CMD_SET_REGULATOR_MODE:
 		ret = set_power_regulator_mode(param);
 		break;
-// do not control mtcmos and clock individually
-#if 0
-	case PWR_CMD_SET_MTCMOS:
-		ret = set_power_mtcmos(user, param);
-		break;
-	case PWR_CMD_SET_CLK:
-		ret = set_power_clock(user, param);
-		break;
-#endif
 	case PWR_CMD_SET_FREQ:
+		hal_cmd_status[user] = PWR_CMD_SET_FREQ;
 		ret = set_power_frequency(param);
+		hal_cmd_status[user] = 0;
 		break;
 	case PWR_CMD_PM_HANDLER:
 		ret = apu_pm_handler(param);
@@ -119,11 +119,11 @@ int hal_config_power(enum HAL_POWER_CMD cmd, enum DVFS_USER user, void *param)
 	case PWR_CMD_UNINIT_POWER:
 		ret = uninit_power_resource();
 		break;
-	case PWR_CMD_DEBUG_MTCMOS_ON:
-		debug_power_mtcmos_on();
+	case PWR_CMD_DEBUG_FUNC:
+		power_debug_func();
 		break;
-	case PWR_CMD_DEBUG_MTCMOS_OFF:
-		debug_power_mtcmos_off();
+	case PWR_CMD_SEGMENT_CHECK:
+		segment_user_support_check(param);
 		break;
 	default:
 		LOG_ERR("%s unknown power command : %d\n", __func__, cmd);
@@ -152,7 +152,7 @@ static enum vcore_opp volt_to_vcore_opp(int target_volt)
 		return VCORE_OPP_0;
 	}
 
-	LOG_WRN("%s opp = %d\n", __func__, opp);
+	LOG_DBG("%s opp = %d\n", __func__, opp);
 	return (enum vcore_opp)opp;
 }
 
@@ -271,12 +271,36 @@ static int init_power_resource(void *param)
 	enable_apu_vcore_clksrc();
 	enable_apu_conn_clksrc();
 	hw_init_setting();
-	set_apu_clock_source(DVFS_FREQ_00_026000_F, V_VCORE);
+	set_apu_clock_source(VCORE_OFF_FREQ, V_VCORE);
 	disable_apu_conn_clksrc();
 
 	buck_control(VPU0, 3); // buck on
 	udelay(100);
 	buck_control(VPU0, 0); // buck off
+
+	return 0;
+}
+
+static int segment_user_support_check(void *param)
+{
+	uint32_t val = 0;
+	struct hal_param_seg_support *seg_info =
+		(struct hal_param_seg_support *)param;
+
+	seg_info->support = true;
+	seg_info->seg = SEGMENT_1;
+
+	val = get_devinfo_with_index(30);
+	if (val == 0x1) {
+		seg_info->seg = SEGMENT_0;
+		if (seg_info->user == VPU2 || seg_info->user == MDLA1)
+			seg_info->support = false;
+	} else if (val == 0x10)
+		seg_info->seg = SEGMENT_2;
+
+	if (seg_info->support == false)
+		LOG_INF("%s user=%d, support=%d\n", __func__,
+		seg_info->user, seg_info->support);
 
 	return 0;
 }
@@ -290,10 +314,10 @@ static int apu_pm_handler(void *param)
 		// TODO: do we have any action need to be handled in suspend?
 	} else {
 		// TODO: do we need to call init_power_resource again in resume?
-#if 0
+#if 1
 		enable_apu_vcore_clksrc();
 		enable_apu_conn_clksrc();
-		set_apu_clock_source(DVFS_FREQ_00_026000_F, V_VCORE);
+		set_apu_clock_source(VCORE_OFF_FREQ, V_VCORE);
 		disable_apu_conn_clksrc();
 #endif
 		LOG_WRN("%s resume end\n", __func__);
@@ -332,6 +356,10 @@ static int set_power_voltage(enum DVFS_USER user, void *param)
 	if (ret)
 		LOG_ERR("%s failed(%d), buck:%d, volt:%d\n",
 					__func__, ret, buck, target_volt);
+
+#ifdef ASSERTIOM_CHECK
+	voltage_constraint_check();
+#endif
 
 	return ret;
 }
@@ -372,7 +400,7 @@ static void rpc_fifo_check(void)
 #endif
 }
 
-static unsigned int check_spm_register(struct apu_power_info *info)
+static unsigned int check_spm_register(struct apu_power_info *info, int log)
 {
 	unsigned int spm_wake_bit = DRV_Reg32(SPM_CROSS_WAKE_M01_REQ);
 
@@ -380,18 +408,40 @@ static unsigned int check_spm_register(struct apu_power_info *info)
 		info->spm_wakeup = spm_wake_bit;
 
 	} else {
-		LOG_WRN("APUREG, SPM SPM_CROSS_WAKE_M01_REQ = 0x%x\n",
-							spm_wake_bit);
-		LOG_WRN("APUREG, SPM OTHER_PWR_STATUS = 0x%x\n",
+		if (log) {
+			LOG_PM("APUREG, SPM SPM_CROSS_WAKE_M01_REQ = 0x%x\n",
+								spm_wake_bit);
+			LOG_PM("APUREG, SPM OTHER_PWR_STATUS = 0x%x\n",
 						DRV_Reg32(OTHER_PWR_STATUS));
-		LOG_WRN("APUREG, SPM BUCK_ISOLATION = 0x%x\n",
+			LOG_PM("APUREG, SPM BUCK_ISOLATION = 0x%x\n",
 						DRV_Reg32(BUCK_ISOLATION));
+		}
 	}
 
 	if (spm_wake_bit == 0x1)
 		return 0x1;
 	else
 		return 0x0;
+}
+
+static int check_if_rpc_alive(void)
+{
+	unsigned int regValue = 0x0;
+	int bit_offset = 26; // [31:26] is reserved for debug
+
+	regValue = DRV_Reg32(APU_RPC_TOP_SEL);
+	LOG_PM("%s , before: APU_RPC_TOP_SEL = 0x%x\n", __func__, regValue);
+	regValue |= (0x3a << bit_offset);
+	DRV_WriteReg32(APU_RPC_TOP_SEL, regValue);
+
+	regValue = 0x0;
+	regValue = DRV_Reg32(APU_RPC_TOP_SEL);
+	LOG_PM("%s , after: APU_RPC_TOP_SEL = 0x%x\n", __func__, regValue);
+
+	DRV_ClearBitReg32(APU_RPC_TOP_SEL, (BIT(26) | BIT(27) | BIT(28)
+					| BIT(29) | BIT(30) | BIT(31)));
+
+	return ((regValue >> bit_offset) & 0x3f) == 0x3a ? 1 : 0;
 }
 
 /*
@@ -411,13 +461,12 @@ static int rpc_power_status_check(int domain_idx, unsigned int mode)
 	unsigned int finished = 0x0;
 	unsigned int check_round = 0;
 	int fail_type = 0;
+	int rpc_alive = 0;
 
 	// check SPM_CROSS_WAKE_M01_REQ
-	spmValue = check_spm_register(NULL);
+	spmValue = check_spm_register(NULL, 0);
 
 	do {
-		udelay(10);
-
 		// check APU_RPC_INTF_PWR_RDY
 		rpcValue = DRV_Reg32(APU_RPC_INTF_PWR_RDY);
 
@@ -432,16 +481,37 @@ static int rpc_power_status_check(int domain_idx, unsigned int mode)
 			finished = (chkValue >> domain_idx) & 0x1;
 
 		if (++check_round >= REG_POLLING_TIMEOUT_ROUNDS) {
-			if (domain_idx == 0 && mode != 0)
+
+			check_spm_register(NULL, 1);
+			rpc_alive = check_if_rpc_alive();
+			if (domain_idx == 0 && mode != 0) {
 				LOG_ERR(
-				"%s SPM Wakeup = 0x%x (idx:%d, mode:%d), timeout !\n",
-					__func__, spmValue, domain_idx, mode);
-			else
+				"%s fail SPM Wakeup = 0x%x, idx:%d, mode:%d, ra:%d, timeout !\n",
+					__func__, spmValue, domain_idx, mode,
+					rpc_alive);
+
+				apu_aee_warn(
+				"APUPWR_SPM_TIMEOUT",
+				"SPM Wakeup:0x%x, idx:%d, mode:%d, ra:%d timeout\n",
+				spmValue, domain_idx, mode, rpc_alive);
+
+			} else {
 				LOG_ERR(
-				"%s APU_RPC_INTF_PWR_RDY = 0x%x (idx:%d, mode:%d), timeout !\n",
-					__func__, rpcValue, domain_idx, mode);
+				"%s fail APU_RPC_INTF_PWR_RDY = 0x%x, idx:%d, mode:%d, ra:%d, timeout !\n",
+					__func__, rpcValue, domain_idx, mode,
+					rpc_alive);
+
+				apu_aee_warn(
+				"APUPWR_RPC_TIMEOUT",
+				"APU_RPC_INTF_PWR_RDY:0x%x, idx:%d, mode:%d, ra:%d timeout\n",
+				rpcValue, domain_idx, mode, rpc_alive);
+			}
+
 			return -1;
 		}
+
+		if (finished)
+			udelay(10);
 
 	} while (finished);
 
@@ -457,9 +527,17 @@ static int rpc_power_status_check(int domain_idx, unsigned int mode)
 			fail_type = 3;
 
 		if (fail_type > 0) {
+			check_spm_register(NULL, 1);
+			rpc_alive = check_if_rpc_alive();
 			LOG_ERR(
-			"%s conn ctl check fail type %d (mode:%d, spm:0x%x, rpc:0x%x)\n",
-			__func__, fail_type, mode, spmValue, rpcValue);
+			"%s fail conn ctl type:%d, mode:%d, spm:0x%x, rpc:0x%x, ra:%d\n",
+			__func__, fail_type, mode, spmValue, rpcValue,
+			rpc_alive);
+
+			apu_aee_warn(
+				"APUPWR_RPC_CHK_FAIL",
+				"type:%d, mode:%d, spm:0x%x, rpc:0x%x, ra:%d\n",
+				fail_type, mode, spmValue, rpcValue, rpc_alive);
 #if 1
 			return -1;
 #endif
@@ -467,12 +545,42 @@ static int rpc_power_status_check(int domain_idx, unsigned int mode)
 	}
 
 	if (domain_idx == 0 && mode != 0)
-		LOG_WRN("%s SPM Wakeup = 0x%x (idx:%d, mode:%d)\n",
+		LOG_DBG("%s SPM Wakeup = 0x%x (idx:%d, mode:%d)\n",
 					__func__, spmValue, domain_idx, mode);
 	else
-		LOG_WRN("%s APU_RPC_INTF_PWR_RDY = 0x%x (idx:%d, mode:%d)\n",
+		LOG_DBG("%s APU_RPC_INTF_PWR_RDY = 0x%x (idx:%d, mode:%d)\n",
 					__func__, rpcValue, domain_idx, mode);
 	return 0;
+}
+
+static int set_domain_to_default_clk(int domain_idx)
+{
+	int ret = 0;
+
+	if (domain_idx == 2)
+		ret |= set_apu_clock_source(BUCK_DOMAIN_DEFAULT_FREQ,
+								V_VPU0);
+	else if (domain_idx == 3)
+		ret |= set_apu_clock_source(BUCK_DOMAIN_DEFAULT_FREQ,
+								V_VPU1);
+	else if (domain_idx == 4)
+		ret |= set_apu_clock_source(BUCK_DOMAIN_DEFAULT_FREQ,
+								V_VPU2);
+	else if (domain_idx == 6)
+		ret |= set_apu_clock_source(BUCK_DOMAIN_DEFAULT_FREQ,
+								V_MDLA0);
+	else if (domain_idx == 7)
+		ret |= set_apu_clock_source(BUCK_DOMAIN_DEFAULT_FREQ,
+								V_MDLA1);
+	else {
+		ret |= set_apu_clock_source(BUCK_DOMAIN_DEFAULT_FREQ,
+								V_APU_CONN);
+		ret |= set_apu_clock_source(BUCK_DOMAIN_DEFAULT_FREQ,
+								V_TOP_IOMMU);
+	}
+
+	return ret;
+
 }
 
 static int set_power_mtcmos(enum DVFS_USER user, void *param)
@@ -483,7 +591,7 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 	int retry = 0;
 	int ret = 0;
 
-	LOG_INF("%s , user: %d , enable: %d\n", __func__, user, enable);
+	LOG_DBG("%s , user: %d , enable: %d\n", __func__, user, enable);
 
 	if (user == EDMA || user == EDMA2 || user == REVISER)
 		domain_idx = 0;
@@ -503,10 +611,10 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 	if (enable) {
 		// call spm api to enable wake up signal for apu_conn/apu_vcore
 		if (force_pwr_on) {
-			LOG_WRN("%s enable wakeup signal\n", __func__);
+			LOG_DBG("%s enable wakeup signal\n", __func__);
 
 			ret |= enable_apu_conn_clksrc();
-			ret |= set_apu_clock_source(DVFS_FREQ_00_208000_F,
+			ret |= set_apu_clock_source(VCORE_ON_FREQ,
 								V_VCORE);
 
 			// CCF API assist to enable clock source of apu conn
@@ -532,7 +640,7 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 				// BIT(4) to Power on
 				DRV_WriteReg32(APU_RPC_SW_FIFO_WE,
 					(domain_idx | BIT(4)));
-				LOG_WRN("%s APU_RPC_SW_FIFO_WE write 0x%lx\n",
+				LOG_DBG("%s APU_RPC_SW_FIFO_WE write 0x%lx\n",
 					__func__, (domain_idx | BIT(4)));
 
 				if (retry >= 3) {
@@ -552,7 +660,7 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 			do {
 				rpc_fifo_check();
 				DRV_WriteReg32(APU_RPC_SW_FIFO_WE, domain_idx);
-				LOG_WRN("%s APU_RPC_SW_FIFO_WE write %u\n",
+				LOG_DBG("%s APU_RPC_SW_FIFO_WE write %u\n",
 					__func__, domain_idx);
 
 				if (retry >= 3) {
@@ -563,6 +671,7 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 				retry++;
 			} while (rpc_power_status_check(domain_idx, enable));
 
+			ret |= set_domain_to_default_clk(domain_idx);
 			// disable clock source of this device
 			disable_apu_device_clksrc(user);
 		}
@@ -597,8 +706,10 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 			// conn disable, checking APU_RPC_INTF_PWR_RDY
 			ret |= rpc_power_status_check(0, 0);
 
-			ret |= set_apu_clock_source(DVFS_FREQ_00_026000_F,
+			ret |= set_apu_clock_source(VCORE_OFF_FREQ,
 								V_VCORE);
+
+			ret |= set_domain_to_default_clk(0);
 			disable_apu_conn_clksrc();
 
 			force_pwr_off = 0;
@@ -672,10 +783,10 @@ static void get_current_power_info(void *param)
 		apusys_power_reg_dump(info);
 
 		// including SPM related pwr reg
-		check_spm_register(info);
+		check_spm_register(info, 0);
 
 		snprintf(log_str, sizeof(log_str),
-			"v[%u,%u,%u,%u]f[%u,%u,%u,%u,%u,%u,%u]r[%x,%x,%x,%x,%x,%x,%x,%x,%x]",
+			"v[%u,%u,%u,%u]f[%u,%u,%u,%u,%u,%u,%u]r[%x,%x,%x,%x,%x,%x,%x,%x,%x]%llu",
 			info->vvpu, info->vmdla, info->vcore, info->vsram,
 			info->dsp_freq, info->dsp1_freq, info->dsp2_freq,
 			info->dsp3_freq, info->dsp6_freq, info->dsp7_freq,
@@ -683,19 +794,19 @@ static void get_current_power_info(void *param)
 			info->vcore_cg_stat, info->conn_cg_stat,
 			info->vpu0_cg_stat, info->vpu1_cg_stat,
 			info->vpu2_cg_stat, info->mdla0_cg_stat,
-			info->mdla1_cg_stat);
+			info->mdla1_cg_stat, info->id);
 	} else {
 		snprintf(log_str, sizeof(log_str),
-			"v[%u,%u,%u,%u]f[%u,%u,%u,%u,%u,%u,%u]",
+			"v[%u,%u,%u,%u]f[%u,%u,%u,%u,%u,%u,%u]%llu",
 			info->vvpu, info->vmdla, info->vcore, info->vsram,
 			info->dsp_freq, info->dsp1_freq, info->dsp2_freq,
 			info->dsp3_freq, info->dsp6_freq, info->dsp7_freq,
-			info->ipuif_freq);
+			info->ipuif_freq, info->id);
 	}
 
 	trace_APUSYS_DFS(info, mdla_0, mdla_1);
 
-	LOG_WRN("APUPWR %s\n", log_str);
+	LOG_PM("APUPWR %s\n", log_str);
 }
 
 static int uninit_power_resource(void)
@@ -727,10 +838,10 @@ static int buck_control(enum DVFS_USER user, int level)
 	struct hal_param_volt mdla_volt_data;
 	struct hal_param_volt vcore_volt_data;
 	struct hal_param_volt sram_volt_data;
-	struct apu_power_info info;
+	struct apu_power_info info = {0};
 	int ret = 0;
 
-	LOG_WRN("%s begin, level = %d\n", __func__, level);
+	LOG_DBG("%s begin, level = %d\n", __func__, level);
 
 	if (level == 3) { // buck ON
 		// just turn on buck
@@ -817,7 +928,7 @@ static int buck_control(enum DVFS_USER user, int level)
 	info.id = 0;
 	dump_voltage(&info);
 
-	LOG_WRN("%s end, level = %d\n", __func__, level);
+	LOG_DBG("%s end, level = %d\n", __func__, level);
 	return ret;
 }
 
@@ -837,7 +948,6 @@ static int set_power_boot_up(enum DVFS_USER user, void *param)
 
 		buck_control(user, 2); // default voltage
 
-		// FIXME: Set mtcmos disable first to avoid conflict with iommu
 		force_pwr_on = 1;
 	}
 
@@ -866,8 +976,23 @@ static int set_power_shut_down(enum DVFS_USER user, void *param)
 	struct hal_param_mtcmos mtcmos_data;
 	struct hal_param_clk clk_data;
 	int ret = 0;
+	int timeout_round = 0;
 
 	if (user < APUSYS_DVFS_USER_NUM) {
+
+		// power off should be later until DVFS completed
+		while (hal_cmd_status[user]) {
+			if (timeout_round >= 50) {
+				LOG_ERR(
+				"%s, user:%d wait for hal_cmd:%d finish timeout !",
+				__func__, user, hal_cmd_status[user]);
+				break;
+			}
+
+			udelay(100);
+			timeout_round++;
+		}
+
 		// inner dummy cg won't be gated when you call disable
 		clk_data.enable = 0;
 		ret = set_power_clock(user, (void *)&clk_data);
@@ -1030,43 +1155,8 @@ static int apusys_power_reg_dump(struct apu_power_info *info)
 	return 0;
 }
 
-static void debug_power_mtcmos_on(void)
+static void power_debug_func(void)
 {
 	LOG_WRN("%s begin +++\n", __func__);
-#if 0
-	buck_control(VPU0, 2); // buck ON
-
-	enable_apu_mtcmos(1);
-	enable_apu_conn_vcore_clock();
-#endif
-	buck_control(VPU0, 3); // buck on
-	buck_control(VPU0, 2); // default voltage
-	LOG_WRN("%s end ---\n", __func__);
-}
-
-static void debug_power_mtcmos_off(void)
-{
-//	unsigned int regValue = 0;
-
-	LOG_WRN("%s begin +++\n", __func__);
-
-	buck_control(VPU0, 1); // low voltage
-	buck_control(VPU0, 0); // buck off
-#if 0
-	disable_apu_conn_vcore_clock();
-	enable_apu_mtcmos(0);
-
-	// mask RPC IRQ and bypass WFI
-	regValue = DRV_Reg32(APU_RPC_TOP_SEL);
-	regValue |= 0x9E;
-	DRV_WriteReg32(APU_RPC_TOP_SEL, regValue);
-
-	// sleep request enable
-	regValue = DRV_Reg32(APU_RPC_TOP_CON);
-	regValue |= 0x1;
-	DRV_WriteReg32(APU_RPC_TOP_CON, regValue);
-
-	buck_control(VPU0, 0); // buck OFF
-#endif
 	LOG_WRN("%s end ---\n", __func__);
 }

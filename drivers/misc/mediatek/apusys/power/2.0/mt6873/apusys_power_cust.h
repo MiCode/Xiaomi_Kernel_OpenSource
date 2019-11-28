@@ -28,9 +28,11 @@
 #define AUTO_BUCK_OFF_SUSPEND	(0)
 #define AUTO_BUCK_OFF_DEEPIDLE	(0)
 #define ASSERTIOM_CHECK (1)
+#define DVFS_ASSERTION_CHECK (1)
 #define VCORE_DVFS_SUPPORT	(0)
 #define ASSERTION_PERCENTAGE	(1)	// 1%
 #define BINNING_VOLTAGE_SUPPORT (1)
+#define SUPPORT_HW_CONTROL_PMIC	(1)
 
 
 #define APUSYS_MAX_NUM_OPPS                (10)
@@ -40,28 +42,34 @@
 #define APUSYS_MDLA_NUM						(2)
 #define APUSYS_DEFAULT_OPP					(9)
 
-#define SUPPORT_HW_CONTROL_PMIC	(0)
 
 // FIXME: check default value
-#define VCORE_DEFAULT_VOLT	DVFS_VOLT_00_600000_V
-#define VSRAM_DEFAULT_VOLT	DVFS_VOLT_00_825000_V
-#define VVPU_DEFAULT_VOLT	DVFS_VOLT_00_800000_V
-#define VMDLA_DEFAULT_VOLT	DVFS_VOLT_00_800000_V
+#define VCORE_DEFAULT_VOLT	DVFS_VOLT_00_575000_V
+#define VVPU_DEFAULT_VOLT	DVFS_VOLT_00_575000_V
+#define VMDLA_DEFAULT_VOLT	DVFS_VOLT_00_575000_V
+#define VSRAM_DEFAULT_VOLT	DVFS_VOLT_00_750000_V
 
 #define VCORE_SHUTDOWN_VOLT	DVFS_VOLT_00_575000_V
-#define VSRAM_SHUTDOWN_VOLT	DVFS_VOLT_00_750000_V
 #define VVPU_SHUTDOWN_VOLT	DVFS_VOLT_00_575000_V
 #define VMDLA_SHUTDOWN_VOLT	DVFS_VOLT_00_575000_V
+#define VSRAM_SHUTDOWN_VOLT	DVFS_VOLT_00_750000_V
 
-#ifdef AGING_MARGIN
-#define VSRAM_TRANS_VOLT	750000
-#define VSRAM_LOW_VOLT		750000
-#define VSRAM_HIGH_VOLT		825000
-#else
+
+#define BUCK_DOMAIN_DEFAULT_FREQ DVFS_FREQ_00_208000_F
+#define VCORE_ON_FREQ		DVFS_FREQ_00_273000_F
+#define VCORE_OFF_FREQ		DVFS_FREQ_00_026000_F
+
+
 #define VSRAM_TRANS_VOLT	DVFS_VOLT_00_750000_V
 #define VSRAM_LOW_VOLT		DVFS_VOLT_00_750000_V
 #define VSRAM_HIGH_VOLT		DVFS_VOLT_00_825000_V
-#endif
+
+
+enum SEGMENT_INFO {
+	SEGMENT_0 = 0,	// 5G_l
+	SEGMENT_1 = 1,	// 5G
+	SEGMENT_2 = 2,	// 5G_H
+};
 
 
 enum DVFS_VPU0_PWR_PATH {
@@ -121,15 +129,15 @@ struct apusys_dvfs_opps {
 					[APUSYS_PATH_USER_NUM];
 	enum DVFS_VOLTAGE next_buck_volt[APUSYS_BUCK_NUM];
 	enum DVFS_VOLTAGE cur_buck_volt[APUSYS_BUCK_NUM];
+	uint8_t next_opp_index[APUSYS_BUCK_DOMAIN_NUM];
 	uint8_t cur_opp_index[APUSYS_BUCK_DOMAIN_NUM];
-	uint8_t prev_opp_index[APUSYS_BUCK_DOMAIN_NUM];
 	uint8_t power_lock_max_opp[APUSYS_DVFS_USER_NUM];
 	uint8_t power_lock_min_opp[APUSYS_DVFS_USER_NUM];
 	uint8_t thermal_opp[APUSYS_DVFS_USER_NUM];
 	uint8_t user_opp_index[APUSYS_DVFS_USER_NUM];
 	uint8_t driver_opp_index[APUSYS_DVFS_USER_NUM];
 	bool is_power_on[APUSYS_POWER_USER_NUM];
-	uint8_t power_bit_mask;
+	uint32_t power_bit_mask;
 	uint64_t id;
 	enum DVFS_VOLTAGE vsram_volatge;
 };
@@ -137,11 +145,14 @@ struct apusys_dvfs_opps {
 extern char *user_str[APUSYS_DVFS_USER_NUM];
 extern char *buck_domain_str[APUSYS_BUCK_DOMAIN_NUM];
 extern char *buck_str[APUSYS_BUCK_NUM];
+extern bool apusys_dvfs_user_support[APUSYS_DVFS_USER_NUM];
+extern bool apusys_dvfs_buck_domain_support[APUSYS_BUCK_DOMAIN_NUM];
 extern enum DVFS_VOLTAGE_DOMAIN apusys_user_to_buck_domain
 					[APUSYS_DVFS_USER_NUM];
 extern enum DVFS_BUCK apusys_user_to_buck[APUSYS_DVFS_USER_NUM];
 extern enum DVFS_USER apusys_buck_domain_to_user[APUSYS_BUCK_DOMAIN_NUM];
 extern enum DVFS_BUCK apusys_buck_domain_to_buck[APUSYS_BUCK_DOMAIN_NUM];
+extern enum DVFS_VOLTAGE_DOMAIN apusys_buck_to_buck_domain[APUSYS_BUCK_NUM];
 extern uint8_t dvfs_clk_path[APUSYS_DVFS_USER_NUM][APUSYS_PATH_USER_NUM];
 extern uint8_t dvfs_buck_for_clk_path[APUSYS_DVFS_USER_NUM][APUSYS_BUCK_NUM];
 extern enum DVFS_VOLTAGE

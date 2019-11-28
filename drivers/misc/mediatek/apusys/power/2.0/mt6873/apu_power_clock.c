@@ -151,7 +151,7 @@ int enable_apu_mtcmos(int enable)
 		DISABLE_CLK(mtcmos_scp_sys_vpu)
 
 
-	LOG_WRN("%s enable var = %d, ret = %d\n", __func__, enable, ret_all);
+	LOG_DBG("%s enable var = %d, ret = %d\n", __func__, enable, ret_all);
 	return ret_all;
 }
 
@@ -634,7 +634,6 @@ static struct clk *find_clk_by_domain(enum DVFS_VOLTAGE_DOMAIN domain)
 	}
 }
 
-// FIXME: segmant code ?
 // set normal clock
 int set_apu_clock_source(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 {
@@ -760,11 +759,13 @@ int set_apu_clock_source(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 		LOG_WRN("APUSYS_SETTLE_TIME_TEST config domain %d to freq %d\n",
 								domain, freq);
 #else
-		LOG_WRN("%s config domain %d to freq %d\n", __func__,
+		LOG_DBG("%s config domain %d to freq %d\n", __func__,
 								domain, freq);
 #endif
 		return clk_set_parent(clk_target, clk_src);
 	} else {
+		LOG_ERR("%s config domain %d to freq %d failed\n", __func__,
+								domain, freq);
 		return -1;
 	}
 }
@@ -822,7 +823,7 @@ int config_apupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 		LOG_WRN("APUSYS_SETTLE_TIME_TEST config domain %d to freq %d\n",
 								domain, freq);
 #else
-		LOG_WRN("%s config domain %d to freq %d\n", __func__,
+		LOG_DBG("%s config domain %d to freq %d\n", __func__,
 								domain, freq);
 #endif
 		ret |= clk_set_rate(clk_top_apupll_ck, scaled_freq);
@@ -830,6 +831,8 @@ int config_apupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 		ret |= clk_set_parent(clk_target, clk_top_apupll_ck);
 
 	} else {
+		LOG_ERR("%s config domain %d to freq %d failed\n", __func__,
+								domain, freq);
 		return -1;
 	}
 	return ret;

@@ -135,9 +135,9 @@ int enable_regulator(enum DVFS_BUCK buck)
 		if (ret) {
 			LOG_ERR("regulator_enable vvpu_reg_id failed\n");
 			return ret;
+		} else {
+			LOG_DBG("enable vvpu success\n");
 		}
-		LOG_INF("enable vvpu success\n");
-
 
 	} else if (buck == MDLA_BUCK) {
 		if (!vmdla_reg_id) {
@@ -150,9 +150,9 @@ int enable_regulator(enum DVFS_BUCK buck)
 		if (ret) {
 			LOG_ERR("regulator_enable vmdla_reg_id failed\n");
 			return ret;
+		} else {
+			LOG_DBG("enable vmdla success\n");
 		}
-		LOG_INF("enable vmdla success\n");
-
 
 
 	} else if (buck == VCORE_BUCK) {
@@ -174,9 +174,9 @@ int enable_regulator(enum DVFS_BUCK buck)
 		if (ret) {
 			LOG_ERR("regulator_enable vsram_reg_id failed\n");
 			return ret;
+		} else {
+			LOG_DBG("enable vsram success\n");
 		}
-		LOG_INF("enable vsram success\n");
-
 
 	} else {
 		LOG_ERR("%s not support buck : %d\n", __func__, buck);
@@ -206,9 +206,9 @@ int disable_regulator(enum DVFS_BUCK buck)
 		if (ret) {
 			LOG_ERR("regulator_disable vvpu_reg_id failed\n");
 			return ret;
+		} else {
+			LOG_DBG("disable vvpu success\n");
 		}
-		LOG_INF("disable vvpu success\n");
-
 
 	} else if (buck == MDLA_BUCK) {
 		if (!vmdla_reg_id) {
@@ -221,9 +221,9 @@ int disable_regulator(enum DVFS_BUCK buck)
 		if (ret) {
 			LOG_ERR("regulator_disable vmdla_reg_id failed\n");
 			return ret;
+		} else {
+			LOG_DBG("disable vmdla success\n");
 		}
-		LOG_INF("disable vmdla success\n");
-
 
 	} else if (buck == VCORE_BUCK) {
 		if (!vcore_reg_id) {
@@ -243,9 +243,9 @@ int disable_regulator(enum DVFS_BUCK buck)
 		if (ret) {
 			LOG_ERR("regulator_disable vsram_reg_id failed\n");
 			return ret;
+		} else {
+			LOG_DBG("disable vsram success\n");
 		}
-		LOG_INF("disable vsram success\n");
-
 
 	} else {
 		LOG_ERR("%s not support buck : %d\n", __func__, buck);
@@ -373,7 +373,7 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 	int ret = 0;
 	int voltage_MAX = voltage_mV + 50000;
 	int settle_time = 0;
-
+	bool binning_voltage = false;
 
 #if BINNING_VOLTAGE_SUPPORT
 	unsigned int vpu_efuse_val = 0;
@@ -388,6 +388,7 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 		else if (vpu_efuse_val == 3)
 			voltage_mV = DVFS_VOLT_00_750000_V;
 
+		binning_voltage = true;
 		LOG_WRN("Binning Voltage!!, vpu_efuse=%d, vol=%d\n",
 			vpu_efuse_val, voltage_mV);
 	} else if (buck == MDLA_BUCK && voltage_mV == DVFS_VOLT_00_825000_V
@@ -397,12 +398,12 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 		else if (mdla_efuse_val == 3)
 			voltage_mV = DVFS_VOLT_00_775000_V;
 
-
+		binning_voltage = true;
 		LOG_WRN("Binning Voltage!!, mdla_efuse=%d, vol=%d\n",
 			mdla_efuse_val, voltage_mV);
 	}
 #endif
-	LOG_WRN("%s try to config buck : %d to %d(max:%d)\n", __func__,
+	LOG_DBG("%s try to config buck : %d to %d(max:%d)\n", __func__,
 						buck, voltage_mV, voltage_MAX);
 
 	if (voltage_mV <= DVFS_VOLT_NOT_SUPPORT
@@ -434,18 +435,20 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 	LOG_DBG("%s pmic_cmd = 0x%x\n", __func__, pmic_cmd);
 	DRV_WriteReg32(APU_PCU_PMIC_TAR_BUF, pmic_cmd);
 
-	while ((DRV_Reg32(APU_PCU_PMIC_IRQ) & 0x1) == 0) {
-		udelay(50);
+	if (binning_voltage == false) {
+		while ((DRV_Reg32(APU_PCU_PMIC_STATUS) & 0x1) == 0) {
+			udelay(50);
 		if (++check_round >= REG_POLLING_TIMEOUT_ROUNDS) {
-			LOG_WRN("%s wait APU_PCU_PMIC_IRQ timeout !\n",
+			LOG_ERR("%s wait APU_PCU_PMIC_STATUS timeout !\n",
 								__func__);
 			break;
+			}
 		}
 	}
 
-	DRV_WriteReg32(APU_PCU_PMIC_IRQ, 0x1);
+	DRV_WriteReg32(APU_PCU_PMIC_STATUS, 0x1);
 
-	LOG_DBG("%s read back from reg = 0x%x\n",
+	LOG_DBG("read back from reg = 0x%x\n",
 				DRV_Reg32(APU_PCU_PMIC_CUR_BUF));
 #else
 	if (buck == VPU_BUCK) {
@@ -521,9 +524,12 @@ int config_regulator_mode(enum DVFS_BUCK buck, int is_normal)
 		udelay(100); // slew rate:rising10mV/us
 
 	} else if (buck == SRAM_BUCK) {
+		// pmic do not support to adjust the mode of vsram
+#if 0
 		ret = regulator_set_mode(vsram_reg_id, is_normal ?
 				REGULATOR_MODE_NORMAL : REGULATOR_MODE_FAST);
 		udelay(100); // slew rate:rising10mV/us
+#endif
 
 	} else {
 		LOG_ERR("%s not support buck : %d\n", __func__, buck);
