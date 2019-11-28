@@ -203,11 +203,19 @@ void fix_dvfs_debug(void)
 		if (dvfs_power_domain_support(i) == false)
 			continue;
 		for (opp = 0; opp < APUSYS_MAX_NUM_OPPS; opp++) {
+#ifndef CONFIG_MACH_MT6873
 			if ((i == V_APU_CONN ||	i == V_TOP_IOMMU) &&
 				(apusys_opps.opps[opp][i].voltage ==
 				apusys_opps.next_buck_volt[VPU_BUCK])) {
 				apusys_opps.next_opp_index[i] = opp;
 				break;
+#else
+			if ((i == V_APU_CONN) &&
+				(apusys_opps.opps[opp][i].voltage ==
+				apusys_opps.next_buck_volt[VPU_BUCK])) {
+				apusys_opps.next_opp_index[i] = opp;
+				break;
+#endif
 			} else if (i == V_VCORE &&
 			apusys_opps.opps[opp][i].voltage ==
 			apusys_opps.next_buck_volt[VCORE_BUCK]) {
@@ -330,8 +338,11 @@ static int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 					(int)(args[2]));
 			goto out;
 		}
-
+#ifndef CONFIG_MACH_MT6873
 		if ((args[0] == VPU0 || args[0] == VPU1 || args[0] == VPU2)
+#else
+		if ((args[0] == VPU0 || args[0] == VPU1)
+#endif
 			&& APUSYS_VPU_NUM != 0) {
 			for (i = VPU0; i < VPU0 + APUSYS_VPU_NUM; i++) {
 				apusys_opps.power_lock_max_opp[i] =
@@ -341,7 +352,11 @@ static int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 			}
 		}
 
+#ifndef CONFIG_MACH_MT6873
 		if ((args[0] == MDLA0 || args[0] == MDLA1)
+#else
+		if ((args[0] == MDLA0)
+#endif
 			&& APUSYS_MDLA_NUM != 0) {
 			for (i = MDLA0; i < MDLA0 + APUSYS_MDLA_NUM; i++) {
 				apusys_opps.power_lock_max_opp[i] =

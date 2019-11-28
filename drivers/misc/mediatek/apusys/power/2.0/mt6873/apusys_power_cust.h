@@ -21,6 +21,9 @@
 #include "test.h"
 #endif
 
+//[Fix me]
+#define APUSYS_POWER_BRINGUP
+
 #define BYPASS_POWER_OFF	(0)	// 1: bypass power off (return directly)
 #define BYPASS_POWER_CTL	(0)	// 1: bypass power on/off feature
 #define BYPASS_DVFS_CTL		(0)	// 1: bypass set DVFS opp feature

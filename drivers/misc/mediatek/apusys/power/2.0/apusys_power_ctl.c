@@ -505,7 +505,9 @@ void apusys_frequency_check(void)
 		} else {
 			if (apusys_power_on == false &&
 			apusys_opps.is_power_on[EDMA] == false &&
+#ifndef CONFIG_MACH_MT6873
 			apusys_opps.is_power_on[EDMA2] == false &&
+#endif
 			apusys_opps.is_power_on[REVISER] == false)
 				continue;
 		}
@@ -635,6 +637,7 @@ void apusys_buck_down_check(void)
 
 void apusys_dvfs_info(void)
 {
+#ifndef CONFIG_MACH_MT6873
 	char log_str[128];
 	uint8_t buck_domain;
 	uint8_t cur_opp;
@@ -762,6 +765,7 @@ if (dvfs_power_domain_support(buck_domain) == false) {
 
 	PWR_LOG_WRN("APUPWR DVFS %s\n", log_str);
 
+#endif
 }
 
 
@@ -915,10 +919,12 @@ int apusys_power_on(enum DVFS_USER user)
 				APUSYS_DEFAULT_OPP;
 			apusys_opps.next_opp_index[V_APU_CONN] =
 				APUSYS_DEFAULT_OPP;
+#ifndef CONFIG_MACH_MT6873
 			apusys_opps.cur_opp_index[V_TOP_IOMMU] =
 				APUSYS_DEFAULT_OPP;
 			apusys_opps.next_opp_index[V_TOP_IOMMU] =
 				APUSYS_DEFAULT_OPP;
+#endif
 		}
 
 		if (user < APUSYS_DVFS_USER_NUM) {
@@ -969,10 +975,12 @@ int apusys_power_off(enum DVFS_USER user)
 				APUSYS_DEFAULT_OPP;
 			apusys_opps.next_opp_index[V_APU_CONN] =
 				APUSYS_DEFAULT_OPP;
+#ifndef CONFIG_MACH_MT6873
 			apusys_opps.cur_opp_index[V_TOP_IOMMU] =
 				APUSYS_DEFAULT_OPP;
 			apusys_opps.next_opp_index[V_TOP_IOMMU] =
 				APUSYS_DEFAULT_OPP;
+#endif
 		}
 
 		for (id = 0 ; id < APUSYS_DVFS_USER_NUM ; id++) {

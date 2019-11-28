@@ -312,7 +312,9 @@ int apu_device_power_suspend(enum DVFS_USER user, int is_suspend)
 
 	if (ret) {
 		apu_get_power_info(1);
+#ifndef APUSYS_POWER_BRINGUP
 		apusys_reg_dump();
+#endif
 		apu_aee_warn("APUPWR_OFF_FAIL", "user:%d, is_suspend:%d\n",
 							user, is_suspend);
 		return -ENODEV;
@@ -391,7 +393,9 @@ int apu_device_power_on(enum DVFS_USER user)
 
 	if (ret) {
 		apu_get_power_info(1);
+#ifndef APUSYS_POWER_BRINGUP
 		apusys_reg_dump();
+#endif
 		apu_aee_warn("APUPWR_ON_FAIL", "user:%d\n", user);
 		return -ENODEV;
 	} else {
