@@ -73,11 +73,15 @@
 #include <cmdq-util.h>
 #endif
 
+#if (MTK_MFB_REG_VERSION == 2)
+#else
 #define MFB_PMQOS
 #ifdef MFB_PMQOS
 #include <linux/pm_qos.h>
 #include <mmdvfs_pmqos.h>
 #endif
+#endif
+
 #define USE_SW_TOKEN
 
 //#define __MFB_EP_NO_CLKMGR__
@@ -111,12 +115,21 @@
 #ifndef __MFB_EP_NO_CLKMGR__
 #if !defined(CONFIG_MTK_LEGACY) && defined(CONFIG_COMMON_CLK) /*CCF*/
 #include <linux/clk.h>
+#if (MTK_MFB_REG_VERSION == 2)
+struct MFB_CLK_STRUCT {
+	struct clk *CG_IMG2_LARB11;
+	struct clk *CG_IMG2_MSS;
+	struct clk *CG_IMG2_MFB;
+};
+struct MFB_CLK_STRUCT mfb_clk;
+#else
 struct MFB_CLK_STRUCT {
 	struct clk *CG_IMG1_LARB9;
 	struct clk *CG_IMG1_MSS;
 	struct clk *CG_IMG1_MFB;
 };
 struct MFB_CLK_STRUCT mfb_clk;
+#endif
 #endif	/* !defined(CONFIG_MTK_LEGACY) && defined(CONFIG_COMMON_CLK)  */
 #endif
 /*  */
@@ -185,12 +198,6 @@ struct MFB_CLK_STRUCT mfb_clk;
 			MSF_INT_ST)
 
 #define CMDQ_REG_MASK 0xffffffff
-#define MSS_START      0x1
-#define MSF_START      0x1
-#define MSS_ENABLE     0x1/*YWtoclr*/
-#define MSF_ENABLE     0x1/*YWtoclr*/
-#define MSS_IS_BUSY    0x2/*YWtoclr*/
-#define MSF_IS_BUSY    0x2/*YWtoclr*/
 
 static irqreturn_t ISP_Irq_MSS(signed int Irq, void *DeviceId);
 static irqreturn_t ISP_Irq_MSF(signed int Irq, void *DeviceId);
@@ -282,8 +289,8 @@ static u16 mss_done_event_id, msf_done_event_id;
 /* #define ISP_MFB_BASE	(gISPSYS_Reg[MFB_DEV_NODE_IDX]) */
 
 #else
-#define ISP_MSS_BASE		(0x15012000)
-#define ISP_MSF_BASE		(0x15010000)
+#define ISP_MSS_BASE		(0x15012000)/*YWtodo*/
+#define ISP_MSF_BASE		(0x15010000)/*YWtodo*/
 
 #endif
 
@@ -575,7 +582,10 @@ static struct SV_LOG_STR gSvLog[MFB_IRQ_TYPE_AMOUNT];
 #else
 #define IRQ_LOG_PRINTER(irq, ppb, logT)
 #endif
-/*YWtodo>*/
+
+/******************************************************************************
+ *
+ ******************************************************************************/
 #define IMGSYS_REG_CG_CON      (ISP_IMGSYS_BASE + 0x0)
 #define IMGSYS_REG_CG_SET      (ISP_IMGSYS_BASE + 0x4)
 #define IMGSYS_REG_CG_CLR      (ISP_IMGSYS_BASE + 0x8)
@@ -614,41 +624,47 @@ static struct SV_LOG_STR gSvLog[MFB_IRQ_TYPE_AMOUNT];
 #define MFB_MSS_TOP_DBG_OUT3    (ISP_MSS_BASE + 0x444)
 #define MFB_MSS_DMA_DEBUG_SEL   (ISP_MSS_BASE + 0x888)
 
-#define MFB_MSS_INT_STATUS_HW  (0x15012508)
-#define MFB_MSF_INT_STATUS_HW  (0x150107c8)
+#if (MTK_MFB_REG_VERSION == 2)
+#define MSS_BASE 0x15812000
+#define MSF_BASE 0x15810000
+#else
+#define MSS_BASE 0x15012000
+#define MSF_BASE 0x15010000
+#endif
 
-#define ISP_MSS_BASE_HW    (0x15012000)
-#define ISP_MSF_BASE_HW    (0x15010000)
+#define MFB_MSS_INT_STATUS_HW  (MSS_BASE + 0x508)
+#define MFB_MSF_INT_STATUS_HW  (MSF_BASE + 0x7c8)
 
-#define MFB_MSS_START_HW   (0x1501250c)
-#define MFB_MSF_START_HW   (0x150107cc)
+#define ISP_MSS_BASE_HW    (MSS_BASE + 0x000)
+#define ISP_MSF_BASE_HW    (MSF_BASE + 0x000)
 
-#define MFB_MSS_INT_STA_HW  (0x15012508)
-#define MFB_MSF_INT_STA_HW  (0x150107c8)
+#define MFB_MSS_START_HW   (MSS_BASE + 0x50c)
+#define MFB_MSF_START_HW   (MSF_BASE + 0x7cc)
 
-#define MFB_MSS_CMDQ_ENABLE_HW  (0x15012504)
-#define MFB_MSF_CMDQ_ENABLE_HW  (0x150107C4)
+#define MFB_MSS_INT_STA_HW  (MSS_BASE + 0x508)
+#define MFB_MSF_INT_STA_HW  (MSF_BASE + 0x7c8)
 
-#define MFB_MSS_CMDQ_BASE_ADDR_HW  (0x15012500)
-#define MFB_MSF_CMDQ_BASE_ADDR_HW  (0x150107C0)
+#define MFB_MSS_CMDQ_ENABLE_HW  (MSS_BASE + 0x504)
+#define MFB_MSF_CMDQ_ENABLE_HW  (MSF_BASE + 0x7C4)
 
-#define MFB_MSS_CQLP_CMD_NUM_HW  (0x15012600)
-#define MFB_MSF_CQLP_CMD_NUM_HW  (0x150107F0)
+#define MFB_MSS_CMDQ_BASE_ADDR_HW  (MSS_BASE + 0x500)
+#define MFB_MSF_CMDQ_BASE_ADDR_HW  (MSF_BASE + 0x7C0)
 
-#define MFB_MSS_CQLP_ENG_EN_HW  (0x15012604)
-#define MFB_MSF_CQLP_ENG_EN_HW  (0x150107F4)
+#define MFB_MSS_CQLP_CMD_NUM_HW  (MSS_BASE + 0x600)
+#define MFB_MSF_CQLP_CMD_NUM_HW  (MSF_BASE + 0x7F0)
 
-#define MFB_MSS_TDRI_BASE_HW  (0x15012804)
-#define MFB_MSS_TDRI_OFST_HW  (0x15012808)
-#define MFB_MSF_TDRI_BASE_HW  (0x15010804)
-#define MFB_MSF_TDRI_OFST_HW  (0x15010808)
+#define MFB_MSS_CQLP_ENG_EN_HW  (MSS_BASE + 0x604)
+#define MFB_MSF_CQLP_ENG_EN_HW  (MSF_BASE + 0x7F4)
 
-#define MFB_MSS_IY_BASE_HW  (0x15012A00)
-#define MFB_MSS_IC_BASE_HW  (0x15012A40)
-#define MFB_MSS_OY_BASE_HW  (0x15012900)
-#define MFB_MSS_OC_BASE_HW  (0x15012940)
+#define MFB_MSS_TDRI_BASE_HW  (MSS_BASE + 0x804)
+#define MFB_MSS_TDRI_OFST_HW  (MSS_BASE + 0x808)
+#define MFB_MSF_TDRI_BASE_HW  (MSF_BASE + 0x804)
+#define MFB_MSF_TDRI_OFST_HW  (MSF_BASE + 0x808)
 
-/*YWtodo<*/
+#define MFB_MSS_IY_BASE_HW  (MSS_BASE + 0xA00)
+#define MFB_MSS_IC_BASE_HW  (MSS_BASE + 0xA40)
+#define MFB_MSS_OY_BASE_HW  (MSS_BASE + 0x900)
+#define MFB_MSS_OC_BASE_HW  (MSS_BASE + 0x940)
 
 /******************************************************************************
  *
@@ -778,8 +794,13 @@ void MFBQOS_Init(void)
 
 	/* Call mm_qos_add_request */
 	/* when initialize module or driver prob */
+#if (MTK_MFB_REG_VERSION == 2)
+	/*mm_qos_add_request(&module_request_list,*/
+		/*&mfb_mmqos_request, M4U_PORT_L11_IMG_MFB_RDMA0);*/
+#else
 	mm_qos_add_request(&module_request_list,
 		&mfb_mmqos_request, M4U_PORT_L9_IMG_MFB_RDMA0_MDP);
+#endif
 }
 
 void MFBQOS_Uninit(void)
@@ -1627,6 +1648,20 @@ static inline void MFB_Prepare_Enable_ccf_clock(void)
 	/* must keep this clk open order:
 	 * CG_SCP_SYS_DIS-> CG_MM_SMI_COMMON -> CG_SCP_SYS_ISP -> MFB clk
 	 */
+#if (MTK_MFB_REG_VERSION == 2)
+	smi_bus_prepare_enable(SMI_LARB11, MFB_DEV_NAME);
+	ret = clk_prepare_enable(mfb_clk.CG_IMG2_LARB11);
+	if (ret)
+		LOG_ERR("cannot prepare and enable CG_IMG2_LARB11 clock\n");
+
+	ret = clk_prepare_enable(mfb_clk.CG_IMG2_MSS);
+	if (ret)
+		LOG_ERR("cannot prepare and enable CG_IMG2_MSS clock\n");
+
+	ret = clk_prepare_enable(mfb_clk.CG_IMG2_MFB);
+	if (ret)
+		LOG_ERR("cannot prepare and enable CG_IMG2_MFB clock\n");
+#else
 	smi_bus_prepare_enable(SMI_LARB9, MFB_DEV_NAME);
 	ret = clk_prepare_enable(mfb_clk.CG_IMG1_LARB9);
 	if (ret)
@@ -1639,7 +1674,7 @@ static inline void MFB_Prepare_Enable_ccf_clock(void)
 	ret = clk_prepare_enable(mfb_clk.CG_IMG1_MFB);
 	if (ret)
 		LOG_ERR("cannot prepare and enable CG_IMG1_MFB clock\n");
-
+#endif
 }
 
 static inline void MFB_Disable_Unprepare_ccf_clock(void)
@@ -1647,11 +1682,17 @@ static inline void MFB_Disable_Unprepare_ccf_clock(void)
 	/* must keep this clk close order:
 	 * MFB clk -> CG_SCP_SYS_ISP -> CG_MM_SMI_COMMON -> CG_SCP_SYS_DIS
 	 */
-
+#if (MTK_MFB_REG_VERSION == 2)
+	clk_disable_unprepare(mfb_clk.CG_IMG2_MFB);
+	clk_disable_unprepare(mfb_clk.CG_IMG2_MSS);
+	clk_disable_unprepare(mfb_clk.CG_IMG2_LARB11);
+	smi_bus_disable_unprepare(SMI_LARB11, MFB_DEV_NAME);
+#else
 	clk_disable_unprepare(mfb_clk.CG_IMG1_MFB);
 	clk_disable_unprepare(mfb_clk.CG_IMG1_MSS);
 	clk_disable_unprepare(mfb_clk.CG_IMG1_LARB9);
 	smi_bus_disable_unprepare(SMI_LARB9, MFB_DEV_NAME);
+#endif
 }
 #endif
 #endif
@@ -1667,6 +1708,30 @@ static inline int m4u_control_iommu_port(void)
 	int count_of_ports = 0;
 	int i = 0;
 
+#if (MTK_MFB_REG_VERSION == 2)
+	/* LARB11 */
+	count_of_ports = M4U_PORT_L11_IMG_MFB_WDMA1 -
+		M4U_PORT_L11_IMG_MFB_RDMA0 + 1;
+	for (i = 0; i < count_of_ports; i++) {
+		sPort.ePortID = M4U_PORT_L11_IMG_MFB_RDMA0+i;
+		sPort.Virtuality = MFB_MEM_USE_VIRTUL;
+		LOG_INF("config M4U Port ePortID=%d\n", sPort.ePortID);
+#if defined(CONFIG_MTK_M4U) || defined(CONFIG_MTK_PSEUDO_M4U)
+		ret = m4u_config_port(&sPort);
+
+		if (ret == 0) {
+			LOG_INF("config M4U Port %s to %s SUCCESS\n",
+			iommu_get_port_name(M4U_PORT_L11_IMG_MFB_RDMA0+i),
+			MFB_MEM_USE_VIRTUL ? "virtual" : "physical");
+		} else {
+			LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
+			iommu_get_port_name(M4U_PORT_L11_IMG_MFB_RDMA0+i),
+			MFB_MEM_USE_VIRTUL ? "virtual" : "physical", ret);
+			ret = -1;
+		}
+#endif
+	}
+#else
 	/* LARB9 */
 	count_of_ports = M4U_PORT_L9_IMG_MFB_WDMA1_MDP -
 		M4U_PORT_L9_IMG_MFB_RDMA0_MDP + 1;
@@ -1689,6 +1754,7 @@ static inline int m4u_control_iommu_port(void)
 		}
 #endif
 	}
+#endif
 	return ret;
 }
 #endif
@@ -4063,6 +4129,27 @@ static signed int MFB_probe(struct platform_device *pDev)
 #ifndef __MFB_EP_NO_CLKMGR__
 #if !defined(CONFIG_MTK_LEGACY) && defined(CONFIG_COMMON_CLK) /*CCF*/
 		    /*CCF: Grab clock pointer (struct clk*) */
+#if (MTK_MFB_REG_VERSION == 2)
+		mfb_clk.CG_IMG2_LARB11 = devm_clk_get(&pDev->dev,
+				"MFB_CG_IMG2_LARB11");
+		mfb_clk.CG_IMG2_MSS = devm_clk_get(&pDev->dev,
+				"MFB_CG_IMG2_MSS");
+		mfb_clk.CG_IMG2_MFB = devm_clk_get(&pDev->dev,
+				"MFB_CG_IMG2_MFB");
+
+		if (IS_ERR(mfb_clk.CG_IMG2_LARB11)) {
+			LOG_ERR("cannot get CG_IMG2_LARB11 clock\n");
+			return PTR_ERR(mfb_clk.CG_IMG2_LARB11);
+		}
+		if (IS_ERR(mfb_clk.CG_IMG2_MSS)) {
+			LOG_ERR("cannot get CG_IMG2_MSS clock\n");
+			return PTR_ERR(mfb_clk.CG_IMG2_MSS);
+		}
+		if (IS_ERR(mfb_clk.CG_IMG2_MFB)) {
+			LOG_ERR("cannot get CG_IMG2_MFB clock\n");
+			return PTR_ERR(mfb_clk.CG_IMG2_MFB);
+		}
+#else
 		mfb_clk.CG_IMG1_LARB9 = devm_clk_get(&pDev->dev,
 				"MFB_CG_IMG1_LARB9");
 		mfb_clk.CG_IMG1_MSS = devm_clk_get(&pDev->dev,
@@ -4082,6 +4169,7 @@ static signed int MFB_probe(struct platform_device *pDev)
 			LOG_ERR("cannot get CG_IMG1_MFB clock\n");
 			return PTR_ERR(mfb_clk.CG_IMG1_MFB);
 		}
+#endif
 #endif	/* !defined(CONFIG_MTK_LEGACY) && defined(CONFIG_COMMON_CLK)  */
 #endif
 
@@ -4320,12 +4408,21 @@ int MFB_pm_restore_noirq(struct device *device)
  * Note!!! The order and member of .compatible must be the same with that in
  *  "MFB_DEV_NODE_ENUM" in camera_MFB.h
  */
+#if (MTK_MFB_REG_VERSION == 2)
+static const struct of_device_id MFB_of_ids[] = {
+	{.compatible = "mediatek,mss_b",},
+	{.compatible = "mediatek,msf_b",},
+	{.compatible = "mediatek,imgsys_mfb_b",},
+	{}
+};
+#else
 static const struct of_device_id MFB_of_ids[] = {
 	{.compatible = "mediatek,mss",},
 	{.compatible = "mediatek,msf",},
 	{.compatible = "mediatek,imgsys_mfb",},
 	{}
 };
+#endif
 #endif
 
 const struct dev_pm_ops MFB_pm_ops = {
@@ -5203,4 +5300,3 @@ module_exit(MFB_Exit);
 MODULE_DESCRIPTION("Camera MFB driver");
 MODULE_AUTHOR("MM3SW5");
 MODULE_LICENSE("GPL");
-

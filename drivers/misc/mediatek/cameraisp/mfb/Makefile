@@ -37,6 +37,15 @@ ifeq ($(CONFIG_MACH_MT6775),y)
 endif
 
 ifeq ($(CONFIG_MACH_MT6885),y)
-  obj-$(CONFIG_MTK_CAMERA_ISP_MFB_SUPPORT) += mt6885/engine_request.o
-  obj-$(CONFIG_MTK_CAMERA_ISP_MFB_SUPPORT) += mt6885/camera_mfb.o
+  obj-$(CONFIG_MTK_CAMERA_ISP_MFB_SUPPORT) += isp_6s/engine_request.o
+  obj-$(CONFIG_MTK_CAMERA_ISP_MFB_SUPPORT) += isp_6s/camera_mfb.o
+  MTK_MFB_REG_VERSION := 1
 endif
+
+ifeq ($(CONFIG_MACH_MT6873),y)
+  obj-$(CONFIG_MTK_CAMERA_ISP_MFB_SUPPORT) += isp_6s/engine_request.o
+  obj-$(CONFIG_MTK_CAMERA_ISP_MFB_SUPPORT) += isp_6s/camera_mfb.o
+  MTK_MFB_REG_VERSION := 2
+endif
+
+subdir-ccflags-y += -DMTK_MFB_REG_VERSION=$(MTK_MFB_REG_VERSION)

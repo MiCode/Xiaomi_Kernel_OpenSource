@@ -3498,12 +3498,6 @@
 		mediatek,smi-id = <12>;
 	};
 
-	mfb_b@15810000 {
-		compatible = "mediatek,mfb_b";
-		reg = <0 0x15810000 0 0x1000>;
-		interrupts = <GIC_SPI 501 IRQ_TYPE_LEVEL_HIGH>;
-	};
-
 	wpe_b@15811000 {
 		compatible = "mediatek,wpe_b";
 		reg = <0 0x15811000 0 0x1000>;
@@ -3513,6 +3507,31 @@
 		compatible = "mediatek,mss_b";
 		reg = <0 0x15812000 0 0x1000>;
 		interrupts = <GIC_SPI 502 IRQ_TYPE_LEVEL_HIGH>;
+		mboxes = <&gce_mbox 17 0 CMDQ_THR_PRIO_1>;
+		mss_frame_done =
+		/bits/ 16 <CMDQ_EVENT_IMG2_MSS_DONE_LINK_MISC>;
+	};
+
+	msf_b@15810000 {
+		compatible = "mediatek,msf_b";
+		reg = <0 0x15810000 0 0x1000>;
+		interrupts = <GIC_SPI 501 IRQ_TYPE_LEVEL_HIGH>;
+		mboxes = <&gce_mbox 18 0 CMDQ_THR_PRIO_1>;
+		msf_frame_done =
+		/bits/ 16 <CMDQ_EVENT_IMG2_MFB_DONE_LINK_MISC>;
+		clocks =
+				<&imgsys2_config IMGSYS2_LARB11_CGPDN>,
+				<&imgsys2_config IMGSYS2_MSS_CGPDN>,
+				<&imgsys2_config IMGSYS2_MFB_CGPDN>;
+		clock-names =
+				"MFB_CG_IMG2_LARB11",
+				"MFB_CG_IMG2_MSS",
+				"MFB_CG_IMG2_MFB";
+	};
+
+	imgsys_mfb_b@15820000 {
+		compatible = "mediatek,imgsys_mfb_b";
+		reg = <0 0x15820000 0 0x1000>;
 	};
 
 	smi_larb7: smi_larb7@17010000 {
