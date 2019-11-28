@@ -127,7 +127,7 @@ static void filter_by_yuv_layers(struct drm_mtk_layering_info *disp_info)
 	struct drm_mtk_layer_config *info;
 	unsigned int yuv_cnt;
 
-	/* ovl support total 2 yuv layer */
+	/* ovl support only 1 yuv layer for 90/120hz */
 	for (disp_idx = 0 ; disp_idx < HRT_TYPE_NUM ; disp_idx++) {
 		yuv_cnt = 0;
 		for (i = 0; i < disp_info->layer_num[disp_idx]; i++) {
@@ -136,7 +136,7 @@ static void filter_by_yuv_layers(struct drm_mtk_layering_info *disp_info)
 				continue;
 			if (mtk_is_yuv(info->src_fmt)) {
 				yuv_cnt++;
-				if (yuv_cnt > 2)
+				if (yuv_cnt > 1)
 					mtk_rollback_layer_to_GPU(disp_info,
 								  disp_idx, i);
 			}
