@@ -120,14 +120,6 @@ int usb_otg_set_vbus(int is_on)
 		charger_dev_enable_otg(g_info->primary_charger, false);
 		enable_boost_polling(false);
 	}
-#else
-	if (is_on) {
-		charger_dev_enable_otg(g_info->primary_charger, true);
-		charger_dev_set_boost_current_limit(g_info->primary_charger,
-			1500000);
-	} else {
-		charger_dev_enable_otg(primary_charger, false);
-	}
 #endif
 	return 0;
 }
@@ -136,7 +128,9 @@ static int usbotg_boost_probe(struct platform_device *pdev)
 {
 	struct usbotg_boost *info = NULL;
 	struct device *dev = &pdev->dev;
+#if CONFIG_MTK_GAUGE_VERSION == 30
 	struct device_node *node = dev->of_node;
+#endif
 
 	info = devm_kzalloc(&pdev->dev, sizeof(struct usbotg_boost),
 		GFP_KERNEL);
@@ -145,7 +139,9 @@ static int usbotg_boost_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, info);
 	info->pdev = pdev;
+#if CONFIG_MTK_GAUGE_VERSION == 30
 	info->primary_charger = get_charger_by_name("primary_chg");
+#endif
 	if (!info->primary_charger) {
 		pr_info("%s: get primary charger device failed\n", __func__);
 		return -ENODEV;
