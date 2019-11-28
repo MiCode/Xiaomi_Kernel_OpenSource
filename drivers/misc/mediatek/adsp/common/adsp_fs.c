@@ -325,7 +325,7 @@ static long adsp_driver_ioctl(
 			ret = adsp_deregister_feature(t.cmd0.fid);
 
 		if (ret == 0) {
-			if (t.cmd0.fid)
+			if (t.cmd0.enable)
 				adsp_hal_feature_table[t.cmd0.fid]++;
 			else
 				adsp_hal_feature_table[t.cmd0.fid]--;
