@@ -24,6 +24,7 @@ enum VPU_DEBUG_MASK {
 	VPU_DBG_CMD = 0x08,
 	VPU_DBG_PWR = 0x10,
 	VPU_DBG_PEF = 0x20,
+	VPU_DBG_MET = 0x40,
 };
 
 #ifdef CONFIG_MTK_APUSYS_VPU_DEBUG
@@ -88,6 +89,7 @@ int vpu_mesg_seq(struct seq_file *s, struct vpu_device *vd)
 #define vpu_alg_debug(...) vpu_debug(VPU_DBG_ALG, __VA_ARGS__)
 #define vpu_pwr_debug(...) vpu_debug(VPU_DBG_PWR, __VA_ARGS__)
 #define vpu_pef_debug(...) vpu_debug(VPU_DBG_PEF, __VA_ARGS__)
+#define vpu_met_debug(...) vpu_debug(VPU_DBG_MET, __VA_ARGS__)
 
 #endif
 

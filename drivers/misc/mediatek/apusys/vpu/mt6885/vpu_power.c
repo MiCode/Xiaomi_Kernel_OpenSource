@@ -16,6 +16,7 @@
 #include "vpu_power.h"
 #include "vpu_debug.h"
 #include "vpu_algo.h"
+#include "vpu_met.h"
 #include "apusys_power.h"
 
 static void vpu_pwr_off_locked(struct vpu_device *vd, int suspend);
@@ -236,6 +237,7 @@ static void vpu_pwr_off_locked(struct vpu_device *vd, int suspend)
 	int adu_id = adu(vd->id);
 
 	vpu_alg_unload(vd);
+	vpu_met_pm_put(vd);
 
 	if (vd->state <= VS_DOWN) {
 		vpu_pwr_debug("%s: vpu%d: already off: %d\n",

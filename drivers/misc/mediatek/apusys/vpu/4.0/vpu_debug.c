@@ -692,10 +692,6 @@ int vpu_init_debug(void)
 	vpu_drv->droot = droot;
 	vpu_klog = VPU_DBG_DRV;
 	debugfs_create_u32("klog", 0660, droot, &vpu_klog);
-	vpu_drv->ilog = 0;
-	debugfs_create_u32("ilog", 0660, droot, &vpu_drv->ilog);
-	vpu_drv->met = 0;
-	debugfs_create_u32("met", 0660, droot, &vpu_drv->met);
 
 	VPU_DEBUGFS_CREATE(vpu_memory);
 

@@ -12,6 +12,7 @@
  */
 
 #include <linux/slab.h>
+#include <linux/debugfs.h>
 
 #include "vpu_met.h"
 #include "vpu_reg.h"
@@ -20,6 +21,12 @@
 
 #define CREATE_TRACE_POINTS
 #include "met_vpusys_events.h"
+
+#define vpu_trace_dump(fmt, args...) \
+{ \
+	if (vpu_drv->met & VPU_MET_LEGACY) \
+		trace_printk("MET_DUMP|" fmt "\n", ##args); \
+}
 
 /* log format */
 #define VPUBUF_MARKER		(0xBEEF)
@@ -49,7 +56,6 @@ struct vpu_met_log {
 static void vpu_met_packet(long long wclk, char action, int core,
 	int sessid, char *str_desc, int val)
 {
-	// TODO: remove debug log
 	vpu_pef_debug("%s: wclk: %lld, action: %c, core: %d, ssid: %d, val: %d, desc: %s\n",
 		__func__, wclk, action, core, sessid, val, str_desc);
 	trace___MET_PACKET__(wclk, action, core, sessid, str_desc, val);
@@ -179,11 +185,10 @@ static void vpu_met_log_show(struct vpu_device *vd, void *ptr, int buf_leng)
 	/*data offset start after Marker,Length*/
 	idx += 4;
 
-#if 0 // TODO: add trace
-	if (vpu_debug_on(VPU_DBG_PEF))
+	if (vpu_debug_on(VPU_DBG_MET))
 		vpu_trace_begin("%s|vpu%d|@%p/%d",
 		__func__, vd->id, ptr, buf_leng);
-#endif
+
 	while (1) {
 		unsigned long long sys_t;
 		int packet_size = 0;
@@ -236,9 +241,9 @@ static void vpu_met_log_show(struct vpu_device *vd, void *ptr, int buf_leng)
 		);
 		idx += packet_size;
 	}
-	// TODO: add trace
-//	if (vpu_debug_on(VPU_DBG_PEF))
-//		vpu_trace_end();
+
+	if (vpu_debug_on(VPU_DBG_MET))
+		vpu_trace_end("%s|vpu%d", __func__, vd->id);
 }
 
 static void vpu_met_wq(struct work_struct *work)
@@ -249,10 +254,8 @@ static void vpu_met_wq(struct work_struct *work)
 	struct vpu_device *vd = container_of(w, struct vpu_device, met);
 	struct vpu_met_log *mlog, *tmp;
 
-#if 0 // TODO: add trace
-	if (vpu_debug_on(VPU_DBG_PEF))
-		vpu_trace_begin("VPU_LOG_ISR_BOTTOM_HALF");
-#endif
+	if (vpu_debug_on(VPU_DBG_MET))
+		vpu_trace_begin("%s|vpu%d", __func__, vd->id);
 
 restart:
 	spin_lock_irqsave(&w->lock, flags);
@@ -277,29 +280,14 @@ restart:
 	kfree(mlog);
 	goto restart;
 
-// TODO: add trace
-//	if (vpu_debug_on(VPU_DBG_PEF))
-//		vpu_trace_end();
-}
-
-int vpu_init_dev_met(struct platform_device *pdev,
-	struct vpu_device *vd)
-{
-	spin_lock_init(&vd->met.lock);
-	INIT_LIST_HEAD(&vd->met.list);
-	INIT_WORK(&vd->met.work, vpu_met_wq);
-	return 0;
-}
-
-void vpu_exit_dev_met(struct platform_device *pdev,
-	struct vpu_device *vd)
-{
-	cancel_work(&vd->met.work);
+	if (vpu_debug_on(VPU_DBG_MET))
+		vpu_trace_end("%s|vpu%d", __func__, vd->id);
 }
 
 static void vpu_met_log_dump(struct vpu_device *vd)
 {
 	char *ptr;
+	unsigned long flags;
 	unsigned int apmcu_log_buf_ofst;
 	unsigned int log_buf_addr = 0x0;
 	unsigned int log_buf_size = 0x0;
@@ -323,10 +311,8 @@ static void vpu_met_log_dump(struct vpu_device *vd)
 		return;
 	}
 
-#if 0 // TODO: add trace
-	if (vpu_debug_on(VPU_DBG_PEF))
+	if (vpu_debug_on(VPU_DBG_MET))
 		vpu_trace_begin("VPULOG_ISR_TOPHALF|VPU%d", vd->id);
-#endif
 
 	/* fill vpu_log reader's information */
 	mlog = (struct vpu_met_log *)ptr;
@@ -334,63 +320,49 @@ static void vpu_met_log_dump(struct vpu_device *vd)
 	mlog->buf_size = log_buf_size;
 	mlog->buf = (void *)(ptr + sizeof(struct vpu_met_log));
 
-	// TODO: remove debug log
-	vpu_pef_debug("%s: vpu%d: addr/size/buf: %08x/%08x/%p\n",
+	vpu_met_debug("%s: vpu%d: addr/size/buf: %08x/%08x/%p\n",
 		__func__, vd->id,
 		log_buf_addr,
 		log_buf_size,
 		mlog->buf);
 
-// TODO: add trace
-#if 0
-	if (vpu_debug_on(VPU_DBG_PEF))
+	if (vpu_debug_on(VPU_DBG_MET))
 		vpu_trace_begin("VPULOG_CLONE_BUFFER|VPU%d|%08x/%u->%p",
 			vd->id,
 			log_buf_addr,
 			log_buf_size,
 			ptr);
-#endif
+
 	/* clone buffer in isr*/
 	vpu_met_cpy(vd,
 		apmcu_log_buf_ofst, log_buf_size, mlog->buf);
-// TODO: add trace
-#if 0
-	if (vpu_debug_on(VPU_DBG_PEF))
-		vpu_trace_end();
-	/* dump_buf(ptr, log_buf_size); */
-#endif
 
-	spin_lock(&vd->met.lock);
+	spin_lock_irqsave(&vd->met.lock, flags);
 	list_add_tail(&(mlog->list), &vd->met.list);
-	spin_unlock(&vd->met.lock);
+	spin_unlock_irqrestore(&vd->met.lock, flags);
 
 	/* dump log to ftrace on BottomHalf */
 	schedule_work(&vd->met.work);
 
-// TODO: add trace
-#if 0
-	if (vpu_debug_on(VPU_DBG_PEF))
-		vpu_trace_end();
-#endif
+	if (vpu_debug_on(VPU_DBG_MET))
+		vpu_trace_end("VPULOG_CLONE_BUFFER|VPU%d", vd->id);
 }
 
 void vpu_met_isr(struct vpu_device *vd)
 {
 	int dump = 0;
 
+	if (!vpu_drv->met)
+		return;
+
 	/* INFO18 was used to dump MET Log */
 	dump = vpu_reg_read(vd, XTENSA_INFO18);
 
-	// TODO: remove debug log
-	pr_info("%s: vpu%d: INFO18=0x%08x\n", __func__, vd->id, dump);
-	vpu_trace_dump("VPU%d_ISR_RECV|INFO18=0x%08x", vd->id, dump);
 	/* dispatch interrupt by INFO18 */
 	switch (dump) {
 	case 0:
 		break;
 	case VPU_REQ_DO_DUMP_LOG:
-		if (!vpu_drv->met) // g_func_mask & VFM_ROUTINE_PRT_SYSLOG
-			break;
 		vpu_met_log_dump(vd);
 		break;
 	case VPU_REQ_DO_CLOSED_FILE:
@@ -401,3 +373,247 @@ void vpu_met_isr(struct vpu_device *vd)
 		break;
 	}
 }
+
+#define PM_CTRL_SEL(sel, mask) \
+	((PERF_PMCTRL_TRACELEVEL) | \
+	((sel) << PERF_PMCTRL_SELECT_SHIFT) | \
+	((mask) << PERF_PMCTRL_MASK_SHIFT))
+
+static uint32_t pm_sel[VPU_MET_PM_MAX] = {
+	PM_CTRL_SEL(XTPERF_CNT_INSN, XTPERF_MASK_INSN_ALL),
+	PM_CTRL_SEL(XTPERF_CNT_IDMA, XTPERF_MASK_IDMA_ACTIVE_CYCLES),
+	PM_CTRL_SEL(XTPERF_CNT_D_STALL, XTPERF_MASK_D_STALL_UNCACHED_LOAD),
+	PM_CTRL_SEL(XTPERF_CNT_I_STALL, XTPERF_MASK_I_STALL_CACHE_MISS),
+	0,
+	0,
+	0,
+	0
+};
+
+#define PMG_EN      0x1000
+#define PM_COUNTER  0x1080
+#define PM_CTRL     0x1100
+#define PM_STAT     0x1180
+
+static inline
+unsigned long vpu_dbg_base(struct vpu_device *vd)
+{
+	return (unsigned long)vd->dbg.m;
+}
+
+static inline
+uint32_t vpu_dbg_read(struct vpu_device *vd, int offset)
+{
+	return ioread32((void *) (vpu_dbg_base(vd) + offset));
+}
+
+static inline
+void vpu_dbg_write(struct vpu_device *vd, int offset, uint32_t val)
+{
+	mt_reg_sync_writel(val, (void *) (vpu_dbg_base(vd) + offset));
+}
+
+static inline
+void vpu_dbg_clr(struct vpu_device *vd, int offset, uint32_t mask)
+{
+	vpu_reg_write(vd, offset, vpu_dbg_read(vd, offset) & ~mask);
+}
+
+static inline
+void vpu_dbg_set(struct vpu_device *vd, int offset, uint32_t mask)
+{
+	vpu_dbg_write(vd, offset, vpu_dbg_read(vd, offset) | mask);
+}
+
+#define VPU_MET_PM_LATENCY_NS  (1000000)
+#define VPU_MET_PM_LATENCY_MIN (50000)
+
+static int vpu_met_pm_hrt_start(void)
+{
+	if (vpu_drv->met_hrt.latency < VPU_MET_PM_LATENCY_MIN)
+		return 0;
+
+	hrtimer_start(&vpu_drv->met_hrt.t,
+		ns_to_ktime(vpu_drv->met_hrt.latency),
+		HRTIMER_MODE_REL);
+	vpu_met_debug("%s:\n", __func__);
+	return 0;
+}
+
+static int vpu_met_pm_hrt_stop(int sync)
+{
+	int ret = 0;
+
+	if (sync)
+		hrtimer_cancel(&vpu_drv->met_hrt.t);
+	else
+		ret = hrtimer_try_to_cancel(&vpu_drv->met_hrt.t);
+
+	vpu_met_debug("%s: sync: %d, ret: %d\n", __func__, sync, ret);
+	return ret;
+}
+
+void vpu_met_pm_get(struct vpu_device *vd)
+{
+	int i;
+	unsigned long flags;
+	uint32_t offset;
+
+	if (!vpu_drv->met)
+		return;
+
+	/* read register and send to met */
+	spin_lock_irqsave(&vpu_drv->met_hrt.lock, flags);
+	for (i = 0; i < VPU_MET_PM_MAX; i++) {
+		if (!pm_sel[i])
+			continue;
+		offset = i * 4;
+		vpu_dbg_write(vd, PM_CTRL + offset, pm_sel[i]);
+		vpu_dbg_write(vd, PM_COUNTER + offset, 0);
+		vpu_dbg_write(vd, PM_STAT + offset, 0);
+		vd->pm.val[i] = 0;
+	}
+
+	vpu_dbg_set(vd, PMG_EN, 0x1);
+
+	if (kref_get_unless_zero(&vpu_drv->met_hrt.ref)) {
+		vpu_met_debug("%s: vpu%d: ref: %d\n",
+			__func__, vd->id, kref_read(&vpu_drv->met_hrt.ref));
+		goto out;
+	}
+
+	kref_init(&vpu_drv->met_hrt.ref);
+	vpu_met_debug("%s: vpu%d: ref: 1\n", __func__, vd->id);
+	vpu_met_pm_hrt_start();
+out:
+	spin_unlock_irqrestore(&vpu_drv->met_hrt.lock, flags);
+
+}
+
+
+static void vpu_met_pm_release(struct kref *ref)
+{
+	vpu_met_pm_hrt_stop(1 /* sync */);
+}
+
+void vpu_met_pm_put(struct vpu_device *vd)
+{
+	if (!vpu_drv->met)
+		return;
+
+	if (!kref_read(&vpu_drv->met_hrt.ref)) {
+		vpu_met_debug("%s: vpu%d: ref is already zero\n",
+			__func__, vd->id);
+		return;
+	}
+	vpu_met_debug("%s: vpu%d: ref: %d--\n",
+		__func__, vd->id, kref_read(&vpu_drv->met_hrt.ref));
+	kref_put(&vpu_drv->met_hrt.ref, vpu_met_pm_release);
+}
+
+static void vpu_met_pm_dbg_read(struct vpu_device *vd)
+{
+	int i;
+	uint32_t offset;
+	uint32_t tmp[VPU_MET_PM_MAX];
+	bool dump = false;
+
+	for (i = 0; i < VPU_MET_PM_MAX; i++) {
+		if (!pm_sel[i])
+			continue;
+		offset = i * 4;
+		tmp[i] = vpu_dbg_read(vd, PM_COUNTER + offset);
+		if (tmp[i] != vd->pm.val[i]) {
+			dump = true;
+			vd->pm.val[i] = tmp[i];
+		}
+	}
+
+	if (vpu_drv->met & VPU_MET_LEGACY)
+		trace_VPU__polling(vd->id, vd->pm.val[0], vd->pm.val[1],
+			vd->pm.val[2], vd->pm.val[3]);
+
+	if (dump && (vpu_drv->met & VPU_MET_COMPACT))
+		trace_VPU__pm(vd->id, vd->pm.val);
+
+}
+
+static enum hrtimer_restart vpu_met_pm_hrt_func(struct hrtimer *timer)
+{
+	struct vpu_device *vd;
+	unsigned long flags;
+	struct list_head *ptr, *tmp;
+
+	/* for all vpu cores, dump their registers */
+	spin_lock_irqsave(&vpu_drv->met_hrt.lock, flags);
+	list_for_each_safe(ptr, tmp, &vpu_drv->devs) {
+		vd = list_entry(ptr, struct vpu_device, list);
+		if (vd->state > VS_BOOT && vd->state < VS_REMOVING)
+			vpu_met_pm_dbg_read(vd);
+	}
+	hrtimer_forward_now(&vpu_drv->met_hrt.t,
+		ns_to_ktime(VPU_MET_PM_LATENCY_NS));
+	spin_unlock_irqrestore(&vpu_drv->met_hrt.lock, flags);
+
+	return HRTIMER_RESTART;
+}
+
+int vpu_init_drv_met(void)
+{
+	struct dentry *droot = vpu_drv->droot;
+	struct dentry *dpm;
+	int i;
+
+	spin_lock_init(&vpu_drv->met_hrt.lock);
+	hrtimer_init(&vpu_drv->met_hrt.t,
+		CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	vpu_drv->met_hrt.t.function = vpu_met_pm_hrt_func;
+	refcount_set(&vpu_drv->met_hrt.ref.refcount, 0);
+
+	vpu_drv->ilog = 0;
+	vpu_drv->met = VPU_MET_DISABLED;
+	vpu_drv->met_hrt.latency = VPU_MET_PM_LATENCY_NS;
+
+	if (!droot)
+		goto out;
+
+	debugfs_create_u32("ilog", 0660, droot, &vpu_drv->ilog);
+	debugfs_create_u32("met", 0660, droot, &vpu_drv->met);
+	dpm = debugfs_create_dir("met_pm", droot);
+	if (IS_ERR_OR_NULL(dpm))
+		goto out;
+
+	for (i = 0; i < VPU_MET_PM_MAX; i++) {
+		char name[32];
+
+		snprintf(name, sizeof(name), "ctrl%d", i);
+		debugfs_create_u32(name, 0660, dpm, &pm_sel[i]);
+	}
+
+	debugfs_create_u64("met_pm_latency", 0660, droot,
+		&vpu_drv->met_hrt.latency);
+out:
+	return 0;
+}
+
+int vpu_exit_drv_met(void)
+{
+	vpu_met_pm_hrt_stop(1 /* sync */);
+	return 0;
+}
+
+int vpu_init_dev_met(struct platform_device *pdev,
+	struct vpu_device *vd)
+{
+	spin_lock_init(&vd->met.lock);
+	INIT_LIST_HEAD(&vd->met.list);
+	INIT_WORK(&vd->met.work, vpu_met_wq);
+	return 0;
+}
+
+void vpu_exit_dev_met(struct platform_device *pdev,
+	struct vpu_device *vd)
+{
+	cancel_work(&vd->met.work);
+}
+

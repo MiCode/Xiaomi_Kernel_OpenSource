@@ -400,6 +400,9 @@ int vpu_dev_boot(struct vpu_device *vd)
 		goto err;
 	}
 
+	/* MET: pm setup */
+	vpu_met_pm_get(vd);
+
 	vd->state = VS_IDLE;
 
 err:
@@ -580,7 +583,7 @@ int vpu_dev_boot_sequence(struct vpu_device *vd)
 	/* 1. write register */
 	/* set specific address for reset vector in external boot */
 	vpu_reg_write(vd, XTENSA_ALTRESETVEC, vd->iova_reset.addr);
-	pr_info("%s: vpu%d: ALTRESETVEC: 0x%x\n", __func__,
+	vpu_cmd_debug("%s: vpu%d: ALTRESETVEC: 0x%x\n", __func__,
 		vd->id, vpu_reg_read(vd, XTENSA_ALTRESETVEC));
 
 	vpu_reg_set(vd, CTRL, (1 << 31) | (1 << 19));
@@ -604,11 +607,8 @@ int vpu_dev_boot_sequence(struct vpu_device *vd)
 
 	/* jtag enable */
 	if (vd->jtag_enabled) {
-		// TODO: set GPIO
 		vpu_reg_set(vd, CG_CLR, 0x2);
 		vpu_reg_set(vd, DEFAULT2, 0xf);
-		// TODO: Disable JTAG bypass in SEJ_CON8
-		// *SEJ_CON8 &= ~(0x1 << core);
 	}
 
 	/* 2. trigger to run */
@@ -898,7 +898,7 @@ static int vpu_set_ftrace(struct vpu_device *vd)
 
 	/* set ftrace */
 	vpu_reg_write(vd, XTENSA_INFO01, VPU_CMD_SET_FTRACE_LOG);
-	vpu_reg_write(vd, XTENSA_INFO05, vpu_drv->met);
+	vpu_reg_write(vd, XTENSA_INFO05, (vpu_drv->met) ? 1 : 0);
 	/* set vpu internal log level */
 	vpu_reg_write(vd, XTENSA_INFO06, vpu_drv->ilog);
 	/* clear info18 */

@@ -471,7 +471,8 @@ static int vpu_init_dev_mem(struct platform_device *pdev,
 
 	if (vpu_iomem_dts(pdev, "reg", 0, &vd->reg) ||
 		vpu_iomem_dts(pdev, "dmem", 1, &vd->dmem) ||
-		vpu_iomem_dts(pdev, "imem", 2, &vd->imem)) {
+		vpu_iomem_dts(pdev, "imem", 2, &vd->imem) ||
+		vpu_iomem_dts(pdev, "dbg", 3, &vd->dbg)) {
 		goto error;
 	}
 
@@ -717,6 +718,7 @@ static int __init vpu_init(void)
 	vpu_drv->wq = create_workqueue("vpu_wq");
 
 	vpu_init_drv_hw();
+	vpu_init_drv_met();
 
 	ret = platform_driver_register(&vpu_plat_drv);
 
@@ -747,6 +749,7 @@ static void __exit vpu_exit(void)
 	mutex_unlock(&vpu_drv->lock);
 
 	vpu_exit_debug();
+	vpu_exit_drv_met();
 	vpu_exit_drv_hw();
 
 	if (vpu_drv) {

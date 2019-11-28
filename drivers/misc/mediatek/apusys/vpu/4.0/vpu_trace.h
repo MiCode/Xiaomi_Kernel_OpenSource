@@ -46,15 +46,7 @@ extern u8 cfg_apusys_trace;
 			trace_async_tag(0, buf); \
 		} \
 	}
-
-#ifdef vpu_trace_dump
-#undef vpu_trace_dump
-#endif
-// TODO: Add vpu_trace_dump()
-#define vpu_trace_dump(format, args...) \
-	pr_info("%s: [vpu ftrace]" format, __func__, ##args)
 #else
 #define vpu_trace_begin(...)
 #define vpu_trace_end(...)
-#define vpu_trace_dump(...)
 #endif /* CONFIG_FTRACE */

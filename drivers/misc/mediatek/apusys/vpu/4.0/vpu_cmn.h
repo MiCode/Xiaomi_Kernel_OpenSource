@@ -57,6 +57,13 @@
  * 2. device lock
  **/
 
+struct vpu_met_hrt {
+	spinlock_t lock;
+	struct hrtimer t;
+	struct kref ref;
+	uint64_t latency;
+};
+
 // driver data
 struct vpu_driver {
 	void *bin_va;
@@ -87,8 +94,9 @@ struct vpu_driver {
 	struct kref ref;
 
 	/* met */
-	uint32_t ilog;  // g_vpu_internal_log_level
-	uint32_t met;   // g_func_mask > VFM_ROUTINE_PRT_SYSLOG
+	uint32_t ilog;
+	uint32_t met;
+	struct vpu_met_hrt met_hrt;
 };
 
 enum vpu_state {
@@ -115,6 +123,12 @@ struct vpu_met_work {
 	struct work_struct work;
 };
 
+#define VPU_MET_PM_MAX 8
+
+struct vpu_met_pm {
+	uint32_t val[VPU_MET_PM_MAX];
+};
+
 // device data
 struct vpu_device {
 	int id;
@@ -130,6 +144,7 @@ struct vpu_device {
 	struct vpu_iomem reg;
 	struct vpu_iomem dmem;
 	struct vpu_iomem imem;
+	struct vpu_iomem dbg;
 
 	/* power */
 	struct kref pw_ref;
@@ -180,6 +195,7 @@ struct vpu_device {
 
 	/* MET */
 	struct vpu_met_work met;
+	struct vpu_met_pm pm;
 };
 
 
