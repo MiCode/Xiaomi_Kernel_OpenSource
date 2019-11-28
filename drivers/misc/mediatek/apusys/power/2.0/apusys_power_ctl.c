@@ -18,6 +18,7 @@
 #include <linux/platform_device.h>
 #include <linux/seq_file.h>
 #include <linux/slab.h>
+#include <linux/mutex.h>
 #endif
 
 #include "apu_power_api.h"
@@ -29,6 +30,8 @@
 #include "hal_config_power.h"
 #include "apu_log.h"
 
+
+static struct mutex power_dvfs_mtx;
 struct apusys_dvfs_opps apusys_opps;
 
 
@@ -771,12 +774,15 @@ if (dvfs_power_domain_support(buck_domain) == false) {
 
 void apusys_dvfs_state_machine(void)
 {
+	mutex_lock(&power_dvfs_mtx);
 
 	apusys_buck_up_check();
 
 	apusys_frequency_check();
 
 	apusys_buck_down_check();
+
+	mutex_unlock(&power_dvfs_mtx);
 }
 
 
@@ -952,6 +958,7 @@ int apusys_power_off(enum DVFS_USER user)
 	struct hal_param_pwr_mask pwr_mask;
 	enum DVFS_VOLTAGE_DOMAIN buck_domain;
 
+	mutex_lock(&power_dvfs_mtx);
 	apusys_opps.is_power_on[user] = false;
 	apusys_opps.power_bit_mask &= (~(1<<user));
 
@@ -983,6 +990,8 @@ int apusys_power_off(enum DVFS_USER user)
 #endif
 		}
 
+	mutex_unlock(&power_dvfs_mtx);
+	if (is_power_debug_lock == false) {
 		for (id = 0 ; id < APUSYS_DVFS_USER_NUM ; id++) {
 			if (dvfs_user_support(id)
 			&& apusys_opps.is_power_on[id]) {
@@ -991,6 +1000,7 @@ int apusys_power_off(enum DVFS_USER user)
 				break;
 			}
 		}
+	}
 	}
 
 	return ret;
@@ -1001,6 +1011,8 @@ void apusys_power_init(enum DVFS_USER user, void *init_power_data)
 	int i = 0, j = 0;
 	struct hal_param_seg_support  seg_data;
 	enum DVFS_VOLTAGE_DOMAIN domain;
+
+	mutex_init(&power_dvfs_mtx);
 
 	hal_config_power(PWR_CMD_SEGMENT_CHECK, VPU0, (void *)&seg_data);
 
