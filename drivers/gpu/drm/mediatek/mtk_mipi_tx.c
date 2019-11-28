@@ -135,6 +135,7 @@
 #define SW_LNT2_HSTX_OE BIT(25)
 
 #define MIPITX_LANE_CON (0x000CUL)
+#define MIPITX_PRESERVED (0x0014UL)
 #define MIPITX_PLL_PWR (0x0028UL)
 #define AD_DSI_PLL_SDM_PWR_ON BIT(0)
 #define AD_DSI_PLL_SDM_ISO_EN BIT(1)
@@ -676,6 +677,7 @@ static int mtk_mipi_tx_pll_prepare_mt6885(struct clk_hw *hw)
 		return -EINVAL;
 	}
 
+	writel(0x0, mipi_tx->regs + MIPITX_PRESERVED);
 	writel(0x00FF12E0, mipi_tx->regs + MIPITX_PLL_CON4);
 	/* BG_LPF_EN / BG_CORE_EN */
 	writel(0x3FFF0180, mipi_tx->regs + MIPITX_LANE_CON);
