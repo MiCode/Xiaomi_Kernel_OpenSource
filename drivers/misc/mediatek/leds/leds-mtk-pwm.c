@@ -582,7 +582,13 @@ static void mtk_leds_shutdown(struct platform_device *pdev)
 	for (i = 0; m_leds && i < m_leds->nums; i++) {
 		if (!&(m_leds->leds[i]))
 			continue;
-		 led_pwm_disable(&(m_leds->leds[i].info));
+#ifdef CONFIG_LEDS_BRIGHTNESS_CHANGED
+		call_notifier(&(m_leds->leds[i]));
+#ifdef CONFIG_MTK_AAL_SUPPORT
+		continue;
+#endif
+#endif
+		led_pwm_disable(&(m_leds->leds[i].info));
 	}
 
 }
