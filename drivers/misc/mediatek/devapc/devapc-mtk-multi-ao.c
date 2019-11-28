@@ -286,16 +286,21 @@ static void print_vio_mask_sta(bool debug)
 	}
 }
 
-static bool check_type2_vio_status(int slave_type)
+static bool check_type2_vio_status(int slave_type, int *vio_idx, int *index)
 {
-	uint32_t sramrom_vio_idx;
-	uint32_t mdp_vio_idx, disp2_vio_idx, mmsys_vio_idx;
+	uint32_t sramrom_vio_idx, mdp_vio_idx, disp2_vio_idx, mmsys_vio_idx;
+	const struct mtk_device_info **device_info;
+	const struct mtk_device_num *ndevices;
 	bool mdp_vio, disp2_vio, mmsys_vio;
+	int i;
 
 	sramrom_vio_idx = mtk_devapc_ctx->soc->vio_info->sramrom_vio_idx;
 	mdp_vio_idx = mtk_devapc_ctx->soc->vio_info->mdp_vio_idx;
 	disp2_vio_idx = mtk_devapc_ctx->soc->vio_info->disp2_vio_idx;
 	mmsys_vio_idx = mtk_devapc_ctx->soc->vio_info->mmsys_vio_idx;
+
+	device_info = mtk_devapc_ctx->soc->device_info;
+	ndevices = mtk_devapc_ctx->soc->ndevices;
 
 	/* check SRAMROM */
 	if (slave_type == SRAMROM_SLAVE_TYPE &&
@@ -303,6 +308,13 @@ static bool check_type2_vio_status(int slave_type)
 
 		pr_info(PFX "SRAMROM violation is triggered\n");
 		sramrom_vio_handler();
+
+		*vio_idx = sramrom_vio_idx;
+		for (i = 0; i < ndevices[slave_type].vio_slave_num; i++) {
+			if (device_info[slave_type][i].vio_index == *vio_idx)
+				*index = i;
+		}
+
 		return true;
 	}
 
@@ -322,6 +334,20 @@ static bool check_type2_vio_status(int slave_type)
 					mtk_devapc_ctx->infracfg_base,
 					mtk_devapc_ctx->soc->vio_info,
 					mdp_vio, disp2_vio, mmsys_vio);
+
+			if (mdp_vio)
+				*vio_idx = mdp_vio_idx;
+			else if (disp2_vio)
+				*vio_idx = disp2_vio_idx;
+			else if (mmsys_vio)
+				*vio_idx = mmsys_vio_idx;
+
+			for (i = 0; i < ndevices[slave_type].vio_slave_num;
+					i++) {
+				if (device_info[slave_type][i].vio_index ==
+						*vio_idx)
+					*index = i;
+			}
 			return true;
 		}
 	}
@@ -376,7 +402,7 @@ static void start_devapc(void)
 					readl(pd_vio_shift_sta_reg));
 		}
 
-		check_type2_vio_status(slave_type);
+		check_type2_vio_status(slave_type, &vio_idx, &i);
 
 		/* Clear violation status */
 		for (i = 0; i < ndevices[slave_type].vio_slave_num; i++) {
@@ -814,7 +840,7 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 	/* There are multiple DEVAPC_PD */
 	for (slave_type = 0; slave_type < slave_type_num; slave_type++) {
 
-		if (!check_type2_vio_status(slave_type))
+		if (!check_type2_vio_status(slave_type, &vio_idx, &index))
 			if (!mtk_devapc_dump_vio_dbg(slave_type, &vio_idx,
 						&index))
 				continue;
