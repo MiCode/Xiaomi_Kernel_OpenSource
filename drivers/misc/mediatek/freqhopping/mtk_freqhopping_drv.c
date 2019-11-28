@@ -82,11 +82,31 @@ static void mt_fh_drv_shutdown(struct platform_device *dev)
 
 }
 
+static int mt_fh_drv_suspend(struct platform_device *dev, pm_message_t state)
+{
+	if ((g_p_fh_hal_drv->mt_fh_get_init()) == 0)
+		return 0;
+
+	g_p_fh_hal_drv->mt_fh_suspend();
+	return 0;
+}
+
+static int mt_fh_drv_resume(struct platform_device *dev)
+{
+	if ((g_p_fh_hal_drv->mt_fh_get_init()) == 0)
+		return 0;
+
+	g_p_fh_hal_drv->mt_fh_resume();
+	return 0;
+}
+
 
 static struct platform_driver freqhopping_driver = {
 	.probe = mt_fh_drv_probe,
 	.remove = mt_fh_drv_remove,
 	.shutdown = mt_fh_drv_shutdown,
+	.suspend = mt_fh_drv_suspend,
+	.resume = mt_fh_drv_resume,
 	.driver = {
 		.name = FREQ_HOPPING_DEVICE,
 		.owner = THIS_MODULE,

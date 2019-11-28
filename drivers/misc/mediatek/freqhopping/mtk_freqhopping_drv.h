@@ -38,7 +38,8 @@ struct mt_fh_hal_driver {
 				unsigned int target_dds);
 	void (*mt_fh_popod_restore)(void);
 	void (*mt_fh_popod_save)(void);
-
+	void (*mt_fh_suspend)(void);
+	void (*mt_fh_resume)(void);
 	void (*ioctl)(unsigned int ctlid, void *arg);
 };
 
@@ -63,6 +64,8 @@ enum FH_DEVCTL_CMD_ID {
 	FH_DCTL_CMD_SET_PLL_STRUCT = 0x100C,
 	FH_DCTL_CMD_GET_INIT_STATUS = 0x100D,
 	FH_DCTL_CMD_PLL_PAUSE = 0x100E,
+	FH_DCTL_CMD_SSC_SUSPEND = 0x100F,
+	FH_DCTL_CMD_SSC_RESUME = 0x1010,
 #endif
 	FH_DCTL_CMD_MAX
 };

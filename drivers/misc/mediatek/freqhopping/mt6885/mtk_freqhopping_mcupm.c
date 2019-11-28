@@ -271,6 +271,8 @@ static int fhctl_to_mcupm_command(unsigned int cmd,
 	case FH_DCTL_CMD_SSC_TBL_CONFIG:
 	case FH_DCTL_CMD_SET_PLL_STRUCT:
 	case FH_DCTL_CMD_GET_PLL_STRUCT:
+	case FH_DCTL_CMD_SSC_SUSPEND:
+	case FH_DCTL_CMD_SSC_RESUME:
 	case FH_DCTL_CMD_PLL_PAUSE:
 		ipi_data->cmd = cmd;
 		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_FHCTL,
@@ -570,6 +572,35 @@ static int fh_dumpregs_proc_read(struct seq_file *m, void *v)
 	return 0;
 }
 
+static void mt_fh_hal_suspend(void)
+{
+	struct fhctl_ipi_data ipi_data;
+
+	if (g_initialize == 0) {
+		FH_MSG("(Warning) %s FHCTL isn't ready. ", __func__);
+		return;
+	}
+
+	memset(&ipi_data, 0, sizeof(struct fhctl_ipi_data));
+	ipi_data.u.args[0] = FH_PLL8;
+	fhctl_to_mcupm_command(FH_DCTL_CMD_SSC_SUSPEND, &ipi_data);
+}
+
+
+static void mt_fh_hal_resume(void)
+{
+	struct fhctl_ipi_data ipi_data;
+
+	if (g_initialize == 0) {
+		FH_MSG("(Warning) %s FHCTL isn't ready. ", __func__);
+		return;
+	}
+
+	memset(&ipi_data, 0, sizeof(struct fhctl_ipi_data));
+	ipi_data.u.args[0] = FH_PLL8;
+	fhctl_to_mcupm_command(FH_DCTL_CMD_SSC_RESUME, &ipi_data);
+}
+
 static void __reg_tbl_init(void)
 {
 	int id = 0;
@@ -849,7 +880,6 @@ static void __ioctl(unsigned int ctlid, void *arg)
 			mt_fh_hal_general_pll_dfs(fh_ctl->pll_id,
 					fh_ctl->ssc_setting.dds);
 		break;
-
 	default:
 		FH_MSG("Unrecognized ctlid %d", ctlid);
 		break;
@@ -883,6 +913,8 @@ static struct mt_fh_hal_driver g_fh_hal_drv = {
 	//.mt_h2l_dvfs_mempll = mt_fh_hal_h2l_dvfs_mempll,
 	//.mt_dram_overclock = mt_fh_hal_dram_overclock,
 	//.mt_get_dramc = mt_fh_hal_get_dramc,
+	.mt_fh_suspend = mt_fh_hal_suspend,
+	.mt_fh_resume = mt_fh_hal_resume,
 	.mt_fh_hal_default_conf = mt_fh_hal_default_conf,
 	.mt_dfs_general_pll = mt_fh_hal_general_pll_dfs,
 	.ioctl = __ioctl
