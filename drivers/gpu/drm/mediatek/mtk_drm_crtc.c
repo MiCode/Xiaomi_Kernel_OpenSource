@@ -1597,7 +1597,8 @@ static void mtk_crtc_release_input_layer_fence(
 	}
 }
 
-static void mtk_crtc_update_hrt_qos(struct drm_crtc *crtc)
+static void mtk_crtc_update_hrt_qos(struct drm_crtc *crtc,
+		unsigned int ddp_mode)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
@@ -1606,9 +1607,9 @@ static void mtk_crtc_update_hrt_qos(struct drm_crtc *crtc)
 	int i, j;
 	u32 bw_mode = DISP_BW_NORMAL_MODE;
 
-	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
-		mtk_ddp_comp_io_cmd(comp,
-				NULL, PMQOS_SET_BW, &bw_mode);
+	for_each_comp_in_target_ddp_mode_bound(comp, mtk_crtc,
+			i, j, ddp_mode, 0)
+		mtk_ddp_comp_io_cmd(comp, NULL, PMQOS_SET_BW, &bw_mode);
 
 	if (drm_crtc_index(crtc) != 0)
 		return;
@@ -1675,7 +1676,6 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 	int session_id, id;
 	unsigned int ovl_status = 0;
 
-	DDPINFO("%s:%d +\n", __func__, __LINE__);
 	DDPINFO("crtc_state:%px, atomic_state:%px, crtc:%px\n",
 		crtc_state,
 		atomic_state,
@@ -1698,10 +1698,11 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 
 	mtk_crtc_release_input_layer_fence(crtc, session_id);
 
+	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 	if (!mtk_crtc_is_dc_mode(crtc))
 		mtk_crtc_release_output_buffer_fence(crtc, session_id);
 
-	mtk_crtc_update_hrt_qos(crtc);
+	mtk_crtc_update_hrt_qos(crtc, cb_data->misc);
 
 	if (mtk_crtc->pending_needs_vblank) {
 		mtk_drm_crtc_finish_page_flip(mtk_crtc);
@@ -1714,14 +1715,14 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 		mtk_crtc->wb_enable = false;
 		drm_writeback_signal_completion(&mtk_crtc->wb_connector, 0);
 	}
+	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 	cmdq_pkt_destroy(cb_data->cmdq_handle);
 	kfree(cb_data);
-
-	DDPINFO("%s:%d -\n", __func__, __LINE__);
 }
 
 #else
+/* ddp_cmdq_cb_blocking should be called within locked function */
 static void ddp_cmdq_cb_blocking(struct mtk_cmdq_cb_data *cb_data)
 {
 	struct drm_crtc_state *crtc_state = cb_data->state;
@@ -1752,7 +1753,7 @@ static void ddp_cmdq_cb_blocking(struct mtk_cmdq_cb_data *cb_data)
 
 	mtk_crtc_release_output_buffer_fence(crtc, session_id);
 
-	mtk_crtc_update_hrt_qos(crtc);
+	mtk_crtc_update_hrt_qos(crtc, cb_data->misc);
 
 	if (mtk_crtc->pending_needs_vblank) {
 		mtk_drm_crtc_finish_page_flip(mtk_crtc);
@@ -3632,6 +3633,7 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	atomic_set(&mtk_crtc->delayed_trig, 1);
 	cb_data->state = old_crtc_state;
 	cb_data->cmdq_handle = cmdq_handle;
+	cb_data->misc = mtk_crtc->ddp_mode;
 
 #ifdef MTK_DRM_CMDQ_ASYNC
 	mtk_crtc_gce_flush(crtc, ddp_cmdq_cb, cb_data, cmdq_handle);
@@ -4283,7 +4285,7 @@ int mtk_drm_crtc_getfence_ioctl(struct drm_device *dev, void *data,
 		ret = -ENOENT;
 		return ret;
 	}
-	DDPINFO("[CRTC:%d:%s]\n", crtc->base.id, crtc->name);
+	DDPDBG("[CRTC:%d:%s]\n", crtc->base.id, crtc->name);
 
 	if (!crtc->dev) {
 		DDPPR_ERR("%s:%d dev is null\n", __func__, __LINE__);

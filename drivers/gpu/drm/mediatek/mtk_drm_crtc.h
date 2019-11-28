@@ -571,6 +571,7 @@ struct mtk_cmdq_cb_data {
 	struct drm_crtc_state		*state;
 	struct cmdq_pkt			*cmdq_handle;
 	struct drm_crtc			*crtc;
+	unsigned int misc;
 };
 
 int mtk_drm_crtc_enable_vblank(struct drm_device *drm, unsigned int pipe);
