@@ -1014,6 +1014,9 @@
 		#mbox-cells = <3>;
 		#gce-event-cells = <1>;
 		#gce-subsys-cells = <2>;
+		clocks = <&infracfg_ao INFRACFG_AO_GCE_CG>,
+			 <&infracfg_ao INFRACFG_AO_GCE_26M>;
+		clock-names = "gce", "gce-timer";
 	};
 
 	cmdq-test {
