@@ -3383,10 +3383,10 @@ static void DIP_EnableClock(bool En)
 
 #else/*CCF*/
 		/*LOG_INF("CCF:prepare_enable clk");*/
+		Prepare_Enable_ccf_clock(); /* !!cannot be used in spinlock!! */
 		spin_lock(&(IspInfo.SpinLockClock));
 		G_u4DipEnClkCnt++;
 		spin_unlock(&(IspInfo.SpinLockClock));
-		Prepare_Enable_ccf_clock(); /* !!cannot be used in spinlock!! */
 
 #ifdef CONFIG_MTK_IOMMU_V2
 		if (G_u4DipEnClkCnt == 1) {
@@ -3419,11 +3419,11 @@ static void DIP_EnableClock(bool En)
 		spin_unlock(&(IspInfo.SpinLockClock));
 #else
 		/*LOG_INF("CCF:disable_unprepare clk\n");*/
+		Disable_Unprepare_ccf_clock();
 		spin_lock(&(IspInfo.SpinLockClock));
 		G_u4DipEnClkCnt--;
 		spin_unlock(&(IspInfo.SpinLockClock));
 		/* !!cannot be used in spinlock!! */
-		Disable_Unprepare_ccf_clock();
 #endif
 	}
 }
@@ -6463,6 +6463,9 @@ static int dip_p2_ke_dump_read(struct seq_file *m, void *v)
 #ifdef AEE_DUMP_REDUCE_MEMORY
 	int i;
 
+	if (G_u4DipEnClkCnt <= 0)
+		return 0;
+
 	LOG_INF("dip p2 ke dump start!! g_bDumpPhyDIPBuf:%d\n",
 		g_bDumpPhyDIPBuf);
 	LOG_INF("g_bDumpPhyDIPBuf:%d, g_tdriaddr:0x%x, g_cmdqaddr:0x%x\n",
@@ -6593,6 +6596,9 @@ static int dip_p2_dump_read(struct seq_file *m, void *v)
 {
 #ifdef AEE_DUMP_REDUCE_MEMORY
 	int i;
+
+	if (G_u4DipEnClkCnt <= 0)
+		return 0;
 
 LOG_INF("dip p2 ne dump start!g_bUserBufIsReady:%d,",
 		g_bUserBufIsReady);
@@ -6748,6 +6754,9 @@ static int dip_dump_read(struct seq_file *m, void *v)
 {
 
 	int i;
+
+	if (G_u4DipEnClkCnt <= 0)
+		return 0;
 
 	seq_puts(m, "\n============ dip dump register============\n");
 	seq_puts(m, "dip top control\n");
