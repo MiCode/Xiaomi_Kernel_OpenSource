@@ -15,10 +15,12 @@
 	tlmm_pinmux: pinctrl@1000000 {
 		compatible = "qcom,mdm9607-pinctrl";
 		reg = <0x1000000 0x300000>;
-		interrupts = <0 208 0>;
+		reg-names = "pinctrl";
+		interrupts-extended = <&wakegic GIC_SPI 208 IRQ_TYPE_NONE>;
 		gpio-controller;
 		#gpio-cells = <2>;
 		interrupt-controller;
+		interrupt-parent = <&wakegpio>;
 		#interrupt-cells = <2>;
 		qcom,tlmm-emmc-boot-select = <0x1>;
 
