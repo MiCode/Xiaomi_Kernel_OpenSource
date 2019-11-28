@@ -2783,7 +2783,7 @@ static struct clk_branch gcc_gpu_iref_clk = {
 
 static struct clk_branch gcc_gpu_memnoc_gfx_clk = {
 	.halt_reg = 0x3600c,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_VOTED,
 	.hwcg_reg = 0x3600c,
 	.hwcg_bit = 1,
 	.clkr = {
