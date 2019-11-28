@@ -651,16 +651,10 @@ void lvts_device_read_count_RC_N(void)
 			udelay(10);
 			/* Kick-off RCK counting */
 			lvts_write_device(0x81030000, 0x03, 0x02, i);
-			/* wait 1ms */
-#if CONFIG_LVTS_ERROR_AEE_WARNING
-#if DUMP_LVTS_REGISTER
-			udelay(1000);
-#else
-			usleep_range(1000, 2000);
-#endif
-#else
-			usleep_range(1000, 2000);
-#endif
+
+			/* wait 30us */
+			udelay(30);
+
 			lvts_device_check_counting_status(i);
 
 			/* Get RCK count data (sensor-N) */
