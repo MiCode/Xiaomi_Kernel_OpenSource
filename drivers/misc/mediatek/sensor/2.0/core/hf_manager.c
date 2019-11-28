@@ -101,13 +101,11 @@ static int hf_manager_report_event(struct hf_client *client,
 			hf_fifo->buffull = false;
 			hf_fifo->head = 0;
 			hf_fifo->tail = 0;
-			pr_err_ratelimited(
-				"%s [%s][%d:%d] hang(%lld) to reset buffer\n",
+			pr_err_ratelimited("%s [%s][%d:%d] reset, [%lld]\n",
 				__func__, client->proc_comm,
 				client->leader_pid, client->pid, hang_time);
 		} else {
-			pr_err_ratelimited(
-				"%s [%s][%d:%d] buffer full, [%d,%lld]\n",
+			pr_err_ratelimited("%s [%s][%d:%d] full, [%d,%lld]\n",
 				__func__, client->proc_comm,
 				client->leader_pid, client->pid,
 				event->sensor_type, event->timestamp);
@@ -123,7 +121,7 @@ static int hf_manager_report_event(struct hf_client *client,
 	/* only data action run filter event */
 	if (likely(event->action == DATA_ACTION) &&
 			unlikely(filter_event_by_timestamp(hf_fifo, event))) {
-		pr_err_ratelimited("%s [%s][%d:%d] filterd, [%d,%lld]\n",
+		pr_err_ratelimited("%s [%s][%d:%d] filter, [%d,%lld]\n",
 			__func__, client->proc_comm, client->leader_pid,
 			client->pid, event->sensor_type, event->timestamp);
 		spin_unlock_irqrestore(&hf_fifo->buffer_lock, flags);
@@ -140,7 +138,14 @@ static int hf_manager_report_event(struct hf_client *client,
 	next &= hf_fifo->bufsize - 1;
 	if (unlikely(next == hf_fifo->tail)) {
 		hf_fifo->buffull = true;
-		hf_fifo->hang_begin = ktime_get_boot_ns();
+		if (hf_fifo->hang_begin > hf_fifo->client_active) {
+			hang_time = hf_fifo->hang_begin -
+				hf_fifo->client_active;
+			if (hang_time < max_hang_time)
+				hf_fifo->hang_begin = ktime_get_boot_ns();
+		} else {
+			hf_fifo->hang_begin = ktime_get_boot_ns();
+		}
 	}
 	spin_unlock_irqrestore(&hf_fifo->buffer_lock, flags);
 
@@ -797,6 +802,7 @@ static int fetch_next(struct hf_client_fifo *hf_fifo,
 		*event = hf_fifo->buffer[hf_fifo->tail++];
 		hf_fifo->tail &= hf_fifo->bufsize - 1;
 		hf_fifo->buffull = false;
+		hf_fifo->client_active = ktime_get_boot_ns();
 	}
 	spin_unlock_irqrestore(&hf_fifo->buffer_lock, flags);
 	return have_event;

@@ -82,6 +82,7 @@ struct hf_client_fifo {
 	unsigned int bufsize;
 	unsigned int buffull;
 	int64_t hang_begin;
+	int64_t client_active;
 	int64_t last_time_stamp[SENSOR_TYPE_SENSOR_MAX];
 	struct hf_manager_event *buffer;
 	wait_queue_head_t wait;
