@@ -2232,7 +2232,8 @@ static bool boost_eligible(struct zone *z)
 	high_wmark = z->_watermark[WMARK_HIGH];
 	reclaim_eligible = zone_page_state_snapshot(z, NR_ZONE_INACTIVE_FILE) +
 			zone_page_state_snapshot(z, NR_ZONE_ACTIVE_FILE);
-	free_pages = zone_page_state(z, NR_FREE_PAGES);
+	free_pages = zone_page_state(z, NR_FREE_PAGES) -
+			zone_page_state(z, NR_FREE_CMA_PAGES);
 	threshold = high_wmark + (2 * mult_frac(high_wmark,
 					watermark_boost_factor, 10000));
 
