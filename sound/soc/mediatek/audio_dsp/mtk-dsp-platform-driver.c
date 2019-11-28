@@ -806,8 +806,7 @@ static void mtk_dsp_dl_consume_handler(struct mtk_base_dsp *dsp,
 
 	state = dsp->dsp_mem[id].substream->runtime->status->state;
 
-	if (state != SNDRV_PCM_STATE_RUNNING &&
-	    state != SNDRV_PCM_STATE_PREPARED) {
+	if (state != SNDRV_PCM_STATE_RUNNING) {
 		pr_info("%s = state[%d]\n", __func__,
 			 dsp->dsp_mem[id].substream->runtime->status->state);
 		return;
@@ -1143,6 +1142,10 @@ static int mtk_dsp_pcm_hw_prepare(struct snd_pcm_substream *substream)
 
 	clear_audiobuffer_hw(&dsp->dsp_mem[id].adsp_buf);
 	RingBuf_Reset(&dsp->dsp_mem[id].ring_buf);
+	RingBuf_Bridge_Reset(
+		&dsp->dsp_mem[id].adsp_buf.aud_buffer.buf_bridge);
+	RingBuf_Bridge_Reset(
+		&dsp->dsp_mem[id].adsp_work_buf.aud_buffer.buf_bridge);
 
 	ret = set_audiobuffer_threshold(&dsp->dsp_mem[id].adsp_buf, substream);
 	if (ret < 0)
@@ -1399,6 +1402,10 @@ irqreturn_t audio_irq_handler(int irq, void *data, int core_id)
 		goto IRQ_ERROR;
 	}
 
+#ifdef DEBUG_VERBOSE_IRQ
+	pr_info("enter %s\n", __func__);
+#endif
+
 	/* using semaphore to sync ap <=> adsp */
 	if (get_adsp_semaphore(SEMA_3WAY_AUDIO))
 		pr_info("%s get semaphore fail\n", __func__);
@@ -1421,10 +1428,6 @@ irqreturn_t audio_irq_handler(int irq, void *data, int core_id)
 			mb();
 			if (task_id >= 0)
 				mtk_dsp_dl_consume_handler(dsp, NULL, task_id);
-#ifdef DEBUG_VERBOSE_IRQ
-			pr_info("-%s flag[%llx] task_id[%d] task_value[%lu]\n",
-			__func__, *pdtoa, task_id, task_value);
-#endif
 		}
 	} while (*pdtoa && task_value);
 	release_adsp_semaphore(SEMA_3WAY_AUDIO);
