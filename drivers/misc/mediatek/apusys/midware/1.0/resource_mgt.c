@@ -20,6 +20,10 @@
 #include <linux/bitops.h>
 #include <linux/module.h>
 #include <linux/debugfs.h>
+#ifdef CONFIG_PM_WAKELOCKS
+#include <linux/device.h>
+#include <linux/pm_wakeup.h>
+#endif
 
 #include "apusys_cmn.h"
 #include "resource_mgt.h"
@@ -39,6 +43,62 @@ static char dev_type_string[APUSYS_DEVICE_LAST][APUSYS_DEV_NAME_SIZE] = {
 	"vpu",
 	"edma",
 	"wait",
+};
+
+#ifdef CONFIG_PM_WAKELOCKS
+static struct wakeup_source *apusys_secure_ws;
+static uint32_t ws_count;
+static struct mutex ws_mutex;
+#endif
+
+//----------------------------------------------
+static void secure_ws_init(void)
+{
+#ifdef CONFIG_PM_WAKELOCKS
+	ws_count = 0;
+	mutex_init(&ws_mutex);
+	apusys_secure_ws = wakeup_source_register("apusys_secure");
+	if (!apusys_secure_ws)
+		LOG_ERR("apusys sched wakelock register fail!\n");
+#else
+	LOG_DEBUG("not support pm wakelock\n");
+#endif
+}
+
+void secure_ws_lock(void)
+{
+#ifdef CONFIG_PM_WAKELOCKS
+	mutex_lock(&ws_mutex);
+	//LOG_INFO("wakelock count(%d)\n", ws_count);
+	if (apusys_secure_ws && !ws_count) {
+		LOG_DEBUG("lock wakelock\n");
+		__pm_stay_awake(apusys_secure_ws);
+	}
+	ws_count++;
+	mutex_unlock(&ws_mutex);
+#else
+	LOG_DEBUG("not support pm wakelock\n");
+#endif
+}
+
+void secure_ws_unlock(void)
+{
+#ifdef CONFIG_PM_WAKELOCKS
+	mutex_lock(&ws_mutex);
+	//LOG_INFO("wakelock count(%d)\n", ws_count);
+	ws_count--;
+	if (apusys_secure_ws && !ws_count) {
+		LOG_DEBUG("unlock wakelock\n");
+		__pm_relax(apusys_secure_ws);
+	}
+	mutex_unlock(&ws_mutex);
+#else
+	LOG_DEBUG("not support pm wakelock\n");
+#endif
+}
+struct mem_ctx_mgr {
+	struct mutex mtx;
+	unsigned long ctx[BITS_TO_LONGS(32)];
 };
 
 //----------------------------------------------
@@ -454,6 +514,53 @@ int acq_device_check(struct apusys_dev_aquire **iacq)
 	return -ENODATA;
 }
 
+int acq_device_cancel(struct apusys_dev_aquire *acq)
+{
+	struct apusys_res_table *tab = NULL;
+	struct list_head *tmp = NULL, *list_ptr = NULL;
+	struct apusys_dev_aquire *got = NULL;
+	struct apusys_dev_info *dev_info = NULL;
+	int flag = 0, ret = 0;
+
+	if (acq == NULL)
+		return -EINVAL;
+
+	tab = res_get_table(acq->dev_type);
+	if (tab == NULL)
+		return -EINVAL;
+
+	/* 1. get acq from tab list */
+	list_for_each_safe(list_ptr, tmp, &tab->acq_list) {
+		got = list_entry(list_ptr, struct apusys_dev_aquire, tab_list);
+		if (got == acq) {
+			flag = 1;
+			list_del(&got->tab_list);
+			break;
+		}
+	}
+
+	/* 2. free all acquired device */
+	if (flag) {
+		list_for_each_safe(list_ptr, tmp, &acq->dev_info_list) {
+			dev_info = list_entry(list_ptr,
+				struct apusys_dev_info, acq_list);
+			if (put_apusys_device(dev_info)) {
+				LOG_ERR("put dev(%s-#%d) fail\n",
+					dev_info->name,
+					dev_info->dev->idx);
+				ret = -ENODEV;
+			}
+			list_del(&dev_info->acq_list);
+		}
+	} else {
+		ret = -ENODEV;
+	}
+
+	acq->acq_num = 0;
+
+	return ret;
+}
+
 int acq_device_async(struct apusys_dev_aquire *acq)
 {
 	struct apusys_res_table *tab = NULL;
@@ -537,6 +644,7 @@ int check_idle_dev(int type)
 int acq_device_sync(struct apusys_dev_aquire *acq)
 {
 	int ret = 0;
+	unsigned long timeout = usecs_to_jiffies(2*1000*1000);
 
 	if (acq == NULL)
 		return -EINVAL;
@@ -562,21 +670,27 @@ int acq_device_sync(struct apusys_dev_aquire *acq)
 	DEBUG_TAG;
 
 	mutex_unlock(&g_res_mgr.mtx);
-	while (acq->acq_num != acq->target_num) {
-		ret = wait_for_completion_interruptible(&acq->comp);
-		if (ret) {
-			LOG_ERR("acquire device(%d/%d/%d) interrupt, ret(%d)\n",
-				acq->dev_type, acq->acq_num,
-				acq->target_num, ret);
-			break;
-		}
+
+	ret = wait_for_completion_timeout(&acq->comp, timeout);
+	if (ret == 0) {
+		LOG_WARN("acquire device(%d/%d/%d) timeout(%lu), ret(%d)\n",
+			acq->dev_type, acq->acq_num,
+			acq->target_num, timeout/1000/1000, ret);
 	}
 
+	mutex_lock(&g_res_mgr.mtx);
 	if (acq->acq_num == acq->target_num) {
 		LOG_DEBUG("acquire dev(%d/%d/%d) sync ok\n",
 		acq->dev_type, acq->acq_num, acq->target_num);
 		list_del(&acq->tab_list);
+	} else {
+		LOG_WARN("cancel acq(%d)...\n", acq->dev_type);
+		if (acq_device_cancel(acq)) {
+			LOG_ERR("cancel acq(%d) fail\n", acq->dev_type);
+			acq->acq_num = 0;
+		}
 	}
+	mutex_unlock(&g_res_mgr.mtx);
 
 	return acq->acq_num;
 }
@@ -884,6 +998,7 @@ int res_secure_on(int dev_type)
 
 	switch (dev_type) {
 	case APUSYS_DEVICE_SAMPLE:
+		ret = 0;
 		LOG_INFO("[sec]dev(%d) secure mode on(%d)\n", dev_type, ret);
 		break;
 
@@ -891,6 +1006,8 @@ int res_secure_on(int dev_type)
 	case APUSYS_DEVICE_VPU:
 		ret = mtee_sdsp_enable(1);
 		LOG_INFO("[sec]dev(%d) secure mode on(%d)\n", dev_type, ret);
+		if (!ret)
+			secure_ws_lock();
 		break;
 #endif
 	default:
@@ -915,11 +1032,13 @@ int res_secure_off(int dev_type)
 
 	switch (dev_type) {
 	case APUSYS_DEVICE_SAMPLE:
+		ret = 0;
 		LOG_INFO("dev(%d) secure mode off(%d)\n", dev_type, ret);
 		break;
 
 #ifdef CONFIG_MTK_GZ_SUPPORT_SDSP
 	case APUSYS_DEVICE_VPU:
+		secure_ws_unlock();
 		ret = mtee_sdsp_enable(0);
 		LOG_INFO("dev(%d) secure mode off(%d)\n", dev_type, ret);
 		break;
@@ -1122,6 +1241,7 @@ int res_mgt_init(void)
 	memset(&g_res_mgr, 0, sizeof(g_res_mgr));
 	mutex_init(&g_res_mgr.mtx);
 	init_completion(&g_res_mgr.sched_comp);
+	secure_ws_init();
 
 	LOG_INFO("%s done -\n", __func__);
 
