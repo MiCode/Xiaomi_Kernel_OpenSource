@@ -419,6 +419,7 @@ const char * const *get_mt6885_all_clk_names(void)
 		"imp_iic_wrap_c_ap_i2c10_cg_ro",
 		"imp_iic_wrap_c_ap_i2c11_cg_ro",
 		"imp_iic_wrap_c_ap_i2c12_cg_ro",
+		"imp_iic_wrap_c_ap_i2c13_cg_ro",
 		"imp_iic_wrap_e_ap_i2c3_cg_ro",
 		"imp_iic_wrap_e_ap_i2c9_cg_ro",
 		"imp_iic_wrap_n_ap_i2c5_cg_ro",
@@ -489,6 +490,69 @@ const char * const *get_mt6885_all_clk_names(void)
 		"apu_mdla1_mdla_cg12",
 		"apu_mdla1_apb_cg",
 
+		/* AUDIO */
+		"audio_pdn_apll2_tuner",
+		"audio_pdn_24m",
+		"audio_i2s9_bclk_sw_cg",
+		"audio_i2s8_bclk_sw_cg",
+		"audio_i2s7_bclk_sw_cg",
+		"audio_i2s6_bclk_sw_cg",
+		"audio_i2s5_bclk_sw_cg",
+		"audio_pdn_3rd_dac_tml",
+		"audio_pdn_3rd_dac_predis",
+		"audio_pdn_3rd_dac",
+		"audio_pdn_adda6_adc",
+		"audio_pdn_general2_asrc",
+		"audio_pdn_general1_asrc",
+		"audio_pdn_connsys_i2s_asrc",
+		"audio_i2s4_bclk_sw_cg",
+		"audio_i2s3_bclk_sw_cg",
+		"audio_i2s2_bclk_sw_cg",
+		"audio_i2s1_bclk_sw_cg",
+		"audio_pdn_nle",
+		"audio_pdn_tml",
+		"audio_pdn_dac_predis",
+		"audio_pdn_dac",
+		"audio_pdn_adc",
+		"audio_pdn_afe",
+		"audio_pdn_3rd_dac_hires",
+		"audio_pdn_adda6_adc_hires",
+		"audio_pdn_adc_hires_tml",
+		"audio_pdn_adc_hires",
+		"audio_pdn_dac_hires",
+		"audio_pdn_tdm_ck",
+		"audio_pdn_apll_tuner",
+		"audio_pdn_22m",
+
+		/* VDEC */
+		"vdec_soc_gcon_vdec_cken_eng",
+		"vdec_soc_gcon_vdec_active",
+		"vdec_soc_gcon_vdec_cken",
+		"vdec_soc_gcon_lat_cken_eng",
+		"vdec_soc_gcon_lat_active",
+		"vdec_soc_gcon_lat_cken",
+		"vdec_soc_gcon_larb1_cken",
+		"vdec_gcon_vdec_cken_eng",
+		"vdec_gcon_vdec_active",
+		"vdec_gcon_vdec_cken",
+		"vdec_gcon_lat_cken_eng",
+		"vdec_gcon_lat_active",
+		"vdec_gcon_lat_cken",
+		"vdec_gcon_larb1_cken",
+
+		/* VENC */
+		"venc_c1_gcon_set5_gals",
+		"venc_c1_gcon_set4_jpgdec_c1",
+		"venc_c1_gcon_set3_jpgdec",
+		"venc_c1_gcon_set2_jpgenc",
+		"venc_c1_gcon_set1_venc",
+		"venc_c1_gcon_set0_larb",
+		"venc_gcon_set5_gals",
+		"venc_gcon_set4_jpgdec_c1",
+		"venc_gcon_set3_jpgdec",
+		"venc_gcon_set2_jpgenc",
+		"venc_gcon_set1_venc",
+		"venc_gcon_set0_larb",
 
 		/* SCPSYS */
 		"PG_MD1",
@@ -555,8 +619,10 @@ static void print_enabled_clks(int is_deferred)
 
 		p_hw = clk_hw_get_parent(c_hw);
 
-		if (!p_hw)
-			continue;
+		/*
+		 *if (!p_hw)
+		 *	continue;
+		 */
 
 		/*if (!clk_hw_is_prepared(c_hw) && !__clk_get_enable_count(c))*/
 		if (!__clk_get_enable_count(c))
