@@ -3938,6 +3938,17 @@
 #if (CONFIG_MTK_GAUGE_VERSION == 30)
 	#include "bat_setting/mt6873_battery_prop.dtsi"
 #endif
+	edma0: edma0@19027000 {
+		compatible = "mtk,edma-sub";
+		reg = <0x0 0x19027000 0x0 0x1000>;
+		interrupts = <GIC_SPI 416 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	edma: edma {
+		compatible = "mtk,edma";
+		sub_nr = <1>;
+		mediatek,edma-sub = <&edma0>;
+	};
 
 	vpu_core0@19030000 {
 		compatible = "mediatek,vpu_core0";
