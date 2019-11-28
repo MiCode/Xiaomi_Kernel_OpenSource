@@ -253,6 +253,10 @@
 #define MTK_APU_VCORE_CG_CTL \
 	(0x820002B1 | MTK_SIP_SMC_AARCH_BIT)
 
+/* GIC related SMC call */
+#define MTK_SIP_GIC_CONTROL \
+	(0x82000501 | MTK_SIP_SMC_AARCH_BIT)
+
 /* Debug related SMC call */
 #define MTK_SIP_CCCI_CONTROL \
 	(0x82000505 | MTK_SIP_SMC_AARCH_BIT)

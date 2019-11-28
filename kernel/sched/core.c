@@ -54,6 +54,10 @@
 #ifdef CONFIG_MTK_TASK_TURBO
 #include <mt-plat/turbo_common.h>
 #endif
+#ifdef CONFIG_MEDIATEK_SOLUTION
+#include "mtk_secure_api.h"
+#include <linux/arm-smccc.h>
+#endif
 
 DEFINE_PER_CPU_SHARED_ALIGNED(struct rq, runqueues);
 
@@ -7028,6 +7032,19 @@ int sched_isolate_count(const cpumask_t *mask, bool include_offline)
 	return cpumask_weight(&count_mask);
 }
 
+void notify_atf_cpu_isolated_status(int cpu)
+{
+
+#ifdef CONFIG_MEDIATEK_SOLUTION
+	int gic_iso_code = 1 << 0;
+	unsigned long cur_mask = cpu_isolated_mask->bits[0];
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_GIC_CONTROL, gic_iso_code, cpu,
+			cur_mask, 0, 0, 0, 0, &res);
+#endif
+}
+
 /*
  * 1) CPU is isolated and cpu is offlined:
  *	Unisolate the core.
@@ -7078,6 +7095,9 @@ int _sched_isolate_cpu(int cpu)
 	set_cpu_isolated(cpu, true);
 	mcdi_cpu_iso_mask(cpu_isolated_mask->bits[0]);
 	cpumask_clear_cpu(cpu, &avail_cpus);
+
+	notify_atf_cpu_isolated_status(cpu);
+
 	/* Migrate timers */
 
 	smp_call_function_any(&avail_cpus, hrtimer_quiesce_cpu, &cpu, 1);
@@ -7130,6 +7150,8 @@ int __sched_deisolate_cpu_unlocked(int cpu)
 
 	set_cpu_isolated(cpu, false);
 	mcdi_cpu_iso_mask(cpu_isolated_mask->bits[0]);
+
+	notify_atf_cpu_isolated_status(cpu);
 
 	update_max_interval();
 	sched_update_group_capacities(cpu);
