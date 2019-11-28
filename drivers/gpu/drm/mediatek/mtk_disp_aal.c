@@ -340,7 +340,7 @@ void disp_aal_notify_backlight_changed(int bl_1024)
 	int max_backlight = 0;
 	unsigned int service_flags;
 
-	DDPINFO("%s: %d/1023", __func__, bl_1024);
+	pr_notice("%s: %d/1023", __func__, bl_1024);
 	disp_aal_notify_backlight_log(bl_1024);
 	//disp_aal_exit_idle(__func__, 1);
 
@@ -592,8 +592,6 @@ static int disp_aal_copy_hist_to_user(struct DISP_AAL_HIST *hist)
 
 	/* We assume only one thread will call this function */
 	spin_lock_irqsave(&g_aal_hist_lock, flags);
-	if (g_aal_hist.backlight == -1)
-		g_aal_hist.backlight = 40;
 	memcpy(&g_aal_hist_db, &g_aal_hist, sizeof(g_aal_hist));
 
 #if defined(CONFIG_MTK_DRE30_SUPPORT)
