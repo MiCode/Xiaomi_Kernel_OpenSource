@@ -56,9 +56,11 @@ static inline void unlock_command(struct edma_sub *edma_sub)
 	mutex_unlock(&edma_sub->cmd_mutex);
 }
 
-static void print_error_status(struct edma_sub *edma_sub)
+static void print_error_status(struct edma_sub *edma_sub,
+				struct edma_request *req)
 {
-	u32 status, i;
+	u32 status, i, j;
+	unsigned int *ext_reg = NULL;
 
 	status = edma_read_reg32(edma_sub->base_addr, APU_EDMA2_ERR_STATUS);
 	pr_notice("edma error status %x\n", status);
@@ -67,6 +69,22 @@ static void print_error_status(struct edma_sub *edma_sub)
 		status = edma_read_reg32(edma_sub->base_addr, i*4);
 		pr_notice("edma error dump register[0x%x] = 0x%x\n",
 		i*4, status);
+	}
+	if (req->ext_reg_addr != 0) {
+		ext_reg = (unsigned int *)
+			apusys_mem_query_kva(req->ext_reg_addr);
+
+		pr_notice("kva ext_reg =  0x%p, req->ext_count = %d\n",
+			ext_reg, req->ext_count);
+
+		if (ext_reg !=  0)
+			for (i = 0; i < req->ext_count; i++) {
+				for (j = 0; j < EDMA_EXT_MODE_SIZE/4; j++)
+					pr_notice("descriptor%d [0x%x] = 0x%x\n",
+						i, j*4, *(ext_reg + j));
+			}
+		else
+			pr_notice("not support ext_reg dump!!\n");
 	}
 }
 
@@ -856,7 +874,7 @@ int edma_sync_normal_mode(struct edma_device *edma_device,
 	if (ret) {
 		pr_notice
 		    ("%s:timeout\n", __func__);
-		print_error_status(edma_sub);
+		print_error_status(edma_sub, req);
 	}
 
 	unlock_command(edma_sub);
@@ -912,7 +930,7 @@ int edma_normal_mode(struct edma_sub *edma_sub, struct edma_request *req)
 	if (ret) {
 		pr_notice
 		    ("%s:timeout\n", __func__);
-		print_error_status(edma_sub);
+		print_error_status(edma_sub, req);
 	}
 
 	unlock_command(edma_sub);
@@ -970,7 +988,7 @@ int edma_fill_mode(struct edma_sub *edma_sub, struct edma_request *req)
 	if (ret) {
 		pr_notice
 		    ("%s:timeout\n", __func__);
-		print_error_status(edma_sub);
+		print_error_status(edma_sub, req);
 	}
 
 	unlock_command(edma_sub);
@@ -1025,7 +1043,7 @@ int edma_numerical_mode(struct edma_sub *edma_sub, struct edma_request *req)
 	if (ret) {
 		pr_notice
 		    ("%s:timeout\n", __func__);
-		print_error_status(edma_sub);
+		print_error_status(edma_sub, req);
 	}
 
 	unlock_command(edma_sub);
@@ -1080,7 +1098,7 @@ int edma_format_mode(struct edma_sub *edma_sub, struct edma_request *req)
 	if (ret) {
 		pr_notice
 		    ("%s:timeout\n", __func__);
-		print_error_status(edma_sub);
+		print_error_status(edma_sub, req);
 	}
 
 	unlock_command(edma_sub);
@@ -1143,7 +1161,7 @@ int edma_compress_mode(struct edma_sub *edma_sub, struct edma_request *req)
 	if (ret) {
 		pr_notice
 		    ("%s:timeout\n", __func__);
-		print_error_status(edma_sub);
+		print_error_status(edma_sub, req);
 	}
 
 	unlock_command(edma_sub);
@@ -1206,7 +1224,7 @@ int edma_decompress_mode(struct edma_sub *edma_sub, struct edma_request *req)
 	if (ret) {
 		pr_notice
 		    ("%s:timeout\n", __func__);
-		print_error_status(edma_sub);
+		print_error_status(edma_sub, req);
 	}
 
 	unlock_command(edma_sub);
@@ -1263,7 +1281,7 @@ int edma_raw_mode(struct edma_sub *edma_sub, struct edma_request *req)
 	if (ret) {
 		pr_notice
 		    ("%s:timeout\n", __func__);
-		print_error_status(edma_sub);
+		print_error_status(edma_sub, req);
 	}
 
 	unlock_command(edma_sub);
@@ -1305,7 +1323,7 @@ int edma_ext_mode(struct edma_sub *edma_sub, struct edma_request *req)
 	if (ret) {
 		pr_notice
 		    ("%s:timeout\n", __func__);
-		print_error_status(edma_sub);
+		print_error_status(edma_sub, req);
 	}
 
 	unlock_command(edma_sub);
@@ -1361,7 +1379,7 @@ int edma_sync_ext_mode(struct edma_device *edma_device,
 	if (ret) {
 		pr_notice
 		    ("%s:timeout\n", __func__);
-		print_error_status(edma_sub);
+		print_error_status(edma_sub, req);
 	}
 
 	unlock_command(edma_sub);
@@ -1397,8 +1415,9 @@ int edma_ext_by_sub(struct edma_sub *edma_sub, struct edma_request *req)
 	if (ret) {
 		pr_notice
 		    ("%s:timeout\n", __func__);
-		print_error_status(edma_sub);
+		print_error_status(edma_sub, req);
 	}
+	print_error_status(edma_sub, req);
 
 	do_gettimeofday(&t2);
 
