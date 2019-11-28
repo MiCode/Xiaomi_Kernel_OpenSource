@@ -1027,7 +1027,7 @@ static int apusys_power_reg_dump(struct apu_power_info *info)
 	// FIXME: remove this code if 26MHz always on is ready after resume
 #if 1
 	if (conn_mtcmos_on == 0) {
-		LOG_WRN("APUREG dump fail (conn mtcmos off)\n");
+		LOG_WRN("APUREG dump bypass (conn mtcmos off)\n");
 		if (info != NULL) {
 			info->rpc_intf_rdy = 0xdb;
 			info->vcore_cg_stat = 0xdb;

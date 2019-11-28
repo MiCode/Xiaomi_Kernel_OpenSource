@@ -36,7 +36,7 @@ enum {
 
 #define DVFS_TAG "[DVFS]"
 #define PWR_LOG_INF(format, args...)	printf(format, ##args)
-#define PWR_LOG_WRN(format, args...)	printf(format, ##args)
+#define PWR_LOG_PM(format, args...)	printf(format, ##args)
 #define PWR_LOG_ERR(format, args...)	printf(format, ##args)
 
 #define VPU_TAG "[apu_power_2.0]"

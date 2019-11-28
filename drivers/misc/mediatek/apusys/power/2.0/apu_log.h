@@ -37,10 +37,10 @@ enum {
 			pr_info(DVFS_TAG " " format, ##args); \
 	} while (0)
 
-#define PWR_LOG_WRN(format, args...) \
+#define PWR_LOG_PM(format, args...) \
 	do { \
 		if (g_pwr_log_level >= APUSYS_PWR_LOG_WARN) \
-			pr_info(DVFS_TAG "[warn] " format, ##args); \
+			pr_info(DVFS_TAG "[pm] " format, ##args); \
 	} while (0)
 
 #define PWR_LOG_ERR(format, args...) \
