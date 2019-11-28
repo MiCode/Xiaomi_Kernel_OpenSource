@@ -876,16 +876,18 @@ cmdq_test_trigger(struct cmdq_test *test, const s32 sec, const s32 id)
 	}
 }
 
+#define MAX_SCAN 30
+
 static ssize_t
 cmdq_test_write(struct file *filp, const char *buf, size_t count, loff_t *offp)
 {
 	struct cmdq_test *test = (struct cmdq_test *)filp->f_inode->i_private;
-	char		str[MAX_INPUT] = {0};
+	char		str[MAX_SCAN] = {0};
 	s32		len, sec, id = 0;
 
-	len = (count < MAX_INPUT - 1) ? count : (MAX_INPUT - 1);
+	len = (count < MAX_SCAN - 1) ? count : (MAX_SCAN - 1);
 	if (copy_from_user(str, buf, len)) {
-		cmdq_err("copy_from_user failed buf:%s len:%d", buf, len);
+		cmdq_err("copy_from_user failed len:%d", len);
 		return count;
 	}
 	str[len] = '\0';
