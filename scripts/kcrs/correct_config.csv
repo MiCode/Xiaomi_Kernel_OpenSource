@@ -1178,6 +1178,7 @@ CONFIG_SND_SOC_MAX98926 ,PROJECT,chipeng.chang,use in 97 and new config in this 
 CONFIG_SND_SOC_MT6660,PROJECT,shane.chien,,X,X,X,X,X,X,X,X,X,X,X,X,X
 CONFIG_SND_SOC_MT6768_MT6358,PLATFORM,Michael.Hsiao,new config in this commit f33316c836a15150890ad743961cdfa75f69af1f,X,X,X,X,X,y,y,X,X,X,X,X,X
 CONFIG_SND_SOC_MT6785_MT6359,PLATFORM,Eason.Yen,,X,X,X,X,X,X,X,y,y,X,X,X,X
+CONFIG_SND_SOC_MT6873_MT6359,PLATFORM,Shane.Chien,,X,X,X,X,X,X,X,X,X,y,y,X,X
 CONFIG_SND_SOC_MT6885_MT6359,PLATFORM,Shane.Chien,new config in this commit 728a74b0eeb360e51f59a981436b168945e47f3b,X,X,X,X,X,X,X,X,X,y,y,X,X
 CONFIG_SND_SOC_MTK_AUDIO_DSP,PROJECT,chipeng.chang,,X,X,X,X,X,X,X,X,y,X,y,X,y
 CONFIG_SND_SOC_MTK_BTCVSD,PLATFORM,Lumi.Lee,Auido with BT,y,y,y,y,y,y,y,y,y,N,y,y,y
