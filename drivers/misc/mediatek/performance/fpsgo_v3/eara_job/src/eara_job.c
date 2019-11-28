@@ -1161,9 +1161,10 @@ static void get_pwr_tbl(void)
 			vpu_power_table[opp].power;
 		eara_vpu_table.freq[opp] =
 			apusys_opp_to_freq(VPU0, opp);
-		eara_vpu_table.capacity_ratio[opp] =
-			apusys_opp_to_freq(VPU0, opp) *
-			100 / apusys_opp_to_freq(VPU0, 0);
+		if (apusys_opp_to_freq(VPU0, 0))
+			eara_vpu_table.capacity_ratio[opp] =
+				apusys_opp_to_freq(VPU0, opp) *
+				100 / apusys_opp_to_freq(VPU0, 0);
 #else
 		eara_vpu_table.power[opp] =
 			vpu_power_table[opp].power;
@@ -1183,9 +1184,10 @@ static void get_pwr_tbl(void)
 			mdla_power_table[opp].power;
 		eara_mdla_table.freq[opp] =
 			apusys_opp_to_freq(MDLA0, opp);
-		eara_mdla_table.capacity_ratio[opp] =
-			apusys_opp_to_freq(MDLA0, opp) *
-			100 / apusys_opp_to_freq(MDLA0, 0);
+		if (apusys_opp_to_freq(MDLA0, 0))
+			eara_mdla_table.capacity_ratio[opp] =
+				apusys_opp_to_freq(MDLA0, opp) *
+				100 / apusys_opp_to_freq(MDLA0, 0);
 #else
 		eara_mdla_table.power[opp] =
 			mdla_power_table[opp].power;
