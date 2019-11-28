@@ -101,6 +101,8 @@ int __mtk_disp_pmqos_port_look_up(int comp_id)
 		return M4U_PORT_L1_OVL_2L_RDMA0;
 	case DDP_COMPONENT_OVL1_2L:
 		return M4U_PORT_L0_OVL_2L_RDMA1;
+	case DDP_COMPONENT_OVL2_2L:
+		return M4U_PORT_L1_OVL_2L_RDMA2;
 	case DDP_COMPONENT_RDMA0:
 		return M4U_PORT_L0_DISP_RDMA0;
 	case DDP_COMPONENT_RDMA1:
@@ -119,10 +121,18 @@ int __mtk_disp_pmqos_port_look_up(int comp_id)
 }
 
 int __mtk_disp_set_module_bw(struct mm_qos_request *request, int comp_id,
-			     unsigned int bandwidth, int bw_mode)
+			     unsigned int bandwidth, unsigned int bw_mode)
 {
+	int mode;
+
+	if (bw_mode == DISP_BW_FBDC_MODE)
+		mode = BW_COMP_DEFAULT;
+	else
+		mode = BW_COMP_NONE;
+
 	DDPINFO("set module %d, bw %u\n", comp_id, bandwidth);
-	mm_qos_set_bw_request(request, bandwidth, BW_COMP_NONE);
+	bandwidth = bandwidth * 133 / 100;
+	mm_qos_set_bw_request(request, bandwidth, mode);
 
 	DRM_MMP_MARK(pmqos, comp_id, bandwidth);
 

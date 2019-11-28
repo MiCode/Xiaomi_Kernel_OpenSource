@@ -44,7 +44,7 @@ struct mtk_drm_qos_ctx {
 };
 
 int __mtk_disp_set_module_bw(struct mm_qos_request *request, int comp_id,
-			     unsigned int bandwidth, int mode);
+			     unsigned int bandwidth, unsigned int mode);
 void __mtk_disp_set_module_hrt(struct mm_qos_request *request,
 			       unsigned int bandwidth);
 int mtk_disp_set_hrt_bw(struct mtk_drm_crtc *mtk_crtc,

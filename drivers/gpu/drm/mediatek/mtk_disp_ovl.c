@@ -593,6 +593,7 @@ static void mtk_ovl_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 			comp->regs_pa + DISP_REG_OVL_INTSTA, 0, ~0);
 
 	comp->qos_bw = 0;
+	comp->fbdc_bw = 0;
 	DDPDBG("%s-\n", __func__);
 }
 
@@ -1331,7 +1332,10 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		do_div(temp_bw, 1000);
 
 		DDPDBG("comp %d + bw %llu\n", comp->id, temp_bw);
-		comp->qos_bw += temp_bw;
+		if (pending->prop_val[PLANE_PROP_COMPRESS])
+			comp->fbdc_bw += temp_bw;
+		else
+			comp->qos_bw += temp_bw;
 	}
 }
 
@@ -2209,21 +2213,27 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		struct mtk_drm_crtc *mtk_crtc;
 		struct cmdq_pkt_buffer *cmdq_buf;
 		u32 ovl_bw, slot_num;
-		u32 bw_mode;
 
-		bw_mode = *(u32 *)params;
 		mtk_crtc = comp->mtk_crtc;
 		cmdq_buf = &(mtk_crtc->gce_obj.buf);
 
-		/* TODO: consider FBDC */
-		slot_num = __mtk_disp_pmqos_slot_look_up(comp->id, bw_mode);
+		/* process FBDC */
+		slot_num = __mtk_disp_pmqos_slot_look_up(comp->id,
+					    DISP_BW_FBDC_MODE);
 		ovl_bw = *(unsigned int *)(cmdq_buf->va_base +
-					   DISP_SLOT_PMQOS_BW(slot_num));
+					    DISP_SLOT_PMQOS_BW(slot_num));
+
+		__mtk_disp_set_module_bw(&comp->fbdc_qos_req, comp->id, ovl_bw,
+					    DISP_BW_FBDC_MODE);
+
+		/* process normal */
+		slot_num = __mtk_disp_pmqos_slot_look_up(comp->id,
+					    DISP_BW_NORMAL_MODE);
+		ovl_bw = *(unsigned int *)(cmdq_buf->va_base +
+					    DISP_SLOT_PMQOS_BW(slot_num));
 
 		__mtk_disp_set_module_bw(&comp->qos_req, comp->id, ovl_bw,
-					 DISP_BW_NORMAL_MODE);
-
-		ret = ovl_bw;
+					    DISP_BW_NORMAL_MODE);
 		break;
 	}
 	case PMQOS_SET_HRT_BW: {
@@ -2238,17 +2248,25 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		struct drm_crtc *crtc;
 		struct mtk_drm_crtc *mtk_crtc;
 		struct cmdq_pkt_buffer *cmdq_buf;
-		u32 slot_num, bw_mode;
+		u32 slot_num;
 
-		bw_mode = *(u32 *)params;
 		mtk_crtc = comp->mtk_crtc;
 		crtc = &mtk_crtc->base;
 		cmdq_buf = &(mtk_crtc->gce_obj.buf);
 
-		/* TODO:  consider FBDC */
-		slot_num = __mtk_disp_pmqos_slot_look_up(comp->id, bw_mode);
+		/* process FBDC */
+		slot_num = __mtk_disp_pmqos_slot_look_up(comp->id,
+					DISP_BW_FBDC_MODE);
 
 		DDPDBG("update ovl qos bw to %u\n", comp->qos_bw);
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			       cmdq_buf->pa_base + DISP_SLOT_PMQOS_BW(slot_num),
+			       comp->fbdc_bw, ~0);
+
+		/* process normal */
+		slot_num = __mtk_disp_pmqos_slot_look_up(comp->id,
+					DISP_BW_NORMAL_MODE);
+
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       cmdq_buf->pa_base + DISP_SLOT_PMQOS_BW(slot_num),
 			       comp->qos_bw, ~0);
@@ -2832,6 +2850,8 @@ static int mtk_disp_ovl_bind(struct device *dev, struct device *master,
 	} else {
 		mm_qos_add_request(&drm_priv->bw_request_list,
 				   &priv->ddp_comp.qos_req, qos_req_port);
+		mm_qos_add_request(&drm_priv->bw_request_list,
+				   &priv->ddp_comp.fbdc_qos_req, qos_req_port);
 		mm_qos_add_request(&drm_priv->hrt_request_list,
 				   &priv->ddp_comp.hrt_qos_req, qos_req_port);
 	}
