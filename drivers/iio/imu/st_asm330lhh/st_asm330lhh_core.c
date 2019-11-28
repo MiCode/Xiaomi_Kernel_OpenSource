@@ -1219,7 +1219,8 @@ int st_asm330lhh_probe(struct device *dev, int irq,
 	return 0;
 
 regulator_shutdown:
-	st_asm330lhh_regulator_power_down(hw);
+	if (asm330_check_regulator)
+		st_asm330lhh_regulator_power_down(hw);
 
 	return err;
 }
