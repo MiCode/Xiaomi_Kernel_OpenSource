@@ -181,7 +181,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.max_framerate = 300,
 	},
 	.margin = 61,
-	.min_shutter = 5,
+	.min_shutter = 6,
 	.min_gain = 64, /*1x gain*/
 	.max_gain = 1024, /*16x gain*/
 	.min_gain_iso = 100,
