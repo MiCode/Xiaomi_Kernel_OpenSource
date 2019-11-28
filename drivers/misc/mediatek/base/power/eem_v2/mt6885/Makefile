@@ -30,6 +30,21 @@ ccflags-y += \
 	-I$(EEM_ROOT_DIR)/$(CONFIG_MTK_PLATFORM)/inc	\
 	-I$(srctree)/drivers/misc/mediatek/base/power/mcdi/include/	\
 
+ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k6885v1_64_alpha_mcl50")
+subdir-ccflags-y += -DMT6885
+subdir-ccflags-y += -DMC50_LOAD
+endif
+
+ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k6889v1_64_mcl50")
+subdir-ccflags-y += -DMT6889
+subdir-ccflags-y += -DMC50_LOAD
+endif
+
+ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k6889v1_64_90hz_mcl50")
+subdir-ccflags-y += -DMT6889
+subdir-ccflags-y += -DMC50_LOAD
+endif
+
 obj-y += mtk_eem.o
 obj-y += mtk_eem_platform.o
 obj-y += mtk_eem_internal.o

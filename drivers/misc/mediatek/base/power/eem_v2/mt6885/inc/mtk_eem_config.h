@@ -22,6 +22,9 @@
 #define DUMP_DATA_TO_DE		(1)
 #define EEM_ENABLE		(1) /* enable; after pass HPT mini-SQC */
 #define EEM_FAKE_EFUSE		(0)
+//#define MT6885
+//#define MT6889
+//#define MC50_LOAD
 
 /* FIX ME */
 #define UPDATE_TO_UPOWER	(1)
@@ -148,8 +151,6 @@ enum mt_cpu_dvfs_id {
 /* GPU */
 #define DEVINFO_24 0x10bd3c1b
 
-
-
 #else
 
 #if defined(CMD_LOAD)
@@ -193,82 +194,69 @@ enum mt_cpu_dvfs_id {
 #define DEVINFO_24 0x9B0BC56E
 
 #elif defined(MC50_LOAD)
-/* MC50 Safe EFUSE */
-#define DEVINFO_0 0x0
-/* L_LO */
-#define DEVINFO_1 0x67130025
-/* B_LO + L_LO */
-#define DEVINFO_2 0x7D10002F
-/* B_LO */
-#define DEVINFO_3 0x2716009E
-/* CCI */
-#define DEVINFO_4 0x4B140057
-/* GPU_LO + CCI */
-#define DEVINFO_5 0x0
-/* GPU_LO */
-#define DEVINFO_6 0x0
-/* APU */
-#define DEVINFO_7 0x1B031B03
-/* L_HI + APU */
-#define DEVINFO_8 0x56100076
-/* L_HI */
-#define DEVINFO_9 0x2DEF00A6
-/* B_HI */
-#define DEVINFO_10 0x0919002C
-/* MODEM + B_HI */
-#define DEVINFO_11 0xCB6F0083
-/* MODEM */
-#define DEVINFO_12 0x186A00A5
-/* MODEM */
-#define DEVINFO_13 0x1B031B03
-/* MODEM */
-#define DEVINFO_14 0x1B031B03
-/* MODEM */
-#define DEVINFO_15 0x0
-/* L */
-#define DEVINFO_16 0x1B031B03
-/* B + L */
-#define DEVINFO_17 0x1B031B03
+
+#if defined(MT6885)
+#define DEVINFO_0 0x0 /* MC50 Safe EFUSE */
+#define DEVINFO_1 0x67130025 /* L_LO */
+#define DEVINFO_2 0x7D10002F /* B_LO + L_LO */
+#define DEVINFO_3 0x2716009E /* B_LO */
+#define DEVINFO_4 0x4B140057 /* CCI */
+#define DEVINFO_5 0x0 /* GPU_LO + CCI */
+#define DEVINFO_6 0x0 /* GPU_LO */
+#define DEVINFO_7 0x1B031B03 /* APU */
+#define DEVINFO_8 0x56100076 /* L_HI + APU */
+#define DEVINFO_9 0x2DEF00A6 /* L_HI */
+#define DEVINFO_10 0x0919002C /* B_HI */
+#define DEVINFO_11 0xCB6F0083 /* MODEM + B_HI */
+#define DEVINFO_12 0x186A00A5 /* MODEM */
+#define DEVINFO_13 0x1B031B03 /* MODEM */
+#define DEVINFO_14 0x1B031B03 /* MODEM */
+#define DEVINFO_15 0x0 /* MODEM */
+#define DEVINFO_16 0x1B031B03 /* L */
+#define DEVINFO_17 0x1B031B03 /* B + L */
+
+#elif defined(MT6889)
+#define DEVINFO_0 0x0 /* MC50 Safe EFUSE */
+#define DEVINFO_1 0x67130025 /* L_LO */
+#define DEVINFO_2 0x7D10002F /* B_LO + L_L0 */
+#define DEVINFO_3 0x2716009E /* B_L0 */
+#define DEVINFO_4 0x4B140057 /* CCI */
+#define DEVINFO_5 0x0 /* GPU_LO + CCI */
+#define DEVINFO_6 0x0 /* GPU_L0 */
+#define DEVINFO_7 0x1B031B03 /* APU */
+#define DEVINFO_8 0x56100076 /* L_HI + APU */
+#define DEVINFO_9 0x2DEE00B5 /* L_HI */
+#define DEVINFO_10 0x0919002C /* B_HI */
+#define DEVINFO_11 0xCB6F0083 /* MODEM + B_HI */
+#define DEVINFO_12 0x186A00A5 /* MODEM */
+#define DEVINFO_13 0x1B031B03 /* MODEM */
+#define DEVINFO_14 0x1B031B03 /* MODEM */
+#define DEVINFO_15 0x0 /* MODEM */
+#define DEVINFO_16 0x1B031B03 /* L */
+#define DEVINFO_17 0x1B031B03 /* B + L */
+
+#endif
 
 #else
-/* MC99 Safe EFUSE */
-#define DEVINFO_0 0x0
-/* L_LO */
-#define DEVINFO_1 0x67130025
-/* B_LO + L_LO */
-#define DEVINFO_2 0x9DEB0025
-/* B_LO */
-#define DEVINFO_3 0x43150046
-/* CCI */
-#define DEVINFO_4 0x61120027
-/* GPU_LO + CCI */
-#define DEVINFO_5 0x0
-/* GPU_LO */
-#define DEVINFO_6 0x0
-/* APU */
-#define DEVINFO_7 0x91EC0027
-/* L_HI + APU */
-#define DEVINFO_8 0x56100076
-/* L_HI */
-#define DEVINFO_9 0x7AE20076
-/* B_HI */
-#define DEVINFO_10 0x3A150032
-/* MODEM + B_HI */
-#define DEVINFO_11 0xCB6F0083
-/* MODEM */
-#define DEVINFO_12 0x186A00A5
-/* MODEM */
-#define DEVINFO_13 0x1B031B03
-/* MODEM */
-#define DEVINFO_14 0x1B031B03
-/* MODEM */
-#define DEVINFO_15 0x0
-/* L */
-#define DEVINFO_16 0x1B031B03
-/* B + L */
-#define DEVINFO_17 0x1B031B03
 
-
+#define DEVINFO_0 0x0 /* MC50 Safe EFUSE */
+#define DEVINFO_1 0x67130025 /* L_LO */
+#define DEVINFO_2 0x9DEB0025 /* B_LO + L_L0 */
+#define DEVINFO_3 0x43150046 /* B_L0 */
+#define DEVINFO_4 0x61120027 /* CCI */
+#define DEVINFO_5 0x0 /* GPU_LO + CCI */
+#define DEVINFO_6 0x0 /* GPU_L0 */
+#define DEVINFO_7 0x91EC0027 /* APU */
+#define DEVINFO_8 0x56100076 /* L_HI + APU */
+#define DEVINFO_9 0x7AE20076 /* L_HI */
+#define DEVINFO_10 0x3A150032 /* B_HI */
+#define DEVINFO_11 0xCB6F0083 /* MODEM + B_HI */
+#define DEVINFO_12 0x186A00A5 /* MODEM */
+#define DEVINFO_13 0x1B031B03 /* MODEM */
+#define DEVINFO_14 0x1B031B03 /* MODEM */
+#define DEVINFO_15 0x0 /* MODEM */
+#define DEVINFO_16 0x1B031B03 /* L */
+#define DEVINFO_17 0x1B031B03 /* B + L */
 
 #endif
 #endif
