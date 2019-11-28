@@ -2522,6 +2522,7 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	unsigned int crtc_id = drm_crtc_index(crtc);
+	struct cmdq_client *client;
 
 	CRTC_MMP_EVENT_START(crtc_id, enable,
 			mtk_crtc->enabled, 0);
@@ -2548,7 +2549,14 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 	/* 2. prepare modules would be used in this CRTC */
 	mtk_crtc_ddp_prepare(mtk_crtc);
 
-	/* 3. start trigger loop first to keep gce alive */
+	/* 3. power on cmdq client */
+	if (crtc_id == 2) {
+		client = mtk_crtc->gce_obj.client[CLIENT_CFG];
+		cmdq_mbox_enable(client->chan);
+		CRTC_MMP_MARK(crtc_id, enable, 1, 1);
+	}
+
+	/* 4. start trigger loop first to keep gce alive */
 	if (mtk_crtc_with_trigger_loop(crtc))
 		mtk_crtc_start_trig_loop(crtc);
 
@@ -2558,40 +2566,40 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 		ctx->is_dc = 1;
 	}
 
-	CRTC_MMP_MARK(crtc_id, enable, 1, 1);
-	/* 4. connect path */
+	CRTC_MMP_MARK(crtc_id, enable, 1, 2);
+	/* 5. connect path */
 	mtk_crtc_connect_default_path(mtk_crtc);
 
-	if (drm_crtc_index(crtc) == 0)
+	if (!crtc_id)
 		mtk_crtc->qos_ctx->last_hrt_req = 0;
 
-	/* 5. config ddp engine */
+	/* 6. config ddp engine */
 	mtk_crtc_config_default_path(mtk_crtc);
 
-	/* 6. disconnect addon module and config */
+	/* 7. disconnect addon module and config */
 	mtk_crtc_connect_addon_module(crtc);
 
-	/* 7. restore OVL setting */
+	/* 8. restore OVL setting */
 	mtk_crtc_restore_plane_setting(mtk_crtc);
 
-	/* 8. set dirty for cmd mode */
+	/* 9. set dirty for cmd mode */
 	if (mtk_crtc_is_frame_trigger_mode(crtc))
 		mtk_crtc_set_dirty(mtk_crtc);
 
-	/* 9. set vblank*/
+	/* 10. set vblank*/
 	drm_crtc_vblank_on(crtc);
 
 #ifdef MTK_DRM_ESD_SUPPORT
-	/* 10. enable ESD check */
+	/* 11. enable ESD check */
 	if (mtk_drm_lcm_is_connect())
 		mtk_disp_esd_check_switch(crtc, true);
 #endif
 
-	/* 11. set CRTC SW status */
-	mtk_crtc_set_status(crtc, true);
-
 	/* 12. enable fake vsync if need*/
 	mtk_drm_fake_vsync_switch(crtc, true);
+
+	/* 13. set CRTC SW status */
+	mtk_crtc_set_status(crtc, true);
 
 end:
 	CRTC_MMP_EVENT_END(crtc_id, enable,
@@ -2838,13 +2846,14 @@ void mtk_drm_crtc_disable(struct drm_crtc *crtc, bool need_wait)
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	unsigned int crtc_id = drm_crtc_index(&mtk_crtc->base);
 	struct mtk_ddp_comp *comp = NULL;
+	struct cmdq_client *client;
 
 	CRTC_MMP_EVENT_START(crtc_id, disable,
 			mtk_crtc->enabled, 0);
 
 	if (!mtk_crtc->enabled) {
 		CRTC_MMP_MARK(crtc_id, disable, 0, 0);
-		DDPMSG("crtc%d skip %s\n", crtc_id, __func__);
+		DDPINFO("crtc%d skip %s\n", crtc_id, __func__);
 		goto end;
 	} else if (mtk_crtc->ddp_mode == DDP_NO_USE) {
 		CRTC_MMP_MARK(crtc_id, disable, 0, 1);
@@ -2870,6 +2879,7 @@ void mtk_drm_crtc_disable(struct drm_crtc *crtc, bool need_wait)
 
 	/* 5. stop CRTC */
 	mtk_crtc_stop(mtk_crtc, need_wait);
+	CRTC_MMP_MARK(crtc_id, disable, 1, 1);
 
 	/* 6. disconnect addon module and recover config */
 	mtk_crtc_disconnect_addon_module(crtc);
@@ -2877,10 +2887,17 @@ void mtk_drm_crtc_disable(struct drm_crtc *crtc, bool need_wait)
 	/* 7. disconnect path */
 	mtk_crtc_disconnect_default_path(mtk_crtc);
 
-	/* 8. power off all modules in this CRTC */
+	/* 8. power off cmdq client */
+	if (crtc_id == 2) {
+		client = mtk_crtc->gce_obj.client[CLIENT_CFG];
+		cmdq_mbox_disable(client->chan);
+		CRTC_MMP_MARK(crtc_id, disable, 1, 2);
+	}
+
+	/* 9. power off all modules in this CRTC */
 	mtk_crtc_ddp_unprepare(mtk_crtc);
 
-	/* 9. power off MTCMOS*/
+	/* 10. power off MTCMOS*/
 	/* TODO: need to check how to unprepare MTCMOS */
 	mtk_drm_top_clk_disable_unprepare(crtc->dev);
 
@@ -2893,7 +2910,7 @@ void mtk_drm_crtc_disable(struct drm_crtc *crtc, bool need_wait)
 			comp->fb = NULL;
 	}
 
-	/* 10. set CRTC SW status */
+	/* 11. set CRTC SW status */
 	mtk_crtc_set_status(crtc, false);
 
 end:
@@ -3036,14 +3053,14 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 		DRM_ERROR("new event while there is still a pending event\n");
 
 	if (mtk_crtc->ddp_mode == DDP_NO_USE) {
-		CRTC_MMP_EVENT_END(index, atomic_begin, 0, 0);
-		return;
+		CRTC_MMP_MARK(index, atomic_begin, 0, 0);
+		goto end;
 	}
 
 	mtk_drm_idlemgr_kick(__func__, crtc, 0);
 
 	if (state->base.event) {
-		state->base.event->pipe = drm_crtc_index(crtc);
+		state->base.event->pipe = index;
 		if (drm_crtc_vblank_get(crtc) != 0)
 			DDPAEE("%s:%d, invalid vblank:%d, crtc:%p\n",
 				__func__, __LINE__,
@@ -3066,6 +3083,7 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 		comp->hrt_bw = 0;
 	}
 
+end:
 	CRTC_MMP_EVENT_END(index, atomic_begin,
 			(unsigned long)mtk_crtc->event,
 			(unsigned long)state->base.event);
@@ -3119,6 +3137,7 @@ void mtk_drm_crtc_plane_update(struct drm_crtc *crtc, struct drm_plane *plane,
 	addr = cmdq_buf->pa_base + DISP_SLOT_SUBTRACTOR_WHEN_FREE(plane_index);
 	cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base, addr, sub, ~0);
 
+	DDPINFO("%s-\n", __func__);
 }
 
 static void mtk_crtc_wb_comp_config(struct drm_crtc *crtc,
@@ -3565,15 +3584,15 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	CRTC_MMP_EVENT_START(index, atomic_flush, (unsigned long)crtc_state,
 			(unsigned long)old_crtc_state);
 	if (mtk_crtc->ddp_mode == DDP_NO_USE) {
-		CRTC_MMP_EVENT_END(index, atomic_flush, 0, 0);
-		return;
+		CRTC_MMP_MARK(index, atomic_flush, 0, 0);
+		goto end;
 	}
 
 	cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
 	if (!cb_data) {
 		DDPPR_ERR("cb data creation failed\n");
-		CRTC_MMP_EVENT_END(index, atomic_flush, 0, 1);
-		return;
+		CRTC_MMP_MARK(index, atomic_flush, 0, 1);
+		goto end;
 	}
 
 	if (mtk_crtc->event)
@@ -3646,6 +3665,8 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	if (state->prop_val[CRTC_PROP_PRES_FENCE_IDX] != (unsigned int)-1)
 		mtk_drm_fence_update(state->prop_val[CRTC_PROP_PRES_FENCE_IDX]);
 #endif
+
+end:
 	CRTC_MMP_EVENT_END(index, atomic_flush, (unsigned long)crtc_state,
 			(unsigned long)old_crtc_state);
 }
@@ -4842,9 +4863,10 @@ int mtk_crtc_path_switch(struct drm_crtc *crtc, unsigned int ddp_mode,
 
 	DDPINFO("%s:%d +\n", __func__, __LINE__);
 	DDPINFO("crtc%d path switch(%d->%d)\n",
-		drm_crtc_index(crtc),
+		index,
 		mtk_crtc->ddp_mode, ddp_mode);
 	mtk_drm_idlemgr_kick(__func__, crtc, 0);
+	CRTC_MMP_MARK(index, path_switch, 1, 0);
 
 	/* 0. Special NO_USE ddp mode control. In NO_USE ddp mode, the HW path
 	 *     is disabled currently or to be disabled. So the control use the
@@ -4875,12 +4897,14 @@ int mtk_crtc_path_switch(struct drm_crtc *crtc, unsigned int ddp_mode,
 
 	/* 3. Composing planes and write back to buffer */
 	__mtk_crtc_prim_path_switch(crtc, ddp_mode, &cfg);
+	CRTC_MMP_MARK(index, path_switch, 1, 1);
 
 	/* 4. Create new sub path */
 	__mtk_crtc_sub_path_create(crtc, ddp_mode, &cfg);
 
 	/* 5. create and destroy the fb used in ddp */
 	mtk_crtc_dc_fb_control(crtc, ddp_mode);
+
 done:
 	mtk_crtc->ddp_mode = ddp_mode;
 	if (crtc->enabled && mtk_crtc->ddp_mode != DDP_NO_USE)

@@ -51,15 +51,12 @@ struct DRM_MMP_Events {
 	mmp_event hrt_bw;
 	mmp_event mutex_lock;
 	mmp_event layering;
-	mmp_event prime_to_gem;
-	mmp_event prime_import;
-	mmp_event prime_import_dev;
-	mmp_event prime_import_sg;
 	mmp_event dma_alloc;
 	mmp_event dma_free;
 	mmp_event ion_import_dma;
 	mmp_event ion_import_fd;
 	mmp_event ion_import_free;
+	mmp_event set_mode;
 };
 
 /* if changed, need to update init_crtc_mmp_event() */

@@ -18,6 +18,7 @@
 
 #include "mtk_drm_drv.h"
 #include "mtk_drm_session.h"
+#include "mtk_drm_mmp.h"
 
 static DEFINE_MUTEX(disp_session_lock);
 
@@ -95,23 +96,28 @@ int mtk_session_set_mode(struct drm_device *dev, unsigned int session_mode)
 	if (session_mode >= MTK_DRM_SESSION_NUM) {
 		DDPPR_ERR("%s Invalid session mode:%d\n",
 			  __func__, session_mode);
-		return -EINVAL;
+		goto error;
 	}
 
 	if (!mode_tb[session_mode].en) {
 		DDPPR_ERR("%s Invalid mode_tb[%d].en = %d\n",
 			  __func__, session_mode, mode_tb[session_mode].en);
-		return -EINVAL;
+		goto error;
 	}
 
 	if (session_mode == private->session_mode)
-		return 0;
+		goto success;
+
+	DRM_MMP_EVENT_START(set_mode, private->session_mode,
+			session_mode);
+
 	/* For releasing HW resource purpose, the ddp mode should
 	 * switching reversely in some situation.
 	 * CRTC2 -> CRTC1 ->CRTC0
 	 */
 	if (session_mode == MTK_DRM_SESSION_DC_MIRROR ||
 	    private->session_mode == MTK_DRM_SESSION_TRIPLE_DL) {
+		DRM_MMP_MARK(set_mode, 1, 0);
 		for (i = MAX_CRTC - 1; i >= 0; i--) {
 			if (private->crtc[i])
 				mtk_crtc_path_switch(
@@ -119,6 +125,7 @@ int mtk_session_set_mode(struct drm_device *dev, unsigned int session_mode)
 					mode_tb[session_mode].ddp_mode[i], 1);
 		}
 	} else {
+		DRM_MMP_MARK(set_mode, 1, 1);
 		for (i = 0; i < MAX_CRTC; i++) {
 			if (private->crtc[i])
 				mtk_crtc_path_switch(
@@ -127,7 +134,14 @@ int mtk_session_set_mode(struct drm_device *dev, unsigned int session_mode)
 		}
 	}
 	private->session_mode = session_mode;
+	DRM_MMP_EVENT_END(set_mode, private->session_mode,
+			session_mode);
+
+success:
 	return 0;
+
+error:
+	return -EINVAL;
 }
 
 int mtk_drm_session_destroy(struct drm_device *dev,

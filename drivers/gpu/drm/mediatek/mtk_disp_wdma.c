@@ -211,7 +211,7 @@ static irqreturn_t mtk_wdma_irq_handler(int irq, void *dev_id)
 	if (wdma->id == DDP_COMPONENT_WDMA0)
 		DRM_MMP_MARK(wdma0, val, 0);
 
-	if (val & 0x1)
+	if (val & 0x2)
 		DRM_MMP_MARK(abnormal_irq, val, wdma->id);
 
 	DDPIRQ("%s irq, val:0x%x\n", mtk_dump_comp_str(wdma), val);
