@@ -10599,7 +10599,7 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 			if (FrameStatus[module] != CAM_FST_DROP_FRAME) {
 				IRQ_LOG_KEEPER(
 					module, m_CurrentPPB, _LOG_INF,
-					"CAM_%c P1_DON_%d(0x%08x_0x%08x,0x%08x_0x%08x)dma done(0x%x,0x%x)\n",
+					"CAM_%c P1_DON_%d(0x%08x_0x%08x,0x%08x_0x%08x)dma done(0x%x,0x%x,0x%x)\n",
 					'A' + cardinalNum,
 					(sof_count[module])
 						? (sof_count[module] - 1)
@@ -10612,8 +10612,11 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 						CAM_REG_CTL_RAW_INT2_STATUSX(
 						ISP_CAM_A_IDX)),
 					(unsigned int)ISP_RD32(
-						CAM_REG_CTL_RAW_INT3_STATUSX(
-						ISP_CAM_A_IDX)));
+						CAM_REG_CTL_RAW_INT2_STATUSX(
+						ISP_CAM_B_IDX)),
+					(unsigned int)ISP_RD32(
+						CAM_REG_CTL_RAW_INT2_STATUSX(
+						ISP_CAM_C_IDX)));
 			}
 		}
 #if (TSTMP_SUBSAMPLE_INTPL == 1)
