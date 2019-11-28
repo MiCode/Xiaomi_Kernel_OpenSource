@@ -138,8 +138,10 @@ static int hf_manager_report_event(struct hf_client *client,
 	/* remain 1 count */
 	next = hf_fifo->head + 1;
 	next &= hf_fifo->bufsize - 1;
-	if (unlikely(next == hf_fifo->tail))
+	if (unlikely(next == hf_fifo->tail)) {
 		hf_fifo->buffull = true;
+		hf_fifo->hang_begin = ktime_get_boot_ns();
+	}
 	spin_unlock_irqrestore(&hf_fifo->buffer_lock, flags);
 
 	wake_up_interruptible(&hf_fifo->wait);
@@ -795,7 +797,6 @@ static int fetch_next(struct hf_client_fifo *hf_fifo,
 		*event = hf_fifo->buffer[hf_fifo->tail++];
 		hf_fifo->tail &= hf_fifo->bufsize - 1;
 		hf_fifo->buffull = false;
-		hf_fifo->hang_begin = ktime_get_boot_ns();
 	}
 	spin_unlock_irqrestore(&hf_fifo->buffer_lock, flags);
 	return have_event;
