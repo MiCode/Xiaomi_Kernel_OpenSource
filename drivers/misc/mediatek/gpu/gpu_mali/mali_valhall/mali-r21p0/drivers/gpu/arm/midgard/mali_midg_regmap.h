@@ -423,7 +423,6 @@
 /* End THREAD_* registers */
 
 /* SHADER_CONFIG register */
-#define SC_DISABLE_CRC_AFBC_COMPRESSED (1ul << 1)
 #define SC_LS_ALLOW_ATTR_TYPES      (1ul << 16)
 #define SC_TLS_HASH_ENABLE          (1ul << 17)
 #define SC_LS_ATTR_CHECK_DISABLE    (1ul << 18)

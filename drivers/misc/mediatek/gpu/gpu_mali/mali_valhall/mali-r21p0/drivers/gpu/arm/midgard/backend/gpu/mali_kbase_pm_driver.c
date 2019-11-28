@@ -1732,9 +1732,6 @@ static void kbase_set_sc_quirks(struct kbase_device *kbdev, const u32 prod_id)
 	kbdev->hw_quirks_sc = kbase_reg_read(kbdev,
 					GPU_CONTROL_REG(SHADER_CONFIG));
 
-	/* GPU2017-1360: Disable CRC on AFBC compression data */
-	kbdev->hw_quirks_sc |= SC_DISABLE_CRC_AFBC_COMPRESSED;
-
 	if (prod_id < 0x750 || prod_id == 0x6956) /* T60x, T62x, T72x */
 		kbdev->hw_quirks_sc |= SC_LS_ATTR_CHECK_DISABLE;
 	else if (prod_id >= 0x750 && prod_id <= 0x880) /* T76x, T8xx */
