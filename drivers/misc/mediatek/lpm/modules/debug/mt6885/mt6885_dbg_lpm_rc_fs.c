@@ -61,6 +61,8 @@ enum MT6885_RC_NODE_TYPE {
 	MT6885_RC_NODE_COND_CLR,
 	MT6885_RC_NODE_RATIO_ENABLE,
 	MT6885_RC_NODE_RATIO_INTERVAL,
+	MT6885_RC_NODE_VALID_BBLPM,
+	MT6885_RC_NODE_VALID_TRACE,
 	MT6885_RC_NODE_MAX
 };
 
@@ -85,6 +87,12 @@ struct MT6885_RC_COND_HANDLES {
 	struct MT6885_RC_NODE hEnable;
 };
 
+struct MT6885_RC_VALID_HANDLES {
+	struct MT6885_RC_ENTERY root;
+	struct MT6885_RC_NODE hBblpm;
+	struct MT6885_RC_NODE hTrace;
+};
+
 struct MT6885_RC_RATIO_HANDLES {
 	struct MT6885_RC_ENTERY root;
 	struct MT6885_RC_NODE hInterval;
@@ -100,6 +108,7 @@ struct MT6885_RC_HANDLE_BASIC {
 struct MT6885_RC_HANDLE {
 	struct MT6885_RC_HANDLE_BASIC basic;
 	struct MT6885_RC_COND_HANDLES hCond;
+	struct MT6885_RC_VALID_HANDLES valid;
 };
 
 
@@ -298,6 +307,16 @@ static ssize_t mt6885_generic_rc_read(char *ToUserBuf,
 		mt6885_rc_log(ToUserBuf, sz, len, "%lu\n",
 			mtk_lpm_timer_interval(&rc_ratio_timer));
 		break;
+	case MT6885_RC_NODE_VALID_BBLPM:
+		mt6885_rc_log(ToUserBuf, sz, len, "%lu\n",
+			MT6885_DBG_SMC(MT_SPM_DBG_SMC_UID_RC_BBLPM,
+				    MT_LPM_SMC_ACT_GET, node->rc_id, 0));
+		break;
+	case MT6885_RC_NODE_VALID_TRACE:
+		mt6885_rc_log(ToUserBuf, sz, len, "%lu\n",
+			MT6885_DBG_SMC(MT_SPM_DBG_SMC_UID_RC_TRACE,
+				    MT_LPM_SMC_ACT_GET, node->rc_id, 0));
+		break;
 	}
 
 	return len;
@@ -312,7 +331,9 @@ static ssize_t mt6885_generic_rc_write(char *FromUserBuf,
 		return -EINVAL;
 
 	if ((node->type == MT6885_RC_NODE_RC_ENABLE) ||
-	    (node->type == MT6885_RC_NODE_COND_ENABLE)) {
+	    (node->type == MT6885_RC_NODE_COND_ENABLE) ||
+	    (node->type == MT6885_RC_NODE_VALID_BBLPM) ||
+	    (node->type == MT6885_RC_NODE_VALID_TRACE)) {
 		unsigned int parm;
 		int cmd;
 
@@ -320,7 +341,11 @@ static ssize_t mt6885_generic_rc_write(char *FromUserBuf,
 			cmd = (node->type == MT6885_RC_NODE_RC_ENABLE) ?
 				MT_SPM_DBG_SMC_UID_RC_SWITCH :
 				(node->type == MT6885_RC_NODE_COND_ENABLE) ?
-				MT_SPM_DBG_SMC_UID_COND_CHECK : -1;
+				MT_SPM_DBG_SMC_UID_COND_CHECK :
+				(node->type == MT6885_RC_NODE_VALID_BBLPM) ?
+				MT_SPM_DBG_SMC_UID_RC_BBLPM :
+				(node->type == MT6885_RC_NODE_VALID_TRACE) ?
+				MT_SPM_DBG_SMC_UID_RC_TRACE : -1;
 
 			if (cmd < 0)
 				return -EINVAL;
@@ -386,6 +411,29 @@ static int mt6885_lpm_rc_entry_add(struct MT6885_RC_ENTERY *n,
 					   &p->handle, &n->handle);
 }
 
+static int mt6885_lpm_rc_valid_node_add(int rc_id,
+					struct MT6885_RC_ENTERY *parent,
+					struct MT6885_RC_VALID_HANDLES *valid)
+{
+	int bRet = 0;
+
+	if (!valid || !parent)
+		return -EINVAL;
+
+	valid->root.name = "valid";
+	bRet = mt6885_lpm_rc_entry_add(&valid->root, 0644, parent);
+
+	if (!bRet) {
+		MT6885_GENERIC_RC_NODE_INIT(valid->hBblpm, "bblpm",
+				    rc_id, MT6885_RC_NODE_VALID_BBLPM);
+		mt6885_lpm_rc_node_add(&valid->hBblpm, 0200, &valid->root);
+		MT6885_GENERIC_RC_NODE_INIT(valid->hTrace, "trace",
+				    rc_id, MT6885_RC_NODE_VALID_TRACE);
+		mt6885_lpm_rc_node_add(&valid->hTrace, 0200, &valid->root);
+	}
+	return bRet;
+}
+
 static int mt6885_lpm_rc_ratio_entry(struct mtk_lp_sysfs_handle *parent,
 					struct MT6885_RC_RATIO_HANDLES *ratio)
 {
@@ -440,7 +488,6 @@ static int mt6885_lpm_rc_cond_node_add(int rc_id,
 	return bRet;
 }
 
-
 static int mt6885_lpm_rc_entry_nodes_basic(int IsSimple,
 					const char *name, int rc_id,
 					struct mtk_lp_sysfs_handle *parent,
@@ -485,6 +532,9 @@ int mt6885_lpm_rc_entry_nodes(const char *name, int rc_id,
 
 	bRet = mt6885_lpm_rc_cond_node_add(rc_id, &rc->basic.root,
 					   &rc->hCond);
+
+	bRet = mt6885_lpm_rc_valid_node_add(rc_id, &rc->basic.root,
+					   &rc->valid);
 	return 0;
 }
 
@@ -520,6 +570,14 @@ int mt6885_dbg_lpm_fs_init(void)
 	mtk_lpm_timer_init(&rc_ratio_timer, MTK_LPM_TIMER_REPEAT);
 	mtk_lpm_timer_interval_update(&rc_ratio_timer,
 				MT6885_LPM_RC_RATIO_DEFAULT);
+
+	/* enable constraint tracing */
+	MT6885_DBG_SMC(MT_SPM_DBG_SMC_UID_RC_TRACE,
+			MT_LPM_SMC_ACT_SET, MT_RM_CONSTRAINT_ID_BUS26M, 0);
+	MT6885_DBG_SMC(MT_SPM_DBG_SMC_UID_RC_TRACE,
+			MT_LPM_SMC_ACT_SET, MT_RM_CONSTRAINT_ID_SYSPLL, 0);
+	MT6885_DBG_SMC(MT_SPM_DBG_SMC_UID_RC_TRACE,
+			MT_LPM_SMC_ACT_SET, MT_RM_CONSTRAINT_ID_DRAM, 0);
 	return 0;
 }
 
@@ -528,5 +586,13 @@ int mt6885_dbg_lpm_fs_deinit(void)
 	/* disable resource contraint condition block latch */
 	mtk_lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_BLOCK_LATCH,
 			    MT_LPM_SMC_ACT_CLR, 0, 0);
+
+	/* disable constraint tracing */
+	MT6885_DBG_SMC(MT_SPM_DBG_SMC_UID_RC_TRACE,
+			MT_LPM_SMC_ACT_CLR, MT_RM_CONSTRAINT_ID_BUS26M, 0);
+	MT6885_DBG_SMC(MT_SPM_DBG_SMC_UID_RC_TRACE,
+			MT_LPM_SMC_ACT_CLR, MT_RM_CONSTRAINT_ID_SYSPLL, 0);
+	MT6885_DBG_SMC(MT_SPM_DBG_SMC_UID_RC_TRACE,
+			MT_LPM_SMC_ACT_CLR, MT_RM_CONSTRAINT_ID_DRAM, 0);
 	return 0;
 }
