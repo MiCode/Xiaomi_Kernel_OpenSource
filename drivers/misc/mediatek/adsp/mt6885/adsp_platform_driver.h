@@ -80,6 +80,11 @@ struct adsp_priv {
 	/* snapshot for recovery restore */
 	void *itcm_snapshot;
 	void *dtcm_snapshot;
+
+	/* dram watch region */
+	unsigned int watch_offset;
+	unsigned int watch_size;
+	void *watch_dram_golden;
 };
 
 struct adsp_c2c_share_dram_info_t {
