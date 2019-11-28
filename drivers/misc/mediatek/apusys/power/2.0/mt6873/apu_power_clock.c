@@ -146,9 +146,9 @@ int enable_apu_mtcmos(int enable)
 	int ret_all = 0;
 
 	if (enable)
-		ENABLE_CLK(mtcmos_scp_sys_vpu);
+		ENABLE_CLK(mtcmos_scp_sys_vpu)
 	else
-		DISABLE_CLK(mtcmos_scp_sys_vpu);
+		DISABLE_CLK(mtcmos_scp_sys_vpu)
 
 
 	LOG_WRN("%s enable var = %d, ret = %d\n", __func__, enable, ret_all);
