@@ -295,10 +295,12 @@ int deadline_task_boost(struct apusys_subcmd *sc)
 {
 	struct apusys_res_table *tab;
 	struct deadline_root *root;
-	unsigned int suggest_time = sc->c_hdr->suggest_time * 1000;
+	unsigned int suggest_time;
 
 	if (sc == NULL)
 		return 0;
+
+	suggest_time = sc->c_hdr->suggest_time * 1000;
 
 	tab = res_get_table(sc->type);
 	root = &tab->deadline_q;

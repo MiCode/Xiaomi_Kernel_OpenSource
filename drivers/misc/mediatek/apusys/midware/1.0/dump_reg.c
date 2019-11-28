@@ -372,7 +372,9 @@ void apusys_reg_dump(void)
 	/* Skip undefine reg */
 	memcpy_fromio(reg_all_mem + 0x01000, apu_top + 0x01000, 0x2000);
 	memcpy_fromio(reg_all_mem + 0x10000, apu_top + 0x10000, 0x10000);
-	memcpy_fromio(reg_all_mem + 0x20000, apu_top + 0x20000, 0xA000);
+	memcpy_fromio(reg_all_mem + 0x20000, apu_top + 0x20000, 0x1000);
+	/* Skip 0x1902_1000 for security reason */
+	memcpy_fromio(reg_all_mem + 0x22000, apu_top + 0x22000, 0x8000);
 	memcpy_fromio(reg_all_mem + 0x30000, apu_top + 0x30000, 0x3000);
 	memcpy_fromio(reg_all_mem + 0x34000, apu_top + 0x34000, 0x2534);
 	memcpy_fromio(reg_all_mem + 0x36538, apu_top + 0x36538, 0x4000);
