@@ -399,6 +399,7 @@ static int mtk_drm_esd_recover(struct drm_crtc *crtc)
 		ret = -EINVAL;
 		goto done;
 	}
+	mtk_drm_idlemgr_kick(__func__, &mtk_crtc->base, 0);
 
 	mtk_ddp_comp_io_cmd(output_comp, NULL, CONNECTOR_PANEL_DISABLE, NULL);
 
