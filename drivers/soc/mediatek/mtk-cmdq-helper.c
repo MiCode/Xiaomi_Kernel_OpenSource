@@ -1625,8 +1625,10 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 	}
 
 	cmdq_util_err("End of Error %u", err_num);
-	if (err_num == 0)
+	if (err_num == 0) {
 		cmdq_util_error_disable();
+		cmdq_util_set_first_err_mod(client->chan, mod);
+	}
 	err_num++;
 	cmdq_util_dump_unlock();
 

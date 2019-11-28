@@ -1170,6 +1170,11 @@ void cmdq_thread_dump_all(void *mbox_cmdq)
 	struct cmdq *cmdq = mbox_cmdq;
 	u32 i;
 	u32 en, curr_pa, end_pa;
+	s32 usage = atomic_read(&cmdq->usage);
+
+	cmdq_msg("cmdq:%p usage:%d", cmdq, usage);
+	if (usage <= 0)
+		return;
 
 	for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++) {
 		struct cmdq_thread *thread = &cmdq->thread[i];
@@ -1612,7 +1617,7 @@ static int cmdq_probe(struct platform_device *pdev)
 
 	cmdq_mmp_init();
 
-#ifdef CONFIG_MTK_CMDQ_EXT
+#ifdef CONFIG_MTK_CMDQ_MBOX_EXT
 	cmdq_util_track_ctrl(cmdq);
 #endif
 	return 0;

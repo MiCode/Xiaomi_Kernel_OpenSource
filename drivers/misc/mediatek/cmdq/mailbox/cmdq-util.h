@@ -80,6 +80,8 @@ void cmdq_util_dump_dbg_reg(void *chan);
 void cmdq_util_track(struct cmdq_pkt *pkt);
 void cmdq_util_dump_smi(void);
 void cmdq_util_track_ctrl(void *cmdq);
+void cmdq_util_set_first_err_mod(void *chan, const char *mod);
+const char *cmdq_util_get_first_err_mod(void *chan);
 
 /* function support in platform */
 const char *cmdq_thread_module_dispatch(phys_addr_t gce_pa, s32 thread);

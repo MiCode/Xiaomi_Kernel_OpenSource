@@ -20,6 +20,8 @@
 #include <devapc_public.h>
 #endif
 
+#define CMDQ_MBOX_NUM			4
+#define CMDQ_HW_MAX			2
 #define CMDQ_RECORD_NUM			512
 #define CMDQ_FIRST_ERR_SIZE		262144	/* 256k */
 
@@ -85,8 +87,9 @@ struct cmdq_util {
 	struct cmdq_util_dentry	fs;
 	struct cmdq_record record[CMDQ_RECORD_NUM];
 	u16 record_idx;
-	void *cmdq_mbox[4];
+	void *cmdq_mbox[CMDQ_MBOX_NUM];
 	u32 mbox_cnt;
+	const char *first_err_mod[CMDQ_HW_MAX];
 };
 static struct cmdq_util	util;
 
@@ -406,13 +409,9 @@ static void cmdq_util_handle_devapc_vio(void)
 {
 	u32 i;
 
-	for (i = 0; i < util.mbox_cnt; i++) {
-		s32 usage = cmdq_mbox_get_usage(util.cmdq_mbox[i]);
-
-		cmdq_dump("GCE devapc vio usage:%d", usage);
-		if (usage)
-			cmdq_thread_dump_all(util.cmdq_mbox[i]);
-	}
+	cmdq_msg("%s mbox cnt:%u", __func__, util.mbox_cnt);
+	for (i = 0; i < util.mbox_cnt; i++)
+		cmdq_thread_dump_all(util.cmdq_mbox[i]);
 }
 
 static struct devapc_vio_callbacks devapc_vio_handle = {
@@ -423,7 +422,22 @@ static struct devapc_vio_callbacks devapc_vio_handle = {
 
 void cmdq_util_track_ctrl(void *cmdq)
 {
+	cmdq_msg("%s cmdq:%p", __func__, cmdq);
 	util.cmdq_mbox[util.mbox_cnt++] = cmdq;
+}
+
+void cmdq_util_set_first_err_mod(void *chan, const char *mod)
+{
+	u32 hw_id = cmdq_util_hw_id((u32)cmdq_mbox_get_base_pa(chan));
+
+	util.first_err_mod[hw_id] = mod;
+}
+
+const char *cmdq_util_get_first_err_mod(void *chan)
+{
+	u32 hw_id = cmdq_util_hw_id((u32)cmdq_mbox_get_base_pa(chan));
+
+	return util.first_err_mod[hw_id];
 }
 
 static int __init cmdq_util_init(void)
