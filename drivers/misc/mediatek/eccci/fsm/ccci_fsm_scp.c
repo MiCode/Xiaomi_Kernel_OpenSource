@@ -35,6 +35,7 @@ static int ccci_scp_ipi_send(int md_id, int op_id, void *data)
 {
 	int ret = 0;
 	int ipi_status = 0;
+	unsigned int cnt = 0;
 
 	if (atomic_read(&scp_state) == SCP_CCCI_STATE_INVALID) {
 		CCCI_ERROR_LOG(md_id, FSM,
@@ -58,8 +59,14 @@ static int ccci_scp_ipi_send(int md_id, int op_id, void *data)
 		0, &scp_ipi_tx_msg, (sizeof(scp_ipi_tx_msg) / 4), 1);
 		if (ipi_status != IPI_PIN_BUSY)
 			break;
+		cnt++;
+		if (cnt > 10) {
+			CCCI_ERROR_LOG(md_id, FSM, "IPI send 10 times!\n");
+			aee_kernel_warning("ccci", "ipi:tx busy");
+			break;
+		}
 	}
-	if (ipi_status == IPI_RPMSG_ERR) {
+	if (ipi_status != IPI_ACTION_DONE) {
 		CCCI_ERROR_LOG(md_id, FSM, "IPI send fail!\n");
 		ret = -CCCI_ERR_MD_NOT_READY;
 	}
