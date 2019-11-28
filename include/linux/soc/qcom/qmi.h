@@ -268,5 +268,6 @@ int qmi_txn_init(struct qmi_handle *qmi, struct qmi_txn *txn,
 		 struct qmi_elem_info *ei, void *c_struct);
 int qmi_txn_wait(struct qmi_txn *txn, unsigned long timeout);
 void qmi_txn_cancel(struct qmi_txn *txn);
+void qmi_set_sndtimeo(struct qmi_handle *qmi, long timeo);
 
 #endif
