@@ -1235,22 +1235,23 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 {
 	struct mtk_drm_lyeblob_ids *lyeblob_ids, *next;
 	struct mtk_drm_private *mtk_drm = crtc->dev->dev_private;
+	int index = drm_crtc_index(crtc);
+	int crtc_mask = 0x1 << index;
+	unsigned int prop_lye_idx;
 
 	mutex_lock(&mtk_drm->lyeblob_list_mutex);
+	prop_lye_idx = crtc_state->prop_val[CRTC_PROP_LYE_IDX];
 	list_for_each_entry_safe(lyeblob_ids, next, &mtk_drm->lyeblob_head,
 				 list) {
-		if (lyeblob_ids->lye_idx >
-		    crtc_state->prop_val[CRTC_PROP_LYE_IDX]) {
-			DDPMSG("lyeblob lost ID:%d\n",
-				 crtc_state->prop_val[CRTC_PROP_LYE_IDX]);
+		if (lyeblob_ids->lye_idx > prop_lye_idx) {
+			DDPMSG("lyeblob lost ID:%d\n", prop_lye_idx);
 			break;
-		} else if (lyeblob_ids->lye_idx ==
-			   crtc_state->prop_val[CRTC_PROP_LYE_IDX]) {
-			if (drm_crtc_index(crtc) == 0)
+		} else if (lyeblob_ids->lye_idx == prop_lye_idx) {
+			if (index == 0)
 				mtk_crtc_disp_mode_switch_begin(crtc,
 					old_crtc_state, crtc_state,
 					cmdq_handle);
-			if (drm_crtc_index(crtc) == 0)
+			if (index == 0)
 				mtk_crtc_update_hrt_state(
 					crtc, lyeblob_ids->frame_weight,
 					cmdq_handle);
@@ -1258,16 +1259,69 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 			mtk_crtc_atmoic_ddp_config(crtc, lyeblob_ids,
 						   cmdq_handle);
 			break;
-		} else if (lyeblob_ids->lye_idx <
-			   crtc_state->prop_val[CRTC_PROP_LYE_IDX]) {
+		} else if (lyeblob_ids->lye_idx < prop_lye_idx) {
 			if (lyeblob_ids->ref_cnt) {
-				lyeblob_ids->ref_cnt--;
+				DDPINFO("free:(0x%x,0x%x), cnt:%d\n",
+					 lyeblob_ids->free_cnt_mask,
+					 crtc_mask,
+					 lyeblob_ids->ref_cnt);
+				if (lyeblob_ids->free_cnt_mask & crtc_mask) {
+					lyeblob_ids->free_cnt_mask &=
+						(~crtc_mask);
+					lyeblob_ids->ref_cnt--;
+					DDPINFO("free:(0x%x,0x%x), cnt:%d\n",
+						 lyeblob_ids->free_cnt_mask,
+						 crtc_mask,
+						 lyeblob_ids->ref_cnt);
+				}
 				if (!lyeblob_ids->ref_cnt) {
+					DDPINFO("free lyeblob:(%d,%d)\n",
+						lyeblob_ids->lye_idx,
+						prop_lye_idx);
 					mtk_crtc_free_lyeblob_ids(crtc,
 							lyeblob_ids);
 					mtk_crtc_free_ddpblob_ids(crtc,
 							lyeblob_ids);
 				}
+			}
+		}
+	}
+	mutex_unlock(&mtk_drm->lyeblob_list_mutex);
+}
+
+static void mtk_crtc_release_lye_idx(struct drm_crtc *crtc)
+{
+	struct mtk_drm_lyeblob_ids *lyeblob_ids, *next;
+	struct mtk_drm_private *mtk_drm = crtc->dev->dev_private;
+	int index = drm_crtc_index(crtc);
+	int crtc_mask = 0x1 << index;
+
+	mutex_lock(&mtk_drm->lyeblob_list_mutex);
+	list_for_each_entry_safe(lyeblob_ids, next, &mtk_drm->lyeblob_head,
+		list) {
+		if (lyeblob_ids->ref_cnt) {
+			DDPINFO("%s:%d free:(0x%x,0x%x), cnt:%d\n",
+				__func__, __LINE__,
+				lyeblob_ids->free_cnt_mask,
+				crtc_mask,
+				lyeblob_ids->ref_cnt);
+			if (lyeblob_ids->free_cnt_mask & crtc_mask) {
+				lyeblob_ids->free_cnt_mask &= (~crtc_mask);
+				lyeblob_ids->ref_cnt--;
+				DDPINFO("%s:%d free:(0x%x,0x%x), cnt:%d\n",
+					__func__, __LINE__,
+					lyeblob_ids->free_cnt_mask,
+					crtc_mask,
+					lyeblob_ids->ref_cnt);
+			}
+			if (!lyeblob_ids->ref_cnt) {
+				DDPINFO("%s:%d free lyeblob:%d\n",
+					__func__, __LINE__,
+					lyeblob_ids->lye_idx);
+				mtk_crtc_free_lyeblob_ids(crtc,
+					lyeblob_ids);
+				mtk_crtc_free_ddpblob_ids(crtc,
+					lyeblob_ids);
 			}
 		}
 	}
@@ -3031,6 +3085,7 @@ void mtk_drm_crtc_suspend(struct drm_crtc *crtc)
 /* release all fence */
 #ifdef MTK_DRM_FENCE_SUPPORT
 	mtk_drm_crtc_release_fence(crtc);
+	mtk_crtc_release_lye_idx(crtc);
 #endif
 	atomic_set(&mtk_crtc->already_config, 0);
 

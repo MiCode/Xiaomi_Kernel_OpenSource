@@ -1908,6 +1908,7 @@ void lye_add_blob_ids(struct drm_mtk_layering_info *l_info,
 	lyeblob_ids->ddp_blob_id = blob->base.id;
 	lyeblob_ids->ref_cnt = crtc_num;
 	lyeblob_ids->ref_cnt_mask = crtc_mask;
+	lyeblob_ids->free_cnt_mask = crtc_mask;
 	INIT_LIST_HEAD(&lyeblob_ids->list);
 	mutex_lock(&mtk_drm->lyeblob_list_mutex);
 	list_add_tail(&lyeblob_ids->list, &mtk_drm->lyeblob_head);
