@@ -4636,10 +4636,13 @@ void pll_if_on(void)
 {
 	int ret = 0;
 
+/*
 	if (clk_readl(ARMPLL_LL_CON0) & 0x1)
 		pr_notice("suspend warning: ARMPLL_LL is on!!!\n");
 	if (clk_readl(ARMPLL_BL0_CON0) & 0x1)
 		pr_notice("suspend warning: ARMPLL_BL0 is on!!!\n");
+*/
+
 	if (clk_readl(UNIVPLL_CON0) & 0x1) {
 		pr_notice("suspend warning: UNIVPLL is on!!!\n");
 		ret++;
@@ -4654,24 +4657,29 @@ void pll_if_on(void)
 	}
 	if (clk_readl(ADSPPLL_CON0) & 0x1) {
 		pr_notice("suspend warning: ADSPPLL is on!!!\n");
-		ret++;
+		/* ret++; */
 	}
+
 	if (clk_readl(MSDCPLL_CON0) & 0x1) {
 		pr_notice("suspend warning: MSDCPLL is on!!!\n");
+		/* TBD? */
 		ret++;
 	}
+
 	if (clk_readl(TVDPLL_CON0) & 0x1) {
 		pr_notice("suspend warning: TVDPLL is on!!!\n");
 		ret++;
 	}
+
 	if (clk_readl(APLL1_CON0) & 0x1) {
 		pr_notice("suspend warning: APLL1 is on!!!\n");
-		ret++;
+		/* ret++; */
 	}
 	if (clk_readl(APLL2_CON0) & 0x1) {
 		pr_notice("suspend warning: APLL2 is on!!!\n");
-		ret++;
+		/* ret++; */
 	}
+
 	if (ret > 0) {
 #ifdef CONFIG_MTK_ENG_BUILD
 		print_enabled_clks_once();

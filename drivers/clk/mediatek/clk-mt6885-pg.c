@@ -5483,11 +5483,6 @@ void subsys_if_on(void)
 
 	if ((sta & DIS_PWR_STA_MASK) && (sta_s & DIS_PWR_STA_MASK)) {
 		pr_notice("suspend warning: DIS is on!!\n");
-/* MT6885: refer this if for debugging
- *		check_mm0_clk_sts();
- *		for (i = 0; i < mm_num; i++)
- *			dump_cg_state(mm_clks[i]);
- */
 		ret++;
 	}
 
@@ -5498,7 +5493,7 @@ void subsys_if_on(void)
 
 	if ((sta & ADSP_PWR_STA_MASK) && (sta_s & ADSP_PWR_STA_MASK)) {
 		pr_notice("suspend warning: ADSP is on!!\n");
-		ret++;
+		/* ret++; */
 	}
 
 	if ((sta & CAM_PWR_STA_MASK) && (sta_s & CAM_PWR_STA_MASK)) {
@@ -5517,7 +5512,7 @@ void subsys_if_on(void)
 	}
 
 	if ((sta & CAM_RAWC_PWR_STA_MASK) && (sta_s & CAM_RAWC_PWR_STA_MASK)) {
-		pr_notice("suspend warning: CAM_RAWCis on!!\n");
+		pr_notice("suspend warning: CAM_RAWC is on!!\n");
 		ret++;
 	}
 
