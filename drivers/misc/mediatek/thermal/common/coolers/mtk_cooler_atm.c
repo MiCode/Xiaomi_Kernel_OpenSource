@@ -3732,13 +3732,39 @@ static int krtatm_thread(void *arg)
 
 			/* To confirm if krtatm kthread is really running. */
 			if (krtatm_curr_maxtj >= 100000 ||
-			(krtatm_curr_maxtj - krtatm_prev_maxtj >= 20000))
+			(krtatm_curr_maxtj - krtatm_prev_maxtj >= 20000)) {
 				tscpu_warn("%s c %d p %d cl %d gl %d s %d\n",
 				__func__, krtatm_curr_maxtj,
 				krtatm_prev_maxtj,
 				adaptive_cpu_power_limit,
 				adaptive_gpu_power_limit,
 				cl_dev_adp_cpu_state_active);
+				/* dump more info when atm is deactivated */
+				if (!cl_dev_adp_cpu_state_active) {
+#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+					pr_info_ratelimited(TSCPU_LOG_TAG
+					"tjs %d ttj %d %d on %d sspm %d %d\n",
+					TARGET_TJS[0], TARGET_TJ,
+					current_ETJ, ctm_on,
+#ifdef THERMAL_SSPM_THERMAL_THROTTLE_SWITCH
+					tscpu_sspm_thermal_throttle,
+#else
+					1, /* disabled */
+#endif
+#if THERMAL_ENABLE_TINYSYS_SSPM &&	\
+	CPT_ADAPTIVE_AP_COOLER && PRECISE_HYBRID_POWER_BUDGET && CONTINUOUS_TM
+					atm_sspm_enabled);
+#else
+					0);
+#endif
+#else /* !CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
+					pr_info_ratelimited(TSCPU_LOG_TAG
+					"tjs %d ttj %d %d on %d\n",
+					TARGET_TJS[0], TARGET_TJ,
+					current_ETJ, ctm_on);
+#endif
+				}
+			}
 
 #ifdef ATM_CFG_PROFILING
 			end = ktime_get();
