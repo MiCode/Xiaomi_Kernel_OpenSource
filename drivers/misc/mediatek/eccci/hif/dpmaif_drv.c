@@ -1385,9 +1385,9 @@ unsigned int drv_dpmaif_ul_idle_check(void)
 			DPMAIF_UL_IDLE_STS_MSK);
 
 	if (idle_sts == DPMAIF_UL_IDLE_STS)
-		ret = 1;
-	else
 		ret = 0;
+	else
+		ret = 1;
 
 	return ret;
 }
