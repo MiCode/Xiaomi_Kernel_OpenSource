@@ -2343,7 +2343,13 @@ static inline bool kbase_device_is_cpu_coherent(struct kbase_device *kbdev)
 /* Maximum number of loops polling the GPU for a cache flush before we assume it must have completed */
 #define KBASE_CLEAN_CACHE_MAX_LOOPS     100000
 /* Maximum number of loops polling the GPU for an AS command to complete before we assume the GPU has hung */
-#define KBASE_AS_INACTIVE_MAX_LOOPS     100000000
+
+/* Debug for ALPS04849331
+ * [CAS-139913-G0L0D4] 2806e02a_irq_lock_debug_patch.diff
+ */
+// #define KBASE_AS_INACTIVE_MAX_LOOPS	  100000000
+#define KBASE_AS_INACTIVE_MAX_LOOPS     100000
+
 
 /* JobDescriptorHeader - taken from the architecture specifications, the layout
  * is currently identical for all GPU archs. */

@@ -77,6 +77,13 @@ static int wait_ready(struct kbase_device *kbdev,
 	while (--max_loops && (val & AS_STATUS_AS_ACTIVE))
 		val = kbase_reg_read(kbdev, MMU_AS_REG(as_nr, AS_STATUS));
 
+	/* Debug for ALPS04849331
+	 * [CAS-139913-G0L0D4] 2806e02a_irq_lock_debug_patch.diff
+	 */
+	if (max_loops < KBASE_AS_INACTIVE_MAX_LOOPS - 100)
+		dev_err(kbdev->dev, "mali_kbase:max_loops = %d\n", max_loops);
+	/* end of [CAS-139913-G0L0D4] 2806e02a_irq_lock_debug_patch.diff*/
+
 	if (max_loops == 0) {
 		dev_err(kbdev->dev, "AS_ACTIVE bit stuck, might be caused by slow/unstable GPU clock or possible faulty FPGA connector\n");
 		return -1;
