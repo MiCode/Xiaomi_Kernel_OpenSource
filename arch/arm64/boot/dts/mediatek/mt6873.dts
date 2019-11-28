@@ -1270,6 +1270,24 @@
 		reg = <0 0x0d0c0000 0 0x40000>;
 	};
 
+	auxadc: auxadc@11001000 {
+		compatible = "mediatek,mt6768-auxadc";
+		reg = <0 0x11001000 0 0x1000>;
+		interrupts = <GIC_SPI 64 IRQ_TYPE_EDGE_RISING>;
+		clocks = <&infracfg_ao INFRACFG_AO_AUXADC_CG>;
+		clock-names = "main";
+		#io-channel-cells = <1>;
+		/* Auxadc efuse calibration */
+		/* 1. Auxadc cali on/off bit shift */
+		mediatek,cali-en-bit = <20>;
+		/* 2. Auxadc cali ge bits shift */
+		mediatek,cali-ge-bit = <10>;
+		/* 3. Auxadc cali oe bits shift */
+		mediatek,cali-oe-bit = <0>;
+		/* 4. Auxadc cali efuse index */
+		mediatek,cali-efuse-index = <113>;
+	};
+
 	mali@13000000 {
 		compatible = "mediatek,mali", "arm,mali-valhall";
 		reg = <0 0x13000000 0 0x4000>;
