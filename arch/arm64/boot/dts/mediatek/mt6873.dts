@@ -1859,6 +1859,16 @@
 		#clock-cells = <1>;
 	};
 
+	apusys_mnoc@1906e000 {
+		compatible = "mediatek,apusys_mnoc";
+		reg = <0 0x1906e000 0 0xa000>,	/* mnoc reg  */
+		      <0 0x19001000 0 0x1000>,	/* apusys int */
+		      <0 0x19020000 0 0x1000>,	/* apu_conn_config */
+		      <0 0x10001000 0 0x1000>,	/* slp prot 1 */
+		      <0 0x10215000 0 0x1000>;	/* slp prot 2 */
+		interrupts = <GIC_SPI 407 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
 	mdpsys_config: mdpsys_config@1f000000 {
 		compatible = "mediatek,mdpsys_config", "syscon";
 		reg = <0 0x1f000000 0 0x1000>;

@@ -45,13 +45,9 @@ __raw_writel(val, (void __iomem *) (uintptr_t) addr)
 enum apu_qos_mni {
 	MNI_VPU0,
 	MNI_VPU1,
-	MNI_VPU2,
 	MNI_MDLA0_0,
 	MNI_MDLA0_1,
-	MNI_MDLA1_0,
-	MNI_MDLA1_1,
 	MNI_EDMA0,
-	MNI_EDMA1,
 	MNI_MD32,
 
 	NR_APU_QOS_MNI
@@ -60,11 +56,8 @@ enum apu_qos_mni {
 enum apu_qos_engine {
 	APU_QOS_ENGINE_VPU0,
 	APU_QOS_ENGINE_VPU1,
-	APU_QOS_ENGINE_VPU2,
 	APU_QOS_ENGINE_MDLA0,
-	APU_QOS_ENGINE_MDLA1,
 	APU_QOS_ENGINE_EDMA0,
-	APU_QOS_ENGINE_EDMA1,
 	APU_QOS_ENGINE_MD32,
 
 	NR_APU_QOS_ENGINE
@@ -101,15 +94,26 @@ enum rt_int_sta {
 	NR_RT_INT_STA
 };
 
-#define NR_APU_ENGINE_VPU (3)
-#define NR_APU_ENGINE_MDLA (2)
-#define NR_APU_ENGINE_EDMA (2)
+#define NR_APU_ENGINE_VPU (2)
+#define NR_APU_ENGINE_MDLA (1)
+#define NR_APU_ENGINE_EDMA (1)
 
 #define NR_MNOC_RT (5)
-#define NR_GROUP (1)
-#define NR_MNOC_MNI (16)
-#define NR_MNOC_SNI (16)
-#define NR_MNOC_PMU_CNTR (16)
+#define NR_GROUP (5)
+#define NR_MNI_PER_GROUP (2)
+#define NR_SNI_PER_GROUP (2)
+#define NR_PMU_CNTR_PER_GRP (16)
+#define NR_MNOC_PMU_CNTR (NR_PMU_CNTR_PER_GRP*NR_GROUP)
+
+#define APU_NOC_TOP_BASE (0x1906E000)
+
+#define APU_NOC_GROUP0 (0x0)
+#define APU_NOC_GROUP1 (0x2000)
+#define APU_NOC_GROUP2 (0x4000)
+#define APU_NOC_GROUP3 (0x6000)
+#define APU_NOC_GROUP4 (0x8000)
+
+#define MNI_QOS_CTRL (0x1000)
 
 /* 0x1906E000 */
 #define APU_NOC_TOP_BASEADDR mnoc_base
@@ -125,28 +129,39 @@ enum rt_int_sta {
 /* MNoC register definition */
 #define APUSYS_INT_EN (MNOC_INT_BASEADDR + 0x80)
 #define APUSYS_INT_STA (MNOC_INT_BASEADDR + 0x34)
-#define MNOC_INT_MAP (0x3)
+
+#define GRP_INT_MAP_0 (0x3 << 0)
+#define GRP_INT_MAP_1 (0x3 << 23)
+#define GRP_INT_MAP_2 (0x3 << 25)
+#define GRP_INT_MAP_3 (0x3 << 27)
+#define GRP_INT_MAP_4 (0x3 << 29)
+/* bit 0~1, 23~30 */
+#define MNOC_INT_MAP (GRP_INT_MAP_0 | GRP_INT_MAP_1 |\
+					  GRP_INT_MAP_2 | GRP_INT_MAP_3 |\
+					  GRP_INT_MAP_4)
 
 #define APU_TCM_HASH_TRUNCATE_CTRL0 (MNOC_APU_CONN_BASEADDR + 0x7C)
 
 /* #define APU_NOC_TOP_BASEADDR			(0x1906E000) */
 #define APU_NOC_TOP_ADDR (0x1906E000)
-#define APU_NOC_TOP_RANGE (0x2000)
+#define APU_NOC_TOP_RANGE (0xA000)
 
 #define APU_NOC_PMU_ADDR (0x1906E200)
-#define APU_NOC_PMU_RANGE (0x48C)
+#define APU_NOC_PMU_RANGE (0x41C)
+#define APU_NOC_GRP_REG_SZ (0x2000)
 
-#define MNI_QOS_CTRL_BASE (APU_NOC_TOP_BASEADDR + 0x1000)
-#define MNI_QOS_INFO_BASE (APU_NOC_TOP_BASEADDR + 0x1800)
-#define MNI_QOS_REG(base, reg_num, mni_offset) \
-(base + reg_num*16*4 + mni_offset*4)
+#define MNI_QOS_REG(group, reg_offset, reg_num, mni_offset)\
+	(APU_NOC_TOP_BASEADDR + grp_base_addr[group] + reg_offset +\
+	reg_num*grp_nr_mni[group]*4 + mni_offset*4)
 
-#define REQ_RT_PMU_BASE (APU_NOC_TOP_BASEADDR + 0x500)
-#define RSP_RT_PMU_BASE (APU_NOC_TOP_BASEADDR + 0x600)
-#define MNOC_RT_PMU_REG(base, reg_num, rt_num)	(base + reg_num*5*4 + rt_num*4)
+#define REQ_RT_PMU (0x500)
+#define RSP_RT_PMU (0x600)
+
+#define MNOC_RT_PMU_REG(group, reg_offset, reg_num)\
+	(APU_NOC_TOP_BASEADDR + grp_base_addr[group] + reg_offset + reg_num*4)
 
 #define MISC_CTRL (0x0)
-#define SLV_QOS_CTRL1 (0x14)
+#define SLV_QOS_CTRL0 (0x10)
 #define MNI_QOS_IRQ_FLAG (0x18)
 #define ADDR_DEC_ERR_FLAG (0x30)
 #define MST_PARITY_ERR_FLAG (0x38)
@@ -163,20 +178,27 @@ enum rt_int_sta {
 #define SLV_CRDT_ERR_FLAG (0x194)
 #define REQRT_CRDT_ERR_FLAG (0x198)
 #define RSPRT_CRDT_ERR_FLAG (0x19C)
+#define APU_NOC_PMU_CTRL0 (0x200)
 
-#define MNOC_REG(offset) (APU_NOC_TOP_BASEADDR + offset)
-
-#define PMU_COUNTER0_OUT (APU_NOC_TOP_BASEADDR + 0x240)
+#define PMU_COUNTER0_OUT (0x240)
 
 #define QG_LT_THL_PRE_ULTRA (0x1FFF)
 #define QG_LT_THH_PRE_ULTRA (0x1FFF)
 
+#define MNOC_REG(group, reg_offset)\
+	(APU_NOC_TOP_BASEADDR + grp_base_addr[group] + reg_offset)
+
+struct int_sta_info {
+	uint32_t reg_val;
+	uint64_t timestamp;
+};
+
 struct mnoc_int_dump {
 	uint32_t count;
-	uint32_t mni_int_sta[NR_MNI_INT_STA];
-	uint32_t sni_int_sta[NR_SNI_INT_STA];
-	uint32_t rt_int_sta[NR_RT_INT_STA];
-	uint32_t sw_irq_sta;
+	struct int_sta_info mni_int_sta[NR_MNI_INT_STA];
+	struct int_sta_info sni_int_sta[NR_SNI_INT_STA];
+	struct int_sta_info rt_int_sta[NR_RT_INT_STA];
+	struct int_sta_info sw_irq_sta;
 };
 
 bool mnoc_check_int_status(void);
@@ -192,5 +214,8 @@ void infra2apu_sram_dis(void);
 void apu2infra_bus_protect_en(void);
 void apu2infra_bus_protect_dis(void);
 void print_int_sta(struct seq_file *m);
+void mnoc_hw_init(void);
+void mnoc_hw_exit(void);
+int mnoc_alloc_iommu_tfrp(void);
 
 #endif
