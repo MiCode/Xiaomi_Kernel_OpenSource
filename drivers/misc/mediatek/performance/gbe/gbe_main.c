@@ -39,8 +39,7 @@
 #define TIMER1_MS 100
 #define TIMER2_MS 1000
 #define MAX_BOOST_CNT 15
-#define LOADING_TH 25
-#define NUM_FRAME_TO_FREE 5
+#define LOADING_TH 20
 
 #define SYSTEMUI_STR "ndroid.systemui"
 
