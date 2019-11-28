@@ -2662,7 +2662,11 @@ static void imx576_set_lsc_reg_setting(
 #endif
 	LOG_INF("E! index:%d, regNum:%d\n", index, regNum);
 
-	write_cmos_sensor_8(0x0B00, 0x01); /*lsc enable*/
+	if (write_cmos_sensor_8(0x0B00, 0x01) != 0) { /*lsc enable*/
+		LOG_INF("Write i2c failed with lsc enable\n");
+		return;
+	}
+
 	write_cmos_sensor_8(0x9014, 0x01);
 	write_cmos_sensor_8(0x4439, 0x01);
 	mdelay(1);
