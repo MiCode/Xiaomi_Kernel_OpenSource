@@ -1443,6 +1443,11 @@ static void cmdq_pkt_err_irq_dump(struct cmdq_pkt *pkt)
 	cmdq_util_err("pkt:%lx thread:%d pc:%lx",
 		(unsigned long)pkt, thread_id, (unsigned long)pc);
 
+	if (pkt->evt_revert_end)
+		cmdq_util_msg("revert offset:%u %u lock:%u",
+			pkt->evt_revert, pkt->evt_revert_end,
+			cmdq_get_event(client->chan, CMDQ_TOKEN_TPR_LOCK));
+
 	if (pc) {
 		list_for_each_entry(buf, &pkt->buf, list_entry) {
 			if (pc < buf->pa_base ||
@@ -1467,10 +1472,6 @@ static void cmdq_pkt_err_irq_dump(struct cmdq_pkt *pkt)
 			break;
 		}
 	}
-
-	if (pkt->evt_revert_end)
-		cmdq_util_err("revert offset:%u %u",
-			pkt->evt_revert, pkt->evt_revert_end);
 
 	if (inst) {
 		/* not sync case, print raw */
@@ -1589,6 +1590,11 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 		item->err_cb(cb_data);
 	}
 
+	if (pkt->evt_revert_end)
+		cmdq_util_msg("revert offset:%u %u lock:%u",
+			pkt->evt_revert, pkt->evt_revert_end,
+			cmdq_get_event(client->chan, CMDQ_TOKEN_TPR_LOCK));
+
 	cmdq_dump_pkt(pkt, pc, true);
 	cmdq_util_dump_smi();
 
@@ -1613,8 +1619,9 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 			mod = "CMDQ";
 
 		/* no inst available */
-		cmdq_util_aee(mod, "DISPATCH:%s(%s) unknown instruction",
-			mod, cmdq_util_hw_name(client->chan));
+		cmdq_util_aee(mod,
+			"DISPATCH:%s(%s) unknown instruction thread:%d",
+			mod, cmdq_util_hw_name(client->chan), thread_id);
 	}
 
 	cmdq_util_err("End of Error %u", err_num);
