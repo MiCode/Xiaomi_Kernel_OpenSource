@@ -173,7 +173,6 @@ static unsigned int lock_mon_3rd_th_ms = 15000; /* trigger Kernel API dump */
 static unsigned int lock_mon_period_ms = 2500; /* check held locks */
 static unsigned int lock_mon_period_cnt = 4; /* show more information */
 static unsigned int lock_mon_door;
-static struct delayed_work lock_mon_work;
 
 static const char * const held_lock_white_list[] = {
 	"&tty->ldisc_sem",
@@ -6168,22 +6167,26 @@ static void check_debug_locks_stats(void)
 	}
 }
 
-static void lock_monitor_work(struct work_struct *work)
+static int lock_monitor_work(void *data)
 {
 	static int count;
 	int force = 0;
 
-	/* print backtrace or not */
-	if (++count == lock_mon_period_cnt) {
-		count = 0;
-		force = 1;
-	}
+	while (1) {
+		force = 0;
 
-	check_debug_locks_stats();
-	if (lock_mon_enable)
-		check_held_locks(force);
-	queue_delayed_work(system_unbound_wq, &lock_mon_work,
-			   msecs_to_jiffies(lock_mon_period_ms));
+		/* print backtrace or not */
+		if (++count == lock_mon_period_cnt) {
+			count = 0;
+			force = 1;
+		}
+
+		check_debug_locks_stats();
+		if (lock_mon_enable)
+			check_held_locks(force);
+
+		msleep(lock_mon_period_ms);
+	}
 }
 
 #define DECLARE_LOCK_MONITOR_MATCH(name, param) \
@@ -6295,9 +6298,7 @@ void lock_monitor_init(void)
 	if (!pe)
 		return;
 
-	INIT_DELAYED_WORK(&lock_mon_work, lock_monitor_work);
-	queue_delayed_work(system_unbound_wq, &lock_mon_work,
-		msecs_to_jiffies(lock_mon_period_ms));
+	kthread_run(lock_monitor_work, NULL, "lock_monitor_work");
 }
 #else
 void check_held_locks(int force)
