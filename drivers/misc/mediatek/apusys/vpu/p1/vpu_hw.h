@@ -11,32 +11,13 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _MT6885_VPU_HW_H_
-#define _MT6885_VPU_HW_H_
+#ifndef __VPU_HW_H__
+#define __VPU_HW_H__
 
+#include "vpu_cfg.h"
 #include "vpu_drv.h"
 #include "vpu_cmn.h"
 #include "vpu_reg.h"
-
-#define VPU_MAX_NUM_CODE_SEGMENTS       (50)
-#define VPU_MAX_NUM_ALGOS               (50)
-
-/* Sum of all parts */
-#define VPU_SIZE_BINARY_CODE            (0x02A10000)
-
-/* Size */
-#define VPU_NUMS_IMAGE_HEADER           (3)
-
-/* Offset */
-#define VPU_OFFSET_ALGO_AREA            (0x00C00000)
-#define VPU_OFFSET_MAIN_PROGRAM_IMEM    (VPU_SIZE_BINARY_CODE - 0xC0000)
-#define VPU_OFFSET_IMAGE_HEADERS        (VPU_SIZE_BINARY_CODE - 0x30000)
-
-/* Time Constrains */
-#define VPU_CMD_TIMEOUT  3000
-#define VPU_CHECK_COUNT  2000
-#define VPU_CHECK_MIN_US 500
-#define VPU_CHECK_MAX_US 1000
 
 struct vpu_code_segment {
 	uint32_t vpu_core;   /* core index*/
@@ -164,46 +145,21 @@ struct vpu_image_header {
  */
 
 /**
+ * vpu_dev_boot - boot up vpu
+ * @vd: vpu device
+ */
+int vpu_dev_boot(struct vpu_device *vd);
+
+/**
  * vpu_dev_boot_sequence - do booting sequence
- * @core:	core index of device
+ * @vd: vpu device
  */
 int vpu_dev_boot_sequence(struct vpu_device *vd);
 
 /**
  * vpu_dev_set_debug - set log buffer and size to VPU
+ * vd: vpu device
  */
 int vpu_dev_set_debug(struct vpu_device *vd);
-
-/**
- * Working buffer's offset
- *
- *  [offset]
- *  0x00000000  +-----------------------+
- *              |  Command Buffer       |
- *              |              [8KB]    |
- *  0x00002000  +-----------------------+
- *              |  Log Buffer           |
- *              |              [8KB]    |
- *              +-----------------------+
- *
- * the first 16 bytes of log buffer:
- *   @tail_addr: the mva of log end, which always points to '\0'
- *
- *   +-----------+----------------------+
- *   |   0 ~ 3   |      4 ~ 15          |
- *   +-----------+----------------------+
- *   |{tail_addr}|    {reserved}        |
- *   +-----------+----------------------+
- */
-#define VPU_OFFSET_COMMAND           (0x00000000)
-#define VPU_OFFSET_LOG               (0x00002000)
-#define VPU_SIZE_LOG_BUF             (0x00010000)
-#define VPU_SIZE_LOG_SHIFT           (0x00000300)
-#define VPU_SIZE_LOG_HEADER          (0x00000010)
-#define VPU_SIZE_WORK_BUF            (0x00012000)
-
-#define VPU_SIZE_LOG_DATA  (VPU_SIZE_LOG_BUF - VPU_SIZE_LOG_HEADER)
-
-int vpu_dev_boot(struct vpu_device *vd);
 
 #endif

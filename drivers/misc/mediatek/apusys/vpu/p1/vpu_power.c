@@ -11,6 +11,7 @@
  * GNU General Public License for more details.
  */
 
+#include "vpu_cfg.h"
 #include <linux/types.h>
 #include <linux/printk.h>
 #include "vpu_power.h"

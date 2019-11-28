@@ -24,6 +24,7 @@
 #include <linux/of_irq.h>
 
 /* internal headers */
+#include "vpu_cfg.h"
 #include "apusys_power.h"
 #include "vpu_drv.h"
 #include "vpu_power.h"
@@ -35,9 +36,6 @@
 #include "vpu_trace.h"
 #include "vpu_ioctl.h"
 #include "vpu_met.h"
-
-/* remote proc */
-#define VPU_REMOTE_PROC (0)
 
 static int vpu_suspend(struct vpu_device *vd);
 static int vpu_resume(struct vpu_device *vd);

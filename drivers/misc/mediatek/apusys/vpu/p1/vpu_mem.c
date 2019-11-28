@@ -20,18 +20,10 @@
 #include <linux/highmem.h>
 #include <mt-plat/aee.h>
 
+#include "vpu_cfg.h"
 #include "vpu_mem.h"
 #include "vpu_drv.h"
 #include "vpu_debug.h"
-
-#if (CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
-#define VPU_IOVA_BANK (0x300000000ULL)
-#else
-#define VPU_IOVA_BANK (0x0ULL)
-#endif
-
-#define VPU_IOVA_START (0x7DA00000)
-#define VPU_IOVA_END   (0x82600000)
 
 static struct page **vpu_map_kva_to_sgt(
 	const char *buf, size_t len, struct sg_table *sgt);

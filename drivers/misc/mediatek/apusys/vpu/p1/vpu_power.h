@@ -17,7 +17,6 @@
 #include <linux/platform_device.h>
 #include "vpu_cmn.h"
 
-#define VPU_PWR_OFF_LATENCY 3000 // ms
 #define VPU_PWR_NO_BOOST    0xff
 
 int vpu_init_dev_pwr(struct platform_device *pdev, struct vpu_device *vd);

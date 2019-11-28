@@ -11,6 +11,7 @@
  * GNU General Public License for more details.
  */
 
+#include "vpu_cfg.h"
 #include "vpu_hw.h"
 
 #include <linux/irq.h>
@@ -69,7 +70,6 @@ static void vpu_cmd(struct vpu_device *vd)
 	vpu_reg_set(vd, CTL_XTENSA_INT, 1);
 }
 
-#define WAIT_COMMAND_RETRY 5
 
 static inline int wait_command(struct vpu_device *vd)
 {
@@ -137,6 +137,7 @@ static struct vpu_image_header *bin_header(void)
 
 static void vpu_emi_mpu_set(unsigned long start, unsigned int size)
 {
+#ifdef CONFIG_MEDIATEK_EMI
 	struct emimpu_region_t md_region;
 
 	mtk_emimpu_init_region(&md_region, MPU_PROCT_REGION);
@@ -149,6 +150,7 @@ static void vpu_emi_mpu_set(unsigned long start, unsigned int size)
 	mtk_emimpu_lock_region(&md_region, true);
 	mtk_emimpu_set_protection(&md_region);
 	mtk_emimpu_free_region(&md_region);
+#endif
 }
 
 /* called by vpu_probe() */
