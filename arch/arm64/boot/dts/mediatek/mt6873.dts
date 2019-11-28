@@ -2020,6 +2020,25 @@
 		#clock-cells = <1>;
 	};
 
+	flashlight_core: flashlight_core {
+		compatible = "mediatek,flashlight_core";
+	};
+
+	flashlights_mt6360: flashlights_mt6360 {
+		compatible = "mediatek,flashlights_mt6360";
+		decouple = <1>;
+		channel@1 {
+			type = <0>;
+			ct = <0>;
+			part = <0>;
+		};
+		channel@2 {
+			type = <0>;
+			ct = <1>;
+			part = <0>;
+		};
+	};
+
 	smi_larb13: smi_larb13@1a001000 {
 		compatible = "mediatek,smi_larb13", "mediatek,smi_larb";
 		reg = <0 0x1a001000 0 0x1000>;
