@@ -606,6 +606,11 @@ void apu_device_set_opp(enum DVFS_USER user, uint8_t opp)
 }
 EXPORT_SYMBOL(apu_device_set_opp);
 
+void event_trigger_dvfs_policy(void)
+{
+	wake_up_process(power_task_handle);
+}
+
 static int apu_power_probe(struct platform_device *pdev)
 {
 	int ret = 0;

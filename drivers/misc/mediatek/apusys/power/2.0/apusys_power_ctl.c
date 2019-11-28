@@ -50,7 +50,10 @@ int32_t apusys_thermal_en_throttle_cb(enum DVFS_USER user,
 	// need to check constraint voltage, fixed me
 
 	apusys_opps.thermal_opp[user] = opp;
-	PWR_LOG_INF("%s, user=%d, vpu_opp=%d\n", __func__, user, opp);
+	PWR_LOG_INF("%s, user=%d, opp=%d\n", __func__, user, opp);
+
+	if (apusys_opps.is_power_on[user])
+		event_trigger_dvfs_policy();
 
 	return 0;
 }
@@ -58,7 +61,10 @@ int32_t apusys_thermal_en_throttle_cb(enum DVFS_USER user,
 int32_t apusys_thermal_dis_throttle_cb(enum DVFS_USER user)
 {
 	apusys_opps.thermal_opp[user] = 0;
-	PWR_LOG_INF("%s, user=%d\n", __func__, user);
+	PWR_LOG_INF("%s, user=%d, opp=0\n", __func__, user);
+
+	if (apusys_opps.is_power_on[user])
+		event_trigger_dvfs_policy();
 
 	return 0;
 }
@@ -853,16 +859,33 @@ void apusys_set_opp(enum DVFS_USER user, uint8_t opp)
 }
 
 
+// this function will be called in DVFS thread and be protected by mutex lock
 bool apusys_check_opp_change(void)
 {
+	static uint8_t prev_thermal_opp[APUSYS_DVFS_USER_NUM];
+	static bool prev_is_power_on[APUSYS_POWER_USER_NUM];
 	uint8_t user;
 
 	for (user = 0; user < APUSYS_DVFS_USER_NUM; user++) {
 		if (dvfs_user_support(user) == false)
 			continue;
 		if (apusys_opps.user_opp_index[user] !=
-			apusys_opps.driver_opp_index[user])
+			apusys_opps.driver_opp_index[user]) {
+			PWR_LOG_INF("%s DVFS since opp change\n", __func__);
 			return true;
+		}
+
+		if (apusys_opps.is_power_on[user] != prev_is_power_on[user]) {
+			prev_is_power_on[user] = apusys_opps.is_power_on[user];
+			PWR_LOG_INF("%s DVFS since power change\n", __func__);
+			return true;
+		}
+
+		if (apusys_opps.thermal_opp[user] != prev_thermal_opp[user]) {
+			prev_thermal_opp[user] = apusys_opps.thermal_opp[user];
+			PWR_LOG_INF("%s DVFS since thermal event\n", __func__);
+			return true;
+		}
 	}
 
 	return false;
@@ -950,6 +973,8 @@ int apusys_power_off(enum DVFS_USER user)
 			apusys_opps.next_opp_index[V_TOP_IOMMU] =
 				APUSYS_DEFAULT_OPP;
 		}
+
+		event_trigger_dvfs_policy();
 	}
 
 	return ret;

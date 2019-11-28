@@ -30,4 +30,6 @@ extern void apusys_power_uninit(enum DVFS_USER user);
 extern int apusys_power_on(enum DVFS_USER user);
 extern int apusys_power_off(enum DVFS_USER user);
 extern enum DVFS_FREQ apusys_get_dvfs_freq(enum DVFS_VOLTAGE_DOMAIN domain);
+
+extern void event_trigger_dvfs_policy(void);
 #endif
