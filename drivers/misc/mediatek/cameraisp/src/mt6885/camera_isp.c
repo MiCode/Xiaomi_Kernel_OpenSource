@@ -2511,6 +2511,8 @@ static void ISP_EnableClock(bool En)
 #endif
 	}
 }
+extern void mtk_ccf_cam_debug(const char *str1, const char *str2,
+	const char *str3);
 
 /*******************************************************************************
  *
@@ -2547,7 +2549,7 @@ static inline void ISP_Reset(int module)
 			if (((usec - m_usec) > timeoutMs) &&
 				(bDumped == MFALSE)) {
 				LOG_INF(
-				"%d: wait SW idle timeout, reg(0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x)\n",
+				"%d: wait SW idle timeout, reg(0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x)\n",
 				module,
 				(unsigned int)ISP_RD32(
 					CAM_REG_TG_SEN_MODE(module)),
@@ -2558,17 +2560,22 @@ static inline void ISP_Reset(int module)
 				(unsigned int)ISP_RD32(
 					CAM_REG_CTL_EN(ISP_CAM_C_IDX)),
 				(unsigned int)ISP_RD32(
-					CAM_REG_IMGO_BASE_ADDR(ISP_CAM_A_IDX)),
+					CAM_REG_CTL_SW_CTL(ISP_CAM_A_IDX)),
 				(unsigned int)ISP_RD32(
-					CAM_REG_IMGO_BASE_ADDR(ISP_CAM_B_IDX)),
+					CAM_REG_CTL_SW_CTL(ISP_CAM_B_IDX)),
 				(unsigned int)ISP_RD32(
-				CAM_REG_IMGO_BASE_ADDR(ISP_CAM_C_IDX)));
+					CAM_REG_CTL_SW_CTL(ISP_CAM_C_IDX)),
+				(unsigned int)ISP_RD32(CAMSYS_REG_CG_CON),
+				(unsigned int)ISP_RD32(CAMSYS_REG_CG_SET),
+				(unsigned int)ISP_RD32(CAMSYS_REG_CG_CLR));
 				//dump smi for debugging
 				if (smi_debug_bus_hang_detect(
 					false, "camera_isp") != 0)
 					LOG_INF(
 					"ERR:smi_debug_bus_hang_detect");
+				mtk_ccf_cam_debug(NULL, NULL, NULL);
 				bDumped = MTRUE;
+				break;
 			}
 		}
 #else
@@ -5866,9 +5873,30 @@ RESET:
 		/* wait time>timeoutMs, break */
 		if ((sec - m_sec) > timeoutMsRst) {
 			LOG_INF("%s: wait SW idle timeout\n", moduleName);
+			LOG_INF(
+				"%d: wait SW idle timeout, reg(0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x)\n",
+				module,
+				(unsigned int)ISP_RD32(
+					CAM_REG_TG_SEN_MODE(module)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CTL_EN(ISP_CAM_A_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CTL_EN(ISP_CAM_B_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CTL_EN(ISP_CAM_C_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CTL_SW_CTL(ISP_CAM_A_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CTL_SW_CTL(ISP_CAM_B_IDX)),
+				(unsigned int)ISP_RD32(
+					CAM_REG_CTL_SW_CTL(ISP_CAM_C_IDX)),
+				(unsigned int)ISP_RD32(CAMSYS_REG_CG_CON),
+				(unsigned int)ISP_RD32(CAMSYS_REG_CG_SET),
+				(unsigned int)ISP_RD32(CAMSYS_REG_CG_CLR));
 			//dump smi for debugging
 			if (smi_debug_bus_hang_detect(false, "camera_isp") != 0)
 				LOG_NOTICE("ERR:smi_debug_bus_hang_detect");
+			mtk_ccf_cam_debug(NULL, NULL, NULL);
 			break;
 		}
 		//add "regTGSt == 0" for workaround
@@ -10532,7 +10560,7 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 			if (FrameStatus[module] != CAM_FST_DROP_FRAME) {
 				IRQ_LOG_KEEPER(
 					module, m_CurrentPPB, _LOG_INF,
-					"CAM_%c P1_DON_%d(0x%08x_0x%08x,0x%08x_0x%08x)\n",
+					"CAM_%c P1_DON_%d(0x%08x_0x%08x,0x%08x_0x%08x)dma done(0x%x,0x%x)\n",
 					'A' + cardinalNum,
 					(sof_count[module])
 						? (sof_count[module] - 1)
@@ -10540,7 +10568,13 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 					(unsigned int)(fbc_ctrl1[0].Raw),
 					(unsigned int)(fbc_ctrl2[0].Raw),
 					(unsigned int)(fbc_ctrl1[1].Raw),
-					(unsigned int)(fbc_ctrl2[1].Raw));
+					(unsigned int)(fbc_ctrl2[1].Raw),
+					(unsigned int)ISP_RD32(
+						CAM_REG_CTL_RAW_INT2_STATUSX(
+						ISP_CAM_A_IDX)),
+					(unsigned int)ISP_RD32(
+						CAM_REG_CTL_RAW_INT3_STATUSX(
+						ISP_CAM_A_IDX)));
 			}
 		}
 #if (TSTMP_SUBSAMPLE_INTPL == 1)
