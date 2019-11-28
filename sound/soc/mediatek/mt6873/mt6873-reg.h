@@ -2113,20 +2113,6 @@ enum {
 #define TDM_FIX_VALUE_MASK                             0xff
 #define TDM_FIX_VALUE_MASK_SFT                         (0xff << 24)
 
-/* AFE_DPTX_CON */
-#define DPTX_CHANNEL_ENABLE_SFT                        8
-#define DPTX_CHANNEL_ENABLE_MASK                       0xff
-#define DPTX_CHANNEL_ENABLE_MASK_SFT                   (0xff << 8)
-#define DPTX_16_BIT_SFT                                2
-#define DPTX_16_BIT_MASK                               0x1
-#define DPTX_16_BIT_MASK_SFT                           (0x1 << 2)
-#define DPTX_CHANNEL_NUM_SFT                           1
-#define DPTX_CHANNEL_NUM_MASK                          0x1
-#define DPTX_CHANNEL_NUM_MASK_SFT                      (0x1 << 1)
-#define DPTX_ON_SFT                                    0
-#define DPTX_ON_MASK                                   0x1
-#define DPTX_ON_MASK_SFT                               (0x1 << 0)
-
 /* AFE_HDMI_CONN0 */
 #define HDMI_O_7_SFT                                   21
 #define HDMI_O_7_MASK                                  0x7
@@ -2565,8 +2551,6 @@ enum {
 #define PCM2_INTF_CON                                  0x053c
 #define AFE_TDM_CON1                                   0x0548
 #define AFE_TDM_CON2                                   0x054c
-#define AFE_DPTX_CON                                   0x0558
-#define AFE_DPTX_MON                                   0x055c
 #define AFE_I2S_CON6                                   0x0564
 #define AFE_I2S_CON7                                   0x0568
 #define AFE_I2S_CON8                                   0x056c

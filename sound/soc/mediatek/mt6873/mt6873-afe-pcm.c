@@ -3245,7 +3245,6 @@ static bool mt6873_is_volatile_reg(struct device *dev, unsigned int reg)
 	case AFE_GAIN2_CUR:
 	case AFE_SRAM_DELSEL_CON1:
 	case PCM_INTF_CON2:
-	case AFE_DPTX_MON:
 	case FPGA_CFG0:
 	case FPGA_CFG1:
 	case FPGA_CFG2:
@@ -4505,12 +4504,6 @@ static ssize_t mt6873_debugfs_read(struct file *file, char __user *buf,
 	regmap_read(afe->regmap, AFE_TDM_CON2, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_TDM_CON2 = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_DPTX_CON, &value);
-	n += scnprintf(buffer + n, size - n,
-		       "AFE_DPTX_CON = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_DPTX_MON, &value);
-	n += scnprintf(buffer + n, size - n,
-		       "AFE_DPTX_MON = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_I2S_CON6, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_I2S_CON6 = 0x%x\n", value);

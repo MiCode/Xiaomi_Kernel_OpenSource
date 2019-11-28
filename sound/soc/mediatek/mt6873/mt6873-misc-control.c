@@ -765,10 +765,6 @@ static int mt6873_afe_debug_set(struct snd_kcontrol *kcontrol,
 	dev_info(afe->dev, "AFE_TDM_CON1 = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_TDM_CON2, &value);
 	dev_info(afe->dev, "AFE_TDM_CON2 = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_DPTX_CON, &value);
-	dev_info(afe->dev, "AFE_DPTX_CON = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_DPTX_MON, &value);
-	dev_info(afe->dev, "AFE_DPTX_MON = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_I2S_CON6, &value);
 	dev_info(afe->dev, "AFE_I2S_CON6 = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_I2S_CON7, &value);

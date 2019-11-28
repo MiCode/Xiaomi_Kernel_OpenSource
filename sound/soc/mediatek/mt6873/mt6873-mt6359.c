@@ -937,15 +937,6 @@ static struct snd_soc_dai_link mt6873_mt6359_dai_links[] = {
 		.dpcm_playback = 1,
 		.ignore_suspend = 1,
 	},
-	{
-		.name = "TDM_DPTX",
-		.cpu_dai_name = "TDM_DPTX",
-		.codec_name = "snd-soc-dummy",
-		.codec_dai_name = "snd-soc-dummy-dai",
-		.no_pcm = 1,
-		.dpcm_playback = 1,
-		.ignore_suspend = 1,
-	},
 	/* dummy BE for ul memif to record from dl memif */
 	{
 		.name = "Hostless_UL1",
