@@ -191,8 +191,6 @@ static int led_pwm_set(struct mtk_led_data *led_dat,
 	max = led_dat->cdev.max_brightness;
 	duty = led_dat->info.config.pwm_period_ns;
 	duty *= brightness;
-	pr_info("brightness=%d, max_brightness=%d, duty=%lld",
-		brightness, max, duty);
 	do_div(duty, max);
 
 	if (led_dat->info.config.active_low)
@@ -222,9 +220,6 @@ int mt_leds_brightness_set(char *name, int level)
 		(((1 << led_dat->led_bits) - 1) * level
 		+ (((1 << led_dat->trans_bits) - 1) / 2))
 		/ ((1 << led_dat->trans_bits) - 1));
-
-//	pr_info("getLedData: %s, level: %d[%d]",
-//		led_dat->desp.name, level, led_Level);
 
 	schedule_work(&led_dat->work);
 	return led_pwm_set(led_dat, led_Level);
@@ -339,8 +334,6 @@ int setMaxBrightness(char *name, int percent, bool enable)
 		led_dat->limit.limit_l = max_l;
 		cur_l = led_dat->level;
 	}
-	pr_info("after: flag: %d, cur_l: %d, limit_l: %d, level: %d",
-		enable, cur_l, led_dat->limit.limit_l, led_dat->level);
 	mutex_unlock(&(led_dat->limit.lock));
 	if (led_dat->limit.set_l == 0)
 		return 0;
