@@ -707,7 +707,7 @@ static struct mm_larb_request larb_req[MAX_LARB_COUNT] = {};
 #define LARB_NODE_NAME "larb_groups"
 
 #define MAX_CH_COUNT 2
-static s32 channel_bw[MAX_COMM_NUM][MAX_CH_COUNT] = {};
+static s32 channel_srt_bw[MAX_COMM_NUM][MAX_CH_COUNT] = {};
 static s32 channel_hrt_bw[MAX_COMM_NUM][MAX_CH_COUNT] = {};
 static s32 channel_disp_hrt_cnt[MAX_COMM_NUM][MAX_CH_COUNT] = {};
 
@@ -1078,9 +1078,8 @@ s32 mm_qos_set_request(struct mm_qos_request *req, u32 bw_value,
 		larb_req[larb].total_mix_limit += new_comp_limit;
 
 	if (larb < MAX_LARB_COUNT && larb_req[larb].channel < MAX_CH_COUNT) {
-		channel_bw[comm][larb_req[larb].channel] -= old_larb_mix_value;
-		channel_bw[comm][larb_req[larb].channel] +=
-			larb_req[larb].total_mix_limit;
+		channel_srt_bw[comm][larb_req[larb].channel] -= old_comp_bw;
+		channel_srt_bw[comm][larb_req[larb].channel] += new_comp_bw;
 	}
 
 	if (larb < MAX_LARB_COUNT &&
@@ -1163,7 +1162,6 @@ void mm_qos_update_all_request(struct plist_head *owner_list)
 	s32 smi_srt_clk = 0, smi_hrt_clk = 0;
 	s32 max_ch_srt_bw = 0, max_ch_hrt_bw = 0;
 	s32 final_chn_hrt_bw[MAX_COMM_NUM][MAX_CH_COUNT];
-	s32 final_chn_srt_bw[MAX_COMM_NUM][MAX_CH_COUNT];
 
 	if (!owner_list || plist_head_empty(owner_list)) {
 		pr_notice("%s: owner_list is invalid\n", __func__);
@@ -1275,30 +1273,20 @@ void mm_qos_update_all_request(struct plist_head *owner_list)
 					larb_req[SMI_PMQOS_LARB_DEC(
 					PORT_VIRTUAL_DISP)].total_hrt_data :
 				channel_hrt_bw[comm][i];
-			/* Remove redundent disp HRT BW because channel_bw[]
-			 * contains sum of HRT BW reported by each disp port
-			 */
-			final_chn_srt_bw[comm][i] =
-				channel_disp_hrt_cnt[comm][i] > 0 ?
-				channel_bw[comm][i] -
-					(channel_disp_hrt_cnt[comm][i]-1) *
-					larb_req[SMI_PMQOS_LARB_DEC(
-					PORT_VIRTUAL_DISP)].total_hrt_data :
-				channel_bw[comm][i];
 			max_ch_srt_bw = max_t(s32,
-				final_chn_srt_bw[comm][i], max_ch_srt_bw);
+				channel_srt_bw[comm][i], max_ch_srt_bw);
 			max_ch_hrt_bw = max_t(s32,
 				final_chn_hrt_bw[comm][i], max_ch_hrt_bw);
 			if (log_level & 1 << log_smi_freq)
 				pr_notice("comm:%d chn:%d s_bw:%d h_bw:%d\n",
-					comm, i, final_chn_srt_bw[comm][i],
+					comm, i, channel_srt_bw[comm][i],
 					final_chn_hrt_bw[comm][i]);
 #ifdef MMDVFS_MMP
 			mmprofile_log_ex(
 				mmdvfs_mmp_events.smi_freq,
 				MMPROFILE_FLAG_PULSE,
 				((comm+1) << 28) | (i << 24) | min_t(s32,
-					final_chn_srt_bw[comm][i], 0xffff),
+					channel_srt_bw[comm][i], 0xffff),
 				((comm+1) << 28) | (i << 24) | min_t(s32,
 					final_chn_hrt_bw[comm][i], 0xffff));
 #endif
