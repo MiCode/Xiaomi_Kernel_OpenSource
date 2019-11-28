@@ -29,13 +29,13 @@
  **************************************************/
 #define MT_GPUFREQ_DVFS_ENABLE          1
 #define MT_GPUFREQ_CUST_CONFIG          0
-#define MT_GPUFREQ_CUST_INIT_OPP        (g_opp_table_segment[0].gpufreq_khz)
+#define MT_GPUFREQ_CUST_INIT_OPP        (g_opp_table_segment_1[0].gpufreq_khz)
 
 /**************************************************
  * DVFS Setting
  **************************************************/
-#define NUM_OF_OPP_IDX (sizeof(g_opp_table_segment) / \
-			sizeof(g_opp_table_segment[0]))
+#define NUM_OF_OPP_IDX (sizeof(g_opp_table_segment_1) / \
+			sizeof(g_opp_table_segment_1[0]))
 
 /* On opp table, low vgpu will use the same vsram.
  * And hgih vgpu will have the same diff with vsram.
@@ -312,7 +312,6 @@ extern unsigned int mt_get_abist_freq(unsigned int idx);
  * global value definition
  **************************************************/
 struct opp_table_info *g_opp_table;
-struct opp_table_info *g_opp_table_default;
 
 /**************************************************
  * PTPOD definition
@@ -327,7 +326,7 @@ unsigned int g_ptpod_opp_idx_table_segment[] = {
 /**************************************************
  * GPU OPP table definition
  **************************************************/
-struct opp_table_info g_opp_table_segment[] = {
+struct opp_table_info g_opp_table_segment_1[] = {
 	GPUOP(950000, 80000, 80000, POSDIV_POWER_4, 0), /* 0 sign off */
 	GPUOP(938000, 79375, 79375, POSDIV_POWER_4, 0), /* 1 */
 	GPUOP(926000, 78750, 78750, POSDIV_POWER_4, 0), /* 2 */

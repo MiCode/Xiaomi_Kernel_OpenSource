@@ -133,7 +133,8 @@ static void __mt_gpufreq_vgpu_set_mode(unsigned int mode);
 static unsigned int __mt_gpufreq_get_cur_vgpu(void);
 static unsigned int __mt_gpufreq_get_cur_freq(void);
 static unsigned int __mt_gpufreq_get_cur_vsram_gpu(void);
-static unsigned int __mt_gpufreq_get_segment(void);
+static unsigned int __mt_gpufreq_get_segment_id(void);
+static struct opp_table_info *__mt_gpufreq_get_segment_table(void);
 static int __mt_gpufreq_get_opp_idx_by_vgpu(unsigned int vgpu);
 static unsigned int __mt_gpufreq_get_vsram_gpu_by_vgpu(unsigned int vgpu);
 static void __mt_gpufreq_kick_pbm(int enable);
@@ -214,7 +215,7 @@ unsigned int mt_gpufreq_get_shader_present(void)
 	if (shader_present != -1)
 		return shader_present;
 
-	segment_id = __mt_gpufreq_get_segment();
+	segment_id = __mt_gpufreq_get_segment_id();
 
 	switch (segment_id) {
 	case MT6873_SEGMENT:
@@ -681,12 +682,11 @@ void mt_gpufreq_enable_by_ptpod(void)
 
 void mt_gpufreq_disable_by_ptpod(void)
 {
-	struct opp_table_info *opp_table = g_opp_table_segment;
-	int num = ARRAY_SIZE(g_opp_table_segment);
+	struct opp_table_info *opp_table = g_opp_table;
 	unsigned int i = 0;
 	unsigned int target_idx = 0;
 
-	for (i = 0; i < num; i++) {
+	for (i = 0; i < NUM_OF_OPP_IDX; i++) {
 		if (opp_table[i].gpufreq_vgpu <= PTPOD_DISABLE_VOLT) {
 			target_idx = i;
 			break;
@@ -713,8 +713,7 @@ void mt_gpufreq_disable_by_ptpod(void)
  */
 void mt_gpufreq_restore_default_volt(void)
 {
-	struct opp_table_info *opp_table = g_opp_table_segment;
-	int num = ARRAY_SIZE(g_opp_table_segment);
+	struct opp_table_info *opp_table = __mt_gpufreq_get_segment_table();
 	int i;
 
 	mutex_lock(&mt_gpufreq_lock);
@@ -722,7 +721,7 @@ void mt_gpufreq_restore_default_volt(void)
 	gpufreq_pr_debug("@%s: PTPOD restore OPP table to default voltage\n",
 		__func__);
 
-	for (i = 0; i < num; i++) {
+	for (i = 0; i < NUM_OF_OPP_IDX; i++) {
 		g_opp_table[i].gpufreq_vgpu =
 				opp_table[i].gpufreq_vgpu;
 		g_opp_table[i].gpufreq_vsram =
@@ -1312,7 +1311,7 @@ void mt_gpufreq_power_limit_notify_registerCB(gpufreq_power_limit_notify pCB)
 	/* legacy */
 }
 
-static unsigned int __mt_gpufreq_get_segment(void)
+static unsigned int __mt_gpufreq_get_segment_id(void)
 {
 	unsigned int efuse_id;
 	static int segment_id = -1;
@@ -1339,6 +1338,26 @@ static unsigned int __mt_gpufreq_get_segment(void)
 						__func__, efuse_id, segment_id);
 
 	return segment_id;
+}
+static struct opp_table_info *__mt_gpufreq_get_segment_table(void)
+{
+#if 1
+	return g_opp_table_segment_1;
+#else
+
+	unsigned int efuse_id;
+
+	efuse_id = ((get_devinfo_with_index(72) >> 18) & 0x3);
+	switch (efuse_id) {
+	case 0x0:
+		return g_opp_table_segment_1;
+	case 0x1:
+		return g_opp_table_segment_2;
+	default:
+		gpufreq_pr_info("invalid efuse id: 0x%x\n", efuse_id);
+		return g_opp_table_segment_1;
+	}
+#endif
 }
 
 /**
@@ -1411,7 +1430,7 @@ static int mt_gpufreq_var_dump_proc_show(struct seq_file *m, void *v)
 			__mt_gpufreq_get_cur_freq(),
 			__mt_gpufreq_get_cur_vgpu(),
 			__mt_gpufreq_get_cur_vsram_gpu());
-	seq_printf(m, "segment_id = %d\n", __mt_gpufreq_get_segment());
+	seq_printf(m, "segment_id = %d\n", __mt_gpufreq_get_segment_id());
 	seq_printf(m, "g_cg_on = %d, g_mtcmos_on = %d, g_buck_on = %d\n",
 			g_cg_on, g_mtcmos_on, g_buck_on);
 	seq_printf(m, "g_opp_stress_test_state = %d\n",
@@ -1985,8 +2004,8 @@ static enum g_posdiv_power_enum __mt_gpufreq_get_posdiv_power(unsigned int freq)
 	int i;
 
 	for (i = 0; i < NUM_OF_OPP_IDX; i++) {
-		if (g_opp_table_segment[i].gpufreq_khz <= freq)
-			return g_opp_table_segment[i].gpufreq_post_divider;
+		if (g_opp_table[i].gpufreq_khz <= freq)
+			return g_opp_table[i].gpufreq_post_divider;
 	}
 
 	gpufreq_pr_info("freq %d find no post divider\n", freq);
@@ -2451,9 +2470,8 @@ static void __mt_gpufreq_kick_pbm(int enable)
 
 static void __mt_gpufreq_init_table(void)
 {
-	struct opp_table_info *opp_table = g_opp_table_segment;
-	int num = ARRAY_SIZE(g_opp_table_segment);
-	unsigned int segment_id = __mt_gpufreq_get_segment();
+	struct opp_table_info *opp_table = __mt_gpufreq_get_segment_table();
+	unsigned int segment_id = __mt_gpufreq_get_segment_id();
 	unsigned int i = 0;
 
 	/* determine max_opp/num/segment_table... by segment  */
@@ -2464,14 +2482,14 @@ static void __mt_gpufreq_init_table(void)
 	else
 		g_segment_max_opp_idx = 8;
 
-	g_segment_min_opp_idx = num - 1;
+	g_segment_min_opp_idx = NUM_OF_OPP_IDX - 1;
 
-	g_opp_table = kzalloc((num) * sizeof(*opp_table), GFP_KERNEL);
+	g_opp_table = kzalloc((NUM_OF_OPP_IDX)*sizeof(*opp_table), GFP_KERNEL);
 
 	if (g_opp_table == NULL)
 		return;
 
-	for (i = 0; i < num; i++) {
+	for (i = 0; i < NUM_OF_OPP_IDX; i++) {
 		g_opp_table[i].gpufreq_khz = opp_table[i].gpufreq_khz;
 		g_opp_table[i].gpufreq_vgpu = opp_table[i].gpufreq_vgpu;
 		g_opp_table[i].gpufreq_vsram = opp_table[i].gpufreq_vsram;
@@ -2489,7 +2507,7 @@ static void __mt_gpufreq_init_table(void)
 				opp_table[i].gpufreq_aging_margin);
 	}
 
-	g_max_opp_idx_num = num;
+	g_max_opp_idx_num = NUM_OF_OPP_IDX;
 	g_max_upper_limited_idx = g_segment_max_opp_idx;
 
 	gpufreq_pr_debug("@%s: g_segment_max_opp_idx = %u, g_max_opp_idx_num = %u, g_segment_min_opp_idx = %u\n",
@@ -2501,7 +2519,7 @@ static void __mt_gpufreq_init_table(void)
 	mutex_lock(&mt_gpufreq_lock);
 	mt_gpufreq_cal_sb_opp_index();
 	mutex_unlock(&mt_gpufreq_lock);
-	__mt_gpufreq_setup_opp_power_table(num);
+	__mt_gpufreq_setup_opp_power_table(NUM_OF_OPP_IDX);
 }
 
 /*
@@ -2572,8 +2590,7 @@ static void *__mt_gpufreq_of_ioremap(const char *node_name, int idx)
 
 static void __mt_gpufreq_init_volt_by_freq(void)
 {
-	struct opp_table_info *opp_table = g_opp_table_segment;
-	int num = ARRAY_SIZE(g_opp_table_segment);
+	struct opp_table_info *opp_table = g_opp_table;
 	unsigned int freq, idx;
 
 	freq = __mt_gpufreq_get_cur_freq();
@@ -2591,11 +2608,11 @@ static void __mt_gpufreq_init_volt_by_freq(void)
 	if (freq >= opp_table[0].gpufreq_khz) {
 		/* get Maximum opp */
 		idx = 0;
-	} else if (freq <= opp_table[num - 1].gpufreq_khz) {
+	} else if (freq <= opp_table[NUM_OF_OPP_IDX - 1].gpufreq_khz) {
 		/* get Minimum opp */
-		idx = num - 1;
+		idx = NUM_OF_OPP_IDX - 1;
 	} else {
-		for (idx = 1; idx < num; idx++) {
+		for (idx = 1; idx < NUM_OF_OPP_IDX; idx++) {
 			if (opp_table[idx].gpufreq_khz <= freq) {
 				/* find the idx with closest freq */
 				if ((freq - opp_table[idx].gpufreq_khz) >
