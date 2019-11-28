@@ -27,6 +27,9 @@
 #ifdef CONFIG_LEDS_MTK_DISP
 #include <mtk_leds_drv.h>
 #include <leds-mtk-disp.h>
+#elif CONFIG_LEDS_MTK_PWM
+#include <mtk_leds_drv.h>
+#include <leds-mtk-pwm.h>
 #else
 #define mt_leds_brightness_set(x, y) do { } while (0)
 #define MT65XX_LED_MODE_NONE (0)
@@ -386,7 +389,6 @@ void disp_aal_notify_backlight_changed(int bl_1024)
 	}
 }
 
-#ifdef CONFIG_LEDS_MTK_DISP
 #ifdef CONFIG_LEDS_BRIGHTNESS_CHANGED
 int led_brightness_changed_event(struct notifier_block *nb, unsigned long event,
 	void *v)
@@ -418,7 +420,6 @@ int led_brightness_changed_event(struct notifier_block *nb, unsigned long event,
 static struct notifier_block leds_init_notifier = {
 	.notifier_call = led_brightness_changed_event,
 };
-#endif
 #endif
 
 int mtk_drm_ioctl_aal_eventctl(struct drm_device *dev, void *data,
@@ -2005,10 +2006,8 @@ static int mtk_disp_aal_probe(struct platform_device *pdev)
 		pm_runtime_disable(dev);
 	}
 
-#ifdef CONFIG_LEDS_MTK_DISP
 #ifdef CONFIG_LEDS_BRIGHTNESS_CHANGED
 	mtk_leds_register_notifier(&leds_init_notifier);
-#endif
 #endif
 
 
@@ -2026,10 +2025,8 @@ static int mtk_disp_aal_remove(struct platform_device *pdev)
 	if (priv->dre3_hw.dev)
 		pm_runtime_disable(priv->dre3_hw.dev);
 
-#ifdef CONFIG_LEDS_MTK_DISP
 #ifdef CONFIG_LEDS_BRIGHTNESS_CHANGED
 	mtk_leds_unregister_notifier(&leds_init_notifier);
-#endif
 #endif
 
 	return 0;

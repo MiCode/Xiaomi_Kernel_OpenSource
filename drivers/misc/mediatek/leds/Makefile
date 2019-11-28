@@ -12,3 +12,4 @@
 #
 
 obj-$(CONFIG_LEDS_MTK_DISP)		+= leds-mtk-disp.o
+obj-$(CONFIG_LEDS_MTK_PWM)		+= leds-mtk-pwm.o

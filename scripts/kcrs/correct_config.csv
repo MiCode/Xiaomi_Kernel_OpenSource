@@ -405,6 +405,7 @@ CONFIG_LCM_HEIGHT,PROJECT,xiaobin.wei,,,,,,,,,,,,,,
 CONFIG_LCM_WIDTH,PROJECT,xiaobin.wei,,,,,,,,,,,,,,
 CONFIG_LEDS_CLASS,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_LEDS_PWM,PROJECT,xing.zhang,,N,N,N,N,N,N,N,N,N,y,y,N,N
+CONFIG_LEDS_MTK_PWM,PROJECT,xing.zhang,,N,N,N,N,N,N,N,N,N,y,y,N,N
 CONFIG_LEDS_MTK_DISP,PROJECT,xing.zhang,,N,N,N,N,N,N,N,N,N,,,N,N
 CONFIG_LEDS_TRIGGER_TIMER,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y
 CONFIG_LEDS_TRIGGERS,COMMON,,,y,y,y,y,y,y,y,y,y,y,y,y,y

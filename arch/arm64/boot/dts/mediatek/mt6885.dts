@@ -776,7 +776,8 @@ page_owner=on loop.max_part=7";
 	};
 
 	pwmleds {
-		compatible = "pwm-leds";
+		compatible = "mediatek,pwm-leds";
+
 		backlight {
 			label = "lcd-backlight";
 			pwms = <&disp_pwm 0 39385>;
