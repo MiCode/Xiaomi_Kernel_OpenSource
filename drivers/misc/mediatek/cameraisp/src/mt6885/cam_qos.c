@@ -144,12 +144,33 @@ void mtk_pmqos_add(enum ISP_IRQ_TYPE_ENUM module, u32 portID)
 {
 switch (module) {
 case ISP_IRQ_TYPE_INT_CAMSV_0_ST:
-case ISP_IRQ_TYPE_INT_CAMSV_1_ST:
 	switch (portID) {
 	case _camsv_imgo_:
 		mm_qos_add_request(gSVBW_LIST(module),
 				   gSV_BW_REQ(module, portID),
 				   M4U_PORT_L14_CAM_CAMSV0_DISP);
+		break;
+	case _camsv_ufeo_:
+		mm_qos_add_request(gSVBW_LIST(module),
+				   gSV_BW_REQ(module, portID),
+				   M4U_PORT_L13_CAM_CAMSV1_MDP);
+		break;
+	default:
+		LOG_NOTICE("unsupported port:%d\n", portID);
+		break;
+	}
+	break;
+case ISP_IRQ_TYPE_INT_CAMSV_1_ST:
+	switch (portID) {
+	case _camsv_imgo_:
+		mm_qos_add_request(gSVBW_LIST(module),
+				   gSV_BW_REQ(module, portID),
+				   M4U_PORT_L13_CAM_CAMSV2_MDP);
+		break;
+	case _camsv_ufeo_:
+		mm_qos_add_request(gSVBW_LIST(module),
+				   gSV_BW_REQ(module, portID),
+				   M4U_PORT_L13_CAM_CAMSV3_MDP);
 		break;
 	default:
 		LOG_NOTICE("unsupported port:%d\n", portID);
@@ -162,7 +183,7 @@ case ISP_IRQ_TYPE_INT_CAMSV_3_ST:
 	case _camsv_imgo_:
 		mm_qos_add_request(gSVBW_LIST(module),
 				   gSV_BW_REQ(module, portID),
-				   M4U_PORT_L13_CAM_CAMSV2_MDP);
+				   M4U_PORT_L13_CAM_CAMSV4_MDP);
 		break;
 	default:
 		LOG_NOTICE("unsupported port:%d\n", portID);
@@ -175,13 +196,19 @@ case ISP_IRQ_TYPE_INT_CAMSV_5_ST:
 	case _camsv_imgo_:
 		mm_qos_add_request(gSVBW_LIST(module),
 				   gSV_BW_REQ(module, portID),
-				   M4U_PORT_L13_CAM_CAMSV4_MDP);
+				   M4U_PORT_L13_CAM_CAMSV5_MDP);
 		break;
 	}
 	break;
 case ISP_IRQ_TYPE_INT_CAMSV_6_ST:
 case ISP_IRQ_TYPE_INT_CAMSV_7_ST:
-	LOG_NOTICE("unsupported module:%d\n", module);
+	switch (portID) {
+	case _camsv_imgo_:
+		mm_qos_add_request(gSVBW_LIST(module),
+				   gSV_BW_REQ(module, portID),
+				   M4U_PORT_L13_CAM_CAMSV6_MDP);
+		break;
+	}
 	break;
 default:
 	switch (portID) {
@@ -958,6 +985,10 @@ int SV_SetPMQOS(
 			struct ISP_BW *ptr;
 
 			for (; i < _camsv_max_; i++) {
+				if ((i == _camsv_ufeo_) &&
+					(module < ISP_IRQ_TYPE_INT_CAMSV_0_ST ||
+					module > ISP_IRQ_TYPE_INT_CAMSV_1_ST))
+					continue;
 				ptr = (struct ISP_BW *)pvalue;
 				mtk_pmqos_set(module, i, ptr[i]);
 			}
