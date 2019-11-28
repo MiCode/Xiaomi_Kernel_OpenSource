@@ -3249,7 +3249,7 @@
 				<&smi_larb9 &smi_larb11 &smi_larb13>,
 				<&smi_larb14 &smi_larb16 &smi_larb17>,
 				<&smi_larb18 &smi_larb19 &smi_larb20>;
-		interrupts = <GIC_SPI 309 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 277 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&dispsys_config MM_SMI_IOMMU>,
 			 <&scpsys SCP_SYS_DIS>;
 		clock-names = "disp-iommu-ck", "power";
@@ -3260,14 +3260,14 @@
 		cell-index = <0>;
 		compatible = "mediatek,sec_m4u0";
 		reg = <0 0x14021000 0 0x1000>;
-		interrupts = <GIC_SPI 313 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 281 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	iommu1: m4u@19010000  {
 		cell-index = <1>;
 		compatible = "mediatek,iommu_v0";
 		reg = <0 0x19010000 0 0x1000>;
-		interrupts = <GIC_SPI 426 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 394 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&apu_conn APU_CONN_IOMMU_0_CG>,
 			 <&scpsys SCP_SYS_VPU>;
 		clock-names = "clock", "power";
@@ -3278,7 +3278,7 @@
 		cell-index = <0>;
 		compatible = "mediatek,sec_m4u1";
 		reg = <0 0x19014000 0 0x1000>;
-		interrupts = <GIC_SPI 430 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 398 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	disp_smi_2x1_sub_common_u0@14022000 {
