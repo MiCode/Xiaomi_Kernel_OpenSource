@@ -270,7 +270,7 @@ restart:
 	spin_unlock_irqrestore(&w->lock, flags);
 
 	if (!mlog)
-		return;
+		goto out;
 
 	vpu_trace_dump("%s %d addr/size/buf: %08x/%08x/%p",
 		__func__, __LINE__, mlog->buf_addr,
@@ -279,7 +279,7 @@ restart:
 	vpu_met_log_show(vd, mlog->buf, mlog->buf_size);
 	kfree(mlog);
 	goto restart;
-
+out:
 	if (vpu_debug_on(VPU_DBG_MET))
 		vpu_trace_end("%s|vpu%d", __func__, vd->id);
 }
