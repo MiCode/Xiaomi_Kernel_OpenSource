@@ -33,8 +33,6 @@ enum {
 	do { \
 		if (g_pwr_log_level >= APUSYS_PWR_LOG_DEBUG) \
 			pr_info(DVFS_TAG " " format, ##args); \
-		else \
-			pr_debug(DVFS_TAG "[debug] " format, ##args); \
 	} while (0)
 
 #define PWR_LOG_WRN(format, args...) \
@@ -48,9 +46,7 @@ enum {
 #define LOG_INF(format, args...)    pr_info(PWR_TAG " " format, ##args)
 #define LOG_WRN(format, args...) \
 	do { \
-		if (g_pm_procedure) \
-			pr_debug(PWR_TAG "[warn] " format, ##args); \
-		else \
+		if (!g_pm_procedure) \
 			pr_info(PWR_TAG "[warn] " format, ##args); \
 	} while (0)
 
@@ -59,8 +55,6 @@ enum {
 	do { \
 		if (g_pwr_log_level >= APUSYS_PWR_LOG_DEBUG) \
 			pr_info(PWR_TAG " " format, ##args); \
-		else \
-			pr_debug(PWR_TAG "[debug] " format, ##args); \
 	} while (0)
 
 #define apu_aee_warn(key, format, args...) \
