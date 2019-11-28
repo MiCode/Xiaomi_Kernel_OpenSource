@@ -575,7 +575,7 @@ static int lcm_setbacklight_cmdq(void *dsi, dcs_write_gce cb,
 }
 
 static struct mtk_panel_params ext_params = {
-	.pll_clk = 555,
+	.pll_clk = 540,
 	.vfp_low_power = 810,
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,

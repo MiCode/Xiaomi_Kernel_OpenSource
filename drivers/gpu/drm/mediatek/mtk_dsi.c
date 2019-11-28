@@ -173,6 +173,7 @@
 #define CONT_DET (0xff << 0)
 #define CLK_ZERO (0xff << 16)
 #define CLK_TRAIL (0xff << 24)
+#define FLD_CONT_DET REG_FLD_MSB_LSB(7, 0)
 #define FLD_DA_HS_SYNC REG_FLD_MSB_LSB(15, 8)
 #define FLD_CLK_HS_ZERO REG_FLD_MSB_LSB(23, 16)
 #define	FLD_CLK_HS_TRAIL REG_FLD_MSB_LSB(31, 24)
@@ -221,7 +222,7 @@
 #define T_HS_ZERO (15)
 #define DA_HS_SYNC (1)
 
-#define NS_TO_CYCLE(n, c) ((n) / (c) + (((n) % (c)) ? 1 : 0))
+#define NS_TO_CYCLE(n, c) ((n) / (c))
 
 #define MTK_DSI_HOST_IS_READ(type)                                             \
 	((type == MIPI_DSI_GENERIC_READ_REQUEST_0_PARAM) ||                    \
@@ -396,29 +397,32 @@ static void mtk_dsi_phy_timconfig(struct mtk_dsi *dsi)
 	u32 ta_get, ta_sure, ta_go, da_hs_exit;
 	u32 clk_zero, clk_trail, da_hs_sync;
 	u32 clk_hs_prpr, clk_hs_exit, clk_hs_post;
+	u32 cont_det;
 	u32 ui, cycle_time;
 	u32 value;
 
 	ui = 1000 / dsi->data_rate + 0x01;
 	cycle_time = 8000 / dsi->data_rate + 0x01;
 
-	lpx = NS_TO_CYCLE(dsi->data_rate * 2 * 0x4B, 0x1F40) + 0x1;
+	lpx = NS_TO_CYCLE(dsi->data_rate * 0x4B, 0x1F40) + 0x1;
 	hs_prpr = NS_TO_CYCLE((0x40 + 0x5 * ui), cycle_time) + 0x1;
 	hs_zero = NS_TO_CYCLE((0xC8 + 0x0A * ui), cycle_time);
+	hs_zero = hs_zero > hs_prpr ? hs_zero - hs_prpr : hs_zero;
 	hs_trail = NS_TO_CYCLE((0x4 * ui + 0x50) *
 		dsi->data_rate, 0x1F40) + 0x1;
 
-	ta_get = 5 * NS_TO_CYCLE(0x55, cycle_time);
-	ta_sure = 3 * NS_TO_CYCLE(0x55, cycle_time) / 2;
-	ta_go = 4 * NS_TO_CYCLE(0x55, cycle_time);
-	da_hs_exit = 2 * NS_TO_CYCLE(0x55, cycle_time);
+	ta_get = 5 * lpx;
+	ta_sure = 3 * lpx / 2;
+	ta_go = 4 * lpx;
+	da_hs_exit = 2 * lpx;
 
 	clk_zero = NS_TO_CYCLE(0x190, cycle_time);
 	clk_trail = NS_TO_CYCLE(0x64 * dsi->data_rate, 0x1F40) + 0x1;
 	da_hs_sync = 0x1;
+	cont_det = 0x3;
 
 	clk_hs_prpr = NS_TO_CYCLE(0x50 * dsi->data_rate, 0x1F40);
-	clk_hs_exit = 2 * NS_TO_CYCLE(0x55, cycle_time);
+	clk_hs_exit = 2 * lpx;
 	clk_hs_post = NS_TO_CYCLE(0x60 + 0x34 * ui, cycle_time);
 
 	if (!(dsi->ext && dsi->ext->params))
@@ -457,7 +461,8 @@ CONFIG_REG:
 		| REG_FLD_VAL(FLD_DA_HS_EXIT, da_hs_exit);
 	writel(value, dsi->regs + DSI_PHY_TIMECON1);
 
-	value = REG_FLD_VAL(FLD_DA_HS_SYNC, da_hs_sync)
+	value = REG_FLD_VAL(FLD_CONT_DET, cont_det)
+		| REG_FLD_VAL(FLD_DA_HS_SYNC, da_hs_sync)
 		| REG_FLD_VAL(FLD_CLK_HS_ZERO, clk_zero)
 		| REG_FLD_VAL(FLD_CLK_HS_TRAIL, clk_trail);
 	writel(value, dsi->regs + DSI_PHY_TIMECON2);
