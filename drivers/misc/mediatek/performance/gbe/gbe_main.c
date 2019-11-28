@@ -32,6 +32,7 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include "gbe_usedext.h"
+#include <linux/pm_qos.h>
 
 #define MAX_DEP_NUM 30
 #define MAIN_LOG_SIZE 256
@@ -48,6 +49,7 @@ static DEFINE_MUTEX(gbe_lock);
 struct dentry *gbe_debugfs_dir;
 static int gbe_enable;
 static int cluster_num;
+static struct pm_qos_request dram_req;
 
 enum {
 	NEW_RENDER = 0,
@@ -118,7 +120,7 @@ static void gbe_boost_cpu(void)
 {
 	struct ppm_limit_data *pld;
 	struct gbe_boost_unit *iter;
-	int uclamp_pct;
+	int uclamp_pct, pm_req;
 	int i;
 	int boost = 0;
 
@@ -136,22 +138,30 @@ static void gbe_boost_cpu(void)
 	if (!pld)
 		return;
 
+	if (!pm_qos_request_active(&dram_req))
+		pm_qos_add_request(&dram_req, PM_QOS_DDR_OPP,
+				PM_QOS_DDR_OPP_DEFAULT_VALUE);
+
 	if (boost) {
 		for (i = 0; i < cluster_num; i++) {
 			pld[i].max = 3000000;
 			pld[i].min = 3000000;
 		}
 		uclamp_pct = 100;
+		pm_req = 0;
 	} else {
 		for (i = 0; i < cluster_num; i++) {
 			pld[i].max = -1;
 			pld[i].min = -1;
 		}
 		uclamp_pct = 0;
+		pm_req = PM_QOS_DDR_OPP_DEFAULT_VALUE;
 	}
 
 	update_userlimit_cpu_freq(CPU_KIR_GBE, cluster_num, pld);
 	update_eas_uclamp_min(EAS_UCLAMP_KIR_GBE, CGROUP_TA, uclamp_pct);
+	pm_qos_update_request(&dram_req, pm_req);
+
 	kfree(pld);
 }
 
