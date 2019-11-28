@@ -1253,12 +1253,12 @@ void DpEngine_COLORonConfig(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 				| (g_Color_Index.LSP_EN << 20)
 				| (g_Color_Index.S_GAIN_BY_Y_EN << 15)
 				| (wide_gamut_en << 8)
-				| (0 << 7), 0x013081FF);
+				| (0 << 7), 0x23081FF);
 		} else {
 			/* disable wide_gamut */
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa + DISP_COLOR_CFG_MAIN,
-				(1 << 25) | (0 << 8) | (0 << 7), 0x10001FF);
+				(1 << 25) | (0 << 8) | (0 << 7), 0x20001FF);
 		}
 
 		/* color start */
@@ -1285,7 +1285,7 @@ void DpEngine_COLORonConfig(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	} else {
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_COLOR_CFG_MAIN,
-			(1 << 25) | (0x1 << 29), 0x11000000);
+			(1 << 25) | (0x1 << 29), 0x22000000);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_COLOR_START(color), 0x1, 0x1);
 	}
@@ -1677,12 +1677,12 @@ static void color_write_hw_reg(struct mtk_ddp_comp *comp,
 				| (g_Color_Index.LSP_EN << 20)
 				| (g_Color_Index.S_GAIN_BY_Y_EN << 15)
 				| (wide_gamut_en << 8)
-				| (0 << 7), 0x013081FF);
+				| (0 << 7), 0x023081FF);
 		} else {
 			/* disable wide_gamut */
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa + DISP_COLOR_CFG_MAIN,
-				(1 << 25) | (0 << 8) | (0 << 7), 0x10001FF);
+				(1 << 25) | (0 << 8) | (0 << 7), 0x20001FF);
 		}
 
 		/* color start */
@@ -1709,7 +1709,7 @@ static void color_write_hw_reg(struct mtk_ddp_comp *comp,
 	} else {
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_COLOR_CFG_MAIN,
-			(1 << 25) | (0x1 << 29), 0x11000000);
+			(1 << 25) | (0x1 << 29), 0x22000000);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_COLOR_START(color), 0x1, 0x1);
 	}
