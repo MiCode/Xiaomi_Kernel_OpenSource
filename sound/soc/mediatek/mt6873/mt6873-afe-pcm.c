@@ -5407,6 +5407,9 @@ static ssize_t mt6873_debugfs_read(struct file *file, char __user *buf,
 	regmap_read(afe->regmap, AFE_HD_ENGEN_ENABLE, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_HD_ENGEN_ENABLE = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_DL_NLE_FIFO_MON, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "AFE_ADDA_DL_NLE_FIFO_MON = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_ADDA_MTKAIF_CFG0, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_ADDA_MTKAIF_CFG0 = 0x%x\n", value);

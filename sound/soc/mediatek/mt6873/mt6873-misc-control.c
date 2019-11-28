@@ -1367,6 +1367,8 @@ static int mt6873_afe_debug_set(struct snd_kcontrol *kcontrol,
 	dev_info(afe->dev, "AFE_DL9_END = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_HD_ENGEN_ENABLE, &value);
 	dev_info(afe->dev, "AFE_HD_ENGEN_ENABLE = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_DL_NLE_FIFO_MON, &value);
+	dev_info(afe->dev, "AFE_ADDA_DL_NLE_FIFO_MON = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_ADDA_MTKAIF_CFG0, &value);
 	dev_info(afe->dev, "AFE_ADDA_MTKAIF_CFG0 = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_ADDA_MTKAIF_SYNCWORD_CFG, &value);
