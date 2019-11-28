@@ -102,7 +102,7 @@ ssize_t adsp_log_enable(struct log_ctrl_s *ctrl, int cid, u32 enable)
 		_adsp_register_feature(cid, ADSP_LOGGER_FEATURE_ID, 0);
 
 		ret = adsp_push_message(ADSP_IPI_LOGGER_ENABLE, &enable,
-				    sizeof(enable), 1, cid);
+				    sizeof(enable), 20, cid);
 
 		_adsp_deregister_feature(cid, ADSP_LOGGER_FEATURE_ID, 0);
 

@@ -220,7 +220,7 @@ int adsp_core0_suspend(void)
 	if (get_adsp_state(pdata) == ADSP_RUNNING) {
 		reinit_completion(&pdata->done);
 		if (adsp_push_message(ADSP_IPI_DVFS_SUSPEND, &status,
-				      sizeof(status), 1, pdata->id)) {
+				      sizeof(status), 200, pdata->id)) {
 			ret = -EPIPE;
 			goto ERROR;
 		}
@@ -302,7 +302,7 @@ int adsp_core1_suspend(void)
 	if (get_adsp_state(pdata) == ADSP_RUNNING) {
 		reinit_completion(&pdata->done);
 		if (adsp_push_message(ADSP_IPI_DVFS_SUSPEND, &status,
-				      sizeof(status), 1, pdata->id)) {
+				      sizeof(status), 200, pdata->id)) {
 			ret = -EPIPE;
 			goto ERROR;
 		}
@@ -379,7 +379,7 @@ void adsp_logger_init0_cb(struct work_struct *ws)
 	_adsp_register_feature(ADSP_A_ID, ADSP_LOGGER_FEATURE_ID, 0);
 
 	ret = adsp_push_message(ADSP_IPI_LOGGER_INIT, (void *)info,
-		sizeof(info), 1, ADSP_A_ID);
+		sizeof(info), 20, ADSP_A_ID);
 
 	_adsp_deregister_feature(ADSP_A_ID, ADSP_LOGGER_FEATURE_ID, 0);
 
@@ -402,7 +402,7 @@ void adsp_logger_init1_cb(struct work_struct *ws)
 	_adsp_register_feature(ADSP_B_ID, ADSP_LOGGER_FEATURE_ID, 0);
 
 	ret = adsp_push_message(ADSP_IPI_LOGGER_INIT, (void *)info,
-		sizeof(info), 1, ADSP_B_ID);
+		sizeof(info), 20, ADSP_B_ID);
 
 	_adsp_deregister_feature(ADSP_B_ID, ADSP_LOGGER_FEATURE_ID, 0);
 

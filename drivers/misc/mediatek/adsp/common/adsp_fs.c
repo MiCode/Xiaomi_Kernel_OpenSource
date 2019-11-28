@@ -65,7 +65,7 @@ static inline ssize_t ipi_test_store(struct device *dev,
 
 	if (_adsp_register_feature(pdata->id, SYSTEM_FEATURE_ID, 0) == 0) {
 		adsp_push_message(ADSP_IPI_TEST1, &value, sizeof(value),
-					1, pdata->id);
+				  20, pdata->id);
 
 		_adsp_deregister_feature(pdata->id, SYSTEM_FEATURE_ID, 0);
 	}
@@ -84,7 +84,7 @@ static inline ssize_t ipi_test_show(struct device *dev,
 
 	if (is_adsp_ready(pdata->id)) {
 		ret = adsp_push_message(ADSP_IPI_TEST1, &value, sizeof(value),
-					1, pdata->id);
+					20, pdata->id);
 		return scnprintf(buf, PAGE_SIZE, "ADSP ipi send ret=%d\n", ret);
 	} else
 		return scnprintf(buf, PAGE_SIZE, "ADSP is not ready\n");

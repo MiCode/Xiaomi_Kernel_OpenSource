@@ -78,7 +78,7 @@ extern enum adsp_ipi_status adsp_ipi_registration(enum adsp_ipi_id id,
 						  const char *name);
 extern enum adsp_ipi_status adsp_ipi_unregistration(enum adsp_ipi_id id);
 extern enum adsp_ipi_status adsp_push_message(enum adsp_ipi_id id, void *buf,
-			unsigned int len, unsigned int wait,
+			unsigned int len, unsigned int wait_ms,
 			unsigned int core_id);
 extern enum adsp_ipi_status adsp_send_message(enum adsp_ipi_id id, void *buf,
 			unsigned int len, unsigned int wait,

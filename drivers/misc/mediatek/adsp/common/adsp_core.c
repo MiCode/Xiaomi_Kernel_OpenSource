@@ -118,17 +118,16 @@ int adsp_copy_from_sharedmem(struct adsp_priv *pdata, int id, void *dst,
 }
 
 enum adsp_ipi_status adsp_push_message(enum adsp_ipi_id id, void *buf,
-			unsigned int len, unsigned int wait,
+			unsigned int len, unsigned int wait_ms,
 			unsigned int core_id)
 {
 	int ret = 0;
 	u32 queue_id = core_id + AUDIO_OPENDSP_USE_HIFI3_A;
-	u32 wait_ms = (wait) ? ADSP_IPI_QUEUE_DEFAULT_WAIT_MS : 0;
 
 	if (is_scp_ipi_queue_init(queue_id))
 		ret = scp_send_msg_to_queue(queue_id, id, buf, len, wait_ms);
 	else
-		ret = adsp_send_message(id, buf, len, wait, core_id);
+		ret = adsp_send_message(id, buf, len, wait_ms, core_id);
 
 	return (ret == 0) ? ADSP_IPI_DONE : ADSP_IPI_ERROR;
 }
