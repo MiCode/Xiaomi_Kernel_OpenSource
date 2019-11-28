@@ -611,7 +611,8 @@ int apusys_cmd_create(int mem_fd, uint32_t offset,
 	if ((offset + sizeof(struct apusys_cmd_hdr) > mem.iova_size)) {
 		LOG_ERR("check cmdbuf offset(%d/%u) fail",
 			offset, mem.iova_size);
-		goto ce_fail;
+		ret = -EINVAL;
+		goto alloc_ce_fail;
 	}
 	cmd_hdr = (struct apusys_cmd_hdr *)(mem.kva + offset);
 
@@ -640,7 +641,7 @@ int apusys_cmd_create(int mem_fd, uint32_t offset,
 	if (cmd == NULL) {
 		LOG_ERR("alloc apusys cmd fail\n");
 		ret = -ENOMEM;
-		goto ce_fail;
+		goto alloc_ce_fail;
 	}
 
 	/* assign value */
@@ -665,7 +666,7 @@ int apusys_cmd_create(int mem_fd, uint32_t offset,
 	if (cmd->sc_status == NULL) {
 		LOG_ERR("alloc bitmap for subcmd status fail\n");
 		ret = -ENOMEM;
-		goto sc_status_fail;
+		goto alloc_sc_status_fail;
 	}
 
 	cmd->pdr_cnt_list = kcalloc(cmd->hdr->num_sc,
@@ -673,7 +674,7 @@ int apusys_cmd_create(int mem_fd, uint32_t offset,
 	if (cmd->pdr_cnt_list == NULL) {
 		LOG_ERR("alloc pdr cnt list fail\n");
 		ret = -ENOMEM;
-		goto sc_ctx_fail;
+		goto alloc_pdr_fail;
 	}
 
 	/* allocate ctx ref and list */
@@ -681,20 +682,20 @@ int apusys_cmd_create(int mem_fd, uint32_t offset,
 	if (cmd->ctx_ref == NULL) {
 		LOG_ERR("alloc ctx ref count for ctx fail\n");
 		ret = -ENOMEM;
-		goto sc_ctx_fail;
+		goto alloc_sc_ctx_fail;
 	}
 	cmd->ctx_list = kcalloc(cmd->hdr->num_sc, sizeof(uint32_t), GFP_KERNEL);
 	if (cmd->ctx_list == NULL) {
 		LOG_ERR("alloc ctx list count for ctx fail\n");
 		ret = -ENOMEM;
-		goto sc_ctx_list_fail;
+		goto alloc_sc_ctx_list_fail;
 	}
 	cmd->pc_col.pack_status = kzalloc(sizeof(unsigned long) *
 		cmd->hdr->num_sc, GFP_KERNEL);
 	if (cmd->pc_col.pack_status == NULL) {
 		LOG_ERR("alloc pack status fail\n");
 		ret = -ENOMEM;
-		goto pc_status_fail;
+		goto alloc_pc_status_fail;
 	}
 
 	/* set subcmd status */
@@ -727,7 +728,7 @@ int apusys_cmd_create(int mem_fd, uint32_t offset,
 	if (cmd->sc_list == NULL) {
 		LOG_ERR("alloc sc list fail\n");
 		ret = -ENOMEM;
-		goto sc_ctx_list_fail;
+		goto alloc_sc_list_fail;
 	}
 
 	mutex_init(&cmd->sc_mtx);
@@ -750,17 +751,20 @@ int apusys_cmd_create(int mem_fd, uint32_t offset,
 #undef APUSYS_CMDINFO_PRINT
 	return ret;
 
+alloc_sc_list_fail:
 count_ctx_fail:
 	kfree(cmd->pc_col.pack_status);
-pc_status_fail:
+alloc_pc_status_fail:
 	kfree(cmd->ctx_list);
-sc_ctx_list_fail:
+alloc_sc_ctx_list_fail:
 	kfree(cmd->ctx_ref);
-sc_ctx_fail:
+alloc_sc_ctx_fail:
+	kfree(cmd->pdr_cnt_list);
+alloc_pdr_fail:
 	kfree(cmd->sc_status);
-sc_status_fail:
+alloc_sc_status_fail:
 	kfree(cmd);
-ce_fail:
+alloc_ce_fail:
 	if (apusys_mem_unmap_iova(&mem)) {
 		LOG_ERR("unmap cmdbuf iova fd(%d) fail\n",
 			mem_fd);
@@ -801,9 +805,12 @@ int apusys_cmd_delete(struct apusys_cmd *cmd)
 	}
 
 	mutex_unlock(&cmd->mtx);
+	kfree(cmd->sc_list);
 	kfree(cmd->pc_col.pack_status);
 	kfree(cmd->ctx_list);
 	kfree(cmd->ctx_ref);
+	kfree(cmd->pdr_cnt_list);
+	kfree(cmd->sc_status);
 	kfree(cmd);
 
 	return 0;
