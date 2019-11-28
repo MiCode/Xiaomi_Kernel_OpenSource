@@ -24,7 +24,6 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/video/include/ \
              -I$(srctree)/drivers/misc/mediatek/gpu/ged/include/ \
              -I$(srctree)/drivers/iommu/ \
              -I$(srctree)/drivers/misc/mediatek/smi/variant/ \
-             -I$(srctree)/drivers/misc/mediatek/dramc/mt6785
 
 
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/video/$(MTK_PLATFORM)/m4u/$(MTK_PLATFORM) \

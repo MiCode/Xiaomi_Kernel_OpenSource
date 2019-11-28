@@ -26,7 +26,7 @@ ccflags-y += \
 ifeq (y, $(filter y, $(CONFIG_MACH_MT6765) $(CONFIG_MACH_MT6761)))
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/leds/mt6765
 else
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/leds/mt6785
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/leds/$(MTK_PLATFORM)
 endif
 
 

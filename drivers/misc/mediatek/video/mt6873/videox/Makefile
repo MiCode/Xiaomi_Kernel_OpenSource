@@ -53,7 +53,6 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/video/include/     \
              -I$(srctree)/drivers/misc/mediatek/base/power/include \
              -I$(srctree)/drivers/misc/mediatek/base/power/include/spm_v2 \
              -I$(srctree)/drivers/misc/mediatek/smi/ \
-             -I$(srctree)/drivers/misc/mediatek/dramc/mt6785 \
              -I$(srctree)/drivers/misc/mediatek/gpu/ged/include/ \
              -I$(srctree)/drivers/iommu/
 
