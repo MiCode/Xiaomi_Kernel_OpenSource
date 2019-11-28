@@ -76,9 +76,9 @@ static void mnoc_isr_work_func(struct work_struct *work)
 	if (mnoc_pwr_is_on)
 		apusys_reg_dump();
 	mutex_unlock(&mnoc_pwr_mtx);
-	print_int_sta(NULL);
-	/* mnoc_aee_warn("MNOC", "MNOC Exception"); */
+	mnoc_aee_warn("MNOC", "MNOC Exception");
 #endif
+	print_int_sta(NULL);
 	LOG_DEBUG("-\n");
 }
 #endif
@@ -191,8 +191,10 @@ static int mnoc_probe(struct platform_device *pdev)
 
 	LOG_DEBUG("+\n");
 
+#if MNOC_APU_PWR_CHK
 	if (!apusys_power_check())
 		return 0;
+#endif
 
 	/* make sure apusys_power driver initiallized before
 	 * calling apu_power_callback_device_register
@@ -284,8 +286,10 @@ static int mnoc_remove(struct platform_device *pdev)
 
 	LOG_DEBUG("+\n");
 
+#if MNOC_APU_PWR_CHK
 	if (!apusys_power_check())
 		return 0;
+#endif
 
 	apu_power_callback_device_unregister(MNOC);
 

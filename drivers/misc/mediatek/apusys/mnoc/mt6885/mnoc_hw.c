@@ -173,8 +173,8 @@ static struct mnoc_int_dump mnoc_int_dump;
  */
 static int iommu_emi_rule[NR_IOMMU] = {1, 0};
 static phys_addr_t iommu_tfrp[NR_IOMMU];
-void *protect[NR_IOMMU];
-bool iommu_tfrp_init_flag;
+static void *protect[NR_IOMMU];
+static bool iommu_tfrp_init_flag;
 
 
 int apusys_dev_to_core_id(int dev_type, int dev_core)
@@ -879,6 +879,8 @@ void mnoc_hw_exit(void)
 	LOG_DEBUG("-\n");
 }
 
+/* ============== for IOMMU TFRP setting ============== */
+
 static unsigned int unary_xor(uint32_t a)
 {
 	unsigned int ret = 0;
@@ -890,6 +892,13 @@ static unsigned int unary_xor(uint32_t a)
 	return ret;
 }
 
+/*
+ * Due to dual iommu depolyment on apusys, buffer allocation
+ * for tfrp reg setting needs to aware emi hash rule to prevent
+ * possible emi dispatch violation when iommu translation fault occurs.
+ * -> Need to ensure the buffer allocated for north/south iommu
+ * tfrp dispatched to correct emi port according to hash rule
+ */
 int mnoc_alloc_iommu_tfrp(void)
 {
 	void *infra_ao_base;
@@ -981,3 +990,4 @@ phys_addr_t get_apu_iommu_tfrp(unsigned int id)
 
 	return iommu_tfrp[id];
 }
+EXPORT_SYMBOL(get_apu_iommu_tfrp);

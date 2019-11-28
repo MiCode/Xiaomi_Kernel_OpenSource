@@ -19,7 +19,7 @@
 #define mnoc_aee_warn(key, format, args...) \
 	do { \
 		pr_info(format, ##args); \
-		aee_kernel_warning("APUSYS_MNOC", \
+		aee_kernel_warning("MNOC", \
 			"\nCRDISPATCH_KEY:" key "\n" format, ##args); \
 	} while (0)
 #else
