@@ -923,14 +923,14 @@ int apusys_power_on(enum DVFS_USER user)
 				APUSYS_DEFAULT_OPP;
 			apusys_opps.next_opp_index[buck_domain] =
 				APUSYS_DEFAULT_OPP;
-
-			if (is_power_debug_lock == true)
-				fix_dvfs_debug();
 		}
 
 		apusys_opps.is_power_on[user] = true;
 		apusys_opps.power_bit_mask |= (1<<user);
 	}
+
+	if (is_power_debug_lock == true)
+		fix_dvfs_debug();
 
 	return ret;
 }
