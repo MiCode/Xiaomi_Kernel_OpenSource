@@ -148,4 +148,16 @@ struct ais_sensor_cmd_i2c_wr_array {
 	struct ais_sensor_i2c_wr_payload *wr_array;
 } __attribute__((packed));
 
+/**
+ * struct ais_sensor_cmd_i2c_pwrup - i2c power up
+ * @master          :    logical master
+ * @retries         :    number of retries
+ * @reserved        :    reserved
+ */
+struct ais_sensor_cmd_i2c_pwrup {
+	uint8_t     master;
+	uint8_t     retries;
+	uint16_t     reserved;
+} __attribute__((packed));
+
 #endif

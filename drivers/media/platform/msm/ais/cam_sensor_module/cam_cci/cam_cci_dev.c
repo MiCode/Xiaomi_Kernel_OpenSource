@@ -41,6 +41,7 @@ static long cam_cci_subdev_ioctl(struct v4l2_subdev *sd,
 		rc = cam_cci_core_cfg(sd, arg);
 		break;
 	case VIDIOC_CAM_CONTROL:
+		rc = cam_cci_core_cam_ctrl(sd, arg);
 		break;
 	default:
 		CAM_ERR(CAM_CCI, "Invalid ioctl cmd: %d", cmd);
@@ -351,7 +352,7 @@ static long cam_cci_subdev_do_ioctl(
 	struct video_device *vdev = video_devdata(file);
 	struct v4l2_subdev *sd = vdev_to_v4l2_subdev(vdev);
 
-	return cam_cci_subdev_ioctl(sd, cmd, NULL);
+	return cam_cci_subdev_ioctl(sd, cmd, arg);
 }
 
 static long cam_cci_subdev_fops_ioctl(struct file *file, unsigned int cmd,
@@ -428,6 +429,10 @@ static int cam_cci_platform_probe(struct platform_device *pdev)
 
 	g_cci_subdev[soc_info->index] = &new_cci_dev->v4l2_dev_str.sd;
 	mutex_init(&(new_cci_dev->init_mutex));
+
+	new_cci_dev->cci_debug.cci_device = soc_info->index;
+	new_cci_dev->cci_debug.cci_subdev = g_cci_subdev[soc_info->index];
+
 	CAM_INFO(CAM_CCI, "Device Type :%d", soc_info->index);
 
 	cam_register_subdev_fops(&cci_v4l2_subdev_fops);
