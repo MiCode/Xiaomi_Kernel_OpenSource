@@ -16,6 +16,8 @@ ifeq ($(CONFIG_MTK_ECCCI_C2K), y)
 
 #ccflags-y += -DC2K_USB_UT
 
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/usb_boost
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include
 ccflags-y += -I$(srctree)/drivers/usb/gadget
 
 obj-$(CONFIG_MTK_ECCCI_C2K) += c2k_usb.o

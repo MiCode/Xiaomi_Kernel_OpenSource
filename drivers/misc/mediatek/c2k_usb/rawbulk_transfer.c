@@ -32,6 +32,10 @@
 #include "viatel_rawbulk.h"
 /* #include "modem_sdio.h" */
 
+#ifdef CONFIG_MEDIATEK_SOLUTION
+#include "usb_boost.h"
+#endif
+
 #ifdef CONFIG_MTK_ECCCI_C2K
 #define FS_CH_C2K 4
 #endif
@@ -414,6 +418,10 @@ static void upstream_complete(struct usb_ep *ep, struct usb_request *req)
 
 	C2K_DBG("%s\n", __func__);
 
+#ifdef CONFIG_MEDIATEK_SOLUTION
+	usb_boost();
+#endif
+
 	t->state = UPSTREAM_STAT_FREE;
 
 	if (req->status < 0) {
@@ -753,6 +761,10 @@ static void downstream_complete(struct usb_ep *ep, struct usb_request *req)
 	struct rawbulk_transfer *transfer = t->transfer;
 
 	C2K_DBG("%s\n", __func__);
+
+#ifdef CONFIG_MEDIATEK_SOLUTION
+	usb_boost();
+#endif
 
 	t->state = DOWNSTREAM_STAT_FREE;
 
