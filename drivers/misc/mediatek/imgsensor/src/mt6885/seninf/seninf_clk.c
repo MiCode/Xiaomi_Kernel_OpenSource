@@ -320,7 +320,10 @@ unsigned int seninf_clk_get_meter(struct SENINF_CLK *pclk, unsigned int clk)
 			clk_get_rate(
 			pclk->mclk_sel[SENINF_CLK_IDX_SYS_TOP_MUX_SENINF]));
 	}
-	return mt_get_ckgen_freq(clk);
+	if (clk < 64)
+		return mt_get_ckgen_freq(clk);
+	else
+		return 0;
 #else
 	return 0;
 #endif
