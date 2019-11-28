@@ -34,7 +34,7 @@ obj-y:= apusys_power_driver.o apusys_power_ctl.o apusys_power_debug.o \
 		$(PDIR)/hal_config_power.o $(PDIR)/apu_power_regulator.o \
 		$(PDIR)/apu_power_clock.o $(PDIR)/apusys_power_cust.o \
 		$(PDIR)/apu_power_table.o $(PDIR)/apu_platform_resource.o \
-		$(PDIR)/apusys_power_rule_check.o
+		$(PDIR)/apu_platform_debug.o $(PDIR)/apusys_power_rule_check.o
 
 # AGING load
 ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k6885tv1_64_aging")

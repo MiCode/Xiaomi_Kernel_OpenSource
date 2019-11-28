@@ -37,9 +37,9 @@
 
 int g_pwr_log_level = APUSYS_PWR_LOG_ERR;
 int g_pm_procedure;
+int power_on_off_stress;
 static int apu_power_counter;
 static int apusys_power_broken;
-static int power_on_off_stress;
 static uint64_t power_info_id;
 
 bool apusys_power_check(void)
@@ -508,20 +508,12 @@ static void d_work_power_info_func(struct work_struct *work)
 	hal_config_power(PWR_CMD_GET_POWER_INFO, VPU0, &info);
 }
 
-static void d_work_power_init_func(struct work_struct *work)
-{
-	apusys_power_init(VPU0, (void *)&init_power_data);
-
 #if DEFAULT_POWER_ON
-	default_power_on_func();
-#endif // DEFAULT_POWER_ON
-}
-
 static void default_power_on_func(void)
 {
 	int dev_id = 0;
 
-	LOG_WRN("### apusys power on all device ###\n");
+	LOG_ERR("### apusys power on all device ###\n");
 
 	for (dev_id = 0 ; dev_id < APUSYS_DVFS_USER_NUM ; dev_id++) {
 		apu_power_counter++;
@@ -530,6 +522,16 @@ static void default_power_on_func(void)
 	}
 
 	apu_get_power_info();
+}
+#endif
+
+static void d_work_power_init_func(struct work_struct *work)
+{
+	apusys_power_init(VPU0, (void *)&init_power_data);
+
+#if DEFAULT_POWER_ON
+	default_power_on_func();
+#endif // DEFAULT_POWER_ON
 }
 
 static int apusys_power_task(void *arg)
@@ -679,133 +681,6 @@ err_exit:
 	}
 
 	return err;
-}
-
-int apu_power_power_stress(int type, int device, int opp)
-{
-	int id = 0;
-
-	LOG_WRN("%s begin with type %d +++\n", __func__, type);
-
-	if (type < 0 || type >= 10) {
-		LOG_ERR("%s err with type = %d\n", __func__, type);
-		return -1;
-	}
-
-	if (device != 9 && (device < 0 || device >= APUSYS_DVFS_USER_NUM)) {
-		LOG_ERR("%s err with device = %d\n", __func__, device);
-		return -1;
-	}
-
-	if (type != 5 && (opp < 0 || opp >= APUSYS_MAX_NUM_OPPS)) {
-		LOG_ERR("%s err with opp = %d\n", __func__, opp);
-		return -1;
-	}
-
-	if (apu_power_counter == 0) {
-		// call apusys_power_init in probe
-		// prepare clock and get regulator handle
-		// apusys_power_init(VPU0, (void *)&init_power_data);
-		apu_power_counter++;
-		LOG_WRN("%s apu_power_counter++ for debug\n", __func__);
-	} else {
-		LOG_WRN("%s we have %d devices for debug\n",
-					__func__, apu_power_counter);
-	}
-
-	switch (type) {
-	case 0: // config opp
-		if (device == 9) { // all devices
-			for (id = 0 ; id < APUSYS_DVFS_USER_NUM ; id++) {
-				if (dvfs_power_domain_support(id) == false)
-					continue;
-				apu_device_set_opp(id, opp);
-			}
-		} else {
-			apu_device_set_opp(device, opp);
-		}
-
-		udelay(100);
-
-		break;
-
-	case 1: // config power on
-
-		if (device == 9) { // all devices
-			for (id = 0 ; id < APUSYS_DVFS_USER_NUM ; id++) {
-				if (dvfs_power_domain_support(id) == false)
-					continue;
-
-				apu_device_power_on(id);
-			}
-		} else {
-			apu_device_power_on(device);
-		}
-		break;
-
-	case 2: // config power off
-		if (device == 9) { // all devices
-			for (id = 0 ; id < APUSYS_DVFS_USER_NUM ; id++) {
-				if (dvfs_power_domain_support(id) == false)
-					continue;
-
-				apu_device_power_off(id);
-			}
-		} else {
-			apu_device_power_off(device);
-		}
-		break;
-	case 4: // power driver debug func
-		hal_config_power(PWR_CMD_DEBUG_FUNC, VPU0, NULL);
-		break;
-	case 5:	// dvfs all combination test , opp = run count
-		constraints_check_stress(opp);
-		break;
-	case 7: // power on/off suspend stress
-		if (power_on_off_stress == 0)
-			power_on_off_stress = 1;
-		else
-			power_on_off_stress = 0;
-		break;
-	case 8: // dump power info and options
-		LOG_WRN("%s, BYPASS_POWER_OFF : %d\n",
-					__func__, BYPASS_POWER_OFF);
-		LOG_WRN("%s, BYPASS_POWER_CTL : %d\n",
-					__func__, BYPASS_POWER_CTL);
-		LOG_WRN("%s, BYPASS_DVFS_CTL : %d\n",
-					__func__, BYPASS_DVFS_CTL);
-		LOG_WRN("%s, DEFAULT_POWER_ON : %d\n",
-					__func__, DEFAULT_POWER_ON);
-		LOG_WRN("%s, AUTO_BUCK_OFF_SUSPEND : %d\n",
-					__func__, AUTO_BUCK_OFF_SUSPEND);
-		LOG_WRN("%s, AUTO_BUCK_OFF_DEEPIDLE : %d\n",
-					__func__, AUTO_BUCK_OFF_DEEPIDLE);
-		LOG_WRN("%s, VCORE_DVFS_SUPPORT : %d\n",
-					__func__, VCORE_DVFS_SUPPORT);
-		LOG_WRN("%s, ASSERTION_PERCENTAGE : %d\n",
-					__func__, ASSERTION_PERCENTAGE);
-#ifdef AGING_MARGIN
-		LOG_WRN("%s, AGING_MARGIN : %d\n",
-					__func__, AGING_MARGIN);
-#endif
-		LOG_WRN("%s, BINNING_VOLTAGE_SUPPORT : %d\n",
-					__func__, BINNING_VOLTAGE_SUPPORT);
-		LOG_WRN("%s, g_pwr_log_level : %d\n",
-					__func__, g_pwr_log_level);
-		LOG_WRN("%s, power_on_off_stress : %d\n",
-					__func__, power_on_off_stress);
-		apu_get_power_info();
-		break;
-	case 9: // config to force power on
-		default_power_on_func();
-		break;
-	default:
-		LOG_WRN("%s invalid type %d !\n", __func__, type);
-	}
-
-	LOG_WRN("%s end with type %d ---\n", __func__, type);
-
-	return 0;
 }
 
 static int apu_power_suspend(struct platform_device *pdev, pm_message_t mesg)

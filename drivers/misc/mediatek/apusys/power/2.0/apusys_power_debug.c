@@ -17,7 +17,6 @@
 #include <linux/seq_file.h>
 #include <linux/slab.h>
 
-
 #include <linux/vmalloc.h>
 #include <linux/mm.h>
 #include <linux/mman.h>
@@ -37,105 +36,134 @@
 #include "apusys_power_debug.h"
 #include "apusys_power.h"
 #include "apu_power_api.h"
+#include "apu_platform_debug.h"
+#include "apusys_power_rule_check.h"
+
 
 static struct mutex power_fix_dvfs_mtx;
-
-
 static int g_debug_option;
 bool is_power_debug_lock;
 int fixed_opp;
+
+int apu_power_power_stress(int type, int device, int opp)
+{
+	int id = 0;
+
+	LOG_WRN("%s begin with type %d +++\n", __func__, type);
+
+	if (type < 0 || type >= 10) {
+		LOG_ERR("%s err with type = %d\n", __func__, type);
+		return -1;
+	}
+
+	if (device != 9 && (device < 0 || device >= APUSYS_DVFS_USER_NUM)) {
+		LOG_ERR("%s err with device = %d\n", __func__, device);
+		return -1;
+	}
+
+	if (type != 5 && (opp < 0 || opp >= APUSYS_MAX_NUM_OPPS)) {
+		LOG_ERR("%s err with opp = %d\n", __func__, opp);
+		return -1;
+	}
+
+	switch (type) {
+	case 0: // config opp
+		if (device == 9) { // all devices
+			for (id = 0 ; id < APUSYS_DVFS_USER_NUM ; id++) {
+				if (dvfs_power_domain_support(id) == false)
+					continue;
+				apu_device_set_opp(id, opp);
+			}
+		} else {
+			apu_device_set_opp(device, opp);
+		}
+
+		udelay(100);
+		break;
+
+	case 1: // config power on
+		if (device == 9) { // all devices
+			for (id = 0 ; id < APUSYS_DVFS_USER_NUM ; id++) {
+				if (dvfs_power_domain_support(id) == false)
+					continue;
+
+				apu_device_power_on(id);
+			}
+		} else {
+			apu_device_power_on(device);
+		}
+		break;
+
+	case 2: // config power off
+		if (device == 9) { // all devices
+			for (id = 0 ; id < APUSYS_DVFS_USER_NUM ; id++) {
+				if (dvfs_power_domain_support(id) == false)
+					continue;
+
+				apu_device_power_off(id);
+			}
+		} else {
+			apu_device_power_off(device);
+		}
+		break;
+
+	case 4: // power driver debug func
+		hal_config_power(PWR_CMD_DEBUG_FUNC, VPU0, NULL);
+		break;
+
+	case 5: // dvfs all combination test , opp = run count
+		constraints_check_stress(opp);
+		break;
+
+	case 7: // power on/off suspend stress
+		if (power_on_off_stress == 0)
+			power_on_off_stress = 1;
+		else
+			power_on_off_stress = 0;
+		break;
+
+	case 8: // dump power info and options
+		LOG_WRN("%s, BYPASS_POWER_OFF : %d\n",
+				__func__, BYPASS_POWER_OFF);
+		LOG_WRN("%s, BYPASS_POWER_CTL : %d\n",
+				__func__, BYPASS_POWER_CTL);
+		LOG_WRN("%s, BYPASS_DVFS_CTL : %d\n",
+				__func__, BYPASS_DVFS_CTL);
+		LOG_WRN("%s, DEFAULT_POWER_ON : %d\n",
+				__func__, DEFAULT_POWER_ON);
+		LOG_WRN("%s, AUTO_BUCK_OFF_SUSPEND : %d\n",
+				__func__, AUTO_BUCK_OFF_SUSPEND);
+		LOG_WRN("%s, AUTO_BUCK_OFF_DEEPIDLE : %d\n",
+				__func__, AUTO_BUCK_OFF_DEEPIDLE);
+		LOG_WRN("%s, VCORE_DVFS_SUPPORT : %d\n",
+				__func__, VCORE_DVFS_SUPPORT);
+		LOG_WRN("%s, ASSERTION_PERCENTAGE : %d\n",
+				__func__, ASSERTION_PERCENTAGE);
+#ifdef AGING_MARGIN
+		LOG_WRN("%s, AGING_MARGIN : %d\n",
+				__func__, AGING_MARGIN);
+#endif
+		LOG_WRN("%s, BINNING_VOLTAGE_SUPPORT : %d\n",
+				__func__, BINNING_VOLTAGE_SUPPORT);
+		LOG_WRN("%s, g_pwr_log_level : %d\n",
+				__func__, g_pwr_log_level);
+		LOG_WRN("%s, power_on_off_stress : %d\n",
+				__func__, power_on_off_stress);
+		apu_get_power_info();
+		break;
+
+	default:
+		LOG_WRN("%s invalid type %d !\n", __func__, type);
+	}
+
+	LOG_WRN("%s end with type %d ---\n", __func__, type);
+	return 0;
+}
 
 static void change_log_level(int new_level)
 {
 	g_pwr_log_level = new_level;
 	PWR_LOG_INF("%s, new log level = %d\n", __func__, g_pwr_log_level);
-}
-
-static void apu_power_dump_opp_table(struct seq_file *s)
-{
-	int opp_num;
-	int buck_domain;
-
-	seq_printf(s,
-		"|opp| vpu0| vpu1| vpu2|mdla0|mdla1| conn|iommu|ipuif|\n");
-	seq_printf(s,
-		"|---------------------------------------------------|\n");
-	for (opp_num = 0 ; opp_num < APUSYS_MAX_NUM_OPPS ; opp_num++) {
-		seq_printf(s, "| %d |", opp_num);
-		for (buck_domain = 0 ; buck_domain < APUSYS_BUCK_DOMAIN_NUM;
-			buck_domain++) {
-			seq_printf(s, " %d |",
-			apusys_opps.opps[opp_num][buck_domain].freq / 1000);
-		}
-		seq_printf(s,
-			"\n|---------------------------------------------------|\n");
-	}
-}
-
-static int apu_power_dump_curr_status(struct seq_file *s, int oneline_str)
-{
-	struct apu_power_info info = {0};
-
-	info.id = 0;
-	info.type = 1;
-
-	hal_config_power(PWR_CMD_GET_POWER_INFO, VPU0, &info);
-
-	// for thermal request, we print vpu and mdla freq
-	if (oneline_str) {
-		seq_printf(s, "%03u,%03u,%03u,%03u,%03u\n",
-			((info.rpc_intf_rdy >> 2) & 0x1) ? info.dsp1_freq : 0,
-			((info.rpc_intf_rdy >> 3) & 0x1) ? info.dsp2_freq : 0,
-			((info.rpc_intf_rdy >> 4) & 0x1) ? info.dsp3_freq : 0,
-			((info.rpc_intf_rdy >> 6) & 0x1) ? info.dsp6_freq : 0,
-			((info.rpc_intf_rdy >> 7) & 0x1) ? info.dsp6_freq : 0);
-
-		return 0;
-	}
-
-	seq_printf(s,
-		"|curr| vpu0| vpu1| vpu2|mdla0|mdla1| conn|iommu|vcore|\n| opp|");
-
-	seq_printf(s, "  %d  |", apusys_freq_to_opp(V_VPU0,
-					info.dsp1_freq * info.dump_div));
-	seq_printf(s, "  %d  |", apusys_freq_to_opp(V_VPU1,
-					info.dsp2_freq * info.dump_div));
-	seq_printf(s, "  %d  |", apusys_freq_to_opp(V_VPU2,
-					info.dsp3_freq * info.dump_div));
-	seq_printf(s, "  %d  |", apusys_freq_to_opp(V_MDLA0,
-					info.dsp6_freq * info.dump_div));
-	seq_printf(s, "  %d  |", apusys_freq_to_opp(V_MDLA1,
-					info.dsp6_freq * info.dump_div));
-	seq_printf(s, "  %d  |", apusys_freq_to_opp(V_APU_CONN,
-					info.dsp_freq * info.dump_div));
-	seq_printf(s, "  %d  |", apusys_freq_to_opp(V_TOP_IOMMU,
-					info.dsp7_freq * info.dump_div));
-	seq_printf(s, "  %d  |", apusys_freq_to_opp(V_VCORE,
-					info.ipuif_freq * info.dump_div));
-	seq_puts(s, "\n");
-
-	seq_printf(s,
-		"|freq| %03u | %03u | %03u | %03u | %03u | %03u | %03u | %03u |\n",
-		info.dsp1_freq, info.dsp2_freq, info.dsp3_freq,
-		info.dsp6_freq, info.dsp6_freq, info.dsp_freq,
-		info.dsp7_freq, info.ipuif_freq);
-
-	seq_printf(s,
-		"| clk| dsp1| dsp2| dsp3| dsp6| dsp6|  dsp| dsp7|ipuif|\n(unit: MHz)\n\n");
-
-	seq_printf(s, "vvpu:%u(mV), vmdla:%u(mV), vcore:%u(mV), vsram:%u(mV)\n",
-			info.vvpu, info.vmdla, info.vcore, info.vsram);
-
-	seq_puts(s, "\n");
-	seq_printf(s,
-	"rpc_intf_rdy:0x%x, spm_wakeup:0x%x\nvcore_cg_con:0x%x, conn_cg_con:0x%x\nvpu0_cg_con:0x%x, vpu1_cg_con:0x%x, vpu2_cg_con:0x%x\nmdla0_cg_con:0x%x, mdla1_cg_con:0x%x\n",
-		info.rpc_intf_rdy, info.spm_wakeup,
-		info.vcore_cg_stat, info.conn_cg_stat,
-		info.vpu0_cg_stat, info.vpu1_cg_stat, info.vpu2_cg_stat,
-		info.mdla0_cg_stat, info.mdla1_cg_stat);
-
-	seq_puts(s, "\n");
-	return 0;
 }
 
 void fix_dvfs_debug(void)
@@ -219,12 +247,10 @@ static int apusys_debug_power_open(struct inode *inode, struct file *file)
 	return single_open(file, apusys_debug_power_show, inode->i_private);
 }
 
-
-
-int apusys_set_power_parameter(uint8_t param, int argc, int *args)
+static int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 {
 	int ret = 0;
-	int i = 0, j = 0;
+	int i = 0;
 
 	switch (param) {
 	case POWER_PARAM_FIX_OPP:
@@ -327,44 +353,7 @@ int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 		apusys_dvfs_policy(0);
 		break;
 	}
-#if 0
-	case POWER_EARA_CTL:
-	{
-		struct mdla_lock_power mdla_lock_power;
 
-		ret = (argc == 2) ? 0 : -EINVAL;
-		if (ret) {
-			PWR_LOG_INF(
-				"invalid argument, expected:3, received:%d\n",
-									argc);
-			goto out;
-		}
-		if (args[0] > 100 || args[0] < 0) {
-			PWR_LOG_INF("min boost(%d) is out-of-bound\n",
-					(int)(args[0]));
-			goto out;
-		}
-		if (args[1] > 100 || args[1] < 0) {
-			PWR_LOG_INF("max boost(%d) is out-of-bound\n",
-					(int)(args[1]));
-			goto out;
-		}
-		mdla_lock_power.core = 1;
-		mdla_lock_power.lock = true;
-		mdla_lock_power.priority = MDLA_OPP_EARA_QOS;
-		mdla_lock_power.max_boost_value = args[1];
-		mdla_lock_power.min_boost_value = args[0];
-		mdla_dvfs_debug("[mdla]EARA_LOCK+core:%d, maxb:%d, minb:%d\n",
-			mdla_lock_power.core, mdla_lock_power.max_boost_value,
-				mdla_lock_power.min_boost_value);
-		ret = mdla_lock_set_power(&mdla_lock_power);
-		if (ret) {
-			PWR_LOG_INF("[POWER_HAL_LOCK]failed, ret=%d\n", ret);
-			goto out;
-		}
-		break;
-		}
-#endif
 	case POWER_PARAM_SET_USER_OPP:
 		ret = (argc == 2) ? 0 : -EINVAL;
 		if (ret) {
@@ -398,20 +387,6 @@ int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 			apusys_opps.power_lock_min_opp[args[0]] = args[1];
 			apusys_opps.power_lock_max_opp[args[0]] = args[2];
 			break;
-	case POWER_PARAM_SET_POWER_OFF:
-		ret = (argc == 1) ? 0 : -EINVAL;
-		if (ret) {
-			PWR_LOG_INF(
-				"invalid argument, expected:1, received:%d\n",
-									argc);
-			goto out;
-		}
-		apusys_opps.user_opp_index[args[0]] = APUSYS_MAX_NUM_OPPS - 1;
-		for (j = 0 ; j < APUSYS_PATH_USER_NUM ; j++) {
-			apusys_opps.user_path_volt[args[0]][j] =
-							DVFS_VOLT_00_650000_V;
-		}
-		break;
 	case POWER_PARAM_GET_POWER_REG:
 		ret = (argc == 1) ? 0 : -EINVAL;
 		if (ret) {
@@ -509,24 +484,14 @@ static ssize_t apusys_debug_power_write(struct file *flip,
 		param = POWER_PARAM_FIX_OPP;
 	else if (strcmp(token, "dvfs_debug") == 0)
 		param = POWER_PARAM_DVFS_DEBUG;
-	else if (strcmp(token, "jtag") == 0)
-		param = POWER_PARAM_JTAG;
-	else if (strcmp(token, "lock") == 0)
-		param = POWER_PARAM_LOCK;
-	else if (strcmp(token, "volt_step") == 0)
-		param = POWER_PARAM_VOLT_STEP;
 	else if (strcmp(token, "power_hal") == 0)
 		param = POWER_HAL_CTL;
-	else if (strcmp(token, "eara") == 0)
-		param = POWER_EARA_CTL;
 	else if (strcmp(token, "user_opp") == 0)
 		param = POWER_PARAM_SET_USER_OPP;
 	else if (strcmp(token, "thermal_opp") == 0)
 		param = POWER_PARAM_SET_THERMAL_OPP;
 	else if (strcmp(token, "power_hal_opp") == 0)
 		param = POWER_PARAM_SET_POWER_HAL_OPP;
-	else if (strcmp(token, "power_off") == 0)
-		param = POWER_PARAM_SET_POWER_OFF;
 	else if (strcmp(token, "reg_dump") == 0)
 		param = POWER_PARAM_GET_POWER_REG;
 	else if (strcmp(token, "power_stress") == 0)
