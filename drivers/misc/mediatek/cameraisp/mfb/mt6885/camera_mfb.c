@@ -3767,12 +3767,12 @@ static signed int MFB_release(struct inode *pInode, struct file *pFile)
 			__func__, MFBInfo.UserCount, current->comm,
 			current->pid, current->tgid);
 
+		spin_unlock(&(MFBInfo.SpinLockMFBRef));
 		mfb_unregister_requests(&mss_reqs);
 		mfb_unregister_requests(&msf_reqs);
 		mfb_unregister_requests(&vmss_reqs);
 		mfb_unregister_requests(&vmsf_reqs);
 
-		spin_unlock(&(MFBInfo.SpinLockMFBRef));
 	}
 	/*  */
 
