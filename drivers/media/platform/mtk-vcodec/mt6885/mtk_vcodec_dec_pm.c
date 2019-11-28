@@ -135,6 +135,7 @@ int mtk_vcodec_init_dec_pm(struct mtk_vcodec_dev *mtkdev)
 
 	atomic_set(&pm->dec_active_cnt, 0);
 	memset(pm->vdec_racing_info, 0, sizeof(pm->vdec_racing_info));
+	mutex_init(&pm->dec_racing_info_mutex);
 #endif
 	ion_vdec_client = NULL;
 
@@ -190,6 +191,7 @@ void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm, int hw_id)
 	} else
 		mtk_v4l2_err("invalid hw_id %d", hw_id);
 
+	mutex_lock(&pm->dec_racing_info_mutex);
 	if (atomic_inc_return(&pm->dec_active_cnt) == 1) {
 		/* restore racing info read/write ptr */
 		dev = container_of(pm, struct mtk_vcodec_dev, pm);
@@ -200,6 +202,7 @@ void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm, int hw_id)
 			writel(pm->vdec_racing_info[j],
 				vdec_racing_addr + j * 4);
 	}
+	mutex_unlock(&pm->dec_racing_info_mutex);
 #endif
 
 #ifdef CONFIG_MTK_PSEUDO_M4U
@@ -245,6 +248,7 @@ void mtk_vcodec_dec_clock_off(struct mtk_vcodec_pm *pm, int hw_id)
 	void __iomem *vdec_racing_addr;
 	int i;
 
+	mutex_lock(&pm->dec_racing_info_mutex);
 	if (atomic_dec_and_test(&pm->dec_active_cnt)) {
 		/* backup racing info read/write ptr */
 		dev = container_of(pm, struct mtk_vcodec_dev, pm);
@@ -255,6 +259,7 @@ void mtk_vcodec_dec_clock_off(struct mtk_vcodec_pm *pm, int hw_id)
 			pm->vdec_racing_info[i] =
 				readl(vdec_racing_addr + i * 4);
 	}
+	mutex_unlock(&pm->dec_racing_info_mutex);
 
 	if (hw_id == MTK_VDEC_CORE) {
 		clk_disable_unprepare(pm->clk_MT_CG_VDEC0);

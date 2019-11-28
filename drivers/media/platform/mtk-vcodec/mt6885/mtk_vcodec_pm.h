@@ -56,6 +56,7 @@ struct mtk_vcodec_pm {
 
 	atomic_t dec_active_cnt;
 	__u32 vdec_racing_info[MTK_VDEC_RACING_INFO_SIZE];
+	struct mutex dec_racing_info_mutex;
 };
 
 enum mtk_dec_dtsi_reg_idx {
