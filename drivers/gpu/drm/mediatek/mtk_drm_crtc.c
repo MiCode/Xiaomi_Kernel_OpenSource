@@ -650,6 +650,18 @@ bool mtk_crtc_get_vblank_timestamp(struct drm_device *dev, unsigned int pipe,
 static void user_cmd_cmdq_cb(struct cmdq_cb_data data)
 {
 	struct mtk_cmdq_cb_data *cb_data = data.data;
+	struct drm_crtc *crtc = cb_data->crtc;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
+	int id;
+	unsigned int user_cmd_idx = 0;
+
+	id = drm_crtc_index(crtc);
+	if (id == 0) {
+		user_cmd_idx = *(unsigned int *)(cmdq_buf->va_base +
+			DISP_SLOT_CUR_USER_CMD_IDX);
+		CRTC_MMP_MARK(id, user_cmd_cb, user_cmd_idx, 0);
+	}
 
 	cmdq_pkt_destroy(cb_data->cmdq_handle);
 	kfree(cb_data);
@@ -661,6 +673,8 @@ int mtk_crtc_user_cmd(struct drm_crtc *crtc, struct mtk_ddp_comp *comp,
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct cmdq_pkt *cmdq_handle;
 	struct mtk_cmdq_cb_data *cb_data;
+	static unsigned int user_cmd_cnt;
+	struct cmdq_pkt_buffer *cmdq_buf;
 	int index = 0;
 
 	if (!mtk_crtc) {
@@ -730,10 +744,20 @@ int mtk_crtc_user_cmd(struct drm_crtc *crtc, struct mtk_ddp_comp *comp,
 		return -1;
 	}
 
+	/* add counter to check update frequency */
+	cmdq_buf = &(mtk_crtc->gce_obj.buf);
+	cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base,
+			   cmdq_buf->pa_base +
+				   DISP_SLOT_CUR_USER_CMD_IDX,
+			   user_cmd_cnt, ~0);
+	CRTC_MMP_MARK(index, user_cmd, user_cmd_cnt, 0);
+	user_cmd_cnt++;
+
 	if (mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base))
 		cmdq_pkt_set_event(cmdq_handle,
 			mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
 
+	cb_data->crtc = crtc;
 	cb_data->cmdq_handle = cmdq_handle;
 	cmdq_pkt_flush_threaded(cmdq_handle, user_cmd_cmdq_cb, cb_data);
 

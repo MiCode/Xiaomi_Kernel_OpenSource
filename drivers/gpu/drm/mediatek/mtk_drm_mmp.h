@@ -83,6 +83,7 @@ struct CRTC_MMP_Events {
 	mmp_event user_cmd;
 	mmp_event check_trigger;
 	mmp_event atomic_commit;
+	mmp_event user_cmd_cb;
 };
 
 struct DRM_MMP_Events *get_drm_mmp_events(void);
