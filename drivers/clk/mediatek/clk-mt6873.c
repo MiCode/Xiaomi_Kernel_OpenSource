@@ -2879,6 +2879,12 @@ static const struct mtk_gate_regs infracfg_ao_module_sw_cg_4_regs = {
 	.sta_ofs = 0xe8,
 };
 
+static const struct mtk_gate_regs infracfg_ao_module_sw_cg_5_regs = {
+	.set_ofs = 0xd0,
+	.clr_ofs = 0xd4,
+	.sta_ofs = 0xd8,
+};
+
 static const struct mtk_gate infra_clks[] __initconst = {
 	/* MODULE_SW_CG_0 */
 	GATE(INFRACFG_AO_PMIC_CG_TMR, "infracfg_ao_pmic_cg_tmr", "f26m_sel",
@@ -2905,8 +2911,13 @@ static const struct mtk_gate infra_clks[] __initconst = {
 			 infracfg_ao_module_sw_cg_0_regs, 10, 0),
 	GATE(INFRACFG_AO_I2C0_CG, "infracfg_ao_i2c0_cg", "i2c_sel",
 			 infracfg_ao_module_sw_cg_0_regs, 11, 0),
+	GATE(INFRACFG_AO_AP_DMA_PSEUDO_CG, "infracfg_ao_ap_dma_pseudo_cg",
+			"axi_sel",	/* add manually */
+			 infracfg_ao_module_sw_cg_0_regs, 12, 0),
+#if 0
 	GATE(INFRACFG_AO_I2C1_CG, "infracfg_ao_i2c1_cg", "i2c_sel",
 			 infracfg_ao_module_sw_cg_0_regs, 12, 0),
+#endif
 	GATE(INFRACFG_AO_I2C2_CG, "infracfg_ao_i2c2_cg", "i2c_sel",
 			 infracfg_ao_module_sw_cg_0_regs, 13, 0),
 	GATE(INFRACFG_AO_I2C3_CG, "infracfg_ao_i2c3_cg", "i2c_sel",
@@ -3179,6 +3190,18 @@ static const struct mtk_gate infra_clks[] __initconst = {
 		"axi_sel", infracfg_ao_module_sw_cg_4_regs, 30, 0),
 	GATE(INFRACFG_AO_FLASHIF_SFLASH_CG, "infracfg_ao_spi7_ck_cg", "axi_sel",
 			 infracfg_ao_module_sw_cg_4_regs, 31, 0),
+
+	/*
+	 * MT6873: pll -> mux -> iic_cg(pseudo) -> iic_cg
+	 * This is a workaround for MT6873.
+	 *
+	 * IIC_CG(PSEUDO) : the signal bit for SPM
+	 * IIC_CG: the signal bit that real clock gating.
+	 */
+	GATE(INFRACFG_AO_AP_DMA_CG, "infracfg_ao_ap_dma_cg",
+			"infracfg_ao_ap_dma_pseudo_cg",
+			infracfg_ao_module_sw_cg_5_regs, 31, 0),
+
 };
 
 static void __iomem *infracfg_base;
@@ -3284,13 +3307,11 @@ static struct mtk_gate_regs mmsys_config_mmsys_cg_con1_regs = {
 	.clr_ofs = 0x118,
 	.sta_ofs = 0x110,
 };
-#if 0
 static struct mtk_gate_regs mmsys_config_mmsys_cg_con2_regs = {
 	.set_ofs = 0x1a4,
 	.clr_ofs = 0x1a8,
 	.sta_ofs = 0x1a0,
 };
-#endif
 static struct mtk_gate mmsys_config_clks[] __initdata = {
 	/* MMSYS_CG_CON0 */
 	GATE(MM_DISP_MUTEX0, "MM_DISP_MUTEX0", "disp_sel",
@@ -3359,6 +3380,15 @@ static struct mtk_gate mmsys_config_clks[] __initdata = {
 	GATE(MM_SMI_IOMMU, "MM_SMI_IOMMU", "disp_sel",
 			 mmsys_config_mmsys_cg_con1_regs, 0, 0),
 
+	/* MMSYS_CG_CON2 */
+	GATE(MM_DSI_DSI0, "MM_DSI_DSI0", "disp_sel",
+			 mmsys_config_mmsys_cg_con2_regs, 0, 0),
+	GATE(MM_DSI_DSI1, "MM_DSI_DSI1", "disp_sel",
+			 mmsys_config_mmsys_cg_con2_regs, 8, 0),
+	GATE(MM_26MHZ, "MM_26MHZ", "f26m_sel",
+			 mmsys_config_mmsys_cg_con2_regs, 24, 0),
+	GATE(MM_32KHZ, "MM_32KHZ", "clk32k",
+			 mmsys_config_mmsys_cg_con2_regs, 25, 0),
 };
 
 
