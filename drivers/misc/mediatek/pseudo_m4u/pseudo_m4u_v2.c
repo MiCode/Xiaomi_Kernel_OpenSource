@@ -1514,12 +1514,8 @@ void __m4u_dump_pgtable(struct seq_file *s, unsigned int level,
 	m4u_clear_port_size();
 	M4U_PRINT_SEQ(s,
 		      "======== pseudo_m4u IOVA List ==========\n");
-	if (s)
-		pr_notice("======== pseudo_m4u IOVA List ==========\n");
 	M4U_PRINT_SEQ(s,
 		      " bound IOVA_start ~ IOVA_end	PA_start ~ PA_end	size(Byte)	port(larb-port)	name	time(ms)	process(pid)\n");
-	if (s)
-		pr_notice(" bound IOVA_start ~ IOVA_end	PA_start ~ PA_end	size(Byte)	port(larb-port)	name	time(ms)	process(pid)\n");
 
 	list_for_each(pListHead, &(client->mvaList)) {
 		pList = container_of(pListHead, struct m4u_buf_info_t, link);
@@ -1549,15 +1545,6 @@ void __m4u_dump_pgtable(struct seq_file *s, unsigned int level,
 			      iommu_get_port_name(pList->port),
 			      pList->timestamp,
 			      pList->task_comm, pList->pid);
-		if (s)
-			pr_notice(">>> %lu  0x%lx~0x%lx, 0x%lx~0x%lx, %lu, %u(%u-%u), %s, %llu,  %s(%d)\n",
-			      (start & 0x300000000) >> 32, start, end,
-				  p_start, p_end,
-				  pList->size, pList->port,
-				  larb, port,
-				  iommu_get_port_name(pList->port),
-				  pList->timestamp,
-				  pList->task_comm, pList->pid);
 	}
 
 	if (lock)
@@ -2406,38 +2393,40 @@ int m4u_config_port(struct M4U_PORT_STRUCT *pM4uPort)
 	return ret;
 }
 
-void pseudo_m4u_mpu_violation_debug(unsigned int m4uid)
+void pseudo_m4u_db_debug(unsigned int m4uid,
+		struct seq_file *s)
 {
 	int i, j;
 
-	M4U_MSG("========iommu%d start mpu violation debug========\n",
-		m4uid);
 	if (m4uid < MTK_IOMMU_M4U_COUNT) {
-		mtk_iommu_power_switch_by_id(m4uid, true,
-					     "pseudo_mpu_debug");
+		M4U_PRINT_SEQ(s,
+			      "=========================iommu%d start HW register dump=============================\n",
+			      m4uid);
 		for (i = 0; i < MTK_IOMMU_MMU_COUNT; i++)
-			mtk_dump_main_tlb(m4uid, i);
-		mtk_iommu_power_switch_by_id(m4uid, false,
-					     "pseudo_mpu_debug");
-		__m4u_dump_pgtable(NULL, MTK_PGTABLE_DUMP_LEVEL_ION, true, 0);
+			mtk_dump_main_tlb(m4uid, i, s);
+		mtk_dump_pfh_tlb(m4uid, s);
+		__mtk_dump_reg_for_hang_issue(m4uid, s);
+		M4U_PRINT_SEQ(s,
+			      "=========================iommu%d finish HW register dump============================\n",
+			      m4uid);
 	} else {
 		for (i = 0; i < MTK_IOMMU_M4U_COUNT; i++) {
-			mtk_iommu_power_switch_by_id(i, true,
-					     "pseudo_mpu_debug");
+			M4U_PRINT_SEQ(s,
+				      "====================================iommu%d start HW register dump===============================\n",
+				      i);
 			for (j = 0; j < MTK_IOMMU_MMU_COUNT; j++)
-				mtk_dump_main_tlb(i, j);
-			mtk_iommu_power_switch_by_id(i, false,
-					     "pseudo_mpu_debug");
+				mtk_dump_main_tlb(i, j, s);
+			mtk_dump_pfh_tlb(i, s);
+			__mtk_dump_reg_for_hang_issue(i, s);
+			M4U_PRINT_SEQ(s,
+				      "====================================iommu%d finish HW register dump==============================\n",
+				      i);
 		}
 	}
-	//mtk_dump_pfh_tlb(m4uid);
-
-	pseudo_dump_all_port_status(NULL);
-
-	M4U_MSG("========iommu%d finish mpu violation debug========\n",
-		m4uid);
+	pseudo_dump_all_port_status(s);
+	__m4u_dump_pgtable(s, MTK_PGTABLE_DUMP_LEVEL_ION, true, 0);
 }
-EXPORT_SYMBOL(pseudo_m4u_mpu_violation_debug);
+EXPORT_SYMBOL(pseudo_m4u_db_debug);
 
 static int pseudo_release(struct inode *inode, struct file *file)
 {

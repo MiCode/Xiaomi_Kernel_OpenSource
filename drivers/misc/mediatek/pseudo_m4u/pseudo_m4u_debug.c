@@ -703,7 +703,7 @@ static int m4u_debug_set(void *data, u64 val)
 
 		for (i = 0; i < MTK_IOMMU_M4U_COUNT; i++)
 			for (j = 0; j < MTK_IOMMU_MMU_COUNT; j++)
-				mtk_dump_main_tlb(i, j);
+				mtk_dump_main_tlb(i, j, NULL);
 	}
 	break;
 	case 17:
@@ -711,7 +711,7 @@ static int m4u_debug_set(void *data, u64 val)
 		int i;
 
 		for (i = 0; i < MTK_IOMMU_M4U_COUNT; i++)
-			mtk_dump_pfh_tlb(i);
+			mtk_dump_pfh_tlb(i, NULL);
 	}
 	break;
 	case 18:
@@ -940,11 +940,6 @@ static int m4u_debug_set(void *data, u64 val)
 		mtk_iommu_tlb_flush_all(NULL);
 	}
 	break;
-	case 35:
-	{
-		pseudo_m4u_mpu_violation_debug(MTK_IOMMU_M4U_COUNT);
-	}
-	break;
 #ifdef M4U_TEE_SERVICE_ENABLE
 	case 50:
 	{
@@ -1107,8 +1102,6 @@ int m4u_debug_help_show(struct seq_file *s, void *unused)
 	M4U_PRINT_SEQ(s,
 		      "echo 34 > /d/m4u/debug:	TLB flush All\n");
 	M4U_PRINT_SEQ(s,
-		      "echo 35 > /d/m4u/debug:	do mpu violation debug of all iommu index\n");
-	M4U_PRINT_SEQ(s,
 		      "echo 50 > /d/m4u/debug:	init the Trustlet and T-drv of secure IOMMU\n");
 	M4U_PRINT_SEQ(s,
 		      "echo 51 > /d/m4u/debug:	IOMMU ATF command list test\n");
@@ -1232,6 +1225,25 @@ const struct file_operations m4u_debug_register_fops = {
 	.release = single_release,
 };
 
+int m4u_debug_db_show(struct seq_file *s, void *unused)
+{
+	pr_notice("[iommu][debug]: %s\n", __func__);
+	pseudo_m4u_db_debug(MTK_IOMMU_M4U_COUNT, s);
+	return 0;
+}
+
+int m4u_debug_db_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, m4u_debug_db_show, inode->i_private);
+}
+
+const struct file_operations m4u_debug_db_fops = {
+	.open = m4u_debug_db_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
 int pseudo_debug_init(struct m4u_device *m4u_dev)
 {
 	struct dentry *debug_file;
@@ -1280,6 +1292,11 @@ int pseudo_debug_init(struct m4u_device *m4u_dev)
 		0644, m4u_dev->debug_root, NULL, &m4u_debug_domain_fops);
 	if (IS_ERR_OR_NULL(debug_file))
 		M4U_MSG("m4u: failed to create debug files 8.\n");
+
+	debug_file = debugfs_create_file("iommu_db_dump",
+		0644, m4u_dev->debug_root, NULL, &m4u_debug_db_fops);
+	if (IS_ERR_OR_NULL(debug_file))
+		M4U_MSG("m4u: failed to create debug files 9.\n");
 
 	return 0;
 }

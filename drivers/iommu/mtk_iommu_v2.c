@@ -539,24 +539,30 @@ static int mtk_dump_rs_sta_info(const struct mtk_iommu_data *data, int mmu)
 			    MTK_IOMMU_RS_COUNT * 4);
 }
 
-int __mtk_dump_reg_for_hang_issue(unsigned int m4u_id)
+int __mtk_dump_reg_for_hang_issue(unsigned int m4u_id,
+		struct seq_file *s)
 {
 	int cnt, ret;
 	struct mtk_iommu_data *data = mtk_iommu_get_m4u_data(m4u_id);
 	void __iomem *base;
 	unsigned long flags;
 
-	pr_notice("====== dump hang debug reg of iommu:%d =======>\n", m4u_id);
+	mmu_seq_print(s,
+		      "====== dump hang debug reg of iommu:%d =======>\n",
+		      m4u_id);
 
 	if (!data || data->base == 0) {
-		pr_notice("%s, %d, base is NULL\n",
-			  __func__, __LINE__);
+		mmu_seq_print(s,
+			      "%s, %d, base is NULL\n",
+			      __func__, __LINE__);
 		return 0;
 	}
 	spin_lock_irqsave(&data->reg_lock, flags);
 #ifdef IOMMU_POWER_CLK_SUPPORT
 	if (!data->poweron) {
 		spin_unlock_irqrestore(&data->reg_lock, flags);
+		mmu_seq_print(s,
+			      "iommu:%d power off\n", m4u_id);
 		return 0;
 	}
 #endif
@@ -564,42 +570,53 @@ int __mtk_dump_reg_for_hang_issue(unsigned int m4u_id)
 	base = data->base;
 
 	/* control register */
-	pr_notice("REG_MMU_DUMMY(0x44)	   = 0x%x\n",
-		  readl_relaxed(base + REG_MMU_DUMMY));
-	pr_notice("REG_MMU_MISC_CTRL(0x48)   = 0x%x\n",
-		  readl_relaxed(base + REG_MMU_MISC_CTRL));
-	pr_notice("REG_MMU_DCM_DIS(0x50)	 = 0x%x\n",
-		  readl_relaxed(base + REG_MMU_DCM_DIS));
-	pr_notice("REG_MMU_WR_LEN_CTRL(0x54) = 0x%x\n",
-		  readl_relaxed(base + REG_MMU_WR_LEN_CTRL));
-	pr_notice("REG_MMU_TBW_ID(0xA0)	  = 0x%x\n",
-		  readl_relaxed(base + REG_MMU_TBW_ID));
-	pr_notice("REG_MMU_CTRL_REG(0x110)   = 0x%x\n",
-		  readl_relaxed(base + REG_MMU_CTRL_REG));
+	mmu_seq_print(s,
+		      "REG_MMU_DUMMY(0x44)	   = 0x%x\n",
+		      readl_relaxed(base + REG_MMU_DUMMY));
+	mmu_seq_print(s,
+		      "REG_MMU_MISC_CTRL(0x48)   = 0x%x\n",
+		      readl_relaxed(base + REG_MMU_MISC_CTRL));
+	mmu_seq_print(s,
+		      "REG_MMU_DCM_DIS(0x50)	 = 0x%x\n",
+		      readl_relaxed(base + REG_MMU_DCM_DIS));
+	mmu_seq_print(s,
+		      "REG_MMU_WR_LEN_CTRL(0x54) = 0x%x\n",
+		      readl_relaxed(base + REG_MMU_WR_LEN_CTRL));
+	mmu_seq_print(s,
+		      "REG_MMU_TBW_ID(0xA0)	  = 0x%x\n",
+		      readl_relaxed(base + REG_MMU_TBW_ID));
+	mmu_seq_print(s,
+		      "REG_MMU_CTRL_REG(0x110)   = 0x%x\n",
+		      readl_relaxed(base + REG_MMU_CTRL_REG));
 
 	/* dump five times*/
 	ret = mtk_switch_secure_debug_func(m4u_id, 1);
 	if (ret) {
 		spin_unlock_irqrestore(&data->reg_lock, flags);
-		pr_notice("%s, %d, failed to enable secure debug signal\n",
-			  __func__, __LINE__);
+		mmu_seq_print(s,
+			      "%s, %d, failed to enable secure debug signal\n",
+			      __func__, __LINE__);
 		return 0;
 	}
 
 	for (cnt = 0; cnt < 3; cnt++) {
-		pr_notice("====== the %d time: REG_MMU_STA(0x08) = 0x%x ======\n",
-			  cnt, readl_relaxed(base + REG_MMU_STA));
+		mmu_seq_print(s,
+			      "====== the %d time: REG_MMU_STA(0x08) = 0x%x ======\n",
+			      cnt, readl_relaxed(base + REG_MMU_STA));
 		mtk_dump_debug_reg_info(data);
 		mtk_dump_rs_sta_info(data, 0);
 		mtk_dump_rs_sta_info(data, 1);
 	}
 
-	pr_notice("============ dump hang reg end =============>\n");
+	mmu_seq_print(s,
+		      "============ dump hang reg end =============>\n");
 
 	ret = mtk_switch_secure_debug_func(m4u_id, 0);
 	if (ret)
-		pr_notice("%s, %d, failed to disable secure debug signal\n",
-			  __func__, __LINE__);
+		mmu_seq_print(s,
+			      "%s, %d, failed to disable secure debug signal\n",
+			      __func__, __LINE__);
+
 	spin_unlock_irqrestore(&data->reg_lock, flags);
 
 	return 0;
@@ -633,7 +650,7 @@ void mtk_dump_reg_for_hang_issue(unsigned int type)
 		return;
 
 	for (i = start; i <= end; i++)
-		__mtk_dump_reg_for_hang_issue(i);
+		__mtk_dump_reg_for_hang_issue(i, NULL);
 }
 EXPORT_SYMBOL_GPL(mtk_dump_reg_for_hang_issue);
 
@@ -2568,20 +2585,37 @@ unsigned int mtk_get_pfh_descriptor(
 	return tlb.desc;
 }
 
-int mtk_dump_main_tlb(int m4u_id, int m4u_slave_id)
+int mtk_dump_main_tlb(int m4u_id, int m4u_slave_id,
+		struct seq_file *s)
 {
 	/* M4U related */
 	unsigned int i = 0;
 	struct mmu_tlb_t tlb;
-	const struct mtk_iommu_data *data = mtk_iommu_get_m4u_data(m4u_id);
+	struct mtk_iommu_data *data = mtk_iommu_get_m4u_data(m4u_id);
+	unsigned long flags;
 
-	pr_info("dump main tlb of iommu:%d  ====>\n", m4u_id);
+	spin_lock_irqsave(&data->reg_lock, flags);
+#ifdef IOMMU_POWER_CLK_SUPPORT
+	if (!data->poweron) {
+		mmu_seq_print(s,
+			       "iommu:%d power off\n", m4u_id);
+		spin_unlock_irqrestore(&data->reg_lock, flags);
+		return 0;
+	}
+#endif
+
+	mmu_seq_print(s,
+		       "dump main tlb of iommu:%d mmu:%d ====>\n",
+		       m4u_id, m4u_slave_id);
 	for (i = 0; i < g_tag_count[m4u_id]; i++) {
 		mtk_get_main_tlb(data, m4u_slave_id, i, &tlb);
-		pr_info("%d:0x%x:0x%x  ", i, tlb.tag, tlb.desc);
+		mmu_seq_print(s,
+			       "%d:0x%x:0x%x  ", i, tlb.tag, tlb.desc);
 		if ((i + 1) % 8 == 0)
-			pr_info("===\n");
+			mmu_seq_print(s, "===\n");
 	}
+
+	spin_unlock_irqrestore(&data->reg_lock, flags);
 
 	return 0;
 }
@@ -2690,19 +2724,32 @@ static unsigned int imu_pfh_tag_to_va(int mmu,
 
 }
 
-int mtk_dump_pfh_tlb(int m4u_id)
+int mtk_dump_pfh_tlb(int m4u_id,
+		struct seq_file *s)
 {
 	unsigned int regval;
-	const struct mtk_iommu_data *data = mtk_iommu_get_m4u_data(m4u_id);
+	struct mtk_iommu_data *data = mtk_iommu_get_m4u_data(m4u_id);
 	void __iomem *base = data->base;
 	int result = 0;
 	int set_nr, way_nr, set, way;
 	int valid;
+	unsigned long flags;
+
+	spin_lock_irqsave(&data->reg_lock, flags);
+#ifdef IOMMU_POWER_CLK_SUPPORT
+	if (!data->poweron) {
+		mmu_seq_print(s,
+			       "iommu:%d power off\n", m4u_id);
+		spin_unlock_irqrestore(&data->reg_lock, flags);
+		return 0;
+	}
+#endif
 
 	set_nr = MTK_IOMMU_SET_NR(m4u_id);
 	way_nr = MTK_IOMMU_WAY_NR;
 
-	pr_info("dump pfh_tlb: m4u %d  ====>\n", m4u_id);
+	mmu_seq_print(s,
+		       "dump pfh_tlb: m4u %d  ====>\n", m4u_id);
 
 	for (way = 0; way < way_nr; way++) {
 		for (set = 0; set < set_nr; set++) {
@@ -2713,8 +2760,8 @@ int mtk_dump_pfh_tlb(int m4u_id)
 				REG_MMU_PFH_VLD(set, way));
 			valid = !!(regval & F_MMU_PFH_VLD_BIT(set, way));
 			mtk_get_pfh_tlb(data, set, 0, way, &tlb);
-			pr_info(
-				"va(0x%x) lay(%d) 16x(%d) sec(%d) pfh(%d) v(%d),set(%d),way(%d), 0x%x:",
+			mmu_seq_print(s,
+				       "va(0x%x) lay(%d) 16x(%d) sec(%d) pfh(%d) v(%d),set(%d),way(%d), 0x%x:",
 			 imu_pfh_tag_to_va(m4u_id, set, way, tlb.tag),
 			 !!(tlb.tag & F_PFH_TAG_LAYER_BIT),
 			 !!(tlb.tag & F_PFH_TAG_16X_BIT),
@@ -2724,11 +2771,13 @@ int mtk_dump_pfh_tlb(int m4u_id)
 
 			for (page = 1; page < MMU_PAGE_PER_LINE; page++) {
 				mtk_get_pfh_tlb(data, set, page, way, &tlb);
-				pr_info("0x%x:", tlb.desc);
+				mmu_seq_print(s, "0x%x:", tlb.desc);
 			}
-			pr_info("\n");
+			mmu_seq_print(s, "\n");
 		}
 	}
+
+	spin_unlock_irqrestore(&data->reg_lock, flags);
 
 	return result;
 }
@@ -3093,7 +3142,7 @@ int mau_start_monitor(unsigned int m4u_id, unsigned int slave,
 #ifdef IOMMU_POWER_CLK_SUPPORT
 	if (!data->poweron) {
 		spin_unlock_irqrestore(&data->reg_lock, flags);
-		pr_notice("%s, iommu%u not support power control\n",
+		pr_notice("%s, iommu%u power off\n",
 			  __func__, data->m4uid);
 		return 0;
 	}
@@ -3168,7 +3217,7 @@ void mau_stop_monitor(unsigned int m4u_id, unsigned int slave,
 			return;
 #ifdef IOMMU_POWER_CLK_SUPPORT
 		if (!data->poweron) {
-			pr_notice("%s, iommu%u not support power control\n",
+			pr_notice("%s, iommu%u power off\n",
 				  __func__, data->m4uid);
 			return;
 		}
@@ -3682,7 +3731,7 @@ static void mtk_iommu_pg_after_on(enum subsys_id sys)
 			continue;
 		}
 		if (!data->m4u_clks->nr_powers) {
-			pr_notice("%s, iommu%u not support power control\n",
+			pr_notice("%s, iommu%u power control is not support\n",
 				  __func__, data->m4uid);
 			continue;
 		}
@@ -3799,7 +3848,7 @@ static int mtk_iommu_hw_init(struct mtk_iommu_data *data)
 
 #ifdef IOMMU_POWER_CLK_SUPPORT
 	if (!data->poweron) {
-		pr_notice("%s, iommu%u not support power control\n",
+		pr_notice("%s, iommu%u power off\n",
 			  __func__, data->m4uid);
 		return 0;
 	}
@@ -4177,7 +4226,7 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 	if (data->m4u_clks->nr_powers)
 		data->poweron = true;
 	else
-		pr_notice("%s, iommu%u not support power control\n",
+		pr_notice("%s, iommu%u power control is not support\n",
 			  __func__, data->m4uid);
 #endif
 

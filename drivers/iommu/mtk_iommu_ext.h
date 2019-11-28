@@ -43,6 +43,14 @@
 
 #endif
 
+#define mmu_seq_print(seq_file, fmt, args...) \
+	do {\
+		if (seq_file)\
+			seq_printf(seq_file, fmt, ##args);\
+		else\
+			pr_notice(fmt, ##args);\
+	} while (0)
+
 struct IOMMU_PERF_COUNT {
 	unsigned int transaction_cnt;
 	unsigned int main_tlb_miss_cnt;
@@ -198,8 +206,10 @@ void iommu_perf_print_counter(int m4u_index,
 char *mtk_iommu_get_vpu_port_name(unsigned int tf_id);
 char *mtk_iommu_get_mm_port_name(unsigned int m4uid,
 		      unsigned int tf_id);
-int mtk_dump_main_tlb(int m4u_id, int m4u_slave_id);
-int mtk_dump_pfh_tlb(int m4u_id);
+int mtk_dump_main_tlb(int m4u_id, int m4u_slave_id,
+		struct seq_file *s);
+int mtk_dump_pfh_tlb(int m4u_id,
+		struct seq_file *s);
 int mtk_iommu_dump_reg(int m4u_index, unsigned int start,
 		unsigned int end, char *user);
 int mtk_iommu_get_boundary_id(struct device *dev);
@@ -217,7 +227,8 @@ bool mtk_dev_is_size_alignment(struct device *dev);
 unsigned long mtk_dev_alloc_from_root(struct device *dev);
 char *mtk_iommu_get_port_name(unsigned int m4u_id,
 		unsigned int tf_id);
-int __mtk_dump_reg_for_hang_issue(unsigned int m4u_id);
+int __mtk_dump_reg_for_hang_issue(unsigned int m4u_id,
+		struct seq_file *s);
 void mtk_dump_reg_for_hang_issue(unsigned int type);
 void mtk_iommu_switch_tf_test(bool enable, const char *msg);
 int mtk_iommu_power_switch_by_id(unsigned int m4uid,
