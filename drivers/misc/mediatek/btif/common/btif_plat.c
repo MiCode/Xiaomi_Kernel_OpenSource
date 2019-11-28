@@ -60,6 +60,14 @@ struct _MTK_BTIF_INFO_STR_ mtk_btif_info = {
 	.rx_data_len = 0,
 	.p_tx_fifo = NULL,
 };
+
+#ifdef DUMP_BGF_REG
+static void *g_bgf_reg_base;
+static void *g_bgf_dma_base;
+static void *g_bgf_dbg_addr1;
+static void *g_bgf_dbg_addr2;
+#endif
+
 #if !(NEW_TX_HANDLING_SUPPORT)
 static bool _btif_is_tx_allow(struct _MTK_BTIF_INFO_STR_ *p_btif);
 #endif
@@ -1150,80 +1158,109 @@ int hal_btif_raise_wak_sig(struct _MTK_BTIF_INFO_STR_ *p_btif)
 }
 
 #ifdef DUMP_BGF_REG
+void hal_btif_dump_bgf_reg_deinit(void)
+{
+	if (g_bgf_reg_base) {
+		iounmap(g_bgf_reg_base);
+		g_bgf_reg_base = NULL;
+	}
+
+	if (g_bgf_dma_base) {
+		iounmap(g_bgf_dma_base);
+		g_bgf_dma_base = NULL;
+	}
+
+	if (g_bgf_dbg_addr1) {
+		iounmap(g_bgf_dbg_addr1);
+		g_bgf_dbg_addr1 = NULL;
+	}
+
+	if (g_bgf_dbg_addr2) {
+		iounmap(g_bgf_dbg_addr2);
+		g_bgf_dbg_addr2 = NULL;
+	}
+}
+
+void hal_btif_dump_bgf_reg_init(void)
+{
+	g_bgf_reg_base = ioremap(BGF_BTIF_REG_BASE, BGF_BTIF_REG_LEN);
+	if (!g_bgf_reg_base) {
+		pr_info("ioremap fail (BGF_BTIF)!\n");
+		goto error;
+	}
+
+	g_bgf_dma_base = ioremap(BGF_DMA_REG_BASE, BGF_DMA_REG_LEN);
+	if (!g_bgf_dma_base) {
+		pr_info("ioremap fail (BGF_DMA)!\n");
+		goto error;
+	}
+
+	/* bgfsys btif debug */
+	g_bgf_dbg_addr1 = ioremap(BGF_BTIF_DBG_ADDR_1, 0x10);
+	if (!g_bgf_dbg_addr1) {
+		pr_info("ioremap fail (BGF_BTIF_DBG_ADDR_1)!\n");
+		goto error;
+	}
+
+	g_bgf_dbg_addr2 = ioremap(BGF_BTIF_DBG_ADDR_2, 0x10);
+	if (!g_bgf_dbg_addr2) {
+		pr_info("ioremap fail (BGF_BTIF_DBG_ADDR_2)!\n");
+		goto error;
+	}
+
+	return;
+error:
+	hal_btif_dump_bgf_reg_deinit();
+}
+
 static void btif_dump_bgf_reg(void)
 {
-	void *remap_addr1, *remap_addr2;
 	unsigned char reg_map1[BGF_BTIF_REG_LEN / 4] = { 0 };
 	unsigned char reg_map2[BGF_DMA_REG_LEN / 4] = { 0 };
 	int idx = 0;
 	unsigned int val;
 
-	/* dump BGF_BTIF register */
-	remap_addr1 = ioremap(BGF_BTIF_REG_BASE, BGF_BTIF_REG_LEN);
-	if (!remap_addr1) {
-		pr_info("ioremap fail (BGF_BTIF)!\n");
+	if (!g_bgf_reg_base || !g_bgf_dma_base || !g_bgf_dbg_addr1 ||
+		!g_bgf_dbg_addr2)
 		return;
-	}
 
+	/* dump BGF_BTIF register */
 	for (idx = 1; idx < sizeof(reg_map1); idx++)
-		reg_map1[idx] = BTIF_READ8(remap_addr1 + (4 * idx));
+		reg_map1[idx] = BTIF_READ8(g_bgf_reg_base + (4 * idx));
 
-	iounmap(remap_addr1);
 	btif_dump_array("BFG_BTIF register", reg_map1, sizeof(reg_map1));
 
 	/* dump BGF_DMA register */
-	remap_addr1 = ioremap(BGF_DMA_REG_BASE, BGF_DMA_REG_LEN);
-	if (!remap_addr1) {
-		pr_info("ioremap fail (BGF_DMA)!\n");
-		return;
-	}
-
 	for (idx = 0; idx < sizeof(reg_map2); idx++)
-		reg_map2[idx] = BTIF_READ8(remap_addr1 + (4 * idx));
+		reg_map2[idx] = BTIF_READ8(g_bgf_dma_base + (4 * idx));
 
-	iounmap(remap_addr1);
 	btif_dump_array("BFG_DMA register", reg_map2, sizeof(reg_map2));
 
 	/* bgfsys btif debug */
-	remap_addr1 = ioremap(BGF_BTIF_DBG_ADDR_1, 0x10);
-	if (!remap_addr1) {
-		pr_info("ioremap fail (BGF_BTIF_DBG_ADDR_1)!\n");
-		return;
-	}
-
-	remap_addr2 = ioremap(BGF_BTIF_DBG_ADDR_2, 0x10);
-	if (!remap_addr2) {
-		iounmap(remap_addr1);
-		pr_info("ioremap fail (BGF_BTIF_DBG_ADDR_2)!\n");
-		return;
-	}
-
 	for (idx = 0; idx < 10; idx++) {
 		/* 1.write 0x180600A8[0] = 0x1 */
-		BTIF_SET_BIT(remap_addr1, BGF_BTIF_DBG_BIT);
+		BTIF_SET_BIT(g_bgf_dbg_addr1, BGF_BTIF_DBG_BIT);
 
 		/* 2.write 0x180600A8[23:8]   = 0x1e1d */
-		val = BTIF_READ32(remap_addr1);
+		val = BTIF_READ32(g_bgf_dbg_addr1);
 		val &= BGF_BTIF_DBG_MASK;
 		val |= BGF_BTIF_DBG_VAL_1;
-		btif_reg_sync_writel(val, remap_addr1);
+		btif_reg_sync_writel(val, g_bgf_dbg_addr1);
 
 		/* 3.read  0x1880040C */
-		val = BTIF_READ32(remap_addr2);
+		val = BTIF_READ32(g_bgf_dbg_addr2);
 		pr_info("[1]0x%x\n", val);
 
 		/* 4.write 0x180600A8[23:8] = 0x201f */
-		val = BTIF_READ32(remap_addr1);
+		val = BTIF_READ32(g_bgf_dbg_addr1);
 		val &= BGF_BTIF_DBG_MASK;
 		val |= BGF_BTIF_DBG_VAL_2;
-		btif_reg_sync_writel(val, remap_addr1);
+		btif_reg_sync_writel(val, g_bgf_dbg_addr1);
 
 		/* 5.read  0x1880040C */
-		val = BTIF_READ32(remap_addr2);
+		val = BTIF_READ32(g_bgf_dbg_addr2);
 		pr_info("[2]0x%x\n", val);
 	}
-	iounmap(remap_addr1);
-	iounmap(remap_addr2);
 }
 #endif
 

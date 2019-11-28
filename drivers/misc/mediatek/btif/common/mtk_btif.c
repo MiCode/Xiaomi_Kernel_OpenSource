@@ -1550,6 +1550,9 @@ int _btif_controller_setup(struct _mtk_btif_ *p_btif)
 		return i_ret;
 	}
 
+#ifdef DUMP_BGF_REG
+	hal_btif_dump_bgf_reg_init();
+#endif
 /*disable IRQ*/
 	_btif_irq_ctrl(p_btif_irq, false);
 	i_ret = 0;
@@ -1562,6 +1565,9 @@ int _btif_controller_free(struct _mtk_btif_ *p_btif)
 /*No need to set BTIF to PIO mode, only enable BTIF CG*/
 	hal_btif_rx_cb_reg(p_btif->p_btif_info, (btif_rx_buf_write) NULL);
 	_btif_irq_free(p_btif->p_btif_info->p_irq, p_btif);
+#ifdef DUMP_BGF_REG
+	hal_btif_dump_bgf_reg_deinit();
+#endif
 	return hal_btif_clk_ctrl(p_btif->p_btif_info, CLK_OUT_DISABLE);
 }
 

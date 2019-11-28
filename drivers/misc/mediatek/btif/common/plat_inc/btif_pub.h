@@ -239,4 +239,9 @@ int hal_btif_pm_ops(struct _MTK_BTIF_INFO_STR_ *p_btif,
 
 void mtk_btif_read_cpu_sw_rst_debug_plat(void);
 
+#ifdef DUMP_BGF_REG
+void hal_btif_dump_bgf_reg_init(void);
+void hal_btif_dump_bgf_reg_deinit(void);
+#endif
+
 #endif /*__HAL_BTIF_PUB_H_*/
