@@ -2535,6 +2535,8 @@ int mtk_ovl_dump(struct mtk_ddp_comp *comp)
 		for (i = 0; i < 3; i++)
 			mtk_serial_dump_reg(baddr, 0xFD0 + i * 0x8, 2);
 	}
+	/* For debug MPU violation issue */
+	mtk_cust_dump_reg(baddr, 0xFC0, 0xFC4, 0xFC8, -1);
 
 	mtk_ovl_dump_golden_setting(comp);
 
