@@ -718,7 +718,7 @@ static ssize_t tracker_run_show(struct device_driver *driver, char *buf)
 static ssize_t tracker_run_store(struct device_driver *driver,
 		const char *buf, size_t count)
 {
-	unsigned int value;
+	unsigned int value = 0xdead;
 
 	if (kstrtou32(buf, 10, &value))
 		return -EINVAL;
@@ -743,7 +743,7 @@ static ssize_t enable_wp_show(struct device_driver *driver, char *buf)
 static ssize_t enable_wp_store(struct device_driver *driver,
 		const char *buf, size_t count)
 {
-	unsigned int value;
+	unsigned int value = 0xdead;
 
 	if (kstrtou32(buf, 10, &value))
 		return -EINVAL;
@@ -778,7 +778,7 @@ int systracker_set_watchpoint_addr(unsigned int addr)
 static ssize_t set_wp_address_store
 	(struct device_driver *driver, const char *buf, size_t count)
 {
-	unsigned int value;
+	unsigned int value = 0xdead;
 	int ret;
 
 	ret = kstrtou32(buf, 16, &value);
