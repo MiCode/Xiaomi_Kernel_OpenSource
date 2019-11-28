@@ -1589,6 +1589,35 @@ static int jpeg_hybrid_dec_ioctl(unsigned int cmd, unsigned long arg,
 /* -------------------------------------------------------------------------- */
 
 #ifdef CONFIG_COMPAT
+static int compat_get_jpeg_hybrid_out_data(
+		 struct compat_JPEG_DEC_DRV_HYBRID_OUT __user *data32,
+		 struct JPEG_DEC_DRV_HYBRID_OUT __user *data)
+{
+	compat_long_t timeout;
+	compat_uptr_t hwpa;
+	int err;
+
+	err = get_user(timeout, &data32->timeout);
+	err |= put_user(timeout, &data->timeout);
+	err |= get_user(hwpa, &data32->hwpa);
+	err |= put_user(compat_ptr(hwpa), &data->hwpa);
+	return err;
+}
+
+static int compat_get_jpeg_hybrid_in_data(
+		 struct compat_JPEG_DEC_DRV_HYBRID_IN __user *data32,
+		 struct JPEG_DEC_DRV_HYBRID_IN __user *data)
+{
+	compat_long_t timeout;
+	unsigned int hwpa;
+	int err;
+
+	err = get_user(timeout, &data32->timeout);
+	err |= put_user(timeout, &data->timeout);
+	err |= get_user(hwpa, &data32->hwpa);
+	err |= put_user(hwpa, &data->hwpa);
+	return err;
+}
 
 static int compat_get_jpeg_dec_ioctl_wait_data(
 		 struct compat_JPEG_DEC_DRV_OUT __user *data32,
@@ -1778,7 +1807,64 @@ static long compat_jpeg_ioctl(
 		return filp->f_op->unlocked_ioctl(
 			filp, cmd,
 			 (unsigned long)compat_ptr(arg));
+	case COMPAT_JPEG_DEC_IOCTL_LOCK:
+		{
+			struct compat_JPEG_DEC_DRV_HYBRID_OUT __user *data32;
+			struct JPEG_DEC_DRV_HYBRID_OUT __user *data;
+			int err;
 
+			JPEG_MSG("COMPAT_JPEG_DEC_IOCTL_LOCK\n");
+			data32 = compat_ptr(arg);
+			data = compat_alloc_user_space(sizeof(*data));
+			if (data == NULL)
+				return -EFAULT;
+			err = compat_get_jpeg_hybrid_out_data(data32, data);
+			if (err)
+				return err;
+			ret =
+			filp->f_op->unlocked_ioctl(filp, JPEG_DEC_IOCTL_LOCK,
+					(unsigned long)data);
+			return ret ? ret : err;
+		}
+	case COMPAT_JPEG_DEC_IOCTL_HYBRID_WAIT:
+		{
+			struct compat_JPEG_DEC_DRV_HYBRID_IN __user *data32;
+			struct JPEG_DEC_DRV_HYBRID_IN __user *data;
+			int err;
+
+			JPEG_MSG("COMPAT_JPEG_DEC_IOCTL_HYBRID_WAIT\n");
+			data32 = compat_ptr(arg);
+			data = compat_alloc_user_space(sizeof(*data));
+			if (data == NULL)
+				return -EFAULT;
+			err = compat_get_jpeg_hybrid_in_data(data32, data);
+			if (err)
+				return err;
+			ret =
+			filp->f_op->unlocked_ioctl(
+					filp, JPEG_DEC_IOCTL_HYBRID_WAIT,
+					(unsigned long)data);
+			return ret ? ret : err;
+		}
+	case COMPAT_JPEG_DEC_IOCTL_UNLOCK:
+		{
+			struct compat_JPEG_DEC_DRV_HYBRID_IN __user *data32;
+			struct JPEG_DEC_DRV_HYBRID_IN __user *data;
+			int err;
+
+			JPEG_MSG("COMPAT_JPEG_DEC_IOCTL_UNLOCK\n");
+			data32 = compat_ptr(arg);
+			data = compat_alloc_user_space(sizeof(*data));
+			if (data == NULL)
+				return -EFAULT;
+			err = compat_get_jpeg_hybrid_in_data(data32, data);
+			if (err)
+				return err;
+			ret =
+			filp->f_op->unlocked_ioctl(filp, JPEG_DEC_IOCTL_UNLOCK,
+					(unsigned long)data);
+			return ret ? ret : err;
+		}
 	default:
 		return -ENOIOCTLCMD;
 	}

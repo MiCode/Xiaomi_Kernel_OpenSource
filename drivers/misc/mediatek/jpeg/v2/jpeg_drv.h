@@ -636,6 +636,16 @@ struct compat_JPEG_ENC_DRV_OUT {
 
 };
 
+struct compat_JPEG_DEC_DRV_HYBRID_IN {
+	compat_long_t timeout;
+	unsigned int hwpa;
+};
+
+struct compat_JPEG_DEC_DRV_HYBRID_OUT {
+	compat_long_t timeout;
+	compat_uptr_t hwpa;
+};
+
 #endif
 
 /* ============================= */
@@ -705,7 +715,12 @@ struct compat_JPEG_ENC_DRV_OUT {
 	_IOWR(JPEG_IOCTL_MAGIC,  8, struct compat_JpegDrvDecResult)
 #define COMPAT_JPEG_ENC_IOCTL_WAIT \
 	_IOWR(JPEG_IOCTL_MAGIC, 13, struct compat_JPEG_ENC_DRV_OUT)
-
+#define COMPAT_JPEG_DEC_IOCTL_LOCK \
+	_IOWR(JPEG_IOCTL_MAGIC, 18, struct compat_JPEG_DEC_DRV_HYBRID_OUT)
+#define COMPAT_JPEG_DEC_IOCTL_HYBRID_WAIT \
+	_IOWR(JPEG_IOCTL_MAGIC, 19, struct compat_JPEG_DEC_DRV_HYBRID_IN)
+#define COMPAT_JPEG_DEC_IOCTL_UNLOCK \
+	_IOWR(JPEG_IOCTL_MAGIC, 20, struct compat_JPEG_DEC_DRV_HYBRID_IN)
 #endif
 
 #endif
