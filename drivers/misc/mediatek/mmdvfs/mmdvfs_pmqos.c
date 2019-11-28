@@ -957,6 +957,10 @@ static void trace_qos_validation(void)
 				if (port_list[j] == -1)
 					break;
 			}
+			if (j == TRACE_PORT_NUM) {
+				pr_notice("port num > port_list size");
+				break;
+			}
 			port_list[j] = req->master_id;
 			larb_id = SMI_PMQOS_LARB_DEC(req->master_id);
 			port_id = SMI_PMQOS_PORT_MASK(req->master_id);
