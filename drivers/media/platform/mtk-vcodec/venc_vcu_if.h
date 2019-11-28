@@ -47,6 +47,7 @@ struct venc_vcu_inst {
 	struct mtk_vcodec_ctx *ctx;
 	struct platform_device *dev;
 	bool abort;
+	int daemon_pid;
 };
 
 int vcu_enc_init(struct venc_vcu_inst *vcu);

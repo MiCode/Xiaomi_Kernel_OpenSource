@@ -43,6 +43,7 @@ struct vdec_vcu_inst {
 	wait_queue_head_t wq;
 	ipi_handler_t handler;
 	bool abort;
+	int daemon_pid;
 };
 
 /**

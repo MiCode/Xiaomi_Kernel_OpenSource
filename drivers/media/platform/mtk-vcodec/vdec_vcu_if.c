@@ -359,10 +359,24 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 static int vcodec_vcu_send_msg(struct vdec_vcu_inst *vcu, void *msg, int len)
 {
 	int err;
+	struct task_struct *task = NULL;
+	struct files_struct *f = NULL;
 
 	mtk_vcodec_debug(vcu, "id=%X", *(uint32_t *)msg);
 	if (vcu->abort)
 		return -EIO;
+
+	vcu_get_file_lock();
+	vcu_get_task(&task, &f, 0);
+	vcu_put_file_lock();
+	if (task == NULL ||
+		vcu->daemon_pid != task->tgid) {
+		if (task)
+			mtk_vcodec_err(vcu, "send fail pid: inst %d curr %d",
+				vcu->daemon_pid, task->tgid);
+		vcu->abort = 1;
+		return -EIO;
+	}
 
 	vcu->failure = 0;
 	vcu->signaled = 0;
@@ -395,6 +409,20 @@ static int vcodec_send_ap_ipi(struct vdec_vcu_inst *vcu, unsigned int msg_id)
 	return err;
 }
 
+void vcu_dec_set_pid(struct vdec_vcu_inst *vcu)
+{
+	struct task_struct *task = NULL;
+	struct files_struct *f = NULL;
+
+	vcu_get_file_lock();
+	vcu_get_task(&task, &f, 0);
+	vcu_put_file_lock();
+	if (task != NULL)
+		vcu->daemon_pid = task->tgid;
+	else
+		vcu->daemon_pid = -1;
+}
+
 int vcu_dec_init(struct vdec_vcu_inst *vcu)
 {
 	struct vdec_ap_ipi_init msg;
@@ -421,7 +449,9 @@ int vcu_dec_init(struct vdec_vcu_inst *vcu)
 
 	mtk_vcodec_debug(vcu, "vdec_inst=%p svp_mode=%d", vcu, msg.reserved);
 
+	vcu_dec_set_pid(vcu);
 	err = vcodec_vcu_send_msg(vcu, (void *)&msg, sizeof(msg));
+
 	mtk_vcodec_debug(vcu, "- ret=%d", err);
 	return err;
 }
@@ -484,6 +514,7 @@ int vcu_dec_query_cap(struct vdec_vcu_inst *vcu, unsigned int id, void *out)
 	msg.ap_inst_addr = (uintptr_t)vcu;
 	msg.ap_data_addr = (uintptr_t)out;
 
+	vcu_dec_set_pid(vcu);
 	err = vcodec_vcu_send_msg(vcu, &msg, sizeof(msg));
 	mtk_vcodec_debug(vcu, "- id=%X ret=%d", msg.msg_id, err);
 	return err;
