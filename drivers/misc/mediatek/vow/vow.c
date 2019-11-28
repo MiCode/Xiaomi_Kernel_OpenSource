@@ -174,6 +174,7 @@ static struct
 	unsigned int         recog_dump_cnt1;
 	unsigned int         recog_dump_cnt2;
 	bool                 split_dumpfile_flag;
+	bool                 mcps_flag;
 } vowserv;
 
 #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
@@ -2312,6 +2313,40 @@ DEVICE_ATTR(vow_SetEnableHW,
 	    NULL,
 	    VowDrv_SetEnableHW);
 
+static ssize_t VowDrv_GetMCPSflag(struct device *kobj,
+				     struct device_attribute *attr,
+				     char *buf)
+{
+	unsigned int stat;
+	char cstr[35];
+	int size = sizeof(cstr);
+
+	stat = (vowserv.mcps_flag == true) ? 1 : 0;
+
+	return snprintf(buf, size, "Enable Measure MCPS = %s\n",
+			(stat == 0x1) ? "YES" : "NO");
+}
+
+static ssize_t VowDrv_SetMCPSflag(struct device *kobj,
+				     struct device_attribute *attr,
+				     const char *buf,
+				     size_t n)
+{
+	unsigned int enable = 0;
+
+	if (kstrtouint(buf, 0, &enable) != 0)
+		return -EINVAL;
+
+	VowDrv_SetFlag(VOW_FLAG_MCPS, enable);
+	vowserv.mcps_flag = (enable == 1) ? true : false;
+	VOWDRV_DEBUG("%s(),enable=%d\n", __func__, enable);
+	return n;
+}
+DEVICE_ATTR(vow_SetMCPS,
+	    0644, /*S_IWUSR | S_IRUGO*/
+	    VowDrv_GetMCPSflag,
+	    VowDrv_SetMCPSflag);
+
 static int VowDrv_SetVowEINTStatus(int status)
 {
 	int ret = 0;
@@ -2966,6 +3001,10 @@ static int VowDrv_mod_init(void)
 	if (unlikely(ret != 0))
 		return ret;
 
+	ret = device_create_file(VowDrv_misc_device.this_device,
+				 &dev_attr_vow_SetMCPS);
+	if (unlikely(ret != 0))
+		return ret;
 	/* ipi register */
 	vow_ipi_register(vow_ipi_rx_internal, vow_ipi_rceive_ack);
 

@@ -101,7 +101,7 @@
 #define VOW_BARGEIN_DUMP_SIZE    0x3C00
 #endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
 
-#define KERNEL_VOW_DRV_VER "2.0.3"
+#define KERNEL_VOW_DRV_VER "2.0.4"
 struct dump_package_t {
 	uint32_t dump_data_type;
 	uint32_t mic_offset;
@@ -202,6 +202,7 @@ enum vow_flag_type_t {
 	VOW_FLAG_MTKIF_TYPE,
 	VOW_FLAG_SEAMLESS,
 	VOW_FLAG_DUAL_MIC_LCH,
+	VOW_FLAG_MCPS,
 	NUM_OF_VOW_FLAG_TYPE
 };
 
