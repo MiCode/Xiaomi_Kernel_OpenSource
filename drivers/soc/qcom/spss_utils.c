@@ -89,7 +89,7 @@ static size_t cmac_mem_size = SZ_4K; /* XPU align to 4KB */
 static phys_addr_t cmac_mem_addr;
 
 #define SPU_EMULATUION (BIT(0) | BIT(1))
-#define SPU_PRESENT_IN_EMULATION BIT(2)
+#define SPU_PRESENT_IN_EMULATION BIT(0)
 
 /**
  * struct device state
@@ -659,6 +659,8 @@ static int spss_parse_dt(struct device_node *node)
 	iounmap(spss_fuse1_reg);
 	iounmap(spss_fuse2_reg);
 
+	pr_debug("firmware_type value [%c]\n", firmware_type);
+
 	ret = of_property_read_u32(node, "qcom,spss-debug-reg-addr",
 		&spss_debug_reg_addr);
 	if (ret < 0) {
@@ -683,10 +685,14 @@ static int spss_parse_dt(struct device_node *node)
 	spss_emul_type_val = readl_relaxed(spss_emul_type_reg);
 
 	pr_debug("spss_emul_type value [0x%08x]\n", (int)spss_emul_type_val);
-	if ((spss_emul_type_val & SPU_EMULATUION) &&
-	    !(spss_emul_type_val & SPU_PRESENT_IN_EMULATION)) {
-		/* for some emulation platforms SPSS is not present */
-		firmware_type = SPSS_FW_TYPE_NONE;
+	if (spss_emul_type_val & SPU_EMULATUION) {
+		if (spss_emul_type_val & SPU_PRESENT_IN_EMULATION) {
+			firmware_type = SPSS_FW_TYPE_TEST;
+		} else {
+			/* for some emulation platforms SPSS is not present */
+			firmware_type = SPSS_FW_TYPE_NONE;
+		}
+		pr_debug("remap firmware_type value [%c]\n", firmware_type);
 	}
 	iounmap(spss_emul_type_reg);
 
@@ -1020,8 +1026,8 @@ static int spss_probe(struct platform_device *pdev)
 
 	ret = subsystem_set_fwname("spss", firmware_name);
 	if (ret < 0) {
-		pr_err("fail to set fw name\n");
-		return -EINVAL;
+		pr_err("fail to set firmware name for PIL (%d)\n", ret);
+		return ret;
 	}
 
 	ret = spss_utils_create_chardev(dev);
@@ -1031,9 +1037,6 @@ static int spss_probe(struct platform_device *pdev)
 	ret = spss_create_sysfs(dev);
 	if (ret < 0)
 		return ret;
-
-	pr_info("Initialization completed ok, firmware_name [%s].\n",
-		firmware_name);
 
 	iar_nb = kzalloc(sizeof(*iar_nb), GFP_KERNEL);
 	if (!iar_nb)
@@ -1048,6 +1051,8 @@ static int spss_probe(struct platform_device *pdev)
 		iar_notif_handle = NULL;
 		iar_nb = NULL;
 	}
+
+	pr_info("Probe completed successfully, [%s].\n", firmware_name);
 
 	return 0;
 }
@@ -1105,5 +1110,6 @@ static void __exit spss_exit(void)
 }
 module_exit(spss_exit)
 
+MODULE_SOFTDEP("post: subsys-pil-tz");
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Secure Processor Utilities");
