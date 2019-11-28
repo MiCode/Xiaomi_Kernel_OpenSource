@@ -270,31 +270,6 @@ static struct iommu_group *mtk_iommu_get_group(
 	return NULL;
 }
 
-unsigned long mtk_dev_alloc_from_root(struct device *dev)
-{
-#ifdef MTK_IOMMU_SIZE_NOT_ALIGNMENT
-	struct iommu_fwspec *fwspec;
-	unsigned int larbid, portid, port;
-	int i, count;
-
-	if (!dev)
-		return 0;
-
-	fwspec = dev->iommu_fwspec;
-	larbid = MTK_IOMMU_TO_LARB(fwspec->ids[0]);
-	portid = MTK_IOMMU_TO_PORT(fwspec->ids[0]);
-	port = MTK_M4U_ID(larbid, portid);
-
-	count = ARRAY_SIZE(port_alloc_from_root);
-	for (i = 0; i < count; i++)
-		if (port == port_alloc_from_root[i])
-			return (0x5UL <<
-				(CONFIG_MTK_IOMMU_PGTABLE_EXT - 4));
-
-#endif
-	return 0;
-}
-
 bool mtk_dev_is_size_alignment(struct device *dev)
 {
 #ifdef MTK_IOMMU_SIZE_NOT_ALIGNMENT
@@ -312,9 +287,9 @@ bool mtk_dev_is_size_alignment(struct device *dev)
 	portid = MTK_IOMMU_TO_PORT(fwspec->ids[0]);
 	port = MTK_M4U_ID(larbid, portid);
 
-	count = ARRAY_SIZE(port_alloc_from_root);
+	count = ARRAY_SIZE(port_size_not_aligned);
 	for (i = 0; i < count; i++)
-		if (port == port_alloc_from_root[i])
+		if (port == port_size_not_aligned[i])
 			return false;
 
 	return true;

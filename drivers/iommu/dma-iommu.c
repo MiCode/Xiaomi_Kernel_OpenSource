@@ -301,7 +301,6 @@ int iommu_dma_init_domain(struct iommu_domain *domain, dma_addr_t base,
 			base = domain->geometry.aperture_start;
 			size = domain->geometry.aperture_end -
 				domain->geometry.aperture_start + 1;
-			end_pfn = (base + size - 1) >> order;
 #endif
 		}
 		/* ...then finally give it a kicking to make sure it fits */
@@ -381,7 +380,6 @@ static dma_addr_t iommu_dma_alloc_iova(struct iommu_domain *domain,
 	unsigned long shift, iova_len, iova = 0;
 #ifdef CONFIG_MTK_IOMMU_V2
 	bool size_align = true;
-	unsigned long flag_root = 0;
 #endif
 
 	if (cookie->type == IOMMU_DMA_MSI_COOKIE) {
@@ -426,23 +424,20 @@ static dma_addr_t iommu_dma_alloc_iova(struct iommu_domain *domain,
 			WARN_ON(1);
 			return 0;
 		}
-
 #endif
 	}
 
 	/* Try to get PCI devices a SAC address */
 #ifdef CONFIG_MTK_IOMMU_V2
 	size_align = mtk_dev_is_size_alignment(dev);
-	flag_root = mtk_dev_alloc_from_root(dev);
 
 	if (dma_limit > DMA_BIT_MASK(32) && dev_is_pci(dev))
 		iova = alloc_iova_fast(iovad, iova_len,
-				(DMA_BIT_MASK(32) >> shift) |
-				flag_root, size_align);
+				DMA_BIT_MASK(32) >> shift, size_align);
 
 	if (!iova)
 		iova = alloc_iova_fast(iovad, iova_len,
-				((dma_limit >> shift) | flag_root), size_align);
+				dma_limit >> shift, size_align);
 #else
 	if (dma_limit > DMA_BIT_MASK(32) && dev_is_pci(dev))
 		iova = alloc_iova_fast(iovad, iova_len, DMA_BIT_MASK(32) >> shift);

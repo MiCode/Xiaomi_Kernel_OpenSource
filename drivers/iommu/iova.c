@@ -135,16 +135,12 @@ __get_cached_rbnode(struct iova_domain *iovad, unsigned long *limit_pfn)
 #endif
 {
 	if ((*limit_pfn > iovad->dma_32bit_pfn) ||
-		(iovad->cached32_node == NULL)) {
 #ifdef CONFIG_MTK_IOMMU_V2
-		pr_notice("%s, alloc from root node, limit_pfn:0x%lx, mask:0x%lx\n",
-			  __func__, *limit_pfn, ~(0x5UL <<
-			  (CONFIG_MTK_IOMMU_PGTABLE_EXT - 4)));
-		*limit_pfn &= ~(0x5UL <<
-			(CONFIG_MTK_IOMMU_PGTABLE_EXT - 4));
+		(!size_aligned) ||
 #endif
+		(iovad->cached32_node == NULL))
 		return rb_last(&iovad->rbroot);
-	} else {
+	else {
 		struct rb_node *prev_node = rb_prev(iovad->cached32_node);
 		struct iova *curr_iova =
 			rb_entry(iovad->cached32_node, struct iova, node);
