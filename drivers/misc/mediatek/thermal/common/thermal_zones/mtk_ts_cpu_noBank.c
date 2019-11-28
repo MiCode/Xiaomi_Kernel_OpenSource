@@ -1741,7 +1741,15 @@ static int tscpu_thermal_resume(struct platform_device *dev)
 		lvts_device_identification();
 		lvts_Device_Enable_Init_all_Devices();
 #if LVTS_DEVICE_AUTO_RCK == 0
+		/* Resume don't need to do RCK,
+		 * bootup g_count_rc_now can be reused.
+		 * TBD: can be remove in next project???
+		 */
+#if defined(CFG_THERM_USE_BOOTUP_COUNT_RC)
+		lvts_device_read_count_RC_N_resume();
+#else
 		lvts_device_read_count_RC_N();
+#endif
 #else
 		lvts_device_enable_auto_rck();
 #endif
