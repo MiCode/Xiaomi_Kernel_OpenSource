@@ -155,6 +155,14 @@ config MTK_COMBO_CHIP_CONSYS_6785
 	  is
 	  MT6785(BT/WIFI/GPS/FM combo chip)
 
+config MTK_COMBO_CHIP_CONSYS_6873
+	bool "MTK MT6873 combo chip support"
+	help
+	  this config is used to decided SOC consys version
+	  in current platform
+	  is
+	  MT6873(BT/WIFI/GPS/FM combo chip)
+
 config MTK_COMBO_CHIP_CONSYS_6885
 	bool "MTK MT6885 combo chip support"
 	help
@@ -183,6 +191,7 @@ config MTK_COMBO_CHIP
 	default "CONSYS_6739" if MTK_COMBO_CHIP_CONSYS_6739
 	default "CONSYS_6768" if MTK_COMBO_CHIP_CONSYS_6768
 	default "CONSYS_6785" if MTK_COMBO_CHIP_CONSYS_6785
+	default "CONSYS_6873" if MTK_COMBO_CHIP_CONSYS_6873
 	default "CONSYS_6885" if MTK_COMBO_CHIP_CONSYS_6885
 	help
 	  this feature is used to identify combo chip version or SOC chip
