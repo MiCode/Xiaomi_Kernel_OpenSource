@@ -409,20 +409,41 @@
 		reg = <0 0x1000ce00 0 0x200>;
 	};
 
-	pwrap@1000d000 {
-		compatible = "mediatek,pwrap";
-		reg = <0 0x1000d000 0 0x1000>;
+	pwrap: pwrap@10026000 {
+		compatible = "mediatek,mt6873-pwrap";
+		reg = <0 0x10026000 0 0x1000>;
+		reg-names = "pwrap";
+		interrupts = <GIC_SPI 220 IRQ_TYPE_LEVEL_HIGH>;
+	#ifdef CONFIG_FPGA_EARLY_PORTING
+		clocks = <&clk26m>, <&clk26m>, <&clk26m>, <&clk26m>;
+	#else
+		clocks = <&infracfg_ao INFRACFG_AO_PMIC_CG_AP>,
+			 <&infracfg_ao INFRACFG_AO_PMIC_CG_TMR>,
+			 <&topckgen TOP_MUX_PWRAP_ULPOSC>,
+			 <&topckgen TOP_OSC_D10>;
+	#endif
+		clock-names = "spi", "wrap", "ulposc", "ulposc_osc";
 
 		main_pmic: mt6359-pmic {
 			compatible = "mediatek,mt6359-pmic";
 			interrupt-parent = <&pio>;
-			interrupts = <214 IRQ_TYPE_LEVEL_HIGH 214 0>;
+			interrupts = <222 IRQ_TYPE_LEVEL_HIGH 222 0>;
 			status = "okay";
 
 			pmic_oc_debug: pmic-oc-debug {
 				compatible = "mediatek,pmic-oc-debug";
 			};
 		};
+	};
+
+	pwraph: pwraphal@10026000 {
+		compatible = "mediatek,pwraph";
+		mediatek,pwrap-regmap = <&pwrap>;
+	};
+
+	pwrap_mpu@10026000 {
+		compatible = "mediatek,pwrap_mpu";
+		reg = <0 0x10026000 0 0x1000>;
 	};
 
 	kp@10010000 {
