@@ -373,7 +373,7 @@ bool mnoc_check_int_status(void)
 			}
 		}
 
-		for (int_idx = 0; int_idx < NR_MNI_INT_STA; int_idx++) {
+		for (int_idx = 0; int_idx < NR_RT_INT_STA; int_idx++) {
 			val = mnoc_read(MNOC_REG(grp_idx,
 				rt_int_sta_offset[int_idx]));
 			if ((val & 0x1F) != 0) {
