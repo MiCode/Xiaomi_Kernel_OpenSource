@@ -589,7 +589,7 @@ int res_power_on(int dev_type, uint32_t idx,
 	struct apusys_power_hnd pwr;
 	int ret = 0;
 
-	LOG_INFO("poweron dev(%d-#%u) boost(%u) timeout(%u)\n",
+	LOG_DEBUG("poweron dev(%d-#%u) boost(%u) timeout(%u)\n",
 		dev_type, idx, boost_val, timeout);
 
 	if (boost_val > 100) {
@@ -639,7 +639,7 @@ int res_power_off(int dev_type, uint32_t idx)
 	struct apusys_power_hnd pwr;
 	int ret = 0;
 
-	LOG_INFO("powerdown dev(%d-#%u)\n", dev_type, idx);
+	LOG_DEBUG("powerdown dev(%d-#%u)\n", dev_type, idx);
 
 	tab = res_get_table(dev_type);
 	if (tab == NULL) {
