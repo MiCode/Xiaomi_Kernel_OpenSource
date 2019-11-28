@@ -85,6 +85,10 @@ struct vpu_driver {
 
 	/* device references */
 	struct kref ref;
+
+	/* met */
+	uint32_t ilog;  // g_vpu_internal_log_level
+	uint32_t met;   // g_func_mask > VFM_ROUTINE_PRT_SYSLOG
 };
 
 enum vpu_state {
@@ -104,6 +108,13 @@ struct vpu_iomem {
 	struct resource *res;
 };
 
+struct vpu_met_work {
+	struct list_head list;
+	spinlock_t lock;
+	int pid;
+	struct work_struct work;
+};
+
 // device data
 struct vpu_device {
 	int id;
@@ -118,7 +129,6 @@ struct vpu_device {
 	/* iomem */
 	struct vpu_iomem reg;
 	struct vpu_iomem dmem;
-	struct vpu_iomem dmem_log;
 	struct vpu_iomem imem;
 
 	/* power */
@@ -167,6 +177,9 @@ struct vpu_device {
 	bool ftrace_avail;     /* trace */
 	bool jtag_enabled;     /* jtag */
 	struct vpu_dmp *dmp;   /* dump */
+
+	/* MET */
+	struct vpu_met_work met;
 };
 
 

@@ -23,8 +23,7 @@
 #define VPU_DMP_WORK_SZ   0x2000   // 8 KB
 #define VPU_DMP_REG_SZ    0x1000   // 4 KB
 #define VPU_DMP_IMEM_SZ   0x30000  // 192 KB
-#define VPU_DMP_DMEM_SZ   0x3E000  // (256-8) KB
-#define VPU_DMP_DMEM_LOG_SZ  0x2000  // 8 KB
+#define VPU_DMP_DMEM_SZ   0x40000  // 256 KB
 
 #define VPU_DMP_REG_CNT_INFO 32
 #define VPU_DMP_REG_CNT_DBG 8
@@ -58,7 +57,6 @@ struct vpu_dmp {
 	uint8_t m_reg[VPU_DMP_REG_SZ];
 	uint8_t m_imem[VPU_DMP_IMEM_SZ];
 	uint8_t m_dmem[VPU_DMP_DMEM_SZ];
-	uint8_t m_dmem_log[VPU_DMP_DMEM_LOG_SZ];
 };
 
 #ifdef CONFIG_MTK_APUSYS_VPU_DEBUG

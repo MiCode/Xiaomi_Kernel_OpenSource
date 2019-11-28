@@ -169,7 +169,6 @@ int vpu_dmp_create_locked(struct vpu_device *vd, struct vpu_request *req,
 
 	if (vpu_dmp_is_alive(vd)) {
 		VPU_DMP_IOMEM(dmem, DMEM);
-		VPU_DMP_IOMEM(dmem_log, DMEM_LOG);
 		VPU_DMP_IOMEM(imem, IMEM);
 	}
 
@@ -294,7 +293,6 @@ void vpu_dmp_seq_core(struct seq_file *s, struct vpu_device *vd)
 
 	VPU_SEQ_IOMEM(reg, REG);
 	VPU_SEQ_IOMEM(dmem, DMEM);
-	VPU_SEQ_IOMEM(dmem_log, DMEM_LOG);
 	VPU_SEQ_IOMEM(imem, IMEM);
 #undef VPU_SEQ_IOMEM
 }

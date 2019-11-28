@@ -25,6 +25,7 @@
 #include "vpu_debug.h"
 #include "vpu_dump.h"
 #include "vpu_trace.h"
+#include "vpu_met.h"
 #include <memory/mediatek/emi.h>
 
 #define VPU_TS_INIT(a) \
@@ -44,6 +45,7 @@
 
 static int vpu_check_precond(struct vpu_device *vd);
 static int vpu_check_postcond(struct vpu_device *vd);
+static int vpu_set_ftrace(struct vpu_device *vd);
 
 /* 20180703, 00:00: vpu log mechanism */
 // TODO: update device firmware version
@@ -53,13 +55,18 @@ static void vpu_run(struct vpu_device *vd)
 {
 	vd->cmd_done = false;
 	vpu_reg_clr(vd, CTRL, (1 << 23));
-	wmb();  /* make sure register committed */
-	vpu_reg_set(vd, CTL_XTENSA_INT, 1);
 }
 
 static void vpu_stall(struct vpu_device *vd)
 {
 	vpu_reg_set(vd, CTRL, (1 << 23));
+}
+
+static void vpu_cmd(struct vpu_device *vd)
+{
+	vpu_run(vd);
+	wmb();  /* make sure register committed */
+	vpu_reg_set(vd, CTL_XTENSA_INT, 1);
 }
 
 #define WAIT_COMMAND_RETRY 5
@@ -223,7 +230,6 @@ irqreturn_t vpu_isr(int irq, void *dev_id)
 {
 	struct vpu_device *vd = (struct vpu_device *)dev_id;
 	int req_cmd = 0, normal_check_done = 0;
-	int req_dump = 0;
 	uint32_t val;
 
 	/* INFO 17 was used to reply command done */
@@ -251,10 +257,8 @@ irqreturn_t vpu_isr(int irq, void *dev_id)
 		break;
 	}
 
-	/* INFO18 was used to dump MET Log */
-	req_dump = vpu_reg_read(vd, XTENSA_INFO18);
-
-	// TODO: ADD MET FTRACE
+	/* MET */
+	vpu_met_isr(vd);
 
 	/* clear int */
 	val = vpu_reg_read(vd, XTENSA_INT);
@@ -315,16 +319,12 @@ int vpu_execute_d2d(struct vpu_device *vd, struct vpu_request *req)
 	vpu_reg_write(vd, XTENSA_INFO15, req->sett_length);
 
 	/* 2. trigger interrupt */
-	// TODO: add MET trace
-	/* vpu_trace_begin("[vpu_%d] dsp:d2d running", vd->id); */
 	vpu_trace_begin("vpu_%d|hw_processing_request(%s)",
 				vd->id, vd->algo_curr->a.name);
 
-
-//	MET_Events_Trace(1, core, request->algo_id[core]);
 	VPU_TS_START(d2d);
 
-	vpu_run(vd);
+	vpu_cmd(vd);
 
 	ret = wait_command(vd);
 	vpu_stall(vd);
@@ -346,10 +346,6 @@ int vpu_execute_d2d(struct vpu_device *vd, struct vpu_request *req)
 	}
 
 	VPU_TS_END(d2d);
-
-	// TODO: add MET trace
-	// vpu_trace_end();
-	// MET_Events_Trace(0, core, request->algo_id[core]);
 
 	req->status = (vpu_check_postcond(vd)) ?
 			VPU_REQ_STATUS_FAILURE : VPU_REQ_STATUS_SUCCESS;
@@ -390,10 +386,17 @@ int vpu_dev_boot(struct vpu_device *vd)
 		goto err;
 	}
 
-	/* VPU set debug log and MET trace */
+	/* VPU set debug log  */
 	ret = vpu_dev_set_debug(vd);
 	if (ret) {
 		pr_info("%s: vpu_dev_set_debug: %d\n", __func__, ret);
+		goto err;
+	}
+
+	/* MET: ftrace setup */
+	ret = vpu_set_ftrace(vd);
+	if (ret) {
+		pr_info("%s: vpu_met_set_ftrace: %d\n", __func__, ret);
 		goto err;
 	}
 
@@ -664,7 +667,7 @@ int vpu_dev_set_debug(struct vpu_device *vd)
 
 	/* 2. trigger interrupt */
 	vpu_trace_begin("vpu_%d|%s", vd->id, __func__);
-	vpu_run(vd);
+	vpu_cmd(vd);
 
 	vpu_cmd_debug("%s: timestamp: %.2lu:%.2lu:%.2lu:%.6lu\n",
 		__func__,
@@ -758,7 +761,7 @@ int vpu_hw_alg_init(struct vpu_device *vd, struct __vpu_algo *algo)
 	vpu_trace_begin("vpu_%d|%s", vd->id, __func__);
 
 	/* RUN_STALL down */
-	vpu_run(vd);
+	vpu_cmd(vd);
 
 	/* 3. wait until done */
 	ret = wait_command(vd);
@@ -828,7 +831,7 @@ int vpu_hw_alg_info(struct vpu_device *vd, struct __vpu_algo *alg)
 	vpu_trace_begin("vpu_%d|%s", vd->id, __func__);
 
 	/* RUN_STALL pull down */
-	vpu_run(vd);
+	vpu_cmd(vd);
 
 	/* 3. wait until done */
 	ret = wait_command(vd);
@@ -887,6 +890,43 @@ out:
 	vpu_trace_end("vpu_%d|ret:%d", vd->id, ret);
 	return ret;
 
+}
+
+static int vpu_set_ftrace(struct vpu_device *vd)
+{
+	int ret = 0;
+
+	/* set ftrace */
+	vpu_reg_write(vd, XTENSA_INFO01, VPU_CMD_SET_FTRACE_LOG);
+	vpu_reg_write(vd, XTENSA_INFO05, vpu_drv->met);
+	/* set vpu internal log level */
+	vpu_reg_write(vd, XTENSA_INFO06, vpu_drv->ilog);
+	/* clear info18 */
+	vpu_reg_write(vd, XTENSA_INFO18, 0);
+	vpu_cmd(vd);
+	ret = wait_command(vd);
+	vpu_stall(vd);
+
+	if (ret == -ERESTARTSYS)
+		goto out;
+
+	/* Error handling */
+	if (ret) {
+		pr_info("%s: vpu%d: SET_FTRACE timeout: info00: 0x%x, ret: %d\n",
+			__func__, vd->id,
+			vpu_reg_read(vd, XTENSA_INFO00),
+			ret);
+		vpu_aee_excp(vd, NULL, "VPU Timeout",
+			"vpu%d: request (SET_FTRACE) timeout\n", vd->id);
+		goto out;
+	}
+	ret = vpu_check_postcond(vd);
+
+out:
+	if (ret)
+		pr_info("%s: vpu%d: fail to set ftrace\n", __func__, vd->id);
+
+	return ret;
 }
 
 

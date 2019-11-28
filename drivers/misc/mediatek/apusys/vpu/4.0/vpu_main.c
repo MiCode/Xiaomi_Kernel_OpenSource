@@ -34,6 +34,7 @@
 #include "remoteproc_internal.h"  // TODO: move to drivers/remoteproc/../..
 #include "vpu_trace.h"
 #include "vpu_ioctl.h"
+#include "vpu_met.h"
 
 /* remote proc */
 #define VPU_REMOTE_PROC (0)
@@ -470,8 +471,7 @@ static int vpu_init_dev_mem(struct platform_device *pdev,
 
 	if (vpu_iomem_dts(pdev, "reg", 0, &vd->reg) ||
 		vpu_iomem_dts(pdev, "dmem", 1, &vd->dmem) ||
-		vpu_iomem_dts(pdev, "dmem_log", 2, &vd->dmem_log) ||
-		vpu_iomem_dts(pdev, "imem", 3, &vd->imem)) {
+		vpu_iomem_dts(pdev, "imem", 2, &vd->imem)) {
 		goto error;
 	}
 
@@ -601,6 +601,8 @@ static int vpu_probe(struct platform_device *pdev)
 	if (ret)
 		goto free;
 
+	vpu_init_dev_met(pdev, vd);
+
 	ret = vpu_dev_add(pdev);
 	if (ret)
 		goto free;
@@ -626,6 +628,7 @@ static int vpu_remove(struct platform_device *pdev)
 {
 	struct vpu_device *vd = platform_get_drvdata(pdev);
 
+	vpu_exit_dev_met(pdev, vd);
 	vpu_exit_dev_debug(pdev, vd);
 	vpu_exit_dev_hw(pdev, vd);
 	vpu_exit_dev_algo(pdev, vd);
