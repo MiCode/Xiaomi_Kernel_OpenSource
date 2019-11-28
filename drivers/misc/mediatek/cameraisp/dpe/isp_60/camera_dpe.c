@@ -2838,6 +2838,7 @@ static inline int m4u_control_iommu_port(void)
 	int count_of_ports = 0;
 	int i = 0;
 
+#if (MTK_DPE_VER == 0)
 	count_of_ports = M4U_PORT_L19_IPE_DVP_WDMA_DISP -
 		M4U_PORT_L19_IPE_DVS_RDMA_DISP + 1;
 
@@ -2859,6 +2860,29 @@ static inline int m4u_control_iommu_port(void)
 		}
 		#endif
 	}
+#else
+	count_of_ports = M4U_PORT_L19_IPE_DVP_WDMA -
+		M4U_PORT_L19_IPE_DVS_RDMA + 1;
+
+	for (i = 0; i < count_of_ports; i++) {
+		sPort.ePortID = M4U_PORT_L19_IPE_DVS_RDMA+i;
+		sPort.Virtuality = DPE_MEM_USE_VIRTUL;
+		//LOG_INF("config M4U Port ePortID=%d\n", sPort.ePortID);
+		#if defined(CONFIG_MTK_M4U) || defined(CONFIG_MTK_PSEUDO_M4U)
+		ret = m4u_config_port(&sPort);
+		if (ret == 0) {
+			//LOG_INF("config M4U Port %s to %s SUCCESS\n",
+			//iommu_get_port_name(M4U_PORT_L19_IPE_DVS_RDMA+i),
+			//DPE_MEM_USE_VIRTUL ? "virtual" : "physical");
+		} else {
+			LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
+			iommu_get_port_name(M4U_PORT_L19_IPE_DVS_RDMA+i),
+			DPE_MEM_USE_VIRTUL ? "virtual" : "physical", ret);
+			ret = -1;
+		}
+		#endif
+	}
+#endif
 	return ret;
 }
 #endif
@@ -4454,7 +4478,8 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	//kreq.m_ReqNum = ureq.m_ReqNum;
 
 	mutex_lock(&gDpeMutex);	/* Protect the Multi Process */
-spin_lock_irqsave(&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]), flags);
+	spin_lock_irqsave(&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]),
+			       flags);
 	dpe_enque_request(&dpe_reqs, kreq.m_ReqNum, &kreq, pUserInfo->Pid);
 	spin_unlock_irqrestore(&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]),
 			       flags);

@@ -38,6 +38,18 @@ else ifeq ($(CONFIG_MACH_MT6885),y)
   obj-$(CONFIG_MTK_CAMERA_ISP_DPE_SUPPORT) += isp_60/engine_request.o
   obj-$(CONFIG_MTK_CAMERA_ISP_DPE_SUPPORT) += isp_60/camera_dpe.o
   obj-$(CONFIG_MTK_CAMERA_ISP_DPE_SUPPORT) += isp_60/videobuf2-dma-contig.o
+else ifeq ($(CONFIG_MACH_MT6873),y)
+  obj-$(CONFIG_MTK_CAMERA_ISP_DPE_SUPPORT) += isp_60/engine_request.o
+  obj-$(CONFIG_MTK_CAMERA_ISP_DPE_SUPPORT) += isp_60/camera_dpe.o
+  obj-$(CONFIG_MTK_CAMERA_ISP_DPE_SUPPORT) += isp_60/videobuf2-dma-contig.o
 else
   obj-$(CONFIG_MTK_CAMERA_ISP_DPE_SUPPORT) += $(MTK_PLATFORM)/camera_dpe.o
 endif
+
+ifeq ($(CONFIG_MACH_MT6885),y)
+  MTK_DPE_VER := 0
+else ifeq ($(CONFIG_MACH_MT6873),y)
+  MTK_DPE_VER := 1
+endif
+
+subdir-ccflags-y += -DMTK_DPE_VER=$(MTK_DPE_VER)
