@@ -19,7 +19,7 @@
 }
 
 static struct mt6315_misc mt6315_misc[] = {
-#if defined(CONFIG_MACH_MT6885)
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873)
 	MT6315_DECL_CHIP(SPMI_MASTER_0, MT6315_SLAVE_ID_6),
 	MT6315_DECL_CHIP(SPMI_MASTER_0, MT6315_SLAVE_ID_7),
 	MT6315_DECL_CHIP(SPMI_MASTER_0, MT6315_SLAVE_ID_3),
@@ -43,7 +43,7 @@ static unsigned int g_vsram_md_vosel;
 
 static void mt6315_S3_default_vosel(void)
 {
-#if defined(CONFIG_MACH_MT6885)
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873)
 	struct mt6315_misc *mt6315;
 	struct regmap *regmap;
 
@@ -136,7 +136,7 @@ static int is_mt6315_S7_exist(void)
 
 int is_mt6315_exist(void)
 {
-#if defined(CONFIG_MACH_MT6885)
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873)
 	pr_info("%s S3:%d S6:%d S7:%d\n", __func__, is_mt6315_S3_exist()
 	       , is_mt6315_S6_exist(), is_mt6315_S7_exist());
 	if (is_mt6315_S3_exist() && is_mt6315_S6_exist() &&
@@ -299,7 +299,7 @@ static void mt6315_vdig18_hw_op_set(unsigned char slave_id, unsigned char en)
 static void mt6315_S3_lp_initial_setting(void)
 {
 #if LP_INIT_SETTING_VERIFIED
-#if defined(CONFIG_MACH_MT6885)
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873)
 	mt6315_vdig18_hw_op_set(MT6315_SLAVE_ID_3, 1);
 	/* vmodem/vnr/vsram_md */
 	mt6315_lp_set(MT6315_SLAVE_ID_3, 1, MT6315_SRCLKEN0, 1, 1, HW_LP);
@@ -312,7 +312,7 @@ static void mt6315_S3_lp_initial_setting(void)
 static void mt6315_S6_lp_initial_setting(void)
 {
 #if LP_INIT_SETTING_VERIFIED
-#if defined(CONFIG_MACH_MT6885)
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873)
 	mt6315_vdig18_hw_op_set(MT6315_SLAVE_ID_6, 1);
 #endif
 #endif
@@ -325,6 +325,8 @@ static void mt6315_S7_lp_initial_setting(void)
 	mt6315_vdig18_hw_op_set(MT6315_SLAVE_ID_7, 1);
 	/* vsram_core */
 	mt6315_lp_set(MT6315_SLAVE_ID_7, 3, MT6315_SRCLKEN0, 1, 1, HW_LP);
+#elif defined(CONFIG_MACH_MT6873)
+	mt6315_vdig18_hw_op_set(MT6315_SLAVE_ID_7, 1);
 #endif
 #endif
 }
