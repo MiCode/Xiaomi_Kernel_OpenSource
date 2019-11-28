@@ -4428,7 +4428,7 @@ void mipi_26m_en(unsigned int module_idx, int en)
 }
 #endif
 
-static int mux_table[64][2] = {
+static unsigned int mux_table[64][2] = {
 	/* ID offset pdn_bit */
 	{0, 0}, //dummy index
 	{0x10, 7},//axi=1
@@ -4519,12 +4519,14 @@ unsigned int check_mux_pdn(unsigned int ID)
 			clk_readl(cksys_base + mux_table[ID][0])
 				& BIT(mux_table[ID][1]));
 #endif
-	if ((ID <= 0) ||
-		(clk_readl(cksys_base + mux_table[ID][0])
-			& BIT(mux_table[ID][1])))
+	if ((ID > 0) && (ID < 64)) {
+		if ((clk_readl(cksys_base + mux_table[ID][0])
+		& BIT(mux_table[ID][1])))
+			return 1;
+		else
+			return 0;
+	} else
 		return 1;
-	else
-		return 0;
 }
 
 unsigned int mt_get_ckgen_freq(unsigned int ID)
