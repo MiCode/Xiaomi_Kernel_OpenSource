@@ -1822,7 +1822,7 @@
 };
 
 #include "mdm9607-rpm-regulator.dtsi"
-#include "msm-pm8019.dtsi"
+#include "pm8019.dtsi"
 #include "mdm9607-regulator.dtsi"
 
 /* MPP pin 1 config for USB ID interrupt line */
