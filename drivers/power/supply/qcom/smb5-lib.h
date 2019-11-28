@@ -390,6 +390,7 @@ struct smb_charger {
 	struct mutex		dcin_aicl_lock;
 	spinlock_t		typec_pr_lock;
 	struct mutex		adc_lock;
+	struct mutex		dpdm_lock;
 
 	/* power supplies */
 	struct power_supply		*batt_psy;
@@ -558,6 +559,7 @@ struct smb_charger {
 	bool			dcin_aicl_done;
 	bool			hvdcp3_standalone_config;
 	bool			dcin_icl_user_set;
+	bool			dpdm_enabled;
 
 	/* workaround flag */
 	u32			wa_flags;
