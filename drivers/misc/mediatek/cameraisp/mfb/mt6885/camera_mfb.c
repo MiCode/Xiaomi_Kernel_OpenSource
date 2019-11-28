@@ -302,8 +302,8 @@ struct plist_head module_request_list;  /* all module list */
 struct mm_qos_request mfb_mmqos_request;
 
 static spinlock_t SpinLockMfbPmqos;
-static int qos_scen[4];
-static int qos_total;
+static unsigned int qos_scen[4];
+static unsigned int qos_total;
 #endif
 
 struct  MSS_CONFIG_STRUCT {
