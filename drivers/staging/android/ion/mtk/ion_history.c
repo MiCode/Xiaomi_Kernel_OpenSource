@@ -606,6 +606,7 @@ static int ion_history_record(void *data)
 	size_t total_size = 0;
 	int heap_id = 0;
 	int ret = 0;
+	unsigned long long start = 0, end = 0;
 
 	while (1) {
 		if (kthread_should_stop()) {
@@ -674,12 +675,25 @@ static int ion_history_record(void *data)
 		/* == client == */
 		if (g_client_history) {
 			down_read(&dev->lock);
+			start = sched_clock();
 			for (n = rb_first(&dev->clients); n; n = rb_next(n)) {
 				struct ion_client
 				*client = rb_entry(n, struct ion_client, node);
 				size_t size = 0;
 				struct rb_node *nh;
 
+				end = sched_clock();
+				if (end - start > 1000000000ULL) {/* 1s */
+					IONMSG(
+					       "warn: ion history hold:%lluns from:%llu\n",
+					       end - start, start);
+					ion_client_write_record
+					    (g_client_history,
+					     "ion history hold lock too long time",
+					     "cancel dump", end - start,
+					     CLIENT_ADDRESS_FLAG_MAX + 1);
+					break;
+				}
 				mutex_lock(&client->lock);
 				for (nh = rb_first(&client->handles); nh;
 				     nh = rb_next(nh)) {
