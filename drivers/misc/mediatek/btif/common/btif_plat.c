@@ -363,7 +363,6 @@ int hal_btif_clk_ctrl(struct _MTK_BTIF_INFO_STR_ *p_btif,
 
 	spin_lock_irqsave(&(g_clk_cg_spinlock), irq_flag);
 
-	BTIF_INFO_FUNC("btif_clk_ctrl=%d, %d\n", flag, atomic_read(&s_clk_ref));
 #if MTK_BTIF_ENABLE_CLK_CTL
 
 #if MTK_BTIF_ENABLE_CLK_REF_COUNTER
