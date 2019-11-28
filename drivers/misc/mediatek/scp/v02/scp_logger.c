@@ -722,11 +722,13 @@ void scp_crash_log_move_to_buf(enum scp_core_id scp_id)
 	int pos;
 	unsigned int ret;
 	unsigned int length;
+	unsigned int log_buf_idx;    /* SCP log buf pointer */
 	unsigned int log_start_idx;  /* SCP log start pointer */
 	unsigned int log_end_idx;    /* SCP log end pointer */
 	unsigned int w_pos;          /* buf write pointer */
 	char *pre_scp_logger_buf;
 	char *dram_logger_buf;       /* dram buffer */
+	int scp_awake_flag;
 
 	char *crash_message = "****SCP EE LOG DUMP****\n";
 	unsigned char *scp_logger_buf = (unsigned char *)(SCP_TCM +
@@ -739,22 +741,35 @@ void scp_crash_log_move_to_buf(enum scp_core_id scp_id)
 
 	/* SCP keep awake */
 	mutex_lock(&scp_logger_mutex);
+	scp_awake_flag = 0;
 	if (scp_awake_lock(scp_id) == -1) {
+		scp_awake_flag = -1;
 		pr_debug("[SCP] %s: awake scp fail\n", __func__);
-		mutex_unlock(&scp_logger_mutex);
-		return;
 	}
 
+	log_buf_idx = readl((void __iomem *)(SCP_TCM +
+				last_log_info.scp_log_buf_addr));
 	log_start_idx = readl((void __iomem *)(SCP_TCM +
 				last_log_info.scp_log_start_addr));
 	log_end_idx = readl((void __iomem *)(SCP_TCM +
 				last_log_info.scp_log_end_addr));
 
-	if (log_end_idx >= log_start_idx)
-		length = log_end_idx - log_start_idx;
-	else
-		length = last_log_info.scp_log_buf_maxlen -
+	/* if loggger_r/w_pos was messed up, dump all message in logger_buf */
+	if (((log_start_idx < log_buf_idx + last_log_info.scp_log_buf_maxlen)
+	    || (log_start_idx >= log_buf_idx))
+	    && ((log_end_idx < log_buf_idx + last_log_info.scp_log_buf_maxlen)
+	    || (log_end_idx >= log_buf_idx))) {
+
+		if (log_end_idx >= log_start_idx)
+			length = log_end_idx - log_start_idx;
+		else
+			length = last_log_info.scp_log_buf_maxlen -
 				(log_start_idx - log_end_idx);
+	} else {
+		length = last_log_info.scp_log_buf_maxlen;
+		log_start_idx = log_buf_idx;
+		log_end_idx = log_buf_idx + length - 1;
+	}
 
 	if (length >= last_log_info.scp_log_buf_maxlen) {
 		pr_err("[SCP] %s: length >= max\n", __func__);
@@ -820,8 +835,10 @@ void scp_crash_log_move_to_buf(enum scp_core_id scp_id)
 	}
 
 	/* SCP release awake */
-	if (scp_awake_unlock(scp_id) == -1)
-		pr_debug("[SCP] %s: awake unlock fail\n", __func__);
+	if (scp_awake_flag == 0) {
+		if (scp_awake_unlock(scp_id) == -1)
+			pr_debug("[SCP] %s: awake unlock fail\n", __func__);
+	}
 
 	mutex_unlock(&scp_logger_mutex);
 	vfree(pre_scp_logger_buf);

@@ -629,18 +629,28 @@ static inline ssize_t scp_A_reg_status_show(struct device *kobj
 
 DEVICE_ATTR(scp_A_reg_status, 0444, scp_A_reg_status_show, NULL);
 
-static inline ssize_t scp_A_db_test_show(struct device *kobj
-			, struct device_attribute *attr, char *buf)
+static inline ssize_t scp_A_db_test_trigger(struct device *kobj
+		, struct device_attribute *attr, const char *buf, size_t count)
 {
-	scp_aed(RESET_TYPE_CMD, SCP_A_ID);
-	if (scp_ready[SCP_A_ID])
-		return scnprintf(buf, PAGE_SIZE, "dumping SCP A db\n");
-	else
-		return scnprintf(buf, PAGE_SIZE,
-				"SCP A is not ready, try to dump EE\n");
+	unsigned int value = 0;
+
+	if (!buf || count == 0)
+		return count;
+
+	if (kstrtouint(buf, 10, &value) == 0) {
+		if (value == 666) {
+			scp_aed(RESET_TYPE_CMD, SCP_A_ID);
+			if (scp_ready[SCP_A_ID])
+				pr_debug("dumping SCP db\n");
+			else
+				pr_debug("SCP is not ready, try to dump EE\n");
+		}
+	}
+
+	return count;
 }
 
-DEVICE_ATTR(scp_A_db_test, 0444, scp_A_db_test_show, NULL);
+DEVICE_ATTR(scp_A_db_test, 0200, NULL, scp_A_db_test_trigger);
 
 #ifdef CONFIG_MTK_ENG_BUILD
 static ssize_t scp_ee_show(struct device *kobj
