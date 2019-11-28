@@ -16,7 +16,8 @@
 #include <linux/dma-mapping.h>
 #include <asm/mman.h>
 
-
+#include "apusys_dbg.h"
+#include "apusys_plat.h"
 #include "apusys_cmn.h"
 #include "apusys_options.h"
 #include "apusys_drv.h"
@@ -27,10 +28,14 @@
 struct apusys_mem_mgr g_mem_mgr;
 static int g_mem_type = APUSYS_MEM_DRAM_ION;
 
+struct mem_record {
+	struct apusys_kmem kmem;
+	struct list_head m_list;
+};
+
 //----------------------------------------------
 int apusys_mem_copy_from_user(struct apusys_mem *umem, struct apusys_kmem *kmem)
 {
-
 	kmem->khandle = umem->khandle;
 	kmem->uva = umem->uva;
 	kmem->iova = umem->iova;
@@ -40,6 +45,7 @@ int apusys_mem_copy_from_user(struct apusys_mem *umem, struct apusys_kmem *kmem)
 	kmem->cache = umem->cache;
 	kmem->mem_type = umem->mem_type;
 	kmem->fd = umem->fd;
+	kmem->kva = 0;
 
 	return 0;
 }
@@ -51,12 +57,13 @@ int apusys_mem_copy_to_user(struct apusys_mem *umem, struct apusys_kmem *kmem)
 	umem->iova_size = kmem->iova_size;
 	umem->khandle = kmem->khandle;
 
-
 	return 0;
 }
+
 int apusys_mem_alloc(struct apusys_kmem *mem)
 {
 	int ret = 0;
+	struct mem_record *mr = NULL;
 
 	switch (g_mem_type) {
 	case APUSYS_MEM_DRAM_ION:
@@ -70,9 +77,32 @@ int apusys_mem_alloc(struct apusys_kmem *mem)
 		ret = -EINVAL;
 		break;
 	}
-	if (!ret)
+	if (!ret) {
 		mem->property = APUSYS_MEM_PROP_ALLOC;
 
+		/* debug purpose */
+		if (dbg_get_prop(DBG_PROP_QUERY_MEM) > 0) {
+			mr = vmalloc(sizeof(struct mem_record));
+			if (mr == NULL) {
+				LOG_ERR("alloc memory record fail\n");
+			} else {
+				MLOG_DEBUG("mr(0x%llx/%d/0x%x/0x%x/0x%llx)\n",
+					mem->uva,
+					mem->size,
+					mem->iova,
+					mem->iova_size,
+					mem->kva);
+				memcpy(&mr->kmem, mem,
+					sizeof(struct apusys_kmem));
+
+				INIT_LIST_HEAD(&mr->m_list);
+				mutex_lock(&g_mem_mgr.list_mtx);
+				list_add_tail(&mr->m_list,
+					&g_mem_mgr.list);
+				mutex_unlock(&g_mem_mgr.list_mtx);
+			}
+		}
+	}
 
 	return ret;
 }
@@ -80,6 +110,8 @@ int apusys_mem_alloc(struct apusys_kmem *mem)
 int apusys_mem_free(struct apusys_kmem *mem)
 {
 	int ret = 0;
+	struct mem_record *mr = NULL;
+	struct list_head *tmp = NULL, *list_ptr = NULL;
 
 	switch (g_mem_type) {
 	case APUSYS_MEM_DRAM_ION:
@@ -93,12 +125,34 @@ int apusys_mem_free(struct apusys_kmem *mem)
 		ret = -EINVAL;
 		break;
 	}
+
+	/* debug purpose */
+	if (!ret && dbg_get_prop(DBG_PROP_QUERY_MEM) > 0) {
+		mutex_lock(&g_mem_mgr.list_mtx);
+		list_for_each_safe(list_ptr, tmp, &g_mem_mgr.list) {
+			mr = list_entry(list_ptr, struct mem_record, m_list);
+			if (mr->kmem.iova == mem->iova) {
+				MLOG_DEBUG("mr(0x%llx/%d/0x%x/0x%x/0x%llx)\n",
+					mem->uva,
+					mem->size,
+					mem->iova,
+					mem->iova_size,
+					mem->kva);
+				list_del(&mr->m_list);
+				vfree(mr);
+				break;
+			}
+		}
+		mutex_unlock(&g_mem_mgr.list_mtx);
+	}
+
 	return ret;
 }
 
 int apusys_mem_import(struct apusys_kmem *mem)
 {
 	int ret = 0;
+	struct mem_record *mr = NULL;
 
 	switch (g_mem_type) {
 	case APUSYS_MEM_DRAM_ION:
@@ -113,14 +167,39 @@ int apusys_mem_import(struct apusys_kmem *mem)
 		break;
 	}
 
-	if (!ret)
+	if (!ret) {
 		mem->property = APUSYS_MEM_PROP_IMPORT;
 
+		/* debug purpose */
+		if (dbg_get_prop(DBG_PROP_QUERY_MEM) > 0) {
+			mr = vmalloc(sizeof(struct mem_record));
+			if (mr == NULL) {
+				LOG_ERR("alloc memory record fail\n");
+			} else {
+				MLOG_DEBUG("mr(0x%llx/%d/0x%x/0x%x/0x%llx)\n",
+					mem->uva,
+					mem->size,
+					mem->iova,
+					mem->iova_size,
+					mem->kva);
+				memcpy(&mr->kmem, mem,
+					sizeof(struct apusys_kmem));
+
+				INIT_LIST_HEAD(&mr->m_list);
+				mutex_lock(&g_mem_mgr.list_mtx);
+				list_add_tail(&mr->m_list,
+					&g_mem_mgr.list);
+				mutex_unlock(&g_mem_mgr.list_mtx);
+			}
+		}
+	}
 	return ret;
 }
 int apusys_mem_unimport(struct apusys_kmem *mem)
 {
 	int ret = 0;
+	struct mem_record *mr = NULL;
+	struct list_head *tmp = NULL, *list_ptr = NULL;
 
 	switch (g_mem_type) {
 	case APUSYS_MEM_DRAM_ION:
@@ -134,6 +213,27 @@ int apusys_mem_unimport(struct apusys_kmem *mem)
 		ret = -EINVAL;
 		break;
 	}
+
+	/* debug purpose */
+	if (!ret && dbg_get_prop(DBG_PROP_QUERY_MEM) > 0) {
+		mutex_lock(&g_mem_mgr.list_mtx);
+		list_for_each_safe(list_ptr, tmp, &g_mem_mgr.list) {
+			mr = list_entry(list_ptr, struct mem_record, m_list);
+			if (mr->kmem.iova == mem->iova) {
+				MLOG_DEBUG("mr(0x%llx/%d/0x%x/0x%x/0x%llx)\n",
+					mem->uva,
+					mem->size,
+					mem->iova,
+					mem->iova_size,
+					mem->kva);
+				list_del(&mr->m_list);
+				vfree(mr);
+				break;
+			}
+		}
+		mutex_unlock(&g_mem_mgr.list_mtx);
+	}
+
 	return ret;
 }
 
@@ -203,11 +303,13 @@ int apusys_mem_invalidate(struct apusys_kmem *mem)
 
 int apusys_mem_init(struct device *dev)
 {
-
 	int ret = 0;
 
 	LOG_INFO("+\n");
 	g_mem_mgr.dev = dev;
+	INIT_LIST_HEAD(&g_mem_mgr.list);
+	mutex_init(&g_mem_mgr.list_mtx);
+
 	switch (g_mem_type) {
 	case APUSYS_MEM_DRAM_ION:
 		ret = ion_mem_init(&g_mem_mgr);
@@ -368,3 +470,49 @@ int apusys_mem_get_vlm(unsigned int *start, unsigned int *size)
 
 	return 0;
 }
+
+uint64_t apusys_mem_query_kva(uint32_t iova)
+{
+	struct mem_record *mr = NULL;
+	struct list_head *tmp = NULL, *list_ptr = NULL;
+	uint64_t kva = 0;
+
+	MLOG_DEBUG("query kva from iova(0x%x)\n", iova);
+
+	mutex_lock(&g_mem_mgr.list_mtx);
+	list_for_each_safe(list_ptr, tmp, &g_mem_mgr.list) {
+		mr = list_entry(list_ptr, struct mem_record, m_list);
+		if (mr->kmem.iova >= iova &&
+			mr->kmem.iova + mr->kmem.iova_size < iova) {
+			kva = mr->kmem.kva + (uint64_t)(iova - mr->kmem.iova);
+			MLOG_DEBUG("query kva (0x%x->0x%llx)\n", iova, kva);
+		}
+	}
+	mutex_unlock(&g_mem_mgr.list_mtx);
+
+	return kva;
+}
+EXPORT_SYMBOL(apusys_mem_query_kva);
+
+uint32_t apusys_mem_query_iova(uint64_t kva)
+{
+	struct mem_record *mr = NULL;
+	struct list_head *tmp = NULL, *list_ptr = NULL;
+	uint32_t iova = 0;
+
+	MLOG_DEBUG("query iova from kva(0x%llx)\n", kva);
+
+	mutex_lock(&g_mem_mgr.list_mtx);
+	list_for_each_safe(list_ptr, tmp, &g_mem_mgr.list) {
+		mr = list_entry(list_ptr, struct mem_record, m_list);
+		if (mr->kmem.kva >= kva &&
+			mr->kmem.kva + mr->kmem.size < kva) {
+			iova = mr->kmem.iova + (uint32_t)(kva - mr->kmem.kva);
+			MLOG_DEBUG("query iova (0x%llx->0x%x)\n", kva, iova);
+		}
+	}
+	mutex_unlock(&g_mem_mgr.list_mtx);
+
+	return iova;
+}
+EXPORT_SYMBOL(apusys_mem_query_iova);

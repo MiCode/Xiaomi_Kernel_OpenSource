@@ -16,10 +16,18 @@
 
 #define APUSYS_DBG_DIR "apusys_midware"
 
+enum {
+	DBG_PROP_MULTICORE,
+	DBG_PROP_TCM_DEFAULT,
+	DBG_PROP_QUERY_MEM,
+
+	DBG_PROP_MAX,
+};
+
 extern bool apusys_dump_force;
 extern bool apusys_dump_skip;
 
-int dbg_get_multitest(void);
+int dbg_get_prop(int idx);
 
 int apusys_dbg_init(void);
 int apusys_dbg_destroy(void);

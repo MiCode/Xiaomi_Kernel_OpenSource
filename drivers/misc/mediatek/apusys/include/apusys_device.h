@@ -192,4 +192,7 @@ struct apusys_device {
 extern int apusys_register_device(struct apusys_device *dev);
 extern int apusys_unregister_device(struct apusys_device *dev);
 
+extern uint64_t apusys_mem_query_kva(uint32_t iova);
+extern uint32_t apusys_mem_query_iova(uint64_t kva);
+
 #endif

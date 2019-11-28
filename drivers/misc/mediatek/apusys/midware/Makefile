@@ -28,6 +28,7 @@ ccflags-y += -I$(obj)/../mnoc/$(APUSYS_VERSION_MNOC)/
 ccflags-y += -I$(obj)/../reviser/$(APUSYS_VERSION_REVISER)/
 ccflags-y += -I$(obj)/../power/$(APUSYS_VERSION_POWER)/
 ccflags-y += -I$(obj)/../power/$(APUSYS_VERSION_POWER)/$(MTK_PLATFORM)/
+ccflags-y += -I$(obj)/$(MTK_PLATFORM)/
 ccflags-y += -I$(obj)/1.0/
 ccflags-y += -I$(obj)/$(UTIL_DIR)/
 

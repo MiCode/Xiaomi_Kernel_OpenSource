@@ -124,14 +124,6 @@ static struct mem_ctx_mgr g_ctx_mgr;
 static int mem_alloc_ctx(uint8_t tcm_force, uint32_t req_size,
 	unsigned long *ctx, uint32_t *allocated_size)
 {
-/*
-	int ctx = -1;
-	uint32_t request_size = 0x100000;
-	uint8_t force = 0;
-	unsigned long ctxid = 0;
-	uint32_t sys_mem_size = 0;
-	int ret = 0;
-*/
 #if 0
 
 	mutex_lock(&g_ctx_mgr.mtx);
@@ -144,14 +136,11 @@ static int mem_alloc_ctx(uint8_t tcm_force, uint32_t req_size,
 	mutex_unlock(&g_ctx_mgr.mtx);
 	return ctx;
 #else
-	return reviser_get_vlm(req_size, tcm_force, ctx, allocated_size);
-/*
-	if (!ret) {
-		LOG_INFO("request(0x%x) force(%u) ctxid(%lu) mem_size(0x%x)\n",
-				request_size, force, ctxid, sys_mem_size);
-		ctx = ctxid;
+	if (req_size == 0) {
+		req_size = dbg_get_prop(DBG_PROP_TCM_DEFAULT);
+		LOG_INFO("tcm default request size(0x%x)\n", req_size);
 	}
-*/
+	return reviser_get_vlm(req_size, tcm_force, ctx, allocated_size);
 #endif
 }
 

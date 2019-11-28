@@ -294,7 +294,7 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	struct apusys_kmem kmem;
 	struct apusys_ioctl_cmd ioctl_cmd;
 	struct apusys_ioctl_hs hs;
-	struct apusys_ioctl_dev dev_alloc;
+	//struct apusys_ioctl_dev dev_alloc;
 	struct apusys_ioctl_power ioctl_pwr;
 	struct apusys_ioctl_fw ioctl_fw;
 	struct apusys_ioctl_sec ioctl_sec;
@@ -757,6 +757,7 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		DEBUG_TAG;
 		LOG_WARN("not support\n");
 		return -EINVAL;
+#if 0
 		if (copy_from_user(&dev_alloc, (void *)arg,
 			sizeof(struct apusys_ioctl_dev))) {
 			LOG_ERR("copy dev_alloc struct fail\n");
@@ -805,13 +806,14 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			LOG_ERR("copy user dev struct to user fail\n");
 			ret = -EINVAL;
 		}
-
 		break;
+#endif
 
 	case APUSYS_IOCTL_DEVICE_FREE:
 		DEBUG_TAG;
 		LOG_WARN("not support\n");
 		return -EINVAL;
+#if 0
 		if (copy_from_user(&dev_alloc, (void *)arg,
 			sizeof(struct apusys_ioctl_dev))) {
 			LOG_ERR("copy dev_alloc struct fail\n");
@@ -855,8 +857,8 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				ret = -ENODEV;
 			}
 		}
-
 		break;
+#endif
 
 	case APUSYS_IOCTL_FW_LOAD:
 		DEBUG_TAG;

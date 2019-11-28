@@ -19,8 +19,6 @@
 #include <mtk/mtk_ion.h>
 #include "apusys_device.h"
 
-#define APUSYS_VLM_START 0x1D800000 // tcm tmp
-#define APUSYS_VLM_SIZE 0x100000
 
 enum {
 	APUSYS_MEM_PROP_NONE,

@@ -125,7 +125,7 @@ static int _get_multicore_sched(struct apusys_cmd *cmd)
 		return CMD_SCHED_NORMAL;
 	}
 
-	dbg_multi = dbg_get_multitest();
+	dbg_multi = dbg_get_prop(DBG_PROP_MULTICORE);
 	switch (dbg_multi) {
 	case 1:
 		LOG_DEBUG("multicore policy: force single\n");

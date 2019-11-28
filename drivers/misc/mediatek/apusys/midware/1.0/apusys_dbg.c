@@ -19,8 +19,10 @@
 #include <linux/errno.h>
 #include <linux/uaccess.h>
 
+#include "apusys_drv.h"
 #include "apusys_cmn.h"
 #include "apusys_dbg.h"
+#include "memory_mgt.h"
 #include "resource_mgt.h"
 #include "midware_trace.h"
 #include "apusys_user.h"
@@ -41,7 +43,8 @@ struct dentry *apusys_dbg_debug_log;
 
 
 u32 g_log_level;
-u32 g_dbg_multi;
+u32 g_dbg_prop[DBG_PROP_MAX];
+
 u8 cfg_apusys_trace;
 
 EXPORT_SYMBOL(cfg_apusys_trace);
@@ -51,12 +54,17 @@ enum {
 	APUSYS_DBG_TEST_LOCKDEV,
 	APUSYS_DBG_TEST_UNLOCKDEV,
 	APUSYS_DBG_TEST_MULTITEST,
+	APUSYS_DBG_TEST_TCM_DEFAULT,
+	APUSYS_DBG_TEST_QUERY_MEM,
 	APUSYS_DBG_TEST_MAX,
 };
 
-int dbg_get_multitest(void)
+int dbg_get_prop(int idx)
 {
-	return g_dbg_multi;
+	if (idx >= DBG_PROP_MAX)
+		return -EINVAL;
+
+	return g_dbg_prop[idx];
 }
 
 //----------------------------------------------
@@ -146,7 +154,16 @@ static const struct file_operations apusys_dbg_fops_mem = {
 //----------------------------------------------
 static int apusys_dbg_test_dump(struct seq_file *s, void *unused)
 {
-	LOG_CON(s, "%d\n", g_dbg_multi);
+	LOG_CON(s, "-------------------------------------------------\n");
+	LOG_CON(s, " multi policy(%d):\n", g_dbg_prop[DBG_PROP_MULTICORE]);
+	LOG_CON(s, " tcm_default(0x%x):\n", g_dbg_prop[DBG_PROP_TCM_DEFAULT]);
+	LOG_CON(s, "    set indicate default tcm size if user don't set\n");
+	LOG_CON(s, "    1MB: 1048546\n");
+	LOG_CON(s, " query_mem(%d):\n", g_dbg_prop[DBG_PROP_QUERY_MEM]);
+	LOG_CON(s, "    0: disable, can't query kva/iova from code\n");
+	LOG_CON(s, "    1: enable, can query kva/iova from code\n");
+	LOG_CON(s, "-------------------------------------------------\n");
+
 	return 0;
 }
 
@@ -158,6 +175,7 @@ static int apusys_dbg_open_test(struct inode *inode, struct file *file)
 static void _apusys_dbg_test(int test, int *arg, int count)
 {
 	int mdla_num = 0;
+	unsigned int vlm_start = 0, vlm_size = 0;
 
 	switch (test) {
 	case APUSYS_DBG_TEST_SUSPEND:
@@ -169,26 +187,48 @@ static void _apusys_dbg_test(int test, int *arg, int count)
 		else
 			apusys_sched_restart();
 		break;
+
 	case APUSYS_DBG_TEST_LOCKDEV:
 		if (count < 2)
 			LOG_WARN("lock dev test need 2 args\n");
 		LOG_WARN("todo\n");
 		break;
+
 	case APUSYS_DBG_TEST_UNLOCKDEV:
 		if (count < 2)
 			LOG_WARN("lock dev test need 2 args\n");
 		LOG_WARN("todo\n");
 		break;
+
 	case APUSYS_DBG_TEST_MULTITEST:
 		mdla_num = res_get_device_num(APUSYS_DEVICE_MDLA);
 		if (arg[0] > mdla_num) {
 			LOG_WARN("multicore not support: too much(%d/%d)\n",
 				arg[0], mdla_num);
 		} else {
-			g_dbg_multi = arg[0];
+			g_dbg_prop[DBG_PROP_MULTICORE] = arg[0];
 			LOG_INFO("setup multi test %d\n", arg[0]);
 		}
 		break;
+
+	case APUSYS_DBG_TEST_TCM_DEFAULT:
+		if (apusys_mem_get_vlm(&vlm_start, &vlm_size)) {
+			LOG_ERR("get vlm fail\n");
+			break;
+		}
+
+		vlm_size = vlm_size < (unsigned int)arg[0] ?
+			vlm_size : (unsigned int)arg[0];
+		LOG_INFO("tcm default%u/%d)\n", vlm_size, arg[0]);
+
+		g_dbg_prop[DBG_PROP_TCM_DEFAULT] = vlm_size;
+		break;
+
+	case APUSYS_DBG_TEST_QUERY_MEM:
+		LOG_INFO("query mem(%d)\n", arg[0]);
+		g_dbg_prop[DBG_PROP_QUERY_MEM] = arg[0];
+		break;
+
 	default:
 		LOG_WARN("no test(%d/%d/%d)\n", test, arg[0], count);
 		break;
@@ -227,6 +267,10 @@ static ssize_t apusys_dbg_write_test(struct file *flip,
 		test = APUSYS_DBG_TEST_UNLOCKDEV;
 	else if (strcmp(token, "multicore") == 0)
 		test = APUSYS_DBG_TEST_MULTITEST;
+	else if (strcmp(token, "tcm_default") == 0)
+		test = APUSYS_DBG_TEST_TCM_DEFAULT;
+	else if (strcmp(token, "query_mem") == 0)
+		test = APUSYS_DBG_TEST_QUERY_MEM;
 	else {
 		ret = -EINVAL;
 		LOG_ERR("no test(%s)\n", token);
@@ -268,7 +312,8 @@ int apusys_dbg_init(void)
 	LOG_INFO("+\n");
 
 	g_log_level = 0;
-	g_dbg_multi = 1;
+	memset(g_dbg_prop, 0, sizeof(g_dbg_prop));
+	g_dbg_prop[DBG_PROP_MULTICORE] = 1;
 
 	/* create debug root */
 	apusys_dbg_root = debugfs_create_dir(APUSYS_DBG_DIR, NULL);
@@ -352,7 +397,6 @@ int apusys_dbg_init(void)
 		LOG_ERR("failed to create debug node(log).\n");
 		goto out;
 	}
-
 
 	apusys_dump_init();
 out:
