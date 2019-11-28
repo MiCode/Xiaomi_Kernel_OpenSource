@@ -7477,6 +7477,7 @@ int32_t DIP_MDPDumpCallback(uint64_t engineFlag, int level)
 	LOG_DBG("DIP_MDPDumpCallback");
 #if 0
 	const char *pCmdq1stErrCmd;
+
 	pCmdq1stErrCmd = cmdq_core_query_first_err_mod();
 	if (pCmdq1stErrCmd != NULL) {
 		cmdq_util_err("Cmdq 1st Error:%s", pCmdq1stErrCmd);

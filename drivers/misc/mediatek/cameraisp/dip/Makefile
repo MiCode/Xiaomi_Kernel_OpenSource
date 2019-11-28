@@ -23,12 +23,12 @@ ifeq ($(CONFIG_MACH_MT6771),y)
 endif
 
 ifeq ($(CONFIG_MACH_MT6885),y)
-  obj-y += $(subst ",,mt6885)/
+  obj-y += $(subst ",,isp_6s)/
   MTK_DIP_COUNT := 2
 endif
 
 ifeq ($(CONFIG_MACH_MT6883),y)
-  obj-y += $(subst ",,mt6885)/
+  obj-y += $(subst ",,isp_6s)/
   MTK_DIP_COUNT := 2
 endif
 
