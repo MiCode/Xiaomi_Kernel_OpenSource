@@ -266,6 +266,10 @@
 #define M4U_PORT_L20_IPE_FDVT_WRB		MTK_M4U_ID(20, 3)
 #define M4U_PORT_L20_IPE_RSC_RDMA0		MTK_M4U_ID(20, 4)
 #define M4U_PORT_L20_IPE_RSC_WDMA		MTK_M4U_ID(20, 5)
+
+/*above all real larb_port(0~20) */
+#define M4U_LARB_PORT_NR			(217)
+
 /* fake larb -- 5 */
 #define M4U_PORT_L21_APU_FAKE_CODE		MTK_M4U_ID(APU_PSEUDO_LARBID, 0)
 #define M4U_PORT_L21_APU_FAKE_DATA		MTK_M4U_ID(APU_PSEUDO_LARBID, 1)
@@ -275,7 +279,9 @@
 
 #define M4U_PORT_GPU				MTK_M4U_ID(31, 31)
 #define M4U_PORT_UNKNOWN			(M4U_PORT_L23_CCU1 + 1)
-#define M4U_PORT_NR				(222)
+
+/* include fake port, exclude "M4U_PORT_UNKNOWN" */
+#define M4U_PORT_NR				(223)
 
 /*********************************************************/
 /* for pusedo fake device */

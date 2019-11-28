@@ -579,10 +579,13 @@ static inline int pseudo_config_port(struct M4U_PORT_STRUCT *pM4uPort,
 	/* debug use */
 	if (value != pseudo_readreg32(larb_base,
 					  SMI_LARB_NON_SEC_CONx(larb_port))) {
-		M4U_ERR("%d(%d-%d),vir=%d, bound=%d, old=0x%x, expect=0x%x\n",
+		M4U_ERR(
+			"%d(%d-%d),vir=%d, bd=%d, old=0x%x, expect=0x%x, cur=0x%x\n",
 			pM4uPort->ePortID, larb, larb_port,
 			pM4uPort->Virtuality,
-			bit32, old_value, value);
+			bit32, old_value, value,
+			pseudo_readreg32(larb_base,
+					  SMI_LARB_NON_SEC_CONx(larb_port)));
 		ret = -4;
 	}
 

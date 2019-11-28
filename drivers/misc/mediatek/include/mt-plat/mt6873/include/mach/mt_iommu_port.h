@@ -548,7 +548,7 @@ struct mtk_iommu_port iommu_port[] = {
 		SLAVE_L20, 20, TF_LARB_L20, 4),
 	MTK_IOMMU_PORT_INIT("L20_IPE_RSC_WDMA", 0,
 		SLAVE_L20, 20, TF_LARB_L20, 5),
-	/*Larb21 -- 3 */
+	/*Larb21 -- 3 */ //hc2 no need
 	MTK_IOMMU_PORT_INIT("L21_APU_FAKE_CODE", 1,
 		SLAVE_APU, 21, TF_APU, 0),
 	MTK_IOMMU_PORT_INIT("L21_APU_FAKE_DATA", 1,
@@ -619,6 +619,6 @@ static char *vpu_axi_bus_name[IOMMU_APU_AXI_PORT_NR] = {
 	"APU_EDMA2", "APU_EXTERNAL"};
 
 #ifndef M4U_PORT_NR
-#define M4U_PORT_NR (222)
+#define M4U_PORT_NR (223)
 #endif
 #endif
