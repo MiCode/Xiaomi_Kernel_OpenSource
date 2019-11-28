@@ -17,7 +17,7 @@
 #define MNOC_INT_ENABLE (1)
 #define MNOC_QOS_ENABLE (1)
 #define MNOC_DBG_ENABLE (0)
-#define MNOC_AEE_WARN_ENABLE (1)
+#define MNOC_AEE_WARN_ENABLE (0)
 #define MNOC_APU_PWR_CHK (1)
 
 #endif
