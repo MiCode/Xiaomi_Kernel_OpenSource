@@ -433,12 +433,12 @@ static kal_uint16 read_cmos_eeprom_8(kal_uint16 addr)
 
 static void read_sensor_Cali(void)
 {
-	kal_uint16 idx = 0, addr_qsc = 0xC90, sensor_lrc = 0x7F00;
+	kal_uint16 idx = 0, addr_qsc = 0xfaf, sensor_lrc = 0x7F00;
 	kal_uint16 eeprom_lrc_0 = 0x1620, eeprom_lrc_1 = 0x16E0;
 	kal_uint16 sensor_lrc_0 = 0x7510, sensor_lrc_1 = 0x7600;
 
 	for (idx = 0; idx < 2304; idx++) {
-		addr_qsc = 0xC90 + idx;
+		addr_qsc = 0xfaf + idx;
 		sensor_lrc = 0x7F00 + idx;
 		imx586_QSC_setting[2 * idx] = sensor_lrc;
 		imx586_QSC_setting[2 * idx + 1] = read_cmos_eeprom_8(addr_qsc);
@@ -457,16 +457,8 @@ static void read_sensor_Cali(void)
 
 static void write_sensor_QSC(void)
 {
-	#if USE_BURST_MODE
 	imx586_table_write_cmos_sensor(imx586_QSC_setting,
 		sizeof(imx586_QSC_setting) / sizeof(kal_uint16));
-	#else
-	kal_uint16 idx = 0, addr_qsc = 0x7F00;
-	for (idx = 0; idx < 2304; idx++) {
-		addr_qsc = 0x7F00 + idx;
-		write_cmos_sensor_8(addr_qsc, imx586_QSC_setting[2 * idx + 1]);
-	}
-	#endif
 }
 
 static void set_dummy(void)
@@ -2343,7 +2335,7 @@ static kal_uint16 imx586_custom3_setting[] = {
 	0x0310, 0x01,
 	/*Other Setting*/
 	0x3620, 0x01,
-	0x3621, 0x00,
+	0x3621, 0x01,
 	0x3C11, 0x08,
 	0x3C12, 0x08,
 	0x3C13, 0x2A,
@@ -4654,6 +4646,7 @@ break;
 			#endif
 			break;
 		}
+	break;
 	case SENSOR_FEATURE_SET_AWB_GAIN:
 		/* modify to separate 3hdr and remosaic */
 		if (imgsensor.sensor_mode == IMGSENSOR_MODE_CUSTOM3) {
