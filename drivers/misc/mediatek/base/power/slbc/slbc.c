@@ -825,7 +825,8 @@ int slbc_power_on(struct slbc_data *d)
 #ifdef SLBC_TRACE
 	trace_slbc_api((void *)__func__, slbc_uid_str[uid]);
 #endif /* SLBC_TRACE */
-	slbc_debug_log("%s: %s flag %x", __func__, slbc_uid_str[uid], d->flag);
+	/* slbc_debug_log("%s: %s flag %x", __func__, */
+			/* slbc_uid_str[uid], d->flag); */
 
 #ifdef CONFIG_MTK_SLBC_MMSRAM
 	if (IS_ENABLED(CONFIG_MTK_SLBC_MMSRAM) &&
@@ -858,7 +859,8 @@ int slbc_power_off(struct slbc_data *d)
 #ifdef SLBC_TRACE
 	trace_slbc_api((void *)__func__, slbc_uid_str[uid]);
 #endif /* SLBC_TRACE */
-	slbc_debug_log("%s: %s flag %x", __func__, slbc_uid_str[uid], d->flag);
+	/* slbc_debug_log("%s: %s flag %x", __func__, */
+			/* slbc_uid_str[uid], d->flag); */
 
 #ifdef CONFIG_MTK_SLBC_MMSRAM
 	if (IS_ENABLED(CONFIG_MTK_SLBC_MMSRAM) &&
