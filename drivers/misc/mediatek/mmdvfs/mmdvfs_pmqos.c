@@ -960,9 +960,8 @@ static void trace_qos_validation(void)
 			port_list[j] = req->master_id;
 			larb_id = SMI_PMQOS_LARB_DEC(req->master_id);
 			port_id = SMI_PMQOS_PORT_MASK(req->master_id);
-			bw = (req->comp_type == BW_COMP_NONE)
-				? req->bw_value
-				: DEFAULT_BW_UPDATE(req->bw_value);
+			bw = get_comp_value(req->bw_value,
+						req->comp_type, true);
 			if (req->updated || bw > 0)
 				trace_mmqos__update_qosbw(larb_id,
 							port_id, index, bw);
