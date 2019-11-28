@@ -218,7 +218,7 @@ int insert_subcmd(struct apusys_subcmd *sc)
 	sc->state = CMD_STATE_READY;
 
 	if (hdr->soft_limit) { /* Deadline Queue */
-		deadline_task_insert(sc);
+		ret = deadline_task_insert(sc);
 	} else { /* Priority Queue */
 		ret = normal_task_insert(sc);
 		if (ret) {
@@ -312,8 +312,12 @@ int delete_subcmd(struct apusys_subcmd *sc)
 		sc->type,
 		sc->par_cmd->hdr->priority);
 
-	/* remove from normal queue */
-	ret = normal_task_remove(sc);
+	/* remove from queue */
+	if (sc->period != 0)
+		ret = deadline_task_remove(sc);
+	else
+		ret = normal_task_remove(sc);
+
 	if (ret) {
 		LOG_ERR("remove 0x%llx-#%d nq(%d/%d) fail\n",
 			sc->par_cmd->cmd_id,
