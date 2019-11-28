@@ -990,11 +990,16 @@ int sync_ringbuf_readidx(struct RingBuf *task_ring_buf,
 	readidx = task_ring_buf->pBufBase +
 		  (buf_bridge->pRead - buf_bridge->pBufBase);
 
-	if (readidx >= task_ring_buf->pRead)
+	if (readidx > task_ring_buf->pRead)
 		datacount = readidx - task_ring_buf->pRead;
 	else
 		datacount = task_ring_buf->bufLen -
 			    (task_ring_buf->pRead - readidx);
+
+	if (datacount == 0 || datacount == task_ring_buf->bufLen) {
+		dump_ring_bufinfo(task_ring_buf);
+		dump_rbuf_bridge(buf_bridge);
+	}
 
 	RingBuf_update_readptr(task_ring_buf, datacount);
 

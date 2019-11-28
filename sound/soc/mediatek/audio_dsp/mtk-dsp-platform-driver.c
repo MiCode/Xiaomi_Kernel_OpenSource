@@ -1261,6 +1261,7 @@ static int mtk_dsp_pcm_copy_dl(struct snd_pcm_substream *substream,
 	dump_rbuf_bridge_s(__func__,
 			   &dsp_mem->adsp_buf.aud_buffer.buf_bridge);
 #endif
+
 	if (substream->runtime->status->state != SNDRV_PCM_STATE_RUNNING)
 		ack_type = AUDIO_IPI_MSG_NEED_ACK;
 	else
