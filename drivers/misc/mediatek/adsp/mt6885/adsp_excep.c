@@ -153,6 +153,7 @@ static void adsp_exception_dump(struct adsp_exception_control *ctrl)
 		break;
 	case EXCEP_RUNTIME:
 		aed_type = "runtime exception";
+		db_opt |= DB_OPT_FTRACE;
 		break;
 	case EXCEP_KERNEL:
 		aed_type = "kernel exception";
