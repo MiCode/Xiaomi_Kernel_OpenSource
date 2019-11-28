@@ -206,42 +206,31 @@ static DEFINE_MUTEX(mt_gpufreq_limit_table_lock);
 static void __iomem *g_apmixed_base;
 static void __iomem *g_mfg_base;
 
-u64 mt_gpufreq_get_shader_present(void)
+unsigned int mt_gpufreq_get_shader_present(void)
 {
-#if 1
-	return 0;
-#else
-	static u64 shader_present;
-	u32 segment_id = 0;
+	static int shader_present = -1;
+	unsigned int segment_id = 0;
 
-	if (shader_present)
+	if (shader_present != -1)
 		return shader_present;
 
 	segment_id = __mt_gpufreq_get_segment();
 
 	switch (segment_id) {
-	case MT6883_SEGMENT:
+	case MT6873_SEGMENT:
+		shader_present = MT_GPU_SHADER_PRESENT_4;
+		break;
+	case MT6873T_SEGMENT:
 		shader_present = MT_GPU_SHADER_PRESENT_5;
 		break;
-
-	case MT6885_SEGMENT:
-		shader_present = MT_GPU_SHADER_PRESENT_7;
-		break;
-
-	case MT6885T_SEGMENT:
-		shader_present = MT_GPU_SHADER_PRESENT_9;
-		break;
-
-	case MT6885T_PLUS_SEGMENT:
-		shader_present = MT_GPU_SHADER_PRESENT_9;
-		break;
-
 	default:
-		shader_present = MT_GPU_SHADER_PRESENT_9;
+		shader_present = MT_GPU_SHADER_PRESENT_5;
+		gpufreq_pr_info("invalid segment id: %d\n", segment_id);
 	}
+	gpufreq_pr_info("@%s: segment_id: %d, shader_present: %d\n",
+					__func__, segment_id, shader_present);
 
 	return shader_present;
-#endif
 }
 
 static unsigned int mt_gpufreq_return_by_condition(
@@ -534,7 +523,10 @@ static void mt_gpufreq_cg_control(enum mt_power_state power)
 
 static void mt_gpufreq_mtcmos_control(enum mt_power_state power)
 {
+	unsigned int shader_present = 0;
 	gpufreq_pr_debug("@%s: power = %d\n", __func__, power);
+
+	shader_present = mt_gpufreq_get_shader_present();
 
 	if (power == POWER_ON) {
 		if (clk_prepare_enable(g_clk->mtcmos_mfg0))
@@ -543,26 +535,41 @@ static void mt_gpufreq_mtcmos_control(enum mt_power_state power)
 		if (clk_prepare_enable(g_clk->mtcmos_mfg1))
 			gpufreq_pr_info("failed when enable mtcmos_mfg1\n");
 
-		if (clk_prepare_enable(g_clk->mtcmos_mfg2))
-			gpufreq_pr_info("failed when enable mtcmos_mfg2\n");
+		if (shader_present & MFG2_SHADER_STACK0)
+			if (clk_prepare_enable(g_clk->mtcmos_mfg2))
+				gpufreq_pr_info("failed when enable mtcmos_mfg2\n");
 
-		if (clk_prepare_enable(g_clk->mtcmos_mfg3))
-			gpufreq_pr_info("failed when enable mtcmos_mfg3\n");
+		if (shader_present & MFG3_SHADER_STACK2_TILE0)
+			if (clk_prepare_enable(g_clk->mtcmos_mfg3))
+				gpufreq_pr_info("failed when enable mtcmos_mfg3\n");
 
-		if (clk_prepare_enable(g_clk->mtcmos_mfg4))
-			gpufreq_pr_info("failed when enable mtcmos_mfg4\n");
+		if (shader_present & MFG4_SHADER_STACK2_TILE1)
+			if (clk_prepare_enable(g_clk->mtcmos_mfg4))
+				gpufreq_pr_info("failed when enable mtcmos_mfg4\n");
 
-		if (clk_prepare_enable(g_clk->mtcmos_mfg5))
-			gpufreq_pr_info("failed when enable mtcmos_mfg5\n");
+		if (shader_present & MFG5_SHADER_STACK4)
+			if (clk_prepare_enable(g_clk->mtcmos_mfg5))
+				gpufreq_pr_info("failed when enable mtcmos_mfg5\n");
 
-		if (clk_prepare_enable(g_clk->mtcmos_mfg6))
-			gpufreq_pr_info("failed when enable mtcmos_mfg6\n");
+		if (shader_present & MFG6_SHADER_STACK6)
+			if (clk_prepare_enable(g_clk->mtcmos_mfg6))
+				gpufreq_pr_info("failed when enable mtcmos_mfg6\n");
 	} else {
-		clk_disable_unprepare(g_clk->mtcmos_mfg6);
-		clk_disable_unprepare(g_clk->mtcmos_mfg5);
-		clk_disable_unprepare(g_clk->mtcmos_mfg4);
-		clk_disable_unprepare(g_clk->mtcmos_mfg3);
-		clk_disable_unprepare(g_clk->mtcmos_mfg2);
+		if (shader_present & MFG6_SHADER_STACK6)
+			clk_disable_unprepare(g_clk->mtcmos_mfg6);
+
+		if (shader_present & MFG5_SHADER_STACK4)
+			clk_disable_unprepare(g_clk->mtcmos_mfg5);
+
+		if (shader_present & MFG4_SHADER_STACK2_TILE1)
+			clk_disable_unprepare(g_clk->mtcmos_mfg4);
+
+		if (shader_present & MFG3_SHADER_STACK2_TILE0)
+			clk_disable_unprepare(g_clk->mtcmos_mfg3);
+
+		if (shader_present & MFG2_SHADER_STACK0)
+			clk_disable_unprepare(g_clk->mtcmos_mfg2);
+
 		clk_disable_unprepare(g_clk->mtcmos_mfg1);
 		clk_disable_unprepare(g_clk->mtcmos_mfg0);
 	}
@@ -1307,26 +1314,24 @@ void mt_gpufreq_power_limit_notify_registerCB(gpufreq_power_limit_notify pCB)
 
 static unsigned int __mt_gpufreq_get_segment(void)
 {
-#if 1
-	return 0;
-#else
-	unsigned int efuse_id, segment_id;
+	unsigned int efuse_id;
+	static int segment_id = -1;
+
+	if (segment_id != -1)
+		return segment_id;
 
 	/* spare[7:0] */
-	efuse_id = (get_devinfo_with_index(30) & 0xFF);
+	efuse_id = (get_devinfo_with_index(30) & 0xFF);  //FIXME
 
 	switch (efuse_id) {
-	case 0x1:
-		segment_id = MT6883_SEGMENT;
+	case 0x0: // FIXME
+		segment_id = MT6873_SEGMENT;    /* 5G-A */
 		break;
-	case 0x4:
-		segment_id = MT6885_SEGMENT;
-		break;
-	case 0x10:
-		segment_id = MT6885T_SEGMENT;
+	case 0x1: // FIXME
+		segment_id = MT6873T_SEGMENT;   /* 5G-A+ */
 		break;
 	default:
-		segment_id = MT6885T_SEGMENT;
+		segment_id = MT6873T_SEGMENT;
 		gpufreq_pr_info("invalid efuse id: 0x%x\n", efuse_id);
 	}
 
@@ -1334,7 +1339,6 @@ static unsigned int __mt_gpufreq_get_segment(void)
 						__func__, efuse_id, segment_id);
 
 	return segment_id;
-#endif
 }
 
 /**
@@ -2453,18 +2457,13 @@ static void __mt_gpufreq_init_table(void)
 	unsigned int i = 0;
 
 	/* determine max_opp/num/segment_table... by segment  */
-	/* we have no segment now */
-#if 0
-	if (segment_id == MT6785T_SEGMENT)
-		g_segment_max_opp_idx = 3;
-	else if (segment_id == MT6785_SEGMENT)
-		g_segment_max_opp_idx = 9;
-	else if (segment_id == MT6783_SEGMENT)
-		g_segment_max_opp_idx = 19;
+	if (segment_id == MT6873_SEGMENT)
+		g_segment_max_opp_idx = 8;
+	else if (segment_id == MT6873T_SEGMENT)
+		g_segment_max_opp_idx = 8;
 	else
-		g_segment_max_opp_idx = 3;
-#endif
-	g_segment_max_opp_idx = 8;
+		g_segment_max_opp_idx = 8;
+
 	g_segment_min_opp_idx = num - 1;
 
 	g_opp_table = kzalloc((num) * sizeof(*opp_table), GFP_KERNEL);

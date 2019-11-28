@@ -36,6 +36,41 @@ do {							\
 #define gpufreq_pr_logbuf(fmt, args...)	gpufreq_pr_debug(fmt, ##args)
 #endif
 
+/* TxCy: Stack x, Core y */
+#define T0C0  (1 <<  0)
+#define T1C0  (1 <<  1)
+#define T2C0  (1 <<  2)
+#define T3C0  (1 <<  3)
+#define T0C1  (1 <<  4)
+#define T1C1  (1 <<  5)
+#define T2C1  (1 <<  6)
+#define T3C1  (1 <<  7)
+#define T0C2  (1 <<  8)
+#define T1C2  (1 <<  9)
+#define T2C2  (1 << 10)
+#define T3C2  (1 << 11)
+#define T0C3  (1 << 12)
+#define T1C3  (1 << 13)
+#define T2C3  (1 << 14)
+#define T3C3  (1 << 15)
+#define T4C0  (1 << 16)
+#define T5C0  (1 << 17)
+#define T6C0  (1 << 18)
+#define T7C0  (1 << 19)
+#define T4C1  (1 << 20)
+#define T5C1  (1 << 21)
+#define T6C1  (1 << 22)
+#define T7C1  (1 << 23)
+
+#define MFG2_SHADER_STACK0         (T0C0)
+#define MFG3_SHADER_STACK2_TILE0   (T2C0)
+#define MFG4_SHADER_STACK2_TILE1   (T2C1)
+#define MFG5_SHADER_STACK4         (T4C0)
+#define MFG6_SHADER_STACK6         (T6C0)
+
+#define MT_GPU_SHADER_PRESENT_4    (T0C0 | T2C0 | T4C0 | T6C0)
+#define MT_GPU_SHADER_PRESENT_5    (T0C0 | T2C0 | T2C1 | T4C0 | T6C0)
+
 struct mt_gpufreq_power_table_info {
 	unsigned int gpufreq_khz;
 	unsigned int gpufreq_vgpu;
@@ -120,7 +155,7 @@ extern void mt_gpufreq_power_control(enum mt_power_state, enum mt_cg_state,
 		enum mt_mtcmos_state, enum mt_buck_state);
 extern void mt_gpufreq_set_timestamp(void);
 extern void mt_gpufreq_check_bus_idle(void);
-extern u64 mt_gpufreq_get_shader_present(void);
+extern unsigned int mt_gpufreq_get_shader_present(void);
 
 #ifdef CONFIG_MTK_RAM_CONSOLE
 extern void aee_rr_rec_gpu_dvfs_vgpu(u8 val);
