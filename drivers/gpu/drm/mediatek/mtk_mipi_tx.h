@@ -25,5 +25,7 @@ void mtk_mipi_tx_pll_rate_set_adpt(struct phy *phy, unsigned long rate);
 void mtk_mipi_tx_pll_rate_switch_gce(struct phy *phy,
 	void *handle, unsigned long rate);
 
+void mtk_mipi_tx_sw_control_en(struct phy *phy, bool en);
+void mtk_mipi_tx_pre_oe_config(struct phy *phy, bool en);
 
 #endif

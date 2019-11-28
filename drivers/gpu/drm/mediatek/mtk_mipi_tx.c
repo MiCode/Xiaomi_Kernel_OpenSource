@@ -196,6 +196,17 @@
 #define FLD_RG_DSI_PLL_POSDIV (0x7 << 8)
 #define FLD_RG_DSI_PLL_POSDIV_ REG_FLD_MSB_LSB(10, 8)
 
+#define MIPITX_D0_SW_LPTX_PRE_OE	(0x0248UL)
+#define MIPITX_D0C_SW_LPTX_PRE_OE	(0x0268UL)
+#define MIPITX_D1_SW_LPTX_PRE_OE	(0x0448UL)
+#define MIPITX_D1C_SW_LPTX_PRE_OE	(0x0468UL)
+#define MIPITX_D2_SW_LPTX_PRE_OE	(0x0148UL)
+#define MIPITX_D2C_SW_LPTX_PRE_OE	(0x0168UL)
+#define MIPITX_D3_SW_LPTX_PRE_OE	(0x0548UL)
+#define MIPITX_D3C_SW_LPTX_PRE_OE	(0x0568UL)
+#define MIPITX_CK_SW_LPTX_PRE_OE	(0x0348UL)
+#define MIPITX_CKC_SW_LPTX_PRE_OE	(0x0368UL)
+
 enum MIPITX_PAD_VALUE {
 	PAD_D2P_V = 0,
 	PAD_D2N_V,
@@ -423,6 +434,64 @@ int mtk_mipi_tx_lane_config(struct phy *phy,
 		(pad_mapping[swap_base[MIPITX_PHY_LANE_3]]) << 0);
 
 	return 0;
+}
+
+void mtk_mipi_tx_sw_control_en(struct phy *phy, bool en)
+{
+	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(phy);
+
+	if (en) {
+		mtk_mipi_tx_set_bits(mipi_tx, MIPITX_D0_SW_CTL_EN,
+			DSI_D0_SW_CTL_EN);
+		mtk_mipi_tx_set_bits(mipi_tx, MIPITX_D1_SW_CTL_EN,
+			DSI_D1_SW_CTL_EN);
+		mtk_mipi_tx_set_bits(mipi_tx, MIPITX_D2_SW_CTL_EN,
+			DSI_D2_SW_CTL_EN);
+		mtk_mipi_tx_set_bits(mipi_tx, MIPITX_D3_SW_CTL_EN,
+			DSI_D3_SW_CTL_EN);
+		mtk_mipi_tx_set_bits(mipi_tx, MIPITX_CK_SW_CTL_EN,
+			DSI_CK_SW_CTL_EN);
+	} else {
+		mtk_mipi_tx_clear_bits(mipi_tx, MIPITX_D0_SW_CTL_EN,
+			DSI_D0_SW_CTL_EN);
+		mtk_mipi_tx_clear_bits(mipi_tx, MIPITX_D1_SW_CTL_EN,
+			DSI_D1_SW_CTL_EN);
+		mtk_mipi_tx_clear_bits(mipi_tx, MIPITX_D2_SW_CTL_EN,
+			DSI_D2_SW_CTL_EN);
+		mtk_mipi_tx_clear_bits(mipi_tx, MIPITX_D3_SW_CTL_EN,
+			DSI_D3_SW_CTL_EN);
+		mtk_mipi_tx_clear_bits(mipi_tx, MIPITX_CK_SW_CTL_EN,
+			DSI_CK_SW_CTL_EN);
+	}
+}
+
+void mtk_mipi_tx_pre_oe_config(struct phy *phy, bool en)
+{
+	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(phy);
+
+	if (en) {
+		mtk_mipi_tx_set_bits(mipi_tx, MIPITX_D2_SW_LPTX_PRE_OE, 1);
+		mtk_mipi_tx_set_bits(mipi_tx, MIPITX_D2C_SW_LPTX_PRE_OE, 1);
+		mtk_mipi_tx_set_bits(mipi_tx, MIPITX_D0_SW_LPTX_PRE_OE, 1);
+		mtk_mipi_tx_set_bits(mipi_tx, MIPITX_D0C_SW_LPTX_PRE_OE, 1);
+		mtk_mipi_tx_set_bits(mipi_tx, MIPITX_CK_SW_LPTX_PRE_OE, 1);
+		mtk_mipi_tx_set_bits(mipi_tx, MIPITX_CKC_SW_LPTX_PRE_OE, 1);
+		mtk_mipi_tx_set_bits(mipi_tx, MIPITX_D1_SW_LPTX_PRE_OE, 1);
+		mtk_mipi_tx_set_bits(mipi_tx, MIPITX_D1C_SW_LPTX_PRE_OE, 1);
+		mtk_mipi_tx_set_bits(mipi_tx, MIPITX_D3_SW_LPTX_PRE_OE, 1);
+		mtk_mipi_tx_set_bits(mipi_tx, MIPITX_D3C_SW_LPTX_PRE_OE, 1);
+	} else {
+		mtk_mipi_tx_clear_bits(mipi_tx, MIPITX_D2_SW_LPTX_PRE_OE, 1);
+		mtk_mipi_tx_clear_bits(mipi_tx, MIPITX_D2C_SW_LPTX_PRE_OE, 1);
+		mtk_mipi_tx_clear_bits(mipi_tx, MIPITX_D0_SW_LPTX_PRE_OE, 1);
+		mtk_mipi_tx_clear_bits(mipi_tx, MIPITX_D0C_SW_LPTX_PRE_OE, 1);
+		mtk_mipi_tx_clear_bits(mipi_tx, MIPITX_CK_SW_LPTX_PRE_OE, 1);
+		mtk_mipi_tx_clear_bits(mipi_tx, MIPITX_CKC_SW_LPTX_PRE_OE, 1);
+		mtk_mipi_tx_clear_bits(mipi_tx, MIPITX_D1_SW_LPTX_PRE_OE, 1);
+		mtk_mipi_tx_clear_bits(mipi_tx, MIPITX_D1C_SW_LPTX_PRE_OE, 1);
+		mtk_mipi_tx_clear_bits(mipi_tx, MIPITX_D3_SW_LPTX_PRE_OE, 1);
+		mtk_mipi_tx_clear_bits(mipi_tx, MIPITX_D3C_SW_LPTX_PRE_OE, 1);
+	}
 }
 
 static int mtk_mipi_tx_pll_prepare(struct clk_hw *hw)
@@ -683,17 +752,21 @@ static int mtk_mipi_tx_pll_prepare_mt6885(struct clk_hw *hw)
 	writel(0x3FFF0180, mipi_tx->regs + MIPITX_LANE_CON);
 	usleep_range(500, 600);
 	writel(0x3FFF0080, mipi_tx->regs + MIPITX_LANE_CON);
+
+#if 1
 	/* Switch OFF each Lane */
 	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_D0_SW_CTL_EN, FLD_DSI_SW_CTL_EN,
-				0);
+				1);
 	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_D1_SW_CTL_EN, FLD_DSI_SW_CTL_EN,
-				0);
+				1);
 	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_D2_SW_CTL_EN, FLD_DSI_SW_CTL_EN,
-				0);
+				1);
 	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_D3_SW_CTL_EN, FLD_DSI_SW_CTL_EN,
-				0);
+				1);
 	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_CK_SW_CTL_EN, FLD_DSI_SW_CTL_EN,
-				0);
+				1);
+#endif
+
 	/* step 1: SDM_RWR_ON / SDM_ISO_EN */
 	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_PWR,
 				FLD_AD_DSI_PLL_SDM_PWR_ON, 1);
@@ -711,6 +784,7 @@ static int mtk_mipi_tx_pll_prepare_mt6885(struct clk_hw *hw)
 
 	usleep_range(50, 100);
 
+	/* TODO: should write bit8 to set SW_ANA_CK_EN here */
 	mtk_mipi_tx_set_bits(mipi_tx, MIPITX_SW_CTRL_CON4, 1);
 
 	DDPDBG("%s-\n", __func__);
@@ -783,16 +857,20 @@ static void mtk_mipi_tx_pll_unprepare_mt6885(struct clk_hw *hw)
 	dev_dbg(mipi_tx->dev, "unprepare\n");
 
 	mtk_mipi_tx_clear_bits(mipi_tx, MIPITX_PLL_CON1, RG_DSI_PLL_EN);
+
+	/* TODO: should clear bit8 to set SW_ANA_CK_EN here */
 	mtk_mipi_tx_clear_bits(mipi_tx, MIPITX_SW_CTRL_CON4, 1);
 
 	mtk_mipi_tx_set_bits(mipi_tx, MIPITX_PLL_PWR, AD_DSI_PLL_SDM_ISO_EN);
 	mtk_mipi_tx_clear_bits(mipi_tx, MIPITX_PLL_PWR, AD_DSI_PLL_SDM_PWR_ON);
 
+#if 0
 	mtk_mipi_tx_set_bits(mipi_tx, MIPITX_D0_SW_CTL_EN, DSI_D0_SW_CTL_EN);
 	mtk_mipi_tx_set_bits(mipi_tx, MIPITX_D1_SW_CTL_EN, DSI_D1_SW_CTL_EN);
 	mtk_mipi_tx_set_bits(mipi_tx, MIPITX_D2_SW_CTL_EN, DSI_D2_SW_CTL_EN);
 	mtk_mipi_tx_set_bits(mipi_tx, MIPITX_D3_SW_CTL_EN, DSI_D3_SW_CTL_EN);
 	mtk_mipi_tx_set_bits(mipi_tx, MIPITX_CK_SW_CTL_EN, DSI_CK_SW_CTL_EN);
+#endif
 
 	writel(0x3FFF0180, mipi_tx->regs + MIPITX_LANE_CON);
 	writel(0x3FFF0100, mipi_tx->regs + MIPITX_LANE_CON);

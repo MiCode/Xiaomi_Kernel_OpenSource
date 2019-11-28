@@ -1153,15 +1153,23 @@ static void mtk_dsi_enter_ulps(struct mtk_dsi *dsi)
 
 	/* reset related setting */
 	mtk_dsi_mask(dsi, DSI_INTEN, SLEEPIN_ULPS_DONE_INT_FLAG, 0);
-	mtk_dsi_mask(dsi, DSI_PHY_LD0CON, LDX_ULPM_AS_L0, 0);
-	mtk_dsi_mask(dsi, DSI_PHY_LD0CON, LD0_ULPM_EN, 0);
-	mtk_dsi_mask(dsi, DSI_PHY_LCCON, LC_ULPM_EN, 0);
+
+	mtk_mipi_tx_pre_oe_config(dsi->phy, 0);
+	mtk_mipi_tx_sw_control_en(dsi->phy, 1);
+
+	/* set lane num = 0 */
+	mtk_dsi_mask(dsi, DSI_TXRX_CTRL, LANE_NUM, 0);
+
 }
 
 static void mtk_dsi_exit_ulps(struct mtk_dsi *dsi)
 {
 	int wake_up_prd = (dsi->data_rate * 1000) / (1024 * 8) + 1;
 	unsigned int ret = 0;
+
+	mtk_dsi_phy_reset(dsi);
+	/* set pre oe */
+	mtk_mipi_tx_pre_oe_config(dsi->phy, 1);
 
 	/* reset exit_ulps_done before waiting */
 	reset_dsi_wq(&dsi->exit_ulps_done);
@@ -1171,6 +1179,10 @@ static void mtk_dsi_exit_ulps(struct mtk_dsi *dsi)
 	mtk_dsi_mask(dsi, DSI_PHY_LD0CON, LDX_ULPM_AS_L0, LDX_ULPM_AS_L0);
 	mtk_dsi_mask(dsi, DSI_MODE_CTRL, SLEEP_MODE, SLEEP_MODE);
 	mtk_dsi_mask(dsi, DSI_TIME_CON0, 0xffff, wake_up_prd);
+
+	/* free sw control */
+	mtk_mipi_tx_sw_control_en(dsi->phy, 0);
+
 	mtk_dsi_mask(dsi, DSI_START, SLEEPOUT_START, 0);
 	mtk_dsi_mask(dsi, DSI_START, SLEEPOUT_START, SLEEPOUT_START);
 
@@ -1201,7 +1213,6 @@ static void mtk_dsi_exit_ulps(struct mtk_dsi *dsi)
 	mtk_dsi_mask(dsi, DSI_START, SLEEPOUT_START, 0);
 
 	/* do DSI reset after exit ULPS */
-	mtk_dsi_phy_reset(dsi);
 	mtk_dsi_reset_engine(dsi);
 }
 
