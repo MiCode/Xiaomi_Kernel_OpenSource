@@ -110,11 +110,12 @@ mdla_run_command_prepare(struct mdla_run_cmd *cd, struct command_entry *ce)
 
 	ce->mva = cd->mva + cd->offset;
 
-	mdla_cmd_debug("%s: mva=%08x, offset=%08x, count: %u\n",
-			__func__,
-			cd->mva,
-			cd->offset,
-			cd->count);
+	if (mdla_timeout_dbg)
+		mdla_cmd_debug("%s: mva=%08x, offset=%08x, count: %u\n",
+				__func__,
+				cd->mva,
+				cd->offset,
+				cd->count);
 
 	ce->state = CE_NONE;
 	ce->flags = CE_NOP;
@@ -287,8 +288,9 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd,
 
 	id = ce.count;
 
-	mdla_cmd_debug("%s: core: %d max_cmd_id: %d id: %d\n",
-			__func__, core_id, mdla_info->max_cmd_id, id);
+	if (mdla_timeout_dbg)
+		mdla_cmd_debug("%s: core: %d max_cmd_id: %d id: %d\n",
+				__func__, core_id, mdla_info->max_cmd_id, id);
 
 	ret = mdla_pwr_on(core_id);
 	if (ret)
@@ -347,12 +349,13 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd,
 		}
 	}
 
-	mdla_cmd_debug("%s: C:%d,FIN0:%.8x,FIN1: %.8x,FIN3: %.8x\n",
-		__func__,
-		core_id,
-		mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_FIN0),
-		mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_FIN1),
-		mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_FIN3));
+	if (mdla_timeout_dbg)
+		mdla_cmd_debug("%s: C:%d,FIN0:%.8x,FIN1: %.8x,FIN3: %.8x\n",
+			__func__,
+			core_id,
+			mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_FIN0),
+			mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_FIN1),
+			mdla_reg_read_with_mdlaid(core_id, MREG_TOP_G_FIN3));
 
 	mdla_pmu_debug("%s: PMU_CFG_PMCR: %8x, pmu_clk_cnt: %.8x\n",
 		__func__,
