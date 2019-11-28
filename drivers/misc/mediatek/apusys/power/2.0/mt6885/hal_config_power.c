@@ -77,7 +77,8 @@ int hal_config_power(enum HAL_POWER_CMD cmd, enum DVFS_USER user, void *param)
 
 	LOG_DBG("%s power command : %d, by user : %d\n", __func__, cmd, user);
 
-	if (cmd != PWR_CMD_INIT_POWER && is_apu_power_initilized == 0) {
+	if (cmd != PWR_CMD_INIT_POWER && cmd != PWR_CMD_SEGMENT_CHECK &&
+		is_apu_power_initilized == 0) {
 		LOG_ERR("%s apu power state : %d, force return!\n",
 					__func__, is_apu_power_initilized);
 		return -1;
