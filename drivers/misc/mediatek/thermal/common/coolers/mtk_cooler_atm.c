@@ -1712,6 +1712,10 @@ static int _adaptive_power_ppb
 			tscpu_dprintk("%s Tp %ld, Tc %ld, Pt %d\n", __func__,
 					prev_temp, curr_temp, total_power);
 
+			if (curr_temp > current_ETJ)
+				tscpu_printk("exit but Tc(%ld) > cetj(%d)\n",
+					curr_temp, current_ETJ);
+
 			return P_adaptive(0, 0);
 #if THERMAL_HEADROOM
 		} else {
@@ -2172,6 +2176,7 @@ static int adp_cpu_set_cur_state
 (struct thermal_cooling_device *cdev, unsigned long state)
 {
 	int ttj = 117000;
+	unsigned int prev_active_state = cl_dev_adp_cpu_state_active;
 
 	cl_dev_adp_cpu_state[(cdev->type[13] - '0')] = state;
 
@@ -2181,6 +2186,13 @@ static int adp_cpu_set_cur_state
 	/* tscpu_dprintk("adp_cpu_set_cur_state[%d] =%d, ttj=%d\n",
 	 *				(cdev->type[13] - '0'), state, ttj);
 	 */
+
+	if (prev_active_state && !cl_dev_adp_cpu_state_active
+		&& tscpu_g_curr_temp > current_ETJ)
+		tscpu_printk("[Warning] active 1 -> 0 but Tc(%d) > cetj(%d)\n",
+			tscpu_g_curr_temp, current_ETJ);
+
+
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 #if THERMAL_ENABLE_TINYSYS_SSPM && CPT_ADAPTIVE_AP_COOLER &&	\
 	PRECISE_HYBRID_POWER_BUDGET && CONTINUOUS_TM
