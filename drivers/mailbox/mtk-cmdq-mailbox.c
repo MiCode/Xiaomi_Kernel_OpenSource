@@ -673,17 +673,17 @@ static void cmdq_task_reset_event(struct cmdq_task *task)
 
 	list_for_each_entry(buf, &task->pkt->buf, list_entry) {
 		if (pc >= buf->pa_base &&
-			pc < buf->pa_base + CMDQ_BUF_ALLOC_SIZE) {
-			offset += buf->pa_base - pc;
+			pc < buf->pa_base + CMDQ_CMD_BUFFER_SIZE) {
+			offset += pc - buf->pa_base;
 			break;
 		}
 
-		offset += CMDQ_BUF_ALLOC_SIZE;
+		offset += CMDQ_CMD_BUFFER_SIZE;
 	}
 
 	if (offset >= task->pkt->evt_revert &&
 		offset < task->pkt->evt_revert_end) {
-		cmdq_util_err("evert TPR lock");
+		cmdq_util_err("revert TPR lock");
 		cmdq_clear_event(thread->chan, CMDQ_TOKEN_TPR_LOCK);
 	}
 
