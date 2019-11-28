@@ -1085,6 +1085,12 @@ static signed int DIP_Dump_IMGSYS_DIP_Reg(void)
 			DipDumpTL[DIPNo].region,
 			DIP_RD32(dipRegBasAddr + 0x7A50));
 
+		cmdq_util_err("crp_d4: 0x%x8CC0(0x%x)-0x%x8CC4(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x7CC0),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x7CC4));
+
 		/*CNR register dump*/
 		cmdq_util_err("dip: 0x%x73c0(0x%x)-0x%x73c4(0x%x)",
 			DipDumpTL[DIPNo].region,
