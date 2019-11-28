@@ -107,6 +107,7 @@ enum mmdvfs_log_level {
 	log_bw,
 	log_limit,
 	log_smi_freq,
+	log_qos_validation,
 };
 
 #define STEP_UNREQUEST -1
@@ -930,6 +931,45 @@ static void blocking_camera(void)
 }
 #endif
 
+static void trace_qos_validation(void)
+{
+	/* MDP/IMG have 16 threads (i.e. 16 requests for each port) */
+	const int TRACE_PORT_NUM = 500;
+	struct mm_qos_request *req = NULL;
+	s32 port_list[TRACE_PORT_NUM];
+	u32 i, j, index, larb_id, port_id;
+	s32 bw;
+
+	for (i = 0; i < ARRAY_SIZE(larb_req); i++) {
+		if (!larb_req[i].port_count)
+			continue;
+		for (j = 0; j < TRACE_PORT_NUM; j++)
+			port_list[j] = -1;
+		list_for_each_entry(req, &larb_req[i].larb_list, larb_node) {
+			index = 0;
+			/* Make one trace for each request instead of for each
+			 * port because it's hard to calculate data size when
+			 * one port with many requests (BW and fps are mixed)
+			 */
+			for (j = 0; j < TRACE_PORT_NUM; j++) {
+				if (port_list[j] == req->master_id)
+					index++;
+				if (port_list[j] == -1)
+					break;
+			}
+			port_list[j] = req->master_id;
+			larb_id = SMI_PMQOS_LARB_DEC(req->master_id);
+			port_id = SMI_PMQOS_PORT_MASK(req->master_id);
+			bw = (req->comp_type == BW_COMP_NONE)
+				? req->bw_value
+				: DEFAULT_BW_UPDATE(req->bw_value);
+			if (req->updated || bw > 0)
+				trace_mmqos__update_qosbw(larb_id,
+							port_id, index, bw);
+		}
+	}
+}
+
 static inline void init_larb_list(u32 larb_id)
 {
 	if (!larb_req[larb_id].larb_list_init) {
@@ -1243,6 +1283,8 @@ void mm_qos_update_all_request(struct plist_head *owner_list)
 			larb_count++;
 		}
 	}
+	if (log_level & 1 << log_qos_validation)
+		trace_qos_validation();
 #ifdef MMDVFS_MMP
 	if (larb_count)
 		mmprofile_log_ex(
@@ -2095,7 +2137,7 @@ int dump_setting(char *buf, const struct kernel_param *kp)
 		length += snprintf(buf + length, PAGE_SIZE - length,
 			"[%s] step_size: %u current_step:%d (%lluMhz)\n",
 			mm_freq->prop_name, step_size, mm_freq->current_step,
-			mmdvfs_qos_get_freq(mm_freq->pm_qos_class));
+			mmdvfs_qos_get_freq(PM_QOS_DISP_FREQ + i));
 		length = print_freq(buf, length,
 			mm_freq->step_config, mm_freq->current_step);
 		l = mm_freq->limit_config.limit_level;
@@ -2259,9 +2301,9 @@ int get_larbs_info(char *buf)
 			if (!req->bw_value && !req->hrt_value)
 				continue;
 			length += snprintf(buf + length, MAX_DUMP - length,
-				"  [port-%u]: bw=%u setting=%u hrt=%u\n",
-				req->master_id & 0x1F,
-				req->bw_value, req->ostd, req->hrt_value);
+				"  [port-%u]: bw=%u ostd=%u hrt=%u comp=%d\n",
+				req->master_id & 0x1F, req->bw_value, req->ostd,
+				req->hrt_value, req->comp_type);
 			if (length >= MAX_DUMP)
 				break;
 		}

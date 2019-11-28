@@ -102,7 +102,7 @@ bool mmdvfs_log_larb_mmp(s32 common_port_id, s32 larb_id)
 /* Return port number of CCU on SMI common */
 inline u32 mmdvfs_get_ccu_smi_common_port(u32 master_id)
 {
-	if (master_id == get_virtual_port(VIRTUAL_CCU_COMMON2))
+	if (master_id == get_virtual_port(VIRTUAL_CCU_COMMON))
 		return 6;
 	else
 		return ((1 << 16) | (6));
