@@ -1064,6 +1064,52 @@
 		compatible = "usb-nop-xceiv";
 	};
 
+	mtu3_0: mtu3_0@11200000 {
+		compatible = "mediatek,mt6873-mtu3";
+		reg = <0 0x11201000 0 0x3000>,
+		      <0 0x11203e00 0 0x100>;
+		reg-names = "mac", "ippc";
+		interrupts = <GIC_SPI 96 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "ssusb_mac";
+		clocks = <&infracfg_ao INFRACFG_AO_SSUSB_CG>,
+			   <&infracfg_ao INFRACFG_AO_SSUSB_XHCI_CG>;
+		clock-names = "sys_ck", "rel_clk";
+		phy-cells = <1>;
+		phys = <&usb0phy 0>;
+		phy-names = "port0_phy";
+		extcon = <&extcon_usb>;
+		dr_mode = "otg";
+	};
+
+	xhci0: usb_xhci@11200000 {
+		compatible = "mediatek,mt67xx-xhci";
+		reg = <0 0x11200000 0 0x1000>;
+		reg-names = "mac";
+		interrupts = <GIC_SPI 97 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "xhci";
+		clocks = <&infracfg_ao INFRACFG_AO_SSUSB_XHCI_CG>;
+		clock-names = "sys_ck";
+		phys = <&usb0phy 0>;
+		phy-names = "port0_phy";
+	};
+
+	usb0phy: usb0phy@11e40000 {
+		compatible = "mediatek,mt6873-phy";
+		reg = <0 0x11e40000 0 0x10000>,
+			  <0 0x11203e00 0 0x100>;
+		reg-names = "sif_base", "ippc";
+		#phy-cells = <1>;
+	};
+
+	extcon_usb: extcon_usb {
+		compatible = "mediatek,extcon-usb";
+	};
+
+	usb_boost_manager {
+		compatible = "mediatek,usb_boost";
+		boost_period = <30>;
+	};
+
 	dramc_ch1_top0@10240000 {
 		compatible = "mediatek,dramc_ch1_top0";
 		reg = <0 0x10240000 0 0x2000>;
