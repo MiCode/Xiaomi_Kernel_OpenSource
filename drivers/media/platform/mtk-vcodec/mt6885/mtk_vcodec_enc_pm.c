@@ -257,6 +257,7 @@ void mtk_vcodec_enc_clock_on(struct mtk_vcodec_ctx *ctx, int core_id)
 #endif
 
 #ifndef FPGA_PWRCLK_API_DISABLE
+	time_check_start(MTK_FMT_ENC, core_id);
 	if (core_id == MTK_VENC_CORE_0 ||
 		core_id == MTK_VENC_CORE_1) {
 		smi_bus_prepare_enable(SMI_LARB7, "VENC0");
@@ -270,12 +271,15 @@ void mtk_vcodec_enc_clock_on(struct mtk_vcodec_ctx *ctx, int core_id)
 			mtk_v4l2_err("clk_prepare_enable CG_VENC fail %d", ret);
 	} else
 		mtk_v4l2_err("invalid core_id %d", core_id);
-
+	time_check_end(MTK_FMT_ENC, core_id, 50);
 #endif
 
+	time_check_start(MTK_FMT_ENC, core_id);
 	ret = slbc_power_on(&ctx->sram_data);
+	time_check_end(MTK_FMT_ENC, core_id, 50);
 
 #ifdef CONFIG_MTK_PSEUDO_M4U
+	time_check_start(MTK_FMT_ENC, core_id);
 	if (core_id == MTK_VENC_CORE_0) {
 		larb_port_num = SMI_LARB7_PORT_NUM;
 		larb_id = 7;
@@ -308,6 +312,7 @@ void mtk_vcodec_enc_clock_on(struct mtk_vcodec_ctx *ctx, int core_id)
 			m4u_config_port(&port);
 		}
 	}
+	time_check_end(MTK_FMT_ENC, core_id, 50);
 #endif
 
 }

@@ -172,6 +172,7 @@ void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm, int hw_id)
 	struct mtk_vcodec_dev *dev;
 	void __iomem *vdec_racing_addr;
 
+	time_check_start(MTK_FMT_DEC, hw_id);
 	if (hw_id == MTK_VDEC_CORE) {
 		smi_bus_prepare_enable(SMI_LARB4, "VDEC_CORE");
 		ret = clk_prepare_enable(pm->clk_MT_CG_SOC);
@@ -203,9 +204,11 @@ void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm, int hw_id)
 				vdec_racing_addr + j * 4);
 	}
 	mutex_unlock(&pm->dec_racing_info_mutex);
+	time_check_end(MTK_FMT_DEC, hw_id, 50);
 #endif
 
 #ifdef CONFIG_MTK_PSEUDO_M4U
+	time_check_start(MTK_FMT_DEC, hw_id);
 	if (hw_id == MTK_VDEC_CORE) {
 		larb_port_num = SMI_LARB4_PORT_NUM;
 		larb_id = 4;
@@ -237,6 +240,7 @@ void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm, int hw_id)
 		port.Virtuality = 1;
 		m4u_config_port(&port);
 	}
+	time_check_end(MTK_FMT_DEC, hw_id, 50);
 #endif
 
 }

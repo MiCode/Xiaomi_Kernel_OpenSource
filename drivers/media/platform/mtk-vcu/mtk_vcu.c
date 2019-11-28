@@ -139,6 +139,19 @@ static struct files_struct *files;
 /* for protecting vpud file struct */
 struct mutex vpud_file_mutex;
 
+static __attribute__((used)) unsigned int time_ms_s, time_ms_e;
+#define time_check_start() { \
+		time_ms_s = jiffies_to_msecs(jiffies); \
+	}
+#define time_check_end(timeout_ms, debug) do { \
+		time_ms_e = jiffies_to_msecs(jiffies); \
+		if ((time_ms_e - time_ms_s) > timeout_ms || \
+			debug) \
+			pr_info("[VCU][Info] %s L:%d take %u timeout %u ms", \
+				__func__, __LINE__, \
+				time_ms_e - time_ms_s, \
+				timeout_ms); \
+	} while (0)
 
 /**
  * struct vcu_mem - VCU memory information
@@ -717,6 +730,7 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 
 	pr_debug("[VCU] %s +\n", __func__);
 
+	time_check_start();
 	buff = (struct gce_callback_data *)
 		kzalloc(sizeof(struct gce_callback_data), GFP_KERNEL);
 	if (!buff) {
@@ -730,7 +744,9 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 		pr_info("[VCU] %s alloc gce_cmds fail\n", __func__);
 		return -ENOMEM;
 	}
+	time_check_end(100, strlen(vcodec_param_string));
 
+	time_check_start();
 	user_data_addr = (unsigned char *)arg;
 	ret = (long)copy_from_user(&buff->cmdq_buff, user_data_addr,
 				   (unsigned long)sizeof(struct gce_cmdq_obj));
@@ -776,7 +792,7 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 
 	while (vcu_ptr->is_entering_suspend == 1) {
 		suspend_block_cnt++;
-		if (suspend_block_cnt > 5000) {
+		if (suspend_block_cnt > 500) {
 			pr_info("[VCU] gce_flush blocked by suspend\n");
 			suspend_block_cnt = 0;
 		}
@@ -794,7 +810,9 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 		kfree(buff);
 		return -EINVAL;
 	}
+	time_check_end(100, strlen(vcodec_param_string));
 
+	time_check_start();
 	mutex_lock(&vcu->vcu_gce_mutex[i]);
 	if (atomic_read(&vcu->gce_job_cnt[i][core_id]) == 0 &&
 		vcu->gce_info[j].v4l2_ctx != NULL){
@@ -811,7 +829,9 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 	}
 	atomic_inc(&vcu->gce_job_cnt[i][core_id]);
 	mutex_unlock(&vcu->vcu_gce_mutex[i]);
+	time_check_end(100, strlen(vcodec_param_string));
 
+	time_check_start();
 	pkt_ptr = cmdq_pkt_create(cl);
 	if (IS_ERR(pkt_ptr)) {
 		pr_info("[VCU] cmdq_pkt_create fail\n");
@@ -841,6 +861,7 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 	/* flush cmd async */
 	cmdq_pkt_flush_threaded(pkt_ptr,
 		vcu_gce_flush_callback, (void *)buff);
+	time_check_end(100, strlen(vcodec_param_string));
 
 	return ret;
 }

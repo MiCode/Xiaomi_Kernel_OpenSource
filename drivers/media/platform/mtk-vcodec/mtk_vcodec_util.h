@@ -129,6 +129,21 @@ extern bool mtk_vcodec_perf;
 
 #endif
 
+static __attribute__((used)) unsigned int time_ms_s[2][2], time_ms_e[2][2];
+#define time_check_start(is_enc, id) {\
+		time_ms_s[is_enc][id] = jiffies_to_msecs(jiffies); \
+	}
+#define time_check_end(is_enc, id, timeout_ms) do { \
+		time_ms_e[is_enc][id]  = jiffies_to_msecs(jiffies); \
+		if ((time_ms_e[is_enc][id] - time_ms_s[is_enc][id]) \
+			> timeout_ms || \
+			mtk_vcodec_perf) \
+			pr_info("[V4L2][Info] %s L:%d take %u timeout %u ms", \
+				__func__, __LINE__, \
+				time_ms_e[is_enc][id] - time_ms_s[is_enc][id], \
+				timeout_ms); \
+	} while (0)
+
 void __iomem *mtk_vcodec_get_dec_reg_addr(struct mtk_vcodec_ctx *data,
 	unsigned int reg_idx);
 void __iomem *mtk_vcodec_get_enc_reg_addr(struct mtk_vcodec_ctx *data,
