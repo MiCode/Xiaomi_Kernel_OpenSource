@@ -22,12 +22,12 @@
 #include <linux/soc/mediatek/mtk-cmdq.h>
 #include <linux/module.h>
 
-#define CONFIG_LEDS_BRIGHTNESS_CHANGED
-
 #ifdef CONFIG_LEDS_MTK_DISP
+#define CONFIG_LEDS_BRIGHTNESS_CHANGED
 #include <mtk_leds_drv.h>
 #include <leds-mtk-disp.h>
 #elif defined CONFIG_LEDS_MTK_PWM
+#define CONFIG_LEDS_BRIGHTNESS_CHANGED
 #include <mtk_leds_drv.h>
 #include <leds-mtk-pwm.h>
 #else
