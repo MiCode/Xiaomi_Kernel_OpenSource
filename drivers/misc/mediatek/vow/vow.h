@@ -101,7 +101,7 @@
 #define VOW_BARGEIN_DUMP_SIZE    0x3C00
 #endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
 
-#define KERNEL_VOW_DRV_VER "2.0.4"
+#define KERNEL_VOW_DRV_VER "2.0.5"
 struct dump_package_t {
 	uint32_t dump_data_type;
 	uint32_t mic_offset;

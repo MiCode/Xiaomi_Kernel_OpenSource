@@ -158,9 +158,10 @@ RESEND_IPI:
 			break;
 
 		/* send error, print it */
-		VOWDRV_DEBUG("%s(), ipi fail=%d\n", __func__,
-						    retry_cnt,
-						    ipi_result);
+		VOWDRV_DEBUG("%s(), ipi_id(%d) fail=%d\n",
+			     __func__,
+			     msg_id,
+			     ipi_result);
 
 		if (vow_service_GetScpRecoverStatus() == true) {
 			VOWDRV_DEBUG("scp is recovering, then break\n");
@@ -188,7 +189,7 @@ RESEND_IPI:
 				msleep(VOW_WAITCHECK_INTERVAL_MS);
 			}
 		}
-		VOWDRV_DEBUG("%s(), ipi pass\n", __func__);
+		VOWDRV_DEBUG("%s(), ipi_id(%d) pass\n", __func__, msg_id);
 		ret = true;
 	}
 	return ret;
