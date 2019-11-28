@@ -55,7 +55,7 @@
 &pio {
 	mtkfb_pins_lcd_bias_enp1: lcd_bias_enp1_gpio {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO23__FUNC_GPIO23>;
+			pinmux = <PINMUX_GPIO28__FUNC_GPIO28>;
 			slew-rate = <1>;
 			output-high;
 		};
@@ -63,7 +63,7 @@
 
 	mtkfb_pins_lcd_bias_enp0: lcd_bias_enp0_gpio {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO23__FUNC_GPIO23>;
+			pinmux = <PINMUX_GPIO28__FUNC_GPIO28>;
 			slew-rate = <1>;
 			output-low;
 		};
@@ -71,7 +71,7 @@
 
 	mtkfb_pins_lcd_bias_enn1: lcd_bias_enn1_gpio {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO202__FUNC_GPIO202>;
+			pinmux = <PINMUX_GPIO29__FUNC_GPIO29>;
 			slew-rate = <1>;
 			output-high;
 		};
@@ -79,7 +79,7 @@
 
 	mtkfb_pins_lcd_bias_enn0: lcd_bias_enn0_gpio {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO202__FUNC_GPIO202>;
+			pinmux = <PINMUX_GPIO29__FUNC_GPIO29>;
 			slew-rate = <1>;
 			output-low;
 		};
