@@ -300,6 +300,16 @@ static int handle_test_mode(struct mtu3 *mtu, struct usb_ctrlrequest *setup)
 	if (mtu->test_mode_nr == TEST_PACKET_MODE)
 		ep0_load_test_packet(mtu);
 
+	mtu3_writel(mbase, U3D_EP0CSR,
+				(mtu3_readl(mbase, U3D_EP0CSR) & EP0_W1C_BITS)
+				| EP0_SETUPPKTRDY | EP0_DATAEND);
+	mtu->ep0_state = MU3D_EP0_STATE_SETUP;
+
+	while ((mtu3_readl(mbase, U3D_EP0CSR) & EP0_DATAEND) != 0) {
+		/* Need to wait for status really loaded by host */
+		mdelay(1);/* Without this delay, it will fail. */
+	}
+
 	mtu3_writel(mbase, U3D_USB2_TEST_MODE, mtu->test_mode_nr);
 
 	mtu->ep0_state = MU3D_EP0_STATE_SETUP;

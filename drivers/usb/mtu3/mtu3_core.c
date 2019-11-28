@@ -262,46 +262,6 @@ void mtu3_dev_on_off(struct mtu3 *mtu, int is_on)
 		usb_speed_string(mtu->max_speed), is_on ? "+" : "-");
 }
 
-void mtu3_start(struct mtu3 *mtu)
-{
-	void __iomem *mbase = mtu->mac_base;
-
-	dev_dbg(mtu->dev, "%s devctl 0x%x\n", __func__,
-		mtu3_readl(mbase, U3D_DEVICE_CONTROL));
-
-	mtu3_clrbits(mtu->ippc_base, U3D_SSUSB_IP_PW_CTRL2, SSUSB_IP_DEV_PDN);
-
-	/*
-	 * When disable U2 port, USB2_CSR's register will be reset to
-	 * default value after re-enable it again(HS is enabled by default).
-	 * So if force mac to work as FS, disable HS function.
-	 */
-	if (mtu->max_speed == USB_SPEED_FULL)
-		mtu3_clrbits(mbase, U3D_POWER_MANAGEMENT, HS_ENABLE);
-
-	/* Initialize the default interrupts */
-	mtu3_intr_enable(mtu);
-	mtu->is_active = 1;
-
-	if (mtu->softconnect)
-		mtu3_dev_on_off(mtu, 1);
-}
-
-void mtu3_stop(struct mtu3 *mtu)
-{
-	dev_dbg(mtu->dev, "%s\n", __func__);
-
-	mtu3_intr_disable(mtu);
-	mtu3_intr_status_clear(mtu);
-
-	if (mtu->softconnect)
-		mtu3_dev_on_off(mtu, 0);
-
-	mtu->is_active = 0;
-	mtu3_setbits(mtu->ippc_base, U3D_SSUSB_IP_PW_CTRL2, SSUSB_IP_DEV_PDN);
-	cancel_delayed_work_sync(&mtu->check_ltssm_work);
-}
-
 /* for non-ep0 */
 int mtu3_config_ep(struct mtu3 *mtu, struct mtu3_ep *mep,
 			int interval, int burst, int mult)
@@ -918,6 +878,46 @@ static void mtu3_hw_exit(struct mtu3 *mtu)
 	mtu3_mem_free(mtu);
 }
 
+void mtu3_start(struct mtu3 *mtu)
+{
+	void __iomem *mbase = mtu->mac_base;
+
+	dev_dbg(mtu->dev, "%s devctl 0x%x\n", __func__,
+		mtu3_readl(mbase, U3D_DEVICE_CONTROL));
+
+	mtu3_clrbits(mtu->ippc_base, U3D_SSUSB_IP_PW_CTRL2, SSUSB_IP_DEV_PDN);
+
+	/*
+	 * When disable U2 port, USB2_CSR's register will be reset to
+	 * default value after re-enable it again(HS is enabled by default).
+	 * So if force mac to work as FS, disable HS function.
+	 */
+	if (mtu->max_speed == USB_SPEED_FULL)
+		mtu3_clrbits(mbase, U3D_POWER_MANAGEMENT, HS_ENABLE);
+	mtu3_regs_init(mtu);
+	/* Initialize the default interrupts */
+	mtu3_intr_enable(mtu);
+	mtu->is_active = 1;
+
+	if (mtu->softconnect)
+		mtu3_dev_on_off(mtu, 1);
+}
+
+void mtu3_stop(struct mtu3 *mtu)
+{
+	dev_dbg(mtu->dev, "%s\n", __func__);
+
+	mtu3_intr_disable(mtu);
+	mtu3_intr_status_clear(mtu);
+
+	if (mtu->softconnect)
+		mtu3_dev_on_off(mtu, 0);
+
+	mtu->is_active = 0;
+	mtu3_setbits(mtu->ippc_base, U3D_SSUSB_IP_PW_CTRL2, SSUSB_IP_DEV_PDN);
+	cancel_delayed_work_sync(&mtu->check_ltssm_work);
+}
+
 /*-------------------------------------------------------------------------*/
 
 int ssusb_gadget_init(struct ssusb_mtk *ssusb)
@@ -1067,4 +1067,3 @@ void disconnect_check(struct mtu3 *mtu)
 	}
 	pr_info("speed <%d>\n", mtu->g.speed);
 }
-
