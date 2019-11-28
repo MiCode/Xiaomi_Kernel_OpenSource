@@ -435,8 +435,10 @@ int vcu_enc_encode(struct venc_vcu_inst *vcu, unsigned int bs_mode,
 			if (frm_buf->fb_addr[i].dmabuf != NULL)
 				close_mapped_fd(out.input_fd[i]);
 		}
-		if (frm_buf->has_meta)
+		if (frm_buf->has_meta) {
 			close_mapped_fd(out.meta_fd);
+			dma_buf_put(frm_buf->meta_dma);
+		}
 	}
 
 	if (bs_buf && bs_buf->dmabuf != NULL)

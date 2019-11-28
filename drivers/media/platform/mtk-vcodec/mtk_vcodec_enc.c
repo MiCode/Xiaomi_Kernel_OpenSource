@@ -1328,8 +1328,6 @@ static int vidioc_venc_qbuf(struct file *file, void *priv,
 			ctx->id, buf->index, mtkbuf, buf->reserved2);
 		mtkbuf->has_meta = 1;
 		mtkbuf->meta_dma = dma_buf_get(buf->reserved2);
-		mtkbuf->frm_buf.has_meta = 1;
-		mtkbuf->frm_buf.meta_dma = dma_buf_get(buf->reserved2);
 	}
 
 	return v4l2_m2m_qbuf(file, ctx->m2m_ctx, buf);
