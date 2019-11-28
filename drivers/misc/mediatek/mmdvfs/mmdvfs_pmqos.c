@@ -931,6 +931,7 @@ static void blocking_camera(void)
 }
 #endif
 
+#if defined(TRACE_QOS_VALIDATION)
 static void trace_qos_validation(void)
 {
 	/* MDP/IMG have 16 threads (i.e. 16 requests for each port) */
@@ -972,6 +973,7 @@ static void trace_qos_validation(void)
 		}
 	}
 }
+#endif
 
 static inline void init_larb_list(u32 larb_id)
 {
@@ -1289,8 +1291,10 @@ void mm_qos_update_all_request(struct plist_head *owner_list)
 			larb_count++;
 		}
 	}
+#if defined(TRACE_QOS_VALIDATION)
 	if (log_level & 1 << log_qos_validation)
 		trace_qos_validation();
+#endif
 #ifdef MMDVFS_MMP
 	if (larb_count)
 		mmprofile_log_ex(
