@@ -682,6 +682,9 @@ int mtk_drm_ioctl_support_color_matrix(struct drm_device *dev, void *data,
 {
 	int ret = 0;
 	struct DISP_COLOR_TRANSFORM *color_transform;
+	bool four_by_three_matrix = true;
+	bool identify_matrix = true;
+	int i, j;
 
 	if (data == NULL)
 		ret = -EFAULT;
@@ -689,15 +692,44 @@ int mtk_drm_ioctl_support_color_matrix(struct drm_device *dev, void *data,
 	color_transform = data;
 
 #if defined(CONFIG_MACH_MT6885)
-	// Check offset for 3x4 support.
-	// AOSP is 4x3 matrix. Offset is located at 4th row
-	if (color_transform->matrix[3][0] != 0 &&
-		color_transform->matrix[3][1] != 0 &&
-		color_transform->matrix[3][2] != 0) {
-		DDPINFO("supported 3x4 matrix");
+    // Support matrix:
+	// 1. AOSP is 4x3 matrix. Offset is located at 4th row (not zero)
+    // 2. Identity matrix
+
+	four_by_three_matrix = (color_transform->matrix[3][0] != 0
+		&& color_transform->matrix[3][1] != 0
+		&& color_transform->matrix[3][2] != 0) ? true:false;
+
+	for (i = 0 ; i < 3; i++) {
+		for (j = 0 ; i < 3; i++) {
+			if (i != j) {
+				if (color_transform->matrix[i][j] != 0) {
+					identify_matrix = false;
+					break;
+				}
+			} else {
+				if (color_transform->matrix[i][j] != 1024) {
+					identify_matrix = false;
+					break;
+				}
+			}
+		}
+	}
+
+	if (four_by_three_matrix || identify_matrix) {
+		DDPINFO("supported matrix (%d, %d)",
+				four_by_three_matrix, identify_matrix);
 		ret = 0; //Zero: support color matrix.
 	} else {
-		DDPINFO("unsupported matrix");
+		for (i = 0 ; i < 4; i++) {
+			DDPINFO("unsupported matrix (%d, %d), [%d][0-3]:[%d %d %d %d]",
+					four_by_three_matrix,
+					identify_matrix, i,
+					color_transform->matrix[i][0],
+					color_transform->matrix[i][1],
+					color_transform->matrix[i][2],
+					color_transform->matrix[i][3]);
+		}
 		ret = -EFAULT;
 	}
 #else

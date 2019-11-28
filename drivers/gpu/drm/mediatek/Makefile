@@ -81,3 +81,6 @@ subdir-ccflags-y += -I$(srctree)/drivers/staging/android/ion/ \
 ccflags-$(CONFIG_MACH_MT6885) += -DDRM_MMPATH
 
 ccflags-$(CONFIG_MACH_MT6885) += -DNOT_SUPPORT_CABC_HW
+
+ccflags-$(CONFIG_MACH_MT6885) += -DDISP_COLOR_ON
+

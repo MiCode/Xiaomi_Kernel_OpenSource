@@ -208,6 +208,8 @@ static void mtk_gamma_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_GAMMA_EN, GAMMA_EN, ~0);
+
+	mtk_gamma_write_lut_reg(comp, handle, 0);
 }
 
 static void mtk_gamma_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
@@ -240,7 +242,7 @@ static void mtk_gamma_set(struct mtk_ddp_comp *comp,
 	if (state->gamma_lut) {
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_GAMMA_CFG,
-			       GAMMA_LUT_EN, GAMMA_LUT_EN);
+			       1<<GAMMA_LUT_EN, 1<<GAMMA_LUT_EN);
 		lut = (struct drm_color_lut *)state->gamma_lut->data;
 		for (i = 0; i < MTK_LUT_SIZE; i++) {
 			word = GAMMA_ENTRY(lut[i].red >> 6,

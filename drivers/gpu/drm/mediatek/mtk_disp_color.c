@@ -16,6 +16,7 @@
 #include <linux/component.h>
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
+#include <linux/of_address.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/soc/mediatek/mtk-cmdq.h>
@@ -69,6 +70,54 @@ struct mtk_disp_color_data {
 	unsigned int reg_num;
 	unsigned int color_window;
 };
+
+static struct MDP_COLOR_CAP mdp_color_cap;
+
+static struct DISP_PQ_DC_PARAM g_PQ_DC_Param = {
+param:
+	{
+	 1, 1, 0, 0, 0, 0, 0, 0, 0, 0x0A,
+	 0x30, 0x40, 0x06, 0x12, 40, 0x40, 0x80, 0x40, 0x40, 1,
+	 0x80, 0x60, 0x80, 0x10, 0x34, 0x40, 0x40, 1, 0x80, 0xa,
+	 0x19, 0x00, 0x20, 0, 0, 1, 2, 1, 80, 1}
+};
+
+static struct DISP_PQ_DS_PARAM g_PQ_DS_Param = {
+param:
+	{
+	 1, -4, 1024, -4, 1024,
+	 1, 400, 200, 1600, 800,
+	 128, 8, 4, 12, 16,
+	 8, 24, -8, -4, -12,
+	 0, 0, 0}
+};
+
+static int g_tdshp_flag;	/* 0: normal, 1: tuning mode */
+int ncs_tuning_mode;
+int tdshp_index_init;
+
+
+static struct MDP_TDSHP_REG g_tdshp_reg = {
+	TDS_GAIN_MID:0x10,
+	TDS_GAIN_HIGH:0x20,
+	TDS_COR_GAIN:0x10,
+	TDS_COR_THR:0x4,
+	TDS_COR_ZERO:0x2,
+	TDS_GAIN:0x20,
+	TDS_COR_VALUE:0x3
+};
+
+#define TDSHP_PA_BASE	0x1F01A000
+
+#if defined(DISP_COLOR_ON)
+#define COLOR_MODE			(1)
+#elif defined(MDP_COLOR_ON)
+#define COLOR_MODE			(2)
+#elif defined(DISP_MDP_COLOR_ON)
+#define COLOR_MODE			(3)
+#else
+#define COLOR_MODE			(0)	/*color feature off */
+#endif
 
 /**
  * struct mtk_disp_color - DISP_COLOR driver structure
@@ -1187,16 +1236,17 @@ void DpEngine_COLORonConfig(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 		if (color->data->support_color21 == true) {
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa + DISP_COLOR_CFG_MAIN,
-				(1 << 21)
+				(1 << 25)
+				|(1 << 21)
 				| (g_Color_Index.LSP_EN << 20)
 				| (g_Color_Index.S_GAIN_BY_Y_EN << 15)
 				| (wide_gamut_en << 8)
-				| (0 << 7), 0x003081FF);
+				| (0 << 7), 0x013081FF);
 		} else {
 			/* disable wide_gamut */
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa + DISP_COLOR_CFG_MAIN,
-				(0 << 8) | (0 << 7), 0x1FF);
+				(1 << 25) | (0 << 8) | (0 << 7), 0x10001FF);
 		}
 
 		/* color start */
@@ -1223,7 +1273,7 @@ void DpEngine_COLORonConfig(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	} else {
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_COLOR_CFG_MAIN,
-			0x1 << 29, 0x1 << 29);
+			(1 << 25) | (0x1 << 29), 0x11000000);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_COLOR_START(color), 0x1, 0x1);
 	}
@@ -1610,16 +1660,17 @@ static void color_write_hw_reg(struct mtk_ddp_comp *comp,
 		if (color->data->support_color21 == true) {
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa + DISP_COLOR_CFG_MAIN,
-				(1 << 21)
+				(1 << 25)
+				|(1 << 21)
 				| (g_Color_Index.LSP_EN << 20)
 				| (g_Color_Index.S_GAIN_BY_Y_EN << 15)
 				| (wide_gamut_en << 8)
-				| (0 << 7), 0x003081FF);
+				| (0 << 7), 0x013081FF);
 		} else {
 			/* disable wide_gamut */
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa + DISP_COLOR_CFG_MAIN,
-				(0 << 8) | (0 << 7), 0x1FF);
+				(1 << 25) | (0 << 8) | (0 << 7), 0x10001FF);
 		}
 
 		/* color start */
@@ -1646,7 +1697,7 @@ static void color_write_hw_reg(struct mtk_ddp_comp *comp,
 	} else {
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_COLOR_CFG_MAIN,
-			0x1 << 29, 0x1 << 29);
+			(1 << 25) | (0x1 << 29), 0x11000000);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_COLOR_START(color), 0x1, 0x1);
 	}
@@ -2034,6 +2085,232 @@ static void ddp_color_bypass_color(struct mtk_ddp_comp *comp, int bypass,
 	}
 }
 
+static struct resource color_get_TDSHP0_REG(void)
+{
+	int rc = 0;
+	struct device_node *node = NULL;
+	struct resource res;
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mdp_tdshp0");
+	rc = of_address_to_resource(node, 0, &res);
+
+	// check if fail to get reg.
+	if (rc)
+		DDPINFO("Fail to get TDSHP0 REG\n");
+	else
+		DDPDBG("TDSHP0 REG: 0x%llx ~ 0x%llx\n", res.start, res.end);
+
+	return res;
+}
+
+#if defined(SUPPORT_ULTRA_RESOLUTION)
+static struct resource color_get_MDP_RSZ0_REG(void)
+{
+	int rc = 0;
+	struct device_node *node = NULL;
+	struct resource res;
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mdp_rsz0");
+	rc = of_address_to_resource(node, 0, &res);
+
+	// check if fail to get reg.
+	if (rc)
+		DDPINFO("Fail to get MDP_RSZ0 REG\n");
+	else
+		DDPDBG("MDP_RSZ0 REG: 0x%llx ~ 0x%llx\n", res.start, res.end);
+
+	return res;
+}
+
+static struct resource color_get_MDP_RSZ1_REG(void)
+{
+	int rc = 0;
+	struct device_node *node = NULL;
+	struct resource res;
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mdp_rsz1");
+	rc = of_address_to_resource(node, 0, &res);
+
+	// check if fail to get reg.
+	if (rc)
+		DDPINFO("Fail to get MDP_RSZ1 REG\n");
+	else
+		DDPDBG("MDP_RSZ1 REG: 0x%lx ~ 0x%lx\n", res.start, res.end);
+
+	return res;
+}
+
+static struct resource color_get_MDP_RSZ2_REG(void)
+{
+	int rc = 0;
+	struct device_node *node = NULL;
+	struct resource res;
+
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mdp_rsz2");
+	rc = of_address_to_resource(node, 0, &res);
+
+	// check if fail to get reg.
+	if (rc)
+		DDPINFO("Fail to get MDP_RSZ2 REG\n");
+	else
+		DDPDBG("MDP_RSZ2 REG: 0x%lx ~ 0x%lx\n", res.start, res.end);
+
+	return res;
+}
+
+static struct resource color_get_MDP_RSZ3_REG(void)
+{
+	int rc = 0;
+	struct device_node *node = NULL;
+	struct resource res;
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mdp_rsz3");
+	rc = of_address_to_resource(node, 0, &res);
+
+	// check if fail to get reg.
+	if (rc)
+		DDPINFO("Fail to get MDP_RSZ3 REG\n");
+	else
+		DDPDBG("MDP_RSZ3 REG: 0x%lx ~ 0x%lx\n", res.start, res.end);
+
+	return res;
+}
+#endif
+
+#if defined(SUPPORT_HDR)
+#if defined(HDR_IN_RDMA)
+static struct resource color_get_MDP_RDMA0_REG(void)
+{
+	int rc = 0;
+	struct device_node *node = NULL;
+	struct resource res;
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mdp_rdma0");
+	rc = of_address_to_resource(node, 0, &res);
+
+	// check if fail to get reg.
+	if (rc)
+		DDPINFO("Fail to get MDP_RDMA0 REG\n");
+	else
+		DDPDBG("MDP_RDMA0 REG: 0x%lx ~ 0x%lx\n", res.start, res.end);
+
+	return res;
+}
+#else
+static struct resource color_get_MDP_HDR0_REG(void)
+{
+	int rc = 0;
+	struct device_node *node = NULL;
+	struct resource res;
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mdp_hdr0");
+	rc = of_address_to_resource(node, 0, &res);
+
+	// check if fail to get reg.
+	if (rc)
+		DDPINFO("Fail to get MDP_HDR0 REG\n");
+	else
+		DDPDBG("MDP_HDR0 REG: 0x%lx ~ 0x%lx\n", res.start, res.end);
+
+	return res;
+}
+
+static struct resource color_get_MDP_HDR1_REG(void)
+{
+	int rc = 0;
+	struct device_node *node = NULL;
+	struct resource res;
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mdp_hdr1");
+	rc = of_address_to_resource(node, 0, &res);
+
+	// check if fail to get reg.
+	if (rc)
+		DDPINFO("Fail to get MDP_HDR1 REG\n");
+	else
+		DDPDBG("MDP_HDR1 REG: 0x%lx ~ 0x%lx\n", res.start, res.end);
+
+	return res;
+}
+#endif
+#endif
+
+#if defined(SUPPORT_MDP_AAL)
+static struct resource color_get_MDP_AAL0_REG(void)
+{
+	int rc = 0;
+	struct device_node *node = NULL;
+	struct resource res;
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mdp_aal0");
+	rc = of_address_to_resource(node, 0, &res);
+
+	// check if fail to get reg.
+	if (rc)
+		DDPINFO("Fail to get MDP_AAL0 REG\n");
+	else
+		DDPDBG("MDP_AAL0 REG: 0x%lx ~ 0x%lx\n", res.start, res.end);
+
+	return res;
+}
+
+static struct resource color_get_MDP_AAL1_REG(void)
+{
+	int rc = 0;
+	struct device_node *node = NULL;
+	struct resource res;
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mdp_aal1");
+	rc = of_address_to_resource(node, 0, &res);
+
+	// check if fail to get reg.
+	if (rc)
+		DDPINFO("Fail to get MDP_AAL1 REG\n");
+	else
+		DDPDBG("MDP_AAL1 REG: 0x%lx ~ 0x%lx\n", res.start, res.end);
+
+	return res;
+}
+
+static struct resource color_get_MDP_AAL2_REG(void)
+{
+	int rc = 0;
+	struct device_node *node = NULL;
+	struct resource res;
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mdp_aal2");
+	rc = of_address_to_resource(node, 0, &res);
+
+	// check if fail to get reg.
+	if (rc)
+		DDPINFO("Fail to get MDP_AAL2 REG\n");
+	else
+		DDPDBG("MDP_AAL2 REG: 0x%lx ~ 0x%lx\n", res.start, res.end);
+
+	return res;
+}
+
+static struct resource color_get_MDP_AAL3_REG(void)
+{
+	int rc = 0;
+	struct device_node *node = NULL;
+	struct resource res;
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mdp_aal3");
+	rc = of_address_to_resource(node, 0, &res);
+
+	// check if fail to get reg.
+	if (rc)
+		DDPINFO("Fail to get MDP_AAL3 REG\n");
+	else
+		DDPDBG("MDP_AAL3 REG: 0x%lx ~ 0x%lx\n", res.start, res.end);
+
+	return res;
+}
+#endif
+
+
 static int color_is_reg_addr_valid(struct mtk_ddp_comp *comp,
 	unsigned long addr)
 {
@@ -2043,12 +2320,12 @@ static int color_is_reg_addr_valid(struct mtk_ddp_comp *comp,
 
 	if (addr == 0) {
 		DDPPR_ERR("addr is NULL\n");
-		return 0;
+		return -1;
 	}
 
 	if ((addr & 0x3) != 0) {
 		DDPPR_ERR("addr is not 4-byte aligned!\n");
-		return 0;
+		return -1;
 	}
 
 	for (i = 0; i < color->data->reg_num; i++) {
@@ -2061,6 +2338,72 @@ static int color_is_reg_addr_valid(struct mtk_ddp_comp *comp,
 		DDPINFO("addr valid, addr=0x%08lx, module=%s\n",
 			addr, color->data->reg_table[i].name);
 		return i;
+	}
+
+	/*Check if MDP RSZ base address*/
+#if defined(SUPPORT_ULTRA_RESOLUTION)
+	if ((addr >= (color_get_MDP_RSZ0_REG()).start) &&
+		(addr < ((color_get_MDP_RSZ0_REG()).end))) {
+		/* MDP RSZ0 */
+		DDPDBG("addr valid, addr=0x%lx, module=%s!\n", addr,
+			"MDP_RSZ0");
+		return 2;
+	} else if ((addr >= (color_get_MDP_RSZ1_REG()).start) &&
+				(addr < ((color_get_MDP_RSZ1_REG()).end))) {
+		/* MDP RSZ1 */
+		DDPDBG("addr valid, addr=0x%lx, module=%s!\n", addr,
+			"MDP_RSZ1");
+		return 2;
+	} else if ((addr >= (color_get_MDP_RSZ2_REG()).start) &&
+				(addr < ((color_get_MDP_RSZ2_REG()).end))) {
+		/* MDP RSZ2 */
+		DDPDBG("addr valid, addr=0x%lx, module=%s!\n", addr,
+			"MDP_RSZ2");
+		return 2;
+	}
+#endif
+
+	/*Check if MDP HDR base address*/
+#if defined(SUPPORT_HDR)
+#if defined(HDR_IN_RDMA)
+	if ((addr >= (color_get_MDP_RDMA0_REG()).start) &&
+		(addr < ((color_get_MDP_RDMA0_REG()).end))) {
+		/* MDP RDMA0 */
+		DDPDBG("addr valid, addr=0x%lx, module=%s!\n", addr,
+			"MDP_RDMA0");
+		return 2;
+	}
+#else
+	if ((addr >= (color_get_MDP_HDR0_REG()).start) &&
+		(addr < ((color_get_MDP_HDR0_REG()).end))) {
+		/* MDP HDR0 */
+		DDPDBG("addr valid, addr=0x%lx, module=%s!\n", addr,
+			"MDP_HDR0");
+		return 2;
+	}
+#endif
+#endif
+
+	/*Check if MDP AAL base address*/
+#if defined(SUPPORT_MDP_AAL)
+	if ((addr >= (color_get_MDP_AAL0_REG()).start) &&
+		(addr < ((color_get_MDP_AAL0_REG()).end))) {
+		/* MDP AAL0 */
+		DDPDBG("addr valid, addr=0x%lx, module=%s!\n", addr,
+			"MDP_AAL0");
+		//if (addr >= g_mdp_aal0_va + 0xFF0)
+		//	dump_dre_blk_histogram();
+		return 2;
+	}
+#endif
+
+	/* check if TDSHP base address */
+	if ((addr >= (color_get_TDSHP0_REG()).start) &&
+		(addr < (color_get_TDSHP0_REG()).end)) {
+		/* TDSHP0 */
+		DDPDBG("addr valid, addr=0x%lx, module=%s!\n", addr,
+			"TDSHP0");
+		return 2;
 	}
 
 	DDPPR_ERR("invalid address! addr=0x%lx!\n", addr);
@@ -2132,7 +2475,7 @@ int mtk_drm_ioctl_mutex_control(struct drm_device *dev, void *data,
 	struct drm_crtc *crtc = private->crtc[0];
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 
-	DDPINFO("%s...", __func__);
+	DDPINFO("%s...value:%d", __func__, *value);
 
 	if (*value == 1) {
 		ncs_tuning_mode = 1;
@@ -2150,6 +2493,260 @@ int mtk_drm_ioctl_mutex_control(struct drm_device *dev, void *data,
 
 	return ret;
 }
+
+int mtk_drm_ioctl_read_sw_reg(struct drm_device *dev, void *data,
+		struct drm_file *file_priv)
+{
+	struct DISP_READ_REG *rParams = data;
+	/* TODO: dual pipe */
+	struct mtk_drm_private *private = dev->dev_private;
+	struct mtk_ddp_comp *comp =
+		private->ddp_comp[DDP_COMPONENT_COLOR0];
+	struct mtk_ddp_comp *gamma_comp =
+		private->ddp_comp[DDP_COMPONENT_GAMMA0];
+	struct mtk_ddp_comp *aal_comp =
+		private->ddp_comp[DDP_COMPONENT_AAL0];
+
+	unsigned int ret = 0;
+	unsigned int reg_id = rParams->reg;
+
+	if (reg_id >= SWREG_PQDS_DS_EN && reg_id <= SWREG_PQDS_GAIN_0) {
+		ret = (unsigned int)g_PQ_DS_Param.param
+			[reg_id - SWREG_PQDS_DS_EN];
+		DDPDBG("%s @ %d. ret = 0x%08x", __func__, __LINE__, ret);
+		return ret;
+	}
+	if (reg_id >= SWREG_PQDC_BLACK_EFFECT_ENABLE &&
+		reg_id <= SWREG_PQDC_DC_ENABLE) {
+		ret = (unsigned int)g_PQ_DC_Param.param
+			[reg_id - SWREG_PQDC_BLACK_EFFECT_ENABLE];
+		DDPDBG("%s @ %d. ret = 0x%08x", __func__, __LINE__, ret);
+		return ret;
+	}
+
+	switch (reg_id) {
+	case SWREG_COLOR_BASE_ADDRESS:
+		{
+			ret = comp->regs_pa;
+			break;
+		}
+
+	case SWREG_GAMMA_BASE_ADDRESS:
+		{
+			ret = gamma_comp->regs_pa;
+			break;
+		}
+
+	case SWREG_AAL_BASE_ADDRESS:
+		{
+			ret = aal_comp->regs_pa;
+			break;
+		}
+
+#if defined(CCORR_SUPPORT)
+	case SWREG_CCORR_BASE_ADDRESS:
+		{
+			ret = ccorr_comp->regs_pa;
+			break;
+		}
+#endif
+
+	case SWREG_TDSHP_BASE_ADDRESS:
+		{
+			ret = TDSHP_PA_BASE;
+			break;
+		}
+#if defined(DISP_MDP_COLOR_ON) || defined(MDP_COLOR_ON)
+	case SWREG_MDP_COLOR_BASE_ADDRESS:
+		{
+#if defined(NO_COLOR_SHARED)
+			ret = MDP_COLOR_PA_BASE;
+#else
+			ret = comp->regs_pa;
+#endif
+			break;
+		}
+#endif
+	case SWREG_COLOR_MODE:
+		{
+			ret = COLOR_MODE;
+			break;
+		}
+
+	case SWREG_RSZ_BASE_ADDRESS:
+		{
+#if defined(SUPPORT_ULTRA_RESOLUTION)
+			ret = MDP_RSZ0_PA_BASE;
+#endif
+			break;
+		}
+
+	case SWREG_MDP_RDMA_BASE_ADDRESS:
+		{
+#if defined(SUPPORT_HDR)
+#if defined(HDR_IN_RDMA)
+			ret = MDP_RDMA0_PA_BASE;
+#endif
+#endif
+			break;
+		}
+
+	case SWREG_MDP_AAL_BASE_ADDRESS:
+		{
+#if defined(SUPPORT_AAL)
+			ret = MDP_AAL0_PA_BASE;
+#endif
+			break;
+		}
+
+	case SWREG_MDP_HDR_BASE_ADDRESS:
+		{
+#if defined(SUPPORT_HDR)
+#if !defined(HDR_IN_RDMA)
+			ret = MDP_HDR_PA_BASE;
+#endif
+#endif
+			break;
+		}
+
+	case SWREG_TDSHP_TUNING_MODE:
+		{
+			ret = (unsigned int)g_tdshp_flag;
+			break;
+		}
+
+	case SWREG_MIRAVISION_VERSION:
+		{
+			ret = MIRAVISION_VERSION;
+			break;
+		}
+
+	case SWREG_SW_VERSION_VIDEO_DC:
+		{
+			ret = SW_VERSION_VIDEO_DC;
+			break;
+		}
+
+	case SWREG_SW_VERSION_AAL:
+		{
+			ret = SW_VERSION_AAL;
+			break;
+		}
+
+	default:
+		DDPINFO("%s @ %d. ret = 0x%08x. unknown reg_id: 0x%08x",
+				__func__, __LINE__, ret, reg_id);
+		break;
+
+	}
+
+	rParams->val = ret;
+
+	DDPDBG("%s @ %d. read sw reg 0x%x = 0x%x",
+			__func__, __LINE__, rParams->reg,
+		rParams->val);
+
+	return ret;
+}
+
+
+int mtk_drm_ioctl_write_sw_reg(struct drm_device *dev, void *data,
+		struct drm_file *file_priv)
+{
+	struct DISP_WRITE_REG *wParams = data;
+	//void __iomem *va = 0;
+	//unsigned int pa;
+	/* TODO: dual pipe */
+	//struct mtk_drm_private *private = dev->dev_private;
+	//struct mtk_ddp_comp *comp = private->ddp_comp[DDP_COMPONENT_COLOR0];
+
+	int ret = 0;
+	unsigned int reg_id = wParams->reg;
+	unsigned int value = wParams->val;
+
+
+	if (reg_id >= SWREG_PQDC_BLACK_EFFECT_ENABLE &&
+		reg_id <= SWREG_PQDC_DC_ENABLE) {
+		g_PQ_DC_Param.param[reg_id - SWREG_PQDC_BLACK_EFFECT_ENABLE] =
+			(int)value;
+		DDPDBG("%s @ %d. value: 0x%08x", __func__, __LINE__, value);
+		return ret;
+	}
+
+	if (reg_id >= SWREG_PQDS_DS_EN && reg_id <= SWREG_PQDS_GAIN_0) {
+		g_PQ_DS_Param.param[reg_id - SWREG_PQDS_DS_EN] = (int)value;
+		DDPDBG("%s @ %d. value: 0x%08x", __func__, __LINE__, value);
+		return ret;
+	}
+
+	switch (reg_id) {
+	case SWREG_TDSHP_TUNING_MODE:
+		{
+			g_tdshp_flag = (int)value;
+			break;
+		}
+	case SWREG_MDP_COLOR_CAPTURE_EN:
+		{
+			mdp_color_cap.en = value;
+			break;
+		}
+	case SWREG_MDP_COLOR_CAPTURE_POS_X:
+		{
+			mdp_color_cap.pos_x = value;
+			break;
+		}
+	case SWREG_MDP_COLOR_CAPTURE_POS_Y:
+		{
+			mdp_color_cap.pos_y = value;
+			break;
+		}
+	case SWREG_TDSHP_GAIN_MID:
+		{
+			g_tdshp_reg.TDS_GAIN_MID = value;
+			break;
+		}
+	case SWREG_TDSHP_GAIN_HIGH:
+		{
+			g_tdshp_reg.TDS_GAIN_HIGH = value;
+			break;
+		}
+	case SWREG_TDSHP_COR_GAIN:
+		{
+			g_tdshp_reg.TDS_COR_GAIN = value;
+			break;
+		}
+	case SWREG_TDSHP_COR_THR:
+		{
+			g_tdshp_reg.TDS_COR_THR = value;
+			break;
+		}
+	case SWREG_TDSHP_COR_ZERO:
+		{
+			g_tdshp_reg.TDS_COR_ZERO = value;
+			break;
+		}
+	case SWREG_TDSHP_GAIN:
+		{
+			g_tdshp_reg.TDS_GAIN = value;
+			break;
+		}
+	case SWREG_TDSHP_COR_VALUE:
+		{
+			g_tdshp_reg.TDS_COR_VALUE = value;
+			break;
+		}
+
+	default:
+		DDPINFO("%s @ %d. value = 0x%08x. unknown reg_id: 0x%08x",
+				__func__, __LINE__, value, reg_id);
+		break;
+
+	}
+
+	return ret;
+}
+
+
 
 int mtk_drm_ioctl_read_reg(struct drm_device *dev, void *data,
 		struct drm_file *file_priv)
@@ -2190,6 +2787,8 @@ int mtk_drm_ioctl_read_reg(struct drm_device *dev, void *data,
 		(long)va,
 		rParams->val,
 		rParams->mask);
+
+	iounmap(va);
 
 	return ret;
 }
