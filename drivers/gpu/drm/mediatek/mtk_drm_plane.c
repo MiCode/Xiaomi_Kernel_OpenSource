@@ -403,16 +403,14 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 	state->pending.size = mtk_fb_get_size(fb);
 	state->pending.src_x = (plane->state->src.x1 >> 16);
 	state->pending.src_y = (plane->state->src.y1 >> 16);
-	if (mtk_crtc->sec_on) {
-		if (mtk_drm_fb_is_secure(fb))
-			state->pending.is_sec = true;
-		else
-			state->pending.is_sec = false;
-	}
 	state->pending.dst_x = dst_x;
 	state->pending.dst_y = dst_y;
 	state->pending.width = dst_w;
 	state->pending.height = dst_h;
+	if (mtk_drm_fb_is_secure(fb))
+		state->pending.is_sec = true;
+	else
+		state->pending.is_sec = false;
 	for (i = 0; i < PLANE_PROP_MAX; i++)
 		state->pending.prop_val[i] = state->prop_val[i];
 
@@ -433,12 +431,18 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 	}
 	DDPINFO("\n");
 
-	DDPFENCE("S+/L%d/e%d/id%d/mva0x%08llx/size0x%08lx\n",
+	DDPFENCE("S+/L%d/e%d/id%d/mva0x%08llx/size0x%08lx/S%d\n",
 		plane_index,
 		state->pending.enable,
 		state->pending.prop_val[PLANE_PROP_NEXT_BUFF_IDX],
 		state->pending.addr,
-		state->pending.size);
+		state->pending.size,
+		state->pending.is_sec);
+
+	if (!mtk_crtc->sec_on && state->pending.is_sec) {
+		DDPMSG("receive sec buffer in non-sec mode\n");
+		return;
+	}
 
 	mtk_drm_crtc_plane_update(crtc, plane, state);
 }
