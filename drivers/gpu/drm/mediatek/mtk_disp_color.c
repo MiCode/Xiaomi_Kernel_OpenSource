@@ -32,6 +32,8 @@
 #define PQ_MODULE_NUM 9
 static struct DISP_PQ_PARAM g_Color_Param[DISP_COLOR_TOTAL];
 
+#define CCORR_REG(idx) (idx * 4 + 0x80)
+
 int ncs_tuning_mode;
 
 static unsigned int g_split_en;
@@ -2085,228 +2087,239 @@ static void ddp_color_bypass_color(struct mtk_ddp_comp *comp, int bypass,
 	}
 }
 
-static struct resource color_get_TDSHP0_REG(void)
+static bool color_get_TDSHP0_REG(struct resource *res)
 {
 	int rc = 0;
 	struct device_node *node = NULL;
-	struct resource res;
 
 	node = of_find_compatible_node(NULL, NULL, "mediatek,mdp_tdshp0");
-	rc = of_address_to_resource(node, 0, &res);
+	rc = of_address_to_resource(node, 0, res);
 
 	// check if fail to get reg.
-	if (rc)
+	if (rc) {
 		DDPINFO("Fail to get TDSHP0 REG\n");
-	else
-		DDPDBG("TDSHP0 REG: 0x%llx ~ 0x%llx\n", res.start, res.end);
+		return false;
+	}
 
-	return res;
+	DDPDBG("TDSHP0 REG: 0x%llx ~ 0x%llx\n", res->start, res->end);
+
+	return true;
 }
 
 #if defined(SUPPORT_ULTRA_RESOLUTION)
-static struct resource color_get_MDP_RSZ0_REG(void)
+static bool color_get_MDP_RSZ0_REG(struct resource *res)
 {
 	int rc = 0;
 	struct device_node *node = NULL;
-	struct resource res;
 
 	node = of_find_compatible_node(NULL, NULL, "mediatek,mdp_rsz0");
-	rc = of_address_to_resource(node, 0, &res);
+	rc = of_address_to_resource(node, 0, res);
 
 	// check if fail to get reg.
-	if (rc)
+	if (rc) {
 		DDPINFO("Fail to get MDP_RSZ0 REG\n");
-	else
-		DDPDBG("MDP_RSZ0 REG: 0x%llx ~ 0x%llx\n", res.start, res.end);
+		return false
+	}
 
-	return res;
+	DDPDBG("MDP_RSZ0 REG: 0x%llx ~ 0x%llx\n", res->start, res->end);
+
+	return true;
 }
 
-static struct resource color_get_MDP_RSZ1_REG(void)
+static bool color_get_MDP_RSZ1_REG(struct resource *res)
 {
 	int rc = 0;
 	struct device_node *node = NULL;
-	struct resource res;
 
 	node = of_find_compatible_node(NULL, NULL, "mediatek,mdp_rsz1");
-	rc = of_address_to_resource(node, 0, &res);
+	rc = of_address_to_resource(node, 0, res);
 
 	// check if fail to get reg.
-	if (rc)
+	if (rc) {
 		DDPINFO("Fail to get MDP_RSZ1 REG\n");
-	else
-		DDPDBG("MDP_RSZ1 REG: 0x%lx ~ 0x%lx\n", res.start, res.end);
+		return false;
+	}
 
-	return res;
+	DDPDBG("MDP_RSZ1 REG: 0x%lx ~ 0x%lx\n", res->start, res->end);
+
+	return true;
 }
 
-static struct resource color_get_MDP_RSZ2_REG(void)
+static bool color_get_MDP_RSZ2_REG(struct resource *res)
 {
 	int rc = 0;
 	struct device_node *node = NULL;
-	struct resource res;
-
 
 	node = of_find_compatible_node(NULL, NULL, "mediatek,mdp_rsz2");
-	rc = of_address_to_resource(node, 0, &res);
+	rc = of_address_to_resource(node, 0, res);
 
 	// check if fail to get reg.
-	if (rc)
+	if (rc) {
 		DDPINFO("Fail to get MDP_RSZ2 REG\n");
-	else
-		DDPDBG("MDP_RSZ2 REG: 0x%lx ~ 0x%lx\n", res.start, res.end);
+		return false;
+	}
 
-	return res;
+	DDPDBG("MDP_RSZ2 REG: 0x%lx ~ 0x%lx\n", res->start, res->end);
+
+	return true;
 }
 
-static struct resource color_get_MDP_RSZ3_REG(void)
+static bool color_get_MDP_RSZ3_REG(struct resource *res)
 {
 	int rc = 0;
 	struct device_node *node = NULL;
-	struct resource res;
 
 	node = of_find_compatible_node(NULL, NULL, "mediatek,mdp_rsz3");
-	rc = of_address_to_resource(node, 0, &res);
+	rc = of_address_to_resource(node, 0, res);
 
 	// check if fail to get reg.
-	if (rc)
+	if (rc) {
 		DDPINFO("Fail to get MDP_RSZ3 REG\n");
-	else
-		DDPDBG("MDP_RSZ3 REG: 0x%lx ~ 0x%lx\n", res.start, res.end);
+		return false;
+	}
 
-	return res;
+	DDPDBG("MDP_RSZ3 REG: 0x%lx ~ 0x%lx\n", res->start, res->end);
+
+	return true;
 }
 #endif
 
 #if defined(SUPPORT_HDR)
 #if defined(HDR_IN_RDMA)
-static struct resource color_get_MDP_RDMA0_REG(void)
+static bool color_get_MDP_RDMA0_REG(struct resource *res)
 {
 	int rc = 0;
 	struct device_node *node = NULL;
-	struct resource res;
 
 	node = of_find_compatible_node(NULL, NULL, "mediatek,mdp_rdma0");
-	rc = of_address_to_resource(node, 0, &res);
+	rc = of_address_to_resource(node, 0, res);
 
 	// check if fail to get reg.
-	if (rc)
+	if (rc) {
 		DDPINFO("Fail to get MDP_RDMA0 REG\n");
-	else
-		DDPDBG("MDP_RDMA0 REG: 0x%lx ~ 0x%lx\n", res.start, res.end);
+		return false;
+	}
 
-	return res;
+	DDPDBG("MDP_RDMA0 REG: 0x%lx ~ 0x%lx\n", res->start, res->end);
+
+	return true;
 }
 #else
-static struct resource color_get_MDP_HDR0_REG(void)
+static bool color_get_MDP_HDR0_REG(struct resource *res)
 {
 	int rc = 0;
 	struct device_node *node = NULL;
-	struct resource res;
 
 	node = of_find_compatible_node(NULL, NULL, "mediatek,mdp_hdr0");
-	rc = of_address_to_resource(node, 0, &res);
+	rc = of_address_to_resource(node, 0, res);
 
 	// check if fail to get reg.
-	if (rc)
+	if (rc) {
 		DDPINFO("Fail to get MDP_HDR0 REG\n");
-	else
-		DDPDBG("MDP_HDR0 REG: 0x%lx ~ 0x%lx\n", res.start, res.end);
+		return false;
+	}
 
-	return res;
+	DDPDBG("MDP_HDR0 REG: 0x%lx ~ 0x%lx\n", res->start, res->end);
+
+	return true;
 }
 
-static struct resource color_get_MDP_HDR1_REG(void)
+static bool color_get_MDP_HDR1_REG(struct resource *res)
 {
 	int rc = 0;
 	struct device_node *node = NULL;
-	struct resource res;
 
 	node = of_find_compatible_node(NULL, NULL, "mediatek,mdp_hdr1");
-	rc = of_address_to_resource(node, 0, &res);
+	rc = of_address_to_resource(node, 0, res);
 
 	// check if fail to get reg.
-	if (rc)
+	if (rc) {
 		DDPINFO("Fail to get MDP_HDR1 REG\n");
-	else
-		DDPDBG("MDP_HDR1 REG: 0x%lx ~ 0x%lx\n", res.start, res.end);
+		return false;
+	}
 
-	return res;
+	DDPDBG("MDP_HDR1 REG: 0x%lx ~ 0x%lx\n", res->start, res->end);
+
+	return true;
 }
 #endif
 #endif
 
 #if defined(SUPPORT_MDP_AAL)
-static struct resource color_get_MDP_AAL0_REG(void)
+static bool color_get_MDP_AAL0_REG(struct resource *res)
 {
 	int rc = 0;
 	struct device_node *node = NULL;
-	struct resource res;
 
 	node = of_find_compatible_node(NULL, NULL, "mediatek,mdp_aal0");
-	rc = of_address_to_resource(node, 0, &res);
+	rc = of_address_to_resource(node, 0, res);
 
 	// check if fail to get reg.
-	if (rc)
+	if (rc)	{
 		DDPINFO("Fail to get MDP_AAL0 REG\n");
-	else
-		DDPDBG("MDP_AAL0 REG: 0x%lx ~ 0x%lx\n", res.start, res.end);
+		return false;
+	}
 
-	return res;
+	DDPDBG("MDP_AAL0 REG: 0x%lx ~ 0x%lx\n", res->start, res->end);
+
+	return true;
 }
 
-static struct resource color_get_MDP_AAL1_REG(void)
+static bool color_get_MDP_AAL1_REG(struct resource *res)
 {
 	int rc = 0;
 	struct device_node *node = NULL;
-	struct resource res;
 
 	node = of_find_compatible_node(NULL, NULL, "mediatek,mdp_aal1");
-	rc = of_address_to_resource(node, 0, &res);
+	rc = of_address_to_resource(node, 0, res);
 
 	// check if fail to get reg.
-	if (rc)
+	if (rc) {
 		DDPINFO("Fail to get MDP_AAL1 REG\n");
-	else
-		DDPDBG("MDP_AAL1 REG: 0x%lx ~ 0x%lx\n", res.start, res.end);
+		return false;
+	}
 
-	return res;
+	DDPDBG("MDP_AAL1 REG: 0x%lx ~ 0x%lx\n", res->start, res->end);
+
+	return true;
 }
 
-static struct resource color_get_MDP_AAL2_REG(void)
+static bool color_get_MDP_AAL2_REG(struct resource *res)
 {
 	int rc = 0;
 	struct device_node *node = NULL;
-	struct resource res;
 
 	node = of_find_compatible_node(NULL, NULL, "mediatek,mdp_aal2");
-	rc = of_address_to_resource(node, 0, &res);
+	rc = of_address_to_resource(node, 0, res);
 
 	// check if fail to get reg.
-	if (rc)
+	if (rc) {
 		DDPINFO("Fail to get MDP_AAL2 REG\n");
-	else
-		DDPDBG("MDP_AAL2 REG: 0x%lx ~ 0x%lx\n", res.start, res.end);
+		return false;
+	}
 
-	return res;
+	DDPDBG("MDP_AAL2 REG: 0x%lx ~ 0x%lx\n", res->start, res->end);
+
+	return true;
 }
 
-static struct resource color_get_MDP_AAL3_REG(void)
+static bool color_get_MDP_AAL3_REG(struct resource *res)
 {
 	int rc = 0;
 	struct device_node *node = NULL;
-	struct resource res;
 
 	node = of_find_compatible_node(NULL, NULL, "mediatek,mdp_aal3");
-	rc = of_address_to_resource(node, 0, &res);
+	rc = of_address_to_resource(node, 0, res);
 
 	// check if fail to get reg.
-	if (rc)
+	if (rc) {
 		DDPINFO("Fail to get MDP_AAL3 REG\n");
-	else
-		DDPDBG("MDP_AAL3 REG: 0x%lx ~ 0x%lx\n", res.start, res.end);
+		return false;
+	}
 
-	return res;
+	DDPDBG("MDP_AAL3 REG: 0x%lx ~ 0x%lx\n", res->start, res->end);
+
+	return true;
 }
 #endif
 
@@ -2317,6 +2330,7 @@ static int color_is_reg_addr_valid(struct mtk_ddp_comp *comp,
 	unsigned int i = 0;
 	unsigned long reg_addr;
 	struct mtk_disp_color *color = comp_to_color(comp);
+	struct resource res;
 
 	if (addr == 0) {
 		DDPPR_ERR("addr is NULL\n");
@@ -2342,20 +2356,33 @@ static int color_is_reg_addr_valid(struct mtk_ddp_comp *comp,
 
 	/*Check if MDP RSZ base address*/
 #if defined(SUPPORT_ULTRA_RESOLUTION)
-	if ((addr >= (color_get_MDP_RSZ0_REG()).start) &&
-		(addr < ((color_get_MDP_RSZ0_REG()).end))) {
+	if (color_get_MDP_RSZ0_REG(&res) == false)
+		return -1;
+
+	if (addr >= res.start &&
+		addr < res.end) {
 		/* MDP RSZ0 */
 		DDPDBG("addr valid, addr=0x%lx, module=%s!\n", addr,
 			"MDP_RSZ0");
 		return 2;
-	} else if ((addr >= (color_get_MDP_RSZ1_REG()).start) &&
-				(addr < ((color_get_MDP_RSZ1_REG()).end))) {
+	}
+
+	if (color_get_MDP_RSZ1_REG(&res) == false)
+		return -1;
+
+	if (addr >= res.start &&
+				addr < res.end) {
 		/* MDP RSZ1 */
 		DDPDBG("addr valid, addr=0x%lx, module=%s!\n", addr,
 			"MDP_RSZ1");
 		return 2;
-	} else if ((addr >= (color_get_MDP_RSZ2_REG()).start) &&
-				(addr < ((color_get_MDP_RSZ2_REG()).end))) {
+	}
+
+	if (color_get_MDP_RSZ2_REG(&res) == false)
+		return -1;
+
+	if (addr >= res.start &&
+				addr < res.end) {
 		/* MDP RSZ2 */
 		DDPDBG("addr valid, addr=0x%lx, module=%s!\n", addr,
 			"MDP_RSZ2");
@@ -2366,16 +2393,24 @@ static int color_is_reg_addr_valid(struct mtk_ddp_comp *comp,
 	/*Check if MDP HDR base address*/
 #if defined(SUPPORT_HDR)
 #if defined(HDR_IN_RDMA)
-	if ((addr >= (color_get_MDP_RDMA0_REG()).start) &&
-		(addr < ((color_get_MDP_RDMA0_REG()).end))) {
+
+	if (color_get_MDP_RDMA0_REG(&res) == false)
+		return -1
+
+	if (addr >= res.start &&
+		addr < res.end) {
 		/* MDP RDMA0 */
 		DDPDBG("addr valid, addr=0x%lx, module=%s!\n", addr,
 			"MDP_RDMA0");
 		return 2;
 	}
 #else
-	if ((addr >= (color_get_MDP_HDR0_REG()).start) &&
-		(addr < ((color_get_MDP_HDR0_REG()).end))) {
+
+	if (color_get_MDP_HDR0_REG(&res) == false)
+		return -1;
+
+	if (addr >= res.start &&
+		addr < res.end) {
 		/* MDP HDR0 */
 		DDPDBG("addr valid, addr=0x%lx, module=%s!\n", addr,
 			"MDP_HDR0");
@@ -2386,8 +2421,12 @@ static int color_is_reg_addr_valid(struct mtk_ddp_comp *comp,
 
 	/*Check if MDP AAL base address*/
 #if defined(SUPPORT_MDP_AAL)
-	if ((addr >= (color_get_MDP_AAL0_REG()).start) &&
-		(addr < ((color_get_MDP_AAL0_REG()).end))) {
+
+	if (color_get_MDP_AAL0_REG(&res) == false)
+		return -1;
+
+	if (addr >= res.start &&
+		addr < res.end) {
 		/* MDP AAL0 */
 		DDPDBG("addr valid, addr=0x%lx, module=%s!\n", addr,
 			"MDP_AAL0");
@@ -2397,9 +2436,12 @@ static int color_is_reg_addr_valid(struct mtk_ddp_comp *comp,
 	}
 #endif
 
+	if (color_get_TDSHP0_REG(&res) == false)
+		return -1;
+
 	/* check if TDSHP base address */
-	if ((addr >= (color_get_TDSHP0_REG()).start) &&
-		(addr < (color_get_TDSHP0_REG()).end)) {
+	if (addr >= res.start &&
+		addr < res.end) {
 		/* TDSHP0 */
 		DDPDBG("addr valid, addr=0x%lx, module=%s!\n", addr,
 			"TDSHP0");
@@ -2763,6 +2805,8 @@ int mtk_drm_ioctl_read_reg(struct drm_device *dev, void *data,
 	struct mtk_drm_private *private = dev->dev_private;
 	struct mtk_ddp_comp *comp = private->ddp_comp[DDP_COMPONENT_COLOR0];
 	unsigned long flags;
+	struct mtk_ddp_comp *ccorr_comp =
+		private->ddp_comp[DDP_COMPONENT_CCORR0];
 
 	pa = (unsigned int)rParams->reg;
 
@@ -2779,6 +2823,14 @@ int mtk_drm_ioctl_read_reg(struct drm_device *dev, void *data,
 		DDPDBG("%s @ %d......... spin_trylock_irqsave -- ",
 			__func__, __LINE__);
 		rParams->val = readl(va) & rParams->mask;
+
+#if defined(CONFIG_MACH_MT6885)
+	// For 6885 CCORR COEF, real values need to right shift one bit
+	if (pa >= ccorr_comp->regs_pa + CCORR_REG(0) &&
+		pa <= ccorr_comp->regs_pa + CCORR_REG(4))
+		rParams->val = rParams->val >> 1;
+#endif
+
 		spin_unlock_irqrestore(&g_color_clock_lock, flags);
 	} else {
 		DDPINFO("%s @ %d......... Failed to spin_trylock_irqsave ",
