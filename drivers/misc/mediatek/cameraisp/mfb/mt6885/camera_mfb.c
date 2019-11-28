@@ -300,6 +300,10 @@ static struct pm_qos_request mfb_pmqos_request;
 static u64 max_img_freq;
 struct plist_head module_request_list;  /* all module list */
 struct mm_qos_request mfb_mmqos_request;
+
+static spinlock_t SpinLockMfbPmqos;
+static int qos_scen[4];
+static int qos_total;
 #endif
 
 struct  MSS_CONFIG_STRUCT {
@@ -786,20 +790,38 @@ void MFBQOS_Uninit(void)
 	mm_qos_remove_all_request(&module_request_list);
 }
 
-void MFBQOS_Update(bool start, unsigned int bw)
+void MFBQOS_Update(bool start, unsigned int scen, unsigned int bw)
 {
-	LOG_DBG("MFB bw: %d", bw);
+	LOG_INF("MFB scen: %d, bw: %d", scen, bw);
 	if (start) { /* start MFB, configure MMDVFS to highest CLK */
-		if (bw > 20000000)
+		LOG_INF("MFB total: %d", qos_total);
+		spin_lock(&(SpinLockMfbPmqos));
+		qos_scen[scen] = bw;
+		qos_total = qos_total + bw;
+		if (qos_total > 20000000) {
+			spin_unlock(&(SpinLockMfbPmqos));
 			pm_qos_update_request(&mfb_pmqos_request, max_img_freq);
+		} else {
+			spin_unlock(&(SpinLockMfbPmqos));
+			pm_qos_update_request(&mfb_pmqos_request, 0);
+		}
 	} else { /* finish MFB, config MMDVFS to lowest CLK */
-		pm_qos_update_request(&mfb_pmqos_request, 0);
+		LOG_INF("MFB total: %d", qos_total);
+		spin_lock(&(SpinLockMfbPmqos));
+		qos_total = qos_total - qos_scen[scen];
+		if (qos_total > 20000000) {
+			spin_unlock(&(SpinLockMfbPmqos));
+			pm_qos_update_request(&mfb_pmqos_request, max_img_freq);
+		} else {
+			spin_unlock(&(SpinLockMfbPmqos));
+			pm_qos_update_request(&mfb_pmqos_request, 0);
+		}
 	}
-
+#if 0 /*YWtodo*/
 	if (start) {
 		/* Call mm_qos_set_request API to setup estimated data bw */
 		mm_qos_set_request(&mfb_mmqos_request,
-					bw/10000, 0, BW_COMP_NONE);
+					bw/1000000, 0, BW_COMP_NONE);
 		/* Call mm_qos_update_all_requests API */
 		/* update necessary HW configuration for MM BW */
 		mm_qos_update_all_request(&module_request_list);
@@ -807,6 +829,7 @@ void MFBQOS_Update(bool start, unsigned int bw)
 		mm_qos_set_request(&mfb_mmqos_request, 0, 0, BW_COMP_NONE);
 		mm_qos_update_all_request(&module_request_list);
 	}
+#endif
 }
 #endif
 
@@ -924,10 +947,6 @@ static void mss_norm_sirq(struct cmdq_cb_data data)
 		goto EXIT;
 	}
 
-#ifdef MFB_PMQOS
-		MFBQOS_Update(0, 0);
-#endif
-
 	spin_lock_irqsave(&(MFBInfo.SpinLockIrq[MFB_IRQ_TYPE_INT_MSS_ST]),
 									flag);
 	if (mfb_update_request(&mss_reqs, &ProcessID) == 0)
@@ -946,8 +965,12 @@ static void mss_norm_sirq(struct cmdq_cb_data data)
 	}
 	spin_unlock_irqrestore(&(MFBInfo.SpinLockIrq[MFB_IRQ_TYPE_INT_MSS_ST]),
 									flag);
-	if (bResulst == MTRUE)
+	if (bResulst == MTRUE) {
+#ifdef MFB_PMQOS
+		MFBQOS_Update(0, 0, 0);
+#endif
 		wake_up_interruptible(&MFBInfo.WaitQueueHeadMss);
+	}
 
 	/* dump log, use tasklet */
 	IRQ_LOG_KEEPER(MFB_IRQ_TYPE_INT_MSS_ST, m_CurrentPPB, _LOG_INF,
@@ -1012,7 +1035,7 @@ signed int CmdqMSSHW(struct frame *frame)
 	cmdq_pkt_clear_event(handle, CMDQ_SYNC_TOKEN_MSS);
 #endif
 #ifdef MFB_PMQOS
-	MFBQOS_Update(1, pMssConfig->qos);
+	MFBQOS_Update(1, 0, pMssConfig->qos);
 #endif
 	cmdq_pkt_flush_threaded(handle, mss_norm_sirq, (void *)handle);
 
@@ -1079,10 +1102,6 @@ static void mss_vss_sirq(struct cmdq_cb_data data)
 		goto EXIT;
 	}
 
-#ifdef MFB_PMQOS
-		MFBQOS_Update(0, 0);
-#endif
-
 	spin_lock_irqsave(&(MFBInfo.SpinLockIrq[MFB_IRQ_TYPE_INT_MSS_ST]),
 									flag);
 	if (mfb_update_request(&vmss_reqs, &ProcessID) == 0)
@@ -1101,8 +1120,12 @@ static void mss_vss_sirq(struct cmdq_cb_data data)
 	}
 	spin_unlock_irqrestore(&(MFBInfo.SpinLockIrq[MFB_IRQ_TYPE_INT_MSS_ST]),
 									flag);
-	if (bResulst == MTRUE)
+	if (bResulst == MTRUE) {
+#ifdef MFB_PMQOS
+		MFBQOS_Update(0, 1, 0);
+#endif
 		wake_up_interruptible(&MFBInfo.WaitQueueHeadMss);
+	}
 
 	/* dump log, use tasklet */
 	IRQ_LOG_KEEPER(MFB_IRQ_TYPE_INT_MSS_ST, m_CurrentPPB, _LOG_INF,
@@ -1143,7 +1166,7 @@ signed int vCmdqMSSHW(struct frame *frame)
 	cmdq_pkt_clear_event(handle, CMDQ_SYNC_TOKEN_MSS);
 #endif
 #ifdef MFB_PMQOS
-	MFBQOS_Update(1, pMssConfig->qos);
+	MFBQOS_Update(1, 1, pMssConfig->qos);
 #endif
 	cmdq_pkt_flush_threaded(handle, mss_vss_sirq, (void *)handle);
 
@@ -1225,10 +1248,6 @@ static void msf_norm_sirq(struct cmdq_cb_data data)
 		goto EXIT;
 	}
 
-#ifdef MFB_PMQOS
-		MFBQOS_Update(0, 0);
-#endif
-
 	spin_lock_irqsave(&(MFBInfo.SpinLockIrq[MFB_IRQ_TYPE_INT_MSF_ST]),
 									flag);
 	if (mfb_update_request(&msf_reqs, &ProcessID) == 0)
@@ -1247,8 +1266,12 @@ static void msf_norm_sirq(struct cmdq_cb_data data)
 	}
 	spin_unlock_irqrestore(&(MFBInfo.SpinLockIrq[MFB_IRQ_TYPE_INT_MSF_ST]),
 									flag);
-	if (bResulst == MTRUE)
+	if (bResulst == MTRUE) {
+#ifdef MFB_PMQOS
+		MFBQOS_Update(0, 2, 0);
+#endif
 		wake_up_interruptible(&MFBInfo.WaitQueueHeadMsf);
+	}
 
 	/* dump log, use tasklet */
 	IRQ_LOG_KEEPER(MFB_IRQ_TYPE_INT_MSF_ST, m_CurrentPPB, _LOG_INF,
@@ -1311,7 +1334,7 @@ signed int CmdqMSFHW(struct frame *frame)
 	cmdq_pkt_clear_event(handle, CMDQ_SYNC_TOKEN_MSF);
 #endif
 #ifdef MFB_PMQOS
-	MFBQOS_Update(1, pMsfConfig->qos);
+	MFBQOS_Update(1, 2, pMsfConfig->qos);
 #endif
 	cmdq_pkt_flush_threaded(handle, msf_norm_sirq, (void *)handle);
 
@@ -1377,10 +1400,6 @@ static void msf_vss_sirq(struct cmdq_cb_data data)
 		goto EXIT;
 	}
 
-#ifdef MFB_PMQOS
-		MFBQOS_Update(0, 0);
-#endif
-
 	spin_lock_irqsave(&(MFBInfo.SpinLockIrq[MFB_IRQ_TYPE_INT_MSF_ST]),
 									flag);
 	if (mfb_update_request(&vmsf_reqs, &ProcessID) == 0)
@@ -1399,8 +1418,12 @@ static void msf_vss_sirq(struct cmdq_cb_data data)
 	}
 	spin_unlock_irqrestore(&(MFBInfo.SpinLockIrq[MFB_IRQ_TYPE_INT_MSF_ST]),
 									flag);
-	if (bResulst == MTRUE)
+	if (bResulst == MTRUE) {
+#ifdef MFB_PMQOS
+		MFBQOS_Update(0, 3, 0);
+#endif
 		wake_up_interruptible(&MFBInfo.WaitQueueHeadMsf);
+	}
 
 	/* dump log, use tasklet */
 	IRQ_LOG_KEEPER(MFB_IRQ_TYPE_INT_MSF_ST, m_CurrentPPB, _LOG_INF,
@@ -1440,7 +1463,7 @@ signed int vCmdqMSFHW(struct frame *frame)
 	cmdq_pkt_clear_event(handle, CMDQ_SYNC_TOKEN_MSF);
 #endif
 #ifdef MFB_PMQOS
-	MFBQOS_Update(1, pMsfConfig->qos);
+	MFBQOS_Update(1, 3, pMsfConfig->qos);
 #endif
 	cmdq_pkt_flush_threaded(handle, msf_vss_sirq, (void *)handle);
 
@@ -4071,7 +4094,9 @@ static signed int MFB_probe(struct platform_device *pDev)
 		spin_lock_init(&(MFBInfo.SpinLockMFB));
 		for (n = 0; n < MFB_IRQ_TYPE_AMOUNT; n++)
 			spin_lock_init(&(MFBInfo.SpinLockIrq[n]));
-
+#ifdef MFB_PMQOS
+		spin_lock_init(&(SpinLockMfbPmqos));
+#endif
 		/*  */
 		init_waitqueue_head(&MFBInfo.WaitQueueHeadMss);
 		init_waitqueue_head(&MFBInfo.WaitQueueHeadMsf);
@@ -5164,3 +5189,4 @@ module_exit(MFB_Exit);
 MODULE_DESCRIPTION("Camera MFB driver");
 MODULE_AUTHOR("MM3SW5");
 MODULE_LICENSE("GPL");
+
