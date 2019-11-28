@@ -82,7 +82,7 @@ void mtkfb_fence_log_enable(bool enable)
 #endif
 
 int fence_clean_up_task_wakeup;
-#if defined(CONFIG_MTK_IOMMU_V2)
+#if defined(CONFIG_MTK_IOMMU_V3)
 static struct ion_client *ion_client;
 #endif
 /* how many counters prior to current timeline real-time counter */
@@ -312,7 +312,7 @@ done:
 
 
 /********************ION*****************************************************/
-#if defined(CONFIG_MTK_IOMMU_V2)
+#if defined(CONFIG_MTK_IOMMU_V3)
 static void mtkfb_ion_init(void)
 {
 	if (!ion_client && g_ion_device)
@@ -426,7 +426,7 @@ static void mtkfb_ion_cache_flush(struct ion_client *client,
 		pr_info("ion cache flush failed!\n");
 	ion_unmap_kernel(client, handle);
 }
-#endif /* #if defined (CONFIG_MTK_IOMMU_V2) */
+#endif /* #if defined (CONFIG_MTK_IOMMU_V3) */
 
 unsigned int mtkfb_query_buf_mva(unsigned int session_id,
 	unsigned int layer_id, unsigned int idx)
@@ -457,7 +457,7 @@ unsigned int mtkfb_query_buf_mva(unsigned int session_id,
 			mmprofile_log_ex(
 				ddp_mmp_get_events()->primary_cache_sync,
 				MMPROFILE_FLAG_START, current->pid, 0);
-			#if defined(CONFIG_MTK_IOMMU_V2)
+			#if defined(CONFIG_MTK_IOMMU_V3)
 			mtkfb_ion_cache_flush(ion_client, buf->hnd,
 			buf->mva, buf->size);
 			#endif
@@ -802,7 +802,7 @@ int disp_sync_init(void)
 	DISPMSG("Fence timeline idx: present = %d, output = %d\n",
 		disp_sync_get_present_timeline_id(),
 		disp_sync_get_output_timeline_id());
-	#if defined(CONFIG_MTK_IOMMU_V2)
+	#if defined(CONFIG_MTK_IOMMU_V3)
 	mtkfb_ion_init();
 	#endif
 	return 0;
@@ -911,7 +911,7 @@ void mtkfb_release_fence(unsigned int session_id, unsigned int layer_id,
 			layer_info->fence_fd = buf->fence;
 
 			list_del_init(&buf->list);
-#ifdef CONFIG_MTK_IOMMU_V2
+#ifdef CONFIG_MTK_IOMMU_V3
 			if (buf->va &&
 				((DISP_SESSION_TYPE(session_id) >
 				DISP_SESSION_PRIMARY)))
@@ -1144,7 +1144,7 @@ static int prepare_ion_buf(struct disp_buffer_info *buf,
 	unsigned int mva = 0x0;
 	struct ion_handle *handle = NULL;
 
-#if defined(CONFIG_MTK_IOMMU_V2)
+#if defined(CONFIG_MTK_IOMMU_V3)
 	handle = mtkfb_ion_import_handle(ion_client, buf->ion_fd);
 	if (handle)
 		buf_info->size =
@@ -1344,7 +1344,7 @@ unsigned int disp_sync_buf_cache_sync(unsigned int session_id,
 		if (buf->cache_sync) {
 			dprec_logger_start(DPREC_LOGGER_DISPMGR_CACHE_SYNC,
 				(unsigned long)buf->hnd, buf->mva);
-			#if defined(CONFIG_MTK_IOMMU_V2)
+			#if defined(CONFIG_MTK_IOMMU_V3)
 			mtkfb_ion_cache_flush(ion_client, buf->hnd,
 			buf->mva, buf->size);
 			#endif
@@ -1403,7 +1403,7 @@ static unsigned int __disp_sync_query_buf_info(unsigned int session_id,
 		if (buf->cache_sync && need_sync) {
 			dprec_logger_start(DPREC_LOGGER_DISPMGR_CACHE_SYNC,
 				(unsigned long)buf->hnd, buf->mva);
-			#if defined(CONFIG_MTK_IOMMU_V2)
+			#if defined(CONFIG_MTK_IOMMU_V3)
 			mtkfb_ion_cache_flush(ion_client, buf->hnd,
 			buf->mva, buf->size);
 			#endif

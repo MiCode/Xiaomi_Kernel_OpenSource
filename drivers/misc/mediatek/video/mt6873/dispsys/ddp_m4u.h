@@ -14,7 +14,7 @@
 #ifndef __DSI_M4U_H__
 #define __DSI_M4U_H__
 
-#ifdef CONFIG_MTK_IOMMU_V2
+#ifdef CONFIG_MTK_IOMMU_V3
 #include "mach/mt_iommu.h"
 #include <soc/mediatek/smi.h>
 #elif defined(CONFIG_MTK_M4U)

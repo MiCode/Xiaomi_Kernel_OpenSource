@@ -2559,7 +2559,7 @@ static int mtkfb_probe(struct platform_device *pdev)
 	int init_state;
 	int r = 0;
 
-#ifdef CONFIG_MTK_IOMMU_V2
+#ifdef CONFIG_MTK_IOMMU_V3
 	struct ion_client *ion_display_client = NULL;
 	struct ion_handle *ion_display_handle = NULL;
 	size_t temp_va = 0;
@@ -2602,7 +2602,7 @@ static int mtkfb_probe(struct platform_device *pdev)
 
 	pr_notice("%s: fb_pa = %pa\n", __func__, &fb_base);
 
-#ifdef CONFIG_MTK_IOMMU_V2
+#ifdef CONFIG_MTK_IOMMU_V3
 	temp_va = (size_t)ioremap_nocache(fb_base,
 		(fb_base + vramsize - fb_base));
 	fbdev->fb_va_base = (void *)temp_va;
@@ -2726,7 +2726,7 @@ static int mtkfb_probe(struct platform_device *pdev)
 	/* this function will get fb_heap base address to ion
 	 * for management frame buffer
 	 */
-#ifdef CONFIG_MTK_IOMMU_V2
+#ifdef CONFIG_MTK_IOMMU_V3
 	ion_drv_create_FB_heap(mtkfb_get_fb_base(), mtkfb_get_fb_size());
 #endif
 	fbdev->state = MTKFB_ACTIVE;

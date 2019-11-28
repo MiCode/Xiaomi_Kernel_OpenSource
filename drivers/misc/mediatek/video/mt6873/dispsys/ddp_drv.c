@@ -351,7 +351,7 @@ static void disp_clk_init(struct platform_device *pdev)
 #endif
 }
 
-#ifdef CONFIG_MTK_IOMMU_V2
+#ifdef CONFIG_MTK_IOMMU_V3
 static struct disp_iommu_device disp_iommu;
 
 struct disp_iommu_device *disp_get_iommu_dev(void)

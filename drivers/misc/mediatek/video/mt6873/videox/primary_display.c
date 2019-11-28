@@ -28,7 +28,7 @@
 #include <linux/sched/clock.h>
 #include <uapi/linux/sched/types.h>
 #include "disp_drv_platform.h"
-#ifdef CONFIG_MTK_IOMMU_V2
+#ifdef CONFIG_MTK_IOMMU_V3
 #include "mtk_ion.h"
 #include "ion_drv.h"
 #endif
@@ -142,7 +142,7 @@ static ktime_t cmd_mode_update_timer_period;
 static int is_fake_timer_inited;
 
 static struct task_struct *primary_display_switch_dst_mode_task;
-#ifdef CONFIG_MTK_IOMMU_V2
+#ifdef CONFIG_MTK_IOMMU_V3
 static struct task_struct *present_fence_release_worker_task;
 #endif
 static struct task_struct *primary_path_aal_task;
@@ -1841,7 +1841,7 @@ void disp_enable_emi_force_on(unsigned int enable, void *cmdq_handle)
 {
 }
 
-#ifdef CONFIG_MTK_IOMMU_V2
+#ifdef CONFIG_MTK_IOMMU_V3
 static struct ion_client *ion_client;
 static struct ion_handle *sec_ion_handle;
 #endif
@@ -1849,7 +1849,7 @@ static u32 sec_mva;
 
 static int sec_buf_ion_alloc(int buf_size)
 {
-#ifdef CONFIG_MTK_IOMMU_V2
+#ifdef CONFIG_MTK_IOMMU_V3
 	unsigned long int sec_hnd = 0;
 	/* ion_phys_addr_t sec_hnd = 0; */
 	unsigned long align = 0; /* 4096 align */
@@ -1904,7 +1904,7 @@ static int sec_buf_ion_alloc(int buf_size)
 
 static int sec_buf_ion_free(void)
 {
-#ifdef CONFIG_MTK_IOMMU_V2
+#ifdef CONFIG_MTK_IOMMU_V3
 	ion_free(ion_client, sec_ion_handle);
 	ion_client_destroy(ion_client);
 #endif
@@ -2497,7 +2497,7 @@ static int rdma_mode_switch_to_DL(struct cmdqRecStruct *handle, int block)
 static struct disp_internal_buffer_info *allocat_decouple_buffer(int size)
 {
 	struct disp_internal_buffer_info *buf_info = NULL;
-#ifdef CONFIG_MTK_IOMMU_V2
+#ifdef CONFIG_MTK_IOMMU_V3
 	void *buffer_va = NULL;
 	struct ion_mm_data mm_data;
 	struct ion_client *client = NULL;
@@ -3538,7 +3538,7 @@ static int primary_display_frame_update_kthread(void *data)
 	return 0;
 }
 
-#ifdef CONFIG_MTK_IOMMU_V2 /* FIXME: remove when ION ready */
+#ifdef CONFIG_MTK_IOMMU_V3 /* FIXME: remove when ION ready */
 static int _present_fence_release_worker_thread(void *data)
 {
 	struct sched_param param = {.sched_priority = 87 };
@@ -3685,10 +3685,10 @@ static int update_primary_intferface_module(void)
 
 static void replace_fb_addr_to_mva(void)
 {
-#if (defined CONFIG_MTK_M4U) || (defined CONFIG_MTK_IOMMU_V2)
+#if (defined CONFIG_MTK_M4U) || (defined CONFIG_MTK_IOMMU_V3)
 	struct ddp_fb_info fb_info;
 	int i;
-#ifdef CONFIG_MTK_IOMMU_V2
+#ifdef CONFIG_MTK_IOMMU_V3
 	int mode = 0x1;
 #else
 	int mode = 0x0;
@@ -4045,7 +4045,7 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 		wake_up_process(primary_od_trigger_task);
 	}
 
-#ifdef CONFIG_MTK_IOMMU_V2 /* FIXME: remove when ION ready */
+#ifdef CONFIG_MTK_IOMMU_V3 /* FIXME: remove when ION ready */
 	if (disp_helper_get_option(DISP_OPT_PRESENT_FENCE)) {
 		init_waitqueue_head(&primary_display_present_fence_wq);
 		present_fence_release_worker_task =
@@ -8055,7 +8055,7 @@ struct LCM_DRIVER *DISP_GetLcmDrv(void)
 }
 
 #if defined(CONFIG_MTK_M4U) || \
-	defined(CONFIG_MTK_IOMMU_V2)
+	defined(CONFIG_MTK_IOMMU_V3)
 static int _screen_cap_by_cmdq(unsigned int mva, enum UNIFIED_COLOR_FMT ufmt,
 			       enum DISP_MODULE_ENUM after_eng)
 {
@@ -8201,7 +8201,7 @@ static int _screen_cap_by_cpu(unsigned int mva, enum UNIFIED_COLOR_FMT ufmt,
 }
 #endif
 
-#ifdef CONFIG_MTK_IOMMU_V2
+#ifdef CONFIG_MTK_IOMMU_V3
 int primary_display_capture_framebuffer_ovl(unsigned long pbuf,
 	enum UNIFIED_COLOR_FMT ufmt)
 {

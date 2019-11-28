@@ -19,7 +19,7 @@
 #include "disp_helper.h"
 #include "disp_drv_platform.h"
 #include <ion_priv.h>
-#ifdef CONFIG_MTK_IOMMU_V2
+#ifdef CONFIG_MTK_IOMMU_V3
 #include "mach/mt_iommu.h"
 #include "mach/pseudo_m4u.h"
 #include <soc/mediatek/smi.h>
@@ -92,7 +92,7 @@ void disp_m4u_init(void)
 		/* init M4U callback */
 		DDPMSG("register m4u callback\n");
 		for (i = 0; i < ARRAY_SIZE(module_to_m4u_port_mapping); i++) {
-#ifdef CONFIG_MTK_IOMMU_V2
+#ifdef CONFIG_MTK_IOMMU_V3
 			mtk_iommu_register_fault_callback(
 				module_to_m4u_port_mapping[i].port,
 				(mtk_iommu_fault_callback_t)disp_m4u_callback,
@@ -115,7 +115,7 @@ void disp_m4u_init(void)
 int config_display_m4u_port(void)
 {
 	int ret = 0;
-#if defined(CONFIG_MTK_IOMMU_V2) || defined(CONFIG_MTK_M4U)
+#if defined(CONFIG_MTK_IOMMU_V3) || defined(CONFIG_MTK_M4U)
 	struct M4U_PORT_STRUCT sPort;
 	unsigned int i;
 	enum DISP_MODULE_ENUM module;
@@ -157,7 +157,7 @@ int disp_m4u_callback(int port, unsigned long mva, void *data)
 int disp_mva_map_kernel(enum DISP_MODULE_ENUM module, unsigned int mva,
 	unsigned int size, unsigned long *map_va, unsigned int *map_size)
 {
-#ifdef CONFIG_MTK_IOMMU_V2
+#ifdef CONFIG_MTK_IOMMU_V3
 	struct disp_iommu_device *disp_dev = disp_get_iommu_dev();
 
 	if ((disp_dev != NULL) && (disp_dev->iommu_pdev != NULL))
@@ -175,7 +175,7 @@ int disp_mva_map_kernel(enum DISP_MODULE_ENUM module, unsigned int mva,
 int disp_mva_unmap_kernel(unsigned int mva, unsigned int size,
 	unsigned long map_va)
 {
-#ifdef CONFIG_MTK_IOMMU_V2
+#ifdef CONFIG_MTK_IOMMU_V3
 	vunmap((void *)(map_va & (~DISP_PAGE_MASK)));
 #else
 	vunmap((void *)(map_va & (~DISP_PAGE_MASK)));
@@ -187,7 +187,7 @@ struct ion_client *disp_ion_create(const char *name)
 {
 	struct ion_client *disp_ion_client = NULL;
 
-#if defined(CONFIG_MTK_IOMMU_V2)
+#if defined(CONFIG_MTK_IOMMU_V3)
 	if (g_ion_device)
 		disp_ion_client = ion_client_create(g_ion_device, name);
 	else
@@ -207,7 +207,7 @@ struct ion_handle *disp_ion_alloc(struct ion_client *client,
 {
 	struct ion_handle *disp_handle = NULL;
 
-#if defined(CONFIG_MTK_IOMMU_V2)
+#if defined(CONFIG_MTK_IOMMU_V3)
 	disp_handle = ion_alloc(client, size, align, heap_id_mask, 0);
 	if (IS_ERR(disp_handle)) {
 		DISPERR("%s error %p\n", __func__, disp_handle);
@@ -222,7 +222,7 @@ struct ion_handle *disp_ion_alloc(struct ion_client *client,
 int disp_ion_get_mva(struct ion_client *client, struct ion_handle *handle,
 	unsigned long *mva, unsigned long fixed_mva, int port)
 {
-#if defined(CONFIG_MTK_IOMMU_V2)
+#if defined(CONFIG_MTK_IOMMU_V3)
 	struct ion_mm_data mm_data;
 	size_t mva_size;
 
@@ -258,7 +258,7 @@ int disp_ion_get_mva(struct ion_client *client, struct ion_handle *handle,
 struct ion_handle *disp_ion_import_handle(struct ion_client *client, int fd)
 {
 	struct ion_handle *handle = NULL;
-#if defined(CONFIG_MTK_IOMMU_V2)
+#if defined(CONFIG_MTK_IOMMU_V3)
 	/* If no need Ion support, do nothing! */
 	if (fd <= 0) {
 		DDPERR("NO NEED ion support, fd %d\n", fd);
@@ -283,7 +283,7 @@ struct ion_handle *disp_ion_import_handle(struct ion_client *client, int fd)
 
 void disp_ion_free_handle(struct ion_client *client, struct ion_handle *handle)
 {
-#if defined(CONFIG_MTK_IOMMU_V2)
+#if defined(CONFIG_MTK_IOMMU_V3)
 	if (!client) {
 		DDPERR("invalid ion client!\n");
 		return;
@@ -299,7 +299,7 @@ void disp_ion_free_handle(struct ion_client *client, struct ion_handle *handle)
 
 void disp_ion_destroy(struct ion_client *client)
 {
-#if defined(CONFIG_MTK_IOMMU_V2)
+#if defined(CONFIG_MTK_IOMMU_V3)
 	if (client && g_ion_device)
 		ion_client_destroy(client);
 #endif
@@ -308,7 +308,7 @@ void disp_ion_destroy(struct ion_client *client)
 void disp_ion_cache_flush(struct ion_client *client,
 	struct ion_handle *handle, enum ION_CACHE_SYNC_TYPE sync_type)
 {
-#if defined(CONFIG_MTK_IOMMU_V2)
+#if defined(CONFIG_MTK_IOMMU_V3)
 	struct ion_sys_data sys_data;
 	void *buffer_va;
 

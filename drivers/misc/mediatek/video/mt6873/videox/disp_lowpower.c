@@ -26,7 +26,7 @@
 #include <linux/math64.h>
 #include <linux/sched/clock.h>
 #include "disp_drv_platform.h"	/* must be at the top-most */
-#if defined(CONFIG_MTK_IOMMU_V2)
+#if defined(CONFIG_MTK_IOMMU_V3)
 #include "ion_drv.h"
 #include "mtk_ion.h"
 #endif

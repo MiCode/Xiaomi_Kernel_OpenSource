@@ -243,7 +243,7 @@ enum DISP_INTERLACE_FORMAT {
 
 
 struct device *disp_get_device(void);
-#ifdef CONFIG_MTK_IOMMU_V2
+#ifdef CONFIG_MTK_IOMMU_V3
 #define DISP_LARB_COUNT 1
 struct disp_iommu_device {
 	struct platform_device *larb_pdev[DISP_LARB_COUNT];

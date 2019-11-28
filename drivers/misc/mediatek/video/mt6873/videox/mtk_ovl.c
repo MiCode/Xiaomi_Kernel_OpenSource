@@ -37,7 +37,7 @@
 #include "m4u.h"
 #include "m4u_port.h"
 #endif
-#ifdef CONFIG_MTK_IOMMU_V2
+#ifdef CONFIG_MTK_IOMMU_V3
 #include "mach/pseudo_m4u.h"
 #endif
 #include "cmdq_def.h"
@@ -646,7 +646,7 @@ static int ovl2mem_frame_cfg_output(struct disp_frame_cfg_t *cfg)
 	data_config->rdma_dirty = 0;
 	data_config->wdma_dirty = 1;
 	/* set_overlay will not use fence+ion handle */
-#if defined(CONFIG_MTK_IOMMU_V2)
+#if defined(CONFIG_MTK_IOMMU_V3)
 	if (cfg->output_cfg.pa != NULL)
 		data_config->wdma_config.dstAddress =
 			(unsigned long)(cfg->output_cfg.pa);

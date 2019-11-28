@@ -25,7 +25,7 @@
 #include "ddp_hal.h"
 #include "disp_helper.h"
 #include "ddp_path.h"
-#ifdef CONFIG_MTK_IOMMU_V2
+#ifdef CONFIG_MTK_IOMMU_V3
 #include <soc/mediatek/smi.h>
 #include "ddp_drv.h"
 #else
@@ -898,7 +898,7 @@ void ddp_check_path(enum DDP_SCENARIO_ENUM scenario)
 
 int ddp_path_top_clock_on(void)
 {
-#ifdef CONFIG_MTK_IOMMU_V2
+#ifdef CONFIG_MTK_IOMMU_V3
 	struct disp_iommu_device *iommu_dev;
 	/*int larb_idx = 0;*/
 #endif
@@ -923,7 +923,7 @@ int ddp_path_top_clock_on(void)
 #endif
 	ddp_clk_prepare_enable(CLK_MM_26M);
 
-#ifdef CONFIG_MTK_IOMMU_V2
+#ifdef CONFIG_MTK_IOMMU_V3
 	iommu_dev = disp_get_iommu_dev();
 	if (!iommu_dev) {
 		DISPERR("%s iommu is null\n", __func__);
@@ -942,7 +942,7 @@ int ddp_path_top_clock_on(void)
 
 int ddp_path_top_clock_off(void)
 {
-#ifdef CONFIG_MTK_IOMMU_V2
+#ifdef CONFIG_MTK_IOMMU_V3
 	struct disp_iommu_device *iommu_dev;
 	/*int larb_idx = 0;*/
 
