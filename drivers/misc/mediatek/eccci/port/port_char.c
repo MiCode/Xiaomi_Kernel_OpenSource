@@ -99,7 +99,6 @@ static int port_char_init(struct port_t *port)
 				port->minor_base + port->minor);
 		port->flags |= PORT_F_ADJUST_HEADER;
 	}
-	skb_queue_head_init(&port->port_rx_list);
 #ifndef DPMAIF_DEBUG_LOG
 	if (port->rx_ch == CCCI_UART2_RX ||
 		port->rx_ch == CCCI_C2K_AT ||

@@ -71,8 +71,6 @@ long int gro_flush_timer;
 #endif
 
 #define APP_VIP_MARK		0x80000000
-#define DEV_OPEN                1
-#define DEV_CLOSE               0
 
 /********************internal function*********************/
 static void ccmni_make_etherframe(int md_id, struct net_device *dev,
@@ -411,7 +409,7 @@ static int ccmni_open(struct net_device *dev)
 		(struct ccmni_instance *)netdev_priv(dev);
 	struct ccmni_ctl_block *ccmni_ctl = ccmni_ctl_blk[ccmni->md_id];
 	struct ccmni_instance *ccmni_tmp = NULL;
-	int usage_cnt = 0, ret = 0;
+	int usage_cnt = 0;
 
 	if (unlikely(ccmni_ctl == NULL)) {
 		CCMNI_PR_DBG(ccmni->md_id,
@@ -435,10 +433,6 @@ static int ccmni_open(struct net_device *dev)
 		usage_cnt = atomic_read(&ccmni->usage);
 		atomic_set(&ccmni_tmp->usage, usage_cnt);
 	}
-	ret = mtk_ccci_handle_port_list(DEV_OPEN, dev->name);
-	if (ret)
-		CCMNI_PR_DBG(ccmni->md_id, "%s is failed to handle port list\n",
-				dev->name);
 
 	CCMNI_INF_MSG(ccmni->md_id,
 		"%s_Open:cnt=(%d,%d), md_ab=0x%X, gro=(%llx, %ld), flt_cnt=%d\n",
@@ -455,7 +449,7 @@ static int ccmni_close(struct net_device *dev)
 		(struct ccmni_instance *)netdev_priv(dev);
 	struct ccmni_ctl_block *ccmni_ctl = ccmni_ctl_blk[ccmni->md_id];
 	struct ccmni_instance *ccmni_tmp = NULL;
-	int usage_cnt = 0, ret = 0;
+	int usage_cnt = 0;
 
 	if (unlikely(ccmni_ctl == NULL)) {
 		CCMNI_PR_DBG(ccmni->md_id, "%s_Close: MD%d ctlb is NULL\n",
@@ -475,7 +469,6 @@ static int ccmni_close(struct net_device *dev)
 	if (unlikely(ccmni_ctl->ccci_ops->md_ability & MODEM_CAP_NAPI))
 		napi_disable(ccmni->napi);
 
-	ret = mtk_ccci_handle_port_list(DEV_CLOSE, dev->name);
 	CCMNI_INF_MSG(ccmni->md_id, "%s_Close:cnt=(%d, %d)\n",
 		dev->name, atomic_read(&ccmni->usage),
 		atomic_read(&ccmni_tmp->usage));
@@ -1148,7 +1141,6 @@ static int ccmni_init(int md_id, struct ccmni_ccci_ops *ccci_info)
 		ret = register_netdev(dev);
 		if (ret)
 			goto alloc_netdev_fail;
-		mtk_ccci_net_port_init(dev->name);
 	}
 
 

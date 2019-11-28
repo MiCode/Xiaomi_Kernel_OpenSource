@@ -1263,70 +1263,6 @@ static inline int proxy_send_msg_to_md(struct port_proxy *proxy_p,
 	return -CCCI_ERR_INVALID_LOGIC_CHANNEL_ID;
 }
 
-static int recv_from_port_list(struct port_t *port)
-{
-	int ret = 0;
-	unsigned long flags;
-	struct sk_buff *skb;
-
-	spin_lock_irqsave(&port->port_rx_list.lock, flags);
-	skb = __skb_dequeue(&port->port_rx_list);
-	spin_unlock_irqrestore(&port->port_rx_list.lock, flags);
-	ret = port->ops->recv_skb(port, skb);
-
-	return ret;
-}
-
-int mtk_ccci_handle_port_list(int status, char *name)
-{
-	int ret = 0, channel;
-	struct port_t *port;
-	struct sk_buff *skb;
-
-	channel = mtk_ccci_request_port(name);
-	ret = find_port_by_channel(channel, &port);
-	if (ret)
-		return -1;
-	if (status)
-		atomic_set(&port->is_up, 1);
-	else {
-		atomic_set(&port->is_up, 0);
-		while ((skb = __skb_dequeue(&port->port_rx_list))
-			!= NULL)
-			ccci_free_skb(skb);
-		return ret;
-	}
-	while (!skb_queue_empty(&port->port_rx_list)) {
-		ret = recv_from_port_list(port);
-		if (ret < 0)
-			break;
-	}
-	return ret;
-}
-
-static int ccmni_queue_recv_skb(struct port_t *port, struct sk_buff *skb)
-{
-	int ret = 0;
-	unsigned long flags;
-
-	if (atomic_read(&port->is_up)) {
-		while (!skb_queue_empty(&port->port_rx_list)) {
-			ret = recv_from_port_list(port);
-			if (ret < 0)
-				return ret;
-		}
-
-		/*The packet may be out of order when ccmni is up at the*/
-		/* same time, it will be correctly handled by TCP stack.*/
-		ret = port->ops->recv_skb(port, skb);
-	} else {
-		spin_lock_irqsave(&port->port_rx_list.lock, flags);
-			__skb_queue_tail(&port->port_rx_list, skb);
-		spin_unlock_irqrestore(&port->port_rx_list.lock, flags);
-	}
-	return ret;
-}
-
 /*
  * if recv_request returns 0 or -CCCI_ERR_DROP_PACKET,
  * then it's port's duty to free the request, and caller should
@@ -1389,10 +1325,7 @@ static inline int proxy_dispatch_recv_skb(struct port_proxy *proxy_p,
 			port->ops->recv_match(port, skb));
 		if (matched) {
 			if (likely(skb && port->ops->recv_skb)) {
-				if (channel == ccmni.rx)
-					ret = ccmni_queue_recv_skb(port, skb);
-				else
-					ret = port->ops->recv_skb(port, skb);
+				ret = port->ops->recv_skb(port, skb);
 			} else {
 				CCCI_ERROR_LOG(md_id, TAG,
 					"port->ops->recv_skb is null\n");
@@ -1823,27 +1756,6 @@ int ccci_port_init(int md_id)
 	}
 	SET_PORT_PROXY(md_id, proxy_p);
 	return 0;
-}
-
-void mtk_ccci_net_port_init(char *name)
-{
-	int ret = 0, channel;
-	struct port_t *port;
-
-	channel = mtk_ccci_request_port(name);
-	if (channel < 0) {
-		CCCI_ERROR_LOG(-1, TAG,
-		"Fail to init net port %s for channel %d\n", name, channel);
-		return;
-	}
-	ret = find_port_by_channel(channel, &port);
-	CCCI_ERROR_LOG(-1, TAG, "find port for %s\n", port->name);
-	if (ret < 0) {
-		CCCI_ERROR_LOG(-1, TAG,
-		"Cannot find channel %d for net port %s\n", channel, name);
-		return;
-	}
-	skb_queue_head_init(&port->port_rx_list);
 }
 
 /*
