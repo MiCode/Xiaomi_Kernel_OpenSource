@@ -25,6 +25,7 @@
 #define MTK_EMIMPU_CLEAR		1
 #define MTK_EMIMPU_READ			2
 #define MTK_EMIMPU_SLVERR		3
+#define MTK_EMIDBG_DUMP			4
 
 #define MTK_EMIMPU_READ_SA		0
 #define MTK_EMIMPU_READ_EA		1
@@ -90,6 +91,9 @@ struct emimpu_region_t {
 unsigned int mtk_emicen_get_ch_cnt(void);
 unsigned int mtk_emicen_get_rk_cnt(void);
 unsigned int mtk_emicen_get_rk_size(unsigned int rk_id);
+
+/* mtk emidbg api */
+void mtk_emidbg_dump(void);
 
 /* mtk emimpu api */
 int mtk_emimpu_init_region(

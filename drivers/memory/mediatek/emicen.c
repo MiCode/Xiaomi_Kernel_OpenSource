@@ -13,6 +13,8 @@
 #include <linux/printk.h>
 #include <linux/slab.h>
 #include <linux/io.h>
+#include <linux/arm-smccc.h>
+#include <linux/soc/mediatek/mtk_sip_svc.h>
 #include <memory/mediatek/emi.h>
 
 static struct platform_device *emicen_pdev;
@@ -174,6 +176,19 @@ unsigned int mtk_emicen_get_rk_size(unsigned int rk_id)
 	return 0;
 }
 EXPORT_SYMBOL(mtk_emicen_get_rk_size);
+
+/*
+ * mtk_emidbg_dump - dump emi full status to atf log
+ *
+ */
+void mtk_emidbg_dump(void)
+{
+	struct arm_smccc_res smc_res;
+
+	arm_smccc_smc(MTK_SIP_EMIMPU_CONTROL, MTK_EMIDBG_DUMP,
+		0, 0, 0, 0, 0, 0, &smc_res);
+}
+EXPORT_SYMBOL(mtk_emidbg_dump);
 
 MODULE_DESCRIPTION("MediaTek EMICEN Driver v0.1");
 
