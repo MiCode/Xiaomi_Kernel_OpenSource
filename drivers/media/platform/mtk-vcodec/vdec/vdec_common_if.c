@@ -267,7 +267,8 @@ static int vdec_decode(unsigned long h_vdec, struct mtk_vcodec_mem *bs,
 			mtk_vcodec_debug(inst, "no general buf dmabuf");
 		}
 	} else {
-		inst->vsi->dec.index = 0xFF;
+		if (!inst->ctx->input_driven)
+			inst->vsi->dec.index = 0xFF;
 	}
 
 	inst->vsi->dec.queued_frame_buf_count =
