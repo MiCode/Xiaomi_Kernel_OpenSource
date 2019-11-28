@@ -977,7 +977,7 @@ static int geni_i2c_resume_noirq(struct device *device)
 	return 0;
 }
 
-#ifdef CONFIG_PM
+#if IS_ENABLED(CONFIG_PM)
 static int geni_i2c_runtime_suspend(struct device *dev)
 {
 	struct geni_i2c_dev *gi2c = dev_get_drvdata(dev);
@@ -1108,7 +1108,17 @@ static struct platform_driver geni_i2c_driver = {
 	},
 };
 
-module_platform_driver(geni_i2c_driver);
+static int __init i2c_dev_init(void)
+{
+	return platform_driver_register(&geni_i2c_driver);
+}
 
+static void __exit i2c_dev_exit(void)
+{
+	platform_driver_unregister(&geni_i2c_driver);
+}
+
+module_init(i2c_dev_init);
+module_exit(i2c_dev_exit);
 MODULE_LICENSE("GPL v2");
 MODULE_ALIAS("platform:i2c_geni");
