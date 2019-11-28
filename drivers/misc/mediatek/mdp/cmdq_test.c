@@ -1252,7 +1252,7 @@ static void testcase_write_address(void)
 
 	CMDQ_LOG("%s\n", __func__);
 
-	cmdqCoreAllocWriteAddress(3, &pa, CMDQ_CLT_UNKN);
+	cmdqCoreAllocWriteAddress(3, &pa, CMDQ_CLT_UNKN, NULL);
 	CMDQ_LOG("ALLOC:%pa\n", &pa);
 	value = cmdqCoreReadWriteAddress(pa);
 	CMDQ_LOG("value 0:0x%08x\n", value);

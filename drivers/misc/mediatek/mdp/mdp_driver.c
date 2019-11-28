@@ -181,6 +181,8 @@ static int cmdq_release(struct inode *pInode, struct file *pFile)
 	kfree(pFile->private_data);
 	pFile->private_data = NULL;
 
+	cmdqCoreFreeWriteAddressByNode(pFile, CMDQ_CLT_MDP);
+
 	CMDQ_VERBOSE("CMDQ driver release end\n");
 
 	return 0;
@@ -931,7 +933,8 @@ static s32 cmdq_driver_ioctl_async_job_wait_and_close(unsigned long param)
 	return 0;
 }
 
-static s32 cmdq_driver_ioctl_alloc_write_address(unsigned long param)
+static s32 cmdq_driver_ioctl_alloc_write_address(void *fp,
+	unsigned long param)
 {
 	struct cmdqWriteAddressStruct addrReq;
 	dma_addr_t paStart = 0;
@@ -943,7 +946,7 @@ static s32 cmdq_driver_ioctl_alloc_write_address(unsigned long param)
 	}
 
 	status = cmdqCoreAllocWriteAddress(addrReq.count, &paStart,
-		CMDQ_CLT_MDP);
+		CMDQ_CLT_MDP, fp);
 	if (status != 0) {
 		CMDQ_ERR("%s alloc write address failed\n", __func__);
 		return status;
@@ -1058,7 +1061,7 @@ static long cmdq_ioctl(struct file *pf, unsigned int code,
 		CMDQ_SYSTRACE_END();
 		break;
 	case CMDQ_IOCTL_ALLOC_WRITE_ADDRESS:
-		status = cmdq_driver_ioctl_alloc_write_address(param);
+		status = cmdq_driver_ioctl_alloc_write_address(pf, param);
 		break;
 	case CMDQ_IOCTL_FREE_WRITE_ADDRESS:
 		status = cmdq_driver_ioctl_free_write_address(param);

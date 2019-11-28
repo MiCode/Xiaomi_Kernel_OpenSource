@@ -544,6 +544,7 @@ struct WriteAddrStruct {
 	void *va;
 	dma_addr_t pa;
 	pid_t user;
+	void *fp;
 };
 
 /* resource unit between each module */
@@ -877,11 +878,12 @@ void cmdq_delay_dump_thread(bool dump_sram);
 u32 cmdq_core_get_delay_start_cpr(void);
 s32 cmdq_delay_get_id_by_scenario(enum CMDQ_SCENARIO_ENUM scenario);
 int cmdqCoreAllocWriteAddress(u32 count, dma_addr_t *paStart,
-	enum CMDQ_CLT_ENUM clt);
+	enum CMDQ_CLT_ENUM clt, void *fp);
 u32 cmdqCoreReadWriteAddress(dma_addr_t pa);
 void cmdqCoreReadWriteAddressBatch(u32 *addrs, u32 count, u32 *val_out);
 u32 cmdqCoreWriteWriteAddress(dma_addr_t pa, u32 value);
 int cmdqCoreFreeWriteAddress(dma_addr_t paStart, enum CMDQ_CLT_ENUM clt);
+int cmdqCoreFreeWriteAddressByNode(void *fp, enum CMDQ_CLT_ENUM clt);
 
 /* Get and HW information from device tree */
 void cmdq_core_init_dts_data(void);
