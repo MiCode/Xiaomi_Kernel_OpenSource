@@ -900,7 +900,9 @@ static int __tcpc_class_complete_work(struct device *dev, void *data)
 #ifdef CONFIG_USB_POWER_DELIVERY
 #ifdef CONFIG_RECV_BAT_ABSENT_NOTIFY
 		fg_bat_nb->notifier_call = fg_bat_notifier_call;
+#if CONFIG_MTK_GAUGE_VERSION == 30
 		ret = register_battery_notifier(fg_bat_nb);
+#endif
 		if (ret < 0) {
 			pr_notice("%s: register bat notifier fail\n", __func__);
 			return -EINVAL;

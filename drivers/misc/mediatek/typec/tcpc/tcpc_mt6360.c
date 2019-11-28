@@ -2193,7 +2193,10 @@ static int mt6360_init_ctd(struct mt6360_chip *chip)
 	int ret = 0;
 
 #ifdef CONFIG_CABLE_TYPE_DETECTION
-	u8 ctd_evt, status;
+	u8 ctd_evt;
+#if CONFIG_MTK_GAUGE_VERSION == 30
+	u8 status;
+#endif
 
 	chip->tcpc->typec_cable_type = TCPC_CABLE_TYPE_NONE;
 	chip->handle_init_ctd = true;
@@ -2202,12 +2205,14 @@ static int mt6360_init_ctd(struct mt6360_chip *chip)
 		return ret;
 	if (ctd_evt & MT6360_M_CTD) {
 		mt6360_get_cable_type(chip->tcpc, &chip->init_cable_type);
+#if CONFIG_MTK_GAUGE_VERSION == 30
 		if (chip->init_cable_type == TCPC_CABLE_TYPE_C2C) {
 			ret = charger_dev_get_ctd_dischg_status(chip->chgdev,
 								&status);
 			if (ret >= 0 && (status & 0x82))
 				chip->init_cable_type = TCPC_CABLE_TYPE_A2C;
 		}
+#endif
 	}
 #endif /* CONFIG_CABLE_TYPE_DETECTION */
 

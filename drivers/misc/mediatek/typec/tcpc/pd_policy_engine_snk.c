@@ -66,11 +66,12 @@ void pe_snk_discovery_entry(struct pd_port *pd_port)
 	pd_enable_vbus_valid_detection(pd_port, true);
 
 	timeout = jiffies + msecs_to_jiffies(1000);
+#if CONFIG_MTK_GAUGE_VERSION == 30
 	do {
 		chg_type = mt_get_charger_type();
 		msleep(50);
 	} while (chg_type == CHARGER_UNKNOWN && time_before(jiffies, timeout));
-
+#endif
 	if (chg_type == CHARGER_UNKNOWN)
 		PE_INFO("BC1.2 TIMEOUT\r\n");
 }
