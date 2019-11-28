@@ -1662,6 +1662,16 @@
 			"PWM-main";
 	};
 
+	therm_ctrl@1100b000 {
+		compatible = "mediatek,therm_ctrl";
+		reg = <0 0x1100b000 0 0x26E200>;
+		interrupts =
+			<GIC_SPI 169 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&infracfg_ao INFRACFG_AO_THERM_CG>;
+		clock-names = "therm-main";
+	};
+
 	mali@13000000 {
 		compatible = "mediatek,mali", "arm,mali-valhall";
 		reg = <0 0x13000000 0 0x4000>;
