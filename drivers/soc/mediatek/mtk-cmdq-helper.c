@@ -42,6 +42,9 @@
 
 #define CMDQ_PREDUMP_TIMEOUT_MS		200
 
+/* sleep for 1300 tick, which around 50us */
+#define CMDQ_POLL_TICK			1300
+
 #define CMDQ_GET_ADDR_H(addr)		(sizeof(addr) > 32 ? (addr >> 32) : 0)
 #define CMDQ_GET_ARG_B(arg)		(((arg) & GENMASK(31, 16)) >> 16)
 #define CMDQ_GET_ARG_C(arg)		((arg) & GENMASK(15, 0))
@@ -1165,8 +1168,7 @@ s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, reg_counter, &lop,
 		&rop);
 
-	/* sleep for 2600 tick, which around 100us */
-	cmdq_pkt_sleep(pkt, 2600, reg_gpr);
+	cmdq_pkt_sleep(pkt, CMDQ_POLL_TICK, reg_gpr);
 
 	/* loop to begin */
 	if (absolute) {
