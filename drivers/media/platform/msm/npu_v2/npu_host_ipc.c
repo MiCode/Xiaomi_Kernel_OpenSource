@@ -412,3 +412,13 @@ int npu_host_ipc_post_init(struct npu_device *npu_dev)
 {
 	return 0;
 }
+
+int npu_host_get_ipc_queue_size(struct npu_device *npu_dev, uint32_t q_idx)
+{
+	if (q_idx >= ARRAY_SIZE(npu_q_setup)) {
+		NPU_ERR("Invalid ipc queue index %d\n", q_idx);
+		return -EINVAL;
+	}
+
+	return npu_q_setup[q_idx].size;
+}
