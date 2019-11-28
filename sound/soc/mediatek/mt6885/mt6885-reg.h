@@ -2283,30 +2283,32 @@ enum {
 #define ADDA_3RD_DAC_SDM_AUTO_RESET_ONOFF_MASK_SFT     (0x1 << 31)
 
 /* AFE_TINY_CONN0 */
-#define RESERVED_03_SFT                                29
-#define RESERVED_03_MASK                               0x7
-#define RESERVED_03_MASK_SFT                           (0x7 << 29)
 #define O_3_CFG_SFT                                    24
 #define O_3_CFG_MASK                                   0x1f
 #define O_3_CFG_MASK_SFT                               (0x1f << 24)
-#define RESERVED_02_SFT                                21
-#define RESERVED_02_MASK                               0x7
-#define RESERVED_02_MASK_SFT                           (0x7 << 21)
 #define O_2_CFG_SFT                                    16
 #define O_2_CFG_MASK                                   0x1f
 #define O_2_CFG_MASK_SFT                               (0x1f << 16)
-#define RESERVED_01_SFT                                13
-#define RESERVED_01_MASK                               0x7
-#define RESERVED_01_MASK_SFT                           (0x7 << 13)
 #define O_1_CFG_SFT                                    8
 #define O_1_CFG_MASK                                   0x1f
 #define O_1_CFG_MASK_SFT                               (0x1f << 8)
-#define RESERVED_00_SFT                                5
-#define RESERVED_00_MASK                               0x7
-#define RESERVED_00_MASK_SFT                           (0x7 << 5)
 #define O_0_CFG_SFT                                    0
 #define O_0_CFG_MASK                                   0x1f
 #define O_0_CFG_MASK_SFT                               (0x1f << 0)
+
+/* AFE_TINY_CONN5 */
+#define O_23_CFG_SFT                                    24
+#define O_23_CFG_MASK                                   0x1f
+#define O_23_CFG_MASK_SFT                               (0x1f << 24)
+#define O_22_CFG_SFT                                    16
+#define O_22_CFG_MASK                                   0x1f
+#define O_22_CFG_MASK_SFT                               (0x1f << 16)
+#define O_21_CFG_SFT                                    8
+#define O_21_CFG_MASK                                   0x1f
+#define O_21_CFG_MASK_SFT                               (0x1f << 8)
+#define O_20_CFG_SFT                                    0
+#define O_20_CFG_MASK                                   0x1f
+#define O_20_CFG_MASK_SFT                               (0x1f << 0)
 
 /* AFE_MEMIF_CONN */
 #define VUL6_USE_TINY_SFT                              8

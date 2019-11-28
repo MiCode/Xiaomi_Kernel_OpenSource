@@ -1591,6 +1591,52 @@ static const struct snd_kcontrol_new mt6885_pcm_kcontrols[] = {
 		       mt6885_ul_mmap_fd_set),
 };
 
+static int ul_tinyconn_event(struct snd_soc_dapm_widget *w,
+			     struct snd_kcontrol *kcontrol,
+			     int event)
+{
+	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
+	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+	unsigned int reg_shift;
+	unsigned int reg_mask_shift;
+
+	dev_info(afe->dev, "%s(), event 0x%x\n", __func__, event);
+
+	if (strstr(w->name, "UL1")) {
+		reg_shift = VUL1_USE_TINY_SFT;
+		reg_mask_shift = VUL1_USE_TINY_MASK_SFT;
+	} else if (strstr(w->name, "UL2")) {
+		reg_shift = VUL2_USE_TINY_SFT;
+		reg_mask_shift = VUL2_USE_TINY_MASK_SFT;
+	} else if (strstr(w->name, "UL3")) {
+		reg_shift = VUL12_USE_TINY_SFT;
+		reg_mask_shift = VUL12_USE_TINY_MASK_SFT;
+	} else if (strstr(w->name, "UL4")) {
+		reg_shift = AWB2_USE_TINY_SFT;
+		reg_mask_shift = AWB2_USE_TINY_MASK_SFT;
+	} else {
+		reg_shift = AWB2_USE_TINY_SFT;
+		reg_mask_shift = AWB2_USE_TINY_MASK_SFT;
+		pr_err("%s(), error widget name %s, default use UL4",
+		       __func__, w->name);
+	}
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		regmap_update_bits(afe->regmap, AFE_MEMIF_CONN, reg_mask_shift,
+				   0x1 << reg_shift);
+		break;
+	case SND_SOC_DAPM_PRE_PMD:
+		regmap_update_bits(afe->regmap, AFE_MEMIF_CONN, reg_mask_shift,
+				   0x0 << reg_shift);
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
 /* dma widget & routes*/
 static const struct snd_kcontrol_new memif_ul1_ch1_mix[] = {
 	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH1", AFE_CONN21,
@@ -1709,8 +1755,6 @@ static const struct snd_kcontrol_new memif_ul4_ch1_mix[] = {
 				    I_ADDA_UL_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("I2S0_CH1", AFE_CONN38,
 				    I_I2S0_CH1, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("UL4_TINYCONN", AFE_MEMIF_CONN,
-				    AWB2_USE_TINY_SFT, 1, 0),
 };
 
 static const struct snd_kcontrol_new memif_ul4_ch2_mix[] = {
@@ -1718,8 +1762,6 @@ static const struct snd_kcontrol_new memif_ul4_ch2_mix[] = {
 				    I_ADDA_UL_CH2, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("I2S0_CH2", AFE_CONN39,
 				    I_I2S0_CH2, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("UL4_TINYCONN", AFE_MEMIF_CONN,
-				    AWB2_USE_TINY_SFT, 1, 0),
 };
 
 static const struct snd_kcontrol_new memif_ul5_ch1_mix[] = {
@@ -1824,63 +1866,49 @@ static const struct snd_kcontrol_new mtk_dsp_dl_playback_mix[] = {
 	SOC_DAPM_SINGLE_AUTODISABLE("DSP_DL4", SND_SOC_NOPM, 0, 1, 0),
 };
 
-/* TINYCONN CH1 MUX */
+/* TINYCONN MUX */
 enum {
-	TINYCONN_CH1_MUX_NONE = 0x1f,
-	TINYCONN_CH1_MUX_I2S0 = 20,
-	TINYCONN_CH1_MUX_I2S6 = 26,
-	TINYCONN_CH1_MUX_I2S8 = 28,
+	TINYCONN_CH1_MUX_I2S0 = 0x14,
+	TINYCONN_CH2_MUX_I2S0 = 0x15,
+	TINYCONN_CH1_MUX_I2S6 = 0x1a,
+	TINYCONN_CH2_MUX_I2S6 = 0x1b,
+	TINYCONN_CH1_MUX_I2S8 = 0x1c,
+	TINYCONN_CH2_MUX_I2S8 = 0x1d,
+	TINYCONN_MUX_NONE = 0x1f,
 };
 
-static const char * const tinyconn_ch1_mux_map[] = {
+static const char * const tinyconn_mux_map[] = {
 	"NONE",
 	"I2S0_CH1",
+	"I2S0_CH2",
 	"I2S6_CH1",
+	"I2S6_CH2",
 	"I2S8_CH1",
+	"I2S8_CH2",
 };
 
-static int tinyconn_ch1_mux_map_value[] = {
-	TINYCONN_CH1_MUX_NONE,
+static int tinyconn_mux_map_value[] = {
+	TINYCONN_MUX_NONE,
 	TINYCONN_CH1_MUX_I2S0,
+	TINYCONN_CH2_MUX_I2S0,
 	TINYCONN_CH1_MUX_I2S6,
+	TINYCONN_CH2_MUX_I2S6,
 	TINYCONN_CH1_MUX_I2S8,
+	TINYCONN_CH2_MUX_I2S8,
 };
 
 static SOC_VALUE_ENUM_SINGLE_DECL(ul4_tinyconn_ch1_mux_map_enum,
 				  AFE_TINY_CONN0,
 				  O_2_CFG_SFT,
 				  O_2_CFG_MASK,
-				  tinyconn_ch1_mux_map,
-				  tinyconn_ch1_mux_map_value);
-
-/* TINYCONN CH2 MUX */
-enum {
-	TINYCONN_CH2_MUX_NONE = 0x1f,
-	TINYCONN_CH2_MUX_I2S0 = 21,
-	TINYCONN_CH2_MUX_I2S6 = 27,
-	TINYCONN_CH2_MUX_I2S8 = 29,
-};
-
-static const char * const tinyconn_ch2_mux_map[] = {
-	"NONE",
-	"I2S0_CH2",
-	"I2S6_CH2",
-	"I2S8_CH2",
-};
-
-static int tinyconn_ch2_mux_map_value[] = {
-	TINYCONN_CH2_MUX_NONE,
-	TINYCONN_CH2_MUX_I2S0,
-	TINYCONN_CH2_MUX_I2S6,
-	TINYCONN_CH2_MUX_I2S8,
-};
-
+				  tinyconn_mux_map,
+				  tinyconn_mux_map_value);
 static SOC_VALUE_ENUM_SINGLE_DECL(ul4_tinyconn_ch2_mux_map_enum,
 				  AFE_TINY_CONN0,
 				  O_3_CFG_SFT,
 				  O_3_CFG_MASK,
-				  tinyconn_ch2_mux_map,
-				  tinyconn_ch2_mux_map_value);
+				  tinyconn_mux_map,
+				  tinyconn_mux_map_value);
 
 static const struct snd_kcontrol_new ul4_tinyconn_ch1_mux_control =
 	SOC_DAPM_ENUM("UL4_TINYCONN_CH1_MUX", ul4_tinyconn_ch1_mux_map_enum);
@@ -1912,10 +1940,14 @@ static const struct snd_soc_dapm_widget mt6885_memif_widgets[] = {
 			   memif_ul4_ch1_mix, ARRAY_SIZE(memif_ul4_ch1_mix)),
 	SND_SOC_DAPM_MIXER("UL4_CH2", SND_SOC_NOPM, 0, 0,
 			   memif_ul4_ch2_mix, ARRAY_SIZE(memif_ul4_ch2_mix)),
-	SND_SOC_DAPM_MUX("UL4_TINYCONN_CH1_MUX", SND_SOC_NOPM, 0, 0,
-			 &ul4_tinyconn_ch1_mux_control),
-	SND_SOC_DAPM_MUX("UL4_TINYCONN_CH2_MUX", SND_SOC_NOPM, 0, 0,
-			 &ul4_tinyconn_ch2_mux_control),
+	SND_SOC_DAPM_MUX_E("UL4_TINYCONN_CH1_MUX", SND_SOC_NOPM, 0, 0,
+			   &ul4_tinyconn_ch1_mux_control,
+			   ul_tinyconn_event,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
+	SND_SOC_DAPM_MUX_E("UL4_TINYCONN_CH2_MUX", SND_SOC_NOPM, 0, 0,
+			   &ul4_tinyconn_ch2_mux_control,
+			   ul_tinyconn_event,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
 
 	SND_SOC_DAPM_MIXER("UL5_CH1", SND_SOC_NOPM, 0, 0,
 			   memif_ul5_ch1_mix, ARRAY_SIZE(memif_ul5_ch1_mix)),
@@ -2034,16 +2066,14 @@ static const struct snd_soc_dapm_route mt6885_memif_routes[] = {
 
 	{"UL4", NULL, "UL4_CH1"},
 	{"UL4", NULL, "UL4_CH2"},
-
+	{"UL4", NULL, "UL4_TINYCONN_CH1_MUX"},
+	{"UL4", NULL, "UL4_TINYCONN_CH2_MUX"},
 	{"UL4_CH1", "ADDA_UL_CH1", "ADDA_UL_Mux"},
 	{"UL4_CH2", "ADDA_UL_CH2", "ADDA_UL_Mux"},
 	{"UL4_CH1", "I2S0_CH1", "I2S0"},
 	{"UL4_CH2", "I2S0_CH2", "I2S0"},
-
 	{"UL4_TINYCONN_CH1_MUX", "I2S0_CH1", "I2S0"},
 	{"UL4_TINYCONN_CH2_MUX", "I2S0_CH2", "I2S0"},
-	{"UL4_CH1", "UL4_TINYCONN", "UL4_TINYCONN_CH1_MUX"},
-	{"UL4_CH2", "UL4_TINYCONN", "UL4_TINYCONN_CH2_MUX"},
 
 	{"UL5", NULL, "UL5_CH1"},
 	{"UL5", NULL, "UL5_CH2"},
