@@ -644,9 +644,7 @@ int swpm_set_periodic_timer(void *func)
 
 void swpm_update_periodic_timer(void)
 {
-	swpm_lock(&swpm_mutex);
 	mod_timer(&swpm_timer, jiffies + msecs_to_jiffies(log_interval_ms));
-	swpm_unlock(&swpm_mutex);
 }
 
 int swpm_mem_addr_request(enum swpm_type id, phys_addr_t **ptr)

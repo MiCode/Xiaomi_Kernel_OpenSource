@@ -159,19 +159,19 @@ enum infra_power_state {
 	NR_INFRA_POWER_STATE
 };
 
+/* sync with mt6885 emi in sspm */
+#define MAX_EMI_NUM (2)
 /* TODO: core power index structure */
 struct core_swpm_index {
 	unsigned int infra_state_ratio[NR_INFRA_POWER_STATE];
-	unsigned int read_bw;
-	unsigned int write_bw;
+	unsigned int read_bw[MAX_EMI_NUM];
+	unsigned int write_bw[MAX_EMI_NUM];
 };
 
-/* sync with mt6885 emi in sspm */
-#define MAX_EMI_NUM (2)
 /* TODO: dram power index structure */
 struct mem_swpm_index {
-	unsigned int read_bw;
-	unsigned int write_bw;
+	unsigned int read_bw[MAX_EMI_NUM];
+	unsigned int write_bw[MAX_EMI_NUM];
 	unsigned int srr_pct;			/* self refresh rate */
 	unsigned int pdir_pct[MAX_EMI_NUM];	/* power-down idle rate */
 	unsigned int phr_pct[MAX_EMI_NUM];	/* page-hit rate */
