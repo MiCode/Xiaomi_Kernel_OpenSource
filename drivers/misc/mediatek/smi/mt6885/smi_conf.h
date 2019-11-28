@@ -41,7 +41,9 @@ static u32 smi_larb_cmd_gp_en_port[SMI_LARB_NUM][2] = {
 };
 
 static u32 smi_larb_bw_thrt_en_port[SMI_LARB_NUM][2] = { /* non-HRT */
-	{0, 0}, {0, 0}, {0, SMI_LARB2_PORT_NUM}, {0, SMI_LARB3_PORT_NUM},
+	{SMI_LARB0_PORT_NUM - 1, SMI_LARB0_PORT_NUM},
+	{SMI_LARB1_PORT_NUM - 1, SMI_LARB1_PORT_NUM},
+	{0, SMI_LARB2_PORT_NUM}, {0, SMI_LARB3_PORT_NUM},
 	{0, SMI_LARB4_PORT_NUM}, {0, SMI_LARB5_PORT_NUM}, {0, 0},
 	{0, SMI_LARB7_PORT_NUM}, {0, SMI_LARB8_PORT_NUM},
 	{0, SMI_LARB9_PORT_NUM}, {0, 0}, {0, SMI_LARB11_PORT_NUM}, {0, 0},
