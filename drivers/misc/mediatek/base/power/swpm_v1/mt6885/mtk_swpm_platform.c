@@ -511,7 +511,7 @@ static unsigned int swpm_get_cpu_temp(enum cpu_lkg_type type)
 		break;
 	case DSU_LKG:
 	default:
-		/* temp = get_immediate_mcucci_wrap() / 1000; */
+		temp = get_immediate_cpuL_wrap() / 1000;
 		break;
 	}
 
