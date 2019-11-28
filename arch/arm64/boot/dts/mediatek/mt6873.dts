@@ -935,6 +935,78 @@
 		reg = <0 0x10227000 0 0x1000>;
 	};
 
+	dvfsp: dvfsp@0011bc00 {
+		compatible = "mediatek,mt6873-dvfsp";
+		reg = <0 0x0011bc00 0 0x1400>,
+		      <0 0x0011bc00 0 0x1400>;
+		state = <1>;
+		imax_state = <2>;
+		change_flag = <0>;
+		little-rise-time = <1000>;
+		little-down-time = <750>;
+		big-rise-time = <1000>;
+		big-down-time = <750>;
+		L-table = <2000 96 1 1
+			   1933 92 1 1
+			   1866	88 1 1
+			   1800 83 1 1
+			   1733 80 1 1
+			   1666 75 1 1
+			   1548 71 1 1
+			   1475 66 2 1
+			   1375 64 2 1
+			   1275 58 2 1
+			   1175 54 2 1
+			   1075 49 2 1
+			    999 46 2 1
+			    925 43 2 1
+			    850 40 2 1
+			    774 38 2 1 >;
+
+		B-table = <2200 100 1 1
+			   2133 96 1 1
+			   2066	92 1 1
+			   2000 88 1 1
+			   1933 84 1 1
+			   1866 80 1 1
+			   1800 75 1 1
+			   1651 70 1 1
+			   1503 64 1 1
+			   1414 61 2 1
+			   1295 57 2 1
+			   1176 53 2 1
+			   1087 49 2 1
+			    998 46 2 1
+			    909 43 2 1
+			    850 40 2 1 >;
+
+		CCI-table = <1400 96 2 1
+			     1353 92 2 1
+			     1306 88 2 1
+			     1260 84 2 1
+			     1190 78 2 1
+			     1155 75 2 1
+			     1120 71 2 1
+			      984 64 2 1
+			      917 62 2 1
+			      827 58 2 1
+			      737 54 2 2
+			      669 51 2 2
+			      579 47 2 2
+			      512 44 2 2
+			      445 41 2 2
+			      400 38 2 2 >;
+
+	};
+
+	mt_cpufreq: mt_cpufreq {
+		compatible = "mediatek,mt-cpufreq";
+#ifndef CONFIG_FPGA_EARLY_PORTING
+		proc1-supply = <&mt6315_6_vbuck1>;
+		proc2-supply = <&mt6315_6_vbuck3>;
+#endif
+	};
+
 	gce_mbox: gce_mbox@10228000 {
 		compatible = "mediatek,mailbox-gce";
 		reg = <0 0x10228000 0 0x4000>;
@@ -2484,6 +2556,11 @@
 	mipi_tx_config0@11e60000 {
 		compatible = "mediatek,mipi_tx_config0";
 		reg = <0 0x11e60000 0 0x1000>;
+	};
+
+	mcucfg: mcucfg@0c530000 {
+		compatible = "mediatek,mcucfg";
+		reg = <0 0x0c530000 0 0x10000>;
 	};
 
 	ion: iommu {
