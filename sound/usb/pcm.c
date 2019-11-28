@@ -913,10 +913,12 @@ static int snd_usb_pcm_prepare(struct snd_pcm_substream *substream)
 			subs->data_endpoint &&
 			subs->buffer_periods != 4) {
 		runtime->stop_threshold *= 10;
-		pr_info("adjust stop_threshold to %ld frames",
+		dev_info(&subs->dev->dev, "adjust stop_threshold to %ld frames",
 				runtime->stop_threshold);
 
-	}
+	} else
+		dev_info(&subs->dev->dev, "stop_threshold %ld frames",
+				runtime->stop_threshold);
 
 	/* for playback, submit the URBs now; otherwise, the first hwptr_done
 	 * updates for all URBs would happen at the same time when starting */
@@ -1317,7 +1319,12 @@ static int snd_usb_pcm_open(struct snd_pcm_substream *substream, int direction)
 	subs->dsd_dop.marker = 1;
 
 	/* add the qos request and set the latency */
-	pm_qos_add_request(&subs->pm_qos,
+	if (pm_qos_request_active(&subs->pm_qos)) {
+		pm_qos_update_request(&subs->pm_qos, US_PER_FRAME);
+		dev_info(&subs->dev->dev, "%s: (pm_qos @%p) update\n",
+			   __func__, &subs->pm_qos);
+	} else
+		pm_qos_add_request(&subs->pm_qos,
 			   PM_QOS_CPU_DMA_LATENCY, US_PER_FRAME);
 
 	return setup_hw_info(runtime, subs);
@@ -1341,8 +1348,11 @@ static int snd_usb_pcm_close(struct snd_pcm_substream *substream, int direction)
 	snd_usb_autosuspend(subs->stream->chip);
 
 	/* remove the qos request */
-	pm_qos_remove_request(&subs->pm_qos);
-
+	if (pm_qos_request_active(&subs->pm_qos))
+		pm_qos_remove_request(&subs->pm_qos);
+	else
+		dev_info(&subs->dev->dev, "%s: (pm_qos @%p) remove again\n",
+			   __func__, &subs->pm_qos);
 	return 0;
 }
 
