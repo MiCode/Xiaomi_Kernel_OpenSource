@@ -1578,6 +1578,23 @@ int ccci_ccif_hif_init(unsigned char hif_id, unsigned char md_id)
 	return 0;
 }
 
+void dump_ctrl_path_hif_status(void)
+{
+	struct md_ccif_ctrl *md_ctrl =
+		(struct md_ccif_ctrl *)ccci_hif_get_by_id(CCIF_HIF_ID);
+	unsigned long rem_nsec;
+	u64 ts_nsec;
+
+	ts_nsec = sched_clock();
+	rem_nsec = do_div(ts_nsec, 1000000000);
+	CCCI_HISTORY_LOG(md_ctrl->md_id, TAG, "[%5lu.%06lu]%s\n",
+			(unsigned long)ts_nsec, rem_nsec / 1000, __func__);
+	if (md_ctrl && md_ctrl->ccif_ap_base) {
+		CCCI_HISTORY_LOG(md_ctrl->md_id, TAG, "AP_RCHNUM:0x%08x\n",
+			ccif_read32(md_ctrl->ccif_ap_base, APCCIF_RCHNUM));
+	}
+}
+
 /*return ap_rt_data pointer after filling header*/
 void *ccif_hif_fill_rt_header(unsigned char hif_id, int packet_size,
 	unsigned int tx_ch, unsigned int txqno)

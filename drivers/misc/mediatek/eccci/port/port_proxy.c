@@ -869,6 +869,8 @@ int port_recv_skb(struct port_t *port, struct sk_buff *skb)
 {
 	unsigned long flags;
 	struct ccci_header *ccci_h = (struct ccci_header *)skb->data;
+	unsigned long rem_nsec;
+	u64 ts_nsec;
 
 	spin_lock_irqsave(&port->rx_skb_list.lock, flags);
 	CCCI_DEBUG_LOG(port->md_id, TAG,
@@ -880,8 +882,18 @@ int port_recv_skb(struct port_t *port, struct sk_buff *skb)
 			port_adjust_skb(port, skb);
 		if (ccci_h->channel == CCCI_STATUS_RX)
 			port->skb_handler(port, skb);
-		else
+		else  {
 			__skb_queue_tail(&port->rx_skb_list, skb);
+			if (ccci_h->channel == CCCI_SYSTEM_RX) {
+				ts_nsec = sched_clock();
+				rem_nsec = do_div(ts_nsec, 1000000000);
+				CCCI_HISTORY_LOG(port->md_id, TAG,
+					"[%5lu.%06lu]sysmsg+%08x %08x %04x\n",
+					(unsigned long)ts_nsec, rem_nsec / 1000,
+					ccci_h->data[1], ccci_h->reserved,
+					ccci_h->seq_num);
+			}
+		}
 
 		port->rx_pkg_cnt++;
 		spin_unlock_irqrestore(&port->rx_skb_list.lock, flags);
