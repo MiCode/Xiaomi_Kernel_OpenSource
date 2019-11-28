@@ -31,6 +31,8 @@
 #include <backend/gpu/mali_kbase_jm_internal.h>
 #include <backend/gpu/mali_kbase_js_internal.h>
 
+#include <mtk_gpufreq.h>
+
 /*
  * Hold the runpool_mutex for this
  */
@@ -93,6 +95,8 @@ static enum hrtimer_restart timer_callback(struct hrtimer *timer)
 	struct kbase_backend_data *backend;
 	int s;
 	bool reset_needed = false;
+
+	int idx, freq, vgpu, vsram;
 
 	KBASE_DEBUG_ASSERT(timer != NULL);
 
@@ -193,6 +197,15 @@ static enum hrtimer_restart timer_callback(struct hrtimer *timer)
 					int ms =
 						js_devdata->scheduling_period_ns
 								/ 1000000u;
+
+				/* MTK add for gpu_freq information */
+				idx = mt_gpufreq_get_cur_freq_index();
+				freq = mt_gpufreq_get_freq_by_idx(idx);
+				vgpu = mt_gpufreq_get_volt_by_idx(idx);
+				vsram = mt_gpufreq_get_vsram_by_idx(idx);
+				pr_info("gpu_freq info: idx: %d, freq: %d, vgpu: %d, vsram_gpu: %d\n",
+					idx, freq, vgpu, vsram);
+
 					dev_warn(kbdev->dev, "JS: Job Hard-Stopped (took more than %lu ticks at %lu ms/tick)",
 							(unsigned long)ticks,
 							(unsigned long)ms);
@@ -231,6 +244,15 @@ static enum hrtimer_restart timer_callback(struct hrtimer *timer)
 					int ms =
 						js_devdata->scheduling_period_ns
 								/ 1000000u;
+
+				/* MTK add for gpu_freq information */
+				idx = mt_gpufreq_get_cur_freq_index();
+				freq = mt_gpufreq_get_freq_by_idx(idx);
+				vgpu = mt_gpufreq_get_volt_by_idx(idx);
+				vsram = mt_gpufreq_get_vsram_by_idx(idx);
+				pr_info("gpu_freq info: idx: %d, freq: %d, vgpu: %d, vsram_gpu: %d\n",
+					idx, freq, vgpu, vsram);
+
 					dev_warn(kbdev->dev, "JS: Job Hard-Stopped (took more than %lu ticks at %lu ms/tick)",
 							(unsigned long)ticks,
 							(unsigned long)ms);
