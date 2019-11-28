@@ -36,18 +36,33 @@ enum {
 	} while (0)
 
 #define PWR_LOG_WRN(format, args...) \
-		pr_info(DVFS_TAG "[warn] " format, ##args)
+	do { \
+		if (g_pwr_log_level >= APUSYS_PWR_LOG_DEBUG) \
+			pr_info(DVFS_TAG "[warn] " format, ##args); \
+	} while (0)
+
 #define PWR_LOG_ERR(format, args...) \
 		pr_info(DVFS_TAG "[error] " format, ##args)
 
 
 #define PWR_TAG "[apu_power_2.0]"
-#define LOG_PM(format, args...)	pr_info(PWR_TAG "[pm] " format, ##args)
-#define LOG_INF(format, args...)    pr_info(PWR_TAG " " format, ##args)
+#define LOG_PM(format, args...) \
+	do { \
+		if (g_pwr_log_level >= APUSYS_PWR_LOG_DEBUG) \
+			pr_info(PWR_TAG "[pm] " format, ##args); \
+	} while (0)
+
+#define LOG_INF(format, args...) \
+	do { \
+		if (g_pwr_log_level >= APUSYS_PWR_LOG_DEBUG) \
+			pr_info(PWR_TAG " " format, ##args); \
+	} while (0)
+
 #define LOG_WRN(format, args...) \
 	do { \
 		if (!g_pm_procedure) \
-			pr_info(PWR_TAG "[warn] " format, ##args); \
+			if (g_pwr_log_level >= APUSYS_PWR_LOG_DEBUG) \
+				pr_info(PWR_TAG "[warn] " format, ##args); \
 	} while (0)
 
 #define LOG_ERR(format, args...)    pr_info(PWR_TAG "[error] " format, ##args)
