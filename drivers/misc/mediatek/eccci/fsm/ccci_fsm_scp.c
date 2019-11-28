@@ -250,15 +250,16 @@ int fsm_ccism_init_ack_handler(int md_id, int data)
 #endif
 	return 0;
 }
-
-#ifdef CONFIG_MTK_SIM_LOCK_POWER_ON_WRITE_PROTECT
-static int fsm_sim_lock_handler(int md_id, int data)
-{
-	fsm_monitor_send_message(md_id, CCCI_MD_MSG_RANDOM_PATTERN, 0);
-	return 0;
-}
-#endif
-
+/* phase out:architecture design adjustment */
+/*
+ *#ifdef CONFIG_MTK_SIM_LOCK_POWER_ON_WRITE_PROTECT
+ *static int fsm_sim_lock_handler(int md_id, int data)
+ *{
+ *	fsm_monitor_send_message(md_id, CCCI_MD_MSG_RANDOM_PATTERN, 0);
+ *	return 0;
+ *}
+ *#endif
+ */
 static int fsm_sim_type_handler(int md_id, int data)
 {
 	struct ccci_per_md *per_md_data = ccci_get_per_md_data(md_id);
@@ -303,10 +304,13 @@ int fsm_scp_init(struct ccci_fsm_scp *scp_ctl)
 	register_ccci_sys_call_back(scp_ctl->md_id, CCISM_SHM_INIT_ACK,
 		fsm_ccism_init_ack_handler);
 #endif
-#ifdef CONFIG_MTK_SIM_LOCK_POWER_ON_WRITE_PROTECT
-	register_ccci_sys_call_back(scp_ctl->md_id, SIM_LOCK_RANDOM_PATTERN,
-		fsm_sim_lock_handler);
-#endif
+/* phase out:architecture design adjustment */
+/*
+ *#ifdef CONFIG_MTK_SIM_LOCK_POWER_ON_WRITE_PROTECT
+ *	register_ccci_sys_call_back(scp_ctl->md_id, SIM_LOCK_RANDOM_PATTERN,
+ *		fsm_sim_lock_handler);
+ *#endif
+ */
 	register_ccci_sys_call_back(scp_ctl->md_id, MD_SIM_TYPE,
 		fsm_sim_type_handler);
 

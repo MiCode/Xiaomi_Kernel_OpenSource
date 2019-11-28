@@ -24,9 +24,6 @@
 #include <linux/compat.h>
 #endif
 
-#ifdef CONFIG_MTK_SIM_LOCK_POWER_ON_WRITE_PROTECT
-#include <mt-plat/env.h>
-#endif
 #include <mt-plat/mtk_boot_common.h>
 #include <mt-plat/mtk_ccci_common.h>
 
