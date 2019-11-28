@@ -3480,7 +3480,18 @@
 	jpgenc@17030000 {
 		compatible = "mediatek,jpgenc";
 		reg = <0 0x17030000 0 0x10000>;
+		mediatek,larb = <&smi_larb7>;
+#ifdef CONFIG_MTK_IOMMU_V2
+		iommus = <&iommu0 M4U_PORT_L7_JPGENC_Y_RDMA>;
+#endif
 		interrupts = <GIC_SPI 310 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&venc_gcon VENC_GCON_SET2_JPGENC>;
+		clock-names = "jpgenc";
+		cshot-spec = <368>;
+		port-id = <M4U_PORT_L7_JPGENC_Y_RDMA>,
+				<M4U_PORT_L7_JPGENC_Q_RDMA>,
+				<M4U_PORT_L7_JPGENC_C_TABLE>,
+				<M4U_PORT_L7_JPGENC_BSDMA>;
 	};
 
 	mbist@17060000 {
