@@ -2084,6 +2084,8 @@ static int goodix_ts_probe(struct platform_device *pdev)
 	if (r < 0)
 		goto err;
 
+	usleep_range(50000, 51000);
+
 	/*i2c test*/
 	r = ts_device->hw_ops->read_trans(ts_device, 0x3100,
 			&read_val, 1);
