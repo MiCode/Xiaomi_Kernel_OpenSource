@@ -1132,12 +1132,12 @@ static int fstb_get_queue_fps(struct FSTB_FRAME_INFO *iter,
 	if (avg_frame_interval != 0) {
 		retval = 1000000000ULL * frame_interval_count;
 		do_div(retval, avg_frame_interval);
-		mtk_fstb_dprintk_always("%s  %d %llu\n",
+		mtk_fstb_dprintk("%s  %d %llu\n",
 				__func__, iter->pid, retval);
 		fpsgo_systrace_c_fstb_man(iter->pid, (int)retval, "queue_fps");
 		return retval;
 	}
-	mtk_fstb_dprintk_always("%s  %d %d\n", __func__, iter->pid, 0);
+	mtk_fstb_dprintk("%s  %d %d\n", __func__, iter->pid, 0);
 	fpsgo_systrace_c_fstb_man(iter->pid, 0, "queue_fps");
 
 	return 0;
@@ -1486,7 +1486,7 @@ static void fstb_fps_stats(struct work_struct *work)
 				"target_fps_margin_dbnc_b");
 			ged_kpi_set_target_FPS_margin(iter->bufid,
 				iter->target_fps, iter->target_fps_margin);
-			mtk_fstb_dprintk_always(
+			mtk_fstb_dprintk(
 			"%s pid:%d target_fps:%d\n",
 			__func__, iter->pid,
 			iter->target_fps);
