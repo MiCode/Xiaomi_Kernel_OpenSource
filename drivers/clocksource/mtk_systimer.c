@@ -153,6 +153,11 @@ static struct irqaction mtk_stmr_irq = {
 	.dev_id = &mtk_stmr_clkevt,
 };
 
+__weak int mt_irq_dump_cpu(int irq)
+{
+	return 0;
+};
+
 void mtk_timer_clkevt_aee_dump(void)
 {
 #if (defined MTK_TIMER_DBG_AEE_DUMP && defined CONFIG_MTK_RAM_CONSOLE)
@@ -160,7 +165,7 @@ void mtk_timer_clkevt_aee_dump(void)
 	 * Notice: print function cannot be used during AEE
 	 * flow to avoid lock issues.
 	 */
-	/* int cpu_bound; */
+	int cpu_bound;
 	struct mtk_stmr_device *dev =
 		mtk_stmr_id_to_dev(STMR_CLKEVT_ID);
 
@@ -197,12 +202,12 @@ void mtk_timer_clkevt_aee_dump(void)
 
 	aee_log("VAL: 0x%x\n",
 		__raw_readl(dev->base_addr + STMR_VAL));
-#if 0
+
 	cpu_bound = mt_irq_dump_cpu(mtk_stmr_clkevt.irq);
 
 	aee_log("irq affinity (bc, gic): %d, %d\n",
 		mtk_stmr_clkevt.irq_affinity_on, cpu_bound);
-#endif
+
 #endif
 }
 
