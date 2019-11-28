@@ -610,11 +610,11 @@ void mtk_venc_emi_bw_begin(struct temp_job **jobs)
 	int id = 0;
 	int boost_perc = 0;
 
-	int rcpu_bw = 5;
+	int rcpu_bw = 5 * 4 / 3;
 	int rec_bw = 0;
-	int bsdma_bw = 20;
-	int sv_comv_bw = 4;
-	int rd_comv_bw = 16;
+	int bsdma_bw = 20 * 4 / 3;
+	int sv_comv_bw = 4 * 4 / 3;
+	int rd_comv_bw = 16 * 4 / 3;
 	int cur_luma_bw = 0;
 	int cur_chroma_bw = 0;
 	int ref_luma_bw = 0;
@@ -645,17 +645,22 @@ void mtk_venc_emi_bw_begin(struct temp_job **jobs)
 		boost_perc = 150;
 	}
 
-	cur_luma_bw = STD_LUMA_BW * venc_freq * (100 + boost_perc) /
-			STD_VENC_FREQ / 100;
-	cur_chroma_bw = STD_CHROMA_BW * venc_freq * (100 + boost_perc) /
-			STD_VENC_FREQ / 100;
+	cur_luma_bw = STD_LUMA_BW * venc_freq * (100 + boost_perc) * 4/
+			STD_VENC_FREQ / 100 / 3;
+	cur_chroma_bw = STD_CHROMA_BW * venc_freq * (100 + boost_perc) * 4 /
+			STD_VENC_FREQ / 100 / 3;
 
 	rec_bw = cur_luma_bw + cur_chroma_bw;
-	ref_luma_bw = cur_luma_bw * 4;
-	ref_chroma_bw = cur_chroma_bw * 4;
+	if (0) { /* no UFO */
+		ref_luma_bw = cur_luma_bw * 1;
+		ref_chroma_bw = cur_chroma_bw * 1;
+	} else {
+		ref_luma_bw = 0;
+		ref_chroma_bw = (cur_luma_bw * 1) + (cur_chroma_bw * 1);
+	}
 
 	mm_qos_set_request(&venc_rcpu[id], rcpu_bw, 0, BW_COMP_NONE);
-	mm_qos_set_request(&venc_rec[id], rec_bw, 0, BW_COMP_NONE);
+	mm_qos_set_request(&venc_rec[id], rec_bw, 0, BW_COMP_VENC);
 	mm_qos_set_request(&venc_bsdma[id], bsdma_bw, 0, BW_COMP_NONE);
 	mm_qos_set_request(&venc_sub_w_luma[id], sub_w_luma_bw, 0,
 						BW_COMP_NONE);
@@ -676,9 +681,9 @@ void mtk_venc_emi_bw_begin(struct temp_job **jobs)
 	mm_qos_set_request(&venc_cur_luma[id], cur_luma_bw, 0, BW_COMP_NONE);
 	mm_qos_set_request(&venc_cur_chroma[id], cur_chroma_bw, 0,
 						BW_COMP_NONE);
-	mm_qos_set_request(&venc_ref_luma[id], ref_luma_bw, 0, BW_COMP_NONE);
+	mm_qos_set_request(&venc_ref_luma[id], ref_luma_bw, 0, BW_COMP_VENC);
 	mm_qos_set_request(&venc_ref_chroma[id], ref_chroma_bw, 0,
-						BW_COMP_NONE);
+						BW_COMP_VENC);
 	mm_qos_update_all_request(&venc_rlist[id]);
 #endif
 }
