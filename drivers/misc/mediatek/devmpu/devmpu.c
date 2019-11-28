@@ -28,6 +28,11 @@
 #endif
 #define pr_fmt(fmt) LOG_TAG " " fmt
 
+#define switchValue(x) (((x << 24) & 0xff000000) | \
+			((x << 8) & 0x00ff0000)  | \
+			((x >> 8) & 0x0000ff00)  | \
+			((x >> 24) & 0x000000ff))
+
 struct devmpu_context {
 
 	/* HW register mapped base */
@@ -135,6 +140,38 @@ void devmpu_vio_clear(unsigned int emi_id)
 	}
 }
 
+static int devmpu_rw_perm_get(uint64_t pa, size_t *rd_perm, size_t *wr_perm)
+{
+	struct arm_smccc_res res;
+
+	if (unlikely(
+			pa < devmpu_ctx->prot_base
+		||	pa >= devmpu_ctx->prot_base + devmpu_ctx->prot_size)) {
+		pr_err("%s:%d invalid DRAM physical address, pa=0x%llx\n",
+				__func__, __LINE__, pa);
+		return -1;
+	}
+
+	if (unlikely(rd_perm == NULL || wr_perm == NULL)) {
+		pr_err("%s:%d output pointer is NULL\n",
+				__func__, __LINE__);
+		return -1;
+	}
+
+	arm_smccc_smc(MTK_SIP_KERNEL_DEVMPU_PERM_GET,
+			pa, 0, 0, 0, 0, 0, 0, &res);
+	if (res.a0) {
+		pr_err("%s:%d failed to get permission, ret=0x%lx\n",
+				__func__, __LINE__, res.a0);
+		return -1;
+	}
+
+	*rd_perm = (size_t)res.a1;
+	*wr_perm = (size_t)res.a2;
+
+	return 0;
+}
+
 int devmpu_print_violation(uint64_t vio_addr, uint32_t vio_id,
 		uint32_t vio_domain, uint32_t vio_rw, bool from_emimpu)
 {
@@ -149,6 +186,9 @@ int devmpu_print_violation(uint64_t vio_addr, uint32_t vio_id,
 
 	uint32_t vio_axi_id;
 	uint32_t vio_port_id;
+	uint32_t page;
+	size_t rd_perm;
+	size_t wr_perm;
 
 	/* overwrite violation info. with the DeviceMPU native one */
 	if (!from_emimpu) {
@@ -190,6 +230,17 @@ int devmpu_print_violation(uint64_t vio_addr, uint32_t vio_id,
 	else
 		pr_info("strange read/write violation (%u)\n", vio_rw);
 
+	if (!devmpu_rw_perm_get(vio_addr, &rd_perm, &wr_perm)) {
+		page = (vio_addr > devmpu_ctx->prot_base ?
+			(vio_addr - devmpu_ctx->prot_base) : vio_addr);
+		page /= devmpu_ctx->page_size;
+		pr_info("Page#%x RD/WR : %08zx/%08zx (%lld)\n",
+			page,
+			switchValue(rd_perm),
+			switchValue(wr_perm),
+			(vio_addr / devmpu_ctx->page_size) % 4);
+	}
+
 	if (!from_emimpu) {
 		pr_info("%s transaction\n",
 				(vio.is_ns) ? "non-secure" : "secure");
@@ -200,38 +251,6 @@ int devmpu_print_violation(uint64_t vio_addr, uint32_t vio_id,
 EXPORT_SYMBOL(devmpu_print_violation);
 
 /* sysfs */
-static int devmpu_rw_perm_get(uint64_t pa, size_t *rd_perm, size_t *wr_perm)
-{
-	struct arm_smccc_res res;
-
-	if (unlikely(
-			pa < devmpu_ctx->prot_base
-		||	pa >= devmpu_ctx->prot_base + devmpu_ctx->prot_size)) {
-		pr_err("%s:%d invalid DRAM physical address, pa=0x%llx\n",
-				__func__, __LINE__, pa);
-		return -1;
-	}
-
-	if (unlikely(rd_perm == NULL || wr_perm == NULL)) {
-		pr_err("%s:%d output pointer is NULL\n",
-				__func__, __LINE__);
-		return -1;
-	}
-
-	arm_smccc_smc(MTK_SIP_KERNEL_DEVMPU_PERM_GET,
-			pa, 0, 0, 0, 0, 0, 0, &res);
-	if (res.a0) {
-		pr_err("%s:%d failed to get permission, ret=0x%lx\n",
-				__func__, __LINE__, res.a0);
-		return -1;
-	}
-
-	*rd_perm = (size_t)res.a1;
-	*wr_perm = (size_t)res.a2;
-
-	return 0;
-}
-
 static ssize_t devmpu_config_show(struct device_driver *driver, char *buf)
 {
 	return 0;
@@ -242,7 +261,7 @@ static ssize_t devmpu_config_store(struct device_driver *driver,
 {
 	uint32_t i;
 
-	uint64_t pa = devmpu_ctx->prot_base;
+	uint64_t pa = devmpu_ctx->prot_base, pa_dump;
 	uint32_t pages = devmpu_ctx->prot_size / devmpu_ctx->page_size;
 
 	size_t rd_perm;
@@ -256,12 +275,16 @@ static ssize_t devmpu_config_store(struct device_driver *driver,
 		return -EINVAL;
 	}
 
-	pr_info("Page#  RD/WR permissions\n");
+	pr_info("Page# (bus-addr)  :  RD/WR permissions\n");
 
 	for (i = 0; i < pages; ++i) {
 		if (i && i % 16 == 0) {
-			pr_info("%04x:  %08x/%08x %08x/%08x %08x/%08x %08x/%08x\n",
+			pa_dump = (uint64_t)(i - 16) * devmpu_ctx->page_size;
+			pa_dump += devmpu_ctx->prot_base;
+			pr_info("%04x (%02x_%08x):  %08x/%08x %08x/%08x %08x/%08x %08x/%08x\n",
 				i - 16,
+				(uint32_t)(pa_dump >> 32),
+				(uint32_t)(pa_dump & 0xffffffff),
 				*((uint32_t *)rd_perm_bmp),
 				*((uint32_t *)wr_perm_bmp),
 				*((uint32_t *)rd_perm_bmp+1),
