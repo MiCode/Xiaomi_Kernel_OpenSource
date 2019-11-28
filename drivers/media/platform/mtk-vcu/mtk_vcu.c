@@ -438,15 +438,18 @@ int vcu_ipi_send(struct platform_device *pdev,
 	mutex_unlock(&vcu->vcu_mutex[i]);
 
 	if (vcu_ptr->abort || ret == 0) {
-		dev_err(&pdev->dev, "vcu ipi %d ack time out !", id);
+		dev_info(&pdev->dev, "vcu ipi %d ack time out !%d", id, ret);
 		if (!vcu_ptr->abort) {
 			task_lock(vcud_task);
 			send_sig(SIGTERM, vcud_task, 0);
 			task_unlock(vcud_task);
+		}
+		if (vcu_ptr->open_cnt > 0) {
 			dev_info(vcu->dev, "wait for vpud killed %d\n",
 				vcu_ptr->vpud_killed.count);
 			ret = down_interruptible(&vcu_ptr->vpud_killed);
 		}
+		dev_info(&pdev->dev, "[VCU] vpud killed\n");
 		ret = -EIO;
 		goto end;
 	} else if (-ERESTARTSYS == ret) {
