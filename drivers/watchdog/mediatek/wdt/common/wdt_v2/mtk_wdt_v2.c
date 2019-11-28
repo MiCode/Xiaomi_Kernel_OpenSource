@@ -63,6 +63,13 @@ static const struct of_device_id rgu_of_match[] = {
 	{},
 };
 
+__weak int mtk_dbgtop_dram_reserved(int enable)
+{
+	return 0;
+};
+
+__weak void dfd_workaround(void) {};
+
 /**---------------------------------------------------------------------
  * Sub feature switch region
  *----------------------------------------------------------------------
