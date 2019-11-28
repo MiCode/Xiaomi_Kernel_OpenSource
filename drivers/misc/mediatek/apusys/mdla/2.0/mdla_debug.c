@@ -452,8 +452,6 @@ int mdla_create_dmp_cmd_buf(struct command_entry *ce,
 	struct mdla_dev *mdla_info)
 {
 	int ret = 0;
-	int i;
-	__u32 *cmd_addr;
 
 	if (ce->kva == NULL)
 		return ret;
@@ -469,21 +467,13 @@ int mdla_create_dmp_cmd_buf(struct command_entry *ce,
 	mdla_info->cmd_buf_len = ce->count*MREG_CMD_SIZE;
 	memcpy(mdla_info->cmd_buf_dmp, ce->kva, mdla_info->cmd_buf_len);
 
-	if (mdla_timeout_dbg) {
-		cmd_addr = mdla_info->cmd_buf_dmp;
-		for (i = 0; i < (mdla_info->cmd_buf_len/4); i++)
-			mdla_timeout_debug("count: %d, offset: %.8x, val: %.8x\n",
-				(i*4)/MREG_CMD_SIZE,
-				(i*4)%MREG_CMD_SIZE,
-				cmd_addr[i]);
-	}
 out:
 	mutex_unlock(&mdla_info->cmd_buf_dmp_lock);
 	return ret;
 
 }
 
-static void mdla_dump_cmd_buf_free(int core_id)
+void mdla_dump_cmd_buf_free(int core_id)
 {
 	mutex_lock(&mdla_devices[core_id].cmd_buf_dmp_lock);
 	if (mdla_devices[core_id].cmd_buf_len != 0) {
@@ -568,7 +558,6 @@ int mdla_dump_dbg(struct mdla_dev *mdla_info, struct command_entry *ce)
 	mdla_dump_reg(mdla_info->mdlaid);
 	mdla_dump_cmd_buf_free(mdla_info->mdlaid);
 	mdla_create_dmp_cmd_buf(ce, mdla_info);
-	mdla_run_command_codebuf_check(ce);
 	apusys_reg_dump();
 	mdla_aee_warn("MDLA", "MDLA timeout");
 

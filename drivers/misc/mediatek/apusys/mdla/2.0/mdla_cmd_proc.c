@@ -329,6 +329,11 @@ int mdla_run_command_sync(struct mdla_run_cmd *cd,
 	ce.poweron_t = sched_clock();
 	ce.req_start_t = sched_clock();
 
+	if (mdla_timeout_dbg) {
+		mdla_dump_cmd_buf_free(mdla_info->mdlaid);
+		mdla_create_dmp_cmd_buf(&ce, mdla_info);
+	}
+
 	/* Fill HW reg */
 	mdla_process_command(core_id, &ce);
 

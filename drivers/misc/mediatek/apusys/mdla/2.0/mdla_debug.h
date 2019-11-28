@@ -122,6 +122,10 @@ int mdla_dump_mdla_memory(struct seq_file *s);
 
 int mdla_dump_dbg(struct mdla_dev *mdla_info, struct command_entry *ce);
 
+void mdla_dump_cmd_buf_free(int core_id);
+
+int mdla_create_dmp_cmd_buf(struct command_entry *ce,
+	struct mdla_dev *mdla_info);
 
 enum MDLA_DEBUG_MASK {
 	MDLA_DBG_DRV = 0x01,
