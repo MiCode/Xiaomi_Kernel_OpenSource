@@ -1338,7 +1338,7 @@ static void v4l_fill_fmtdesc(struct v4l2_fmtdesc *fmt)
 		case V4L2_PIX_FMT_RGB32_AFBC:
 			descr = "32-bit AFBC A/XRGB 8-8-8-8"; break;
 		case V4L2_PIX_FMT_RGBA1010102_AFBC:
-			descr = "10-bit AFBC for RGB, 2-bit for A"; break;
+			descr = "10-bit AFBC RGB 2-bit for A"; break;
 		case V4L2_PIX_FMT_ARGB1010102:
 		case V4L2_PIX_FMT_ABGR1010102:
 		case V4L2_PIX_FMT_RGBA1010102:

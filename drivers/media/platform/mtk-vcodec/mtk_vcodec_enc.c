@@ -966,23 +966,8 @@ static void mtk_venc_set_param(struct mtk_vcodec_ctx *ctx,
 	param->max_w = enc_params->max_w;
 	param->max_h = enc_params->max_h;
 	param->num_b_frame = enc_params->num_b_frame;
-
 	param->slbc_ready = ctx->use_slbc;
 
-	ctx->use_gce = (ctx->use_gce == 1) ?
-		ctx->use_gce :
-		(enc_params->operationrate >= MTK_SLOWMOTION_GCE_TH);
-
-	mtk_v4l2_debug(0,
-	"fmt 0x%x, P/L %d/%d, w/h %d/%d, buf %d/%d, fps/bps %d/%d(%d), gop %d, ip# %d opr %d smvr %d grid size %d/%d b#%d, slbc %d",
-	param->input_yuv_fmt, param->profile,
-	param->level, param->width, param->height,
-	param->buf_width, param->buf_height,
-	param->frm_rate, param->bitrate, param->bitratemode,
-	param->gop_size, param->intra_period,
-	param->operationrate, ctx->use_gce,
-	(param->heif_grid_size>>16), param->heif_grid_size&0xffff,
-	param->num_b_frame, param->slbc_ready);
 }
 
 static int vidioc_venc_subscribe_evt(struct v4l2_fh *fh,
@@ -1004,7 +989,7 @@ static void mtk_vdec_queue_stop_enc_event(struct mtk_vcodec_ctx *ctx)
 		.type = V4L2_EVENT_EOS,
 	};
 
-	mtk_v4l2_debug(1, "[%d]", ctx->id);
+	mtk_v4l2_debug(0, "[%d]", ctx->id);
 	v4l2_event_queue_fh(&ctx->fh, &ev_eos);
 }
 
@@ -1014,7 +999,7 @@ static void mtk_venc_queue_error_event(struct mtk_vcodec_ctx *ctx)
 		.type = V4L2_EVENT_MTK_VENC_ERROR,
 	};
 
-	mtk_v4l2_debug(1, "[%d]", ctx->id);
+	mtk_v4l2_debug(0, "[%d]", ctx->id);
 	v4l2_event_queue_fh(&ctx->fh, &ev_error);
 }
 
@@ -1392,7 +1377,7 @@ static int vidioc_encoder_cmd(struct file *file, void *priv,
 	if (ret)
 		return ret;
 
-	mtk_v4l2_debug(1, "encoder cmd= %u", cmd->cmd);
+	mtk_v4l2_debug(0, "encoder cmd= %u", cmd->cmd);
 	dst_vq = v4l2_m2m_get_vq(ctx->m2m_ctx,
 		V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
 	switch (cmd->cmd) {
@@ -1644,6 +1629,18 @@ static int vb2ops_venc_start_streaming(struct vb2_queue *q, unsigned int count)
 	memset(&param, 0, sizeof(param));
 	mtk_venc_set_param(ctx, &param);
 	ret = venc_if_set_param(ctx, VENC_SET_PARAM_ENC, &param);
+
+	mtk_v4l2_debug(0,
+	"fmt 0x%x, P/L %d/%d, w/h %d/%d, buf %d/%d, fps/bps %d/%d(%d), gop %d, ip# %d opr %d async %d grid size %d/%d b#%d, slbc %d",
+	param.input_yuv_fmt, param.profile,
+	param.level, param.width, param.height,
+	param.buf_width, param.buf_height,
+	param.frm_rate, param.bitrate, param.bitratemode,
+	param.gop_size, param.intra_period,
+	param.operationrate, ctx->async_mode,
+	(param.heif_grid_size>>16), param.heif_grid_size&0xffff,
+	param.num_b_frame, param.slbc_ready);
+
 	if (ret) {
 		mtk_v4l2_err("venc_if_set_param failed=%d", ret);
 		ctx->state = MTK_STATE_ABORT;
@@ -1700,7 +1697,8 @@ static void vb2ops_venc_stop_streaming(struct vb2_queue *q)
 	ret = venc_if_encode(ctx,
 		VENC_START_OPT_ENCODE_FRAME_FINAL,
 		NULL, NULL, &enc_result);
-	mtk_enc_put_buf(ctx);
+	if (!ctx->async_mode)
+		mtk_enc_put_buf(ctx);
 
 	if (ret)
 		mtk_v4l2_err("venc_if_deinit failed=%d", ret);
@@ -1859,14 +1857,15 @@ static int mtk_venc_param_change(struct mtk_vcodec_ctx *ctx)
 
 	if (!ret && mtk_buf->param_change & MTK_ENCODE_PARAM_SCENARIO) {
 		enc_prm.scenario = mtk_buf->enc_params.scenario;
-		mtk_v4l2_debug(1, "[%d] idx=%d, change param scenario=%d",
-			       ctx->id,
-			       mtk_buf->vb.vb2_buf.index,
-			       mtk_buf->enc_params.scenario);
 		if (mtk_buf->enc_params.scenario)
 			ret |= venc_if_set_param(ctx,
 						 VENC_SET_PARAM_SCENARIO,
 						 &enc_prm);
+		mtk_v4l2_debug(0, "[%d] idx=%d, change param scenario=%d async_mode=%d",
+			       ctx->id,
+			       mtk_buf->vb.vb2_buf.index,
+			       mtk_buf->enc_params.scenario,
+			       ctx->async_mode);
 	}
 
 	if (!ret && mtk_buf->param_change & MTK_ENCODE_PARAM_NONREFP) {
@@ -1926,9 +1925,6 @@ static int mtk_venc_param_change(struct mtk_vcodec_ctx *ctx)
 		ret |= venc_if_set_param(ctx,
 					VENC_SET_PARAM_OPERATION_RATE,
 					&enc_prm);
-		ctx->use_gce = (ctx->use_gce == 1) ?
-			ctx->use_gce : (mtk_buf->enc_params.operationrate >=
-				MTK_SLOWMOTION_GCE_TH);
 	}
 
 	if (!ret &&
@@ -2106,7 +2102,7 @@ static void mtk_venc_worker(struct work_struct *work)
 					ctx->state = MTK_STATE_ABORT;
 					mtk_venc_queue_error_event(ctx);
 				}
-			} else
+			} else if (!ctx->async_mode)
 				mtk_enc_put_buf(ctx);
 
 			v4l2_m2m_buf_done(dst_vb2_v4l2,
@@ -2192,7 +2188,7 @@ static void mtk_venc_worker(struct work_struct *work)
 			ctx->state = MTK_STATE_ABORT;
 			mtk_venc_queue_error_event(ctx);
 		}
-	} else
+	} else if (!ctx->async_mode)
 		mtk_enc_put_buf(ctx);
 
 	v4l2_m2m_job_finish(ctx->dev->m2m_dev_enc, ctx->m2m_ctx);

@@ -171,7 +171,7 @@ static struct ion_client *ion_venc_client;
 
 void mtk_venc_init_ctx_pm(struct mtk_vcodec_ctx *ctx)
 {
-	ctx->use_gce = 1;
+	ctx->async_mode = 1;
 
 	ctx->sram_data.uid = UID_MM_VENC;
 	ctx->sram_data.type = TP_BUFFER;
@@ -530,7 +530,7 @@ void mtk_venc_dvfs_end(struct temp_job *job)
 	venc_cur_job = venc_jobs;
 	if (venc_cur_job != 0 && (venc_cur_job->handle == &ctx->id)) {
 		venc_cur_job->end = get_time_us();
-		if (ctx->use_gce == 0) {
+		if (ctx->async_mode == 0) {
 			update_hist(venc_cur_job, &venc_hists, 0);
 		} else {
 			/* Set allowed time for slowmotion 4 buffer pack */
@@ -570,7 +570,7 @@ void mtk_venc_emi_bw_begin(struct temp_job **jobs)
 	int boost_perc = 0;
 	long emi_bw = 0;
 
-	if (ctx->use_gce == 1)
+	if (ctx->async_mode == 1)
 		boost_perc = 100;
 
 	if (ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc == V4L2_PIX_FMT_H265 ||

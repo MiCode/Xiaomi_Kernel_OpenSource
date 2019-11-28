@@ -472,6 +472,7 @@ struct venc_vsi {
 	__u32  sizeimage[VIDEO_MAX_PLANES];
 	struct ring_input_list list_free;
 	struct venc_info       venc;
+	__u32 sync_mode;
 };
 
 #endif /* _VENC_IPI_MSG_H_ */

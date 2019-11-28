@@ -371,7 +371,7 @@ struct mtk_vcodec_ctx {
 	wait_queue_head_t fm_wq;
 	int input_driven;
 	int user_lock_hw;
-	int use_gce;
+	int async_mode;
 	int oal_vcodec;
 
 	enum v4l2_colorspace colorspace;
