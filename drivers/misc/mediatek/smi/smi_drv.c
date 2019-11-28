@@ -613,6 +613,10 @@ static void smi_debug_dump_status(const bool gce)
 			on ? ' ' : '*', smi_record[i][0].sec,
 			smi_record[i][0].nsec, smi_record[i][0].user);
 	}
+#if IS_ENABLED(CONFIG_MACH_MT6885)
+	SMIWRN(gce, "======== ccf cam debug ========\n");
+	mtk_ccf_cam_debug("smi", "smi", NULL);
+#endif
 }
 
 s32 smi_debug_bus_hang_detect(const bool gce, const char *user)
