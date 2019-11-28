@@ -202,6 +202,7 @@ static DEFINE_MUTEX(jpeg_hybrid_dec_lock);
 #define JPGDEC_BASE_0 0x17040000
 #define JPGDEC_BASE_1 0x17050000
 #define JPGDEC_BASE_2 0x17840000
+#define JPGDEC_REGION 0x1000
 
 static struct JPEG_DEC_DRV_HWINFO dec_hwinfo[HW_CORE_NUMBER] = {
 	{false, JPGDEC_BASE_0},
@@ -2019,6 +2020,18 @@ jpeg_remap_vm_ops = {
 
 static int jpeg_mmap(struct file *file, struct vm_area_struct *vma)
 {
+	unsigned long length;
+	unsigned long pfn;
+
+	length = vma->vm_end - vma->vm_start;
+	pfn = vma->vm_pgoff<<PAGE_SHIFT;
+
+	if (length > JPGDEC_REGION || (pfn != JPGDEC_BASE_0
+		&& pfn != JPGDEC_BASE_1 && pfn != JPGDEC_BASE_2)) {
+		JPEG_WRN("[JPEG] illegal mmap pfn 0x%lx, len 0x%lx\n",
+			pfn, length);
+		return -EAGAIN;
+	}
 	JPEG_WRN("[JPEG] start 0x%lx, end 0x%lx, pgoff 0x%lx\n",
 			(unsigned long)vma->vm_start,
 			(unsigned long)vma->vm_end,
