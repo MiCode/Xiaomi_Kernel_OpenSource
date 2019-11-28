@@ -739,6 +739,10 @@ struct kbase_jd_atom {
 	struct rb_node runnable_tree_node;
 
 	u32 age;
+
+#if defined(MTK_GPU_BM_2)
+        u32 frame_nr;
+#endif
 };
 
 /**
@@ -1200,6 +1204,21 @@ struct kbase_mmu_mode const *kbase_mmu_mode_get_aarch64(void);
 
 
 #define DEVNAME_SIZE	16
+
+#if defined(MTK_GPU_BM_2)
+struct job_status_qos {
+        phys_addr_t phyaddr;
+        size_t size;
+};
+
+struct v1_data {
+        unsigned int version;
+        unsigned int ctx;
+        unsigned int frame;
+        unsigned int job;
+        unsigned int freq;
+};
+#endif
 
 /**
  * enum kbase_devfreq_work_type - The type of work to perform in the devfreq
@@ -1718,6 +1737,10 @@ struct kbase_device {
 	/* See KBASE_JS_*_PRIORITY_MODE for details. */
 	u32 js_ctx_scheduling_mode;
 
+#if defined(MTK_GPU_BM_2)
+        struct job_status_qos job_status_addr;
+        struct v1_data* v1;
+#endif
 };
 
 /**
