@@ -92,6 +92,7 @@ obj-$(CONFIG_MACH_MT6771) += clkbuf_v1/
 obj-$(CONFIG_MACH_MT6739) += clkbuf_v1/
 obj-$(CONFIG_MACH_MT6739) += dcm_v1/
 obj-$(CONFIG_MACH_MT6885) += dcm_v1/
+obj-$(CONFIG_MACH_MT6873) += dcm_v1/
 obj-$(CONFIG_MACH_MT6771) += mcdi/
 obj-$(CONFIG_MACH_MT6739) += mcdi/
 obj-$(CONFIG_MACH_MT6785) += cpuidle_v3/
