@@ -56,6 +56,10 @@ static DEFINE_MUTEX(g_color_reg_lock);
 static struct DISPLAY_COLOR_REG g_color_reg;
 static int g_color_reg_valid;
 
+#define C1_OFFSET (0)
+#define color_get_offset(module) (0)
+#define is_color1_module(module) (0)
+
 enum COLOR_IOCTL_CMD {
 	SET_PQPARAM = 0,
 	SET_COLOR_REG,
@@ -1155,6 +1159,12 @@ static void ddp_color_set_window(struct mtk_ddp_comp *comp,
 
 	ddp_color_cal_split_window(comp, &split_window_x, &split_window_y);
 
+	DDPINFO("%s: current window setting: en[%d], x[0x%x], y[0x%x]",
+		__func__,
+		(readl(comp->regs+DISP_COLOR_DBG_CFG_MAIN)&0x00000008)>>3,
+		readl(comp->regs+DISP_COLOR_WIN_X_MAIN),
+		readl(comp->regs+DISP_COLOR_WIN_Y_MAIN));
+
 	DDPINFO("%s: output: x[0x%x], y[0x%x]", __func__, split_window_x, split_window_y);
 
 	cmdq_pkt_write(handle, comp->cmdq_base,
@@ -2064,6 +2074,14 @@ static void mtk_color_config(struct mtk_ddp_comp *comp,
 {
 	struct mtk_disp_color *color = comp_to_color(comp);
 
+	//if (!cfg->dst_dirty)
+	//	return 0;
+
+	int id = index_of_color(comp->id);
+
+	g_color_dst_w[id] = cfg->w;
+	g_color_dst_h[id] = cfg->h;
+
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		       comp->regs_pa + DISP_COLOR_WIDTH(color), cfg->w, ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base,
@@ -2888,6 +2906,34 @@ int mtk_drm_ioctl_pq_set_window(struct drm_device *dev, void *data,
 	struct mtk_ddp_comp *comp = private->ddp_comp[DDP_COMPONENT_COLOR0];
 	struct drm_crtc *crtc = private->crtc[0];
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct DISP_PQ_WIN_PARAM *win_param = data;
+
+	unsigned int split_window_x, split_window_y;
+
+	/* save to global, can be applied on following PQ param updating. */
+	if (win_param->split_en) {
+		g_split_en = 1;
+		g_split_window_x_start = win_param->start_x;
+		g_split_window_y_start = win_param->start_y;
+		g_split_window_x_end = win_param->end_x;
+		g_split_window_y_end = win_param->end_y;
+	} else {
+		g_split_en = 0;
+		g_split_window_x_start = 0x0000;
+		g_split_window_y_start = 0x0000;
+		g_split_window_x_end = 0xFFFF;
+		g_split_window_y_end = 0xFFFF;
+	}
+
+	DDPINFO("%s: input: id[%d], en[%d], x[0x%x], y[0x%x]\n",
+		__func__, comp->id, g_split_en,
+		((win_param->end_x << 16) | win_param->start_x),
+		((win_param->end_y << 16) | win_param->start_y));
+
+	ddp_color_cal_split_window(comp, &split_window_x, &split_window_y);
+
+	DDPINFO("%s: output: x[0x%x], y[0x%x]", __func__,
+		split_window_x, split_window_y);
 
 	DDPINFO("%s..., id=%d, en=%d, x=0x%x, y=0x%x\n",
 		__func__, comp->id, g_split_en,
