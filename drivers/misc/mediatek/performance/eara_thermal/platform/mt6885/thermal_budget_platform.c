@@ -90,7 +90,7 @@ void eara_thrm_update_gpu_info(int *input_opp_num, int *in_max_opp_idx,
 
 int eara_thrm_get_vpu_core_num(void)
 {
-#if defined(CONFIG_MTK_VPU_SUPPORT) || defined(CONFIG_MTK_APUSYS_SUPPORT)
+#if defined(CONFIG_MTK_APUSYS_SUPPORT)
 	return 3;
 #else
 	return 0;
@@ -99,7 +99,7 @@ int eara_thrm_get_vpu_core_num(void)
 
 int eara_thrm_get_mdla_core_num(void)
 {
-#if defined(CONFIG_MTK_MDLA_SUPPORT) || defined(CONFIG_MTK_APUSYS_SUPPORT)
+#if defined(CONFIG_MTK_APUSYS_SUPPORT)
 	return 2;
 #else
 	return 0;
@@ -109,6 +109,9 @@ int eara_thrm_get_mdla_core_num(void)
 int eara_thrm_vpu_opp_to_freq(int opp)
 {
 #ifdef CONFIG_MTK_APUSYS_SUPPORT
+	if (!eara_thrm_apu_ready())
+		return 100;
+
 	return apusys_opp_to_freq(VPU0, opp);
 #elif CONFIG_MTK_VPU_SUPPORT
 	return get_vpu_opp_to_freq(opp);
@@ -120,11 +123,74 @@ int eara_thrm_vpu_opp_to_freq(int opp)
 int eara_thrm_mdla_opp_to_freq(int opp)
 {
 #ifdef CONFIG_MTK_APUSYS_SUPPORT
+	if (!eara_thrm_apu_ready())
+		return 100;
+
 	return apusys_opp_to_freq(MDLA0, opp);
 #elif CONFIG_MTK_MDLA_SUPPORT
 	return get_mdla_opp_to_freq(opp);
 #else
 	return 100;
+#endif
+}
+
+int eara_thrm_vpu_get_cur_opp(void)
+{
+#ifdef CONFIG_MTK_APUSYS_SUPPORT
+	if (!eara_thrm_apu_ready())
+		return -1;
+
+	return apusys_get_opp(VPU0);
+#else
+	return -1;
+#endif
+}
+
+int eara_thrm_mdla_get_cur_opp(void)
+{
+#ifdef CONFIG_MTK_APUSYS_SUPPORT
+	if (!eara_thrm_apu_ready())
+		return -1;
+
+	return apusys_get_opp(MDLA0);
+#else
+	return -1;
+#endif
+}
+
+int eara_thrm_apu_ready(void)
+{
+#ifdef CONFIG_MTK_APUSYS_SUPPORT
+	if (!apusys_power_check())
+		return 0;
+
+	return 1;
+#else
+	return 1;
+#endif
+}
+
+int eara_thrm_vpu_onoff(void)
+{
+#ifdef CONFIG_MTK_APUSYS_SUPPORT
+	if (!apusys_power_check())
+		return 0;
+
+	return apu_get_power_on_status(VPU0);
+#else
+	return 0;
+#endif
+}
+
+int eara_thrm_mdla_onoff(void)
+{
+#ifdef CONFIG_MTK_APUSYS_SUPPORT
+	if (!apusys_power_check())
+		return 0;
+
+	return apu_get_power_on_status(MDLA0);
+#else
+	return 0;
 #endif
 }
 
