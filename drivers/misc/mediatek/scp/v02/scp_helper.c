@@ -1384,14 +1384,10 @@ void scp_sys_reset_ws(struct work_struct *ws)
 	unsigned int scp_reset_type = sws->flags;
 	unsigned long spin_flags;
 
-
-
+	pr_debug("[SCP] %s(): remain %d times\n", __func__, scp_reset_counts);
 	/*notify scp functions stop*/
 	pr_debug("[SCP] %s(): scp_extern_notify\n", __func__);
 	scp_extern_notify(SCP_EVENT_STOP);
-	/*set scp not ready*/
-	pr_debug("[SCP] %s(): scp_status_set\n", __func__);
-
 	/*
 	 *   scp_ready:
 	 *   SCP_PLATFORM_STOP  = 0,
@@ -1406,12 +1402,6 @@ void scp_sys_reset_ws(struct work_struct *ws)
 	scp_resource_req(SCP_REQ_26M);
 #endif  // CONFIG_FPGA_EARLY_PORTING
 
-	/*disable scp logger
-	 * 0: scp logger disable
-	 * 1: scp logger enable
-	 */
-	pr_debug("[SCP] %s(): disable logger\n", __func__);
-	scp_logger_init_set(0);
 	/* print_clk and scp_aed before pll enable to keep ori CLK_SEL */
 	print_clk_registers();
 	/*workqueue for scp ee, scp reset by cmd will not trigger scp ee*/
@@ -1419,6 +1409,9 @@ void scp_sys_reset_ws(struct work_struct *ws)
 		pr_debug("[SCP] %s(): scp_aed_reset\n", __func__);
 		scp_aed(scp_reset_type, SCP_A_ID);
 	}
+	pr_debug("[SCP] %s(): disable logger\n", __func__);
+	/* logger disable must after scp_aed() */
+	scp_logger_init_set(0);
 
 	pr_debug("[SCP] %s(): scp_pll_ctrl_set\n", __func__);
 	/*request pll clock before turn off scp */
@@ -1441,8 +1434,8 @@ void scp_sys_reset_ws(struct work_struct *ws)
 		scp_reset_wait_timeout();
 		writel(1, R_CORE0_SW_RSTN_SET);
 		writel(1, R_CORE1_SW_RSTN_SET);
-		writel(1, SCP_GPR_CORE0_REBOOT);
-		writel(1, SCP_GPR_CORE1_REBOOT);
+		writel(CORE_REBOOT_OK, SCP_GPR_CORE0_REBOOT);
+		writel(CORE_REBOOT_OK, SCP_GPR_CORE1_REBOOT);
 		dsb(SY); /* may take lot of time */
 		pr_notice("[SCP] rstn core0 %x core1 %x\n",
 		readl(R_CORE0_SW_RSTN_SET), readl(R_CORE1_SW_RSTN_SET));

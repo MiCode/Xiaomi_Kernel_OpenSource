@@ -42,7 +42,7 @@ struct reg_save_st {
 struct reg_save_st reg_save_list[] = {
 	/* size must 16 byte alignment */
 	{0x10721000, 0x120},
-	{0x10724000, 0x160},
+	{0x10724000, 0x170},
 	{0x10730000, 0x120},
 	{0x10732000, 0x260},
 	{0x10733000, 0x120},
@@ -66,7 +66,7 @@ struct scp_status_reg c1_m;
 
 static struct mutex scp_excep_mutex;
 int scp_ee_enable;
-int scp_reset_counts = 0x3fffffff;
+int scp_reset_counts = 100000;
 
 void scp_dump_last_regs(void)
 {
