@@ -1124,6 +1124,15 @@ start:
 		LOG_ERR("user ctx int(%d) cmd(0x%llx)\n",
 			ret, cmd->cmd_id);
 	} else {
+		mutex_lock(&cmd->mtx);
+		if (cmd->state != CMD_STATE_DONE) {
+			LOG_WARN("(%d/%d)cmd(0x%llx/0x%llx) not done\n",
+				cmd->pid,
+				cmd->tgid,
+				cmd->hdr->uid,
+				cmd->cmd_id);
+		}
+		mutex_unlock(&cmd->mtx);
 		ret = 0;
 	}
 
