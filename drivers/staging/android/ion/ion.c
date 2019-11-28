@@ -1147,10 +1147,7 @@ static struct sg_table *ion_map_dma_buf(struct dma_buf_attachment *attachment,
 	struct ion_buffer *buffer;
 	ion_phys_addr_t addr = 0x0;
 	size_t len = 0;
-	int ret = 0;
-#ifdef MTK_ION_MAPPING_PERF_DEBUG
-	unsigned long long start = 0, end = 0;
-#endif
+	int ret = 0, retry = 0;
 
 	if (!attachment ||
 	    !attachment->priv ||
@@ -1179,15 +1176,19 @@ static struct sg_table *ion_map_dma_buf(struct dma_buf_attachment *attachment,
 		if (clone_sg_table(buffer->sg_table, table))
 			return ERR_PTR(-EINVAL);
 	} else {
+retry:
 		mutex_lock(&buffer->lock);
-#ifdef MTK_ION_MAPPING_PERF_DEBUG
-		start = sched_clock();
-#endif
 		if (buffer->heap->ops->dma_buf_config) {
 			ret = buffer->heap->ops->dma_buf_config(
 						      buffer, attachment->dev);
 			if (ret) {
 				mutex_unlock(&buffer->lock);
+				if (ret == -ION_ERROR_CONFIG_CONFLICT &&
+				    retry++ < 3) {
+					IONMSG("%s, corrupt, retry%d...\n",
+					       __func__, retry);
+					goto retry;
+				}
 				IONMSG("%s, failed at dmabuf process, ret:%d\n",
 				       __func__, ret);
 				return ERR_PTR(ret);
@@ -1198,9 +1199,6 @@ static struct sg_table *ion_map_dma_buf(struct dma_buf_attachment *attachment,
 					      buffer,
 					      &addr,
 					      &len);
-#ifdef MTK_ION_MAPPING_PERF_DEBUG
-		end = sched_clock();
-#endif
 
 		if (ret) {
 			mutex_unlock(&buffer->lock);
@@ -1220,13 +1218,6 @@ static struct sg_table *ion_map_dma_buf(struct dma_buf_attachment *attachment,
 			return ERR_PTR(-EINVAL);
 		}
 		mutex_unlock(&buffer->lock);
-#ifdef MTK_ION_MAPPING_PERF_DEBUG
-		if (buffer->sg_table && ((end - start) /
-		    buffer->sg_table->nents > 500000ULL) ||
-		    (end - start > 50000000ULL))
-			IONMSG("warn: ion phys time: %lluns, nents:%u\n",
-			       end - start, buffer->sg_table->nents);
-#endif
 	}
     //pr_debug("%s, %d\n", __func__, __LINE__);
 
@@ -2135,9 +2126,6 @@ int ion_phys(struct ion_client *client, struct ion_handle *handle,
 {
 	struct ion_buffer *buffer;
 	int ret;
-#ifdef MTK_ION_MAPPING_PERF_DEBUG
-	unsigned long long start = 0, end = 0;
-#endif
 
 	/*avoid camelcase, will modify in a letter*/
 	mmprofile_log_ex(ion_mmp_events[PROFILE_GET_PHYS], MMPROFILE_FLAG_START,
@@ -2160,21 +2148,8 @@ int ion_phys(struct ion_client *client, struct ion_handle *handle,
 	}
 	mutex_unlock(&client->lock);
 	mutex_lock(&buffer->lock);
-#ifdef MTK_ION_MAPPING_PERF_DEBUG
-	start = sched_clock();
-#endif
 	ret = buffer->heap->ops->phys(buffer->heap, buffer, addr, len);
-#ifdef MTK_ION_MAPPING_PERF_DEBUG
-	end = sched_clock();
-#endif
 	mutex_unlock(&buffer->lock);
-#ifdef MTK_ION_MAPPING_PERF_DEBUG
-	if (buffer->sg_table && ((end - start) /
-	    buffer->sg_table->nents > 500000ULL) ||
-	    (end - start > 50000000ULL))
-		IONMSG("warn: ion phys time: %lluns, nents:%u\n",
-		       end - start, buffer->sg_table->nents);
-#endif
 	if (ret == -EDOM)
 		aee_kernel_warning_api(__FILE__, __LINE__,
 				       DB_OPT_DEFAULT |

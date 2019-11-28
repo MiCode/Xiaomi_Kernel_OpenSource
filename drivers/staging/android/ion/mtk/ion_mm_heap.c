@@ -50,6 +50,7 @@
 #ifdef CONFIG_MTK_IOMMU_V2
 #include <mach/pseudo_m4u.h>
 #include "mtk_iommu_ext.h"
+#define MTK_ION_MAPPING_PERF_DEBUG
 #endif
 
 struct ion_mm_buffer_info {
@@ -783,7 +784,11 @@ static int ion_mm_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 	int ret = 0;
 	bool non_vmalloc_request = false;
 	int domain_idx = 0;
+#ifdef MTK_ION_MAPPING_PERF_DEBUG
+	unsigned long long start = 0, end = 0;
 
+	start = sched_clock();
+#endif
 	if (!buffer_info) {
 		IONMSG("[%s] Error. Invalid buffer.\n", __func__);
 		return -EFAULT;	/* Invalid buffer */
@@ -979,6 +984,19 @@ static int ion_mm_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 	ret = 0;
 
 out:
+#ifdef MTK_ION_MAPPING_PERF_DEBUG
+	end = sched_clock();
+	if (buffer->sg_table &&
+	    buffer->sg_table->nents > 10 &&
+	    ((end - start) /
+	     buffer->sg_table->nents > 500000ULL) ||
+	    (end - start > 50000000ULL))
+		IONMSG("warn: p(%d-%d) phys time:%lluns n:%u s:%zu\n",
+		       buffer_info->module_id,
+		       buffer_info->fix_module_id,
+		       end - start, buffer->sg_table->nents,
+		       buffer->size);
+#endif
 #if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
 	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 	if ((port_info.flags & M4U_FLAGS_FIX_MVA) == 0)
@@ -1047,7 +1065,7 @@ static int ion_mm_heap_dma_buf_config(
 		       "dmabuf config buffer of port:%d failed, conflict with port:%d/%d\n",
 		       port_id, buffer_info->module_id,
 		       buffer_info->fix_module_id);
-		return -2;
+		return -ION_ERROR_CONFIG_CONFLICT;
 	}
 
 	buffer_info->module_id = port_id;
