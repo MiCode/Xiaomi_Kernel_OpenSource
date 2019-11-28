@@ -344,6 +344,7 @@ static void scp_A_notify_ws(struct work_struct *ws)
 #if SCP_RECOVERY_SUPPORT
 		atomic_set(&scp_reset_status, RESET_STATUS_STOP);
 #endif
+		scp_ready[SCP_A_ID] = 1;
 		pr_debug("[SCP] notify blocking call\n");
 		blocking_notifier_call_chain(&scp_A_notifier_list
 			, SCP_EVENT_READY, NULL);
@@ -452,7 +453,6 @@ static void scp_A_ready_ipi_handler(int id, void *prdata, void *data,
 	unsigned int scp_image_size = *(unsigned int *)data;
 
 	if (!scp_ready[SCP_A_ID]) {
-		scp_ready[SCP_A_ID] = 1;
 		scp_A_set_ready();
 	}
 
