@@ -669,6 +669,18 @@ static inline void __incr_alt(int t, int max, int *incr_t, int *incr_c)
 		*incr_c = 1;
 }
 
+static void fbt_reset_cpu_prefer(struct fpsgo_loading *fl)
+{
+	if (!fl)
+		return;
+
+	if (fl->prefer_type == FPSGO_PREFER_NONE)
+		return;
+
+	fbt_set_cpu_prefer(fl->pid, FPSGO_PREFER_NONE);
+	fl->prefer_type = FPSGO_PREFER_NONE;
+}
+
 static int fbt_get_dep_list(struct render_info *thr)
 {
 	int pid;
@@ -713,8 +725,10 @@ static int fbt_get_dep_list(struct render_info *thr)
 		incr_i = incr_j = 0;
 
 		if (fl_new->pid == 0) {
-			if (i >= count && j < thr->dep_valid_size)
+			if (i >= count && j < thr->dep_valid_size) {
 				fbt_set_per_task_min_cap(fl_old->pid, 0);
+				fbt_reset_cpu_prefer(fl_old);
+			}
 			__incr_alt(i, count, &incr_i, &incr_j);
 			continue;
 		}
@@ -726,14 +740,19 @@ static int fbt_get_dep_list(struct render_info *thr)
 
 		if (fl_new->pid == fl_old->pid) {
 			fl_new->loading = fl_old->loading;
+			fl_new->prefer_type = fl_old->prefer_type;
 			incr_i = incr_j = 1;
 		} else if (fl_new->pid > fl_old->pid) {
-			if (j < thr->dep_valid_size)
+			if (j < thr->dep_valid_size) {
 				fbt_set_per_task_min_cap(fl_old->pid, 0);
+				fbt_reset_cpu_prefer(fl_old);
+			}
 			__incr_alt(j, thr->dep_valid_size, &incr_j, &incr_i);
 		} else { /* new pid < old pid */
-			if (i >= count && j < thr->dep_valid_size)
+			if (i >= count && j < thr->dep_valid_size) {
 				fbt_set_per_task_min_cap(fl_old->pid, 0);
+				fbt_reset_cpu_prefer(fl_old);
+			}
 			__incr_alt(i, count, &incr_i, &incr_j);
 		}
 	}
@@ -772,8 +791,10 @@ static void fbt_clear_min_cap(struct render_info *thr)
 		return;
 
 	for (i = 0; i < thr->dep_valid_size; i++) {
-		if (thr->dep_arr[i].pid)
+		if (thr->dep_arr[i].pid) {
 			fbt_set_per_task_min_cap(thr->dep_arr[i].pid, 0);
+			fbt_reset_cpu_prefer(&thr->dep_arr[i]);
+		}
 	}
 }
 
@@ -849,12 +870,16 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 			}
 		}
 
-		if (fbt_is_light_loading(fl->loading))
+		if (fbt_is_light_loading(fl->loading)) {
 			fbt_set_per_task_min_cap(fl->pid,
 				(!loading_policy) ? 0
 				: min_cap * loading_policy / 100);
-		else
+			fbt_set_cpu_prefer(fl->pid, FPSGO_PREFER_LITTLE);
+			fl->prefer_type = FPSGO_PREFER_LITTLE;
+		} else {
 			fbt_set_per_task_min_cap(fl->pid, min_cap);
+			fbt_reset_cpu_prefer(fl);
+		}
 
 		if (strlen(dep_str) == 0)
 			snprintf(temp, sizeof(temp), "%d", fl->pid);

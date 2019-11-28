@@ -95,6 +95,17 @@ void fbt_set_per_task_min_cap(int pid, unsigned int base_blc)
 	fpsgo_systrace_c_fbt_gm(pid, base_blc, "min_cap");
 }
 
+void fbt_set_cpu_prefer(int pid, unsigned int prefer_type)
+{
+	long ret;
+
+	if (!pid)
+		return;
+
+	ret = sched_set_cpuprefer(pid, prefer_type);
+	fpsgo_systrace_c_fbt(pid, prefer_type, "set_cpuprefer");
+}
+
 int fbt_get_L_cluster_num(void)
 {
 	return 0;

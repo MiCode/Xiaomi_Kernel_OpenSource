@@ -140,6 +140,7 @@ struct BQ_id {
 struct fpsgo_loading {
 	int pid;
 	int loading;
+	int prefer_type;
 };
 
 struct gbe_runtime {

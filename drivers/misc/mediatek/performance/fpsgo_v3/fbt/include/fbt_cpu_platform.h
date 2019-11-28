@@ -19,6 +19,13 @@
 
 #include "fbt_cpu.h"
 
+enum FPSGO_CPU_PREFER {
+	FPSGO_PREFER_NONE = 0,
+	FPSGO_PREFER_BIG = 1,
+	FPSGO_PREFER_LITTLE = 2,
+};
+
+extern int sched_set_cpuprefer(pid_t pid, unsigned int prefer_type);
 extern int capacity_min_write_for_perf_idx(int idx, int capacity_min);
 extern void cm_mgr_perf_set_status(int enable);
 extern int set_task_util_min_pct(pid_t pid, unsigned int min);
@@ -33,5 +40,6 @@ void fbt_reg_dram_request(int reg);
 void fbt_boost_dram(int boost);
 int fbt_get_default_boost_ta(void);
 int fbt_get_default_adj_loading(void);
+void fbt_set_cpu_prefer(int pid, unsigned int prefer_type);
 
 #endif
