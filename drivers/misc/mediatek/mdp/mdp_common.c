@@ -2475,10 +2475,10 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 static void cmdq_mdp_isp_begin_task_virtual(struct cmdqRecStruct *handle,
 	struct cmdqRecStruct **handle_list, u32 size)
 {
-	if (!(handle->engineFlag & (1LL << CMDQ_ENG_ISP_IMGI) &&
-		handle->engineFlag & (1LL << CMDQ_ENG_ISP_IMG2O))) {
+
+	if (!(handle->engineFlag & CMDQ_ENG_ISP_GROUP_BITS))
 		return;
-	}
+
 	CMDQ_LOG_PMQOS("enter %s handle:0x%p engine:0x%llx\n", __func__,
 		handle, handle->engineFlag);
 	cmdq_mdp_begin_task_virtual(handle, handle_list, size);

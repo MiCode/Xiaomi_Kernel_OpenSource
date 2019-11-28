@@ -1327,6 +1327,10 @@ static int __init cmdq_init(void)
 			cmdq_mdp_get_func()->beginTask,
 			cmdq_mdp_get_func()->endTask);
 
+	cmdq_core_register_task_cycle_cb(CMDQ_GROUP_ISP,
+			cmdq_mdp_get_func()->beginISPTask,
+			cmdq_mdp_get_func()->endISPTask);
+
 	status = platform_driver_register(&gCmdqDriver);
 	if (status != 0) {
 		CMDQ_ERR("Failed to register the CMDQ driver(%d)\n", status);
