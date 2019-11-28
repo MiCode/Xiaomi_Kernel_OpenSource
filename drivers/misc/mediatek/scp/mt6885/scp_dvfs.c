@@ -132,20 +132,32 @@ int scp_set_pmic_vcore(unsigned int cur_freq)
 
 	if (cur_freq == CLK_OPP0) {
 		get_vcore_val = get_vcore_uv_table(VCORE_OPP_3);
-		pr_debug("get_vcore_val = %d\n", get_vcore_val);
-		ret_vc = pmic_scp_set_vcore(get_vcore_val);
+		pr_notice("get_vcore_val = %d\n", get_vcore_val);
+		if (!get_vcore_val)
+			ret_vc = pmic_scp_set_vcore(575000);
+		else
+			ret_vc = pmic_scp_set_vcore(get_vcore_val);
 	} else if (cur_freq == CLK_OPP1) {
 		get_vcore_val = get_vcore_uv_table(VCORE_OPP_2);
-		pr_debug("get_vcore_val = %d\n", get_vcore_val);
-		ret_vc = pmic_scp_set_vcore(get_vcore_val);
+		pr_notice("get_vcore_val = %d\n", get_vcore_val);
+		if (!get_vcore_val)
+			ret_vc = pmic_scp_set_vcore(600000);
+		else
+			ret_vc = pmic_scp_set_vcore(get_vcore_val);
 	} else if (cur_freq == CLK_OPP2) {
 		get_vcore_val = get_vcore_uv_table(VCORE_OPP_1);
-		pr_debug("get_vcore_val = %d\n", get_vcore_val);
-		ret_vc = pmic_scp_set_vcore(get_vcore_val);
+		pr_notice("get_vcore_val = %d\n", get_vcore_val);
+		if (!get_vcore_val)
+			ret_vc = pmic_scp_set_vcore(650000);
+		else
+			ret_vc = pmic_scp_set_vcore(get_vcore_val);
 	}  else if (cur_freq == CLK_OPP3 || cur_freq == CLK_OPP4) {
 		get_vcore_val = get_vcore_uv_table(VCORE_OPP_0);
-		pr_debug("get_vcore_val = %d\n", get_vcore_val);
-		ret_vc = pmic_scp_set_vcore(get_vcore_val);
+		pr_notice("get_vcore_val = %d\n", get_vcore_val);
+		if (!get_vcore_val)
+			ret_vc = pmic_scp_set_vcore(725000);
+		else
+			ret_vc = pmic_scp_set_vcore(get_vcore_val);
 	} else {
 		ret = -2;
 		pr_err("ERROR: %s: cur_freq=%d is not supported\n",
