@@ -482,8 +482,8 @@ uint64_t apusys_mem_query_kva(uint32_t iova)
 	mutex_lock(&g_mem_mgr.list_mtx);
 	list_for_each_safe(list_ptr, tmp, &g_mem_mgr.list) {
 		mr = list_entry(list_ptr, struct mem_record, m_list);
-		if (mr->kmem.iova >= iova &&
-			mr->kmem.iova + mr->kmem.iova_size < iova) {
+		if (iova >= mr->kmem.iova &&
+			iova < mr->kmem.iova + mr->kmem.iova_size) {
 			kva = mr->kmem.kva + (uint64_t)(iova - mr->kmem.iova);
 			MLOG_DEBUG("query kva (0x%x->0x%llx)\n", iova, kva);
 		}
