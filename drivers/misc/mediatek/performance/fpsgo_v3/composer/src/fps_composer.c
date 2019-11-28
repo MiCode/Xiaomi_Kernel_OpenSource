@@ -35,7 +35,7 @@
 #include "fbt_cpu.h"
 #include "fstb.h"
 #include "xgf.h"
-#include "gbe.h"
+#include "gbe2.h"
 
 /*#define FPSGO_COM_DEBUG*/
 

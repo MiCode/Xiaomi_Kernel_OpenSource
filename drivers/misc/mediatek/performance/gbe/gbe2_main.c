@@ -31,7 +31,7 @@
 #include <linux/module.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
-#include "gbe_usedext.h"
+#include "gbe2_usedext.h"
 #include <linux/pm_qos.h>
 
 #define MAX_DEP_NUM 30
@@ -45,7 +45,6 @@
 
 static HLIST_HEAD(gbe_boost_units);
 static DEFINE_MUTEX(gbe_lock);
-struct dentry *gbe_debugfs_dir;
 static int gbe_enable;
 static int cluster_num;
 static struct pm_qos_request dram_req;
@@ -157,7 +156,7 @@ static void gbe_boost_cpu(void)
 		pm_req = PM_QOS_DDR_OPP_DEFAULT_VALUE;
 	}
 
-	update_userlimit_cpu_freq(CPU_KIR_GBE, cluster_num, pld);
+	update_userlimit_cpu_freq(CPU_KIR_GBE2, cluster_num, pld);
 	update_eas_uclamp_min(EAS_UCLAMP_KIR_GBE, CGROUP_TA, uclamp_pct);
 	pm_qos_update_request(&dram_req, pm_req);
 
@@ -557,24 +556,23 @@ static ssize_t gbe_boost_list_write(struct file *flip,
 
 GBE_DEBUGFS_ENTRY(boost_list);
 
-static void __exit gbe_exit(void)
+void gbe2_exit(void)
 {
 }
 
-static int __init gbe_init(void)
+int gbe2_init(void)
 {
-	gbe_debugfs_dir = debugfs_create_dir("gbe", NULL);
 	if (!gbe_debugfs_dir)
 		return -ENODEV;
 
-	debugfs_create_file("gbe_enable",
+	debugfs_create_file("gbe_enable2",
 			0644,
 			gbe_debugfs_dir,
 			NULL,
 			&gbe_enable_fops);
 
 
-	debugfs_create_file("gbe_boost_list",
+	debugfs_create_file("gbe_boost_list2",
 			0644,
 			gbe_debugfs_dir,
 			NULL,
@@ -585,8 +583,6 @@ static int __init gbe_init(void)
 	return 0;
 }
 
-module_init(gbe_init);
-module_exit(gbe_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("MediaTek GBE");
