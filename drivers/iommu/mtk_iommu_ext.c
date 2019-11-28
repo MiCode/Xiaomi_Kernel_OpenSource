@@ -150,7 +150,7 @@ char *mtk_iommu_get_port_name(unsigned int m4u_id,
 static inline int mtk_iommu_larb_port_idx(int id)
 {
 	unsigned int larb, port;
-	int index;
+	int index = -1;
 
 	larb = MTK_IOMMU_TO_LARB(id);
 	port = MTK_IOMMU_TO_PORT(id);
@@ -158,8 +158,11 @@ static inline int mtk_iommu_larb_port_idx(int id)
 	if (larb >= MTK_IOMMU_LARB_NR)
 		return ERROR_LARB_PORT_ID;
 
-	index = mtk_iommu_larb_distance[larb] + port;
-	if ((index >= M4U_PORT_NR) || (index < port))
+	if (mtk_iommu_larb_distance[larb] >= 0)
+		index = mtk_iommu_larb_distance[larb] + port;
+
+	if ((index >= M4U_PORT_NR) ||
+	    (index < 0))
 		return ERROR_LARB_PORT_ID;
 
 	if ((iommu_port[index].larb_id == larb) &&
