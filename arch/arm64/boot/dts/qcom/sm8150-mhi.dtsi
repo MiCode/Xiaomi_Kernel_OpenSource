@@ -479,7 +479,7 @@
 			};
 
 			mhi_event@6 {
-				mhi,num-elements = <1024>;
+				mhi,num-elements = <2048>;
 				mhi,intmod = <5>;
 				mhi,msi = <6>;
 				mhi,chan = <101>;
