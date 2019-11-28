@@ -43,15 +43,14 @@ static unsigned int disp_global_stage =
 	MAGIC_CODE | DISP_HELPER_STAGE_EARLY_PORTING;
 #else
 /* please change this to DISP_HELPER_STAGE_NORMAL after bring up done */
-#if 0
+#if 1
 static unsigned int disp_global_stage =
 	MAGIC_CODE | DISP_HELPER_STAGE_BRING_UP;
-#endif
-
+#else
 static unsigned int disp_global_stage =
 	MAGIC_CODE | DISP_HELPER_STAGE_NORMAL;
-
 #endif
+#endif //CONFIG_FPGA_EARLY_PORTING
 
 static unsigned int _is_early_porting_stage(void)
 {
