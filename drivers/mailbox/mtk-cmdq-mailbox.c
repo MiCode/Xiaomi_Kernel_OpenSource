@@ -819,7 +819,9 @@ static irqreturn_t cmdq_irq_handler(int irq, void *dev)
 	if (atomic_read(&cmdq->usage) <= 0) {
 		u32 irq_status_after;
 
-		clk_enable(cmdq->clock);
+		irq_status = clk_enable(cmdq->clock);
+		if (irq_status)
+			return IRQ_HANDLED;
 		irq_status = readl(cmdq->base + CMDQ_CURR_IRQ_STATUS) &
 			CMDQ_IRQ_MASK;
 
