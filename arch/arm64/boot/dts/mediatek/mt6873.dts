@@ -1466,6 +1466,99 @@
 		#clock-cells = <1>;
 	};
 
+	seninf1@1a004000 {
+		compatible = "mediatek,seninf1";
+		reg = <0 0x1a004000 0 0x1000>;
+	};
+
+	seninf2@1a005000 {
+		compatible = "mediatek,seninf2";
+		reg = <0 0x1a005000 0 0x1000>;
+	};
+
+	seninf3@1a006000 {
+		compatible = "mediatek,seninf3";
+		reg = <0 0x1a006000 0 0x1000>;
+	};
+
+	seninf4@1a007000 {
+		compatible = "mediatek,seninf4";
+		reg = <0 0x1a007000 0 0x1000>;
+	};
+
+	seninf5@1a008000 {
+		compatible = "mediatek,seninf5";
+		reg = <0 0x1a008000 0 0x1000>;
+	};
+
+	seninf6@1a009000 {
+		compatible = "mediatek,seninf6";
+		reg = <0 0x1a009000 0 0x1000>;
+	};
+
+	seninf7@1a00a000 {
+		compatible = "mediatek,seninf7";
+		reg = <0 0x1a00a000 0 0x1000>;
+	};
+
+	seninf8@1a00b000 {
+		compatible = "mediatek,seninf8";
+		reg = <0 0x1a00b000 0 0x1000>;
+	};
+
+	seninf_top@1a004000 {
+		compatible = "mediatek,seninf_top";
+		reg = <0 0x1a004000 0 0x1000>;
+#if 0
+		interrupts = <GIC_SPI 251 IRQ_TYPE_LEVEL_LOW>;
+#endif
+
+		clocks = <&scpsys SCP_SYS_MDP>,
+			<&scpsys SCP_SYS_CAM>,
+			<&camsys CAMSYS_MAIN_SENINF_CGPDN>,
+			<&topckgen TOP_MUX_SENINF>,
+			<&topckgen TOP_MUX_SENINF1>,
+			<&topckgen TOP_MUX_SENINF2>,
+			<&topckgen TOP_MUX_SENINF3>,
+			<&topckgen TOP_MUX_CAMTG>,
+			<&topckgen TOP_MUX_CAMTG2>,
+			<&topckgen TOP_MUX_CAMTG3>,
+			<&topckgen TOP_MUX_CAMTG4>,
+			<&topckgen TOP_MUX_CAMTG5>,
+			<&topckgen TOP_MUX_CAMTG6>,
+			<&clk26m>,
+			<&topckgen TOP_UNIVP_192M_D8>,
+			<&topckgen TOP_UNIVPLL_D6_D8>,
+			<&topckgen TOP_UNIVP_192M_D4>,
+			<&topckgen TOP_F26M_CK_D2>,
+			<&topckgen TOP_UNIVP_192M_D16>,
+			<&topckgen TOP_UNIVP_192M_D32>;
+		clock-names = "SCP_SYS_MDP",
+			"SCP_SYS_CAM",
+			"CAMSYS_SENINF_CGPDN",
+			"TOP_MUX_SENINF",
+			"TOP_MUX_SENINF1",
+			"TOP_MUX_SENINF2",
+			"TOP_MUX_SENINF3",
+			"TOP_MUX_CAMTG",
+			"TOP_MUX_CAMTG2",
+			"TOP_MUX_CAMTG3",
+			"TOP_MUX_CAMTG4",
+			"TOP_MUX_CAMTG5",
+			"TOP_MUX_CAMTG6",
+			"TOP_CLK26M",
+			"TOP_UNIVP_192M_D8",
+			"TOP_UNIVPLL_D6_D8",
+			"TOP_UNIVP_192M_D4",
+			"TOP_F26M_CK_D2",
+			"TOP_UNIVP_192M_D16",
+			"TOP_UNIVP_192M_D32";
+	};
+
+	kd_camera_hw1:kd_camera_hw1@1a004000 {
+		compatible = "mediatek,imgsensor";
+	};
+
 	camsys: camsys@1a000000 {
 		compatible = "mediatek,camsys", "syscon";
 		reg = <0 0x1a000000 0 0x10000>;
