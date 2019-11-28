@@ -6127,52 +6127,46 @@ retry:
 }
 EXPORT_SYMBOL_GPL(check_held_locks);
 
-static void check_debug_locks_stats(void)
+static void show_debug_locks_state(void)
 {
-	char str[256] = { 0 };
-	char buf[48];
+	char buf[64];
 	unsigned long long time_sec;
 
-	if (nr_lock_classes >= MAX_LOCKDEP_KEYS) {
+	if (nr_lock_classes >= MAX_LOCKDEP_KEYS)
 		snprintf(buf, sizeof(buf),
 			 "lock-classes [%lu]", nr_lock_classes);
-		strlcat(str, buf, sizeof(str));
-	}
-	if (nr_list_entries >= MAX_LOCKDEP_ENTRIES) {
+
+	if (nr_list_entries >= MAX_LOCKDEP_ENTRIES)
 		snprintf(buf, sizeof(buf),
 			 "direct dependencies [%lu]", nr_list_entries);
-		strlcat(str, buf, sizeof(str));
-	}
-	if (nr_lock_chains >= MAX_LOCKDEP_CHAINS) {
+
+	if (nr_lock_chains >= MAX_LOCKDEP_CHAINS)
 		snprintf(buf, sizeof(buf),
 			 "dependency chains [%lu]", nr_lock_chains);
-		strlcat(str, buf, sizeof(str));
-	}
-	if (nr_chain_hlocks >= MAX_LOCKDEP_CHAIN_HLOCKS) {
+
+	if (nr_chain_hlocks > MAX_LOCKDEP_CHAIN_HLOCKS)
 		snprintf(buf, sizeof(buf),
 			 "dependency chain hlocks [%d]", nr_chain_hlocks);
-		strlcat(str, buf, sizeof(str));
-	}
-	if (nr_stack_trace_entries >= MAX_STACK_TRACE_ENTRIES) {
+
+	if (nr_stack_trace_entries >= MAX_STACK_TRACE_ENTRIES - 1)
 		snprintf(buf, sizeof(buf),
 			 "stack-trace entries [%lu]", nr_stack_trace_entries);
-		strlcat(str, buf, sizeof(str));
-	}
+
 	/* check debug_locks per 10 seconds */
 	time_sec = sec_high(sched_clock());
 	if (!debug_locks && !do_div(time_sec, 10)) {
 		pr_info("debug_locks is off [%lld.%06lu] %s\n",
 			sec_high(debug_locks_off_ts),
-			sec_low(debug_locks_off_ts), str);
+			sec_low(debug_locks_off_ts), buf);
 	}
 }
 
 static int lock_monitor_work(void *data)
 {
 	static int count;
-	int force = 0;
+	int force;
 
-	while (1) {
+	while (lock_mon_enable) {
 		force = 0;
 
 		/* print backtrace or not */
@@ -6181,13 +6175,60 @@ static int lock_monitor_work(void *data)
 			force = 1;
 		}
 
-		check_debug_locks_stats();
-		if (lock_mon_enable)
-			check_held_locks(force);
+		if (!debug_locks)
+			show_debug_locks_state();
+		check_held_locks(force);
 
 		msleep(lock_mon_period_ms);
 	}
+
+	return 0;
 }
+
+static ssize_t
+lock_mon_enable_write(struct file *filp, const char *ubuf,
+		      size_t cnt, loff_t *data)
+{
+	char buf[64];
+	int ret, lock_mon_disabled = !lock_mon_enable;
+
+	if (!lock_mon_door)
+		return cnt;
+
+	if (cnt >= sizeof(buf))
+		return -EINVAL;
+
+	if (copy_from_user(&buf, ubuf, cnt))
+		return -EFAULT;
+
+	buf[cnt] = 0;
+
+	ret = kstrtouint(buf, 10, &lock_mon_enable);
+	if (ret)
+		return ret;
+
+	if (lock_mon_disabled && lock_mon_enable)
+		kthread_run(lock_monitor_work, NULL, "lock_monitor");
+
+	return cnt;
+}
+
+static ssize_t
+lock_mon_enable_read(struct file *file, char __user *user_buf,
+		     size_t count, loff_t *ppos)
+{
+	char buf[32];
+	int len;
+
+	len = snprintf(buf, sizeof(buf), "%d\n", lock_mon_enable);
+	return simple_read_from_buffer(user_buf, count, ppos, buf, len);
+}
+
+static const struct file_operations lock_mon_enable_fops = {
+	.open = simple_open,
+	.read = lock_mon_enable_read,
+	.write = lock_mon_enable_write,
+};
 
 #define DECLARE_LOCK_MONITOR_MATCH(name, param) \
 static ssize_t lock_mon_##name##_write(struct file *filp, \
@@ -6230,7 +6271,6 @@ static const struct file_operations lock_mon_##name##_fops = { \
 	.write = lock_mon_##name##_write, \
 }
 
-DECLARE_LOCK_MONITOR_MATCH(enable, lock_mon_enable);
 DECLARE_LOCK_MONITOR_MATCH(period, lock_mon_period_ms);
 DECLARE_LOCK_MONITOR_MATCH(1st_th, lock_mon_1st_th_ms);
 DECLARE_LOCK_MONITOR_MATCH(2nd_th, lock_mon_2nd_th_ms);
@@ -6298,7 +6338,7 @@ void lock_monitor_init(void)
 	if (!pe)
 		return;
 
-	kthread_run(lock_monitor_work, NULL, "lock_monitor_work");
+	kthread_run(lock_monitor_work, NULL, "lock_monitor");
 }
 #else
 void check_held_locks(int force)
