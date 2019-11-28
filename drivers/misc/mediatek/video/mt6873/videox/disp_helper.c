@@ -345,11 +345,7 @@ const char *disp_helper_stage_spy(void)
 void disp_helper_option_init(void)
 {
 	disp_helper_set_option(DISP_OPT_USE_CMDQ, 0);
-#ifdef CONFIG_MTK_IOMMU_V2
-	disp_helper_set_option(DISP_OPT_USE_M4U, 1);
-#else
 	disp_helper_set_option(DISP_OPT_USE_M4U, 0);
-#endif
 
 	/* test solution for 6795 rdma underflow caused by ufoe LR mode
 	 * (ufoe fifo is larger than rdma)
