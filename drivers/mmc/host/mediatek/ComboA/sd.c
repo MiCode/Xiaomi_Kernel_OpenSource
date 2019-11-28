@@ -3651,7 +3651,11 @@ start_tune:
 	case MMC_TIMING_UHS_SDR50:
 		pr_notice("msdc%d: SD UHS_SDR104/UHS_SDR50 re-autok %d times\n",
 			host->id, ++host->reautok_times);
+#ifndef SD_RUNTIME_AUTOK_MERGE
 		ret = autok_execute_tuning(host, NULL);
+#else
+		ret = sd_runtime_autok_merge(host);
+#endif
 		/* ret = sd_execute_dvfs_autok(host, MMC_SEND_TUNING_BLOCK); */
 		break;
 	case MMC_TIMING_MMC_HS200:

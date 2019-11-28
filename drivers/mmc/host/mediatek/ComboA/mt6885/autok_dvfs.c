@@ -428,7 +428,7 @@ void sdio_autok_wait_dvfs_ready(void)
 int sd_execute_dvfs_autok(struct msdc_host *host, u32 opcode)
 {
 	int ret = 0;
-	int vcore = 0;
+	int vcore = AUTOK_VCORE_MERGE;
 	u8 *res;
 
 	res = host->autok_res[vcore];
@@ -438,6 +438,9 @@ int sd_execute_dvfs_autok(struct msdc_host *host, u32 opcode)
 		if (host->is_autok_done == 0) {
 			pr_notice("[AUTOK]SDcard autok\n");
 			ret = autok_execute_tuning(host, res);
+			memcpy(host->autok_res[AUTOK_VCORE_LEVEL0],
+					host->autok_res[AUTOK_VCORE_MERGE],
+					TUNING_PARA_SCAN_COUNT);
 			host->is_autok_done = 1;
 		} else {
 			autok_init_sdr104(host);
@@ -447,7 +450,6 @@ int sd_execute_dvfs_autok(struct msdc_host *host, u32 opcode)
 
 	return ret;
 }
-
 
 int emmc_execute_dvfs_autok(struct msdc_host *host, u32 opcode)
 {
@@ -883,6 +885,47 @@ static int emmc_autok_switch_cqe(struct msdc_host *host, bool enable)
 		}
 	}
 	return err;
+}
+#endif
+
+#ifdef SD_RUNTIME_AUTOK_MERGE
+int sd_runtime_autok_merge(struct msdc_host *host)
+{
+	int merge_result, merge_mode, merge_window, merge_count;
+	int i, ret = 0;
+	u8 *res;
+
+	for (merge_count = 1; merge_count < AUTOK_VCORE_NUM; merge_count++) {
+		if (host->autok_res[merge_count][0] == NULL) {
+			pr_info("[AUTOK]merge_count = %d\n", merge_count+1);
+			res = host->autok_res[merge_count];
+			ret = autok_execute_tuning(host, res);
+			break;
+		}
+	}
+
+	merge_mode = MERGE_HS200_SDR104;
+	merge_result = autok_vcore_merge_sel(host, merge_mode);
+	for (i = CMD_MAX_WIN; i <= H_CLK_TX_MAX_WIN; i++) {
+		merge_window = host->autok_res[AUTOK_VCORE_MERGE][i];
+		if (merge_window < AUTOK_MERGE_MIN_WIN)
+			merge_result = -1;
+		if (merge_window != 0xFF)
+			pr_info("[AUTOK]merge_value = %d\n", merge_window);
+	}
+
+	if (merge_result == 0) {
+		autok_tuning_parameter_init(host,
+			host->autok_res[AUTOK_VCORE_MERGE]);
+		pr_info("[AUTOK]No need change para when dvfs\n");
+	} else {
+		/* merge fail clear host->autok_res[merge_count][0] */
+		host->autok_res[merge_count][0] = NULL;
+		autok_tuning_parameter_init(host,
+			host->autok_res[AUTOK_VCORE_LEVEL0]);
+	}
+
+	return ret;
 }
 #endif
 

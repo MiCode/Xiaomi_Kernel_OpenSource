@@ -58,5 +58,8 @@ extern void msdc_dump_autok(char **buff, unsigned long *size,
 	struct seq_file *m, struct msdc_host *host);
 extern void msdc_dvfs_reg_backup_init(struct msdc_host *host);
 extern void msdc_dvfs_reg_restore(struct msdc_host *host);
+#ifdef SD_RUNTIME_AUTOK_MERGE
+extern int sd_runtime_autok_merge(struct msdc_host *host);
+#endif
 #endif /* _AUTOK_DVFS_H_ */
 

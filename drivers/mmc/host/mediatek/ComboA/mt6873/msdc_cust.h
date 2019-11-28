@@ -506,6 +506,11 @@
 /* #define MSDC_HQA */
 /* #define SDIO_HQA */
 
+/* sd read/write crc error happen in mt6885 when vcore changes,
+ * sd can't support autok merge by fix vcore(like emmc),
+ * so add runtime autok merge function
+ */
+#define SD_RUNTIME_AUTOK_MERGE
 /**************************************************************/
 /* Section 6: BBChip-depenent Tunnig Parameter                */
 /**************************************************************/
