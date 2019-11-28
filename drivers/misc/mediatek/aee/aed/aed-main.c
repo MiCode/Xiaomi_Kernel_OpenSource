@@ -2125,6 +2125,12 @@ int DumpThreadNativeInfo(struct aee_oops *oops)
 	int flags;
 	struct mm_struct *mm;
 	int ret = 0;
+	char tpath[512];
+	char *path_p = NULL;
+	struct path base_path;
+	unsigned long long pgoff = 0;
+	dev_t dev = 0;
+	unsigned long ino = 0;
 
 	current_task = get_current();
 	user_ret = task_pt_regs(current_task);
@@ -2149,16 +2155,27 @@ int DumpThreadNativeInfo(struct aee_oops *oops)
 	down_read(&current_task->mm->mmap_sem);
 	vma = current_task->mm->mmap;
 	while (vma && (mapcount < current_task->mm->map_count)) {
+		char *format = "%08lx-%08lx %c%c%c%c %08llx %02x:%02x %lu %s\n";
 		file = vma->vm_file;
 		flags = vma->vm_flags;
 		if (file) {
-			Log2Buffer(oops, "%08lx-%08lx %c%c%c%c    %s\n",
-			  vma->vm_start, vma->vm_end,
-			  flags & VM_READ ? 'r' : '-',
-			  flags & VM_WRITE ? 'w' : '-',
-			  flags & VM_EXEC ? 'x' : '-',
-			  flags & VM_MAYSHARE ? 's' : 'p',
-			  (unsigned char *)(file->f_path.dentry->d_iname));
+			struct inode *inode = file_inode(vma->vm_file);
+
+			dev = inode->i_sb->s_dev;
+			ino = inode->i_ino;
+			base_path = file->f_path;
+			path_p = d_path(&base_path, tpath, 512);
+			pgoff = ((loff_t)vma->vm_pgoff) << PAGE_SHIFT;
+			if (flags & VM_EXEC) {
+				Log2Buffer(oops, format,
+					vma->vm_start, vma->vm_end,
+					flags & VM_READ ? 'r' : '-',
+					flags & VM_WRITE ? 'w' : '-',
+					flags & VM_EXEC ? 'x' : '-',
+					flags & VM_MAYSHARE ? 's' : 'p',
+					pgoff, MAJOR(dev),
+					MINOR(dev), ino, path_p);
+			}
 		} else {
 			const char *name = arch_vma_name(vma);
 
@@ -2179,14 +2196,15 @@ int DumpThreadNativeInfo(struct aee_oops *oops)
 				}
 			}
 			/* if (name) */
-			{
-				Log2Buffer(oops, "%08lx-%08lx %c%c%c%c    %s\n",
-						vma->vm_start, vma->vm_end,
-						flags & VM_READ ? 'r' : '-',
-						flags & VM_WRITE ? 'w' : '-',
-						flags & VM_EXEC ? 'x' : '-',
-						flags & VM_MAYSHARE ? 's' : 'p',
-						name);
+			if (flags & VM_EXEC) {
+				Log2Buffer(oops, format,
+					vma->vm_start, vma->vm_end,
+					flags & VM_READ ? 'r' : '-',
+					flags & VM_WRITE ? 'w' : '-',
+					flags & VM_EXEC ? 'x' : '-',
+					flags & VM_MAYSHARE ? 's' : 'p',
+					pgoff, MAJOR(dev),
+					MINOR(dev), ino, name);
 			}
 		}
 		vma = vma->vm_next;
@@ -2195,6 +2213,11 @@ int DumpThreadNativeInfo(struct aee_oops *oops)
 	}
 	up_read(&current_task->mm->mmap_sem);
 	#endif
+	oops->userthread_maps.Userthread_mapsLength =
+		strlen(oops->userthread_maps.Userthread_maps);
+	pr_info("maps addr(0x%08lx), maps len:%d\n",
+		(long)oops->userthread_maps.Userthread_maps,
+		oops->userthread_maps.Userthread_mapsLength);
 
 #ifndef __aarch64__ /* 32bit */
 	userstack_start = (unsigned long)user_ret->ARM_sp;
