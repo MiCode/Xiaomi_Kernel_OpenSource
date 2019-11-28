@@ -1910,14 +1910,16 @@ int smblib_get_prop_batt_status(struct smb_charger *chg,
 	u8 stat;
 	int rc, suspend = 0;
 
-	rc = smblib_get_prop_from_bms(chg,
-			POWER_SUPPLY_PROP_DEBUG_BATTERY, &pval);
-	if (rc < 0) {
-		pr_err_ratelimited("Couldn't get debug battery prop rc=%d\n",
-				rc);
-	} else if (pval.intval == 1) {
-		val->intval = POWER_SUPPLY_STATUS_UNKNOWN;
-		return 0;
+	if (chg->fake_chg_status_on_debug_batt) {
+		rc = smblib_get_prop_from_bms(chg,
+				POWER_SUPPLY_PROP_DEBUG_BATTERY, &pval);
+		if (rc < 0) {
+			pr_err_ratelimited("Couldn't get debug battery prop rc=%d\n",
+					rc);
+		} else if (pval.intval == 1) {
+			val->intval = POWER_SUPPLY_STATUS_UNKNOWN;
+			return 0;
+		}
 	}
 
 	if (chg->dbc_usbov) {
