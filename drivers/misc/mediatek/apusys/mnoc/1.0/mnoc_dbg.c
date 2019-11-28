@@ -131,9 +131,9 @@ static ssize_t mnoc_reg_rw_write(struct file *file,
 			LOG_DEBUG("Reg[%08X] not in mnoc driver reg map\n",
 				addr_phy);
 		} else {
+#if MNOC_DBG_ENABLE
 			addr = (void *) ((uintptr_t) mnoc_base +
 					(addr_phy - APU_NOC_TOP_ADDR));
-#if MNOC_DBG_ENABLE
 			spin_lock_irqsave(&mnoc_spinlock, flags);
 			mnoc_addr_phy = addr_phy;
 			if (mnoc_reg_valid)
@@ -323,6 +323,7 @@ static ssize_t mnoc_cmd_qos_suspend_write(struct file *file,
 {
 	char *buf = (char *) __get_free_page(GFP_USER);
 	unsigned int cmd_id, sub_cmd_id;
+	unsigned int dev_type, devcore;
 
 	if (!buf)
 		return -ENOMEM;
@@ -335,9 +336,10 @@ static ssize_t mnoc_cmd_qos_suspend_write(struct file *file,
 
 	buf[count] = '\0';
 
-	if (sscanf(buf, "%d %d", &cmd_id, &sub_cmd_id) == 2)
+	if (sscanf(buf, "%d %d %d %d", &cmd_id, &sub_cmd_id,
+		&dev_type, &devcore) == 4)
 		apu_cmd_qos_suspend((uint64_t) cmd_id,
-			(uint64_t) sub_cmd_id);
+			(uint64_t) sub_cmd_id, dev_type, devcore);
 
 out:
 	free_page((unsigned long)buf);
@@ -358,6 +360,7 @@ static ssize_t mnoc_cmd_qos_end_write(struct file *file,
 {
 	char *buf = (char *) __get_free_page(GFP_USER);
 	unsigned int cmd_id, sub_cmd_id;
+	unsigned int dev_type, devcore;
 
 	if (!buf)
 		return -ENOMEM;
@@ -370,9 +373,10 @@ static ssize_t mnoc_cmd_qos_end_write(struct file *file,
 
 	buf[count] = '\0';
 
-	if (sscanf(buf, "%d %d", &cmd_id, &sub_cmd_id) == 2)
+	if (sscanf(buf, "%d %d %d %d", &cmd_id, &sub_cmd_id,
+		&dev_type, &devcore) == 4)
 		apu_cmd_qos_end((uint64_t) cmd_id,
-			(uint64_t) sub_cmd_id);
+			(uint64_t) sub_cmd_id, dev_type, devcore);
 
 out:
 	free_page((unsigned long)buf);

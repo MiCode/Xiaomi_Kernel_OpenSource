@@ -207,10 +207,10 @@ static void mnoc_qos_reg_init(void)
 		/* MNI to SNI path setting */
 		/* set QoS guardian to monitor DRAM only */
 		mnoc_write_field(MNI_QOS_REG(grp_map[ni_idx], MNI_QOS_CTRL,
-			31, mni_map[ni_idx]), 31:16, 0xF000);
+			31, mni_map[ni_idx]), 31:16, QOS_MON_SLV_SEL_DRAM);
 		/* set QoS watcher to monitor DRAM+TCM */
 		mnoc_write_field(MNI_QOS_REG(grp_map[ni_idx], MNI_QOS_CTRL,
-			31, mni_map[ni_idx]), 15:0, 0xFF00);
+			31, mni_map[ni_idx]), 15:0, QOS_MON_SLV_SEL_DRAM_TCM);
 
 		/* set QW_BW_INT_EN = 1 to enable monitor */
 		mnoc_write_field(MNI_QOS_REG(grp_map[ni_idx], MNI_QOS_CTRL,
@@ -297,9 +297,9 @@ static void mnoc_reg_init(void)
 	LOG_DEBUG("-\n");
 }
 
-bool mnoc_check_int_status(void)
+int mnoc_check_int_status(void)
 {
-	bool mnoc_irq_triggered = false;
+	int mnoc_irq_triggered = false;
 	unsigned int val, int_sta;
 	int grp_idx, int_idx, ni_idx;
 	struct mnoc_int_dump *d;
@@ -346,7 +346,7 @@ bool mnoc_check_int_status(void)
 					MNOC_REG(grp_idx,
 						mni_int_sta_offset[int_idx]),
 						15:0, 0xFFFF);
-				mnoc_irq_triggered = true;
+				mnoc_irq_triggered = 1;
 			}
 		}
 
@@ -369,7 +369,7 @@ bool mnoc_check_int_status(void)
 					MNOC_REG(grp_idx,
 						sni_int_sta_offset[int_idx]),
 						15:0, 0xFFFF);
-				mnoc_irq_triggered = true;
+				mnoc_irq_triggered = 1;
 			}
 		}
 
@@ -386,7 +386,15 @@ bool mnoc_check_int_status(void)
 					MNOC_REG(grp_idx,
 						rt_int_sta_offset[int_idx]),
 						4:0, 0x1F);
-				mnoc_irq_triggered = true;
+				/* timeout interrupt may be only perf
+				 * hint but not actually hang
+				 */
+				if (mnoc_irq_triggered == 0 && (
+					int_idx == MNOC_INT_REQRT_TO_ERR_FLAG ||
+					int_idx == MNOC_INT_RSPRT_TO_ERR_FLAG))
+					mnoc_irq_triggered = 2;
+				else
+					mnoc_irq_triggered = 1;
 			}
 		}
 
@@ -400,7 +408,7 @@ bool mnoc_check_int_status(void)
 				grp_idx, val);
 			mnoc_write_field(MNOC_REG(grp_idx, MISC_CTRL),
 				18:16, 0x0);
-			mnoc_irq_triggered = true;
+			mnoc_irq_triggered = 1;
 		}
 	}
 

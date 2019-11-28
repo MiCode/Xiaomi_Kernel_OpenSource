@@ -793,7 +793,8 @@ static int exec_cmd_func(void *isc, void *idev_info)
 
 #ifdef APUSYS_OPTIONS_INF_MNOC
 	/* 8. count qos end */
-	sc->bw = apu_cmd_qos_end(sc->par_cmd->cmd_id, sc->idx);
+	sc->bw = apu_cmd_qos_end(sc->par_cmd->cmd_id, sc->idx,
+		sc->type, dev_info->dev->idx);
 	LOG_DEBUG("mnoc: cmd qos end 0x%llx-#%d dev(%d/%d) bw(%d)\n",
 		sc->par_cmd->cmd_id, dev_info->dev->idx, sc->type,
 		dev_info->dev->idx, sc->bw);

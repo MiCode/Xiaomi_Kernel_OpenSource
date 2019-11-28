@@ -541,9 +541,10 @@ int apu_cmd_qos_start(uint64_t cmd_id, uint64_t sub_cmd_id,
 
 	list_for_each_entry(pos, &counter->list, list) {
 		/* search if cmd already exist */
-		if (pos->cmd_id == cmd_id && pos->sub_cmd_id == sub_cmd_id) {
-			LOG_DEBUG("resume cmd(0x%llx/0x%llx)\n",
-				cmd_id, sub_cmd_id);
+		if (pos->cmd_id == cmd_id && pos->sub_cmd_id == sub_cmd_id
+			&& pos->core == core) {
+			LOG_DEBUG("resume cmd(0x%llx/0x%llx/%d)\n",
+				cmd_id, sub_cmd_id, core);
 			mutex_lock(&pos->mtx);
 			pos->status = CMD_RUNNING;
 			mutex_unlock(&pos->mtx);
@@ -564,11 +565,13 @@ int apu_cmd_qos_start(uint64_t cmd_id, uint64_t sub_cmd_id,
 
 #if MNOC_TIME_PROFILE
 	do_gettimeofday(&end);
+	mutex_lock(&counter->list_mtx);
 	val = (end.tv_sec - begin.tv_sec) * 1000000;
 	val += (end.tv_usec - begin.tv_usec);
 	/* LOG_INFO("val = %d us\n", val); */
 	sum_start += val;
 	cnt_start += 1;
+	mutex_unlock(&counter->list_mtx);
 #endif
 
 	LOG_DEBUG("-\n");
@@ -581,12 +584,13 @@ EXPORT_SYMBOL(apu_cmd_qos_start);
  * suspend cmd due to preemption
  * set cmd status from CMD_RUNNING to CMD_BLOCKED
  */
-int apu_cmd_qos_suspend(uint64_t cmd_id,
-	uint64_t sub_cmd_id)
+int apu_cmd_qos_suspend(uint64_t cmd_id, uint64_t sub_cmd_id,
+	int dev_type, int dev_core)
 {
 	struct qos_counter *counter = &qos_counter;
 	struct cmd_qos *cmd_qos = NULL, *pos;
 	struct qos_bound *qos_info = NULL;
+	int core;
 #if MNOC_TIME_PROFILE
 	struct timeval begin, end;
 	unsigned long val;
@@ -598,6 +602,8 @@ int apu_cmd_qos_suspend(uint64_t cmd_id,
 	do_gettimeofday(&begin);
 #endif
 
+	core = apusys_dev_to_core_id(dev_type, dev_core);
+
 	/* get qos information */
 	qos_info = get_qos_bound();
 	if (qos_info == NULL) {
@@ -608,19 +614,20 @@ int apu_cmd_qos_suspend(uint64_t cmd_id,
 	mutex_lock(&counter->list_mtx);
 
 	list_for_each_entry(pos, &counter->list, list) {
-		if (pos->cmd_id == cmd_id && pos->sub_cmd_id == sub_cmd_id) {
+		if (pos->cmd_id == cmd_id && pos->sub_cmd_id == sub_cmd_id
+			&& pos->core == core) {
 			cmd_qos = pos;
 			break;
 		}
 	}
 	if (cmd_qos == NULL) {
-		LOG_ERR("Can not find cmd(0x%llx/0x%llx)\n",
-			cmd_id, sub_cmd_id);
+		LOG_ERR("Can not find cmd(0x%llx/0x%llx/%d)\n",
+			cmd_id, sub_cmd_id, core);
 		mutex_unlock(&counter->list_mtx);
 		return -1;
 	} else if (cmd_qos->status == CMD_BLOCKED) {
-		LOG_ERR("cmd(0x%llx/0x%llx) already in suspend\n",
-			cmd_id, sub_cmd_id);
+		LOG_ERR("cmd(0x%llx/0x%llx/%d) already in suspend\n",
+			cmd_id, sub_cmd_id, core);
 		mutex_unlock(&counter->list_mtx);
 		return -1;
 	}
@@ -638,11 +645,13 @@ int apu_cmd_qos_suspend(uint64_t cmd_id,
 
 #if MNOC_TIME_PROFILE
 	do_gettimeofday(&end);
+	mutex_lock(&counter->list_mtx);
 	val = (end.tv_sec - begin.tv_sec) * 1000000;
 	val += (end.tv_usec - begin.tv_usec);
 	/* LOG_INFO("val = %d us\n", val); */
 	sum_suspend += val;
 	cnt_suspend += 1;
+	mutex_unlock(&counter->list_mtx);
 #endif
 
 	return 0;
@@ -653,12 +662,13 @@ EXPORT_SYMBOL(apu_cmd_qos_suspend);
  * deque cmd from qos_counter's linked list
  * if list becomes empty after dequeue, delete qos timer
  */
-int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id)
+int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id,
+	int dev_type, int dev_core)
 {
 	struct qos_counter *counter = &qos_counter;
 	struct cmd_qos *cmd_qos = NULL, *pos;
 	struct qos_bound *qos_info = NULL;
-	int core = -1;
+	int core;
 	int bw = 0, total_bw = 0, total_count = 0;
 #if MNOC_TIME_PROFILE
 	struct timeval begin, end;
@@ -671,6 +681,8 @@ int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id)
 	do_gettimeofday(&begin);
 #endif
 
+	core = apusys_dev_to_core_id(dev_type, dev_core);
+
 	/* get qos information */
 	qos_info = get_qos_bound();
 	if (qos_info == NULL) {
@@ -681,15 +693,16 @@ int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id)
 	mutex_lock(&counter->list_mtx);
 
 	list_for_each_entry(pos, &counter->list, list) {
-		if (pos->cmd_id == cmd_id && pos->sub_cmd_id == sub_cmd_id) {
+		if (pos->cmd_id == cmd_id && pos->sub_cmd_id == sub_cmd_id
+			&& pos->core == core) {
 			cmd_qos = pos;
-			core = cmd_qos->core;
+			/* core = cmd_qos->core; */
 			break;
 		}
 	}
 	if (cmd_qos == NULL) {
-		LOG_ERR("Can not find cmd(0x%llx/0x%llx)\n",
-			cmd_id, sub_cmd_id);
+		LOG_ERR("Can not find cmd(0x%llx/0x%llx/%d)\n",
+			cmd_id, sub_cmd_id, core);
 		mutex_unlock(&counter->list_mtx);
 		return -1;
 	}
@@ -720,9 +733,10 @@ int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id)
 				/* ignore sample device */
 				if (cmd_qos->core < NR_APU_QOS_ENGINE)
 					LOG_ERR(
-						"cmd(0x%llx/0x%llx) total_bw(%d) < %d",
+						"cmd(0x%llx/0x%llx/%d) total_bw(%d) < %d",
 						cmd_qos->cmd_id,
 						cmd_qos->sub_cmd_id,
+						cmd_qos->core,
 						cmd_qos->total_bw, total_bw);
 				cmd_qos->total_bw = 0;
 			} else
@@ -732,9 +746,10 @@ int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id)
 				/* ignore sample device */
 				if (cmd_qos->core < NR_APU_QOS_ENGINE)
 					LOG_ERR(
-						"cmd(0x%llx/0x%llx) count(%d) < %d",
+						"cmd(0x%llx/0x%llx/%d) count(%d) < %d",
 						cmd_qos->cmd_id,
 						cmd_qos->sub_cmd_id,
+						cmd_qos->core,
 						cmd_qos->count, total_count);
 				cmd_qos->count = 0;
 			} else
@@ -762,11 +777,13 @@ int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id)
 
 #if MNOC_TIME_PROFILE
 	do_gettimeofday(&end);
+	mutex_lock(&counter->list_mtx);
 	val = (end.tv_sec - begin.tv_sec) * 1000000;
 	val += (end.tv_usec - begin.tv_usec);
 	/* LOG_INFO("val = %d us\n", val); */
 	sum_end += val;
 	cnt_end += 1;
+	mutex_unlock(&counter->list_mtx);
 #endif
 
 	/* return 1 if bw = 0 (eara requirement) */

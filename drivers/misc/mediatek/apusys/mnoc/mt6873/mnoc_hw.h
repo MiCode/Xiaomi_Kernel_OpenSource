@@ -115,6 +115,9 @@ enum rt_int_sta {
 
 #define MNI_QOS_CTRL (0x1000)
 
+#define QOS_MON_SLV_SEL_DRAM (0x30)
+#define QOS_MON_SLV_SEL_DRAM_TCM (0x3F0)
+
 /* 0x1906E000 */
 #define APU_NOC_TOP_BASEADDR mnoc_base
 /* 0x19001000 */
@@ -201,7 +204,7 @@ struct mnoc_int_dump {
 	struct int_sta_info sw_irq_sta;
 };
 
-bool mnoc_check_int_status(void);
+int mnoc_check_int_status(void);
 int apusys_dev_to_core_id(int dev_type, int dev_core);
 void mnoc_get_pmu_counter(unsigned int *buf);
 void mnoc_tcm_hash_set(unsigned int sel, unsigned int en0, unsigned int en1);
