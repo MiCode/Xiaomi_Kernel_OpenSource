@@ -354,6 +354,8 @@ static int exec_pack_cmd(void *iacq)
 			info->cmd_id = sc->par_cmd->cmd_id;
 			info->sc_idx = sc->idx;
 			sc->state = CMD_STATE_RUN;
+			sc->exec_core_num = 1;
+			sc->exec_core_bitmap = (1UL << info->dev->idx);
 			/* mark device execute deadline task */
 			if (sc->par_cmd->hdr->soft_limit)
 				info->is_deadline = true;
@@ -705,8 +707,9 @@ static int exec_cmd_func(void *isc, void *idev_info)
 
 	/* 3. get driver time start */
 #define APUSYS_PRINT_EXECINFO "pid(%d/%d) 0x%llx/0x%llx-#%d(%u)"\
-	" sc(%d): dev(%s-#%d) mp(%u/%u|0x%llx) "\
-	"ctx(%u/%d/0x%x/0x%x) boost(%u)\n"
+	" sc(%d): dev(%s-#%d) mp(%u/%u|0x%llx)"\
+	" prio(%d) deadline(%d/%d/%d)"\
+	" ctx(%u/%d/0x%x/0x%x) boost(%u)\n"
 	LOG_INFO(APUSYS_PRINT_EXECINFO,
 		sc->par_cmd->pid,
 		sc->par_cmd->tgid,
@@ -720,6 +723,10 @@ static int exec_cmd_func(void *isc, void *idev_info)
 		cmd_hnd.multicore_idx,
 		sc->exec_core_num,
 		sc->exec_core_bitmap,
+		sc->par_cmd->hdr->priority,
+		sc->par_cmd->hdr->soft_limit,
+		sc->par_cmd->hdr->hard_limit,
+		sc->par_cmd->power_save,
 		sc->ctx_id,
 		sc->c_hdr->tcm_force,
 		sc->c_hdr->tcm_usage,
@@ -739,7 +746,9 @@ static int exec_cmd_func(void *isc, void *idev_info)
 	/* 6. check execution result */
 	if (ret) {
 #define APUSYS_PRINT_EXECFAIL "pid(%d/%d) 0x%llx/0x%llx-#%d(%u)"\
-	" sc(%d): dev(%s-#%d) time(%u/%u) fail(%d)\n"
+	" sc(%d): dev(%s-#%d)"\
+	" prio(%d) deadline(%d/%d/%d)"\
+	"time(%u/%u) fail(%d)\n"
 		LOG_ERR(APUSYS_PRINT_EXECFAIL,
 			sc->par_cmd->pid,
 			sc->par_cmd->tgid,
@@ -750,6 +759,10 @@ static int exec_cmd_func(void *isc, void *idev_info)
 			sc->type,
 			dev_info->name,
 			dev_info->dev->idx,
+			sc->par_cmd->hdr->priority,
+			sc->par_cmd->hdr->soft_limit,
+			sc->par_cmd->hdr->hard_limit,
+			sc->par_cmd->power_save,
 			cmd_hnd.ip_time,
 			t_diff,
 			ret);
@@ -757,7 +770,9 @@ static int exec_cmd_func(void *isc, void *idev_info)
 		sc->par_cmd->cmd_ret = ret;
 	} else {
 #define APUSYS_PRINT_EXECOK "pid(%d/%d) 0x%llx/0x%llx-#%d(%u)"\
-	" sc(%d): dev(%s-#%d) time(%u/%u) done\n"
+	" sc(%d): dev(%s-#%d)"\
+	" prio(%d) deadline(%d/%d/%d)"\
+	" time(%u/%u) done\n"
 		LOG_INFO(APUSYS_PRINT_EXECOK,
 			sc->par_cmd->pid,
 			sc->par_cmd->tgid,
@@ -768,6 +783,10 @@ static int exec_cmd_func(void *isc, void *idev_info)
 			sc->type,
 			dev_info->name,
 			dev_info->dev->idx,
+			sc->par_cmd->hdr->priority,
+			sc->par_cmd->hdr->soft_limit,
+			sc->par_cmd->hdr->hard_limit,
+			sc->par_cmd->power_save,
 			cmd_hnd.ip_time,
 			t_diff);
 #undef APUSYS_PRINT_EXECOK
@@ -913,7 +932,7 @@ int sched_routine(void *arg)
 			INIT_LIST_HEAD(&acq.tab_list);
 			ret = acq_device_try(&acq);
 			if (ret < 0 || acq.acq_num <= 0) {
-				LOG_WARN("no dev(%d) available\n", type);
+				LOG_INFO("no dev(%d) available\n", type);
 				mutex_lock(&sc->mtx);
 				/* can't get device, insert sc back */
 				if (insert_subcmd(sc)) {

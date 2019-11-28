@@ -36,6 +36,10 @@ struct dentry *apusys_dbg_test;
 struct dentry *apusys_dbg_log;
 struct dentry *apusys_dbg_boost;
 
+struct dentry *apusys_dbg_debug_root;
+struct dentry *apusys_dbg_debug_log;
+
+
 u32 g_log_level;
 u32 g_dbg_multi;
 u8 cfg_apusys_trace;
@@ -54,6 +58,27 @@ int dbg_get_multitest(void)
 {
 	return g_dbg_multi;
 }
+
+//----------------------------------------------
+// loh dump
+static int apusys_dbg_dump_log(struct seq_file *s, void *unused)
+{
+	LOG_CON(s, "not support yet.\n");
+	return 0;
+}
+
+static int apusys_dbg_open_log(struct inode *inode, struct file *file)
+{
+	return single_open(file, apusys_dbg_dump_log, inode->i_private);
+}
+
+static const struct file_operations apusys_dbg_fops_log = {
+	.open = apusys_dbg_open_log,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = seq_release,
+	//.write = seq_write,
+};
 
 //----------------------------------------------
 // user table dump
@@ -311,6 +336,23 @@ int apusys_dbg_init(void)
 		LOG_ERR("failed to create debug node(trace_en).\n");
 		goto out;
 	}
+
+	/* tmp log dump node */
+	apusys_dbg_debug_root =  debugfs_create_dir("apusys_debug", NULL);
+	ret = IS_ERR_OR_NULL(apusys_dbg_debug_root);
+	if (ret) {
+		LOG_ERR("failed to create debug dir(log).\n");
+		goto out;
+	}
+
+	apusys_dbg_debug_log = debugfs_create_file("log", 0444,
+		apusys_dbg_debug_root, NULL, &apusys_dbg_fops_log);
+	ret = IS_ERR_OR_NULL(apusys_dbg_debug_log);
+	if (ret) {
+		LOG_ERR("failed to create debug node(log).\n");
+		goto out;
+	}
+
 
 	apusys_dump_init();
 out:
