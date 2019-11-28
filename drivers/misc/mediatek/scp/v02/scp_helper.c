@@ -1396,27 +1396,25 @@ void scp_sys_reset_ws(struct work_struct *ws)
 	scp_resource_req(SCP_REQ_26M);
 #endif  // CONFIG_FPGA_EARLY_PORTING
 
-	/*request pll clock before turn off scp */
-	pr_debug("[SCP] %s(): scp_pll_ctrl_set\n", __func__);
-#if SCP_DVFS_INIT_ENABLE
-	scp_pll_ctrl_set(PLL_ENABLE, CLK_26M);
-#endif
-
-	/*workqueue for scp ee, scp reset by cmd will not trigger scp ee*/
-	if (scp_reset_by_cmd == 0) {
-		pr_debug("[SCP] %s(): scp_aed_reset\n", __func__);
-		scp_aed(scp_reset_type, SCP_A_ID);
-	}
-
 	/*disable scp logger
 	 * 0: scp logger disable
 	 * 1: scp logger enable
 	 */
 	pr_debug("[SCP] %s(): disable logger\n", __func__);
 	scp_logger_init_set(0);
-
+	/* print_clk and scp_aed before pll enable to keep ori CLK_SEL */
 	print_clk_registers();
+	/*workqueue for scp ee, scp reset by cmd will not trigger scp ee*/
+	if (scp_reset_by_cmd == 0) {
+		pr_debug("[SCP] %s(): scp_aed_reset\n", __func__);
+		scp_aed(scp_reset_type, SCP_A_ID);
+	}
 
+	pr_debug("[SCP] %s(): scp_pll_ctrl_set\n", __func__);
+	/*request pll clock before turn off scp */
+#if SCP_DVFS_INIT_ENABLE
+	scp_pll_ctrl_set(PLL_ENABLE, CLK_26M);
+#endif
 	pr_notice("[SCP] %s(): scp_reset_type %d\n", __func__, scp_reset_type);
 	/* scp reset by CMD, WDT or awake fail */
 	if ((scp_reset_type == RESET_TYPE_TIMEOUT) ||
