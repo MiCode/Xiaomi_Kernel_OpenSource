@@ -395,6 +395,60 @@ static int port_net_init(struct port_t *port)
 	return 0;
 }
 
+static void recv_from_port_list(struct port_t *port)
+{
+	unsigned long flags;
+	struct sk_buff *skb;
+
+	spin_lock_irqsave(&port->port_rx_list.lock, flags);
+	skb = __skb_dequeue(&port->port_rx_list);
+	spin_unlock_irqrestore(&port->port_rx_list.lock, flags);
+	ccmni_ops.rx_callback(port->md_id, GET_CCMNI_IDX(port), skb, NULL);
+}
+
+int mtk_ccci_handle_port_list(int status, char *name)
+{
+	int ret = 0, channel;
+	struct port_t *port;
+	struct sk_buff *skb;
+
+	channel = mtk_ccci_request_port(name);
+	ret = find_port_by_channel(channel, &port);
+	if (ret)
+		return -1;
+	if (status)
+		atomic_set(&port->is_up, 1);
+	else {
+		atomic_set(&port->is_up, 0);
+		while ((skb = __skb_dequeue(&port->port_rx_list))
+			!= NULL)
+			ccci_free_skb(skb);
+		return ret;
+	}
+	while (!skb_queue_empty(&port->port_rx_list))
+		recv_from_port_list(port);
+	return ret;
+}
+
+static void ccmni_queue_recv_skb(struct port_t *port, struct sk_buff *skb)
+{
+	unsigned long flags;
+
+	if (atomic_read(&port->is_up)) {
+		while (!skb_queue_empty(&port->port_rx_list))
+			recv_from_port_list(port);
+
+		/*The packet may be out of order when ccmni is up at the*/
+		/* same time, it will be correctly handled by TCP stack.*/
+		ccmni_ops.rx_callback(port->md_id, GET_CCMNI_IDX(port),
+					skb, NULL);
+	} else {
+		spin_lock_irqsave(&port->port_rx_list.lock, flags);
+			__skb_queue_tail(&port->port_rx_list, skb);
+		spin_unlock_irqrestore(&port->port_rx_list.lock, flags);
+	}
+}
+
 static int port_net_recv_skb(struct port_t *port, struct sk_buff *skb)
 {
 #if MD_GENERATION >= (6293)
@@ -444,7 +498,8 @@ static int port_net_recv_skb(struct port_t *port, struct sk_buff *skb)
 	skb->tstamp = 0;
 	netif_time = sched_clock();
 #endif
-	ccmni_ops.rx_callback(port->md_id, GET_CCMNI_IDX(port), skb, NULL);
+
+	ccmni_queue_recv_skb(port, skb);
 
 #ifdef CCCI_SKB_TRACE
 	netif_rx_profile[3] = sched_clock() - netif_time;
@@ -510,6 +565,26 @@ void port_net_md_dump_info(struct port_t *port, unsigned int flag)
 		return;
 	}
 	ccmni_ops.dump(port->md_id, GET_CCMNI_IDX(port), 0);
+}
+
+void mtk_ccci_net_port_init(char *name)
+{
+	int ret = 0, channel;
+	struct port_t *port;
+
+	channel = mtk_ccci_request_port(name);
+	if (channel < 0) {
+		CCCI_ERROR_LOG(-1, NET,
+		"Fail to init net port %s for channel %d\n", name, channel);
+		return;
+	}
+	ret = find_port_by_channel(channel, &port);
+	if (ret < 0) {
+		CCCI_ERROR_LOG(-1, NET,
+		"Cannot find channel %d for net port %s\n", channel, name);
+		return;
+	}
+	skb_queue_head_init(&port->port_rx_list);
 }
 
 struct port_ops net_port_ops = {

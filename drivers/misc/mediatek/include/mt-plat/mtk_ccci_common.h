@@ -718,4 +718,6 @@ int mtk_ccci_send_data(int index, char *buf, int size);
 int mtk_ccci_read_data(int index, char *buf, size_t count);
 int mtk_ccci_open_port(int index);
 int mtk_ccci_release_port(int index);
+int mtk_ccci_handle_port_list(int status, char *name);
+void mtk_ccci_net_port_init(char *name);
 #endif
