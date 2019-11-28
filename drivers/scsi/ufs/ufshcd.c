@@ -4214,7 +4214,7 @@ out:
 	ufshcd_dme_cmd_log(hba, cmd, UFS_TRACE_UIC_CMPL_PWR_CTRL);
 
 	if (ret) {
-		ufs_mtk_dbg_proc_dump(NULL);
+		/* ufs_mtk_dbg_proc_dump(NULL); */ /* Remove to reduce log */
 		/*
 		 * since we are holding uic_cmd_mutex lock
 		 * beware not to send uic command here
