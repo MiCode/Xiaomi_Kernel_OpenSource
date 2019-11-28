@@ -369,11 +369,17 @@ static void qos_timer_func(unsigned long arg)
  * @call at insertion to empty cmd_qos list
  * must call with list_mtx locked
  */
-static void apu_qos_timer_start(void)
+static void apu_qos_timer_start(struct qos_bound *qos_info)
 {
 	struct qos_counter *counter = &qos_counter;
+	int i;
 
 	LOG_DEBUG("+\n");
+
+	for (i = 0; i < NR_APU_QOS_ENGINE; i++) {
+		engine_pm_qos_counter[i].last_peak_val = 0;
+		engine_pm_qos_counter[i].last_idx = qos_info->idx;
+	}
 
 	/* setup timer */
 	init_timer(&counter->qos_timer);
@@ -484,7 +490,7 @@ void apu_qos_resume(void)
 		}
 	}
 
-	apu_qos_timer_start();
+	apu_qos_timer_start(qos_info);
 
 	mutex_unlock(&counter->list_mtx);
 
@@ -531,7 +537,7 @@ int apu_cmd_qos_start(uint64_t cmd_id, uint64_t sub_cmd_id,
 
 	/* start timer if cmd list empty */
 	if (list_empty(&counter->list))
-		apu_qos_timer_start();
+		apu_qos_timer_start(qos_info);
 
 	list_for_each_entry(pos, &counter->list, list) {
 		/* search if cmd already exist */
