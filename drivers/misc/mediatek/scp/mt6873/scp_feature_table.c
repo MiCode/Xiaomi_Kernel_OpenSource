@@ -50,9 +50,9 @@ struct scp_feature_tb feature_table[NUM_FEATURE_ID] = {
 	},
 	{
 		.feature	= VCORE_TEST_FEATURE_ID,
-		.freq		= 77,
+		.freq		= 0,
 		.enable		= 0,
-		.sys_id		= SCPSYS_CORE1,
+		.sys_id		= SCPSYS_CORE0,
 	},
 	{
 		.feature	= VOW_BARGEIN_FEATURE_ID,

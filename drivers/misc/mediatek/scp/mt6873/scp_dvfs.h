@@ -44,6 +44,7 @@ enum clk_opp_enum {
 	CLK_OPP2 = 280,
 	CLK_OPP3 = 360,
 	CLK_OPP4 = 416,
+	CLK_UNINIT = 0xffff,
 };
 
 enum scp_req_r {
