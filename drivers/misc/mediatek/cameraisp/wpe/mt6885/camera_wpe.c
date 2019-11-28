@@ -267,6 +267,7 @@ struct wake_lock WPE_wake_lock;
 
 static DEFINE_MUTEX(gWpeMutex);
 static DEFINE_MUTEX(gWpeDequeMutex);
+static DEFINE_MUTEX(gWpeClkMutex);
 
 #ifdef CONFIG_OF
 
@@ -2942,6 +2943,7 @@ static void WPE_EnableClock(bool En)
 	if (En) {		/* Enable clock. */
 		/* LOG_DBG("Dpe clock enbled. g_u4EnableClockCount: %d."*/
 		/*, g_u4EnableClockCount); */
+		mutex_lock(&gWpeClkMutex);
 		switch (g_u4EnableClockCount) {
 		case 0:
 #ifndef __WPE_EP_NO_CLKMGR__ /*CCF*/
@@ -2960,9 +2962,8 @@ static void WPE_EnableClock(bool En)
 		default:
 			break;
 		}
-		spin_lock(&(WPEInfo.SpinLockWPE));
 		g_u4EnableClockCount++;
-		spin_unlock(&(WPEInfo.SpinLockWPE));
+		mutex_unlock(&gWpeClkMutex);
 #ifdef CONFIG_MTK_IOMMU_V2
 		if (g_u4EnableClockCount == 1) {
 			ret = m4u_control_iommu_port();
@@ -2974,9 +2975,8 @@ static void WPE_EnableClock(bool En)
 
 		/* LOG_DBG("Dpe clock disabled. g_u4EnableClockCount: %d.",*/
 		/*g_u4EnableClockCount); */
-		spin_lock(&(WPEInfo.SpinLockWPE));
+		mutex_lock(&gWpeClkMutex);
 		g_u4EnableClockCount--;
-		spin_unlock(&(WPEInfo.SpinLockWPE));
 		switch (g_u4EnableClockCount) {
 		case 0:
 #ifndef __WPE_EP_NO_CLKMGR__ /*CCF*/
@@ -2996,6 +2996,7 @@ static void WPE_EnableClock(bool En)
 		default:
 			break;
 		}
+		mutex_unlock(&gWpeClkMutex);
 	}
 }
 
