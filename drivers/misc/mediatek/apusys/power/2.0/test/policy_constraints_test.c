@@ -191,6 +191,48 @@ void apusys_set_dfvs_debug_test(void)
 }
 
 
+int voltage_constraint_check(int vvpu, int vmdla, int vsram, int vcore)
+{
+	if (vvpu == DVFS_VOLT_00_575000_V &&
+			vmdla >= DVFS_VOLT_00_800000_V) {
+		LOG_WRN("ASSERT vvpu=%d, vmdla=%d\n",
+				vvpu, vmdla);
+		return 1;
+	}
+
+	if (vmdla == DVFS_VOLT_00_575000_V &&
+			vvpu >= DVFS_VOLT_00_800000_V) {
+		LOG_WRN("ASSERT vvpu=%d, vmdla=%d\n",
+				vvpu, vmdla);
+		return 1;
+	}
+
+	if (vcore == DVFS_VOLT_00_575000_V &&
+			vvpu >= DVFS_VOLT_00_800000_V) {
+		LOG_WRN("ASSERT vvpu=%d, vcore=%d\n",
+				vvpu, vcore);
+		return 1;
+	}
+
+	if ((vvpu > VSRAM_TRANS_VOLT || vmdla > VSRAM_TRANS_VOLT)
+			&& vsram == VSRAM_LOW_VOLT) {
+		LOG_WRN("ASSERT vvpu=%d, vmdla=%d, vsram=%d\n",
+				vvpu, vmdla, vsram);
+		return 1;
+	}
+
+	if ((vvpu < VSRAM_TRANS_VOLT && vmdla < VSRAM_TRANS_VOLT)
+			&& vsram == VSRAM_HIGH_VOLT) {
+		LOG_WRN("ASSERT vvpu=%d, vmdla=%d, vsram=%d\n",
+				vvpu, vmdla, vsram);
+		return 1;
+	}
+
+	return 0;
+}
+
+
+
 int hal_config_power(enum HAL_POWER_CMD cmd, enum DVFS_USER user, void *param)
 {
 	int target_volt = 0;
@@ -198,7 +240,7 @@ int hal_config_power(enum HAL_POWER_CMD cmd, enum DVFS_USER user, void *param)
 	int i = 0;
 	static int vpu_curr_volt = VVPU_DEFAULT_VOLT;
 	static int mdla_curr_volt = VMDLA_DEFAULT_VOLT;
-	static int vsram_core_volt = VSRAM_DEFAULT_VOLT;
+	static int vsram_curr_volt = VSRAM_DEFAULT_VOLT;
 	static int vcore_curr_volt = VCORE_DEFAULT_VOLT;
 
 	if (cmd == PWR_CMD_SET_VOLT) {
@@ -211,10 +253,10 @@ int hal_config_power(enum HAL_POWER_CMD cmd, enum DVFS_USER user, void *param)
 		if (buck == VCORE_BUCK)
 			vcore_curr_volt = target_volt;
 		if (buck == SRAM_BUCK)
-			vsram_core_volt = target_volt;
+			vsram_curr_volt = target_volt;
 		//int vpu_curr_volt = apusys_opps.cur_buck_volt[VPU_BUCK];
 		//int mdla_curr_volt = apusys_opps.cur_buck_volt[MDLA_BUCK];
-		//vsram_core_volt = apusys_opps.vsram_volatge;
+		//vsram_curr_volt = apusys_opps.vsram_volatge;
 
 		LOG_INF("%s cmd = %d, buck = %d, voltage=%d\n",
 			__func__, cmd, buck, target_volt);
@@ -223,36 +265,43 @@ int hal_config_power(enum HAL_POWER_CMD cmd, enum DVFS_USER user, void *param)
 		//if (apusys_policy_checker()) {
 		//		while(1);
 		//	}
+		#if 1
 		if ((vpu_curr_volt - mdla_curr_volt >= VOLT_CONSTRAINTS_1) ||
 		(mdla_curr_volt - vpu_curr_volt >= VOLT_CONSTRAINTS_1) ||
 		vpu_curr_volt - vcore_curr_volt >= VOLT_CONSTRAINTS_1) {
-			LOG_INF(">>>>>>>> vpu_curr_volt = %d\n",
+			LOG_WRN(">>>>>>>> vpu_curr_volt = %d\n",
 				vpu_curr_volt);
-			LOG_INF(">>>>>>>> mdla_curr_volt = %d\n",
+			LOG_WRN(">>>>>>>> mdla_curr_volt = %d\n",
 				mdla_curr_volt);
-			LOG_INF(">>>>>>>> vcore_core_volt = %d\n",
+			LOG_WRN(">>>>>>>> vcore_core_volt = %d\n",
 				vcore_curr_volt);
 			LOG_WRN("%s fail : mdla, vpu volt diff > %d !\n",
 						__func__, VOLT_CONSTRAINTS_1);
 			exit(1);
-	}
+		}
+		#endif
+
+		if (voltage_constraint_check(vpu_curr_volt,
+			mdla_curr_volt, vsram_curr_volt, vcore_curr_volt))
+			exit(1);
 
 		for (i = 0; i < CONSTRAINTS_2_SIZE; i++) {
 			if (vpu_curr_volt == sram_constraint[i][0] &&
 			mdla_curr_volt == sram_constraint[i][1] &&
-			vsram_core_volt == sram_constraint[i][2]) {
+			vsram_curr_volt == sram_constraint[i][2]) {
 				break;
 			}
 		}
 
 		if (i == CONSTRAINTS_2_SIZE) {
-			LOG_INF("vpu_curr_volt = %d\n", vpu_curr_volt);
-			LOG_INF("mdla_curr_volt = %d\n", mdla_curr_volt);
-			LOG_INF("vsram_cur_volt = %d\n", vsram_core_volt);
+			LOG_WRN("vpu_curr_volt = %d\n", vpu_curr_volt);
+			LOG_WRN("mdla_curr_volt = %d\n", mdla_curr_volt);
+			LOG_WRN("vsram_cur_volt = %d\n", vsram_curr_volt);
 			LOG_WRN("%s fail : constraint violate!\n",
 				__func__);
 			exit(1);
 		}
+
 	} else if (cmd == PWR_CMD_SEGMENT_CHECK) {
 		segment_user_support_check(param);
 	} else {
