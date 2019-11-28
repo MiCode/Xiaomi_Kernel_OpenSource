@@ -1294,6 +1294,9 @@ static void config_ap_side_feature(struct ccci_modem *md,
 	struct md_query_ap_feature *md_feature)
 {
 	unsigned int udc_noncache_size = 0, udc_cache_size = 0;
+#if (MD_GENERATION >= 6297)
+	struct ccci_smem_region *region;
+#endif
 
 	md->runtime_version = AP_MD_HS_V2;
 	md_feature->feature_set[BOOT_INFO].support_mask
@@ -1335,6 +1338,26 @@ static void config_ap_side_feature(struct ccci_modem *md,
 	md_feature->feature_set[MD1MD3_SHARE_MEMORY].support_mask
 		= CCCI_FEATURE_NOT_SUPPORT;
 
+#if (MD_GENERATION >= 6297)
+	region =
+		ccci_md_get_smem_by_user_id(MD_SYS1, SMEM_USER_RAW_UDC_DESCTAB);
+	if (region)
+		udc_cache_size = region->size;
+	else
+		udc_cache_size = 0;
+
+	region = ccci_md_get_smem_by_user_id(MD_SYS1, SMEM_USER_RAW_UDC_DATA);
+	if (region)
+		udc_noncache_size = region->size;
+	else
+		udc_noncache_size = 0;
+	if (udc_noncache_size > 0 && udc_cache_size > 0)
+		md_feature->feature_set[UDC_RAW_SHARE_MEMORY].support_mask
+			= CCCI_FEATURE_MUST_SUPPORT;
+	else
+		md_feature->feature_set[UDC_RAW_SHARE_MEMORY].support_mask
+			= CCCI_FEATURE_NOT_SUPPORT;
+#else
 	get_md_resv_udc_info(md->index, &udc_noncache_size, &udc_cache_size);
 	if (udc_noncache_size > 0 && udc_cache_size > 0)
 		md_feature->feature_set[UDC_RAW_SHARE_MEMORY].support_mask
@@ -1342,6 +1365,7 @@ static void config_ap_side_feature(struct ccci_modem *md,
 	else
 		md_feature->feature_set[UDC_RAW_SHARE_MEMORY].support_mask
 			= CCCI_FEATURE_NOT_SUPPORT;
+#endif
 	if ((md->index == MD_SYS1) && (get_smem_amms_pos_size(MD_SYS1) > 0))
 		md_feature->feature_set[MD_POS_SHARE_MEMORY].support_mask =
 			CCCI_FEATURE_MUST_SUPPORT;
