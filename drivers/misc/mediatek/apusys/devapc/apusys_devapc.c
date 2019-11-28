@@ -33,6 +33,8 @@
 #include "apusys_power.h"
 
 static void __iomem *devapc_virt;
+struct dentry *apusys_dbg_devapc;
+bool print_debug_log;
 
 struct devapc_ctx {
 	void __iomem *virt;
@@ -376,6 +378,9 @@ static int shift_vio_dbg(int shift_bit)
 
 static void print_vio_mask_sta(void)
 {
+	if (!print_debug_log)
+		return;
+
 	pr_debug("%s VIO_MASK 0:0x%x, 1:0x%x, 2:0x%x, 3:0x%x\n",
 		__func__,
 		readl(DEVAPC_VIO_MASK(0)),
@@ -490,7 +495,7 @@ static void start_apusys_devapc(void *data)
 {
 	int i = 0;
 
-	pr_debug("%s +\n", __func__);
+
 	/* start apusys devapc violation irq */
 	mt_reg_sync_writel(0x80000000, DEVAPC_APC_CON);
 
@@ -504,7 +509,7 @@ static void start_apusys_devapc(void *data)
 		}
 	}
 	print_vio_mask_sta();
-	pr_debug("%s -\n", __func__);
+
 }
 
 static int apusys_devapc_probe(struct platform_device *pdev)
@@ -556,8 +561,14 @@ static int apusys_devapc_probe(struct platform_device *pdev)
 	if (ret)
 		dev_err(&pdev->dev, "callback register return error %d\n", ret);
 
+	print_debug_log = false;
+	apusys_dbg_devapc = debugfs_create_dir("apusys_devapc", NULL);
+	debugfs_create_bool("debug",
+		0644, apusys_dbg_devapc, &print_debug_log);
+
 	dctx->dbg_file = debugfs_create_file("apusys_devapc", 0644,
-				NULL, dctx, &apusys_devapc_fops);
+			apusys_dbg_devapc, dctx, &apusys_devapc_fops);
+
 	if (!dctx->dbg_file)
 		dev_err(&pdev->dev, "debugfs create failed\n");
 
