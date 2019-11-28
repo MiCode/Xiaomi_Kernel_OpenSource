@@ -1269,16 +1269,18 @@ s32 cmdq_mdp_flush_async(struct cmdqCommandStruct *desc, bool user_space,
 		err = cmdq_mdp_copy_cmd_to_task(handle,
 			(void *)(unsigned long)desc->pVABase,
 			copy_size, user_space);
-		if (err < 0) {
-			cmdq_task_destroy(handle);
-			CMDQ_TRACE_FORCE_END();
-			return err;
-		}
+		if (err < 0)
+			goto flush_err_end;
 	}
 
+	CMDQ_SYSTRACE_BEGIN("%s check valid\n", __func__);
 	if (user_space && !cmdq_core_check_user_valid(
-		(void *)(unsigned long)desc->pVABase, copy_size))
-		return -EFAULT;
+		(void *)(unsigned long)desc->pVABase, copy_size)) {
+		CMDQ_SYSTRACE_END();
+		err = -EFAULT;
+		goto flush_err_end;
+	}
+	CMDQ_SYSTRACE_END();
 
 	if (desc->regRequest.count &&
 			desc->regRequest.count <= CMDQ_MAX_DUMP_REG_COUNT &&
@@ -1286,11 +1288,8 @@ s32 cmdq_mdp_flush_async(struct cmdqCommandStruct *desc, bool user_space,
 		err = cmdq_task_append_backup_reg(handle,
 			desc->regRequest.count,
 			(u32 *)(unsigned long)desc->regRequest.regAddresses);
-		if (err < 0) {
-			cmdq_task_destroy(handle);
-			CMDQ_TRACE_FORCE_END();
-			return err;
-		}
+		if (err < 0)
+			goto flush_err_end;
 	}
 
 	if (handle->profile_exec)
@@ -1304,14 +1303,15 @@ s32 cmdq_mdp_flush_async(struct cmdqCommandStruct *desc, bool user_space,
 	}
 #endif
 
+	CMDQ_SYSTRACE_BEGIN("%s copy cmd\n", __func__);
 	err = cmdq_mdp_copy_cmd_to_task(handle,
 		(void *)(unsigned long)desc->pVABase + copy_size,
 		2 * CMDQ_INST_SIZE, user_space);
 	if (err < 0) {
-		cmdq_task_destroy(handle);
 		CMDQ_SYSTRACE_END();
-		return err;
+		goto flush_err_end;
 	}
+	CMDQ_SYSTRACE_END();
 
 	/* mark finalized since we copy it */
 	handle->finalized = true;
@@ -1359,11 +1359,14 @@ s32 cmdq_mdp_flush_async(struct cmdqCommandStruct *desc, bool user_space,
 	 * Task may flush directly if no engine conflict and no waiting task
 	 * holds same engines.
 	 */
-	cmdq_mdp_flush_async_impl(handle);
-
-	CMDQ_TRACE_FORCE_END();
-
+	err = cmdq_mdp_flush_async_impl(handle);
 	return 0;
+
+flush_err_end:
+	CMDQ_TRACE_FORCE_END();
+	cmdq_task_destroy(handle);
+
+	return err;
 }
 
 s32 cmdq_mdp_flush_async_impl(struct cmdqRecStruct *handle)

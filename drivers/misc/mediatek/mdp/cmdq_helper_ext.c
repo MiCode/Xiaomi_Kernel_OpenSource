@@ -1860,7 +1860,6 @@ void cmdqCoreReadWriteAddressBatch(u32 *addrs, u32 count, u32 *val_out)
 		MMPROFILE_FLAG_END, ((unsigned long)addrs), count);
 
 	spin_unlock_irqrestore(&cmdq_write_addr_lock, flags);
-
 }
 
 u32 cmdqCoreWriteWriteAddress(dma_addr_t pa, u32 value)

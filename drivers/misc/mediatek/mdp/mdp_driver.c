@@ -337,6 +337,8 @@ static void cmdq_driver_process_read_address_request(
 			break;
 		}
 
+		CMDQ_SYSTRACE_BEGIN("%s %u\n", __func__, req_user->count);
+
 		/* actually read these PA write buffers */
 		cmdqCoreReadWriteAddressBatch(addrs, req_user->count, values);
 		cmdq_driver_dump_readback(addrs, req_user->count, values);
@@ -345,8 +347,9 @@ static void cmdq_driver_process_read_address_request(
 		if (copy_to_user(values_addr, values,
 			req_user->count * sizeof(u32))) {
 			CMDQ_ERR("[READ_PA] fail to copy to user value buf\n");
-			break;
 		}
+
+		CMDQ_SYSTRACE_END();
 	} while (0);
 
 	kfree(addrs);
