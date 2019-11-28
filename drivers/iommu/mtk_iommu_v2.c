@@ -448,14 +448,15 @@ static int mtk_switch_secure_debug_func(unsigned int m4u_id, bool enable)
 }
 
 static int mtk_dump_reg(const struct mtk_iommu_data *data,
-	unsigned int start, unsigned int length)
+	unsigned int start, unsigned int length, struct seq_file *s)
 {
 	int i = 0;
 	void __iomem *base;
 
 	if (!data) {
-		pr_notice("%s, %d, invalid data\n",
-			  __func__, __LINE__);
+		mmu_seq_print(s,
+			      "%s, %d, invalid data\n",
+			      __func__, __LINE__);
 		return -1;
 	}
 #ifdef IOMMU_POWER_CLK_SUPPORT
@@ -467,57 +468,71 @@ static int mtk_dump_reg(const struct mtk_iommu_data *data,
 
 	for (i = 0; i < length; i += 4) {
 		if (length - i == 1)
-			pr_notice("0x%x=0x%x\n",
-				  start + 4 * i,
-				  readl_relaxed(base + start + 4 * i));
+			mmu_seq_print(s,
+				      "0x%x=0x%x\n",
+				      start + 4 * i,
+				      readl_relaxed(base + start + 4 * i));
 		else if (length - i == 2)
-			pr_notice("0x%x=0x%x, 0x%x=0x%x\n",
-				  start + 4 * i,
-				  readl_relaxed(base + start + 4 * i),
-				  start + 4 * (i + 1),
-				  readl_relaxed(base + start + 4 * (i + 1)));
+			mmu_seq_print(s,
+				      "0x%x=0x%x, 0x%x=0x%x\n",
+				      start + 4 * i,
+				      readl_relaxed(base + start + 4 * i),
+				      start + 4 * (i + 1),
+				      readl_relaxed(base + start +
+						    4 * (i + 1)));
 		else if (length - i == 3)
-			pr_notice("0x%x=0x%x, 0x%x=0x%x, 0x%x=0x%x\n",
-				  start + 4 * i,
-				  readl_relaxed(base + start + 4 * i),
-				  start + 4 * (i + 1),
-				  readl_relaxed(base + start + 4 * (i + 1)),
-				  start + 4 * (i + 2),
-				  readl_relaxed(base + start + 4 * (i + 2)));
+			mmu_seq_print(s,
+				      "0x%x=0x%x, 0x%x=0x%x, 0x%x=0x%x\n",
+				      start + 4 * i,
+				      readl_relaxed(base + start + 4 * i),
+				      start + 4 * (i + 1),
+				      readl_relaxed(base + start +
+						    4 * (i + 1)),
+				      start + 4 * (i + 2),
+				      readl_relaxed(base + start +
+						    4 * (i + 2)));
 		else if (length - i >= 4)
-			pr_notice("0x%x=0x%x, 0x%x=0x%x, 0x%x=0x%x, 0x%x=0x%x\n",
-				  start + 4 * i,
-				  readl_relaxed(base + start + 4 * i),
-				  start + 4 * (i + 1),
-				  readl_relaxed(base + start + 4 * (i + 1)),
-				  start + 4 * (i + 2),
-				  readl_relaxed(base + start + 4 * (i + 2)),
-				  start + 4 * (i + 3),
-				  readl_relaxed(base + start + 4 * (i + 3)));
+			mmu_seq_print(s,
+				      "0x%x=0x%x, 0x%x=0x%x, 0x%x=0x%x, 0x%x=0x%x\n",
+				      start + 4 * i,
+				      readl_relaxed(base + start + 4 * i),
+				      start + 4 * (i + 1),
+				      readl_relaxed(base + start +
+						    4 * (i + 1)),
+				      start + 4 * (i + 2),
+				      readl_relaxed(base + start +
+						    4 * (i + 2)),
+				      start + 4 * (i + 3),
+				      readl_relaxed(base + start +
+						    4 * (i + 3)));
 	}
 
 	return 0;
 }
-static int mtk_dump_debug_reg_info(const struct mtk_iommu_data *data)
+static int mtk_dump_debug_reg_info(const struct mtk_iommu_data *data,
+		struct seq_file *s)
 {
-	pr_notice("------ iommu:%d debug register ------\n",
-		  data->m4uid);
-	return mtk_dump_reg(data, REG_MMU_DBG(0), MTK_IOMMU_DEBUG_REG_NR);
+	mmu_seq_print(s,
+		      "------ iommu:%d debug register ------\n",
+		      data->m4uid);
+	return mtk_dump_reg(data, REG_MMU_DBG(0), MTK_IOMMU_DEBUG_REG_NR, s);
 }
 
-static int mtk_dump_rs_sta_info(const struct mtk_iommu_data *data, int mmu)
+static int mtk_dump_rs_sta_info(const struct mtk_iommu_data *data, int mmu,
+		struct seq_file *s)
 {
-	pr_notice("------ iommu:%d mmu%d: RS status register ------\n",
-		  data->m4uid, mmu);
+	mmu_seq_print(s,
+		      "------ iommu:%d mmu%d: RS status register ------\n",
+		      data->m4uid, mmu);
 	return mtk_dump_reg(data,
 			    REG_MMU_RS_VA(mmu, 0),
-			    MTK_IOMMU_RS_COUNT * 4);
+			    MTK_IOMMU_RS_COUNT * 4, s);
 }
 
 int __mtk_dump_reg_for_hang_issue(unsigned int m4u_id,
 		struct seq_file *s)
 {
-	int cnt, ret;
+	int cnt, ret, i;
 	struct mtk_iommu_data *data = mtk_iommu_get_m4u_data(m4u_id);
 	void __iomem *base;
 	unsigned long flags;
@@ -578,9 +593,9 @@ int __mtk_dump_reg_for_hang_issue(unsigned int m4u_id,
 		mmu_seq_print(s,
 			      "====== the %d time: REG_MMU_STA(0x08) = 0x%x ======\n",
 			      cnt, readl_relaxed(base + REG_MMU_STA));
-		mtk_dump_debug_reg_info(data);
-		mtk_dump_rs_sta_info(data, 0);
-		mtk_dump_rs_sta_info(data, 1);
+		mtk_dump_debug_reg_info(data, s);
+		for (i = 0; i < MTK_IOMMU_MMU_COUNT; i++)
+			mtk_dump_rs_sta_info(data, i, s);
 	}
 
 	mmu_seq_print(s,
@@ -658,7 +673,7 @@ int mtk_iommu_dump_reg(int m4u_id, unsigned int start,
 		return 0;
 	}
 
-	mtk_dump_reg(data, start, (end - start + 4) / 4);
+	mtk_dump_reg(data, start, (end - start + 4) / 4, NULL);
 	pr_notice("============= dump end ===============>\n");
 
 	ret = mtk_switch_secure_debug_func(m4u_id, 0);
@@ -928,7 +943,7 @@ static void __mtk_iommu_tlb_add_flush_nosync(
 			 "Partial TLB flush time out, iommu:%d,start=0x%lx(0x%lx),end=0x%lx(0x%lx)\n",
 			 data->m4uid, iova_start, start,
 			 iova_end, end);
-		mtk_dump_reg(data, REG_MMU_PT_BASE_ADDR, 14);
+		mtk_dump_reg(data, REG_MMU_PT_BASE_ADDR, 14, NULL);
 		__mtk_iommu_tlb_flush_all(data);
 	}
 	/* Clear the CPE status */
