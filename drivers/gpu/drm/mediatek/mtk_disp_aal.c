@@ -27,7 +27,7 @@
 #ifdef CONFIG_LEDS_MTK_DISP
 #include <mtk_leds_drv.h>
 #include <leds-mtk-disp.h>
-#elif CONFIG_LEDS_MTK_PWM
+#elif defined CONFIG_LEDS_MTK_PWM
 #include <mtk_leds_drv.h>
 #include <leds-mtk-pwm.h>
 #else
