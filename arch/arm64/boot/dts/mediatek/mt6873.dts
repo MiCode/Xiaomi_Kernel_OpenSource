@@ -3241,6 +3241,36 @@
 		mediatek,clkbuf-output-impedance = <6 6 4 6 0 0 4>;
 		mediatek,clkbuf-controls-for-desense = <0 4 0 4 0 0 0>;
 	};
+
+	md_auxadc: md_auxadc {
+	};
+
+	gpio_usage_mapping: gpio_usage_mapping {
+	};
+
+	mrdump_ext_rst: mrdump_ext_rst {
+	};
+
+	gyro: gyro {
+	};
+
+	als: als {
+	};
+
+	touch: touch {
+	};
+
+	subpmic_pmu_eint: subpmic_pmu_eint {
+	};
+
+	tcpc_pd: tcpc_pd {
+	};
+
+	smart_pa: smart_pa {
+	};
+
+	keypad: keypad {
+	};
 };
 
 &spmi_bus {

@@ -189,4 +189,5 @@
 }; /* IRTX GPIO Settings -End */
 
 #include "cust_mt6873_camera.dtsi"
+#include <k6873v1_64/cust.dtsi>
 /*End of this file, DO NOT ADD ANYTHING HERE*/
