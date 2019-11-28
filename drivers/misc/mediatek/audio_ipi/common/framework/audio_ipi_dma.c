@@ -149,6 +149,7 @@ static bool g_dsp_init_flag[NUM_OPENDSP_TYPE];
 static bool g_region_reg_flag[TASK_SCENE_SIZE];
 
 static struct hal_dma_queue_t g_hal_dma_queue;
+DEFINE_SPINLOCK(hal_dma_rb_lock);
 
 /* audio dsp cache limitation:*/
 /* byte align alignment: scp cm4_a(32), cm4_b(32), audio dsp(128) */
@@ -723,7 +724,7 @@ int audio_ipi_dma_free_region(const uint8_t task)
 
 	int i = 0;
 
-
+	uint8_t task_ctrl = TASK_SCENE_INVALID;
 	uint32_t dsp_id = audio_get_dsp_id(task);
 
 	if (dsp_id >= NUM_OPENDSP_TYPE) {
@@ -741,6 +742,12 @@ int audio_ipi_dma_free_region(const uint8_t task)
 	if (task >= TASK_SCENE_SIZE) {
 		pr_info("task: %d", task);
 		return -EOVERFLOW;
+	}
+	task_ctrl = get_audio_controller_task(dsp_id);
+	if (task_ctrl == TASK_SCENE_INVALID) {
+		pr_info("ipi dma is not supported in dsp_id(%u), ctrl = %d",
+			dsp_id, task_ctrl);
+		return -ENODEV;
 	}
 
 	if (g_region_reg_flag[task] == false) {
@@ -790,7 +797,7 @@ int audio_ipi_dma_free_region(const uint8_t task)
 #endif
 		audio_send_ipi_msg(
 			&ipi_msg,
-			task,
+			task_ctrl,
 			AUDIO_IPI_LAYER_TO_DSP,
 			AUDIO_IPI_MSG_ONLY,
 			AUDIO_IPI_MSG_DIRECT_SEND,
@@ -1358,6 +1365,8 @@ static int hal_dma_push(
 #if 0
 	uint32_t i = 0;
 #endif
+	unsigned long spin_flags = 0;
+
 
 	if (msg_queue == NULL || p_ipi_msg == NULL || p_idx_msg == NULL) {
 		pr_info("NULL!! msg_queue: %p, p_ipi_msg: %p, p_idx_msg: %p",
@@ -1413,10 +1422,12 @@ static int hal_dma_push(
 	memcpy((void *)&msg_queue->msg[*p_idx_msg],
 	       p_ipi_msg,
 	       sizeof(struct ipi_msg_t));
+	spin_lock_irqsave(&hal_dma_rb_lock, spin_flags);
 	audio_ringbuf_copy_from_linear_impl(
 		&msg_queue->dma_data,
 		msg_queue->tmp_buf_d2k,
 		p_ipi_msg->dma_info.data_size);
+	spin_unlock_irqrestore(&hal_dma_rb_lock, spin_flags);
 
 
 	ipi_dbg("task: %d, msg_id: 0x%x, idx_r: %u, idx_w: %u, queue(%u/%u), *p_idx_msg: %u",
@@ -1474,6 +1485,7 @@ static int hal_dma_front(
 	uint32_t *p_idx_msg)
 {
 	uint32_t data_size = 0;
+	unsigned long spin_flags = 0;
 
 	if (msg_queue == NULL || pp_ipi_msg == NULL || p_idx_msg == NULL) {
 		pr_info("NULL!! msg_queue: %p, pp_ipi_msg: %p, p_idx_msg: %p",
@@ -1512,10 +1524,12 @@ static int hal_dma_front(
 
 	memcpy(msg_queue->tmp_buf_k2h, *pp_ipi_msg, sizeof(struct ipi_msg_t));
 
+	spin_lock_irqsave(&hal_dma_rb_lock, spin_flags);
 	audio_ringbuf_copy_to_linear(
 		msg_queue->tmp_buf_k2h + sizeof(struct ipi_msg_t),
 		&msg_queue->dma_data,
 		data_size);
+	spin_unlock_irqrestore(&hal_dma_rb_lock, spin_flags);
 
 	return 0;
 }
@@ -1524,19 +1538,33 @@ static int hal_dma_front(
 static int hal_dma_init_msg_queue(struct hal_dma_queue_t *msg_queue,
 				  const uint32_t size)
 {
+	unsigned long spin_flags = 0;
 	int i = 0;
 
 	if (msg_queue == NULL) {
 		pr_info("NULL!! msg_queue: %p", msg_queue);
 		return -EFAULT;
 	}
+
+	spin_lock_irqsave(&hal_dma_rb_lock, spin_flags);
 	if (msg_queue->dma_data.base ||
 	    msg_queue->tmp_buf_d2k ||
 	    msg_queue->tmp_buf_k2h) {
-		pr_debug("already init!! %p %p %p",
-			 msg_queue->dma_data.base,
-			 msg_queue->tmp_buf_d2k,
-			 msg_queue->tmp_buf_k2h);
+		pr_info("already init!! %p %p %p %u %u",
+			msg_queue->dma_data.base,
+			msg_queue->tmp_buf_d2k,
+			msg_queue->tmp_buf_k2h,
+			msg_queue->dma_data.size,
+			size);
+		if (size > msg_queue->dma_data.size) {
+			vfree(msg_queue->dma_data.base);
+
+			msg_queue->dma_data.size = size;
+			msg_queue->dma_data.base = vmalloc(size);
+			msg_queue->dma_data.read = msg_queue->dma_data.base;
+			msg_queue->dma_data.write = msg_queue->dma_data.base;
+		}
+		spin_unlock_irqrestore(&hal_dma_rb_lock, spin_flags);
 		return 0;
 	}
 
@@ -1556,6 +1584,7 @@ static int hal_dma_init_msg_queue(struct hal_dma_queue_t *msg_queue,
 	msg_queue->dma_data.base = vmalloc(msg_queue->dma_data.size);
 	msg_queue->dma_data.read = msg_queue->dma_data.base;
 	msg_queue->dma_data.write = msg_queue->dma_data.base;
+	spin_unlock_irqrestore(&hal_dma_rb_lock, spin_flags);
 
 	msg_queue->tmp_buf_d2k = vmalloc(MAX_DSP_DMA_WRITE_SIZE);
 	msg_queue->tmp_buf_k2h = vmalloc(MAX_DSP_DMA_WRITE_SIZE);
@@ -1567,15 +1596,19 @@ static int hal_dma_init_msg_queue(struct hal_dma_queue_t *msg_queue,
 
 static int hal_dma_deinit_msg_queue(struct hal_dma_queue_t *msg_queue)
 {
+	unsigned long spin_flags = 0;
+
 	if (msg_queue == NULL) {
 		pr_info("NULL!! msg_queue: %p", msg_queue);
 		return -EFAULT;
 	}
 
+	spin_lock_irqsave(&hal_dma_rb_lock, spin_flags);
 	if (msg_queue->dma_data.base != NULL) {
 		vfree(msg_queue->dma_data.base);
 		msg_queue->dma_data.base = NULL;
 	}
+	spin_unlock_irqrestore(&hal_dma_rb_lock, spin_flags);
 
 	if (msg_queue->tmp_buf_d2k != NULL) {
 		vfree(msg_queue->tmp_buf_d2k);
