@@ -232,9 +232,7 @@ uint32_t scp_get_freq(void)
 		pr_info("warning: SCP DVFS is in debug mode, fix opp%d\n",
 				scp_dvfs_debug_flag);
 
-		if (scp_dvfs_debug_flag == 0 && return_freq < CLK_OPP0)
-			return_freq = CLK_OPP0;
-		else if (scp_dvfs_debug_flag == 1 && return_freq < CLK_OPP1)
+		if (scp_dvfs_debug_flag == 1 && return_freq < CLK_OPP1)
 			return_freq = CLK_OPP1;
 		else if (scp_dvfs_debug_flag == 2 && return_freq < CLK_OPP2)
 			return_freq = CLK_OPP2;
