@@ -2347,13 +2347,14 @@ static int __mtk_check_trigger(struct mtk_drm_crtc *mtk_crtc)
 {
 	struct drm_crtc *crtc = &mtk_crtc->base;
 	int index = drm_crtc_index(crtc);
-	struct mtk_crtc_state *mtk_state = to_mtk_crtc_state(crtc->state);
+	struct mtk_crtc_state *mtk_state;
 
 	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 	CRTC_MMP_EVENT_START(index, check_trigger, 0, 0);
 
 	mtk_drm_idlemgr_kick(__func__, &mtk_crtc->base, 0);
 
+	mtk_state = to_mtk_crtc_state(crtc->state);
 	if (!mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE] ||
 		(mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE] &&
 		atomic_read(&mtk_crtc->already_config))) {
