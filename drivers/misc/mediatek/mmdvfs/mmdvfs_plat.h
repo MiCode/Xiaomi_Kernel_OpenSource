@@ -40,6 +40,7 @@ bool mmdvfs_log_larb_mmp(s32 common_port_id, s32 larb_id);
 
 #define DEFAULT_BW_UPDATE(bw_value) ((bw_value) * 1 / 2)
 #define DEFAULT_LIMIT_UPDATE(bw_value) ((bw_value) * 7 / 10)
+#define VENC_BW_UPDATE(bw_value) ((bw_value) * 7 / 10)
 static inline u32 get_comp_value(u32 bw_value, u32 comp_type, bool is_bw)
 {
 	if (comp_type == BW_COMP_DEFAULT) {
@@ -47,6 +48,11 @@ static inline u32 get_comp_value(u32 bw_value, u32 comp_type, bool is_bw)
 			return DEFAULT_BW_UPDATE(bw_value);
 		else
 			return DEFAULT_LIMIT_UPDATE(bw_value);
+	} else if (comp_type == BW_COMP_VENC) {
+		if (is_bw)
+			return VENC_BW_UPDATE(bw_value);
+		else
+			return bw_value;
 	}
 
 	return bw_value;
