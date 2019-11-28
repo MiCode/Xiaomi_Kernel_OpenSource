@@ -30,9 +30,9 @@
 #include "ion_drv.h"
 #include <linux/iommu.h>
 
-#ifdef CONFIG_MTK_IOMMU
+#ifdef CONFIG_MTK_IOMMU_v2
 #include "mtk_iommu.h"
-#include <dt-bindings/memory/mt6763-larb-port.h>
+#include <dt-bindings/memory/mt6873-larb-port.h>
 #else
 #include "m4u.h"
 #endif

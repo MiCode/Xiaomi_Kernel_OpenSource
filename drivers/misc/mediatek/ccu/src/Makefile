@@ -25,7 +25,7 @@ else ifneq (,$(filter $(platform),mt6758 mt6763 mt6765 mt6768))
     obj-y += 1.1/
 else ifneq (,$(filter $(platform),mt6771 mt6775 mt6785))
     obj-y += 2.0/
-else ifneq (,$(filter $(platform),mt6779 mt6885 mt6873))
+else ifneq (,$(filter $(platform),mt6779 mt6885))
     obj-y += 2.1/
     $(warning CCU_MAKE_FILE_CALLED_2_1)
 endif

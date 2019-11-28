@@ -15,7 +15,7 @@
 #include "ccu_cmn.h"
 #include "ccu_hw.h"
 #include <mmdvfs_pmqos.h>
-#include "mt6885-larb-port.h"
+#include "mt6873-larb-port.h"
 static struct plist_head ccu_request_list;
 static struct mm_qos_request pccu_i_request;
 static struct mm_qos_request pccu_g_request;
@@ -36,11 +36,11 @@ void ccu_qos_init(void)
 
 	/*Add request for dram input, output and single access*/
 	mm_qos_add_request(&ccu_request_list, &pccu_i_request,
-		M4U_PORT_L13_CAM_CCUI_MDP);
+		M4U_PORT_L13_CAM_CCUI);
 	mm_qos_add_request(&ccu_request_list, &pccu_g_request,
 		get_virtual_port(VIRTUAL_CCU_COMMON));
 	mm_qos_add_request(&ccu_request_list, &pccu_o_request,
-		M4U_PORT_L13_CAM_CCUO_MDP);
+		M4U_PORT_L13_CAM_CCUO);
 
 	mm_qos_set_request(&pccu_i_request, CCU_BW_I, CCU_BW_I, BW_COMP_NONE);
 	mm_qos_set_request(&pccu_g_request, CCU_BW_G, CCU_BW_G, BW_COMP_NONE);
