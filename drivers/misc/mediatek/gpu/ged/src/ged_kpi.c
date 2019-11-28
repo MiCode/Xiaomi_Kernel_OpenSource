@@ -61,7 +61,8 @@ EXPORT_SYMBOL(ged_kpi_PushAppSelfFcFp_fbt);
 #define GED_KPI_MSEC_DIVIDER 1000000
 #define GED_KPI_SEC_DIVIDER 1000000000
 #define GED_KPI_MAX_FPS 60
-#define GED_KPI_DEFAULT_FPS_MARGIN 3
+/* set default margin to be distinct from FPSGO(0 or 3) */
+#define GED_KPI_DEFAULT_FPS_MARGIN 4
 
 typedef enum {
 	GED_TIMESTAMP_TYPE_D		= 0x1,
@@ -2287,6 +2288,12 @@ static GED_BOOL ged_kpi_find_riskyBQ_func(unsigned long ulID,
 		int risk;
 		int maxRisk;
 
+		/* FPSGO skip this BQ, we should skip */
+		if ((psHead->target_fps == GED_KPI_MAX_FPS)
+			&& (psHead->target_fps_margin
+			== GED_KPI_DEFAULT_FPS_MARGIN))
+			return GED_TRUE;
+
 		t_gpu_latest = ((int)psHead->t_gpu_latest) / 1000; // ns -> ms
 		t_gpu_target = psHead->t_gpu_target / 1000;
 		risk = t_gpu_latest * 100 / t_gpu_target;
@@ -2306,8 +2313,7 @@ GED_ERROR ged_kpi_timer_based_pick_riskyBQ(int *pT_gpu_real, int *pT_gpu_pipe,
 {
 	GED_ERROR ret = GED_ERROR_FAIL;
 	GED_KPI_HEAD sRiskyBQ = {0};
-	unsigned int last_TimeStamp2 = 0;
-	unsigned int pre_TimeStamp2 = 0;
+	unsigned int deltaTime = 0;
 	unsigned int loading = 0;
 	int i;
 	unsigned long ulIRQFlags;
@@ -2324,10 +2330,9 @@ GED_ERROR ged_kpi_timer_based_pick_riskyBQ(int *pT_gpu_real, int *pT_gpu_pipe,
 			|| sRiskyBQ.t_gpu_target <= 0)
 		return ret;
 
-	last_TimeStamp2 =
-		((unsigned int)sRiskyBQ.last_TimeStamp2) / 1000U; // ns -> ms
-	pre_TimeStamp2 =
-		((unsigned int)sRiskyBQ.pre_TimeStamp2) / 1000U;
+	deltaTime = ((unsigned int)
+		(sRiskyBQ.last_TimeStamp2 - sRiskyBQ.pre_TimeStamp2))
+		/ 1000U; // ns -> ms
 
 	for (i = 0; i < GED_KPI_TOTAL_ITEMS; ++i) {
 		if (g_asKPI[i].ullTimeStamp2 == sRiskyBQ.last_TimeStamp2
@@ -2339,8 +2344,7 @@ GED_ERROR ged_kpi_timer_based_pick_riskyBQ(int *pT_gpu_real, int *pT_gpu_pipe,
 	if (loading == 0)
 		mtk_get_gpu_loading(&loading);
 
-	*pT_gpu_real = (last_TimeStamp2 - pre_TimeStamp2)
-		* loading / 100U;
+	*pT_gpu_real = deltaTime * loading / 100U;
 	*pT_gpu_pipe = ((int)sRiskyBQ.t_gpu_latest) / 1000; // ns -> ms
 	*pT_gpu_target = sRiskyBQ.t_gpu_target / 1000;
 	*pullWnd = sRiskyBQ.ullWnd;
