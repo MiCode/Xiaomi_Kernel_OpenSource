@@ -1051,7 +1051,10 @@ s32 mm_qos_set_request(struct mm_qos_request *req, u32 bw_value,
 		larb >= MAX_LARB_COUNT || !larb_req[larb].port_count ||
 		port >= MAX_PORT_COUNT || !larb_req[larb].ratio[port] ||
 		comp_type >= BW_COMP_END) {
-		pr_notice("mm_set(0x%08x) invalid req\n", req->master_id);
+		pr_notice("mm_set(0x%08x) init=%d pt_cnt=%d rat=%d comp=%d\n",
+			req->master_id, req->init, larb_req[larb].port_count,
+			larb_req[larb].ratio[port], comp_type);
+		dump_stack();
 		return -EINVAL;
 	}
 
