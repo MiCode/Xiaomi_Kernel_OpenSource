@@ -1417,7 +1417,6 @@ int edma_ext_by_sub(struct edma_sub *edma_sub, struct edma_request *req)
 		    ("%s:timeout\n", __func__);
 		print_error_status(edma_sub, req);
 	}
-	print_error_status(edma_sub, req);
 
 	do_gettimeofday(&t2);
 
