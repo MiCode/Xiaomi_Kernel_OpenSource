@@ -82,7 +82,12 @@
 #define SND_AUDIOCODEC_G723_1                ((__u32) 0x0000000C)
 #define SND_AUDIOCODEC_G729                  ((__u32) 0x0000000D)
 #define SND_AUDIOCODEC_BESPOKE               ((__u32) 0x0000000E)
-#define SND_AUDIOCODEC_MAX                   SND_AUDIOCODEC_BESPOKE
+#define SND_AUDIOCODEC_WMA_PRO               ((__u32) 0x0000000F)
+#define SND_AUDIOCODEC_ALAC                  ((__u32) 0x00000010)
+#define SND_AUDIOCODEC_APE                   ((__u32) 0x00000011)
+#define SND_AUDIOCODEC_DSD                   ((__u32) 0x00000012)
+#define SND_AUDIOCODEC_APTX                  ((__u32) 0x00000013)
+#define SND_AUDIOCODEC_MAX                   SND_AUDIOCODEC_APTX
 
 /*
  * Profile and modes are listed with bit masks. This allows for a
@@ -324,12 +329,76 @@ struct snd_enc_generic {
 	__s32 reserved[15];	/* Can be used for SND_AUDIOCODEC_BESPOKE */
 } __attribute__((packed, aligned(4)));
 
+#define SND_COMPRESS_DEC_HDR
+struct snd_dec_aac {
+	__u16 audio_obj_type;
+	__u16 pce_bits_size;
+} __attribute__((packed, aligned(4)));
+
+struct snd_dec_flac {
+	__u16 sample_size;
+	__u16 min_blk_size;
+	__u16 max_blk_size;
+	__u16 min_frame_size;
+	__u16 max_frame_size;
+} __attribute__((packed, aligned(4)));
+
+struct snd_dec_alac {
+	__u32 frame_length;
+	__u8 compatible_version;
+	__u8 bit_depth;
+	__u8 pb;
+	__u8 mb;
+	__u8 kb;
+	__u8 num_channels;
+	__u16 max_run;
+	__u32 max_frame_bytes;
+	__u32 avg_bit_rate;
+	__u32 sample_rate;
+	__u32 channel_layout_tag;
+} __attribute__((packed, aligned(4)));
+
+struct snd_dec_ape {
+	__u16 compatible_version;
+	__u16 compression_level;
+	__u32 format_flags;
+	__u32 blocks_per_frame;
+	__u32 final_frame_blocks;
+	__u32 total_frames;
+	__u16 bits_per_sample;
+	__u16 num_channels;
+	__u32 sample_rate;
+	__u32 seek_table_present;
+} __attribute__((packed, aligned(4)));
+
+struct snd_dec_wma {
+	__u32 super_block_align;
+	__u32 bits_per_sample;
+	__u32 channelmask;
+	__u32 encodeopt;
+	__u32 encodeopt1;
+	__u32 encodeopt2;
+	__u32 avg_bit_rate;
+} __attribute__((packed, aligned(4)));
+
+struct snd_dec_aptx {
+	__u32 lap;
+	__u32 uap;
+	__u32 nap;
+};
+
 union snd_codec_options {
 	struct snd_enc_wma wma;
 	struct snd_enc_vorbis vorbis;
 	struct snd_enc_real real;
 	struct snd_enc_flac flac;
 	struct snd_enc_generic generic;
+	struct snd_dec_aac aac_dec;
+	struct snd_dec_flac flac_dec;
+	struct snd_dec_alac alac_dec;
+	struct snd_dec_ape ape_dec;
+	struct snd_dec_wma wma_dec;
+	struct snd_dec_aptx aptx_dec;
 } __attribute__((packed, aligned(4)));
 
 /** struct snd_codec_desc - description of codec capabilities
