@@ -28,3 +28,9 @@
 &dsi_rm69299_visionox_amoled_vid_display {
 	qcom,dsi-display-active;
 };
+
+&tx_swr_gpios {
+	qcom,chip-wakeup-reg = <0x01FFB000>;
+	qcom,chip-wakeup-maskbit = <0>;
+	qcom,chip-wakeup-default-val = <0x1>;
+};
