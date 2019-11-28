@@ -153,6 +153,8 @@
 #define CONFIG_LVTS_ERROR_AEE_WARNING (0)
 #endif
 
+#define DUMP_LVTS_REGISTER_FOR_ZERO_RAW_ISSUE  (1)
+
 #if CONFIG_LVTS_ERROR_AEE_WARNING
 #define LVTS_FORCE_ERROR_TRIGGER (0)
 #define LVTS_NUM_SKIP_SAMPLE (500)
@@ -576,6 +578,10 @@ extern int (*lvts_max_temperature_in_bank[THERMAL_BANK_NUM])(void);
 extern void lvts_thermal_lvts_device_init(void);
 extern void lvts_read_temperature(void);
 //extern void lvts_read_temperature(int temp0, int temp1);
+#if DUMP_LVTS_REGISTER_FOR_ZERO_RAW_ISSUE
+extern void clear_lvts_register_value_array(void);
+extern void dump_lvts_error_info(void);
+#endif
 extern void lvts_thermal_cal_prepare(void);
 extern void lvts_device_identification(void);
 extern void lvts_reset_device_and_stop_clk(void);

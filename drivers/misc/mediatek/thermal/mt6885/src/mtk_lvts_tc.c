@@ -206,8 +206,7 @@ static int g_use_fake_efuse;
 int lvts_debug_log;
 int lvts_rawdata_debug_log;
 
-#if CONFIG_LVTS_ERROR_AEE_WARNING
-#if DUMP_LVTS_REGISTER
+#if DUMP_LVTS_REGISTER_FOR_ZERO_RAW_ISSUE
 #define NUM_LVTS_DEVICE_REG (5)
 static const unsigned int g_lvts_device_addrs[NUM_LVTS_DEVICE_REG] = {
 	0x00,
@@ -221,22 +220,29 @@ static unsigned int g_lvts_device_value_b[LVTS_CONTROLLER_NUM]
 static unsigned int g_lvts_device_value_e[LVTS_CONTROLLER_NUM]
 	[NUM_LVTS_DEVICE_REG];
 
-#define NUM_LVTS_CONTROLLER_REG (9)
+#define NUM_LVTS_CONTROLLER_REG (17)
 static const unsigned int g_lvts_controller_addrs[NUM_LVTS_CONTROLLER_REG] = {
-	0x00,
-	0x04,
-	0x08,
-	0x38,
-	0x40,
-	0x4C,
-	0x50,
-	0xE8,
-	0xE4};
+	0x00,//LVTSMONCTL0_0
+	0x04,//LVTSMONCTL1_0
+	0x08,//LVTSMONCTL2_0
+	0x38,//LVTSMSRCTL0_0
+	0x40,//LVTSTSSEL_0
+	0x4C,//LVTS_ID_0
+	0x50,//LVTS_CONFIG_0
+	0x90,//LVTSMSR0_0
+	0x94,//LVTSMSR1_0
+	0x98,//LVTSMSR2_0
+	0x9C,//LVTSMSR3_0
+	0xB0,//LVTSRDATA0_0
+	0xB4,//LVTSRDATA1_0
+	0xB8,//LVTSRDATA2_0
+	0xBC,//LVTSRDATA3_0
+	0xE8,//LVTSDBGSEL_0
+	0xE4};//LVTSCLKEN_0
 static unsigned int g_lvts_controller_value_b[LVTS_CONTROLLER_NUM]
 	[NUM_LVTS_CONTROLLER_REG];
 static unsigned int g_lvts_controller_value_e[LVTS_CONTROLLER_NUM]
 	[NUM_LVTS_CONTROLLER_REG];
-#endif
 #endif
 
 #if LVTS_VALID_DATA_TIME_PROFILING
@@ -403,6 +409,166 @@ int lvts_raw_to_temp(unsigned int msr_raw, enum lvts_sensor_enum ts_name)
 
 	return temp_mC;
 }
+#if DUMP_LVTS_REGISTER_FOR_ZERO_RAW_ISSUE
+static void read_controller_reg_before_active(void)
+{
+	int i, j, offset, temp;
+
+	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
+		offset = lvts_tscpu_g_tc[i].tc_offset;
+
+		for (j = 0; j < NUM_LVTS_CONTROLLER_REG; j++) {
+			temp = readl(LVTSMONCTL0_0 + g_lvts_controller_addrs[j]
+				+ offset);
+			g_lvts_controller_value_b[i][j] = temp;
+		}
+	}
+
+}
+
+static void read_controller_reg_when_error(void)
+{
+	int i, j, offset, temp;
+
+	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
+		offset = lvts_tscpu_g_tc[i].tc_offset; //tc offset
+
+		for (j = 0; j < NUM_LVTS_CONTROLLER_REG; j++) {
+			temp = readl(LVTSMONCTL0_0 + g_lvts_controller_addrs[j]
+				+ offset);
+			g_lvts_controller_value_e[i][j] = temp;
+		}
+	}
+}
+
+static void read_device_reg_before_active(void)
+{
+	int i, j;
+	unsigned int addr, data;
+
+	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
+		for (j = 0; j < NUM_LVTS_DEVICE_REG; j++) {
+			addr = g_lvts_device_addrs[j];
+			data =  lvts_read_device(0x81020000, addr, i);
+			g_lvts_device_value_b[i][j] = data;
+		}
+	}
+}
+
+static void read_device_reg_when_error(void)
+{
+	int i, j, offset, cnt;
+	unsigned int addr;
+
+	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
+
+		offset = lvts_tscpu_g_tc[i].tc_offset; //tc offset
+
+		for (j = 0; j < NUM_LVTS_DEVICE_REG; j++) {
+			addr = g_lvts_device_addrs[j];
+			lvts_write_device(0x81020000, addr, 0x00, i);
+			/* wait 2us + 3us buffer*/
+			udelay(5);
+			/* Check ASIF bus status for transaction finished
+			 * Wait until DEVICE_ACCESS_START = 0
+			 */
+			cnt = 0;
+			while ((readl(LVTS_CONFIG_0 + offset) & _BIT_(24))) {
+				cnt++;
+
+				if (cnt == 100) {
+					lvts_printk("Error: DEVICE_ACCESS_START didn't ready\n");
+					break;
+				}
+				udelay(2);
+			}
+
+			g_lvts_device_value_e[i][j] = (readl(LVTSRDATA0_0
+				+ offset));
+		}
+	}
+}
+
+void clear_lvts_register_value_array(void)
+{
+	int i, j;
+
+	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
+		for (j = 0; j < NUM_LVTS_CONTROLLER_REG; j++) {
+			g_lvts_controller_value_b[i][j] = 0;
+			g_lvts_controller_value_e[i][j] = 0;
+		}
+
+		for (j = 0; j < NUM_LVTS_DEVICE_REG; j++) {
+			g_lvts_device_value_b[i][j] = 0;
+			g_lvts_device_value_e[i][j] = 0;
+		}
+	}
+}
+static void dump_lvts_register_value(void)
+{
+	int i, j, offset, tc_offset;
+	char buffer[512];
+
+	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
+		lvts_printk("[LVTS_ERROR][BEFROE][CONTROLLER_%d][DUMP]\n", i);
+		tc_offset = lvts_tscpu_g_tc[i].tc_offset; //tc offset
+
+		offset = sprintf(buffer, "[LVTS_ERROR][BEFORE][TC][DUMP] ");
+		for (j = 0; j < NUM_LVTS_CONTROLLER_REG; j++)
+			offset += sprintf(buffer + offset, "0x%x:%x ",
+					tc_offset + g_lvts_controller_addrs[j],
+					g_lvts_controller_value_b[i][j]);
+
+		buffer[offset] = '\0';
+		lvts_printk("%s\n", buffer);
+
+		offset = sprintf(buffer, "[LVTS_ERROR][BEFORE][DEVICE][DUMP] ");
+		for (j = 0; j < NUM_LVTS_DEVICE_REG; j++)
+			offset += sprintf(buffer + offset, "0x%x:%x ",
+					g_lvts_device_addrs[j],
+					g_lvts_device_value_b[i][j]);
+
+		buffer[offset] = '\0';
+		lvts_printk("%s\n", buffer);
+	}
+
+	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
+		lvts_printk("[LVTS_ERROR][AFTER][CONTROLLER_%d][DUMP]\n", i);
+		tc_offset = lvts_tscpu_g_tc[i].tc_offset; //tc offset
+
+		offset = sprintf(buffer, "[LVTS_ERROR][AFTER][TC][DUMP] ");
+		for (j = 0; j < NUM_LVTS_CONTROLLER_REG; j++)
+			offset += sprintf(buffer + offset, "0x%x:%x ",
+					tc_offset + g_lvts_controller_addrs[j],
+					g_lvts_controller_value_e[i][j]);
+
+		buffer[offset] = '\0';
+		lvts_printk("%s\n", buffer);
+
+		offset = sprintf(buffer, "[LVTS_ERROR][AFTER][DEVICE][DUMP] ");
+		for (j = 0; j < NUM_LVTS_DEVICE_REG; j++)
+			offset += sprintf(buffer + offset, "0x%x:%x ",
+					g_lvts_device_addrs[j],
+					g_lvts_device_value_e[i][j]);
+
+		buffer[offset] = '\0';
+		lvts_printk("%s\n", buffer);
+	}
+}
+
+void dump_lvts_error_info(void)
+{
+	read_controller_reg_when_error();
+
+	lvts_disable_all_sensing_points();
+	lvts_wait_for_all_sensing_point_idle();
+
+	read_device_reg_when_error();
+	dump_lvts_register_value();
+}
+
+#endif
 
 static void lvts_device_check_counting_status(int tc_num)
 {
@@ -526,10 +692,8 @@ void lvts_device_read_count_RC_N(void)
 	buffer[offset] = '\0';
 	lvts_printk("%s\n", buffer);
 
-#if CONFIG_LVTS_ERROR_AEE_WARNING
-#if DUMP_LVTS_REGISTER
+#if DUMP_LVTS_REGISTER_FOR_ZERO_RAW_ISSUE
 	read_device_reg_before_active();
-#endif
 #endif
 }
 
@@ -650,155 +814,6 @@ int check_lvts_mcu_efuse(void)
 {
 	return (g_use_fake_efuse)?(0):(1);
 }
-#if DUMP_LVTS_REGISTER
-void read_controller_reg_before_active(void)
-{
-	int i, j, offset, temp;
-
-	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
-		offset = lvts_tscpu_g_tc[i].tc_offset;
-
-		for (j = 0; j < NUM_LVTS_CONTROLLER_REG; j++) {
-			temp = readl(LVTSMONCTL0_0 + g_lvts_controller_addrs[j]
-				+ offset);
-			g_lvts_controller_value_b[i][j] = temp;
-		}
-	}
-
-}
-
-void read_controller_reg_when_error(void)
-{
-	int i, j, offset, temp;
-
-	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
-		offset = lvts_tscpu_g_tc[i].tc_offset; //tc offset
-
-		for (j = 0; j < NUM_LVTS_CONTROLLER_REG; j++) {
-			temp = readl(LVTSMONCTL0_0 + g_lvts_controller_addrs[j]
-				+ offset);
-			g_lvts_controller_value_e[i][j] = temp;
-		}
-	}
-
-}
-
-void read_device_reg_before_active(void)
-{
-	int i, j;
-	unsigned int addr, data;
-
-	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
-		for (j = 0; j < NUM_LVTS_DEVICE_REG; j++) {
-			addr = g_lvts_device_addrs[j];
-			data =  lvts_read_device(0x81020000, addr, i);
-			g_lvts_device_value_b[i][j] = data;
-		}
-	}
-}
-
-void read_device_reg_when_error(void)
-{
-	int i, j, offset, cnt;
-	unsigned int addr;
-
-	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
-
-		offset = lvts_tscpu_g_tc[i].tc_offset; //tc offset
-
-		for (j = 0; j < NUM_LVTS_DEVICE_REG; j++) {
-			addr = g_lvts_device_addrs[j];
-			lvts_write_device(0x81020000, addr, 0x00, i);
-			/* wait 2us + 3us buffer*/
-			udelay(5);
-			/* Check ASIF bus status for transaction finished
-			 * Wait until DEVICE_ACCESS_START = 0
-			 */
-			cnt = 0;
-			while ((readl(LVTS_CONFIG_0 + offset) & _BIT_(24))) {
-				cnt++;
-
-				if (cnt == 100) {
-					lvts_printk("Error: DEVICE_ACCESS_START didn't ready\n");
-					break;
-				}
-				udelay(2);
-			}
-
-			g_lvts_device_value_e[i][j] = (readl(LVTSRDATA0_0
-				+ offset));
-		}
-	}
-}
-
-void clear_lvts_register_value_array(void)
-{
-	int i, j;
-
-	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
-		for (j = 0; j < NUM_LVTS_CONTROLLER_REG; j++) {
-			g_lvts_controller_value_b[i][j] = 0;
-			g_lvts_controller_value_e[i][j] = 0;
-		}
-
-		for (j = 0; j < NUM_LVTS_DEVICE_REG; j++) {
-			g_lvts_device_value_b[i][j] = 0;
-			g_lvts_device_value_e[i][j] = 0;
-		}
-	}
-}
-void dump_lvts_register_value(void)
-{
-	int i, j, offset, tc_offset;
-	char buffer[512];
-
-	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
-		lvts_printk("[LVTS_ERROR][BEFROE][CONTROLLER_%d][DUMP]\n", i);
-		tc_offset = lvts_tscpu_g_tc[i].tc_offset; //tc offset
-
-		offset = sprintf(buffer, "[LVTS_ERROR][BEFORE][TC][DUMP] ");
-		for (j = 0; j < NUM_LVTS_CONTROLLER_REG; j++)
-			offset += sprintf(buffer + offset, "0x%x:%x ",
-					tc_offset + g_lvts_controller_addrs[j],
-					g_lvts_controller_value_b[i][j]);
-
-		buffer[offset] = '\0';
-		lvts_printk("%s\n", buffer);
-
-		offset = sprintf(buffer, "[LVTS_ERROR][BEFORE][DEVICE][DUMP] ");
-		for (j = 0; j < NUM_LVTS_DEVICE_REG; j++)
-			offset += sprintf(buffer + offset, "0x%x:%x ",
-					g_lvts_device_addrs[j],
-					g_lvts_device_value_b[i][j]);
-
-		buffer[offset] = '\0';
-		lvts_printk("%s\n", buffer);
-	}
-
-	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
-		lvts_printk("[LVTS_ERROR][AFTER][CONTROLLER_%d][DUMP]\n", i);
-		tc_offset = lvts_tscpu_g_tc[i].tc_offset; //tc offset
-
-		offset = sprintf(buffer, "[LVTS_ERROR][AFTER][TC][DUMP] ");
-		for (j = 0; j < NUM_LVTS_CONTROLLER_REG; j++)
-			offset += sprintf(buffer + offset, "0x%x:%x ",
-					tc_offset + g_lvts_controller_addrs[j],
-					g_lvts_controller_value_e[i][j]);
-
-		buffer[offset] = '\0';
-		lvts_printk("%s\n", buffer);
-
-		offset = sprintf(buffer, "[LVTS_ERROR][AFTER][DEVICE][DUMP] ");
-		for (j = 0; j < NUM_LVTS_DEVICE_REG; j++)
-			offset += sprintf(buffer + offset, "0x%x:%x ",
-					g_lvts_device_addrs[j],
-					g_lvts_device_value_e[i][j]);
-
-		buffer[offset] = '\0';
-		lvts_printk("%s\n", buffer);
-	}
-}
-#endif
 #endif
 
 void lvts_device_identification(void)
@@ -1411,6 +1426,7 @@ static void lvts_count_valid_temp_latency(long long int time_diff)
 }
 #endif
 
+
 static int lvts_read_tc_raw_and_temp(
 		u32 *tempmsr_name, enum lvts_sensor_enum ts_name)
 {
@@ -1424,9 +1440,27 @@ static int lvts_read_tc_raw_and_temp(
 	raw2 = raw & 0xFFFF;
 	temp = lvts_raw_to_temp(raw2, ts_name);
 
+	if (raw2 == 0) {
+		/* 26111 is magic num
+		 * this is to keep system alive for a while
+		 * to wait HW init done,
+		 * because 0 msr raw will translates to 28x'C
+		 * and then 28x'C will trigger a SW reset.
+		 *
+		 * if HW init finish, this msr raw will not be 0,
+		 * system can report normal temperature.
+		 * if wait over 60 times zero, this means something
+		 * wrong with HW, must trigger BUG on and dump useful
+		 * register for debug.
+		 */
+
+		temp = 26111;
+	}
+
+
 	if (lvts_rawdata_debug_log) {
 		lvts_printk(
-			"[LVTS_MSR] ts%d msr_all=%x, valid=%d, msr_temp=%d, temp=%d\n",
+		"[LVTS_MSR] ts%d msr_all=%x, valid=%d, msr_temp=%d, temp=%d\n",
 			ts_name, raw, raw1, raw2, temp);
 	}
 
@@ -1564,18 +1598,24 @@ void lvts_wait_for_all_sensing_point_idle(void)
 	int cnt, temp;
 
 	cnt = 0;
-	/* Wait until all sensoring points idled */
-	while (cnt < 50) {
+	/*
+	 * Wait until all sensoring points idled.
+	 * No need to check LVTS status when suspend/resume,
+	 * this will spend extra 100us of suspend flow.
+	 * LVTS status will be reset after resume.
+	 */
+	while (cnt < 50 && (tscpu_kernel_status() == 0)) {
 		temp = lvts_thermal_check_all_sensing_point_idle();
 		if (temp == 0)
 			break;
 
 		if ((cnt + 1) % 10 == 0) {
-			pr_notice("Cnt = %d LVTS TC %d, LVTSMSRCTL1[10,7,0] = %d,%d,%d\n",
+			pr_notice("Cnt= %d LVTS TC %d, LVTSMSRCTL1[10,7,0] = %d,%d,%d, LVTSMSRCTL1[10:0] = 0x%x\n",
 					cnt + 1, (temp >> 16),
 					((temp & _BIT_(2)) >> 2),
 					((temp & _BIT_(1)) >> 1),
-					(temp & _BIT_(0)));
+					(temp & _BIT_(0)),
+					(temp & _BITMASK_(10:0)));
 		}
 
 		udelay(2);
@@ -1618,32 +1658,39 @@ void lvts_sodi3_release_thermal_controller(void)
 
 	lvts_dbg_printk("%s\n", __func__);
 
-	/* Check if SPM paused thermal controller */
-	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
-		offset = lvts_tscpu_g_tc[i].tc_offset;
-		temp = readl(offset + LVTSMSRCTL1_0);
-		/* set bit8=bit1=bit2=bit3=1 to pause sensing point 0,1,2,3 */
-		if ((temp & 0x10E) != 0) {
-			lvts_paused = 1;
-			break;
+	/*don't need to do release LVTS when suspend/resume*/
+	if (tscpu_kernel_status() == 0) {
+
+		/* Check if SPM paused thermal controller */
+		for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
+			offset = lvts_tscpu_g_tc[i].tc_offset;
+			temp = readl(offset + LVTSMSRCTL1_0);
+			/* set bit8=bit1=bit2=bit3=1 to pause
+			 *sensing point 0,1,2,3
+			 */
+			if ((temp & 0x10E) != 0) {
+				lvts_paused = 1;
+				pr_notice("lvts_paused = %d\n", lvts_paused);
+				break;
+			}
 		}
+
+		/* Return if SPM didn't pause thermal controller or
+		 * released thermal controllers already
+		 */
+		if (lvts_paused == 0)
+			return;
+		/* Wait until all of LVTS thermal controllers are idle
+		 * Pause operation has to take time to finish.
+		 * if it didn't finish before SPM closed 26M, we have to wait
+		 * until it is finished to make sure all LVTS thermal
+		 * controllers in a correct finite state machine
+		 */
+
+		lvts_wait_for_all_sensing_point_idle();
+
+		lvts_release_all_sensing_points();
 	}
-
-	/* Return if SPM didn't pause thermal controller or
-	 * released thermal controllers already
-	 */
-	if (lvts_paused == 0)
-		return;
-	/* Wait until all of LVTS thermal controllers are idle
-	 * Pause operation has to take time to finish.
-	 * if it didn't finish before SPM closed 26M, we have to wait until
-	 * it is finished to make sure all LVTS thermal controllers in a
-	 * correct finite state machine
-	 */
-
-	lvts_wait_for_all_sensing_point_idle();
-
-	lvts_release_all_sensing_points();
 }
 
 /*
@@ -1664,6 +1711,8 @@ void lvts_disable_all_sensing_points(void)
 void lvts_enable_all_sensing_points(void)
 {
 	int i, offset;
+
+	lvts_dbg_printk("%s\n", __func__);
 
 	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
 
@@ -1719,10 +1768,8 @@ void lvts_tscpu_thermal_initial_all_tc(void)
 		lvts_configure_polling_speed_and_filter(i);
 	}
 
-#if CONFIG_LVTS_ERROR_AEE_WARNING
-#if DUMP_LVTS_REGISTER
+#if DUMP_LVTS_REGISTER_FOR_ZERO_RAW_ISSUE
 	read_controller_reg_before_active();
-#endif
 #endif
 }
 

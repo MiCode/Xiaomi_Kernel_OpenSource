@@ -1536,6 +1536,59 @@ static void tscpu_clear_all_temp(void)
 #endif
 }
 
+
+static void read_all_tc_temperature(void)
+{
+#if CFG_THERM_LVTS
+#if !defined(CFG_THERM_NO_AUXADC)
+	read_all_tc_tsmcu_temperature();
+	read_all_tc_lvts_temperature();
+	combine_lvts_tsmcu_temp();
+#else
+	int ret = 0;
+	int cunt = 0;
+
+	while (ret == 0 && cunt < 20) {
+		read_all_tc_lvts_temperature();
+
+		ret = tscpu_is_temp_valid();
+		if (ret)
+			break;
+		cunt++;
+		mdelay(2);
+		tscpu_printk("%s, %d,%d,%d\n", __func__,
+			cunt, ret, g_is_temp_valid);
+	}
+
+	if (cunt == 20) {
+		/* Still not wait valid temperature ready,
+		 * trigger data abort to reset the system
+		 * for notify TC dead.
+		 */
+		tscpu_printk("0 raw over 20*2 msec, LVTS status error\n");
+		dump_lvts_error_info();
+		BUG();
+	}
+
+
+#endif
+#else
+	int i = 0, j = 0;
+
+	for (i = 0; i < ARRAY_SIZE(tscpu_g_tc); i++)
+		for (j = 0; j < tscpu_g_tc[i].ts_number; j++)
+			tscpu_thermal_read_tc_temp(i, tscpu_g_tc[i].ts[j], j);
+
+	tscpu_is_temp_valid();
+#endif
+}
+
+int tscpu_kernel_status(void)
+{
+	/* default=0,read temp */
+	return g_tc_resume;
+}
+
 /*tscpu_thermal_suspend spend 1000us~1310us*/
 static int tscpu_thermal_suspend
 (struct platform_device *dev, pm_message_t state)
@@ -1544,7 +1597,7 @@ static int tscpu_thermal_suspend
 	int cnt = 0;
 	int temp = 0;
 #endif
-	tscpu_printk("%s\n", __func__);
+	tscpu_printk("%s, %d\n", __func__, talking_flag);
 #if THERMAL_PERFORMANCE_PROFILE
 	struct timeval begin, end;
 	unsigned long val;
@@ -1637,8 +1690,9 @@ static int tscpu_thermal_resume(struct platform_device *dev)
 	int temp = 0;
 	int cnt = 0;
 #endif
-	tscpu_printk("%s\n", __func__);
+	tscpu_printk("%s, %d\n", __func__, talking_flag);
 
+	g_is_temp_valid = 0;
 	g_tc_resume = 1; /* set "1", don't read temp during start resume */
 
 	if (talking_flag == false) {
@@ -2161,7 +2215,7 @@ static void check_all_temp_valid(void)
 		for (j = 0; j < lvts_tscpu_g_tc[i].ts_number; j++) {
 			raw = tscpu_ts_lvts_temp_r[lvts_tscpu_g_tc[i].ts[j]];
 
-			if (raw == THERMAL_INIT_VALUE)
+			if (raw == 0)
 				return;	/* The temperature is not valid. */
 		}
 	}
@@ -2188,26 +2242,7 @@ int tscpu_is_temp_valid(void)
 	return is_valid;
 }
 
-static void read_all_tc_temperature(void)
-{
-#if CFG_THERM_LVTS
-#if !defined(CFG_THERM_NO_AUXADC)
-	read_all_tc_tsmcu_temperature();
-	read_all_tc_lvts_temperature();
-	combine_lvts_tsmcu_temp();
-#else
-	read_all_tc_lvts_temperature();
-#endif
-#else
-	int i = 0, j = 0;
 
-	for (i = 0; i < ARRAY_SIZE(tscpu_g_tc); i++)
-		for (j = 0; j < tscpu_g_tc[i].ts_number; j++)
-			tscpu_thermal_read_tc_temp(i, tscpu_g_tc[i].ts[j], j);
-
-#endif
-	tscpu_is_temp_valid();
-}
 
 void tscpu_update_tempinfo(void)
 {
@@ -2366,6 +2401,9 @@ static void init_thermal(void)
 #endif
 
 #if CFG_THERM_LVTS
+#if DUMP_LVTS_REGISTER_FOR_ZERO_RAW_ISSUE
+	clear_lvts_register_value_array();
+#endif
 	lvts_thermal_cal_prepare();
 	lvts_device_identification();
 	lvts_Device_Enable_Init_all_Devices();

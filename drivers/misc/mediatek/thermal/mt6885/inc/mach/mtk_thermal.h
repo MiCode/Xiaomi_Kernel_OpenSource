@@ -250,4 +250,5 @@ unsigned int tempMonCtl1, unsigned int tempMonCtl2, unsigned int tempAhbPoll);
  */
 extern int mtk_cooler_is_abcct_unlimit(void);
 
+extern int tscpu_kernel_status(void);
 #endif /* __MT6785_THERMAL_H__ */
