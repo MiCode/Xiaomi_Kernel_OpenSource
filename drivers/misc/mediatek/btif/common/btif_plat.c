@@ -119,27 +119,27 @@ static int btif_tx_thr_set(struct _MTK_BTIF_INFO_STR_ *p_btif,
 static int btif_dump_array(char *string, char *p_buf, int len)
 {
 	unsigned int idx = 0;
-	unsigned char str[30];
+	unsigned char str[60];
 	unsigned char *p_str;
 
-	pr_debug("========dump %s start <length:%d>========\n", string, len);
+	pr_info("========dump %s start <length:%d>========\n", string, len);
 	p_str = &str[0];
 	for (idx = 0; idx < len; idx++, p_buf++) {
 		sprintf(p_str, "%02x ", *p_buf);
 		p_str += 3;
-		if (7 == (idx % 8)) {
+		if (15 == (idx % 16)) {
 			*p_str++ = '\n';
 			*p_str = '\0';
-			pr_debug("%s", str);
+			pr_info("%s", str);
 			p_str = &str[0];
 		}
 	}
-	if (len % 8) {
+	if (len % 16) {
 		*p_str++ = '\n';
 		*p_str = '\0';
-		pr_debug("%s", str);
+		pr_info("%s", str);
 	}
-	pr_debug("========dump %s end========\n", string);
+	pr_info("========dump %s end========\n", string);
 	return 0;
 }
 
@@ -1149,6 +1149,84 @@ int hal_btif_raise_wak_sig(struct _MTK_BTIF_INFO_STR_ *p_btif)
 	return i_ret;
 }
 
+#ifdef DUMP_BGF_REG
+static void btif_dump_bgf_reg(void)
+{
+	void *remap_addr1, *remap_addr2;
+	unsigned char reg_map1[BGF_BTIF_REG_LEN / 4] = { 0 };
+	unsigned char reg_map2[BGF_DMA_REG_LEN / 4] = { 0 };
+	int idx = 0;
+	unsigned int val;
+
+	/* dump BGF_BTIF register */
+	remap_addr1 = ioremap(BGF_BTIF_REG_BASE, BGF_BTIF_REG_LEN);
+	if (!remap_addr1) {
+		pr_info("ioremap fail (BGF_BTIF)!\n");
+		return;
+	}
+
+	for (idx = 1; idx < sizeof(reg_map1); idx++)
+		reg_map1[idx] = BTIF_READ8(remap_addr1 + (4 * idx));
+
+	iounmap(remap_addr1);
+	btif_dump_array("BFG_BTIF register", reg_map1, sizeof(reg_map1));
+
+	/* dump BGF_DMA register */
+	remap_addr1 = ioremap(BGF_DMA_REG_BASE, BGF_DMA_REG_LEN);
+	if (!remap_addr1) {
+		pr_info("ioremap fail (BGF_DMA)!\n");
+		return;
+	}
+
+	for (idx = 0; idx < sizeof(reg_map2); idx++)
+		reg_map2[idx] = BTIF_READ8(remap_addr1 + (4 * idx));
+
+	iounmap(remap_addr1);
+	btif_dump_array("BFG_DMA register", reg_map2, sizeof(reg_map2));
+
+	/* bgfsys btif debug */
+	remap_addr1 = ioremap(BGF_BTIF_DBG_ADDR_1, 0x10);
+	if (!remap_addr1) {
+		pr_info("ioremap fail (BGF_BTIF_DBG_ADDR_1)!\n");
+		return;
+	}
+
+	remap_addr2 = ioremap(BGF_BTIF_DBG_ADDR_2, 0x10);
+	if (!remap_addr2) {
+		iounmap(remap_addr1);
+		pr_info("ioremap fail (BGF_BTIF_DBG_ADDR_2)!\n");
+		return;
+	}
+
+	for (idx = 0; idx < 10; idx++) {
+		/* 1.write 0x180600A8[0] = 0x1 */
+		BTIF_SET_BIT(remap_addr1, BGF_BTIF_DBG_BIT);
+
+		/* 2.write 0x180600A8[23:8]   = 0x1e1d */
+		val = BTIF_READ32(remap_addr1);
+		val &= BGF_BTIF_DBG_MASK;
+		val |= BGF_BTIF_DBG_VAL_1;
+		btif_reg_sync_writel(val, remap_addr1);
+
+		/* 3.read  0x1880040C */
+		val = BTIF_READ32(remap_addr2);
+		pr_info("[1]0x%x\n", val);
+
+		/* 4.write 0x180600A8[23:8] = 0x201f */
+		val = BTIF_READ32(remap_addr1);
+		val &= BGF_BTIF_DBG_MASK;
+		val |= BGF_BTIF_DBG_VAL_2;
+		btif_reg_sync_writel(val, remap_addr1);
+
+		/* 5.read  0x1880040C */
+		val = BTIF_READ32(remap_addr2);
+		pr_info("[2]0x%x\n", val);
+	}
+	iounmap(remap_addr1);
+	iounmap(remap_addr2);
+}
+#endif
+
 /*****************************************************************************
  * FUNCTION
  *  hal_btif_dump_reg
@@ -1197,6 +1275,9 @@ int hal_btif_dump_reg(struct _MTK_BTIF_INFO_STR_ *p_btif,
 			reg_map[idx] = BTIF_READ8(p_btif->base + (4 * idx));
 
 		btif_dump_array("BTIF register", reg_map, sizeof(reg_map));
+#ifdef DUMP_BGF_REG
+		btif_dump_bgf_reg();
+#endif
 		break;
 	case REG_IRQ:
 		BTIF_INFO_FUNC("IER:0x%x, IIR:0x%x, LSR:0x%x\n",

@@ -18,6 +18,10 @@
 #define MTK_BTIF_REG_BASE BTIF_BASE
 #endif
 
+#if defined(CONFIG_MACH_MT6885)
+#define DUMP_BGF_REG
+#endif
+
 #if defined(CONFIG_MTK_CLKMGR)
 #if defined(CONFIG_ARCH_MT6580)
 #define MTK_BTIF_CG_BIT MT_CG_BTIF_SW_CG
@@ -119,5 +123,17 @@ struct clk *clk_btif; /*btif  clock*/
 
 #define BTIF_TX_FIFO_THRE (BTIF_TX_FIFO_SIZE / 2)
 #define BTIF_RX_FIFO_THRE 0x1	/* 0x5 */
+
+#define BGF_BTIF_REG_BASE (0x18814000)
+#define BGF_BTIF_REG_LEN  (0xE4)
+#define BGF_DMA_REG_BASE  (0x18810000)
+#define BGF_DMA_REG_LEN   (0x544)
+
+#define BGF_BTIF_DBG_ADDR_1 (0x180600A8)
+#define BGF_BTIF_DBG_ADDR_2 (0x1880040C)
+#define BGF_BTIF_DBG_MASK   (0xff0000ff)
+#define BGF_BTIF_DBG_BIT    (0x1)
+#define BGF_BTIF_DBG_VAL_1  (0x1e1d00)
+#define BGF_BTIF_DBG_VAL_2  (0x201f00)
 
 #endif /*__HAL_BTIF_H_*/
