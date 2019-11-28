@@ -113,6 +113,10 @@ bool report_custom_iommu_fault(
 	unsigned long	fault_pa,
 	unsigned int	fault_id, bool is_vpu);
 
+bool report_custom_iommu_fault_secure(
+	unsigned int m4uid,
+	void __iomem	*base,
+	unsigned int	port);
 void report_custom_iommu_leakage(char *port_name,
 	unsigned int size);
 

@@ -30,6 +30,9 @@
 #define mmu_translation_log_format \
 	"\nCRDISPATCH_KEY:M4U_%s\n<<TRANSLATION FAULT>> port=%s,mva=0x%lx,pa=0x%lx\n"
 
+#define mmu_translation_log_format_secure \
+	"\nCRDISPATCH_KEY:M4U_%s\n<<SECURE TRANSLATION FAULT>> port=%s\n"
+
 #define mmu_leakage_log_format \
 	"\nCRDISPATCH_KEY:M4U_%s\n<<IOVA LEAKAGE>> port=%s size=%uKB\n"
 
@@ -219,6 +222,26 @@ bool report_custom_iommu_fault(
 	mmu_aee_print(mmu_translation_log_format,
 		       name, name,
 		       fault_iova, fault_pa);
+	return true;
+}
+
+bool report_custom_iommu_fault_secure(
+	unsigned int m4uid,
+	void __iomem	*base,
+	unsigned int	port)
+{
+	int idx;
+	char *name;
+
+	idx = mtk_iommu_larb_port_idx(port);
+	name = iommu_port[idx].name;
+	if (iommu_port[idx].enable_tf && iommu_port[idx].fault_fn)
+		iommu_port[idx].fault_fn(port,
+				0x0,
+				iommu_port[idx].fault_data);
+
+	mmu_aee_print(mmu_translation_log_format_secure,
+		       name, name);
 	return true;
 }
 

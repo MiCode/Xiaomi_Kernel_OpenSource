@@ -1454,7 +1454,7 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 			is_vpu = false;
 		}
 #endif
-		if (enable_custom_tf_report()) {
+		if (enable_custom_tf_report())
 			report_custom_iommu_fault(m4uid,
 						  base,
 						  int_state,
@@ -1462,7 +1462,6 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 						  fault_pa,
 						  F_MMU_INT_TF_VAL(int_id),
 						  is_vpu);
-		}
 
 		if (report_iommu_fault(domain, data->dev, fault_iova,
 					  write ? IOMMU_FAULT_WRITE :
@@ -1584,11 +1583,9 @@ irqreturn_t MTK_M4U_isr_sec(int irq, void *dev_id)
 	ret = __mtk_iommu_atf_call(IOMMU_ATF_DUMP_SECURE_REG,
 			m4u_id, 4, &tf_port);
 	if (!ret && tf_port < M4U_PORT_UNKNOWN) {
-		mmu_aee_print(
-				"CRDISPATCH_KEY:M4U_%s translation fault(secure): port%lu[%u-%u]\n",
-				 iommu_get_port_name(tf_port),
-				 tf_port, MTK_IOMMU_TO_LARB(tf_port),
-				 MTK_IOMMU_TO_PORT(tf_port));
+		if (enable_custom_tf_report())
+			report_custom_iommu_fault_secure(m4u_id,
+						  data->base, tf_port);
 	}
 
 	ret = IRQ_HANDLED;
