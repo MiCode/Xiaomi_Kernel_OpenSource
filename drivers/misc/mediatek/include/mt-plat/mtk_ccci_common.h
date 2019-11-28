@@ -350,6 +350,7 @@ enum KERN_FUNC_ID {
 	ID_MD_MPU_ASSERT,	/* for EMI MPU */
 	ID_LWA_CONTROL_MSG,	/* for Wi-Fi driver */
 	ID_UPDATE_TX_POWER,	/* for SWTP */
+	ID_AP2MD_LOWPWR,	/* for AP2MD LOWPWR*/
 };
 
 /* AP<->MD messages on control or system channel */
@@ -406,6 +407,7 @@ enum {
 	C2K_PPP_LINE_STATUS = 0x11F,	/*usb bypass for 93 and later*/
 	MD_DISPLAY_DYNAMIC_MIPI = 0x120, /* MIPI for TC16 */
 	MD_RF_HOPPING_NOTIFY = 0x121,
+	CCMSG_ID_SYSMSGSVC_LOWPWR_APSTS_NOTIFY = 0x128,
 
 	/*c2k ctrl msg start from 0x200*/
 	C2K_STATUS_IND_MSG = 0x201, /* for usb bypass */

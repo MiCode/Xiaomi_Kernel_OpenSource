@@ -304,6 +304,11 @@ int exec_ccci_kern_func_by_md_id(int md_id, unsigned int id, char *buf,
 		ret = ccci_port_send_msg_to_md(md_id, CCCI_SYSTEM_TX,
 			id, tmp_data, 0);
 		break;
+	case ID_AP2MD_LOWPWR:
+		ret = ccci_port_send_msg_to_md(md_id, CCCI_SYSTEM_TX,
+			CCMSG_ID_SYSMSGSVC_LOWPWR_APSTS_NOTIFY,
+			*((int *)buf), 1);
+		break;
 	default:
 		ret = -CCCI_ERR_FUNC_ID_ERROR;
 		break;
