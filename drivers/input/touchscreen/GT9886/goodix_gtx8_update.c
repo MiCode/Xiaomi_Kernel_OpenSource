@@ -1161,26 +1161,6 @@ out:
 	return 0;
 }
 
-/* sysfs attributes */
-static ssize_t goodix_sysfs_update_en_store(
-		struct goodix_ext_module *module,
-		const char *buf, size_t count)
-{
-	int val = 0, r;
-
-	r = sscanf(buf, "%d", &val);
-	if (r < 0)
-		return r;
-
-	if (r) {
-		atomic_set(&fw_update_mode, 1);
-		if (goodix_register_ext_module(&goodix_fwu_module))
-			return -EIO;
-	}
-
-	return count;
-}
-
 static ssize_t goodix_sysfs_update_progress_show(
 		struct goodix_ext_module *module,
 		char *buf)
@@ -1342,7 +1322,6 @@ static ssize_t goodix_sysfs_force_update_store(
 }
 
 static struct goodix_ext_attribute goodix_fwu_attrs[] = {
-	__EXTMOD_ATTR(update_en, 0222, NULL, goodix_sysfs_update_en_store),
 	__EXTMOD_ATTR(progress, 0444,
 			goodix_sysfs_update_progress_show, NULL),
 	__EXTMOD_ATTR(result, 0444, goodix_sysfs_update_result_show, NULL),
