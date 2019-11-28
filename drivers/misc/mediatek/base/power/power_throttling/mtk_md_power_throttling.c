@@ -15,7 +15,9 @@
 #include <mtk_ccci_common.h>
 #include <mach/upmu_sw.h>
 #include <mtk_md_power_throttling.h>
+#include <mach/mtk_pmic.h>
 
+#ifndef DISABLE_LOW_BATTERY_PROTECT
 static void md_pt_low_battery_cb(enum LOW_BATTERY_LEVEL_TAG level)
 {
 	unsigned int md_throttle_cmd = 0;
@@ -38,7 +40,9 @@ static void md_pt_low_battery_cb(enum LOW_BATTERY_LEVEL_TAG level)
 		pr_notice("%s: error, ret=%d, cmd=0x%x l=%d\n", __func__, ret,
 			md_throttle_cmd, level);
 }
+#endif
 
+#ifndef DISABLE_BATTERY_OC_PROTECT
 static void md_pt_over_current_cb(enum BATTERY_OC_LEVEL_TAG level)
 {
 	unsigned int md_throttle_cmd = 0;
@@ -61,22 +65,28 @@ static void md_pt_over_current_cb(enum BATTERY_OC_LEVEL_TAG level)
 		pr_notice("%s: error, ret=%d, cmd=0x%x l=%d\n", __func__, ret,
 			md_throttle_cmd, level);
 }
+#endif
 
-static int __init pbm_module_init(void)
+static int __init mtk_md_power_throttling_module_init(void)
 {
+#ifndef DISABLE_LOW_BATTERY_PROTECT
 	register_low_battery_notify(
 		&md_pt_low_battery_cb, LOW_BATTERY_PRIO_MD);
+#endif
+
+#ifndef DISABLE_BATTERY_OC_PROTECT
 	register_battery_oc_notify(
 		&md_pt_over_current_cb, BATTERY_OC_PRIO_MD);
+#endif
 	return 0;
 }
 
-static void __exit pbm_module_exit(void)
+static void __exit mtk_md_power_throttling_module_exit(void)
 {
 
 }
 
-module_init(pbm_module_init);
-module_exit(pbm_module_exit);
+module_init(mtk_md_power_throttling_module_init);
+module_exit(mtk_md_power_throttling_module_exit);
 
 MODULE_DESCRIPTION("MD power throttle interface");
