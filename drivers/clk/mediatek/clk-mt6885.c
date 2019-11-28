@@ -2952,6 +2952,9 @@ static struct mtk_gate imp_iic_wrap_c_clks[] __initdata = {
 	GATE(IMP_IIC_WRAP_C_AP_I2C12_CG_RO, "imp_iic_wrap_c_ap_i2c12_cg_ro",
 			"infracfg_ao_i2c0_cg", /* "i2c_sel", */
 			 imp_iic_wrap_c_ap_clock_cg_ro_cen_regs, 3, 0),
+	GATE(IMP_IIC_WRAP_C_AP_I2C13_CG_RO, "imp_iic_wrap_c_ap_i2c13_cg_ro",
+			"infracfg_ao_i2c0_cg", /* "i2c_sel", */
+			 imp_iic_wrap_c_ap_clock_cg_ro_cen_regs, 4, 0),
 };
 
 static void __iomem *iic_wrap_c_base;
