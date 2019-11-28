@@ -65,7 +65,8 @@ struct apusys_user {
 };
 
 void apusys_user_dump(void *s_file);
-
+void apusys_user_show_log(void *s_file);
+void apusys_user_record_log(void);
 int apusys_user_insert_cmd(struct apusys_user *user, void *icmd);
 int apusys_user_delete_cmd(struct apusys_user *user, void *icmd);
 int apusys_user_get_cmd(struct apusys_user *user, void **icmd, uint64_t cmd_id);

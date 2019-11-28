@@ -34,6 +34,8 @@
 #include "sched_deadline.h"
 #include "mnoc_api.h"
 #include "reviser_export.h"
+#include "apusys_user.h"
+#include "memory_dump.h"
 
 /* init link list head, which link all dev table */
 struct apusys_cmd_table {

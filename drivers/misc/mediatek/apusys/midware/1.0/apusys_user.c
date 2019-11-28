@@ -21,6 +21,7 @@
 #include "cmd_parser.h"
 #include "memory_mgt.h"
 #include "resource_mgt.h"
+#include "memory_dump.h"
 
 struct apusys_user_mem {
 	struct apusys_kmem mem;
@@ -37,7 +38,13 @@ struct apusys_user_mgr {
 	struct mutex mtx;
 };
 
+struct apusys_user_log {
+	unsigned char log_buf[DUMP_LOG_SIZE];
+	struct mutex mtx;
+};
+
 static struct apusys_user_mgr g_user_mgr;
+static struct apusys_user_log g_user_log;
 
 void apusys_user_dump(void *s_file)
 {
@@ -186,6 +193,172 @@ void apusys_user_dump(void *s_file)
 
 #undef LINEBAR
 }
+
+void apusys_user_show_log(void *s_file)
+{
+	struct seq_file *s = (struct seq_file *)s_file;
+
+	mutex_lock(&g_user_log.mtx);
+	seq_printf(s, "%s", g_user_log.log_buf);
+	mutex_unlock(&g_user_log.mtx);
+}
+
+void apusys_user_record_log(void)
+{
+	struct list_head *tmp = NULL, *list_ptr = NULL;
+	struct apusys_user *user = NULL;
+	struct apusys_cmd *cmd = NULL;
+	struct apusys_user_mem *u_mem = NULL;
+	struct list_head *d_tmp = NULL, *d_list_ptr = NULL;
+	struct list_head *c_tmp = NULL, *c_list_ptr = NULL;
+	struct list_head *m_tmp = NULL, *m_list_ptr = NULL;
+	struct apusys_user_dev *u_dev = NULL;
+	struct apusys_res_table *tab = NULL;
+	int u_count = 0;
+	int d_count = 0;
+	int m_count = 0;
+	int c_count = 0;
+	char *cur, *end;
+
+
+#define LINEBAR \
+	"|--------------------------------------------------------"\
+	"---------------------------------------------------------|\n"
+
+	mutex_lock(&g_user_log.mtx);
+	cur = g_user_log.log_buf;
+	end = g_user_log.log_buf + DUMP_LOG_SIZE;
+	DUMP_LOG(cur, end, LINEBAR);
+	DUMP_LOG(cur, end, "|%-113s|\n",
+		" apusys user table");
+	DUMP_LOG(cur, end, LINEBAR);
+
+	mutex_lock(&g_user_mgr.mtx);
+	list_for_each_safe(list_ptr, tmp, &g_user_mgr.list) {
+		user = list_entry(list_ptr, struct apusys_user, list);
+
+		DUMP_LOG(cur, end, "| user (#%-3d)%101s|\n",
+			u_count,
+			"");
+		DUMP_LOG(cur, end, "| id   = 0x%-103llx|\n",
+			user->id);
+		DUMP_LOG(cur, end, "| pid  = %-105d|\n",
+			user->open_pid);
+		DUMP_LOG(cur, end, "| tgid = %-105d|\n",
+			user->open_tgid);
+		DUMP_LOG(cur, end, LINEBAR);
+
+		c_count = 0;
+		d_count = 0;
+		m_count = 0;
+
+		/* cmd */
+		DUMP_LOG(cur, end, "|%-10s|%-13s|%-33s|%-33s|%-20s|\n",
+			" cmd",
+			" priority",
+			" uid",
+			" id",
+			" sc num");
+		DUMP_LOG(cur, end, LINEBAR);
+		list_for_each_safe(c_list_ptr, c_tmp, &user->cmd_list) {
+			cmd = list_entry(c_list_ptr,
+				struct apusys_cmd, u_list);
+			mutex_lock(&cmd->mtx);
+
+			DUMP_LOG(cur, end,
+			"| #%-8d| %-12d| 0x%-30llx| 0x%-30llx| %-19u|\n",
+				c_count,
+				cmd->hdr->priority,
+				cmd->hdr->uid,
+				cmd->cmd_id,
+				cmd->hdr->num_sc);
+			mutex_unlock(&cmd->mtx);
+			c_count++;
+		}
+		DUMP_LOG(cur, end, LINEBAR);
+
+		/* mem */
+		DUMP_LOG(cur, end,
+		"|%-10s|%-6s|%-6s|%-20s|%-12s|%-20s|%-12s|%-20s|\n",
+			" mem",
+			" type",
+			" fd",
+			" uva",
+			" size",
+			" iova",
+			" iova size",
+			" kva");
+		DUMP_LOG(cur, end, LINEBAR);
+		list_for_each_safe(m_list_ptr, m_tmp, &user->mem_list) {
+			u_mem = list_entry(m_list_ptr,
+				struct apusys_user_mem, list);
+
+			DUMP_LOG(cur, end,
+			"| #%-8d| %-5u| %-5u| 0x%-17llx| %-11d| 0x%-17x| 0x%-9x| 0x%-17llx|\n",
+				m_count,
+				u_mem->mem.mem_type,
+				u_mem->mem.fd,
+				u_mem->mem.uva,
+				u_mem->mem.size,
+				u_mem->mem.iova,
+				u_mem->mem.iova_size,
+				u_mem->mem.kva);
+			m_count++;
+		}
+		DUMP_LOG(cur, end, LINEBAR);
+
+		/* device */
+		DUMP_LOG(cur, end, "|%-10s|%-6s|%-6s|%-20s|%-67s|\n",
+			" dev",
+			" type",
+			" idx",
+			" name",
+			" devptr");
+		DUMP_LOG(cur, end, LINEBAR);
+		list_for_each_safe(d_list_ptr, d_tmp, &user->dev_list) {
+			u_dev = list_entry(d_list_ptr,
+				struct apusys_user_dev, list);
+			tab = res_get_table(u_dev->dev_info->dev->dev_type);
+			if (tab == NULL) {
+				DUMP_LOG(cur, end, "miss resource table\n");
+				break;
+			}
+			DUMP_LOG(cur, end,
+				"| %-9d| %-5d| %-5d| %-19s| %-66p|\n",
+				d_count,
+				u_dev->dev_info->dev->dev_type,
+				u_dev->dev_info->dev->idx,
+				tab->name,
+				u_dev->dev_info->dev);
+			d_count++;
+		}
+		list_for_each_safe(d_list_ptr, d_tmp, &user->secdev_list) {
+			u_dev = list_entry(d_list_ptr,
+				struct apusys_user_dev, list);
+			tab = res_get_table(u_dev->dev_info->dev->dev_type);
+			if (tab == NULL) {
+				DUMP_LOG(cur, end, "miss resource table\n");
+				break;
+			}
+			DUMP_LOG(cur, end,
+				"| %-9d| %-5d| %-5d| %-19s| %-66p|\n",
+				d_count,
+				u_dev->dev_info->dev->dev_type,
+				u_dev->dev_info->dev->idx,
+				tab->name,
+				u_dev->dev_info->dev);
+			d_count++;
+		}
+		DUMP_LOG(cur, end, LINEBAR);
+		u_count++;
+	}
+
+	mutex_unlock(&g_user_mgr.mtx);
+	mutex_unlock(&g_user_log.mtx);
+#undef LINEBAR
+
+}
+
 
 int apusys_user_insert_cmd(struct apusys_user *u, void *icmd)
 {
@@ -686,6 +859,7 @@ int apusys_user_init(void)
 	memset(&g_user_mgr, 0, sizeof(struct apusys_user_mgr));
 
 	mutex_init(&g_user_mgr.mtx);
+	mutex_init(&g_user_log.mtx);
 	INIT_LIST_HEAD(&g_user_mgr.list);
 
 	return 0;

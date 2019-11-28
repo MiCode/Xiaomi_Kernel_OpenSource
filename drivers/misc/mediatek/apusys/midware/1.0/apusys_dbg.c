@@ -27,6 +27,7 @@
 #include "midware_trace.h"
 #include "apusys_user.h"
 #include "scheduler.h"
+#include "memory_dump.h"
 
 struct dentry *apusys_dbg_root;
 struct dentry *apusys_dbg_user;
@@ -134,7 +135,8 @@ static const struct file_operations apusys_dbg_fops_devinfo = {
 // mem dump
 static int apusys_dbg_dump_mem(struct seq_file *s, void *unused)
 {
-	LOG_CON(s, "not support yet.\n");
+	apusys_user_show_log(s);
+
 	return 0;
 }
 
