@@ -93,6 +93,7 @@ int mtk_session_set_mode(struct drm_device *dev, unsigned int session_mode)
 	struct mtk_drm_private *private = dev->dev_private;
 	const struct mtk_session_mode_tb *mode_tb = private->data->mode_tb;
 
+	mutex_lock(&private->commit.lock);
 	if (session_mode >= MTK_DRM_SESSION_NUM) {
 		DDPPR_ERR("%s Invalid session mode:%d\n",
 			  __func__, session_mode);
@@ -110,6 +111,9 @@ int mtk_session_set_mode(struct drm_device *dev, unsigned int session_mode)
 
 	DRM_MMP_EVENT_START(set_mode, private->session_mode,
 			session_mode);
+
+	DDPMSG("%s from %u to %u\n", __func__,
+		private->session_mode, session_mode);
 
 	/* For releasing HW resource purpose, the ddp mode should
 	 * switching reversely in some situation.
@@ -138,9 +142,11 @@ int mtk_session_set_mode(struct drm_device *dev, unsigned int session_mode)
 			session_mode);
 
 success:
+	mutex_unlock(&private->commit.lock);
 	return 0;
 
 error:
+	mutex_unlock(&private->commit.lock);
 	return -EINVAL;
 }
 

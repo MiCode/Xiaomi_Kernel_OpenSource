@@ -2606,15 +2606,44 @@ end:
 			mtk_crtc->enabled, 0);
 }
 
-void mtk_drm_crtc_resume(struct drm_crtc *crtc)
+static void mtk_drm_crtc_wk_lock(struct drm_crtc *crtc, bool get,
+	const char *func, int line)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 
-	/* hold wakelock */
-	DDPMSG("%s hold wakelock\n", __func__);
-	__pm_stay_awake(&mtk_crtc->wk_lock);
+	DDPMSG("CRTC%d %s wakelock %s %d\n",
+		drm_crtc_index(crtc), (get ? "hold" : "release"),
+		func, line);
 
-	mtk_drm_crtc_enable(crtc);
+	if (get)
+		__pm_stay_awake(&mtk_crtc->wk_lock);
+	else
+		__pm_relax(&mtk_crtc->wk_lock);
+}
+
+unsigned int mtk_drm_dump_wk_lock(
+	struct mtk_drm_private *priv, char *stringbuf, int buf_len)
+{
+	unsigned int len = 0;
+	int i = 0;
+	struct drm_crtc *crtc;
+	struct mtk_drm_crtc *mtk_crtc;
+
+	len += scnprintf(stringbuf + len, buf_len - len,
+		 "==========    wakelock Info    ==========\n");
+
+	for (i = 0; i < 3; i++) {
+		crtc = priv->crtc[i];
+		mtk_crtc = to_mtk_crtc(crtc);
+
+		len += scnprintf(stringbuf + len, buf_len - len,
+			 "CRTC%d wk active:%d;  ", i,
+			 mtk_crtc->wk_lock.active);
+	}
+
+	len += scnprintf(stringbuf + len, buf_len - len, "\n\n");
+
+	return len;
 }
 
 void mtk_drm_crtc_atomic_resume(struct drm_crtc *crtc,
@@ -2627,8 +2656,7 @@ void mtk_drm_crtc_atomic_resume(struct drm_crtc *crtc,
 			mtk_crtc->enabled, index);
 
 	/* hold wakelock */
-	DDPMSG("%s hold wakelock\n", __func__);
-	__pm_stay_awake(&mtk_crtc->wk_lock);
+	mtk_drm_crtc_wk_lock(crtc, 1, __func__, __LINE__);
 
 	mtk_drm_crtc_enable(crtc);
 
@@ -2809,7 +2837,7 @@ void mtk_drm_crtc_first_enable(struct drm_crtc *crtc)
 	DDPINFO("crtc%d do %s\n", crtc_id, __func__);
 
 	/* 1. hold wakelock */
-	__pm_stay_awake(&mtk_crtc->wk_lock);
+	mtk_drm_crtc_wk_lock(crtc, 1, __func__, __LINE__);
 
 	/* 2. start trigger loop first to keep gce alive */
 	if (mtk_crtc_with_trigger_loop(crtc))
@@ -2968,8 +2996,7 @@ void mtk_drm_crtc_suspend(struct drm_crtc *crtc)
 #endif
 
 	/* release wakelock */
-	DDPMSG("%s release wakelock\n", __func__);
-	__pm_relax(&mtk_crtc->wk_lock);
+	mtk_drm_crtc_wk_lock(crtc, 0, __func__, __LINE__);
 
 	CRTC_MMP_EVENT_END(index, suspend,
 			mtk_crtc->enabled, 0);
@@ -4239,6 +4266,7 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 		wake_up_process(mtk_crtc->vblank_enable_task);
 	}
 
+
 	init_waitqueue_head(&mtk_crtc->crtc_status_wq);
 	if (drm_crtc_index(&mtk_crtc->base) == 0) {
 		mtk_disp_hrt_cond_init(&mtk_crtc->base);
@@ -4859,13 +4887,14 @@ int mtk_crtc_path_switch(struct drm_crtc *crtc, unsigned int ddp_mode,
 		DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 	if (ddp_mode == mtk_crtc->ddp_mode || !crtc->enabled) {
+		DDPINFO("CRTC%d skip path switch %u->%u, enable:%d\n",
+			drm_crtc_index(crtc), mtk_crtc->ddp_mode,
+			ddp_mode, crtc->enabled);
 		CRTC_MMP_MARK(index, path_switch, 0, 0);
 		goto done;
 	}
 
-	DDPINFO("%s:%d +\n", __func__, __LINE__);
-	DDPINFO("crtc%d path switch(%d->%d)\n",
-		index,
+	DDPINFO("%s crtc%d path switch(%d->%d)\n", __func__, index,
 		mtk_crtc->ddp_mode, ddp_mode);
 	mtk_drm_idlemgr_kick(__func__, crtc, 0);
 	CRTC_MMP_MARK(index, path_switch, 1, 0);
