@@ -24,6 +24,7 @@
 #define MMU_SET_MSB_OFFSET(mmu)	 (MMU_SET_LSB_OFFSET+MMU_SET_ORDER(mmu)-1)
 #define MMU_PFH_VA_TO_SET(mmu, va)     \
 	F_MSK_SHIFT(va, MMU_SET_MSB_OFFSET(mmu), MMU_SET_LSB_OFFSET)
+#define IOMMU_DESIGN_OF_BANK
 
 #ifdef CONFIG_FPGA_EARLY_PORTING
 static unsigned int g_tag_count[MTK_IOMMU_M4U_COUNT] = {64};
@@ -60,6 +61,14 @@ char *iommu_secure_compatible[MTK_IOMMU_M4U_COUNT] = {
 	"mediatek,sec_m4u0", "mediatek,sec_m4u1",
 	"mediatek,sec_m4u2", "mediatek,sec_m4u3",
 };
+#ifdef IOMMU_DESIGN_OF_BANK
+char *iommu_bank_compatible[MTK_IOMMU_M4U_COUNT][MTK_IOMMU_BANK_NODE_COUNT] = {
+	{"mediatek,bank1_m4u0", "mediatek,bank2_m4u0", "mediatek,bank3_m4u0"},
+	{"mediatek,bank1_m4u1", "mediatek,bank2_m4u1", "mediatek,bank3_m4u1"},
+	{"mediatek,bank1_m4u2", "mediatek,bank2_m4u2", "mediatek,bank3_m4u2"},
+	{"mediatek,bank1_m4u3", "mediatek,bank2_m4u3", "mediatek,bank3_m4u3"},
+};
+#endif
 #endif
 
 /* ================ register control ================ */
@@ -71,7 +80,6 @@ char *iommu_secure_compatible[MTK_IOMMU_M4U_COUNT] = {
 #define F_BIT_VAL(val, bit)	((!!(val))<<(bit))
 #define F_MSK_SHIFT(regval, msb, lsb) (((regval)&F_MSK(msb, lsb))>>lsb)
 
-#define IOMMU_DESIGN_OF_BANK
 #ifdef IOMMU_DESIGN_OF_BANK
 /* m4u atf debug parameter */
 #define IOMMU_ATF_INDEX_MASK     F_MSK(3, 0)
@@ -716,6 +724,7 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 #endif
 
 #define MTK_IOMMU_SIZE_NOT_ALIGNMENT
+#define MTK_IOMMU_BANK_IRQ_SUPPORT
 
 #if (defined(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
 	defined(CONFIG_MICROTRUST_TEE_SUPPORT)) && \
@@ -727,6 +736,8 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 #elif defined(CONFIG_MTK_GZ_SUPPORT_SDSP)
 #define MTK_M4U_SECURE_IRQ_SUPPORT
 #endif
+#elif defined(MTK_IOMMU_BANK_IRQ_SUPPORT)
+#define MTK_M4U_SECURE_IRQ_SUPPORT
 #endif
 
 #endif

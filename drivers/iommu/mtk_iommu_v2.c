@@ -65,6 +65,11 @@
 
 #define MTK_PROTECT_PA_ALIGN	(256)
 
+#ifdef MTK_IOMMU_BANK_IRQ_SUPPORT
+static int mtk_irq_bank[MTK_IOMMU_M4U_COUNT][MTK_IOMMU_BANK_NODE_COUNT];
+#endif
+
+
 #ifdef IOMMU_DEBUG_ENABLED
 static bool g_tf_test;
 #endif
@@ -560,6 +565,12 @@ int __mtk_dump_reg_for_hang_issue(unsigned int m4u_id,
 	base = data->base;
 
 	/* control register */
+	mmu_seq_print(s,
+		      "REG_MMU_PT_BASE_ADDR(0x0)	   = 0x%x\n",
+		      readl_relaxed(base + REG_MMU_PT_BASE_ADDR));
+	mmu_seq_print(s,
+		      "REG_MMU_TFRP_PADDR(0x114)	   = 0x%x\n",
+		      readl_relaxed(base + REG_MMU_TFRP_PADDR));
 	mmu_seq_print(s,
 		      "REG_MMU_DUMMY(0x44)	   = 0x%x\n",
 		      readl_relaxed(base + REG_MMU_DUMMY));
@@ -1238,23 +1249,71 @@ static int __mau_dump_status(int m4u_id, int slave, int mau);
 
 static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 {
-	struct mtk_iommu_data *data = dev_id;
+	struct mtk_iommu_data *data = NULL;
 	struct iommu_domain *domain;
 	u32 int_state, int_state_l2, regval, int_id;
 	unsigned long fault_iova, fault_pa;
 	unsigned int fault_larb, fault_port;
 	bool layer, write, is_vpu;
-	int slave_id = 0, i, port_id;
-	unsigned int m4uid = data->m4uid;
+	int slave_id = 0, i, j, port_id;
+	unsigned int m4uid, bankid = MTK_IOMMU_BANK_NODE_COUNT;
 	phys_addr_t pa;
 	unsigned long flags;
 	int ret = 0;
+	void __iomem *base = NULL;
+#ifdef MTK_IOMMU_BANK_IRQ_SUPPORT
+	size_t tf_port = 0;
 
+	pr_notice("%s, irq=%d\n", __func__, irq);
+	for (i = 0; i < MTK_IOMMU_M4U_COUNT; i++) {
+		for (j = 0; j < MTK_IOMMU_BANK_NODE_COUNT; j++) {
+			if (irq == mtk_irq_bank[i][j]) {
+				m4uid = i;
+				bankid = j;
+				data = mtk_iommu_get_m4u_data(m4uid);
+				if (!data) {
+					pr_notice("%s, m4u:%u, bank:%u Invalid bank node\n",
+						__func__, m4uid, bankid);
+					return 0;
+				}
+				base = data->base_bank[bankid];
+				break;
+			}
+		}
+	}
+
+	if (!data) {
+		data = dev_id;
+		if (!data) {
+			pr_notice("%s, Invalid normal irq %d\n",
+					__func__, irq);
+			return 0;
+		}
+		m4uid = data->m4uid;
+		bankid = MTK_IOMMU_BANK_NODE_COUNT;
+		base = data->base;
+	}
+
+	if (!base || IS_ERR(base)) {
+		pr_notice("%s, %d, invalid base addr of iommu:%u, bank:%u\n",
+			  __func__, __LINE__, m4uid, bankid);
+		return 0;
+	}
+#else
+	data = dev_id;
+	if (!data) {
+		pr_notice("%s, Invalid normal irq %d\n",
+				__func__, irq);
+		return 0;
+	}
+	m4uid = data->m4uid;
 	if (!data->base || IS_ERR(data->base)) {
 		pr_notice("%s, %d, invalid base addr\n",
 			  __func__, __LINE__);
 		return 0;
 	}
+	base = data->base;
+#endif
 
 #ifdef IOMMU_POWER_CLK_SUPPORT
 	spin_lock_irqsave(&data->reg_lock, flags);
@@ -1266,16 +1325,16 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	spin_unlock_irqrestore(&data->reg_lock, flags);
 #endif
 	/* Read error info from registers */
-	int_state_l2 = readl_relaxed(data->base + REG_MMU_L2_FAULT_ST);
-	int_state = readl_relaxed(data->base + REG_MMU_FAULT_ST1);
+	int_state_l2 = readl_relaxed(base + REG_MMU_L2_FAULT_ST);
+	int_state = readl_relaxed(base + REG_MMU_FAULT_ST1);
 
 	if (!int_state_l2 && !int_state) {
 		ret = 0;
 		goto out;
 	}
 
-	pr_notice("iommu L2 int sta=0x%x, main sta=0x%x\n",
-		  int_state_l2, int_state);
+	pr_notice("iommu:%u, bank:%u, L2 int sta(0x130)=0x%x, main sta(0x134)=0x%x\n",
+		  m4uid, bankid + 1, int_state_l2, int_state);
 	if (int_state_l2 & F_INT_L2_MULTI_HIT_FAULT)
 		MMU_INT_REPORT(m4uid, 0, F_INT_L2_MULTI_HIT_FAULT);
 
@@ -1283,7 +1342,7 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 		unsigned int layer;
 
 		MMU_INT_REPORT(m4uid, 0, F_INT_L2_TABLE_WALK_FAULT);
-		regval = readl_relaxed(data->base +
+		regval = readl_relaxed(base +
 				REG_MMU_TBWALK_FAULT_VA);
 #if (CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 		fault_iova = ((unsigned long)regval & F_MMU_FAULT_VA_BIT31_12) |
@@ -1333,7 +1392,7 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	}
 	if (i == MTK_IOMMU_MMU_COUNT) {
 		pr_info("m4u interrupt error: status = 0x%x\n", int_state);
-		iommu_set_field_by_mask(data->base, REG_MMU_INT_CONTROL0,
+		iommu_set_field_by_mask(base, REG_MMU_INT_CONTROL0,
 					F_INT_CTL0_INT_CLR,
 					F_INT_CTL0_INT_CLR);
 		ret = 0;
@@ -1341,7 +1400,7 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	}
 
 	if (int_state & F_INT_TRANSLATION_FAULT(slave_id)) {
-		int_id = readl_relaxed(data->base + REG_MMU_INT_ID(slave_id));
+		int_id = readl_relaxed(base + REG_MMU_INT_ID(slave_id));
 		port_id = mtk_iommu_get_larb_port(
 				F_MMU_INT_TF_VAL(int_id),
 				m4uid, &fault_larb,
@@ -1357,7 +1416,7 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 		}
 		/*pseudo_dump_port(port_id, true);*/
 
-		regval = readl_relaxed(data->base +
+		regval = readl_relaxed(base +
 					REG_MMU_FAULT_STATUS(slave_id));
 		layer = regval & F_MMU_FAULT_VA_LAYER_BIT;
 		write = regval & F_MMU_FAULT_VA_WRITE_BIT;
@@ -1380,14 +1439,14 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 		}
 		pa = mtk_iommu_iova_to_phys(domain, fault_iova & PAGE_MASK);
 
-		fault_pa = readl_relaxed(data->base +
+		fault_pa = readl_relaxed(base +
 					REG_MMU_INVLD_PA(slave_id));
 		fault_pa |= (unsigned long)(regval &
 					F_MMU_FAULT_PA_BIT32) << 26;
-		regval = readl_relaxed(data->base +
-					REG_MMU_TFRP_PADDR);
-		pr_notice("fault_pa=0x%lx,fault_iova=%lx,mapping to pa=%x, protect=0x%x\n",
-			  fault_pa, fault_iova, (unsigned int)pa, regval);
+		pr_notice("fault_pa=0x%lx, get pa=%x, tfrp=0x%x, ptbase=0x%x\n",
+			  fault_pa, (unsigned int)pa,
+			  readl_relaxed(base + REG_MMU_TFRP_PADDR),
+			  readl_relaxed(base + REG_MMU_PT_BASE_ADDR));
 #ifdef APU_IOMMU_INDEX
 		if (m4uid >= APU_IOMMU_INDEX) {
 			is_vpu = true;
@@ -1397,7 +1456,7 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 #endif
 		if (enable_custom_tf_report()) {
 			report_custom_iommu_fault(m4uid,
-						  data->base,
+						  base,
 						  int_state,
 						  fault_iova,
 						  fault_pa,
@@ -1416,6 +1475,11 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 				layer, write ? "write" : "read");
 		}
 		m4u_dump_pgtable(1, fault_iova);
+#ifdef MTK_IOMMU_BANK_IRQ_SUPPORT
+		if (bankid < MTK_IOMMU_BANK_NODE_COUNT)
+			__mtk_iommu_atf_call(IOMMU_ATF_BANK_DUMP_INFO,
+					m4uid, bankid + 1, &tf_port);
+#endif
 	}
 
 	if (int_state &
@@ -1458,9 +1522,9 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	}
 
 	/* Interrupt clear */
-	regval = readl_relaxed(data->base + REG_MMU_INT_CONTROL0);
+	regval = readl_relaxed(base + REG_MMU_INT_CONTROL0);
 	regval |= F_INT_CTL0_INT_CLR;
-	writel_relaxed(regval, data->base + REG_MMU_INT_CONTROL0);
+	writel_relaxed(regval, base + REG_MMU_INT_CONTROL0);
 
 	mtk_iommu_tlb_flush_all_lock(data, false);
 	mtk_iommu_isr_record(data);
@@ -1477,7 +1541,6 @@ out:
 
 #ifdef MTK_M4U_SECURE_IRQ_SUPPORT
 static int mtk_irq_sec[MTK_IOMMU_M4U_COUNT];
-
 irqreturn_t MTK_M4U_isr_sec(int irq, void *dev_id)
 {
 	struct mtk_iommu_data *data = NULL;
@@ -3648,7 +3711,10 @@ static int mtk_iommu_reg_backup(struct mtk_iommu_data *data)
 	reg->ivrp_paddr = readl_relaxed(base +
 					   REG_MMU_TFRP_PADDR);
 	if (g_secure_status[data->m4uid]) {
-#ifdef MTK_M4U_SECURE_IRQ_SUPPORT
+#ifdef MTK_IOMMU_BANK_IRQ_SUPPORT
+		ret = mtk_iommu_atf_call(IOMMU_ATF_SECURITY_BACKUP,
+				   data->m4uid, MTK_IOMMU_BANK_COUNT);
+#elif defined(MTK_M4U_SECURE_IRQ_SUPPORT)
 		ret = mtk_iommu_atf_call(IOMMU_ATF_SECURITY_BACKUP,
 				   data->m4uid, 4);
 #endif
@@ -3676,7 +3742,10 @@ static int mtk_iommu_reg_restore(struct mtk_iommu_data *data)
 	}
 
 	if (g_secure_status[data->m4uid]) {
-#ifdef MTK_M4U_SECURE_IRQ_SUPPORT
+#ifdef MTK_IOMMU_BANK_IRQ_SUPPORT
+		ret = mtk_iommu_atf_call(IOMMU_ATF_SECURITY_RESTORE,
+				   data->m4uid, MTK_IOMMU_BANK_COUNT);
+#elif defined(MTK_M4U_SECURE_IRQ_SUPPORT)
 		ret = mtk_iommu_atf_call(IOMMU_ATF_SECURITY_RESTORE,
 				   data->m4uid, 4);
 #endif
@@ -3826,7 +3895,8 @@ static int mtk_iommu_hw_init(struct mtk_iommu_data *data)
 {
 	u32 regval, i, wr_en;
 	unsigned int m4u_id = data->m4uid;
-#ifdef MTK_M4U_SECURE_IRQ_SUPPORT
+#if defined(MTK_M4U_SECURE_IRQ_SUPPORT) || \
+	defined(MTK_IOMMU_BANK_IRQ_SUPPORT)
 	struct device_node *node = NULL;
 #endif
 
@@ -3919,6 +3989,40 @@ static int mtk_iommu_hw_init(struct mtk_iommu_data *data)
 		pr_notice("request secure m4u%d IRQ line failed\n",
 			  m4u_id);
 		return -ENODEV;
+	}
+#endif
+#ifdef MTK_IOMMU_BANK_IRQ_SUPPORT
+	/* register bank irq */
+	for (i = 0; i < MTK_IOMMU_BANK_NODE_COUNT; i++) {
+		node = of_find_compatible_node(NULL, NULL,
+				 iommu_bank_compatible[m4u_id][i]);
+		if (!node) {
+			pr_notice(
+				  "%s, WARN: didn't find bank node of iommu:%d\n",
+				  __func__, m4u_id);
+			continue;
+		}
+
+		data->base_bank[i] = of_iomap(node, 0);
+		mtk_irq_bank[m4u_id][i] = irq_of_parse_and_map(node, 0);
+
+		pr_notice("%s, bank:%d, of_iomap: 0x%lx, irq_num: %d, m4u_id:%d\n",
+				__func__, i + 1, data->base_bank[i],
+				mtk_irq_bank[m4u_id][i], m4u_id);
+
+		if (request_irq(mtk_irq_bank[m4u_id][i], mtk_iommu_isr,
+				IRQF_TRIGGER_NONE, "bank_m4u", NULL)) {
+			pr_notice("request bank%d m4u%d IRQ line failed\n",
+				  i + 1, m4u_id);
+			continue;
+		}
+		writel_relaxed(0x6f, data->base_bank[i] +
+			   REG_MMU_INT_CONTROL0);
+		writel_relaxed(0xffffffff, data->base_bank[i] +
+			   REG_MMU_INT_MAIN_CONTROL);
+		writel_relaxed(F_MMU_TFRP_PA_SET(data->protect_base,
+			   data->enable_4GB),
+			   data->base_bank[i] + REG_MMU_TFRP_PADDR);
 	}
 #endif
 	pr_notice("%s, done\n", __func__);

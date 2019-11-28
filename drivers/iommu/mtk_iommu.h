@@ -99,10 +99,12 @@ struct mtk_iommu_clks {
 };
 #endif
 
+#define MTK_IOMMU_BANK_NODE_COUNT (3)
 struct mtk_iommu_data {
 	void __iomem *base;
 	int irq;
 	void __iomem *base_sec;
+	void __iomem *base_bank[MTK_IOMMU_BANK_NODE_COUNT];
 	struct device *dev;
 	struct clk *bclk;
 	phys_addr_t protect_base; /* protect memory base */

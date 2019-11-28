@@ -2396,6 +2396,29 @@ int m4u_config_port(struct M4U_PORT_STRUCT *pM4uPort)
 	return ret;
 }
 
+void pseudo_m4u_bank_irq_debug(unsigned int domain)
+{
+	int i, j;
+	unsigned int count = 0;
+
+	if (domain > 0x7)
+		return;
+
+	for (i = 0; i < SMI_LARB_NR; i++) {
+		larb_clock_on(i, 1);
+		count = mtk_iommu_get_larb_port_count(i);
+		for (j = 0; j < count; j++) {
+			pseudo_set_reg_by_mask(pseudo_larbbase[i],
+							   SMI_LARB_SEC_CONx(j),
+							   F_SMI_DOMN(0x7),
+							   F_SMI_DOMN(domain));
+			pr_notice("%s, switch larb%d port%d to domain:0x%x\n",
+				  __func__, i, j, domain);
+		}
+		larb_clock_off(i, 1);
+	}
+}
+
 void pseudo_m4u_db_debug(unsigned int m4uid,
 		struct seq_file *s)
 {

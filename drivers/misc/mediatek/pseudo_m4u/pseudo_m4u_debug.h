@@ -39,6 +39,7 @@ int larb_clock_on(int larb, bool config_mtcmos);
 int larb_clock_off(int larb, bool config_mtcmos);
 void m4u_find_max_port_size(unsigned long base, unsigned long max,
 	unsigned int *err_port, unsigned int *err_size);
+void pseudo_m4u_bank_irq_debug(bool enable);
 
 #endif
 

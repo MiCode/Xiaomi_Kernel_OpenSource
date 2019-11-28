@@ -1294,6 +1294,90 @@ page_owner=on loop.max_part=7";
 		#iommu-cells = <1>;
 	};
 
+	iommu0_bank1: m4u@1411b000 {
+		cell-index = <0>;
+		compatible = "mediatek,bank1_m4u0";
+		reg = <0 0x1411b000 0 0x1000>;
+		interrupts = <GIC_SPI 301 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	iommu0_bank2: m4u@1411c000 {
+		cell-index = <0>;
+		compatible = "mediatek,bank2_m4u0";
+		reg = <0 0x1411c000 0 0x1000>;
+		interrupts = <GIC_SPI 302 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	iommu0_bank3: m4u@1411d000 {
+		cell-index = <0>;
+		compatible = "mediatek,bank3_m4u0";
+		reg = <0 0x1411d000 0 0x1000>;
+		interrupts = <GIC_SPI 303 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	iommu1_bank1: m4u@1f028000 {
+		cell-index = <1>;
+		compatible = "mediatek,bank1_m4u1";
+		reg = <0 0x1f028000 0 0x1000>;
+		interrupts = <GIC_SPI 499 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	iommu1_bank2: m4u@1f029000 {
+		cell-index = <1>;
+		compatible = "mediatek,bank2_m4u1";
+		reg = <0 0x1f029000 0 0x1000>;
+		interrupts = <GIC_SPI 500 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	iommu1_bank3: m4u@1f02a000 {
+		cell-index = <1>;
+		compatible = "mediatek,bank3_m4u1";
+		reg = <0 0x1f02a000 0 0x1000>;
+		interrupts = <GIC_SPI 501 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	iommu2_bank1: m4u@19011000 {
+		cell-index = <2>;
+		compatible = "mediatek,bank1_m4u2";
+		reg = <0 0x19011000 0 0x1000>;
+		interrupts = <GIC_SPI 394 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	iommu2_bank2: m4u@19012000 {
+		cell-index = <2>;
+		compatible = "mediatek,bank2_m4u2";
+		reg = <0 0x19012000 0 0x1000>;
+		interrupts = <GIC_SPI 395 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	iommu2_bank3: m4u@19013000 {
+		cell-index = <2>;
+		compatible = "mediatek,bank3_m4u2";
+		reg = <0 0x19013000 0 0x1000>;
+		interrupts = <GIC_SPI 396 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	iommu3_bank1: m4u@19016000 {
+		cell-index = <3>;
+		compatible = "mediatek,bank1_m4u3";
+		reg = <0 0x19016000 0 0x1000>;
+		interrupts = <GIC_SPI 399 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	iommu3_bank2: m4u@19017000 {
+		cell-index = <3>;
+		compatible = "mediatek,bank2_m4u3";
+		reg = <0 0x19017000 0 0x1000>;
+		interrupts = <GIC_SPI 400 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	iommu3_bank3: m4u@19018000 {
+		cell-index = <3>;
+		compatible = "mediatek,bank3_m4u3";
+		reg = <0 0x19018000 0 0x1000>;
+		interrupts = <GIC_SPI 401 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
 	iommu0_sec: m4u@1411e000 {
 		cell-index = <0>;
 		compatible = "mediatek,sec_m4u0";
