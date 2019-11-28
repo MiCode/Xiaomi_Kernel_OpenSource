@@ -118,8 +118,17 @@ enum scp_ipi_status __attribute__((weak)) scp_ipi_registration(enum ipi_id id,
 {
 	return SCP_IPI_ERROR;
 }
+enum scp_ipi_status __attribute__((weak)) scp_ipi_unregistration(enum ipi_id id)
+{
+	return SCP_IPI_ERROR;
+}
 
 void __attribute__((weak)) scp_A_register_notify(struct notifier_block *nb)
+{
+
+}
+
+void __attribute__((weak)) scp_A_unregister_notify(struct notifier_block *nb)
 {
 
 }
