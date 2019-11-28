@@ -1530,6 +1530,15 @@ static int hal_dma_init_msg_queue(struct hal_dma_queue_t *msg_queue,
 		pr_info("NULL!! msg_queue: %p", msg_queue);
 		return -EFAULT;
 	}
+	if (msg_queue->dma_data.base ||
+	    msg_queue->tmp_buf_d2k ||
+	    msg_queue->tmp_buf_k2h) {
+		pr_debug("already init!! %p %p %p",
+			 msg_queue->dma_data.base,
+			 msg_queue->tmp_buf_d2k,
+			 msg_queue->tmp_buf_k2h);
+		return 0;
+	}
 
 
 	/* init var */
