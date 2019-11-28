@@ -40,8 +40,6 @@
 #include <asm/virt.h>
 
 #include "irq-gic-common.h"
-#include <mt-plat/aee.h>
-
 
 struct redist_region {
 	void __iomem		*redist_base;
@@ -200,16 +198,8 @@ static void gic_poke_irq(struct irq_data *d, u32 offset)
 	rwp_wait();
 }
 
-#define MONITOR_IRQ 226
 static void gic_mask_irq(struct irq_data *d)
 {
-	u32 hwirq = gic_irq(d);
-
-	if (hwirq == MONITOR_IRQ) {
-		pr_info("%s mask IRQ%u\r\n", __func__, hwirq);
-		dump_stack();
-		aee_kernel_warning("ccci", "CCIF irq masked upexpectd");
-	}
 	gic_poke_irq(d, GICD_ICENABLER);
 }
 
