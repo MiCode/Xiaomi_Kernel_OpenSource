@@ -111,10 +111,10 @@ static unsigned int __chip_func_code(void)
 
 static unsigned int __chip_date_code(void)
 {
-	/* DATE_CODE_YY[11:8] */
-	unsigned int val1 = (get_devinfo_with_index(134) & (0xF << 8)) >> 2;
-	/* DATE_CODE_WW[5:0] */
-	unsigned int val2 = get_devinfo_with_index(134) & 0x3F;
+	/* DATE_CODE_YY[6:4] */
+	unsigned int val1 = (get_devinfo_with_index(132) & (0x7 << 4)) >> 0;
+	/* DATE_CODE_WW[3:0] */
+	unsigned int val2 = get_devinfo_with_index(132) & 0xF;
 
 	return (val1 | val2);
 }
