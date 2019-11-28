@@ -1288,6 +1288,25 @@
 		mediatek,cali-efuse-index = <113>;
 	};
 
+	pwm@11006000 {
+		compatible = "mediatek,pwm";
+		reg = <0 0x11006000 0 0x1000>;
+		interrupts = <GIC_SPI 210 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&infracfg_ao INFRACFG_AO_PWM1_CG>,
+			<&infracfg_ao INFRACFG_AO_PWM2_CG>,
+			<&infracfg_ao INFRACFG_AO_PWM3_CG>,
+			<&infracfg_ao INFRACFG_AO_PWM4_CG>,
+			<&infracfg_ao INFRACFG_AO_PWM_HCLK_CG>,
+			<&infracfg_ao INFRACFG_AO_PWM_CG>;
+
+		clock-names = "PWM1-main",
+			"PWM2-main",
+			"PWM3-main",
+			"PWM4-main",
+			"PWM-HCLK-main",
+			"PWM-main";
+	};
+
 	mali@13000000 {
 		compatible = "mediatek,mali", "arm,mali-valhall";
 		reg = <0 0x13000000 0 0x4000>;
@@ -2701,6 +2720,12 @@
 
 	accdet: accdet {
 		compatible = "mediatek,pmic-accdet";
+	};
+
+	irtx_pwm:irtx_pwm {
+		compatible = "mediatek,irtx-pwm";
+		pwm_ch = <3>;
+		pwm_data_invert = <0>;
 	};
 };
 
