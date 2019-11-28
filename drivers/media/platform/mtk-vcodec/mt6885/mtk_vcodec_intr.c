@@ -287,6 +287,9 @@ void mtk_vcodec_enc_timeout_dump(void *ctx)
 		0x11C0, 0x11C4, 0x1030, 0x240,
 		0x248, 0x250, 0x130};
 
+	mtk_v4l2_debug(0, "is_codec_suspending: %d",
+	    dev->is_codec_suspending);
+
 	for (j = 0; j < MTK_VENC_HW_NUM; j++) {
 		for (i = 0; i < REG1_COUNT; i++) {
 			value = readl(dev->enc_reg_base[j] + Reg_1[i]);

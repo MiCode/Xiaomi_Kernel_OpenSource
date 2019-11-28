@@ -671,8 +671,8 @@ static void vcu_gce_flush_callback(struct cmdq_cb_data data)
 	wake_up(&vcu->gce_wq[i]);
 	cmds = (struct gce_cmds *)(unsigned long)buff->cmdq_buff.cmds_user_ptr;
 
-	pr_debug("[VCU] %s: buff %p type %d cnt %d order %d handle %llx\n",
-		__func__, buff, buff->cmdq_buff.codec_type,
+	pr_info("[VCU][%d] %s: buff %p type %d cnt %d order %d handle %llx\n",
+		core_id, __func__, buff, buff->cmdq_buff.codec_type,
 		cmds->cmd_cnt, buff->cmdq_buff.flush_order,
 		buff->cmdq_buff.gce_handle);
 
@@ -782,7 +782,8 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 				core_id, &vcu->flags[i]);
 		}
 	}
-	pr_info("vcu gce_info[%d].v4l2_ctx %p\n", j, vcu->gce_info[j].v4l2_ctx);
+	pr_debug("vcu gce_info[%d].v4l2_ctx %p\n",
+		j, vcu->gce_info[j].v4l2_ctx);
 	venc_encode_pmqos_gce_begin(vcu->gce_info[j].v4l2_ctx, core_id,
 			vcu->gce_job_cnt[i][core_id].counter);
 	atomic_inc(&vcu->gce_job_cnt[i][core_id]);
@@ -812,8 +813,8 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 	/* flush cmd async */
 	cmdq_pkt_flush_threaded(pkt_ptr,
 		vcu_gce_flush_callback, (void *)buff);
-	pr_debug("[VCU] %s: buff %p type %d cnt %d order %d handle %llx\n",
-		__func__, buff, buff->cmdq_buff.codec_type,
+	pr_info("[VCU][%d] %s: buff %p type %d cnt %d order %d handle %llx\n",
+		core_id, __func__, buff, buff->cmdq_buff.codec_type,
 		cmds->cmd_cnt, buff->cmdq_buff.flush_order,
 		buff->cmdq_buff.gce_handle);
 
