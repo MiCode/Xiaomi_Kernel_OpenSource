@@ -42,7 +42,6 @@
 #include "../../../../kernel/sched/sched.h"
 #include "mrdump_mini.h"
 #include "mrdump_private.h"
-#include <mach/memory_layout.h>
 
 #define LOG_DEBUG(fmt, ...)			\
 	do {	\
