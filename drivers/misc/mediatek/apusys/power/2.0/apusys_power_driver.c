@@ -283,7 +283,6 @@ int apu_device_power_suspend(enum DVFS_USER user, int is_suspend)
 #endif
 	}
 
-	udelay(100);
 	// for debug
 	// dump_stack();
 #if !BYPASS_POWER_CTL

@@ -466,8 +466,6 @@ static int rpc_power_status_check(int domain_idx, unsigned int mode)
 	spmValue = check_spm_register(NULL, 0);
 
 	do {
-		udelay(10);
-
 		// check APU_RPC_INTF_PWR_RDY
 		rpcValue = DRV_Reg32(APU_RPC_INTF_PWR_RDY);
 
@@ -510,6 +508,9 @@ static int rpc_power_status_check(int domain_idx, unsigned int mode)
 
 			return -1;
 		}
+
+		if (finished)
+			udelay(10);
 
 	} while (finished);
 

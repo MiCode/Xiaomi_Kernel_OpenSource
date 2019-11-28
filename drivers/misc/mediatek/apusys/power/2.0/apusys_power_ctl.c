@@ -884,6 +884,7 @@ void apusys_set_opp(enum DVFS_USER user, uint8_t opp)
 		if (apusys_opps.is_power_on[user] == true) {
 			apusys_opps.user_opp_index[user] = opp;
 
+		if (g_pwr_log_level == APUSYS_PWR_LOG_DEBUG)
 			PWR_LOG_INF("%s, %s, user_opp=%d\n",
 			__func__, user_str[user], opp);
 		}
@@ -914,7 +915,7 @@ int apusys_power_on(enum DVFS_USER user)
 	enum DVFS_VOLTAGE_DOMAIN buck_domain;
 
 	ret = hal_config_power(PWR_CMD_SET_BOOT_UP, user, (void *)&pwr_mask);
-	PWR_LOG_INF("%s ret=%d,\n", __func__, ret);
+
 	if (ret == 0) {
 		if (user < APUSYS_DVFS_USER_NUM) {
 			buck_domain = apusys_user_to_buck_domain[user];
@@ -922,6 +923,9 @@ int apusys_power_on(enum DVFS_USER user)
 				APUSYS_DEFAULT_OPP;
 			apusys_opps.next_opp_index[buck_domain] =
 				APUSYS_DEFAULT_OPP;
+
+			if (is_power_debug_lock == true)
+				fix_dvfs_debug();
 		}
 
 		if (apusys_opps.power_bit_mask == 0) {	// first power on
@@ -949,9 +953,6 @@ int apusys_power_on(enum DVFS_USER user)
 		apusys_opps.power_bit_mask |= (1<<user);
 	}
 
-	if (is_power_debug_lock == true)
-		fix_dvfs_debug();
-
 	return ret;
 }
 
@@ -965,7 +966,7 @@ int apusys_power_off(enum DVFS_USER user)
 	apusys_opps.power_bit_mask &= (~(1<<user));
 
 	ret = hal_config_power(PWR_CMD_SET_SHUT_DOWN, user, (void *)&pwr_mask);
-	PWR_LOG_INF("%s ret=%d,\n", __func__, ret);
+
 	if (ret == 0) {
 		if (user < APUSYS_DVFS_USER_NUM) {
 			buck_domain = apusys_user_to_buck_domain[user];
