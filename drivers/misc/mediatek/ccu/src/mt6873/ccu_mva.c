@@ -111,7 +111,7 @@ int ccu_allocate_mva(uint32_t *mva, void *va,
 		return -1;
 	}
 
-	ret = _ccu_ion_get_mva(_ccu_ion_client, *handle, mva, M4U_PORT_CCU0);
+	ret = _ccu_ion_get_mva(_ccu_ion_client, *handle, mva, 0);
 
 	if (ret) {
 		LOG_ERR("ccu ion_get_mva failed\n");
