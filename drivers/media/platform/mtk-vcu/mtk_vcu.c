@@ -726,10 +726,18 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 	user_data_addr = (unsigned char *)arg;
 	ret = (long)copy_from_user(&buff->cmdq_buff, user_data_addr,
 				   (unsigned long)sizeof(struct gce_cmdq_obj));
+	if (ret != 0L)
+		pr_info("[VCU] %s(%d) gce_cmdq_obj copy_from_user failed!%d\n",
+			__func__, __LINE__, ret);
+
 	user_data_addr = (unsigned char *)
 				   (unsigned long)buff->cmdq_buff.cmds_user_ptr;
 	ret = (long)copy_from_user(cmds, user_data_addr,
 				   (unsigned long)sizeof(struct gce_cmds));
+	if (ret != 0L)
+		pr_info("[VCU] %s(%d) gce_cmds copy_from_user failed!%d\n",
+			__func__, __LINE__, ret);
+
 	buff->cmdq_buff.cmds_user_ptr = (u64)(unsigned long)cmds;
 	core_id = buff->cmdq_buff.core_id;
 
@@ -815,13 +823,14 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 	pkt_ptr->err_cb.cb = vcu_gce_timeout_callback;
 	pkt_ptr->err_cb.data = (void *)buff;
 
+	pr_info("[VCU][%d] %s: buff %p type %d cnt %d order %d hndl %llx %d %d\n",
+		core_id, __func__, buff, buff->cmdq_buff.codec_type,
+		cmds->cmd_cnt, buff->cmdq_buff.flush_order,
+		buff->cmdq_buff.gce_handle, ret, j);
+
 	/* flush cmd async */
 	cmdq_pkt_flush_threaded(pkt_ptr,
 		vcu_gce_flush_callback, (void *)buff);
-	pr_info("[VCU][%d] %s: buff %p type %d cnt %d order %d handle %llx\n",
-		core_id, __func__, buff, buff->cmdq_buff.codec_type,
-		cmds->cmd_cnt, buff->cmdq_buff.flush_order,
-		buff->cmdq_buff.gce_handle);
 
 	return ret;
 }
