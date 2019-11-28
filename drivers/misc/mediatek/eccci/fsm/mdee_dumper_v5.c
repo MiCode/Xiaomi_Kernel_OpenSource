@@ -387,7 +387,7 @@ static int mdee_set_core_name(int md_id, char *core_name,
 			MD_CORE_NAME_DEBUG, "%s", core_name);
 		snprintf(core_name, MD_CORE_NAME_DEBUG,
 		"%s_core%d,vpe%d,tc%d(VPE%d)", core_name_temp,
-		(temp_sys_inf_1>>1), (temp_sys_inf_1&0x1),
+		(temp_sys_inf_1/3), (temp_sys_inf_1%3),
 		temp_sys_inf_2, temp_sys_inf_1);
 	}
 	CCCI_NORMAL_LOG(md_id, FSM,
@@ -446,7 +446,8 @@ static char *ee_type_str_v5_50s[] = {
 	/*[ASSERT_DUMP_EXTENDED_RECORD - 0x50] = */"ASSERT",
 	/*[ASSERT_FAIL_NATIVE - 0x50] = */"ASSERT",
 	/*[ASSERT_CUSTOM_ADDR - 0x50] = */"Fatal error(ASSERT_CUSTOM_ADDR)",
-	/*[ASSERT_CUSTOM_MODID - 0x50] = */"Fatal error(ASSERT_CUSTOM_MODID)"
+	/*[ASSERT_CUSTOM_MODID - 0x50] = */"Fatal error(ASSERT_CUSTOM_MODID)",
+	/*[ASSERT_CUSTOM_MOFID - 0x50] = */"Fatal error(ASSERT_CUSTOM_MOFID)"
 };
 
 static char *ee_type_str_v5_60s[] = {
@@ -457,6 +458,7 @@ static char *ee_type_str_v5_60s[] = {
 	/*[CC_VOLTE_EXCEPTION- 0x60] = */"Fatal error (CC_VOLTE)",
 	/*[CC_USIP_EXCEPTION- 0x60] = */"Fatal error (CC_USIP)",
 	/*[CC_SCQ_EXCEPTION- 0x60] = */"Fatal error (CC_SCQ)",
+	/*[CC_SONIC_EXCEPTION- 0x60] = */"Fatal error (CC_SONIC)",
 };
 
 static char *ee_err_sec_str[] = {

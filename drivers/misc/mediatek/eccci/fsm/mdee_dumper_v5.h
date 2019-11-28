@@ -56,7 +56,8 @@ struct ex_fatal_v5 {
 	u8	is_cadefa_supported;
 	u8	is_filename_supported;
 	u8	error_section;
-	u8	pad[5];
+	u8      is_valid_dispatch_arg;
+	u8	pad[4];
 	u32	error_status;
 	u32	error_sp;
 	u32	error_pc;
@@ -102,11 +103,11 @@ struct ex_overview_t {
 	u32 mips_vpe_num;/* value == 7 */
 	struct ex_step_v5 ex_step_logging[MIPS_VPE_NUM];
 	u32 ect_status;
+	u32 afound_buffer_offset;
+	u32 afound_buffer_size;
 	u8 usip_scq_offending_core;
 	u8 sonic_offending_core;
 	u8 mcu_exception_count[MD_CORE_TOTAL_NUM];
-	u32 afound_buffer_offset;
-	u32 afound_buffer_size;
 	u8 pad[30];
 	u32 core_offset[MD_CORE_TOTAL_NUM];
 } __packed;
@@ -170,6 +171,7 @@ enum {
 	ASSERT_FAIL_NATIVE = 0x52,
 	ASSERT_CUSTOM_ADDR = 0x53,
 	ASSERT_CUSTOM_MODID = 0x54,
+	ASSERT_CUSTOM_MOFID = 0x55,
 	ASSERT_FAIL_MAX_NUM,
 	/* cross core triggered */
 	CC_INVALID_EXCEPTION = 0x60,
@@ -179,6 +181,7 @@ enum {
 	CC_VOLTE_EXCEPTION = 0x64,
 	CC_USIP_EXCEPTION = 0x65,
 	CC_SCQ_EXCEPTION = 0x66,
+	CC_SONIC_EXCEPTION = 0x67,
 	CC_EXCEPTION_MAX_NUM,
 	/* HW triggered */
 	EMI_MPU_VIOLATION_EXCEPTION = 0x70,
