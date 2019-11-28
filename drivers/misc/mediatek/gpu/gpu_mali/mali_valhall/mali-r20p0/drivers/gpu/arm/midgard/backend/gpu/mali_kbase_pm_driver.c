@@ -1715,6 +1715,9 @@ static void kbase_set_sc_quirks(struct kbase_device *kbdev, const u32 prod_id)
 	kbdev->hw_quirks_sc = kbase_reg_read(kbdev,
 					GPU_CONTROL_REG(SHADER_CONFIG));
 
+	/* GPU2017-1360: Disable CRC on AFBC compression data */
+	kbdev->hw_quirks_sc |= SC_DISABLE_CRC_AFBC_COMPRESSED;
+
 	/* Needed due to MIDBASE-1494: LS_PAUSEBUFFER_DISABLE.
 	 * See PRLAM-8443 and needed due to MIDGLES-3539.
 	 * See PRLAM-11035.

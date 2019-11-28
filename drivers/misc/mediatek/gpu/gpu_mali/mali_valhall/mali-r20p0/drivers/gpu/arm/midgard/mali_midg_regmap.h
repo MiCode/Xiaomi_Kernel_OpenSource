@@ -423,6 +423,7 @@
 /* End THREAD_* registers */
 
 /* SHADER_CONFIG register */
+#define SC_DISABLE_CRC_AFBC_COMPRESSED (1ul << 1)
 #define SC_ALT_COUNTERS             (1ul << 3)
 #define SC_OVERRIDE_FWD_PIXEL_KILL  (1ul << 4)
 #define SC_SDC_DISABLE_OQ_DISCARD   (1ul << 6)
