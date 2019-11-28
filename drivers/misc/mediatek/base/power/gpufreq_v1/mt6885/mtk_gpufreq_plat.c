@@ -755,11 +755,15 @@ void mt_gpufreq_restore_default_volt(void)
 
 	mt_gpufreq_cal_sb_opp_index();
 
-	__mt_gpufreq_volt_switch_without_vsram_gpu(g_cur_opp_vgpu,
-		g_opp_table[g_cur_opp_idx].gpufreq_vgpu);
+	/* update volt if powered */
+	if (g_buck_on && !g_fixed_freq_volt_state) {
+		__mt_gpufreq_volt_switch_without_vsram_gpu(
+			g_cur_opp_vgpu,
+			g_opp_table[g_cur_opp_idx].gpufreq_vgpu);
 
-	g_cur_opp_vgpu = g_opp_table[g_cur_opp_idx].gpufreq_vgpu;
-	g_cur_opp_vsram_gpu = g_opp_table[g_cur_opp_idx].gpufreq_vsram;
+		g_cur_opp_vgpu = g_opp_table[g_cur_opp_idx].gpufreq_vgpu;
+		g_cur_opp_vsram_gpu = g_opp_table[g_cur_opp_idx].gpufreq_vsram;
+	}
 
 	mutex_unlock(&mt_gpufreq_lock);
 }
@@ -853,7 +857,7 @@ unsigned int mt_gpufreq_update_volt(
 		mt_gpufreq_cal_sb_opp_index();
 
 	/* update volt if powered */
-	if (g_buck_on) {
+	if (g_buck_on && !g_fixed_freq_volt_state) {
 		__mt_gpufreq_volt_switch_without_vsram_gpu(
 				g_cur_opp_vgpu,
 				g_opp_table[g_cur_opp_idx].gpufreq_vgpu);
