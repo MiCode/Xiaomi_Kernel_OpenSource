@@ -1564,7 +1564,7 @@ int edma_execute(struct edma_sub *edma_sub, struct edma_ext *edma_ext)
 		(t2.tv_usec - t1.tv_usec));
 
 	//pr_notice("%s:ip time = %d\n", __func__, edma_sub->ip_time);
-	pr_notice("%s:function done, exe_time = %d, ip time = %d\n",
+	LOG_DBG("%s:function done, exe_time = %d, ip time = %d\n",
 		__func__, exe_time, edma_sub->ip_time);
 #endif
 	return ret;
