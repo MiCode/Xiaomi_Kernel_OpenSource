@@ -68,10 +68,9 @@ uint32_t g_reviser_mem_dram_ctxid;
 // test node
 static int reviser_dbg_show_rw(struct seq_file *s, void *unused)
 {
+/* Debug only*/
+#if 0
 	struct reviser_dev_info *reviser_device = s->private;
-
-	//test node for INT
-	return -EINVAL;
 
 	if (!reviser_is_power(reviser_device)) {
 		LOG_ERR("Can Not Read when power disable\n");
@@ -79,6 +78,8 @@ static int reviser_dbg_show_rw(struct seq_file *s, void *unused)
 	}
 
 	reviser_print_rw(reviser_device, s);
+
+#endif
 	return 0;
 }
 
