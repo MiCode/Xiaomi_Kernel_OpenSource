@@ -20,15 +20,26 @@
 #include <linux/gpio.h>
 #include <linux/irqdomain.h>
 #include <linux/pm_runtime.h>
+#include <linux/ratelimit.h>
+#include<linux/ktime.h>
 
 #include "../inc/mt6360_pmu.h"
 
+#if defined SUB_PMIC_DEBUG
+static unsigned long long duration_index[8], pmu_irq_duration;
+static int count_index[8];
+#endif
 static irqreturn_t mt6360_pmu_irq_handler(int irq, void *data)
 {
 	struct mt6360_pmu_info *mpi = data;
 	u8 irq_events[MT6360_PMU_IRQ_REGNUM] = {0};
 	u8 irq_masks[MT6360_PMU_IRQ_REGNUM] = {0};
+	unsigned long long duration = 0;
 	int i, j, ret;
+#if defined SUB_PMIC_DEBUG
+	int k;
+	ktime_t calltime, delta, rettime;
+#endif
 
 	mt_dbg(mpi->dev, "%s ++\n", __func__);
 	pm_runtime_get_sync(mpi->dev);
@@ -49,6 +60,9 @@ static irqreturn_t mt6360_pmu_irq_handler(int irq, void *data)
 				continue;
 			ret = irq_find_mapping(mpi->irq_domain, i * 8 + j);
 			if (ret) {
+#if defined SUB_PMIC_DEBUG
+				calltime = ktime_get();
+#endif
 				/* bypass adc donei & mivr irq */
 				if ((i == 5 && j == 4) || (i == 0 && j == 6))
 					mt_dbg(mpi->dev,
@@ -57,6 +71,15 @@ static irqreturn_t mt6360_pmu_irq_handler(int irq, void *data)
 					dev_dbg(mpi->dev,
 						"handle_irq [%d,%d]\n", i, j);
 				handle_nested_irq(ret);
+#if defined SUB_PMIC_DEBUG
+				rettime = ktime_get();
+				delta = ktime_sub(rettime, calltime);
+				duration = (unsigned long long)
+					    ktime_to_ns(delta) >> 10;
+				pmu_irq_duration += duration;
+				duration_index[i] += duration;
+				count_index[i]++;
+#endif
 			} else
 				dev_err(mpi->dev, "unmapped [%d,%d]\n", i, j);
 		}
@@ -71,6 +94,18 @@ static irqreturn_t mt6360_pmu_irq_handler(int irq, void *data)
 				      MT6360_PMU_IRQ_SET, MT6360_IRQ_RETRIG);
 	if (ret < 0)
 		dev_err(mpi->dev, "fail to retrig interrupt\n");
+
+#if defined SUB_PMIC_DEBUG
+	dev_info_ratelimited(mpi->dev, "%s: pmu_irq_duration: %lld\n",
+			    __func__, pmu_irq_duration);
+	for (k = 0; k < 8; k++) {
+		if (k != 2)
+			dev_info_ratelimited(mpi->dev,
+				"%d index_count: %d, index_duration: %lld\n", k,
+				 count_index[k], duration_index[k]);
+#endif
+	}
+
 out_irq_handler:
 	pm_runtime_put(mpi->dev);
 	mt_dbg(mpi->dev, "%s --\n", __func__);
@@ -164,7 +199,9 @@ static int mt6360_pmu_gpio_irq_init(struct mt6360_pmu_info *mpi)
 {
 	struct mt6360_pmu_platform_data *pdata = dev_get_platdata(mpi->dev);
 	int ret;
-
+#if defined SUB_PMIC_DEBUG
+	int i;
+#endif
 	ret = devm_gpio_request_one(mpi->dev, pdata->irq_gpio, GPIOF_IN,
 				    devm_kasprintf(mpi->dev, GFP_KERNEL,
 				    "%s.irq", dev_name(mpi->dev)));
@@ -194,6 +231,13 @@ static int mt6360_pmu_gpio_irq_init(struct mt6360_pmu_info *mpi)
 		dev_err(mpi->dev, "irq domain add fail\n");
 		return -EINVAL;
 	}
+#if defined SUB_PMIC_DEBUG
+	pmu_irq_duration = 0;
+	for (i = 0; i < 8; i++) {
+		duration_index[i] = 0;
+		count_index[i] = 0;
+	}
+#endif
 	return 0;
 }
 

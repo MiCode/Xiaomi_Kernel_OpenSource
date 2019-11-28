@@ -23,6 +23,8 @@
 #include "config.h"
 #include "rt-regmap.h"
 
+#define SUB_PMIC_DEBUG
+
 extern bool dbg_log_en;
 #define mt_dbg(dev, fmt, ...) \
 	do { \
