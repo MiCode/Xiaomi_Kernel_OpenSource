@@ -400,6 +400,9 @@ void mtk_vdec_dvfs_begin(struct mtk_vcodec_ctx *ctx, int hw_id)
 		vdec_req_freq[hw_id] = STD_VDEC_FREQ;
 	}
 
+	if (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_VP8)
+		vdec_req_freq[hw_id] = 416;
+
 	vdec_freq = vdec_req_freq[0] > vdec_req_freq[1] ?
 			vdec_req_freq[0] : vdec_req_freq[1];
 
