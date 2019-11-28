@@ -745,9 +745,6 @@ void cpufreq_get_cluster_cpus(struct cpumask *cpu_mask, unsigned int cid)
 		cpumask_set_cpu(6, cpu_mask);
 		cpumask_set_cpu(7, cpu_mask);
 	}
-
-	cpufreq_ver("cluster%d: cpumask = %*pbl\n",
-		cid, cpumask_pr_args(cpu_mask));
 }
 
 unsigned int cpufreq_get_cluster_id(unsigned int cpu_id)
@@ -757,11 +754,8 @@ unsigned int cpufreq_get_cluster_id(unsigned int cpu_id)
 
 	for (i = 0; i < NR_MT_CPU_DVFS - 1; i++) {
 		cpufreq_get_cluster_cpus(&cpu_mask, i);
-		if (cpumask_test_cpu(cpu_id, &cpu_mask)) {
-			cpufreq_ver("cluster%d: cpumask = %*pbl\n",
-			i, cpumask_pr_args(&cpu_mask));
+		if (cpumask_test_cpu(cpu_id, &cpu_mask))
 			return i;
-		}
 	}
 
 	return 0;
