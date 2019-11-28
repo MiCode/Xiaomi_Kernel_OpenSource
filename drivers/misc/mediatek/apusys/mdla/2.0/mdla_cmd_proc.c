@@ -125,6 +125,12 @@ mdla_run_command_prepare(struct mdla_run_cmd *cd, struct command_entry *ce)
 	ce->receive_t = sched_clock();
 	ce->kva = NULL;
 
+#ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
+	if (apusys_hd != NULL)
+		ce->kva = (void *)(apusys_hd->cmd_entry+cd->offset_code_buf);
+#endif
+
+
 #ifdef __APUSYS_PREEMPTION__
 	// initialize members for preemption support
 	//ce->kva = cd->buf.kva + cd->offset;
