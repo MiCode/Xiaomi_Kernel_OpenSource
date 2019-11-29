@@ -37,9 +37,22 @@ struct atl_mcp {
 
 struct atl_link_type {
 	unsigned speed;
+	bool duplex;
 	unsigned ethtool_idx;
 	uint32_t fw_bits[2];
 	const char *name;
+};
+
+enum atl_link_type_index {
+	atl_link_type_idx_10m,
+	atl_link_type_idx_100m,
+	atl_link_type_idx_1g,
+	atl_link_type_idx_2p5g,
+	atl_link_type_idx_5g,
+	atl_link_type_idx_10g,
+	atl_link_type_idx_10m_half,
+	atl_link_type_idx_100m_half,
+	atl_link_type_idx_1g_half,
 };
 
 extern struct atl_link_type atl_link_types[];
@@ -197,7 +210,10 @@ struct atl_fw_ops {
 	int (*send_macsec_req)(struct atl_hw *hw,
 			       struct macsec_msg_fw_request *msg,
 			       struct macsec_msg_fw_response *resp);
-	unsigned efuse_shadow_addr_reg;
+	int (*__get_hbeat)(struct atl_hw *hw, uint16_t *hbeat);
+	int (*get_mac_addr)(struct atl_hw *hw, uint8_t *buf);
+	int (*update_thermal)(struct atl_hw *hw);
+	int (*deinit)(struct atl_hw *hw);
 };
 
 int atl_read_mcp_word(struct atl_hw *hw, uint32_t offt, uint32_t *val);

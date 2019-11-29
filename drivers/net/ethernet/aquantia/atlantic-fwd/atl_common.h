@@ -18,7 +18,7 @@
 #include <linux/netdevice.h>
 #include <linux/moduleparam.h>
 
-#define ATL_VERSION "1.0.31"
+#define ATL_VERSION "1.1.0"
 
 struct atl_nic;
 enum atl_fwd_notify;
@@ -74,6 +74,49 @@ enum atl_ntuple_cmd {
 	ATL_NTC_L4_ICMP = 3,
 };
 
+enum atl2_ntuple_cmd {
+	ATL2_NTC_L3_IPV4_EN = BIT(0), /* Filter enabled */
+	ATL2_NTC_L3_IPV4_SA = BIT(1),
+	ATL2_NTC_L3_IPV4_DA = BIT(2),
+	ATL2_NTC_L3_IPV4_PROTO = BIT(3),
+	ATL2_NTC_L3_IPV4_TAG_SHIFT = 4,
+	ATL2_NTC_L3_IPV4_PROTO_SHIFT = 8,
+
+	ATL2_NTC_L3_IPV6_EN = BIT(0x10), /* Filter enabled */
+	ATL2_NTC_L3_IPV6_SA = BIT(0x11),
+	ATL2_NTC_L3_IPV6_DA = BIT(0x12),
+	ATL2_NTC_L3_IPV6_PROTO = BIT(0x13),
+	ATL2_NTC_L3_IPV6_TAG_SHIFT = 0x14,
+	ATL2_NTC_L3_IPV6_PROTO_SHIFT = 0x18,
+
+	ATL2_NTC_L4_EN = BIT(0), /* Filter enabled */
+	ATL2_NTC_L4_SP = BIT(1),
+	ATL2_NTC_L4_DP = BIT(2),
+};
+
+struct atl2_rxf_l3 {
+	union {
+		struct {
+			__be32 dst_ip4;
+			__be32 src_ip4;
+		};
+		struct {
+			__be32 dst_ip6[4];
+			__be32 src_ip6[4];
+		};
+	};
+	u16 proto;
+	u16 cmd;
+	u16 usage;
+};
+
+struct atl2_rxf_l4 {
+	__be16 dst_port;
+	__be16 src_port;
+	u16 cmd;
+	u16 usage;
+};
+
 struct atl_rxf_ntuple {
 	union {
 		struct {
@@ -81,12 +124,17 @@ struct atl_rxf_ntuple {
 			__be32 src_ip4[ATL_RXF_NTUPLE_MAX];
 		};
 		struct {
-			__be32 dst_ip6[ATL_RXF_NTUPLE_MAX / 4][4];
-			__be32 src_ip6[ATL_RXF_NTUPLE_MAX / 4][4];
+			__be32 dst_ip6[ATL_RXF_NTUPLE_MAX][4];
+			__be32 src_ip6[ATL_RXF_NTUPLE_MAX][4];
 		};
 	};
 	__be16 dst_port[ATL_RXF_NTUPLE_MAX];
 	__be16 src_port[ATL_RXF_NTUPLE_MAX];
+
+	struct atl2_rxf_l3 l3[ATL_RXF_NTUPLE_MAX];
+	struct atl2_rxf_l4 l4[ATL_RXF_NTUPLE_MAX];
+	s8 l3_idx[ATL_RXF_NTUPLE_MAX];
+	s8 l4_idx[ATL_RXF_NTUPLE_MAX];
 	uint32_t cmd[ATL_RXF_NTUPLE_MAX];
 	int count;
 };
@@ -317,12 +365,14 @@ int atl_intr_init(struct atl_nic *nic);
 void atl_intr_release(struct atl_nic *nic);
 int atl_hw_reset(struct atl_hw *hw);
 int atl_fw_init(struct atl_hw *hw);
+int atl_fw_configure(struct atl_hw *hw);
 int atl_reconfigure(struct atl_nic *nic);
 void atl_reset_stats(struct atl_nic *nic);
 void atl_update_global_stats(struct atl_nic *nic);
 void atl_set_loopback(struct atl_nic *nic, int idx, bool on);
 void atl_set_intr_mod(struct atl_nic *nic);
 void atl_update_ntuple_flt(struct atl_nic *nic, int idx);
+void atl_set_vlan_promisc(struct atl_hw *hw, int promisc);
 int atl_hwsem_get(struct atl_hw *hw, int idx);
 void atl_hwsem_put(struct atl_hw *hw, int idx);
 int __atl_msm_read(struct atl_hw *hw, uint32_t addr, uint32_t *val);
@@ -344,6 +394,7 @@ int atl_get_lpi_timer(struct atl_nic *nic, uint32_t *lpi_delay);
 void atl_refresh_rxfs(struct atl_nic *nic);
 void atl_schedule_work(struct atl_nic *nic);
 int atl_hwmon_init(struct atl_nic *nic);
+void atl_thermal_check(struct atl_hw *hw, bool alarm);
 int atl_update_thermal(struct atl_hw *hw);
 int atl_update_thermal_flag(struct atl_hw *hw, int bit, bool val);
 int atl_verify_thermal_limits(struct atl_hw *hw, struct atl_thermal *thermal);

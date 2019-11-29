@@ -1,3 +1,9 @@
+Version 1.1.0
+==============
+[ATLDRV-1210] - A2: FWD: Basic functionality and bringup
+[ATLDRV-1212] - A2: FWD: RX flow filters infrastructure
+
+
 Version 1.0.31
 ==============
 [ATLDRV-1243] - Clean up MACsec implementation

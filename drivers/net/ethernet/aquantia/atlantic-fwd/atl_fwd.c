@@ -231,9 +231,13 @@ static void atl_fwd_update_im(struct atl_fwd_ring *ring)
 {
 	struct atl_hw *hw = &ring->nic->hw;
 	int idx = ring->idx;
-	uint32_t addr;
+	uint32_t addr, tx_reg;
 
-	addr = atl_fwd_ring_tx(ring) ? ATL_TX_INTR_MOD_CTRL(idx) :
+	if (hw->chip_id == ATL_ANTIGUA)
+		tx_reg = ATL2_TX_INTR_MOD_CTRL(idx);
+	else
+		tx_reg = ATL_TX_INTR_MOD_CTRL(idx);
+	addr = atl_fwd_ring_tx(ring) ? tx_reg :
 		ATL_RX_INTR_MOD_CTRL(idx);
 
 	atl_write(hw, addr, (ring->intr_mod_max / 2) << 0x10 |
