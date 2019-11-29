@@ -18,6 +18,10 @@
 
 #define KGSL_PWR_ON	0xFFFF
 
+#define KGSL_GPU_CFG_PATH_OFF	0
+#define KGSL_GPU_CFG_PATH_LOW	1
+#define KGSL_GPU_CFG_PATH_HIGH	2
+
 #define KGSL_MAX_CLKS 17
 #define KGSL_MAX_REGULATORS 2
 
@@ -133,6 +137,7 @@ struct kgsl_regulator {
  * @clock_times - Each GPU frequency's accumulated active time in us
  * @regulators - array of pointers to kgsl_regulator structs
  * @pcl - bus scale identifier
+ * @gpu_cfg - CPU to GPU AHB path bus scale identifier
  * @irq_name - resource name for the IRQ
  * @clk_stats - structure of clock statistics
  * @l2pc_cpus_mask - mask to avoid L2PC on masked CPUs
@@ -190,6 +195,7 @@ struct kgsl_pwrctrl {
 	u64 clock_times[KGSL_MAX_PWRLEVELS];
 	struct kgsl_regulator regulators[KGSL_MAX_REGULATORS];
 	uint32_t pcl;
+	uint32_t gpu_cfg;
 	const char *irq_name;
 	struct kgsl_clk_stats clk_stats;
 	unsigned int l2pc_cpus_mask;

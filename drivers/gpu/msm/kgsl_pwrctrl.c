@@ -1959,6 +1959,14 @@ static inline void _close_pcl(struct kgsl_pwrctrl *pwr)
 	pwr->pcl = 0;
 }
 
+static void _close_gpu_cfg(struct kgsl_pwrctrl *pwr)
+{
+	if (pwr->gpu_cfg)
+		msm_bus_scale_unregister_client(pwr->gpu_cfg);
+
+	pwr->gpu_cfg = 0;
+}
+
 static inline void _close_regulators(struct kgsl_pwrctrl *pwr)
 {
 	int i;
@@ -2032,7 +2040,9 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 	int i, k, m, n = 0, result, freq;
 	struct platform_device *pdev = device->pdev;
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	struct device_node *gpu_cfg_node;
 	struct msm_bus_scale_pdata *bus_scale_table;
+	struct msm_bus_scale_pdata *gpu_cfg_table;
 	struct device_node *gpubw_dev_node = NULL;
 	struct platform_device *p2dev;
 
@@ -2109,6 +2119,23 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 
 	pm_runtime_enable(&pdev->dev);
 
+	gpu_cfg_node =
+		of_find_node_by_name(device->pdev->dev.of_node,
+			"qcom,cpu-to-gpu-cfg-path");
+	if (gpu_cfg_node) {
+		gpu_cfg_table =
+			msm_bus_pdata_from_node(device->pdev, gpu_cfg_node);
+		if (gpu_cfg_table)
+			pwr->gpu_cfg =
+				msm_bus_scale_register_client(gpu_cfg_table);
+
+		if (!pwr->gpu_cfg) {
+			result = -EINVAL;
+			goto error_disable_pm;
+		}
+	}
+
+
 	/* Check if gpu bandwidth vote device is defined in dts */
 	if (pwr->bus_control)
 		/* Check if gpu bandwidth vote device is defined in dts */
@@ -2133,7 +2160,7 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 		pwr->pcl = msm_bus_scale_register_client(bus_scale_table);
 		if (pwr->pcl == 0) {
 			result = -EINVAL;
-			goto error_disable_pm;
+			goto error_cleanup_gpu_cfg;
 		}
 	}
 
@@ -2201,6 +2228,8 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 
 error_cleanup_pcl:
 	_close_pcl(pwr);
+error_cleanup_gpu_cfg:
+	_close_gpu_cfg(pwr);
 error_disable_pm:
 	pm_runtime_disable(&pdev->dev);
 error_cleanup_regulators:
@@ -2224,6 +2253,8 @@ void kgsl_pwrctrl_close(struct kgsl_device *device)
 	kfree(pwr->bus_ib);
 
 	_close_pcl(pwr);
+
+	_close_gpu_cfg(pwr);
 
 	pm_runtime_disable(&device->pdev->dev);
 
