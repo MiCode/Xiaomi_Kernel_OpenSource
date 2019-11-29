@@ -343,6 +343,16 @@ static const struct freq_tbl ftbl_npu_cc_core_clk_src[] = {
 	{ }
 };
 
+static const struct freq_tbl ftbl_npu_cc_core_clk_src_v2[] = {
+	F(60000000, P_GCC_NPU_GPLL0_DIV_CLK, 5, 0, 0),
+	F(100000000, P_GCC_NPU_GPLL0_DIV_CLK, 3, 0, 0),
+	F(200000000, P_GCC_NPU_GPLL0_CLK, 3, 0, 0),
+	F(333333333, P_NPU_CC_PLL1_OUT_EVEN, 3, 0, 0),
+	F(400000000, P_NPU_CC_PLL1_OUT_EVEN, 2.5, 0, 0),
+	F(500000000, P_NPU_CC_PLL1_OUT_EVEN, 2, 0, 0),
+	{ }
+};
+
 static struct clk_rcg2 npu_cc_core_clk_src = {
 	.cmd_rcgr = 0x1010,
 	.mnd_width = 0,
@@ -373,6 +383,14 @@ static const struct freq_tbl ftbl_npu_cc_lmh_clk_src[] = {
 	F(200000000, P_GCC_NPU_GPLL0_CLK, 3, 0, 0),
 	F(214285714, P_NPU_CC_PLL1_OUT_EVEN, 7, 0, 0),
 	F(300000000, P_NPU_CC_PLL1_OUT_EVEN, 5, 0, 0),
+	{ }
+};
+
+static const struct freq_tbl ftbl_npu_cc_lmh_clk_src_v2[] = {
+	F(60000000, P_GCC_NPU_GPLL0_DIV_CLK, 5, 0, 0),
+	F(100000000, P_GCC_NPU_GPLL0_DIV_CLK, 3, 0, 0),
+	F(200000000, P_GCC_NPU_GPLL0_CLK, 3, 0, 0),
+	F(285714286, P_NPU_CC_PLL1_OUT_EVEN, 3.5, 0, 0),
 	{ }
 };
 
@@ -1031,6 +1049,7 @@ static const struct qcom_cc_desc npu_qdsp6ss_pll_lito_desc = {
 
 static const struct of_device_id npu_cc_lito_match_table[] = {
 	{ .compatible = "qcom,lito-npucc" },
+	{ .compatible = "qcom,lito-npucc-v2" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, npu_cc_lito_match_table);
@@ -1050,6 +1069,21 @@ static int npu_cc_lito_fixup(struct platform_device *pdev)
 		npu_cc_crc_div.div = 1;
 		npu_cc_cal_hm0_clk_src.freq_tbl =
 					ftbl_npu_cc_cal_hm0_clk_src_no_crc;
+	}
+
+	if (of_device_is_compatible(pdev->dev.of_node, "qcom,lito-npucc-v2")) {
+		npu_cc_pll1_config.l = 0x34;
+		npu_cc_pll1_config.alpha = 0x1555;
+
+		npu_cc_lmh_clk_src.freq_tbl = ftbl_npu_cc_lmh_clk_src_v2;
+		npu_cc_lmh_clk_src.clkr.hw.init->rate_max[VDD_LOW_L1] =
+								200000000;
+		npu_cc_lmh_clk_src.clkr.hw.init->rate_max[VDD_NOMINAL] =
+								285714286;
+
+		npu_cc_core_clk_src.freq_tbl = ftbl_npu_cc_core_clk_src_v2;
+		npu_cc_core_clk_src.clkr.hw.init->rate_max[VDD_NOMINAL] =
+								400000000;
 	}
 
 	return 0;
