@@ -40,7 +40,6 @@ static void atl_link_to_kernel(unsigned int bits, unsigned long *kernel,
 do {									\
 	struct atl_fc_state *fc = &(lstate)->fc;			\
 	(base)->port = PORT_TP;						\
-	(base)->duplex = DUPLEX_FULL;					\
 	(base)->autoneg = AUTONEG_DISABLE;				\
 	(base)->eth_tp_mdix = ETH_TP_MDI_INVALID;			\
 	(base)->eth_tp_mdix_ctrl = ETH_TP_MDI_INVALID;			\
@@ -117,6 +116,7 @@ static int atl_ethtool_get_settings(struct net_device *ndev,
 	cmd->lp_advertising = cmd_compat.link_modes.lp_advertising;
 
 	ethtool_cmd_speed_set(cmd, lstate->link ? lstate->link->speed : 0);
+	cmd->duplex = (lstate->link) ? lstate->link->duplex : DUPLEX_UNKNOWN;
 
 	return 0;
 }
@@ -139,6 +139,7 @@ static int atl_ethtool_get_ksettings(struct net_device *ndev,
 	atl_ethtool_get_common(&cmd->base, cmd, lstate, false);
 
 	cmd->base.speed = lstate->link ? lstate->link->speed : 0;
+	cmd->base.duplex = lstate->link ? lstate->link->duplex : DUPLEX_UNKNOWN;
 
 	return 0;
 }
@@ -168,8 +169,10 @@ static unsigned int atl_kernel_to_link(const unsigned long int *bits,
 	return ret;
 }
 
-static int atl_set_fixed_speed(struct atl_hw *hw, unsigned int speed)
+static int atl_set_fixed_speed(struct atl_hw *hw, unsigned int speed,
+			       unsigned int duplex)
 {
+	unsigned int dplx = (duplex == DUPLEX_HALF) ? DUPLEX_HALF : DUPLEX_FULL;
 	struct atl_link_state *lstate = &hw->link_state;
 	struct atl_link_type *type;
 	unsigned long tmp;
@@ -177,7 +180,7 @@ static int atl_set_fixed_speed(struct atl_hw *hw, unsigned int speed)
 
 	lstate->advertized &= ~ATL_EEE_MASK;
 	atl_for_each_rate(i, type)
-		if (type->speed == speed) {
+		if (type->speed == speed && type->duplex == dplx) {
 			if (!(lstate->supported & BIT(i)))
 				return -EINVAL;
 
@@ -202,11 +205,11 @@ static int atl_set_fixed_speed(struct atl_hw *hw, unsigned int speed)
 do {									\
 	struct atl_fc_state *fc = &lstate->fc;				\
 									\
-	if ((base)->port != PORT_TP || (base)->duplex != DUPLEX_FULL)	\
+	if ((base)->port != PORT_TP)					\
 		return -EINVAL;						\
 									\
 	if ((base)->autoneg != AUTONEG_ENABLE)				\
-		return atl_set_fixed_speed(hw, speed);			\
+		return atl_set_fixed_speed(hw, speed, (base)->duplex);	\
 									\
 	atl_add_link_bit(tmp, Autoneg);					\
 	atl_add_link_bit(tmp, TP);					\
@@ -1070,9 +1073,7 @@ int atl_set_media_detect(struct atl_nic *nic, bool on)
 	struct atl_hw *hw = &nic->hw;
 	int ret;
 
-	atl_lock_fw(&nic->hw);
 	ret = hw->mcp.ops->set_mediadetect(hw, on);
-	atl_unlock_fw(&nic->hw);
 
 	return ret;
 }
@@ -1310,13 +1311,13 @@ static int atl_rxf_get_ntuple(const struct atl_rxf_flt_desc *desc,
 
 		if (cmd & ATL_NTC_SA) {
 			atl_ntuple_swap_v6(rule->ip6src,
-				ntuples->src_ip6[idx / 4]);
+				ntuples->src_ip6[idx]);
 			memset(mask->ip6src, 0xff, sizeof(mask->ip6src));
 		}
 
 		if (cmd & ATL_NTC_DA) {
 			atl_ntuple_swap_v6(rule->ip6dst,
-				ntuples->dst_ip6[idx / 4]);
+				ntuples->dst_ip6[idx]);
 			memset(mask->ip6dst, 0xff, sizeof(mask->ip6dst));
 		}
 
@@ -1681,6 +1682,221 @@ static int atl_rxf_set_etype(const struct atl_rxf_flt_desc *desc,
 	return !present;
 }
 
+static int atl2_rxf_l3_is_equal(struct atl2_rxf_l3 *f1, struct atl2_rxf_l3 *f2)
+{
+	if (f1->cmd != f2->cmd)
+		return false;
+
+	if (f1->cmd & ATL2_NTC_L3_IPV4_SA)
+		if (f1->src_ip4 != f2->src_ip4)
+			return false;
+
+	if (f1->cmd & ATL2_NTC_L3_IPV4_DA)
+		if (f1->dst_ip4 != f2->dst_ip4)
+			return false;
+
+	if (f1->cmd & (ATL2_NTC_L3_IPV4_PROTO | ATL2_NTC_L3_IPV6_PROTO))
+		if (f1->proto != f2->proto)
+			return false;
+
+	if (f1->cmd & ATL2_NTC_L3_IPV6_SA)
+		if (memcmp(f1->src_ip6, f2->src_ip6, 16))
+			return false;
+
+	if (f1->cmd & ATL2_NTC_L3_IPV6_DA)
+		if (memcmp(f1->dst_ip6, f2->dst_ip6, 16))
+			return false;
+
+	return true;
+}
+
+static int atl2_rxf_l4_is_equal(struct atl2_rxf_l4 *f1, struct atl2_rxf_l4 *f2)
+{
+	if (f1->cmd != f2->cmd)
+		return false;
+
+	if (f1->cmd & ATL2_NTC_L4_SP)
+		if (f1->src_port != f2->src_port)
+			return false;
+
+	if (f1->cmd & ATL2_NTC_L4_DP)
+		if (f1->dst_port != f2->dst_port)
+			return false;
+
+	return true;
+}
+
+static void atl2_rpf_l3_cmd_set(struct atl_hw *hw, u32 val, u32 idx)
+{
+	atl_write_mask_bits(hw, ATL2_RPF_L3_FLT(idx), 0xFF7FFFFF, val);
+}
+
+static void atl2_rxf_l3_put(struct atl_hw *hw, struct atl2_rxf_l3 *l3, int idx)
+{
+	if (l3->usage)
+		l3->usage--;
+
+	if (!l3->usage) {
+		l3->cmd = 0;
+		atl2_rpf_l3_cmd_set(hw, l3->cmd, idx);
+	}
+}
+
+static void atl2_rxf_l3_get(struct atl2_rxf_l3 *l3, int idx,
+			    const struct atl2_rxf_l3 *_l3)
+{
+	int i;
+
+	l3->usage++;
+	l3->cmd = _l3->cmd;
+	for (i = 0; i < 4; i++) {
+		l3->src_ip6[i] = _l3->src_ip6[i];
+		l3->dst_ip6[i] = _l3->dst_ip6[i];
+	}
+	l3->proto = _l3->proto;
+}
+
+static void atl2_rxf_l4_put(struct atl_hw *hw, struct atl2_rxf_l4 *l4, int idx)
+{
+	if (l4->usage)
+		l4->usage--;
+
+	if (!l4->usage) {
+		l4->cmd = 0;
+		atl_write(hw, ATL2_RPF_L4_FLT(idx), l4->cmd);
+	}
+}
+
+static void atl2_rxf_l4_get(struct atl2_rxf_l4 *l4, int idx,
+			    const struct atl2_rxf_l4 *_l4)
+{
+	l4->usage++;
+	l4->cmd = _l4->cmd;
+	l4->src_port = _l4->src_port;
+	l4->dst_port = _l4->dst_port;
+}
+
+static void atl2_rxf_set_ntuple(struct atl_nic *nic,
+				struct atl_rxf_ntuple *ntuple,
+				int idx)
+{
+	struct atl2_rxf_l3 l3;
+	struct atl2_rxf_l4 l4;
+	s8 l3_idx = -1;
+	s8 l4_idx = -1;
+	int i;
+
+	memset(&l3, 0, sizeof(l3));
+	memset(&l4, 0, sizeof(l4));
+
+	if (ntuple->cmd[idx] & ATL_NTC_PROTO)
+		l3.cmd |= ntuple->cmd[idx] & ATL_NTC_V6 ?
+			  ATL2_NTC_L3_IPV6_PROTO :
+			  ATL2_NTC_L3_IPV4_PROTO;
+
+	switch (ntuple->cmd[idx] & ATL_NTC_L4_MASK) {
+	case ATL_NTC_L4_TCP:
+		l3.cmd |= ntuple->cmd[idx] & ATL_NTC_V6 ?
+			IPPROTO_TCP << ATL2_NTC_L3_IPV6_PROTO_SHIFT :
+			IPPROTO_TCP << ATL2_NTC_L3_IPV4_PROTO_SHIFT;
+		break;
+
+	case ATL_NTC_L4_UDP:
+		l3.cmd |= ntuple->cmd[idx] & ATL_NTC_V6 ?
+			IPPROTO_UDP << ATL2_NTC_L3_IPV6_PROTO_SHIFT :
+			IPPROTO_UDP << ATL2_NTC_L3_IPV4_PROTO_SHIFT;
+		break;
+
+	case ATL_NTC_L4_SCTP:
+		l3.cmd |= ntuple->cmd[idx] & ATL_NTC_V6 ?
+			IPPROTO_SCTP << ATL2_NTC_L3_IPV6_PROTO_SHIFT :
+			IPPROTO_SCTP << ATL2_NTC_L3_IPV4_PROTO_SHIFT;
+		break;
+	}
+
+	if (ntuple->cmd[idx] & ATL_NTC_SA) {
+		if (ntuple->cmd[idx] & ATL_NTC_V6) {
+			l3.cmd |= ATL2_NTC_L3_IPV6_SA | ATL2_NTC_L3_IPV6_EN;
+			memcpy(l3.src_ip6, ntuple->src_ip6[idx], 16);
+		} else {
+			l3.cmd |= ATL2_NTC_L3_IPV4_SA | ATL2_NTC_L3_IPV4_EN;
+			l3.src_ip4 = ntuple->src_ip4[idx];
+		}
+	}
+	if (ntuple->cmd[idx] & ATL_NTC_DA) {
+		if (ntuple->cmd[idx] & ATL_NTC_V6) {
+			l3.cmd |= ATL2_NTC_L3_IPV6_DA | ATL2_NTC_L3_IPV6_EN;
+			memcpy(l3.dst_ip6, ntuple->dst_ip6[idx], 16);
+		} else {
+			l3.cmd |= ATL2_NTC_L3_IPV4_DA | ATL2_NTC_L3_IPV4_EN;
+			l3.dst_ip4 = ntuple->dst_ip4[idx];
+		}
+	}
+	if (ntuple->cmd[idx] & ATL_NTC_SP) {
+		l4.cmd |= ATL2_NTC_L4_SP | ATL2_NTC_L4_EN;
+		l4.src_port = ntuple->src_port[idx];
+	}
+	if (ntuple->cmd[idx] & ATL_NTC_DP) {
+		l4.cmd |= ATL2_NTC_L4_DP | ATL2_NTC_L4_EN;
+		l4.dst_port = ntuple->dst_port[idx];
+	}
+
+	/* find L3 and L4 filters */
+	if (l3.cmd & (ATL2_NTC_L3_IPV4_EN | ATL2_NTC_L3_IPV6_EN)) {
+		for (i = 0; i < ATL_RXF_NTUPLE_MAX; i++) {
+			if (atl2_rxf_l3_is_equal(&ntuple->l3[i], &l3)) {
+				l3_idx = i;
+				break;
+			}
+		}
+		if (l3_idx < 0)
+			for (i = 0; i < ATL_RXF_NTUPLE_MAX; i++)
+				if ((ntuple->l3[i].cmd &
+				     (ATL2_NTC_L3_IPV4_EN |
+				      ATL2_NTC_L3_IPV6_EN)) == 0) {
+					l3_idx = i;
+					break;
+				}
+		WARN(l3_idx < 0, "L3 filter table inconsistent");
+		if (ntuple->l3_idx[idx] != l3_idx)
+			atl2_rxf_l3_get(&ntuple->l3[l3_idx], l3_idx, &l3);
+	}
+
+	if (ntuple->l3_idx[idx] != -1)
+		if (!(atl2_rxf_l3_is_equal(&l3,
+					   &ntuple->l3[ntuple->l3_idx[idx]]))) {
+			atl2_rxf_l3_put(&nic->hw,
+					&ntuple->l3[ntuple->l3_idx[idx]],
+					ntuple->l3_idx[idx]);
+		}
+	ntuple->l3_idx[idx] = l3_idx;
+
+	if (l4.cmd & ATL2_NTC_L4_EN) {
+		for (i = 0; i < ATL_RXF_NTUPLE_MAX; i++) {
+			if (atl2_rxf_l4_is_equal(&ntuple->l4[i], &l4))
+				l4_idx = i;
+		}
+		if (l4_idx < 0)
+			for (i = 0; i < ATL_RXF_NTUPLE_MAX; i++)
+				if ((ntuple->l4[i].cmd & ATL2_NTC_L4_EN) == 0) {
+					l4_idx = i;
+					break;
+				}
+		WARN(l4_idx < 0, "L4 filter table inconsistent");
+		if (ntuple->l4_idx[idx] != l4_idx)
+			atl2_rxf_l4_get(&ntuple->l4[l4_idx], l4_idx, &l4);
+	}
+
+	if (ntuple->l4_idx[idx] != -1)
+		if (!(atl2_rxf_l4_is_equal(&l4,
+					   &ntuple->l4[ntuple->l4_idx[idx]]))) {
+			atl2_rxf_l4_put(&nic->hw,
+					&ntuple->l4[ntuple->l4_idx[idx]],
+					ntuple->l4_idx[idx]);
+		}
+	ntuple->l4_idx[idx] = l4_idx;
+}
+
 static int atl_rxf_set_ntuple(const struct atl_rxf_flt_desc *desc,
 	struct atl_nic *nic, struct ethtool_rx_flow_spec *fsp)
 {
@@ -1763,17 +1979,24 @@ static int atl_rxf_set_ntuple(const struct atl_rxf_flt_desc *desc,
 	if (cmd & ATL_NTC_V6) {
 		int i;
 
-		if (idx & 3) {
-			atl_nic_err("IPv6 filters only supported in locations 8 and 12\n");
-			return -EINVAL;
-		}
-
-		for (i = idx + 1; i < idx + 4; i++)
-			if (ntuple->cmd[i] & ATL_NTC_EN) {
-				atl_nic_err("IPv6 filter %d overlaps an IPv4 filter %d\n",
-					    idx, i);
+		if (nic->hw.new_rpf) {
+			if (idx > 5) {
+				atl_nic_err("IPv6 filters allowed in the first 6 locations\n");
 				return -EINVAL;
 			}
+		} else {
+			if (idx & 3) {
+				atl_nic_err("IPv6 filters only supported in locations 8 and 12\n");
+				return -EINVAL;
+			}
+
+			for (i = idx + 1; i < idx + 4; i++)
+				if (ntuple->cmd[i] & ATL_NTC_EN) {
+					atl_nic_err("IPv6 filter %d overlaps an IPv4 filter %d\n",
+						    idx, i);
+					return -EINVAL;
+				}
+		}
 
 		ret = atl_check_mask((uint8_t *)fsp->m_u.tcp_ip6_spec.ip6src,
 			sizeof(fsp->m_u.tcp_ip6_spec.ip6src), &cmd, ATL_NTC_SA);
@@ -1796,15 +2019,6 @@ static int atl_rxf_set_ntuple(const struct atl_rxf_flt_desc *desc,
 			sizeof(fsp->m_u.tcp_ip6_spec.pdst), &cmd, ATL_NTC_DP);
 		if (ret)
 			return ret;
-
-		if (cmd & ATL_NTC_SA)
-			atl_ntuple_swap_v6(ntuple->src_ip6[idx / 4],
-				fsp->h_u.tcp_ip6_spec.ip6src);
-
-		if (cmd & ATL_NTC_DA)
-			atl_ntuple_swap_v6(ntuple->dst_ip6[idx / 4],
-				fsp->h_u.tcp_ip6_spec.ip6dst);
-
 	} else
 #endif
 	{
@@ -1830,13 +2044,27 @@ static int atl_rxf_set_ntuple(const struct atl_rxf_flt_desc *desc,
 			sizeof(fsp->m_u.tcp_ip4_spec.psrc), &cmd, ATL_NTC_DP);
 		if (ret)
 			return ret;
+	}
 
+#ifdef ATL_HAVE_IPV6_NTUPLE
+	if (cmd & ATL_NTC_V6) {
+		if (cmd & ATL_NTC_SA)
+			atl_ntuple_swap_v6(ntuple->src_ip6[idx],
+				fsp->h_u.tcp_ip6_spec.ip6src);
+
+		if (cmd & ATL_NTC_DA)
+			atl_ntuple_swap_v6(ntuple->dst_ip6[idx],
+				fsp->h_u.tcp_ip6_spec.ip6dst);
+	} else
+#endif
+	{
 		if (cmd & ATL_NTC_SA)
 			ntuple->src_ip4[idx] = fsp->h_u.tcp_ip4_spec.ip4src;
 
 		if (cmd & ATL_NTC_DA)
 			ntuple->dst_ip4[idx] = fsp->h_u.tcp_ip4_spec.ip4dst;
 	}
+
 
 	if (cmd & ATL_NTC_SP)
 		ntuple->src_port[idx] = sport;
@@ -1845,6 +2073,9 @@ static int atl_rxf_set_ntuple(const struct atl_rxf_flt_desc *desc,
 		ntuple->dst_port[idx] = dport;
 
 	ntuple->cmd[idx] = cmd;
+
+	if (nic->hw.new_rpf)
+		atl2_rxf_set_ntuple(nic, ntuple, idx);
 
 	return !present;
 }
@@ -1869,17 +2100,245 @@ static int atl_rxf_set_flex(const struct atl_rxf_flt_desc *desc,
 
 static void atl_rxf_update_vlan(struct atl_nic *nic, int idx)
 {
-	atl_write(&nic->hw, ATL_RX_VLAN_FLT(idx), nic->rxf_vlan.cmd[idx]);
+	uint32_t cmd = nic->rxf_vlan.cmd[idx];
+	struct atl_hw *hw = &nic->hw;
+	u16 action;
+
+	atl_write(&nic->hw, ATL_RX_VLAN_FLT(idx), cmd);
+
+	if (!nic->hw.new_rpf)
+		return;
+
+	if (!(cmd & ATL_RXF_EN)) {
+		atl2_act_rslvr_table_set(hw,
+			ATL2_RPF_VLAN_USER_INDEX + idx,
+			0,
+			0,
+			ATL2_ACTION_DISABLE);
+		return;
+	}
+
+	if (!(cmd & ATL_RXF_ACT_TOHOST)) {
+		action = ATL2_ACTION_DROP;
+	} else if (!(cmd & ATL_VLAN_RXQ)) {
+		atl2_rpf_vlan_flr_tag_set(hw, 1, idx);
+		return;
+	} else {
+		int queue = (cmd >> ATL_VLAN_RXQ_SHIFT) & ATL_RXF_RXQ_MSK;
+
+		action = ATL2_ACTION_ASSIGN_QUEUE(queue);
+	}
+
+	atl2_rpf_vlan_flr_tag_set(hw, idx + 2, idx);
+	atl2_act_rslvr_table_set(hw,
+		ATL2_RPF_VLAN_USER_INDEX + idx,
+		(idx + 2) << ATL2_RPF_TAG_VLAN_OFFSET,
+		ATL2_RPF_TAG_VLAN_MASK,
+		action);
+
 }
 
 static void atl_rxf_update_etype(struct atl_nic *nic, int idx)
 {
-	atl_write(&nic->hw, ATL_RX_ETYPE_FLT(idx), nic->rxf_etype.cmd[idx]);
+	uint32_t cmd = nic->rxf_etype.cmd[idx];
+	struct atl_hw *hw = &nic->hw;
+	u16 action;
+
+	atl_write(&nic->hw, ATL_RX_ETYPE_FLT(idx), cmd);
+
+	if (!nic->hw.new_rpf)
+		return;
+
+	if (!(cmd & ATL_RXF_EN)) {
+		atl2_act_rslvr_table_set(hw,
+			ATL2_RPF_ET_PCP_USER_INDEX + idx,
+			0,
+			0,
+			ATL2_ACTION_DISABLE);
+		return;
+	}
+
+	if (!(cmd & ATL_RXF_ACT_TOHOST)) {
+		action = ATL2_ACTION_DROP;
+	} else if (!(cmd & ATL_ETYPE_RXQ)) {
+		action = ATL2_ACTION_ASSIGN_TC(0);
+	} else {
+		int queue = (cmd >> ATL_ETYPE_RXQ_SHIFT) & ATL_RXF_RXQ_MSK;
+
+		action = ATL2_ACTION_ASSIGN_QUEUE(queue);
+	}
+
+	atl2_rpf_etht_flr_tag_set(hw, idx + 1, idx);
+	atl2_act_rslvr_table_set(hw,
+		ATL2_RPF_ET_PCP_USER_INDEX + idx,
+		(idx + 1) << ATL2_RPF_TAG_ET_OFFSET,
+		ATL2_RPF_TAG_ET_MASK,
+		action);
+}
+
+static void atl2_update_ntuple_flt(struct atl_nic *nic, int idx)
+{
+	struct atl_hw *hw = &nic->hw;
+	struct atl_rxf_ntuple *ntuple = &nic->rxf_ntuple;
+	struct atl2_rxf_l3 *l3 = NULL;
+	struct atl2_rxf_l4 *l4 = NULL;
+	s8 l3_idx = ntuple->l3_idx[idx];
+	s8 l4_idx = ntuple->l4_idx[idx];
+	uint32_t tag = 0, mask = 0, action, cmd;
+
+	if (!(ntuple->cmd[idx] & ATL_NTC_EN)) {
+		if (l3_idx > -1)
+			atl2_rxf_l3_put(hw, &ntuple->l3[l3_idx], l3_idx);
+
+		if (l4_idx > -1)
+			atl2_rxf_l4_put(hw, &ntuple->l4[l4_idx], l4_idx);
+
+		ntuple->l4_idx[idx] = -1;
+		ntuple->l3_idx[idx] = -1;
+		atl2_act_rslvr_table_set(hw,
+			ATL2_RPF_L3L4_USER_INDEX + idx,
+			0,
+			0,
+			ATL2_ACTION_DISABLE);
+
+		return;
+	}
+	if (l3_idx > -1) {
+		l3 = &ntuple->l3[l3_idx];
+		cmd = l3->cmd;
+		if (l3->cmd & ATL2_NTC_L3_IPV4_EN) {
+			tag |= (l3_idx + 1) << ATL2_RPF_TAG_L3_V4_OFFSET;
+			mask |= ATL2_RPF_TAG_L3_V4_MASK;
+			cmd |= (l3_idx + 1) << 0x4;
+
+			if (l3->cmd & ATL2_NTC_L3_IPV4_SA)
+				atl2_rpf_l3_v4_sa_set(hw, l3_idx, l3->src_ip4);
+			if (l3->cmd & ATL2_NTC_L3_IPV4_DA)
+				atl2_rpf_l3_v4_da_set(hw, l3_idx, l3->dst_ip4);
+		} else if (l3->cmd & ATL2_NTC_L3_IPV6_EN) {
+			tag |= (l3_idx + 1) << ATL2_RPF_TAG_L3_V6_OFFSET;
+			mask |= ATL2_RPF_TAG_L3_V6_MASK;
+			cmd |= (l3_idx + 1) << 0x14;
+
+			if (l3->cmd & ATL2_NTC_L3_IPV4_SA)
+				atl2_rpf_l3_v6_sa_set(hw, l3_idx, l3->src_ip6);
+			if (l3->cmd & ATL2_NTC_L3_IPV4_DA)
+				atl2_rpf_l3_v6_da_set(hw, l3_idx, l3->dst_ip6);
+		} else {
+			WARN(1, "L3 filter invalid");
+			return;
+		}
+
+		atl2_rpf_l3_cmd_set(hw, cmd, l3_idx);
+	}
+
+	if (l4_idx > -1) {
+		l4 = &ntuple->l4[l4_idx];
+		if (l4->cmd & ATL2_NTC_L4_EN) {
+			tag |= (l4_idx + 1) << ATL2_RPF_TAG_L4_OFFSET;
+			mask |= ATL2_RPF_TAG_L4_MASK;
+		} else {
+			WARN(1, "L4 filter invalid");
+			return;
+		}
+		cmd = l4->cmd | (l4_idx + 1) << 0x4;
+		atl_write(hw, ATL2_RPF_L4_FLT(l4_idx), cmd);
+	}
+
+	if (!(ntuple->cmd[idx] & ATL_RXF_ACT_TOHOST)) {
+		action = ATL2_ACTION_DROP;
+	} else if (!(ntuple->cmd[idx] & ATL_NTC_RXQ)) {
+		action = ATL2_ACTION_ASSIGN_TC(0);
+	} else {
+		int queue = (ntuple->cmd[idx] >> ATL_NTC_RXQ_SHIFT) & ATL_RXF_RXQ_MSK;
+
+		action = ATL2_ACTION_ASSIGN_QUEUE(queue);
+	}
+
+	atl2_act_rslvr_table_set(hw,
+				 ATL2_RPF_L3L4_USER_INDEX + idx,
+				 tag,
+				 mask,
+				 action);
+}
+
+void atl_update_ntuple_flt(struct atl_nic *nic, int idx)
+{
+	struct atl_hw *hw = &nic->hw;
+	struct atl_rxf_ntuple *ntuple = &nic->rxf_ntuple;
+	uint32_t cmd = ntuple->cmd[idx];
+	int i;
+
+	if (!(cmd & ATL_NTC_EN)) {
+		atl_write(hw, ATL_NTUPLE_CTRL(idx), cmd);
+
+		atl2_update_ntuple_flt(nic, idx);
+		return;
+	}
+
+	if (cmd & ATL_NTC_V6) {
+		for (i = 0; i < 4; i++) {
+			if (cmd & ATL_NTC_SA)
+				atl_write(hw, ATL_NTUPLE_SADDR(idx + i),
+					swab32(ntuple->src_ip6[idx][i]));
+
+			if (cmd & ATL_NTC_DA)
+				atl_write(hw, ATL_NTUPLE_DADDR(idx + i),
+					swab32(ntuple->dst_ip6[idx][i]));
+		}
+	} else {
+		if (cmd & ATL_NTC_SA)
+			atl_write(hw, ATL_NTUPLE_SADDR(idx),
+				swab32(ntuple->src_ip4[idx]));
+
+		if (cmd & ATL_NTC_DA)
+			atl_write(hw, ATL_NTUPLE_DADDR(idx),
+				swab32(ntuple->dst_ip4[idx]));
+	}
+
+	if (cmd & ATL_NTC_SP)
+		atl_write(hw, ATL_NTUPLE_SPORT(idx),
+			swab16(ntuple->src_port[idx]));
+
+	if (cmd & ATL_NTC_DP)
+		atl_write(hw, ATL_NTUPLE_DPORT(idx),
+			swab16(ntuple->dst_port[idx]));
+
+	if (cmd & ATL_NTC_RXQ)
+		cmd |= 1 << ATL_NTC_ACT_SHIFT;
+
+	atl_write(hw, ATL_NTUPLE_CTRL(idx), cmd);
+
+	if (nic->hw.new_rpf)
+		atl2_update_ntuple_flt(nic, idx);
 }
 
 static void atl_rxf_update_flex(struct atl_nic *nic, int idx)
 {
 	atl_write(&nic->hw, ATL_RX_FLEX_FLT_CTRL(idx), nic->rxf_flex.cmd[idx]);
+
+	if (nic->hw.new_rpf) {
+		uint32_t action;
+
+		atl2_rpf_flex_flr_tag_set(&nic->hw, idx + 1, idx);
+
+		if (!(nic->rxf_flex.cmd[idx] & ATL_FLEX_EN)) {
+			action = ATL2_ACTION_DISABLE;
+		} else if (!(nic->rxf_flex.cmd[idx] & ATL_RXF_ACT_TOHOST)) {
+			action = ATL2_ACTION_DROP;
+		} else if (!(nic->rxf_flex.cmd[idx] & ATL_FLEX_RXQ)) {
+			action = ATL2_ACTION_ASSIGN_TC(0);
+		} else {
+			int queue = (nic->rxf_flex.cmd[idx] >> ATL_FLEX_RXQ_SHIFT) & ATL_RXF_RXQ_MSK;
+
+			action = ATL2_ACTION_ASSIGN_QUEUE(queue);
+		}
+		atl2_act_rslvr_table_set(&nic->hw,
+			ATL2_RPF_FLEX_USER_INDEX + idx,
+			(idx + 1) << ATL2_RPF_TAG_FLEX_OFFSET,
+			ATL2_RPF_TAG_FLEX_MASK,
+			action);
+	}
 }
 
 static const struct atl_rxf_flt_desc atl_rxf_descs[] = {

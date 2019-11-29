@@ -38,8 +38,6 @@ static void atl_start_link(struct atl_nic *nic)
 {
 	struct atl_hw *hw = &nic->hw;
 
-	atl_set_media_detect(nic, !!(nic->priv_flags & ATL_PF_BIT(MEDIA_DETECT)));
-
 	hw->link_state.force_off = 0;
 	hw->mcp.ops->set_link(hw, true);
 	set_bit(ATL_ST_UPDATE_LINK, &hw->state);
@@ -342,6 +340,18 @@ static int atl_check_reset(struct atl_nic *nic)
 	return atl_do_reset(nic);
 }
 
+int atl_fw_configure(struct atl_hw *hw)
+{
+	struct atl_nic *nic = container_of(hw, struct atl_nic, hw);
+	int ret;
+
+	ret = atl_set_media_detect(nic,
+			!!(nic->priv_flags & ATL_PF_BIT(MEDIA_DETECT)));
+	ret = hw->mcp.ops->update_thermal(hw);
+
+	return ret;
+}
+
 static void atl_work(struct work_struct *work)
 {
 	struct atl_nic *nic = container_of(work, struct atl_nic, work);
@@ -373,22 +383,28 @@ static void atl_work_timer(struct timer_list *timer)
 
 static const struct pci_device_id atl_pci_tbl[] = {
 	{ PCI_VDEVICE(AQUANTIA, 0x0001), ATL_UNKNOWN},
-	{ PCI_VDEVICE(AQUANTIA, 0xd107), ATL_AQC107},
-	{ PCI_VDEVICE(AQUANTIA, 0x07b1), ATL_AQC107},
-	{ PCI_VDEVICE(AQUANTIA, 0x87b1), ATL_AQC107},
-	{ PCI_VDEVICE(AQUANTIA, 0xd108), ATL_AQC108},
-	{ PCI_VDEVICE(AQUANTIA, 0x08b1), ATL_AQC108},
-	{ PCI_VDEVICE(AQUANTIA, 0x88b1), ATL_AQC108},
-	{ PCI_VDEVICE(AQUANTIA, 0xd109), ATL_AQC109},
-	{ PCI_VDEVICE(AQUANTIA, 0x09b1), ATL_AQC109},
-	{ PCI_VDEVICE(AQUANTIA, 0x89b1), ATL_AQC109},
-	{ PCI_VDEVICE(AQUANTIA, 0xd100), ATL_AQC100},
-	{ PCI_VDEVICE(AQUANTIA, 0x00b1), ATL_AQC107},
-	{ PCI_VDEVICE(AQUANTIA, 0x80b1), ATL_AQC107},
-	{ PCI_VDEVICE(AQUANTIA, 0x11b1), ATL_AQC108},
-	{ PCI_VDEVICE(AQUANTIA, 0x91b1), ATL_AQC108},
-	{ PCI_VDEVICE(AQUANTIA, 0x12b1), ATL_AQC109},
-	{ PCI_VDEVICE(AQUANTIA, 0x92b1), ATL_AQC109},
+	{ PCI_VDEVICE(AQUANTIA, 0xd107), ATL_ATLANTIC},
+	{ PCI_VDEVICE(AQUANTIA, 0x07b1), ATL_ATLANTIC},
+	{ PCI_VDEVICE(AQUANTIA, 0x87b1), ATL_ATLANTIC},
+	{ PCI_VDEVICE(AQUANTIA, 0xd108), ATL_ATLANTIC},
+	{ PCI_VDEVICE(AQUANTIA, 0x08b1), ATL_ATLANTIC},
+	{ PCI_VDEVICE(AQUANTIA, 0x88b1), ATL_ATLANTIC},
+	{ PCI_VDEVICE(AQUANTIA, 0xd109), ATL_ATLANTIC},
+	{ PCI_VDEVICE(AQUANTIA, 0x09b1), ATL_ATLANTIC},
+	{ PCI_VDEVICE(AQUANTIA, 0x89b1), ATL_ATLANTIC},
+	{ PCI_VDEVICE(AQUANTIA, 0xd100), ATL_ATLANTIC},
+	{ PCI_VDEVICE(AQUANTIA, 0x00b1), ATL_ATLANTIC},
+	{ PCI_VDEVICE(AQUANTIA, 0x80b1), ATL_ATLANTIC},
+	{ PCI_VDEVICE(AQUANTIA, 0x11b1), ATL_ATLANTIC},
+	{ PCI_VDEVICE(AQUANTIA, 0x91b1), ATL_ATLANTIC},
+	{ PCI_VDEVICE(AQUANTIA, 0x12b1), ATL_ATLANTIC},
+	{ PCI_VDEVICE(AQUANTIA, 0x92b1), ATL_ATLANTIC},
+	{ PCI_VDEVICE(AQUANTIA, 0x00c0), ATL_ANTIGUA},
+	{ PCI_VDEVICE(AQUANTIA, 0x04c0), ATL_ANTIGUA},
+	{ PCI_VDEVICE(AQUANTIA, 0x12c0), ATL_ANTIGUA},
+	{ PCI_VDEVICE(AQUANTIA, 0x14c0), ATL_ANTIGUA},
+	{ PCI_VDEVICE(AQUANTIA, 0x93c0), ATL_ANTIGUA},
+	{ PCI_VDEVICE(AQUANTIA, 0x94c0), ATL_ANTIGUA},
 	{}
 };
 
@@ -652,6 +668,8 @@ static int atl_suspend_common(struct device *dev, unsigned int wol_mode)
 
 	atl_clear_rdm_cache(nic);
 	atl_clear_tdm_cache(nic);
+
+	hw->mcp.ops->deinit(hw);
 
 	if (wol_mode) {
 		ret = hw->mcp.ops->enable_wol(hw, wol_mode);
