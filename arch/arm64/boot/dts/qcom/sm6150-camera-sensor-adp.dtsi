@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,14 +33,14 @@
 		cam_clk-supply = <&titan_top_gdsc>;
 		regulator-names = "cam_vio", "cam_vana", "cam_vdig",
 			"cam_clk";
-
-		gpios = <&tlmm 43 0>,
-			<&tlmm 28 0>;
-		gpio-reset = <1>;
-		gpio-req-tbl-num = <0 1>;
-		gpio-req-tbl-flags = <1 0>;
-		gpio-req-tbl-label = "CAMIF_MCLK0",
-					"CAM_RESET0";
+		pinctrl-names = "sensor_default", "sensor_suspend";
+		pinctrl-0 = <&cam_sensor0_active>;
+		pinctrl-1 = <&cam_sensor0_suspend>;
+		gpios = <&tlmm 28 0>;
+		gpio-reset = <0>;
+		gpio-req-tbl-num = <0>;
+		gpio-req-tbl-flags = <0>;
+		gpio-req-tbl-label = "CAM_RESET0";
 		sensor-mode = <0>;
 		cci-master = <0>;
 		status = "ok";
@@ -65,14 +65,14 @@
 		cam_clk-supply = <&titan_top_gdsc>;
 		regulator-names = "cam_vio", "cam_vana", "cam_vdig",
 			"cam_clk";
-
-		gpios = <&tlmm 31 0>,
-			<&tlmm 29 0>;
-		gpio-reset = <1>;
-		gpio-req-tbl-num = <0 1>;
-		gpio-req-tbl-flags = <1 0>;
-		gpio-req-tbl-label = "CAMIF_MCLK1",
-					"CAM_RESET1";
+		pinctrl-names = "sensor_default", "sensor_suspend";
+		pinctrl-0 = <&cam_sensor1_active>;
+		pinctrl-1 = <&cam_sensor1_suspend>;
+		gpios = <&tlmm 29 0>;
+		gpio-reset = <0>;
+		gpio-req-tbl-num = <0>;
+		gpio-req-tbl-flags = <0>;
+		gpio-req-tbl-label = "CAM_RESET1";
 		sensor-mode = <0>;
 		cci-master = <0>;
 		status = "ok";
