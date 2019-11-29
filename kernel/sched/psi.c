@@ -619,7 +619,8 @@ void psi_emergency_trigger(void)
 
 		/* Generate an event */
 		if (cmpxchg(&t->event, 0, 1) == 0) {
-			mod_timer(&t->wdog_timer, (unsigned long)t->win.size);
+			mod_timer(&t->wdog_timer, jiffies +
+					  nsecs_to_jiffies(2 * t->win.size));
 			wake_up_interruptible(&t->event_wait);
 		}
 		t->last_event_time = now;
