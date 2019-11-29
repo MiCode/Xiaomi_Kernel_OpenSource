@@ -540,6 +540,7 @@ config QTI_RPM_STATS_LOG
 	  the low power modes that RPM enters. The drivers outputs the message
 	  via a sysfs node.
 
+
 config QTI_DDR_STATS_LOG
 	tristate "Qualcomm Technologies Inc (QTI) DDR Stats Driver"
 	depends on QCOM_RPMH
@@ -549,6 +550,17 @@ config QTI_DDR_STATS_LOG
 	  from AOP shared memory location such as DDR low power modes and DDR
 	  frequency residency and counts. The driver outputs information using
 	  sysfs.
+
+config QCOM_FSA4480_I2C
+	bool "Fairchild FSA4480 chip with I2C"
+	select REGMAP_I2C
+	depends on I2C
+	depends on AUDIO_QGKI
+	help
+	  Support for the Fairchild FSA4480 IC switch chip controlled
+	  using I2C. This driver provides common support
+	  for accessing the device, switching between USB and Audio
+	  modes, changing orientation.
 
 config QCOM_SOC_SLEEP_STATS
 	tristate "Qualcomm Technologies, Inc. (QTI) SoC sleep stats driver"
