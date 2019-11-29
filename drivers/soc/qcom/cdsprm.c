@@ -850,6 +850,9 @@ static int cdsp_get_cur_state(struct thermal_cooling_device *cdev,
 static int cdsp_set_cur_state(struct thermal_cooling_device *cdev,
 				unsigned long state)
 {
+	if (state > CDSP_THERMAL_MAX_STATE)
+		return -EINVAL;
+
 	if (gcdsprm.thermal_cdsp_level == state)
 		return 0;
 
@@ -883,6 +886,9 @@ static int hvx_get_cur_state(struct thermal_cooling_device *cdev,
 static int hvx_set_cur_state(struct thermal_cooling_device *cdev,
 				unsigned long state)
 {
+	if (state > HVX_THERMAL_MAX_STATE)
+		return -EINVAL;
+
 	if (gcdsprm.thermal_hvx_level == state)
 		return 0;
 
