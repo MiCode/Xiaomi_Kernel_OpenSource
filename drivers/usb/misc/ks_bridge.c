@@ -88,6 +88,9 @@ static rwlock_t dbg_lock = __RW_LOCK_UNLOCKED(lck);
 static unsigned int enable_dbg = 1;
 module_param(enable_dbg, uint, 0644);
 
+static bool prevent_edl_probe;
+module_param(prevent_edl_probe, bool, 0644);
+
 /*get_timestamp - returns time of day in us */
 static unsigned int get_timestamp(void)
 {
@@ -632,6 +635,11 @@ ksb_usb_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 	int				devid;
 
 	pr_debug("%s: id: %lu\n", __func__, id->driver_info);
+
+	if (prevent_edl_probe && (le16_to_cpu(id->idProduct) == 0x9008)) {
+		pr_err("%s: Preventing EDL device enumeration\n", __func__);
+		return -EINVAL;
+	}
 
 	udev = interface_to_usbdev(ifc);
 	if (udev->actconfig->desc.bNumInterfaces > 1) {

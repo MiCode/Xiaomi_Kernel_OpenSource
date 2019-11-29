@@ -1231,6 +1231,7 @@ mdm_data_set_alt(struct usb_function *f, unsigned int intf, unsigned int alt)
 	pr_debug("%s: mdm_data_port: %pK\n", __func__, port);
 
 	port->tx_q_size = mdm_data_tx_q_size;
+	port->rx_q_size = mdm_data_rx_q_size;
 	ret = config_ep_by_speed(cdev->gadget, f, port->in);
 	if (ret) {
 		port->in->desc = NULL;
