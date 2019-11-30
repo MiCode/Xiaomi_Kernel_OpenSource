@@ -26,6 +26,17 @@
 #define TSENS_MAX_SENSORS			16
 #define TSENS_NUM_SENSORS_8937		11
 #define TSENS_NUM_SENSORS_405		10
+#define TSENS_NUM_SENSORS_9607		5
+#define TSENS_SROT_OFFSET_8937		0x4
+#define TSENS_SROT_OFFSET_405		0x4
+#define TSENS_SROT_OFFSET_9607		0x0
+#define TSENS_SN_STATUS_ADDR_8937	0x44
+#define TSENS_TRDY_ADDR_8937		0x84
+#define TSENS_SN_STATUS_ADDR_405	0x44
+#define TSENS_TRDY_ADDR_405		0x84
+#define TSENS_SN_STATUS_ADDR_9607	0x30
+#define TSENS_TRDY_ADDR_9607		0x5c
+
 #define TSENS_CONTROLLER_ID(n)			(n)
 #define TSENS_CTRL_ADDR(n)			(n)
 #define TSENS_TM_SN_STATUS(n)			((n) + 0xa0)
@@ -184,6 +195,9 @@ struct tsens_data {
 	bool				valid_status_check;
 	u32				ver_major;
 	u32				ver_minor;
+	const u32			tsens_srot_offset;
+	const u32			tsens_sn_offset;
+	const u32			tsens_trdy_offset;
 };
 
 struct tsens_mtc_sysfs {
@@ -218,10 +232,12 @@ struct tsens_device {
 };
 
 extern const struct tsens_data data_tsens2xxx, data_tsens23xx, data_tsens24xx;
-extern const struct tsens_data data_tsens14xx, data_tsens14xx_405;
+extern const struct tsens_data data_tsens14xx, data_tsens14xx_405,
+						data_tsens14xx_9607;
 extern struct list_head tsens_device_list;
 
 extern int calibrate_8937(struct tsens_device *tmdev);
 extern int calibrate_405(struct tsens_device *tmdev);
+extern int calibrate_9607(struct tsens_device *tmdev);
 
 #endif /* __QCOM_TSENS_H__ */
