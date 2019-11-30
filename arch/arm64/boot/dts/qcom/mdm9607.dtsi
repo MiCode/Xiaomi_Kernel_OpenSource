@@ -98,7 +98,6 @@
 };
 
 #include "mdm9607-ion.dtsi"
-#include "mdm9607-smp2p.dtsi"
 #include "mdm9607-bus.dtsi"
 #include "mdm9607-coresight.dtsi"
 #include "mdm9607-pm.dtsi"
@@ -287,6 +286,11 @@
 		vdd_stromer_dig-supply = <&mdm9607_s3_level_ao>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
+	};
+
+	apcs: syscon@0b011008 {
+		compatible = "syscon";
+		reg = <0x0b011008 0x04>;
 	};
 
 	clock_debug: qcom,debug@1874000 {
@@ -1304,50 +1308,110 @@
 		qcom,num-locks = <8>;
 	};
 
+	sfpb_mutex_block: syscon@190500 {
+		compatible = "syscon";
+		reg = <0x1905000 0x20000>;
+	};
+
+	sfpb_mutex: hwlock {
+		compatible = "qcom,sfpb-mutex";
+		syscon = <&sfpb_mutex_block 0 0x1000>;
+		#hwlock-cells = <1>;
+	};
+
+	rpm_msg_ram: memory@60000 {
+		compatible = "qcom,rpm-msg-ram";
+		reg = <0x60000 0x8000>;
+	};
+
+	smem_mem: smem_region@87d00000 {
+		reg = <0x87d00000 0x100000>;
+		no-map;
+	};
+
 	qcom,smem@87d00000 {
 		compatible = "qcom,smem";
-		reg = <0x87d00000 0x100000>,
-			<0x0b011008 0x4>,
-			<0x60000 0x8000>,
-			<0x193d000 0x8>;
-		reg-names = "smem", "irq-reg-base", "aux-mem1",
-				"smem_targ_info_reg";
-		qcom,mpu-enabled;
+		memory-region = <&smem_mem>;
+		qcom,rpm-msg-ram = <&rpm_msg_ram>;
+		hwlocks = <&sfpb_mutex 3>;
+	};
 
-		qcom,smd-modem {
-			compatible = "qcom,smd";
+	qcom,smd {
+		compatible = "qcom,smd";
+
+		modem {
 			qcom,smd-edge = <0>;
-			qcom,smd-irq-offset = <0x0>;
-			qcom,smd-irq-bitmask = <0x1000>;
-			interrupts = <0 25 1>;
+			qcom,ipc = <&apcs 0 12>;
+			interrupts = <GIC_SPI 25 IRQ_TYPE_EDGE_RISING>;
 			label = "modem";
-			qcom,not-loadable;
 		};
 
-		qcom,smsm-modem {
-			compatible = "qcom,smsm";
-			qcom,smsm-edge = <0>;
-			qcom,smsm-irq-offset = <0x0>;
-			qcom,smsm-irq-bitmask = <0x2000>;
-			interrupts = <0 26 1>;
-		};
-
-		qcom,smd-rpm {
-			compatible = "qcom,smd";
+		rpm {
 			qcom,smd-edge = <15>;
-			qcom,smd-irq-offset = <0x0>;
-			qcom,smd-irq-bitmask = <0x1>;
-			interrupts = <0 168 1>;
+			qcom,ipc = <&apcs 0 0>;
+			interrupts = <GIC_SPI 168 IRQ_TYPE_EDGE_RISING>;
 			label = "rpm";
-			qcom,irq-no-suspend;
-			qcom,not-loadable;
+
+			rpm_requests: rpm_requests@0 {
+				compatible = "qcom,rpm-smd";
+				qcom,smd-channels = "rpm_requests";
+				interrupts = <GIC_SPI 168 IRQ_TYPE_EDGE_RISING>;
+			};
+		};
+
+	};
+
+	qcom,smsm {
+		compatible = "qcom,smsm";
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,ipc-1 = <&apcs 0 13>;
+
+		apps_smsm: apps@0 {
+			reg = <0>;
+			#qcom,smem-state-cells = <1>;
+		};
+
+		modem_smsm: modem@1 {
+			reg = <1>;
+			interrupts = <GIC_SPI 26 IRQ_TYPE_EDGE_RISING>;
+
+			interrupt-controller;
+			#interrupt-cells = <2>;
 		};
 	};
 
-	rpm_bus: qcom,rpm-smd {
-		compatible = "qcom,rpm-smd";
-		rpm-channel-name = "rpm_requests";
-		rpm-channel-type = <15>; /* SMD_APPS_RPM */
+	qcom,smp2p-modem {
+		compatible = "qcom,smp2p";
+		reg = <0x0b011008 0x4>;
+		qcom,smem = <435>, <428>;
+		qcom,local-pid = <0>;
+		qcom,remote-pid = <1>;
+		qcom,irq-bitmask = <0x4000>;
+		interrupts = <0 27 1>;
+		qcom,ipc = <&apcs 0 14>;
+
+		qcom,smem-states = <&modem_smp2p_out 0>;
+		qcom,smem-state-names = "stop";
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		modem_smp2p_out: master-kernel {
+			qcom,entry-name = "master-kernel";
+			#qcom,smem-state-cells = <1>;
+			reg = <1>;
+		};
+
+		modem_smp2p_in: slave-kernel {
+			qcom,entry-name = "slave-kernel";
+
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+
 	};
 
 	qcom,smdtty {
@@ -1439,6 +1503,16 @@
 		qcom,disable-pil-loading;
 	};
 
+	apps_modem {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		apps_modem: apps@1 {
+			reg = <1>;
+			#qcom,smem-state-cells = <1>;
+		};
+	};
+
 	qcom,bam_dmux@4044000 {
 		compatible = "qcom,bam_dmux";
 		reg = <0x4044000 0x19000>;
@@ -1446,6 +1520,9 @@
 		qcom,rx-ring-size = <32>;
 		qcom,max-rx-mtu = <4096>;
 		qcom,fast-shutdown;
+
+		qcom,smem-states = <&apps_modem 0>, <&apps_modem 32>;
+		qcom,smem-state-names = "pwrctrl", "pwrctrlack";
 	};
 
 	spmi_bus: qcom,spmi@200f000 {
@@ -1528,15 +1605,6 @@
 		qcom,ssctl-instance-id = <0x12>;
 		qcom,qdsp6v56-1-8-inrush-current;
 
-		/* GPIO inputs from mss */
-		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_1_in 0 0>;
-		qcom,gpio-err-ready = <&smp2pgpio_ssr_smp2p_1_in 1 0>;
-		qcom,gpio-proxy-unvote = <&smp2pgpio_ssr_smp2p_1_in 2 0>;
-		qcom,gpio-stop-ack = <&smp2pgpio_ssr_smp2p_1_in 3 0>;
-		qcom,gpio-shutdown-ack = <&smp2pgpio_ssr_smp2p_1_in 7 0>;
-
-		/* GPIO output to mss */
-		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
 		memory-region = <&modem_adsp_mem>;
 	};
 
