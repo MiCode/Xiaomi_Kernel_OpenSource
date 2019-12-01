@@ -129,7 +129,10 @@ unsigned long prepare_ftrace_return(unsigned long parent, unsigned long ip);
 /* Patch sites */
 extern s32 patch__call_flush_count_cache;
 extern s32 patch__flush_count_cache_return;
+extern s32 patch__flush_link_stack_return;
+extern s32 patch__call_kvm_flush_link_stack;
 
 extern long flush_count_cache;
+extern long kvm_flush_link_stack;
 
 #endif /* _ASM_POWERPC_ASM_PROTOTYPES_H */
