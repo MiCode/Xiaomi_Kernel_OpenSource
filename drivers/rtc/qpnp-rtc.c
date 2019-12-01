@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2015, 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,6 +24,7 @@
 #include <linux/platform_device.h>
 #include <linux/spinlock.h>
 #include <linux/alarmtimer.h>
+#include <linux/wakeup_reason.h>
 
 /* RTC/ALARM Register offsets */
 #define REG_OFFSET_ALARM_RW	0x40
@@ -335,7 +337,7 @@ qpnp_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alarm)
 
 	rtc_dd->alarm_ctrl_reg1 = ctrl_reg;
 
-	dev_dbg(dev, "Alarm Set for h:r:s=%d:%d:%d, d/m/y=%d/%d/%d\n",
+	pr_info("qpnp_rtc_set_alarm h:r:s=%d:%d:%d, d/m/y=%d/%d/%d\n",
 			alarm->time.tm_hour, alarm->time.tm_min,
 			alarm->time.tm_sec, alarm->time.tm_mday,
 			alarm->time.tm_mon, alarm->time.tm_year);
@@ -369,19 +371,18 @@ qpnp_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alarm)
 		return rc;
 	}
 
-	dev_dbg(dev, "Alarm set for - h:r:s=%d:%d:%d, d/m/y=%d/%d/%d\n",
+	rc = qpnp_read_wrapper(rtc_dd, value,
+			rtc_dd->alarm_base + REG_OFFSET_ALARM_CTRL1, 1);
+	if (rc) {
+		pr_info("Read from ALARM CTRL1 failed\n");
+		return rc;
+	}
+	alarm->enabled = !!(value[0] & BIT_RTC_ALARM_ENABLE);
+
+	dev_dbg(dev, "qpnp_rtc_read_alarm h:r:s=%d:%d:%d, d/m/y=%d/%d/%d\n",
 		alarm->time.tm_hour, alarm->time.tm_min,
 				alarm->time.tm_sec, alarm->time.tm_mday,
 				alarm->time.tm_mon, alarm->time.tm_year);
-
-	rc = qpnp_read_wrapper(rtc_dd, value,
-		rtc_dd->alarm_base + REG_OFFSET_ALARM_CTRL1, 1);
-	if (rc) {
-		dev_err(dev, "Read from ALARM CTRL1 failed\n");
-		return rc;
-	}
-
-	alarm->enabled = !!(value[0] & BIT_RTC_ALARM_ENABLE);
 
 	return 0;
 }
@@ -689,52 +690,32 @@ fail_alarm_disable:
 	}
 }
 
-static int qpnp_rtc_restore(struct device *dev)
+#ifdef CONFIG_PM
+extern bool alarm_fired;
+static int qpnp_rtc_resume(struct device *dev)
 {
-	int rc = 0;
 	struct qpnp_rtc *rtc_dd = dev_get_drvdata(dev);
 
-	dev_dbg(dev, "%s\n", __func__);
-
-	if (rtc_dd->rtc_alarm_irq > 0) {
-		/* Enable abort enable feature */
-		rtc_dd->alarm_ctrl_reg1 |= BIT_RTC_ABORT_ENABLE;
-		rc = qpnp_write_wrapper(rtc_dd, &rtc_dd->alarm_ctrl_reg1,
-				rtc_dd->alarm_base + REG_OFFSET_ALARM_CTRL1, 1);
-		if (rc) {
-			dev_err(dev, "SPMI write failed!\n");
-			return rc;
-		}
-
-		/* Re-register for alarm Interrupt */
-		rc = request_any_context_irq(rtc_dd->rtc_alarm_irq,
-				 qpnp_alarm_trigger, IRQF_TRIGGER_RISING,
-				 "qpnp_rtc_alarm", rtc_dd);
-		if (rc)
-			pr_err("Request IRQ failed (%d)\n", rc);
-		else
-			enable_irq_wake(rtc_dd->rtc_alarm_irq);
+	if (alarm_fired == true) {
+		pr_info("Alarm event generated during suspend\n");
+		log_wakeup_reason(rtc_dd->rtc_alarm_irq);
 	}
 
-	return rc;
+	return 0;
 }
 
-static int qpnp_rtc_freeze(struct device *dev)
+static int qpnp_rtc_suspend(struct device *dev)
 {
-	struct qpnp_rtc *rtc_dd = dev_get_drvdata(dev);
-
-	dev_dbg(dev, "%s\n", __func__);
-
-	if (rtc_dd->rtc_alarm_irq > 0)
-		free_irq(rtc_dd->rtc_alarm_irq, rtc_dd);
+	alarm_fired = false;
 
 	return 0;
 }
 
 static const struct dev_pm_ops qpnp_rtc_pm_ops = {
-	.freeze = qpnp_rtc_freeze,
-	.restore = qpnp_rtc_restore,
+	.suspend = qpnp_rtc_suspend,
+	.resume = qpnp_rtc_resume,
 };
+#endif
 
 static const struct of_device_id spmi_match_table[] = {
 	{
@@ -751,7 +732,9 @@ static struct platform_driver qpnp_rtc_driver = {
 		.name		= "qcom,qpnp-rtc",
 		.owner		= THIS_MODULE,
 		.of_match_table	= spmi_match_table,
-		.pm		= &qpnp_rtc_pm_ops,
+#ifdef CONFIG_PM
+		.pm     = &qpnp_rtc_pm_ops,
+#endif
 	},
 };
 

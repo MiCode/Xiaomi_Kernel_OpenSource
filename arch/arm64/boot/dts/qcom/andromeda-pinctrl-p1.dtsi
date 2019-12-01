@@ -1,0 +1,125 @@
+/*for E5 5G pinctrl*/
+
+&tlmm {
+
+	nfc {
+		nfc_int_active {
+			/* active state */
+			mux {
+				/* GPIO 47 NFC Read Interrupt */
+				pins = "gpio47";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio47";
+				drive-strength = <2>; /* 2 MA */
+				bias-pull-up;
+			};
+		};
+
+		nfc_int_suspend {
+			/* sleep state */
+			mux {
+				/* GPIO 47 NFC Read Interrupt */
+				pins = "gpio47";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio47";
+				drive-strength = <2>; /* 2 MA */
+				bias-pull-up;
+			};
+		};
+
+		nfc_enable_active {
+			/* active state */
+			mux {
+				/* 41: NFC ENABLE 42:ESE Enable */
+				pins = "gpio36", "gpio48";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio36", "gpio48";
+				drive-strength = <2>; /* 2 MA */
+				bias-pull-up;
+			};
+		};
+
+		nfc_enable_suspend {
+			/* sleep state */
+			mux {
+				/* 41: NFC ENABLE 42:ESE Enable */
+				pins = "gpio36", "gpio48";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio36", "gpio48";
+				drive-strength = <2>; /* 2 MA */
+				bias-disable;
+			};
+		};
+
+		nfc_clk_req_active {
+			/* active state */
+			mux {
+				/* 113: NFC CLOCK REQUEST */
+				pins = "gpio113";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio113";
+				drive-strength = <2>; /* 2 MA */
+				bias-pull-up;
+			};
+		};
+
+		nfc_clk_req_suspend {
+			/* sleep state */
+			mux {
+				/* 113: NFC CLOCK REQUEST */
+				pins = "gpio113";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio113";
+				drive-strength = <2>; /* 2 MA */
+				bias-disable;
+			};
+		};
+	};
+	ai_key_ctrl {
+		ai_key_active {
+			mux {
+				pins = "gpio41";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio41";
+				drive-strength = <2>;
+				bias-pull-up;
+				input-enable;
+			};
+
+		};
+
+		ai_key_idle {
+			mux {
+				pins = "gpio41";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio41";
+				drive-strength = <2>;
+				bias-pull-up;
+				input-enable;
+			};
+		};
+	};
+
+};

@@ -2,6 +2,7 @@
  * Framework for buffer objects that can be shared across devices/subsystems.
  *
  * Copyright(C) 2011 Linaro Limited. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  * Author: Sumit Semwal <sumit.semwal@ti.com>
  *
  * Many thanks to linaro-mm-sig list, and specially
@@ -1353,7 +1354,8 @@ static void free_proc(struct dma_proc *proc)
 	int i;
 
 	hash_for_each_safe(proc->dma_bufs, i, n, tmp, head) {
-		fput(tmp->dmabuf->file);
+		if(tmp->dmabuf && tmp->dmabuf->file)
+			fput(tmp->dmabuf->file);
 		hash_del(&tmp->head);
 		kfree(tmp);
 	}

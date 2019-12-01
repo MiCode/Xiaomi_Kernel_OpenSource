@@ -1,0 +1,159 @@
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+qcom,gyu{
+	qcom,profile-revision = <24>;
+	/* #3927828_Xiaomi_F11gyu_4000mAh_averaged_MasterSlave_2019*/
+	qcom,fastchg-current-ma = <5100>;
+	qcom,jeita-fcc-ranges = <0  50  390000
+				51  100  1100000
+				101 150  2700000
+				151 450  5100000
+				451 580  1900000>;
+	qcom,jeita-fv-ranges = <0   50  4400000
+				51  100  4400000
+				101 150  4400000
+				151 450  4400000
+				451 580  4100000>;
+	qcom,step-chg-ranges = <3000000  3100000  1000000
+				3101000  3200000  1000000
+				3201000  3300000  1000000
+				3301000  4200000  5100000
+				4201000  4400000  4000000>;
+	qcom,dynamic-fv-ranges = <0    100  4400000
+				101  200  4380000
+				201  300  4360000
+				301  400  4340000
+				401  500  4340000>;
+	qcom,max-voltage-uv = <4400000>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
+	qcom,nom-batt-capacity-mah = <4000>;
+	qcom,batt-id-kohm = <100>;
+	qcom,battery-beta = <4250>;
+	qcom,therm-room-temp = <100000>;
+	qcom,battery-type = "f11_gyu";
+	qcom,therm-coefficients = <0x2318 0xd0c 0xdaf7 0xc556 0x848d>;
+	qcom,therm-center-offset = <0x70>;
+	qcom,therm-pull-up = <100>;
+	qcom,rslow-normal-coeffs = <0x12 0x0c 0x6a 0x02>;
+	qcom,rslow-low-coeffs = <0x4e 0x15 0x4a 0x06>;
+	qcom,checksum = <0xD688>;
+	qcom,gui-version = "PM855GUI - 1.0.0.13";
+	qcom,fg-profile-data = [
+		 09 00 46 00
+		 2D DC 99 E3
+		 FB E5 00 00
+		 7C BD 24 8A
+		 FC 87 02 8D
+		 E7 82 FD 87
+		 22 00 12 0C
+		 6A 02 58 05
+		 A1 FB CE 07
+		 32 00 5F EB
+		 DF ED 2F CD
+		 C1 02 4D D3
+		 36 AB 44 1A
+		 E7 FA 52 BD
+		 60 00 39 00
+		 3F 00 41 00
+		 39 00 34 00
+		 35 00 3B 00
+		 43 00 4F 00
+		 5A 00 60 00
+		 3C 00 3F 00
+		 3D 00 36 00
+		 33 00 5C 00
+		 4D 64 43 00
+		 43 00 41 08
+		 60 00 52 00
+		 4F 00 5B 10
+		 4E 10 44 00
+		 85 28 60 48
+		 52 60 4C 0B
+		 4B 00 D8 00
+		 C9 1F 69 0D
+		 60 02 AD 06
+		 82 1C 35 0B
+		 C5 0D 5C 22
+		 13 17 F0 42
+		 0B 54 A9 03
+		 6C 12 36 1F
+		 F4 FD 40 0A
+		 85 FE D8 1C
+		 1A 02 65 05
+		 0B 0B 17 18
+		 4D 23 2A 45
+		 59 53 6D 12
+		 12 1F 39 EC
+		 24 CA 2F C5
+		 D6 1C B4 C9
+		 97 04 0B BA
+		 BF 17 81 8B
+		 F9 84 95 93
+		 77 A0 09 80
+		 16 FA 6D 04
+		 24 02 05 02
+		 00 F8 4C DD
+		 C5 EA F8 FF
+		 07 E2 C2 BD
+		 78 18 16 F8
+		 B3 D5 38 02
+		 85 06 1C 01
+		 CE 07 32 00
+		 07 03 79 02
+		 06 05 41 03
+		 26 02 4F 04
+		 63 02 89 02
+		 CD 05 53 00
+		 3F 00 40 00
+		 42 64 45 00
+		 46 F8 47 00
+		 49 00 47 00
+		 49 00 41 08
+		 4F 08 3F 00
+		 46 20 49 48
+		 50 58 5D 0E
+		 40 00 46 00
+		 4E 08 56 F8
+		 49 00 46 00
+		 3B 10 48 10
+		 4B 00 5C 28
+		 6C 48 48 58
+		 53 0D 4D 00
+		 47 00 33 08
+		 D8 F8 8D 1F
+		 8F 04 56 0B
+		 35 0F F6 1C
+		 CD 22 69 44
+		 AF 5B 96 18
+		 ED 03 D8 05
+		 45 03 6E 0F
+		 3F 0A E4 1F
+		 64 05 A5 02
+		 3F 04 BB 1C
+		 38 03 BC 05
+		 7A 02 7F 18
+		 0F 02 94 05
+		 F4 03 68 00
+		 97 1F 99 05
+		 99 02 31 04
+		 C2 1C A8 02
+		 92 04 D5 03
+		 96 18 66 03
+		 A4 04 4D 02
+		 6B 00 58 01
+		 C0 00 FA 00
+		 A9 0F 00 00
+	];
+};
+

@@ -165,6 +165,8 @@ static int drm_new_set_master(struct drm_device *dev, struct drm_file *fpriv)
 	if (old_master)
 		drm_master_put(&old_master);
 
+	pr_info("%s: pid=%d, task_name=%s\n", __func__, task_pid_nr(current), current->comm);
+
 	return 0;
 
 out_err:

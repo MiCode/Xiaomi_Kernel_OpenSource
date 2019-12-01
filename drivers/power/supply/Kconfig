@@ -610,6 +610,11 @@ config CHARGER_RT9455
 	help
 	  Say Y to enable support for Richtek RT9455 battery charger.
 
+config CHARGER_NU1618
+	tristate "nuvolta nu1618 wireless charger driver"
+	help
+	  say y here to enable support for nu1618 charger driver.
+
 source "drivers/power/supply/qcom/Kconfig"
 
 endif # POWER_SUPPLY

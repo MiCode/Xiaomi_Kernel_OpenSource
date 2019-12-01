@@ -230,6 +230,7 @@ murata	Murata Manufacturing Co., Ltd.
 mxicy	Macronix International Co., Ltd.
 myir	MYIR Tech Limited
 national	National Semiconductor
+nbl	Nebula OS, developed by GoldenRiver Technology Co., Ltd.
 nec	NEC LCD Technologies, Ltd.
 neonode		Neonode Inc.
 netgear	NETGEAR

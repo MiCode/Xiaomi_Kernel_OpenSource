@@ -1,0 +1,10 @@
+#
+# MSM camera configuration
+#
+
+comment "Qualcomm Technologies, Inc. MSM Camera"
+
+config VCM_AK7374
+	bool "use ak7374 vcm"
+	default n
+

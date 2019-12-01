@@ -24,6 +24,16 @@ struct pci_dev;
 struct pci_controller;
 
 /**
+*AOD brightness, hight brightness level 60nit, low brightness level 5nit
+*/
+#define DOZE_MIN_BRIGHTNESS_LEVEL	5
+enum {
+	DOZE_BRIGHTNESS_INVALID = 0,
+	DOZE_BRIGHTNESS_HBM,
+	DOZE_BRIGHTNESS_LBM,
+};
+
+/**
  * DRM device structure. This structure represent a complete card that
  * may contain multiple heads.
  */
@@ -185,6 +195,9 @@ struct drm_device {
 	struct drm_vma_offset_manager *vma_offset_manager;
 	/*@} */
 	int switch_power_state;
+	int doze_state;
+	int doze_brightness;
+	bool fp_quickon;
 };
 
 #endif

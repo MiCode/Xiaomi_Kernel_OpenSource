@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3929,6 +3930,12 @@ static void msm_pcie_release_resources(struct msm_pcie_dev_t *dev)
 	dev->dm_core = NULL;
 	dev->conf = NULL;
 	dev->tcsr = NULL;
+
+	if (dev->bus_scale_table) {
+		if (dev->bus_client)
+			msm_bus_scale_unregister_client(dev->bus_client);
+		msm_bus_cl_clear_pdata(dev->bus_scale_table);
+	}
 }
 
 static void msm_pcie_scale_link_bandwidth(struct msm_pcie_dev_t *pcie_dev,

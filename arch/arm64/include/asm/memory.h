@@ -86,7 +86,7 @@
  */
 #ifdef CONFIG_KASAN
 #define KASAN_SHADOW_SIZE	(UL(1) << (VA_BITS - 3))
-#define KASAN_THREAD_SHIFT	1
+#define KASAN_THREAD_SHIFT	2
 #else
 #define KASAN_SHADOW_SIZE	(0)
 #define KASAN_THREAD_SHIFT	0
