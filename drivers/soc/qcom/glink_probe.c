@@ -84,6 +84,26 @@ static void glink_probe_smem_unreg(struct edge_info *einfo)
 	einfo->glink = NULL;
 	GLINK_INFO("unregister for %s\n", einfo->ssr_label);
 }
+static int glink_probe_spss_reg(struct edge_info *einfo)
+{
+	struct device *dev = einfo->dev;
+
+	einfo->glink = qcom_glink_spss_register(dev, einfo->node);
+	if (IS_ERR_OR_NULL(einfo->glink)) {
+		GLINK_ERR(dev, "register failed for %s\n", einfo->ssr_label);
+		einfo->glink = NULL;
+	}
+
+	return 0;
+}
+
+static void glink_probe_spss_unreg(struct edge_info *einfo)
+{
+	if (einfo->glink)
+		qcom_glink_spss_unregister(einfo->glink);
+
+	einfo->glink = NULL;
+}
 
 static void probe_subsystem(struct device *dev, struct device_node *np)
 {
@@ -120,6 +140,9 @@ static void probe_subsystem(struct device *dev, struct device_node *np)
 	if (!strcmp(transport, "smem")) {
 		einfo->register_fn = glink_probe_smem_reg;
 		einfo->unregister_fn = glink_probe_smem_unreg;
+	} else if (!strcmp(transport, "spss")) {
+		einfo->register_fn = glink_probe_spss_reg;
+		einfo->unregister_fn = glink_probe_spss_unreg;
 	}
 
 	einfo->nb.notifier_call = glink_probe_ssr_cb;
