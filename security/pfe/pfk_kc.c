@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,17 +37,13 @@
 #include "pfk_kc.h"
 #include "pfk_ice.h"
 
-
-/** the first available index in ice engine */
-#define PFK_KC_STARTING_INDEX 2
-
 /** currently the only supported key and salt sizes */
 #define PFK_KC_KEY_SIZE 32
 #define PFK_KC_SALT_SIZE 32
 
-/** Table size */
-/* TODO replace by some constant from ice.h */
-#define PFK_KC_TABLE_SIZE ((32) - (PFK_KC_STARTING_INDEX))
+/** Table size limitations */
+#define PFK_KC_MAX_TABLE_SIZE (32)
+#define PFK_KC_MIN_TABLE_SIZE (1)
 
 /** The maximum key and salt size */
 #define PFK_MAX_KEY_SIZE PFK_KC_KEY_SIZE
@@ -58,6 +54,10 @@ static DEFINE_SPINLOCK(kc_lock);
 static unsigned long flags;
 static bool kc_ready;
 static char *s_type = "sdcc";
+
+
+/** Actual table size */
+static uint32_t kc_table_size;
 
 /**
  * enum pfk_kc_entry_state - state of the entry inside kc table
@@ -109,17 +109,9 @@ struct kc_entry {
 	 int scm_error;
 };
 
-static struct kc_entry kc_table[PFK_KC_TABLE_SIZE];
+static struct kc_entry kc_table[PFK_KC_MAX_TABLE_SIZE];
 
-/**
- * kc_is_ready() - driver is initialized and ready.
- *
- * Return: true if the key cache is ready.
- */
-static inline bool kc_is_ready(void)
-{
-	return kc_ready;
-}
+
 
 static inline void kc_spin_lock(void)
 {
@@ -130,7 +122,20 @@ static inline void kc_spin_unlock(void)
 {
 	spin_unlock_irqrestore(&kc_lock, flags);
 }
+/**
+ * kc_is_ready() - driver is initialized and ready.
+ *
+ * Return: true if the key cache is ready.
+ */
+static inline bool kc_is_ready(void)
+{
+	bool res;
 
+	kc_spin_lock();
+	res = kc_ready;
+	kc_spin_unlock();
+	return res;
+}
 /**
  * pfk_kc_get_storage_type() - return the hardware storage type.
  *
@@ -280,7 +285,7 @@ static struct kc_entry *kc_find_key_at_index(const unsigned char *key,
 	struct kc_entry *entry = NULL;
 	int i = 0;
 
-	for (i = *starting_index; i < PFK_KC_TABLE_SIZE; i++) {
+	for (i = *starting_index; i < kc_table_size; i++) {
 		entry = kc_entry_at_index(i);
 
 		if (salt != NULL) {
@@ -336,7 +341,7 @@ static struct kc_entry *kc_find_oldest_entry_non_locked(void)
 	struct kc_entry *entry = NULL;
 	int i = 0;
 
-	for (i = 0; i < PFK_KC_TABLE_SIZE; i++) {
+	for (i = 0; i < kc_table_size; i++) {
 		entry = kc_entry_at_index(i);
 
 		if (entry->state == FREE)
@@ -410,7 +415,6 @@ static int kc_update_entry(struct kc_entry *entry, const unsigned char *key,
 	unsigned int data_unit)
 {
 	int ret;
-
 	kc_clear_entry(entry);
 
 	memcpy(entry->key, key, key_size);
@@ -422,10 +426,8 @@ static int kc_update_entry(struct kc_entry *entry, const unsigned char *key,
 	/* Mark entry as no longer free before releasing the lock */
 	entry->state = ACTIVE_ICE_PRELOAD;
 	kc_spin_unlock();
-
 	ret = qti_pfk_ice_set_key(entry->key_index, entry->key,
 			entry->salt, s_type, data_unit);
-
 	kc_spin_lock();
 	return ret;
 }
@@ -435,20 +437,40 @@ static int kc_update_entry(struct kc_entry *entry, const unsigned char *key,
  *
  * Return 0 in case of success, error otherwise
  */
-int pfk_kc_init(void)
+int pfk_kc_init(bool async)
 {
-	int i = 0;
+	int  ret = 0;
 	struct kc_entry *entry = NULL;
+	uint32_t i = 0, num_ice_slots = 0, kc_starting_index = 0;
+
+	if (kc_is_ready())
+		return 0;
+
+	ret = qti_pfk_ice_get_info(&kc_starting_index, &num_ice_slots, async);
+	if (ret) {
+		pr_err("qti_pfk_ice_get_info failed ret = %d\n", ret);
+		return ret;
+	}
+	if (num_ice_slots > PFK_KC_MAX_TABLE_SIZE ||
+			num_ice_slots < PFK_KC_MIN_TABLE_SIZE) {
+		pr_err("Received ICE num slots = %u not in [%u,%u]\n",
+				num_ice_slots, PFK_KC_MAX_TABLE_SIZE,
+				PFK_KC_MIN_TABLE_SIZE);
+		return -E2BIG;
+	}
 
 	kc_spin_lock();
-	for (i = 0; i < PFK_KC_TABLE_SIZE; i++) {
-		entry = kc_entry_at_index(i);
-		entry->key_index = PFK_KC_STARTING_INDEX + i;
+	if (!kc_ready) {
+		kc_table_size = num_ice_slots;
+		for (i = 0; i < kc_table_size; i++) {
+			entry = kc_entry_at_index(i);
+			entry->key_index = kc_starting_index + i;
+		}
+		kc_ready = true;
 	}
-	kc_ready = true;
 	kc_spin_unlock();
 
-	return 0;
+	return ret;
 }
 
 /**
@@ -459,8 +481,10 @@ int pfk_kc_init(void)
 int pfk_kc_deinit(void)
 {
 	int res = pfk_kc_clear();
-
+	kc_spin_lock();
 	kc_ready = false;
+	kc_spin_unlock();
+	kc_table_size = 0;
 
 	return res;
 }
@@ -497,8 +521,9 @@ int pfk_kc_load_key_start(const unsigned char *key, size_t key_size,
 	struct kc_entry *entry = NULL;
 	bool entry_exists = false;
 
-	if (!kc_is_ready())
-		return -ENODEV;
+	ret = pfk_kc_init(async);
+	if (ret)
+		return ret;
 
 	if (!key || !salt || !key_index) {
 		pr_err("%s key/salt/key_index NULL\n", __func__);
@@ -745,7 +770,7 @@ int pfk_kc_remove_key(const unsigned char *key, size_t key_size)
 {
 	struct kc_entry *entry = NULL;
 	int index = 0;
-	int temp_indexes[PFK_KC_TABLE_SIZE] = {0};
+	int temp_indexes[PFK_KC_MAX_TABLE_SIZE] = {0};
 	int temp_indexes_size = 0;
 	int i = 0;
 	int res = 0;
@@ -836,7 +861,7 @@ int pfk_kc_clear(void)
 		return -ENODEV;
 
 	kc_spin_lock();
-	for (i = 0; i < PFK_KC_TABLE_SIZE; i++) {
+	for (i = 0; i < kc_table_size; i++) {
 		entry = kc_entry_at_index(i);
 		res = kc_entry_start_invalidating(entry);
 		if (res != 0) {
@@ -847,7 +872,7 @@ int pfk_kc_clear(void)
 	}
 	kc_spin_unlock();
 
-	for (i = 0; i < PFK_KC_TABLE_SIZE; i++)
+	for (i = 0; i < kc_table_size; i++)
 		qti_pfk_ice_invalidate_key(kc_entry_at_index(i)->key_index,
 					s_type);
 
@@ -855,7 +880,7 @@ int pfk_kc_clear(void)
 	res = 0;
 out:
 	kc_spin_lock();
-	for (i = 0; i < PFK_KC_TABLE_SIZE; i++)
+	for (i = 0; i < kc_table_size; i++)
 		kc_entry_finish_invalidating(kc_entry_at_index(i));
 	kc_spin_unlock();
 
@@ -879,7 +904,7 @@ void pfk_kc_clear_on_reset(void)
 		return;
 
 	kc_spin_lock();
-	for (i = 0; i < PFK_KC_TABLE_SIZE; i++) {
+	for (i = 0; i < kc_table_size; i++) {
 		entry = kc_entry_at_index(i);
 		kc_clear_entry(entry);
 	}
@@ -888,6 +913,11 @@ void pfk_kc_clear_on_reset(void)
 
 static int pfk_kc_find_storage_type(char **device)
 {
+
+#ifdef CONFIG_PFK_VIRTUALIZED
+	*device = PFK_UFS;
+	return 0;
+#else
 	char boot[20] = {'\0'};
 	char *match = (char *)strnstr(saved_command_line,
 				"androidboot.bootdevice=",
@@ -901,6 +931,7 @@ static int pfk_kc_find_storage_type(char **device)
 		return 0;
 	}
 	return -EINVAL;
+#endif
 }
 
 static int __init pfk_kc_pre_init(void)

@@ -111,8 +111,8 @@ static int __init pfk_init(void)
 	if (ret != 0)
 		goto fail;
 
-	ret = pfk_kc_init();
-	if (ret != 0) {
+	ret = pfk_kc_init(true);
+	if (ret != 0 && ret != -EAGAIN) {
 		pr_err("could init pfk key cache, error %d\n", ret);
 		pfk_ext4_deinit();
 		pfk_f2fs_deinit();
@@ -300,7 +300,7 @@ static int pfk_get_key_for_bio(const struct bio *bio,
 	 * 4K dun - For ext4 ufs, f2fs ufs and f2fs emmc
 	 */
 
-	if (data_unit) {
+	if (data_unit && bio) {
 		if (!bio_dun(bio) && !memcmp(s_type, "sdcc", strlen("sdcc")))
 			*data_unit = 1 << ICE_CRYPTO_DATA_UNIT_512_B;
 		else

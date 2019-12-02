@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,5 +28,7 @@ int pfk_ice_deinit(void);
 int qti_pfk_ice_set_key(uint32_t index, uint8_t *key, uint8_t *salt,
 			char *storage_type, unsigned int data_unit);
 int qti_pfk_ice_invalidate_key(uint32_t index, char *storage_type);
+int qti_pfk_ice_get_info(uint32_t *min_slot_index, uint32_t *total_num_slots,
+		bool async);
 
 #endif /* PFK_ICE_H_ */
