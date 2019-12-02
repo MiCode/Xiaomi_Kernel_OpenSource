@@ -1581,8 +1581,6 @@ static int _setup_user_context(struct kgsl_mmu *mmu)
 
 	ctx->default_pt = mmu->defaultpagetable;
 
-	kgsl_iommu_enable_clk(mmu);
-
 	sctlr_val = KGSL_IOMMU_GET_CTX_REG(ctx, SCTLR);
 
 	/*
@@ -1605,7 +1603,6 @@ static int _setup_user_context(struct kgsl_mmu *mmu)
 		sctlr_val |= (0x1 << KGSL_IOMMU_SCTLR_HUPCF_SHIFT);
 	}
 	KGSL_IOMMU_SET_CTX_REG(ctx, SCTLR, sctlr_val);
-	kgsl_iommu_disable_clk(mmu);
 
 	return 0;
 }
@@ -1654,6 +1651,21 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 	int status;
 	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
 
+	kgsl_iommu_enable_clk(mmu);
+
+	status = _setup_user_context(mmu);
+	if (status) {
+		kgsl_iommu_disable_clk(mmu);
+		return status;
+	}
+
+	status = _setup_secure_context(mmu);
+	if (status) {
+		_detach_context(&iommu->ctx[KGSL_IOMMU_CONTEXT_USER]);
+		kgsl_iommu_disable_clk(mmu);
+		return status;
+	}
+
 	/* Set the following registers only when the MMU type is QSMMU */
 	if (mmu->subtype != KGSL_IOMMU_SMMU_V500) {
 		/* Enable hazard check from GPU_SMMU_HUM_CFG */
@@ -1666,18 +1678,9 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 		wmb();
 	}
 
-	status = _setup_user_context(mmu);
-	if (status)
-		return status;
-
-	status = _setup_secure_context(mmu);
-	if (status) {
-		_detach_context(&iommu->ctx[KGSL_IOMMU_CONTEXT_USER]);
-		return status;
-	}
-
 	/* Make sure the hardware is programmed to the default pagetable */
 	kgsl_iommu_set_pt(mmu, mmu->defaultpagetable);
+	kgsl_iommu_disable_clk(mmu);
 	set_bit(KGSL_MMU_STARTED, &mmu->flags);
 	return 0;
 }
