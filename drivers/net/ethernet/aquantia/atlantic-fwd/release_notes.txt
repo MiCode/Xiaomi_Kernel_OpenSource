@@ -1,3 +1,12 @@
+Version 1.0.31
+==============
+[ATLDRV-1243] - Clean up MACsec implementation
+[ATLDRV-1135] - ethtool shows incorrect Flow Control information
+[ATLDRV-1229] - HW access on mdo_dev_stop(ctx->prepare)
+[ATLDRV-1256] - AQ072: Static analysis error in atl_setup_datapath()
+[ATLDRV-1303] - Make driver C90 compilable
+[ATLDRV-1064] - Fwd: Software flowcontrol workaround adaptations
+
 Version 1.0.30
 ==============
 [ATLDRV-1217] - FWD driver refactoring for unit tests

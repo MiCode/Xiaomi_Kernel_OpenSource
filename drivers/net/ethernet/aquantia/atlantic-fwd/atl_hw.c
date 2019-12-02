@@ -331,7 +331,7 @@ void atl_refresh_link(struct atl_nic *nic)
 			atl_nic_info("Link up: %s\n", link->name);
 			netif_carrier_on(nic->ndev);
 			pm_runtime_get_sync(&nic->hw.pdev->dev);
-#ifdef NETIF_F_HW_MACSEC
+#if IS_ENABLED(CONFIG_MACSEC) && defined(NETIF_F_HW_MACSEC)
 			atl_init_macsec(hw);
 #endif
 		}

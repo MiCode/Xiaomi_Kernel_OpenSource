@@ -13,6 +13,7 @@
 #include <linux/etherdevice.h>
 #include <linux/rtnetlink.h>
 #include <linux/pm_runtime.h>
+#include "atl_macsec.h"
 
 #include "atl_qcom.h"
 
@@ -354,7 +355,7 @@ static void atl_work(struct work_struct *work)
 	if (ret)
 		goto out;
 	atl_refresh_link(nic);
-#ifdef NETIF_F_HW_MACSEC
+#if IS_ENABLED(CONFIG_MACSEC) && defined(NETIF_F_HW_MACSEC)
 	atl_macsec_work(nic);
 #endif
 out:
@@ -524,7 +525,7 @@ static int atl_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	if (pci_64)
 		ndev->features |= NETIF_F_HIGHDMA;
 
-#ifdef NETIF_F_HW_MACSEC
+#if IS_ENABLED(CONFIG_MACSEC) && defined(NETIF_F_HW_MACSEC)
 	if (hw->mcp.caps_low & atl_fw2_macsec)
 		ndev->features |= NETIF_F_HW_MACSEC;
 #endif
@@ -537,7 +538,7 @@ static int atl_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 
 	hw->non_ring_intr_mask = BIT(ATL_NUM_NON_RING_IRQS) - 1;
 	ndev->netdev_ops = &atl_ndev_ops;
-#ifdef NETIF_F_HW_MACSEC
+#if IS_ENABLED(CONFIG_MACSEC) && defined(NETIF_F_HW_MACSEC)
 	if (hw->mcp.caps_low & atl_fw2_macsec)
 		ndev->macsec_ops = &atl_macsec_ops,
 #endif
