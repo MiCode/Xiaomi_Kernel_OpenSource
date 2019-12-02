@@ -36,8 +36,6 @@ static int npu_debug_open(struct inode *inode, struct file *file);
 static int npu_debug_release(struct inode *inode, struct file *file);
 static int npu_debug_reg_open(struct inode *inode, struct file *file);
 static int npu_debug_reg_release(struct inode *inode, struct file *file);
-static ssize_t npu_debug_reg_write(struct file *file,
-		const char __user *user_buf, size_t count, loff_t *ppos);
 static ssize_t npu_debug_reg_read(struct file *file,
 		char __user *user_buf, size_t count, loff_t *ppos);
 static ssize_t npu_debug_off_write(struct file *file,
@@ -59,7 +57,6 @@ static const struct file_operations npu_reg_fops = {
 	.open = npu_debug_reg_open,
 	.release = npu_debug_reg_release,
 	.read = npu_debug_reg_read,
-	.write = npu_debug_reg_write,
 };
 
 static const struct file_operations npu_off_fops = {
@@ -129,41 +126,6 @@ static int npu_debug_reg_release(struct inode *inode, struct file *file)
  * Function Implementations - Reg Read/Write
  * -------------------------------------------------------------------------
  */
-static ssize_t npu_debug_reg_write(struct file *file,
-		const char __user *user_buf, size_t count, loff_t *ppos)
-{
-	size_t off;
-	uint32_t data, cnt;
-	struct npu_device *npu_dev = file->private_data;
-	char buf[24];
-
-	if (count >= sizeof(buf))
-		return -EINVAL;
-
-	if (copy_from_user(buf, user_buf, count))
-		return -EFAULT;
-
-	buf[count] = 0;	/* end of string */
-
-	cnt = sscanf(buf, "%zx %x", &off, &data);
-	pr_debug("%s %s 0x%zx, 0x%08x\n", __func__, buf, off, data);
-
-	return count;
-	if (cnt < 2)
-		return -EINVAL;
-
-	if (npu_enable_core_power(npu_dev))
-		return -EPERM;
-
-	REGW(npu_dev, off, data);
-
-	npu_disable_core_power(npu_dev);
-
-	pr_debug("write: addr=%zx data=%x\n", off, data);
-
-	return count;
-}
-
 static ssize_t npu_debug_reg_read(struct file *file,
 			char __user *user_buf, size_t count, loff_t *ppos)
 {

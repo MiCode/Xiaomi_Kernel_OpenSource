@@ -4528,6 +4528,7 @@ drop:
 	}
 
 out:
+	trace_net_receive_skb_exit(skb);
 	return ret;
 }
 

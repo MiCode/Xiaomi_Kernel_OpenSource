@@ -77,7 +77,14 @@
 #define IPA_POLL_FOR_EMPTINESS_SLEEP_USEC 20
 #define IPA_CHANNEL_STOP_IN_PROC_TO_MSEC 5
 #define IPA_CHANNEL_STOP_IN_PROC_SLEEP_USEC 200
-#define IPA_MHIP_HOLB_TMO 500 /* 500ms this should be less than tag timeout */
+
+/*
+ * When IPA @ turbo, HOLB_TMO = 1 implies 128 clock cycles/usec
+ * for 1us, HOLB_TMO = 4 when IPA is at ~500Mhz
+ * for 500ms, HOLB_TMO = 2000000
+ * 500ms, this should be less than tag timeout
+ */
+#define IPA_MHIP_HOLB_TMO 2000000
 
 enum mhip_re_type {
 	MHIP_RE_XFER = 0x2,
@@ -2187,22 +2194,29 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 	case IPA_MPM_TETH_INIT:
 		if (ul_prod != IPA_CLIENT_MAX) {
 			/* No teth started yet, disable UL channel */
+			ipa_ep_idx = ipa3_get_ep_mapping(ul_prod);
+			if (ipa_ep_idx == IPA_EP_NOT_ALLOCATED) {
+				IPA_MPM_ERR("fail to alloc EP.\n");
+				goto fail_stop_channel;
+			}
 			ret = ipa3_stop_gsi_channel(ipa_ep_idx);
 			if (ret) {
 				IPA_MPM_ERR("MHIP Stop channel err = %d\n",
 					ret);
 				goto fail_stop_channel;
 			}
+			ipa_mpm_change_gsi_state(probe_id,
+				IPA_MPM_MHIP_CHAN_UL,
+				GSI_STOPPED);
 		}
 		if (is_acted)
 			ipa_mpm_vote_unvote_pcie_clk(CLK_OFF, probe_id,
-				true, &is_acted);
+						true, &is_acted);
 		break;
 	case IPA_MPM_TETH_INPROGRESS:
 	case IPA_MPM_TETH_CONNECTED:
 		IPA_MPM_DBG("UL channel is already started, continue\n");
 		ipa_mpm_change_teth_state(probe_id, IPA_MPM_TETH_CONNECTED);
-
 
 		if (probe_id == IPA_MPM_MHIP_CH_ID_1) {
 			/* Lift the delay for rmnet USB prod pipe */

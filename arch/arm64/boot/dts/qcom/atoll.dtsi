@@ -38,7 +38,7 @@
 
 	mem-offline {
 		compatible = "qcom,mem-offline";
-		offline-sizes = <0x1 0x40000000 0x0 0x80000000>,
+		offline-sizes = <0x1 0x40000000 0x0 0x40000000>,
 						<0x1 0xc0000000 0x0 0xc0000000>,
 						<0x2 0xc0000000 0x1 0x40000000>;
 		granule = <512>;
@@ -1534,9 +1534,15 @@
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x9800000 0x800000>;
 
+		qcom,ssctl-instance-id = <0x18>;
+		qcom,smem-id = <622>;
 		qcom,pas-id = <23>;
 		qcom,firmware-name = "npu";
 		memory-region = <&pil_npu_mem>;
+
+		/* Outputs to npu */
+		qcom,smem-states = <&npu_smp2p_out 0>;
+		qcom,smem-state-names = "qcom,force-stop";
 	};
 
 	qcom,turing@8300000 {
@@ -3386,6 +3392,8 @@
 		compatible = "qcom,bimc-bwmon4";
 		reg = <0x00070300 0x300>, <0x00070200 0x200>;
 		reg-names = "base", "global_base";
+		qcom,msm_bus = <MSM_BUS_MASTER_NPU MSM_BUS_SLAVE_CDSP_GEM_NOC>;
+		qcom,msm_bus_name = "npudsp_bwmon_cdsp";
 		clocks = <&clock_gcc GCC_NPU_BWMON_DSP_CFG_AHB_CLK>,
 				<&clock_gcc GCC_NPU_BWMON_AXI_CLK>;
 		clock-names = "gcc_npu_bwmon_dsp_cfg_ahb_clk",
@@ -3863,6 +3871,79 @@
 				qcom,bus-max = <0>;
 			};
 		};
+
+		qcom,gpu-pwrlevels-5 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,speed-bin = <159>;
+
+			qcom,initial-pwrlevel = <5>;
+			qcom,ca-target-pwrlevel = <4>;
+
+			/* NOM_L1 */
+			qcom,gpu-pwrlevel@0 {
+				reg = <0>;
+				qcom,gpu-freq = <750000000>;
+				qcom,bus-freq = <11>;
+				qcom,bus-min = <10>;
+				qcom,bus-max = <11>;
+			};
+
+			/* NOM_L1 */
+			qcom,gpu-pwrlevel@1 {
+				reg = <1>;
+				qcom,gpu-freq = <650000000>;
+				qcom,bus-freq = <10>;
+				qcom,bus-min = <8>;
+				qcom,bus-max = <11>;
+			};
+
+			/* NOM */
+			qcom,gpu-pwrlevel@2 {
+				reg = <2>;
+				qcom,gpu-freq = <565000000>;
+				qcom,bus-freq = <9>;
+				qcom,bus-min = <8>;
+				qcom,bus-max = <11>;
+			};
+
+			/* SVS_L1 */
+			qcom,gpu-pwrlevel@3 {
+				reg = <3>;
+				qcom,gpu-freq = <430000000>;
+				qcom,bus-freq = <8>;
+				qcom,bus-min = <7>;
+				qcom,bus-max = <10>;
+			};
+
+			/* SVS */
+			qcom,gpu-pwrlevel@4 {
+				reg = <4>;
+				qcom,gpu-freq = <355000000>;
+				qcom,bus-freq = <7>;
+				qcom,bus-min = <5>;
+				qcom,bus-max = <8>;
+			};
+
+			/* LOW SVS */
+			qcom,gpu-pwrlevel@5 {
+				reg = <5>;
+				qcom,gpu-freq = <267000000>;
+				qcom,bus-freq = <5>;
+				qcom,bus-min = <4>;
+				qcom,bus-max = <7>;
+			};
+
+			/* XO */
+			qcom,gpu-pwrlevel@6 {
+				reg = <6>;
+				qcom,gpu-freq = <0>;
+				qcom,bus-freq = <0>;
+				qcom,bus-min = <0>;
+				qcom,bus-max = <0>;
+			};
+		};
 	};
 };
 
@@ -4013,10 +4094,29 @@
 	};
 };
 
+&spmi_bus {
+	qcom,pm6150@0 {
+		pm6150_adc_tm_iio: adc_tm@3400 {
+			compatible = "qcom,adc-tm5-iio";
+			reg = <0x3400 0x100>;
+			#thermal-sensor-cells = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			io-channels = <&pm6150_vadc ADC_GPIO1_PU2>;
+
+			nvm_therm {
+				reg = <ADC_GPIO1_PU2>;
+				qcom,ratiometric;
+				qcom,hw-settle-time = <200>;
+			};
+		};
+	};
+};
+
 &pm6150_adc_tm {
 	io-channels = <&pm6150_vadc ADC_XO_THERM_PU2>,
 			<&pm6150_vadc ADC_AMUX_THM1_PU2>,
-			<&pm6150_vadc ADC_GPIO1_PU2>,
+			<&pm6150_vadc ADC_AMUX_THM3_PU2>,
 			<&pm6150_vadc ADC_GPIO2_PU2>;
 
 	/* Channel nodes */
@@ -4032,8 +4132,8 @@
 		qcom,hw-settle-time = <200>;
 	};
 
-	nvm_therm {
-		reg = <ADC_GPIO1_PU2>;
+	conn_therm {
+		reg = <ADC_AMUX_THM3_PU2>;
 		qcom,ratiometric;
 		qcom,hw-settle-time = <200>;
 	};

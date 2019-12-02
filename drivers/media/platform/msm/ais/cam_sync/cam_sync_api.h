@@ -40,7 +40,7 @@ typedef void (*sync_callback)(int32_t sync_obj, int status, void *data);
  * -ENOMEM will be returned if the kernel can't allocate space for
  * sync object.
  */
-int cam_sync_create(int32_t *sync_obj, const char *name);
+int cam_sync_create(int32_t *sync_obj, const char *name, uint32_t client_id);
 
 /**
  * @brief: Registers a callback with a sync object

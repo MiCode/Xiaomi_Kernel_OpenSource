@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -45,7 +45,7 @@ int cam_sync_util_find_and_set_empty_row(struct sync_device *sync_dev,
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
 int cam_sync_init_row(struct sync_table_row *table,
-	uint32_t idx, const char *name, uint32_t type);
+	uint32_t idx, const char *name, uint32_t type, uint32_t client_id);
 
 /**
  * @brief: Function to uninitialize a row in the sync table
@@ -73,8 +73,6 @@ int cam_sync_init_group_object(struct sync_table_row *table,
 	uint32_t idx,
 	uint32_t *sync_objs,
 	uint32_t num_objs);
-
-int cam_sync_deinit_object(struct sync_table_row *table, uint32_t idx);
 
 /**
  * @brief: Function to dispatch a kernel callback for a sync callback
@@ -109,6 +107,7 @@ void cam_sync_util_dispatch_signaled_cb(int32_t sync_obj,
  */
 void cam_sync_util_send_v4l2_event(uint32_t id,
 	uint32_t sync_obj,
+	uint32_t client_id,
 	int status,
 	void *payload,
 	int len);

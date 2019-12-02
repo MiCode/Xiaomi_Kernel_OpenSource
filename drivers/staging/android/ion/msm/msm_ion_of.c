@@ -396,8 +396,8 @@ static int msm_ion_pm_restore(struct device *dev)
 }
 
 static const struct dev_pm_ops msm_ion_pm_ops = {
-	.freeze = msm_ion_pm_freeze,
-	.restore = msm_ion_pm_restore,
+	.freeze_late = msm_ion_pm_freeze,
+	.restore_early = msm_ion_pm_restore,
 };
 
 static const struct of_device_id msm_ion_match_table[] = {

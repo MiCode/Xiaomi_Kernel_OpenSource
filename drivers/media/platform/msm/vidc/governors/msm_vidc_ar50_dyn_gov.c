@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -916,8 +916,6 @@ static int __event_handler(struct devfreq *devfreq, unsigned int event,
 
 	switch (event) {
 	case DEVFREQ_GOV_START:
-	case DEVFREQ_GOV_RESUME:
-	case DEVFREQ_GOV_SUSPEND:
 		mutex_lock(&devfreq->lock);
 		rc = update_devfreq(devfreq);
 		mutex_unlock(&devfreq->lock);

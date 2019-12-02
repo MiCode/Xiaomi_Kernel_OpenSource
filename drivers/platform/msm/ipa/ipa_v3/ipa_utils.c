@@ -182,6 +182,7 @@
 #define IPA_v4_5_GROUP_UL_DL		(1)
 #define IPA_v4_5_MHI_GROUP_DDR		(1)
 #define IPA_v4_5_MHI_GROUP_DMA		(2)
+#define IPA_v4_5_GROUP_CV2X			(2)
 #define IPA_v4_5_MHI_GROUP_QDSS		(3)
 #define IPA_v4_5_GROUP_UC_RX_Q		(4)
 #define IPA_v4_5_SRC_GROUP_MAX		(5)
@@ -261,6 +262,8 @@ enum ipa_ver {
 	IPA_4_5,
 	IPA_4_5_MHI,
 	IPA_4_5_APQ,
+	IPA_4_5_AUTO,
+	IPA_4_5_AUTO_MHI,
 	IPA_VER_MAX,
 };
 
@@ -2471,6 +2474,12 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_SEQ_TYPE_DMA_ONLY,
 			QMB_MASTER_SELECT_DDR,
 			{ 7, 9, 20, 24, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY, 0 } },
+	[IPA_4_5_MHI][IPA_CLIENT_APPS_WAN_PROD]	  = {
+			true, IPA_v4_5_MHI_GROUP_DDR,
+			true,
+			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
+			QMB_MASTER_SELECT_DDR,
+			{ 2, 7, 16, 32, IPA_EE_AP, GSI_SMART_PRE_FETCH, 7 } },
 	[IPA_4_5_MHI][IPA_CLIENT_Q6_WAN_PROD]		= {
 			true, IPA_v4_5_MHI_GROUP_DDR,
 			true,
@@ -2527,6 +2536,12 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
 			{ 16, 10, 9, 9, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY, 0 } },
+	[IPA_4_5_MHI][IPA_CLIENT_APPS_WAN_CONS]       = {
+			true, IPA_v4_5_MHI_GROUP_DDR,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 25, 16, 9, 9, IPA_EE_AP, GSI_ESCAPE_BUF_ONLY, 0 } },
 	[IPA_4_5_MHI][IPA_CLIENT_USB_DPL_CONS]        = {
 			true, IPA_v4_5_MHI_GROUP_DDR,
 			false,
@@ -3280,6 +3295,11 @@ static u8 ipa3_get_hw_type_index(void)
 			hw_type_index = IPA_4_5_MHI;
 		if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ)
 			hw_type_index = IPA_4_5_APQ;
+		if (ipa3_ctx->ipa_config_is_auto)
+			hw_type_index = IPA_4_5_AUTO;
+		if (ipa3_ctx->ipa_config_is_auto &&
+			ipa3_ctx->ipa_config_is_mhi)
+			hw_type_index = IPA_4_5_AUTO_MHI;
 		break;
 	default:
 		IPAERR("Incorrect IPA version %d\n", ipa3_ctx->ipa_hw_type);
@@ -5955,7 +5975,7 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 	struct ipahal_imm_cmd_ip_packet_tag_status status;
 	int i;
 	struct sk_buff *dummy_skb;
-	int res;
+	int res = 0;
 	struct ipa3_tag_completion *comp;
 	int ep_idx;
 	u32 retry_cnt = 0;
@@ -5989,8 +6009,11 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 		memcpy(&(tag_desc[0]), desc, descs_num *
 			sizeof(tag_desc[0]));
 		desc_idx += descs_num;
-	} else
+	} else {
+		res = -EFAULT;
+		IPAERR("desc is NULL\n");
 		goto fail_free_tag_desc;
+	}
 
 	/* IC to close the coal frame before HPS Clear if coal is enabled */
 	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) != -1) {
@@ -6924,6 +6947,8 @@ static void ipa3_write_rsrc_grp_type_reg(int group_index,
 		break;
 	case IPA_4_5:
 	case IPA_4_5_MHI:
+	case IPA_4_5_AUTO:
+	case IPA_4_5_AUTO_MHI:
 		if (src) {
 			switch (group_index) {
 			case IPA_v4_5_MHI_GROUP_PCIE:
@@ -7123,6 +7148,13 @@ void ipa3_set_resorce_groups_min_max_limits(void)
 		break;
 	case IPA_4_5:
 	case IPA_4_5_MHI:
+		src_rsrc_type_max = IPA_v4_0_RSRC_GRP_TYPE_SRC_MAX;
+		dst_rsrc_type_max = IPA_v4_0_RSRC_GRP_TYPE_DST_MAX;
+		src_grp_idx_max = IPA_v4_5_SRC_GROUP_MAX;
+		dst_grp_idx_max = IPA_v4_5_DST_GROUP_MAX;
+		break;
+	case IPA_4_5_AUTO:
+	case IPA_4_5_AUTO_MHI:
 		src_rsrc_type_max = IPA_v4_0_RSRC_GRP_TYPE_SRC_MAX;
 		dst_rsrc_type_max = IPA_v4_0_RSRC_GRP_TYPE_DST_MAX;
 		src_grp_idx_max = IPA_v4_5_SRC_GROUP_MAX;

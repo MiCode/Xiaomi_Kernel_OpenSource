@@ -1,0 +1,61 @@
+* RPM Log
+
+RPM maintains Ulog in the RPM RAM. A device tree node is added
+that will hold the address of the RPM RAM region from where
+Ulog is read. The physical address from the RPM RAM region
+contains a header where various parameters to read the log are
+defined. These parameter's offsets in the header are also stored
+as a part of the device tree node.
+
+The required properties for rpm-log are:
+
+- compatible: "qcom,rpm-log"
+- reg: Specifies the base physical address and the size of the RPM
+	registers from where ulog is read.
+	Second register(optional) specifies the offset of the rpm
+	log start address pointer. If the second register is available,
+	the offset value read is added to the first register address
+	to read the ulog message.
+- qcom,rpm-addr-phys: RPM reads physical address of the RPM RAM region
+		differently when compared to Apps. Physical address of
+		the RPM RAM region is at an offset when seen from Apps.
+		This property specifies the offset which will get added
+		to the physical address of RPM RAM to make it
+		accessible to the Apps.
+- qcom,offset-version: Offset from the start of the phys_addr_base where version
+			information is stored.
+- qcom,offset-page-buffer-addr: Offset from the start of the phys_addr_base
+				where raw log start address is stored. Raw log
+				start address is the start of raw log in the
+				RPM address space as it should be seen from rpm.
+- qcom,offset-log-len: Offset from the start of the phy_addr_base where log
+			length is stored.
+- qcom,offset-log-len-mask: Offset from the start of the phy_addr_base where
+				log length mask is stored.
+- qcom,offset-page-indices: Offset from the start of the phy_addr_base where
+				index to the writer is stored.
+
+Example 1:
+qcom,rpm-log@fc19dc00 {
+	compatible = "qcom,rpm-log";
+	reg = <0xfc19dc00 0x2000>;
+	qcom,offset-rpm-addr = <0xfc000000>;
+	qcom,offset-version = <4>;
+	qcom,offset-page-buffer-addr = <36>;
+	qcom,offset-log-len = <40>;
+	qcom,offset-log-len-mask = <44>;
+	qcom,offset-page-indices = <56>;
+};
+
+Example 2:
+qcom,rpm-log@fc000000 {
+	compatible = "qcom,rpm-log";
+	reg = <0xfc000000 0x2000>,
+		<0xfc190018 0x4>;
+	qcom,offset-rpm-addr = <0xfc000000>;
+	qcom,offset-version = <4>;
+	qcom,offset-page-buffer-addr = <36>;
+	qcom,offset-log-len = <40>;
+	qcom,offset-log-len-mask = <44>;
+	qcom,offset-page-indices = <56>;
+};

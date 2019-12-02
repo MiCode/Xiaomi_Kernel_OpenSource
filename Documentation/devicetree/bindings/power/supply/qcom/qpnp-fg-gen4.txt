@@ -542,6 +542,13 @@ First Level Node - FG Gen4 device
 	Definition: A boolean property that when specified enables SW ESR
 		    control depending on input presence and user request.
 
+- qcom,force-calib-level
+	Usage:      optional
+	Value type: <u32>
+	Definition: Calibration level in decimal. When specified,
+		    the calibration level is forced to this value.
+		    Possible values are in the range of 1 to 130.
+
 ==========================================================
 Second Level Nodes - Peripherals managed by FG Gen4 driver
 ==========================================================

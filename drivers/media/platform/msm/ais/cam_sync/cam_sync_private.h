@@ -155,6 +155,7 @@ struct sync_table_row {
 	struct list_head callback_list;
 	struct list_head user_payload_list;
 	atomic_t ref_cnt;
+	uint32_t client_id;
 };
 
 /**

@@ -90,7 +90,6 @@ static int cam_lrme_hw_dump(struct cam_hw_info *lrme_hw,
 		mutex_unlock(&lrme_hw->hw_mutex);
 		return 0;
 	}
-	mutex_unlock(&lrme_hw->hw_mutex);
 	if (lrme_core->req_submit &&
 		lrme_core->req_submit->req_id == dump_args->request_id)
 		req = lrme_core->req_submit;
@@ -100,6 +99,7 @@ static int cam_lrme_hw_dump(struct cam_hw_info *lrme_hw,
 	if (!req) {
 		CAM_DBG(CAM_LRME, "LRME req %lld not with hw",
 			dump_args->request_id);
+		mutex_unlock(&lrme_hw->hw_mutex);
 		return 0;
 	}
 	cam_common_util_get_curr_timestamp(&cur_time);
@@ -112,6 +112,7 @@ static int cam_lrme_hw_dump(struct cam_hw_info *lrme_hw,
 			req->submit_timestamp.tv_usec,
 			cur_time.tv_sec,
 			cur_time.tv_usec);
+		mutex_unlock(&lrme_hw->hw_mutex);
 		return 0;
 	}
 	CAM_INFO(CAM_LRME, "Error req %lld %ld:%06ld %ld:%06ld",
@@ -126,6 +127,7 @@ static int cam_lrme_hw_dump(struct cam_hw_info *lrme_hw,
 	if (remain_len < min_len) {
 		CAM_ERR(CAM_LRME, "dump buffer exhaust %d %d",
 			remain_len, min_len);
+		mutex_unlock(&lrme_hw->hw_mutex);
 		return 0;
 	}
 	dst = (char *)dump_args->cpu_addr + dump_args->offset;
@@ -144,6 +146,7 @@ static int cam_lrme_hw_dump(struct cam_hw_info *lrme_hw,
 	dump_args->offset += hdr->size +
 		sizeof(struct cam_lrme_hw_dump_header);
 	cam_lrme_dump_regs_to_buf(req, lrme_hw, dump_args);
+	mutex_unlock(&lrme_hw->hw_mutex);
 	return 0;
 }
 

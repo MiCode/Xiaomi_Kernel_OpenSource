@@ -550,6 +550,8 @@ struct diag_mask_info {
 	int mask_len;
 	uint8_t *update_buf;
 	int update_buf_len;
+	uint8_t *update_buf_client;
+	int update_buf_client_len;
 	uint8_t status;
 	struct mutex lock;
 };

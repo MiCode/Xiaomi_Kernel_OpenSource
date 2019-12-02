@@ -1693,7 +1693,7 @@
 			pri_mi2s_sck_sleep: pri_mi2s_sck_sleep {
 				mux {
 					pins = "gpio87";
-					function = "i2s_1";
+					function = "i2s_1_sck";
 				};
 
 				config {
@@ -1707,7 +1707,7 @@
 			pri_mi2s_sck_active: pri_mi2s_sck_active {
 				mux {
 					pins = "gpio87";
-					function = "i2s_1";
+					function = "i2s_1_sck";
 				};
 
 				config {
@@ -1723,7 +1723,7 @@
 			pri_mi2s_ws_sleep: pri_mi2s_ws_sleep {
 				mux {
 					pins = "gpio88";
-					function = "i2s_1";
+					function = "i2s_1_ws";
 				};
 
 				config {
@@ -1737,7 +1737,7 @@
 			pri_mi2s_ws_active: pri_mi2s_ws_active {
 				mux {
 					pins = "gpio88";
-					function = "i2s_1";
+					function = "i2s_1_ws";
 				};
 
 				config {
@@ -1753,7 +1753,7 @@
 			pri_mi2s_sd0_sleep: pri_mi2s_sd0_sleep {
 				mux {
 					pins = "gpio89";
-					function = "i2s_1";
+					function = "i2s_1_data0";
 				};
 
 				config {
@@ -1767,7 +1767,7 @@
 			pri_mi2s_sd0_active: pri_mi2s_sd0_active {
 				mux {
 					pins = "gpio89";
-					function = "i2s_1";
+					function = "i2s_1_data0";
 				};
 
 				config {
@@ -1783,7 +1783,7 @@
 			pri_mi2s_sd1_sleep: pri_mi2s_sd1_sleep {
 				mux {
 					pins = "gpio90";
-					function = "i2s_1";
+					function = "i2s_1_data1";
 				};
 
 				config {
@@ -1797,7 +1797,7 @@
 			pri_mi2s_sd1_active: pri_mi2s_sd1_active {
 				mux {
 					pins = "gpio90";
-					function = "i2s_1";
+					function = "i2s_1_data1";
 				};
 
 				config {
@@ -1812,7 +1812,7 @@
 			pri_mi2s_sd2_sleep: pri_mi2s_sd2_sleep {
 				mux {
 					pins = "gpio91";
-					function = "i2s_1";
+					function = "i2s_1_data2";
 				};
 
 				config {
@@ -1826,7 +1826,7 @@
 			pri_mi2s_sd2_active: pri_mi2s_sd2_active {
 				mux {
 					pins = "gpio91";
-					function = "i2s_1";
+					function = "i2s_1_data2";
 				};
 
 				config {
@@ -1842,7 +1842,7 @@
 			pri_mi2s_sd3_sleep: pri_mi2s_sd3_sleep {
 				mux {
 					pins = "gpio92";
-					function = "i2s_1";
+					function = "i2s_1_data3";
 				};
 
 				config {
@@ -1856,7 +1856,7 @@
 			pri_mi2s_sd3_active: pri_mi2s_sd3_active {
 				mux {
 					pins = "gpio92";
-					function = "i2s_1";
+					function = "i2s_1_data3";
 				};
 
 				config {
@@ -2178,7 +2178,7 @@
 			quat_mi2s_sck_sleep: quat_mi2s_sck_sleep {
 				mux {
 					pins = "gpio110";
-					function = "i2s_4";
+					function = "i2s_4_sck";
 				};
 
 				config {
@@ -2192,7 +2192,7 @@
 			quat_mi2s_sck_active: quat_mi2s_sck_active {
 				mux {
 					pins = "gpio110";
-					function = "i2s_4";
+					function = "i2s_4_sck";
 				};
 
 				config {
@@ -2207,7 +2207,7 @@
 			quat_mi2s_ws_sleep: quat_mi2s_ws_sleep {
 				mux {
 					pins = "gpio111";
-					function = "i2s_4";
+					function = "i2s_4_ws";
 				};
 
 				config {
@@ -2221,7 +2221,7 @@
 			quat_mi2s_ws_active: quat_mi2s_ws_active {
 				mux {
 					pins = "gpio111";
-					function = "i2s_4";
+					function = "i2s_4_ws";
 				};
 
 				config {
@@ -2236,7 +2236,7 @@
 			quat_mi2s_sd0_sleep: quat_mi2s_sd0_sleep {
 				mux {
 					pins = "gpio112";
-					function = "i2s_4";
+					function = "i2s_4_data0";
 				};
 
 				config {
@@ -2250,7 +2250,7 @@
 			quat_mi2s_sd0_active: quat_mi2s_sd0_active {
 				mux {
 					pins = "gpio112";
-					function = "i2s_4";
+					function = "i2s_4_data0";
 				};
 
 				config {
@@ -2265,7 +2265,7 @@
 			quat_mi2s_sd1_sleep: quat_mi2s_sd1_sleep {
 				mux {
 					pins = "gpio113";
-					function = "i2s_4";
+					function = "i2s_4_data1";
 				};
 
 				config {
@@ -2279,7 +2279,7 @@
 			quat_mi2s_sd1_active: quat_mi2s_sd1_active {
 				mux {
 					pins = "gpio113";
-					function = "i2s_4";
+					function = "i2s_4_data1";
 				};
 
 				config {
@@ -2293,7 +2293,7 @@
 			quat_mi2s_sd2_sleep: quat_mi2s_sd2_sleep {
 				mux {
 					pins = "gpio114";
-					function = "i2s_4";
+					function = "i2s_4_data2";
 				};
 
 				config {
@@ -2307,7 +2307,7 @@
 			quat_mi2s_sd2_active: quat_mi2s_sd2_active {
 				mux {
 					pins = "gpio114";
-					function = "i2s_4";
+					function = "i2s_4_data2";
 				};
 
 				config {
@@ -2322,7 +2322,7 @@
 			quat_mi2s_sd3_sleep: quat_mi2s_sd3_sleep {
 				mux {
 					pins = "gpio115";
-					function = "i2s_4";
+					function = "i2s_4_data3";
 				};
 
 				config {
@@ -2336,7 +2336,7 @@
 			quat_mi2s_sd3_active: quat_mi2s_sd3_active {
 				mux {
 					pins = "gpio115";
-					function = "i2s_4";
+					function = "i2s_4_data3";
 				};
 
 				config {

@@ -289,12 +289,9 @@ static void snapshot_rb_ibs(struct kgsl_device *device,
 		struct kgsl_snapshot *snapshot)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	unsigned int rptr, *rbptr;
+	unsigned int *rbptr, rptr = adreno_get_rptr(rb);
 	int index, i;
 	int parse_ibs = 0, ib_parse_start;
-
-	/* Get the current read pointers for the RB */
-	adreno_readreg(adreno_dev, ADRENO_REG_CP_RB_RPTR, &rptr);
 
 	/*
 	 * Figure out the window of ringbuffer data to dump.  First we need to
@@ -859,6 +856,7 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(device);
+	bool gx_on = true;
 
 	ib_max_objs = 0;
 	/* Reset the list of objects */
@@ -878,20 +876,22 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 	if (gpudev->snapshot)
 		gpudev->snapshot(adreno_dev, snapshot);
 
-	/* Dumping these buffers is useless if the GX is not on */
-	if (GMU_DEV_OP_VALID(gmu_dev_ops, gx_is_on) &&
-			!gmu_dev_ops->gx_is_on(adreno_dev))
-		goto out;
+	if (GMU_DEV_OP_VALID(gmu_dev_ops, gx_is_on))
+		gx_on = gmu_dev_ops->gx_is_on(adreno_dev);
 
 	setup_fault_process(device, snapshot,
 			context ? context->proc_priv : NULL);
 
-	adreno_readreg64(adreno_dev, ADRENO_REG_CP_IB1_BASE,
-			ADRENO_REG_CP_IB1_BASE_HI, &snapshot->ib1base);
-	adreno_readreg(adreno_dev, ADRENO_REG_CP_IB1_BUFSZ, &snapshot->ib1size);
-	adreno_readreg64(adreno_dev, ADRENO_REG_CP_IB2_BASE,
-			ADRENO_REG_CP_IB2_BASE_HI, &snapshot->ib2base);
-	adreno_readreg(adreno_dev, ADRENO_REG_CP_IB2_BUFSZ, &snapshot->ib2size);
+	if (gx_on) {
+		adreno_readreg64(adreno_dev, ADRENO_REG_CP_IB1_BASE,
+				ADRENO_REG_CP_IB1_BASE_HI, &snapshot->ib1base);
+		adreno_readreg(adreno_dev, ADRENO_REG_CP_IB1_BUFSZ,
+				&snapshot->ib1size);
+		adreno_readreg64(adreno_dev, ADRENO_REG_CP_IB2_BASE,
+				ADRENO_REG_CP_IB2_BASE_HI, &snapshot->ib2base);
+		adreno_readreg(adreno_dev, ADRENO_REG_CP_IB2_BUFSZ,
+				&snapshot->ib2size);
+	}
 
 	snapshot->ib1dumped = false;
 	snapshot->ib2dumped = false;
@@ -980,7 +980,6 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 		KGSL_CORE_ERR("GPU snapshot froze %zdKb of GPU buffers\n",
 			snapshot_frozen_objsize / 1024);
 
-out:
 	if (device->pwrctrl.ahbpath_pcl)
 		msm_bus_scale_client_update_request(device->pwrctrl.ahbpath_pcl,
 			KGSL_AHB_PATH_LOW);

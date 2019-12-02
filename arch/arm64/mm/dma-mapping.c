@@ -30,6 +30,7 @@
 #include <linux/iommu.h>
 #include <linux/vmalloc.h>
 #include <linux/swiotlb.h>
+#include <linux/dma-removed.h>
 #include <linux/pci.h>
 #include <linux/io.h>
 
@@ -1081,8 +1082,12 @@ static void __iommu_setup_dma_ops(struct device *dev, u64 dma_base, u64 size,
 void arch_setup_dma_ops(struct device *dev, u64 dma_base, u64 size,
 			const struct iommu_ops *iommu, bool coherent)
 {
-	if (!dev->dma_ops)
-		dev->dma_ops = &swiotlb_dma_ops;
+	if (!dev->dma_ops) {
+		if (dev->removed_mem)
+			set_dma_ops(dev, &removed_dma_ops);
+		else
+			dev->dma_ops = &swiotlb_dma_ops;
+	}
 
 	dev->archdata.dma_coherent = coherent;
 	__iommu_setup_dma_ops(dev, dma_base, size, iommu);

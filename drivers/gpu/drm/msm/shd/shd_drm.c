@@ -35,6 +35,7 @@
 #include "sde_crtc.h"
 #include "sde_plane.h"
 #include "shd_drm.h"
+#include "shd_hw.h"
 
 static LIST_HEAD(g_base_list);
 
@@ -241,6 +242,7 @@ static void shd_display_enable_base(struct drm_device *dev,
 	struct drm_connector *connector;
 	struct drm_crtc_state *crtc_state;
 	struct drm_connector_state *conn_state;
+	int ret;
 
 	SDE_DEBUG("enable base display %d\n", base->intf_idx);
 
@@ -273,7 +275,12 @@ static void shd_display_enable_base(struct drm_device *dev,
 	conn_state->best_encoder = base->encoder;
 	connector->encoder = base->encoder;
 
-	drm_atomic_set_mode_for_crtc(crtc_state, &base->mode);
+	ret = drm_atomic_set_mode_for_crtc(crtc_state, &base->mode);
+	if (ret) {
+		SDE_ERROR("failed to set mode for crtc\n");
+		goto out;
+	}
+
 	drm_mode_copy(&crtc_state->adjusted_mode, &base->mode);
 	drm_mode_copy(&base->crtc->mode, &base->mode);
 
@@ -323,6 +330,8 @@ static void shd_display_enable_base(struct drm_device *dev,
 
 	base->enabled = true;
 	base->enable_changed = true;
+out:
+	return;
 }
 
 static void shd_display_disable_base(struct drm_device *dev,
@@ -593,6 +602,64 @@ static int shd_crtc_atomic_set_property(struct drm_crtc *crtc,
 
 	return shd_crtc->orig_funcs->atomic_set_property(crtc,
 		state, property, val);
+}
+
+u32 shd_get_shared_crtc_mask(struct drm_crtc *src_crtc)
+{
+	struct shd_crtc *shd_src_crtc, *shd_crtc;
+	struct drm_crtc *crtc;
+	u32 crtc_mask = 0;
+
+	if (!src_crtc)
+		return 0;
+
+	if (src_crtc->helper_private->atomic_check != shd_crtc_atomic_check)
+		return drm_crtc_mask(src_crtc);
+
+	shd_src_crtc = to_sde_crtc(src_crtc)->priv_handle;
+
+	drm_for_each_crtc(crtc, src_crtc->dev) {
+		if (crtc->helper_private->atomic_check !=
+				shd_crtc_atomic_check)
+			continue;
+
+		shd_crtc = to_sde_crtc(crtc)->priv_handle;
+
+		if (shd_src_crtc->display->base == shd_crtc->display->base)
+			crtc_mask |= drm_crtc_mask(crtc);
+	}
+
+	return crtc_mask;
+}
+
+void shd_skip_shared_plane_update(struct drm_plane *plane,
+		struct drm_crtc *crtc)
+{
+	struct sde_crtc *sde_crtc;
+	struct shd_crtc *shd_crtc;
+	enum sde_sspp sspp;
+	bool is_virtual;
+	int i;
+
+	if (!plane || !crtc) {
+		SDE_ERROR("invalid plane or crtc\n");
+		return;
+	}
+
+	if (crtc->funcs->atomic_set_property !=
+		shd_crtc_atomic_set_property) {
+		SDE_ERROR("not shared crtc\n");
+		return;
+	}
+
+	sde_crtc = to_sde_crtc(crtc);
+	shd_crtc = sde_crtc->priv_handle;
+	sspp = sde_plane_pipe(plane);
+	is_virtual = is_sde_plane_virtual(plane);
+
+	for (i = 0; i < sde_crtc->num_ctls; i++)
+		sde_shd_hw_skip_sspp_clear(
+			sde_crtc->mixers[i].hw_ctl, sspp, is_virtual);
 }
 
 static void shd_display_prepare_commit(struct msm_kms *kms,
@@ -982,13 +1049,13 @@ static int shd_drm_obj_init(struct shd_display *display)
 	memset(&info, 0x0, sizeof(info));
 	rc = shd_connector_get_info(NULL, &info, display);
 	if (rc) {
-		SDE_ERROR("shd get_info %d failed\n", i);
+		SDE_ERROR("shd get_info failed\n");
 		goto end;
 	}
 
 	encoder = sde_encoder_init_with_ops(dev, &info, &enc_ops);
 	if (IS_ERR_OR_NULL(encoder)) {
-		SDE_ERROR("shd encoder init failed %d\n", i);
+		SDE_ERROR("shd encoder init failed\n");
 		rc = -ENOENT;
 		goto end;
 	}
@@ -1013,7 +1080,7 @@ static int shd_drm_obj_init(struct shd_display *display)
 		priv->encoders[priv->num_encoders++] = encoder;
 		priv->connectors[priv->num_connectors++] = connector;
 	} else {
-		SDE_ERROR("shd %d connector init failed\n", i);
+		SDE_ERROR("shd connector init failed\n");
 		shd_drm_bridge_deinit(display);
 		sde_encoder_destroy(encoder);
 		rc = -ENOENT;

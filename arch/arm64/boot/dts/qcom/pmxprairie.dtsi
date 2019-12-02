@@ -101,19 +101,17 @@
 					<0x8 0xc4 0x0 IRQ_TYPE_NONE>,
 					<0x8 0xc5 0x0 IRQ_TYPE_NONE>,
 					<0x8 0xc7 0x0 IRQ_TYPE_NONE>,
-					<0x8 0xc8 0x0 IRQ_TYPE_NONE>,
-					<0x8 0xc9 0x0 IRQ_TYPE_NONE>;
+					<0x8 0xc8 0x0 IRQ_TYPE_NONE>;
 			interrupt-names = "pmxprairie_gpio1",
 					"pmxprairie_gpio2",
 					"pmxprairie_gpio4",
 					"pmxprairie_gpio5",
 					"pmxprairie_gpio6",
 					"pmxprairie_gpio8",
-					"pmxprairie_gpio9",
-					"pmxprairie_gpio10";
+					"pmxprairie_gpio9";
 			gpio-controller;
 			#gpio-cells = <2>;
-			qcom,gpios-disallowed = <3 7 11>;
+			qcom,gpios-disallowed = <3 7 10 11>;
 		};
 
 		pmxprairie_vadc: vadc@3100 {

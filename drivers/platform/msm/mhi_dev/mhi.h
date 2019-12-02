@@ -460,7 +460,7 @@ struct mhi_dev_channel {
 	uint32_t			tre_bytes_left;
 	/* td size being read/written from/to so far */
 	uint32_t			td_size;
-	bool				wr_request_active;
+	uint32_t			pend_wr_count;
 	bool				skip_td;
 };
 
@@ -576,6 +576,9 @@ struct mhi_dev {
 	/*Register for interrupt*/
 	bool				mhi_int;
 	bool				mhi_int_en;
+	/* Enable M2 autonomous mode from MHI */
+	bool				enable_m2;
+
 	/* Registered client callback list */
 	struct list_head		client_cb_list;
 	/* Tx, Rx DMA channels */

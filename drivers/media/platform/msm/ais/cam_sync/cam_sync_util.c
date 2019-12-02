@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,7 +32,7 @@ int cam_sync_util_find_and_set_empty_row(struct sync_device *sync_dev,
 }
 
 int cam_sync_init_row(struct sync_table_row *table,
-	uint32_t idx, const char *name, uint32_t type)
+	uint32_t idx, const char *name, uint32_t type, uint32_t client_id)
 {
 	struct sync_table_row *row = table + idx;
 
@@ -46,6 +46,7 @@ int cam_sync_init_row(struct sync_table_row *table,
 	INIT_LIST_HEAD(&row->parents_list);
 	INIT_LIST_HEAD(&row->children_list);
 	row->type = type;
+	row->client_id = client_id;
 	row->sync_id = idx;
 	row->state = CAM_SYNC_STATE_ACTIVE;
 	row->remaining = 0;
@@ -71,7 +72,7 @@ int cam_sync_init_group_object(struct sync_table_row *table,
 	struct sync_table_row *row = table + idx;
 	struct sync_table_row *child_row = NULL;
 
-	cam_sync_init_row(table, idx, "merged_fence", CAM_SYNC_TYPE_GROUP);
+	cam_sync_init_row(table, idx, "merged_fence", CAM_SYNC_TYPE_GROUP, 0);
 
 	/*
 	 * While traversing for children, parent's row list is updated with
@@ -105,6 +106,7 @@ int cam_sync_init_group_object(struct sync_table_row *table,
 			continue;
 		}
 
+		row->client_id = child_row->client_id;
 		row->remaining++;
 
 		/* Add child info */
@@ -342,6 +344,7 @@ void cam_sync_util_dispatch_signaled_cb(int32_t sync_obj,
 		cam_sync_util_send_v4l2_event(
 			CAM_SYNC_V4L_EVENT_ID_CB_TRIG,
 			sync_obj,
+			signalable_row->client_id,
 			status,
 			payload_info->payload_data,
 			CAM_SYNC_PAYLOAD_WORDS * sizeof(__u64));
@@ -364,6 +367,7 @@ void cam_sync_util_dispatch_signaled_cb(int32_t sync_obj,
 
 void cam_sync_util_send_v4l2_event(uint32_t id,
 	uint32_t sync_obj,
+	uint32_t client_id,
 	int status,
 	void *payload,
 	int len)
@@ -373,7 +377,7 @@ void cam_sync_util_send_v4l2_event(uint32_t id,
 	struct cam_sync_ev_header *ev_header = NULL;
 
 	event.id = id;
-	event.type = CAM_SYNC_V4L_EVENT;
+	event.type = CAM_SYNC_V4L_EVENT + client_id;
 
 	ev_header = CAM_SYNC_GET_HEADER_PTR(event);
 	ev_header->sync_obj = sync_obj;

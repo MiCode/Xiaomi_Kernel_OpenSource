@@ -138,12 +138,17 @@ config ARCH_QCOM
 	select MFD_CORE
 	select SND_SOC_COMPRESS
 	select SND_HWDEP
+	select CLKDEV_LOOKUP
+	select HAVE_CLK
+	select HAVE_CLK_PREPARE
+	select PM_OPP
 	help
 	  This enables support for the ARMv8 based Qualcomm chipsets.
 
 config ARCH_SM8150
 	bool "Enable Support for Qualcomm Technologies, Inc. SM8150"
 	depends on ARCH_QCOM
+	select COMMON_CLK
 	select COMMON_CLK_QCOM
 	help
 	  This enables support for the SM8150 chipset. If you do not
@@ -152,6 +157,7 @@ config ARCH_SM8150
 config ARCH_SDMSHRIKE
 	bool "Enable Support for Qualcomm Technologies, Inc. SDMSHRIKE"
 	depends on ARCH_QCOM
+	select COMMON_CLK
 	select COMMON_CLK_QCOM
 	help
 	  This configuration option enables support to build kernel for
@@ -162,6 +168,7 @@ config ARCH_SDMSHRIKE
 config ARCH_SM6150
 	bool "Enable Support for Qualcomm Technologies, Inc. SM6150"
 	depends on ARCH_QCOM
+	select COMMON_CLK
 	select COMMON_CLK_QCOM
 	help
 	  This enables support for the SM6150 chipset. If you do not
@@ -170,6 +177,7 @@ config ARCH_SM6150
 config ARCH_ATOLL
 	bool "Enable Support for Qualcomm Technologies, Inc. ATOLL"
 	depends on ARCH_QCOM
+	select COMMON_CLK
 	select COMMON_CLK_QCOM
 	select QTI_PDC_ATOLL
 	help
@@ -179,6 +187,7 @@ config ARCH_ATOLL
 config ARCH_QCS405
 	bool "Enable Support for Qualcomm Technologies, Inc. QCS405"
 	depends on ARCH_QCOM
+	select COMMON_CLK
 	select COMMON_CLK_QCOM
 	help
 	 This configuration option enables support to build kernel for
@@ -189,7 +198,8 @@ config ARCH_QCS405
 config ARCH_QCS403
         bool "Enable Support for Qualcomm Technologies, Inc. QCS403"
         depends on ARCH_QCOM
-        select COMMON_CLK_QCOM
+	select COMMON_CLK
+	select COMMON_CLK_QCOM
         help
          This configuration option enables support to build kernel for
          QCS403 SoC.
@@ -199,6 +209,7 @@ config ARCH_QCS403
 config ARCH_SDMMAGPIE
 	bool "Enable Support for Qualcomm Technologies, Inc. SDMMAGPIE"
 	depends on ARCH_QCOM
+	select COMMON_CLK
 	select COMMON_CLK_QCOM
 	help
 	  This enables support for the SDMMAGPIE chipset. If you do not
@@ -207,6 +218,7 @@ config ARCH_SDMMAGPIE
 config ARCH_TRINKET
 	bool "Enable Support for Qualcomm Technologies, Inc. TRINKET"
 	depends on ARCH_QCOM
+	select COMMON_CLK
 	select COMMON_CLK_QCOM
 	help
 	  This enables support for the TRINKET chipset. If you do not

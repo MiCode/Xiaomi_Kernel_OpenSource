@@ -284,12 +284,47 @@
 		status = "disabled";
 	};
 
+
+	/* PWR_CTR2_VDD_1P8 supply */
+	vreg_conn_1p8: vreg_conn_1p8 {
+		compatible = "regulator-fixed";
+		regulator-name = "vreg_conn_1p8";
+		pinctrl-names = "default";
+		pinctrl-0 = <&conn_power_1p8_active>;
+		startup-delay-us = <4000>;
+		enable-active-high;
+		gpio = <&tlmm 173 0>;
+	};
+
+	/* PWR_CTR1_VDD_PA supply */
+	vreg_conn_pa: vreg_conn_pa {
+		compatible = "regulator-fixed";
+		regulator-name = "vreg_conn_pa";
+		pinctrl-names = "default";
+		pinctrl-0 = <&conn_power_pa_active>;
+		startup-delay-us = <4000>;
+		enable-active-high;
+		gpio = <&tlmm 174 0>;
+	};
+
 	VDD_CX_LEVEL:
 	S3E_LEVEL: pm8195_3_s3_level: regulator-pm8195-3-s3-level {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm8195_3_s3_level";
 		regulator-min-microvolt = <RPMH_REGULATOR_LEVEL_RETENTION>;
 		regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
+	};
+	qcom_seecom: qseecom@87a00000 {
+		compatible = "qcom,qseecom";
+		reg = <0x87a00000 0x2100000>;
+		reg-names = "secapp-region";
+		memory-region = <&qseecom_mem>;
+		qcom,hlos-num-ce-hw-instances = <1>;
+		qcom,hlos-ce-hw-instance = <0>;
+		qcom,qsee-ce-hw-instance = <0>;
+		qcom,disk-encrypt-pipe-pair = <2>;
+		qcom,no-clock-support;
+		qcom,qsee-reentrancy-support = <2>;
 	};
 
 	sdhc_2: sdhci@8804000 {
@@ -386,6 +421,31 @@
 			type = "native";
 			offset = <512>;
 		};
+	};
+
+	bluetooth: bt_qca6174 {
+		compatible = "qca,qca6174";
+		pinctrl-names = "default";
+		pinctrl-0 = <&bt_en_active>;
+		/* BT_EN */
+		qca,bt-reset-gpio = <&tlmm 172 0>;
+		/* PWR_CTR1_VDD_PA */
+		qca,bt-vdd-pa-supply = <&vreg_conn_pa>;
+		/* PWR_CTR2_VDD_1P8 */
+		qca,bt-chip-pwd-supply = <&vreg_conn_1p8>;
+
+		qca,bt-vdd-vl-supply = <&pm8195_1_s5>;
+		qca,bt-vdd-vm-supply = <&pm8195_1_s2>;
+		qca,bt-vdd-vh-supply = <&pm8195_2_l7>;
+
+		qca,bt-vdd-vl-voltage-level = <1000000 1000000>;
+		qca,bt-vdd-vm-voltage-level = <1370000 1370000>;
+		qca,bt-vdd-vh-voltage-level = <1900000 1900000>;
+
+		qca,bt-vdd-vl-current-level = <0>;
+		qca,bt-vdd-vm-current-level = <0>;
+		qca,bt-vdd-vh-current-level = <450000>;
+		status = "ok";
 	};
 };
 

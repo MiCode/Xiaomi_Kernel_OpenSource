@@ -602,6 +602,10 @@ reg_base_err:
 
 static const struct of_device_id mpm_gic_chip_data_table[] = {
 	{
+		.compatible = "qcom,mpm-gic-mdm9607",
+		.data = mpm_mdm9607_gic_chip_data,
+	},
+	{
 		.compatible = "qcom,mpm-gic-msm8937",
 		.data = mpm_msm8937_gic_chip_data,
 	},
@@ -618,6 +622,10 @@ static const struct of_device_id mpm_gic_chip_data_table[] = {
 MODULE_DEVICE_TABLE(of, mpm_gic_chip_data_table);
 
 static const struct of_device_id mpm_gpio_chip_data_table[] = {
+	{
+		.compatible = "qcom,mpm-gpio-mdm9607",
+		.data = mpm_mdm9607_gpio_chip_data,
+	},
 	{
 		.compatible = "qcom,mpm-gpio-msm8937",
 		.data = mpm_msm8937_gpio_chip_data,
@@ -675,8 +683,6 @@ static int __init mpm_gic_chip_init(struct device_node *node,
 		goto mpm_map_err;
 	}
 
-	msm_mpm_dev_data.gic_chip_domain->name = "qcom,mpm-gic";
-
 	ret = msm_mpm_init(node);
 	if (!ret)
 		return ret;
@@ -706,8 +712,6 @@ static int __init mpm_gpio_chip_init(struct device_node *node,
 
 	if (!msm_mpm_dev_data.gpio_chip_domain)
 		return -ENOMEM;
-
-	msm_mpm_dev_data.gpio_chip_domain->name = "qcom,mpm-gpio";
 
 	return 0;
 }

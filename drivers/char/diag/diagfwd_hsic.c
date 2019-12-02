@@ -470,13 +470,18 @@ static int hsic_fwd_complete(int id, unsigned char *buf, int len, int ctxt)
 	return 0;
 }
 
+static int hsic_remote_proc_check(void)
+{
+	return diag_hsic[HSIC_1].enabled;
+}
+
 static struct diag_remote_dev_ops diag_hsic_fwd_ops = {
 	.open = hsic_open,
 	.close = hsic_close,
 	.queue_read = hsic_queue_read,
 	.write = hsic_write,
 	.fwd_complete = hsic_fwd_complete,
-	.remote_proc_check = NULL,
+	.remote_proc_check = hsic_remote_proc_check,
 };
 
 int diag_hsic_init(void)

@@ -178,6 +178,7 @@ struct msm_geni_serial_port {
 	bool manual_flow;
 	struct msm_geni_serial_ver_info ver_info;
 	u32 cur_tx_remaining;
+	bool startup_in_progress;
 };
 
 static const struct uart_ops msm_geni_serial_pops;
@@ -1087,6 +1088,9 @@ static void start_rx_sequencer(struct uart_port *uport)
 	int ret;
 	u32 geni_se_param = UART_PARAM_RFR_OPEN;
 
+	if (port->startup_in_progress)
+		return;
+
 	geni_status = geni_read_reg_nolog(uport->membase, SE_GENI_STATUS);
 	if (geni_status & S_GENI_CMD_ACTIVE) {
 		if (port->xfer_mode == SE_DMA && !port->rx_dma) {
@@ -1847,6 +1851,8 @@ static int msm_geni_serial_startup(struct uart_port *uport)
 	scnprintf(msm_port->name, sizeof(msm_port->name), "msm_serial_geni%d",
 				uport->line);
 
+	msm_port->startup_in_progress = true;
+
 	if (likely(!uart_console(uport))) {
 		ret = msm_geni_serial_power_on(&msm_port->uport);
 		if (ret) {
@@ -1896,6 +1902,8 @@ static int msm_geni_serial_startup(struct uart_port *uport)
 exit_startup:
 	if (likely(!uart_console(uport)))
 		msm_geni_serial_power_off(&msm_port->uport);
+	msm_port->startup_in_progress = false;
+
 	return ret;
 }
 

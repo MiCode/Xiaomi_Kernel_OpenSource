@@ -215,6 +215,11 @@ const char *ipa_clients_strings[IPA_CLIENT_MAX] = {
 	__stringify(IPA_CLIENT_MHI_PRIME_TETH_PROD),
 	__stringify(IPA_CLIENT_MHI_PRIME_TETH_CONS),
 	__stringify(IPA_CLIENT_MHI_PRIME_DPL_PROD),
+	__stringify(RESERVERD_CONS_103),
+	__stringify(IPA_CLIENT_MHI2_PROD),
+	__stringify(IPA_CLIENT_MHI2_CONS),
+	__stringify(IPA_CLIENT_Q6_CV2X_PROD),
+	__stringify(IPA_CLIENT_Q6_CV2X_CONS),
 };
 
 /**
@@ -2561,13 +2566,14 @@ bool ipa_has_open_aggr_frame(enum ipa_client_type client)
 
 int ipa_mhi_resume_channels_internal(enum ipa_client_type client,
 		bool LPTransitionRejected, bool brstmode_enabled,
-		union __packed gsi_channel_scratch ch_scratch, u8 index)
+		union __packed gsi_channel_scratch ch_scratch, u8 index,
+		bool is_switch_to_dbmode)
 {
 	int ret;
 
 	IPA_API_DISPATCH_RETURN(ipa_mhi_resume_channels_internal, client,
 			LPTransitionRejected, brstmode_enabled, ch_scratch,
-			index);
+			index, is_switch_to_dbmode);
 
 	return ret;
 }

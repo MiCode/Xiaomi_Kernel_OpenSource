@@ -864,6 +864,11 @@ const struct file_operations tzdbg_fops = {
  */
 static void tzdbg_register_qsee_log_buf(struct platform_device *pdev)
 {
+	/* register log buffer scm request */
+	struct qseecom_reg_log_buf_ireq req = {};
+
+	/* scm response */
+	struct qseecom_command_scm_resp resp = {};
 	size_t len;
 	int ret = 0;
 	struct scm_desc desc = {0};
@@ -878,21 +883,30 @@ static void tzdbg_register_qsee_log_buf(struct platform_device *pdev)
 
 	g_qsee_log = (struct tzdbg_log_t *)buf;
 
-	desc.args[0] = coh_pmem;
-	desc.args[1] = len;
-	desc.arginfo = 0x22;
-	ret = scm_call2(SCM_QSEEOS_FNID(1, 6), &desc);
-
+	if (!is_scm_armv8()) {
+		req.qsee_cmd_id = QSEOS_REGISTER_LOG_BUF_COMMAND;
+		req.phy_addr = (uint32_t)coh_pmem;
+		req.len = len;
+		/*  SCM_CALL  to register the log buffer */
+		ret = scm_call(SCM_SVC_TZSCHEDULER, 1,  &req, sizeof(req),
+			&resp, sizeof(resp));
+	} else {
+		desc.args[0] = coh_pmem;
+		desc.args[1] = len;
+		desc.arginfo = 0x22;
+		ret = scm_call2(SCM_QSEEOS_FNID(1, 6), &desc);
+		resp.result = desc.ret[0];
+	}
 	if (ret) {
 		pr_err("%s: scm_call to register log buffer failed\n",
 			__func__);
 		goto err;
 	}
 
-	if (desc.ret[0] != QSEOS_RESULT_SUCCESS) {
+	if (resp.result != QSEOS_RESULT_SUCCESS) {
 		pr_err(
 		"%s: scm_call to register log buf failed, resp result =%llu\n",
-		__func__, desc.ret[0]);
+		__func__, resp.result);
 		goto err;
 	}
 
@@ -999,19 +1013,26 @@ static void tzdbg_get_tz_version(void)
 {
 	uint32_t smc_id = 0;
 	uint32_t feature = 10;
+	struct qseecom_command_scm_resp resp = {0};
 	struct scm_desc desc = {0};
 	int ret = 0;
 
-	smc_id = TZ_INFO_GET_FEATURE_VERSION_ID;
-	desc.arginfo = TZ_INFO_GET_FEATURE_VERSION_ID_PARAM_ID;
-	desc.args[0] = feature;
-	ret = scm_call2(smc_id, &desc);
+	if (!is_scm_armv8()) {
+		ret = scm_call(SCM_SVC_INFO, SCM_SVC_UTIL,  &feature,
+					sizeof(feature), &resp, sizeof(resp));
+	} else {
+		smc_id = TZ_INFO_GET_FEATURE_VERSION_ID;
+		desc.arginfo = TZ_INFO_GET_FEATURE_VERSION_ID_PARAM_ID;
+		desc.args[0] = feature;
+		ret = scm_call2(smc_id, &desc);
+		resp.result = desc.ret[0];
+	}
 
 	if (ret)
 		pr_err("%s: scm_call to get tz version failed\n",
 				__func__);
 	else
-		tzdbg.tz_version = desc.ret[0];
+		tzdbg.tz_version = resp.result;
 
 }
 
