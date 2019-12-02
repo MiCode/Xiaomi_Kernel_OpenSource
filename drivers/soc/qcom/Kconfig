@@ -370,14 +370,6 @@ config QCOM_APR
           used by audio driver to configure QDSP6
           ASM, ADM and AFE modules.
 
-config QCOM_SECURE_CHAN_MANAGER
-	tristate "Secure Channel Manager (SCM) support"
-	help
-	  Say y or m here to enable Secure Channel Mananger (SCM)
-	  support for  Qualcomm SoC. SCM provides communication
-	  channel to communicate with secure world (EL2 and EL3)
-	  by using smc call.
-
 config QCOM_SECURE_BUFFER
 	tristate "Helper functions for secure buffers through TZ"
 	depends on QCOM_SCM

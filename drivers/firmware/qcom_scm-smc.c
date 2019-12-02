@@ -19,6 +19,9 @@
 
 #include "qcom_scm.h"
 
+#define CREATE_TRACE_POINTS
+#include <trace/events/scm.h>
+
 #define MAX_QCOM_SCM_ARGS 10
 #define MAX_QCOM_SCM_RETS 3
 
@@ -169,9 +172,14 @@ static void __qcom_scm_call_do_quirk(const struct arm_smccc_args *smc,
 				     struct arm_smccc_res *res)
 {
 	unsigned long a0 = smc->a[0];
+	ktime_t time;
+	const bool trace = trace_scm_call_enabled();
 	struct arm_smccc_quirk quirk = { .id = ARM_SMCCC_QUIRK_QCOM_A6 };
 
 	quirk.state.a6 = 0;
+
+	if (trace)
+		time = ktime_get();
 
 	do {
 		arm_smccc_smc_quirk(a0, smc->a[1], smc->a[2], smc->a[3],
@@ -182,6 +190,9 @@ static void __qcom_scm_call_do_quirk(const struct arm_smccc_args *smc,
 			a0 = res->a0;
 
 	} while (res->a0 == QCOM_SCM_INTERRUPTED);
+
+	if (trace)
+		trace_scm_call(smc->a, res, ktime_us_delta(ktime_get(), time));
 }
 
 static int qcom_scm_call_smccc(struct device *dev,
@@ -261,9 +272,7 @@ static int qcom_scm_call_smccc(struct device *dev,
 
 		do {
 			mutex_lock(&qcom_scm_lock);
-
 			__qcom_scm_call_do_quirk(&smc, &res);
-
 			mutex_unlock(&qcom_scm_lock);
 
 			if (res.a0 == QCOM_SCM_V2_EBUSY) {
@@ -329,10 +338,19 @@ static inline void *legacy_get_response_buffer(
 static void __qcom_scm_call_do(const struct arm_smccc_args *smc,
 			      struct arm_smccc_res *res)
 {
+	ktime_t time;
+	const bool trace = trace_scm_call_enabled();
+
+	if (trace)
+		time = ktime_get();
+
 	do {
 		arm_smccc_smc(smc->a[0], smc->a[1], smc->a[2], smc->a[3],
 			      smc->a[4], smc->a[5], smc->a[6], smc->a[7], res);
 	} while (res->a0 == QCOM_SCM_INTERRUPTED);
+
+	if (trace)
+		trace_scm_call(smc->a, res, ktime_us_delta(ktime_get(), time));
 }
 
 /**
@@ -438,6 +456,8 @@ static int qcom_scm_call_atomic_legacy(struct device *dev,
 	struct arm_smccc_args smc = {{0}};
 	struct arm_smccc_res res;
 	size_t i, arglen = desc->arginfo & 0xf;
+	const bool trace = trace_scm_call_enabled();
+	ktime_t time;
 
 	BUG_ON(arglen > LEGACY_ATOMIC_N_REG_ARGS);
 
@@ -447,8 +467,13 @@ static int qcom_scm_call_atomic_legacy(struct device *dev,
 	for (i = 0; i < arglen; i++)
 		smc.a[i + LEGACY_ATOMIC_FIRST_REG_IDX] = desc->args[i];
 
+	if (trace)
+		time = ktime_get();
 	arm_smccc_smc(smc.a[0], smc.a[1], smc.a[2], smc.a[3],
 		      smc.a[4], smc.a[5], smc.a[6], smc.a[7], &res);
+
+	if (trace)
+		trace_scm_call(smc.a, &res, ktime_us_delta(ktime_get(), time));
 
 	desc->res[0] = res.a1;
 	desc->res[1] = res.a2;
