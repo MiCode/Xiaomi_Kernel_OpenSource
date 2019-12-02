@@ -1724,6 +1724,7 @@
 		qcom,bandwidth-vote-for-ipa;
 		qcom,use-64-bit-dma-mask;
 		qcom,ipa-endp-delay-wa;
+		qcom,lan-rx-napi;
 		qcom,interconnect,num-cases = <5>;
 		qcom,interconnect,num-paths = <4>;
 		interconnects = <&aggre2_noc MASTER_IPA &gem_noc SLAVE_LLCC>,
