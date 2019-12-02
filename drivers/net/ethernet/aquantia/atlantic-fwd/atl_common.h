@@ -18,7 +18,7 @@
 #include <linux/netdevice.h>
 #include <linux/moduleparam.h>
 
-#define ATL_VERSION "1.0.30"
+#define ATL_VERSION "1.0.31"
 
 struct atl_nic;
 enum atl_fwd_notify;
@@ -38,7 +38,8 @@ enum {
 	ATL_RXF_VLAN_MAX = ATL_VLAN_FLT_NUM,
 	ATL_RXF_ETYPE_BASE = ATL_RXF_VLAN_BASE + ATL_RXF_VLAN_MAX,
 	ATL_RXF_ETYPE_MAX = ATL_ETYPE_FLT_NUM,
-	ATL_RXF_NTUPLE_BASE = ATL_RXF_ETYPE_BASE + ATL_RXF_ETYPE_MAX,
+	/* + 1 is for backward compatibility */
+	ATL_RXF_NTUPLE_BASE = ATL_RXF_ETYPE_BASE + ATL_RXF_ETYPE_MAX + 1,
 	ATL_RXF_NTUPLE_MAX = ATL_NTUPLE_FLT_NUM,
 	ATL_RXF_FLEX_BASE = ATL_RXF_NTUPLE_BASE + ATL_RXF_NTUPLE_MAX,
 	ATL_RXF_FLEX_MAX = 1,
@@ -266,9 +267,6 @@ enum atl_priv_flag_bits {
 extern const char atl_driver_name[];
 
 extern const struct ethtool_ops atl_ethtool_ops;
-#ifdef NETIF_F_HW_MACSEC
-extern const struct macsec_ops atl_macsec_ops;
-#endif
 
 extern unsigned int atl_max_queues;
 extern unsigned int atl_max_queues_non_msi;
@@ -351,11 +349,5 @@ int atl_update_thermal_flag(struct atl_hw *hw, int bit, bool val);
 int atl_verify_thermal_limits(struct atl_hw *hw, struct atl_thermal *thermal);
 int atl_do_reset(struct atl_nic *nic);
 int atl_set_media_detect(struct atl_nic *nic, bool on);
-int atl_init_macsec(struct atl_hw *hw);
-void atl_macsec_work(struct atl_nic *nic);
-int atl_macsec_rx_sa_cnt(struct atl_hw *hw);
-int atl_macsec_tx_sc_cnt(struct atl_hw *hw);
-int atl_macsec_tx_sa_cnt(struct atl_hw *hw);
-int atl_macsec_update_stats(struct atl_hw *hw);
 
 #endif

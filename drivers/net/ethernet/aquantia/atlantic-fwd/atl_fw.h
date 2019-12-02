@@ -163,95 +163,22 @@ enum macsec_msg_type {
 	macsec_get_stats_msg,
 };
 
-struct macsec_cfg {
-	uint32_t enabled;
-	uint32_t egress_threshold;
-	uint32_t ingress_threshold;
-	uint32_t interrupts_enabled;
-} __attribute__((__packed__));
-
-struct get_stats {
-	uint32_t version_only;
-	uint32_t ingress_sa_index;
-	uint32_t egress_sa_index;
-	uint32_t egress_sc_index;
+struct macsec_cfg_request {
+	u32 enabled;
+	u32 egress_threshold;
+	u32 ingress_threshold;
+	u32 interrupts_enabled;
 } __attribute__((__packed__));
 
 struct macsec_msg_fw_request {
-	uint32_t msg_id; /* not used */
-	uint32_t msg_type;
+	u32 msg_id; /* not used */
+	u32 msg_type;
 
-	union {
-		struct macsec_cfg cfg;
-		struct get_stats stats;
-	};
-} __attribute__((__packed__));
-
-struct atl_macsec_stats {
-    /* Retrieve Atlantic MACSEC FW version*/
-    uint32_t api_version;
-    /* Ingress Common Counters */
-    uint64_t In_ctl_pkts;
-    uint64_t In_tagged_miss_pkts;
-    uint64_t In_untagged_miss_pkts;
-    uint64_t In_notag_pkts;
-    uint64_t In_untagged_pkts;
-    uint64_t In_bad_tag_pkts;
-    uint64_t In_no_sci_pkts;
-    uint64_t In_unknown_sci_pkts;
-    uint64_t In_ctrl_prt_pass_pkts;
-    uint64_t In_unctrl_prt_pass_pkts;
-    uint64_t In_ctrl_prt_fail_pkts;
-    uint64_t In_unctrl_prt_fail_pkts;
-    uint64_t In_too_long_pkts;
-    uint64_t In_igpoc_ctl_pkts;
-    uint64_t In_ecc_error_pkts;
-    uint64_t In_unctrl_hit_drop_redir;
-
-    /* Egress Common Counters */
-    uint64_t Out_ctl_pkts;
-    uint64_t Out_unknown_sa_pkts;
-    uint64_t Out_untagged_pkts;
-    uint64_t Out_too_long;
-    uint64_t Out_ecc_error_pkts;
-    uint64_t Out_unctrl_hit_drop_redir;
-
-    /* Ingress SA Counters */
-    uint64_t In_untagged_hit_pkts;
-    uint64_t In_ctrl_hit_drop_redir_pkts;
-    uint64_t In_not_using_sa;
-    uint64_t In_unused_sa;
-    uint64_t In_not_valid_pkts;
-    uint64_t In_invalid_pkts;
-    uint64_t In_ok_pkts;
-    uint64_t In_late_pkts;
-    uint64_t In_delayed_pkts;
-    uint64_t In_unchecked_pkts;
-    uint64_t In_validated_octets;
-    uint64_t In_decrypted_octets;
-
-    /* Egress SA Counters */
-    uint64_t Out_sa_hit_drop_redirect;
-    uint64_t Out_sa_protected2_pkts;
-    uint64_t Out_sa_protected_pkts;
-    uint64_t Out_sa_encrypted_pkts;
-
-    /* Egress SC Counters */
-    uint64_t Out_sc_protected_pkts;
-    uint64_t Out_sc_encrypted_pkts;
-    uint64_t Out_sc_protected_octets;
-    uint64_t Out_sc_encrypted_octets;
-
-    /* SA Counters expiration info */
-    uint32_t egress_threshold_expired;
-    uint32_t ingress_threshold_expired;
-    uint32_t egress_expired;
-    uint32_t ingress_expired;
+	struct macsec_cfg_request cfg;
 } __attribute__((__packed__));
 
 struct macsec_msg_fw_response {
-	uint32_t result;
-	struct atl_macsec_stats stats;
+	u32 result;
 } __attribute__((__packed__));
 
 struct atl_fw_ops {

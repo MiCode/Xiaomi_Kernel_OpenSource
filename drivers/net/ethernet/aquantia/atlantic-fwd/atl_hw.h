@@ -89,7 +89,7 @@ struct atl_hw {
 	struct atl_thermal thermal;
 #define ATL_FW_CFG_DUMP_SIZE 2
 	uint32_t fw_cfg_dump[ATL_FW_CFG_DUMP_SIZE];
-#ifdef NETIF_F_HW_MACSEC
+#if IS_ENABLED(CONFIG_MACSEC) && defined(NETIF_F_HW_MACSEC)
 	struct atl_macsec_cfg macsec_cfg;
 #endif
 };

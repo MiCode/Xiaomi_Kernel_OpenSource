@@ -14,6 +14,7 @@
 #include "atl_mdio.h"
 #include "atl_ring.h"
 #include "atl_fwdnl.h"
+#include "atl_macsec.h"
 
 static uint32_t atl_ethtool_get_link(struct net_device *ndev)
 {
@@ -409,8 +410,8 @@ static void atl_get_pauseparam(struct net_device *ndev,
 	struct atl_fc_state *fc = &nic->hw.link_state.fc;
 
 	pause->autoneg = 0;
-	pause->rx_pause = !!(fc->cur & atl_fc_rx);
-	pause->tx_pause = !!(fc->cur & atl_fc_tx);
+	pause->rx_pause = !!(fc->req & atl_fc_rx);
+	pause->tx_pause = !!(fc->req & atl_fc_tx);
 }
 
 static int atl_set_pauseparam(struct net_device *ndev,
@@ -636,7 +637,7 @@ static const char atl_priv_flags[][ETH_GSTRING_LEN] = {
 	ATL_PRIV_FLAG(MediaDetect, MEDIA_DETECT),
 };
 
-#ifdef NETIF_F_HW_MACSEC
+#if IS_ENABLED(CONFIG_MACSEC) && defined(NETIF_F_HW_MACSEC)
 
 #define ATL_MACSEC_STAT(_name, _field)					\
 {									\
@@ -737,7 +738,7 @@ static int atl_get_sset_count(struct net_device *ndev, int sset)
 		       + ARRAY_SIZE(rx_stat_descs) *
 				 hweight_long(nic->fwd.ring_map[ATL_FWDIR_RX])
 #endif
-#ifdef NETIF_F_HW_MACSEC
+#if IS_ENABLED(CONFIG_MACSEC) && defined(NETIF_F_HW_MACSEC)
 		       + ARRAY_SIZE(macsec_stat_descs)
 		       + ARRAY_SIZE(macsec_tx_sc_stat_descs) *
 				 atl_macsec_tx_sc_cnt(&nic->hw)
@@ -810,16 +811,17 @@ static void atl_get_strings(struct net_device *ndev, uint32_t sset,
 					ARRAY_SIZE(rx_stat_descs));
 		}
 #endif
-#ifdef NETIF_F_HW_MACSEC
+#if IS_ENABLED(CONFIG_MACSEC) && defined(NETIF_F_HW_MACSEC)
 		atl_copy_stats_strings(&p, "macsec_", macsec_stat_descs,
 				       ARRAY_SIZE(macsec_stat_descs));
 
 		for (i = 0; i < ATL_MACSEC_MAX_SC; i++) {
-			if (!(test_bit(i, &nic->hw.macsec_cfg.txsc_idx_busy)))
-				continue;
 			struct atl_macsec_txsc *atl_txsc =
 				&nic->hw.macsec_cfg.atl_txsc[i];
 			int assoc_num;
+
+			if (!(test_bit(i, &nic->hw.macsec_cfg.txsc_idx_busy)))
+				continue;
 
 			snprintf(prefix, sizeof(prefix), "txsc%d_",
 				 atl_txsc->hw_sc_idx);
@@ -839,11 +841,12 @@ static void atl_get_strings(struct net_device *ndev, uint32_t sset,
 			}
 		}
 		for (i = 0; i < ATL_MACSEC_MAX_SC; i++) {
-			if (!(test_bit(i, &nic->hw.macsec_cfg.rxsc_idx_busy)))
-				continue;
 			struct atl_macsec_rxsc *atl_rxsc =
 				&nic->hw.macsec_cfg.atl_rxsc[i];
 			int assoc_num;
+
+			if (!(test_bit(i, &nic->hw.macsec_cfg.rxsc_idx_busy)))
+				continue;
 
 			for (assoc_num = 0; assoc_num < MACSEC_NUM_AN;
 			     assoc_num++) {
@@ -884,7 +887,7 @@ static void atl_get_ethtool_stats(struct net_device *ndev,
 
 	atl_update_eth_stats(nic);
 	atl_update_global_stats(nic);
-#ifdef NETIF_F_HW_MACSEC
+#if IS_ENABLED(CONFIG_MACSEC) && defined(NETIF_F_HW_MACSEC)
 	atl_macsec_update_stats(&nic->hw);
 #endif
 	atl_write_stats(&nic->stats.tx, tx_stat_descs, data, uint64_t);
@@ -918,16 +921,17 @@ static void atl_get_ethtool_stats(struct net_device *ndev,
 		}
 	}
 #endif
-#ifdef NETIF_F_HW_MACSEC
-	int assoc_num;
+#if IS_ENABLED(CONFIG_MACSEC) && defined(NETIF_F_HW_MACSEC)
 	atl_write_stats(&nic->hw.macsec_cfg.stats, macsec_stat_descs, data,
 			uint64_t);
 
 	for (i = 0; i < ATL_MACSEC_MAX_SC; i++) {
-		if (!(test_bit(i, &nic->hw.macsec_cfg.txsc_idx_busy)))
-			continue;
 		struct atl_macsec_txsc *atl_txsc =
 			&nic->hw.macsec_cfg.atl_txsc[i];
+		int assoc_num;
+
+		if (!(test_bit(i, &nic->hw.macsec_cfg.txsc_idx_busy)))
+			continue;
 
 		atl_write_stats(&atl_txsc->stats, macsec_tx_sc_stat_descs, data,
 				uint64_t);
@@ -941,11 +945,12 @@ static void atl_get_ethtool_stats(struct net_device *ndev,
 		}
 	}
 	for (i = 0; i < ATL_MACSEC_MAX_SC; i++) {
-		if (!(test_bit(i, &nic->hw.macsec_cfg.rxsc_idx_busy)))
-			continue;
 		struct atl_macsec_rxsc *atl_rxsc =
 			&nic->hw.macsec_cfg.atl_rxsc[i];
 		int assoc_num;
+
+		if (!(test_bit(i, &nic->hw.macsec_cfg.rxsc_idx_busy)))
+			continue;
 
 		for (assoc_num = 0; assoc_num < MACSEC_NUM_AN; assoc_num++) {
 			if (!test_bit(assoc_num, &atl_rxsc->rx_sa_idx_busy))
