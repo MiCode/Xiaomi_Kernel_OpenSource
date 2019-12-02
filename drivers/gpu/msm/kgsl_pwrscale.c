@@ -448,6 +448,7 @@ int kgsl_devfreq_add_notifier(struct device *dev,
 
 	return srcu_notifier_chain_register(&device->pwrscale.nh, nb);
 }
+EXPORT_SYMBOL(kgsl_devfreq_add_notifier);
 
 /*
  * kgsl_devfreq_del_notifier - remove a fine grained notifier.
@@ -468,7 +469,7 @@ int kgsl_devfreq_del_notifier(struct device *dev, struct notifier_block *nb)
 
 	return srcu_notifier_chain_unregister(&device->pwrscale.nh, nb);
 }
-
+EXPORT_SYMBOL(kgsl_devfreq_del_notifier);
 
 /*
  * kgsl_busmon_get_dev_status - devfreq_dev_profile.get_dev_status callback
