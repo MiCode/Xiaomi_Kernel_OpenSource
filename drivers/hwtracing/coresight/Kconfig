@@ -163,6 +163,23 @@ config CORESIGHT_DUMMY
 	  other subsystem and use Linux drivers to configure rest of trace
 	  path.
 
+config CORESIGHT_REMOTE_ETM
+	bool "Remote processor ETM trace support"
+	depends on QCOM_QMI_HELPERS=y
+	help
+	  Enables support for ETM trace collection on remote processor using
+	  CoreSight framework. Enabling this will allow turning on ETM
+	  tracing on remote processor via sysfs by configuring the required
+	  CoreSight components.
+
+config CORESIGHT_REMOTE_ETM_DEFAULT_ENABLE
+	int "default enable ETM for Remote processor based on instance id"
+	depends on CORESIGHT_REMOTE_ETM
+	default 0
+	help
+	  Support for enabling separated Remote processor ETM tracing. Depends
+	  on if instance id bit is set.
+
 config CORESIGHT_TGU
 	bool "CoreSight Trigger Generation Unit driver"
 	help
