@@ -110,6 +110,8 @@ struct kgsl_iommu {
 	struct kgsl_iommu_context user_context;
 	/** @secure_context: Container for the secure iommu context */
 	struct kgsl_iommu_context secure_context;
+	/** @lpac_context: Container for the LPAC iommu context */
+	struct kgsl_iommu_context lpac_context;
 	void __iomem *regbase;
 	unsigned long regstart;
 	unsigned int regsize;
@@ -125,6 +127,10 @@ struct kgsl_iommu {
 	 * be mapped in all contexts
 	 */
 	bool ppt_active;
+	/** @cb0_offset: Offset of context bank 0 from iommu register base */
+	u32 cb0_offset;
+	/** @pagesize: Size of each context bank register space */
+	u32 pagesize;
 };
 
 /*

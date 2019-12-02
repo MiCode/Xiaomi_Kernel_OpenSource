@@ -567,6 +567,26 @@ iommu_context_by_name(struct kgsl_iommu *iommu, u32 name)
 	return &iommu->user_context;
 }
 
+static int kgsl_iommu_lpac_fault_handler(struct iommu_domain *domain,
+	struct device *dev, unsigned long addr, int flags, void *token)
+{
+	struct kgsl_pagetable *pt = token;
+	struct kgsl_mmu *mmu = pt->mmu;
+	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
+	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
+	struct kgsl_iommu_context *ctx = &iommu->lpac_context;
+	u32 fsynr0, fsynr1;
+
+	fsynr0 = KGSL_IOMMU_GET_CTX_REG(ctx, FSYNR0);
+	fsynr1 = KGSL_IOMMU_GET_CTX_REG(ctx, FSYNR1);
+
+	dev_crit(device->dev,
+		"LPAC PAGE FAULT iova=0x%16lx, fsynr0=0x%x, fsynr1=0x%x\n",
+		addr, fsynr0, fsynr1);
+
+	return 0;
+}
+
 static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 	struct device *dev, unsigned long addr, int flags, void *token)
 {
@@ -1011,11 +1031,7 @@ static int _init_global_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
 	int ret = 0;
 	struct kgsl_iommu_pt *iommu_pt = NULL;
-	unsigned int mmu_idr1;
-	unsigned int mmu_pagesize;
-	unsigned int mmu_npages;
 	unsigned int cb_num;
-	unsigned int cb0_offset;
 	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
 	struct kgsl_iommu_context *ctx = &iommu->user_context;
 
@@ -1029,8 +1045,8 @@ static int _init_global_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 				DOMAIN_ATTR_PROCID, &pt->name);
 		if (ret) {
 			dev_err(device->dev,
-				"set DOMAIN_ATTR_PROCID failed: %d\n",
-				ret);
+				"%s: set DOMAIN_ATTR_PROCID failed: %d\n",
+				ctx->name, ret);
 			goto done;
 		}
 	}
@@ -1048,8 +1064,8 @@ static int _init_global_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 				DOMAIN_ATTR_CONTEXT_BANK, &cb_num);
 	if (ret) {
 		dev_err(device->dev,
-			"get DOMAIN_ATTR_CONTEXT_BANK failed: %d\n",
-			ret);
+			"%s: get DOMAIN_ATTR_CONTEXT_BANK failed: %d\n",
+			ctx->name, ret);
 		goto done;
 	}
 
@@ -1061,30 +1077,78 @@ static int _init_global_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 	}
 
 	ctx->cb_num = cb_num;
-	mmu_idr1 = readl_relaxed(iommu->regbase + KGSL_IOMMU_IDR1_OFFSET);
-	mmu_pagesize = FIELD_GET(IDR1_PAGESIZE, mmu_idr1) ? SZ_64K : SZ_4K;
-
-	/*
-	 * The number of pages in the global address space or translation
-	 * bank address space is 2^(NUMPAGENDXB + 1).
-	 */
-	mmu_npages = 1 << (FIELD_GET(IDR1_NUMPAGENDXB, mmu_idr1) + 1);
-	cb0_offset = mmu_pagesize * mmu_npages;
-	ctx->regbase = iommu->regbase + cb0_offset + (cb_num * mmu_pagesize);
+	ctx->regbase = iommu->regbase + iommu->cb0_offset +
+		(cb_num * iommu->pagesize);
 
 	ret = iommu_domain_get_attr(iommu_pt->domain,
 			DOMAIN_ATTR_TTBR0, &iommu_pt->ttbr0);
 	if (ret) {
-		dev_err(device->dev, "get DOMAIN_ATTR_TTBR0 failed: %d\n", ret);
+		dev_err(device->dev, "%s: get DOMAIN_ATTR_TTBR0 failed: %d\n",
+			ctx->name, ret);
 		goto done;
 	}
 	ret = iommu_domain_get_attr(iommu_pt->domain,
 			DOMAIN_ATTR_CONTEXTIDR, &iommu_pt->contextidr);
 	if (ret) {
-		dev_err(device->dev, "get DOMAIN_ATTR_CONTEXTIDR failed: %d\n",
-			ret);
+		dev_err(device->dev, "%s: get DOMAIN_ATTR_CONTEXTIDR failed: %d\n",
+			ctx->name, ret);
 		goto done;
 	}
+
+	kgsl_iommu_map_globals(mmu, pt);
+
+done:
+	if (ret)
+		_free_pt(ctx, pt);
+
+	return ret;
+}
+
+static int _init_global_lpac_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
+{
+	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
+	int ret = 0;
+	struct kgsl_iommu_pt *iommu_pt = NULL;
+	unsigned int cb_num;
+	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
+	struct kgsl_iommu_context *ctx = &iommu->lpac_context;
+
+	iommu_pt = _alloc_pt(&ctx->pdev->dev, mmu, pt);
+
+	if (IS_ERR(iommu_pt))
+		return PTR_ERR(iommu_pt);
+
+	_enable_gpuhtw_llc(mmu, iommu_pt);
+
+	ret = _attach_pt(iommu_pt, ctx);
+	if (ret)
+		goto done;
+
+	iommu_set_fault_handler(iommu_pt->domain,
+			kgsl_iommu_lpac_fault_handler, pt);
+
+	/* Try to get the ID of the context bank */
+	ret = iommu_domain_get_attr(iommu_pt->domain, DOMAIN_ATTR_CONTEXT_BANK,
+		&cb_num);
+
+	/*
+	 * If this returns -ENODEV then we can't figure out what the current
+	 * context bank is. This isn't fatal, but it does limit our ability to
+	 * debug in a pagefault.
+	 */
+	if (ret) {
+		if (ret != -ENODEV) {
+			dev_err(device->dev,
+				"%s: Unable to get DOMAIN_ATTR_CONTEXT_BANK: %d\n",
+				ctx->name, ret);
+			goto done;
+		}
+
+	}
+
+	ctx->cb_num = cb_num;
+	ctx->regbase = iommu->regbase + iommu->cb0_offset +
+		(cb_num * iommu->pagesize);
 
 	kgsl_iommu_map_globals(mmu, pt);
 
@@ -1230,6 +1294,9 @@ static int kgsl_iommu_init_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 
 	case KGSL_MMU_SECURE_PT:
 		return _init_secure_pt(mmu, pt);
+
+	case KGSL_MMU_GLOBAL_LPAC_PT:
+		return _init_global_lpac_pt(mmu, pt);
 
 	default:
 		return _init_per_process_pt(mmu, pt);
@@ -1422,6 +1489,43 @@ static int _setup_user_context(struct kgsl_mmu *mmu)
 	return 0;
 }
 
+static int _setup_lpac_context(struct kgsl_mmu *mmu)
+{
+	int ret = 0;
+	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
+	struct kgsl_iommu_context *ctx = &iommu->lpac_context;
+	struct kgsl_iommu_pt *iommu_pt = NULL;
+
+	/* If there was no lpac device node, then we don't need to set it up */
+	if (!ctx->pdev)
+		return 0;
+
+	if (mmu->lpac_pagetable == NULL) {
+		mmu->lpac_pagetable = kgsl_mmu_getpagetable(mmu,
+				KGSL_MMU_GLOBAL_LPAC_PT);
+		/* if we don't have a default pagetable, nothing will work */
+		if (IS_ERR(mmu->lpac_pagetable)) {
+			ret = PTR_ERR(mmu->lpac_pagetable);
+			mmu->lpac_pagetable = NULL;
+			return ret;
+		} else if (mmu->lpac_pagetable == NULL) {
+			return -ENOMEM;
+		}
+	}
+
+	iommu_pt = mmu->lpac_pagetable->priv;
+	if (iommu_pt == NULL)
+		return -ENODEV;
+
+	ret = _attach_pt(iommu_pt, ctx);
+	if (ret)
+		return ret;
+
+	ctx->default_pt = mmu->lpac_pagetable;
+
+	return 0;
+}
+
 static int _setup_secure_context(struct kgsl_mmu *mmu)
 {
 	int ret;
@@ -1450,10 +1554,36 @@ static int _setup_secure_context(struct kgsl_mmu *mmu)
 
 static int kgsl_iommu_set_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt);
 
+static void get_cb0_offset(struct kgsl_mmu *mmu)
+{
+	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
+	u32 mmu_idr1, mmu_npages;
+
+	if (iommu->cb0_offset)
+		return;
+
+	kgsl_mmu_enable_clk(mmu);
+
+	mmu_idr1 = readl_relaxed(iommu->regbase + KGSL_IOMMU_IDR1_OFFSET);
+
+	kgsl_mmu_disable_clk(mmu);
+
+	iommu->pagesize = FIELD_GET(IDR1_PAGESIZE, mmu_idr1) ? SZ_64K : SZ_4K;
+
+	/*
+	 * The number of pages in the global address space or translation
+	 * bank address space is 2^(NUMPAGENDXB + 1).
+	 */
+	mmu_npages = 1 << (FIELD_GET(IDR1_NUMPAGENDXB, mmu_idr1) + 1);
+	iommu->cb0_offset = iommu->pagesize * mmu_npages;
+}
+
 static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 {
 	int status;
 	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
+
+	get_cb0_offset(mmu);
 
 	/* Set the following registers only when the MMU type is QSMMU */
 	if (mmu->subtype != KGSL_IOMMU_SMMU_V500) {
@@ -1471,9 +1601,16 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 	if (status)
 		return status;
 
+	status = _setup_lpac_context(mmu);
+	if (status) {
+		_detach_context(&iommu->user_context);
+		return status;
+	}
+
 	status = _setup_secure_context(mmu);
 	if (status) {
 		_detach_context(&iommu->user_context);
+		_detach_context(&iommu->lpac_context);
 		return status;
 	}
 
@@ -2430,6 +2567,10 @@ static int _kgsl_iommu_probe(struct kgsl_device *device,
 		platform_device_put(pdev);
 	}
 
+	/* Probe "lpac" context bank if the platform demands it */
+	if (!ret)
+		kgsl_iommu_probe_child(device, node,
+			&iommu->lpac_context, "gfx3d_lpac");
 	return ret;
 }
 
