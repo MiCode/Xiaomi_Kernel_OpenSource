@@ -253,10 +253,47 @@ out:
 
 static DEVICE_ATTR_RW(fst_link_loss);
 
+static ssize_t
+snr_thresh_show(struct device *dev, struct device_attribute *attr,
+		char *buf)
+{
+	struct wil6210_priv *wil = dev_get_drvdata(dev);
+	ssize_t len = 0;
+
+	if (wil->snr_thresh.enabled)
+		len = snprintf(buf, PAGE_SIZE, "omni=%d, direct=%d\n",
+			       wil->snr_thresh.omni, wil->snr_thresh.direct);
+
+	return len;
+}
+
+static ssize_t
+snr_thresh_store(struct device *dev,
+		 struct device_attribute *attr,
+		 const char *buf, size_t count)
+{
+	struct wil6210_priv *wil = dev_get_drvdata(dev);
+	int rc;
+	short omni, direct;
+
+	/* to disable snr threshold, set both omni and direct to 0 */
+	if (sscanf(buf, "%hd %hd", &omni, &direct) != 2)
+		return -EINVAL;
+
+	rc = wmi_set_snr_thresh(wil, omni, direct);
+	if (!rc)
+		rc = count;
+
+	return rc;
+}
+
+static DEVICE_ATTR_RW(snr_thresh);
+
 static struct attribute *wil6210_sysfs_entries[] = {
 	&dev_attr_ftm_txrx_offset.attr,
 	&dev_attr_thermal_throttling.attr,
 	&dev_attr_fst_link_loss.attr,
+	&dev_attr_snr_thresh.attr,
 	NULL
 };
 
