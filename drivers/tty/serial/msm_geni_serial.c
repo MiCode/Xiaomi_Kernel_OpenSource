@@ -175,6 +175,7 @@ struct msm_geni_serial_port {
 	u32 cur_tx_remaining;
 	bool startup_in_progress;
 	bool is_console;
+	bool rumi_platform;
 };
 
 static const struct uart_ops msm_geni_serial_pops;
@@ -1999,6 +2000,13 @@ static void msm_geni_serial_set_termios(struct uart_port *uport,
 	unsigned long clk_rate;
 	unsigned long flags;
 
+	/* QUP_2.5.0 and older RUMI has sampling rate as 32 */
+	if (port->rumi_platform && port->is_console) {
+		geni_write_reg_nolog(0x21, uport->membase, GENI_SER_M_CLK_CFG);
+		geni_write_reg_nolog(0x21, uport->membase, GENI_SER_S_CLK_CFG);
+		geni_read_reg_nolog(uport->membase, GENI_SER_M_CLK_CFG);
+	}
+
 	if (!uart_console(uport)) {
 		int ret = msm_geni_serial_power_on(uport);
 
@@ -2338,6 +2346,13 @@ msm_geni_serial_earlycon_setup(struct earlycon_device *dev,
 	 */
 	msm_geni_serial_poll_cancel_tx(uport);
 
+	/* Only for earlyconsole */
+	if (IS_ENABLED(CONFIG_SERIAL_MSM_GENI_HALF_SAMPLING)) {
+		geni_write_reg_nolog(0x21, uport->membase, GENI_SER_M_CLK_CFG);
+		geni_write_reg_nolog(0x21, uport->membase, GENI_SER_S_CLK_CFG);
+		geni_read_reg_nolog(uport->membase, GENI_SER_M_CLK_CFG);
+	}
+
 	se_get_packing_config(8, 1, false, &cfg0, &cfg1);
 	geni_se_init(uport->membase, (DEF_FIFO_DEPTH_WORDS >> 1),
 					(DEF_FIFO_DEPTH_WORDS - 2));
@@ -2658,6 +2673,10 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 
 	dev_port->serial_rsc.ctrl_dev = &pdev->dev;
 
+	/* RUMI specific */
+	dev_port->rumi_platform = of_property_read_bool(pdev->dev.of_node,
+					"qcom,rumi_platform");
+
 	if (of_property_read_u32(pdev->dev.of_node, "qcom,wakeup-byte",
 					&wake_char)) {
 		dev_dbg(&pdev->dev, "No Wakeup byte specified\n");
@@ -2778,6 +2797,13 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 		pm_runtime_set_autosuspend_delay(&pdev->dev, 150);
 		pm_runtime_use_autosuspend(&pdev->dev);
 		pm_runtime_enable(&pdev->dev);
+	}
+
+	if (IS_ENABLED(CONFIG_SERIAL_MSM_GENI_HALF_SAMPLING) &&
+		dev_port->rumi_platform && dev_port->is_console) {
+		geni_write_reg_nolog(0x21, uport->membase, GENI_SER_M_CLK_CFG);
+		geni_write_reg_nolog(0x21, uport->membase, GENI_SER_S_CLK_CFG);
+		geni_read_reg_nolog(uport->membase, GENI_SER_M_CLK_CFG);
 	}
 
 	dev_info(&pdev->dev, "Serial port%d added.FifoSize %d is_console%d\n",
