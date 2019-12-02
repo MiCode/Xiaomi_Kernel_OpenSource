@@ -1522,14 +1522,14 @@ static int spi_geni_remove(struct platform_device *pdev)
 	struct spi_master *master = platform_get_drvdata(pdev);
 	struct spi_geni_master *geni_mas = spi_master_get_devdata(master);
 
-	spi_unregister_master(master);
 	se_geni_resources_off(&geni_mas->spi_rsc);
+	spi_unregister_master(master);
 	pm_runtime_put_noidle(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 	return 0;
 }
 
-#ifdef CONFIG_PM
+#if IS_ENABLED(CONFIG_PM)
 static int spi_geni_runtime_suspend(struct device *dev)
 {
 	int ret = 0;
@@ -1637,7 +1637,19 @@ static struct platform_driver spi_geni_driver = {
 		.of_match_table = spi_geni_dt_match,
 	},
 };
-module_platform_driver(spi_geni_driver);
+
+static int __init spi_dev_init(void)
+{
+	return platform_driver_register(&spi_geni_driver);
+}
+
+static void __exit spi_dev_exit(void)
+{
+	platform_driver_unregister(&spi_geni_driver);
+}
+
+module_init(spi_dev_init);
+module_exit(spi_dev_exit);
 
 MODULE_LICENSE("GPL v2");
 MODULE_ALIAS("platform:spi_geni");
