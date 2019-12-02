@@ -1366,6 +1366,10 @@ int smblib_set_icl_current(struct smb_charger *chg, int icl_ua)
 	/* suspend if 25mA or less is requested */
 	bool suspend = (icl_ua <= USBIN_25MA);
 
+	if (chg->chg_param.smb_version == PMI632_SUBTYPE)
+		schgm_flash_torch_priority(chg, suspend ? TORCH_BOOST_MODE :
+					TORCH_BUCK_MODE);
+
 	/* Do not configure ICL from SW for DAM cables */
 	if (smblib_get_prop_typec_mode(chg) ==
 			    POWER_SUPPLY_TYPEC_SINK_DEBUG_ACCESSORY)
