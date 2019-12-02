@@ -77,6 +77,7 @@ enum print_reason {
 #define DCIN_AICL_VOTER			"DCIN_AICL_VOTER"
 #define WLS_PL_CHARGING_VOTER		"WLS_PL_CHARGING_VOTER"
 #define ICL_CHANGE_VOTER		"ICL_CHANGE_VOTER"
+#define OVERHEAT_LIMIT_VOTER		"OVERHEAT_LIMIT_VOTER"
 
 #define BOOST_BACK_STORM_COUNT	3
 #define WEAK_CHG_STORM_COUNT	8
@@ -409,6 +410,7 @@ struct smb_charger {
 
 	/* CC Mode */
 	int	adapter_cc_mode;
+	int	thermal_overheat;
 
 	/* regulators */
 	struct smb_regulator	*vbus_vreg;
@@ -745,6 +747,8 @@ int smblib_get_die_health(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_smb_health(struct smb_charger *chg);
 int smblib_get_prop_connector_health(struct smb_charger *chg);
+int smblib_set_prop_thermal_overheat(struct smb_charger *chg,
+			       int therm_overheat);
 int smblib_get_skin_temp_status(struct smb_charger *chg);
 int smblib_get_prop_vph_voltage_now(struct smb_charger *chg,
 				union power_supply_propval *val);
