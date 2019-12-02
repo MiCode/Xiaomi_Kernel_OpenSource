@@ -1992,6 +1992,10 @@ static void msm_geni_serial_set_termios(struct uart_port *uport,
 	unsigned long clk_rate;
 	unsigned long flags;
 
+	geni_write_reg_nolog(0x21, uport->membase, GENI_SER_M_CLK_CFG);
+	geni_write_reg_nolog(0x21, uport->membase, GENI_SER_S_CLK_CFG);
+	geni_read_reg_nolog(uport->membase, GENI_SER_M_CLK_CFG);
+
 	if (!uart_console(uport)) {
 		int ret = msm_geni_serial_power_on(uport);
 
@@ -2329,6 +2333,10 @@ msm_geni_serial_earlycon_setup(struct earlycon_device *dev,
 	 * it else we could end up in data loss scenarios.
 	 */
 	msm_geni_serial_poll_cancel_tx(uport);
+
+	geni_write_reg_nolog(0x21, uport->membase, GENI_SER_M_CLK_CFG);
+	geni_write_reg_nolog(0x21, uport->membase, GENI_SER_S_CLK_CFG);
+	geni_read_reg_nolog(uport->membase, GENI_SER_M_CLK_CFG);
 
 	se_get_packing_config(8, 1, false, &cfg0, &cfg1);
 	geni_se_init(uport->membase, (DEF_FIFO_DEPTH_WORDS >> 1),
@@ -2773,6 +2781,10 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 		pm_runtime_use_autosuspend(&pdev->dev);
 		pm_runtime_enable(&pdev->dev);
 	}
+
+	geni_write_reg_nolog(0x21, uport->membase, GENI_SER_M_CLK_CFG);
+	geni_write_reg_nolog(0x21, uport->membase, GENI_SER_S_CLK_CFG);
+	geni_read_reg_nolog(uport->membase, GENI_SER_M_CLK_CFG);
 
 	dev_info(&pdev->dev, "Serial port%d added.FifoSize %d is_console%d\n",
 				line, uport->fifosize, is_console);
