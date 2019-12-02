@@ -78,6 +78,14 @@ config CORESIGHT_DYNAMIC_REPLICATOR
 	  The programmable ATB replicator allows independent filtering of the
 	  trace data based on the traceid.
 
+config CORESIGHT_DBGUI
+	bool "CoreSight DebugUI driver"
+	help
+	  This driver provides support for DebugUI that helps to capture
+	  the value at a specified address. It allows configuring DebugUI
+	  to select specified address and trigger mode based on user
+	  input.
+
 config CORESIGHT_STM
 	bool "CoreSight System Trace Macrocell driver"
 	depends on (ARM && !(CPU_32v3 || CPU_32v4 || CPU_32v4T)) || ARM64

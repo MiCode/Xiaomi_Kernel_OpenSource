@@ -82,6 +82,7 @@ its hardware characteristcs.
 		- "qcom,coresight-dummy"
 		- "qcom,coresight-remote-etm"
 		- "qcom,coresight-csr"
+		- "qcom,coresight-dbgui"
 
 	* port or ports: same as above.
 
