@@ -6,6 +6,7 @@ wil6210-y += netdev.o
 wil6210-y += cfg80211.o
 wil6210-y += pcie_bus.o
 wil6210-$(CONFIG_WIL6210_DEBUGFS) += debugfs.o
+wil6210-y += sysfs.o
 wil6210-y += wmi.o
 wil6210-y += interrupt.o
 wil6210-y += txrx.o
