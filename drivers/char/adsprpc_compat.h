@@ -5,7 +5,7 @@
 #ifndef ADSPRPC_COMPAT_H
 #define ADSPRPC_COMPAT_H
 
-#ifdef CONFIG_COMPAT
+#if IS_ENABLED(CONFIG_COMPAT)
 
 long compat_fastrpc_device_ioctl(struct file *filp, unsigned int cmd,
 				unsigned long arg);
