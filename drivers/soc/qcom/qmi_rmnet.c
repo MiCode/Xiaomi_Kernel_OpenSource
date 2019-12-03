@@ -205,6 +205,8 @@ int qmi_rmnet_flow_control(struct net_device *dev, u32 mq_idx, int enable)
 	else
 		netif_tx_stop_queue(q);
 
+	trace_dfc_qmi_tc(dev->name, mq_idx, enable);
+
 	return 0;
 }
 
@@ -266,15 +268,11 @@ static void __qmi_rmnet_bearer_put(struct net_device *dev,
 			if (reset) {
 				qmi_rmnet_reset_txq(dev, i);
 				qmi_rmnet_flow_control(dev, i, 1);
-				trace_dfc_qmi_tc(dev->name,
-					bearer->bearer_id, 0, 0, i, 1);
 
 				if (dfc_mode == DFC_MODE_SA) {
 					j = i + ACK_MQ_OFFSET;
 					qmi_rmnet_reset_txq(dev, j);
 					qmi_rmnet_flow_control(dev, j, 1);
-					trace_dfc_qmi_tc(dev->name,
-						bearer->bearer_id, 0, 0, j, 1);
 				}
 			}
 		}
@@ -312,18 +310,10 @@ static void __qmi_rmnet_update_mq(struct net_device *dev,
 
 		qmi_rmnet_flow_control(dev, itm->mq_idx,
 				       bearer->grant_size > 0 ? 1 : 0);
-		trace_dfc_qmi_tc(dev->name, itm->bearer_id,
-				 bearer->grant_size, 0, itm->mq_idx,
-				 bearer->grant_size > 0 ? 1 : 0);
 
-		if (dfc_mode == DFC_MODE_SA) {
+		if (dfc_mode == DFC_MODE_SA)
 			qmi_rmnet_flow_control(dev, bearer->ack_mq_idx,
 					bearer->grant_size > 0 ? 1 : 0);
-			trace_dfc_qmi_tc(dev->name, itm->bearer_id,
-					bearer->grant_size, 0,
-					bearer->ack_mq_idx,
-					bearer->grant_size > 0 ? 1 : 0);
-		}
 	}
 }
 
@@ -474,6 +464,18 @@ static void qmi_rmnet_query_flows(struct qmi_info *qmi)
 		if (qmi->dfc_clients[i] && !dfc_qmap)
 			dfc_qmi_query_flow(qmi->dfc_clients[i]);
 	}
+}
+
+struct rmnet_bearer_map *qmi_rmnet_get_bearer_noref(struct qos_info *qos_info,
+						    u8 bearer_id)
+{
+	struct rmnet_bearer_map *bearer;
+
+	bearer = __qmi_rmnet_bearer_get(qos_info, bearer_id);
+	if (bearer)
+		bearer->flow_ref--;
+
+	return bearer;
 }
 
 #else
@@ -780,7 +782,8 @@ static bool qmi_rmnet_is_tcp_ack(struct sk_buff *skb)
 		if ((ip_hdr(skb)->protocol == IPPROTO_TCP) &&
 		    (ip_hdr(skb)->ihl == 5) &&
 		    (len == 40 || len == 52) &&
-		    ((tcp_flag_word(tcp_hdr(skb)) & 0xFF00) == TCP_FLAG_ACK))
+		    ((tcp_flag_word(tcp_hdr(skb)) &
+		      cpu_to_be32(0x00FF0000)) == TCP_FLAG_ACK))
 			return true;
 		break;
 
@@ -788,7 +791,8 @@ static bool qmi_rmnet_is_tcp_ack(struct sk_buff *skb)
 	case htons(ETH_P_IPV6):
 		if ((ipv6_hdr(skb)->nexthdr == IPPROTO_TCP) &&
 		    (len == 60 || len == 72) &&
-		    ((tcp_flag_word(tcp_hdr(skb)) & 0xFF00) == TCP_FLAG_ACK))
+		    ((tcp_flag_word(tcp_hdr(skb)) &
+		      cpu_to_be32(0x00FF0000)) == TCP_FLAG_ACK))
 			return true;
 		break;
 	}
