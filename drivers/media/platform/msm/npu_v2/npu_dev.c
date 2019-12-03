@@ -1591,8 +1591,9 @@ static int npu_parse_dt_clock(struct npu_device *npu_dev)
 			sizeof(core_clks[i].clk_name));
 		core_clks[i].clk = devm_clk_get(&pdev->dev, clock_name);
 		if (IS_ERR(core_clks[i].clk)) {
-			NPU_ERR("unable to get clk: %s\n", clock_name);
-			rc = -EINVAL;
+			if (PTR_ERR(core_clks[i].clk) != -EPROBE_DEFER)
+				NPU_ERR("unable to get clk: %s\n", clock_name);
+			rc = PTR_ERR(core_clks[i].clk);
 			break;
 		}
 
