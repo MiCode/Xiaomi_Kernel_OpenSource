@@ -2839,3 +2839,10 @@ int32_t npu_host_get_perf_mode(struct npu_client *client, uint32_t network_hdl)
 
 	return param_val;
 }
+
+void npu_host_suspend(struct npu_device *npu_dev)
+{
+	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
+
+	flush_delayed_work(&host_ctx->disable_fw_work);
+}
