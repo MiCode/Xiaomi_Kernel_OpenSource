@@ -914,12 +914,9 @@ static int a6xx_gmu_wait_for_lowest_idle(struct kgsl_device *device)
 
 	/* Collect abort data to help with debugging */
 	gmu_core_regread(device, A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS, &reg2);
-	kgsl_regread(device, A6XX_CP_STATUS_1, &reg3);
-	gmu_core_regread(device, A6XX_GMU_RBBM_INT_UNMASKED_STATUS, &reg4);
-	gmu_core_regread(device, A6XX_GMU_GMU_PWR_COL_KEEPALIVE, &reg5);
-	kgsl_regread(device, A6XX_CP_CP2GMU_STATUS, &reg6);
-	kgsl_regread(device, A6XX_CP_CONTEXT_SWITCH_CNTL, &reg7);
-	gmu_core_regread(device, A6XX_GMU_AO_SPARE_CNTL, &reg8);
+	gmu_core_regread(device, A6XX_GMU_RBBM_INT_UNMASKED_STATUS, &reg3);
+	gmu_core_regread(device, A6XX_GMU_GMU_PWR_COL_KEEPALIVE, &reg4);
+	gmu_core_regread(device, A6XX_GMU_AO_SPARE_CNTL, &reg5);
 
 	dev_err(&gmu->pdev->dev,
 		"----------------------[ GMU error ]----------------------\n");
@@ -933,14 +930,23 @@ static int a6xx_gmu_wait_for_lowest_idle(struct kgsl_device *device)
 		ts3-ts2);
 	dev_err(&gmu->pdev->dev,
 		"RPMH_POWER_STATE=%x SPTPRAC_PWR_CLK_STATUS=%x\n", reg, reg1);
-	dev_err(&gmu->pdev->dev,
-		"CX_BUSY_STATUS=%x CP_STATUS_1=%x\n", reg2, reg3);
+	dev_err(&gmu->pdev->dev, "CX_BUSY_STATUS=%x\n", reg2);
 	dev_err(&gmu->pdev->dev,
 		"RBBM_INT_UNMASKED_STATUS=%x PWR_COL_KEEPALIVE=%x\n",
-		reg4, reg5);
-	dev_err(&gmu->pdev->dev,
-		"CP2GMU_STATUS=%x CONTEXT_SWITCH_CNTL=%x AO_SPARE_CNTL=%x\n",
-		reg6, reg7, reg8);
+		reg3, reg4);
+	dev_err(&gmu->pdev->dev, "A6XX_GMU_AO_SPARE_CNTL=%x\n", reg5);
+
+	/* Access GX registers only when GX is ON */
+	if (is_on(reg1)) {
+		kgsl_regread(device, A6XX_CP_STATUS_1, &reg6);
+		kgsl_regread(device, A6XX_CP_CP2GMU_STATUS, &reg7);
+		kgsl_regread(device, A6XX_CP_CONTEXT_SWITCH_CNTL, &reg8);
+
+		dev_err(&gmu->pdev->dev, "A6XX_CP_STATUS_1=%x\n", reg6);
+		dev_err(&gmu->pdev->dev,
+			"CP2GMU_STATUS=%x CONTEXT_SWITCH_CNTL=%x\n",
+			reg7, reg8);
+	}
 
 	WARN_ON(1);
 	return -ETIMEDOUT;
