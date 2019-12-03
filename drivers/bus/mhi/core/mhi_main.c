@@ -437,8 +437,6 @@ int mhi_queue_dma(struct mhi_device *mhi_dev,
 	struct mhi_ring *buf_ring = &mhi_chan->buf_ring;
 	struct mhi_buf_info *buf_info;
 	struct mhi_tre *mhi_tre;
-	bool ring_db = true;
-	int nr_tre;
 
 	if (mhi_is_ring_full(mhi_cntrl, tre_ring))
 		return -ENOMEM;
@@ -478,15 +476,6 @@ int mhi_queue_dma(struct mhi_device *mhi_dev,
 		mhi_tre->dword[0] =
 			MHI_RSCTRE_DATA_DWORD0(buf_ring->wp - buf_ring->base);
 		mhi_tre->dword[1] = MHI_RSCTRE_DATA_DWORD1;
-		/*
-		 * on RSC channel IPA HW has a minimum credit requirement before
-		 * switching to DB mode
-		 */
-		nr_tre = mhi_get_no_free_descriptors(mhi_dev, DMA_FROM_DEVICE);
-		read_lock_bh(&mhi_chan->lock);
-		if (mhi_chan->db_cfg.db_mode && nr_tre < MHI_RSC_MIN_CREDITS)
-			ring_db = false;
-		read_unlock_bh(&mhi_chan->lock);
 	} else {
 		mhi_tre->ptr = MHI_TRE_DATA_PTR(buf_info->p_addr);
 		mhi_tre->dword[0] = MHI_TRE_DATA_DWORD0(buf_info->len);
@@ -504,7 +493,7 @@ int mhi_queue_dma(struct mhi_device *mhi_dev,
 	if (mhi_chan->dir == DMA_TO_DEVICE)
 		atomic_inc(&mhi_cntrl->pending_pkts);
 
-	if (likely(MHI_DB_ACCESS_VALID(mhi_cntrl)) && ring_db) {
+	if (likely(MHI_DB_ACCESS_VALID(mhi_cntrl))) {
 		read_lock_bh(&mhi_chan->lock);
 		mhi_ring_chan_db(mhi_cntrl, mhi_chan);
 		read_unlock_bh(&mhi_chan->lock);
@@ -919,8 +908,6 @@ static int parse_xfer_event(struct mhi_controller *mhi_cntrl,
 	u32 ev_code;
 	struct mhi_result result;
 	unsigned long flags = 0;
-	bool ring_db = true;
-	int nr_tre;
 
 	ev_code = MHI_TRE_GET_EV_CODE(event);
 	buf_ring = &mhi_chan->buf_ring;
@@ -1015,21 +1002,9 @@ static int parse_xfer_event(struct mhi_controller *mhi_cntrl,
 
 		MHI_VERB("DB_MODE/OOB Detected chan %d.\n", mhi_chan->chan);
 		mhi_chan->db_cfg.db_mode = true;
-
-		/*
-		 * on RSC channel IPA HW has a minimum credit requirement before
-		 * switching to DB mode
-		 */
-		if (mhi_chan->xfer_type == MHI_XFER_RSC_DMA) {
-			nr_tre = mhi_get_no_free_descriptors(mhi_chan->mhi_dev,
-					DMA_FROM_DEVICE);
-			if (nr_tre < MHI_RSC_MIN_CREDITS)
-				ring_db = false;
-		}
-
 		read_lock_irqsave(&mhi_cntrl->pm_lock, flags);
 		if (tre_ring->wp != tre_ring->rp &&
-		    MHI_DB_ACCESS_VALID(mhi_cntrl) && ring_db) {
+		    MHI_DB_ACCESS_VALID(mhi_cntrl)) {
 			mhi_ring_chan_db(mhi_cntrl, mhi_chan);
 		}
 		read_unlock_irqrestore(&mhi_cntrl->pm_lock, flags);
