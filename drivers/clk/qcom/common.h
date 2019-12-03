@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014, 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -61,6 +61,11 @@ struct qcom_cc_dfs_desc {
 	size_t num_clks;
 };
 
+struct qcom_cc_critical_desc {
+	struct clk_regmap **clks;
+	size_t num_clks;
+};
+
 extern const struct freq_tbl *qcom_find_freq(const struct freq_tbl *f,
 					     unsigned long rate);
 extern const struct freq_tbl *qcom_find_freq_floor(const struct freq_tbl *f,
@@ -84,4 +89,6 @@ extern int qcom_cc_probe(struct platform_device *pdev,
 extern const struct clk_ops clk_dummy_ops;
 extern int qcom_cc_register_rcg_dfs(struct platform_device *pdev,
 			 const struct qcom_cc_dfs_desc *desc);
+extern int qcom_cc_enable_critical_clks(
+		const struct qcom_cc_critical_desc *desc);
 #endif
