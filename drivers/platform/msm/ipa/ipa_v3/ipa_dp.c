@@ -717,8 +717,10 @@ int ipa3_send_cmd_timeout(u16 num_desc, struct ipa3_desc *descr, u32 timeout)
 
 	completed = wait_for_completion_timeout(
 		&comp->comp, msecs_to_jiffies(timeout));
-	if (!completed)
+	if (!completed) {
 		IPADBG("timeout waiting for imm-cmd ACK\n");
+		result = -EBUSY;
+	}
 
 	if (atomic_dec_return(&comp->cnt) == 0)
 		kfree(comp);

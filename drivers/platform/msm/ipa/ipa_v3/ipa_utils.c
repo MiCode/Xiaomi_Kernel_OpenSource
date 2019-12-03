@@ -64,6 +64,7 @@
 
 #define IPA_FILT_ROUT_HASH_REG_VAL_v4_2 (0x00000000)
 #define IPA_DMA_TASK_FOR_GSI_TIMEOUT_MSEC (15)
+#define IPA_COAL_CLOSE_FRAME_CMD_TIMEOUT_MSEC (500)
 
 #define IPA_AGGR_BYTE_LIMIT (\
 		IPA_ENDP_INIT_AGGR_N_AGGR_BYTE_LIMIT_BMSK >> \
@@ -8120,7 +8121,7 @@ void ipa3_force_close_coal(void)
 
 	IPADBG("Sending 1 descriptor for coal force close\n");
 	if (ipa3_send_cmd_timeout(1, &desc,
-		IPA_DMA_TASK_FOR_GSI_TIMEOUT_MSEC)) {
+		IPA_COAL_CLOSE_FRAME_CMD_TIMEOUT_MSEC)) {
 		IPAERR("ipa3_send_cmd failed\n");
 		ipa_assert();
 	}
@@ -8130,9 +8131,6 @@ void ipa3_force_close_coal(void)
 int ipa3_suspend_apps_pipes(bool suspend)
 {
 	int res;
-
-	if (suspend)
-		ipa3_force_close_coal();
 
 	/* As per HPG first need start/stop coalescing channel
 	 * then default one. Coalescing client number was greater then
