@@ -874,6 +874,9 @@
 		qcom,retain-regs;
 	};
 
+	thermal_zones: thermal-zones {
+	};
+
 	cache-controller@9200000 {
 		compatible = "qcom,lahaina-llcc", "qcom,llcc-v2";
 		reg = <0x9200000 0x1d0000> , <0x9600000 0x50000>;

@@ -1,4 +1,5 @@
 #include "lahaina.dtsi"
+#include "lahaina-pmic-overlay.dtsi"
 
 &ufsphy_mem {
 	compatible = "qcom,ufs-phy-qrbtc-sdm845";
