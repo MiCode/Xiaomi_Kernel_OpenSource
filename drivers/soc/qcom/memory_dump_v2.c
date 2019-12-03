@@ -478,7 +478,7 @@ static struct msm_dump_table *msm_dump_get_table(enum msm_dump_table_ids id)
 {
 	struct msm_dump_table *table = memdump.table;
 	int i;
-
+	unsigned long offset;
 	if (!table) {
 		pr_err("mem dump base table does not exist\n");
 		return ERR_PTR(-EINVAL);
@@ -493,8 +493,9 @@ static struct msm_dump_table *msm_dump_get_table(enum msm_dump_table_ids id)
 		return ERR_PTR(-EINVAL);
 	}
 
+	offset = table->entries[i].addr - memdump.table_phys;
 	/* Get the apps table pointer */
-	table = phys_to_virt(table->entries[i].addr);
+	table = (void *)memdump.table + offset;
 
 	return table;
 }
