@@ -14,6 +14,7 @@
 #include <linux/reboot.h>
 #include <linux/pm.h>
 #include <linux/qcom_scm.h>
+#include <soc/qcom/minidump.h>
 
 enum qcom_download_dest {
 	QCOM_DOWNLOAD_DEST_UNKNOWN = -1,
@@ -32,16 +33,47 @@ struct qcom_dload {
 
 #define to_qcom_dload(o) container_of(o, struct qcom_dload, kobj)
 
+#define QCOM_DOWNLOAD_BOTHDUMP (QCOM_DOWNLOAD_FULLDUMP | QCOM_DOWNLOAD_MINIDUMP)
+
 static bool enable_dump =
 	IS_ENABLED(CONFIG_POWER_RESET_QCOM_DOWNLOAD_MODE_DEFAULT);
 static enum qcom_download_mode current_download_mode = QCOM_DOWNLOAD_NODUMP;
+static enum qcom_download_mode dump_mode = QCOM_DOWNLOAD_FULLDUMP;
 
 static int set_download_mode(enum qcom_download_mode mode)
 {
+	if ((mode & QCOM_DOWNLOAD_MINIDUMP) && !msm_minidump_enabled()) {
+		mode &= ~QCOM_DOWNLOAD_MINIDUMP;
+		pr_warn("Minidump not enabled.\n");
+		if (!mode)
+			return -ENODEV;
+	}
 	current_download_mode = mode;
 	qcom_scm_set_download_mode(mode, 0);
 	return 0;
 }
+
+static int set_dump_mode(enum qcom_download_mode mode)
+{
+	int ret = 0;
+
+	if (enable_dump) {
+		ret = set_download_mode(mode);
+		if (likely(!ret))
+			dump_mode = mode;
+	} else
+		dump_mode = mode;
+	return ret;
+}
+
+static void msm_enable_dump_mode(bool enable)
+{
+	if (enable)
+		set_download_mode(dump_mode);
+	else
+		set_download_mode(QCOM_DOWNLOAD_NODUMP);
+}
+
 static void set_download_dest(struct qcom_dload *poweroff,
 			      enum qcom_download_dest dest)
 {
@@ -66,7 +98,7 @@ static int param_set_download_mode(const char *val,
 	if (ret)
 		return ret;
 
-	set_download_mode(QCOM_DOWNLOAD_FULLDUMP);
+	msm_enable_dump_mode(true);
 
 	return 0;
 }
@@ -154,8 +186,53 @@ static ssize_t emmc_dload_store(struct kobject *kobj,
 }
 static struct reset_attribute attr_emmc_dload = __ATTR_RW(emmc_dload);
 
+static ssize_t dload_mode_show(struct kobject *kobj,
+			       struct attribute *this,
+			       char *buf)
+{
+	const char *mode;
+
+	switch ((unsigned int)dump_mode) {
+	case QCOM_DOWNLOAD_FULLDUMP:
+		mode = "full";
+		break;
+	case QCOM_DOWNLOAD_MINIDUMP:
+		mode = "mini";
+		break;
+	case QCOM_DOWNLOAD_BOTHDUMP:
+		mode = "both";
+		break;
+	default:
+		mode = "unknown";
+		break;
+	}
+	return scnprintf(buf, PAGE_SIZE, "DLOAD dump type: %s\n", mode);
+}
+static ssize_t dload_mode_store(struct kobject *kobj,
+				struct attribute *this,
+				const char *buf, size_t count)
+{
+	enum qcom_download_mode mode;
+
+	if (sysfs_streq(buf, "full"))
+		mode = QCOM_DOWNLOAD_FULLDUMP;
+	else if (sysfs_streq(buf, "mini"))
+		mode = QCOM_DOWNLOAD_MINIDUMP;
+	else if (sysfs_streq(buf, "both"))
+		mode = QCOM_DOWNLOAD_BOTHDUMP;
+	else {
+		pr_err("Invalid dump mode request...\n");
+		pr_err("Supported dumps: 'full', 'mini', or 'both'\n");
+		return -EINVAL;
+	}
+
+	return set_dump_mode(mode) ? : count;
+}
+static struct reset_attribute attr_dload_mode = __ATTR_RW(dload_mode);
+
 static struct attribute *qcom_dload_attrs[] = {
 	&attr_emmc_dload.attr,
+	&attr_dload_mode.attr,
 	NULL
 };
 static struct attribute_group qcom_dload_attr_group = {
@@ -169,7 +246,7 @@ static int qcom_dload_panic(struct notifier_block *this, unsigned long event,
 						     panic_nb);
 	poweroff->in_panic = true;
 	if (enable_dump)
-		set_download_mode(QCOM_DOWNLOAD_FULLDUMP);
+		msm_enable_dump_mode(true);
 	return NOTIFY_OK;
 }
 
@@ -188,7 +265,7 @@ static int qcom_dload_reboot(struct notifier_block *this, unsigned long event,
 		if (!strcmp(cmd, "edl"))
 			set_download_mode(QCOM_DOWNLOAD_EDL);
 		else if (!strcmp(cmd, "qcom_dload"))
-			set_download_mode(QCOM_DOWNLOAD_FULLDUMP);
+			msm_enable_dump_mode(true);
 	}
 
 	if (current_download_mode != QCOM_DOWNLOAD_NODUMP)
@@ -261,12 +338,9 @@ static int qcom_dload_probe(struct platform_device *pdev)
 	poweroff->dload_dest_addr = map_prop_mem("qcom,msm-imem-dload-type");
 	store_kaslr_offset();
 
-	if (enable_dump)
-		set_download_mode(QCOM_DOWNLOAD_FULLDUMP);
-	else {
-		set_download_mode(QCOM_DOWNLOAD_NODUMP);
+	msm_enable_dump_mode(enable_dump);
+	if (!enable_dump)
 		qcom_scm_disable_sdi();
-	}
 
 	poweroff->panic_nb.notifier_call = qcom_dload_panic;
 	poweroff->panic_nb.priority = INT_MAX;
