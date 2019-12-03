@@ -460,6 +460,9 @@ static int __qseecom_scm_call2_locked(uint32_t smc_id, struct scm_desc *desc)
 	int ret = 0;
 	int retry_count = 0;
 
+	if (qseecom.support_bus_scaling)
+		return scm_call2(smc_id, desc);
+
 	do {
 		ret = scm_call2_noretry(smc_id, desc);
 		if (ret == -EBUSY) {
