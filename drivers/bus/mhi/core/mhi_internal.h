@@ -938,16 +938,16 @@ void mhi_ev_task(unsigned long data);
 
 #ifdef CONFIG_MHI_DEBUG
 
-#define MHI_ASSERT(cond, msg) do { \
+#define MHI_ASSERT(cond, fmt, ...) do { \
 	if (cond) \
-		panic(msg); \
+		panic(fmt); \
 } while (0)
 
 #else
 
-#define MHI_ASSERT(cond, msg) do { \
+#define MHI_ASSERT(cond, fmt, ...) do { \
 	if (cond) { \
-		MHI_ERR(msg); \
+		MHI_ERR(fmt); \
 		WARN_ON(cond); \
 	} \
 } while (0)
