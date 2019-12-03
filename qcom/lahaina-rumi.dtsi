@@ -1,6 +1,10 @@
 #include "lahaina.dtsi"
 #include "lahaina-pmic-overlay.dtsi"
 
+&spmi_debug_bus {
+	status = "ok";
+};
+
 &ufsphy_mem {
 	compatible = "qcom,ufs-phy-qrbtc-sdm845";
 
