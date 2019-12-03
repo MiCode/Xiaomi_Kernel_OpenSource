@@ -327,6 +327,17 @@ static struct platform_driver qcom_secure_buffer_driver = {
 		.of_match_table = qcom_secure_buffer_of_match,
 	},
 };
-module_platform_driver(qcom_secure_buffer_driver);
+
+static int __init qcom_secure_buffer_init(void)
+{
+	return platform_driver_register(&qcom_secure_buffer_driver);
+}
+subsys_initcall(qcom_secure_buffer_init);
+
+static void __exit qcom_secure_buffer_exit(void)
+{
+	return platform_driver_unregister(&qcom_secure_buffer_driver);
+}
+module_exit(qcom_secure_buffer_exit);
 
 MODULE_LICENSE("GPL v2");
