@@ -155,7 +155,10 @@ struct wigig_sensing_stm {
 	enum wigig_sensing_stm_e state;
 	enum wigig_sensing_mode mode;
 	u32 burst_size;
+	u32 channel;
 	u32 channel_request;
+	enum wigig_sensing_stm_e state_request;
+	enum wigig_sensing_mode mode_request;
 };
 
 struct wigig_sensing_ctx {

@@ -542,19 +542,23 @@ static int wigig_sensing_ioc_change_mode(struct wigig_sensing_ctx *ctx,
 					 struct wigig_sensing_change_mode req)
 {
 	struct wigig_sensing_stm sim_state;
-	enum wigig_sensing_stm_e new_state;
 	int rc;
 	u32 ch;
 
-	pr_info("mode = %d, channel = %d\n", req.mode, req.channel);
+	pr_info("mode = %d, channel = %d, has_channel = %d\n",
+		req.mode, req.channel, req.has_channel);
 	if (!ctx)
 		return -EINVAL;
 
+	/* Save the request for later use */
+	ctx->stm.mode_request = req.mode;
+
 	/* Simulate a state change */
-	new_state = convert_mode_to_state(req.mode);
+	ctx->stm.state_request = convert_mode_to_state(req.mode);
 	sim_state = ctx->stm;
-	rc = wigig_sensing_change_state(ctx, &sim_state, new_state);
-	if (rc || sim_state.state != new_state) {
+	rc = wigig_sensing_change_state(ctx, &sim_state,
+					ctx->stm.state_request);
+	if (rc || sim_state.state != ctx->stm.state_request) {
 		pr_err("State change not allowed\n");
 		rc = -EFAULT;
 		goto End;
@@ -563,6 +567,7 @@ static int wigig_sensing_ioc_change_mode(struct wigig_sensing_ctx *ctx,
 	/* Send command to FW */
 	ctx->stm.change_mode_in_progress = true;
 	ch = req.has_channel ? req.channel : 0;
+	ctx->stm.channel_request = ch;
 	ctx->stm.burst_size_ready = false;
 	/* Change mode command must not be called during DRI processing */
 	mutex_lock(&ctx->dri_lock);
@@ -583,29 +588,25 @@ static int wigig_sensing_ioc_change_mode(struct wigig_sensing_ctx *ctx,
 		/* Interrupted by a signal */
 		pr_err("wait_event_interruptible_timeout() interrupted by a signal (%d)\n",
 		       rc);
-		return rc;
+		goto End;
 	}
 	if (rc == 0) {
 		/* Timeout, FW did not respond in time */
 		pr_err("wait_event_interruptible_timeout() timed out\n");
-		return -ETIME;
-	}
-
-	/* Change internal state */
-	rc = wigig_sensing_change_state(ctx, &ctx->stm, new_state);
-	if (rc || ctx->stm.state != new_state) {
-		pr_err("wigig_sensing_change_state() failed\n");
-		rc = -EFAULT;
+		rc = -ETIME;
 		goto End;
 	}
 
-	ctx->dropped_bursts = 0;
-	ctx->stm.channel_request = ch;
-	ctx->stm.mode = req.mode;
-	ctx->stm.change_mode_in_progress = false;
+	if (ctx->stm.state != ctx->stm.state_request) {
+		pr_err("wigig_sensing_change_state() failed\n");
+		rc = -EFAULT;
+	}
 
 End:
-	return ctx->stm.burst_size;
+	ctx->stm.state_request = WIGIG_SENSING_STATE_MIN;
+	ctx->stm.channel_request = 0;
+	ctx->stm.mode_request = WIGIG_SENSING_MODE_STOP;
+	return (rc == 0) ? ctx->stm.burst_size : rc;
 }
 
 static int wigig_sensing_ioc_clear_data(struct wigig_sensing_ctx *ctx)
@@ -682,7 +683,8 @@ static unsigned int wigig_sensing_poll(struct file *filp, poll_table *wait)
 
 	poll_wait(filp, &ctx->data_wait_q, wait);
 
-	if (circ_cnt(&ctx->cir_data.b, ctx->cir_data.size_bytes))
+	if (!ctx->stm.change_mode_in_progress &&
+	    circ_cnt(&ctx->cir_data.b, ctx->cir_data.size_bytes))
 		mask |= (POLLIN | POLLRDNORM);
 
 	if (ctx->event_pending)
@@ -705,6 +707,9 @@ static ssize_t wigig_sensing_read(struct file *filp, char __user *buf,
 	    (!ctx->spi_dev) ||
 	    (!d->b.buf))
 		return -ENODEV;
+
+	if (ctx->stm.change_mode_in_progress)
+		return -EINVAL;
 
 	/* No data in the buffer */
 	while (circ_cnt(&d->b, d->size_bytes) == 0) {
@@ -976,9 +981,25 @@ static int wigig_sensing_handle_fifo_ready_dri(struct wigig_sensing_ctx *ctx)
 		ctx->temp_buffer = 0;
 	}
 
-	wake_up_interruptible(&ctx->cmd_wait_q);
+	/* Change internal state */
+	rc = wigig_sensing_change_state(ctx, &ctx->stm, ctx->stm.state_request);
+	if (rc || ctx->stm.state != ctx->stm.state_request) {
+		pr_err("wigig_sensing_change_state() failed\n");
+		rc = -EFAULT;
+		goto End;
+	}
+
+	/* Initialize head and tail pointers to 0 */
+	wigig_sensing_ioc_clear_data(ctx);
+
+	ctx->dropped_bursts = 0;
+	ctx->stm.channel = ctx->stm.channel_request;
+	ctx->stm.mode = ctx->stm.mode_request;
+
 End:
+	ctx->stm.change_mode_in_progress = false;
 	mutex_unlock(&ctx->spi_lock);
+	wake_up_interruptible(&ctx->cmd_wait_q);
 	return rc;
 }
 
@@ -994,6 +1015,7 @@ static int wigig_sensing_chip_data_ready(struct wigig_sensing_ctx *ctx,
 	u32 idx = 0;
 	u32 spi_transaction_size;
 	u32 available_space_to_end;
+	u32 orig_head;
 
 	if (stm_state == WIGIG_SENSING_STATE_INITIALIZED ||
 	    stm_state == WIGIG_SENSING_STATE_SPI_READY ||
@@ -1042,8 +1064,14 @@ static int wigig_sensing_chip_data_ready(struct wigig_sensing_ctx *ctx,
 	spi_transaction_size =
 		calc_spi_transaction_size(fill_level, SPI_MAX_TRANSACTION_SIZE);
 	local = d->b;
+	orig_head = local.head;
 	mutex_lock(&ctx->spi_lock);
 	while (fill_level > 0) {
+		if (ctx->stm.change_mode_in_progress) {
+			local.head = orig_head;
+			break;
+		}
+
 		bytes_to_read = (fill_level < spi_transaction_size) ?
 			fill_level : spi_transaction_size;
 		available_space_to_end =
