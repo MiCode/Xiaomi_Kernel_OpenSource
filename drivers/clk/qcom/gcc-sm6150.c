@@ -3597,6 +3597,24 @@ static struct clk_dfs gcc_dfs_clocks[] = {
 	{ &gcc_qupv3_wrap1_s5_clk_src, DFS_ENABLE_RCG },
 };
 
+static struct clk_regmap *gcc_sm6150_critical_clocks[] = {
+	&gcc_camera_ahb_clk.clkr,
+	&gcc_camera_xo_clk.clkr,
+	&gcc_cpuss_ahb_clk.clkr,
+	&gcc_cpuss_gnoc_clk.clkr,
+	&gcc_disp_ahb_clk.clkr,
+	&gcc_disp_xo_clk.clkr,
+	&gcc_gpu_cfg_ahb_clk.clkr,
+	&gcc_sys_noc_cpuss_ahb_clk.clkr,
+	&gcc_video_ahb_clk.clkr,
+	&gcc_video_xo_clk.clkr
+};
+
+static const struct qcom_cc_critical_desc gcc_sm6150_critical_desc = {
+	.clks = gcc_sm6150_critical_clocks,
+	.num_clks = ARRAY_SIZE(gcc_sm6150_critical_clocks),
+};
+
 static const struct qcom_cc_dfs_desc gcc_sm6150_dfs_desc = {
 	.clks = gcc_dfs_clocks,
 	.num_clks = ARRAY_SIZE(gcc_dfs_clocks),
@@ -3627,12 +3645,23 @@ static const struct of_device_id gcc_sm6150_match_table[] = {
 };
 MODULE_DEVICE_TABLE(of, gcc_sm6150_match_table);
 
+static int gcc_sa6150_resume(struct device *dev)
+{
+	return qcom_cc_enable_critical_clks(&gcc_sm6150_critical_desc);
+}
+
+static const struct dev_pm_ops gcc_sa6150_pm_ops = {
+	.restore_early = gcc_sa6150_resume,
+};
+
 static void gcc_sm6150_fixup_sa6155(struct platform_device *pdev)
 {
 	vdd_cx.num_levels = VDD_NUM_SA6155;
 	vdd_cx.cur_level = VDD_NUM_SA6155;
 	vdd_cx_ao.num_levels = VDD_NUM_SA6155;
 	vdd_cx_ao.cur_level = VDD_NUM_SA6155;
+
+	pdev->dev.driver->pm =  &gcc_sa6150_pm_ops;
 }
 
 static int gcc_sm6150_probe(struct platform_device *pdev)

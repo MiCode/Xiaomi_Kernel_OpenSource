@@ -508,6 +508,15 @@ static const struct qcom_cc_desc gpu_cc_sm6150_desc = {
 	.num_hwclks = ARRAY_SIZE(gpu_cc_sm6150_hws),
 };
 
+static struct clk_regmap *gpu_cc_sm6150_critical_clocks[] = {
+	&gpu_cc_ahb_clk.clkr,
+};
+
+static const struct qcom_cc_critical_desc gpu_cc_sm6150_critical_desc = {
+	.clks = gpu_cc_sm6150_critical_clocks,
+	.num_clks = ARRAY_SIZE(gpu_cc_sm6150_critical_clocks),
+};
+
 static const struct of_device_id gpu_cc_sm6150_match_table[] = {
 	{ .compatible = "qcom,gpucc-sm6150" },
 	{ .compatible = "qcom,gpucc-sa6155" },
@@ -541,7 +550,7 @@ static int gpu_cc_sm6150_resume(struct device *dev)
 
 	gpu_cc_sm6150_configure(regmap);
 
-	return 0;
+	return qcom_cc_enable_critical_clks(&gpu_cc_sm6150_critical_desc);
 }
 
 static const struct dev_pm_ops gpu_cc_sm6150_pm_ops = {
