@@ -2213,7 +2213,7 @@ int32_t npu_host_load_network_v2(struct npu_client *client,
 			struct msm_npu_load_network_ioctl_v2 *load_ioctl,
 			struct msm_npu_patch_info_v2 *patch_info)
 {
-	int ret = 0, i;
+	int ret = 0, retry_cnt = 1, i;
 	struct npu_device *npu_dev = client->npu_dev;
 	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
 	struct npu_network *network;
@@ -2307,6 +2307,7 @@ int32_t npu_host_load_network_v2(struct npu_client *client,
 
 	mutex_unlock(&host_ctx->lock);
 
+retry:
 	ret = wait_for_completion_timeout(
 		&load_cmd->cmd_done,
 		(host_ctx->fw_dbg_mode & FW_DBG_MODE_INC_TIMEOUT) ?
@@ -2323,6 +2324,14 @@ int32_t npu_host_load_network_v2(struct npu_client *client,
 	if (!ret) {
 		NPU_ERR("npu: NPU_IPC_CMD_LOAD time out %lld:%d\n",
 			network->id, load_cmd->trans_id);
+		if (retry_cnt > 0) {
+			NPU_WARN("Retry IPC queue\n");
+			retry_cnt--;
+			mutex_unlock(&host_ctx->lock);
+			host_session_msg_hdlr(npu_dev);
+			goto retry;
+		}
+
 		npu_dump_debug_info(npu_dev);
 		ret = -ETIMEDOUT;
 		goto error_load_network;
@@ -2372,7 +2381,7 @@ err_deinit_fw:
 int32_t npu_host_unload_network(struct npu_client *client,
 			struct msm_npu_unload_network_ioctl *unload)
 {
-	int ret = 0;
+	int ret = 0, retry_cnt = 1;
 	struct npu_device *npu_dev = client->npu_dev;
 	struct ipc_cmd_unload_pkt unload_packet;
 	struct npu_network *network;
@@ -2445,6 +2454,7 @@ int32_t npu_host_unload_network(struct npu_client *client,
 
 	mutex_unlock(&host_ctx->lock);
 
+retry:
 	ret = wait_for_completion_timeout(
 		&unload_cmd->cmd_done,
 		(host_ctx->fw_dbg_mode & FW_DBG_MODE_INC_TIMEOUT) ?
@@ -2461,6 +2471,14 @@ int32_t npu_host_unload_network(struct npu_client *client,
 	if (!ret) {
 		NPU_ERR("npu: NPU_IPC_CMD_UNLOAD time out %llx:%d\n",
 			network->id, unload_cmd->trans_id);
+		if (retry_cnt > 0) {
+			NPU_WARN("Retry IPC queue\n");
+			retry_cnt--;
+			mutex_unlock(&host_ctx->lock);
+			host_session_msg_hdlr(npu_dev);
+			goto retry;
+		}
+
 		npu_dump_debug_info(npu_dev);
 		ret = -ETIMEDOUT;
 		goto free_unload_cmd;
@@ -2503,7 +2521,7 @@ int32_t npu_host_exec_network_v2(struct npu_client *client,
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 	uint32_t num_patch_params, pkt_size;
 	bool async_ioctl = !!exec_ioctl->async;
-	int i;
+	int i, retry_cnt = 1;
 
 	mutex_lock(&host_ctx->lock);
 	network = get_network_by_hdl(host_ctx, client,
@@ -2603,6 +2621,7 @@ int32_t npu_host_exec_network_v2(struct npu_client *client,
 
 	mutex_unlock(&host_ctx->lock);
 
+retry:
 	ret = wait_for_completion_timeout(
 		&exec_cmd->cmd_done,
 		(host_ctx->fw_dbg_mode & FW_DBG_MODE_INC_TIMEOUT) ?
@@ -2618,6 +2637,14 @@ int32_t npu_host_exec_network_v2(struct npu_client *client,
 	if (!ret) {
 		NPU_ERR("npu: %llx:%d NPU_IPC_CMD_EXECUTE_V2 time out\n",
 			network->id, exec_cmd->trans_id);
+		if (retry_cnt > 0) {
+			NPU_WARN("Retry IPC queue\n");
+			retry_cnt--;
+			mutex_unlock(&host_ctx->lock);
+			host_session_msg_hdlr(npu_dev);
+			goto retry;
+		}
+
 		npu_dump_debug_info(npu_dev);
 		ret = -ETIMEDOUT;
 		goto free_exec_packet;
