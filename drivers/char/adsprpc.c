@@ -1846,6 +1846,8 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		int i = ctx->overps[oix]->raix;
 		struct fastrpc_mmap *map = ctx->maps[i];
 
+		if (i+1 > inbufs)	// Avoiding flush for outbufs
+			continue;
 		if (map && map->uncached)
 			continue;
 		if (ctx->fl->sctx->smmu.coherent &&
