@@ -341,6 +341,9 @@ static int cam_cpastop_reset_irq(struct cam_hw_info *cpas_hw)
 {
 	int i;
 
+	if (camnoc_info->irq_sbm->sbm_enable.enable == false)
+		return 0;
+
 	cam_cpas_util_reg_update(cpas_hw, CAM_CPAS_REG_CAMNOC,
 		&camnoc_info->irq_sbm->sbm_clear);
 	for (i = 0; i < camnoc_info->irq_err_size; i++) {
@@ -522,6 +525,7 @@ static int cam_cpastop_poweron(struct cam_hw_info *cpas_hw)
 {
 	int i;
 
+	cam_cpastop_reset_irq(cpas_hw);
 	for (i = 0; i < camnoc_info->specific_size; i++) {
 		if (camnoc_info->specific[i].enable) {
 			cam_cpas_util_reg_update(cpas_hw, CAM_CPAS_REG_CAMNOC,

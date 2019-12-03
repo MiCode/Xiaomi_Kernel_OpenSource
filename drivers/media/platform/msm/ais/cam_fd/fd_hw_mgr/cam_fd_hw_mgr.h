@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,6 +27,11 @@
 
 #define CAM_FD_HW_MAX            1
 #define CAM_FD_WORKQ_NUM_TASK    10
+/*
+ * Response time threshold in ms beyond which a request is not expected to be
+ * with FD hw
+ */
+#define CAM_FD_RESPONSE_TIME_THRESHOLD   100000
 
 struct cam_fd_hw_mgr;
 
@@ -107,6 +112,7 @@ struct cam_fd_device {
  * @hw_update_entries     : HW update entries corresponding to this request
  *                          which needs to be submitted to HW through CDM
  * @num_hw_update_entries : Number of HW update entries
+ * @submit_timestamp      : Time stamp for submit req with hw
  */
 struct cam_fd_mgr_frame_request {
 	struct list_head               list;
@@ -115,6 +121,7 @@ struct cam_fd_mgr_frame_request {
 	struct cam_fd_hw_req_private   hw_req_private;
 	struct cam_hw_update_entry     hw_update_entries[CAM_FD_MAX_HW_ENTRIES];
 	uint32_t                       num_hw_update_entries;
+	struct timeval                 submit_timestamp;
 };
 
 /**

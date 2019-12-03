@@ -91,6 +91,18 @@ static int __cam_jpeg_ctx_release_dev_in_acquired(struct cam_context *ctx,
 	return rc;
 }
 
+static int __cam_jpeg_ctx_dump_dev_in_acquired(struct cam_context *ctx,
+	struct cam_dump_req_cmd *cmd)
+{
+	int rc;
+
+	rc = cam_context_dump_dev_to_hw(ctx, cmd);
+	if (rc)
+		CAM_ERR(CAM_ICP, "Failed to dump device, rc=%d", rc);
+
+	return rc;
+}
+
 static int __cam_jpeg_ctx_flush_dev_in_acquired(struct cam_context *ctx,
 	struct cam_flush_dev_cmd *cmd)
 {
@@ -153,6 +165,7 @@ static struct cam_ctx_ops
 			.config_dev = __cam_jpeg_ctx_config_dev_in_acquired,
 			.stop_dev = __cam_jpeg_ctx_stop_dev_in_acquired,
 			.flush_dev = __cam_jpeg_ctx_flush_dev_in_acquired,
+			.dump_dev = __cam_jpeg_ctx_dump_dev_in_acquired,
 		},
 		.crm_ops = { },
 		.irq_ops = __cam_jpeg_ctx_handle_buf_done_in_acquired,

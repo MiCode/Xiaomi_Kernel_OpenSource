@@ -35,6 +35,9 @@ static const char drv_name[] = "vfe_bus";
 #define CAM_VFE_BUS_IRQ_REG2                     2
 #define CAM_VFE_BUS_IRQ_MAX                      3
 
+#define CAM_VFE_BUS_LUT_WORD_SIZE_64             1
+#define CAM_VFE_BUS_LUT_WORD_SIZE_32             2
+
 #define CAM_VFE_BUS_VER2_PAYLOAD_MAX             256
 
 #define CAM_VFE_BUS_SET_DEBUG_REG                0x82
@@ -119,6 +122,8 @@ struct cam_vfe_bus_ver2_common_data {
 	uint32_t                                    num_sec_out;
 	uint32_t                                    addr_no_sync;
 	uint32_t                                    camera_hw_version;
+	struct cam_vfe_bus_ver2_stats_cfg_info     *stats_data;
+	uint32_t                                    enable_dmi_dump;
 };
 
 struct cam_vfe_bus_ver2_wm_resource_data {
@@ -1166,7 +1171,6 @@ static int cam_vfe_bus_start_wm(struct cam_isp_resource_node *wm_res)
 		cam_io_w_mb(rsrc_data->stride, (common_data->mem_base +
 			rsrc_data->hw_regs->stride));
 
-
 	/* Subscribe IRQ */
 	if (rsrc_data->irq_enabled) {
 		CAM_DBG(CAM_ISP, "Subscribe WM%d IRQ", rsrc_data->index);
@@ -1348,20 +1352,58 @@ static int cam_vfe_bus_handle_wm_done_bottom_half(void *wm_node,
 	return rc;
 }
 
+static void cam_vfe_bus_dump_dmi_reg(
+	void __iomem    *mem_base,
+	uint32_t        lut_word_size,
+	uint32_t        lut_size,
+	uint32_t        lut_bank_sel,
+	struct cam_vfe_bus_ver2_dmi_offset_common dmi_cfg)
+{
+	uint32_t        i;
+	uint32_t        val_0;
+	uint32_t        val_1;
+
+	val_0 = dmi_cfg.auto_increment | lut_bank_sel;
+	cam_io_w_mb(val_0, mem_base + dmi_cfg.cfg_offset);
+	cam_io_w_mb(0, mem_base + dmi_cfg.addr_offset);
+	for (i = 0; i < lut_size; i++) {
+		if (lut_word_size == CAM_VFE_BUS_LUT_WORD_SIZE_64) {
+			val_0 = cam_io_r_mb(mem_base +
+				dmi_cfg.data_lo_offset);
+			val_1 = cam_io_r_mb(mem_base +
+				dmi_cfg.data_hi_offset);
+			CAM_INFO(CAM_ISP,
+				"Bank%d : 0x%x, LO: 0x%x, HI:0x%x",
+				lut_bank_sel, i, val_0, val_1);
+		} else {
+			val_0 = cam_io_r_mb(mem_base +
+				dmi_cfg.data_lo_offset);
+			CAM_INFO(CAM_ISP, "Bank%d : 0x%x, LO: 0x%x",
+				lut_bank_sel, i, val_0);
+		}
+	}
+	cam_io_w_mb(0, mem_base + dmi_cfg.cfg_offset);
+	cam_io_w_mb(0, mem_base + dmi_cfg.addr_offset);
+}
 
 static int cam_vfe_bus_err_bottom_half(void *ctx_priv,
 	void *evt_payload_priv)
 {
 	struct cam_vfe_bus_irq_evt_payload *evt_payload;
 	struct cam_vfe_bus_ver2_common_data *common_data;
+	struct cam_vfe_bus_ver2_stats_cfg_offset *stats_cfg;
+	struct cam_vfe_bus_ver2_dmi_offset_common dmi_cfg;
 	uint32_t val = 0;
+	uint32_t enable_dmi_dump;
 
 	if (!ctx_priv || !evt_payload_priv)
 		return -EINVAL;
 
 	evt_payload = evt_payload_priv;
 	common_data = evt_payload->ctx;
-
+	enable_dmi_dump = evt_payload->enable_dump;
+	stats_cfg = common_data->stats_data->stats_cfg_offset;
+	dmi_cfg = common_data->stats_data->dmi_offset_info;
 	val = evt_payload->debug_status_0;
 	CAM_ERR(CAM_ISP, "Bus Violation: debug_status_0 = 0x%x", val);
 
@@ -1395,35 +1437,202 @@ static int cam_vfe_bus_err_bottom_half(void *ctx_priv,
 	if (val & 0x0200)
 		CAM_INFO(CAM_ISP, "RAW DUMP violation");
 
-	if (val & 0x0400)
+	if (val & 0x0400) {
 		CAM_INFO(CAM_ISP, "PDAF violation");
+		if (enable_dmi_dump & CAM_VFE_BUS_ENABLE_DMI_DUMP) {
 
-	if (val & 0x0800)
+			cam_vfe_bus_dump_dmi_reg(
+			common_data->mem_base,
+			CAM_VFE_BUS_LUT_WORD_SIZE_64,
+			stats_cfg[
+			CAM_VFE_BUS_VER2_VFE_OUT_PDAF].lut.size,
+			stats_cfg[
+			CAM_VFE_BUS_VER2_VFE_OUT_PDAF].lut.bank_0,
+			dmi_cfg);
+		}
+		if (enable_dmi_dump & CAM_VFE_BUS_ENABLE_STATS_REG_DUMP) {
+			CAM_INFO(CAM_ISP, "RGN offset cfg 0x%08x",
+			cam_io_r_mb(common_data->mem_base +
+			stats_cfg[
+			CAM_VFE_BUS_VER2_VFE_OUT_PDAF].cfg_offset));
+		}
+	}
+
+	if (val & 0x0800) {
 		CAM_INFO(CAM_ISP, "STATs HDR BE violation");
+		if (enable_dmi_dump & CAM_VFE_BUS_ENABLE_STATS_REG_DUMP) {
 
-	if (val & 0x01000)
+			CAM_INFO(CAM_ISP, "RGN offset cfg 0x%08x",
+			cam_io_r_mb(common_data->mem_base +
+			stats_cfg[
+			CAM_VFE_BUS_VER2_VFE_OUT_STATS_HDR_BE].cfg_offset));
+
+			CAM_INFO(CAM_ISP, "RGN num cfg 0x%08x",
+			cam_io_r_mb(common_data->mem_base +
+			stats_cfg[
+			CAM_VFE_BUS_VER2_VFE_OUT_STATS_HDR_BE].num_cfg));
+		}
+	}
+
+	if (val & 0x01000) {
 		CAM_INFO(CAM_ISP, "STATs HDR BHIST violation");
+		if (enable_dmi_dump & CAM_VFE_BUS_ENABLE_DMI_DUMP) {
+
+			cam_vfe_bus_dump_dmi_reg(
+			common_data->mem_base,
+			CAM_VFE_BUS_LUT_WORD_SIZE_64,
+			stats_cfg[
+			CAM_VFE_BUS_VER2_VFE_OUT_STATS_HDR_BHIST].lut.size,
+			stats_cfg[
+			CAM_VFE_BUS_VER2_VFE_OUT_STATS_HDR_BHIST].lut.bank_0,
+			dmi_cfg);
+
+			cam_vfe_bus_dump_dmi_reg(
+			common_data->mem_base,
+			CAM_VFE_BUS_LUT_WORD_SIZE_64,
+			stats_cfg[
+			CAM_VFE_BUS_VER2_VFE_OUT_STATS_HDR_BHIST].lut.size,
+			stats_cfg[
+			CAM_VFE_BUS_VER2_VFE_OUT_STATS_HDR_BHIST].lut.bank_1,
+			dmi_cfg);
+		}
+		if (enable_dmi_dump & CAM_VFE_BUS_ENABLE_STATS_REG_DUMP) {
+
+			CAM_INFO(CAM_ISP, "RGN offset cfg 0x%08x",
+			cam_io_r_mb(common_data->mem_base +
+			stats_cfg[
+			CAM_VFE_BUS_VER2_VFE_OUT_STATS_HDR_BHIST].cfg_offset));
+
+			CAM_INFO(CAM_ISP, "RGN num cfg 0x%08x",
+			cam_io_r_mb(common_data->mem_base +
+			stats_cfg[
+			CAM_VFE_BUS_VER2_VFE_OUT_STATS_HDR_BHIST].num_cfg));
+		}
+	}
 
 	if (val & 0x02000)
 		CAM_INFO(CAM_ISP, "STATs TINTLESS BG violation");
 
-	if (val & 0x04000)
+	if (val & 0x04000) {
 		CAM_INFO(CAM_ISP, "STATs BF violation");
+		if (enable_dmi_dump & CAM_VFE_BUS_ENABLE_DMI_DUMP) {
 
-	if (val & 0x08000)
+			cam_vfe_bus_dump_dmi_reg(
+			common_data->mem_base,
+			CAM_VFE_BUS_LUT_WORD_SIZE_64,
+			stats_cfg[
+			CAM_VFE_BUS_VER2_VFE_OUT_STATS_BF].lut.size,
+			stats_cfg[
+			CAM_VFE_BUS_VER2_VFE_OUT_STATS_BF].lut.bank_0,
+			dmi_cfg);
+
+			cam_vfe_bus_dump_dmi_reg(
+			common_data->mem_base,
+			CAM_VFE_BUS_LUT_WORD_SIZE_64,
+			stats_cfg[
+			CAM_VFE_BUS_VER2_VFE_OUT_STATS_BF].lut.size,
+			stats_cfg[
+			CAM_VFE_BUS_VER2_VFE_OUT_STATS_BF].lut.bank_1,
+			dmi_cfg);
+		}
+		if (enable_dmi_dump & CAM_VFE_BUS_ENABLE_STATS_REG_DUMP) {
+			CAM_INFO(CAM_ISP, "RGN offset cfg 0x%08x",
+			cam_io_r_mb(common_data->mem_base +
+			stats_cfg[
+			CAM_VFE_BUS_VER2_VFE_OUT_STATS_BF].cfg_offset));
+		}
+	}
+
+	if (val & 0x08000) {
 		CAM_INFO(CAM_ISP, "STATs AWB BG UBWC violation");
+		if (enable_dmi_dump & CAM_VFE_BUS_ENABLE_STATS_REG_DUMP) {
 
-	if (val & 0x010000)
+			CAM_INFO(CAM_ISP, "RGN offset cfg 0x%08x",
+			cam_io_r_mb(common_data->mem_base +
+			stats_cfg[
+			CAM_VFE_BUS_VER2_VFE_OUT_STATS_AWB_BG].cfg_offset));
+
+			CAM_INFO(CAM_ISP, "RGN num cfg 0x%08x",
+			cam_io_r_mb(common_data->mem_base +
+			stats_cfg[
+			CAM_VFE_BUS_VER2_VFE_OUT_STATS_AWB_BG].num_cfg));
+		}
+	}
+
+	if (val & 0x010000) {
 		CAM_INFO(CAM_ISP, "STATs BHIST violation");
+		if (enable_dmi_dump & CAM_VFE_BUS_ENABLE_DMI_DUMP) {
 
-	if (val & 0x020000)
+			cam_vfe_bus_dump_dmi_reg(
+			common_data->mem_base,
+			CAM_VFE_BUS_LUT_WORD_SIZE_64,
+			stats_cfg[
+			CAM_VFE_BUS_VER2_VFE_OUT_STATS_BHIST].lut.size,
+			stats_cfg[
+			CAM_VFE_BUS_VER2_VFE_OUT_STATS_BHIST].lut.bank_0,
+			dmi_cfg);
+		}
+		if (enable_dmi_dump & CAM_VFE_BUS_ENABLE_STATS_REG_DUMP) {
+
+			CAM_INFO(CAM_ISP, "RGN offset cfg 0x%08x",
+			cam_io_r_mb(common_data->mem_base +
+			stats_cfg[
+			CAM_VFE_BUS_VER2_VFE_OUT_STATS_BHIST].cfg_offset));
+
+			CAM_INFO(CAM_ISP, "RGN num cfg 0x%08x",
+			cam_io_r_mb(common_data->mem_base +
+			stats_cfg[
+			CAM_VFE_BUS_VER2_VFE_OUT_STATS_BHIST].num_cfg));
+		}
+	}
+
+	if (val & 0x020000) {
 		CAM_INFO(CAM_ISP, "STATs RS violation");
+		if (enable_dmi_dump & CAM_VFE_BUS_ENABLE_STATS_REG_DUMP) {
 
-	if (val & 0x040000)
+			CAM_INFO(CAM_ISP, "RGN offset cfg 0x%08x",
+			cam_io_r_mb(common_data->mem_base +
+			stats_cfg[
+			CAM_VFE_BUS_VER2_VFE_OUT_STATS_RS].cfg_offset));
+
+			CAM_INFO(CAM_ISP, "RGN num cfg 0x%08x",
+			cam_io_r_mb(common_data->mem_base +
+			stats_cfg[
+			CAM_VFE_BUS_VER2_VFE_OUT_STATS_RS].num_cfg));
+		}
+	}
+
+	if (val & 0x040000) {
 		CAM_INFO(CAM_ISP, "STATs CS violation");
+		if (enable_dmi_dump & CAM_VFE_BUS_ENABLE_STATS_REG_DUMP) {
 
-	if (val & 0x080000)
+			CAM_INFO(CAM_ISP, "RGN offset cfg 0x%08x",
+			cam_io_r_mb(common_data->mem_base +
+			stats_cfg[
+			CAM_VFE_BUS_VER2_VFE_OUT_STATS_CS].cfg_offset));
+
+			CAM_INFO(CAM_ISP, "RGN num cfg 0x%08x",
+			cam_io_r_mb(common_data->mem_base +
+			stats_cfg[
+			CAM_VFE_BUS_VER2_VFE_OUT_STATS_CS].num_cfg));
+		}
+	}
+
+	if (val & 0x080000) {
 		CAM_INFO(CAM_ISP, "STATs IHIST violation");
+		if (enable_dmi_dump & CAM_VFE_BUS_ENABLE_STATS_REG_DUMP) {
+
+			CAM_INFO(CAM_ISP, "RGN offset cfg 0x%08x",
+			cam_io_r_mb(common_data->mem_base +
+			stats_cfg[
+			CAM_VFE_BUS_VER2_VFE_OUT_STATS_IHIST].cfg_offset));
+
+			CAM_INFO(CAM_ISP, "RGN num cfg 0x%08x",
+			cam_io_r_mb(common_data->mem_base +
+			stats_cfg[
+			CAM_VFE_BUS_VER2_VFE_OUT_STATS_IHIST].num_cfg));
+		}
+	}
 
 	if (val & 0x0100000)
 		CAM_INFO(CAM_ISP, "DISP Y 1:1 UBWC violation");
@@ -2513,6 +2722,7 @@ static int cam_vfe_bus_error_irq_top_half(uint32_t evt_id,
 	evt_payload->debug_status_0 = cam_io_r_mb(
 		bus_priv->common_data.mem_base +
 		bus_priv->common_data.common_reg->debug_status_0);
+	evt_payload->enable_dump = bus_priv->common_data.enable_dmi_dump;
 
 	th_payload->evt_payload_priv = evt_payload;
 
@@ -2837,6 +3047,7 @@ end:
 static int cam_vfe_bus_update_wm(void *priv, void *cmd_args,
 	uint32_t arg_size)
 {
+	struct cam_vfe_bus_ver2_priv             *bus_priv;
 	struct cam_isp_hw_get_cmd_update         *update_buf;
 	struct cam_buf_io_cfg                    *io_cfg;
 	struct cam_vfe_bus_ver2_vfe_out_data     *vfe_out_data = NULL;
@@ -2847,6 +3058,7 @@ static int cam_vfe_bus_update_wm(void *priv, void *cmd_args,
 	uint32_t  frame_inc = 0, val;
 	uint32_t loop_size = 0;
 
+	bus_priv = (struct cam_vfe_bus_ver2_priv  *) priv;
 	update_buf =  (struct cam_isp_hw_get_cmd_update *) cmd_args;
 
 	vfe_out_data = (struct cam_vfe_bus_ver2_vfe_out_data *)
@@ -2957,12 +3169,12 @@ static int cam_vfe_bus_update_wm(void *priv, void *cmd_args,
 					io_cfg->planes[i].meta_size +
 					k * frame_inc);
 			else
-				CAM_VFE_ADD_REG_VAL_PAIR(
-				reg_val_pair,
-				j,
-				wm_data->hw_regs->image_addr,
-				update_buf->wm_update->image_buf[i] +
-				wm_data->offset + k * frame_inc);
+				CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+					wm_data->hw_regs->image_addr,
+					update_buf->wm_update->image_buf[i] +
+					wm_data->offset + k * frame_inc);
+			CAM_DBG(CAM_ISP, "WM %d image address 0x%x",
+				wm_data->index, reg_val_pair[j-1]);
 		}
 
 		CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
@@ -3019,7 +3231,6 @@ static int cam_vfe_bus_update_hfr(void *priv, void *cmd_args,
 		return -EINVAL;
 	}
 
-
 	hfr_cfg = update_hfr->hfr_update;
 
 	for (i = 0, j = 0; i < vfe_out_data->num_wm; i++) {
@@ -3031,7 +3242,6 @@ static int cam_vfe_bus_update_hfr(void *priv, void *cmd_args,
 		}
 
 		wm_data = vfe_out_data->wm_res[i]->res_priv;
-
 		reg_val_pair = &wm_data->io_buf_update[0];
 
 		if (wm_data->index <= 2 && hfr_cfg->subsample_period > 3) {
@@ -3333,6 +3543,7 @@ static int cam_vfe_bus_process_cmd(
 {
 	int rc = -EINVAL;
 	struct cam_vfe_bus_ver2_priv		 *bus_priv;
+	struct cam_isp_hw_get_cmd_update         *cmd_update;
 
 	if (!priv || !cmd_args) {
 		CAM_ERR_RATE_LIMIT(CAM_ISP, "Invalid input arguments");
@@ -3369,6 +3580,12 @@ static int cam_vfe_bus_process_cmd(
 		break;
 	case CAM_ISP_HW_CMD_UBWC_UPDATE:
 		rc = cam_vfe_bus_update_ubwc_config(cmd_args);
+		break;
+	case CAM_ISP_HW_CMD_SET_STATS_DMI_DUMP:
+		bus_priv = (struct cam_vfe_bus_ver2_priv *) priv;
+		cmd_update = (struct cam_isp_hw_get_cmd_update *) cmd_args;
+		bus_priv->common_data.enable_dmi_dump =
+			*((uint32_t *)cmd_update->data);
 		break;
 	default:
 		CAM_ERR_RATE_LIMIT(CAM_ISP, "Invalid camif process command:%d",
@@ -3442,6 +3659,7 @@ int cam_vfe_bus_ver2_init(
 	bus_priv->common_data.addr_no_sync       =
 		CAM_VFE_BUS_ADDR_NO_SYNC_DEFAULT_VAL;
 	bus_priv->common_data.camera_hw_version = camera_hw_version;
+	bus_priv->common_data.stats_data         = ver2_hw_info->stats_data;
 
 	mutex_init(&bus_priv->common_data.bus_mutex);
 
@@ -3591,7 +3809,6 @@ int cam_vfe_bus_ver2_deinit(
 			"Deinit IRQ Controller failed rc=%d", rc);
 
 	mutex_destroy(&bus_priv->common_data.bus_mutex);
-
 	kfree(vfe_bus_local->bus_priv);
 
 free_bus_local:
