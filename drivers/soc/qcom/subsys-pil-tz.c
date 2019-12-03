@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -599,6 +600,7 @@ static int pil_init_image_trusted(struct pil_desc *pil,
 	struct device dev = {0};
 	struct scm_desc desc = {0};
 
+	pr_err("%s, %d.\n", __func__, __LINE__);
 	if (d->subsys_desc.no_auth)
 		return 0;
 
@@ -623,8 +625,10 @@ static int pil_init_image_trusted(struct pil_desc *pil,
 	desc.args[0] = d->pas_id;
 	desc.args[1] = mdata_phys;
 	desc.arginfo = SCM_ARGS(2, SCM_VAL, SCM_RW);
+	pr_err("%s, %d.\n", __func__, __LINE__);
 	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_PIL, PAS_INIT_IMAGE_CMD),
 			&desc);
+	pr_err("%s, %d.\n", __func__, __LINE__);
 	scm_ret = desc.ret[0];
 
 	dma_free_attrs(&dev, size, mdata_buf, mdata_phys, attrs);

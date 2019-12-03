@@ -8,6 +8,7 @@
  * interface.
  *
  * Copyright (C) 2010 IBM Corperation
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * Author: John Stultz <john.stultz@linaro.org>
  *
@@ -15,6 +16,7 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
+
 #include <linux/time.h>
 #include <linux/hrtimer.h>
 #include <linux/timerqueue.h>
@@ -29,7 +31,6 @@
 #include <linux/freezer.h>
 #include <linux/compat.h>
 #include <linux/module.h>
-
 #include "posix-timers.h"
 
 #define CREATE_TRACE_POINTS
@@ -920,6 +921,7 @@ static int __init alarmtimer_init(void)
 		error = PTR_ERR(pdev);
 		goto out_drv;
 	}
+
 	return 0;
 
 out_drv:

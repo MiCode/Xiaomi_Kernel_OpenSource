@@ -830,7 +830,6 @@ static struct inode *f2fs_alloc_inode(struct super_block *sb)
 
 	/* Initialize f2fs-specific inode info */
 	atomic_set(&fi->dirty_pages, 0);
-	fi->i_current_depth = 1;
 	init_rwsem(&fi->i_sem);
 	INIT_LIST_HEAD(&fi->dirty_list);
 	INIT_LIST_HEAD(&fi->gdirty_list);
@@ -1880,6 +1879,19 @@ void f2fs_quota_off_umount(struct super_block *sb)
 		}
 	}
 }
+
+static void f2fs_truncate_quota_inode_pages(struct super_block *sb)
+{
+	struct quota_info *dqopt = sb_dqopt(sb);
+	int type;
+
+	for (type = 0; type < MAXQUOTAS; type++) {
+		if (!dqopt->files[type])
+			continue;
+		f2fs_inode_synced(dqopt->files[type]);
+	}
+}
+
 
 static int f2fs_get_projid(struct inode *inode, kprojid_t *projid)
 {
@@ -3026,10 +3038,10 @@ skip_recovery:
 
 free_meta:
 #ifdef CONFIG_QUOTA
+	f2fs_truncate_quota_inode_pages(sb);
 	if (f2fs_sb_has_quota_ino(sb) && !f2fs_readonly(sb))
 		f2fs_quota_off_umount(sbi->sb);
 #endif
-	f2fs_sync_inode_meta(sbi);
 	/*
 	 * Some dirty meta pages can be produced by recover_orphan_inodes()
 	 * failed by EIO. Then, iput(node_inode) can trigger balance_fs_bg()

@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1280,6 +1281,8 @@ int ipa3_connect_gsi_wdi_pipe(struct ipa_wdi_in_params *in,
 	else
 		IPADBG("in->wdi_notify is null\n");
 
+	ipa3_enable_data_path(ipa_ep_idx);
+
 	if (!ep->skip_ep_cfg && IPA_CLIENT_IS_PROD(in->sys.client))
 		ipa3_install_dflt_flt_rules(ipa_ep_idx);
 
@@ -1975,7 +1978,6 @@ int ipa3_enable_gsi_wdi_pipe(u32 clnt_hdl)
 	}
 
 	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
-	ipa3_enable_data_path(clnt_hdl);
 
 	memset(&ep_cfg_ctrl, 0, sizeof(struct ipa_ep_cfg_ctrl));
 	ipa3_cfg_ep_ctrl(ipa_ep_idx, &ep_cfg_ctrl);

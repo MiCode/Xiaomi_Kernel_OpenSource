@@ -337,6 +337,12 @@ First Level Node - QGAUGE device
 		    for the shutdown SOC to be used. If the difference is
 		    beyond this value the PON SOC is used.
 
+- qcom,min-sleep-time-secs
+	Usage:      optional
+	Value type: <u32>
+	Definition: The minimum sleep time in secs to allow a SOC
+		    jump if there has been a GOOD_OCV.
+
 ==========================================================
 Second Level Nodes - Peripherals managed by QGAUGE driver
 ==========================================================

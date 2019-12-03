@@ -148,6 +148,7 @@ ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 		sdmmagpie-atp-overlay.dtbo \
 		sdmmagpie-rumi-overlay.dtbo \
 		sdmmagpie-qrd-overlay.dtbo \
+		tucana-sdmmagpie-overlay.dtbo \
 		sdmmagpiep-idp-overlay.dtbo \
 		sdmmagpiep-atp-overlay.dtbo \
 		sdmmagpiep-qrd-overlay.dtbo \
@@ -159,6 +160,7 @@ sdmmagpie-idp-overlay.dtbo-base := sdmmagpie.dtb
 sdmmagpie-atp-overlay.dtbo-base := sdmmagpie.dtb
 sdmmagpie-rumi-overlay.dtbo-base := sdmmagpie.dtb
 sdmmagpie-qrd-overlay.dtbo-base := sdmmagpie.dtb
+tucana-sdmmagpie-overlay.dtbo-base := sdmmagpie.dtb
 sdmmagpiep-idp-overlay.dtbo-base := sdmmagpiep.dtb
 sdmmagpiep-atp-overlay.dtbo-base := sdmmagpiep.dtb
 sdmmagpiep-qrd-overlay.dtbo-base := sdmmagpiep.dtb
@@ -173,6 +175,7 @@ dtb-$(CONFIG_ARCH_SDMMAGPIE)	+= sdmmagpie-rumi.dtb \
 	sdmmagpiep-idp.dtb \
 	sdmmagpiep-atp.dtb \
 	sdmmagpiep-qrd.dtb \
+	tucana-sdmmagpie.dtb \
 	sdmmagpie-external-codec-idp.dtb \
 	sdmmagpie-usbc-idp.dtb \
 	sdmmagpie-dual-display-idp.dtb

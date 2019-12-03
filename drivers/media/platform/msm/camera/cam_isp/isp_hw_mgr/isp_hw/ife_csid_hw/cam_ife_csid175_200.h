@@ -1,4 +1,5 @@
 /* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -55,6 +56,10 @@ static struct cam_ife_csid_pxl_reg_offset
 	.pix_store_en_shift_val              = 7,
 	.early_eof_en_shift_val              = 29,
 	.ccif_violation_en                   = 1,
+#ifdef CONFIG_CSID_CAMERA
+	.binning_enable_shift_val			 = 2,
+	.binning_mode_shift_val 			 = 30,
+#endif
 };
 
 static struct cam_ife_csid_pxl_reg_offset

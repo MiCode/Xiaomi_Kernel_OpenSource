@@ -37,6 +37,7 @@ struct led_classdev {
 	const char		*name;
 	enum led_brightness	 brightness;
 	enum led_brightness	 max_brightness;
+	enum led_brightness	 usr_brightness_req;
 	int			 flags;
 
 	/* Lower 16 bits reflect status */
@@ -51,6 +52,7 @@ struct led_classdev {
 #define LED_BRIGHT_HW_CHANGED	(1 << 21)
 #define LED_RETAIN_AT_SHUTDOWN	(1 << 22)
 #define LED_KEEP_TRIGGER	(1 << 23)
+#define LED_BRIGHTNESS_FAST	(1 << 24)
 
 	/* set_brightness_work / blink_timer flags, atomic, private. */
 	unsigned long		work_flags;

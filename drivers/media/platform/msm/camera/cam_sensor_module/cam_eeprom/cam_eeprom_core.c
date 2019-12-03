@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -223,6 +224,7 @@ static int cam_eeprom_power_down(struct cam_eeprom_ctrl_t *e_ctrl)
 		CAM_ERR(CAM_EEPROM, "failed: power_info %pK", power_info);
 		return -EINVAL;
 	}
+
 	rc = cam_sensor_util_power_down(power_info, soc_info);
 	if (rc) {
 		CAM_ERR(CAM_EEPROM, "power down the core is failed:%d", rc);
@@ -872,7 +874,13 @@ static int32_t cam_eeprom_pkt_parse(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 		rc = cam_eeprom_read_memory(e_ctrl, &e_ctrl->cal_data);
 		if (rc) {
 			CAM_ERR(CAM_EEPROM,
-				"read_eeprom_memory failed");
+				"read_eeprom_memory failed, rc = %d", rc);
+			cam_destroy_device_hdl(e_ctrl->bridge_intf.device_hdl);
+			CAM_ERR(CAM_EEPROM, "destroying the device hdl");
+
+			e_ctrl->bridge_intf.device_hdl = -1;
+			e_ctrl->bridge_intf.link_hdl = -1;
+			e_ctrl->bridge_intf.session_hdl = -1;
 			goto power_down;
 		}
 
@@ -1037,7 +1045,7 @@ int32_t cam_eeprom_driver_cmd(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 	case CAM_CONFIG_DEV:
 		rc = cam_eeprom_pkt_parse(e_ctrl, arg);
 		if (rc) {
-			CAM_ERR(CAM_EEPROM, "Failed in eeprom pkt Parsing");
+			CAM_ERR(CAM_EEPROM, "Failed in eeprom pkt Parsing, rc %d", rc);
 			goto release_mutex;
 		}
 		break;

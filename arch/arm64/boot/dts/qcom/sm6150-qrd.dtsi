@@ -1,4 +1,5 @@
 /* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,11 +18,11 @@
 #include "sm6150-sde-display.dtsi"
 #include "sm6150-camera-sensor-qrd.dtsi"
 
-&qupv3_se3_i2c {
+/*&qupv3_se3_i2c {
 	status = "ok";
 	#include "smb1390.dtsi"
 	#include "smb1355.dtsi"
-};
+};*/
 
 &pm6150l_gpios {
 	key_vol_up {
@@ -143,7 +144,7 @@
 	qcom,smb-temp-max = <800>;
 };
 
-&smb1390 {
+/*&smb1390 {
 	/delete-property/ interrupts;
 	interrupts = <0x0 0xc2 0x0 IRQ_TYPE_LEVEL_LOW>;
 	pinctrl-names = "default";
@@ -157,7 +158,7 @@
 	io-channels = <&pm6150_vadc ADC_AMUX_THM3>;
 	io-channel-names = "cp_die_temp";
 	status = "ok";
-};
+};*/
 
 &qupv3_se1_i2c {
 	status = "okay";

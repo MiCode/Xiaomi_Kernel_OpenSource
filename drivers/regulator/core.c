@@ -4797,7 +4797,7 @@ static void regulator_summary_show_subtree(struct seq_file *s,
 		}
 	}
 
-	seq_puts(s, "\n");
+	seq_printf(s, "\n");
 
 	list_for_each_entry(consumer, &rdev->consumer_list, list) {
 		if (consumer->dev && consumer->dev->class == &regulator_class)
@@ -4805,7 +4805,7 @@ static void regulator_summary_show_subtree(struct seq_file *s,
 
 		seq_printf(s, "%*s%-*s ",
 			   (level + 1) * 3 + 1, "",
-			   30 - (level + 1) * 3,
+			   45 - (level + 1) * 3,
 			   consumer->dev ? dev_name(consumer->dev) : "deviceless");
 
 		switch (rdev->desc->type) {
@@ -4818,7 +4818,8 @@ static void regulator_summary_show_subtree(struct seq_file *s,
 			break;
 		}
 
-		seq_puts(s, "\n");
+
+		seq_printf(s, "\n");
 	}
 
 	summary_data.s = s;
@@ -4842,8 +4843,9 @@ static int regulator_summary_show_roots(struct device *dev, void *data)
 
 static int regulator_summary_show(struct seq_file *s, void *data)
 {
-	seq_puts(s, " regulator                      use open bypass voltage current     min     max\n");
-	seq_puts(s, "-------------------------------------------------------------------------------\n");
+
+	seq_puts(s, " regulator                                                        use open bypass voltage current     min     max\n");
+	seq_puts(s, "-----------------------------------------------------------------------------------------------------------------\n");
 
 	class_for_each_device(&regulator_class, NULL, s,
 			      regulator_summary_show_roots);

@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2014, 2017-2018, The Linux Foundation.
+ * Copyright (C) 2019 XiaoMi, Inc.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -37,32 +38,6 @@ int cam_io_w_mb(uint32_t data, void __iomem *addr)
 	/* Ensure previous writes are done */
 	wmb();
 	writel_relaxed_no_log(data, addr);
-	/* Ensure previous writes are done */
-	wmb();
-
-	return 0;
-}
-
-int cam_io_w_vfe_mb(uint32_t data, void __iomem *addr)
-{
-	if (!addr)
-		return -EINVAL;
-
-	CAM_DBG(CAM_UTIL, "0x%pK %08x", addr, data);
-	writel_relaxed(data, addr);
-	/* Ensure previous writes are done */
-	wmb();
-
-	return 0;
-}
-
-int cam_io_w_csid_mb(uint32_t data, void __iomem *addr)
-{
-	if (!addr)
-		return -EINVAL;
-
-	CAM_DBG(CAM_UTIL, "0x%pK %08x", addr, data);
-	writel_relaxed(data, addr);
 	/* Ensure previous writes are done */
 	wmb();
 

@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -133,6 +134,9 @@ enum sensor_sub_module {
 	SUB_MODULE_CSIPHY,
 	SUB_MODULE_OIS,
 	SUB_MODULE_EXT,
+#ifdef CONFIG_SOFTLED_CAMERA
+	SUB_MODULE_LED_SOFT,
+#endif
 	SUB_MODULE_MAX,
 };
 
@@ -174,7 +178,8 @@ enum cam_eeprom_packet_opcodes {
 
 enum cam_ois_packet_opcodes {
 	CAM_OIS_PACKET_OPCODE_INIT,
-	CAM_OIS_PACKET_OPCODE_OIS_CONTROL
+    CAM_OIS_PACKET_OPCODE_OIS_CONTROL,
+    CAM_OIS_PACKET_OPCODE_OIS_GETDATA
 };
 
 enum msm_bus_perf_setting {

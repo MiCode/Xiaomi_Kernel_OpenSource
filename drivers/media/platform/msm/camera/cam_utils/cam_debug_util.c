@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundataion. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -98,6 +99,13 @@ const char *cam_get_module_name(unsigned int module_id)
 	case CAM_REQ:
 		name = "CAM-REQ";
 		break;
+
+	/* Added by qudao1@xiaomi.com */
+	case CAM_XIAOMI:
+		name = "CAM-XIAOMI";
+		break;
+	/* End of Added by qudao1@xiaomi.com */
+
 	default:
 		name = "CAM";
 		break;
@@ -116,7 +124,8 @@ void cam_debug_log(unsigned int module_id, const char *func, const int line,
 
 	if (debug_mdl & module_id) {
 		vsnprintf(str_buffer, STR_BUFFER_MAX_LENGTH, fmt, args);
-		pr_info("CAM_DBG: %s: %s: %d: %s\n",
+		pr_info("CAM_DBG: (%u  %u) %s: %s: %d: %s\n",
+			current->tgid, current->pid,
 			cam_get_module_name(module_id),
 			func, line, str_buffer);
 		va_end(args);

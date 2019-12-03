@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -258,6 +259,7 @@ struct csiphy_device {
 	uint32_t cpas_handle;
 	uint32_t config_count;
 	uint64_t csiphy_cpas_cp_reg_mask[CSIPHY_MAX_INSTANCES];
+	uint32_t is_acquired_dev_mipi_switch;
 };
 
 #endif /* _CAM_CSIPHY_DEV_H_ */

@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,6 +31,9 @@
 
 #define DEFINE_MSM_MUTEX(mutexname) \
 	static struct mutex mutexname = __MUTEX_INITIALIZER(mutexname)
+
+#define ENABLE_OIS_EIS
+#define OIS_DATA_ADDR 0x8A
 
 enum cam_ois_state {
 	CAM_OIS_INIT,
@@ -87,7 +91,12 @@ struct cam_ois_intf_params {
 	struct cam_req_mgr_kmd_ops ops;
 	struct cam_req_mgr_crm_cb *crm_cb;
 };
-
+#ifdef ENABLE_OIS_EIS
+struct ois_data_eis_t {
+    uint64_t data_timestamp;
+    uint8_t  data[52];
+};
+#endif
 /**
  * struct cam_ois_ctrl_t - OIS ctrl private data
  * @pdev            :   platform device
@@ -107,7 +116,9 @@ struct cam_ois_intf_params {
  * @is_ois_calib    :   flag for Calibration data
  * @opcode          :   ois opcode
  * @device_name     :   Device name
- *
+ * @i2c_pre_init_data:  ois i2c pre init settings
+ * @is_ois_pre_init :   flag for pre init settings
+ * @ois_data_eis_t  :   ois data for eis
  */
 struct cam_ois_ctrl_t {
 	struct platform_device *pdev;
@@ -128,6 +139,11 @@ struct cam_ois_ctrl_t {
 	uint8_t ois_fw_flag;
 	uint8_t is_ois_calib;
 	struct cam_ois_opcode opcode;
+	struct i2c_settings_array i2c_pre_init_data; //xiaomi add
+	uint8_t is_ois_pre_init; //xiaomi add
+#ifdef ENABLE_OIS_EIS
+	struct ois_data_eis_t ois_data;
+#endif
 };
 
 #endif /*_CAM_OIS_DEV_H_ */

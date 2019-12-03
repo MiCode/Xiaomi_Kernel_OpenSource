@@ -1,3 +1,4 @@
+obj-$(CONFIG_FUEL_GAUGE_BQ27Z561)     += bq27z561_fg.o
 obj-$(CONFIG_QPNP_FG_GEN3)     += qpnp-fg-gen3.o fg-memif.o fg-util.o
 obj-$(CONFIG_QPNP_FG_GEN4)     += qpnp-fg-gen4.o fg-memif.o fg-util.o fg-alg.o  pmic-voter.o
 obj-$(CONFIG_QPNP_QG)		+= qpnp-qg.o pmic-voter.o qg-util.o qg-soc.o qg-sdam.o qg-battery-profile.o qg-profile-lib.o fg-alg.o

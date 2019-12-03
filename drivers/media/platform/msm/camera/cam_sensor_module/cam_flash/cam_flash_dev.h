@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -216,6 +217,9 @@ int cam_flash_pmic_pkt_parser(struct cam_flash_ctrl *fctrl, void *arg);
 int cam_flash_i2c_pkt_parser(struct cam_flash_ctrl *fctrl, void *arg);
 int cam_flash_pmic_apply_setting(struct cam_flash_ctrl *fctrl, uint64_t req_id);
 int cam_flash_i2c_apply_setting(struct cam_flash_ctrl *fctrl, uint64_t req_id);
+#ifdef CONFIG_SOFTLED_CAMERA
+int cam_softflash_i2c_apply_setting(struct cam_flash_ctrl *fctrl, uint64_t req_id);
+#endif
 int cam_flash_off(struct cam_flash_ctrl *fctrl);
 int cam_flash_pmic_power_ops(struct cam_flash_ctrl *fctrl,
 	bool regulator_enable);

@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -216,6 +217,7 @@ static void glink_ssr_init_notify(struct glink_ssr *ssr)
 
 		nb->nb.notifier_call = glink_ssr_ssr_cb;
 		nb->nb.priority = GLINK_SSR_PRIORITY;
+		nb->ssr = ssr;
 
 		handle = subsys_notif_register_notifier(nb->ssr_label, &nb->nb);
 		if (IS_ERR_OR_NULL(handle)) {
@@ -225,7 +227,6 @@ static void glink_ssr_init_notify(struct glink_ssr *ssr)
 			continue;
 		}
 
-		nb->ssr = ssr;
 		nb->ssr_register_handle = handle;
 		list_add_tail(&nb->list, &ssr->notify_list);
 	}

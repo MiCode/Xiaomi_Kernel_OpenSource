@@ -44,6 +44,10 @@ KERNEL_CONFIG_OVERRIDE := CONFIG_ANDROID_BINDER_IPC_32BIT=y
 endif
 endif
 
+ifeq ($(FACTORY_BUILD),1)
+KERNEL_CONFIG_OVERRIDE_FACTORY := CONFIG_FACTORY_BUILD=y
+endif
+
 TARGET_KERNEL_CROSS_COMPILE_PREFIX := $(strip $(TARGET_KERNEL_CROSS_COMPILE_PREFIX))
 ifeq ($(TARGET_KERNEL_CROSS_COMPILE_PREFIX),)
 KERNEL_CROSS_COMPILE := arm-eabi-
@@ -150,7 +154,29 @@ $(KERNEL_USR): $(KERNEL_HEADERS_INSTALL)
 $(TARGET_PREBUILT_INT_KERNEL): $(KERNEL_USR)
 endif
 
-$(KERNEL_OUT):
+KERNEL_EXTLINK_FILES := $(TARGET_KERNEL_SOURCE)/drivers/staging/rtmm \
+                        $(TARGET_KERNEL_SOURCE)/include/linux/rtmm.h \
+			$(TARGET_KERNEL_SOURCE)/drivers/staging/ktrace \
+			$(TARGET_KERNEL_SOURCE)/include/linux/ktrace.h \
+			$(TARGET_KERNEL_SOURCE)/drivers/staging/sched \
+			$(TARGET_KERNEL_SOURCE)/include/linux/sched_opt.h
+
+link_ext:
+	echo "Creating kernel symbol link to miui/kernel."
+	rm -rf $(KERNEL_EXTLINK_FILES)
+	if [ -f "$(abspath miui/kernel/memory/rtmm/include/linux/rtmm.h)" ]; then \
+		ln -s -f $(abspath miui/kernel/memory/rtmm) $(TARGET_KERNEL_SOURCE)/drivers/staging/rtmm; \
+		ln -s -f $(abspath miui/kernel/trace/ktrace) $(TARGET_KERNEL_SOURCE)/drivers/staging/ktrace; \
+		ln -s -f $(abspath miui/kernel/memory/rtmm/include/linux/rtmm.h) $(TARGET_KERNEL_SOURCE)/include/linux/rtmm.h; \
+		ln -s -f $(abspath miui/kernel/trace/ktrace/include/linux/ktrace.h) $(TARGET_KERNEL_SOURCE)/include/linux/ktrace.h;  fi
+
+	if [ -f "$(abspath miui/kernel/sched/include/linux/sched_opt.h)" ]; then \
+		ln -s -f $(abspath miui/kernel/sched) $(TARGET_KERNEL_SOURCE)/drivers/staging/sched; \
+		ln -s -f $(abspath miui/kernel/sched/include/linux/sched_opt.h) $(TARGET_KERNEL_SOURCE)/include/linux/sched_opt.h; fi
+
+.PHONY:link_ext
+
+$(KERNEL_OUT): link_ext
 	mkdir -p $(KERNEL_OUT)
 
 $(KERNEL_CONFIG): $(KERNEL_OUT)
@@ -185,6 +211,10 @@ $(KERNEL_HEADERS_INSTALL): $(KERNEL_OUT)
 	$(hide) if [ ! -z "$(KERNEL_CONFIG_OVERRIDE)" ]; then \
 			echo "Overriding kernel config with '$(KERNEL_CONFIG_OVERRIDE)'"; \
 			echo $(KERNEL_CONFIG_OVERRIDE) >> $(KERNEL_OUT)/.config; \
+			$(MAKE) -C $(TARGET_KERNEL_SOURCE) O=$(BUILD_ROOT_LOC)$(KERNEL_OUT) $(KERNEL_MAKE_ENV) ARCH=$(KERNEL_ARCH) CROSS_COMPILE=$(KERNEL_CROSS_COMPILE) $(real_cc) oldconfig; fi
+	$(hide) if [ ! -z "$(KERNEL_CONFIG_OVERRIDE_FACTORY)" ]; then \
+			echo "Overriding kernel config with '$(KERNEL_CONFIG_OVERRIDE_FACTORY)'"; \
+			echo $(KERNEL_CONFIG_OVERRIDE_FACTORY) >> $(KERNEL_OUT)/.config; \
 			$(MAKE) -C $(TARGET_KERNEL_SOURCE) O=$(BUILD_ROOT_LOC)$(KERNEL_OUT) $(KERNEL_MAKE_ENV) ARCH=$(KERNEL_ARCH) CROSS_COMPILE=$(KERNEL_CROSS_COMPILE) $(real_cc) oldconfig; fi
 
 .PHONY: kerneltags

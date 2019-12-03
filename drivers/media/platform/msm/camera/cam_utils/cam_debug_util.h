@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,6 +13,9 @@
 
 #ifndef _CAM_DEBUG_UTIL_H_
 #define _CAM_DEBUG_UTIL_H_
+
+#include <linux/thread_info.h>
+#include <linux/sched.h>
 
 #define CAM_CDM        (1 << 0)
 #define CAM_CORE       (1 << 1)
@@ -47,6 +51,12 @@
 #define CAM_PERF       (1 << 25)
 
 #define CAM_HYP        (1 << 26)
+
+/* Added by qudao1@xiaomi.com */
+#define CAM_XIAOMI       (1 << 31)
+/* End of Added by qudao1@xiaomi.com */
+
+
 #define STR_BUFFER_MAX_LENGTH  1024
 
 /*
@@ -83,7 +93,8 @@ const char *cam_get_module_name(unsigned int module_id);
  * @args     :  Arguments which needs to be print in log
  */
 #define CAM_ERR(__module, fmt, args...)                            \
-	pr_err("CAM_ERR: %s: %s: %d " fmt "\n",                     \
+	pr_err("CAM_ERR: (%u  %u) %s: %s: %d " fmt "\n",                     \
+		current->tgid, current->pid,                                \
 		cam_get_module_name(__module), __func__,  __LINE__, ##args)
 /*
  * CAM_WARN
@@ -94,7 +105,8 @@ const char *cam_get_module_name(unsigned int module_id);
  * @args     :  Arguments which needs to be print in log
  */
 #define CAM_WARN(__module, fmt, args...)                           \
-	pr_warn("CAM_WARN: %s: %s: %d " fmt "\n",                     \
+	pr_warn("CAM_WARN: (%u  %u) %s: %s: %d " fmt "\n",                     \
+		current->tgid, current->pid,                                \
 		cam_get_module_name(__module), __func__,  __LINE__, ##args)
 /*
  * CAM_INFO
@@ -105,7 +117,8 @@ const char *cam_get_module_name(unsigned int module_id);
  * @args     :  Arguments which needs to be print in log
  */
 #define CAM_INFO(__module, fmt, args...)                           \
-	pr_info("CAM_INFO: %s: %s: %d " fmt "\n",                     \
+	pr_info("CAM_INFO: (%u  %u) %s: %s: %d " fmt "\n",                     \
+		current->tgid, current->pid,                                \
 		cam_get_module_name(__module), __func__,  __LINE__, ##args)
 
 /*
@@ -117,7 +130,8 @@ const char *cam_get_module_name(unsigned int module_id);
  * @args     :  Arguments which needs to be print in log
  */
 #define CAM_INFO_RATE_LIMIT(__module, fmt, args...)                 \
-	pr_err_ratelimited("CAM_INFO: %s: %s: %d " fmt "\n",            \
+	pr_err_ratelimited("CAM_INFO: (%u  %u) %s: %s: %d " fmt "\n",            \
+		current->tgid, current->pid,                                \
 		cam_get_module_name(__module), __func__,  __LINE__, ##args)
 
 /*
@@ -136,7 +150,8 @@ const char *cam_get_module_name(unsigned int module_id);
  * @brief    :  This Macro will print error print logs with ratelimit
  */
 #define CAM_ERR_RATE_LIMIT(__module, fmt, args...)                 \
-	pr_err_ratelimited("CAM_ERR: %s: %s: %d " fmt "\n",            \
+	pr_err_ratelimited("CAM_ERR: (%u  %u) %s: %s: %d " fmt "\n",            \
+		current->tgid, current->pid,                                \
 		cam_get_module_name(__module), __func__,  __LINE__, ##args)
 
 #endif /* _CAM_DEBUG_UTIL_H_ */

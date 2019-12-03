@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -293,6 +294,21 @@
 				qcom,led-mask = <3>;
 				qcom,default-led-trigger = "switch2_trigger";
 			};
+
+			/* Added by qudao1@xiaomi.com */
+			pm6150l_flashlight: qcom,flashlight {
+				label = "flash";
+				qcom,led-name = "flashlight";
+				qcom,max-current = <750>;
+				qcom,default-led-trigger = "flashlight_trigger";
+				qcom,id = <3>;
+				qcom,current-ma = <500>;
+				qcom,duration-ms = <1280>;
+				qcom,ires-ua = <12500>;
+				qcom,hdrm-voltage-mv = <325>;
+				qcom,hdrm-vol-hi-lo-win-mv = <100>;
+			};
+			/* End of Added by qudao1@xiaomi.com */
 		};
 
 		pm6150l_wled: qcom,wled@d800 {
@@ -345,7 +361,7 @@
 				qcom,ramp-pattern-repeat;
 			};
 
-			lpg2 {
+			pwm_lpg2:lpg2 {
 				qcom,lpg-chan-id = <2>;
 				qcom,ramp-step-ms = <100>;
 				qcom,ramp-pause-hi-count = <2>;
@@ -356,7 +372,7 @@
 				qcom,ramp-pattern-repeat;
 			};
 
-			lpg3 {
+			pwm_lpg3:lpg3 {
 				qcom,lpg-chan-id = <3>;
 				qcom,ramp-step-ms = <100>;
 				qcom,ramp-pause-hi-count = <2>;
@@ -367,6 +383,17 @@
 				qcom,ramp-pattern-repeat;
 			};
 		};
+
+		/* Added by qudao1@xiaomi.com */
+		pm6150l_pwm: qcom,pwms@bc00 {
+			compatible = "qcom,pwm-lpg";
+			reg = <0xbc00 0x200>;
+			reg-names = "lpg-base";
+			#pwm-cells = <2>;
+			qcom,num-lpg-channels = <2>;
+			status = "disabled";
+		};
+		/* End of Added by qudao1@xiaomi.com */
 
 		pm6150l_rgb_led: qcom,leds@d000 {
 			compatible = "qcom,tri-led";

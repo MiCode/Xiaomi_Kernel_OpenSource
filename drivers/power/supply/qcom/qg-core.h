@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,12 +17,17 @@
 #include "fg-alg.h"
 #include "qg-defs.h"
 
+#define NTC_COMP_HIGH_TEMP		500
+#define NTC_COMP_LOW_TEMP		200
+#define TEMP_COMP_TIME			5
+
 struct qg_batt_props {
 	const char		*batt_type_str;
 	int			float_volt_uv;
 	int			vbatt_full_mv;
 	int			fastchg_curr_ma;
 	int			qg_profile_version;
+	int			nom_cap_uah;
 };
 
 struct qg_irq_info {
@@ -57,6 +63,7 @@ struct qg_dt {
 	int			esr_disable_soc;
 	int			esr_min_ibat_ua;
 	int			shutdown_soc_threshold;
+	int			min_sleep_time_secs;
 	bool			hold_soc_while_full;
 	bool			linearize_soc;
 	bool			cl_disable;
@@ -108,6 +115,7 @@ struct qpnp_qg {
 	struct power_supply	*usb_psy;
 	struct power_supply	*dc_psy;
 	struct power_supply	*parallel_psy;
+	struct power_supply	*batt_verify_psy;
 	struct qg_esr_data	esr_data[QG_MAX_ESR_COUNT];
 
 	/* status variable */
@@ -124,6 +132,8 @@ struct qpnp_qg {
 	bool			dc_present;
 	bool			charge_full;
 	bool			force_soc;
+	bool			fastcharge_mode_enabled;
+	bool			batt_verified;
 	int			charge_status;
 	int			charge_type;
 	int			chg_iterm_ma;
@@ -132,6 +142,11 @@ struct qpnp_qg {
 	int			esr_nominal;
 	int			soh;
 	int			soc_reporting_ready;
+	int			batt_ntc_comp;
+	int			obj_temp;
+	int			report_temp;
+	int			last_ibat;
+	int			real_temp;
 	u32			fifo_done_count;
 	u32			wa_flags;
 	u32			seq_no;
@@ -141,6 +156,7 @@ struct qpnp_qg {
 	ktime_t			last_user_update_time;
 	ktime_t			last_fifo_update_time;
 	unsigned long		last_maint_soc_update_time;
+	unsigned long		suspend_time;
 	struct iio_channel	*batt_therm_chan;
 	struct iio_channel	*batt_id_chan;
 
@@ -155,6 +171,7 @@ struct qpnp_qg {
 	int			sys_soc;
 	int			last_adj_ssoc;
 	int			recharge_soc;
+	int			cycle_count;
 	struct alarm		alarm_timer;
 	u32			sdam_data[SDAM_MAX];
 
@@ -167,6 +184,15 @@ struct qpnp_qg {
 	struct cycle_counter	*counter;
 	/* ttf */
 	struct ttf		*ttf;
+
+	/*battery temp compensation for F4 with diff ibat*/
+	int			max_temp_comp_value;
+	int			temp_comp_hysteresis;
+	int			temp_comp_num;
+	int			step_index;
+	bool			temp_comp_cfg_valid;
+	bool			temp_comp_enable;
+	struct range_data	*temp_comp_cfg;
 };
 
 struct ocv_all {
@@ -216,5 +242,10 @@ enum qg_wa_flags {
 	QG_PON_OCV_WA = BIT(3),
 };
 
-
+enum batt_temp_comp {
+	NTC_NO_COMP = 0,
+	NTC_LOW_COMP = 2,
+	NTC_MID_COMP = 4,
+	NTC_HIGH_COMP = 6,
+};
 #endif /* __QG_CORE_H__ */

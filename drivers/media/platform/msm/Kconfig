@@ -22,6 +22,13 @@ menuconfig MSM_AIS
       Enabling this adds support for the camera driver stack including sensor,
       IFE and postprocessing drivers.
 
+menuconfig CSID_CAMERA
+        bool "use CSID binning"
+        default n
+
+menuconfig SOFTLED_CAMERA
+        bool "use soft flash led"
+        default n
 
 source "drivers/media/platform/msm/vidc/Kconfig"
 source "drivers/media/platform/msm/sde/Kconfig"

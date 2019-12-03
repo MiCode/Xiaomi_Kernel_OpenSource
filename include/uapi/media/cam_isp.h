@@ -210,6 +210,10 @@ struct cam_isp_in_port_info {
 	uint32_t                        hbi_cnt;
 	uint32_t                        reserved;
 	uint32_t                        num_out_res;
+#if defined (CONFIG_CSID_CAMERA) || defined (DRACO_CAM)  || defined (TUCANA_CAM)
+	uint32_t                        enable_binning;
+	uint32_t                        binning_mode;
+#endif
 	struct cam_isp_out_port_info    data[1];
 };
 

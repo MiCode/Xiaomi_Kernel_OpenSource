@@ -4,6 +4,7 @@
  *  Core kernel scheduler code and related syscalls
  *
  *  Copyright (C) 1991-2002  Linus Torvalds
+ *  Copyright (C) 2019 XiaoMi, Inc.
  */
 #include <linux/sched.h>
 #include <linux/sched/clock.h>
@@ -2074,6 +2075,7 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags,
 {
 	unsigned long flags;
 	int cpu, success = 0;
+	struct rq *rq;
 
 	/*
 	 * If we are going to wake up a thread waiting for CONDITION we
@@ -2149,6 +2151,15 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags,
 	smp_cond_load_acquire(&p->on_cpu, !VAL);
 
 	walt_try_to_wake_up(p);
+
+	rq = cpu_rq(task_cpu(p));
+	// Strictly speaking we should use current
+	if (sched_boost_top_app() && rq->curr != NULL &&
+		(rq->curr->top_app || rq->curr->woken_by_top_app))
+		p->woken_by_top_app = 1;
+	else
+		p->woken_by_top_app = 0;
+
 
 	p->sched_contributes_to_load = !!task_contributes_to_load(p);
 	p->state = TASK_WAKING;
@@ -2287,6 +2298,8 @@ static void __sched_fork(unsigned long clone_flags, struct task_struct *p)
 	p->se.nr_migrations		= 0;
 	p->se.vruntime			= 0;
 	p->last_sleep_ts		= 0;
+	p->top_app		= 0;
+	p->woken_by_top_app		= 0;
 
 	INIT_LIST_HEAD(&p->se.group_node);
 
@@ -5295,7 +5308,7 @@ long __sched io_schedule_timeout(long timeout)
 }
 EXPORT_SYMBOL(io_schedule_timeout);
 
-void io_schedule(void)
+void __sched io_schedule(void)
 {
 	int token;
 
@@ -7527,3 +7540,36 @@ void sched_exit(struct task_struct *p)
 #endif /* CONFIG_SCHED_WALT */
 
 __read_mostly bool sched_predl = 1;
+
+inline bool is_critical_task(struct task_struct *p)
+{
+	return is_top_app(p) || is_inherit_top_app(p);
+}
+
+inline bool is_top_app(struct task_struct *p)
+{
+	return p && p->top_app > 0;
+}
+
+inline bool is_inherit_top_app(struct task_struct *p)
+{
+	return p && p->inherit_top_app > 0;
+}
+
+inline void set_inherit_top_app(struct task_struct *p,
+				struct task_struct *from)
+{
+	if (!p || !from)
+		return;
+	if (is_critical_task(p) || from->inherit_top_app >= INHERIT_DEPTH)
+		return;
+	p->inherit_top_app = from->inherit_top_app + 1;
+}
+
+inline void restore_inherit_top_app(struct task_struct *p)
+{
+	if (p && is_inherit_top_app(p)) {
+		p->inherit_top_app = 0;
+	}
+}
+

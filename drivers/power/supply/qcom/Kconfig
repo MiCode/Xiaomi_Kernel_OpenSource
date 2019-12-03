@@ -120,4 +120,9 @@ config SMB1390_CHARGE_PUMP_PSY
 	  SMB1390 is a div2 charge pump capable of delivering 6A charge current
 	  with very high efficiency.
 
+config FUEL_GAUGE_BQ27Z561
+	tristate "TI bq27z561 battery gauge driver"
+	help
+	  Say Y to enable support for TI bq27z561 fuel gauge driver
+
 endmenu
