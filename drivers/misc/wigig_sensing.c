@@ -539,12 +539,12 @@ static int wigig_sensing_ioc_change_mode(struct wigig_sensing_ctx *ctx,
 	}
 
 	/* Send command to FW */
+	mutex_lock(&ctx->dri_lock);
 	ctx->stm.change_mode_in_progress = true;
 	ch = req.has_channel ? req.channel : 0;
 	ctx->stm.channel_request = ch;
 	ctx->stm.burst_size_ready = false;
 	/* Change mode command must not be called during DRI processing */
-	mutex_lock(&ctx->dri_lock);
 	rc = wigig_sensing_send_change_mode_command(ctx, req.mode, ch);
 	mutex_unlock(&ctx->dri_lock);
 	if (rc) {
@@ -1206,6 +1206,7 @@ static irqreturn_t wigig_sensing_dri_isr_thread(int irq, void *cookie)
 	u32 sanity_reg = 0;
 	union user_rgf_spi_mbox_inb additional_inb_command;
 	u8 num_retries = 0;
+	bool dont_deassert = false;
 
 	mutex_lock(&ctx->dri_lock);
 
@@ -1274,6 +1275,10 @@ static irqreturn_t wigig_sensing_dri_isr_thread(int irq, void *cookie)
 		goto bail_out;
 	}
 
+	if (spi_status.b.int_dont_deassert) {
+		dont_deassert = true;
+		spi_status.v &= ~INT_DONT_DEASSERT;
+	}
 	if (spi_status.b.int_sysassert) {
 		enum wigig_sensing_stm_e old_state = ctx->stm.state;
 
@@ -1349,10 +1354,12 @@ static irqreturn_t wigig_sensing_dri_isr_thread(int irq, void *cookie)
 
 deassert_and_bail_out:
 	/* Notify FW we are done with interrupt handling */
-	rc = wigig_sensing_deassert_dri(ctx, additional_inb_command);
-	if (rc)
-		pr_err("wigig_sensing_deassert_dri() failed, rc=%d\n",
-		       rc);
+	if (!dont_deassert || additional_inb_command.b.mode != 0) {
+		rc = wigig_sensing_deassert_dri(ctx, additional_inb_command);
+		if (rc)
+			pr_err("wigig_sensing_deassert_dri() failed, rc=%d\n",
+			       rc);
+	}
 
 bail_out:
 	mutex_unlock(&ctx->dri_lock);
