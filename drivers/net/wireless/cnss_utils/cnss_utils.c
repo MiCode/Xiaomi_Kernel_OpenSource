@@ -49,6 +49,10 @@ struct cnss_wlan_mac_addr {
 	u32 no_of_mac_addr_set;
 };
 
+#ifdef CONFIG_CNSS_TIMESYNC
+static struct avtimer_cnss_fptr_t avtimer_func;
+#endif
+
 enum mac_type {
 	CNSS_MAC_PROVISIONED,
 	CNSS_MAC_DERIVED,
@@ -67,6 +71,54 @@ static struct cnss_utils_priv {
 	enum cnss_utils_cc_src cc_source;
 	struct dentry *root_dentry;
 } *cnss_utils_priv;
+
+#ifdef CONFIG_CNSS_TIMESYNC
+/**
+ * cnss_utils_set_avtimer_fptr() - Set avtimer function pointer
+ * @avtimer: struct of type avtimer_cnss_fptr_t to hold function pointer.
+ *
+ * Initialize the function pointers sent by the avtimer driver
+ *
+ */
+void cnss_utils_set_avtimer_fptr(struct avtimer_cnss_fptr_t avtimer)
+{
+	avtimer_func.fptr_avtimer_open   = avtimer.fptr_avtimer_open;
+	avtimer_func.fptr_avtimer_enable = avtimer.fptr_avtimer_enable;
+	avtimer_func.fptr_avtimer_get_time = avtimer.fptr_avtimer_get_time;
+}
+EXPORT_SYMBOL(cnss_utils_set_avtimer_fptr);
+
+static void cnss_utils_start_avtimer(void)
+{
+	if (avtimer_func.fptr_avtimer_open &&
+	    avtimer_func.fptr_avtimer_enable) {
+		avtimer_func.fptr_avtimer_open();
+		avtimer_func.fptr_avtimer_enable(1);
+	} else {
+		pr_err("AV Timer is not supported\n");
+	}
+}
+
+static void cnss_utils_stop_avtimer(void)
+{
+	if (avtimer_func.fptr_avtimer_enable)
+		avtimer_func.fptr_avtimer_enable(0);
+	else
+		pr_err("AV Timer is not supported\n");
+}
+#else
+static void cnss_utils_start_avtimer(void)
+{
+	pr_err("AV Timer is not supported\n");
+}
+EXPORT_SYMBOL(cnss_utils_start_avtimer);
+
+static void cnss_utils_stop_avtimer(void)
+{
+	pr_err("AV Timer is not supported\n");
+}
+EXPORT_SYMBOL(cnss_utils_stop_avtimer);
+#endif
 
 int cnss_utils_set_wlan_unsafe_channel(struct device *dev,
 				       u16 *unsafe_ch_list, u16 ch_count)
@@ -384,6 +436,7 @@ int cnss_get_audio_wlan_timestamp(struct device *dev,
 		return -ENOMEM;
 	}
 
+	cnss_utils_start_avtimer();
 	/* Enable PMU int for audio strobe, int #23,  is enabled */
 	value = ioread32(lpass_pmu_int_en);
 	iowrite32(value | BIT(23), lpass_pmu_int_en);
@@ -413,6 +466,8 @@ int cnss_get_audio_wlan_timestamp(struct device *dev,
 		ioread32(lpass_ts_mux + LPASS_SENSOR_IRQ_STC_LSB_OFFSET);
 	value = ioread32(lpass_pmu_int_clr);
 	iowrite32(value | BIT(23), lpass_pmu_int_clr);
+
+	cnss_utils_stop_avtimer();
 
 	return 0;
 }
