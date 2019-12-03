@@ -149,6 +149,7 @@ config CORESIGHT_TPDA
 
 config CORESIGHT_TPDM
 	bool "CoreSight Trace, Profiling & Diagnostics Monitor driver"
+	depends on QCOM_SCM=y
 	help
 	  This driver provides support for configuring monitor. Monitors are
 	  primarily responsible for data set collection and support the
