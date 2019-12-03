@@ -894,6 +894,10 @@
 		compatible = "qcom,tee-shared-memory-bridge";
 	};
 
+	qcom_smcinvoke {
+		compatible = "qcom,smcinvoke";
+	};
+
 	qcom-secure-buffer {
 		compatible = "qcom,secure-buffer";
 	};
