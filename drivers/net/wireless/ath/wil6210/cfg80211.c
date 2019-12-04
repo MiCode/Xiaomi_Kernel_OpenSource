@@ -1510,6 +1510,16 @@ static int wil_cfg80211_connect(struct wiphy *wiphy,
 	if (rc < 0)
 		return rc;
 
+	if (test_bit(WMI_FW_CAPABILITY_CHANNEL_BONDING, wil->fw_capabilities))
+		if (wil->force_edmg_channel) {
+			rc = wil_spec2wmi_ch(wil->force_edmg_channel,
+					     &conn.edmg_channel);
+			if (rc)
+				wil_err(wil,
+					"wmi channel for channel %d not found",
+					wil->force_edmg_channel);
+		}
+
 	ether_addr_copy(conn.bssid, bss->bssid);
 	ether_addr_copy(conn.dst_mac, bss->bssid);
 
