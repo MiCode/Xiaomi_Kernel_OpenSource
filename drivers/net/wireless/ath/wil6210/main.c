@@ -1309,6 +1309,8 @@ void wil_refresh_fw_capabilities(struct wil6210_priv *wil)
 	}
 
 	update_supported_bands(wil);
+
+	wil->ap_ps = test_bit(WIL_PLATFORM_CAPA_AP_PS, wil->platform_capa);
 }
 
 void wil_mbox_ring_le2cpus(struct wil6210_mbox_ring *r)

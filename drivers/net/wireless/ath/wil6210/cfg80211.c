@@ -2155,7 +2155,8 @@ static int _wil_cfg80211_start_ap(struct wiphy *wiphy,
 	if (pbss)
 		wmi_nettype = WMI_NETTYPE_P2P;
 
-	wil_dbg_misc(wil, "start_ap: mid=%d, is_go=%d\n", vif->mid, is_go);
+	wil_dbg_misc(wil, "start_ap: mid=%d, is_go=%d ap_ps=%d\n", vif->mid,
+		     is_go, wil->ap_ps);
 	if (is_go && !pbss) {
 		wil_err(wil, "P2P GO must be in PBSS\n");
 		return -ENOTSUPP;
@@ -2246,6 +2247,14 @@ static int _wil_cfg80211_start_ap(struct wiphy *wiphy,
 	rc = wil_bcast_init(vif);
 	if (rc)
 		goto err_bcast;
+
+	if (test_bit(WMI_FW_CAPABILITY_AP_POWER_MANAGEMENT,
+		     wil->fw_capabilities)) {
+		enum wmi_ps_profile_type ps_profile = wil->ap_ps ?
+			wil->ps_profile : WMI_PS_PROFILE_TYPE_PS_DISABLED;
+
+		wil_ps_update(wil, ps_profile);
+	}
 
 	goto out; /* success */
 

@@ -1047,6 +1047,7 @@ struct wil6210_priv {
 	void *platform_handle;
 	struct wil_platform_ops platform_ops;
 	bool keep_radio_on_during_sleep;
+	u8 ap_ps; /* AP mode power save enabled */
 
 	struct pmc_ctx pmc;
 
