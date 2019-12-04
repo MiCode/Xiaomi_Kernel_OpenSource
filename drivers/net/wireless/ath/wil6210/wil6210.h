@@ -28,6 +28,7 @@ extern bool rx_large_buf;
 extern bool debug_fw;
 extern bool disable_ap_sme;
 extern bool ftm_mode;
+extern ushort headroom_size;
 extern bool drop_if_ring_full;
 extern uint max_assoc_sta;
 
