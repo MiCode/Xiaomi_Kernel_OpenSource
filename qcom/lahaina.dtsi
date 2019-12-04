@@ -571,6 +571,7 @@
 		compatible = "qcom,lahaina-gcc", "syscon";
 		reg = <0x100000 0x1f0000>;
 		reg-names = "cc_base";
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
