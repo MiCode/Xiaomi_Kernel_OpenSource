@@ -114,8 +114,7 @@ void hab_ctx_free(struct kref *ref)
 	int i;
 	struct uhab_context *ctxdel, *ctxtmp;
 	struct hab_open_node *node;
-	struct export_desc *exp = NULL,
-			*exp_tmp = NULL;
+	struct export_desc *exp = NULL, *exp_tmp = NULL;
 
 	/* garbage-collect exp/imp buffers */
 	write_lock_bh(&ctx->exp_lock);

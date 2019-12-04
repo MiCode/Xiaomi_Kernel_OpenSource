@@ -56,6 +56,15 @@ static irqreturn_t shm_irq_handler(int irq, void *_pchan)
 	return rc;
 }
 
+/* debug only */
+static void work_func(struct work_struct *work)
+{
+	struct work_data *wdata = (struct work_data *) work;
+
+	dump_hab();
+	wdata->data = 1; /* done, now unblock tasklet */
+}
+
 int habhyp_commdev_create_dispatcher(struct physical_channel *pchan)
 {
 	struct qvm_channel *dev = (struct qvm_channel *)pchan->hyp_data;
@@ -63,6 +72,12 @@ int habhyp_commdev_create_dispatcher(struct physical_channel *pchan)
 
 	tasklet_init(&dev->os_data->task, physical_channel_rx_dispatch,
 		(unsigned long) pchan);
+
+	/* debug */
+	dev->wq = create_workqueue("wq_dump");
+	INIT_WORK(&dev->wdata.work, work_func);
+	dev->wdata.data = 0; /* let the caller wait */
+	dev->side_buf = kzalloc(PIPE_SHMEM_SIZE, GFP_KERNEL);
 
 	pr_debug("request_irq: irq = %d, pchan name = %s",
 			dev->irq, pchan->name);
@@ -73,6 +88,58 @@ int habhyp_commdev_create_dispatcher(struct physical_channel *pchan)
 			pchan->name, ret);
 
 	return ret;
+}
+
+/* Debug: critical section? */
+void hab_pipe_read_dump(struct physical_channel *pchan)
+{
+	struct qvm_channel *dev  = (struct qvm_channel *)pchan->hyp_data;
+	char str[250];
+	int i;
+	struct dbg_items *its = (struct dbg_items *)dev->pipe->buf_a;
+
+	snprintf(str, sizeof(str),
+		"index 0x%X rd_cnt %d wr_cnt %d size %d data_addr %lX",
+		dev->pipe_ep->rx_info.index,
+		dev->pipe_ep->rx_info.sh_buf->rd_count,
+		dev->pipe_ep->rx_info.sh_buf->wr_count,
+		dev->pipe_ep->rx_info.sh_buf->size,
+		&dev->pipe_ep->rx_info.sh_buf->data[0]);
+	dump_hab_buf(str, strlen(str)+1);
+
+	/* trace history buffer dump */
+	snprintf(str, sizeof(str), "dbg hist buffer index %d\n", its->idx);
+	dump_hab_buf(str, strlen(str)+1);
+
+	for (i = 0; i < DBG_ITEM_SIZE; i++) {
+		struct dbg_item *it = &its->it[i];
+
+		snprintf(str, sizeof(str),
+		"it %d: rd %d wr %d va %lX index 0x%X size %d ret %d\n",
+		i, it->rd_cnt, it->wr_cnt, it->va, it->index, it->sz, it->ret);
+		dump_hab_buf(str, strlen(str)+1);
+	}
+
+	/* !!!! to end the readable string */
+	str[0] = str[1] = str[2] = str[3] = 33;
+	dump_hab_buf(str, 4); /* separator */
+
+	dump_hab_buf((void *)dev->pipe_ep->rx_info.sh_buf->data,
+			dev->pipe_ep->rx_info.sh_buf->size);
+
+	str[0] = str[1] = str[2] = str[3] = str[4] = str[5] = str[6] =
+		str[7] = 33; /* !!!! to end the readable string */
+	dump_hab_buf(str, 16); /* separator */
+
+	dump_hab_buf(dev->side_buf, dev->pipe_ep->rx_info.sh_buf->size);
+}
+
+void dump_hab_wq(void *hyp_data)
+{
+	struct qvm_channel *dev  = (struct qvm_channel *)hyp_data;
+
+	queue_work(dev->wq, &dev->wdata.work);
+	dev->wdata.data = 0; /* reset it back */
 }
 
 /* The input is already va now */
@@ -88,15 +155,12 @@ char *hab_shmem_attach(struct qvm_channel *dev, const char *name,
 	struct qvm_plugin_info *qvm_priv = hab_driver.hyp_priv;
 	uint64_t paddr;
 	char *shmdata;
-	int temp;
-	int total_pages;
-	struct page **pages;
 	int ret = 0;
 
 	/* no more vdev-shmem for more pchan considering the 1:1 rule */
 	if (qvm_priv->curr >= qvm_priv->probe_cnt) {
-		pr_err("pchan guest factory setting %d overflow probed cnt %d\n",
-					qvm_priv->curr, qvm_priv->probe_cnt);
+		pr_err("pchan guest factory setting %d overflow probe cnt %d\n",
+			qvm_priv->curr, qvm_priv->probe_cnt);
 		ret = -1;
 		goto err;
 	}
@@ -107,20 +171,11 @@ char *hab_shmem_attach(struct qvm_channel *dev, const char *name,
 			name,
 			pipe_alloc_pages);
 
-	total_pages = dev->guest_factory->size + 1;
-	pages = kmalloc_array(total_pages, sizeof(struct page *), GFP_KERNEL);
-	if (!pages) {
-		ret = -ENOMEM;
-		goto err;
-	}
-
-	for (temp = 0; temp < total_pages; temp++)
-		pages[temp] = pfn_to_page((paddr / PAGE_SIZE) + temp);
-
-	dev->guest_ctrl = vmap(pages, total_pages, VM_MAP, PAGE_KERNEL);
+	dev->guest_ctrl = memremap(paddr,
+		(dev->guest_factory->size + 1) * PAGE_SIZE, MEMREMAP_WB);
+		/* page size should be 4KB */
 	if (!dev->guest_ctrl) {
 		ret = -ENOMEM;
-		kfree(pages);
 		goto err;
 	}
 
@@ -130,9 +185,6 @@ char *hab_shmem_attach(struct qvm_channel *dev, const char *name,
 			paddr, dev->guest_ctrl, dev->guest_ctrl->idx);
 	pr_debug("data buffer mapped at 0x%pK\n", shmdata);
 	dev->idx = dev->guest_ctrl->idx;
-
-	kfree(pages);
-
 	qvm_priv->curr++;
 	return shmdata;
 

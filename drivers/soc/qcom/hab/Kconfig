@@ -3,6 +3,7 @@
 #
 config MSM_HAB
 	bool "Enable Multimedia driver Hypervisor Abstraction Layer"
+	select WANT_DEV_COREDUMP
 	help
 	  Multimedia driver hypervisor abstraction layer.
 	  Required for drivers to use the HAB API to communicate with the host
