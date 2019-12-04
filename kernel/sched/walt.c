@@ -110,7 +110,7 @@ static void release_rq_locks_irqrestore(const cpumask_t *cpus,
 
 #define NR_WINDOWS_PER_SEC (NSEC_PER_SEC / MIN_SCHED_RAVG_WINDOW)
 
-__read_mostly unsigned int sysctl_sched_cpu_high_irqload = (10 * NSEC_PER_MSEC);
+__read_mostly unsigned int sysctl_sched_cpu_high_irqload = TICK_NSEC;
 
 unsigned int sysctl_sched_walt_rotate_big_tasks;
 unsigned int walt_rotation_enabled;
@@ -2250,13 +2250,35 @@ static void walt_cpus_capacity_changed(const cpumask_t *cpus)
 }
 
 
-static cpumask_t all_cluster_cpus = CPU_MASK_NONE;
-DECLARE_BITMAP(all_cluster_ids, NR_CPUS);
 struct sched_cluster *sched_cluster[NR_CPUS];
-int num_clusters;
+static int num_sched_clusters;
 
 struct list_head cluster_head;
 cpumask_t asym_cap_sibling_cpus = CPU_MASK_NONE;
+
+static struct sched_cluster init_cluster = {
+	.list			=	LIST_HEAD_INIT(init_cluster.list),
+	.id			=	0,
+	.max_power_cost		=	1,
+	.min_power_cost		=	1,
+	.max_possible_capacity	=	1024,
+	.efficiency		=	1,
+	.cur_freq		=	1,
+	.max_freq		=	1,
+	.max_mitigated_freq	=	UINT_MAX,
+	.min_freq		=	1,
+	.max_possible_freq	=	1,
+	.exec_scale_factor	=	1024,
+	.aggr_grp_load		=	0,
+};
+
+void init_clusters(void)
+{
+	init_cluster.cpus = *cpu_possible_mask;
+	raw_spin_lock_init(&init_cluster.load_lock);
+	INIT_LIST_HEAD(&cluster_head);
+	list_add(&init_cluster.list, &cluster_head);
+}
 
 static void
 insert_cluster(struct sched_cluster *cluster, struct list_head *head)
@@ -2319,8 +2341,22 @@ static void add_cluster(const struct cpumask *cpus, struct list_head *head)
 		cpu_rq(i)->cluster = cluster;
 
 	insert_cluster(cluster, head);
-	set_bit(num_clusters, all_cluster_ids);
-	num_clusters++;
+	num_sched_clusters++;
+}
+
+static void cleanup_clusters(struct list_head *head)
+{
+	struct sched_cluster *cluster, *tmp;
+	int i;
+
+	list_for_each_entry_safe(cluster, tmp, head, list) {
+		for_each_cpu(i, &cluster->cpus)
+			cpu_rq(i)->cluster = &init_cluster;
+
+		list_del(&cluster->list);
+		num_sched_clusters--;
+		kfree(cluster);
+	}
 }
 
 static int compute_max_possible_capacity(struct sched_cluster *cluster)
@@ -2436,7 +2472,11 @@ void update_cluster_topology(void)
 
 	for_each_cpu(i, &cpus) {
 		cluster_cpus = topology_possible_sibling_cpumask(i);
-		cpumask_or(&all_cluster_cpus, &all_cluster_cpus, cluster_cpus);
+		if (cpumask_empty(cluster_cpus)) {
+			WARN(1, "WALT: Invalid cpu topology!!");
+			cleanup_clusters(&new_head);
+			return;
+		}
 		cpumask_andnot(&cpus, &cpus, cluster_cpus);
 		add_cluster(cluster_cpus, &new_head);
 	}
@@ -2458,30 +2498,6 @@ void update_cluster_topology(void)
 
 	if (cpumask_weight(&asym_cap_sibling_cpus) == 1)
 		cpumask_clear(&asym_cap_sibling_cpus);
-}
-
-struct sched_cluster init_cluster = {
-	.list			=	LIST_HEAD_INIT(init_cluster.list),
-	.id			=	0,
-	.max_power_cost		=	1,
-	.min_power_cost		=	1,
-	.max_possible_capacity	=	1024,
-	.efficiency		=	1,
-	.cur_freq		=	1,
-	.max_freq		=	1,
-	.max_mitigated_freq	=	UINT_MAX,
-	.min_freq		=	1,
-	.max_possible_freq	=	1,
-	.exec_scale_factor	=	1024,
-	.aggr_grp_load		=	0,
-};
-
-void init_clusters(void)
-{
-	bitmap_clear(all_cluster_ids, 0, NR_CPUS);
-	init_cluster.cpus = *cpu_possible_mask;
-	raw_spin_lock_init(&init_cluster.load_lock);
-	INIT_LIST_HEAD(&cluster_head);
 }
 
 static unsigned long cpu_max_table_freq[NR_CPUS];
@@ -3690,3 +3706,125 @@ unlock:
 	mutex_unlock(&mutex);
 	return ret;
 }
+
+void sched_set_refresh_rate(enum fps fps)
+{
+	int new_nr_ticks;
+
+	if (HZ == 250) {
+		if (fps > FPS90)
+			new_nr_ticks = 2;
+		else if (fps == FPS90)
+			new_nr_ticks = 3;
+		else
+			new_nr_ticks = 5;
+		sched_window_nr_ticks_change(new_nr_ticks);
+	}
+}
+EXPORT_SYMBOL(sched_set_refresh_rate);
+
+/* Migration margins */
+unsigned int sysctl_sched_capacity_margin_up[MAX_MARGIN_LEVELS] = {
+			[0 ... MAX_MARGIN_LEVELS-1] = 1078}; /* ~5% margin */
+unsigned int sysctl_sched_capacity_margin_down[MAX_MARGIN_LEVELS] = {
+			[0 ... MAX_MARGIN_LEVELS-1] = 1205}; /* ~15% margin */
+
+#ifdef CONFIG_PROC_SYSCTL
+static void sched_update_updown_migrate_values(bool up)
+{
+	int i = 0, cpu;
+	struct sched_cluster *cluster;
+	int cap_margin_levels = num_sched_clusters - 1;
+
+	if (cap_margin_levels > 1) {
+		/*
+		 * No need to worry about CPUs in last cluster
+		 * if there are more than 2 clusters in the system
+		 */
+		for_each_sched_cluster(cluster) {
+			for_each_cpu(cpu, &cluster->cpus) {
+
+				if (up)
+					sched_capacity_margin_up[cpu] =
+					sysctl_sched_capacity_margin_up[i];
+				else
+					sched_capacity_margin_down[cpu] =
+					sysctl_sched_capacity_margin_down[i];
+			}
+
+			if (++i >= cap_margin_levels)
+				break;
+		}
+	} else {
+		for_each_possible_cpu(cpu) {
+			if (up)
+				sched_capacity_margin_up[cpu] =
+					sysctl_sched_capacity_margin_up[0];
+			else
+				sched_capacity_margin_down[cpu] =
+					sysctl_sched_capacity_margin_down[0];
+		}
+	}
+}
+
+int sched_updown_migrate_handler(struct ctl_table *table, int write,
+				void __user *buffer, size_t *lenp,
+				loff_t *ppos)
+{
+	int ret, i;
+	unsigned int *data = (unsigned int *)table->data;
+	unsigned int *old_val;
+	static DEFINE_MUTEX(mutex);
+	int cap_margin_levels = num_sched_clusters ? num_sched_clusters - 1 : 0;
+
+	if (cap_margin_levels <= 0)
+		return -EINVAL;
+
+	mutex_lock(&mutex);
+
+	if (table->maxlen != (sizeof(unsigned int) * cap_margin_levels))
+		table->maxlen = sizeof(unsigned int) * cap_margin_levels;
+
+	if (!write) {
+		ret = proc_douintvec_capacity(table, write, buffer, lenp, ppos);
+		goto unlock_mutex;
+	}
+
+	/*
+	 * Cache the old values so that they can be restored
+	 * if either the write fails (for example out of range values)
+	 * or the downmigrate and upmigrate are not in sync.
+	 */
+	old_val = kmemdup(data, table->maxlen, GFP_KERNEL);
+	if (!old_val) {
+		ret = -ENOMEM;
+		goto unlock_mutex;
+	}
+
+	ret = proc_douintvec_capacity(table, write, buffer, lenp, ppos);
+
+	if (ret) {
+		memcpy(data, old_val, table->maxlen);
+		goto free_old_val;
+	}
+
+	for (i = 0; i < cap_margin_levels; i++) {
+		if (sysctl_sched_capacity_margin_up[i] >
+				sysctl_sched_capacity_margin_down[i]) {
+			memcpy(data, old_val, table->maxlen);
+			ret = -EINVAL;
+			goto free_old_val;
+		}
+	}
+
+	sched_update_updown_migrate_values(data ==
+					&sysctl_sched_capacity_margin_up[0]);
+
+free_old_val:
+	kfree(old_val);
+unlock_mutex:
+	mutex_unlock(&mutex);
+
+	return ret;
+}
+#endif

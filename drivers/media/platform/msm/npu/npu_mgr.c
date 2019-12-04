@@ -139,7 +139,7 @@ static int load_fw_nolock(struct npu_device *npu_dev, bool enable)
 	}
 
 	ret = wait_for_completion_timeout(
-		&host_ctx->npu_power_up_done, NW_CMD_TIMEOUT);
+		&host_ctx->npu_power_up_done, NW_PWR_UP_TIMEOUT);
 	if (!ret) {
 		NPU_ERR("Wait for npu powers up timed out\n");
 		ret = -ETIMEDOUT;
@@ -181,7 +181,7 @@ static int load_fw_nolock(struct npu_device *npu_dev, bool enable)
 	}
 
 	ret = wait_for_completion_timeout(
-		&host_ctx->fw_shutdown_done, NW_CMD_TIMEOUT);
+		&host_ctx->fw_shutdown_done, NW_RSC_TIMEOUT_MS);
 	if (!ret) {
 		NPU_ERR("Wait for fw shutdown timedout\n");
 		ret = -ETIMEDOUT;
@@ -333,7 +333,7 @@ static int enable_fw_nolock(struct npu_device *npu_dev)
 	}
 
 	ret = wait_for_completion_timeout(
-		&host_ctx->fw_bringup_done, NW_CMD_TIMEOUT);
+		&host_ctx->fw_bringup_done, NW_RSC_TIMEOUT_MS);
 	if (!ret) {
 		NPU_ERR("Wait for fw bringup timedout\n");
 		ret = -ETIMEDOUT;
@@ -409,7 +409,7 @@ static void disable_fw_nolock(struct npu_device *npu_dev)
 
 	if (!host_ctx->auto_pil_disable) {
 		ret = wait_for_completion_timeout(
-			&host_ctx->fw_shutdown_done, NW_CMD_TIMEOUT);
+			&host_ctx->fw_shutdown_done, NW_RSC_TIMEOUT_MS);
 		if (!ret)
 			NPU_ERR("Wait for fw shutdown timedout\n");
 		else
@@ -874,7 +874,7 @@ static int host_error_hdlr(struct npu_device *npu_dev, bool force)
 	NPU_INFO("npu subsystem is restarted\n");
 
 	ret = wait_for_completion_timeout(
-		&host_ctx->npu_power_up_done, NW_CMD_TIMEOUT);
+		&host_ctx->npu_power_up_done, NW_PWR_UP_TIMEOUT);
 	if (!ret) {
 		NPU_ERR("Wait for npu powers up timed out\n");
 		ret = -ETIMEDOUT;
@@ -2836,4 +2836,11 @@ int32_t npu_host_get_perf_mode(struct npu_client *client, uint32_t network_hdl)
 	mutex_unlock(&host_ctx->lock);
 
 	return param_val;
+}
+
+void npu_host_suspend(struct npu_device *npu_dev)
+{
+	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
+
+	flush_delayed_work(&host_ctx->disable_fw_work);
 }

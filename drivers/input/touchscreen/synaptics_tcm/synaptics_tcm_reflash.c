@@ -926,15 +926,22 @@ static int reflash_parse_fw_image(void)
 static int reflash_get_fw_image(void)
 {
 	int retval;
+	const char *fw_name;
 	struct syna_tcm_hcd *tcm_hcd = reflash_hcd->tcm_hcd;
+	const struct syna_tcm_board_data *bdata = tcm_hcd->hw_if->bdata;
+
+	if (bdata->fw_name)
+		fw_name = bdata->fw_name;
+	else
+		fw_name = FW_IMAGE_NAME;
 
 	if (reflash_hcd->image == NULL) {
-		retval = request_firmware(&reflash_hcd->fw_entry, FW_IMAGE_NAME,
+		retval = request_firmware(&reflash_hcd->fw_entry, fw_name,
 				tcm_hcd->pdev->dev.parent);
 		if (retval < 0) {
 			LOGD(tcm_hcd->pdev->dev.parent,
 					"Failed to request %s\n",
-					FW_IMAGE_NAME);
+					fw_name);
 			return retval;
 		}
 

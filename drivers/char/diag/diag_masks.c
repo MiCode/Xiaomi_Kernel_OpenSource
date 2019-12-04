@@ -3503,6 +3503,7 @@ static int __diag_multisim_mask_init(struct diag_mask_info *mask_info,
 		int mask_len, int subid_index)
 {
 	struct diag_multisim_masks *temp = NULL;
+	struct diag_multisim_masks *ms_ptr = NULL;
 
 	if (!mask_info || mask_len <= 0 || subid_index < 0)
 		return -EINVAL;
@@ -3522,9 +3523,10 @@ static int __diag_multisim_mask_init(struct diag_mask_info *mask_info,
 		temp->next = NULL;
 
 		if (mask_info->ms_ptr) {
-			while (mask_info->ms_ptr->next)
-				mask_info->ms_ptr = mask_info->ms_ptr->next;
-			mask_info->ms_ptr->next = temp;
+			ms_ptr = mask_info->ms_ptr;
+			while (ms_ptr->next)
+				ms_ptr = ms_ptr->next;
+			ms_ptr->next = temp;
 		} else {
 			mask_info->ms_ptr = temp;
 		}

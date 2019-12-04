@@ -211,6 +211,8 @@
 #define IPA_FLT_L2TP_INNER_IPV4_DST_ADDR (1ul << 26)
 #define IPA_FLT_IS_PURE_ACK		(1ul << 27)
 #define IPA_FLT_VLAN_ID			(1ul << 28)
+#define IPA_FLT_MAC_SRC_ADDR_802_1Q	(1ul << 29)
+#define IPA_FLT_MAC_DST_ADDR_802_1Q	(1ul << 30)
 
 /**
  * maximal number of NAT PDNs in the PDN config table

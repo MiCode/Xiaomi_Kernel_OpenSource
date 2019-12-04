@@ -163,7 +163,7 @@ extern struct diag_mask_info msg_bt_mask;
 extern struct diag_mask_info log_mask;
 extern struct diag_mask_info event_mask;
 
-#define MAX_SIM_NUM 7
+#define MAX_SIM_NUM 2
 #define INVALID_INDEX -1
 #define LEGACY_MASK_CMD 0
 #define SUBID_CMD 1

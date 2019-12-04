@@ -18,8 +18,12 @@
  * Defines
  * -------------------------------------------------------------------------
  */
-#define NW_CMD_TIMEOUT_MS (1000 * 5) /* set for 5 seconds */
+#define NW_RSC_TIMEOUT_MS (1000 * 5) /* set for 5 seconds */
+#define NW_RSC_TIMEOUT msecs_to_jiffies(NW_RSC_TIMEOUT_MS)
+#define NW_CMD_TIMEOUT_MS (1000 * 20) /* set for 20 seconds */
 #define NW_CMD_TIMEOUT msecs_to_jiffies(NW_CMD_TIMEOUT_MS)
+#define NW_PWR_UP_TIMEOUT_MS (1000 * 60) /* set for 60 seconds */
+#define NW_PWR_UP_TIMEOUT msecs_to_jiffies(NW_PWR_UP_TIMEOUT_MS)
 #define NW_DEBUG_TIMEOUT_MS (1000 * 60 * 30) /* set for 30 minutes */
 #define NW_DEBUG_TIMEOUT msecs_to_jiffies(NW_DEBUG_TIMEOUT_MS)
 #define NPU_MBOX_IDLE_TIMEOUT_MS 500 /* set for 500ms */
@@ -178,6 +182,7 @@ int npu_host_update_power(struct npu_device *npu_dev);
 int32_t npu_host_set_perf_mode(struct npu_client *client, uint32_t network_hdl,
 	uint32_t perf_mode);
 int32_t npu_host_get_perf_mode(struct npu_client *client, uint32_t network_hdl);
+void npu_host_suspend(struct npu_device *npu_dev);
 void npu_dump_debug_info(struct npu_device *npu_dev);
 void npu_dump_ipc_packet(struct npu_device *npu_dev, void *cmd_ptr);
 
