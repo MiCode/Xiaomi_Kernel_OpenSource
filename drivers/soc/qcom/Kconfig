@@ -749,7 +749,7 @@ endif # MSM_PM
 
 config QTI_RPM_STATS_LOG
 	bool "Qualcomm Technologies RPM Stats Driver"
-	depends on QCOM_RPMH
+	depends on QCOM_RPMH || MSM_RPM_SMD
 	help
 	  This option enables a driver which reads RPM messages from a shared
 	  memory location. These messages provide statistical information about
