@@ -1313,6 +1313,31 @@ static int synx_open(struct inode *inode, struct file *filep)
 	return 0;
 }
 
+static void synx_object_cleanup(struct synx_client *client)
+{
+	int i;
+	struct synx_cb_data *payload_info, *temp_payload_info;
+
+	for (i = 1; i < SYNX_MAX_OBJS; i++) {
+		struct synx_table_row *row =
+			synx_dev->synx_table + i;
+
+		spin_lock_bh(&synx_dev->row_spinlocks[row->index]);
+		if (row->index) {
+			list_for_each_entry_safe(payload_info,
+				temp_payload_info,
+				&row->user_payload_list, list) {
+				if (payload_info->client == client) {
+					list_del_init(&payload_info->list);
+					kfree(payload_info);
+					pr_debug("cleaned up client payload\n");
+				}
+			}
+		}
+		spin_unlock_bh(&synx_dev->row_spinlocks[row->index]);
+	}
+}
+
 static void synx_table_cleanup(void)
 {
 	int rc = 0;
@@ -1402,6 +1427,7 @@ static int synx_close(struct inode *inode, struct file *filep)
 	client = filep->private_data;
 
 	mutex_lock(&synx_dev->table_lock);
+	synx_object_cleanup(client);
 	synx_table_cleanup();
 	list_del_init(&client->list);
 	kfree(client);
