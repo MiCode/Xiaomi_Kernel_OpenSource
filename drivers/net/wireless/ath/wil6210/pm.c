@@ -51,6 +51,13 @@ wil_can_suspend_vif(struct wil6210_priv *wil, struct wil6210_vif *vif,
 
 	/* for STA-like interface, don't runtime suspend */
 	case NL80211_IFTYPE_STATION:
+		if (test_bit(wil_vif_fwconnected, vif->status) &&
+		    wil->vr_profile != WMI_VR_PROFILE_DISABLED) {
+			wil_dbg_pm(wil,
+				   "Reject suspend in VR mode when connected\n");
+			return false;
+		}
+		/* fallthrough */
 	case NL80211_IFTYPE_P2P_CLIENT:
 		if (test_bit(wil_vif_fwconnecting, vif->status)) {
 			wil_dbg_pm(wil, "Delay suspend when connecting\n");

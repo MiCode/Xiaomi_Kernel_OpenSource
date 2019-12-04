@@ -478,6 +478,8 @@ static const char *cmdid2name(u16 cmdid)
 		return "WMI_RBUFCAP_CFG_CMD";
 	case WMI_TEMP_SENSE_ALL_CMDID:
 		return "WMI_TEMP_SENSE_ALL_CMDID";
+	case WMI_SET_VR_PROFILE_CMDID:
+		return "WMI_SET_VR_PROFILE_CMD";
 	default:
 		return "Untracked CMD";
 	}
@@ -626,6 +628,8 @@ static const char *eventid2name(u16 eventid)
 		return "WMI_RBUFCAP_CFG_EVENT";
 	case WMI_TEMP_SENSE_ALL_DONE_EVENTID:
 		return "WMI_TEMP_SENSE_ALL_DONE_EVENTID";
+	case WMI_SET_VR_PROFILE_EVENTID:
+		return "WMI_SET_VR_PROFILE_EVENT";
 	default:
 		return "Untracked EVENT";
 	}
@@ -4205,6 +4209,53 @@ int wmi_link_stats_cfg(struct wil6210_vif *vif, u32 type, u8 cid, u32 interval)
 
 	if (reply.evt.status != WMI_FW_STATUS_SUCCESS) {
 		wil_err(wil, "Link statistics config failed, status %d\n",
+			reply.evt.status);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+const char *
+wil_get_vr_profile_name(enum wmi_vr_profile profile)
+{
+	switch (profile) {
+	case WMI_VR_PROFILE_DISABLED:
+		return "DISABLED";
+	case WMI_VR_PROFILE_COMMON_AP:
+		return "COMMON_AP";
+	case WMI_VR_PROFILE_COMMON_STA:
+		return "COMMON_STA";
+	default:
+		return "unknown";
+	}
+}
+
+int wmi_set_vr_profile(struct wil6210_priv *wil, u8 profile)
+{
+	int rc;
+	struct net_device *ndev = wil->main_ndev;
+	struct wil6210_vif *vif = ndev_to_vif(ndev);
+	struct wmi_set_vr_profile_cmd cmd = {0};
+	struct {
+		struct wmi_cmd_hdr hdr;
+		struct wmi_set_vr_profile_event evt;
+	} __packed reply = {
+		.evt = {.status = WMI_FW_STATUS_FAILURE},
+	};
+
+	cmd.profile = profile;
+	wil_info(wil, "sending set vr config command, profile=%d\n", profile);
+	rc = wmi_call(wil, WMI_SET_VR_PROFILE_CMDID, vif->mid, &cmd,
+		      sizeof(cmd), WMI_SET_VR_PROFILE_EVENTID,
+		      &reply, sizeof(reply), WIL_WMI_CALL_GENERAL_TO_MS);
+	if (rc) {
+		wil_err(wil, "WMI_SET_VR_PROFILE_CMDID failed, rc %d\n", rc);
+		return rc;
+	}
+
+	if (reply.evt.status != WMI_FW_STATUS_SUCCESS) {
+		wil_err(wil, "set vr profile failed, status %d\n",
 			reply.evt.status);
 		return -EINVAL;
 	}
