@@ -433,7 +433,7 @@ static int wigig_sensing_change_state(struct wigig_sensing_ctx *ctx,
 				      enum wigig_sensing_stm_e new_state)
 {
 	enum wigig_sensing_stm_e curr_state;
-	bool transition_allowed = false;
+	bool transition_allowed = true;
 
 	if (!state) {
 		pr_err("state is NULL\n");
@@ -441,75 +441,39 @@ static int wigig_sensing_change_state(struct wigig_sensing_ctx *ctx,
 	}
 	if (new_state <= WIGIG_SENSING_STATE_MIN ||
 	    new_state >= WIGIG_SENSING_STATE_MAX) {
-		pr_err("new_state is invalid\n");
+		pr_err("new_state (%d) is invalid\n", new_state);
 		return -EINVAL;
 	}
 
 	curr_state = state->state;
-	if (new_state == curr_state) {
-		pr_debug("Already in the requested state, bailing out\n");
-		return 0;
-	}
 
-	if ((new_state == WIGIG_SENSING_STATE_SYS_ASSERT &&
-	     !state->fw_is_ready) ||
-	    (new_state == WIGIG_SENSING_STATE_SPI_READY)) {
+	/* Moving to SYS_ASSEERT state is always allowed */
+	if (new_state == WIGIG_SENSING_STATE_SYS_ASSERT)
 		transition_allowed = true;
-	} else {
-		switch (curr_state) {
-		case WIGIG_SENSING_STATE_INITIALIZED:
-			if (new_state == WIGIG_SENSING_STATE_SPI_READY &&
-			    state->fw_is_ready)
-				transition_allowed = true;
-			break;
-		case WIGIG_SENSING_STATE_SPI_READY:
-			if (new_state == WIGIG_SENSING_STATE_READY_STOPPED &&
-			    state->enabled)
-				transition_allowed = true;
-			break;
-		case WIGIG_SENSING_STATE_READY_STOPPED:
-			if (new_state == WIGIG_SENSING_STATE_SEARCH        ||
-			    new_state == WIGIG_SENSING_STATE_FACIAL        ||
-			    new_state == WIGIG_SENSING_STATE_GESTURE       ||
-			    new_state == WIGIG_SENSING_STATE_CUSTOM        ||
-			    new_state == WIGIG_SENSING_STATE_GET_PARAMS)
-				transition_allowed = true;
-			break;
-		case WIGIG_SENSING_STATE_SEARCH:
-			if (new_state == WIGIG_SENSING_STATE_READY_STOPPED ||
-			    new_state == WIGIG_SENSING_STATE_SEARCH ||
-			    new_state == WIGIG_SENSING_STATE_FACIAL ||
-			    new_state == WIGIG_SENSING_STATE_GESTURE)
-				transition_allowed = true;
-			break;
-		case WIGIG_SENSING_STATE_FACIAL:
-			if (new_state == WIGIG_SENSING_STATE_READY_STOPPED ||
-			    new_state == WIGIG_SENSING_STATE_SEARCH)
-				transition_allowed = true;
-			break;
-		case WIGIG_SENSING_STATE_GESTURE:
-			if (new_state == WIGIG_SENSING_STATE_READY_STOPPED ||
-			    new_state == WIGIG_SENSING_STATE_SEARCH)
-				transition_allowed = true;
-			break;
-		case WIGIG_SENSING_STATE_CUSTOM:
-			if (new_state == WIGIG_SENSING_STATE_READY_STOPPED)
-				transition_allowed = true;
-			break;
-		case WIGIG_SENSING_STATE_GET_PARAMS:
-			if (new_state == WIGIG_SENSING_STATE_READY_STOPPED)
-				transition_allowed = true;
-			break;
-		case WIGIG_SENSING_STATE_SYS_ASSERT:
-			if (new_state == WIGIG_SENSING_STATE_READY_STOPPED &&
-			    state->fw_is_ready)
-				transition_allowed = true;
-			break;
-		default:
-			pr_err("new_state is invalid\n");
-			return -EINVAL;
-		}
-	}
+	/*
+	 * Moving from INITIALIZED state is allowed only to READY_STOPPED state
+	 */
+	else if (curr_state == WIGIG_SENSING_STATE_INITIALIZED &&
+	    new_state != WIGIG_SENSING_STATE_READY_STOPPED)
+		transition_allowed = false;
+	/*
+	 * Moving to GET_PARAMS state is allowed only from READY_STOPPED state
+	 */
+	else if (curr_state != WIGIG_SENSING_STATE_READY_STOPPED &&
+		 new_state == WIGIG_SENSING_STATE_GET_PARAMS)
+		transition_allowed = false;
+	/*
+	 * Moving from GET_PARAMS state is allowed only to READY_STOPPED state
+	 */
+	else if (curr_state == WIGIG_SENSING_STATE_GET_PARAMS &&
+		 new_state != WIGIG_SENSING_STATE_READY_STOPPED)
+		transition_allowed = false;
+	/*
+	 * Moving from SYS_ASSERT state is allowed only to READY_STOPPED state
+	 */
+	else if (curr_state == WIGIG_SENSING_STATE_SYS_ASSERT &&
+		 new_state != WIGIG_SENSING_STATE_READY_STOPPED)
+		transition_allowed = false;
 
 	if (transition_allowed) {
 		pr_info("state transition (%d) --> (%d)\n", curr_state,
@@ -711,6 +675,12 @@ static ssize_t wigig_sensing_read(struct file *filp, char __user *buf,
 	if (ctx->stm.change_mode_in_progress)
 		return -EINVAL;
 
+	/* Read buffer too small */
+	if (count < ctx->stm.burst_size) {
+		pr_err("Read buffer must be larger than burst size\n");
+		return -EINVAL;
+	}
+
 	/* No data in the buffer */
 	while (circ_cnt(&d->b, d->size_bytes) == 0) {
 		if (filp->f_flags & O_NONBLOCK)
@@ -720,11 +690,11 @@ static ssize_t wigig_sensing_read(struct file *filp, char __user *buf,
 			circ_cnt(&d->b, d->size_bytes) != 0))
 			return -ERESTARTSYS;
 	}
-
 	if (mutex_lock_interruptible(&d->lock))
 		return -ERESTARTSYS;
 
 	copy_size = min_t(u32, circ_cnt(&d->b, d->size_bytes), count);
+	copy_size -= copy_size % ctx->stm.burst_size;
 	size_to_end = circ_cnt_to_end(&d->b, d->size_bytes);
 	tail = d->b.tail;
 	pr_debug("copy_size=%u, size_to_end=%u, head=%u, tail=%u\n",
@@ -938,17 +908,11 @@ static int wigig_sensing_handle_fifo_ready_dri(struct wigig_sensing_ctx *ctx)
 		goto End;
 	}
 
-	if (!ctx->stm.enabled && burst_size != 0) {
-		pr_info("Invalid burst size while disabled %d\n", burst_size);
-		rc = -EFAULT;
-		goto End;
-	}
-
 	ctx->stm.burst_size = burst_size;
-	if (!ctx->stm.enabled ||
-	    ctx->stm.state >= WIGIG_SENSING_STATE_SYS_ASSERT ||
-	    ctx->stm.state < WIGIG_SENSING_STATE_SPI_READY) {
-		pr_err("Received burst_size in an unexpected state\n");
+	if (ctx->stm.state >= WIGIG_SENSING_STATE_SYS_ASSERT ||
+	    ctx->stm.state < WIGIG_SENSING_STATE_READY_STOPPED) {
+		pr_err("Received burst_size in an unexpected state (%d)\n",
+		       ctx->stm.state);
 		rc = -EFAULT;
 		goto End;
 	}
@@ -1018,7 +982,6 @@ static int wigig_sensing_chip_data_ready(struct wigig_sensing_ctx *ctx,
 	u32 orig_head;
 
 	if (stm_state == WIGIG_SENSING_STATE_INITIALIZED ||
-	    stm_state == WIGIG_SENSING_STATE_SPI_READY ||
 	    stm_state == WIGIG_SENSING_STATE_READY_STOPPED ||
 	    stm_state == WIGIG_SENSING_STATE_SYS_ASSERT) {
 		pr_err("Received data ready interrupt in an unexpected stm_state, disregarding\n");
@@ -1232,7 +1195,7 @@ static irqreturn_t wigig_sensing_dri_isr_thread(int irq, void *cookie)
 			ctx->stm.spi_malfunction = false;
 			if (ctx->stm.state == WIGIG_SENSING_STATE_INITIALIZED)
 				wigig_sensing_change_state(ctx, &ctx->stm,
-					WIGIG_SENSING_STATE_SPI_READY);
+					WIGIG_SENSING_STATE_READY_STOPPED);
 		}
 
 		pr_debug("Reading SANITY register\n");
@@ -1269,14 +1232,30 @@ static irqreturn_t wigig_sensing_dri_isr_thread(int irq, void *cookie)
 		goto bail_out;
 	}
 
+	if (spi_status.b.int_sysassert) {
+		pr_info_ratelimited("SYSASSERT INTERRUPT\n");
+		ctx->stm.fw_is_ready = false;
+
+		rc = wigig_sensing_change_state(ctx, &ctx->stm,
+				WIGIG_SENSING_STATE_SYS_ASSERT);
+		if (rc != 0 ||
+		    ctx->stm.state != WIGIG_SENSING_STATE_SYS_ASSERT)
+			pr_err("State change to WIGIG_SENSING_SYS_ASSERT failed\n");
+
+		/* Send asynchronous RESET event to application */
+		wigig_sensing_send_event(ctx, WIGIG_SENSING_EVENT_RESET);
+
+		ctx->stm.spi_malfunction = true;
+		memset(&ctx->inb_cmd, 0, sizeof(ctx->inb_cmd));
+		spi_status.v &= ~INT_SYSASSERT;
+		goto deassert_and_bail_out;
+	}
 	if (spi_status.b.int_fw_ready) {
-		pr_debug("FW READY INTERRUPT\n");
+		pr_info_ratelimited("FW READY INTERRUPT\n");
 		ctx->stm.fw_is_ready = true;
 		ctx->stm.channel_request = 0;
 		ctx->stm.burst_size = 0;
 		ctx->stm.mode = WIGIG_SENSING_MODE_STOP;
-		ctx->stm.enabled = true;
-
 		wigig_sensing_change_state(ctx, &ctx->stm,
 					   WIGIG_SENSING_STATE_READY_STOPPED);
 
@@ -1295,27 +1274,11 @@ static irqreturn_t wigig_sensing_dri_isr_thread(int irq, void *cookie)
 			pr_debug("Change mode in progress, aborting data processing\n");
 		spi_status.v &= ~INT_DATA_READY;
 	}
-	if (spi_status.b.int_sysassert) {
-		pr_debug("SYSASSERT INTERRUPT\n");
-		ctx->stm.fw_is_ready = false;
-
-		rc = wigig_sensing_change_state(ctx, &ctx->stm,
-				WIGIG_SENSING_STATE_SYS_ASSERT);
-		if (rc != 0 ||
-		    ctx->stm.state != WIGIG_SENSING_STATE_SYS_ASSERT)
-			pr_err("State change to WIGIG_SENSING_SYS_ASSERT failed\n");
-
-		/* Send asynchronous RESET event to application */
-		wigig_sensing_send_event(ctx, WIGIG_SENSING_EVENT_RESET);
-
-		ctx->stm.spi_malfunction = true;
-		spi_status.v &= ~INT_SYSASSERT;
-	}
 	if (spi_status.b.int_deep_sleep_exit ||
 	    (ctx->stm.waiting_for_deep_sleep_exit &&
 	     ctx->stm.waiting_for_deep_sleep_exit_first_pass)) {
 		if (spi_status.b.int_deep_sleep_exit)
-			pr_debug("DEEP SLEEP EXIT INTERRUPT\n");
+			pr_info_ratelimited("DEEP SLEEP EXIT INTERRUPT\n");
 
 		if (ctx->stm.waiting_for_deep_sleep_exit) {
 			additional_inb_command = ctx->inb_cmd;
@@ -1328,7 +1291,7 @@ static irqreturn_t wigig_sensing_dri_isr_thread(int irq, void *cookie)
 		spi_status.v &= ~INT_DEEP_SLEEP_EXIT;
 	}
 	if (spi_status.b.int_fifo_ready) {
-		pr_debug("FIFO READY INTERRUPT\n");
+		pr_info_ratelimited("FIFO READY INTERRUPT\n");
 		wigig_sensing_handle_fifo_ready_dri(ctx);
 
 		spi_status.v &= ~INT_FIFO_READY;
@@ -1342,6 +1305,7 @@ static irqreturn_t wigig_sensing_dri_isr_thread(int irq, void *cookie)
 		pr_err("Unexpected interrupt received, spi_status=0x%X\n",
 		       spi_status.v & CLEAR_LOW_23_BITS);
 
+deassert_and_bail_out:
 	/* Notify FW we are done with interrupt handling */
 	rc = wigig_sensing_deassert_dri(ctx, additional_inb_command);
 	if (rc)
