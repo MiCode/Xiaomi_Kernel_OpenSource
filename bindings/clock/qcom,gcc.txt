@@ -26,6 +26,7 @@ Required properties :
 			"qcom,lahaina-gcc"
 
 - reg : shall contain base register location and length
+- vdd_cx-supply: The vdd_cx logic rail supply.
 - #clock-cells : shall contain 1
 - #reset-cells : shall contain 1
 
