@@ -964,7 +964,7 @@ int snd_soc_new_compress(struct snd_soc_pcm_runtime *rtd, int num)
 		 codec_dai->name, cpu_dai->name);
 #else
 	dev_info(rtd->card->dev, "Compress ASoC: %s <-> %s mapping ok\n",
-		 codai->name, cpu_dai->name);
+		 codec_dai->name, cpu_dai->name);
 #endif
 
 	return 0;
