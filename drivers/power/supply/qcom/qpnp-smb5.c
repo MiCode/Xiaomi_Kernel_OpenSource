@@ -1374,7 +1374,13 @@ static int smb5_usb_main_set_prop(struct power_supply *psy,
 				(val->intval < 0) ? false : true, val->intval);
 		if (val->intval >= 0)
 			chg->chg_param.forced_main_fcc = val->intval;
-
+		/*
+		 * Remove low vote on FCC_MAIN, for WLS, to allow FCC_MAIN to
+		 * rise to its full value.
+		 */
+		if (val->intval < 0)
+			vote(chg->fcc_main_votable, WLS_PL_CHARGING_VOTER,
+								false, 0);
 		/* Main FCC updated re-calculate FCC */
 		rerun_election(chg->fcc_votable);
 		break;
