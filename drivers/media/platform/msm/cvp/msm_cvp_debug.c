@@ -21,7 +21,8 @@ int msm_cvp_fw_low_power_mode = 1;
 bool msm_cvp_fw_coverage = !true;
 bool msm_cvp_thermal_mitigation_disabled = !true;
 int msm_cvp_clock_voting = !1;
-bool msm_cvp_syscache_disable = !true;
+bool msm_cvp_syscache_disable = true;
+bool msm_cvp_dsp_disable = true;
 
 #define MAX_DBG_BUF_SIZE 4096
 
