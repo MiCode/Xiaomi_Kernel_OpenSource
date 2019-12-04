@@ -14,7 +14,7 @@
 #include <linux/pm_runtime.h>
 #include "ipa.h"
 
-static int n_msi = 3;
+int n_msi = 3;
 module_param(n_msi, int, 0444);
 MODULE_PARM_DESC(n_msi, " Use MSI interrupt: 0 - use INTx, 1 - single, or 3 - (default) ");
 
