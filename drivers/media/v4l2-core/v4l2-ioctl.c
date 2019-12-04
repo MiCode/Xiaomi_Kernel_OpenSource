@@ -1003,7 +1003,7 @@ static int check_fmt(struct file *file, enum v4l2_buf_type type)
 		if (is_vid && is_tx && ops->vidioc_g_fmt_meta_out)
 			return 0;
 		break;
-#ifdef CONFIG_I2C_RTC6226_QCA
+#if IS_ENABLED(CONFIG_I2C_RTC6226_QCA)
 	case V4L2_BUF_TYPE_PRIVATE:
 		if (ops->vidioc_g_fmt_type_private)
 			return 0;
