@@ -487,6 +487,11 @@ static int __dsp_send_hfi_queue(struct iris_hfi_device *device)
 {
 	int rc;
 
+	if (msm_cvp_dsp_disable) {
+		dprintk(CVP_WARN, "%s: DSP support is disabled\n", __func__);
+		return 0;
+	}
+
 	if (!device->dsp_iface_q_table.mem_data.dma_handle) {
 		dprintk(CVP_ERR, "%s: invalid dsm_handle\n", __func__);
 		return -EINVAL;
@@ -517,6 +522,9 @@ static int __dsp_suspend(struct iris_hfi_device *device, bool force, u32 flags)
 {
 	int rc;
 	struct cvp_hal_session *temp;
+
+	if (msm_cvp_dsp_disable)
+		return 0;
 
 	if (!(device->dsp_flags & DSP_INIT))
 		return 0;
@@ -555,6 +563,9 @@ static int __dsp_resume(struct iris_hfi_device *device, u32 flags)
 {
 	int rc;
 
+	if (msm_cvp_dsp_disable)
+		return 0;
+
 	if (!(device->dsp_flags & DSP_SUSPEND)) {
 		dprintk(CVP_DBG, "%s: dsp not suspended\n", __func__);
 		return 0;
@@ -577,6 +588,9 @@ static int __dsp_resume(struct iris_hfi_device *device, u32 flags)
 static int __dsp_shutdown(struct iris_hfi_device *device, u32 flags)
 {
 	int rc;
+
+	if (msm_cvp_dsp_disable)
+		return 0;
 
 	cvp_dsp_set_cvp_ssr();
 
@@ -3886,8 +3900,8 @@ static int __set_subcaches(struct iris_hfi_device *device)
 	struct cvp_hfi_resource_subcache_type *sc_res;
 	struct cvp_resource_hdr rhdr;
 
-	if (device->res->sys_cache_res_set) {
-		dprintk(CVP_DBG, "Subcaches already set to CVP\n");
+	if (device->res->sys_cache_res_set || msm_cvp_syscache_disable) {
+		dprintk(CVP_DBG, "Subcaches already set or disabled\n");
 		return 0;
 	}
 

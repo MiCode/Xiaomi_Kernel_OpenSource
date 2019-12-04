@@ -52,6 +52,7 @@ extern bool msm_cvp_fw_coverage;
 extern bool msm_cvp_thermal_mitigation_disabled;
 extern int msm_cvp_clock_voting;
 extern bool msm_cvp_syscache_disable;
+extern bool msm_cvp_dsp_disable;
 
 #define dprintk(__level, __fmt, arg...)	\
 	do { \
