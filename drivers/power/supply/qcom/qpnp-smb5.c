@@ -2595,6 +2595,10 @@ static int smb5_init_hw(struct smb5 *chip)
 	/* Set HVDCP autonomous mode per DT option */
 	smblib_hvdcp_hw_inov_enable(chg, chip->dt.hvdcp_autonomous);
 
+	/* Enable HVDCP authentication algorithm for non-PD designs */
+	if (chg->pd_not_supported)
+		smblib_hvdcp_detect_enable(chg, true);
+
 	/* Disable HVDCP and authentication algorithm if specified in DT */
 	if (chg->hvdcp_disable)
 		smblib_hvdcp_detect_enable(chg, false);
