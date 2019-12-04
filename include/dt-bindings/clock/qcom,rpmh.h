@@ -20,10 +20,16 @@
 #define RPMH_RF_CLK2_A				11
 #define RPMH_RF_CLK3				12
 #define RPMH_RF_CLK3_A				13
-#define RPMH_RF_CLKD3				14
-#define RPMH_RF_CLKD3_A				15
-#define RPMH_RF_CLKD4				16
-#define RPMH_RF_CLKD4_A				17
-#define RPMH_IPA_CLK				18
+#define RPMH_RF_CLK4				14
+#define RPMH_RF_CLK4_A				15
+#define RPMH_RF_CLK5				16
+#define RPMH_RF_CLK5_A				17
+#define RPMH_RF_CLKD3				18
+#define RPMH_RF_CLKD3_A				19
+#define RPMH_RF_CLKD4				20
+#define RPMH_RF_CLKD4_A				21
+#define RPMH_IPA_CLK				22
+#define RPMH_PKA_CLK				23
+#define RPMH_HWKM_CLK				24
 
 #endif
