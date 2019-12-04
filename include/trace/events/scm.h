@@ -34,7 +34,7 @@ TRACE_EVENT(scm_call,
 		__entry->delta = delta;
 	),
 
-	TP_printk("%3ld [%#lx %#lx %#lx %#lx %#lx %#lx %#lx %#lx] (%#lx %#lx %#lx %#lx)",
+	TP_printk("%3lld [%#llx %#llx %#llx %#llx %#llx %#llx %#llx %#llx] (%#lx %#lx %#lx %#lx)",
 		__entry->delta,
 		__entry->args[0], __entry->args[1], __entry->args[2],
 		__entry->args[3], __entry->args[4], __entry->args[5],
