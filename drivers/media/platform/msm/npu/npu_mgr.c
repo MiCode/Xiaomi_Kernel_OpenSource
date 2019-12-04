@@ -97,6 +97,7 @@ static int wait_npu_cpc_power_off(struct npu_device *npu_dev)
 {
 	uint32_t reg_val = NPU_CPC_PWR_ON;
 	uint32_t wait_cnt = 0, max_wait_ms;
+	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 
 	max_wait_ms = NPU_FW_TIMEOUT_MS;
 
@@ -105,6 +106,12 @@ static int wait_npu_cpc_power_off(struct npu_device *npu_dev)
 		if (!(reg_val & NPU_CPC_PWR_ON)) {
 			NPU_DBG("npu cpc powers off\n");
 			break;
+		}
+
+		if ((host_ctx->wdg_irq_sts != 0) ||
+			(host_ctx->err_irq_sts != 0)) {
+			NPU_WARN("fw is in bad state, skip wait\n");
+			return -EIO;
 		}
 
 		wait_cnt += NPU_FW_TIMEOUT_POLL_INTERVAL_MS;
@@ -907,6 +914,9 @@ static int host_error_hdlr(struct npu_device *npu_dev, bool force)
 		goto fw_start_done;
 	}
 
+	host_ctx->wdg_irq_sts = 0;
+	host_ctx->err_irq_sts = 0;
+
 	/* Keep reading ctrl status until NPU is ready */
 	if (wait_for_status_ready(npu_dev, REG_NPU_FW_CTRL_STATUS,
 		FW_CTRL_STATUS_MAIN_THREAD_READY_VAL, false)) {
@@ -933,8 +943,6 @@ fw_start_done:
 	}
 
 	complete(&host_ctx->fw_deinit_done);
-	host_ctx->wdg_irq_sts = 0;
-	host_ctx->err_irq_sts = 0;
 
 	/* flush all pending npu cmds */
 	for (i = 0; i < MAX_LOADED_NETWORK; i++) {
@@ -1143,6 +1151,12 @@ static int wait_for_status_ready(struct npu_device *npu_dev,
 			NPU_ERR("timeout wait for status %x[%x] in reg %x\n",
 				status_bits, ctrl_sts, status_reg);
 			return -ETIMEDOUT;
+		}
+
+		if ((host_ctx->wdg_irq_sts != 0) ||
+			(host_ctx->err_irq_sts != 0)) {
+			NPU_WARN("fw is in bad state, skip wait\n");
+			return -EIO;
 		}
 
 		if (poll)
@@ -2237,7 +2251,7 @@ int32_t npu_host_load_network_v2(struct npu_client *client,
 			struct msm_npu_load_network_ioctl_v2 *load_ioctl,
 			struct msm_npu_patch_info_v2 *patch_info)
 {
-	int ret = 0, i;
+	int ret = 0, retry_cnt = 1, i;
 	struct npu_device *npu_dev = client->npu_dev;
 	struct npu_pwrctrl *pwr = &npu_dev->pwrctrl;
 	struct npu_network *network;
@@ -2330,6 +2344,7 @@ int32_t npu_host_load_network_v2(struct npu_client *client,
 
 	mutex_unlock(&host_ctx->lock);
 
+retry:
 	ret = wait_for_completion_timeout(
 		&load_cmd->cmd_done,
 		(host_ctx->fw_dbg_mode & FW_DBG_MODE_INC_TIMEOUT) ?
@@ -2346,6 +2361,14 @@ int32_t npu_host_load_network_v2(struct npu_client *client,
 	if (!ret) {
 		NPU_ERR("npu: NPU_IPC_CMD_LOAD time out %lld:%d\n",
 			network->id, load_cmd->trans_id);
+		if (retry_cnt > 0) {
+			NPU_WARN("Retry IPC queue\n");
+			retry_cnt--;
+			mutex_unlock(&host_ctx->lock);
+			host_session_msg_hdlr(npu_dev);
+			goto retry;
+		}
+
 		ret = -ETIMEDOUT;
 		goto free_load_cmd;
 	}
@@ -2392,7 +2415,7 @@ err_deinit_fw:
 int32_t npu_host_unload_network(struct npu_client *client,
 			struct msm_npu_unload_network_ioctl *unload)
 {
-	int ret = 0;
+	int ret = 0, retry_cnt = 1;
 	struct npu_device *npu_dev = client->npu_dev;
 	struct ipc_cmd_unload_pkt unload_packet;
 	struct npu_network *network;
@@ -2465,6 +2488,7 @@ int32_t npu_host_unload_network(struct npu_client *client,
 
 	mutex_unlock(&host_ctx->lock);
 
+retry:
 	ret = wait_for_completion_timeout(
 		&unload_cmd->cmd_done,
 		(host_ctx->fw_dbg_mode & FW_DBG_MODE_INC_TIMEOUT) ?
@@ -2481,6 +2505,14 @@ int32_t npu_host_unload_network(struct npu_client *client,
 	if (!ret) {
 		NPU_ERR("npu: NPU_IPC_CMD_UNLOAD time out %llx:%d\n",
 			network->id, unload_cmd->trans_id);
+		if (retry_cnt > 0) {
+			NPU_WARN("Retry IPC queue\n");
+			retry_cnt--;
+			mutex_unlock(&host_ctx->lock);
+			host_session_msg_hdlr(npu_dev);
+			goto retry;
+		}
+
 		ret = -ETIMEDOUT;
 		goto free_unload_cmd;
 	}
@@ -2531,7 +2563,7 @@ int32_t npu_host_exec_network_v2(struct npu_client *client,
 	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 	uint32_t num_patch_params, pkt_size;
 	bool async_ioctl = !!exec_ioctl->async;
-	int i;
+	int i, retry_cnt = 1;
 
 	mutex_lock(&host_ctx->lock);
 	network = get_network_by_hdl(host_ctx, client,
@@ -2631,6 +2663,7 @@ int32_t npu_host_exec_network_v2(struct npu_client *client,
 
 	mutex_unlock(&host_ctx->lock);
 
+retry:
 	ret = wait_for_completion_timeout(
 		&exec_cmd->cmd_done,
 		(host_ctx->fw_dbg_mode & FW_DBG_MODE_INC_TIMEOUT) ?
@@ -2646,6 +2679,14 @@ int32_t npu_host_exec_network_v2(struct npu_client *client,
 	if (!ret) {
 		NPU_ERR("npu: %llx:%d NPU_IPC_CMD_EXECUTE_V2 time out\n",
 			network->id, exec_cmd->trans_id);
+		if (retry_cnt > 0) {
+			NPU_WARN("Retry IPC queue\n");
+			retry_cnt--;
+			mutex_unlock(&host_ctx->lock);
+			host_session_msg_hdlr(npu_dev);
+			goto retry;
+		}
+
 		ret = -ETIMEDOUT;
 		goto free_exec_packet;
 	}
