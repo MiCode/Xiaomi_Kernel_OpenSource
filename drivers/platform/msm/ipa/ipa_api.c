@@ -3809,6 +3809,6 @@ static void __exit ipa_module_exit(void)
 }
 module_exit(ipa_module_exit);
 
-
+MODULE_SOFTDEP("pre: subsys-pil-tz");
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("IPA HW device driver");
