@@ -10,8 +10,6 @@
  * GNU General Public License for more details.
  */
 
-#include "sdxprairie.dtsi"
-
 &mpss_adsp_mem {
 	reg = <0x90800000 0xf800000>;
 };
