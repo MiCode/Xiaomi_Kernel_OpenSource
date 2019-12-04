@@ -7,6 +7,7 @@
 
 #include <linux/clk.h>
 #include <linux/pm_qos.h>
+#include <soc/qcom/cx_ipeak.h>
 
 /*****************************************************************************
  * power flags
@@ -118,6 +119,16 @@ struct kgsl_regulator {
 };
 
 /**
+ * struct gpu_cx_ipeak_client - Struct holding CX Ipeak client info.
+ * @client:    Client handle used for CX Ipeak vote
+ * @freq:      GPU frequency threshold for which this client need to vote.
+ */
+struct gpu_cx_ipeak_client {
+	struct cx_ipeak_client *client;
+	unsigned int freq;
+};
+
+/**
  * struct kgsl_pwrctrl - Power control settings for a KGSL device
  * @interrupt_num - The interrupt number for the device
  * @grp_clks - Array of clocks structures that we control
@@ -169,6 +180,7 @@ struct kgsl_regulator {
  * isense_clk_indx - index of isense clock, 0 if no isense
  * isense_clk_on_level - isense clock rate is XO rate below this level.
  * tzone_name - pointer to thermal zone name of GPU temperature sensor
+ * gpu_cx_ipeak_client - CX Ipeak clients used by GPU
  */
 
 struct kgsl_pwrctrl {
@@ -227,6 +239,7 @@ struct kgsl_pwrctrl {
 	unsigned int gpu_bimc_int_clk_freq;
 	bool gpu_bimc_interface_enabled;
 	const char *tzone_name;
+	struct gpu_cx_ipeak_client gpu_ipeak_client[2];
 };
 
 int kgsl_pwrctrl_init(struct kgsl_device *device);

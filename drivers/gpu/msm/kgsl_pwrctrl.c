@@ -311,6 +311,151 @@ void kgsl_pwrctrl_buslevel_update(struct kgsl_device *device,
 }
 EXPORT_SYMBOL(kgsl_pwrctrl_buslevel_update);
 
+#if IS_ENABLED(CONFIG_QCOM_CX_IPEAK)
+static int kgsl_pwrctrl_cx_ipeak_vote(struct kgsl_device *device,
+		u64 old_freq, u64 new_freq)
+{
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	int i, ret;
+
+	for (i = 0; i < ARRAY_SIZE(pwr->gpu_ipeak_client); i++) {
+		struct gpu_cx_ipeak_client *ipeak_client =
+				&pwr->gpu_ipeak_client[i];
+
+		/*
+		 * Set CX Ipeak vote for GPU if it tries to cross
+		 * threshold frequency.
+		 */
+		if (old_freq < ipeak_client->freq &&
+				new_freq >= ipeak_client->freq) {
+			ret = cx_ipeak_update(ipeak_client->client, true);
+			/*
+			 * Hardware damage is possible at peak current
+			 * if mitigation not done to limit peak power.
+			 */
+			if (ret) {
+				dev_err(device->dev,
+					"ipeak voting failed for client%d: %d\n",
+						i, ret);
+				return ret;
+			}
+		}
+	}
+
+	return 0;
+}
+
+static void kgsl_pwrctrl_cx_ipeak_unvote(struct kgsl_device *device,
+		u64 old_freq, u64 new_freq)
+{
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	int i, ret;
+
+	for (i = 0; i < ARRAY_SIZE(pwr->gpu_ipeak_client); i++) {
+		struct gpu_cx_ipeak_client *ipeak_client =
+				&pwr->gpu_ipeak_client[i];
+
+		/*
+		 * Reset CX Ipeak vote for GPU if it goes below
+		 * threshold frequency.
+		 */
+		if (old_freq >= ipeak_client->freq &&
+				new_freq < ipeak_client->freq) {
+			ret = cx_ipeak_update(ipeak_client->client, false);
+
+			/* Failed to withdraw the voting from ipeak driver */
+			if (ret)
+				dev_err(device->dev,
+					"Failed to withdraw ipeak vote for client%d: %d\n",
+					i, ret);
+		}
+	}
+}
+
+static int kgsl_pwrctrl_cx_ipeak_init(struct kgsl_device *device)
+{
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	struct device_node *node, *child;
+	struct gpu_cx_ipeak_client *cx_ipeak_client;
+	int i = 0, ret;
+
+	node = of_get_child_by_name(device->pdev->dev.of_node,
+				"qcom,gpu-cx-ipeak");
+
+	if (node == NULL)
+		return 0;
+
+	for_each_child_of_node(node, child) {
+		if (i >= ARRAY_SIZE(pwr->gpu_ipeak_client)) {
+			dev_err(device->dev,
+				"dt: too many CX ipeak clients defined\n",
+					i);
+			ret = -EINVAL;
+			of_node_put(child);
+			goto error;
+		}
+
+		cx_ipeak_client = &pwr->gpu_ipeak_client[i];
+
+		if (!of_property_read_u32(child, "qcom,gpu-cx-ipeak-freq",
+				&cx_ipeak_client->freq)) {
+			cx_ipeak_client->client =
+				cx_ipeak_register(child, "qcom,gpu-cx-ipeak");
+
+			if (IS_ERR_OR_NULL(cx_ipeak_client->client)) {
+				ret = IS_ERR(cx_ipeak_client->client) ?
+				PTR_ERR(cx_ipeak_client->client) : -EINVAL;
+				dev_err(device->dev,
+					"Failed to register client%d with CX Ipeak %d\n",
+					i, ret);
+			}
+		} else {
+			ret = -EINVAL;
+			dev_err(device->dev,
+				"Failed to get GPU-CX-Ipeak client%d frequency\n",
+				i);
+		}
+
+		if (ret) {
+			of_node_put(child);
+			goto error;
+		}
+
+		++i;
+	}
+
+	of_node_put(node);
+	return 0;
+
+error:
+	for (i = 0; i < ARRAY_SIZE(pwr->gpu_ipeak_client); i++) {
+		if (!IS_ERR_OR_NULL(pwr->gpu_ipeak_client[i].client)) {
+			cx_ipeak_unregister(pwr->gpu_ipeak_client[i].client);
+			pwr->gpu_ipeak_client[i].client = NULL;
+		}
+	}
+
+	of_node_put(node);
+	return ret;
+}
+#else
+static int kgsl_pwrctrl_cx_ipeak_vote(struct kgsl_device *device,
+		u64 old_freq, u64 new_freq)
+{
+	return 0;
+}
+
+static void kgsl_pwrctrl_cx_ipeak_unvote(struct kgsl_device *device,
+		u64 old_freq, u64 new_freq)
+{
+}
+
+static int kgsl_pwrctrl_cx_ipeak_init(struct kgsl_device *device)
+{
+	return 0;
+}
+#endif
+
 /**
  * kgsl_pwrctrl_pwrlevel_change_settings() - Program h/w during powerlevel
  * transitions
@@ -425,6 +570,17 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 		!test_bit(GMU_DCVS_REPLAY, &device->gmu_core.flags))
 		return;
 
+	/*
+	 * If new freq is equal or above CX Ipeak threshold set the vote
+	 * first before switching to new freq to allow CX Ipeak driver
+	 * to trigger required mitigation, if necessary for safe switch
+	 * to new GPU freq.
+	 */
+	if (kgsl_pwrctrl_cx_ipeak_vote(device,
+			pwr->pwrlevels[old_level].gpu_freq,
+			pwr->pwrlevels[new_level].gpu_freq))
+		return;
+
 	kgsl_pwrscale_update_stats(device);
 
 	/*
@@ -490,6 +646,15 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 	/* Timestamp the frequency change */
 	device->pwrscale.freq_change_time = ktime_to_ms(ktime_get());
 
+	/*
+	 * If new freq is below CX Ipeak threshold remove the GPU vote
+	 * here after switching to new freq. Its done after switching
+	 * to ensure that we are below CX Ipeak threshold before
+	 * removing the GPU vote.
+	 */
+	kgsl_pwrctrl_cx_ipeak_unvote(device,
+			pwr->pwrlevels[old_level].gpu_freq,
+			pwr->pwrlevels[new_level].gpu_freq);
 }
 EXPORT_SYMBOL(kgsl_pwrctrl_pwrlevel_change);
 
@@ -2211,6 +2376,10 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 		}
 	}
 
+	result = kgsl_pwrctrl_cx_ipeak_init(device);
+	if (result)
+		goto error_cleanup_bus_ib;
+
 	INIT_WORK(&pwr->thermal_cycle_ws, kgsl_thermal_cycle);
 	timer_setup(&pwr->thermal_timer, kgsl_thermal_timer, 0);
 
@@ -2226,6 +2395,8 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 
 	return result;
 
+error_cleanup_bus_ib:
+	kfree(pwr->bus_ib);
 error_cleanup_pcl:
 	_close_pcl(pwr);
 error_cleanup_gpu_cfg:
@@ -2242,6 +2413,14 @@ error_cleanup_clks:
 void kgsl_pwrctrl_close(struct kgsl_device *device)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(pwr->gpu_ipeak_client); i++) {
+		if (!IS_ERR_OR_NULL(pwr->gpu_ipeak_client[i].client)) {
+			cx_ipeak_unregister(pwr->gpu_ipeak_client[i].client);
+			pwr->gpu_ipeak_client[i].client = NULL;
+		}
+	}
 
 	pwr->power_flags = 0;
 
