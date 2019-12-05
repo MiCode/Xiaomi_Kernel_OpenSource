@@ -400,6 +400,27 @@ int iommu_dma_enable_best_fit_algo(struct device *dev)
 }
 EXPORT_SYMBOL(iommu_dma_enable_best_fit_algo);
 
+#ifdef CONFIG_DMA_CONFIGURE_ALIGNMENT
+/*
+ * Should be called prior to using dma-apis.
+ */
+int iommu_dma_configure_alignment(struct device *dev, bool force_no_align)
+{
+	struct iommu_domain *domain;
+	struct iova_domain *iovad;
+
+	domain = iommu_get_domain_for_dev(dev);
+	if (!domain || !domain->iova_cookie)
+		return -EINVAL;
+
+	iovad = &((struct iommu_dma_cookie *)domain->iova_cookie)->iovad;
+
+	iovad->force_no_align = force_no_align;
+	return 0;
+}
+EXPORT_SYMBOL(iommu_dma_configure_alignment);
+#endif
+
 /**
  * dma_info_to_prot - Translate DMA API directions and attributes to IOMMU API
  *                    page flags.
