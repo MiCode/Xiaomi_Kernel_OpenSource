@@ -21,6 +21,7 @@
 #include <linux/slab.h>
 #include <linux/wait.h>
 #include <linux/mhi.h>
+#include <linux/memblock.h>
 #include "mhi_internal.h"
 
 const char * const mhi_log_level_str[MHI_MSG_LVL_MAX] = {
@@ -1327,6 +1328,11 @@ int of_register_mhi_controller(struct mhi_controller *mhi_cntrl)
 
 	if (!mhi_cntrl->status_cb || !mhi_cntrl->link_status)
 		return -EINVAL;
+
+	if (!mhi_cntrl->iova_stop) {
+		mhi_cntrl->iova_start = memblock_start_of_DRAM();
+		mhi_cntrl->iova_stop = memblock_end_of_DRAM();
+	}
 
 	ret = of_parse_dt(mhi_cntrl, mhi_cntrl->of_node);
 	if (ret)
