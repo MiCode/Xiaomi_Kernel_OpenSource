@@ -375,7 +375,7 @@ static inline void walt_rq_dump(int cpu)
 	SCHED_PRINT(rq->nt_curr_runnable_sum);
 	SCHED_PRINT(rq->nt_prev_runnable_sum);
 	SCHED_PRINT(rq->cum_window_demand_scaled);
-	SCHED_PRINT(rq->freq);
+	SCHED_PRINT(rq->task_exec_scale);
 	SCHED_PRINT(rq->grp_time.curr_runnable_sum);
 	SCHED_PRINT(rq->grp_time.prev_runnable_sum);
 	SCHED_PRINT(rq->grp_time.nt_curr_runnable_sum);

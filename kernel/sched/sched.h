@@ -993,7 +993,7 @@ struct rq {
 	u64			avg_irqload;
 	u64			irqload_ts;
 	struct task_struct	*ed_task;
-	u64			freq;
+	u64			task_exec_scale;
 	u64			old_busy_time, old_busy_time_group;
 	u64			old_estimated_time;
 	u64			curr_runnable_sum;

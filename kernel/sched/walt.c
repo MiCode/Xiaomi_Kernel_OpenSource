@@ -1430,11 +1430,7 @@ static int account_busy_for_cpu_time(struct rq *rq, struct task_struct *p,
 
 static inline u64 scale_exec_time(u64 delta, struct rq *rq)
 {
-	delta = DIV64_U64_ROUNDUP(delta * rq->freq, max_possible_freq);
-	delta *= rq->cluster->exec_scale_factor;
-	delta >>= 10;
-
-	return delta;
+	return (delta * rq->task_exec_scale) >> 10;
 }
 
 /* Convert busy time to frequency equivalent
@@ -2018,7 +2014,9 @@ update_task_rq_cpu_cycles(struct task_struct *p, struct rq *rq, int event,
 	lockdep_assert_held(&rq->lock);
 
 	if (!use_cycle_counter) {
-		rq->freq = cpu_cur_freq(cpu);
+		rq->task_exec_scale = DIV64_U64_ROUNDUP(cpu_cur_freq(cpu) *
+				topology_get_cpu_scale(NULL, cpu),
+				rq->cluster->max_possible_freq);
 		return;
 	}
 
@@ -2053,7 +2051,9 @@ update_task_rq_cpu_cycles(struct task_struct *p, struct rq *rq, int event,
 			time_delta = wallclock - p->ravg.mark_start;
 		SCHED_BUG_ON((s64)time_delta < 0);
 
-		rq->freq = DIV64_U64_ROUNDUP(cycles_delta, time_delta);
+		rq->task_exec_scale = DIV64_U64_ROUNDUP(cycles_delta *
+				topology_get_cpu_scale(NULL, cpu),
+				time_delta * rq->cluster->max_possible_freq);
 	}
 
 	p->cpu_cycles = cur_cycles;
@@ -3620,7 +3620,7 @@ void walt_sched_init_rq(struct rq *rq)
 	rq->cur_irqload = 0;
 	rq->avg_irqload = 0;
 	rq->irqload_ts = 0;
-	rq->freq = 1;
+	rq->task_exec_scale = 1024;
 
 	/*
 	 * All cpus part of same cluster by default. This avoids the
