@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2014, 2016, 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014, 2016, 2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _GOVERNOR_CACHE_HWMON_H
@@ -46,7 +46,7 @@ struct cache_hwmon {
 	struct devfreq		*df;
 };
 
-#ifdef CONFIG_DEVFREQ_GOV_QCOM_CACHE_HWMON
+#if IS_ENABLED(CONFIG_DEVFREQ_GOV_QCOM_CACHE_HWMON)
 int register_cache_hwmon(struct device *dev, struct cache_hwmon *hwmon);
 int update_cache_hwmon(struct cache_hwmon *hwmon);
 #else

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2014-2016, 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, 2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _GOVERNOR_BW_HWMON_H
@@ -58,7 +58,7 @@ struct bw_hwmon {
 	struct devfreq		*df;
 };
 
-#ifdef CONFIG_DEVFREQ_GOV_QCOM_BW_HWMON
+#if IS_ENABLED(CONFIG_DEVFREQ_GOV_QCOM_BW_HWMON)
 int register_bw_hwmon(struct device *dev, struct bw_hwmon *hwmon);
 int update_bw_hwmon(struct bw_hwmon *hwmon);
 int bw_hwmon_sample_end(struct bw_hwmon *hwmon);
