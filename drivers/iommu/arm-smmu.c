@@ -5235,7 +5235,7 @@ redo:
 		if (val & FSR_FAULT)
 			break;
 		if (ktime_compare(ktime_get(), timeout) > 0) {
-			dev_err(tbu->dev, "ECATS translation timed out!\n");
+			dev_err_ratelimited(tbu->dev, "ECATS translation timed out!\n");
 			ret = -ETIMEDOUT;
 			break;
 		}
