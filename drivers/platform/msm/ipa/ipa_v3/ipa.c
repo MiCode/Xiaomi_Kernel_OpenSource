@@ -6174,6 +6174,9 @@ static void ipa3_load_ipa_fw(struct work_struct *work)
 			result);
 		return;
 	}
+	mutex_lock(&ipa3_ctx->fw_load_data.lock);
+	ipa3_ctx->fw_load_data.state = IPA_FW_LOAD_STATE_LOADED;
+	mutex_unlock(&ipa3_ctx->fw_load_data.lock);
 	pr_info("IPA FW loaded successfully\n");
 
 	result = ipa3_post_init(&ipa3_res, ipa3_ctx->cdev.dev);
@@ -6199,6 +6202,58 @@ static void ipa3_load_ipa_fw(struct work_struct *work)
 		}
 		IPADBG("IPA uC PIL loading succeeded\n");
 	}
+}
+
+static void ipa_fw_load_sm_handle_event(enum ipa_fw_load_event ev)
+{
+	mutex_lock(&ipa3_ctx->fw_load_data.lock);
+
+	IPADBG("state=%d event=%d\n", ipa3_ctx->fw_load_data.state, ev);
+
+	if (ev == IPA_FW_LOAD_EVNT_FWFILE_READY) {
+		if (ipa3_ctx->fw_load_data.state == IPA_FW_LOAD_STATE_INIT) {
+			ipa3_ctx->fw_load_data.state =
+				IPA_FW_LOAD_STATE_FWFILE_READY;
+			goto out;
+		}
+		if (ipa3_ctx->fw_load_data.state ==
+			IPA_FW_LOAD_STATE_SMMU_DONE) {
+			ipa3_ctx->fw_load_data.state =
+				IPA_FW_LOAD_STATE_LOAD_READY;
+			goto sched_fw_load;
+		}
+		IPAERR("ignore multiple requests to load FW\n");
+		goto out;
+	}
+	if (ev == IPA_FW_LOAD_EVNT_SMMU_DONE) {
+		if (ipa3_ctx->fw_load_data.state == IPA_FW_LOAD_STATE_INIT) {
+			ipa3_ctx->fw_load_data.state =
+				IPA_FW_LOAD_STATE_SMMU_DONE;
+			goto out;
+		}
+		if (ipa3_ctx->fw_load_data.state ==
+			IPA_FW_LOAD_STATE_FWFILE_READY) {
+			ipa3_ctx->fw_load_data.state =
+				IPA_FW_LOAD_STATE_LOAD_READY;
+			goto sched_fw_load;
+		}
+		IPAERR("ignore multiple smmu done events\n");
+		goto out;
+	}
+	IPAERR("invalid event ev=%d\n", ev);
+	mutex_unlock(&ipa3_ctx->fw_load_data.lock);
+	ipa_assert();
+	return;
+
+out:
+	mutex_unlock(&ipa3_ctx->fw_load_data.lock);
+	return;
+
+sched_fw_load:
+	IPADBG("Scheduled a work to load IPA FW\n");
+	mutex_unlock(&ipa3_ctx->fw_load_data.lock);
+	queue_work(ipa3_ctx->transport_power_mgmt_wq,
+		&ipa3_fw_loading_work);
 }
 
 static ssize_t ipa3_write(struct file *file, const char __user *buf,
@@ -6280,19 +6335,8 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 			ipa3_ctx->ipa_config_is_mhi ? "" : "non ");
 	}
 
-	/* Prevent multiple calls from trying to load the FW again. */
-	if (ipa3_ctx->fw_loaded) {
-		IPAERR("not load FW again\n");
-		return count;
-	}
+	ipa_fw_load_sm_handle_event(IPA_FW_LOAD_EVNT_FWFILE_READY);
 
-	/* Schedule WQ to load ipa-fws */
-	ipa3_ctx->fw_loaded = true;
-
-	queue_work(ipa3_ctx->transport_power_mgmt_wq,
-		&ipa3_fw_loading_work);
-
-	IPADBG("Scheduled a work to load IPA FW\n");
 	return count;
 }
 
@@ -6486,6 +6530,9 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		result = -ENOMEM;
 		goto fail_mem_ctx;
 	}
+
+	ipa3_ctx->fw_load_data.state = IPA_FW_LOAD_STATE_INIT;
+	mutex_init(&ipa3_ctx->fw_load_data.lock);
 
 	ipa3_ctx->logbuf = ipc_log_context_create(IPA_IPC_LOG_PAGES, "ipa", 0);
 	if (ipa3_ctx->logbuf == NULL)
@@ -8158,6 +8205,27 @@ static int ipa3_smp2p_probe(struct device *dev)
 	return 0;
 }
 
+static void ipa_smmu_update_fw_loader(void)
+{
+	int i;
+
+	if (smmu_info.arm_smmu) {
+		IPADBG("smmu is enabled\n");
+		for (i = 0; i < IPA_SMMU_CB_MAX; i++) {
+			if (!smmu_info.present[i]) {
+				IPADBG("CB %d not probed yet\n", i);
+				break;
+			}
+		}
+		if (i == IPA_SMMU_CB_MAX) {
+			IPADBG("All %d CBs probed\n", IPA_SMMU_CB_MAX);
+			ipa_fw_load_sm_handle_event(IPA_FW_LOAD_EVNT_SMMU_DONE);
+		}
+	} else {
+		IPADBG("smmu is disabled\n");
+	}
+}
+
 int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 	struct ipa_api_controller *api_ctrl,
 	const struct of_device_id *pdrv_match)
@@ -8177,6 +8245,7 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 		cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_AP);
 		cb->dev = dev;
 		smmu_info.present[IPA_SMMU_CB_AP] = true;
+		ipa_smmu_update_fw_loader();
 
 		return 0;
 	}
@@ -8189,6 +8258,7 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 		cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_WLAN);
 		cb->dev = dev;
 		smmu_info.present[IPA_SMMU_CB_WLAN] = true;
+		ipa_smmu_update_fw_loader();
 
 		return 0;
 	}
@@ -8201,6 +8271,7 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 		cb =  ipa3_get_smmu_ctx(IPA_SMMU_CB_UC);
 		cb->dev = dev;
 		smmu_info.present[IPA_SMMU_CB_UC] = true;
+		ipa_smmu_update_fw_loader();
 
 		return 0;
 	}
@@ -8213,6 +8284,7 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 		cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_11AD);
 		cb->dev = dev;
 		smmu_info.present[IPA_SMMU_CB_11AD] = true;
+		ipa_smmu_update_fw_loader();
 
 		return 0;
 	}
@@ -8258,6 +8330,7 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 				return -EOPNOTSUPP;
 			}
 		}
+		ipa_fw_load_sm_handle_event(IPA_FW_LOAD_EVNT_SMMU_DONE);
 	}
 
 	/* Proceed to real initialization */
