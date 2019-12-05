@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -422,7 +422,8 @@ end:
 		msm_bus_scale_client_update_request(sc->bus_handle, 0);
 		sc->is_bus_enabled = false;
 	}
-	if (sc->parent_regulator)
+
+	if (ret && sc->parent_regulator)
 		regulator_set_voltage(sc->parent_regulator, 0, INT_MAX);
 
 	return ret;
@@ -433,13 +434,6 @@ static int gdsc_disable(struct regulator_dev *rdev)
 	struct gdsc *sc = rdev_get_drvdata(rdev);
 	uint32_t regval;
 	int i, ret = 0;
-
-	if (sc->parent_regulator) {
-		ret = regulator_set_voltage(sc->parent_regulator,
-				RPMH_REGULATOR_LEVEL_LOW_SVS, INT_MAX);
-		if (ret)
-			return ret;
-	}
 
 	if (sc->force_root_en)
 		clk_prepare_enable(sc->clocks[sc->root_clk_idx]);
