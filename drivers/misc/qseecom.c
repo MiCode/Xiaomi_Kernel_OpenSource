@@ -2086,6 +2086,14 @@ static int __qseecom_process_incomplete_cmd(struct qseecom_dev_handle *data,
 			if (ptr_svc->svc.listener_id == lstnr) {
 				ptr_svc->listener_in_use = true;
 				ptr_svc->rcv_req_flag = 1;
+				ret = qseecom_dmabuf_cache_operations(
+					ptr_svc->dmabuf,
+					QSEECOM_CACHE_INVALIDATE);
+				if (ret) {
+					rc = -EINVAL;
+					status = QSEOS_RESULT_FAILURE;
+					goto err_resp;
+				}
 				wake_up_interruptible(&ptr_svc->rcv_req_wq);
 				break;
 			}
@@ -2421,6 +2429,14 @@ static int __qseecom_reentrancy_process_incomplete_cmd(
 			if (ptr_svc->svc.listener_id == lstnr) {
 				ptr_svc->listener_in_use = true;
 				ptr_svc->rcv_req_flag = 1;
+				ret = qseecom_dmabuf_cache_operations(
+					ptr_svc->dmabuf,
+					QSEECOM_CACHE_INVALIDATE);
+				if (ret) {
+					rc = -EINVAL;
+					status = QSEOS_RESULT_FAILURE;
+					goto err_resp;
+				}
 				wake_up_interruptible(&ptr_svc->rcv_req_wq);
 				break;
 			}
