@@ -841,8 +841,10 @@ static int gsi_ep_enable(struct f_gsi *gsi)
 			return ret;
 
 		log_event_dbg("%s: Enable IN ep", __func__);
-		usb_gsi_ep_op(gsi->d_port.in_ep,
-			&gsi->d_port.in_request, GSI_EP_OP_CONFIG);
+		ret = usb_gsi_ep_op(gsi->d_port.in_ep,
+				&gsi->d_port.in_request, GSI_EP_OP_CONFIG);
+		if (ret)
+			return ret;
 	}
 
 	if (gsi->d_port.out_ep && !gsi->d_port.out_ep->desc) {
@@ -852,8 +854,13 @@ static int gsi_ep_enable(struct f_gsi *gsi)
 			return ret;
 
 		log_event_dbg("%s: Enable OUT ep", __func__);
-		usb_gsi_ep_op(gsi->d_port.out_ep,
+		ret = usb_gsi_ep_op(gsi->d_port.out_ep,
 				&gsi->d_port.out_request, GSI_EP_OP_CONFIG);
+		if (ret) {
+			usb_gsi_ep_op(gsi->d_port.in_ep,
+				&gsi->d_port.in_request, GSI_EP_OP_DISABLE);
+			return ret;
+		}
 	}
 
 	return 0;
