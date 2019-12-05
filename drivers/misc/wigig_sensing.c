@@ -921,6 +921,7 @@ static int wigig_sensing_handle_fifo_ready_dri(struct wigig_sensing_ctx *ctx)
 	}
 
 	ctx->stm.burst_size = burst_size;
+	pr_info_ratelimited("burst_size = %u\n", burst_size);
 	if (ctx->stm.state >= WIGIG_SENSING_STATE_SYS_ASSERT ||
 	    ctx->stm.state < WIGIG_SENSING_STATE_READY_STOPPED) {
 		pr_err("Received burst_size in an unexpected state (%d)\n",
