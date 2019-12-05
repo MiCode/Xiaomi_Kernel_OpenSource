@@ -205,6 +205,14 @@ config QCOM_SMEM
 	  The driver provides an interface to items in a heap shared among all
 	  processors in a Qualcomm platform.
 
+config MSM_APM
+	bool "Qualcomm Technologies, Inc. platform specific APM driver"
+	help
+	  Platform specific driver to manage the power source of
+	  memory arrays. Interfaces with regulator drivers to ensure
+	  SRAM Vmin requirements are met across different performance
+	  levels.
+
 config QCOM_SMD_RPM
 	tristate "Qualcomm Resource Power Manager (RPM) over SMD"
 	depends on ARCH_QCOM
