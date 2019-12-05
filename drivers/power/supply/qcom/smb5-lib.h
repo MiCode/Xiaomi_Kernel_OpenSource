@@ -436,6 +436,7 @@ struct smb_charger {
 	struct votable		*limited_irq_disable_votable;
 	struct votable		*hdc_irq_disable_votable;
 	struct votable		*temp_change_irq_disable_votable;
+	struct votable		*qnovo_disable_votable;
 
 	/* work */
 	struct work_struct	bms_update_work;
