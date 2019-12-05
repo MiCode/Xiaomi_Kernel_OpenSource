@@ -32,22 +32,13 @@
 #define OLEDB_PERIPH_TYPE		0x2C
 
 /* AB */
-#define AB_STATUS1(chip)		(chip->ab_base + 0x08)
-#define AB_LDO_SW_DBG_CTL(chip)		(chip->ab_base + 0x72)
 #define AB_LDO_PD_CTL(chip)		(chip->ab_base + 0x78)
-
-/* AB_STATUS1 */
-#define VREG_OK_BIT			BIT(6)
-#define VREG_OK_SHIFT			6
 
 /* AB_LDO_PD_CTL */
 #define PULLDN_EN_BIT			BIT(7)
 
 /* IBB */
 #define IBB_PD_CTL(chip)		(chip->ibb_base + 0x47)
-#define IBB_PS_CTL(chip)		(chip->ibb_base + 0x50)
-#define IBB_NLIMIT_DAC(chip)		(chip->ibb_base + 0x61)
-#define IBB_SMART_PS_CTL(chip)		(chip->ibb_base + 0x65)
 
 /* IBB_PD_CTL */
 #define ENABLE_PD_BIT			BIT(7)
@@ -102,7 +93,7 @@ enum reg_type {
 	IBB,
 };
 
-int qpnp_amoled_read(struct qpnp_amoled *chip,
+static int qpnp_amoled_read(struct qpnp_amoled *chip,
 			u16 addr, u8 *value, u8 count)
 {
 	int rc = 0;
@@ -494,7 +485,8 @@ static int qpnp_amoled_parse_dt(struct qpnp_amoled *chip)
 	struct device_node *temp, *node = chip->dev->of_node;
 	const __be32 *prop_addr;
 	int rc = 0;
-	u32 base, val;
+	u32 base;
+	u8 val;
 
 	for_each_available_child_of_node(node, temp) {
 		prop_addr = of_get_address(temp, 0, NULL, NULL);
@@ -504,7 +496,7 @@ static int qpnp_amoled_parse_dt(struct qpnp_amoled *chip)
 		}
 
 		base = be32_to_cpu(*prop_addr);
-		rc = regmap_read(chip->regmap, base + PERIPH_TYPE, &val);
+		rc = qpnp_amoled_read(chip, base + PERIPH_TYPE, &val, 1);
 		if (rc < 0) {
 			pr_err("Couldn't read PERIPH_TYPE for base %x\n", base);
 			return rc;
