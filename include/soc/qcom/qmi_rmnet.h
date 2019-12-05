@@ -53,7 +53,8 @@ qmi_rmnet_all_flows_enabled(struct net_device *dev)
 
 #ifdef CONFIG_QCOM_QMI_DFC
 void *qmi_rmnet_qos_init(struct net_device *real_dev, u8 mux_id);
-void qmi_rmnet_qos_exit(struct net_device *dev, void *qos);
+void qmi_rmnet_qos_exit_pre(void *qos);
+void qmi_rmnet_qos_exit_post(void);
 void qmi_rmnet_burst_fc_check(struct net_device *dev,
 			      int ip_type, u32 mark, unsigned int len);
 int qmi_rmnet_get_queue(struct net_device *dev, struct sk_buff *skb);
@@ -64,7 +65,11 @@ qmi_rmnet_qos_init(struct net_device *real_dev, u8 mux_id)
 	return NULL;
 }
 
-static inline void qmi_rmnet_qos_exit(struct net_device *dev, void *qos)
+static inline void qmi_rmnet_qos_exit_pre(void *qos)
+{
+}
+
+static inline void qmi_rmnet_qos_exit_post(void)
 {
 }
 
