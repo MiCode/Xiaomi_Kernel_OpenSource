@@ -563,12 +563,14 @@ static int wigig_sensing_ioc_change_mode(struct wigig_sensing_ctx *ctx,
 		pr_err("wait_event_interruptible_timeout() interrupted by a signal (%d)\n",
 		       rc);
 		goto End;
-	}
-	if (rc == 0) {
+	} else if (rc == 0) {
 		/* Timeout, FW did not respond in time */
 		pr_err("wait_event_interruptible_timeout() timed out\n");
 		rc = -ETIME;
 		goto End;
+	} else {
+		/* rc > 0, this is fine, set rc to 0 */
+		rc = 0;
 	}
 
 	if (ctx->stm.state != ctx->stm.state_request) {
