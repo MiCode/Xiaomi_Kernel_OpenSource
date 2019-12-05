@@ -16,11 +16,14 @@
 #include <linux/pfk.h>
 
 #define DM_MSG_PREFIX "default-key"
+#define DEFAULT_DUN_OFFSET 1
 
 struct default_key_c {
 	struct dm_dev *dev;
 	sector_t start;
 	struct blk_encryption_key key;
+	bool set_dun;
+	u64 dun_offset;
 };
 
 static void default_key_dtr(struct dm_target *ti)
@@ -30,6 +33,58 @@ static void default_key_dtr(struct dm_target *ti)
 	if (dkc->dev)
 		dm_put_device(ti, dkc->dev);
 	kzfree(dkc);
+}
+
+static int default_key_ctr_optional(struct dm_target *ti,
+				    unsigned int argc, char **argv)
+{
+	struct default_key_c *dkc = ti->private;
+	struct dm_arg_set as = {0};
+	static const struct dm_arg _args[] = {
+		{0, 2, "Invalid number of feature args"},
+	};
+	unsigned int opt_params;
+	const char *opt_string;
+	char dummy;
+	int ret;
+
+	as.argc = argc;
+	as.argv = argv;
+
+	ret = dm_read_arg_group(_args, &as, &opt_params, &ti->error);
+	if (ret)
+		return ret;
+
+	while (opt_params--) {
+		opt_string = dm_shift_arg(&as);
+		if (!opt_string) {
+			ti->error = "Not enough feature arguments";
+			return -EINVAL;
+		}
+
+		if (!strcasecmp(opt_string, "set_dun")) {
+			dkc->set_dun = true;
+		} else if (sscanf(opt_string, "dun_offset:%llu%c",
+				&dkc->dun_offset, &dummy) == 1) {
+			if (dkc->dun_offset == 0) {
+				ti->error = "dun_offset cannot be 0";
+				return -EINVAL;
+			}
+		} else {
+			ti->error = "Invalid feature arguments";
+			return -EINVAL;
+		}
+	}
+
+	if (dkc->dun_offset && !dkc->set_dun) {
+		ti->error = "Invalid: dun_offset without set_dun";
+		return -EINVAL;
+	}
+
+	if (dkc->set_dun && !dkc->dun_offset)
+		dkc->dun_offset = DEFAULT_DUN_OFFSET;
+
+	return 0;
 }
 
 /*
@@ -43,8 +98,8 @@ static int default_key_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 	char dummy;
 	int err;
 
-	if (argc != 4) {
-		ti->error = "Invalid argument count";
+	if (argc < 4) {
+		ti->error = "Too few arguments";
 		return -EINVAL;
 	}
 
@@ -88,6 +143,12 @@ static int default_key_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 		goto bad;
 	}
 	dkc->start = tmp;
+
+	if (argc > 4) {
+		err = default_key_ctr_optional(ti, argc - 4, &argv[4]);
+		if (err)
+			goto bad;
+	}
 
 	if (!blk_queue_inlinecrypt(bdev_get_queue(dkc->dev->bdev))) {
 		ti->error = "Device does not support inline encryption";
@@ -133,8 +194,14 @@ static int default_key_map(struct dm_target *ti, struct bio *bio)
 			dm_target_offset(ti, bio->bi_iter.bi_sector);
 	}
 
-	if (!bio->bi_crypt_key && !bio->bi_crypt_skip)
+	if (!bio->bi_crypt_key && !bio->bi_crypt_skip) {
 		bio->bi_crypt_key = &dkc->key;
+
+		if (dkc->set_dun)
+			bio_dun(bio) = (dm_target_offset(ti,
+							 bio->bi_iter.bi_sector)
+					>> 3) + dkc->dun_offset;
+	}
 
 	return DM_MAPIO_REMAPPED;
 }
@@ -145,6 +212,7 @@ static void default_key_status(struct dm_target *ti, status_type_t type,
 {
 	const struct default_key_c *dkc = ti->private;
 	unsigned int sz = 0;
+	int num_feature_args = 0;
 
 	switch (type) {
 	case STATUSTYPE_INFO:
@@ -162,6 +230,20 @@ static void default_key_status(struct dm_target *ti, status_type_t type,
 		/* name of underlying device, and the start sector in it */
 		DMEMIT(" %s %llu", dkc->dev->name,
 		       (unsigned long long)dkc->start);
+
+		num_feature_args += dkc->set_dun;
+		num_feature_args += dkc->set_dun
+			&& dkc->dun_offset != DEFAULT_DUN_OFFSET;
+
+		if (num_feature_args) {
+			DMEMIT(" %d", num_feature_args);
+			if (dkc->set_dun)
+				DMEMIT(" set_dun");
+			if (dkc->set_dun
+			    && dkc->dun_offset != DEFAULT_DUN_OFFSET)
+				DMEMIT(" dun_offset:%llu", dkc->dun_offset);
+		}
+
 		break;
 	}
 }
@@ -194,7 +276,7 @@ static int default_key_iterate_devices(struct dm_target *ti,
 
 static struct target_type default_key_target = {
 	.name   = "default-key",
-	.version = {1, 0, 0},
+	.version = {1, 1, 0},
 	.module = THIS_MODULE,
 	.ctr    = default_key_ctr,
 	.dtr    = default_key_dtr,
