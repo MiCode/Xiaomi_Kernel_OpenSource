@@ -4092,8 +4092,9 @@ static int fastrpc_getperf(struct fastrpc_ioctl_perf *ioctl_perf,
 		mutex_unlock(&fl->perf_mutex);
 
 		if (fperf) {
-			K_COPY_TO_USER(err, 0, (void *)ioctl_perf->data,
-				fperf, sizeof(*fperf));
+			K_COPY_TO_USER(err, 0,
+				(void *)ioctl_perf->data, fperf,
+				sizeof(*fperf) - sizeof(struct hlist_node));
 		}
 	}
 	K_COPY_TO_USER(err, 0, param, ioctl_perf, sizeof(*ioctl_perf));
