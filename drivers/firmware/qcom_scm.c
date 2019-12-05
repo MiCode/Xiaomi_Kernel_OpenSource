@@ -895,6 +895,7 @@ int qcom_scm_invoke_callback_response(phys_addr_t out_buf,
 	return __qcom_scm_invoke_callback_response(__scm->dev, out_buf,
 			out_buf_size, result, response_type, data);
 }
+EXPORT_SYMBOL(qcom_scm_invoke_callback_response);
 
 int qcom_scm_qseecom_call(u32 cmd_id, struct scm_desc *desc)
 {
