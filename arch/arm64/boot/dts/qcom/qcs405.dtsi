@@ -1614,7 +1614,7 @@
 		compatible = "linux,extcon-usb-gpio";
 		id-gpio = <&tlmm 116 GPIO_ACTIVE_HIGH>;
 		vbus-gpio = <&pms405_gpios 12 GPIO_ACTIVE_HIGH>;
-		vbus-out-gpio = <&tlmm 37 GPIO_ACTIVE_HIGH>;
+		vbus-out-gpio = <&pms405_gpios 3 GPIO_ACTIVE_HIGH>;
 
 		pinctrl-names = "default";
 		pinctrl-0 = <&usb3_vbus_det_default

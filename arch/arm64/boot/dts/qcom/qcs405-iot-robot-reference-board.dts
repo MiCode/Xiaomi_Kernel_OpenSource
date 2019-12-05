@@ -62,3 +62,7 @@
 		};
 	};
 };
+
+&usb3_extcon {
+	vbus-out-gpio = <&tlmm 37 GPIO_ACTIVE_HIGH>;
+};
