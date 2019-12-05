@@ -75,8 +75,6 @@ struct scm_desc {
 	u64 ret[MAX_SCM_RETS];
 };
 
-extern int __qcom_scm_qseecom_do(u32 cmd_id, struct scm_desc *desc, bool retry);
-
 #if IS_ENABLED(CONFIG_QCOM_SCM)
 
 int qcom_scm_qseecom_call(u32 cmd_id, struct scm_desc *desc);
