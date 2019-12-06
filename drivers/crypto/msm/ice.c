@@ -802,7 +802,7 @@ static int qcom_ice_remove(struct platform_device *pdev)
 static int  qcom_ice_suspend(struct platform_device *pdev)
 {
 	struct ice_device *ice_dev;
-	int ret;
+	int ret = 0;
 
 	ice_dev = (struct ice_device *)platform_get_drvdata(pdev);
 
@@ -818,7 +818,7 @@ static int  qcom_ice_suspend(struct platform_device *pdev)
 			pr_err("%s: Suspend ICE during an ongoing operation\n",
 				__func__);
 			atomic_set(&ice_dev->is_ice_suspended, 0);
-			return ret;
+			return -ETIME;
 		}
 	}
 
