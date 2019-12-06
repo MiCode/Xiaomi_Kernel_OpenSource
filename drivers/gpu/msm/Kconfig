@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config QCOM_KGSL
+	tristate "Qualcomm Technologies, Inc. 3D Graphics driver"
+	depends on ARCH_QCOM
+	depends on QCOM_QFPROM
+	help
+	  3D graphics driver for the Adreno family of GPUs from QTI.
+	  Required to use hardware accelerated OpenGL, compute and Vulkan
+	  on QTI targets. This includes power management, memory management,
+	  and scheduling for the Adreno GPUs.
+
+config QCOM_ADRENO_DEFAULT_GOVERNOR
+	string "devfreq governor for the adreno core"
+	default "simple_ondemand"
+	depends on QCOM_KGSL
+
+config QCOM_KGSL_CORESIGHT
+	bool "Enable coresight support for the Adreno GPU"
+	depends on QCOM_KGSL && CORESIGHT
+	help
+	  When enabled, the Adreno GPU is available as a source for Coresight
+	  data. On a6xx targets there are two sources available for the GX and
+	  CX domains respectively. Debug kernels should say 'Y' here.
