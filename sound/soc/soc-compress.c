@@ -755,6 +755,32 @@ static int soc_compr_copy(struct snd_compr_stream *cstream,
 	return ret;
 }
 
+#ifdef CONFIG_AUDIO_QGKI
+static int soc_compr_set_next_track_param(struct snd_compr_stream *cstream,
+				union snd_codec_options *codec_options)
+{
+	struct snd_soc_pcm_runtime *rtd = cstream->private_data;
+	struct snd_soc_platform *component;
+	struct snd_soc_rtdcom_list *rtdcom;
+	int ret = 0;
+
+	for_each_rtdcom(rtd, rtdcom) {
+		component = rtdcom->component;
+
+		if (!component->driver->compr_ops ||
+			component->driver->compr_ops->set_next_track_param)
+			continue;
+
+		ret = component->driver->compr_ops->set_next_track_param(
+					cstream, codec_options);
+		if (ret < 0)
+			return ret;
+	}
+
+	return 0;
+}
+#endif
+
 static int soc_compr_set_metadata(struct snd_compr_stream *cstream,
 				  struct snd_compr_metadata *metadata)
 {
@@ -822,6 +848,9 @@ static struct snd_compr_ops soc_compr_ops = {
 	.set_params	= soc_compr_set_params,
 	.set_metadata   = soc_compr_set_metadata,
 	.get_metadata	= soc_compr_get_metadata,
+#ifdef CONFIG_AUDIO_QGKI
+	.set_next_track_param	= soc_compr_set_next_track_param,
+#endif
 	.get_params	= soc_compr_get_params,
 	.trigger	= soc_compr_trigger,
 	.pointer	= soc_compr_pointer,
@@ -838,6 +867,9 @@ static struct snd_compr_ops soc_compr_dyn_ops = {
 	.get_params	= soc_compr_get_params,
 	.set_metadata   = soc_compr_set_metadata,
 	.get_metadata	= soc_compr_get_metadata,
+#ifdef CONFIG_AUDIO_QGKI
+	.set_next_track_param	= soc_compr_set_next_track_param,
+#endif
 	.trigger	= soc_compr_trigger_fe,
 	.pointer	= soc_compr_pointer,
 	.ack		= soc_compr_ack,
