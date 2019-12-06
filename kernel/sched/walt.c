@@ -1376,7 +1376,7 @@ static void rollover_task_window(struct task_struct *p, bool full_window)
 		p->ravg.curr_window_cpu[i] = 0;
 	}
 
-	if (p->ravg.active_time < NEW_TASK_ACTIVE_TIME)
+	if (is_new_task(p))
 		p->ravg.active_time += p->ravg.last_win_size;
 }
 
@@ -1515,8 +1515,6 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 	if (new_window)
 		full_window = (window_start - mark_start) >= window_size;
 
-	new_task = is_new_task(p);
-
 	/*
 	 * Handle per-task window rollover. We don't care about the idle
 	 * task or exiting tasks.
@@ -1525,6 +1523,8 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 		if (new_window)
 			rollover_task_window(p, full_window);
 	}
+
+	new_task = is_new_task(p);
 
 	if (p_is_curr_task && new_window) {
 		rollover_cpu_window(rq, full_window);

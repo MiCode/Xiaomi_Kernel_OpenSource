@@ -194,7 +194,7 @@ scale_load_to_freq(u64 load, unsigned int src_freq, unsigned int dst_freq)
 
 static inline bool is_new_task(struct task_struct *p)
 {
-	return p->ravg.active_time <= NEW_TASK_ACTIVE_TIME;
+	return p->ravg.active_time < NEW_TASK_ACTIVE_TIME;
 }
 
 static inline void clear_top_tasks_table(u8 *table)
