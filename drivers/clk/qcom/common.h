@@ -4,6 +4,7 @@
 #ifndef __QCOM_CLK_COMMON_H__
 #define __QCOM_CLK_COMMON_H__
 
+#include <linux/clk-provider.h>
 #include <linux/reset-controller.h>
 
 struct platform_device;
@@ -12,7 +13,6 @@ struct clk_regmap;
 struct qcom_reset_map;
 struct regmap;
 struct freq_tbl;
-struct clk_hw;
 
 #define PLL_LOCK_COUNT_SHIFT	8
 #define PLL_LOCK_COUNT_MASK	0x3f
