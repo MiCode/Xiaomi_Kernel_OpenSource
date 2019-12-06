@@ -640,7 +640,7 @@
 		};
 
 		disp_rdump_memory: disp_rdump_region@9c000000 {
-			reg = <0x0 0x9c000000 0x0 0x01800000>;
+			reg = <0x0 0x9c000000 0x0 0x01700000>;
 			label = "disp_rdump_region";
 		};
 
