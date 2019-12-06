@@ -287,6 +287,21 @@
 			};
 		};
 
+		wcd9xxx_intr {
+			wcd_intr_default: wcd_intr_default{
+				mux {
+					pins = "gpio75";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio75";
+					drive-strength = <2>; /* 2 mA */
+					bias-pull-down; /* pull down */
+					input-enable;
+				};
+			};
+		};
+
 		codec_reset {
 			codec_reset_active: codec_reset_active {
 				mux {
@@ -403,6 +418,7 @@
 					pins = "gpio21";
 					drive-strength = <8>;   /* 8 MA */
 					bias-disable;	        /* No PULL */
+					input-enable;
 				};
 			};
 

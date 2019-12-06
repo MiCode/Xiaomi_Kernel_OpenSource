@@ -428,11 +428,7 @@
 			compatible = "qcom,wcd9xxx-i2c";
 			reg = <0x0d>;
 
-			qcom,cdc-reset-gpio = <&tlmm_pinmux 26 0>;
-			pinctrl-names = "default", "idle";
-			pinctrl-0 = <&codec_reset_active>;
-			pinctrl-1 = <&codec_reset_sleep>;
-
+			qcom,wcd-rst-gpio-node = <&wcd_rst_gpio>;
 			qcom,cdc-micbias1-ext-cap;
 
 			interrupt-parent = <&wcd9xxx_intc>;
@@ -906,12 +902,22 @@
 	thermal_zones: thermal-zones {};
 
 	wcd9xxx_intc: wcd9xxx-irq {
+		status = "ok";
 		compatible = "qcom,wcd9xxx-irq";
 		interrupt-controller;
 		#interrupt-cells = <1>;
 		interrupt-parent = <&tlmm_pinmux>;
 		qcom,gpio-connect = <&tlmm_pinmux 75 0>;
-		interrupt-names = "cdc-int";
+		pinctrl-names = "default";
+		pinctrl-0 = <&wcd_intr_default>;
+	};
+
+	wcd_rst_gpio: msm_cdc_pinctrl@26 {
+		compatible = "qcom,msm-cdc-pinctrl";
+		qcom,cdc-rst-n-gpio = <&tlmm_pinmux 26 0>;
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&codec_reset_active>;
+		pinctrl-1 = <&codec_reset_sleep>;
 	};
 
 	sound-9330 {
@@ -936,6 +942,7 @@
 			"DMIC3", "MIC BIAS3 External",
 			"MIC BIAS3 External", "Digital Mic3";
 
+		qcom,prim_mi2s_aux_master = <&prim_master>;
 		qcom,codec-mclk-clk-freq = <12288000>;
 		qcom,mi2s-interface-mode = "pri_mi2s_master", "sec_mi2s_master";
 		qcom,auxpcm-interface-mode = "pri_pcm_master", "sec_pcm_master";
@@ -1081,6 +1088,11 @@
 		compatible = "qcom,msm-pcm-hostless";
 	};
 
+	audio_apr: qcom,msm-audio-apr {
+		compatible = "qcom,msm-audio-apr";
+		qcom,subsys-name = "apr_modem";
+	};
+
 	host_pcm: qcom,msm-voice-host-pcm {
 		compatible = "qcom,msm-voice-host-pcm";
 	};
@@ -1197,15 +1209,6 @@
 			qcom,msm-dai-q6-mi2s-dev-id = <0>;
 			qcom,msm-mi2s-rx-lines = <2>;
 			qcom,msm-mi2s-tx-lines = <1>;
-			pinctrl-names = "default", "idle";
-			pinctrl-0 = <&pri_mi2s_ws_active
-					&pri_mi2s_sck_active
-					&pri_mi2s_dout_active
-					&pri_mi2s_din_active>;
-			pinctrl-1 = <&pri_mi2s_ws_sleep
-					&pri_mi2s_sck_sleep
-					&pri_mi2s_dout_sleep
-					&pri_mi2s_din_sleep>;
 		};
 		mi2s_sec: qcom,msm-dai-q6-mi2s-sec {
 			compatible = "qcom,msm-dai-q6-mi2s";
@@ -1213,6 +1216,18 @@
 			qcom,msm-mi2s-rx-lines = <2>;
 			qcom,msm-mi2s-tx-lines = <1>;
 		};
+	};
+	prim_master: prim_master_pinctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&pri_mi2s_ws_active
+				&pri_mi2s_sck_active
+				&pri_mi2s_dout_active
+				&pri_mi2s_din_active>;
+		pinctrl-1 = <&pri_mi2s_ws_sleep
+				&pri_mi2s_sck_sleep
+				&pri_mi2s_dout_sleep
+				&pri_mi2s_din_sleep>;
 	};
 
 	qcom,msm-thermal {
@@ -1349,6 +1364,7 @@
 			qcom,smd-edge = <0>;
 			qcom,ipc = <&apcs 0 12>;
 			qcom,remote-pid = <1>;
+			mbox-names = "mpss_smem";
 			interrupts = <GIC_SPI 25 IRQ_TYPE_EDGE_RISING>;
 			label = "mpss";
 			qcom,smd-channels = "IPCRTR";
@@ -1356,6 +1372,9 @@
 			qcom,modem_qrtr {
 				qcom,net-id = <1>;
 				qcom,low-latency;
+			};
+			qcom,apr_tal_rpmsg {
+				qcom,glink-channels = "apr_audio_svc";
 			};
 		};
 
