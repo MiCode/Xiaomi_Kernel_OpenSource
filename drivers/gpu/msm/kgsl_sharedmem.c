@@ -8,7 +8,6 @@
 #include <linux/highmem.h>
 #include <linux/slab.h>
 #include <linux/random.h>
-#include <soc/qcom/secure_buffer.h>
 
 #include "kgsl_device.h"
 #include "kgsl_sharedmem.h"
@@ -404,6 +403,10 @@ done:
 	mutex_unlock(&kernel_map_global_lock);
 }
 
+#if IS_ENABLED(CONFIG_QCOM_SECURE_BUFFER)
+
+#include <soc/qcom/secure_buffer.h>
+
 static int lock_sgt(struct sg_table *sgt, u64 size)
 {
 	struct scatterlist *sg;
@@ -460,6 +463,7 @@ static int unlock_sgt(struct sg_table *sgt)
 		ClearPagePrivate(sg_page_iter_page(&sg_iter));
 	return 0;
 }
+#endif
 
 static int kgsl_paged_map_kernel(struct kgsl_memdesc *memdesc)
 {
@@ -712,6 +716,7 @@ void kgsl_sharedmem_free(struct kgsl_memdesc *memdesc)
 	memdesc->ops->free(memdesc);
 }
 
+#if IS_ENABLED(CONFIG_QCOM_SECURE_BUFFER)
 void kgsl_free_secure_page(struct page *page)
 {
 	struct sg_table sgt;
@@ -758,6 +763,16 @@ struct page *kgsl_alloc_secure_page(void)
 	}
 	return page;
 }
+#else
+void kgsl_free_secure_page(struct page *page)
+{
+}
+
+struct page *kgsl_alloc_secure_page(void)
+{
+	return NULL;
+}
+#endif
 
 int
 kgsl_sharedmem_readl(const struct kgsl_memdesc *memdesc,
@@ -1029,6 +1044,7 @@ static void kgsl_contiguous_free(struct kgsl_memdesc *memdesc)
 	_kgsl_contiguous_free(memdesc);
 }
 
+#if IS_ENABLED(CONFIG_QCOM_SECURE_BUFFER)
 static void kgsl_free_secure_pool_pages(struct kgsl_memdesc *memdesc)
 {
 	int ret = unlock_sgt(memdesc->sgt);
@@ -1054,6 +1070,7 @@ static void kgsl_free_secure_pool_pages(struct kgsl_memdesc *memdesc)
 
 	memdesc->sgt = NULL;
 }
+#endif
 
 static void kgsl_free_pool_pages(struct kgsl_memdesc *memdesc)
 {
@@ -1076,11 +1093,12 @@ static struct kgsl_memdesc_ops kgsl_contiguous_ops = {
 	.vmfault = kgsl_contiguous_vmfault,
 };
 
-
+#if IS_ENABLED(CONFIG_QCOM_SECURE_BUFFER)
 static struct kgsl_memdesc_ops kgsl_secure_pool_ops = {
 	.free = kgsl_free_secure_pool_pages,
 	/* FIXME: Make sure vmflags / vmfault does the right thing here */
 };
+#endif
 
 static struct kgsl_memdesc_ops kgsl_pool_ops = {
 	.free = kgsl_free_pool_pages,
@@ -1090,6 +1108,7 @@ static struct kgsl_memdesc_ops kgsl_pool_ops = {
 	.unmap_kernel = kgsl_paged_unmap_kernel,
 };
 
+#if IS_ENABLED(CONFIG_QCOM_SECURE_BUFFER)
 static int kgsl_alloc_secure_pages(struct kgsl_device *device,
 		struct kgsl_memdesc *memdesc, u64 size, u64 flags, u32 priv)
 {
@@ -1145,6 +1164,7 @@ static int kgsl_alloc_secure_pages(struct kgsl_device *device,
 
 	return 0;
 }
+#endif
 
 static int kgsl_alloc_pages(struct kgsl_device *device,
 		struct kgsl_memdesc *memdesc, u64 size, u64 flags, u32 priv)
@@ -1229,11 +1249,19 @@ static int kgsl_alloc_contiguous(struct kgsl_device *device,
 	return ret;
 }
 
+#if IS_ENABLED(CONFIG_QCOM_SECURE_BUFFER)
 static int kgsl_allocate_secure(struct kgsl_device *device,
 		struct kgsl_memdesc *memdesc, u64 size, u64 flags, u32 priv)
 {
 	return kgsl_alloc_secure_pages(device, memdesc, size, flags, priv);
 }
+#else
+static int kgsl_allocate_secure(struct kgsl_device *device,
+		struct kgsl_memdesc *memdesc, u64 size, u64 flags, u32 priv)
+{
+	return -ENODEV;
+}
+#endif
 
 int kgsl_allocate_user(struct kgsl_device *device, struct kgsl_memdesc *memdesc,
 		u64 size, u64 flags, u32 priv)

@@ -579,6 +579,7 @@ static inline int kgsl_copy_from_user(void *dest, void __user *src,
 	return copy_from_user(dest, src, copy) ? -EFAULT : 0;
 }
 
+#ifndef MODULE
 static inline void kgsl_gpu_sysfs_add_link(struct kobject *dst,
 			struct kobject *src, const char *src_name,
 			const char *dst_name)
@@ -594,6 +595,13 @@ static inline void kgsl_gpu_sysfs_add_link(struct kobject *dst,
 
 	kernfs_create_link(dst->sd, dst_name, old);
 }
+#else
+static inline void kgsl_gpu_sysfs_add_link(struct kobject *dst,
+			struct kobject *src, const char *src_name,
+			const char *dst_name)
+{
+}
+#endif
 
 static inline bool kgsl_is_compat_task(void)
 {

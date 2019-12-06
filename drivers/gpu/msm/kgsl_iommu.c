@@ -1003,6 +1003,7 @@ done:
 	return ret;
 }
 
+#if IS_ENABLED(CONFIG_QCOM_SECURE_BUFFER)
 static int _init_secure_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 {
 	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
@@ -1011,7 +1012,6 @@ static int _init_secure_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
 	struct kgsl_iommu_context *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_SECURE];
 	int secure_vmid = VMID_CP_PIXEL;
-	unsigned int cb_num;
 
 	if (!mmu->secured)
 		return -EPERM;
@@ -1036,23 +1036,17 @@ static int _init_secure_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 	iommu_set_fault_handler(iommu_pt->domain,
 				kgsl_iommu_fault_handler, pt);
 
-	ret = iommu_domain_get_attr(iommu_pt->domain,
-				DOMAIN_ATTR_CONTEXT_BANK, &cb_num);
-	if (ret) {
-		dev_err(device->dev, "get DOMAIN_ATTR_PROCID failed: %d\n",
-				ret);
-		goto done;
-	}
-
-	ctx->cb_num = cb_num;
-	ctx->regbase = iommu->regbase + KGSL_IOMMU_CB0_OFFSET
-			+ (cb_num << KGSL_IOMMU_CB_SHIFT);
-
 done:
 	if (ret)
 		_free_pt(ctx, pt);
 	return ret;
 }
+#else
+static int _init_secure_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
+{
+	return -EPERM;
+}
+#endif
 
 static int _init_per_process_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 {
@@ -1335,7 +1329,6 @@ static int _setup_secure_context(struct kgsl_mmu *mmu)
 	int ret;
 	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
 	struct kgsl_iommu_context *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_SECURE];
-	unsigned int cb_num;
 
 	struct kgsl_iommu_pt *iommu_pt;
 
@@ -1348,22 +1341,12 @@ static int _setup_secure_context(struct kgsl_mmu *mmu)
 	iommu_pt = mmu->securepagetable->priv;
 
 	ret = _attach_pt(iommu_pt, ctx);
-	if (ret)
-		goto done;
-
-	ctx->default_pt = mmu->securepagetable;
-
-	ret = iommu_domain_get_attr(iommu_pt->domain, DOMAIN_ATTR_CONTEXT_BANK,
-					&cb_num);
-	if (ret) {
-		dev_err(KGSL_MMU_DEVICE(mmu)->dev,
-			"get CONTEXT_BANK attr, err %d\n", ret);
-		goto done;
+	if (!ret) {
+		ctx->default_pt = mmu->securepagetable;
+		return 0;
 	}
-	ctx->cb_num = cb_num;
-done:
-	if (ret)
-		_detach_context(ctx);
+
+	_detach_context(ctx);
 	return ret;
 }
 

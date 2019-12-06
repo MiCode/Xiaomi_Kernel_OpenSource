@@ -1191,45 +1191,41 @@ static const struct attribute *pwrctrl_attr_list[] = {
 	NULL,
 };
 
-struct sysfs_link {
-	const char *src;
-	const char *dst;
-};
+static DEVICE_ATTR(gpu_busy, 0200, gpu_busy_percentage_show, NULL);
+static DEVICE_ATTR(gpu_min_clock, 0644, min_clock_mhz_show,
+		min_clock_mhz_store);
+static DEVICE_ATTR(gpu_max_clock, 0644, max_clock_mhz_show,
+		max_clock_mhz_store);
+static DEVICE_ATTR(gpu_clock, 0200, clock_mhz_show, NULL);
+static DEVICE_ATTR(gpu_freq_table, 0200, freq_table_mhz_show, NULL);
+static DEVICE_ATTR(gpu_tmu, 0200, temp_show, NULL);
 
-static struct sysfs_link link_names[] = {
-	{ "gpu_model", "gpu_model",},
-	{ "gpu_busy_percentage", "gpu_busy",},
-	{ "min_clock_mhz", "gpu_min_clock",},
-	{ "max_clock_mhz", "gpu_max_clock",},
-	{ "clock_mhz", "gpu_clock",},
-	{ "freq_table_mhz", "gpu_freq_table",},
-	{ "temp", "gpu_tmu",},
+static const struct attribute *pwrctrl_gpu_attr_list[] = {
+	&dev_attr_gpu_model.attr,
+	&dev_attr_gpu_busy.attr,
+	&dev_attr_gpu_min_clock.attr,
+	&dev_attr_gpu_max_clock.attr,
+	&dev_attr_gpu_clock.attr,
+	&dev_attr_gpu_freq_table.attr,
+	&dev_attr_gpu_tmu.attr,
+	NULL,
 };
 
 int kgsl_pwrctrl_init_sysfs(struct kgsl_device *device)
 {
-	int i, ret;
+	int ret;
 
 	ret = sysfs_create_files(&device->dev->kobj, pwrctrl_attr_list);
 	if (ret)
 		return ret;
 
 	device->gpu_sysfs_kobj = kobject_create_and_add("gpu", kernel_kobj);
-	if (IS_ERR_OR_NULL(device->gpu_sysfs_kobj))
-		return (device->gpu_sysfs_kobj == NULL) ?
-		-ENOMEM : PTR_ERR(device->gpu_sysfs_kobj);
 
-	for (i = 0; i < ARRAY_SIZE(link_names); i++)
-		kgsl_gpu_sysfs_add_link(device->gpu_sysfs_kobj,
-			&device->dev->kobj, link_names[i].src,
-			link_names[i].dst);
+	if (!device->gpu_sysfs_kobj)
+		return 0;
 
-	return 0;
-}
-
-void kgsl_pwrctrl_uninit_sysfs(struct kgsl_device *device)
-{
-	sysfs_remove_files(&device->dev->kobj, pwrctrl_attr_list);
+	return sysfs_create_files(device->gpu_sysfs_kobj,
+		pwrctrl_gpu_attr_list);
 }
 
 /*
