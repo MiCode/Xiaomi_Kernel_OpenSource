@@ -37,6 +37,15 @@
 #define PON_1REG				0x03
 #define PON_GEN2_PRIMARY			0x04
 #define PON_GEN2_SECONDARY			0x05
+#define PON_GEN3_PBS				0x08
+#define PON_GEN3_HLOS				0x09
+
+enum qpnp_pon_version {
+	QPNP_PON_GEN1_V1,
+	QPNP_PON_GEN1_V2,
+	QPNP_PON_GEN2,
+	QPNP_PON_GEN3,
+};
 
 #define PON_OFFSET(subtype, offset_gen1, offset_gen2) \
 	(((subtype == PON_PRIMARY) || \
@@ -75,8 +84,10 @@
 #define QPNP_PON_KPDPWR_RESIN_S2_TIMER(pon)	((pon)->base + 0x49)
 #define QPNP_PON_KPDPWR_RESIN_S2_CNTL(pon)	((pon)->base + 0x4A)
 #define QPNP_PON_KPDPWR_RESIN_S2_CNTL2(pon)	((pon)->base + 0x4B)
-#define QPNP_PON_PS_HOLD_RST_CTL(pon)		((pon)->base + 0x5A)
-#define QPNP_PON_PS_HOLD_RST_CTL2(pon)		((pon)->base + 0x5B)
+#define QPNP_PON_PS_HOLD_RST_CTL(pon) \
+	((pon)->base + ((pon)->pon_ver != QPNP_PON_GEN3 ? 0x5A : 0x52))
+#define QPNP_PON_PS_HOLD_RST_CTL2(pon) \
+	((pon)->base + ((pon)->pon_ver != QPNP_PON_GEN3 ? 0x5B : 0x53))
 #define QPNP_PON_WD_RST_S2_CTL(pon)		((pon)->base + 0x56)
 #define QPNP_PON_WD_RST_S2_CTL2(pon)		((pon)->base + 0x57)
 #define QPNP_PON_SW_RST_S2_CTL(pon)		((pon)->base + 0x62)
@@ -115,6 +126,8 @@
 #define QPNP_PON_CBLPWR_N_SET			BIT(2)
 #define QPNP_PON_RESIN_BARK_N_SET		BIT(4)
 #define QPNP_PON_KPDPWR_RESIN_BARK_N_SET	BIT(5)
+#define QPNP_PON_GEN3_RESIN_N_SET		BIT(6)
+#define QPNP_PON_GEN3_KPDPWR_N_SET		BIT(7)
 
 #define QPNP_PON_WD_EN				BIT(7)
 #define QPNP_PON_RESET_EN			BIT(7)
@@ -150,12 +163,6 @@
 #define QPNP_PON_BUFFER_SIZE			9
 
 #define QPNP_POFF_REASON_UVLO			13
-
-enum qpnp_pon_version {
-	QPNP_PON_GEN1_V1,
-	QPNP_PON_GEN1_V2,
-	QPNP_PON_GEN2,
-};
 
 enum pon_type {
 	PON_KPDPWR	 = PON_POWER_ON_TYPE_KPDPWR,
@@ -343,6 +350,12 @@ static bool is_pon_gen2(struct qpnp_pon *pon)
 		pon->subtype == PON_GEN2_SECONDARY;
 }
 
+static bool is_pon_gen3(struct qpnp_pon *pon)
+{
+	return pon->subtype == PON_GEN3_PBS ||
+		pon->subtype == PON_GEN3_HLOS;
+}
+
 /**
  * qpnp_pon_set_restart_reason() - Store device restart reason in PMIC register
  *
@@ -365,7 +378,7 @@ int qpnp_pon_set_restart_reason(enum pon_restart_reason reason)
 	if (!pon->store_hard_reset_reason)
 		return 0;
 
-	if (is_pon_gen2(pon))
+	if (is_pon_gen2(pon) || is_pon_gen3(pon))
 		rc = qpnp_pon_masked_write(pon, QPNP_PON_SOFT_RB_SPARE(pon),
 					   GENMASK(7, 1), (reason << 1));
 	else
@@ -441,7 +454,7 @@ static int qpnp_pon_get_dbc(struct qpnp_pon *pon, u32 *delay)
 		return rc;
 	val &= QPNP_PON_DBC_DELAY_MASK(pon);
 
-	if (is_pon_gen2(pon))
+	if (is_pon_gen2(pon) || is_pon_gen3(pon))
 		*delay = USEC_PER_SEC /
 			(1 << (QPNP_PON_GEN2_DELAY_BIT_SHIFT - val));
 	else
@@ -754,6 +767,9 @@ int qpnp_pon_is_warm_reset(void)
 	if (!sys_reset_dev)
 		return -EPROBE_DEFER;
 
+	if (is_pon_gen3(sys_reset_dev))
+		return -EPERM;
+
 	return _qpnp_pon_is_warm_reset(sys_reset_dev);
 }
 EXPORT_SYMBOL(qpnp_pon_is_warm_reset);
@@ -768,6 +784,9 @@ int qpnp_pon_wd_config(bool enable)
 {
 	if (!sys_reset_dev)
 		return -EPROBE_DEFER;
+
+	if (is_pon_gen3(sys_reset_dev))
+		return -EPERM;
 
 	return qpnp_pon_masked_write(sys_reset_dev,
 				QPNP_PON_WD_RST_S2_CTL2(sys_reset_dev),
@@ -829,6 +848,9 @@ int qpnp_pon_trigger_config(enum pon_trigger_source pon_src, bool enable)
 		dev_err(pon->dev, "Invalid PON source %d\n", pon_src);
 		return -EINVAL;
 	}
+
+	if (is_pon_gen3(sys_reset_dev))
+		return -EPERM;
 
 	if (is_pon_gen2(pon) && pon_src == PON_SMPL)
 		rc = qpnp_pon_masked_write(pon, QPNP_PON_SMPL_CTL(pon),
@@ -921,10 +943,14 @@ static int qpnp_pon_input_dispatch(struct qpnp_pon *pon, u32 pon_type)
 
 	switch (cfg->pon_type) {
 	case PON_KPDPWR:
-		pon_rt_bit = QPNP_PON_KPDPWR_N_SET;
+		pon_rt_bit = is_pon_gen3(pon)
+				? QPNP_PON_GEN3_KPDPWR_N_SET
+				: QPNP_PON_KPDPWR_N_SET;
 		break;
 	case PON_RESIN:
-		pon_rt_bit = QPNP_PON_RESIN_N_SET;
+		pon_rt_bit = is_pon_gen3(pon)
+				? QPNP_PON_GEN3_RESIN_N_SET
+				: QPNP_PON_RESIN_N_SET;
 		break;
 	case PON_CBLPWR:
 		pon_rt_bit = QPNP_PON_CBLPWR_N_SET;
@@ -1141,6 +1167,11 @@ static irqreturn_t qpnp_resin_bark_irq(int irq, void *_pon)
 static int qpnp_config_pull(struct qpnp_pon *pon, struct qpnp_pon_config *cfg)
 {
 	u8 pull_bit;
+
+	if (is_pon_gen3(pon)) {
+		/* PON_GEN3 doesn't have pull control */
+		return 0;
+	}
 
 	switch (cfg->pon_type) {
 	case PON_KPDPWR:
@@ -2079,6 +2110,8 @@ static int qpnp_pon_read_hardware_info(struct qpnp_pon *pon, bool sys_reset)
 			pon->pon_ver = QPNP_PON_GEN1_V2;
 	} else if (is_pon_gen2(pon)) {
 		pon->pon_ver = QPNP_PON_GEN2;
+	} else if (is_pon_gen3(pon)) {
+		pon->pon_ver = QPNP_PON_GEN3;
 	} else if (pon->subtype == PON_1REG) {
 		pon->pon_ver = QPNP_PON_GEN1_V2;
 	} else {
@@ -2088,6 +2121,11 @@ static int qpnp_pon_read_hardware_info(struct qpnp_pon *pon, bool sys_reset)
 	}
 	dev_dbg(dev, "pon_subtype=0x%02X, pon_version=0x%02X\n", pon->subtype,
 		pon->pon_ver);
+
+	if (is_pon_gen3(pon)) {
+		/* PON_GEN3 does not have PON/POFF reason registers */
+		return 0;
+	}
 
 	rc = qpnp_pon_store_and_clear_warm_reset(pon);
 	if (rc)
