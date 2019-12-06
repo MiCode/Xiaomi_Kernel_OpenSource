@@ -177,20 +177,18 @@ static int _a3xx_pwron_fixup(struct adreno_device *adreno_dev)
 {
 	unsigned int *cmds;
 	int count = ARRAY_SIZE(_a3xx_pwron_fixup_fs_instructions);
-	int ret;
 
 	/* Return if the fixup is already in place */
 	if (test_bit(ADRENO_DEVICE_PWRON_FIXUP, &adreno_dev->priv))
 		return 0;
 
-	ret = kgsl_allocate_global(KGSL_DEVICE(adreno_dev),
-		&adreno_dev->pwron_fixup, PAGE_SIZE,
-		KGSL_MEMFLAGS_GPUREADONLY, 0, "pwron_fixup");
+	adreno_dev->pwron_fixup = kgsl_allocate_global(KGSL_DEVICE(adreno_dev),
+		PAGE_SIZE, KGSL_MEMFLAGS_GPUREADONLY, 0, "pwron_fixup");
 
-	if (ret)
-		return ret;
+	if (IS_ERR(adreno_dev->pwron_fixup))
+		return PTR_ERR(adreno_dev->pwron_fixup);
 
-	cmds = adreno_dev->pwron_fixup.hostptr;
+	cmds = adreno_dev->pwron_fixup->hostptr;
 
 	*cmds++ = cp_type0_packet(A3XX_UCHE_CACHE_INVALIDATE0_REG, 2);
 	*cmds++ = 0x00000000;
@@ -598,7 +596,7 @@ static int _a3xx_pwron_fixup(struct adreno_device *adreno_dev)
 	 * program the indirect buffer call in the ringbuffer
 	 */
 	adreno_dev->pwron_fixup_dwords =
-		(cmds - (unsigned int *) adreno_dev->pwron_fixup.hostptr);
+		(cmds - (unsigned int *) adreno_dev->pwron_fixup->hostptr);
 
 	/* Mark the flag in ->priv to show that we have the fix */
 	set_bit(ADRENO_DEVICE_PWRON_FIXUP, &adreno_dev->priv);
@@ -660,12 +658,11 @@ static int a3xx_send_me_init(struct adreno_device *adreno_dev,
 	return ret;
 }
 
-static int a3xx_microcode_load(struct adreno_device *adreno_dev);
+static void a3xx_microcode_load(struct adreno_device *adreno_dev);
 
 static int a3xx_rb_start(struct adreno_device *adreno_dev)
 {
 	struct adreno_ringbuffer *rb = ADRENO_CURRENT_RINGBUFFER(adreno_dev);
-	int ret;
 
 	/*
 	 * The size of the ringbuffer in the hardware is the log2
@@ -679,17 +676,14 @@ static int a3xx_rb_start(struct adreno_device *adreno_dev)
 		(1 << 27));
 
 	adreno_writereg(adreno_dev, ADRENO_REG_CP_RB_BASE,
-			rb->buffer_desc.gpuaddr);
+			rb->buffer_desc->gpuaddr);
 
-	ret = a3xx_microcode_load(adreno_dev);
-	if (ret == 0) {
-		/* clear ME_HALT to start micro engine */
-		adreno_writereg(adreno_dev, ADRENO_REG_CP_ME_CNTL, 0);
+	a3xx_microcode_load(adreno_dev);
 
-		ret = a3xx_send_me_init(adreno_dev, rb);
-	}
+	/* clear ME_HALT to start micro engine */
+	adreno_writereg(adreno_dev, ADRENO_REG_CP_ME_CNTL, 0);
 
-	return ret;
+	return a3xx_send_me_init(adreno_dev, rb);
 }
 
 /*
@@ -1200,10 +1194,6 @@ static unsigned int a3xx_int_bits[ADRENO_INT_BITS_MAX] = {
 
 /* Register offset defines for A3XX */
 static unsigned int a3xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
-	ADRENO_REG_DEFINE(ADRENO_REG_CP_ME_RAM_WADDR, A3XX_CP_ME_RAM_WADDR),
-	ADRENO_REG_DEFINE(ADRENO_REG_CP_ME_RAM_DATA, A3XX_CP_ME_RAM_DATA),
-	ADRENO_REG_DEFINE(ADRENO_REG_CP_PFP_UCODE_DATA, A3XX_CP_PFP_UCODE_DATA),
-	ADRENO_REG_DEFINE(ADRENO_REG_CP_PFP_UCODE_ADDR, A3XX_CP_PFP_UCODE_ADDR),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_RB_BASE, A3XX_CP_RB_BASE),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_RB_BASE_HI, ADRENO_REG_SKIP),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_RB_RPTR, A3XX_CP_RB_RPTR),
@@ -1220,7 +1210,6 @@ static unsigned int a3xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_TIMESTAMP, A3XX_CP_SCRATCH_REG0),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_SCRATCH_REG6, A3XX_CP_SCRATCH_REG6),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_SCRATCH_REG7, A3XX_CP_SCRATCH_REG7),
-	ADRENO_REG_DEFINE(ADRENO_REG_CP_ME_RAM_RADDR, A3XX_CP_ME_RAM_RADDR),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_ROQ_ADDR, A3XX_CP_ROQ_ADDR),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_ROQ_DATA, A3XX_CP_ROQ_DATA),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_MEQ_ADDR, A3XX_CP_MEQ_ADDR),
@@ -1355,57 +1344,25 @@ static int a3xx_microcode_read(struct adreno_device *adreno_dev)
 
 	return 0;
 }
-/**
- * load_pm4_ucode() - Load pm4 ucode
- * @adreno_dev: Pointer to an adreno device
- * @start: Starting index in pm4 ucode to load
- * @end: Ending index of pm4 ucode to load
- * @addr: Address to load the pm4 ucode
- *
- * Load the pm4 ucode from @start at @addr.
- */
-static inline void load_pm4_ucode(struct adreno_device *adreno_dev,
-			unsigned int start, unsigned int end, unsigned int addr)
-{
-	int i;
 
-	adreno_writereg(adreno_dev, ADRENO_REG_CP_ME_RAM_WADDR, addr);
-	for (i = start; i < end; i++)
-		adreno_writereg(adreno_dev, ADRENO_REG_CP_ME_RAM_DATA,
-				adreno_dev->fw[ADRENO_FW_PM4].fwvirt[i]);
-}
-/**
- * load_pfp_ucode() - Load pfp ucode
- * @adreno_dev: Pointer to an adreno device
- * @start: Starting index in pfp ucode to load
- * @end: Ending index of pfp ucode to load
- * @addr: Address to load the pfp ucode
- *
- * Load the pfp ucode from @start at @addr.
- */
-static inline void load_pfp_ucode(struct adreno_device *adreno_dev,
-			unsigned int start, unsigned int end, unsigned int addr)
+static void a3xx_microcode_load(struct adreno_device *adreno_dev)
 {
-	int i;
-
-	adreno_writereg(adreno_dev, ADRENO_REG_CP_PFP_UCODE_ADDR, addr);
-	for (i = start; i < end; i++)
-		adreno_writereg(adreno_dev, ADRENO_REG_CP_PFP_UCODE_DATA,
-				adreno_dev->fw[ADRENO_FW_PFP].fwvirt[i]);
-}
-
-static int a3xx_microcode_load(struct adreno_device *adreno_dev)
-{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	size_t pm4_size = adreno_dev->fw[ADRENO_FW_PM4].size;
 	size_t pfp_size = adreno_dev->fw[ADRENO_FW_PFP].size;
+	int i;
 
 	/* load the CP ucode using AHB writes */
-	load_pm4_ucode(adreno_dev, 1, pm4_size, 0);
+	kgsl_regwrite(device, A3XX_CP_ME_RAM_WADDR, 0);
 
-	/* load the prefetch parser ucode using AHB writes */
-	load_pfp_ucode(adreno_dev, 1, pfp_size, 0);
+	for (i = 1; i < pm4_size; i++)
+		kgsl_regwrite(device, A3XX_CP_ME_RAM_DATA,
+			adreno_dev->fw[ADRENO_FW_PM4].fwvirt[i]);
 
-	return 0;
+	kgsl_regwrite(device, A3XX_CP_PFP_UCODE_ADDR, 0);
+	for (i = 1; i < pfp_size; i++)
+		kgsl_regwrite(device, A3XX_CP_PFP_UCODE_DATA,
+			adreno_dev->fw[ADRENO_FW_PFP].fwvirt[i]);
 }
 
 static void a3xx_clk_set_options(struct adreno_device *adreno_dev,

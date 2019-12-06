@@ -124,7 +124,7 @@ static size_t snapshot_os(struct kgsl_device *device,
 	 * Save the last active context from global index since its more
 	 * reliable than currrent RB index
 	 */
-	kgsl_sharedmem_readl(&device->memstore, &header->current_context,
+	kgsl_sharedmem_readl(device->memstore, &header->current_context,
 		KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL, current_context));
 
 	context = kgsl_context_get(device, header->current_context);
@@ -1103,44 +1103,15 @@ static const struct attribute *snapshot_attrs[] = {
 	NULL,
 };
 
-/**
- * kgsl_device_snapshot_init() - add resources for the device GPU snapshot
- * @device: The device to initialize
- *
- * Allocate memory for a GPU snapshot for the specified device,
- * and create the sysfs files to manage it
- */
-int kgsl_device_snapshot_init(struct kgsl_device *device)
+void kgsl_device_snapshot_probe(struct kgsl_device *device, u32 size)
 {
-	int ret;
-
-	device->snapshot_memory.size = KGSL_SNAPSHOT_MEMSIZE;
-
-	of_property_read_u32(device->pdev->dev.of_node,
-		"qcom,snapshot-size", &device->snapshot_memory.size);
-
-	/*
-	 * Choosing a memory size of 0 is essentially the same as disabling
-	 * snapshotting
-	 */
-	if (device->snapshot_memory.size == 0)
-		return 0;
-
-	/*
-	 * I'm not sure why anybody would choose to do so but make sure
-	 * that we can at least fit the snapshot header in the requested
-	 * region
-	 */
-
-	if (device->snapshot_memory.size < sizeof(struct kgsl_snapshot_header))
-		device->snapshot_memory.size =
-			sizeof(struct kgsl_snapshot_header);
+	device->snapshot_memory.size = size;
 
 	device->snapshot_memory.ptr = kzalloc(device->snapshot_memory.size,
 		GFP_KERNEL);
 
-	if (device->snapshot_memory.ptr == NULL)
-		return -ENOMEM;
+	if (!device->snapshot_memory.ptr)
+		return;
 
 	device->snapshot = NULL;
 	device->snapshot_faultcount = 0;
@@ -1155,18 +1126,12 @@ int kgsl_device_snapshot_init(struct kgsl_device *device)
 	 */
 	device->prioritize_unrecoverable = false;
 
-	ret = kobject_init_and_add(&device->snapshot_kobj, &ktype_snapshot,
-		&device->dev->kobj, "snapshot");
-	if (ret)
-		return ret;
+	if (kobject_init_and_add(&device->snapshot_kobj, &ktype_snapshot,
+		&device->dev->kobj, "snapshot"))
+		return;
 
-	ret = sysfs_create_bin_file(&device->snapshot_kobj, &snapshot_attr);
-	if (ret)
-		return ret;
-
-	ret = sysfs_create_files(&device->snapshot_kobj, snapshot_attrs);
-
-	return ret;
+	sysfs_create_bin_file(&device->snapshot_kobj, &snapshot_attr);
+	sysfs_create_files(&device->snapshot_kobj, snapshot_attrs);
 }
 
 /**

@@ -3,7 +3,6 @@
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
-#include <linux/firmware.h>
 #include <linux/of.h>
 #include <linux/of_fdt.h>
 #include <linux/soc/qcom/llcc-qcom.h>
@@ -104,28 +103,18 @@ static u32 a612_pwrup_reglist[] = {
 
 static void a6xx_init(struct adreno_device *adreno_dev)
 {
+	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
-	adreno_dev->highest_bank_bit = 13;
-	of_property_read_u32(device->pdev->dev.of_node,
-		"qcom,highest-bank-bit", &adreno_dev->highest_bank_bit);
+	adreno_dev->highest_bank_bit = a6xx_core->highest_bank_bit;
 
-	if (WARN(adreno_dev->highest_bank_bit < 13 ||
-			adreno_dev->highest_bank_bit > 16,
-			"The highest-bank-bit property is invalid\n"))
-		adreno_dev->highest_bank_bit =
-			clamp_t(unsigned int, adreno_dev->highest_bank_bit,
-				13, 16);
-
-	/* LP DDR4 highest bank bit is different and needs to be overridden */
 	if (adreno_is_a650(adreno_dev) && of_fdt_get_ddrtype() == 0x7)
 		adreno_dev->highest_bank_bit = 15;
 
 	a6xx_crashdump_init(adreno_dev);
 
-	kgsl_allocate_global(device, &adreno_dev->pwrup_reglist,
-		PAGE_SIZE, 0, KGSL_MEMDESC_CONTIG | KGSL_MEMDESC_PRIVILEGED,
-		"powerup_register_list");
+	adreno_dev->pwrup_reglist = kgsl_allocate_global(device,
+		PAGE_SIZE, 0, KGSL_MEMDESC_PRIVILEGED, "powerup_register_list");
 }
 
 static void a6xx_protect_init(struct adreno_device *adreno_dev)
@@ -282,7 +271,7 @@ struct a6xx_reglist_list {
 static void a6xx_patch_pwrup_reglist(struct adreno_device *adreno_dev)
 {
 	struct a6xx_reglist_list reglist[3];
-	void *ptr = adreno_dev->pwrup_reglist.hostptr;
+	void *ptr = adreno_dev->pwrup_reglist->hostptr;
 	struct cpu_gpu_lock *lock = ptr;
 	int items = 0, i, j;
 	u32 *dest = ptr + sizeof(*lock);
@@ -345,7 +334,7 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
-	unsigned int bit, lower_bit, mal, mode, upper_bit;
+	unsigned int mal, mode, hbb_hi = 0, hbb_lo = 0;
 	unsigned int uavflagprd_inv;
 	unsigned int amsbc = 0;
 	unsigned int rgb565_predicator = 0;
@@ -481,27 +470,28 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 		break;
 	}
 
-	bit = adreno_dev->highest_bank_bit ?
-		adreno_dev->highest_bank_bit - 13 : 0;
-	lower_bit = bit & 0x3;
-	upper_bit = (bit >> 0x2) & 1;
+	if (!WARN_ON(!adreno_dev->highest_bank_bit)) {
+		hbb_lo = (adreno_dev->highest_bank_bit - 13) & 3;
+		hbb_hi = ((adreno_dev->highest_bank_bit - 13) >> 2) & 1;
+	}
+
 	mal = (mal == 64) ? 1 : 0;
 
 	uavflagprd_inv = (adreno_is_a650_family(adreno_dev)) ? 2 : 0;
 
 	kgsl_regwrite(device, A6XX_RB_NC_MODE_CNTL, (rgb565_predicator << 11)|
-				(upper_bit << 10) | (amsbc << 4) | (mal << 3) |
-				(lower_bit << 1) | mode);
+				(hbb_hi << 10) | (amsbc << 4) | (mal << 3) |
+				(hbb_lo << 1) | mode);
 
-	kgsl_regwrite(device, A6XX_TPL1_NC_MODE_CNTL, (upper_bit << 4) |
-				(mal << 3) | (lower_bit << 1) | mode);
+	kgsl_regwrite(device, A6XX_TPL1_NC_MODE_CNTL, (hbb_hi << 4) |
+				(mal << 3) | (hbb_lo << 1) | mode);
 
-	kgsl_regwrite(device, A6XX_SP_NC_MODE_CNTL, (upper_bit << 10) |
+	kgsl_regwrite(device, A6XX_SP_NC_MODE_CNTL, (hbb_hi << 10) |
 				(mal << 3) | (uavflagprd_inv << 4) |
-				(lower_bit << 1) | mode);
+				(hbb_lo << 1) | mode);
 
 	kgsl_regwrite(device, A6XX_UCHE_MODE_CNTL, (mal << 23) |
-		(lower_bit << 21));
+		(hbb_lo << 21));
 
 	kgsl_regwrite(device, A6XX_RBBM_INTERFACE_HANG_INT_CNTL,
 				(1 << 30) | a6xx_core->hang_detect_cycles);
@@ -544,7 +534,7 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 
 	a6xx_protect_init(adreno_dev);
 
-	if (!patch_reglist && (adreno_dev->pwrup_reglist.gpuaddr != 0)) {
+	if (!patch_reglist && (adreno_dev->pwrup_reglist->gpuaddr != 0)) {
 		a6xx_patch_pwrup_reglist(adreno_dev);
 		patch_reglist = true;
 	}
@@ -580,7 +570,7 @@ static int a6xx_microcode_load(struct adreno_device *adreno_dev)
 	void *zap;
 	int ret = 0;
 
-	gpuaddr = fw->memdesc.gpuaddr;
+	gpuaddr = fw->memdesc->gpuaddr;
 	kgsl_regwrite(device, A6XX_CP_SQE_INSTR_BASE_LO,
 				lower_32_bits(gpuaddr));
 	kgsl_regwrite(device, A6XX_CP_SQE_INSTR_BASE_HI,
@@ -673,7 +663,7 @@ static void _set_ordinals(struct adreno_device *adreno_dev,
 		*cmds++ = 0x00000002;
 
 	if (CP_INIT_MASK & CP_INIT_REGISTER_INIT_LIST_WITH_SPINLOCK) {
-		uint64_t gpuaddr = adreno_dev->pwrup_reglist.gpuaddr;
+		uint64_t gpuaddr = adreno_dev->pwrup_reglist->gpuaddr;
 
 		*cmds++ = lower_32_bits(gpuaddr);
 		*cmds++ = upper_32_bits(gpuaddr);
@@ -712,7 +702,7 @@ static int a6xx_send_cp_init(struct adreno_device *adreno_dev,
 		adreno_spin_idle_debug(adreno_dev,
 				"CP initialization failed to idle\n");
 
-		kgsl_sharedmem_writel(device, &device->scratch,
+		kgsl_sharedmem_writel(device, device->scratch,
 			SCRATCH_RPTR_OFFSET(rb->id), 0);
 		rb->wptr = 0;
 		rb->_wptr = 0;
@@ -738,7 +728,7 @@ static int _preemption_init(struct adreno_device *adreno_dev,
 	*cmds++ = cp_type7_packet(CP_SET_PSEUDO_REGISTER, 6);
 	*cmds++ = 1;
 	cmds += cp_gpuaddr(adreno_dev, cmds,
-			rb->preemption_desc.gpuaddr);
+			rb->preemption_desc->gpuaddr);
 
 	*cmds++ = 2;
 	cmds += cp_gpuaddr(adreno_dev, cmds,
@@ -825,7 +815,7 @@ static int a6xx_rb_start(struct adreno_device *adreno_dev)
 					A6XX_CP_RB_CNTL_DEFAULT);
 
 	adreno_writereg64(adreno_dev, ADRENO_REG_CP_RB_BASE,
-			ADRENO_REG_CP_RB_BASE_HI, rb->buffer_desc.gpuaddr);
+			ADRENO_REG_CP_RB_BASE_HI, rb->buffer_desc->gpuaddr);
 
 	ret = a6xx_microcode_load(adreno_dev);
 	if (ret)
@@ -913,40 +903,12 @@ unsigned int a6xx_set_marker(
 	return 2;
 }
 
-static int _load_firmware(struct kgsl_device *device, const char *fwfile,
-			  struct adreno_firmware *firmware)
-{
-	const struct firmware *fw = NULL;
-	int ret;
-
-	ret = request_firmware(&fw, fwfile, device->dev);
-
-	if (ret) {
-		dev_err(device->dev, "request_firmware(%s) failed: %d\n",
-				fwfile, ret);
-		return ret;
-	}
-
-	ret = kgsl_allocate_global(device, &firmware->memdesc, fw->size - 4,
-				KGSL_MEMFLAGS_GPUREADONLY, KGSL_MEMDESC_UCODE,
-				"ucode");
-
-	if (!ret) {
-		memcpy(firmware->memdesc.hostptr, &fw->data[4], fw->size - 4);
-		firmware->size = (fw->size - 4) / sizeof(uint32_t);
-		firmware->version = *(unsigned int *)&fw->data[4];
-	}
-
-	release_firmware(fw);
-	return ret;
-}
-
 /*
  * a6xx_gpu_keepalive() - GMU reg write to request GPU stays on
  * @adreno_dev: Pointer to the adreno device that has the GMU
  * @state: State to set: true is ON, false is OFF
  */
-static inline void a6xx_gpu_keepalive(struct adreno_device *adreno_dev,
+static void a6xx_gpu_keepalive(struct adreno_device *adreno_dev,
 		bool state)
 {
 	if (!gmu_core_isenabled(KGSL_DEVICE(adreno_dev)))
@@ -975,18 +937,10 @@ static bool a6xx_hw_isidle(struct adreno_device *adreno_dev)
  */
 static int a6xx_microcode_read(struct adreno_device *adreno_dev)
 {
-	int ret;
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_firmware *sqe_fw = ADRENO_FW(adreno_dev, ADRENO_FW_SQE);
 	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
 
-	if (sqe_fw->memdesc.hostptr == NULL) {
-		ret = _load_firmware(device, a6xx_core->sqefw_name, sqe_fw);
-		if (ret)
-			return ret;
-	}
-
-	return 0;
+	return adreno_get_firmware(adreno_dev, a6xx_core->sqefw_name, sqe_fw);
 }
 
 static int a6xx_soft_reset(struct adreno_device *adreno_dev)
@@ -2489,7 +2443,7 @@ static void cpu_gpu_unlock(struct cpu_gpu_lock *lock)
 static int a6xx_perfcounter_update(struct adreno_device *adreno_dev,
 	struct adreno_perfcount_register *reg, bool update_reg)
 {
-	void *ptr = adreno_dev->pwrup_reglist.hostptr;
+	void *ptr = adreno_dev->pwrup_reglist->hostptr;
 	struct cpu_gpu_lock *lock = ptr;
 	u32 *data = ptr + sizeof(*lock);
 	int i, offset = 0;

@@ -39,7 +39,7 @@ struct adreno_profile {
 	 * pre_ib entry N
 	 * post_ib entry N
 	 */
-	struct kgsl_memdesc shared_buffer;
+	struct kgsl_memdesc *shared_buffer;
 	unsigned int shared_head;
 	unsigned int shared_tail;
 	unsigned int shared_size;

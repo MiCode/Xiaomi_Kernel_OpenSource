@@ -1589,18 +1589,6 @@ static int kgsl_pwrctrl_clk_set_rate(struct clk *grp_clk, unsigned int freq,
 	return ret;
 }
 
-static inline void _close_clks(struct kgsl_device *device)
-{
-	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	int i;
-
-	for (i = 0; i < KGSL_MAX_CLKS; i++)
-		pwr->grp_clks[i] = NULL;
-
-	if (pwr->gpu_bimc_int_clk)
-		devm_clk_put(&device->pdev->dev, pwr->gpu_bimc_int_clk);
-}
-
 static bool _gpu_freq_supported(struct kgsl_pwrctrl *pwr, unsigned int freq)
 {
 	int i;
@@ -1674,7 +1662,7 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 
 	result = _get_clocks(device);
 	if (result)
-		goto error_cleanup_clks;
+		return result;
 
 	/* Make sure we have a source clk for freq setting */
 	if (pwr->grp_clks[0] == NULL)
@@ -1692,8 +1680,7 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 
 	if (pwr->num_pwrlevels == 0) {
 		dev_err(device->dev, "No power levels are defined\n");
-		result = -EINVAL;
-		goto error_cleanup_clks;
+		return -EINVAL;
 	}
 
 	/* Initialize the user and thermal clock constraints */
@@ -1785,9 +1772,8 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 
 error_disable_pm:
 	pm_runtime_disable(&pdev->dev);
-error_cleanup_clks:
-	_close_clks(device);
 	kfree(levels);
+
 	return result;
 }
 
@@ -1802,8 +1788,6 @@ void kgsl_pwrctrl_close(struct kgsl_device *device)
 	icc_put(pwr->icc_path);
 
 	pm_runtime_disable(&device->pdev->dev);
-
-	_close_clks(device);
 }
 
 /**

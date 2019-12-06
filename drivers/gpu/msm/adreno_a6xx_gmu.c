@@ -609,7 +609,7 @@ static int a6xx_gmu_oob_set(struct kgsl_device *device,
  * @device: Pointer to the kgsl device that has the GMU
  * @req: Which of the OOB bits to clear
  */
-static inline void a6xx_gmu_oob_clear(struct kgsl_device *device,
+static void a6xx_gmu_oob_clear(struct kgsl_device *device,
 		enum oob_request req)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);

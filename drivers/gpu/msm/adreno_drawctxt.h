@@ -32,7 +32,6 @@ struct kgsl_device_private;
  *			context
  * @drawqueue_head: Head of the drawqueue queue
  * @drawqueue_tail: Tail of the drawqueue queue
- * @pending: Priority list node for the dispatcher list of pending contexts
  * @wq: Workqueue structure for contexts to sleep pending room in the queue
  * @waiting: Workqueue structure for contexts waiting for a timestamp or event
  * @timeout: Workqueue structure for contexts waiting to invalidate
@@ -61,7 +60,6 @@ struct adreno_context {
 	unsigned int drawqueue_head;
 	unsigned int drawqueue_tail;
 
-	struct plist_node pending;
 	wait_queue_head_t wq;
 	wait_queue_head_t waiting;
 	wait_queue_head_t timeout;

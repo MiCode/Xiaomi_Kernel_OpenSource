@@ -118,10 +118,10 @@ struct kgsl_iommu {
 	void __iomem *regbase;
 	unsigned long regstart;
 	unsigned int regsize;
-	struct kgsl_memdesc setstate;
+	struct kgsl_memdesc *setstate;
 	atomic_t clk_enable_count;
 	struct clk *clks[KGSL_IOMMU_MAX_CLKS];
-	struct kgsl_memdesc smmu_info;
+	struct kgsl_memdesc *smmu_info;
 };
 
 /*

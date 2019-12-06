@@ -216,7 +216,7 @@ static inline bool iommu_is_setstate_addr(struct kgsl_device *device,
 	if (kgsl_mmu_get_mmutype(device) != KGSL_MMU_TYPE_IOMMU)
 		return false;
 
-	return kgsl_gpuaddr_in_memdesc(&iommu->setstate, gpuaddr,
+	return kgsl_gpuaddr_in_memdesc(iommu->setstate, gpuaddr,
 			size);
 }
 
@@ -228,7 +228,7 @@ static void dump_all_ibs(struct kgsl_device *device,
 	unsigned int *rbptr;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
-	rbptr = rb->buffer_desc.hostptr;
+	rbptr = rb->buffer_desc->hostptr;
 
 	for (index = 0; index < KGSL_RB_DWORDS;) {
 
@@ -251,7 +251,7 @@ static void dump_all_ibs(struct kgsl_device *device,
 			if (iommu_is_setstate_addr(device, ibaddr, ibsize))
 				continue;
 
-			if (kgsl_gpuaddr_in_memdesc(&adreno_dev->pwron_fixup,
+			if (kgsl_gpuaddr_in_memdesc(adreno_dev->pwron_fixup,
 				ibaddr, ibsize))
 				continue;
 
@@ -284,7 +284,7 @@ static void snapshot_rb_ibs(struct kgsl_device *device,
 	 * from the rptr
 	 */
 	index = rptr;
-	rbptr = rb->buffer_desc.hostptr;
+	rbptr = rb->buffer_desc->hostptr;
 
 	do {
 		index--;
@@ -402,7 +402,7 @@ static void snapshot_rb_ibs(struct kgsl_device *device,
 			if (iommu_is_setstate_addr(device, ibaddr, ibsize))
 				continue;
 
-			if (kgsl_gpuaddr_in_memdesc(&adreno_dev->pwron_fixup,
+			if (kgsl_gpuaddr_in_memdesc(adreno_dev->pwron_fixup,
 				ibaddr, ibsize))
 				continue;
 
@@ -447,14 +447,14 @@ static size_t snapshot_rb(struct kgsl_device *device, u8 *buf,
 					&header->timestamp_queued);
 	adreno_rb_readtimestamp(adreno_dev, rb, KGSL_TIMESTAMP_RETIRED,
 					&header->timestamp_retired);
-	header->gpuaddr = rb->buffer_desc.gpuaddr;
+	header->gpuaddr = rb->buffer_desc->gpuaddr;
 	header->id = rb->id;
 
 	if (rb == adreno_dev->cur_rb)
 		snapshot_rb_ibs(device, rb, snapshot);
 
 	/* Just copy the ringbuffer, there are no active IBs */
-	memcpy(data, rb->buffer_desc.hostptr, KGSL_RB_SIZE);
+	memcpy(data, rb->buffer_desc->hostptr, KGSL_RB_SIZE);
 
 	/* Return the size of the section */
 	return KGSL_RB_SIZE + sizeof(*header);
@@ -760,7 +760,7 @@ static size_t snapshot_global(struct kgsl_device *device, u8 *buf,
 
 	u8 *ptr = buf + sizeof(*header);
 
-	if (memdesc->size == 0)
+	if (!memdesc || memdesc->size == 0)
 		return 0;
 
 	if (remain < (memdesc->size + sizeof(*header))) {
@@ -794,12 +794,12 @@ static void adreno_snapshot_iommu(struct kgsl_device *device,
 	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
 
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
-		snapshot, snapshot_global, &iommu->setstate);
+		snapshot, snapshot_global, iommu->setstate);
 
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION))
 		kgsl_snapshot_add_section(device,
 			KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
-			snapshot, snapshot_global, &iommu->smmu_info);
+			snapshot, snapshot_global, iommu->smmu_info);
 }
 
 static void adreno_snapshot_ringbuffer(struct kgsl_device *device,
@@ -873,11 +873,11 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 
 	/* Dump selected global buffers */
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
-			snapshot, snapshot_global, &device->memstore);
+			snapshot, snapshot_global, device->memstore);
 
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
 			snapshot, snapshot_global,
-			&adreno_dev->pwron_fixup);
+			adreno_dev->pwron_fixup);
 
 	if (kgsl_mmu_get_mmutype(device) == KGSL_MMU_TYPE_IOMMU)
 		adreno_snapshot_iommu(device, snapshot);

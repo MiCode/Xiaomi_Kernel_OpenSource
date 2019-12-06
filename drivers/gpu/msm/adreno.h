@@ -13,7 +13,6 @@
 #include "adreno_ringbuffer.h"
 #include "kgsl_sharedmem.h"
 
-#define DEVICE_3D_NAME "kgsl-3d"
 #define DEVICE_3D0_NAME "kgsl-3d0"
 
 /* ADRENO_DEVICE - Given a kgsl_device return the adreno device struct */
@@ -271,7 +270,7 @@ enum adreno_preempt_states {
  */
 struct adreno_preemption {
 	atomic_t state;
-	struct kgsl_memdesc counters;
+	struct kgsl_memdesc *counters;
 	struct timer_list timer;
 	struct work_struct work;
 	unsigned int preempt_level;
@@ -304,7 +303,7 @@ struct adreno_firmware {
 	unsigned int *fwvirt;
 	size_t size;
 	unsigned int version;
-	struct kgsl_memdesc memdesc;
+	struct kgsl_memdesc *memdesc;
 };
 
 /**
@@ -363,6 +362,8 @@ struct adreno_gpu_core {
 	size_t gmem_size;
 	unsigned int busy_mask;
 	u32 bus_width;
+	/** @snapshot_size: Size of the static snapshot region in bytes */
+	u32 snapshot_size;
 };
 
 /**
@@ -480,7 +481,7 @@ struct adreno_device {
 	bool cooperative_reset;
 	struct adreno_profile profile;
 	struct adreno_dispatcher dispatcher;
-	struct kgsl_memdesc pwron_fixup;
+	struct kgsl_memdesc *pwron_fixup;
 	unsigned int pwron_fixup_dwords;
 	struct work_struct input_work;
 	struct adreno_busy_data busy_data;
@@ -497,9 +498,9 @@ struct adreno_device {
 	struct dentry *ctx_d_debugfs;
 	unsigned long pwrctrl_flag;
 
-	struct kgsl_memdesc profile_buffer;
+	struct kgsl_memdesc *profile_buffer;
 	unsigned int profile_index;
-	struct kgsl_memdesc pwrup_reglist;
+	struct kgsl_memdesc *pwrup_reglist;
 	uint32_t *lm_sequence;
 	uint32_t lm_size;
 	struct adreno_preemption preempt;
@@ -528,6 +529,10 @@ struct adreno_device {
 	bool gpuhtw_llc_slice_enable;
 	unsigned int zap_loaded;
 	unsigned int soc_hw_rev;
+	/**
+	 * @critpkts: Memory descriptor for 5xx critical packets if applicable
+	 */
+	struct kgsl_memdesc *critpkts;
 };
 
 /**
@@ -593,10 +598,7 @@ struct adreno_drawobj_profile_entry {
  * and are indexed by the enumeration values defined in this enum
  */
 enum adreno_regs {
-	ADRENO_REG_CP_ME_RAM_WADDR,
 	ADRENO_REG_CP_ME_RAM_DATA,
-	ADRENO_REG_CP_PFP_UCODE_DATA,
-	ADRENO_REG_CP_PFP_UCODE_ADDR,
 	ADRENO_REG_CP_RB_BASE,
 	ADRENO_REG_CP_RB_BASE_HI,
 	ADRENO_REG_CP_RB_RPTR_ADDR_LO,
@@ -615,7 +617,6 @@ enum adreno_regs {
 	ADRENO_REG_CP_TIMESTAMP,
 	ADRENO_REG_CP_SCRATCH_REG6,
 	ADRENO_REG_CP_SCRATCH_REG7,
-	ADRENO_REG_CP_ME_RAM_RADDR,
 	ADRENO_REG_CP_ROQ_ADDR,
 	ADRENO_REG_CP_ROQ_DATA,
 	ADRENO_REG_CP_MEQ_ADDR,
@@ -1509,7 +1510,7 @@ static inline void adreno_ringbuffer_set_global(
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
 	kgsl_sharedmem_writel(device,
-		&adreno_dev->ringbuffers[0].pagetable_desc,
+		adreno_dev->ringbuffers[0].pagetable_desc,
 		PT_INFO_OFFSET(current_global_ptname), name);
 }
 
@@ -1522,13 +1523,13 @@ static inline void adreno_ringbuffer_set_pagetable(struct adreno_ringbuffer *rb,
 
 	spin_lock_irqsave(&rb->preempt_lock, flags);
 
-	kgsl_sharedmem_writel(device, &rb->pagetable_desc,
+	kgsl_sharedmem_writel(device, rb->pagetable_desc,
 		PT_INFO_OFFSET(current_rb_ptname), pt->name);
 
-	kgsl_sharedmem_writeq(device, &rb->pagetable_desc,
+	kgsl_sharedmem_writeq(device, rb->pagetable_desc,
 		PT_INFO_OFFSET(ttbr0), kgsl_mmu_pagetable_get_ttbr0(pt));
 
-	kgsl_sharedmem_writel(device, &rb->pagetable_desc,
+	kgsl_sharedmem_writel(device, rb->pagetable_desc,
 		PT_INFO_OFFSET(contextidr),
 		kgsl_mmu_pagetable_get_contextidr(pt));
 
@@ -1689,4 +1690,19 @@ int adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
 	unsigned int fence_mask);
 int adreno_clear_pending_transactions(struct kgsl_device *device);
 void adreno_gmu_send_nmi(struct adreno_device *adreno_dev);
+
+
+/**
+ * adreno_get_firwmare - Load firmware into a adreno_firmware struct
+ * @adreno_dev: An Adreno GPU device handle
+ * @fwfile: Firmware file to load
+ * @firmware: A &struct adreno_firmware container for the firmware.
+ *
+ * Load the specified firmware file into the memdesc in &struct adreno_firmware
+ * and get the size and version from the data.
+ *
+ * Return: 0 on success or negative on failure
+ */
+int adreno_get_firmware(struct adreno_device *adreno_dev,
+		const char *fwfile, struct adreno_firmware *firmware);
 #endif /*__ADRENO_H */

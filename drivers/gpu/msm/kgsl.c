@@ -716,9 +716,9 @@ kgsl_context_destroy(struct kref *kref)
 	if (context->id != KGSL_CONTEXT_INVALID) {
 
 		/* Clear the timestamps in the memstore during destroy */
-		kgsl_sharedmem_writel(device, &device->memstore,
+		kgsl_sharedmem_writel(device, device->memstore,
 			KGSL_MEMSTORE_OFFSET(context->id, soptimestamp), 0);
-		kgsl_sharedmem_writel(device, &device->memstore,
+		kgsl_sharedmem_writel(device, device->memstore,
 			KGSL_MEMSTORE_OFFSET(context->id, eoptimestamp), 0);
 
 		/* clear device power constraint */
@@ -1181,8 +1181,8 @@ static int kgsl_open_device(struct kgsl_device *device)
 		 * which will be called by kgsl_active_count_get().
 		 */
 		atomic_inc(&device->active_cnt);
-		kgsl_sharedmem_set(device, &device->memstore, 0, 0,
-				device->memstore.size);
+		kgsl_sharedmem_set(device, device->memstore, 0, 0,
+				device->memstore->size);
 
 		result = device->ftbl->init(device);
 		if (result)
@@ -3410,7 +3410,7 @@ struct kgsl_mem_entry *gpumem_alloc_entry(
 		return ERR_PTR(-ENOMEM);
 
 	ret = kgsl_allocate_user(dev_priv->device, &entry->memdesc,
-		size, flags);
+		size, flags, 0);
 	if (ret != 0)
 		goto err;
 
@@ -3631,7 +3631,7 @@ long kgsl_ioctl_sparse_phys_alloc(struct kgsl_device_private *dev_priv,
 			KGSL_MEMALIGN_MASK);
 
 	ret = kgsl_allocate_user(dev_priv->device, &entry->memdesc,
-			param->size, flags);
+			param->size, flags, 0);
 	if (ret)
 		goto err_remove_idr;
 
@@ -4381,11 +4381,23 @@ long kgsl_ioctl_timestamp_event(struct kgsl_device_private *dev_priv,
 	return ret;
 }
 
-static int
-kgsl_mmap_memstore(struct kgsl_device *device, struct vm_area_struct *vma)
+static vm_fault_t
+kgsl_memstore_vm_fault(struct vm_fault *vmf)
 {
-	struct kgsl_memdesc *memdesc = &device->memstore;
-	int result;
+	struct kgsl_memdesc *memdesc = vmf->vma->vm_private_data;
+
+	return memdesc->ops->vmfault(memdesc, vmf->vma, vmf);
+}
+
+static const struct vm_operations_struct kgsl_memstore_vm_ops = {
+	.fault = kgsl_memstore_vm_fault,
+};
+
+static int
+kgsl_mmap_memstore(struct file *file, struct kgsl_device *device,
+		struct vm_area_struct *vma)
+{
+	struct kgsl_memdesc *memdesc = device->memstore;
 	unsigned int vma_size = vma->vm_end - vma->vm_start;
 
 	/* The memstore can only be mapped as read only */
@@ -4393,23 +4405,18 @@ kgsl_mmap_memstore(struct kgsl_device *device, struct vm_area_struct *vma)
 	if (vma->vm_flags & VM_WRITE)
 		return -EPERM;
 
-	if (memdesc->size  !=  vma_size) {
-		dev_err(device->dev,
-			     "memstore bad size: %d should be %llu\n",
-			     vma_size, memdesc->size);
+	if (memdesc->size  != vma_size) {
+		dev_err(device->dev, "Cannot partially map the memstore\n");
 		return -EINVAL;
 	}
 
 	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
+	vma->vm_private_data = memdesc;
+	vma->vm_flags |= memdesc->ops->vmflags;
+	vma->vm_ops = &kgsl_memstore_vm_ops;
+	vma->vm_file = file;
 
-	result = remap_pfn_range(vma, vma->vm_start,
-				device->memstore.physaddr >> PAGE_SHIFT,
-				 vma_size, vma->vm_page_prot);
-	if (result != 0)
-		dev_err(device->dev, "remap_pfn_range failed: %d\n",
-			     result);
-
-	return result;
+	return 0;
 }
 
 /*
@@ -4425,7 +4432,7 @@ static void kgsl_gpumem_vm_open(struct vm_area_struct *vma)
 		vma->vm_private_data = NULL;
 }
 
-static int
+static vm_fault_t
 kgsl_gpumem_vm_fault(struct vm_fault *vmf)
 {
 	struct kgsl_mem_entry *entry = vmf->vma->vm_private_data;
@@ -4721,7 +4728,7 @@ kgsl_get_unmapped_area(struct file *file, unsigned long addr,
 	struct kgsl_device *device = dev_priv->device;
 	struct kgsl_mem_entry *entry = NULL;
 
-	if (vma_offset == (unsigned long) device->memstore.gpuaddr)
+	if (vma_offset == (unsigned long) device->memstore->gpuaddr)
 		return get_unmapped_area(NULL, addr, len, pgoff, flags);
 
 	val = get_mmap_entry(private, &entry, pgoff, len);
@@ -4767,8 +4774,8 @@ static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 
 	/* Handle leagacy behavior for memstore */
 
-	if (vma_offset == (unsigned long) device->memstore.gpuaddr)
-		return kgsl_mmap_memstore(device, vma);
+	if (vma_offset == (unsigned long) device->memstore->gpuaddr)
+		return kgsl_mmap_memstore(file, device, vma);
 
 	/*
 	 * The reference count on the entry that we get from
@@ -5019,7 +5026,7 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 		goto error_pwrctrl_close;
 	}
 
-	status = kgsl_request_irq(device->pdev, device->pwrctrl.irq_name,
+	status = kgsl_request_irq(device->pdev, "kgsl_3d0_irq",
 		kgsl_irq_handler, device);
 	if (status < 0)
 		goto error_pwrctrl_close;
@@ -5047,9 +5054,6 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	device->events_wq = alloc_workqueue("kgsl-events",
 		WQ_UNBOUND | WQ_MEM_RECLAIM | WQ_SYSFS, 0);
 
-	/* Initialize the snapshot engine */
-	kgsl_device_snapshot_init(device);
-
 	/* Initialize common sysfs entries */
 	kgsl_pwrctrl_init_sysfs(device);
 
@@ -5057,6 +5061,7 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 
 error_close_mmu:
 	kgsl_mmu_close(device);
+	kgsl_free_globals(device);
 error_pwrctrl_close:
 	kgsl_pwrctrl_close(device);
 error:
@@ -5078,6 +5083,12 @@ void kgsl_device_platform_remove(struct kgsl_device *device)
 	idr_destroy(&device->context_idr);
 
 	kgsl_mmu_close(device);
+
+	/*
+	 * This needs to come after the MMU close so we can be sure all the
+	 * pagetables have been freed
+	 */
+	kgsl_free_globals(device);
 
 	kgsl_pwrctrl_close(device);
 

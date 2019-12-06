@@ -68,14 +68,9 @@ struct kgsl_mmu_ops {
 			struct kgsl_pagetable *pt, u64 ttbr0);
 	int (*mmu_set_pf_policy)(struct kgsl_mmu *mmu, unsigned long pf_policy);
 	int (*mmu_init_pt)(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt);
-	void (*mmu_add_global)(struct kgsl_mmu *mmu,
-			struct kgsl_memdesc *memdesc, const char *name);
-	void (*mmu_remove_global)(struct kgsl_mmu *mmu,
-			struct kgsl_memdesc *memdesc);
 	struct kgsl_pagetable * (*mmu_getpagetable)(struct kgsl_mmu *mmu,
 			unsigned long name);
-	struct kgsl_memdesc* (*mmu_get_qdss_global_entry)(void);
-	struct kgsl_memdesc* (*mmu_get_qtimer_global_entry)(void);
+	u64 (*mmu_get_global_base)(struct kgsl_mmu *mmu);
 };
 
 struct kgsl_mmu_pt_ops {
@@ -221,11 +216,6 @@ int kgsl_mmu_unmap_offset(struct kgsl_pagetable *pagetable,
 		struct kgsl_memdesc *memdesc, uint64_t addr, uint64_t offset,
 		uint64_t size);
 
-struct kgsl_memdesc *kgsl_mmu_get_qdss_global_entry(struct kgsl_device *device);
-
-struct kgsl_memdesc *kgsl_mmu_get_qtimer_global_entry(
-		struct kgsl_device *device);
-
 int kgsl_mmu_sparse_dummy_map(struct kgsl_pagetable *pagetable,
 		struct kgsl_memdesc *memdesc, uint64_t offset, uint64_t size);
 
@@ -345,6 +335,14 @@ kgsl_mmu_pagetable_get_contextidr(struct kgsl_pagetable *pagetable)
 
 	return 0;
 }
+
+/**
+ * kgsl_mmu_get_global_base - Return the base GPU address of the global region
+ * @device: A KGSL GPU device handle
+ *
+ * Return: The virtual address of the base of the global object region
+ */
+u64 kgsl_mmu_get_global_base(struct kgsl_device *device);
 
 static inline struct device *kgsl_mmu_get_ctx(const char *name)
 {

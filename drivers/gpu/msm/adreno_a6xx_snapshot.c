@@ -621,8 +621,8 @@ static struct a6xx_shader_block a6xx_shader_blocks[] = {
 	{A6XX_HLSQ_INDIRECT_META,         0x40,}
 };
 
-static struct kgsl_memdesc a6xx_capturescript;
-static struct kgsl_memdesc a6xx_crashdump_registers;
+static struct kgsl_memdesc *a6xx_capturescript;
+static struct kgsl_memdesc *a6xx_crashdump_registers;
 static bool crash_dump_valid;
 
 static struct reg_list {
@@ -675,7 +675,7 @@ static size_t a6xx_snapshot_registers(struct kgsl_device *device, u8 *buf,
 		return 0;
 	}
 
-	src = (unsigned int *)(a6xx_crashdump_registers.hostptr + regs->offset);
+	src = a6xx_crashdump_registers->hostptr + regs->offset;
 	remain -= sizeof(*header);
 
 	for (j = 0; j < regs->count; j++) {
@@ -778,7 +778,7 @@ static size_t a6xx_snapshot_shader_memory(struct kgsl_device *device,
 	header->index = info->bank;
 	header->size = block->sz;
 
-	memcpy(data, a6xx_crashdump_registers.hostptr + info->offset,
+	memcpy(data, a6xx_crashdump_registers->hostptr + info->offset,
 		block->sz * sizeof(unsigned int));
 
 	return SHADER_SECTION_SZ(block->sz);
@@ -935,8 +935,8 @@ static size_t a6xx_snapshot_cluster_dbgahb(struct kgsl_device *device, u8 *buf,
 	header->ctxt_id = info->ctxt_id;
 	header->cluster_id = cluster->id;
 
-	src = (unsigned int *)(a6xx_crashdump_registers.hostptr +
-		(header->ctxt_id ? cluster->offset1 : cluster->offset0));
+	src = a6xx_crashdump_registers->hostptr +
+		(header->ctxt_id ? cluster->offset1 : cluster->offset0);
 
 	for (i = 0; i < cluster->num_sets; i++) {
 		unsigned int start;
@@ -1034,7 +1034,7 @@ static size_t a6xx_snapshot_non_ctx_dbgahb(struct kgsl_device *device, u8 *buf,
 
 	remain -= sizeof(*header);
 
-	src = (unsigned int *)(a6xx_crashdump_registers.hostptr + regs->offset);
+	src = a6xx_crashdump_registers->hostptr + regs->offset;
 
 	for (i = 0; i < regs->num_sets; i++) {
 		unsigned int start;
@@ -1175,8 +1175,8 @@ static size_t a6xx_snapshot_mvc(struct kgsl_device *device, u8 *buf,
 	header->ctxt_id = info->ctxt_id;
 	header->cluster_id = cluster->id;
 
-	src = (unsigned int *)(a6xx_crashdump_registers.hostptr +
-		(header->ctxt_id ? cluster->offset1 : cluster->offset0));
+	src = a6xx_crashdump_registers->hostptr +
+		(header->ctxt_id ? cluster->offset1 : cluster->offset0);
 
 	for (i = 0; i < cluster->num_sets; i++) {
 		start = cluster->regs[2 * i];
@@ -1600,8 +1600,9 @@ static void _a6xx_do_crashdump(struct kgsl_device *device)
 
 	if (!device->snapshot_crashdumper)
 		return;
-	if (a6xx_capturescript.gpuaddr == 0 ||
-		a6xx_crashdump_registers.gpuaddr == 0)
+
+	if (IS_ERR_OR_NULL(a6xx_capturescript) ||
+		IS_ERR_OR_NULL(a6xx_crashdump_registers))
 		return;
 
 	/* IF the SMMU is stalled we cannot do a crash dump */
@@ -1614,9 +1615,9 @@ static void _a6xx_do_crashdump(struct kgsl_device *device)
 		kgsl_regwrite(device, A6XX_CP_MISC_CNTL, 1);
 
 	kgsl_regwrite(device, A6XX_CP_CRASH_SCRIPT_BASE_LO,
-			lower_32_bits(a6xx_capturescript.gpuaddr));
+			lower_32_bits(a6xx_capturescript->gpuaddr));
 	kgsl_regwrite(device, A6XX_CP_CRASH_SCRIPT_BASE_HI,
-			upper_32_bits(a6xx_capturescript.gpuaddr));
+			upper_32_bits(a6xx_capturescript->gpuaddr));
 	kgsl_regwrite(device, A6XX_CP_CRASH_DUMP_CNTL, 1);
 
 	wait_time = jiffies + msecs_to_jiffies(CP_CRASH_DUMPER_TIMEOUT);
@@ -1927,7 +1928,7 @@ static int _a6xx_crashdump_init_mvc(struct adreno_device *adreno_dev,
 			for (k = 0; k < cluster->num_sets; k++) {
 				count = REG_PAIR_COUNT(cluster->regs, k);
 				ptr[qwords++] =
-				a6xx_crashdump_registers.gpuaddr + *offset;
+				a6xx_crashdump_registers->gpuaddr + *offset;
 				ptr[qwords++] =
 				(((uint64_t)cluster->regs[2 * k]) << 44) |
 						count;
@@ -1955,7 +1956,7 @@ static int _a6xx_crashdump_init_shader(struct a6xx_shader_block *block,
 			(1 << 21) | 1;
 
 		/* Read all the data in one chunk */
-		ptr[qwords++] = a6xx_crashdump_registers.gpuaddr + *offset;
+		ptr[qwords++] = a6xx_crashdump_registers->gpuaddr + *offset;
 		ptr[qwords++] =
 			(((uint64_t) A6XX_HLSQ_DBG_AHB_READ_APERTURE << 44)) |
 			block->sz;
@@ -1998,7 +1999,7 @@ static int _a6xx_crashdump_init_ctx_dbgahb(uint64_t *ptr, uint64_t *offset)
 
 				count = REG_PAIR_COUNT(cluster->regs, k);
 				ptr[qwords++] =
-				a6xx_crashdump_registers.gpuaddr + *offset;
+				a6xx_crashdump_registers->gpuaddr + *offset;
 				ptr[qwords++] =
 				(((uint64_t)(A6XX_HLSQ_DBG_AHB_READ_APERTURE +
 					start - cluster->regbase / 4) << 44)) |
@@ -2033,7 +2034,7 @@ static int _a6xx_crashdump_init_non_ctx_dbgahb(uint64_t *ptr, uint64_t *offset)
 
 			count = REG_PAIR_COUNT(regs->regs, k);
 			ptr[qwords++] =
-				a6xx_crashdump_registers.gpuaddr + *offset;
+				a6xx_crashdump_registers->gpuaddr + *offset;
 			ptr[qwords++] =
 				(((uint64_t)(A6XX_HLSQ_DBG_AHB_READ_APERTURE +
 					start - regs->regbase / 4) << 44)) |
@@ -2054,8 +2055,8 @@ void a6xx_crashdump_init(struct adreno_device *adreno_dev)
 	uint64_t *ptr;
 	uint64_t offset = 0;
 
-	if (a6xx_capturescript.gpuaddr != 0 &&
-		a6xx_crashdump_registers.gpuaddr != 0)
+	if (!IS_ERR_OR_NULL(a6xx_capturescript) &&
+		!IS_ERR_OR_NULL(a6xx_crashdump_registers))
 		return;
 
 	/*
@@ -2163,20 +2164,25 @@ void a6xx_crashdump_init(struct adreno_device *adreno_dev)
 	/* Now allocate the script and data buffers */
 
 	/* The script buffers needs 2 extra qwords on the end */
-	if (kgsl_allocate_global(device, &a6xx_capturescript,
-		script_size + 16, KGSL_MEMFLAGS_GPUREADONLY,
-		KGSL_MEMDESC_PRIVILEGED, "capturescript"))
+	if (IS_ERR_OR_NULL(a6xx_capturescript))
+		a6xx_capturescript = kgsl_allocate_global(device,
+			script_size + 16, KGSL_MEMFLAGS_GPUREADONLY,
+			KGSL_MEMDESC_PRIVILEGED, "capturescript");
+
+	if (IS_ERR(a6xx_capturescript))
 		return;
 
-	if (kgsl_allocate_global(device, &a6xx_crashdump_registers, data_size,
-		0, KGSL_MEMDESC_PRIVILEGED, "capturescript_regs")) {
-		kgsl_free_global(KGSL_DEVICE(adreno_dev), &a6xx_capturescript);
+	if (IS_ERR_OR_NULL(a6xx_crashdump_registers))
+		a6xx_crashdump_registers = kgsl_allocate_global(device,
+			data_size, 0, KGSL_MEMDESC_PRIVILEGED,
+			"capturescript_regs");
+
+	if (IS_ERR(a6xx_crashdump_registers))
 		return;
-	}
 
 	/* Build the crash script */
 
-	ptr = (uint64_t *)a6xx_capturescript.hostptr;
+	ptr = (uint64_t *)a6xx_capturescript->hostptr;
 
 	/* For the registers, program a read command for each pair */
 	for (i = 0; i < ARRAY_SIZE(a6xx_reg_list); i++) {
@@ -2193,7 +2199,7 @@ void a6xx_crashdump_init(struct adreno_device *adreno_dev)
 
 		for (j = 0; j < regs->count; j++) {
 			unsigned int r = REG_PAIR_COUNT(regs->regs, j);
-			*ptr++ = a6xx_crashdump_registers.gpuaddr + offset;
+			*ptr++ = a6xx_crashdump_registers->gpuaddr + offset;
 			*ptr++ = (((uint64_t) regs->regs[2 * j]) << 44) | r;
 			offset += r * sizeof(unsigned int);
 		}

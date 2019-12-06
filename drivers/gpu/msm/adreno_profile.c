@@ -111,11 +111,11 @@ static int _build_pre_ib_cmds(struct adreno_device *adreno_dev,
 	struct adreno_profile_assigns_list *entry;
 	unsigned int *start, *ibcmds;
 	unsigned int count = profile->assignment_count;
-	uint64_t gpuaddr = profile->shared_buffer.gpuaddr;
+	uint64_t gpuaddr = profile->shared_buffer->gpuaddr;
 	unsigned int ib_offset = head + SIZE_DATA(count);
 	unsigned int data_offset = head * sizeof(unsigned int);
 
-	ibcmds = ib_offset + ((unsigned int *) profile->shared_buffer.hostptr);
+	ibcmds = ib_offset + ((unsigned int *) profile->shared_buffer->hostptr);
 	start = ibcmds;
 
 	ibcmds += cp_identifier(adreno_dev, ibcmds, START_PROFILE_IDENTIFIER);
@@ -156,7 +156,7 @@ static int _build_pre_ib_cmds(struct adreno_device *adreno_dev,
 
 	ibcmds += cp_identifier(adreno_dev, ibcmds, END_PROFILE_IDENTIFIER);
 
-	return _create_ib_ref(adreno_dev, &profile->shared_buffer, rbcmds,
+	return _create_ib_ref(adreno_dev, profile->shared_buffer, rbcmds,
 			ibcmds - start, ib_offset * sizeof(unsigned int));
 }
 
@@ -167,11 +167,11 @@ static int _build_post_ib_cmds(struct adreno_device *adreno_dev,
 	struct adreno_profile_assigns_list *entry;
 	unsigned int *start, *ibcmds;
 	unsigned int count = profile->assignment_count;
-	uint64_t gpuaddr =  profile->shared_buffer.gpuaddr;
+	uint64_t gpuaddr =  profile->shared_buffer->gpuaddr;
 	unsigned int ib_offset = head + SIZE_DATA(count) + SIZE_PREIB(count);
 	unsigned int data_offset = head * sizeof(unsigned int);
 
-	ibcmds = ib_offset + ((unsigned int *) profile->shared_buffer.hostptr);
+	ibcmds = ib_offset + ((unsigned int *) profile->shared_buffer->hostptr);
 	start = ibcmds;
 
 	/* start of profile identifier */
@@ -195,14 +195,14 @@ static int _build_post_ib_cmds(struct adreno_device *adreno_dev,
 	/* end of profile identifier */
 	ibcmds += cp_identifier(adreno_dev, ibcmds, END_PROFILE_IDENTIFIER);
 
-	return _create_ib_ref(adreno_dev, &profile->shared_buffer, rbcmds,
+	return _create_ib_ref(adreno_dev, profile->shared_buffer, rbcmds,
 			ibcmds - start, ib_offset * sizeof(unsigned int));
 }
 
 static bool shared_buf_empty(struct adreno_profile *profile)
 {
-	if (profile->shared_buffer.hostptr == NULL ||
-			profile->shared_buffer.size == 0)
+	if (profile->shared_buffer->hostptr == NULL ||
+			profile->shared_buffer->size == 0)
 		return true;
 
 	if (profile->shared_head == profile->shared_tail)
@@ -319,7 +319,7 @@ static bool results_available(struct adreno_device *adreno_dev,
 	unsigned int global_eop;
 	unsigned int off = profile->shared_tail;
 	unsigned int *shared_ptr = (unsigned int *)
-		profile->shared_buffer.hostptr;
+		profile->shared_buffer->hostptr;
 	unsigned int ts, cnt;
 	int ts_cmp;
 
@@ -362,7 +362,7 @@ static void transfer_results(struct adreno_profile *profile,
 {
 	unsigned int buf_off;
 	unsigned int ts, cnt, ctxt_id, pid, tid, client_type;
-	unsigned int *ptr = (unsigned int *) profile->shared_buffer.hostptr;
+	unsigned int *ptr = (unsigned int *) profile->shared_buffer->hostptr;
 	unsigned int *log_ptr, *log_base;
 	struct adreno_profile_assigns_list *assigns_list;
 	int i, tmp_tail;
@@ -1017,17 +1017,15 @@ void adreno_profile_init(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_profile *profile = &adreno_dev->profile;
 	struct dentry *profile_dir;
-	int ret;
 
 	profile->enabled = false;
 
 	/* allocate shared_buffer, which includes pre_ib and post_ib */
 	profile->shared_size = ADRENO_PROFILE_SHARED_BUF_SIZE_DWORDS;
-	ret = kgsl_allocate_global(device, &profile->shared_buffer,
+	profile->shared_buffer =  kgsl_allocate_global(device,
 			profile->shared_size * sizeof(unsigned int),
 			0, 0, "profile");
-
-	if (ret) {
+	if (IS_ERR(profile->shared_buffer)) {
 		profile->shared_size = 0;
 		return;
 	}
@@ -1061,7 +1059,6 @@ void adreno_profile_close(struct adreno_device *adreno_dev)
 	profile->log_tail = NULL;
 	profile->shared_head = 0;
 	profile->shared_tail = 0;
-	kgsl_free_global(KGSL_DEVICE(adreno_dev), &profile->shared_buffer);
 	profile->shared_size = 0;
 
 	profile->assignment_count = 0;
@@ -1128,7 +1125,7 @@ void adreno_profile_preib_processing(struct adreno_device *adreno_dev,
 
 	/* zero out the counter area of shared_buffer entry_head */
 	shared_ptr = entry_head + ((unsigned int *)
-			profile->shared_buffer.hostptr);
+			profile->shared_buffer->hostptr);
 	memset(shared_ptr, 0, SIZE_SHARED_ENTRY(count) * sizeof(unsigned int));
 
 	/* reserve space for the pre ib shared buffer */

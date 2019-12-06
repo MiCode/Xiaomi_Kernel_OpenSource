@@ -66,80 +66,31 @@ struct kgsl_iommu_addr_entry {
 
 static struct kmem_cache *addr_entry_cache;
 
-/*
- * There are certain memory allocations (ringbuffer, memstore, etc) that need to
- * be present at the same address in every pagetable. We call these "global"
- * pagetable entries. There are relatively few of these and they are mostly
- * stable (defined at init time) but the actual number of globals can differ
- * slight depending on the target and implementation.
- *
- * Here we define an array and a simple allocator to keep track of the currently
- * active global entries. Each entry is assigned a unique address inside of a
- * MMU implementation specific "global" region. We use a simple bitmap based
- * allocator for the region to allow for both fixed and dynamic addressing.
- */
-
-#define GLOBAL_PT_ENTRIES 32
-
-struct global_pt_entry {
-	struct kgsl_memdesc *memdesc;
-	char name[32];
-};
-
-#define GLOBAL_MAP_PAGES (KGSL_IOMMU_GLOBAL_MEM_SIZE >> PAGE_SHIFT)
-
-static struct global_pt_entry global_pt_entries[GLOBAL_PT_ENTRIES];
-static DECLARE_BITMAP(global_map, GLOBAL_MAP_PAGES);
-
 static int secure_global_size;
-static int global_pt_count;
-static struct kgsl_memdesc gpu_qdss_desc;
-static struct kgsl_memdesc gpu_qtimer_desc;
 
-void kgsl_print_global_pt_entries(struct seq_file *s)
+static void kgsl_iommu_unmap_globals(struct kgsl_mmu *mmu,
+		struct kgsl_pagetable *pagetable)
 {
-	int i;
+	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
+	struct kgsl_global_memdesc *md;
 
-	for (i = 0; i < global_pt_count; i++) {
-		struct kgsl_memdesc *memdesc = global_pt_entries[i].memdesc;
-
-		if (memdesc == NULL)
-			continue;
-
-		seq_printf(s, "0x%pK-0x%pK %16llu %s\n",
-			(uint64_t *)(uintptr_t) memdesc->gpuaddr,
-			(uint64_t *)(uintptr_t) (memdesc->gpuaddr +
-			memdesc->size - 1), memdesc->size,
-			global_pt_entries[i].name);
-	}
+	list_for_each_entry(md, &device->globals, node)
+		kgsl_mmu_unmap(pagetable, &md->memdesc);
 }
 
-static void kgsl_iommu_unmap_globals(struct kgsl_pagetable *pagetable)
+static void kgsl_iommu_map_globals(struct kgsl_mmu *mmu,
+		struct kgsl_pagetable *pagetable)
 {
-	unsigned int i;
+	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
+	struct kgsl_global_memdesc *md;
 
-	for (i = 0; i < global_pt_count; i++) {
-		if (global_pt_entries[i].memdesc != NULL)
-			kgsl_mmu_unmap(pagetable,
-					global_pt_entries[i].memdesc);
-	}
+	list_for_each_entry(md, &device->globals, node)
+		kgsl_mmu_map(pagetable, &md->memdesc);
 }
 
-static int kgsl_iommu_map_globals(struct kgsl_pagetable *pagetable)
+static u64 kgsl_iommu_get_global_base(struct kgsl_mmu *mmu)
 {
-	unsigned int i;
-
-	for (i = 0; i < global_pt_count; i++) {
-		if (global_pt_entries[i].memdesc != NULL) {
-			int ret = kgsl_mmu_map(pagetable,
-					global_pt_entries[i].memdesc);
-
-			if (ret)
-				return ret;
-		}
-	}
-
-	return 0;
+	return KGSL_IOMMU_GLOBAL_MEM_BASE(mmu);
 }
 
 void kgsl_iommu_unmap_global_secure_pt_entry(struct kgsl_device *device,
@@ -178,165 +129,6 @@ int kgsl_iommu_map_global_secure_pt_entry(struct kgsl_device *device,
 			secure_global_size += entry->size;
 	}
 	return ret;
-}
-
-static void kgsl_iommu_remove_global(struct kgsl_mmu *mmu,
-		struct kgsl_memdesc *memdesc)
-{
-	int i;
-
-	if (memdesc->gpuaddr == 0 || !(memdesc->priv & KGSL_MEMDESC_GLOBAL))
-		return;
-
-	for (i = 0; i < global_pt_count; i++) {
-		if (global_pt_entries[i].memdesc == memdesc) {
-			u64 offset = memdesc->gpuaddr -
-				KGSL_IOMMU_GLOBAL_MEM_BASE(mmu);
-
-			bitmap_clear(global_map, offset >> PAGE_SHIFT,
-				kgsl_memdesc_footprint(memdesc) >> PAGE_SHIFT);
-
-			memdesc->gpuaddr = 0;
-			memdesc->priv &= ~KGSL_MEMDESC_GLOBAL;
-			global_pt_entries[i].memdesc = NULL;
-			return;
-		}
-	}
-}
-
-static void kgsl_iommu_add_global(struct kgsl_mmu *mmu,
-		struct kgsl_memdesc *memdesc, const char *name)
-{
-	u32 bit, start = 0;
-	u64 size = kgsl_memdesc_footprint(memdesc);
-
-	if (memdesc->gpuaddr != 0)
-		return;
-
-	if (WARN_ON(global_pt_count >= GLOBAL_PT_ENTRIES))
-		return;
-
-	if (WARN_ON(size > KGSL_IOMMU_GLOBAL_MEM_SIZE))
-		return;
-
-	if (memdesc->priv & KGSL_MEMDESC_RANDOM) {
-		u32 range = GLOBAL_MAP_PAGES - (size >> PAGE_SHIFT);
-
-		start = get_random_int() % range;
-	}
-
-	for (;;) {
-		bit = bitmap_find_next_zero_area(global_map, GLOBAL_MAP_PAGES,
-			start, size >> PAGE_SHIFT, 0);
-
-		if (bit < GLOBAL_MAP_PAGES)
-			break;
-
-		if (WARN_ON(start == 0))
-			return;
-
-		start--;
-	}
-
-	memdesc->gpuaddr =
-		KGSL_IOMMU_GLOBAL_MEM_BASE(mmu) + (bit << PAGE_SHIFT);
-
-	bitmap_set(global_map, bit, size >> PAGE_SHIFT);
-
-	memdesc->priv |= KGSL_MEMDESC_GLOBAL;
-
-	global_pt_entries[global_pt_count].memdesc = memdesc;
-	strlcpy(global_pt_entries[global_pt_count].name, name,
-			sizeof(global_pt_entries[global_pt_count].name));
-	global_pt_count++;
-}
-
-struct kgsl_memdesc *kgsl_iommu_get_qdss_global_entry(void)
-{
-	return &gpu_qdss_desc;
-}
-
-static void kgsl_setup_qdss_desc(struct kgsl_device *device)
-{
-	int result = 0;
-	uint32_t gpu_qdss_entry[2];
-
-	if (!of_find_property(device->pdev->dev.of_node,
-		"qcom,gpu-qdss-stm", NULL))
-		return;
-
-	if (of_property_read_u32_array(device->pdev->dev.of_node,
-				"qcom,gpu-qdss-stm", gpu_qdss_entry, 2)) {
-		dev_err(device->dev, "Failed to read gpu qdss dts entry\n");
-		return;
-	}
-
-	kgsl_memdesc_init(device, &gpu_qdss_desc, 0);
-	gpu_qdss_desc.priv = 0;
-	gpu_qdss_desc.physaddr = gpu_qdss_entry[0];
-	gpu_qdss_desc.size = gpu_qdss_entry[1];
-	gpu_qdss_desc.pagetable = NULL;
-	gpu_qdss_desc.ops = NULL;
-	gpu_qdss_desc.hostptr = NULL;
-
-	result = kgsl_memdesc_sg_dma(&gpu_qdss_desc, gpu_qdss_desc.physaddr,
-			gpu_qdss_desc.size);
-	if (result) {
-		dev_err(device->dev, "memdesc_sg_dma failed: %d\n", result);
-		return;
-	}
-
-	kgsl_mmu_add_global(device, &gpu_qdss_desc, "gpu-qdss");
-}
-
-static inline void kgsl_cleanup_qdss_desc(struct kgsl_mmu *mmu)
-{
-	kgsl_iommu_remove_global(mmu, &gpu_qdss_desc);
-	kgsl_sharedmem_free(&gpu_qdss_desc);
-}
-
-struct kgsl_memdesc *kgsl_iommu_get_qtimer_global_entry(void)
-{
-	return &gpu_qtimer_desc;
-}
-
-static void kgsl_setup_qtimer_desc(struct kgsl_device *device)
-{
-	int result = 0;
-	uint32_t gpu_qtimer_entry[2];
-
-	if (!of_find_property(device->pdev->dev.of_node,
-		"qcom,gpu-qtimer", NULL))
-		return;
-
-	if (of_property_read_u32_array(device->pdev->dev.of_node,
-				"qcom,gpu-qtimer", gpu_qtimer_entry, 2)) {
-		dev_err(device->dev, "Failed to read gpu qtimer dts entry\n");
-		return;
-	}
-
-	kgsl_memdesc_init(device, &gpu_qtimer_desc, 0);
-	gpu_qtimer_desc.priv = 0;
-	gpu_qtimer_desc.physaddr = gpu_qtimer_entry[0];
-	gpu_qtimer_desc.size = gpu_qtimer_entry[1];
-	gpu_qtimer_desc.pagetable = NULL;
-	gpu_qtimer_desc.ops = NULL;
-	gpu_qtimer_desc.hostptr = NULL;
-
-	result = kgsl_memdesc_sg_dma(&gpu_qtimer_desc, gpu_qtimer_desc.physaddr,
-			gpu_qtimer_desc.size);
-	if (result) {
-		dev_err(device->dev, "memdesc_sg_dma failed: %d\n", result);
-		return;
-	}
-
-	kgsl_mmu_add_global(device, &gpu_qtimer_desc, "gpu-qtimer");
-}
-
-static inline void kgsl_cleanup_qtimer_desc(struct kgsl_mmu *mmu)
-{
-	kgsl_iommu_remove_global(mmu, &gpu_qtimer_desc);
-	kgsl_sharedmem_free(&gpu_qtimer_desc);
 }
 
 static void _detach_pt(struct kgsl_iommu_pt *iommu_pt,
@@ -528,49 +320,45 @@ struct _mem_entry {
 	char name[32];
 };
 
-static void _get_global_entries(uint64_t faultaddr,
+static void _get_global_entries(struct kgsl_mmu *mmu, uint64_t faultaddr,
 		struct _mem_entry *prev,
 		struct _mem_entry *next)
 {
-	int i;
+	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
+	struct kgsl_global_memdesc *p = NULL, *n = NULL, *md;
 	uint64_t prevaddr = 0;
-	struct global_pt_entry *p = NULL;
-
 	uint64_t nextaddr = (uint64_t) -1;
-	struct global_pt_entry *n = NULL;
 
-	for (i = 0; i < global_pt_count; i++) {
-		uint64_t addr;
+	list_for_each_entry(md, &device->globals, node) {
+		struct kgsl_memdesc *memdesc = &md->memdesc;
+		u64 addr;
 
-		if (global_pt_entries[i].memdesc == NULL)
-			continue;
-
-		addr = global_pt_entries[i].memdesc->gpuaddr;
+		addr = memdesc->gpuaddr;
 		if ((addr < faultaddr) && (addr > prevaddr)) {
 			prevaddr = addr;
-			p = &global_pt_entries[i];
+			p = md;
 		}
 
 		if ((addr > faultaddr) && (addr < nextaddr)) {
 			nextaddr = addr;
-			n = &global_pt_entries[i];
+			n = md;
 		}
 	}
 
 	if (p != NULL) {
-		prev->gpuaddr = p->memdesc->gpuaddr;
-		prev->size = p->memdesc->size;
-		prev->flags = p->memdesc->flags;
-		prev->priv = p->memdesc->priv;
+		prev->gpuaddr = p->memdesc.gpuaddr;
+		prev->size = p->memdesc.size;
+		prev->flags = p->memdesc.flags;
+		prev->priv = p->memdesc.priv;
 		prev->pid = 0;
 		strlcpy(prev->name, p->name, sizeof(prev->name));
 	}
 
 	if (n != NULL) {
-		next->gpuaddr = n->memdesc->gpuaddr;
-		next->size = n->memdesc->size;
-		next->flags = n->memdesc->flags;
-		next->priv = n->memdesc->priv;
+		next->gpuaddr = n->memdesc.gpuaddr;
+		next->size = n->memdesc.size;
+		next->flags = n->memdesc.flags;
+		next->priv = n->memdesc.priv;
 		next->pid = 0;
 		strlcpy(next->name, n->name, sizeof(next->name));
 	}
@@ -637,7 +425,7 @@ static void _find_mem_entries(struct kgsl_mmu *mmu, uint64_t faultaddr,
 	nextentry->gpuaddr = (uint64_t) -1;
 
 	if (ADDR_IN_GLOBAL(mmu, faultaddr)) {
-		_get_global_entries(faultaddr, preventry, nextentry);
+		_get_global_entries(mmu, faultaddr, preventry, nextentry);
 	} else if (private) {
 		spin_lock(&private->mem_lock);
 		_get_entries(private, faultaddr, preventry, nextentry);
@@ -975,7 +763,7 @@ static void kgsl_iommu_destroy_pagetable(struct kgsl_pagetable *pt)
 		ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_SECURE];
 	} else {
 		ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
-		kgsl_iommu_unmap_globals(pt);
+		kgsl_iommu_unmap_globals(mmu, pt);
 	}
 
 	if (iommu_pt->domain) {
@@ -1206,7 +994,7 @@ static int _init_global_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 		goto done;
 	}
 
-	ret = kgsl_iommu_map_globals(pt);
+	kgsl_iommu_map_globals(mmu, pt);
 
 done:
 	if (ret)
@@ -1326,7 +1114,7 @@ static int _init_per_process_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 		goto done;
 	}
 
-	ret = kgsl_iommu_map_globals(pt);
+	kgsl_iommu_map_globals(mmu, pt);
 
 done:
 	if (ret)
@@ -1414,29 +1202,6 @@ static void kgsl_iommu_close(struct kgsl_mmu *mmu)
 		__free_page(kgsl_dummy_page);
 		kgsl_dummy_page = NULL;
 	}
-
-	kgsl_iommu_remove_global(mmu, &iommu->setstate);
-	kgsl_sharedmem_free(&iommu->setstate);
-	kgsl_cleanup_qdss_desc(mmu);
-	kgsl_cleanup_qtimer_desc(mmu);
-}
-
-static int _setstate_alloc(struct kgsl_device *device,
-		struct kgsl_iommu *iommu)
-{
-	int ret;
-
-	kgsl_memdesc_init(device, &iommu->setstate, 0);
-	ret = kgsl_sharedmem_alloc_contig(device, &iommu->setstate, PAGE_SIZE);
-
-	if (!ret) {
-		/* Mark the setstate memory as read only */
-		iommu->setstate.flags |= KGSL_MEMFLAGS_GPUREADONLY;
-
-		kgsl_sharedmem_set(device, &iommu->setstate, 0, 0, PAGE_SIZE);
-	}
-
-	return ret;
 }
 
 static int kgsl_iommu_init(struct kgsl_mmu *mmu)
@@ -1453,10 +1218,6 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 			"dt: gfx3d0_user context bank not found\n");
 		return -EINVAL;
 	}
-
-	status = _setstate_alloc(device, iommu);
-	if (status)
-		return status;
 
 	iommu->regbase = ioremap(iommu->regstart, iommu->regsize);
 	if (iommu->regbase == NULL) {
@@ -1475,9 +1236,18 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 		}
 	}
 
-	kgsl_iommu_add_global(mmu, &iommu->setstate, "setstate");
-	kgsl_setup_qdss_desc(device);
-	kgsl_setup_qtimer_desc(device);
+	iommu->setstate = kgsl_allocate_global(device, PAGE_SIZE,
+		KGSL_MEMFLAGS_GPUREADONLY, 0, "setstate");
+
+	status = PTR_ERR_OR_ZERO(iommu->setstate);
+	if (status)
+		goto done;
+
+	device->qdss_desc = kgsl_allocate_global_fixed(device,
+		"qcom,gpu-qdss-stm", "gpu-qdss");
+
+	device->qtimer_desc = kgsl_allocate_global_fixed(device,
+		"qcom,gpu-timer", "gpu-qtimer");
 
 	if (!mmu->secured)
 		goto done;
@@ -2650,11 +2420,8 @@ struct kgsl_mmu_ops kgsl_iommu_ops = {
 	.mmu_set_pf_policy = kgsl_iommu_set_pf_policy,
 	.mmu_pagefault_resume = kgsl_iommu_pagefault_resume,
 	.mmu_init_pt = kgsl_iommu_init_pt,
-	.mmu_add_global = kgsl_iommu_add_global,
-	.mmu_remove_global = kgsl_iommu_remove_global,
 	.mmu_getpagetable = kgsl_iommu_getpagetable,
-	.mmu_get_qdss_global_entry = kgsl_iommu_get_qdss_global_entry,
-	.mmu_get_qtimer_global_entry = kgsl_iommu_get_qtimer_global_entry,
+	.mmu_get_global_base = kgsl_iommu_get_global_base,
 	.probe = kgsl_iommu_probe,
 };
 

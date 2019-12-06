@@ -19,10 +19,6 @@ struct kgsl_process_private;
 #define KGSL_CACHE_OP_FLUSH     0x02
 #define KGSL_CACHE_OP_CLEAN     0x03
 
-int kgsl_sharedmem_alloc_contig(struct kgsl_device *device,
-			struct kgsl_memdesc *memdesc,
-			uint64_t size);
-
 void kgsl_sharedmem_free(struct kgsl_memdesc *memdesc);
 
 int kgsl_sharedmem_readl(const struct kgsl_memdesc *memdesc,
@@ -62,18 +58,84 @@ void kgsl_process_uninit_sysfs(struct kgsl_process_private *private);
 int kgsl_sharedmem_init_sysfs(void);
 void kgsl_sharedmem_uninit_sysfs(void);
 
-int kgsl_allocate_user(struct kgsl_device *device,
-		struct kgsl_memdesc *memdesc,
-		uint64_t size, uint64_t flags);
-
 void kgsl_get_memory_usage(char *str, size_t len, uint64_t memflags);
-
-int kgsl_sharedmem_page_alloc_user(struct kgsl_memdesc *memdesc,
-				uint64_t size);
 
 void kgsl_free_secure_page(struct page *page);
 
 struct page *kgsl_alloc_secure_page(void);
+
+/**
+ * kgsl_allocate_user - Allocate user visible GPU memory
+ * @device: A GPU device handle
+ * @memdesc: Memory descriptor for the object
+ * @size: Size of the allocation in bytes
+ * @flags: Control flags for the allocation
+ * @priv: Internal flags for the allocation
+ *
+ * Allocate GPU memory on behalf of the user.
+ * Return: 0 on success or negative on failure.
+ */
+int kgsl_allocate_user(struct kgsl_device *device, struct kgsl_memdesc *memdesc,
+		u64 size, u64 flags, u32 priv);
+
+/**
+ * kgsl_allocate_kernel - Allocate kernel visible GPU memory
+ * @device: A GPU device handle
+ * @memdesc: Memory descriptor for the object
+ * @size: Size of the allocation in bytes
+ * @flags: Control flags for the allocation
+ * @priv: Internal flags for the allocation
+ *
+ * Allocate GPU memory on for use by the kernel. Kernel objects are
+ * automatically mapped into the kernel address space (except for secure).
+ * Return: 0 on success or negative on failure.
+ */
+int kgsl_allocate_kernel(struct kgsl_device *device,
+		struct kgsl_memdesc *memdesc, u64 size, u64 flags, u32 priv);
+
+/**
+ * kgsl_allocate_global - Allocate a global GPU memory object
+ * @device: A GPU device handle
+ * @size: Size of the allocation in bytes
+ * @flags: Control flags for the allocation
+ * @priv: Internal flags for the allocation
+ * @name: Name of the allocation (for the debugfs file)
+ *
+ * Allocate a global GPU object for use by all processes. The buffer is
+ * automatically mapped into the kernel address space and added to the list of
+ * global buffers that get mapped into each newly created pagetable.
+ * Return: The memory descriptor on success or a ERR_PTR encoded error on
+ * failure.
+ */
+struct kgsl_memdesc *kgsl_allocate_global(struct kgsl_device *device,
+		u64 size, u64 flags, u32 priv, const char *name);
+
+/**
+ * kgsl_allocate_global_fixed - Allocate a global GPU memory object from a fixed
+ * region defined in the device tree
+ * @device: A GPU device handle
+ * @size: Size of the allocation in bytes
+ * @flags: Control flags for the allocation
+ * @priv: Internal flags for the allocation
+ *
+ * Allocate a global GPU object for use by all processes. The buffer is
+ * added to the list of global buffers that get mapped into each newly created
+ * pagetable.
+ *
+ * Return: The memory descriptor on success or a ERR_PTR encoded error on
+ * failure.
+ */
+struct kgsl_memdesc *kgsl_allocate_global_fixed(struct kgsl_device *device,
+		const char *resource, const char *name);
+
+/**
+ * kgsl_free_globals - Free all global objects
+ * @device: A GPU device handle
+ *
+ * Free all the global buffer objects. Should only be called during shutdown
+ * after the pagetables have been freed
+ */
+void kgsl_free_globals(struct kgsl_device *device);
 
 #define MEMFLAGS(_flags, _mask, _shift) \
 	((unsigned int) (((_flags) & (_mask)) >> (_shift)))
@@ -241,36 +303,6 @@ kgsl_memdesc_footprint(const struct kgsl_memdesc *memdesc)
 	return ALIGN(memdesc->size + kgsl_memdesc_guard_page_size(memdesc),
 		PAGE_SIZE);
 }
-
-/*
- * kgsl_allocate_global() - Allocate GPU accessible memory that will be global
- * across all processes
- * @device: The device pointer to which the memdesc belongs
- * @memdesc: Pointer to a KGSL memory descriptor for the memory allocation
- * @size: size of the allocation
- * @flags: Allocation flags that control how the memory is mapped
- * @priv: Priv flags that controls memory attributes
- *
- * Allocate contiguous memory for internal use and add the allocation to the
- * list of global pagetable entries that will be mapped at the same address in
- * all pagetables.  This is for use for device wide GPU allocations such as
- * ringbuffers.
- */
-int kgsl_allocate_global(struct kgsl_device *device,
-	struct kgsl_memdesc *memdesc, uint64_t size, uint64_t flags,
-	unsigned int priv, const char *name);
-
-/**
- * kgsl_free_global() - Free a device wide GPU allocation and remove it from the
- * global pagetable entry list
- *
- * @device: Pointer to the device
- * @memdesc: Pointer to the GPU memory descriptor to free
- *
- * Remove the specific memory descriptor from the global pagetable entry list
- * and free it
- */
-void kgsl_free_global(struct kgsl_device *device, struct kgsl_memdesc *memdesc);
 
 void kgsl_sharedmem_set_noretry(bool val);
 bool kgsl_sharedmem_get_noretry(void);

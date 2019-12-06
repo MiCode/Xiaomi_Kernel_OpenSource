@@ -238,8 +238,8 @@ struct kgsl_device {
 	/* Starting kernel virtual address for QDSS GFX DBG register block */
 	void __iomem *qdss_gfx_virt;
 
-	struct kgsl_memdesc memstore;
-	struct kgsl_memdesc scratch;
+	struct kgsl_memdesc *memstore;
+	struct kgsl_memdesc *scratch;
 	const char *iomemname;
 
 	struct kgsl_mmu mmu;
@@ -307,6 +307,16 @@ struct kgsl_device {
 	unsigned int num_l3_pwrlevels;
 	/* store current L3 vote to determine if we should change our vote */
 	unsigned int cur_l3_pwrlevel;
+	/** @globals: List of global memory objects */
+	struct list_head globals;
+	/** @globlal_map: bitmap for global memory allocations */
+	unsigned long *global_map;
+	/** @global_pages: Number of pages available in the global_map */
+	unsigned int global_pages;
+	/* @qdss_desc: Memory descriptor for the QDSS region if applicable */
+	struct kgsl_memdesc *qdss_desc;
+	/* @qtimer_desc: Memory descriptor for the QDSS region if applicable */
+	struct kgsl_memdesc *qtimer_desc;
 };
 
 #define KGSL_MMU_DEVICE(_mmu) \
@@ -321,7 +331,8 @@ struct kgsl_device {
 	.wait_queue = __WAIT_QUEUE_HEAD_INITIALIZER((_dev).wait_queue),\
 	.active_cnt_wq = __WAIT_QUEUE_HEAD_INITIALIZER((_dev).active_cnt_wq),\
 	.mutex = __MUTEX_INITIALIZER((_dev).mutex),\
-	.state = KGSL_STATE_NONE
+	.state = KGSL_STATE_NONE, \
+	.globals = LIST_HEAD_INIT((_dev).globals)
 
 
 /**
@@ -644,7 +655,16 @@ void kgsl_device_platform_remove(struct kgsl_device *device);
 
 const char *kgsl_pwrstate_to_str(unsigned int state);
 
-int kgsl_device_snapshot_init(struct kgsl_device *device);
+/**
+ * kgsl_device_snapshot_probe - add resources for the device GPU snapshot
+ * @device: The device to initialize
+ * @size: The size of the static region to allocate
+ *
+ * Allocate memory for a GPU snapshot for the specified device,
+ * and create the sysfs files to manage it
+ */
+void kgsl_device_snapshot_probe(struct kgsl_device *device, u32 size);
+
 void kgsl_device_snapshot(struct kgsl_device *device,
 			struct kgsl_context *context, bool gmu_fault);
 void kgsl_device_snapshot_close(struct kgsl_device *device);

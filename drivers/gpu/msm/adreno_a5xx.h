@@ -36,6 +36,8 @@ struct adreno_a5xx_core {
 	const struct adreno_reglist *vbif;
 	/** @vbif_count: Number of registers in @vbif */
 	u32 vbif_count;
+	/** @highest_bank_bit: The bit of the highest DDR bank */
+	u32 highest_bank_bit;
 };
 
 #define A5XX_CP_CTXRECORD_MAGIC_REF     0x27C4BAFCUL

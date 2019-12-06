@@ -518,8 +518,8 @@ DECLARE_EVENT_CLASS(adreno_hw_preempt_template,
 			__entry->new_rptr = new_rptr;
 			__entry->cur_wptr = cur_rb->wptr;
 			__entry->new_wptr = new_rb->wptr;
-			__entry->cur_rbbase = cur_rb->buffer_desc.gpuaddr;
-			__entry->new_rbbase = new_rb->buffer_desc.gpuaddr;
+			__entry->cur_rbbase = cur_rb->buffer_desc->gpuaddr;
+			__entry->new_rbbase = new_rb->buffer_desc->gpuaddr;
 	),
 	TP_printk(
 	"cur_rb_lvl=%d rptr=%x wptr=%x rbbase=%x new_rb_lvl=%d rptr=%x wptr=%x rbbase=%x",
@@ -573,8 +573,8 @@ TRACE_EVENT(adreno_hw_preempt_comp_to_clear,
 			__entry->cur_wptr = cur_rb->wptr;
 			__entry->new_wptr_end = new_rb->wptr_preempt_end;
 			__entry->new_wptr = new_rb->wptr;
-			__entry->cur_rbbase = cur_rb->buffer_desc.gpuaddr;
-			__entry->new_rbbase = new_rb->buffer_desc.gpuaddr;
+			__entry->cur_rbbase = cur_rb->buffer_desc->gpuaddr;
+			__entry->new_rbbase = new_rb->buffer_desc->gpuaddr;
 	),
 	TP_printk(
 	"cur_rb_lvl=%d rptr=%x wptr=%x rbbase=%x prev_rb_lvl=%d rptr=%x wptr_preempt_end=%x wptr=%x rbbase=%x",
@@ -607,8 +607,8 @@ TRACE_EVENT(adreno_hw_preempt_token_submit,
 			__entry->cur_wptr = cur_rb->wptr;
 			__entry->cur_wptr_end = cur_rb->wptr_preempt_end;
 			__entry->new_wptr = new_rb->wptr;
-			__entry->cur_rbbase = cur_rb->buffer_desc.gpuaddr;
-			__entry->new_rbbase = new_rb->buffer_desc.gpuaddr;
+			__entry->cur_rbbase = cur_rb->buffer_desc->gpuaddr;
+			__entry->new_rbbase = new_rb->buffer_desc->gpuaddr;
 	),
 	TP_printk(
 		"cur_rb_lvl=%d rptr=%x wptr_preempt_end=%x wptr=%x rbbase=%x new_rb_lvl=%d rptr=%x wptr=%x rbbase=%x",

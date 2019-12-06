@@ -47,6 +47,9 @@ unsigned int adreno_drawobj_timeout = 2000;
 /* Interval for reading and comparing fault detection registers */
 static unsigned int _fault_timer_interval = 200;
 
+/* Use a kmem cache to speed up allocations for dispatcher jobs */
+static struct kmem_cache *jobs_cache;
+
 #define DRAWQUEUE_RB(_drawqueue) \
 	((struct adreno_ringbuffer *) \
 		container_of((_drawqueue),\
@@ -268,11 +271,11 @@ static void _retire_timestamp(struct kgsl_drawobj *drawobj)
 	 * Write the start and end timestamp to the memstore to keep the
 	 * accounting sane
 	 */
-	kgsl_sharedmem_writel(device, &device->memstore,
+	kgsl_sharedmem_writel(device, device->memstore,
 		KGSL_MEMSTORE_OFFSET(context->id, soptimestamp),
 		drawobj->timestamp);
 
-	kgsl_sharedmem_writel(device, &device->memstore,
+	kgsl_sharedmem_writel(device, device->memstore,
 		KGSL_MEMSTORE_OFFSET(context->id, eoptimestamp),
 		drawobj->timestamp);
 
@@ -485,26 +488,32 @@ static inline int adreno_dispatcher_requeue_cmdobj(
  *
  * Add a context to the dispatcher pending list.
  */
-static void  dispatcher_queue_context(struct adreno_device *adreno_dev,
+static int dispatcher_queue_context(struct adreno_device *adreno_dev,
 		struct adreno_context *drawctxt)
 {
 	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
+	struct adreno_dispatch_job *job;
 
 	/* Refuse to queue a detached context */
 	if (kgsl_context_detached(&drawctxt->base))
-		return;
+		return 0;
 
-	spin_lock(&dispatcher->plist_lock);
+	if (!_kgsl_context_get(&drawctxt->base))
+		return 0;
 
-	if (plist_node_empty(&drawctxt->pending)) {
-		/* Get a reference to the context while it sits on the list */
-		if (_kgsl_context_get(&drawctxt->base)) {
-			trace_dispatch_queue_context(drawctxt);
-			plist_add(&drawctxt->pending, &dispatcher->pending);
-		}
+	/* This function can be called in an atomic context */
+	job = kmem_cache_alloc(jobs_cache, GFP_ATOMIC);
+	if (!job) {
+		kgsl_context_put(&drawctxt->base);
+		return -ENOMEM;
 	}
 
-	spin_unlock(&dispatcher->plist_lock);
+	job->drawctxt = drawctxt;
+
+	trace_dispatch_queue_context(drawctxt);
+	llist_add(&job->node, &dispatcher->jobs[drawctxt->base.priority]);
+
+	return 0;
 }
 
 /**
@@ -844,6 +853,46 @@ static int dispatcher_context_sendcmds(struct adreno_device *adreno_dev,
 	return ret;
 }
 
+static bool adreno_drawctxt_bad(struct adreno_context *drawctxt)
+{
+	return (kgsl_context_detached(&drawctxt->base) ||
+		kgsl_context_invalid(&drawctxt->base));
+}
+
+static bool adreno_gpu_stopped(struct adreno_device *adreno_dev)
+{
+	return (adreno_gpu_fault(adreno_dev) || adreno_gpu_halt(adreno_dev));
+}
+
+static void _adreno_dispatcher_handle_jobs(struct adreno_device *adreno_dev,
+		struct llist_head *head)
+{
+	struct llist_node *list = llist_del_all(head);
+	struct adreno_dispatch_job *job, *next;
+
+	llist_for_each_entry_safe(job, next, list, node) {
+		int ret;
+
+		if (adreno_gpu_stopped(adreno_dev) ||
+			adreno_drawctxt_bad(job->drawctxt)) {
+			kgsl_context_put(&job->drawctxt->base);
+			kmem_cache_free(jobs_cache, job);
+			continue;
+		}
+
+		ret = dispatcher_context_sendcmds(adreno_dev, job->drawctxt);
+
+		if (!ret || ret == -ENOENT) {
+			kgsl_context_put(&job->drawctxt->base);
+			kmem_cache_free(jobs_cache, job);
+			continue;
+		}
+
+		/* The job didn't finish, put it back on the job queue */
+		llist_add(&job->node, head);
+	}
+}
+
 /**
  * _adreno_dispatcher_issuecmds() - Issue commmands from pending contexts
  * @adreno_dev: Pointer to the adreno device struct
@@ -854,105 +903,15 @@ static int dispatcher_context_sendcmds(struct adreno_device *adreno_dev,
 static void _adreno_dispatcher_issuecmds(struct adreno_device *adreno_dev)
 {
 	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
-	struct adreno_context *drawctxt, *next;
-	struct plist_head requeue, busy_list;
-	int ret;
+	int i;
 
 	/* Leave early if the dispatcher isn't in a happy state */
 	if (adreno_gpu_fault(adreno_dev) != 0)
 		return;
 
-	plist_head_init(&requeue);
-	plist_head_init(&busy_list);
-
-	/* Try to fill the ringbuffers as much as possible */
-	while (1) {
-
-		/* Stop doing things if the dispatcher is paused or faulted */
-		if (adreno_gpu_fault(adreno_dev) != 0)
-			break;
-
-		if (adreno_gpu_halt(adreno_dev) != 0)
-			break;
-
-		spin_lock(&dispatcher->plist_lock);
-
-		if (plist_head_empty(&dispatcher->pending)) {
-			spin_unlock(&dispatcher->plist_lock);
-			break;
-		}
-
-		/* Get the next entry on the list */
-		drawctxt = plist_first_entry(&dispatcher->pending,
-			struct adreno_context, pending);
-
-		plist_del(&drawctxt->pending, &dispatcher->pending);
-
-		spin_unlock(&dispatcher->plist_lock);
-
-		if (kgsl_context_detached(&drawctxt->base) ||
-			kgsl_context_invalid(&drawctxt->base)) {
-			kgsl_context_put(&drawctxt->base);
-			continue;
-		}
-
-		ret = dispatcher_context_sendcmds(adreno_dev, drawctxt);
-
-		/* Don't bother requeuing on -ENOENT - context is detached */
-		if (ret != 0 && ret != -ENOENT) {
-			spin_lock(&dispatcher->plist_lock);
-
-			/*
-			 * Check to seen if the context had been requeued while
-			 * we were processing it (probably by another thread
-			 * pushing commands). If it has then shift it to the
-			 * requeue list if it was not able to submit commands
-			 * due to the dispatch_q being full. Also, do a put to
-			 * make sure the reference counting stays accurate.
-			 * If the node is empty then we will put it on the
-			 * requeue list and not touch the refcount since we
-			 * already hold it from the first time it went on the
-			 * list.
-			 */
-
-			if (!plist_node_empty(&drawctxt->pending)) {
-				plist_del(&drawctxt->pending,
-						&dispatcher->pending);
-				kgsl_context_put(&drawctxt->base);
-			}
-
-			if (ret == -EBUSY)
-				/* Inflight queue is full */
-				plist_add(&drawctxt->pending, &busy_list);
-			else
-				plist_add(&drawctxt->pending, &requeue);
-
-			spin_unlock(&dispatcher->plist_lock);
-		} else {
-			/*
-			 * If the context doesn't need be requeued put back the
-			 * refcount
-			 */
-
-			kgsl_context_put(&drawctxt->base);
-		}
-	}
-
-	spin_lock(&dispatcher->plist_lock);
-
-	/* Put the contexts that couldn't submit back on the pending list */
-	plist_for_each_entry_safe(drawctxt, next, &busy_list, pending) {
-		plist_del(&drawctxt->pending, &busy_list);
-		plist_add(&drawctxt->pending, &dispatcher->pending);
-	}
-
-	/* Now put the contexts that need to be requeued back on the list */
-	plist_for_each_entry_safe(drawctxt, next, &requeue, pending) {
-		plist_del(&drawctxt->pending, &requeue);
-		plist_add(&drawctxt->pending, &dispatcher->pending);
-	}
-
-	spin_unlock(&dispatcher->plist_lock);
+	for (i = 0; i < ARRAY_SIZE(dispatcher->jobs); i++)
+		_adreno_dispatcher_handle_jobs(adreno_dev,
+			&dispatcher->jobs[i]);
 }
 
 static inline void _decrement_submit_now(struct kgsl_device *device)
@@ -1452,7 +1411,9 @@ int adreno_dispatcher_queue_cmds(struct kgsl_device_private *dev_priv,
 	spin_unlock(&drawctxt->lock);
 
 	/* Add the context to the dispatcher pending list */
-	dispatcher_queue_context(adreno_dev, drawctxt);
+	ret = dispatcher_queue_context(adreno_dev, drawctxt);
+	if (ret)
+		return ret;
 
 	/*
 	 * Only issue commands if inflight is less than burst -this prevents us
@@ -2176,7 +2137,7 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 		adreno_dispatch_retire_drawqueue(adreno_dev,
 			&(rb->dispatch_q));
 		/* Select the active dispatch_q */
-		if (base == rb->buffer_desc.gpuaddr) {
+		if (base == rb->buffer_desc->gpuaddr) {
 			dispatch_q = &(rb->dispatch_q);
 			hung_rb = rb;
 			if (adreno_dev->cur_rb != hung_rb) {
@@ -2224,11 +2185,11 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 	 */
 
 	if (hung_rb != NULL) {
-		kgsl_sharedmem_writel(device, &device->memstore,
+		kgsl_sharedmem_writel(device, device->memstore,
 				MEMSTORE_RB_OFFSET(hung_rb, soptimestamp),
 				hung_rb->timestamp);
 
-		kgsl_sharedmem_writel(device, &device->memstore,
+		kgsl_sharedmem_writel(device, device->memstore,
 				MEMSTORE_RB_OFFSET(hung_rb, eoptimestamp),
 				hung_rb->timestamp);
 
@@ -2306,7 +2267,7 @@ static void _print_recovery(struct kgsl_device *device,
 static void cmdobj_profile_ticks(struct adreno_device *adreno_dev,
 	struct kgsl_drawobj_cmd *cmdobj, uint64_t *start, uint64_t *retire)
 {
-	void *ptr = adreno_dev->profile_buffer.hostptr;
+	void *ptr = adreno_dev->profile_buffer->hostptr;
 	struct adreno_drawobj_profile_entry *entry;
 
 	entry = (struct adreno_drawobj_profile_entry *)
@@ -2700,6 +2661,8 @@ void adreno_dispatcher_close(struct adreno_device *adreno_dev)
 	mutex_unlock(&dispatcher->mutex);
 
 	kobject_put(&dispatcher->kobj);
+
+	kmem_cache_destroy(jobs_cache);
 }
 
 struct dispatcher_attribute {
@@ -2837,7 +2800,7 @@ int adreno_dispatcher_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
-	int ret;
+	int ret, i;
 
 	memset(dispatcher, 0, sizeof(*dispatcher));
 
@@ -2852,8 +2815,10 @@ int adreno_dispatcher_init(struct adreno_device *adreno_dev)
 	init_completion(&dispatcher->idle_gate);
 	complete_all(&dispatcher->idle_gate);
 
-	plist_head_init(&dispatcher->pending);
-	spin_lock_init(&dispatcher->plist_lock);
+	jobs_cache = KMEM_CACHE(adreno_dispatch_job, 0);
+
+	for (i = 0; i < ARRAY_SIZE(dispatcher->jobs); i++)
+		init_llist_head(&dispatcher->jobs[i]);
 
 	ret = kobject_init_and_add(&dispatcher->kobj, &ktype_dispatcher,
 		&device->dev->kobj, "dispatch");

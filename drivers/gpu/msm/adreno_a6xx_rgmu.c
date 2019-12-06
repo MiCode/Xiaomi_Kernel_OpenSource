@@ -130,7 +130,7 @@ static int a6xx_rgmu_oob_set(struct kgsl_device *device,
  * @adreno_dev: Pointer to the adreno device that has the RGMU
  * @req: Which of the OOB bits to clear
  */
-static inline void a6xx_rgmu_oob_clear(struct kgsl_device *device,
+static void a6xx_rgmu_oob_clear(struct kgsl_device *device,
 		enum oob_request req)
 {
 	gmu_core_regwrite(device, A6XX_GMU_HOST2GMU_INTR_SET, BIT(req + 24));

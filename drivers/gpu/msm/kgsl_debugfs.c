@@ -67,13 +67,25 @@ DEFINE_DEBUGFS_ATTRIBUTE(_isdb_fops, _isdb_get, _isdb_set, "%llu\n");
 
 static int globals_print(struct seq_file *s, void *unused)
 {
-	kgsl_print_global_pt_entries(s);
+	struct kgsl_device *device = s->private;
+	struct kgsl_global_memdesc *md;
+
+	list_for_each_entry(md, &device->globals, node) {
+		struct kgsl_memdesc *memdesc = &md->memdesc;
+
+		seq_printf(s, "0x%pK-0x%pK %16llu %s\n",
+			(u64 *)(uintptr_t) memdesc->gpuaddr,
+			(u64 *)(uintptr_t) (memdesc->gpuaddr +
+			memdesc->size - 1), memdesc->size,
+			md->name);
+	}
+
 	return 0;
 }
 
 static int globals_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, globals_print, NULL);
+	return single_open(file, globals_print, inode->i_private);
 }
 
 static int globals_release(struct inode *inode, struct file *file)
