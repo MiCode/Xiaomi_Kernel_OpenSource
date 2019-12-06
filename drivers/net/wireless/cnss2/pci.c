@@ -993,6 +993,7 @@ int cnss_pci_dev_crash_shutdown(struct cnss_pci_data *pci_priv)
 		break;
 	case QCA6290_DEVICE_ID:
 	case QCA6390_DEVICE_ID:
+	case QCN7605_DEVICE_ID:
 		cnss_qca6290_crash_shutdown(pci_priv);
 		break;
 	default:
