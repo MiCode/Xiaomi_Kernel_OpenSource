@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 
 /*
- * Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2020, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "%s: " fmt, __func__
@@ -140,7 +140,7 @@ static int soc_sleep_stats_create_sysfs(struct platform_device *pdev,
 	if (!drv->kobj)
 		return -ENOMEM;
 
-	sysfs_attr_init(drv->ka.attr);
+	sysfs_attr_init(&drv->ka.attr);
 	drv->ka.attr.mode = 0444;
 	drv->ka.attr.name = "stats";
 	drv->ka.show = stats_show;
