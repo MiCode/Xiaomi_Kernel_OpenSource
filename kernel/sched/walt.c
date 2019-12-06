@@ -1430,10 +1430,7 @@ static int account_busy_for_cpu_time(struct rq *rq, struct task_struct *p,
 
 static inline u64 scale_exec_time(u64 delta, struct rq *rq)
 {
-	u32 freq;
-
-	freq = cpu_cycles_to_freq(rq->cc.cycles, rq->cc.time);
-	delta = DIV64_U64_ROUNDUP(delta * freq, max_possible_freq);
+	delta = DIV64_U64_ROUNDUP(delta * rq->freq, max_possible_freq);
 	delta *= rq->cluster->exec_scale_factor;
 	delta >>= 10;
 
@@ -2014,13 +2011,14 @@ update_task_rq_cpu_cycles(struct task_struct *p, struct rq *rq, int event,
 			  u64 wallclock, u64 irqtime)
 {
 	u64 cur_cycles;
+	u64 cycles_delta;
+	u64 time_delta;
 	int cpu = cpu_of(rq);
 
 	lockdep_assert_held(&rq->lock);
 
 	if (!use_cycle_counter) {
-		rq->cc.cycles = cpu_cur_freq(cpu);
-		rq->cc.time = 1;
+		rq->freq = cpu_cur_freq(cpu);
 		return;
 	}
 
@@ -2035,10 +2033,10 @@ update_task_rq_cpu_cycles(struct task_struct *p, struct rq *rq, int event,
 	 */
 	if (!is_idle_task(rq->curr) || irqtime) {
 		if (unlikely(cur_cycles < p->cpu_cycles))
-			rq->cc.cycles = cur_cycles + (U64_MAX - p->cpu_cycles);
+			cycles_delta = cur_cycles + (U64_MAX - p->cpu_cycles);
 		else
-			rq->cc.cycles = cur_cycles - p->cpu_cycles;
-		rq->cc.cycles = rq->cc.cycles * NSEC_PER_MSEC;
+			cycles_delta = cur_cycles - p->cpu_cycles;
+		cycles_delta = cycles_delta * NSEC_PER_MSEC;
 
 		if (event == IRQ_UPDATE && is_idle_task(p))
 			/*
@@ -2046,20 +2044,22 @@ update_task_rq_cpu_cycles(struct task_struct *p, struct rq *rq, int event,
 			 * entry time is CPU cycle counter stall period.
 			 * Upon IRQ handler entry sched_account_irqstart()
 			 * replenishes idle task's cpu cycle counter so
-			 * rq->cc.cycles now represents increased cycles during
+			 * cycles_delta now represents increased cycles during
 			 * IRQ handler rather than time between idle entry and
 			 * IRQ exit.  Thus use irqtime as time delta.
 			 */
-			rq->cc.time = irqtime;
+			time_delta = irqtime;
 		else
-			rq->cc.time = wallclock - p->ravg.mark_start;
-		SCHED_BUG_ON((s64)rq->cc.time < 0);
+			time_delta = wallclock - p->ravg.mark_start;
+		SCHED_BUG_ON((s64)time_delta < 0);
+
+		rq->freq = DIV64_U64_ROUNDUP(cycles_delta, time_delta);
 	}
 
 	p->cpu_cycles = cur_cycles;
 
 	trace_sched_get_task_cpu_cycles(cpu, event,
-					rq->cc.cycles, rq->cc.time, p);
+					cycles_delta, time_delta, p);
 }
 
 static inline void run_walt_irq_work(u64 old_window_start, struct rq *rq)
@@ -2103,9 +2103,9 @@ void update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 		goto done;
 
 	trace_sched_update_task_ravg(p, rq, event, wallclock, irqtime,
-				rq->cc.cycles, rq->cc.time, &rq->grp_time);
+				&rq->grp_time);
 	trace_sched_update_task_ravg_mini(p, rq, event, wallclock, irqtime,
-				rq->cc.cycles, rq->cc.time, &rq->grp_time);
+				&rq->grp_time);
 
 done:
 	p->ravg.mark_start = wallclock;
@@ -3620,8 +3620,7 @@ void walt_sched_init_rq(struct rq *rq)
 	rq->cur_irqload = 0;
 	rq->avg_irqload = 0;
 	rq->irqload_ts = 0;
-	rq->cc.cycles = 1;
-	rq->cc.time = 1;
+	rq->freq = 1;
 
 	/*
 	 * All cpus part of same cluster by default. This avoids the

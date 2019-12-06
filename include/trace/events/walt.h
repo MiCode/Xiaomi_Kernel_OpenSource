@@ -204,10 +204,10 @@ TRACE_EVENT(sched_get_task_cpu_cycles,
 TRACE_EVENT(sched_update_task_ravg,
 
 	TP_PROTO(struct task_struct *p, struct rq *rq, enum task_event evt,
-		 u64 wallclock, u64 irqtime, u64 cycles, u64 exec_time,
+		 u64 wallclock, u64 irqtime,
 		 struct group_cpu_time *cpu_time),
 
-	TP_ARGS(p, rq, evt, wallclock, irqtime, cycles, exec_time, cpu_time),
+	TP_ARGS(p, rq, evt, wallclock, irqtime, cpu_time),
 
 	TP_STRUCT__entry(
 		__array(char,			comm, TASK_COMM_LEN)
@@ -250,7 +250,7 @@ TRACE_EVENT(sched_update_task_ravg,
 		__entry->evt            = evt;
 		__entry->cpu            = rq->cpu;
 		__entry->cur_pid        = rq->curr->pid;
-		__entry->cur_freq       = cpu_cycles_to_freq(cycles, exec_time);
+		__entry->cur_freq       = rq->freq;
 		memcpy(__entry->comm, p->comm, TASK_COMM_LEN);
 		__entry->pid            = p->pid;
 		__entry->mark_start     = p->ravg.mark_start;
@@ -301,10 +301,10 @@ TRACE_EVENT(sched_update_task_ravg,
 TRACE_EVENT(sched_update_task_ravg_mini,
 
 	TP_PROTO(struct task_struct *p, struct rq *rq, enum task_event evt,
-		 u64 wallclock, u64 irqtime, u64 cycles, u64 exec_time,
+		 u64 wallclock, u64 irqtime,
 		 struct group_cpu_time *cpu_time),
 
-	TP_ARGS(p, rq, evt, wallclock, irqtime, cycles, exec_time, cpu_time),
+	TP_ARGS(p, rq, evt, wallclock, irqtime, cpu_time),
 
 	TP_STRUCT__entry(
 		__array(char,			comm, TASK_COMM_LEN)
