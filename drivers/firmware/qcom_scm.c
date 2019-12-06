@@ -329,7 +329,7 @@ static const struct reset_control_ops qcom_scm_pas_reset_ops = {
 
 int qcom_scm_get_sec_dump_state(u32 *dump_state)
 {
-	return __qcom_scm_get_sec_dump_state(__scm->dev,
+	return __qcom_scm_get_sec_dump_state(__scm ? __scm->dev : NULL,
 						dump_state);
 }
 EXPORT_SYMBOL(qcom_scm_get_sec_dump_state);
