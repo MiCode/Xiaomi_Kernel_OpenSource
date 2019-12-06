@@ -226,6 +226,7 @@ struct qpnp_lcdb {
 	struct device			*dev;
 	struct platform_device		*pdev;
 	struct regmap			*regmap;
+	struct class			lcdb_class;
 	struct pmic_revid_data		*pmic_rev_id;
 	u32				base;
 	u32				wa_flags;
@@ -241,6 +242,8 @@ struct qpnp_lcdb {
 	bool				settings_saved;
 	bool				lcdb_sc_disable;
 	bool				voltage_step_ramp;
+	/* Tracks the secure UI mode entry/exit */
+	bool				secure_mode;
 	int				sc_count;
 	ktime_t				sc_module_enable_time;
 
@@ -1334,6 +1337,9 @@ static int qpnp_lcdb_ldo_regulator_enable(struct regulator_dev *rdev)
 	int rc = 0;
 	struct qpnp_lcdb *lcdb  = rdev_get_drvdata(rdev);
 
+	if (lcdb->secure_mode)
+		return 0;
+
 	mutex_lock(&lcdb->lcdb_mutex);
 	rc = qpnp_lcdb_enable(lcdb);
 	if (rc < 0)
@@ -1347,6 +1353,9 @@ static int qpnp_lcdb_ldo_regulator_disable(struct regulator_dev *rdev)
 {
 	int rc = 0;
 	struct qpnp_lcdb *lcdb  = rdev_get_drvdata(rdev);
+
+	if (lcdb->secure_mode)
+		return 0;
 
 	mutex_lock(&lcdb->lcdb_mutex);
 	rc = qpnp_lcdb_disable(lcdb);
@@ -1369,6 +1378,9 @@ static int qpnp_lcdb_ldo_regulator_set_voltage(struct regulator_dev *rdev,
 {
 	int rc = 0;
 	struct qpnp_lcdb *lcdb  = rdev_get_drvdata(rdev);
+
+	if (lcdb->secure_mode)
+		return 0;
 
 	lcdb->ldo.voltage_mv = min_uV / 1000;
 	if (lcdb->voltage_step_ramp)
@@ -1413,6 +1425,9 @@ static int qpnp_lcdb_ncp_regulator_enable(struct regulator_dev *rdev)
 	int rc = 0;
 	struct qpnp_lcdb *lcdb  = rdev_get_drvdata(rdev);
 
+	if (lcdb->secure_mode)
+		return 0;
+
 	mutex_lock(&lcdb->lcdb_mutex);
 	rc = qpnp_lcdb_enable(lcdb);
 	if (rc < 0)
@@ -1426,6 +1441,9 @@ static int qpnp_lcdb_ncp_regulator_disable(struct regulator_dev *rdev)
 {
 	int rc = 0;
 	struct qpnp_lcdb *lcdb  = rdev_get_drvdata(rdev);
+
+	if (lcdb->secure_mode)
+		return 0;
 
 	mutex_lock(&lcdb->lcdb_mutex);
 	rc = qpnp_lcdb_disable(lcdb);
@@ -1448,6 +1466,9 @@ static int qpnp_lcdb_ncp_regulator_set_voltage(struct regulator_dev *rdev,
 {
 	int rc = 0;
 	struct qpnp_lcdb *lcdb  = rdev_get_drvdata(rdev);
+
+	if (lcdb->secure_mode)
+		return 0;
 
 	lcdb->ncp.voltage_mv = min_uV / 1000;
 	if (lcdb->voltage_step_ramp)
@@ -2120,6 +2141,8 @@ static int qpnp_lcdb_hw_init(struct qpnp_lcdb *lcdb)
 	if (lcdb->sc_irq >= 0 &&
 		lcdb->pmic_rev_id->pmic_subtype != PM660L_SUBTYPE) {
 		lcdb->sc_count = 0;
+		irq_set_status_flags(lcdb->sc_irq,
+					IRQ_DISABLE_UNLAZY);
 		rc = devm_request_threaded_irq(lcdb->dev, lcdb->sc_irq,
 				NULL, qpnp_lcdb_sc_irq_handler, IRQF_ONESHOT,
 				"qpnp_lcdb_sc_irq", lcdb);
@@ -2241,6 +2264,45 @@ static int qpnp_lcdb_parse_dt(struct qpnp_lcdb *lcdb)
 	return 0;
 }
 
+static ssize_t secure_mode_store(struct class *c,
+					struct class_attribute *attr,
+					const char *buf, size_t count)
+{
+	struct qpnp_lcdb *lcdb = container_of(c, struct qpnp_lcdb,
+							lcdb_class);
+	int val, rc;
+
+	rc = kstrtouint(buf, 0, &val);
+
+	if (rc < 0)
+		return rc;
+
+	if (val != 0 && val != 1)
+		return count;
+
+	if (val == 1 && !lcdb->secure_mode) {
+		if (lcdb->sc_irq > 0)
+			disable_irq(lcdb->sc_irq);
+
+		lcdb->secure_mode = true;
+	} else if (val == 0 && lcdb->secure_mode) {
+
+		if (lcdb->sc_irq > 0)
+			enable_irq(lcdb->sc_irq);
+
+		lcdb->secure_mode = false;
+	}
+
+	return count;
+}
+static CLASS_ATTR_WO(secure_mode);
+
+static struct attribute *lcdb_attrs[] = {
+	&class_attr_secure_mode.attr,
+	NULL,
+};
+ATTRIBUTE_GROUPS(lcdb);
+
 static int qpnp_lcdb_regulator_probe(struct platform_device *pdev)
 {
 	int rc;
@@ -2277,6 +2339,16 @@ static int qpnp_lcdb_regulator_probe(struct platform_device *pdev)
 	rc = qpnp_lcdb_parse_dt(lcdb);
 	if (rc < 0) {
 		pr_err("Failed to parse dt rc=%d\n", rc);
+		return rc;
+	}
+
+	lcdb->lcdb_class.name = "lcd_bias";
+	lcdb->lcdb_class.owner = THIS_MODULE;
+	lcdb->lcdb_class.class_groups = lcdb_groups;
+
+	rc = class_register(&lcdb->lcdb_class);
+	if (rc < 0) {
+		pr_err("Failed to register lcdb  class rc = %d\n", rc);
 		return rc;
 	}
 
