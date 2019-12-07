@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2017, 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2018, 2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "bimc-bwmon: " fmt
@@ -20,6 +20,7 @@
 #include <linux/spinlock.h>
 #include <linux/log2.h>
 #include <linux/sizes.h>
+#include <linux/clk.h>
 #include "governor_bw_hwmon.h"
 
 #define GLB_INT_STATUS(m)	((m)->global_base + 0x100)
@@ -91,6 +92,8 @@ struct bwmon {
 	void __iomem		*global_base;
 	unsigned int		mport;
 	int			irq;
+	int			nr_clks;
+	struct clk		**clks;
 	const struct bwmon_spec	*spec;
 	struct device		*dev;
 	struct bw_hwmon		hw;
@@ -168,6 +171,14 @@ void mon_clear(struct bwmon *m, bool clear_all, enum mon_reg_type type)
 			writel_relaxed(MON_CLEAR_ALL_BIT, MON3_CLEAR(m));
 		else
 			writel_relaxed(MON_CLEAR_BIT, MON3_CLEAR(m));
+		/*
+		 * In some hardware versions since MON3_CLEAR(m) register does
+		 * not have self-clearing capability it needs to be cleared
+		 * explicitly. But we also need to ensure the writes to it
+		 * are successful before clearing it.
+		 */
+		wmb();
+		writel_relaxed(0, MON3_CLEAR(m));
 		break;
 	}
 	/*
@@ -357,6 +368,14 @@ void mon_irq_clear(struct bwmon *m, enum mon_reg_type type)
 		break;
 	case MON3:
 		writel_relaxed(MON3_INT_STATUS_MASK, MON3_INT_CLR(m));
+		/*
+		 * In some hardware versions since MON3_INT_CLEAR(m) register
+		 * does not have self-clearing capability it needs to be
+		 * cleared explicitly. But we also need to ensure the writes
+		 * to it are successful before clearing it.
+		 */
+		wmb();
+		writel_relaxed(0, MON3_INT_CLR(m));
 		break;
 	}
 }
@@ -564,14 +583,15 @@ unsigned long get_zone_count(struct bwmon *m, unsigned int zone,
 		WARN(1, "Invalid\n");
 		return 0;
 	case MON2:
-		count = readl_relaxed(MON2_ZONE_MAX(m, zone)) + 1;
+		count = readl_relaxed(MON2_ZONE_MAX(m, zone));
 		break;
 	case MON3:
 		count = readl_relaxed(MON3_ZONE_MAX(m, zone));
-		if (count)
-			count++;
 		break;
 	}
+
+	if (count)
+		count++;
 
 	return count;
 }
@@ -758,6 +778,27 @@ void mon_set_byte_count_filter(struct bwmon *m, enum mon_reg_type type)
 	}
 }
 
+static __always_inline int mon_clk_enable(struct bwmon *m)
+{
+	int ret;
+	int i;
+
+	for (i = 0; i < m->nr_clks; i++) {
+		ret = clk_prepare_enable(m->clks[i]);
+		if (ret < 0) {
+			dev_err(m->dev, "BWMON clk not enabled: %d\n", ret);
+			goto err;
+		}
+	}
+
+	return 0;
+err:
+	for (i--; i >= 0; i--)
+		clk_disable_unprepare(m->clks[i]);
+
+	return ret;
+}
+
 static __always_inline int __start_bw_hwmon(struct bw_hwmon *hw,
 		unsigned long mbps, enum mon_reg_type type)
 {
@@ -765,6 +806,12 @@ static __always_inline int __start_bw_hwmon(struct bw_hwmon *hw,
 	u32 limit, zone_actions;
 	int ret;
 	irq_handler_t handler;
+
+	ret = mon_clk_enable(m);
+	if (ret < 0) {
+		dev_err(m->dev, "Unable to turn on bwmon clks! (%d)\n", ret);
+		return ret;
+	}
 
 	switch (type) {
 	case MON1:
@@ -832,6 +879,14 @@ static int start_bw_hwmon3(struct bw_hwmon *hw, unsigned long mbps)
 	return __start_bw_hwmon(hw, mbps, MON3);
 }
 
+static __always_inline void mon_clk_disable(struct bwmon *m)
+{
+	int i;
+
+	for (i = m->nr_clks - 1; i >= 0; i--)
+		clk_disable_unprepare(m->clks[i]);
+}
+
 static __always_inline
 void __stop_bw_hwmon(struct bw_hwmon *hw, enum mon_reg_type type)
 {
@@ -842,6 +897,7 @@ void __stop_bw_hwmon(struct bw_hwmon *hw, enum mon_reg_type type)
 	mon_disable(m, type);
 	mon_clear(m, true, type);
 	mon_irq_clear(m, type);
+	mon_clk_disable(m);
 }
 
 static void stop_bw_hwmon(struct bw_hwmon *hw)
@@ -893,6 +949,12 @@ int __resume_bw_hwmon(struct bw_hwmon *hw, enum mon_reg_type type)
 	struct bwmon *m = to_bwmon(hw);
 	int ret;
 	irq_handler_t handler;
+
+	ret = mon_clk_enable(m);
+	if (ret < 0) {
+		dev_err(m->dev, "Unable to turn on bwmon clks! (%d)\n", ret);
+		return ret;
+	}
 
 	switch (type) {
 	case MON1:
@@ -997,6 +1059,7 @@ static int bimc_bwmon_driver_probe(struct platform_device *pdev)
 	struct bwmon *m;
 	int ret;
 	u32 data, count_unit;
+	unsigned int len, i;
 
 	m = devm_kzalloc(dev, sizeof(*m), GFP_KERNEL);
 	if (!m)
@@ -1041,6 +1104,42 @@ static int bimc_bwmon_driver_probe(struct platform_device *pdev)
 		}
 		m->mport = data;
 	}
+
+	if (of_find_property(dev->of_node, "qcom,bwmon_clks", &len)) {
+		m->nr_clks = of_property_count_strings(dev->of_node,
+							"qcom,bwmon_clks");
+		if (!m->nr_clks) {
+			dev_err(dev, "Failed to get clock names\n");
+			return -EINVAL;
+		}
+
+		m->clks = devm_kzalloc(dev, sizeof(struct clk *) * m->nr_clks,
+					GFP_KERNEL);
+		if (!m->clks)
+			return -ENOMEM;
+
+		for (i = 0; i < m->nr_clks; i++) {
+			const char *clock_name;
+
+			ret = of_property_read_string_index(dev->of_node,
+						"qcom,bwmon_clks", i,
+							&clock_name);
+			if (ret < 0) {
+				pr_err("failed to read clk index %d ret %d\n",
+									i, ret);
+				return ret;
+			}
+			m->clks[i] = devm_clk_get(dev, clock_name);
+			if (IS_ERR(m->clks[i])) {
+				ret = PTR_ERR(m->clks[i]);
+				if (ret != -EPROBE_DEFER)
+					dev_err(dev, "Error to get %s clk %d\n",
+							clock_name, ret);
+				return ret;
+			}
+		}
+	} else
+		m->nr_clks = 0;
 
 	m->irq = platform_get_irq(pdev, 0);
 	if (m->irq < 0) {
@@ -1117,6 +1216,7 @@ static struct platform_driver bimc_bwmon_driver = {
 	.driver = {
 		.name = "bimc-bwmon",
 		.of_match_table = bimc_bwmon_match_table,
+		.suppress_bind_attrs = true,
 	},
 };
 

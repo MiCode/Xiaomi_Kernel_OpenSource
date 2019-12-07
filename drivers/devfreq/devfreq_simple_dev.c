@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2015, 2017, 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, 2017-2018, 2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "devfreq-simple-dev: " fmt
@@ -204,6 +204,7 @@ static struct platform_driver devfreq_clock_driver = {
 	.driver = {
 		.name = "devfreq-simple-dev",
 		.of_match_table = devfreq_simple_match_table,
+		.suppress_bind_attrs = true,
 	},
 };
 module_platform_driver(devfreq_clock_driver);

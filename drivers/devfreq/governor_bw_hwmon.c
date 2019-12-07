@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2017, 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2018, 2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "bw-hwmon: " fmt
@@ -66,6 +66,7 @@ struct hwmon_node {
 	struct bw_hwmon		*hw;
 	struct devfreq_governor	*gov;
 	struct attribute_group	*attr_grp;
+	struct mutex		mon_lock;
 };
 
 #define UP_WAKE 1
@@ -153,7 +154,7 @@ out:									\
 #define MAX_MS	500U
 
 /* Returns MBps of read/writes for the sampling window. */
-static unsigned int bytes_to_mbps(long long bytes, unsigned int us)
+static unsigned long bytes_to_mbps(unsigned long long bytes, unsigned int us)
 {
 	bytes *= USEC_PER_SEC;
 	do_div(bytes, us);
@@ -493,9 +494,11 @@ int update_bw_hwmon(struct bw_hwmon *hwmon)
 	if (!node)
 		return -ENODEV;
 
-	if (!node->mon_started)
+	mutex_lock(&node->mon_lock);
+	if (!node->mon_started) {
+		mutex_unlock(&node->mon_lock);
 		return -EBUSY;
-
+	}
 	dev_dbg(df->dev.parent, "Got update request\n");
 	devfreq_monitor_stop(df);
 
@@ -507,6 +510,7 @@ int update_bw_hwmon(struct bw_hwmon *hwmon)
 	mutex_unlock(&df->lock);
 
 	devfreq_monitor_start(df);
+	mutex_unlock(&node->mon_lock);
 
 	return 0;
 }
@@ -554,7 +558,9 @@ static void stop_monitor(struct devfreq *df, bool init)
 	struct hwmon_node *node = df->data;
 	struct bw_hwmon *hw = node->hw;
 
+	mutex_lock(&node->mon_lock);
 	node->mon_started = false;
+	mutex_unlock(&node->mon_lock);
 
 	if (init) {
 		devfreq_monitor_stop(df);
@@ -593,7 +599,8 @@ static int gov_start(struct devfreq *df)
 	node->orig_data = df->data;
 	df->data = node;
 
-	if (start_monitor(df, true))
+	ret = start_monitor(df, true);
+	if (ret < 0)
 		goto err_start;
 
 	ret = sysfs_create_group(&df->dev.kobj, node->attr_grp);
@@ -667,11 +674,6 @@ static int gov_resume(struct devfreq *df)
 
 	if (!node->hw->resume_hwmon)
 		return -EPERM;
-
-	if (!node->resume_freq) {
-		dev_warn(df->dev.parent, "Governor already resumed!\n");
-		return -EBUSY;
-	}
 
 	mutex_lock(&df->lock);
 	update_devfreq(df);
@@ -747,7 +749,7 @@ show_attr(decay_rate);
 store_attr(decay_rate, 0U, 100U);
 static DEVICE_ATTR_RW(decay_rate);
 show_attr(io_percent);
-store_attr(io_percent, 1U, 100U);
+store_attr(io_percent, 1U, 400U);
 static DEVICE_ATTR_RW(io_percent);
 show_attr(bw_step);
 store_attr(bw_step, 50U, 1000U);
@@ -941,6 +943,7 @@ int register_bw_hwmon(struct device *dev, struct bw_hwmon *hwmon)
 	node->mbps_zones[0] = 0;
 	node->hw = hwmon;
 
+	mutex_init(&node->mon_lock);
 	mutex_lock(&list_lock);
 	list_add_tail(&node->list, &hwmon_list);
 	mutex_unlock(&list_lock);
