@@ -1682,3 +1682,27 @@ err_remove_fs:
 	debugfs_remove_recursive(fg->dfs_root);
 	return -ENOMEM;
 }
+
+void fg_stay_awake(struct fg_dev *fg, int awake_reason)
+{
+	spin_lock(&fg->awake_lock);
+
+	if (!fg->awake_status)
+		pm_stay_awake(fg->dev);
+
+	fg->awake_status |= awake_reason;
+
+	spin_unlock(&fg->awake_lock);
+}
+
+void fg_relax(struct fg_dev *fg, int awake_reason)
+{
+	spin_lock(&fg->awake_lock);
+
+	fg->awake_status &= ~awake_reason;
+
+	if (!fg->awake_status)
+		pm_relax(fg->dev);
+
+	spin_unlock(&fg->awake_lock);
+}

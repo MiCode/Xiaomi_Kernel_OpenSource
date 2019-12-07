@@ -177,6 +177,14 @@ First Level Node - FG Gen3 device
 		    Element 0 - Retry value for timer
 		    Element 1 - Maximum value for timer
 
+- qcom,fg-esr-timer-shutdown
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: Number of cycles between ESR pulses at/after shutdwon.This is
+		    defined when TWM (traditional watch mode) is supported.
+		    Element 0 - Retry value for timer
+		    Element 1 - Maximum value for timer
+
 - qcom,fg-esr-pulse-thresh-ma
 	Usage:      optional
 	Value type: <u32>
@@ -437,6 +445,18 @@ First Level Node - FG Gen3 device
 	Usage:      optional
 	Value type: <u32>
 	Definition: The delay in ms for FG to enable BMD after reading RID.
+
+- qcom,fg-use-sw-esr
+	Usage:      optional
+	Value type: <empty>
+	Definition: A boolean property when defined uses software based
+		    ESR during charging.
+
+- qcom,fg-disable-esr-pull-dn
+	Usage:      optional
+	Value type: <empty>
+	Definition: A boolean property which disables ESR pull-down.
+		This is to be used for debug purposes only.
 
 ==========================================================
 Second Level Nodes - Peripherals managed by FG Gen3 driver
