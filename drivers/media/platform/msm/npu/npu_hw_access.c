@@ -144,6 +144,8 @@ void npu_mem_write(struct npu_device *npu_dev, void *dst, void *src,
 			dst_off += 1;
 		}
 	}
+
+	__iowmb();
 }
 
 int32_t npu_mem_read(struct npu_device *npu_dev, void *src, void *dst,
@@ -194,9 +196,6 @@ void npu_interrupt_ack(struct npu_device *npu_dev, uint32_t intr_num)
 
 int32_t npu_interrupt_raise_m0(struct npu_device *npu_dev)
 {
-	npu_apss_shared_reg_write(npu_dev, APSS_SHARED_IPC_INTERRUPT_1, 0x40);
-
-	/* write register twice to avoid missing irq */
 	npu_apss_shared_reg_write(npu_dev, APSS_SHARED_IPC_INTERRUPT_1, 0x40);
 
 	return 0;
