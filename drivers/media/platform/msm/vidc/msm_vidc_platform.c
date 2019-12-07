@@ -1017,6 +1017,10 @@ void *vidc_get_drv_data(struct device *dev)
 			driver_data->common_data_length =
 					ARRAY_SIZE(sdmmagpie_common_data_v1);
 		}
+	} else if (!strcmp(match->compatible, "qcom,atoll-vidc")) {
+		rc = msm_vidc_read_efuse(driver_data, dev);
+		if (rc)
+			goto exit;
 	}
 
 exit:

@@ -33,6 +33,7 @@ struct firmware_info {
 };
 
 static const struct firmware_info firmware_table[] = {
+	{.dev_id = 0x307, .fw_image = "sdx60m/sbl1.mbn"},
 	{.dev_id = 0x306, .fw_image = "sdx55m/sbl1.mbn"},
 	{.dev_id = 0x305, .fw_image = "sdx50m/sbl1.mbn"},
 	{.dev_id = 0x304, .fw_image = "sbl.mbn", .edl_image = "edl.mbn"},
@@ -754,6 +755,10 @@ static struct mhi_controller *mhi_register_controller(struct pci_dev *pci_dev)
 	mhi_cntrl->remote_timer_freq = 19200000;
 	mhi_cntrl->local_timer_freq = 19200000;
 
+	/* setup host support for SFR retreival */
+	if (of_property_read_bool(of_node, "mhi,sfr-support"))
+		mhi_cntrl->sfr_len = MHI_MAX_SFR_LEN;
+
 	ret = of_register_mhi_controller(mhi_cntrl);
 	if (ret)
 		goto error_register;
@@ -856,6 +861,7 @@ static struct pci_device_id mhi_pcie_device_id[] = {
 	{PCI_DEVICE(MHI_PCIE_VENDOR_ID, 0x0304)},
 	{PCI_DEVICE(MHI_PCIE_VENDOR_ID, 0x0305)},
 	{PCI_DEVICE(MHI_PCIE_VENDOR_ID, 0x0306)},
+	{PCI_DEVICE(MHI_PCIE_VENDOR_ID, 0x0307)},
 	{PCI_DEVICE(MHI_PCIE_VENDOR_ID, MHI_PCIE_DEBUG_ID)},
 	{0},
 };

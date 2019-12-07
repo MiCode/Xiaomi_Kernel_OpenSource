@@ -477,7 +477,7 @@ static int cam_ife_csid_global_reset(struct cam_ife_csid_hw *csid_hw)
 		CAM_ERR(CAM_ISP, "CSID:%d IRQ value after reset rc = %d",
 			csid_hw->hw_intf->hw_idx, val);
 	csid_hw->error_irq_count = 0;
-	csid_hw->first_sof_ts = 0;
+	csid_hw->prev_boot_timestamp = 0;
 
 	for (i = 0 ; i < CAM_IFE_PIX_PATH_RES_MAX; i++)
 		csid_hw->res_sof_cnt[i] = 0;
@@ -1178,8 +1178,8 @@ static int cam_ife_csid_disable_hw(struct cam_ife_csid_hw *csid_hw)
 
 	csid_hw->hw_info->hw_state = CAM_HW_STATE_POWER_DOWN;
 	csid_hw->error_irq_count = 0;
-	csid_hw->first_sof_ts = 0;
 	csid_hw->fatal_err_detected = false;
+	csid_hw->prev_boot_timestamp = 0;
 
 	return rc;
 }
@@ -2510,6 +2510,7 @@ static int cam_ife_csid_get_time_stamp(
 	const struct cam_ife_csid_rdi_reg_offset   *rdi_reg;
 	struct timespec64 ts;
 	uint32_t  time_32, id;
+	uint64_t  time_delta;
 
 	time_stamp = (struct cam_csid_get_time_stamp_args  *)cmd_args;
 	res = time_stamp->node_res;
@@ -2563,16 +2564,31 @@ static int cam_ife_csid_get_time_stamp(
 		CAM_IFE_CSID_QTIMER_MUL_FACTOR,
 		CAM_IFE_CSID_QTIMER_DIV_FACTOR);
 
-	if (!csid_hw->first_sof_ts) {
+	if (!csid_hw->prev_boot_timestamp) {
 		get_monotonic_boottime64(&ts);
 		time_stamp->boot_timestamp =
 			(uint64_t)((ts.tv_sec * 1000000000) +
 			ts.tv_nsec);
+		csid_hw->prev_qtimer_ts = 0;
 		CAM_DBG(CAM_ISP, "timestamp:%lld",
 			time_stamp->boot_timestamp);
-		csid_hw->first_sof_ts = 1;
-	} else
-		time_stamp->boot_timestamp = 0;
+	} else {
+		time_delta = time_stamp->time_stamp_val -
+			csid_hw->prev_qtimer_ts;
+
+		if (csid_hw->prev_boot_timestamp >
+			U64_MAX - time_delta) {
+			CAM_WARN(CAM_ISP, "boottimestamp reached maximum");
+			return -EINVAL;
+		}
+
+		time_stamp->boot_timestamp =
+			csid_hw->prev_boot_timestamp + time_delta;
+	}
+
+	csid_hw->prev_qtimer_ts = time_stamp->time_stamp_val;
+	csid_hw->prev_boot_timestamp = time_stamp->boot_timestamp;
+
 
 	return 0;
 }
@@ -4213,7 +4229,7 @@ int cam_ife_csid_hw_probe_init(struct cam_hw_intf  *csid_hw_intf,
 
 	ife_csid_hw->csid_debug = 0;
 	ife_csid_hw->error_irq_count = 0;
-	ife_csid_hw->first_sof_ts = 0;
+	ife_csid_hw->prev_boot_timestamp = 0;
 	ife_csid_hw->ipp_path_config.measure_enabled = 0;
 	ife_csid_hw->ppp_path_config.measure_enabled = 0;
 	for (i = 0; i <= CAM_IFE_PIX_PATH_RES_RDI_3; i++)

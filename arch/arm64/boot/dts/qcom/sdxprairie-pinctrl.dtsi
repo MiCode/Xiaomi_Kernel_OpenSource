@@ -1084,7 +1084,7 @@
 				config {
 					pins = "gpio63";
 					drive-strength = <2>;
-					bias-disable;
+					bias-pull-up;
 				};
 			};
 
@@ -1098,32 +1098,61 @@
 					pins = "gpio63";
 					drive-strength = <2>;
 					bias-pull-up;
+					output-high;
 				};
 			};
 
-			blsp1_uart2b_rxcts_active: blsp1_uart2b_rxcts_active {
+			blsp1_uart2b_rx_active: blsp1_uart2b_rx_active {
 				mux {
-					pins = "gpio64", "gpio65";
+					pins = "gpio64";
 					function = "blsp_uart2";
 				};
 
 				config {
-					pins = "gpio64", "gpio65";
+					pins = "gpio64";
 					drive-strength = <2>;
 					bias-disable;
 				};
 			};
 
-			blsp1_uart2b_rxcts_sleep: blsp1_uart2b_rxcts_sleep {
+			blsp1_uart2b_rx_sleep: blsp1_uart2b_rx_sleep {
 				mux {
-					pins = "gpio64", "gpio65";
+					pins = "gpio64";
 					function = "gpio";
 				};
 
 				config {
-					pins = "gpio64", "gpio65";
+					pins = "gpio64";
 					drive-strength = <2>;
-					bias-no-pull;
+					bias-pull-down;
+					input-enable;
+				};
+			};
+
+			blsp1_uart2b_cts_active: blsp1_uart2b_cts_active {
+				mux {
+					pins = "gpio65";
+					function = "blsp_uart2";
+				};
+
+				config {
+					pins = "gpio65";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			blsp1_uart2b_cts_sleep: blsp1_uart2b_cts_sleep {
+				mux {
+					pins = "gpio65";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio65";
+					drive-strength = <2>;
+					bias-disable;
+					input-enable;
 				};
 			};
 
@@ -1136,7 +1165,7 @@
 				config {
 					pins = "gpio66";
 					drive-strength = <2>;
-					bias-disable;
+					bias-pull-down;
 				};
 			};
 
@@ -1149,7 +1178,8 @@
 				config {
 					pins = "gpio66";
 					drive-strength = <2>;
-					bias-no-pull;
+					bias-pull-down;
+					output-low;
 				};
 			};
 		};
@@ -1575,6 +1605,34 @@
 				pins = "gpio99";
 				drive-strength = <2>;
 				bias-disable;
+			};
+		};
+
+		emac {
+			emac_pin_pps_0: emac_pin_pps_0 {
+				mux {
+					pins = "gpio106";
+					function = "emac_PPS0";
+				};
+
+				config {
+					pins = "gpio106";
+					drive-strength = <8>; /* 8 mA */
+					bias-disable; /* NO PULL*/
+				};
+			};
+
+			emac_pin_pps_1: emac_pin_pps_1 {
+					mux {
+						pins = "gpio95";
+						function = "emac_PPS1";
+					};
+
+					config {
+						pins = "gpio95";
+						drive-strength = <8>; /* 8 mA */
+						bias-disable; /* NO PULL*/
+					};
 			};
 		};
 

@@ -23,6 +23,8 @@
 #include <linux/mhi.h>
 #include "mhi_internal.h"
 
+static char *mhi_generic_sfr = "unknown reason";
+
 static void __mhi_unprepare_channel(struct mhi_controller *mhi_cntrl,
 				    struct mhi_chan *mhi_chan);
 
@@ -446,6 +448,8 @@ int mhi_queue_dma(struct mhi_device *mhi_dev,
 	struct mhi_ring *buf_ring = &mhi_chan->buf_ring;
 	struct mhi_buf_info *buf_info;
 	struct mhi_tre *mhi_tre;
+	bool ring_db = true;
+	int nr_tre;
 
 	if (mhi_is_ring_full(mhi_cntrl, tre_ring))
 		return -ENOMEM;
@@ -485,6 +489,15 @@ int mhi_queue_dma(struct mhi_device *mhi_dev,
 		mhi_tre->dword[0] =
 			MHI_RSCTRE_DATA_DWORD0(buf_ring->wp - buf_ring->base);
 		mhi_tre->dword[1] = MHI_RSCTRE_DATA_DWORD1;
+		/*
+		 * on RSC channel IPA HW has a minimum credit requirement before
+		 * switching to DB mode
+		 */
+		nr_tre = mhi_get_no_free_descriptors(mhi_dev, DMA_FROM_DEVICE);
+		read_lock_bh(&mhi_chan->lock);
+		if (mhi_chan->db_cfg.db_mode && nr_tre < MHI_RSC_MIN_CREDITS)
+			ring_db = false;
+		read_unlock_bh(&mhi_chan->lock);
 	} else {
 		mhi_tre->ptr = MHI_TRE_DATA_PTR(buf_info->p_addr);
 		mhi_tre->dword[0] = MHI_TRE_DATA_DWORD0(buf_info->len);
@@ -502,7 +515,7 @@ int mhi_queue_dma(struct mhi_device *mhi_dev,
 	if (mhi_chan->dir == DMA_TO_DEVICE)
 		atomic_inc(&mhi_cntrl->pending_pkts);
 
-	if (likely(MHI_DB_ACCESS_VALID(mhi_cntrl))) {
+	if (likely(MHI_DB_ACCESS_VALID(mhi_cntrl)) && ring_db) {
 		read_lock_bh(&mhi_chan->lock);
 		mhi_ring_chan_db(mhi_cntrl, mhi_chan);
 		read_unlock_bh(&mhi_chan->lock);
@@ -896,6 +909,8 @@ static int parse_xfer_event(struct mhi_controller *mhi_cntrl,
 	u32 ev_code;
 	struct mhi_result result;
 	unsigned long flags = 0;
+	bool ring_db = true;
+	int nr_tre;
 
 	ev_code = MHI_TRE_GET_EV_CODE(event);
 	buf_ring = &mhi_chan->buf_ring;
@@ -990,9 +1005,21 @@ static int parse_xfer_event(struct mhi_controller *mhi_cntrl,
 
 		MHI_VERB("DB_MODE/OOB Detected chan %d.\n", mhi_chan->chan);
 		mhi_chan->db_cfg.db_mode = 1;
+
+		/*
+		 * on RSC channel IPA HW has a minimum credit requirement before
+		 * switching to DB mode
+		 */
+		if (mhi_chan->xfer_type == MHI_XFER_RSC_DMA) {
+			nr_tre = mhi_get_no_free_descriptors(mhi_chan->mhi_dev,
+					DMA_FROM_DEVICE);
+			if (nr_tre < MHI_RSC_MIN_CREDITS)
+				ring_db = false;
+		}
+
 		read_lock_irqsave(&mhi_cntrl->pm_lock, flags);
 		if (tre_ring->wp != tre_ring->rp &&
-		    MHI_DB_ACCESS_VALID(mhi_cntrl)) {
+		    MHI_DB_ACCESS_VALID(mhi_cntrl) && ring_db) {
 			mhi_ring_chan_db(mhi_cntrl, mhi_chan);
 		}
 		read_unlock_irqrestore(&mhi_cntrl->pm_lock, flags);
@@ -1087,6 +1114,7 @@ static void mhi_process_cmd_completion(struct mhi_controller *mhi_cntrl,
 	struct mhi_tre *cmd_pkt;
 	struct mhi_chan *mhi_chan;
 	struct mhi_timesync *mhi_tsync;
+	struct mhi_sfr_info *sfr_info;
 	enum mhi_cmd_type type;
 	u32 chan;
 
@@ -1097,17 +1125,25 @@ static void mhi_process_cmd_completion(struct mhi_controller *mhi_cntrl,
 
 	type = MHI_TRE_GET_CMD_TYPE(cmd_pkt);
 
-	if (type == MHI_CMD_TYPE_TSYNC) {
+	switch (type) {
+	case MHI_CMD_TYPE_TSYNC:
 		mhi_tsync = mhi_cntrl->mhi_tsync;
 		mhi_tsync->ccs = MHI_TRE_GET_EV_CODE(tre);
 		complete(&mhi_tsync->completion);
-	} else {
+		break;
+	case MHI_CMD_TYPE_SFR_CFG:
+		sfr_info = mhi_cntrl->mhi_sfr;
+		sfr_info->ccs = MHI_TRE_GET_EV_CODE(tre);
+		complete(&sfr_info->completion);
+		break;
+	default:
 		chan = MHI_TRE_GET_CMD_CHID(cmd_pkt);
 		mhi_chan = &mhi_cntrl->mhi_chan[chan];
 		write_lock_bh(&mhi_chan->lock);
 		mhi_chan->ccs = MHI_TRE_GET_EV_CODE(tre);
 		complete(&mhi_chan->completion);
 		write_unlock_bh(&mhi_chan->lock);
+		break;
 	}
 
 	mhi_del_ring_element(mhi_cntrl, mhi_ring);
@@ -1618,7 +1654,8 @@ irqreturn_t mhi_intvec_handlr(int irq_number, void *dev)
 	wake_up_all(&mhi_cntrl->state_event);
 	MHI_VERB("Exit\n");
 
-	schedule_work(&mhi_cntrl->low_priority_worker);
+	if (MHI_IN_MISSION_MODE(mhi_cntrl->ee))
+		schedule_work(&mhi_cntrl->low_priority_worker);
 
 	return IRQ_WAKE_THREAD;
 }
@@ -1630,6 +1667,7 @@ int mhi_send_cmd(struct mhi_controller *mhi_cntrl,
 	struct mhi_tre *cmd_tre = NULL;
 	struct mhi_cmd *mhi_cmd = &mhi_cntrl->mhi_cmd[PRIMARY_CMD_RING];
 	struct mhi_ring *ring = &mhi_cmd->ring;
+	struct mhi_sfr_info *sfr_info;
 	int chan = 0;
 
 	MHI_VERB("Entered, MHI pm_state:%s dev_state:%s ee:%s\n",
@@ -1664,6 +1702,14 @@ int mhi_send_cmd(struct mhi_controller *mhi_cntrl,
 		cmd_tre->dword[0] = MHI_TRE_CMD_TSYNC_CFG_DWORD0;
 		cmd_tre->dword[1] = MHI_TRE_CMD_TSYNC_CFG_DWORD1
 			(mhi_cntrl->mhi_tsync->er_index);
+		break;
+	case MHI_CMD_SFR_CFG:
+		sfr_info = mhi_cntrl->mhi_sfr;
+		cmd_tre->ptr = MHI_TRE_CMD_SFR_CFG_PTR
+						(sfr_info->dma_addr);
+		cmd_tre->dword[0] = MHI_TRE_CMD_SFR_CFG_DWORD0
+						(sfr_info->len - 1);
+		cmd_tre->dword[1] = MHI_TRE_CMD_SFR_CFG_DWORD1;
 		break;
 	}
 
@@ -2378,3 +2424,20 @@ void mhi_debug_reg_dump(struct mhi_controller *mhi_cntrl)
 	}
 }
 EXPORT_SYMBOL(mhi_debug_reg_dump);
+
+char *mhi_get_restart_reason(const char *name)
+{
+	struct mhi_controller *mhi_cntrl;
+	struct mhi_sfr_info *sfr_info;
+
+	mhi_cntrl = find_mhi_controller_by_name(name);
+	if (!mhi_cntrl)
+		return ERR_PTR(-ENODEV);
+
+	sfr_info = mhi_cntrl->mhi_sfr;
+	if (!sfr_info)
+		return ERR_PTR(-EINVAL);
+
+	return strlen(sfr_info->str) ? sfr_info->str : mhi_generic_sfr;
+}
+EXPORT_SYMBOL(mhi_get_restart_reason);

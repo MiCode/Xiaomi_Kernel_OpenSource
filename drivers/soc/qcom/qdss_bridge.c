@@ -429,11 +429,9 @@ static void mhi_read_done_work_fn(struct work_struct *work)
 static void usb_write_done(struct qdss_bridge_drvdata *drvdata,
 				   struct qdss_request *d_req)
 {
-	if (d_req->status) {
+	if (d_req->status)
 		pr_err_ratelimited("USB write failed err:%d\n", d_req->status);
-		mhi_queue_read(drvdata);
-		return;
-	}
+
 	qdss_buf_tbl_remove(drvdata, d_req->buf);
 	mhi_queue_read(drvdata);
 }

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1178,6 +1178,12 @@ static void rndis_ipa_packet_receive_notify(
 		("packet Rx, len=%d\n",
 		skb->len);
 
+	if (unlikely(rndis_ipa_ctx == NULL)) {
+		RNDIS_IPA_DEBUG("Private context is NULL. Drop SKB.\n");
+		dev_kfree_skb_any(skb);
+		return;
+	}
+
 	if (unlikely(rndis_ipa_ctx->rx_dump_enable))
 		rndis_ipa_dump_skb(skb);
 
@@ -1185,11 +1191,15 @@ static void rndis_ipa_packet_receive_notify(
 		RNDIS_IPA_DEBUG("use connect()/up() before receive()\n");
 		RNDIS_IPA_DEBUG("packet dropped (length=%d)\n",
 				skb->len);
+		rndis_ipa_ctx->rx_dropped++;
+		dev_kfree_skb_any(skb);
 		return;
 	}
 
 	if (evt != IPA_RECEIVE)	{
 		RNDIS_IPA_ERROR("a none IPA_RECEIVE event in driver RX\n");
+		rndis_ipa_ctx->rx_dropped++;
+		dev_kfree_skb_any(skb);
 		return;
 	}
 

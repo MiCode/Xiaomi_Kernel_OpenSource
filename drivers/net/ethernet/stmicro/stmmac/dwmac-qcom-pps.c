@@ -127,6 +127,7 @@ int ppsout_stop(struct stmmac_priv *priv, struct pps_cfg *eth_pps_cfg)
 	u32 val;
 	void __iomem *ioaddr = priv->ioaddr;
 
+	val = readl_relaxed(ioaddr + MAC_PPS_CONTROL);
 	val |= PPSCMDX(eth_pps_cfg->ppsout_ch, 0x5);
 	val |= TRGTMODSELX(eth_pps_cfg->ppsout_ch, 0x3);
 	val |= PPSEN0;
@@ -186,15 +187,30 @@ static void ethqos_register_pps_isr(struct stmmac_priv *priv, int ch)
 	}
 }
 
+static void ethqos_unregister_pps_isr(struct stmmac_priv *priv, int ch)
+{
+	struct qcom_ethqos *ethqos = priv->plat->bsp_priv;
+
+	if (ch == DWC_ETH_QOS_PPS_CH_2) {
+		free_irq(ethqos->pps_class_a_irq, priv);
+	} else if (ch == DWC_ETH_QOS_PPS_CH_3) {
+		free_irq(ethqos->pps_class_b_irq, priv);
+	}
+}
+
 int ppsout_config(struct stmmac_priv *priv, struct ifr_data_struct *req)
 {
 	struct pps_cfg *eth_pps_cfg = (struct pps_cfg *)req->ptr;
 	int interval, width;
 	u32 sub_second_inc, value;
 	void __iomem *ioaddr = priv->ioaddr;
+	u32 val;
 
 	if (!eth_pps_cfg->ppsout_start) {
 		ppsout_stop(priv, eth_pps_cfg);
+		if (eth_pps_cfg->ppsout_ch == DWC_ETH_QOS_PPS_CH_2 ||
+		    eth_pps_cfg->ppsout_ch == DWC_ETH_QOS_PPS_CH_3)
+			ethqos_unregister_pps_isr(priv, eth_pps_cfg->ppsout_ch);
 		return 0;
 	}
 
@@ -203,7 +219,7 @@ int ppsout_config(struct stmmac_priv *priv, struct ifr_data_struct *req)
 	priv->hw->ptp->init_systime(priv->ptpaddr, 0, 0);
 	priv->hw->ptp->adjust_systime(priv->ptpaddr, 0, 0, 0, 1);
 
-	u32 val = readl_relaxed(ioaddr + MAC_PPS_CONTROL);
+	val = readl_relaxed(ioaddr + MAC_PPS_CONTROL);
 
 	sub_second_inc = pps_config_sub_second_increment
 			 (priv->ptpaddr, eth_pps_cfg->ptpclk_freq,
@@ -243,6 +259,30 @@ int ppsout_config(struct stmmac_priv *priv, struct ifr_data_struct *req)
 
 	writel_relaxed(val, ioaddr + MAC_PPS_CONTROL);
 
+	return 0;
+}
+
+int ethqos_init_pps(struct stmmac_priv *priv)
+{
+	u32 value;
+	struct ifr_data_struct req = {0};
+	struct pps_cfg eth_pps_cfg = {0};
+
+	priv->ptpaddr = priv->ioaddr + PTP_GMAC4_OFFSET;
+	value = (PTP_TCR_TSENA | PTP_TCR_TSCFUPDT | PTP_TCR_TSUPDT);
+	priv->hw->ptp->config_hw_tstamping(priv->ptpaddr, value);
+	priv->hw->ptp->init_systime(priv->ptpaddr, 0, 0);
+	priv->hw->ptp->adjust_systime(priv->ptpaddr, 0, 0, 0, 1);
+
+	/*Configuaring PPS0 PPS output frequency to default 19.2 Mhz*/
+	eth_pps_cfg.ppsout_ch = 0;
+	eth_pps_cfg.ptpclk_freq = 62500000;
+	eth_pps_cfg.ppsout_freq = 19200000;
+	eth_pps_cfg.ppsout_start = 1;
+	eth_pps_cfg.ppsout_duty = 50;
+	req.ptr = (void *)&eth_pps_cfg;
+
+	ppsout_config(priv, &req);
 	return 0;
 }
 

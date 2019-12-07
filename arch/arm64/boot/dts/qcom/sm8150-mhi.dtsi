@@ -19,7 +19,7 @@
 	mhi_0: qcom,mhi@0 {
 		reg = <0 0 0 0 0 >;
 
-		pci-ids = "17cb:0305", "17cb:0306";
+		pci-ids = "17cb:0305", "17cb:0306", "17cb:0307";
 
 		/* controller specific configuration */
 		qcom,smmu-cfg = <0x3>;
@@ -27,6 +27,7 @@
 		/* mhi bus specific settings */
 		mhi,max-channels = <111>;
 		mhi,timeout = <2000>;
+		mhi,name = "esoc0";
 
 		mhi_channels {
 			#address-cells = <1>;
@@ -479,7 +480,7 @@
 			};
 
 			mhi_event@6 {
-				mhi,num-elements = <1024>;
+				mhi,num-elements = <2048>;
 				mhi,intmod = <5>;
 				mhi,msi = <6>;
 				mhi,chan = <101>;

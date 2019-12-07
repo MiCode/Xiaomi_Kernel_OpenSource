@@ -431,7 +431,7 @@
 				1996800	1562
 				2112000	1801
 				2208000	2000
-				2304000	2326
+				2323200	2341
 				2400000	2568
 			>;
 			idle-cost-data = <
@@ -471,7 +471,7 @@
 				1996800	54
 				2112000	60
 				2208000	61
-				2304000	62
+				2323200	62
 				2400000	63
 			>;
 			idle-cost-data = <
@@ -3067,7 +3067,7 @@
 		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
 		qcom,apps-ch-pipes = <0x700000>;
 		qcom,ea-pc = <0x340>;
-		qcom,iommu-s1-bypass;
+		qcom,iommu-atomic-ctx;
 		status = "ok";
 
 		iommu_slim_aud_ctrl_cb: qcom,iommu_slim_ctrl_cb {
@@ -4099,10 +4099,29 @@
 	};
 };
 
+&spmi_bus {
+	qcom,pm6150@0 {
+		pm6150_adc_tm_iio: adc_tm@3400 {
+			compatible = "qcom,adc-tm5-iio";
+			reg = <0x3400 0x100>;
+			#thermal-sensor-cells = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			io-channels = <&pm6150_vadc ADC_GPIO1_PU2>;
+
+			nvm_therm {
+				reg = <ADC_GPIO1_PU2>;
+				qcom,ratiometric;
+				qcom,hw-settle-time = <200>;
+			};
+		};
+	};
+};
+
 &pm6150_adc_tm {
 	io-channels = <&pm6150_vadc ADC_XO_THERM_PU2>,
 			<&pm6150_vadc ADC_AMUX_THM1_PU2>,
-			<&pm6150_vadc ADC_GPIO1_PU2>,
+			<&pm6150_vadc ADC_AMUX_THM3_PU2>,
 			<&pm6150_vadc ADC_GPIO2_PU2>;
 
 	/* Channel nodes */
@@ -4118,8 +4137,8 @@
 		qcom,hw-settle-time = <200>;
 	};
 
-	nvm_therm {
-		reg = <ADC_GPIO1_PU2>;
+	conn_therm {
+		reg = <ADC_AMUX_THM3_PU2>;
 		qcom,ratiometric;
 		qcom,hw-settle-time = <200>;
 	};

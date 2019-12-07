@@ -160,7 +160,7 @@ static struct smb_params smb5_pm8150b_params = {
 		.name   = "DC input current limit",
 		.reg    = DCDC_CFG_REF_MAX_PSNS_REG,
 		.min_u  = 0,
-		.max_u  = 1500000,
+		.max_u  = DCIN_ICL_MAX_UA,
 		.step_u = 50000,
 	},
 	.jeita_cc_comp_hot	= {
@@ -396,7 +396,7 @@ static int smb5_parse_dt(struct smb5 *chip)
 {
 	struct smb_charger *chg = &chip->chg;
 	struct device_node *node = chg->dev->of_node;
-	int rc, byte_len;
+	int rc, byte_len, tmp;
 
 	if (!node) {
 		pr_err("device tree node missing\n");
@@ -652,6 +652,12 @@ static int smb5_parse_dt(struct smb5 *chip)
 					&chg->chg_param.hvdcp3_max_icl_ua);
 	if (chg->chg_param.hvdcp3_max_icl_ua <= 0)
 		chg->chg_param.hvdcp3_max_icl_ua = MICRO_3PA;
+
+	chg->wls_icl_ua = DCIN_ICL_MAX_UA;
+	rc = of_property_read_u32(node, "qcom,wls-current-max-ua",
+			&tmp);
+	if (!rc && tmp < DCIN_ICL_MAX_UA)
+		chg->wls_icl_ua = tmp;
 
 	return 0;
 }
@@ -1303,6 +1309,9 @@ static int smb5_usb_main_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_FORCE_MAIN_FCC:
 		vote_override(chg->fcc_main_votable, CC_MODE_VOTER,
 				(val->intval < 0) ? false : true, val->intval);
+		if (val->intval >= 0)
+			chg->chg_param.forced_main_fcc = val->intval;
+
 		/* Main FCC updated re-calculate FCC */
 		rerun_election(chg->fcc_votable);
 		break;
@@ -1468,15 +1477,14 @@ static int smb5_dc_set_prop(struct power_supply *psy,
 static int smb5_dc_prop_is_writeable(struct power_supply *psy,
 		enum power_supply_property psp)
 {
-	int rc;
-
 	switch (psp) {
+	case POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION:
+		return 1;
 	default:
-		rc = 0;
 		break;
 	}
 
-	return rc;
+	return 0;
 }
 
 static const struct power_supply_desc dc_psy_desc = {
@@ -1548,6 +1556,7 @@ static enum power_supply_property smb5_batt_props[] = {
 	POWER_SUPPLY_PROP_FCC_STEPPER_ENABLE,
 };
 
+#define DEBUG_ACCESSORY_TEMP_DECIDEGC	250
 static int smb5_batt_get_prop(struct power_supply *psy,
 		enum power_supply_property psp,
 		union power_supply_propval *val)
@@ -1628,7 +1637,11 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		rc = smblib_get_prop_batt_iterm(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
-		rc = smblib_get_prop_from_bms(chg, POWER_SUPPLY_PROP_TEMP, val);
+		if (chg->typec_mode == POWER_SUPPLY_TYPEC_SINK_DEBUG_ACCESSORY)
+			val->intval = DEBUG_ACCESSORY_TEMP_DECIDEGC;
+		else
+			rc = smblib_get_prop_from_bms(chg,
+						POWER_SUPPLY_PROP_TEMP, val);
 		break;
 	case POWER_SUPPLY_PROP_TECHNOLOGY:
 		val->intval = POWER_SUPPLY_TECHNOLOGY_LION;
@@ -2458,8 +2471,8 @@ static int smb5_init_dc_peripheral(struct smb_charger *chg)
 	if (chg->chg_param.smb_version == PMI632_SUBTYPE)
 		return 0;
 
-	/* set DC icl_max 1A */
-	rc = smblib_set_charge_param(chg, &chg->param.dc_icl, 1000000);
+	/* Set DCIN ICL to 100 mA */
+	rc = smblib_set_charge_param(chg, &chg->param.dc_icl, DCIN_ICL_MIN_UA);
 	if (rc < 0) {
 		dev_err(chg->dev, "Couldn't set dc_icl rc=%d\n", rc);
 		return rc;
@@ -3096,7 +3109,8 @@ static struct smb_irq_info smb5_irqs[] = {
 	},
 	[DCIN_UV_IRQ] = {
 		.name		= "dcin-uv",
-		.handler	= default_irq_handler,
+		.handler	= dcin_uv_irq_handler,
+		.wake		= true,
 	},
 	[DCIN_OV_IRQ] = {
 		.name		= "dcin-ov",

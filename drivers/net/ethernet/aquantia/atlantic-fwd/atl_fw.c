@@ -33,7 +33,7 @@ struct atl_link_type atl_link_types[] = {
 	LINK_TYPE("10GBaseT-FD", 10000, ETHTOOL_LINK_MODE_10000baseT_Full_BIT,
 		1, 1 << 11)
 };
-#define ATL_FW2_LINK_MSK (BIT(5) | BIT(8) | BIT(10) | BIT(11))
+#define ATL_FW2_LINK_MSK (BIT(5) | BIT(8) | BIT(9) | BIT(10) | BIT(11))
 
 const int atl_num_rates = ARRAY_SIZE(atl_link_types);
 
@@ -605,6 +605,40 @@ static int atl_fw2_set_phy_loopback(struct atl_nic *nic, u32 mode)
 	return 0;
 }
 
+static int atl_fw2_update_statistics(struct atl_hw *hw)
+{
+	uint32_t req;
+	int res = 0;
+
+	hw->mcp.req_high ^= atl_fw2_statistics;
+	req = hw->mcp.req_high;
+	atl_write(hw, ATL_MCP_SCRATCH(FW2_LINK_REQ_HIGH), req);
+
+	busy_wait(1000, udelay(10), res,
+		atl_read(hw, ATL_MCP_SCRATCH(FW2_LINK_RES_HIGH)),
+		((res ^ req) & atl_fw2_statistics) != 0);
+	if (((res ^ req) & atl_fw2_statistics) != 0) {
+		atl_dev_err("Timeout waiting for statistics\n");
+		return -EIO;
+	}
+	return 0;
+}
+
+static int atl_fw2_set_mediadetect(struct atl_hw *hw, bool on)
+{
+	int ret = 0;
+
+	if (hw->mcp.fw_rev < 0x0301005a)
+		return -EOPNOTSUPP;
+
+	ret = atl_write_fwsettings_word(hw, atl_fw2_setings_media_detect, on);
+	if (ret)
+		return ret;
+
+	/* request statistics just to force FW to read settings */
+	return atl_fw2_update_statistics(hw);
+}
+
 static struct atl_fw_ops atl_fw_ops[2] = {
 	[0] = {
 		.__wait_fw_init = __atl_fw1_wait_fw_init,
@@ -618,6 +652,7 @@ static struct atl_fw_ops atl_fw_ops[2] = {
 		.dump_cfg = atl_fw1_unsupported,
 		.restore_cfg = atl_fw1_unsupported,
 		.set_phy_loopback = (void *)atl_fw1_unsupported,
+		.set_mediadetect =  (void *)atl_fw1_unsupported,
 		.efuse_shadow_addr_reg = ATL_MCP_SCRATCH(FW1_EFUSE_SHADOW),
 	},
 	[1] = {
@@ -632,6 +667,7 @@ static struct atl_fw_ops atl_fw_ops[2] = {
 		.dump_cfg = atl_fw2_dump_cfg,
 		.restore_cfg = atl_fw2_restore_cfg,
 		.set_phy_loopback = atl_fw2_set_phy_loopback,
+		.set_mediadetect = atl_fw2_set_mediadetect,
 		.efuse_shadow_addr_reg = ATL_MCP_SCRATCH(FW2_EFUSE_SHADOW),
 	},
 };

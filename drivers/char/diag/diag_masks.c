@@ -783,7 +783,7 @@ static int diag_cmd_set_msg_mask(unsigned char *src_buf, int src_len,
 {
 	uint32_t mask_size = 0, offset = 0;
 	uint32_t *temp = NULL;
-	int write_len = 0, i = 0, found = 0, peripheral;
+	int write_len = 0, i = 0, found = 0, peripheral, ret_val = 0;
 	int header_len = sizeof(struct diag_msg_build_mask_t);
 	struct diag_msg_mask_t *mask = NULL;
 	struct diag_msg_build_mask_t *req = NULL;
@@ -917,7 +917,10 @@ static int diag_cmd_set_msg_mask(unsigned char *src_buf, int src_len,
 			mutex_lock(&driver->md_session_lock);
 			info = diag_md_session_get_peripheral(DIAG_LOCAL_PROC,
 								APPS_DATA);
-			diag_save_user_msg_mask(info);
+			ret_val = diag_save_user_msg_mask(info);
+			if (ret_val < 0)
+				pr_err("diag: unable to save msg mask to update userspace clients err:%d\n",
+					ret_val);
 			mutex_unlock(&driver->md_session_lock);
 			if (diag_check_update(APPS_DATA, pid))
 				diag_update_userspace_clients(MSG_MASKS_TYPE);
@@ -1359,7 +1362,7 @@ static int diag_cmd_set_log_mask(unsigned char *src_buf, int src_len,
 {
 	int i, peripheral, write_len = 0;
 	int status = LOG_STATUS_SUCCESS;
-	int read_len = 0, payload_len = 0;
+	int read_len = 0, payload_len = 0, ret_val = 0;
 	int req_header_len = sizeof(struct diag_log_config_req_t);
 	int rsp_header_len = sizeof(struct diag_log_config_set_rsp_t);
 	uint32_t mask_size = 0;
@@ -1492,7 +1495,10 @@ static int diag_cmd_set_log_mask(unsigned char *src_buf, int src_len,
 			mutex_lock(&driver->md_session_lock);
 			info = diag_md_session_get_peripheral(DIAG_LOCAL_PROC,
 								APPS_DATA);
-			diag_save_user_log_mask(info);
+			ret_val = diag_save_user_log_mask(info);
+			if (ret_val < 0)
+				pr_err("diag: unable to save log mask to update userspace clients err:%d\n",
+					ret_val);
 			mutex_unlock(&driver->md_session_lock);
 			if (diag_check_update(APPS_DATA, pid))
 				diag_update_userspace_clients(LOG_MASKS_TYPE);
@@ -1518,7 +1524,7 @@ static int diag_cmd_disable_log_mask(unsigned char *src_buf, int src_len,
 	struct diag_mask_info *mask_info = NULL;
 	struct diag_log_mask_t *mask = NULL;
 	struct diag_log_config_rsp_t header;
-	int write_len = 0, i, peripheral;
+	int write_len = 0, i, peripheral, ret_val = 0;
 	struct diag_md_session_t *info = NULL;
 
 	mutex_lock(&driver->md_session_lock);
@@ -1573,7 +1579,10 @@ static int diag_cmd_disable_log_mask(unsigned char *src_buf, int src_len,
 			mutex_lock(&driver->md_session_lock);
 			info = diag_md_session_get_peripheral(DIAG_LOCAL_PROC,
 								APPS_DATA);
-			diag_save_user_log_mask(info);
+			ret_val = diag_save_user_log_mask(info);
+			if (ret_val < 0)
+				pr_err("diag: unable to save log  mask to update userspace clients err:%d\n",
+					ret_val);
 			mutex_unlock(&driver->md_session_lock);
 			if (diag_check_update(APPS_DATA, pid))
 				diag_update_userspace_clients(LOG_MASKS_TYPE);
@@ -1843,6 +1852,8 @@ static void __diag_mask_exit(struct diag_mask_info *mask_info)
 	mask_info->ptr = NULL;
 	kfree(mask_info->update_buf);
 	mask_info->update_buf = NULL;
+	kfree(mask_info->update_buf_client);
+	mask_info->update_buf_client = NULL;
 	mutex_unlock(&mask_info->lock);
 }
 
@@ -1937,7 +1948,10 @@ static int diag_msg_mask_init(void)
 	mutex_lock(&driver->md_session_lock);
 	session_info = diag_md_session_get_peripheral(DIAG_LOCAL_PROC,
 							APPS_DATA);
-	diag_save_user_msg_mask(session_info);
+	err = diag_save_user_msg_mask(session_info);
+	if (err < 0)
+		pr_err("diag: unable to save msg mask to update userspace clients err:%d\n",
+			err);
 	mutex_unlock(&driver->md_session_lock);
 	return 0;
 }
@@ -2094,7 +2108,10 @@ static int diag_log_mask_init(void)
 	mutex_lock(&driver->md_session_lock);
 	session_info = diag_md_session_get_peripheral(DIAG_LOCAL_PROC,
 							APPS_DATA);
-	diag_save_user_log_mask(session_info);
+	err = diag_save_user_log_mask(session_info);
+	if (err < 0)
+		pr_err("diag: unable to save log  mask to update userspace clients err:%d\n",
+			err);
 	mutex_unlock(&driver->md_session_lock);
 	return 0;
 }
