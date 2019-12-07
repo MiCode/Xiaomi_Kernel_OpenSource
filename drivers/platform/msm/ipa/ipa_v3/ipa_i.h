@@ -2644,7 +2644,7 @@ int ipa3_teth_bridge_disconnect(enum ipa_client_type client);
 
 int ipa3_teth_bridge_connect(struct teth_bridge_connect_params *connect_params);
 
-int ipa3_teth_bridge_get_pm_hdl(void);
+int ipa3_teth_bridge_get_pm_hdl(enum ipa_client_type client);
 
 /*
  * Tethering client info
