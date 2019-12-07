@@ -458,6 +458,16 @@ First Level Node - FG Gen3 device
 	Definition: A boolean property which disables ESR pull-down.
 		This is to be used for debug purposes only.
 
+- qcom,fg-sync-sleep-threshold-ma
+	Usage:      optional
+	Value type: <u32>
+	Definition: The minimum battery current for FG to enter into sync-sleep.
+
+- qcom,fg-disable-in-twm
+	Usage:      optional
+	Value type: <empty>
+	Definition: A boolean property which disables FG during TWM entry.
+
 ==========================================================
 Second Level Nodes - Peripherals managed by FG Gen3 driver
 ==========================================================
