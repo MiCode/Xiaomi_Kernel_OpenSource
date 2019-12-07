@@ -997,25 +997,31 @@ static int smblib_request_dpdm(struct smb_charger *chg, bool enable)
 		}
 	}
 
+	mutex_lock(&chg->dpdm_lock);
 	if (enable) {
-		if (chg->dpdm_reg && !regulator_is_enabled(chg->dpdm_reg)) {
+		if (chg->dpdm_reg && !chg->dpdm_enabled) {
 			smblib_dbg(chg, PR_MISC, "enabling DPDM regulator\n");
 			rc = regulator_enable(chg->dpdm_reg);
 			if (rc < 0)
 				smblib_err(chg,
 					"Couldn't enable dpdm regulator rc=%d\n",
 					rc);
+			else
+				chg->dpdm_enabled = true;
 		}
 	} else {
-		if (chg->dpdm_reg && regulator_is_enabled(chg->dpdm_reg)) {
+		if (chg->dpdm_reg && chg->dpdm_enabled) {
 			smblib_dbg(chg, PR_MISC, "disabling DPDM regulator\n");
 			rc = regulator_disable(chg->dpdm_reg);
 			if (rc < 0)
 				smblib_err(chg,
 					"Couldn't disable dpdm regulator rc=%d\n",
 					rc);
+			else
+				chg->dpdm_enabled = false;
 		}
 	}
+	mutex_unlock(&chg->dpdm_lock);
 
 	return rc;
 }
@@ -7414,6 +7420,7 @@ int smblib_init(struct smb_charger *chg)
 
 	mutex_init(&chg->smb_lock);
 	mutex_init(&chg->irq_status_lock);
+	mutex_init(&chg->dpdm_lock);
 	spin_lock_init(&chg->typec_pr_lock);
 	mutex_init(&chg->dcin_aicl_lock);
 	INIT_WORK(&chg->bms_update_work, bms_update_work);
