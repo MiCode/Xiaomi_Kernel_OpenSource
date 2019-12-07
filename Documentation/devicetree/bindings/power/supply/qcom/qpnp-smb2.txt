@@ -35,6 +35,13 @@ Charger specific properties:
 		addition battery properties will be faked such that the device
 		assumes normal operation.
 
+- qcom,use-extcon
+  Usage:      optional
+  Value type: <empty>
+  Definition: Boolean flag which specify that SMB2 will act as main charger
+	      to do extcon USB calls. If not defined, other charger driver can
+	      act as main charger to do extcon USB calls.
+
 - qcom,fcc-max-ua
   Usage:      optional
   Value type: <u32>
@@ -136,12 +143,6 @@ Charger specific properties:
 		SOC. If this property is not specified, then auto recharge will
 		be based off battery voltage. For both SOC and battery voltage,
 		charger receives the signal from FG to resume charging.
-
-- qcom,micro-usb
-  Usage:      optional
-  Value type: <empty>
-  Definition: Boolean flag which indicates that the platform only support
-		micro usb port.
 
 - qcom,suspend-input-on-debug-batt
   Usage:      optional
