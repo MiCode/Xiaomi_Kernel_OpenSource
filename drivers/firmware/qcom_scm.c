@@ -1079,3 +1079,5 @@ static void __exit qcom_scm_exit(void)
 }
 module_exit(qcom_scm_exit);
 #endif
+
+MODULE_LICENSE("GPL v2");
