@@ -793,7 +793,7 @@ static int __find_subsys_device(struct device *dev, const void *data)
 	return !strcmp(subsys->desc->name, data);
 }
 
-static struct subsys_device *find_subsys_device(const char *str)
+struct subsys_device *find_subsys_device(const char *str)
 {
 	struct device *dev;
 
@@ -804,6 +804,7 @@ static struct subsys_device *find_subsys_device(const char *str)
 			__find_subsys_device);
 	return dev ? to_subsys(dev) : NULL;
 }
+EXPORT_SYMBOL(find_subsys_device);
 
 static int subsys_start(struct subsys_device *subsys)
 {

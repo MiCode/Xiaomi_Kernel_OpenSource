@@ -169,6 +169,7 @@ static inline void complete_shutdown_ack(struct subsys_desc *desc)
 {
 	complete(&desc->shutdown_ack);
 }
+struct subsys_device *find_subsys_device(const char *str);
 #else
 
 static inline int subsystem_restart_dev(struct subsys_device *dev)
