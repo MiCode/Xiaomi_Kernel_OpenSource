@@ -92,7 +92,7 @@ enum EV_PRIORITY {
 
 #define GPI_DMA_DRV_NAME "gpi_dma"
 #define DEFAULT_KLOG_LVL (LOG_LVL_CRITICAL)
-#ifdef CONFIG_MSM_GPI_DMA_DEBUG
+#if IS_ENABLED(CONFIG_MSM_GPI_DMA_DEBUG)
 #define DEFAULT_IPC_LOG_LVL (LOG_LVL_VERBOSE)
 #define IPC_LOG_PAGES (40)
 #define GPI_DBG_LOG_SIZE (SZ_1K) /* size must be power of 2 */
@@ -627,7 +627,7 @@ static inline void *to_virtual(const struct gpi_ring *const ring,
 	return ring->base + (addr - ring->phys_addr);
 }
 
-#ifdef CONFIG_MSM_GPI_DMA_DEBUG
+#if IS_ENABLED(CONFIG_MSM_GPI_DMA_DEBUG)
 static inline u32 gpi_read_reg(struct gpii *gpii, void __iomem *addr)
 {
 	u64 time = sched_clock();
@@ -2993,6 +2993,38 @@ static int gpi_probe(struct platform_device *pdev)
 	return ret;
 }
 
+static int gpi_remove(struct platform_device *pdev)
+{
+	struct gpi_dev *gpi_dev = platform_get_drvdata(pdev);
+	int i;
+
+	of_dma_controller_free(gpi_dev->dev->of_node);
+	dma_async_device_unregister(&gpi_dev->dma_device);
+
+	for (i = 0; i < gpi_dev->max_gpii; i++) {
+		struct gpii *gpii = &gpi_dev->gpiis[i];
+		int chan;
+
+		if (!((1 << i) & gpi_dev->gpii_mask))
+			continue;
+
+		for (chan = 0; chan < MAX_CHANNELS_PER_GPII; chan++) {
+			struct gpii_chan *gpii_chan = &gpii->gpii_chan[chan];
+
+			gpi_free_chan_resources(&gpii_chan->vc.chan);
+		}
+
+		if (gpii->ilctxt)
+			ipc_log_context_destroy(gpii->ilctxt);
+	}
+
+	if (gpi_dev->ilctxt)
+		ipc_log_context_destroy(gpi_dev->ilctxt);
+
+	debugfs_remove(pdentry);
+	return 0;
+}
+
 static const struct of_device_id gpi_of_match[] = {
 	{ .compatible = "qcom,gpi-dma" },
 	{}
@@ -3001,6 +3033,7 @@ MODULE_DEVICE_TABLE(of, gpi_of_match);
 
 static struct platform_driver gpi_driver = {
 	.probe = gpi_probe,
+	.remove = gpi_remove,
 	.driver = {
 		.name = GPI_DMA_DRV_NAME,
 		.of_match_table = gpi_of_match,
@@ -3012,7 +3045,14 @@ static int __init gpi_init(void)
 	pdentry = debugfs_create_dir(GPI_DMA_DRV_NAME, NULL);
 	return platform_driver_register(&gpi_driver);
 }
-module_init(gpi_init)
+
+static void __exit gpi_exit(void)
+{
+	platform_driver_unregister(&gpi_driver);
+}
+
+module_init(gpi_init);
+module_exit(gpi_exit);
 
 MODULE_DESCRIPTION("QCOM GPI DMA engine driver");
 MODULE_LICENSE("GPL v2");
