@@ -686,7 +686,7 @@ static void ipa_mpm_smmu_unmap(dma_addr_t carved_iova, int sz, int dir,
 
 		cb->next_addr -= size_p;
 		dma_unmap_single(ipa3_ctx->pdev, ap_cb_iova,
-			IPA_MPM_RING_TOTAL_SIZE, dir);
+			size_p, dir);
 	} else {
 		dma_unmap_single(ipa3_ctx->pdev, ap_cb_iova,
 			IPA_MPM_RING_TOTAL_SIZE, dir);
@@ -1265,12 +1265,12 @@ static void ipa_mpm_clean_mhip_chan(int mhi_idx,
 	if (IPA_CLIENT_IS_PROD(mhip_client)) {
 		ipa_mpm_smmu_unmap(
 			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.er_pa,
-			IPA_MPM_PAGE_SIZE, dir,
+			PAGE_SIZE, dir,
 			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.ap_iova_er);
 
 		ipa_mpm_smmu_unmap(
 			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tr_pa,
-			IPA_MPM_PAGE_SIZE, dir,
+			PAGE_SIZE, dir,
 			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.ap_iova_tr);
 
 		if (ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.er_va) {
@@ -1290,11 +1290,11 @@ static void ipa_mpm_clean_mhip_chan(int mhi_idx,
 	} else {
 		ipa_mpm_smmu_unmap(
 			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tr_pa,
-			IPA_MPM_PAGE_SIZE, dir,
+			PAGE_SIZE, dir,
 			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.ap_iova_tr);
 		ipa_mpm_smmu_unmap(
 			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.er_pa,
-			IPA_MPM_PAGE_SIZE, dir,
+			PAGE_SIZE, dir,
 			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.ap_iova_er);
 
 		ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tr_pa = 0;
