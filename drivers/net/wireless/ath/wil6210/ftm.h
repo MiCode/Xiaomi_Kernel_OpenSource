@@ -421,12 +421,14 @@ struct wil_ftm_meas_peer_info {
 	u32 flags; /* enum qca_attr_ftm_peer_meas_flags */
 	struct wil_ftm_meas_params params;
 	u8 secure_token_id;
+	u16 aoa_burst_period; /* 0 if no AOA, >0 every <value> bursts */
 };
 
 /* session request, passed to wil_ftm_cfg80211_start_session */
 struct wil_ftm_session_request {
 	u64 session_cookie;
 	u32 n_peers;
+	u32 aoa_type; /* enum qca_wlan_vendor_attr_aoa_type */
 	/* keep last, variable size according to n_peers */
 	struct wil_ftm_meas_peer_info peers[0];
 };
