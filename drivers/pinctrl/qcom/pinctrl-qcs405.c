@@ -1654,7 +1654,7 @@ static const struct msm_pingroup qcs405_groups[] = {
 			NA, NA, NA, NA, NA, NA, NA),
 	[92] = PINGROUP(92, EAST, i2s_1_data3, i2s_1_data4_dsd4,
 			NA, NA, NA, NA, NA, qdss_cti_trig_in_a1, NA),
-	[93] = PINGROUP(93, EAST, i2s_1_data5_dsd5, pwm_led22, i2s_1,
+	[93] = PINGROUP(93, EAST, i2s_1, pwm_led22, i2s_1_data5_dsd5,
 			NA, NA, NA, NA, NA, qdss_tracedata_b),
 	[94] = PINGROUP(94, EAST, i2s_1, pwm_led23, i2s_1, NA,
 			qdss_cti_trig_out_a0, NA, rgmi_dll2, NA, NA),
