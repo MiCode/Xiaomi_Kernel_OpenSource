@@ -812,7 +812,11 @@ kgsl_sharedmem_writel(struct kgsl_device *device,
 {
 	uint32_t *dst;
 
-	if (WARN_ON(memdesc == NULL || memdesc->hostptr == NULL))
+	/* Quietly return if the memdesc isn't valid */
+	if (IS_ERR_OR_NULL(memdesc))
+		return -EINVAL;
+
+	if (WARN_ON(memdesc->hostptr == NULL))
 		return -EINVAL;
 
 	WARN_ON(offsetbytes % sizeof(uint32_t) != 0);
@@ -1074,7 +1078,7 @@ static int kgsl_alloc_secure_pages(struct kgsl_device *device,
 	memdesc->priv |= priv;
 
 	memdesc->ops = &kgsl_secure_pool_ops;
-	count = kgsl_pool_alloc_pages(size, &pages);
+	count = kgsl_pool_alloc_pages(size, &pages, device->dev);
 
 	if (count < 0)
 		return count;
@@ -1129,7 +1133,7 @@ static int kgsl_alloc_pages(struct kgsl_device *device,
 	memdesc->priv |= priv;
 
 	memdesc->ops = &kgsl_pool_ops;
-	count = kgsl_pool_alloc_pages(size, &pages);
+	count = kgsl_pool_alloc_pages(size, &pages, device->dev);
 
 	if (count < 0)
 		return count;

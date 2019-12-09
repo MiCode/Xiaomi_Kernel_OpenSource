@@ -7,28 +7,17 @@
 
 #include "adreno.h"
 
-struct adreno_sysfs_attribute {
+struct adreno_sysfs_attribute_u32 {
 	struct device_attribute attr;
-	unsigned int (*show)(struct adreno_device *adreno_dev);
-	int (*store)(struct adreno_device *adreno_dev, unsigned int val);
+	u32 (*show)(struct adreno_device *adreno_dev);
+	int (*store)(struct adreno_device *adreno_dev, u32 val);
 };
 
-#define _ADRENO_SYSFS_ATTR(_name, __show, __store) \
-struct adreno_sysfs_attribute adreno_attr_##_name = { \
-	.attr = __ATTR(_name, 0644, __show, __store), \
-	.show = _ ## _name ## _show, \
-	.store = _ ## _name ## _store, \
-}
-
-#define _ADRENO_SYSFS_ATTR_RO(_name, __show) \
-struct adreno_sysfs_attribute adreno_attr_##_name = { \
-	.attr = __ATTR(_name, 0444, __show, NULL), \
-	.show = _ ## _name ## _show, \
-	.store = NULL, \
-}
-
-#define ADRENO_SYSFS_ATTR(_a) \
-	container_of((_a), struct adreno_sysfs_attribute, attr)
+struct adreno_sysfs_attribute_bool {
+	struct device_attribute attr;
+	bool (*show)(struct adreno_device *adreno_dev);
+	int (*store)(struct adreno_device *adreno_dev, bool val);
+};
 
 static int _ft_policy_store(struct adreno_device *adreno_dev,
 		unsigned int val)
@@ -54,13 +43,10 @@ static int _preempt_level_store(struct adreno_device *adreno_dev,
 
 static unsigned int _preempt_level_show(struct adreno_device *adreno_dev)
 {
-	struct adreno_preemption *preempt = &adreno_dev->preempt;
-
-	return preempt->preempt_level;
+	return adreno_dev->preempt.preempt_level;
 }
 
-static int _usesgmem_store(struct adreno_device *adreno_dev,
-		unsigned int val)
+static int _usesgmem_store(struct adreno_device *adreno_dev, bool val)
 {
 	struct adreno_preemption *preempt = &adreno_dev->preempt;
 
@@ -68,15 +54,12 @@ static int _usesgmem_store(struct adreno_device *adreno_dev,
 	return 0;
 }
 
-static unsigned int _usesgmem_show(struct adreno_device *adreno_dev)
+static bool _usesgmem_show(struct adreno_device *adreno_dev)
 {
-	struct adreno_preemption *preempt = &adreno_dev->preempt;
-
-	return preempt->usesgmem;
+	return adreno_dev->preempt.usesgmem;
 }
 
-static int _skipsaverestore_store(struct adreno_device *adreno_dev,
-		unsigned int val)
+static int _skipsaverestore_store(struct adreno_device *adreno_dev, bool val)
 {
 	struct adreno_preemption *preempt = &adreno_dev->preempt;
 
@@ -84,11 +67,9 @@ static int _skipsaverestore_store(struct adreno_device *adreno_dev,
 	return 0;
 }
 
-static unsigned int _skipsaverestore_show(struct adreno_device *adreno_dev)
+static bool _skipsaverestore_show(struct adreno_device *adreno_dev)
 {
-	struct adreno_preemption *preempt = &adreno_dev->preempt;
-
-	return preempt->skipsaverestore;
+	return adreno_dev->preempt.skipsaverestore;
 }
 
 static int _ft_pagefault_policy_store(struct adreno_device *adreno_dev,
@@ -118,46 +99,44 @@ static unsigned int _ft_pagefault_policy_show(struct adreno_device *adreno_dev)
 }
 
 static int _gpu_llc_slice_enable_store(struct adreno_device *adreno_dev,
-		unsigned int val)
+		bool val)
 {
-	adreno_dev->gpu_llc_slice_enable = val ? true : false;
+	adreno_dev->gpu_llc_slice_enable = val;
 	return 0;
 }
 
-static unsigned int _gpu_llc_slice_enable_show(struct adreno_device *adreno_dev)
+static bool _gpu_llc_slice_enable_show(struct adreno_device *adreno_dev)
 {
 	return adreno_dev->gpu_llc_slice_enable;
 }
 
 static int _gpuhtw_llc_slice_enable_store(struct adreno_device *adreno_dev,
-		unsigned int val)
+		bool val)
 {
-	adreno_dev->gpuhtw_llc_slice_enable = val ? true : false;
+	adreno_dev->gpuhtw_llc_slice_enable = val;
 	return 0;
 }
 
-static unsigned int
-_gpuhtw_llc_slice_enable_show(struct adreno_device *adreno_dev)
+static bool _gpuhtw_llc_slice_enable_show(struct adreno_device *adreno_dev)
 {
 	return adreno_dev->gpuhtw_llc_slice_enable;
 }
 
-static int _ft_long_ib_detect_store(struct adreno_device *adreno_dev,
-		unsigned int val)
+static int _ft_long_ib_detect_store(struct adreno_device *adreno_dev, bool val)
 {
 	adreno_dev->long_ib_detect = val;
 	return 0;
 }
 
-static unsigned int _ft_long_ib_detect_show(struct adreno_device *adreno_dev)
+static bool _ft_long_ib_detect_show(struct adreno_device *adreno_dev)
 {
 	return adreno_dev->long_ib_detect;
 }
 
-static unsigned int _ft_hang_intr_status_show(struct adreno_device *adreno_dev)
+static bool _ft_hang_intr_status_show(struct adreno_device *adreno_dev)
 {
 	/* Hang interrupt is always on on all targets */
-	return 1;
+	return true;
 }
 
 static int _pwrctrl_store(struct adreno_device *adreno_dev,
@@ -180,8 +159,7 @@ static int _pwrctrl_store(struct adreno_device *adreno_dev,
 	return 0;
 }
 
-static int _preemption_store(struct adreno_device *adreno_dev,
-		unsigned int val)
+static int _preemption_store(struct adreno_device *adreno_dev, bool val)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct kgsl_context *context;
@@ -216,60 +194,57 @@ static int _preemption_store(struct adreno_device *adreno_dev,
 	return 0;
 }
 
-static unsigned int _preemption_show(struct adreno_device *adreno_dev)
+static bool _preemption_show(struct adreno_device *adreno_dev)
 {
 	return adreno_is_preemption_enabled(adreno_dev);
 }
 
-static int _hwcg_store(struct adreno_device *adreno_dev,
-		unsigned int val)
+static int _hwcg_store(struct adreno_device *adreno_dev, bool val)
 {
 	return _pwrctrl_store(adreno_dev, val, ADRENO_HWCG_CTRL);
 }
 
-static unsigned int _hwcg_show(struct adreno_device *adreno_dev)
+static bool _hwcg_show(struct adreno_device *adreno_dev)
 {
 	return test_bit(ADRENO_HWCG_CTRL, &adreno_dev->pwrctrl_flag);
 }
 
-static int _throttling_store(struct adreno_device *adreno_dev,
-	unsigned int val)
+static int _throttling_store(struct adreno_device *adreno_dev, bool val)
 {
 	return _pwrctrl_store(adreno_dev, val, ADRENO_THROTTLING_CTRL);
 }
 
-static unsigned int _throttling_show(struct adreno_device *adreno_dev)
+static bool _throttling_show(struct adreno_device *adreno_dev)
 {
 	return test_bit(ADRENO_THROTTLING_CTRL, &adreno_dev->pwrctrl_flag);
 }
 
-static int _sptp_pc_store(struct adreno_device *adreno_dev,
-		unsigned int val)
+static int _sptp_pc_store(struct adreno_device *adreno_dev, bool val)
 {
 	return _pwrctrl_store(adreno_dev, val, ADRENO_SPTP_PC_CTRL);
 }
 
-static unsigned int _sptp_pc_show(struct adreno_device *adreno_dev)
+static bool _sptp_pc_show(struct adreno_device *adreno_dev)
 {
 	return test_bit(ADRENO_SPTP_PC_CTRL, &adreno_dev->pwrctrl_flag);
 }
 
-static int _lm_store(struct adreno_device *adreno_dev, unsigned int val)
+static int _lm_store(struct adreno_device *adreno_dev, bool val)
 {
 	return _pwrctrl_store(adreno_dev, val, ADRENO_LM_CTRL);
 }
 
-static unsigned int _lm_show(struct adreno_device *adreno_dev)
+static bool _lm_show(struct adreno_device *adreno_dev)
 {
 	return test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag);
 }
 
-static int _ifpc_store(struct adreno_device *adreno_dev, unsigned int val)
+static int _ifpc_store(struct adreno_device *adreno_dev, bool val)
 {
 	return gmu_core_dev_ifpc_store(KGSL_DEVICE(adreno_dev), val);
 }
 
-static unsigned int _ifpc_show(struct adreno_device *adreno_dev)
+static bool _ifpc_show(struct adreno_device *adreno_dev)
 {
 	return gmu_core_dev_ifpc_show(KGSL_DEVICE(adreno_dev));
 }
@@ -286,12 +261,12 @@ static unsigned int _preempt_count_show(struct adreno_device *adreno_dev)
 	return preempt->count;
 }
 
-static unsigned int _acd_show(struct adreno_device *adreno_dev)
+static bool _acd_show(struct adreno_device *adreno_dev)
 {
 	return test_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag);
 }
 
-static int _acd_store(struct adreno_device *adreno_dev, unsigned int val)
+static int _acd_store(struct adreno_device *adreno_dev, bool val)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
@@ -306,16 +281,20 @@ static ssize_t _sysfs_store_u32(struct device *dev,
 		const char *buf, size_t count)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(dev_get_drvdata(dev));
-	struct adreno_sysfs_attribute *_attr = ADRENO_SYSFS_ATTR(attr);
-	unsigned int val = 0;
+	struct adreno_sysfs_attribute_u32 *_attr =
+		container_of(attr, struct adreno_sysfs_attribute_u32, attr);
+	u32 val;
 	int ret;
 
-	ret = kgsl_sysfs_store(buf, &val);
+	ret = kstrtou32(buf, 0, &val);
+	if (ret)
+		return ret;
 
-	if (!ret && _attr->store)
-		ret = _attr->store(adreno_dev, val);
+	ret = _attr->store(adreno_dev, val);
+	if (ret)
+		return ret;
 
-	return (ssize_t) ret < 0 ? ret : count;
+	return count;
 }
 
 static ssize_t _sysfs_show_u32(struct device *dev,
@@ -323,13 +302,10 @@ static ssize_t _sysfs_show_u32(struct device *dev,
 		char *buf)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(dev_get_drvdata(dev));
-	struct adreno_sysfs_attribute *_attr = ADRENO_SYSFS_ATTR(attr);
-	unsigned int val = 0;
+	struct adreno_sysfs_attribute_u32 *_attr =
+		container_of(attr, struct adreno_sysfs_attribute_u32, attr);
 
-	if (_attr->show)
-		val = _attr->show(adreno_dev);
-
-	return scnprintf(buf, PAGE_SIZE, "0x%X\n", val);
+	return scnprintf(buf, PAGE_SIZE, "0x%X\n", _attr->show(adreno_dev));
 }
 
 static ssize_t _sysfs_store_bool(struct device *dev,
@@ -337,16 +313,20 @@ static ssize_t _sysfs_store_bool(struct device *dev,
 		const char *buf, size_t count)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(dev_get_drvdata(dev));
-	struct adreno_sysfs_attribute *_attr = ADRENO_SYSFS_ATTR(attr);
-	unsigned int val = 0;
+	struct adreno_sysfs_attribute_bool *_attr =
+		container_of(attr, struct adreno_sysfs_attribute_bool, attr);
+	bool val;
 	int ret;
 
-	ret = kgsl_sysfs_store(buf, &val);
+	ret = kstrtobool(buf, &val);
+	if (ret)
+		return ret;
 
-	if (!ret && _attr->store)
-		ret = _attr->store(adreno_dev, val ? 1 : 0);
+	ret = _attr->store(adreno_dev, val);
+	if (ret)
+		return ret;
 
-	return (ssize_t) ret < 0 ? ret : count;
+	return count;
 }
 
 static ssize_t _sysfs_show_bool(struct device *dev,
@@ -354,26 +334,37 @@ static ssize_t _sysfs_show_bool(struct device *dev,
 		char *buf)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(dev_get_drvdata(dev));
-	struct adreno_sysfs_attribute *_attr = ADRENO_SYSFS_ATTR(attr);
-	unsigned int val = 0;
+	struct adreno_sysfs_attribute_bool *_attr =
+		container_of(attr, struct adreno_sysfs_attribute_bool, attr);
 
-	if (_attr->show)
-		val = _attr->show(adreno_dev);
-
-	return scnprintf(buf, PAGE_SIZE, "%d\n", val);
+	return scnprintf(buf, PAGE_SIZE, "%d\n", _attr->show(adreno_dev));
 }
 
 #define ADRENO_SYSFS_BOOL(_name) \
-	_ADRENO_SYSFS_ATTR(_name, _sysfs_show_bool, _sysfs_store_bool)
+struct adreno_sysfs_attribute_bool adreno_attr_##_name = { \
+	.attr = __ATTR(_name, 0644, _sysfs_show_bool, _sysfs_store_bool), \
+	.show = _ ## _name ## _show, \
+	.store = _ ## _name ## _store, \
+}
 
 #define ADRENO_SYSFS_RO_BOOL(_name) \
-	_ADRENO_SYSFS_ATTR_RO(_name, _sysfs_show_bool)
+struct adreno_sysfs_attribute_bool adreno_attr_##_name = { \
+	.attr = __ATTR(_name, 0444, _sysfs_show_bool, NULL), \
+	.show = _ ## _name ## _show, \
+}
 
 #define ADRENO_SYSFS_U32(_name) \
-	_ADRENO_SYSFS_ATTR(_name, _sysfs_show_u32, _sysfs_store_u32)
+struct adreno_sysfs_attribute_u32 adreno_attr_##_name = { \
+	.attr = __ATTR(_name, 0644, _sysfs_show_u32, _sysfs_store_u32), \
+	.show = _ ## _name ## _show, \
+	.store = _ ## _name ## _store, \
+}
 
 #define ADRENO_SYSFS_RO_U32(_name) \
-	_ADRENO_SYSFS_ATTR_RO(_name, _sysfs_show_u32)
+struct adreno_sysfs_attribute_u32 adreno_attr_##_name = { \
+	.attr = __ATTR(_name, 0444, _sysfs_show_u32, NULL), \
+	.show = _ ## _name ## _show, \
+}
 
 static ADRENO_SYSFS_U32(ft_policy);
 static ADRENO_SYSFS_U32(ft_pagefault_policy);

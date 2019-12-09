@@ -4972,9 +4972,6 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	if (status)
 		goto error_close_mmu;
 
-	/* Initialize the memory pools */
-	kgsl_init_page_pools(device->pdev);
-
 	device->events_wq = alloc_workqueue("kgsl-events",
 		WQ_UNBOUND | WQ_MEM_RECLAIM | WQ_SYSFS, 0);
 
@@ -5000,8 +4997,6 @@ void kgsl_device_platform_remove(struct kgsl_device *device)
 
 	kgsl_device_snapshot_close(device);
 
-	kgsl_exit_page_pools();
-
 	kobject_put(device->gpu_sysfs_kobj);
 
 	idr_destroy(&device->context_idr);
@@ -5022,6 +5017,8 @@ void kgsl_device_platform_remove(struct kgsl_device *device)
 
 void kgsl_core_exit(void)
 {
+	kgsl_exit_page_pools();
+
 	kgsl_events_exit();
 	kgsl_core_debugfs_close();
 
@@ -5110,6 +5107,9 @@ int __init kgsl_core_init(void)
 	kgsl_core_debugfs_init();
 
 	kgsl_sharedmem_init_sysfs();
+
+	/* Initialize the memory pools */
+	kgsl_probe_page_pools();
 
 	INIT_LIST_HEAD(&kgsl_driver.process_list);
 
