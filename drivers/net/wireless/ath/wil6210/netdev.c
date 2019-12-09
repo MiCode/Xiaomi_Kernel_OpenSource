@@ -205,6 +205,7 @@ static void wil_dev_setup(struct net_device *dev)
 
 static void wil_vif_deinit(struct wil6210_vif *vif)
 {
+	wil_ftm_deinit(vif);
 	del_timer_sync(&vif->scan_timer);
 	del_timer_sync(&vif->p2p.discovery_timer);
 	cancel_work_sync(&vif->disconnect_worker);
@@ -283,6 +284,8 @@ static void wil_vif_init(struct wil6210_vif *vif)
 	INIT_WORK(&vif->enable_tx_key_worker, wil_enable_tx_key_worker);
 
 	INIT_LIST_HEAD(&vif->probe_client_pending);
+
+	wil_ftm_init(vif);
 
 	vif->net_queue_stopped = 1;
 }
