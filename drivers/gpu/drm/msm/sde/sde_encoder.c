@@ -79,6 +79,9 @@
 /* Maximum number of VSYNC wait attempts for RSC state transition */
 #define MAX_RSC_WAIT	5
 
+/* Primary panel worst case VSYNC expected to be no less than 30fps */
+#define PRIMARY_VBLANK_WORST_CASE_MS 34
+
 #define TOPOLOGY_DUALPIPE_MERGE_MODE(x) \
 		(((x) == SDE_RM_TOPOLOGY_DUALPIPE_DSCMERGE) || \
 		((x) == SDE_RM_TOPOLOGY_DUALPIPE_3DMERGE) || \
@@ -2050,11 +2053,23 @@ static int _sde_encoder_update_rsc_client(
 				sde_enc->rsc_client))
 			break;
 
-		if (crtc->base.id == wait_vblank_crtc_id)
+		/*
+		 * if primary is inactive or modeset is needed, we'll wait
+		 * for worst case ms for best effort as we don't know when
+		 * primary display will be committed.
+		 */
+		if (crtc->base.id == wait_vblank_crtc_id) {
 			ret = sde_encoder_wait_for_event(drm_enc,
 					MSM_ENC_VBLANK);
-		else
+		} else if (primary_crtc->state->active &&
+				!drm_atomic_crtc_needs_modeset(
+						primary_crtc->state)) {
 			drm_wait_one_vblank(drm_enc->dev, pipe);
+		} else {
+			SDE_EVT32(DRMID(drm_enc),
+					wait_vblank_crtc_id, crtc->base.id);
+			msleep(PRIMARY_VBLANK_WORST_CASE_MS);
+		}
 
 		if (ret) {
 			SDE_ERROR_ENC(sde_enc,
