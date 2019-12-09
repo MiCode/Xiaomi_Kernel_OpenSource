@@ -31,3 +31,4 @@ obj-$(CONFIG_CORESIGHT_DUMMY) += coresight-dummy.o
 obj-$(CONFIG_CORESIGHT_REMOTE_ETM) += coresight-remote-etm.o
 obj-$(CONFIG_CORESIGHT_CSR) += coresight-csr.o
 obj-$(CONFIG_CORESIGHT_TGU) += coresight-tgu.o apss_tgu.o
+obj-$(CONFIG_CORESIGHT_DBGUI) += coresight-dbgui.o
