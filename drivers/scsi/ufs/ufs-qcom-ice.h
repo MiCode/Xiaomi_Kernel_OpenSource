@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -84,6 +84,7 @@ int ufs_qcom_ice_resume(struct ufs_qcom_host *qcom_host);
 int ufs_qcom_ice_suspend(struct ufs_qcom_host *qcom_host);
 int ufs_qcom_ice_get_status(struct ufs_qcom_host *qcom_host, int *ice_status);
 void ufs_qcom_ice_print_regs(struct ufs_qcom_host *qcom_host);
+int ufs_qcom_is_ice_busy(struct ufs_qcom_host *qcom_host);
 #else
 inline int ufs_qcom_ice_get_dev(struct ufs_qcom_host *qcom_host)
 {
@@ -126,6 +127,10 @@ inline int ufs_qcom_ice_get_status(struct ufs_qcom_host *qcom_host,
 }
 inline void ufs_qcom_ice_print_regs(struct ufs_qcom_host *qcom_host)
 {
+}
+static inline int ufs_qcom_is_ice_busy(struct ufs_qcom_host *qcom_host)
+{
+	return 0;
 }
 #endif /* CONFIG_SCSI_UFS_QCOM_ICE */
 

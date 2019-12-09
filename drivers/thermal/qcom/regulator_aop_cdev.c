@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -92,7 +92,7 @@ static int reg_send_min_state(struct thermal_cooling_device *cdev,
 	int ret = 0;
 
 	if (state > REG_CDEV_MAX_STATE)
-		state = REG_CDEV_MAX_STATE;
+		return -EINVAL;
 
 	if (reg_dev->min_state == state)
 		return ret;
@@ -120,6 +120,9 @@ static int reg_get_cur_state(struct thermal_cooling_device *cdev,
 static int reg_send_cur_state(struct thermal_cooling_device *cdev,
 				unsigned long state)
 {
+	if (state > REG_CDEV_MAX_STATE)
+		return -EINVAL;
+
 	return 0;
 }
 

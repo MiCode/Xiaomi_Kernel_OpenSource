@@ -37,6 +37,7 @@
 #define FIRMWARE_SIZE			0X00A00000
 #define REG_ADDR_OFFSET_BITMASK	0x000FFFFF
 #define QDSS_IOVA_START 0x80001000
+#define MIN_PAYLOAD_SIZE 3
 
 const struct msm_cvp_hfi_defs cvp_hfi_defs[] = {
 	{
@@ -3005,22 +3006,35 @@ static void __flush_debug_queue(struct iris_hfi_device *device, u8 *packet)
 		log_level = CVP_ERR;
 	}
 
+#define SKIP_INVALID_PKT(pkt_size, payload_size, pkt_hdr_size) ({ \
+		if (pkt_size < pkt_hdr_size || \
+			payload_size < MIN_PAYLOAD_SIZE || \
+			payload_size > \
+			(pkt_size - pkt_hdr_size + sizeof(u8))) { \
+			dprintk(CVP_ERR, \
+				"%s: invalid msg size - %d\n", \
+				__func__, pkt->msg_size); \
+			continue; \
+		} \
+	})
+
 	while (!__iface_dbgq_read(device, packet)) {
-		struct cvp_hfi_msg_sys_coverage_packet *pkt =
-			(struct cvp_hfi_msg_sys_coverage_packet *) packet;
+		struct cvp_hfi_packet_header *pkt =
+			(struct cvp_hfi_packet_header *) packet;
 
-		if (pkt->packet_type == HFI_MSG_SYS_COV) {
-			int stm_size = 0;
+		if (pkt->size < sizeof(struct cvp_hfi_packet_header)) {
+			dprintk(CVP_ERR, "Invalid pkt size - %s\n",
+				__func__);
+			continue;
+		}
 
-			stm_size = stm_log_inv_ts(0, 0,
-				pkt->rg_msg_data, pkt->msg_size);
-			if (stm_size == 0)
-				dprintk(CVP_ERR,
-					"In %s, stm_log returned size of 0\n",
-					__func__);
-		} else {
+		if (pkt->packet_type == HFI_MSG_SYS_DEBUG) {
 			struct cvp_hfi_msg_sys_debug_packet *pkt =
 				(struct cvp_hfi_msg_sys_debug_packet *) packet;
+
+			SKIP_INVALID_PKT(pkt->size,
+				pkt->msg_size, sizeof(*pkt));
+
 			/*
 			 * All fw messages starts with new line character. This
 			 * causes dprintk to print this message in two lines
@@ -3028,9 +3042,11 @@ static void __flush_debug_queue(struct iris_hfi_device *device, u8 *packet)
 			 * from the message fixes this to print it in a single
 			 * line.
 			 */
+			pkt->rg_msg_data[pkt->msg_size-1] = '\0';
 			dprintk(log_level, "%s", &pkt->rg_msg_data[1]);
 		}
 	}
+#undef SKIP_INVALID_PKT
 
 	if (local_packet)
 		kfree(packet);

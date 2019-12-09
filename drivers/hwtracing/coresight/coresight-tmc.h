@@ -312,7 +312,7 @@ void tmc_free_etr_buf(struct etr_buf *etr_buf);
 void __tmc_etr_disable_to_bam(struct tmc_drvdata *drvdata);
 void tmc_etr_bam_disable(struct tmc_drvdata *drvdata);
 void tmc_etr_enable_hw(struct tmc_drvdata *drvdata);
-void tmc_etr_disable_hw(struct tmc_drvdata *drvdata, bool flush);
+void tmc_etr_disable_hw(struct tmc_drvdata *drvdata);
 void usb_notifier(void *priv, unsigned int event, struct qdss_request *d_req,
 		  struct usb_qdss_ch *ch);
 int tmc_etr_bam_init(struct amba_device *adev,

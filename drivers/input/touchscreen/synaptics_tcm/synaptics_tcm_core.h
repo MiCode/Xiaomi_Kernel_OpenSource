@@ -42,7 +42,7 @@
 #include <linux/slab.h>
 #include <linux/input/synaptics_tcm.h>
 #ifdef CONFIG_DRM
-#include <linux/msm_drm_notify.h>
+#include <drm/drm_panel.h>
 #elif CONFIG_FB
 #include <linux/fb.h>
 #include <linux/notifier.h>
@@ -521,6 +521,8 @@ struct syna_tcm_hw_interface {
 	struct syna_tcm_board_data *bdata;
 	const struct syna_tcm_bus_io *bus_io;
 };
+
+struct drm_panel *tcm_get_panel(void);
 
 int syna_tcm_bus_init(void);
 
