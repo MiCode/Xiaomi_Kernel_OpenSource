@@ -2417,12 +2417,32 @@ static const struct qcom_cc_desc cam_cc_sm8150_desc = {
 	.num_clks = ARRAY_SIZE(cam_cc_sm8150_clocks),
 };
 
+static struct clk_regmap *cam_cc_sm8150_critical_clocks[] = {
+	&cam_cc_gdsc_clk.clkr
+};
+
+static const struct qcom_cc_critical_desc cam_cc_sm8150_critical_desc = {
+	.clks = cam_cc_sm8150_critical_clocks,
+	.num_clks = ARRAY_SIZE(cam_cc_sm8150_critical_clocks),
+};
+
 static const struct of_device_id cam_cc_sm8150_match_table[] = {
 	{ .compatible = "qcom,camcc-sm8150" },
 	{ .compatible = "qcom,camcc-sm8150-v2" },
+	{ .compatible = "qcom,camcc-sa8155" },
+	{ .compatible = "qcom,camcc-sa8155-v2" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, cam_cc_sm8150_match_table);
+
+static int cam_cc_sa8150_resume(struct device *dev)
+{
+	return qcom_cc_enable_critical_clks(&cam_cc_sm8150_critical_desc);
+}
+
+static const struct dev_pm_ops cam_cc_sa8150_pm_ops = {
+	.restore_early = cam_cc_sa8150_resume,
+};
 
 static void cam_cc_sm8150_fixup_sm8150v2(struct regmap *regmap)
 {
@@ -2451,8 +2471,13 @@ static int cam_cc_sm8150_fixup(struct platform_device *pdev,
 	if (!compat || (compatlen <= 0))
 		return -EINVAL;
 
-	if (!strcmp(compat, "qcom,camcc-sm8150-v2"))
+	if (!strcmp(compat, "qcom,camcc-sm8150-v2") ||
+			!strcmp(compat, "qcom,camcc-sa8155-v2"))
 		cam_cc_sm8150_fixup_sm8150v2(regmap);
+
+	if (!strcmp(compat, "qcom,camcc-sa8155") ||
+			!strcmp(compat, "qcom,camcc-sa8155-v2"))
+		pdev->dev.driver->pm = &cam_cc_sa8150_pm_ops;
 
 	return 0;
 }

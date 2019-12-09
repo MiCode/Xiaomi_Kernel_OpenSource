@@ -5,6 +5,8 @@ Required properties :
 - compatible : must contain one of the following:
 		"qcom,camcc-sm8150",
 		"qcom,camcc-sm8150-v2",
+		"qcom,camcc-sa8155",
+		"qcom,camcc-sa8155-v2",
 		"qcom,camcc-sdmshrike",
 		"qcom,camcc-sm6150",
 		"qcom,camcc-sdmmagpie",
