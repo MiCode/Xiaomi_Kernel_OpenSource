@@ -263,7 +263,6 @@ struct kgsl_device {
 
 	atomic_t active_cnt;
 
-	wait_queue_head_t wait_queue;
 	wait_queue_head_t active_cnt_wq;
 	struct platform_device *pdev;
 	struct dentry *d_debugfs;
@@ -297,8 +296,6 @@ struct kgsl_device {
 	int reset_counter; /* Track how many GPU core resets have occurred */
 	struct workqueue_struct *events_wq;
 
-	struct device *busmondev; /* pseudo dev for GPU BW voting governor */
-
 	/* Number of active contexts seen globally for this device */
 	int active_context_count;
 	struct kobject *gpu_sysfs_kobj;
@@ -321,19 +318,6 @@ struct kgsl_device {
 
 #define KGSL_MMU_DEVICE(_mmu) \
 	container_of((_mmu), struct kgsl_device, mmu)
-
-#define KGSL_DEVICE_COMMON_INIT(_dev) \
-	.hwaccess_gate = COMPLETION_INITIALIZER((_dev).hwaccess_gate),\
-	.halt_gate = COMPLETION_INITIALIZER((_dev).halt_gate),\
-	.idle_check_ws = __WORK_INITIALIZER((_dev).idle_check_ws,\
-			kgsl_idle_check),\
-	.context_idr = IDR_INIT((_dev).context_idr),\
-	.wait_queue = __WAIT_QUEUE_HEAD_INITIALIZER((_dev).wait_queue),\
-	.active_cnt_wq = __WAIT_QUEUE_HEAD_INITIALIZER((_dev).active_cnt_wq),\
-	.mutex = __MUTEX_INITIALIZER((_dev).mutex),\
-	.state = KGSL_STATE_NONE, \
-	.globals = LIST_HEAD_INIT((_dev).globals)
-
 
 /**
  * enum bits for struct kgsl_context.priv

@@ -32,43 +32,7 @@ static void adreno_input_work(struct work_struct *work);
 static unsigned int counter_delta(struct kgsl_device *device,
 	unsigned int reg, unsigned int *counter);
 
-static struct devfreq_msm_adreno_tz_data adreno_tz_data = {
-	.bus = {
-		.max = 350,
-		.floating = true,
-	},
-	.device_id = 0,
-};
-
-static const struct kgsl_functable adreno_functable;
-
-static struct adreno_device device_3d0 = {
-	.dev = {
-		KGSL_DEVICE_COMMON_INIT(device_3d0.dev),
-		.pwrscale = KGSL_PWRSCALE_INIT(&adreno_tz_data),
-		.name = DEVICE_3D0_NAME,
-		.id = 0,
-		.iomemname = "kgsl_3d0_reg_memory",
-		.ftbl = &adreno_functable,
-	},
-	.ft_policy = KGSL_FT_DEFAULT_POLICY,
-	.ft_pf_policy = KGSL_FT_PAGEFAULT_DEFAULT_POLICY,
-	.long_ib_detect = 1,
-	.input_work = __WORK_INITIALIZER(device_3d0.input_work,
-		adreno_input_work),
-	.pwrctrl_flag = BIT(ADRENO_SPTP_PC_CTRL) |
-		BIT(ADRENO_THROTTLING_CTRL) | BIT(ADRENO_HWCG_CTRL),
-	.profile.enabled = false,
-	.active_list = LIST_HEAD_INIT(device_3d0.active_list),
-	.active_list_lock = __SPIN_LOCK_UNLOCKED(device_3d0.active_list_lock),
-	.gpu_llc_slice_enable = true,
-	.gpuhtw_llc_slice_enable = true,
-	.preempt = {
-		.preempt_level = 1,
-		.skipsaverestore = 1,
-		.usesgmem = 1,
-	},
-};
+static struct adreno_device device_3d0;
 
 /* Ptr to array for the current set of fault detect registers */
 unsigned int *adreno_ft_regs;
@@ -858,7 +822,7 @@ static int adreno_identify_gpu(struct adreno_device *adreno_dev)
 }
 
 static const struct platform_device_id adreno_id_table[] = {
-	{ DEVICE_3D0_NAME, (unsigned long) &device_3d0, },
+	{ "kgsl-3d0", (unsigned long) &device_3d0, },
 	{},
 };
 
@@ -1140,7 +1104,8 @@ static int adreno_of_get_power(struct adreno_device *adreno_dev,
 
 	/* Get starting physical address of device registers */
 	res = platform_get_resource_byname(device->pdev, IORESOURCE_MEM,
-					   device->iomemname);
+		"kgsl_3d0_reg_memory");
+
 	if (res == NULL) {
 		dev_err(device->dev,
 			     "platform_get_resource_byname failed\n");
@@ -1356,6 +1321,47 @@ static int adreno_probe_efuse(struct platform_device *pdev,
 	return 0;
 }
 
+static const struct kgsl_functable adreno_functable;
+
+static void adreno_setup_device(struct adreno_device *adreno_dev)
+{
+	memset(adreno_dev, 0, sizeof(*adreno_dev));
+
+	adreno_dev->dev.name = "kgsl-3d0";
+	adreno_dev->dev.ftbl = &adreno_functable;
+
+	init_completion(&adreno_dev->dev.hwaccess_gate);
+	init_completion(&adreno_dev->dev.halt_gate);
+
+	idr_init(&adreno_dev->dev.context_idr);
+
+	mutex_init(&adreno_dev->dev.mutex);
+	INIT_LIST_HEAD(&adreno_dev->dev.globals);
+
+	/* Set the fault tolerance policy to replay, skip, throttle */
+	adreno_dev->ft_policy = BIT(KGSL_FT_REPLAY) |
+		BIT(KGSL_FT_SKIPCMD) | BIT(KGSL_FT_THROTTLE);
+
+	/* Enable command timeouts by default */
+	adreno_dev->long_ib_detect = true;
+
+	INIT_WORK(&adreno_dev->input_work, adreno_input_work);
+
+	/*
+	 * Enable SPTP power collapse, throttling and hardware clock gating by
+	 * default where applicable
+	 */
+	adreno_dev->pwrctrl_flag = BIT(ADRENO_SPTP_PC_CTRL) |
+		BIT(ADRENO_THROTTLING_CTRL) | BIT(ADRENO_HWCG_CTRL);
+
+	INIT_LIST_HEAD(&adreno_dev->active_list);
+	spin_lock_init(&adreno_dev->active_list_lock);
+
+	/* Enable use of the LLC slices where applicable */
+	adreno_dev->gpu_llc_slice_enable = true;
+	adreno_dev->gpuhtw_llc_slice_enable = true;
+}
+
 static int adreno_probe(struct platform_device *pdev)
 {
 	const struct of_device_id *of_id;
@@ -1370,6 +1376,10 @@ static int adreno_probe(struct platform_device *pdev)
 		return -EINVAL;
 
 	adreno_dev = (struct adreno_device *) of_id->data;
+
+	/* Initialize the adreno device structure */
+	adreno_setup_device(adreno_dev);
+
 	device = KGSL_DEVICE(adreno_dev);
 
 	device->pdev = pdev;
@@ -3750,35 +3760,6 @@ static struct platform_driver adreno_platform_driver = {
 	}
 };
 
-static const struct of_device_id busmon_match_table[] = {
-	{ .compatible = "qcom,kgsl-busmon", .data = &device_3d0 },
-	{}
-};
-
-static int adreno_busmon_probe(struct platform_device *pdev)
-{
-	struct kgsl_device *device;
-	const struct of_device_id *pdid =
-			of_match_device(busmon_match_table, &pdev->dev);
-
-	if (pdid == NULL)
-		return -ENXIO;
-
-	device = (struct kgsl_device *)pdid->data;
-	device->busmondev = &pdev->dev;
-	dev_set_drvdata(device->busmondev, device);
-
-	return 0;
-}
-
-static struct platform_driver kgsl_bus_platform_driver = {
-	.probe = adreno_busmon_probe,
-	.driver = {
-		.name = "kgsl-busmon",
-		.of_match_table = busmon_match_table,
-	}
-};
-
 static int __init kgsl_3d_init(void)
 {
 	int ret;
@@ -3787,17 +3768,9 @@ static int __init kgsl_3d_init(void)
 	if (ret)
 		return ret;
 
-	ret = platform_driver_register(&kgsl_bus_platform_driver);
-	if (ret) {
-		kgsl_core_exit();
-		return ret;
-	}
-
 	ret = platform_driver_register(&adreno_platform_driver);
-	if (ret) {
-		platform_driver_unregister(&kgsl_bus_platform_driver);
+	if (ret)
 		kgsl_core_exit();
-	}
 
 	return ret;
 }
@@ -3805,8 +3778,6 @@ static int __init kgsl_3d_init(void)
 static void __exit kgsl_3d_exit(void)
 {
 	platform_driver_unregister(&adreno_platform_driver);
-	platform_driver_unregister(&kgsl_bus_platform_driver);
-
 	kgsl_core_exit();
 }
 

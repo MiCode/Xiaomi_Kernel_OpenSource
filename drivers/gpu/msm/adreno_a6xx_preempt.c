@@ -210,10 +210,6 @@ void a6xx_preemption_trigger(struct adreno_device *adreno_dev)
 	unsigned long flags;
 	struct adreno_preemption *preempt = &adreno_dev->preempt;
 
-	cntl = (((preempt->preempt_level << 6) & 0xC0) |
-		((preempt->skipsaverestore << 9) & 0x200) |
-		((preempt->usesgmem << 8) & 0x100) | 0x1);
-
 	/* Put ourselves into a possible trigger state */
 	if (!adreno_move_preempt_state(adreno_dev,
 		ADRENO_PREEMPT_NONE, ADRENO_PREEMPT_START))
@@ -351,6 +347,16 @@ void a6xx_preemption_trigger(struct adreno_device *adreno_dev)
 	/* Start the timer to detect a stuck preemption */
 	mod_timer(&adreno_dev->preempt.timer,
 		jiffies + msecs_to_jiffies(ADRENO_PREEMPT_TIMEOUT));
+
+	cntl = (preempt->preempt_level << 6) | 0x01;
+
+	/* Skip save/restore during L1 preemption */
+	if (preempt->skipsaverestore)
+		cntl |= (1 << 9);
+
+	/* Enable GMEM save/restore across preemption */
+	if (preempt->usesgmem)
+		cntl |= (1 << 8);
 
 	trace_adreno_preempt_trigger(adreno_dev->cur_rb, adreno_dev->next_rb,
 		cntl);

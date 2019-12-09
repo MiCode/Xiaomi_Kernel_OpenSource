@@ -2205,6 +2205,10 @@ static void a6xx_platform_setup(struct adreno_device *adreno_dev)
 {
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 
+	adreno_dev->preempt.preempt_level = 1;
+	adreno_dev->preempt.skipsaverestore = true;
+	adreno_dev->preempt.usesgmem = true;
+
 	if (adreno_has_gbif(adreno_dev)) {
 		a6xx_perfcounter_groups[KGSL_PERFCOUNTER_GROUP_VBIF].regs =
 				a6xx_perfcounters_gbif;

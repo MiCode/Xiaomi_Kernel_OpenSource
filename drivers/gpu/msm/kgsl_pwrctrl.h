@@ -158,7 +158,6 @@ struct kgsl_pwrctrl {
 int kgsl_pwrctrl_init(struct kgsl_device *device);
 void kgsl_pwrctrl_close(struct kgsl_device *device);
 void kgsl_timer(struct timer_list *t);
-void kgsl_idle_check(struct work_struct *work);
 void kgsl_pre_hwaccess(struct kgsl_device *device);
 void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 	unsigned int level);
