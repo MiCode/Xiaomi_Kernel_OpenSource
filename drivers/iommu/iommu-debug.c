@@ -352,13 +352,6 @@ static int iommu_debug_dma_reconfigure(struct iommu_debug_device *ddev,
 
 	if (is_fast) {
 		iommu_domain_get_attr(domain, DOMAIN_ATTR_PGTBL_INFO, &info);
-		/*
-		 * Fix up the domain geometry, as the fastmap implementation
-		 * uses it for determining the IOVA space parameters. Allow
-		 * it to use the entire fastmap IOVA space [0, 4GB).
-		 */
-		domain->geometry.aperture_start = 0;
-		domain->geometry.aperture_end = SZ_4G - 1;
 		if (fast_smmu_init_mapping(dev, domain, info.ops)) {
 			dev_err_ratelimited(dev, "fastmap init failed\n");
 			goto out_detach_group;
