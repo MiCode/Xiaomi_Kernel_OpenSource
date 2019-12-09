@@ -5,6 +5,9 @@ menuconfig ARCH_QCOM
 	select ARM_GIC
 	select ARM_AMBA
 	select PINCTRL
+	select MFD_CORE
+	select SND_SOC_COMPRESS
+	select SND_HWDEP
 	select QCOM_SCM if SMP
 	help
 	  Support for Qualcomm's devicetree based systems.
