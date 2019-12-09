@@ -71,6 +71,8 @@
 #define IPA_CHANNEL_STOP_IN_PROC_TO_MSEC 5
 #define IPA_CHANNEL_STOP_IN_PROC_SLEEP_USEC 200
 #define IPA_MHIP_HOLB_TMO 31 /* value to match granularity on ipa HW 4.5 */
+#define IPA_MPM_FLOW_CTRL_ADD 1
+#define IPA_MPM_FLOW_CTRL_DELETE 0
 
 enum mhip_re_type {
 	MHIP_RE_XFER = 0x2,
@@ -393,6 +395,7 @@ struct ipa_mpm_context {
 	atomic_t probe_cnt;
 	atomic_t pcie_clk_total_cnt;
 	atomic_t ipa_clk_total_cnt;
+	atomic_t flow_ctrl_mask;
 	atomic_t adpl_over_usb_available;
 	struct device *parent_pdev;
 	struct ipa_smmu_cb_ctx carved_smmu_cb;
@@ -1719,6 +1722,8 @@ int ipa_mpm_notify_wan_state(struct wan_ioctl_notify_wan_state *state)
 	int ret = 0;
 	enum ipa_mpm_mhip_client_type mhip_client = IPA_MPM_MHIP_TETH;
 	bool is_acted = true;
+	const struct ipa_gsi_ep_config *ep_cfg;
+	uint32_t flow_ctrl_mask = 0;
 
 	if (!state)
 		return -EPERM;
@@ -1775,6 +1780,35 @@ int ipa_mpm_notify_wan_state(struct wan_ioctl_notify_wan_state *state)
 		}
 		IPA_MPM_DBG("MHIP remote channels are started\n");
 
+		 /*
+		  * Update flow control monitoring end point info.
+		  * This info will be used to set delay on the end points upon
+		  * hitting RED water mark.
+		  */
+		ep_cfg = ipa3_get_gsi_ep_info(IPA_CLIENT_WLAN2_PROD);
+
+		if (!ep_cfg)
+			IPA_MPM_ERR("ep = %d not allocated yet\n",
+					IPA_CLIENT_WLAN2_PROD);
+		else
+			flow_ctrl_mask |= 1 << (ep_cfg->ipa_gsi_chan_num);
+
+		ep_cfg = ipa3_get_gsi_ep_info(IPA_CLIENT_USB_PROD);
+
+		if (!ep_cfg)
+			IPA_MPM_ERR("ep = %d not allocated yet\n",
+					IPA_CLIENT_USB_PROD);
+		else
+			flow_ctrl_mask |= 1 << (ep_cfg->ipa_gsi_chan_num);
+
+		atomic_set(&ipa_mpm_ctx->flow_ctrl_mask, flow_ctrl_mask);
+
+		ret = ipa3_uc_send_update_flow_control(flow_ctrl_mask,
+						IPA_MPM_FLOW_CTRL_ADD);
+
+		if (ret)
+			IPA_MPM_ERR("Err = %d setting uc flow control\n", ret);
+
 		status = ipa_mpm_start_stop_mhip_chan(
 				IPA_MPM_MHIP_CHAN_UL, probe_id, MPM_MHIP_START);
 		switch (status) {
@@ -1812,6 +1846,23 @@ int ipa_mpm_notify_wan_state(struct wan_ioctl_notify_wan_state *state)
 		}
 		ipa_mpm_ctx->md[probe_id].mhip_client = mhip_client;
 	} else {
+		/*
+		 * Update flow control monitoring end point info.
+		 * This info will be used to reset delay on the end points.
+		 */
+		flow_ctrl_mask =
+			atomic_read(&ipa_mpm_ctx->flow_ctrl_mask);
+
+		ret = ipa3_uc_send_update_flow_control(flow_ctrl_mask,
+						IPA_MPM_FLOW_CTRL_DELETE);
+		flow_ctrl_mask = 0;
+		atomic_set(&ipa_mpm_ctx->flow_ctrl_mask, 0);
+
+		if (ret) {
+			IPA_MPM_ERR("Err = %d resetting uc flow control\n",
+					ret);
+			ipa_assert();
+		}
 		/*
 		 * Make sure to stop Device side channels before
 		 * stopping Host side UL channels. This is to make
@@ -1968,6 +2019,8 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 	u32 wp_addr;
 	int pipe_idx;
 	bool is_acted = true;
+	uint64_t flow_ctrl_mask = 0;
+	bool add_delete = false;
 
 	IPA_MPM_FUNC_ENTRY();
 
@@ -2348,6 +2401,27 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 	mutex_lock(&ipa_mpm_ctx->md[probe_id].mhi_mutex);
 	ipa_mpm_ctx->md[probe_id].init_complete = true;
 	mutex_unlock(&ipa_mpm_ctx->md[probe_id].mhi_mutex);
+	/* Update Flow control Monitoring, only for the teth UL Prod pipes */
+	if (probe_id == IPA_MPM_MHIP_CH_ID_0) {
+		ipa_ep_idx = ipa3_get_ep_mapping(ul_prod);
+		ep = &ipa3_ctx->ep[ipa_ep_idx];
+		ret = ipa3_uc_send_enable_flow_control(ep->gsi_chan_hdl,
+			IPA_MPM_RING_LEN / 4);
+		if (ret) {
+			IPA_MPM_ERR("Err %d flow control enable\n", ret);
+			goto fail_flow_control;
+		}
+		IPA_MPM_DBG("Flow Control enabled for %d", probe_id);
+		flow_ctrl_mask = atomic_read(&ipa_mpm_ctx->flow_ctrl_mask);
+		add_delete = flow_ctrl_mask > 0 ? 1 : 0;
+		ret = ipa3_uc_send_update_flow_control(flow_ctrl_mask,
+							add_delete);
+		if (ret) {
+			IPA_MPM_ERR("Err %d flow control update\n", ret);
+			goto fail_flow_control;
+		}
+		IPA_MPM_DBG("Flow Control updated for %d", probe_id);
+	}
 	IPA_MPM_FUNC_EXIT();
 	return 0;
 
@@ -2355,6 +2429,7 @@ fail_gsi_setup:
 fail_start_channel:
 fail_stop_channel:
 fail_smmu:
+fail_flow_control:
 	if (ipa_mpm_ctx->dev_info.ipa_smmu_enabled)
 		IPA_MPM_DBG("SMMU failed\n");
 	if (is_acted)
@@ -2423,6 +2498,9 @@ static void ipa_mpm_mhi_remove_cb(struct mhi_device *mhi_dev)
 	mutex_lock(&ipa_mpm_ctx->md[mhip_idx].mhi_mutex);
 	ipa_mpm_ctx->md[mhip_idx].init_complete = false;
 	mutex_unlock(&ipa_mpm_ctx->md[mhip_idx].mhi_mutex);
+
+	if (mhip_idx == IPA_MPM_MHIP_CH_ID_0)
+		ipa3_uc_send_disable_flow_control();
 
 	ipa_mpm_mhip_shutdown(mhip_idx);
 
@@ -2909,6 +2987,7 @@ static int ipa_mpm_probe(struct platform_device *pdev)
 
 	atomic_set(&ipa_mpm_ctx->ipa_clk_total_cnt, 0);
 	atomic_set(&ipa_mpm_ctx->pcie_clk_total_cnt, 0);
+	atomic_set(&ipa_mpm_ctx->flow_ctrl_mask, 0);
 
 	for (idx = 0; idx < IPA_MPM_MHIP_CH_ID_MAX; idx++) {
 		ipa_mpm_ctx->md[idx].ul_prod.gsi_state = GSI_INIT;
