@@ -321,6 +321,7 @@ static void ipa3_uc_save_dbg_stats(u32 size)
 		break;
 	default:
 		IPAERR("unknown protocols %d\n", prot_id);
+		goto unmap;
 	}
 	return;
 unmap:
