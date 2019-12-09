@@ -21,6 +21,7 @@
 #include "kgsl_debugfs.h"
 #include "kgsl_device.h"
 #include "kgsl_mmu.h"
+#include "kgsl_pool.h"
 #include "kgsl_sync.h"
 #include "kgsl_trace.h"
 

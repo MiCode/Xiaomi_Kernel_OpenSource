@@ -223,15 +223,14 @@ unsigned int adreno_get_rptr(struct adreno_ringbuffer *rb)
 static void __iomem *efuse_base;
 static size_t efuse_len;
 
-int adreno_efuse_map(struct adreno_device *adreno_dev)
+int adreno_efuse_map(struct platform_device *pdev)
 {
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct resource *res;
 
 	if (efuse_base != NULL)
 		return 0;
 
-	res = platform_get_resource_byname(device->pdev, IORESOURCE_MEM,
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 		"qfprom_memory");
 
 	if (res == NULL)
@@ -245,7 +244,7 @@ int adreno_efuse_map(struct adreno_device *adreno_dev)
 	return 0;
 }
 
-void adreno_efuse_unmap(struct adreno_device *adreno_dev)
+void adreno_efuse_unmap(void)
 {
 	if (efuse_base != NULL) {
 		iounmap(efuse_base);
@@ -254,8 +253,7 @@ void adreno_efuse_unmap(struct adreno_device *adreno_dev)
 	}
 }
 
-int adreno_efuse_read_u32(struct adreno_device *adreno_dev, unsigned int offset,
-		unsigned int *val)
+int adreno_efuse_read_u32(unsigned int offset, unsigned int *val)
 {
 	if (efuse_base == NULL)
 		return -ENODEV;
@@ -263,11 +261,9 @@ int adreno_efuse_read_u32(struct adreno_device *adreno_dev, unsigned int offset,
 	if (offset >= efuse_len)
 		return -ERANGE;
 
-	if (val != NULL) {
-		*val = readl_relaxed(efuse_base + offset);
-		/* Make sure memory is updated before returning */
-		rmb();
-	}
+	*val = readl_relaxed(efuse_base + offset);
+	/* Make sure memory is updated before returning */
+	rmb();
 
 	return 0;
 }
@@ -1256,27 +1252,28 @@ static void adreno_isense_probe(struct kgsl_device *device)
 
 static void adreno_efuse_read_soc_hw_rev(struct adreno_device *adreno_dev)
 {
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int val;
 	unsigned int soc_hw_rev[3];
 	int ret;
 
 	if (of_property_read_u32_array(
-		KGSL_DEVICE(adreno_dev)->pdev->dev.of_node,
+		device->pdev->dev.of_node,
 		"qcom,soc-hw-rev-efuse", soc_hw_rev, 3))
 		return;
 
-	ret = adreno_efuse_map(adreno_dev);
+	ret = adreno_efuse_map(device->pdev);
 	if (ret) {
-		dev_err(KGSL_DEVICE(adreno_dev)->dev,
+		dev_err(device->dev,
 			"Unable to map hardware revision fuse: ret=%d\n", ret);
 		return;
 	}
 
-	ret = adreno_efuse_read_u32(adreno_dev, soc_hw_rev[0], &val);
-	adreno_efuse_unmap(adreno_dev);
+	ret = adreno_efuse_read_u32(soc_hw_rev[0], &val);
+	adreno_efuse_unmap();
 
 	if (ret) {
-		dev_err(KGSL_DEVICE(adreno_dev)->dev,
+		dev_err(device->dev,
 			"Unable to read hardware revision fuse: ret=%d\n", ret);
 		return;
 	}
@@ -1298,11 +1295,11 @@ static bool adreno_is_gpu_disabled(struct adreno_device *adreno_dev)
 	 * Read the fuse value to disable GPU driver if fuse
 	 * is blown. By default(fuse value is 0) GPU is enabled.
 	 */
-	if (adreno_efuse_map(adreno_dev))
+	if (adreno_efuse_map(device->pdev))
 		return false;
 
-	ret = adreno_efuse_read_u32(adreno_dev, pte_row0_msb[0], &row0);
-	adreno_efuse_unmap(adreno_dev);
+	ret = adreno_efuse_read_u32(pte_row0_msb[0], &row0);
+	adreno_efuse_unmap();
 
 	if (ret)
 		return false;
@@ -1822,7 +1819,7 @@ static void _set_secvid(struct kgsl_device *device)
 	}
 }
 
-static int adreno_switch_to_unsecure_mode(struct adreno_device *adreno_dev,
+int adreno_switch_to_unsecure_mode(struct adreno_device *adreno_dev,
 				struct adreno_ringbuffer *rb)
 {
 	unsigned int *cmds;
@@ -1840,31 +1837,6 @@ static int adreno_switch_to_unsecure_mode(struct adreno_device *adreno_dev,
 	if (ret)
 		adreno_spin_idle_debug(adreno_dev,
 				"Switch to unsecure failed to idle\n");
-
-	return ret;
-}
-
-int adreno_set_unsecured_mode(struct adreno_device *adreno_dev,
-		struct adreno_ringbuffer *rb)
-{
-	int ret = 0;
-
-	if (!adreno_is_a5xx(adreno_dev) && !adreno_is_a6xx(adreno_dev))
-		return -EINVAL;
-
-	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CRITICAL_PACKETS) &&
-			adreno_is_a5xx(adreno_dev)) {
-		ret = a5xx_critical_packet_submit(adreno_dev, rb);
-		if (ret)
-			return ret;
-	}
-
-	/* GPU comes up in secured mode, make it unsecured by default */
-	if (adreno_dev->zap_loaded)
-		ret = adreno_switch_to_unsecure_mode(adreno_dev, rb);
-	else
-		adreno_writereg(adreno_dev,
-				ADRENO_REG_RBBM_SECVID_TRUST_CONTROL, 0x0);
 
 	return ret;
 }

@@ -816,8 +816,15 @@ static int a6xx_rb_start(struct adreno_device *adreno_dev)
 	if (ret)
 		return ret;
 
-	/* GPU comes up in secured mode, make it unsecured by default */
-	ret = adreno_set_unsecured_mode(adreno_dev, rb);
+	/*
+	 * Take the GPU out of secure mode. Try the zap shader if it is loaded,
+	 * otherwise just try to write directly to the secure control register
+	 */
+	if (!adreno_dev->zap_loaded)
+		kgsl_regwrite(device, A6XX_RBBM_SECVID_TRUST_CNTL, 0);
+	else
+		ret = adreno_switch_to_unsecure_mode(adreno_dev, rb);
+
 	if (ret)
 		return ret;
 
@@ -2168,7 +2175,7 @@ static void a6xx_efuse_speed_bin(struct adreno_device *adreno_dev)
 		"qcom,gpu-speed-bin", speed_bin, 3))
 		return;
 
-	adreno_efuse_read_u32(adreno_dev, speed_bin[0], &val);
+	adreno_efuse_read_u32(speed_bin[0], &val);
 
 	adreno_dev->speed_bin = (val & speed_bin[1]) >> speed_bin[2];
 }
@@ -2185,14 +2192,14 @@ static void a6xx_check_features(struct adreno_device *adreno_dev)
 {
 	unsigned int i;
 
-	if (adreno_efuse_map(adreno_dev))
+	if (adreno_efuse_map(KGSL_DEVICE(adreno_dev)->pdev))
 		return;
 	for (i = 0; i < ARRAY_SIZE(a6xx_efuse_funcs); i++) {
 		if (a6xx_efuse_funcs[i].check(adreno_dev))
 			a6xx_efuse_funcs[i].func(adreno_dev);
 	}
 
-	adreno_efuse_unmap(adreno_dev);
+	adreno_efuse_unmap();
 }
 static void a6xx_platform_setup(struct adreno_device *adreno_dev)
 {
@@ -2370,8 +2377,6 @@ static unsigned int a6xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 				A6XX_GMU_CM3_CFG),
 	ADRENO_REG_DEFINE(ADRENO_REG_GMU_RBBM_INT_UNMASKED_STATUS,
 				A6XX_GMU_RBBM_INT_UNMASKED_STATUS),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_SECVID_TRUST_CONTROL,
-				A6XX_RBBM_SECVID_TRUST_CNTL),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE,
 				A6XX_RBBM_SECVID_TSB_TRUSTED_BASE_LO),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE_HI,

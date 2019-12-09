@@ -663,8 +663,6 @@ enum adreno_regs {
 	ADRENO_REG_RBBM_PERFCTR_RBBM_0_HI,
 	ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_LO,
 	ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_HI,
-	ADRENO_REG_RBBM_SECVID_TRUST_CONTROL,
-	ADRENO_REG_RBBM_SECVID_TRUST_CONFIG,
 	ADRENO_REG_RBBM_SECVID_TSB_CONTROL,
 	ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE,
 	ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE_HI,
@@ -913,10 +911,17 @@ long adreno_ioctl_helper(struct kgsl_device_private *dev_priv,
 		unsigned int cmd, unsigned long arg,
 		const struct kgsl_ioctl *cmds, int len);
 
-int a5xx_critical_packet_submit(struct adreno_device *adreno_dev,
-		struct adreno_ringbuffer *rb);
-int adreno_set_unsecured_mode(struct adreno_device *adreno_dev,
-		struct adreno_ringbuffer *rb);
+/*
+ * adreno_switch_to_unsecure_mode - Execute a zap shader
+ * @adreno_dev: An Adreno GPU handle
+ * @rb: The ringbuffer to execute on
+ *
+ * Execute the zap shader from the CP to take the GPU out of secure mode.
+ * Return: 0 on success or negative on failure
+ */
+int adreno_switch_to_unsecure_mode(struct adreno_device *adreno_dev,
+				struct adreno_ringbuffer *rb);
+
 void adreno_spin_idle_debug(struct adreno_device *adreno_dev, const char *str);
 int adreno_spin_idle(struct adreno_device *device, unsigned int timeout);
 int adreno_idle(struct kgsl_device *device);
@@ -955,10 +960,9 @@ long adreno_ioctl_perfcounter_get(struct kgsl_device_private *dev_priv,
 long adreno_ioctl_perfcounter_put(struct kgsl_device_private *dev_priv,
 	unsigned int cmd, void *data);
 
-int adreno_efuse_map(struct adreno_device *adreno_dev);
-int adreno_efuse_read_u32(struct adreno_device *adreno_dev, unsigned int offset,
-		unsigned int *val);
-void adreno_efuse_unmap(struct adreno_device *adreno_dev);
+int adreno_efuse_map(struct platform_device *pdev);
+int adreno_efuse_read_u32(unsigned int offset, unsigned int *val);
+void adreno_efuse_unmap(void);
 
 bool adreno_is_cx_dbgc_register(struct kgsl_device *device,
 		unsigned int offset);
