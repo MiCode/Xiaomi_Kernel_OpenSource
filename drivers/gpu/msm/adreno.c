@@ -13,6 +13,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/nvmem-consumer.h>
 #include <linux/soc/qcom/llcc-qcom.h>
+#include <soc/qcom/subsystem_restart.h>
 
 #include "adreno.h"
 #include "adreno_a3xx.h"
@@ -122,6 +123,23 @@ int adreno_get_firmware(struct adreno_device *adreno_dev,
 
 	release_firmware(fw);
 	return ret;
+}
+
+
+int adreno_zap_shader_load(struct adreno_device *adreno_dev,
+		const char *name)
+{
+	void *ptr;
+
+	if (!name || adreno_dev->zap_loaded)
+		return 0;
+
+	ptr = subsystem_get(name);
+
+	if (!IS_ERR(ptr))
+		adreno_dev->zap_loaded = true;
+
+	return PTR_ERR_OR_ZERO(ptr);
 }
 
 void adreno_reglist_write(struct adreno_device *adreno_dev,

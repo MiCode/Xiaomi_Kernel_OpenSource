@@ -9,7 +9,6 @@
 #include <linux/of.h>
 #include <linux/qcom_scm.h>
 #include <linux/slab.h>
-#include <soc/qcom/subsystem_restart.h>
 
 #include "adreno.h"
 #include "adreno_a5xx.h"
@@ -1681,13 +1680,23 @@ static int a5xx_gpmu_init(struct adreno_device *adreno_dev)
 	return 0;
 }
 
+static int a5xx_zap_shader_resume(struct kgsl_device *device)
+{
+	int ret = qcom_scm_set_remote_state(0, 13);
+
+	if (ret)
+		dev_err(device->dev,
+			"SCM zap resume call failed: %d\n", ret);
+
+	return ret;
+}
+
 /*
  * a5xx_microcode_load() - Load microcode
  * @adreno_dev: Pointer to adreno device
  */
 static int a5xx_microcode_load(struct adreno_device *adreno_dev)
 {
-	void *ptr;
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_firmware *pm4_fw = ADRENO_FW(adreno_dev, ADRENO_FW_PM4);
 	struct adreno_firmware *pfp_fw = ADRENO_FW(adreno_dev, ADRENO_FW_PFP);
@@ -1713,32 +1722,11 @@ static int a5xx_microcode_load(struct adreno_device *adreno_dev)
 	if (!device->mmu.secured)
 		return 0;
 
-	/*
-	 * Resume call to write the zap shader base address into the
-	 * appropriate register,
-	 * skip if retention is supported for the CPZ register
-	 */
 	if (adreno_dev->zap_loaded && !(ADRENO_FEATURE(adreno_dev,
-		ADRENO_CPZ_RETENTION))) {
-		int ret = qcom_scm_set_remote_state(0, 13);
+		ADRENO_CPZ_RETENTION)))
+		return a5xx_zap_shader_resume(device);
 
-		if (ret)
-			dev_err(KGSL_DEVICE(adreno_dev)->dev,
-				"Unable to resume the zap shader: %d\n", ret);
-		return ret;
-	}
-
-	/* Load the zap shader firmware through PIL if its available */
-	if (a5xx_core->zap_name && !adreno_dev->zap_loaded) {
-		ptr = subsystem_get(a5xx_core->zap_name);
-
-		/* Return error if the zap shader cannot be loaded */
-		if (IS_ERR_OR_NULL(ptr))
-			return (ptr == NULL) ? -ENODEV : PTR_ERR(ptr);
-		adreno_dev->zap_loaded = 1;
-	}
-
-	return 0;
+	return adreno_zap_shader_load(adreno_dev, a5xx_core->zap_name);
 }
 
 static int _me_init_ucode_workarounds(struct adreno_device *adreno_dev)
@@ -3025,7 +3013,6 @@ struct adreno_gpudev adreno_a5xx_gpudev = {
 	.snapshot = a5xx_snapshot,
 	.irq = &a5xx_irq,
 	.irq_trace = trace_kgsl_a5xx_irq_status,
-	.num_prio_levels = KGSL_PRIORITY_MAX_RB_LEVELS,
 	.platform_setup = a5xx_platform_setup,
 	.init = a5xx_init,
 	.remove = a5xx_remove,
@@ -3045,7 +3032,6 @@ struct adreno_gpudev adreno_a5xx_gpudev = {
 	.preemption_post_ibsubmit =
 			a5xx_preemption_post_ibsubmit,
 	.preemption_init = a5xx_preemption_init,
-	.preemption_close = a5xx_preemption_close,
 	.preemption_schedule = a5xx_preemption_schedule,
 	.clk_set_options = a5xx_clk_set_options,
 	.read_alwayson = a5xx_read_alwayson,

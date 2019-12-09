@@ -293,10 +293,54 @@ static int _adreno_ringbuffer_probe(struct adreno_device *adreno_dev,
 	return PTR_ERR_OR_ZERO(rb->buffer_desc);
 }
 
+static void adreno_preemption_timer(struct timer_list *t)
+{
+	struct adreno_preemption *preempt = from_timer(preempt, t, timer);
+	struct adreno_device *adreno_dev = container_of(preempt,
+						struct adreno_device, preempt);
+
+	/* We should only be here from a triggered state */
+	if (!adreno_move_preempt_state(adreno_dev,
+		ADRENO_PREEMPT_TRIGGERED, ADRENO_PREEMPT_FAULTED))
+		return;
+
+	/* Schedule the worker to take care of the details */
+	queue_work(system_unbound_wq, &adreno_dev->preempt.work);
+}
+
+static void adreno_preemption_init(struct adreno_device *adreno_dev)
+{
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	struct adreno_preemption *preempt = &adreno_dev->preempt;
+	int ret;
+
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION))
+		return;
+
+	timer_setup(&preempt->timer, adreno_preemption_timer, 0);
+
+	ret = gpudev->preemption_init(adreno_dev);
+
+	WARN(ret, "adreno GPU preemption is disabled\n");
+}
+
+static void adreno_preemption_close(struct adreno_device *adreno_dev)
+{
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	struct adreno_preemption *preempt = &adreno_dev->preempt;
+
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION))
+		return;
+
+	del_timer(&preempt->timer);
+
+	if (gpudev->preemption_close)
+		gpudev->preemption_close(adreno_dev);
+}
+
 int adreno_ringbuffer_probe(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	int i;
 	int status = -ENOMEM;
 
@@ -315,37 +359,27 @@ int adreno_ringbuffer_probe(struct adreno_device *adreno_dev)
 	}
 
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION))
-		adreno_dev->num_ringbuffers = gpudev->num_prio_levels;
+		adreno_dev->num_ringbuffers =
+			ARRAY_SIZE(adreno_dev->ringbuffers);
 	else
 		adreno_dev->num_ringbuffers = 1;
 
 	for (i = 0; i < adreno_dev->num_ringbuffers; i++) {
 		status = _adreno_ringbuffer_probe(adreno_dev, i);
-		if (status != 0)
-			break;
+		if (status) {
+			adreno_ringbuffer_close(adreno_dev);
+			return status;
+		}
 	}
 
-	if (!status && ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION)) {
-		int r = 0;
+	adreno_preemption_init(adreno_dev);
 
-		if (gpudev->preemption_init)
-			r = gpudev->preemption_init(adreno_dev);
-
-		if (!WARN(r, "adreno: GPU preemption is disabled\n"))
-			set_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv);
-	}
-
-	if (status)
-		adreno_ringbuffer_close(adreno_dev);
-	else
-		adreno_dev->cur_rb = &(adreno_dev->ringbuffers[0]);
-
-	return status;
+	adreno_dev->cur_rb = &(adreno_dev->ringbuffers[0]);
+	return 0;
 }
 
 void adreno_ringbuffer_close(struct adreno_device *adreno_dev)
 {
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct adreno_ringbuffer *rb;
 	int i;
 
@@ -354,9 +388,7 @@ void adreno_ringbuffer_close(struct adreno_device *adreno_dev)
 		memset(rb, 0, sizeof(*rb));
 	}
 
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION))
-		if (gpudev->preemption_close)
-			gpudev->preemption_close(adreno_dev);
+	adreno_preemption_close(adreno_dev);
 }
 
 /*
