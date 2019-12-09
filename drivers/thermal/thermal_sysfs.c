@@ -64,6 +64,7 @@ mode_show(struct device *dev, struct device_attribute *attr, char *buf)
 		       : "disabled");
 }
 
+#ifdef CONFIG_QTI_THERMAL
 static int thermal_zone_device_clear(struct thermal_zone_device *tz)
 {
 	struct thermal_instance *pos;
@@ -85,6 +86,7 @@ static int thermal_zone_device_clear(struct thermal_zone_device *tz)
 
 	return ret;
 }
+#endif
 
 static ssize_t
 mode_store(struct device *dev, struct device_attribute *attr,
@@ -99,7 +101,11 @@ mode_store(struct device *dev, struct device_attribute *attr,
 	if (!strncmp(buf, "enabled", sizeof("enabled") - 1))
 		result = tz->ops->set_mode(tz, THERMAL_DEVICE_ENABLED);
 	else if (!strncmp(buf, "disabled", sizeof("disabled") - 1))
+#ifdef CONFIG_QTI_THERMAL
 		result = thermal_zone_device_clear(tz);
+#else
+		result = tz->ops->set_mode(tz, THERMAL_DEVICE_DISABLED);
+#endif
 	else
 		result = -EINVAL;
 
@@ -371,24 +377,6 @@ sustainable_power_store(struct device *dev, struct device_attribute *devattr,
 	return count;
 }
 
-static ssize_t
-polling_delay_show(struct device *dev, struct device_attribute *attr,
-		   char *buf)
-{
-	struct thermal_zone_device *tz = to_thermal_zone(dev);
-
-	return scnprintf(buf, PAGE_SIZE, "%d\n", tz->polling_delay);
-}
-
-static ssize_t
-passive_delay_show(struct device *dev, struct device_attribute *attr,
-		   char *buf)
-{
-	struct thermal_zone_device *tz = to_thermal_zone(dev);
-
-	return scnprintf(buf, PAGE_SIZE, "%d\n", tz->passive_delay);
-}
-
 #define create_s32_tzp_attr(name)					\
 	static ssize_t							\
 	name##_show(struct device *dev, struct device_attribute *devattr, \
@@ -440,8 +428,6 @@ static DEVICE_ATTR_RO(temp);
 static DEVICE_ATTR_RW(policy);
 static DEVICE_ATTR_RO(available_policies);
 static DEVICE_ATTR_RW(sustainable_power);
-static DEVICE_ATTR_RO(passive_delay);
-static DEVICE_ATTR_RO(polling_delay);
 
 /* These thermal zone device attributes are created based on conditions */
 static DEVICE_ATTR_RW(mode);
@@ -457,8 +443,6 @@ static struct attribute *thermal_zone_dev_attrs[] = {
 	&dev_attr_policy.attr,
 	&dev_attr_available_policies.attr,
 	&dev_attr_sustainable_power.attr,
-	&dev_attr_passive_delay.attr,
-	&dev_attr_polling_delay.attr,
 	&dev_attr_k_po.attr,
 	&dev_attr_k_pu.attr,
 	&dev_attr_k_i.attr,
@@ -743,18 +727,19 @@ static ssize_t cur_state_show(struct device *dev, struct device_attribute *attr,
 	return sprintf(buf, "%ld\n", state);
 }
 
+#ifdef CONFIG_QTI_THERMAL
 static ssize_t
 cur_state_store(struct device *dev, struct device_attribute *attr,
 		const char *buf, size_t count)
 {
 	struct thermal_cooling_device *cdev = to_cooling_device(dev);
-	unsigned long state;
+	long state;
 	struct thermal_instance *instance = NULL;
 
 	if (sscanf(buf, "%ld\n", &state) != 1)
 		return -EINVAL;
 
-	if ((long)state < 0)
+	if (state < 0)
 		return -EINVAL;
 
 	mutex_lock(&cdev->lock);
@@ -768,6 +753,31 @@ cur_state_store(struct device *dev, struct device_attribute *attr,
 
 	return count;
 }
+#else
+static ssize_t
+cur_state_store(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	struct thermal_cooling_device *cdev = to_cooling_device(dev);
+	long state;
+	int result;
+
+	if (sscanf(buf, "%ld\n", &state) != 1)
+		return -EINVAL;
+
+	if ((long)state < 0)
+		return -EINVAL;
+
+	mutex_lock(&cdev->lock);
+
+	result = cdev->ops->set_cur_state(cdev, state);
+	if (!result)
+		thermal_cooling_device_stats_update(cdev, state);
+
+	mutex_unlock(&cdev->lock);
+	return result ? result : count;
+}
+#endif
 
 static struct device_attribute
 dev_attr_cdev_type = __ATTR(type, 0444, cdev_type_show, NULL);
@@ -817,8 +827,10 @@ void thermal_cooling_device_stats_update(struct thermal_cooling_device *cdev,
 {
 	struct cooling_dev_stats *stats = cdev->stats;
 
+#ifdef CONFIG_QTI_THERMAL
 	if (!stats)
 		return;
+#endif
 
 	spin_lock(&stats->lock);
 
@@ -841,8 +853,10 @@ static ssize_t total_trans_show(struct device *dev,
 	struct cooling_dev_stats *stats = cdev->stats;
 	int ret;
 
+#ifdef CONFIG_QTI_THERMAL
 	if (!stats)
 		return -ENODEV;
+#endif
 
 	spin_lock(&stats->lock);
 	ret = sprintf(buf, "%u\n", stats->total_trans);
@@ -860,8 +874,10 @@ time_in_state_ms_show(struct device *dev, struct device_attribute *attr,
 	ssize_t len = 0;
 	int i;
 
+#ifdef CONFIG_QTI_THERMAL
 	if (!stats)
 		return -ENODEV;
+#endif
 
 	spin_lock(&stats->lock);
 	update_time_in_state(stats);
@@ -881,12 +897,17 @@ reset_store(struct device *dev, struct device_attribute *attr, const char *buf,
 {
 	struct thermal_cooling_device *cdev = to_cooling_device(dev);
 	struct cooling_dev_stats *stats = cdev->stats;
+#ifdef CONFIG_QTI_THERMAL
 	int i, states;
 
 	if (!stats)
 		return -ENODEV;
 
 	states = stats->max_states;
+#else
+	int i, states = stats->max_states;
+
+#endif
 	spin_lock(&stats->lock);
 
 	stats->total_trans = 0;
@@ -910,8 +931,10 @@ static ssize_t trans_table_show(struct device *dev,
 	ssize_t len = 0;
 	int i, j;
 
+#ifdef CONFIG_QTI_THERMAL
 	if (!stats)
 		return -ENODEV;
+#endif
 
 	len += snprintf(buf + len, PAGE_SIZE - len, " From  :    To\n");
 	len += snprintf(buf + len, PAGE_SIZE - len, "       : ");

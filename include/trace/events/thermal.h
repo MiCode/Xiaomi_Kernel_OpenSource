@@ -21,29 +21,6 @@ TRACE_DEFINE_ENUM(THERMAL_TRIP_ACTIVE);
 			 { THERMAL_TRIP_PASSIVE,  "PASSIVE"},	\
 			 { THERMAL_TRIP_ACTIVE,   "ACTIVE"})
 
-TRACE_EVENT(thermal_query_temp,
-
-	TP_PROTO(struct thermal_zone_device *tz, int temp),
-
-	TP_ARGS(tz, temp),
-
-	TP_STRUCT__entry(
-		__string(thermal_zone, tz->type)
-		__field(int, id)
-		__field(int, temp)
-	),
-
-	TP_fast_assign(
-		__assign_str(thermal_zone, tz->type);
-		__entry->id = tz->id;
-		__entry->temp = temp;
-	),
-
-	TP_printk("thermal_zone=%s id=%d temp=%d",
-		__get_str(thermal_zone), __entry->id,
-		__entry->temp)
-);
-
 TRACE_EVENT(thermal_temperature,
 
 	TP_PROTO(struct thermal_zone_device *tz),
@@ -88,6 +65,7 @@ TRACE_EVENT(cdev_update,
 	TP_printk("type=%s target=%lu", __get_str(type), __entry->target)
 );
 
+#ifdef CONFIG_QTI_THERMAL
 TRACE_EVENT(thermal_zone_trip,
 
 	TP_PROTO(struct thermal_zone_device *tz, int trip,
@@ -116,6 +94,29 @@ TRACE_EVENT(thermal_zone_trip,
 		(__entry->is_trip) ? "trip" : "hyst",
 		__entry->trip,
 		show_tzt_type(__entry->trip_type))
+);
+
+TRACE_EVENT(thermal_query_temp,
+
+	TP_PROTO(struct thermal_zone_device *tz, int temp),
+
+	TP_ARGS(tz, temp),
+
+	TP_STRUCT__entry(
+		__string(thermal_zone, tz->type)
+		__field(int, id)
+		__field(int, temp)
+	),
+
+	TP_fast_assign(
+		__assign_str(thermal_zone, tz->type);
+		__entry->id = tz->id;
+		__entry->temp = temp;
+	),
+
+	TP_printk("thermal_zone=%s id=%d temp=%d",
+		__get_str(thermal_zone), __entry->id,
+		__entry->temp)
 );
 
 TRACE_EVENT(thermal_handle_trip,
@@ -186,6 +187,33 @@ TRACE_EVENT(thermal_set_trip,
 		__get_str(thermal_zone), __entry->id, __entry->low,
 		__entry->high)
 );
+#else
+TRACE_EVENT(thermal_zone_trip,
+
+	TP_PROTO(struct thermal_zone_device *tz, int trip,
+		enum thermal_trip_type trip_type),
+
+	TP_ARGS(tz, trip, trip_type),
+
+	TP_STRUCT__entry(
+		__string(thermal_zone, tz->type)
+		__field(int, id)
+		__field(int, trip)
+		__field(enum thermal_trip_type, trip_type)
+	),
+
+	TP_fast_assign(
+		__assign_str(thermal_zone, tz->type);
+		__entry->id = tz->id;
+		__entry->trip = trip;
+		__entry->trip_type = trip_type;
+	),
+
+	TP_printk("thermal_zone=%s id=%d trip=%d trip_type=%s",
+		__get_str(thermal_zone), __entry->id, __entry->trip,
+		show_tzt_type(__entry->trip_type))
+);
+#endif
 
 #ifdef CONFIG_CPU_THERMAL
 TRACE_EVENT(thermal_power_cpu_get_power,
