@@ -1404,6 +1404,9 @@ static int adreno_probe(struct platform_device *pdev)
 
 	device->pwrctrl.bus_width = adreno_dev->gpucore->bus_width;
 
+	device->mmu.secured = (IS_ENABLED(CONFIG_QCOM_SECURE_BUFFER) &&
+		ADRENO_FEATURE(adreno_dev, ADRENO_CONTENT_PROTECTION));
+
 	status = kgsl_device_platform_probe(device);
 	if (status) {
 		device->pdev = NULL;
@@ -1419,18 +1422,6 @@ static int adreno_probe(struct platform_device *pdev)
 	adreno_rscc_probe(device);
 
 	adreno_isense_probe(device);
-	/*
-	 * qcom,iommu-secure-id is used to identify MMUs that can handle secure
-	 * content but that is only part of the story - the GPU also has to be
-	 * able to handle secure content.  Unfortunately in a classic catch-22
-	 * we cannot identify the GPU until after the DT is parsed. tl;dr -
-	 * check the GPU capabilities here and modify mmu->secured accordingly
-	 */
-
-#if IS_ENABLED(CONFIG_QCOM_SECURE_BUFFER)
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_CONTENT_PROTECTION))
-		device->mmu.secured = false;
-#endif
 
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_IOCOHERENT))
 		device->mmu.features |= KGSL_MMU_IO_COHERENT;

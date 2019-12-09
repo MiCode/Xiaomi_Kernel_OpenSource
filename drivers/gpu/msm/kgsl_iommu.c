@@ -135,7 +135,7 @@ static void _detach_pt(struct kgsl_iommu_pt *iommu_pt,
 			  struct kgsl_iommu_context *ctx)
 {
 	if (iommu_pt->attached) {
-		iommu_detach_device(iommu_pt->domain, ctx->dev);
+		iommu_detach_device(iommu_pt->domain, &ctx->pdev->dev);
 		iommu_pt->attached = false;
 	}
 }
@@ -148,7 +148,7 @@ static int _attach_pt(struct kgsl_iommu_pt *iommu_pt,
 	if (iommu_pt->attached)
 		return 0;
 
-	ret = iommu_attach_device(iommu_pt->domain, ctx->dev);
+	ret = iommu_attach_device(iommu_pt->domain, &ctx->pdev->dev);
 
 	if (ret == 0)
 		iommu_pt->attached = true;
@@ -935,7 +935,7 @@ static int _init_global_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
 	struct kgsl_iommu_context *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
 
-	iommu_pt = _alloc_pt(ctx->dev, mmu, pt);
+	iommu_pt = _alloc_pt(&ctx->pdev->dev, mmu, pt);
 
 	if (IS_ERR(iommu_pt))
 		return PTR_ERR(iommu_pt);
@@ -1016,7 +1016,7 @@ static int _init_secure_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 	if (!mmu->secured)
 		return -EPERM;
 
-	iommu_pt = _alloc_pt(ctx->dev, mmu, pt);
+	iommu_pt = _alloc_pt(&ctx->pdev->dev, mmu, pt);
 
 	if (IS_ERR(iommu_pt))
 		return PTR_ERR(iommu_pt);
@@ -1058,7 +1058,7 @@ static int _init_per_process_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 	int dynamic = 1;
 	unsigned int cb_num = ctx->cb_num;
 
-	iommu_pt = _alloc_pt(ctx->dev, mmu, pt);
+	iommu_pt = _alloc_pt(&ctx->pdev->dev, mmu, pt);
 
 	if (IS_ERR(iommu_pt))
 		return PTR_ERR(iommu_pt);
@@ -1165,6 +1165,9 @@ static void _detach_context(struct kgsl_iommu_context *ctx)
 	_detach_pt(iommu_pt, ctx);
 
 	ctx->default_pt = NULL;
+	platform_device_put(ctx->pdev);
+
+	ctx->pdev = NULL;
 }
 
 static void kgsl_iommu_close(struct kgsl_mmu *mmu)
@@ -1196,6 +1199,9 @@ static void kgsl_iommu_close(struct kgsl_mmu *mmu)
 		__free_page(kgsl_dummy_page);
 		kgsl_dummy_page = NULL;
 	}
+
+	of_platform_depopulate(&iommu->pdev->dev);
+	platform_device_put(iommu->pdev);
 }
 
 static int kgsl_iommu_init(struct kgsl_mmu *mmu)
@@ -1332,7 +1338,7 @@ static int _setup_secure_context(struct kgsl_mmu *mmu)
 
 	struct kgsl_iommu_pt *iommu_pt;
 
-	if (ctx->dev == NULL || !mmu->secured)
+	if (!ctx->pdev || !mmu->secured)
 		return 0;
 
 	if (mmu->securepagetable == NULL)
@@ -2229,65 +2235,37 @@ static bool kgsl_iommu_addr_in_range(struct kgsl_pagetable *pagetable,
 	return false;
 }
 
-static const struct {
-	int id;
-	char *name;
-} kgsl_iommu_cbs[] = {
-	{ KGSL_IOMMU_CONTEXT_USER, "gfx3d_user", },
-	{ KGSL_IOMMU_CONTEXT_SECURE, "gfx3d_secure" },
-	{ KGSL_IOMMU_CONTEXT_SECURE, "gfx3d_secure_alt" },
-};
-
-static int _kgsl_iommu_cb_probe(struct kgsl_device *device,
-		struct kgsl_iommu *iommu, struct device_node *node)
+static int kgsl_iommu_probe_child(struct kgsl_device *device,
+		struct device_node *parent, int id, const char *name)
 {
-	struct platform_device *pdev = of_find_device_by_node(node);
-	struct kgsl_iommu_context *ctx = NULL;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	int i;
+	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
+	struct device_node *node = of_find_node_by_name(parent, name);
+	struct platform_device *pdev;
+	struct device_node *phandle;
 
-	for (i = 0; i < ARRAY_SIZE(kgsl_iommu_cbs); i++) {
-		if (!strcmp(node->name, kgsl_iommu_cbs[i].name)) {
-			int id = kgsl_iommu_cbs[i].id;
+	if (!node)
+		return -ENOENT;
 
-			if (ADRENO_QUIRK(adreno_dev,
-				ADRENO_QUIRK_MMU_SECURE_CB_ALT)) {
-				if (!strcmp(node->name, "gfx3d_secure"))
-					continue;
-			} else if (!strcmp(node->name, "gfx3d_secure_alt"))
-				continue;
+	pdev = of_find_device_by_node(node);
 
-			ctx = &iommu->ctx[id];
-			ctx->id = id;
-			ctx->cb_num = -1;
-			ctx->name = kgsl_iommu_cbs[i].name;
+	iommu->ctx[id].id = id;
+	iommu->ctx[id].cb_num = -1;
+	iommu->ctx[id].name = name;
 
-			break;
-		}
-	}
+	iommu->ctx[id].kgsldev = device;
 
-	if (ctx == NULL) {
-		dev_info(device->dev,
-			"dt: Unused context label %s\n", node->name);
-		return 0;
-	}
+	iommu->ctx[id].pdev = pdev;
 
-	if (ctx->id == KGSL_IOMMU_CONTEXT_SECURE)
-		device->mmu.secured = true;
+	phandle = of_parse_phandle(node, "iommus", 0);
 
-	ctx->kgsldev = device;
+	if (phandle && of_device_is_compatible(phandle, "qcom,qsmmu-v500"))
+		device->mmu.subtype = KGSL_IOMMU_SMMU_V500;
 
-	/* arm-smmu driver we'll have the right device pointer here. */
-	if (of_find_property(node, "iommus", NULL)) {
-		ctx->dev = &pdev->dev;
-	} else {
-		ctx->dev = kgsl_mmu_get_ctx(ctx->name);
+	of_node_put(phandle);
 
-		if (IS_ERR(ctx->dev))
-			return PTR_ERR(ctx->dev);
-	}
+	of_dma_configure(&pdev->dev, node, true);
 
-	of_dma_configure(ctx->dev, node, true);
+	of_node_put(node);
 	return 0;
 }
 
@@ -2305,12 +2283,14 @@ static int _kgsl_iommu_probe(struct kgsl_device *device,
 	const char *cname;
 	struct property *prop;
 	u32 reg_val[2];
-	int i = 0;
+	int i = 0, ret;
 	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
-	struct device_node *child, *iommu_node = NULL;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct platform_device *pdev = of_find_device_by_node(node);
 
 	memset(iommu, 0, sizeof(*iommu));
+
+	iommu->pdev = pdev;
 
 	if (of_property_read_u32_array(node, "reg", reg_val, 2)) {
 		dev_err(device->dev,
@@ -2326,10 +2306,12 @@ static int _kgsl_iommu_probe(struct kgsl_device *device,
 		if (IS_ERR(c)) {
 			dev_err(device->dev,
 				"dt: Couldn't get clock: %s\n", cname);
+			platform_device_put(pdev);
 			return -ENODEV;
 		}
 		if (i >= KGSL_IOMMU_MAX_CLKS) {
 			dev_err(device->dev, "dt: too many clocks defined.\n");
+			platform_device_put(pdev);
 			return -EINVAL;
 		}
 
@@ -2345,25 +2327,28 @@ static int _kgsl_iommu_probe(struct kgsl_device *device,
 	/* Fill out the rest of the devices in the node */
 	of_platform_populate(node, NULL, NULL, &pdev->dev);
 
-	for_each_child_of_node(node, child) {
-		int ret;
+	/* The "user" device always needs to be present */
+	ret = kgsl_iommu_probe_child(device, node, KGSL_IOMMU_CONTEXT_USER,
+		"gfx3d_user");
 
-		if (!of_device_is_compatible(child, "qcom,smmu-kgsl-cb"))
-			continue;
+	if (!ret && device->mmu.secured) {
+		const char *name = "gfx3d_secure";
 
-		ret = _kgsl_iommu_cb_probe(device, iommu, child);
-		if (ret)
-			return ret;
+		if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_MMU_SECURE_CB_ALT))
+			name = "gfx3d_secure_alt";
 
-		if (!iommu_node)
-			iommu_node = of_parse_phandle(child, "iommus", 0);
+		/* Secure context bank devices are optional */
+		if (kgsl_iommu_probe_child(device, node,
+			KGSL_IOMMU_CONTEXT_SECURE, name))
+			device->mmu.secured = false;
 	}
 
-	if (iommu_node &&
-		of_device_is_compatible(iommu_node, "qcom,qsmmu-v500"))
-		device->mmu.subtype = KGSL_IOMMU_SMMU_V500;
+	if (ret) {
+		of_platform_depopulate(&pdev->dev);
+		platform_device_put(pdev);
+	}
 
-	return 0;
+	return ret;
 }
 
 static const struct {

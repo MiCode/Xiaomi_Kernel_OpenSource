@@ -344,9 +344,4 @@ kgsl_mmu_pagetable_get_contextidr(struct kgsl_pagetable *pagetable)
  */
 u64 kgsl_mmu_get_global_base(struct kgsl_device *device);
 
-static inline struct device *kgsl_mmu_get_ctx(const char *name)
-{
-	return ERR_PTR(-ENODEV);
-}
-
 #endif /* __KGSL_MMU_H */
