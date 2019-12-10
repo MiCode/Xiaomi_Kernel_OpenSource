@@ -1140,6 +1140,7 @@ struct wil6210_priv {
 	void *ipa_handle;
 
 	u32 tx_reserved_entries; /* Used only in Talyn code-path */
+	s32 cqm_rssi_thold;
 };
 
 #define wil_to_wiphy(i) (i->wiphy)
@@ -1572,4 +1573,6 @@ void update_supported_bands(struct wil6210_priv *wil);
 int wmi_reset_spi_slave(struct wil6210_priv *wil);
 
 void wil_clear_fw_log_addr(struct wil6210_priv *wil);
+int wmi_set_cqm_rssi_config(struct wil6210_priv *wil,
+			    s32 rssi_thold, u32 rssi_hyst);
 #endif /* __WIL6210_H__ */
