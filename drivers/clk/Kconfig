@@ -23,6 +23,15 @@ config COMMON_CLK
 menu "Common Clock Framework"
 	depends on COMMON_CLK
 
+config COMMON_CLK_QCOM_DEBUG
+	bool "QCOM clock debug features"
+	depends on DEBUG_FS && QGKI
+	help
+	  Support for QCOM debug features. These features include
+	  modifications to existing debugfs nodes to make them writable (e.g.
+	  clk_enable_count, clk_rate), as well as new debugfs nodes (e.g.
+	  clk_enabled_list, debug_suspend, trace_clocks).
+
 config COMMON_CLK_WM831X
 	tristate "Clock driver for WM831x/2x PMICs"
 	depends on MFD_WM831X

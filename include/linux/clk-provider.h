@@ -208,6 +208,10 @@ struct clk_duty {
  *		requirements that were needed while the clock and its tree
  *		was changing states. Returns 0 on success, -EERROR otherwise.
  *
+ * @list_rate_vdd_level: Queries the required voltage level for the given rate.
+ *		The return value may not represent an exact voltage and instead
+ *		may be an abstract index or voltage "corner".
+ *
  * The clk_enable/clk_disable and clk_prepare/clk_unprepare pairs allow
  * implementations to split any work between atomic (enable) and sleepable
  * (prepare) contexts.  If enabling a clock requires code that might sleep,
@@ -259,6 +263,10 @@ struct clk_ops {
 	int		(*post_rate_change)(struct clk_hw *hw,
 					    unsigned long old_rate,
 					    unsigned long rate);
+#ifdef CONFIG_COMMON_CLK_QCOM_DEBUG
+	int		(*list_rate_vdd_level)(struct clk_hw *hw,
+					       unsigned int rate);
+#endif
 };
 
 /**

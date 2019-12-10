@@ -386,3 +386,177 @@ int map_debug_bases(struct platform_device *pdev, const char *base,
 	return 0;
 }
 EXPORT_SYMBOL(map_debug_bases);
+
+static void clock_print_rate_max_by_level(struct clk_hw *hw,
+					  struct seq_file *s, int level)
+{
+	struct clk_regmap *rclk = to_clk_regmap(hw);
+	struct clk_vdd_class_data *vdd_data = &rclk->vdd_data;
+	struct clk_vdd_class *vdd_class = vdd_data->vdd_class;
+	int off, i, vdd_level, nregs = vdd_class->num_regulators;
+	unsigned long rate;
+
+	rate = clk_get_rate(hw->clk);
+	vdd_level = clk_find_vdd_level(hw, vdd_data, rate);
+
+	seq_printf(s, "%2s%10lu", vdd_level == level ? "[" : "",
+		vdd_data->rate_max[level]);
+
+	for (i = 0; i < nregs; i++) {
+		off = nregs*level + i;
+		if (vdd_class->vdd_uv)
+			seq_printf(s, "%10u", vdd_class->vdd_uv[off]);
+	}
+
+	if (vdd_level == level)
+		seq_puts(s, "]");
+
+	seq_puts(s, "\n");
+}
+
+static int rate_max_show(struct seq_file *s, void *unused)
+{
+	struct clk_hw *hw = s->private;
+	struct clk_regmap *rclk = to_clk_regmap(hw);
+	struct clk_vdd_class_data *vdd_data = &rclk->vdd_data;
+	struct clk_vdd_class *vdd_class = vdd_data->vdd_class;
+	int level = 0, i, nregs = vdd_class->num_regulators, vdd_level;
+	char reg_name[10];
+	unsigned long rate;
+
+	rate = clk_get_rate(hw->clk);
+	vdd_level = clk_find_vdd_level(hw, vdd_data, rate);
+
+	if (vdd_level < 0) {
+		seq_printf(s, "could not find_vdd_level for %s, %ld\n",
+			clk_hw_get_name(hw),  rate);
+		return 0;
+	}
+
+	seq_printf(s, "%12s", "");
+	for (i = 0; i < nregs; i++) {
+		snprintf(reg_name, ARRAY_SIZE(reg_name), "reg %d", i);
+		seq_printf(s, "%10s", reg_name);
+	}
+
+	seq_printf(s, "\n%12s", "freq");
+	for (i = 0; i < nregs; i++)
+		seq_printf(s, "%10s", "uV");
+
+	seq_puts(s, "\n");
+
+	for (level = 0; level < vdd_data->num_rate_max; level++)
+		clock_print_rate_max_by_level(hw, s, level);
+
+	return 0;
+}
+
+static int rate_max_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, rate_max_show, inode->i_private);
+}
+
+static const struct file_operations rate_max_fops = {
+	.open		= rate_max_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= seq_release,
+};
+
+static int list_rates_show(struct seq_file *s, void *unused)
+{
+	struct clk_hw *hw = s->private;
+	struct clk_regmap *rclk = to_clk_regmap(hw);
+	struct clk_vdd_class_data *vdd_data = &rclk->vdd_data;
+	struct clk_vdd_class *vdd_class = vdd_data->vdd_class;
+	int i = 0, level;
+	unsigned long rate, rate_max = 0;
+
+	/* Find max frequency supported within voltage constraints. */
+	if (!vdd_class) {
+		rate_max = ULONG_MAX;
+	} else {
+		for (level = 0; level < vdd_data->num_rate_max; level++)
+			if (vdd_data->rate_max[level])
+				rate_max = vdd_data->rate_max[level];
+	}
+
+	/*
+	 * List supported frequencies <= rate_max. Higher frequencies may
+	 * appear in the frequency table, but are not valid and should not
+	 * be listed.
+	 */
+	while (!IS_ERR_VALUE(rate = rclk->ops->list_rate(hw, i++, rate_max))) {
+		if (rate <= 0)
+			break;
+		seq_printf(s, "%lu\n", rate);
+	}
+
+	return 0;
+}
+
+static int list_rates_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, list_rates_show, inode->i_private);
+}
+
+static const struct file_operations list_rates_fops = {
+	.open		= list_rates_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= seq_release,
+};
+
+static void clk_debug_print_hw(struct clk_hw *hw, struct seq_file *f)
+{
+	struct clk_regmap *rclk = to_clk_regmap(hw);
+
+	if (IS_ERR_OR_NULL(hw))
+		return;
+
+	clk_debug_print_hw(clk_hw_get_parent(hw), f);
+
+	seq_printf(f, "%s\n", clk_hw_get_name(hw));
+
+	if (rclk->ops && rclk->ops->list_registers)
+		rclk->ops->list_registers(f, hw);
+}
+
+static int print_hw_show(struct seq_file *m, void *unused)
+{
+	struct clk_hw *hw = m->private;
+
+	clk_debug_print_hw(hw, m);
+
+	return 0;
+}
+
+static int print_hw_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, print_hw_show, inode->i_private);
+}
+
+static const struct file_operations clock_print_hw_fops = {
+	.open		= print_hw_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= seq_release,
+};
+
+void clk_common_debug_init(struct clk_hw *hw, struct dentry *dentry)
+{
+	struct clk_regmap *rclk = to_clk_regmap(hw);
+
+	if (rclk->vdd_data.vdd_class)
+		debugfs_create_file("clk_rate_max", 0444, dentry, hw,
+				    &rate_max_fops);
+
+	if (rclk->ops && rclk->ops->list_rate)
+		debugfs_create_file("clk_list_rates", 0444, dentry, hw,
+				    &list_rates_fops);
+
+	debugfs_create_file("clk_print_regs", 0444, dentry, hw,
+			    &clock_print_hw_fops);
+
+};
+

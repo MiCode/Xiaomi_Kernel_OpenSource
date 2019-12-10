@@ -6,6 +6,7 @@
 #include <linux/regulator/consumer.h>
 
 #include "vdd-class.h"
+#include "clk-regmap.h"
 
 /*
  * Aggregate the vdd_class level votes and call regulator framework functions
@@ -169,3 +170,15 @@ int clk_find_vdd_level(struct clk_hw *hw,
 	return level;
 }
 EXPORT_SYMBOL(clk_find_vdd_level);
+
+int clk_list_rate_vdd_level(struct clk_hw *hw, unsigned int rate)
+{
+	struct clk_regmap *rclk = to_clk_regmap(hw);
+	struct clk_vdd_class_data *vdd_data = &rclk->vdd_data;
+
+	if (!vdd_data->vdd_class)
+		return 0;
+
+	return clk_find_vdd_level(hw, vdd_data, rate);
+}
+

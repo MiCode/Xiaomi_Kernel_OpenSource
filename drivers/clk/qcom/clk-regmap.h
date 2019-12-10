@@ -5,9 +5,27 @@
 #define __QCOM_CLK_REGMAP_H__
 
 #include <linux/clk-provider.h>
+#include <linux/debugfs.h>
 #include "vdd-class.h"
 
 struct regmap;
+
+/**
+ * struct clk_regmap_ops - Operations for clk_regmap.
+ *
+ * @list_registers: Queries the hardware to get the current register contents.
+ *		    This callback is optional.
+ *
+ * @list_rate:  On success, return the nth supported frequency for a given
+ *		clock that is below rate_max. Return -ENXIO in case there is
+ *		no frequency table.
+ */
+struct clk_regmap_ops {
+	void	(*list_registers)(struct seq_file *f,
+				  struct clk_hw *hw);
+	long	(*list_rate)(struct clk_hw *hw, unsigned int n,
+			     unsigned long rate_max);
+};
 
 /**
  * struct clk_regmap - regmap supporting clock
@@ -19,7 +37,9 @@ struct regmap;
  * @enable_is_inverted: flag to indicate set enable_mask bits to disable
  *                      when using clock_enable_regmap and friends APIs.
  * @vdd_data:	struct containing vdd-class data for this clock
+ * @ops: operations this clk_regmap supports
  */
+
 struct clk_regmap {
 	struct clk_hw hw;
 	struct clk_hw *dependent_hw;
@@ -28,6 +48,7 @@ struct clk_regmap {
 	unsigned int enable_mask;
 	bool enable_is_inverted;
 	struct clk_vdd_class_data vdd_data;
+	struct clk_regmap_ops *ops;
 };
 #define to_clk_regmap(_hw) container_of(_hw, struct clk_regmap, hw)
 
@@ -41,5 +62,10 @@ int clk_pre_change_regmap(struct clk_hw *hw, unsigned long cur_rate,
 int clk_post_change_regmap(struct clk_hw *hw, unsigned long old_rate,
 			unsigned long cur_rate);
 int devm_clk_register_regmap(struct device *dev, struct clk_regmap *rclk);
+
+struct clk_register_data {
+	char *name;
+	u32 offset;
+};
 
 #endif

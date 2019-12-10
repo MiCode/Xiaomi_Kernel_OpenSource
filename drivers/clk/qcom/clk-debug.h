@@ -90,4 +90,6 @@ void clk_debug_measure_add(struct clk_hw *hw, struct dentry *dentry);
 int map_debug_bases(struct platform_device *pdev, const char *base,
 		    struct clk_debug_mux *mux);
 
+void clk_common_debug_init(struct clk_hw *hw, struct dentry *dentry);
+
 #endif
