@@ -1031,7 +1031,6 @@ static const struct qcom_cc_desc npu_qdsp6ss_pll_lito_desc = {
 
 static const struct of_device_id npu_cc_lito_match_table[] = {
 	{ .compatible = "qcom,lito-npucc" },
-	{ .compatible = "qcom,lito-npucc-v2" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, npu_cc_lito_match_table);
