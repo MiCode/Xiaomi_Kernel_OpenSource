@@ -34,3 +34,26 @@
 		};
 	};
 };
+
+&sdhc_2 {
+	/delete-property/ qcom,devfreq,freq-table;
+	/delete-property/ cd-gpios;
+
+	qcom,clk-rates = <400000 20000000 25000000
+				50000000 100000000>;
+	/* VDD is an external regulator eLDO5 */
+	vdd-io-supply = <&pms405_l6>;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	post-power-on-delay-ms = <100>;
+
+	qcom,core_3_0v_support;
+	qcom,nonremovable;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc2_clk_on  &sdc2_cmd_on &sdc2_data_on
+		&sdc2_wlan_on4>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off
+		&sdc2_wlan_off4>;
+
+	status = "ok";
+};
