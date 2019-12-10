@@ -30,5 +30,11 @@
 				token = <0x20000000>;
 			};
 		};
+
+		qcom,ion-heap@13 { /* SPSS HEAP */
+			reg = <ION_SPSS_HEAP_ID>;
+			memory-region = <&sp_mem>;
+			qcom,ion-heap-type = "HYP_CMA";
+		};
 	};
 };
