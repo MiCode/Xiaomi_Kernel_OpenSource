@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -224,7 +224,7 @@ static unsigned long mon_read_count_single(struct msmcci_hwmon *m, int idx)
 	return count;
 }
 
-static int count_to_mrps(unsigned long count, unsigned int us)
+static int count_to_mrps(uint64_t count, unsigned int us)
 {
 	do_div(count, us);
 	count++;
