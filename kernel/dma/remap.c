@@ -186,7 +186,8 @@ static int __init dma_atomic_pool_init(void)
 }
 postcore_initcall(dma_atomic_pool_init);
 
-bool __dma_in_atomic_pool(struct gen_pool *pool, void *start, size_t size)
+static bool __dma_in_atomic_pool(struct gen_pool *pool, void *start,
+				 size_t size)
 {
 	if (unlikely(!pool))
 		return false;
