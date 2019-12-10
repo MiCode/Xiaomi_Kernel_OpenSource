@@ -328,6 +328,9 @@ static struct msm_soc_info cpu_of_id[] = {
 	/* Lagoon ID */
 	[434] = {MSM_CPU_LAGOON, "LAGOON"},
 
+	/* Scuba ID */
+	[441] = {MSM_CPU_SCUBA, "SCUBA"},
+
 	/* Uninitialized IDs are not known to run Linux.
 	 * MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
 	 * considered as unknown CPU.
@@ -1202,6 +1205,10 @@ static void * __init setup_dummy_socinfo(void)
 	} else if (early_machine_is_lagoon()) {
 		dummy_socinfo.id = 434;
 		strlcpy(dummy_socinfo.build_id, "lagoon - ",
+		sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_scuba()) {
+		dummy_socinfo.id = 441;
+		strlcpy(dummy_socinfo.build_id, "scuba - ",
 		sizeof(dummy_socinfo.build_id));
 	} else if (early_machine_is_sdmshrike()) {
 		dummy_socinfo.id = 340;
