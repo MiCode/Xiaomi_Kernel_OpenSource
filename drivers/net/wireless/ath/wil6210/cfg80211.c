@@ -150,13 +150,28 @@ enum wil_nl_60g_evt_type {
 	NL_60G_EVT_FW_WMI,
 	NL_60G_EVT_DRIVER_SHUTOWN,
 	NL_60G_EVT_DRIVER_DEBUG_EVENT,
+	NL_60G_EVT_DRIVER_GENERIC,
 };
+
+enum wil_nl_60g_generic_evt {
+	NL_60G_GEN_EVT_FW_STATE,
+};
+
+struct wil_nl_60g_generic_event { /* NL_60G_EVT_DRIVER_GENERIC */
+	u32 evt_id; /* wil_nl_60g_generic_evt */
+} __packed;
+
+struct wil_nl_60g_fw_state_event {
+	struct wil_nl_60g_generic_event hdr;
+	u32 fw_state; /* wil_fw_state */
+} __packed;
 
 enum wil_nl_60g_debug_cmd {
 	NL_60G_DBG_FORCE_WMI_SEND,
 	NL_60G_GEN_RADAR_ALLOC_BUFFER,
 	NL_60G_GEN_FW_RESET,
 	NL_60G_GEN_GET_DRIVER_CAPA,
+	NL_60G_GEN_GET_FW_STATE,
 };
 
 struct wil_nl_60g_send_receive_wmi {
@@ -3716,6 +3731,62 @@ static int wil_brp_set_ant_limit(struct wiphy *wiphy, struct wireless_dev *wdev,
 					 antenna_num_limit);
 }
 
+static void wil_nl_60g_fw_state_evt(struct wil6210_priv *wil)
+{
+	struct sk_buff *vendor_event = NULL;
+	struct wil_nl_60g_event *evt;
+	struct wil_nl_60g_fw_state_event *fw_state_event;
+
+	if (!wil->publish_nl_evt)
+		return;
+
+	wil_dbg_misc(wil, "report fw_state event to user-space (%d)\n",
+		     wil->fw_state);
+
+	evt = kzalloc(sizeof(*evt) + sizeof(*fw_state_event), GFP_KERNEL);
+	if (!evt)
+		return;
+
+	evt->evt_type = NL_60G_EVT_DRIVER_GENERIC;
+	evt->buf_len = sizeof(*fw_state_event);
+
+	fw_state_event = (struct wil_nl_60g_fw_state_event *)evt->buf;
+	fw_state_event->hdr.evt_id = NL_60G_GEN_EVT_FW_STATE;
+	fw_state_event->fw_state = wil->fw_state;
+
+	vendor_event = cfg80211_vendor_event_alloc(wil_to_wiphy(wil),
+						   NULL,
+						   4 + NLMSG_HDRLEN +
+						   sizeof(*evt) +
+						   sizeof(*fw_state_event),
+						   QCA_EVENT_UNSPEC_INDEX,
+						   GFP_KERNEL);
+	if (!vendor_event) {
+		wil_err(wil, "failed to allocate vendor_event\n");
+		goto out;
+	}
+
+	if (nla_put(vendor_event, WIL_ATTR_60G_BUF,
+		    sizeof(*evt) + sizeof(*fw_state_event), evt)) {
+		wil_err(wil, "failed to fill WIL_ATTR_60G_BUF\n");
+		kfree_skb(vendor_event);
+		goto out;
+	}
+
+	cfg80211_vendor_event(vendor_event, GFP_KERNEL);
+
+out:
+	kfree(evt);
+}
+
+void wil_nl_60g_fw_state_change(struct wil6210_priv *wil,
+				enum wil_fw_state fw_state)
+{
+	wil_dbg_misc(wil, "fw_state change:%d => %d", wil->fw_state, fw_state);
+	wil->fw_state = fw_state;
+	wil_nl_60g_fw_state_evt(wil);
+}
+
 static int wil_nl_60g_handle_cmd(struct wiphy *wiphy, struct wireless_dev *wdev,
 				 const void *data, int data_len)
 {
@@ -3757,6 +3828,7 @@ static int wil_nl_60g_handle_cmd(struct wiphy *wiphy, struct wireless_dev *wdev,
 
 		wil_dbg_wmi(wil, "Publish wmi event %s\n",
 			    publish ? "enabled" : "disabled");
+		wil_nl_60g_fw_state_evt(wil);
 		break;
 	case NL_60G_CMD_DEBUG:
 		if (!tb[WIL_ATTR_60G_BUF]) {
