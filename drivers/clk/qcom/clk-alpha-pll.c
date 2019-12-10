@@ -134,7 +134,16 @@ const u8 clk_alpha_pll_regs[][PLL_OFF_MAX_REGS] = {
 		[PLL_OFF_OPMODE] = 0x28,
 		[PLL_OFF_STATUS] = 0x38,
 	},
-
+	[CLK_ALPHA_PLL_TYPE_AGERA] =  {
+		[PLL_OFF_L_VAL] = 0x04,
+		[PLL_OFF_ALPHA_VAL] = 0x08,
+		[PLL_OFF_USER_CTL] = 0x0c,
+		[PLL_OFF_CONFIG_CTL] = 0x10,
+		[PLL_OFF_CONFIG_CTL_U] = 0x14,
+		[PLL_OFF_TEST_CTL] = 0x18,
+		[PLL_OFF_TEST_CTL_U] = 0x1c,
+		[PLL_OFF_STATUS] = 0x2c,
+	},
 };
 EXPORT_SYMBOL_GPL(clk_alpha_pll_regs);
 
@@ -2145,3 +2154,162 @@ const struct clk_ops clk_alpha_pll_postdiv_lucid_ops = {
 	.bus_vote = clk_debug_bus_vote,
 };
 EXPORT_SYMBOL_GPL(clk_alpha_pll_postdiv_lucid_ops);
+
+int clk_agera_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
+				const struct alpha_pll_config *config)
+{
+	u32 val, mask;
+
+	if (!config) {
+		pr_err("PLL configuration missing.\n");
+		return -EINVAL;
+	}
+
+	if (config->l)
+		regmap_write(regmap, PLL_L_VAL(pll), config->l);
+
+	if (config->alpha)
+		regmap_write(regmap, PLL_ALPHA_VAL(pll), config->alpha);
+
+	if (config->post_div_mask) {
+		mask = config->post_div_mask;
+		val = config->post_div_val;
+		regmap_update_bits(regmap, PLL_USER_CTL(pll), mask, val);
+	}
+
+	if (config->main_output_mask || config->aux_output_mask ||
+		config->aux2_output_mask || config->early_output_mask) {
+
+		val = config->main_output_mask;
+		val |= config->aux_output_mask;
+		val |= config->aux2_output_mask;
+		val |= config->early_output_mask;
+
+		mask = config->main_output_mask;
+		mask |= config->aux_output_mask;
+		mask |= config->aux2_output_mask;
+		mask |= config->early_output_mask;
+
+		regmap_update_bits(regmap, PLL_USER_CTL(pll), mask, val);
+	}
+
+	if (config->config_ctl_val)
+		regmap_write(regmap, PLL_CONFIG_CTL(pll),
+					config->config_ctl_val);
+
+	if (config->config_ctl_hi_val)
+		regmap_write(regmap, PLL_CONFIG_CTL_U(pll),
+					config->config_ctl_hi_val);
+
+	if (config->test_ctl_val)
+		regmap_write(regmap, PLL_TEST_CTL(pll), config->test_ctl_val);
+
+	if (config->test_ctl_hi_val)
+		regmap_write(regmap, PLL_TEST_CTL_U(pll),
+					config->test_ctl_hi_val);
+
+	return 0;
+}
+
+static unsigned long
+clk_agera_pll_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
+{
+	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
+	u32 l, a, alpha_width = pll_alpha_width(pll);
+	u64 prate = parent_rate;
+
+	regmap_read(pll->clkr.regmap, PLL_L_VAL(pll), &l);
+	regmap_read(pll->clkr.regmap, PLL_ALPHA_VAL(pll), &a);
+
+	return alpha_pll_calc_rate(prate, l, a, alpha_width);
+}
+
+static int clk_agera_pll_set_rate(struct clk_hw *hw, unsigned long rate,
+				  unsigned long prate)
+{
+	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
+	unsigned long rrate;
+	int ret;
+	u32 l, alpha_width = pll_alpha_width(pll);
+	u64 a;
+
+	rrate = alpha_pll_round_rate(rate, prate, &l, &a, alpha_width);
+	/*
+	 * Due to limited number of bits for fractional rate programming, the
+	 * rounded up rate could be marginally higher than the requested rate.
+	 */
+	if (rrate > (rate + PLL_OUT_RATE_MARGIN) || rrate < rate) {
+		pr_err("Call set rate on the PLL with rounded rates!\n");
+		return -EINVAL;
+	}
+
+	/* change L_VAL without having to go through the power on sequence */
+	regmap_write(pll->clkr.regmap, PLL_L_VAL(pll), l);
+	regmap_write(pll->clkr.regmap, PLL_ALPHA_VAL(pll), a);
+
+	/* Ensure that the write above goes through before proceeding. */
+	mb();
+
+	if (clk_hw_is_enabled(hw)) {
+		ret = wait_for_pll_enable_lock(pll);
+		if (ret) {
+			pr_err("Failed to lock after L_VAL update\n");
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
+static void clk_agera_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
+{
+	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
+	int size, i, val;
+
+	static struct clk_register_data data[] = {
+		{"PLL_MODE", PLL_OFF_MODE},
+		{"PLL_L_VAL", PLL_OFF_L_VAL},
+		{"PLL_ALPHA_VAL", PLL_OFF_ALPHA_VAL},
+		{"PLL_USER_CTL", PLL_OFF_USER_CTL},
+		{"PLL_CONFIG_CTL", PLL_OFF_CONFIG_CTL},
+		{"PLL_CONFIG_CTL_U", PLL_OFF_CONFIG_CTL_U},
+		{"PLL_TEST_CTL", PLL_OFF_TEST_CTL},
+		{"PLL_TEST_CTL_U", PLL_OFF_TEST_CTL_U},
+		{"PLL_STATUS", PLL_OFF_STATUS},
+	};
+
+	static struct clk_register_data data1 = {
+		"APSS_PLL_VOTE", 0x0
+	};
+
+	size = ARRAY_SIZE(data);
+
+	for (i = 0; i < size; i++) {
+		regmap_read(pll->clkr.regmap, pll->offset +
+					pll->regs[data[i].offset], &val);
+		clock_debug_output(f, false,
+				"%20s: 0x%.8x\n", data[i].name, val);
+	}
+
+	regmap_read(pll->clkr.regmap, pll->offset +
+					pll->regs[data[0].offset], &val);
+
+	if (val & PLL_FSM_ENA) {
+		regmap_read(pll->clkr.regmap, pll->clkr.enable_reg +
+					data1.offset, &val);
+		clock_debug_output(f, false,
+				"%20s: 0x%.8x\n", data1.name, val);
+	}
+}
+
+const struct clk_ops clk_alpha_pll_agera_ops = {
+	.enable = clk_alpha_pll_enable,
+	.disable = clk_alpha_pll_disable,
+	.is_enabled = clk_alpha_pll_is_enabled,
+	.recalc_rate = clk_agera_pll_recalc_rate,
+	.round_rate = clk_alpha_pll_round_rate,
+	.set_rate = clk_agera_pll_set_rate,
+	.list_registers = clk_agera_pll_list_registers,
+	.bus_vote = clk_debug_bus_vote,
+};
+EXPORT_SYMBOL(clk_alpha_pll_agera_ops);
