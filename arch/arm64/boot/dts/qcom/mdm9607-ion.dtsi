@@ -32,6 +32,7 @@
 			reg = <27>;
 			memory-region = <&qseecom_mem>;
 			qcom,ion-heap-type = "DMA";
+			status = "disabled";
 		};
 	};
 };
