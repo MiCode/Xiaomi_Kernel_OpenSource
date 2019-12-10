@@ -392,6 +392,8 @@
 		startup-delay-us = <250>;
 		enable-active-high;
 		gpio = <&pm8019_gpios 4 0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&sdcard_vreg_default>;
 	};
 
 	/* Rome 3.3V supply */
@@ -401,6 +403,8 @@
 		startup-delay-us = <4000>;
 		enable-active-high;
 		gpio = <&pm8019_gpios 3 0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&rome_vreg_default>;
 	};
 
 	emac_lan_vreg: emac_lan_vreg {
@@ -409,5 +413,7 @@
 		startup-delay-us = <250>;
 		enable-active-high;
 		gpio = <&pm8019_mpps 4 0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&emac_vreg_default>;
 	};
 };

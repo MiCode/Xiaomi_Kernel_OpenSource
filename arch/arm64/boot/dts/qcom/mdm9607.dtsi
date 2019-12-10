@@ -677,6 +677,8 @@
 		qcom,hsusb-otg-mode = <3>; /* OTG mode */
 		qcom,hsusb-otg-otg-control = <2>; /* PMIC control */
 		qcom,usbid-gpio = <&pm8019_mpps 1 0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&usb_id_default>;
 		qcom,hsusb-log2-itc = <4>;
 		qcom,dp-manual-pullup;
 		qcom,boost-sysclk-with-streaming;
@@ -1858,10 +1860,11 @@
 
 /* MPP pin 1 config for USB ID interrupt line */
 &pm8019_mpps {
-	mpp@a000 {
+	usb_id_default: usb_id_default {
 		pins = "mpp1";
 		function = "digital";
 		input-enable;
+		power-source = <3>;
 	};
 };
 
