@@ -954,7 +954,8 @@ static int clk_trion_pll_enable(struct clk_hw *hw)
 			pr_err("Failed to configure %s\n", clk_hw_get_name(hw));
 			return ret;
 		}
-		pr_warn("PLL configuration lost, reconfiguration of PLL done.\n");
+		pr_warn("%s: PLL configuration lost, reconfiguration of PLL done.\n",
+				clk_hw_get_name(hw));
 	}
 
 	/* Set operation mode to RUN */
@@ -1069,9 +1070,33 @@ static int clk_trion_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 {
 	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
 	unsigned long rrate;
-	u32 regval, l, off = pll->offset;
+	u32 regval, l, off = pll->offset, cal_val;
 	u64 a;
 	int ret;
+
+	ret = regmap_read(pll->clkr.regmap, pll->offset + PLL_L_VAL, &l);
+	if (ret)
+		return ret;
+
+	ret = regmap_read(pll->clkr.regmap, pll->offset + TRION_PLL_CAL_L_VAL,
+				&cal_val);
+	if (ret)
+		return ret;
+
+	/* PLL has lost it's L or CAL value, needs reconfiguration */
+	if (!l || !cal_val)
+		pll->inited = false;
+
+	if (unlikely(!pll->inited)) {
+		ret = clk_trion_pll_configure(pll, pll->clkr.regmap,
+						pll->config);
+		if (ret) {
+			pr_err("Failed to configure %s\n", clk_hw_get_name(hw));
+			return ret;
+		}
+		pr_warn("%s: PLL configuration lost, reconfiguration of PLL done.\n",
+				clk_hw_get_name(hw));
+	}
 
 	rrate = alpha_pll_round_rate(pll, rate, prate, &l, &a);
 	/*
@@ -1246,7 +1271,8 @@ static int clk_regera_pll_enable(struct clk_hw *hw)
 			pr_err("Failed to configure %s\n", clk_hw_get_name(hw));
 			return ret;
 		}
-		pr_warn("PLL configuration lost, reconfiguration of PLL done.\n");
+		pr_warn("%s: PLL configuration lost, reconfiguration of PLL done.\n",
+				clk_hw_get_name(hw));
 	}
 
 	/* Get the PLL out of bypass mode */
@@ -1337,6 +1363,25 @@ static int clk_regera_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	u32 l, regval, off = pll->offset;
 	u64 a;
 	int ret;
+
+	ret = regmap_read(pll->clkr.regmap, off + PLL_L_VAL, &l);
+	if (ret)
+		return ret;
+
+	/* PLL has lost it's L value, needs reconfiguration */
+	if (!l)
+		pll->inited = false;
+
+	if (unlikely(!pll->inited)) {
+		ret = clk_regera_pll_configure(pll, pll->clkr.regmap,
+						pll->config);
+		if (ret) {
+			pr_err("Failed to configure %s\n", clk_hw_get_name(hw));
+			return ret;
+		}
+		pr_warn("%s: PLL configuration lost, reconfiguration of PLL done.\n",
+				clk_hw_get_name(hw));
+	}
 
 	rrate = alpha_pll_round_rate(pll, rate, prate, &l, &a);
 	/*
