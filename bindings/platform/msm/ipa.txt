@@ -24,6 +24,7 @@ IPA node:
 
 Optional:
 
+- qcom,tx-napi: Enable usage of NAPI in the TX data path.
 - qcom,lan-rx-napi: Enable NAPI in the LAN RX data path.
 - qcom,wan-rx-ring-size: size of WAN rx ring, default is 192
 - qcom,lan-rx-ring-size: size of LAN rx ring, default is 192
