@@ -324,9 +324,13 @@ static struct msm_soc_info cpu_of_id[] = {
 
 	/* Bengal ID */
 	[417] = {MSM_CPU_BENGAL, "BENGAL"},
+	[444] = {MSM_CPU_BENGAL, "BENGAL"},
 
 	/* Lagoon ID */
 	[434] = {MSM_CPU_LAGOON, "LAGOON"},
+
+	/* Bengalp ID */
+	[445] = {MSM_CPU_BENGALP, "BENGALP"},
 
 	/* Scuba ID */
 	[441] = {MSM_CPU_SCUBA, "SCUBA"},
@@ -1201,6 +1205,10 @@ static void * __init setup_dummy_socinfo(void)
 	} else if (early_machine_is_bengal()) {
 		dummy_socinfo.id = 417;
 		strlcpy(dummy_socinfo.build_id, "bengal - ",
+		sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_bengalp()) {
+		dummy_socinfo.id = 445;
+		strlcpy(dummy_socinfo.build_id, "bengalp - ",
 		sizeof(dummy_socinfo.build_id));
 	} else if (early_machine_is_lagoon()) {
 		dummy_socinfo.id = 434;
