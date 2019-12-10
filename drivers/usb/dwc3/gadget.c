@@ -2031,7 +2031,6 @@ static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 		 * device controller.
 		 */
 		dwc3_stop_active_transfers(dwc);
-		dwc3_notify_event(dwc, DWC3_GSI_EVT_BUF_CLEAR, 0);
 
 		reg &= ~DWC3_DCTL_RUN_STOP;
 
@@ -2041,13 +2040,24 @@ static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 
 	dwc3_writel(dwc->regs, DWC3_DCTL, reg);
 
+	/* Controller is not halted until the events are acknowledged */
+	if (!is_on) {
+		/*
+		 * Clear out any pending events (i.e. End Transfer Command
+		 * Complete).
+		 */
+		reg1 = dwc3_readl(dwc->regs, DWC3_GEVNTCOUNT(0));
+		reg1 &= DWC3_GEVNTCOUNT_MASK;
+		dbg_log_string("remaining EVNTCOUNT(0)=%d", reg1);
+		dwc3_writel(dwc->regs, DWC3_GEVNTCOUNT(0), reg1);
+		dwc3_notify_event(dwc, DWC3_GSI_EVT_BUF_CLEAR, 0);
+		dwc3_notify_event(dwc, DWC3_CONTROLLER_NOTIFY_CLEAR_DB, 0);
+	}
+
 	do {
 		reg = dwc3_readl(dwc->regs, DWC3_DSTS);
 		reg &= DWC3_DSTS_DEVCTRLHLT;
 	} while (--timeout && !(!is_on ^ !reg));
-
-	if (!is_on)
-		dwc3_notify_event(dwc, DWC3_CONTROLLER_NOTIFY_CLEAR_DB, 0);
 
 	if (!timeout) {
 		dev_err(dwc->dev, "failed to %s controller\n",
