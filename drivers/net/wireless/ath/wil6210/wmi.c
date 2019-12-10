@@ -483,6 +483,8 @@ static const char *cmdid2name(u16 cmdid)
 		return "WMI_RBUFCAP_CFG_CMD";
 	case WMI_TEMP_SENSE_ALL_CMDID:
 		return "WMI_TEMP_SENSE_ALL_CMDID";
+	case WMI_FST_CONFIG_CMDID:
+		return "WMI_FST_CONFIG_CMD";
 	case WMI_SET_LINK_MONITOR_CMDID:
 		return "WMI_SET_LINK_MONITOR_CMD";
 	default:
@@ -637,6 +639,8 @@ static const char *eventid2name(u16 eventid)
 		return "WMI_RBUFCAP_CFG_EVENT";
 	case WMI_TEMP_SENSE_ALL_DONE_EVENTID:
 		return "WMI_TEMP_SENSE_ALL_DONE_EVENTID";
+	case WMI_FST_CONFIG_EVENTID:
+		return "WMI_FST_CONFIG_EVENT";
 	case WMI_SET_LINK_MONITOR_EVENTID:
 		return "WMI_SET_LINK_MONITOR_EVENT";
 	case WMI_LINK_MONITOR_EVENTID:
@@ -4421,6 +4425,44 @@ int wmi_set_cqm_rssi_config(struct wil6210_priv *wil,
 
 	if (reply.evt.status != WMI_FW_STATUS_SUCCESS) {
 		wil_err(wil, "WMI_SET_LINK_MONITOR_CMDID failed, status %d\n",
+			reply.evt.status);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+int wmi_set_fst_config(struct wil6210_priv *wil, const u8 *bssid, u8 enabled,
+		       u8 entry_mcs, u8 exit_mcs, u8 slevel)
+{
+	struct net_device *ndev = wil->main_ndev;
+	struct wil6210_vif *vif = ndev_to_vif(ndev);
+	int rc;
+	struct wmi_fst_config_cmd cmd = {
+		.fst_en = enabled,
+		.fst_entry_mcs = entry_mcs,
+		.fst_exit_mcs = exit_mcs,
+		.sensitivity_level = slevel,
+	};
+	struct {
+		struct wmi_cmd_hdr hdr;
+		struct wmi_fst_config_event evt;
+	} __packed reply = {
+		.evt = {.status = WMI_FW_STATUS_FAILURE},
+	};
+
+	ether_addr_copy(cmd.fst_ap_bssid, bssid);
+
+	rc = wmi_call(wil, WMI_FST_CONFIG_CMDID, vif->mid, &cmd,
+		      sizeof(cmd), WMI_FST_CONFIG_EVENTID,
+		      &reply, sizeof(reply), WIL_WMI_CALL_GENERAL_TO_MS);
+	if (rc) {
+		wil_err(wil, "WMI_FST_CONFIG_CMDID failed, rc %d\n", rc);
+		return rc;
+	}
+
+	if (reply.evt.status != WMI_FW_STATUS_SUCCESS) {
+		wil_err(wil, "WMI_FST_CONFIG_CMDID failed, status %d\n",
 			reply.evt.status);
 		return -EINVAL;
 	}
