@@ -197,6 +197,8 @@ static const char *ipa_pm_group_to_str[IPA_PM_GROUP_MAX] = {
 	__stringify(IPA_PM_GROUP_MODEM),
 };
 
+static int dummy_hdl_1, dummy_hdl_2, tput_modem, tput_apps;
+
 /**
  * pop_max_from_array() -pop the max and move the last element to where the
  * max was popped
@@ -1379,7 +1381,7 @@ int ipa_pm_stat(char *buf, int size)
  * ipa_pm_exceptions_stat() - print PM exceptions stat
  * @buf: [in] The user buff used to print
  * @size: [in] The size of buf
- * Returns: number of bytes used on success, negative on failure
+ * Returns: 0 on success, negative on failure
  *
  * This function is called by ipa_debugfs in order to receive
  * a full picture of the exceptions in the PM
@@ -1421,4 +1423,145 @@ int ipa_pm_exceptions_stat(char *buf, int size)
 	mutex_unlock(&ipa_pm_ctx->client_mutex);
 
 	return cnt;
+}
+
+/**
+ * ipa_pm_add_dummy_clients() - add 2 dummy clients for modem and apps
+ * @power_plan: [in] The power plan for the dummy clients
+ * 0 = SVS (lowest plan), 1 = SVS2, ... etc
+ *
+ * Returns: 0 on success, negative on failure
+ */
+int ipa_pm_add_dummy_clients(s8 power_plan)
+{
+	int rc = 0;
+	int tput;
+	int hdl_1, hdl_2;
+
+	struct ipa_pm_register_params dummy1_params = {
+		.name = "DummyModem",
+		.group = IPA_PM_GROUP_MODEM,
+		.skip_clk_vote = 0,
+		.callback = NULL,
+		.user_data = NULL
+	};
+
+	struct ipa_pm_register_params dummy2_params = {
+		.name = "DummyApps",
+		.group = IPA_PM_GROUP_APPS,
+		.skip_clk_vote = 0,
+		.callback = NULL,
+		.user_data = NULL
+	};
+
+	if (power_plan < 0 ||
+		(power_plan - 1) >= ipa_pm_ctx->clk_scaling.threshold_size) {
+		pr_err("Invalid power plan(%d)\n", power_plan);
+		return -EFAULT;
+	}
+
+	/* 0 is SVS case which is not part of the threshold */
+	if (power_plan == 0)
+		tput = 0;
+	else
+		tput = ipa_pm_ctx->clk_scaling.current_threshold[power_plan-1];
+
+	/*
+	 * register with local handles to prevent overwriting global handles
+	 * in the case of a failure
+	 */
+	rc = ipa_pm_register(&dummy1_params, &hdl_1);
+	if (rc) {
+		pr_err("fail to register client 1 rc = %d\n", rc);
+		return -EFAULT;
+	}
+
+	rc = ipa_pm_register(&dummy2_params, &hdl_2);
+	if (rc) {
+		pr_err("fail to register client 2 rc = %d\n", rc);
+		return -EFAULT;
+	}
+
+	/* replace global handles */
+	dummy_hdl_1 = hdl_1;
+	dummy_hdl_2 = hdl_2;
+
+	/* save the old throughputs for removal */
+	tput_modem = ipa_pm_ctx->group_tput[IPA_PM_GROUP_MODEM];
+	tput_apps = ipa_pm_ctx->group_tput[IPA_PM_GROUP_APPS];
+
+	rc = ipa_pm_set_throughput(dummy_hdl_1, tput);
+	if (rc) {
+		IPAERR("fail to set tput for client 1 rc = %d\n", rc);
+		return -EFAULT;
+	}
+
+	rc = ipa_pm_set_throughput(dummy_hdl_2, tput);
+	if (rc) {
+		IPAERR("fail to set tput for client 2 rc = %d\n", rc);
+		return -EFAULT;
+	}
+
+	rc = ipa_pm_activate_sync(dummy_hdl_1);
+	if (rc) {
+		IPAERR("fail to activate sync for client 1 rc = %d\n", rc);
+		return -EFAULT;
+	}
+
+	rc = ipa_pm_activate_sync(dummy_hdl_2);
+	if (rc) {
+		IPAERR("fail to activate sync for client 2 rc = %d\n", rc);
+		return -EFAULT;
+	}
+
+	return rc;
+}
+
+/**
+ * ipa_pm_remove_dummy_clients() - remove the 2 dummy clients for modem and apps
+ *
+ * Returns: 0 on success, negative on failure
+ */
+int ipa_pm_remove_dummy_clients(void)
+{
+	int rc = 0;
+
+	rc = ipa_pm_deactivate_sync(dummy_hdl_1);
+	if (rc) {
+		IPAERR("fail to deactivate client 1 rc = %d\n", rc);
+		return -EFAULT;
+	}
+
+	rc = ipa_pm_deactivate_sync(dummy_hdl_2);
+	if (rc) {
+		IPAERR("fail to deactivate client 2 rc = %d\n", rc);
+		return -EFAULT;
+	}
+
+	/* reset the modem and apps tputs back to old values */
+	rc = ipa_pm_set_throughput(dummy_hdl_1, tput_modem);
+	if (rc) {
+		IPAERR("fail to reset tput for client 1 rc = %d\n", rc);
+		return -EFAULT;
+	}
+
+	rc = ipa_pm_set_throughput(dummy_hdl_2, tput_apps);
+	if (rc) {
+		IPAERR("fail to reset tput for client 2 rc = %d\n", rc);
+		return -EFAULT;
+	}
+
+	rc = ipa_pm_deregister(dummy_hdl_1);
+	if (rc) {
+		IPAERR("fail to deregister client 1 rc = %d\n", rc);
+		return -EFAULT;
+	}
+
+	rc = ipa_pm_deregister(dummy_hdl_2);
+	if (rc) {
+		IPAERR("fail to deregister client 2 rc = %d\n", rc);
+		return -EFAULT;
+	}
+
+	return rc;
 }
