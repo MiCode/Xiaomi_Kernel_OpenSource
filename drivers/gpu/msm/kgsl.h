@@ -10,12 +10,12 @@
 #include <linux/interrupt.h>
 #include <linux/kthread.h>
 #include <linux/mm.h>
+#include <linux/msm_kgsl.h>
 #include <linux/uaccess.h>
 
 #include "kgsl_gmu_core.h"
 #include "kgsl_pwrscale.h"
 
-#include "uapi/msm_kgsl.h"
 
 /*
  * --- kgsl drawobj flags ---

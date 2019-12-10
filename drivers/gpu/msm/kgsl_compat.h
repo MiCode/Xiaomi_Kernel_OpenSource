@@ -6,8 +6,7 @@
 #define __KGSL_COMPAT_H
 
 #include <linux/compat.h>
-
-#include "uapi/msm_kgsl.h"
+#include <linux/msm_kgsl.h>
 
 #ifdef CONFIG_COMPAT
 
