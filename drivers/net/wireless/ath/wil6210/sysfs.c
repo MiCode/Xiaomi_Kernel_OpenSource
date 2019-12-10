@@ -318,6 +318,43 @@ out:
 static DEVICE_ATTR_RW(fst_link_loss);
 
 static ssize_t
+fst_config_store(struct device *dev, struct device_attribute *attr,
+		 const char *buf, size_t count)
+{
+	struct wil6210_priv *wil = dev_get_drvdata(dev);
+	u8 addr[ETH_ALEN];
+	int rc;
+	u8 enabled, entry_mcs, exit_mcs, slevel;
+
+	/* <ap_bssid> <enabled> <entry_mcs> <exit_mcs> <sensitivity_level> */
+	if (sscanf(buf, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx %hhu %hhu %hhu %hhu",
+		   &addr[0], &addr[1], &addr[2],
+		   &addr[3], &addr[4], &addr[5],
+		   &enabled, &entry_mcs, &exit_mcs, &slevel) != 10)
+		return -EINVAL;
+
+	if (entry_mcs > WIL_MCS_MAX || exit_mcs > WIL_MCS_MAX ||
+	    entry_mcs < exit_mcs || slevel > WMI_FST_SWITCH_SENSITIVITY_HIGH)
+		return -EINVAL;
+
+	wil_dbg_misc(wil,
+		     "fst_config %sabled for [%pM] with entry/exit MCS %d/%d, sensitivity %s\n",
+		     enabled ? "en" : "dis", addr, entry_mcs, exit_mcs,
+		     (slevel == WMI_FST_SWITCH_SENSITIVITY_LOW) ?
+			"LOW" : (slevel == WMI_FST_SWITCH_SENSITIVITY_HIGH) ?
+					"HIGH" : "MED");
+
+	rc = wmi_set_fst_config(wil, addr, enabled, entry_mcs, exit_mcs,
+				slevel);
+	if (!rc)
+		rc = count;
+
+	return rc;
+}
+
+static DEVICE_ATTR_WO(fst_config);
+
+static ssize_t
 vr_profile_show(struct device *dev, struct device_attribute *attr,
 		char *buf)
 {
@@ -427,6 +464,7 @@ static struct attribute *wil6210_sysfs_entries[] = {
 	&dev_attr_fst_link_loss.attr,
 	&dev_attr_snr_thresh.attr,
 	&dev_attr_vr_profile.attr,
+	&dev_attr_fst_config.attr,
 	NULL
 };
 

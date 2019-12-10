@@ -1595,4 +1595,6 @@ void wil_clear_fw_log_addr(struct wil6210_priv *wil);
 int wmi_set_cqm_rssi_config(struct wil6210_priv *wil,
 			    s32 rssi_thold, u32 rssi_hyst);
 void wil_sta_info_amsdu_init(struct wil_sta_info *sta);
+int wmi_set_fst_config(struct wil6210_priv *wil, const u8 *bssid, u8 enabled,
+		       u8 entry_mcs, u8 exit_mcs, u8 slevel);
 #endif /* __WIL6210_H__ */
