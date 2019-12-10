@@ -23,6 +23,7 @@
 #include <media/msm_media_info.h>
 #include <media/msm_cvp_private.h>
 #include "cvp_hfi_api.h"
+#include <synx_api.h>
 
 #define MAX_SUPPORTED_INSTANCES 16
 #define MAX_NAME_LENGTH 64
@@ -30,6 +31,11 @@
 #define MAX_DSP_INIT_ATTEMPTS 16
 #define FENCE_WAIT_SIGNAL_TIMEOUT 100
 #define FENCE_WAIT_SIGNAL_RETRY_TIMES 20
+#define FENCE_BIT (1ULL << 63)
+
+#define FENCE_DME_ICA_ENABLED_IDX 0
+#define FENCE_DME_DS_IDX 1
+#define FENCE_DME_OUTPUT_IDX 7
 
 #define SYS_MSG_START HAL_SYS_INIT_DONE
 #define SYS_MSG_END HAL_SYS_ERROR
@@ -265,6 +271,7 @@ struct cvp_session_prop {
 	u32 priority;
 	u32 is_secure;
 	u32 dsp_mask;
+	u32 fthread_nr;
 	u32 fdu_cycles;
 	u32 od_cycles;
 	u32 mpu_cycles;
@@ -279,6 +286,14 @@ struct cvp_session_prop {
 	u32 ddr_op_bw;
 	u32 ddr_cache;
 	u32 ddr_op_cache;
+};
+
+struct cvp_fence_queue {
+	spinlock_t lock;
+	enum queue_state state;
+	struct list_head wait_list;
+	wait_queue_head_t wq;
+	struct list_head sched_list;
 };
 
 enum cvp_event_t {
@@ -331,6 +346,7 @@ struct msm_cvp_inst {
 	struct msm_cvp_core *core;
 	enum session_type session_type;
 	struct cvp_session_queue session_queue;
+	struct cvp_session_queue session_queue_fence;
 	struct cvp_session_event event_handler;
 	void *session;
 	enum instance_state state;
@@ -346,11 +362,11 @@ struct msm_cvp_inst {
 	enum msm_cvp_modes flags;
 	struct msm_cvp_capability capability;
 	struct kref kref;
-	unsigned long deprecate_bitmask;
 	struct cvp_kmd_request_power power;
 	struct cvp_session_prop prop;
 	u32 cur_cmd_type;
-	struct mutex fence_lock;
+	struct synx_session synx_session_id;
+	struct cvp_fence_queue fence_cmd_queue;
 };
 
 struct msm_cvp_fence_thread_data {
@@ -360,18 +376,24 @@ struct msm_cvp_fence_thread_data {
 	unsigned int arg_type;
 };
 
+struct cvp_fence_type {
+	s32 h_synx;
+	u32 secure_key;
+};
+
+struct cvp_fence_command {
+	struct list_head list;
+	u32 type;
+	u32 synx[MAX_HFI_FENCE_SIZE/2];
+	struct cvp_hfi_cmd_session_hdr *pkt;
+};
+
 extern struct msm_cvp_drv *cvp_driver;
 
 void cvp_handle_cmd_response(enum hal_command_response cmd, void *data);
 int msm_cvp_trigger_ssr(struct msm_cvp_core *core,
 	enum hal_ssr_trigger_type type);
 int msm_cvp_noc_error_info(struct msm_cvp_core *core);
-
-enum msm_cvp_flags {
-	MSM_CVP_FLAG_DEFERRED            = BIT(0),
-	MSM_CVP_FLAG_RBR_PENDING         = BIT(1),
-	MSM_CVP_FLAG_QUEUED              = BIT(2),
-};
 
 struct msm_cvp_internal_buffer {
 	struct list_head list;

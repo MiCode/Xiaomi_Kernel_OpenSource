@@ -98,12 +98,6 @@
 #define HFI_MODEL_BUFFERS_OFFSET 7
 #define HFI_MODEL_BUF_NUM 1
 
-#define DFS_BIT_OFFSET (CVP_KMD_HFI_DFS_FRAME_CMD - CVP_KMD_CMD_START)
-#define DME_BIT_OFFSET (CVP_KMD_HFI_DME_FRAME_CMD - CVP_KMD_CMD_START)
-#define PERSIST_BIT_OFFSET (CVP_KMD_HFI_PERSIST_CMD - CVP_KMD_CMD_START)
-#define ICA_BIT_OFFSET (CVP_KMD_HFI_ICA_FRAME_CMD - CVP_KMD_CMD_START)
-#define FD_BIT_OFFSET (CVP_KMD_HFI_FD_FRAME_CMD - CVP_KMD_CMD_START)
-
 #define HFI_VERSION_MAJOR_MASK 0xFF000000
 #define HFI_VERSION_MAJOR_SHFIT 24
 #define HFI_VERSION_MINOR_MASK 0x00FFFFE0
@@ -428,7 +422,6 @@ void cvp_hfi_deinitialize(enum msm_cvp_hfi_type hfi_type,
 
 int get_pkt_index(struct cvp_hal_session_cmd_pkt *hdr);
 int get_signal_from_pkt_type(unsigned int type);
-int set_feature_bitmask(int pkt_index, unsigned long *bitmask);
 int get_hfi_version(void);
 unsigned int get_msg_size(void);
 unsigned int get_msg_session_id(void *msg);

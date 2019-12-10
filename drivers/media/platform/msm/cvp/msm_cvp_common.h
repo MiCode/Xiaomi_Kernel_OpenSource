@@ -41,8 +41,6 @@ void print_cvp_buffer(u32 tag, const char *str,
 		struct msm_cvp_internal_buffer *cbuf);
 int wait_for_sess_signal_receipt(struct msm_cvp_inst *inst,
 	enum hal_command_response cmd);
-int wait_for_sess_signal_receipt_fence(struct msm_cvp_inst *inst,
-	enum hal_command_response cmd);
 int cvp_comm_set_arp_buffers(struct msm_cvp_inst *inst);
 int cvp_comm_release_persist_buffers(struct msm_cvp_inst *inst);
 void print_client_buffer(u32 tag, const char *str,
