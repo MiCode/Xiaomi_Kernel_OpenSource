@@ -222,6 +222,8 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"gcc_wcss_vs_clk",
 	"gpu_cc_debug_mux",
 	"mc_cc_debug_mux",
+	"measure_only_cnoc_clk",
+	"measure_only_snoc_clk",
 };
 
 static int gcc_debug_mux_sels[] = {
@@ -336,6 +338,8 @@ static int gcc_debug_mux_sels[] = {
 	0xC4,		/* gcc_wcss_vs_clk */
 	0xE7,		/* gpu_cc_debug_mux */
 	0x9E,           /* mc_cc_debug_mux */
+	0x1A,		/* measure_only_cnoc_clk */
+	0x7,		/* measure_only_snoc_clk */
 };
 
 static struct clk_debug_mux gcc_debug_mux = {
@@ -411,7 +415,7 @@ static const char *const mc_cc_debug_mux_parent_names[] = {
 };
 
 static struct clk_debug_mux mc_cc_debug_mux = {
-	.period_offset = 0x50,
+	.period_offset = 0x20,
 	.hw.init = &(struct clk_init_data){
 		.name = "mc_cc_debug_mux",
 		.ops = &clk_debug_mux_ops,
@@ -437,6 +441,22 @@ static struct clk_dummy measure_only_mccc_clk = {
 	},
 };
 
+static struct clk_dummy measure_only_cnoc_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_cnoc_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_snoc_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_snoc_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
 static struct clk_dummy perfcl_clk = {
 	.rrate = 1000,
 	.hw.init = &(struct clk_init_data){
@@ -454,7 +474,9 @@ static struct clk_dummy pwrcl_clk = {
 };
 
 struct clk_hw *debugcc_bengal_hws[] = {
+	&measure_only_cnoc_clk.hw,
 	&measure_only_mccc_clk.hw,
+	&measure_only_snoc_clk.hw,
 	&perfcl_clk.hw,
 	&pwrcl_clk.hw,
 };
