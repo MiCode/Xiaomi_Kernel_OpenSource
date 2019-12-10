@@ -15,6 +15,15 @@ menuconfig CORESIGHT
 	  trace source gets enabled.
 
 if CORESIGHT
+config CORESIGHT_QGKI
+	bool "Enable coresight for QGKI or debug variant"
+	depends on QGKI
+	help
+	  This enables CoreSight drivers with QGKI flag. When this flag is
+	  enabled, it is safe to assume that the build is a Non GKI build.
+	  It can be either QGKI build or a debug build. If this flag is
+	  enabled, all the ABI compatibilities are not applicable.
+
 config CORESIGHT_LINKS_AND_SINKS
 	bool "CoreSight Link and Sink drivers"
 	help
