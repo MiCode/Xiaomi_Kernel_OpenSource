@@ -6,7 +6,8 @@ device is typically used to vote for BW requirements from a device's (Eg:
 CPU, GPU) master port(s) to the slave (Eg: DDR) port(s).
 
 Required properties:
-- compatible:		Must be "qcom,devfreq-icc" or "qcom,devfreq-icc-ddr" or "qcom,devfreq-icc-llcc"
+- compatible:		Must be "qcom,devfreq-icc" or "qcom,devfreq-icc-ddr"
+			or "qcom,devfreq-icc-llcc" or "qcom,devfreq-icc-l3"
 - interconnects:	Pairs of phandles and interconnect provider specificers
 			to denote the edge source and destination ports of the
 			desired interconnect path.
@@ -14,7 +15,13 @@ Required properties:
 			instantaneous bandwidth values (in MB/s) that can be
 			requested from the device master port to the slave port.
 			The list of values depend on the supported bus/slave
-			frequencies and the bus width.
+			frequencies and the bus width. Required for all devices
+			except those compatible with "qcom,devfreq-icc-l3".
+- reg:			Physical base address and region size of the memory
+			mapped registers containing the device's frequency
+			table. Required for "qcom,devfreq-icc-l3" devices.
+- reg-names:		Name used for the above registers. Expected name is
+			"ftbl-base". Required for "qcom,devfreq-icc-l3" devices.
 Optional properties:
 - qcom,active-only:	Indicates that the bandwidth votes need to be
 			enforced only when the CPU subsystem is active.
