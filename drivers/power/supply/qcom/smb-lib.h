@@ -71,6 +71,7 @@ enum print_reason {
 #define WBC_VOTER			"WBC_VOTER"
 #define OV_VOTER			"OV_VOTER"
 #define MOISTURE_VOTER			"MOISTURE_VOTER"
+#define FG_ESR_VOTER			"FG_ESR_VOTER"
 
 #define VCONN_MAX_ATTEMPTS	3
 #define OTG_MAX_ATTEMPTS	3
@@ -350,6 +351,7 @@ struct smb_charger {
 	u8			float_cfg;
 	bool			use_extcon;
 	bool			otg_present;
+	bool			disable_stat_sw_override;
 
 	/* workaround flag */
 	u32			wa_flags;
@@ -360,6 +362,7 @@ struct smb_charger {
 	int			temp_speed_reading_count;
 	int			qc2_max_pulses;
 	bool			non_compliant_chg_detected;
+	bool			reddragon_ipc_wa;
 
 	/* extcon for VBUS / ID notification to USB for uUSB */
 	struct extcon_dev	*extcon;
@@ -441,14 +444,6 @@ int smblib_get_prop_system_temp_level(struct smb_charger *chg,
 int smblib_get_prop_system_temp_level_max(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_input_current_limited(struct smb_charger *chg,
-				union power_supply_propval *val);
-int smblib_get_prop_batt_voltage_now(struct smb_charger *chg,
-				union power_supply_propval *val);
-int smblib_get_prop_batt_current_now(struct smb_charger *chg,
-				union power_supply_propval *val);
-int smblib_get_prop_batt_temp(struct smb_charger *chg,
-				union power_supply_propval *val);
-int smblib_get_prop_batt_charge_counter(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_set_prop_input_suspend(struct smb_charger *chg,
 				const union power_supply_propval *val);
@@ -540,6 +535,9 @@ int smblib_set_icl_current(struct smb_charger *chg, int icl_ua);
 int smblib_get_icl_current(struct smb_charger *chg, int *icl_ua);
 int smblib_get_charge_current(struct smb_charger *chg, int *total_current_ua);
 int smblib_get_prop_pr_swap_in_progress(struct smb_charger *chg,
+				union power_supply_propval *val);
+int smblib_get_prop_from_bms(struct smb_charger *chg,
+				enum power_supply_property psp,
 				union power_supply_propval *val);
 int smblib_set_prop_pr_swap_in_progress(struct smb_charger *chg,
 				const union power_supply_propval *val);
