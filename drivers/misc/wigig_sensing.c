@@ -514,22 +514,25 @@ static int wigig_sensing_ioc_get_mode(struct wigig_sensing_ctx *ctx)
 }
 
 static int wigig_sensing_ioc_change_mode(struct wigig_sensing_ctx *ctx,
-					 struct wigig_sensing_change_mode req)
+					 struct wigig_sensing_change_mode *req)
 {
 	struct wigig_sensing_stm sim_state;
 	int rc;
 	u32 ch;
 
+	if (req == NULL)
+		return -EINVAL;
+
 	pr_info("mode = %d, channel = %d, has_channel = %d\n",
-		req.mode, req.channel, req.has_channel);
+		req->mode, req->channel, req->has_channel);
 	if (!ctx)
 		return -EINVAL;
 
 	/* Save the request for later use */
-	ctx->stm.mode_request = req.mode;
+	ctx->stm.mode_request = req->mode;
 
 	/* Simulate a state change */
-	ctx->stm.state_request = convert_mode_to_state(req.mode);
+	ctx->stm.state_request = convert_mode_to_state(req->mode);
 	sim_state = ctx->stm;
 	rc = wigig_sensing_change_state(ctx, &sim_state,
 					ctx->stm.state_request);
@@ -541,11 +544,11 @@ static int wigig_sensing_ioc_change_mode(struct wigig_sensing_ctx *ctx,
 	/* Send command to FW */
 	mutex_lock(&ctx->dri_lock);
 	ctx->stm.change_mode_in_progress = true;
-	ch = req.has_channel ? req.channel : 0;
+	ch = req->has_channel ? req->channel : 0;
 	ctx->stm.channel_request = ch;
 	ctx->stm.burst_size_ready = false;
 	/* Change mode command must not be called during DRI processing */
-	rc = wigig_sensing_send_change_mode_command(ctx, req.mode, ch);
+	rc = wigig_sensing_send_change_mode_command(ctx, req->mode, ch);
 	mutex_unlock(&ctx->dri_lock);
 	if (rc) {
 		pr_err("wigig_sensing_send_change_mode_command() failed, err %d\n",
@@ -585,7 +588,9 @@ End:
 	ctx->stm.state_request = WIGIG_SENSING_STATE_MIN;
 	ctx->stm.channel_request = 0;
 	ctx->stm.mode_request = WIGIG_SENSING_MODE_STOP;
-	return (rc == 0) ? ctx->stm.burst_size : rc;
+	req->burst_size = ctx->stm.burst_size;
+
+	return rc;
 }
 
 static int wigig_sensing_ioc_clear_data(struct wigig_sensing_ctx *ctx)
@@ -808,7 +813,11 @@ static long wigig_sensing_ioctl(struct file *file, unsigned int cmd,
 		if (copy_from_user(&req, (void *)arg, sizeof(req)))
 			return -EFAULT;
 
-		rc = wigig_sensing_ioc_change_mode(ctx, req);
+		rc = wigig_sensing_ioc_change_mode(ctx, &req);
+
+		if (copy_to_user((void *)arg, &req, sizeof(req)))
+			return -EFAULT;
+
 		break;
 	}
 	case WIGIG_SENSING_IOCTL_CLEAR_DATA:
@@ -1476,10 +1485,11 @@ static int wigig_sensing_remove(struct spi_device *spi)
 		.mode = WIGIG_SENSING_MODE_STOP,
 		.has_channel = false,
 		.channel = 0,
+		.burst_size = 0,
 	};
 
 	/* Make sure that FW is in STOP mode */
-	wigig_sensing_ioc_change_mode(ctx, req);
+	wigig_sensing_ioc_change_mode(ctx, &req);
 
 	device_destroy(ctx->class, ctx->wigig_sensing_dev);
 	unregister_chrdev_region(ctx->wigig_sensing_dev, 1);
