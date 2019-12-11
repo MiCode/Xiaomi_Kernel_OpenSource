@@ -437,7 +437,7 @@ static int hfi_send_dcvstbl_v1(struct gmu_device *gmu)
 	for (i = 0; i < gmu->num_gpupwrlevels; i++) {
 		cmd.gx_votes[i].vote = gmu->rpmh_votes.gx_votes[i];
 		/* Divide by 1000 to convert to kHz */
-		cmd.gx_votes[i].freq = gmu->gpu_freqs[i] / 1000;
+		cmd.gx_votes[i].freq = gmu->pwrlevels[i].freq / 1000;
 	}
 
 	cmd.cx_votes[0].vote = gmu->rpmh_votes.cx_votes[0];
@@ -483,7 +483,7 @@ static int hfi_send_dcvstbl(struct gmu_device *gmu)
 		/* Hardcode this to the max threshold since it is not used */
 		cmd.gx_votes[i].acd = 0xFFFFFFFF;
 		/* Divide by 1000 to convert to kHz */
-		cmd.gx_votes[i].freq = gmu->gpu_freqs[i] / 1000;
+		cmd.gx_votes[i].freq = gmu->pwrlevels[i].freq / 1000;
 	}
 
 	cmd.cx_votes[0].vote = gmu->rpmh_votes.cx_votes[0];

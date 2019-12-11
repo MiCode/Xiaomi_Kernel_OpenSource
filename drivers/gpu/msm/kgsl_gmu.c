@@ -4,6 +4,7 @@
  */
 
 #include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
+#include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/firmware.h>
 #include <linux/io.h>
@@ -559,7 +560,7 @@ static int gmu_dcvs_set(struct kgsl_device *device,
 
 struct rpmh_arc_vals {
 	unsigned int num;
-	uint16_t val[MAX_GX_LEVELS];
+	const u16 *val;
 };
 
 static const char gfx_res_id[] = "gfx.lvl";
@@ -584,22 +585,9 @@ enum rpmh_vote_type {
 static int rpmh_arc_cmds(struct gmu_device *gmu,
 		struct rpmh_arc_vals *arc, const char *res_id)
 {
-	unsigned int len;
+	size_t len = 0;
 
-	memset(arc, 0, sizeof(*arc));
-
-	len = cmd_db_read_aux_data_len(res_id);
-	if (len == 0)
-		return -EINVAL;
-
-	if (len > (MAX_GX_LEVELS << 1)) {
-		dev_err(&gmu->pdev->dev,
-			"gfx cmddb size %d larger than alloc buf %d of %s\n",
-			len, (MAX_GX_LEVELS << 1), res_id);
-		return -EINVAL;
-	}
-
-	cmd_db_read_aux_data(res_id, (uint8_t *)arc->val, len);
+	arc->val = cmd_db_read_aux_data(res_id, &len);
 
 	/*
 	 * cmd_db_read_aux_data() gives us a zero-padded table of
@@ -703,45 +691,22 @@ static int rpmh_arc_votes_init(struct kgsl_device *device,
 {
 	unsigned int num_freqs;
 	u16 vlvl_tbl[MAX_GX_LEVELS];
-	unsigned int *freq_tbl;
 	int i;
-	struct dev_pm_opp *opp;
 
 	if (type == GMU_ARC_VOTE)
 		return rpmh_gmu_arc_votes_init(gmu, pri_rail, sec_rail);
 
 	num_freqs = gmu->num_gpupwrlevels;
-	freq_tbl = gmu->gpu_freqs;
 
-	if (num_freqs > pri_rail->num || num_freqs > MAX_GX_LEVELS) {
+	if (num_freqs > pri_rail->num) {
 		dev_err(&gmu->pdev->dev,
 			"Defined more GPU DCVS levels than RPMh can support\n");
 		return -EINVAL;
 	}
 
 	memset(vlvl_tbl, 0, sizeof(vlvl_tbl));
-
-	/* Get the values from OPP API */
-	for (i = 0; i < num_freqs; i++) {
-		/* Hardcode VLVL 0 because it is not present in OPP */
-		if (freq_tbl[i] == 0) {
-			vlvl_tbl[i] = 0;
-			continue;
-		}
-
-		opp = dev_pm_opp_find_freq_exact(&device->pdev->dev,
-			freq_tbl[i], true);
-
-		if (IS_ERR(opp)) {
-			dev_err(&gmu->pdev->dev,
-				"Failed to find opp freq %d for GPU\n",
-				freq_tbl[i]);
-			return PTR_ERR(opp);
-		}
-
-		vlvl_tbl[i] = dev_pm_opp_get_voltage(opp);
-		dev_pm_opp_put(opp);
-	}
+	for (i = 0; i < num_freqs; i++)
+		vlvl_tbl[i] = gmu->pwrlevels[i].level;
 
 	return setup_volt_dependency_tbl(gmu->rpmh_votes.gx_votes, pri_rail,
 						sec_rail, vlvl_tbl, num_freqs);
@@ -978,34 +943,6 @@ static int gmu_reg_probe(struct kgsl_device *device)
 	return 0;
 }
 
-static int gmu_clocks_probe(struct gmu_device *gmu, struct device_node *node)
-{
-	const char *cname;
-	struct property *prop;
-	struct clk *c;
-	int i = 0;
-
-	of_property_for_each_string(node, "clock-names", prop, cname) {
-		c = devm_clk_get(&gmu->pdev->dev, cname);
-
-		if (IS_ERR(c)) {
-			dev_err(&gmu->pdev->dev,
-				"dt: Couldn't get GMU clock: %s\n", cname);
-			return PTR_ERR(c);
-		}
-
-		if (i >= MAX_GMU_CLKS) {
-			dev_err(&gmu->pdev->dev,
-				"dt: too many GMU clocks defined\n");
-			return -EINVAL;
-		}
-
-		gmu->clks[i++] = c;
-	}
-
-	return 0;
-}
-
 static int gmu_regulators_probe(struct gmu_device *gmu,
 		struct device_node *node)
 {
@@ -1218,7 +1155,7 @@ static int gmu_probe(struct kgsl_device *device, struct device_node *node)
 	struct kgsl_hfi *hfi;
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	int i = 0, ret = -ENXIO, index = 0;
+	int i = 0, ret = -ENXIO, index;
 
 	gmu = kzalloc(sizeof(struct gmu_device), GFP_KERNEL);
 
@@ -1242,10 +1179,19 @@ static int gmu_probe(struct kgsl_device *device, struct device_node *node)
 	if (ret)
 		goto error;
 
-	/* Set up GMU clocks */
-	ret = gmu_clocks_probe(gmu, node);
-	if (ret)
+	ret = devm_clk_bulk_get_all(&gmu->pdev->dev, &gmu->clks);
+	if (ret < 0)
 		goto error;
+
+	gmu->num_clks = ret;
+
+	/* Get a pointer to the GMU clock */
+	gmu->gmu_clk = kgsl_of_clk_by_name(gmu->clks, gmu->num_clks, "gmu_clk");
+	if (!gmu->gmu_clk) {
+		dev_err(&gmu->pdev->dev, "Couldn't get gmu_clk\n");
+		ret = -ENODEV;
+		goto error;
+	}
 
 	/* Set up GMU IOMMU and shared memory with GMU */
 	ret = gmu_iommu_init(gmu, node);
@@ -1288,12 +1234,21 @@ static int gmu_probe(struct kgsl_device *device, struct device_node *node)
 	tasklet_init(&hfi->tasklet, hfi_receiver, (unsigned long) gmu);
 	hfi->kgsldev = device;
 
-	/* Add a dummy level for "off" that the GMU expects */
-	gmu->gpu_freqs[index++] = 0;
+	if (WARN(pwr->num_pwrlevels + 1 > ARRAY_SIZE(gmu->pwrlevels),
+		"Too many GPU powerlevels for the GMU HFI\n")) {
+		ret = -EINVAL;
+		goto error;
+	}
+
+	/* Add a dummy level for "off" because the GMU expects it */
+	gmu->pwrlevels[0].freq = 0;
+	gmu->pwrlevels[0].level = 0;
 
 	/* GMU power levels are in ascending order */
-	for (i = pwr->num_pwrlevels - 1; i >= 0; i--)
-		gmu->gpu_freqs[index++] = pwr->pwrlevels[i].gpu_freq;
+	for (index = 1, i = pwr->num_pwrlevels - 1; i >= 0; i--, index++) {
+		gmu->pwrlevels[index].freq = pwr->pwrlevels[i].gpu_freq;
+		gmu->pwrlevels[index].level = pwr->pwrlevels[i].voltage_level;
+	}
 
 	gmu->num_gpupwrlevels = pwr->num_pwrlevels + 1;
 
@@ -1331,48 +1286,30 @@ error:
 static int gmu_enable_clks(struct kgsl_device *device)
 {
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
-	int ret, j = 0;
+	int ret;
 
-	if (IS_ERR_OR_NULL(gmu->clks[0]))
-		return -EINVAL;
-
-	ret = clk_set_rate(gmu->clks[0], GMU_FREQUENCY);
+	ret = clk_set_rate(gmu->gmu_clk, GMU_FREQUENCY);
 	if (ret) {
-		dev_err(&gmu->pdev->dev, "fail to set default GMU clk freq %d\n",
-				GMU_FREQUENCY);
+		dev_err(&gmu->pdev->dev, "Unable to set GMU clock\n");
 		return ret;
 	}
 
-	while ((j < MAX_GMU_CLKS) && gmu->clks[j]) {
-		ret = clk_prepare_enable(gmu->clks[j]);
-		if (ret) {
-			dev_err(&gmu->pdev->dev,
-					"fail to enable gpucc clk idx %d\n",
-					j);
-			return ret;
-		}
-		j++;
+	ret = clk_bulk_prepare_enable(gmu->num_clks, gmu->clks);
+	if (ret) {
+		dev_err(&gmu->pdev->dev, "Cannot enable GMU clocks\n");
+		return ret;
 	}
 
 	set_bit(GMU_CLK_ON, &device->gmu_core.flags);
 	return 0;
 }
 
-static int gmu_disable_clks(struct kgsl_device *device)
+static void gmu_disable_clks(struct kgsl_device *device)
 {
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
-	int j = 0;
 
-	if (IS_ERR_OR_NULL(gmu->clks[0]))
-		return 0;
-
-	while ((j < MAX_GMU_CLKS) && gmu->clks[j]) {
-		clk_disable_unprepare(gmu->clks[j]);
-		j++;
-	}
-
+	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
 	clear_bit(GMU_CLK_ON, &device->gmu_core.flags);
-	return 0;
 
 }
 
@@ -1619,7 +1556,6 @@ static void gmu_remove(struct kgsl_device *device)
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
 	struct kgsl_hfi *hfi;
-	int i = 0;
 
 	if (gmu == NULL || gmu->pdev == NULL)
 		return;
@@ -1635,11 +1571,6 @@ static void gmu_remove(struct kgsl_device *device)
 
 	clear_bit(ADRENO_ACD_CTRL, &adreno_dev->pwrctrl_flag);
 
-	while ((i < MAX_GMU_CLKS) && gmu->clks[i]) {
-		gmu->clks[i] = NULL;
-		i++;
-	}
-
 	icc_put(gmu->icc_path);
 
 	if (gmu->fw_image) {
@@ -1648,13 +1579,6 @@ static void gmu_remove(struct kgsl_device *device)
 	}
 
 	gmu_memory_close(gmu);
-
-	for (i = 0; i < MAX_GMU_CLKS; i++) {
-		if (gmu->clks[i]) {
-			devm_clk_put(&gmu->pdev->dev, gmu->clks[i]);
-			gmu->clks[i] = NULL;
-		}
-	}
 
 	if (gmu->gx_gdsc) {
 		devm_regulator_put(gmu->gx_gdsc);

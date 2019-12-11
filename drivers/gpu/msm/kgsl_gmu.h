@@ -158,7 +158,6 @@ struct icc_path;
  * @dump_mem: pointer to GMU debug dump memory
  * @gmu_log: gmu event log memory
  * @hfi: HFI controller
- * @gpu_freqs: GPU frequency table with lowest freq at index 0
  * @num_gpupwrlevels: number GPU frequencies in GPU freq table
  * @num_bwlevel: number of GPU BW levels
  * @num_cnocbwlevel: number CNOC BW levels
@@ -194,14 +193,24 @@ struct gmu_device {
 	struct gmu_memdesc *dump_mem;
 	struct gmu_memdesc *gmu_log;
 	struct kgsl_hfi hfi;
-	unsigned int gpu_freqs[MAX_GX_LEVELS];
+	/** @pwrlevels: Array of GMU power levels */
+	struct {
+		/** @freq: GPU frequency */
+		unsigned long freq;
+		/** @level: Voltage level */
+		u32 level;
+	} pwrlevels[MAX_GX_LEVELS];
 	unsigned int num_gpupwrlevels;
 	unsigned int num_bwlevels;
 	unsigned int num_cnocbwlevels;
 	struct rpmh_votes_t rpmh_votes;
 	struct regulator *cx_gdsc;
 	struct regulator *gx_gdsc;
-	struct clk *clks[MAX_GMU_CLKS];
+	struct clk_bulk_data *clks;
+	/** @num_clks: Number of entries in the @clks array */
+	int num_clks;
+	/** @gmu_clk: Pointer to the core GMU clock */
+	struct clk *gmu_clk;
 	enum gmu_load_mode load_mode;
 	unsigned int wakeup_pwrlevel;
 	unsigned int pcl;

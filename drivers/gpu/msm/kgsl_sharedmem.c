@@ -357,32 +357,15 @@ kgsl_sharedmem_init_sysfs(void)
 	return sysfs_create_files(&kgsl_driver.virtdev.kobj, drv_attr_list);
 }
 
-static int kgsl_paged_vmfault(struct kgsl_memdesc *memdesc,
+static vm_fault_t kgsl_paged_vmfault(struct kgsl_memdesc *memdesc,
 				struct vm_area_struct *vma,
 				struct vm_fault *vmf)
 {
 	int pgoff;
-	unsigned int offset;
 
-	offset = vmf->address - vma->vm_start;
+	pgoff = (vmf->address - vma->vm_start) >> PAGE_SHIFT;
 
-	if (offset >= memdesc->size)
-		return VM_FAULT_SIGBUS;
-
-	pgoff = offset >> PAGE_SHIFT;
-
-	if (pgoff < memdesc->page_count) {
-		struct page *page = memdesc->pages[pgoff];
-
-		get_page(page);
-		vmf->page = page;
-
-		memdesc->mapsize += PAGE_SIZE;
-
-		return 0;
-	}
-
-	return VM_FAULT_SIGBUS;
+	return vmf_insert_page(vma, vmf->address, memdesc->pages[pgoff]);
 }
 
 static void kgsl_paged_unmap_kernel(struct kgsl_memdesc *memdesc)
@@ -495,27 +478,17 @@ static int kgsl_paged_map_kernel(struct kgsl_memdesc *memdesc)
 	return ret;
 }
 
-static int kgsl_contiguous_vmfault(struct kgsl_memdesc *memdesc,
+static vm_fault_t kgsl_contiguous_vmfault(struct kgsl_memdesc *memdesc,
 				struct vm_area_struct *vma,
 				struct vm_fault *vmf)
 {
 	unsigned long offset, pfn;
-	int ret;
 
 	offset = ((unsigned long) vmf->address - vma->vm_start) >>
 		PAGE_SHIFT;
 
 	pfn = (memdesc->physaddr >> PAGE_SHIFT) + offset;
-	ret = vm_insert_pfn(vma, (unsigned long) vmf->address, pfn);
-
-	if (ret == -ENOMEM || ret == -EAGAIN)
-		return VM_FAULT_OOM;
-	else if (ret == -EFAULT)
-		return VM_FAULT_SIGBUS;
-
-	memdesc->mapsize += PAGE_SIZE;
-
-	return VM_FAULT_NOPAGE;
+	return vmf_insert_pfn(vma, vmf->address, pfn);
 }
 
 #ifdef CONFIG_ARM64
@@ -1054,7 +1027,7 @@ static struct kgsl_memdesc_ops kgsl_secure_pool_ops = {
 
 static struct kgsl_memdesc_ops kgsl_pool_ops = {
 	.free = kgsl_free_pool_pages,
-	.vmflags = VM_DONTDUMP | VM_DONTEXPAND | VM_DONTCOPY,
+	.vmflags = VM_DONTDUMP | VM_DONTEXPAND | VM_DONTCOPY | VM_MIXEDMAP,
 	.vmfault = kgsl_paged_vmfault,
 	.map_kernel = kgsl_paged_map_kernel,
 	.unmap_kernel = kgsl_paged_unmap_kernel,

@@ -163,8 +163,8 @@ struct kgsl_memdesc;
 
 struct kgsl_memdesc_ops {
 	unsigned int vmflags;
-	int (*vmfault)(struct kgsl_memdesc *memdesc, struct vm_area_struct *vma,
-		       struct vm_fault *vmf);
+	vm_fault_t (*vmfault)(struct kgsl_memdesc *memdesc,
+		struct vm_area_struct *vma, struct vm_fault *vmf);
 	void (*free)(struct kgsl_memdesc *memdesc);
 	int (*map_kernel)(struct kgsl_memdesc *memdesc);
 	void (*unmap_kernel)(struct kgsl_memdesc *memdesc);

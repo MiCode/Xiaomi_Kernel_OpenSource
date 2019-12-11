@@ -4346,7 +4346,7 @@ static vm_fault_t
 kgsl_gpumem_vm_fault(struct vm_fault *vmf)
 {
 	struct kgsl_mem_entry *entry = vmf->vma->vm_private_data;
-	int ret;
+	vm_fault_t ret;
 
 	if (!entry)
 		return VM_FAULT_SIGBUS;
@@ -4354,7 +4354,7 @@ kgsl_gpumem_vm_fault(struct vm_fault *vmf)
 		return VM_FAULT_SIGBUS;
 
 	ret = entry->memdesc.ops->vmfault(&entry->memdesc, vmf->vma, vmf);
-	if ((ret == 0) || (ret == VM_FAULT_NOPAGE))
+	if (!ret || ret == VM_FAULT_NOPAGE)
 		entry->priv->gpumem_mapped += PAGE_SIZE;
 
 	return ret;
@@ -4776,7 +4776,7 @@ static int _register_device(struct kgsl_device *device)
 	}
 
 	device->dev->dma_mask = &dma_mask;
-	arch_setup_dma_ops(device->dev, 0, 0, NULL, false);
+	set_dma_ops(device->dev, NULL);
 
 	dev_set_drvdata(&device->pdev->dev, device);
 	return 0;
