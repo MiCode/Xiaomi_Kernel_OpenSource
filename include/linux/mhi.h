@@ -380,6 +380,8 @@ struct mhi_controller {
 	/* controller specific data */
 	const char *name;
 	bool power_down;
+	bool need_force_m3;
+	bool force_m3_done;
 	void *priv_data;
 	void *log_buf;
 	struct dentry *dentry;

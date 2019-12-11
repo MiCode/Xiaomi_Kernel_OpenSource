@@ -634,6 +634,8 @@ static void mhi_pm_disable_transition(struct mhi_controller *mhi_cntrl,
 	flush_work(&mhi_cntrl->fw_worker);
 	flush_work(&mhi_cntrl->low_priority_worker);
 
+	mhi_cntrl->force_m3_done = false;
+
 	if (sfr_info && sfr_info->buf_addr) {
 		mhi_free_coherent(mhi_cntrl, sfr_info->len, sfr_info->buf_addr,
 				  sfr_info->dma_addr);
