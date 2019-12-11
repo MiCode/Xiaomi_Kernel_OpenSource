@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "mem_lat: " fmt
@@ -535,6 +535,7 @@ out:
 
 	return ret;
 }
+EXPORT_SYMBOL(register_compute);
 
 int register_memlat(struct device *dev, struct memlat_hwmon *hw)
 {
@@ -565,6 +566,7 @@ out:
 
 	return ret;
 }
+EXPORT_SYMBOL(register_memlat);
 
 MODULE_DESCRIPTION("HW monitor based dev DDR bandwidth voting driver");
 MODULE_LICENSE("GPL v2");
