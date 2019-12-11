@@ -203,17 +203,19 @@ static struct clk_alpha_pll cam_cc_pll0 = {
 
 static const struct clk_div_table post_div_table_trion_even[] = {
 	{ 0x0, 1 },
+	{ }
+};
+
+static const struct clk_div_table post_div_table_cam_cc_pll0_out_even[] = {
 	{ 0x1, 2 },
-	{ 0x3, 4 },
-	{ 0x7, 8 },
 	{ }
 };
 
 static struct clk_alpha_pll_postdiv cam_cc_pll0_out_even = {
 	.offset = 0x0,
 	.post_div_shift = 8,
-	.post_div_table = post_div_table_trion_even,
-	.num_post_div = ARRAY_SIZE(post_div_table_trion_even),
+	.post_div_table = post_div_table_cam_cc_pll0_out_even,
+	.num_post_div = ARRAY_SIZE(post_div_table_cam_cc_pll0_out_even),
 	.width = 4,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "cam_cc_pll0_out_even",
@@ -225,10 +227,7 @@ static struct clk_alpha_pll_postdiv cam_cc_pll0_out_even = {
 };
 
 static const struct clk_div_table post_div_table_trion_odd[] = {
-	{ 0x0, 1 },
 	{ 0x3, 3 },
-	{ 0x5, 5 },
-	{ 0x7, 7 },
 	{ }
 };
 
@@ -333,10 +332,7 @@ static struct clk_alpha_pll cam_cc_pll2 = {
 };
 
 static const struct clk_div_table post_div_table_regera_main[] = {
-	{ 0x0, 1 },
 	{ 0x1, 2 },
-	{ 0x3, 4 },
-	{ 0x2, 8 },
 	{ }
 };
 
