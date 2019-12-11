@@ -1915,7 +1915,8 @@ int __qcom_scm_invoke_callback_response(struct device *dev, phys_addr_t out_buf,
 	return ret;
 }
 
-int __qcom_scm_qseecom_do(u32 cmd_id, struct scm_desc *desc, bool retry)
+int __qcom_scm_qseecom_do(struct device *dev, u32 cmd_id, struct scm_desc *desc,
+			  bool retry)
 {
 	int _ret;
 	struct qcom_scm_desc _desc;
@@ -1927,9 +1928,9 @@ int __qcom_scm_qseecom_do(u32 cmd_id, struct scm_desc *desc, bool retry)
 	_desc.arginfo = desc->arginfo;
 
 	if (retry)
-		_ret = qcom_scm_call(NULL, &_desc);
+		_ret = qcom_scm_call(dev, &_desc);
 	else
-		_ret = qcom_scm_call_noretry(NULL, &_desc);
+		_ret = qcom_scm_call_noretry(dev, &_desc);
 
 	memcpy(desc->ret, &_desc.res, sizeof(_desc.res));
 

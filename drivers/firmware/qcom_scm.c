@@ -16,6 +16,7 @@
 #include <linux/of_platform.h>
 #include <linux/clk.h>
 #include <linux/reset-controller.h>
+#include <soc/qcom/qseecom_scm.h>
 
 #include "qcom_scm.h"
 #include "qtee_shmbridge_internal.h"
@@ -894,6 +895,21 @@ int qcom_scm_invoke_callback_response(phys_addr_t out_buf,
 	return __qcom_scm_invoke_callback_response(__scm->dev, out_buf,
 			out_buf_size, result, response_type, data);
 }
+EXPORT_SYMBOL(qcom_scm_invoke_callback_response);
+
+int qcom_scm_qseecom_call(u32 cmd_id, struct scm_desc *desc)
+{
+	return __qcom_scm_qseecom_do(__scm ? __scm->dev : NULL, cmd_id, desc,
+				     true);
+}
+EXPORT_SYMBOL(qcom_scm_qseecom_call);
+
+int qcom_scm_qseecom_call_noretry(u32 cmd_id, struct scm_desc *desc)
+{
+	return __qcom_scm_qseecom_do(__scm ? __scm->dev : NULL, cmd_id, desc,
+				     false);
+}
+EXPORT_SYMBOL(qcom_scm_qseecom_call_noretry);
 
 /**
  * qcom_scm_is_available() - Checks if SCM is available

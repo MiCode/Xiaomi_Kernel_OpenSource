@@ -218,6 +218,9 @@ extern int __qcom_scm_camera_protect_all(struct device *dev, uint32_t protect,
 extern int __qcom_scm_camera_protect_phy_lanes(struct device *dev,
 						bool protect, u64 regmask);
 
+extern int __qcom_scm_qseecom_do(struct device *dev, u32 cmd_id,
+				 struct scm_desc *desc, bool retry);
+
 // TOS Services and Function IDs
 #define QCOM_SCM_SVC_QSEELOG		0x01
 #define QCOM_SCM_QSEELOG_REGISTER	0x06
