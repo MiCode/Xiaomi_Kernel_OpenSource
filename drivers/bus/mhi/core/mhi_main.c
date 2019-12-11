@@ -449,7 +449,7 @@ int mhi_queue_dma(struct mhi_device *mhi_dev,
 	struct mhi_buf_info *buf_info;
 	struct mhi_tre *mhi_tre;
 	bool ring_db = true;
-	int nr_tre;
+	int n_free_tre, n_queued_tre;
 
 	if (mhi_is_ring_full(mhi_cntrl, tre_ring))
 		return -ENOMEM;
@@ -495,9 +495,12 @@ int mhi_queue_dma(struct mhi_device *mhi_dev,
 		 * on RSC channel IPA HW has a minimum credit requirement before
 		 * switching to DB mode
 		 */
-		nr_tre = mhi_get_no_free_descriptors(mhi_dev, DMA_FROM_DEVICE);
+		n_free_tre = mhi_get_no_free_descriptors(mhi_dev,
+				DMA_FROM_DEVICE);
+		n_queued_tre = tre_ring->elements - n_free_tre;
 		read_lock_bh(&mhi_chan->lock);
-		if (mhi_chan->db_cfg.db_mode && nr_tre < MHI_RSC_MIN_CREDITS)
+		if (mhi_chan->db_cfg.db_mode &&
+				n_queued_tre < MHI_RSC_MIN_CREDITS)
 			ring_db = false;
 		read_unlock_bh(&mhi_chan->lock);
 	} else {
@@ -914,7 +917,7 @@ static int parse_xfer_event(struct mhi_controller *mhi_cntrl,
 	struct mhi_result result;
 	unsigned long flags = 0;
 	bool ring_db = true;
-	int nr_tre;
+	int n_free_tre, n_queued_tre;
 
 	ev_code = MHI_TRE_GET_EV_CODE(event);
 	buf_ring = &mhi_chan->buf_ring;
@@ -1015,9 +1018,10 @@ static int parse_xfer_event(struct mhi_controller *mhi_cntrl,
 		 * switching to DB mode
 		 */
 		if (mhi_chan->xfer_type == MHI_XFER_RSC_DMA) {
-			nr_tre = mhi_get_no_free_descriptors(mhi_chan->mhi_dev,
-					DMA_FROM_DEVICE);
-			if (nr_tre < MHI_RSC_MIN_CREDITS)
+			n_free_tre = mhi_get_no_free_descriptors(
+					mhi_chan->mhi_dev, DMA_FROM_DEVICE);
+			n_queued_tre = tre_ring->elements - n_free_tre;
+			if (n_queued_tre < MHI_RSC_MIN_CREDITS)
 				ring_db = false;
 		}
 
