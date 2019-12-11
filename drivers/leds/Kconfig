@@ -823,6 +823,18 @@ config LEDS_LM36274
 	  Say Y to enable the LM36274 LED driver for TI LMU devices.
 	  This supports the LED device LM36274.
 
+config LEDS_QTI_TRI_LED
+	tristate "LED support for Qualcomm Technologies, Inc. TRI_LED"
+	depends on LEDS_CLASS && MFD_SPMI_PMIC && PWM && OF
+	help
+	  This driver supports the TRI_LED module found in Qualcomm
+	  Technologies, Inc. PMIC chips. TRI_LED supports 3 LED drivers
+	  at max and each is controlled by a PWM channel used for dimming
+	  or blinking.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called leds-qti-tri-led.
+
 comment "LED Triggers"
 source "drivers/leds/trigger/Kconfig"
 
