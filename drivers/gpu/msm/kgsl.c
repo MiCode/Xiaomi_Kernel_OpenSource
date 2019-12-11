@@ -2391,6 +2391,14 @@ static void _setup_cache_mode(struct kgsl_mem_entry *entry,
 	entry->memdesc.flags |= (mode << KGSL_CACHEMODE_SHIFT);
 }
 
+static bool is_cached(u64 flags)
+{
+	u32 mode = (flags & KGSL_CACHEMODE_MASK) >> KGSL_CACHEMODE_SHIFT;
+
+	return (mode != KGSL_CACHEMODE_UNCACHED &&
+		mode != KGSL_CACHEMODE_WRITECOMBINE);
+}
+
 static int kgsl_setup_dma_buf(struct kgsl_device *device,
 				struct kgsl_pagetable *pagetable,
 				struct kgsl_mem_entry *entry,
@@ -2455,6 +2463,11 @@ static int kgsl_setup_dmabuf_useraddr(struct kgsl_device *device,
 	/* Setup the user addr/cache mode for cache operations */
 	entry->memdesc.useraddr = hostptr;
 	_setup_cache_mode(entry, vma);
+
+	if (IS_ENABLED(CONFIG_QCOM_KGSL_IOCOHERENCY_DEFAULT) &&
+		is_cached(entry->memdesc.flags))
+		entry->memdesc.flags |= KGSL_MEMFLAGS_IOCOHERENT;
+
 	up_read(&current->mm->mmap_sem);
 	return 0;
 }
@@ -2979,7 +2992,6 @@ static int _kgsl_gpumem_sync_cache(struct kgsl_mem_entry *entry,
 {
 	int ret = 0;
 	int cacheop;
-	int mode;
 
 	if (!entry)
 		return 0;
@@ -3010,9 +3022,7 @@ static int _kgsl_gpumem_sync_cache(struct kgsl_mem_entry *entry,
 		length = entry->memdesc.size;
 	}
 
-	mode = kgsl_memdesc_get_cachemode(&entry->memdesc);
-	if (mode != KGSL_CACHEMODE_UNCACHED
-		&& mode != KGSL_CACHEMODE_WRITECOMBINE) {
+	if (is_cached(entry->memdesc.flags)) {
 		trace_kgsl_mem_sync_cache(entry, offset, length, op);
 		ret = kgsl_cache_range_op(&entry->memdesc, offset,
 					length, cacheop);
@@ -3319,6 +3329,10 @@ struct kgsl_mem_entry *gpumem_alloc_entry(
 	if (entry == NULL)
 		return ERR_PTR(-ENOMEM);
 
+	if (IS_ENABLED(CONFIG_QCOM_KGSL_IOCOHERENCY_DEFAULT) &&
+		is_cached(flags))
+		flags |= KGSL_MEMFLAGS_IOCOHERENT;
+
 	ret = kgsl_allocate_user(dev_priv->device, &entry->memdesc,
 		size, flags, 0);
 	if (ret != 0)
@@ -3539,6 +3553,11 @@ long kgsl_ioctl_sparse_phys_alloc(struct kgsl_device_private *dev_priv,
 	flags = KGSL_MEMFLAGS_SPARSE_PHYS |
 		((ilog2(param->pagesize) << KGSL_MEMALIGN_SHIFT) &
 			KGSL_MEMALIGN_MASK);
+
+
+	if (IS_ENABLED(CONFIG_QCOM_KGSL_IOCOHERENCY_DEFAULT) &&
+		is_cached(flags))
+		flags |= KGSL_MEMFLAGS_IOCOHERENT;
 
 	ret = kgsl_allocate_user(dev_priv->device, &entry->memdesc,
 			param->size, flags, 0);

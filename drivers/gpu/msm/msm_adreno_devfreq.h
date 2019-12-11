@@ -31,7 +31,6 @@ int kgsl_devfreq_del_notifier(struct device *device,
 struct xstats {
 	u64 ram_time;
 	u64 ram_wait;
-	int mod;
 	int buslevel;
 };
 
@@ -55,7 +54,7 @@ struct devfreq_msm_adreno_tz_data {
 		u32 *down;
 		s32 *p_up;
 		s32 *p_down;
-		u32 *ib_mbps;
+		u32 *ib_kbps;
 		bool floating;
 	} bus;
 	unsigned int device_id;

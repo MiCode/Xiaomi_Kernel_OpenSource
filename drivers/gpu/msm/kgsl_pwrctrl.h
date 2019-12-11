@@ -21,6 +21,12 @@
 
 #define KGSL_MAX_PWRLEVELS 10
 
+#define KGSL_PWRFLAGS_POWER_ON 0
+#define KGSL_PWRFLAGS_CLK_ON   1
+#define KGSL_PWRFLAGS_AXI_ON   2
+#define KGSL_PWRFLAGS_IRQ_ON   3
+#define KGSL_PWRFLAGS_NAP_OFF  5
+
 /* Only two supported levels, min & max */
 #define KGSL_CONSTRAINT_PWR_MAXLEVELS 2
 
@@ -35,6 +41,7 @@ enum kgsl_pwrctrl_timer_type {
 };
 
 struct platform_device;
+struct icc_path;
 
 struct kgsl_clk_stats {
 	unsigned int busy;
@@ -91,7 +98,6 @@ struct kgsl_pwrlevel {
  * @throttle_mask - LM throttle mask
  * @interval_timeout - timeout in jiffies to be idle before a power event
  * @clock_times - Each GPU frequency's accumulated active time in us
- * @pcl - bus scale identifier
  * @clk_stats - structure of clock statistics
  * @input_disable - To disable GPU wakeup on touch input event
  * @bus_control - true if the bus calculation is independent
@@ -133,7 +139,6 @@ struct kgsl_pwrctrl {
 	unsigned int throttle_mask;
 	unsigned long interval_timeout;
 	u64 clock_times[KGSL_MAX_PWRLEVELS];
-	uint32_t pcl;
 	struct kgsl_clk_stats clk_stats;
 	bool input_disable;
 	bool bus_control;
@@ -141,15 +146,16 @@ struct kgsl_pwrctrl {
 	unsigned int bus_percent_ab;
 	unsigned int bus_width;
 	unsigned long bus_ab_mbytes;
-	struct device *devbw;
-	/** @bus_ibs: List of the bus bandwidths in use by our target */
-	u32 *bus_ibs;
-	/** @bus_ibs_count: Number of objects in @bus_ibs */
-	int bus_ibs_count;
+	/** @ddr_table: List of the DDR bandwidths in KBps for the target */
+	u32 *ddr_table;
+	/** @ddr_table_count: Number of objects in @ddr_table */
+	int ddr_table_count;
 	/** cur_buslevel: The last buslevel voted by the driver */
 	int cur_buslevel;
 	/** @bus_max: The maximum bandwidth available to the device */
 	unsigned long bus_max;
+	/** @bus_set: Function for setting the bus constraints */
+	int (*bus_set)(struct kgsl_device *device, int buslevel, u32 ab);
 	struct kgsl_pwr_constraint constraint;
 	bool superfast;
 	unsigned int gpu_bimc_int_clk_freq;
@@ -165,8 +171,6 @@ void kgsl_timer(struct timer_list *t);
 void kgsl_pre_hwaccess(struct kgsl_device *device);
 void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 	unsigned int level);
-void kgsl_pwrctrl_buslevel_update(struct kgsl_device *device,
-	bool on);
 int kgsl_pwrctrl_init_sysfs(struct kgsl_device *device);
 int kgsl_pwrctrl_change_state(struct kgsl_device *device, int state);
 int kgsl_clk_set_rate(struct kgsl_device *device,

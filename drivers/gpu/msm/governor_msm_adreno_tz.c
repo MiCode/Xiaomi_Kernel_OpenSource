@@ -5,17 +5,19 @@
 #include <linux/errno.h>
 #include <linux/module.h>
 #include <linux/devfreq.h>
+#include <linux/dma-mapping.h>
 #include <linux/math64.h>
 #include <linux/spinlock.h>
 #include <linux/slab.h>
 #include <linux/io.h>
 #include <linux/ftrace.h>
 #include <linux/mm.h>
-#include <linux/msm_adreno_devfreq.h>
 #include <linux/qcom_scm.h>
 #include <asm/cacheflush.h>
-#include <soc/qcom/qtee_shmbridge.h>
-#include "governor.h"
+#include <linux/qtee_shmbridge.h>
+
+#include "../../devfreq/governor.h"
+#include "msm_adreno_devfreq.h"
 
 static DEFINE_SPINLOCK(tz_lock);
 static DEFINE_SPINLOCK(sample_lock);
@@ -197,7 +199,8 @@ static int __secure_tz_update_entry3(int level, s64 total_time, s64 busy_time,
 	return ret;
 }
 
-static int tz_init_ca(struct devfreq_msm_adreno_tz_data *priv)
+static int tz_init_ca(struct device *dev,
+	struct devfreq_msm_adreno_tz_data *priv)
 {
 	unsigned int tz_ca_data[2];
 	phys_addr_t paddr;
@@ -226,8 +229,8 @@ static int tz_init_ca(struct devfreq_msm_adreno_tz_data *priv)
 	memcpy(tz_buf, tz_ca_data, sizeof(tz_ca_data));
 	/* Ensure memcpy completes execution */
 	mb();
-	dmac_flush_range(tz_buf,
-		tz_buf + PAGE_ALIGN(sizeof(tz_ca_data)));
+	dma_sync_single_for_device(dev, paddr,
+		PAGE_ALIGN(sizeof(tz_ca_data)), DMA_BIDIRECTIONAL);
 
 	ret = qcom_scm_dcvs_init_ca_v2(paddr, sizeof(tz_ca_data));
 
@@ -239,7 +242,7 @@ static int tz_init_ca(struct devfreq_msm_adreno_tz_data *priv)
 	return ret;
 }
 
-static int tz_init(struct devfreq_msm_adreno_tz_data *priv,
+static int tz_init(struct device *dev, struct devfreq_msm_adreno_tz_data *priv,
 			unsigned int *tz_pwrlevels, u32 size_pwrlevels,
 			unsigned int *version, u32 size_version)
 {
@@ -268,7 +271,8 @@ static int tz_init(struct devfreq_msm_adreno_tz_data *priv,
 		memcpy(tz_buf, tz_pwrlevels, size_pwrlevels);
 		/* Ensure memcpy completes execution */
 		mb();
-		dmac_flush_range(tz_buf, tz_buf + PAGE_ALIGN(size_pwrlevels));
+		dma_sync_single_for_device(dev, paddr,
+			PAGE_ALIGN(size_pwrlevels), DMA_BIDIRECTIONAL);
 
 		ret = qcom_scm_dcvs_init_v2(paddr, size_pwrlevels, version);
 		if (!ret)
@@ -283,7 +287,7 @@ static int tz_init(struct devfreq_msm_adreno_tz_data *priv,
 	 /* Initialize context aware feature, if enabled. */
 	if (!ret && priv->ctxt_aware_enable) {
 		if (priv->is_64 && qcom_scm_dcvs_ca_available()) {
-			ret = tz_init_ca(priv);
+			ret = tz_init_ca(dev, priv);
 			/*
 			 * If context aware feature initialization fails,
 			 * just print an error message and return
@@ -455,8 +459,8 @@ static int tz_start(struct devfreq *devfreq)
 	INIT_WORK(&gpu_profile->partner_resume_event_ws,
 					do_partner_resume_event);
 
-	ret = tz_init(priv, tz_pwrlevels, sizeof(tz_pwrlevels), &version,
-				sizeof(version));
+	ret = tz_init(&devfreq->dev, priv, tz_pwrlevels, sizeof(tz_pwrlevels),
+			&version, sizeof(version));
 	if (ret != 0 || version > MAX_TZ_VERSION) {
 		pr_err(TAG "tz_init failed\n");
 		return ret;
