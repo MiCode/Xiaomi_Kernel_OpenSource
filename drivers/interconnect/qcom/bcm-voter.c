@@ -211,7 +211,8 @@ void qcom_icc_bcm_voter_add(struct bcm_voter *voter, struct qcom_icc_bcm *bcm)
 		return;
 
 	mutex_lock(&voter->lock);
-	list_add_tail(&bcm->list, &voter->commit_list);
+	if (list_empty(&bcm->list))
+		list_add_tail(&bcm->list, &voter->commit_list);
 
 	if (list_empty(&bcm->ws_list))
 		list_add_tail(&bcm->ws_list, &voter->ws_list);
@@ -280,6 +281,9 @@ int qcom_icc_bcm_voter_commit(struct bcm_voter *voter)
 		goto out;
 	}
 
+	list_for_each_entry_safe(bcm, bcm_tmp, &voter->commit_list, list)
+		list_del_init(&bcm->list);
+
 	INIT_LIST_HEAD(&voter->commit_list);
 
 	list_for_each_entry_safe(bcm, bcm_tmp, &voter->ws_list, ws_list) {
@@ -322,6 +326,9 @@ int qcom_icc_bcm_voter_commit(struct bcm_voter *voter)
 	}
 
 out:
+	list_for_each_entry_safe(bcm, bcm_tmp, &voter->commit_list, list)
+		list_del_init(&bcm->list);
+
 	INIT_LIST_HEAD(&voter->commit_list);
 	mutex_unlock(&voter->lock);
 	return ret;
