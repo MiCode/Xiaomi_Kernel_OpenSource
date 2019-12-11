@@ -24,6 +24,8 @@ Required properties:
 				port
 - qcom,core-dev-table:		A mapping table of core frequency to a required
 				bandwidth vote at the given core frequency.
+				A phandle that contains this property may be
+				provided instead (to share tables across nodes).
 - qcom,cachemiss-ev:		The cache miss event that this monitor is
 				supposed to measure. Optional for compute only.
 Optional properties:
