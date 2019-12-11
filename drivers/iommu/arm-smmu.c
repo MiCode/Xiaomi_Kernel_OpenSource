@@ -66,7 +66,7 @@
 #define ARM_MMU500_ACR_CACHE_LOCK	(1 << 26)
 
 #define TLB_LOOP_TIMEOUT		500000	/* 500ms */
-#define TLB_SPIN_COUNT			10
+#define TLB_LOOP_INC_MAX		1000      /*1ms*/
 
 #define ARM_SMMU_IMPL_DEF1(smmu) \
 	((smmu)->base + (6 * (1 << (smmu)->pgshift)))
@@ -886,19 +886,20 @@ static void arm_smmu_domain_power_off(struct iommu_domain *domain,
 static int __arm_smmu_tlb_sync(struct arm_smmu_device *smmu, int page,
 				int sync, int status)
 {
-	unsigned int spin_cnt, delay;
+	unsigned int inc, delay;
 	u32 sync_inv_ack, tbu_pwr_status = -EINVAL, sync_inv_progress = -EINVAL;
 	u32 reg;
 
 	arm_smmu_writel(smmu, page, sync, QCOM_DUMMY_VAL);
-	for (delay = 1; delay < TLB_LOOP_TIMEOUT; delay *= 2) {
-		for (spin_cnt = TLB_SPIN_COUNT; spin_cnt > 0; spin_cnt--) {
-			reg = arm_smmu_readl(smmu, page, status);
-			if (!(reg & sTLBGSTATUS_GSACTIVE))
-				return 0;
-			cpu_relax();
-		}
-		udelay(delay);
+	for (delay = 1, inc = 1; delay < TLB_LOOP_TIMEOUT; delay += inc) {
+		reg = arm_smmu_readl(smmu, page, status);
+		if (!(reg & sTLBGSTATUS_GSACTIVE))
+			return 0;
+
+		cpu_relax();
+		udelay(inc);
+		if (inc < TLB_LOOP_INC_MAX)
+			inc *= 2;
 	}
 
 	sync_inv_ack = arm_smmu_readl(smmu,
