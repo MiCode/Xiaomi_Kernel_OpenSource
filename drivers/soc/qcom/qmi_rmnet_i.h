@@ -71,6 +71,7 @@ struct mq_map {
 };
 
 struct qos_info {
+	struct list_head list;
 	u8 mux_id;
 	struct net_device *real_dev;
 	struct list_head flow_head;
