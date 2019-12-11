@@ -397,7 +397,7 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.busy_mask = 0xFFFFFFFE,
 		.gpmufw_name = "a618_gmu.bin",
 		.gpmu_major = 0x1,
-		.gpmu_minor = 0x007,
+		.gpmu_minor = 0x008,
 	},
 	{
 		.gpurev = ADRENO_REV_A640,
