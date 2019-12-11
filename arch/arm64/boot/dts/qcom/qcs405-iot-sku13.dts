@@ -1,0 +1,111 @@
+/*
+ * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "qcs405.dtsi"
+#include "qcs405-csra8plus2-audio-overlay.dtsi"
+#include "qcs405-geni-ir-overlay.dtsi"
+#include "qcs405-linear-pca9956.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. QCS405 EVB1-4K-CSRA8 I2S-GROUPING";
+	compatible = "qcom,qcs405-iot", "qcom,qcs405", "qcom,iot";
+	qcom,board-id = <0x090020 0x1>;
+};
+
+&soc {
+	spi@78b5000 {
+		status = "ok";
+		spi@0 {
+			compatible = "qcom,spi-msm-codec-slave";
+			reg = <0>;
+			spi-max-frequency = <50000000>;
+		};
+	};
+
+	gpio_keys {
+		/delete-property/ pinctrl-0;
+		/delete-node/ home;
+	};
+
+	usb3_extcon {
+		/delete-property/ id-gpio;
+		pinctrl-0 = <&usb3_vbus_det_default
+				     &usb3_vbus_boost_default>;
+	};
+};
+
+&sdhc_2 {
+	compatible = "qcom,sdhci-msm-v5";
+	reg = <0x7844000 0x1000>;
+	reg-names = "hc_mem";
+
+	interrupts = <0 125 0>, <0 221 0>;
+	interrupt-names = "hc_irq", "pwr_irq";
+
+	qcom,bus-width = <4>;
+	qcom,large-address-bus;
+	qcom,restore-after-cx-collapse;
+
+	qcom,pm-qos-irq-type = "affine_irq";
+	qcom,pm-qos-irq-latency = <13 651>;
+
+	qcom,pm-qos-cpu-groups = <0x0f>;
+	qcom,pm-qos-legacy-latency-us = <13 651>;
+
+	qcom,msm-bus,name = "sdhc2";
+	qcom,msm-bus,num-cases = <8>;
+	qcom,msm-bus,num-paths = <1>;
+	qcom,msm-bus,vectors-KBps = <81 512 0 0>, /* No vote */
+		<81 512 1046 3200>,    /* 400 KB/s*/
+		<81 512 52286 160000>, /* 20 MB/s */
+		<81 512 65360 200000>, /* 25 MB/s */
+		<81 512 130718 400000>, /* 50 MB/s */
+		<81 512 261438 800000>, /* 100 MB/s */
+		<81 512 261438 800000>, /* 200 MB/s */
+		<81 512 1338562 4096000>; /* Max. bandwidth */
+	qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000
+		100000000 200000000 4294967295>;
+
+	qcom,clk-rates = <400000 20000000 25000000
+				50000000 100000000>;
+	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50",
+				  "SDR104";
+
+	qcom,devfreq,freq-table = <50000000 200000000>;
+
+	clocks = <&clock_gcc GCC_SDCC2_AHB_CLK>,
+		<&clock_gcc GCC_SDCC2_APPS_CLK>;
+	clock-names = "iface_clk", "core_clk";
+
+	qcom,nonhotplug;
+
+	/* VDD is an external regulator eLDO5 */
+	vdd-io-supply = <&pms405_l6>;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <0 24200>;
+	post-power-on-delay-ms = <100>;
+
+	qcom,core_3_0v_support;
+	qcom,nonremovable;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc2_clk_on  &sdc2_cmd_on &sdc2_data_on>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off>;
+
+	/delete-property/ qcom,devfreq,freq-table;
+	/delete-property/ cd-gpios;
+
+	status = "ok";
+};

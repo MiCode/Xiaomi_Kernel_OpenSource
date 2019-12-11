@@ -171,6 +171,52 @@ enum cam_cci_state_t {
 	CCI_STATE_DISABLED,
 };
 
+enum cam_cci_i2c_cmd_type {
+	CCI_I2C_SET_PARAM_CMD = 1,
+	CCI_I2C_WAIT_CMD,
+	CCI_I2C_WAIT_SYNC_CMD,
+	CCI_I2C_WAIT_GPIO_EVENT_CMD,
+	CCI_I2C_TRIG_I2C_EVENT_CMD,
+	CCI_I2C_LOCK_CMD,
+	CCI_I2C_UNLOCK_CMD,
+	CCI_I2C_REPORT_CMD,
+	CCI_I2C_WRITE_CMD,
+	CCI_I2C_READ_CMD,
+	CCI_I2C_WRITE_DISABLE_P_CMD,
+	CCI_I2C_READ_DISABLE_P_CMD,
+	CCI_I2C_WRITE_CMD2,
+	CCI_I2C_WRITE_CMD3,
+	CCI_I2C_REPEAT_CMD,
+	CCI_I2C_INVALID_CMD,
+};
+
+enum cam_cci_gpio_cmd_type {
+	CCI_GPIO_SET_PARAM_CMD = 1,
+	CCI_GPIO_WAIT_CMD,
+	CCI_GPIO_WAIT_SYNC_CMD,
+	CCI_GPIO_WAIT_GPIO_IN_EVENT_CMD,
+	CCI_GPIO_WAIT_I2C_Q_TRIG_EVENT_CMD,
+	CCI_GPIO_OUT_CMD,
+	CCI_GPIO_TRIG_EVENT_CMD,
+	CCI_GPIO_REPORT_CMD,
+	CCI_GPIO_REPEAT_CMD,
+	CCI_GPIO_CONTINUE_CMD,
+	CCI_GPIO_INVALID_CMD,
+};
+
+struct cam_sensor_cci_client {
+	struct v4l2_subdev *cci_subdev;
+	uint32_t freq;
+	enum i2c_freq_mode i2c_freq_mode;
+	enum cci_i2c_master_t cci_i2c_master;
+	uint16_t sid;
+	uint16_t cid;
+	uint32_t timeout;
+	uint16_t retries;
+	uint16_t id_map;
+	uint16_t cci_device;
+};
+
 /**
  * struct cci_device
  * @pdev:                       Platform device
@@ -237,52 +283,7 @@ struct cci_device {
 	bool is_burst_read;
 	uint32_t irqs_disabled;
 	struct mutex init_mutex;
-};
-
-enum cam_cci_i2c_cmd_type {
-	CCI_I2C_SET_PARAM_CMD = 1,
-	CCI_I2C_WAIT_CMD,
-	CCI_I2C_WAIT_SYNC_CMD,
-	CCI_I2C_WAIT_GPIO_EVENT_CMD,
-	CCI_I2C_TRIG_I2C_EVENT_CMD,
-	CCI_I2C_LOCK_CMD,
-	CCI_I2C_UNLOCK_CMD,
-	CCI_I2C_REPORT_CMD,
-	CCI_I2C_WRITE_CMD,
-	CCI_I2C_READ_CMD,
-	CCI_I2C_WRITE_DISABLE_P_CMD,
-	CCI_I2C_READ_DISABLE_P_CMD,
-	CCI_I2C_WRITE_CMD2,
-	CCI_I2C_WRITE_CMD3,
-	CCI_I2C_REPEAT_CMD,
-	CCI_I2C_INVALID_CMD,
-};
-
-enum cam_cci_gpio_cmd_type {
-	CCI_GPIO_SET_PARAM_CMD = 1,
-	CCI_GPIO_WAIT_CMD,
-	CCI_GPIO_WAIT_SYNC_CMD,
-	CCI_GPIO_WAIT_GPIO_IN_EVENT_CMD,
-	CCI_GPIO_WAIT_I2C_Q_TRIG_EVENT_CMD,
-	CCI_GPIO_OUT_CMD,
-	CCI_GPIO_TRIG_EVENT_CMD,
-	CCI_GPIO_REPORT_CMD,
-	CCI_GPIO_REPEAT_CMD,
-	CCI_GPIO_CONTINUE_CMD,
-	CCI_GPIO_INVALID_CMD,
-};
-
-struct cam_sensor_cci_client {
-	struct v4l2_subdev *cci_subdev;
-	uint32_t freq;
-	enum i2c_freq_mode i2c_freq_mode;
-	enum cci_i2c_master_t cci_i2c_master;
-	uint16_t sid;
-	uint16_t cid;
-	uint32_t timeout;
-	uint16_t retries;
-	uint16_t id_map;
-	uint16_t cci_device;
+	struct cam_sensor_cci_client cci_debug;
 };
 
 struct cam_cci_ctrl {

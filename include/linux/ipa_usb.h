@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,7 +19,14 @@ enum ipa_usb_teth_prot {
 	IPA_USB_RMNET = 2,
 	IPA_USB_MBIM = 3,
 	IPA_USB_DIAG = 4,
+	IPA_USB_RMNET_CV2X = 5,
 	IPA_USB_MAX_TETH_PROT_SIZE
+};
+
+enum teth_bridge_params {
+	IPA_TETH_BRIDGE_1 = 0,
+	IPA_TETH_BRIDGE_2 = 1,
+	IPA_TETH_BRIDGE_MAX
 };
 
 /**

@@ -27,7 +27,10 @@ dtb-$(CONFIG_ARCH_QCS405) += qcs405-iot-sku1.dtb \
 		qcs405-iot-sku12.dtb \
 		qcs407-iot-sku12.dtb \
 		sa2150p-ccard-emmc.dtb \
-		sa2150p-ccard-nand.dtb
+		sa2150p-ccard-nand.dtb \
+		qcs405-iot-sku13.dtb \
+		qcs407-iot-sku13.dtb \
+		qcs405-iot-robot-reference-board.dtb
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 	dtbo-$(CONFIG_ARCH_SM8150) += \

@@ -923,6 +923,16 @@ config MSM_BAM_DMUX
 	  provides a means to support more logical channels
 	  via muxing than BAM could without muxing.
 
+config QCOM_SOC_INFO
+	bool "Chip information for QTI SoCs"
+	depends on SOC_BUS
+	default y
+	help
+	  This driver provides information about the SoC and chip information such
+	  as the chip ID and revision. Information includes decoding the chip name
+	  based on the chip ID and querying the SoC revision. This information is
+	  loaded by the bootloader into SMEM during the boot up process.
+
 endmenu
 
 config QCOM_HYP_CORE_CTL

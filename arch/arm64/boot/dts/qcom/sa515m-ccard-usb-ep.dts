@@ -21,3 +21,8 @@
 		"qcom,sdxprairie", "qcom,ccard";
 	qcom,board-id = <25 2>, <25 0x102>;
 };
+
+&ipa_hw {
+	qcom,ipa-config-is-auto;
+};
+

@@ -1549,8 +1549,7 @@ static int smb1390_parse_dt(struct smb1390 *chip)
 	of_property_read_u32(chip->dev->of_node, "qcom,parallel-input-mode",
 			&chip->pl_input_mode);
 
-	chip->cp_slave_thr_taper_ua = smb1390_is_adapter_cc_mode(chip) ?
-			(3 * chip->min_ilim_ua) : (4 * chip->min_ilim_ua);
+	chip->cp_slave_thr_taper_ua = 3 * chip->min_ilim_ua;
 	of_property_read_u32(chip->dev->of_node, "qcom,cp-slave-thr-taper-ua",
 			      &chip->cp_slave_thr_taper_ua);
 

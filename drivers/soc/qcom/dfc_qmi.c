@@ -924,18 +924,11 @@ int dfc_bearer_flow_ctl(struct net_device *dev,
 	enable = bearer->grant_size ? true : false;
 
 	qmi_rmnet_flow_control(dev, bearer->mq_idx, enable);
-	trace_dfc_qmi_tc(dev->name, bearer->bearer_id,
-			 bearer->grant_size,
-			 0, bearer->mq_idx, enable);
 
 	/* Do not flow disable tcp ack q in tcp bidir */
 	if (bearer->ack_mq_idx != INVALID_MQ &&
-	    (enable || !bearer->tcp_bidir)) {
+	    (enable || !bearer->tcp_bidir))
 		qmi_rmnet_flow_control(dev, bearer->ack_mq_idx, enable);
-		trace_dfc_qmi_tc(dev->name, bearer->bearer_id,
-				 bearer->grant_size,
-				 0, bearer->ack_mq_idx, enable);
-	}
 
 	if (!enable && bearer->ack_req)
 		dfc_send_ack(dev, bearer->bearer_id,
@@ -976,6 +969,9 @@ static int dfc_update_fc_map(struct net_device *dev, struct qos_info *qos,
 	bool action = false;
 
 	itm = qmi_rmnet_get_bearer_map(qos, fc_info->bearer_id);
+	if (!itm)
+		itm = qmi_rmnet_get_bearer_noref(qos, fc_info->bearer_id);
+
 	if (itm) {
 		/* The RAT switch flag indicates the start and end of
 		 * the switch. Ignore indications in between.

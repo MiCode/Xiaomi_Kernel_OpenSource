@@ -80,7 +80,9 @@ struct rmnet_map_header {
 struct rmnet_map_v5_csum_header {
 	u8  next_hdr:1;
 	u8  header_type:7;
-	u8  hw_reserved:7;
+	u8  hw_reserved:5;
+	u8  priority:1;
+	u8  hw_reserved_bit:1;
 	u8  csum_valid_required:1;
 	__be16 reserved;
 } __aligned(1);
@@ -258,6 +260,7 @@ struct rmnet_map_header *rmnet_map_add_map_header(struct sk_buff *skb,
 void rmnet_map_command(struct sk_buff *skb, struct rmnet_port *port);
 int rmnet_map_checksum_downlink_packet(struct sk_buff *skb, u16 len);
 void rmnet_map_checksum_uplink_packet(struct sk_buff *skb,
+				      struct rmnet_port *port,
 				      struct net_device *orig_dev,
 				      int csum_type);
 bool rmnet_map_v5_csum_buggy(struct rmnet_map_v5_coal_header *coal_hdr);

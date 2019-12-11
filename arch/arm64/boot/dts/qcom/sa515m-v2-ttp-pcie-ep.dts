@@ -20,3 +20,9 @@
 		"qcom,sdxprairie","qcom,ttp";
 	qcom,board-id = <30 1> , <30 0x101>;
 };
+
+&ipa_hw {
+	qcom,use-ipa-in-mhi-mode;
+	qcom,ipa-config-is-auto;
+	qcom,mhi-event-ring-id-limits = <7 11>; /* start and end */
+};

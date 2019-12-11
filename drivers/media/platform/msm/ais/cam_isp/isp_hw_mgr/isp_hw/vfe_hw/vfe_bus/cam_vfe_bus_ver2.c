@@ -846,8 +846,6 @@ static enum cam_vfe_bus_packer_format
 		return PACKER_FMT_PLAIN_16_16BPP;
 	case CAM_FORMAT_PLAIN64:
 		return PACKER_FMT_PLAIN_64;
-	case CAM_FORMAT_PLAIN8:
-		return PACKER_FMT_PLAIN_8;
 	case CAM_FORMAT_PLAIN16_10:
 		return PACKER_FMT_PLAIN_16_10BPP;
 	case CAM_FORMAT_PLAIN16_12:
@@ -863,6 +861,7 @@ static enum cam_vfe_bus_packer_format
 	case CAM_FORMAT_MIPI_RAW_14:
 	case CAM_FORMAT_MIPI_RAW_16:
 	case CAM_FORMAT_MIPI_RAW_20:
+	case CAM_FORMAT_PLAIN8:
 	case CAM_FORMAT_PLAIN16_8:
 	case CAM_FORMAT_PLAIN128:
 	case CAM_FORMAT_PD8:
@@ -952,6 +951,7 @@ static int cam_vfe_bus_acquire_wm(
 		case CAM_FORMAT_MIPI_RAW_14:
 		case CAM_FORMAT_MIPI_RAW_16:
 		case CAM_FORMAT_MIPI_RAW_20:
+		case CAM_FORMAT_PLAIN8:
 		case CAM_FORMAT_PLAIN16_10:
 		case CAM_FORMAT_PLAIN16_12:
 		case CAM_FORMAT_PLAIN16_14:
@@ -959,9 +959,6 @@ static int cam_vfe_bus_acquire_wm(
 		case CAM_FORMAT_PLAIN128:
 		/*repacking is done in CSID for PLAIN*/
 			rsrc_data->pack_fmt = 0x0;
-			break;
-		case CAM_FORMAT_PLAIN8:
-			rsrc_data->pack_fmt = 0x1;
 			break;
 		case CAM_FORMAT_PLAIN64:
 			rsrc_data->pack_fmt = 0xA;

@@ -1712,6 +1712,63 @@
 			};
 		};
 
+
+		cam_sensor0_active: cam_sensor0_active {
+			/* intr gpio for bridge chip 0 */
+			mux {
+				pins = "gpio43";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio43";
+				bias-pull-up; /* PULL UP */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor0_suspend: cam_sensor0_suspend {
+			/* intr gpio for bridge chip 0 */
+			mux {
+				pins = "gpio43";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio43";
+				bias-pull-down; /* PULL DOWN */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor1_active: cam_sensor1_active {
+			/* intr gpio for bridge chip 1 */
+			mux {
+				pins = "gpio31";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio31";
+				bias-pull-up; /* PULL UP*/
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor1_suspend: cam_sensor1_suspend {
+			/* intr gpio for bridge chip 1 */
+			mux {
+				pins = "gpio31";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio31";
+				bias-pull-down; /* PULL DOWN */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
 		flash_led3_front {
 			flash_led3_front_en: flash_led3_front_en {
 				mux {

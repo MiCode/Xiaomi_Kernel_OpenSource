@@ -15,8 +15,8 @@
 #include "cam_mem_mgr.h"
 #include "cam_res_mgr_api.h"
 
-#define CAM_SENSOR_PINCTRL_STATE_SLEEP "cam_suspend"
-#define CAM_SENSOR_PINCTRL_STATE_DEFAULT "cam_default"
+#define CAM_SENSOR_PINCTRL_STATE_SLEEP "sensor_suspend"
+#define CAM_SENSOR_PINCTRL_STATE_DEFAULT "sensor_default"
 
 #define VALIDATE_VOLTAGE(min, max, config_val) ((config_val) && \
 	(config_val >= min) && (config_val <= max))

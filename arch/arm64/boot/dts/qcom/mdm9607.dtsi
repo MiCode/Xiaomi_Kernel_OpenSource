@@ -1670,6 +1670,8 @@
 		qcom,bam-pipe-pair = <2>;
 		qcom,ce-hw-instance = <0>;
 		qcom,ce-device = <0>;
+		qcom,ce-ee = <0>;
+		qcom,ce-hw-shared;
 		qcom,clk-mgmt-sus-res;
 		qcom,msm-bus,name = "qcrypto-noc";
 		qcom,msm-bus,num-cases = <2>;
@@ -1701,6 +1703,7 @@
 		qcom,bam-pipe-pair = <1>;
 		qcom,ce-hw-instance = <0>;
 		qcom,ce-device = <0>;
+		qcom,ce-ee = <0>;
 		qcom,ce-hw-shared;
 		qcom,msm-bus,name = "qcedev-noc";
 		qcom,msm-bus,num-cases = <2>;
@@ -1721,6 +1724,8 @@
 		compatible = "qcom,qseecom";
 		reg = <0x87a80000 0x100000>;
 		reg-names = "secapp-region";
+		memory-region = <&qseecom_mem>;
+		qcom,hlos-num-ce-hw-instances = <1>;
 		qcom,hlos-ce-hw-instance = <0>;
 		qcom,qsee-ce-hw-instance = <0>;
 		qcom,msm-bus,name = "qseecom-noc";
@@ -1731,6 +1736,7 @@
 				<47 512 0 0>,
 				<47 512 120000 1200000>,
 				<47 512 393600 3936000>;
+		qcom,qsee-reentrancy-support = <2>;
 		clocks = <&clock_gcc clk_crypto_clk_src>,
 			<&clock_gcc clk_gcc_crypto_clk>,
 			<&clock_gcc clk_gcc_crypto_ahb_clk>,
@@ -1744,7 +1750,7 @@
 	qcom_tzlog: tz-log@8600720 {
 		compatible = "qcom,tz-log";
 		reg = <0x08600720 0x2000>;
-		status = "disabled";
+		status = "ok";
 	};
 
 	emac0: qcom,emac@7c40000 {

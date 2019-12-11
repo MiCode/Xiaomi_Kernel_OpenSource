@@ -209,6 +209,9 @@
 #define DEFAULT_LOW_WM_VAL	15
 #define DEFAULT_HIGH_WM_VAL	85
 
+#define HDLC_CTXT		1
+#define NON_HDLC_CTXT	2
+
 #define TYPE_DATA		0
 #define TYPE_CNTL		1
 #define TYPE_DCI		2

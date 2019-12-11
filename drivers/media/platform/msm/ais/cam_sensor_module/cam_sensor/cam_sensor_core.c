@@ -456,6 +456,91 @@ int32_t cam_sensor_update_slave_info(struct cam_cmd_probe *probe_info,
 	return rc;
 }
 
+
+static void bridge_irq_work(struct work_struct *work)
+{
+	struct cam_sensor_ctrl_t *s_ctrl;
+	struct cam_sensor_intr_t *s_intr;
+	struct v4l2_event event;
+
+	s_intr = container_of(work, struct cam_sensor_intr_t,
+					irq_work);
+	s_ctrl = s_intr->sctrl;
+
+	mutex_lock(&s_ctrl->cam_sensor_mutex);
+
+	/* Queue the event */
+	memset(&event, 0, sizeof(struct v4l2_event));
+	event.id = s_intr->gpio_array[0].gpio;
+	event.type = AIS_SENSOR_EVENT_TYPE;
+	v4l2_event_queue(s_ctrl->v4l2_dev_str.sd.devnode, &event);
+
+	mutex_unlock(&s_ctrl->cam_sensor_mutex);
+}
+
+
+static irqreturn_t bridge_irq(int irq_num, void *dev)
+{
+	struct cam_sensor_intr_t *s_intr = dev;
+
+	schedule_work(&s_intr->irq_work);
+
+	return IRQ_HANDLED;
+}
+
+static int32_t cam_sensor_init_gpio_intr(
+	struct ais_sensor_gpio_intr_config *gpio_intr_info,
+	struct cam_sensor_ctrl_t *s_ctrl)
+{
+	int32_t rc = -1;
+	int32_t gpio_num = 0;
+	int32_t gpio_cfg0 = 0;
+	int32_t idx = 0;
+
+	for (idx = 0; idx < AIS_MAX_INTR_GPIO; idx++) {
+		if (!s_ctrl->s_intr[idx].work_inited &&
+			gpio_intr_info->gpio_num != -1) {
+			gpio_num = gpio_intr_info->gpio_num;
+
+			gpio_cfg0 = gpio_intr_info->gpio_cfg0;
+
+			s_ctrl->s_intr[idx].sctrl = s_ctrl;
+
+			s_ctrl->s_intr[idx].gpio_array[0].gpio = gpio_num;
+
+			INIT_WORK(&s_ctrl->s_intr[idx].irq_work,
+				bridge_irq_work);
+
+			rc = gpio_request_one(gpio_num,
+						GPIOF_DIR_IN, "camera_intr");
+
+			if (!rc) {
+				rc = request_irq(gpio_to_irq(gpio_num),
+					bridge_irq,
+					IRQF_ONESHOT | gpio_cfg0,
+					"qcom,ais",
+					&s_ctrl->s_intr[idx]);
+
+				if (rc < 0)
+					CAM_ERR(CAM_SENSOR,
+					"gpio %d request irq failed", gpio_num);
+			} else {
+				gpio_free(gpio_num);
+				CAM_ERR(CAM_SENSOR,
+				"gpio %d request failed", gpio_num);
+			}
+
+			if (!rc)
+				s_ctrl->s_intr[idx].work_inited = 1;
+
+			break;
+		}
+	}
+
+	return rc;
+}
+
+
 int32_t cam_handle_cmd_buffers_for_probe(void *cmd_buf,
 	struct cam_sensor_ctrl_t *s_ctrl,
 	int32_t cmd_buf_num, uint32_t cmd_buf_length, size_t remain_len)
@@ -841,14 +926,13 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 		probe_cmd = kzalloc(sizeof(*probe_cmd), GFP_KERNEL);
 		if (!probe_cmd) {
 			rc = -ENOMEM;
-			goto free_probe_cmd;
+			goto release_mutex;
 		}
 
 		rc = copy_from_user(probe_cmd,
 			(void __user *) cmd->handle, sizeof(*probe_cmd));
 		if (rc < 0) {
 			CAM_ERR(CAM_SENSOR, "Failed Copying from user");
-			kfree(probe_cmd);
 			goto free_probe_cmd;
 		}
 
@@ -1182,6 +1266,74 @@ free_probe_cmd:
 
 		kfree(wr_array);
 		kfree(reg_setting);
+	}
+		break;
+	case AIS_SENSOR_INTR_INIT: {
+		struct ais_sensor_gpio_intr_config
+			*gpio_intr_cfg;
+
+		gpio_intr_cfg =
+			kzalloc(sizeof(struct ais_sensor_gpio_intr_config),
+			GFP_KERNEL);
+
+		if (!gpio_intr_cfg) {
+			rc = -ENOMEM;
+			goto release_mutex;
+		}
+
+		rc = copy_from_user(gpio_intr_cfg,
+			(void __user *) cmd->handle,
+			sizeof(struct ais_sensor_gpio_intr_config));
+
+		if (rc < 0) {
+			CAM_ERR(CAM_SENSOR, "Failed Copying from user");
+			goto free_gpio_intr_init_config;
+		}
+
+		rc = cam_sensor_init_gpio_intr(
+				gpio_intr_cfg,
+				s_ctrl);
+
+		if (rc < 0)
+			CAM_ERR(CAM_SENSOR, "Failed in Updating intr Info");
+
+free_gpio_intr_init_config:
+		kfree(gpio_intr_cfg);
+
+	}
+		break;
+	case AIS_SENSOR_INTR_DEINIT: {
+		int idx = 0;
+		int rc = 0;
+		struct ais_sensor_gpio_intr_config
+			*gpio_intr_cfg;
+
+		gpio_intr_cfg =
+			kzalloc(sizeof(struct ais_sensor_gpio_intr_config),
+			GFP_KERNEL);
+
+		if (!gpio_intr_cfg) {
+			rc = -ENOMEM;
+			goto release_mutex;
+		}
+
+		rc = copy_from_user(gpio_intr_cfg,
+			(void __user *) cmd->handle,
+			sizeof(struct ais_sensor_gpio_intr_config));
+
+		if (rc < 0) {
+			CAM_ERR(CAM_SENSOR, "Failed Copying from user");
+			goto free_gpio_intr_deinit_config;
+		}
+
+		for (idx = 0; idx < AIS_MAX_INTR_GPIO; idx++) {
+			if (s_ctrl->s_intr[idx].work_inited == 1)
+				cancel_work_sync(
+				&s_ctrl->s_intr[idx].irq_work);
+		}
+
+free_gpio_intr_deinit_config:
+		kfree(gpio_intr_cfg);
 	}
 		break;
 	case CAM_ACQUIRE_DEV: {

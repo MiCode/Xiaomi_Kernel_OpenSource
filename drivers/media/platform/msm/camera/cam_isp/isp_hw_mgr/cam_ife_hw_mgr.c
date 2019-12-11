@@ -5024,8 +5024,12 @@ static int  cam_ife_hw_mgr_find_affected_ctx(
 		 * In the call back function corresponding ISP context
 		 * will update CRM about fatal Error
 		 */
-		notify_err_cb(ife_hwr_mgr_ctx->common.cb_priv,
-			CAM_ISP_HW_EVENT_ERROR, error_event_data);
+		if (notify_err_cb)
+			notify_err_cb(ife_hwr_mgr_ctx->common.cb_priv,
+				CAM_ISP_HW_EVENT_ERROR, error_event_data);
+		else
+			CAM_DBG(CAM_ISP, "No notify error cb for ctx %d",
+				ife_hwr_mgr_ctx->ctx_index);
 	}
 
 	/* fill the affected_core in recovery data */
@@ -6101,11 +6105,27 @@ static int cam_ife_hw_mgr_handle_csid_event(
 	struct cam_isp_hw_error_event_data  error_event_data = {0};
 	struct cam_hw_event_recovery_data        recovery_data = {0};
 
+	if (!priv || !evt_data) {
+		CAM_ERR(CAM_ISP, "Invalid Parameters %pK %pK",
+			ife_hwr_mgr_ctx, evt_data);
+		return -EINVAL;
+	}
+
+	ife_hwr_mgr_ctx = (struct cam_ife_hw_mgr_ctx *)priv;
 	payload = (struct cam_csid_hw_evt_payload  *)evt_data;
 	CAM_DBG(CAM_ISP, "CSID[%d] type %d event %d",
 		payload->hw_idx, payload->evt_type,
 		evt_id);
 
+	/* We can be in this condition if due to scheduling delays
+	 * workq is late and by the time context is released
+	 */
+	if (!ife_hwr_mgr_ctx->ctx_in_use) {
+		CAM_INFO(CAM_ISP, "ctx %d not in use",
+			ife_hwr_mgr_ctx->ctx_index);
+		return 0;
+
+	}
 	switch (evt_id) {
 	case CAM_ISP_HW_EVENT_ERROR:
 		goto handle_error;

@@ -31,7 +31,7 @@ CFLAGS_scm.o :=$(call as-instr,.arch_extension sec,-DREQUIRES_SEC=1)
 obj-$(CONFIG_QCOM_SCM)  +=      scm.o scm-boot.o
 obj-$(CONFIG_QCOM_SCM_QCPE)  += scm_qcpe.o
 obj-$(CONFIG_QCOM_EARLY_RANDOM)	+= early_random.o
-obj-$(CONFIG_SOC_BUS) += socinfo.o
+obj-$(CONFIG_QCOM_SOC_INFO) += socinfo.o
 obj-$(CONFIG_MSM_BOOT_STATS) += boot_stats.o
 obj-$(CONFIG_MSM_BOOT_TIME_MARKER) += boot_marker.o
 obj-$(CONFIG_MSM_CORE_HANG_DETECT) += core_hang_detect.o

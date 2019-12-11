@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,13 +32,14 @@
 		cam_clk-supply = <&titan_top_gdsc>;
 		regulator-names = "cam_vio", "cam_vana", "cam_vdig",
 			"cam_clk", "cam_bob";
-		gpios = <&tlmm 13 0>,
-			<&tlmm 21 0>;
-		gpio-reset = <1>;
-		gpio-req-tbl-num = <0 1>;
-		gpio-req-tbl-flags = <1 0>;
-		gpio-req-tbl-label = "CAMIF_MCLK0",
-					"CAM_RESET0";
+		pinctrl-names = "sensor_default", "sensor_suspend";
+		pinctrl-0 = <&cam_sensor0_active>;
+		pinctrl-1 = <&cam_sensor0_suspend>;
+		gpios = <&tlmm 21 0>;
+		gpio-reset = <0>;
+		gpio-req-tbl-num = <0 >;
+		gpio-req-tbl-flags = < 0>;
+		gpio-req-tbl-label = "CAM_RESET0";
 		sensor-mode = <0>;
 		cci-master = <0>;
 		status = "ok";
@@ -63,13 +64,14 @@
 		cam_clk-supply = <&titan_top_gdsc>;
 		regulator-names = "cam_vio", "cam_vana", "cam_vdig",
 			"cam_clk", "cam_bob";
-		gpios = <&tlmm 14 0>,
-			<&tlmm 22 0>;
-		gpio-reset = <1>;
-		gpio-req-tbl-num = <0 1>;
-		gpio-req-tbl-flags = <1 0>;
-		gpio-req-tbl-label = "CAMIF_MCLK1",
-					"CAM_RESET1";
+		pinctrl-names = "sensor_default", "sensor_suspend";
+		pinctrl-0 = <&cam_sensor1_active>;
+		pinctrl-1 = <&cam_sensor1_suspend>;
+		gpios = <&tlmm 22 0>;
+		gpio-reset = <0>;
+		gpio-req-tbl-num = <0>;
+		gpio-req-tbl-flags = <0>;
+		gpio-req-tbl-label = "CAM_RESET1";
 		sensor-mode = <0>;
 		cci-master = <0>;
 		status = "ok";
@@ -94,13 +96,14 @@
 		cam_clk-supply = <&titan_top_gdsc>;
 		regulator-names = "cam_vio", "cam_vana", "cam_vdig",
 			"cam_clk", "cam_bob";
-		gpios = <&tlmm 15 0>,
-			<&tlmm 23 0>;
-		gpio-reset = <1>;
-		gpio-req-tbl-num = <0 1>;
-		gpio-req-tbl-flags = <1 0>;
-		gpio-req-tbl-label = "CAMIF_MCLK2",
-					"CAM_RESET2";
+		pinctrl-names = "sensor_default", "sensor_suspend";
+		pinctrl-0 = <&cam_sensor2_active>;
+		pinctrl-1 = <&cam_sensor2_suspend>;
+		gpios = <&tlmm 23 0>;
+		gpio-reset = <0>;
+		gpio-req-tbl-num = <0>;
+		gpio-req-tbl-flags = <0>;
+		gpio-req-tbl-label = "CAM_RESET2";
 		sensor-mode = <0>;
 		cci-master = <1>;
 		status = "ok";
@@ -125,13 +128,14 @@
 		cam_clk-supply = <&titan_top_gdsc>;
 		regulator-names = "cam_vio", "cam_vana", "cam_vdig",
 			"cam_clk", "cam_bob";
-		gpios = <&tlmm 16 0>,
-			<&tlmm 25 0>;
-		gpio-reset = <1>;
-		gpio-req-tbl-num = <0 1>;
-		gpio-req-tbl-flags = <1 0>;
-		gpio-req-tbl-label = "CAMIF_MCLK3",
-					"CAM_RESET3";
+		pinctrl-names = "sensor_default", "sensor_suspend";
+		pinctrl-0 = <&cam_sensor3_active>;
+		pinctrl-1 = <&cam_sensor3_suspend>;
+		gpios = <&tlmm 25 0>;
+		gpio-reset = <0>;
+		gpio-req-tbl-num = <0>;
+		gpio-req-tbl-flags = <0>;
+		gpio-req-tbl-label = "CAM_RESET3";
 		sensor-mode = <0>;
 		cci-master = <1>;
 		status = "ok";

@@ -116,14 +116,18 @@ struct npu_debugfs_ctx {
 	struct dentry *root;
 	uint32_t reg_off;
 	uint32_t reg_cnt;
-	char *buf;
-	size_t buf_len;
 	uint8_t *log_buf;
 	struct mutex log_lock;
 	uint32_t log_num_bytes_buffered;
 	uint32_t log_read_index;
 	uint32_t log_write_index;
 	uint32_t log_buf_size;
+};
+
+struct npu_debugfs_reg_ctx {
+	char *buf;
+	size_t buf_len;
+	struct npu_device *npu_dev;
 };
 
 struct npu_mbox {
@@ -343,5 +347,5 @@ void disable_fw(struct npu_device *npu_dev);
 int load_fw(struct npu_device *npu_dev);
 int unload_fw(struct npu_device *npu_dev);
 int npu_set_bw(struct npu_device *npu_dev, int new_ib, int new_ab);
-
+int npu_process_kevent(struct npu_client *client, struct npu_kevent *kevt);
 #endif /* _NPU_COMMON_H */

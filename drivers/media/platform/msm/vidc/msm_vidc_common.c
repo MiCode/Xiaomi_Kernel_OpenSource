@@ -7151,7 +7151,7 @@ int msm_comm_set_color_format_constraints(struct msm_vidc_inst *inst,
 		dprintk(VIDC_DBG, "Set color format constraint success\n");
 
 exit:
-	if (!pconstraint)
+	if (pconstraint)
 		kfree(pconstraint);
 	return rc;
 }

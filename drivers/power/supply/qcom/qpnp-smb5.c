@@ -1168,6 +1168,7 @@ static enum power_supply_property smb5_usb_main_props[] = {
 	POWER_SUPPLY_PROP_FORCE_MAIN_ICL,
 	POWER_SUPPLY_PROP_COMP_CLAMP_LEVEL,
 	POWER_SUPPLY_PROP_HEALTH,
+	POWER_SUPPLY_PROP_HOT_TEMP,
 };
 
 static int smb5_usb_main_get_prop(struct power_supply *psy,
@@ -1230,6 +1231,10 @@ static int smb5_usb_main_get_prop(struct power_supply *psy,
 	/* Use this property to report SMB health */
 	case POWER_SUPPLY_PROP_HEALTH:
 		val->intval = smblib_get_prop_smb_health(chg);
+		break;
+	/* Use this property to report overheat status */
+	case POWER_SUPPLY_PROP_HOT_TEMP:
+		val->intval = chg->thermal_overheat;
 		break;
 	default:
 		pr_debug("get prop %d is not supported in usb-main\n", psp);
@@ -1326,6 +1331,9 @@ static int smb5_usb_main_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_COMP_CLAMP_LEVEL:
 		rc = smb5_set_prop_comp_clamp_level(chg, val);
 		break;
+	case POWER_SUPPLY_PROP_HOT_TEMP:
+		rc = smblib_set_prop_thermal_overheat(chg, val->intval);
+		break;
 	default:
 		pr_err("set prop %d is not supported\n", psp);
 		rc = -EINVAL;
@@ -1346,6 +1354,7 @@ static int smb5_usb_main_prop_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_FORCE_MAIN_FCC:
 	case POWER_SUPPLY_PROP_FORCE_MAIN_ICL:
 	case POWER_SUPPLY_PROP_COMP_CLAMP_LEVEL:
+	case POWER_SUPPLY_PROP_HOT_TEMP:
 		rc = 1;
 		break;
 	default:

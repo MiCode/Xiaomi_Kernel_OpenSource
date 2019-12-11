@@ -3964,6 +3964,118 @@
 			};
 		};
 
+		cam_sensor0_active: cam_sensor0_active {
+			/* intr gpio for bridge chip 0 */
+			mux {
+				pins = "gpio13";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio13";
+				bias-pull-up; /* PULL UP */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor0_suspend: cam_sensor0_suspend {
+			/* intr gpio for bridge chip 0 */
+			mux {
+				pins = "gpio13";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio13";
+				bias-pull-down; /* PULL DOWN */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor1_active: cam_sensor1_active {
+			/* intr gpio for bridge chip 1 */
+			mux {
+				pins = "gpio14";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio14";
+				bias-pull-up; /* PULL UP*/
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor1_suspend: cam_sensor1_suspend {
+			/* intr gpio for bridge chip 1 */
+			mux {
+				pins = "gpio14";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio14";
+				bias-pull-down; /* PULL DOWN */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor2_active: cam_sensor2_active {
+			/* intr gpio for bridge chip 2 */
+			mux {
+				pins = "gpio15";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio15";
+				bias-pull-up; /* PULL UP */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor2_suspend: cam_sensor2_suspend {
+			/* intr gpio for bridge chip 2 */
+			mux {
+				pins = "gpio15";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio15";
+				bias-pull-down; /* PULL DOWN */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor3_active: cam_sensor3_active {
+			/* intr gpio for bridge chip 3 */
+			mux {
+				pins = "gpio16";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio16";
+				bias-pull-up; /* PULL UP */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor3_suspend: cam_sensor3_suspend {
+			/* intr gpio for bridge chip 3 */
+			mux {
+				pins = "gpio16";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio16";
+				bias-pull-down; /* PULL DOWN */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
 		cam_sensor_eldo2_default: cam_sensor_eldo2_default {
 			/* AVDD ELDO2 */
 			mux {

@@ -12,13 +12,14 @@
 #define AIS_SENSOR_I2C_WRITE_ARRAY (AIS_SENSOR_OPCODE_START + 6)
 #define AIS_SENSOR_I2C_POWER_UP    (AIS_SENSOR_OPCODE_START + 7)
 #define AIS_SENSOR_I2C_POWER_DOWN  (AIS_SENSOR_OPCODE_START + 8)
-
+#define AIS_SENSOR_INTR_INIT      (AIS_SENSOR_OPCODE_START + 9)
+#define AIS_SENSOR_INTR_DEINIT    (AIS_SENSOR_OPCODE_START + 10)
 #define AIS_SENSOR_EVENT_BASE      (V4L2_EVENT_PRIVATE_START)
 #define AIS_SENSOR_EVENT_TYPE      (AIS_SENSOR_EVENT_BASE + 1)
 
 
 #define AIS_MAX_POWER_SEQ 12
-
+#define AIS_MAX_INTR_GPIO 3
 
 struct ais_sensor_event_data {
 	uint32_t data[16];
@@ -59,9 +60,9 @@ struct ais_sensor_power_config {
 /**
  * struct ais_sensor_gpio_intr_config - gpio intr settings
  * @gpio_num    :    gpio number
- * @gpio_cfg0	:    config 0 param
- * @gpio_cfg1	:    config 1 param
- * @reserved	:    reserved
+ * @gpio_cfg0   :    config 0 param
+ * @gpio_cfg1   :    config 1 param
+ * @reserved    :    reserved
  */
 struct ais_sensor_gpio_intr_config {
 	uint32_t gpio_num;
@@ -79,7 +80,7 @@ struct ais_sensor_gpio_intr_config {
 struct ais_sensor_probe_cmd {
 	struct cam_cmd_i2c_info i2c_config;
 	struct ais_sensor_power_config power_config;
-	struct ais_sensor_gpio_intr_config gpio_intr_config[3];
+	struct ais_sensor_gpio_intr_config gpio_intr_config[AIS_MAX_INTR_GPIO];
 };
 
 /**
@@ -146,6 +147,18 @@ struct ais_sensor_cmd_i2c_wr_array {
 	uint16_t    reserved;
 	uint16_t    count;
 	struct ais_sensor_i2c_wr_payload *wr_array;
+} __attribute__((packed));
+
+/**
+ * struct ais_sensor_cmd_i2c_pwrup - i2c power up
+ * @master          :    logical master
+ * @retries         :    number of retries
+ * @reserved        :    reserved
+ */
+struct ais_sensor_cmd_i2c_pwrup {
+	uint8_t     master;
+	uint8_t     retries;
+	uint16_t     reserved;
 } __attribute__((packed));
 
 #endif

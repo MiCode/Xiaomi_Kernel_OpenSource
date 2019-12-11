@@ -1660,7 +1660,8 @@ static ssize_t ipa3_read_msg(struct file *file, char __user *ubuf,
 }
 
 static void ipa3_read_table(
-	char *table_addr, u32 table_size,
+	char *table_addr,
+	u32 table_size,
 	u32 *total_num_entries,
 	u32 *rule_id,
 	enum ipahal_nat_type nat_type)
@@ -1674,46 +1675,51 @@ static void ipa3_read_table(
 	char *buff;
 	size_t buff_size = 2 * IPA_MAX_ENTRY_STRING_LEN;
 
-	IPADBG("\n");
+	IPADBG("In\n");
+
 	if (table_addr == NULL) {
 		pr_err("NULL NAT table\n");
-		return;
+		goto bail;
 	}
 
 	result = ipahal_nat_entry_size(nat_type, &entry_size);
+
 	if (result) {
 		IPAERR("Failed to retrieve size of %s entry\n",
 			ipahal_nat_type_str(nat_type));
-		return;
+		goto bail;
 	}
 
 	buff = kzalloc(buff_size, GFP_KERNEL);
+
 	if (!buff) {
 		IPAERR("Out of memory\n");
-		return;
+		goto bail;
 	}
 
 	for (i = 0, entry = table_addr;
 		i < table_size;
 		++i, ++id, entry += entry_size) {
+
 		result = ipahal_nat_is_entry_zeroed(nat_type, entry,
 			&entry_zeroed);
+
 		if (result) {
-			IPAERR(
-				"Failed to determine whether the %s entry is definitely zero\n"
-					, ipahal_nat_type_str(nat_type));
-			goto bail;
+			IPAERR("Undefined if %s entry is zero\n",
+				   ipahal_nat_type_str(nat_type));
+			goto free_buf;
 		}
+
 		if (entry_zeroed)
 			continue;
 
 		result = ipahal_nat_is_entry_valid(nat_type, entry,
 			&entry_valid);
+
 		if (result) {
-			IPAERR(
-				"Failed to determine whether the %s entry is valid\n"
-					, ipahal_nat_type_str(nat_type));
-			goto bail;
+			IPAERR("Undefined if %s entry is valid\n",
+				   ipahal_nat_type_str(nat_type));
+			goto free_buf;
 		}
 
 		if (entry_valid) {
@@ -1724,7 +1730,9 @@ static void ipa3_read_table(
 
 		ipahal_nat_stringify_entry(nat_type, entry,
 			buff, buff_size);
+
 		pr_err("%s\n", buff);
+
 		memset(buff, 0, buff_size);
 	}
 
@@ -1732,52 +1740,150 @@ static void ipa3_read_table(
 		pr_err("\n");
 	else
 		pr_err("\tEmpty\n\n");
-	IPADBG("return\n");
-bail:
+
+free_buf:
 	kfree(buff);
 	*rule_id = id;
 	*total_num_entries += num_entries;
+
+bail:
+	IPADBG("Out\n");
 }
 
 static void ipa3_start_read_memory_device(
 	struct ipa3_nat_ipv6ct_common_mem *dev,
 	enum ipahal_nat_type nat_type,
-	u32 *num_entries)
+	u32 *num_ddr_ent_ptr,
+	u32 *num_sram_ent_ptr)
 {
 	u32 rule_id = 0;
 
-	IPADBG("\n");
+	if (dev->is_ipv6ct_mem) {
 
-	pr_err("%s_Table_Size=%d\n",
-		dev->name, dev->table_entries + 1);
+		IPADBG("In: v6\n");
 
-	pr_err("%s_Expansion_Table_Size=%d\n",
-		dev->name, dev->expn_table_entries);
+		pr_err("%s_Table_Size=%d\n",
+			   dev->name, dev->table_entries + 1);
 
-	if (!dev->is_sys_mem)
-		pr_err("Not supported for local(shared) memory\n");
+		pr_err("%s_Expansion_Table_Size=%d\n",
+			   dev->name, dev->expn_table_entries);
 
-	pr_err("\n%s Base Table:\n", dev->name);
-	ipa3_read_table(dev->base_table_addr, dev->table_entries + 1,
-		num_entries, &rule_id, nat_type);
+		pr_err("\n%s Base Table:\n", dev->name);
 
-	pr_err("%s Expansion Table:\n", dev->name);
-	ipa3_read_table(
-		dev->expansion_table_addr, dev->expn_table_entries,
-		num_entries,
-		&rule_id,
-		nat_type);
+		if (dev->base_table_addr)
+			ipa3_read_table(
+				dev->base_table_addr,
+				dev->table_entries + 1,
+				num_ddr_ent_ptr,
+				&rule_id,
+				nat_type);
 
-	IPADBG("return\n");
+		pr_err("%s Expansion Table:\n", dev->name);
+
+		if (dev->expansion_table_addr)
+			ipa3_read_table(
+				dev->expansion_table_addr,
+				dev->expn_table_entries,
+				num_ddr_ent_ptr,
+				&rule_id,
+				nat_type);
+	}
+
+	if (dev->is_nat_mem) {
+		struct ipa3_nat_mem *nm_ptr = (struct ipa3_nat_mem *) dev;
+		struct ipa3_nat_mem_loc_data *mld_ptr = NULL;
+		u32 *num_ent_ptr;
+		const char *type_ptr;
+
+		IPADBG("In: v4\n");
+
+		if (nm_ptr->active_table == IPA_NAT_MEM_IN_DDR &&
+			nm_ptr->ddr_in_use) {
+
+			mld_ptr     = &nm_ptr->mem_loc[IPA_NAT_MEM_IN_DDR];
+			num_ent_ptr = num_ddr_ent_ptr;
+			type_ptr    = "DDR based table";
+		}
+
+		if (nm_ptr->active_table == IPA_NAT_MEM_IN_SRAM &&
+			nm_ptr->sram_in_use) {
+
+			mld_ptr     = &nm_ptr->mem_loc[IPA_NAT_MEM_IN_SRAM];
+			num_ent_ptr = num_sram_ent_ptr;
+			type_ptr    = "SRAM based table";
+		}
+
+		if (mld_ptr) {
+			pr_err("(%s) %s_Table_Size=%d\n",
+				   type_ptr,
+				   dev->name,
+				   mld_ptr->table_entries + 1);
+
+			pr_err("(%s) %s_Expansion_Table_Size=%d\n",
+				   type_ptr,
+				   dev->name,
+				   mld_ptr->expn_table_entries);
+
+			pr_err("\n(%s) %s_Base Table:\n",
+				   type_ptr,
+				   dev->name);
+
+			if (mld_ptr->base_table_addr)
+				ipa3_read_table(
+					mld_ptr->base_table_addr,
+					mld_ptr->table_entries + 1,
+					num_ent_ptr,
+					&rule_id,
+					nat_type);
+
+			pr_err("(%s) %s_Expansion Table:\n",
+				   type_ptr,
+				   dev->name);
+
+			if (mld_ptr->expansion_table_addr)
+				ipa3_read_table(
+					mld_ptr->expansion_table_addr,
+					mld_ptr->expn_table_entries,
+					num_ent_ptr,
+					&rule_id,
+					nat_type);
+		}
+	}
+
+	IPADBG("Out\n");
 }
 
 static void ipa3_finish_read_memory_device(
 	struct ipa3_nat_ipv6ct_common_mem *dev,
-	u32 num_entries)
+	u32 num_ddr_entries,
+	u32 num_sram_entries)
 {
-	IPADBG("\n");
-	pr_err("Overall number %s entries: %d\n\n", dev->name, num_entries);
-	IPADBG("return\n");
+	IPADBG("In\n");
+
+	if (dev->is_ipv6ct_mem) {
+		pr_err("Overall number %s entries: %u\n\n",
+			   dev->name,
+			   num_ddr_entries);
+	} else {
+		struct ipa3_nat_mem *nm_ptr = (struct ipa3_nat_mem *) dev;
+
+		if (num_ddr_entries)
+			pr_err("%s: Overall number of DDR entries: %u\n\n",
+				   dev->name,
+				   num_ddr_entries);
+
+		if (num_sram_entries)
+			pr_err("%s: Overall number of SRAM entries: %u\n\n",
+				   dev->name,
+				   num_sram_entries);
+
+		pr_err("%s: Driver focus changes to DDR(%u) to SRAM(%u)\n",
+			   dev->name,
+			   nm_ptr->switch2ddr_cnt,
+			   nm_ptr->switch2sram_cnt);
+	}
+
+	IPADBG("Out\n");
 }
 
 static void ipa3_read_pdn_table(void)
@@ -1790,72 +1896,106 @@ static void ipa3_read_pdn_table(void)
 	char *buff;
 	size_t buff_size = 128;
 
-	IPADBG("\n");
+	IPADBG("In\n");
 
-	result = ipahal_nat_entry_size(IPAHAL_NAT_IPV4_PDN, &pdn_entry_size);
-	if (result) {
-		IPAERR("Failed to retrieve size of PDN entry");
-		return;
-	}
+	if (ipa3_ctx->nat_mem.pdn_mem.base) {
 
-	buff = kzalloc(buff_size, GFP_KERNEL);
-	if (!buff) {
-		IPAERR("Out of memory\n");
-		return;
-	}
+		result = ipahal_nat_entry_size(
+			IPAHAL_NAT_IPV4_PDN, &pdn_entry_size);
 
-	for (i = 0, pdn_entry = ipa3_ctx->nat_mem.pdn_mem.base;
-		i < IPA_MAX_PDN_NUM;
-		++i, pdn_entry += pdn_entry_size) {
-		result = ipahal_nat_is_entry_zeroed(IPAHAL_NAT_IPV4_PDN,
-			pdn_entry, &entry_zeroed);
 		if (result) {
-			IPAERR(
-				"Failed to determine whether the PDN entry is definitely zero\n");
+			IPAERR("Failed to retrieve size of PDN entry");
 			goto bail;
 		}
-		if (entry_zeroed)
-			continue;
 
-		result = ipahal_nat_is_entry_valid(IPAHAL_NAT_IPV4_PDN,
-			pdn_entry, &entry_valid);
-		if (result) {
-			IPAERR(
-				"Failed to determine whether the PDN entry is valid\n");
+		buff = kzalloc(buff_size, GFP_KERNEL);
+		if (!buff) {
+			IPAERR("Out of memory\n");
 			goto bail;
 		}
-		if (entry_valid)
-			pr_err("PDN %d: ", i);
-		else
-			pr_err("PDN %d - Invalid: ", i);
 
-		ipahal_nat_stringify_entry(IPAHAL_NAT_IPV4_PDN,
+		for (i = 0, pdn_entry = ipa3_ctx->nat_mem.pdn_mem.base;
+			 i < IPA_MAX_PDN_NUM;
+			 ++i, pdn_entry += pdn_entry_size) {
+
+			result = ipahal_nat_is_entry_zeroed(
+				IPAHAL_NAT_IPV4_PDN,
+				pdn_entry, &entry_zeroed);
+
+			if (result) {
+				IPAERR("ipahal_nat_is_entry_zeroed() fail\n");
+				goto free;
+			}
+
+			if (entry_zeroed)
+				continue;
+
+			result = ipahal_nat_is_entry_valid(
+				IPAHAL_NAT_IPV4_PDN,
+				pdn_entry, &entry_valid);
+
+			if (result) {
+				IPAERR(
+					"Failed to determine whether the PDN entry is valid\n");
+				goto free;
+			}
+
+			if (entry_valid)
+				pr_err("PDN %d: ", i);
+			else
+				pr_err("PDN %d - Invalid: ", i);
+
+			ipahal_nat_stringify_entry(
+				IPAHAL_NAT_IPV4_PDN,
 				pdn_entry, buff, buff_size);
-		pr_err("%s\n", buff);
-		memset(buff, 0, buff_size);
+
+			pr_err("%s\n", buff);
+
+			memset(buff, 0, buff_size);
+		}
+		pr_err("\n");
+free:
+		kfree(buff);
 	}
-	pr_err("\n");
 bail:
-	kfree(buff);
-	IPADBG("return\n");
+	IPADBG("Out\n");
 }
 
-static ssize_t ipa3_read_nat4(struct file *file,
-		char __user *ubuf, size_t count,
-		loff_t *ppos)
+static ssize_t ipa3_read_nat4(
+	struct file *file,
+	char __user *ubuf,
+	size_t count,
+	loff_t *ppos)
 {
-	u32 rule_id = 0, num_entries = 0, index_num_entries = 0;
+	struct ipa3_nat_ipv6ct_common_mem *dev = &ipa3_ctx->nat_mem.dev;
+	struct ipa3_nat_mem *nm_ptr = (struct ipa3_nat_mem *) dev;
+	struct ipa3_nat_mem_loc_data *mld_ptr = NULL;
+
+	u32  rule_id = 0;
+
+	u32 *num_ents_ptr;
+	u32  num_ddr_ents = 0;
+	u32  num_sram_ents = 0;
+
+	u32 *num_index_ents_ptr;
+	u32  num_ddr_index_ents = 0;
+	u32  num_sram_index_ents = 0;
+
+	const char *type_ptr;
+
+	bool any_table_active = (nm_ptr->ddr_in_use || nm_ptr->sram_in_use);
 
 	pr_err("IPA3 NAT stats\n");
-	if (!ipa3_ctx->nat_mem.dev.is_dev_init) {
+
+	if (!dev->is_dev_init) {
 		pr_err("NAT hasn't been initialized or not supported\n");
 		goto ret;
 	}
 
-	mutex_lock(&ipa3_ctx->nat_mem.dev.lock);
+	mutex_lock(&dev->lock);
 
-	if (!ipa3_ctx->nat_mem.dev.is_hw_init) {
-		pr_err("NAT H/W hasn't been initialized\n");
+	if (!dev->is_hw_init || !any_table_active) {
+		pr_err("NAT H/W and/or S/W not initialized\n");
 		goto bail;
 	}
 
@@ -1863,71 +2003,117 @@ static ssize_t ipa3_read_nat4(struct file *file,
 		ipa3_read_pdn_table();
 	} else {
 		pr_err("NAT Table IP Address=%pI4h\n\n",
-			&ipa3_ctx->nat_mem.public_ip_addr);
+			   &ipa3_ctx->nat_mem.public_ip_addr);
 	}
 
-	ipa3_start_read_memory_device(&ipa3_ctx->nat_mem.dev,
-		IPAHAL_NAT_IPV4, &num_entries);
+	ipa3_start_read_memory_device(
+		dev,
+		IPAHAL_NAT_IPV4,
+		&num_ddr_ents,
+		&num_sram_ents);
 
-	/* Print Index tables */
-	pr_err("ipaNatTable Index Table:\n");
-	ipa3_read_table(
-		ipa3_ctx->nat_mem.index_table_addr,
-		ipa3_ctx->nat_mem.dev.table_entries + 1,
-		&index_num_entries,
-		&rule_id,
-		IPAHAL_NAT_IPV4_INDEX);
+	if (nm_ptr->active_table == IPA_NAT_MEM_IN_DDR &&
+		nm_ptr->ddr_in_use) {
 
-	pr_err("ipaNatTable Expansion Index Table:\n");
-	ipa3_read_table(
-		ipa3_ctx->nat_mem.index_table_expansion_addr,
-		ipa3_ctx->nat_mem.dev.expn_table_entries,
-		&index_num_entries,
-		&rule_id,
-		IPAHAL_NAT_IPV4_INDEX);
+		mld_ptr            = &nm_ptr->mem_loc[IPA_NAT_MEM_IN_DDR];
+		num_ents_ptr       = &num_ddr_ents;
+		num_index_ents_ptr = &num_ddr_index_ents;
+		type_ptr           = "DDR based table";
+	}
 
-	if (num_entries != index_num_entries)
-		IPAERR(
-			"The NAT table number of entries %d is different from index table number of entries %d\n",
-			num_entries, index_num_entries);
+	if (nm_ptr->active_table == IPA_NAT_MEM_IN_SRAM &&
+		nm_ptr->sram_in_use) {
 
-	ipa3_finish_read_memory_device(&ipa3_ctx->nat_mem.dev, num_entries);
+		mld_ptr            = &nm_ptr->mem_loc[IPA_NAT_MEM_IN_SRAM];
+		num_ents_ptr       = &num_sram_ents;
+		num_index_ents_ptr = &num_sram_index_ents;
+		type_ptr           = "SRAM based table";
+	}
 
-	IPADBG("return\n");
+	if (mld_ptr) {
+		/* Print Index tables */
+		pr_err("(%s) ipaNatTable Index Table:\n", type_ptr);
+
+		ipa3_read_table(
+			mld_ptr->index_table_addr,
+			mld_ptr->table_entries + 1,
+			num_index_ents_ptr,
+			&rule_id,
+			IPAHAL_NAT_IPV4_INDEX);
+
+		pr_err("(%s) ipaNatTable Expansion Index Table:\n", type_ptr);
+
+		ipa3_read_table(
+			mld_ptr->index_table_expansion_addr,
+			mld_ptr->expn_table_entries,
+			num_index_ents_ptr,
+			&rule_id,
+			IPAHAL_NAT_IPV4_INDEX);
+
+		if (*num_ents_ptr != *num_index_ents_ptr)
+			IPAERR(
+				"(%s) Base Table vs Index Table entry count differs (%u vs %u)\n",
+				type_ptr, *num_ents_ptr, *num_index_ents_ptr);
+	}
+
+	ipa3_finish_read_memory_device(
+		dev,
+		num_ddr_ents,
+		num_sram_ents);
+
 bail:
-	mutex_unlock(&ipa3_ctx->nat_mem.dev.lock);
+	mutex_unlock(&dev->lock);
+
 ret:
+	IPADBG("Out\n");
+
 	return 0;
 }
 
-static ssize_t ipa3_read_ipv6ct(struct file *file,
-	char __user *ubuf, size_t count,
+static ssize_t ipa3_read_ipv6ct(
+	struct file *file,
+	char __user *ubuf,
+	size_t count,
 	loff_t *ppos)
 {
-	u32 num_entries = 0;
+	struct ipa3_nat_ipv6ct_common_mem *dev = &ipa3_ctx->ipv6ct_mem.dev;
+
+	u32 num_ddr_ents, num_sram_ents;
+
+	num_ddr_ents = num_sram_ents = 0;
+
+	IPADBG("In\n");
 
 	pr_err("\n");
 
-	if (!ipa3_ctx->ipv6ct_mem.dev.is_dev_init) {
+	if (!dev->is_dev_init) {
 		pr_err("IPv6 Conntrack not initialized or not supported\n");
-		return 0;
+		goto bail;
 	}
 
-	mutex_lock(&ipa3_ctx->ipv6ct_mem.dev.lock);
-
-	if (!ipa3_ctx->ipv6ct_mem.dev.is_hw_init) {
+	if (!dev->is_hw_init) {
 		pr_err("IPv6 connection tracking H/W hasn't been initialized\n");
 		goto bail;
 	}
 
-	ipa3_start_read_memory_device(&ipa3_ctx->ipv6ct_mem.dev,
-		IPAHAL_NAT_IPV6CT, &num_entries);
-	ipa3_finish_read_memory_device(&ipa3_ctx->ipv6ct_mem.dev,
-		num_entries);
+	mutex_lock(&dev->lock);
 
-	IPADBG("return\n");
+	ipa3_start_read_memory_device(
+		dev,
+		IPAHAL_NAT_IPV6CT,
+		&num_ddr_ents,
+		&num_sram_ents);
+
+	ipa3_finish_read_memory_device(
+		dev,
+		num_ddr_ents,
+		num_sram_ents);
+
+	mutex_unlock(&dev->lock);
+
 bail:
-	mutex_unlock(&ipa3_ctx->ipv6ct_mem.dev.lock);
+	IPADBG("Out\n");
+
 	return 0;
 }
 

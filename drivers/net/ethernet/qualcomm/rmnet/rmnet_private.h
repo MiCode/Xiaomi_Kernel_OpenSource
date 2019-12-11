@@ -26,6 +26,9 @@
 #define RMNET_INGRESS_FORMAT_DL_MARKER  (RMNET_INGRESS_FORMAT_DL_MARKER_V1 |\
 RMNET_INGRESS_FORMAT_DL_MARKER_V2)
 
+/* UL Packet prioritization */
+#define RMNET_EGRESS_FORMAT_PRIORITY            BIT(28)
+
 /* Power save feature*/
 #define RMNET_INGRESS_FORMAT_PS                 BIT(27)
 #define RMNET_FORMAT_PS_NOTIF                   BIT(26)

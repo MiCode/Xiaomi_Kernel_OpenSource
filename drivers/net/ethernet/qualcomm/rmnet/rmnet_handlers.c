@@ -364,7 +364,8 @@ static int rmnet_map_egress_handler(struct sk_buff *skb,
 	if (port->data_format & RMNET_FLAGS_EGRESS_MAP_CKSUMV4) {
 		additional_header_len = sizeof(struct rmnet_map_ul_csum_header);
 		csum_type = RMNET_FLAGS_EGRESS_MAP_CKSUMV4;
-	} else if (port->data_format & RMNET_FLAGS_EGRESS_MAP_CKSUMV5) {
+	} else if ((port->data_format & RMNET_FLAGS_EGRESS_MAP_CKSUMV5) ||
+		   (port->data_format & RMNET_EGRESS_FORMAT_PRIORITY)) {
 		additional_header_len = sizeof(struct rmnet_map_v5_csum_header);
 		csum_type = RMNET_FLAGS_EGRESS_MAP_CKSUMV5;
 	}
@@ -377,7 +378,8 @@ static int rmnet_map_egress_handler(struct sk_buff *skb,
 	}
 
 	if (csum_type)
-		rmnet_map_checksum_uplink_packet(skb, orig_dev, csum_type);
+		rmnet_map_checksum_uplink_packet(skb, port, orig_dev,
+						 csum_type);
 
 	map_header = rmnet_map_add_map_header(skb, additional_header_len, 0,
 					      port);

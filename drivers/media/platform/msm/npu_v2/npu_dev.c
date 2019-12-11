@@ -114,8 +114,8 @@ static int npu_of_parse_pwrlevels(struct npu_device *npu_dev,
 static int npu_pwrctrl_init(struct npu_device *npu_dev);
 static int npu_probe(struct platform_device *pdev);
 static int npu_remove(struct platform_device *pdev);
-static int npu_suspend(struct platform_device *dev, pm_message_t state);
-static int npu_resume(struct platform_device *dev);
+static int npu_pm_suspend(struct device *dev);
+static int npu_pm_resume(struct device *dev);
 static int __init npu_init(void);
 static void __exit npu_exit(void);
 
@@ -193,17 +193,17 @@ static const struct of_device_id npu_dt_match[] = {
 	{}
 };
 
+static const struct dev_pm_ops npu_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(npu_pm_suspend, npu_pm_resume)
+};
+
 static struct platform_driver npu_driver = {
 	.probe = npu_probe,
 	.remove = npu_remove,
-#if defined(CONFIG_PM)
-	.suspend = npu_suspend,
-	.resume = npu_resume,
-#endif
 	.driver = {
 		.name = "msm_npu",
 		.of_match_table = npu_dt_match,
-		.pm = NULL,
+		.pm = &npu_pm_ops,
 	},
 };
 
@@ -1327,28 +1327,6 @@ static int npu_exec_network_v2(struct npu_client *client,
 	return ret;
 }
 
-static int npu_process_kevent(struct npu_kevent *kevt)
-{
-	int ret = 0;
-
-	switch (kevt->evt.type) {
-	case MSM_NPU_EVENT_TYPE_EXEC_V2_DONE:
-		ret = copy_to_user((void __user *)kevt->reserved[1],
-			(void *)&kevt->reserved[0],
-			kevt->evt.u.exec_v2_done.stats_buf_size);
-		if (ret) {
-			NPU_ERR("fail to copy to user\n");
-			kevt->evt.u.exec_v2_done.stats_buf_size = 0;
-			ret = -EFAULT;
-		}
-		break;
-	default:
-		break;
-	}
-
-	return ret;
-}
-
 static int npu_receive_event(struct npu_client *client,
 	unsigned long arg)
 {
@@ -1364,7 +1342,7 @@ static int npu_receive_event(struct npu_client *client,
 		kevt = list_first_entry(&client->evt_list,
 			struct npu_kevent, list);
 		list_del(&kevt->list);
-		npu_process_kevent(kevt);
+		npu_process_kevent(client, kevt);
 		ret = copy_to_user(argp, &kevt->evt,
 			sizeof(struct msm_npu_event));
 		if (ret) {
@@ -1479,6 +1457,21 @@ static int npu_get_property(struct npu_client *client,
 		break;
 	case MSM_NPU_PROP_ID_HARDWARE_VERSION:
 		prop.prop_param[0] = npu_dev->hw_version;
+		break;
+	case MSM_NPU_PROP_ID_IPC_QUEUE_INFO:
+		ret = npu_host_get_ipc_queue_size(npu_dev,
+			prop.prop_param[0]);
+		if (ret < 0) {
+			NPU_ERR("Can't get ipc queue %d size\n",
+				prop.prop_param[0]);
+			return ret;
+		}
+
+		prop.prop_param[1] = ret;
+		break;
+	case MSM_NPU_PROP_ID_DRV_FEATURE:
+		prop.prop_param[0] = MSM_NPU_FEATURE_MULTI_EXECUTE |
+			MSM_NPU_FEATURE_ASYNC_EXECUTE;
 		break;
 	default:
 		ret = npu_host_get_fw_property(client->npu_dev, &prop);
@@ -1598,8 +1591,9 @@ static int npu_parse_dt_clock(struct npu_device *npu_dev)
 			sizeof(core_clks[i].clk_name));
 		core_clks[i].clk = devm_clk_get(&pdev->dev, clock_name);
 		if (IS_ERR(core_clks[i].clk)) {
-			NPU_ERR("unable to get clk: %s\n", clock_name);
-			rc = -EINVAL;
+			if (PTR_ERR(core_clks[i].clk) != -EPROBE_DEFER)
+				NPU_ERR("unable to get clk: %s\n", clock_name);
+			rc = PTR_ERR(core_clks[i].clk);
 			break;
 		}
 
@@ -2218,7 +2212,7 @@ static int npu_probe(struct platform_device *pdev)
 	npu_dev->pdev = pdev;
 	mutex_init(&npu_dev->dev_lock);
 
-	platform_set_drvdata(pdev, npu_dev);
+	dev_set_drvdata(&pdev->dev, npu_dev);
 	res = platform_get_resource_byname(pdev,
 		IORESOURCE_MEM, "core");
 	if (!res) {
@@ -2445,6 +2439,7 @@ error_class_create:
 	unregister_chrdev_region(npu_dev->dev_num, 1);
 	npu_mbox_deinit(npu_dev);
 error_get_dev_num:
+	dev_set_drvdata(&pdev->dev, NULL);
 	return rc;
 }
 
@@ -2462,7 +2457,7 @@ static int npu_remove(struct platform_device *pdev)
 	device_destroy(npu_dev->class, npu_dev->dev_num);
 	class_destroy(npu_dev->class);
 	unregister_chrdev_region(npu_dev->dev_num, 1);
-	platform_set_drvdata(pdev, NULL);
+	dev_set_drvdata(&pdev->dev, NULL);
 	npu_mbox_deinit(npu_dev);
 	msm_bus_scale_unregister_client(npu_dev->bwctrl.bus_client);
 
@@ -2475,17 +2470,27 @@ static int npu_remove(struct platform_device *pdev)
  * Suspend/Resume
  * -------------------------------------------------------------------------
  */
-#if defined(CONFIG_PM)
-static int npu_suspend(struct platform_device *dev, pm_message_t state)
+static int npu_pm_suspend(struct device *dev)
 {
+	struct npu_device *npu_dev;
+
+	npu_dev = dev_get_drvdata(dev);
+	if (!npu_dev) {
+		NPU_ERR("invalid NPU dev\n");
+		return -EINVAL;
+	}
+
+	NPU_DBG("suspend npu\n");
+	npu_host_suspend(npu_dev);
+
 	return 0;
 }
 
-static int npu_resume(struct platform_device *dev)
+static int npu_pm_resume(struct device *dev)
 {
+	NPU_DBG("resume npu\n");
 	return 0;
 }
-#endif
 
 /* -------------------------------------------------------------------------
  * Module Entry Points

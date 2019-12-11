@@ -455,6 +455,84 @@ struct gpi_dev {
 	struct dentry *dentry;
 };
 
+static struct gpi_dev *gpi_dev_dbg[5];
+static int arr_idx;
+
+struct reg_info {
+	char *name;
+	u32 offset;
+	u32 val;
+};
+
+static const struct reg_info gpi_debug_ev_cntxt[] = {
+	{ "CONFIG", CNTXT_0_CONFIG },
+	{ "R_LENGTH", CNTXT_1_R_LENGTH },
+	{ "BASE_LSB", CNTXT_2_RING_BASE_LSB },
+	{ "BASE_MSB", CNTXT_3_RING_BASE_MSB },
+	{ "RP_LSB", CNTXT_4_RING_RP_LSB },
+	{ "RP_MSB", CNTXT_5_RING_RP_MSB },
+	{ "WP_LSB", CNTXT_6_RING_WP_LSB },
+	{ "WP_MSB", CNTXT_7_RING_WP_MSB },
+	{ "INT_MOD", CNTXT_8_RING_INT_MOD },
+	{ "INTVEC", CNTXT_9_RING_INTVEC },
+	{ "MSI_LSB", CNTXT_10_RING_MSI_LSB },
+	{ "MSI_MSB", CNTXT_11_RING_MSI_MSB },
+	{ "RP_UPDATE_LSB", CNTXT_12_RING_RP_UPDATE_LSB },
+	{ "RP_UPDATE_MSB", CNTXT_13_RING_RP_UPDATE_MSB },
+	{ NULL },
+};
+
+static const struct reg_info gpi_debug_ch_cntxt[] = {
+	{ "CONFIG", CNTXT_0_CONFIG },
+	{ "R_LENGTH", CNTXT_1_R_LENGTH },
+	{ "BASE_LSB", CNTXT_2_RING_BASE_LSB },
+	{ "BASE_MSB", CNTXT_3_RING_BASE_MSB },
+	{ "RP_LSB", CNTXT_4_RING_RP_LSB },
+	{ "RP_MSB", CNTXT_5_RING_RP_MSB },
+	{ "WP_LSB", CNTXT_6_RING_WP_LSB },
+	{ "WP_MSB", CNTXT_7_RING_WP_MSB },
+	{ NULL },
+};
+
+static const struct reg_info gpi_debug_regs[] = {
+	{ "DEBUG_PC", GPI_DEBUG_PC_FOR_DEBUG },
+	{ "SW_RF_10", GPI_DEBUG_SW_RF_n_READ(10) },
+	{ "SW_RF_11", GPI_DEBUG_SW_RF_n_READ(11) },
+	{ "SW_RF_12", GPI_DEBUG_SW_RF_n_READ(12) },
+	{ "SW_RF_21", GPI_DEBUG_SW_RF_n_READ(21) },
+	{ NULL },
+};
+
+static const struct reg_info gpi_debug_qsb_regs[] = {
+	{ "QSB_LOG_SEL", GPI_DEBUG_QSB_LOG_SEL },
+	{ "QSB_LOG_CLR", GPI_DEBUG_QSB_LOG_CLR },
+	{ "QSB_LOG_ERR_TRNS_ID", GPI_DEBUG_QSB_LOG_ERR_TRNS_ID },
+	{ "QSB_LOG_0", GPI_DEBUG_QSB_LOG_0 },
+	{ "QSB_LOG_1", GPI_DEBUG_QSB_LOG_1 },
+	{ "QSB_LOG_2", GPI_DEBUG_QSB_LOG_2 },
+	{ "LAST_MISC_ID_0", GPI_DEBUG_QSB_LOG_LAST_MISC_ID(0) },
+	{ "LAST_MISC_ID_1", GPI_DEBUG_QSB_LOG_LAST_MISC_ID(1) },
+	{ "LAST_MISC_ID_2", GPI_DEBUG_QSB_LOG_LAST_MISC_ID(2) },
+	{ "LAST_MISC_ID_3", GPI_DEBUG_QSB_LOG_LAST_MISC_ID(3) },
+	{ NULL },
+};
+
+struct gpi_reg_table {
+	u64 timestamp;
+	struct reg_info *ev_cntxt_info;
+	struct reg_info *chan[MAX_CHANNELS_PER_GPII];
+	struct reg_info *gpi_debug_regs;
+	struct reg_info *gpii_cntxt;
+	struct reg_info *gpi_debug_qsb_regs;
+	u32 ev_scratch_0;
+	u32 ch_scratch_0[MAX_CHANNELS_PER_GPII];
+	void *ev_ring;
+	u32 ev_ring_len;
+	void *ch_ring[MAX_CHANNELS_PER_GPII];
+	u32 ch_ring_len[MAX_CHANNELS_PER_GPII];
+	u32 error_log;
+};
+
 struct gpii_chan {
 	struct virt_dma_chan vc;
 	u32 chid;
@@ -509,6 +587,9 @@ struct gpii {
 	atomic_t dbg_index;
 	char label[GPI_LABEL_SIZE];
 	struct dentry *dentry;
+	struct gpi_reg_table dbg_reg_table;
+	bool reg_table_dump;
+	u32 dbg_gpi_irq_cnt;
 };
 
 struct gpi_desc {
@@ -616,6 +697,156 @@ static inline void gpi_write_reg_field(struct gpii *gpii,
 	tmp &= ~mask;
 	val = tmp | ((val << shift) & mask);
 	gpi_write_reg(gpii, addr, val);
+}
+
+static void gpi_dump_debug_reg(struct gpii *gpii)
+{
+	struct gpi_reg_table *dbg_reg_table = &gpii->dbg_reg_table;
+	struct reg_info *reg_info;
+	int chan;
+	const gfp_t gfp = GFP_ATOMIC;
+	const struct reg_info gpii_cntxt[] = {
+		{ "TYPE_IRQ", GPI_GPII_n_CNTXT_TYPE_IRQ_OFFS
+					(gpii->gpii_id) },
+		{ "TYPE_IRQ_MSK", GPI_GPII_n_CNTXT_TYPE_IRQ_MSK_OFFS
+					(gpii->gpii_id) },
+		{ "CH_IRQ", GPI_GPII_n_CNTXT_SRC_GPII_CH_IRQ_OFFS
+					(gpii->gpii_id) },
+		{ "EV_IRQ", GPI_GPII_n_CNTXT_SRC_EV_CH_IRQ_OFFS
+					(gpii->gpii_id) },
+		{ "CH_IRQ_MSK", GPI_GPII_n_CNTXT_SRC_CH_IRQ_MSK_OFFS
+					(gpii->gpii_id) },
+		{ "EV_IRQ_MSK", GPI_GPII_n_CNTXT_SRC_EV_CH_IRQ_MSK_OFFS
+					(gpii->gpii_id) },
+		{ "IEOB_IRQ", GPI_GPII_n_CNTXT_SRC_IEOB_IRQ_OFFS
+					(gpii->gpii_id) },
+		{ "IEOB_IRQ_MSK", GPI_GPII_n_CNTXT_SRC_IEOB_IRQ_MSK_OFFS
+					(gpii->gpii_id) },
+		{ "GLOB_IRQ", GPI_GPII_n_CNTXT_GLOB_IRQ_STTS_OFFS
+					(gpii->gpii_id) },
+		{ NULL },
+	};
+
+	dbg_reg_table->timestamp = sched_clock();
+
+	if (!dbg_reg_table->gpii_cntxt) {
+		dbg_reg_table->gpii_cntxt = kzalloc(sizeof(gpii_cntxt), gfp);
+		if (!dbg_reg_table->gpii_cntxt)
+			return;
+		memcpy((void *)dbg_reg_table->gpii_cntxt, (void *)gpii_cntxt,
+		       sizeof(gpii_cntxt));
+	}
+
+	/* log gpii cntxt */
+	reg_info = dbg_reg_table->gpii_cntxt;
+	for (; reg_info->name; reg_info++)
+		reg_info->val = readl_relaxed(gpii->regs + reg_info->offset);
+
+	if (!dbg_reg_table->ev_cntxt_info) {
+		dbg_reg_table->ev_cntxt_info =
+			kzalloc(sizeof(gpi_debug_ev_cntxt), gfp);
+		if (!dbg_reg_table->ev_cntxt_info)
+			return;
+		memcpy((void *)dbg_reg_table->ev_cntxt_info,
+			(void *)gpi_debug_ev_cntxt, sizeof(gpi_debug_ev_cntxt));
+	}
+
+	/* log ev cntxt */
+	reg_info = dbg_reg_table->ev_cntxt_info;
+	for (; reg_info->name; reg_info++)
+		reg_info->val = readl_relaxed(gpii->ev_cntxt_base_reg +
+					      reg_info->offset);
+
+	/* dump channel cntxt registers */
+	for (chan = 0; chan < MAX_CHANNELS_PER_GPII; chan++) {
+		if (!dbg_reg_table->chan[chan]) {
+			dbg_reg_table->chan[chan] =
+				kzalloc(sizeof(gpi_debug_ch_cntxt), gfp);
+			if (!dbg_reg_table->chan[chan])
+				return;
+			memcpy((void *)dbg_reg_table->chan[chan],
+				(void *)gpi_debug_ch_cntxt,
+				sizeof(gpi_debug_ch_cntxt));
+		}
+		reg_info = dbg_reg_table->chan[chan];
+		for (; reg_info->name; reg_info++)
+			reg_info->val =
+			readl_relaxed(
+			gpii->gpii_chan[chan].ch_cntxt_base_reg +
+							reg_info->offset);
+	}
+
+	if (!dbg_reg_table->gpi_debug_regs) {
+		dbg_reg_table->gpi_debug_regs =
+			kzalloc(sizeof(gpi_debug_regs), gfp);
+		if (!dbg_reg_table->gpi_debug_regs)
+			return;
+		memcpy((void *)dbg_reg_table->gpi_debug_regs,
+			(void *)gpi_debug_regs, sizeof(gpi_debug_regs));
+	}
+
+	/* log debug register */
+	reg_info = dbg_reg_table->gpi_debug_regs;
+	for (; reg_info->name; reg_info++)
+		reg_info->val = readl_relaxed(gpii->gpi_dev->regs +
+					reg_info->offset);
+
+	if (!dbg_reg_table->gpi_debug_qsb_regs) {
+		dbg_reg_table->gpi_debug_qsb_regs =
+			kzalloc(sizeof(gpi_debug_qsb_regs), gfp);
+		if (!dbg_reg_table->gpi_debug_qsb_regs)
+			return;
+		memcpy((void *)dbg_reg_table->gpi_debug_qsb_regs,
+			(void *)gpi_debug_qsb_regs,
+				sizeof(gpi_debug_qsb_regs));
+	}
+
+	/* log QSB register */
+	reg_info = dbg_reg_table->gpi_debug_qsb_regs;
+	for (; reg_info->name; reg_info++)
+		reg_info->val = readl_relaxed(gpii->gpi_dev->regs +
+					reg_info->offset);
+
+	/* dump scratch registers */
+	dbg_reg_table->ev_scratch_0 = readl_relaxed(gpii->regs +
+			GPI_GPII_n_CNTXT_SCRATCH_0_OFFS(gpii->gpii_id));
+	for (chan = 0; chan < MAX_CHANNELS_PER_GPII; chan++)
+		dbg_reg_table->ch_scratch_0[chan] = readl_relaxed(gpii->regs +
+				GPI_GPII_n_CH_k_SCRATCH_0_OFFS(gpii->gpii_id,
+						gpii->gpii_chan[chan].chid));
+
+	/* Copy the ev ring */
+	if (!dbg_reg_table->ev_ring) {
+		dbg_reg_table->ev_ring_len = gpii->ev_ring.len;
+		dbg_reg_table->ev_ring =
+				kzalloc(dbg_reg_table->ev_ring_len, gfp);
+		if (!dbg_reg_table->ev_ring)
+			return;
+	}
+	memcpy(dbg_reg_table->ev_ring, gpii->ev_ring.base,
+		dbg_reg_table->ev_ring_len);
+
+	/* Copy Transfer rings */
+	for (chan = 0; chan < MAX_CHANNELS_PER_GPII; chan++) {
+		struct gpii_chan *gpii_chan = &gpii->gpii_chan[chan];
+
+		if (!dbg_reg_table->ch_ring[chan]) {
+			dbg_reg_table->ch_ring_len[chan] =
+					gpii_chan->ch_ring.len;
+			dbg_reg_table->ch_ring[chan] =
+				kzalloc(dbg_reg_table->ch_ring_len[chan], gfp);
+			if (!dbg_reg_table->ch_ring[chan])
+				return;
+		}
+
+		memcpy(dbg_reg_table->ch_ring[chan], gpii_chan->ch_ring.base,
+		       dbg_reg_table->ch_ring_len[chan]);
+	}
+
+	dbg_reg_table->error_log = readl_relaxed(gpii->regs +
+				GPI_GPII_n_ERROR_LOG_OFFS(gpii->gpii_id));
+
+	GPII_ERR(gpii, GPI_DBG_COMMON, "Global IRQ handling Exit\n");
 }
 
 static void gpi_disable_interrupts(struct gpii *gpii)
@@ -1004,6 +1235,37 @@ static void gpi_process_ch_ctrl_irq(struct gpii *gpii)
 	}
 }
 
+/* processing gpi general error interrupts */
+static void gpi_process_gen_err_irq(struct gpii *gpii)
+{
+	u32 gpii_id = gpii->gpii_id;
+	u32 offset = GPI_GPII_n_CNTXT_GPII_IRQ_STTS_OFFS(gpii_id);
+	u32 irq_stts = gpi_read_reg(gpii, gpii->regs + offset);
+	u32 chid;
+	struct gpii_chan *gpii_chan;
+
+	/* clear the status */
+	GPII_ERR(gpii, GPI_DBG_COMMON, "irq_stts:0x%x\n", irq_stts);
+
+	/* Notify the client about error */
+	for (chid = 0, gpii_chan = gpii->gpii_chan;
+	     chid < MAX_CHANNELS_PER_GPII; chid++, gpii_chan++)
+		if (gpii_chan->client_info.callback)
+			gpi_generate_cb_event(gpii_chan, MSM_GPI_QUP_FW_ERROR,
+					      irq_stts);
+
+	/* Clear the register */
+	offset = GPI_GPII_n_CNTXT_GPII_IRQ_CLR_OFFS(gpii_id);
+	gpi_write_reg(gpii, gpii->regs + offset, irq_stts);
+
+	gpii->dbg_gpi_irq_cnt++;
+
+	if (!gpii->reg_table_dump) {
+		gpi_dump_debug_reg(gpii);
+		gpii->reg_table_dump = true;
+	}
+}
+
 /* processing gpi level error interrupts */
 static void gpi_process_glob_err_irq(struct gpii *gpii)
 {
@@ -1160,6 +1422,7 @@ static irqreturn_t gpi_handle_irq(int irq, void *data)
 		if (type) {
 			GPII_CRITIC(gpii, GPI_DBG_COMMON,
 				 "Unhandled interrupt status:0x%x\n", type);
+			gpi_process_gen_err_irq(gpii);
 			goto exit_irq;
 		}
 		offset = GPI_GPII_n_CNTXT_TYPE_IRQ_OFFS(gpii->gpii_id);
@@ -1590,12 +1853,12 @@ static int gpi_alloc_chan(struct gpii_chan *gpii_chan, bool send_alloc_cmd)
 		{
 			gpii_chan->ch_cntxt_base_reg,
 			CNTXT_3_RING_BASE_MSB,
-			(u32)(ring->phys_addr >> 32),
+			MSM_GPI_RING_PHYS_ADDR_UPPER(ring->phys_addr),
 		},
 		{ /* program MSB of DB register with ring base */
 			gpii_chan->ch_cntxt_db_reg,
 			CNTXT_5_RING_RP_MSB - CNTXT_4_RING_RP_LSB,
-			(u32)(ring->phys_addr >> 32),
+			MSM_GPI_RING_PHYS_ADDR_UPPER(ring->phys_addr),
 		},
 		{
 			gpii->regs,
@@ -1684,13 +1947,13 @@ static int gpi_alloc_ev_chan(struct gpii *gpii)
 		{
 			gpii->ev_cntxt_base_reg,
 			CNTXT_3_RING_BASE_MSB,
-			(u32)(ring->phys_addr >> 32),
+			MSM_GPI_RING_PHYS_ADDR_UPPER(ring->phys_addr),
 		},
 		{
 			/* program db msg with ring base msb */
 			gpii->ev_cntxt_db_reg,
 			CNTXT_5_RING_RP_MSB - CNTXT_4_RING_RP_LSB,
-			(u32)(ring->phys_addr >> 32),
+			MSM_GPI_RING_PHYS_ADDR_UPPER(ring->phys_addr),
 		},
 		{
 			gpii->ev_cntxt_base_reg,
@@ -2656,6 +2919,10 @@ static int gpi_probe(struct platform_device *pdev)
 	gpi_dev = devm_kzalloc(&pdev->dev, sizeof(*gpi_dev), GFP_KERNEL);
 	if (!gpi_dev)
 		return -ENOMEM;
+
+	/* debug purpose */
+	gpi_dev_dbg[arr_idx] = gpi_dev;
+	arr_idx++;
 
 	gpi_dev->dev = &pdev->dev;
 	gpi_dev->klog_lvl = DEFAULT_KLOG_LVL;
