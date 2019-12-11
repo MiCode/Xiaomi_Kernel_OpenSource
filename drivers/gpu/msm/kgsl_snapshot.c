@@ -1130,8 +1130,8 @@ void kgsl_device_snapshot_probe(struct kgsl_device *device, u32 size)
 		&device->dev->kobj, "snapshot"))
 		return;
 
-	sysfs_create_bin_file(&device->snapshot_kobj, &snapshot_attr);
-	sysfs_create_files(&device->snapshot_kobj, snapshot_attrs);
+	WARN_ON(sysfs_create_bin_file(&device->snapshot_kobj, &snapshot_attr));
+	WARN_ON(sysfs_create_files(&device->snapshot_kobj, snapshot_attrs));
 }
 
 /**
