@@ -36,4 +36,15 @@ config PFK_WRAPPED_KEY_SUPPORTED
 		Adds wrapped key support in PFK driver. Instead of setting
 		the key directly in ICE, it unwraps the key and sets the key
 		in ICE.
+
+config PFK_VIRTUALIZED
+	bool "Per-File-Key driver virtualized version"
+	depends on SECURITY
+	depends on SECURITY_SELINUX
+	depends on QSEECOM
+	depends on PFK
+	depends on MSM_HAB
+	help
+		Makes the driver to use the hypervisor back end for ICE HW
+		operation virtualization instead of calling directly to TZ.
 endmenu
