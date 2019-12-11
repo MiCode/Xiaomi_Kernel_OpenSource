@@ -1404,25 +1404,32 @@ static int a6xx_irq_poll_fence(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	u32 status, fence, fence_retries = 0;
+	u64 a, b, c;
 
 	if (!gmu_core_isenabled(device))
 		return 0;
 
+	a = a6xx_read_alwayson(adreno_dev);
+
 	kgsl_regread(device, A6XX_GMU_AO_AHB_FENCE_CTRL, &fence);
 
 	while (fence != 0) {
+		b = a6xx_read_alwayson(adreno_dev);
+
 		/* Wait for small time before trying again */
 		udelay(1);
 		kgsl_regread(device, A6XX_GMU_AO_AHB_FENCE_CTRL, &fence);
 
 		if (fence_retries == 100 && fence != 0) {
+			c = a6xx_read_alwayson(adreno_dev);
+
 			kgsl_regread(device, A6XX_GMU_RBBM_INT_UNMASKED_STATUS,
 				&status);
 
 			dev_crit_ratelimited(device->dev,
-				"status=0x%x Unmasked status=0x%x Mask=0x%x\n",
+				"status=0x%x Unmasked status=0x%x Mask=0x%x timestamps: %llx %llx %llx\n",
 					status & adreno_dev->irq_mask, status,
-					adreno_dev->irq_mask);
+					adreno_dev->irq_mask, a, b, c);
 				return -ETIMEDOUT;
 		}
 
