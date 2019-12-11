@@ -3,7 +3,6 @@
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
-#include <linux/clk/qcom.h>
 #include <linux/of.h>
 #include <linux/of_fdt.h>
 #include <linux/soc/qcom/llcc-qcom.h>
@@ -2490,24 +2489,8 @@ update:
 static void a6xx_clk_set_options(struct adreno_device *adreno_dev,
 	const char *name, struct clk *clk, bool on)
 {
-	if (!adreno_is_a610(adreno_dev))
-		return;
-
-	/* Handle clock settings for GFX PSCBCs */
-	if (on) {
-		if (!strcmp(name, "mem_iface_clk")) {
-			clk_set_flags(clk, CLKFLAG_NORETAIN_PERIPH);
-			clk_set_flags(clk, CLKFLAG_NORETAIN_MEM);
-		} else if (!strcmp(name, "core_clk")) {
-			clk_set_flags(clk, CLKFLAG_RETAIN_PERIPH);
-			clk_set_flags(clk, CLKFLAG_RETAIN_MEM);
-		}
-	} else {
-		if (!strcmp(name, "core_clk")) {
-			clk_set_flags(clk, CLKFLAG_NORETAIN_PERIPH);
-			clk_set_flags(clk, CLKFLAG_NORETAIN_MEM);
-		}
-	}
+	WARN(adreno_is_a610(adreno_dev),
+		"clk_set_flags() is not supported\n");
 }
 
 u64 a6xx_read_alwayson(struct adreno_device *adreno_dev)

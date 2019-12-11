@@ -327,6 +327,12 @@ static void kgsl_destroy_ion(struct kgsl_dma_buf_meta *meta)
 }
 #endif
 
+static void kgsl_process_sub_stats(struct kgsl_process_private *priv,
+	unsigned int type, uint64_t size)
+{
+	priv->stats[type].cur -= size;
+}
+
 void
 kgsl_mem_entry_destroy(struct kref *kref)
 {
@@ -2598,6 +2604,16 @@ static long _gpuobj_map_dma_buf(struct kgsl_device *device,
 	return -EINVAL;
 }
 #endif
+
+static void kgsl_process_add_stats(struct kgsl_process_private *priv,
+	unsigned int type, uint64_t size)
+{
+	priv->stats[type].cur += size;
+	if (priv->stats[type].max < priv->stats[type].cur)
+		priv->stats[type].max = priv->stats[type].cur;
+}
+
+
 
 long kgsl_ioctl_gpuobj_import(struct kgsl_device_private *dev_priv,
 		unsigned int cmd, void *data)
