@@ -136,6 +136,11 @@
 		};
 	};
 
+	ptp_virtual {
+		compatible = "qcom,ptp_virtual";
+		reg = <0xeb600000 0x1000>;
+	};
+
 	clock_virt: qcom,virtio-gcc {
 		compatible = "virtio,mmio";
 		reg = <0x1c200000 0x1000>;
