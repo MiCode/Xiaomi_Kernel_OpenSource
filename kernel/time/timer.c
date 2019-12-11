@@ -2057,6 +2057,13 @@ int timers_dead_cpu(unsigned int cpu)
 	return 0;
 }
 
+#ifdef CONFIG_CPUSETS
+void timer_quiesce_cpu(void *cpup)
+{
+	__migrate_timers(*(unsigned int *)cpup, false);
+}
+#endif /* CONFIG_CPUSETS */
+
 #endif /* CONFIG_HOTPLUG_CPU */
 
 static void __init init_timer_cpu(int cpu)

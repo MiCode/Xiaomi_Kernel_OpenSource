@@ -3864,6 +3864,9 @@ static noinline void __schedule_bug(struct task_struct *prev)
 	if (panic_on_warn)
 		panic("scheduling while atomic\n");
 
+#ifdef CONFIG_PANIC_ON_SCHED_BUG
+	BUG();
+#endif
 	dump_stack();
 	add_taint(TAINT_WARN, LOCKDEP_STILL_OK);
 }
@@ -6787,6 +6790,9 @@ void ___might_sleep(const char *file, int line, int preempt_offset)
 		print_ip_sym(preempt_disable_ip);
 		pr_cont("\n");
 	}
+#ifdef CONFIG_PANIC_ON_SCHED_BUG
+	BUG();
+#endif
 	dump_stack();
 	add_taint(TAINT_WARN, LOCKDEP_STILL_OK);
 }
