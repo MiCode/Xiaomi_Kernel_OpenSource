@@ -11,6 +11,7 @@ platforms. The PMIC is connected to the host processor via SPMI bus.
 			"qcom,pmi8998-spmi-wled",
 			"qcom,pm8150l-spmi-wled",
 			"qcom,pm6150l-spmi-wled"
+			"qcom,pm660l-spmi-wled"
 
 - reg
 	Usage:      required
@@ -287,4 +288,16 @@ qcom-wled@d800 {
 	wled_switch: qcom,wled-switch {
 		label = "switch";
 	};
+};
+
+qcom,leds@d800 {
+	compatible = "qcom,pm660l-spmi-wled";
+	reg = <0xd800 0x100>,
+		<0xd900 0x100>;
+	reg-names = "qpnp-wled-ctrl-base",
+	"qpnp-wled-sink-base";
+	interrupts = <0x3 0xd8 0x1 IRQ_TYPE_EDGE_RISING>;
+	interrupt-names = "ovp-irq";
+	linux,name = "wled";
+	linux,default-led-trigger = "bkl-trigger";
 };
