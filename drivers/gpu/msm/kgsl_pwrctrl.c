@@ -1763,6 +1763,8 @@ static int _wake(struct kgsl_device *device)
 		kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_ON);
 		kgsl_pwrscale_wake(device);
 		kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_ON);
+		trace_gpu_frequency(
+			pwr->pwrlevels[pwr->active_pwrlevel].gpu_freq/1000, 0);
 		/* fall through */
 	case KGSL_STATE_NAP:
 		/* Turn on the core clocks */
@@ -1906,6 +1908,7 @@ _slumber(struct kgsl_device *device)
 		kgsl_pwrctrl_clk_set_options(device, false);
 		kgsl_pwrctrl_disable(device);
 		kgsl_pwrscale_sleep(device);
+		trace_gpu_frequency(0, 0);
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_SLUMBER);
 		break;
 	case KGSL_STATE_SUSPEND:
@@ -1915,6 +1918,7 @@ _slumber(struct kgsl_device *device)
 		break;
 	case KGSL_STATE_AWARE:
 		kgsl_pwrctrl_disable(device);
+		trace_gpu_frequency(0, 0);
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_SLUMBER);
 		break;
 	default:
