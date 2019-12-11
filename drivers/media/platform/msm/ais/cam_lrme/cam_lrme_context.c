@@ -93,6 +93,20 @@ static int __cam_lrme_ctx_config_dev_in_activated(struct cam_context *ctx,
 	return rc;
 }
 
+static int __cam_lrme_ctx_dump_dev_in_activated(struct cam_context *ctx,
+	struct cam_dump_req_cmd *cmd)
+{
+	int rc = 0;
+
+	CAM_DBG(CAM_LRME, "Enter ctx %d", ctx->ctx_id);
+
+	rc = cam_context_dump_dev_to_hw(ctx, cmd);
+	if (rc)
+		CAM_ERR(CAM_LRME, "Failed to dump device");
+
+	return rc;
+}
+
 static int __cam_lrme_ctx_flush_dev_in_activated(struct cam_context *ctx,
 	struct cam_flush_dev_cmd *cmd)
 {
@@ -204,6 +218,7 @@ static struct cam_ctx_ops
 			.release_dev = __cam_lrme_ctx_release_dev_in_activated,
 			.stop_dev = __cam_lrme_ctx_stop_dev_in_activated,
 			.flush_dev = __cam_lrme_ctx_flush_dev_in_activated,
+			.dump_dev = __cam_lrme_ctx_dump_dev_in_activated,
 		},
 		.crm_ops = {},
 		.irq_ops = __cam_lrme_ctx_handle_irq_in_activated,

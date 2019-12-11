@@ -1,4 +1,5 @@
 obj-$(CONFIG_MSM_AIS) += cam_req_mgr/
+obj-$(CONFIG_MSM_AIS) += cam_hyp_intf/
 obj-$(CONFIG_MSM_AIS) += cam_utils/
 obj-$(CONFIG_MSM_AIS) += cam_core/
 obj-$(CONFIG_MSM_AIS) += cam_sync/

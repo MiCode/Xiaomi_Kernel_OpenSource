@@ -70,6 +70,12 @@
 
 #define CAM_ICP_CTX_MAX_CMD_BUFFERS 0x2
 
+/*
+ * Response time threshold in ms beyond which a request is not expected
+ * to be with ICP hw
+ */
+#define CAM_ICP_CTX_RESPONSE_TIME_THRESHOLD   300000
+
 /**
  * struct icp_hfi_mem_info
  * @qtbl: Memory info of queue table
@@ -155,6 +161,7 @@ struct icp_frame_info {
  * @fw_process_flag: Frame process flag
  * @clk_info: Clock information for a request
  * @frame_info: information needed to process request
+ * @submit_timestamp: Submit timestamp to hw
  */
 struct hfi_frame_process_info {
 	struct hfi_cmd_ipebps_async hfi_frame_cmd[CAM_FRAME_CMD_MAX];
@@ -169,6 +176,7 @@ struct hfi_frame_process_info {
 	uint32_t fw_process_flag[CAM_FRAME_CMD_MAX];
 	struct cam_icp_clk_bw_request clk_info[CAM_FRAME_CMD_MAX];
 	struct icp_frame_info frame_info[CAM_FRAME_CMD_MAX];
+	struct timeval submit_timestamp[CAM_FRAME_CMD_MAX];
 };
 
 /**

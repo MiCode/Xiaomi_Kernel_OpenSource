@@ -18,6 +18,9 @@
 
 #define CAM_VFE_BUS_VER2_MAX_CLIENTS 24
 
+#define CAM_VFE_BUS_ENABLE_DMI_DUMP                     BIT(0)
+#define CAM_VFE_BUS_ENABLE_STATS_REG_DUMP               BIT(1)
+
 enum cam_vfe_bus_ver2_vfe_core_id {
 	CAM_VFE_BUS_VER2_VFE_CORE_0,
 	CAM_VFE_BUS_VER2_VFE_CORE_1,
@@ -65,6 +68,36 @@ enum cam_vfe_bus_ver2_vfe_out_type {
 	CAM_VFE_BUS_VER2_VFE_OUT_DS16_DISP,
 	CAM_VFE_BUS_VER2_VFE_OUT_2PD,
 	CAM_VFE_BUS_VER2_VFE_OUT_MAX,
+};
+
+struct cam_vfe_bus_ver2_dmi_lut_bank_info {
+	uint32_t size;
+	uint32_t bank_0;
+	uint32_t bank_1;
+};
+
+struct cam_vfe_bus_ver2_stats_cfg_offset {
+	uint32_t res_index;
+	uint32_t cfg_offset;
+	uint32_t num_cfg;
+	uint32_t cfg_size;
+	uint32_t is_lut;
+	struct cam_vfe_bus_ver2_dmi_lut_bank_info lut;
+};
+
+struct cam_vfe_bus_ver2_dmi_offset_common {
+	uint32_t auto_increment;
+	uint32_t cfg_offset;
+	uint32_t addr_offset;
+	uint32_t data_hi_offset;
+	uint32_t data_lo_offset;
+};
+
+struct cam_vfe_bus_ver2_stats_cfg_info {
+	struct cam_vfe_bus_ver2_dmi_offset_common
+		dmi_offset_info;
+	struct cam_vfe_bus_ver2_stats_cfg_offset
+		stats_cfg_offset[CAM_VFE_BUS_VER2_VFE_OUT_MAX];
 };
 
 /*
@@ -212,6 +245,7 @@ struct cam_vfe_bus_ver2_hw_info {
 	struct cam_vfe_bus_ver2_vfe_out_hw_info
 		vfe_out_hw_info[CAM_VFE_BUS_VER2_VFE_OUT_MAX];
 	struct cam_vfe_bus_ver2_reg_data  reg_data;
+	struct cam_vfe_bus_ver2_stats_cfg_info *stats_data;
 };
 
 /*

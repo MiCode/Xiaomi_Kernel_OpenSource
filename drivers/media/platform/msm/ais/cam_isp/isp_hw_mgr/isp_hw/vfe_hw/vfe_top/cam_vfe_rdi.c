@@ -85,6 +85,25 @@ static int cam_vfe_rdi_get_reg_update(
 	return 0;
 }
 
+static void cam_vfe_rdi_get_irq(struct cam_isp_resource_node  *rdi_res,
+		void *cmd_args, uint32_t arg_size)
+{
+	struct cam_isp_hw_get_cmd_update *irq_reg = NULL;
+	struct cam_vfe_mux_rdi_data      *rsrc_data = NULL;
+
+	rsrc_data = rdi_res->res_priv;
+
+	irq_reg = (struct cam_isp_hw_get_cmd_update *)cmd_args;
+
+	*(uint32_t *)irq_reg->data =
+		(rsrc_data->reg_data->reg_update_irq_mask |
+			rsrc_data->reg_data->sof_irq_mask);
+
+	CAM_DBG(CAM_ISP, "RDI%d irq_mask 0x%x",
+		rdi_res->res_id - CAM_ISP_HW_VFE_IN_RDI0,
+		*(uint32_t *)irq_reg->data);
+}
+
 int cam_vfe_rdi_ver2_acquire_resource(
 	struct cam_isp_resource_node  *rdi_res,
 	void                          *acquire_param)
@@ -96,6 +115,7 @@ int cam_vfe_rdi_ver2_acquire_resource(
 	acquire_data = (struct cam_vfe_acquire_args *)acquire_param;
 
 	rdi_data->sync_mode   = acquire_data->vfe_in.sync_mode;
+	rdi_res->rdi_only_ctx = 0;
 
 	return 0;
 }
@@ -168,6 +188,10 @@ static int cam_vfe_rdi_process_cmd(struct cam_isp_resource_node *rsrc_node,
 	switch (cmd_type) {
 	case CAM_ISP_HW_CMD_GET_REG_UPDATE:
 		rc = cam_vfe_rdi_get_reg_update(rsrc_node, cmd_args,
+			arg_size);
+		break;
+	case CAM_ISP_HW_CMD_GET_RDI_IRQ_MASK:
+		cam_vfe_rdi_get_irq(rsrc_node, cmd_args,
 			arg_size);
 		break;
 	default:

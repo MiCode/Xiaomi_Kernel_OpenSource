@@ -211,6 +211,7 @@ struct cam_hw_stream_setttings {
  * @num_out_map_entries:   Number of out map entries
  * @priv:                  Private pointer
  * @request_id:            Request ID
+ * @reapply                True if reapplying after bubble
  *
  */
 struct cam_hw_config_args {
@@ -222,6 +223,7 @@ struct cam_hw_config_args {
 	void                           *priv;
 	uint64_t                        request_id;
 	bool                            init_packet;
+	bool                            reapply;
 };
 
 /**
@@ -270,6 +272,21 @@ struct cam_hw_dump_pf_args {
  */
 struct cam_hw_reset_args {
 	void                           *ctxt_to_hw_map;
+};
+
+/**
+ * struct cam_hw_dump_args - Dump arguments
+ *
+ * @request_id:            request_id
+ * @buf_handle:            Buffer handle
+ * @offset:                Buffer offset. This is updated by the drivers.
+ * @ctxt_to_hw_map:        HW context from the acquire
+ */
+struct cam_hw_dump_args {
+	uint64_t          request_id;
+	uint32_t          buf_handle;
+	int32_t           offset;
+	void             *ctxt_to_hw_map;
 };
 
 /* enum cam_hw_mgr_command - Hardware manager command type */
@@ -324,6 +341,7 @@ struct cam_hw_cmd_args {
  * @hw_close:                  Function pointer for HW deinit
  * @hw_flush:                  Function pointer for HW flush
  * @hw_reset:                  Function pointer for HW reset
+ * @hw_dump:                   Function pointer for HW dump
  *
  */
 struct cam_hw_mgr_intf {
@@ -345,6 +363,7 @@ struct cam_hw_mgr_intf {
 	int (*hw_close)(void *hw_priv, void *hw_close_args);
 	int (*hw_flush)(void *hw_priv, void *hw_flush_args);
 	int (*hw_reset)(void *hw_priv, void *hw_reset_args);
+	int (*hw_dump)(void *hw_priv, void *hw_dump_args);
 };
 
 #endif /* _CAM_HW_MGR_INTF_H_ */

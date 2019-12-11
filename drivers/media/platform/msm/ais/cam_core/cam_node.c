@@ -330,6 +330,39 @@ static int __cam_node_handle_flush_dev(struct cam_node *node,
 	return rc;
 }
 
+static int __cam_node_handle_dump_dev(struct cam_node *node,
+	struct cam_dump_req_cmd *dump)
+{
+	struct cam_context *ctx = NULL;
+	int rc;
+
+	if (!dump)
+		return -EINVAL;
+
+	if (dump->dev_handle <= 0) {
+		CAM_ERR(CAM_CORE, "Invalid device handle for context");
+		return -EINVAL;
+	}
+
+	if (dump->session_handle <= 0) {
+		CAM_ERR(CAM_CORE, "Invalid session handle for context");
+		return -EINVAL;
+	}
+
+	ctx = (struct cam_context *)cam_get_device_priv(dump->dev_handle);
+	if (!ctx) {
+		CAM_ERR(CAM_CORE, "Can not get context for handle %d",
+			dump->dev_handle);
+		return -EINVAL;
+	}
+
+	rc = cam_context_handle_dump_dev(ctx, dump);
+	if (rc)
+		CAM_ERR(CAM_CORE, "Flush failure for node %s", node->name);
+
+	return rc;
+}
+
 static int __cam_node_handle_release_dev(struct cam_node *node,
 	struct cam_release_dev_cmd *release)
 {
@@ -531,6 +564,25 @@ static int __cam_node_crm_process_evt(
 	return cam_context_handle_crm_process_evt(ctx, evt_data);
 }
 
+static int __cam_node_crm_dump_req(struct cam_req_mgr_dump_info *dump)
+{
+	struct cam_context *ctx = NULL;
+
+	if (!dump) {
+		CAM_ERR(CAM_CORE, "Invalid dump request payload");
+		return -EINVAL;
+	}
+
+	ctx = (struct cam_context *) cam_get_device_priv(dump->dev_hdl);
+	if (!ctx) {
+		CAM_ERR(CAM_CORE, "Can not get context for handle %d",
+			dump->dev_hdl);
+		return -EINVAL;
+	}
+
+	return cam_context_handle_crm_dump_req(ctx, dump);
+}
+
 int cam_node_deinit(struct cam_node *node)
 {
 	if (node)
@@ -586,6 +638,7 @@ int cam_node_init(struct cam_node *node, struct cam_hw_mgr_intf *hw_mgr_intf,
 	node->crm_node_intf.link_setup = __cam_node_crm_link_setup;
 	node->crm_node_intf.flush_req = __cam_node_crm_flush_req;
 	node->crm_node_intf.process_evt = __cam_node_crm_process_evt;
+	node->crm_node_intf.dump_req = __cam_node_crm_dump_req;
 
 	mutex_init(&node->list_mutex);
 	INIT_LIST_HEAD(&node->free_ctx_list);
@@ -824,6 +877,28 @@ release_kfree:
 			if (rc)
 				CAM_ERR(CAM_CORE,
 					"flush device failed(rc = %d)", rc);
+		}
+		break;
+	}
+	case CAM_DUMP_REQ: {
+		struct cam_dump_req_cmd dump;
+
+		if (copy_from_user(&dump, u64_to_user_ptr(cmd->handle),
+			sizeof(dump))) {
+			rc = -EFAULT;
+		} else {
+			rc = __cam_node_handle_dump_dev(node, &dump);
+			if (rc) {
+				CAM_ERR(CAM_CORE,
+				    "Dump device %s failed(rc = %d) ",
+				    node->name, rc);
+			} else if (copy_to_user(u64_to_user_ptr(cmd->handle),
+				&dump, sizeof(dump))) {
+				CAM_ERR(CAM_CORE,
+				    "Dump device %s copy_to_user fail",
+				    node->name);
+				rc = -EFAULT;
+			}
 		}
 		break;
 	}
