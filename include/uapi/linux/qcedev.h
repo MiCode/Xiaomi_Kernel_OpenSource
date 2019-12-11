@@ -101,10 +101,10 @@ enum qcedev_sha_alg_enum {
  */
 struct	buf_info {
 	union {
-		uint32_t	offset;
-		uint8_t		*vaddr;
+		__u32	offset;
+		__u8		*vaddr;
 	};
-	uint32_t	len;
+	__u32	len;
 };
 
 /**
@@ -183,19 +183,19 @@ struct	qcedev_pmem_info {
  * data array to 0.
  */
 struct	qcedev_cipher_op_req {
-	uint8_t				use_pmem;
+	__u8				use_pmem;
 	union {
 		struct qcedev_pmem_info	pmem;
 		struct qcedev_vbuf_info	vbuf;
 	};
-	uint32_t			entries;
-	uint32_t			data_len;
-	uint8_t				in_place_op;
-	uint8_t				enckey[QCEDEV_MAX_KEY_SIZE];
-	uint32_t			encklen;
-	uint8_t				iv[QCEDEV_MAX_IV_SIZE];
-	uint32_t			ivlen;
-	uint32_t			byteoffset;
+	__u32			entries;
+	__u32			data_len;
+	__u8				in_place_op;
+	__u8				enckey[QCEDEV_MAX_KEY_SIZE];
+	__u32			encklen;
+	__u8				iv[QCEDEV_MAX_IV_SIZE];
+	__u32			ivlen;
+	__u32			byteoffset;
 	enum qcedev_cipher_alg_enum	alg;
 	enum qcedev_cipher_mode_enum	mode;
 	enum qcedev_oper_enum		op;
@@ -214,12 +214,12 @@ struct	qcedev_cipher_op_req {
  */
 struct	qcedev_sha_op_req {
 	struct buf_info			data[QCEDEV_MAX_BUFFERS];
-	uint32_t			entries;
-	uint32_t			data_len;
-	uint8_t				digest[QCEDEV_MAX_SHA_DIGEST];
-	uint32_t			diglen;
-	uint8_t				*authkey;
-	uint32_t			authklen;
+	__u32			entries;
+	__u32			data_len;
+	__u8				digest[QCEDEV_MAX_SHA_DIGEST];
+	__u32			diglen;
+	__u8				*authkey;
+	__u32			authklen;
 	enum qcedev_sha_alg_enum	alg;
 };
 
@@ -243,11 +243,11 @@ struct qfips_verify_t {
  *			each fd in fd[].
  */
 struct qcedev_map_buf_req {
-	int32_t         fd[QCEDEV_MAX_BUFFERS];
-	uint32_t        num_fds;
-	uint32_t        fd_size[QCEDEV_MAX_BUFFERS];
-	uint32_t        fd_offset[QCEDEV_MAX_BUFFERS];
-	uint64_t        buf_vaddr[QCEDEV_MAX_BUFFERS];
+	__s32         fd[QCEDEV_MAX_BUFFERS];
+	__u32        num_fds;
+	__u32        fd_size[QCEDEV_MAX_BUFFERS];
+	__u32        fd_offset[QCEDEV_MAX_BUFFERS];
+	__u64        buf_vaddr[QCEDEV_MAX_BUFFERS];
 };
 
 /**
@@ -256,8 +256,8 @@ struct qcedev_map_buf_req {
  * num_fds (IN):       Number of fds in fd[].
  */
 struct  qcedev_unmap_buf_req {
-	int32_t         fd[QCEDEV_MAX_BUFFERS];
-	uint32_t        num_fds;
+	__s32         fd[QCEDEV_MAX_BUFFERS];
+	__u32        num_fds;
 };
 
 struct file;

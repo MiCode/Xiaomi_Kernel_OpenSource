@@ -2107,7 +2107,7 @@ struct ipa_ioc_query_intf_rx_props {
 struct ipa_ioc_nat_alloc_mem {
 	char dev_name[IPA_RESOURCE_NAME_MAX];
 	size_t size;
-	off_t offset;
+	__kernel_off_t offset;
 };
 
 /**
@@ -2118,7 +2118,7 @@ struct ipa_ioc_nat_alloc_mem {
  */
 struct ipa_ioc_nat_ipv6ct_table_alloc {
 	size_t size;
-	off_t offset;
+	__kernel_off_t offset;
 };
 
 /**

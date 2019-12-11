@@ -20,8 +20,8 @@
 #define NUM_SPU_UEFI_APPS   3
 
 struct spss_ioc_set_fw_cmac {
-	uint32_t cmac[4];
-	uint32_t app_cmacs[NUM_SPU_UEFI_APPS][4];
+	__u32 cmac[4];
+	__u32 app_cmacs[NUM_SPU_UEFI_APPS][4];
 } __packed;
 
 #define SPSS_IOC_SET_FW_CMAC \
