@@ -471,7 +471,8 @@ static void qmi_rmnet_query_flows(struct qmi_info *qmi)
 	int i;
 
 	for (i = 0; i < MAX_CLIENT_NUM; i++) {
-		if (qmi->dfc_clients[i] && !dfc_qmap)
+		if (qmi->dfc_clients[i] && !dfc_qmap &&
+		    !qmi->dfc_client_exiting[i])
 			dfc_qmi_query_flow(qmi->dfc_clients[i]);
 	}
 }
@@ -568,6 +569,7 @@ qmi_rmnet_setup_client(void *port, struct qmi_info *qmi, struct tcmsg *tcm)
 			err = dfc_qmap_client_init(port, idx, &svc, qmi);
 		else
 			err = dfc_qmi_client_init(port, idx, &svc, qmi);
+		qmi->dfc_client_exiting[idx] = false;
 	}
 
 	if ((tcm->tcm_ifindex & FLAG_POWERSAVE_MASK) &&
@@ -628,6 +630,7 @@ qmi_rmnet_delete_client(void *port, struct qmi_info *qmi, struct tcmsg *tcm)
 		qmi->wda_client = NULL;
 		qmi->wda_pending = NULL;
 	} else {
+		qmi->dfc_client_exiting[idx] = true;
 		qmi_rmnet_flush_ps_wq();
 	}
 
