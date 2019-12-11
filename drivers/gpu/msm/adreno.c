@@ -842,7 +842,7 @@ static void adreno_of_get_ca_target_pwrlevel(struct adreno_device *adreno_dev,
 	of_property_read_u32(node, "qcom,ca-target-pwrlevel",
 		&ca_target_pwrlevel);
 
-	if (ca_target_pwrlevel > device->pwrctrl.num_pwrlevels - 2)
+	if (ca_target_pwrlevel >= device->pwrctrl.num_pwrlevels)
 		ca_target_pwrlevel = 1;
 
 	device->pwrscale.ctxt_aware_target_pwrlevel = ca_target_pwrlevel;
@@ -907,14 +907,26 @@ static int adreno_of_parse_pwrlevels(struct adreno_device *adreno_dev,
 	pwr->num_pwrlevels = 0;
 
 	for_each_child_of_node(node, child) {
-		unsigned int index;
+		unsigned int index, freq = 0;
 		struct kgsl_pwrlevel *level;
 
 		if (of_property_read_u32(child, "reg", &index)) {
 			dev_err(device->dev,
 				"%pOF: powerlevel index not found\n", child);
+			of_node_put(child);
 			return -EINVAL;
 		}
+
+		if (of_property_read_u32(child, "qcom,gpu-freq", &freq)) {
+			dev_err(device->dev,
+				"%pOF: Unable to read qcom,gpu-freq\n", child);
+			of_node_put(child);
+			return -EINVAL;
+		}
+
+		/* Ignore "zero" powerlevels */
+		if (!freq)
+			continue;
 
 		if (index >= KGSL_MAX_PWRLEVELS) {
 			dev_err(device->dev,
@@ -928,12 +940,7 @@ static int adreno_of_parse_pwrlevels(struct adreno_device *adreno_dev,
 
 		level = &pwr->pwrlevels[index];
 
-		if (of_property_read_u32(child, "qcom,gpu-freq",
-			&level->gpu_freq)) {
-			dev_err(device->dev,
-				"%pOF: Unable to read qcom,gpu-freq\n", child);
-			return -EINVAL;
-		}
+		level->gpu_freq = freq;
 
 		of_property_read_u32(child, "qcom,acd-level",
 			&level->acd_level);
@@ -944,6 +951,7 @@ static int adreno_of_parse_pwrlevels(struct adreno_device *adreno_dev,
 			dev_err(device->dev,
 				"%pOF: Couldn't read the bus frequency for power level %d\n",
 				child, index);
+			of_node_put(child);
 			return ret;
 		}
 
@@ -968,7 +976,7 @@ static void adreno_of_get_initial_pwrlevel(struct adreno_device *adreno_dev,
 
 	of_property_read_u32(node, "qcom,initial-pwrlevel", &init_level);
 
-	if (init_level < 0 || init_level > pwr->num_pwrlevels)
+	if (init_level < 0 || init_level >= pwr->num_pwrlevels)
 		init_level = 1;
 
 	pwr->active_pwrlevel = init_level;
@@ -1611,6 +1619,43 @@ static int adreno_remove(struct platform_device *pdev)
 	clear_bit(ADRENO_DEVICE_INITIALIZED, &adreno_dev->priv);
 
 	return 0;
+}
+
+static int adreno_pm_resume(struct device *dev)
+{
+	struct kgsl_device *device = dev_get_drvdata(dev);
+
+	mutex_lock(&device->mutex);
+	if (device->state == KGSL_STATE_SUSPEND) {
+		adreno_dispatcher_unhalt(device);
+		kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
+	} else if (device->state != KGSL_STATE_INIT) {
+		/*
+		 * This is an error situation so wait for the device to idle and
+		 * then put the device in SLUMBER state.  This will get us to
+		 * the right place when we resume.
+		 */
+		if (device->state == KGSL_STATE_ACTIVE)
+			adreno_idle(device);
+		kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
+		dev_err(device->dev, "resume invoked without a suspend\n");
+	}
+	mutex_unlock(&device->mutex);
+	return 0;
+}
+
+static int adreno_pm_suspend(struct device *dev)
+{
+	struct kgsl_device *device = dev_get_drvdata(dev);
+	int status;
+
+	mutex_lock(&device->mutex);
+	status = kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
+	if (!status && device->state == KGSL_STATE_SUSPEND)
+		adreno_dispatcher_halt(device);
+	mutex_unlock(&device->mutex);
+
+	return status;
 }
 
 static void adreno_fault_detect_init(struct adreno_device *adreno_dev)
@@ -3741,21 +3786,21 @@ static const struct kgsl_functable adreno_functable = {
 	.clk_set_options = adreno_clk_set_options,
 	.gpu_model = adreno_gpu_model,
 	.stop_fault_timer = adreno_dispatcher_stop_fault_timer,
-	.dispatcher_halt = adreno_dispatcher_halt,
-	.dispatcher_unhalt = adreno_dispatcher_unhalt,
 	.query_property_list = adreno_query_property_list,
 	.is_hwcg_on = adreno_is_hwcg_on,
+};
+
+static const struct dev_pm_ops adreno_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(adreno_pm_suspend, adreno_pm_resume)
 };
 
 static struct platform_driver adreno_platform_driver = {
 	.probe = adreno_probe,
 	.remove = adreno_remove,
-	.suspend = kgsl_suspend_driver,
-	.resume = kgsl_resume_driver,
 	.id_table = adreno_id_table,
 	.driver = {
 		.name = "kgsl-3d",
-		.pm = &kgsl_pm_ops,
+		.pm = &adreno_pm_ops,
 		.of_match_table = adreno_match_table,
 	}
 };

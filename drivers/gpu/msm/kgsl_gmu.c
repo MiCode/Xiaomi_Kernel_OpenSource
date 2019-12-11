@@ -486,7 +486,7 @@ static int gmu_memory_probe(struct kgsl_device *device)
  * to index being used by GMU/RPMh.
  */
 static int gmu_dcvs_set(struct kgsl_device *device,
-		unsigned int gpu_pwrlevel, unsigned int bus_level)
+		int gpu_pwrlevel, int bus_level)
 {
 	int ret = 0;
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
@@ -1193,7 +1193,7 @@ static void gmu_acd_probe(struct kgsl_device *device, struct gmu_device *gmu,
 	cmd->enable_by_level = 0;
 
 	for (i = 0, cmd_idx = 0; i < numlvl; i++) {
-		acd_level = pwr->pwrlevels[numlvl - i - 1].acd_level;
+		acd_level = pwr->pwrlevels[numlvl - i].acd_level;
 		if (acd_level) {
 			cmd->enable_by_level |= (1 << i);
 			cmd->data[cmd_idx++] = acd_level;
@@ -1218,7 +1218,7 @@ static int gmu_probe(struct kgsl_device *device, struct device_node *node)
 	struct kgsl_hfi *hfi;
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	int i = 0, ret = -ENXIO;
+	int i = 0, ret = -ENXIO, index = 0;
 
 	gmu = kzalloc(sizeof(struct gmu_device), GFP_KERNEL);
 
@@ -1288,13 +1288,14 @@ static int gmu_probe(struct kgsl_device *device, struct device_node *node)
 	tasklet_init(&hfi->tasklet, hfi_receiver, (unsigned long) gmu);
 	hfi->kgsldev = device;
 
-	gmu->num_gpupwrlevels = pwr->num_pwrlevels;
+	/* Add a dummy level for "off" that the GMU expects */
+	gmu->gpu_freqs[index++] = 0;
 
-	for (i = 0; i < gmu->num_gpupwrlevels; i++) {
-		int j = gmu->num_gpupwrlevels - 1 - i;
+	/* GMU power levels are in ascending order */
+	for (i = pwr->num_pwrlevels - 1; i >= 0; i--)
+		gmu->gpu_freqs[index++] = pwr->pwrlevels[i].gpu_freq;
 
-		gmu->gpu_freqs[i] = pwr->pwrlevels[j].gpu_freq;
-	}
+	gmu->num_gpupwrlevels = pwr->num_pwrlevels + 1;
 
 	gmu->icc_path = of_icc_get(&gmu->pdev->dev, NULL);
 

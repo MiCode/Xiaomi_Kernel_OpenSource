@@ -934,14 +934,13 @@ static uint32_t _write_voltage_table(struct adreno_device *adreno_dev,
 	const struct adreno_a5xx_core *a5xx_core = to_a5xx_core(adreno_dev);
 	int i;
 	struct dev_pm_opp *opp;
-	int levels = pwr->num_pwrlevels - 1;
 	unsigned int mvolt = 0;
 
 	kgsl_regwrite(device, addr++, a5xx_core->max_power);
-	kgsl_regwrite(device, addr++, levels);
+	kgsl_regwrite(device, addr++, pwr->num_pwrlevels);
 
 	/* Write voltage in mV and frequency in MHz */
-	for (i = 0; i < levels; i++) {
+	for (i = 0; i < pwr->num_pwrlevels; i++) {
 		opp = dev_pm_opp_find_freq_exact(&device->pdev->dev,
 				pwr->pwrlevels[i].gpu_freq, true);
 		/* _opp_get returns uV, convert to mV */
@@ -953,7 +952,7 @@ static uint32_t _write_voltage_table(struct adreno_device *adreno_dev,
 		kgsl_regwrite(device, addr++,
 				pwr->pwrlevels[i].gpu_freq / 1000000);
 	}
-	return (levels * 2 + 2);
+	return (pwr->num_pwrlevels * 2 + 2);
 }
 
 static uint32_t lm_limit(struct adreno_device *adreno_dev)

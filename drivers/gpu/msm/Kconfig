@@ -10,8 +10,27 @@ config QCOM_KGSL
 	  on QTI targets. This includes power management, memory management,
 	  and scheduling for the Adreno GPUs.
 
+config DEVFREQ_GOV_QCOM_ADRENO_TZ
+	tristate "Qualcomm Technologies, Inc. GPU frequency governor"
+	depends on PM_DEVFREQ && QCOM_KGSL
+	help
+	  GPU frequency governor for the Adreno GPU. Sets the frequency
+	  using an "on demand" algorithm in conjunction with other
+	  components on Adreno platforms. This is not useful for non-Adreno
+	  devices.
+
+config DEVFREQ_GOV_QCOM_GPUBW_MON
+	tristate "Qualcomm Technologies, Inc. GPU bandwidth governor"
+	depends on DEVFREQ_GOV_QCOM_ADRENO_TZ
+	help
+	  This governor works together with the Adreno GPU governor to
+	  select bus frequency votes using an "on-demand" algorithm.
+	  This governor will not be useful for non-Adreno based
+	  targets.
+
 config QCOM_ADRENO_DEFAULT_GOVERNOR
 	string "devfreq governor for the adreno core"
+	default "msm-adreno-tz" if DEVFREQ_GOV_QCOM_ADRENO_TZ
 	default "simple_ondemand"
 	depends on QCOM_KGSL
 

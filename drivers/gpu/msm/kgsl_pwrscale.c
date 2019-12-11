@@ -448,6 +448,7 @@ int kgsl_devfreq_add_notifier(struct device *dev,
 
 	return srcu_notifier_chain_register(&device->pwrscale.nh, nb);
 }
+EXPORT_SYMBOL(kgsl_devfreq_add_notifier);
 
 /*
  * kgsl_devfreq_del_notifier - remove a fine grained notifier.
@@ -468,7 +469,7 @@ int kgsl_devfreq_del_notifier(struct device *dev, struct notifier_block *nb)
 
 	return srcu_notifier_chain_unregister(&device->pwrscale.nh, nb);
 }
-
+EXPORT_SYMBOL(kgsl_devfreq_del_notifier);
 
 /*
  * kgsl_busmon_get_dev_status - devfreq_dev_profile.get_dev_status callback
@@ -644,7 +645,7 @@ static int opp_notify(struct notifier_block *nb,
 	min_level = pwr->thermal_pwrlevel_floor;
 
 	/* Thermal limit cannot be lower than lowest non-zero operating freq */
-	for (level = 0; level < (pwr->num_pwrlevels - 1); level++) {
+	for (level = 0; level < pwr->num_pwrlevels; level++) {
 		if (pwr->pwrlevels[level].gpu_freq == max_freq)
 			max_level = level;
 		if (pwr->pwrlevels[level].gpu_freq == min_freq)
@@ -678,7 +679,7 @@ static void pwrscale_busmon_create(struct kgsl_device *device,
 	bus_profile->profile.get_dev_status = kgsl_busmon_get_dev_status;
 	bus_profile->profile.get_cur_freq = kgsl_busmon_get_cur_freq;
 
-	bus_profile->profile.max_state = pwr->num_pwrlevels - 1;
+	bus_profile->profile.max_state = pwr->num_pwrlevels;
 	bus_profile->profile.freq_table = table;
 
 	dev->parent = &pdev->dev;
@@ -736,16 +737,14 @@ int kgsl_pwrscale_init(struct kgsl_device *device, struct platform_device *pdev,
 
 	srcu_init_notifier_head(&pwrscale->nh);
 
-
-	/* do not include the 'off' level or duplicate freq. levels */
-	for (i = 0; i < (pwr->num_pwrlevels - 1); i++)
+	for (i = 0; i < pwr->num_pwrlevels; i++)
 		pwrscale->freq_table[i] = pwr->pwrlevels[i].gpu_freq;
 
 	/*
 	 * Max_state is the number of valid power levels.
 	 * The valid power levels range from 0 - (max_state - 1)
 	 */
-	gpu_profile->profile.max_state = pwr->num_pwrlevels - 1;
+	gpu_profile->profile.max_state = pwr->num_pwrlevels;
 	/* link storage array to the devfreq profile pointer */
 	gpu_profile->profile.freq_table = pwrscale->freq_table;
 

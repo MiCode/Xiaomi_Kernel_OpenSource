@@ -28,6 +28,8 @@
 #define KGSL_RBBMTIMER_CLK_FREQ	KGSL_XO_CLK_FREQ
 #define KGSL_ISENSE_CLK_FREQ	200000000
 
+#define KGSL_PWRLEVEL_OFF -1
+
 enum kgsl_pwrctrl_timer_type {
 	KGSL_PWR_IDLE_TIMER,
 };
