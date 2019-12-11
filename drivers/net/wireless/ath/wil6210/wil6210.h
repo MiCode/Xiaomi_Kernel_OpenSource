@@ -1084,6 +1084,7 @@ struct wil6210_priv {
 	u32 max_ampdu_size;
 
 	struct work_struct pci_linkdown_recovery_worker;
+	void *ipa_handle;
 };
 
 #define wil_to_wiphy(i) (i->wiphy)
@@ -1320,6 +1321,8 @@ void wil_configure_interrupt_moderation(struct wil6210_priv *wil);
 void wil_disable_irq(struct wil6210_priv *wil);
 void wil_enable_irq(struct wil6210_priv *wil);
 void wil6210_mask_halp(struct wil6210_priv *wil);
+irqreturn_t wil6210_irq_misc(int irq, void *cookie);
+irqreturn_t wil6210_irq_misc_thread(int irq, void *cookie);
 
 /* P2P */
 bool wil_p2p_is_social_scan(struct cfg80211_scan_request *request);
