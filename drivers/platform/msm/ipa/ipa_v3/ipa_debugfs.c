@@ -334,7 +334,6 @@ static ssize_t ipa3_write_keep_awake(struct file *file, const char __user *buf,
 {
 	unsigned long missing;
 	s8 option = 0;
-	uint32_t bw_mbps = 0;
 
 	if (sizeof(dbg_buff) < count + 1)
 		return -EFAULT;
@@ -347,34 +346,16 @@ static ssize_t ipa3_write_keep_awake(struct file *file, const char __user *buf,
 	if (kstrtos8(dbg_buff, 0, &option))
 		return -EFAULT;
 
-	switch (option) {
-	case 0:
-		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
-		bw_mbps = 0;
-		break;
-	case 1:
-		IPA_ACTIVE_CLIENTS_INC_SIMPLE();
-		bw_mbps = 0;
-		break;
-	case 2:
-		IPA_ACTIVE_CLIENTS_INC_SIMPLE();
-		bw_mbps = 700;
-		break;
-	case 3:
-		IPA_ACTIVE_CLIENTS_INC_SIMPLE();
-		bw_mbps = 3000;
-		break;
-	case 4:
-		IPA_ACTIVE_CLIENTS_INC_SIMPLE();
-		bw_mbps = 7000;
-		break;
-	default:
-		pr_err("Not support this vote (%d)\n", option);
-		return -EFAULT;
-	}
-	if (ipa3_vote_for_bus_bw(&bw_mbps)) {
-		IPAERR("Failed to vote for bus BW (%u)\n", bw_mbps);
-		return -EFAULT;
+	if (option == 0) {
+		if (ipa_pm_remove_dummy_clients()) {
+			pr_err("Failed to remove dummy clients\n");
+			return -EFAULT;
+		}
+	} else {
+		if (ipa_pm_add_dummy_clients(option - 1)) {
+			pr_err("Failed to add dummy clients\n");
+			return -EFAULT;
+		}
 	}
 
 	return count;
