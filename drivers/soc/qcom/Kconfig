@@ -572,4 +572,16 @@ config QCOM_WATCHDOG
           deadlocks. It does not run during the bootup process, so it will
           not catch any early lockups.
 
+config MSM_SPCOM
+         depends on QCOM_GLINK
+         bool "Secure Processor Communication over RPMSG"
+         help
+	   SPCOM driver allows loading Secure Processor Applications and sending
+	   messages to Secure Processor Applications. SPCOM implements logic of RPMSG
+	   client of SPSS edge. SPCOM provides interface to both user space app and
+	   kernel driver. It is using glink as the transport layer, which provides
+	   multiple logical channels over single physical channel. The physical layer
+	   is based on shared memory and interrupts. SPCOM provides clients/server API
+	   although currently only one client/server is allowed per logical channel.
+
 endmenu
