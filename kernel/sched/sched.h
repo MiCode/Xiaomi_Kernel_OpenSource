@@ -2353,11 +2353,6 @@ unsigned int uclamp_util_with(struct rq *rq, unsigned int util,
 	return clamp(util, min_util, max_util);
 }
 
-static inline unsigned int uclamp_util(struct rq *rq, unsigned int util)
-{
-	return uclamp_util_with(rq, util, NULL);
-}
-
 static inline bool uclamp_boosted(struct task_struct *p)
 {
 	return uclamp_eff_value(p, UCLAMP_MIN) > 0;
@@ -2365,10 +2360,6 @@ static inline bool uclamp_boosted(struct task_struct *p)
 #else /* CONFIG_UCLAMP_TASK */
 static inline unsigned int uclamp_util_with(struct rq *rq, unsigned int util,
 					    struct task_struct *p)
-{
-	return util;
-}
-static inline unsigned int uclamp_util(struct rq *rq, unsigned int util)
 {
 	return util;
 }
