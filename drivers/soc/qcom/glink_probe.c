@@ -16,6 +16,7 @@
 
 #define GLINK_PROBE_LOG_PAGE_CNT 4
 static void *glink_ilc;
+static DEFINE_MUTEX(ssr_lock);
 
 #define GLINK_INFO(x, ...)						       \
 do {									       \
@@ -117,14 +118,15 @@ static int glink_ssr_ssr_cb(struct notifier_block *this,
 {
 	struct glink_ssr_nb *nb = container_of(this, struct glink_ssr_nb, nb);
 	struct glink_ssr *ssr = nb->ssr;
-	struct device *dev = ssr->dev;
+	struct device *dev;
 	struct do_cleanup_msg msg;
 	int ret;
 
-	if (!dev || !ssr->ept)
-		return NOTIFY_DONE;
-
 	kref_get(&ssr->refcount);
+	mutex_lock(&ssr_lock);
+	dev = ssr->dev;
+	if (!dev || !ssr->ept)
+		goto out;
 
 	if (code == SUBSYS_AFTER_SHUTDOWN) {
 		ssr->seq_num++;
@@ -144,14 +146,15 @@ static int glink_ssr_ssr_cb(struct notifier_block *this,
 		if (ret) {
 			GLINK_ERR(dev, "fail to send do cleanup to %s %d\n",
 				  nb->ssr_label, ret);
-			kref_put(&ssr->refcount, glink_ssr_release);
-			return NOTIFY_DONE;
+			goto out;
 		}
 
 		ret = wait_for_completion_timeout(&ssr->completion, HZ);
 		if (!ret)
 			GLINK_ERR(dev, "timeout waiting for cleanup resp\n");
 	}
+out:
+	mutex_unlock(&ssr_lock);
 	kref_put(&ssr->refcount, glink_ssr_release);
 	return NOTIFY_DONE;
 }
@@ -264,10 +267,12 @@ static void glink_ssr_remove(struct rpmsg_device *rpdev)
 {
 	struct glink_ssr *ssr = dev_get_drvdata(&rpdev->dev);
 
+	mutex_lock(&ssr_lock);
 	ssr->dev = NULL;
 	ssr->ept = NULL;
-	dev_set_drvdata(&rpdev->dev, NULL);
+	mutex_unlock(&ssr_lock);
 
+	dev_set_drvdata(&rpdev->dev, NULL);
 	schedule_work(&ssr->unreg_work);
 }
 
