@@ -1074,14 +1074,6 @@ signed int mss_enque_cb(struct frame *frames, void *req)
 
 	_req = (struct MFB_MSSRequest *) req;
 
-	mutex_lock(&(MutexMFBRef));
-	if (MFBInfo.UserCount == 0) {
-		mutex_unlock(&(MutexMFBRef));
-		LOG_ERR("mss enque cb, UserCount = 0");
-		return 0;
-	}
-	mutex_unlock(&(MutexMFBRef));
-
 	if (frames == NULL || _req == NULL)
 		return -1;
 
