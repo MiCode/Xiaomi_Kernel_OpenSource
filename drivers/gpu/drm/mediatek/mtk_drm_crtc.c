@@ -2676,7 +2676,16 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 	if (mtk_crtc_is_mem_mode(crtc) || mtk_crtc_is_dc_mode(crtc)) {
 		struct golden_setting_context *ctx =
 					__get_golden_setting_context(mtk_crtc);
+		struct cmdq_pkt *cmdq_handle;
+
 		ctx->is_dc = 1;
+
+		cmdq_handle =
+			cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
+		cmdq_pkt_set_event(cmdq_handle,
+		   mtk_crtc->gce_obj.event[EVENT_WDMA0_EOF]);
+		cmdq_pkt_flush(cmdq_handle);
+		cmdq_pkt_destroy(cmdq_handle);
 	}
 
 	CRTC_MMP_MARK(crtc_id, enable, 1, 2);
