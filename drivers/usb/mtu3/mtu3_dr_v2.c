@@ -56,7 +56,7 @@ static enum charger_type mtu3_hal_get_charger_type(void)
 {
 	enum charger_type chg_type;
 
-#ifdef CONFIG_MTK_SMART_BATTERY
+#ifdef CONFIG_MTK_CHARGER
 	chg_type = mt_get_charger_type();
 #else
 	chg_type = STANDARD_HOST;
@@ -69,7 +69,7 @@ bool mtu3_hal_is_vbus_exist(void)
 {
 	bool vbus_exist;
 
-#ifdef CONFIG_MTK_SMART_BATTERY
+#ifdef CONFIG_MTK_CHARGER
 #ifdef CONFIG_POWER_EXT
 	vbus_exist = upmu_get_rgs_chrdet();
 #else
@@ -491,4 +491,3 @@ void ssusb_otg_switch_exit(struct ssusb_mtk *ssusb)
 	ssusb_debugfs_exit(ssusb);
 	g_otg_sx = NULL;
 }
-
