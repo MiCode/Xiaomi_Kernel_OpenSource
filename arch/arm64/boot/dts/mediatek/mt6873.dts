@@ -314,6 +314,30 @@
 		#clock-cells = <1>;
 	};
 
+	dcm: dcm@10001000 {
+		compatible = "mediatek,mt6873-dcm";
+		reg = <0 0x10001000 0 0x1000>,
+			<0 0x10002000 0 0x1000>,
+			<0 0x10219000 0 0x1000>,
+			<0 0x10230000 0 0x1000>,
+			<0 0x10235000 0 0x1000>,
+			<0 0x10240000 0 0x1000>,
+			<0 0x10400000 0 0x1000>,
+			<0 0x11210000 0 0x1000>,
+			<0 0xc538000 0 0x1000>,
+			<0 0xc53a800 0 0x1000>;
+		reg-names = "infracfg_ao",
+			"infracfg_ao_mem",
+			"emi",
+			"dramc_ch0_top0",
+			"chn0_emi",
+			"dramc_ch1_top0",
+			"sspm",
+			"audio",
+			"mp_cpusys_top",
+			"cpccfg_reg";
+	};
+
 	scpsys: scpsys@10001000 {
 		compatible = "mediatek,scpsys";
 		reg = <0 0x10001000 0 0x1000>,		/* infracfg_ao */
