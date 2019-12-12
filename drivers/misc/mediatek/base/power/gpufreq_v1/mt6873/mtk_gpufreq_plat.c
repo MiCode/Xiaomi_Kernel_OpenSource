@@ -201,6 +201,12 @@ static unsigned int g_cur_opp_idx;
 static unsigned int g_fixed_freq;
 static unsigned int g_fixed_vgpu;
 static unsigned int g_max_upper_limited_idx;
+/* g_dfd_force_dump
+ * 0: disable
+ * 1: force dump + log
+ * 2: force dump
+ * 3: log
+ */
 static unsigned int g_dfd_force_dump;
 static int g_opp_sb_idx_up[NUM_OF_OPP_IDX] = { 0 };
 static int g_opp_sb_idx_down[NUM_OF_OPP_IDX] = { 0 };
@@ -217,6 +223,9 @@ static void __iomem *g_infra_peri_debug1;
 static void __iomem *g_infra_peri_debug2;
 static void __iomem *g_infra_peri_debug3;
 static void __iomem *g_infra_peri_debug4;
+static void __iomem *g_infracfg_ao;
+static void __iomem *g_dbgtop;
+static void __iomem *g_sleep;
 
 unsigned int mt_gpufreq_get_shader_present(void)
 {
@@ -271,75 +280,137 @@ void mt_gpufreq_wdt_reset(void)
 void mt_gpufreq_dump_infra_status(void)
 {
 	unsigned int start, offset;
-	unsigned int val;
 
+	gpufreq_pr_info("====\n");
 	// 0x1020E
 	if (g_infracfg_base) {
-		gpufreq_pr_info("%s\n", __func__);
-		val = readl(g_infracfg_base + 0x810);
-		gpufreq_pr_info("infra info 0x%x:0x%08x\n", 0x1020E810, val);
+		gpufreq_pr_info("infra info 0x%x:0x%08x\n",
+			0x1020E810,
+			readl(g_infracfg_base + 0x810));
 
-		val = readl(g_infracfg_base + 0x814);
-		gpufreq_pr_info("infra info 0x%x:0x%08x\n", 0x1020E814, val);
+		gpufreq_pr_info("infra info 0x%x:0x%08x\n",
+			0x1020E814,
+			readl(g_infracfg_base + 0x814));
 	}
 
 	// 0x10023000
 	if (g_infra_peri_debug1) {
-		gpufreq_pr_info("====\n");
-		val = readl(g_infra_peri_debug1 + 0x000);
 		gpufreq_pr_info("infra info 0x%x:0x%08x\n",
-			0x10023000, val);
+			0x10023000,
+			readl(g_infra_peri_debug1 + 0x000));
 
-		start = 0x408;
-		for (offset = start; offset <= 0x4E4; offset += 4) {
-			gpufreq_pr_info("infra info 0x%x:0x%08x\n",
-				0x10023000 + offset,
-				readl(g_infra_peri_debug1 + offset));
-		}
+		gpufreq_pr_info("infra info 0x%x:0x%08x\n",
+			0x10023440,
+			readl(g_infra_peri_debug1 + 0x440));
+
+		gpufreq_pr_info("infra info 0x%x:0x%08x\n",
+			0x10023444,
+			readl(g_infra_peri_debug1 + 0x444));
 	}
 
 	// 0x10025000
 	if (g_infra_peri_debug2) {
-		gpufreq_pr_info("====\n");
-		val = readl(g_infra_peri_debug2 + 0x000);
 		gpufreq_pr_info("infra info 0x%x:0x%08x\n",
-			0x10025000, val);
+			0x10025000,
+			readl(g_infra_peri_debug2 + 0x000));
 
-		start = 0x408;
-		for (offset = start; offset <= 0x43C; offset += 4) {
-			gpufreq_pr_info("infra info 0x%x:0x%08x\n",
-				0x10025000 + offset,
-				readl(g_infra_peri_debug2 + offset));
-		}
+		gpufreq_pr_info("infra info 0x%x:0x%08x\n",
+			0x1002542C,
+			readl(g_infra_peri_debug2 + 0x42C));
 	}
 
 	// 0x1002B000
 	if (g_infra_peri_debug3) {
-		gpufreq_pr_info("====\n");
-		val = readl(g_infra_peri_debug3 + 0x000);
 		gpufreq_pr_info("infra info 0x%x:0x%08x\n",
-			0x1002B000, val);
-
-		start = 0x408;
-		for (offset = start; offset <= 0x494; offset += 4) {
-			gpufreq_pr_info("infra info 0x%x:0x%08x\n",
-				0x10025000 + offset,
-				readl(g_infra_peri_debug2 + offset));
-		}
+			0x1002B000,
+			readl(g_infra_peri_debug3 + 0x000));
 	}
 
 	// 0x1002E000
 	if (g_infra_peri_debug4) {
-		gpufreq_pr_info("====\n");
-		val = readl(g_infra_peri_debug4 + 0x000);
 		gpufreq_pr_info("infra info 0x%x:0x%08x\n",
-			0x1002E000, val);
+			0x1002E000,
+			readl(g_infra_peri_debug4 + 0x000));
+	}
 
-		start = 0x408;
-		for (offset = start; offset <= 0x434; offset += 4) {
-			gpufreq_pr_info("infra info 0x%x:0x%08x\n",
-				0x10025000 + offset,
-				readl(g_infra_peri_debug2 + offset));
+	// 0x10006000
+	if (g_sleep) {
+		gpufreq_pr_info("pwr info 0x%x:0x%08x %08x %08x %08x\n",
+			0x10006000 + 0x308,
+			readl(g_sleep + 0x308),
+			readl(g_sleep + 0x30C),
+			readl(g_sleep + 0x310),
+			readl(g_sleep + 0x314));
+
+		gpufreq_pr_info("pwr info 0x%x:0x%08x %08x %08x\n",
+			0x10006000 + 0x318,
+			readl(g_sleep + 0x318),
+			readl(g_sleep + 0x31C),
+			readl(g_sleep + 0x320));
+
+		gpufreq_pr_info("pwr info 0x%x:0x%08x\n",
+			0x10006000 + 0x16C,
+			readl(g_sleep + 0x16C));
+
+		gpufreq_pr_info("pwr info 0x%x:0x%08x\n",
+			0x10006000 + 0x170,
+			readl(g_sleep + 0x170));
+	}
+
+	if (g_dfd_force_dump == 1 || g_dfd_force_dump == 3) {
+		gpufreq_pr_info("====\n");
+
+		if (g_cg_on) {
+			start = 0x000;
+			for (offset = start; offset <= 0xFFC; offset += 4) {
+				gpufreq_pr_info("mfg info 0x%x:0x%08x\n",
+					0x13FBF000 + offset,
+					readl(g_mfg_base + offset));
+			}
+		}
+
+		// 0x10023000
+		if (g_infra_peri_debug1) {
+			gpufreq_pr_info("====\n");
+			start = 0x408;
+			for (offset = start; offset <= 0x4E4; offset += 4) {
+				gpufreq_pr_info("infra info 0x%x:0x%08x\n",
+					0x10023000 + offset,
+					readl(g_infra_peri_debug1 + offset));
+			}
+		}
+
+		// 0x10025000
+		if (g_infra_peri_debug2) {
+			gpufreq_pr_info("====\n");
+			start = 0x408;
+			for (offset = start; offset <= 0x43C; offset += 4) {
+				gpufreq_pr_info("infra info 0x%x:0x%08x\n",
+					0x10025000 + offset,
+					readl(g_infra_peri_debug2 + offset));
+			}
+		}
+
+		// 0x1002B000
+		if (g_infra_peri_debug3) {
+			gpufreq_pr_info("====\n");
+			start = 0x408;
+			for (offset = start; offset <= 0x494; offset += 4) {
+				gpufreq_pr_info("infra info 0x%x:0x%08x\n",
+					0x10025000 + offset,
+					readl(g_infra_peri_debug2 + offset));
+			}
+		}
+
+		// 0x1002E000
+		if (g_infra_peri_debug4) {
+			gpufreq_pr_info("====\n");
+			start = 0x408;
+			for (offset = start; offset <= 0x434; offset += 4) {
+				gpufreq_pr_info("infra info 0x%x:0x%08x\n",
+					0x10025000 + offset,
+					readl(g_infra_peri_debug2 + offset));
+			}
 		}
 	}
 }
@@ -729,17 +800,39 @@ static void mt_gpufreq_buck_control(enum mt_power_state power)
 	__mt_gpufreq_kick_pbm(power);
 }
 
-static void mt_gpufreq_set_dfd(bool enable)
+void mt_gpufreq_software_trigger_dfd(void)
 {
+#if MT_GPUFREQ_DFD_ENABLE
+	unsigned int val;
+
+	if (!g_dbgtop) {
+		gpufreq_pr_info("io init fail!\n");
+		return;
+	}
+
+	val = readl(g_infracfg_ao + 0x040) | (0x95 << 24) | 0x10;
+	writel(val, g_infracfg_ao + 0x040);
+
+	val = readl(g_infracfg_ao + 0x044) | (0x95 << 24) | 0x20000;
+	writel(val, g_infracfg_ao + 0x044);
+
+	writel(0x0F011100, g_mfg_base + 0xA00);
+
+#endif
+}
+
+static int mt_gpufreq_set_dfd(bool enable)
+{
+	unsigned int dfd_trigger = 0;
 #if MT_GPUFREQ_DFD_ENABLE
 	unsigned int val;
 	unsigned int mask;
 
 	if (enable) {
 		// debug monitor
-		writel(0xFFFFFFFF, g_mfg_base + 0x8F8);
+		if (mt_gpufreq_is_dfd_force_dump())
+			writel(0xFFFFFFFF, g_mfg_base + 0x8F8);
 
-		writel(0x0F101100, g_mfg_base + 0xA00);
 		writel(0x00012EC9, g_mfg_base + 0xA04);
 		writel(0x0001813A, g_mfg_base + 0xA08);
 		writel(0x00210862, g_mfg_base + 0xA0C);
@@ -751,12 +844,36 @@ static void mt_gpufreq_set_dfd(bool enable)
 		writel(0x00000000, g_mfg_base + 0xA24);
 		writel(0x00000000, g_mfg_base + 0xA28);
 		writel(0x00000000, g_mfg_base + 0xA2C);
+		// [8] enable
+		writel(0x0F101100, g_mfg_base + 0xA00);
 
+		mtk_dbgtop_dfd_timeout(0x5dc0);
 		mtk_dbgtop_mfg_pwr_on(1);
 	} else {
-		mtk_dbgtop_mfg_pwr_on(0);
+		//[19]mfg_dfd_trigger
+		if (!(readl(g_infracfg_ao + 0x600) & 0x80000)) {
+			// [8] enable
+			writel(0x00000000, g_mfg_base + 0xA00);
+			writel(0x00000000, g_mfg_base + 0xA04);
+			writel(0x00000000, g_mfg_base + 0xA08);
+			writel(0x00000000, g_mfg_base + 0xA0C);
+			writel(0x00000000, g_mfg_base + 0xA10);
+			writel(0x00000000, g_mfg_base + 0xA14);
+			writel(0x00000000, g_mfg_base + 0xA18);
+			writel(0x00000000, g_mfg_base + 0xA1C);
+			writel(0x00000000, g_mfg_base + 0xA20);
+			writel(0x00000000, g_mfg_base + 0xA24);
+			writel(0x00000000, g_mfg_base + 0xA28);
+			writel(0x00000000, g_mfg_base + 0xA2C);
+			writel(0x00000000, g_mfg_base + 0x8F8);
+
+			mtk_dbgtop_mfg_pwr_on(0);
+		} else {
+			dfd_trigger = 1;
+		}
 	}
 #endif
+	return dfd_trigger;
 }
 
 void mt_gpufreq_power_control(enum mt_power_state power, enum mt_cg_state cg,
@@ -789,6 +906,15 @@ void mt_gpufreq_power_control(enum mt_power_state power, enum mt_cg_state cg,
 
 		gpu_dvfs_vgpu_footprint(GPU_DVFS_VGPU_STEP_4);
 	} else {
+#if MT_GPUFREQ_DFD_ENABLE
+		if (mt_gpufreq_set_dfd(false) == 1) {
+			// if dfd is triggered, do not power off
+			gpufreq_pr_info("@%s: dfd is triggered, do not power off\n",
+				__func__);
+			mutex_unlock(&mt_gpufreq_lock);
+			return;
+		}
+#endif
 		gpu_dvfs_vgpu_footprint(GPU_DVFS_VGPU_STEP_5);
 
 		if (cg == CG_OFF)
@@ -803,10 +929,6 @@ void mt_gpufreq_power_control(enum mt_power_state power, enum mt_cg_state cg,
 
 		if (buck == BUCK_OFF)
 			mt_gpufreq_buck_control(power);
-
-#if MT_GPUFREQ_DFD_ENABLE
-		mt_gpufreq_set_dfd(false);
-#endif
 
 		gpu_dvfs_vgpu_footprint(GPU_DVFS_VGPU_STEP_8);
 	}
@@ -1546,6 +1668,10 @@ static int mt_gpufreq_dfd_test_proc_show(struct seq_file *m, void *v)
 static int mt_gpufreq_dfd_force_dump_proc_show(struct seq_file *m, void *v)
 {
 #if MT_GPUFREQ_DFD_ENABLE
+	seq_puts(m, "0: disable\n");
+	seq_puts(m, "1: force dump + debug log\n");
+	seq_puts(m, "2: dump\n");
+	seq_puts(m, "3: debug log\n");
 	seq_printf(m, "g_dfd_force_dump %d\n", g_dfd_force_dump);
 	mt_gpufreq_dump_infra_status();
 #else
@@ -1572,10 +1698,8 @@ static ssize_t mt_gpufreq_dfd_force_dump_proc_write(
 	buf[len] = '\0';
 
 	if (!kstrtouint(buf, 10, &value)) {
-		if (!value || !(value - 1)) {
-			ret = 0;
-			g_dfd_force_dump = value;
-		}
+		ret = 0;
+		g_dfd_force_dump = value;
 	}
 
 out:
@@ -3029,9 +3153,23 @@ static int __mt_gpufreq_init_clk(struct platform_device *pdev)
 		return -ENOENT;
 	}
 
-	g_toprgu_base = __mt_gpufreq_of_ioremap("mediatek,toprgu", 0);
-	if (!g_toprgu_base) {
-		gpufreq_pr_info("@%s: ioremap failed at g_toprgu_base",
+	g_infracfg_ao = __mt_gpufreq_of_ioremap("mediatek,infracfg_ao", 0);
+	if (!g_infracfg_ao) {
+		gpufreq_pr_info("@%s: ioremap failed at infracfg_ao",
+			__func__);
+		return -ENOENT;
+	}
+
+	g_dbgtop = __mt_gpufreq_of_ioremap("mediatek,dbgtop", 0);
+	if (!g_dbgtop) {
+		gpufreq_pr_info("@%s: ioremap failed at dbgtop",
+			__func__);
+		return -ENOENT;
+	}
+
+	g_sleep = __mt_gpufreq_of_ioremap("mediatek,sleep", 0);
+	if (!g_sleep) {
+		gpufreq_pr_info("@%s: ioremap failed at sleep",
 			__func__);
 		return -ENOENT;
 	}

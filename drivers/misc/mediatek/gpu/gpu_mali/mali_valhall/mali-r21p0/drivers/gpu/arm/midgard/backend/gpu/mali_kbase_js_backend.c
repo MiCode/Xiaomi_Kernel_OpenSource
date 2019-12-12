@@ -95,6 +95,7 @@ static enum hrtimer_restart timer_callback(struct hrtimer *timer)
 	struct kbase_backend_data *backend;
 	int s;
 	bool reset_needed = false;
+	//bool bugon_needed = false;
 
 	int idx, freq, vgpu, vsram;
 
@@ -213,10 +214,12 @@ static enum hrtimer_restart timer_callback(struct hrtimer *timer)
 					kbase_job_slot_hardstop(atom->kctx, s,
 									atom);
 
-					if (mt_gpufreq_is_dfd_force_dump()) {
-						pr_info("gpu dfd force dump\n");
-						BUG_ON(1);
-					}
+				if (mt_gpufreq_is_dfd_force_dump() == 1 ||
+					mt_gpufreq_is_dfd_force_dump() == 2) {
+					pr_info("gpu dfd force dump\n");
+					mt_gpufreq_software_trigger_dfd();
+					BUG_ON(1);
+				}
 #endif
 				} else if (ticks == gpu_reset_ticks) {
 					/* Job has been scheduled for at least
@@ -266,10 +269,12 @@ static enum hrtimer_restart timer_callback(struct hrtimer *timer)
 					kbase_job_slot_hardstop(atom->kctx, s,
 									atom);
 
-					if (mt_gpufreq_is_dfd_force_dump()) {
-						pr_info("gpu dfd force dump\n");
-						BUG_ON(1);
-					}
+				if (mt_gpufreq_is_dfd_force_dump() == 1 ||
+					mt_gpufreq_is_dfd_force_dump() == 2) {
+					pr_info("gpu dfd force dump\n");
+					mt_gpufreq_software_trigger_dfd();
+					BUG_ON(1);
+				}
 #endif
 				} else if (ticks ==
 					js_devdata->gpu_reset_ticks_dumping) {

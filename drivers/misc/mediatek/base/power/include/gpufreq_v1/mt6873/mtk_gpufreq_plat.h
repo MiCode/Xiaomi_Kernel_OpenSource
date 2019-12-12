@@ -158,6 +158,7 @@ extern void mt_gpufreq_check_bus_idle(void);
 extern unsigned int mt_gpufreq_get_shader_present(void);
 extern void mt_gpufreq_dump_infra_status(void);
 extern int mt_gpufreq_is_dfd_force_dump(void);
+extern void mt_gpufreq_software_trigger_dfd(void);
 extern void mt_gpufreq_wdt_reset(void);
 
 #ifdef CONFIG_MTK_RAM_CONSOLE

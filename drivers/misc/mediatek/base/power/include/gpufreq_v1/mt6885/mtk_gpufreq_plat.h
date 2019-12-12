@@ -167,6 +167,7 @@ extern void mt_gpufreq_check_bus_idle(void);
 extern u64 mt_gpufreq_get_shader_present(void);
 extern void mt_gpufreq_dump_infra_status(void);
 extern int mt_gpufreq_is_dfd_force_dump(void);
+extern void mt_gpufreq_software_trigger_dfd(void);
 #ifdef CONFIG_MTK_RAM_CONSOLE
 extern void aee_rr_rec_gpu_dvfs_vgpu(u8 val);
 extern u8 aee_rr_curr_gpu_dvfs_vgpu(void);
