@@ -3717,7 +3717,7 @@ static long MFB_ioctl_compat(struct file *filp,
  ******************************************************************************/
 static signed int MFB_open(struct inode *pInode, struct file *pFile)
 {
-	signed int Ret = 0, i = 0, j = 0;
+	signed int Ret = 0, i = 0;
 	/*int q = 0, p = 0;*/
 	struct MFB_USER_INFO_STRUCT *pUserInfo;
 	unsigned long flags;
@@ -3770,9 +3770,11 @@ static signed int MFB_open(struct inode *pInode, struct file *pFile)
 		mfb_register_requests(&vmsf_reqs, sizeof(struct MFB_MSFConfig));
 		mfb_set_engine_ops(&vmsf_reqs, &vmsf_ops);
 
+#ifdef MFB_PMQOS
 		qos_total = 0;
-		for (j = 0; j < 4; j++)
-			qos_scen[j] = 0;
+		for (i = 0; i < 4; i++)
+			qos_scen[i] = 0;
+#endif
 		mutex_unlock(&(MutexMFBRef));
 		LOG_INF(
 			"%s + 1st UserCount(%d), (process, pid, tgid)=(%s, %d, %d)",
