@@ -250,7 +250,8 @@ void mtk_wdt_mode_config(bool dual_mode_en,
 	#else
 	mtk_wdt_clear_all();
 	tmp = __raw_readl(MTK_WDT_MODE);
-	tmp |= MTK_WDT_MODE_KEY | MTK_WDT_MODE_EXTRA_CNT;
+	tmp |= MTK_WDT_MODE_KEY | MTK_WDT_MODE_IRQ_LEVEL_EN |
+		MTK_WDT_MODE_EXTRA_CNT;
 
 	/* Bit 0 : Whether enable watchdog or not */
 	if (wdt_en == TRUE)
