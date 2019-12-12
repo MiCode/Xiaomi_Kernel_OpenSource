@@ -88,7 +88,7 @@ inline int get_mapped_fd(struct dma_buf *dmabuf)
 	struct task_struct *task = NULL;
 	struct files_struct *f = NULL;
 	struct sighand_struct *sighand;
-	spinlock_t      siglock;
+	spinlock_t      siglock, flock;
 	struct fdtable fdt;
 
 	if (dmabuf == NULL || dmabuf->file == NULL)
@@ -99,7 +99,8 @@ inline int get_mapped_fd(struct dma_buf *dmabuf)
 	vcu_get_task(&task, &f, 0);
 	if (task == NULL || f == NULL ||
 		probe_kernel_address(&task->sighand, sighand) ||
-		probe_kernel_address(&task->sighand->siglock, siglock)) {
+		probe_kernel_address(&task->sighand->siglock, siglock) ||
+		probe_kernel_address(&f->file_lock, flock)) {
 		vcu_put_file_lock();
 		return -EMFILE;
 	}
