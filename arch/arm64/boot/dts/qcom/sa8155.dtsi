@@ -72,6 +72,10 @@
 	status = "ok";
 };
 
+&clock_gpucc {
+	compatible = "qcom,gpucc-sa8155", "syscon";
+};
+
 &cam_csiphy0 {
 	mipi-csi-vdd-supply = <&pm8150_2_l8>;
 };

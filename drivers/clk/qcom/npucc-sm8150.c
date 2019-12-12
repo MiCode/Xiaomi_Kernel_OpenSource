@@ -654,12 +654,32 @@ static const struct qcom_cc_desc npu_cc_sm8150_desc = {
 	.num_resets = ARRAY_SIZE(npu_cc_sm8150_resets),
 };
 
+static struct clk_regmap *npucc_sm8150_critical_clocks[] = {
+	&npu_cc_xo_clk.clkr,
+};
+
+static const struct qcom_cc_critical_desc npucc_sm8150_critical_desc = {
+	.clks = npucc_sm8150_critical_clocks,
+	.num_clks = ARRAY_SIZE(npucc_sm8150_critical_clocks),
+};
+
 static const struct of_device_id npu_cc_sm8150_match_table[] = {
 	{ .compatible = "qcom,npucc-sm8150" },
 	{ .compatible = "qcom,npucc-sm8150-v2" },
+	{ .compatible = "qcom,npucc-sa8155" },
+	{ .compatible = "qcom,npucc-sa8155-v2" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, npu_cc_sm8150_match_table);
+
+static int npucc_sa8150_resume(struct device *dev)
+{
+	return qcom_cc_enable_critical_clks(&npucc_sm8150_critical_desc);
+}
+
+static const struct dev_pm_ops npucc_sa8150_pm_ops = {
+	.restore_early = npucc_sa8150_resume,
+};
 
 static void npu_cc_sm8150_fixup_sm8150v2(struct regmap *regmap)
 {
@@ -688,8 +708,13 @@ static int npu_cc_sm8150_fixup(struct platform_device *pdev,
 	if (!compat || (compatlen <= 0))
 		return -EINVAL;
 
-	if (!strcmp(compat, "qcom,npucc-sm8150-v2"))
+	if (!strcmp(compat, "qcom,npucc-sm8150-v2") ||
+			!strcmp(compat, "qcom,npucc-sa8155-v2"))
 		npu_cc_sm8150_fixup_sm8150v2(regmap);
+
+	if (!strcmp(compat, "qcom,npucc-sa8155") ||
+			!strcmp(compat, "qcom,npucc-sa8155-v2"))
+		pdev->dev.driver->pm = &npucc_sa8150_pm_ops;
 
 	return 0;
 }
