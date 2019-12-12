@@ -659,7 +659,7 @@ static ssize_t mt6885_logger_debugfs_write(char *FromUserBuf,
 				   size_t sz, void *priv)
 {
 	if (priv == ((void *)&mt6885_log_timer)) {
-		unsigned int val;
+		unsigned int val = 0;
 
 		if (!kstrtouint(FromUserBuf, 10, &val)) {
 			if (val == 0)
