@@ -52,6 +52,13 @@ struct sensor_state {
 	atomic64_t start_time;
 };
 
+struct sensor_info {
+	uint8_t sensor_type;
+	uint32_t gain;
+	char name[16];
+	char vendor[16];
+};
+
 struct hf_device {
 	int (*sample)(struct hf_device *hfdev);
 	int (*enable)(struct hf_device *hfdev, int sensor_type, int en);
@@ -68,7 +75,7 @@ struct hf_device {
 	unsigned char device_poll;
 	unsigned char device_bus;
 
-	unsigned char *support_list;
+	struct sensor_info *support_list;
 	unsigned int support_size;
 
 	struct hf_manager *manager;
@@ -137,6 +144,8 @@ void coordinate_map(unsigned char direction, int32_t *data);
 struct hf_client *hf_client_create(void);
 void hf_client_destroy(struct hf_client *client);
 bool hf_client_find_sensor(struct hf_client *client, uint8_t sensor_type);
+int hf_client_get_sensor_info(struct hf_client *client,
+		uint8_t sensor_type, struct sensor_info *info);
 int hf_client_control_sensor(struct hf_client *client,
 		struct hf_manager_cmd *cmd);
 int hf_client_poll_sensor(struct hf_client *client,

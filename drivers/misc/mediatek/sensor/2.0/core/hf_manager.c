@@ -30,6 +30,8 @@
 
 #include "hf_manager.h"
 
+#define print_s64(l) ((l == S64_MAX) ? -1 : l)
+
 static DECLARE_BITMAP(sensor_list_bitmap, SENSOR_TYPE_SENSOR_MAX);
 static LIST_HEAD(hf_manager_list);
 static DEFINE_MUTEX(hf_manager_list_mtx);
@@ -171,7 +173,7 @@ static int hf_manager_io_report(struct hf_manager *manager,
 {
 	/* must return 0 when sensor_type exceed and no need to retry */
 	if (unlikely(event->sensor_type >= SENSOR_TYPE_SENSOR_MAX)) {
-		pr_err_ratelimited("%s %d exceed max sensor id\n", __func__,
+		pr_err_ratelimited("%s %u exceed max sensor type\n", __func__,
 			event->sensor_type);
 		return 0;
 	}
@@ -240,9 +242,9 @@ static void hf_manager_io_interrupt(struct hf_manager *manager,
 
 int hf_manager_create(struct hf_device *device)
 {
-	unsigned char sensor_type = 0;
-	int i = 0;
-	int err = 0;
+	uint8_t sensor_type = 0;
+	int i = 0, err = 0;
+	uint32_t gain = 0;
 	struct hf_manager *manager = NULL;
 
 	if (!device || !device->dev_name ||
@@ -280,15 +282,16 @@ int hf_manager_create(struct hf_device *device)
 			hf_manager_io_kthread_work);
 
 	for (i = 0; i < device->support_size; ++i) {
-		sensor_type = device->support_list[i];
-		if (unlikely(sensor_type >= SENSOR_TYPE_SENSOR_MAX)) {
-			pr_err("%s %s %d exceed max sensor id\n", __func__,
-				device->dev_name, sensor_type);
+		sensor_type = device->support_list[i].sensor_type;
+		gain = device->support_list[i].gain;
+		if (unlikely(sensor_type >= SENSOR_TYPE_SENSOR_MAX || !gain)) {
+			pr_err("%s %s sensor info wrong [%u,%u]\n", __func__,
+				device->dev_name, sensor_type, gain);
 			err = -EINVAL;
 			goto out_err;
 		}
 		if (test_and_set_bit(sensor_type, sensor_list_bitmap)) {
-			pr_err("%s %s %d repeat\n", __func__,
+			pr_err("%s %s %u repeat\n", __func__,
 				device->dev_name, sensor_type);
 			err = -EBUSY;
 			goto out_err;
@@ -303,11 +306,13 @@ int hf_manager_create(struct hf_device *device)
 	return 0;
 out_err:
 	kfree(manager);
+	device->manager = NULL;
 	return err;
 }
 
 int hf_manager_destroy(struct hf_manager *manager)
 {
+	uint8_t sensor_type = 0;
 	int i = 0;
 	struct hf_device *device = NULL;
 
@@ -316,8 +321,13 @@ int hf_manager_destroy(struct hf_manager *manager)
 
 	device = manager->hf_dev;
 	for (i = 0; i < device->support_size; ++i) {
-		clear_bit(device->support_list[i],
-			sensor_list_bitmap);
+		sensor_type = device->support_list[i].sensor_type;
+		if (unlikely(sensor_type >= SENSOR_TYPE_SENSOR_MAX)) {
+			pr_err("%s %s %u exceed max sensor type\n", __func__,
+				device->dev_name, sensor_type);
+			continue;
+		}
+		clear_bit(sensor_type, sensor_list_bitmap);
 	}
 	mutex_lock(&hf_manager_list_mtx);
 	list_del(&manager->list);
@@ -427,7 +437,7 @@ static struct hf_manager *hf_manager_find_manager(uint8_t sensor_type)
 		if (!device || !device->support_list)
 			continue;
 		for (i = 0; i < device->support_size; ++i) {
-			if (sensor_type == device->support_list[i])
+			if (sensor_type == device->support_list[i].sensor_type)
 				return manager;
 		}
 	}
@@ -483,10 +493,10 @@ static void hf_manager_find_best_param(uint8_t sensor_type,
 
 #ifdef HF_MANAGER_DEBUG
 	if (tmp_enable)
-		pr_notice("%s: %d,%d,%lld,%lld\n", __func__,
+		pr_notice("%s: %u,%u,%lld,%lld\n", __func__,
 			sensor_type, tmp_enable, tmp_delay, tmp_latency);
 	else
-		pr_notice("%s: %d,%d\n", __func__, sensor_type, tmp_enable);
+		pr_notice("%s: %u,%u\n", __func__, sensor_type, tmp_enable);
 #endif
 }
 
@@ -525,11 +535,12 @@ static bool device_redisable(uint8_t sensor_type, bool best_enable,
 
 static int64_t device_poll_min_interval(struct hf_device *device)
 {
-	int i = 0, j = 0;
+	int i = 0;
+	uint8_t j = 0;
 	int64_t interval = S64_MAX;
 
 	for (i = 0; i < device->support_size; ++i) {
-		j = device->support_list[i];
+		j = device->support_list[i].sensor_type;
 		if (prev_request[j].enable) {
 			if (prev_request[j].delay < interval)
 				interval = prev_request[j].delay;
@@ -654,6 +665,45 @@ static int hf_manager_device_rawdata(struct hf_device *device,
 	return 0;
 }
 
+static int hf_manager_device_info(uint8_t sensor_type,
+		struct sensor_info *info)
+{
+	int i = 0;
+	int ret = 0;
+	struct hf_manager *manager = NULL;
+	struct hf_device *device = NULL;
+	struct sensor_info *si = NULL;
+
+	mutex_lock(&hf_manager_list_mtx);
+	manager = hf_manager_find_manager(sensor_type);
+	if (!manager) {
+		ret = -EINVAL;
+		goto err_out;
+	}
+	device = manager->hf_dev;
+	if (!device || !device->support_list ||
+			!device->support_size) {
+		ret = -EINVAL;
+		goto err_out;
+	}
+	for (i = 0; i < device->support_size; ++i) {
+		if (device->support_list[i].sensor_type ==
+				sensor_type) {
+			si = &device->support_list[i];
+			break;
+		}
+	}
+	if (!si) {
+		ret = -EINVAL;
+		goto err_out;
+	}
+	*info = *si;
+
+err_out:
+	mutex_unlock(&hf_manager_list_mtx);
+	return ret;
+}
+
 static int hf_manager_drive_device(struct hf_client *client,
 		struct hf_manager_cmd *cmd)
 {
@@ -681,7 +731,7 @@ static int hf_manager_drive_device(struct hf_client *client,
 	}
 
 #ifdef HF_MANAGER_DEBUG
-	pr_notice("%s: %s: %d,%d,%lld,%lld\n", __func__, device->dev_name,
+	pr_notice("%s: %s: %u,%u,%lld,%lld\n", __func__, device->dev_name,
 		cmd->sensor_type, cmd->action, cmd->delay, cmd->latency);
 #endif
 
@@ -716,6 +766,12 @@ static int hf_manager_drive_device(struct hf_client *client,
 	}
 	mutex_unlock(&hf_manager_list_mtx);
 	return err;
+}
+
+static int hf_manager_get_sensor_info(uint8_t sensor_type,
+		struct sensor_info *info)
+{
+	return hf_manager_device_info(sensor_type, info);
 }
 
 struct hf_client *hf_client_create(void)
@@ -781,7 +837,19 @@ void hf_client_destroy(struct hf_client *client)
 
 bool hf_client_find_sensor(struct hf_client *client, uint8_t sensor_type)
 {
+	if (unlikely(sensor_type >= SENSOR_TYPE_SENSOR_MAX))
+		return false;
 	return test_bit(sensor_type, sensor_list_bitmap);
+}
+
+int hf_client_get_sensor_info(struct hf_client *client,
+		uint8_t sensor_type, struct sensor_info *info)
+{
+	if (unlikely(sensor_type >= SENSOR_TYPE_SENSOR_MAX))
+		return -EINVAL;
+	if (!test_bit(sensor_type, sensor_list_bitmap))
+		return -EINVAL;
+	return hf_manager_device_info(sensor_type, info);
 }
 
 int hf_client_control_sensor(struct hf_client *client,
@@ -869,12 +937,11 @@ static ssize_t hf_manager_read(struct file *filp,
 			return 0;
 		if (count == 0)
 			break;
-		while (read + sizeof(struct hf_manager_event) <= count &&
-			fetch_next(hf_fifo, &event)) {
-			if (copy_to_user(buf + read,
-				&event, sizeof(struct hf_manager_event)))
+		while (read + sizeof(event) <= count &&
+				fetch_next(hf_fifo, &event)) {
+			if (copy_to_user(buf + read, &event, sizeof(event)))
 				return -EFAULT;
-			read += sizeof(struct hf_manager_event);
+			read += sizeof(event);
 		}
 		if (read)
 			break;
@@ -888,7 +955,7 @@ static ssize_t hf_manager_write(struct file *filp,
 	struct hf_manager_cmd cmd;
 	struct hf_client *client = filp->private_data;
 
-	memset(&cmd, 0, sizeof(struct hf_manager_cmd));
+	memset(&cmd, 0, sizeof(cmd));
 
 	if (count != sizeof(struct hf_manager_cmd))
 		return -EFAULT;
@@ -920,14 +987,15 @@ static long hf_manager_ioctl(struct file *filp,
 	struct hf_client *client = filp->private_data;
 	unsigned int size = _IOC_SIZE(cmd);
 	void __user *ubuf = (void __user *)arg;
-	unsigned int sensor_type = 0;
+	uint8_t sensor_type = 0;
 	struct ioctl_packet packet;
+	struct sensor_info info;
 
-	memset(&packet, 0, sizeof(struct ioctl_packet));
+	memset(&packet, 0, sizeof(packet));
 
 	if (size != sizeof(struct ioctl_packet))
 		return -EINVAL;
-	if (copy_from_user(&packet, ubuf, sizeof(struct ioctl_packet)))
+	if (copy_from_user(&packet, ubuf, sizeof(packet)))
 		return -EFAULT;
 	sensor_type = packet.sensor_type;
 	if (unlikely(sensor_type >= SENSOR_TYPE_SENSOR_MAX))
@@ -936,7 +1004,7 @@ static long hf_manager_ioctl(struct file *filp,
 	switch (cmd) {
 	case HF_MANAGER_REQUEST_REGISTER_STATUS:
 		packet.status = test_bit(sensor_type, sensor_list_bitmap);
-		if (copy_to_user(ubuf, &packet, sizeof(struct ioctl_packet)))
+		if (copy_to_user(ubuf, &packet, sizeof(packet)))
 			return -EFAULT;
 		break;
 	case HF_MANAGER_REQUEST_BIAS_DATA:
@@ -951,26 +1019,21 @@ static long hf_manager_ioctl(struct file *filp,
 	case HF_MANAGER_REQUEST_TEST_DATA:
 		client->request[sensor_type].test = packet.status;
 		break;
+	case HF_MANAGER_REQUEST_SENSOR_INFO:
+		if (!test_bit(sensor_type, sensor_list_bitmap))
+			return -EINVAL;
+		memset(&info, 0, sizeof(info));
+		if (hf_manager_get_sensor_info(sensor_type, &info))
+			return -EINVAL;
+		if (sizeof(packet.byte) < sizeof(info))
+			return -EINVAL;
+		memcpy(packet.byte, &info, sizeof(info));
+		if (copy_to_user(ubuf, &packet, sizeof(packet)))
+			return -EFAULT;
+		break;
 	}
 	return 0;
 }
-
-static ssize_t client_info_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	return 0;
-}
-
-DEVICE_ATTR(client_info, 0644, client_info_show, NULL);
-
-static struct attribute *hf_manager_attrs[] = {
-	&dev_attr_client_info.attr,
-	NULL
-};
-
-static struct attribute_group hf_manager_group = {
-	.attrs = hf_manager_attrs
-};
 
 static const struct file_operations hf_manager_fops = {
 	.owner          = THIS_MODULE,
@@ -985,37 +1048,49 @@ static const struct file_operations hf_manager_fops = {
 
 static int hf_manager_proc_show(struct seq_file *m, void *v)
 {
-	int i = 0, sensor_type = 0;
+	int i = 0, j = 0;
+	uint8_t sensor_type = 0;
 	unsigned long flags;
 	struct hf_manager *manager = NULL;
 	struct hf_client *client = NULL;
 	struct hf_device *device = NULL;
 
+	seq_puts(m, "**************************************************\n");
 	mutex_lock(&hf_manager_list_mtx);
+	j = 1;
 	list_for_each_entry(manager, &hf_manager_list, list) {
 		device = READ_ONCE(manager->hf_dev);
 		if (!device || !device->support_list)
 			continue;
+		seq_printf(m, "<%d> Detect:\n", j++);
 		seq_printf(m, "manager: param:[%d,%lld]\n",
 			atomic_read(&manager->io_enabled),
-			(int64_t)atomic64_read(&manager->io_poll_interval));
-		seq_printf(m, "device:%s poll:%s bus:%s online\n",
+			print_s64((int64_t)atomic64_read(
+				&manager->io_poll_interval)));
+		seq_printf(m, " device:%s poll:%s bus:%s online\n",
 			device->dev_name,
 			device->device_poll ? "io_polling" : "io_interrupt",
 			device->device_bus ? "io_async" : "io_sync");
 		for (i = 0; i < device->support_size; ++i) {
-			sensor_type = device->support_list[i];
-			seq_printf(m, "support:%d now param:[%d,%lld,%lld]\n",
+			sensor_type = device->support_list[i].sensor_type;
+			seq_printf(m,
+				"  info:[%u,%u,%s,%s] param:[%u,%lld,%lld]\n",
 				sensor_type,
+				device->support_list[i].gain,
+				device->support_list[i].name,
+				device->support_list[i].vendor,
 				prev_request[sensor_type].enable,
-				prev_request[sensor_type].delay,
-				prev_request[sensor_type].latency);
+				print_s64(prev_request[sensor_type].delay),
+				print_s64(prev_request[sensor_type].latency));
 		}
 	}
 	mutex_unlock(&hf_manager_list_mtx);
 
+	seq_puts(m, "**************************************************\n");
 	spin_lock_irqsave(&hf_client_list_lock, flags);
+	j = 1;
 	list_for_each_entry(client, &hf_client_list, list) {
+		seq_printf(m, "<%d> Detect:\n", j++);
 		seq_printf(m, "client:%s pid:[%d:%d] online\n",
 			client->proc_comm,
 			client->leader_pid,
@@ -1023,7 +1098,8 @@ static int hf_manager_proc_show(struct seq_file *m, void *v)
 		for (i = 0; i < SENSOR_TYPE_SENSOR_MAX; ++i) {
 			if (!client->request[i].enable)
 				continue;
-			seq_printf(m, "request:%d param:[%d,%lld,%lld,%lld]\n",
+			seq_printf(m,
+				" request:%d param:[%u,%lld,%lld,%lld]\n",
 				i,
 				client->request[i].enable,
 				client->request[i].delay,
@@ -1033,6 +1109,7 @@ static int hf_manager_proc_show(struct seq_file *m, void *v)
 		}
 	}
 	spin_unlock_irqrestore(&hf_client_list_lock, flags);
+	seq_puts(m, "**************************************************\n");
 	return 0;
 }
 
@@ -1077,9 +1154,6 @@ static int __init hf_manager_init(void)
 		return -1;
 
 	proc_create("hf_manager", 0644, NULL, &hf_manager_proc_fops);
-
-	if (sysfs_create_group(&dev->kobj, &hf_manager_group) < 0)
-		return -1;
 
 	kthread_init_worker(&hf_manager_kthread_worker);
 	hf_manager_kthread_task = kthread_run(kthread_worker_fn,

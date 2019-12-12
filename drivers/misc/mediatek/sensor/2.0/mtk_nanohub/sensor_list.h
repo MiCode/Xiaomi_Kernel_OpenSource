@@ -14,23 +14,7 @@
 #ifndef _SENSOR_LIST_H_
 #define _SENSOR_LIST_H_
 
-#include <linux/ioctl.h>
-
-struct sensorlist_info_t {
-	char name[16];
-};
-
-struct mag_libinfo_t {
-	char libname[64];
-	int32_t layout;
-	int32_t deviceid;
-};
-
-int sensorlist_register_maginfo(struct mag_libinfo_t *mag_info);
-int sensorlist_register_devinfo(int sensor,
-		struct sensorlist_info_t *devinfo);
-int sensorlist_find_sensor(int sensor);
-
-#define SENSOR_LIST_GET_MAG_LIB_INFO _IOWR('a', 1, struct mag_libinfo_t)
+int sensorlist_sensor_to_handle(int sensor);
+int sensorlist_handle_to_sensor(int handle);
 
 #endif

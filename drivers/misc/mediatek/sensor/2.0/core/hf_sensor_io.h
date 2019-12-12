@@ -59,7 +59,10 @@ struct hf_manager_event {
 
 struct ioctl_packet {
 	uint8_t sensor_type;
-	bool status;
+	union {
+		bool status;
+		int8_t byte[64];
+	};
 } __packed;
 
 #define HF_MANAGER_REQUEST_REGISTER_STATUS  _IOWR('a', 1, struct ioctl_packet)
@@ -67,5 +70,6 @@ struct ioctl_packet {
 #define HF_MANAGER_REQUEST_CALI_DATA        _IOW('a', 3, struct ioctl_packet)
 #define HF_MANAGER_REQUEST_TEMP_DATA        _IOW('a', 4, struct ioctl_packet)
 #define HF_MANAGER_REQUEST_TEST_DATA        _IOW('a', 5, struct ioctl_packet)
+#define HF_MANAGER_REQUEST_SENSOR_INFO      _IOWR('a', 6, struct ioctl_packet)
 
 #endif

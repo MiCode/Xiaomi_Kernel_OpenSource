@@ -45,8 +45,10 @@ struct SensorState {
 	uint8_t sensorType;
 	uint8_t alt;
 	bool enable;
-	bool timestamp_filter;
 	int flushcnt;
+	uint32_t gain;
+	char name[16];
+	char vendor[16];
 };
 
 #define SCP_SENSOR_HUB_SUCCESS       0

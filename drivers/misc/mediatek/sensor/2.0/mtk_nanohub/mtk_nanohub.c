@@ -83,6 +83,7 @@ struct mtk_nanohub_device {
 
 	atomic_t cfg_data_after_reboot;
 	atomic_t start_timesync_first_boot;
+	atomic_t create_manager_first_boot;
 
 	int32_t acc_config_data[6];
 	int32_t gyro_config_data[12];
@@ -95,7 +96,8 @@ static uint8_t rtc_compensation_suspend;
 static struct SensorState sensor_state[SENSOR_TYPE_SENSOR_MAX];
 static int64_t raw_ts_reverse_debug[SENSOR_TYPE_SENSOR_MAX];
 static int64_t comp_ts_reverse_debug[SENSOR_TYPE_SENSOR_MAX];
-static unsigned char support_sensors[SENSOR_TYPE_SENSOR_MAX];
+static struct sensor_info support_sensors[SENSOR_TYPE_SENSOR_MAX];
+static int support_size;
 static DEFINE_MUTEX(sensor_state_mtx);
 static DEFINE_MUTEX(flush_mtx);
 static atomic_t power_status = ATOMIC_INIT(SENSOR_POWER_DOWN);
@@ -111,6 +113,7 @@ static struct mtk_nanohub_device *mtk_nanohub_dev;
 static int mtk_nanohub_send_timestamp_to_hub(void);
 static int mtk_nanohub_server_dispatch_data(uint32_t *currWp);
 static int mtk_nanohub_report_to_manager(struct data_unit_t *data);
+static int mtk_nanohub_create_manager(void);
 
 enum scp_ipi_status __attribute__((weak)) scp_ipi_registration(enum ipi_id id,
 	void (*ipi_handler)(int id, void *data, unsigned int len),
@@ -118,6 +121,7 @@ enum scp_ipi_status __attribute__((weak)) scp_ipi_registration(enum ipi_id id,
 {
 	return SCP_IPI_ERROR;
 }
+
 enum scp_ipi_status __attribute__((weak)) scp_ipi_unregistration(enum ipi_id id)
 {
 	return SCP_IPI_ERROR;
@@ -422,134 +426,244 @@ static void mtk_nanohub_ipi_handler(int id,
 		pr_err("cannot find cmd!\n");
 }
 
-static void mtk_nanohub_init_sensor_state(void)
+static void mtk_nanohub_get_sensor_info(void)
 {
-	sensor_state[SENSOR_TYPE_ACCELEROMETER].sensorType =
-		SENSOR_TYPE_ACCELEROMETER;
-	sensor_state[SENSOR_TYPE_ACCELEROMETER].timestamp_filter = true;
+	int i = 0, j = 0, k = 0;
+	int count = ARRAY_SIZE(sensor_state);
+	int size = ARRAY_SIZE(support_sensors);
 
-	sensor_state[SENSOR_TYPE_GYROSCOPE].sensorType = SENSOR_TYPE_GYROSCOPE;
-	sensor_state[SENSOR_TYPE_GYROSCOPE].timestamp_filter = true;
+	k = (count < size) ? count : size;
+	for (i = 0; i < k; ++i) {
+		if (!sensor_state[i].sensorType)
+			continue;
+		support_sensors[j].sensor_type = sensor_state[i].sensorType;
+		support_sensors[j].gain = sensor_state[i].gain;
+		strlcpy(support_sensors[j].name, sensor_state[i].name,
+				sizeof(support_sensors[j].name));
+		strlcpy(support_sensors[j].vendor, sensor_state[i].vendor,
+				sizeof(support_sensors[j].vendor));
+		j++;
+	}
+	support_size = j;
+}
 
-	sensor_state[SENSOR_TYPE_MAGNETIC_FIELD].sensorType =
-		SENSOR_TYPE_MAGNETIC_FIELD;
-	sensor_state[SENSOR_TYPE_MAGNETIC_FIELD].timestamp_filter = true;
+static void mtk_nanohub_set_sensor_info(struct sensor_info *info,
+		bool status)
+{
+	struct SensorState *p = NULL;
 
-	sensor_state[SENSOR_TYPE_LIGHT].sensorType = SENSOR_TYPE_LIGHT;
-	sensor_state[SENSOR_TYPE_LIGHT].timestamp_filter = false;
+	if (info->sensor_type >= SENSOR_TYPE_SENSOR_MAX)
+		return;
 
-	sensor_state[SENSOR_TYPE_PROXIMITY].sensorType = SENSOR_TYPE_PROXIMITY;
-	sensor_state[SENSOR_TYPE_PROXIMITY].timestamp_filter = false;
+	p = &sensor_state[info->sensor_type];
+	if (!status)
+		p->sensorType = 0;
+	else {
+		strlcpy(p->name, info->name, sizeof(p->name));
+		if (strlen(info->vendor))
+			strlcpy(p->vendor, info->vendor, sizeof(p->vendor));
+	}
+}
 
-	sensor_state[SENSOR_TYPE_PRESSURE].sensorType = SENSOR_TYPE_PRESSURE;
-	sensor_state[SENSOR_TYPE_PRESSURE].timestamp_filter = false;
+static void mtk_nanohub_init_sensor_info(void)
+{
+	struct SensorState *p = NULL;
 
-	sensor_state[SENSOR_TYPE_ORIENTATION].sensorType =
-		SENSOR_TYPE_ORIENTATION;
-	sensor_state[SENSOR_TYPE_ORIENTATION].timestamp_filter = true;
+	p = &sensor_state[SENSOR_TYPE_ACCELEROMETER];
+	p->sensorType = SENSOR_TYPE_ACCELEROMETER;
+	p->gain = 1000;
+	strlcpy(p->name, "accelerometer", sizeof(p->name));
+	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
 
-	sensor_state[SENSOR_TYPE_ROTATION_VECTOR].sensorType =
-		SENSOR_TYPE_ROTATION_VECTOR;
-	sensor_state[SENSOR_TYPE_ROTATION_VECTOR].timestamp_filter = true;
+	p = &sensor_state[SENSOR_TYPE_GYROSCOPE];
+	p->sensorType = SENSOR_TYPE_GYROSCOPE;
+	p->gain = 7505747;
+	strlcpy(p->name, "gyroscope", sizeof(p->name));
+	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
 
-	sensor_state[SENSOR_TYPE_GAME_ROTATION_VECTOR].sensorType =
-		SENSOR_TYPE_GAME_ROTATION_VECTOR;
-	sensor_state[SENSOR_TYPE_GAME_ROTATION_VECTOR].timestamp_filter = true;
+	p = &sensor_state[SENSOR_TYPE_MAGNETIC_FIELD];
+	p->sensorType = SENSOR_TYPE_MAGNETIC_FIELD;
+	p->gain = 100;
+	strlcpy(p->name, "magnetic", sizeof(p->name));
+	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
 
-	sensor_state[SENSOR_TYPE_GEOMAGNETIC_ROTATION_VECTOR].sensorType =
-		SENSOR_TYPE_GEOMAGNETIC_ROTATION_VECTOR;
-	sensor_state[SENSOR_TYPE_GEOMAGNETIC_ROTATION_VECTOR].timestamp_filter =
-		true;
+	p = &sensor_state[SENSOR_TYPE_LIGHT];
+	p->sensorType = SENSOR_TYPE_LIGHT;
+	p->gain = 1;
+	strlcpy(p->name, "light", sizeof(p->name));
+	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
 
-	sensor_state[SENSOR_TYPE_LINEAR_ACCELERATION].sensorType =
-		SENSOR_TYPE_LINEAR_ACCELERATION;
-	sensor_state[SENSOR_TYPE_LINEAR_ACCELERATION].timestamp_filter = true;
+	p = &sensor_state[SENSOR_TYPE_PROXIMITY];
+	p->sensorType = SENSOR_TYPE_PROXIMITY;
+	p->gain = 1;
+	strlcpy(p->name, "proximity", sizeof(p->name));
+	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
 
-	sensor_state[SENSOR_TYPE_GRAVITY].sensorType = SENSOR_TYPE_GRAVITY;
-	sensor_state[SENSOR_TYPE_GRAVITY].timestamp_filter = true;
+	p = &sensor_state[SENSOR_TYPE_PRESSURE];
+	p->sensorType = SENSOR_TYPE_PRESSURE;
+	p->gain = 100;
+	strlcpy(p->name, "pressure", sizeof(p->name));
+	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
 
-	sensor_state[SENSOR_TYPE_SIGNIFICANT_MOTION].sensorType =
-		SENSOR_TYPE_SIGNIFICANT_MOTION;
-	sensor_state[SENSOR_TYPE_SIGNIFICANT_MOTION].rate = SENSOR_RATE_ONESHOT;
-	sensor_state[SENSOR_TYPE_SIGNIFICANT_MOTION].timestamp_filter = false;
+	p = &sensor_state[SENSOR_TYPE_ORIENTATION];
+	p->sensorType = SENSOR_TYPE_ORIENTATION;
+	p->gain = 1000;
+	strlcpy(p->name, "orientation", sizeof(p->name));
+	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
 
-	sensor_state[SENSOR_TYPE_STEP_COUNTER].sensorType =
-		SENSOR_TYPE_STEP_COUNTER;
-	sensor_state[SENSOR_TYPE_STEP_COUNTER].rate = SENSOR_RATE_ONCHANGE;
-	sensor_state[SENSOR_TYPE_STEP_COUNTER].timestamp_filter = false;
+	p = &sensor_state[SENSOR_TYPE_ROTATION_VECTOR];
+	p->sensorType = SENSOR_TYPE_ROTATION_VECTOR;
+	p->gain = 1000000;
+	strlcpy(p->name, "rotvec", sizeof(p->name));
+	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
 
-	sensor_state[SENSOR_TYPE_STEP_DETECTOR].sensorType =
-		SENSOR_TYPE_STEP_DETECTOR;
-	sensor_state[SENSOR_TYPE_STEP_DETECTOR].rate = SENSOR_RATE_ONCHANGE;
-	sensor_state[SENSOR_TYPE_STEP_DETECTOR].timestamp_filter = false;
+	p = &sensor_state[SENSOR_TYPE_GAME_ROTATION_VECTOR];
+	p->sensorType = SENSOR_TYPE_GAME_ROTATION_VECTOR;
+	p->gain = 1000000;
+	strlcpy(p->name, "grotvec", sizeof(p->name));
+	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
 
-	sensor_state[SENSOR_TYPE_TILT_DETECTOR].sensorType =
-		SENSOR_TYPE_TILT_DETECTOR;
-	sensor_state[SENSOR_TYPE_TILT_DETECTOR].rate = SENSOR_RATE_ONCHANGE;
-	sensor_state[SENSOR_TYPE_TILT_DETECTOR].timestamp_filter = false;
+	p = &sensor_state[SENSOR_TYPE_GEOMAGNETIC_ROTATION_VECTOR];
+	p->sensorType = SENSOR_TYPE_GEOMAGNETIC_ROTATION_VECTOR;
+	p->gain = 1000000;
+	strlcpy(p->name, "gmrotvec", sizeof(p->name));
+	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
 
-	sensor_state[SENSOR_TYPE_IN_POCKET].sensorType = SENSOR_TYPE_IN_POCKET;
-	sensor_state[SENSOR_TYPE_IN_POCKET].rate = SENSOR_RATE_ONESHOT;
-	sensor_state[SENSOR_TYPE_IN_POCKET].timestamp_filter = false;
+	p = &sensor_state[SENSOR_TYPE_LINEAR_ACCELERATION];
+	p->sensorType = SENSOR_TYPE_LINEAR_ACCELERATION;
+	p->gain = 1000;
+	strlcpy(p->name, "linearacc", sizeof(p->name));
+	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
 
-	sensor_state[SENSOR_TYPE_ACTIVITY].sensorType = SENSOR_TYPE_ACTIVITY;
-	sensor_state[SENSOR_TYPE_ACTIVITY].timestamp_filter = false;
+	p = &sensor_state[SENSOR_TYPE_GRAVITY];
+	p->sensorType = SENSOR_TYPE_GRAVITY;
+	p->gain = 1000;
+	strlcpy(p->name, "gravity", sizeof(p->name));
+	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
 
-	sensor_state[SENSOR_TYPE_GLANCE_GESTURE].sensorType =
-		SENSOR_TYPE_GLANCE_GESTURE;
-	sensor_state[SENSOR_TYPE_GLANCE_GESTURE].rate = SENSOR_RATE_ONESHOT;
-	sensor_state[SENSOR_TYPE_GLANCE_GESTURE].timestamp_filter = false;
+	p = &sensor_state[SENSOR_TYPE_SIGNIFICANT_MOTION];
+	p->sensorType = SENSOR_TYPE_SIGNIFICANT_MOTION;
+	p->rate = SENSOR_RATE_ONESHOT;
+	p->gain = 1;
+	strlcpy(p->name, "significant", sizeof(p->name));
+	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
 
-	sensor_state[SENSOR_TYPE_PICK_UP_GESTURE].sensorType =
-		SENSOR_TYPE_PICK_UP_GESTURE;
-	sensor_state[SENSOR_TYPE_PICK_UP_GESTURE].rate = SENSOR_RATE_ONESHOT;
-	sensor_state[SENSOR_TYPE_PICK_UP_GESTURE].timestamp_filter = false;
+	p = &sensor_state[SENSOR_TYPE_STEP_COUNTER];
+	p->sensorType = SENSOR_TYPE_STEP_COUNTER;
+	p->rate = SENSOR_RATE_ONCHANGE;
+	p->gain = 1;
+	strlcpy(p->name, "stepcounter", sizeof(p->name));
+	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
 
-	sensor_state[SENSOR_TYPE_WAKE_GESTURE].sensorType =
-		SENSOR_TYPE_WAKE_GESTURE;
-	sensor_state[SENSOR_TYPE_WAKE_GESTURE].rate = SENSOR_RATE_ONESHOT;
-	sensor_state[SENSOR_TYPE_WAKE_GESTURE].timestamp_filter = false;
+	p = &sensor_state[SENSOR_TYPE_STEP_DETECTOR];
+	p->sensorType = SENSOR_TYPE_STEP_DETECTOR;
+	p->rate = SENSOR_RATE_ONCHANGE;
+	p->gain = 1;
+	strlcpy(p->name, "stepdetector", sizeof(p->name));
+	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
 
-	sensor_state[SENSOR_TYPE_ANSWER_CALL].sensorType =
-		SENSOR_TYPE_ANSWER_CALL;
-	sensor_state[SENSOR_TYPE_ANSWER_CALL].rate = SENSOR_RATE_ONESHOT;
-	sensor_state[SENSOR_TYPE_ANSWER_CALL].timestamp_filter = false;
+	p = &sensor_state[SENSOR_TYPE_TILT_DETECTOR];
+	p->sensorType = SENSOR_TYPE_TILT_DETECTOR;
+	p->rate = SENSOR_RATE_ONCHANGE;
+	p->gain = 1;
+	strlcpy(p->name, "tiltdetector", sizeof(p->name));
+	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
 
-	sensor_state[SENSOR_TYPE_STATIONARY_DETECT].sensorType =
-		SENSOR_TYPE_STATIONARY_DETECT;
-	sensor_state[SENSOR_TYPE_STATIONARY_DETECT].rate = SENSOR_RATE_ONESHOT;
-	sensor_state[SENSOR_TYPE_STATIONARY_DETECT].timestamp_filter = false;
+	p = &sensor_state[SENSOR_TYPE_IN_POCKET];
+	p->sensorType = SENSOR_TYPE_IN_POCKET;
+	p->rate = SENSOR_RATE_ONESHOT;
+	p->gain = 1;
+	strlcpy(p->name, "inpocket", sizeof(p->name));
+	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
 
-	sensor_state[SENSOR_TYPE_MOTION_DETECT].sensorType =
-		SENSOR_TYPE_MOTION_DETECT;
-	sensor_state[SENSOR_TYPE_MOTION_DETECT].rate = SENSOR_RATE_ONESHOT;
-	sensor_state[SENSOR_TYPE_MOTION_DETECT].timestamp_filter = false;
+	p = &sensor_state[SENSOR_TYPE_ACTIVITY];
+	p->sensorType = SENSOR_TYPE_ACTIVITY;
+	p->gain = 1;
+	strlcpy(p->name, "activity", sizeof(p->name));
+	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
 
-	sensor_state[SENSOR_TYPE_DEVICE_ORIENTATION].sensorType =
-		SENSOR_TYPE_DEVICE_ORIENTATION;
-	sensor_state[SENSOR_TYPE_DEVICE_ORIENTATION].rate =
-		SENSOR_RATE_ONCHANGE;
-	sensor_state[SENSOR_TYPE_DEVICE_ORIENTATION].timestamp_filter = false;
+	p = &sensor_state[SENSOR_TYPE_GLANCE_GESTURE];
+	p->sensorType = SENSOR_TYPE_GLANCE_GESTURE;
+	p->rate = SENSOR_RATE_ONESHOT;
+	p->gain = 1;
+	strlcpy(p->name, "glance", sizeof(p->name));
+	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
 
-	sensor_state[SENSOR_TYPE_GEOFENCE].sensorType = SENSOR_TYPE_GEOFENCE;
-	sensor_state[SENSOR_TYPE_GEOFENCE].rate = SENSOR_RATE_ONCHANGE;
-	sensor_state[SENSOR_TYPE_GEOFENCE].timestamp_filter = false;
+	p = &sensor_state[SENSOR_TYPE_PICK_UP_GESTURE];
+	p->sensorType = SENSOR_TYPE_PICK_UP_GESTURE;
+	p->rate = SENSOR_RATE_ONESHOT;
+	p->gain = 1;
+	strlcpy(p->name, "pickup", sizeof(p->name));
+	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
 
-	sensor_state[SENSOR_TYPE_FLOOR_COUNTER].sensorType =
-		SENSOR_TYPE_FLOOR_COUNTER;
-	sensor_state[SENSOR_TYPE_FLOOR_COUNTER].rate = SENSOR_RATE_ONCHANGE;
-	sensor_state[SENSOR_TYPE_FLOOR_COUNTER].timestamp_filter = false;
+	p = &sensor_state[SENSOR_TYPE_WAKE_GESTURE];
+	p->sensorType = SENSOR_TYPE_WAKE_GESTURE;
+	p->rate = SENSOR_RATE_ONESHOT;
+	p->gain = 1;
+	strlcpy(p->name, "wake", sizeof(p->name));
+	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
 
-	sensor_state[SENSOR_TYPE_FLAT].sensorType = SENSOR_TYPE_FLAT;
-	sensor_state[SENSOR_TYPE_FLAT].rate = SENSOR_RATE_ONESHOT;
-	sensor_state[SENSOR_TYPE_FLAT].timestamp_filter = false;
+	p = &sensor_state[SENSOR_TYPE_ANSWER_CALL];
+	p->sensorType = SENSOR_TYPE_ANSWER_CALL;
+	p->rate = SENSOR_RATE_ONESHOT;
+	p->gain = 1;
+	strlcpy(p->name, "answercall", sizeof(p->name));
+	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
 
-	sensor_state[SENSOR_TYPE_RGBW].sensorType = SENSOR_TYPE_RGBW;
-	sensor_state[SENSOR_TYPE_RGBW].timestamp_filter = false;
+	p = &sensor_state[SENSOR_TYPE_STATIONARY_DETECT];
+	p->sensorType = SENSOR_TYPE_STATIONARY_DETECT;
+	p->rate = SENSOR_RATE_ONESHOT;
+	p->gain = 1;
+	strlcpy(p->name, "stationary", sizeof(p->name));
+	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
 
-	sensor_state[SENSOR_TYPE_SAR].sensorType = SENSOR_TYPE_SAR;
-	sensor_state[SENSOR_TYPE_SAR].rate = SENSOR_RATE_ONCHANGE;
-	sensor_state[SENSOR_TYPE_SAR].timestamp_filter = false;
+	p = &sensor_state[SENSOR_TYPE_MOTION_DETECT];
+	p->sensorType = SENSOR_TYPE_MOTION_DETECT;
+	p->rate = SENSOR_RATE_ONESHOT;
+	p->gain = 1;
+	strlcpy(p->name, "motion", sizeof(p->name));
+	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
+
+	p = &sensor_state[SENSOR_TYPE_DEVICE_ORIENTATION];
+	p->sensorType = SENSOR_TYPE_DEVICE_ORIENTATION;
+	p->rate = SENSOR_RATE_ONCHANGE;
+	p->gain = 1;
+	strlcpy(p->name, "devori", sizeof(p->name));
+	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
+
+	p = &sensor_state[SENSOR_TYPE_GEOFENCE];
+	p->sensorType = SENSOR_TYPE_GEOFENCE;
+	p->rate = SENSOR_RATE_ONCHANGE;
+	p->gain = 1;
+	strlcpy(p->name, "geofence", sizeof(p->name));
+	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
+
+	p = &sensor_state[SENSOR_TYPE_FLOOR_COUNTER];
+	p->sensorType = SENSOR_TYPE_FLOOR_COUNTER;
+	p->rate = SENSOR_RATE_ONCHANGE;
+	p->gain = 1;
+	strlcpy(p->name, "floor", sizeof(p->name));
+	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
+
+	p = &sensor_state[SENSOR_TYPE_FLAT];
+	p->sensorType = SENSOR_TYPE_FLAT;
+	p->rate = SENSOR_RATE_ONESHOT;
+	p->gain = 1;
+	strlcpy(p->name, "flat", sizeof(p->name));
+	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
+
+	p = &sensor_state[SENSOR_TYPE_RGBW];
+	p->sensorType = SENSOR_TYPE_RGBW;
+	p->gain = 1;
+	strlcpy(p->name, "rgbw", sizeof(p->name));
+	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
+
+	p = &sensor_state[SENSOR_TYPE_SAR];
+	p->sensorType = SENSOR_TYPE_SAR;
+	p->rate = SENSOR_RATE_ONCHANGE;
+	p->gain = 1;
+	strlcpy(p->name, "sar", sizeof(p->name));
+	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
 }
 
 static void init_sensor_config_cmd(struct ConfigCmd *cmd,
@@ -1513,33 +1627,35 @@ static void mtk_nanohub_restoring_sensor(int sensor_id)
 
 static void mtk_nanohub_get_devinfo(void)
 {
+	struct mtk_nanohub_device *dev = mtk_nanohub_dev;
+	bool find_sensor = true;
 	int id = 0, sensor = 0;
 	struct sensorInfo_t hubinfo;
-	struct sensorlist_info_t listinfo;
-	struct mag_libinfo_t maginfo;
+	struct sensor_info info;
 
 	for (id = 0; id < ID_SENSOR_MAX; ++id) {
 		sensor = id_to_type(id);
-		if (sensorlist_find_sensor(sensor) < 0)
+		if (sensorlist_sensor_to_handle(sensor) < 0)
 			continue;
-		memset(&hubinfo, 0, sizeof(struct sensorInfo_t));
+		memset(&hubinfo, 0, sizeof(hubinfo));
+		memset(&info, 0, sizeof(info));
+		info.sensor_type = sensor;
 		if (mtk_nanohub_set_cmd_to_hub(id,
 				CUST_ACTION_GET_SENSOR_INFO, &hubinfo) < 0) {
 			pr_err("type(%d) not registered\n", sensor);
-			strlcpy(hubinfo.name, "NULL", sizeof(hubinfo.name));
+			find_sensor = false;
+		} else {
+			find_sensor = true;
+			strlcpy(info.name, hubinfo.name, sizeof(info.name));
+			/* restore mag lib info */
+			if (sensor == SENSOR_TYPE_MAGNETIC_FIELD) {
+				strlcpy(info.vendor,
+					hubinfo.mag_dev_info.libname,
+					sizeof(info.vendor));
+			}
 		}
-		memset(&listinfo, 0, sizeof(struct sensorlist_info_t));
-		strlcpy(listinfo.name, hubinfo.name, sizeof(listinfo.name));
-		sensorlist_register_devinfo(sensor, &listinfo);
-		/* restore mag lib info */
-		if (sensor == SENSOR_TYPE_MAGNETIC_FIELD) {
-			memset(&maginfo, 0, sizeof(struct mag_libinfo_t));
-			maginfo.deviceid = hubinfo.mag_dev_info.deviceid;
-			maginfo.layout = hubinfo.mag_dev_info.layout;
-			strlcpy(maginfo.libname, hubinfo.mag_dev_info.libname,
-					sizeof(maginfo.libname));
-			sensorlist_register_maginfo(&maginfo);
-		}
+		if (unlikely(!atomic_read(&dev->create_manager_first_boot)))
+			mtk_nanohub_set_sensor_info(&info, find_sensor);
 	}
 }
 
@@ -1652,6 +1768,9 @@ void mtk_nanohub_power_up_loop(void *data)
 	for (id = 0; id < ID_SENSOR_MAX; id++)
 		mtk_nanohub_restoring_sensor(id);
 	mutex_unlock(&sensor_state_mtx);
+
+	/* 8. create mamanger last */
+	mtk_nanohub_create_manager();
 }
 
 static int mtk_nanohub_power_up_work(void *data)
@@ -2103,21 +2222,6 @@ static int mtk_nanohub_report_to_manager(struct data_unit_t *data)
 	return manager->report(manager, &event);
 }
 
-static int mtk_nanohub_get_sensor_state(unsigned char *list,
-		int size)
-{
-	int i = 0, j = 0;
-	int count = ARRAY_SIZE(sensor_state);
-
-	count = (count < size) ? count : size;
-	for (i = 0; i < count; ++i) {
-		if (!sensor_state[i].sensorType)
-			continue;
-		list[j++] = sensor_state[i].sensorType;
-	}
-	return j;
-}
-
 static int mtk_nanohub_pm_event(struct notifier_block *notifier,
 	unsigned long pm_event,
 			void *unused)
@@ -2146,13 +2250,15 @@ static struct notifier_block mtk_nanohub_pm_notifier_func = {
 static int mtk_nanohub_create_manager(void)
 {
 	int err = 0;
-	int support_size = 0;
 	struct hf_device *hf_dev = &mtk_nanohub_dev->hf_dev;
+	struct mtk_nanohub_device *device = mtk_nanohub_dev;
+
+	if (likely(atomic_xchg(&device->create_manager_first_boot, 1)))
+		return 0;
 
 	memset(hf_dev, 0, sizeof(*hf_dev));
 
-	support_size = mtk_nanohub_get_sensor_state(support_sensors,
-				ARRAY_SIZE(support_sensors));
+	mtk_nanohub_get_sensor_info();
 
 	hf_dev->dev_name = "mtk_nanohub";
 	hf_dev->device_poll = HF_DEVICE_IO_INTERRUPT;
@@ -2270,7 +2376,7 @@ static int mtk_nanohub_probe(struct platform_device *pdev)
 	struct task_struct *task = NULL, *task_power_reset = NULL;
 	struct sched_param param = { .sched_priority = MAX_RT_PRIO - 1 };
 
-	mtk_nanohub_init_sensor_state();
+	mtk_nanohub_init_sensor_info();
 	device = kzalloc(sizeof(*device), GFP_KERNEL);
 	if (!device) {
 		err = -ENOMEM;
@@ -2294,6 +2400,7 @@ static int mtk_nanohub_probe(struct platform_device *pdev)
 	/* init scp boot flags */
 	atomic_set(&device->cfg_data_after_reboot, 0);
 	atomic_set(&device->start_timesync_first_boot, 0);
+	atomic_set(&device->create_manager_first_boot, 0);
 	/* init timestamp sync worker */
 	INIT_WORK(&device->sync_time_worker, mtk_nanohub_sync_time_work);
 	device->sync_time_timer.expires =
@@ -2336,12 +2443,6 @@ static int mtk_nanohub_probe(struct platform_device *pdev)
 		pr_err("Failed to register PM notifier.\n");
 		goto exit_attr;
 	}
-	/* create mamanger last */
-	err = mtk_nanohub_create_manager();
-	if (err < 0) {
-		pr_err("Failed to create manager.\n");
-		goto exit_manager;
-	}
 
 	pr_info("init done, data_unit_t:%d, SCP_SENSOR_HUB_DATA:%d\n",
 		(int)sizeof(struct data_unit_t),
@@ -2350,8 +2451,6 @@ static int mtk_nanohub_probe(struct platform_device *pdev)
 		|| sizeof(union SCP_SENSOR_HUB_DATA) != SENSOR_IPI_SIZE);
 	return 0;
 
-exit_manager:
-	unregister_pm_notifier(&mtk_nanohub_pm_notifier_func);
 exit_attr:
 	mtk_nanohub_delete_attr(pdev->dev.driver);
 exit_scp:
