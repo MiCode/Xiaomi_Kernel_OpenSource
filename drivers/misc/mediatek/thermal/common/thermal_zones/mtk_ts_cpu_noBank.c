@@ -1589,6 +1589,16 @@ int tscpu_kernel_status(void)
 	return g_tc_resume;
 }
 
+static void tscpu_thermal_shutdown(struct platform_device *dev)
+{
+	tscpu_printk("%s\n", __func__);
+
+#if defined(THERMAL_KERNEL_SUSPEND_RESUME_NOTIFY)
+	lvts_ipi_send_sspm_thermal_suspend_resume(1);
+#endif
+}
+
+
 /*tscpu_thermal_suspend spend 1000us~1310us*/
 static int tscpu_thermal_suspend
 (struct platform_device *dev, pm_message_t state)
@@ -1823,7 +1833,7 @@ static int tscpu_thermal_resume(struct platform_device *dev)
 
 static struct platform_driver mtk_thermal_driver = {
 	.remove = NULL,
-	.shutdown = NULL,
+	.shutdown = tscpu_thermal_shutdown,
 	.probe = tscpu_thermal_probe,
 	.suspend = tscpu_thermal_suspend,
 	.resume = tscpu_thermal_resume,
