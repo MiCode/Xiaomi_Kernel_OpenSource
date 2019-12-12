@@ -5129,6 +5129,8 @@ static struct platform_driver DPEDriver = {
 
 static int dpe_dump_read(struct seq_file *m, void *v)
 {
+/* fix unexpected close clock issue */
+#if 0
 	int i, j;
 
 	if (DPEInfo.UserCount <= 0)
@@ -5224,7 +5226,7 @@ static int dpe_dump_read(struct seq_file *m, void *v)
 	}
 
 	seq_puts(m, "\n============ dpe dump debug ============\n");
-
+#endif
 	return 0;
 }
 
@@ -5243,6 +5245,8 @@ static const struct file_operations dpe_dump_proc_fops = {
 
 static int dpe_reg_read(struct seq_file *m, void *v)
 {
+/* fix unexpected close clock issue */
+#if 0
 	unsigned int i;
 
 	if (DPEInfo.UserCount <= 0)
@@ -5260,7 +5264,7 @@ static int dpe_reg_read(struct seq_file *m, void *v)
 				(unsigned int)(DPE_BASE_HW + i),
 				(unsigned int)DPE_RD32(ISP_DPE_BASE + i));
 	}
-
+#endif
 	return 0;
 }
 
@@ -5278,6 +5282,13 @@ static ssize_t dpe_reg_write(struct file *file, const char __user *buffer,
 
 	if (DPEInfo.UserCount <= 0)
 		return 0;
+
+	spin_lock(&(DPEInfo.SpinLockDPE));
+	if (g_u4EnableClockCount == 0) {
+		spin_unlock(&(DPEInfo.SpinLockDPE));
+		return 0;
+	}
+	spin_unlock(&(DPEInfo.SpinLockDPE));
 
 	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
 	if (copy_from_user(desc, buffer, len))
