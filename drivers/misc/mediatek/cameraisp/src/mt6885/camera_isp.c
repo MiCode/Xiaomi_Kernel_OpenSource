@@ -11557,7 +11557,9 @@ static void SMI_INFO_DUMP(enum ISP_IRQ_TYPE_ENUM irq_module)
 	case ISP_IRQ_TYPE_INT_CAM_A_ST:
 	case ISP_IRQ_TYPE_INT_CAM_B_ST:
 	case ISP_IRQ_TYPE_INT_CAM_C_ST:
-		if (g_ISPIntStatus_SMI[irq_module].ispIntErr & DMA_ERR_ST) {
+		if ((g_ISPIntStatus_SMI[irq_module].ispIntErr & DMA_ERR_ST) &&
+			!(g_ISPIntStatus_SMI[irq_module].ispIntErr
+			& TG_GBERR_ST)){
 			if (g_ISPIntStatus_SMI[irq_module].ispInt5Err &
 			    INT_ST_MASK_CAM_WARN) {
 
