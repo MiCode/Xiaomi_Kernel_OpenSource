@@ -399,6 +399,7 @@ static void write_shutter(kal_uint16 shutter)
 	if (shutter < imgsensor_info.min_shutter)
 		shutter = imgsensor_info.min_shutter;
 
+	write_cmos_sensor_8(0x0104, 0x01);
 	if (imgsensor.autoflicker_en) {
 		realtime_fps =
 	  imgsensor.pclk / imgsensor.line_length * 10 / imgsensor.frame_length;
@@ -408,23 +409,18 @@ static void write_shutter(kal_uint16 shutter)
 			set_max_framerate(146, 0);
 		else {
 			/* Extend frame length */
-			write_cmos_sensor_8(0x0104, 0x01);
 			write_cmos_sensor_8(0x0340,
 					    imgsensor.frame_length >> 8);
 			write_cmos_sensor_8(0x0341,
 					    imgsensor.frame_length & 0xFF);
-			write_cmos_sensor_8(0x0104, 0x00);
 		}
 	} else {
 		/* Extend frame length */
-		write_cmos_sensor_8(0x0104, 0x01);
 		write_cmos_sensor_8(0x0340, imgsensor.frame_length >> 8);
 		write_cmos_sensor_8(0x0341, imgsensor.frame_length & 0xFF);
-		write_cmos_sensor_8(0x0104, 0x00);
 	}
 
 	/* Update Shutter */
-	write_cmos_sensor_8(0x0104, 0x01);
 	write_cmos_sensor_8(0x0202, (shutter >> 8) & 0xFF);
 	write_cmos_sensor_8(0x0203, shutter  & 0xFF);
 	write_cmos_sensor_8(0x0104, 0x00);
