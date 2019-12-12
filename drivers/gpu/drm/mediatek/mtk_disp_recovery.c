@@ -260,24 +260,13 @@ static int _mtk_esd_check_eint(struct drm_crtc *crtc)
 	}
 
 	enable_irq(esd_ctx->eint_irq);
-	/* The first wait is used for clear the TE interrupt
-	 * for the past 2 sec.
-	 */
+
+	/* check if there is TE in the last 2s, if so ESD check is pass */
 	if (wait_event_interruptible_timeout(
 		    esd_ctx->ext_te_wq,
 		    atomic_read(&esd_ctx->ext_te_event),
 		    HZ / 2) > 0)
 		ret = 0;
-
-	if (!ret) {
-		ret = 1;
-		atomic_set(&esd_ctx->ext_te_event, 0);
-		if (wait_event_interruptible_timeout(
-			    esd_ctx->ext_te_wq,
-			    atomic_read(&esd_ctx->ext_te_event),
-			    HZ / 2) > 0)
-			ret = 0;
-	}
 
 	disable_irq(esd_ctx->eint_irq);
 	atomic_set(&esd_ctx->ext_te_event, 0);
