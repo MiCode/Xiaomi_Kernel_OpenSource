@@ -3938,24 +3938,24 @@ int allow[NR_SYSS] = {
 1,	/* SYS_MFG4 = 6 */
 1,	/* SYS_MFG5 = 7 */
 1,	/* SYS_MFG6 = 8 */
-0,	/* SYS_ISP = 9 */
-0,	/* SYS_ISP2 = 10 */
-0,	/* SYS_IPE = 11 */
-0,	/* SYS_VDE = 12 */
-0,	/* SYS_VDE2 = 13 */
-0,	/* SYS_VEN = 14 */
+1,	/* SYS_ISP = 9 */
+1,	/* SYS_ISP2 = 10 */
+1,	/* SYS_IPE = 11 */
+1,	/* SYS_VDE = 12 */
+1,	/* SYS_VDE2 = 13 */
+1,	/* SYS_VEN = 14 */
 //1,	/* SYS_VEN_CORE1 = 15 */
-0,	/* SYS_MDP = 15 */
-0,	/* SYS_DIS = 16 */
-0,	/* SYS_AUDIO = 17 */
-0,	/* SYS_ADSP = 18 */
-0,	/* SYS_CAM = 19 */
-0,	/* SYS_CAM_RAWA = 20 */
-0,	/* SYS_CAM_RAWB = 21 */
-0,	/* SYS_CAM_RAWC = 22 */
-0,	/* SYS_DP_TX = 23 */
+1,	/* SYS_MDP = 15 */
+1,	/* SYS_DIS = 16 */
+1,	/* SYS_AUDIO = 17 */
+1,	/* SYS_ADSP = 18 */
+1,	/* SYS_CAM = 19 */
+1,	/* SYS_CAM_RAWA = 20 */
+1,	/* SYS_CAM_RAWB = 21 */
+1,	/* SYS_CAM_RAWC = 22 */
+1,	/* SYS_DP_TX = 23 */
 1,	/* SYS_VPU = 24 */
-0,	/* SYS_MSDC = 25 */
+1,	/* SYS_MSDC = 25 */
 };
 #endif
 
@@ -4582,7 +4582,7 @@ static void __init mt_scpsys_init(struct device_node *node)
 
 	pr_notice("MTCMOS MM AO begin\n");
 	spm_mtcmos_ctrl_dis(STA_POWER_ON);
-	spm_mtcmos_ctrl_mdp(STA_POWER_ON);
+	//spm_mtcmos_ctrl_mdp(STA_POWER_ON);
 
 	pr_notice("MTCMOS GPU begin\n");
 	spm_mtcmos_ctrl_mfg0(STA_POWER_ON);
@@ -4593,31 +4593,31 @@ static void __init mt_scpsys_init(struct device_node *node)
 	spm_mtcmos_ctrl_mfg5(STA_POWER_ON);
 	spm_mtcmos_ctrl_mfg6(STA_POWER_ON);
 
-	pr_notice("MTCMOS ISP begin\n");
-	spm_mtcmos_ctrl_isp(STA_POWER_ON);
-	spm_mtcmos_ctrl_isp2(STA_POWER_ON);
+	//pr_notice("MTCMOS ISP begin\n");
+	//spm_mtcmos_ctrl_isp(STA_POWER_ON);
+	//spm_mtcmos_ctrl_isp2(STA_POWER_ON);
 
-	pr_notice("MTCMOS IPE begin\n");
-	spm_mtcmos_ctrl_ipe(STA_POWER_ON);
+	//pr_notice("MTCMOS IPE begin\n");
+	//spm_mtcmos_ctrl_ipe(STA_POWER_ON);
 
-	pr_notice("MTCMOS VDE/VEN begin\n");
-	spm_mtcmos_ctrl_vde(STA_POWER_ON);
-	spm_mtcmos_ctrl_vde2(STA_POWER_ON);
-	spm_mtcmos_ctrl_ven(STA_POWER_ON);
+	//pr_notice("MTCMOS VDE/VEN begin\n");
+	//spm_mtcmos_ctrl_vde(STA_POWER_ON);
+	//spm_mtcmos_ctrl_vde2(STA_POWER_ON);
+	//spm_mtcmos_ctrl_ven(STA_POWER_ON);
 	//spm_mtcmos_ctrl_ven_core1(STA_POWER_ON);
 
-	pr_notice("MTCMOS AUDIO begin\n");
-	spm_mtcmos_ctrl_audio(STA_POWER_ON);
-	spm_mtcmos_ctrl_adsp_shut_down(STA_POWER_ON);
-	spm_mtcmos_ctrl_adsp_dormant(STA_POWER_ON);
+	//pr_notice("MTCMOS AUDIO begin\n");
+	//spm_mtcmos_ctrl_audio(STA_POWER_ON);
+	//spm_mtcmos_ctrl_adsp_shut_down(STA_POWER_ON);
+	//spm_mtcmos_ctrl_adsp_dormant(STA_POWER_ON);
 
-	pr_notice("MTCMOS CAM begin\n");
-	spm_mtcmos_ctrl_cam(STA_POWER_ON);
-	spm_mtcmos_ctrl_cam_rawa(STA_POWER_ON);
-	spm_mtcmos_ctrl_cam_rawb(STA_POWER_ON);
-	spm_mtcmos_ctrl_cam_rawc(STA_POWER_ON);
+	//pr_notice("MTCMOS CAM begin\n");
+	//spm_mtcmos_ctrl_cam(STA_POWER_ON);
+	//spm_mtcmos_ctrl_cam_rawa(STA_POWER_ON);
+	//spm_mtcmos_ctrl_cam_rawb(STA_POWER_ON);
+	//spm_mtcmos_ctrl_cam_rawc(STA_POWER_ON);
 	//spm_mtcmos_ctrl_dp_tx(STA_POWER_ON);
-	spm_mtcmos_ctrl_msdc(STA_POWER_ON);
+	//spm_mtcmos_ctrl_msdc(STA_POWER_ON);
 
 	/* pr_notice("MTCMOS VPU begin\n"); */
 	/* spm_mtcmos_vpu(STA_POWER_ON); */
