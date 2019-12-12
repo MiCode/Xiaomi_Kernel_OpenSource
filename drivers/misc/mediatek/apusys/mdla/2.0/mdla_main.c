@@ -301,6 +301,7 @@ static int mdla_sw_multi_devices_init(void)
 				mdla_devices[i].power_pdn_work);
 		mdla_devices[i].mdla_power_status = 0;
 		mdla_devices[i].mdla_sw_power_status = 0;
+		mdla_devices[i].timer_started = 0;
 		pmu_init(i);
 	}
 	return 0;

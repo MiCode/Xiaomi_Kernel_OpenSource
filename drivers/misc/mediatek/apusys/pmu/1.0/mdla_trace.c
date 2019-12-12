@@ -28,7 +28,6 @@
 
 #define PERIOD_DEFAULT 1000 // in micro-seconds (us)
 
-static struct hrtimer hr_timer;
 u64 cfg_period;
 int cfg_op_trace;
 static int cfg_pmu_int;
@@ -38,7 +37,6 @@ u32 cfg_eng1;
 u32 cfg_eng2;
 u32 cfg_eng11;
 static u32 mdla_core_bitmask;
-static int timer_started;
 
 #ifdef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
 /* TODO, wait for apusys mid porting done */
@@ -194,7 +192,6 @@ int mdla_profile_init(void)
 	cfg_op_trace = 0;
 	cfg_pmu_int = MDLA_TRACE_MODE_CMD;
 	cfg_timer_en = 0;
-	timer_started = 0;
 	mdla_core_bitmask = 0;
 
 	return 0;
@@ -222,7 +219,7 @@ void mdla_met_event_leave(int core)
 /*
  * MDLA Polling Function
  */
-static enum hrtimer_restart mdla_profile_polling(struct hrtimer *timer)
+static enum hrtimer_restart mdla_profile_get_res(struct hrtimer *timer)
 {
 	int i;
 	if (!cfg_period || !cfg_timer_en)
@@ -233,31 +230,50 @@ static enum hrtimer_restart mdla_profile_polling(struct hrtimer *timer)
 			mdla_profile_register_read(i);
 	}
 
-	hrtimer_forward_now(&hr_timer, ns_to_ktime(cfg_period * 1000));
 	return HRTIMER_RESTART;
 }
 
-static int mdla_profile_timer_start(void)
+static enum hrtimer_restart mdla0_profile_polling(struct hrtimer *timer)
 {
+	mdla_profile_get_res(timer);
+	hrtimer_forward_now(&mdla_devices[0].hr_timer,
+		ns_to_ktime(cfg_period * 1000));
+	return HRTIMER_RESTART;
+}
 
-	hrtimer_init(&hr_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
-	hr_timer.function = mdla_profile_polling;
-	hrtimer_start(&hr_timer, ns_to_ktime(cfg_period * 1000),
-			HRTIMER_MODE_REL);
+static enum hrtimer_restart mdla1_profile_polling(struct hrtimer *timer)
+{
+	mdla_profile_get_res(timer);
+	hrtimer_forward_now(&mdla_devices[1].hr_timer,
+		ns_to_ktime(cfg_period * 1000));
+	return HRTIMER_RESTART;
+}
+
+static int mdla_profile_timer_start(u32 mdlaid)
+{
+	hrtimer_init(&mdla_devices[mdlaid].hr_timer,
+		CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	if (mdlaid == 0)
+		mdla_devices[mdlaid].hr_timer.function = mdla0_profile_polling;
+	else if (mdlaid == 1)
+		mdla_devices[mdlaid].hr_timer.function = mdla1_profile_polling;
+	hrtimer_start(&mdla_devices[mdlaid].hr_timer,
+		ns_to_ktime(cfg_period * 1000),
+		HRTIMER_MODE_REL);
 	mdla_perf_debug("%s: hrtimer_start()\n", __func__);
 
 	return 0;
 }
 
-static int mdla_profile_timer_stop(int wait)
+static int mdla_profile_timer_stop(u32 mdlaid, int wait)
 {
 	int ret = 0;
 
 	if (wait) {
-		hrtimer_cancel(&hr_timer);
+		hrtimer_cancel(&mdla_devices[mdlaid].hr_timer);
 		mdla_perf_debug("%s: hrtimer_cancel()\n", __func__);
 	} else {
-		ret = hrtimer_try_to_cancel(&hr_timer);
+		ret = hrtimer_try_to_cancel(&mdla_devices[mdlaid].hr_timer);
 		mdla_perf_debug("%s: hrtimer_try_to_cancel(): %d\n",
 					   __func__, ret);
 	}
@@ -271,9 +287,9 @@ int mdla_profile_start(u32 mdlaid)
 	pmu_reset(mdlaid);
 	if (!cfg_timer_en)
 		return 0;
-	if (!timer_started) {
-		mdla_profile_timer_start();
-		timer_started = 1;
+	if (!mdla_devices[mdlaid].timer_started) {
+		mdla_profile_timer_start(mdlaid);
+		mdla_devices[mdlaid].timer_started = 1;
 	}
 	return 0;
 }
@@ -281,9 +297,10 @@ int mdla_profile_start(u32 mdlaid)
 int mdla_profile_stop(u32 mdlaid, int wait)
 {
 	mdla_trace_core_clr(mdlaid);
-	if ((timer_started) && mdla_trace_core_get() == 0) {
-		mdla_profile_timer_stop(wait);
-		timer_started = 0;
+	if ((mdla_devices[mdlaid].timer_started) &&
+		mdla_trace_core_get() == 0) {
+		mdla_profile_timer_stop(mdlaid, wait);
+		mdla_devices[mdlaid].timer_started = 0;
 	}
 
 	return 0;

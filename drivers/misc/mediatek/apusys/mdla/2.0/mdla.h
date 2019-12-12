@@ -181,6 +181,8 @@ struct mdla_dev {
 	void *cmd_buf_dmp;
 	u32 cmd_buf_len;
 	struct mutex cmd_buf_dmp_lock;
+	struct hrtimer hr_timer;
+	u8 timer_started;
 };
 
 struct mdla_irq_desc {
