@@ -19,6 +19,11 @@
 
 static struct drm_crtc *dev_crtc;
 
+/* add for mm qos */
+static struct pm_qos_request mm_freq_request;
+static u64 g_freq_steps[MAX_FREQ_STEP];
+static int g_freq_level = -1;
+
 #ifdef MTK_FB_MMDVFS_SUPPORT
 int __mtk_disp_pmqos_slot_look_up(int comp_id, int mode)
 {
@@ -246,4 +251,36 @@ int mtk_disp_hrt_cond_init(struct drm_crtc *crtc)
 	}
 
 	return 0;
+}
+
+void mtk_drm_mmdvfs_init(void)
+{
+	unsigned int step_size;
+
+	pm_qos_add_request(&mm_freq_request, PM_QOS_DISP_FREQ,
+			   PM_QOS_MM_FREQ_DEFAULT_VALUE);
+
+	mmdvfs_qos_get_freq_steps(PM_QOS_DISP_FREQ, g_freq_steps, &step_size);
+}
+
+void mtk_drm_set_mmclk(struct drm_crtc *crtc, int level, const char *caller)
+{
+	if (drm_crtc_index(crtc) != 0)
+		return;
+
+	if (level < 0 || level > MAX_FREQ_STEP)
+		level = -1;
+
+	if (level == g_freq_level)
+		return;
+
+	g_freq_level = level;
+
+	DDPINFO("%s set mmclk level: %d\n", caller, g_freq_level);
+
+	if (g_freq_level > 0)
+		pm_qos_update_request(&mm_freq_request,
+			g_freq_steps[g_freq_level]);
+	else
+		pm_qos_update_request(&mm_freq_request, 0);
 }

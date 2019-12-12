@@ -1707,6 +1707,8 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 #endif
 	disp_dbg_init(drm);
 
+	mtk_drm_mmdvfs_init();
+
 	DDPINFO("%s-\n", __func__);
 
 	ret = mtk_fbdev_init(drm);

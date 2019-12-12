@@ -1179,6 +1179,21 @@ done:
 	return &gs_ctx[idx];
 }
 
+/* TODO
+ * 1. Need to handle for other platforms
+ * 2. Un-request MMCLK when CRTC disable & restore when CRTC enable
+ */
+static void mtk_crtc_set_mmclk_for_fps(struct drm_crtc *crtc,
+	unsigned int fps)
+{
+	if (fps >= 120) /* 416M */
+		mtk_drm_set_mmclk(crtc, 1, __func__);
+	else if (fps >= 90) /* 312M */
+		mtk_drm_set_mmclk(crtc, 2, __func__);
+	else /* un-request */
+		mtk_drm_set_mmclk(crtc, -1, __func__);
+}
+
 static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
 	struct drm_crtc_state *old_state, struct mtk_crtc_state *mtk_state,
 	struct cmdq_pkt *cmdq_handle)
@@ -1188,6 +1203,7 @@ static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
 	struct mtk_ddp_config cfg;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_ddp_comp *comp;
+	unsigned int fps_src, fps_dst;
 	unsigned int i, j;
 
 	struct mtk_ddp_comp *output_comp;
@@ -1204,6 +1220,10 @@ static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
 	/* Update mode & adjusted_mode in CRTC */
 	mode = mtk_drm_crtc_avail_disp_mode(crtc,
 		mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX]);
+
+	fps_src = crtc->state->mode.vrefresh;
+	fps_dst = mode->vrefresh;
+
 	copy_drm_disp_mode(mode, &crtc->state->mode);
 	copy_drm_disp_mode(mode, &crtc->state->adjusted_mode);
 
@@ -1218,11 +1238,18 @@ static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
 		mtk_ddp_comp_io_cmd(comp, cmdq_handle,
 			MTK_IO_CMD_RDMA_GOLDEN_SETTING, &cfg);
 
+	/* pull up mm clk if dst fps is higher than src fps */
+	if (fps_dst >= fps_src)
+		mtk_crtc_set_mmclk_for_fps(crtc, fps_dst);
+
 	/* Change DSI mipi clk & send LCM cmd */
 	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
 	if (output_comp)
 		mtk_ddp_comp_io_cmd(output_comp, NULL, DSI_TIMING_CHANGE,
 				old_state);
+
+	if (fps_dst < fps_src)
+		mtk_crtc_set_mmclk_for_fps(crtc, fps_dst);
 
 	drm_invoke_fps_chg_callbacks(crtc->state->adjusted_mode.vrefresh);
 
