@@ -1031,33 +1031,6 @@ static void destroy_device_list(struct f2fs_sb_info *sbi)
 	kvfree(sbi->devs);
 }
 
-static void f2fs_umount_end(struct super_block *sb, int flags)
-{
-	/*
-	 * this is called at the end of umount(2). If there is an unclosed
-	 * namespace, f2fs won't do put_super() which triggers fsck in the
-	 * next boot.
-	 */
-	if ((flags & MNT_FORCE) || atomic_read(&sb->s_active) > 1) {
-		/* to write the latest kbytes_written */
-		if (!(sb->s_flags & MS_RDONLY)) {
-			struct cp_control cpc = {
-				.reason = CP_UMOUNT,
-			};
-			int locked, err;
-
-			/* only failed during mount/umount/freeze/quotactl */
-			locked = down_read_trylock(&sb->s_umount);
-			err = f2fs_quota_sync(sb, -1);
-			if (locked)
-				up_read(&sb->s_umount);
-			if (err)
-				return;
-			f2fs_write_checkpoint(F2FS_SB(sb), &cpc);
-		}
-	}
-}
-
 static void f2fs_put_super(struct super_block *sb)
 {
 	struct f2fs_sb_info *sbi = F2FS_SB(sb);
@@ -2206,7 +2179,6 @@ static const struct super_operations f2fs_sops = {
 #endif
 	.evict_inode	= f2fs_evict_inode,
 	.put_super	= f2fs_put_super,
-	.umount_end	= f2fs_umount_end,
 	.sync_fs	= f2fs_sync_fs,
 	.freeze_fs	= f2fs_freeze,
 	.unfreeze_fs	= f2fs_unfreeze,
