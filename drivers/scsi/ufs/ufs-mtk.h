@@ -268,5 +268,9 @@ static inline int ufs_mtk_hie_req_done(
 }
 #endif
 
+#if defined(CONFIG_MTK_GIC_EXT)
+/* Use in ufshcd_intr() to dump gic status */
+extern void mt_irq_dump_status(unsigned int irq);
+#endif
 #endif /* !_UFS_MTK_H */
 
