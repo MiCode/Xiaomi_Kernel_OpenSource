@@ -3,7 +3,7 @@
 # Use xxxproject/Makefile-release when release driver
 #
 # core layer
-ccflags-y += -I$(srctree)/drivers/input/touchscreen/mediatek/
+ccflags-$(CONFIG_DRM_MEDIATEK) += -I$(srctree)/drivers/gpu/drm/mediatek/
 
 obj-y += goodix_ts_i2c.o
 obj-y += goodix_ts_core.o

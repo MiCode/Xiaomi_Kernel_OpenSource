@@ -27,6 +27,9 @@
 #include <linux/debugfs.h>
 #include <linux/of_irq.h>
 #include <uapi/linux/sched/types.h>
+#ifdef CONFIG_DRM_MEDIATEK
+#include "mtk_panel_ext.h"
+#endif
 #ifdef CONFIG_FB
 #include <linux/notifier.h>
 #include <linux/fb.h>
@@ -456,6 +459,7 @@ static int goodix_ts_enable(struct goodix_ts_device *ts_dev, int en)
 
 	return 0;
 }
+
 static ssize_t goodix_ts_report_rate_change_store(
 		struct device *dev,
 		struct device_attribute *attr,
@@ -1403,6 +1407,7 @@ err_request_eint_gpio:
 err_request_reset_gpio:
 	return r;
 }
+
 /**
  * goodix_input_set_params - set input parameters
  */
@@ -1711,7 +1716,35 @@ int goodix_ts_esd_init(struct goodix_ts_core *core)
 	}
 	return 0;
 }
+#ifdef CONFIG_DRM_MEDIATEK
+static int goodix_ts_power_on_reinit(void)
+{
+	struct goodix_ts_core *core_data = resume_core_data;
+	struct goodix_ts_device *ts_dev = core_data->ts_dev;
 
+	if (atomic_read(&core_data->suspended) == true)
+		return -EINVAL;
+
+	ts_info("%s start!\n", __func__);
+
+	goodix_ts_esd_off(core_data);
+	goodix_ts_irq_enable(core_data, false);
+	goodix_ts_power_off(core_data);
+	/* release all the touch IDs */
+	core_data->ts_event.event_data.touch_data.touch_num = 0;
+	goodix_ts_input_report(core_data->input_dev,
+			&core_data->ts_event.event_data.touch_data);
+
+	goodix_ts_power_on(core_data);
+	if (atomic_cmpxchg(&touch_need_resume_200Hz, true, false))
+		goodix_ts_enable(ts_dev, true);
+	goodix_ts_irq_enable(core_data, true);
+	goodix_ts_esd_on(core_data);
+
+	ts_info("%s end\n", __func__);
+	return 0;
+}
+#endif
 /**
  * goodix_ts_suspend - Touchscreen suspend function
  * Called by PM/FB/EARLYSUSPEN module to put the device to  sleep
@@ -2033,7 +2066,9 @@ static int goodix_ts_probe(struct platform_device *pdev)
 	struct goodix_ts_board_data *ts_bdata;
 	int r;
 	u8 read_val = 0;
-
+#ifdef CONFIG_DRM_MEDIATEK
+	void **ret = NULL;
+#endif
 	ts_info("%s IN", __func__);
 
 	ts_device = pdev->dev.platform_data;
@@ -2131,7 +2166,12 @@ static int goodix_ts_probe(struct platform_device *pdev)
 	r = gt9886_touch_filter_register();
 	if (r)
 		ts_err("tpd_misc_device register failed! ret = %d!\n", r);
-
+#ifdef CONFIG_DRM_MEDIATEK
+	if (mtk_panel_tch_handle_init()) {
+		ret = mtk_panel_tch_handle_init();
+		*ret = (void *)goodix_ts_power_on_reinit;
+	}
+#endif
 	ts_info("%s OUT, r:%d", __func__, r);
 	return r;
 
