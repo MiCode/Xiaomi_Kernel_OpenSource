@@ -631,6 +631,7 @@ static void mtk_atomic_complete(struct mtk_drm_private *private,
 		drm_atomic_helper_wait_for_vblanks(drm, state);
 
 	drm_atomic_helper_cleanup_planes(drm, state);
+	mtk_atomic_state_put(state);
 
 }
 
@@ -721,7 +722,6 @@ static int mtk_atomic_commit(struct drm_device *drm,
 		mtk_atomic_schedule(private, state);
 	else
 		mtk_atomic_complete(private, state);
-	mtk_atomic_state_put(state);
 
 	mutex_nested_time_end = sched_clock();
 	mutex_nested_time_period =
