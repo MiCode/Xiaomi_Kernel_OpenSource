@@ -29,15 +29,6 @@
 #define MSDC1_CLKSRC_208MHZ     (1)
 #define MSDC1_CLKSRC_200MHZ     (2)
 
-#define MSDC3_CLKSRC_26MHZ      (0)
-#define MSDC3_CLKSRC_208MHZ     (1)
-#define MSDC3_CLKSRC_400MHZ     (2)
-#define MSDC3_CLKSRC_156MHZ     (3)
-#define MSDC3_CLKSRC_182MHZ     (4)
-#define MSDC3_CLKSRC_312MHZ     (5)
-#define MSDC3_CLKSRC_364MHZ     (6)
-#define MSDC3_CLKSRC_200MHZ     (7)
-
 #define MSDC_SMPL_RISING        (0)
 #define MSDC_SMPL_FALLING       (1)
 #define MSDC_SMPL_SEPARATE      (2)

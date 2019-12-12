@@ -841,19 +841,25 @@ void msdc_dump_padctl_by_id(char **buff, unsigned long *size,
 			"MSDC0 SMT    [0x%p] =0x%8x\tshould: 0x??????7C\n",
 			MSDC0_GPIO_SMT, MSDC_READ32(MSDC0_GPIO_SMT));
 		SPREAD_PRINTF(buff, size, m,
-			"MSDC0 TDSEL0 [0x%p] =0x%8x\n",
+			"MSDC0 TDSEL0 [0x%p] =0x%8x, [0x%p] =0x%8x\n",
 			MSDC0_GPIO_TDSEL0,
-			MSDC_READ32(MSDC0_GPIO_TDSEL0));
+			MSDC_READ32(MSDC0_GPIO_TDSEL0),
+			MSDC0_GPIO_TDSEL0_1,
+			MSDC_READ32(MSDC0_GPIO_TDSEL0_1));
 		SPREAD_PRINTF(buff, size, m,
-			"MSDC0 RDSEL0 [0x%p] =0x%8x, [0x%p] = 0x%8x\n",
+			"MSDC0 RDSEL0 [0x%p] =0x%8x, [0x%p] = 0x%8x, [0x%p] = 0x%8x\n",
 			MSDC0_GPIO_RDSEL0,
 			MSDC_READ32(MSDC0_GPIO_RDSEL0),
 			MSDC0_GPIO_RDSEL0_1,
-			MSDC_READ32(MSDC0_GPIO_RDSEL0_1));
+			MSDC_READ32(MSDC0_GPIO_RDSEL0_1),
+			MSDC0_GPIO_RDSEL0_2,
+			MSDC_READ32(MSDC0_GPIO_RDSEL0_2));
 		SPREAD_PRINTF(buff, size, m,
-			"MSDC0 DRV0   [0x%p] =0x%8x\n",
+			"MSDC0 DRV0   [0x%p] =0x%8x, [0x%p] =0x%8x\n",
 			MSDC0_GPIO_DRV0,
-			MSDC_READ32(MSDC0_GPIO_DRV0));
+			MSDC_READ32(MSDC0_GPIO_DRV0),
+			MSDC0_GPIO_DRV0_1,
+			MSDC_READ32(MSDC0_GPIO_DRV0_1));
 		SPREAD_PRINTF(buff, size, m,
 			"PUPD/R1/R0: dat/cmd:0/0/1, clk/dst: 1/1/0\n");
 		SPREAD_PRINTF(buff, size, m,
@@ -894,9 +900,11 @@ void msdc_dump_padctl_by_id(char **buff, unsigned long *size,
 		SPREAD_PRINTF(buff, size, m,
 			"should 1.8v: sleep: TBD, awake: TBD\n");
 		SPREAD_PRINTF(buff, size, m,
-			"MSDC1 RDSEL0 [0x%p] =0x%8x\n",
+			"MSDC1 RDSEL0 [0x%p] =0x%8x, [0x%p] =0x%8x\n",
 			MSDC1_GPIO_RDSEL0,
-			MSDC_READ32(MSDC1_GPIO_RDSEL0));
+			MSDC_READ32(MSDC1_GPIO_RDSEL0),
+			MSDC1_GPIO_RDSEL0_1,
+			MSDC_READ32(MSDC1_GPIO_RDSEL0_1));
 		SPREAD_PRINTF(buff, size, m,
 			"1.8V: TBD, 2.9v: TBD\n");
 		SPREAD_PRINTF(buff, size, m,
@@ -1029,11 +1037,13 @@ void msdc_set_tdsel_by_id(u32 id, u32 flag, u32 value)
 			cust_val = 0;
 		MSDC_SET_FIELD(MSDC0_GPIO_TDSEL0, MSDC0_TDSEL0_CMD_MASK,
 			cust_val);
-		MSDC_SET_FIELD(MSDC0_GPIO_TDSEL0, MSDC0_TDSEL0_DAT_MASK,
+		MSDC_SET_FIELD(MSDC0_GPIO_TDSEL0, MSDC0_TDSEL0_DAT_MASK_0,
+			cust_val);
+		MSDC_SET_FIELD(MSDC0_GPIO_TDSEL0_1, MSDC0_TDSEL0_DAT_MASK_1,
 			cust_val);
 		MSDC_SET_FIELD(MSDC0_GPIO_TDSEL0, MSDC0_TDSEL0_CLK_MASK,
 			cust_val);
-		MSDC_SET_FIELD(MSDC0_GPIO_TDSEL0, MSDC0_TDSEL0_DSL_MASK,
+		MSDC_SET_FIELD(MSDC0_GPIO_TDSEL0_1, MSDC0_TDSEL0_DSL_MASK,
 			cust_val);
 
 
@@ -1043,7 +1053,9 @@ void msdc_set_tdsel_by_id(u32 id, u32 flag, u32 value)
 		else
 			cust_val = 0;
 #ifndef SD_GPIO_PAD_A_EN
-		MSDC_SET_FIELD(MSDC1_GPIO_TDSEL0_1, MSDC1_TDSEL0_DAT_MASK,
+		MSDC_SET_FIELD(MSDC1_GPIO_TDSEL0_1, MSDC1_TDSEL0_DAT_MASK_1,
+			cust_val);
+		MSDC_SET_FIELD(MSDC1_GPIO_TDSEL0, MSDC1_TDSEL0_DAT_MASK_0,
 			cust_val);
 		MSDC_SET_FIELD(MSDC1_GPIO_TDSEL0, MSDC1_TDSEL0_CMD_MASK,
 			cust_val);
@@ -1071,13 +1083,15 @@ void msdc_set_rdsel_by_id(u32 id, u32 flag, u32 value)
 			cust_val = 0;
 		MSDC_SET_FIELD(MSDC0_GPIO_RDSEL0, MSDC0_RDSEL0_CMD_MASK,
 			cust_val);
-		MSDC_SET_FIELD(MSDC0_GPIO_RDSEL0, MSDC0_RDSEL0_DAT_MASK,
+		MSDC_SET_FIELD(MSDC0_GPIO_RDSEL0, MSDC0_RDSEL0_DAT_MASK_0,
+			cust_val);
+		MSDC_SET_FIELD(MSDC0_GPIO_RDSEL0_1, MSDC0_RDSEL0_DAT_MASK_1,
 			cust_val);
 		MSDC_SET_FIELD(MSDC0_GPIO_RDSEL0, MSDC0_RDSEL0_CLK_MASK,
 			cust_val);
-		MSDC_SET_FIELD(MSDC0_GPIO_RDSEL0, MSDC0_RDSEL0_DSL_MASK,
+		MSDC_SET_FIELD(MSDC0_GPIO_RDSEL0_2, MSDC0_RDSEL0_DSL_MASK,
 			cust_val);
-		MSDC_SET_FIELD(MSDC0_GPIO_RDSEL0_1, MSDC0_RDSEL0_RSTB_MASK,
+		MSDC_SET_FIELD(MSDC0_GPIO_RDSEL0_2, MSDC0_RDSEL0_RSTB_MASK,
 			cust_val);
 	} else if (id == 1) {
 		if (flag == MSDC_TDRDSEL_CUST)
@@ -1087,7 +1101,9 @@ void msdc_set_rdsel_by_id(u32 id, u32 flag, u32 value)
 #ifndef SD_GPIO_PAD_A_EN
 		MSDC_SET_FIELD(MSDC1_GPIO_RDSEL0, MSDC1_RDSEL0_CMD_MASK,
 			cust_val);
-		MSDC_SET_FIELD(MSDC1_GPIO_RDSEL0, MSDC1_RDSEL0_DAT_MASK,
+		MSDC_SET_FIELD(MSDC1_GPIO_RDSEL0, MSDC1_RDSEL0_DAT_MASK_0,
+			cust_val);
+		MSDC_SET_FIELD(MSDC1_GPIO_RDSEL0_1, MSDC1_RDSEL0_DAT_MASK_1,
 			cust_val);
 		MSDC_SET_FIELD(MSDC1_GPIO_RDSEL0, MSDC1_RDSEL0_CLK_MASK,
 			cust_val);
@@ -1142,11 +1158,11 @@ void msdc_set_sr_by_id(u32 id, int clk, int cmd, int dat, int rst, int ds)
 void msdc_set_driving_by_id(u32 id, struct msdc_hw_driving *driving)
 {
 	if (id == 0) {
-		MSDC_SET_FIELD(MSDC0_GPIO_DRV0,
+		MSDC_SET_FIELD(MSDC0_GPIO_DRV0_1,
 			MSDC0_DRV0_DSL_MASK,
 			driving->ds_drv);
 		MSDC_SET_FIELD(MSDC0_GPIO_DRV0,
-			MSDC0_DRV0_DAT_MASK,
+			MSDC0_DRV0_DAT_MASK_0,
 			driving->dat_drv);
 		MSDC_SET_FIELD(MSDC0_GPIO_DRV0,
 			MSDC0_DRV0_CMD_MASK,
@@ -1191,11 +1207,11 @@ void msdc_set_driving_by_id(u32 id, struct msdc_hw_driving *driving)
 void msdc_get_driving_by_id(u32 id, struct msdc_hw_driving *driving)
 {
 	if (id == 0) {
-		MSDC_GET_FIELD(MSDC0_GPIO_DRV0,
+		MSDC_GET_FIELD(MSDC0_GPIO_DRV0_1,
 			MSDC0_DRV0_DSL_MASK,
 			driving->ds_drv);
 		MSDC_GET_FIELD(MSDC0_GPIO_DRV0,
-			MSDC0_DRV0_DAT_MASK,
+			MSDC0_DRV0_DAT_MASK_0,
 			driving->rst_drv);
 		MSDC_GET_FIELD(MSDC0_GPIO_DRV0,
 			MSDC0_DRV0_CMD_MASK,
@@ -1204,7 +1220,7 @@ void msdc_get_driving_by_id(u32 id, struct msdc_hw_driving *driving)
 			MSDC0_DRV0_CLK_MASK,
 			driving->clk_drv);
 		MSDC_GET_FIELD(MSDC0_GPIO_DRV0,
-			MSDC0_DRV0_DAT_MASK,
+			MSDC0_DRV0_DAT_MASK_0,
 			driving->dat_drv);
 	} else if (id == 1) {
 #ifndef SD_GPIO_PAD_A_EN
