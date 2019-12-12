@@ -1003,10 +1003,11 @@
 		reg = <0 0x10218000 0 0x1000>;
 	};
 
-	emi@10219000 {
-		compatible = "mediatek,emi";
+	emicen: emicen@10219000 {
+		compatible = "mediatek,mt6873-emicen",
+			     "mediatek,common-emicen";
 		reg = <0 0x10219000 0 0x1000>;
-		interrupts = <GIC_SPI 189 IRQ_TYPE_LEVEL_HIGH>;
+		mediatek,emi-reg = <&emichn>;
 	};
 
 	infra_device_mpu@1021a000 {
@@ -1099,9 +1100,25 @@
 		reg = <0 0x10225000 0 0x1000>;
 	};
 
-	emi_mpu@10226000 {
-		compatible = "mediatek,emi_mpu";
+	emimpu@10226000 {
+		compatible = "mediatek,mt6873-emimpu",
+			     "mediatek,common-emimpu";
 		reg = <0 0x10226000 0 0x1000>;
+		mediatek,emi-reg = <&emicen>;
+		interrupts = <GIC_SPI 189 IRQ_TYPE_LEVEL_HIGH>;
+		region_cnt = <32>;
+		domain_cnt = <16>;
+		addr_align = <16>;
+		/* ap_region = <31>; */
+		ap_apc = <0 5 5 5 0 0 6 5>,
+			 <0 0 5 0 1 1 5 5>;
+		dump = <0x1f0 0x1f8 0x1fc>;
+		clear = <0x160 0xffffffff 16>,
+			<0x200 0x00000003 16>,
+			<0x1f0 0x80000000 1>;
+		clear_md = <0x1fc 0x80000000 1>;
+		ctrl_intf = <1>;
+		slverr = <0>;
 	};
 
 	dvfsp@10227000 {
@@ -1231,9 +1248,11 @@
 		reg = <0 0x10234000 0 0x1000>;
 	};
 
-	dramc_ch0_top3@10235000 {
-		compatible = "mediatek,dramc_ch0_top3";
-		reg = <0 0x10235000 0 0x1000>;
+	emichn: emichn@10235000 {
+		compatible = "mediatek,mt6873-emichn",
+			     "mediatek,common-emichn";
+		reg = <0 0x10235000 0 0x1000>,
+		      <0 0x10245000 0 0x1000>;
 	};
 
 	dramc_ch0_top4@10236000 {
@@ -1390,11 +1409,6 @@
 		reg = <0 0x10244000 0 0x1000>;
 	};
 
-	dramc_ch1_top3@10245000 {
-		compatible = "mediatek,dramc_ch1_top3";
-		reg = <0 0x10245000 0 0x1000>;
-	};
-
 	dramc_ch1_top4@10246000 {
 		compatible = "mediatek,dramc_ch1_top4";
 		reg = <0 0x10246000 0 0x2000>;
@@ -1438,11 +1452,6 @@
 	dramc_ch2_top2@10254000 {
 		compatible = "mediatek,dramc_ch2_top2";
 		reg = <0 0x10254000 0 0x1000>;
-	};
-
-	dramc_ch2_top3@10255000 {
-		compatible = "mediatek,dramc_ch2_top3";
-		reg = <0 0x10255000 0 0x1000>;
 	};
 
 	dramc_ch2_top4@10256000 {
@@ -1493,11 +1502,6 @@
 	dramc_ch3_top2@10264000 {
 		compatible = "mediatek,dramc_ch3_top2";
 		reg = <0 0x10264000 0 0x1000>;
-	};
-
-	dramc_ch3_top3@10265000 {
-		compatible = "mediatek,dramc_ch3_top3";
-		reg = <0 0x10265000 0 0x1000>;
 	};
 
 	dramc_ch3_top4@10266000 {
