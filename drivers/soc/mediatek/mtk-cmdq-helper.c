@@ -1771,14 +1771,14 @@ int cmdq_pkt_wait_complete(struct cmdq_pkt *pkt)
 
 #if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
 	IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
-	if (pkt->sec_data) {
+	if (pkt->sec_data)
 		cmdq_sec_pkt_wait_complete(pkt, &item->cmplt);
-		goto wait_done;
-	}
-#endif
+	else
+		cmdq_pkt_wait_complete_loop(pkt);
+#else
 	cmdq_pkt_wait_complete_loop(pkt);
+#endif
 
-wait_done:
 	cmdq_trace_end();
 	cmdq_util_track(pkt);
 

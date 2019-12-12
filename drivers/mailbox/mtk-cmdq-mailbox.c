@@ -198,8 +198,6 @@ static inline void cmdq_mmp_init(void)
 
 static void cmdq_lock_wake_lock(struct cmdq *cmdq, bool lock)
 {
-	unsigned long flags;
-
 	cmdq_trace_ex_begin("%s", __func__);
 
 	if (lock) {
