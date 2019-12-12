@@ -318,6 +318,7 @@ source "drivers/misc/mediatek/devmpu/Kconfig"
 source "drivers/misc/mediatek/performance/Kconfig"
 source "drivers/misc/mediatek/cqdma/Kconfig"
 source "drivers/misc/mediatek/usb2jtag/Kconfig"
+source "drivers/misc/mediatek/pcie/Kconfig"
 endmenu # Other Peripheral
 
 menu "Performance, Power, and Thermal"
