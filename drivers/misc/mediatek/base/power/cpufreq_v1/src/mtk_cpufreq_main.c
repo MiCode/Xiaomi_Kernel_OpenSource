@@ -713,7 +713,7 @@ static int _cpufreq_set_locked(struct cpufreq_policy *policy,
 
 	FUNC_ENTER(FUNC_LV_HELP);
 
-	dvfs_disable_flag = 1;
+	dvfs_disable_flag = 0;
 	if (dvfs_disable_flag == 1) {
 		tag_pr_info("DVFS_DISABLE");
 		return 0;

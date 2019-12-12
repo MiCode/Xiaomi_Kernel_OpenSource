@@ -34,7 +34,6 @@
 /* #define SUPPORT_VOLT_HW_AUTO_TRACK 1 */
 #define CPU_DVFS_NOT_READY	1
 #endif
-#define DFD_WORKAROUND  1
 #define NR_FREQ		16
 #define NR_CCI_TBL		2
 
@@ -47,10 +46,10 @@
 /* buck ctrl configs */
 #define NORMAL_DIFF_VRSAM_VPROC		10000
 #define MAX_DIFF_VSRAM_VPROC		25000
-#define MIN_VSRAM_VOLT			85000
-#define MAX_VSRAM_VOLT			112000
+#define MIN_VSRAM_VOLT			75000
+#define MAX_VSRAM_VOLT			100000
 #define MIN_VPROC_VOLT			60000
-#define MAX_VPROC_VOLT			112000
+#define MAX_VPROC_VOLT			100000
 
 #define UP_SRATE	1250
 #define DOWN_SRATE	500
