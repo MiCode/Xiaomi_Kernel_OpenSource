@@ -1610,6 +1610,9 @@ static void get_volt_table_in_thread(struct eem_det *det)
 			final_clamp_val = ndet->volt_tbl_orig[i] +
 			ndet->volt_clamp;
 
+		if ((ndet->ctrl_id == EEM_CTRL_B) && (segCode == 0x10))
+			final_clamp_val = min(pmic_clamp_val, final_clamp_val);
+
 #if ENABLE_GPU
 		if (time_val && (i < FALL_NUM))
 			extra_aging = 1;
@@ -1631,23 +1634,15 @@ static void get_volt_table_in_thread(struct eem_det *det)
 
 		case EEM_CTRL_B:
 			if ((i == 0) && (det->loo_role == HIGH_BANK) &&
-				(segCode == 0x10) && (is_warn_on < 300)) {
+				(segCode == 0x10) && (is_warn_on == 0)) {
 				bcpu_opp0_eemv =
 					det->volt_tbl[0] + rm_dvtfix_offset;
 				if (bcpu_opp0_eemv > eem_clamp_val) {
-					if (((is_warn_on % 50) == 0) &&
-						(is_warn_on >= 140)) {
-						eem_error(
-			"BCPU OPP0 volt out of range:%d\n",
-						det->ops->pmic_2_volt(det,
-						det->ops->eem_2_pmic(det,
-						bcpu_opp0_eemv)));
-						aee_kernel_warning("[EEM]BCPU OPP0 volt out of range",
-			"@%s():%d; BCPU OPP0 volt out of range:0x%x",
-			__func__, __LINE__,
-			bcpu_opp0_eemv);
-					}
-					is_warn_on++;
+					aee_rr_rec_ptp_devinfo_7(
+					(unsigned int)det->ops->pmic_2_volt(det,
+					det->ops->eem_2_pmic(det,
+					bcpu_opp0_eemv)));
+					is_warn_on = 1;
 				}
 			}
 
@@ -1661,9 +1656,6 @@ static void get_volt_table_in_thread(struct eem_det *det)
 				ndet->ops->eem_2_pmic(ndet, ndet->VMAX))),
 				final_clamp_val);
 
-			if (segCode == 0x10)
-				if (ndet->volt_tbl_pmic[i] > pmic_clamp_val)
-					ndet->volt_tbl_pmic[i] = pmic_clamp_val;
 			break;
 
 		case EEM_CTRL_CCI:
@@ -4316,8 +4308,8 @@ static int eem_cur_volt_proc_show(struct seq_file *m, void *v)
 			det->volt_tbl_pmic[i],
 			det->ops->pmic_2_volt(det, det->volt_tbl_pmic[i]));
 
-		seq_printf(m, "policy:%d, isTempInv:%d, eem_aging:%d\n",
-		det->volt_policy, det->isTempInv, eem_aging);
+		seq_printf(m, "policy:%d, isTempInv:%d, eem_aging:%d, warn_on:%d\n",
+		det->volt_policy, det->isTempInv, eem_aging, is_warn_on);
 	}
 	FUNC_EXIT(FUNC_LV_HELP);
 
