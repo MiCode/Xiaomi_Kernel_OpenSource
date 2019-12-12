@@ -433,14 +433,8 @@ int ufs_mtk_pltfrm_ref_clk_ctrl(struct ufs_hba *hba, bool on)
 				goto out;
 		}
 
-		/* Check powerstate before turn off clock */
-		ret = ufs_mtk_generic_read_dme_no_check(UIC_CMD_DME_GET,
-			VENDOR_POWERSTATE, 0, &val, 100);
-		if (ret) {
-			dev_info(hba->dev, "%s: check power state fail (%d)\n",
-				__func__, ret);
-			return ret;
-		}
+		val = VENDOR_POWERSTATE_HIBERNATE;
+		ufs_mtk_wait_link_state(hba, &val, 0);
 
 		if (val == VENDOR_POWERSTATE_HIBERNATE) {
 			/* Host need turn off clock by itself */

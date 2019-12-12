@@ -4875,25 +4875,9 @@ int ufshcd_check_hibern8_exit(struct ufs_hba *hba)
 	 * 3. Manually enter h8.
 	 */
 	ufshcd_vops_auto_hibern8(hba, false);
-	timeout = jiffies + msecs_to_jiffies(H8_POLL_TOUT_MS);
-	do {
-		/*
-		 * If host_lock is held at ufshcd_gate_work().
-		 * It will deadlock if call ufshcd_send_uic_cmd() here.
-		 */
-		ret = ufs_mtk_generic_read_dme_no_check(UIC_CMD_DME_GET,
-					VENDOR_POWERSTATE, 0, &reg, 100);
-		if (ret != 0)
-			dev_info(hba->dev,
-				"ufshcd_dme_get_ 0x%x fail, ret = %d!\n",
-				VENDOR_POWERSTATE, ret);
 
-		if (reg != VENDOR_POWERSTATE_HIBERNATE)
-			break;
-
-		/* sleep for max. 200us */
-		usleep_range(100, 200);
-	} while (time_before(jiffies, timeout));
+	reg = VENDOR_POWERSTATE_LINKUP;
+	ufs_mtk_wait_link_state(hba, &reg, 100);
 
 	/* Device is stuck in H8 state */
 	if (reg == VENDOR_POWERSTATE_HIBERNATE) {

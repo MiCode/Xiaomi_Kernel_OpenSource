@@ -2226,6 +2226,32 @@ int ufs_mtk_auto_hiber8_quirk_handler(struct ufs_hba *hba, bool enable)
 	return 0;
 }
 
+int ufs_mtk_wait_link_state(struct ufs_hba *hba, u32 *state,
+			    unsigned long retry_ms)
+{
+	unsigned long timeout;
+	u32 val;
+
+	timeout = jiffies + msecs_to_jiffies(retry_ms);
+	do {
+		ufshcd_writel(hba, 0x20, REG_UFS_MTK_DEBUG_SEL);
+		val = ufshcd_readl(hba, REG_UFS_MTK_PROBE);
+		val = val >> 28;
+
+		if (val == *state)
+			break;
+
+		/* sleep for max. 200us */
+		usleep_range(100, 200);
+	} while (time_before(jiffies, timeout));
+
+	if (val == *state)
+		return 0;
+
+	*state = val;
+	return -ETIMEDOUT;
+}
+
 int ufs_mtk_generic_read_dme_no_check(u32 uic_cmd, u16 mib_attribute,
 	u16 gen_select_index, u32 *value, unsigned long retry_ms)
 {
