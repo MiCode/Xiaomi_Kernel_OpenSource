@@ -18,5 +18,9 @@
 #include "subsys/mtk_gpu_swpm_mt6885.h"
 #endif
 
+#if defined(CONFIG_MACH_MT6873)
+#include "subsys/mtk_gpu_swpm_mt6873.h"
+#endif
+
 #endif
 
