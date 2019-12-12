@@ -3116,7 +3116,7 @@ void mtk_crtc_disable_secure_state(struct drm_crtc *crtc)
 	/* Disable secure path */
 	cmdq_sec_pkt_set_data(cmdq_handle,
 		0,
-		(0 << CMDQ_SEC_DISP_OVL0) | (0 << CMDQ_SEC_DISP_2L_OVL0),
+		(0 << CMDQ_SEC_DISP_2L_OVL0),
 		CMDQ_SEC_DISP_PRIMARY_DISABLE_SECURE_PATH,
 		CMDQ_METAEX_NONE);
 
@@ -3142,7 +3142,6 @@ struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc)
 			mtk_crtc->gce_obj.client[CLIENT_SEC_CFG]);
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 		cmdq_sec_pkt_set_data(cmdq_handle, 0,
-			(1 << CMDQ_SEC_DISP_OVL0) |
 			(1 << CMDQ_SEC_DISP_2L_OVL0),
 			CMDQ_SEC_PRIMARY_DISP,
 			CMDQ_METAEX_NONE);

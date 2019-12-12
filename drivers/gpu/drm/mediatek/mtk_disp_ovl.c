@@ -1094,6 +1094,7 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 	unsigned int src_size = (dst_h << 16) | dst_w;
 	unsigned int offset = 0;
 	unsigned int clip = 0;
+	unsigned int buf_size = 0;
 	int rotate = 0;
 
 	if (fmt == DRM_FORMAT_YUYV || fmt == DRM_FORMAT_YVYU ||
@@ -1129,6 +1130,8 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 
 	src_size = (dst_h << 16) | dst_w;
 
+	buf_size = (dst_h - 1) * pitch +
+		dst_w * drm_format_plane_cpp(fmt, 0);
 	if (ext_lye_idx != LYE_NORMAL) {
 		unsigned int id = ext_lye_idx - 1;
 
@@ -1139,11 +1142,11 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 			comp->regs_pa + DISP_REG_OVL_EL_PITCH(id),
 			pitch, ~0);
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-		if (comp->mtk_crtc->sec_on) {
+		if ((comp->mtk_crtc->sec_on) &&
+			(comp->id == DDP_COMPONENT_OVL0_2L)) {
 			u32 size, meta_type, addr;
 
-			size = (dst_h - 1) * state->pending.pitch +
-				dst_w * drm_format_plane_cpp(fmt, 0);
+			size = buf_size;
 			addr = comp->regs_pa +
 				DISP_REG_OVL_EL_ADDR(ext_lye_idx - 1);
 			if (state->pending.is_sec)
@@ -1171,11 +1174,11 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 			comp->regs_pa + DISP_REG_OVL_PITCH(lye_idx),
 			pitch, ~0);
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-		if (comp->mtk_crtc->sec_on) {
+		if ((comp->mtk_crtc->sec_on) &&
+			(comp->id == DDP_COMPONENT_OVL0_2L)) {
 			u32 size, meta_type, addr;
 
-			size = (dst_h - 1) * state->pending.pitch +
-				dst_w * drm_format_plane_cpp(fmt, 0);
+			size = buf_size;
 			addr = comp->regs_pa +
 				DISP_REG_OVL_ADDR(ovl, lye_idx);
 			if (state->pending.is_sec)
@@ -1349,6 +1352,8 @@ static bool compr_l_config_PVRIC_V3_1(struct mtk_ddp_comp *comp,
 	unsigned int addr = pending->addr;
 	unsigned int pitch = pending->pitch & 0xffff;
 	unsigned int vpitch = pending->prop_val[PLANE_PROP_VPITCH];
+	unsigned int dst_h = pending->height;
+	unsigned int dst_w = pending->width;
 	unsigned int src_x = pending->src_x, src_y = pending->src_y;
 	unsigned int src_w = pending->width, src_h = pending->height;
 	unsigned int fmt = pending->format;
@@ -1359,10 +1364,14 @@ static bool compr_l_config_PVRIC_V3_1(struct mtk_ddp_comp *comp,
 
 	/* variable to do calculation */
 	unsigned int tile_w = 16, tile_h = 4;
+	unsigned int tile_body_size = tile_w * tile_h * Bpp;
 	unsigned int src_x_align, src_y_align;
 	unsigned int src_w_align, src_h_align;
 	unsigned int header_offset, tile_offset;
 	unsigned int buf_addr;
+	unsigned int src_buf_tile_num = 0;
+	unsigned int buf_size = 0;
+	unsigned int buf_total_size = 0;
 
 	/* variable to config into register */
 	unsigned int lx_fbdc_en;
@@ -1405,9 +1414,10 @@ static bool compr_l_config_PVRIC_V3_1(struct mtk_ddp_comp *comp,
 		Bpp = 4;
 	}
 
-	header_offset = ALIGN_TO(pitch / 4, tile_w) * ALIGN_TO(vpitch, tile_h);
-	header_offset /= (tile_w * tile_h);
-	header_offset = (header_offset + 255) / 256 * 128;
+	src_buf_tile_num = ALIGN_TO(pitch / 4, tile_w) *
+			ALIGN_TO(vpitch, tile_h);
+	src_buf_tile_num /= (tile_w * tile_h);
+	header_offset = (src_buf_tile_num + 255) / 256 * 128;
 	buf_addr = addr + header_offset;
 
 	src_x_align = (src_x / tile_w) * tile_w;
@@ -1472,59 +1482,67 @@ static bool compr_l_config_PVRIC_V3_1(struct mtk_ddp_comp *comp,
 	}
 
 	/* 7. config register */
+	buf_size = (dst_h - 1) * pitch +
+		dst_w * drm_format_plane_cpp(fmt, 0);
+	buf_total_size = header_offset + src_buf_tile_num * tile_body_size;
 	if (ext_lye_idx != LYE_NORMAL) {
+		unsigned int id = ext_lye_idx - 1;
+
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-		if (comp->mtk_crtc->sec_on) {
+		if ((comp->mtk_crtc->sec_on) &&
+			(comp->id == DDP_COMPONENT_OVL0_2L)) {
 			u32 size, meta_type, addr;
 
-			size = state->pending.pitch * src_w;
 			addr = comp->regs_pa +
-				DISP_REG_OVL_EL_ADDR(ext_lye_idx - 1);
-			if (state->pending.is_sec)
+				DISP_REG_OVL_EL_ADDR(id);
+			if (state->pending.is_sec) {
+				size = buf_size;
 				meta_type = CMDQ_IWC_H_2_MVA;
-			else
+			} else {
+				size = buf_total_size;
 				meta_type = CMDQ_IWC_NMVA_2_MVA;
+			}
 			cmdq_sec_pkt_write_reg(handle, addr,
 				pending->addr, meta_type, 0, size, 0);
 		} else
 #endif
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa +
-				DISP_REG_OVL_EL_ADDR(ext_lye_idx - 1),
+				DISP_REG_OVL_EL_ADDR(id),
 				lx_addr, ~0);
 
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa +
-				       DISP_REG_OVL_EL_PITCH(ext_lye_idx - 1),
+				       DISP_REG_OVL_EL_PITCH(id),
 			       lx_pitch, 0xffff);
 		cmdq_pkt_write(handle, comp->cmdq_base,
-			       comp->regs_pa + DISP_REG_OVL_EL_SRC_SIZE(
-						       ext_lye_idx - 1),
+			       comp->regs_pa + DISP_REG_OVL_EL_SRC_SIZE(id),
 			       lx_src_size, ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa +
-				       DISP_REG_OVL_EL_CLIP(ext_lye_idx - 1),
+				       DISP_REG_OVL_EL_CLIP(id),
 			       lx_clip, ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
-			       comp->regs_pa + DISP_REG_OVL_ELX_HDR_ADDR(
-						       ext_lye_idx - 1),
+			       comp->regs_pa + DISP_REG_OVL_ELX_HDR_ADDR(id),
 			       lx_hdr_addr, ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
-			       comp->regs_pa + DISP_REG_OVL_ELX_HDR_PITCH(
-						       ext_lye_idx - 1),
+			       comp->regs_pa + DISP_REG_OVL_ELX_HDR_PITCH(id),
 			       lx_hdr_pitch, ~0);
 	} else {
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-		if (comp->mtk_crtc->sec_on) {
+		if ((comp->mtk_crtc->sec_on) &&
+			(comp->id == DDP_COMPONENT_OVL0_2L)) {
 			u32 size, meta_type, addr;
 
-			size = state->pending.pitch * src_w;
 			addr = comp->regs_pa +
 				DISP_REG_OVL_ADDR(ovl, lye_idx);
-			if (state->pending.is_sec)
+			if (state->pending.is_sec) {
+				size = buf_size;
 				meta_type = CMDQ_IWC_H_2_MVA;
-			else
+			} else {
+				size = buf_total_size;
 				meta_type = CMDQ_IWC_NMVA_2_MVA;
+			}
 			cmdq_sec_pkt_write_reg(handle, addr,
 				pending->addr, meta_type, 0, size, 0);
 		} else
@@ -1576,12 +1594,17 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 	unsigned int tile_w = AFBC_V1_2_TILE_W;
 	unsigned int tile_h = AFBC_V1_2_TILE_H;
 	unsigned int tile_body_size = tile_w * tile_h * Bpp;
+	unsigned int dst_h = pending->height;
+	unsigned int dst_w = pending->width;
 	unsigned int src_x_align, src_w_align;
 	unsigned int src_y_align, src_y_half_align;
 	unsigned int src_y_end_align, src_y_end_half_align;
 	unsigned int src_h_align, src_h_half_align = 0;
 	unsigned int header_offset, tile_offset;
 	unsigned int buf_addr;
+	unsigned int src_buf_tile_num = 0;
+	unsigned int buf_size = 0;
+	unsigned int buf_total_size = 0;
 
 
 	/* variable to config into register */
@@ -1631,11 +1654,11 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 	}
 
 	/* 2. pre-calculation */
-	header_offset = ALIGN_TO(pitch / Bpp, tile_w) *
+	src_buf_tile_num = ALIGN_TO(pitch / Bpp, tile_w) *
 	    ALIGN_TO(vpitch, tile_h);
-	header_offset /= (tile_w * tile_h);
+	src_buf_tile_num /= (tile_w * tile_h);
 	header_offset = ALIGN_TO(
-		header_offset * AFBC_V1_2_HEADER_SIZE_PER_TILE_BYTES,
+		src_buf_tile_num * AFBC_V1_2_HEADER_SIZE_PER_TILE_BYTES,
 		AFBC_V1_2_HEADER_ALIGN_BYTES);
 	buf_addr = addr + header_offset;
 
@@ -1720,62 +1743,72 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 	}
 
 	/* 7. config register */
+	buf_size = (dst_h - 1) * pitch + dst_w * Bpp;
+	buf_total_size = header_offset + src_buf_tile_num * tile_body_size;
 	if (ext_lye_idx != LYE_NORMAL) {
+		unsigned int id = ext_lye_idx - 1;
+
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-		if (comp->mtk_crtc->sec_on) {
+		if ((comp->mtk_crtc->sec_on) &&
+			(comp->id == DDP_COMPONENT_OVL0_2L)) {
 			u32 size, meta_type, addr;
 
-			size = state->pending.pitch * src_w;
 			addr = comp->regs_pa +
-				DISP_REG_OVL_EL_ADDR(ext_lye_idx - 1);
-			if (state->pending.is_sec)
+				DISP_REG_OVL_EL_ADDR(id);
+			if (state->pending.is_sec) {
+				size = buf_size;
 				meta_type = CMDQ_IWC_H_2_MVA;
-			else
+			} else {
+				size = buf_total_size;
 				meta_type = CMDQ_IWC_NMVA_2_MVA;
+			}
 			cmdq_sec_pkt_write_reg(handle, addr,
 				pending->addr, meta_type, 0, size, 0);
 		} else
 #endif
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa +
-				DISP_REG_OVL_EL_ADDR(ext_lye_idx-1),
+				DISP_REG_OVL_EL_ADDR(id),
 				lx_addr, ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa +
-			DISP_REG_OVL_EL_PITCH_MSB(ext_lye_idx-1),
+			DISP_REG_OVL_EL_PITCH_MSB(id),
 			lx_pitch_msb, ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa +
-			DISP_REG_OVL_EL_PITCH(ext_lye_idx-1),
+			DISP_REG_OVL_EL_PITCH(id),
 			lx_pitch, 0xffff);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa +
-			DISP_REG_OVL_EL_SRC_SIZE(ext_lye_idx-1),
+			DISP_REG_OVL_EL_SRC_SIZE(id),
 			lx_src_size, ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa +
-			DISP_REG_OVL_EL_CLIP(ext_lye_idx-1),
+			DISP_REG_OVL_EL_CLIP(id),
 			lx_clip, ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa +
-			DISP_REG_OVL_ELX_HDR_ADDR(ext_lye_idx-1),
+			DISP_REG_OVL_ELX_HDR_ADDR(id),
 			lx_hdr_addr, ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa +
-			DISP_REG_OVL_ELX_HDR_PITCH(ext_lye_idx-1),
+			DISP_REG_OVL_ELX_HDR_PITCH(id),
 			lx_hdr_pitch, ~0);
 	} else {
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-		if (comp->mtk_crtc->sec_on) {
+		if ((comp->mtk_crtc->sec_on) &&
+			(comp->id == DDP_COMPONENT_OVL0_2L)) {
 			u32 size, meta_type, addr;
 
-			size = state->pending.pitch * src_w;
 			addr = comp->regs_pa +
 				DISP_REG_OVL_ADDR(ovl, lye_idx);
-			if (state->pending.is_sec)
+			if (state->pending.is_sec) {
+				size = buf_size;
 				meta_type = CMDQ_IWC_H_2_MVA;
-			else
+			} else {
+				size = buf_total_size;
 				meta_type = CMDQ_IWC_NMVA_2_MVA;
+			}
 			cmdq_sec_pkt_write_reg(handle, addr,
 				pending->addr, meta_type, 0, size, 0);
 		} else
