@@ -3149,13 +3149,13 @@ int autok_path_sel(struct msdc_host *host)
 {
 	void __iomem *base = host->base;
 	void __iomem *base_top = NULL;
-#if !defined(FPGA_PLATFORM)
-	base_top = host->base_top;
-#endif
 	struct AUTOK_PLAT_PARA_TX platform_para_tx;
 	struct AUTOK_PLAT_PARA_RX platform_para_rx;
 	struct AUTOK_PLAT_FUNC platform_para_func;
 	struct AUTOK_PLAT_TOP_CTRL platform_top_ctrl;
+#if !defined(FPGA_PLATFORM)
+	base_top = host->base_top;
+#endif
 
 	memset(&platform_para_tx, 0, sizeof(struct AUTOK_PLAT_PARA_TX));
 	memset(&platform_para_rx, 0, sizeof(struct AUTOK_PLAT_PARA_RX));
