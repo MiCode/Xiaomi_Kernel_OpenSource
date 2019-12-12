@@ -44,6 +44,7 @@ static struct codec_history *vdec_hists;
 static u64 vdec_req_freq[2]; /* 0 - LAT, 1 - Core */
 #endif
 
+#define VDEC_DRV_UFO_AUO_ON (1 << 1)
 #if DEC_EMI_BW
 #include <mtk_smi.h>
 #include <dt-bindings/memory/mt6885-larb-port.h>
@@ -579,7 +580,7 @@ void mtk_vdec_emi_bw_begin(struct mtk_vcodec_ctx *ctx, int hw_id)
 		if (emi_bw < 0)
 			emi_bw = 0;
 
-		if (0) { /* UFO */
+		if (ctx->picinfo.layout_mode == VDEC_DRV_UFO_AUO_ON) {
 			mm_qos_set_request(&vdec_ufo, emi_bw, 0, BW_COMP_NONE);
 			mm_qos_set_request(&vdec_ufo_enc, emi_bw_output, 0,
 						BW_COMP_NONE);
