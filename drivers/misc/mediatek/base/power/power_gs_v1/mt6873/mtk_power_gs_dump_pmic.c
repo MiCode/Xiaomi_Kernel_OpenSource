@@ -65,7 +65,7 @@ ERROR:
 void dump_pmic(int pmic_num, const char *scenario,
 	const unsigned int *pmic_gs, unsigned int pmic_gs_len)
 {
-	unsigned int i, k, val0, val1, val2, diff, dump_cnt = 0, ret;
+	unsigned int i, k, val0 = 0, val1, val2, diff, dump_cnt = 0, ret;
 	char *p;
 	struct regulator *regulator;
 	struct regmap *regmap;
