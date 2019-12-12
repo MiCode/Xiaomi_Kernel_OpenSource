@@ -65,7 +65,6 @@ struct apusys_cmd {
 
 	/* flow control */
 	/* apusys_subcmd */
-	struct mutex sc_mtx;
 	struct apusys_subcmd **sc_list;
 	/* subcmd status bitmap [BITS_TO_LONGS(sc_num)] */
 	unsigned long *sc_status;

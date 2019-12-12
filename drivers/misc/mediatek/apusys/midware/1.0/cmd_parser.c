@@ -493,9 +493,9 @@ int apusys_subcmd_create(int idx, struct apusys_cmd *cmd,
 	/* Calc system load and boost */
 	deadline_task_start(sc);
 
-	mutex_lock(&cmd->sc_mtx);
+	mutex_lock(&cmd->mtx);
 	cmd->sc_list[sc->idx] = sc;
-	mutex_unlock(&cmd->sc_mtx);
+	mutex_unlock(&cmd->mtx);
 
 	return 0;
 
@@ -731,7 +731,6 @@ int apusys_cmd_create(int mem_fd, uint32_t offset,
 		goto alloc_sc_list_fail;
 	}
 
-	mutex_init(&cmd->sc_mtx);
 	mutex_init(&cmd->mtx);
 	INIT_LIST_HEAD(&cmd->pc_col.sc_list);
 	INIT_LIST_HEAD(&cmd->u_list);

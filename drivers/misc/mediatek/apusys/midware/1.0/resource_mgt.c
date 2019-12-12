@@ -494,6 +494,7 @@ int acq_device_check(struct apusys_dev_aquire **iacq)
 	struct apusys_dev_aquire *acq = NULL;
 
 	/* TODO, optimize acq list */
+	mutex_lock(&g_res_mgr.mtx);
 	DEBUG_TAG;
 	for (i = 0; i < APUSYS_DEVICE_MAX; i++) {
 		tab = res_get_table(i);
@@ -509,10 +510,12 @@ int acq_device_check(struct apusys_dev_aquire **iacq)
 				LOG_DEBUG("res tab(%d) has acq_list done\n", i);
 				list_del(&acq->tab_list);
 				*iacq = acq;
+				mutex_unlock(&g_res_mgr.mtx);
 				return 0;
 			}
 		}
 	}
+	mutex_unlock(&g_res_mgr.mtx);
 	DEBUG_TAG;
 
 	return -ENODATA;

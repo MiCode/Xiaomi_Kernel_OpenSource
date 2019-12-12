@@ -409,7 +409,7 @@ static void subcmd_done(struct apusys_subcmd *sc, int dev_idx)
 	}
 
 	/* check sc state and delete */
-	mutex_lock(&sc->mtx);
+	mutex_lock(&cmd->mtx);
 	if (!(sc->exec_core_bitmap & (1ULL << dev_idx))) {
 		LOG_ERR("miss exec cores(0x%llx/%u)",
 			sc->exec_core_bitmap,
@@ -423,14 +423,13 @@ static void subcmd_done(struct apusys_subcmd *sc, int dev_idx)
 		if (free_ctx(sc, cmd))
 			LOG_ERR("free memory ctx id fail\n");
 		done_idx = sc->idx;
-		mutex_unlock(&sc->mtx);
+		mutex_unlock(&cmd->mtx);
 	} else {
-		mutex_unlock(&sc->mtx);
+		mutex_unlock(&cmd->mtx);
 		return;
 	}
 
 	mutex_lock(&cmd->mtx);
-	mutex_lock(&cmd->sc_mtx);
 	/* should insert subcmd which dependency satisfied */
 	for (i = 0; i < sc->scr_num; i++) {
 		/* decreate pdr count of sc */
@@ -467,8 +466,6 @@ static void subcmd_done(struct apusys_subcmd *sc, int dev_idx)
 			cmd->cmd_id,
 			sc->idx);
 	}
-
-	mutex_unlock(&cmd->sc_mtx);
 
 	/* clear subcmd bit in cmd entry's status */
 	/* if whole apusys cmd done, wakeup user context thread */
@@ -737,9 +734,9 @@ static int exec_cmd_func(void *isc, void *idev_info)
 	/* 6. check execution result */
 	if (ret) {
 #define APUSYS_PRINT_EXECFAIL "pid(%d/%d) 0x%llx/0x%llx-#%d(%u)"\
-	" sc(%d): dev(%s-#%d)"\
+	" sc(%d): dev(%s-#%d) mp(%u/%u|0x%llx)"\
 	" prio(%d) deadline(%d/%d/%d)"\
-	"time(%u/%u) fail(%d)\n"
+	" ctx(%u/%d/0x%x/0x%x) time(%u/%u) fail(%d)\n"
 		LOG_ERR(APUSYS_PRINT_EXECFAIL,
 			sc->par_cmd->pid,
 			sc->par_cmd->tgid,
@@ -750,20 +747,27 @@ static int exec_cmd_func(void *isc, void *idev_info)
 			sc->type,
 			dev_info->name,
 			dev_info->dev->idx,
+			cmd_hnd.multicore_idx,
+			sc->exec_core_num,
+			sc->exec_core_bitmap,
 			sc->par_cmd->hdr->priority,
 			sc->par_cmd->hdr->soft_limit,
 			sc->par_cmd->hdr->hard_limit,
 			sc->par_cmd->power_save,
-			cmd_hnd.ip_time,
+			sc->ctx_id,
+			sc->c_hdr->tcm_force,
+			sc->c_hdr->tcm_usage,
+			sc->tcm_real_usage,
+					cmd_hnd.ip_time,
 			t_diff,
 			ret);
 #undef APUSYS_PRINT_EXECFAIL
 		sc->par_cmd->cmd_ret = ret;
 	} else {
 #define APUSYS_PRINT_EXECOK "pid(%d/%d) 0x%llx/0x%llx-#%d(%u)"\
-	" sc(%d): dev(%s-#%d)"\
+	" sc(%d): dev(%s-#%d) mp(%u/%u|0x%llx)"\
 	" prio(%d) deadline(%d/%d/%d)"\
-	" time(%u/%u) done\n"
+	" ctx(%u/%d/0x%x/0x%x) time(%u/%u) done\n"
 		LOG_INFO(APUSYS_PRINT_EXECOK,
 			sc->par_cmd->pid,
 			sc->par_cmd->tgid,
@@ -774,10 +778,17 @@ static int exec_cmd_func(void *isc, void *idev_info)
 			sc->type,
 			dev_info->name,
 			dev_info->dev->idx,
+			cmd_hnd.multicore_idx,
+			sc->exec_core_num,
+			sc->exec_core_bitmap,
 			sc->par_cmd->hdr->priority,
 			sc->par_cmd->hdr->soft_limit,
 			sc->par_cmd->hdr->hard_limit,
 			sc->par_cmd->power_save,
+			sc->ctx_id,
+			sc->c_hdr->tcm_force,
+			sc->c_hdr->tcm_usage,
+			sc->tcm_real_usage,
 			cmd_hnd.ip_time,
 			t_diff);
 #undef APUSYS_PRINT_EXECOK
@@ -1000,7 +1011,6 @@ int apusys_sched_del_cmd(struct apusys_cmd *cmd)
 
 	/* delete all subcmd in cmd */
 	mutex_lock(&cmd->mtx);
-	mutex_lock(&cmd->sc_mtx);
 	if (clear_pack_cmd(cmd))
 		LOG_WARN("clear pack cmd list fail\n");
 
@@ -1052,7 +1062,6 @@ int apusys_sched_del_cmd(struct apusys_cmd *cmd)
 			mutex_unlock(&res_mgr->mtx);
 		}
 	}
-	mutex_unlock(&cmd->sc_mtx);
 	mutex_unlock(&cmd->mtx);
 
 	LOG_DEBUG("wait 0x%llx cmd done...\n",
@@ -1156,7 +1165,7 @@ int apusys_sched_add_cmd(struct apusys_cmd *cmd)
 			break;
 		}
 
-		mutex_lock(&cmd->sc_mtx);
+		mutex_lock(&cmd->mtx);
 
 		/* add sc to cmd's sc_list*/
 		if (check_sc_ready(cmd, i) == 0) {
@@ -1168,12 +1177,12 @@ int apusys_sched_add_cmd(struct apusys_cmd *cmd)
 					sc,
 					sc->type,
 					cmd->hdr->priority);
-				mutex_unlock(&cmd->sc_mtx);
+				mutex_unlock(&cmd->mtx);
 				goto out;
 			}
 		}
 
-		mutex_unlock(&cmd->sc_mtx);
+		mutex_unlock(&cmd->mtx);
 
 		dp_ofs += (SIZE_CMD_PREDECCESSOR_CMNT_ELEMENT *
 			(dp_num + 1));

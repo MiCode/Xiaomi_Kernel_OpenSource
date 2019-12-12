@@ -378,8 +378,6 @@ int apusys_user_insert_cmd(struct apusys_user *u, void *icmd)
 int apusys_user_delete_cmd(struct apusys_user *u, void *icmd)
 {
 	struct apusys_cmd *cmd = (struct apusys_cmd *) icmd;
-	//struct apusys_subcmd *sc = NULL;
-	//int i = 0;
 
 	if (u == NULL || icmd == NULL)
 		return -EINVAL;
@@ -387,23 +385,10 @@ int apusys_user_delete_cmd(struct apusys_user *u, void *icmd)
 	mutex_lock(&u->cmd_mtx);
 
 	/* delete all sc */
-#if 0
-	mutex_lock(&cmd->sc_mtx);
-	for (i = 0; i < cmd->hdr->num_sc; i++) {
-		if (cmd->sc_list[i] != NULL) {
-			if (apusys_subcmd_delete(cmd->sc_list[i]))
-				LOG_ERR("delete subcmd fail(%p)\n", sc);
-			cmd->sc_list[i] = NULL;
-		}
-	}
-	list_del(&cmd->u_list);
-	mutex_unlock(&cmd->sc_mtx);
-#else
 	if (apusys_sched_del_cmd(cmd))
 		LOG_ERR("delete cmd(0x%llx) fail\n", cmd->cmd_id);
 
 	list_del(&cmd->u_list);
-#endif
 	mutex_unlock(&u->cmd_mtx);
 
 	return 0;
