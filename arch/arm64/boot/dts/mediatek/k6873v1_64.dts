@@ -402,6 +402,60 @@
 	};
 }; /* IRTX GPIO Settings -End */
 
+/* FINGERPRINT start */
+&spi1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	fingerprint@0 {
+		compatible = "goodix,goodix-fp";
+		reg = <0>;
+		spi-max-frequency = <8000000>;
+		netlink-event = <30>;
+		vfp-supply = <&mt_pmic_vfp_ldo_reg>;
+		power-type = <1>;
+		status = "okay";
+	};
+};
+
+&goodix_fp {
+	pinctrl-names = "default", "reset_high", "reset_low", "eint_init";
+	pinctrl-0 = <&fingerprint_default>;
+	pinctrl-1 = <&fingerprint_reset_high>;
+	pinctrl-2 = <&fingerprint_reset_low>;
+	pinctrl-3 = <&fingerprint_eint_init>;
+	interrupt-parent = <&pio>;
+	interrupts = <15 IRQ_TYPE_EDGE_RISING 15 0>;
+	status = "okay";
+};
+
+&pio {
+	fingerprint_default: state_default {
+	};
+	fingerprint_reset_high: state_reset_high {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO14__FUNC_GPIO14>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	fingerprint_reset_low: state_reset_low {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO14__FUNC_GPIO14>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	fingerprint_eint_init: state_eint_init {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO15__FUNC_GPIO15>;
+			slew-rate = <0>;
+			bias-pull-up = <MTK_PUPD_SET_R1R0_10>;
+			input-schmitt-enable;
+		};
+	};
+};
+/* FINGERPRINT end */
+
 &mt6360_pmu {
 	mt6360,intr_gpio_num = <24>; /* direct defined GPIO num */
 	mt6360,intr_gpio = <&pio 24 0x0>;
