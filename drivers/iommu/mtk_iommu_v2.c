@@ -1334,7 +1334,9 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	}
 
 	pr_notice("iommu:%u, bank:%u, L2 int sta(0x130)=0x%x, main sta(0x134)=0x%x\n",
-		  m4uid, bankid + 1, int_state_l2, int_state);
+		  m4uid,
+		  bankid == MTK_IOMMU_BANK_NODE_COUNT ? 0 : bankid + 1,
+		  int_state_l2, int_state);
 	if (int_state_l2 & F_INT_L2_MULTI_HIT_FAULT)
 		MMU_INT_REPORT(m4uid, 0, F_INT_L2_MULTI_HIT_FAULT);
 
@@ -2565,6 +2567,8 @@ unsigned int mtk_get_main_descriptor(const struct mtk_iommu_data *data,
 {
 	unsigned int regValue = 0;
 	void __iomem *base = data->base;
+	u32 tmp = 0;
+	int ret = 0;
 
 	regValue = F_READ_ENTRY_EN
 		   | F_READ_ENTRY_MMx_MAIN(m4u_slave_id)
@@ -2572,8 +2576,15 @@ unsigned int mtk_get_main_descriptor(const struct mtk_iommu_data *data,
 
 	writel_relaxed(regValue,
 		   base + REG_MMU_READ_ENTRY);
-	while (readl_relaxed(base + REG_MMU_READ_ENTRY) & F_READ_ENTRY_EN)
-		;
+	ret = readl_poll_timeout_atomic(base +
+					REG_MMU_READ_ENTRY, tmp,
+					(tmp & F_READ_ENTRY_EN) == 0,
+					10, 1000);
+	if (ret) {
+		dev_notice(data->dev, "iommu:%d polling timeout\n",
+			   data->m4uid);
+		return 0;
+	}
 	return readl_relaxed(base + REG_MMU_DES_RDATA);
 }
 
@@ -2598,6 +2609,8 @@ unsigned int mtk_get_pfh_tlb(const struct mtk_iommu_data *data,
 {
 	unsigned int regValue = 0;
 	void __iomem *base = data->base;
+	u32 tmp = 0;
+	int ret = 0;
 
 	regValue = F_READ_ENTRY_EN
 		   | F_READ_ENTRY_PFH
@@ -2607,8 +2620,17 @@ unsigned int mtk_get_pfh_tlb(const struct mtk_iommu_data *data,
 
 	writel_relaxed(regValue,
 		   base + REG_MMU_READ_ENTRY);
-	while (readl_relaxed(base + REG_MMU_READ_ENTRY) & F_READ_ENTRY_EN)
-		;
+	ret = readl_poll_timeout_atomic(base +
+					REG_MMU_READ_ENTRY, tmp,
+					(tmp & F_READ_ENTRY_EN) == 0,
+					10, 1000);
+	if (ret) {
+		dev_notice(data->dev, "iommu:%d polling timeout\n",
+			    data->m4uid);
+		pTlb->desc = 0;
+		pTlb->tag = 0;
+		return 0;
+	}
 	pTlb->desc = readl_relaxed(base + REG_MMU_DES_RDATA);
 	pTlb->tag = readl_relaxed(base + REG_MMU_PFH_TAG_RDATA);
 
@@ -2695,6 +2717,8 @@ unsigned int mtk_get_main1_descriptor(
 {
 	unsigned int regValue = 0;
 	void __iomem *base = data->base;
+	u32 tmp = 0;
+	int ret = 0;
 
 	regValue = F_READ_ENTRY_EN
 		   | F_READ_ENTRY_MMx_MAIN(m4u_slave_id)
@@ -2702,8 +2726,15 @@ unsigned int mtk_get_main1_descriptor(
 
 	writel_relaxed(regValue,
 		   base + REG_MMU_READ_ENTRY);
-	while (readl_relaxed(base + REG_MMU_READ_ENTRY) & F_READ_ENTRY_EN)
-		;
+	ret = readl_poll_timeout_atomic(base +
+					REG_MMU_READ_ENTRY, tmp,
+					(tmp & F_READ_ENTRY_EN) == 0,
+					10, 1000);
+	if (ret) {
+		dev_notice(data->dev, "iommu:%d polling timeout\n",
+			   data->m4uid);
+		return 0;
+	}
 	return readl_relaxed(base + REG_MMU_DES_RDATA);
 }
 
@@ -2887,6 +2918,8 @@ unsigned int mtk_get_victim_tlb(const struct mtk_iommu_data *data, int page,
 {
 	unsigned int regValue = 0;
 	void __iomem *base = data->base;
+	u32 tmp = 0;
+	int ret = 0;
 
 	regValue = F_READ_ENTRY_EN
 		   | F_READ_ENTRY_VICT_TLB_SEL
@@ -2895,8 +2928,17 @@ unsigned int mtk_get_victim_tlb(const struct mtk_iommu_data *data, int page,
 
 	writel_relaxed(regValue,
 		   base + REG_MMU_READ_ENTRY);
-	while (readl_relaxed(base + REG_MMU_READ_ENTRY) & F_READ_ENTRY_EN)
-		;
+	ret = readl_poll_timeout_atomic(base +
+					REG_MMU_READ_ENTRY, tmp,
+					(tmp & F_READ_ENTRY_EN) == 0,
+					10, 1000);
+	if (ret) {
+		dev_notice(data->dev, "iommu:%d polling timeout\n",
+			   data->m4uid);
+		pTlb->desc = 0;
+		pTlb->tag = 0;
+		return 0;
+	}
 	pTlb->desc = readl_relaxed(base + REG_MMU_DES_RDATA);
 	pTlb->tag = readl_relaxed(base + REG_MMU_PFH_TAG_RDATA);
 
