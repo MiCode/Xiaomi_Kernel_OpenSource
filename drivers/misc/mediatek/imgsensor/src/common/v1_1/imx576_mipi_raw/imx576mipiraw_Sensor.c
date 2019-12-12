@@ -62,7 +62,6 @@ static int32_t gSensorVersion;
 
 static kal_uint32 streaming_control(kal_bool enable);
 static kal_uint16 imx576_HDR_synthesis = 1;
-static kal_uint16 imx576_shutter_initialize;
 
 #define LOG_INF(format, args...) pr_debug(PFX "[%s] " format, __func__, ##args)
 static DEFINE_SPINLOCK(imgsensor_drv_lock);
@@ -233,7 +232,6 @@ static struct imgsensor_struct imgsensor = {
 	.ihdr_mode = 0, /* sensor need support LE, SE with HDR feature */
 	.hdr_mode = 0, /* HDR mODE : 0: disable HDR, 1:IHDR, 2:HDR, 9:ZHDR */
 	.i2c_write_id = 0x20,
-	.AE_binning_type = BINNING_NONE,
 };
 
 
@@ -458,13 +456,6 @@ static void set_shutter(kal_uint16 shutter)
 	unsigned long flags;
 
 	spin_lock_irqsave(&imgsensor_drv_lock, flags);
-	if (imx576_shutter_initialize == 0) {
-		if (imgsensor.AE_binning_type == BINNING_SUMMED)
-			shutter = shutter/4;
-		else if (imgsensor.AE_binning_type == BINNING_AVERAGED)
-			shutter = shutter/2;
-		imx576_shutter_initialize = 1;
-	}
 	imgsensor.shutter = shutter;
 	spin_unlock_irqrestore(&imgsensor_drv_lock, flags);
 
@@ -2243,15 +2234,6 @@ static kal_uint32 control(enum MSDK_SCENARIO_ID_ENUM scenario_id,
 		return ERROR_INVALID_SCENARIO_ID;
 	}
 
-	imx576_shutter_initialize = 0;
-	if (read_cmos_sensor_8(0x0900) & 0x1) {
-		/*0x0902 =  0:averaged, 1:summed, 2:bayer weighting*/
-		if (read_cmos_sensor_8(0x0902) & 0x1)
-			imgsensor.AE_binning_type = BINNING_SUMMED;
-		else
-			imgsensor.AE_binning_type = BINNING_AVERAGED;
-	} else
-		imgsensor.AE_binning_type = BINNING_NONE;
 	return ERROR_NONE;
 }	/* control() */
 
@@ -3232,14 +3214,25 @@ imgsensor.current_fps = (UINT16)*feature_data_32;
 		streaming_control(KAL_TRUE);
 		break;
 	case SENSOR_FEATURE_GET_BINNING_TYPE:
-		LOG_INF("SENSOR_FEATURE_GET_BINNING_TYPE: %d\n",
-				imgsensor.AE_binning_type);
-		if (imgsensor.AE_binning_type == BINNING_SUMMED)
-			*feature_return_para_32 = 4;
-		else if (imgsensor.AE_binning_type == BINNING_AVERAGED)
-			*feature_return_para_32 = 2;
-		else /*return ratio*/
-			*feature_return_para_32 = 1;
+		switch (*(feature_data + 1)) {
+		case MSDK_SCENARIO_ID_CAMERA_CAPTURE_JPEG:
+			*feature_return_para_32 = 1; /*BINNING_NONE*/
+			break;
+		case MSDK_SCENARIO_ID_CAMERA_PREVIEW:
+		case MSDK_SCENARIO_ID_VIDEO_PREVIEW:
+			if (*(feature_data + 2))/* HDR on */
+				*feature_return_para_32 = 1;/*BINNING_NONE*/
+			else
+				*feature_return_para_32 = 2;/*BINNING_AVERAGED*/
+			break;
+		case MSDK_SCENARIO_ID_HIGH_SPEED_VIDEO:
+		case MSDK_SCENARIO_ID_SLIM_VIDEO:
+		default:
+			*feature_return_para_32 = 2; /*BINNING_AVERAGED*/
+			break;
+		}
+		pr_debug("SENSOR_FEATURE_GET_BINNING_TYPE AE_binning_type:%d\n",
+			*feature_return_para_32);
 
 		*feature_para_len = 4;
 		break;

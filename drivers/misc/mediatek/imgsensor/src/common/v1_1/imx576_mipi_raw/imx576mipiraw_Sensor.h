@@ -70,7 +70,6 @@ struct imgsensor_struct {
 	/* HDR mODE : 0: disable HDR, 1:IHDR, 2:HDR, 9:ZHDR */
 	kal_uint8 hdr_mode;
 	kal_uint8 i2c_write_id; /* record current sensor's i2c write id */
-	kal_uint8  AE_binning_type;
 };
 
 /* SENSOR PRIVATE STRUCT FOR CONSTANT*/
