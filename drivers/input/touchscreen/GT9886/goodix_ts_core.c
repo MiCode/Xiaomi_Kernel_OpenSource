@@ -1253,6 +1253,16 @@ static int goodix_ts_pinctrl_init(struct goodix_ts_core *core_data)
 		return PTR_ERR(core_data->pinctrl);
 	}
 
+	/* default i2c mode */
+	core_data->pin_i2c_mode_default = pinctrl_lookup_state(
+				core_data->pinctrl, PINCTRL_STATE_I2C_DEFAULT);
+	if (IS_ERR_OR_NULL(core_data->pin_i2c_mode_default)) {
+		r = PTR_ERR(core_data->pin_i2c_mode_default);
+		ts_err("Failed to get pinctrl state:%s, r:%d",
+				PINCTRL_STATE_I2C_DEFAULT, r);
+		core_data->pin_i2c_mode_default = NULL;
+	}
+
 	/* int active state */
 	core_data->pin_int_sta_active = pinctrl_lookup_state(
 				core_data->pinctrl, PINCTRL_STATE_INT_ACTIVE);
@@ -1402,7 +1412,7 @@ static void goodix_ts_set_input_params(struct input_dev *input_dev,
 	int i;
 
 	if (ts_bdata->swap_axis)
-		swap(ts_bdata->panel_max_x, ts_bdata->panel_max_y);
+		swap(ts_bdata->input_max_x, ts_bdata->input_max_y);
 
 	input_set_abs_params(input_dev, ABS_MT_POSITION_X,
 			0, ts_bdata->input_max_x, 0, 0);
@@ -2066,6 +2076,12 @@ static int goodix_ts_probe(struct platform_device *pdev)
 	/* Pinctrl handle is optional. */
 	r = goodix_ts_pinctrl_init(core_data);
 	if (!r && core_data->pinctrl) {
+		if (core_data->pin_i2c_mode_default) {
+			r = pinctrl_select_state(core_data->pinctrl,
+				core_data->pin_i2c_mode_default);
+			if (r < 0)
+				ts_err("Failed to select default pinstate, r:%d", r);
+		}
 		r = pinctrl_select_state(core_data->pinctrl,
 				core_data->pin_int_sta_active);
 		if (r < 0)
@@ -2172,8 +2188,7 @@ static struct platform_driver goodix_ts_driver = {
 	.id_table = ts_core_ids,
 };
 
-
-static int __init goodix_ts_core_init(void)
+int goodix_ts_core_init(void)
 {
 	ts_info("Core layer init");
 
@@ -2189,16 +2204,9 @@ static int __init goodix_ts_core_init(void)
 	return platform_driver_register(&goodix_ts_driver);
 }
 
-
-static void __exit goodix_ts_core_exit(void)
+void goodix_ts_core_exit(void)
 {
 	ts_info("Core layer exit");
 	platform_driver_unregister(&goodix_ts_driver);
 }
 
-module_init(goodix_ts_core_init);
-module_exit(goodix_ts_core_exit);
-
-MODULE_DESCRIPTION("Goodix Touchscreen Core Module");
-MODULE_AUTHOR("Goodix, Inc.");
-MODULE_LICENSE("GPL v2");

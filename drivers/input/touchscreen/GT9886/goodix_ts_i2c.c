@@ -1680,9 +1680,9 @@ static void goodix_swap_coords(struct goodix_ts_device *dev,
 			coords->y = temp;
 		}
 		if (bdata->x2x)
-			coords->x = bdata->panel_max_x - coords->x;
+			coords->x = bdata->input_max_x - coords->x;
 		if (bdata->y2y)
-			coords->y = bdata->panel_max_y - coords->y;
+			coords->y = bdata->input_max_y - coords->y;
 		coords++;
 	}
 }
@@ -2257,10 +2257,32 @@ static int goodix_i2c_probe(struct i2c_client *client,
 	 * module will probe the touch device.
 	 */
 	r = platform_device_register(goodix_pdev);
+	if (r) {
+		ts_err("failed register gt9886 platform device, %d", r);
+		goto err_pdev;
+	}
+
+	/* register platform driver*/
+	r = goodix_ts_core_init();
+	if (r) {
+		ts_err("failed register platform driver, %d", r);
+		goto err_pdriver;
+	}
 
 	ts_info("%s OUT", __func__);
 
 	return r;
+
+err_pdriver:
+	platform_device_unregister(goodix_pdev);
+
+err_pdev:
+	if (goodix_pdev) {
+		kfree(goodix_pdev);
+		goodix_pdev = NULL;
+	}
+	return r;
+
 }
 
 static int goodix_i2c_remove(struct i2c_client *client)
@@ -2316,7 +2338,7 @@ static void __exit goodix_i2c_exit(void)
 	i2c_del_driver(&goodix_i2c_driver);
 }
 
-module_init(goodix_i2c_init);
+late_initcall(goodix_i2c_init);
 module_exit(goodix_i2c_exit);
 
 MODULE_DESCRIPTION("Goodix GT9886 Touchscreen Hardware Module");
