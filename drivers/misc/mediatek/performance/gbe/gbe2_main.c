@@ -42,6 +42,7 @@
 #define DEFAULT_LOADING_TH 20
 
 #define SYSTEMUI_STR "ndroid.systemui"
+#define MTK_LTR_STR  "om.mediatek.pfm"
 
 static HLIST_HEAD(gbe_boost_units);
 static DEFINE_MUTEX(gbe_lock);
@@ -392,7 +393,8 @@ static int ignore_systemui(int pid)
 	}
 	rcu_read_unlock();
 
-	ret = !strncmp(SYSTEMUI_STR, gtsk->comm, 16);
+	ret = !strncmp(SYSTEMUI_STR, gtsk->comm, 16) ||
+	!strncmp(MTK_LTR_STR, gtsk->comm, 16);
 	put_task_struct(gtsk);
 
 out:
