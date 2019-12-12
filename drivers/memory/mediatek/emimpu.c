@@ -287,9 +287,6 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 	bool violation;
 	char aee_msg[MTK_EMI_MAX_CMD_LEN];
 	ssize_t aee_msg_cnt;
-#if defined(CONFIG_MACH_MT6885)
-	bool is_bugon = false;
-#endif
 
 	aee_msg_cnt = snprintf(aee_msg, MTK_EMI_MAX_CMD_LEN, "violation\n");
 	for (emi_id = 0; emi_id < emimpu_dev_ptr->emi_cen_cnt; emi_id++) {
@@ -311,21 +308,11 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 					"off", dump_reg[i].offset,
 					"val", dump_reg[i].value);
 			}
-#if defined(CONFIG_MACH_MT6885)
-			/* KE while get region 8 Violation  */
-			if (emi_id == 0 && dump_reg[i].offset == 0x1f0
-				&& ((dump_reg[i].value&0x1F0000) >> 16) == 8) {
-				pr_info("%s: Region 8 Violation\n", __func__);
-				is_bugon = true;
-			}
-#endif
+
 			if (dump_reg[i].value)
 				violation = true;
 		}
-#if defined(CONFIG_MACH_MT6885)
-		if (is_bugon)
-			BUG();
-#endif
+
 		if (!violation)
 			continue;
 
