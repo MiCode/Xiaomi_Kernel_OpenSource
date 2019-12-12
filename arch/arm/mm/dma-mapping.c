@@ -1394,7 +1394,8 @@ static inline void __free_iova(struct dma_iommu_mapping *mapping,
 
 	start = (addr - bitmap_base) >>	PAGE_SHIFT;
 
-	if (addr + size > bitmap_base + mapping_size) {
+	if ((addr + size - 1 > addr) &&
+		(addr + size - 1 > bitmap_base + mapping_size - 1)) {
 		/*
 		 * The address range to be freed reaches into the iova
 		 * range of the next bitmap. This should not happen as
