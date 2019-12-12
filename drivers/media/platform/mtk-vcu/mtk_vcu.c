@@ -338,19 +338,30 @@ int vcu_ipi_register(struct platform_device *pdev,
 {
 	struct mtk_vcu *vcu = platform_get_drvdata(pdev);
 	struct vcu_ipi_desc *ipi_desc;
+	int i = 0;
 
 	if (vcu == NULL) {
 		dev_err(&pdev->dev, "vcu device in not ready\n");
 		return -EPROBE_DEFER;
 	}
 
+	if (id < IPI_VCU_INIT || id >= IPI_MAX) {
+		dev_info(&pdev->dev, "[VCU] failed to register ipi message (Invalid arg.)\n");
+		return -EINVAL;
+	}
+
+	i = ipi_id_to_inst_id(id);
+	mutex_lock(&vcu->vcu_mutex[i]);
+
 	if (id >= IPI_VCU_INIT && id < IPI_MAX && handler != NULL) {
 		ipi_desc = vcu->ipi_desc;
 		ipi_desc[id].name = name;
 		ipi_desc[id].handler = handler;
 		ipi_desc[id].priv = priv;
+		mutex_unlock(&vcu->vcu_mutex[i]);
 		return 0;
 	}
+	mutex_unlock(&vcu->vcu_mutex[i]);
 
 	dev_err(&pdev->dev, "register vcu ipi id %d with invalid arguments\n",
 		id);
@@ -360,10 +371,11 @@ EXPORT_SYMBOL_GPL(vcu_ipi_register);
 
 int vcu_ipi_send(struct platform_device *pdev,
 		 enum ipi_id id, void *buf,
-		 unsigned int len)
+		 unsigned int len, void *priv)
 {
 	int i = 0;
 	struct mtk_vcu *vcu = platform_get_drvdata(pdev);
+	struct vcu_ipi_desc *ipi_desc;
 	struct share_obj send_obj;
 	mm_segment_t old_fs;
 	unsigned long timeout;
@@ -450,6 +462,10 @@ int vcu_ipi_send(struct platform_device *pdev,
 		goto end;
 	}
 
+	if (id >= IPI_VCU_INIT && id < IPI_MAX) {
+		ipi_desc = vcu->ipi_desc;
+		ipi_desc[id].priv = priv;
+	}
 	/* wait for VCU's ACK */
 	timeout = msecs_to_jiffies(IPI_TIMEOUT_MS);
 	ret = wait_event_timeout(vcu->ack_wq[i], vcu->ipi_id_ack[id], timeout);

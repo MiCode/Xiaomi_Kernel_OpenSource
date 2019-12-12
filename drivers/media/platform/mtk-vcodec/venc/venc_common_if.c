@@ -301,6 +301,7 @@ static int venc_init(struct mtk_vcodec_ctx *ctx, unsigned long *handle)
 	}
 
 	inst->hw_base = mtk_vcodec_get_enc_reg_addr(inst->ctx, VENC_SYS);
+	inst->vcu_inst.handler = vcu_enc_ipi_handler;
 
 	mtk_vcodec_debug_enter(inst);
 

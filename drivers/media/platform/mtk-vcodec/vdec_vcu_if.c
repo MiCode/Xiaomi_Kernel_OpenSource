@@ -183,6 +183,11 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 	}
 
 	vcu = (struct vdec_vcu_inst *)(unsigned long)msg->ap_inst_addr;
+	if ((vcu != priv) && msg->msg_id < VCU_IPIMSG_DEC_WAITISR) {
+		pr_info("%s, vcu:%p != priv:%p\n", __func__, vcu, priv);
+		return 1;
+	}
+
 	vsi = (struct vdec_vsi *)vcu->vsi;
 	mtk_vcodec_debug(vcu, "+ id=%X status = %d\n",
 		msg->msg_id, msg->status);
@@ -382,7 +387,7 @@ static int vcodec_vcu_send_msg(struct vdec_vcu_inst *vcu, void *msg, int len)
 	vcu->failure = 0;
 	vcu->signaled = 0;
 
-	err = vcu_ipi_send(vcu->dev, vcu->id, msg, len);
+	err = vcu_ipi_send(vcu->dev, vcu->id, msg, len, vcu);
 	if (err) {
 		mtk_vcodec_err(vcu, "send fail vcu_id=%d msg_id=%X status=%d",
 					   vcu->id, *(uint32_t *)msg, err);
@@ -435,7 +440,7 @@ int vcu_dec_init(struct vdec_vcu_inst *vcu)
 	vcu->signaled = 0;
 	vcu->failure = 0;
 
-	err = vcu_ipi_register(vcu->dev, vcu->id, vcu->handler, NULL, NULL);
+	err = vcu_ipi_register(vcu->dev, vcu->id, vcu->handler, NULL, vcu);
 	if (err != 0) {
 		mtk_vcodec_err(vcu, "vcu_ipi_register fail status=%d", err);
 		return err;
@@ -503,7 +508,7 @@ int vcu_dec_query_cap(struct vdec_vcu_inst *vcu, unsigned int id, void *out)
 	vcu->id = (vcu->id == IPI_VCU_INIT) ? IPI_VDEC_COMMON : vcu->id;
 	vcu->handler = vcu_dec_ipi_handler;
 
-	err = vcu_ipi_register(vcu->dev, vcu->id, vcu->handler, NULL, NULL);
+	err = vcu_ipi_register(vcu->dev, vcu->id, vcu->handler, NULL, vcu);
 	if (err != 0) {
 		mtk_vcodec_err(vcu, "vcu_ipi_register fail status=%d", err);
 		return err;
