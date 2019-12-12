@@ -95,7 +95,6 @@ static enum hrtimer_restart timer_callback(struct hrtimer *timer)
 	struct kbase_backend_data *backend;
 	int s;
 	bool reset_needed = false;
-	//bool bugon_needed = false;
 
 	int idx, freq, vgpu, vsram;
 

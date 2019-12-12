@@ -805,19 +805,21 @@ void mt_gpufreq_software_trigger_dfd(void)
 #if MT_GPUFREQ_DFD_ENABLE
 	unsigned int val;
 
-	if (!g_dbgtop) {
-		gpufreq_pr_info("io init fail!\n");
-		return;
-	}
+	val = readl(g_dbgtop + 0x040) | (0x95 << 24) | 0x10;
+	writel(val, g_dbgtop + 0x040);
 
-	val = readl(g_infracfg_ao + 0x040) | (0x95 << 24) | 0x10;
-	writel(val, g_infracfg_ao + 0x040);
-
-	val = readl(g_infracfg_ao + 0x044) | (0x95 << 24) | 0x20000;
-	writel(val, g_infracfg_ao + 0x044);
+	val = readl(g_dbgtop + 0x044) | (0x95 << 24) | 0x20000;
+	writel(val, g_dbgtop + 0x044);
 
 	writel(0x0F011100, g_mfg_base + 0xA00);
 
+	val = readl(g_infracfg_ao + 0x600);
+	if (!(val & 0x80000))
+		gpufreq_pr_info("software_trigger failed: %0x:%08x\n",
+			0x10001600, val);
+	else if (g_dfd_force_dump)
+		gpufreq_pr_info("software_trigger state: %0x:%08x\n",
+			0x10001600, val);
 #endif
 }
 
