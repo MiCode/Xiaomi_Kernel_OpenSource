@@ -76,6 +76,10 @@ __weak void mtk_timer_clkevt_aee_dump(void)
 {
 }
 
+__weak void timer_list_aee_dump(int exclude_cpus)
+{
+}
+
 static int kwdt_thread(void *arg);
 static int start_kicker(void);
 
@@ -369,6 +373,7 @@ void dump_wdk_bind_info(void)
 #endif
 	mtk_timer_clkevt_aee_dump();
 	tick_broadcast_mtk_aee_dump();
+	timer_list_aee_dump(kick_bit);
 }
 
 void kicker_cpu_bind(int cpu)
