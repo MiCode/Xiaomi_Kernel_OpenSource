@@ -55,6 +55,8 @@ QOS_BOUND_DETECT := true
 FORCE_STEP0 := false
 ccflags-y += -DCHECK_VOLTAGE
 ccflags-y += -DPMQOS_USE_IOMMU_PORT
+else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6873"))
+BUILD_MMDVFS := true
 endif
 
 ifeq ($(CONFIG_MTK_MMDVFS),y)
