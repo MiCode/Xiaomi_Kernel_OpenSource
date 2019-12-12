@@ -14,9 +14,9 @@
 #ifndef __MTK_STATIC_POWER_MTK6873_H__
 #define __MTK_STATIC_POWER_MTK6873_H__
 
-//#define SPOWER_NOT_READY 1
+#define SPOWER_NOT_READY 1
 
-//#define WITHOUT_LKG_EFUSE
+#define WITHOUT_LKG_EFUSE
 
 /* mv */
 #define V_OF_FUSE_CPU	900

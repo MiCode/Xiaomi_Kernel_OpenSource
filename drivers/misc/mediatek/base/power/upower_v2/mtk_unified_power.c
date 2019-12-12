@@ -505,7 +505,7 @@ static void get_LL_pwr_efficiency(void)
 	for (i = 0; i < UPOWER_OPP_NUM; i++) {
 		LL_pwr = (unsigned long long)(tbl->row[i].lkg_pwr[LKG_IDX] +
 				tbl->row[i].dyn_pwr);
-#ifdef CONFIG_MACH_MT6885
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873)
 		CCI_pwr = 0;
 #else
 		CCI_pwr = (unsigned long long)(ctbl->row[i].lkg_pwr[LKG_IDX] +
