@@ -1142,8 +1142,7 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 			comp->regs_pa + DISP_REG_OVL_EL_PITCH(id),
 			pitch, ~0);
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-		if ((comp->mtk_crtc->sec_on) &&
-			(comp->id == DDP_COMPONENT_OVL0_2L)) {
+		if (comp->mtk_crtc->sec_on) {
 			u32 size, meta_type, addr;
 
 			size = buf_size;
@@ -1174,8 +1173,7 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 			comp->regs_pa + DISP_REG_OVL_PITCH(lye_idx),
 			pitch, ~0);
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-		if ((comp->mtk_crtc->sec_on) &&
-			(comp->id == DDP_COMPONENT_OVL0_2L)) {
+		if (comp->mtk_crtc->sec_on) {
 			u32 size, meta_type, addr;
 
 			size = buf_size;
@@ -1489,8 +1487,7 @@ static bool compr_l_config_PVRIC_V3_1(struct mtk_ddp_comp *comp,
 		unsigned int id = ext_lye_idx - 1;
 
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-		if ((comp->mtk_crtc->sec_on) &&
-			(comp->id == DDP_COMPONENT_OVL0_2L)) {
+		if (comp->mtk_crtc->sec_on) {
 			u32 size, meta_type, addr;
 
 			addr = comp->regs_pa +
@@ -1530,8 +1527,7 @@ static bool compr_l_config_PVRIC_V3_1(struct mtk_ddp_comp *comp,
 			       lx_hdr_pitch, ~0);
 	} else {
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-		if ((comp->mtk_crtc->sec_on) &&
-			(comp->id == DDP_COMPONENT_OVL0_2L)) {
+		if (comp->mtk_crtc->sec_on) {
 			u32 size, meta_type, addr;
 
 			addr = comp->regs_pa +
@@ -1749,8 +1745,7 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 		unsigned int id = ext_lye_idx - 1;
 
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-		if ((comp->mtk_crtc->sec_on) &&
-			(comp->id == DDP_COMPONENT_OVL0_2L)) {
+		if (comp->mtk_crtc->sec_on) {
 			u32 size, meta_type, addr;
 
 			addr = comp->regs_pa +
@@ -1796,8 +1791,7 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 			lx_hdr_pitch, ~0);
 	} else {
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-		if ((comp->mtk_crtc->sec_on) &&
-			(comp->id == DDP_COMPONENT_OVL0_2L)) {
+		if (comp->mtk_crtc->sec_on) {
 			u32 size, meta_type, addr;
 
 			addr = comp->regs_pa +

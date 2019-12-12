@@ -246,6 +246,7 @@ static struct mtk_plane_state *drm_set_dal_plane_state(struct drm_crtc *crtc,
 	plane_state->pending.config = 1;
 	plane_state->pending.dirty = 1;
 	plane_state->pending.enable = !!enable;
+	plane_state->pending.is_sec = false;
 
 	pending->prop_val[PLANE_PROP_ALPHA_CON] = 0x1;
 	pending->prop_val[PLANE_PROP_PLANE_ALPHA] = 0x80;

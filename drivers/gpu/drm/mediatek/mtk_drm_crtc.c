@@ -3116,7 +3116,7 @@ void mtk_crtc_disable_secure_state(struct drm_crtc *crtc)
 	/* Disable secure path */
 	cmdq_sec_pkt_set_data(cmdq_handle,
 		0,
-		(0 << CMDQ_SEC_DISP_2L_OVL0),
+		(0 << CMDQ_SEC_DISP_OVL0) | (0 << CMDQ_SEC_DISP_2L_OVL0),
 		CMDQ_SEC_DISP_PRIMARY_DISABLE_SECURE_PATH,
 		CMDQ_METAEX_NONE);
 
@@ -3125,6 +3125,10 @@ void mtk_crtc_disable_secure_state(struct drm_crtc *crtc)
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
 		mtk_ddp_comp_io_cmd(comp, cmdq_handle,
 			OVL_ALL_LAYER_OFF, &keep_first_layer);
+
+	/* update DAL layer in normal world */
+	if ((mtk_drm_dal_enable()) && (drm_crtc_index(crtc) == 0))
+		drm_set_dal(crtc, cmdq_handle);
 
 	cmdq_pkt_flush(cmdq_handle);
 	cmdq_pkt_destroy(cmdq_handle);
@@ -3142,6 +3146,7 @@ struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc)
 			mtk_crtc->gce_obj.client[CLIENT_SEC_CFG]);
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 		cmdq_sec_pkt_set_data(cmdq_handle, 0,
+			(1 << CMDQ_SEC_DISP_OVL0) |
 			(1 << CMDQ_SEC_DISP_2L_OVL0),
 			CMDQ_SEC_PRIMARY_DISP,
 			CMDQ_METAEX_NONE);
@@ -3154,6 +3159,13 @@ struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc)
 			mtk_crtc->gce_obj.client[CLIENT_CFG]);
 
 	mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle, DDP_FIRST_PATH);
+
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+	/* update DAL layer in secure world */
+	if ((mtk_crtc->sec_on) && (mtk_drm_dal_enable())
+		&& (drm_crtc_index(crtc) == 0))
+		drm_set_dal(crtc, cmdq_handle);
+#endif
 
 	return cmdq_handle;
 }
