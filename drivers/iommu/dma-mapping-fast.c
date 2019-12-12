@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/dma-contiguous.h>
@@ -1023,6 +1023,7 @@ void fast_smmu_put_dma_cookie(struct iommu_domain *domain)
 	kfree(fast);
 	domain->iova_cookie = NULL;
 }
+EXPORT_SYMBOL(fast_smmu_put_dma_cookie);
 
 const struct dma_map_ops *fast_smmu_get_dma_ops(void)
 {
@@ -1076,3 +1077,4 @@ finish:
 	fast_smmu_reserve_pci_windows(dev, fast);
 	return 0;
 }
+EXPORT_SYMBOL(fast_smmu_init_mapping);
