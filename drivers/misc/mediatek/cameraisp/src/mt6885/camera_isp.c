@@ -5255,13 +5255,13 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				//lock_reg.CAM_REG_CTL_EN4[Dapc_Reg[0]] =
 				//	Dapc_Reg[5];
 				lock_reg.CAM_REG_CTL_DMA_EN[Dapc_Reg[0]] =
-					Dapc_Reg[6];
+					Dapc_Reg[5];
 				lock_reg.CAM_REG_CTL_DMA2_EN[Dapc_Reg[0]] =
-					Dapc_Reg[7];
+					Dapc_Reg[6];
 				lock_reg.CAM_REG_CTL_SEL[Dapc_Reg[0]] =
-					Dapc_Reg[8];
+					Dapc_Reg[7];
 				lock_reg.CAM_REG_CTL_SEL2[Dapc_Reg[0]] =
-					Dapc_Reg[9];
+					Dapc_Reg[8];
 				LOG_INF(
 				"[DAPC]EN:0x%x EN2:0x%x EN3:0x%x\n",
 					lock_reg.CAM_REG_CTL_EN[Dapc_Reg[0]],
@@ -6959,7 +6959,7 @@ static int ISP_suspend(struct platform_device *pDev, pm_message_t Mesg)
 		/* Only print cama log */
 		if (strcmp(moduleName,
 			IRQ_CB_TBL[ISP_IRQ_TYPE_INT_CAM_A_ST].device_name) ==
-			0) {
+				0) {
 
 			LOG_DBG("%s - X. UserCount=%d,wakelock:%d,devct:%d\n",
 				moduleName, IspInfo.UserCount,
@@ -7106,7 +7106,6 @@ static int ISP_suspend(struct platform_device *pDev, pm_message_t Mesg)
 		LOG_INF("%s_suspend,wakelock:%d,clk:%d,devct:%d\n", moduleName,
 			g_WaitLockCt, G_u4EnableClockCount,
 			atomic_read(&G_u4DevNodeCt));
-
 		SuspnedRecord[module] = 0;
 	}
 
