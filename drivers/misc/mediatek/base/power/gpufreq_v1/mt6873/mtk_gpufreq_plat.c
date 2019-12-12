@@ -1456,13 +1456,17 @@ static unsigned int __mt_gpufreq_get_segment_id(void)
 		return segment_id;
 
 	/* spare[7:0] */
-	efuse_id = (get_devinfo_with_index(30) & 0xFF);  //FIXME
+	/*
+	 * 5G-A (MT6873)  = 8" b0000_0001
+	 * 5G-A+(MT6873T) = 8" b0001_0000
+	 */
+	efuse_id = (get_devinfo_with_index(30) & 0xFF);
 
 	switch (efuse_id) {
-	case 0x0: // FIXME
+	case 0x1:
 		segment_id = MT6873_SEGMENT;    /* 5G-A */
 		break;
-	case 0x1: // FIXME
+	case 0x10:
 		segment_id = MT6873T_SEGMENT;   /* 5G-A+ */
 		break;
 	default:
