@@ -366,9 +366,9 @@ struct  MFB_USER_INFO_STRUCT {
 struct MFB_IRQ_INFO_STRUCT {
 	unsigned int Status[MFB_IRQ_TYPE_AMOUNT];
 	signed int MssIrqCnt[IRQ_USER_NUM_MAX];
-	signed int MsfIrqCnt;
+	signed int MsfIrqCnt[IRQ_USER_NUM_MAX];
 	pid_t ProcessID[IRQ_USER_NUM_MAX];
-	pid_t ProcessFD[MFB_PROCESS_ID_AMOUNT];
+	pid_t ProcessFD[IRQ_USER_NUM_MAX];
 	unsigned int Mask[MFB_IRQ_TYPE_AMOUNT];
 };
 
@@ -733,29 +733,31 @@ static inline unsigned int MSF_GetIRQState(
 	enum MFB_PROCESS_ID_ENUM whichReq, int ProcessID)
 {
 	unsigned int ret = 0;
+	unsigned int p;
 	unsigned long flags; /* old: unsigned int flags;*/
 			     /* FIX to avoid build warning */
 
 	/*  */
+	p = ProcessID % IRQ_USER_NUM_MAX;
 	spin_lock_irqsave(&(MFBInfo.SpinLockIrq[type]), flags);
 	if (stus & MSF_INT_ST) {
 		LOG_DBG("%s MsfIrqCnt is %d for pid %d", __func__,
-			MFBInfo.IrqInfo.MsfIrqCnt,
-			MFBInfo.IrqInfo.ProcessFD[whichReq]);
-		ret = ((MFBInfo.IrqInfo.MsfIrqCnt > 0)
-		       && (MFBInfo.IrqInfo.ProcessFD[whichReq] == ProcessID));
+			MFBInfo.IrqInfo.MsfIrqCnt[p],
+			MFBInfo.IrqInfo.ProcessFD[p]);
+		ret = ((MFBInfo.IrqInfo.MsfIrqCnt[p] > 0)
+		       && (MFBInfo.IrqInfo.ProcessFD[p] == ProcessID));
 	} else {
 		LOG_ERR(
 		"WaitIRQ Status Error, type:%d, userNumber:%d, status:%d, whichReq:%d, ProcessID:0x%x\n",
-		     type, userNumber, stus, whichReq, ProcessID);
+		     type, userNumber, stus, p, ProcessID);
 	}
 	spin_unlock_irqrestore(&(MFBInfo.SpinLockIrq[type]), flags);
 	if (ret == 1) {
 		LOG_DBG("%s last msfirqcnt %d not clearing pid %d for proc %d",
 			__func__,
-			MFBInfo.IrqInfo.MsfIrqCnt,
-			MFBInfo.IrqInfo.ProcessFD[whichReq],
-			whichReq);
+			MFBInfo.IrqInfo.MsfIrqCnt[p],
+			MFBInfo.IrqInfo.ProcessFD[p],
+			p);
 	}
 	/*  */
 	return ret;
@@ -1268,6 +1270,7 @@ static void msf_norm_sirq(struct cmdq_cb_data data)
 	bool bResulst = MFALSE;
 	pid_t ProcessID;
 	unsigned long flag;
+	unsigned int p = 0;
 
 	pkt = (struct cmdq_pkt *) data.data;
 	if (data.err < 0) {
@@ -1286,11 +1289,12 @@ static void msf_norm_sirq(struct cmdq_cb_data data)
 		#if REQUEST_REGULATION == REQUEST_BASE_REGULATION
 		queue_work(MFBInfo.wkqueueMsf, &MFBInfo.ScheduleMsfWork);
 		#endif
+		p = ProcessID % IRQ_USER_NUM_MAX;
 		MFBInfo.IrqInfo
 		    .Status[MFB_IRQ_TYPE_INT_MSF_ST] |= MSF_INT_ST;
 		MFBInfo.IrqInfo
-		    .ProcessFD[MFB_PROCESS_ID_MSF] = ProcessID;
-		MFBInfo.IrqInfo.MsfIrqCnt++;
+		    .ProcessFD[p] = ProcessID;
+		MFBInfo.IrqInfo.MsfIrqCnt[p]++;
 	}
 	spin_unlock_irqrestore(&(MFBInfo.SpinLockIrq[MFB_IRQ_TYPE_INT_MSF_ST]),
 									flag);
@@ -1304,7 +1308,7 @@ static void msf_norm_sirq(struct cmdq_cb_data data)
 	/* dump log, use tasklet */
 	IRQ_LOG_KEEPER(MFB_IRQ_TYPE_INT_MSF_ST, m_CurrentPPB, _LOG_INF,
 		       "%s, bResulst:%d, MsfIrqCnt:0x%x\n",
-		       __func__, bResulst, MFBInfo.IrqInfo.MsfIrqCnt);
+		       __func__, bResulst, MFBInfo.IrqInfo.MsfIrqCnt[p]);
 	tasklet_schedule(MFB_tasklet[MFB_IRQ_TYPE_INT_MSF_ST].pMFB_tkt);
 
 	#if (REQUEST_REGULATION == FRAME_BASE_REGULATION)
@@ -1419,6 +1423,7 @@ static void msf_vss_sirq(struct cmdq_cb_data data)
 	bool bResulst = MFALSE;
 	pid_t ProcessID;
 	unsigned long flag;
+	unsigned int p = 0;
 
 	pkt = (struct cmdq_pkt *) data.data;
 	if (data.err < 0) {
@@ -1437,11 +1442,12 @@ static void msf_vss_sirq(struct cmdq_cb_data data)
 		#if REQUEST_REGULATION == REQUEST_BASE_REGULATION
 		queue_work(MFBInfo.wkqueueMsf, &MFBInfo.vmsfwork);
 		#endif
+		p = ProcessID % IRQ_USER_NUM_MAX;
 		MFBInfo.IrqInfo
 		    .Status[MFB_IRQ_TYPE_INT_MSF_ST] |= MSF_INT_ST;
 		MFBInfo.IrqInfo
-		    .ProcessFD[MFB_PROCESS_ID_MSF] = ProcessID;
-		MFBInfo.IrqInfo.MsfIrqCnt++;
+		    .ProcessFD[p] = ProcessID;
+		MFBInfo.IrqInfo.MsfIrqCnt[p]++;
 	}
 	spin_unlock_irqrestore(&(MFBInfo.SpinLockIrq[MFB_IRQ_TYPE_INT_MSF_ST]),
 									flag);
@@ -1455,7 +1461,7 @@ static void msf_vss_sirq(struct cmdq_cb_data data)
 	/* dump log, use tasklet */
 	IRQ_LOG_KEEPER(MFB_IRQ_TYPE_INT_MSF_ST, m_CurrentPPB, _LOG_INF,
 		       "%s: bResulst:%d, MsfIrqCnt:0x%x\n",
-		       __func__, bResulst, MFBInfo.IrqInfo.MsfIrqCnt);
+		       __func__, bResulst, MFBInfo.IrqInfo.MsfIrqCnt[p]);
 	tasklet_schedule(MFB_tasklet[MFB_IRQ_TYPE_INT_MSF_ST].pMFB_tkt);
 
 	#if (REQUEST_REGULATION == FRAME_BASE_REGULATION)
@@ -2464,6 +2470,7 @@ static signed int MSF_WaitIrq(struct MFB_WAIT_IRQ_STRUCT *WaitIrq)
 	struct timeval time_getrequest;
 	unsigned long long sec = 0;
 	unsigned long usec = 0;
+	unsigned int p;
 
 	/* do_gettimeofday(&time_getrequest); */
 	sec = cpu_clock(0);	/* ns */
@@ -2555,6 +2562,7 @@ static signed int MSF_WaitIrq(struct MFB_WAIT_IRQ_STRUCT *WaitIrq)
 				WaitIrq->ProcessID),
 				MFB_MsToJiffies(WaitIrq->Timeout));
 
+	p = WaitIrq->ProcessID % IRQ_USER_NUM_MAX;
 	/* check if user is interrupted by system signal */
 	if ((Timeout != 0) &&
 	    (!MSF_GetIRQState(
@@ -2590,7 +2598,7 @@ static signed int MSF_WaitIrq(struct MFB_WAIT_IRQ_STRUCT *WaitIrq)
 			WaitIrq->UserKey, whichReq, WaitIrq->ProcessID);
 		LOG_ERR(
 			"MsfIrqCnt(0x%08X)\n",
-			MFBInfo.IrqInfo.MsfIrqCnt);
+			MFBInfo.IrqInfo.MsfIrqCnt[p]);
 
 		if (WaitIrq->bDumpReg)
 			MSF_DumpReg();
@@ -2616,8 +2624,8 @@ static signed int MSF_WaitIrq(struct MFB_WAIT_IRQ_STRUCT *WaitIrq)
 				&(MFBInfo.SpinLockIrq[WaitIrq->Type]), flags);
 
 			if (WaitIrq->Status & MSF_INT_ST) {
-				MFBInfo.IrqInfo.MsfIrqCnt--;
-				if (MFBInfo.IrqInfo.MsfIrqCnt == 0)
+				MFBInfo.IrqInfo.MsfIrqCnt[p]--;
+				if (MFBInfo.IrqInfo.MsfIrqCnt[p] == 0)
 					MFBInfo.IrqInfo.Status[WaitIrq->Type] &=
 						(~WaitIrq->Status);
 			} else {
@@ -2936,8 +2944,11 @@ static long MFB_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 
 				IrqInfo.ProcessID = pUserInfo->Pid;
 				Ret = MSF_WaitIrq(&IrqInfo);
-				if (Ret < 0)
+				if (Ret < 0) {
+					mfb_request_dump(&vmsf_reqs);
+					mfb_request_dump(&msf_reqs);
 					MSF_DumpReg();
+				}
 
 				if (copy_to_user((void *)Param, &IrqInfo,
 				    sizeof(struct MFB_WAIT_IRQ_STRUCT)) != 0) {
@@ -3753,9 +3764,10 @@ static signed int MFB_open(struct inode *pInode, struct file *pFile)
 	} else {
 		MFBInfo.UserCount++;
 
-		for (i = 0; i < IRQ_USER_NUM_MAX; i++)
+		for (i = 0; i < IRQ_USER_NUM_MAX; i++) {
 			MFBInfo.IrqInfo.MssIrqCnt[i] = 0;
-		MFBInfo.IrqInfo.MsfIrqCnt = 0;
+			MFBInfo.IrqInfo.MsfIrqCnt[i] = 0;
+		}
 		/*  */
 		mfb_register_requests(&mss_reqs, sizeof(struct MFB_MSSConfig));
 		mfb_set_engine_ops(&mss_reqs, &mss_ops);
