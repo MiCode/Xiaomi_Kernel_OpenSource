@@ -3903,6 +3903,8 @@
 		mboxes = <&gce_mbox 17 0 CMDQ_THR_PRIO_1>;
 		mss_frame_done =
 		/bits/ 16 <CMDQ_EVENT_IMG2_MSS_DONE_LINK_MISC>;
+		mss_token =
+		/bits/ 16 <CMDQ_SYNC_TOKEN_MSS>;
 	};
 
 	msf_b@15810000 {
@@ -3912,6 +3914,8 @@
 		mboxes = <&gce_mbox 18 0 CMDQ_THR_PRIO_1>;
 		msf_frame_done =
 		/bits/ 16 <CMDQ_EVENT_IMG2_MFB_DONE_LINK_MISC>;
+		msf_token =
+		/bits/ 16 <CMDQ_SYNC_TOKEN_MSF>;
 		clocks =
 				<&imgsys2_config IMGSYS2_LARB11_CGPDN>,
 				<&imgsys2_config IMGSYS2_MSS_CGPDN>,

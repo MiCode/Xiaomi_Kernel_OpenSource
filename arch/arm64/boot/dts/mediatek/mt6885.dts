@@ -4943,6 +4943,8 @@ page_owner=on loop.max_part=7";
 		mboxes = <&gce_mbox_m 19 0 CMDQ_THR_PRIO_1>;
 		mss_frame_done =
 		/bits/ 16 <CMDQ_EVENT_IMG1_EVENT_TX_FRAME_DONE_23>;
+		mss_token =
+		/bits/ 16 <CMDQ_SYNC_TOKEN_MSS>;
 	};
 
 	msf@15010000 {
@@ -4952,6 +4954,8 @@ page_owner=on loop.max_part=7";
 		mboxes = <&gce_mbox_m 20 0 CMDQ_THR_PRIO_1>;
 		msf_frame_done =
 		/bits/ 16 <CMDQ_EVENT_IMG1_EVENT_TX_FRAME_DONE_21>;
+		msf_token =
+		/bits/ 16 <CMDQ_SYNC_TOKEN_MSF>;
 		clocks =
 				<&imgsys_config IMGSYS1_LARB9_CGPDN>,
 				<&imgsys_config IMGSYS1_MSS_CGPDN>,

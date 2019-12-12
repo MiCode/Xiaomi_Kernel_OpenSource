@@ -67,7 +67,6 @@
 //#include <cmdq_core.h>
 //#include <cmdq_record.h>
 #include <linux/soc/mediatek/mtk-cmdq.h>
-#include <dt-bindings/gce/mt6885-gce.h>
 #include <smi_public.h>
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 #include <cmdq-util.h>
@@ -275,6 +274,7 @@ static int nr_MFB_devs;
 static struct device *MFB_cmdq_dev;
 static struct cmdq_client *mss_clt, *msf_clt;
 static u16 mss_done_event_id, msf_done_event_id;
+static u16 mss_token_id, msf_token_id;
 
 
 /* Get HW modules' base address from device nodes */
@@ -1033,7 +1033,7 @@ signed int CmdqMSSHW(struct frame *frame)
 	/*if (pMssConfig->eng_secured == 1)*//*YWtodo*/
 		/*cmdq_engine_secured(handle, CMDQ_ENG_MSS);*/
 #ifdef USE_SW_TOKEN
-	cmdq_pkt_acquire_event(handle, CMDQ_SYNC_TOKEN_MSS);
+	cmdq_pkt_acquire_event(handle, mss_token_id);
 #endif
 #define TPIPE_MODE_PREVIEW
 #ifdef TPIPE_MODE_PREVIEW
@@ -1056,7 +1056,7 @@ signed int CmdqMSSHW(struct frame *frame)
 #endif
 #endif
 #ifdef USE_SW_TOKEN
-	cmdq_pkt_clear_event(handle, CMDQ_SYNC_TOKEN_MSS);
+	cmdq_pkt_clear_event(handle, mss_token_id);
 #endif
 #ifdef MFB_PMQOS
 	MFBQOS_Update(1, 0, pMssConfig->qos);
@@ -1183,11 +1183,11 @@ signed int vCmdqMSSHW(struct frame *frame)
 	handle = cmdq_pkt_create(mss_clt);
 	handle->priority = 0;
 #ifdef USE_SW_TOKEN
-	cmdq_pkt_acquire_event(handle, CMDQ_SYNC_TOKEN_MSS);
+	cmdq_pkt_acquire_event(handle, mss_token_id);
 #endif
 	mss_pkt_tcmds(handle, pMssConfig);
 #ifdef USE_SW_TOKEN
-	cmdq_pkt_clear_event(handle, CMDQ_SYNC_TOKEN_MSS);
+	cmdq_pkt_clear_event(handle, mss_token_id);
 #endif
 #ifdef MFB_PMQOS
 	MFBQOS_Update(1, 1, pMssConfig->qos);
@@ -1332,7 +1332,7 @@ signed int CmdqMSFHW(struct frame *frame)
 		/*cmdq_engine_secured(handle, CMDQ_ENG_MSS);*/
 	handle->priority = 20;
 #ifdef USE_SW_TOKEN
-	cmdq_pkt_acquire_event(handle, CMDQ_SYNC_TOKEN_MSF);
+	cmdq_pkt_acquire_event(handle, msf_token_id);
 #endif
 #ifdef TPIPE_MODE_PREVIEW
 	msf_pkt_tcmds(handle, pMsfConfig);
@@ -1355,7 +1355,7 @@ signed int CmdqMSFHW(struct frame *frame)
 #endif
 #endif
 #ifdef USE_SW_TOKEN
-	cmdq_pkt_clear_event(handle, CMDQ_SYNC_TOKEN_MSF);
+	cmdq_pkt_clear_event(handle, msf_token_id);
 #endif
 #ifdef MFB_PMQOS
 	MFBQOS_Update(1, 2, pMsfConfig->qos);
@@ -1480,11 +1480,11 @@ signed int vCmdqMSFHW(struct frame *frame)
 	handle = cmdq_pkt_create(msf_clt);
 	handle->priority = 0;
 #ifdef USE_SW_TOKEN
-	cmdq_pkt_acquire_event(handle, CMDQ_SYNC_TOKEN_MSF);
+	cmdq_pkt_acquire_event(handle, msf_token_id);
 #endif
 	msf_pkt_tcmds(handle, pMsfConfig);
 #ifdef USE_SW_TOKEN
-	cmdq_pkt_clear_event(handle, CMDQ_SYNC_TOKEN_MSF);
+	cmdq_pkt_clear_event(handle, msf_token_id);
 #endif
 #ifdef MFB_PMQOS
 	MFBQOS_Update(1, 3, pMsfConfig->qos);
@@ -4113,6 +4113,8 @@ static signed int MFB_probe(struct platform_device *pDev)
 		LOG_INF("mss_clt: 0x%p\n", mss_clt);
 		of_property_read_u16(MFB_cmdq_dev->of_node,
 				"mss_frame_done", &mss_done_event_id);
+		of_property_read_u16(MFB_cmdq_dev->of_node,
+				"mss_token", &mss_token_id);
 
 	}
 	if (nr_MFB_devs == 2) {
@@ -4120,6 +4122,8 @@ static signed int MFB_probe(struct platform_device *pDev)
 		LOG_INF("msf_clt: 0x%p\n", msf_clt);
 		of_property_read_u16(MFB_cmdq_dev->of_node,
 				"msf_frame_done", &msf_done_event_id);
+		of_property_read_u16(MFB_cmdq_dev->of_node,
+				"msf_token", &msf_token_id);
 	}
 
 #endif
