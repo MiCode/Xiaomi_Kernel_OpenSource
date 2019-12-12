@@ -88,10 +88,6 @@
 #endif
 
 #include "mtk_mcdi_api.h"
-#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
-#include "sspm_ipi.h"
-#include <sspm_reservedmem_define.h>
-#endif
 
 /****************************************
  * define variables for legacy and eem
