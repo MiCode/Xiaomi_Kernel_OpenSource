@@ -2798,6 +2798,9 @@ static int dwc3_cleanup_done_reqs(struct dwc3 *dwc, struct dwc3_ep *dep,
 		int chain;
 
 		req = next_request(&dep->started_list);
+		if (req->trb->ctrl & DWC3_TRB_CTRL_HWO)
+			return 0;
+
 		length = req->request.length;
 		chain = req->num_pending_sgs > 0;
 		if (chain) {

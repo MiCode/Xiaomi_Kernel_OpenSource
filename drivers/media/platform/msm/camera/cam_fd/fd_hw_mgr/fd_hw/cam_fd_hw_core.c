@@ -540,7 +540,6 @@ static int cam_fd_hw_util_processcmd_hw_dump(struct cam_hw_info *fd_hw,
 		mutex_unlock(&fd_hw->hw_mutex);
 		return 0;
 	}
-	mutex_unlock(&fd_hw->hw_mutex);
 
 	dump_args = (struct cam_fd_hw_dump_args *)args;
 	soc_info = &fd_hw->soc_info;
@@ -551,6 +550,7 @@ static int cam_fd_hw_util_processcmd_hw_dump(struct cam_hw_info *fd_hw,
 	if (remain_len < min_len) {
 		CAM_ERR(CAM_FD, "dump buffer exhaust %d %d",
 			remain_len, min_len);
+		mutex_unlock(&fd_hw->hw_mutex);
 		return 0;
 	}
 	dst = (char *)dump_args->cpu_addr + dump_args->offset;
@@ -561,14 +561,15 @@ static int cam_fd_hw_util_processcmd_hw_dump(struct cam_hw_info *fd_hw,
 	addr = (uint32_t *)(dst + sizeof(struct cam_fd_hw_dump_header));
 	start = addr;
 	*addr++ = soc_info->index;
-	num_reg = soc_info->reg_map[0].size/4;
 	for (j = 0; j < soc_info->num_reg_map; j++) {
+		num_reg = soc_info->reg_map[j].size/4;
 		for (i = 0; i < num_reg; i++) {
-			*addr++ = soc_info->mem_block[0]->start + i*4;
-			*addr++ = cam_io_r(soc_info->reg_map[i].mem_base +
+			*addr++ = soc_info->mem_block[j]->start + i*4;
+			*addr++ = cam_io_r(soc_info->reg_map[j].mem_base +
 				(i*4));
 		}
 	}
+	mutex_unlock(&fd_hw->hw_mutex);
 	hdr->size = hdr->word_size * (addr - start);
 	dump_args->offset += hdr->size +
 		sizeof(struct cam_fd_hw_dump_header);

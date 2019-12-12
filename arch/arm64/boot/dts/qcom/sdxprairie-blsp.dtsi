@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -403,7 +403,8 @@
 		pinctrl-0 = <&blsp1_uart2a_tx_sleep>,
 		<&blsp1_uart2a_rxcts_sleep>, <&blsp1_uart2a_rfr_sleep>;
 		pinctrl-1 = <&blsp1_uart2b_tx_active>,
-		<&blsp1_uart2b_rxcts_active>, <&blsp1_uart2b_rfr_active>;
+		<&blsp1_uart2b_rx_active>, <&blsp1_uart2b_cts_active>,
+		<&blsp1_uart2b_rfr_active>;
 
 		qcom,msm-bus,name = "buart2a";
 		qcom,msm-bus,num-cases = <2>;
@@ -439,10 +440,11 @@
 		clocks = <&clock_gcc GCC_BLSP1_UART2_APPS_CLK>,
 		    <&clock_gcc GCC_BLSP1_AHB_CLK>;
 		pinctrl-names = "sleep", "default";
-		pinctrl-0 = <&blsp1_uart2b_tx_sleep>,
-		<&blsp1_uart2b_rxcts_sleep>, <&blsp1_uart2b_rfr_sleep>;
+		pinctrl-0 = <&blsp1_uart2b_tx_sleep>, <&blsp1_uart2b_rx_sleep>,
+		<&blsp1_uart2b_cts_sleep>, <&blsp1_uart2b_rfr_sleep>;
 		pinctrl-1 = <&blsp1_uart2b_tx_active>,
-		<&blsp1_uart2b_rxcts_active>, <&blsp1_uart2b_rfr_active>;
+		<&blsp1_uart2b_rx_active>,<&blsp1_uart2b_cts_active>,
+		<&blsp1_uart2b_rfr_active>;
 
 		qcom,msm-bus,name = "buart2b";
 		qcom,msm-bus,num-cases = <2>;

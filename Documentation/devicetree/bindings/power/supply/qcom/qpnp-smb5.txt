@@ -350,6 +350,13 @@ Charger specific properties:
   Value type: bool
   Definition: Boolean flag which when present disables FCC restriction.
 
+- qcom,wls-current-max-ua
+  Usage:      optional
+  Value type: <u32>
+  Definition: Upper limit of charging current supplied by the wireless
+		charger. If left unspecified, the HW min value of 1.5 A is
+		applied by default.
+
 =============================================
 Second Level Nodes - SMB5 Charger Peripherals
 =============================================

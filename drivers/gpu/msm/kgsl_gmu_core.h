@@ -167,6 +167,7 @@ struct gmu_dev_ops {
 	void (*halt_execution)(struct kgsl_device *device);
 	int (*wait_for_active_transition)(struct adreno_device *adreno_dev);
 	bool (*is_initialized)(struct adreno_device *adreno_dev);
+	u64 (*read_ao_counter)(struct kgsl_device *device);
 	const unsigned int gmu2host_intr_mask;
 	const unsigned int gmu_ao_intr_mask;
 };
@@ -231,4 +232,5 @@ void gmu_core_regrmw(struct kgsl_device *device, unsigned int offsetwords,
 		unsigned int mask, unsigned int bits);
 const char *gmu_core_oob_type_str(enum oob_request req);
 bool gmu_core_is_initialized(struct kgsl_device *device);
+u64 gmu_core_dev_read_ao_counter(struct kgsl_device *device);
 #endif /* __KGSL_GMU_CORE_H */

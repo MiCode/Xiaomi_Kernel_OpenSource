@@ -221,6 +221,7 @@ static const char rmnet_gstrings_stats[][ETH_GSTRING_LEN] = {
 	"Coalescing packets over VEID1",
 	"Coalescing packets over VEID2",
 	"Coalescing packets over VEID3",
+	"Uplink priority packets",
 };
 
 static const char rmnet_port_gstrings_stats[][ETH_GSTRING_LEN] = {

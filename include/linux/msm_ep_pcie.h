@@ -31,6 +31,8 @@ enum ep_pcie_event {
 	EP_PCIE_EVENT_LINKUP = 0x20,
 	EP_PCIE_EVENT_MHI_A7 = 0x40,
 	EP_PCIE_EVENT_MMIO_WRITE = 0x80,
+	EP_PCIE_EVENT_L1SUB_TIMEOUT = 0x100,
+	EP_PCIE_EVENT_L1SUB_TIMEOUT_EXIT = 0x200,
 };
 
 enum ep_pcie_irq_event {
@@ -102,6 +104,11 @@ struct ep_pcie_db_config {
 	u32 tgt_addr;
 };
 
+struct ep_pcie_inactivity {
+	bool enable;
+	uint32_t timer_us;
+};
+
 struct ep_pcie_hw {
 	struct list_head node;
 	u32 device_id;
@@ -120,6 +127,7 @@ struct ep_pcie_hw {
 				struct ep_pcie_db_config erdb_cfg);
 	int (*mask_irq_event)(enum ep_pcie_irq_event event,
 				bool enable);
+	int (*configure_inactivity_timer)(struct ep_pcie_inactivity *param);
 };
 
 /*
@@ -289,4 +297,23 @@ int ep_pcie_config_db_routing(struct ep_pcie_hw *phandle,
 int ep_pcie_mask_irq_event(struct ep_pcie_hw *phandle,
 				enum ep_pcie_irq_event event,
 				bool enable);
+
+/*
+ * ep_pcie_configure_inactivity_timer - Configure timer to trigger
+ *		upon link inactivity.
+ * @phandle:	PCIe endpoint HW driver handle
+ * @param:	structure member to program the timer and enable it.
+ *
+ * Return: 0 on success, negative value on error
+ */
+int ep_pcie_configure_inactivity_timer(struct ep_pcie_hw *phandle,
+					struct ep_pcie_inactivity *param);
+
+/*
+ * ep_pcie_core_l1ss_sleep_config_enable - Enable L1ss sleep configuration
+ *		to gate the CLKREQ# and disable PCIe resources.
+ *
+ * Return: 0 on success, negative value on error
+ */
+int ep_pcie_core_l1ss_sleep_config_enable(void);
 #endif

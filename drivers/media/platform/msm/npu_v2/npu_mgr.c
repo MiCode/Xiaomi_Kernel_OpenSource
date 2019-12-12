@@ -122,7 +122,7 @@ static int load_fw_nolock(struct npu_device *npu_dev, bool enable)
 	}
 
 	ret = wait_for_completion_timeout(
-		&host_ctx->npu_power_up_done, NW_CMD_TIMEOUT);
+		&host_ctx->npu_power_up_done, NW_PWR_UP_TIMEOUT);
 	if (!ret) {
 		NPU_ERR("Wait for npu powers up timed out\n");
 		ret = -ETIMEDOUT;
@@ -164,7 +164,7 @@ static int load_fw_nolock(struct npu_device *npu_dev, bool enable)
 	}
 
 	ret = wait_for_completion_timeout(
-		&host_ctx->fw_shutdown_done, NW_CMD_TIMEOUT);
+		&host_ctx->fw_shutdown_done, NW_RSC_TIMEOUT_MS);
 	if (!ret) {
 		NPU_ERR("Wait for fw shutdown timedout\n");
 		ret = -ETIMEDOUT;
@@ -316,7 +316,7 @@ static int enable_fw_nolock(struct npu_device *npu_dev)
 	}
 
 	ret = wait_for_completion_timeout(
-		&host_ctx->fw_bringup_done, NW_CMD_TIMEOUT);
+		&host_ctx->fw_bringup_done, NW_RSC_TIMEOUT_MS);
 	if (!ret) {
 		NPU_ERR("Wait for fw bringup timedout\n");
 		ret = -ETIMEDOUT;
@@ -392,7 +392,7 @@ static void disable_fw_nolock(struct npu_device *npu_dev)
 
 	if (!host_ctx->auto_pil_disable) {
 		ret = wait_for_completion_timeout(
-			&host_ctx->fw_shutdown_done, NW_CMD_TIMEOUT);
+			&host_ctx->fw_shutdown_done, NW_RSC_TIMEOUT_MS);
 		if (!ret)
 			NPU_ERR("Wait for fw shutdown timedout\n");
 		else
@@ -820,7 +820,7 @@ static int host_error_hdlr(struct npu_device *npu_dev, bool force)
 	NPU_INFO("npu subsystem is restarted\n");
 
 	ret = wait_for_completion_timeout(
-		&host_ctx->npu_power_up_done, NW_CMD_TIMEOUT);
+		&host_ctx->npu_power_up_done, NW_PWR_UP_TIMEOUT);
 	if (!ret) {
 		NPU_ERR("Wait for npu powers up timed out\n");
 		ret = -ETIMEDOUT;
@@ -1261,6 +1261,11 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 			NPU_ERR("execute_pkt trans_id is not match %d:%d\n",
 				network->trans_id,
 				exe_rsp_pkt->header.trans_id);
+			NPU_ERR("execute_pkt network hdl check %d:%d\n",
+				network->network_hdl,
+				exe_rsp_pkt->network_hdl);
+			NPU_ERR("execute_pkt network_id check %x\n",
+				network->id);
 			network_put(network);
 			break;
 		}
@@ -1306,6 +1311,11 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 			NPU_ERR("execute_pkt_v2 trans_id is not match %d:%d\n",
 				network->trans_id,
 				exe_rsp_pkt->header.trans_id);
+			NPU_ERR("execute_pkt_v2 network hdl check %d:%d\n",
+				network->network_hdl,
+				exe_rsp_pkt->network_hdl);
+			NPU_ERR("execute_pkt_v2 network id check %x\n",
+				network->id);
 			network_put(network);
 			break;
 		}

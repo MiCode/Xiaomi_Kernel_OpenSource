@@ -783,8 +783,7 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 	if (dp->is_connected) {
 		pr_debug("dp already connected, skipping hpd high processing");
 		mutex_unlock(&dp->session_lock);
-		rc = -EISCONN;
-		goto end;
+		return -EISCONN;
 	}
 
 	dp->is_connected = true;

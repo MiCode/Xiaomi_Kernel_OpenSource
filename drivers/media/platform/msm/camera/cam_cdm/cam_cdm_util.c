@@ -820,7 +820,7 @@ void cam_cdm_util_dump_cmd_bufs_v2(
 	}
 	buf_now = dump_info->src_start;
 	do {
-		cmd = *dump_info->src_start;
+		cmd = *buf_now;
 		cmd = cmd >> CAM_CDM_COMMAND_OFFSET;
 
 		switch (cmd) {

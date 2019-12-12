@@ -144,6 +144,9 @@ int dfc_qmap_client_init(void *port, int index, struct svc_info *psvc,
 void dfc_qmap_client_exit(void *dfc_data);
 
 void dfc_qmap_send_ack(struct qos_info *qos, u8 bearer_id, u16 seq, u8 type);
+
+struct rmnet_bearer_map *qmi_rmnet_get_bearer_noref(struct qos_info *qos_info,
+						    u8 bearer_id);
 #else
 static inline struct rmnet_flow_map *
 qmi_rmnet_get_flow_map(struct qos_info *qos_info,

@@ -77,7 +77,14 @@
 #define IPA_POLL_FOR_EMPTINESS_SLEEP_USEC 20
 #define IPA_CHANNEL_STOP_IN_PROC_TO_MSEC 5
 #define IPA_CHANNEL_STOP_IN_PROC_SLEEP_USEC 200
-#define IPA_MHIP_HOLB_TMO 500 /* 500ms this should be less than tag timeout */
+
+/*
+ * When IPA @ turbo, HOLB_TMO = 1 implies 128 clock cycles/usec
+ * for 1us, HOLB_TMO = 4 when IPA is at ~500Mhz
+ * for 500ms, HOLB_TMO = 2000000
+ * 500ms, this should be less than tag timeout
+ */
+#define IPA_MHIP_HOLB_TMO 2000000
 
 enum mhip_re_type {
 	MHIP_RE_XFER = 0x2,

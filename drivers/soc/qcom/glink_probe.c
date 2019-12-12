@@ -78,6 +78,7 @@ struct glink_ssr {
 	u32 seq_num;
 	struct completion completion;
 	struct work_struct unreg_work;
+	struct kref refcount;
 };
 
 struct edge_info {
@@ -95,6 +96,18 @@ struct edge_info {
 };
 LIST_HEAD(edge_infos);
 
+static void glink_ssr_release(struct kref *ref)
+{
+	struct glink_ssr *ssr = container_of(ref, struct glink_ssr,
+					     refcount);
+	struct glink_ssr_nb *nb, *tmp;
+
+	list_for_each_entry_safe(nb, tmp, &ssr->notify_list, list)
+		kfree(nb);
+
+	kfree(ssr);
+}
+
 static void glink_ssr_ssr_unreg_work(struct work_struct *work)
 {
 	struct glink_ssr *ssr = container_of(work, struct glink_ssr,
@@ -104,9 +117,8 @@ static void glink_ssr_ssr_unreg_work(struct work_struct *work)
 	list_for_each_entry_safe(nb, tmp, &ssr->notify_list, list) {
 		subsys_notif_unregister_notifier(nb->ssr_register_handle,
 						 &nb->nb);
-		kfree(nb);
 	}
-	kfree(ssr);
+	kref_put(&ssr->refcount, glink_ssr_release);
 }
 
 static int glink_ssr_ssr_cb(struct notifier_block *this,
@@ -120,6 +132,8 @@ static int glink_ssr_ssr_cb(struct notifier_block *this,
 
 	if (!dev || !ssr->ept)
 		return NOTIFY_DONE;
+
+	kref_get(&ssr->refcount);
 
 	if (code == SUBSYS_AFTER_SHUTDOWN) {
 		ssr->seq_num++;
@@ -139,6 +153,7 @@ static int glink_ssr_ssr_cb(struct notifier_block *this,
 		if (ret) {
 			GLINK_ERR(dev, "fail to send do cleanup to %s %d\n",
 				  nb->ssr_label, ret);
+			kref_put(&ssr->refcount, glink_ssr_release);
 			return NOTIFY_DONE;
 		}
 
@@ -147,6 +162,7 @@ static int glink_ssr_ssr_cb(struct notifier_block *this,
 			GLINK_ERR(dev, "timeout waiting for cleanup resp\n");
 
 	}
+	kref_put(&ssr->refcount, glink_ssr_release);
 	return NOTIFY_DONE;
 }
 
@@ -242,6 +258,7 @@ static int glink_ssr_probe(struct rpmsg_device *rpdev)
 	INIT_LIST_HEAD(&ssr->notify_list);
 	init_completion(&ssr->completion);
 	INIT_WORK(&ssr->unreg_work, glink_ssr_ssr_unreg_work);
+	kref_init(&ssr->refcount);
 
 	ssr->dev = &rpdev->dev;
 	ssr->ept = rpdev->ept;

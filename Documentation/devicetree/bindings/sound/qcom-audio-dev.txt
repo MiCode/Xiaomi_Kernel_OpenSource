@@ -433,6 +433,11 @@ Required properties:
 Optional properties:
  - qcom,lpi-gpios : This boolean property is added if GPIOs are under
                     LPI TLMM.
+- qcom,chip-wakeup-reg : This lists registers related to control interrupt mask
+		for respective LPI TLMM GPIOs.
+- qcom,chip-wakeup-maskbit : This gives info on maskbit for given list of registers.
+- qcom,chip-wakeup-default-val : This gives info on default value to be updated
+		for given chip regs.
 
 * msm-dai-slim
 

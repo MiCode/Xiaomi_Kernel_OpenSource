@@ -339,7 +339,10 @@ enum {
  *  TYPEC Peripheral Registers  *
  ********************************/
 #define TYPE_C_SNK_STATUS_REG			(TYPEC_BASE + 0x06)
-#define DETECTED_SRC_TYPE_MASK			GENMASK(3, 0)
+#define DETECTED_SRC_TYPE_MASK			GENMASK(6, 0)
+#define SNK_DAM_500MA_BIT			BIT(6)
+#define SNK_DAM_1500MA_BIT			BIT(5)
+#define SNK_DAM_3000MA_BIT			BIT(4)
 #define SNK_RP_STD_BIT				BIT(3)
 #define SNK_RP_1P5_BIT				BIT(2)
 #define SNK_RP_3P0_BIT				BIT(1)

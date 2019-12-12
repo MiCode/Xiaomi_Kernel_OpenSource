@@ -1,0 +1,36 @@
+/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+#include "atoll-atp.dtsi"
+#include "atoll-audio-overlay.dtsi"
+
+/ {
+	model = "ATP";
+	compatible = "qcom,atoll-ab-idp", "qcom,atoll-ab", "qcom,idp", "qcom,atp";
+	qcom,msm-id = <443 0x0>;
+	qcom,board-id = <33 0>;
+};
+
+&dsi_rm69299_visionox_amoled_vid_display {
+	qcom,dsi-display-active;
+};
+
+&tx_swr_gpios {
+	qcom,chip-wakeup-reg = <0x01FFB000>;
+	qcom,chip-wakeup-maskbit = <0>;
+	qcom,chip-wakeup-default-val = <0x1>;
+};
