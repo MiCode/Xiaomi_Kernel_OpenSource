@@ -2537,6 +2537,59 @@
 		compatible = "mediatek,camsys", "syscon";
 		reg = <0 0x1a000000 0 0x10000>;
 		#clock-cells = <1>;
+		/* Camera CCF */
+		clocks = <&scpsys SCP_SYS_MDP>,
+				<&scpsys SCP_SYS_CAM>,
+				<&scpsys SCP_SYS_CAM_RAWA>,
+				<&scpsys SCP_SYS_CAM_RAWB>,
+				<&scpsys SCP_SYS_CAM_RAWC>,
+				<&camsys CAMSYS_MAIN_CAM_CGPDN>,
+				<&camsys CAMSYS_MAIN_CAMTG_CGPDN>,
+				<&camsys CAMSYS_MAIN_CAMSV0_CGPDN>,
+				<&camsys CAMSYS_MAIN_CAMSV1_CGPDN>,
+				<&camsys CAMSYS_MAIN_CAMSV2_CGPDN>,
+				<&camsys CAMSYS_MAIN_CAMSV3_CGPDN>,
+				<&camsys CAMSYS_MAIN_LARB13_CGPDN>,
+				<&camsys CAMSYS_MAIN_LARB14_CGPDN>,
+				<&camsys CAMSYS_MAIN_CCU0_CGPDN>,
+				<&camsys CAMSYS_MAIN_SENINF_CGPDN>,
+				<&camsys_rawa CAMSYS_RAWA_LARBX_CGPDN>,
+				<&camsys_rawa CAMSYS_RAWA_CAM_CGPDN>,
+				<&camsys_rawa CAMSYS_RAWA_CAMTG_CGPDN>,
+				<&camsys_rawb CAMSYS_RAWB_LARBX_CGPDN>,
+				<&camsys_rawb CAMSYS_RAWB_CAM_CGPDN>,
+				<&camsys_rawb CAMSYS_RAWB_CAMTG_CGPDN>,
+				<&camsys_rawc CAMSYS_RAWC_LARBX_CGPDN>,
+				<&camsys_rawc CAMSYS_RAWC_CAM_CGPDN>,
+				<&camsys_rawc CAMSYS_RAWC_CAMTG_CGPDN>,
+				<&topckgen TOP_MUX_CCU>,
+				<&topckgen TOP_MUX_CAMTM>;
+		clock-names = "ISP_SCP_SYS_MDP",
+				"ISP_SCP_SYS_CAM",
+				"ISP_SCP_SYS_RAWA",
+				"ISP_SCP_SYS_RAWB",
+				"ISP_SCP_SYS_RAWC",
+				"CAMSYS_CAM_CGPDN",
+				"CAMSYS_CAMTG_CGPDN",
+				"CAMSYS_CAMSV0_CGPDN",
+				"CAMSYS_CAMSV1_CGPDN",
+				"CAMSYS_CAMSV2_CGPDN",
+				"CAMSYS_CAMSV3_CGPDN",
+				"CAMSYS_LARB13_CGPDN",
+				"CAMSYS_LARB14_CGPDN",
+				"CAMSYS_CCU0_CGPDN",
+				"CAMSYS_SENINF_CGPDN",
+				"CAMSYS_RAWALARB16_CGPDN",
+				"CAMSYS_RAWACAM_CGPDN",
+				"CAMSYS_RAWATG_CGPDN",
+				"CAMSYS_RAWBLARB17_CGPDN",
+				"CAMSYS_RAWBCAM_CGPDN",
+				"CAMSYS_RAWBTG_CGPDN",
+				"CAMSYS_RAWCLARB18_CGPDN",
+				"CAMSYS_RAWCCAM_CGPDN",
+				"CAMSYS_RAWCTG_CGPDN",
+				"TOPCKGEN_TOP_MUX_CCU",
+				"TOPCKGEN_TOP_MUX_CAMTM";
 	};
 
 	flashlight_core: flashlight_core {
@@ -2654,6 +2707,87 @@
 		compatible = "mediatek,camsys_rawc", "syscon";
 		reg = <0 0x1a08f000 0 0x1000>;
 		#clock-cells = <1>;
+	};
+
+	cam1@1a030000 {
+		compatible = "mediatek,cam1";
+		reg = <0 0x1a030000 0 0x8000>;
+		interrupts = <GIC_SPI 319 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	cam2@1a050000 {
+		compatible = "mediatek,cam2";
+		reg = <0 0x1a050000 0 0x8000>;
+		interrupts = <GIC_SPI 320 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	cam3@1a070000 {
+		compatible = "mediatek,cam3";
+		reg = <0 0x1a070000 0 0x8000>;
+		interrupts = <GIC_SPI 321 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	cam1_inner@1a038000 {
+		compatible = "mediatek,cam1_inner";
+		reg = <0 0x1a038000 0 0x8000>;
+	};
+
+	cam2_inner@1a058000 {
+		compatible = "mediatek,cam2_inner";
+		reg = <0 0x1a058000 0 0x8000>;
+	};
+
+	cam3_inner@1a078000 {
+		compatible = "mediatek,cam3_inner";
+		reg = <0 0x1a078000 0 0x8000>;
+	};
+
+	camsv1@1a090000 {
+		compatible = "mediatek,camsv1";
+		reg = <0 0x1a090000 0 0x1000>;
+		interrupts = <GIC_SPI 323 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	camsv2@1a091000 {
+		compatible = "mediatek,camsv2";
+		reg = <0 0x1a091000 0 0x1000>;
+		interrupts = <GIC_SPI 324 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	camsv3@1a092000 {
+		compatible = "mediatek,camsv3";
+		reg = <0 0x1a092000 0 0x1000>;
+		interrupts = <GIC_SPI 325 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	camsv4@1a093000 {
+		compatible = "mediatek,camsv4";
+		reg = <0 0x1a093000 0 0x1000>;
+		interrupts = <GIC_SPI 326 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	camsv5@1a094000 {
+		compatible = "mediatek,camsv5";
+		reg = <0 0x1a094000 0 0x1000>;
+		interrupts = <GIC_SPI 327 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	camsv6@1a095000 {
+		compatible = "mediatek,camsv6";
+		reg = <0 0x1a095000 0 0x1000>;
+		interrupts = <GIC_SPI 328 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	camsv7@1a096000 {
+		compatible = "mediatek,camsv7";
+		reg = <0 0x1a096000 0 0x1000>;
+		interrupts = <GIC_SPI 332 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	camsv8@1a097000 {
+		compatible = "mediatek,camsv8";
+		reg = <0 0x1a097000 0 0x1000>;
+		interrupts = <GIC_SPI 333 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	imgsys_config: imgsys_config@15020000 {
