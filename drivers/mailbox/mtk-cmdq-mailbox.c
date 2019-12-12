@@ -651,7 +651,7 @@ static void cmdq_task_exec_done(struct cmdq_task *task, s32 err)
 #endif
 	cmdq_task_callback(task->pkt, err);
 	cmdq_log("pkt:0x%p done err:%d", task->pkt, err);
-	list_del(&task->list_entry);
+	list_del_init(&task->list_entry);
 }
 
 static void cmdq_buf_dump_schedule(struct cmdq_task *task, bool timeout,
@@ -690,7 +690,7 @@ static void cmdq_task_handle_error(struct cmdq_task *task)
 }
 
 static void cmdq_thread_irq_handler(struct cmdq *cmdq,
-				    struct cmdq_thread *thread)
+	struct cmdq_thread *thread, struct list_head *removes)
 {
 	struct cmdq_task *task, *tmp, *curr_task = NULL;
 	u32 irq_flag;
@@ -766,14 +766,14 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 					curr_task->pkt, &curr_pa, &task_end_pa);
 			}
 			cmdq_task_exec_done(task, 0);
-			kfree(task);
+			list_add_tail(&task->list_entry, removes);
 		} else if (err) {
 			cmdq_err("pkt:0x%p thread:%u err:%d",
 				curr_task->pkt, thread->idx, err);
 			cmdq_buf_dump_schedule(task, false, curr_pa);
 			cmdq_task_exec_done(task, err);
 			cmdq_task_handle_error(curr_task);
-			kfree(task);
+			list_add_tail(&task->list_entry, removes);
 		}
 
 		if (curr_task)
@@ -801,6 +801,8 @@ static irqreturn_t cmdq_irq_handler(int irq, void *dev)
 	unsigned long irq_status, flags = 0L;
 	int bit;
 	bool secure_irq = false;
+	struct cmdq_task *task, *tmp;
+	struct list_head removes;
 
 	if (atomic_read(&cmdq->usage) <= 0) {
 		u32 irq_status_after;
@@ -831,6 +833,7 @@ static irqreturn_t cmdq_irq_handler(int irq, void *dev)
 		return IRQ_NONE;
 	}
 
+	INIT_LIST_HEAD(&removes);
 	for_each_clear_bit(bit, &irq_status, fls(CMDQ_IRQ_MASK)) {
 		struct cmdq_thread *thread = &cmdq->thread[bit];
 
@@ -841,8 +844,13 @@ static irqreturn_t cmdq_irq_handler(int irq, void *dev)
 		}
 
 		spin_lock_irqsave(&thread->chan->lock, flags);
-		cmdq_thread_irq_handler(cmdq, thread);
+		cmdq_thread_irq_handler(cmdq, thread, &removes);
 		spin_unlock_irqrestore(&thread->chan->lock, flags);
+	}
+
+	list_for_each_entry_safe(task, tmp, &removes, list_entry) {
+		list_del(&task->list_entry);
+		kfree(task);
 	}
 
 	return secure_irq ? IRQ_NONE : IRQ_HANDLED;
@@ -882,6 +890,9 @@ static void cmdq_thread_handle_timeout_work(struct work_struct *work_item)
 	unsigned long flags;
 	bool first_task = true;
 	u32 pa_curr;
+	struct list_head removes;
+
+	INIT_LIST_HEAD(&removes);
 
 	spin_lock_irqsave(&thread->chan->lock, flags);
 	if (list_empty(&thread->task_busy_list)) {
@@ -902,7 +913,7 @@ static void cmdq_thread_handle_timeout_work(struct work_struct *work_item)
 	 * It may have pending IRQ before GCE thread is suspended,
 	 * so check this condition again.
 	 */
-	cmdq_thread_irq_handler(cmdq, thread);
+	cmdq_thread_irq_handler(cmdq, thread, &removes);
 
 	if (list_empty(&thread->task_busy_list)) {
 		cmdq_thread_resume(thread);
@@ -983,6 +994,10 @@ static void cmdq_thread_handle_timeout_work(struct work_struct *work_item)
 	}
 	spin_unlock_irqrestore(&thread->chan->lock, flags);
 
+	list_for_each_entry_safe(task, tmp, &removes, list_entry) {
+		list_del(&task->list_entry);
+		kfree(task);
+	}
 }
 static void cmdq_thread_handle_timeout(unsigned long data)
 {
@@ -1189,6 +1204,9 @@ void cmdq_mbox_thread_remove_task(struct mbox_chan *chan,
 	u32 pa_curr;
 	bool curr_task = false;
 	bool last_task = false;
+	struct list_head removes;
+
+	INIT_LIST_HEAD(&removes);
 
 	spin_lock_irqsave(&thread->chan->lock, flags);
 	if (list_empty(&thread->task_busy_list)) {
@@ -1206,7 +1224,7 @@ void cmdq_mbox_thread_remove_task(struct mbox_chan *chan,
 	 * It may have pending IRQ before GCE thread is suspended,
 	 * so check this condition again.
 	 */
-	cmdq_thread_irq_handler(cmdq, thread);
+	cmdq_thread_irq_handler(cmdq, thread, &removes);
 
 	if (list_empty(&thread->task_busy_list)) {
 		cmdq_err("thread:%u empty after irq handle in timeout",
@@ -1267,6 +1285,11 @@ void cmdq_mbox_thread_remove_task(struct mbox_chan *chan,
 	cmdq_thread_resume(thread);
 
 	spin_unlock_irqrestore(&thread->chan->lock, flags);
+
+	list_for_each_entry_safe(task, tmp, &removes, list_entry) {
+		list_del(&task->list_entry);
+		kfree(task);
+	}
 }
 EXPORT_SYMBOL(cmdq_mbox_thread_remove_task);
 
@@ -1275,6 +1298,9 @@ static void cmdq_mbox_thread_stop(struct cmdq_thread *thread)
 	struct cmdq *cmdq = container_of(thread->chan->mbox, struct cmdq, mbox);
 	struct cmdq_task *task, *tmp;
 	unsigned long flags;
+	struct list_head removes;
+
+	INIT_LIST_HEAD(&removes);
 
 	spin_lock_irqsave(&thread->chan->lock, flags);
 	if (list_empty(&thread->task_busy_list)) {
@@ -1290,7 +1316,7 @@ static void cmdq_mbox_thread_stop(struct cmdq_thread *thread)
 	 * It may have pending IRQ before GCE thread is suspended,
 	 * so check this condition again.
 	 */
-	cmdq_thread_irq_handler(cmdq, thread);
+	cmdq_thread_irq_handler(cmdq, thread, &removes);
 	if (list_empty(&thread->task_busy_list)) {
 		cmdq_err("thread:%u empty after irq handle in disable thread",
 			thread->idx);
@@ -1308,6 +1334,11 @@ static void cmdq_mbox_thread_stop(struct cmdq_thread *thread)
 	cmdq_thread_disable(cmdq, thread);
 	cmdq_clk_disable(cmdq);
 	spin_unlock_irqrestore(&thread->chan->lock, flags);
+
+	list_for_each_entry_safe(task, tmp, &removes, list_entry) {
+		list_del(&task->list_entry);
+		kfree(task);
+	}
 }
 
 void cmdq_mbox_channel_stop(struct mbox_chan *chan)
