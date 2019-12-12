@@ -1522,19 +1522,6 @@ void mtk_drm_top_clk_prepare_enable(struct drm_device *drm)
 			DDPPR_ERR("top clk prepare enable failed:%d\n", i);
 	}
 
-	/* Temp Workaround for MT6873 */
-#if defined(CONFIG_MACH_MT6873)
-	for (i = 0; i < priv->top_clk_num; i++) {
-		if (IS_ERR(priv->top_clk[i])) {
-			DDPINFO("%s invalid %d clk\n", __func__, i);
-			return;
-		}
-		ret = clk_prepare_enable(priv->top_clk[i]);
-		if (ret)
-			DDPINFO("top clk prepare enable failed:%d\n", i);
-	}
-#endif
-
 	if (priv->data->sodi_config)
 		priv->data->sodi_config(drm, DDP_COMPONENT_ID_MAX, NULL, &en);
 }
