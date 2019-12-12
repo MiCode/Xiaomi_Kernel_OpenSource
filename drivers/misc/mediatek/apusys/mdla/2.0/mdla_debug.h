@@ -30,7 +30,7 @@
 			"\nCRDISPATCH_KEY:" key "\n" format, ##args); \
 	} while (0)
 #else
-#define mnoc_aee_warn(key, format, args...)
+#define mdla_aee_warn(key, format, args...)
 #endif
 
 extern int g_vpu_log_level;

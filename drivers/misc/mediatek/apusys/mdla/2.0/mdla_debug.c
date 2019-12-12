@@ -23,7 +23,7 @@
 #include <linux/kthread.h>
 #include <linux/uaccess.h>
 #include <linux/string.h>
-#include <m4u.h>
+//#include <m4u.h>
 
 #include "mdla_debug.h"
 #include "mdla.h"
@@ -557,7 +557,6 @@ int mdla_dump_dbg(struct mdla_dev *mdla_info, struct command_entry *ce)
 	mdla_create_dmp_cmd_buf(ce, mdla_info);
 	apusys_reg_dump();
 	mdla_aee_warn("MDLA", "MDLA timeout");
-
 	return 0;
 }
 

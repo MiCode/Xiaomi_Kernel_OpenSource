@@ -20,9 +20,11 @@
 #include <linux/interrupt.h>
 #include <linux/spinlock_types.h>
 #include "mdla_ioctl.h"
+#include "mdla_plat_setting.h"
 
 #define DRIVER_NAME "mtk_mdla"
 
+#if 0//move to platform folder(mdla_plat_setting.h)
 #define MTK_MDLA_MAX_NUM 2 // shift to dts later
 
 #ifndef CONFIG_MTK_MDLA_DEBUG
@@ -37,6 +39,8 @@
 //#define __APUSYS_MDLA_SW_PORTING_WORKAROUND__
 
 //#define __APUSYS_PREEMPTION__
+#endif//if 0
+
 extern unsigned long long notrace sched_clock(void);
 extern int mdla_init_hw(int core, struct platform_device *pdev);
 extern int mdla_uninit_hw(void);

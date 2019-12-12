@@ -17,7 +17,6 @@
 #include <mtk/mtk_ion.h>
 #include <linux/uaccess.h>
 #include <linux/err.h>
-#include <m4u.h>
 
 #include "mdla_ioctl.h"
 #include "mdla.h"
@@ -25,6 +24,7 @@
 #include "mdla_debug.h"
 
 #ifdef CONFIG_MTK_MDLA_ION
+#include <m4u.h>
 
 static struct ion_client *ion_client;
 
