@@ -109,6 +109,7 @@ void ufs_mtk_dbg_add_trace(struct ufs_hba *hba,
 	ufs_cmd_hlist[ptr].time = sched_clock();
 	ufs_cmd_hlist[ptr].duration = 0;
 	ufs_cmd_hlist[ptr].rq = NULL;
+	ufs_cmd_hlist[ptr].cpu = smp_processor_id();
 #if defined(CONFIG_UFSHPB)
 	ufs_cmd_hlist[ptr].ppn = ppn;
 	ufs_cmd_hlist[ptr].region = region;
@@ -212,8 +213,9 @@ void ufs_mtk_dbg_dump_trace(char **buff, unsigned long *size,
 			UFS_TRACE_UIC_CMPL_PWR_CTRL)) {
 
 			SPREAD_PRINTF(buff, size, m,
-				"%3d-u,%5d,%2d,0x%2X,arg1=0x%X,arg2=0x%X,arg3=0x%X,%llu\n",
+				"%3d-u(%d),%5d,%2d,0x%2X,arg1=0x%X,arg2=0x%X,arg3=0x%X,%llu\n",
 				ptr,
+				ufs_cmd_hlist[ptr].cpu,
 				ufs_cmd_hlist[ptr].pid,
 				ufs_cmd_hlist[ptr].event,
 				ufs_cmd_hlist[ptr].opcode,       /* command */
@@ -226,8 +228,9 @@ void ufs_mtk_dbg_dump_trace(char **buff, unsigned long *size,
 		} else if (ufs_cmd_hlist[ptr].event == UFS_TRACE_REG_TOGGLE) {
 
 			SPREAD_PRINTF(buff, size, m,
-				"%3d-g,%5d,state=%d,on=%d,%llu\n",
+				"%3d-g(%d),%5d,state=%d,on=%d,%llu\n",
 				ptr,
+				ufs_cmd_hlist[ptr].cpu,
 				ufs_cmd_hlist[ptr].pid,
 				ufs_cmd_hlist[ptr].tag,          /* state */
 				ufs_cmd_hlist[ptr].transfer_len, /* on or off */
@@ -238,8 +241,9 @@ void ufs_mtk_dbg_dump_trace(char **buff, unsigned long *size,
 			ufs_cmd_hlist[ptr].event == UFS_TRACE_TM_COMPLETED) {
 
 			SPREAD_PRINTF(buff, size, m,
-				"%3d-t,%5d,%2d,tm=0x%x,t=%2d,lun=0x%x,data=0x%x,%llu\n",
+				"%3d-t(%d),%5d,%2d,tm=0x%x,t=%2d,lun=0x%x,data=0x%x,%llu\n",
 				ptr,
+				ufs_cmd_hlist[ptr].cpu,
 				ufs_cmd_hlist[ptr].pid,
 				ufs_cmd_hlist[ptr].event,
 				ufs_cmd_hlist[ptr].opcode,
@@ -253,8 +257,9 @@ void ufs_mtk_dbg_dump_trace(char **buff, unsigned long *size,
 			ufs_cmd_hlist[ptr].event == UFS_TRACE_DEV_COMPLETED) {
 
 			SPREAD_PRINTF(buff, size, m,
-				"%3d-d,%5d,%2d,0x%2x,t=%2d,lun=0x%x,idn=0x%x,idx=0x%x,sel=0x%x,%llu\n",
+				"%3d-d(%d),%5d,%2d,0x%2x,t=%2d,lun=0x%x,idn=0x%x,idx=0x%x,sel=0x%x,%llu\n",
 				ptr,
+				ufs_cmd_hlist[ptr].cpu,
 				ufs_cmd_hlist[ptr].pid,
 				ufs_cmd_hlist[ptr].event,
 				ufs_cmd_hlist[ptr].opcode,
@@ -269,8 +274,9 @@ void ufs_mtk_dbg_dump_trace(char **buff, unsigned long *size,
 		} else if (ufs_cmd_hlist[ptr].event == UFS_TRACE_GENERIC) {
 
 			SPREAD_PRINTF(buff, size, m,
-				"%3d-u,%5d,%2d,G,arg1=0x%X,arg2=%d,arg3=%d,%llu\n",
+				"%3d-u(%d),%5d,%2d,G,arg1=0x%X,arg2=%d,arg3=%d,%llu\n",
 				ptr,
+				ufs_cmd_hlist[ptr].cpu,
 				ufs_cmd_hlist[ptr].pid,
 				ufs_cmd_hlist[ptr].event,
 				ufs_cmd_hlist[ptr].tag,          /* argument1 */
@@ -281,8 +287,9 @@ void ufs_mtk_dbg_dump_trace(char **buff, unsigned long *size,
 
 		} else {
 			SPREAD_PRINTF(buff, size, m,
-				"%3d-r,%5d,%2d,0x%2x,t=%2d,lun=0x%x,crypt:%d,%d,lba=0x%llx,len=%6d,%llu,\t%llu",
+				"%3d-r(%d),%5d,%2d,0x%2x,t=%2d,lun=0x%x,crypt:%d,%d,lba=0x%llx,len=%6d,%llu,\t%llu",
 				ptr,
+				ufs_cmd_hlist[ptr].cpu,
 				ufs_cmd_hlist[ptr].pid,
 				ufs_cmd_hlist[ptr].event,
 				ufs_cmd_hlist[ptr].opcode,

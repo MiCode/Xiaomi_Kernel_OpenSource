@@ -23,6 +23,7 @@ struct ufs_cmd_hlist_struct {
 	u8 crypted;
 	u8 keyslot;
 	pid_t pid;
+	u32 cpu;
 	u32 tag;
 	u32 transfer_len;
 	sector_t lba;

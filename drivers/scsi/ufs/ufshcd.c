@@ -4790,6 +4790,8 @@ int ufshcd_hba_enable(struct ufs_hba *hba)
 		} else {
 			dev_err(hba->dev,
 				"Controller enable failed\n");
+			/* dump ufs debug Info like XO_UFS/VEMC/VUFS18 */
+			ufs_mtk_pltfrm_gpio_trigger_and_debugInfo_dump(hba);
 			return -EIO;
 		}
 		msleep(5);

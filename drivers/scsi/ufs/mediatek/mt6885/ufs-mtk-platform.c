@@ -89,6 +89,12 @@ void ufs_mtk_pltfrm_gpio_trigger_and_debugInfo_dump(struct ufs_hba *hba)
 	int vccq2_enabled, va12_enabled;
 	u32 val_0, val_1;
 
+	/* check ufs debug register */
+	ufshcd_writel(hba, 0x20, REG_UFS_MTK_DEBUG_SEL);
+	val_0 = ufshcd_readl(hba, REG_UFS_MTK_PROBE);
+	dev_info(hba->dev, "REG_UFS_MTK_PROBE: 0x%x\n", val_0);
+
+	/* check power status */
 	vcc_enabled = pmic_get_register_value(PMIC_RG_LDO_VEMC_EN);
 	vcc_0_value = pmic_get_register_value(PMIC_RG_VEMC_VOSEL_0);
 	vcc_1_value = pmic_get_register_value(PMIC_RG_VEMC_VOSEL_1);
@@ -439,9 +445,15 @@ int ufs_mtk_pltfrm_ref_clk_ctrl(struct ufs_hba *hba, bool on)
 		if (val == VENDOR_POWERSTATE_HIBERNATE) {
 			/* Host need turn off clock by itself */
 			ret = ufs_mtk_pltfrm_xo_ufs_req(hba, false);
-		} else
+		} else {
 			dev_info(hba->dev, "%s: power state (%d) clk not off\n",
 				__func__, val);
+			dev_info(hba->dev, "%s: ah8_en(%d), ah_reg = 0x%x\n",
+				__func__,
+				ufs_mtk_auto_hibern8_enabled,
+				ufshcd_readl(hba,
+					REG_AUTO_HIBERNATE_IDLE_TIMER));
+		}
 	}
 
 out:
