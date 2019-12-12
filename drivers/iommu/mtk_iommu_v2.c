@@ -46,7 +46,8 @@
 #include "mach/pseudo_m4u.h"
 #include "mtk_iommu_ext.h"
 #if defined(APU_IOMMU_INDEX) && \
-	defined(IOMMU_POWER_CLK_SUPPORT)
+	defined(IOMMU_POWER_CLK_SUPPORT) && \
+	defined(CONFIG_MTK_APUSYS_SUPPORT)
 #include "apusys_power.h"
 #endif
 #if defined(APU_IOMMU_INDEX) && \
@@ -3820,6 +3821,7 @@ static int mtk_iommu_reg_restore(struct mtk_iommu_data *data)
 	writel_relaxed(reg->ivrp_paddr, base +
 		   REG_MMU_TFRP_PADDR);
 	wmb(); /*make sure the registers have been restored.*/
+
 	return 0;
 }
 
@@ -4146,7 +4148,7 @@ static s32 mtk_iommu_clks_get(struct mtk_iommu_data *data)
 	if (ret)
 		goto free_clk;
 
-#ifdef APU_IOMMU_INDEX
+#if defined(APU_IOMMU_INDEX) && defined(CONFIG_MTK_APUSYS_SUPPORT)
 	if (data->m4uid >= APU_IOMMU_INDEX &&
 	    !apusys_power_check()) {
 		m4u_clks->nr_powers = 0;
@@ -4438,6 +4440,11 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 static int mtk_iommu_remove(struct platform_device *pdev)
 {
 	struct mtk_iommu_data *data = platform_get_drvdata(pdev);
+
+	if (!data) {
+		pr_notice("%s, data is NULL\n", __func__);
+		return 0;
+	}
 
 	pr_notice("%s, %d, iommu%d\n",
 		  __func__, __LINE__, data->m4uid);

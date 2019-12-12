@@ -312,7 +312,7 @@
 #endif
 
 /* the total number of iommu(include mm and vpu) */
-#ifdef CONFIG_FPGA_EARLY_PORTING
+#if defined(CONFIG_FPGA_EARLY_PORTING) || !defined(CONFIG_MTK_APUSYS_SUPPORT)
 #define MTK_IOMMU_M4U_COUNT			1
 #else
 #define MTK_IOMMU_M4U_COUNT			2

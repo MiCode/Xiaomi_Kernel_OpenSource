@@ -15,13 +15,14 @@
 #define __MT_IOMMU_PLAT_H__
 
 #define MTK_IOMMU_PAGE_TABLE_SHARE (1)
-//#define IOMMU_POWER_CLK_SUPPORT hc1
+#define IOMMU_POWER_CLK_SUPPORT
 //#define MTK_APU_TFRP_SUPPORT no need for mt6873
 
 #define MTK_IOMMU_SIZE_NOT_ALIGNMENT
+
 #ifndef CONFIG_FPGA_EARLY_PORTING
 #define MTK_IOMMU_BANK_IRQ_SUPPORT
-#endif
+
 #ifdef IOMMU_POWER_CLK_SUPPORT
 #define MTK_IOMMU_LOW_POWER_SUPPORT
 #include "clk-mt6873-pg.h"
@@ -29,6 +30,7 @@
 enum subsys_id iommu_mtcmos_subsys[MTK_IOMMU_M4U_COUNT] = {
 	SYS_DIS, SYS_VPU
 };
+#endif
 #endif
 
 #if (defined(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
