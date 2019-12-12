@@ -264,6 +264,17 @@
 	qcom,platform-reset-gpio = <&pm6150l_gpios 3 0>;
 };
 
+&dsi_nt36672c_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_no_labibb>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <255>;
+	qcom,platform-te-gpio = <&tlmm 10 0>;
+	qcom,platform-reset-gpio = <&pm6150l_gpios 3 0>;
+	qcom,platform-bklight-en-gpio = <&pm6150l_gpios 10 0>;
+	qcom,platform-en-gpio = <&pm6150l_gpios 4 0>;
+};
+
 &qupv3_se0_i2c {
 	status = "ok";
 	qcom,clk-freq-out = <1000000>;
