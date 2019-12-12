@@ -37,6 +37,7 @@
 #include "apusys_options.h"
 
 #include "apusys_device.h"
+#include "secure_perf.h"
 
 
 #include <linux/dma-mapping.h>
@@ -211,6 +212,8 @@ static int apusys_probe(struct platform_device *pdev)
 		goto dbg_init_fail;
 	}
 
+	secure_perf_init();
+
 	LOG_INFO("-\n");
 
 	return 0;
@@ -266,6 +269,7 @@ static int apusys_remove(struct platform_device *pdev)
 		apusys_cdev = NULL;
 	}
 	unregister_chrdev_region(apusys_devt, 1);
+	secure_perf_remove();
 	LOG_DEBUG("-\n");
 	return 0;
 }
@@ -1139,6 +1143,7 @@ check_ucmd_size_fail:
 			} else {
 				LOG_INFO("[sec]power on dev(%d) %d cores ok\n",
 					ioctl_sec.dev_type, dev_num);
+				secure_perf_raise();
 				break;
 			}
 		}
@@ -1203,6 +1208,8 @@ check_ucmd_size_fail:
 
 		LOG_WARN("[sec]unlock dev(%d) %d cores\n",
 			ioctl_sec.dev_type, dev_num);
+
+		secure_perf_restore();
 
 		/* TODO: call mtee enable 0 */
 		ret = res_secure_off(ioctl_sec.dev_type);
