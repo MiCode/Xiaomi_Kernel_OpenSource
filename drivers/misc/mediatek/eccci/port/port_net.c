@@ -403,6 +403,7 @@ static void recv_from_port_list(struct port_t *port)
 	spin_lock_irqsave(&port->port_rx_list.lock, flags);
 	skb = __skb_dequeue(&port->port_rx_list);
 	spin_unlock_irqrestore(&port->port_rx_list.lock, flags);
+	port_ch_dump(port, 0, skb, skb->len);
 	ccmni_ops.rx_callback(port->md_id, GET_CCMNI_IDX(port), skb, NULL);
 }
 
@@ -446,6 +447,7 @@ static void ccmni_queue_recv_skb(struct port_t *port, struct sk_buff *skb)
 		spin_lock_irqsave(&port->port_rx_list.lock, flags);
 			__skb_queue_tail(&port->port_rx_list, skb);
 		spin_unlock_irqrestore(&port->port_rx_list.lock, flags);
+		port_ch_dump(port, 1, skb, skb->len);
 	}
 }
 
@@ -584,6 +586,7 @@ void mtk_ccci_net_port_init(char *name)
 		"Cannot find channel %d for net port %s\n", channel, name);
 		return;
 	}
+	port->flags |= PORT_F_NET_DUMP;
 	skb_queue_head_init(&port->port_rx_list);
 }
 

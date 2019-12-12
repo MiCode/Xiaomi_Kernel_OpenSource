@@ -20,6 +20,10 @@
 #include <linux/module.h>
 #include <linux/poll.h>
 #include <linux/proc_fs.h>
+#include <linux/icmpv6.h>
+#include <net/ip.h>
+#include <net/ipv6.h>
+#include <net/ndisc.h>
 #ifdef CONFIG_COMPAT
 #include <linux/compat.h>
 #endif
@@ -682,6 +686,42 @@ static inline void port_struct_init(struct port_t *port,
 	wakeup_source_init(&port->rx_wakelock, port->name);
 }
 
+static void port_dump_net(struct port_t *port, int dir,
+	void *msg_buf)
+{
+	int type = 0;
+	u64 ts_nsec;
+	unsigned long rem_nsec;
+	struct sk_buff *skb = (struct sk_buff *)msg_buf;
+	struct iphdr *iph;
+	struct ipv6hdr *ip6h;
+	struct icmp6hdr *icmp6h;
+
+	ts_nsec = local_clock();
+	rem_nsec = do_div(ts_nsec, 1000000000);
+	if (skb->protocol == htons(ETH_P_IP)) {
+		iph = ip_hdr(skb);
+		CCCI_HISTORY_LOG(port->md_id, TAG,
+			"[%5lu.%06lu]net(%d):%d,%d,(id:%x,src:%pI4,dst:%pI4)\n",
+			(unsigned long)ts_nsec, rem_nsec / 1000,
+			dir, port->flags, port->rx_ch, iph->id,
+			&iph->saddr, &iph->daddr);
+	}
+	if (skb->protocol == htons(ETH_P_IPV6)) {
+		ip6h = ipv6_hdr(skb);
+		if (ip6h->nexthdr == NEXTHDR_ICMP) {
+			icmp6h = icmp6_hdr(skb);
+			type = icmp6h->icmp6_type;
+		}
+		CCCI_HISTORY_LOG(port->md_id, TAG,
+		"[%5lu.%06lu]net(%d):%d,%d,(src:%pI6,dst:%pI6,len:%d,type:%d)\n",
+		(unsigned long)ts_nsec, rem_nsec / 1000,
+		dir, port->flags, port->rx_ch,
+		&ip6h->saddr, &ip6h->daddr, skb->len, type);
+	}
+
+}
+
 static void port_dump_string(struct port_t *port, int dir,
 	void *msg_buf, int len)
 {
@@ -964,6 +1004,8 @@ void port_ch_dump(struct port_t *port, int dir, void *msg_buf, int len)
 {
 	if (port->flags & PORT_F_DUMP_RAW_DATA)
 		port_dump_raw_data(port, dir, msg_buf, len);
+	else if (port->flags & PORT_F_NET_DUMP)
+		port_dump_net(port, dir, msg_buf);
 	else
 		port_dump_string(port, dir, msg_buf, len);
 }

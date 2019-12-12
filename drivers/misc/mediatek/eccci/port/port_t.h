@@ -38,7 +38,8 @@
 
 /*Can be clean when MD is invalid*/
 #define PORT_F_CLEAN            (1<<9)
-
+/*Dump pkt of ccmni*/
+#define PORT_F_NET_DUMP         (1<<10)
 enum {
 	PORT_DBG_DUMP_RILD = 0,
 	PORT_DBG_DUMP_AUDIO,

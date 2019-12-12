@@ -437,8 +437,9 @@ static int ccmni_open(struct net_device *dev)
 	}
 	ret = mtk_ccci_handle_port_list(DEV_OPEN, dev->name);
 	if (ret)
-		CCMNI_PR_DBG(ccmni->md_id, "%s is failed to handle port list\n",
-				dev->name);
+		CCMNI_INF_MSG(ccmni->md_id,
+			"%s is failed to handle port list\n",
+			dev->name);
 
 	CCMNI_INF_MSG(ccmni->md_id,
 		"%s_Open:cnt=(%d,%d), md_ab=0x%X, gro=(%llx, %ld), flt_cnt=%d\n",
