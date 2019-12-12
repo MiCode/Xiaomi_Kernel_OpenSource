@@ -663,7 +663,7 @@ page_owner=on loop.max_part=7";
 		reg_base_eint = <&eint>;
 		pins-are-numbered;
 		gpio-controller;
-		gpio-ranges = <&pio 0 0 219>;
+		gpio-ranges = <&pio 0 0 220>;
 		#gpio-cells = <2>;
 		interrupt-controller;
 		#interrupt-cells = <4>;
