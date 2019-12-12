@@ -91,8 +91,8 @@ char *iommu_secure_compatible[MTK_IOMMU_M4U_COUNT] = {
 #define F_BIT_VAL(val, bit)	((!!(val))<<(bit))
 #define F_MSK_SHIFT(regval, msb, lsb) (((regval)&F_MSK(msb, lsb))>>lsb)
 
-#define IOMMU_DESIGN_OF_BANK
-#ifdef IOMMU_DESIGN_OF_BANK
+/* it must be open after atf driver is ready */
+//#define IOMMU_DESIGN_OF_BANK hc1
 /* m4u atf debug parameter */
 #define IOMMU_ATF_INDEX_MASK     F_MSK(3, 0)
 #define IOMMU_ATF_BANK_MASK      F_MSK(7, 4)
@@ -126,7 +126,7 @@ char *iommu_atf_cmd_name[IOMMU_ATF_CMD_COUNT] = {
 	"IOMMU_ATF_SECURITY_RESTORE",
 	"IOMMU_ATF_DUMP_SECURE_PORT_CONFIG",
 };
-#endif
+
 inline void iommu_set_field_by_mask(void __iomem *M4UBase,
 					   unsigned int reg,
 					   unsigned long mask,
