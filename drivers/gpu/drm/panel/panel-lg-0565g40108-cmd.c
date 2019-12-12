@@ -470,7 +470,7 @@ static int panel_ext_reset(struct drm_panel *panel, int on)
 
 static int panel_ata_check(struct drm_panel *panel)
 {
-	struct lg *ctx = panel_to_lg(panel);
+	struct lg_panel *ctx = panel_to_lg(panel);
 	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
 	unsigned char data[3];
 	unsigned char id[3] = {0x83, 0x11, 0x2b};
