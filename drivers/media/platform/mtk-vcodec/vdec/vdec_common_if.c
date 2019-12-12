@@ -201,6 +201,8 @@ static void vdec_deinit(unsigned long h_vdec)
 
 	vcu_dec_deinit(&inst->vcu);
 
+	vcu_dec_clear_ctx_for_gce(&inst->vcu);
+
 	kfree(inst);
 }
 
@@ -219,6 +221,7 @@ static int vdec_decode(unsigned long h_vdec, struct mtk_vcodec_mem *bs,
 	unsigned int fm_fourcc = inst->ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc;
 	unsigned int *errormap_info = &inst->ctx->errormap_info[0];
 
+	vcu_dec_set_ctx_for_gce(&inst->vcu);
 	num_planes = fb ? inst->vsi->dec.fb_num_planes : 0U;
 
 	for (i = 0; i < num_planes; i++)
