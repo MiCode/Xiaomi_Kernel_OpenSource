@@ -1265,6 +1265,7 @@ static int ufs_mtk_post_link(struct ufs_hba *hba)
 {
 	int ret = 0;
 	u32 arg = 0;
+	u32 ah_ms;
 
 	/* disable device LCC */
 	ret = ufs_mtk_send_uic_command(hba, UIC_CMD_DME_SET,
@@ -1277,6 +1278,16 @@ static int ufs_mtk_post_link(struct ufs_hba *hba)
 
 	/* enable unipro clock gating feature */
 	ufs_mtk_cfg_unipro_cg(hba, true);
+
+	/* configure clk gating delay */
+	if (ufshcd_is_clkgating_allowed(hba)) {
+		if (ufshcd_is_auto_hibern8_supported(hba) && hba->ahit)
+			ah_ms = FIELD_GET(UFSHCI_AHIBERN8_TIMER_MASK,
+					  hba->ahit);
+		else
+			ah_ms = 10;
+		hba->clk_gating.delay_ms = ah_ms + 5;
+	}
 
 	return ret;
 
