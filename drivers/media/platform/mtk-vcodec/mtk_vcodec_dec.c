@@ -1742,6 +1742,8 @@ static int vidioc_vdec_g_fmt(struct file *file, void *priv,
 		}
 		q_data->coded_width = ctx->picinfo.buf_w;
 		q_data->coded_height = ctx->picinfo.buf_h;
+		fourcc = ctx->picinfo.fourcc;
+		q_data->fmt = mtk_find_fmt_by_pixel(fourcc);
 
 		/*
 		 * Width and height are set to the dimensions
