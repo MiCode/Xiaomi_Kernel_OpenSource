@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2018, 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "arm-memlat-mon: " fmt
@@ -739,3 +739,4 @@ static struct platform_driver arm_memlat_mon_driver = {
 };
 
 module_platform_driver(arm_memlat_mon_driver);
+MODULE_LICENSE("GPL v2");
