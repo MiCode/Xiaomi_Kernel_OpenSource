@@ -77,10 +77,8 @@ spinlock_t cm_mgr_lock;
 static unsigned long long test_diff;
 static unsigned long long cnt;
 static unsigned int test_max;
-#ifdef CONFIG_MTK_CPU_FREQ
 static unsigned int prev_freq_idx[CM_MGR_CPU_CLUSTER];
 static unsigned int prev_freq[CM_MGR_CPU_CLUSTER];
-#endif /* CONFIG_MTK_CPU_FREQ */
 /* 0: < 50us */
 /* 1: 50~100us */
 /* 2: 100~200us */
@@ -405,9 +403,7 @@ void check_cm_mgr_status_internal(void)
 	}
 
 	if (spin_trylock_irqsave(&cm_mgr_lock, flags)) {
-#ifdef CONFIG_MTK_CPU_FREQ
 		int ret;
-#endif /* CONFIG_MTK_CPU_FREQ */
 		int max_ratio_idx[CM_MGR_CPU_CLUSTER];
 #if defined(LIGHT_LOAD) && defined(CONFIG_MTK_SCHED_RQAVG_US)
 		unsigned int cpu;
