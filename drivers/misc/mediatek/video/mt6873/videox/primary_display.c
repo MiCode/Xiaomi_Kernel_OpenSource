@@ -2779,9 +2779,11 @@ int _trigger_display_interface(int blocking, void *callback,
 
 	if (_should_trigger_path()) {
 #ifndef CONFIG_FPGA_EARLY_PORTING /* fpga has no vsync */
+#if 0
 		if (islcmconnected)
 			dpmgr_wait_event(pgc->dpmgr_handle,
 				DISP_PATH_EVENT_IF_VSYNC);
+#endif
 #endif
 		dpmgr_path_trigger(pgc->dpmgr_handle, NULL,
 			primary_display_cmdq_enabled());
