@@ -16,11 +16,8 @@
 #include "ufshcd.h"
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
-/* If SPM function not ready, comment this define */
-/* #define SPM_READY */ /* need platform porting */
-
 /* If UPMU function not ready, comment this define */
-/* #define UPMU_READY */
+#define UPMU_READY
 #endif
 
 #define UFS_REF_CLK_CTRL_BY_UFSHCI
@@ -72,6 +69,33 @@ enum {
 #define SW_RST_TARGET_ALL (SW_RST_TARGET_UFSHCI | \
 	SW_RST_TARGET_UNIPRO | SW_RST_TARGET_UFSCPT)
 
+/* infracfg_ao */
+enum {
+	CLK_CG_2_STA                = 0xAC,
+	CLK_CG_3_STA                = 0xC8,
+};
+
+/* apmixed */
+enum {
+	PLL_MAINPLL                 = 0x0340,
+	PLL_MSDCPLL                 = 0x0350,
+};
+
+/* topckgen */
+enum {
+	CLK_CFG_12                  = 0xD0,
+};
+
+/* INFRACFG_AO (0x10001000) MODULE_SW_CG_2 (0xac) */
+#define INFRACFG_AO_UNIPRO_SYSCLK_CG    (1 << 11)
+#define INFRACFG_AO_UNIPRO_TICK_CG      (1 << 12)
+#define INFRACFG_AO_UFS_MP_SAP_BCLK_CG  (1 << 13)
+#define INFRACFG_AO_UFS_CG              (1 << 28)
+#define INFRACFG_AO_AES_UFSFDE_CG       (1 << 29)
+#define INFRACFG_AO_UFS_TICK_CG         (1 << 30)
+
+/* INFRACFG_AO (0x10001000) MODULE_SW_CG_3 (0xc8) */
+#define INFRACFG_AO_UFS_AXI_CG          (1 << 5)
 
 /*
  * Platform-dependent APIs
