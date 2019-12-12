@@ -1365,21 +1365,35 @@ static const char *mt6873_bus_id_to_master(int bus_id, uint32_t vio_addr,
 const char *index_to_subsys(int slave_type, uint32_t vio_index,
 		uint32_t vio_addr)
 {
-	if (slave_type == SLAVE_TYPE_INFRA &&
-			vio_index < VIO_SLAVE_NUM_INFRA)
-		return mt6873_devices_infra[vio_index].device;
+	int i;
 
-	else if (slave_type == SLAVE_TYPE_PERI &&
+	if (slave_type == SLAVE_TYPE_INFRA &&
+			vio_index < VIO_SLAVE_NUM_INFRA) {
+		for (i = 0; i < VIO_SLAVE_NUM_INFRA; i++) {
+			if (vio_index == mt6873_devices_infra[i].vio_index)
+				return mt6873_devices_infra[i].device;
+		}
+
+	} else if (slave_type == SLAVE_TYPE_PERI &&
 			vio_index < VIO_SLAVE_NUM_PERI)
-		return mt6873_devices_peri[vio_index].device;
+		for (i = 0; i < VIO_SLAVE_NUM_PERI; i++) {
+			if (vio_index == mt6873_devices_peri[i].vio_index)
+				return mt6873_devices_peri[i].device;
+		}
 
 	else if (slave_type == SLAVE_TYPE_PERI2 &&
 			vio_index < VIO_SLAVE_NUM_PERI2)
-		return mt6873_devices_peri2[vio_index].device;
+		for (i = 0; i < VIO_SLAVE_NUM_PERI2; i++) {
+			if (vio_index == mt6873_devices_peri2[i].vio_index)
+				return mt6873_devices_peri2[i].device;
+		}
 
 	else if (slave_type == SLAVE_TYPE_PERI_PAR &&
 			vio_index < VIO_SLAVE_NUM_PERI_PAR)
-		return mt6873_devices_peri_par[vio_index].device;
+		for (i = 0; i < VIO_SLAVE_NUM_PERI_PAR; i++) {
+			if (vio_index == mt6873_devices_peri_par[i].vio_index)
+				return mt6873_devices_peri_par[i].device;
+		}
 
 	return "OUT_OF_BOUND";
 }
