@@ -343,6 +343,8 @@ enum{
 #define CAM_REG_CTL_CD_DONE_SEL(module)         (isp_devs[module].regs + 0x0058)
 #define CAM_REG_CTL_TWIN_STATUS(module)         (isp_devs[module].regs + 0x00A8)
 #define CAM_REG_CTL_MISC(module)                (isp_devs[module].regs + 0x0054)
+#define CAM_REG_CTL_SW_PASS1_DONE(module)       (isp_devs[module].regs + 0x0080)
+#define CAM_REG_CTL_SW_SUB_CTL(module)          (isp_devs[module].regs + 0x0084)
 
 /* FBC_DMAO_CTL */
 #define CAM_REG_FBC_IMGO_CTL1(module)           (isp_devs[module].regs + 0x0E00)
