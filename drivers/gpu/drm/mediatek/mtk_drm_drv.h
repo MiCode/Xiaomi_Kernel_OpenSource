@@ -33,7 +33,12 @@
 #define MTK_DRM_ESD_SUPPORT
 #define MTK_DRM_CMDQ_ASYNC
 #define CONFIG_MTK_DISPLAY_CMDQ
+#if defined(CONFIG_MACH_MT6885)
 #define MTK_FB_MMDVFS_SUPPORT
+#endif
+#if defined(CONFIG_MACH_MT6873)
+//#define MTK_FB_MMDVFS_SUPPORT
+#endif
 
 struct device;
 struct device_node;

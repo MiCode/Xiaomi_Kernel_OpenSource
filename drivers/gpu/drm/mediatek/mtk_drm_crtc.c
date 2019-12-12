@@ -157,8 +157,29 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 	}
 	DDPINFO("%s\n", __func__);
 
-	mmsys_config_dump_reg_mt6885(mtk_crtc->config_regs);
-	mutex_dump_reg_mt6885(mtk_crtc->mutex[0]);
+	switch (priv->data->mmsys_id) {
+	case MMSYS_MT2701:
+		break;
+	case MMSYS_MT2712:
+		break;
+	case MMSYS_MT8173:
+		break;
+	case MMSYS_MT6779:
+		break;
+	case MMSYS_MT6885:
+		mmsys_config_dump_reg_mt6885(mtk_crtc->config_regs);
+		mutex_dump_reg_mt6885(mtk_crtc->mutex[0]);
+		break;
+	case MMSYS_MT6873:
+		mmsys_config_dump_reg_mt6873(mtk_crtc->config_regs);
+		mutex_dump_reg_mt6873(mtk_crtc->mutex[0]);
+		break;
+	default:
+		pr_info("%s mtk drm not support mmsys id %d\n",
+			__func__, priv->data->mmsys_id);
+		break;
+	}
+
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) mtk_dump_reg(comp);
 
 	addon_data = mtk_addon_get_scenario_data(__func__, crtc,
@@ -205,8 +226,29 @@ void mtk_drm_crtc_analysis(struct drm_crtc *crtc)
 	}
 	DDPINFO("%s\n", __func__);
 
-	mmsys_config_dump_analysis_mt6885(mtk_crtc->config_regs);
-	mutex_dump_analysis_mt6885(mtk_crtc->mutex[0]);
+	switch (priv->data->mmsys_id) {
+	case MMSYS_MT2701:
+		break;
+	case MMSYS_MT2712:
+		break;
+	case MMSYS_MT8173:
+		break;
+	case MMSYS_MT6779:
+		break;
+	case MMSYS_MT6885:
+		mmsys_config_dump_analysis_mt6885(mtk_crtc->config_regs);
+		mutex_dump_analysis_mt6885(mtk_crtc->mutex[0]);
+		break;
+	case MMSYS_MT6873:
+		mmsys_config_dump_analysis_mt6873(mtk_crtc->config_regs);
+		mutex_dump_analysis_mt6873(mtk_crtc->mutex[0]);
+		break;
+	default:
+		pr_info("%s mtk drm not support mmsys id %d\n",
+			__func__, priv->data->mmsys_id);
+		break;
+	}
+
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
 		mtk_dump_analysis(comp);
 
@@ -2221,7 +2263,12 @@ static void mtk_crtc_addon_connector_disconnect(struct drm_crtc *crtc,
 	if (panel_ext &&
 		panel_ext->output_mode == MTK_PANEL_DSC_SINGLE_PORT) {
 		dsc_comp = priv->ddp_comp[DDP_COMPONENT_DSC0];
+#if defined(CONFIG_MACH_MT6885)
 		mtk_ddp_remove_dsc_prim_MT6885(mtk_crtc, handle);
+#endif
+#if defined(CONFIG_MACH_MT6873)
+		mtk_ddp_remove_dsc_prim_MT6873(mtk_crtc, handle);
+#endif
 		mtk_disp_mutex_remove_comp_with_cmdq(mtk_crtc, dsc_comp->id,
 			handle, 0);
 		mtk_ddp_comp_stop(dsc_comp, handle);
@@ -2270,7 +2317,12 @@ static void mtk_crtc_addon_connector_connect(struct drm_crtc *crtc,
 		dsc_comp->mtk_crtc = mtk_crtc;
 
 		/* insert DSC */
+#if defined(CONFIG_MACH_MT6885)
 		mtk_ddp_insert_dsc_prim_MT6885(mtk_crtc, handle);
+#endif
+#if defined(CONFIG_MACH_MT6873)
+		mtk_ddp_insert_dsc_prim_MT6873(mtk_crtc, handle);
+#endif
 		mtk_disp_mutex_add_comp_with_cmdq(mtk_crtc, dsc_comp->id,
 			mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base),
 			handle, 0);
@@ -2819,6 +2871,8 @@ unsigned int mtk_drm_dump_wk_lock(
 
 	for (i = 0; i < 3; i++) {
 		crtc = priv->crtc[i];
+		if (!crtc)
+			continue;
 		mtk_crtc = to_mtk_crtc(crtc);
 
 		len += scnprintf(stringbuf + len, buf_len - len,

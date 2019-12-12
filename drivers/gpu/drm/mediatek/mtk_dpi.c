@@ -758,6 +758,7 @@ static int mtk_dpi_probe(struct platform_device *pdev)
 	const struct of_device_id *match;
 	int ret;
 
+	DDPINFO("%s+\n", __func__);
 	match = of_match_node(mtk_dpi_of_ids, dev->of_node);
 	if (!match)
 		return -ENODEV;
@@ -843,6 +844,7 @@ static int mtk_dpi_probe(struct platform_device *pdev)
 	}
 
 	pm_runtime_enable(dev);
+	DDPINFO("%s-\n", __func__);
 
 	return 0;
 }

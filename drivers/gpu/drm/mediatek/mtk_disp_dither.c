@@ -380,7 +380,7 @@ static int mtk_disp_dither_probe(struct platform_device *pdev)
 	enum mtk_ddp_comp_id comp_id;
 	int ret;
 
-	DDPPR_ERR("%s\n", __func__);
+	DDPINFO("%s+\n", __func__);
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (priv == NULL)
@@ -411,6 +411,7 @@ static int mtk_disp_dither_probe(struct platform_device *pdev)
 		dev_err(dev, "Failed to add component: %d\n", ret);
 		pm_runtime_disable(dev);
 	}
+	DDPINFO("%s-\n", __func__);
 
 	return ret;
 }
@@ -426,6 +427,7 @@ static int mtk_disp_dither_remove(struct platform_device *pdev)
 static const struct of_device_id mtk_disp_dither_driver_dt_match[] = {
 	{.compatible = "mediatek,mt6779-disp-dither",},
 	{.compatible = "mediatek,mt6885-disp-dither",},
+	{.compatible = "mediatek,mt6873-disp-dither",},
 	{},
 };
 

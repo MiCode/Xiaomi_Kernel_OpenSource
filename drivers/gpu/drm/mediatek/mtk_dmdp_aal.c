@@ -363,6 +363,7 @@ static int mtk_dmdp_aal_remove(struct platform_device *pdev)
 
 static const struct of_device_id mtk_dmdp_aal_driver_dt_match[] = {
 	{.compatible = "mediatek,mt6885-dmdp-aal",},
+	{.compatible = "mediatek,mt6873-dmdp-aal",},
 	{},
 };
 

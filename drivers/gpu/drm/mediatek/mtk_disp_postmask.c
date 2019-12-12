@@ -519,6 +519,7 @@ static int mtk_disp_postmask_probe(struct platform_device *pdev)
 		dev_err(dev, "Failed to add component: %d\n", ret);
 		pm_runtime_disable(dev);
 	}
+	DDPINFO("%s-\n", __func__);
 
 	return ret;
 }
@@ -534,6 +535,7 @@ static int mtk_disp_postmask_remove(struct platform_device *pdev)
 static const struct of_device_id mtk_disp_postmask_driver_dt_match[] = {
 	{.compatible = "mediatek,mt6779-disp-postmask",},
 	{.compatible = "mediatek,mt6885-disp-postmask",},
+	{.compatible = "mediatek,mt6873-disp-postmask",},
 	{},
 };
 

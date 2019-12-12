@@ -912,7 +912,7 @@ static int disp_aal_write_dre_to_reg(struct mtk_ddp_comp *comp,
 	const int *gain;
 
 	gain = param->DREGainFltStatus;
-#if defined(CONFIG_MACH_MT6885)
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873)
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_AAL_DRE_FLT_FORCE(0),
 	    DRE_REG_2(gain[0], 0, gain[1], 14), ~0);
@@ -2059,6 +2059,8 @@ static int mtk_disp_aal_probe(struct platform_device *pdev)
 	struct resource dre3_res;
 #endif
 
+	DDPINFO("%s+\n", __func__);
+
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (priv == NULL)
 		return -ENOMEM;
@@ -2166,6 +2168,7 @@ static int mtk_disp_aal_remove(struct platform_device *pdev)
 
 static const struct of_device_id mtk_disp_aal_driver_dt_match[] = {
 	{ .compatible = "mediatek,mt6885-disp-aal",},
+	{ .compatible = "mediatek,mt6873-disp-aal",},
 	{},
 };
 

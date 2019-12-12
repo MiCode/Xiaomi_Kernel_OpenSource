@@ -213,7 +213,7 @@ static int disp_ccorr_write_coef_reg(struct mtk_ddp_comp *comp,
 		ccorr->offset[2] = g_disp_ccorr_coef[id]->offset[2];
 	}
 
-#if defined(CONFIG_MACH_MT6885)
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873)
 	// For 6885 need to left shift one bit
 	for (i = 0; i < 3; i++)
 		for (j = 0; j < 3; j++)
@@ -563,8 +563,7 @@ int disp_ccorr_set_color_matrix(struct mtk_ddp_comp *comp,
 		}
 	}
 
-#if defined(CONFIG_MACH_MT6885)
-
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873)
 	// offset part
 	g_disp_ccorr_coef[id]->offset[0] = (matrix[12] << 1) << 14;
 	g_disp_ccorr_coef[id]->offset[1] = (matrix[13] << 1) << 14;
@@ -696,7 +695,7 @@ int mtk_drm_ioctl_support_color_matrix(struct drm_device *dev, void *data,
 
 	color_transform = data;
 
-#if defined(CONFIG_MACH_MT6885)
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873)
     // Support matrix:
 	// 1. AOSP is 4x3 matrix. Offset is located at 4th row (not zero)
     // 2. Identity matrix
@@ -724,6 +723,7 @@ int mtk_drm_ioctl_support_color_matrix(struct drm_device *dev, void *data,
 	if (four_by_three_matrix || identify_matrix) {
 		DDPINFO("supported matrix (%d, %d)",
 				four_by_three_matrix, identify_matrix);
+
 		ret = 0; //Zero: support color matrix.
 	} else {
 		for (i = 0 ; i < 4; i++) {
@@ -932,7 +932,7 @@ static int mtk_disp_ccorr_probe(struct platform_device *pdev)
 	int irq;
 	int ret;
 
-	DDPPR_ERR("%s\n", __func__);
+	DDPINFO("%s+\n", __func__);
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (priv == NULL)
@@ -968,6 +968,7 @@ static int mtk_disp_ccorr_probe(struct platform_device *pdev)
 		dev_err(dev, "Failed to add component: %d\n", ret);
 		pm_runtime_disable(dev);
 	}
+	DDPINFO("%s-\n", __func__);
 
 	default_comp = NULL;
 
@@ -985,6 +986,7 @@ static int mtk_disp_ccorr_remove(struct platform_device *pdev)
 static const struct of_device_id mtk_disp_ccorr_driver_dt_match[] = {
 	{.compatible = "mediatek,mt6779-disp-ccorr",},
 	{.compatible = "mediatek,mt6885-disp-ccorr",},
+	{.compatible = "mediatek,mt6873-disp-ccorr",},
 	{},
 };
 

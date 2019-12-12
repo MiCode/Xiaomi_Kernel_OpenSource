@@ -515,7 +515,7 @@ static int mtk_disp_rsz_probe(struct platform_device *pdev)
 	enum mtk_ddp_comp_id comp_id;
 	int ret;
 
-	pr_info("%s+\n", __func__);
+	DDPINFO("%s+\n", __func__);
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
@@ -545,7 +545,7 @@ static int mtk_disp_rsz_probe(struct platform_device *pdev)
 		pm_runtime_disable(dev);
 	}
 
-	pr_info("%s-\n", __func__);
+	DDPINFO("%s-\n", __func__);
 
 	return ret;
 }
@@ -566,11 +566,17 @@ static const struct mtk_disp_rsz_data mt6885_rsz_driver_data = {
 	.tile_length = 1080, .alignment_margin = 6, .in_max_height = 4096,
 };
 
+static const struct mtk_disp_rsz_data mt6873_rsz_driver_data = {
+	.tile_length = 1080, .alignment_margin = 6, .in_max_height = 4096,
+};
+
 static const struct of_device_id mtk_disp_rsz_driver_dt_match[] = {
 	{.compatible = "mediatek,mt6779-disp-rsz",
 	 .data = &mt6779_rsz_driver_data},
 	{.compatible = "mediatek,mt6885-disp-rsz",
 	 .data = &mt6885_rsz_driver_data},
+	{.compatible = "mediatek,mt6873-disp-rsz",
+	 .data = &mt6873_rsz_driver_data},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_disp_rsz_driver_dt_match);

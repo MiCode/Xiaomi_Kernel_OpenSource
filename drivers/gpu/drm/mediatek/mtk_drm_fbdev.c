@@ -115,6 +115,7 @@ static int mtk_drm_fbdev_mmap(struct fb_info *info, struct vm_area_struct *vma)
 	return mtk_drm_gem_mmap_buf(private->fbdev_bo, vma);
 }
 #endif
+
 static struct fb_ops mtk_fbdev_ops = {
 	.owner = THIS_MODULE,
 	.fb_fillrect = drm_fb_helper_cfb_fillrect,
@@ -207,6 +208,7 @@ static int mtk_fbdev_probe(struct drm_fb_helper *helper,
 	int err;
 	phys_addr_t fb_base;
 
+	DDPMSG("%s+\n", __func__);
 	bytes_per_pixel = DIV_ROUND_UP(sizes->surface_bpp, 8);
 	mode.pixel_format = drm_mode_legacy_fb_format(sizes->surface_bpp,
 						      sizes->surface_depth);
@@ -276,6 +278,7 @@ static int mtk_fbdev_probe(struct drm_fb_helper *helper,
 		      fb->height, fb->format->depth, size);
 
 	info->skip_vt_switch = true;
+	DDPMSG("%s-\n", __func__);
 	return 0;
 
 err_release_fbi:

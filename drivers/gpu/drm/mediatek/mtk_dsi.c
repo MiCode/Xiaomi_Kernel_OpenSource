@@ -684,7 +684,7 @@ static void mtk_dsi_ps_control_vact(struct mtk_dsi *dsi)
 	val = (val & ~mask) | (value & mask);
 	writel(val, dsi->regs + DSI_PSCTRL);
 
-#ifndef CONFIG_MACH_MT6885
+#if !defined(CONFIG_MACH_MT6885) && !defined(CONFIG_MACH_MT6873)
 	val = vm->hactive * dsi_buf_bpp;
 	writel(val, dsi->regs + DSI_HSTX_CKL_WC);
 #endif
@@ -715,7 +715,7 @@ static void mtk_dsi_rxtx_control(struct mtk_dsi *dsi)
 	}
 
 	tmp_reg |= (dsi->mode_flags & MIPI_DSI_CLOCK_NON_CONTINUOUS) << 6;
-#ifndef CONFIG_MACH_MT6885
+#if !defined(CONFIG_MACH_MT6885) && !defined(CONFIG_MACH_MT6873)
 	tmp_reg |= (dsi->mode_flags & MIPI_DSI_MODE_EOT_PACKET) >> 3;
 #endif
 	tmp_reg |= HSTX_CKLP_EN;
@@ -3254,6 +3254,13 @@ static const struct mtk_dsi_driver_data mt6885_dsi_driver_data = {
 	.esd_eint_compat = "mediatek, DSI_TE-eint",
 };
 
+static const struct mtk_dsi_driver_data mt6873_dsi_driver_data = {
+	.reg_cmdq_ofs = 0x200,
+	.poll_for_idle = mtk_dsi_poll_for_idle,
+	.irq_handler = mtk_dsi_irq_status,
+	.esd_eint_compat = "mediatek, DSI_TE-eint",
+};
+
 static const struct mtk_dsi_driver_data mt2701_dsi_driver_data = {
 	.reg_cmdq_ofs = 0x180, .irq_handler = mtk_dsi_irq,
 };
@@ -3263,6 +3270,7 @@ static const struct of_device_id mtk_dsi_of_match[] = {
 	{.compatible = "mediatek,mt6779-dsi", .data = &mt6779_dsi_driver_data},
 	{.compatible = "mediatek,mt8173-dsi", .data = &mt8173_dsi_driver_data},
 	{.compatible = "mediatek,mt6885-dsi", .data = &mt6885_dsi_driver_data},
+	{.compatible = "mediatek,mt6873-dsi", .data = &mt6873_dsi_driver_data},
 	{},
 };
 

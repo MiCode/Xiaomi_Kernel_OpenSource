@@ -2714,7 +2714,7 @@ int mtk_drm_ioctl_read_reg(struct drm_device *dev, void *data,
 			__func__, __LINE__);
 		rParams->val = readl(va) & rParams->mask;
 
-#if defined(CONFIG_MACH_MT6885)
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873)
 	// For 6885 CCORR COEF, real values need to right shift one bit
 	if (pa >= ccorr_comp->regs_pa + CCORR_REG(0) &&
 		pa <= ccorr_comp->regs_pa + CCORR_REG(4))
@@ -3018,6 +3018,7 @@ static int mtk_disp_color_probe(struct platform_device *pdev)
 	enum mtk_ddp_comp_id comp_id;
 	int ret;
 
+	DDPINFO("%s+\n", __func__);
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (priv == NULL)
 		return -ENOMEM;
@@ -3046,6 +3047,7 @@ static int mtk_disp_color_probe(struct platform_device *pdev)
 		dev_err(dev, "Failed to add component: %d\n", ret);
 		pm_runtime_disable(dev);
 	}
+	DDPINFO("%s-\n", __func__);
 
 	return ret;
 }
@@ -3090,6 +3092,15 @@ static const struct mtk_disp_color_data mt6885_color_driver_data = {
 	.color_window = 0x40185E57,
 };
 
+static const struct mtk_disp_color_data mt6873_color_driver_data = {
+	.color_offset = DISP_COLOR_START_MT6873,
+	.support_color21 = true,
+	.support_color30 = true,
+	.reg_table = {0x14007000, 0x14008000, 0x14009000,
+			0x1400A000, 0x1400B000},
+	.color_window = 0x40185E57,
+};
+
 static const struct of_device_id mtk_disp_color_driver_dt_match[] = {
 	{.compatible = "mediatek,mt2701-disp-color",
 	 .data = &mt2701_color_driver_data},
@@ -3099,6 +3110,8 @@ static const struct of_device_id mtk_disp_color_driver_dt_match[] = {
 	 .data = &mt6885_color_driver_data},
 	{.compatible = "mediatek,mt8173-disp-color",
 	 .data = &mt8173_color_driver_data},
+	{.compatible = "mediatek,mt6873-disp-color",
+	 .data = &mt6873_color_driver_data},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_disp_color_driver_dt_match);

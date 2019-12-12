@@ -403,11 +403,17 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 {
 	/* fixed variable */
 	unsigned int mmsys_clk = 208;
-	unsigned int pre_ultra_low_us = 245, pre_ultra_high_us = 255;
-	unsigned int ultra_low_us = 230, ultra_high_us = 245;
 	unsigned int if_fps = cfg->vrefresh;
 	unsigned int FP = 1000;
 	unsigned int fifo_size = 2240;
+#if defined(CONFIG_MACH_MT6885)
+	unsigned int pre_ultra_low_us = 245, pre_ultra_high_us = 255;
+	unsigned int ultra_low_us = 230, ultra_high_us = 245;
+#endif
+#if defined(CONFIG_MACH_MT6873)
+	unsigned int pre_ultra_low_us = 250, pre_ultra_high_us = 260;
+	unsigned int ultra_low_us = 230, ultra_high_us = 250;
+#endif
 
 	/* input variable */
 	struct golden_setting_context *gsc = cfg->p_golden_setting_context;
@@ -1308,6 +1314,11 @@ static const struct mtk_disp_rdma_data mt6885_rdma_driver_data = {
 	.sodi_config = mt6885_mtk_sodi_config,
 };
 
+static const struct mtk_disp_rdma_data mt6873_rdma_driver_data = {
+	.fifo_size = SZ_1K * 3 + SZ_32K,
+	.sodi_config = mt6873_mtk_sodi_config,
+};
+
 static const struct of_device_id mtk_disp_rdma_driver_dt_match[] = {
 	{.compatible = "mediatek,mt2701-disp-rdma",
 	 .data = &mt2701_rdma_driver_data},
@@ -1317,6 +1328,8 @@ static const struct of_device_id mtk_disp_rdma_driver_dt_match[] = {
 	 .data = &mt8173_rdma_driver_data},
 	{.compatible = "mediatek,mt6885-disp-rdma",
 	 .data = &mt6885_rdma_driver_data},
+	{.compatible = "mediatek,mt6873-disp-rdma",
+	 .data = &mt6873_rdma_driver_data},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_disp_rdma_driver_dt_match);

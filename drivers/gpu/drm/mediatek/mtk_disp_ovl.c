@@ -223,6 +223,7 @@
 #define DISP_REG_OVL_ADDR_MT2701 0x0040
 #define DISP_REG_OVL_ADDR_MT6779 0x0f40
 #define DISP_REG_OVL_ADDR_MT6885 0x0f40
+#define DISP_REG_OVL_ADDR_MT6873 0x0f40
 #define DISP_REG_OVL_ADDR_MT8173 0x0f40
 #define DISP_REG_OVL_ADDR(module, n) ((module)->data->addr + 0x20 * (n))
 
@@ -1949,7 +1950,12 @@ void mtk_ovl_cal_golden_setting(struct mtk_ddp_config *cfg, unsigned int *gs)
 
 	/* OVL_RDMA_FIFO_CTRL */
 	gs[GS_OVL_RDMA_FIFO_THRD] = 0;
+#if defined(CONFIG_MACH_MT6885)
 	gs[GS_OVL_RDMA_FIFO_SIZE] = 384;
+#endif
+#if defined(CONFIG_MACH_MT6873)
+	gs[GS_OVL_RDMA_FIFO_SIZE] = 288;
+#endif
 
 	/* OVL_RDMA_MEM_GMC_SETTING_2 */
 	gs[GS_OVL_RDMA_ISSUE_REQ_TH] = (!is_dc) ? 255 : 15;
@@ -2692,8 +2698,14 @@ static void ovl_dump_layer_info(struct mtk_ddp_comp *comp, int layer,
 		Lx_base += (DISP_REG_OVL_EL_CON(0) - DISP_REG_OVL_CON(0));
 
 		Lx_addr_base = baddr + layer * 0x4;
+#if defined(CONFIG_MACH_MT6885)
 		Lx_addr_base +=
 			(DISP_REG_OVL_EL_ADDR(0) - DISP_REG_OVL_ADDR_MT6885);
+#endif
+#if defined(CONFIG_MACH_MT6873)
+		Lx_addr_base +=
+			(DISP_REG_OVL_EL_ADDR(0) - DISP_REG_OVL_ADDR_MT6873);
+#endif
 	} else {
 		Lx_base = baddr + layer * OVL_LAYER_OFFSET;
 		Lx_addr_base = baddr + layer * OVL_LAYER_OFFSET;
@@ -2703,7 +2715,12 @@ static void ovl_dump_layer_info(struct mtk_ddp_comp *comp, int layer,
 	offset = readl(DISP_REG_OVL_L0_OFFSET + Lx_base);
 	src_size = readl(DISP_REG_OVL_L0_SRC_SIZE + Lx_base);
 	pitch = readl(DISP_REG_OVL_L0_PITCH + Lx_base);
+#if defined(CONFIG_MACH_MT6885)
 	addr = readl(DISP_REG_OVL_ADDR_MT6885 + Lx_addr_base);
+#endif
+#if defined(CONFIG_MACH_MT6873)
+	addr = readl(DISP_REG_OVL_ADDR_MT6873 + Lx_addr_base);
+#endif
 	clip = readl(DISP_REG_OVL_CLIP(0) + Lx_base);
 
 	/* TODO
@@ -3009,6 +3026,19 @@ static const struct mtk_disp_ovl_data mt6885_ovl_driver_data = {
 	.compr_info = &compr_info_mt6885,
 };
 
+static const struct compress_info compr_info_mt6873  = {
+	.name = "AFBC_V1_2_MTK_1",
+	.l_config = &compr_l_config_AFBC_V1_2,
+};
+
+static const struct mtk_disp_ovl_data mt6873_ovl_driver_data = {
+	.addr = DISP_REG_OVL_ADDR_MT6873,
+	.fmt_rgb565_is_0 = true,
+	.fmt_uyvy = 4U << 12,
+	.fmt_yuyv = 5U << 12,
+	.compr_info = &compr_info_mt6873,
+};
+
 static const struct mtk_disp_ovl_data mt8173_ovl_driver_data = {
 	.addr = DISP_REG_OVL_ADDR_MT8173,
 	.fmt_rgb565_is_0 = true,
@@ -3025,6 +3055,8 @@ static const struct of_device_id mtk_disp_ovl_driver_dt_match[] = {
 	 .data = &mt8173_ovl_driver_data},
 	{.compatible = "mediatek,mt6885-disp-ovl",
 	 .data = &mt6885_ovl_driver_data},
+	{.compatible = "mediatek,mt6873-disp-ovl",
+	 .data = &mt6873_ovl_driver_data},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_disp_ovl_driver_dt_match);
