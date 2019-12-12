@@ -36,10 +36,10 @@
 
 #define MAX_DEP_NUM 30
 #define MAIN_LOG_SIZE 256
-#define TIMER1_MS 100
-#define TIMER2_MS 1000
-#define MAX_BOOST_CNT 15
-#define LOADING_TH 20
+#define DEFAULT_TIMER1_MS 100
+#define DEFAULT_TIMER2_MS 1000
+#define DEFAULT_MAX_BOOST_CNT 15
+#define DEFAULT_LOADING_TH 20
 
 #define SYSTEMUI_STR "ndroid.systemui"
 
@@ -48,6 +48,10 @@ static DEFINE_MUTEX(gbe_lock);
 static int gbe_enable;
 static int cluster_num;
 static struct pm_qos_request dram_req;
+static int TIMER1_MS = DEFAULT_TIMER1_MS;
+static int TIMER2_MS = DEFAULT_TIMER2_MS;
+static int MAX_BOOST_CNT = DEFAULT_MAX_BOOST_CNT;
+static int LOADING_TH = DEFAULT_LOADING_TH;
 
 enum {
 	NEW_RENDER = 0,
@@ -490,6 +494,99 @@ static const struct file_operations gbe_##name##_fops = { \
 	.release = single_release, \
 }
 
+static int gbe_timer1_show(struct seq_file *m, void *unused)
+{
+	mutex_lock(&gbe_lock);
+	seq_printf(m, "%d\n", TIMER1_MS);
+	mutex_unlock(&gbe_lock);
+	return 0;
+}
+
+static ssize_t gbe_timer1_write(struct file *flip,
+		const char *ubuf, size_t cnt, loff_t *data)
+{
+
+	int ret;
+	int val;
+
+	ret = kstrtoint_from_user(ubuf, cnt, 0, &val);
+	if (ret)
+		return ret;
+
+	if ((val < 0) || (val > 1000))
+		return -EINVAL;
+
+	mutex_lock(&gbe_lock);
+	TIMER1_MS = val;
+	mutex_unlock(&gbe_lock);
+
+	return cnt;
+}
+
+GBE_DEBUGFS_ENTRY(timer1);
+
+static int gbe_timer2_show(struct seq_file *m, void *unused)
+{
+	mutex_lock(&gbe_lock);
+	seq_printf(m, "%d\n", TIMER2_MS);
+	mutex_unlock(&gbe_lock);
+	return 0;
+}
+
+static ssize_t gbe_timer2_write(struct file *flip,
+		const char *ubuf, size_t cnt, loff_t *data)
+{
+
+	int ret;
+	int val;
+
+	ret = kstrtoint_from_user(ubuf, cnt, 0, &val);
+	if (ret)
+		return ret;
+
+	if ((val < 0) || (val > 10000))
+		return -EINVAL;
+
+	mutex_lock(&gbe_lock);
+	TIMER2_MS = val;
+	mutex_unlock(&gbe_lock);
+
+	return cnt;
+}
+
+GBE_DEBUGFS_ENTRY(timer2);
+
+static int gbe_loading_th_show(struct seq_file *m, void *unused)
+{
+	mutex_lock(&gbe_lock);
+	seq_printf(m, "%d\n", LOADING_TH);
+	mutex_unlock(&gbe_lock);
+	return 0;
+}
+
+static ssize_t gbe_loading_th_write(struct file *flip,
+		const char *ubuf, size_t cnt, loff_t *data)
+{
+
+	int ret;
+	int val;
+
+	ret = kstrtoint_from_user(ubuf, cnt, 0, &val);
+	if (ret)
+		return ret;
+
+	if ((val < 0) || (val > 100))
+		return -EINVAL;
+
+	mutex_lock(&gbe_lock);
+	LOADING_TH = val;
+	mutex_unlock(&gbe_lock);
+
+	return cnt;
+}
+
+GBE_DEBUGFS_ENTRY(loading_th);
+
 static int gbe_enable_show(struct seq_file *m, void *unused)
 {
 	mutex_lock(&gbe_lock);
@@ -577,6 +674,24 @@ int gbe2_init(void)
 			gbe_debugfs_dir,
 			NULL,
 			&gbe_boost_list_fops);
+
+	debugfs_create_file("gbe2_timer1",
+			0644,
+			gbe_debugfs_dir,
+			NULL,
+			&gbe_timer1_fops);
+
+	debugfs_create_file("gbe2_timer2",
+			0644,
+			gbe_debugfs_dir,
+			NULL,
+			&gbe_timer2_fops);
+
+	debugfs_create_file("gbe2_loading_th",
+			0644,
+			gbe_debugfs_dir,
+			NULL,
+			&gbe_loading_th_fops);
 
 	cluster_num = arch_get_nr_clusters();
 
