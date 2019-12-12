@@ -3,6 +3,8 @@
  * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  */
 
+#include <linux/msm-bus.h>
+
 #include "adreno.h"
 #include "adreno_cp_parser.h"
 #include "adreno_pm4types.h"
@@ -840,6 +842,14 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 
 	snapshot_frozen_objsize = 0;
 
+	/*
+	 * We read lots of registers during GPU snapshot. Keep
+	 * high bus vote to reduce AHB latency.
+	 */
+	if (device->pwrctrl.gpu_cfg)
+		msm_bus_scale_client_update_request(device->pwrctrl.gpu_cfg,
+			KGSL_GPU_CFG_PATH_HIGH);
+
 	/* Add GPU specific sections - registers mainly, but other stuff too */
 	if (gpudev->snapshot)
 		gpudev->snapshot(adreno_dev, snapshot);
@@ -945,6 +955,9 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 			"GPU snapshot froze %zdKb of GPU buffers\n",
 			snapshot_frozen_objsize / 1024);
 
+	if (device->pwrctrl.gpu_cfg)
+		msm_bus_scale_client_update_request(device->pwrctrl.gpu_cfg,
+			KGSL_GPU_CFG_PATH_LOW);
 }
 
 /*

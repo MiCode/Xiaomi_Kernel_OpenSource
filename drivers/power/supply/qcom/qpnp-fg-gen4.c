@@ -224,6 +224,7 @@ struct fg_dt_props {
 	int	delta_soc_thr;
 	int	vbatt_scale_thr_mv;
 	int	scale_timer_ms;
+	int	force_calib_level;
 	int	esr_timer_chg_fast[NUM_ESR_TIMERS];
 	int	esr_timer_chg_slow[NUM_ESR_TIMERS];
 	int	esr_timer_dischg_fast[NUM_ESR_TIMERS];
@@ -1144,6 +1145,9 @@ static int fg_gen4_set_calibrate_level(struct fg_gen4_chip *chip, int val)
 	if (!chip->pbs_dev)
 		return -ENODEV;
 
+	if (is_debug_batt_id(fg))
+		return 0;
+
 	if (val < 0 || val > 0x83) {
 		pr_err("Incorrect calibration level %d\n", val);
 		return -EINVAL;
@@ -1151,6 +1155,9 @@ static int fg_gen4_set_calibrate_level(struct fg_gen4_chip *chip, int val)
 
 	if (val == chip->calib_level)
 		return 0;
+
+	if (chip->dt.force_calib_level != -EINVAL)
+		val = chip->dt.force_calib_level;
 
 	buf = (u8)val;
 	rc = fg_write(fg, SDAM1_MEM_124_REG, &buf, 1);
@@ -6067,6 +6074,10 @@ static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
 		of_property_read_u32(node, "qcom,soc-scale-time-ms",
 					&chip->dt.scale_timer_ms);
 	}
+
+	chip->dt.force_calib_level = -EINVAL;
+	of_property_read_u32(node, "qcom,force-calib-level",
+					&chip->dt.force_calib_level);
 
 	rc = fg_parse_ki_coefficients(fg);
 	if (rc < 0)

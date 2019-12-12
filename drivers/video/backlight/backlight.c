@@ -346,6 +346,9 @@ static int bd_cdev_set_cur_brightness(struct thermal_cooling_device *cdev,
 	struct backlight_device *bd = (struct backlight_device *)cdev->devdata;
 	int brightness_lvl;
 
+	if (state > bd->props.max_brightness)
+		return -EINVAL;
+
 	brightness_lvl = bd->props.max_brightness - state;
 	if (brightness_lvl == bd->thermal_brightness_limit)
 		return 0;

@@ -1129,7 +1129,7 @@ int ipa_init_flt_rt_stats(void)
 	desc[num_cmd].pyld = flt_v4_base_pyld->data;
 	desc[num_cmd].len = flt_v4_base_pyld->len;
 	desc[num_cmd].type = IPA_IMM_CMD_DESC;
-	+num_cmd;
+	++num_cmd;
 
 	/* set IPA_STAT_FILTER_IPV6_BASE */
 	flt_v6_base.skip_pipeline_clear = false;

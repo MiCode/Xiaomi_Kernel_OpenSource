@@ -507,19 +507,19 @@ static int _do_ramdump(void *handle, struct ramdump_segment *segments,
 }
 
 static inline unsigned int set_section_name(const char *name,
-					    struct elfhdr *ehdr)
+					    struct elfhdr *ehdr,
+					    int *strtable_idx)
 {
 	char *strtab = elf_str_table(ehdr);
-	static int strtable_idx = 1;
 	int idx, ret = 0;
 
-	idx = strtable_idx;
+	idx = *strtable_idx;
 	if ((strtab == NULL) || (name == NULL))
 		return 0;
 
 	ret = idx;
 	idx += strlcpy((strtab + idx), name, MAX_NAME_LENGTH);
-	strtable_idx = idx + 1;
+	*strtable_idx = idx + 1;
 
 	return ret;
 }
@@ -533,6 +533,7 @@ static int _do_minidump(void *handle, struct ramdump_segment *segments,
 	struct elfhdr *ehdr;
 	struct elf_shdr *shdr;
 	unsigned long offset, strtbl_off;
+	int strtable_idx = 1;
 
 	/*
 	 * Acquire the consumer lock here, and hold the lock until we are done
@@ -588,13 +589,14 @@ static int _do_minidump(void *handle, struct ramdump_segment *segments,
 	shdr->sh_size = MAX_STRTBL_SIZE;
 	shdr->sh_entsize = 0;
 	shdr->sh_flags = 0;
-	shdr->sh_name = set_section_name("STR_TBL", ehdr);
+	shdr->sh_name = set_section_name("STR_TBL", ehdr, &strtable_idx);
 	shdr++;
 
 	for (i = 0; i < nsegments; i++, shdr++) {
 		/* Update elf header */
 		shdr->sh_type = SHT_PROGBITS;
-		shdr->sh_name = set_section_name(segments[i].name, ehdr);
+		shdr->sh_name = set_section_name(segments[i].name, ehdr,
+							&strtable_idx);
 		shdr->sh_addr = (elf_addr_t)segments[i].address;
 		shdr->sh_size = segments[i].size;
 		shdr->sh_flags = SHF_WRITE;

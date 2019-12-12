@@ -22,7 +22,7 @@
 
 #define PDC_IPC_LOG_SZ		2
 
-#define PDC_MAX_IRQS		138
+#define PDC_MAX_IRQS		153
 #define PDC_MAX_GPIO_IRQS	256
 
 #define CLEAR_INTR(reg, intr)	(reg & ~(1 << intr))
@@ -498,3 +498,4 @@ fail:
 IRQCHIP_DECLARE(pdc_sdm845, "qcom,sdm845-pdc", qcom_pdc_init);
 IRQCHIP_DECLARE(pdc_kona,   "qcom,kona-pdc",   qcom_pdc_init);
 IRQCHIP_DECLARE(pdc_lito,   "qcom,lito-pdc",   qcom_pdc_init);
+IRQCHIP_DECLARE(pdc_lagoon,   "qcom,lagoon-pdc",   qcom_pdc_init);

@@ -21,4 +21,9 @@
 #define VIDEO_CC_XO_CLK			11
 #define VIDEO_CC_XO_CLK_SRC		12
 
+/* VIDEO_CC resets */
+#define VCODEC_VIDEO_CC_INTERFACE_BCR	0
+#define VCODEC_VIDEO_CC_MVS0_BCR	1
+#define VCODEC_VIDEO_CC_MVSC_BCR	2
+
 #endif

@@ -456,7 +456,7 @@ struct page *cma_alloc(struct cma *cma, size_t count, unsigned int align,
 	struct page *page = NULL;
 	int ret = -ENOMEM;
 	int retry_after_sleep = 0;
-	int max_retries = 2;
+	int max_retries = 20;
 	int available_regions = 0;
 
 	if (!cma || !cma->count)
@@ -492,7 +492,7 @@ struct page *cma_alloc(struct cma *cma, size_t count, unsigned int align,
 				 * are less.
 				 */
 				if (available_regions < 3)
-					max_retries = 5;
+					max_retries = 25;
 				available_regions = 0;
 				/*
 				 * Page may be momentarily pinned by some other

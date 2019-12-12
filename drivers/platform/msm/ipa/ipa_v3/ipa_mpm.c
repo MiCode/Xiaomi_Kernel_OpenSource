@@ -12,6 +12,7 @@
 #include <linux/msm_gsi.h>
 #include <linux/delay.h>
 #include <linux/log2.h>
+#include <linux/gfp.h>
 #include "../ipa_common_i.h"
 #include "ipa_i.h"
 
@@ -54,7 +55,7 @@
 
 #define IPA_MPM_MAX_MHIP_CHAN 3
 
-#define IPA_MPM_NUM_RING_DESC 0x400
+#define IPA_MPM_NUM_RING_DESC 74
 #define IPA_MPM_RING_LEN (IPA_MPM_NUM_RING_DESC - 10)
 
 #define IPA_MPM_MHI_HOST_UL_CHANNEL 4
@@ -352,10 +353,10 @@ struct ipa_mpm_clk_cnt_type {
 struct producer_rings {
 	struct mhi_p_desc *tr_va;
 	struct mhi_p_desc *er_va;
-	void *tre_buff_va[IPA_MPM_RING_LEN];
+	void *tr_buff_va[IPA_MPM_RING_LEN];
 	dma_addr_t tr_pa;
 	dma_addr_t er_pa;
-	dma_addr_t tre_buff_iova[IPA_MPM_RING_LEN];
+	dma_addr_t tr_buff_c_iova[IPA_MPM_RING_LEN];
 	/*
 	 * The iova generated for AP CB,
 	 * used only for dma_map_single to flush the cache.
@@ -537,7 +538,7 @@ static dma_addr_t ipa_mpm_smmu_map(void *va_addr,
 
 	/* check cache coherent */
 	if (ipa_mpm_ctx->dev_info.is_cache_coherent)  {
-		IPA_MPM_DBG_LOW(" enable cache coherent\n");
+		IPA_MPM_DBG_LOW("enable cache coherent\n");
 		prot |= IOMMU_CACHE;
 	}
 
@@ -573,12 +574,19 @@ static dma_addr_t ipa_mpm_smmu_map(void *va_addr,
 		}
 
 		phys_addr = virt_to_phys((void *) va_addr);
+
 		IPA_SMMU_ROUND_TO_PAGE(carved_iova, phys_addr, sz,
 					iova_p, pa_p, size_p);
 
-		/* Flush the cache with dma_map_single for IPA AP CB */
+	/* Flush the cache with dma_map_single for IPA AP CB */
 		*ap_cb_iova = dma_map_single(ipa3_ctx->pdev, va_addr,
-						IPA_MPM_RING_TOTAL_SIZE, dir);
+					size_p, dir);
+
+		if (dma_mapping_error(ipa3_ctx->pdev, *ap_cb_iova)) {
+			IPA_MPM_ERR("dma_map_single failure for entry\n");
+			goto fail_dma_mapping;
+		}
+
 		ret = ipa3_iommu_map(ipa_smmu_domain, iova_p,
 					pa_p, size_p, prot);
 		if (ret) {
@@ -601,13 +609,24 @@ static dma_addr_t ipa_mpm_smmu_map(void *va_addr,
 			ipa_assert();
 		}
 
-		iova = iova_p;
 		cb->next_addr = iova_p + size_p;
+		iova = iova_p;
 	} else {
 		iova = dma_map_single(ipa3_ctx->pdev, va_addr,
 					IPA_MPM_RING_TOTAL_SIZE, dir);
+
+		if (dma_mapping_error(ipa3_ctx->pdev, iova)) {
+			IPA_MPM_ERR("dma_map_single failure for entry\n");
+			goto fail_dma_mapping;
+		}
+
 		*ap_cb_iova = iova;
 	}
+	return iova;
+
+fail_dma_mapping:
+	iova = 0;
+	ipa_assert();
 	return iova;
 }
 
@@ -813,18 +832,14 @@ static int ipa_mpm_connect_mhip_gsi_pipe(enum ipa_client_type mhip_client,
 {
 	int ipa_ep_idx;
 	int res;
-	struct mhi_p_desc *ev_ring;
-	struct mhi_p_desc *tr_ring;
-	int tr_ring_sz, ev_ring_sz;
-	dma_addr_t ev_ring_iova, tr_ring_iova;
-	dma_addr_t ap_cb_iova;
-	dma_addr_t ap_cb_er_iova;
+	struct mhi_p_desc *er_ring_va, *tr_ring_va;
+	void *buff_va;
+	dma_addr_t er_carved_iova, tr_carved_iova;
+	dma_addr_t ap_cb_tr_iova, ap_cb_er_iova, ap_cb_buff_iova;
 	struct ipa_request_gsi_channel_params gsi_params;
 	int dir;
-	int i;
-	void *buff;
+	int i, k;
 	int result;
-	int k;
 	struct ipa3_ep_context *ep;
 
 	if (mhip_client == IPA_CLIENT_MAX)
@@ -849,92 +864,94 @@ static int ipa_mpm_connect_mhip_gsi_pipe(enum ipa_client_type mhip_client,
 
 	IPA_MPM_FUNC_ENTRY();
 
-	ev_ring_sz = IPA_MPM_RING_TOTAL_SIZE;
-	ev_ring = kzalloc(ev_ring_sz, GFP_KERNEL);
-	if (!ev_ring)
+	if (IPA_MPM_RING_TOTAL_SIZE > PAGE_SIZE) {
+		IPA_MPM_ERR("Ring Size / allocation mismatch\n");
+		ipa_assert();
+	}
+
+	/* Only ring need alignment, separate from buffer */
+	er_ring_va = (struct mhi_p_desc *) get_zeroed_page(GFP_KERNEL);
+
+	if (!er_ring_va)
 		goto fail_evt_alloc;
 
-	tr_ring_sz = IPA_MPM_RING_TOTAL_SIZE;
-	tr_ring = kzalloc(tr_ring_sz, GFP_KERNEL);
-	if (!tr_ring)
+	tr_ring_va = (struct mhi_p_desc *) get_zeroed_page(GFP_KERNEL);
+
+	if (!tr_ring_va)
 		goto fail_tr_alloc;
 
-	tr_ring[0].re_type = MHIP_RE_NOP;
+	tr_ring_va[0].re_type = MHIP_RE_NOP;
 
 	dir = IPA_CLIENT_IS_PROD(mhip_client) ?
 		DMA_TO_HIPA : DMA_FROM_HIPA;
 
 	/* allocate transfer ring elements */
 	for (i = 1, k = 1; i < IPA_MPM_RING_LEN; i++, k++) {
-		buff = kzalloc(TRE_BUFF_SIZE, GFP_KERNEL);
-
-		if (!buff)
+		buff_va = kzalloc(TRE_BUFF_SIZE, GFP_KERNEL);
+		if (!buff_va)
 			goto fail_buff_alloc;
 
-		tr_ring[i].buffer_ptr =
-			ipa_mpm_smmu_map(buff, TRE_BUFF_SIZE, dir,
-				&ap_cb_iova);
-		if (!tr_ring[i].buffer_ptr)
+		tr_ring_va[i].buffer_ptr =
+			ipa_mpm_smmu_map(buff_va, TRE_BUFF_SIZE, dir,
+					&ap_cb_buff_iova);
+
+		if (!tr_ring_va[i].buffer_ptr)
 			goto fail_smmu_map_ring;
 
+		tr_ring_va[i].buff_len = TRE_BUFF_SIZE;
+		tr_ring_va[i].chain = 0;
+		tr_ring_va[i].ieob = 0;
+		tr_ring_va[i].ieot = 0;
+		tr_ring_va[i].bei = 0;
+		tr_ring_va[i].sct = 0;
+		tr_ring_va[i].re_type = MHIP_RE_XFER;
+
 		if (IPA_CLIENT_IS_PROD(mhip_client)) {
-			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tre_buff_va[k] =
-							buff;
-			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tre_buff_iova[k] =
-							tr_ring[i].buffer_ptr;
-		} else {
-			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tre_buff_va[k] =
-							buff;
-			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tre_buff_iova[k] =
-							tr_ring[i].buffer_ptr;
-		}
-
-
-		tr_ring[i].buff_len = TRE_BUFF_SIZE;
-		tr_ring[i].chain = 0;
-		tr_ring[i].ieob = 0;
-		tr_ring[i].ieot = 0;
-		tr_ring[i].bei = 0;
-		tr_ring[i].sct = 0;
-		tr_ring[i].re_type = MHIP_RE_XFER;
-
-		if (IPA_CLIENT_IS_PROD(mhip_client))
+			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tr_buff_va[k] =
+						buff_va;
+			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tr_buff_c_iova[k]
+						= tr_ring_va[i].buffer_ptr;
 			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.ap_iova_buff[k] =
-				ap_cb_iova;
-		else
+						ap_cb_buff_iova;
+		} else {
+			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tr_buff_va[k] =
+						buff_va;
+			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tr_buff_c_iova[k]
+						= tr_ring_va[i].buffer_ptr;
 			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.ap_iova_buff[k] =
-				ap_cb_iova;
+						ap_cb_buff_iova;
+		}
 	}
 
-	tr_ring_iova = ipa_mpm_smmu_map(tr_ring, IPA_MPM_PAGE_SIZE, dir,
-		&ap_cb_iova);
-	if (!tr_ring_iova)
+	tr_carved_iova = ipa_mpm_smmu_map(tr_ring_va, PAGE_SIZE, dir,
+		&ap_cb_tr_iova);
+	if (!tr_carved_iova)
 		goto fail_smmu_map_ring;
 
-	ev_ring_iova = ipa_mpm_smmu_map(ev_ring, IPA_MPM_PAGE_SIZE, dir,
+	er_carved_iova = ipa_mpm_smmu_map(er_ring_va, PAGE_SIZE, dir,
 		&ap_cb_er_iova);
-	if (!ev_ring_iova)
+	if (!er_carved_iova)
 		goto fail_smmu_map_ring;
 
 	/* Store Producer channel rings */
 	if (IPA_CLIENT_IS_PROD(mhip_client)) {
 		/* Device UL */
-		ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.er_va = ev_ring;
-		ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tr_va = tr_ring;
-		ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.er_pa = ev_ring_iova;
-		ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tr_pa = tr_ring_iova;
+		ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.er_va = er_ring_va;
+		ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tr_va = tr_ring_va;
+		ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.er_pa = er_carved_iova;
+		ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tr_pa = tr_carved_iova;
 		ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.ap_iova_tr =
-			ap_cb_iova;
+			ap_cb_tr_iova;
 		ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.ap_iova_er =
 			ap_cb_er_iova;
 	} else {
 		/* Host UL */
-		ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.er_va = ev_ring;
-		ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tr_va = tr_ring;
-		ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.er_pa = ev_ring_iova;
-		ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tr_pa = tr_ring_iova;
+		ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.er_va = er_ring_va;
+		ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tr_va = tr_ring_va;
+		ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.er_pa = er_carved_iova;
+		ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tr_pa = tr_carved_iova;
 		ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.ap_iova_tr =
-			ap_cb_iova;
+			ap_cb_tr_iova;
 		ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.ap_iova_er =
 			ap_cb_er_iova;
 	}
@@ -1211,35 +1228,35 @@ static void ipa_mpm_clean_mhip_chan(int mhi_idx,
 		if (IPA_CLIENT_IS_PROD(mhip_client)) {
 			ipa_mpm_smmu_unmap(
 			(dma_addr_t)
-			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tre_buff_iova[i],
+			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tr_buff_c_iova[i],
 			TRE_BUFF_SIZE, dir,
 			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.ap_iova_buff[i]);
-			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tre_buff_iova[i]
+			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tr_buff_c_iova[i]
 								= 0;
 			kfree(
-			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tre_buff_va[i]);
-			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tre_buff_va[i]
+			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tr_buff_va[i]);
+			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tr_buff_va[i]
 								= NULL;
 			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.ap_iova_buff[i]
 								= 0;
-			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tre_buff_iova[i]
+			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tr_buff_c_iova[i]
 								= 0;
 		} else {
 			ipa_mpm_smmu_unmap(
 			(dma_addr_t)
-			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tre_buff_iova[i],
+			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tr_buff_c_iova[i],
 			TRE_BUFF_SIZE, dir,
 			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.ap_iova_buff[i]
 			);
-			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tre_buff_iova[i]
+			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tr_buff_c_iova[i]
 								= 0;
 			kfree(
-			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tre_buff_va[i]);
-			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tre_buff_va[i]
+			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tr_buff_va[i]);
+			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tr_buff_va[i]
 								= NULL;
 			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.ap_iova_buff[i]
 								= 0;
-			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tre_buff_iova[i]
+			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tr_buff_c_iova[i]
 								= 0;
 		}
 	}
@@ -1256,15 +1273,20 @@ static void ipa_mpm_clean_mhip_chan(int mhi_idx,
 			IPA_MPM_PAGE_SIZE, dir,
 			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.ap_iova_tr);
 
-		kfree(ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.er_va);
-		kfree(ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tr_va);
+		if (ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.er_va) {
+			free_page((unsigned long)
+				ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.er_va);
+			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.er_va = NULL;
+		}
 
-		ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.er_va = NULL;
-		ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tr_va = NULL;
-		ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.ap_iova_tr = 0;
+		if (ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tr_va) {
+			free_page((unsigned long)
+				ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tr_va);
+			ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.tr_va = NULL;
+		}
+
 		ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.ap_iova_er = 0;
-
-
+		ipa_mpm_ctx->md[mhi_idx].dl_prod_ring.ap_iova_tr = 0;
 	} else {
 		ipa_mpm_smmu_unmap(
 			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tr_pa,
@@ -1278,11 +1300,18 @@ static void ipa_mpm_clean_mhip_chan(int mhi_idx,
 		ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tr_pa = 0;
 		ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.er_pa = 0;
 
-		kfree(ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.er_va);
-		kfree(ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tr_va);
+		if (ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.er_va) {
+			free_page((unsigned long)
+				ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.er_va);
+			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.er_va = NULL;
+		}
 
-		ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.er_va = NULL;
-		ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tr_va = NULL;
+		if (ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tr_va) {
+			free_page((unsigned long)
+				ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tr_va);
+			ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.tr_va = NULL;
+		}
+
 		ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.ap_iova_er = 0;
 		ipa_mpm_ctx->md[mhi_idx].ul_prod_ring.ap_iova_tr = 0;
 	}

@@ -2313,10 +2313,15 @@ scsi_ioctl_reset(struct scsi_device *dev, int __user *arg)
 	struct scsi_cmnd *scmd;
 	struct Scsi_Host *shost = dev->host;
 	struct request *rq;
+	const char *string;
 	unsigned long flags;
 	int error = 0, rtn, val;
 
 	if (!capable(CAP_SYS_ADMIN) || !capable(CAP_SYS_RAWIO))
+		return -EACCES;
+
+	string = shost->hostt->name;
+	if (!strcmp(string, "ufshcd"))
 		return -EACCES;
 
 	error = get_user(val, arg);

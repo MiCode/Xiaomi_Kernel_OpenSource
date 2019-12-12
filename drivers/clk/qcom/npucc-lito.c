@@ -11,6 +11,7 @@
 #include <linux/err.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/nvmem-consumer.h>
 #include <linux/of_device.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
@@ -116,6 +117,10 @@ static const u32 crc_reg_val[] = {
 	CRC_MND_CFG_SETTING, CRC_SID_FSM_CTRL_SETTING,
 };
 
+static const u32 no_crc_reg_val[] = {
+	0x0, 0x0,
+};
+
 static struct alpha_pll_config npu_cc_pll0_config = {
 	.l = 0x14,
 	.cal_l = 0x49,
@@ -177,9 +182,9 @@ static struct clk_alpha_pll_postdiv npu_cc_pll0_out_even = {
 };
 
 static struct alpha_pll_config npu_cc_pll1_config = {
-	.l = 0xF,
+	.l = 0x4E,
 	.cal_l = 0x44,
-	.alpha = 0xA000,
+	.alpha = 0x2000,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
 	.config_ctl_hi1_val = 0x329A699C,
@@ -228,7 +233,6 @@ static struct clk_alpha_pll_postdiv npu_cc_pll1_out_even = {
 		.name = "npu_cc_pll1_out_even",
 		.parent_names = (const char *[]){ "npu_cc_pll1" },
 		.num_parents = 1,
-		.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_alpha_pll_postdiv_lucid_ops,
 	},
 };
@@ -292,6 +296,17 @@ static const struct freq_tbl ftbl_npu_cc_cal_hm0_clk_src[] = {
 	{ }
 };
 
+static const struct freq_tbl ftbl_npu_cc_cal_hm0_clk_src_no_crc[] = {
+	F(200000000, P_NPU_CC_CRC_DIV, 2, 0, 0),
+	F(230000000, P_NPU_CC_CRC_DIV, 2, 0, 0),
+	F(422000000, P_NPU_CC_CRC_DIV, 2, 0, 0),
+	F(557000000, P_NPU_CC_CRC_DIV, 2, 0, 0),
+	F(729000000, P_NPU_CC_CRC_DIV, 2, 0, 0),
+	F(844000000, P_NPU_CC_CRC_DIV, 2, 0, 0),
+	F(1000000000, P_NPU_CC_CRC_DIV, 2, 0, 0),
+	{ }
+};
+
 static struct clk_rcg2 npu_cc_cal_hm0_clk_src = {
 	.cmd_rcgr = 0x1100,
 	.mnd_width = 0,
@@ -339,7 +354,6 @@ static struct clk_rcg2 npu_cc_core_clk_src = {
 		.name = "npu_cc_core_clk_src",
 		.parent_names = npu_cc_parent_names_0,
 		.num_parents = 6,
-		.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_rcg2_ops,
 		.vdd_class = &vdd_cx,
 		.num_rate_max = VDD_NUM,
@@ -373,7 +387,6 @@ static struct clk_rcg2 npu_cc_lmh_clk_src = {
 		.name = "npu_cc_lmh_clk_src",
 		.parent_names = npu_cc_parent_names_0,
 		.num_parents = 6,
-		.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_rcg2_ops,
 		.vdd_class = &vdd_cx,
 		.num_rate_max = VDD_NUM,
@@ -1022,6 +1035,26 @@ static const struct of_device_id npu_cc_lito_match_table[] = {
 };
 MODULE_DEVICE_TABLE(of, npu_cc_lito_match_table);
 
+static int npu_cc_lito_fixup(struct platform_device *pdev)
+{
+	u32 val;
+	int ret;
+
+	ret = nvmem_cell_read_u32(&pdev->dev, "npu-bin", &val);
+	if (ret)
+		return ret;
+
+	val = val & GENMASK(17, 10);
+	if (val) {
+		npu_cc_pll0_config.custom_reg_val = no_crc_reg_val;
+		npu_cc_crc_div.div = 1;
+		npu_cc_cal_hm0_clk_src.freq_tbl =
+					ftbl_npu_cc_cal_hm0_clk_src_no_crc;
+	}
+
+	return 0;
+}
+
 static int npu_clocks_lito_probe(struct platform_device *pdev,
 					const struct qcom_cc_desc *desc)
 {
@@ -1073,6 +1106,10 @@ static int npu_cc_lito_probe(struct platform_device *pdev)
 									ret);
 		return ret;
 	}
+
+	ret = npu_cc_lito_fixup(pdev);
+	if (ret)
+		return ret;
 
 	ret = npu_clocks_lito_probe(pdev, &npu_cc_lito_desc);
 	if (ret < 0) {

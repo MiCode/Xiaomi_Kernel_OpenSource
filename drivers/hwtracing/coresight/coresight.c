@@ -62,6 +62,8 @@ static LIST_HEAD(cs_disabled_link);
 
 static LIST_HEAD(cs_active_paths);
 
+static struct coresight_device *activated_sink;
+
 /*
  * When losing synchronisation a new barrier packet needs to be inserted at the
  * beginning of the data collected in a buffer.  That way the decoder knows that
@@ -850,6 +852,129 @@ int coresight_store_path(struct coresight_device *csdev, struct list_head *path)
 	return 0;
 }
 
+static void coresight_enable_source_link(struct list_head *path)
+{
+	u32 type;
+	int ret;
+	struct coresight_node *nd;
+	struct coresight_device *csdev, *parent, *child;
+
+	list_for_each_entry_reverse(nd, path, link) {
+		csdev = nd->csdev;
+		type = csdev->type;
+
+		if (type == CORESIGHT_DEV_TYPE_LINKSINK)
+			type = (csdev == coresight_get_sink(path)) ?
+						CORESIGHT_DEV_TYPE_SINK :
+						CORESIGHT_DEV_TYPE_LINK;
+
+		switch (type) {
+		case CORESIGHT_DEV_TYPE_SINK:
+			break;
+		case CORESIGHT_DEV_TYPE_SOURCE:
+			if (source_ops(csdev)->enable) {
+				ret = coresight_enable_reg_clk(csdev);
+				if (ret)
+					goto err;
+
+				ret = source_ops(csdev)->enable(csdev,
+					NULL, CS_MODE_SYSFS);
+				if (ret) {
+					coresight_disable_reg_clk(csdev);
+					goto err;
+				}
+			}
+			csdev->enable = true;
+			break;
+		case CORESIGHT_DEV_TYPE_LINK:
+			parent = list_prev_entry(nd, link)->csdev;
+			child = list_next_entry(nd, link)->csdev;
+			ret = coresight_enable_link(csdev, parent, child, path);
+			if (ret)
+				goto err;
+			break;
+		default:
+			break;
+		}
+	}
+
+	return;
+err:
+	coresight_disable_previous_devs(path, nd);
+	coresight_release_path(csdev, path);
+}
+
+static void coresight_disable_source_link(struct list_head *path)
+{
+	u32 type;
+	struct coresight_node *nd;
+	struct coresight_device *csdev, *parent, *child;
+
+	list_for_each_entry(nd, path, link) {
+		csdev = nd->csdev;
+		type = csdev->type;
+
+		if (type == CORESIGHT_DEV_TYPE_LINKSINK)
+			type = (csdev == coresight_get_sink(path)) ?
+						CORESIGHT_DEV_TYPE_SINK :
+						CORESIGHT_DEV_TYPE_LINK;
+
+		switch (type) {
+		case CORESIGHT_DEV_TYPE_SINK:
+			break;
+		case CORESIGHT_DEV_TYPE_SOURCE:
+			if (source_ops(csdev)->disable) {
+				source_ops(csdev)->disable(csdev, NULL);
+				coresight_disable_reg_clk(csdev);
+			}
+			csdev->enable = false;
+			break;
+		case CORESIGHT_DEV_TYPE_LINK:
+			parent = list_prev_entry(nd, link)->csdev;
+			child = list_next_entry(nd, link)->csdev;
+			coresight_disable_link(csdev, parent, child, path);
+			break;
+		default:
+			break;
+		}
+	}
+}
+void coresight_disable_all_source_link(void)
+{
+	struct coresight_path *cspath = NULL;
+	struct coresight_path *cspath_next = NULL;
+
+	mutex_lock(&coresight_mutex);
+
+	list_for_each_entry_safe(cspath, cspath_next, &cs_active_paths, link) {
+		coresight_disable_source_link(cspath->path);
+	}
+
+	activated_sink = coresight_get_enabled_sink(false);
+	if (activated_sink)
+		activated_sink->activated = false;
+
+	mutex_unlock(&coresight_mutex);
+}
+
+void coresight_enable_all_source_link(void)
+{
+	struct coresight_path *cspath = NULL;
+	struct coresight_path *cspath_next = NULL;
+
+	mutex_lock(&coresight_mutex);
+
+	list_for_each_entry_safe(cspath, cspath_next, &cs_active_paths, link) {
+		coresight_enable_source_link(cspath->path);
+	}
+
+	if (activated_sink && activated_sink->enable)
+		activated_sink->activated = true;
+
+	activated_sink = NULL;
+	mutex_unlock(&coresight_mutex);
+}
+
 int coresight_enable(struct coresight_device *csdev)
 {
 	int ret = 0;
@@ -959,18 +1084,32 @@ static ssize_t enable_sink_store(struct device *dev,
 	int ret;
 	unsigned long val;
 	struct coresight_device *csdev = to_coresight_device(dev);
+	struct coresight_device *sink = NULL;
 
 	ret = kstrtoul(buf, 10, &val);
 	if (ret)
 		return ret;
+	mutex_lock(&coresight_mutex);
 
-	if (val)
+	if (val) {
+		sink = activated_sink ? activated_sink :
+			coresight_get_enabled_sink(false);
+		if (sink && strcmp(dev_name(&sink->dev),
+				dev_name(&csdev->dev)))
+			goto err;
 		csdev->activated = true;
-	else
+	} else {
+		if (csdev->enable)
+			goto err;
 		csdev->activated = false;
+	}
+	mutex_unlock(&coresight_mutex);
 
 	return size;
 
+err:
+	mutex_unlock(&coresight_mutex);
+	return -EINVAL;
 }
 static DEVICE_ATTR_RW(enable_sink);
 
