@@ -1312,8 +1312,6 @@ static const char *peri_mi_trans(int bus_id)
 static const char *mt6873_bus_id_to_master(int bus_id, uint32_t vio_addr,
 		int slave_type, int shift_sta_bit)
 {
-	UNUSED(vio_addr);
-
 	pr_debug(PFX "[DEVAPC] %s:0x%x, %s:0x%x, %s:0x%x, %s:%d\n",
 		"bus_id", bus_id, "vio_addr", vio_addr,
 		"slave_type", slave_type,
@@ -1321,6 +1319,10 @@ static const char *mt6873_bus_id_to_master(int bus_id, uint32_t vio_addr,
 
 	if (bus_id == 0x0 && vio_addr == 0x0)
 		return NULL;
+
+	if ((vio_addr >= TINYSYS_START_ADDR && vio_addr <= TINYSYS_END_ADDR) ||
+			(vio_addr >= MD_START_ADDR && vio_addr <= MD_END_ADDR))
+		pr_info(PFX "[DEVAPC] violation master might be wrong\n");
 
 	if (slave_type == SLAVE_TYPE_INFRA) {
 		if (shift_sta_bit == 3) {

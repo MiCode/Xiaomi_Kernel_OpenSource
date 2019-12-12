@@ -1427,6 +1427,11 @@ static const char *mt6885_bus_id_to_master(int bus_id, uint32_t vio_addr,
 	if (bus_id == 0x0 && vio_addr == 0x0)
 		return NULL;
 
+	if ((vio_addr >= TINYSYS_START_ADDR && vio_addr <= TINYSYS_END_ADDR) ||
+	    (vio_addr >= MD_START_ADDR && vio_addr <= MD_END_ADDR) ||
+	    (vio_addr >= CONN_START_ADDR && vio_addr <= CONN_END_ADDR))
+		pr_info(PFX "[DEVAPC] violation master might be wrong\n");
+
 	/* bus only reference bit 0~29 */
 	vio_addr = vio_addr & 0x3FFFFFFF;
 
@@ -1502,7 +1507,7 @@ const char *index_to_subsys(int slave_type, uint32_t vio_index,
 			vio_index < VIO_SLAVE_NUM_INFRA) {
 
 		/* check violation address */
-		if (vio_addr >= MFG_PA_START && vio_addr <= MFG_PA_END)
+		if (vio_addr >= MFG_START_ADDR && vio_addr <= MFG_END_ADDR)
 			return "MFGSYS";
 
 		/* check violation index */
@@ -1588,9 +1593,9 @@ const char *index_to_subsys(int slave_type, uint32_t vio_index,
 			vio_index < VIO_SLAVE_NUM_PERI2) {
 
 		/* check violation address */
-		if ((vio_addr >= GCE_PA_START && vio_addr <= GCE_PA_END) ||
-				(vio_addr >= GCE_M2_PA_START &&
-				 vio_addr <= GCE_M2_PA_END))
+		if ((vio_addr >= GCE_START_ADDR && vio_addr <= GCE_END_ADDR) ||
+				(vio_addr >= GCE_M2_START_ADDR &&
+				 vio_addr <= GCE_M2_END_ADDR))
 			return "GCE";
 
 		return mt6885_devices_peri2[vio_index].device;
