@@ -368,6 +368,7 @@ struct MFB_IRQ_INFO_STRUCT {
 	signed int MssIrqCnt[IRQ_USER_NUM_MAX];
 	signed int MsfIrqCnt;
 	pid_t ProcessID[IRQ_USER_NUM_MAX];
+	pid_t ProcessFD[MFB_PROCESS_ID_AMOUNT];
 	unsigned int Mask[MFB_IRQ_TYPE_AMOUNT];
 };
 
@@ -734,29 +735,27 @@ static inline unsigned int MSF_GetIRQState(
 	unsigned int ret = 0;
 	unsigned long flags; /* old: unsigned int flags;*/
 			     /* FIX to avoid build warning */
-	unsigned int p;
 
 	/*  */
-	p = ProcessID % IRQ_USER_NUM_MAX;
 	spin_lock_irqsave(&(MFBInfo.SpinLockIrq[type]), flags);
 	if (stus & MSF_INT_ST) {
 		LOG_DBG("%s MsfIrqCnt is %d for pid %d", __func__,
 			MFBInfo.IrqInfo.MsfIrqCnt,
-			MFBInfo.IrqInfo.ProcessID[p]);
+			MFBInfo.IrqInfo.ProcessFD[whichReq]);
 		ret = ((MFBInfo.IrqInfo.MsfIrqCnt > 0)
-		       && (MFBInfo.IrqInfo.ProcessID[p] == ProcessID));
+		       && (MFBInfo.IrqInfo.ProcessFD[whichReq] == ProcessID));
 	} else {
 		LOG_ERR(
 		"WaitIRQ Status Error, type:%d, userNumber:%d, status:%d, whichReq:%d, ProcessID:0x%x\n",
-		     type, userNumber, stus, p, ProcessID);
+		     type, userNumber, stus, whichReq, ProcessID);
 	}
 	spin_unlock_irqrestore(&(MFBInfo.SpinLockIrq[type]), flags);
 	if (ret == 1) {
 		LOG_DBG("%s last msfirqcnt %d not clearing pid %d for proc %d",
 			__func__,
 			MFBInfo.IrqInfo.MsfIrqCnt,
-			MFBInfo.IrqInfo.ProcessID[p],
-			p);
+			MFBInfo.IrqInfo.ProcessFD[whichReq],
+			whichReq);
 	}
 	/*  */
 	return ret;
@@ -1269,7 +1268,6 @@ static void msf_norm_sirq(struct cmdq_cb_data data)
 	bool bResulst = MFALSE;
 	pid_t ProcessID;
 	unsigned long flag;
-	unsigned int p;
 
 	pkt = (struct cmdq_pkt *) data.data;
 	if (data.err < 0) {
@@ -1288,11 +1286,10 @@ static void msf_norm_sirq(struct cmdq_cb_data data)
 		#if REQUEST_REGULATION == REQUEST_BASE_REGULATION
 		queue_work(MFBInfo.wkqueueMsf, &MFBInfo.ScheduleMsfWork);
 		#endif
-		p = ProcessID % IRQ_USER_NUM_MAX;
 		MFBInfo.IrqInfo
 		    .Status[MFB_IRQ_TYPE_INT_MSF_ST] |= MSF_INT_ST;
 		MFBInfo.IrqInfo
-		    .ProcessID[p] = ProcessID;
+		    .ProcessFD[MFB_PROCESS_ID_MSF] = ProcessID;
 		MFBInfo.IrqInfo.MsfIrqCnt++;
 	}
 	spin_unlock_irqrestore(&(MFBInfo.SpinLockIrq[MFB_IRQ_TYPE_INT_MSF_ST]),
@@ -1422,7 +1419,6 @@ static void msf_vss_sirq(struct cmdq_cb_data data)
 	bool bResulst = MFALSE;
 	pid_t ProcessID;
 	unsigned long flag;
-	unsigned int p;
 
 	pkt = (struct cmdq_pkt *) data.data;
 	if (data.err < 0) {
@@ -1441,11 +1437,10 @@ static void msf_vss_sirq(struct cmdq_cb_data data)
 		#if REQUEST_REGULATION == REQUEST_BASE_REGULATION
 		queue_work(MFBInfo.wkqueueMsf, &MFBInfo.vmsfwork);
 		#endif
-		p = ProcessID % IRQ_USER_NUM_MAX;
 		MFBInfo.IrqInfo
 		    .Status[MFB_IRQ_TYPE_INT_MSF_ST] |= MSF_INT_ST;
 		MFBInfo.IrqInfo
-		    .ProcessID[p] = ProcessID;
+		    .ProcessFD[MFB_PROCESS_ID_MSF] = ProcessID;
 		MFBInfo.IrqInfo.MsfIrqCnt++;
 	}
 	spin_unlock_irqrestore(&(MFBInfo.SpinLockIrq[MFB_IRQ_TYPE_INT_MSF_ST]),
