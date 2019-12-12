@@ -63,6 +63,12 @@ const char *mt6873_wakesrc_str[32] = {
 #define WORLD_CLK_CNTCV_L        (0x10017008)
 #define WORLD_CLK_CNTCV_H        (0x1001700C)
 #define plat_mmio_read(offset)	__raw_readl(mt6873_spm_base + offset)
+u64 ap_pd_count;
+u64 ap_slp_duration;
+u64 spm_26M_off_count;
+u64 spm_26M_off_duration;
+u32 before_ap_slp_duration;
+
 int mt6873_get_wakeup_status(struct mt6873_spm_wake_status *wakesta)
 {
 	if (!wakesta || !mt6873_spm_base)

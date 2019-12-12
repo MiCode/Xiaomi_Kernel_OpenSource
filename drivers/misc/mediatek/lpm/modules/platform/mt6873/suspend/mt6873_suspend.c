@@ -21,6 +21,7 @@
 #include <mtk_lpm_call.h>
 #include <mtk_lpm_type.h>
 #include <mtk_lpm_call_type.h>
+#include <mtk_dbg_common_v1.h>
 #include <mtk_power_gs_api.h>
 #include <mt-plat/mtk_ccci_common.h>
 
