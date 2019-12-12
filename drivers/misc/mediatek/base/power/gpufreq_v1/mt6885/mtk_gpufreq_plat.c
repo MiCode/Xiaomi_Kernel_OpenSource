@@ -59,6 +59,7 @@
 #include "ged_log.h"
 #include "ged_base.h"
 #endif
+#include "mtk_gpu_utility.h"
 
 #ifdef CONFIG_MTK_GPU_SUPPORT
 /* adb pull "/d/ged/logbufs/gfreq" */
@@ -798,7 +799,9 @@ void mt_gpufreq_power_control(enum mt_power_state power, enum mt_cg_state cg,
 #endif
 
 		gpu_dvfs_vgpu_footprint(GPU_DVFS_VGPU_STEP_4);
+		mtk_notify_gpu_power_change(1);
 	} else {
+		mtk_notify_gpu_power_change(0);
 #if MT_GPUFREQ_DFD_ENABLE
 		mt_gpufreq_set_dfd(false);
 #endif
