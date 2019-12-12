@@ -104,6 +104,7 @@ enum CAM_FrameST {
 	CAM_FST_NORMAL             = 0,
 	CAM_FST_DROP_FRAME         = 1,
 	CAM_FST_LAST_WORKING_FRAME = 2,
+	CAM_FST_BLOCK_FRAME        = 3, /* for CQ_VS_ERR recovery */
 };
 
 /**
