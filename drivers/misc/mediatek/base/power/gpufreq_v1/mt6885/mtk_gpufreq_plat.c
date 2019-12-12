@@ -2535,7 +2535,7 @@ static void __mt_gpufreq_init_table(void)
 	else if (segment_id == MT6885_SEGMENT)
 		g_segment_max_opp_idx = 14; // 695MHz
 	else if (segment_id == MT6885T_SEGMENT)
-		g_segment_max_opp_idx = 3; // 805MHz
+		g_segment_max_opp_idx = 0; // 836MHz
 	else if (segment_id == MT6885T_PLUS_SEGMENT)
 		g_segment_max_opp_idx = 0;
 	else
