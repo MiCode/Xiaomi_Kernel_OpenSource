@@ -467,7 +467,7 @@
 		main_pmic: mt6359-pmic {
 			compatible = "mediatek,mt6359-pmic";
 			interrupt-parent = <&pio>;
-			interrupts = <222 IRQ_TYPE_LEVEL_HIGH 222 0>;
+			interrupts = <214 IRQ_TYPE_LEVEL_HIGH 214 0>;
 			status = "okay";
 
 			pmic_oc_debug: pmic-oc-debug {
