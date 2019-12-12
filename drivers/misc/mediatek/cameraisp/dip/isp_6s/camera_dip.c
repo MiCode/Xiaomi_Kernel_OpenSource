@@ -1360,6 +1360,18 @@ static signed int DIP_Dump_IMGSYS_DIP_Reg(void)
 			cmdqdebugcmd,
 			DipDumpTL[DIPNo].region,
 			DIP_RD32(dipRegBasAddr + 0x1194));
+		cmdqdebugcmd = 0x31202;
+		DIP_WR32(dipRegBasAddr + 0x1190, cmdqdebugcmd);
+		cmdq_util_err("SMT_D2 debug:0x%x : dip: 0x%x2194(0x%x)",
+			cmdqdebugcmd,
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1194));
+		cmdqdebugcmd = 0x51202;
+		DIP_WR32(dipRegBasAddr + 0x1190, cmdqdebugcmd);
+		cmdq_util_err("SMT_D2 debug:0x%x : dip: 0x%x2194(0x%x)",
+			cmdqdebugcmd,
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1194));
 
 		cmdqdebugcmd = 0x1702;
 		DIP_WR32(dipRegBasAddr + 0x1190, cmdqdebugcmd);
@@ -1511,6 +1523,36 @@ static signed int DIP_Dump_IMGSYS_DIP_Reg(void)
 			DIP_RD32(dipRegBasAddr + 0x64E8),
 			DipDumpTL[DIPNo].region,
 			DIP_RD32(dipRegBasAddr + 0x64EC));
+
+		/*SLK4 register dump*/
+		cmdq_util_err("dip: 0x%x72C0(0x%x)-0x%x72C4(0x%x)-0x%x72C8(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x62C0),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x62C4),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x62C8));
+		cmdq_util_err("dip: 0x%x72CC(0x%x)-0x%x72D0(0x%x)-0x%x72D4(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x62CC),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x62D0),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x62D4));
+		cmdq_util_err("dip: 0x%x72D8(0x%x)-0x%x72DC(0x%x)-0x%x72E0(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x62D8),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x62DC),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x62E0));
+		cmdq_util_err("dip: 0x%x72E4(0x%x)-0x%x72E8(0x%x)-0x%x72EC(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x62E4),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x62E8),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x62EC));
 
 
 		d1a_cq_en = DIP_RD32(dipRegBasAddr + 0x200);
