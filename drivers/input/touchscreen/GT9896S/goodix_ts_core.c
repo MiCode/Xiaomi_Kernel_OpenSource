@@ -2124,9 +2124,10 @@ regulator_err:
 	gt9896s_ts_power_off(core_data);
 	regulator_put(core_data->avdd);
 out:
-	if (r)
+	if (r) {
 		core_data->initialized = 0;
-	else
+		core_data = NULL;
+	} else
 		core_data->initialized = 1;
 	gt9896s_modules.core_data = core_data;
 	ts_info("gt9896s_ts_probe OUT, r:%d", r);

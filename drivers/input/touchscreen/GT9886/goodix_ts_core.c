@@ -2111,14 +2111,12 @@ static int goodix_ts_probe(struct platform_device *pdev)
 	/* Pinctrl handle is optional. */
 	r = goodix_ts_pinctrl_init(core_data);
 	if (!r && core_data->pinctrl) {
-		#if 0
 		if (core_data->pin_i2c_mode_default) {
 			r = pinctrl_select_state(core_data->pinctrl,
 				core_data->pin_i2c_mode_default);
 			if (r < 0)
 				ts_err("Failed to select default pinstate, r:%d", r);
 		}
-		#endif
 		r = pinctrl_select_state(core_data->pinctrl,
 				core_data->pin_int_sta_active);
 		if (r < 0)
