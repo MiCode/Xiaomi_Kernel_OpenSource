@@ -62,7 +62,7 @@ static int ccci_scp_ipi_send(int md_id, int op_id, void *data)
 		cnt++;
 		if (cnt > 10) {
 			CCCI_ERROR_LOG(md_id, FSM, "IPI send 10 times!\n");
-			aee_kernel_warning("ccci", "ipi:tx busy");
+			/* aee_kernel_warning("ccci", "ipi:tx busy");*/
 			break;
 		}
 	}
