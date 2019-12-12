@@ -7145,7 +7145,8 @@ static const struct file_operations dip_p2_dump_proc_fops = {
  **************************************************************/
 static int dip_dump_read(struct seq_file *m, void *v)
 {
-
+/* fix unexpected close clock issue */
+#if 0
 	int i;
 
 	if (G_u4DipEnClkCnt <= 0)
@@ -7206,7 +7207,7 @@ static int dip_dump_read(struct seq_file *m, void *v)
 		(unsigned int)DIP_RD32(DIP_IMGSYS_CONFIG_BASE));
 
 	seq_puts(m, "\n============ dip dump debug ============\n");
-
+#endif
 	return 0;
 }
 static int proc_dip_dump_open(
