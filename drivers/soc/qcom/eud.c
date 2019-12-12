@@ -58,6 +58,8 @@
 #define UART_ID			0x90
 #define MAX_FIFO_SIZE		14
 
+#define EUD_TCSR_ENABLE_BIT	BIT(0)
+
 struct eud_chip {
 	struct device			*dev;
 	int				eud_irq;
@@ -508,6 +510,8 @@ static int msm_eud_probe(struct platform_device *pdev)
 	struct uart_port *port;
 	struct resource *res;
 	int ret;
+	bool eud_tcsr_check_state;
+	phys_addr_t eud_tcsr_check;
 
 	chip = devm_kzalloc(&pdev->dev, sizeof(*chip), GFP_KERNEL);
 	if (!chip) {
@@ -599,6 +603,32 @@ static int msm_eud_probe(struct platform_device *pdev)
 	port->membase = chip->eud_reg_base;
 	port->irq = chip->eud_irq;
 	port->ops = &eud_uart_ops;
+
+	/*
+	 * Before enabling EUD, check for TCSR register
+	 * and if present, enable it.
+	 */
+	eud_tcsr_check_state = of_property_read_bool(
+		pdev->dev.of_node, "qcom,eud-tcsr-check-enable");
+
+	if (eud_tcsr_check_state) {
+		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+					"eud_tcsr_check_reg");
+		if (res) {
+			eud_tcsr_check = res->start;
+			ret = scm_io_write(eud_tcsr_check,
+					EUD_TCSR_ENABLE_BIT);
+			if (ret) {
+				dev_err(&pdev->dev,
+				"TCSR scm_io_write failed with rc:%d\n", ret);
+				goto error;
+			}
+		} else {
+			dev_err(chip->dev,
+				"Failed to get resource for tcsr check!\n");
+			goto error;
+		}
+	}
 
 	ret = uart_add_one_port(&eud_uart_driver, port);
 	if (!ret) {
