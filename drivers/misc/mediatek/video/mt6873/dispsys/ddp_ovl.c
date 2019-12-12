@@ -163,10 +163,6 @@ int ovl_start(enum DISP_MODULE_ENUM module, void *handle)
 			   ovl_base + DISP_REG_OVL_EN, 0x1);
 	DISP_REG_SET_FIELD(handle, EN_FLD_HF_FOVL_CK_ON,
 			   ovl_base + DISP_REG_OVL_EN, 0x1);
-	DISP_REG_SET_FIELD(handle, EN_FLD_OVL_READ_WRK,
-			   ovl_base + DISP_REG_OVL_EN, 0x1);
-	DISP_REG_SET_FIELD(handle, EN_FLD_OVL_BYPASS_SHADOW,
-			   ovl_base + DISP_REG_OVL_EN, 0x1);
 
 	DISP_REG_SET(handle, ovl_base + DISP_REG_OVL_INTEN,
 		     0x1E0 | REG_FLD_VAL(INTEN_FLD_ABNORMAL_SOF, 1) |
@@ -689,7 +685,16 @@ static int ovl_layer_config(enum DISP_MODULE_ENUM module, unsigned int layer,
 
 int ovl_clock_on(enum DISP_MODULE_ENUM module, void *handle)
 {
+	unsigned long ovl_base = ovl_base_addr(module);
+
 	DDPDBG("%s clock_on\n", ddp_get_module_name(module));
+
+	/*Bypass shadow*/
+	DISP_REG_SET_FIELD(handle, EN_FLD_OVL_READ_WRK,
+			   ovl_base + DISP_REG_OVL_EN, 0x1);
+	DISP_REG_SET_FIELD(handle, EN_FLD_OVL_BYPASS_SHADOW,
+			   ovl_base + DISP_REG_OVL_EN, 0x1);
+
 #ifdef ENABLE_CLK_MGR
 	ddp_clk_prepare_enable(ddp_get_module_clk_id(module));
 #endif

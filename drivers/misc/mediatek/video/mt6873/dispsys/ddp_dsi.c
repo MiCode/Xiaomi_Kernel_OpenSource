@@ -4849,7 +4849,17 @@ unsigned int _is_power_on_status(enum DISP_MODULE_ENUM module)
  */
 int ddp_dsi_power_on(enum DISP_MODULE_ENUM module, void *cmdq_handle)
 {
+	int i = 0;
 	DISPFUNC();
+
+	/* Bypass Shadow */
+	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
+		DSI_OUTREGBIT(cmdq_handle, struct DSI_SHADOW_DEBUG_REG,
+			DSI_REG[i]->DSI_SHADOW_DEBUG, READ_WORKING, 1);
+		DSI_OUTREGBIT(cmdq_handle, struct DSI_SHADOW_DEBUG_REG,
+			DSI_REG[i]->DSI_SHADOW_DEBUG, BYPASS_SHADOW, 1);
+	}
+
 	if (_is_power_on_status(module))
 		return DSI_STATUS_OK;
 

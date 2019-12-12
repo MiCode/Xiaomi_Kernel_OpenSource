@@ -163,11 +163,6 @@ int rdma_start(enum DISP_MODULE_ENUM module, void *handle)
 	DISP_REG_SET_FIELD(handle, GLOBAL_CON_FLD_ENGINE_EN,
 		idx * DISP_RDMA_INDEX_OFFSET + DISP_REG_RDMA_GLOBAL_CON, 1);
 
-	DISP_REG_SET_FIELD(handle, EN_FLD_RDMA_READ_WRK,
-		idx * DISP_RDMA_INDEX_OFFSET + DISP_REG_RDMA_SHADOW_UPDATE, 1);
-	DISP_REG_SET_FIELD(handle, EN_FLD_RDMA_BYPASS_SHADOW,
-		idx * DISP_RDMA_INDEX_OFFSET + DISP_REG_RDMA_SHADOW_UPDATE, 1);
-
 	return 0;
 }
 
@@ -1017,6 +1012,14 @@ static int rdma_config(enum DISP_MODULE_ENUM module, enum RDMA_MODE mode,
 
 int rdma_clock_on(enum DISP_MODULE_ENUM module, void *handle)
 {
+	unsigned int idx = rdma_index(module);
+
+	/*Bypass shadow*/
+	DISP_REG_SET_FIELD(handle, EN_FLD_RDMA_READ_WRK,
+		idx * DISP_RDMA_INDEX_OFFSET + DISP_REG_RDMA_SHADOW_UPDATE, 1);
+	DISP_REG_SET_FIELD(handle, EN_FLD_RDMA_BYPASS_SHADOW,
+		idx * DISP_RDMA_INDEX_OFFSET + DISP_REG_RDMA_SHADOW_UPDATE, 1);
+
 	ddp_clk_prepare_enable(ddp_get_module_clk_id(module));
 	return 0;
 }

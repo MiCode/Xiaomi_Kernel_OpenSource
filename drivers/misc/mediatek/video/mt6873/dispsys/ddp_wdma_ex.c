@@ -126,10 +126,6 @@ int wdma_start(enum DISP_MODULE_ENUM module, void *handle)
 	DISP_REG_SET_FIELD(handle, WDMA_EN_FLD_ENABLE,
 		offset + DISP_REG_WDMA_EN, 0x1);
 
-	DISP_REG_SET_FIELD(handle, WDMA_SHADOW_FLD_READ_SHADOW,
-		offset + DISP_REG_WDMA_SHADOW_CTL, 0x1);
-	DISP_REG_SET_FIELD(handle, WDMA_SHADOW_FLD_BYPASS_SHADOW,
-		offset + DISP_REG_WDMA_SHADOW_CTL, 0x1);
 	return 0;
 }
 
@@ -284,6 +280,15 @@ static int wdma_config(enum DISP_MODULE_ENUM module, unsigned int srcWidth,
 
 static int wdma_clock_on(enum DISP_MODULE_ENUM module, void *handle)
 {
+	unsigned int idx = wdma_index(module);
+	unsigned int offset = idx * DISP_WDMA_INDEX_OFFSET;
+
+	/*Bypass Shadow*/
+	DISP_REG_SET_FIELD(handle, WDMA_SHADOW_FLD_READ_SHADOW,
+		offset + DISP_REG_WDMA_SHADOW_CTL, 0x1);
+	DISP_REG_SET_FIELD(handle, WDMA_SHADOW_FLD_BYPASS_SHADOW,
+		offset + DISP_REG_WDMA_SHADOW_CTL, 0x1);
+
 #ifdef ENABLE_CLK_MGR
 	ddp_clk_prepare_enable(ddp_get_module_clk_id(module));
 #endif
