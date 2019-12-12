@@ -835,9 +835,16 @@
 	};
 
 	devapc@10207000 {
-		compatible = "mediatek,devapc";
-		reg = <0 0x10207000 0 0x1000>;
+		compatible = "mediatek,mt6873-devapc";
+		reg = <0 0x10207000 0 0x1000>,
+			<0 0x10274000 0 0x1000>,
+			<0 0x10275000 0 0x1000>,
+			<0 0x11020000 0 0x1000>,
+			<0 0x10030000 0 0x1000>,
+			<0 0x1020e000 0 0x1000>;
 		interrupts = <GIC_SPI 187 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&infracfg_ao INFRACFG_AO_DEVICE_APC_CG>;
+		clock-names = "devapc-infra-clock";
 	};
 
 	bus_dbg@10208000 {
