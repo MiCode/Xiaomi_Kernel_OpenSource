@@ -12,6 +12,8 @@
  */
 
 #include <linux/delay.h>
+#include <linux/sched/clock.h>
+
 #include "hal_config_power.h"
 #include "apu_power_api.h"
 #include "apusys_power_cust.h"
@@ -19,6 +21,7 @@
 #include "apu_log.h"
 #include "apusys_power_rule_check.h"
 #include <helio-dvfsrc-opp.h>
+
 #define CREATE_TRACE_POINTS
 #include "apu_power_events.h"
 #include "mtk_devinfo.h"
@@ -31,6 +34,8 @@ static int conn_mtcmos_on;
 static int buck_already_on;
 static int power_on_counter;
 static int hal_cmd_status[APUSYS_POWER_USER_NUM];
+
+struct apu_power_info_record power_fail_record;
 
 void *g_APU_RPCTOP_BASE;
 void *g_APU_PCUTOP_BASE;
@@ -57,15 +62,17 @@ static int set_power_regulator_mode(void *param);
 static int set_power_mtcmos(enum DVFS_USER, void *param);
 static int set_power_clock(enum DVFS_USER, void *param);
 static int set_power_frequency(void *param);
-static void get_current_power_info(void *param);
+static void get_current_power_info(void *param, int force);
 static int uninit_power_resource(void);
-static int apusys_power_reg_dump(struct apu_power_info *info);
+static int apusys_power_reg_dump(struct apu_power_info *info, int force);
 static void power_debug_func(void);
 static void hw_init_setting(void);
 static int buck_control(enum DVFS_USER user, int level);
 static int rpc_power_status_check(int domain_idx, unsigned int enable);
 static int apu_pm_handler(void *param);
 static int segment_user_support_check(void *param);
+static void recording_power_fail_state(void);
+static void dump_fail_state(void);
 
 /************************************
  * common power hal command
@@ -111,10 +118,10 @@ int hal_config_power(enum HAL_POWER_CMD cmd, enum DVFS_USER user, void *param)
 		ret = apu_pm_handler(param);
 		break;
 	case PWR_CMD_GET_POWER_INFO:
-		get_current_power_info(param);
+		get_current_power_info(param, 0);
 		break;
 	case PWR_CMD_REG_DUMP:
-		apusys_power_reg_dump(NULL);
+		apusys_power_reg_dump(NULL, 0);
 		break;
 	case PWR_CMD_UNINIT_POWER:
 		ret = uninit_power_resource();
@@ -124,6 +131,9 @@ int hal_config_power(enum HAL_POWER_CMD cmd, enum DVFS_USER user, void *param)
 		break;
 	case PWR_CMD_SEGMENT_CHECK:
 		segment_user_support_check(param);
+		break;
+	case PWR_CMD_DUMP_FAIL_STATE:
+		dump_fail_state();
 		break;
 	default:
 		LOG_ERR("%s unknown power command : %d\n", __func__, cmd);
@@ -137,6 +147,54 @@ int hal_config_power(enum HAL_POWER_CMD cmd, enum DVFS_USER user, void *param)
 /************************************
  * utility function
  ************************************/
+
+static void recording_power_fail_state(void)
+{
+	uint64_t time = 0;
+	uint32_t nanosec = 0;
+
+	time = sched_clock();
+	nanosec = do_div(time, 1000000000);
+
+	power_fail_record.time_sec = (unsigned long)time;
+	power_fail_record.time_nsec = (unsigned long)nanosec / 1000;
+	power_fail_record.pwr_info.id = 0;
+	power_fail_record.pwr_info.force_print = 1;
+	power_fail_record.pwr_info.type = 1;
+
+	get_current_power_info(&power_fail_record.pwr_info, 1);
+}
+
+static void dump_fail_state(void)
+{
+	char log_str[128];
+
+	snprintf(log_str, sizeof(log_str),
+		"v[%u,%u,%u,%u]f[%u,%u,%u,%u,%u,%u,%u]r[%x,%x,%x,%x,%x,%x,%x,%x,%x]t[%lu.%06lu]",
+		power_fail_record.pwr_info.vvpu,
+		power_fail_record.pwr_info.vmdla,
+		power_fail_record.pwr_info.vcore,
+		power_fail_record.pwr_info.vsram,
+		power_fail_record.pwr_info.dsp_freq,
+		power_fail_record.pwr_info.dsp1_freq,
+		power_fail_record.pwr_info.dsp2_freq,
+		power_fail_record.pwr_info.dsp3_freq,
+		power_fail_record.pwr_info.dsp6_freq,
+		power_fail_record.pwr_info.dsp7_freq,
+		power_fail_record.pwr_info.ipuif_freq,
+		power_fail_record.pwr_info.spm_wakeup,
+		power_fail_record.pwr_info.rpc_intf_rdy,
+		power_fail_record.pwr_info.vcore_cg_stat,
+		power_fail_record.pwr_info.conn_cg_stat,
+		power_fail_record.pwr_info.vpu0_cg_stat,
+		power_fail_record.pwr_info.vpu1_cg_stat,
+		power_fail_record.pwr_info.vpu2_cg_stat,
+		power_fail_record.pwr_info.mdla0_cg_stat,
+		power_fail_record.pwr_info.mdla1_cg_stat,
+		power_fail_record.time_sec, power_fail_record.time_nsec);
+
+	LOG_ERR("APUPWR err %s\n", log_str);
+}
 
 // vcore voltage p to vcore opp
 static enum vcore_opp volt_to_vcore_opp(int target_volt)
@@ -391,6 +449,7 @@ static void rpc_fifo_check(void)
 		finished = (regValue & BIT(31));
 
 		if (++check_round >= REG_POLLING_TIMEOUT_ROUNDS) {
+			recording_power_fail_state();
 			LOG_ERR("%s timeout !\n", __func__);
 			break;
 		}
@@ -482,6 +541,7 @@ static int rpc_power_status_check(int domain_idx, unsigned int mode)
 
 		if (++check_round >= REG_POLLING_TIMEOUT_ROUNDS) {
 
+			recording_power_fail_state();
 			check_spm_register(NULL, 1);
 			rpc_alive = check_if_rpc_alive();
 			if (domain_idx == 0 && mode != 0) {
@@ -537,6 +597,7 @@ static int rpc_power_status_check(int domain_idx, unsigned int mode)
 		"%s fail conn ctl type:%d, mode:%d, spm:0x%x, rpc:0x%x, ra:%d\n",
 		__func__, fail_type, mode, spmValue, rpcValue, rpc_alive);
 
+		recording_power_fail_state();
 		apu_aee_warn(
 			"APUPWR_RPC_CHK_FAIL",
 			"type:%d, mode:%d, spm:0x%x, rpc:0x%x, ra:%d\n",
@@ -758,7 +819,7 @@ static int set_power_frequency(void *param)
 	return ret;
 }
 
-static void get_current_power_info(void *param)
+static void get_current_power_info(void *param, int force)
 {
 	struct apu_power_info *info = ((struct apu_power_info *)param);
 	char log_str[128];
@@ -777,7 +838,7 @@ static void get_current_power_info(void *param)
 
 	if (info->type == 1) {
 		// including APUsys pwr related reg
-		apusys_power_reg_dump(info);
+		apusys_power_reg_dump(info, force);
 
 		// including SPM related pwr reg
 		check_spm_register(info, 0);
@@ -1019,7 +1080,7 @@ static int set_power_shut_down(enum DVFS_USER user, void *param)
 	return ret;
 }
 
-static int apusys_power_reg_dump(struct apu_power_info *info)
+static int apusys_power_reg_dump(struct apu_power_info *info, int force)
 {
 	unsigned int regVal = 0x0;
 	unsigned int tmpVal = 0x0;

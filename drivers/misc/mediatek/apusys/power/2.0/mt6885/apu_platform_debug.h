@@ -16,5 +16,6 @@
 
 extern void apu_power_dump_opp_table(struct seq_file *s);
 extern int apu_power_dump_curr_status(struct seq_file *s, int oneline_str);
+extern struct apu_power_info_record power_fail_record;
 
 #endif // _APU_POWER_PLATFORM_DEBUG_H_

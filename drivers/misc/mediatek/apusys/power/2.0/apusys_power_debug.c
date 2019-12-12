@@ -541,6 +541,57 @@ out:
 	return ret;
 }
 
+static int apusys_power_fail_show(struct seq_file *s, void *unused)
+{
+	char log_str[128];
+
+	snprintf(log_str, sizeof(log_str),
+		"v[%u,%u,%u,%u]f[%u,%u,%u,%u,%u,%u,%u]r[%x,%x,%x,%x,%x,%x,%x,%x,%x]t[%lu.%06lu]",
+		power_fail_record.pwr_info.vvpu,
+		power_fail_record.pwr_info.vmdla,
+		power_fail_record.pwr_info.vcore,
+		power_fail_record.pwr_info.vsram,
+		power_fail_record.pwr_info.dsp_freq,
+		power_fail_record.pwr_info.dsp1_freq,
+		power_fail_record.pwr_info.dsp2_freq,
+		power_fail_record.pwr_info.dsp3_freq,
+		power_fail_record.pwr_info.dsp6_freq,
+		power_fail_record.pwr_info.dsp7_freq,
+		power_fail_record.pwr_info.ipuif_freq,
+		power_fail_record.pwr_info.spm_wakeup,
+		power_fail_record.pwr_info.rpc_intf_rdy,
+		power_fail_record.pwr_info.vcore_cg_stat,
+		power_fail_record.pwr_info.conn_cg_stat,
+		power_fail_record.pwr_info.vpu0_cg_stat,
+		power_fail_record.pwr_info.vpu1_cg_stat,
+		power_fail_record.pwr_info.vpu2_cg_stat,
+		power_fail_record.pwr_info.mdla0_cg_stat,
+		power_fail_record.pwr_info.mdla1_cg_stat,
+		power_fail_record.time_sec, power_fail_record.time_nsec);
+
+	seq_printf(s, "%s\n", log_str);
+	return 0;
+}
+
+static int apusys_power_fail_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, apusys_power_fail_show, inode->i_private);
+}
+
+static ssize_t apusys_power_fail_write(struct file *flip,
+		const char __user *buffer,
+		size_t count, loff_t *f_pos)
+{
+	return 0;
+}
+
+static const struct file_operations apusys_power_fail_fops = {
+	.open = apusys_power_fail_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = seq_release,
+	.write = apusys_power_fail_write,
+};
 
 static const struct file_operations apusys_debug_power_fops = {
 	.open = apusys_debug_power_open,
@@ -571,6 +622,8 @@ void apusys_power_debugfs_init(void)
 
 	debugfs_create_file("power", (0744),
 		apusys_power_dir, NULL, &apusys_debug_power_fops);
+	debugfs_create_file("power_dump_fail_log", (0744),
+		apusys_power_dir, NULL, &apusys_power_fail_fops);
 }
 
 void apusys_power_debugfs_exit(void)

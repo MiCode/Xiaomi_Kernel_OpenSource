@@ -257,7 +257,7 @@ int apu_device_power_suspend(enum DVFS_USER user, int is_suspend)
 
 	if (apusys_power_broken) {
 		mutex_unlock(&power_ctl_mtx);
-		apu_get_power_info(1);
+		hal_config_power(PWR_CMD_DUMP_FAIL_STATE, VPU0, NULL);
 		LOG_ERR(
 		"APUPWR_BROKEN, user:%d fail to pwr off, is_suspend:%d\n",
 							user, is_suspend);
@@ -305,13 +305,13 @@ int apu_device_power_suspend(enum DVFS_USER user, int is_suspend)
 	LOG_PM("%s for user:%d, ret:%d, cnt:%d, is_suspend:%d, info_id: %llu\n",
 					__func__, user, ret,
 					power_callback_counter, is_suspend,
-					apu_get_power_info(0));
+					ret ? 0 : apu_get_power_info(0));
 #else
 	LOG_WRN("%s by user:%d bypass\n", __func__, user);
 #endif // BYPASS_POWER_OFF
 
 	if (ret) {
-		apu_get_power_info(1);
+		hal_config_power(PWR_CMD_DUMP_FAIL_STATE, VPU0, NULL);
 #ifndef APUSYS_POWER_BRINGUP
 		apusys_reg_dump();
 #endif
@@ -347,7 +347,7 @@ int apu_device_power_on(enum DVFS_USER user)
 
 	if (apusys_power_broken) {
 		mutex_unlock(&power_ctl_mtx);
-		apu_get_power_info(1);
+		hal_config_power(PWR_CMD_DUMP_FAIL_STATE, VPU0, NULL);
 		LOG_ERR("APUPWR_BROKEN, user:%d fail to pwr on\n", user);
 		return -ENODEV;
 	}
@@ -389,10 +389,10 @@ int apu_device_power_on(enum DVFS_USER user)
 	mutex_unlock(&power_ctl_mtx);
 	LOG_PM("%s for user:%d, ret:%d, cnt:%d, info_id: %llu\n",
 				__func__, user, ret, power_callback_counter,
-				apu_get_power_info(0));
+				ret ? 0 : apu_get_power_info(0));
 
 	if (ret) {
-		apu_get_power_info(1);
+		hal_config_power(PWR_CMD_DUMP_FAIL_STATE, VPU0, NULL);
 #ifndef APUSYS_POWER_BRINGUP
 		apusys_reg_dump();
 #endif
