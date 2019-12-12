@@ -3040,6 +3040,26 @@ page_owner=on loop.max_part=7";
 		#clock-cells = <1>;
 	};
 
+	devapc_ao_infra_peri_debug1@10023000  {
+		compatible = "mediatek,devapc_ao_infra_peri_debug1";
+		reg = <0 0x10023000 0 0x1000>;
+	};
+
+	devapc_ao_infra_peri_debug2@10025000  {
+		compatible = "mediatek,devapc_ao_infra_peri_debug2";
+		reg = <0 0x10025000 0 0x1000>;
+	};
+
+	devapc_ao_infra_peri_debug3@1002b000  {
+		compatible = "mediatek,devapc_ao_infra_peri_debug3";
+		reg = <0 0x1002b000 0 0x1000>;
+	};
+
+	devapc_ao_infra_peri_debug4@1002e000  {
+		compatible = "mediatek,devapc_ao_infra_peri_debug4";
+		reg = <0 0x1002e000 0 0x1000>;
+	};
+
 	mdpsys_config: mdpsys_config@1f000000 {
 		compatible = "mediatek,mdpsys_config", "syscon";
 		reg = <0 0x1f000000 0 0x1000>;

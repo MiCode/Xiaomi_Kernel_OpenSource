@@ -111,6 +111,11 @@
 #define MT_GPUFREQ_LOW_BATT_VOLT_LIMIT_FREQ     (485000)        /* KHz */
 
 /**************************************************
+ * DFD Dump
+ **************************************************/
+#define MT_GPUFREQ_DFD_ENABLE 1
+
+/**************************************************
  * Register Manipulations
  **************************************************/
 #define READ_REGISTER_UINT32(reg)	\

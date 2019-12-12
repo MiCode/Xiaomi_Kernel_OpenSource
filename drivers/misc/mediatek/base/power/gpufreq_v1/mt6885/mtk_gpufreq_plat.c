@@ -65,6 +65,10 @@
 extern GED_LOG_BUF_HANDLE gpufreq_ged_log;
 #endif
 
+#if MT_GPUFREQ_DFD_ENABLE
+#include "dbgtop.h"
+#endif
+
 enum gpu_dvfs_vgpu_step {
 	GPU_DVFS_VGPU_STEP_1 = 0x1,
 	GPU_DVFS_VGPU_STEP_2 = 0x2,
@@ -198,6 +202,7 @@ static unsigned int g_fixed_freq;
 static unsigned int g_fixed_vgpu;
 static unsigned int g_max_upper_limited_idx;
 static unsigned int g_lkg_pwr;
+static unsigned int g_dfd_force_dump;
 static int g_opp_sb_idx_up[NUM_OF_OPP_IDX] = { 0 };
 static int g_opp_sb_idx_down[NUM_OF_OPP_IDX] = { 0 };
 
@@ -207,6 +212,12 @@ static DEFINE_MUTEX(mt_gpufreq_limit_table_lock);
 
 static void __iomem *g_apmixed_base;
 static void __iomem *g_mfg_base;
+static void __iomem *g_infracfg_base;
+static void __iomem *g_infra_bpi_bsi_slv0;
+static void __iomem *g_infra_peri_debug1;
+static void __iomem *g_infra_peri_debug2;
+static void __iomem *g_infra_peri_debug3;
+static void __iomem *g_infra_peri_debug4;
 
 u64 mt_gpufreq_get_shader_present(void)
 {
@@ -240,6 +251,101 @@ u64 mt_gpufreq_get_shader_present(void)
 	}
 
 	return shader_present;
+}
+
+void mt_gpufreq_dump_infra_status(void)
+{
+	unsigned int start, offset;
+	unsigned int val;
+
+	// 0x1020E
+	if (g_infracfg_base) {
+		gpufreq_pr_info("====\n");
+		val = readl(g_infracfg_base + 0x810);
+		gpufreq_pr_info("infra info 0x%x:0x%08x\n",
+			0x1020E810, val);
+
+		val = readl(g_infracfg_base + 0x814);
+		gpufreq_pr_info("infra info 0x%x:0x%08x\n",
+			0x1020E814, val);
+	}
+
+	// 0x1021E
+	if (g_infra_bpi_bsi_slv0) {
+		gpufreq_pr_info("====\n");
+		val = readl(g_infra_bpi_bsi_slv0 + 0x230);
+		gpufreq_pr_info("infra info 0x%x:0x%08x\n",
+			0x1021E230, val);
+
+		val = readl(g_infra_bpi_bsi_slv0 + 0x234);
+		gpufreq_pr_info("infra info 0x%x:0x%08x\n",
+			0x1021E234, val);
+	}
+
+	// 0x10023000
+	if (g_infra_peri_debug1) {
+		gpufreq_pr_info("====\n");
+		val = readl(g_infra_peri_debug1 + 0x000);
+		gpufreq_pr_info("infra info 0x%x:0x%08x\n",
+			0x10023000, val);
+
+		start = 0x408;
+		for (offset = start; offset <= 0x4E4; offset += 4) {
+			gpufreq_pr_info("infra info 0x%x:0x%08x\n",
+				0x10023000 + offset,
+				readl(g_infra_peri_debug1 + offset));
+		}
+	}
+
+	// 0x10025000
+	if (g_infra_peri_debug2) {
+		gpufreq_pr_info("====\n");
+		val = readl(g_infra_peri_debug2 + 0x000);
+		gpufreq_pr_info("infra info 0x%x:0x%08x\n",
+			0x10025000, val);
+
+		start = 0x408;
+		for (offset = start; offset <= 0x43C; offset += 4) {
+			gpufreq_pr_info("infra info 0x%x:0x%08x\n",
+				0x10025000 + offset,
+				readl(g_infra_peri_debug2 + offset));
+		}
+	}
+
+	// 0x1002B000
+	if (g_infra_peri_debug3) {
+		gpufreq_pr_info("====\n");
+		val = readl(g_infra_peri_debug3 + 0x000);
+		gpufreq_pr_info("infra info 0x%x:0x%08x\n",
+			0x1002B000, val);
+
+		start = 0x408;
+		for (offset = start; offset <= 0x494; offset += 4) {
+			gpufreq_pr_info("infra info 0x%x:0x%08x\n",
+				0x10025000 + offset,
+				readl(g_infra_peri_debug2 + offset));
+		}
+	}
+
+	// 0x1002E000
+	if (g_infra_peri_debug4) {
+		gpufreq_pr_info("====\n");
+		val = readl(g_infra_peri_debug4 + 0x000);
+		gpufreq_pr_info("infra info 0x%x:0x%08x\n",
+			0x1002E000, val);
+
+		start = 0x408;
+		for (offset = start; offset <= 0x434; offset += 4) {
+			gpufreq_pr_info("infra info 0x%x:0x%08x\n",
+				0x10025000 + offset,
+				readl(g_infra_peri_debug2 + offset));
+		}
+	}
+}
+
+int mt_gpufreq_is_dfd_force_dump(void)
+{
+	return g_dfd_force_dump;
 }
 
 static unsigned int mt_gpufreq_return_by_condition(
@@ -633,6 +739,36 @@ static void mt_gpufreq_buck_control(enum mt_power_state power)
 	__mt_gpufreq_kick_pbm(power);
 }
 
+static void mt_gpufreq_set_dfd(bool enable)
+{
+#if MT_GPUFREQ_DFD_ENABLE
+	unsigned int val;
+	unsigned int mask;
+
+	if (enable) {
+		// debug monitor
+		writel(0xFFFFFFFF, g_mfg_base + 0x8F8);
+
+		writel(0x0F101100, g_mfg_base + 0xA00);
+		writel(0x00012EC9, g_mfg_base + 0xA04);
+		writel(0x0001813A, g_mfg_base + 0xA08);
+		writel(0x00210862, g_mfg_base + 0xA0C);
+		writel(0x00000000, g_mfg_base + 0xA10);
+		writel(0x00000000, g_mfg_base + 0xA14);
+		writel(0x00000000, g_mfg_base + 0xA18);
+		writel(0x00000000, g_mfg_base + 0xA1C);
+		writel(0x00000000, g_mfg_base + 0xA20);
+		writel(0x00000000, g_mfg_base + 0xA24);
+		writel(0x00000000, g_mfg_base + 0xA28);
+		writel(0x00000000, g_mfg_base + 0xA2C);
+
+		mtk_dbgtop_mfg_pwr_on(1);
+	} else {
+		mtk_dbgtop_mfg_pwr_on(0);
+	}
+#endif
+}
+
 void mt_gpufreq_power_control(enum mt_power_state power, enum mt_cg_state cg,
 			enum mt_mtcmos_state mtcmos, enum mt_buck_state buck)
 {
@@ -657,6 +793,10 @@ void mt_gpufreq_power_control(enum mt_power_state power, enum mt_cg_state cg,
 		if (cg == CG_ON)
 			mt_gpufreq_cg_control(power);
 
+#if MT_GPUFREQ_DFD_ENABLE
+		mt_gpufreq_set_dfd(true);
+#endif
+
 		gpu_dvfs_vgpu_footprint(GPU_DVFS_VGPU_STEP_4);
 	} else {
 		gpu_dvfs_vgpu_footprint(GPU_DVFS_VGPU_STEP_5);
@@ -673,6 +813,10 @@ void mt_gpufreq_power_control(enum mt_power_state power, enum mt_cg_state cg,
 
 		if (buck == BUCK_OFF)
 			mt_gpufreq_buck_control(power);
+
+#if MT_GPUFREQ_DFD_ENABLE
+		mt_gpufreq_set_dfd(false);
+#endif
 
 		gpu_dvfs_vgpu_footprint(GPU_DVFS_VGPU_STEP_8);
 	}
@@ -1396,6 +1540,63 @@ static struct opp_table_info *__mt_gpufreq_get_segment_table(void)
  * SECTION : PROCFS interface for debugging
  * ===============================================
  */
+static int mt_gpufreq_dfd_test_proc_show(struct seq_file *m, void *v)
+{
+#if MT_GPUFREQ_DFD_ENABLE
+	/* for UT only!!
+	 * do not enable this debug node on MP release
+	 * MTBF may trigger this BUG_ON
+	 */
+
+	//if (g_cg_on) {
+	//	seq_printf(m, "dfd trigger!\n");
+	//	BUG_ON(1);
+	//} else {
+	//	seq_printf(m, "gpu if power off\n");
+	//}
+#endif
+	return 0;
+}
+
+static int mt_gpufreq_dfd_force_dump_proc_show(struct seq_file *m, void *v)
+{
+#if MT_GPUFREQ_DFD_ENABLE
+	seq_printf(m, "g_dfd_force_dump %d\n", g_dfd_force_dump);
+	mt_gpufreq_dump_infra_status();
+#else
+	seq_puts(m, "dfd not support\n");
+#endif
+	return 0;
+}
+
+static ssize_t mt_gpufreq_dfd_force_dump_proc_write(
+		struct file *file, const char __user *buffer,
+		size_t count, loff_t *data)
+{
+	int ret = -EFAULT;
+#if MT_GPUFREQ_DFD_ENABLE
+	char buf[64];
+	unsigned int len = 0;
+	unsigned int value = 0;
+
+	len = (count < (sizeof(buf) - 1)) ? count : (sizeof(buf) - 1);
+
+	if (copy_from_user(buf, buffer, len))
+		goto out;
+
+	buf[len] = '\0';
+
+	if (!kstrtouint(buf, 10, &value)) {
+		if (!value || !(value - 1)) {
+			ret = 0;
+			g_dfd_force_dump = value;
+		}
+	}
+
+out:
+#endif
+	return (ret < 0) ? ret : count;
+}
 
 #ifdef CONFIG_PROC_FS
 static int mt_gpufreq_opp_dump_proc_show(struct seq_file *m, void *v)
@@ -1804,6 +2005,8 @@ PROC_FOPS_RW(gpufreq_fixed_freq_volt);
 PROC_FOPS_RO(gpufreq_sb_idx);
 PROC_FOPS_RW(gpufreq_aging_enable);
 PROC_FOPS_RW(gpufreq_limit_table);
+PROC_FOPS_RO(gpufreq_dfd_test);
+PROC_FOPS_RW(gpufreq_dfd_force_dump);
 
 static int __mt_gpufreq_create_procfs(void)
 {
@@ -1824,6 +2027,8 @@ static int __mt_gpufreq_create_procfs(void)
 		PROC_ENTRY(gpufreq_sb_idx),
 		PROC_ENTRY(gpufreq_aging_enable),
 		PROC_ENTRY(gpufreq_limit_table),
+		PROC_ENTRY(gpufreq_dfd_test),
+		PROC_ENTRY(gpufreq_dfd_force_dump),
 	};
 
 	dir = proc_mkdir("gpufreq", NULL);
@@ -2834,6 +3039,53 @@ static int __mt_gpufreq_init_clk(struct platform_device *pdev)
 		gpufreq_pr_info("@%s: cannot get mtcmos_mfg_core7_8\n",
 			__func__);
 		return PTR_ERR(g_clk->mtcmos_mfg_core7_8);
+	}
+
+	g_infracfg_base = __mt_gpufreq_of_ioremap("mediatek,infracfg", 0);
+	if (!g_infracfg_base) {
+		gpufreq_pr_info("@%s: ioremap failed at infracfg",
+			__func__);
+		return -ENOENT;
+	}
+
+	g_infra_bpi_bsi_slv0 = __mt_gpufreq_of_ioremap(
+		"mediatek,bpi_bsi_slv0", 0);
+	if (!g_infra_bpi_bsi_slv0) {
+		gpufreq_pr_info("@%s: ioremap failed at bpi_bsi_slv0",
+			__func__);
+		return -ENOENT;
+	}
+
+	g_infra_peri_debug1 = __mt_gpufreq_of_ioremap(
+		"mediatek,devapc_ao_infra_peri_debug1", 0);
+	if (!g_infra_peri_debug1) {
+		gpufreq_pr_info("@%s: ioremap failed at devapc_ao_infra_peri_debug1",
+			__func__);
+		return -ENOENT;
+	}
+
+	g_infra_peri_debug2 = __mt_gpufreq_of_ioremap(
+		"mediatek,devapc_ao_infra_peri_debug2", 0);
+	if (!g_infra_peri_debug2) {
+		gpufreq_pr_info("@%s: ioremap failed at devapc_ao_infra_peri_debug2",
+			__func__);
+		return -ENOENT;
+	}
+
+	g_infra_peri_debug3 = __mt_gpufreq_of_ioremap(
+		"mediatek,devapc_ao_infra_peri_debug3", 0);
+	if (!g_infra_peri_debug3) {
+		gpufreq_pr_info("@%s: ioremap failed at devapc_ao_infra_peri_debug3",
+			__func__);
+		return -ENOENT;
+	}
+
+	g_infra_peri_debug4 = __mt_gpufreq_of_ioremap(
+		"mediatek,devapc_ao_infra_peri_debug4", 0);
+	if (!g_infra_peri_debug4) {
+		gpufreq_pr_info("@%s: ioremap failed at devapc_ao_infra_peri_debug4",
+			__func__);
+		return -ENOENT;
 	}
 
 	return 0;

@@ -2351,6 +2351,7 @@ static void kbase_mmu_report_fault_and_kill(struct kbase_context *kctx,
 	vsram = mt_gpufreq_get_vsram_by_idx(idx);
 	pr_info("gpu_freq info: idx: %d, freq: %d, vgpu: %d, vsram_gpu: %d\n",
 			idx, freq, vgpu, vsram);
+	mt_gpufreq_dump_infra_status();
 
 	/* terminal fault, print info about the fault */
 	dev_err(kbdev->dev,

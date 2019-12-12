@@ -198,19 +198,25 @@ static enum hrtimer_restart timer_callback(struct hrtimer *timer)
 						js_devdata->scheduling_period_ns
 								/ 1000000u;
 
-				/* MTK add for gpu_freq information */
-				idx = mt_gpufreq_get_cur_freq_index();
-				freq = mt_gpufreq_get_freq_by_idx(idx);
-				vgpu = mt_gpufreq_get_volt_by_idx(idx);
-				vsram = mt_gpufreq_get_vsram_by_idx(idx);
-				pr_info("gpu_freq info: idx: %d, freq: %d, vgpu: %d, vsram_gpu: %d\n",
-					idx, freq, vgpu, vsram);
+					/* MTK add for gpu_freq information */
+					idx = mt_gpufreq_get_cur_freq_index();
+					freq = mt_gpufreq_get_freq_by_idx(idx);
+					vgpu = mt_gpufreq_get_volt_by_idx(idx);
+					vsram = mt_gpufreq_get_vsram_by_idx(idx);
+					pr_info("gpu_freq info: idx: %d, freq: %d, vgpu: %d, vsram_gpu: %d\n",
+						idx, freq, vgpu, vsram);
+					mt_gpufreq_dump_infra_status();
 
 					dev_warn(kbdev->dev, "JS: Job Hard-Stopped (took more than %lu ticks at %lu ms/tick)",
 							(unsigned long)ticks,
 							(unsigned long)ms);
 					kbase_job_slot_hardstop(atom->kctx, s,
 									atom);
+
+					if (mt_gpufreq_is_dfd_force_dump()) {
+						pr_info("gpu dfd force dump\n");
+						BUG_ON(1);
+					}
 #endif
 				} else if (ticks == gpu_reset_ticks) {
 					/* Job has been scheduled for at least
@@ -245,19 +251,25 @@ static enum hrtimer_restart timer_callback(struct hrtimer *timer)
 						js_devdata->scheduling_period_ns
 								/ 1000000u;
 
-				/* MTK add for gpu_freq information */
-				idx = mt_gpufreq_get_cur_freq_index();
-				freq = mt_gpufreq_get_freq_by_idx(idx);
-				vgpu = mt_gpufreq_get_volt_by_idx(idx);
-				vsram = mt_gpufreq_get_vsram_by_idx(idx);
-				pr_info("gpu_freq info: idx: %d, freq: %d, vgpu: %d, vsram_gpu: %d\n",
-					idx, freq, vgpu, vsram);
+					/* MTK add for gpu_freq information */
+					idx = mt_gpufreq_get_cur_freq_index();
+					freq = mt_gpufreq_get_freq_by_idx(idx);
+					vgpu = mt_gpufreq_get_volt_by_idx(idx);
+					vsram = mt_gpufreq_get_vsram_by_idx(idx);
+					pr_info("gpu_freq info: idx: %d, freq: %d, vgpu: %d, vsram_gpu: %d\n",
+						idx, freq, vgpu, vsram);
+					mt_gpufreq_dump_infra_status();
 
 					dev_warn(kbdev->dev, "JS: Job Hard-Stopped (took more than %lu ticks at %lu ms/tick)",
 							(unsigned long)ticks,
 							(unsigned long)ms);
 					kbase_job_slot_hardstop(atom->kctx, s,
 									atom);
+
+					if (mt_gpufreq_is_dfd_force_dump()) {
+						pr_info("gpu dfd force dump\n");
+						BUG_ON(1);
+					}
 #endif
 				} else if (ticks ==
 					js_devdata->gpu_reset_ticks_dumping) {
@@ -273,6 +285,7 @@ static enum hrtimer_restart timer_callback(struct hrtimer *timer)
 			}
 		}
 	}
+
 	if (reset_needed) {
 		dev_err(kbdev->dev, "JS: Job has been on the GPU for too long (JS_RESET_TICKS_SS/DUMPING timeout hit). Issueing GPU soft-reset to resolve.");
 
