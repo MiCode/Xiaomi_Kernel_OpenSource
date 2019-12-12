@@ -29,6 +29,9 @@
 #define MT6885_LOG_MONITOR_STATE_NAME	"mcusysoff"
 #define MT6885_LOG_DEFAULT_MS		5000
 
+#define PCM_32K_TICKS_PER_SEC		(32768)
+#define PCM_TICK_TO_SEC(TICK)	(TICK / PCM_32K_TICKS_PER_SEC)
+
 static struct mt6885_spm_wake_status mt6885_wake;
 void __iomem *mt6885_spm_base;
 
@@ -570,6 +573,12 @@ static int mt6885_show_message(struct mt6885_spm_wake_status *wakesrc, int type,
 		printk_deferred("[name:spm&][SPM] %s", log_buf);
 		mt6885_suspend_show_detailed_wakeup_reason(wakesrc);
 		mt6885_suspend_spm_rsc_req_check(wakesrc);
+
+		printk_deferred("[name:spm&][SPM] Suspended for %d.%03d seconds",
+			PCM_TICK_TO_SEC(wakesrc->timer_out),
+			PCM_TICK_TO_SEC((wakesrc->timer_out %
+				PCM_32K_TICKS_PER_SEC)
+			* 1000));
 
 		/* Eable rcu lock checking */
 		rcu_irq_exit_irqson();
