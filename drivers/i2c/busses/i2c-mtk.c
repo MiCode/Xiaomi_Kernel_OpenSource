@@ -195,6 +195,7 @@ static inline u32 i2c_readl_dma(struct mt_i2c *i2c, u8 offset)
 {
 	if (!i2c->fifo_only)
 		return readl(i2c->pdmabase + i2c->ch_offset_dma + offset);
+	return 0;
 }
 
 static void record_i2c_dma_info(struct mt_i2c *i2c)
