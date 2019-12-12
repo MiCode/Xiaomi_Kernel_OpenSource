@@ -29,7 +29,9 @@
 #include <smi_public.h>
 #include <smi_pmqos.h>
 #include <mmdvfs_pmqos.h>
-#if IS_ENABLED(CONFIG_MTK_EMI)
+#if IS_ENABLED(CONFIG_MEDIATEK_EMI)
+#include <memory/mediatek/emi.h>
+#elif IS_ENABLED(CONFIG_MTK_EMI)
 #include <plat_debug_api.h>
 #elif IS_ENABLED(CONFIG_MTK_EMI_BWL)
 #include <emi_mbw.h>
@@ -43,7 +45,7 @@
 #include <mmdvfs_mgr.h>
 #endif
 
-#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && IS_ENABLED(SMI_SSPM)
 #include <sspm_define.h>
 #include <sspm_reservedmem_define.h>
 #if IS_ENABLED(SMI_5G)
@@ -634,7 +636,9 @@ s32 smi_debug_bus_hang_detect(const bool gce, const char *user)
 	u32 time = 5, busy[SMI_DEV_NUM] = {0};
 	s32 i, j, ret = 0;
 
-#if IS_ENABLED(CONFIG_MTK_EMI) || IS_ENABLED(CONFIG_MTK_EMI_BWL)
+#if IS_ENABLED(CONFIG_MEDIATEK_EMI)
+	mtk_emidbg_dump();
+#elif IS_ENABLED(CONFIG_MTK_EMI) || IS_ENABLED(CONFIG_MTK_EMI_BWL)
 	dump_emi_outstanding();
 #endif
 #if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
@@ -878,7 +882,7 @@ static const struct file_operations smi_file_opers = {
 
 static inline void smi_subsys_sspm_ipi(const bool ena, const u32 subsys)
 {
-#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && IS_ENABLED(SMI_SSPM)
 	struct smi_ipi_data_s ipi_data;
 	s32 ret;
 
@@ -1117,7 +1121,7 @@ static inline void smi_mmp_init(void)
 
 static inline void smi_dram_init(void)
 {
-#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && IS_ENABLED(SMI_SSPM)
 	phys_addr_t phys = sspm_reserve_mem_get_phys(SMI_MEM_ID);
 	struct smi_ipi_data_s ipi_data;
 	s32 ret;
@@ -1198,7 +1202,7 @@ int smi_dram_dump_set(const char *val, const struct kernel_param *kp)
 	ret = kstrtoint(val, 0, &arg);
 	if (ret)
 		SMIDBG("Invalid val: %s, ret=%d\n", val, ret);
-#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && IS_ENABLED(SMI_SSPM)
 	else if (arg && !smi_dram.dump) {
 		struct smi_ipi_data_s ipi_data;
 

@@ -16,8 +16,8 @@ ccflags-y += -I$(srctree)/drivers/clk/mediatek/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/emi/$(MTK_PLATFORM)/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/emi_bwl/$(MTK_PLATFORM)/
+ccflags-$(CONFIG_MTK_EMI) += -I$(srctree)/drivers/misc/mediatek/emi/$(MTK_PLATFORM)/
+ccflags-$(CONFIG_MTK_EMI_BWL) += -I$(srctree)/drivers/misc/mediatek/emi_bwl/$(MTK_PLATFORM)/
 ccflags-$(CONFIG_MTK_IOMMU_V2) += -I$(srctree)/drivers/iommu/
 ccflags-$(CONFIG_MTK_M4U) += -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmdvfs/
@@ -43,6 +43,7 @@ obj-y += mmdvfs_mgr_util.o
 endif
 
 ccflags-$(CONFIG_MACH_MT6885) += -DPMQOS_USE_IOMMU_PORT
+ccflags-$(CONFIG_MACH_MT6885) += -DSMI_SSPM
 ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6873" "mt6885"))
 ccflags-y += -DSMI_5G
 endif
