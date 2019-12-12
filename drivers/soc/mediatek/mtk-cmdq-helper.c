@@ -42,8 +42,8 @@
 
 #define CMDQ_PREDUMP_TIMEOUT_MS		200
 
-/* sleep for 1300 tick, which around 50us */
-#define CMDQ_POLL_TICK			1300
+/* sleep for 312 tick, which around 12us */
+#define CMDQ_POLL_TICK			312
 
 #define CMDQ_GET_ADDR_H(addr)		(sizeof(addr) > 32 ? (addr >> 32) : 0)
 #define CMDQ_GET_ARG_B(arg)		(((arg) & GENMASK(31, 16)) >> 16)
