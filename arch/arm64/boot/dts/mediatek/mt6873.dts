@@ -474,10 +474,10 @@
 		reg = <0 0x10006500 0 0x1000>;
 	};
 
-	toprgu@10007000 {
+	toprgu: toprgu@10007000 {
 		compatible = "mediatek,toprgu";
 		reg = <0 0x10007000 0 0x1000>;
-		interrupts = <GIC_SPI 77 IRQ_TYPE_EDGE_RISING>;
+		interrupts = <GIC_SPI 434 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	apxgpt@10008000 {
@@ -634,9 +634,11 @@
 	};
 
 	sys_timer@10017000 {
-		/* compatible = "mediatek,sys_timer"; */
+		compatible = "mediatek,sys_timer";
 		reg = <0 0x10017000 0 0x1000>;
+		reg-names = "sys_timer_base";
 		interrupts = <GIC_SPI 233 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&topckgen TOP_CLK13M>;
 	};
 
 	modem_temp_share@10018000 {
