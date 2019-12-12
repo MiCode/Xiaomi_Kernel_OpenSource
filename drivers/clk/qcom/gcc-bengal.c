@@ -961,6 +961,7 @@ static struct clk_rcg2 gcc_camss_csi2phytimer_clk_src = {
 };
 
 static const struct freq_tbl ftbl_gcc_camss_mclk0_clk_src[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
 	F(24000000, P_GPLL9_OUT_MAIN, 1, 1, 24),
 	F(64000000, P_GPLL9_OUT_MAIN, 1, 1, 9),
 	{ }
