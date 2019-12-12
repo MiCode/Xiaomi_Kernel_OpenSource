@@ -87,7 +87,7 @@ const struct of_device_id msdc_of_ids[] = {
 static void __iomem *gpio_base;
 
 static void __iomem *topckgen_base;
-static void __iomem *infracfg_ao_base;
+static void __iomem *msdcsys_top_base;
 static void __iomem *apmixed_base;
 #endif
 
@@ -526,6 +526,75 @@ int msdc_get_ccf_clk_pointer(struct platform_device *pdev,
 	static char const * const hclk_names[] = {
 		MSDC0_HCLK_NAME, MSDC1_HCLK_NAME
 	};
+	static char const * const pclk_names[] = {
+		MSDC0_PCLK_NAME, MSDC1_PCLK_NAME
+	};
+
+	/* clk enable flow:
+	 * msdc clk power->pclk->bus clk->src clk ->host clk->aes clk
+	 */
+	host->msdc_clk_power_ctl = devm_clk_get(&pdev->dev,
+			MSDC_CLK_POWER_NAME);
+	if (IS_ERR(host->msdc_clk_power_ctl)) {
+		pr_notice("[msdc%d] can not get msdc clock power control\n",
+			pdev->id);
+		WARN_ON(1);
+		return 1;
+	}
+	if (clk_prepare(host->msdc_clk_power_ctl)) {
+		pr_notice(
+			"[msdc%d] can not prepare msdc clock power control\n",
+			pdev->id);
+		WARN_ON(1);
+		return 1;
+	}
+
+	if (pclk_names[pdev->id]) {
+		host->pclk_ctl = devm_clk_get(&pdev->dev,
+			clk_names[pdev->id]);
+		if (IS_ERR(host->pclk_ctl)) {
+			pr_notice("[msdc%d] cannot get pclk ctrl\n",
+				pdev->id);
+			return 1;
+		}
+		if (clk_prepare(host->pclk_ctl)) {
+			pr_notice("[msdc%d] cannot prepare pclk ctrl\n",
+				pdev->id);
+			return 1;
+		}
+	}
+
+	host->axi_clk_ctl = devm_clk_get(&pdev->dev,
+			MSDC_AXI_CLK_NAME);
+	if (IS_ERR(host->axi_clk_ctl)) {
+		pr_notice("[msdc%d] can not get axi clock control\n",
+			pdev->id);
+		WARN_ON(1);
+		return 1;
+	}
+	if (clk_prepare(host->axi_clk_ctl)) {
+		pr_notice(
+			"[msdc%d] can not prepare axi clock control\n",
+			pdev->id);
+		WARN_ON(1);
+		return 1;
+	}
+
+	host->ahb2axi_brg_clk_ctl = devm_clk_get(&pdev->dev,
+			MSDC_AHB2AXI_BRG_NAME);
+	if (IS_ERR(host->ahb2axi_brg_clk_ctl)) {
+		pr_notice("[msdc%d] can not get ahb2axi_brg clock control\n",
+			pdev->id);
+		WARN_ON(1);
+		return 1;
+	}
+	if (clk_prepare(host->ahb2axi_brg_clk_ctl)) {
+		pr_notice(
+		"[msdc%d] can not prepare ahb2axi_brg clock control\n",
+			pdev->id);
+		WARN_ON(1);
+		return 1;
+	}
 
 	if  (clk_names[pdev->id]) {
 		host->clk_ctl = devm_clk_get(&pdev->dev,
@@ -582,8 +651,9 @@ int msdc_get_ccf_clk_pointer(struct platform_device *pdev,
 	}
 #endif
 
-	pr_info("[msdc%d] hclk:%d, clk_ctl:%p, hclk_ctl:%p\n",
-		pdev->id, host->hclk, host->clk_ctl, host->hclk_ctl);
+	pr_info("[msdc%d] hclk:%d, clk_ctl:%p, hclk_ctl:%p, pclk_ctl:%p\n",
+		pdev->id, host->hclk, host->clk_ctl,
+		host->hclk_ctl, host->pclk_ctl);
 
 	return 0;
 }
@@ -595,36 +665,44 @@ static void msdc_dump_clock_sts_core(char **buff, unsigned long *size,
 	char buffer[512];
 	char *buf_ptr = buffer;
 
-	if (topckgen_base && infracfg_ao_base) {
+	if (topckgen_base && msdcsys_top_base) {
 		buf_ptr += sprintf(buf_ptr,
-			"MSDC0 HCLK_MUX[0x%p][1:0]=%d, pdn=%d\n",
+			"MSDC0 HCLK_MUX[0x%p][25:24]=%d, pdn=%d\n",
+			topckgen_base + 0x070,
+			/* mux at bits 25~24 */
+			(MSDC_READ32(topckgen_base + 0x070) >> 24) & 3,
+			/* pdn at bit 31 */
+			(MSDC_READ32(topckgen_base + 0x070) >> 31) & 1);
+		buf_ptr += sprintf(buf_ptr,
+			"MSDC0 CLK_MUX[%p][2:0]=%d, pdn=%d, CLK_CG[%p]bit 1,4,9=%d,%d,%d\n",
 			topckgen_base + 0x080,
-			/* mux at bits 1~0 */
-			(MSDC_READ32(topckgen_base + 0x080) >> 0) & 3,
+			/* mux at bits 2~0 */
+			(MSDC_READ32(topckgen_base + 0x080) >> 0) & 7,
 			/* pdn at bit 7 */
-			(MSDC_READ32(topckgen_base + 0x080) >> 7) & 1);
+			(MSDC_READ32(topckgen_base + 0x080) >> 7) & 1,
+			msdcsys_top_base,
+			/* cg at bit 1,4,9 */
+			(MSDC_READ32(msdcsys_top_base) >> 1) & 1,
+			(MSDC_READ32(msdcsys_top_base) >> 4) & 1,
+			(MSDC_READ32(msdcsys_top_base) >> 9) & 1);
 		buf_ptr += sprintf(buf_ptr,
-			"MSDC0 CLK_MUX[%p][10:8]=%d, pdn=%d, CLK_CG[%p]bit 2,6=%d,%d\n",
+			"MSDC1 CLK_MUX[%p][10:8]=%d, pdn=%d, CLK_CG[%p]bit 2,5,10=%d,%d,%d\n",
 			topckgen_base + 0x080,
 			/* mux at bits 10~8 */
 			(MSDC_READ32(topckgen_base + 0x080) >> 8) & 7,
 			/* pdn at bit 15 */
 			(MSDC_READ32(topckgen_base + 0x080) >> 15) & 1,
-			infracfg_ao_base + 0x094,
-			/* cg at bit 2,6 */
-			(MSDC_READ32(infracfg_ao_base + 0x094) >> 2) & 1,
-			(MSDC_READ32(infracfg_ao_base + 0x094) >> 6) & 1);
+			msdcsys_top_base,
+			/* cg at bit 2,5,10 */
+			(MSDC_READ32(msdcsys_top_base) >> 2) & 1,
+			(MSDC_READ32(msdcsys_top_base) >> 5) & 1,
+			(MSDC_READ32(msdcsys_top_base) >> 10) & 1);
 		buf_ptr += sprintf(buf_ptr,
-			"MSDC1 CLK_MUX[%p][18:16]=%d, pdn=%d, CLK_CG[%p]bit 4,16=%d,%d\n",
-			topckgen_base + 0x080,
-			/* mux at bits 18~16 */
-			(MSDC_READ32(topckgen_base + 0x080) >> 16) & 7,
-			/* pdn at bit 23 */
-			(MSDC_READ32(topckgen_base + 0x080) >> 23) & 1,
-			infracfg_ao_base + 0x094,
-			/* cg at bit 4,16 */
-			(MSDC_READ32(infracfg_ao_base + 0x094) >> 4) & 1,
-			(MSDC_READ32(infracfg_ao_base + 0x094) >> 16) & 1);
+			"MSDC BUS CLK_CG[%p]bit 8,14=%d,%d\n",
+			msdcsys_top_base,
+			/* cg at bit 8,14 */
+			(MSDC_READ32(msdcsys_top_base) >> 8) & 1,
+			(MSDC_READ32(msdcsys_top_base) >> 14) & 1);
 
 		*buf_ptr = '\0';
 		SPREAD_PRINTF(buff, size, m, "%s", buffer);
@@ -1656,12 +1734,12 @@ int msdc_dt_init(struct platform_device *pdev, struct mmc_host *mmc)
 			topckgen_base);
 	}
 
-	if (infracfg_ao_base == NULL) {
+	if (msdcsys_top_base == NULL) {
 		np = of_find_compatible_node(NULL, NULL,
-			"mediatek,infracfg_ao");
-		infracfg_ao_base = of_iomap(np, 0);
-		pr_debug("of_iomap for infracfg_ao base @ 0x%p\n",
-			infracfg_ao_base);
+			"mediatek,msdcsys_top");
+		msdcsys_top_base = of_iomap(np, 0);
+		pr_debug("of_iomap for msdcsys_top base @ 0x%p\n",
+			msdcsys_top_base);
 	}
 
 #endif

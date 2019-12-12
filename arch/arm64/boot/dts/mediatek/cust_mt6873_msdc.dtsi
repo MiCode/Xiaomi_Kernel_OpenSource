@@ -36,10 +36,16 @@
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
 	vmmc-supply = <&mt_pmic_vemc_ldo_reg>;
-	clocks = <&infracfg_ao INFRACFG_AO_MSDC0_SRC_CLK_CG>,
-		<&infracfg_ao INFRACFG_AO_MSDC0_CG>,
-		<&infracfg_ao INFRACFG_AO_AES_UFSFDE_CG>;
-	clock-names = "msdc0-clock", "msdc0-hclock", "msdc0-aes-clock";
+	clocks = <&scpsys SCP_SYS_MSDC>,
+		<&msdcsys_top MSDC_PCLK_CK_MSDC0_CKEN>,
+		<&msdcsys_top MSDC_SRC_CK_0P_CKEN>,
+		<&msdcsys_top MSDC_HCLK_MST_CK_0P_CKEN>,
+		<&msdcsys_top MSDC_AES_CK_0P_CKEN>,
+		<&msdcsys_top MSDC_AXI_CK_CKEN>,
+		<&msdcsys_top MSDC_AHB2AXI_BRG_AXI_CKEN>;
+	clock-names = "msdc-clk-power",
+		"msdc0-pclock", "msdc0-clock", "msdc0-hclock",
+		"msdc0-aes-clock", "msdc-axi-clock", "msdc-ahb2axi_brg-clock";
 #endif
 };
 
@@ -75,9 +81,15 @@
 	vmmc-supply = <&mt_pmic_vmch_ldo_reg>;
 	vqmmc-supply = <&mt_pmic_vmc_ldo_reg>;
 
-	clocks = <&infracfg_ao INFRACFG_AO_MSDC1_SRC_CLK_CG>,
-			<&infracfg_ao INFRACFG_AO_MSDC1_CG>;
-	clock-names = "msdc1-clock", "msdc1-hclock";
+	clocks =  <&scpsys SCP_SYS_MSDC>,
+		<&msdcsys_top MSDC_PCLK_CK_MSDC1_CKEN>,
+		<&msdcsys_top MSDC_SRC_CK_1P_CKEN>,
+		<&msdcsys_top MSDC_HCLK_MST_CK_1P_CKEN>,
+		<&msdcsys_top MSDC_AXI_CK_CKEN>,
+		<&msdcsys_top MSDC_AHB2AXI_BRG_AXI_CKEN>;
+	clock-names = "msdc-clk-power",
+		"msdc0-pclock", "msdc1-clock", "msdc1-hclock",
+		"msdc-axi-clock", "msdc-ahb2axi_brg-clock";
 #endif
 };
 
