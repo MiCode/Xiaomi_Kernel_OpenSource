@@ -2394,20 +2394,24 @@ int m4u_config_port(struct M4U_PORT_STRUCT *pM4uPort)
 
 void pseudo_m4u_bank_irq_debug(unsigned int domain)
 {
-	int i, j;
+	int i, j, ret = 0;
 	unsigned int count = 0;
 
 	for (i = 0; i < SMI_LARB_NR; i++) {
-		larb_clock_on(i, 1);
+		ret = larb_clock_on(i, 1);
+		if (ret < 0) {
+			M4U_MSG("enable larb%d fail\n", i);
+			continue;
+		}
 		count = mtk_iommu_get_larb_port_count(i);
 		for (j = 0; j < count; j++) {
 			pseudo_set_reg_by_mask(pseudo_larbbase[i],
 							   SMI_LARB_SEC_CONx(j),
 							   F_SMI_DOMN(0x7),
 							   F_SMI_DOMN(0x2));
-			pr_notice("%s, switch larb%d to dom:0x%x\n",
-				  __func__, i,
-				  pseudo_readreg32(pseudo_larbbase[i],
+			pr_debug("%s, switch larb%d to dom:0x%x\n",
+				 __func__, i,
+				 pseudo_readreg32(pseudo_larbbase[i],
 					SMI_LARB_SEC_CONx(j)));
 		}
 		larb_clock_off(i, 1);
@@ -2557,7 +2561,7 @@ bool m4u_tee_en;
 
 static int __m4u_sec_init(void)
 {
-	int ret, i;
+	int ret, i, count = 0;
 	unsigned long pt_pa_nonsec;
 	struct m4u_sec_context *ctx;
 
@@ -2565,8 +2569,15 @@ static int __m4u_sec_init(void)
 	if (!ctx)
 		return -EFAULT;
 
-	for (i = 0; i < SMI_LARB_NR; i++)
-		larb_clock_on(i, 1);
+	for (i = 0; i < SMI_LARB_NR; i++) {
+		ret = larb_clock_on(i, 1);
+		if (ret < 0) {
+			M4U_MSG("enable larb%d fail, ret:%d\n", i, ret);
+			count = i;
+			goto out;
+		}
+	}
+	count = SMI_LARB_NR;
 
 	if (mtk_iommu_get_pgtable_base_addr((void *)&pt_pa_nonsec))
 		return -EFAULT;
@@ -2587,8 +2598,10 @@ static int __m4u_sec_init(void)
 
 	/*ret = ctx->m4u_msg->rsp;*/
 out:
-	for (i = 0; i < SMI_LARB_NR; i++)
-		larb_clock_off(i, 1);
+	if (count) {
+		for (i = 0; i < count; i++)
+			larb_clock_off(i, 1);
+	}
 	m4u_sec_ctx_put(ctx);
 	return ret;
 }
@@ -2916,8 +2929,6 @@ out:
 
 static void m4u_early_suspend(void)
 {
-	int i = 0;
-
 	if (mtk_iommu_power_support()) {
 		M4U_MSG("%s , iommu pg callback supported\n",
 			__func__);
@@ -2927,22 +2938,14 @@ static void m4u_early_suspend(void)
 	M4U_MSG("%s +, %d\n", __func__, m4u_tee_en);
 
 	//smi_debug_bus_hang_detect(false, M4U_DEV_NAME);
-	if (m4u_tee_en) {
-		for (i = 0; i < SMI_LARB_NR; i++)
-			larb_clock_on(i, 1);
-
+	if (m4u_tee_en)
 		m4u_reg_backup_sec();
 
-		for (i = 0; i < SMI_LARB_NR; i++)
-			larb_clock_off(i, 1);
-	}
 	M4U_MSG("%s -\n", __func__);
 }
 
 static void m4u_late_resume(void)
 {
-	int i = 0;
-
 	if (mtk_iommu_power_support()) {
 		M4U_MSG("%s , iommu pg callback supported\n",
 			__func__);
@@ -2952,15 +2955,8 @@ static void m4u_late_resume(void)
 	M4U_MSG("%s +, %d\n", __func__, m4u_tee_en);
 
 	//smi_debug_bus_hang_detect(false, M4U_DEV_NAME);
-	if (m4u_tee_en) {
-		for (i = 0; i < SMI_LARB_NR; i++)
-			larb_clock_on(i, 1);
-
+	if (m4u_tee_en)
 		m4u_reg_restore_sec();
-
-		for (i = 0; i < SMI_LARB_NR; i++)
-			larb_clock_off(i, 1);
-	}
 
 	M4U_MSG("%s -\n", __func__);
 }
