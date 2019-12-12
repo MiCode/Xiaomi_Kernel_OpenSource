@@ -1438,10 +1438,7 @@ static int mt6873_mmap_ion_get(struct snd_kcontrol *kcontrol,
 static int mt6873_mmap_ion_set(struct snd_kcontrol *kcontrol,
 			       struct snd_ctl_elem_value *ucontrol)
 {
-	/* for bring up */
-#if 0
 	mtk_get_ion_buffer();
-#endif
 	return 0;
 }
 
