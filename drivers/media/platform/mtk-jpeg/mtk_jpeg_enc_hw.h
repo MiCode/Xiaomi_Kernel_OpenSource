@@ -17,6 +17,9 @@
 #define JPEG_ENC_EN_JFIF_EXIF                   (1 << 5)
 #define JPEG_ENC_CTRL_INT_EN_BIT                0x04
 #define JPEG_ENC_CTRL_ENABLE_BIT                0x01
+#define JPEG_ENC_CTRL_RDMA_PADDING_EN           (1 << 20)
+#define JPEG_ENC_CTRL_RDMA_RIGHT_PADDING_EN     (1 << 29)
+#define JPEG_ENC_CTRL_RDMA_PADDING_0_EN         (1 << 30)
 
 enum {
 	MTK_JPEG_ENC_RESULT_DONE		= 0,

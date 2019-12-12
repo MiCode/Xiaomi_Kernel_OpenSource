@@ -190,6 +190,10 @@ void mtk_jpeg_enc_start(void __iomem *base)
 
 	u4Value = readl(base + JPGENC_CTRL);
 	u4Value |= (JPEG_ENC_CTRL_INT_EN_BIT | JPEG_ENC_CTRL_ENABLE_BIT);
+	u4Value |= JPEG_ENC_CTRL_RDMA_PADDING_EN;
+	u4Value |= JPEG_ENC_CTRL_RDMA_RIGHT_PADDING_EN;
+	u4Value &= ~JPEG_ENC_CTRL_RDMA_PADDING_0_EN;
+
 	writel((u4Value), base + JPGENC_CTRL);
 }
 
