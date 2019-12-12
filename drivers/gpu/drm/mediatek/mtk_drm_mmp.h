@@ -79,6 +79,7 @@ struct CRTC_MMP_Events {
 	mmp_event dsi_suspend;
 	mmp_event dsi_resume;
 	mmp_event backlight;
+	mmp_event backlight_grp;
 	mmp_event path_switch;
 	mmp_event user_cmd;
 	mmp_event check_trigger;

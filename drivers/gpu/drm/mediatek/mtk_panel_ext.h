@@ -21,9 +21,18 @@
 
 struct mtk_dsi;
 struct cmdq_pkt;
+struct mtk_panel_para_table {
+	u8 count;
+	u8 para_list[64];
+};
+
 typedef void (*dcs_write_gce) (struct mtk_dsi *dsi, struct cmdq_pkt *handle,
-				  const void *data, size_t len);
+				const void *data, size_t len);
+typedef void (*dcs_grp_write_gce) (struct mtk_dsi *dsi, struct cmdq_pkt *handle,
+				struct mtk_panel_para_table *para_table,
+				unsigned int para_size);
 typedef int (*panel_tch_rst) (void);
+
 enum MTK_PANEL_OUTPUT_MODE {
 	MTK_PANEL_SINGLE_PORT = 0x0,
 	MTK_PANEL_DSC_SINGLE_PORT,
@@ -44,6 +53,8 @@ enum MTK_PANEL_MODE_SWITCH_STAGE {
 
 struct mtk_panel_funcs {
 	int (*set_backlight_cmdq)(void *dsi_drv, dcs_write_gce cb,
+		void *handle, unsigned int level);
+	int (*set_backlight_grp_cmdq)(void *dsi_drv, dcs_grp_write_gce cb,
 		void *handle, unsigned int level);
 	int (*reset)(struct drm_panel *panel, int on);
 	int (*ata_check)(struct drm_panel *panel);
