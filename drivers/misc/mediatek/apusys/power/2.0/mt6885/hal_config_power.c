@@ -246,19 +246,23 @@ static void hw_init_setting(void)
 {
 	uint32_t regValue = 0;
 
-	/* set memory type to PD or sleep */
+	/*
+	 * set memory type to PD or sleep group
+	 * sw_type register for each memory group, set to PD mode default
+	 */
+	DRV_WriteReg32(APU_RPC_SW_TYPE0, 0xFF);	// APUTOP
+	DRV_WriteReg32(APU_RPC_SW_TYPE2, 0x7);	// VPU0
+	DRV_WriteReg32(APU_RPC_SW_TYPE3, 0x7);	// VPU1
+	DRV_WriteReg32(APU_RPC_SW_TYPE4, 0x7);	// VPU2
+	DRV_WriteReg32(APU_RPC_SW_TYPE6, 0x3);	// MDLA0
+	DRV_WriteReg32(APU_RPC_SW_TYPE7, 0x3);	// MDLA1
 
-	// MD32 sleep type
-	DRV_WriteReg32(APU_RPC_SW_TYPE0, 0x6F);
-
-	// IMEM_ICACHE sleep type for VPU0
-	DRV_WriteReg32(APU_RPC_SW_TYPE2, 0x2);
-
-	// IMEM_ICACHE sleep type for VPU1
-	DRV_WriteReg32(APU_RPC_SW_TYPE3, 0x2);
-
-	// IMEM_ICACHE sleep type for VPU2
-	DRV_WriteReg32(APU_RPC_SW_TYPE4, 0x2);
+	// subsys mtcmos domain (power switch) force ON
+	DRV_SetBitReg32(APU_RPC_PWR_CON2, BIT(1)); // VPU0
+	DRV_SetBitReg32(APU_RPC_PWR_CON3, BIT(1)); // VPU1
+	DRV_SetBitReg32(APU_RPC_PWR_CON4, BIT(1)); // VPU2
+	DRV_SetBitReg32(APU_RPC_PWR_CON6, BIT(1)); // MDLA0
+	DRV_SetBitReg32(APU_RPC_PWR_CON7, BIT(1)); // MDLA1
 
 	// mask RPC IRQ and bypass WFI
 	regValue = DRV_Reg32(APU_RPC_TOP_SEL);

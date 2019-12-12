@@ -24,8 +24,6 @@
 
 
 #define EFUSE_INDEX 72	// 0x11C105D8
-#define FOR_HQA_TEST		(1)
-#define VOLTAGE_CHECKER		(0)
 
 /* regulator id */
 static struct regulator *vvpu_reg_id;
@@ -471,12 +469,6 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 	}
 
 	ret = regulator_set_voltage(reg_id, voltage_mV, voltage_MAX);
-#endif
-
-#if FOR_HQA_TEST
-	config_regulator_mode(buck, 0);	// force pwm for HQA
-#else
-	config_regulator_mode(buck, 1);	// auto normal for HQA
 #endif
 
 	settle_time = settle_time_check(buck, voltage_mV);
