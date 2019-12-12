@@ -396,7 +396,7 @@ inline unsigned long task_uclamped_min_w_ceiling(struct task_struct *p)
 /* Calculte util with DVFS margin */
 inline unsigned int freq_util(unsigned long util)
 {
-	return util * 10 >> 3;
+	return util * capacity_margin / SCHED_CAPACITY_SCALE;
 }
 
 #ifdef CONFIG_MTK_IDLE_BALANCE_ENHANCEMENT
