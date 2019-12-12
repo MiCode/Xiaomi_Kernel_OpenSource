@@ -814,11 +814,12 @@ void MFBQOS_Uninit(void)
 
 void MFBQOS_Update(bool start, unsigned int scen, unsigned int bw)
 {
-	LOG_DBG("MFB scen: %d, bw: %d", scen, bw);
+	LOG_DBG("start: %d, MFB scen: %d, bw: %ld", start, scen, bw);
 	if (start) { /* start MFB, configure MMDVFS to highest CLK */
-		LOG_DBG("MFB total: %d", qos_total);
+		LOG_DBG("MFB total: %ld", qos_total);
 		spin_lock(&(SpinLockMfbPmqos));
-		qos_scen[scen] = bw;
+		if (bw != 0)
+			qos_scen[scen] = bw;
 		qos_total = qos_total + bw;
 		if (qos_total > 20000000) {
 			spin_unlock(&(SpinLockMfbPmqos));
@@ -828,7 +829,7 @@ void MFBQOS_Update(bool start, unsigned int scen, unsigned int bw)
 			pm_qos_update_request(&mfb_pmqos_request, 0);
 		}
 	} else { /* finish MFB, config MMDVFS to lowest CLK */
-		LOG_DBG("MFB total: %d", qos_total);
+		LOG_DBG("MFB total: %ld", qos_total);
 		spin_lock(&(SpinLockMfbPmqos));
 		qos_total = qos_total - qos_scen[scen];
 		if (qos_total > 20000000) {
@@ -3715,7 +3716,7 @@ static long MFB_ioctl_compat(struct file *filp,
  ******************************************************************************/
 static signed int MFB_open(struct inode *pInode, struct file *pFile)
 {
-	signed int Ret = 0, i = 0;
+	signed int Ret = 0, i = 0, j = 0;
 	/*int q = 0, p = 0;*/
 	struct MFB_USER_INFO_STRUCT *pUserInfo;
 	unsigned long flags;
@@ -3768,6 +3769,9 @@ static signed int MFB_open(struct inode *pInode, struct file *pFile)
 		mfb_register_requests(&vmsf_reqs, sizeof(struct MFB_MSFConfig));
 		mfb_set_engine_ops(&vmsf_reqs, &vmsf_ops);
 
+		qos_total = 0;
+		for (j = 0; j < 4; j++)
+			qos_scen[j] = 0;
 		spin_unlock(&(MFBInfo.SpinLockMFBRef));
 		LOG_INF(
 			"%s + 1st UserCount(%d), (process, pid, tgid)=(%s, %d, %d)",
