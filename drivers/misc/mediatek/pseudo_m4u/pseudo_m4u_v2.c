@@ -528,11 +528,10 @@ static inline int pseudo_config_port(struct M4U_PORT_STRUCT *pM4uPort,
 	if (is_user && strcmp(name, pM4uPort->name)) {
 		M4U_MSG("port:%d name(%s) not matched(%s)\n",
 			pM4uPort->ePortID, pM4uPort->name, name);
-		aee_kernel_warning_api(__FILE__, __LINE__,
-				       DB_OPT_DEFAULT |
-				       DB_OPT_NATIVE_BACKTRACE,
-				       "port name not matched",
-				       "dump user backtrace");
+		report_custom_config_port(
+					  name,
+					  pM4uPort->name,
+					  pM4uPort->ePortID);
 		return -1;
 	}
 	if (pM4uPort->Virtuality) {

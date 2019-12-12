@@ -120,6 +120,10 @@ bool report_custom_iommu_fault_secure(
 void report_custom_iommu_leakage(char *port_name,
 	unsigned int size);
 
+void report_custom_config_port(char *port_name,
+	char *err_name,
+	unsigned int portid);
+
 void mtk_iommu_debug_init(void);
 void mtk_iommu_debug_reset(void);
 

@@ -36,6 +36,9 @@
 #define mmu_leakage_log_format \
 	"\nCRDISPATCH_KEY:M4U_%s\n<<IOVA LEAKAGE>> port=%s size=%uKB\n"
 
+#define config_port_log_format \
+	"\nCRDISPATCH_KEY:M4U_%s\n<<CONFIG INVALID PORT NAME>> name=%s id=%u\n"
+
 #define ERROR_LARB_PORT_ID M4U_PORT_NR
 
 #define IOMMU_MAX_EVENT_COUNT 1024
@@ -253,6 +256,17 @@ void report_custom_iommu_leakage(char *port_name,
 
 	mmu_aee_print(mmu_leakage_log_format,
 		      port_name, port_name, size);
+}
+
+void report_custom_config_port(char *port_name,
+	char *err_name,
+	unsigned int portid)
+{
+	if (!port_name || !err_name)
+		return;
+
+	mmu_aee_print(config_port_log_format,
+		      port_name, err_name, portid);
 }
 
 bool enable_custom_tf_report(void)
