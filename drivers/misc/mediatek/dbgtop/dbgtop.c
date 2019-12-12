@@ -392,9 +392,6 @@ int mtk_dbgtop_mfg_pwr_on(int value)
 	} else
 		return -1;
 
-	pr_debug("%s: MTK_DBGTOP_MFG_REG(0x%x)\n", __func__,
-		readl(IOMEM(MTK_DBGTOP_MFG_REG)));
-
 	return 0;
 }
 EXPORT_SYMBOL(mtk_dbgtop_mfg_pwr_on);
@@ -414,9 +411,6 @@ int mtk_dbgtop_mfg_pwr_en(int value)
 		mt_reg_sync_writel(tmp, MTK_DBGTOP_MFG_REG);
 	} else
 		return -1;
-
-	pr_debug("%s: MTK_DBGTOP_MFG_REG(0x%x)\n", __func__,
-		readl(IOMEM(MTK_DBGTOP_MFG_REG)));
 
 	return 0;
 }
