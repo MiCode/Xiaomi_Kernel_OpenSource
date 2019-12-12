@@ -2751,49 +2751,49 @@
 	camsv1@1a090000 {
 		compatible = "mediatek,camsv1";
 		reg = <0 0x1a090000 0 0x1000>;
-		interrupts = <GIC_SPI 323 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 324 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	camsv2@1a091000 {
 		compatible = "mediatek,camsv2";
 		reg = <0 0x1a091000 0 0x1000>;
-		interrupts = <GIC_SPI 324 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 325 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	camsv3@1a092000 {
 		compatible = "mediatek,camsv3";
 		reg = <0 0x1a092000 0 0x1000>;
-		interrupts = <GIC_SPI 325 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 326 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	camsv4@1a093000 {
 		compatible = "mediatek,camsv4";
 		reg = <0 0x1a093000 0 0x1000>;
-		interrupts = <GIC_SPI 326 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 327 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	camsv5@1a094000 {
 		compatible = "mediatek,camsv5";
 		reg = <0 0x1a094000 0 0x1000>;
-		interrupts = <GIC_SPI 327 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 328 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	camsv6@1a095000 {
 		compatible = "mediatek,camsv6";
 		reg = <0 0x1a095000 0 0x1000>;
-		interrupts = <GIC_SPI 328 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 329 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	camsv7@1a096000 {
 		compatible = "mediatek,camsv7";
 		reg = <0 0x1a096000 0 0x1000>;
-		interrupts = <GIC_SPI 332 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 333 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	camsv8@1a097000 {
 		compatible = "mediatek,camsv8";
 		reg = <0 0x1a097000 0 0x1000>;
-		interrupts = <GIC_SPI 333 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 334 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	imgsys_config: imgsys_config@15020000 {

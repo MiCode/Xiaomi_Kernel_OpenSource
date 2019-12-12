@@ -1683,7 +1683,7 @@ static inline int m4u_control_iommu_port(void)
 	int count_of_ports = 0;
 	int i = 0;
 
-	/* include\dt-bindings\memory\Mt6885-larb-port.h */
+	/* include\dt-bindings\memory\Mt6873-larb-port.h */
 	static const int larb13_support_map[LARB13PORTSIZE] = {
 		false,   /* MRAWI */
 		false,   /* MRAWO0 */
@@ -1700,9 +1700,9 @@ static inline int m4u_control_iommu_port(void)
 	};
 
 	static const int larb14_support_map[LARB14PORTSIZE] = {
-		false,   /* MRAWI */
-		false,   /* MRAWO0 */
-		false,   /* MRAWO1 */
+		false,   /* Reserve */
+		false,   /* Reserve */
+		false,   /* Reserve */
 		true,    /* CAMSV0 */
 		false,   /* CCUI */
 		false,   /* CCUO */
@@ -1731,7 +1731,7 @@ static inline int m4u_control_iommu_port(void)
 	/* LARB14 config all ports w/o CCU */
 	for (i = 0; i < LARB14PORTSIZE; i++) {
 		if (larb14_support_map[i] == true) {
-			sPort.ePortID = M4U_PORT_L14_CAM_CAMSV0+i;
+			sPort.ePortID = M4U_PORT_L14_CAM_RESERVE1+i;
 			sPort.Virtuality = camP1mem_use_m4u;
 			sPort.Security = 0;
 			sPort.domain = 2;
@@ -1741,7 +1741,7 @@ static inline int m4u_control_iommu_port(void)
 		if (ret == 0) {
 		} else {
 			LOG_INF("config M4U Port %s to %s FAIL(ret=%d)\n",
-			iommu_get_port_name(M4U_PORT_L14_CAM_CAMSV0+i),
+			iommu_get_port_name(M4U_PORT_L14_CAM_RESERVE1+i),
 			camP1mem_use_m4u ? "virtual" : "physical", ret);
 			ret = -1;
 		}
