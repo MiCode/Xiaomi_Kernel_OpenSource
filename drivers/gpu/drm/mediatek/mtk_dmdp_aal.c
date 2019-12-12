@@ -116,16 +116,22 @@ struct aal_backup { /* structure for backup AAL register value */
 	unsigned int DRE_BLOCK_INFO_04;
 	unsigned int DRE_BLOCK_INFO_05;
 	unsigned int DRE_BLOCK_INFO_06;
+	unsigned int DRE_BLOCK_INFO_07;
 	unsigned int DRE_CHROMA_HIST_00;
 	unsigned int DRE_CHROMA_HIST_01;
 	unsigned int DRE_ALPHA_BLEND_00;
 	unsigned int SRAM_CFG;
 	unsigned int DUAL_PIPE_INFO_00;
 	unsigned int DUAL_PIPE_INFO_01;
+	unsigned int TILE_00;
+	unsigned int TILE_01;
+	unsigned int TILE_02;
 };
 static struct aal_backup g_aal_backup;
 
 #define DMDP_AAL_SRAM_CFG                       (0x0c4)
+#define DMDP_AAL_TILE_02			(0x0F4)
+#define DMDP_AAL_DRE_BLOCK_INFO_07              (0x0f8)
 #define DMDP_AAL_DRE_MAPPING_00                 (0x3b4)
 #define DMDP_AAL_DRE_BLOCK_INFO_00              (0x468)
 #define DMDP_AAL_DRE_BLOCK_INFO_01              (0x46c)
@@ -139,6 +145,8 @@ static struct aal_backup g_aal_backup;
 #define DMDP_AAL_DRE_BLOCK_INFO_06              (0x4b8)
 #define DMDP_AAL_DUAL_PIPE_INFO_00              (0x4d0)
 #define DMDP_AAL_DUAL_PIPE_INFO_01              (0x4d4)
+#define DMDP_AAL_TILE_00			(0x4EC)
+#define DMDP_AAL_TILE_01			(0x4F0)
 
 static void ddp_aal_dre3_backup(struct mtk_ddp_comp *comp)
 {
@@ -160,13 +168,20 @@ static void ddp_aal_dre3_backup(struct mtk_ddp_comp *comp)
 		readl(comp->regs + DMDP_AAL_DRE_BLOCK_INFO_05);
 	g_aal_backup.DRE_BLOCK_INFO_06 =
 		readl(comp->regs + DMDP_AAL_DRE_BLOCK_INFO_06);
+	g_aal_backup.DRE_BLOCK_INFO_07 =
+		readl(comp->regs + DMDP_AAL_DRE_BLOCK_INFO_07);
 	g_aal_backup.SRAM_CFG =
 		readl(comp->regs + DMDP_AAL_SRAM_CFG);
-	/* FIXME */
 	g_aal_backup.DUAL_PIPE_INFO_00 =
 		readl(comp->regs + DMDP_AAL_DUAL_PIPE_INFO_00);
 	g_aal_backup.DUAL_PIPE_INFO_01 =
 		readl(comp->regs + DMDP_AAL_DUAL_PIPE_INFO_01);
+	g_aal_backup.TILE_00 =
+		readl(comp->regs + DMDP_AAL_TILE_00);
+	g_aal_backup.TILE_01 =
+		readl(comp->regs + DMDP_AAL_TILE_01);
+	g_aal_backup.TILE_02 =
+		readl(comp->regs + DMDP_AAL_TILE_02);
 }
 
 static void ddp_aal_dre_backup(struct mtk_ddp_comp *comp)
@@ -203,14 +218,20 @@ static void ddp_aal_dre3_restore(struct mtk_ddp_comp *comp)
 		g_aal_backup.DRE_BLOCK_INFO_05, ~0);
 	mtk_aal_write_mask(comp->regs + DMDP_AAL_DRE_BLOCK_INFO_06,
 		g_aal_backup.DRE_BLOCK_INFO_06, ~0);
+	mtk_aal_write_mask(comp->regs + DMDP_AAL_DRE_BLOCK_INFO_07,
+		g_aal_backup.DRE_BLOCK_INFO_07, ~0);
 	mtk_aal_write_mask(comp->regs + DMDP_AAL_SRAM_CFG,
 		g_aal_backup.SRAM_CFG, 0x1);
-
-	/* FIXME */
 	mtk_aal_write_mask(comp->regs + DMDP_AAL_DUAL_PIPE_INFO_00,
 		g_aal_backup.DUAL_PIPE_INFO_00, ~0);
 	mtk_aal_write_mask(comp->regs + DMDP_AAL_DUAL_PIPE_INFO_01,
 		g_aal_backup.DUAL_PIPE_INFO_01, ~0);
+	mtk_aal_write_mask(comp->regs + DMDP_AAL_TILE_00,
+		g_aal_backup.TILE_00, ~0);
+	mtk_aal_write_mask(comp->regs + DMDP_AAL_TILE_01,
+		g_aal_backup.TILE_01, ~0);
+	mtk_aal_write_mask(comp->regs + DMDP_AAL_TILE_02,
+		g_aal_backup.TILE_02, ~0);
 }
 
 static void ddp_aal_dre_restore(struct mtk_ddp_comp *comp)

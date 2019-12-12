@@ -84,6 +84,7 @@
 
 #define DISP_Y_HISTOGRAM_00                     (0x504)
 
+#define DISP_AAL_DRE_BLOCK_INFO_07              (0x0f8)
 #define MDP_AAL_TILE_00				(0x4EC)
 #define MDP_AAL_TILE_01				(0x4F0)
 #define MDP_AAL_TILE_02				(0x0F4)
@@ -130,6 +131,8 @@ struct DISP_DRE30_HIST {
 struct DISP_DRE30_PARAM {
 	unsigned int dre30_gain[AAL_DRE30_GAIN_REGISTER_NUM];
 };
+
+void disp_aal_debug(const char *opt);
 
 // Provide for LED
 void disp_aal_notify_backlight_changed(int bl_1024);

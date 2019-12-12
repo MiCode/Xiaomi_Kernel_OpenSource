@@ -31,6 +31,7 @@
 #include "mtk_iommu_ext.h"
 #include "mtk_drm_gem.h"
 #include "mtk_drm_fb.h"
+#include "mtk_disp_aal.h"
 
 #define DISP_REG_CONFIG_MMSYS_CG_SET(idx) (0x104 + 0x10 * (idx))
 #define DISP_REG_CONFIG_MMSYS_CG_CLR(idx) (0x108 + 0x10 * (idx))
@@ -956,6 +957,8 @@ static void process_dbg_opt(const char *opt)
 
 		DDPINFO("mipi_ccci:%d\n", en);
 		mtk_disp_mipi_ccci_callback(en, 0);
+	} else if (strncmp(opt, "aal:", 4) == 0) {
+		disp_aal_debug(opt + 4);
 	}
 }
 
