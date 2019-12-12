@@ -2708,25 +2708,16 @@ static kal_uint32 imx576_awb_gain(struct SET_SENSOR_AWB_GAIN *pSetSensorAWB)
 {
 	UINT32 rgain_32, grgain_32, gbgain_32, bgain_32;
 
-	LOG_INF("E\n");
-
 	grgain_32 = (pSetSensorAWB->ABS_GAIN_GR + 1) >> 1;
 	rgain_32 = (pSetSensorAWB->ABS_GAIN_R + 1) >> 1;
 	bgain_32 = (pSetSensorAWB->ABS_GAIN_B + 1) >> 1;
 	gbgain_32 = (pSetSensorAWB->ABS_GAIN_GB + 1) >> 1;
 
-	LOG_INF("[%s] ABS_GAIN_GR:%d, grgain_32:%d\n",
-		__func__,
-		pSetSensorAWB->ABS_GAIN_GR, grgain_32);
-	LOG_INF("[%s] ABS_GAIN_R:%d, rgain_32:%d\n",
-		__func__,
-		pSetSensorAWB->ABS_GAIN_R, rgain_32);
-	LOG_INF("[%s] ABS_GAIN_B:%d, bgain_32:%d\n",
-		__func__,
-		pSetSensorAWB->ABS_GAIN_B, bgain_32);
-	LOG_INF("[%s] ABS_GAIN_GB:%d, gbgain_32:%d\n",
-		__func__,
-		pSetSensorAWB->ABS_GAIN_GB, gbgain_32);
+	LOG_INF("ABS_GAIN_GR:%d,ABS_GAIN_R:%d,ABS_GAIN_B:%d,ABS_GAIN_GB:%d\n",
+		pSetSensorAWB->ABS_GAIN_GR,
+		pSetSensorAWB->ABS_GAIN_R,
+		pSetSensorAWB->ABS_GAIN_B,
+		pSetSensorAWB->ABS_GAIN_GB);
 
 	write_cmos_sensor_8(0x0b8e, (grgain_32 >> 8) & 0xFF);
 	write_cmos_sensor_8(0x0b8f, grgain_32 & 0xFF);
@@ -2793,7 +2784,7 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 	MSDK_SENSOR_REG_INFO_STRUCT *sensor_reg_data =
 			(MSDK_SENSOR_REG_INFO_STRUCT *) feature_para;
 
-	LOG_INF("feature_id = %d\n", feature_id);
+	/*LOG_INF("feature_id = %d\n", feature_id);*/
 	switch (feature_id) {
 	case SENSOR_FEATURE_GET_GAIN_RANGE_BY_SCENARIO:
 		*(feature_data + 1) = imgsensor_info.min_gain;
