@@ -1792,7 +1792,7 @@ account_busy_for_task_demand(struct rq *rq, struct task_struct *p, int event)
 	return 1;
 }
 
-unsigned int sysctl_sched_task_unfilter_nr_windows = 10;
+unsigned int sysctl_sched_task_unfilter_period = 200000000;
 
 /*
  * Called when new window is starting for a task, to record cpu usage over
@@ -1875,11 +1875,11 @@ static void update_history(struct rq *rq, struct task_struct *p,
 	p->ravg.pred_demand_scaled = pred_demand_scaled;
 
 	if (demand_scaled > sched_task_filter_util)
-		p->unfilter = sysctl_sched_task_unfilter_nr_windows;
+		p->unfilter = sysctl_sched_task_unfilter_period;
 	else
 		if (p->unfilter)
-			p->unfilter = p->unfilter - 1;
-
+			p->unfilter = max_t(int, 0,
+				p->unfilter - p->ravg.last_win_size);
 done:
 	trace_sched_update_history(rq, p, runtime, samples, event);
 }
@@ -2161,7 +2161,7 @@ void init_new_task_load(struct task_struct *p)
 	for (i = 0; i < RAVG_HIST_SIZE_MAX; ++i)
 		p->ravg.sum_history[i] = init_load_windows;
 	p->misfit = false;
-	p->unfilter = sysctl_sched_task_unfilter_nr_windows;
+	p->unfilter = sysctl_sched_task_unfilter_period;
 }
 
 /*
