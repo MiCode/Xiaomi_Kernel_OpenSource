@@ -1072,6 +1072,14 @@ signed int mss_enque_cb(struct frame *frames, void *req)
 
 	_req = (struct MFB_MSSRequest *) req;
 
+	spin_lock(&(MFBInfo.SpinLockMFBRef));
+	if (MFBInfo.UserCount == 0) {
+		spin_unlock(&(MFBInfo.SpinLockMFBRef));
+		LOG_ERR("mss enque cb, UserCount = 0");
+		return 0;
+	}
+	spin_unlock(&(MFBInfo.SpinLockMFBRef));
+
 	if (frames == NULL || _req == NULL)
 		return -1;
 
@@ -2873,7 +2881,7 @@ static long MFB_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 					IrqInfo.UserKey = 0;
 				}
 
-				LOG_INF(
+				LOG_DBG(
 					"MSS IRQ clear(%d), type(%d), userKey(%d), timeout(%d), status(%d), streamtag(%d)\n",
 					IrqInfo.Clear, IrqInfo.Type,
 					IrqInfo.UserKey, IrqInfo.Timeout,
@@ -3745,7 +3753,6 @@ static signed int MFB_open(struct inode *pInode, struct file *pFile)
 		goto EXIT;
 	} else {
 		MFBInfo.UserCount++;
-		spin_unlock(&(MFBInfo.SpinLockMFBRef));
 
 		for (i = 0; i < MFB_PROCESS_ID_AMOUNT; i++)
 			MFBInfo.IrqInfo.MssIrqCnt[i] = 0;
@@ -3761,6 +3768,7 @@ static signed int MFB_open(struct inode *pInode, struct file *pFile)
 		mfb_register_requests(&vmsf_reqs, sizeof(struct MFB_MSFConfig));
 		mfb_set_engine_ops(&vmsf_reqs, &vmsf_ops);
 
+		spin_unlock(&(MFBInfo.SpinLockMFBRef));
 		LOG_INF(
 			"%s + 1st UserCount(%d), (process, pid, tgid)=(%s, %d, %d)",
 			__func__, MFBInfo.UserCount, current->comm,
@@ -3828,16 +3836,16 @@ static signed int MFB_release(struct inode *pInode, struct file *pFile)
 		goto EXIT;
 	} else {
 		/*  */
-		LOG_INF(
-			"%s - last UserCount(%d), (process, pid, tgid)=(%s, %d, %d)",
-			__func__, MFBInfo.UserCount, current->comm,
-			current->pid, current->tgid);
-
 		mfb_unregister_requests(&mss_reqs);
 		mfb_unregister_requests(&msf_reqs);
 		mfb_unregister_requests(&vmss_reqs);
 		mfb_unregister_requests(&vmsf_reqs);
+
 		spin_unlock(&(MFBInfo.SpinLockMFBRef));
+		LOG_INF(
+			"%s - last UserCount(%d), (process, pid, tgid)=(%s, %d, %d)",
+			__func__, MFBInfo.UserCount, current->comm,
+			current->pid, current->tgid);
 
 	}
 	/*  */
