@@ -265,12 +265,15 @@ static int led_level_set_pwm(struct mtk_led_data *s_led,
 	return call_notifier(1, s_led);
 #else
 	call_notifier(1, s_led);
-#endif
-#endif
 	return led_pwm_set(s_led, brightness);
+#endif
+#else
+	return led_pwm_set(s_led, brightness);
+#endif
 
 }
 
+#ifndef CONFIG_MTK_AAL_SUPPORT
 static int led_pwm_disable(struct led_pwm_info *led_info)
 {
 
@@ -279,6 +282,7 @@ static int led_pwm_disable(struct led_pwm_info *led_info)
 
 	return 0;
 }
+#endif
 
 static int led_level_set(struct led_classdev *led_cdev,
 					  enum led_brightness brightness)
@@ -557,7 +561,7 @@ static int mtk_leds_remove(struct platform_device *pdev)
 	int i;
 	struct mtk_leds_info *m_leds = dev_get_platdata(&pdev->dev);
 
-	if (m_leds)
+	if (!m_leds)
 		return 0;
 	for (i = 0; i < m_leds->nums; i++) {
 		if (!m_leds->leds[i].parent)
@@ -586,9 +590,12 @@ static void mtk_leds_shutdown(struct platform_device *pdev)
 		call_notifier(2, &(m_leds->leds[i]));
 #ifdef CONFIG_MTK_AAL_SUPPORT
 		continue;
-#endif
-#endif
+#else
 		led_pwm_disable(&(m_leds->leds[i].info));
+#endif
+#else
+		led_pwm_disable(&(m_leds->leds[i].info));
+#endif
 	}
 
 }
