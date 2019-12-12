@@ -21,6 +21,9 @@
 #include <linux/etherdevice.h>
 #include <linux/ethtool.h>
 #include <linux/if_vlan.h>
+#include <net/sch_generic.h>
+#include <linux/ip.h>
+#include <linux/ktime.h>
 
 #include "u_ether.h"
 #include "rndis.h"
@@ -66,11 +69,11 @@ static struct workqueue_struct	*uether_wq1;
 
 #define DEFAULT_QLEN	2	/* double buffering by default */
 
-static unsigned int tx_wakeup_threshold = 13;
+static unsigned int tx_wakeup_threshold = 55;
 module_param(tx_wakeup_threshold, uint, 0644);
 MODULE_PARM_DESC(tx_wakeup_threshold, "tx wakeup threshold value");
 
-#define U_ETHER_RX_PENDING_TSHOLD 100
+#define U_ETHER_RX_PENDING_TSHOLD 0
 static unsigned int u_ether_rx_pending_thld = U_ETHER_RX_PENDING_TSHOLD;
 module_param(u_ether_rx_pending_thld, uint, 0644);
 
@@ -135,12 +138,13 @@ unsigned long rndis_test_rx_error;
 unsigned long rndis_test_tx_net_in;
 unsigned long rndis_test_tx_busy;
 unsigned long rndis_test_tx_stop;
+unsigned long rndis_test_tx_nomem;
 
 unsigned long rndis_test_tx_usb_out;
 unsigned long rndis_test_tx_complete;
+
 #define U_ETHER_DBG(fmt, args...) \
 		pr_debug("U_ETHER,%s, " fmt, __func__, ## args)
-
 
 /* NETWORK DRIVER HOOKUP (to the layer above this driver) */
 
@@ -342,12 +346,12 @@ clean:
 	if (queue && dev->rx_frames.qlen <= u_ether_rx_pending_thld) {
 		if (rx_submit(dev, req, GFP_ATOMIC) < 0) {
 			spin_lock(&dev->reqrx_lock);
-		list_add(&req->list, &dev->rx_reqs);
+			list_add(&req->list, &dev->rx_reqs);
 			spin_unlock(&dev->reqrx_lock);
-	}
+		}
 	} else {
 		spin_lock(&dev->reqrx_lock);
-	list_add(&req->list, &dev->rx_reqs);
+		list_add(&req->list, &dev->rx_reqs);
 		spin_unlock(&dev->reqrx_lock);
 	}
 
@@ -732,6 +736,7 @@ static int alloc_tx_buffer(struct eth_dev *dev)
 	return 0;
 
 free_buf:
+	rndis_test_tx_nomem++;
 	/* tx_req_bufsize = 0 retries mem alloc on next eth_start_xmit */
 	dev->tx_req_bufsize = 0;
 	list_for_each(act, &dev->tx_reqs) {
@@ -754,7 +759,14 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	u16			cdc_filter = 0;
 	bool			multi_pkt_xfer = false;
 	uint32_t		max_size = 0;
-	static unsigned int okCnt, busyCnt;
+	struct skb_shared_info	*pinfo = skb_shinfo(skb);
+	skb_frag_t		*frag;
+	unsigned int		frag_cnt = 0;
+	unsigned int		frag_idx = 0;
+	unsigned int		frag_data_len = 0;
+	unsigned int		frag_total_len = 0;
+	char			*frag_data_addr;
+	static unsigned long	okCnt, busyCnt;
 	static DEFINE_RATELIMIT_STATE(ratelimit1, 1 * HZ, 2);
 	static DEFINE_RATELIMIT_STATE(ratelimit2, 1 * HZ, 2);
 
@@ -830,12 +842,12 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 			dev->gadget->speed, max_size, rndis_test_last_msg_id,
 			rndis_test_last_resp_id, rndis_test_reset_msg_cnt);
 
-		U_ETHER_DBG("RX[%lu,%lu,%lu,%lu] TX[%lu,%lu,%lu,%lu,%lu]\n",
+		U_ETHER_DBG("rx[%lu,%lu,%lu,%lu] tx[%lu,%lu,%lu,%lu,%lu,%lu]\n",
 			rndis_test_rx_usb_in, rndis_test_rx_net_out,
 			rndis_test_rx_nomem, rndis_test_rx_error,
 			rndis_test_tx_net_in, rndis_test_tx_usb_out,
-			rndis_test_tx_busy, rndis_test_tx_stop,
-			rndis_test_tx_complete);
+			rndis_test_tx_busy, rndis_test_tx_nomem,
+			rndis_test_tx_stop, rndis_test_tx_complete);
 	}
 	rndis_test_tx_net_in++;
 	/*
@@ -846,8 +858,9 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	if (list_empty(&dev->tx_reqs)) {
 		busyCnt++;
 		if (__ratelimit(&ratelimit2))
-			U_ETHER_DBG("okCnt : %u, busyCnt : %u\n",
-					okCnt, busyCnt);
+			U_ETHER_DBG("okCnt: %lu, busyCnt: %lu, tx_busy: %lu\n",
+					okCnt, busyCnt, rndis_test_tx_busy);
+
 		spin_unlock_irqrestore(&dev->req_lock, flags);
 		rndis_test_tx_busy++;
 		return NETDEV_TX_BUSY;
@@ -892,9 +905,30 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 		req->length += dev->header_len;
 		/* Copy received IP data from SKB */
 
-		memcpy(req->buf + req->length, skb->data, skb->len);
+		if (net->features & NETIF_F_GSO)
+			frag_cnt = pinfo->nr_frags;
+		if (frag_cnt == 0) {
+			memcpy(req->buf + req->length, skb->data, skb->len);
+			req->length += skb->len;
+		} else {
+			memcpy(req->buf + req->length, skb->data,
+						skb->len - skb->data_len);
+			req->length += skb->len - skb->data_len;
+
+			for (frag_idx = 0; frag_idx < frag_cnt; frag_idx++) {
+				frag = pinfo->frags + frag_idx;
+				frag_data_len = skb_frag_size(frag);
+				frag_data_addr = skb_frag_address(frag);
+
+				memcpy(req->buf + req->length, frag_data_addr,
+								frag_data_len);
+				frag_total_len += frag_data_len;
+				frag_data_addr += frag_data_len;
+				req->length += frag_data_len;
+			}
+		}
+
 		/* Increment req length by skb data length */
-		req->length += skb->len;
 		length = req->length;
 		dev_kfree_skb_any(skb);
 
@@ -907,8 +941,8 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 				list_add(&req->list, &dev->tx_reqs);
 				spin_unlock_irqrestore(&dev->req_lock, flags);
 				goto success;
+			}
 		}
-	}
 
 		dev->no_tx_req_used++;
 		dev->tx_skb_hold_count = 0;
@@ -1257,6 +1291,8 @@ struct net_device *gether_setup_name_default(const char *netname)
 	skb_queue_head_init(&dev->rx_frames);
 
 	/* network device setup */
+	net->features |= NETIF_F_GSO | NETIF_F_SG;
+	net->hw_features |= NETIF_F_GSO | NETIF_F_SG;
 	dev->net = net;
 	dev->qmult = QMULT_DEFAULT;
 	snprintf(net->name, sizeof(net->name), "%s%%d", netname);
@@ -1575,6 +1611,7 @@ void gether_disconnect(struct gether *link)
 	rndis_test_tx_net_in = 0;
 	rndis_test_tx_busy = 0;
 	rndis_test_tx_stop = 0;
+	rndis_test_tx_nomem = 0;
 
 	rndis_test_tx_usb_out = 0;
 	rndis_test_tx_complete = 0;

@@ -20,7 +20,7 @@
 #include <linux/usb/cdc.h>
 #include <linux/netdevice.h>
 
-#define QMULT_DEFAULT 10
+#define QMULT_DEFAULT 30
 
 /*
  * dev_addr: initial value
@@ -54,7 +54,7 @@ struct eth_dev {
 	struct list_head	tx_reqs, rx_reqs;
 	atomic_t		tx_qlen;
 /* Minimum number of TX USB request queued to UDC */
-#define TX_REQ_THRESHOLD	5
+#define TX_REQ_THRESHOLD	1
 	int			no_tx_req_used;
 	int			tx_skb_hold_count;
 	u32			tx_req_bufsize;
@@ -330,6 +330,7 @@ extern unsigned long rndis_test_rx_error;
 extern unsigned long rndis_test_tx_net_in;
 extern unsigned long rndis_test_tx_busy;
 extern unsigned long rndis_test_tx_stop;
+extern unsigned long rndis_test_tx_nomem;
 
 extern unsigned long rndis_test_tx_usb_out;
 extern unsigned long rndis_test_tx_complete;

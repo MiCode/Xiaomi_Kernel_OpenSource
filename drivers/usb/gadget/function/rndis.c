@@ -1165,9 +1165,9 @@ int rndis_rm_hdr(struct gether *port,
 		if (skb->len < sizeof(*hdr)) {
 			pr_info("invalid rndis pkt: skblen:%u hdr_len:%zu",
 					skb->len, sizeof(*hdr));
-		dev_kfree_skb_any(skb);
-		return -EINVAL;
-	}
+			dev_kfree_skb_any(skb);
+			return -EINVAL;
+		}
 
 		hdr = (void *)skb->data;
 		msg_len = le32_to_cpu(hdr->MessageLength);
@@ -1180,9 +1180,9 @@ int rndis_rm_hdr(struct gether *port,
 					le32_to_cpu(hdr->MessageType),
 					msg_len, data_offset,
 					data_len, skb->len);
-		dev_kfree_skb_any(skb);
-		return -EOVERFLOW;
-	}
+			dev_kfree_skb_any(skb);
+			return -EOVERFLOW;
+		}
 		if (le32_to_cpu(hdr->MessageType) != RNDIS_MSG_PACKET) {
 			pr_info("invalid rndis message: %d/%d/%d/%d, len:%d\n",
 					le32_to_cpu(hdr->MessageType),
