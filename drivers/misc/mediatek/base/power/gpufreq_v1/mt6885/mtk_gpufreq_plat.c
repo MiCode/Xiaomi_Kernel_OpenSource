@@ -773,8 +773,24 @@ static int mt_gpufreq_set_dfd(bool enable)
 			if ((val & 0x80000) == 0x80000)
 				dfd_trigger = 1;
 		}
-		if (!dfd_trigger)
+		if (!dfd_trigger) {
+			writel(0x0, g_mfg_base + 0x8F8);
+
+			writel(0x00000000, g_mfg_base + 0xA00);
+			writel(0x00000000, g_mfg_base + 0xA04);
+			writel(0x00000000, g_mfg_base + 0xA08);
+			writel(0x00000000, g_mfg_base + 0xA0C);
+			writel(0x00000000, g_mfg_base + 0xA10);
+			writel(0x00000000, g_mfg_base + 0xA14);
+			writel(0x00000000, g_mfg_base + 0xA18);
+			writel(0x00000000, g_mfg_base + 0xA1C);
+			writel(0x00000000, g_mfg_base + 0xA20);
+			writel(0x00000000, g_mfg_base + 0xA24);
+			writel(0x00000000, g_mfg_base + 0xA28);
+			writel(0x00000000, g_mfg_base + 0xA2C);
+
 			mtk_dbgtop_mfg_pwr_on(0);
+		}
 	}
 #endif
 	return dfd_trigger;
