@@ -6129,35 +6129,26 @@ EXPORT_SYMBOL_GPL(check_held_locks);
 
 static void show_debug_locks_state(void)
 {
-	char buf[64];
 	unsigned long long time_sec;
 
-	if (nr_lock_classes >= MAX_LOCKDEP_KEYS)
-		snprintf(buf, sizeof(buf),
-			 "lock-classes [%lu]", nr_lock_classes);
-
-	if (nr_list_entries >= MAX_LOCKDEP_ENTRIES)
-		snprintf(buf, sizeof(buf),
-			 "direct dependencies [%lu]", nr_list_entries);
-
-	if (nr_lock_chains >= MAX_LOCKDEP_CHAINS)
-		snprintf(buf, sizeof(buf),
-			 "dependency chains [%lu]", nr_lock_chains);
-
-	if (nr_chain_hlocks > MAX_LOCKDEP_CHAIN_HLOCKS)
-		snprintf(buf, sizeof(buf),
-			 "dependency chain hlocks [%d]", nr_chain_hlocks);
-
-	if (nr_stack_trace_entries >= MAX_STACK_TRACE_ENTRIES - 1)
-		snprintf(buf, sizeof(buf),
-			 "stack-trace entries [%lu]", nr_stack_trace_entries);
-
-	/* check debug_locks per 10 seconds */
+	/* check debug_locks per 15 seconds */
 	time_sec = sec_high(sched_clock());
-	if (!debug_locks && !do_div(time_sec, 10)) {
-		pr_info("debug_locks is off [%lld.%06lu] %s\n",
-			sec_high(debug_locks_off_ts),
-			sec_low(debug_locks_off_ts), buf);
+	if (debug_locks || do_div(time_sec, 15))
+		return;
+
+	pr_info("debug_locks is off at [%lld.%06lu]\n",
+		sec_high(debug_locks_off_ts),
+		sec_low(debug_locks_off_ts));
+
+	if (nr_lock_classes >= MAX_LOCKDEP_KEYS ||
+	    nr_list_entries >= MAX_LOCKDEP_ENTRIES ||
+	    nr_lock_chains >= MAX_LOCKDEP_CHAINS ||
+	    nr_chain_hlocks > MAX_LOCKDEP_CHAIN_HLOCKS ||
+	    nr_stack_trace_entries >= MAX_STACK_TRACE_ENTRIES - 1) {
+		pr_info("lock_classes[%lu] list_entries[%lu] lock_chains[%lu]\n",
+			nr_lock_classes, nr_list_entries, nr_lock_chains);
+		pr_info("chain_hlocks[%d] stack_trace_entries[%lu]\n",
+			nr_chain_hlocks, nr_stack_trace_entries);
 	}
 }
 
