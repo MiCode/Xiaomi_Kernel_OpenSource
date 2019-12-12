@@ -171,34 +171,35 @@ static int alloc_ctx(struct apusys_subcmd *sc, struct apusys_cmd *cmd)
 {
 	unsigned long ctx_id = -1;
 
-	if (sc->c_hdr->mem_ctx == VALUE_SUBGRAPH_CTX_ID_NONE) {
-		if (mem_alloc_ctx(sc->c_hdr->tcm_force, sc->c_hdr->tcm_usage,
+	if (sc->c_hdr->cmn.mem_ctx == VALUE_SUBGRAPH_CTX_ID_NONE) {
+		if (mem_alloc_ctx(sc->c_hdr->cmn.tcm_force,
+			sc->c_hdr->cmn.tcm_usage,
 			&ctx_id, &sc->tcm_real_usage))
 			return -EINVAL;
 		sc->ctx_id = ctx_id;
 		LOG_DEBUG("0x%llx-#%d sc ctx_group(0x%x) ctx(%d)\n",
 			cmd->cmd_id, sc->idx,
-			sc->c_hdr->mem_ctx, sc->ctx_id);
+			sc->c_hdr->cmn.mem_ctx, sc->ctx_id);
 	} else {
-		if (cmd->ctx_list[sc->c_hdr->mem_ctx] ==
+		if (cmd->ctx_list[sc->c_hdr->cmn.mem_ctx] ==
 			VALUE_SUBGRAPH_CTX_ID_NONE) {
-			if (mem_alloc_ctx(sc->c_hdr->tcm_force,
-				sc->c_hdr->tcm_usage, &ctx_id,
+			if (mem_alloc_ctx(sc->c_hdr->cmn.tcm_force,
+				sc->c_hdr->cmn.tcm_usage, &ctx_id,
 				&sc->tcm_real_usage))
 				return -EINVAL;
 
-			cmd->ctx_list[sc->c_hdr->mem_ctx] = ctx_id;
+			cmd->ctx_list[sc->c_hdr->cmn.mem_ctx] = ctx_id;
 			LOG_DEBUG("0x%llx-#%d sc ctx_group(0x%x) ctx(%d)\n",
 				cmd->cmd_id, sc->idx,
-				sc->c_hdr->mem_ctx,
-				cmd->ctx_list[sc->c_hdr->mem_ctx]);
+				sc->c_hdr->cmn.mem_ctx,
+				cmd->ctx_list[sc->c_hdr->cmn.mem_ctx]);
 		}
-		sc->ctx_id = cmd->ctx_list[sc->c_hdr->mem_ctx];
+		sc->ctx_id = cmd->ctx_list[sc->c_hdr->cmn.mem_ctx];
 	}
 
 	LOG_DEBUG("0x%llx-#%d sc ctx_group(0x%x) id(%d)\n",
 		cmd->cmd_id, sc->idx,
-		sc->c_hdr->mem_ctx, sc->ctx_id);
+		sc->c_hdr->cmn.mem_ctx, sc->ctx_id);
 
 	return 0;
 }
@@ -207,19 +208,19 @@ static int free_ctx(struct apusys_subcmd *sc, struct apusys_cmd *cmd)
 {
 	int ret = 0;
 
-	if (sc->c_hdr->mem_ctx == VALUE_SUBGRAPH_CTX_ID_NONE) {
+	if (sc->c_hdr->cmn.mem_ctx == VALUE_SUBGRAPH_CTX_ID_NONE) {
 		LOG_DEBUG("0x%llx-#%d sc ctx_group(0x%x) free id(%d)\n",
 			cmd->cmd_id, sc->idx,
-			sc->c_hdr->mem_ctx, sc->ctx_id);
+			sc->c_hdr->cmn.mem_ctx, sc->ctx_id);
 		mem_free_ctx(sc->ctx_id);
 		sc->ctx_id = VALUE_SUBGRAPH_CTX_ID_NONE;
 	} else {
-		cmd->ctx_ref[sc->c_hdr->mem_ctx]--;
-		if (cmd->ctx_ref[sc->c_hdr->mem_ctx] == 0) {
+		cmd->ctx_ref[sc->c_hdr->cmn.mem_ctx]--;
+		if (cmd->ctx_ref[sc->c_hdr->cmn.mem_ctx] == 0) {
 			LOG_DEBUG("0x%llx-#%d sc ctx_group(0x%x) free id(%d)\n",
 				cmd->cmd_id, sc->idx,
-				sc->c_hdr->mem_ctx, sc->ctx_id);
-			mem_free_ctx(cmd->ctx_list[sc->c_hdr->mem_ctx]);
+				sc->c_hdr->cmn.mem_ctx, sc->ctx_id);
+			mem_free_ctx(cmd->ctx_list[sc->c_hdr->cmn.mem_ctx]);
 		}
 		sc->ctx_id = VALUE_SUBGRAPH_CTX_ID_NONE;
 	}
@@ -348,7 +349,7 @@ static int exec_pack_cmd(void *iacq)
 			sc->exec_core_num = 1;
 			sc->exec_core_bitmap = (1UL << info->dev->idx);
 			/* mark device execute deadline task */
-			if (sc->par_cmd->hdr->soft_limit)
+			if (sc->period)
 				info->is_deadline = true;
 			/* trigger device by thread pool */
 			if (thread_pool_trigger(sc, info)) {
@@ -588,12 +589,12 @@ static int setup_cmn_hnd(struct apusys_subcmd *sc,
 
 	/* setup cmn info */
 	hnd->kva = (uint64_t)sc->codebuf;
-	hnd->size = sc->c_hdr->cb_info_size;
+	hnd->size = sc->c_hdr->cmn.cb_info_size;
 	hnd->boost_val = deadline_task_boost(sc);
 	hnd->cmd_id = sc->par_cmd->cmd_id;
 	hnd->subcmd_idx = sc->idx;
 	hnd->priority = sc->par_cmd->hdr->priority;
-	hnd->cmd_entry = (uint64_t)sc->par_cmd->hdr;
+	hnd->cmd_entry = (uint64_t)sc->par_cmd->u_hdr;
 	if (hnd->kva == 0 || hnd->size == 0) {
 		LOG_ERR("invalid sc(%d)(0x%llx/%d)\n",
 			sc->idx, hnd->kva, hnd->size);
@@ -714,8 +715,8 @@ static int exec_cmd_func(void *isc, void *idev_info)
 		sc->par_cmd->hdr->hard_limit,
 		sc->par_cmd->power_save,
 		sc->ctx_id,
-		sc->c_hdr->tcm_force,
-		sc->c_hdr->tcm_usage,
+		sc->c_hdr->cmn.tcm_force,
+		sc->c_hdr->cmn.tcm_usage,
 		sc->tcm_real_usage,
 		cmd_hnd.boost_val);
 #undef APUSYS_PRINT_EXECINFO
@@ -753,8 +754,8 @@ static int exec_cmd_func(void *isc, void *idev_info)
 			sc->par_cmd->hdr->hard_limit,
 			sc->par_cmd->power_save,
 			sc->ctx_id,
-			sc->c_hdr->tcm_force,
-			sc->c_hdr->tcm_usage,
+			sc->c_hdr->cmn.tcm_force,
+			sc->c_hdr->cmn.tcm_usage,
 			sc->tcm_real_usage,
 					cmd_hnd.ip_time,
 			t_diff,
@@ -784,8 +785,8 @@ static int exec_cmd_func(void *isc, void *idev_info)
 			sc->par_cmd->hdr->hard_limit,
 			sc->par_cmd->power_save,
 			sc->ctx_id,
-			sc->c_hdr->tcm_force,
-			sc->c_hdr->tcm_usage,
+			sc->c_hdr->cmn.tcm_force,
+			sc->c_hdr->cmn.tcm_usage,
 			sc->tcm_real_usage,
 			cmd_hnd.ip_time,
 			t_diff);
@@ -972,7 +973,7 @@ int sched_routine(void *arg)
 				sc->state = CMD_STATE_RUN;
 				mutex_unlock(&sc->mtx);
 				/* mark device execute deadline task */
-				if (sc->par_cmd->hdr->soft_limit)
+				if (sc->period)
 					info->is_deadline = true;
 				/* trigger device by thread pool */
 				ret = thread_pool_trigger(sc, info);

@@ -88,4 +88,13 @@ struct apusys_sc_hdr_vpu {
 	unsigned int pack_idx;
 } __attribute__((__packed__));
 
+struct apusys_sc_hdr {
+	struct apusys_sc_hdr_cmn cmn;
+	union {
+		struct apusys_sc_hdr_sample sample;
+		struct apusys_sc_hdr_mdla mdla;
+		struct apusys_sc_hdr_vpu vpu;
+	};
+} __attribute__((__packed__));
+
 #endif

@@ -566,8 +566,8 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		}
 
 		/* parse command buffer, and get struct apusys_cmd */
-		ret = apusys_cmd_create
-			(ioctl_cmd.mem_fd, ioctl_cmd.offset, &a_cmd, user);
+		ret = apusys_cmd_create(ioctl_cmd.mem_fd, ioctl_cmd.offset,
+			&a_cmd, user);
 		if (ret || a_cmd == NULL) {
 			LOG_ERR("parser cmd fail(%d/%p).\n", ret, a_cmd);
 			ret = -EINVAL;
@@ -589,12 +589,8 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		if (apusys_sched_add_cmd(a_cmd)) {
 			LOG_ERR("add cmd(0x%llx) to list fail\n",
 				a_cmd->cmd_id);
-			if (apusys_user_delete_cmd(user, a_cmd)) {
-				LOG_ERR("delete cmd(0x%llx) from user fail\n",
-					a_cmd->cmd_id);
-			}
 			ret = -EINVAL;
-			goto out;
+			goto run_sync_add_fail;
 		}
 
 		/* wait cmd done */
@@ -610,6 +606,7 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			}
 		}
 
+run_sync_add_fail:
 		/* delete cmd from user list */
 		if (apusys_user_delete_cmd(user, (void *)a_cmd)) {
 			LOG_ERR("delete cmd(0x%llx) from user fail\n",
@@ -634,8 +631,8 @@ static long apusys_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		}
 
 		/* parse command buffer, and get struct apusys_cmd */
-		ret = apusys_cmd_create
-			(ioctl_cmd.mem_fd, ioctl_cmd.offset, &a_cmd, user);
+		ret = apusys_cmd_create(ioctl_cmd.mem_fd, ioctl_cmd.offset,
+			&a_cmd, user);
 		if (ret || a_cmd == NULL) {
 			LOG_ERR("parser cmd fail(%d/%p).\n", ret, a_cmd);
 			ret = -EINVAL;

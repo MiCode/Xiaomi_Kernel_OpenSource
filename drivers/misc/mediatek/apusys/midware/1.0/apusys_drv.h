@@ -17,7 +17,6 @@
 #include <linux/ioctl.h>
 #include <linux/types.h>
 
-
 /* for APUSYS_IOCTL_HANDSHAKE */
 enum {
 	APUSYS_HANDSHAKE_NONE,
@@ -104,8 +103,6 @@ struct apusys_mem {
 
 	struct apusys_mem_ctl ctl_data;
 };
-
-
 
 /* for APUSYS_IOCTL_RUN_CMD_SYNC */
 struct apusys_ioctl_cmd {

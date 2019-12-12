@@ -197,7 +197,6 @@ uint64_t res_get_dev_support(void)
 int insert_subcmd(struct apusys_subcmd *sc)
 {
 	struct apusys_res_table *tab = NULL;
-	struct apusys_cmd_hdr *hdr = sc->par_cmd->hdr;
 	int ret = 0;
 
 	/* get resource table */
@@ -207,27 +206,27 @@ int insert_subcmd(struct apusys_subcmd *sc)
 		return -EINVAL;
 	}
 
-	LOG_DEBUG("insert 0x%llx-#%d to q(%d/%d/%d)\n",
+	LOG_DEBUG("insert 0x%llx-#%d to q(%d/%d/%llu)\n",
 		sc->par_cmd->cmd_id,
 		sc->idx,
 		sc->type,
 		sc->par_cmd->hdr->priority,
-		hdr->soft_limit);
+		sc->period);
 
 	/* get type's queue */
 	sc->state = CMD_STATE_READY;
 
-	if (hdr->soft_limit) { /* Deadline Queue */
+	if (sc->period) { /* Deadline Queue */
 		ret = deadline_task_insert(sc);
 	} else { /* Priority Queue */
 		ret = normal_task_insert(sc);
 		if (ret) {
-			LOG_ERR("insert 0x%llx-#%d to nq(%d/%d/%d)\n",
+			LOG_ERR("insert 0x%llx-#%d to nq(%d/%d/%llu)\n",
 				sc->par_cmd->cmd_id,
 				sc->idx,
 				sc->type,
 				sc->par_cmd->hdr->priority,
-				hdr->soft_limit);
+				sc->period);
 		}
 	}
 
@@ -1087,7 +1086,7 @@ int res_task_inc(struct apusys_subcmd *sc)
 		return -EINVAL;
 
 	mutex_lock(&tab->mtx);
-	if (sc->par_cmd->hdr->soft_limit)
+	if (sc->period)
 		tab->deadline_task_num++;
 	else
 		tab->normal_task_num++;
@@ -1107,7 +1106,7 @@ int res_task_dec(struct apusys_subcmd *sc)
 		return -EINVAL;
 
 	mutex_lock(&tab->mtx);
-	if (sc->par_cmd->hdr->soft_limit)
+	if (sc->period)
 		tab->deadline_task_num--;
 	else
 		tab->normal_task_num--;

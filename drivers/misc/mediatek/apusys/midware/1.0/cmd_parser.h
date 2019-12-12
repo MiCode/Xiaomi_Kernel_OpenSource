@@ -54,6 +54,7 @@ struct apusys_cmd {
 	uint64_t cmd_id;     // cmd unique id
 	uint32_t cmdbuf_size;
 
+	struct apusys_cmd_hdr *u_hdr;
 	struct apusys_cmd_hdr *hdr;
 
 	void *dp_entry;
@@ -93,8 +94,9 @@ struct apusys_subcmd {
 	int type;
 	int idx;                  // subcmd idx
 
-	struct apusys_sc_hdr_cmn *c_hdr; // common header
-	void *d_hdr; // extend device header
+	struct apusys_sc_hdr_cmn *u_hdr; // u common header
+	struct apusys_sc_hdr *c_hdr; // common header
+	//void *d_hdr; // extend device header
 
 	void *codebuf;
 	unsigned int codebuf_iosize;

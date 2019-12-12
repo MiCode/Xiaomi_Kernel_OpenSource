@@ -55,7 +55,7 @@ static void _print_cmd_info(const struct apusys_cmd *cmd)
 
 void _print_sc_info(const struct apusys_subcmd *sc)
 {
-	struct apusys_sc_hdr_cmn *hdr = sc->c_hdr;
+	struct apusys_sc_hdr_cmn *hdr = &sc->c_hdr->cmn;
 
 	CLOG_DEBUG("=====================================\n");
 	CLOG_DEBUG(" apusys sc info(0x%llx)\n", (uint64_t)hdr);
@@ -87,12 +87,12 @@ void _print_sc_info(const struct apusys_subcmd *sc)
 static unsigned long long _get_dp_entry(const struct apusys_cmd *cmd)
 {
 	LOG_DEBUG("offset successor list %u\n", cmd->hdr->ofs_scr_list);
-	return (uint64_t)((void *)cmd->hdr + cmd->hdr->ofs_scr_list);
+	return (uint64_t)((void *)cmd->u_hdr + cmd->hdr->ofs_scr_list);
 }
 
 static unsigned long long _get_dp_cnt_entry(const struct apusys_cmd *cmd)
 {
-	return (uint64_t)((void *)cmd->hdr + cmd->hdr->ofs_pdr_cnt_list);
+	return (uint64_t)((void *)cmd->u_hdr + cmd->hdr->ofs_pdr_cnt_list);
 }
 
 static int _set_data_to_cmdbuf(struct apusys_subcmd *sc)
@@ -103,13 +103,13 @@ static int _set_data_to_cmdbuf(struct apusys_subcmd *sc)
 	}
 
 	/* execution time */
-	sc->c_hdr->driver_time = sc->driver_time;
+	sc->u_hdr->driver_time = sc->driver_time;
 	/* ip time */
-	sc->c_hdr->ip_time = sc->ip_time;
+	sc->u_hdr->ip_time = sc->ip_time;
 	/* bandwidth */
-	sc->c_hdr->bandwidth = sc->bw;
+	sc->u_hdr->bandwidth = sc->bw;
 	/* boost val */
-	sc->c_hdr->boost_val = sc->boost_val;
+	sc->u_hdr->boost_val = sc->boost_val;
 
 	return 0;
 }
@@ -163,10 +163,112 @@ static int _check_fd_from_codebuf_offset(unsigned int codebuf_offset)
 	return 0;
 }
 
+static int _check_apusys_sc_hdr(struct apusys_sc_hdr *hdr)
+{
+	if (hdr == NULL) {
+		LOG_ERR("miss hdr\n");
+		return -EINVAL;
+	}
+
+	if (hdr->cmn.dev_type > APUSYS_DEVICE_MAX) {
+		LOG_ERR("sc device type(%d) error\n", hdr->cmn.dev_type);
+		return -EINVAL;
+	}
+
+	if (hdr->cmn.tcm_force > 1) {
+		LOG_ERR("sc tcm force(%d) error\n", hdr->cmn.tcm_force);
+		return -EINVAL;
+	}
+
+	if (hdr->cmn.ofs_cb_info == 0) {
+		LOG_ERR("invalid cb ofs(%u)\n", hdr->cmn.ofs_cb_info);
+		return -EINVAL;
+	}
+
+	if (hdr->cmn.cb_info_size == 0) {
+		LOG_ERR("invalid cb size(%u)\n", hdr->cmn.cb_info_size);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int _copy_apusys_sc_hdr(struct apusys_sc_hdr *hdr,
+	struct apusys_sc_hdr_cmn *u_hdr)
+{
+	void *d_hdr = NULL;
+
+	if (hdr == NULL || u_hdr == NULL)
+		return -EINVAL;
+
+	memcpy(hdr, u_hdr, sizeof(struct apusys_sc_hdr_cmn));
+	if (_check_apusys_sc_hdr(hdr)) {
+		LOG_ERR("check sc hdr fail\n");
+		return -EINVAL;
+	}
+
+	d_hdr = (void *)u_hdr + sizeof(struct apusys_sc_hdr_cmn);
+
+	switch (hdr->cmn.dev_type) {
+	case APUSYS_DEVICE_SAMPLE:
+		memcpy(&hdr->sample, d_hdr,
+			sizeof(struct apusys_sc_hdr_sample));
+		break;
+	case APUSYS_DEVICE_MDLA:
+		memcpy(&hdr->mdla, d_hdr, sizeof(struct apusys_sc_hdr_mdla));
+		break;
+	case APUSYS_DEVICE_VPU:
+		memcpy(&hdr->vpu, d_hdr, sizeof(struct apusys_sc_hdr_vpu));
+		break;
+	case APUSYS_DEVICE_EDMA:
+		break;
+	default:
+		LOG_ERR("wrong dev type(%d)\n", hdr->cmn.dev_type);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int _check_apusys_hdr(struct apusys_cmd_hdr *hdr)
+{
+	if (hdr == NULL) {
+		LOG_ERR("miss hdr\n");
+		return -EINVAL;
+	}
+
+	/* check parameters */
+	if (hdr->magic != APUSYS_MAGIC_NUMBER) {
+		LOG_ERR("cmd magic mismatch(0x%llx)\n",
+			hdr->magic);
+		return -EINVAL;
+	}
+
+	/* check version */
+	if (hdr->version != APUSYS_CMD_VERSION) {
+		LOG_ERR("cmd version mismatch(%d/%d)\n",
+			hdr->version, APUSYS_CMD_VERSION);
+		return -EINVAL;
+	}
+
+	/* check subcmd num */
+	if (hdr->num_sc == 0) {
+		LOG_ERR("sc num(%d), nothing to do\n", hdr->num_sc);
+		return -EINVAL;
+	}
+
+	/* check priority */
+	if (hdr->priority > APUSYS_PRIORITY_MAX) {
+		LOG_ERR("cmd priority(%d/%d) mismatch\n",
+			hdr->priority,
+			APUSYS_PRIORITY_MAX);
+	}
+
+	return 0;
+}
+
 unsigned int get_pack_idx(const struct apusys_subcmd *sc)
 {
-	struct apusys_sc_hdr_vpu *vpu_hdr = NULL;
-	struct apusys_sc_hdr_sample *sample_hdr = NULL;
 	unsigned int pack_idx = VALUE_SUBGRAPH_PACK_ID_NONE;
 
 	if (sc == NULL) {
@@ -174,19 +276,17 @@ unsigned int get_pack_idx(const struct apusys_subcmd *sc)
 		return VALUE_SUBGRAPH_PACK_ID_NONE;
 	}
 
-	if (sc->c_hdr == NULL || sc->d_hdr == NULL) {
-		LOG_ERR("invalid header(%p/%p)\n", sc->c_hdr, sc->d_hdr);
+	if (sc->c_hdr == NULL) {
+		LOG_ERR("invalid header(%p)\n", sc->c_hdr);
 		return VALUE_SUBGRAPH_PACK_ID_NONE;
 	}
 
 	switch (sc->type) {
 	case APUSYS_DEVICE_VPU:
-		vpu_hdr = (struct apusys_sc_hdr_vpu *)sc->d_hdr;
-		pack_idx = vpu_hdr->pack_idx;
+		pack_idx = sc->c_hdr->vpu.pack_idx;
 		break;
 	case APUSYS_DEVICE_SAMPLE:
-		sample_hdr = (struct apusys_sc_hdr_sample *)sc->d_hdr;
-		pack_idx = sample_hdr->pack_idx;
+		pack_idx = sc->c_hdr->sample.pack_idx;
 		break;
 	default:
 		LOG_DEBUG("dev type(%d) not support pack id\n", sc->type);
@@ -261,7 +361,7 @@ int get_sc_tcm_usage(struct apusys_subcmd *sc)
 	if (sc == NULL)
 		return -EINVAL;
 
-	return sc->c_hdr->tcm_usage;
+	return sc->c_hdr->cmn.tcm_usage;
 }
 
 void decrease_pdr_cnt(struct apusys_cmd *cmd, int idx)
@@ -308,10 +408,12 @@ uint64_t get_subcmd_by_idx(const struct apusys_cmd *cmd, int idx)
 		return 0;
 	}
 
-	sc_hdr_ofs = *(uint32_t *)((void *)&cmd->hdr->scofs_list_entry +
+	sc_hdr_ofs = *(uint32_t *)((void *)&cmd->u_hdr->scofs_list_entry +
 		SIZE_SUBGRAPH_SCOFS_ELEMENT * idx);
 
-	return (uint64_t)cmd->hdr + sc_hdr_ofs;
+	LOG_DEBUG("0x%llx/0x%x\n", (uint64_t)cmd->u_hdr, sc_hdr_ofs);
+
+	return (uint64_t)cmd->u_hdr + sc_hdr_ofs;
 }
 
 //----------------------------------------------
@@ -340,6 +442,13 @@ int apusys_subcmd_create(int idx, struct apusys_cmd *cmd,
 		return -EINVAL;
 	}
 
+	/* check idx valid */
+	if (idx >= cmd->hdr->num_sc) {
+		LOG_ERR("idx(%d) larget than total sc num(%d)\n",
+			idx, cmd->hdr->num_sc);
+		return -EINVAL;
+	}
+
 	/* get subcmd info from cmd entry */
 	sc_entry = (void *)get_subcmd_by_idx(cmd, idx);
 	if (sc_entry == 0) {
@@ -364,33 +473,39 @@ int apusys_subcmd_create(int idx, struct apusys_cmd *cmd,
 		ret = -ENOMEM;
 		goto alloc_sc_fail;
 	}
-	sc->c_hdr = sc_hdr;
-	sc->d_hdr = (void *)sc_hdr + sizeof(struct apusys_sc_hdr_cmn);
-	sc->type = sc->c_hdr->dev_type;
+
+	sc->c_hdr = kzalloc(sizeof(struct apusys_sc_hdr), GFP_KERNEL);
+	if (sc->c_hdr == NULL) {
+		LOG_ERR("alloc sc hdr fail\n");
+		ret = -ENOMEM;
+		goto alloc_sc_hdr_fail;
+	}
+	if (_copy_apusys_sc_hdr(sc->c_hdr, sc_hdr)) {
+		LOG_ERR("copy to apusys sc hdr fail\n");
+		ret = -EINVAL;
+		goto map_kva_fail;
+	}
+
+	sc->u_hdr = sc_hdr;
+	//sc->d_hdr = (void *)sc_hdr + sizeof(struct apusys_sc_hdr_cmn);
+	sc->type = sc->c_hdr->cmn.dev_type;
 	sc->par_cmd = cmd;
 	sc->idx = idx;
 	sc->ctx_id = VALUE_SUBGRAPH_CTX_ID_NONE;
 	sc->state = CMD_STATE_IDLE;
 	sc->period = cmd->hdr->soft_limit;
 	sc->deadline = jiffies + usecs_to_jiffies(sc->period);
-	sc->runtime = sc->c_hdr->driver_time;
-
-	/* check codebuf info size */
-	if (sc->c_hdr->cb_info_size == 0) {
-		LOG_ERR("codebuf size = 0, error\n");
-		kfree(sc);
-		return -EINVAL;
-	}
+	sc->runtime = sc->c_hdr->cmn.driver_time;
 
 	/* check codebuf type, fd or offset */
-	LOG_DEBUG("cb offset = 0x%x\n", sc->c_hdr->ofs_cb_info);
-	if (_check_fd_from_codebuf_offset(sc->c_hdr->ofs_cb_info)) {
+	LOG_DEBUG("cb offset = 0x%x\n", sc->c_hdr->cmn.ofs_cb_info);
+	if (_check_fd_from_codebuf_offset(sc->c_hdr->cmn.ofs_cb_info)) {
 		/* from lib, fd need to map */
 		LOG_DEBUG("codebuf is fd, need to map\n");
-		sc->codebuf_fd = sc->c_hdr->ofs_cb_info &
+		sc->codebuf_fd = sc->c_hdr->cmn.ofs_cb_info &
 			~(1UL << SUBGRAPH_CODEBUF_INFO_BIT_FD);
 		memset(&mem, 0, sizeof(struct apusys_kmem));
-		mem.size = sc->c_hdr->cb_info_size;
+		mem.size = sc->c_hdr->cmn.cb_info_size;
 		mem.fd = sc->codebuf_fd;
 
 		if (apusys_mem_map_kva(&mem)) {
@@ -411,12 +526,12 @@ int apusys_subcmd_create(int idx, struct apusys_cmd *cmd,
 		LOG_DEBUG("map sc codebuf from fd(%d/%p/%u)\n",
 			sc->codebuf_fd,
 			sc->codebuf,
-			sc->c_hdr->cb_info_size);
+			sc->c_hdr->cmn.cb_info_size);
 
 		/* check offset and size */
-		if (sc->c_hdr->cb_info_size > sc->codebuf_iosize) {
+		if (sc->c_hdr->cmn.cb_info_size > sc->codebuf_iosize) {
 			LOG_ERR("check sc cb size(%u/%u) fail",
-				sc->c_hdr->cb_info_size,
+				sc->c_hdr->cmn.cb_info_size,
 				sc->codebuf_iosize);
 			ret = -EINVAL;
 			goto check_size_fail;
@@ -424,27 +539,27 @@ int apusys_subcmd_create(int idx, struct apusys_cmd *cmd,
 	} else {
 		/* from neuron, kva need offset */
 		sc->codebuf_fd = -1;
-		sc->codebuf = (void *)((void *)cmd->hdr +
-			sc->c_hdr->ofs_cb_info);
+		sc->codebuf = (void *)((void *)cmd->u_hdr +
+			sc->c_hdr->cmn.ofs_cb_info);
 		LOG_DEBUG("calc sc codebuf from offset(%d/%p/%u)\n",
 			sc->codebuf_fd,
 			sc->codebuf,
-			sc->c_hdr->cb_info_size);
+			sc->c_hdr->cmn.cb_info_size);
 	}
 
 	/* check boost value */
-	if (sc->c_hdr->boost_val > 100) {
+	if (sc->c_hdr->cmn.boost_val > 100) {
 		LOG_DEBUG("boost_val over 100, set\n");
 		sc->boost_val = 100;
 	} else {
-		sc->boost_val = sc->c_hdr->boost_val;
+		sc->boost_val = sc->c_hdr->cmn.boost_val;
 	};
 
 	/* check mem context */
-	if (sc->c_hdr->mem_ctx != VALUE_SUBGRAPH_CTX_ID_NONE &&
-		sc->c_hdr->mem_ctx > cmd->hdr->num_sc) {
+	if (sc->c_hdr->cmn.mem_ctx != VALUE_SUBGRAPH_CTX_ID_NONE &&
+		sc->c_hdr->cmn.mem_ctx > cmd->hdr->num_sc) {
 		LOG_ERR("invalid ctx group(%d/%d)\n",
-			sc->c_hdr->mem_ctx,
+			sc->c_hdr->cmn.mem_ctx,
 			cmd->hdr->num_sc);
 		ret = -EINVAL;
 		goto check_size_fail;
@@ -470,21 +585,22 @@ int apusys_subcmd_create(int idx, struct apusys_cmd *cmd,
 		sc->scr_list[i] = *(TYPE_SUBGRAPH_SCOFS_ELEMENT *)
 			(cmd->dp_entry + scr_ofs);
 		scr_ofs += SIZE_CMD_SUCCESSOR_ELEMENT;
-		LOG_DEBUG("0x%llx-#%d sc: scr(%d)\n",
-			cmd->cmd_id,
-			sc->idx,
-			sc->scr_list[i]);
+		if (sc->scr_list[i] > cmd->hdr->num_sc) {
+			LOG_ERR("scr list(%d)(%u/%u) check fail", i,
+				sc->scr_list[i], cmd->hdr->num_sc);
+			ret = -EINVAL;
+			goto check_scr_fail;
+		}
 	}
 
 	INIT_LIST_HEAD(&sc->q_list);
 	mutex_init(&sc->mtx);
 
 	if (res_task_inc(sc)) {
-		LOG_WARN("inc 0x%llx-#%d sc softlimit(%u) fail",
+		LOG_WARN("inc 0x%llx-#%d sc softlimit(%llu) fail",
 			cmd->cmd_id,
 			sc->idx,
-			cmd->hdr->soft_limit
-			);
+			sc->period);
 	}
 
 	_print_sc_info(sc);
@@ -499,6 +615,8 @@ int apusys_subcmd_create(int idx, struct apusys_cmd *cmd,
 
 	return 0;
 
+check_scr_fail:
+	kfree(sc->scr_list);
 check_size_fail:
 	if (!sc->codebuf_fd) {
 		if (apusys_mem_unmap_iova(&mem))
@@ -510,6 +628,8 @@ map_iova_fail:
 			LOG_ERR("unmap sc kva fail\n");
 	}
 map_kva_fail:
+	kfree(sc->c_hdr);
+alloc_sc_hdr_fail:
 	kfree(sc);
 alloc_sc_fail:
 	return ret;
@@ -526,18 +646,12 @@ int apusys_subcmd_delete(struct apusys_subcmd *sc)
 	deadline_task_end(sc);
 
 	/* write time back to cmdbuf */
-	LOG_DEBUG("0x%llx-#%d sc: time(%u) bw(%u) st(%d)\n",
-		sc->par_cmd->cmd_id,
-		sc->idx,
-		sc->c_hdr->driver_time,
-		sc->c_hdr->bandwidth,
-		sc->state);
 	_set_data_to_cmdbuf(sc);
 
 	if (sc->codebuf_fd >= 0) {
 		memset(&mem, 0, sizeof(struct apusys_kmem));
 		mem.kva = (unsigned long long)sc->codebuf;
-		mem.size = sc->c_hdr->cb_info_size;
+		mem.size = sc->c_hdr->cmn.cb_info_size;
 		mem.fd = sc->codebuf_fd;
 		mem.khandle = sc->codebuf_mem_hnd;
 
@@ -562,19 +676,18 @@ int apusys_subcmd_delete(struct apusys_subcmd *sc)
 	DEBUG_TAG;
 
 	if (res_task_dec(sc)) {
-		LOG_WARN("dec 0x%llx-#%d sc softlimit(%u) fail",
+		LOG_WARN("dec 0x%llx-#%d sc softlimit(%llu) fail",
 			sc->par_cmd->cmd_id,
 			sc->idx,
-			sc->par_cmd->hdr->soft_limit
-			);
+			sc->period);
 	}
 
 	sc->par_cmd->sc_list[sc->idx] = NULL;
 	bitmap_clear(sc->par_cmd->sc_status, sc->idx, 1);
 	sc->par_cmd = NULL;
 	kfree(sc->scr_list);
+	kfree(sc->c_hdr);
 	kfree(sc);
-	DEBUG_TAG;
 
 	return 0;
 }
@@ -583,7 +696,7 @@ int apusys_cmd_create(int mem_fd, uint32_t offset,
 	struct apusys_cmd **icmd, struct apusys_user *u)
 {
 	struct apusys_cmd *cmd = NULL;
-	struct apusys_cmd_hdr *cmd_hdr = NULL;
+	struct apusys_cmd_hdr *u_cmd_hdr = NULL;
 	struct apusys_sc_hdr_cmn *subcmd_hdr = NULL;
 	struct apusys_kmem mem;
 	int ret = 0, i = 0;
@@ -614,26 +727,12 @@ int apusys_cmd_create(int mem_fd, uint32_t offset,
 		ret = -EINVAL;
 		goto alloc_ce_fail;
 	}
-	cmd_hdr = (struct apusys_cmd_hdr *)(mem.kva + offset);
 
-	/* check parameters */
-	if (cmd_hdr->magic != APUSYS_MAGIC_NUMBER) {
-		LOG_ERR("cmd magic mismatch(0x%llx)\n",
-			cmd_hdr->magic);
-		return -EINVAL;
-	}
-
-	/* check version */
-	if (cmd_hdr->version != APUSYS_CMD_VERSION) {
-		LOG_ERR("cmd version mismatch(%d/%d)\n",
-			cmd_hdr->version, APUSYS_CMD_VERSION);
-		return -EINVAL;
-	}
-
-	/* check subcmd num */
-	if (cmd_hdr->num_sc == 0) {
-		LOG_ERR("subcmd num(%d), nothing to do\n", cmd_hdr->num_sc);
-		return -EINVAL;
+	u_cmd_hdr = (struct apusys_cmd_hdr *)(mem.kva + offset);
+	if (_check_apusys_hdr(u_cmd_hdr)) {
+		LOG_ERR("check apusys hdr fail\n");
+		ret = -EINVAL;
+		goto alloc_ce_fail;
 	}
 
 	/* allocate apusys cmd */
@@ -644,10 +743,24 @@ int apusys_cmd_create(int mem_fd, uint32_t offset,
 		goto alloc_ce_fail;
 	}
 
+	/* allocate cmd hdr, copy from ioctl cmd */
+	cmd->hdr = kzalloc(sizeof(struct apusys_cmd_hdr), GFP_KERNEL);
+	if (cmd->hdr == NULL) {
+		LOG_ERR("alloc apusys cmd hdr fail\n");
+		ret = -ENOMEM;
+		goto alloc_hdr_fail;
+	}
+	memcpy(cmd->hdr, u_cmd_hdr, sizeof(struct apusys_cmd_hdr));
+	if (_check_apusys_hdr(cmd->hdr)) {
+		LOG_ERR("check apusys hdr fail\n");
+		ret = -EINVAL;
+		goto alloc_sc_status_fail;
+	}
+
 	/* assign value */
 	cmd->pid = u->open_pid;
 	cmd->tgid = u->open_tgid;
-	cmd->hdr = cmd_hdr;
+	cmd->u_hdr = u_cmd_hdr;
 	cmd->mem_fd = mem_fd;
 	cmd->mem_hnd = mem.khandle;
 	cmd->cmd_id = (uint64_t)(cmd);
@@ -711,6 +824,7 @@ int apusys_cmd_create(int mem_fd, uint32_t offset,
 		if (subcmd_hdr->mem_ctx >= cmd->hdr->num_sc) {
 			LOG_ERR("cmd(0x%llx) #%d subcmd's ctx_id(%d) invalid\n",
 				cmd->cmd_id, i, subcmd_hdr->mem_ctx);
+			ret = -EINVAL;
 			goto count_ctx_fail;
 		}
 		cmd->ctx_ref[subcmd_hdr->mem_ctx]++;
@@ -739,7 +853,7 @@ int apusys_cmd_create(int mem_fd, uint32_t offset,
 	*icmd = cmd;
 
 #define APUSYS_CMDINFO_PRINT "create cmd(0x%llx/0x%llx)"\
-	" sc_num(%u) prority(%u) deadline(%u/%u/%u)"\
+	" sc_num(%u) priority(%u) deadline(%u/%u/%u)"\
 	" mp(%d) flag(0x%llx)\n"
 	LOG_INFO(APUSYS_CMDINFO_PRINT,
 		cmd->hdr->uid, cmd->cmd_id,
@@ -762,6 +876,8 @@ alloc_sc_ctx_fail:
 alloc_pdr_fail:
 	kfree(cmd->sc_status);
 alloc_sc_status_fail:
+	kfree(cmd->hdr);
+alloc_hdr_fail:
 	kfree(cmd);
 alloc_ce_fail:
 	if (apusys_mem_unmap_iova(&mem)) {
@@ -810,6 +926,7 @@ int apusys_cmd_delete(struct apusys_cmd *cmd)
 	kfree(cmd->ctx_ref);
 	kfree(cmd->pdr_cnt_list);
 	kfree(cmd->sc_status);
+	kfree(cmd->hdr);
 	kfree(cmd);
 
 	return 0;

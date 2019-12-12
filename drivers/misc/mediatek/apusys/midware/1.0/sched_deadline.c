@@ -300,16 +300,16 @@ int deadline_task_boost(struct apusys_subcmd *sc)
 	if (sc == NULL)
 		return 0;
 
-	suggest_time = sc->c_hdr->suggest_time * 1000;
+	suggest_time = sc->c_hdr->cmn.suggest_time * 1000;
 
 	tab = res_get_table(sc->type);
 	root = &tab->deadline_q;
 
 
-	if (sc->c_hdr->suggest_time != 0) {
-		if (sc->c_hdr->driver_time < suggest_time)
+	if (sc->c_hdr->cmn.suggest_time != 0) {
+		if (sc->c_hdr->cmn.driver_time < suggest_time)
 			sc->boost_val -= 10;
-		else if (sc->c_hdr->driver_time > suggest_time)
+		else if (sc->c_hdr->cmn.driver_time > suggest_time)
 			sc->boost_val += 10;
 
 		if (sc->boost_val > 100)
