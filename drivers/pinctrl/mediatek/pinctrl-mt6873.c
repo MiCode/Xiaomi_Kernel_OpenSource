@@ -1300,12 +1300,12 @@ static const struct mtk_pin_field_calc mt6873_pin_eh_range[] = {
 	PIN_FIELD_BASE(142, 142, 4, 0x0040, 0x10, 21, 3),
 	PIN_FIELD_BASE(160, 160, 7, 0x0030, 0x10, 0, 3),
 	PIN_FIELD_BASE(161, 161, 7, 0x0030, 0x10, 3, 3),
-	PIN_FIELD_BASE(200, 200, 8, 0x0030, 0x10, 3, 3),
-	PIN_FIELD_BASE(201, 201, 8, 0x0030, 0x10, 9, 3),
-	PIN_FIELD_BASE(202, 202, 5, 0x0030, 0x10, 0, 3),
-	PIN_FIELD_BASE(203, 203, 5, 0x0030, 0x10, 3, 3),
-	PIN_FIELD_BASE(204, 204, 8, 0x0020, 0x10, 0, 3),
-	PIN_FIELD_BASE(205, 205, 8, 0x0020, 0x10, 6, 3),
+	PIN_FIELD_BASE(200, 200, 8, 0x0010, 0x10, 3, 3),
+	PIN_FIELD_BASE(201, 201, 8, 0x0010, 0x10, 9, 3),
+	PIN_FIELD_BASE(202, 202, 5, 0x0020, 0x10, 0, 3),
+	PIN_FIELD_BASE(203, 203, 5, 0x0020, 0x10, 3, 3),
+	PIN_FIELD_BASE(204, 204, 8, 0x0010, 0x10, 0, 3),
+	PIN_FIELD_BASE(205, 205, 8, 0x0010, 0x10, 6, 3),
 };
 
 static const struct mtk_eint_hw mt6873_eint_hw = {
