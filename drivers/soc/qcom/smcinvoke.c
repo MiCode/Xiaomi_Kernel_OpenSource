@@ -1084,6 +1084,19 @@ static int prepare_send_scm_msg(const uint8_t *in_buf, size_t in_buf_len,
 		if (desc.ret[0] != SMCINVOKE_RESULT_INBOUND_REQ_NEEDED)
 			break;
 
+		/*
+		 * At this point we are convinced it is an inbnd req but it is
+		 * possible that it is a resp to inbnd req that has failed and
+		 * returned an err. Ideally scm_call should have returned err
+		 * but err comes in  ret[1]. So check that out otherwise it
+		 * could cause infinite loop.
+		 */
+		if (req->result &&
+			desc.ret[0] == SMCINVOKE_RESULT_INBOUND_REQ_NEEDED) {
+			ret = req->result;
+			break;
+		}
+
 		dmac_inv_range(out_buf, out_buf + out_buf_len);
 
 		if (desc.ret[0] == SMCINVOKE_RESULT_INBOUND_REQ_NEEDED) {
