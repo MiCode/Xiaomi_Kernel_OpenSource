@@ -12,73 +12,18 @@
 #include "cmdq-sec-iwc-common.h"
 
 enum CMDQ_SEC_SCENARIO {
-	CMDQ_SEC_JPEG_DEC = 0,
 	CMDQ_SEC_PRIMARY_DISP = 1,
-	CMDQ_SEC_PRIMARY_MEMOUT = 2,
-	CMDQ_SEC_PRIMARY_ALL = 3,
 	CMDQ_SEC_SUB_DISP = 4,
-	CMDQ_SEC_SUB_MEMOUT = 5,
-	CMDQ_SEC_SUB_ALL = 6,
-	CMDQ_SEC_MHL_DISP = 7,
-	CMDQ_SEC_RDMA0_DISP = 8,
-	CMDQ_SEC_RDMA0_COLOR0_DISP = 9,
-	CMDQ_SEC_RDMA1_DISP = 10,
-
-	/* Trigger loop scenario does not enable HWs */
-	CMDQ_SEC_TRIGGER_LOOP = 11,
 
 	/* client from user space, so the cmd buffer is in user space. */
 	CMDQ_SEC_USER_MDP = 12,
 
 	CMDQ_SEC_DEBUG = 13,
-	CMDQ_SEC_DEBUG_PREFETCH = 14,
-
-	/* ESD check */
-	CMDQ_SEC_DISP_ESD_CHECK = 15,
-	/* for screen capture to wait for RDMA-done
-	 * without blocking config thread
-	 */
-	CMDQ_SEC_DISP_SCREEN_CAPTURE = 16,
 
 	CMDQ_SEC_DISP_PRIMARY_DISABLE_SECURE_PATH = 18,
 	CMDQ_SEC_DISP_SUB_DISABLE_SECURE_PATH = 19,
 
-	/* color path request from kernel */
-	CMDQ_SEC_DISP_COLOR = 20,
-	/* color path request from user sapce */
-	CMDQ_SEC_USER_DISP_COLOR = 21,
-
-	/* [phased out]client from user space,
-	 * so the cmd buffer is in user space.
-	 */
-	CMDQ_SEC_USER_SPACE = 22,
-
-	CMDQ_SEC_DISP_MIRROR_MODE = 23,
-
-	CMDQ_SEC_DISP_CONFIG_AAL = 24,
-	CMDQ_SEC_DISP_CONFIG_PRIMARY_GAMMA = 25,
-	CMDQ_SEC_DISP_CONFIG_SUB_GAMMA = 26,
-	CMDQ_SEC_DISP_CONFIG_PRIMARY_DITHER = 27,
-	CMDQ_SEC_DISP_CONFIG_SUB_DITHER = 28,
-	CMDQ_SEC_DISP_CONFIG_PRIMARY_PWM = 29,
-	CMDQ_SEC_DISP_CONFIG_SUB_PWM = 30,
-	CMDQ_SEC_DISP_CONFIG_PRIMARY_PQ = 31,
-	CMDQ_SEC_DISP_CONFIG_SUB_PQ = 32,
-	CMDQ_SEC_DISP_CONFIG_OD = 33,
-	CMDQ_SEC_DISP_VFP_CHANGE = 34,
-
-	CMDQ_SEC_RDMA2_DISP = 35,
-
-	/* for primary trigger loop enable pre-fetch usage */
-	CMDQ_SEC_HIGHP_TRIGGER_LOOP = 36,
-	/* for low priority monitor loop to polling bus status */
-	CMDQ_SEC_LOWP_TRIGGER_LOOP = 37,
-
 	CMDQ_SEC_KERNEL_CONFIG_GENERAL = 38,
-
-	CMDQ_SEC_TIMER_LOOP = 39,
-	CMDQ_SEC_MOVE = 40,
-	CMDQ_SEC_SRAM_LOOP = 41,
 
 	/* debug scenario use mdp flush */
 	CMDQ_SEC_DEBUG_MDP = 42,

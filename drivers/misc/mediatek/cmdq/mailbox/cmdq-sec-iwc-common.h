@@ -314,8 +314,6 @@ struct iwcCmdqMessageEx_t {
 	union {
 		uint32_t data[CMDQ_SEC_DATA_SIZE_1 / sizeof(uint32_t)];
 		struct iwc_cq_meta isp;
-		struct iwcIspMeta meta;
-
 	};
 };
 
