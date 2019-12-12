@@ -456,12 +456,13 @@ int mdla_create_dmp_cmd_buf(struct command_entry *ce,
 	mdla_info->cmd_buf_dmp = kvmalloc(ce->count*MREG_CMD_SIZE, GFP_KERNEL);
 	if (!mdla_info->cmd_buf_dmp) {
 		ret = -ENOMEM;
+		mdla_info->cmd_buf_len = 0;
 		mdla_timeout_debug("%s: kvmalloc: failed\n",
 			__func__);
 		goto out;
 	}
-	mdla_info->cmd_buf_len = ce->count*MREG_CMD_SIZE;
 	memcpy(mdla_info->cmd_buf_dmp, ce->kva, mdla_info->cmd_buf_len);
+	mdla_info->cmd_buf_len = ce->count*MREG_CMD_SIZE;
 
 out:
 	mutex_unlock(&mdla_info->cmd_buf_dmp_lock);
