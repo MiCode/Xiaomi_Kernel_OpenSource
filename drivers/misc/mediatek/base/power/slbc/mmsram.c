@@ -93,6 +93,7 @@ enum smc_mmsram_request {
 static struct mmsram_dev *mmsram;
 static atomic_t clk_ref = ATOMIC_INIT(0);
 static bool is_secure_on;
+static bool debug_enable;
 
 /* MTCMOS clocks should be defined before CG clocks in DTS */
 static int set_clk_enable(bool is_enable)
@@ -124,6 +125,8 @@ static int set_clk_enable(bool is_enable)
 		atomic_dec(&clk_ref);
 	}
 #endif
+	if (debug_enable)
+		pr_notice("%s:%d\n", __func__, is_enable);
 	return ret;
 }
 
@@ -196,7 +199,8 @@ int mmsram_power_on(void)
 
 	set_clk_enable(true);
 	init_mmsram_reg();
-	pr_debug("mmsram power on\n");
+	if (debug_enable)
+		pr_notice("mmsram power on\n");
 	return ret;
 }
 EXPORT_SYMBOL_GPL(mmsram_power_on);
@@ -204,7 +208,8 @@ EXPORT_SYMBOL_GPL(mmsram_power_on);
 void mmsram_power_off(void)
 {
 	set_clk_enable(false);
-	pr_debug("mmsram power off\n");
+	if (debug_enable)
+		pr_notice("mmsram power off\n");
 }
 EXPORT_SYMBOL_GPL(mmsram_power_off);
 
@@ -426,6 +431,14 @@ static struct kernel_param_ops test_mmsram_ops = {
 };
 module_param_cb(test_mmsram, &test_mmsram_ops, &test_mmsram, 0644);
 MODULE_PARM_DESC(test_mmsram, "test mmsram");
+
+static struct kernel_param_ops debug_enable_ops = {
+	.set = param_set_bool,
+	.get = param_get_bool,
+};
+module_param_cb(
+	debug_enable, &debug_enable_ops, &debug_enable, 0644);
+MODULE_PARM_DESC(debug_enable, "enable or disable mmsram debug log");
 
 static const struct of_device_id of_mmsram_match_tbl[] = {
 	{
