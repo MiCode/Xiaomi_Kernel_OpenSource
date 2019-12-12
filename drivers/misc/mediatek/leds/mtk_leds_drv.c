@@ -361,10 +361,8 @@ int backlight_brightness_set(int level)
 	if (level < 0)
 		level = 0;
 
-	if ((MT65XX_LED_MODE_CUST_BLS_PWM ==
-		cust_led_list[TYPE_LCD].mode) ||
-		(MT65XX_LED_MODE_CUST_BLS_PWM ==
-		cust_led_list[TYPE_LCD].mode)) {
+	if (MT65XX_LED_MODE_CUST_BLS_PWM ==
+		cust_led_list[TYPE_LCD].mode) {
 #ifdef CONTROL_BL_TEMPERATURE
 		mutex_lock(&bl_level_limit_mutex);
 		/* extend  pwm bits to led bits*/
