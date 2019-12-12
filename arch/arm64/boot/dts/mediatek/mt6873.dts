@@ -4491,6 +4491,12 @@
 	};
 	aud_gpio_i2s9_on: aud_gpio_i2s9_on {
 	};
+	msdc1_ins:msdc1_ins {
+	};
+	md1_sim1_hot_plug_eint:md1_sim1_hot_plug_eint {
+	};
+	md1_sim2_hot_plug_eint:md1_sim2_hot_plug_eint {
+	};
 };
 
 #ifndef CONFIG_FPGA_EARLY_PORTING

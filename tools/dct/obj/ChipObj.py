@@ -50,6 +50,7 @@ from Md1EintObj import Md1EintObj
 from Md1EintObj import Md1EintObj_MT6739
 from PowerObj import PowerObj
 from KpdObj import KpdObj
+from RfioObj import RfioObj
 from ModuleObj import ModuleObj
 
 from utility.util import log
@@ -64,7 +65,8 @@ para_map = {'adc':['adc_h', 'adc_dtsi'],\
             'md1_eint':['md1_eint_h', 'md1_eint_dtsi'],\
             'kpd':['kpd_h', 'kpd_dtsi'],\
             'pmic':['pmic_drv_h', 'pmic_drv_c', 'pmic_h', 'pmic_c', 'pmic_dtsi'],\
-            'power':['power_h']}
+            'power':['power_h'],\
+            'rfio':['digrf_io_cfgtable.c']}
 
 class ChipObj:
     def __init__(self, path, dest):
@@ -87,6 +89,10 @@ class ChipObj:
         self.__objs["pmic"] = PmicObj()
         self.__objs["power"] = PowerObj()
         self.__objs["kpd"] = KpdObj()
+
+        path = os.path.join(sys.path[0], 'config', 'RFIO.cmp')
+        if os.path.exists(path):
+            self.__objs['rfio'] = RfioObj()
 
     def replace_obj(self, tag, obj):
         if not tag in self.__objs.keys():
@@ -472,21 +478,6 @@ class MT6785(ChipObj):
         ChipObj.replace_obj(self, 'pmic', PmicObj_MT6758())
         ChipObj.replace_obj(self, 'gpio', GpioObj_MT6785())
         ChipObj.replace_obj(self, 'eint', EintObj_MT6739(ChipObj.get_gpioObj(self)))
-        ChipObj.replace_obj(self, 'md1_eint', Md1EintObj_MT6739())
-        ChipObj.replace_obj(self, "i2c", I2cObj_MT6775())
-        ChipObj.refresh_eintGpioMap(self)
-
-class MT6873(ChipObj):
-    def __init__(self, dws_path, gen_path):
-        ChipObj.__init__(self, dws_path, gen_path)
-
-    def init_objs(self):
-        ChipObj.init_objs(self)
-        ChipObj.replace_obj(self, 'adc', AdcObj_MT6785())
-        ChipObj.replace_obj(self, 'clk', ClkObj_MT6779())
-        ChipObj.replace_obj(self, 'pmic', PmicObj_MT6758())
-        ChipObj.replace_obj(self, 'gpio', GpioObj_MT6785())
-        ChipObj.replace_obj(self, 'eint', EintObj_MT6885(ChipObj.get_gpioObj(self)))
         ChipObj.replace_obj(self, 'md1_eint', Md1EintObj_MT6739())
         ChipObj.replace_obj(self, "i2c", I2cObj_MT6775())
         ChipObj.refresh_eintGpioMap(self)
