@@ -30,7 +30,7 @@ int drv_dpmaif_dl_add_pit_remain_cnt(unsigned char q_num,
 unsigned int  drv_dpmaif_dl_get_wridx(unsigned char q_num);
 void drv_dpmaif_mask_dl_interrupt(unsigned char q_num);
 void drv_dpmaif_unmask_dl_interrupt(unsigned char q_num);
-void drv_dpmaif_dl_all_queue_en(bool enable);
+int drv_dpmaif_dl_all_queue_en(bool enable);
 unsigned int drv_dpmaif_dl_idle_check(void);
 
 /* == TX part == */
@@ -55,9 +55,9 @@ void drv_dpmaif_clear_ip_busy(void);
 
 /* == state part == */
 /*void drv_dpmaif_set_dl_interrupt_mask(unsigned int mask);*/
-void drv_dpmaif_intr_hw_init(void);
+int drv_dpmaif_intr_hw_init(void);
 /* init: rx init */
-void drv_dpmaif_dl_bat_init_done(unsigned char q_num, bool frg_en);
+int drv_dpmaif_dl_bat_init_done(unsigned char q_num, bool frg_en);
 void drv_dpmaif_dl_pit_init_done(unsigned char q_num);
 void drv_dpmaif_dl_set_bat_base_addr(unsigned char q_num,
 	dma_addr_t base_addr);
@@ -82,7 +82,7 @@ void drv_dpmaif_dl_set_ao_frag_check_thres(unsigned char q_num,
 void drv_dpmaif_dl_set_ao_frg_bat_feature(unsigned char q_num, bool enable);
 void drv_dpmaif_dl_set_ao_frg_bat_bufsz(unsigned char q_num,
 	unsigned int buf_sz);
-void drv_dpmaif_dl_all_frg_queue_en(bool enable);
+int drv_dpmaif_dl_all_frg_queue_en(bool enable);
 #endif
 #ifdef HW_CHECK_SUM_ENABLE
 void drv_dpmaif_dl_set_ao_chksum_en(unsigned char q_num, bool enable);
@@ -100,7 +100,7 @@ unsigned int drv_dpmaif_ul_idle_check(void);
 
 /* suspend resume */
 bool drv_dpmaif_check_power_down(void);
-void drv_dpmaif_dl_restore(unsigned int mask);
+int drv_dpmaif_dl_restore(unsigned int mask);
 
 #ifdef _E1_SB_SW_WORKAROUND_
 unsigned int drv_dpmaif_dl_get_pit_ridx(unsigned char q_num);

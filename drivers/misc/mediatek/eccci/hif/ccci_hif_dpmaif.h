@@ -227,6 +227,7 @@ enum error_num {
 	DATA_CHECK_FAIL,
 	HW_REG_CHK_FAIL,
 	ERROR_STOP_MAX, /* -5 */
+	HW_REG_TIME_OUT,
 };
 
 struct dpmaif_rx_queue {
