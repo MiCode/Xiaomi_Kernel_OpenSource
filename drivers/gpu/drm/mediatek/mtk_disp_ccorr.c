@@ -540,6 +540,11 @@ int disp_ccorr_set_color_matrix(struct mtk_ddp_comp *comp,
 		return -EFAULT;
 	}
 
+	if (g_disp_ccorr_coef[id] == NULL) {
+		DDPINFO("%s: can't set matrix for NULL coef", __func__);
+		return -EFAULT;
+	}
+
 	mutex_lock(&g_ccorr_global_lock);
 
 	for (i = 0; i < 3; i++) {
