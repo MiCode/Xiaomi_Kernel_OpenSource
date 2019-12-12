@@ -212,7 +212,7 @@ static DEFINE_MUTEX(mt_gpufreq_limit_table_lock);
 static void __iomem *g_apmixed_base;
 static void __iomem *g_mfg_base;
 static void __iomem *g_infracfg_base;
-
+static void __iomem *g_toprgu_base;
 static void __iomem *g_infra_peri_debug1;
 static void __iomem *g_infra_peri_debug2;
 static void __iomem *g_infra_peri_debug3;
@@ -245,6 +245,29 @@ unsigned int mt_gpufreq_get_shader_present(void)
 	return shader_present;
 }
 
+void mt_gpufreq_wdt_reset(void)
+{
+	unsigned int val;
+
+	gpufreq_pr_info("%s\n", __func__);
+
+	if (g_toprgu_base) {
+		writel(0x88000004, g_toprgu_base + 0x18);
+		val = readl(g_toprgu_base + 0x18);
+
+		gpufreq_pr_info("gpu info 0x%x:0x%08x\n", 0x10007018, val);
+		udelay(1);
+
+		writel(0x88000000, g_toprgu_base + 0x18);
+		val = readl(g_toprgu_base + 0x18);
+
+		gpufreq_pr_info("gpu info 0x%x:0x%08x\n", 0x10007018, val);
+		udelay(1);
+	} else {
+		gpufreq_pr_info("no g_toprgu_base\n");
+	}
+}
+
 void mt_gpufreq_dump_infra_status(void)
 {
 	unsigned int start, offset;
@@ -252,16 +275,13 @@ void mt_gpufreq_dump_infra_status(void)
 
 	// 0x1020E
 	if (g_infracfg_base) {
-		gpufreq_pr_info("====\n");
+		gpufreq_pr_info("%s\n", __func__);
 		val = readl(g_infracfg_base + 0x810);
-		gpufreq_pr_info("infra info 0x%x:0x%08x\n",
-			0x1020E810, val);
+		gpufreq_pr_info("infra info 0x%x:0x%08x\n", 0x1020E810, val);
 
 		val = readl(g_infracfg_base + 0x814);
-		gpufreq_pr_info("infra info 0x%x:0x%08x\n",
-			0x1020E814, val);
+		gpufreq_pr_info("infra info 0x%x:0x%08x\n", 0x1020E814, val);
 	}
-
 
 	// 0x10023000
 	if (g_infra_peri_debug1) {
@@ -3005,6 +3025,13 @@ static int __mt_gpufreq_init_clk(struct platform_device *pdev)
 		"mediatek,devapc_ao_infra_peri_debug4", 0);
 	if (!g_infra_peri_debug4) {
 		gpufreq_pr_info("@%s: ioremap failed at devapc_ao_infra_peri_debug4",
+			__func__);
+		return -ENOENT;
+	}
+
+	g_toprgu_base = __mt_gpufreq_of_ioremap("mediatek,toprgu", 0);
+	if (!g_toprgu_base) {
+		gpufreq_pr_info("@%s: ioremap failed at g_toprgu_base",
 			__func__);
 		return -ENOENT;
 	}

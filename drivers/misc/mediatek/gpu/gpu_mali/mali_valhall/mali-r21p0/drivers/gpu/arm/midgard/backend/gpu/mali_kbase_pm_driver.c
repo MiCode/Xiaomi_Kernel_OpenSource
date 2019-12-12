@@ -45,6 +45,8 @@
 
 #include <linux/of.h>
 
+#include <mtk_gpufreq.h>
+
 #ifdef CONFIG_MALI_CORESTACK
 bool corestack_driver_control = true;
 #else
@@ -1861,6 +1863,10 @@ static int kbase_pm_do_reset(struct kbase_device *kbdev)
 	struct kbasep_reset_timeout_data rtdata;
 	int ret;
 
+#ifdef CONFIG_MACH_MT6873
+	u32 val;
+#endif
+
 	KBASE_TRACE_ADD(kbdev, CORE_GPU_SOFT_RESET, NULL, NULL, 0u, 0);
 
 	KBASE_TLSTREAM_JD_GPU_SOFT_RESET(kbdev, kbdev);
@@ -1917,6 +1923,20 @@ static int kbase_pm_do_reset(struct kbase_device *kbdev)
 	dev_err(kbdev->dev, "Failed to soft-reset GPU (timed out after %d ms), now attempting a hard reset\n",
 								RESET_TIMEOUT);
 	KBASE_TRACE_ADD(kbdev, CORE_GPU_HARD_RESET, NULL, NULL, 0u, 0);
+
+#ifdef CONFIG_MACH_MT6873
+	dump_stack();
+	mt_gpufreq_wdt_reset();
+
+	val = kbase_reg_read(kbdev,	0x60);
+	dev_info(kbdev->dev, "before: 0x%x:0x%08x\n", 0x13000060, val);
+
+	kbase_reg_write(kbdev, 0x60, 0x12345678);
+
+	val = kbase_reg_read(kbdev,	0x60);
+	dev_info(kbdev->dev, "after: 0x%x:0x%08x\n", 0x13000060, val);
+#endif
+
 	kbase_reg_write(kbdev, GPU_CONTROL_REG(GPU_COMMAND),
 						GPU_COMMAND_HARD_RESET);
 

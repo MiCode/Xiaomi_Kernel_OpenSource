@@ -17,7 +17,7 @@
 #include <linux/module.h>
 #include <linux/clk.h>
 
-#define MT_GPUFREQ_BRINGUP                      1
+#define MT_GPUFREQ_BRINGUP                      0
 #define MT_GPUFREQ_KICKER_PBM_READY             0
 #define MT_GPUFREQ_STATIC_PWR_READY2USE         0
 #define MT_GPUFREQ_DYNAMIC_POWER_TABLE_UPDATE   0
@@ -158,6 +158,8 @@ extern void mt_gpufreq_check_bus_idle(void);
 extern unsigned int mt_gpufreq_get_shader_present(void);
 extern void mt_gpufreq_dump_infra_status(void);
 extern int mt_gpufreq_is_dfd_force_dump(void);
+extern void mt_gpufreq_wdt_reset(void);
+
 #ifdef CONFIG_MTK_RAM_CONSOLE
 extern void aee_rr_rec_gpu_dvfs_vgpu(u8 val);
 extern u8 aee_rr_curr_gpu_dvfs_vgpu(void);
