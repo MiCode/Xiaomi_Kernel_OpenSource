@@ -1634,7 +1634,8 @@ static void get_volt_table_in_thread(struct eem_det *det)
 
 		case EEM_CTRL_B:
 			if ((i == 0) && (det->loo_role == HIGH_BANK) &&
-				(segCode == 0x10) && (is_warn_on == 0)) {
+				(segCode == 0x10) && (is_warn_on == 0) &&
+				(eem_devinfo.CPU_L_HI_SPEC == 0)) {
 				bcpu_opp0_eemv =
 					det->volt_tbl[0] + rm_dvtfix_offset;
 				if (bcpu_opp0_eemv > eem_clamp_val) {
@@ -2241,14 +2242,27 @@ static void eem_init_det(struct eem_det *det, struct eem_devinfo *devinfo)
 #endif
 	case EEM_DET_B_HI:
 #if ENABLE_LOO_B
-		det->MDES	= devinfo->CPU_B_HI_MDES;
-		det->BDES	= devinfo->CPU_B_HI_BDES;
-		det->DCMDET = devinfo->CPU_B_HI_DCMDET;
-		det->DCBDET = devinfo->CPU_B_HI_DCBDET;
-		det->EEMINITEN	= devinfo->CPU_B_HI_INITEN;
-		det->EEMMONEN	= devinfo->CPU_B_HI_MONEN;
-		det->MTDES	= devinfo->CPU_B_HI_MTDES;
-		det->SPEC	= devinfo->CPU_B_HI_SPEC;
+		if ((segCode == 0x10) &&
+			(devinfo->CPU_L_HI_SPEC == 2)) {
+			det->MDES	= devinfo->CPU_L_HI_MDES;
+			det->BDES	= devinfo->CPU_L_HI_BDES;
+			det->DCMDET = devinfo->CPU_L_HI_DCMDET;
+			det->DCBDET = devinfo->CPU_L_HI_DCBDET;
+			det->EEMINITEN	= devinfo->CPU_L_HI_INITEN;
+			det->EEMMONEN	= devinfo->CPU_L_HI_MONEN;
+			det->MTDES	= devinfo->CPU_L_HI_MTDES;
+			det->SPEC	= devinfo->CPU_L_HI_SPEC;
+			det->max_freq_khz = B_FREQ26_BASE;
+		} else {
+			det->MDES	= devinfo->CPU_B_HI_MDES;
+			det->BDES	= devinfo->CPU_B_HI_BDES;
+			det->DCMDET = devinfo->CPU_B_HI_DCMDET;
+			det->DCBDET = devinfo->CPU_B_HI_DCBDET;
+			det->EEMINITEN	= devinfo->CPU_B_HI_INITEN;
+			det->EEMMONEN	= devinfo->CPU_B_HI_MONEN;
+			det->MTDES	= devinfo->CPU_B_HI_MTDES;
+			det->SPEC	= devinfo->CPU_B_HI_SPEC;
+		}
 		det->VMAX += det->DVTFIXED;
 		if (!big_2line) {
 			det->features = 0;

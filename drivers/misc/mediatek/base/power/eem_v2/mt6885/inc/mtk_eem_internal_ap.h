@@ -200,7 +200,7 @@ struct eem_devinfo {
 	/* M_HW_RES5 */
 	unsigned int CPU_L_HI_MTDES:8;
 	unsigned int CPU_L_HI_INITEN:1;
-	unsigned int CPU_L_HI__MONEN:1;
+	unsigned int CPU_L_HI_MONEN:1;
 	unsigned int CPU_L_HI_DVFS_LOW:3;
 	unsigned int CPU_L_HI_SPEC:3;
 	unsigned int CPU_L_HI_BDES:8;
