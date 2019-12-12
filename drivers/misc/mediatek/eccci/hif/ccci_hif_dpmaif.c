@@ -3015,13 +3015,19 @@ int dpmaif_late_init(unsigned char hif_id)
 	/* set sw control data flow cb: isr/tx/rx/etc. */
 	/* request IRQ */
 	ret = request_irq(dpmaif_ctrl->dpmaif_irq_id, dpmaif_isr,
-		dpmaif_ctrl->dpmaif_irq_flags, "DPMAIF_AP", dpmaif_ctrl);
+		dpmaif_ctrl->dpmaif_irq_flags | IRQF_NO_SUSPEND, "DPMAIF_AP",
+		dpmaif_ctrl);
 	if (ret) {
 		CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
 			"request DPMAIF IRQ(%d) error %d\n",
 			dpmaif_ctrl->dpmaif_irq_id, ret);
 		return ret;
 	}
+	ret = irq_set_irq_wake(dpmaif_ctrl->dpmaif_irq_id, 1);
+	if (ret)
+		CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
+			"irq_set_irq_wake dpmaif irq(%d) error %d\n",
+			dpmaif_ctrl->dpmaif_irq_id, ret);
 	atomic_set(&dpmaif_ctrl->dpmaif_irq_enabled, 1); /* init */
 	dpmaif_disable_irq(dpmaif_ctrl);
 

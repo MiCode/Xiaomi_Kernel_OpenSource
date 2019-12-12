@@ -1530,7 +1530,7 @@ static void ccif_hif_hw_init(struct md_ccif_ctrl *md_ctrl)
 		md_ctrl->ccif_irq_id, ccif_irq_flags);
 
 	ret = request_irq(md_ctrl->ccif_irq_id, md_ccif_isr,
-			ccif_irq_flags, "CCIF_AP_DATA", md_ctrl);
+		ccif_irq_flags | IRQF_NO_SUSPEND, "CCIF_AP_DATA", md_ctrl);
 	if (ret) {
 		CCCI_ERROR_LOG(md_ctrl->md_id, TAG,
 			"request CCIF_AP_DATA IRQ(%d) error %d\n",
@@ -1538,6 +1538,11 @@ static void ccif_hif_hw_init(struct md_ccif_ctrl *md_ctrl)
 		return;
 	}
 
+	ret = irq_set_irq_wake(md_ctrl->ccif_irq_id, 1);
+	if (ret)
+		CCCI_ERROR_LOG(md_ctrl->md_id, TAG,
+			"irq_set_irq_wake ccif irq0(%d) error %d\n",
+			md_ctrl->ccif_irq_id, ret);
 }
 
 int ccci_ccif_hif_init(unsigned char hif_id, unsigned char md_id)
