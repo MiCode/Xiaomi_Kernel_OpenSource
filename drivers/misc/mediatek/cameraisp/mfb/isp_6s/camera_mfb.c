@@ -259,6 +259,8 @@ static DEFINE_MUTEX(gMfbMssDequeMutex);
 static DEFINE_MUTEX(gMfbMsfMutex);
 static DEFINE_MUTEX(gMfbMsfDequeMutex);
 
+static DEFINE_MUTEX(MutexMFBRef);
+
 #ifdef CONFIG_OF
 
 struct MFB_device {
@@ -370,7 +372,6 @@ struct MFB_IRQ_INFO_STRUCT {
 };
 
 struct MFB_INFO_STRUCT {
-	spinlock_t SpinLockMFBRef;
 	spinlock_t SpinLockMFB;
 	spinlock_t SpinLockIrq[MFB_IRQ_TYPE_AMOUNT];
 	wait_queue_head_t WaitQueueHeadMss;
@@ -1073,13 +1074,13 @@ signed int mss_enque_cb(struct frame *frames, void *req)
 
 	_req = (struct MFB_MSSRequest *) req;
 
-	spin_lock(&(MFBInfo.SpinLockMFBRef));
+	mutex_lock(&(MutexMFBRef));
 	if (MFBInfo.UserCount == 0) {
-		spin_unlock(&(MFBInfo.SpinLockMFBRef));
+		mutex_unlock(&(MutexMFBRef));
 		LOG_ERR("mss enque cb, UserCount = 0");
 		return 0;
 	}
-	spin_unlock(&(MFBInfo.SpinLockMFBRef));
+	mutex_unlock(&(MutexMFBRef));
 
 	if (frames == NULL || _req == NULL)
 		return -1;
@@ -1857,13 +1858,13 @@ static inline void MSS_Reset(void)
 #if 0/*YWtodo*/
 	LOG_DBG("- E.");
 	LOG_DBG(" MSS Reset start!\n");
-	spin_lock(&(MFBInfo.SpinLockMFBRef));
+	mutex_lock(&(MutexMFBRef));
 
 	if (MFBInfo.UserCount > 1) {
-		spin_unlock(&(MFBInfo.SpinLockMFBRef));
+		mutex_unlock(&(MutexMFBRef));
 		LOG_DBG("Curr UserCount(%d) users exist", MFBInfo.UserCount);
 	} else {
-		spin_unlock(&(MFBInfo.SpinLockMFBRef));
+		mutex_unlock(&(MutexMFBRef));
 
 		/* Reset MSS flow */
 		MFB_WR32(MSSTOP_DMA_STOP_REG, 0x100);
@@ -1890,13 +1891,13 @@ static inline void MSF_Reset(void)
 
 	LOG_DBG("- E.");
 	LOG_DBG(" MSF Reset start!\n");
-	spin_lock(&(MFBInfo.SpinLockMFBRef));
+	mutex_lock(&(MutexMFBRef));
 
 	if (MFBInfo.UserCount > 1) {
-		spin_unlock(&(MFBInfo.SpinLockMFBRef));
+		mutex_unlock(&(MutexMFBRef));
 		LOG_DBG("Curr UserCount(%d) users exist", MFBInfo.UserCount);
 	} else {
-		spin_unlock(&(MFBInfo.SpinLockMFBRef));
+		mutex_unlock(&(MutexMFBRef));
 
 		/* Reset MSF flow */
 		MFB_WR32(MFBTOP_DMA_STOP_REG, 0x80000000);
@@ -3725,7 +3726,7 @@ static signed int MFB_open(struct inode *pInode, struct file *pFile)
 
 
 	/*  */
-	spin_lock(&(MFBInfo.SpinLockMFBRef));
+	mutex_lock(&(MutexMFBRef));
 
 	pFile->private_data = NULL;
 	pFile->private_data =
@@ -3746,7 +3747,7 @@ static signed int MFB_open(struct inode *pInode, struct file *pFile)
 	/*  */
 	if (MFBInfo.UserCount > 0) {
 		MFBInfo.UserCount++;
-		spin_unlock(&(MFBInfo.SpinLockMFBRef));
+		mutex_unlock(&(MutexMFBRef));
 		LOG_DBG(
 			"Curr UserCount(%d), (process, pid, tgid)=(%s, %d, %d), users exist",
 			MFBInfo.UserCount, current->comm,
@@ -3772,7 +3773,7 @@ static signed int MFB_open(struct inode *pInode, struct file *pFile)
 		qos_total = 0;
 		for (j = 0; j < 4; j++)
 			qos_scen[j] = 0;
-		spin_unlock(&(MFBInfo.SpinLockMFBRef));
+		mutex_unlock(&(MutexMFBRef));
 		LOG_INF(
 			"%s + 1st UserCount(%d), (process, pid, tgid)=(%s, %d, %d)",
 			__func__, MFBInfo.UserCount, current->comm,
@@ -3828,11 +3829,11 @@ static signed int MFB_release(struct inode *pInode, struct file *pFile)
 		pFile->private_data = NULL;
 	}
 	/*  */
-	spin_lock(&(MFBInfo.SpinLockMFBRef));
+	mutex_lock(&(MutexMFBRef));
 	MFBInfo.UserCount--;
 
 	if (MFBInfo.UserCount > 0) {
-		spin_unlock(&(MFBInfo.SpinLockMFBRef));
+		mutex_unlock(&(MutexMFBRef));
 		LOG_DBG(
 			"Curr UserCount(%d), (process, pid, tgid)=(%s, %d, %d), users exist",
 			MFBInfo.UserCount, current->comm,
@@ -3845,7 +3846,7 @@ static signed int MFB_release(struct inode *pInode, struct file *pFile)
 		mfb_unregister_requests(&vmss_reqs);
 		mfb_unregister_requests(&vmsf_reqs);
 
-		spin_unlock(&(MFBInfo.SpinLockMFBRef));
+		mutex_unlock(&(MutexMFBRef));
 		LOG_INF(
 			"%s - last UserCount(%d), (process, pid, tgid)=(%s, %d, %d)",
 			__func__, MFBInfo.UserCount, current->comm,
@@ -4204,7 +4205,6 @@ static signed int MFB_probe(struct platform_device *pDev)
 		}
 
 		/* Init spinlocks */
-		spin_lock_init(&(MFBInfo.SpinLockMFBRef));
 		spin_lock_init(&(MFBInfo.SpinLockMFB));
 		for (n = 0; n < MFB_IRQ_TYPE_AMOUNT; n++)
 			spin_lock_init(&(MFBInfo.SpinLockIrq[n]));
@@ -4238,9 +4238,9 @@ static signed int MFB_probe(struct platform_device *pDev)
 				MFB_tasklet[i].tkt_cb, 0);
 
 		/* Init MFBInfo */
-		spin_lock(&(MFBInfo.SpinLockMFBRef));
+		mutex_lock(&(MutexMFBRef));
 		MFBInfo.UserCount = 0;
-		spin_unlock(&(MFBInfo.SpinLockMFBRef));
+		mutex_unlock(&(MutexMFBRef));
 		/*  */
 		MFBInfo.IrqInfo.Mask[MFB_IRQ_TYPE_INT_MSS_ST] = INT_ST_MASK_MSS;
 		MFBInfo.IrqInfo.Mask[MFB_IRQ_TYPE_INT_MSF_ST] = INT_ST_MASK_MSF;
