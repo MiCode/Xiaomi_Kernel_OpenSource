@@ -1476,7 +1476,7 @@ static uint32_t mt6873_shift_group_get(int slave_type, uint32_t vio_idx)
 			return 2;
 		else if ((vio_idx >= 20 && vio_idx <= 21) || vio_idx == 358)
 			return 3;
-		else if (vio_idx >= 22 && vio_idx <= 237)
+		else if (vio_idx >= 22 && vio_idx <= 347)
 			return 4;
 		else if ((vio_idx >= 348 && vio_idx <= 354) ||
 				(vio_idx >= 359 && vio_idx <= 365) ||
