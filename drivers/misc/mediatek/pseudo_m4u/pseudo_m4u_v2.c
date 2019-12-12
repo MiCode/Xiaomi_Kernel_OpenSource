@@ -671,8 +671,10 @@ int pseudo_dump_all_port_status(struct seq_file *s)
 
 			regval = pseudo_readreg32(larb_base,
 					  SMI_LARB_NON_SEC_CONx(larb_port));
+#ifdef SMI_LARB_SEC_CON_EN
 			regval_sec = pseudo_readreg32(larb_base,
 					  SMI_LARB_SEC_CONx(larb_port));
+#endif
 			M4U_PRINT_SEQ(s,
 					"port%d:	%s	-- normal:0x%x,	secure:0x%x	mmu:0x%x,	bit32:0x%x\n",
 					larb_port,
@@ -2394,6 +2396,7 @@ int m4u_config_port(struct M4U_PORT_STRUCT *pM4uPort)
 
 void pseudo_m4u_bank_irq_debug(unsigned int domain)
 {
+#ifdef SMI_LARB_SEC_CON_EN
 	int i, j, ret = 0;
 	unsigned int count = 0;
 
@@ -2416,6 +2419,9 @@ void pseudo_m4u_bank_irq_debug(unsigned int domain)
 		}
 		larb_clock_off(i, 1);
 	}
+#else
+	pr_notice("%s, this fun is not support!!!\n", __func__);
+#endif
 }
 
 void pseudo_m4u_db_debug(unsigned int m4uid,
@@ -3326,10 +3332,12 @@ static int pseudo_probe(struct platform_device *pdev)
 #ifndef CONFIG_FPGA_EARLY_PORTING
 		count = mtk_iommu_get_larb_port_count(i);
 		for (j = 0; j < count; j++) {
+#ifdef SMI_LARB_SEC_CON_EN
 			pseudo_set_reg_by_mask(pseudo_larbbase[i],
 							   SMI_LARB_SEC_CONx(j),
 							   F_SMI_DOMN(0x7),
 							   F_SMI_DOMN(0x4));
+#endif
 			// MDP path config
 			if (m4u_port_id_of_mdp(i, j))
 				pseudo_set_reg_by_mask(

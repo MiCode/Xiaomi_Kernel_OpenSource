@@ -44,6 +44,11 @@
 #endif
 #endif
 
+/* Notice: mt6885 can use it in normal world, but from mt6873,
+ * 0xf80 is not support in normal world.
+ */
+#define SMI_LARB_SEC_CON_EN
+
 #define M4U_PAGE_SIZE	0x1000
 
 #define M4U_DEVNAME "m4u"
@@ -293,10 +298,11 @@ int pseudo_dump_iova_reserved_region(struct seq_file *s);
 #define F_SMI_ADDR_BIT32	F_MSK(15, 8)
 #define F_SMI_ADDR_BIT32_VAL(regval) F_MSK_SHIFT(regval, 15, 8)
 
+#ifdef SMI_LARB_SEC_CON_EN
 #define SMI_LARB_SEC_CONx(larb_port)	(0xf80 + ((larb_port)<<2))
 #define F_SMI_SEC_MMU_EN(en)	F_BIT_VAL(en, 0)
 #define F_SMI_SEC_EN(sec)	F_BIT_VAL(sec, 1)
 #define F_SMI_DOMN(domain)	F_VAL(domain, 8, 4)
 #define F_SMI_DOMN_VAL(regval)	F_MSK_SHIFT(regval, 8, 4)
-
+#endif
 #endif
