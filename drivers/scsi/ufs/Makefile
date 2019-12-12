@@ -16,7 +16,7 @@ endif
 obj-$(CONFIG_SCSI_UFS_QCOM) += ufs-qcom.o
 obj-$(CONFIG_SCSI_UFSHCD) += ufshcd.o
 obj-$(CONFIG_UFSFEATURE) += ufsfeature.o
-obj-$(CONFIG_UFSHPB) += ufshpb.o
+obj-$(CONFIG_UFSHPB) += ufshpb.o ufshpb10.o
 obj-$(CONFIG_UFSTW) += ufstw.o
 obj-$(CONFIG_SCSI_UFSHCD_PCI) += ufshcd-pci.o
 obj-$(CONFIG_SCSI_UFSHCD_PLATFORM) += ufshcd-pltfrm.o

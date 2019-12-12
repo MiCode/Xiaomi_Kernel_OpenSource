@@ -162,10 +162,18 @@ int ufs_mtk_di_cmp(struct ufs_hba *hba, struct scsi_cmnd *cmd)
 	}
 
 	/* HPB use READ_16, Transfer_len in cmd[15]*/
-	if (cmd->cmnd[0] == READ_16)
-		blk_cnt = cmd->cmnd[15];
-	else
+	if (cmd->cmnd[0] == READ_16) {
+		if (hba->card->wmanufacturerid == UFS_VENDOR_SAMSUNG)
+			blk_cnt = cmd->cmnd[15];
+		else
+			blk_cnt = cmd->cmnd[14];  /* JEDEC version */
+#if defined(CONFIG_UFSHPB)
+	} else if (cmd->cmnd[0] == UFSHPB_READ) { /* JEDEC version */
+		blk_cnt = cmd->cmnd[14];
+#endif
+	} else {
 		blk_cnt = cmd->cmnd[8] | (cmd->cmnd[7] << 8);
+	}
 	end_lba = lba + blk_cnt;
 
 	/* Only Read10, Write10 of LU2 need to cal crc16 */
@@ -282,8 +290,8 @@ for (len = 0; len < sg->length; len = len + 0x1000, lba++) {
 			 */
 			if (end_lba != lba) {
 				dev_info(hba->dev,
-				"expect end_lba is 0x%x, but 0x%x\n",
-				 end_lba, lba);
+				"expect end_lba is 0x%x, but 0x%x, cmd=0x%x, blk_cnt=0x%x\n",
+				 end_lba, lba, cmd->cmnd[0], blk_cnt);
 			}
 		}
 	}

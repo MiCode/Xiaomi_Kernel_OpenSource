@@ -71,6 +71,9 @@
 #if defined(CONFIG_UFSFEATURE)
 #include "ufsfeature.h"
 #endif
+#if defined(CONFIG_UFSHPB)
+#include "ufshpb10.h"
+#endif
 
 /* MTK PATCH */
 #include <linux/rpmb.h>
@@ -851,6 +854,20 @@ struct ufs_hba {
 #if defined(CONFIG_UFSFEATURE)
 	struct ufsf_feature ufsf;
 #endif
+
+#if defined(CONFIG_UFSHPB)
+	/* HPB support */
+	u32 ufshpb_feat;
+	int ufshpb_state;
+	int ufshpb_max_regions;
+	struct delayed_work ufshpb_init_work;
+	bool issue_ioctl;
+	struct ufshpb10_lu *ufshpb_lup[UFS_UPIU_MAX_GENERAL_LUN];
+	struct work_struct ufshpb_eh_work;
+	u32 ufshpb_quirk;
+
+	struct scsi_device *sdev_ufs_lu[UFS_UPIU_MAX_GENERAL_LUN];
+#endif
 };
 
 /* MTK PATCH */
@@ -1089,6 +1106,10 @@ int ufshcd_comp_scsi_upiu(struct ufs_hba *hba, struct ufshcd_lrb *lrbp);
 int ufshcd_map_sg(struct ufs_hba *hba, struct ufshcd_lrb *lrbp);
 #endif
 
+#if defined(CONFIG_UFSHPB)
+int ufshcd_query_flag_retry(struct ufs_hba *hba,
+	enum query_opcode opcode, enum flag_idn idn, bool *flag_res);
+#endif
 int ufshcd_map_desc_id_to_length(struct ufs_hba *hba, enum desc_idn desc_id,
 	int *desc_length);
 

@@ -150,6 +150,9 @@ enum flag_idn {
 	QUERY_FLAG_IDN_TW_BUF_FLUSH_EN			= 0x0F,
 	QUERY_FLAG_IDN_TW_FLUSH_DURING_HIBERN = 0x10,
 #endif
+#if defined(CONFIG_UFSHPB)
+	QUERY_FLAG_IDN_HPB_RESET	= 0x11,  /* JEDEC version */
+#endif
 };
 
 /* Attribute idn for Query requests */
@@ -283,6 +286,7 @@ enum device_desc_param {
 	DEVICE_DESC_PARAM_PRDCT_REV		= 0x2A,
 #if defined(CONFIG_UFSHPB)
 	DEVICE_DESC_PARAM_HPB_VER		= 0x40,
+	DEVICE_DESC_PARAM_HPB_CONTROL		= 0x42, /* JEDEC version */
 #endif
 #if defined(CONFIG_UFSFEATURE)
 	DEVICE_DESC_PARAM_EX_FEAT_SUP		= 0x4F,
@@ -417,6 +421,9 @@ enum {
 	MASK_RSP_UPIU_DATA_SEG_LEN	= 0xFFFF,
 	MASK_RSP_EXCEPTION_EVENT        = 0x10000,
 	MASK_TM_SERVICE_RESP		= 0xFF,
+#if defined(CONFIG_UFSHPB)
+	MASK_RSP_UPIU_HPB_UPDATE_ALERT	= 0x20000, /* JEDEC version */
+#endif
 };
 
 /* Task management service response */
