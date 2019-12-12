@@ -931,49 +931,33 @@ static void blocking_camera(void)
 }
 #endif
 
-#if defined(TRACE_QOS_VALIDATION)
 static void trace_qos_validation(void)
 {
-	/* MDP/IMG have 16 threads (i.e. 16 requests for each port) */
-	const int TRACE_PORT_NUM = 500;
 	struct mm_qos_request *req = NULL;
-	s32 port_list[TRACE_PORT_NUM];
-	u32 i, j, index, larb_id, port_id;
+	u16 port_index_list[MAX_PORT_COUNT];
+	u32 i, j, port_id;
 	s32 bw;
 
 	for (i = 0; i < ARRAY_SIZE(larb_req); i++) {
 		if (!larb_req[i].port_count)
 			continue;
-		for (j = 0; j < TRACE_PORT_NUM; j++)
-			port_list[j] = -1;
+		for (j = 0; j < MAX_PORT_COUNT; j++)
+			port_index_list[j] = 0;
 		list_for_each_entry(req, &larb_req[i].larb_list, larb_node) {
-			index = 0;
 			/* Make one trace for each request instead of for each
 			 * port because it's hard to calculate data size when
 			 * one port with many requests (BW and fps are mixed)
 			 */
-			for (j = 0; j < TRACE_PORT_NUM; j++) {
-				if (port_list[j] == req->master_id)
-					index++;
-				if (port_list[j] == -1)
-					break;
-			}
-			if (j == TRACE_PORT_NUM) {
-				pr_notice("port num > port_list size");
-				break;
-			}
-			port_list[j] = req->master_id;
-			larb_id = SMI_PMQOS_LARB_DEC(req->master_id);
 			port_id = SMI_PMQOS_PORT_MASK(req->master_id);
+			port_index_list[port_id]++;
 			bw = get_comp_value(req->bw_value,
 						req->comp_type, true);
 			if (req->updated || bw > 0)
-				trace_mmqos__update_qosbw(larb_id,
-							port_id, index, bw);
+				trace_mmqos__update_qosbw(i, port_id,
+					port_index_list[port_id], bw);
 		}
 	}
 }
-#endif
 
 static inline void init_larb_list(u32 larb_id)
 {
@@ -1291,10 +1275,8 @@ void mm_qos_update_all_request(struct plist_head *owner_list)
 			larb_count++;
 		}
 	}
-#if defined(TRACE_QOS_VALIDATION)
 	if (log_level & 1 << log_qos_validation)
 		trace_qos_validation();
-#endif
 #ifdef MMDVFS_MMP
 	if (larb_count)
 		mmprofile_log_ex(

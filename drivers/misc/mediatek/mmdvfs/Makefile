@@ -53,7 +53,6 @@ SUPPORT_MMP := true
 SKIP_SMI_CONFIG := false
 QOS_BOUND_DETECT := true
 FORCE_STEP0 := false
-ccflags-y += -DTRACE_QOS_VALIDATION
 ccflags-y += -DCHECK_VOLTAGE
 ccflags-y += -DPMQOS_USE_IOMMU_PORT
 endif
