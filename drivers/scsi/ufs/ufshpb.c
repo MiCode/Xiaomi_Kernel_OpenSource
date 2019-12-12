@@ -1778,7 +1778,7 @@ static int ufshpb_execute_map_req_wait(struct ufshpb_lu *hpb,
 	struct request *req;
 	struct scsi_request *rq;
 	struct bio *bio;
-	struct scsi_sense_hdr sshdr;
+	struct scsi_sense_hdr sshdr = {0};
 	unsigned long flags;
 	int ret = 0;
 
@@ -3154,7 +3154,7 @@ static ssize_t ufshpb_sysfs_prep_disable_show(struct ufshpb_lu *hpb, char *buf)
 static ssize_t ufshpb_sysfs_prep_disable_store(struct ufshpb_lu *hpb,
 					       const char *buf, size_t cnt)
 {
-	unsigned long value;
+	unsigned long value = 0;
 
 	if (kstrtoul(buf, 0, &value))
 		return -EINVAL;
@@ -3187,7 +3187,7 @@ static ssize_t ufshpb_sysfs_map_disable_show(struct ufshpb_lu *hpb, char *buf)
 static ssize_t ufshpb_sysfs_map_disable_store(struct ufshpb_lu *hpb,
 					      const char *buf, size_t cnt)
 {
-	unsigned long value;
+	unsigned long value = 0;
 
 	if (kstrtoul(buf, 0, &value))
 		return -EINVAL;
@@ -3221,7 +3221,7 @@ static ssize_t ufshpb_sysfs_throttle_map_req_show(struct ufshpb_lu *hpb,
 static ssize_t ufshpb_sysfs_throttle_map_req_store(struct ufshpb_lu *hpb,
 						   const char *buf, size_t cnt)
 {
-	unsigned long throttle_map_req;
+	unsigned long throttle_map_req = 0;
 
 	if (kstrtoul(buf, 0, &throttle_map_req))
 		return -EINVAL;
@@ -3249,7 +3249,7 @@ static ssize_t ufshpb_sysfs_throttle_pre_req_show(struct ufshpb_lu *hpb,
 static ssize_t ufshpb_sysfs_throttle_pre_req_store(struct ufshpb_lu *hpb,
 						   const char *buf, size_t cnt)
 {
-	unsigned long throttle_pre_req;
+	unsigned long throttle_pre_req = 0;
 
 	if (kstrtoul(buf, 0, &throttle_pre_req))
 		return -EINVAL;
@@ -3276,7 +3276,7 @@ static ssize_t ufshpb_sysfs_pre_req_min_tr_len_store(struct ufshpb_lu *hpb,
 						     const char *buf,
 						     size_t count)
 {
-	unsigned long val;
+	unsigned long val = 0;
 
 	if (kstrtoul(buf, 0, &val))
 		return -EINVAL;
@@ -3310,7 +3310,7 @@ static ssize_t ufshpb_sysfs_pre_req_max_tr_len_store(struct ufshpb_lu *hpb,
 						     const char *buf,
 						     size_t count)
 {
-	unsigned long val;
+	unsigned long val = 0;
 
 	if (kstrtoul(buf, 0, &val))
 		return -EINVAL;
@@ -3340,7 +3340,7 @@ static ssize_t ufshpb_sysfs_debug_show(struct ufshpb_lu *hpb, char *buf)
 static ssize_t ufshpb_sysfs_debug_store(struct ufshpb_lu *hpb,
 					const char *buf, size_t cnt)
 {
-	unsigned long debug;
+	unsigned long debug = 0;
 
 	if (kstrtoul(buf, 0, &debug))
 		return -EINVAL;
@@ -3474,8 +3474,8 @@ static ssize_t ufshpb_sysfs_info_lba_store(struct ufshpb_lu *hpb,
 	struct ufshpb_region *rgn;
 	struct ufshpb_subregion *srgn;
 	unsigned long long ppn = 0;
-	unsigned long value, lpn, flags;
-	int rgn_idx, srgn_idx, srgn_offset, error = 0;
+	unsigned long value = 0, lpn, flags;
+	int rgn_idx = 0, srgn_idx = 0, srgn_offset = 0, error = 0;
 
 	if (kstrtoul(buf, 0, &value)) {
 		ERR_MSG("kstrtoul error");
@@ -3527,7 +3527,7 @@ out:
 static ssize_t ufshpb_sysfs_info_region_store(struct ufshpb_lu *hpb,
 					      const char *buf, size_t cnt)
 {
-	unsigned long rgn_idx;
+	unsigned long rgn_idx = 0;
 	int srgn_idx;
 
 	if (kstrtoul(buf, 0, &rgn_idx))
@@ -3556,7 +3556,7 @@ static ssize_t ufshpb_sysfs_info_region_store(struct ufshpb_lu *hpb,
 static ssize_t ufshpb_sysfs_ufshpb_release_store(struct ufshpb_lu *hpb,
 						 const char *buf, size_t cnt)
 {
-	unsigned long value;
+	unsigned long value = 0;
 
 	SYSFS_INFO("start release function");
 

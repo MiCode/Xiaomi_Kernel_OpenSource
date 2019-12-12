@@ -273,7 +273,7 @@ static inline int ufstw_read_lu_flag(struct ufstw_lu *tw, u8 idn,
 {
 	struct ufs_hba *hba = tw->ufsf->hba;
 	int err;
-	bool val;
+	bool val = 0;
 
 	pm_runtime_get_sync(hba->dev);
 	ufstw_lu_get(tw);
@@ -304,7 +304,7 @@ static int ufstw_auto_ee(struct ufsf_feature *ufsf)
 	struct ufs_hba *hba = ufsf->hba;
 	u16 mask = MASK_EE_TW;
 	u32 val;
-	int err;
+	int err = 0;
 
 	pm_runtime_get_sync(hba->dev);
 
@@ -1108,7 +1108,7 @@ static ssize_t ufstw_sysfs_show_ee_mode(struct ufstw_lu *tw, char *buf)
 static ssize_t ufstw_sysfs_store_ee_mode(struct ufstw_lu *tw,
 					 const char *buf, size_t count)
 {
-	unsigned long val;
+	unsigned long val = 0;
 
 	if (kstrtoul(buf, 0, &val))
 		return -EINVAL;
@@ -1158,7 +1158,7 @@ static ssize_t ufstw_sysfs_store_flush_during_hibern_enter(struct ufstw_lu *tw,
 							   const char *buf,
 							   size_t count)
 {
-	unsigned long val;
+	unsigned long val = 0;
 
 	if (kstrtoul(buf, 0, &val))
 		return -EINVAL;
@@ -1217,7 +1217,7 @@ static ssize_t ufstw_sysfs_show_flush_enable(struct ufstw_lu *tw, char *buf)
 static ssize_t ufstw_sysfs_store_flush_enable(struct ufstw_lu *tw,
 					      const char *buf, size_t count)
 {
-	unsigned long val;
+	unsigned long val = 0;
 
 	if (kstrtoul(buf, 0, &val))
 		return -EINVAL;
@@ -1258,7 +1258,7 @@ static ssize_t ufstw_sysfs_show_debug(struct ufstw_lu *tw, char *buf)
 static ssize_t ufstw_sysfs_store_debug(struct ufstw_lu *tw, const char *buf,
 				       size_t count)
 {
-	unsigned long val;
+	unsigned long val = 0;
 
 	if (kstrtoul(buf, 0, &val))
 		return -EINVAL;
@@ -1283,7 +1283,7 @@ static ssize_t ufstw_sysfs_show_flush_th_min(struct ufstw_lu *tw, char *buf)
 static ssize_t ufstw_sysfs_store_flush_th_min(struct ufstw_lu *tw,
 					      const char *buf, size_t count)
 {
-	unsigned long val;
+	unsigned long val = 0;
 
 	if (kstrtoul(buf, 0, &val))
 		return -EINVAL;
@@ -1316,7 +1316,7 @@ static ssize_t ufstw_sysfs_show_flush_th_max(struct ufstw_lu *tw, char *buf)
 static ssize_t ufstw_sysfs_store_flush_th_max(struct ufstw_lu *tw,
 					      const char *buf, size_t count)
 {
-	unsigned long val;
+	unsigned long val = 0;
 
 	if (kstrtoul(buf, 0, &val))
 		return -EINVAL;
@@ -1390,7 +1390,7 @@ static ssize_t ufstw_sysfs_show_tw_enable(struct ufstw_lu *tw, char *buf)
 static ssize_t ufstw_sysfs_store_tw_enable(struct ufstw_lu *tw, const char *buf,
 					   size_t count)
 {
-	unsigned long val;
+	unsigned long val = 0;
 	ssize_t ret = count;
 
 	if (kstrtoul(buf, 0, &val))
@@ -1449,7 +1449,7 @@ static ssize_t ufstw_sysfs_show_tw_mode(struct ufstw_lu *tw, char *buf)
 static ssize_t ufstw_sysfs_store_tw_mode(struct ufstw_lu *tw, const char *buf,
 					 size_t count)
 {
-	int tw_mode;
+	int tw_mode = 0;
 
 	if (kstrtouint(buf, 0, &tw_mode))
 		return -EINVAL;

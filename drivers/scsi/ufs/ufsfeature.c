@@ -293,7 +293,7 @@ void ufsf_device_check(struct ufs_hba *hba)
 {
 	struct ufsf_feature *ufsf = &hba->ufsf;
 	int ret, lun;
-	u32 status;
+	u32 status = 0;
 	u8 selector;
 
 	ufsf->slave_conf_cnt = 0;
@@ -305,8 +305,11 @@ void ufsf_device_check(struct ufs_hba *hba)
 	else
 		selector = 0;
 
-	ufshcd_query_attr(ufsf->hba, UPIU_QUERY_OPCODE_READ_ATTR,
+	ret = ufshcd_query_attr(ufsf->hba, UPIU_QUERY_OPCODE_READ_ATTR,
 			  QUERY_ATTR_IDN_SUP_VENDOR_OPTIONS, 0, 0, &status);
+	if (ret)
+		return;
+
 	INIT_INFO("UFS FEATURE SELECTOR Dev %d - D/D %d", status,
 		  selector);
 
@@ -389,6 +392,10 @@ int ufsf_query_ioctl(struct ufsf_feature *ufsf, int lun, void __user *buffer,
 
 	buf_len = (ioctl_data->idn == QUERY_DESC_IDN_STRING) ?
 		IOCTL_DEV_CTX_MAX_SIZE : QUERY_DESC_MAX_SIZE;
+	if (ioctl_data->buf_size > buf_len) {
+		err = -EINVAL;
+		goto out;
+	}
 
 	kernel_buf = kzalloc(buf_len, GFP_KERNEL);
 	if (!kernel_buf) {
