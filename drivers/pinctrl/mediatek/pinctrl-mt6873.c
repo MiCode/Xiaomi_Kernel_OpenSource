@@ -1311,7 +1311,7 @@ static const struct mtk_pin_field_calc mt6873_pin_eh_range[] = {
 static const struct mtk_eint_hw mt6873_eint_hw = {
 	.port_mask = 7,
 	.ports     = 7,
-	.ap_num    = 216,
+	.ap_num    = 224,
 	.db_cnt    = 32,
 };
 
