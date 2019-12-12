@@ -331,8 +331,6 @@ static int venc_encode(unsigned long handle,
 
 	mtk_vcodec_debug(inst, "opt %d ->", opt);
 
-	vcu_enc_set_ctx_for_gce(&inst->vcu_inst);
-
 	switch (opt) {
 	case VENC_START_OPT_ENCODE_SEQUENCE_HEADER: {
 		unsigned int bs_size_hdr = 0;
@@ -347,7 +345,11 @@ static int venc_encode(unsigned long handle,
 	}
 
 	case VENC_START_OPT_ENCODE_FRAME: {
-
+		/* only run @ worker then send ipi
+		 * VPU flush cmd binding ctx & handle
+		 * or cause cmd calllback ctx error
+		 */
+		vcu_enc_set_ctx_for_gce(&inst->vcu_inst);
 		ret = venc_encode_frame(inst, frm_buf, bs_buf,
 			&result->bs_size);
 		if (ret)
