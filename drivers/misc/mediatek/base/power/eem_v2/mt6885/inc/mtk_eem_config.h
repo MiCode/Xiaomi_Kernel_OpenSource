@@ -344,8 +344,14 @@ enum mt_cpu_dvfs_id {
 
 #define DVTFIXED_M_VAL	(0x6)
 
+#define CLAMP_VMAX_VAL_B_T			(0x60) /* volt domain: 1v */
+#define CLAMP_VMAX_VAL_B_T_AGING		(0x5C) /* volt domain: 0.975v */
+#define CLAMP_VMAX_PMIC_VAL_B_T			(0xA0) /* pmic domain: 1v */
+#define CLAMP_VMAX_PMIC_VAL_B_T_AGING	(0x9C) /* pmic domain: 0.975v */
 
-#define VMAX_VAL_B		(0x60) /* volt domain: 1v*/
+#define VMAX_VAL_B_T		(0x73) /* volt domain: 1.11875v */
+
+#define VMAX_VAL_B		(0x60) /* volt domain: 1v */
 #define VMIN_VAL_B		(0x20) /* volt domain: 0.6v*/
 #define VCO_VAL_B		(0x18) /* volt domain: 0.55v*/
 #define DVTFIXED_VAL_B	(0x6)
@@ -435,6 +441,7 @@ enum mt_cpu_dvfs_id {
 #define EXTRA_LOW_TEMP_OFF_GPU	(7)
 #define MARGIN_ADD_OFF			(5)
 #define MARGIN_CLAMP_OFF		(8)
+
 
 
 /* for EEMCTL0's setting */

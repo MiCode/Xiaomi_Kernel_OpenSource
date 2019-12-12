@@ -99,6 +99,8 @@ static int eem_init1stress_en, testCnt;
 wait_queue_head_t wqStress;
 struct task_struct *threadStress;
 #endif
+static unsigned int eem_aging_enable, segCode, is_warn_on;
+static unsigned int eem_clamp_val, pmic_clamp_val;
 
 static unsigned int ctrl_EEM_Enable = 1;
 static unsigned int big_2line;
@@ -331,6 +333,8 @@ static int get_devinfo(void)
 	val[16] = get_devinfo_with_index(DEVINFO_IDX_16);
 	val[17] = get_devinfo_with_index(DEVINFO_IDX_17);
 
+	segCode = get_devinfo_with_index(DEVINFO_SEG_IDX)
+		& 0xFF;
 #if 0
 	efuse_val = get_devinfo_with_index(DEVINFO_TIME_IDX);
 	year = ((efuse_val >> 4) & 0xf) + 2018;
@@ -1320,7 +1324,7 @@ static void get_volt_table_in_thread(struct eem_det *det)
 	struct eem_det *ndet = det;
 	unsigned int i, verr = 0;
 	int low_temp_offset = 0, rm_dvtfix_offset = 0;
-	unsigned int t_clamp = 0, final_clamp_val;
+	unsigned int t_clamp = 0, final_clamp_val, bcpu_opp0_eemv;
 #if ENABLE_GPU
 	int extra_aging = 0;
 #endif
@@ -1626,6 +1630,27 @@ static void get_volt_table_in_thread(struct eem_det *det)
 			break;
 
 		case EEM_CTRL_B:
+			if ((i == 0) && (det->loo_role == HIGH_BANK) &&
+				(segCode == 0x10) && (is_warn_on < 300)) {
+				bcpu_opp0_eemv =
+					det->volt_tbl[0] + rm_dvtfix_offset;
+				if (bcpu_opp0_eemv > eem_clamp_val) {
+					if (((is_warn_on % 50) == 0) &&
+						(is_warn_on >= 140)) {
+						eem_error(
+			"BCPU OPP0 volt out of range:%d\n",
+						det->ops->pmic_2_volt(det,
+						det->ops->eem_2_pmic(det,
+						bcpu_opp0_eemv)));
+						aee_kernel_warning("[EEM]BCPU OPP0 volt out of range",
+			"@%s():%d; BCPU OPP0 volt out of range:0x%x",
+			__func__, __LINE__,
+			bcpu_opp0_eemv);
+					}
+					is_warn_on++;
+				}
+			}
+
 			ndet->volt_tbl_pmic[i] = min(
 			(unsigned int)(clamp(
 				ndet->ops->eem_2_pmic(ndet,
@@ -1635,6 +1660,10 @@ static void get_volt_table_in_thread(struct eem_det *det)
 				ndet->ops->eem_2_pmic(ndet, ndet->VMIN),
 				ndet->ops->eem_2_pmic(ndet, ndet->VMAX))),
 				final_clamp_val);
+
+			if (segCode == 0x10)
+				if (ndet->volt_tbl_pmic[i] > pmic_clamp_val)
+					ndet->volt_tbl_pmic[i] = pmic_clamp_val;
 			break;
 
 		case EEM_CTRL_CCI:
@@ -2127,6 +2156,9 @@ static void eem_init_det(struct eem_det *det, struct eem_devinfo *devinfo)
 			det->loo_role = NO_LOO_BANK;
 		}
 #endif
+		if (segCode == 0x10)
+			det->VMAX = VMAX_VAL_B_T;
+
 		det->VMAX += det->DVTFIXED;
 		break;
 	case EEM_DET_CCI:
@@ -3659,6 +3691,23 @@ static int eem_probe(struct platform_device *pdev)
 #ifdef CONFIG_EEM_AEE_RR_REC
 		_mt_eem_aee_init();
 #endif
+#if defined(CONFIG_ARM64) && defined(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES)
+	if (strstr(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES,
+						"aging") != NULL) {
+		eem_debug("@%s: AGING flavor name: %s\n",
+			__func__, CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES);
+		eem_aging_enable = 1;
+	}
+#endif
+
+	if (eem_aging_enable) {
+		eem_clamp_val = CLAMP_VMAX_VAL_B_T_AGING;
+		pmic_clamp_val = CLAMP_VMAX_PMIC_VAL_B_T_AGING;
+	} else {
+		eem_clamp_val = CLAMP_VMAX_VAL_B_T;
+		pmic_clamp_val = CLAMP_VMAX_PMIC_VAL_B_T;
+	}
+
 
 	for_each_ctrl(ctrl)
 		eem_init_ctrl(ctrl);
