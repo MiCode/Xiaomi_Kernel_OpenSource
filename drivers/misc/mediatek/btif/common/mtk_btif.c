@@ -212,6 +212,7 @@ static int mtk_btif_dbg_lvl = BTIF_LOG_INFO;
 #if BTIF_RXD_BE_BLOCKED_DETECT
 static struct timeval btif_rxd_time_stamp[MAX_BTIF_RXD_TIME_REC];
 #endif
+static dma_addr_t g_dma_addr;
 /*-----------Platform bus related structures----------------*/
 #define DRV_NAME "mtk_btif"
 
@@ -1135,14 +1136,9 @@ unsigned int btif_dma_rx_data_receiver(struct _MTK_DMA_INFO_STR_ *p_dma_info,
 	unsigned int index = 0;
 	struct _mtk_btif_ *p_btif = &(g_btif[index]);
 
-#if 0
-	_btif_dump_memory("<DMA Rx>", p_buf, buf_len);
-#endif
-#ifdef CONFIG_ARM64
-	__dma_unmap_area((void *)p_buf, buf_len, DMA_FROM_DEVICE);
-#else
-	dma_unmap_area((void *)p_buf, buf_len, DMA_FROM_DEVICE);
-#endif
+	/* unmap dma buffer before reading */
+	dma_unmap_single(p_btif->private_data, g_dma_addr,
+			p_dma_info->p_vfifo->vfifo_size, DMA_FROM_DEVICE);
 
 	btif_bbs_write(&(p_btif->btif_buf), p_buf, buf_len);
 /*save DMA Rx packet here*/
@@ -1959,6 +1955,15 @@ static int _btif_vfifo_init(struct _mtk_btif_dma_ *p_dma)
 		return E_BTIF_FAIL;
 	}
 
+	/* get dma address for data buffer */
+	g_dma_addr = dma_map_single(p_btif->private_data, p_vfifo->p_vir_addr,
+			p_vfifo->vfifo_size, DMA_FROM_DEVICE);
+
+	if (dma_mapping_error(p_btif->private_data, g_dma_addr)) {
+		BTIF_ERR_FUNC("unable to map dma address\n");
+		return E_BTIF_NO_SPACE;
+	}
+
 	if (sizeof(dma_addr_t) == sizeof(unsigned long long))
 		BTIF_INFO_FUNC("alloc vFIFO succeed in arch64,vir addr:0x%p,"
 		"phy addr:0x%llx\n", p_vfifo->p_vir_addr, p_vfifo->phy_addr);
@@ -1992,6 +1997,9 @@ static int _btif_vfifo_deinit(struct _mtk_btif_dma_ *p_dma)
 		BTIF_WARN_FUNC("Null dev pointer!!!!\n");
 
 	p_vfifo = p_dma->p_dma_info->p_vfifo;
+
+	dma_unmap_single(p_btif->private_data, g_dma_addr,
+			p_vfifo->vfifo_size, DMA_FROM_DEVICE);
 
 /*free DMA memory if allocated successfully before*/
 	if (p_vfifo->p_vir_addr != NULL) {
