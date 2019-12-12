@@ -24,7 +24,11 @@
 #include <linux/suspend.h>
 #include <linux/arm-smccc.h> /* for Kernel Native SMC API */
 #include <mt-plat/mtk_secure_api.h> /* for SMC ID table */
-#include <mt6885-afe-common.h>
+#include <mt6873-afe-common.h>
+
+#ifdef CONFIG_MTK_AEE_FEATURE
+#include <mt-plat/aee.h>
+#endif
 
 struct wait_queue_head adsp_waitq;
 struct workqueue_struct *adsp_wq;
@@ -120,10 +124,12 @@ static void adsp_check_dram_watch_region(void)
 				pdata->watch_offset, pdata->watch_size);
 
 		if (ret && !err_flag) {
+#ifdef CONFIG_MTK_AEE_FEATURE
 			aee_kernel_exception_api(__FILE__, __LINE__,
 						DB_OPT_DEFAULT,
 						"[ADSP]",
 						"ADSP Memory Corruption");
+#endif
 			err_flag = true;
 		}
 	}
@@ -232,6 +238,7 @@ bool is_adsp_load(void)
 
 static int adsp_after_bootup(struct adsp_priv *pdata)
 {
+	/* temp for bringup*/
 	_adsp_register_feature(pdata->id, SYSTEM_FEATURE_ID, 0);
 	return adsp_awake_unlock(pdata->id);
 }
