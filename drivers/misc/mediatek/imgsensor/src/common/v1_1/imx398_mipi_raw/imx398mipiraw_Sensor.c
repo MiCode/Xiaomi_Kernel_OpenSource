@@ -271,7 +271,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 	.min_gain = 64, /*1x gain*/
 	.max_gain = 512, /*8x gain*/
 	.min_gain_iso = 100,
-	.gain_step = 16,
+	.gain_step = 1,
 	.gain_type = 0,
 
 	/* max framelength by sensor register's limitation */
