@@ -681,14 +681,20 @@ void cm_mgr_ratio_timer_en(int enable)
 
 static struct pm_qos_request ddr_opp_req;
 struct timer_list cm_mgr_perf_timeout_timer;
+static struct delayed_work cm_mgr_timeout_work;
 #define CM_MGR_PERF_TIMEOUT_MS	msecs_to_jiffies(100)
+
+static void cm_mgr_timeout_process(struct work_struct *work)
+{
+	pm_qos_update_request(&ddr_opp_req,
+			PM_QOS_DDR_OPP_DEFAULT_VALUE);
+}
 
 static void cm_mgr_perf_timeout_timer_fn(unsigned long data)
 {
 	if (pm_qos_update_request_status) {
 		cm_mgr_dram_opp = cm_mgr_dram_opp_base = -1;
-		pm_qos_update_request(&ddr_opp_req,
-				PM_QOS_DDR_OPP_DEFAULT_VALUE);
+		schedule_delayed_work(&cm_mgr_timeout_work, 1);
 
 		pm_qos_update_request_status = 0;
 		debounce_times_perf_down_local = -1;
@@ -925,6 +931,8 @@ int cm_mgr_platform_init(void)
 	init_timer_deferrable(&cm_mgr_perf_timeout_timer);
 	cm_mgr_perf_timeout_timer.function = cm_mgr_perf_timeout_timer_fn;
 	cm_mgr_perf_timeout_timer.data = 0;
+
+	INIT_DELAYED_WORK(&cm_mgr_timeout_work, cm_mgr_timeout_process);
 
 #ifdef CONFIG_MTK_CPU_FREQ
 	mt_cpufreq_set_governor_freq_registerCB(check_cm_mgr_status);
