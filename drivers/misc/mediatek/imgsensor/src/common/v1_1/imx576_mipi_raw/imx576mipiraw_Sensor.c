@@ -468,7 +468,7 @@ static kal_uint16 gain2reg(const kal_uint16 gain)
 
 	reg_gain = 1024 - (1024*64)/gain;
 
-	LOG_INF("imx576 gain =%d, reg_gain =%d\n", gain, reg_gain);
+	/*LOG_INF("imx576 gain =%d, reg_gain =%d\n", gain, reg_gain);*/
 
 	return reg_gain;
 }
@@ -2591,7 +2591,7 @@ static void hdr_write_tri_gain(kal_uint16 lgain, kal_uint16 mg, kal_uint16 sg)
 	write_cmos_sensor_8(0x0217, reg_sg & 0xFF);
 
 	if (lgain > mg) {
-		LOG_INF("long gain > medium gain\n");
+		/*LOG_INF("long gain > medium gain\n");*/
 		write_cmos_sensor_8(0xEB06, 0x00);
 		write_cmos_sensor_8(0xEB08, 0x00);
 		write_cmos_sensor_8(0xEB0A, 0x00);
@@ -2606,7 +2606,7 @@ static void hdr_write_tri_gain(kal_uint16 lgain, kal_uint16 mg, kal_uint16 sg)
 		write_cmos_sensor_8(0xEB15, 0x10);
 		write_cmos_sensor_8(0xEB17, 0x10);
 	} else {
-		LOG_INF("long gain <= medium gain\n");
+		/*LOG_INF("long gain <= medium gain\n");*/
 		write_cmos_sensor_8(0xEB06, 0x00);
 		write_cmos_sensor_8(0xEB08, 0x00);
 		write_cmos_sensor_8(0xEB0A, 0x00);
