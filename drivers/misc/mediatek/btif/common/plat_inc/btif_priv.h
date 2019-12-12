@@ -18,10 +18,6 @@
 #define MTK_BTIF_REG_BASE BTIF_BASE
 #endif
 
-#if defined(CONFIG_MACH_MT6885)
-#define DUMP_BGF_REG
-#endif
-
 #if defined(CONFIG_MTK_CLKMGR)
 #if defined(CONFIG_ARCH_MT6580)
 #define MTK_BTIF_CG_BIT MT_CG_BTIF_SW_CG

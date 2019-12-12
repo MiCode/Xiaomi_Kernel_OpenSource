@@ -1312,9 +1312,6 @@ int hal_btif_dump_reg(struct _MTK_BTIF_INFO_STR_ *p_btif,
 			reg_map[idx] = BTIF_READ8(p_btif->base + (4 * idx));
 
 		btif_dump_array("BTIF register", reg_map, sizeof(reg_map));
-#ifdef DUMP_BGF_REG
-		btif_dump_bgf_reg();
-#endif
 		break;
 	case REG_IRQ:
 		BTIF_INFO_FUNC("IER:0x%x, IIR:0x%x, LSR:0x%x\n",
