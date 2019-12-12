@@ -134,8 +134,14 @@ struct DISP_DRE30_PARAM {
 
 void disp_aal_debug(const char *opt);
 
-// Provide for LED
+/* Provide for LED */
 void disp_aal_notify_backlight_changed(int bl_1024);
+
+/* AAL Control API in Kernel */
+void disp_aal_set_lcm_type(unsigned int panel_type);
+void disp_aal_set_ess_level(int level);
+void disp_aal_set_ess_en(int enable);
+void disp_aal_set_dre_en(int enable);
 
 int mtk_drm_ioctl_aal_eventctl(struct drm_device *dev, void *data,
 	struct drm_file *file_priv);

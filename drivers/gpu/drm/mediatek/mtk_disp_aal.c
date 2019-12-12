@@ -112,11 +112,9 @@ static atomic_t g_aal_panel_type = ATOMIC_INIT(CONFIG_BY_CUSTOM_LIB);
 static int g_aal_ess_level = ESS_LEVEL_BY_CUSTOM_LIB;
 static int g_aal_dre_en = DRE_EN_BY_CUSTOM_LIB;
 static int g_aal_ess_en = ESS_EN_BY_CUSTOM_LIB;
-#if 0
 static int g_aal_ess_level_cmd_id;
 static int g_aal_dre_en_cmd_id;
 static int g_aal_ess_en_cmd_id;
-#endif
 #define aal_min(a, b)			(((a) < (b)) ? (a) : (b))
 
 enum AAL_IOCTL_CMD {
@@ -181,10 +179,10 @@ static bool debug_flow_log;
 		pr_notice("[FLOW]%s:" fmt, __func__, ##arg); \
 	} while (0)
 
-static bool debug_backlight_log;
-#define AALBL_LOG(fmt, arg...) do { \
-	if (debug_backlight_log) \
-		pr_notice("[BL]%s:" fmt, __func__, ##arg); \
+static bool debug_api_log;
+#define AALAPI_LOG(fmt, arg...) do { \
+	if (debug_api_log) \
+		pr_notice("[API]%s:" fmt, __func__, ##arg); \
 	} while (0)
 
 static bool debug_write_cmdq_log;
@@ -329,7 +327,7 @@ static void disp_aal_notify_backlight_log(int bl_1024)
 	tusec = (unsigned long)aal_time.tv_usec / 1000;
 
 	diff_mesc = timevaldiff(&g_aal_log_prevtime, &aal_time);
-	if (!debug_backlight_log)
+	if (!debug_api_log)
 		return;
 	pr_notice("time diff = %lu\n", diff_mesc);
 
@@ -371,7 +369,7 @@ void disp_aal_notify_backlight_changed(int bl_1024)
 	int max_backlight = 0;
 	unsigned int service_flags;
 
-	AALBL_LOG("%d/1023\n", bl_1024);
+	AALAPI_LOG("%d/1023\n", bl_1024);
 	disp_aal_notify_backlight_log(bl_1024);
 	//disp_aal_exit_idle(__func__, 1);
 
@@ -436,7 +434,7 @@ int led_brightness_changed_event(struct notifier_block *nb, unsigned long event,
 			/ (led_cdev->max_brightness));
 
 		disp_aal_notify_backlight_changed(trans_level);
-		AALBL_LOG("brightness changed: %d, %d\n",
+		AALAPI_LOG("brightness changed: %d, %d\n",
 			led_cdev->brightness, trans_level);
 		break;
 	case 2:
@@ -1148,7 +1146,7 @@ int mtk_drm_ioctl_aal_set_param(struct drm_device *dev, void *data,
 	if (atomic_read(&g_aal_backlight_notified) == 0)
 		backlight_value = 0;
 
-	AALBL_LOG("%d", backlight_value);
+	AALAPI_LOG("%d", backlight_value);
 	mt_leds_brightness_set("lcd-backlight", backlight_value);
 	AALFLOW_LOG("delay refresh: %d", g_aal_param.refreshLatency);
 	if (g_aal_param.refreshLatency == 33)
@@ -2183,6 +2181,81 @@ struct platform_driver mtk_disp_aal_driver = {
 	},
 };
 
+/* Legacy AAL_SUPPORT_KERNEL_API */
+void disp_aal_set_lcm_type(unsigned int panel_type)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&g_aal_hist_lock, flags);
+	atomic_set(&g_aal_panel_type, panel_type);
+	spin_unlock_irqrestore(&g_aal_hist_lock, flags);
+
+	AALAPI_LOG("panel_type = %d", panel_type);
+}
+
+#define AAL_CONTROL_CMD(ID, CONTROL) (ID << 16 | CONTROL)
+void disp_aal_set_ess_level(int level)
+{
+	unsigned long flags;
+	int level_command = 0;
+
+	spin_lock_irqsave(&g_aal_hist_lock, flags);
+
+	g_aal_ess_level_cmd_id += 1;
+	g_aal_ess_level_cmd_id = g_aal_ess_level_cmd_id % 64;
+	level_command = AAL_CONTROL_CMD(g_aal_ess_level_cmd_id, level);
+
+	g_aal_ess_level = level_command;
+
+	spin_unlock_irqrestore(&g_aal_hist_lock, flags);
+
+	disp_aal_set_interrupt(NULL, true);
+	mtk_crtc_check_trigger(default_comp->mtk_crtc, false);
+	AALAPI_LOG("level = %d (cmd = 0x%x)", level, level_command);
+}
+
+void disp_aal_set_ess_en(int enable)
+{
+	unsigned long flags;
+	int enable_command = 0;
+	int level_command = 0;
+
+	spin_lock_irqsave(&g_aal_hist_lock, flags);
+
+	g_aal_ess_en_cmd_id += 1;
+	g_aal_ess_en_cmd_id = g_aal_ess_en_cmd_id % 64;
+	enable_command = AAL_CONTROL_CMD(g_aal_ess_en_cmd_id, enable);
+
+	g_aal_ess_en = enable_command;
+
+	spin_unlock_irqrestore(&g_aal_hist_lock, flags);
+
+	disp_aal_set_interrupt(NULL, true);
+	mtk_crtc_check_trigger(default_comp->mtk_crtc, false);
+	AALAPI_LOG("en = %d (cmd = 0x%x) level = 0x%08x (cmd = 0x%x)",
+		enable, enable_command, ESS_LEVEL_BY_CUSTOM_LIB, level_command);
+}
+
+void disp_aal_set_dre_en(int enable)
+{
+	unsigned long flags;
+	int enable_command = 0;
+
+	spin_lock_irqsave(&g_aal_hist_lock, flags);
+
+	g_aal_dre_en_cmd_id += 1;
+	g_aal_dre_en_cmd_id = g_aal_dre_en_cmd_id % 64;
+	enable_command = AAL_CONTROL_CMD(g_aal_dre_en_cmd_id, enable);
+
+	g_aal_dre_en = enable_command;
+
+	spin_unlock_irqrestore(&g_aal_hist_lock, flags);
+
+	disp_aal_set_interrupt(NULL, true);
+	mtk_crtc_check_trigger(default_comp->mtk_crtc, false);
+	AALAPI_LOG("en = %d (cmd = 0x%x)", enable, enable_command);
+}
+
 void disp_aal_debug(const char *opt)
 {
 	pr_notice("[debug]: %s\n", opt);
@@ -2217,10 +2290,10 @@ void disp_aal_debug(const char *opt)
 		debug_flow_log = strncmp(opt + 9, "1", 1) == 0;
 		pr_notice("[debug] debug_flow_log=%d\n",
 			debug_flow_log);
-	} else if (strncmp(opt, "backlight_log:", 14) == 0) {
-		debug_backlight_log = strncmp(opt + 14, "1", 1) == 0;
-		pr_notice("[debug] debug_backlight_log=%d\n",
-			debug_backlight_log);
+	} else if (strncmp(opt, "api_log:", 8) == 0) {
+		debug_api_log = strncmp(opt + 8, "1", 1) == 0;
+		pr_notice("[debug] debug_api_log=%d\n",
+			debug_api_log);
 	} else if (strncmp(opt, "write_cmdq_log:", 15) == 0) {
 		debug_write_cmdq_log = strncmp(opt + 15, "1", 1) == 0;
 		pr_notice("[debug] debug_write_cmdq_log=%d\n",
@@ -2237,6 +2310,26 @@ void disp_aal_debug(const char *opt)
 		debug_dump_input_param = strncmp(opt + 17, "1", 1) == 0;
 		pr_notice("[debug] debug_dump_input_param=%d\n",
 			debug_dump_input_param);
+	} else if (strncmp(opt, "set_ess_level:", 14) == 0) {
+		int debug_ess_level;
+
+		if (sscanf(opt + 14, "%d", &debug_ess_level) == 1) {
+			pr_notice("[debug] ess_level=%d\n", debug_ess_level);
+			disp_aal_set_ess_level(debug_ess_level);
+		} else
+			pr_notice("[debug] set_ess_level failed\n");
+	} else if (strncmp(opt, "set_ess_en:", 11) == 0) {
+		bool debug_ess_en;
+
+		debug_ess_en = !strncmp(opt + 11, "1", 1);
+		pr_notice("[debug] debug_ess_en=%d\n", debug_ess_en);
+		disp_aal_set_ess_en(debug_ess_en);
+	} else if (strncmp(opt, "set_dre_en:", 11) == 0) {
+		bool debug_dre_en;
+
+		debug_dre_en = !strncmp(opt + 11, "1", 1);
+		pr_notice("[debug] debug_dre_en=%d\n", debug_dre_en);
+		disp_aal_set_dre_en(debug_dre_en);
 	} else if (strncmp(opt, "debugdump:", 10) == 0) {
 		pr_notice("[debug] skip_set_param=%d\n",
 			debug_skip_set_param);
@@ -2252,8 +2345,8 @@ void disp_aal_debug(const char *opt)
 			debug_skip_first_br);
 		pr_notice("[debug] debug_flow_log=%d\n",
 			debug_flow_log);
-		pr_notice("[debug] debug_backlight_log=%d\n",
-			debug_backlight_log);
+		pr_notice("[debug] debug_api_log=%d\n",
+			debug_api_log);
 		pr_notice("[debug] debug_write_cmdq_log=%d\n",
 			debug_write_cmdq_log);
 		pr_notice("[debug] debug_irq_log=%d\n",
@@ -2262,5 +2355,8 @@ void disp_aal_debug(const char *opt)
 			debug_dump_aal_hist);
 		pr_notice("[debug] debug_dump_input_param=%d\n",
 			debug_dump_input_param);
+		pr_notice("[debug] debug_ess_level=%d\n", g_aal_ess_level);
+		pr_notice("[debug] debug_ess_en=%d\n", g_aal_ess_en);
+		pr_notice("[debug] debug_dre_en=%d\n", g_aal_dre_en);
 	}
 }
