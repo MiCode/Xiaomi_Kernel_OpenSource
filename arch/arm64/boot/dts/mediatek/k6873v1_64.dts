@@ -34,10 +34,6 @@
 		"nt35595_fhd_dsi_cmd_truly_nt50358_drv";
 };
 
-&timer {
-	clock-frequency = <150000000>;
-};
-
 &odm {
 	led0:led@0 {
 		compatible = "mediatek,red";
