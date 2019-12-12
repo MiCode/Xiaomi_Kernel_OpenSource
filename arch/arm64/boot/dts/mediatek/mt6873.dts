@@ -1601,6 +1601,7 @@
 		<0 0x10721000 0 0x1000>,	 /* clk*/
 		<0 0x10730000 0 0x1000>,	 /* cfg core0 */
 		<0 0x10740000 0 0x1000>,	 /* cfg core1 */
+		<0 0x10752000 0 0x1000>,	 /* bus tracker */
 		<0 0x10760000 0 0x40000>,	 /* llc */
 		<0 0x107a5000 0 0x4>,		 /* cfg_sec */
 		<0 0x107fb000 0 0x100>,		 /* mbox0 base */
@@ -1629,6 +1630,7 @@
 			"scp_clkreg",
 			"scp_cfgreg_core0",
 			"scp_cfgreg_core1",
+			"scp_bus_tracker",
 			"scp_l1creg",
 			"scp_cfgreg_sec",
 			"mbox0_base",
@@ -1652,13 +1654,13 @@
 			"mbox4_clr",
 			"mbox4_init";
 
-		interrupts = <GIC_SPI 434 IRQ_TYPE_LEVEL_HIGH>,
-			<GIC_SPI 435 IRQ_TYPE_LEVEL_HIGH>,
+		interrupts = <GIC_SPI 435 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 436 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 437 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 438 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 439 IRQ_TYPE_LEVEL_HIGH>,
-			<GIC_SPI 440 IRQ_TYPE_LEVEL_HIGH>;
+			<GIC_SPI 440 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 441 IRQ_TYPE_LEVEL_HIGH>;
 
 		 interrupt-names = "ipc0",
 			"ipc1",
