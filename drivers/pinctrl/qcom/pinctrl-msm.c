@@ -1478,6 +1478,7 @@ int msm_qup_write(u32 mode, u32 val)
 
 	return -ENOENT;
 }
+EXPORT_SYMBOL(msm_qup_write);
 
 int msm_qup_read(unsigned int mode)
 {
@@ -1496,6 +1497,7 @@ int msm_qup_read(unsigned int mode)
 
 	return -ENOENT;
 }
+EXPORT_SYMBOL(msm_qup_read);
 
 int msm_pinctrl_probe(struct platform_device *pdev,
 		      const struct msm_pinctrl_soc_data *soc_data)
