@@ -172,9 +172,10 @@ void mtk_enc_put_buf(struct mtk_vcodec_ctx *ctx)
 		} else if (src_vb2_v4l2 == NULL && dst_vb2_v4l2 != NULL) {
 			dst_buf = &dst_vb2_v4l2->vb2_buf;
 			dst_buf->planes[0].bytesused = rResult.bs_size;
-			dst_vb2_v4l2->flags |= V4L2_BUF_FLAG_LAST;
 			v4l2_m2m_buf_done(dst_vb2_v4l2,
 					VB2_BUF_STATE_DONE);
+			mtk_v4l2_debug(0, "[Warning] bs size=%d, frm NULL!!",
+				rResult.bs_size);
 		} else {
 			if (src_vb2_v4l2 == NULL)
 				mtk_v4l2_debug(1, "NULL enc src buffer\n");
@@ -1375,7 +1376,7 @@ static int vidioc_encoder_cmd(struct file *file, void *priv,
 	if (ret)
 		return ret;
 
-	mtk_v4l2_debug(0, "encoder cmd= %u", cmd->cmd);
+	mtk_v4l2_debug(0, "[%d] encoder cmd= %u", ctx->id, cmd->cmd);
 	dst_vq = v4l2_m2m_get_vq(ctx->m2m_ctx,
 		V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
 	switch (cmd->cmd) {
