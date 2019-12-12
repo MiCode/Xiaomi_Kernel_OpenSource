@@ -799,6 +799,10 @@ void mt_gpufreq_power_control(enum mt_power_state power, enum mt_cg_state cg,
 
 		gpu_dvfs_vgpu_footprint(GPU_DVFS_VGPU_STEP_4);
 	} else {
+#if MT_GPUFREQ_DFD_ENABLE
+		mt_gpufreq_set_dfd(false);
+#endif
+
 		gpu_dvfs_vgpu_footprint(GPU_DVFS_VGPU_STEP_5);
 
 		if (cg == CG_OFF)
@@ -813,10 +817,6 @@ void mt_gpufreq_power_control(enum mt_power_state power, enum mt_cg_state cg,
 
 		if (buck == BUCK_OFF)
 			mt_gpufreq_buck_control(power);
-
-#if MT_GPUFREQ_DFD_ENABLE
-		mt_gpufreq_set_dfd(false);
-#endif
 
 		gpu_dvfs_vgpu_footprint(GPU_DVFS_VGPU_STEP_8);
 	}
