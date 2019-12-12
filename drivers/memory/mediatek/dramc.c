@@ -524,12 +524,14 @@ static unsigned int fmeter_v1(struct dramc_dev_t *dramc_dev_ptr)
  */
 unsigned int mtk_dramc_get_data_rate(void)
 {
-	struct dramc_dev_t *dramc_dev_ptr =
-		(struct dramc_dev_t *)platform_get_drvdata(dramc_pdev);
+	struct dramc_dev_t *dramc_dev_ptr;
 	struct fmeter_dev_t *fmeter_dev_ptr;
 
-	if (!dramc_dev_ptr)
+	if (!dramc_pdev)
 		return 0;
+
+	dramc_dev_ptr =
+		(struct dramc_dev_t *)platform_get_drvdata(dramc_pdev);
 
 	fmeter_dev_ptr = (struct fmeter_dev_t *)dramc_dev_ptr->fmeter_dev_ptr;
 	if (!fmeter_dev_ptr)
@@ -560,12 +562,14 @@ static unsigned int mr4_v1(struct dramc_dev_t *dramc_dev_ptr, unsigned int ch)
  */
 unsigned int mtk_dramc_get_mr4(unsigned int ch)
 {
-	struct dramc_dev_t *dramc_dev_ptr =
-		(struct dramc_dev_t *)platform_get_drvdata(dramc_pdev);
+	struct dramc_dev_t *dramc_dev_ptr;
 	struct mr4_dev_t *mr4_dev_ptr;
 
-	if (!dramc_dev_ptr)
+	if (!dramc_pdev)
 		return 0;
+
+	dramc_dev_ptr =
+		(struct dramc_dev_t *)platform_get_drvdata(dramc_pdev);
 
 	mr4_dev_ptr = (struct mr4_dev_t *)dramc_dev_ptr->mr4_dev_ptr;
 	if (!mr4_dev_ptr)
@@ -588,7 +592,11 @@ EXPORT_SYMBOL(mtk_dramc_get_mr4);
  */
 unsigned int mtk_dramc_get_ddr_type(void)
 {
-	struct dramc_dev_t *dramc_dev_ptr =
+	struct dramc_dev_t *dramc_dev_ptr;
+
+	if (!dramc_pdev)
+		return 0;
+	dramc_dev_ptr =
 		(struct dramc_dev_t *)platform_get_drvdata(dramc_pdev);
 
 	return dramc_dev_ptr->dram_type;
