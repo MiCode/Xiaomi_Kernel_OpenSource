@@ -14,11 +14,13 @@ static void mtk_lpm_timer_tm_func(unsigned long data)
 	int ret = -EINVAL;
 	struct mt_lpm_timer *timer =
 			(struct mt_lpm_timer *)data;
-	unsigned long dur = jiffies - timer->cur;
 
-	if (timer && timer->timeout)
+	if (timer && timer->timeout) {
+		unsigned long dur = jiffies - timer->cur;
+
 		ret = timer->timeout(MTK_LPM_TIMER_GET_TIME(dur),
 					timer->priv);
+	}
 
 	if (ret)
 		return;
