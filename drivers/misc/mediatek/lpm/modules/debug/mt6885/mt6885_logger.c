@@ -93,6 +93,22 @@ struct spm_wakesrc_irq_list mt6885_spm_wakesrc_irqs[] = {
 	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,wifi", 0, 0},
 	/* wlan0 */
 	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,wifi", 1, 0},
+	/* fm */
+	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,fm", 0, 0},
+	/* gps */
+	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,mt6885-gps", 0, 0},
+	/* gps */
+	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,mt6885-gps", 1, 0},
+	/* gps */
+	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,mt6885-gps", 2, 0},
+	/* gps */
+	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,mt6885-gps", 3, 0},
+	/* gps */
+	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,mt6885-gps", 4, 0},
+	/* gps */
+	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,mt6885-gps", 5, 0},
+	/* gps */
+	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,mt6885-gps", 6, 0},
 	/* mt6358-irq */
 	{ WAKE_SRC_STA1_EINT_EVENT_B, "mediatek,apirq", 0, 0},
 	/* CCIF_AP_DATA */
