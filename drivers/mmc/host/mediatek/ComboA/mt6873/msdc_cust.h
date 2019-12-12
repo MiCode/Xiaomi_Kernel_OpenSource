@@ -20,7 +20,7 @@
 #endif
 
 #include <dt-bindings/mmc/mt6873-msdc.h>
-#define CONFIG_MTK_MSDC_BRING_UP_BYPASS
+//#define CONFIG_MTK_MSDC_BRING_UP_BYPASS
 #if !defined(FPGA_PLATFORM)
 #include <dt-bindings/clock/mt6873-clk.h>
 #endif
@@ -396,23 +396,23 @@
 #define MSDC1_TDSEL0_ALL_MASK_1		(0xFF << 0)
 
 /* MSDC1 RDSEL0 mask*/
-#define MSDC1_RDSEL0_CMD_MASK		(0x3F << 8)
-#define MSDC1_RDSEL0_CLK_MASK		(0x3F << 14)
-#define MSDC1_RDSEL0_DAT0_MASK		(0xF << 24)
-#define MSDC1_RDSEL0_DAT1_MASK		(0xF << 28)
-#define MSDC1_RDSEL0_DAT_MASK_0		(0xFF << 24)
-#define MSDC1_RDSEL0_ALL_MASK_0		(0x3FFFF << 12)
+#define MSDC1_RDSEL0_CMD_MASK		(0x3F << 14)
+#define MSDC1_RDSEL0_CLK_MASK		(0x3F << 8)
+#define MSDC1_RDSEL0_DAT0_MASK		(0x3F << 20)
+#define MSDC1_RDSEL0_DAT1_MASK		(0x3F << 26)
+#define MSDC1_RDSEL0_DAT_MASK_0		(0xFFF << 20)
+#define MSDC1_RDSEL0_ALL_MASK_0		(0xFFFFFF << 8)
 /* MSDC1 RDSEL0_1 mask*/
-#define MSDC1_RDSEL0_DAT2_MASK		(0xF << 0)
-#define MSDC1_RDSEL0_DAT3_MASK		(0xF << 4)
-#define MSDC1_RDSEL0_DAT_MASK_1		(0xFF << 0)
-#define MSDC1_RDSEL0_ALL_MASK_1		(0xFF << 0)
+#define MSDC1_RDSEL0_DAT2_MASK		(0x3F << 0)
+#define MSDC1_RDSEL0_DAT3_MASK		(0x3F << 6)
+#define MSDC1_RDSEL0_DAT_MASK_1		(0xFFF << 0)
+#define MSDC1_RDSEL0_ALL_MASK_1		(0xFFF << 0)
 
 /* MSDC1 DRV0 mask*/
-#define MSDC1_DRV0_DAT_MASK		(0x7 << 27)
+#define MSDC1_DRV0_DAT_MASK		(0xFFF << 18)
 #define MSDC1_DRV0_CMD_MASK		(0x7 << 15)
 #define MSDC1_DRV0_CLK_MASK		(0x7 << 12)
-#define MSDC1_DRV0_ALL_MASK		(0x1FF << 12)
+#define MSDC1_DRV0_ALL_MASK		(0x3FFFF << 12)
 /* MSDC1 PUPD mask*/
 #define MSDC1_PUPD_DAT3_MASK		(0x1  << 5)
 #define MSDC1_PUPD_DAT2_MASK		(0x1  << 4)

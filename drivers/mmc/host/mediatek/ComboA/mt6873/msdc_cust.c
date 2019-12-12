@@ -913,10 +913,10 @@ void msdc_dump_padctl_by_id(char **buff, unsigned long *size,
 			"MSDC0 MODE24 [0x%p] =0x%8x\tshould: 0x?????111\n",
 			MSDC0_GPIO_MODE24, MSDC_READ32(MSDC0_GPIO_MODE24));
 		SPREAD_PRINTF(buff, size, m,
-			"MSDC0 IES    [0x%p] =0x%8x\tshould: 0x3FFC????\n",
+			"MSDC0 IES    [0x%p] =0x%8x\tshould: 0x?????FFF\n",
 			MSDC0_GPIO_IES, MSDC_READ32(MSDC0_GPIO_IES));
 		SPREAD_PRINTF(buff, size, m,
-			"MSDC0 SMT    [0x%p] =0x%8x\tshould: 0x??????7C\n",
+			"MSDC0 SMT    [0x%p] =0x%8x\tshould: 0x?????FFF\n",
 			MSDC0_GPIO_SMT, MSDC_READ32(MSDC0_GPIO_SMT));
 		SPREAD_PRINTF(buff, size, m,
 			"MSDC0 TDSEL0 [0x%p] =0x%8x, [0x%p] =0x%8x\n",
@@ -964,10 +964,10 @@ void msdc_dump_padctl_by_id(char **buff, unsigned long *size,
 			"MSDC1 MODE7  [0x%p] =0x%8x\tshould: 0x???????1\n",
 			MSDC1_GPIO_MODE7, MSDC_READ32(MSDC1_GPIO_MODE7));
 		SPREAD_PRINTF(buff, size, m,
-			"MSDC1 IES    [0x%p] =0x%8x\t  21-16bits should: 2b111111\n",
+			"MSDC1 IES    [0x%p] =0x%8x\t  14-9bits should: 2b111111\n",
 			MSDC1_GPIO_IES, MSDC_READ32(MSDC1_GPIO_IES));
 		SPREAD_PRINTF(buff, size, m,
-			"MSDC1 SMT    [0x%p] =0x%8x\t  8-6bits should: 2b111\n",
+			"MSDC1 SMT    [0x%p] =0x%8x\t  9-4bits should: 2b111111\n",
 			MSDC1_GPIO_SMT, MSDC_READ32(MSDC1_GPIO_SMT));
 		SPREAD_PRINTF(buff, size, m,
 			"MSDC1 TDSEL0 [0x%p] =0x%8x, [0x%p] =0x%8x\n",
@@ -1090,11 +1090,11 @@ void msdc_set_smt_by_id(u32 id, int set_smt)
 {
 	if (id == 0) {
 		MSDC_SET_FIELD(MSDC0_GPIO_SMT, MSDC0_SMT_ALL_MASK,
-			(set_smt ? 0xF : 0));
+			(set_smt ? 0xFFF : 0));
 	} else if (id == 1) {
 #ifndef SD_GPIO_PAD_A_EN
 		MSDC_SET_FIELD(MSDC1_GPIO_SMT, MSDC1_SMT_ALL_MASK,
-			(set_smt ? 0x7 : 0));
+			(set_smt ? 0x3F : 0));
 #else
 		MSDC_SET_FIELD(MSDC1_GPIO_SMT_A, MSDC1_SMT_ALL_MASK_A,
 			(set_smt ? 0x7 : 0));
