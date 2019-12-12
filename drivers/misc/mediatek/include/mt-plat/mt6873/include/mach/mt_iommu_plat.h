@@ -19,7 +19,9 @@
 //#define MTK_APU_TFRP_SUPPORT no need for mt6873
 
 #define MTK_IOMMU_SIZE_NOT_ALIGNMENT
-
+#ifndef CONFIG_FPGA_EARLY_PORTING
+#define MTK_IOMMU_BANK_IRQ_SUPPORT
+#endif
 #ifdef IOMMU_POWER_CLK_SUPPORT
 #define MTK_IOMMU_LOW_POWER_SUPPORT
 #include "clk-mt6873-pg.h"
@@ -39,6 +41,8 @@ enum subsys_id iommu_mtcmos_subsys[MTK_IOMMU_M4U_COUNT] = {
 #elif defined(CONFIG_MTK_GZ_SUPPORT_SDSP)
 #define MTK_M4U_SECURE_IRQ_SUPPORT
 #endif
+#elif defined(MTK_IOMMU_BANK_IRQ_SUPPORT)
+#define MTK_M4U_SECURE_IRQ_SUPPORT
 #endif
 
 #define MMU0_SET_ORDER		7
@@ -79,6 +83,11 @@ char *iommu_secure_compatible[MTK_IOMMU_M4U_COUNT] = {
 #else
 char *iommu_secure_compatible[MTK_IOMMU_M4U_COUNT] = {
 	"mediatek,sec_m4u0", "mediatek,sec_m4u1",
+};
+
+char *iommu_bank_compatible[MTK_IOMMU_M4U_COUNT][MTK_IOMMU_BANK_NODE_COUNT] = {
+	{"mediatek,bank1_m4u0", "mediatek,bank2_m4u0", "mediatek,bank3_m4u0"},
+	{"mediatek,bank1_m4u1", "mediatek,bank2_m4u1", "mediatek,bank3_m4u1"},
 };
 #endif
 

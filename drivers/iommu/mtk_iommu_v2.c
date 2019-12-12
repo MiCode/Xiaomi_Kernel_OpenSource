@@ -360,7 +360,7 @@ int __mtk_iommu_atf_call(unsigned int cmd, unsigned int m4u_id,
 		return -1;
 	}
 	atf_cmd = IOMMU_ATF_SET_COMMAND(m4u_id, bank, cmd);
-	/*pr_notice("%s, M4U CALL ATF CMD:%d\n", __func__, atf_cmd);*/
+	/*pr_notice("%s, M4U CALL ATF CMD:0x%x\n", __func__, atf_cmd);*/
 #ifndef CONFIG_FPGA_EARLY_PORTING
 	ret = mt_secure_call_ret4(MTK_M4U_DEBUG_DUMP,
 				atf_cmd, 0, 0, 0, tf_port,
