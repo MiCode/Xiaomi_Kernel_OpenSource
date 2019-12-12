@@ -2945,7 +2945,7 @@ static void testcase_manual_suspend_resume_test(void)
 
 	/* Manual suspend and resume */
 	cmdq_core_suspend();
-	cmdq_core_resume_notifier();
+	/*cmdq_core_resume_notifier();*/
 
 	_test_flush_async(handle);
 	cmdqCoreSetEvent(CMDQ_SYNC_TOKEN_USER_0);

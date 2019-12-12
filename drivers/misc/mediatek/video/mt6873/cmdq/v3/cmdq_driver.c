@@ -1115,7 +1115,7 @@ static int cmdq_pm_notifier_cb(struct notifier_block *nb,
 		 * (system resume callback)
 		 * resume CMDQ driver to execute.
 		 */
-		cmdq_core_resume_notifier();
+		/*cmdq_core_resume_notifier();*/
 		return NOTIFY_OK;	/* process done */
 	default:
 		return NOTIFY_DONE;
