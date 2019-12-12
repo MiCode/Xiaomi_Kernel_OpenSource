@@ -518,23 +518,23 @@ void rdma_set_ultra_l(unsigned int idx, unsigned int bpp, void *handle,
 {
 
 	/* rdma golden setting variables */
-	unsigned int mmsysclk = 230;
+	unsigned int mmsysclk = 208;
 	unsigned int is_wrot_sram = 0;
 	unsigned int is_rsz_sram = 0;
 	unsigned int fifo_mode = 1;
 
-	unsigned int ultra_low_us = 4;
-	unsigned int ultra_high_us = 6;
+	unsigned int ultra_low_us = 23;
+	unsigned int ultra_high_us = 25;
 	unsigned int preultra_low_us = ultra_high_us;
-	unsigned int preultra_high_us = 7;
-	unsigned int urgent_low_us = 30;  /* 10 times */
-	unsigned int urgent_high_us = 35;  /* 10 times */
+	unsigned int preultra_high_us = 26;
+	unsigned int urgent_low_us = 11;  /* 10 times */
+	unsigned int urgent_high_us = 12;  /* 10 times */
 
 	unsigned long long fill_rate = 0;
 	unsigned long long consume_rate = 0;
 	unsigned long long consume_rate_div_tmp = 0;
 	unsigned long long consume_rate_div = 0;
-	unsigned int fifo_valid_size = 384;
+	unsigned int fifo_valid_size = 2240;
 	unsigned int fifo_off_drs_enter = 0;
 	unsigned int fifo_off_drs_leave = 0;
 	unsigned int fifo_off_spm = 0;  /*SPM latency*/
@@ -607,13 +607,13 @@ void rdma_set_ultra_l(unsigned int idx, unsigned int bpp, void *handle,
 	/* get fifo parameters */
 	switch (rdma_golden_setting->mmsys_clk) {
 	case MMSYS_CLK_LOW:
-		mmsysclk = 230;
+		mmsysclk = 208;
 		break;
 	case MMSYS_CLK_HIGH:
-		mmsysclk = 457;
+		mmsysclk = 546;
 		break;
 	default:
-		mmsysclk = 230; /* worse case */
+		mmsysclk = 208; /* worse case */
 		break;
 	}
 
@@ -682,13 +682,13 @@ void rdma_set_ultra_l(unsigned int idx, unsigned int bpp, void *handle,
 	if (idx == 0) {
 		/* only rdma0 can share sram */
 		if (is_wrot_sram)
-			fifo_valid_size = 2048;
+			fifo_valid_size = 2240;
 		else if (is_rsz_sram)
-			fifo_valid_size = 736;
+			fifo_valid_size = 2240;
 		else
-			fifo_valid_size = 384;
+			fifo_valid_size = 2240;
 	} else {
-		fifo_valid_size = 128;
+		fifo_valid_size = 2240;
 	}
 	issue_req_threshold =
 		(fifo_valid_size - preultra_low) < 255

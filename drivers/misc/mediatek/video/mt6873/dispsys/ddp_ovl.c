@@ -2520,7 +2520,7 @@ static int ovl_golden_setting(enum DISP_MODULE_ENUM module,
 	}
 
 	/* DISP_REG_OVL_RDMA0_FIFO_CTRL */
-	regval = REG_FLD_VAL(FLD_OVL_RDMA_FIFO_SIZE, 192);
+	regval = REG_FLD_VAL(FLD_OVL_RDMA_FIFO_SIZE, 384);
 	for (i = 0; i < layer_num; i++) {
 		unsigned long layer_offset = i * OVL_LAYER_OFFSET + ovl_base;
 
@@ -2532,9 +2532,9 @@ static int ovl_golden_setting(enum DISP_MODULE_ENUM module,
 	regval = 0;
 	if (dst_mod_type == DST_MOD_REAL_TIME) {
 		regval |= REG_FLD_VAL(
-			FLD_OVL_RDMA_MEM_GMC2_ISSUE_REQ_THRES, 127);
+			FLD_OVL_RDMA_MEM_GMC2_ISSUE_REQ_THRES, 255);
 		regval |= REG_FLD_VAL(
-			FLD_OVL_RDMA_MEM_GMC2_ISSUE_REQ_THRES_URG, 63);
+			FLD_OVL_RDMA_MEM_GMC2_ISSUE_REQ_THRES_URG, 127);
 	} else {
 		/* decouple */
 		regval |= REG_FLD_VAL(
