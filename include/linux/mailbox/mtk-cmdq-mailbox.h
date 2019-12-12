@@ -198,6 +198,25 @@ do { \
 	preempt_enable(); \
 } while (0)
 
+extern int cmdq_trace;
+#define cmdq_trace_ex_begin(fmt, args...) do { \
+	if (cmdq_trace) { \
+		preempt_disable(); \
+		event_trace_printk(cmdq_get_tracing_mark(), \
+			"B|%d|"fmt"\n", current->tgid, ##args); \
+		preempt_enable();\
+	} \
+} while (0)
+
+#define cmdq_trace_ex_end() do { \
+	if (cmdq_trace) { \
+		preempt_disable(); \
+		event_trace_printk(cmdq_get_tracing_mark(), "E\n"); \
+		preempt_enable(); \
+	} \
+} while (0)
+
+
 dma_addr_t cmdq_thread_get_pc(struct cmdq_thread *thread);
 dma_addr_t cmdq_thread_get_end(struct cmdq_thread *thread);
 void cmdq_thread_set_spr(struct mbox_chan *chan, u8 id, u32 val);

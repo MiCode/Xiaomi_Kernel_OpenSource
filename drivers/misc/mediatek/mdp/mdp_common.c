@@ -1273,7 +1273,7 @@ s32 cmdq_mdp_flush_async(struct cmdqCommandStruct *desc, bool user_space,
 			goto flush_err_end;
 	}
 
-	CMDQ_SYSTRACE_BEGIN("%s check valid\n", __func__);
+	CMDQ_SYSTRACE_BEGIN("%s check valid %u\n", __func__, copy_size);
 	if (user_space && !cmdq_core_check_user_valid(
 		(void *)(unsigned long)desc->pVABase, copy_size)) {
 		CMDQ_SYSTRACE_END();
@@ -1360,6 +1360,7 @@ s32 cmdq_mdp_flush_async(struct cmdqCommandStruct *desc, bool user_space,
 	 * holds same engines.
 	 */
 	err = cmdq_mdp_flush_async_impl(handle);
+	CMDQ_TRACE_FORCE_END();
 	return 0;
 
 flush_err_end:
