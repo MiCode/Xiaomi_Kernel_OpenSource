@@ -22,16 +22,16 @@
 #include "m4u.h"
 #endif
 
+#ifdef CMDQ_SECURE_PATH_SUPPORT
+#include <cmdq-sec-iwc-common.h>
+#endif
+
 #ifdef CONFIG_MTK_SMI_EXT
 #include <mmdvfs_pmqos.h>
 #include "smi_public.h"
 #include "smi_port.h"
 
 #include <dt-bindings/memory/mt6873-larb-port.h>
-
-#ifdef CMDQ_SECURE_PATH_SUPPORT
-#include <cmdq-sec-iwc-common.h>
-#endif
 
 /* mdp */
 struct mm_qos_request mdp_rdma0_request[MDP_TOTAL_THREAD];
