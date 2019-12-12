@@ -37,6 +37,7 @@ MAIN2_CFILES  += common/lc898217afa/LC898217AFA.c
 MAIN2_CFILES  += common/lc898217afb/LC898217AFB.c
 MAIN2_CFILES  += common/lc898217afc/LC898217AFC.c
 MAIN2_CFILES  += common/ak7371af/AK7371AF.c
+MAIN2_CFILES  += common/ak7374af/AK7374AF.c
 MAIN2_CFILES  += common/bu6429af/bu64748af.c
 MAIN2_CFILES  += common/bu6429af/bu64748_function.c
 
@@ -48,6 +49,7 @@ else
 obj-y += main2_lens.o
 obj-y += common/lc898212xdaf_f/
 obj-y += common/ak7371af/
+obj-y += common/ak7374af/
 obj-y += common/bu64748af/
 obj-y += common/dw9718taf/
 obj-y += common/lc898217af/
