@@ -608,6 +608,8 @@ void ufshcd_print_all_err_hist(struct ufs_hba *hba,
 		m, buff, size);
 	ufshcd_print_err_hist(hba, &hba->ufs_stats.task_abort, "task_abort",
 		m, buff, size);
+	ufshcd_print_err_hist(hba, &hba->ufs_stats.perf_warn, "perf_warn",
+		m, buff, size);
 }
 
 static void ufshcd_print_host_regs(struct ufs_hba *hba)
@@ -4837,7 +4839,7 @@ static inline int ufshcd_disable_device_tx_lcc(struct ufs_hba *hba)
 	return ufshcd_disable_tx_lcc(hba, true);
 }
 
-static void ufshcd_update_reg_hist(struct ufs_err_reg_hist *reg_hist,
+void ufshcd_update_reg_hist(struct ufs_err_reg_hist *reg_hist,
 				   u32 reg)
 {
 	reg_hist->reg[reg_hist->pos] = reg;

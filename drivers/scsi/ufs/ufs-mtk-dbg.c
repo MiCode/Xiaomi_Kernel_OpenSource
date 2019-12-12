@@ -155,6 +155,19 @@ void ufs_mtk_dbg_add_trace(struct ufs_hba *hba,
 					break;
 			}
 		}
+
+		/* Over 1 second, record performance warning */
+		if (ufs_cmd_hlist[ufs_cmd_ptr].duration >= 1000000000) {
+			/*
+			 * op code[31:24]
+			 * length(4KB)[23:16]
+			 * duration(ms)[15:0]
+			 */
+			ufshcd_update_reg_hist(&hba->ufs_stats.perf_warn,
+			    (u32) ((opcode << 24) |
+			    (((transfer_len >> 12) & 0xFF) << 16) |
+			    (ufs_cmd_hlist[ufs_cmd_ptr].duration / 1000000)));
+		}
 	}
 
 	ufs_cmd_cnt++;

@@ -525,6 +525,9 @@ struct ufs_stats {
 	struct ufs_err_reg_hist dev_reset;
 	struct ufs_err_reg_hist host_reset;
 	struct ufs_err_reg_hist task_abort;
+
+	/* performance warning */
+	struct ufs_err_reg_hist perf_warn;
 };
 
 /* MTK PATCH UFS Host Controller debug print bitmask */
@@ -1271,6 +1274,8 @@ int ufshcd_rpmb_security_out(struct scsi_device *sdev,
 			 struct rpmb_frame *frames, u32 cnt);
 int ufshcd_rpmb_security_in(struct scsi_device *sdev,
 			struct rpmb_frame *frames, u32 cnt);
+void ufshcd_update_reg_hist(struct ufs_err_reg_hist *reg_hist,
+			u32 reg);
 
 /**
  * ufshcd_upiu_wlun_to_scsi_wlun - maps UPIU W-LUN id to SCSI W-LUN ID
