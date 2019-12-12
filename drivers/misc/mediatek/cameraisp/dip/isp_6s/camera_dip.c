@@ -357,8 +357,10 @@ static unsigned int m_CurrentPPB;
 
 #ifdef CONFIG_PM_WAKELOCKS
 struct wakeup_source dip_wake_lock;
+struct wakeup_source isp_mdp_wake_lock;
 #else
 struct wake_lock dip_wake_lock;
+struct wakeup_source isp_mdp_wake_lock;
 #endif
 static int g_bWaitLock;
 static unsigned int g_dip1sterr = DIP_GCE_EVENT_NONE;
@@ -6620,10 +6622,14 @@ static signed int DIP_probe(struct platform_device *pDev)
 
 #ifdef CONFIG_PM_WAKELOCKS
 		wakeup_source_init(&dip_wake_lock, "dip_lock_wakelock");
+		wakeup_source_init(&isp_mdp_wake_lock, "isp_mdp_wakelock");
 #else
 		wake_lock_init(&dip_wake_lock,
 			WAKE_LOCK_SUSPEND,
 			"dip_lock_wakelock");
+		wake_lock_init(&isp_mdp_wake_lock,
+			WAKE_LOCK_SUSPEND,
+			"isp_mdp_wakelock");
 #endif
 
 		/* enqueue/dequeue control in ihalpipe wrapper */
@@ -7968,6 +7974,11 @@ int32_t DIP_MDPClockOnCallback(uint64_t engineFlag)
 {
 	/* LOG_DBG("DIP_MDPClockOnCallback"); */
 	/*LOG_DBG("+MDPEn:%d", G_u4DipEnClkCnt);*/
+#ifdef CONFIG_PM_WAKELOCKS
+		__pm_stay_awake(&isp_mdp_wake_lock);
+#else
+		wake_lock(&isp_mdp_wake_lock);
+#endif
 	DIP_EnableClock(MTRUE);
 
 	return 0;
@@ -8036,6 +8047,11 @@ int32_t DIP_MDPClockOffCallback(uint64_t engineFlag)
 {
 	/* LOG_DBG("DIP_MDPClockOffCallback"); */
 	DIP_EnableClock(MFALSE);
+#ifdef CONFIG_PM_WAKELOCKS
+		__pm_relax(&isp_mdp_wake_lock);
+#else
+		wake_unlock(&isp_mdp_wake_lock);
+#endif
 	/*LOG_DBG("-MDPEn:%d", G_u4DipEnClkCnt);*/
 	return 0;
 }
