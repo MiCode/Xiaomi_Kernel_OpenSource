@@ -180,10 +180,10 @@ static int __init dvfsrc_opp_init(void)
 #if 1 /* TODO: fill when LV/HV setting*/
 	if (is_vcore_qea || (dvfs_v_mode == 3)) {
 		/* LV */
-		vcore_opp_0_uv = 687500;
-		vcore_opp_1_uv = 612500;
-		vcore_opp_2_uv = 568750;
-		vcore_opp_3_uv = 543750;
+		vcore_opp_0_uv = 693750;
+		vcore_opp_1_uv = 618750;
+		vcore_opp_2_uv = 575000;
+		vcore_opp_3_uv = 550000;
 	} else if (dvfs_v_mode == 1) {
 		/* HV */
 		vcore_opp_0_uv = 761250;
