@@ -2477,7 +2477,10 @@ static void cmdq_mdp_isp_begin_task_virtual(struct cmdqRecStruct *handle,
 	struct cmdqRecStruct **handle_list, u32 size)
 {
 
-	if (!(handle->engineFlag & CMDQ_ENG_ISP_GROUP_BITS))
+	if (!((handle->engineFlag & (1LL << CMDQ_ENG_ISP_IMGI) &&
+		handle->engineFlag & (1LL << CMDQ_ENG_ISP_IMG2O)) ||
+		(handle->engineFlag & (1LL << CMDQ_ENG_ISP_IMGI2) &&
+		 handle->engineFlag & (1LL << CMDQ_ENG_ISP_IMG2O2))))
 		return;
 
 	CMDQ_LOG_PMQOS("enter %s handle:0x%p engine:0x%llx\n", __func__,
@@ -2764,10 +2767,11 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 static void cmdq_mdp_isp_end_task_virtual(struct cmdqRecStruct *handle,
 	struct cmdqRecStruct **handle_list, u32 size)
 {
-	if (!(handle->engineFlag & (1LL << CMDQ_ENG_ISP_IMGI) &&
-		handle->engineFlag & (1LL << CMDQ_ENG_ISP_IMG2O))) {
+	if (!((handle->engineFlag & (1LL << CMDQ_ENG_ISP_IMGI) &&
+		handle->engineFlag & (1LL << CMDQ_ENG_ISP_IMG2O)) ||
+		(handle->engineFlag & (1LL << CMDQ_ENG_ISP_IMGI2) &&
+		 handle->engineFlag & (1LL << CMDQ_ENG_ISP_IMG2O2))))
 		return;
-	}
 
 	CMDQ_LOG_PMQOS("enter %s with handle:0x%p engine:0x%llx\n", __func__,
 		handle, handle->engineFlag);
