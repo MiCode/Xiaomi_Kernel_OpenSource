@@ -1917,7 +1917,7 @@ const struct clk_ops mtk_clk_gate_ops_no_setclr_inv_dummy = {
 };
 
 
-#if 0//MT_CCF_BRINGUP
+#if MT_CCF_BRINGUP
 #define GATE		GATE_DUMMY		/* set/clr */
 #define GATE_INV	GATE_INV_DUMMY		/* set/clr inverse */
 #define GATE_STA	GATE_STA_DUMMY		/* no set/clr */
