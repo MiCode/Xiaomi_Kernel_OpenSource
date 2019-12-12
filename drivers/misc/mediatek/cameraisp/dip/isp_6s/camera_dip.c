@@ -3376,8 +3376,8 @@ static signed int DIP_DumpDIPReg(void)
 			g_pPhyMSSBuffer);
 		}
 		g_dumpInfo.tdri_baseaddr = DIP_RD32(DIP_A_BASE + 0x4);
-		g_dumpInfo.imgi_baseaddr = DIP_RD32(DIP_A_BASE + 0x100);
-		g_dumpInfo.dmgi_baseaddr = DIP_RD32(DIP_A_BASE + 0x370);
+		g_dumpInfo.imgi_baseaddr = DIP_RD32(DIP_A_BASE + 0x200);
+		g_dumpInfo.dmgi_baseaddr = DIP_RD32(DIP_A_BASE + 0x470);
 		g_tdriaddr = g_dumpInfo.tdri_baseaddr;
 		/*0x15022208, CQ_D1A_CQ_THR0_BASEADDR*/
 		/*0x15022220, CQ_D1A_CQ_THR1_BASEADDR*/
@@ -7975,9 +7975,9 @@ int32_t DIP_MDPClockOnCallback(uint64_t engineFlag)
 int32_t DIP_MDPDumpCallback(uint64_t engineFlag, int level)
 {
 // Justin Todo, check mt6885 support cmdq_core_query or not support
-	LOG_DBG("DIP_MDPDumpCallback");
-#if 0
 	const char *pCmdq1stErrCmd;
+	LOG_DBG("DIP_MDPDumpCallback");
+#if 1
 
 	pCmdq1stErrCmd = cmdq_core_query_first_err_mod();
 	if (pCmdq1stErrCmd != NULL) {
