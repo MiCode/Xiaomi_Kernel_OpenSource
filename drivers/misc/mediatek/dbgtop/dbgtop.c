@@ -359,8 +359,12 @@ int mtk_dbgtop_dfd_timeout(int value)
 	value <<= MTK_DBGTOP_DFD_TIMEOUT_SHIFT;
 	value &= MTK_DBGTOP_DFD_TIMEOUT_MASK;
 
-	/* enable dfd count */
+	/* break if dfd timeout >= target value */
 	tmp = readl(IOMEM(MTK_DBGTOP_LATCH_CTL2));
+	if ((tmp & MTK_DBGTOP_DFD_TIMEOUT_MASK) >= (unsigned int)value)
+		return -1;
+
+	/* set dfd timeout */
 	tmp &= ~MTK_DBGTOP_DFD_TIMEOUT_MASK;
 	tmp |= value | MTK_DBGTOP_LATCH_CTL2_KEY;
 	mt_reg_sync_writel(tmp, MTK_DBGTOP_LATCH_CTL2);
@@ -371,6 +375,52 @@ int mtk_dbgtop_dfd_timeout(int value)
 	return 0;
 }
 EXPORT_SYMBOL(mtk_dbgtop_dfd_timeout);
+
+int mtk_dbgtop_mfg_pwr_on(int value)
+{
+	unsigned int tmp;
+
+	if (value == 1) {
+		/* set mfg pwr on */
+		tmp = readl(IOMEM(MTK_DBGTOP_MFG_REG));
+		tmp |= MTK_DBGTOP_MFG_PWR_ON;
+		mt_reg_sync_writel(tmp, MTK_DBGTOP_MFG_REG);
+	} else if (value == 0) {
+		tmp = readl(IOMEM(MTK_DBGTOP_MFG_REG));
+		tmp &= ~MTK_DBGTOP_MFG_PWR_ON;
+		mt_reg_sync_writel(tmp, MTK_DBGTOP_MFG_REG);
+	} else
+		return -1;
+
+	pr_debug("%s: MTK_DBGTOP_MFG_REG(0x%x)\n", __func__,
+		readl(IOMEM(MTK_DBGTOP_MFG_REG)));
+
+	return 0;
+}
+EXPORT_SYMBOL(mtk_dbgtop_mfg_pwr_on);
+
+int mtk_dbgtop_mfg_pwr_en(int value)
+{
+	unsigned int tmp;
+
+	if (value == 1) {
+		/* set mfg pwr en */
+		tmp = readl(IOMEM(MTK_DBGTOP_MFG_REG));
+		tmp |= MTK_DBGTOP_MFG_PWR_EN;
+		mt_reg_sync_writel(tmp, MTK_DBGTOP_MFG_REG);
+	} else if (value == 0) {
+		tmp = readl(IOMEM(MTK_DBGTOP_MFG_REG));
+		tmp &= ~MTK_DBGTOP_MFG_PWR_EN;
+		mt_reg_sync_writel(tmp, MTK_DBGTOP_MFG_REG);
+	} else
+		return -1;
+
+	pr_debug("%s: MTK_DBGTOP_MFG_REG(0x%x)\n", __func__,
+		readl(IOMEM(MTK_DBGTOP_MFG_REG)));
+
+	return 0;
+}
+EXPORT_SYMBOL(mtk_dbgtop_mfg_pwr_en);
 
 core_initcall(mtk_dbgtop_get_base_addr);
 module_init(mtk_dbgtop_init);

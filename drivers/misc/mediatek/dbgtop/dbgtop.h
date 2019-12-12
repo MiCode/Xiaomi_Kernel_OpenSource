@@ -21,5 +21,7 @@ int mtk_dbgtop_dfd_count_en(int value);
 int mtk_dbgtop_dfd_therm1_dis(int value);
 int mtk_dbgtop_dfd_therm2_dis(int value);
 int mtk_dbgtop_dfd_timeout(int value);
+int mtk_dbgtop_mfg_pwr_on(int value);
+int mtk_dbgtop_mfg_pwr_en(int value);
 
 #endif
