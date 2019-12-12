@@ -1596,7 +1596,7 @@ void cmdq_mdp_dump_thread_usage(void)
 void cmdq_mdp_dump_engine_usage(void)
 {
 	struct EngineStruct *engine;
-	const enum CMDQ_ENG_ENUM engine_enum[] =
+	const u32 engine_enum[] =
 		CMDQ_FOREACH_MODULE_PRINT(GENERATE_ENUM);
 	static const char *const engine_names[] =
 		CMDQ_FOREACH_MODULE_PRINT(GENERATE_STRING);

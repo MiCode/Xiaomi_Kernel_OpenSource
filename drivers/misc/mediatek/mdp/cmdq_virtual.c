@@ -396,7 +396,7 @@ s32 cmdq_virtual_can_module_entry_suspend(struct EngineStruct *engineList)
 	int i;
 	enum CMDQ_ENG_ENUM e = 0;
 
-	enum CMDQ_ENG_ENUM mdpEngines[] = {
+	u32 mdpEngines[] = {
 		CMDQ_ENG_ISP_IMGI,
 		CMDQ_ENG_MDP_RDMA0,
 		CMDQ_ENG_MDP_RDMA1,
@@ -408,7 +408,7 @@ s32 cmdq_virtual_can_module_entry_suspend(struct EngineStruct *engineList)
 		CMDQ_ENG_MDP_COLOR0,
 		CMDQ_ENG_MDP_WROT0,
 		CMDQ_ENG_MDP_WROT1,
-		CMDQ_ENG_MDP_WDMA
+		CMDQ_ENG_MDP_WDMA,
 	};
 
 	for (i = 0; i < ARRAY_SIZE(mdpEngines); i++) {
