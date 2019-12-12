@@ -318,6 +318,10 @@ int delete_subcmd(struct apusys_subcmd *sc)
 	else
 		ret = normal_task_remove(sc);
 
+	/* cmd_exist check */
+	if (normal_task_empty(sc->type) && deadline_task_empty(sc->type))
+		bitmap_clear(g_res_mgr.cmd_exist, sc->type, 1);
+
 	if (ret) {
 		LOG_ERR("remove 0x%llx-#%d nq(%d/%d) fail\n",
 			sc->par_cmd->cmd_id,

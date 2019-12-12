@@ -390,7 +390,7 @@ static int clear_pack_cmd(struct apusys_cmd *cmd)
 	return 0;
 }
 
-static void subcmd_done(struct apusys_subcmd *sc, int dev_idx)
+void subcmd_done(struct apusys_subcmd *sc, int dev_idx)
 {
 	struct apusys_subcmd *scr = NULL;
 	struct apusys_cmd *cmd = NULL;
@@ -423,13 +423,11 @@ static void subcmd_done(struct apusys_subcmd *sc, int dev_idx)
 		if (free_ctx(sc, cmd))
 			LOG_ERR("free memory ctx id fail\n");
 		done_idx = sc->idx;
-		mutex_unlock(&cmd->mtx);
 	} else {
 		mutex_unlock(&cmd->mtx);
 		return;
 	}
 
-	mutex_lock(&cmd->mtx);
 	/* should insert subcmd which dependency satisfied */
 	for (i = 0; i < sc->scr_num; i++) {
 		/* decreate pdr count of sc */
@@ -818,7 +816,6 @@ out:
 			dev_info->dev->dev_type,
 			dev_info->dev->idx);
 		ret = -EINVAL;
-		goto out;
 	}
 
 	midware_trace_end("apusys_scheduler|dev: %d_%d, cmd_id: 0x%08llx, ret:%d",
@@ -1049,7 +1046,6 @@ int apusys_sched_del_cmd(struct apusys_cmd *cmd)
 					cmd->cmd_id, sc->idx);
 			}
 
-
 			LOG_DEBUG("delete 0x%llx-#%d sc\n",
 					cmd->cmd_id, i);
 
@@ -1070,7 +1066,7 @@ int apusys_sched_del_cmd(struct apusys_cmd *cmd)
 	/* final polling */
 	for (i = 0; i < times; i++) {
 		if (check_cmd_done(cmd) == 0) {
-			LOG_INFO("delete cmd safely\n");
+			LOG_WARN("delete cmd safely\n");
 			break;
 		}
 		LOG_WARN("sleep 200ms to wait sc done\n");
@@ -1088,7 +1084,7 @@ int apusys_sched_del_cmd(struct apusys_cmd *cmd)
 int apusys_sched_wait_cmd(struct apusys_cmd *cmd)
 {
 	int ret = 0, state = -1;
-	int retry = 20, retry_time = 50;
+	int retry = 140, retry_time = 50;
 	unsigned long timeout = usecs_to_jiffies(APUSYS_PARAM_WAIT_TIMEOUT);
 
 	if (cmd == NULL)
@@ -1108,10 +1104,11 @@ start:
 	ret = wait_for_completion_interruptible_timeout(&cmd->comp, timeout);
 	if (ret == -ERESTARTSYS) {
 		if (retry) {
-			LOG_INFO("user ctx int(%d) retry cmd(0x%llx)(%d)...\n",
-				ret,
-				cmd->cmd_id,
-				retry);
+			if (!(retry_time % 20))
+				LOG_WARN("user int(%d) retry(0x%llx)(%d)...\n",
+					ret,
+					cmd->cmd_id,
+					retry);
 			retry--;
 			msleep(retry_time);
 			goto start;

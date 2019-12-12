@@ -49,7 +49,7 @@ int normal_task_empty(int type)
 	/* get resource table */
 	tab = res_get_table(type);
 	if (tab == NULL)
-		return -ENODEV;
+		return false;
 
 	/* check priority queue sc exist */
 	return bitmap_empty(tab->normal_q.node_exist, APUSYS_PRIORITY_MAX);
@@ -84,7 +84,6 @@ int normal_task_remove(struct apusys_subcmd *sc)
 	struct list_head *tmp = NULL, *list_ptr = NULL;
 	struct apusys_subcmd *sc_node = NULL;
 	struct apusys_res_table *tab = NULL;
-	struct apusys_res_mgr *res_mgr = res_get_mgr();
 	int i = 0;
 
 	/* check argument */
@@ -111,22 +110,12 @@ int normal_task_remove(struct apusys_subcmd *sc)
 				i);
 
 			list_del(&sc->q_list);
-			if (list_empty(&tab->normal_q.prio[i])) {
+			if (list_empty(&tab->normal_q.prio[i]))
 				bitmap_clear(tab->normal_q.node_exist, i, 1);
-
-				if (bitmap_empty(tab->normal_q.node_exist,
-					APUSYS_PRIORITY_MAX)) {
-					LOG_DEBUG("device(%d) cmd empty\n",
-						sc->type);
-					bitmap_clear(res_mgr->cmd_exist,
-						sc->type, 1);
-				}
-			}
 			return 0;
 		}
 	}
 
-	//if (i >= APUSYS_PRIORITY_MAX)
 	return -ENODATA;
 }
 
