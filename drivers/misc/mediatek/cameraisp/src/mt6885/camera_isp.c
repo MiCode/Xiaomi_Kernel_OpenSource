@@ -179,6 +179,8 @@ static int camP1mem_use_m4u = 1;
 #define ISP_DBG_INT_3 (0x00000800)
 #define ISP_DBG_HW_DON (0x00001000)
 #define ISP_DBG_ION_CTRL (0x00002000)
+#define ISP_DBG_CAMSV_LOG (0x00004000)
+
 
 /******************************************************************************
  *
@@ -9214,7 +9216,7 @@ irqreturn_t ISP_Irq_CAMSV(enum ISP_IRQ_TYPE_ENUM irq_module,
 		IspInfo.IrqInfo.LastestSigTime_sec[module][10] =
 			(unsigned int)(sec);
 
-		if (IspInfo.DebugMask & ISP_DBG_INT) {
+		if (IspInfo.DebugMask & ISP_DBG_CAMSV_LOG) {
 			IRQ_LOG_KEEPER(
 				module, m_CurrentPPB, _LOG_INF,
 				"%s P1_DON_%d(0x%08x_0x%08x) stamp[0x%08x]\n",
@@ -9238,7 +9240,7 @@ irqreturn_t ISP_Irq_CAMSV(enum ISP_IRQ_TYPE_ENUM irq_module,
 		do_div(sec, 1000);	   /* usec */
 		usec = do_div(sec, 1000000); /* sec and usec */
 
-		if (IspInfo.DebugMask & ISP_DBG_INT) {
+		if (IspInfo.DebugMask & ISP_DBG_CAMSV_LOG) {
 			static unsigned int m_sec = 0, m_usec;
 
 			if (g1stSof[module]) {
