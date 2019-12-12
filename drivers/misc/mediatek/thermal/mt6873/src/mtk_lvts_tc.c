@@ -616,6 +616,64 @@ static void lvts_device_check_read_write_status(int tc_num)
 }
 #endif
 
+#if defined(CFG_THERM_USE_BOOTUP_COUNT_RC)
+void lvts_device_read_count_RC_N_resume(void)
+{
+	/* Resistor-Capacitor Calibration */
+	/* count_RC_N: count RC now */
+	int i, j, offset, num_ts, s_index;
+	unsigned int data;
+	char buffer[512];
+
+	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
+
+		offset = lvts_tscpu_g_tc[i].tc_offset;
+		num_ts = lvts_tscpu_g_tc[i].ts_number;
+
+		for (j = 0; j < num_ts; j++) {
+			s_index = lvts_tscpu_g_tc[i].ts[j];
+
+			/* Select sensor-N with RCK */
+			lvts_write_device(0x81030000, 0x0D, j, i);
+			/* Set Device Single mode */
+			lvts_write_device(0x81030000, 0x06, 0x78, i);
+
+			/* Wait 8us for device settle + 2us buffer*/
+			udelay(10);
+			/* Kick-off RCK counting */
+			lvts_write_device(0x81030000, 0x03, 0x02, i);
+			/* wait 20us + 10us buffer */
+			udelay(30);
+			lvts_device_check_counting_status(i);
+
+			/* Get RCK count data (sensor-N) */
+			data = lvts_read_device(0x81020000, 0x00, i);
+
+			/* Get RCK value from LSB[23:0] */
+			g_count_rc_now[s_index] = (data & _BITMASK_(23:0));
+		}
+
+		/* Recover Setting for Normal Access on
+		 * temperature fetch
+		 */
+		/* Select Sensor-N without RCK */
+		lvts_write_device(0x81030000, 0x0D, 0x10, i);
+	}
+
+	offset = sprintf(buffer, "[COUNT_RC_NOW] ");
+	for (i = 0; i < L_TS_LVTS_NUM; i++)
+		offset += sprintf(buffer + offset, "%d:%d ",
+				i, g_count_rc_now[i]);
+
+	buffer[offset] = '\0';
+	lvts_printk("%s\n", buffer);
+
+#if DUMP_LVTS_REGISTER_FOR_ZERO_RAW_ISSUE
+	read_device_reg_before_active();
+#endif
+}
+#endif
+
 void lvts_device_read_count_RC_N(void)
 {
 	/* Resistor-Capacitor Calibration */
@@ -845,13 +903,15 @@ void lvts_Device_Enable_Init_all_Devices(void)
 	lvts_dbg_printk("%s\n", __func__);
 
 	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
-		/* Release Counting StateMachine */
+		/* Stop Counting (RG_TSFM_ST=0) */
 		lvts_write_device(0x81030000, 0x03, 0x00, i);
+		/* RG_TSFM_LPDLY[1:0]=2' 10 */
+		lvts_write_device(0x81030000, 0x07, 0xA6, i);
 		/* Set LVTS device counting window 20us */
-		lvts_write_device(0x81030000, 0x04, 0x20, i);
 		lvts_write_device(0x81030000, 0x05, 0x00, i);
+		lvts_write_device(0x81030000, 0x04, 0x20, i);
 		/* TSV2F_CHOP_CKSEL & TSV2F_EN */
-		lvts_write_device(0x81030000, 0x0A, 0xC4, i);
+		lvts_write_device(0x81030000, 0x0A, 0x84, i);
 		/* TSBG_DEM_CKSEL * TSBG_CHOP_EN */
 		lvts_write_device(0x81030000, 0x0C, 0x7C, i);
 		/* Set TS_RSV */
@@ -864,15 +924,11 @@ void lvts_Device_Enable_Init_all_Devices(void)
 		 */
 
 		/* Enable TS_EN */
-		lvts_write_device(0x81030000, 0x08, 0xF5, i);
+		lvts_write_device(0x81030000, 0x08, 0xF4, i);
 		/* Toggle TSDIV_EN & TSVCO_TG */
 		lvts_write_device(0x81030000, 0x08, 0xFC, i);
 		/* Enable TS_EN */
-		lvts_write_device(0x81030000, 0x08, 0xF5, i);
-
-		/*  Lantency */
-		lvts_write_device(0x81030000, 0x07, 0xA6, i);
-
+		lvts_write_device(0x81030000, 0x08, 0xF4, i);
 #endif
 	}
 }

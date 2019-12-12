@@ -588,6 +588,9 @@ extern void lvts_reset_device_and_stop_clk(void);
 extern void  lvts_read_device_id_rev(void);
 extern void lvts_Device_Enable_Init_all_Devices(void);
 extern void lvts_device_read_count_RC_N(void);
+#if defined(CFG_THERM_USE_BOOTUP_COUNT_RC)
+extern void lvts_device_read_count_RC_N_resume(void);
+#endif
 extern void lvts_device_enable_auto_rck(void);
 extern void lvts_efuse_setting(void);
 extern void lvts_tscpu_thermal_initial_all_tc(void);

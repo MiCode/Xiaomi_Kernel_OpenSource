@@ -15,23 +15,27 @@
 #define __MTK_THERMAL_IPI_H__
 
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+#undef CONFIG_MTK_TINYSYS_SSPM_SUPPORT /*TODO: remove me if enable MCUPM*/
 #define THERMAL_ENABLE_TINYSYS_SSPM (0)
-#define THERMAL_ENABLE_ONLY_TZ_SSPM (1)
-#define THERMAL_SSPM_THERMAL_THROTTLE_SWITCH
+#define THERMAL_ENABLE_ONLY_TZ_SSPM (0) /*TODO: set to 1 if enable MCUPM */
+/* TODO: enable THERMAL_SSPM_THERMAL_THROTTLE_SWITCH if enable MCUPM */
+/* #define THERMAL_SSPM_THERMAL_THROTTLE_SWITCH */
 
 /*Only Big SW need to enable this definition
  *Big SW suspend/resume flow:
  *    suspend: kernel suspend => SSPM suspend
  *    resume: SSPM resume => kernel resume
  */
-#define THERMAL_KERNEL_SUSPEND_RESUME_NOTIFY
+
+/* TODO: enable THERMAL_KERNEL_SUSPEND_RESUME_NOTIFY if enable MCUPM */
+/* #define THERMAL_KERNEL_SUSPEND_RESUME_NOTIFY */
 #else
 #define THERMAL_ENABLE_TINYSYS_SSPM (0)
-#define THERMAL_ENABLE_ONLY_TZ_SSPM (0)
+#define THERMAL_ENABLE_ONLY_TZ_SSPM (0) /*TODO: set to 1 if enable MCUPM */
 #endif
 
 #if THERMAL_ENABLE_TINYSYS_SSPM || THERMAL_ENABLE_ONLY_TZ_SSPM
-#include <sspm_ipi_id.h>
+#include <mcupm_ipi_id.h>
 
 #define THERMAL_SLOT_NUM (4)
 #define BIG_CORE_THRESHOLD_ARRAY_SIZE (3)
