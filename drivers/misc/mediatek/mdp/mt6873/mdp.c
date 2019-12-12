@@ -1333,7 +1333,7 @@ bool cmdq_mdp_clock_is_on(enum CMDQ_ENG_ENUM engine)
 static void config_port_34bit(enum CMDQ_ENG_ENUM engine)
 {
 #ifdef CONFIG_MTK_IOMMU_V2
-	struct M4U_PORT_STRUCT sPort;
+	struct M4U_PORT_STRUCT sPort = {0};
 	int ret = 0;
 #if 0
 	switch (engine) {
