@@ -16,12 +16,12 @@
 #include <linux/io.h>
 #include <linux/sched/clock.h>
 #include <apusys_secure.h>
+#include <apusys_plat.h>
 
 #define APUSYS_REG_SIZE (0x100000)
 #define APUSYS_BASE (0x19000000)
 #define APUSYS_TO_INFRA_BASE (0x10000000)
 #define NA	(-1)
-extern struct dentry *apusys_dbg_root;
 char reg_all_mem[APUSYS_REG_SIZE];
 bool apusys_dump_force;
 bool apusys_dump_skip_gals;
@@ -29,6 +29,7 @@ static void *apu_top;
 static void *apu_to_infra_top;
 static struct dentry *debug_node;
 static struct mutex dbg_lock;
+
 
 static void set_vcore_dbg_sel(int val)
 {
@@ -261,24 +262,6 @@ void dump_gals_reg(void)
 	gals_reg[28] = dbg_read(addr, NA, NA, NA, NA, NA, NA,
 			NA, NA, NA, 1, NA, NA, NA, NA);
 
-	addr = apu_top + 0x30A28;
-	gals_reg[29] = dbg_read(addr, NA, NA, NA, NA, NA, NA,
-			NA, NA, NA, NA, 0, NA, NA, NA);
-	gals_reg[30] = dbg_read(addr, NA, NA, NA, NA, NA, NA,
-			NA, NA, NA, NA, 1, NA, NA, NA);
-
-	addr = apu_top + 0x31A28;
-	gals_reg[31] = dbg_read(addr, NA, NA, NA, NA, NA, NA,
-			NA, NA, NA, NA, NA, 0, NA, NA);
-	gals_reg[32] = dbg_read(addr, NA, NA, NA, NA, NA, NA,
-			NA, NA, NA, NA, NA, 1, NA, NA);
-
-	addr = apu_top + 0x32A28;
-	gals_reg[33] = dbg_read(addr, NA, NA, NA, NA, NA, NA,
-			NA, NA, NA, NA, NA, NA, 0, NA);
-	gals_reg[34] = dbg_read(addr, NA, NA, NA, NA, NA, NA,
-			NA, NA, NA, NA, NA, NA, 1, NA);
-
 	addr = apu_top+0x2901c;
 	gals_reg[35] = dbg_read(addr, 0, 5, NA, NA, NA, NA, NA,
 			NA, NA, NA, NA, NA, NA, NA);
@@ -290,6 +273,7 @@ void dump_gals_reg(void)
 				NA, NA, NA, NA, NA, NA, 1);
 	gals_reg[39] = dbg_read(addr, 1, NA, 7, NA, NA, NA, NA,
 				NA, NA, NA, NA, NA, NA, 0);
+
 	gals_reg[40] = ioread32(apu_to_infra_top + 0x12C0);
 	gals_reg[41] = ioread32(apu_to_infra_top + 0x1220);
 	gals_reg[42] = ioread32(apu_to_infra_top + 0x612C);
@@ -331,15 +315,6 @@ void dump_gals(struct seq_file *sfile)
 	seq_printf(sfile, "MDLA1M02CONN_GALS_TX: 0x%08x\n", gals_reg[27]);
 	seq_printf(sfile, "MDLA1M12CONN_GALS_TX: 0x%08x\n", gals_reg[28]);
 
-	seq_printf(sfile, "VPU02CONN_GALS_TX: 0x%08x\n", gals_reg[29]);
-	seq_printf(sfile, "CONN2VPU0_GALS_RX: 0x%08x\n", gals_reg[30]);
-
-	seq_printf(sfile, "VPU12CONN_GALS_TX: 0x%08x\n", gals_reg[31]);
-	seq_printf(sfile, "CONN2VPU1_GALS_RX: 0x%08x\n", gals_reg[32]);
-
-	seq_printf(sfile, "VPU22CONN_GALS_TX: 0x%08x\n", gals_reg[33]);
-	seq_printf(sfile, "CONN2VPU2_GALS_RX: 0x%08x\n", gals_reg[34]);
-
 	seq_printf(sfile, "APUSYS2ACP_VCORE_GALS_TX: 0x%08x\n", gals_reg[35]);
 	seq_printf(sfile, "APUSYS2ACP_VCORE_GALS_RX: 0x%08x\n", gals_reg[36]);
 	seq_printf(sfile, "APUSYS2ACP_CONN_GALS_TX: 0x%08x\n", gals_reg[37]);
@@ -375,7 +350,7 @@ void apusys_reg_dump(void)
 	memcpy_fromio(reg_all_mem + 0x20000, apu_top + 0x20000, 0x1000);
 	/* Skip 0x1902_1000 for security reason */
 	memcpy_fromio(reg_all_mem + 0x22000, apu_top + 0x22000, 0x8000);
-	memcpy_fromio(reg_all_mem + 0x30000, apu_top + 0x30000, 0x3000);
+	/* Skip 0x1903_0000 for VPU secure reason */
 	memcpy_fromio(reg_all_mem + 0x34000, apu_top + 0x34000, 0x2534);
 	memcpy_fromio(reg_all_mem + 0x36538, apu_top + 0x36538, 0x4000);
 	memcpy_fromio(reg_all_mem + 0x3A538, apu_top + 0x3A538, 0xAC8);
