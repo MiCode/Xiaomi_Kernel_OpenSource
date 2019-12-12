@@ -1203,7 +1203,7 @@
 		reg = <0 0x1023f000 0 0x1000>;
 	};
 
-	apdma: dma-controller@11000980 {
+	apdma: dma-controller@11000a80 {
 		compatible = "mediatek,mt6577-uart-dma";
 		reg = <0 0x11000a80 0 0x80>,
 		      <0 0x11000b00 0 0x80>,
@@ -1213,6 +1213,8 @@
 			     <GIC_SPI 147 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 148 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 149 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&infracfg_ao INFRACFG_AO_AP_DMA_CG>;
+		clock-names = "apdma";
 		#dma-cells = <1>;
 		dma-bits = <34>;
 	};
@@ -1221,6 +1223,8 @@
 		compatible = "mediatek,mt6577-uart";
 		reg = <0 0x11002000 0 0x1000>;
 		interrupts = <GIC_SPI 109 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk26m>, <&infracfg_ao INFRACFG_AO_UART0_CG>;
+		clock-names = "baud", "bus";
 		dmas = <&apdma 0
 				&apdma 1>;
 		dma-names = "tx", "rx";
@@ -1230,6 +1234,8 @@
 		compatible = "mediatek,mt6577-uart";
 		reg = <0 0x11003000 0 0x1000>;
 		interrupts = <GIC_SPI 110 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk26m>, <&infracfg_ao INFRACFG_AO_UART1_CG>;
+		clock-names = "baud", "bus";
 		dmas = <&apdma 2
 				&apdma 3>;
 		dma-names = "tx", "rx";
