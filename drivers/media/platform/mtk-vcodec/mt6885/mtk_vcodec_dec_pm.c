@@ -529,9 +529,9 @@ void mtk_vdec_emi_bw_begin(struct mtk_vcodec_ctx *ctx, int hw_id)
 		mm_qos_update_all_request(&vdec_rlist_lat);
 
 	} else if (hw_id == MTK_VDEC_CORE) {
-		emi_bw = 8L * 1920 * 1080 * 3 * 10 * vdec_freq;
-		emi_bw_output = 1920 * 1088 * 3 * 30 * 10 * vdec_freq /
-				2 / 3 / STD_VDEC_FREQ / 1024 / 1024;
+		emi_bw = 8L * 1920 * 1080 * 9 * 10 * vdec_freq / 2;
+		emi_bw_output = 1920L * 1088 * 9 * 30 * 10 * vdec_freq /
+				4 / 3 / STD_VDEC_FREQ / 1024 / 1024;
 
 		switch (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc) {
 		case V4L2_PIX_FMT_H264:
@@ -589,7 +589,14 @@ void mtk_vdec_emi_bw_begin(struct mtk_vcodec_ctx *ctx, int hw_id)
 						BW_COMP_NONE);
 		}
 		mm_qos_set_request(&vdec_pred_rd, 1, 0, BW_COMP_NONE);
-		mm_qos_set_request(&vdec_pred_wr, 1, 0, BW_COMP_NONE);
+		if ((ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc ==
+			V4L2_PIX_FMT_AV1) ||
+			(ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc ==
+			V4L2_PIX_FMT_VP9))
+			mm_qos_set_request(&vdec_pred_wr, emi_bw, 0,
+				BW_COMP_NONE);
+		else
+			mm_qos_set_request(&vdec_pred_wr, 1, 0, BW_COMP_NONE);
 		mm_qos_set_request(&vdec_ppwrap, 0, 0, BW_COMP_NONE);
 		mm_qos_set_request(&vdec_tile, 0, 0, BW_COMP_NONE);
 		mm_qos_set_request(&vdec_vld, emi_bw_input, 0, BW_COMP_NONE);
