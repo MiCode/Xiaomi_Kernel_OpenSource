@@ -268,6 +268,8 @@ static void fpsgo_notifier_wq_cb_enable(int enable)
 	FPSGO_LOGI("[FPSGO_CB] fpsgo_enable %d\n",
 			fpsgo_enable);
 	mutex_unlock(&notify_lock);
+
+	syslimiter_update_fpsgo_state(enable);
 }
 
 static void fpsgo_notifier_wq_cb(struct work_struct *psWork)

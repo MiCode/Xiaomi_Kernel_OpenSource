@@ -24,6 +24,7 @@
 #include <linux/topology.h>
 #include <linux/kallsyms.h>
 #include <linux/trace_events.h>
+#include "fpsgo_common.h"
 
 
 #include "cpu_ctrl.h"
@@ -38,10 +39,17 @@ static int limit_freq_at_60;
 static int limit_freq_at_90;
 static int limit_freq_at_120;
 static int syslimiter_disable;
+static int fpsgo_state;
+
 static struct mutex syslimiter;
 #define DEFAULT_FPS_THRESHOLD 60
 #define FPS_THRESHOLD_90 90
 #define FPS_THRESHOLD_120 120
+
+enum MODULE_STATE {
+	STATE_ON,
+	STATE_OFF,
+};
 
 /*******************************************/
 static void syslimiter_update_limit_freq(void)
@@ -50,7 +58,12 @@ static void syslimiter_update_limit_freq(void)
 
 	mutex_lock(&syslimiter);
 
-	if (syslimiter_disable == 1) {
+	if (syslimiter_disable == 1 || fpsgo_state == STATE_OFF) {
+		freq_to_set[cluster_1].max = -1;
+		goto out;
+	}
+
+	if (!fpsgo_is_enable()) {
 		freq_to_set[cluster_1].max = -1;
 		goto out;
 	}
@@ -94,6 +107,19 @@ void syslimiter_update_dfrc_fps(int fps)
 
 	if (fps > 0)
 		dfrc_fps = fps;
+
+	mutex_unlock(&syslimiter);
+
+	syslimiter_update_limit_freq();
+}
+
+/*******************************************/
+
+void syslimiter_update_fpsgo_state(int state)
+{
+	mutex_lock(&syslimiter);
+
+	fpsgo_state = state > 0 ? STATE_ON : STATE_OFF;
 
 	mutex_unlock(&syslimiter);
 
@@ -274,6 +300,7 @@ int syslimiter_init(struct proc_dir_entry *parent)
 	limit_freq_at_60 = -1;
 	limit_freq_at_90 = -1;
 	limit_freq_at_120 = -1;
+	fpsgo_state = STATE_OFF;
 
 out:
 	return ret;
