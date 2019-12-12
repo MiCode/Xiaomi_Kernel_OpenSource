@@ -679,12 +679,40 @@ void cm_mgr_ratio_timer_en(int enable)
 	}
 }
 
+static struct pm_qos_request ddr_opp_req;
+struct timer_list cm_mgr_perf_timeout_timer;
+#define CM_MGR_PERF_TIMEOUT_MS	msecs_to_jiffies(100)
+
+static void cm_mgr_perf_timeout_timer_fn(unsigned long data)
+{
+	if (pm_qos_update_request_status) {
+		cm_mgr_dram_opp = cm_mgr_dram_opp_base = -1;
+		pm_qos_update_request(&ddr_opp_req,
+				PM_QOS_DDR_OPP_DEFAULT_VALUE);
+
+		pm_qos_update_request_status = 0;
+		debounce_times_perf_down_local = -1;
+		debounce_times_perf_down_force_local = -1;
+
+		trace_CM_MGR__perf_hint(2, 0,
+				cm_mgr_dram_opp, cm_mgr_dram_opp_base,
+				debounce_times_perf_down_local,
+				debounce_times_perf_down_force_local);
+	}
+}
+
 #define PERF_TIME 3000
 
-static struct pm_qos_request ddr_opp_req;
 static ktime_t perf_now;
 void cm_mgr_perf_platform_set_status(int enable)
 {
+	unsigned long expires;
+
+	if (pm_qos_update_request_status) {
+		expires = jiffies + CM_MGR_PERF_TIMEOUT_MS;
+		mod_timer(&cm_mgr_perf_timeout_timer, expires);
+	}
+
 	if (enable) {
 		if (cm_mgr_perf_enable == 0)
 			return;
@@ -715,7 +743,7 @@ void cm_mgr_perf_platform_set_status(int enable)
 				debounce_times_perf_down) {
 			if (cm_mgr_dram_opp_base < 0) {
 				pm_qos_update_request(&ddr_opp_req,
-					PM_QOS_DDR_OPP_DEFAULT_VALUE);
+						PM_QOS_DDR_OPP_DEFAULT_VALUE);
 				pm_qos_update_request_status = enable;
 				debounce_times_perf_down_local = -1;
 				goto trace;
@@ -725,7 +753,8 @@ void cm_mgr_perf_platform_set_status(int enable)
 			cm_mgr_dram_opp_base = -1;
 		}
 
-		if (cm_mgr_dram_opp < cm_mgr_dram_opp_base) {
+		if ((cm_mgr_dram_opp < cm_mgr_dram_opp_base) &&
+				(debounce_times_perf_down > 0)) {
 			cm_mgr_dram_opp = cm_mgr_dram_opp_base *
 				debounce_times_perf_down_local /
 				debounce_times_perf_down;
@@ -750,6 +779,13 @@ trace:
 
 void cm_mgr_perf_platform_set_force_status(int enable)
 {
+	unsigned long expires;
+
+	if (pm_qos_update_request_status) {
+		expires = jiffies + CM_MGR_PERF_TIMEOUT_MS;
+		mod_timer(&cm_mgr_perf_timeout_timer, expires);
+	}
+
 	if (enable) {
 		if (cm_mgr_perf_enable == 0)
 			return;
@@ -784,7 +820,8 @@ void cm_mgr_perf_platform_set_force_status(int enable)
 				(++debounce_times_perf_down_force_local >=
 				 debounce_times_perf_force_down)) {
 
-			if (cm_mgr_dram_opp < cm_mgr_dram_opp_base) {
+			if ((cm_mgr_dram_opp < cm_mgr_dram_opp_base) &&
+					(debounce_times_perf_down > 0)) {
 				cm_mgr_dram_opp = cm_mgr_dram_opp_base *
 					debounce_times_perf_down_force_local /
 					debounce_times_perf_force_down;
@@ -884,6 +921,10 @@ int cm_mgr_platform_init(void)
 	init_timer_deferrable(&cm_mgr_ratio_timer);
 	cm_mgr_ratio_timer.function = cm_mgr_ratio_timer_fn;
 	cm_mgr_ratio_timer.data = 0;
+
+	init_timer_deferrable(&cm_mgr_perf_timeout_timer);
+	cm_mgr_perf_timeout_timer.function = cm_mgr_perf_timeout_timer_fn;
+	cm_mgr_perf_timeout_timer.data = 0;
 
 #ifdef CONFIG_MTK_CPU_FREQ
 	mt_cpufreq_set_governor_freq_registerCB(check_cm_mgr_status);
