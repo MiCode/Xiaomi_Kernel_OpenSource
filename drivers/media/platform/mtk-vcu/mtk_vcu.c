@@ -431,6 +431,12 @@ int vcu_ipi_send(struct platform_device *pdev,
 
 	mutex_lock(&vcu->vcu_mutex[i]);
 	vcu->ipi_id_ack[id] = false;
+
+	if (id >= IPI_VCU_INIT && id < IPI_MAX) {
+		ipi_desc = vcu->ipi_desc;
+		ipi_desc[id].priv = priv;
+	}
+
 	/* send the command to VCU */
 	if (!vcu->fuse_bypass) {
 		old_fs = get_fs();
@@ -462,10 +468,6 @@ int vcu_ipi_send(struct platform_device *pdev,
 		goto end;
 	}
 
-	if (id >= IPI_VCU_INIT && id < IPI_MAX) {
-		ipi_desc = vcu->ipi_desc;
-		ipi_desc[id].priv = priv;
-	}
 	/* wait for VCU's ACK */
 	timeout = msecs_to_jiffies(IPI_TIMEOUT_MS);
 	ret = wait_event_timeout(vcu->ack_wq[i], vcu->ipi_id_ack[id], timeout);
