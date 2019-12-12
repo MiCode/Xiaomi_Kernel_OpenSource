@@ -2438,6 +2438,14 @@ static signed int DPE_DumpReg(void)
 	signed int Ret = 0;
 	/*  */
 	LOG_INF("- E.");
+
+	spin_lock(&(DPEInfo.SpinLockDPE));
+	if (g_u4EnableClockCount == 0) {
+		spin_unlock(&(DPEInfo.SpinLockDPE));
+		return 0;
+	}
+	spin_unlock(&(DPEInfo.SpinLockDPE));
+
 #if 1
 	/*  */
 	LOG_INF("DPE Config Info\n");
