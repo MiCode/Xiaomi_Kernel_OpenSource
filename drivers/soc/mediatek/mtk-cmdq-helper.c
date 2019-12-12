@@ -1608,7 +1608,14 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 	}
 
 	cmdq_dump_pkt(pkt, pc, true);
+
+#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
+	IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+	if (!pkt->sec_data)
+		cmdq_util_dump_smi();
+#else
 	cmdq_util_dump_smi();
+#endif
 
 	if (inst && inst->op == CMDQ_CODE_WFE) {
 		mod = cmdq_event_module_dispatch(gce_pa, inst->arg_a,
@@ -1765,17 +1772,17 @@ int cmdq_pkt_wait_complete(struct cmdq_pkt *pkt)
 #if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
 	IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 	if (pkt->sec_data) {
-		wait_result = cmdq_sec_pkt_wait_complete(pkt, &item->cmplt);
+		cmdq_sec_pkt_wait_complete(pkt, &item->cmplt);
 		goto wait_done;
 	}
 #endif
-	wait_result = cmdq_pkt_wait_complete_loop(pkt);
+	cmdq_pkt_wait_complete_loop(pkt);
 
 wait_done:
 	cmdq_trace_end();
 	cmdq_util_track(pkt);
 
-	return wait_result;
+	return item->err;
 }
 EXPORT_SYMBOL(cmdq_pkt_wait_complete);
 #endif
