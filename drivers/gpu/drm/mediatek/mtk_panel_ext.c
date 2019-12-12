@@ -23,8 +23,14 @@
 
 #include "mtk_panel_ext.h"
 
+struct _panel_rst_ctx {
+	struct drm_panel *panel;
+	panel_tch_rst rst_cb;
+};
+
 static DEFINE_MUTEX(panel_ext_lock);
 static LIST_HEAD(panel_ext_list);
+static struct _panel_rst_ctx panel_rst_ctx;
 
 void mtk_panel_init(struct mtk_panel_ctx *ctx)
 {
@@ -53,6 +59,38 @@ int mtk_panel_attach(struct mtk_panel_ctx *ctx, struct drm_panel *panel)
 	ctx->panel = panel;
 
 	return 0;
+}
+
+int mtk_panel_tch_handle_reg(struct drm_panel *panel)
+{
+	mutex_lock(&panel_ext_lock);
+	if (panel_rst_ctx.panel) {
+		mutex_unlock(&panel_ext_lock);
+		return -EEXIST;
+	}
+	panel_rst_ctx.panel = panel;
+	mutex_unlock(&panel_ext_lock);
+
+	return 0;
+}
+
+void **mtk_panel_tch_handle_init(void)
+{
+	return (void **)&panel_rst_ctx.rst_cb;
+}
+
+int mtk_panel_tch_rst(struct drm_panel *panel)
+{
+	int ret = 0;
+
+	mutex_lock(&panel_ext_lock);
+	if (panel_rst_ctx.rst_cb && panel_rst_ctx.panel == panel)
+		panel_rst_ctx.rst_cb();
+	else
+		ret = -EEXIST;
+	mutex_unlock(&panel_ext_lock);
+
+	return ret;
 }
 
 int mtk_panel_detach(struct mtk_panel_ctx *ctx)

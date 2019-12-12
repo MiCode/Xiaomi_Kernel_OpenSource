@@ -23,6 +23,7 @@ struct mtk_dsi;
 struct cmdq_pkt;
 typedef void (*dcs_write_gce) (struct mtk_dsi *dsi, struct cmdq_pkt *handle,
 				  const void *data, size_t len);
+typedef int (*panel_tch_rst) (void);
 enum MTK_PANEL_OUTPUT_MODE {
 	MTK_PANEL_SINGLE_PORT = 0x0,
 	MTK_PANEL_DSC_SINGLE_PORT,
@@ -235,6 +236,8 @@ int mtk_panel_ext_create(struct device *dev,
 			 struct mtk_panel_params *ext_params,
 			 struct mtk_panel_funcs *ext_funcs,
 			 struct drm_panel *panel);
-
+int mtk_panel_tch_handle_reg(struct drm_panel *panel);
+void **mtk_panel_tch_handle_init(void);
+int mtk_panel_tch_rst(struct drm_panel *panel);
 
 #endif

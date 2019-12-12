@@ -522,6 +522,9 @@ static int lcm_prepare(struct drm_panel *panel)
 
 	ctx->prepared = true;
 
+#if defined(CONFIG_MTK_PANEL_EXT)
+	mtk_panel_tch_rst(panel);
+#endif
 #ifdef PANEL_SUPPORT_READBACK
 	lcm_panel_get_data(ctx);
 #endif
@@ -749,6 +752,7 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 		drm_panel_remove(&ctx->panel);
 
 #if defined(CONFIG_MTK_PANEL_EXT)
+	mtk_panel_tch_handle_reg(&ctx->panel);
 	ret = mtk_panel_ext_create(dev, &ext_params, &ext_funcs, &ctx->panel);
 	if (ret < 0)
 		return ret;
