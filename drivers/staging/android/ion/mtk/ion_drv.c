@@ -369,6 +369,8 @@ static long ion_sys_cache_sync(struct ion_client *client,
 	int ret = 0;
 	unsigned long kernel_va = 0;
 	unsigned long kernel_size = 0;
+	struct sg_table *table;
+	struct ion_heap *heap = NULL;
 
 	/* Get kernel handle
 	 * For cache sync all cases, some users
@@ -446,9 +448,21 @@ static long ion_sys_cache_sync(struct ion_client *client,
 	case ION_CACHE_INVALID_BY_RANGE_USE_PA:
 	case ION_CACHE_FLUSH_BY_RANGE_USE_PA:
 		sync_va = param->iova;
+		table = buffer->sg_table;
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+		heap = buffer->heap;
+		if (heap->ops->get_table)
+			heap->ops->get_table(buffer, table);
+		if (!table) {
+			IONMSG("%s invalid table\n", __func__);
+			goto err;
+		}
+#endif
+
 		ret = m4u_mva_map_kernel(
-				sync_va,
-				sync_size, &kernel_va, &kernel_size);
+				sync_va, sync_size, &kernel_va,
+				&kernel_size, table);
 		if (ret)
 			goto err;
 		sync_va = kernel_va;

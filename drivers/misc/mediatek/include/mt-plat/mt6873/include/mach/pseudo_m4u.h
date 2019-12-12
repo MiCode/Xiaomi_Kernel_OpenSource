@@ -179,8 +179,9 @@ int m4u_dealloc_mva_sg(int eModuleID,
 int m4u_alloc_mva_sg(struct port_mva_info_t *port_info,
 		     struct sg_table *sg_table);
 
-int m4u_mva_map_kernel(unsigned long mva, unsigned long size,
-		       unsigned long *map_va, unsigned long *map_size);
+int m4u_mva_map_kernel(unsigned long mva,
+	unsigned long size, unsigned long *map_va,
+	unsigned long *map_size, struct sg_table *table);
 int m4u_mva_unmap_kernel(unsigned long mva, unsigned long size,
 		       unsigned long va);
 #ifndef IOVA_PFN

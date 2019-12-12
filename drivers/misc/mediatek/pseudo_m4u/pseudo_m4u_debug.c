@@ -157,7 +157,7 @@ static int m4u_test_map_kernel(void)
 		return -1;
 	}
 
-	ret = m4u_mva_map_kernel(mva, size, &kernel_va, &kernel_size);
+	ret = m4u_mva_map_kernel(mva, size, &kernel_va, &kernel_size, NULL);
 	if (ret) {
 		M4U_MSG("map kernel fail!\n");
 		pseudo_put_m4u_client();

@@ -2468,41 +2468,25 @@ static int pseudo_flush(struct file *a_pstFile, fl_owner_t a_id)
  ************************************************************/
 int m4u_mva_map_kernel(unsigned long mva,
 	unsigned long size, unsigned long *map_va,
-	unsigned long *map_size)
+	unsigned long *map_size, struct sg_table *table)
 {
-	struct m4u_buf_info_t *pMvaInfo;
-	struct sg_table *table;
 	struct scatterlist *sg;
 	int i, j, k, ret = 0;
 	struct page **pages;
 	unsigned int page_num;
 	void *kernel_va;
 	unsigned int kernel_size;
-	struct m4u_client_t *client = ion_m4u_client;
 
-	pMvaInfo = pseudo_client_find_buf(client, mva, 0);
-
-	mutex_lock(&(client->dataMutex));
-	if (!pMvaInfo || pMvaInfo->size < size) {
-		M4U_MSG(
-			"%s cannot find mva: mva=0x%lx, size=0x%lx\n",
-			__func__, mva, size);
-		if (pMvaInfo)
-			M4U_MSG(
-			"pMvaInfo: mva=0x%lx, size=0x%lx\n",
-			pMvaInfo->mva, pMvaInfo->size);
-		mutex_unlock(&(client->dataMutex));
+	if (!table) {
+		M4U_MSG("invalid sg table\n");
 		return -1;
 	}
-
-	table = pMvaInfo->sg_table;
 
 	page_num = M4U_GET_PAGE_NUM(mva, size);
 	pages = vmalloc(sizeof(struct page *) * page_num);
 	if (pages == NULL) {
 		M4U_MSG("mva_map_kernel:error to vmalloc for %d\n",
 			   (unsigned int)sizeof(struct page *) * page_num);
-		mutex_unlock(&(client->dataMutex));
 		return -1;
 	}
 
@@ -2523,7 +2507,6 @@ int m4u_mva_map_kernel(unsigned long mva,
 	}
 
 get_pages_done:
-	mutex_unlock(&(client->dataMutex));
 	if (k < page_num) {
 		/* this should not happen, because we have
 		 * checked the size before.
@@ -2552,7 +2535,7 @@ get_pages_done:
 
 error_out:
 	vfree(pages);
-	M4U_DBG("mva_map_kernel:mva=0x%lx,size=0x%lx,map_va=0x%lx,map_size=0x%lx\n",
+	M4U_DBG("mva=0x%lx,size=0x%lx,map_va=0x%lx,map_size=0x%lx\n",
 		   mva, size, *map_va, *map_size);
 
 	return ret;
