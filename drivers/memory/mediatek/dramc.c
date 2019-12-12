@@ -411,11 +411,13 @@ module_exit(dramc_drv_exit);
  */
 int mtk_dramc_get_steps_freq(unsigned int step)
 {
-	struct dramc_dev_t *dramc_dev_ptr =
-		(struct dramc_dev_t *)platform_get_drvdata(dramc_pdev);
+	struct dramc_dev_t *dramc_dev_ptr;
 
-	if (!dramc_dev_ptr)
+	if (!dramc_pdev)
 		return -1;
+
+	dramc_dev_ptr =
+		(struct dramc_dev_t *)platform_get_drvdata(dramc_pdev);
 
 	if (step < dramc_dev_ptr->freq_cnt)
 		return dramc_dev_ptr->freq_step[step];
