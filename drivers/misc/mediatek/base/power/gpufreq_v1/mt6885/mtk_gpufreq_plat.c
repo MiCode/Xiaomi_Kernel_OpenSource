@@ -219,6 +219,7 @@ static void __iomem *g_infra_peri_debug1;
 static void __iomem *g_infra_peri_debug2;
 static void __iomem *g_infra_peri_debug3;
 static void __iomem *g_infra_peri_debug4;
+static void __iomem *g_infracfg_ao;
 
 u64 mt_gpufreq_get_shader_present(void)
 {
@@ -740,8 +741,9 @@ static void mt_gpufreq_buck_control(enum mt_power_state power)
 	__mt_gpufreq_kick_pbm(power);
 }
 
-static void mt_gpufreq_set_dfd(bool enable)
+static int mt_gpufreq_set_dfd(bool enable)
 {
+	unsigned int dfd_trigger = 0;
 #if MT_GPUFREQ_DFD_ENABLE
 	unsigned int val;
 	unsigned int mask;
@@ -765,9 +767,17 @@ static void mt_gpufreq_set_dfd(bool enable)
 
 		mtk_dbgtop_mfg_pwr_on(1);
 	} else {
-		mtk_dbgtop_mfg_pwr_on(0);
+		if (g_infracfg_ao) {
+			//[19]mfg_dfd_trigger
+			val = readl(g_infracfg_ao + 0x600);
+			if ((val & 0x80000) == 0x80000)
+				dfd_trigger = 1;
+		}
+		if (!dfd_trigger)
+			mtk_dbgtop_mfg_pwr_on(0);
 	}
 #endif
+	return dfd_trigger;
 }
 
 void mt_gpufreq_power_control(enum mt_power_state power, enum mt_cg_state cg,
@@ -803,7 +813,13 @@ void mt_gpufreq_power_control(enum mt_power_state power, enum mt_cg_state cg,
 	} else {
 		mtk_notify_gpu_power_change(0);
 #if MT_GPUFREQ_DFD_ENABLE
-		mt_gpufreq_set_dfd(false);
+		if (mt_gpufreq_set_dfd(false) == 1) {
+			// if dfd is triggered, do not power off
+			gpufreq_pr_info("@%s: dfd is triggered, do not power off\n",
+				__func__);
+			mutex_unlock(&mt_gpufreq_lock);
+			return;
+		}
 #endif
 
 		gpu_dvfs_vgpu_footprint(GPU_DVFS_VGPU_STEP_5);
@@ -3090,6 +3106,15 @@ static int __mt_gpufreq_init_clk(struct platform_device *pdev)
 			__func__);
 		return -ENOENT;
 	}
+
+#if MT_GPUFREQ_DFD_ENABLE
+	g_infracfg_ao = __mt_gpufreq_of_ioremap("mediatek,infracfg_ao", 0);
+	if (!g_infracfg_ao) {
+		gpufreq_pr_info("@%s: ioremap failed at infracfg_ao",
+			__func__);
+		return -ENOENT;
+	}
+#endif
 
 	return 0;
 }
