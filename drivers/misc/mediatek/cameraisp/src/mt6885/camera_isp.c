@@ -660,6 +660,7 @@ enum ISP_WAITQ_HEAD_IRQ_ENUM {
 	ISP_WAITQ_HEAD_IRQ_SW_P1_DONE,
 	ISP_WAITQ_HEAD_IRQ_HW_P1_DONE,
 	ISP_WAITQ_HEAD_IRQ_AAO_DONE,
+	ISP_WAITQ_HEAD_IRQ_AAHO_DONE,
 	ISP_WAITQ_HEAD_IRQ_FLKO_DONE,
 	ISP_WAITQ_HEAD_IRQ_AFO_DONE,
 	ISP_WAITQ_HEAD_IRQ_TSFSO_DONE,
@@ -1256,7 +1257,8 @@ static int32_t ISP_CheckUseCamWaitQ(enum ISP_IRQ_TYPE_ENUM type,
 		} else if (st_type == DMA_INT) {
 			if (status == AAO_DONE_ST || status == FLKO_DONE_ST ||
 			    status == AFO_DONE_ST || status == PDO_DONE_ST ||
-			status == TSFSO_DONE_ST || status == LTMSO_R1_DONE_ST) {
+	    status == TSFSO_DONE_ST || status == LTMSO_R1_DONE_ST ||
+			    status == AAHO_DONE_ST) {
 				return 1;
 			}
 		}
@@ -1328,6 +1330,8 @@ static int32_t ISP_GetWaitQCamIrqIndex(enum ISP_ST_ENUM st_type,
 	} else if (st_type == DMA_INT) {
 		if (status == AAO_DONE_ST)
 			index = ISP_WAITQ_HEAD_IRQ_AAO_DONE;
+		else if (status == AAHO_DONE_ST)
+			index = ISP_WAITQ_HEAD_IRQ_AAHO_DONE;
 		else if (status == FLKO_DONE_ST)
 			index = ISP_WAITQ_HEAD_IRQ_FLKO_DONE;
 		else if (status == AFO_DONE_ST)
@@ -1399,7 +1403,13 @@ static inline unsigned int ISP_GetIRQState(unsigned int type,
 
 	/*  */
 	spin_lock_irqsave(&(IspInfo.SpinLockIrq[type]), flags);
+	//combine AAO & AAHO to one signal
+if (stType == DMA_INT && stus == AAHO_DONE_ST) {
+	ret = (IspInfo.IrqInfo.Status[type][stType][userNumber] & stus) &&
+	(IspInfo.IrqInfo.Status[type][stType][userNumber] & AAO_DONE_ST);
+} else {
 	ret = (IspInfo.IrqInfo.Status[type][stType][userNumber] & stus);
+}
 	spin_unlock_irqrestore(&(IspInfo.SpinLockIrq[type]), flags);
 	/*  */
 	return ret;
@@ -3422,7 +3432,14 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 			.Status[WaitIrq->Type][WaitIrq->EventInfo.St_type]
 			       [WaitIrq->EventInfo.UserKey] &=
 			(~WaitIrq->EventInfo.Status);
-
+		//combine AAO & AAHO to one signal
+		if (WaitIrq->EventInfo.St_type == DMA_INT &&
+			WaitIrq->EventInfo.Status == AAHO_DONE_ST) {
+			IspInfo.IrqInfo
+			.Status[WaitIrq->Type][WaitIrq->EventInfo.St_type]
+			       [WaitIrq->EventInfo.UserKey] &=
+				(~AAO_DONE_ST);
+		}
 		spin_unlock_irqrestore(&(IspInfo.SpinLockIrq[WaitIrq->Type]),
 				       flags);
 
@@ -3489,6 +3506,15 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 						[WaitIrq->EventInfo.St_type]
 						[WaitIrq->EventInfo.UserKey] &=
 						(~WaitIrq->EventInfo.Status);
+				}
+				//combine AAO & AAHO to one signal
+				if (WaitIrq->EventInfo.St_type == DMA_INT &&
+				WaitIrq->EventInfo.Status == AAHO_DONE_ST) {
+					IspInfo.IrqInfo.Status
+						[WaitIrq->Type]
+						[WaitIrq->EventInfo.St_type]
+						[WaitIrq->EventInfo.UserKey] &=
+						(~AAO_DONE_ST);
 				}
 
 				spin_unlock_irqrestore(
@@ -3671,6 +3697,15 @@ NON_CLEAR_WAIT:
 	IspInfo.IrqInfo.Status[WaitIrq->Type][WaitIrq->EventInfo.St_type]
 			      [WaitIrq->EventInfo.UserKey] &=
 		(~WaitIrq->EventInfo.Status);
+	//combine AAO & AAHO to one signal
+	if (WaitIrq->EventInfo.St_type == DMA_INT &&
+		WaitIrq->EventInfo.Status == AAHO_DONE_ST) {
+		IspInfo.IrqInfo.Status
+			[WaitIrq->Type]
+			[WaitIrq->EventInfo.St_type]
+			[WaitIrq->EventInfo.UserKey] &=
+			(~AAO_DONE_ST);
+	}
 
 	spin_unlock_irqrestore(&(IspInfo.SpinLockIrq[WaitIrq->Type]), flags);
 
@@ -4169,6 +4204,14 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				IrqInfo.EventInfo.St_type,
 				IrqInfo.EventInfo.Status);
 #endif
+		//combine AAO & AAHO to one signal
+		if (IrqInfo.EventInfo.St_type == DMA_INT &&
+			IrqInfo.EventInfo.Status == AAO_DONE_ST) {
+			IrqInfo.EventInfo.Status = AAHO_DONE_ST;
+			LOG_NOTICE(
+				"invalid Status(%d), change to AAHO_DONE_ST\n",
+				IrqInfo.EventInfo.Status);
+			}
 			Ret = ISP_WaitIrq(&IrqInfo);
 		} else {
 			LOG_NOTICE("copy_from_user failed\n");
@@ -11033,7 +11076,7 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 				FrmStat_aaho = Irq_CAM_SttFrameStatus(
 				reg_module, module, _aaho_, irqDelay);
 			} else {
-				FrmStat_aao = CAM_FST_DROP_FRAME;
+				FrmStat_aaho = CAM_FST_DROP_FRAME;
 			}
 			if (IspInfo.TstpQInfo[module].DmaEnStatus[_afo_]) {
 				FrmStat_afo = Irq_CAM_SttFrameStatus(
@@ -11443,7 +11486,7 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 LB_CAM_SOF_IGNORE:
 
 #ifdef ENABLE_STT_IRQ_LOG
-	if (DmaStatus & (AAO_DONE_ST | AFO_DONE_ST |
+	if (DmaStatus & (AAO_DONE_ST | AFO_DONE_ST | AAHO_DONE_ST |
 		LTMSO_R1_DONE_ST | PDO_DONE_ST)) {
 		IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_INF,
 			       "CAM%c_STT_Done_%d_0x%x\n", 'A' + cardinalNum,
@@ -11504,10 +11547,26 @@ LB_CAM_SOF_IGNORE:
 			&IspInfo.WaitQHeadCam[ISP_GetWaitQCamIndex(module)]
 					     [ISP_WAITQ_HEAD_IRQ_HW_P1_DONE]);
 	}
+	// Bind AAO & AAHO as AAHO only
+	/*
 	if (DmaStatus & AAO_DONE_ST) {
 		wake_up_interruptible(
 			&IspInfo.WaitQHeadCam[ISP_GetWaitQCamIndex(module)]
 					     [ISP_WAITQ_HEAD_IRQ_AAO_DONE]);
+	}
+	if (DmaStatus & AAHO_DONE_ST) {
+		wake_up_interruptible(
+			&IspInfo.WaitQHeadCam[ISP_GetWaitQCamIndex(module)]
+					     [ISP_WAITQ_HEAD_IRQ_AAHO_DONE]);
+	}
+	*/
+	if (((DmaStatus & AAHO_DONE_ST) || (DmaStatus & AAO_DONE_ST))
+	//Check here to reduce "interrupted by system signal" false alarm
+	&& (IspInfo.IrqInfo.Status[module][DMA_INT][0] & AAHO_DONE_ST)
+	&& (IspInfo.IrqInfo.Status[module][DMA_INT][0] & AAO_DONE_ST)) {
+		wake_up_interruptible(
+			&IspInfo.WaitQHeadCam[ISP_GetWaitQCamIndex(module)]
+					     [ISP_WAITQ_HEAD_IRQ_AAHO_DONE]);
 	}
 	if (DmaStatus & FLKO_DONE_ST) {
 		wake_up_interruptible(
