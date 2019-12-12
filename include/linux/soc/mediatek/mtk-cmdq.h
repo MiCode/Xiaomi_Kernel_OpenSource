@@ -290,6 +290,12 @@ s32 cmdq_pkt_jump(struct cmdq_pkt *pkt, s32 offset);
 
 s32 cmdq_pkt_jump_addr(struct cmdq_pkt *pkt, u32 addr);
 
+s32 cmdq_pkt_cond_jump_abs(struct cmdq_pkt *pkt,
+	u16 addr_reg_idx,
+	struct cmdq_operand *left_operand,
+	struct cmdq_operand *right_operand,
+	enum CMDQ_CONDITION_ENUM condition_operator);
+
 s32 cmdq_pkt_poll_addr(struct cmdq_pkt *pkt, u32 value, u32 addr, u32 mask,
 	u8 reg_gpr);
 
