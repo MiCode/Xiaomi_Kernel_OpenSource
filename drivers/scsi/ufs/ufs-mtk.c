@@ -927,15 +927,27 @@ static int ufs_mtk_setup_clocks(struct ufs_hba *hba, bool on,
 	enum ufs_notify_change_status stage)
 {
 	int ret = 0;
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 
 	switch (stage) {
 	case PRE_CHANGE:
-		if (!on)
+		if (!on) {
 			ret = ufs_mtk_pltfrm_ref_clk_ctrl(hba, false);
+			if (host) {
+				pm_qos_update_request(
+					&host->req_cpu_dma_latency,
+					PM_QOS_DEFAULT_VALUE);
+			}
+		}
 		break;
 	case POST_CHANGE:
-		if (on)
+		if (on) {
 			ret = ufs_mtk_pltfrm_ref_clk_ctrl(hba, true);
+			if (host) {
+				pm_qos_update_request(
+					&host->req_cpu_dma_latency, 0);
+			}
+		}
 		break;
 	default:
 		break;
@@ -2567,122 +2579,6 @@ void ufs_mtk_res_ctrl(struct ufs_hba *hba, unsigned int op)
 #define ufs_mtk_res_ctrl	NULL
 #endif
 
-void ufs_mtk_pm_qos_get(struct work_struct *work)
-{
-	struct ufs_mtk_host *host =
-		container_of(work, struct ufs_mtk_host, pm_qos_get.work);
-	struct ufs_hba *hba = host->hba;
-	unsigned long flags;
-
-	/* check again if really need get pm qos */
-	if (!hba->outstanding_reqs)
-		return;
-
-	spin_lock_irqsave(&host->qos_lock, flags);
-	switch (atomic_read(&host->pm_qos_state)) {
-	case PMQOS_REQING:
-		atomic_set(&host->pm_qos_state, PMQOS_REQ);
-		host->pm_qos_value = 0;
-		spin_unlock_irqrestore(&host->qos_lock, flags);
-
-		pm_qos_update_request(&host->pm_qos_req, host->pm_qos_value);
-		break;
-
-	default:
-		spin_unlock_irqrestore(&host->qos_lock, flags);
-		break;
-	}
-}
-
-void ufs_mtk_pm_qos_rel(struct work_struct *work)
-{
-	struct ufs_mtk_host *host =
-		container_of(work, struct ufs_mtk_host, pm_qos_rel.work);
-	struct ufs_hba *hba = host->hba;
-	unsigned long flags;
-
-	/* check again if really need release pm qos */
-	if (hba->outstanding_reqs)
-		return;
-
-	spin_lock_irqsave(&host->qos_lock, flags);
-	switch (atomic_read(&host->pm_qos_state)) {
-	case PMQOS_UNREQING:
-		atomic_set(&host->pm_qos_state, PMQOS_UNREQ);
-		host->pm_qos_value = PM_QOS_DEFAULT_VALUE;
-		spin_unlock_irqrestore(&host->qos_lock, flags);
-
-		pm_qos_update_request(&host->pm_qos_req, host->pm_qos_value);
-		break;
-
-	default:
-		spin_unlock_irqrestore(&host->qos_lock, flags);
-		break;
-	}
-}
-
-void ufs_mtk_setup_xfer_req(struct ufs_hba *hba, int tag, bool is_scsi_cmd)
-{
-	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
-	unsigned long flags;
-
-	/* Request pm qos if no request ongoing */
-	if (hba->outstanding_reqs)
-		return;
-
-	spin_lock_irqsave(&host->qos_lock, flags);
-	switch (atomic_read(&host->pm_qos_state)) {
-	case PMQOS_UNREQ:
-		atomic_set(&host->pm_qos_state, PMQOS_REQING);
-		spin_unlock_irqrestore(&host->qos_lock, flags);
-
-		schedule_delayed_work(&host->pm_qos_get, 0);
-		break;
-
-	case PMQOS_UNREQING:
-		atomic_set(&host->pm_qos_state, PMQOS_REQ);
-		spin_unlock_irqrestore(&host->qos_lock, flags);
-
-		cancel_delayed_work(&host->pm_qos_rel);
-		break;
-
-	default:
-		spin_unlock_irqrestore(&host->qos_lock, flags);
-		break;
-	}
-}
-
-void ufs_mtk_complete_xfer_req(struct ufs_hba *hba)
-{
-	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
-	unsigned long flags;
-
-	/* Release pm qos if no request ongoing */
-	if (hba->outstanding_reqs)
-		return;
-
-	spin_lock_irqsave(&host->qos_lock, flags);
-	switch (atomic_read(&host->pm_qos_state)) {
-	case PMQOS_REQ:
-		atomic_set(&host->pm_qos_state, PMQOS_UNREQING);
-		spin_unlock_irqrestore(&host->qos_lock, flags);
-
-		schedule_delayed_work(&host->pm_qos_rel, 10);
-		break;
-
-	case PMQOS_REQING:
-		atomic_set(&host->pm_qos_state, PMQOS_UNREQ);
-		spin_unlock_irqrestore(&host->qos_lock, flags);
-
-		cancel_delayed_work(&host->pm_qos_get);
-		break;
-
-	default:
-		spin_unlock_irqrestore(&host->qos_lock, flags);
-		break;
-	}
-}
-
 /**
  * struct ufs_hba_mtk_vops - UFS MTK specific variant operations
  *
@@ -2700,8 +2596,7 @@ static struct ufs_hba_variant_ops ufs_hba_mtk_vops = {
 	ufs_mtk_hce_enable_notify,    /* hce_enable_notify */
 	ufs_mtk_link_startup_notify,  /* link_startup_notify */
 	ufs_mtk_pwr_change_notify,    /* pwr_change_notify */
-	ufs_mtk_setup_xfer_req,       /* setup_xfer_req */
-	ufs_mtk_complete_xfer_req,    /* complete_xfer_req */
+	NULL,		 /* setup_xfer_req */
 	NULL,		 /* setup_task_mgmt */
 	NULL,		 /* hibern8_notify */
 	NULL,            /* apply_dev_quirks */
@@ -2769,15 +2664,9 @@ static int ufs_mtk_probe(struct platform_device *pdev)
 	hba = platform_get_drvdata(pdev);
 
 	host = ufshcd_get_variant(hba);
-	host->pm_qos_value = PM_QOS_DEFAULT_VALUE;
-	pm_qos_add_request(&host->pm_qos_req, PM_QOS_CPU_DMA_LATENCY,
-			   host->pm_qos_value);
-	atomic_set(&host->pm_qos_state, PMQOS_UNREQ);
 
-	INIT_DELAYED_WORK(&host->pm_qos_get, ufs_mtk_pm_qos_get);
-	INIT_DELAYED_WORK(&host->pm_qos_rel, ufs_mtk_pm_qos_rel);
-
-	spin_lock_init(&host->qos_lock);
+	pm_qos_add_request(&host->req_cpu_dma_latency, PM_QOS_CPU_DMA_LATENCY,
+			   PM_QOS_DEFAULT_VALUE);
 
 	err = ufs_mtk_probe_crypto(hba);
 	if (err)
@@ -2801,7 +2690,8 @@ static int ufs_mtk_remove(struct platform_device *pdev)
 	pm_runtime_get_sync(&(pdev)->dev);
 	ufshcd_remove(hba);
 	ufs_mtk_biolog_exit();
-	pm_qos_remove_request(&host->pm_qos_req);
+	if (host)
+		pm_qos_remove_request(&host->req_cpu_dma_latency);
 
 	return 0;
 }

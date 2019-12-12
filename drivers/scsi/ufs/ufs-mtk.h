@@ -188,19 +188,13 @@ struct ufs_mtk_host {
 	/* performance mode */
 	enum perf_mode perf_mode;
 	bool perf_en;
+	bool spm_sw_mode;
 	int crypto_vcore_opp;
 	struct clk *crypto_clk_mux;
 	struct clk *crypto_parent_clk_normal;
 	struct clk *crypto_parent_clk_perf;
 	struct pm_qos_request *req_vcore;
-
-	bool spm_sw_mode;
-	atomic_t pm_qos_state;
-	struct pm_qos_request pm_qos_req;
-	struct delayed_work pm_qos_get;
-	struct delayed_work pm_qos_rel;
-	spinlock_t qos_lock;
-	int pm_qos_value;
+	struct pm_qos_request req_cpu_dma_latency;
 };
 
 enum {
