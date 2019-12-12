@@ -171,6 +171,11 @@
 		suspend-method = "disable";
 	};
 
+	mcucfg_mp0_counter {
+		compatible = "mediatek,mcucfg_mp0_counter";
+		reg_mp0_counter_base = <&mcucfg>;
+	};
+
 	memory {
 		device_type = "memory";
 		reg = <0 0x40000000 0 0x3e605000>;
