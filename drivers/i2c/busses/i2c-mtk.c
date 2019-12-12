@@ -187,12 +187,14 @@ void dump_dma_regs(void)
 
 static inline void i2c_writel_dma(u32 value, struct mt_i2c *i2c, u8 offset)
 {
-	writel(value, i2c->pdmabase + i2c->ch_offset_dma + offset);
+	if (!i2c->fifo_only)
+		writel(value, i2c->pdmabase + i2c->ch_offset_dma + offset);
 }
 
 static inline u32 i2c_readl_dma(struct mt_i2c *i2c, u8 offset)
 {
-	return readl(i2c->pdmabase + i2c->ch_offset_dma + offset);
+	if (!i2c->fifo_only)
+		return readl(i2c->pdmabase + i2c->ch_offset_dma + offset);
 }
 
 static void record_i2c_dma_info(struct mt_i2c *i2c)
@@ -865,8 +867,14 @@ static int mt_i2c_do_transfer(struct mt_i2c *i2c)
 
 	i2c->trans_stop = false;
 	i2c->irq_stat = 0;
-	if (i2c->total_len > 8 || i2c->msg_aux_len > 8)
-		isDMA = true;
+	if ((i2c->total_len > 8 || i2c->msg_aux_len > 8))
+		if (!i2c->fifo_only)
+			isDMA = true;
+		else {
+			dev_info(i2c->dev, "i2c does not support dma mode\n");
+			return -EINVAL;
+		}
+
 	if (i2c->ext_data.isEnable && i2c->ext_data.timing)
 		speed_hz = i2c->ext_data.timing;
 	else
@@ -1718,6 +1726,7 @@ static int mt_i2c_parse_dt(struct device_node *np, struct mt_i2c *i2c)
 		= of_property_read_bool(np, "mediatek,gpupm_used");
 	i2c->buffermode = of_property_read_bool(np, "mediatek,buffermode_used");
 	i2c->hs_only = of_property_read_bool(np, "mediatek,hs_only");
+	i2c->fifo_only = of_property_read_bool(np, "mediatek,fifo_only");
 	pr_info("[I2C]id:%d,freq:%d,div:%d,ch_offset:0x%x,offset_dma:0x%x,offset_ccu:0x%x\n",
 		i2c->id, i2c->speed_hz, i2c->clk_src_div,
 		i2c->ch_offset_default,
@@ -1805,11 +1814,13 @@ static int mt_i2c_probe(struct platform_device *pdev)
 	if (i2c->id < I2C_MAX_CHANNEL)
 		g_mt_i2c[i2c->id] = i2c;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	if (!i2c->fifo_only) {
+		res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 
-	i2c->pdmabase = devm_ioremap_resource(&pdev->dev, res);
-	if (IS_ERR(i2c->pdmabase))
-		return PTR_ERR(i2c->pdmabase);
+		i2c->pdmabase = devm_ioremap_resource(&pdev->dev, res);
+		if (IS_ERR(i2c->pdmabase))
+			return PTR_ERR(i2c->pdmabase);
+	}
 
 	i2c->gpiobase = devm_ioremap(&pdev->dev, i2c->gpio_start, i2c->mem_len);
 	if (IS_ERR(i2c->gpiobase)) {
@@ -1865,8 +1876,11 @@ static int mt_i2c_probe(struct platform_device *pdev)
 	}
 	i2c->clk_dma = devm_clk_get(&pdev->dev, "dma");
 	if (IS_ERR(i2c->clk_dma)) {
-		dev_info(&pdev->dev, "cannot get dma clock\n");
-		return PTR_ERR(i2c->clk_dma);
+		if (!i2c->fifo_only) {
+			dev_info(&pdev->dev, "cannot get dma clock\n");
+			return PTR_ERR(i2c->clk_dma);
+		}
+		i2c->clk_dma = NULL;
 	}
 	i2c->clk_arb = devm_clk_get(&pdev->dev, "arb");
 	if (IS_ERR(i2c->clk_arb))

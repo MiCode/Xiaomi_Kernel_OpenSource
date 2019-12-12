@@ -393,6 +393,7 @@ struct mt_i2c {
 	bool gpupm;/* I2C for GPUPM */
 	bool buffermode;	/* I2C Buffer mode support */
 	bool hs_only;	/* I2C HS only */
+	bool fifo_only;  /* i2c fifo mode only, does not have dma HW support */
 	/* set when doing the transfer */
 	u16 irq_stat;	/* interrupt status */
 	u16 i3c_en;     /* i3c enalbe */
