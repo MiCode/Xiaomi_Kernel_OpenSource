@@ -20,6 +20,7 @@
 #include "apu_log.h"
 #include "apu_power_api.h"
 #include "apusys_power.h"
+#include "apu_platform_debug.h"
 
 void apu_power_dump_opp_table(struct seq_file *s)
 {
@@ -105,5 +106,37 @@ int apu_power_dump_curr_status(struct seq_file *s, int oneline_str)
 		info.mdla0_cg_stat, info.mdla1_cg_stat);
 
 	seq_puts(s, "\n");
+	return 0;
+}
+
+int apusys_power_fail_show(struct seq_file *s, void *unused)
+{
+	char log_str[128];
+
+	snprintf(log_str, sizeof(log_str),
+		"v[%u,%u,%u,%u]f[%u,%u,%u,%u,%u,%u,%u]r[%x,%x,%x,%x,%x,%x,%x,%x,%x]t[%lu.%06lu]",
+		power_fail_record.pwr_info.vvpu,
+		power_fail_record.pwr_info.vmdla,
+		power_fail_record.pwr_info.vcore,
+		power_fail_record.pwr_info.vsram,
+		power_fail_record.pwr_info.dsp_freq,
+		power_fail_record.pwr_info.dsp1_freq,
+		power_fail_record.pwr_info.dsp2_freq,
+		power_fail_record.pwr_info.dsp3_freq,
+		power_fail_record.pwr_info.dsp6_freq,
+		power_fail_record.pwr_info.dsp7_freq,
+		power_fail_record.pwr_info.ipuif_freq,
+		power_fail_record.pwr_info.spm_wakeup,
+		power_fail_record.pwr_info.rpc_intf_rdy,
+		power_fail_record.pwr_info.vcore_cg_stat,
+		power_fail_record.pwr_info.conn_cg_stat,
+		power_fail_record.pwr_info.vpu0_cg_stat,
+		power_fail_record.pwr_info.vpu1_cg_stat,
+		power_fail_record.pwr_info.vpu2_cg_stat,
+		power_fail_record.pwr_info.mdla0_cg_stat,
+		power_fail_record.pwr_info.mdla1_cg_stat,
+		power_fail_record.time_sec, power_fail_record.time_nsec);
+
+	seq_printf(s, "%s\n", log_str);
 	return 0;
 }
