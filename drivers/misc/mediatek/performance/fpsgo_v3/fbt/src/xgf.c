@@ -59,9 +59,17 @@ static unsigned long long last_update2spid_ts;
 static char *xgf_sp_name = SP_ALLOW_NAME;
 static int xgf_extra_sub;
 static int xgf_dep_frames;
+static int xgf_spid_sub = XGF_DO_SP_SUB;
+static int xgf_ema_dividend = EMA_DIVIDEND;
+static int xgf_spid_ck_period = NSEC_PER_SEC;
+static int xgf_sp_name_id;
 module_param(xgf_sp_name, charp, 0644);
 module_param(xgf_extra_sub, int, 0644);
 module_param(xgf_dep_frames, int, 0644);
+module_param(xgf_spid_sub, int, 0644);
+module_param(xgf_ema_dividend, int, 0644);
+module_param(xgf_spid_ck_period, int, 0644);
+module_param(xgf_sp_name_id, int, 0644);
 
 HLIST_HEAD(xgf_renders);
 HLIST_HEAD(xgf_hw_events);
@@ -143,6 +151,12 @@ int *xgf_extra_sub_assign(void)
 	return (int *)(&xgf_extra_sub);
 }
 EXPORT_SYMBOL(xgf_extra_sub_assign);
+
+int *xgf_spid_sub_assign(void)
+{
+	return (int *)(&xgf_spid_sub);
+}
+EXPORT_SYMBOL(xgf_spid_sub_assign);
 
 int xgf_atomic_read(atomic_t *val)
 {
@@ -391,7 +405,10 @@ struct xgf_dep *xgf_get_dep(
 		return NULL;
 
 	xd->tid = tid;
-	xd->render_dep = 1;
+	if (xgf_spid_sub == 1 && tid == render->spid)
+		xd->render_dep = 0;
+	else
+		xd->render_dep = 1;
 	xd->frame_idx = xgf_dep_frames_mod(render, pos);
 
 	rb_link_node(&xd->rb_node, parent, p);
@@ -823,14 +840,21 @@ static inline unsigned long long xgf_ema_cal(
 {
 	unsigned long long ret = 0;
 	unsigned long long curr_new, prev_new;
+	int xgf_ema_rest_dividend;
 
 	if (!prev) {
 		ret = curr;
 		return ret;
 	}
 
-	curr_new = xgf_runtime_pro_rata(curr, EMA_DIVIDEND, EMA_DIVISOR);
-	prev_new = xgf_runtime_pro_rata(prev, EMA_REST_DIVIDEND, EMA_DIVISOR);
+	if (xgf_ema_dividend > 9 || xgf_ema_dividend < 1)
+		xgf_ema_dividend = EMA_DIVIDEND;
+
+	xgf_ema_rest_dividend = EMA_DIVISOR - xgf_ema_dividend;
+
+	curr_new = xgf_runtime_pro_rata(curr, xgf_ema_dividend, EMA_DIVISOR);
+	prev_new =
+		xgf_runtime_pro_rata(prev, xgf_ema_rest_dividend, EMA_DIVISOR);
 
 	if (prev_new > (ULLONG_MAX - curr_new))
 		ret = ULLONG_MAX; /* overflow */
@@ -1388,20 +1412,39 @@ static int xgf_get_spid(struct xgf_render *render)
 	struct rb_root *r;
 	struct rb_node *rbn;
 	struct xgf_dep *iter;
-	int ret = 0;
+	int len, ret = 0;
 	unsigned long long now_ts = xgf_get_time();
 	long long diff, scan_period;
 
 	xgf_lockprove(__func__);
 
-	scan_period = NSEC_PER_SEC;
+	if (xgf_spid_ck_period > NSEC_PER_SEC || xgf_spid_ck_period < 0)
+		xgf_spid_ck_period = NSEC_PER_SEC;
+
+	scan_period = xgf_spid_ck_period;
+
 	diff = (long long)now_ts - (long long)last_update2spid_ts;
 
 	if (diff < 0LL || diff < scan_period)
 		return -1;
 
-	if (!strlen(xgf_sp_name))
+	if (xgf_sp_name_id > 1 || xgf_sp_name_id < 0)
+		xgf_sp_name_id = 0;
+
+	if (!xgf_sp_name_id)
+		xgf_sp_name = SP_ALLOW_NAME;
+	else
+		xgf_sp_name = SP_ALLOW_NAME2;
+
+	len = strlen(xgf_sp_name);
+
+	if (!len)
 		return 0;
+
+	if (xgf_sp_name[len - 1] == '\n') {
+		len--;
+		xgf_trace("xgf_sp_name len:%d has a change line terminal", len);
+	}
 
 	r = &render->deps_list;
 	for (rbn = rb_first(r); rbn != NULL; rbn = rb_next(rbn)) {
@@ -1421,7 +1464,7 @@ static int xgf_get_spid(struct xgf_render *render)
 				goto tsk_out;
 
 			if (!strncmp(tsk->comm, xgf_sp_name,
-				strlen(xgf_sp_name))) {
+				len)) {
 				ret = task_pid_nr(tsk);
 				put_task_struct(tsk);
 				goto out;

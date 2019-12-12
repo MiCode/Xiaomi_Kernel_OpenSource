@@ -26,8 +26,10 @@
 #define EMA_DIVIDEND 7
 #define EMA_REST_DIVIDEND (EMA_DIVISOR - EMA_DIVIDEND)
 #define SP_ALLOW_NAME "UnityMain"
+#define SP_ALLOW_NAME2 "Thread-"
 #define XGF_DEP_FRAMES_MIN 2
 #define XGF_DEP_FRAMES_MAX 20
+#define XGF_DO_SP_SUB 0
 
 enum XGF_ERROR {
 	XGF_NOTIFY_OK,
@@ -180,6 +182,7 @@ void *xgf_alloc(int size);
 void xgf_free(void *block);
 void *xgf_atomic_val_assign(int select);
 int *xgf_extra_sub_assign(void);
+int *xgf_spid_sub_assign(void);
 int xgf_atomic_read(atomic_t *val);
 int xgf_atomic_inc_return(atomic_t *val);
 void xgf_atomic_set(atomic_t *val, int i);
