@@ -22,6 +22,8 @@
 #define devapc_log(p, s, fmt, args...) \
 	(p += scnprintf(p, sizeof(s) - strlen(s), fmt, ##args))
 
+#define UNUSED(x)		(void)(x)
+
 /******************************************************************************
  * DATA STRUCTURE & FUNCTION DEFINATION
  ******************************************************************************/
@@ -107,6 +109,7 @@ struct mtk_devapc_vio_info {
 	int disp2_vio_idx;
 	int mmsys_vio_idx;
 	int vio_trigger_times;
+	int shift_sta_bit;
 };
 
 struct mtk_infra_vio_dbg_desc {
@@ -156,7 +159,8 @@ struct mtk_devapc_soc {
 	/* platform specific operations */
 	const char* (*subsys_get)(int slave_type, uint32_t vio_index,
 			uint32_t vio_addr);
-	const char* (*master_get)(int bus_id, uint32_t vio_addr);
+	const char* (*master_get)(int bus_id, uint32_t vio_addr, int slave_type,
+			int shift_sta_bit);
 	void (*mm2nd_vio_handler)(void __iomem *infracfg,
 			struct mtk_devapc_vio_info *vio_info,
 			bool mdp_vio, bool disp2_vio, bool mmsys_vio);

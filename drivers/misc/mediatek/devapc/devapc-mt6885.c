@@ -1412,10 +1412,14 @@ static const char *peri_mi_trans(int bus_id)
 	return master;
 }
 
-static const char *mt6885_bus_id_to_master(int bus_id, uint32_t vio_addr)
+static const char *mt6885_bus_id_to_master(int bus_id, uint32_t vio_addr,
+		int slave_type, int shift_sta_bit)
 {
 	uint16_t h_2byte;
 	uint8_t h_1byte;
+
+	UNUSED(slave_type);
+	UNUSED(shift_sta_bit);
 
 	pr_debug(PFX "[DEVAPC] bus_id:0x%x, vio_addr:0x%x\n",
 		bus_id, vio_addr);

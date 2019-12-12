@@ -505,6 +505,7 @@ static uint8_t get_permission(int slave_type, int module_index, int domain)
 static void mtk_devapc_vio_check(int slave_type, int *shift_bit)
 {
 	uint32_t slave_type_num = mtk_devapc_ctx->soc->slave_type_num;
+	struct mtk_devapc_vio_info *vio_info;
 	uint32_t vio_shift_sta;
 	int i;
 
@@ -514,6 +515,7 @@ static void mtk_devapc_vio_check(int slave_type, int *shift_bit)
 		return;
 	}
 
+	vio_info = mtk_devapc_ctx->soc->vio_info;
 	vio_shift_sta = readl(mtk_devapc_pd_get(slave_type, VIO_SHIFT_STA, 0));
 
 	if (!vio_shift_sta) {
@@ -537,6 +539,8 @@ static void mtk_devapc_vio_check(int slave_type, int *shift_bit)
 			}
 		}
 	}
+
+	vio_info->shift_sta_bit = *shift_bit;
 }
 
 static void devapc_extract_vio_dbg(int slave_type)
@@ -875,7 +879,9 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 
 		vio_master = mtk_devapc_ctx->soc->master_get(
 				vio_info->master_id,
-				vio_info->vio_addr);
+				vio_info->vio_addr,
+				slave_type,
+				vio_info->shift_sta_bit);
 
 		if (!vio_master) {
 			pr_warn(PFX "master_get failed\n");
@@ -1223,7 +1229,7 @@ int mtk_devapc_probe(struct platform_device *pdev,
 	}
 
 	for (slave_type = 0; slave_type < slave_type_num; slave_type++)
-		pr_debug(PFX "%s:0x%x %s:%p\n",
+		pr_debug(PFX "%s:0x%x %s:%pa\n",
 				"slave_type", slave_type,
 				"devapc_pd_base",
 				mtk_devapc_ctx->devapc_pd_base[slave_type]);
