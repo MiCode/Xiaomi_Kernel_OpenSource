@@ -280,7 +280,7 @@ static DEFINE_SPINLOCK(meter_lock);
 #define APU_VCORE_CG	0xf
 #define APU_CONN_CG	0xff
 #define APU_MDLA0_CG	0x3FFF
-#define APU_MDLA1_CG	0x3FFF
+
 
 #define AUDIO_CG0	0x1F1C0304
 #define AUDIO_CG1	0xF033F0F0
@@ -288,7 +288,7 @@ static DEFINE_SPINLOCK(meter_lock);
 
 #define AUDIODSP_CG	0x1
 
-#define CAMSYS_CG	0x3FFCF
+#define CAMSYS_CG	0xEFFC7
 #define CAMRAWA_CG	0x7
 #define CAMRAWB_CG	0x7
 #define CAMRAWC_CG	0x7
@@ -296,8 +296,8 @@ static DEFINE_SPINLOCK(meter_lock);
 #define GCE_CG		0x00010000
 #define MDP_GCE_CG	0x00010000
 
-#define IMG1_CG		0x1c7
-#define IMG2_CG		0x1c7
+#define IMG1_CG		0x1007
+#define IMG2_CG		0x11c3
 
 #define IIC_WRAP_C_CG	0xF
 #define IIC_WRAP_E_CG	0x1
@@ -306,7 +306,7 @@ static DEFINE_SPINLOCK(meter_lock);
 #define IIC_WRAP_W_CG	0x1
 #define IIC_WRAP_WS_CG	0x7
 
-#define IPE_CG		0x7F
+#define IPE_CG		0x17F
 #define MFG_CG		0x1
 #define MSDC0_CG	0x00400000
 #define MSDCSYS_TOP_CG	0x00007FFF
@@ -323,9 +323,9 @@ static DEFINE_SPINLOCK(meter_lock);
 #define VENC_C1_CG	0x10011111
 #define VENC_CG		0x10011111
 
-#define MDP_CG0		0xFFFFFFFF
+#define MDP_CG0		0x000FFFFF
 #define MDP_CG1		0x13FF
-#define MDP_CG2		0x303
+#define MDP_CG2		0x101
 
 #define INFRA_CG0	0x032F8000	/* pwm: 21~15, uart:24,25 */
 #define INFRA_CG1	0x00000800	/* cpum: 11 */
@@ -2420,10 +2420,11 @@ static struct mtk_gate camsys_main_clks[] __initdata = {
 	GATE(CAMSYS_MAIN_FAKE_ENG_CGPDN, "camsys_main_fake_eng_cgpdn",
 			"cam_sel",
 			 camsys_main_camsys_cg_regs, 17, 0),
-	GATE(CAMSYS_MAIN_CCU_GALS_CGPDN, "camsys_main_ccu_gals_cgpdn",
+	GATE_DUMMY(CAMSYS_MAIN_CCU_GALS_CGPDN, "camsys_main_ccu_gals_cgpdn",
 			"cam_sel",
 			 camsys_main_camsys_cg_regs, 18, 0),
-	GATE(CAMSYS_MAIN_CAM2MM_GALS_CGPDN, "camsys_main_cam2mm_gals_cgpdn",
+	GATE_DUMMY(CAMSYS_MAIN_CAM2MM_GALS_CGPDN,
+			"camsys_main_cam2mm_gals_cgpdn",
 			"cam_sel",
 			 camsys_main_camsys_cg_regs, 19, 0),
 };
@@ -2556,7 +2557,7 @@ static struct mtk_gate imgsys1_clks[] __initdata = {
 			 imgsys1_img_cg_regs, 1, 0),
 	GATE(IMGSYS1_DIP_CGPDN, "imgsys1_dip_cgpdn", "img1_sel",
 			 imgsys1_img_cg_regs, 2, 0),
-	GATE(IMGSYS1_GALS_CGPDN, "imgsys1_gals_cgpdn", "img1_sel",
+	GATE_DUMMY(IMGSYS1_GALS_CGPDN, "imgsys1_gals_cgpdn", "img1_sel",
 			 imgsys1_img_cg_regs, 12, 0),
 	//GATE(IMGSYS1_MFB_CGPDN, "imgsys1_mfb_cgpdn", "img1_sel",
 	//		 imgsys1_img_cg_regs, 6, 0),
@@ -2591,7 +2592,7 @@ static struct mtk_gate imgsys2_clks[] __initdata = {
 	/* IMG_CG */
 	GATE_DUMMY(IMGSYS2_LARB11_CGPDN, "imgsys2_larb11_cgpdn", "img1_sel",
 			 imgsys2_img_cg_regs, 0, 0),
-	GATE(IMGSYS2_LARB12_CGPDN, "imgsys2_larb12_cgpdn", "img1_sel",
+	GATE_DUMMY(IMGSYS2_LARB12_CGPDN, "imgsys2_larb12_cgpdn", "img1_sel",
 			 imgsys2_img_cg_regs, 1, 0),
 	//GATE(IMGSYS2_DIP_CGPDN, "imgsys2_dip_cgpdn", "img2_sel",
 	//		 imgsys2_img_cg_regs, 2, 0),
@@ -2601,7 +2602,7 @@ static struct mtk_gate imgsys2_clks[] __initdata = {
 			 imgsys2_img_cg_regs, 7, 0),
 	GATE(IMGSYS2_MSS_CGPDN, "imgsys2_mss_cgpdn", "img1_sel",
 			 imgsys2_img_cg_regs, 8, 0),
-	GATE(IMGSYS2_GALS_CGPDN, "imgsys2_gals_cgpdn", "img1_sel",
+	GATE_DUMMY(IMGSYS2_GALS_CGPDN, "imgsys2_gals_cgpdn", "img1_sel",
 			 imgsys2_img_cg_regs, 8, 0),
 };
 
@@ -2955,6 +2956,8 @@ static const struct mtk_gate infra_clks[] __initconst = {
 			 infracfg_ao_module_sw_cg_1_regs, 2, 0),
 	GATE(INFRACFG_AO_MSDC1_CG, "infracfg_ao_msdc1_cg", "msdc50_0_hclk_sel",
 			 infracfg_ao_module_sw_cg_1_regs, 4, 0),
+	GATE(INFRACFG_AO_MSDC2_CG, "infracfg_ao_msdc2_cg", "msdc50_0_hclk_sel",
+			 infracfg_ao_module_sw_cg_1_regs, 5, 0),
 	GATE(INFRACFG_AO_MSDC0_SRC_CLK_CG, "infracfg_ao_msdc0_src_clk_cg",
 			"msdc50_0_sel",
 			 infracfg_ao_module_sw_cg_1_regs, 6, 0),
@@ -2984,6 +2987,9 @@ static const struct mtk_gate infra_clks[] __initconst = {
 	GATE(INFRACFG_AO_MSDC1_SRC_CLK_CG, "infracfg_ao_msdc1_src_clk_cg",
 			"msdc30_1_sel",
 			 infracfg_ao_module_sw_cg_1_regs, 16, 0),
+	GATE(INFRACFG_AO_MSDC2_SRC_CLK_CG, "infracfg_ao_msdc2_src_clk_cg",
+			"msdc30_2_sel",
+			 infracfg_ao_module_sw_cg_1_regs, 17, 0),
 
 	GATE(INFRACFG_AO_PCIE_TL_CLK96M_CG, "infracfg_ao_pcietl_96m_cg",
 			"axi_sel",
@@ -3248,7 +3254,7 @@ static struct mtk_gate ipesys_clks[] __initdata = {
 	GATE(IPESYS_DPE_CGPDN, "ipesys_dpe_cgpdn", "ipe_sel",
 			 ipesys_img_cg_regs, 6, 0),
 
-	GATE(IPESYS_GALS_CGPDN, "ipesys_gals_cgpdn", "img2_sel",
+	GATE_DUMMY(IPESYS_GALS_CGPDN, "ipesys_gals_cgpdn", "ipe_sel",
 			 ipesys_img_cg_regs, 8, 0),
 
 };
@@ -3348,7 +3354,7 @@ static struct mtk_gate mmsys_config_clks[] __initdata = {
 			mmsys_config_mmsys_cg_con0_regs, 15, 0),
 	GATE(MM_DISP_COLOR0, "MM_DISP_COLOR0", "disp_sel",
 			mmsys_config_mmsys_cg_con0_regs, 16, 0),
-	GATE(MM_SMI_COMMON, "MM_SMI_COMMON", "disp_sel",
+	GATE_DUMMY(MM_SMI_COMMON, "MM_SMI_COMMON", "disp_sel",
 			mmsys_config_mmsys_cg_con0_regs, 17, 0),
 	GATE(MM_DISP_FAKE_ENG0, "MM_DISP_FAKE_ENG0", "disp_sel",
 			mmsys_config_mmsys_cg_con0_regs, 18, 0),
@@ -3368,7 +3374,7 @@ static struct mtk_gate mmsys_config_clks[] __initdata = {
 			mmsys_config_mmsys_cg_con0_regs, 25, 0),
 	GATE(MM_DISP_Y2R0, "MM_DISP_Y2R0", "disp_sel",
 			mmsys_config_mmsys_cg_con0_regs, 26, 0),
-	GATE(MM_SMI_GALS, "MM_SMI_GALS", "disp_sel",
+	GATE_DUMMY(MM_SMI_GALS, "MM_SMI_GALS", "disp_sel",
 			mmsys_config_mmsys_cg_con0_regs, 27, 0),
 	GATE(MM_DISP_OVL2_2L, "MM_DISP_OVL2_2L", "disp_sel",
 			mmsys_config_mmsys_cg_con0_regs, 28, 0),
@@ -3377,7 +3383,7 @@ static struct mtk_gate mmsys_config_clks[] __initdata = {
 	GATE(MM_DISP_DPI0, "MM_DISP_DPI0", "disp_sel",
 			mmsys_config_mmsys_cg_con0_regs, 30, 0),
 	/* MMSYS_CG_CON1 */
-	GATE(MM_SMI_IOMMU, "MM_SMI_IOMMU", "disp_sel",
+	GATE_DUMMY(MM_SMI_IOMMU, "MM_SMI_IOMMU", "disp_sel",
 			 mmsys_config_mmsys_cg_con1_regs, 0, 0),
 
 	/* MMSYS_CG_CON2 */
@@ -3443,13 +3449,26 @@ static struct mtk_gate_regs msdcsys_top_regs = {
 static struct mtk_gate msdcsys_top_clks[] __initdata = {
 	/* PATCH_BIT1 */
 	GATE_STA_INV(MSDC_AES_CK_0P_CKEN, "MSDC_AES_CK_0P_CKEN",
-		"aes_ufsfde_sel", msdcsys_top_regs, 0, 1),
-	GATE_STA_INV(MSDC_SRC_CK_0P_CKEN, "MSDC_SRC_CK_0P_CKEN", "msdc50_0_sel",
+		"aes_msdcfde_sel", msdcsys_top_regs, 0, 1),
+	//GATE_STA_INV(MSDC_SRC_CK_0P_CKEN, "MSDC_SRC_CK_0P_CKEN",
+	//		"msdc50_0_sel",
+	//		 msdcsys_top_regs, 1, 1),
+	//GATE_STA_INV(MSDC_SRC_CK_1P_CKEN, "MSDC_SRC_CK_1P_CKEN",
+	//		"msdc30_1_sel",
+	//		 msdcsys_top_regs, 2, 1),
+	//GATE_STA_INV(MSDC_SRC_CK_2P_CKEN, "MSDC_SRC_CK_2P_CKEN",
+	//		"msdc30_2_sel",
+	//		 msdcsys_top_regs, 3, 1),
+	GATE_STA_INV(MSDC_SRC_CK_0P_CKEN, "MSDC_SRC_CK_0P_CKEN",
+			"infracfg_ao_msdc0_src_clk_cg",
 			 msdcsys_top_regs, 1, 1),
-	GATE_STA_INV(MSDC_SRC_CK_1P_CKEN, "MSDC_SRC_CK_1P_CKEN", "msdc30_1_sel",
+	GATE_STA_INV(MSDC_SRC_CK_1P_CKEN, "MSDC_SRC_CK_1P_CKEN",
+			"infracfg_ao_msdc1_src_clk_cg",
 			 msdcsys_top_regs, 2, 1),
-	GATE_STA_INV(MSDC_SRC_CK_2P_CKEN, "MSDC_SRC_CK_2P_CKEN", "msdc30_2_sel",
+	GATE_STA_INV(MSDC_SRC_CK_2P_CKEN, "MSDC_SRC_CK_2P_CKEN",
+			"infracfg_ao_msdc2_src_clk_cg",
 			 msdcsys_top_regs, 3, 1),
+
 	GATE_STA_INV(MSDC_PCLK_CK_MSDC0_CKEN, "MSDC_PCLK_CK_MSDC0_CKEN",
 		"axi_sel", msdcsys_top_regs, 4, 1),
 	GATE_STA_INV(MSDC_PCLK_CK_MSDC1_CKEN, "MSDC_PCLK_CK_MSDC1_CKEN",
@@ -3460,12 +3479,19 @@ static struct mtk_gate msdcsys_top_clks[] __initdata = {
 			 msdcsys_top_regs, 7, 1),
 	GATE_STA_INV(MSDC_AXI_CK_CKEN, "MSDC_AXI_CK_CKEN", "axi_sel",
 			 msdcsys_top_regs, 8, 1),
+	//GATE_STA_INV(MSDC_HCLK_MST_CK_0P_CKEN, "MSDC_HCLK_MST_CK_0P_CKEN",
+	//	"msdc50_0_hclk_sel", msdcsys_top_regs, 9, 1),
+	//GATE_STA_INV(MSDC_HCLK_MST_CK_1P_CKEN, "MSDC_HCLK_MST_CK_1P_CKEN",
+	//	"axi_sel", msdcsys_top_regs, 10, 1),
+	//GATE_STA_INV(MSDC_HCLK_MST_CK_2P_CKEN, "MSDC_HCLK_MST_CK_2P_CKEN",
+	//	"axi_sel", msdcsys_top_regs, 11, 1),
 	GATE_STA_INV(MSDC_HCLK_MST_CK_0P_CKEN, "MSDC_HCLK_MST_CK_0P_CKEN",
-		"msdc50_0_hclk_sel", msdcsys_top_regs, 9, 1),
+		"infracfg_ao_msdc0_cg", msdcsys_top_regs, 9, 1),
 	GATE_STA_INV(MSDC_HCLK_MST_CK_1P_CKEN, "MSDC_HCLK_MST_CK_1P_CKEN",
-		"axi_sel", msdcsys_top_regs, 10, 1),
+		"infracfg_ao_msdc1_cg", msdcsys_top_regs, 10, 1),
 	GATE_STA_INV(MSDC_HCLK_MST_CK_2P_CKEN, "MSDC_HCLK_MST_CK_2P_CKEN",
-		"axi_sel", msdcsys_top_regs, 11, 1),
+		"infracfg_ao_msdc2_cg", msdcsys_top_regs, 11, 1),
+
 	GATE_STA_INV(MSDC_MEM_OFF_DLY_26M_CK_CKEN,
 		"MSDC_MEM_OFF_DLY_26M_CK_CKEN",
 		"axi_sel", msdcsys_top_regs, 12, 1),
@@ -3786,7 +3812,7 @@ static struct mtk_gate mdpsys_config_clks[] __initdata = {
 	GATE(MDP_IMG_DL_ASYNC1, "MDP_IMG_DL_ASYNC1", "mdp_sel", mdp_cg0, 3, 0),
 	GATE(MDP_MDP_RDMA1, "MDP_MDP_RDMA1", "mdp_sel", mdp_cg0, 4, 0),
 	GATE(MDP_MDP_TDSHP1, "MDP_MDP_TDSHP1", "mdp_sel", mdp_cg0, 5, 0),
-	GATE(MDP_SMI0, "MDP_SMI0", "mdp_sel", mdp_cg0, 6, 0),
+	GATE_DUMMY(MDP_SMI0, "MDP_SMI0", "mdp_sel", mdp_cg0, 6, 0),
 	GATE(MDP_APB_BUS, "MDP_APB_BUS", "mdp_sel", mdp_cg0, 7, 0),
 	GATE(MDP_MDP_WROT0, "MDP_MDP_WROT0", "mdp_sel", mdp_cg0, 8, 0),
 	GATE(MDP_MDP_RSZ0, "MDP_MDP_RSZ0", "mdp_sel", mdp_cg0, 9, 0),
