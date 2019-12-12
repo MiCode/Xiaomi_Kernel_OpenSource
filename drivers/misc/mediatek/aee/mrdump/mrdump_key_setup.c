@@ -48,6 +48,12 @@ static const struct of_device_id mrdump_key_of_ids[] = {
 	{}
 };
 
+__weak void pmic_enable_smart_reset(unsigned char smart_en,
+			       unsigned char smart_sdn_en)
+{
+		pr_info("weak func: %s", __func__);
+}
+
 static int __init mrdump_key_probe(struct platform_device *pdev)
 {
 #ifdef CONFIG_MTK_WATCHDOG_COMMON
@@ -55,6 +61,10 @@ static int __init mrdump_key_probe(struct platform_device *pdev)
 	struct wd_api *wd_api = NULL;
 	const char *mode_str;
 	enum wk_req_mode mode = WD_REQ_IRQ_MODE;
+#ifdef CONFIG_MTK_PMIC_COMMON
+	enum MRDUMP_LONG_PRESS_MODE long_press_mode
+			= LONG_PRESS_NONE;
+#endif
 #endif
 
 #ifdef CONFIG_MTK_ENG_BUILD
@@ -63,10 +73,6 @@ static int __init mrdump_key_probe(struct platform_device *pdev)
 	enum MRDUMP_RST_SOURCE source = MRDUMP_EINT;
 #endif
 
-#ifdef CONFIG_MTK_PMIC_COMMON
-	enum MRDUMP_LONG_PRESS_MODE long_press_mode
-			= LONG_PRESS_NONE;
-#endif
 	struct device_node *node;
 	const char *source_str, *interrupts;
 	char node_name[] = "mediatek, mrdump_ext_rst-eint";
