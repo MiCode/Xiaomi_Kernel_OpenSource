@@ -15,10 +15,12 @@ static void __exit mt6885_dbg_fs_exit(void)
 {
 	mt6885_dbg_lpm_fs_deinit();
 	mt6885_dbg_spm_fs_deinit();
+	mt6885_dbg_lpm_deinit();
 }
 
 static int __init mt6885_dbg_fs_init(void)
 {
+	mt6885_dbg_lpm_init();
 	mt6885_dbg_lpm_fs_init();
 	mt6885_dbg_spm_fs_init();
 	pr_info("%s %d: finish", __func__, __LINE__);

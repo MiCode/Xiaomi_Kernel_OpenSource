@@ -11,7 +11,7 @@
 #define get_physical_cluster_id(cpu)    (0)
 
 #define LP_PM_SYSRAM_INFO_OFS  0x8
-#define LP_PM_SYSRAM_SIZE      0x800
+#define LP_PM_SYSRAM_SIZE      0x500
 
 extern void __iomem *cpu_pm_syssram_base;
 /* 0x11B000 */
