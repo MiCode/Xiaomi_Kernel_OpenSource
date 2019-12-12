@@ -24,9 +24,14 @@ static int emiisu_probe(struct platform_device *pdev);
 
 static ssize_t emiisu_ctrl_show(struct device_driver *driver, char *buf)
 {
-	struct emiisu_dev_t *emiisu_dev_ptr =
-		(struct emiisu_dev_t *)platform_get_drvdata(emiisu_pdev);
+	struct emiisu_dev_t *emiisu_dev_ptr;
 	unsigned int state;
+
+	if (!emiisu_pdev)
+		return 0;
+
+	emiisu_dev_ptr =
+		(struct emiisu_dev_t *)platform_get_drvdata(emiisu_pdev);
 
 	if (!(emiisu_dev_ptr->con_addr))
 		return 0;
@@ -38,14 +43,19 @@ static ssize_t emiisu_ctrl_show(struct device_driver *driver, char *buf)
 static ssize_t emiisu_ctrl_store
 	(struct device_driver *driver, const char *buf, size_t count)
 {
-	struct emiisu_dev_t *emiisu_dev_ptr =
-		(struct emiisu_dev_t *)platform_get_drvdata(emiisu_pdev);
+	struct emiisu_dev_t *emiisu_dev_ptr;
 	unsigned long state;
 	char *command;
 	char *backup_command;
 	char *ptr;
 	char *token[MTK_EMI_MAX_TOKEN];
 	int i;
+
+	if (!emiisu_pdev)
+		return count;
+
+	emiisu_dev_ptr =
+		(struct emiisu_dev_t *)platform_get_drvdata(emiisu_pdev);
 
 	if (!(emiisu_dev_ptr->ctrl_intf))
 		return count;
@@ -90,11 +100,17 @@ static DRIVER_ATTR_RW(emiisu_ctrl);
 static ssize_t dump_buf_read
 	(struct file *file, char __user *data, size_t len, loff_t *ppos)
 {
-	struct emiisu_dev_t *emiisu_dev_ptr =
-		(struct emiisu_dev_t *)platform_get_drvdata(emiisu_pdev);
-	ssize_t bytes = len < (emiisu_dev_ptr->buf_size - *ppos) ?
-		len : (emiisu_dev_ptr->buf_size - *ppos);
+	struct emiisu_dev_t *emiisu_dev_ptr;
+	ssize_t bytes;
 	ssize_t header_bytes = 0;
+
+	if (!emiisu_pdev)
+		return 0;
+
+	emiisu_dev_ptr =
+		(struct emiisu_dev_t *)platform_get_drvdata(emiisu_pdev);
+	bytes = len < (emiisu_dev_ptr->buf_size - *ppos) ?
+		len : (emiisu_dev_ptr->buf_size - *ppos);
 
 	if (!(emiisu_dev_ptr->buf_addr))
 		return 0;

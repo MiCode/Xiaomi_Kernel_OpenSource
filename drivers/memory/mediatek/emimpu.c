@@ -40,8 +40,7 @@ static unsigned int emimpu_read_protection(
 
 static ssize_t emimpu_ctrl_show(struct device_driver *driver, char *buf)
 {
-	struct emimpu_dev_t *emimpu_dev_ptr =
-		(struct emimpu_dev_t *)platform_get_drvdata(emimpu_pdev);
+	struct emimpu_dev_t *emimpu_dev_ptr;
 	ssize_t ret;
 	unsigned int i;
 	unsigned int region;
@@ -57,6 +56,12 @@ static ssize_t emimpu_ctrl_show(struct device_driver *driver, char *buf)
 		"S_R_NS_RW",
 		"NONE"
 	};
+
+	if (!emimpu_pdev)
+		return strlen(buf);
+
+	emimpu_dev_ptr =
+		(struct emimpu_dev_t *)platform_get_drvdata(emimpu_pdev);
 
 	for (ret = 0, region = emimpu_dev_ptr->show_region;
 		region < emimpu_dev_ptr->region_cnt; region++) {
@@ -100,8 +105,7 @@ static ssize_t emimpu_ctrl_show(struct device_driver *driver, char *buf)
 static ssize_t emimpu_ctrl_store
 	(struct device_driver *driver, const char *buf, size_t count)
 {
-	struct emimpu_dev_t *emimpu_dev_ptr =
-		(struct emimpu_dev_t *)platform_get_drvdata(emimpu_pdev);
+	struct emimpu_dev_t *emimpu_dev_ptr;
 	char *command;
 	char *backup_command;
 	char *ptr;
@@ -112,6 +116,12 @@ static ssize_t emimpu_ctrl_store
 	unsigned long dgroup;
 	unsigned long apc;
 	int i, j, ret;
+
+	if (!emimpu_pdev)
+		return count;
+
+	emimpu_dev_ptr =
+		(struct emimpu_dev_t *)platform_get_drvdata(emimpu_pdev);
 
 	if (!(emimpu_dev_ptr->ctrl_intf))
 		return count;
@@ -804,12 +814,14 @@ EXPORT_SYMBOL(mtk_emimpu_set_protection);
  */
 int mtk_emimpu_clear_protection(struct emimpu_region_t *rg_info)
 {
-	struct emimpu_dev_t *emimpu_dev_ptr =
-		(struct emimpu_dev_t *)platform_get_drvdata(emimpu_pdev);
+	struct emimpu_dev_t *emimpu_dev_ptr;
 	struct arm_smccc_res smc_res;
 
-	if (!emimpu_dev_ptr)
+	if (!emimpu_pdev)
 		return -1;
+
+	emimpu_dev_ptr =
+		(struct emimpu_dev_t *)platform_get_drvdata(emimpu_pdev);
 
 	if (rg_info->rg_num > emimpu_dev_ptr->region_cnt) {
 		pr_info("%s: region %u overflow\n", __func__, rg_info->rg_num);
@@ -868,13 +880,15 @@ EXPORT_SYMBOL(mtk_emimpu_postclear_register);
  */
 void mtk_clear_md_violation(void)
 {
-	struct emimpu_dev_t *emimpu_dev_ptr =
-		(struct emimpu_dev_t *)platform_get_drvdata(emimpu_pdev);
+	struct emimpu_dev_t *emimpu_dev_ptr;
 	void __iomem *emi_cen_base;
 	unsigned int emi_id;
 
-	if (!emimpu_dev_ptr)
+	if (!emimpu_pdev)
 		return;
+
+	emimpu_dev_ptr =
+		(struct emimpu_dev_t *)platform_get_drvdata(emimpu_pdev);
 
 	for (emi_id = 0; emi_id < emimpu_dev_ptr->emi_cen_cnt; emi_id++) {
 		emi_cen_base = emimpu_dev_ptr->emi_cen_base[emi_id];
