@@ -24,7 +24,6 @@
 
 
 #define EFUSE_INDEX 72	// 0x11C105D8
-#define FOR_HQA_TEST		(1)
 
 /* regulator id */
 static struct regulator *vvpu_reg_id;
@@ -373,6 +372,10 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 	int ret = 0;
 	int voltage_MAX = voltage_mV + 50000;
 	int settle_time = 0;
+	struct regulator *reg_id = NULL;
+#if VOLTAGE_CHECKER
+	int check_volt = 0;
+#endif
 
 #if BINNING_VOLTAGE_SUPPORT
 	bool binning_voltage = false;
@@ -417,12 +420,15 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 	if (buck == VPU_BUCK) {
 		buck_addr = PMIC_RG_BUCK_VPROC1_VOSEL_ADDR;
 		formula_param = 400000; // 0.4 V
+		reg_id = vvpu_reg_id;
 	} else if (buck == MDLA_BUCK) {
 		buck_addr = PMIC_RG_BUCK_VPROC2_VOSEL_ADDR;
 		formula_param = 400000; // 0.4 V
+		reg_id = vmdla_reg_id;
 	} else if (buck == SRAM_BUCK) {
 		buck_addr = PMIC_RG_LDO_VSRAM_MD_VOSEL_ADDR;
 		formula_param = 500000; // 0.5 V
+		reg_id = vsram_reg_id;
 	} else {
 		LOG_ERR("%s not support buck : %d\n", __func__, buck);
 		return -1;
@@ -452,24 +458,17 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 				DRV_Reg32(APU_PCU_PMIC_CUR_BUF));
 #else
 	if (buck == VPU_BUCK) {
-		ret = regulator_set_voltage(
-			vvpu_reg_id, voltage_mV, voltage_MAX);
+		reg_id = vvpu_reg_id;
 	} else if (buck == MDLA_BUCK) {
-		ret = regulator_set_voltage(
-			vmdla_reg_id, voltage_mV, voltage_MAX);
+		reg_id = vmdla_reg_id;
 	} else if (buck == SRAM_BUCK) {
-		ret = regulator_set_voltage(
-			vsram_reg_id, voltage_mV, voltage_MAX);
+		reg_id = vsram_reg_id;
 	} else {
 		LOG_ERR("%s not support buck : %d\n", __func__, buck);
 		return -1;
 	}
-#endif
 
-#if FOR_HQA_TEST
-	config_regulator_mode(buck, 0);	// force pwm for HQA
-#else
-	config_regulator_mode(buck, 1);	// auto normal for HQA
+	ret = regulator_set_voltage(reg_id, voltage_mV, voltage_MAX);
 #endif
 
 	settle_time = settle_time_check(buck, voltage_mV);
@@ -480,6 +479,20 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 #endif
 	udelay(settle_time);
 
+#if VOLTAGE_CHECKER
+	check_volt = regulator_get_voltage(reg_id);
+	if (voltage_mV != check_volt) {
+#if SUPPORT_HW_CONTROL_PMIC
+		LOG_ERR("%s check fail, pcu reg tar_buf:0x%x, cur_buf:0x%x\n",
+			__func__, pmic_cmd, DRV_Reg32(APU_PCU_PMIC_CUR_BUF));
+#endif
+		LOG_ERR("%s check fail, buck:%d, tar_volt:%d, chk_volt:%d\n",
+					__func__, buck, voltage_mV, check_volt);
+
+		return -1;
+	}
+	LOG_DBG("%s buck:%d, chk_volt:%d\n", __func__, buck, check_volt);
+#endif
 	return ret;
 }
 

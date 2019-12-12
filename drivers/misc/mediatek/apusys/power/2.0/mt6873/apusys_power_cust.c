@@ -136,6 +136,9 @@ bool buck_shared[APUSYS_BUCK_NUM]
 // small voltage first [Fix me]
 struct apusys_dvfs_constraint
 	dvfs_constraint_table[APUSYS_DVFS_CONSTRAINT_NUM] = {
+	{VPU_BUCK, DVFS_VOLT_00_575000_V, MDLA_BUCK, DVFS_VOLT_00_825000_V},
+	{VPU_BUCK, DVFS_VOLT_00_575000_V, MDLA_BUCK, DVFS_VOLT_00_800000_V},
+	{MDLA_BUCK, DVFS_VOLT_00_575000_V, VPU_BUCK, DVFS_VOLT_00_800000_V},
 };
 
 // confirmed by Arvin

@@ -62,11 +62,20 @@ extern void *g_APU_SPM_BASE;
 #define	APU_RPC_TOP_SEL		(void *)(APU_RPCTOP_BASE + 0x004)
 #define	APU_RPC_SW_FIFO_WE	(void *)(APU_RPCTOP_BASE + 0x008)
 #define	APU_RPC_INTF_PWR_RDY	(void *)(APU_RPCTOP_BASE + 0x044)
+
+#define	APU_RPC_PWR_CON2	(void *)(APU_RPCTOP_BASE + 0x108)
+#define	APU_RPC_PWR_CON3	(void *)(APU_RPCTOP_BASE + 0x10C)
+#define	APU_RPC_PWR_CON4	(void *)(APU_RPCTOP_BASE + 0x110)
+#define	APU_RPC_PWR_CON6	(void *)(APU_RPCTOP_BASE + 0x118)
+#define	APU_RPC_PWR_CON7	(void *)(APU_RPCTOP_BASE + 0x11C)
+
 #define	APU_RPC_SW_TYPE0	(void *)(APU_RPCTOP_BASE + 0x200)
 #define	APU_RPC_SW_TYPE1	(void *)(APU_RPCTOP_BASE + 0x210)
 #define	APU_RPC_SW_TYPE2	(void *)(APU_RPCTOP_BASE + 0x220)
 #define	APU_RPC_SW_TYPE3	(void *)(APU_RPCTOP_BASE + 0x230)
 #define	APU_RPC_SW_TYPE4	(void *)(APU_RPCTOP_BASE + 0x240)
+#define	APU_RPC_SW_TYPE6	(void *)(APU_RPCTOP_BASE + 0x260)
+#define	APU_RPC_SW_TYPE7	(void *)(APU_RPCTOP_BASE + 0x270)
 
 #define REG_WAKEUP_SET		(BIT(8) | BIT(9) | BIT(10) | BIT(11))
 #define REG_WAKEUP_CLR		(BIT(12) | BIT(13) | BIT(14) | BIT(15))

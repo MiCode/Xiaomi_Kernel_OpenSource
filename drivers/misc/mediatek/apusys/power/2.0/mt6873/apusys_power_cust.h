@@ -40,11 +40,12 @@
 
 #define APUSYS_MAX_NUM_OPPS                (7)
 #define APUSYS_PATH_USER_NUM               (3)   // num of DVFS_XXX_PATH
-#define APUSYS_DVFS_CONSTRAINT_NUM			(0)
+#define APUSYS_DVFS_CONSTRAINT_NUM			(3)
 #define APUSYS_VPU_NUM						(2)
 #define APUSYS_MDLA_NUM						(1)
 #define APUSYS_DEFAULT_OPP					(6)
 
+#define VOLTAGE_CHECKER		(0)
 
 // FIXME: check default value
 #define VCORE_DEFAULT_VOLT	DVFS_VOLT_00_575000_V

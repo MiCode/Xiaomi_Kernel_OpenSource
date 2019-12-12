@@ -47,6 +47,12 @@ struct apu_power_info {
 	unsigned long long id;
 };
 
+struct apu_power_info_record {
+	struct apu_power_info pwr_info;
+	unsigned long time_sec;
+	unsigned long time_nsec;
+};
+
 //APU
 void pm_qos_register(void);
 void pm_qos_unregister(void);
