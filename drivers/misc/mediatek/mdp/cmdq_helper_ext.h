@@ -862,6 +862,7 @@ void cmdq_core_reset_first_dump(void);
 
 /* cmdq_core_save_first_dump - save a CMDQ first error dump to file */
 s32 cmdq_core_save_first_dump(const char *string, ...);
+const char *cmdq_core_query_first_err_mod(void);
 
 /* Allocate/Free HW use buffer, e.g. command buffer forCMDQ HW */
 void *cmdq_core_alloc_hw_buffer_clt(struct device *dev, size_t size,

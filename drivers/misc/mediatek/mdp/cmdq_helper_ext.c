@@ -28,6 +28,7 @@
 #include <linux/arm-smccc.h>
 #include <mt-plat/mtk_secure_api.h>
 
+#include "cmdq-util.h"
 #include "cmdq_helper_ext.h"
 #include "cmdq_record.h"
 #include "cmdq_device.h"
@@ -1488,6 +1489,17 @@ s32 cmdq_core_save_first_dump(const char *string, ...)
 	}
 	va_end(argptr);
 	return 0;
+}
+
+const char *cmdq_core_query_first_err_mod(void)
+{
+	u8 i;
+
+	for (i = 0; i < ARRAY_SIZE(cmdq_clients); i++)
+		if (cmdq_clients[i])
+			return cmdq_util_get_first_err_mod(
+				cmdq_clients[i]->chan);
+	return NULL;
 }
 
 void cmdq_core_hex_dump_to_buffer(const void *buf, size_t len, int rowsize,
