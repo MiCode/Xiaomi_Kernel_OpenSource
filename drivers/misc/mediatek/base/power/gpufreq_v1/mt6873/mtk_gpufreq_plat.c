@@ -862,6 +862,9 @@ unsigned int mt_gpufreq_get_dvfs_en(void)
 
 unsigned int mt_gpufreq_not_ready(void)
 {
+	if (mt_gpufreq_bringup())
+		return false;
+
 	if (IS_ERR(g_pmic->reg_vgpu) || IS_ERR(g_pmic->reg_vsram_gpu)) {
 		gpufreq_pr_info("VGPU: %lu, VSRAM_GPU: %ld not initialized\n",
 			PTR_ERR(g_pmic->reg_vgpu),
