@@ -417,6 +417,7 @@ static const struct mtk_fixed_factor top_divs[] __initconst = {
 	FACTOR(TOP_MMPLL_D7, "mmpll_d7", "mmpll", 1, 7),
 	FACTOR(TOP_MMPLL_D9, "mmpll_d9", "mmpll", 1, 9),
 	FACTOR(TOP_APUPLL_CK, "apupll_ck", "apupll", 1, 2),
+	FACTOR(TOP_NPUPLL_CK, "npupll_ck", "npupll", 1, 1),
 	FACTOR(TOP_TVDPLL_CK, "tvdpll_ck", "tvdpll", 1, 1),
 	FACTOR(TOP_TVDPLL_D2, "tvdpll_d2", "tvdpll", 1, 2),
 	FACTOR(TOP_TVDPLL_D4, "tvdpll_d4", "tvdpll", 1, 4),
