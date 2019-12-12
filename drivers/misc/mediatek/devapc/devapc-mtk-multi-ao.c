@@ -1236,14 +1236,6 @@ int mtk_devapc_probe(struct platform_device *pdev,
 
 	pr_debug(PFX " IRQ:%d\n", mtk_devapc_ctx->devapc_irq);
 
-	ret = devm_request_irq(&pdev->dev, mtk_devapc_ctx->devapc_irq,
-			(irq_handler_t)devapc_violation_irq,
-			IRQF_TRIGGER_NONE, "devapc", NULL);
-	if (ret) {
-		pr_err(PFX "request devapc irq failed, ret:%d\n", ret);
-		return ret;
-	}
-
 	/* CCF (Common Clock Framework) */
 	mtk_devapc_ctx->devapc_infra_clk = devm_clk_get(&pdev->dev,
 			"devapc-infra-clock");
@@ -1256,7 +1248,16 @@ int mtk_devapc_probe(struct platform_device *pdev,
 	proc_create("devapc_dbg", 0664, NULL, &devapc_dbg_fops);
 
 	clk_prepare_enable(mtk_devapc_ctx->devapc_infra_clk);
+
 	start_devapc();
+
+	ret = devm_request_irq(&pdev->dev, mtk_devapc_ctx->devapc_irq,
+			(irq_handler_t)devapc_violation_irq,
+			IRQF_TRIGGER_NONE, "devapc", NULL);
+	if (ret) {
+		pr_err(PFX "request devapc irq failed, ret:%d\n", ret);
+		return ret;
+	}
 
 	return 0;
 }
