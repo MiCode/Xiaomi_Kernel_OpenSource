@@ -226,7 +226,10 @@ static int venc_encode_frame_final(struct venc_inst *inst,
 {
 	int ret = 0;
 
-	mtk_vcodec_debug_enter(inst);
+	mtk_v4l2_debug(0, "check inst->vsi %p +", inst->vsi);
+	if (inst == NULL || inst->vsi == NULL)
+		return -EINVAL;
+
 	if (bs_buf == NULL)
 		inst->vsi->venc.venc_bs_va = 0;
 	else
@@ -255,8 +258,10 @@ static int venc_init(struct mtk_vcodec_ctx *ctx, unsigned long *handle)
 	u32 fourcc = ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc;
 
 	inst = kzalloc(sizeof(*inst), GFP_KERNEL);
-	if (!inst)
+	if (!inst) {
+		*handle = (unsigned long)NULL;
 		return -ENOMEM;
+	}
 
 	inst->ctx = ctx;
 	inst->vcu_inst.ctx = ctx;
@@ -328,6 +333,9 @@ static int venc_encode(unsigned long handle,
 {
 	int ret = 0;
 	struct venc_inst *inst = (struct venc_inst *)handle;
+
+	if (inst == NULL || inst->vsi == NULL)
+		return -EINVAL;
 
 	mtk_vcodec_debug(inst, "opt %d ->", opt);
 

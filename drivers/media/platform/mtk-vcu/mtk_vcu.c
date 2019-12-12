@@ -974,7 +974,7 @@ void *vcu_mapping_dm_addr(struct platform_device *pdev,
 	d_off = d_vma - VCU_DMEM0_VMA(vcu);
 
 	if (dtcm_dmem_addr == 0UL || d_off > VCU_DMEM0_LEN(vcu)) {
-		dev_dbg(&pdev->dev, "[VCU] %s: Invalid vma 0x%lx len %lx\n",
+		dev_info(&pdev->dev, "[VCU] %s: Invalid vma 0x%lx len %lx\n",
 			__func__, dtcm_dmem_addr, VCU_DMEM0_LEN(vcu));
 		return NULL;
 	}
