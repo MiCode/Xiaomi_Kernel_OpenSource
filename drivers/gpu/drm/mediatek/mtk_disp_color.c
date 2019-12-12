@@ -68,12 +68,20 @@ enum COLOR_IOCTL_CMD {
 	PQ_SET_WINDOW
 };
 
+enum PQ_REG_TABLE_IDX {
+	TUNING_DISP_COLOR = 0,
+	TUNING_DISP_CCORR,	// 1
+	TUNING_DISP_AAL,	// 2
+	TUNING_DISP_GAMMA,	// 3
+	TUNING_DISP_DITHER,	// 4
+	TUNING_REG_MAX
+};
+
 struct mtk_disp_color_data {
 	unsigned int color_offset;
 	bool support_color21;
 	bool support_color30;
-	struct mtk_pq_reg_table reg_table[PQ_MODULE_NUM];
-	unsigned int reg_num;
+	unsigned long reg_table[TUNING_REG_MAX];
 	unsigned int color_window;
 };
 
@@ -102,7 +110,6 @@ static int g_tdshp_flag;	/* 0: normal, 1: tuning mode */
 int ncs_tuning_mode;
 int tdshp_index_init;
 
-
 static struct MDP_TDSHP_REG g_tdshp_reg = {
 	TDS_GAIN_MID:0x10,
 	TDS_GAIN_HIGH:0x20,
@@ -112,8 +119,6 @@ static struct MDP_TDSHP_REG g_tdshp_reg = {
 	TDS_GAIN:0x20,
 	TDS_COR_VALUE:0x3
 };
-
-#define TDSHP_PA_BASE	0x1F01A000
 
 #if defined(DISP_COLOR_ON)
 #define COLOR_MODE			(1)
@@ -1073,22 +1078,6 @@ static inline struct mtk_disp_color *comp_to_color(struct mtk_ddp_comp *comp)
 {
 	return container_of(comp, struct mtk_disp_color, ddp_comp);
 }
-
-
-#if 0
-static void _color_reg_mask(struct mtk_ddp_comp *comp,
-		void *__cmdq, unsigned long offset,
-		unsigned int value, unsigned int mask)
-{
-	struct cmdq_pkt *cmdq = (struct cmdq_pkt *) __cmdq;
-
-	if (cmdq != NULL)
-		cmdq_pkt_write(cmdq, comp->cmdq_base,
-			comp->regs_pa + offset, value, mask);
-	else
-		writel(value, comp->regs + offset);
-}
-#endif
 
 static void ddp_color_cal_split_window(struct mtk_ddp_comp *comp,
 	unsigned int *p_split_window_x, unsigned int *p_split_window_y)
@@ -2162,48 +2151,8 @@ static bool color_get_MDP_RSZ1_REG(struct resource *res)
 
 	return true;
 }
-
-static bool color_get_MDP_RSZ2_REG(struct resource *res)
-{
-	int rc = 0;
-	struct device_node *node = NULL;
-
-	node = of_find_compatible_node(NULL, NULL, "mediatek,mdp_rsz2");
-	rc = of_address_to_resource(node, 0, res);
-
-	// check if fail to get reg.
-	if (rc) {
-		DDPINFO("Fail to get MDP_RSZ2 REG\n");
-		return false;
-	}
-
-	DDPDBG("MDP_RSZ2 REG: 0x%lx ~ 0x%lx\n", res->start, res->end);
-
-	return true;
-}
-
-static bool color_get_MDP_RSZ3_REG(struct resource *res)
-{
-	int rc = 0;
-	struct device_node *node = NULL;
-
-	node = of_find_compatible_node(NULL, NULL, "mediatek,mdp_rsz3");
-	rc = of_address_to_resource(node, 0, res);
-
-	// check if fail to get reg.
-	if (rc) {
-		DDPINFO("Fail to get MDP_RSZ3 REG\n");
-		return false;
-	}
-
-	DDPDBG("MDP_RSZ3 REG: 0x%lx ~ 0x%lx\n", res->start, res->end);
-
-	return true;
-}
 #endif
 
-#if defined(SUPPORT_HDR)
-#if defined(HDR_IN_RDMA)
 static bool color_get_MDP_RDMA0_REG(struct resource *res)
 {
 	int rc = 0;
@@ -2218,11 +2167,11 @@ static bool color_get_MDP_RDMA0_REG(struct resource *res)
 		return false;
 	}
 
-	DDPDBG("MDP_RDMA0 REG: 0x%lx ~ 0x%lx\n", res->start, res->end);
+	DDPDBG("MDP_RDMA0 REG: 0x%llx ~ 0x%llx\n", res->start, res->end);
 
 	return true;
 }
-#else
+
 static bool color_get_MDP_HDR0_REG(struct resource *res)
 {
 	int rc = 0;
@@ -2237,31 +2186,10 @@ static bool color_get_MDP_HDR0_REG(struct resource *res)
 		return false;
 	}
 
-	DDPDBG("MDP_HDR0 REG: 0x%lx ~ 0x%lx\n", res->start, res->end);
+	DDPDBG("MDP_HDR0 REG: 0x%llx ~ 0x%llx\n", res->start, res->end);
 
 	return true;
 }
-
-static bool color_get_MDP_HDR1_REG(struct resource *res)
-{
-	int rc = 0;
-	struct device_node *node = NULL;
-
-	node = of_find_compatible_node(NULL, NULL, "mediatek,mdp_hdr1");
-	rc = of_address_to_resource(node, 0, res);
-
-	// check if fail to get reg.
-	if (rc) {
-		DDPINFO("Fail to get MDP_HDR1 REG\n");
-		return false;
-	}
-
-	DDPDBG("MDP_HDR1 REG: 0x%lx ~ 0x%lx\n", res->start, res->end);
-
-	return true;
-}
-#endif
-#endif
 
 #if defined(SUPPORT_MDP_AAL)
 static bool color_get_MDP_AAL0_REG(struct resource *res)
@@ -2360,109 +2288,56 @@ static int color_is_reg_addr_valid(struct mtk_ddp_comp *comp,
 		return -1;
 	}
 
-	for (i = 0; i < color->data->reg_num; i++) {
-		reg_addr = color->data->reg_table[i].reg_base;
+	for (i = 0; i < TUNING_REG_MAX; i++) {
+		reg_addr = color->data->reg_table[i];
 		if (addr >= reg_addr && addr < reg_addr + 0x1000)
 			break;
 	}
 
-	if (i < color->data->reg_num) {
-		DDPINFO("addr valid, addr=0x%08lx, module=%s\n",
-			addr, color->data->reg_table[i].name);
+	if (i < TUNING_REG_MAX) {
+		DDPINFO("addr valid, addr=0x%08lx\n", addr);
 		return i;
 	}
 
 	/*Check if MDP RSZ base address*/
 #if defined(SUPPORT_ULTRA_RESOLUTION)
-	if (color_get_MDP_RSZ0_REG(&res) == false)
-		return -1;
-
-	if (addr >= res.start &&
-		addr < res.end) {
-		/* MDP RSZ0 */
-		DDPDBG("addr valid, addr=0x%lx, module=%s!\n", addr,
-			"MDP_RSZ0");
+	if (color_get_MDP_RSZ0_REG(&res) &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=MDP_RSZ0\n", addr);
 		return 2;
 	}
 
-	if (color_get_MDP_RSZ1_REG(&res) == false)
-		return -1;
-
-	if (addr >= res.start &&
-				addr < res.end) {
-		/* MDP RSZ1 */
-		DDPDBG("addr valid, addr=0x%lx, module=%s!\n", addr,
-			"MDP_RSZ1");
-		return 2;
-	}
-
-	if (color_get_MDP_RSZ2_REG(&res) == false)
-		return -1;
-
-	if (addr >= res.start &&
-				addr < res.end) {
-		/* MDP RSZ2 */
-		DDPDBG("addr valid, addr=0x%lx, module=%s!\n", addr,
-			"MDP_RSZ2");
+	if (color_get_MDP_RSZ1_REG(&res) &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=MDP_RSZ1\n", addr);
 		return 2;
 	}
 #endif
 
-	/*Check if MDP HDR base address*/
-#if defined(SUPPORT_HDR)
-#if defined(HDR_IN_RDMA)
-
-	if (color_get_MDP_RDMA0_REG(&res) == false)
-		return -1
-
-	if (addr >= res.start &&
-		addr < res.end) {
-		/* MDP RDMA0 */
-		DDPDBG("addr valid, addr=0x%lx, module=%s!\n", addr,
-			"MDP_RDMA0");
+	if (color_get_MDP_RDMA0_REG(&res) &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=MDP_RDMA0\n", addr);
 		return 2;
 	}
-#else
 
-	if (color_get_MDP_HDR0_REG(&res) == false)
-		return -1;
-
-	if (addr >= res.start &&
-		addr < res.end) {
-		/* MDP HDR0 */
-		DDPDBG("addr valid, addr=0x%lx, module=%s!\n", addr,
-			"MDP_HDR0");
+	if (color_get_MDP_HDR0_REG(&res) &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=MDP_HDR0\n", addr);
 		return 2;
 	}
-#endif
-#endif
 
 	/*Check if MDP AAL base address*/
 #if defined(SUPPORT_MDP_AAL)
-
-	if (color_get_MDP_AAL0_REG(&res) == false)
-		return -1;
-
-	if (addr >= res.start &&
-		addr < res.end) {
-		/* MDP AAL0 */
-		DDPDBG("addr valid, addr=0x%lx, module=%s!\n", addr,
-			"MDP_AAL0");
-		//if (addr >= g_mdp_aal0_va + 0xFF0)
-		//	dump_dre_blk_histogram();
+	if (color_get_MDP_AAL0_REG(&res) &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=MDP_AAL0\n", addr);
 		return 2;
 	}
 #endif
 
-	if (color_get_TDSHP0_REG(&res) == false)
-		return -1;
-
-	/* check if TDSHP base address */
-	if (addr >= res.start &&
-		addr < res.end) {
-		/* TDSHP0 */
-		DDPDBG("addr valid, addr=0x%lx, module=%s!\n", addr,
-			"TDSHP0");
+	if (color_get_TDSHP0_REG(&res) &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=TDSHP0\n", addr);
 		return 2;
 	}
 
@@ -2572,6 +2447,7 @@ int mtk_drm_ioctl_read_sw_reg(struct drm_device *dev, void *data,
 #endif
 	unsigned int ret = 0;
 	unsigned int reg_id = rParams->reg;
+	struct resource res;
 
 	if (reg_id >= SWREG_PQDS_DS_EN && reg_id <= SWREG_PQDS_GAIN_0) {
 		ret = (unsigned int)g_PQ_DS_Param.param
@@ -2616,7 +2492,8 @@ int mtk_drm_ioctl_read_sw_reg(struct drm_device *dev, void *data,
 
 	case SWREG_TDSHP_BASE_ADDRESS:
 		{
-			ret = TDSHP_PA_BASE;
+			if (color_get_TDSHP0_REG(&res))
+				ret = res.start;
 			break;
 		}
 #if defined(DISP_MDP_COLOR_ON) || defined(MDP_COLOR_ON)
@@ -2646,11 +2523,9 @@ int mtk_drm_ioctl_read_sw_reg(struct drm_device *dev, void *data,
 
 	case SWREG_MDP_RDMA_BASE_ADDRESS:
 		{
-#if defined(SUPPORT_HDR)
-#if defined(HDR_IN_RDMA)
-			ret = MDP_RDMA0_PA_BASE;
-#endif
-#endif
+			if (!color_get_MDP_HDR0_REG(&res) &&
+				color_get_MDP_RDMA0_REG(&res))
+				ret = res.start;
 			break;
 		}
 
@@ -2664,11 +2539,8 @@ int mtk_drm_ioctl_read_sw_reg(struct drm_device *dev, void *data,
 
 	case SWREG_MDP_HDR_BASE_ADDRESS:
 		{
-#if defined(SUPPORT_HDR)
-#if !defined(HDR_IN_RDMA)
-			ret = MDP_HDR_PA_BASE;
-#endif
-#endif
+			if (color_get_MDP_HDR0_REG(&res))
+				ret = res.start;
 			break;
 		}
 
@@ -3190,40 +3062,15 @@ static const struct mtk_disp_color_data mt2701_color_driver_data = {
 	.color_offset = DISP_COLOR_START_MT2701,
 	.support_color21 = false,
 	.support_color30 = false,
-	.reg_num = 0,
 	.color_window = 0x40106051,
 };
-
-#if 0
-static const struct mtk_pq_reg_table mt6779_pq_reg_table[PQ_MODULE_NUM] = {
-	{ "disp_color0", 0x1400E000},
-	{ "disp_ccorr0", 0x1400F000},
-	{ "disp_aal0", 0x14001000},
-	{ "disp_gamma0", 0x14011000},
-	{ "disp_dither0", 0x14012000},
-	{ "mdp_rsz0", 0x14003000},
-	{ "mdp_rsz1", 0x14004000},
-	{ "mdp_aal0", 0x1401B000},
-	{ "mdp_hdr0", 0x1401C000},
-};
-#endif
 
 static const struct mtk_disp_color_data mt6779_color_driver_data = {
 	.color_offset = DISP_COLOR_START_MT6779,
 	.support_color21 = true,
 	.support_color30 = true,
-	.reg_table = {
-		{ "disp_color0", 0x1400E000},
-		{ "disp_ccorr0", 0x1400F000},
-		{ "disp_aal0", 0x14001000},
-		{ "disp_gamma0", 0x14011000},
-		{ "disp_dither0", 0x14012000},
-		{ "mdp_rsz0", 0x14003000},
-		{ "mdp_rsz1", 0x14004000},
-		{ "mdp_aal0", 0x1401B000},
-		{ "mdp_hdr0", 0x1401C000}
-	},
-	.reg_num = 9,
+	.reg_table = {0x1400E000, 0x1400F000, 0x14001000,
+			0x14011000, 0x14012000},
 	.color_window = 0x40185E57,
 };
 
@@ -3231,7 +3078,6 @@ static const struct mtk_disp_color_data mt8173_color_driver_data = {
 	.color_offset = DISP_COLOR_START_MT8173,
 	.support_color21 = false,
 	.support_color30 = false,
-	.reg_num = 0,
 	.color_window = 0x40106051,
 };
 
@@ -3239,18 +3085,8 @@ static const struct mtk_disp_color_data mt6885_color_driver_data = {
 	.color_offset = DISP_COLOR_START_MT6885,
 	.support_color21 = true,
 	.support_color30 = true,
-	.reg_table = {
-		{ "disp_color0", 0x14007000},
-		{ "disp_ccorr0", 0x14008000},
-		{ "disp_aal0", 0x14009000},
-		{ "disp_gamma0", 0x1400A000},
-		{ "disp_dither0", 0x1400B000},
-		{ "mdp_rsz0", 0x1F012000},
-		{ "mdp_rsz1", 0x1F013000},
-		{ "mdp_aal0", 0x1F00C000},
-		{ "mdp_hdr0", 0x1F010000}
-	},
-	.reg_num = 9,
+	.reg_table = {0x14007000, 0x14008000, 0x14009000,
+			0x1400A000, 0x1400B000},
 	.color_window = 0x40185E57,
 };
 

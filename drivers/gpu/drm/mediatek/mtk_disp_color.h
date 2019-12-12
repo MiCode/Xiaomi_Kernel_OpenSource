@@ -53,11 +53,6 @@ enum LUT_REG {
 	LUT_REG_TOTAL
 };
 
-struct mtk_pq_reg_table {
-	char name[16];
-	unsigned long reg_base;
-};
-
 #define SG1 0
 #define SG2 1
 #define SG3 2
