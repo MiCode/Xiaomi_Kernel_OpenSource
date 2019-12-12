@@ -324,6 +324,11 @@
 	};
 };
 
+&camera_af_hw_node {
+	vcamaf-supply = <&mt_pmic_vcamio_ldo_reg>;
+	status = "okay";
+};
+
 &mtkfb {
 	pinctrl-names = "lcd_bias_enp1_gpio", "lcd_bias_enp0_gpio",
 		"lcd_bias_enn1_gpio", "lcd_bias_enn0_gpio",

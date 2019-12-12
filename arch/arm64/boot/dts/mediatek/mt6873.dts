@@ -3960,6 +3960,10 @@
 		reg = <0 0x1502c000 0 0x1000>;
 	};
 
+	camera_af_hw_node: camera_af_hw_node {
+		compatible = "mediatek, camera_af_lens";
+	};
+
 	smi_larb9: smi_larb9@1502e000 {
 		compatible = "mediatek,smi_larb9", "mediatek,smi_larb";
 		reg = <0 0x1502e000 0 0x1000>;
