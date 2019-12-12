@@ -49,15 +49,17 @@ unsigned int init_dcm_type =
 #if defined(__KERNEL__) && defined(CONFIG_OF)
 unsigned long dcm_infracfg_ao_base;
 unsigned long dcm_infracfg_ao_mem_base;
+unsigned long dcm_infra_ao_bcrm_base;
 unsigned long dcm_emi_base;
 unsigned long dcm_dramc_ch0_top0_base;
 unsigned long dcm_chn0_emi_base;
+unsigned long dcm_dramc_ch0_top5_base;
 unsigned long dcm_dramc_ch1_top0_base;
+unsigned long dcm_dramc_ch1_top5_base;
 unsigned long dcm_sspm_base;
 unsigned long dcm_audio_base;
 unsigned long dcm_mp_cpusys_top_base;
 unsigned long dcm_cpccfg_reg_base;
-
 
 #define DCM_NODE "mediatek,mt6873-dcm"
 
@@ -78,10 +80,13 @@ short is_dcm_bringup(void)
 struct DCM_BASE dcm_base_array[] = {
 	DCM_BASE_INFO(dcm_infracfg_ao_base),
 	DCM_BASE_INFO(dcm_infracfg_ao_mem_base),
+	DCM_BASE_INFO(dcm_infra_ao_bcrm_base),
 	DCM_BASE_INFO(dcm_emi_base),
 	DCM_BASE_INFO(dcm_dramc_ch0_top0_base),
 	DCM_BASE_INFO(dcm_chn0_emi_base),
+	DCM_BASE_INFO(dcm_dramc_ch0_top5_base),
 	DCM_BASE_INFO(dcm_dramc_ch1_top0_base),
+	DCM_BASE_INFO(dcm_dramc_ch1_top5_base),
 	DCM_BASE_INFO(dcm_sspm_base),
 	DCM_BASE_INFO(dcm_audio_base),
 	DCM_BASE_INFO(dcm_mp_cpusys_top_base),
@@ -148,9 +153,10 @@ bool dcm_infra_is_on(void)
 	ret &= dcm_infracfg_ao_infra_bus_dcm_is_on();
 	ret &= dcm_infracfg_ao_infra_conn_bus_dcm_is_on();
 	ret &= dcm_infracfg_ao_infra_rx_p2p_dcm_is_on();
-	ret &= dcm_infracfg_ao_mts_bus_dcm_is_on();
 	ret &= dcm_infracfg_ao_peri_bus_dcm_is_on();
 	ret &= dcm_infracfg_ao_peri_module_dcm_is_on();
+	ret &= dcm_infra_ao_bcrm_infra_bus_dcm_is_on();
+	ret &= dcm_infra_ao_bcrm_peri_bus_dcm_is_on();
 
 	return ret;
 }
@@ -162,9 +168,11 @@ int dcm_infra(int on)
 	dcm_infracfg_ao_infra_bus_dcm(on);
 	dcm_infracfg_ao_infra_conn_bus_dcm(on);
 	dcm_infracfg_ao_infra_rx_p2p_dcm(on);
-	dcm_infracfg_ao_mts_bus_dcm(on);
 	dcm_infracfg_ao_peri_bus_dcm(on);
 	dcm_infracfg_ao_peri_module_dcm(on);
+	/* INFRA_AO_BCRM */
+	dcm_infra_ao_bcrm_infra_bus_dcm(on);
+	dcm_infra_ao_bcrm_peri_bus_dcm(on);
 	/* INFRACFG_AO_MEM */
 	/* move to preloader */
 	/* dcm_infracfg_ao_mem_dcm_emi_group(on); */
@@ -295,7 +303,9 @@ int dcm_dramc_ao(int on)
 int dcm_ddrphy(int on)
 {
 	dcm_dramc_ch0_top0_ddrphy(on);
+	dcm_dramc_ch0_top5_ddrphy(on);
 	dcm_dramc_ch1_top0_ddrphy(on);
+	dcm_dramc_ch1_top5_ddrphy(on);
 
 	return 0;
 }
@@ -330,18 +340,13 @@ int dcm_mcsi(int on)
 
 int dcm_busdvt(int on)
 {
-	dcm_infracfg_ao_aximem_bus_dcm(on);
 	dcm_infracfg_ao_infra_bus_dcm(on);
-	dcm_infracfg_ao_infra_conn_bus_dcm(on);
-	dcm_infracfg_ao_infra_rx_p2p_dcm(on);
 	dcm_infracfg_ao_peri_bus_dcm(on);
-	dcm_infracfg_ao_peri_module_dcm(on);
-	/* move to preloader */
-	/*dcm_infracfg_ao_mem_dcm_emi_group(on);*/
-	/*dcm_sub_infracfg_ao_mem_dcm_emi_group(on);*/
+	dcm_infracfg_ao_aximem_bus_dcm(on);
+	dcm_infra_ao_bcrm_infra_bus_dcm(on);
+	dcm_infra_ao_bcrm_peri_bus_dcm(on);
+	dcm_emi_emi_dcm(on);
 
-	dcm_dramc_ch0_top0_ddrphy(on);
-	dcm_dramc_ch1_top0_ddrphy(on);
 	return 0;
 }
 
@@ -496,13 +501,15 @@ void dcm_dump_regs(void)
 {
 	dcm_pr_info("\n******** dcm dump register *********\n");
 
-
 	REG_DUMP(INFRACFG_AO_BASE);
 	REG_DUMP(INFRACFG_AO_MEM_BASE);
+	REG_DUMP(INFRA_AO_BCRM_BASE);
 	REG_DUMP(EMI_BASE);
 	REG_DUMP(DRAMC_CH0_TOP0_BASE);
 	REG_DUMP(CHN0_EMI_BASE);
+	REG_DUMP(DRAMC_CH0_TOP5_BASE);
 	REG_DUMP(DRAMC_CH1_TOP0_BASE);
+	REG_DUMP(DRAMC_CH1_TOP5_BASE);
 	REG_DUMP(SSPM_BASE);
 	REG_DUMP(AUDIO_BASE);
 	REG_DUMP(MP_CPUSYS_TOP_BASE);
@@ -531,6 +538,10 @@ void dcm_dump_regs(void)
 	REG_DUMP(INFRA_EMI_DCM_CFG1);
 	REG_DUMP(INFRA_EMI_DCM_CFG3);
 	REG_DUMP(TOP_CK_ANCHOR_CFG);
+	REG_DUMP(VDNR_DCM_TOP_INFRA_PAR_BUS_u_INFRA_PAR_BUS_CTRL_0);
+	REG_DUMP(VDNR_DCM_TOP_INFRA_PAR_BUS_u_INFRA_PAR_BUS_CTRL_1);
+	REG_DUMP(VDNR_DCM_TOP_INFRA_PAR_BUS_u_INFRA_PAR_BUS_CTRL_2);
+	REG_DUMP(VDNR_DCM_TOP_INFRA_PAR_BUS_u_INFRA_PAR_BUS_CTRL_10);
 	REG_DUMP(EMI_CONM);
 	REG_DUMP(EMI_CONN);
 	REG_DUMP(EMI_THRO_CTRL0);
@@ -553,6 +564,20 @@ void dcm_dump_regs(void)
 	REG_DUMP(DRAMC_CH0_TOP0_SCSMCTRL_CG);
 	REG_DUMP(DRAMC_CH0_TOP0_SHU_APHY_TX_PICG_CTRL);
 	REG_DUMP(CHN0_EMI_CHN_EMI_CONB);
+	REG_DUMP(DRAMC_CH0_TOP5_MISC_CG_CTRL0);
+	REG_DUMP(DRAMC_CH0_TOP5_MISC_CG_CTRL2);
+	REG_DUMP(DRAMC_CH0_TOP5_MISC_CG_CTRL5);
+	REG_DUMP(DRAMC_CH0_TOP5_MISC_DUTYSCAN1);
+	REG_DUMP(DRAMC_CH0_TOP5_MISC_CTRL3);
+	REG_DUMP(DRAMC_CH0_TOP5_MISC_CTRL4);
+	REG_DUMP(DRAMC_CH0_TOP5_MISC_RX_AUTOK_CFG0);
+	REG_DUMP(DRAMC_CH0_TOP5_SHU_B0_DQ7);
+	REG_DUMP(DRAMC_CH0_TOP5_SHU_B0_DQ8);
+	REG_DUMP(DRAMC_CH0_TOP5_SHU_B1_DQ7);
+	REG_DUMP(DRAMC_CH0_TOP5_SHU_B1_DQ8);
+	REG_DUMP(DRAMC_CH0_TOP5_SHU_CA_CMD8);
+	REG_DUMP(DRAMC_CH0_TOP5_MISC_SHU_RX_CG_CTRL);
+	REG_DUMP(DRAMC_CH0_TOP5_MISC_SHU_CG_CTRL0);
 	REG_DUMP(DRAMC_CH1_TOP0_DDRCOMMON0);
 	REG_DUMP(DRAMC_CH1_TOP0_TEST2_A0);
 	REG_DUMP(DRAMC_CH1_TOP0_TEST2_A3);
@@ -571,7 +596,20 @@ void dcm_dump_regs(void)
 	REG_DUMP(DRAMC_CH1_TOP0_CLKAR);
 	REG_DUMP(DRAMC_CH1_TOP0_SCSMCTRL_CG);
 	REG_DUMP(DRAMC_CH1_TOP0_SHU_APHY_TX_PICG_CTRL);
-
+	REG_DUMP(DRAMC_CH1_TOP5_MISC_CG_CTRL0);
+	REG_DUMP(DRAMC_CH1_TOP5_MISC_CG_CTRL2);
+	REG_DUMP(DRAMC_CH1_TOP5_MISC_CG_CTRL5);
+	REG_DUMP(DRAMC_CH1_TOP5_MISC_DUTYSCAN1);
+	REG_DUMP(DRAMC_CH1_TOP5_MISC_CTRL3);
+	REG_DUMP(DRAMC_CH1_TOP5_MISC_CTRL4);
+	REG_DUMP(DRAMC_CH1_TOP5_MISC_RX_AUTOK_CFG0);
+	REG_DUMP(DRAMC_CH1_TOP5_SHU_B0_DQ7);
+	REG_DUMP(DRAMC_CH1_TOP5_SHU_B0_DQ8);
+	REG_DUMP(DRAMC_CH1_TOP5_SHU_B1_DQ7);
+	REG_DUMP(DRAMC_CH1_TOP5_SHU_B1_DQ8);
+	REG_DUMP(DRAMC_CH1_TOP5_SHU_CA_CMD8);
+	REG_DUMP(DRAMC_CH1_TOP5_MISC_SHU_RX_CG_CTRL);
+	REG_DUMP(DRAMC_CH1_TOP5_MISC_SHU_CG_CTRL0);
 
 }
 

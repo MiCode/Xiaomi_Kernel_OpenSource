@@ -18,7 +18,7 @@
 #include <mtk_dcm_internal.h>
 #include <mtk_dcm_autogen.h>
 #include <mtk_dcm.h>
-// ========== auto gen code 2019 1114 ====================
+// ========== auto gen code 2019 1126 ====================
 #define INFRACFG_AO_AXIMEM_BUS_DCM_REG0_MASK ((0x1f << 12) | \
 			(0x1 << 17) | \
 			(0x1 << 18))
@@ -62,6 +62,7 @@ void dcm_infracfg_ao_aximem_bus_dcm(int on)
 			(0x1 << 3) | \
 			(0x1 << 4) | \
 			(0x1f << 5) | \
+			(0x1f << 10) | \
 			(0x1 << 20) | \
 			(0x1 << 23) | \
 			(0x1 << 30))
@@ -70,6 +71,7 @@ void dcm_infracfg_ao_aximem_bus_dcm(int on)
 			(0x0 << 3) | \
 			(0x0 << 4) | \
 			(0x10 << 5) | \
+			(0x1 << 10) | \
 			(0x1 << 20) | \
 			(0x1 << 23) | \
 			(0x1 << 30))
@@ -78,22 +80,10 @@ void dcm_infracfg_ao_aximem_bus_dcm(int on)
 			(0x0 << 3) | \
 			(0x1 << 4) | \
 			(0x10 << 5) | \
+			(0x1 << 10) | \
 			(0x0 << 20) | \
 			(0x0 << 23) | \
 			(0x0 << 30))
-#if 0
-static unsigned int infracfg_ao_infra_dcm_rg_sfsel_get(void)
-{
-	return (reg_read(INFRA_BUS_DCM_CTRL) >> 10) & 0x1f;
-}
-#endif
-static void infracfg_ao_infra_dcm_rg_sfsel_set(unsigned int val)
-{
-	reg_write(INFRA_BUS_DCM_CTRL,
-		(reg_read(INFRA_BUS_DCM_CTRL) &
-		~(0x1f << 10)) |
-		(val & 0x1f) << 10);
-}
 
 bool dcm_infracfg_ao_infra_bus_dcm_is_on(void)
 {
@@ -110,14 +100,12 @@ void dcm_infracfg_ao_infra_bus_dcm(int on)
 {
 	if (on) {
 		/* TINFO = "Turn ON DCM 'infracfg_ao_infra_bus_dcm'" */
-		infracfg_ao_infra_dcm_rg_sfsel_set(0x1);
 		reg_write(INFRA_BUS_DCM_CTRL,
 			(reg_read(INFRA_BUS_DCM_CTRL) &
 			~INFRACFG_AO_INFRA_BUS_DCM_REG0_MASK) |
 			INFRACFG_AO_INFRA_BUS_DCM_REG0_ON);
 	} else {
 		/* TINFO = "Turn OFF DCM 'infracfg_ao_infra_bus_dcm'" */
-		infracfg_ao_infra_dcm_rg_sfsel_set(0x1);
 		reg_write(INFRA_BUS_DCM_CTRL,
 			(reg_read(INFRA_BUS_DCM_CTRL) &
 			~INFRACFG_AO_INFRA_BUS_DCM_REG0_MASK) |
@@ -240,6 +228,7 @@ void dcm_infracfg_ao_mts_bus_dcm(int on)
 			(0x1 << 3) | \
 			(0x1 << 4) | \
 			(0x1f << 5) | \
+			(0x1f << 10) | \
 			(0x1f << 15) | \
 			(0x1 << 20) | \
 			(0x1 << 21))
@@ -248,6 +237,7 @@ void dcm_infracfg_ao_mts_bus_dcm(int on)
 			(0x0 << 3) | \
 			(0x0 << 4) | \
 			(0x1f << 5) | \
+			(0x0 << 10) | \
 			(0x1f << 15) | \
 			(0x1 << 20) | \
 			(0x1 << 21))
@@ -256,22 +246,10 @@ void dcm_infracfg_ao_mts_bus_dcm(int on)
 			(0x0 << 3) | \
 			(0x1 << 4) | \
 			(0x1f << 5) | \
+			(0x1f << 10) | \
 			(0x0 << 15) | \
 			(0x0 << 20) | \
 			(0x0 << 21))
-#if 0
-static unsigned int infracfg_ao_peri_dcm_rg_sfsel_get(void)
-{
-	return (reg_read(PERI_BUS_DCM_CTRL) >> 10) & 0x1f;
-}
-#endif
-static void infracfg_ao_peri_dcm_rg_sfsel_set(unsigned int val)
-{
-	reg_write(PERI_BUS_DCM_CTRL,
-		(reg_read(PERI_BUS_DCM_CTRL) &
-		~(0x1f << 10)) |
-		(val & 0x1f) << 10);
-}
 
 bool dcm_infracfg_ao_peri_bus_dcm_is_on(void)
 {
@@ -288,14 +266,12 @@ void dcm_infracfg_ao_peri_bus_dcm(int on)
 {
 	if (on) {
 		/* TINFO = "Turn ON DCM 'infracfg_ao_peri_bus_dcm'" */
-		infracfg_ao_peri_dcm_rg_sfsel_set(0x0);
 		reg_write(PERI_BUS_DCM_CTRL,
 			(reg_read(PERI_BUS_DCM_CTRL) &
 			~INFRACFG_AO_PERI_BUS_DCM_REG0_MASK) |
 			INFRACFG_AO_PERI_BUS_DCM_REG0_ON);
 	} else {
 		/* TINFO = "Turn OFF DCM 'infracfg_ao_peri_bus_dcm'" */
-		infracfg_ao_peri_dcm_rg_sfsel_set(0x1f);
 		reg_write(PERI_BUS_DCM_CTRL,
 			(reg_read(PERI_BUS_DCM_CTRL) &
 			~INFRACFG_AO_PERI_BUS_DCM_REG0_MASK) |
@@ -424,6 +400,132 @@ void dcm_infracfg_ao_mem_dcm_emi_group(int on)
 			(reg_read(TOP_CK_ANCHOR_CFG) &
 			~INFRACFG_AO_MEM_DCM_EMI_GROUP_REG3_MASK) |
 			INFRACFG_AO_MEM_DCM_EMI_GROUP_REG3_OFF);
+	}
+}
+
+#define INFRA_AO_BCRM_INFRA_BUS_DCM_REG0_MASK ((0x1 << 0) | \
+			(0x1 << 1) | \
+			(0x1 << 28))
+#define INFRA_AO_BCRM_INFRA_BUS_DCM_REG1_MASK ((0x1f << 5))
+#define INFRA_AO_BCRM_INFRA_BUS_DCM_REG2_MASK ((0x1 << 12))
+#define INFRA_AO_BCRM_INFRA_BUS_DCM_REG0_ON ((0x1 << 0) | \
+			(0x1 << 1) | \
+			(0x1 << 28))
+#define INFRA_AO_BCRM_INFRA_BUS_DCM_REG1_ON ((0x0 << 5))
+#define INFRA_AO_BCRM_INFRA_BUS_DCM_REG2_ON ((0x1 << 12))
+#define INFRA_AO_BCRM_INFRA_BUS_DCM_REG0_OFF ((0x1 << 0) | \
+			(0x1 << 1) | \
+			(0x0 << 28))
+#define INFRA_AO_BCRM_INFRA_BUS_DCM_REG1_OFF ((0x0 << 5))
+#define INFRA_AO_BCRM_INFRA_BUS_DCM_REG2_OFF ((0x0 << 12))
+
+bool dcm_infra_ao_bcrm_infra_bus_dcm_is_on(void)
+{
+	bool ret = true;
+
+	ret &= ((reg_read(VDNR_DCM_TOP_INFRA_PAR_BUS_u_INFRA_PAR_BUS_CTRL_0) &
+		INFRA_AO_BCRM_INFRA_BUS_DCM_REG0_MASK) ==
+		(unsigned int) INFRA_AO_BCRM_INFRA_BUS_DCM_REG0_ON);
+	ret &= ((reg_read(VDNR_DCM_TOP_INFRA_PAR_BUS_u_INFRA_PAR_BUS_CTRL_1) &
+		INFRA_AO_BCRM_INFRA_BUS_DCM_REG1_MASK) ==
+		(unsigned int) INFRA_AO_BCRM_INFRA_BUS_DCM_REG1_ON);
+	ret &= ((reg_read(VDNR_DCM_TOP_INFRA_PAR_BUS_u_INFRA_PAR_BUS_CTRL_10) &
+		INFRA_AO_BCRM_INFRA_BUS_DCM_REG2_MASK) ==
+		(unsigned int) INFRA_AO_BCRM_INFRA_BUS_DCM_REG2_ON);
+
+	return ret;
+}
+
+void dcm_infra_ao_bcrm_infra_bus_dcm(int on)
+{
+	if (on) {
+		/* TINFO = "Turn ON DCM 'infra_ao_bcrm_infra_bus_dcm'" */
+		reg_write(VDNR_DCM_TOP_INFRA_PAR_BUS_u_INFRA_PAR_BUS_CTRL_0,
+		(reg_read(VDNR_DCM_TOP_INFRA_PAR_BUS_u_INFRA_PAR_BUS_CTRL_0) &
+			~INFRA_AO_BCRM_INFRA_BUS_DCM_REG0_MASK) |
+			INFRA_AO_BCRM_INFRA_BUS_DCM_REG0_ON);
+		reg_write(VDNR_DCM_TOP_INFRA_PAR_BUS_u_INFRA_PAR_BUS_CTRL_1,
+		(reg_read(VDNR_DCM_TOP_INFRA_PAR_BUS_u_INFRA_PAR_BUS_CTRL_1) &
+			~INFRA_AO_BCRM_INFRA_BUS_DCM_REG1_MASK) |
+			INFRA_AO_BCRM_INFRA_BUS_DCM_REG1_ON);
+		reg_write(VDNR_DCM_TOP_INFRA_PAR_BUS_u_INFRA_PAR_BUS_CTRL_10,
+		(reg_read(VDNR_DCM_TOP_INFRA_PAR_BUS_u_INFRA_PAR_BUS_CTRL_10) &
+			~INFRA_AO_BCRM_INFRA_BUS_DCM_REG2_MASK) |
+			INFRA_AO_BCRM_INFRA_BUS_DCM_REG2_ON);
+	} else {
+		/* TINFO = "Turn OFF DCM 'infra_ao_bcrm_infra_bus_dcm'" */
+		reg_write(VDNR_DCM_TOP_INFRA_PAR_BUS_u_INFRA_PAR_BUS_CTRL_0,
+		(reg_read(VDNR_DCM_TOP_INFRA_PAR_BUS_u_INFRA_PAR_BUS_CTRL_0) &
+			~INFRA_AO_BCRM_INFRA_BUS_DCM_REG0_MASK) |
+			INFRA_AO_BCRM_INFRA_BUS_DCM_REG0_OFF);
+		reg_write(VDNR_DCM_TOP_INFRA_PAR_BUS_u_INFRA_PAR_BUS_CTRL_1,
+		(reg_read(VDNR_DCM_TOP_INFRA_PAR_BUS_u_INFRA_PAR_BUS_CTRL_1) &
+			~INFRA_AO_BCRM_INFRA_BUS_DCM_REG1_MASK) |
+			INFRA_AO_BCRM_INFRA_BUS_DCM_REG1_OFF);
+		reg_write(VDNR_DCM_TOP_INFRA_PAR_BUS_u_INFRA_PAR_BUS_CTRL_10,
+		(reg_read(VDNR_DCM_TOP_INFRA_PAR_BUS_u_INFRA_PAR_BUS_CTRL_10) &
+			~INFRA_AO_BCRM_INFRA_BUS_DCM_REG2_MASK) |
+			INFRA_AO_BCRM_INFRA_BUS_DCM_REG2_OFF);
+	}
+}
+
+#define INFRA_AO_BCRM_PERI_BUS_DCM_REG0_MASK ((0x1 << 26))
+#define INFRA_AO_BCRM_PERI_BUS_DCM_REG1_MASK ((0x1f << 5))
+#define INFRA_AO_BCRM_PERI_BUS_DCM_REG2_MASK ((0x1 << 25))
+#define INFRA_AO_BCRM_PERI_BUS_DCM_REG0_ON ((0x1 << 26))
+#define INFRA_AO_BCRM_PERI_BUS_DCM_REG1_ON ((0x0 << 5))
+#define INFRA_AO_BCRM_PERI_BUS_DCM_REG2_ON ((0x1 << 25))
+#define INFRA_AO_BCRM_PERI_BUS_DCM_REG0_OFF ((0x0 << 26))
+#define INFRA_AO_BCRM_PERI_BUS_DCM_REG1_OFF ((0x0 << 5))
+#define INFRA_AO_BCRM_PERI_BUS_DCM_REG2_OFF ((0x0 << 25))
+
+bool dcm_infra_ao_bcrm_peri_bus_dcm_is_on(void)
+{
+	bool ret = true;
+
+	ret &= ((reg_read(VDNR_DCM_TOP_INFRA_PAR_BUS_u_INFRA_PAR_BUS_CTRL_1) &
+		INFRA_AO_BCRM_PERI_BUS_DCM_REG0_MASK) ==
+		(unsigned int) INFRA_AO_BCRM_PERI_BUS_DCM_REG0_ON);
+	ret &= ((reg_read(VDNR_DCM_TOP_INFRA_PAR_BUS_u_INFRA_PAR_BUS_CTRL_2) &
+		INFRA_AO_BCRM_PERI_BUS_DCM_REG1_MASK) ==
+		(unsigned int) INFRA_AO_BCRM_PERI_BUS_DCM_REG1_ON);
+	ret &= ((reg_read(VDNR_DCM_TOP_INFRA_PAR_BUS_u_INFRA_PAR_BUS_CTRL_10) &
+		INFRA_AO_BCRM_PERI_BUS_DCM_REG2_MASK) ==
+		(unsigned int) INFRA_AO_BCRM_PERI_BUS_DCM_REG2_ON);
+
+	return ret;
+}
+
+void dcm_infra_ao_bcrm_peri_bus_dcm(int on)
+{
+	if (on) {
+		/* TINFO = "Turn ON DCM 'infra_ao_bcrm_peri_bus_dcm'" */
+		reg_write(VDNR_DCM_TOP_INFRA_PAR_BUS_u_INFRA_PAR_BUS_CTRL_1,
+		(reg_read(VDNR_DCM_TOP_INFRA_PAR_BUS_u_INFRA_PAR_BUS_CTRL_1) &
+			~INFRA_AO_BCRM_PERI_BUS_DCM_REG0_MASK) |
+			INFRA_AO_BCRM_PERI_BUS_DCM_REG0_ON);
+		reg_write(VDNR_DCM_TOP_INFRA_PAR_BUS_u_INFRA_PAR_BUS_CTRL_2,
+		(reg_read(VDNR_DCM_TOP_INFRA_PAR_BUS_u_INFRA_PAR_BUS_CTRL_2) &
+			~INFRA_AO_BCRM_PERI_BUS_DCM_REG1_MASK) |
+			INFRA_AO_BCRM_PERI_BUS_DCM_REG1_ON);
+		reg_write(VDNR_DCM_TOP_INFRA_PAR_BUS_u_INFRA_PAR_BUS_CTRL_10,
+		(reg_read(VDNR_DCM_TOP_INFRA_PAR_BUS_u_INFRA_PAR_BUS_CTRL_10) &
+			~INFRA_AO_BCRM_PERI_BUS_DCM_REG2_MASK) |
+			INFRA_AO_BCRM_PERI_BUS_DCM_REG2_ON);
+	} else {
+		/* TINFO = "Turn OFF DCM 'infra_ao_bcrm_peri_bus_dcm'" */
+		reg_write(VDNR_DCM_TOP_INFRA_PAR_BUS_u_INFRA_PAR_BUS_CTRL_1,
+		(reg_read(VDNR_DCM_TOP_INFRA_PAR_BUS_u_INFRA_PAR_BUS_CTRL_1) &
+			~INFRA_AO_BCRM_PERI_BUS_DCM_REG0_MASK) |
+			INFRA_AO_BCRM_PERI_BUS_DCM_REG0_OFF);
+		reg_write(VDNR_DCM_TOP_INFRA_PAR_BUS_u_INFRA_PAR_BUS_CTRL_2,
+		(reg_read(VDNR_DCM_TOP_INFRA_PAR_BUS_u_INFRA_PAR_BUS_CTRL_2) &
+			~INFRA_AO_BCRM_PERI_BUS_DCM_REG1_MASK) |
+			INFRA_AO_BCRM_PERI_BUS_DCM_REG1_OFF);
+		reg_write(VDNR_DCM_TOP_INFRA_PAR_BUS_u_INFRA_PAR_BUS_CTRL_10,
+		(reg_read(VDNR_DCM_TOP_INFRA_PAR_BUS_u_INFRA_PAR_BUS_CTRL_10) &
+			~INFRA_AO_BCRM_PERI_BUS_DCM_REG2_MASK) |
+			INFRA_AO_BCRM_PERI_BUS_DCM_REG2_OFF);
 	}
 }
 
@@ -843,6 +945,478 @@ void dcm_chn0_emi_chn_emi_dcm(int on)
 	}
 }
 
+#define DRAMC_CH0_TOP5_DDRPHY_REG0_MASK ((0x1 << 8) | \
+			(0x1 << 9) | \
+			(0x1 << 10) | \
+			(0x1 << 11) | \
+			(0x1 << 12) | \
+			(0x1 << 13) | \
+			(0x1 << 14) | \
+			(0x1 << 15) | \
+			(0x1 << 16) | \
+			(0x1 << 17) | \
+			(0x1 << 18) | \
+			(0x1 << 19) | \
+			(0x1 << 20) | \
+			(0x1 << 22))
+#define DRAMC_CH0_TOP5_DDRPHY_REG1_MASK ((0x1 << 6) | \
+			(0x1 << 7) | \
+			(0x1 << 8) | \
+			(0x7f << 9) | \
+			(0x1f << 16) | \
+			(0x1f << 21) | \
+			(0x1 << 26) | \
+			(0x1 << 27) | \
+			(0x1 << 28) | \
+			(0x1 << 29) | \
+			(0x1 << 30) | \
+			(0x1 << 31))
+#define DRAMC_CH0_TOP5_DDRPHY_REG2_MASK ((0x1 << 16) | \
+			(0x1 << 17) | \
+			(0x1 << 18) | \
+			(0x1 << 20) | \
+			(0x1 << 21) | \
+			(0x1 << 22))
+#define DRAMC_CH0_TOP5_DDRPHY_REG3_MASK ((0x1 << 3))
+#define DRAMC_CH0_TOP5_DDRPHY_REG4_MASK ((0x3 << 0) | \
+			(0x3 << 2) | \
+			(0x1 << 4) | \
+			(0x1 << 5) | \
+			(0x1 << 6) | \
+			(0x3 << 16) | \
+			(0x3 << 18) | \
+			(0x1 << 20) | \
+			(0x1 << 21) | \
+			(0x1 << 22) | \
+			(0x1 << 26) | \
+			(0x1 << 27))
+#define DRAMC_CH0_TOP5_DDRPHY_REG5_MASK ((0x1 << 0) | \
+			(0x1 << 1) | \
+			(0x1 << 2) | \
+			(0x1 << 3) | \
+			(0x1 << 4) | \
+			(0x1 << 5) | \
+			(0x1 << 6) | \
+			(0x1 << 7) | \
+			(0x1 << 8))
+#define DRAMC_CH0_TOP5_DDRPHY_REG6_MASK ((0x1 << 3))
+#define DRAMC_CH0_TOP5_DDRPHY_REG7_MASK ((0x1 << 17) | \
+			(0x1 << 18) | \
+			(0x1 << 19))
+#define DRAMC_CH0_TOP5_DDRPHY_REG8_MASK ((0x1 << 19) | \
+			(0x1 << 20) | \
+			(0x1 << 21) | \
+			(0x1 << 22) | \
+			(0x1 << 23) | \
+			(0x1 << 24) | \
+			(0x1 << 26) | \
+			(0x1 << 27) | \
+			(0x1 << 28) | \
+			(0x1 << 29) | \
+			(0x1 << 30) | \
+			(0x1 << 31))
+#define DRAMC_CH0_TOP5_DDRPHY_REG9_MASK ((0x1 << 17) | \
+			(0x1 << 18) | \
+			(0x1 << 19))
+#define DRAMC_CH0_TOP5_DDRPHY_REG10_MASK ((0x1 << 19) | \
+			(0x1 << 20) | \
+			(0x1 << 21) | \
+			(0x1 << 22) | \
+			(0x1 << 23) | \
+			(0x1 << 24) | \
+			(0x1 << 26) | \
+			(0x1 << 27) | \
+			(0x1 << 28) | \
+			(0x1 << 29) | \
+			(0x1 << 30) | \
+			(0x1 << 31))
+#define DRAMC_CH0_TOP5_DDRPHY_REG11_MASK ((0x1 << 20) | \
+			(0x1 << 21) | \
+			(0x1 << 26) | \
+			(0x1 << 27) | \
+			(0x1 << 28) | \
+			(0x1 << 29) | \
+			(0x1 << 30) | \
+			(0x1 << 31))
+#define DRAMC_CH0_TOP5_DDRPHY_REG12_MASK ((0x1 << 1) | \
+			(0x1 << 4) | \
+			(0x1 << 5) | \
+			(0x1 << 8) | \
+			(0x1 << 9) | \
+			(0x1 << 10))
+#define DRAMC_CH0_TOP5_DDRPHY_REG13_MASK ((0xffffffff << 0))
+#define DRAMC_CH0_TOP5_DDRPHY_REG0_ON ((0x1 << 8) | \
+			(0x0 << 9) | \
+			(0x0 << 10) | \
+			(0x0 << 11) | \
+			(0x0 << 12) | \
+			(0x0 << 13) | \
+			(0x0 << 14) | \
+			(0x0 << 15) | \
+			(0x0 << 16) | \
+			(0x0 << 17) | \
+			(0x0 << 18) | \
+			(0x0 << 19) | \
+			(0x0 << 20) | \
+			(0x0 << 22))
+#define DRAMC_CH0_TOP5_DDRPHY_REG1_ON ((0x0 << 6) | \
+			(0x1 << 7) | \
+			(0x1 << 8) | \
+			(0x5 << 9) | \
+			(0x0 << 16) | \
+			(0x3 << 21) | \
+			(0x0 << 26) | \
+			(0x0 << 27) | \
+			(0x0 << 28) | \
+			(0x0 << 29) | \
+			(0x0 << 30) | \
+			(0x1 << 31))
+#define DRAMC_CH0_TOP5_DDRPHY_REG2_ON ((0x1 << 16) | \
+			(0x1 << 17) | \
+			(0x1 << 18) | \
+			(0x1 << 20) | \
+			(0x1 << 21) | \
+			(0x1 << 22))
+#define DRAMC_CH0_TOP5_DDRPHY_REG3_ON ((0x0 << 3))
+#define DRAMC_CH0_TOP5_DDRPHY_REG4_ON ((0x0 << 0) | \
+			(0x0 << 2) | \
+			(0x0 << 4) | \
+			(0x0 << 5) | \
+			(0x0 << 6) | \
+			(0x0 << 16) | \
+			(0x0 << 18) | \
+			(0x0 << 20) | \
+			(0x0 << 21) | \
+			(0x0 << 22) | \
+			(0x0 << 26) | \
+			(0x0 << 27))
+#define DRAMC_CH0_TOP5_DDRPHY_REG5_ON ((0x1 << 0) | \
+			(0x1 << 1) | \
+			(0x1 << 2) | \
+			(0x1 << 3) | \
+			(0x1 << 4) | \
+			(0x1 << 5) | \
+			(0x1 << 6) | \
+			(0x1 << 7) | \
+			(0x1 << 8))
+#define DRAMC_CH0_TOP5_DDRPHY_REG6_ON ((0x0 << 3))
+#define DRAMC_CH0_TOP5_DDRPHY_REG7_ON ((0x0 << 17) | \
+			(0x0 << 18) | \
+			(0x0 << 19))
+#define DRAMC_CH0_TOP5_DDRPHY_REG8_ON ((0x0 << 19) | \
+			(0x0 << 20) | \
+			(0x1 << 21) | \
+			(0x0 << 22) | \
+			(0x0 << 23) | \
+			(0x1 << 24) | \
+			(0x0 << 26) | \
+			(0x0 << 27) | \
+			(0x0 << 28) | \
+			(0x0 << 29) | \
+			(0x0 << 30) | \
+			(0x0 << 31))
+#define DRAMC_CH0_TOP5_DDRPHY_REG9_ON ((0x0 << 17) | \
+			(0x0 << 18) | \
+			(0x0 << 19))
+#define DRAMC_CH0_TOP5_DDRPHY_REG10_ON ((0x0 << 19) | \
+			(0x0 << 20) | \
+			(0x1 << 21) | \
+			(0x0 << 22) | \
+			(0x0 << 23) | \
+			(0x1 << 24) | \
+			(0x0 << 26) | \
+			(0x0 << 27) | \
+			(0x0 << 28) | \
+			(0x0 << 29) | \
+			(0x0 << 30) | \
+			(0x0 << 31))
+#define DRAMC_CH0_TOP5_DDRPHY_REG11_ON ((0x0 << 20) | \
+			(0x0 << 21) | \
+			(0x0 << 26) | \
+			(0x0 << 27) | \
+			(0x0 << 28) | \
+			(0x0 << 29) | \
+			(0x0 << 30) | \
+			(0x0 << 31))
+#define DRAMC_CH0_TOP5_DDRPHY_REG12_ON ((0x1 << 1) | \
+			(0x0 << 4) | \
+			(0x1 << 5) | \
+			(0x0 << 8) | \
+			(0x1 << 9) | \
+			(0x0 << 10))
+#define DRAMC_CH0_TOP5_DDRPHY_REG13_ON ((0x33403000 << 0))
+#define DRAMC_CH0_TOP5_DDRPHY_REG0_OFF ((0x1 << 8) | \
+			(0x1 << 9) | \
+			(0x1 << 10) | \
+			(0x1 << 11) | \
+			(0x1 << 12) | \
+			(0x1 << 13) | \
+			(0x1 << 14) | \
+			(0x1 << 15) | \
+			(0x1 << 16) | \
+			(0x1 << 17) | \
+			(0x0 << 18) | \
+			(0x1 << 19) | \
+			(0x0 << 20) | \
+			(0x0 << 22))
+#define DRAMC_CH0_TOP5_DDRPHY_REG1_OFF ((0x1 << 6) | \
+			(0x0 << 7) | \
+			(0x1 << 8) | \
+			(0x5 << 9) | \
+			(0x0 << 16) | \
+			(0x3 << 21) | \
+			(0x0 << 26) | \
+			(0x0 << 27) | \
+			(0x0 << 28) | \
+			(0x0 << 29) | \
+			(0x0 << 30) | \
+			(0x1 << 31))
+#define DRAMC_CH0_TOP5_DDRPHY_REG2_OFF ((0x0 << 16) | \
+			(0x0 << 17) | \
+			(0x0 << 18) | \
+			(0x0 << 20) | \
+			(0x0 << 21) | \
+			(0x0 << 22))
+#define DRAMC_CH0_TOP5_DDRPHY_REG3_OFF ((0x1 << 3))
+#define DRAMC_CH0_TOP5_DDRPHY_REG4_OFF ((0x0 << 0) | \
+			(0x0 << 2) | \
+			(0x0 << 4) | \
+			(0x0 << 5) | \
+			(0x0 << 6) | \
+			(0x0 << 16) | \
+			(0x0 << 18) | \
+			(0x0 << 20) | \
+			(0x0 << 21) | \
+			(0x0 << 22) | \
+			(0x1 << 26) | \
+			(0x1 << 27))
+#define DRAMC_CH0_TOP5_DDRPHY_REG5_OFF ((0x0 << 0) | \
+			(0x0 << 1) | \
+			(0x0 << 2) | \
+			(0x0 << 3) | \
+			(0x0 << 4) | \
+			(0x0 << 5) | \
+			(0x0 << 6) | \
+			(0x0 << 7) | \
+			(0x0 << 8))
+#define DRAMC_CH0_TOP5_DDRPHY_REG6_OFF ((0x1 << 3))
+#define DRAMC_CH0_TOP5_DDRPHY_REG7_OFF ((0x0 << 17) | \
+			(0x0 << 18) | \
+			(0x0 << 19))
+#define DRAMC_CH0_TOP5_DDRPHY_REG8_OFF ((0x1 << 19) | \
+			(0x1 << 20) | \
+			(0x1 << 21) | \
+			(0x1 << 22) | \
+			(0x1 << 23) | \
+			(0x1 << 24) | \
+			(0x1 << 26) | \
+			(0x1 << 27) | \
+			(0x1 << 28) | \
+			(0x1 << 29) | \
+			(0x1 << 30) | \
+			(0x1 << 31))
+#define DRAMC_CH0_TOP5_DDRPHY_REG9_OFF ((0x0 << 17) | \
+			(0x0 << 18) | \
+			(0x0 << 19))
+#define DRAMC_CH0_TOP5_DDRPHY_REG10_OFF ((0x1 << 19) | \
+			(0x1 << 20) | \
+			(0x1 << 21) | \
+			(0x1 << 22) | \
+			(0x1 << 23) | \
+			(0x1 << 24) | \
+			(0x1 << 26) | \
+			(0x1 << 27) | \
+			(0x1 << 28) | \
+			(0x1 << 29) | \
+			(0x1 << 30) | \
+			(0x1 << 31))
+#define DRAMC_CH0_TOP5_DDRPHY_REG11_OFF ((0x1 << 20) | \
+			(0x1 << 21) | \
+			(0x1 << 26) | \
+			(0x1 << 27) | \
+			(0x1 << 28) | \
+			(0x1 << 29) | \
+			(0x1 << 30) | \
+			(0x1 << 31))
+#define DRAMC_CH0_TOP5_DDRPHY_REG12_OFF ((0x1 << 1) | \
+			(0x0 << 4) | \
+			(0x1 << 5) | \
+			(0x0 << 8) | \
+			(0x1 << 9) | \
+			(0x0 << 10))
+#define DRAMC_CH0_TOP5_DDRPHY_REG13_OFF ((0x33403000 << 0))
+
+bool dcm_dramc_ch0_top5_ddrphy_is_on(void)
+{
+	bool ret = true;
+
+	ret &= ((reg_read(DRAMC_CH0_TOP5_MISC_CG_CTRL0) &
+		DRAMC_CH0_TOP5_DDRPHY_REG0_MASK) ==
+		(unsigned int) DRAMC_CH0_TOP5_DDRPHY_REG0_ON);
+	ret &= ((reg_read(DRAMC_CH0_TOP5_MISC_CG_CTRL2) &
+		DRAMC_CH0_TOP5_DDRPHY_REG1_MASK) ==
+		(unsigned int) DRAMC_CH0_TOP5_DDRPHY_REG1_ON);
+	ret &= ((reg_read(DRAMC_CH0_TOP5_MISC_CG_CTRL5) &
+		DRAMC_CH0_TOP5_DDRPHY_REG2_MASK) ==
+		(unsigned int) DRAMC_CH0_TOP5_DDRPHY_REG2_ON);
+	ret &= ((reg_read(DRAMC_CH0_TOP5_MISC_DUTYSCAN1) &
+		DRAMC_CH0_TOP5_DDRPHY_REG3_MASK) ==
+		(unsigned int) DRAMC_CH0_TOP5_DDRPHY_REG3_ON);
+	ret &= ((reg_read(DRAMC_CH0_TOP5_MISC_CTRL3) &
+		DRAMC_CH0_TOP5_DDRPHY_REG4_MASK) ==
+		(unsigned int) DRAMC_CH0_TOP5_DDRPHY_REG4_ON);
+	ret &= ((reg_read(DRAMC_CH0_TOP5_MISC_CTRL4) &
+		DRAMC_CH0_TOP5_DDRPHY_REG5_MASK) ==
+		(unsigned int) DRAMC_CH0_TOP5_DDRPHY_REG5_ON);
+	ret &= ((reg_read(DRAMC_CH0_TOP5_MISC_RX_AUTOK_CFG0) &
+		DRAMC_CH0_TOP5_DDRPHY_REG6_MASK) ==
+		(unsigned int) DRAMC_CH0_TOP5_DDRPHY_REG6_ON);
+	ret &= ((reg_read(DRAMC_CH0_TOP5_SHU_B0_DQ7) &
+		DRAMC_CH0_TOP5_DDRPHY_REG7_MASK) ==
+		(unsigned int) DRAMC_CH0_TOP5_DDRPHY_REG7_ON);
+	ret &= ((reg_read(DRAMC_CH0_TOP5_SHU_B0_DQ8) &
+		DRAMC_CH0_TOP5_DDRPHY_REG8_MASK) ==
+		(unsigned int) DRAMC_CH0_TOP5_DDRPHY_REG8_ON);
+	ret &= ((reg_read(DRAMC_CH0_TOP5_SHU_B1_DQ7) &
+		DRAMC_CH0_TOP5_DDRPHY_REG9_MASK) ==
+		(unsigned int) DRAMC_CH0_TOP5_DDRPHY_REG9_ON);
+	ret &= ((reg_read(DRAMC_CH0_TOP5_SHU_B1_DQ8) &
+		DRAMC_CH0_TOP5_DDRPHY_REG10_MASK) ==
+		(unsigned int) DRAMC_CH0_TOP5_DDRPHY_REG10_ON);
+	ret &= ((reg_read(DRAMC_CH0_TOP5_SHU_CA_CMD8) &
+		DRAMC_CH0_TOP5_DDRPHY_REG11_MASK) ==
+		(unsigned int) DRAMC_CH0_TOP5_DDRPHY_REG11_ON);
+	ret &= ((reg_read(DRAMC_CH0_TOP5_MISC_SHU_RX_CG_CTRL) &
+		DRAMC_CH0_TOP5_DDRPHY_REG12_MASK) ==
+		(unsigned int) DRAMC_CH0_TOP5_DDRPHY_REG12_ON);
+	ret &= ((reg_read(DRAMC_CH0_TOP5_MISC_SHU_CG_CTRL0) &
+		DRAMC_CH0_TOP5_DDRPHY_REG13_MASK) ==
+		(unsigned int) DRAMC_CH0_TOP5_DDRPHY_REG13_ON);
+
+	return ret;
+}
+
+void dcm_dramc_ch0_top5_ddrphy(int on)
+{
+	if (on) {
+		/* TINFO = "Turn ON DCM 'dramc_ch0_top5_ddrphy'" */
+		reg_write(DRAMC_CH0_TOP5_MISC_CG_CTRL0,
+			(reg_read(DRAMC_CH0_TOP5_MISC_CG_CTRL0) &
+			~DRAMC_CH0_TOP5_DDRPHY_REG0_MASK) |
+			DRAMC_CH0_TOP5_DDRPHY_REG0_ON);
+		reg_write(DRAMC_CH0_TOP5_MISC_CG_CTRL2,
+			(reg_read(DRAMC_CH0_TOP5_MISC_CG_CTRL2) &
+			~DRAMC_CH0_TOP5_DDRPHY_REG1_MASK) |
+			DRAMC_CH0_TOP5_DDRPHY_REG1_ON);
+		reg_write(DRAMC_CH0_TOP5_MISC_CG_CTRL5,
+			(reg_read(DRAMC_CH0_TOP5_MISC_CG_CTRL5) &
+			~DRAMC_CH0_TOP5_DDRPHY_REG2_MASK) |
+			DRAMC_CH0_TOP5_DDRPHY_REG2_ON);
+		reg_write(DRAMC_CH0_TOP5_MISC_DUTYSCAN1,
+			(reg_read(DRAMC_CH0_TOP5_MISC_DUTYSCAN1) &
+			~DRAMC_CH0_TOP5_DDRPHY_REG3_MASK) |
+			DRAMC_CH0_TOP5_DDRPHY_REG3_ON);
+		reg_write(DRAMC_CH0_TOP5_MISC_CTRL3,
+			(reg_read(DRAMC_CH0_TOP5_MISC_CTRL3) &
+			~DRAMC_CH0_TOP5_DDRPHY_REG4_MASK) |
+			DRAMC_CH0_TOP5_DDRPHY_REG4_ON);
+		reg_write(DRAMC_CH0_TOP5_MISC_CTRL4,
+			(reg_read(DRAMC_CH0_TOP5_MISC_CTRL4) &
+			~DRAMC_CH0_TOP5_DDRPHY_REG5_MASK) |
+			DRAMC_CH0_TOP5_DDRPHY_REG5_ON);
+		reg_write(DRAMC_CH0_TOP5_MISC_RX_AUTOK_CFG0,
+			(reg_read(DRAMC_CH0_TOP5_MISC_RX_AUTOK_CFG0) &
+			~DRAMC_CH0_TOP5_DDRPHY_REG6_MASK) |
+			DRAMC_CH0_TOP5_DDRPHY_REG6_ON);
+		reg_write(DRAMC_CH0_TOP5_SHU_B0_DQ7,
+			(reg_read(DRAMC_CH0_TOP5_SHU_B0_DQ7) &
+			~DRAMC_CH0_TOP5_DDRPHY_REG7_MASK) |
+			DRAMC_CH0_TOP5_DDRPHY_REG7_ON);
+		reg_write(DRAMC_CH0_TOP5_SHU_B0_DQ8,
+			(reg_read(DRAMC_CH0_TOP5_SHU_B0_DQ8) &
+			~DRAMC_CH0_TOP5_DDRPHY_REG8_MASK) |
+			DRAMC_CH0_TOP5_DDRPHY_REG8_ON);
+		reg_write(DRAMC_CH0_TOP5_SHU_B1_DQ7,
+			(reg_read(DRAMC_CH0_TOP5_SHU_B1_DQ7) &
+			~DRAMC_CH0_TOP5_DDRPHY_REG9_MASK) |
+			DRAMC_CH0_TOP5_DDRPHY_REG9_ON);
+		reg_write(DRAMC_CH0_TOP5_SHU_B1_DQ8,
+			(reg_read(DRAMC_CH0_TOP5_SHU_B1_DQ8) &
+			~DRAMC_CH0_TOP5_DDRPHY_REG10_MASK) |
+			DRAMC_CH0_TOP5_DDRPHY_REG10_ON);
+		reg_write(DRAMC_CH0_TOP5_SHU_CA_CMD8,
+			(reg_read(DRAMC_CH0_TOP5_SHU_CA_CMD8) &
+			~DRAMC_CH0_TOP5_DDRPHY_REG11_MASK) |
+			DRAMC_CH0_TOP5_DDRPHY_REG11_ON);
+		reg_write(DRAMC_CH0_TOP5_MISC_SHU_RX_CG_CTRL,
+			(reg_read(DRAMC_CH0_TOP5_MISC_SHU_RX_CG_CTRL) &
+			~DRAMC_CH0_TOP5_DDRPHY_REG12_MASK) |
+			DRAMC_CH0_TOP5_DDRPHY_REG12_ON);
+		reg_write(DRAMC_CH0_TOP5_MISC_SHU_CG_CTRL0,
+			(reg_read(DRAMC_CH0_TOP5_MISC_SHU_CG_CTRL0) &
+			~DRAMC_CH0_TOP5_DDRPHY_REG13_MASK) |
+			DRAMC_CH0_TOP5_DDRPHY_REG13_ON);
+	} else {
+		/* TINFO = "Turn OFF DCM 'dramc_ch0_top5_ddrphy'" */
+		reg_write(DRAMC_CH0_TOP5_MISC_CG_CTRL0,
+			(reg_read(DRAMC_CH0_TOP5_MISC_CG_CTRL0) &
+			~DRAMC_CH0_TOP5_DDRPHY_REG0_MASK) |
+			DRAMC_CH0_TOP5_DDRPHY_REG0_OFF);
+		reg_write(DRAMC_CH0_TOP5_MISC_CG_CTRL2,
+			(reg_read(DRAMC_CH0_TOP5_MISC_CG_CTRL2) &
+			~DRAMC_CH0_TOP5_DDRPHY_REG1_MASK) |
+			DRAMC_CH0_TOP5_DDRPHY_REG1_OFF);
+		reg_write(DRAMC_CH0_TOP5_MISC_CG_CTRL5,
+			(reg_read(DRAMC_CH0_TOP5_MISC_CG_CTRL5) &
+			~DRAMC_CH0_TOP5_DDRPHY_REG2_MASK) |
+			DRAMC_CH0_TOP5_DDRPHY_REG2_OFF);
+		reg_write(DRAMC_CH0_TOP5_MISC_DUTYSCAN1,
+			(reg_read(DRAMC_CH0_TOP5_MISC_DUTYSCAN1) &
+			~DRAMC_CH0_TOP5_DDRPHY_REG3_MASK) |
+			DRAMC_CH0_TOP5_DDRPHY_REG3_OFF);
+		reg_write(DRAMC_CH0_TOP5_MISC_CTRL3,
+			(reg_read(DRAMC_CH0_TOP5_MISC_CTRL3) &
+			~DRAMC_CH0_TOP5_DDRPHY_REG4_MASK) |
+			DRAMC_CH0_TOP5_DDRPHY_REG4_OFF);
+		reg_write(DRAMC_CH0_TOP5_MISC_CTRL4,
+			(reg_read(DRAMC_CH0_TOP5_MISC_CTRL4) &
+			~DRAMC_CH0_TOP5_DDRPHY_REG5_MASK) |
+			DRAMC_CH0_TOP5_DDRPHY_REG5_OFF);
+		reg_write(DRAMC_CH0_TOP5_MISC_RX_AUTOK_CFG0,
+			(reg_read(DRAMC_CH0_TOP5_MISC_RX_AUTOK_CFG0) &
+			~DRAMC_CH0_TOP5_DDRPHY_REG6_MASK) |
+			DRAMC_CH0_TOP5_DDRPHY_REG6_OFF);
+		reg_write(DRAMC_CH0_TOP5_SHU_B0_DQ7,
+			(reg_read(DRAMC_CH0_TOP5_SHU_B0_DQ7) &
+			~DRAMC_CH0_TOP5_DDRPHY_REG7_MASK) |
+			DRAMC_CH0_TOP5_DDRPHY_REG7_OFF);
+		reg_write(DRAMC_CH0_TOP5_SHU_B0_DQ8,
+			(reg_read(DRAMC_CH0_TOP5_SHU_B0_DQ8) &
+			~DRAMC_CH0_TOP5_DDRPHY_REG8_MASK) |
+			DRAMC_CH0_TOP5_DDRPHY_REG8_OFF);
+		reg_write(DRAMC_CH0_TOP5_SHU_B1_DQ7,
+			(reg_read(DRAMC_CH0_TOP5_SHU_B1_DQ7) &
+			~DRAMC_CH0_TOP5_DDRPHY_REG9_MASK) |
+			DRAMC_CH0_TOP5_DDRPHY_REG9_OFF);
+		reg_write(DRAMC_CH0_TOP5_SHU_B1_DQ8,
+			(reg_read(DRAMC_CH0_TOP5_SHU_B1_DQ8) &
+			~DRAMC_CH0_TOP5_DDRPHY_REG10_MASK) |
+			DRAMC_CH0_TOP5_DDRPHY_REG10_OFF);
+		reg_write(DRAMC_CH0_TOP5_SHU_CA_CMD8,
+			(reg_read(DRAMC_CH0_TOP5_SHU_CA_CMD8) &
+			~DRAMC_CH0_TOP5_DDRPHY_REG11_MASK) |
+			DRAMC_CH0_TOP5_DDRPHY_REG11_OFF);
+		reg_write(DRAMC_CH0_TOP5_MISC_SHU_RX_CG_CTRL,
+			(reg_read(DRAMC_CH0_TOP5_MISC_SHU_RX_CG_CTRL) &
+			~DRAMC_CH0_TOP5_DDRPHY_REG12_MASK) |
+			DRAMC_CH0_TOP5_DDRPHY_REG12_OFF);
+		reg_write(DRAMC_CH0_TOP5_MISC_SHU_CG_CTRL0,
+			(reg_read(DRAMC_CH0_TOP5_MISC_SHU_CG_CTRL0) &
+			~DRAMC_CH0_TOP5_DDRPHY_REG13_MASK) |
+			DRAMC_CH0_TOP5_DDRPHY_REG13_OFF);
+	}
+}
+
 #define DRAMC_CH1_TOP0_DDRPHY_REG0_MASK ((0x1 << 0))
 #define DRAMC_CH1_TOP0_DDRPHY_REG1_MASK ((0x1 << 19))
 #define DRAMC_CH1_TOP0_DDRPHY_REG2_MASK ((0x1 << 8))
@@ -1164,6 +1738,478 @@ void dcm_dramc_ch1_top0_ddrphy(int on)
 			(reg_read(DRAMC_CH1_TOP0_SHU_APHY_TX_PICG_CTRL) &
 			~DRAMC_CH1_TOP0_DDRPHY_REG17_MASK) |
 			DRAMC_CH1_TOP0_DDRPHY_REG17_OFF);
+	}
+}
+
+#define DRAMC_CH1_TOP5_DDRPHY_REG0_MASK ((0x1 << 8) | \
+			(0x1 << 9) | \
+			(0x1 << 10) | \
+			(0x1 << 11) | \
+			(0x1 << 12) | \
+			(0x1 << 13) | \
+			(0x1 << 14) | \
+			(0x1 << 15) | \
+			(0x1 << 16) | \
+			(0x1 << 17) | \
+			(0x1 << 18) | \
+			(0x1 << 19) | \
+			(0x1 << 20) | \
+			(0x1 << 22))
+#define DRAMC_CH1_TOP5_DDRPHY_REG1_MASK ((0x1 << 6) | \
+			(0x1 << 7) | \
+			(0x1 << 8) | \
+			(0x7f << 9) | \
+			(0x1f << 16) | \
+			(0x1f << 21) | \
+			(0x1 << 26) | \
+			(0x1 << 27) | \
+			(0x1 << 28) | \
+			(0x1 << 29) | \
+			(0x1 << 30) | \
+			(0x1 << 31))
+#define DRAMC_CH1_TOP5_DDRPHY_REG2_MASK ((0x1 << 16) | \
+			(0x1 << 17) | \
+			(0x1 << 18) | \
+			(0x1 << 20) | \
+			(0x1 << 21) | \
+			(0x1 << 22))
+#define DRAMC_CH1_TOP5_DDRPHY_REG3_MASK ((0x1 << 3))
+#define DRAMC_CH1_TOP5_DDRPHY_REG4_MASK ((0x3 << 0) | \
+			(0x3 << 2) | \
+			(0x1 << 4) | \
+			(0x1 << 5) | \
+			(0x1 << 6) | \
+			(0x3 << 16) | \
+			(0x3 << 18) | \
+			(0x1 << 20) | \
+			(0x1 << 21) | \
+			(0x1 << 22) | \
+			(0x1 << 26) | \
+			(0x1 << 27))
+#define DRAMC_CH1_TOP5_DDRPHY_REG5_MASK ((0x1 << 0) | \
+			(0x1 << 1) | \
+			(0x1 << 2) | \
+			(0x1 << 3) | \
+			(0x1 << 4) | \
+			(0x1 << 5) | \
+			(0x1 << 6) | \
+			(0x1 << 7) | \
+			(0x1 << 8))
+#define DRAMC_CH1_TOP5_DDRPHY_REG6_MASK ((0x1 << 3))
+#define DRAMC_CH1_TOP5_DDRPHY_REG7_MASK ((0x1 << 17) | \
+			(0x1 << 18) | \
+			(0x1 << 19))
+#define DRAMC_CH1_TOP5_DDRPHY_REG8_MASK ((0x1 << 19) | \
+			(0x1 << 20) | \
+			(0x1 << 21) | \
+			(0x1 << 22) | \
+			(0x1 << 23) | \
+			(0x1 << 24) | \
+			(0x1 << 26) | \
+			(0x1 << 27) | \
+			(0x1 << 28) | \
+			(0x1 << 29) | \
+			(0x1 << 30) | \
+			(0x1 << 31))
+#define DRAMC_CH1_TOP5_DDRPHY_REG9_MASK ((0x1 << 17) | \
+			(0x1 << 18) | \
+			(0x1 << 19))
+#define DRAMC_CH1_TOP5_DDRPHY_REG10_MASK ((0x1 << 19) | \
+			(0x1 << 20) | \
+			(0x1 << 21) | \
+			(0x1 << 22) | \
+			(0x1 << 23) | \
+			(0x1 << 24) | \
+			(0x1 << 26) | \
+			(0x1 << 27) | \
+			(0x1 << 28) | \
+			(0x1 << 29) | \
+			(0x1 << 30) | \
+			(0x1 << 31))
+#define DRAMC_CH1_TOP5_DDRPHY_REG11_MASK ((0x1 << 20) | \
+			(0x1 << 21) | \
+			(0x1 << 26) | \
+			(0x1 << 27) | \
+			(0x1 << 28) | \
+			(0x1 << 29) | \
+			(0x1 << 30) | \
+			(0x1 << 31))
+#define DRAMC_CH1_TOP5_DDRPHY_REG12_MASK ((0x1 << 1) | \
+			(0x1 << 4) | \
+			(0x1 << 5) | \
+			(0x1 << 8) | \
+			(0x1 << 9) | \
+			(0x1 << 10))
+#define DRAMC_CH1_TOP5_DDRPHY_REG13_MASK ((0xffffffff << 0))
+#define DRAMC_CH1_TOP5_DDRPHY_REG0_ON ((0x1 << 8) | \
+			(0x0 << 9) | \
+			(0x0 << 10) | \
+			(0x0 << 11) | \
+			(0x0 << 12) | \
+			(0x0 << 13) | \
+			(0x0 << 14) | \
+			(0x0 << 15) | \
+			(0x0 << 16) | \
+			(0x0 << 17) | \
+			(0x0 << 18) | \
+			(0x0 << 19) | \
+			(0x0 << 20) | \
+			(0x0 << 22))
+#define DRAMC_CH1_TOP5_DDRPHY_REG1_ON ((0x0 << 6) | \
+			(0x1 << 7) | \
+			(0x1 << 8) | \
+			(0x5 << 9) | \
+			(0x0 << 16) | \
+			(0x3 << 21) | \
+			(0x0 << 26) | \
+			(0x0 << 27) | \
+			(0x0 << 28) | \
+			(0x0 << 29) | \
+			(0x0 << 30) | \
+			(0x1 << 31))
+#define DRAMC_CH1_TOP5_DDRPHY_REG2_ON ((0x1 << 16) | \
+			(0x1 << 17) | \
+			(0x1 << 18) | \
+			(0x1 << 20) | \
+			(0x1 << 21) | \
+			(0x1 << 22))
+#define DRAMC_CH1_TOP5_DDRPHY_REG3_ON ((0x0 << 3))
+#define DRAMC_CH1_TOP5_DDRPHY_REG4_ON ((0x0 << 0) | \
+			(0x0 << 2) | \
+			(0x0 << 4) | \
+			(0x0 << 5) | \
+			(0x0 << 6) | \
+			(0x0 << 16) | \
+			(0x0 << 18) | \
+			(0x0 << 20) | \
+			(0x0 << 21) | \
+			(0x0 << 22) | \
+			(0x0 << 26) | \
+			(0x0 << 27))
+#define DRAMC_CH1_TOP5_DDRPHY_REG5_ON ((0x1 << 0) | \
+			(0x1 << 1) | \
+			(0x1 << 2) | \
+			(0x1 << 3) | \
+			(0x1 << 4) | \
+			(0x1 << 5) | \
+			(0x1 << 6) | \
+			(0x1 << 7) | \
+			(0x1 << 8))
+#define DRAMC_CH1_TOP5_DDRPHY_REG6_ON ((0x0 << 3))
+#define DRAMC_CH1_TOP5_DDRPHY_REG7_ON ((0x0 << 17) | \
+			(0x0 << 18) | \
+			(0x0 << 19))
+#define DRAMC_CH1_TOP5_DDRPHY_REG8_ON ((0x0 << 19) | \
+			(0x0 << 20) | \
+			(0x1 << 21) | \
+			(0x0 << 22) | \
+			(0x0 << 23) | \
+			(0x1 << 24) | \
+			(0x0 << 26) | \
+			(0x0 << 27) | \
+			(0x0 << 28) | \
+			(0x0 << 29) | \
+			(0x0 << 30) | \
+			(0x0 << 31))
+#define DRAMC_CH1_TOP5_DDRPHY_REG9_ON ((0x0 << 17) | \
+			(0x0 << 18) | \
+			(0x0 << 19))
+#define DRAMC_CH1_TOP5_DDRPHY_REG10_ON ((0x0 << 19) | \
+			(0x0 << 20) | \
+			(0x1 << 21) | \
+			(0x0 << 22) | \
+			(0x0 << 23) | \
+			(0x1 << 24) | \
+			(0x0 << 26) | \
+			(0x0 << 27) | \
+			(0x0 << 28) | \
+			(0x0 << 29) | \
+			(0x0 << 30) | \
+			(0x0 << 31))
+#define DRAMC_CH1_TOP5_DDRPHY_REG11_ON ((0x0 << 20) | \
+			(0x0 << 21) | \
+			(0x0 << 26) | \
+			(0x0 << 27) | \
+			(0x0 << 28) | \
+			(0x0 << 29) | \
+			(0x0 << 30) | \
+			(0x0 << 31))
+#define DRAMC_CH1_TOP5_DDRPHY_REG12_ON ((0x1 << 1) | \
+			(0x0 << 4) | \
+			(0x1 << 5) | \
+			(0x0 << 8) | \
+			(0x1 << 9) | \
+			(0x0 << 10))
+#define DRAMC_CH1_TOP5_DDRPHY_REG13_ON ((0x33403000 << 0))
+#define DRAMC_CH1_TOP5_DDRPHY_REG0_OFF ((0x1 << 8) | \
+			(0x1 << 9) | \
+			(0x1 << 10) | \
+			(0x1 << 11) | \
+			(0x1 << 12) | \
+			(0x1 << 13) | \
+			(0x1 << 14) | \
+			(0x1 << 15) | \
+			(0x1 << 16) | \
+			(0x1 << 17) | \
+			(0x0 << 18) | \
+			(0x1 << 19) | \
+			(0x0 << 20) | \
+			(0x0 << 22))
+#define DRAMC_CH1_TOP5_DDRPHY_REG1_OFF ((0x1 << 6) | \
+			(0x0 << 7) | \
+			(0x1 << 8) | \
+			(0x5 << 9) | \
+			(0x0 << 16) | \
+			(0x3 << 21) | \
+			(0x0 << 26) | \
+			(0x0 << 27) | \
+			(0x0 << 28) | \
+			(0x0 << 29) | \
+			(0x0 << 30) | \
+			(0x1 << 31))
+#define DRAMC_CH1_TOP5_DDRPHY_REG2_OFF ((0x0 << 16) | \
+			(0x0 << 17) | \
+			(0x0 << 18) | \
+			(0x0 << 20) | \
+			(0x0 << 21) | \
+			(0x0 << 22))
+#define DRAMC_CH1_TOP5_DDRPHY_REG3_OFF ((0x1 << 3))
+#define DRAMC_CH1_TOP5_DDRPHY_REG4_OFF ((0x0 << 0) | \
+			(0x0 << 2) | \
+			(0x0 << 4) | \
+			(0x0 << 5) | \
+			(0x0 << 6) | \
+			(0x0 << 16) | \
+			(0x0 << 18) | \
+			(0x0 << 20) | \
+			(0x0 << 21) | \
+			(0x0 << 22) | \
+			(0x1 << 26) | \
+			(0x1 << 27))
+#define DRAMC_CH1_TOP5_DDRPHY_REG5_OFF ((0x0 << 0) | \
+			(0x0 << 1) | \
+			(0x0 << 2) | \
+			(0x0 << 3) | \
+			(0x0 << 4) | \
+			(0x0 << 5) | \
+			(0x0 << 6) | \
+			(0x0 << 7) | \
+			(0x0 << 8))
+#define DRAMC_CH1_TOP5_DDRPHY_REG6_OFF ((0x1 << 3))
+#define DRAMC_CH1_TOP5_DDRPHY_REG7_OFF ((0x0 << 17) | \
+			(0x0 << 18) | \
+			(0x0 << 19))
+#define DRAMC_CH1_TOP5_DDRPHY_REG8_OFF ((0x1 << 19) | \
+			(0x1 << 20) | \
+			(0x1 << 21) | \
+			(0x1 << 22) | \
+			(0x1 << 23) | \
+			(0x1 << 24) | \
+			(0x1 << 26) | \
+			(0x1 << 27) | \
+			(0x1 << 28) | \
+			(0x1 << 29) | \
+			(0x1 << 30) | \
+			(0x1 << 31))
+#define DRAMC_CH1_TOP5_DDRPHY_REG9_OFF ((0x0 << 17) | \
+			(0x0 << 18) | \
+			(0x0 << 19))
+#define DRAMC_CH1_TOP5_DDRPHY_REG10_OFF ((0x1 << 19) | \
+			(0x1 << 20) | \
+			(0x1 << 21) | \
+			(0x1 << 22) | \
+			(0x1 << 23) | \
+			(0x1 << 24) | \
+			(0x1 << 26) | \
+			(0x1 << 27) | \
+			(0x1 << 28) | \
+			(0x1 << 29) | \
+			(0x1 << 30) | \
+			(0x1 << 31))
+#define DRAMC_CH1_TOP5_DDRPHY_REG11_OFF ((0x1 << 20) | \
+			(0x1 << 21) | \
+			(0x1 << 26) | \
+			(0x1 << 27) | \
+			(0x1 << 28) | \
+			(0x1 << 29) | \
+			(0x1 << 30) | \
+			(0x1 << 31))
+#define DRAMC_CH1_TOP5_DDRPHY_REG12_OFF ((0x1 << 1) | \
+			(0x0 << 4) | \
+			(0x1 << 5) | \
+			(0x0 << 8) | \
+			(0x1 << 9) | \
+			(0x0 << 10))
+#define DRAMC_CH1_TOP5_DDRPHY_REG13_OFF ((0x33403000 << 0))
+
+bool dcm_dramc_ch1_top5_ddrphy_is_on(void)
+{
+	bool ret = true;
+
+	ret &= ((reg_read(DRAMC_CH1_TOP5_MISC_CG_CTRL0) &
+		DRAMC_CH1_TOP5_DDRPHY_REG0_MASK) ==
+		(unsigned int) DRAMC_CH1_TOP5_DDRPHY_REG0_ON);
+	ret &= ((reg_read(DRAMC_CH1_TOP5_MISC_CG_CTRL2) &
+		DRAMC_CH1_TOP5_DDRPHY_REG1_MASK) ==
+		(unsigned int) DRAMC_CH1_TOP5_DDRPHY_REG1_ON);
+	ret &= ((reg_read(DRAMC_CH1_TOP5_MISC_CG_CTRL5) &
+		DRAMC_CH1_TOP5_DDRPHY_REG2_MASK) ==
+		(unsigned int) DRAMC_CH1_TOP5_DDRPHY_REG2_ON);
+	ret &= ((reg_read(DRAMC_CH1_TOP5_MISC_DUTYSCAN1) &
+		DRAMC_CH1_TOP5_DDRPHY_REG3_MASK) ==
+		(unsigned int) DRAMC_CH1_TOP5_DDRPHY_REG3_ON);
+	ret &= ((reg_read(DRAMC_CH1_TOP5_MISC_CTRL3) &
+		DRAMC_CH1_TOP5_DDRPHY_REG4_MASK) ==
+		(unsigned int) DRAMC_CH1_TOP5_DDRPHY_REG4_ON);
+	ret &= ((reg_read(DRAMC_CH1_TOP5_MISC_CTRL4) &
+		DRAMC_CH1_TOP5_DDRPHY_REG5_MASK) ==
+		(unsigned int) DRAMC_CH1_TOP5_DDRPHY_REG5_ON);
+	ret &= ((reg_read(DRAMC_CH1_TOP5_MISC_RX_AUTOK_CFG0) &
+		DRAMC_CH1_TOP5_DDRPHY_REG6_MASK) ==
+		(unsigned int) DRAMC_CH1_TOP5_DDRPHY_REG6_ON);
+	ret &= ((reg_read(DRAMC_CH1_TOP5_SHU_B0_DQ7) &
+		DRAMC_CH1_TOP5_DDRPHY_REG7_MASK) ==
+		(unsigned int) DRAMC_CH1_TOP5_DDRPHY_REG7_ON);
+	ret &= ((reg_read(DRAMC_CH1_TOP5_SHU_B0_DQ8) &
+		DRAMC_CH1_TOP5_DDRPHY_REG8_MASK) ==
+		(unsigned int) DRAMC_CH1_TOP5_DDRPHY_REG8_ON);
+	ret &= ((reg_read(DRAMC_CH1_TOP5_SHU_B1_DQ7) &
+		DRAMC_CH1_TOP5_DDRPHY_REG9_MASK) ==
+		(unsigned int) DRAMC_CH1_TOP5_DDRPHY_REG9_ON);
+	ret &= ((reg_read(DRAMC_CH1_TOP5_SHU_B1_DQ8) &
+		DRAMC_CH1_TOP5_DDRPHY_REG10_MASK) ==
+		(unsigned int) DRAMC_CH1_TOP5_DDRPHY_REG10_ON);
+	ret &= ((reg_read(DRAMC_CH1_TOP5_SHU_CA_CMD8) &
+		DRAMC_CH1_TOP5_DDRPHY_REG11_MASK) ==
+		(unsigned int) DRAMC_CH1_TOP5_DDRPHY_REG11_ON);
+	ret &= ((reg_read(DRAMC_CH1_TOP5_MISC_SHU_RX_CG_CTRL) &
+		DRAMC_CH1_TOP5_DDRPHY_REG12_MASK) ==
+		(unsigned int) DRAMC_CH1_TOP5_DDRPHY_REG12_ON);
+	ret &= ((reg_read(DRAMC_CH1_TOP5_MISC_SHU_CG_CTRL0) &
+		DRAMC_CH1_TOP5_DDRPHY_REG13_MASK) ==
+		(unsigned int) DRAMC_CH1_TOP5_DDRPHY_REG13_ON);
+
+	return ret;
+}
+
+void dcm_dramc_ch1_top5_ddrphy(int on)
+{
+	if (on) {
+		/* TINFO = "Turn ON DCM 'dramc_ch1_top5_ddrphy'" */
+		reg_write(DRAMC_CH1_TOP5_MISC_CG_CTRL0,
+			(reg_read(DRAMC_CH1_TOP5_MISC_CG_CTRL0) &
+			~DRAMC_CH1_TOP5_DDRPHY_REG0_MASK) |
+			DRAMC_CH1_TOP5_DDRPHY_REG0_ON);
+		reg_write(DRAMC_CH1_TOP5_MISC_CG_CTRL2,
+			(reg_read(DRAMC_CH1_TOP5_MISC_CG_CTRL2) &
+			~DRAMC_CH1_TOP5_DDRPHY_REG1_MASK) |
+			DRAMC_CH1_TOP5_DDRPHY_REG1_ON);
+		reg_write(DRAMC_CH1_TOP5_MISC_CG_CTRL5,
+			(reg_read(DRAMC_CH1_TOP5_MISC_CG_CTRL5) &
+			~DRAMC_CH1_TOP5_DDRPHY_REG2_MASK) |
+			DRAMC_CH1_TOP5_DDRPHY_REG2_ON);
+		reg_write(DRAMC_CH1_TOP5_MISC_DUTYSCAN1,
+			(reg_read(DRAMC_CH1_TOP5_MISC_DUTYSCAN1) &
+			~DRAMC_CH1_TOP5_DDRPHY_REG3_MASK) |
+			DRAMC_CH1_TOP5_DDRPHY_REG3_ON);
+		reg_write(DRAMC_CH1_TOP5_MISC_CTRL3,
+			(reg_read(DRAMC_CH1_TOP5_MISC_CTRL3) &
+			~DRAMC_CH1_TOP5_DDRPHY_REG4_MASK) |
+			DRAMC_CH1_TOP5_DDRPHY_REG4_ON);
+		reg_write(DRAMC_CH1_TOP5_MISC_CTRL4,
+			(reg_read(DRAMC_CH1_TOP5_MISC_CTRL4) &
+			~DRAMC_CH1_TOP5_DDRPHY_REG5_MASK) |
+			DRAMC_CH1_TOP5_DDRPHY_REG5_ON);
+		reg_write(DRAMC_CH1_TOP5_MISC_RX_AUTOK_CFG0,
+			(reg_read(DRAMC_CH1_TOP5_MISC_RX_AUTOK_CFG0) &
+			~DRAMC_CH1_TOP5_DDRPHY_REG6_MASK) |
+			DRAMC_CH1_TOP5_DDRPHY_REG6_ON);
+		reg_write(DRAMC_CH1_TOP5_SHU_B0_DQ7,
+			(reg_read(DRAMC_CH1_TOP5_SHU_B0_DQ7) &
+			~DRAMC_CH1_TOP5_DDRPHY_REG7_MASK) |
+			DRAMC_CH1_TOP5_DDRPHY_REG7_ON);
+		reg_write(DRAMC_CH1_TOP5_SHU_B0_DQ8,
+			(reg_read(DRAMC_CH1_TOP5_SHU_B0_DQ8) &
+			~DRAMC_CH1_TOP5_DDRPHY_REG8_MASK) |
+			DRAMC_CH1_TOP5_DDRPHY_REG8_ON);
+		reg_write(DRAMC_CH1_TOP5_SHU_B1_DQ7,
+			(reg_read(DRAMC_CH1_TOP5_SHU_B1_DQ7) &
+			~DRAMC_CH1_TOP5_DDRPHY_REG9_MASK) |
+			DRAMC_CH1_TOP5_DDRPHY_REG9_ON);
+		reg_write(DRAMC_CH1_TOP5_SHU_B1_DQ8,
+			(reg_read(DRAMC_CH1_TOP5_SHU_B1_DQ8) &
+			~DRAMC_CH1_TOP5_DDRPHY_REG10_MASK) |
+			DRAMC_CH1_TOP5_DDRPHY_REG10_ON);
+		reg_write(DRAMC_CH1_TOP5_SHU_CA_CMD8,
+			(reg_read(DRAMC_CH1_TOP5_SHU_CA_CMD8) &
+			~DRAMC_CH1_TOP5_DDRPHY_REG11_MASK) |
+			DRAMC_CH1_TOP5_DDRPHY_REG11_ON);
+		reg_write(DRAMC_CH1_TOP5_MISC_SHU_RX_CG_CTRL,
+			(reg_read(DRAMC_CH1_TOP5_MISC_SHU_RX_CG_CTRL) &
+			~DRAMC_CH1_TOP5_DDRPHY_REG12_MASK) |
+			DRAMC_CH1_TOP5_DDRPHY_REG12_ON);
+		reg_write(DRAMC_CH1_TOP5_MISC_SHU_CG_CTRL0,
+			(reg_read(DRAMC_CH1_TOP5_MISC_SHU_CG_CTRL0) &
+			~DRAMC_CH1_TOP5_DDRPHY_REG13_MASK) |
+			DRAMC_CH1_TOP5_DDRPHY_REG13_ON);
+	} else {
+		/* TINFO = "Turn OFF DCM 'dramc_ch1_top5_ddrphy'" */
+		reg_write(DRAMC_CH1_TOP5_MISC_CG_CTRL0,
+			(reg_read(DRAMC_CH1_TOP5_MISC_CG_CTRL0) &
+			~DRAMC_CH1_TOP5_DDRPHY_REG0_MASK) |
+			DRAMC_CH1_TOP5_DDRPHY_REG0_OFF);
+		reg_write(DRAMC_CH1_TOP5_MISC_CG_CTRL2,
+			(reg_read(DRAMC_CH1_TOP5_MISC_CG_CTRL2) &
+			~DRAMC_CH1_TOP5_DDRPHY_REG1_MASK) |
+			DRAMC_CH1_TOP5_DDRPHY_REG1_OFF);
+		reg_write(DRAMC_CH1_TOP5_MISC_CG_CTRL5,
+			(reg_read(DRAMC_CH1_TOP5_MISC_CG_CTRL5) &
+			~DRAMC_CH1_TOP5_DDRPHY_REG2_MASK) |
+			DRAMC_CH1_TOP5_DDRPHY_REG2_OFF);
+		reg_write(DRAMC_CH1_TOP5_MISC_DUTYSCAN1,
+			(reg_read(DRAMC_CH1_TOP5_MISC_DUTYSCAN1) &
+			~DRAMC_CH1_TOP5_DDRPHY_REG3_MASK) |
+			DRAMC_CH1_TOP5_DDRPHY_REG3_OFF);
+		reg_write(DRAMC_CH1_TOP5_MISC_CTRL3,
+			(reg_read(DRAMC_CH1_TOP5_MISC_CTRL3) &
+			~DRAMC_CH1_TOP5_DDRPHY_REG4_MASK) |
+			DRAMC_CH1_TOP5_DDRPHY_REG4_OFF);
+		reg_write(DRAMC_CH1_TOP5_MISC_CTRL4,
+			(reg_read(DRAMC_CH1_TOP5_MISC_CTRL4) &
+			~DRAMC_CH1_TOP5_DDRPHY_REG5_MASK) |
+			DRAMC_CH1_TOP5_DDRPHY_REG5_OFF);
+		reg_write(DRAMC_CH1_TOP5_MISC_RX_AUTOK_CFG0,
+			(reg_read(DRAMC_CH1_TOP5_MISC_RX_AUTOK_CFG0) &
+			~DRAMC_CH1_TOP5_DDRPHY_REG6_MASK) |
+			DRAMC_CH1_TOP5_DDRPHY_REG6_OFF);
+		reg_write(DRAMC_CH1_TOP5_SHU_B0_DQ7,
+			(reg_read(DRAMC_CH1_TOP5_SHU_B0_DQ7) &
+			~DRAMC_CH1_TOP5_DDRPHY_REG7_MASK) |
+			DRAMC_CH1_TOP5_DDRPHY_REG7_OFF);
+		reg_write(DRAMC_CH1_TOP5_SHU_B0_DQ8,
+			(reg_read(DRAMC_CH1_TOP5_SHU_B0_DQ8) &
+			~DRAMC_CH1_TOP5_DDRPHY_REG8_MASK) |
+			DRAMC_CH1_TOP5_DDRPHY_REG8_OFF);
+		reg_write(DRAMC_CH1_TOP5_SHU_B1_DQ7,
+			(reg_read(DRAMC_CH1_TOP5_SHU_B1_DQ7) &
+			~DRAMC_CH1_TOP5_DDRPHY_REG9_MASK) |
+			DRAMC_CH1_TOP5_DDRPHY_REG9_OFF);
+		reg_write(DRAMC_CH1_TOP5_SHU_B1_DQ8,
+			(reg_read(DRAMC_CH1_TOP5_SHU_B1_DQ8) &
+			~DRAMC_CH1_TOP5_DDRPHY_REG10_MASK) |
+			DRAMC_CH1_TOP5_DDRPHY_REG10_OFF);
+		reg_write(DRAMC_CH1_TOP5_SHU_CA_CMD8,
+			(reg_read(DRAMC_CH1_TOP5_SHU_CA_CMD8) &
+			~DRAMC_CH1_TOP5_DDRPHY_REG11_MASK) |
+			DRAMC_CH1_TOP5_DDRPHY_REG11_OFF);
+		reg_write(DRAMC_CH1_TOP5_MISC_SHU_RX_CG_CTRL,
+			(reg_read(DRAMC_CH1_TOP5_MISC_SHU_RX_CG_CTRL) &
+			~DRAMC_CH1_TOP5_DDRPHY_REG12_MASK) |
+			DRAMC_CH1_TOP5_DDRPHY_REG12_OFF);
+		reg_write(DRAMC_CH1_TOP5_MISC_SHU_CG_CTRL0,
+			(reg_read(DRAMC_CH1_TOP5_MISC_SHU_CG_CTRL0) &
+			~DRAMC_CH1_TOP5_DDRPHY_REG13_MASK) |
+			DRAMC_CH1_TOP5_DDRPHY_REG13_OFF);
 	}
 }
 
