@@ -423,6 +423,10 @@ enum ipa_client_type {
 	(client) == IPA_CLIENT_APPS_WAN_CONS || \
 	(client) == IPA_CLIENT_APPS_WAN_COAL_CONS)
 
+#define IPA_CLIENT_IS_APPS_PROD(client) \
+	((client) == IPA_CLIENT_APPS_LAN_PROD || \
+	(client) == IPA_CLIENT_APPS_WAN_PROD)
+
 #define IPA_CLIENT_IS_USB_CONS(client) \
 	((client) == IPA_CLIENT_USB_CONS || \
 	(client) == IPA_CLIENT_USB2_CONS || \
