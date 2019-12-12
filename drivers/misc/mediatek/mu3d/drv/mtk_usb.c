@@ -524,6 +524,10 @@ ssize_t musb_cmode_store(struct device *dev, struct device_attribute *attr,
 	unsigned int cmode;
 	struct musb *musb;
 
+#ifdef CONFIG_FPGA_EARLY_PORTING
+	return count;
+#endif
+
 	if (!dev) {
 		os_printk(K_ERR, "dev is null!!\n");
 		return count;
