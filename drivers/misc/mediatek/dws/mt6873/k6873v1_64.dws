@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--dct_version="2.5" buid_sn="161102" dws_modification_time="11.25.2019.11:13:24"-->
+<!--dct_version="2.5" buid_sn="161102" dws_modification_time="11.27.2019.17:07:18"-->
 <dct_cfg>
     <general chip="MT6873">
         <proj>MT6873_phone</proj>
@@ -2510,7 +2510,7 @@
             <count>3</count>
             <eint0>
                 <varName>MD1_SIM1_HOT_PLUG_EINT</varName>
-                <debounce_time>10</debounce_time>
+                <debounce_time>50</debounce_time>
                 <polarity>High</polarity>
                 <sensitive_level>Level</sensitive_level>
                 <debounce_en>Enable</debounce_en>
