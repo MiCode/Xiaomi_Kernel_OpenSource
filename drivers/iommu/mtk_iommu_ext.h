@@ -116,7 +116,8 @@ bool report_custom_iommu_fault(
 bool report_custom_iommu_fault_secure(
 	unsigned int m4uid,
 	void __iomem	*base,
-	unsigned int	port);
+	unsigned int	port,
+	unsigned long fault_iova);
 void report_custom_iommu_leakage(char *port_name,
 	unsigned int size);
 

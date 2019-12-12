@@ -2397,9 +2397,6 @@ void pseudo_m4u_bank_irq_debug(unsigned int domain)
 	int i, j;
 	unsigned int count = 0;
 
-	if (domain > 0x7)
-		return;
-
 	for (i = 0; i < SMI_LARB_NR; i++) {
 		larb_clock_on(i, 1);
 		count = mtk_iommu_get_larb_port_count(i);
@@ -2407,9 +2404,11 @@ void pseudo_m4u_bank_irq_debug(unsigned int domain)
 			pseudo_set_reg_by_mask(pseudo_larbbase[i],
 							   SMI_LARB_SEC_CONx(j),
 							   F_SMI_DOMN(0x7),
-							   F_SMI_DOMN(domain));
-			pr_notice("%s, switch larb%d port%d to domain:0x%x\n",
-				  __func__, i, j, domain);
+							   F_SMI_DOMN(0x2));
+			pr_notice("%s, switch larb%d to dom:0x%x\n",
+				  __func__, i,
+				  pseudo_readreg32(pseudo_larbbase[i],
+					SMI_LARB_SEC_CONx(j)));
 		}
 		larb_clock_off(i, 1);
 	}

@@ -345,7 +345,8 @@ int mtk_iommu_get_boundary_id(struct device *dev)
 #endif
 
 int __mtk_iommu_atf_call(unsigned int cmd, unsigned int m4u_id,
-		unsigned int bank, size_t *tf_port)
+		unsigned int bank, size_t *tf_port,
+		size_t *tf_iova, size_t *tf_int)
 {
 #ifdef IOMMU_DESIGN_OF_BANK
 	unsigned int atf_cmd = 0;
@@ -361,8 +362,9 @@ int __mtk_iommu_atf_call(unsigned int cmd, unsigned int m4u_id,
 	atf_cmd = IOMMU_ATF_SET_COMMAND(m4u_id, bank, cmd);
 	/*pr_notice("%s, M4U CALL ATF CMD:%d\n", __func__, atf_cmd);*/
 #ifndef CONFIG_FPGA_EARLY_PORTING
-	ret = mt_secure_call_ret2(MTK_M4U_DEBUG_DUMP,
-				atf_cmd, 0, 0, 0, tf_port);
+	ret = mt_secure_call_ret4(MTK_M4U_DEBUG_DUMP,
+				atf_cmd, 0, 0, 0, tf_port,
+				tf_iova, tf_int);
 #endif
 	return ret;
 #else
@@ -373,9 +375,10 @@ int __mtk_iommu_atf_call(unsigned int cmd, unsigned int m4u_id,
 int mtk_iommu_atf_call(unsigned int cmd, unsigned int m4u_id,
 		unsigned int bank)
 {
-	size_t tf_port = 0;
+	size_t tf_port = 0, tf_iova = 0, tf_int = 0;
 
-	return __mtk_iommu_atf_call(cmd, m4u_id, bank, &tf_port);
+	return __mtk_iommu_atf_call(cmd, m4u_id, bank, &tf_port,
+				&tf_iova, &tf_int);
 }
 
 static void mtk_iommu_atf_test_recovery(unsigned int m4u_id, unsigned int cmd)
@@ -1261,9 +1264,8 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	unsigned long flags;
 	int ret = 0;
 	void __iomem *base = NULL;
-#ifdef MTK_IOMMU_BANK_IRQ_SUPPORT
-	size_t tf_port = 0;
 
+#ifdef MTK_IOMMU_BANK_IRQ_SUPPORT
 	pr_notice("%s, irq=%d\n", __func__, irq);
 	for (i = 0; i < MTK_IOMMU_M4U_COUNT; i++) {
 		for (j = 0; j < MTK_IOMMU_BANK_NODE_COUNT; j++) {
@@ -1475,12 +1477,12 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 				fault_larb, fault_port, is_vpu,
 				layer, write ? "write" : "read");
 		}
-		m4u_dump_pgtable(1, fault_iova);
 #ifdef MTK_IOMMU_BANK_IRQ_SUPPORT
 		if (bankid < MTK_IOMMU_BANK_NODE_COUNT)
-			__mtk_iommu_atf_call(IOMMU_ATF_BANK_DUMP_INFO,
-					m4uid, bankid + 1, &tf_port);
+			mtk_iommu_atf_call(IOMMU_ATF_BANK_DUMP_INFO,
+					m4uid, bankid + 1);
 #endif
+		m4u_dump_pgtable(1, fault_iova);
 	}
 
 	if (int_state &
@@ -1545,10 +1547,10 @@ static int mtk_irq_sec[MTK_IOMMU_M4U_COUNT];
 irqreturn_t MTK_M4U_isr_sec(int irq, void *dev_id)
 {
 	struct mtk_iommu_data *data = NULL;
-	size_t tf_port = 0;
+	size_t tf_port = 0, tf_iova = 0, tf_int = 0;
 	unsigned int m4u_id = 0;
 	int i, ret = 0;
-	unsigned long flags;
+	unsigned long flags, fault_iova;
 
 	for (i = 0; i < MTK_IOMMU_M4U_COUNT; i++) {
 		if (irq == mtk_irq_sec[i]) {
@@ -1581,13 +1583,23 @@ irqreturn_t MTK_M4U_isr_sec(int irq, void *dev_id)
 	spin_unlock_irqrestore(&data->reg_lock, flags);
 #endif
 
-	pr_notice("iommu:%d secure bank irq in normal world!\n", m4u_id);
 	ret = __mtk_iommu_atf_call(IOMMU_ATF_DUMP_SECURE_REG,
-			m4u_id, 4, &tf_port);
+			m4u_id, 4, &tf_port, &tf_iova, &tf_int);
+	pr_notice("iommu:%d secure bank irq:0x%x in normal world!\n",
+		  m4u_id, tf_int);
 	if (!ret && tf_port < M4U_PORT_UNKNOWN) {
+#if (CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+		fault_iova = ((unsigned long)tf_iova &
+				F_MMU_FAULT_VA_BIT31_12) |
+				(((unsigned long)tf_iova &
+				F_MMU_FAULT_VA_BIT32) << 23);
+#else
+		fault_iova = (unsigned long)(tf_iova);
+#endif
 		if (enable_custom_tf_report())
 			report_custom_iommu_fault_secure(m4u_id,
-						  data->base, tf_port);
+						  data->base, tf_port,
+						  fault_iova);
 	}
 
 	ret = IRQ_HANDLED;
