@@ -701,6 +701,11 @@
 		#size-cells = <0>;
 	};
 
+	/* ATF logger */
+	atf_logger {
+		compatible = "mediatek,atf_logger";
+	};
+
 	/* Microtrust SW IRQ number 85(117) ~ 90(122) */
 	utos {
 		compatible = "microtrust,utos";
