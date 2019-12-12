@@ -1475,7 +1475,8 @@ static int ufshcd_set_clk_freq(struct ufs_hba *hba, bool scale_up)
 	list_for_each_entry(clki, head, list) {
 		if (!IS_ERR_OR_NULL(clki->clk)) {
 			if (scale_up && clki->max_freq) {
-				if (clki->curr_freq == clki->max_freq)
+				if ((clki->curr_freq == clki->max_freq) ||
+				   (!strcmp(clki->name, "core_clk_ice_hw_ctl")))
 					continue;
 
 				ret = clk_set_rate(clki->clk, clki->max_freq);
@@ -1493,7 +1494,8 @@ static int ufshcd_set_clk_freq(struct ufs_hba *hba, bool scale_up)
 				clki->curr_freq = clki->max_freq;
 
 			} else if (!scale_up && clki->min_freq) {
-				if (clki->curr_freq == clki->min_freq)
+				if ((clki->curr_freq == clki->min_freq) ||
+				   (!strcmp(clki->name, "core_clk_ice_hw_ctl")))
 					continue;
 
 				ret = clk_set_rate(clki->clk, clki->min_freq);
@@ -9824,7 +9826,8 @@ static int ufshcd_init_clocks(struct ufs_hba *hba)
 		goto out;
 
 	list_for_each_entry(clki, head, list) {
-		if (!clki->name)
+		if ((!clki->name) ||
+		   (!strcmp(clki->name, "core_clk_ice_hw_ctl")))
 			continue;
 
 		clki->clk = devm_clk_get(dev, clki->name);
