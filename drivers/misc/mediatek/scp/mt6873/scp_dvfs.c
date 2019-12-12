@@ -552,13 +552,14 @@ static ssize_t mt_scp_dvfs_sleep_proc_write(
 				scp_sleep_flag = val;
 				pr_info("scp_sleep_flag = %d\n",
 						scp_sleep_flag);
-
+#if 0
 				ret = mtk_ipi_send(&scp_ipidev,
 						IPI_OUT_DVFS_SLEEP_0,
 						0,
 						&scp_sleep_flag,
 						PIN_OUT_SIZE_DVFS_SLEEP_0,
 						0);
+#endif
 				if (ret != IPI_ACTION_DONE)
 					pr_info("%s: SCP send IPI fail - %d\n",
 						__func__, ret);
