@@ -81,14 +81,14 @@
 	vmmc-supply = <&mt_pmic_vmch_ldo_reg>;
 	vqmmc-supply = <&mt_pmic_vmc_ldo_reg>;
 
-	clocks =  <&scpsys SCP_SYS_MSDC>,
+	clocks = <&scpsys SCP_SYS_MSDC>,
 		<&msdcsys_top MSDC_PCLK_CK_MSDC1_CKEN>,
 		<&msdcsys_top MSDC_SRC_CK_1P_CKEN>,
 		<&msdcsys_top MSDC_HCLK_MST_CK_1P_CKEN>,
 		<&msdcsys_top MSDC_AXI_CK_CKEN>,
 		<&msdcsys_top MSDC_AHB2AXI_BRG_AXI_CKEN>;
 	clock-names = "msdc-clk-power",
-		"msdc0-pclock", "msdc1-clock", "msdc1-hclock",
+		"msdc1-pclock", "msdc1-clock", "msdc1-hclock",
 		"msdc-axi-clock", "msdc-ahb2axi_brg-clock";
 #endif
 };
