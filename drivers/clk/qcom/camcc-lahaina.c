@@ -39,8 +39,8 @@ enum {
 	P_CAM_CC_PLL4_OUT_EVEN,
 	P_CAM_CC_PLL5_OUT_EVEN,
 	P_CAM_CC_PLL6_OUT_EVEN,
-	P_CHIP_SLEEP_CLK,
 	P_CORE_BI_PLL_TEST_SE,
+	P_SLEEP_CLK,
 };
 
 static struct pll_vco lucid_5lpe_vco[] = {
@@ -563,12 +563,12 @@ static const struct clk_parent_data cam_cc_parent_data_5[] = {
 };
 
 static const struct parent_map cam_cc_parent_map_6[] = {
-	{ P_CHIP_SLEEP_CLK, 0 },
+	{ P_SLEEP_CLK, 0 },
 	{ P_CORE_BI_PLL_TEST_SE, 7 },
 };
 
 static const struct clk_parent_data cam_cc_parent_data_6[] = {
-	{ .fw_name = "chip_sleep_clk", .name = "chip_sleep_clk" },
+	{ .fw_name = "sleep_clk", .name = "sleep_clk" },
 	{ .fw_name = "core_bi_pll_test_se", .name = "core_bi_pll_test_se" },
 };
 
@@ -1410,7 +1410,7 @@ static struct clk_rcg2 cam_cc_sbi_csid_clk_src = {
 };
 
 static const struct freq_tbl ftbl_cam_cc_sleep_clk_src[] = {
-	F(32000, P_CHIP_SLEEP_CLK, 1, 0, 0),
+	F(32000, P_SLEEP_CLK, 1, 0, 0),
 	{ }
 };
 

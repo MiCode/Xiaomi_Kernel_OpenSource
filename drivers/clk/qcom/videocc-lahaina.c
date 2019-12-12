@@ -29,8 +29,8 @@ static DEFINE_VDD_REGULATORS(vdd_mx, VDD_NUM, 1, vdd_corner);
 
 enum {
 	P_BI_TCXO,
-	P_CHIP_SLEEP_CLK,
 	P_CORE_BI_PLL_TEST_SE,
+	P_SLEEP_CLK,
 	P_VIDEO_PLL0_OUT_MAIN,
 	P_VIDEO_PLL1_OUT_MAIN,
 };
@@ -152,12 +152,12 @@ static const struct clk_parent_data video_cc_parent_data_2[] = {
 };
 
 static const struct parent_map video_cc_parent_map_3[] = {
-	{ P_CHIP_SLEEP_CLK, 0 },
+	{ P_SLEEP_CLK, 0 },
 	{ P_CORE_BI_PLL_TEST_SE, 7 },
 };
 
 static const struct clk_parent_data video_cc_parent_data_3[] = {
-	{ .fw_name = "chip_sleep_clk", .name = "chip_sleep_clk" },
+	{ .fw_name = "sleep_clk", .name = "sleep_clk" },
 	{ .fw_name = "core_bi_pll_test_se", .name = "core_bi_pll_test_se" },
 };
 
@@ -250,7 +250,7 @@ static struct clk_rcg2 video_cc_mvs1_clk_src = {
 };
 
 static const struct freq_tbl ftbl_video_cc_sleep_clk_src[] = {
-	F(32000, P_CHIP_SLEEP_CLK, 1, 0, 0),
+	F(32000, P_SLEEP_CLK, 1, 0, 0),
 	{ }
 };
 
