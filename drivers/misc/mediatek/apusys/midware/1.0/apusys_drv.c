@@ -1060,7 +1060,7 @@ check_ucmd_size_fail:
 			goto out;
 		}
 
-		LOG_INFO("[sec]lock dev(%d) %d cores...\n",
+		LOG_WARN("[sec]lock dev(%d) %d cores\n",
 			ioctl_sec.dev_type, dev_num);
 
 		/* get type device from resource mgr */
@@ -1201,6 +1201,9 @@ check_ucmd_size_fail:
 			goto out;
 		}
 
+		LOG_WARN("[sec]unlock dev(%d) %d cores\n",
+			ioctl_sec.dev_type, dev_num);
+
 		/* TODO: call mtee enable 0 */
 		ret = res_secure_off(ioctl_sec.dev_type);
 		if (ret) {
@@ -1223,6 +1226,9 @@ check_ucmd_size_fail:
 				ioctl_sec.dev_type);
 			ret = -EINVAL;
 		}
+
+		LOG_INFO("[sec]unlock dev(%d) %d cores done\n",
+			ioctl_sec.dev_type, dev_num);
 
 		break;
 

@@ -1024,7 +1024,7 @@ int res_secure_on(int dev_type)
 #ifdef CONFIG_MTK_GZ_SUPPORT_SDSP
 	case APUSYS_DEVICE_VPU:
 		ret = mtee_sdsp_enable(1);
-		LOG_INFO("[sec]dev(%d) secure mode on(%d)\n", dev_type, ret);
+		LOG_WARN("[sec]dev(%d) secure mode on(%d)\n", dev_type, ret);
 		if (!ret)
 			secure_ws_lock();
 		break;
@@ -1059,7 +1059,7 @@ int res_secure_off(int dev_type)
 	case APUSYS_DEVICE_VPU:
 		secure_ws_unlock();
 		ret = mtee_sdsp_enable(0);
-		LOG_INFO("dev(%d) secure mode off(%d)\n", dev_type, ret);
+		LOG_WARN("dev(%d) secure mode off(%d)\n", dev_type, ret);
 		break;
 #endif
 	default:
