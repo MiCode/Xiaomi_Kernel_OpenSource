@@ -358,79 +358,6 @@ static bool check_type2_vio_status(int slave_type, int *vio_idx, int *index)
 }
 
 /*
- * start_devapc - initialize devapc status and start receiving interrupt
- *		  while devapc violation is triggered.
- */
-static void start_devapc(void)
-{
-	uint32_t slave_type_num = mtk_devapc_ctx->soc->slave_type_num;
-	const struct mtk_device_info **device_info;
-	const struct mtk_device_num *ndevices;
-	void __iomem *pd_vio_shift_sta_reg;
-	void __iomem *pd_apc_con_reg;
-	uint32_t vio_shift_sta;
-	int slave_type, i, vio_idx;
-
-	print_vio_mask_sta(false);
-	ndevices = mtk_devapc_ctx->soc->ndevices;
-
-	device_info = mtk_devapc_ctx->soc->device_info;
-
-	for (slave_type = 0; slave_type < slave_type_num; slave_type++) {
-
-		pd_apc_con_reg = mtk_devapc_pd_get(slave_type, APC_CON, 0);
-		pd_vio_shift_sta_reg = mtk_devapc_pd_get(
-				slave_type, VIO_SHIFT_STA, 0);
-
-		if (unlikely(pd_apc_con_reg == NULL ||
-			     pd_vio_shift_sta_reg == NULL ||
-			     device_info == NULL)) {
-			pr_err(PFX "%s:%d NULL pointer\n", __func__, __LINE__);
-			return;
-		}
-
-		/* Clear DEVAPC violation status */
-		writel(BIT(31), pd_apc_con_reg);
-
-		/* Clear violation shift status */
-		vio_shift_sta = readl(pd_vio_shift_sta_reg);
-		if (vio_shift_sta) {
-			writel(vio_shift_sta, pd_vio_shift_sta_reg);
-			pr_info(PFX "clear %s:0x%x %s:0x%x to 0x%x\n",
-					"slave_type", slave_type,
-					"VIO_SHIFT_STA", vio_shift_sta,
-					readl(pd_vio_shift_sta_reg));
-		}
-
-		check_type2_vio_status(slave_type, &vio_idx, &i);
-
-		/* Clear violation status */
-		for (i = 0; i < ndevices[slave_type].vio_slave_num; i++) {
-			if (!device_info[slave_type][i].enable_vio_irq)
-				continue;
-
-			vio_idx = device_info[slave_type][i].vio_index;
-			if ((check_vio_status(slave_type, vio_idx) ==
-					VIOLATION_TRIGGERED) &&
-					clear_vio_status(slave_type, vio_idx))
-				pr_warn(PFX "%s, %s:0x%x, %s:0x%x\n",
-					"clear vio status failed",
-					"slave_type", slave_type,
-					"vio_index", vio_idx);
-
-			mask_module_irq(slave_type, i, false);
-		}
-	}
-
-	print_vio_mask_sta(false);
-
-	/* register subsys test cb */
-	register_devapc_vio_callback(&devapc_test_handle);
-
-	pr_info(PFX "%s done\n", __func__);
-}
-
-/*
  * sync_vio_dbg - start to get violation information by selecting violation
  *		  group and enable violation shift.
  *
@@ -590,7 +517,8 @@ static void mtk_devapc_vio_check(int slave_type, int *shift_bit)
 	vio_shift_sta = readl(mtk_devapc_pd_get(slave_type, VIO_SHIFT_STA, 0));
 
 	if (!vio_shift_sta) {
-		pr_info(PFX "violation is triggered before\n");
+		pr_info(PFX "violation is triggered before. %s:0x%x\n",
+				"shift_bit", *shift_bit);
 
 	} else if (vio_shift_sta & (0x1 << *shift_bit)) {
 		pr_info(PFX "%s: 0x%x is matched with %s:%d\n",
@@ -713,6 +641,85 @@ static bool mtk_devapc_dump_vio_dbg(int slave_type, int *vio_idx, int *index)
 	pr_info(PFX "check_devapc_vio_status: no violation for %s:0x%x\n",
 			"slave_type", slave_type);
 	return false;
+}
+
+/*
+ * start_devapc - initialize devapc status and start receiving interrupt
+ *		  while devapc violation is triggered.
+ */
+static void start_devapc(void)
+{
+	uint32_t slave_type_num = mtk_devapc_ctx->soc->slave_type_num;
+	const struct mtk_device_info **device_info;
+	const struct mtk_device_num *ndevices;
+	void __iomem *pd_vio_shift_sta_reg;
+	void __iomem *pd_apc_con_reg;
+	uint32_t vio_shift_sta;
+	int slave_type, i, vio_idx, index;
+
+	print_vio_mask_sta(false);
+	ndevices = mtk_devapc_ctx->soc->ndevices;
+
+	device_info = mtk_devapc_ctx->soc->device_info;
+
+	for (slave_type = 0; slave_type < slave_type_num; slave_type++) {
+
+		pd_apc_con_reg = mtk_devapc_pd_get(slave_type, APC_CON, 0);
+		pd_vio_shift_sta_reg = mtk_devapc_pd_get(
+				slave_type, VIO_SHIFT_STA, 0);
+
+		if (unlikely(pd_apc_con_reg == NULL ||
+			     pd_vio_shift_sta_reg == NULL ||
+			     device_info == NULL)) {
+			pr_err(PFX "%s:%d NULL pointer\n", __func__, __LINE__);
+			return;
+		}
+
+		/* Clear DEVAPC violation status */
+		writel(BIT(31), pd_apc_con_reg);
+
+		/* Clear violation shift status */
+		vio_shift_sta = readl(pd_vio_shift_sta_reg);
+		if (vio_shift_sta) {
+			writel(vio_shift_sta, pd_vio_shift_sta_reg);
+			pr_info(PFX "clear %s:0x%x %s:0x%x to 0x%x\n",
+					"slave_type", slave_type,
+					"VIO_SHIFT_STA", vio_shift_sta,
+					readl(pd_vio_shift_sta_reg));
+		}
+
+		check_type2_vio_status(slave_type, &vio_idx, &i);
+
+		/* Clear violation status */
+		for (i = 0; i < ndevices[slave_type].vio_slave_num; i++) {
+			if (!device_info[slave_type][i].enable_vio_irq)
+				continue;
+
+			vio_idx = device_info[slave_type][i].vio_index;
+			if ((check_vio_status(slave_type, vio_idx) ==
+					VIOLATION_TRIGGERED) &&
+					clear_vio_status(slave_type, vio_idx)) {
+				pr_warn(PFX "%s, %s:0x%x, %s:0x%x\n",
+					"clear vio status failed",
+					"slave_type", slave_type,
+					"vio_index", vio_idx);
+
+				index = i;
+				mtk_devapc_dump_vio_dbg(slave_type, &vio_idx,
+						&index);
+				i = index - 1;
+			}
+
+			mask_module_irq(slave_type, i, false);
+		}
+	}
+
+	print_vio_mask_sta(false);
+
+	/* register subsys test cb */
+	register_devapc_vio_callback(&devapc_test_handle);
+
+	pr_info(PFX "%s done\n", __func__);
 }
 
 /*
