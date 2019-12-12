@@ -39,6 +39,9 @@
 #include "mtk_log.h"
 #include "mtk_drm_mmp.h"
 
+#define CREATE_TRACE_POINTS
+#include "mtk_layer_layout_trace.h"
+
 static struct drm_mtk_layering_info layering_info;
 #ifdef HRT_UT_DEBUG
 static int debug_resolution_level;
@@ -461,6 +464,36 @@ static void dump_disp_info(struct drm_mtk_layering_info *disp_info,
 					layer_info->compress);
 			}
 		}
+	}
+}
+
+static void dump_disp_trace(struct drm_mtk_layering_info *disp_info)
+{
+	int i, j;
+	struct drm_mtk_layer_config *c;
+	const int len = 1000;
+	char msg[len];
+	int n = 0;
+
+	for (i = 0; i < HRT_TYPE_NUM; i++) {
+		if (disp_info->layer_num[i] <= 0)
+			continue;
+
+		n = snprintf(msg, len, "D%d,ovp:%d,dal:%d,LN:%d,G(%d,%d)",
+			     i, disp_info->hrt_weight, l_rule_info->dal_enable,
+			     disp_info->layer_num[i], disp_info->gles_head[i],
+			     disp_info->gles_tail[i]);
+
+		for (j = 0; j < disp_info->layer_num[i]; j++) {
+			c = &disp_info->input_config[i][j];
+			n += snprintf(msg + n, len - n,
+				      "|L%d->%d(%u,%u,%ux%u),f:0x%x,c:%d",
+				      j, c->ovl_id, c->dst_offset_x,
+				      c->dst_offset_y, c->dst_width,
+				      c->dst_height, c->src_fmt, c->compress);
+		}
+
+		trace_layer_layout(msg);
 	}
 }
 
@@ -2297,6 +2330,8 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 	HRT_SET_AEE_FLAG(layering_info.hrt_num, l_rule_info->dal_enable);
 	HRT_SET_WROT_SRAM_FLAG(layering_info.hrt_num, l_rule_info->wrot_sram);
 	dump_disp_info(&layering_info, DISP_DEBUG_LEVEL_INFO);
+
+	dump_disp_trace(&layering_info);
 
 	/* Remove MMP */
 	/* mmprofile_log_ex(ddp_mmp_get_events()->hrt, MMPROFILE_FLAG_PULSE,
