@@ -2610,6 +2610,7 @@ page_owner=on loop.max_part=7";
 		<0 0x10721000 0 0x1000>,	 /* clk*/
 		<0 0x10730000 0 0x1000>,	 /* cfg core0 */
 		<0 0x10740000 0 0x1000>,	 /* cfg core1 */
+		<0 0x10752000 0 0x1000>,	 /* bus tracker */
 		<0 0x10760000 0 0x40000>,	 /* llc */
 		<0 0x107a5000 0 0x4>,		 /* cfg_sec */
 		<0 0x107fb000 0 0x100>,		 /* mbox0 base */
@@ -2638,6 +2639,7 @@ page_owner=on loop.max_part=7";
 			"scp_clkreg",
 			"scp_cfgreg_core0",
 			"scp_cfgreg_core1",
+			"scp_bus_tracker",
 			"scp_l1creg",
 			"scp_cfgreg_sec",
 			"mbox0_base",

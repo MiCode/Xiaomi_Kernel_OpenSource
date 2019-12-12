@@ -1660,6 +1660,14 @@ static int scp_device_probe(struct platform_device *pdev)
 	pr_debug("[SCP] cfg_core1 base = 0x%p\n", scpreg.cfg_core1);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 5);
+	scpreg.bus_tracker = devm_ioremap_resource(dev, res);
+	if (IS_ERR((void const *) scpreg.bus_tracker)) {
+		pr_debug("[SCP] scpreg.bus_tracker error\n");
+		return -1;
+	}
+	pr_debug("[SCP] bus_tracker base = 0x%p\n", scpreg.bus_tracker);
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 6);
 	scpreg.l1cctrl = devm_ioremap_resource(dev, res);
 	if (IS_ERR((void const *) scpreg.l1cctrl)) {
 		pr_debug("[SCP] scpreg.l1cctrl error\n");
@@ -1667,7 +1675,7 @@ static int scp_device_probe(struct platform_device *pdev)
 	}
 	pr_debug("[SCP] l1cctrl base = 0x%p\n", scpreg.l1cctrl);
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 6);
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 7);
 	scpreg.cfg_sec = devm_ioremap_resource(dev, res);
 	if (IS_ERR((void const *) scpreg.cfg_sec)) {
 		pr_debug("[SCP] scpreg.cfg_sec error\n");

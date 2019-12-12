@@ -99,6 +99,29 @@ void scp_dump_last_regs(void)
 	pr_debug("[SCP] c1_pc_latch = %08x\n", c1_m.pc_latch);
 	pr_debug("[SCP] c1_lr_latch = %08x\n", c1_m.lr_latch);
 	pr_debug("[SCP] c1_sp_latch = %08x\n", c1_m.sp_latch);
+
+	/* bus tracker reg dump */
+	pr_debug("BUS DBG CON: %x\n", readl(SCP_BUS_DBG_CON));
+	pr_debug("R %08x %08x %08x %08x %08x %08x %08x %08x\n",
+			readl(SCP_BUS_DBG_AR_TRACK0_L),
+			readl(SCP_BUS_DBG_AR_TRACK1_L),
+			readl(SCP_BUS_DBG_AR_TRACK2_L),
+			readl(SCP_BUS_DBG_AR_TRACK3_L),
+			readl(SCP_BUS_DBG_AR_TRACK4_L),
+			readl(SCP_BUS_DBG_AR_TRACK5_L),
+			readl(SCP_BUS_DBG_AR_TRACK6_L),
+			readl(SCP_BUS_DBG_AR_TRACK7_L)
+		   );
+	pr_debug("W %08x %08x %08x %08x %08x %08x %08x %08x\n",
+			readl(SCP_BUS_DBG_AW_TRACK0_L),
+			readl(SCP_BUS_DBG_AW_TRACK1_L),
+			readl(SCP_BUS_DBG_AW_TRACK2_L),
+			readl(SCP_BUS_DBG_AW_TRACK3_L),
+			readl(SCP_BUS_DBG_AW_TRACK4_L),
+			readl(SCP_BUS_DBG_AW_TRACK5_L),
+			readl(SCP_BUS_DBG_AW_TRACK6_L),
+			readl(SCP_BUS_DBG_AW_TRACK7_L)
+		   );
 }
 
 void scp_do_regdump(uint32_t *out, uint32_t *out_end)
