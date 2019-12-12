@@ -1350,6 +1350,18 @@ int __init cm_mgr_module_init(void)
 	/* SW Governor Report */
 	spin_lock_init(&cm_mgr_lock);
 
+#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
+	r = mtk_ipi_register(&sspm_ipidev, IPIS_C_CM, NULL, NULL,
+				(void *) &cm_ipi_ackdata);
+	if (r) {
+		pr_info("[SSPM] IPIS_C_CM ipi_register fail, ret %d\n", r);
+		cm_sspm_ready = -1;
+		return -1;
+	}
+	pr_info("SSPM is ready to service CM IPI\n");
+	cm_sspm_ready = 1;
+#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
+
 	r = cm_mgr_platform_init();
 	if (r) {
 		pr_info("FAILED TO INIT PLATFORM(%d)\n", r);
@@ -1369,16 +1381,6 @@ int __init cm_mgr_module_init(void)
 #endif /* USE_TIMER_CHECK */
 
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
-	r = mtk_ipi_register(&sspm_ipidev, IPIS_C_CM, NULL, NULL,
-				(void *) &cm_ipi_ackdata);
-	if (r) {
-		pr_info("[SSPM] IPIS_C_CM ipi_register fail, ret %d\n", r);
-		cm_sspm_ready = -1;
-		return -1;
-	}
-	pr_info("SSPM is ready to service CM IPI\n");
-	cm_sspm_ready = 1;
-
 	cm_mgr_to_sspm_command(IPI_CM_MGR_INIT, 0);
 
 	cm_mgr_setup_cpu_dvfs_info();
