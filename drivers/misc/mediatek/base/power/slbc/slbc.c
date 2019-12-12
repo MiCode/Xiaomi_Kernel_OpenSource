@@ -595,7 +595,8 @@ int slbc_request(struct slbc_data *d)
 
 	check_slot_by_data(d);
 
-	if (find_slbc_slot_by_data(d) != SLOT_AVAILABLE) {
+	if (((d->type) == TP_BUFFER) &&
+			(find_slbc_slot_by_data(d) != SLOT_AVAILABLE)) {
 #ifdef SLBC_THREAD
 		struct slbc_data *d_used;
 
@@ -677,6 +678,59 @@ request_done1:
 	return 0;
 }
 EXPORT_SYMBOL_GPL(slbc_request);
+
+static void slbc_debug_dump_data(struct slbc_data *d)
+{
+	int uid = d->uid;
+
+	pr_info("\nID %s", slbc_uid_str[uid]);
+
+	if (test_bit(uid, &slbc_status))
+		pr_info(" activate\n");
+	else
+		pr_info(" deactivate\n");
+
+	pr_info("\t%d\t", uid);
+	pr_info("%x\t", d->type);
+	pr_info("%ld\n", d->size);
+	pr_info("%p\t", d->paddr);
+	pr_info("%p\t", d->vaddr);
+	pr_info("%d\t", d->sid);
+	pr_info("%x\n", d->slot_used);
+	pr_info("%p\n", d->config);
+	pr_info("%d\n", d->ref);
+	pr_info("%d\n", d->pwr_ref);
+}
+
+static int slbc_debug_all(void)
+{
+	struct slbc_ops *ops;
+	int i;
+
+	pr_info("slbc_enable %x\n", slbc_enable);
+	pr_info("slbc_status %lx\n", slbc_status);
+	pr_info("slbc_mask_status %lx\n", slbc_mask_status);
+	pr_info("slbc_req_status %lx\n", slbc_req_status);
+	pr_info("slbc_release_status %lx\n", slbc_release_status);
+	pr_info("slbc_slot_status %lx\n", slbc_slot_status);
+	pr_info("buffer_ref %x\n", buffer_ref);
+	pr_info("cache_ref %x\n", cache_ref);
+	pr_info("slbc_ref %x\n", slbc_ref);
+	for (i = 0; i < UID_MAX; i++)
+		pr_info("uid_ref %s %x\n", slbc_uid_str[i], uid_ref[i]);
+
+	mutex_lock(&slbc_ops_lock);
+	list_for_each_entry(ops, &slbc_ops_list, node) {
+		struct slbc_data *d = ops->data;
+
+		slbc_debug_dump_data(d);
+	}
+	mutex_unlock(&slbc_ops_lock);
+
+	pr_info("\n");
+
+	return 0;
+}
 
 int slbc_release(struct slbc_data *d)
 {
@@ -802,6 +856,9 @@ release_done1:
 	WARN((d->ref < 0) || (uid_ref[uid] < 0),
 			"%s: release %s fail !!! %d %d\n",
 			__func__, slbc_uid_str[uid], d->ref, uid_ref[uid]);
+
+	if ((d->ref < 0) || (uid_ref[uid] < 0))
+		slbc_debug_all();
 
 	return 0;
 }
