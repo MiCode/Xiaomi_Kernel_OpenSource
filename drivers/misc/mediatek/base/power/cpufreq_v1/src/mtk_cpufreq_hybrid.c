@@ -149,7 +149,7 @@ int Ripi_cpu_dvfs_thread(void *data)
 	unsigned int bk_log_offs;
 	unsigned int buf_freq;
 	unsigned long long tf_sum, t_diff, avg_f;
-	int j;
+	int j = 0;
 
 	/* tag_pr_info("CPU DVFS received thread\n"); */
 	if (ret != 0) {
@@ -210,7 +210,7 @@ int Ripi_cpu_dvfs_thread(void *data)
 			if (num_log == 1)
 				j =
 				log_box_parsed[0].cluster_opp_cfg[i].freq_idx;
-			else {
+			else if (num_log > 1) {
 				tf_sum = 0;
 				for (j = num_log - 1; j >= 1; j--) {
 					buf_freq = cpu_dvfs_get_freq_by_idx(p,
