@@ -139,11 +139,6 @@ static void kbase_gpuprops_get_props(base_gpu_props * const gpu_props, struct kb
 	kbase_backend_gpuprops_get(kbdev, &regdump);
 
 	gpu_props->raw_props.gpu_id = regdump.gpu_id;
-
-#ifdef CONFIG_MACH_MT6873
-	gpu_props->raw_props.gpu_id = 0x90910000;
-#endif
-
 	gpu_props->raw_props.tiler_features = regdump.tiler_features;
 	gpu_props->raw_props.mem_features = regdump.mem_features;
 	gpu_props->raw_props.mmu_features = regdump.mmu_features;
