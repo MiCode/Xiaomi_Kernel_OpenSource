@@ -21,6 +21,7 @@
 #include <linux/fs.h>
 #include <linux/cdev.h>
 #include <linux/poll.h>
+#include <linux/ratelimit.h>
 
 /*#include <mach/eint.h>*/
 /*-----------driver own header files----------------*/
@@ -2028,9 +2029,11 @@ static int _btif_state_set(struct _mtk_btif_ *p_btif,
 /*chaozhong: To do: need to finished state mechine here*/
 	int i_ret = 0;
 	int ori_state = p_btif->state;
+	static DEFINE_RATELIMIT_STATE(_rs, (HZ >> 1), 1);
 
 	if (ori_state == state) {
-		BTIF_INFO_FUNC("already in %s state\n", g_state[state]);
+		if (__ratelimit(&_rs))
+			BTIF_INFO_FUNC("already in %s state\n", g_state[state]);
 		return i_ret;
 	}
 	if ((state >= B_S_OFF) && (state < B_S_MAX)) {
