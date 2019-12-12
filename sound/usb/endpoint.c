@@ -430,7 +430,8 @@ static void snd_complete_urb(struct urb *urb)
 	if (err == 0)
 		return;
 
-	usb_audio_err(ep->chip, "cannot submit urb (err = %d)\n", err);
+	usb_audio_err_ratelimited(ep->chip,
+		   "cannot submit urb (err = %d)\n", err);
 	if (ep->data_subs && ep->data_subs->pcm_substream) {
 		substream = ep->data_subs->pcm_substream;
 		snd_pcm_stop_xrun(substream);

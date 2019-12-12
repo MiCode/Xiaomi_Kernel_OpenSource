@@ -37,14 +37,14 @@ struct snd_usb_audio {
 	struct usb_interface *pm_intf;
 	u32 usb_id;
 	struct mutex mutex;
-	unsigned int autosuspended:1;	
+	unsigned int autosuspended:1;
 	atomic_t active;
 	atomic_t shutdown;
 	atomic_t usage_count;
 	wait_queue_head_t shutdown_wait;
 	unsigned int txfr_quirk:1; /* Subframe boundaries on transfers */
 	unsigned int tx_length_quirk:1; /* Put length specifier in transfers */
-	
+
 	int num_interfaces;
 	int num_suspended_intf;
 	int sample_rate_read_error;
@@ -72,6 +72,12 @@ struct snd_usb_audio {
 #define usb_audio_dbg(chip, fmt, args...) \
 	dev_dbg(&(chip)->dev->dev, fmt, ##args)
 
+#define usb_audio_err_ratelimited(chip, fmt, args...) \
+	dev_info_ratelimited(&(chip)->dev->dev, fmt, ##args)
+#define usb_audio_info_ratelimited(chip, fmt, args...) \
+	dev_info_ratelimited(&(chip)->dev->dev, fmt, ##args)
+#define usb_audio_dbg_ratelimited(chip, fmt, args...) \
+	dev_dbg_ratelimited(&(chip)->dev->dev, fmt, ##args)
 /*
  * Information about devices with broken descriptors
  */

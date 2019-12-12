@@ -913,11 +913,12 @@ static int snd_usb_pcm_prepare(struct snd_pcm_substream *substream)
 			subs->data_endpoint &&
 			subs->buffer_periods != 4) {
 		runtime->stop_threshold *= 10;
-		dev_info(&subs->dev->dev, "adjust stop_threshold to %ld frames",
+		dev_info_ratelimited(&subs->dev->dev,
+				"adjust stop_threshold to %ld frames",
 				runtime->stop_threshold);
-
 	} else
-		dev_info(&subs->dev->dev, "stop_threshold %ld frames",
+		dev_info_ratelimited(&subs->dev->dev,
+				"stop_threshold %ld frames",
 				runtime->stop_threshold);
 
 	/* for playback, submit the URBs now; otherwise, the first hwptr_done
