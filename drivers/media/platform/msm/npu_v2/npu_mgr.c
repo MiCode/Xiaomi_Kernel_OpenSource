@@ -104,6 +104,7 @@ static int wait_npu_cpc_power_off(struct npu_device *npu_dev)
 {
 	uint32_t reg_val = NPU_CPC_PWR_ON;
 	uint32_t wait_cnt = 0, max_wait_ms;
+	struct npu_host_ctx *host_ctx = &npu_dev->host_ctx;
 
 	max_wait_ms = NPU_FW_TIMEOUT_MS;
 
@@ -112,6 +113,12 @@ static int wait_npu_cpc_power_off(struct npu_device *npu_dev)
 		if (!(reg_val & NPU_CPC_PWR_ON)) {
 			NPU_DBG("npu cpc powers off\n");
 			break;
+		}
+
+		if ((host_ctx->wdg_irq_sts != 0) ||
+			(host_ctx->err_irq_sts != 0)) {
+			NPU_WARN("fw is in bad state, skip wait\n");
+			return -EIO;
 		}
 
 		wait_cnt += NPU_FW_TIMEOUT_POLL_INTERVAL_MS;
@@ -913,6 +920,9 @@ static int host_error_hdlr(struct npu_device *npu_dev, bool force)
 		goto fw_start_done;
 	}
 
+	host_ctx->wdg_irq_sts = 0;
+	host_ctx->err_irq_sts = 0;
+
 	/* Keep reading ctrl status until NPU is ready */
 	if (wait_for_status_ready(npu_dev, REG_NPU_FW_CTRL_STATUS,
 		FW_CTRL_STATUS_MAIN_THREAD_READY_VAL, false)) {
@@ -939,8 +949,6 @@ fw_start_done:
 	}
 
 	complete(&host_ctx->fw_deinit_done);
-	host_ctx->wdg_irq_sts = 0;
-	host_ctx->err_irq_sts = 0;
 
 	/* flush all pending npu cmds */
 	for (i = 0; i < MAX_LOADED_NETWORK; i++) {
@@ -1149,6 +1157,12 @@ static int wait_for_status_ready(struct npu_device *npu_dev,
 			NPU_ERR("timeout wait for status %x[%x] in reg %x\n",
 				status_bits, ctrl_sts, status_reg);
 			return -ETIMEDOUT;
+		}
+
+		if ((host_ctx->wdg_irq_sts != 0) ||
+			(host_ctx->err_irq_sts != 0)) {
+			NPU_WARN("fw is in bad state, skip wait\n");
+			return -EIO;
 		}
 
 		if (poll)
