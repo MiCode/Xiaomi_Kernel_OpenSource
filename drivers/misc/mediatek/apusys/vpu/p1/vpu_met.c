@@ -509,6 +509,7 @@ static void vpu_met_pm_dbg_read(struct vpu_device *vd)
 	bool dump = false;
 
 	for (i = 0; i < VPU_MET_PM_MAX; i++) {
+		df[i] = 0;
 		if (!pm_sel[i])
 			continue;
 		offset = i * 4;
@@ -517,8 +518,6 @@ static void vpu_met_pm_dbg_read(struct vpu_device *vd)
 			dump = true;
 			df[i] = tmp[i] - vd->pm.val[i];
 			vd->pm.val[i] = tmp[i];
-		} else {
-			df[i] = 0;
 		}
 	}
 
