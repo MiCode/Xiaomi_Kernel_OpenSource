@@ -11,6 +11,8 @@
 #include <linux/sched/clock.h>
 
 #include <sound/soc.h>
+#include <mt-plat/mtk_wcn_cmb_stub.h>
+#include <linux/kthread.h>
 
 #define BT_CVSD_TX_NREADY	BIT(21)
 #define BT_CVSD_RX_READY	BIT(22)
@@ -188,6 +190,11 @@ static const u8 table_msbc_silence[SCO_PACKET_180] = {
 	0xdb, 0x6d, 0xb7, 0x76, 0xdb, 0x6d, 0xdd, 0xb6, 0xdb, 0x77,
 	0x6d, 0xb6, 0xdd, 0xdb, 0x6d, 0xb7, 0x76, 0xdb, 0x6c, 0x00
 };
+
+static struct task_struct *g_kthread;
+static bool g_is_btcvsd_bus_dump;
+static bool g_btcvsd_bus_dump_thread_enable;
+static DEFINE_MUTEX(mutex_dump_thread_enable);
 
 static void mtk_btcvsd_snd_irq_enable(struct mtk_btcvsd_snd *bt)
 {
@@ -369,9 +376,18 @@ static int mtk_btcvsd_read_from_bt(struct mtk_btcvsd_snd *bt,
 	unsigned int packet_buf_ofs;
 	unsigned long flags;
 	unsigned long connsys_addr_rx, ap_addr_rx;
+	int is_readable = 0;
 
 	if (bt->bypass_bt_access)
 		return -EIO;
+
+	is_readable = mtk_wcn_conninfra_reg_readable();
+	if (!is_readable) {
+		dev_info(bt->dev, "%s(), is_readable = %d\n",
+			 __func__, is_readable);
+		g_is_btcvsd_bus_dump = true;
+		return -EIO;
+	}
 
 	connsys_addr_rx = *bt->bt_reg_pkt_r;
 	ap_addr_rx = (unsigned long)bt->bt_sram_bank2_base +
@@ -412,6 +428,26 @@ static int mtk_btcvsd_read_from_bt(struct mtk_btcvsd_snd *bt,
 	return 0;
 }
 
+static int btcvsd_bus_dump_thread(void *arg)
+{
+	int ret_conninfra_bus;
+	struct mtk_btcvsd_snd *bt = (struct mtk_btcvsd_snd *) arg;
+
+	while (g_btcvsd_bus_dump_thread_enable) {
+		if (g_is_btcvsd_bus_dump) {
+			g_is_btcvsd_bus_dump = false;
+			dev_info(bt->dev, "+%s(), dump conninfra start...\n",
+				 __func__);
+			ret_conninfra_bus = mtk_wcn_conninfra_is_bus_hang();
+			dev_info(bt->dev, "-%s(), ret_conninfra_bus = %d\n",
+				 __func__, ret_conninfra_bus);
+		}
+		mdelay(10);
+	}
+	do_exit(0);
+	return 0;
+}
+
 int mtk_btcvsd_write_to_bt(struct mtk_btcvsd_snd *bt,
 			   enum bt_sco_packet_len packet_type,
 			   unsigned int packet_length,
@@ -423,9 +459,18 @@ int mtk_btcvsd_write_to_bt(struct mtk_btcvsd_snd *bt,
 	u8 *dst;
 	unsigned long connsys_addr_tx, ap_addr_tx;
 	bool new_ap_addr_tx = true;
+	int is_readable = 0;
 
 	if (bt->bypass_bt_access)
 		return -EIO;
+
+	is_readable = mtk_wcn_conninfra_reg_readable();
+	if (!is_readable) {
+		dev_info(bt->dev, "%s(), is_readable = %d\n",
+			 __func__, is_readable);
+		g_is_btcvsd_bus_dump = true;
+		return -EIO;
+	}
 
 	connsys_addr_tx = *bt->bt_reg_pkt_w;
 	ap_addr_tx = (unsigned long)bt->bt_sram_bank2_base +
@@ -492,12 +537,22 @@ static irqreturn_t mtk_btcvsd_snd_irq_handler(int irq_id, void *dev)
 	unsigned int packet_type, packet_num, packet_length;
 	unsigned int buf_cnt_tx, buf_cnt_rx, control;
 	static DEFINE_RATELIMIT_STATE(_rs, 2 * HZ, 1);
+	int is_readable;
 
 	if (__ratelimit(&_rs))
 		dev_info(bt->dev, "%s()\n", __func__);
 
 	if (bt->bypass_bt_access)
 		goto irq_handler_exit;
+
+	is_readable = mtk_wcn_conninfra_reg_readable();
+
+	if (!is_readable) {
+		dev_info(bt->dev, "%s(), is_readable = %d, dump conn infra\n",
+			 __func__, is_readable);
+		g_is_btcvsd_bus_dump = true;
+		goto irq_handler_exit;
+	}
 
 	if (bt->rx->state != BT_SCO_STATE_RUNNING &&
 	    bt->rx->state != BT_SCO_STATE_ENDING &&
@@ -908,6 +963,15 @@ static int mtk_pcm_btcvsd_open(struct snd_pcm_substream *substream)
 		ret = mtk_btcvsd_snd_rx_init(bt);
 		bt->rx->substream = substream;
 	}
+	mutex_lock(&mutex_dump_thread_enable);
+	if (!g_btcvsd_bus_dump_thread_enable) {
+		g_btcvsd_bus_dump_thread_enable = true;
+		g_is_btcvsd_bus_dump = false;
+		g_kthread = kthread_run(btcvsd_bus_dump_thread,
+					 bt,
+					 "btcvsd_bus_dump_thread");
+	}
+	mutex_unlock(&mutex_dump_thread_enable);
 
 	return ret;
 }
@@ -920,6 +984,11 @@ static int mtk_pcm_btcvsd_close(struct snd_pcm_substream *substream)
 
 	dev_dbg(bt->dev, "%s(), stream %d\n", __func__, substream->stream);
 
+	mutex_lock(&mutex_dump_thread_enable);
+	if (g_btcvsd_bus_dump_thread_enable)
+		g_btcvsd_bus_dump_thread_enable = false;
+	mutex_unlock(&mutex_dump_thread_enable);
+
 	mtk_btcvsd_snd_set_state(bt, bt_stream, BT_SCO_STATE_IDLE);
 	bt_stream->substream = NULL;
 	return 0;
@@ -930,6 +999,7 @@ static int mtk_pcm_btcvsd_hw_params(struct snd_pcm_substream *substream,
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct mtk_btcvsd_snd *bt = snd_soc_platform_get_drvdata(rtd->platform);
+	dev_dbg(bt->dev, "%s(), stream %d\n", __func__, substream->stream);
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK &&
 	    params_buffer_bytes(hw_params) % bt->tx->packet_size != 0) {
@@ -947,6 +1017,7 @@ static int mtk_pcm_btcvsd_hw_free(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct mtk_btcvsd_snd *bt = snd_soc_platform_get_drvdata(rtd->platform);
+	dev_dbg(bt->dev, "%s(), stream %d\n", __func__, substream->stream);
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		btcvsd_tx_clean_buffer(bt);
@@ -1353,6 +1424,9 @@ static int mtk_btcvsd_snd_probe(struct platform_device *pdev)
 
 	mtk_btcvsd_snd_tx_init(btcvsd);
 	mtk_btcvsd_snd_rx_init(btcvsd);
+	g_is_btcvsd_bus_dump = false;
+	g_kthread = NULL;
+	g_btcvsd_bus_dump_thread_enable = false;
 
 	/* irq */
 	irq_id = platform_get_irq(pdev, 0);
