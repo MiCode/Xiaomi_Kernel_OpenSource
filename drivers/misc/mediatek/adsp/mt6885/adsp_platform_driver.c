@@ -232,7 +232,6 @@ bool is_adsp_load(void)
 
 static int adsp_after_bootup(struct adsp_priv *pdata)
 {
-	_adsp_register_feature(pdata->id, SYSTEM_FEATURE_ID, 0);
 	return adsp_awake_unlock(pdata->id);
 }
 
