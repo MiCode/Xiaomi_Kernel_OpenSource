@@ -200,6 +200,9 @@ static int led_pwm_set(struct mtk_led_data *led_dat,
 	if (led_dat->info.config.active_low)
 		duty = led_dat->info.config.pwm_period_ns - duty;
 
+	if (led_dat->info.duty == duty)
+		return 0;
+
 	led_dat->info.duty = duty;
 
 	__led_pwm_set(&led_dat->info);
@@ -224,9 +227,6 @@ int mt_leds_brightness_set(char *name, int level)
 		(((1 << led_dat->led_bits) - 1) * level
 		+ (((1 << led_dat->trans_bits) - 1) / 2))
 		/ ((1 << led_dat->trans_bits) - 1));
-
-	if (led_Level == led_dat->level)
-		return 0;
 
 	led_dat->level = led_Level;
 
@@ -257,6 +257,8 @@ static int led_level_set_pwm(struct mtk_led_data *s_led,
 
 	led_debug_log(s_led, brightness, trans_level);
 
+	s_led->level = brightness;
+
 #ifdef MET_USER_EVENT_SUPPORT
 	if (enable_met_backlight_tag())
 		output_met_backlight_tag(brightness);
@@ -268,11 +270,9 @@ static int led_level_set_pwm(struct mtk_led_data *s_led,
 	call_notifier(1, s_led);
 #else
 	call_notifier(1, s_led);
-	s_led->level = brightness;
 	schedule_work(&s_led->work);
 #endif
 #else
-	s_led->level = brightness;
 	schedule_work(&s_led->work);
 
 #endif
@@ -309,6 +309,9 @@ static int led_level_set(struct led_classdev *led_cdev,
 		} else
 			led_dat->limit.set_l = brightness;
 	}
+
+	if (led_dat->level == brightness)
+		return 0;
 
 	return led_level_set_pwm(led_dat, brightness);
 }
