@@ -2169,6 +2169,17 @@ err_node:
 	return ret;
 }
 
+static void mtk_drm_shutdown(struct platform_device *pdev)
+{
+	struct mtk_drm_private *private = platform_get_drvdata(pdev);
+	struct drm_device *drm = private->drm;
+
+	if (drm) {
+		DDPMSG("%s\n", __func__);
+		drm_atomic_helper_shutdown(drm);
+	}
+}
+
 static int mtk_drm_remove(struct platform_device *pdev)
 {
 	struct mtk_drm_private *private = platform_get_drvdata(pdev);
@@ -2250,6 +2261,7 @@ static const struct of_device_id mtk_drm_of_ids[] = {
 static struct platform_driver mtk_drm_platform_driver = {
 	.probe = mtk_drm_probe,
 	.remove = mtk_drm_remove,
+	.shutdown = mtk_drm_shutdown,
 	.driver = {
 
 			.name = "mediatek-drm",
