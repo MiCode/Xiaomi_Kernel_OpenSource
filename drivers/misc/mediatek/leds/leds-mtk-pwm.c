@@ -133,9 +133,9 @@ static void led_debug_log(struct mtk_led_data *s_led,
 	cur_time_mod = do_div(cur_time_display, 1000000000);
 
 	sprintf(s_led->debug.buffer + strlen(s_led->debug.buffer),
-		"T:%lld.%ld,L:%d map:%d    ",
+		"T:%lld.%ld,L:%d L:%d map:%d    ",
 		cur_time_display, cur_time_mod/1000000,
-		level, mappingLevel);
+		s_led->cdev.brightness, level, mappingLevel);
 
 	s_led->debug.count++;
 
@@ -174,11 +174,15 @@ static void __led_pwm_set(struct led_pwm_info *led_info)
 {
 	int new_duty = led_info->duty;
 
+	mutex_lock(&leds_mutex);
+
 	pwm_config(led_info->pwm, new_duty, led_info->config.pwm_period_ns);
 	if (new_duty == 0)
 		pwm_disable(led_info->pwm);
 	else
 		pwm_enable(led_info->pwm);
+
+	mutex_unlock(&leds_mutex);
 }
 
 static int led_pwm_set(struct mtk_led_data *led_dat,
@@ -221,8 +225,13 @@ int mt_leds_brightness_set(char *name, int level)
 		+ (((1 << led_dat->trans_bits) - 1) / 2))
 		/ ((1 << led_dat->trans_bits) - 1));
 
+	if (led_Level == led_dat->level)
+		return 0;
+
+	led_dat->level = led_Level;
+
 	schedule_work(&led_dat->work);
-	return led_pwm_set(led_dat, led_Level);
+	return 0;
 }
 EXPORT_SYMBOL(mt_leds_brightness_set);
 
@@ -232,9 +241,7 @@ void mtk_led_work(struct work_struct *work)
 	struct mtk_led_data *led_data =
 	    container_of(work, struct mtk_led_data, work);
 
-	mutex_lock(&leds_mutex);
 	led_pwm_set(led_data, led_data->level);
-	mutex_unlock(&leds_mutex);
 }
 
 
@@ -243,33 +250,34 @@ static int led_level_set_pwm(struct mtk_led_data *s_led,
 {
 	int trans_level;
 
-	if (s_led->level == brightness)
-		return 0;
 	trans_level = (
 		(((1 << s_led->trans_bits) - 1) * brightness
 		+ (((1 << s_led->led_bits) - 1) / 2))
 		/ ((1 << s_led->led_bits) - 1));
 
-	s_led->level = brightness;
-	s_led->cdev.brightness = brightness;
 	led_debug_log(s_led, brightness, trans_level);
 
 #ifdef MET_USER_EVENT_SUPPORT
 	if (enable_met_backlight_tag())
-		output_met_backlight_tag(level);
+		output_met_backlight_tag(brightness);
 #endif
 
 #ifdef CONFIG_LEDS_BRIGHTNESS_CHANGED
 #ifdef CONFIG_MTK_AAL_SUPPORT
 	disp_pq_notify_backlight_changed(trans_level);
-	return call_notifier(1, s_led);
+	call_notifier(1, s_led);
 #else
 	call_notifier(1, s_led);
-	return led_pwm_set(s_led, brightness);
+	s_led->level = brightness;
+	schedule_work(&s_led->work);
 #endif
 #else
-	return led_pwm_set(s_led, brightness);
+	s_led->level = brightness;
+	schedule_work(&s_led->work);
+
 #endif
+return 0;
+
 
 }
 
@@ -277,8 +285,12 @@ static int led_level_set_pwm(struct mtk_led_data *s_led,
 static int led_pwm_disable(struct led_pwm_info *led_info)
 {
 
+	mutex_lock(&leds_mutex);
+
 	pwm_config(led_info->pwm, 0, led_info->config.pwm_period_ns);
 	pwm_disable(led_info->pwm);
+
+	mutex_unlock(&leds_mutex);
 
 	return 0;
 }
@@ -297,9 +309,8 @@ static int led_level_set(struct led_classdev *led_cdev,
 		} else
 			led_dat->limit.set_l = brightness;
 	}
-	if (led_dat->level != brightness)
-		return led_level_set_pwm(led_dat, brightness);
-	return 0;
+
+	return led_level_set_pwm(led_dat, brightness);
 }
 
 
