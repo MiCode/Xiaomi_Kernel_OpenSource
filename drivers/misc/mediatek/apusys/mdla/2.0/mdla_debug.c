@@ -461,8 +461,8 @@ int mdla_create_dmp_cmd_buf(struct command_entry *ce,
 			__func__);
 		goto out;
 	}
-	memcpy(mdla_info->cmd_buf_dmp, ce->kva, mdla_info->cmd_buf_len);
 	mdla_info->cmd_buf_len = ce->count*MREG_CMD_SIZE;
+	memcpy(mdla_info->cmd_buf_dmp, ce->kva, mdla_info->cmd_buf_len);
 
 out:
 	mutex_unlock(&mdla_info->cmd_buf_dmp_lock);
