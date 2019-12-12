@@ -163,6 +163,17 @@
 		method = "smc";
 	};
 
+	pwmleds {
+		compatible = "mediatek,pwm-leds";
+
+		backlight {
+			label = "lcd-backlight";
+			pwms = <&disp_pwm 0 39385>;
+			max-brightness = <255>;
+			pwm-names = "lcd-backlight";
+		};
+	};
+
 	mtk_lpm: mtk_lpm {
 		compatible = "mediatek,mtk-lpm";
 		#address-cells = <2>;
