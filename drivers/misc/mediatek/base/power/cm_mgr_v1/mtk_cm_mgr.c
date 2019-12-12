@@ -818,6 +818,12 @@ static int dbg_cm_mgr_status_proc_show(struct seq_file *m, void *v)
 
 PROC_FOPS_RO(dbg_cm_mgr_status);
 
+void __weak dbg_cm_mgr_platform_show(struct seq_file *m) {}
+
+void __weak dbg_cm_mgr_platform_write(int len, char *cmd, u32 val_1, u32 val_2)
+{}
+
+
 static int dbg_cm_mgr_proc_show(struct seq_file *m, void *v)
 {
 	int i, j;
@@ -858,12 +864,6 @@ static int dbg_cm_mgr_proc_show(struct seq_file *m, void *v)
 		pm_qos_update_request_status);
 	seq_printf(m, "perfx cm_mgr_blank_status %d\n", cm_mgr_blank_status);
 #endif
-	seq_printf(m, "x_ratio_enable %d\n", x_ratio_enable);
-	seq_puts(m, "cpu_power_ratio_up_x");
-	for (i = 0; i < CM_MGR_EMI_OPP; i++)
-		seq_printf(m, " %d", cpu_power_ratio_up_x[i]);
-	seq_puts(m, "\n");
-
 	seq_puts(m, "cpu_power_ratio_up");
 	for (i = 0; i < CM_MGR_EMI_OPP; i++)
 		seq_printf(m, " %d", cpu_power_ratio_up[i]);
@@ -977,6 +977,8 @@ static int dbg_cm_mgr_proc_show(struct seq_file *m, void *v)
 	}
 
 	seq_puts(m, "\n");
+
+	dbg_cm_mgr_platform_show(m);
 
 	return 0;
 }
@@ -1116,7 +1118,6 @@ static ssize_t dbg_cm_mgr_proc_write(struct file *file,
 	char cmd[64];
 	u32 val_1;
 	u32 val_2;
-	int i;
 
 	if (!buf)
 		return -ENOMEM;
@@ -1213,29 +1214,6 @@ static ssize_t dbg_cm_mgr_proc_write(struct file *file,
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 		cm_mgr_to_sspm_command(IPI_CM_MGR_EMI_DEMAND_CHECK, val_1);
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
-	} else if (!strcmp(cmd, "x_ratio_enable")) {
-		x_ratio_enable = val_1;
-		if (!x_ratio_enable) {
-			for (i = 0; i <  CM_MGR_EMI_OPP; i++) {
-				/* restore common setting */
-				cpu_power_ratio_up_x[i] = 0;
-#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
-				cm_mgr_to_sspm_command(
-					IPI_CM_MGR_CPU_POWER_RATIO_UP,
-					i << 16 | cpu_power_ratio_up[i]);
-#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
-			}
-		}
-	} else if (!strcmp(cmd, "cpu_power_ratio_up_x")) {
-		if (ret == 3 && val_1 < CM_MGR_EMI_OPP && x_ratio_enable) {
-			cpu_power_ratio_up_x[val_1] = val_2;
-			if (!val_2)
-				val_2 = cpu_power_ratio_up[val_1];
-#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
-			cm_mgr_to_sspm_command(IPI_CM_MGR_CPU_POWER_RATIO_UP,
-				val_1 << 16 | val_2);
-#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
-		}
 	} else if (!strcmp(cmd, "cpu_power_ratio_up")) {
 		if (ret == 3 && val_1 < CM_MGR_EMI_OPP)
 			cpu_power_ratio_up[val_1] = val_2;
@@ -1300,6 +1278,8 @@ static ssize_t dbg_cm_mgr_proc_write(struct file *file,
 		/* cm_mgr_perf_force_enable */
 		cm_mgr_perf_force_enable = 0;
 		cm_mgr_perf_set_force_status(cm_mgr_perf_force_enable);
+	} else {
+		dbg_cm_mgr_platform_write(ret, cmd, val_1, val_2);
 	}
 
 out:
@@ -1350,7 +1330,6 @@ static int create_cm_mgr_debug_fs(void)
 
 int __weak cm_mgr_platform_init(void)
 {
-
 	return 0;
 }
 

@@ -53,8 +53,6 @@ struct cm_mgr_data {
 extern spinlock_t cm_mgr_lock;
 extern int cm_mgr_disable_fb;
 extern int cm_mgr_blank_status;
-extern int x_ratio_enable;
-extern int cpu_power_ratio_up_x[CM_MGR_EMI_OPP];
 extern int cpu_power_ratio_up[CM_MGR_EMI_OPP];
 extern int cpu_power_ratio_down[CM_MGR_EMI_OPP];
 extern int vcore_power_ratio_up[CM_MGR_EMI_OPP];
