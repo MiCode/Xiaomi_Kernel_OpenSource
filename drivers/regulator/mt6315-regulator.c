@@ -705,7 +705,7 @@ static int mt6315_regulator_probe(struct platform_device *pdev)
 		if (IS_ERR(rdev)) {
 			dev_notice(&pdev->dev, "failed to register %s\n",
 				(mt_regulators + i)->desc.name);
-			return PTR_ERR(rdev);
+			continue;
 		}
 
 		c = rdev->constraints;
