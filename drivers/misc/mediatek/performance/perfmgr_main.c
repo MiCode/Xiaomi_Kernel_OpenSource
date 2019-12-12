@@ -22,6 +22,8 @@
 #include "mtk_perfmgr_internal.h"
 #include "topo_ctrl.h"
 #include "uload_ind.h"
+#include "syslimiter.h"
+
 
 int clstr_num;
 
@@ -55,6 +57,7 @@ static int perfmgr_remove(struct platform_device *dev)
 		 * topo_ctrl_exit();
 		 */
 		cpu_ctrl_exit();
+		syslimiter_exit();
 	}
 #endif
 	return 0;
@@ -105,6 +108,7 @@ static int __init init_perfmgr(void)
 	if (!strstr(CONFIG_MTK_PLATFORM, "mt8")) {
 		init_tchbst(perfmgr_root);
 		init_boostctrl(perfmgr_root);
+		syslimiter_init(perfmgr_root);
 	}
 #endif
 	init_perfctl(perfmgr_root);

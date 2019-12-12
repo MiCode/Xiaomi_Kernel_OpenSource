@@ -18,6 +18,7 @@
 #include <linux/module.h>
 #include <linux/sched.h>
 
+
 #include "fpsgo_common.h"
 #include "fpsgo_base.h"
 #include "fpsgo_usedext.h"
@@ -26,6 +27,8 @@
 #include "fps_composer.h"
 #include "xgf.h"
 #include "eara_job.h"
+#include "syslimiter.h"
+
 #ifdef CONFIG_DRM_MEDIATEK
 #include "mtk_drm_arr.h"
 #else
@@ -120,6 +123,7 @@ static void fpsgo_notifier_wq_cb_dfrc_fps(int dfrc_fps)
 {
 	FPSGO_LOGI("[FPSGO_CB] dfrc_fps %d\n", dfrc_fps);
 
+	syslimiter_update_dfrc_fps(dfrc_fps);
 	fpsgo_ctrl2fstb_dfrc_fps(dfrc_fps);
 	fpsgo_ctrl2fbt_dfrc_fps(dfrc_fps);
 }

@@ -28,6 +28,7 @@ enum {
 	CPU_KIR_GBE1,
 	CPU_KIR_GBE2,
 	CPU_KIR_CCCI,
+	CPU_KIR_SYSLIM,
 	CPU_MAX_KIR
 };
 extern unsigned int mt_cpufreq_get_freq_by_idx(int id, int idx);
