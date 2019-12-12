@@ -29,8 +29,9 @@
 	qupv3_0: qcom,qupv3_0_geni_se@9c0000 {
 		compatible = "qcom,qupv3-geni-se";
 		reg = <0x9c0000 0x2000>;
-		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,num-paths = <2>;
 		qcom,msm-bus,vectors-bus-ids =
+			<MASTER_QUP_CORE_0 SLAVE_QUP_CORE_0>,
 			<MASTER_QUP_0 SLAVE_EBI1>;
 		iommus = <&apps_smmu 0x5a3 0x0>;
 		qcom,iommu-dma-addr-pool = <0x40000000 0xc0000000>;
@@ -389,8 +390,9 @@
 	qupv3_1: qcom,qupv3_1_geni_se@ac0000 {
 		compatible = "qcom,qupv3-geni-se";
 		reg = <0xac0000 0x2000>;
-		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,num-paths = <2>;
 		qcom,msm-bus,vectors-bus-ids =
+			<MASTER_QUP_CORE_1 SLAVE_QUP_CORE_1>,
 			<MASTER_QUP_1 SLAVE_EBI1>;
 		iommus = <&apps_smmu 0x43 0x0>;
 		qcom,iommu-dma-addr-pool = <0x40000000 0xc0000000>;
@@ -716,8 +718,9 @@
 	qupv3_2: qcom,qupv3_2_geni_se@8c0000 {
 		compatible = "qcom,qupv3-geni-se";
 		reg = <0x8c0000 0x2000>;
-		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,num-paths = <2>;
 		qcom,msm-bus,vectors-bus-ids =
+			<MASTER_QUP_CORE_2 SLAVE_QUP_CORE_2>,
 			<MASTER_QUP_2 SLAVE_EBI1>;
 		iommus = <&apps_smmu 0x5e3 0x0>;
 		qcom,iommu-dma-addr-pool = <0x40000000 0xc0000000>;
