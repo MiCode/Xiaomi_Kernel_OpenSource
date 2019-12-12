@@ -201,8 +201,11 @@ static void switch_port_to_none(struct ssusb_mtk *ssusb)
 {
 	dev_info(ssusb->dev, "%s\n", __func__);
 
-	if (ssusb->is_host)
+	if (ssusb->is_host) {
+		/* workaround for host handle disconnect follow */
+		mdelay(50);
 		xhci_mtk_unregister_plat();
+	}
 
 	ssusb_ip_sleep(ssusb);
 	ssusb_dual_phy_power_off(ssusb, ssusb->is_host);

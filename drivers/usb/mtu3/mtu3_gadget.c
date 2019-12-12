@@ -590,14 +590,14 @@ static int mtu3_gadget_pullup(struct usb_gadget *gadget, int is_on)
 	if (is_usb_rdy() == false && is_on)
 		set_usb_rdy();
 
+	spin_unlock_irqrestore(&mtu->lock, flags);
+
 	/* Trigger connection when force on*/
 	if (mtu3_cable_mode == CABLE_MODE_FORCEON) {
 		dev_info(mtu->dev, "%s CABLE_MODE_FORCEON\n", __func__);
 		ssusb_set_mailbox(&mtu->ssusb->otg_switch,
 			MTU3_VBUS_VALID);
 	}
-
-	spin_unlock_irqrestore(&mtu->lock, flags);
 
 	return 0;
 }
