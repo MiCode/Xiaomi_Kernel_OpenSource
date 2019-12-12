@@ -69,7 +69,7 @@ config ION_DEFER_FREE_NO_SCHED_IDLE
 
 config ION_POOL_AUTO_REFILL
 	bool "Refill the ION heap pools automatically"
-	depends on ION && QGKI
+	depends on ION && QGKI && ION_MSM_HEAPS=y
 	help
 	  Choose this option to refill the ION system heap pools (non-secure)
 	  automatically when the pool pages count becomes lower than a set low mark.
