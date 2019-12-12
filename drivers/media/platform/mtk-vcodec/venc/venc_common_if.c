@@ -311,9 +311,10 @@ static int venc_init(struct mtk_vcodec_ctx *ctx, unsigned long *handle)
 
 	mtk_vcodec_debug_leave(inst);
 
-	if (ret)
+	if (ret) {
 		kfree(inst);
-	else
+		(*handle) = (unsigned long)NULL;
+	} else
 		(*handle) = (unsigned long)inst;
 
 	return ret;
