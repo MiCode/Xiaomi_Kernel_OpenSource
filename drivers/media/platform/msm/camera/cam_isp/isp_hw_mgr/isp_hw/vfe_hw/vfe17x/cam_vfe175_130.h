@@ -249,6 +249,9 @@ static struct cam_vfe_bus_ver2_stats_cfg_info stats_175_130_info  = {
 		},
 		/* CAM_VFE_BUS_VER2_VFE_OUT_STATS_TL_BG */
 		{
+		},
+		/* CAM_VFE_BUS_VER2_VFE_OUT_STATS_BF */
+		{
 			.res_index      = CAM_VFE_BUS_VER2_VFE_OUT_STATS_BF,
 			.cfg_offset     = 0x00000AE4,
 			.num_cfg        = 0x00000000,
@@ -602,6 +605,8 @@ static struct cam_vfe_bus_ver2_hw_info vfe175_130_bus_hw_info = {
 		.addr_sync_cfg                = 0x0000207C,
 		.addr_sync_frame_hdr          = 0x00002080,
 		.addr_sync_no_sync            = 0x00002084,
+		.debug_status_cfg             = 0x0000226C,
+		.debug_status_0               = 0x00002270,
 	},
 	.num_client = 24,
 	.bus_client_reg = {
