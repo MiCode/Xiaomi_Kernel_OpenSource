@@ -339,7 +339,7 @@ static void process_dbg_opt(const char *opt)
 			met_on, rdma0_mode,	rdma1_mode);
 	} else if (strncmp(opt, "backlight:", 10) == 0) {
 		char *p = (char *)opt + 10;
-		unsigned int level;
+		unsigned int level = 0;
 
 		ret = kstrtouint(p, 0, &level);
 		if (ret) {
@@ -391,7 +391,7 @@ static void process_dbg_opt(const char *opt)
 	} else if (strncmp(opt, "pwm0:", 5) == 0 ||
 			strncmp(opt, "pwm1:", 5) == 0) {
 		char *p = (char *)opt + 5;
-		unsigned int level;
+		unsigned int level = 0;
 
 		ret = kstrtouint(p, 0, &level);
 		if (ret) {
@@ -449,7 +449,7 @@ static void process_dbg_opt(const char *opt)
 		sprintf(buf, "aal_dbg_en = 0x%x\n", aal_dbg_en);
 	} else if (strncmp(opt, "color_dbg:", 10) == 0) {
 		char *p = (char *)opt + 10;
-		unsigned int debug_level;
+		unsigned int debug_level = 0;
 
 		ret = kstrtouint(p, 0, &debug_level);
 		if (ret) {
@@ -482,7 +482,7 @@ static void process_dbg_opt(const char *opt)
 		/* od_test(opt + 8, buf); */
 	} else if (strncmp(opt, "dump_reg:", 9) == 0) {
 		char *p = (char *)opt + 9;
-		unsigned int module;
+		unsigned int module = 0;
 
 		ret = kstrtouint(p, 0, &module);
 		if (ret) {
@@ -500,7 +500,7 @@ static void process_dbg_opt(const char *opt)
 		}
 	} else if (strncmp(opt, "dump_path:", 10) == 0) {
 		char *p = (char *)opt + 10;
-		unsigned int mutex_idx;
+		unsigned int mutex_idx = 0;
 
 		ret = kstrtouint(p, 0, &mutex_idx);
 		if (ret) {
@@ -562,7 +562,7 @@ static void process_dbg_opt(const char *opt)
 #endif
 	} else if (strncmp(opt, "low_power_mode:", 15) == 0) {
 		char *p = (char *)opt + 15;
-		unsigned int mode;
+		unsigned int mode = 0;
 
 		ret = kstrtouint(p, 0, &mode);
 		if (ret) {
