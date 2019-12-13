@@ -76,7 +76,7 @@ struct msm_msi {
 	phys_addr_t msi_addr;
 	enum msi_type type;
 	spinlock_t cfg_lock; /* lock for configuring Synopsys MSI registers */
-	bool cfg_access; /* control access to Synopsys MSI registers */
+	bool cfg_access; /* control access to MSI registers */
 	void __iomem *pcie_cfg;
 
 	void (*mask_irq)(struct irq_data *data);
@@ -483,14 +483,11 @@ static int msm_msi_alloc_domains(struct msm_msi *msi)
 	return 0;
 }
 
-/* control access to Synopsys PCIe MSI registers */
+/* control access to PCIe MSI registers */
 void msm_msi_config_access(struct irq_domain *domain, bool allow)
 {
 	struct msm_msi *msi = domain->parent->host_data;
 	unsigned long flags;
-
-	if (msi->type == MSM_MSI_TYPE_QCOM)
-		return;
 
 	spin_lock_irqsave(&msi->cfg_lock, flags);
 	msi->cfg_access = allow;
@@ -498,20 +495,20 @@ void msm_msi_config_access(struct irq_domain *domain, bool allow)
 }
 EXPORT_SYMBOL(msm_msi_config_access);
 
-/* configure Synopsys PCIe MSI registers */
 void msm_msi_config(struct irq_domain *domain)
 {
 	struct msm_msi *msi;
 	int i;
 
 	msi = domain->parent->host_data;
-	if (msi->type == MSM_MSI_TYPE_QCOM)
-		return;
 
 	/* PCIe core driver sets to false during LPM */
 	msm_msi_config_access(domain, true);
 
-	/* program MSI termination address */
+	if (msi->type == MSM_MSI_TYPE_QCOM)
+		return;
+
+	/* program Synopsys MSI termination address */
 	writel_relaxed(msi->msi_addr, msi->pcie_cfg + PCIE_MSI_CTRL_ADDR_OFFS);
 	writel_relaxed(0, msi->pcie_cfg + PCIE_MSI_CTRL_UPPER_ADDR_OFFS);
 
