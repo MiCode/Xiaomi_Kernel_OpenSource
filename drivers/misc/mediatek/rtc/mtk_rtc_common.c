@@ -939,7 +939,7 @@ static int __init rtc_arch_init(void)
 
 late_initcall(rtc_late_init);
 device_initcall(rtc_device_init);
-arch_initcall(rtc_arch_init);
+module_init(rtc_arch_init);
 
 module_param(rtc_show_time, int, 0644);
 module_param(rtc_show_alarm, int, 0644);
