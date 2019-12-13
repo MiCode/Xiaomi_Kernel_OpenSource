@@ -303,6 +303,7 @@ struct mhi_controller {
 
 	/* caller should grab pm_mutex for suspend/resume operations */
 	struct mutex pm_mutex;
+	struct mutex tsync_mutex;
 	bool pre_init;
 	rwlock_t pm_lock;
 	u32 pm_state;
