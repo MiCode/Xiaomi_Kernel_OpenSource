@@ -130,11 +130,21 @@ struct compat_fastrpc_ctrl_kalloc {
 	compat_uint_t kalloc_support; /* Remote memory allocation from kernel */
 };
 
+struct compat_fastrpc_ctrl_wakelock {
+	compat_uint_t enable;	/* wakelock control enable */
+};
+
+struct compat_fastrpc_ctrl_pm {
+	compat_uint_t timeout;	/* timeout(in ms) for PM to keep system awake*/
+};
+
 struct compat_fastrpc_ioctl_control {
 	compat_uint_t req;
 	union {
 		struct compat_fastrpc_ctrl_latency lp;
 		struct compat_fastrpc_ctrl_kalloc kalloc;
+		struct compat_fastrpc_ctrl_wakelock wp;
+		struct compat_fastrpc_ctrl_pm pm;
 	};
 };
 
@@ -336,6 +346,12 @@ static int compat_get_fastrpc_ioctl_control(
 		err |= put_user(p, &ctrl->lp.enable);
 		err |= get_user(p, &ctrl32->lp.latency);
 		err |= put_user(p, &ctrl->lp.latency);
+	} else if (p == FASTRPC_CONTROL_WAKELOCK) {
+		err |= get_user(p, &ctrl32->wp.enable);
+		err |= put_user(p, &ctrl->wp.enable);
+	} else if (p == FASTRPC_CONTROL_PM) {
+		err |= get_user(p, &ctrl32->pm.timeout);
+		err |= put_user(p, &ctrl->pm.timeout);
 	}
 
 	return err;
