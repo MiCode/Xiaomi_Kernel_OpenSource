@@ -138,7 +138,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		       .mipi_data_lp2hs_settle_dc = 85,
 		       .max_framerate = 300,
 		       },
-	.margin = 0,		/* sensor framelength & shutter margin */
+	.margin = 4,		/* sensor framelength & shutter margin */
 	.min_shutter = 6,	/* min shutter */
 	/* max framelength by sensor register's limitation */
 	.max_frame_length = 0x3fff,
@@ -241,9 +241,10 @@ static void set_dummy(void)
 
 	vb = imgsensor.frame_length - basic_line;
 	vb = (vb < 16) ? 16 : vb;
+	vb = (vb > 8190) ? 8190 : vb;
 
 	write_cmos_sensor(0x07, (vb >> 8) & 0x1F);
-	write_cmos_sensor(0x08, vb & 0xFF);
+	write_cmos_sensor(0x08, vb & 0xFE);
 
 }				/*    set_dummy  */
 
@@ -321,26 +322,26 @@ static void set_shutter(kal_uint16 shutter)
 	     (imgsensor_info.max_frame_length -
 	      imgsensor_info.margin)) ? (imgsensor_info.max_frame_length -
 					 imgsensor_info.margin) : shutter;
-
-	if (imgsensor.autoflicker_en) {
-		realtime_fps = imgsensor.pclk / imgsensor.line_length *
+	realtime_fps = imgsensor.pclk / imgsensor.line_length *
 			10 / imgsensor.frame_length;
+	if (imgsensor.autoflicker_en) {
 		if (realtime_fps >= 297 && realtime_fps <= 305)
 			set_max_framerate(296, 0);
 		else if (realtime_fps >= 147 && realtime_fps <= 150)
 			set_max_framerate(146, 0);
 		else
 			set_max_framerate(realtime_fps, 0);
+	} else {
+		set_max_framerate(realtime_fps, 0);
 	}
-
 	/* Update Shutter */
 	if (shutter == imgsensor.frame_length - 1)
-		shutter += 1;
+		shutter -= 1;
 
 	/* Update Shutter */
 	write_cmos_sensor(0xfe, 0x00);
 	write_cmos_sensor(0x03, (shutter >> 8) & 0x3F);
-	write_cmos_sensor(0x04, shutter & 0xFF);
+	write_cmos_sensor(0x04, shutter & 0xFE);
 
 	LOG_INF("Exit! shutter =%d, framelength =%d\n",
 		shutter, imgsensor.frame_length);
@@ -589,6 +590,7 @@ static void sensor_init(void)
 	write_cmos_sensor(0x79, 0xb3);
 	write_cmos_sensor(0x7a, 0x24);
 	write_cmos_sensor(0x8a, 0x3f);
+	write_cmos_sensor(0x8b, 0xa9);
 	write_cmos_sensor(0xc0, 0xb0);
 	write_cmos_sensor(0xc1, 0x13);
 	write_cmos_sensor(0xc2, 0x00);
@@ -613,8 +615,9 @@ static void sensor_init(void)
 	write_cmos_sensor(0x96, 0xb0);
 	write_cmos_sensor(0x97, 0x06);
 	write_cmos_sensor(0x98, 0x40);
-	 /*BLK*/ write_cmos_sensor(0x18, 0x02);
-	write_cmos_sensor(0x40, 0x26);	/* 22 */
+	 /*BLK*/
+	write_cmos_sensor(0x18, 0x02);
+	write_cmos_sensor(0x40, 0x22);
 	write_cmos_sensor(0x41, 0x01);
 	write_cmos_sensor(0x43, 0x07);
 	write_cmos_sensor(0x4c, 0x00);
@@ -627,12 +630,12 @@ static void sensor_init(void)
 	write_cmos_sensor(0x85, 0x20);
 	write_cmos_sensor(0x87, 0x30);
 	write_cmos_sensor(0xa0, 0x01);
-	write_cmos_sensor(0xa1, 0x06);
+	write_cmos_sensor(0xa1, 0x02);
 	write_cmos_sensor(0xbd, 0x01);
-	write_cmos_sensor(0xbe, 0x01);
+	write_cmos_sensor(0xbe, 0x02);
 
 	/*Gain */
-	write_cmos_sensor(0xb0, 0x4d);
+	write_cmos_sensor(0xb0, 0x50);
 	write_cmos_sensor(0xb1, 0x01);
 	write_cmos_sensor(0xb2, 0x00);
 	write_cmos_sensor(0xb3, 0x40);
@@ -659,14 +662,14 @@ static void sensor_init(void)
 	write_cmos_sensor(0x42, 0x40);
 	write_cmos_sensor(0x43, 0x06);
 	write_cmos_sensor(0x15, 0x00);	/* 00 */
-	write_cmos_sensor(0x21, 0x10);	/* 10 */
+	write_cmos_sensor(0x21, 0x08);
 	write_cmos_sensor(0x22, 0x05);
-	write_cmos_sensor(0x23, 0x30);	/* 30 */
+	write_cmos_sensor(0x23, 0x13);
 	write_cmos_sensor(0x24, 0x02);
 	write_cmos_sensor(0x25, 0x13);
 	write_cmos_sensor(0x26, 0x08);
-	write_cmos_sensor(0x29, 0x06);
-	write_cmos_sensor(0x2a, 0x0a);	/* 0a */
+	write_cmos_sensor(0x29, 0x04);
+	write_cmos_sensor(0x2a, 0x08);
 	write_cmos_sensor(0x2b, 0x08);
 	write_cmos_sensor(0xfe, 0x00);
 	/* write_cmos_sensor(0x8c,0x10); */
