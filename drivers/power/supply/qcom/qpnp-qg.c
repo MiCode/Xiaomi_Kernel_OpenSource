@@ -312,6 +312,7 @@ static int qg_store_soc_params(struct qpnp_qg *chip)
 	return rc;
 }
 
+#define MAX_FIFO_CNT_FOR_ESR			50
 static int qg_config_s2_state(struct qpnp_qg *chip,
 		enum s2_state requested_state, bool state_enable,
 		bool process_fifo)
@@ -368,6 +369,9 @@ static int qg_config_s2_state(struct qpnp_qg *chip,
 		pr_err("Invalid S2 state %d\n", state);
 		return -EINVAL;
 	}
+
+	if (fifo_length)
+		qg_esr_mod_count = MAX_FIFO_CNT_FOR_ESR / fifo_length;
 
 	rc = qg_master_hold(chip, true);
 	if (rc < 0) {
