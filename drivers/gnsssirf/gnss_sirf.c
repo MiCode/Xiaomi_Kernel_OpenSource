@@ -39,8 +39,8 @@
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 #include <linux/cdev.h>
+#include <soc/qcom/boot_stats.h>
 #include "gnss_sirf.h"
-
 
 static int resetPin;
 static int onOffPin;
@@ -190,6 +190,7 @@ static int gnss_sirf_probe(struct platform_device *pdev)
 {
 	int ret = -ENODEV;
 	struct device *dev;
+	char boot_marker[40];
 
 	dev = &pdev->dev;
 	dev_info(dev, "%s", __func__);
@@ -219,8 +220,12 @@ static int gnss_sirf_probe(struct platform_device *pdev)
 			gpio_direction_output(onOffPin, 1);
 			if (gnss_sirf_init_ports() < 0)
 				pr_err("gnss_sirf_init_ports failed\n");
-			else
+			else {
 				ret = 0;
+				snprintf(boot_marker, sizeof(boot_marker),
+						"M - DRIVER GNSS Ready");
+				place_marker(boot_marker);
+			}
 		}
 	}
 	return ret;
