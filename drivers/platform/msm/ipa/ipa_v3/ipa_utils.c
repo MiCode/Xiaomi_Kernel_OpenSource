@@ -5563,7 +5563,8 @@ int ipa3_write_qmap_id(struct ipa_ioc_write_qmapid *param_in)
 	    param_in->client == IPA_CLIENT_HSIC1_PROD ||
 	    param_in->client == IPA_CLIENT_ODU_PROD ||
 	    param_in->client == IPA_CLIENT_ETHERNET_PROD ||
-		param_in->client == IPA_CLIENT_WIGIG_PROD) {
+		param_in->client == IPA_CLIENT_WIGIG_PROD ||
+		param_in->client == IPA_CLIENT_AQC_ETHERNET_PROD) {
 		result = ipa3_cfg_ep_metadata(ipa_ep_idx, &meta);
 	} else if (param_in->client == IPA_CLIENT_WLAN1_PROD ||
 			   param_in->client == IPA_CLIENT_WLAN2_PROD) {
