@@ -1060,12 +1060,22 @@ static void smb1390_configure_ilim(struct smb1390 *chip, int mode)
 	/* QC3.0/Wireless adapter rely on the settled AICL for USBMID_USBMID */
 	if ((chip->pl_input_mode == POWER_SUPPLY_PL_USBMID_USBMID)
 			&& (mode == POWER_SUPPLY_CP_HVDCP3)) {
+		if (!chip->fcc_main_votable)
+			chip->fcc_main_votable = find_votable("FCC_MAIN");
+
 		rc = power_supply_get_property(chip->usb_psy,
 				POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED, &pval);
-		if (rc < 0)
+		if (rc < 0) {
 			pr_err("Couldn't get usb aicl rc=%d\n", rc);
-		else
+		} else {
 			vote(chip->ilim_votable, ICL_VOTER, true, pval.intval);
+			/*
+			 * Rerun FCC votable to ensure offset for ILIM
+			 * compensation is recalculated based on new ILIM.
+			 */
+			if (chip->fcc_main_votable)
+				rerun_election(chip->fcc_main_votable);
+		}
 	}
 }
 
