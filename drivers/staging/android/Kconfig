@@ -60,6 +60,7 @@ config MTK_ENABLE_AGO
 	default n
 	select SWAP
 	select ZRAM
+	select ZRAM_WRITEBACK
 	select CRYPTO_LZ4
 	select MEMCG
 	select MEMCG_SWAP
