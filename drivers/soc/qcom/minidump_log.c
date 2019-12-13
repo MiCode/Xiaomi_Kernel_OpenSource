@@ -120,7 +120,7 @@ void dump_stack_minidump(u64 sp)
 	if (is_idle_task(current))
 		return;
 
-	if (sp < KIMAGE_VADDR || sp > -256UL)
+	if (sp < MODULES_END || sp > -256UL)
 		sp = current_stack_pointer;
 
 	/*
