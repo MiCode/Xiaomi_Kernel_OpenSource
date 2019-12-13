@@ -725,7 +725,6 @@ struct mhi_timesync {
 	enum MHI_EV_CCS ccs;
 	struct completion completion;
 	spinlock_t lock; /* list protection */
-	struct mutex lpm_mutex; /* lpm protection */
 	struct list_head head;
 };
 
