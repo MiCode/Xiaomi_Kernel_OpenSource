@@ -275,11 +275,12 @@ TRACE_EVENT(sched_load_balance,
 	TP_PROTO(int cpu, enum cpu_idle_type idle, int balance,
 		unsigned long group_mask, int busiest_nr_running,
 		unsigned long imbalance, unsigned int env_flags, int ld_moved,
-		unsigned int balance_interval, int active_balance),
+		unsigned int balance_interval, int active_balance,
+		int overutilized),
 
 	TP_ARGS(cpu, idle, balance, group_mask, busiest_nr_running,
 		imbalance, env_flags, ld_moved, balance_interval,
-		active_balance),
+		active_balance, overutilized),
 
 	TP_STRUCT__entry(
 		__field(int,                    cpu)
@@ -292,6 +293,7 @@ TRACE_EVENT(sched_load_balance,
 		__field(int,                    ld_moved)
 		__field(unsigned int,           balance_interval)
 		__field(int,                    active_balance)
+		__field(int,                    overutilized)
 	),
 
 	TP_fast_assign(
@@ -305,16 +307,18 @@ TRACE_EVENT(sched_load_balance,
 		__entry->ld_moved               = ld_moved;
 		__entry->balance_interval       = balance_interval;
 		__entry->active_balance		= active_balance;
+		__entry->overutilized		= overutilized;
 	),
 
-	TP_printk("cpu=%d state=%s balance=%d group=%#lx busy_nr=%d imbalance=%ld flags=%#x ld_moved=%d bal_int=%d active_balance=%d",
+	TP_printk("cpu=%d state=%s balance=%d group=%#lx busy_nr=%d imbalance=%ld flags=%#x ld_moved=%d bal_int=%d active_balance=%d sd_overutilized=%d",
 		__entry->cpu,
 		__entry->idle == CPU_IDLE ? "idle" :
 		(__entry->idle == CPU_NEWLY_IDLE ? "newly_idle" : "busy"),
 		__entry->balance,
 		__entry->group_mask, __entry->busiest_nr_running,
 		__entry->imbalance, __entry->env_flags, __entry->ld_moved,
-		__entry->balance_interval, __entry->active_balance)
+		__entry->balance_interval, __entry->active_balance,
+		__entry->overutilized)
 );
 
 TRACE_EVENT(sched_load_balance_nohz_kick,
@@ -1104,6 +1108,34 @@ TRACE_EVENT(sched_find_best_target,
 		  __entry->most_spare_cap,
 		  __entry->target, __entry->backup)
 );
+
+/*
+ * Tracepoint for system overutilized flag
+ */
+#ifdef CONFIG_SCHED_WALT
+struct sched_domain;
+TRACE_EVENT_CONDITION(sched_overutilized,
+
+	TP_PROTO(struct sched_domain *sd, bool was_overutilized, bool overutilized),
+
+	TP_ARGS(sd, was_overutilized, overutilized),
+
+	TP_CONDITION(overutilized != was_overutilized),
+
+	TP_STRUCT__entry(
+		__field( bool,	overutilized	  )
+		__array( char,  cpulist , 32      )
+	),
+
+	TP_fast_assign(
+		__entry->overutilized	= overutilized;
+		scnprintf(__entry->cpulist, sizeof(__entry->cpulist), "%*pbl", cpumask_pr_args(sched_domain_span(sd)));
+	),
+
+	TP_printk("overutilized=%d sd_span=%s",
+		__entry->overutilized ? 1 : 0, __entry->cpulist)
+);
+#endif
 
 TRACE_EVENT(sched_preempt_disable,
 
