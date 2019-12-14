@@ -28,6 +28,7 @@ enum subsys_notif_type {
 
 enum early_subsys_notif_type {
 	XPORT_LAYER_NOTIF,
+	PCIE_DRV_LAYER_NOTIF,
 	NUM_EARLY_NOTIFS
 };
 
