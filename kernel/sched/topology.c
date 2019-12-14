@@ -2047,12 +2047,12 @@ build_sched_domains(const struct cpumask *cpu_map, struct sched_domain_attr *att
 		sd = *per_cpu_ptr(d.sd, i);
 
 #ifdef CONFIG_SCHED_WALT
-		if ((max_cpu < 0) || (cpu_rq(i)->cpu_capacity_orig >
-				cpu_rq(max_cpu)->cpu_capacity_orig))
+		if ((max_cpu < 0) || (arch_scale_cpu_capacity(i) >
+				arch_scale_cpu_capacity(max_cpu)))
 			WRITE_ONCE(d.rd->max_cap_orig_cpu, i);
 
-		if ((min_cpu < 0) || (cpu_rq(i)->cpu_capacity_orig <
-				cpu_rq(min_cpu)->cpu_capacity_orig))
+		if ((min_cpu < 0) || (arch_scale_cpu_capacity(i) <
+				arch_scale_cpu_capacity(min_cpu)))
 			WRITE_ONCE(d.rd->min_cap_orig_cpu, i);
 #endif
 
@@ -2065,15 +2065,27 @@ build_sched_domains(const struct cpumask *cpu_map, struct sched_domain_attr *att
 		int max_cpu = READ_ONCE(d.rd->max_cap_orig_cpu);
 		int min_cpu = READ_ONCE(d.rd->min_cap_orig_cpu);
 
-		if ((cpu_rq(i)->cpu_capacity_orig
-				!=  cpu_rq(min_cpu)->cpu_capacity_orig) &&
-				(cpu_rq(i)->cpu_capacity_orig
-				!=  cpu_rq(max_cpu)->cpu_capacity_orig)) {
+		if ((arch_scale_cpu_capacity(i)
+				!=  arch_scale_cpu_capacity(min_cpu)) &&
+				(arch_scale_cpu_capacity(i)
+				!=  arch_scale_cpu_capacity(max_cpu))) {
 			WRITE_ONCE(d.rd->mid_cap_orig_cpu, i);
 			break;
 		}
 	}
+
+	/*
+	 * The max_cpu_capacity reflect the original capacity which does not
+	 * change dynamically. So update the max cap CPU and its capacity
+	 * here.
+	 */
+	if (d.rd->max_cap_orig_cpu != -1) {
+		d.rd->max_cpu_capacity.cpu = d.rd->max_cap_orig_cpu;
+		d.rd->max_cpu_capacity.val = arch_scale_cpu_capacity(
+						d.rd->max_cap_orig_cpu);
+	}
 #endif
+
 	rcu_read_unlock();
 
 	if (has_asym)
