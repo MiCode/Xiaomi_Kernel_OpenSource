@@ -801,6 +801,43 @@ struct __packed gsi_wdi3_channel_scratch {
 };
 
 /**
+ * gsi_wdi3_channel_scratch2 - WDI3 protocol SW config area of
+ * channel scratch2
+ *
+ * @update_ri_moderation_threshold: Threshold N for Transfer ring Read Index
+ *		N is the number of packets that IPA will
+ *		process before Wifi transfer ring Ri will
+ *		be updated.
+ * @qmap_id: Rx only, used for setting metadata register in IPA. Read only
+ *		field for MCS. Write for SW.
+ * @resv: reserved bits.
+ * @endp_metadata_reg_offset: Rx only, the offset of
+ *		IPA_ENDP_INIT_HDR_METADATA_n of the
+ *		corresponding endpoint in 4B words from IPA
+ *		base address.
+ */
+
+struct __packed gsi_wdi3_channel_scratch2 {
+	uint32_t update_rp_moderation_threshold : 5;
+	uint32_t qmap_id : 8;
+	uint32_t reserved1 : 3;
+	uint32_t endp_metadata_reg_offset : 16;
+};
+
+/**
+ * gsi_wdi3_channel_scratch2_reg - channel scratch2 SW config area
+ *
+ */
+
+union __packed gsi_wdi3_channel_scratch2_reg {
+	struct __packed gsi_wdi3_channel_scratch2 wdi;
+	struct __packed {
+		uint32_t word1;
+	} data;
+};
+
+
+/**
  * gsi_channel_scratch - channel scratch SW config area
  *
  */
@@ -1201,6 +1238,19 @@ int gsi_write_channel_scratch3_reg(unsigned long chan_hdl,
 		union __packed gsi_wdi_channel_scratch3_reg val);
 
 /**
+ * gsi_write_wdi3_channel_scratch2_reg - Peripheral should call this function
+ * to write to the WDI3 scratch 3 register area of the channel context
+ *
+ * @chan_hdl:  Client handle previously obtained from
+ *             gsi_alloc_channel
+ * @val:       Read value
+ *
+ * @Return gsi_status
+ */
+int gsi_write_wdi3_channel_scratch2_reg(unsigned long chan_hdl,
+		union __packed gsi_wdi3_channel_scratch2_reg val);
+
+/**
  * gsi_read_channel_scratch - Peripheral should call this function to
  * read to the scratch area of the channel context
  *
@@ -1212,6 +1262,19 @@ int gsi_write_channel_scratch3_reg(unsigned long chan_hdl,
  */
 int gsi_read_channel_scratch(unsigned long chan_hdl,
 		union __packed gsi_channel_scratch *val);
+
+/**
+ * gsi_read_wdi3_channel_scratch2_reg - Peripheral should call this function to
+ * read to the WDI3 scratch 2 register area of the channel context
+ *
+ * @chan_hdl:  Client handle previously obtained from
+ *             gsi_alloc_channel
+ * @val:       Read value
+ *
+ * @Return gsi_status
+ */
+int gsi_read_wdi3_channel_scratch2_reg(unsigned long chan_hdl,
+		union __packed gsi_wdi3_channel_scratch2_reg *val);
 
 /**
  * gsi_update_mhi_channel_scratch - MHI Peripheral should call this
