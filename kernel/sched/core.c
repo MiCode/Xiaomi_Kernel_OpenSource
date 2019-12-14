@@ -2751,6 +2751,9 @@ static void __sched_fork(unsigned long clone_flags, struct task_struct *p)
 #ifdef CONFIG_SCHED_WALT
 	p->last_sleep_ts		= 0;
 	p->wake_up_idle			= false;
+	p->boost			= 0;
+	p->boost_expires		= 0;
+	p->boost_period			= 0;
 #endif
 	INIT_LIST_HEAD(&p->se.group_node);
 
@@ -8392,6 +8395,26 @@ void dequeue_task_core(struct rq *rq, struct task_struct *p, int flags)
 }
 
 #ifdef CONFIG_SCHED_WALT
+/*
+ *@boost:should be 0,1,2.
+ *@period:boost time based on ms units.
+ */
+int set_task_boost(int boost, u64 period)
+{
+	if (boost < TASK_BOOST_NONE || boost >= TASK_BOOST_END)
+		return -EINVAL;
+	if (boost) {
+		current->boost = boost;
+		current->boost_period = (u64)period * 1000 * 1000;
+		current->boost_expires = sched_clock() + current->boost_period;
+	} else {
+		current->boost = 0;
+		current->boost_expires = 0;
+		current->boost_period = 0;
+	}
+	return 0;
+}
+
 void sched_account_irqtime(int cpu, struct task_struct *curr,
 				u64 delta, u64 wallclock)
 {

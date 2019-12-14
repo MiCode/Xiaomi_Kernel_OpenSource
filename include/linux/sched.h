@@ -129,6 +129,14 @@ enum fps {
 	FPS120 = 120,
 };
 
+enum task_boost_type {
+	TASK_BOOST_NONE = 0,
+	TASK_BOOST_ON_MID,
+	TASK_BOOST_ON_MAX,
+	TASK_BOOST_STRICT_MAX,
+	TASK_BOOST_END,
+};
+
 #ifdef CONFIG_DEBUG_ATOMIC_SLEEP
 
 /*
@@ -540,6 +548,7 @@ extern void __weak
 sched_update_cpu_freq_min_max(const cpumask_t *cpus, u32 fmin, u32 fmax);
 extern void __weak free_task_load_ptrs(struct task_struct *p);
 extern void __weak sched_set_refresh_rate(enum fps fps);
+extern int set_task_boost(int boost, u64 period);
 
 #define RAVG_HIST_SIZE_MAX  5
 #define NUM_BUSY_BUCKETS 10
@@ -607,6 +616,8 @@ static inline void sched_update_cpu_freq_min_max(const cpumask_t *cpus,
 					u32 fmin, u32 fmax) { }
 
 static inline void sched_set_refresh_rate(enum fps fps) { }
+
+static inline void set_task_boost(int boost, u64 period) { }
 #endif /* CONFIG_SCHED_WALT */
 
 struct sched_rt_entity {
@@ -806,7 +817,11 @@ struct task_struct {
 	const struct sched_class	*sched_class;
 	struct sched_entity		se;
 	struct sched_rt_entity		rt;
+
 #ifdef CONFIG_SCHED_WALT
+	int boost;
+	u64 boost_period;
+	u64 boost_expires;
 	u64 last_sleep_ts;
 	bool wake_up_idle;
 	struct ravg ravg;

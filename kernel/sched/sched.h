@@ -822,6 +822,7 @@ struct max_cpu_capacity {
 /* Scheduling group status flags */
 #define SG_OVERLOAD		0x1 /* More than one runnable task on a CPU. */
 #define SG_OVERUTILIZED		0x2 /* One or more CPUs are over-utilized. */
+#define SG_HAS_MISFIT_TASK	0x4 /* Group has misfit task. */
 
 /*
  * We add the notion of a root-domain which will be used to define per-domain
@@ -2204,6 +2205,25 @@ static inline unsigned long capacity_orig_of(int cpu)
 {
 	return cpu_rq(cpu)->cpu_capacity_orig;
 }
+
+#ifdef CONFIG_SCHED_WALT
+static inline int per_task_boost(struct task_struct *p)
+{
+	if (p->boost_period) {
+		if (sched_clock() > p->boost_expires) {
+			p->boost_period = 0;
+			p->boost_expires = 0;
+			p->boost = 0;
+		}
+	}
+	return p->boost;
+}
+#else
+static inline int per_task_boost(struct task_struct *p)
+{
+	return 0;
+}
+#endif
 
 static inline unsigned long task_util(struct task_struct *p)
 {

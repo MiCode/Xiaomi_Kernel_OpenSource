@@ -3848,7 +3848,7 @@ static inline bool task_fits_max(struct task_struct *p, int cpu)
 {
 	unsigned long capacity = capacity_orig_of(cpu);
 	unsigned long max_capacity = cpu_rq(cpu)->rd->max_cpu_capacity.val;
-	unsigned long task_boost = 0;
+	unsigned long task_boost = per_task_boost(p);
 
 	if (capacity == max_capacity)
 		return true;
@@ -3858,7 +3858,7 @@ static inline bool task_fits_max(struct task_struct *p, int cpu)
 				task_boost > 0)
 			return false;
 	} else { /* mid cap cpu */
-		if (task_boost > 1)
+		if (task_boost > TASK_BOOST_ON_MID)
 			return false;
 	}
 
@@ -3883,6 +3883,7 @@ struct find_best_target_env {
 	bool boosted;
 	int fastpath;
 	int start_cpu;
+	bool strict_max;
 };
 
 static inline void adjust_cpus_for_packing(struct task_struct *p,
@@ -5296,12 +5297,40 @@ bool cpu_overutilized(int cpu)
 	return __cpu_overutilized(cpu, 0);
 }
 
+#ifdef CONFIG_SCHED_WALT
+static bool sd_overutilized(struct sched_domain *sd)
+{
+	return sd->shared->overutilized;
+}
+
+static void set_sd_overutilized(struct sched_domain *sd)
+{
+	sd->shared->overutilized = true;
+}
+
+static void clear_sd_overutilized(struct sched_domain *sd)
+{
+	sd->shared->overutilized = false;
+}
+#endif
+
 static inline void update_overutilized_status(struct rq *rq)
 {
+#ifdef CONFIG_SCHED_WALT
+	struct sched_domain *sd;
+
+	rcu_read_lock();
+	sd = rcu_dereference(rq->sd);
+	if (sd && !sd_overutilized(sd) &&
+	    cpu_overutilized(rq->cpu))
+		set_sd_overutilized(sd);
+	rcu_read_unlock();
+#else
 	if (!READ_ONCE(rq->rd->overutilized) && cpu_overutilized(rq->cpu)) {
 		WRITE_ONCE(rq->rd->overutilized, SG_OVERUTILIZED);
 		trace_sched_overutilized_tp(rq->rd, SG_OVERUTILIZED);
 	}
+#endif
 }
 #else
 static inline void update_overutilized_status(struct rq *rq) { }
@@ -6341,8 +6370,9 @@ static int get_start_cpu(struct task_struct *p)
 #ifdef CONFIG_SCHED_WALT
 	struct root_domain *rd = cpu_rq(smp_processor_id())->rd;
 	int start_cpu = rd->min_cap_orig_cpu;
-	int task_boost = 0;
-	bool boosted = task_boost_policy(p) == SCHED_BOOST_ON_BIG;
+	int task_boost = per_task_boost(p);
+	bool boosted = task_boost_policy(p) == SCHED_BOOST_ON_BIG ||
+			task_boost == TASK_BOOST_ON_MID;
 	bool task_skip_min = task_skip_min_cpu(p);
 
 	/*
@@ -6350,12 +6380,12 @@ static int get_start_cpu(struct task_struct *p)
 	 * or just mid will be -1, there never be any other combinations of -1s
 	 * beyond these
 	 */
-	if (task_skip_min || boosted || task_boost == 1) {
+	if (task_skip_min || boosted) {
 		start_cpu = rd->mid_cap_orig_cpu == -1 ?
 				rd->max_cap_orig_cpu : rd->mid_cap_orig_cpu;
 	}
 
-	if (task_boost == 2) {
+	if (task_boost > TASK_BOOST_ON_MID) {
 		start_cpu = rd->max_cap_orig_cpu;
 		return start_cpu;
 	}
@@ -6420,6 +6450,9 @@ static void find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 	if (boosted)
 		target_capacity = 0;
 
+	if (fbt_env->strict_max)
+		most_spare_wake_cap = LONG_MIN;
+
 	/* Find start CPU based on boost value */
 	start_cpu = fbt_env->start_cpu;
 	/* Find SD for the start CPU */
@@ -6482,6 +6515,9 @@ static void find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 				most_spare_cap_cpu = i;
 			}
 
+			if (per_task_boost(cpu_rq(i)->curr) ==
+					TASK_BOOST_STRICT_MAX)
+				continue;
 			/*
 			 * Cumulative demand may already be accounting for the
 			 * task. If so, add just the boost-utilization to
@@ -6627,7 +6663,8 @@ static void find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 		 * unless the task can't be accommodated in the higher
 		 * capacity CPUs.
 		 */
-		if (boosted && (best_idle_cpu != -1 || target_cpu != -1)) {
+		if (boosted && (best_idle_cpu != -1 || target_cpu != -1 ||
+		    (fbt_env->strict_max && most_spare_cap_cpu != -1))) {
 			if (boosted) {
 				if (!next_group_higher_cap)
 			                break;
@@ -6949,7 +6986,8 @@ int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu, int sync)
 	int placement_boost = task_boost_policy(p);
 	u64 start_t = 0;
 	int delta = 0;
-	bool boosted = uclamp_boosted(p);
+	int task_boost = per_task_boost(p);
+	bool boosted = uclamp_boosted(p) || (task_boost > 0);
 	int start_cpu = get_start_cpu(p);
 
 	if (start_cpu < 0)
@@ -7000,6 +7038,8 @@ int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu, int sync)
 		fbt_env.need_idle = need_idle;
 		fbt_env.start_cpu = start_cpu;
 		fbt_env.boosted = boosted;
+		fbt_env.strict_max = is_rtg &&
+			(task_boost == TASK_BOOST_STRICT_MAX);
 
 		find_best_target(NULL, candidates, p, &fbt_env);
 
@@ -7962,6 +8002,16 @@ static inline int migrate_degrades_locality(struct task_struct *p,
 }
 #endif
 
+static inline bool can_migrate_boosted_task(struct task_struct *p,
+			int src_cpu, int dst_cpu)
+{
+	if (per_task_boost(p) == TASK_BOOST_STRICT_MAX &&
+		task_in_related_thread_group(p) &&
+		(capacity_orig_of(dst_cpu) < capacity_orig_of(src_cpu)))
+		return false;
+	return true;
+}
+
 /*
  * can_migrate_task - may task p from runqueue rq be migrated to this_cpu?
  */
@@ -7980,6 +8030,12 @@ int can_migrate_task(struct task_struct *p, struct lb_env *env)
 	 * 4) are cache-hot on their current CPU.
 	 */
 	if (throttled_lb_pair(task_group(p), env->src_cpu, env->dst_cpu))
+		return 0;
+
+	/*
+	 * don't allow pull boost task to smaller cores.
+	 */
+	if (!can_migrate_boosted_task(p, env->src_cpu, env->dst_cpu))
 		return 0;
 
 	if (!cpumask_test_cpu(env->dst_cpu, p->cpus_ptr)) {
@@ -8019,7 +8075,7 @@ int can_migrate_task(struct task_struct *p, struct lb_env *env)
 	if (static_branch_unlikely(&sched_energy_present)) {
 		struct root_domain *rd = env->dst_rq->rd;
 
-		if (rcu_dereference(rd->pd) && !READ_ONCE(rd->overutilized) &&
+		if ((rcu_dereference(rd->pd) && !sd_overutilized(env->sd)) &&
 					env->idle == CPU_NEWLY_IDLE &&
 					!task_in_related_thread_group(p)) {
 			long util_cum_dst, util_cum_src;
@@ -8521,6 +8577,7 @@ struct sd_lb_stats {
 	unsigned long total_running;
 	unsigned long total_load;	/* Total load of all groups in sd */
 	unsigned long total_capacity;	/* Total capacity of all groups in sd */
+	unsigned long total_util;	/* Total util of all groups in sd */
 	unsigned long avg_load;	/* Average load across all groups in sd */
 
 	struct sg_lb_stats busiest_stat;/* Statistics of the busiest group */
@@ -8541,6 +8598,7 @@ static inline void init_sd_lb_stats(struct sd_lb_stats *sds)
 		.total_running = 0UL,
 		.total_load = 0UL,
 		.total_capacity = 0UL,
+		.total_util = 0UL,
 		.busiest_stat = {
 			.avg_load = 0UL,
 			.sum_nr_running = 0,
@@ -8916,8 +8974,12 @@ static inline void update_sg_lb_stats(struct lb_env *env,
 		if (nr_running > 1)
 			*sg_status |= SG_OVERLOAD;
 
-		if (cpu_overutilized(i))
+		if (cpu_overutilized(i)) {
 			*sg_status |= SG_OVERUTILIZED;
+
+			if (rq->misfit_task_load)
+				*sg_status |= SG_HAS_MISFIT_TASK;
+		}
 
 #ifdef CONFIG_NUMA_BALANCING
 		sgs->nr_numa_running += rq->nr_numa_running;
@@ -9163,6 +9225,7 @@ next_group:
 		sds->total_running += sgs->sum_nr_running;
 		sds->total_load += sgs->group_load;
 		sds->total_capacity += sgs->group_capacity;
+		sds->total_util += sgs->group_util;
 
 		trace_sched_load_balance_sg_stats(sg->cpumask[0],
 				sgs->group_type, sgs->idle_cpus,
@@ -9195,6 +9258,7 @@ next_group:
 		/* update overload indicator if we are at root domain */
 		WRITE_ONCE(rd->overload, sg_status & SG_OVERLOAD);
 
+#ifndef CONFIG_SCHED_WALT
 		/* Update over-utilization (tipping point, U >= 0) indicator */
 		WRITE_ONCE(rd->overutilized, sg_status & SG_OVERUTILIZED);
 		trace_sched_overutilized_tp(rd, sg_status & SG_OVERUTILIZED);
@@ -9203,7 +9267,50 @@ next_group:
 
 		WRITE_ONCE(rd->overutilized, SG_OVERUTILIZED);
 		trace_sched_overutilized_tp(rd, SG_OVERUTILIZED);
+#endif
 	}
+
+#ifdef CONFIG_SCHED_WALT
+	if (sg_status & SG_OVERUTILIZED)
+		set_sd_overutilized(env->sd);
+	else
+		clear_sd_overutilized(env->sd);
+
+	/*
+	 * If there is a misfit task in one cpu in this sched_domain
+	 * it is likely that the imbalance cannot be sorted out among
+	 * the cpu's in this sched_domain. In this case set the
+	 * overutilized flag at the parent sched_domain.
+	 */
+	if (sg_status & SG_HAS_MISFIT_TASK) {
+		struct sched_domain *sd = env->sd->parent;
+
+		/*
+		 * In case of a misfit task, load balance at the parent
+		 * sched domain level will make sense only if the the cpus
+		 * have a different capacity. If cpus at a domain level have
+		 * the same capacity, the misfit task cannot be well
+		 * accomodated	in any of the cpus and there in no point in
+		 * trying a load balance at this level
+		 */
+		while (sd) {
+			if (sd->flags & SD_ASYM_CPUCAPACITY) {
+				set_sd_overutilized(sd);
+				break;
+			}
+			sd = sd->parent;
+		}
+	}
+
+	/*
+	 * If the domain util is greater that domain capacity, load balancing
+	 * needs to be done at the next sched domain level as well.
+	 */
+	if (env->sd->parent &&
+	    sds->total_capacity * 1024 < sds->total_util *
+			 sched_capacity_margin_up[group_first_cpu(sds->local)])
+		set_sd_overutilized(env->sd->parent);
+#endif
 }
 
 /**
@@ -9495,7 +9602,11 @@ static struct sched_group *find_busiest_group(struct lb_env *env)
 	if (sched_energy_enabled()) {
 		struct root_domain *rd = env->dst_rq->rd;
 
+#ifdef CONFIG_SCHED_WALT
+		if (rcu_dereference(rd->pd) && !sd_overutilized(env->sd)) {
+#else
 		if (rcu_dereference(rd->pd) && !READ_ONCE(rd->overutilized)) {
+#endif
 			int cpu_local, cpu_busiest;
 			unsigned long capacity_local, capacity_busiest;
 
@@ -10041,7 +10152,10 @@ no_move:
 			 * if the curr task on busiest CPU can't be
 			 * moved to this_cpu:
 			 */
-			if (!cpumask_test_cpu(this_cpu, busiest->curr->cpus_ptr)) {
+			if (!cpumask_test_cpu(this_cpu,
+						busiest->curr->cpus_ptr) ||
+				!can_migrate_boosted_task(busiest->curr,
+						cpu_of(busiest), this_cpu)) {
 				raw_spin_unlock_irqrestore(&busiest->lock,
 							    flags);
 				env.flags |= LBF_ALL_PINNED;
@@ -10357,6 +10471,11 @@ static void rebalance_domains(struct rq *rq, enum cpu_idle_type idle)
 			need_decay = 1;
 		}
 		max_cost += sd->max_newidle_lb_cost;
+
+#ifdef CONFIG_SCHED_WALT
+		if (!sd_overutilized(sd))
+			continue;
+#endif
 
 		if (!(sd->flags & SD_LOAD_BALANCE))
 			continue;
