@@ -3377,7 +3377,7 @@ static inline int group_balance_cpu_not_isolated(struct sched_group *sg)
 #endif /* CONFIG_SMP */
 
 extern int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
-								int sync);
+					int sync, int sibling_count_hint);
 extern int active_load_balance_cpu_stop(void *data);
 
 #ifdef CONFIG_HOTPLUG_CPU
