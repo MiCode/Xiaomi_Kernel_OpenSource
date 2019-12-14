@@ -156,11 +156,6 @@
 			(int64_t *)(perf_ptr + offset)\
 				: (int64_t *)NULL) : (int64_t *)NULL)
 
-#define FASTRPC_GLINK_LOG_PAGES 8
-#define LOG_FASTRPC_GLINK_MSG(ctx, x, ...)	\
-	ipc_log_string(ctx, "%s (%d, %d): "x,	\
-		current->comm, current->tgid, current->pid, ##__VA_ARGS__)
-
 static int fastrpc_pdr_notifier_cb(struct notifier_block *nb,
 					unsigned long code,
 					void *data);
@@ -334,7 +329,6 @@ struct fastrpc_channel_ctx {
 	/* Indicates, if channel is restricted to secure node only */
 	int secure;
 	struct fastrpc_dsp_capabilities dsp_cap_kernel;
-	void *ipc_log_ctx;
 	/* cpu capabilities shared to DSP */
 	uint64_t cpuinfo_todsp;
 	bool cpuinfo_status;
@@ -2019,10 +2013,6 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 	err = rpmsg_send(channel_ctx->rpdev->ept, (void *)msg, sizeof(*msg));
 	trace_fastrpc_rpmsg_send(fl->cid, (uint64_t)ctx, msg->invoke.header.ctx,
 		handle, ctx->sc, msg->invoke.page.addr, msg->invoke.page.size);
-	LOG_FASTRPC_GLINK_MSG(channel_ctx->ipc_log_ctx,
-		"sent pkt %pK (sz %d): ctx 0x%llx, handle 0x%x, sc 0x%x (rpmsg err %d)",
-		(void *)msg, sizeof(*msg),
-		msg->invoke.header.ctx, handle, ctx->sc, err);
 	mutex_unlock(&channel_ctx->rpmsg_mutex);
  bail:
 	return err;
@@ -3329,18 +3319,6 @@ static int fastrpc_rpmsg_probe(struct rpmsg_device *rpdev)
 	pr_info("adsprpc: %s: opened rpmsg channel for %s\n",
 		__func__, gcinfo[cid].subsys);
 
-#if IS_ENABLED(CONFIG_ADSPRPC_DEBUG)
-	if (!gcinfo[cid].ipc_log_ctx)
-		gcinfo[cid].ipc_log_ctx =
-			ipc_log_context_create(FASTRPC_GLINK_LOG_PAGES,
-				gcinfo[cid].name, 0);
-	if (!gcinfo[cid].ipc_log_ctx)
-		pr_warn("adsprpc: %s: failed to create IPC log context for %s\n",
-			__func__, gcinfo[cid].subsys);
-	else
-		pr_info("adsprpc: %s: enabled IPC logging for %s\n",
-			__func__, gcinfo[cid].subsys);
-#endif
 bail:
 	if (err)
 		pr_err("adsprpc: rpmsg probe of %s cid %d failed\n",
@@ -3397,13 +3375,6 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 	cid = get_cid_from_rpdev(rpdev);
 	trace_fastrpc_rpmsg_response(cid, rsp->ctx,
 		rsp->retval, rsp_flags, early_wake_time);
-#if IS_ENABLED(CONFIG_ADSPRPC_DEBUG)
-	if (cid >= 0 && cid < NUM_CHANNELS) {
-		LOG_FASTRPC_GLINK_MSG(gcinfo[cid].ipc_log_ctx,
-		"recvd pkt %pK (sz %d): ctx 0x%llx, retVal %d, flags %u, earlyWake %u",
-		data, len, rsp->ctx, rsp->retval, rsp_flags, early_wake_time);
-	}
-#endif
 
 	index = (uint32_t)((rsp->ctx & FASTRPC_CTXID_MASK) >> 4);
 	VERIFY(err, index < FASTRPC_CTX_MAX);
@@ -4860,8 +4831,6 @@ static void __exit fastrpc_device_exit(void)
 	for (i = 0; i < NUM_CHANNELS; i++) {
 		if (!gcinfo[i].name)
 			continue;
-		if (me->channel[i].ipc_log_ctx)
-			ipc_log_context_destroy(me->channel[i].ipc_log_ctx);
 		subsys_notif_unregister_notifier(me->channel[i].handle,
 						&me->channel[i].nb);
 	}
