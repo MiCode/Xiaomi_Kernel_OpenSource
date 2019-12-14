@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2116,26 +2116,34 @@ int create_pkt_cmd_sys_image_version(
 int create_pkt_cmd_sys_ubwc_config(struct hfi_cmd_sys_set_property_packet *pkt,
 		struct msm_vidc_ubwc_config *config)
 {
-	struct msm_vidc_ubwc_config *hfi;
-
 	if (!pkt) {
 		dprintk(VIDC_ERR, "%s invalid param :%pK\n", __func__, pkt);
 		return -EINVAL;
 	}
 
 	pkt->size = sizeof(struct hfi_cmd_sys_set_property_packet) +
-		sizeof(struct msm_vidc_ubwc_config) + sizeof(u32);
+		config->nSize + sizeof(u32);
 	pkt->packet_type = HFI_CMD_SYS_SET_PROPERTY;
 	pkt->num_properties = 1;
 	pkt->rg_property_data[0] = HFI_PROPERTY_SYS_UBWC_CONFIG;
-	hfi = (struct msm_vidc_ubwc_config *) &pkt->rg_property_data[1];
-	hfi->sOverrideBitInfo.bMalLengthOverride =
-			config->sOverrideBitInfo.bMalLengthOverride;
-	hfi->nMalLength = config->nMalLength;
+
+	if (config->nSize == sizeof(struct msm_vidc_ubwc_config))
+		memcpy(&pkt->rg_property_data[1], config, config->nSize);
+	else
+		memcpy(&pkt->rg_property_data[1], &(config->v1), config->nSize);
+
 	dprintk(VIDC_DBG,
-			"UBWC settings Mal Length Override : %u MalLength: %u",
-			hfi->sOverrideBitInfo.bMalLengthOverride,
-			hfi->nMalLength);
+		"UBWC config nSize: %u, MaxChannels: %u, MalLength: %u, %u, HBB: %u\n",
+		config->nSize,
+		config->v1.nMaxChannels,
+		config->v1.nMalLength,
+		config->v1.nHighestBankBit);
+	dprintk(VIDC_DBG,
+		"MaxChannelsOverride: %u, MalLengthOverride: %u, HBBOverride: %u\n",
+		config->v1.sOverrideBitInfo.bMaxChannelsOverride,
+		config->v1.sOverrideBitInfo.bMalLengthOverride,
+		config->v1.sOverrideBitInfo.bHBBOverride);
+
 	return 0;
 }
 
