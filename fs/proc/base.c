@@ -1459,6 +1459,56 @@ static const struct file_operations proc_pid_sched_operations = {
 
 #endif
 
+/*
+ * Print out various scheduling related per-task fields:
+ */
+
+#ifdef CONFIG_SCHED_WALT
+extern int __weak sched_wake_up_idle_show(struct seq_file *m, void *v);
+extern ssize_t __weak sched_wake_up_idle_write(struct file *file,
+		const char __user *buf, size_t count, loff_t *offset);
+extern int __weak sched_wake_up_idle_open(struct inode *inode,
+						struct file *filp);
+
+static const struct file_operations proc_pid_sched_wake_up_idle_operations = {
+	.open		= sched_wake_up_idle_open,
+	.read		= seq_read,
+	.write		= sched_wake_up_idle_write,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+
+extern int __weak sched_init_task_load_show(struct seq_file *m, void *v);
+extern ssize_t __weak
+sched_init_task_load_write(struct file *file, const char __user *buf,
+					size_t count, loff_t *offset);
+extern int __weak
+sched_init_task_load_open(struct inode *inode, struct file *filp);
+
+static const struct file_operations proc_pid_sched_init_task_load_operations = {
+	.open		= sched_init_task_load_open,
+	.read		= seq_read,
+	.write		= sched_init_task_load_write,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+
+extern int __weak sched_group_id_show(struct seq_file *m, void *v);
+extern ssize_t __weak
+sched_group_id_write(struct file *file, const char __user *buf,
+					size_t count, loff_t *offset);
+extern int __weak sched_group_id_open(struct inode *inode, struct file *filp);
+
+static const struct file_operations proc_pid_sched_group_id_operations = {
+	.open		= sched_group_id_open,
+	.read		= seq_read,
+	.write		= sched_group_id_write,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+
+#endif	/* CONFIG_SCHED_WALT */
+
 #ifdef CONFIG_SCHED_AUTOGROUP
 /*
  * Print out autogroup related information:
@@ -3011,6 +3061,13 @@ static const struct pid_entry tgid_base_stuff[] = {
 	ONE("status",     S_IRUGO, proc_pid_status),
 	ONE("personality", S_IRUSR, proc_pid_personality),
 	ONE("limits",	  S_IRUGO, proc_pid_limits),
+#ifdef CONFIG_SCHED_WALT
+	REG("sched_wake_up_idle", 00644,
+				proc_pid_sched_wake_up_idle_operations),
+	REG("sched_init_task_load", 00644,
+				proc_pid_sched_init_task_load_operations),
+	REG("sched_group_id", 00666, proc_pid_sched_group_id_operations),
+#endif
 #ifdef CONFIG_SCHED_DEBUG
 	REG("sched",      S_IRUGO|S_IWUSR, proc_pid_sched_operations),
 #endif

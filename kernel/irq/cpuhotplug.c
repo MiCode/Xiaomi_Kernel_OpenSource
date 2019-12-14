@@ -12,6 +12,7 @@
 #include <linux/interrupt.h>
 #include <linux/ratelimit.h>
 #include <linux/irq.h>
+#include <linux/cpumask.h>
 
 #include "internals.h"
 
@@ -57,6 +58,7 @@ static bool migrate_one_irq(struct irq_desc *desc)
 	const struct cpumask *affinity;
 	bool brokeaff = false;
 	int err;
+	struct cpumask available_cpus;
 
 	/*
 	 * IRQ chip might be already torn down, but the irq descriptor is
@@ -109,6 +111,10 @@ static bool migrate_one_irq(struct irq_desc *desc)
 	if (maskchip && chip->irq_mask)
 		chip->irq_mask(d);
 
+	cpumask_copy(&available_cpus, affinity);
+	cpumask_andnot(&available_cpus, &available_cpus, cpu_isolated_mask);
+	affinity = &available_cpus;
+
 	if (cpumask_any_and(affinity, cpu_online_mask) >= nr_cpu_ids) {
 		/*
 		 * If the interrupt is managed, then shut it down and leave
@@ -119,16 +125,41 @@ static bool migrate_one_irq(struct irq_desc *desc)
 			irq_shutdown_and_deactivate(desc);
 			return false;
 		}
-		affinity = cpu_online_mask;
+		/*
+		 * The order of preference for selecting a fallback CPU is
+		 *
+		 * (1) online and un-isolated CPU from default affinity
+		 * (2) online and un-isolated CPU
+		 * (3) online CPU
+		 */
+		cpumask_andnot(&available_cpus, cpu_online_mask,
+							cpu_isolated_mask);
+		if (cpumask_intersects(&available_cpus, irq_default_affinity))
+			cpumask_and(&available_cpus, &available_cpus,
+							irq_default_affinity);
+		else if (cpumask_empty(&available_cpus))
+			affinity = cpu_online_mask;
+
+		/*
+		 * We are overriding the affinity with all online and
+		 * un-isolated cpus. irq_set_affinity_locked() call
+		 * below notify this mask to PM QOS affinity listener.
+		 * That results in applying the CPU_DMA_LATENCY QOS
+		 * to all the CPUs specified in the mask. But the low
+		 * level irqchip driver sets the affinity of an irq
+		 * to only one CPU. So pick only one CPU from the
+		 * prepared mask while overriding the user affinity.
+		 */
+		affinity = cpumask_of(cpumask_any(affinity));
 		brokeaff = true;
 	}
 	/*
-	 * Do not set the force argument of irq_do_set_affinity() as this
+	 * Do not set the force argument of irq_set_affinity_locked() as this
 	 * disables the masking of offline CPUs from the supplied affinity
 	 * mask and therefore might keep/reassign the irq to the outgoing
 	 * CPU.
 	 */
-	err = irq_do_set_affinity(d, affinity, false);
+	err = irq_set_affinity_locked(d, affinity, false);
 	if (err) {
 		pr_warn_ratelimited("IRQ%u: set affinity failed(%d).\n",
 				    d->irq, err);
