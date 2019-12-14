@@ -653,6 +653,22 @@ static void update_top_cache_domain(int cpu)
 	rcu_assign_pointer(per_cpu(sd_asym_packing, cpu), sd);
 
 	sd = lowest_flag_domain(cpu, SD_ASYM_CPUCAPACITY);
+	/*
+	 * EAS gets disabled when there are no asymmetric capacity
+	 * CPUs in the system. For example, all big CPUs are
+	 * hotplugged out on a b.L system. We want EAS enabled
+	 * all the time to get both power and perf benefits. So,
+	 * lets assign sd_asym_cpucapacity to the only available
+	 * sched domain. This is also important for a single cluster
+	 * systems which wants to use EAS.
+	 *
+	 * Setting sd_asym_cpucapacity() to a sched domain which
+	 * has all symmetric capacity CPUs is technically incorrect but
+	 * works well for us in getting EAS enabled all the time.
+	 */
+	if (!sd)
+		sd = cpu_rq(cpu)->sd;
+
 	rcu_assign_pointer(per_cpu(sd_asym_cpucapacity, cpu), sd);
 }
 
