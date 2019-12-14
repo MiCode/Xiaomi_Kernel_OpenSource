@@ -124,6 +124,7 @@ static int msm_cvp_initialize_core(struct platform_device *pdev,
 
 	INIT_LIST_HEAD(&core->instances);
 	mutex_init(&core->lock);
+	mutex_init(&core->power_lock);
 
 	core->state = CVP_CORE_UNINIT;
 	for (i = SYS_MSG_INDEX(SYS_MSG_START);
@@ -487,6 +488,7 @@ static int msm_cvp_remove(struct platform_device *pdev)
 	sysfs_remove_group(&pdev->dev.kobj, &msm_cvp_core_attr_group);
 	dev_set_drvdata(&pdev->dev, NULL);
 	mutex_destroy(&core->lock);
+	mutex_destroy(&core->power_lock);
 	kfree(core);
 	return rc;
 }
