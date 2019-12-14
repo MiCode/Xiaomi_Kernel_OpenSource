@@ -631,7 +631,6 @@ static void mhi_pm_disable_transition(struct mhi_controller *mhi_cntrl,
 
 	MHI_LOG("Waiting for all pending threads to complete\n");
 	wake_up_all(&mhi_cntrl->state_event);
-	flush_work(&mhi_cntrl->fw_worker);
 	flush_work(&mhi_cntrl->low_priority_worker);
 
 	mhi_cntrl->force_m3_done = false;
@@ -847,7 +846,7 @@ void mhi_pm_st_worker(struct work_struct *work)
 				mhi_cntrl->ee = mhi_get_exec_env(mhi_cntrl);
 			write_unlock_irq(&mhi_cntrl->pm_lock);
 			if (MHI_IN_PBL(mhi_cntrl->ee))
-				wake_up_all(&mhi_cntrl->state_event);
+				mhi_fw_load_handler(mhi_cntrl);
 			break;
 		case MHI_ST_TRANSITION_SBL:
 			write_lock_irq(&mhi_cntrl->pm_lock);
@@ -955,9 +954,6 @@ int mhi_async_power_up(struct mhi_controller *mhi_cntrl)
 	/* transition to next state */
 	next_state = MHI_IN_PBL(current_ee) ?
 		MHI_ST_TRANSITION_PBL : MHI_ST_TRANSITION_READY;
-
-	if (next_state == MHI_ST_TRANSITION_PBL)
-		schedule_work(&mhi_cntrl->fw_worker);
 
 	mhi_queue_state_transition(mhi_cntrl, next_state);
 
