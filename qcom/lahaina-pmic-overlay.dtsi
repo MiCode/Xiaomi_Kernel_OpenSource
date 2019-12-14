@@ -1,0 +1,8 @@
+#include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
+
+#include "pmk8350.dtsi"
+#include "pm8350.dtsi"
+#include "pm8350c.dtsi"
+#include "pm8350b.dtsi"
+#include "pmr735a.dtsi"
+#include "pmr735b.dtsi"
