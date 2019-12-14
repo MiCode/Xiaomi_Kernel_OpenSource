@@ -298,7 +298,7 @@ struct cvp_session_event {
 
 struct msm_cvp_core {
 	struct list_head list;
-	struct mutex lock;
+	struct mutex lock, power_lock;
 	int id;
 	dev_t dev_num;
 	struct cdev cdev;
