@@ -2572,13 +2572,16 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool force_power_collapse)
 
 	/* Perform controller power collapse */
 	if (!(mdwc->in_host_mode || mdwc->in_device_mode) ||
-	      mdwc->in_restart || force_power_collapse ||
-	      (dwc->gdsc_collapse_in_host_suspend && mdwc->in_host_mode)) {
+	      mdwc->in_restart || force_power_collapse) {
 		mdwc->lpm_flags |= MDWC3_POWER_COLLAPSE;
 		dev_dbg(mdwc->dev, "%s: power collapse\n", __func__);
 		dwc3_msm_config_gdsc(mdwc, 0);
 		clk_disable_unprepare(mdwc->sleep_clk);
+	} else if (dwc->gdsc_collapse_in_host_suspend && mdwc->in_host_mode) {
+		dev_dbg(mdwc->dev, "Collapse GDSC in host mode bus suspend\n");
+		dwc3_msm_config_gdsc(mdwc, 0);
 	}
+
 
 	dwc3_msm_update_bus_bw(mdwc, BUS_VOTE_NONE);
 
@@ -2677,7 +2680,11 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 			dev_err(mdwc->dev, "%s:core_reset deassert failed\n",
 					__func__);
 		clk_prepare_enable(mdwc->sleep_clk);
+	} else if (dwc->gdsc_collapse_in_host_suspend && mdwc->in_host_mode) {
+		dev_dbg(mdwc->dev, "Turn on GDSC in host mode bus resume\n");
+		dwc3_msm_config_gdsc(mdwc, 1);
 	}
+
 
 	/*
 	 * Enable clocks
