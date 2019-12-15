@@ -2299,6 +2299,13 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
 			QMB_MASTER_SELECT_DDR,
 			{ 9, 12, 8, 16, IPA_EE_AP, GSI_FREE_PRE_FETCH, 2 } },
+	/* config wlan1_prod same as wlan2_prod */
+	[IPA_4_5][IPA_CLIENT_WLAN1_PROD]          = {
+			true, IPA_v4_5_GROUP_UL_DL,
+			true,
+			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
+			QMB_MASTER_SELECT_DDR,
+			{ 9, 12, 8, 16, IPA_EE_AP, GSI_FREE_PRE_FETCH, 2 } },
 	[IPA_4_5][IPA_CLIENT_USB_PROD]            = {
 			true, IPA_v4_5_GROUP_UL_DL,
 			true,
@@ -2392,6 +2399,13 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			{ 11, 14, 8, 16, IPA_EE_AP } },
 
 	[IPA_4_5][IPA_CLIENT_WLAN2_CONS]          = {
+			true, IPA_v4_5_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 24, 3, 8, 14, IPA_EE_AP, GSI_SMART_PRE_FETCH, 3 } },
+	/* config wlan1_cons same as wlan2_cons */
+	[IPA_4_5][IPA_CLIENT_WLAN1_CONS]          = {
 			true, IPA_v4_5_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
@@ -2673,7 +2687,14 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 
 	/* IPA_4_5_AUTO */
 	[IPA_4_5_AUTO][IPA_CLIENT_WLAN2_PROD]          = {
-			false, IPA_v4_5_GROUP_UL_DL,
+			true, IPA_v4_5_GROUP_UL_DL,
+			true,
+			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
+			QMB_MASTER_SELECT_DDR,
+			{ 9, 12, 8, 16, IPA_EE_AP, GSI_FREE_PRE_FETCH, 2 } },
+	/* config wlan1_prod same as wlan2_prod */
+	[IPA_4_5_AUTO][IPA_CLIENT_WLAN1_PROD]          = {
+			true, IPA_v4_5_GROUP_UL_DL,
 			true,
 			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
 			QMB_MASTER_SELECT_DDR,
@@ -2777,7 +2798,14 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			{ 11, 14, 8, 16, IPA_EE_AP } },
 
 	[IPA_4_5_AUTO][IPA_CLIENT_WLAN2_CONS]          = {
-			false, IPA_v4_5_GROUP_UL_DL,
+			true, IPA_v4_5_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 24, 18, 8, 14, IPA_EE_AP, GSI_SMART_PRE_FETCH, 3 } },
+	/* config wlan1_cons same as wlan2_cons */
+	[IPA_4_5_AUTO][IPA_CLIENT_WLAN1_CONS]          = {
+			true, IPA_v4_5_GROUP_UL_DL,
 			false,
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
