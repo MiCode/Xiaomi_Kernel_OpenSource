@@ -1511,6 +1511,7 @@ int wmi_addba_rx_resp_edma(struct wil6210_priv *wil, u8 mid, u8 cid,
 			   u16 agg_wsize, u16 timeout);
 
 void update_supported_bands(struct wil6210_priv *wil);
+int wmi_reset_spi_slave(struct wil6210_priv *wil);
 
 void wil_clear_fw_log_addr(struct wil6210_priv *wil);
 #endif /* __WIL6210_H__ */
