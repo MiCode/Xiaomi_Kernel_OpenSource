@@ -18,7 +18,9 @@
 #include <asm/dma-iommu.h>
 #include <linux/iommu.h>
 #include <linux/micrel_phy.h>
-
+#include <linux/tcp.h>
+#include <linux/ip.h>
+#include <linux/ipv6.h>
 #include "stmmac.h"
 #include "stmmac_platform.h"
 #include "dwmac-qcom-ethqos.h"
@@ -34,6 +36,176 @@ struct emac_emb_smmu_cb_ctx emac_emb_smmu_ctx = {0};
 void *ipc_emac_log_ctxt;
 static struct qmp_pkt pkt;
 static char qmp_buf[MAX_QMP_MSG_SIZE + 1] = {0};
+
+static inline unsigned int dwmac_qcom_get_eth_type(unsigned char *buf)
+{
+	return
+		((((u16)buf[QTAG_ETH_TYPE_OFFSET] << 8) |
+		  buf[QTAG_ETH_TYPE_OFFSET + 1]) == ETH_P_8021Q) ?
+		(((u16)buf[QTAG_VLAN_ETH_TYPE_OFFSET] << 8) |
+		 buf[QTAG_VLAN_ETH_TYPE_OFFSET + 1]) :
+		 (((u16)buf[QTAG_ETH_TYPE_OFFSET] << 8) |
+		  buf[QTAG_ETH_TYPE_OFFSET + 1]);
+}
+
+static inline unsigned int dwmac_qcom_get_vlan_ucp(unsigned char  *buf)
+{
+	return
+		(((u16)buf[QTAG_UCP_FIELD_OFFSET] << 8)
+		 | buf[QTAG_UCP_FIELD_OFFSET + 1]);
+}
+
+u16 dwmac_qcom_select_queue(
+	struct net_device *dev,
+	struct sk_buff *skb,
+	void *accel_priv,
+	select_queue_fallback_t fallback)
+{
+	u16 txqueue_select = ALL_OTHER_TRAFFIC_TX_CHANNEL;
+	unsigned int eth_type, priority;
+	bool ipa_enabled = pethqos->ipa_enabled;
+
+	/* Retrieve ETH type */
+	eth_type = dwmac_qcom_get_eth_type(skb->data);
+
+	if (eth_type == ETH_P_TSN) {
+		/* Read VLAN priority field from skb->data */
+		priority = dwmac_qcom_get_vlan_ucp(skb->data);
+
+		priority >>= VLAN_TAG_UCP_SHIFT;
+		if (priority == CLASS_A_TRAFFIC_UCP) {
+			txqueue_select = CLASS_A_TRAFFIC_TX_CHANNEL;
+		} else if (priority == CLASS_B_TRAFFIC_UCP) {
+			txqueue_select = CLASS_B_TRAFFIC_TX_CHANNEL;
+		} else {
+			if (ipa_enabled)
+				txqueue_select = ALL_OTHER_TRAFFIC_TX_CHANNEL;
+			else
+				txqueue_select =
+				ALL_OTHER_TX_TRAFFIC_IPA_DISABLED;
+		}
+	} else {
+		/* VLAN tagged IP packet or any other non vlan packets (PTP)*/
+		if (ipa_enabled)
+			txqueue_select = ALL_OTHER_TRAFFIC_TX_CHANNEL;
+		else
+			txqueue_select = ALL_OTHER_TX_TRAFFIC_IPA_DISABLED;
+	}
+
+	if (ipa_enabled && txqueue_select == IPA_DMA_TX_CH) {
+		ETHQOSERR("TX Channel [%d] is not a valid for SW path\n",
+			  txqueue_select);
+		WARN_ON(1);
+	}
+	ETHQOSDBG("tx_queue %d\n", txqueue_select);
+	return txqueue_select;
+}
+
+void dwmac_qcom_program_avb_algorithm(
+	struct stmmac_priv *priv, struct ifr_data_struct *req)
+{
+	struct dwmac_qcom_avb_algorithm l_avb_struct, *u_avb_struct =
+		(struct dwmac_qcom_avb_algorithm *)req->ptr;
+	struct dwmac_qcom_avb_algorithm_params *avb_params;
+
+	ETHQOSDBG("\n");
+
+	if (copy_from_user(&l_avb_struct, (void __user *)u_avb_struct,
+			   sizeof(struct dwmac_qcom_avb_algorithm)))
+		ETHQOSERR("Failed to fetch AVB Struct\n");
+
+	if (priv->speed == SPEED_1000)
+		avb_params = &l_avb_struct.speed1000params;
+	else
+		avb_params = &l_avb_struct.speed100params;
+
+	/* Application uses 1 for CLASS A traffic and
+	 * 2 for CLASS B traffic
+	 * Configure right channel accordingly
+	 */
+	if (l_avb_struct.qinx == 1)
+		l_avb_struct.qinx = CLASS_A_TRAFFIC_TX_CHANNEL;
+	else if (l_avb_struct.qinx == 2)
+		l_avb_struct.qinx = CLASS_B_TRAFFIC_TX_CHANNEL;
+
+	priv->plat->tx_queues_cfg[l_avb_struct.qinx].mode_to_use =
+		MTL_QUEUE_AVB;
+	priv->plat->tx_queues_cfg[l_avb_struct.qinx].send_slope =
+		avb_params->send_slope,
+	priv->plat->tx_queues_cfg[l_avb_struct.qinx].idle_slope =
+		avb_params->idle_slope,
+	priv->plat->tx_queues_cfg[l_avb_struct.qinx].high_credit =
+		avb_params->hi_credit,
+	priv->plat->tx_queues_cfg[l_avb_struct.qinx].low_credit =
+		avb_params->low_credit,
+
+	priv->hw->mac->config_cbs(
+	   priv->hw, priv->plat->tx_queues_cfg[l_avb_struct.qinx].send_slope,
+	   priv->plat->tx_queues_cfg[l_avb_struct.qinx].idle_slope,
+	   priv->plat->tx_queues_cfg[l_avb_struct.qinx].high_credit,
+	   priv->plat->tx_queues_cfg[l_avb_struct.qinx].low_credit,
+	   l_avb_struct.qinx);
+
+	ETHQOSDBG("\n");
+}
+
+unsigned int dwmac_qcom_get_plat_tx_coal_frames(
+	struct sk_buff *skb)
+{
+	bool is_udp;
+	unsigned int eth_type;
+
+	eth_type = dwmac_qcom_get_eth_type(skb->data);
+
+#ifdef CONFIG_PTPSUPPORT_OBJ
+	if (eth_type == ETH_P_1588)
+		return PTP_INT_MOD;
+#endif
+
+	if (eth_type == ETH_P_TSN)
+		return AVB_INT_MOD;
+	if (eth_type == ETH_P_IP || eth_type == ETH_P_IPV6) {
+#ifdef CONFIG_PTPSUPPORT_OBJ
+		is_udp = (((eth_type == ETH_P_IP) &&
+				   (ip_hdr(skb)->protocol ==
+					IPPROTO_UDP)) ||
+				  ((eth_type == ETH_P_IPV6) &&
+				   (ipv6_hdr(skb)->nexthdr ==
+					IPPROTO_UDP)));
+
+		if (is_udp && ((udp_hdr(skb)->dest ==
+			htons(PTP_UDP_EV_PORT)) ||
+			(udp_hdr(skb)->dest ==
+			  htons(PTP_UDP_GEN_PORT))))
+			return PTP_INT_MOD;
+#endif
+		return IP_PKT_INT_MOD;
+	}
+	return DEFAULT_INT_MOD;
+}
+
+int ethqos_handle_prv_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+{
+	struct stmmac_priv *pdata = netdev_priv(dev);
+	struct ifr_data_struct req;
+	int ret = 0;
+
+	if (copy_from_user(&req, ifr->ifr_ifru.ifru_data,
+			   sizeof(struct ifr_data_struct)))
+		return -EFAULT;
+
+	switch (req.cmd) {
+	case ETHQOS_CONFIG_PPSOUT_CMD:
+		ret = ppsout_config(pdata, &req);
+		break;
+	case ETHQOS_AVB_ALGORITHM:
+		dwmac_qcom_program_avb_algorithm(pdata, &req);
+		break;
+	default:
+		break;
+	}
+	return ret;
+}
 
 static int rgmii_readl(struct qcom_ethqos *ethqos, unsigned int offset)
 {
@@ -1226,6 +1398,7 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 
 	plat_dat->bsp_priv = ethqos;
 	plat_dat->fix_mac_speed = ethqos_fix_mac_speed;
+	plat_dat->tx_select_queue = dwmac_qcom_select_queue;
 	plat_dat->has_gmac4 = 1;
 	plat_dat->pmt = 1;
 	plat_dat->tso_en = of_property_read_bool(np, "snps,tso");
