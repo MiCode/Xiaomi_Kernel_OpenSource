@@ -601,4 +601,15 @@ config MSM_SPCOM
 	   is based on shared memory and interrupts. SPCOM provides clients/server API
 	   although currently only one client/server is allowed per logical channel.
 
+config QCOM_EUD
+	tristate "QTI Embedded USB Debugger (EUD)"
+	depends on ARCH_QCOM
+	select SERIAL_CORE
+	help
+          The EUD (Embedded USB Debugger) is a mini-USB hub implemented
+          on chip to support the USB-based debug and trace capabilities.
+          This module enables support for Qualcomm Technologies, Inc.
+          Embedded USB Debugger (EUD).
+          If unsure, say N.
+
 endmenu
