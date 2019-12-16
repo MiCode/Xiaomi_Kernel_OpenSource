@@ -1405,7 +1405,7 @@ static struct clk_branch gcc_npu_axi_clk = {
 
 static struct clk_branch gcc_npu_bwmon_axi_clk = {
 	.halt_reg = 0x73008,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_DELAY,
 	.clkr = {
 		.enable_reg = 0x73008,
 		.enable_mask = BIT(0),
