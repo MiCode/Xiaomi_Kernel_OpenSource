@@ -341,6 +341,7 @@ struct smb_charger {
 	int			otg_cl_ua;
 	bool			uusb_apsd_rerun_done;
 	bool			pd_hard_reset;
+	bool			typec_present;
 	u8			typec_status[5];
 	bool			typec_legacy_valid;
 	int			fake_input_current_limited;
