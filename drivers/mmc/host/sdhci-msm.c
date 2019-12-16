@@ -3566,6 +3566,43 @@ out:
 	return rc;
 }
 
+/*
+ * After MCLK ugating, toggle the FIFO write clock to get
+ * the FIFO pointers and flags to valid state.
+ */
+static void sdhci_msm_toggle_fifo_write_clk(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	const struct sdhci_msm_offset *msm_host_offset =
+					msm_host->offset;
+	struct mmc_card *card = host->mmc->card;
+
+	if (msm_host->tuning_done ||
+			(card && mmc_card_strobe(card) &&
+			msm_host->enhanced_strobe)) {
+		/*
+		 * set HC_REG_DLL_CONFIG_3[1] to select MCLK as
+		 * DLL input clock
+		 */
+		writel_relaxed(((readl_relaxed(host->ioaddr +
+			msm_host_offset->CORE_DLL_CONFIG_3))
+			| RCLK_TOGGLE), host->ioaddr +
+			msm_host_offset->CORE_DLL_CONFIG_3);
+		/* ensure above write as toggling same bit quickly */
+		wmb();
+		udelay(2);
+		/*
+		 * clear HC_REG_DLL_CONFIG_3[1] to select RCLK as
+		 * DLL input clock
+		 */
+		writel_relaxed(((readl_relaxed(host->ioaddr +
+			msm_host_offset->CORE_DLL_CONFIG_3))
+			& ~RCLK_TOGGLE), host->ioaddr +
+			msm_host_offset->CORE_DLL_CONFIG_3);
+	}
+}
+
 static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 {
 	int rc;
@@ -3672,33 +3709,9 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 					| CORE_HC_SELECT_IN_EN), host->ioaddr +
 					msm_host_offset->CORE_VENDOR_SPEC);
 		}
-		/*
-		 * After MCLK ugating, toggle the FIFO write clock to get
-		 * the FIFO pointers and flags to valid state.
-		 */
-		if (msm_host->tuning_done ||
-				(card && mmc_card_strobe(card) &&
-				msm_host->enhanced_strobe)) {
-			/*
-			 * set HC_REG_DLL_CONFIG_3[1] to select MCLK as
-			 * DLL input clock
-			 */
-			writel_relaxed(((readl_relaxed(host->ioaddr +
-				msm_host_offset->CORE_DLL_CONFIG_3))
-				| RCLK_TOGGLE), host->ioaddr +
-				msm_host_offset->CORE_DLL_CONFIG_3);
-			/* ensure above write as toggling same bit quickly */
-			wmb();
-			udelay(2);
-			/*
-			 * clear HC_REG_DLL_CONFIG_3[1] to select RCLK as
-			 * DLL input clock
-			 */
-			writel_relaxed(((readl_relaxed(host->ioaddr +
-				msm_host_offset->CORE_DLL_CONFIG_3))
-				& ~RCLK_TOGGLE), host->ioaddr +
-				msm_host_offset->CORE_DLL_CONFIG_3);
-		}
+
+		sdhci_msm_toggle_fifo_write_clk(host);
+
 		if (!host->mmc->ios.old_rate && !msm_host->use_cdclp533) {
 			/*
 			 * Poll on DLL_LOCK and DDR_DLL_LOCK bits in
@@ -5625,6 +5638,11 @@ static int sdhci_msm_runtime_resume(struct device *dev)
 				mmc_hostname(host->mmc));
 		goto skip_ice_resume;
 	}
+
+	if (host->mmc &&
+			(host->mmc->ios.timing == MMC_TIMING_MMC_HS400))
+		sdhci_msm_toggle_fifo_write_clk(host);
+
 	if (host->is_crypto_en) {
 		ret = sdhci_msm_ice_resume(host);
 		if (ret)
