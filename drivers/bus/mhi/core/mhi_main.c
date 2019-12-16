@@ -1669,7 +1669,8 @@ int mhi_send_cmd(struct mhi_controller *mhi_cntrl,
 	struct mhi_tre *cmd_tre = NULL;
 	struct mhi_cmd *mhi_cmd = &mhi_cntrl->mhi_cmd[PRIMARY_CMD_RING];
 	struct mhi_ring *ring = &mhi_cmd->ring;
-	int chan = 0;
+	int chan = 0, ret = 0;
+	bool cmd_db_not_set = false;
 
 	MHI_VERB("Entered, MHI pm_state:%s dev_state:%s ee:%s\n",
 		 to_mhi_pm_state_str(mhi_cntrl->pm_state),
@@ -1714,10 +1715,32 @@ int mhi_send_cmd(struct mhi_controller *mhi_cntrl,
 	/* queue to hardware */
 	mhi_add_ring_element(mhi_cntrl, ring);
 	read_lock_bh(&mhi_cntrl->pm_lock);
+	/*
+	 * If elements are queued to the command ring and MHI state is
+	 * not M0 since MHI is in suspend or its in transition to M0, the DB
+	 * will not be rung. Under such condition give it enough time from
+	 * the apps to have the opportunity to resume so it can write the DB.
+	 */
 	if (likely(MHI_DB_ACCESS_VALID(mhi_cntrl)))
 		mhi_ring_cmd_db(mhi_cntrl, mhi_cmd);
+	else
+		cmd_db_not_set = true;
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 	spin_unlock_bh(&mhi_cmd->lock);
+
+	if (cmd_db_not_set) {
+		ret = wait_event_timeout(mhi_cntrl->state_event,
+			MHI_DB_ACCESS_VALID(mhi_cntrl) ||
+			MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state),
+			msecs_to_jiffies(MHI_RESUME_TIME));
+		if (!ret || MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state)) {
+			MHI_ERR(
+				"Did not enter M0, cur_state:%s pm_state:%s\n",
+				TO_MHI_STATE_STR(mhi_cntrl->dev_state),
+				to_mhi_pm_state_str(mhi_cntrl->pm_state));
+			return -EIO;
+		}
+	}
 
 	return 0;
 }
