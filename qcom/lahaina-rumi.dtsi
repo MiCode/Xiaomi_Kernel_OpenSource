@@ -1,4 +1,3 @@
-#include "lahaina.dtsi"
 #include "lahaina-pmic-overlay.dtsi"
 
 &spmi_debug_bus {
