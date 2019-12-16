@@ -16,10 +16,11 @@
 
 #define LUT_MAX_ENTRIES			40U
 #define CORE_COUNT_VAL(val)		(((val) & (GENMASK(18, 16))) >> 16)
-#define LUT_ROW_SIZE			4
+#define LUT_ROW_SIZE			32
 #define CLK_HW_DIV			2
-#define CYCLE_CNTR_OFFSET(c, m)		((c - cpumask_first(m) + 1) * 4)
 
+#define CYCLE_CNTR_OFFSET(c, m, acc_count)				\
+			(acc_count ? ((c - cpumask_first(m) + 1) * 4) : 0)
 enum {
 	REG_ENABLE,
 	REG_FREQ_LUT_TABLE,
@@ -29,6 +30,9 @@ enum {
 
 	REG_ARRAY_SIZE,
 };
+
+static unsigned int lut_row_size = LUT_ROW_SIZE;
+static bool accumulative_counter;
 
 struct cpufreq_qcom {
 	struct cpufreq_frequency_table *table;
@@ -47,12 +51,19 @@ struct cpufreq_counter {
 
 static const u16 cpufreq_qcom_std_offsets[REG_ARRAY_SIZE] = {
 	[REG_ENABLE]		= 0x0,
+	[REG_FREQ_LUT_TABLE]	= 0x110,
+	[REG_VOLT_LUT_TABLE]	= 0x114,
+	[REG_PERF_STATE]	= 0x920,
+	[REG_CYCLE_CNTR]	= 0x9c0,
+};
+
+static const u16 cpufreq_qcom_epss_std_offsets[REG_ARRAY_SIZE] = {
+	[REG_ENABLE]		= 0x0,
 	[REG_FREQ_LUT_TABLE]	= 0x100,
 	[REG_VOLT_LUT_TABLE]	= 0x200,
 	[REG_PERF_STATE]	= 0x320,
 	[REG_CYCLE_CNTR]	= 0x3c4,
 };
-
 
 static struct cpufreq_counter qcom_cpufreq_counter[NR_CPUS];
 static struct cpufreq_qcom *qcom_freq_domain_map[NR_CPUS];
@@ -70,7 +81,8 @@ static u64 qcom_cpufreq_get_cpu_cycle_counter(int cpu)
 	cpu_counter = &qcom_cpufreq_counter[cpu];
 	spin_lock_irqsave(&cpu_counter->lock, flags);
 
-	offset = CYCLE_CNTR_OFFSET(cpu, &cpu_domain->related_cpus);
+	offset = CYCLE_CNTR_OFFSET(cpu, &cpu_domain->related_cpus,
+					accumulative_counter);
 	val = readl_relaxed_no_log(cpu_domain->reg_bases[REG_CYCLE_CNTR] +
 				   offset);
 
@@ -126,14 +138,14 @@ static unsigned int
 qcom_cpufreq_hw_fast_switch(struct cpufreq_policy *policy,
 			    unsigned int target_freq)
 {
-	struct cpufreq_qcom *c = policy->driver_data;
 	int index;
 
 	index = policy->cached_resolved_idx;
 	if (index < 0)
 		return 0;
 
-	writel_relaxed(index, c->reg_bases[REG_PERF_STATE]);
+	if (qcom_cpufreq_hw_target_index(policy, index))
+		return 0;
 
 	return policy->freq_table[index].frequency;
 }
@@ -240,12 +252,12 @@ static int qcom_cpufreq_hw_read_lut(struct platform_device *pdev,
 	base_volt = c->reg_bases[REG_VOLT_LUT_TABLE];
 
 	for (i = 0; i < LUT_MAX_ENTRIES; i++) {
-		data = readl_relaxed(base_freq + i * LUT_ROW_SIZE);
+		data = readl_relaxed(base_freq + i * lut_row_size);
 		src = (data & GENMASK(31, 30)) >> 30;
 		lval = data & GENMASK(7, 0);
 		core_count = CORE_COUNT_VAL(data);
 
-		data = readl_relaxed(base_volt + i * LUT_ROW_SIZE);
+		data = readl_relaxed(base_volt + i * lut_row_size);
 		volt = (data & GENMASK(11, 0)) * 1000;
 
 		if (src)
@@ -342,6 +354,18 @@ static int qcom_cpu_resources_init(struct platform_device *pdev,
 	for (i = REG_ENABLE; i < REG_ARRAY_SIZE; i++)
 		c->reg_bases[i] = base + offsets[i];
 
+	if (!of_property_read_bool(dev->of_node, "qcom,skip-enable-check")) {
+		/* HW should be in enabled state to proceed */
+		if (!(readl_relaxed(c->reg_bases[REG_ENABLE]) & 0x1)) {
+			dev_err(dev, "Domain-%d cpufreq hardware not enabled\n",
+				 index);
+			return -ENODEV;
+		}
+	}
+
+	accumulative_counter = !of_property_read_bool(dev->of_node,
+					"qcom,no-accumulative-counter");
+
 	ret = qcom_get_related_cpus(index, &c->related_cpus);
 	if (ret) {
 		dev_err(dev, "Domain-%d failed to get related CPUs\n", index);
@@ -384,13 +408,16 @@ static int qcom_resources_init(struct platform_device *pdev)
 
 	devm_clk_put(&pdev->dev, clk);
 
-	clk = devm_clk_get(&pdev->dev, "cpu_clk");
+	clk = devm_clk_get(&pdev->dev, "alternate");
 	if (IS_ERR(clk))
 		return PTR_ERR(clk);
 
 	cpu_hw_rate = clk_get_rate(clk) / CLK_HW_DIV;
 
 	devm_clk_put(&pdev->dev, clk);
+
+	of_property_read_u32(pdev->dev.of_node, "qcom,lut-row-size",
+			      &lut_row_size);
 
 	for_each_possible_cpu(cpu) {
 		cpu_np = of_cpu_device_node_get(cpu);
@@ -417,10 +444,10 @@ static int qcom_resources_init(struct platform_device *pdev)
 
 static int qcom_cpufreq_hw_driver_probe(struct platform_device *pdev)
 {
-	int rc;
 	struct cpu_cycle_counter_cb cycle_counter_cb = {
 		.get_cpu_cycle_counter = qcom_cpufreq_get_cpu_cycle_counter,
 	};
+	int rc, cpu;
 
 	/* Get the bases of cpufreq for domains */
 	rc = qcom_resources_init(pdev);
@@ -434,6 +461,9 @@ static int qcom_cpufreq_hw_driver_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "CPUFreq HW driver failed to register\n");
 		return rc;
 	}
+
+	for_each_possible_cpu(cpu)
+		spin_lock_init(&qcom_cpufreq_counter[cpu].lock);
 
 	rc = register_cpu_cycle_counter_cb(&cycle_counter_cb);
 	if (rc) {
@@ -449,6 +479,8 @@ static int qcom_cpufreq_hw_driver_probe(struct platform_device *pdev)
 
 static const struct of_device_id qcom_cpufreq_hw_match[] = {
 	{ .compatible = "qcom,cpufreq-hw", .data = &cpufreq_qcom_std_offsets },
+	{ .compatible = "qcom,cpufreq-hw-epss",
+				   .data = &cpufreq_qcom_epss_std_offsets },
 	{}
 };
 
