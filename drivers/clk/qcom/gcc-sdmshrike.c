@@ -2895,6 +2895,19 @@ static struct clk_branch gcc_pcie_2_cfg_ahb_clk = {
 	},
 };
 
+static struct clk_branch gcc_pcie_2_clkref_clk = {
+	.halt_reg = 0x8c014,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x8c014,
+		.enable_mask = BIT(0),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_pcie_2_clkref_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
 static struct clk_branch gcc_pcie_2_mstr_axi_clk = {
 	.halt_reg = 0x9d018,
 	.halt_check = BRANCH_HALT_VOTED,
@@ -2977,6 +2990,19 @@ static struct clk_branch gcc_pcie_3_cfg_ahb_clk = {
 		.enable_mask = BIT(19),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_pcie_3_cfg_ahb_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_pcie_3_clkref_clk = {
+	.halt_reg = 0x8c018,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x8c018,
+		.enable_mask = BIT(0),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_pcie_3_clkref_clk",
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -4870,6 +4896,7 @@ static struct clk_regmap *gcc_sdmshrike_clocks[] = {
 	[GCC_PCIE_2_AUX_CLK] = &gcc_pcie_2_aux_clk.clkr,
 	[GCC_PCIE_2_AUX_CLK_SRC] = &gcc_pcie_2_aux_clk_src.clkr,
 	[GCC_PCIE_2_CFG_AHB_CLK] = &gcc_pcie_2_cfg_ahb_clk.clkr,
+	[GCC_PCIE_2_CLKREF_CLK] = &gcc_pcie_2_clkref_clk.clkr,
 	[GCC_PCIE_2_MSTR_AXI_CLK] = &gcc_pcie_2_mstr_axi_clk.clkr,
 	[GCC_PCIE_2_PIPE_CLK] = &gcc_pcie_2_pipe_clk.clkr,
 	[GCC_PCIE_2_SLV_AXI_CLK] = &gcc_pcie_2_slv_axi_clk.clkr,
@@ -4877,6 +4904,7 @@ static struct clk_regmap *gcc_sdmshrike_clocks[] = {
 	[GCC_PCIE_3_AUX_CLK] = &gcc_pcie_3_aux_clk.clkr,
 	[GCC_PCIE_3_AUX_CLK_SRC] = &gcc_pcie_3_aux_clk_src.clkr,
 	[GCC_PCIE_3_CFG_AHB_CLK] = &gcc_pcie_3_cfg_ahb_clk.clkr,
+	[GCC_PCIE_3_CLKREF_CLK] = &gcc_pcie_3_clkref_clk.clkr,
 	[GCC_PCIE_3_MSTR_AXI_CLK] = &gcc_pcie_3_mstr_axi_clk.clkr,
 	[GCC_PCIE_3_PIPE_CLK] = &gcc_pcie_3_pipe_clk.clkr,
 	[GCC_PCIE_3_SLV_AXI_CLK] = &gcc_pcie_3_slv_axi_clk.clkr,

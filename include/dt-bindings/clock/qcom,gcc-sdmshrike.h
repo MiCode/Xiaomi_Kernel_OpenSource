@@ -259,8 +259,10 @@
 #define GPLL7							242
 #define GCC_PCIE_0_CLKREF_CLK					243
 #define GCC_PCIE_1_CLKREF_CLK					244
-#define GCC_USB3_PRIM_CLKREF_CLK				245
-#define GCC_USB3_SEC_CLKREF_CLK					246
+#define GCC_PCIE_2_CLKREF_CLK					245
+#define GCC_PCIE_3_CLKREF_CLK					246
+#define GCC_USB3_PRIM_CLKREF_CLK				247
+#define GCC_USB3_SEC_CLKREF_CLK					248
 
 #define GCC_EMAC_BCR						0
 #define GCC_GPU_BCR							1
