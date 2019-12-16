@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2009-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2019, The Linux Foundation. All rights reserved.
  * Copyright (c) 2017-2019, Linaro Ltd.
  */
 
-#include <linux/debugfs.h>
 #include <linux/err.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
@@ -21,7 +20,6 @@
  */
 #define SOCINFO_MAJOR(ver) (((ver) >> 16) & 0xffff)
 #define SOCINFO_MINOR(ver) ((ver) & 0xffff)
-#define SOCINFO_VERSION(maj, min)  ((((maj) & 0xffff) << 16)|((min) & 0xffff))
 
 #define SMEM_SOCINFO_BUILD_ID_LENGTH           32
 
@@ -30,60 +28,6 @@
  * SMEM region.
  */
 #define SMEM_HW_SW_BUILD_ID            137
-
-#ifdef CONFIG_DEBUG_FS
-#define SMEM_IMAGE_VERSION_BLOCKS_COUNT        32
-#define SMEM_IMAGE_VERSION_SIZE                4096
-#define SMEM_IMAGE_VERSION_NAME_SIZE           75
-#define SMEM_IMAGE_VERSION_VARIANT_SIZE        20
-#define SMEM_IMAGE_VERSION_OEM_SIZE            32
-
-/*
- * SMEM Image table indices
- */
-#define SMEM_IMAGE_TABLE_BOOT_INDEX     0
-#define SMEM_IMAGE_TABLE_TZ_INDEX       1
-#define SMEM_IMAGE_TABLE_RPM_INDEX      3
-#define SMEM_IMAGE_TABLE_APPS_INDEX     10
-#define SMEM_IMAGE_TABLE_MPSS_INDEX     11
-#define SMEM_IMAGE_TABLE_ADSP_INDEX     12
-#define SMEM_IMAGE_TABLE_CNSS_INDEX     13
-#define SMEM_IMAGE_TABLE_VIDEO_INDEX    14
-#define SMEM_IMAGE_VERSION_TABLE       469
-
-/*
- * SMEM Image table names
- */
-static const char *const socinfo_image_names[] = {
-	[SMEM_IMAGE_TABLE_ADSP_INDEX] = "adsp",
-	[SMEM_IMAGE_TABLE_APPS_INDEX] = "apps",
-	[SMEM_IMAGE_TABLE_BOOT_INDEX] = "boot",
-	[SMEM_IMAGE_TABLE_CNSS_INDEX] = "cnss",
-	[SMEM_IMAGE_TABLE_MPSS_INDEX] = "mpss",
-	[SMEM_IMAGE_TABLE_RPM_INDEX] = "rpm",
-	[SMEM_IMAGE_TABLE_TZ_INDEX] = "tz",
-	[SMEM_IMAGE_TABLE_VIDEO_INDEX] = "video",
-};
-
-static const char *const pmic_models[] = {
-	[0]  = "Unknown PMIC model",
-	[9]  = "PM8994",
-	[11] = "PM8916",
-	[13] = "PM8058",
-	[14] = "PM8028",
-	[15] = "PM8901",
-	[16] = "PM8027",
-	[17] = "ISL9519",
-	[18] = "PM8921",
-	[19] = "PM8018",
-	[20] = "PM8015",
-	[21] = "PM8014",
-	[22] = "PM8821",
-	[23] = "PM8038",
-	[24] = "PM8922",
-	[25] = "PM8917",
-};
-#endif /* CONFIG_DEBUG_FS */
 
 /* Socinfo SMEM item structure */
 struct socinfo {
@@ -123,35 +67,9 @@ struct socinfo {
 	__le32 raw_device_num;
 };
 
-#ifdef CONFIG_DEBUG_FS
-struct socinfo_params {
-	u32 raw_device_family;
-	u32 hw_plat_subtype;
-	u32 accessory_chip;
-	u32 raw_device_num;
-	u32 chip_family;
-	u32 foundry_id;
-	u32 plat_ver;
-	u32 raw_ver;
-	u32 hw_plat;
-	u32 fmt;
-};
-
-struct smem_image_version {
-	char name[SMEM_IMAGE_VERSION_NAME_SIZE];
-	char variant[SMEM_IMAGE_VERSION_VARIANT_SIZE];
-	char pad;
-	char oem[SMEM_IMAGE_VERSION_OEM_SIZE];
-};
-#endif /* CONFIG_DEBUG_FS */
-
 struct qcom_socinfo {
 	struct soc_device *soc_dev;
 	struct soc_device_attribute attr;
-#ifdef CONFIG_DEBUG_FS
-	struct dentry *dbg_root;
-	struct socinfo_params info;
-#endif /* CONFIG_DEBUG_FS */
 };
 
 struct soc_id {
@@ -212,202 +130,6 @@ static const char *socinfo_machine(struct device *dev, unsigned int id)
 	return NULL;
 }
 
-#ifdef CONFIG_DEBUG_FS
-
-#define QCOM_OPEN(name, _func)						\
-static int qcom_open_##name(struct inode *inode, struct file *file)	\
-{									\
-	return single_open(file, _func, inode->i_private);		\
-}									\
-									\
-static const struct file_operations qcom_ ##name## _ops = {		\
-	.open = qcom_open_##name,					\
-	.read = seq_read,						\
-	.llseek = seq_lseek,						\
-	.release = single_release,					\
-}
-
-#define DEBUGFS_ADD(info, name)						\
-	debugfs_create_file(__stringify(name), 0400,			\
-			    qcom_socinfo->dbg_root,			\
-			    info, &qcom_ ##name## _ops)
-
-
-static int qcom_show_build_id(struct seq_file *seq, void *p)
-{
-	struct socinfo *socinfo = seq->private;
-
-	seq_printf(seq, "%s\n", socinfo->build_id);
-
-	return 0;
-}
-
-static int qcom_show_pmic_model(struct seq_file *seq, void *p)
-{
-	struct socinfo *socinfo = seq->private;
-	int model = SOCINFO_MINOR(le32_to_cpu(socinfo->pmic_model));
-
-	if (model < 0)
-		return -EINVAL;
-
-	seq_printf(seq, "%s\n", pmic_models[model]);
-
-	return 0;
-}
-
-static int qcom_show_pmic_die_revision(struct seq_file *seq, void *p)
-{
-	struct socinfo *socinfo = seq->private;
-
-	seq_printf(seq, "%u.%u\n",
-		   SOCINFO_MAJOR(le32_to_cpu(socinfo->pmic_die_rev)),
-		   SOCINFO_MINOR(le32_to_cpu(socinfo->pmic_die_rev)));
-
-	return 0;
-}
-
-QCOM_OPEN(build_id, qcom_show_build_id);
-QCOM_OPEN(pmic_model, qcom_show_pmic_model);
-QCOM_OPEN(pmic_die_rev, qcom_show_pmic_die_revision);
-
-#define DEFINE_IMAGE_OPS(type)					\
-static int show_image_##type(struct seq_file *seq, void *p)		  \
-{								  \
-	struct smem_image_version *image_version = seq->private;  \
-	seq_puts(seq, image_version->type);			  \
-	seq_puts(seq, "\n");					  \
-	return 0;						  \
-}								  \
-static int open_image_##type(struct inode *inode, struct file *file)	  \
-{									  \
-	return single_open(file, show_image_##type, inode->i_private); \
-}									  \
-									  \
-static const struct file_operations qcom_image_##type##_ops = {	  \
-	.open = open_image_##type,					  \
-	.read = seq_read,						  \
-	.llseek = seq_lseek,						  \
-	.release = single_release,					  \
-}
-
-DEFINE_IMAGE_OPS(name);
-DEFINE_IMAGE_OPS(variant);
-DEFINE_IMAGE_OPS(oem);
-
-static void socinfo_debugfs_init(struct qcom_socinfo *qcom_socinfo,
-				 struct socinfo *info)
-{
-	struct smem_image_version *versions;
-	struct dentry *dentry;
-	size_t size;
-	int i;
-
-	qcom_socinfo->dbg_root = debugfs_create_dir("qcom_socinfo", NULL);
-
-	qcom_socinfo->info.fmt = __le32_to_cpu(info->fmt);
-
-	switch (qcom_socinfo->info.fmt) {
-	case SOCINFO_VERSION(0, 12):
-		qcom_socinfo->info.chip_family =
-			__le32_to_cpu(info->chip_family);
-		qcom_socinfo->info.raw_device_family =
-			__le32_to_cpu(info->raw_device_family);
-		qcom_socinfo->info.raw_device_num =
-			__le32_to_cpu(info->raw_device_num);
-
-		debugfs_create_x32("chip_family", 0400, qcom_socinfo->dbg_root,
-				   &qcom_socinfo->info.chip_family);
-		debugfs_create_x32("raw_device_family", 0400,
-				   qcom_socinfo->dbg_root,
-				   &qcom_socinfo->info.raw_device_family);
-		debugfs_create_x32("raw_device_number", 0400,
-				   qcom_socinfo->dbg_root,
-				   &qcom_socinfo->info.raw_device_num);
-		/* Fall through */
-	case SOCINFO_VERSION(0, 11):
-	case SOCINFO_VERSION(0, 10):
-	case SOCINFO_VERSION(0, 9):
-		qcom_socinfo->info.foundry_id = __le32_to_cpu(info->foundry_id);
-
-		debugfs_create_u32("foundry_id", 0400, qcom_socinfo->dbg_root,
-				   &qcom_socinfo->info.foundry_id);
-		/* Fall through */
-	case SOCINFO_VERSION(0, 8):
-	case SOCINFO_VERSION(0, 7):
-		DEBUGFS_ADD(info, pmic_model);
-		DEBUGFS_ADD(info, pmic_die_rev);
-		/* Fall through */
-	case SOCINFO_VERSION(0, 6):
-		qcom_socinfo->info.hw_plat_subtype =
-			__le32_to_cpu(info->hw_plat_subtype);
-
-		debugfs_create_u32("hardware_platform_subtype", 0400,
-				   qcom_socinfo->dbg_root,
-				   &qcom_socinfo->info.hw_plat_subtype);
-		/* Fall through */
-	case SOCINFO_VERSION(0, 5):
-		qcom_socinfo->info.accessory_chip =
-			__le32_to_cpu(info->accessory_chip);
-
-		debugfs_create_u32("accessory_chip", 0400,
-				   qcom_socinfo->dbg_root,
-				   &qcom_socinfo->info.accessory_chip);
-		/* Fall through */
-	case SOCINFO_VERSION(0, 4):
-		qcom_socinfo->info.plat_ver = __le32_to_cpu(info->plat_ver);
-
-		debugfs_create_u32("platform_version", 0400,
-				   qcom_socinfo->dbg_root,
-				   &qcom_socinfo->info.plat_ver);
-		/* Fall through */
-	case SOCINFO_VERSION(0, 3):
-		qcom_socinfo->info.hw_plat = __le32_to_cpu(info->hw_plat);
-
-		debugfs_create_u32("hardware_platform", 0400,
-				   qcom_socinfo->dbg_root,
-				   &qcom_socinfo->info.hw_plat);
-		/* Fall through */
-	case SOCINFO_VERSION(0, 2):
-		qcom_socinfo->info.raw_ver  = __le32_to_cpu(info->raw_ver);
-
-		debugfs_create_u32("raw_version", 0400, qcom_socinfo->dbg_root,
-				   &qcom_socinfo->info.raw_ver);
-		/* Fall through */
-	case SOCINFO_VERSION(0, 1):
-		DEBUGFS_ADD(info, build_id);
-		break;
-	}
-
-	versions = qcom_smem_get(QCOM_SMEM_HOST_ANY, SMEM_IMAGE_VERSION_TABLE,
-				 &size);
-
-	for (i = 0; i < ARRAY_SIZE(socinfo_image_names); i++) {
-		if (!socinfo_image_names[i])
-			continue;
-
-		dentry = debugfs_create_dir(socinfo_image_names[i],
-					    qcom_socinfo->dbg_root);
-		debugfs_create_file("name", 0400, dentry, &versions[i],
-				    &qcom_image_name_ops);
-		debugfs_create_file("variant", 0400, dentry, &versions[i],
-				    &qcom_image_variant_ops);
-		debugfs_create_file("oem", 0400, dentry, &versions[i],
-				    &qcom_image_oem_ops);
-	}
-}
-
-static void socinfo_debugfs_exit(struct qcom_socinfo *qcom_socinfo)
-{
-	debugfs_remove_recursive(qcom_socinfo->dbg_root);
-}
-#else
-static void socinfo_debugfs_init(struct qcom_socinfo *qcom_socinfo,
-				 struct socinfo *info)
-{
-}
-static void socinfo_debugfs_exit(struct qcom_socinfo *qcom_socinfo) {  }
-#endif /* CONFIG_DEBUG_FS */
-
 static int qcom_socinfo_probe(struct platform_device *pdev)
 {
 	struct qcom_socinfo *qs;
@@ -440,8 +162,6 @@ static int qcom_socinfo_probe(struct platform_device *pdev)
 	if (IS_ERR(qs->soc_dev))
 		return PTR_ERR(qs->soc_dev);
 
-	socinfo_debugfs_init(qs, info);
-
 	/* Feed the soc specific unique data into entropy pool */
 	add_device_randomness(info, item_size);
 
@@ -455,8 +175,6 @@ static int qcom_socinfo_remove(struct platform_device *pdev)
 	struct qcom_socinfo *qs = platform_get_drvdata(pdev);
 
 	soc_device_unregister(qs->soc_dev);
-
-	socinfo_debugfs_exit(qs);
 
 	return 0;
 }
