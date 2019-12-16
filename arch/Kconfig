@@ -699,6 +699,17 @@ config ARCH_SUPPORTS_SHADOW_CALL_STACK
 	  Call Stack, has asm/scs.h, and implements runtime support for shadow
 	  stack switching.
 
+choice
+	prompt "Return-oriented programming (ROP) protection"
+	default ROP_PROTECTION_NONE
+	help
+	  This option controls kernel protections against return-oriented
+	  programming (ROP) attacks, which involve overwriting function return
+	  addresses.
+
+config ROP_PROTECTION_NONE
+	bool "None"
+
 config SHADOW_CALL_STACK
 	bool "Clang Shadow Call Stack"
 	depends on ARCH_SUPPORTS_SHADOW_CALL_STACK
@@ -716,6 +727,8 @@ config SHADOW_CALL_STACK
 	  means an attacker capable reading and writing arbitrary memory may
 	  be able to locate them and hijack control flow by modifying shadow
 	  stacks that are not currently in use.
+
+endchoice
 
 config SHADOW_CALL_STACK_VMAP
 	bool "Use virtually mapped shadow call stacks"
