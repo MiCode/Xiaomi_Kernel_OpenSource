@@ -251,6 +251,8 @@ enum t100_type {
 
 #define MXT_PIXELS_PER_MM	20
 
+#define MXT_COORDS_ARR_SIZE	4
+
 struct mxt_info {
 	u8 family_id;
 	u8 variant_id;
@@ -397,6 +399,9 @@ struct mxt_data {
 	struct pinctrl *ts_pinctrl;
 	struct pinctrl_state *gpio_state_active;
 	struct pinctrl_state *gpio_state_suspend;
+
+	u32 panel_minx, panel_miny, panel_maxx, panel_maxy;
+	u32 disp_minx, disp_miny, disp_maxx, disp_maxy;
 };
 
 struct mxt_vb2_buffer {
@@ -896,10 +901,20 @@ static void mxt_proc_t9_message(struct mxt_data *data, u8 *message)
 		if (!amplitude)
 			amplitude = MXT_PRESSURE_DEFAULT;
 
+		/* Handle orientation */
+		if (data->xy_switch)
+			swap(x, y);
+		if (data->invertx)
+			x = data->max_x - x;
+		if (data->inverty)
+			y = data->max_y - y;
+
 		/* Touch active */
 		input_mt_report_slot_state(input_dev, MT_TOOL_FINGER, 1);
-		input_report_abs(input_dev, ABS_MT_POSITION_X, x);
-		input_report_abs(input_dev, ABS_MT_POSITION_Y, y);
+		input_report_abs(input_dev, ABS_MT_POSITION_X,
+			x - data->disp_minx);
+		input_report_abs(input_dev, ABS_MT_POSITION_Y,
+			y - data->disp_miny);
 		input_report_abs(input_dev, ABS_MT_PRESSURE, amplitude);
 		input_report_abs(input_dev, ABS_MT_TOUCH_MAJOR, area);
 	} else {
@@ -1001,9 +1016,19 @@ static void mxt_proc_t100_message(struct mxt_data *data, u8 *message)
 		dev_dbg(dev, "[%u] type:%u x:%u y:%u a:%02X p:%02X v:%02X\n",
 			id, type, x, y, major, pressure, orientation);
 
+		/* Handle orientation */
+		if (data->xy_switch)
+			swap(x, y);
+		if (data->invertx)
+			x = data->max_x - x;
+		if (data->inverty)
+			y = data->max_y - y;
+
 		input_mt_report_slot_state(input_dev, tool, 1);
-		input_report_abs(input_dev, ABS_MT_POSITION_X, x);
-		input_report_abs(input_dev, ABS_MT_POSITION_Y, y);
+		input_report_abs(input_dev, ABS_MT_POSITION_X,
+			x - data->disp_minx);
+		input_report_abs(input_dev, ABS_MT_POSITION_Y,
+			y - data->disp_miny);
 		input_report_abs(input_dev, ABS_MT_TOUCH_MAJOR, major);
 		input_report_abs(input_dev, ABS_MT_PRESSURE, pressure);
 		input_report_abs(input_dev, ABS_MT_DISTANCE, distance);
@@ -2141,9 +2166,20 @@ static int mxt_read_t9_resolution(struct mxt_data *data)
 		return error;
 	orient = *(data->read_buf);
 
-	data->xy_switch = orient & MXT_T9_ORIENT_SWITCH;
-	data->invertx = orient & MXT_T9_ORIENT_INVERTX;
-	data->inverty = orient & MXT_T9_ORIENT_INVERTY;
+	if (data->xy_switch != (orient & MXT_T9_ORIENT_SWITCH))
+		dev_warn(&data->client->dev,
+			"T9 data->xy_switch:%d\n",
+			data->xy_switch);
+
+	if (data->invertx != (orient & MXT_T9_ORIENT_INVERTX))
+		dev_warn(&data->client->dev,
+			"T9 data->data->invertx:%d\n",
+			data->invertx);
+
+	if (data->inverty != (orient & MXT_T9_ORIENT_INVERTY))
+		dev_warn(&data->client->dev,
+			"T9 data->data->inverty:%d\n",
+			data->inverty);
 
 	return 0;
 }
@@ -2197,9 +2233,20 @@ static int mxt_read_t100_config(struct mxt_data *data)
 		return error;
 	cfg = *(data->read_buf);
 
-	data->xy_switch = cfg & MXT_T100_CFG_SWITCHXY;
-	data->invertx = cfg & MXT_T100_CFG_INVERTX;
-	data->inverty = cfg & MXT_T100_CFG_INVERTY;
+	if (data->xy_switch != (cfg & MXT_T100_CFG_SWITCHXY))
+		dev_warn(&data->client->dev,
+			"T100 data->xy_switch:%d\n",
+			data->xy_switch);
+
+	if (data->invertx != (cfg & MXT_T100_CFG_INVERTX))
+		dev_warn(&data->client->dev,
+			"T100 data->data->invertx:%d\n",
+			data->invertx);
+
+	if (data->inverty != (cfg & MXT_T100_CFG_INVERTY))
+		dev_warn(&data->client->dev,
+			"T100 data->data->inverty:%d\n",
+			data->inverty);
 
 	/* allocate aux bytes */
 	error =  __mxt_read_reg(data,
@@ -2306,9 +2353,10 @@ static int mxt_initialize_input_device(struct mxt_data *data)
 
 	input_set_capability(input_dev, EV_KEY, BTN_TOUCH);
 
-	/* For single touch */
-	input_set_abs_params(input_dev, ABS_X, 0, data->max_x, 0, 0);
-	input_set_abs_params(input_dev, ABS_Y, 0, data->max_y, 0, 0);
+	if (data->disp_maxx == 0 || data->disp_maxx > data->max_x)
+		data->disp_maxx = data->max_x;
+	if (data->disp_maxy == 0 || data->disp_maxy > data->max_y)
+		data->disp_maxy = data->max_y;
 
 	if (data->multitouch == MXT_TOUCH_MULTI_T9 ||
 	    (data->multitouch == MXT_TOUCH_MULTITOUCHSCREEN_T100 &&
@@ -2341,9 +2389,9 @@ static int mxt_initialize_input_device(struct mxt_data *data)
 	}
 
 	input_set_abs_params(input_dev, ABS_MT_POSITION_X,
-			     0, data->max_x, 0, 0);
+			0, data->disp_maxx - data->disp_minx, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_POSITION_Y,
-			     0, data->max_y, 0, 0);
+			0, data->disp_maxy - data->disp_miny, 0, 0);
 
 	if (data->multitouch == MXT_TOUCH_MULTI_T9 ||
 	    (data->multitouch == MXT_TOUCH_MULTITOUCHSCREEN_T100 &&
@@ -3365,6 +3413,51 @@ exit:
 	return ret;
 }
 
+static int mxt_get_dt_coords(struct device *dev, char *name,
+				struct mxt_data *data)
+{
+	u32 coords[MXT_COORDS_ARR_SIZE];
+	struct property *prop;
+	struct device_node *np = dev->of_node;
+	size_t coords_size;
+	int error;
+
+	prop = of_find_property(np, name, NULL);
+	if (!prop)
+		return -EINVAL;
+	if (!prop->value)
+		return -ENODATA;
+
+	coords_size = prop->length / sizeof(u32);
+	if (coords_size != MXT_COORDS_ARR_SIZE) {
+		dev_err(dev, "invalid %s\n", name);
+		return -EINVAL;
+	}
+
+	error = of_property_read_u32_array(np, name, coords, coords_size);
+	if (error && (error != -EINVAL)) {
+		dev_err(dev, "Unable to read %s\n", name);
+		return error;
+	}
+
+	if (strcmp(name, "atmel,panel-coords") == 0) {
+		data->panel_minx = coords[0];
+		data->panel_miny = coords[1];
+		data->panel_maxx = coords[2];
+		data->panel_maxy = coords[3];
+	} else if (strcmp(name, "atmel,display-coords") == 0) {
+		data->disp_minx = coords[0];
+		data->disp_miny = coords[1];
+		data->disp_maxx = coords[2];
+		data->disp_maxy = coords[3];
+	} else {
+		dev_err(dev, "unsupported property %s\n", name);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 #endif
 
 static const struct dmi_system_id chromebook_T9_suspend_dmi[] = {
@@ -3430,6 +3523,16 @@ static int mxt_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	data->client = client;
 	data->irq = client->irq;
 	i2c_set_clientdata(client, data);
+
+#ifdef CONFIG_OF
+	error = mxt_get_dt_coords(&client->dev, "atmel,display-coords", data);
+	if (error)
+		return error;
+
+	data->xy_switch = of_property_read_bool(dt, "atmel,xy_switch");
+	data->invertx = of_property_read_bool(dt, "atmel,invertx");
+	data->inverty = of_property_read_bool(dt, "atmel,inverty");
+#endif
 
 	data->cmd_buf = devm_kzalloc(&client->dev, 64, GFP_KERNEL);
 	if (!data->cmd_buf)
