@@ -401,6 +401,18 @@ depends on (ARCH_QCOM && OF) || COMPILE_TEST
 source "drivers/thermal/qcom/Kconfig"
 endmenu
 
+config QTI_THERMAL
+	bool
+	prompt "Enable QTI Thermal Framework enhancements"
+	depends on THERMAL && QGKI
+	default y
+	help
+	  Enable the QTI enhancements on the thermal framework. This will
+	  enable enhancements like handling passive evaluation on high
+	  priority queue, using same trip temperature from sensor to algorithm
+	  and enabling user space thermal daemon as a separate client of
+	  cooling device.
+
 config ZX2967_THERMAL
 	tristate "Thermal sensors on zx2967 SoC"
 	depends on ARCH_ZX || COMPILE_TEST
