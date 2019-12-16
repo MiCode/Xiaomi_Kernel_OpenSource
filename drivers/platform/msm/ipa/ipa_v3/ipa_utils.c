@@ -7931,6 +7931,7 @@ int ipa3_suspend_apps_pipes(bool suspend)
 		if (tx.coal_slave_open_frame != 0) {
 			IPADBG("COAL frame is open 0x%x\n",
 				tx.coal_slave_open_frame);
+			res = -EAGAIN;
 			goto undo_cons;
 		}
 
@@ -7954,12 +7955,12 @@ do_prod:
 
 	return 0;
 undo_prod:
-	for (client--; client < IPA_CLIENT_MAX && client >= 0; client--)
+	for (client; client <= IPA_CLIENT_MAX && client >= 0; client--)
 		if (IPA_CLIENT_IS_APPS_PROD(client))
 			_ipa_suspend_resume_pipe(client, !suspend);
 	client = IPA_CLIENT_MAX;
 undo_cons:
-	for (client--; client < IPA_CLIENT_MAX && client >= 0; client--)
+	for (client; client <= IPA_CLIENT_MAX && client >= 0; client--)
 		if (IPA_CLIENT_IS_APPS_CONS(client))
 			_ipa_suspend_resume_pipe(client, !suspend);
 	return res;
