@@ -756,6 +756,7 @@ struct wil_sta_info {
 	struct wil_tid_crypto_rx tid_crypto_rx[WIL_STA_TID_NUM];
 	struct wil_tid_crypto_rx group_crypto_rx;
 	u8 aid; /* 1-254; 0 if unknown/not reported */
+	u8 fst_link_loss;
 };
 
 enum {
@@ -1036,6 +1037,8 @@ struct wil6210_priv {
 	enum wmi_ps_profile_type ps_profile;
 
 	int fw_calib_result;
+	u8 tt_data_set;
+	struct wmi_tt_data tt_data;
 
 	struct notifier_block pm_notify;
 
@@ -1276,6 +1279,8 @@ int wmi_ps_dev_profile_cfg(struct wil6210_priv *wil,
 int wmi_set_mgmt_retry(struct wil6210_priv *wil, u8 retry_short);
 int wmi_get_mgmt_retry(struct wil6210_priv *wil, u8 *retry_short);
 int wmi_new_sta(struct wil6210_vif *vif, const u8 *mac, u8 aid);
+int wmi_set_tt_cfg(struct wil6210_priv *wil, struct wmi_tt_data *tt_data);
+int wmi_get_tt_cfg(struct wil6210_priv *wil, struct wmi_tt_data *tt_data);
 int wmi_port_allocate(struct wil6210_priv *wil, u8 mid,
 		      const u8 *mac, enum nl80211_iftype iftype);
 int wmi_port_delete(struct wil6210_priv *wil, u8 mid);
@@ -1430,6 +1435,10 @@ void wil_ftm_evt_per_dest_res(struct wil6210_vif *vif,
 void wil_aoa_evt_meas(struct wil6210_vif *vif,
 		      struct wmi_aoa_meas_event *evt,
 		      int len);
+/* link loss */
+int wmi_link_maintain_cfg_write(struct wil6210_priv *wil,
+				const u8 *addr,
+				bool fst_link_loss);
 
 int wmi_start_sched_scan(struct wil6210_priv *wil,
 			 struct cfg80211_sched_scan_request *request);

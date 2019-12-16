@@ -3067,6 +3067,71 @@ int wmi_new_sta(struct wil6210_vif *vif, const u8 *mac, u8 aid)
 	return rc;
 }
 
+int wmi_set_tt_cfg(struct wil6210_priv *wil, struct wmi_tt_data *tt_data)
+{
+	struct wil6210_vif *vif = ndev_to_vif(wil->main_ndev);
+	int rc;
+	struct wmi_set_thermal_throttling_cfg_cmd cmd = {
+		.tt_data = *tt_data,
+	};
+	struct {
+		struct wmi_cmd_hdr wmi;
+		struct wmi_set_thermal_throttling_cfg_event evt;
+	} __packed reply;
+
+	if (!test_bit(WMI_FW_CAPABILITY_THERMAL_THROTTLING,
+		      wil->fw_capabilities))
+		return -EOPNOTSUPP;
+
+	memset(&reply, 0, sizeof(reply));
+
+	rc = wmi_call(wil, WMI_SET_THERMAL_THROTTLING_CFG_CMDID, vif->mid,
+		      &cmd, sizeof(cmd),
+		      WMI_SET_THERMAL_THROTTLING_CFG_EVENTID,
+		      &reply, sizeof(reply), 100);
+	if (rc) {
+		wil_err(wil, "failed to set thermal throttling\n");
+		return rc;
+	}
+	if (reply.evt.status) {
+		wil_err(wil, "set thermal throttling failed, error %d\n",
+			reply.evt.status);
+		return -EIO;
+	}
+
+	wil->tt_data = *tt_data;
+	wil->tt_data_set = true;
+
+	return 0;
+}
+
+int wmi_get_tt_cfg(struct wil6210_priv *wil, struct wmi_tt_data *tt_data)
+{
+	struct wil6210_vif *vif = ndev_to_vif(wil->main_ndev);
+	int rc;
+	struct {
+		struct wmi_cmd_hdr wmi;
+		struct wmi_get_thermal_throttling_cfg_event evt;
+	} __packed reply;
+
+	if (!test_bit(WMI_FW_CAPABILITY_THERMAL_THROTTLING,
+		      wil->fw_capabilities))
+		return -EOPNOTSUPP;
+
+	rc = wmi_call(wil, WMI_GET_THERMAL_THROTTLING_CFG_CMDID, vif->mid,
+		      NULL, 0, WMI_GET_THERMAL_THROTTLING_CFG_EVENTID, &reply,
+		      sizeof(reply), 100);
+	if (rc) {
+		wil_err(wil, "failed to get thermal throttling\n");
+		return rc;
+	}
+
+	if (tt_data)
+		*tt_data = reply.evt.tt_data;
+
+	return 0;
+}
+
 void wmi_event_flush(struct wil6210_priv *wil)
 {
 	ulong flags;
@@ -3213,6 +3278,65 @@ int wmi_resume(struct wil6210_priv *wil)
 		   le32_to_cpu(reply.evt.resume_triggers));
 
 	return reply.evt.status;
+}
+
+int wmi_link_maintain_cfg_write(struct wil6210_priv *wil,
+				const u8 *addr,
+				bool fst_link_loss)
+{
+	struct net_device *ndev = wil->main_ndev;
+	struct wireless_dev *wdev = ndev->ieee80211_ptr;
+	struct wil6210_vif *vif = ndev_to_vif(ndev);
+	int rc;
+	int cid = wil_find_cid(wil, vif->mid, addr);
+	u32 cfg_type;
+	struct wmi_link_maintain_cfg_write_cmd cmd;
+	struct {
+		struct wmi_cmd_hdr wmi;
+		struct wmi_link_maintain_cfg_write_done_event evt;
+	} __packed reply;
+
+	if (cid < 0)
+		return cid;
+
+	switch (wdev->iftype) {
+	case NL80211_IFTYPE_STATION:
+		cfg_type = fst_link_loss ?
+			   WMI_LINK_MAINTAIN_CFG_TYPE_DEFAULT_FST_STA :
+			   WMI_LINK_MAINTAIN_CFG_TYPE_DEFAULT_NORMAL_STA;
+		break;
+	case NL80211_IFTYPE_AP:
+		cfg_type = fst_link_loss ?
+			   WMI_LINK_MAINTAIN_CFG_TYPE_DEFAULT_FST_AP :
+			   WMI_LINK_MAINTAIN_CFG_TYPE_DEFAULT_NORMAL_AP;
+		break;
+	default:
+		wil_err(wil, "Unsupported for iftype %d", wdev->iftype);
+		return -EINVAL;
+	}
+
+	wil_dbg_misc(wil, "Setting cid:%d with cfg_type:%d\n", cid, cfg_type);
+
+	cmd.cfg_type = cpu_to_le32(cfg_type);
+	cmd.cid = cpu_to_le32(cid);
+
+	reply.evt.status = cpu_to_le32(WMI_FW_STATUS_FAILURE);
+
+	rc = wmi_call(wil, WMI_LINK_MAINTAIN_CFG_WRITE_CMDID, vif->mid,
+		      &cmd, sizeof(cmd),
+		      WMI_LINK_MAINTAIN_CFG_WRITE_DONE_EVENTID, &reply,
+		      sizeof(reply), 250);
+	if (rc) {
+		wil_err(wil, "Failed to %s FST link loss",
+			fst_link_loss ? "enable" : "disable");
+	} else if (reply.evt.status == WMI_FW_STATUS_SUCCESS) {
+		wil->sta[cid].fst_link_loss = fst_link_loss;
+	} else {
+		wil_err(wil, "WMI_LINK_MAINTAIN_CFG_WRITE_CMDID returned status %d",
+			reply.evt.status);
+		rc = -EINVAL;
+	}
+	return rc;
 }
 
 int wmi_port_allocate(struct wil6210_priv *wil, u8 mid,

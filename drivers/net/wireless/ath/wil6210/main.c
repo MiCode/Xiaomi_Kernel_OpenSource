@@ -271,6 +271,7 @@ __acquires(&sta->tid_rx_lock) __releases(&sta->tid_rx_lock)
 			break;
 		}
 		sta->status = wil_sta_unused;
+		sta->fst_link_loss = false;
 		sta->mid = U8_MAX;
 	}
 	/* reorder buffers */
@@ -1766,6 +1767,9 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 			wil_err(wil, "failed to restore vifs, rc %d\n", rc);
 			return rc;
 		}
+
+		if (wil->tt_data_set)
+			wmi_set_tt_cfg(wil, &wil->tt_data);
 
 		wil_collect_fw_info(wil);
 
