@@ -62,6 +62,7 @@ static int bt_vreg_init(struct bt_power_vreg_data *vreg)
 	vreg->reg = regulator_get(dev, vreg->name);
 	if (IS_ERR(vreg->reg)) {
 		rc = PTR_ERR(vreg->reg);
+		vreg->reg = NULL;
 		pr_err("%s: regulator_get(%s) failed. rc=%d\n",
 			__func__, vreg->name, rc);
 		goto out;
