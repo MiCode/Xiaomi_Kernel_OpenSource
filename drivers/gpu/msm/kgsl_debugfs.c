@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2008-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002, 2008-2017, 2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -168,7 +168,8 @@ static int print_mem_entry(void *data, void *ptr)
 			(unsigned long *) m->useraddr,
 			m->size, entry->id, flags,
 			memtype_str(usermem_type),
-			usage, (m->sgt ? m->sgt->nents : 0), m->mapsize,
+			usage, (m->sgt ? m->sgt->nents : 0),
+			(u64)atomic64_read(&m->mapsize),
 			egl_surface_count, egl_image_count);
 
 	if (entry->metadata[0] != 0)
