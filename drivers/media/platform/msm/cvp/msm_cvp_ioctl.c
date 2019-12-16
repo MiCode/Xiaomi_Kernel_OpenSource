@@ -526,34 +526,40 @@ static long cvp_ioctl(struct msm_cvp_inst *inst,
 	unsigned int cmd, unsigned long arg)
 {
 	int rc;
-	struct cvp_kmd_arg karg;
+	struct cvp_kmd_arg *karg;
 
 	if (!inst) {
 		dprintk(CVP_ERR, "%s: invalid params\n", __func__);
 		return -EINVAL;
 	}
 
-	memset(&karg, 0, sizeof(struct cvp_kmd_arg));
+	karg = kzalloc(sizeof(*karg), GFP_KERNEL);
+	if (!karg)
+		return -ENOMEM;
 
-	if (convert_from_user(&karg, arg, inst)) {
+	if (convert_from_user(karg, arg, inst)) {
 		dprintk(CVP_ERR, "%s: failed to get from user cmd %x\n",
-			__func__, karg.type);
+			__func__, karg->type);
+		kfree(karg);
 		return -EFAULT;
 	}
 
-	rc = msm_cvp_private((void *)inst, cmd, &karg);
+	rc = msm_cvp_private((void *)inst, cmd, karg);
 	if (rc) {
 		dprintk(CVP_ERR, "%s: failed cmd type %x %d\n",
-			__func__, karg.type, rc);
+			__func__, karg->type, rc);
+		kfree(karg);
 		return rc;
 	}
 
-	if (convert_to_user(&karg, arg)) {
+	if (convert_to_user(karg, arg)) {
 		dprintk(CVP_ERR, "%s: failed to copy to user cmd %x\n",
-			__func__, karg.type);
+			__func__, karg->type);
+		kfree(karg);
 		return -EFAULT;
 	}
 
+	kfree(karg);
 	return rc;
 }
 
