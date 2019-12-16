@@ -7802,7 +7802,7 @@ int ipa3_stop_gsi_channel(u32 clnt_hdl)
 	return res;
 }
 
-static int _ipa_suspend_pipe(enum ipa_client_type client, bool suspend)
+static int _ipa_suspend_resume_pipe(enum ipa_client_type client, bool suspend)
 {
 	int ipa_ep_idx;
 	struct ipa3_ep_context *ep;
@@ -7829,7 +7829,8 @@ static int _ipa_suspend_pipe(enum ipa_client_type client, bool suspend)
 	 * This needs to happen before starting the channel to make
 	 * sure we don't loose any interrupt
 	 */
-	if (!suspend && !atomic_read(&ep->sys->curr_polling_state))
+	if (!suspend && !atomic_read(&ep->sys->curr_polling_state) &&
+		!IPA_CLIENT_IS_APPS_PROD(client))
 		gsi_config_channel_mode(ep->gsi_chan_hdl,
 					GSI_CHAN_MODE_CALLBACK);
 
@@ -7847,6 +7848,10 @@ static int _ipa_suspend_pipe(enum ipa_client_type client, bool suspend)
 		}
 	}
 
+	/* Apps prod pipes use common event ring so cannot configure mode*/
+	if (IPA_CLIENT_IS_APPS_PROD(client))
+		return 0;
+
 	if (suspend) {
 		IPADBG("switch ch %ld to poll\n", ep->gsi_chan_hdl);
 		gsi_config_channel_mode(ep->gsi_chan_hdl, GSI_CHAN_MODE_POLL);
@@ -7861,19 +7866,103 @@ static int _ipa_suspend_pipe(enum ipa_client_type client, bool suspend)
 	return 0;
 }
 
+void ipa3_force_close_coal(void)
+{
+	struct ipahal_imm_cmd_pyld *cmd_pyld = NULL;
+	struct ipahal_imm_cmd_register_write reg_write_cmd = { 0 };
+	struct ipahal_reg_valmask valmask;
+	struct ipa3_desc desc;
+	int ep_idx;
+
+	ep_idx = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS);
+	if (ep_idx == IPA_EP_NOT_ALLOCATED || (!ipa3_ctx->ep[ep_idx].valid))
+		return;
+
+	reg_write_cmd.skip_pipeline_clear = false;
+	reg_write_cmd.pipeline_clear_options = IPAHAL_HPS_CLEAR;
+	reg_write_cmd.offset = ipahal_get_reg_ofst(IPA_AGGR_FORCE_CLOSE);
+	ipahal_get_aggr_force_close_valmask(ep_idx, &valmask);
+	reg_write_cmd.value = valmask.val;
+	reg_write_cmd.value_mask = valmask.mask;
+	cmd_pyld = ipahal_construct_imm_cmd(IPA_IMM_CMD_REGISTER_WRITE,
+		&reg_write_cmd, false);
+	if (!cmd_pyld) {
+		IPAERR("fail construct register_write imm cmd\n");
+		ipa_assert();
+		return;
+	}
+	ipa3_init_imm_cmd_desc(&desc, cmd_pyld);
+
+	IPADBG("Sending 1 descriptor for coal force close\n");
+	if (ipa3_send_cmd_timeout(1, &desc,
+		IPA_DMA_TASK_FOR_GSI_TIMEOUT_MSEC)) {
+		IPAERR("ipa3_send_cmd failed\n");
+		ipa_assert();
+	}
+	ipahal_destroy_imm_cmd(cmd_pyld);
+}
+
 int ipa3_suspend_apps_pipes(bool suspend)
 {
 	int res;
+	enum ipa_client_type client;
 
-	res = _ipa_suspend_pipe(IPA_CLIENT_APPS_LAN_CONS, suspend);
-	if (res)
-		return res;
+	if (suspend)
+		ipa3_force_close_coal();
 
-	res = _ipa_suspend_pipe(IPA_CLIENT_APPS_WAN_CONS, suspend);
-	if (res)
-		return res;
+	for (client = 0; client < IPA_CLIENT_MAX; client++) {
+		if (IPA_CLIENT_IS_APPS_CONS(client)) {
+			res = _ipa_suspend_resume_pipe(client, suspend);
+			if (res)
+				goto undo_cons;
+		}
+	}
+
+	if (suspend) {
+		struct ipahal_reg_tx_wrapper tx;
+		int ep_idx;
+
+		ep_idx = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS);
+		if (ep_idx == IPA_EP_NOT_ALLOCATED ||
+				(!ipa3_ctx->ep[ep_idx].valid))
+			goto do_prod;
+
+		ipahal_read_reg_fields(IPA_STATE_TX_WRAPPER, &tx);
+		if (tx.coal_slave_open_frame != 0) {
+			IPADBG("COAL frame is open 0x%x\n",
+				tx.coal_slave_open_frame);
+			goto undo_cons;
+		}
+
+		usleep_range(IPA_TAG_SLEEP_MIN_USEC, IPA_TAG_SLEEP_MAX_USEC);
+
+		res = ipahal_read_reg_n(IPA_SUSPEND_IRQ_INFO_EE_n,
+			ipa3_ctx->ee);
+		if (res) {
+			IPADBG("suspend irq is pending 0x%x\n", res);
+			goto undo_cons;
+		}
+	}
+do_prod:
+	for (client = 0; client < IPA_CLIENT_MAX; client++) {
+		if (IPA_CLIENT_IS_APPS_PROD(client)) {
+			res = _ipa_suspend_resume_pipe(client, suspend);
+			if (res)
+				goto undo_prod;
+		}
+	}
 
 	return 0;
+undo_prod:
+	for (client--; client < IPA_CLIENT_MAX && client >= 0; client--)
+		if (IPA_CLIENT_IS_APPS_PROD(client))
+			_ipa_suspend_resume_pipe(client, !suspend);
+	client = IPA_CLIENT_MAX;
+undo_cons:
+	for (client--; client < IPA_CLIENT_MAX && client >= 0; client--)
+		if (IPA_CLIENT_IS_APPS_CONS(client))
+			_ipa_suspend_resume_pipe(client, !suspend);
+	return res;
 }
 
 int ipa3_allocate_dma_task_for_gsi(void)
