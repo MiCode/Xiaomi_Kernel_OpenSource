@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -54,6 +54,10 @@
  * one of the client requested for vid state
  */
 #define SDE_RSC_EVENT_SOLVER_DISABLED 0x20
+
+#define SDE_RSC_REV_1			0x1
+#define SDE_RSC_REV_2			0x2
+#define SDE_RSC_REV_3			0x3
 
 /**
  * sde_rsc_client_type: sde rsc client type information
@@ -304,6 +308,16 @@ int get_sde_rsc_primary_crtc(int rsc_index);
  */
 int sde_rsc_client_trigger_vote(struct sde_rsc_client *caller_client,
 	bool delta_vote);
+
+/**
+ * get_sde_rsc_version - get the supported rsc version
+ *
+ * @rsc_index:	A client will be created on this RSC. As of now only
+ *               SDE_RSC_INDEX is valid rsc index.
+ * Return the rsc version.
+ */
+u32 get_sde_rsc_version(int rsc_index);
+
 #else
 
 static inline struct sde_rsc_client *sde_rsc_client_create(u32 rsc_index,
@@ -378,6 +392,13 @@ static inline int sde_rsc_client_trigger_vote(
 {
 	return 0;
 }
+
+
+static inline u32 get_sde_rsc_version(int rsc_index)
+{
+	return 0;
+}
+
 #endif /* CONFIG_DRM_SDE_RSC */
 
 #endif /* _SDE_RSC_H_ */
