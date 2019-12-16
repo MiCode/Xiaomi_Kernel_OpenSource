@@ -1083,7 +1083,12 @@ static int pmic_gpio_probe(struct platform_device *pdev)
 		return -ENXIO;
 
 	girq = &state->chip.irq;
-	girq->chip = &pmic_gpio_irq_chip;
+
+	girq->chip = devm_kmemdup(dev, &pmic_gpio_irq_chip,
+				  sizeof(pmic_gpio_irq_chip), GFP_KERNEL);
+	if (!girq->chip)
+		return -ENOMEM;
+
 	girq->default_type = IRQ_TYPE_NONE;
 	girq->handler = handle_level_irq;
 	girq->fwnode = of_node_to_fwnode(state->dev->of_node);
@@ -1154,6 +1159,8 @@ static const struct of_device_id pmic_gpio_of_match[] = {
 	{ .compatible = "qcom,pm8350b-gpio", .data = (void *) 8 },
 	{ .compatible = "qcom,pm8350c-gpio", .data = (void *) 9 },
 	{ .compatible = "qcom,pmk8350-gpio", .data = (void *) 4 },
+	{ .compatible = "qcom,pmr735a-gpio", .data = (void *) 4 },
+	{ .compatible = "qcom,pmr735b-gpio", .data = (void *) 4 },
 	{ },
 };
 
