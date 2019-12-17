@@ -775,6 +775,27 @@ static int ipa3_handle_rx_core(struct ipa3_sys_context *sys, bool process_all,
 }
 
 /**
+ * __ipa3_update_curr_poll_state -> update current polling for default wan and
+ *                                  coalescing pipe.
+ * In RSC/RSB enabled cases using common event ring, so both the pipe
+ * polling state should be in sync.
+ */
+static void __ipa3_update_curr_poll_state(enum ipa_client_type client,
+								int state)
+{
+	int ep_idx = IPA_EP_NOT_ALLOCATED;
+
+	if (client == IPA_CLIENT_APPS_WAN_COAL_CONS)
+		ep_idx = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
+	if (client == IPA_CLIENT_APPS_WAN_CONS)
+		ep_idx = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS);
+
+	if (ep_idx != IPA_EP_NOT_ALLOCATED && ipa3_ctx->ep[ep_idx].sys)
+		atomic_set(&ipa3_ctx->ep[ep_idx].sys->curr_polling_state,
+									state);
+}
+
+/**
  * ipa3_rx_switch_to_intr_mode() - Operate the Rx data path in interrupt mode
  */
 static int ipa3_rx_switch_to_intr_mode(struct ipa3_sys_context *sys)
@@ -782,6 +803,8 @@ static int ipa3_rx_switch_to_intr_mode(struct ipa3_sys_context *sys)
 	int ret;
 
 	atomic_set(&sys->curr_polling_state, 0);
+	__ipa3_update_curr_poll_state(sys->ep->client, 0);
+
 	ipa3_dec_release_wakelock();
 	ret = gsi_config_channel_mode(sys->ep->gsi_chan_hdl,
 		GSI_CHAN_MODE_CALLBACK);
@@ -790,8 +813,10 @@ static int ipa3_rx_switch_to_intr_mode(struct ipa3_sys_context *sys)
 		if (ret == -GSI_STATUS_PENDING_IRQ) {
 			ipa3_inc_acquire_wakelock();
 			atomic_set(&sys->curr_polling_state, 1);
+			__ipa3_update_curr_poll_state(sys->ep->client, 1);
 		} else {
-			IPAERR("Failed to switch to intr mode.\n");
+			IPAERR("Failed to switch to intr mode %d ch_id %d\n",
+			 sys->curr_polling_state, sys->ep->gsi_chan_hdl);
 		}
 	}
 
@@ -4305,6 +4330,8 @@ void __ipa_gsi_irq_rx_scedule_poll(struct ipa3_sys_context *sys)
 	bool clk_off;
 
 	atomic_set(&sys->curr_polling_state, 1);
+	__ipa3_update_curr_poll_state(sys->ep->client, 1);
+
 	ipa3_inc_acquire_wakelock();
 
 	/*
