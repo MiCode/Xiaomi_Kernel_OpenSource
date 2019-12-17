@@ -23,6 +23,7 @@
 #include "stmmac_platform.h"
 #include "dwmac-qcom-ethqos.h"
 #include "stmmac_ptp.h"
+#include "dwmac-qcom-ipa-offload.h"
 
 static unsigned long tlmm_central_base_addr;
 bool phy_intr_en;
@@ -838,6 +839,21 @@ fail:
 	return -ENOMEM;
 }
 
+static void ethqos_emac_mem_base(struct qcom_ethqos *ethqos)
+{
+	struct resource *resource = NULL;
+	int ret = 0;
+
+	resource = platform_get_resource(ethqos->pdev, IORESOURCE_MEM, 0);
+	if (!resource) {
+		ETHQOSERR("get emac-base resource failed\n");
+		ret = -ENODEV;
+		return;
+	}
+	ethqos->emac_mem_base = resource->start;
+	ethqos->emac_mem_size = resource_size(resource);
+}
+
 static void emac_emb_smmu_exit(void)
 {
 	if (emac_emb_smmu_ctx.valid) {
@@ -1147,6 +1163,8 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	struct stmmac_resources stmmac_res;
 	struct qcom_ethqos *ethqos;
 	struct resource *res;
+	struct net_device *ndev;
+	struct stmmac_priv *priv;
 	int ret;
 
 	ipc_emac_log_ctxt = ipc_log_context_create(IPCLOG_STATE_PAGES,
@@ -1228,7 +1246,7 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 
 	ethqos->emac_ver = rgmii_readl(ethqos,
 				       EMAC_I0_EMAC_CORE_HW_VERSION_RGOFFADDR);
-
+	ethqos->ioaddr = (&stmmac_res)->addr;
 	ethqos_update_rgmii_tx_drv_strength(ethqos);
 
 	ret = stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
@@ -1259,8 +1277,17 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 			  qcom_ethqos_qmp_mailbox_work);
 		queue_work(system_wq, &ethqos->qmp_mailbox_work);
 	}
+	ethqos_emac_mem_base(ethqos);
 	pethqos = ethqos;
 	ethqos_create_debugfs(ethqos);
+
+	ndev = dev_get_drvdata(&ethqos->pdev->dev);
+	priv = netdev_priv(ndev);
+#ifdef CONFIG_ETH_IPA_OFFLOAD
+	ethqos->ipa_enabled = true;
+	priv->rx_queue[IPA_DMA_RX_CH].skip_sw = true;
+	priv->tx_queue[IPA_DMA_TX_CH].skip_sw = true;
+#endif
 	return ret;
 
 err_clk:
