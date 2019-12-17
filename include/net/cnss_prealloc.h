@@ -4,6 +4,8 @@
 #ifndef _NET_CNSS_PREALLOC_H_
 #define _NET_CNSS_PREALLOC_H_
 
+#include <linux/types.h>
+
 #define WCNSS_PRE_ALLOC_GET_THRESHOLD (4*1024)
 
 extern void *wcnss_prealloc_get(size_t size);

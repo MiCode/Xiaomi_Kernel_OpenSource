@@ -9,6 +9,7 @@
 
 #include <dt-bindings/input/qcom,qpnp-power-on.h>
 #include <linux/errno.h>
+#include <linux/types.h>
 
 /**
  * enum pon_trigger_source: List of PON trigger sources

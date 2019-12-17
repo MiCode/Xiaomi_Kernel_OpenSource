@@ -15,6 +15,7 @@
 typedef u64 av8l_fast_iopte;
 
 struct io_pgtable_ops;
+struct scatterlist;
 
 #ifdef CONFIG_IOMMU_IO_PGTABLE_FAST
 

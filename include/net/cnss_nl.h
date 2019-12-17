@@ -4,6 +4,8 @@
 #ifndef _NET_CNSS_GENETLINK_H_
 #define _NET_CNSS_GENETLINK_H_
 
+#include <linux/types.h>
+
 #define CLD80211_MAX_COMMANDS 40
 #define CLD80211_MAX_NL_DATA  4096
 

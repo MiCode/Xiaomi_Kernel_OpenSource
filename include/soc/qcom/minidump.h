@@ -6,6 +6,8 @@
 #ifndef __MINIDUMP_H
 #define __MINIDUMP_H
 
+#include <linux/types.h>
+
 #define MAX_NAME_LENGTH		12
 /* md_region -  Minidump table entry
  * @name:	Entry name, Minidump will dump binary with this name.

@@ -6,6 +6,8 @@
 #ifndef __CORE_CTL_H
 #define __CORE_CTL_H
 
+#include <linux/types.h>
+
 #define MAX_CPUS_PER_CLUSTER 6
 #define MAX_CLUSTERS 3
 
@@ -15,6 +17,8 @@ struct core_ctl_notif_data {
 	unsigned int ta_util_pct[MAX_CLUSTERS];
 	unsigned int cur_cap_pct[MAX_CLUSTERS];
 };
+
+struct notifier_block;
 
 #ifdef CONFIG_SCHED_WALT
 extern int __weak core_ctl_set_boost(bool boost);

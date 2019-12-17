@@ -7,6 +7,10 @@
 #ifndef __SOC_QCOM_LPM_LEVEL_H__
 #define __SOC_QCOM_LPM_LEVEL_H__
 
+#include <linux/types.h>
+
+struct cpumask;
+
 struct system_pm_ops {
 	int (*enter)(struct cpumask *mask);
 	void (*exit)(bool success);

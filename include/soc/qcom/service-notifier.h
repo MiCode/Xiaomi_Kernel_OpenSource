@@ -10,6 +10,8 @@
 #ifndef _SERVICE_NOTIFIER_H
 #define _SERVICE_NOTIFIER_H
 
+#include <linux/limits.h>
+
 enum qmi_servreg_notif_service_state_enum_type_v01 {
 	QMI_SERVREG_NOTIF_SERVICE_STATE_ENUM_TYPE_MIN_VAL_V01 = INT_MIN,
 	QMI_SERVREG_NOTIF_SERVICE_STATE_ENUM_TYPE_MAX_VAL_V01 = INT_MAX,
@@ -27,6 +29,9 @@ enum pd_subsys_state {
 	ROOT_PD_SHUTDOWN,
 	USER_PD_STATE_CHANGE,
 };
+
+struct notifier_block;
+
 #if IS_ENABLED(CONFIG_MSM_SERVICE_NOTIFIER)
 
 /* service_notif_register_notifier() - Register a notifier for a service

@@ -6,6 +6,8 @@
 #ifndef __LINUX_USB_QDSS_H
 #define __LINUX_USB_QDSS_H
 
+#include <linux/err.h>
+#include <linux/errno.h>
 #include <linux/kernel.h>
 
 #define USB_QDSS_CH_MDM	"qdss_mdm"
