@@ -556,6 +556,18 @@ config CMA_DIRECT_UTILIZATION
 	  CMA pages, so that CMA pages can be used directly for allocations,
 	  instead of as a fallback, thus, improving CMA utilization.
 
+config CMA_PCP_LISTS
+	bool "Create PCP lists for CMA memory"
+	depends on CMA && CMA_DIRECT_UTILIZATION && QGKI
+	help
+	  Improve memory utilization by creating PCP lists that contain CMA
+	  pages to satisfy order-0 allocations when appropriate. Increased
+	  CMA usage results in better memory utilization, as the system will
+	  can use CMA pages to satisfy movable allocations. This results in
+	  more efficient reclaim when trying to satisfy non-movable
+	  allocations, as the amount of non-CMA memory to be reclaimed should
+	  be smaller.
+
 config MEM_SOFT_DIRTY
 	bool "Track memory changes"
 	depends on CHECKPOINT_RESTORE && HAVE_ARCH_SOFT_DIRTY && PROC_FS
