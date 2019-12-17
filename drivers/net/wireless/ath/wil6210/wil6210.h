@@ -934,6 +934,7 @@ struct wil6210_priv {
 	const char *hw_name;
 	const char *wil_fw_name;
 	char *board_file;
+	char board_file_country[3]; /* alpha2 */
 	u32 num_of_brd_entries;
 	struct wil_brd_info *brd_info;
 	DECLARE_BITMAP(hw_capa, hw_capa_last);
@@ -1045,6 +1046,9 @@ struct wil6210_priv {
 		short direct;
 	} snr_thresh;
 
+	/* current reg domain configured in kernel */
+	char regdomain[3]; /* alpha2 */
+
 	struct notifier_block pm_notify;
 
 	bool suspend_resp_rcvd;
@@ -1055,6 +1059,9 @@ struct wil6210_priv {
 	u32 rgf_fw_assert_code_addr;
 	u32 rgf_ucode_assert_code_addr;
 	u32 iccm_base;
+
+	u8 publish_nl_evt; /* deliver WMI events to user space */
+	u8 force_wmi_send; /* allow WMI command while FW in sysassert */
 
 	/* relevant only for eDMA */
 	bool use_compressed_rx_status;
@@ -1247,6 +1254,8 @@ void __iomem *wmi_addr(struct wil6210_priv *wil, u32 ptr);
 int wmi_read_hdr(struct wil6210_priv *wil, __le32 ptr,
 		 struct wil6210_mbox_hdr *hdr);
 int wmi_send(struct wil6210_priv *wil, u16 cmdid, u8 mid, void *buf, u16 len);
+int wmi_force_send(struct wil6210_priv *wil, u16 cmdid, u8 mid, void *buf,
+		   u16 len);
 void wmi_recv_cmd(struct wil6210_priv *wil);
 int wmi_call(struct wil6210_priv *wil, u16 cmdid, u8 mid, void *buf, u16 len,
 	     u16 reply_id, void *reply, u16 reply_size, int to_msec);
@@ -1440,6 +1449,7 @@ void wil_ftm_evt_per_dest_res(struct wil6210_vif *vif,
 void wil_aoa_evt_meas(struct wil6210_vif *vif,
 		      struct wmi_aoa_meas_event *evt,
 		      int len);
+void wil_nl_60g_receive_wmi_evt(struct wil6210_priv *wil, u8 *cmd, int len);
 /* link loss */
 int wmi_link_maintain_cfg_write(struct wil6210_priv *wil,
 				const u8 *addr,
