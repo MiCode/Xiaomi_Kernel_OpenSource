@@ -348,6 +348,21 @@ static struct cnss_misc_reg wlaon_reg_access_seq[] = {
 	{0, QCA6390_SYSPM_WCSSAON_SR_STATUS, 0},
 };
 
+static struct cnss_bus_bw_cfg cnss_bus_bw_table[] = {
+	/* no vote */
+	{0, 0},
+	/* idle: 0-18 Mbps, ddr freq: 100 MHz */
+	{2250, 400000},
+	/* low: 18-60 Mbps, ddr freq: 200 MHz*/
+	{7500, 800000},
+	/* medium: 60-240 Mbps, ddr freq: 451.2 MHz */
+	{30000, 1804800},
+	/* high: 240 - 800 Mbps, ddr freq: 451.2 MHz */
+	{100000, 1804800},
+	/* very high: 800 - 1400 Mbps, ddr freq: 1555.2 MHz */
+	{175000, 6220800},
+};
+
 #define WCSS_REG_SIZE ARRAY_SIZE(wcss_reg_access_seq)
 #define PCIE_REG_SIZE ARRAY_SIZE(pcie_reg_access_seq)
 #define WLAON_REG_SIZE ARRAY_SIZE(wlaon_reg_access_seq)
@@ -483,6 +498,44 @@ static int cnss_pci_force_wake_put(struct cnss_pci_data *pci_priv)
 
 	return ret;
 }
+
+int cnss_request_bus_bandwidth(struct device *dev, int bandwidth)
+{
+	int ret = 0;
+	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
+	struct cnss_bus_bw_info *bus_bw_info;
+
+	if (!plat_priv)
+		return -ENODEV;
+
+	bus_bw_info = &plat_priv->bus_bw_info;
+	if (!bus_bw_info->cnss_path)
+		return -EINVAL;
+
+	switch (bandwidth) {
+	case CNSS_BUS_WIDTH_NONE:
+	case CNSS_BUS_WIDTH_IDLE:
+	case CNSS_BUS_WIDTH_LOW:
+	case CNSS_BUS_WIDTH_MEDIUM:
+	case CNSS_BUS_WIDTH_HIGH:
+	case CNSS_BUS_WIDTH_VERY_HIGH:
+		ret = icc_set_bw(bus_bw_info->cnss_path,
+				 cnss_bus_bw_table[bandwidth].ab,
+				 cnss_bus_bw_table[bandwidth].ib);
+		if (!ret)
+			bus_bw_info->current_bw_vote = bandwidth;
+		else
+			cnss_pr_err("Could not set bus bandwidth: %d, err = %d\n",
+				    bandwidth, ret);
+		break;
+	default:
+		cnss_pr_err("Invalid bus bandwidth: %d", bandwidth);
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(cnss_request_bus_bandwidth);
 
 int cnss_pci_debug_reg_read(struct cnss_pci_data *pci_priv, u32 offset,
 			    u32 *val)
@@ -2399,6 +2452,9 @@ static int cnss_pci_suspend_noirq(struct device *dev)
 	if (driver_ops && driver_ops->suspend_noirq)
 		ret = driver_ops->suspend_noirq(pci_dev);
 
+	if (pci_priv->disable_pc && !pci_dev->state_saved)
+		pci_save_state(pci_dev);
+
 out:
 	return ret;
 }
@@ -2699,7 +2755,9 @@ int cnss_auto_suspend(struct device *dev)
 
 	cnss_pci_set_monitor_wake_intr(pci_priv, true);
 
-	cnss_request_bus_bandwidth(dev, CNSS_BUS_WIDTH_NONE);
+	icc_set_bw(plat_priv->bus_bw_info.cnss_path,
+		   cnss_bus_bw_table[CNSS_BUS_WIDTH_NONE].ab,
+		   cnss_bus_bw_table[CNSS_BUS_WIDTH_NONE].ib);
 
 	return 0;
 }
@@ -2729,8 +2787,7 @@ int cnss_auto_resume(struct device *dev)
 	cnss_pci_set_auto_suspended(pci_priv, 0);
 	mutex_unlock(&pci_priv->bus_lock);
 
-	cnss_request_bus_bandwidth(dev,
-				   plat_priv->bus_bw_info->current_bw_vote);
+	cnss_request_bus_bandwidth(dev, plat_priv->bus_bw_info.current_bw_vote);
 
 	return 0;
 }
@@ -3973,8 +4030,8 @@ static int cnss_pci_register_mhi(struct cnss_pci_data *pci_priv)
 		mhi_ctrl->iova_stop = pci_priv->smmu_iova_start +
 					pci_priv->smmu_iova_len;
 	} else {
-		mhi_ctrl->iova_start = memblock_start_of_DRAM();
-		mhi_ctrl->iova_stop = memblock_end_of_DRAM();
+		mhi_ctrl->iova_start = 0;
+		mhi_ctrl->iova_stop = UINT_MAX;
 	}
 
 	mhi_ctrl->link_status = cnss_mhi_link_status;
@@ -4069,7 +4126,6 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 		goto out;
 	}
 
-	pci_dev->no_d3hot = true;
 	pci_priv->pci_link_state = PCI_LINK_UP;
 	pci_priv->plat_priv = plat_priv;
 	pci_priv->pci_dev = pci_dev;

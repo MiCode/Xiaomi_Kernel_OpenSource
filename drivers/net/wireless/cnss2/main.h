@@ -5,10 +5,13 @@
 #define _CNSS_MAIN_H
 
 #include <asm/arch_timer.h>
+#ifdef CONFIG_ESOC
 #include <linux/esoc_client.h>
+#endif
 #include <linux/etherdevice.h>
 #include <linux/interconnect.h>
 #include <linux/pm_qos.h>
+#include <linux/platform_device.h>
 #include <net/cnss2.h>
 #include <soc/qcom/memory_dump.h>
 #include <soc/qcom/subsystem_restart.h>
@@ -111,12 +114,14 @@ struct cnss_ramdump_info_v2 {
 	struct cnss_dump_data dump_data;
 };
 
+#ifdef CONFIG_ESOC
 struct cnss_esoc_info {
 	struct esoc_desc *esoc_desc;
 	u8 notify_modem_status;
 	void *modem_notify_handler;
 	int modem_current_status;
 };
+#endif
 
 struct cnss_bus_bw_cfg {
 	u32 ab;
@@ -310,7 +315,9 @@ struct cnss_plat_data {
 	struct cnss_subsys_info subsys_info;
 	struct cnss_ramdump_info ramdump_info;
 	struct cnss_ramdump_info_v2 ramdump_info_v2;
+#ifdef CONFIG_ESOC
 	struct cnss_esoc_info esoc_info;
+#endif
 	struct cnss_bus_bw_info bus_bw_info;
 	struct notifier_block modem_nb;
 	struct notifier_block reboot_nb;
@@ -370,7 +377,7 @@ struct cnss_plat_data {
 #ifdef CONFIG_ARCH_QCOM
 static inline u64 cnss_get_host_timestamp(struct cnss_plat_data *plat_priv)
 {
-	u64 ticks = arch_counter_get_cntvct();
+	u64 ticks = __arch_counter_get_cntvct();
 
 	do_div(ticks, TIME_CLOCK_FREQ_HZ / 100000);
 

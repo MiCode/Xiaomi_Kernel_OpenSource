@@ -4,7 +4,6 @@
 #ifndef _CNSS_PCI_H
 #define _CNSS_PCI_H
 
-#include <asm/dma-iommu.h>
 #include <linux/iommu.h>
 #include <linux/mhi.h>
 #include <linux/msm_pcie.h>
