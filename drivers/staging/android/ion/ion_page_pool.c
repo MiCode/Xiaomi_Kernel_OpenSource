@@ -81,7 +81,7 @@ void ion_page_pool_refill(struct ion_page_pool *pool)
 {
 	struct page *page;
 	gfp_t gfp_refill = (pool->gfp_mask | __GFP_RECLAIM) & ~__GFP_NORETRY;
-	struct device *dev = pool->heap.priv;
+	struct device *dev = pool->dev;
 
 	/* skip refilling order 0 pools */
 	if (!pool->order)
