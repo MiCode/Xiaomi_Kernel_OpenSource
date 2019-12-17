@@ -1135,6 +1135,7 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 	 * buffer, provided the size matches. Any allocation has to be done
 	 * with the lock released.
 	 */
+	mutex_lock(&drvdata->mem_lock);
 	spin_lock_irqsave(&drvdata->spinlock, flags);
 	sysfs_buf = READ_ONCE(drvdata->sysfs_buf);
 	if (!sysfs_buf || (sysfs_buf->size != drvdata->size)) {
@@ -1142,12 +1143,16 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 
 		/* Allocate memory with the locks released */
 		free_buf = new_buf = tmc_etr_setup_sysfs_buf(drvdata);
-		if (IS_ERR(new_buf))
+		if (IS_ERR(new_buf)) {
+			mutex_unlock(&drvdata->mem_lock);
 			return PTR_ERR(new_buf);
-
+		}
 		/* Let's try again */
 		spin_lock_irqsave(&drvdata->spinlock, flags);
 	}
+
+	coresight_cti_map_trigout(drvdata->cti_flush, 3, 0);
+	coresight_cti_map_trigin(drvdata->cti_reset, 2, 0);
 
 	if (drvdata->reading || drvdata->mode == CS_MODE_PERF) {
 		ret = -EBUSY;
@@ -1188,6 +1193,7 @@ out:
 		tmc_etr_free_sysfs_buf(free_buf);
 
 	tmc_etr_byte_cntr_start(drvdata->byte_cntr);
+	mutex_unlock(&drvdata->mem_lock);
 
 	if (!ret)
 		dev_dbg(&csdev->dev, "TMC-ETR enabled\n");
@@ -1633,10 +1639,12 @@ static int tmc_disable_etr_sink(struct coresight_device *csdev)
 	unsigned long flags;
 	struct tmc_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
 
+	mutex_lock(&drvdata->mem_lock);
 	spin_lock_irqsave(&drvdata->spinlock, flags);
 
 	if (drvdata->reading) {
 		spin_unlock_irqrestore(&drvdata->spinlock, flags);
+		mutex_unlock(&drvdata->mem_lock);
 		return -EBUSY;
 	}
 
@@ -1657,11 +1665,14 @@ static int tmc_disable_etr_sink(struct coresight_device *csdev)
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
 	tmc_etr_byte_cntr_stop(drvdata->byte_cntr);
+	coresight_cti_unmap_trigin(drvdata->cti_reset, 2, 0);
+	coresight_cti_unmap_trigout(drvdata->cti_flush, 3, 0);
 	/* Free memory outside the spinlock if need be */
 	if (drvdata->etr_buf) {
 		tmc_etr_free_sysfs_buf(drvdata->etr_buf);
 		drvdata->etr_buf = NULL;
 	}
+	mutex_unlock(&drvdata->mem_lock);
 	dev_info(&csdev->dev, "TMC-ETR disabled\n");
 	return 0;
 }
@@ -1687,6 +1698,7 @@ int tmc_read_prepare_etr(struct tmc_drvdata *drvdata)
 	if (WARN_ON_ONCE(drvdata->config_type != TMC_CONFIG_TYPE_ETR))
 		return -EINVAL;
 
+	mutex_lock(&drvdata->mem_lock);
 	spin_lock_irqsave(&drvdata->spinlock, flags);
 	if (drvdata->reading) {
 		ret = -EBUSY;
@@ -1715,6 +1727,7 @@ int tmc_read_prepare_etr(struct tmc_drvdata *drvdata)
 	drvdata->reading = true;
 out:
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
+	mutex_unlock(&drvdata->mem_lock);
 
 	return ret;
 }
@@ -1727,7 +1740,7 @@ int tmc_read_unprepare_etr(struct tmc_drvdata *drvdata)
 	/* config types are set a boot time and never change */
 	if (WARN_ON_ONCE(drvdata->config_type != TMC_CONFIG_TYPE_ETR))
 		return -EINVAL;
-
+	mutex_lock(&drvdata->mem_lock);
 	spin_lock_irqsave(&drvdata->spinlock, flags);
 
 	/* RE-enable the TMC if need be */
@@ -1754,5 +1767,7 @@ int tmc_read_unprepare_etr(struct tmc_drvdata *drvdata)
 	if (sysfs_buf)
 		tmc_etr_free_sysfs_buf(sysfs_buf);
 
+
+	mutex_unlock(&drvdata->mem_lock);
 	return 0;
 }

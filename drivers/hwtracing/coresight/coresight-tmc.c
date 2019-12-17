@@ -184,19 +184,24 @@ static ssize_t tmc_read(struct file *file, char __user *data, size_t len,
 	ssize_t actual;
 	struct tmc_drvdata *drvdata = container_of(file->private_data,
 						   struct tmc_drvdata, miscdev);
+	mutex_lock(&drvdata->mem_lock);
 	actual = tmc_get_sysfs_trace(drvdata, *ppos, len, &bufp);
-	if (actual <= 0)
+	if (actual <= 0) {
+		mutex_unlock(&drvdata->mem_lock);
 		return 0;
+	}
 
 	if (copy_to_user(data, bufp, actual)) {
 		dev_dbg(&drvdata->csdev->dev,
 			"%s: copy_to_user failed\n", __func__);
+		mutex_unlock(&drvdata->mem_lock);
 		return -EFAULT;
 	}
 
 	*ppos += actual;
 	dev_dbg(&drvdata->csdev->dev, "%zu bytes copied\n", actual);
 
+	mutex_unlock(&drvdata->mem_lock);
 	return actual;
 }
 
@@ -493,6 +498,7 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 	struct resource *res = &adev->res;
 	struct coresight_desc desc = { 0 };
 	struct coresight_dev_list *dev_list = NULL;
+	struct coresight_cti_data *ctidata;
 
 	ret = -ENOMEM;
 	drvdata = devm_kzalloc(dev, sizeof(*drvdata), GFP_KERNEL);
@@ -511,6 +517,7 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 	drvdata->base = base;
 
 	spin_lock_init(&drvdata->spinlock);
+	mutex_init(&drvdata->mem_lock);
 
 	devid = readl_relaxed(drvdata->base + CORESIGHT_DEVID);
 	drvdata->config_type = BMVAL(devid, 6, 7);
@@ -530,6 +537,23 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 		drvdata->csr = coresight_csr_get(drvdata->csr_name);
 		if (IS_ERR(drvdata->csr)) {
 			dev_dbg(dev, "failed to get csr, defer probe\n");
+			return -EPROBE_DEFER;
+		}
+	}
+
+	ctidata = of_get_coresight_cti_data(dev, adev->dev.of_node);
+	if (IS_ERR(ctidata)) {
+		dev_err(dev, "invalid cti data\n");
+	} else if (ctidata && ctidata->nr_ctis == 2) {
+		drvdata->cti_flush = coresight_cti_get(ctidata->names[0]);
+		if (IS_ERR(drvdata->cti_flush)) {
+			dev_err(dev, "failed to get flush cti, defer probe\n");
+			return -EPROBE_DEFER;
+		}
+
+		drvdata->cti_reset = coresight_cti_get(ctidata->names[1]);
+		if (IS_ERR(drvdata->cti_reset)) {
+			dev_err(dev, "failed to get reset cti, defer probe\n");
 			return -EPROBE_DEFER;
 		}
 	}
