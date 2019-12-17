@@ -110,6 +110,7 @@
 		reg-names = "emac-base", "rgmii-base";
 		dma-bit-mask = <32>;
 		emac-core-version = <7>;
+		emac-phy-addr = <7>;
 		interrupts-extended = <&pdc 0 660 4>, <&pdc 0 661 4>,
 			<&tlmm 121 2>, <&pdc 0 651 4>,
 			<&pdc 0 652 4>, <&pdc 0 653 4>,

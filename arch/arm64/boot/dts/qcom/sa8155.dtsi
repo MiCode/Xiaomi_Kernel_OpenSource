@@ -580,6 +580,7 @@
 		compatible = "qcom,emac-dwc-eqos";
 		qcom,arm-smmu;
 		emac-core-version = <2>;
+		emac-phy-addr = <7>;
 		reg = <0x20000 0x10000>,
 			<0x36000 0x100>,
 			<0x3D00000 0x300000>;
