@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: ISC */
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved. */
 
 #ifndef __WIL6210_FTM_H__
 #define __WIL6210_FTM_H__
@@ -490,6 +490,9 @@ struct wil_ftm_priv {
 	struct timer_list aoa_timer;
 	struct work_struct aoa_timeout_work;
 };
+
+extern const struct
+nla_policy wil_nl80211_loc_policy[];
 
 int wil_ftm_get_capabilities(struct wiphy *wiphy, struct wireless_dev *wdev,
 			     const void *data, int data_len);
