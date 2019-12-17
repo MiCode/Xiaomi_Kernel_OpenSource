@@ -63,7 +63,6 @@ static u32 a6xx_pwrup_reglist[] = {
 
 /* IFPC only static powerup restore list */
 static u32 a6xx_ifpc_pwrup_reglist[] = {
-	A6XX_RBBM_VBIF_CLIENT_QOS_CNTL,
 	A6XX_CP_CHICKEN_DBG,
 	A6XX_CP_DBG_ECO_CNTL,
 	A6XX_CP_PROTECT_CNTL,
@@ -336,6 +335,18 @@ static void a6xx_patch_pwrup_reglist(struct adreno_device *adreno_dev)
 
 		lock->list_length += reglist[i].count * 2;
 	}
+
+	if (adreno_is_a630(adreno_dev)) {
+		*dest++ = A6XX_RBBM_VBIF_CLIENT_QOS_CNTL;
+		kgsl_regread(KGSL_DEVICE(adreno_dev),
+			A6XX_RBBM_VBIF_CLIENT_QOS_CNTL, dest++);
+	} else {
+		*dest++ = A6XX_RBBM_GBIF_CLIENT_QOS_CNTL;
+		kgsl_regread(KGSL_DEVICE(adreno_dev),
+			A6XX_RBBM_GBIF_CLIENT_QOS_CNTL, dest++);
+	}
+
+	lock->list_length += 2;
 
 	/*
 	 * The overall register list is composed of
