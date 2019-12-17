@@ -26,7 +26,7 @@
 
 &reserved_mem {
 	linux,cma {
-		size = <0 0x400000>;
+		size = <0 0x1000000>;
 	};
 };
 
