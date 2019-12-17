@@ -98,6 +98,44 @@ int mhi_get_capability_offset(struct mhi_controller *mhi_cntrl,
 	return -ENXIO;
 }
 
+void mhi_force_reg_write(struct mhi_controller *mhi_cntrl)
+{
+	if (mhi_cntrl->offload_wq)
+		flush_work(&mhi_cntrl->reg_write_work);
+}
+
+void mhi_reset_reg_write_q(struct mhi_controller *mhi_cntrl)
+{
+	cancel_work_sync(&mhi_cntrl->reg_write_work);
+	memset(mhi_cntrl->reg_write_q, 0,
+	       sizeof(struct reg_write_info) * REG_WRITE_QUEUE_LEN);
+	mhi_cntrl->read_idx = 0;
+	atomic_set(&mhi_cntrl->write_idx, -1);
+}
+
+static void mhi_reg_write_enqueue(struct mhi_controller *mhi_cntrl,
+	void __iomem *reg_addr, u32 val)
+{
+	u32 q_index = atomic_inc_return(&mhi_cntrl->write_idx);
+
+	q_index = q_index & (REG_WRITE_QUEUE_LEN - 1);
+
+	MHI_ASSERT(mhi_cntrl->reg_write_q[q_index].valid, "queue full idx %d");
+
+	mhi_cntrl->reg_write_q[q_index].reg_addr =  reg_addr;
+	mhi_cntrl->reg_write_q[q_index].val = val;
+	mhi_cntrl->reg_write_q[q_index].valid = true;
+}
+
+void mhi_write_reg_offload(struct mhi_controller *mhi_cntrl,
+		   void __iomem *base,
+		   u32 offset,
+		   u32 val)
+{
+	mhi_reg_write_enqueue(mhi_cntrl, base + offset, val);
+	queue_work(mhi_cntrl->offload_wq, &mhi_cntrl->reg_write_work);
+}
+
 void mhi_write_reg(struct mhi_controller *mhi_cntrl,
 		   void __iomem *base,
 		   u32 offset,
@@ -122,15 +160,15 @@ void mhi_write_reg_field(struct mhi_controller *mhi_cntrl,
 
 	tmp &= ~mask;
 	tmp |= (val << shift);
-	mhi_write_reg(mhi_cntrl, base, offset, tmp);
+	mhi_cntrl->write_reg(mhi_cntrl, base, offset, tmp);
 }
 
 void mhi_write_db(struct mhi_controller *mhi_cntrl,
 		  void __iomem *db_addr,
 		  dma_addr_t wp)
 {
-	mhi_write_reg(mhi_cntrl, db_addr, 4, upper_32_bits(wp));
-	mhi_write_reg(mhi_cntrl, db_addr, 0, lower_32_bits(wp));
+	mhi_cntrl->write_reg(mhi_cntrl, db_addr, 4, upper_32_bits(wp));
+	mhi_cntrl->write_reg(mhi_cntrl, db_addr, 0, lower_32_bits(wp));
 }
 
 void mhi_db_brstmode(struct mhi_controller *mhi_cntrl,
@@ -1484,7 +1522,7 @@ int mhi_process_bw_scale_ev_ring(struct mhi_controller *mhi_cntrl,
 
 	read_lock_bh(&mhi_cntrl->pm_lock);
 	if (likely(MHI_DB_ACCESS_VALID(mhi_cntrl)))
-		mhi_write_reg(mhi_cntrl, mhi_cntrl->bw_scale_db, 0,
+		mhi_cntrl->write_reg(mhi_cntrl, mhi_cntrl->bw_scale_db, 0,
 			      MHI_BW_SCALE_RESULT(result,
 						  link_info.sequence_num));
 
