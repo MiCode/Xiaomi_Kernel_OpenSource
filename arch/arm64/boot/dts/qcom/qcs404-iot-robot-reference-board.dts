@@ -39,6 +39,10 @@
 	};
 };
 
+&adsp_fw_mem {
+	reg = <0x0 0x87400000 0x0 0x1400000>;
+};
+
 &tlmm {
 	evb_tlmm_gpio_key{
 		tlmm_gpio_key_active: tlmm_gpio_key_active {
