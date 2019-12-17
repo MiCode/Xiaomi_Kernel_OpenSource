@@ -130,6 +130,14 @@ static struct qmi_dev_info device_clients[] = {
 		.type = QMI_CDEV_MAX_LIMIT_TYPE,
 	},
 	{
+		.dev_name = "cdsp_sw",
+		.type = QMI_CDEV_MAX_LIMIT_TYPE,
+	},
+	{
+		.dev_name = "cdsp_hw",
+		.type = QMI_CDEV_MAX_LIMIT_TYPE,
+	},
+	{
 		.dev_name = "cpuv_restriction_cold",
 		.type = QMI_CDEV_MIN_LIMIT_TYPE,
 	},
