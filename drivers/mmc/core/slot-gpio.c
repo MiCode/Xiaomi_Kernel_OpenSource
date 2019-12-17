@@ -172,6 +172,10 @@ void mmc_gpiod_request_cd_irq(struct mmc_host *host)
 
 	if (irq < 0)
 		host->caps |= MMC_CAP_NEEDS_POLL;
+	ret = mmc_gpio_set_cd_wake(host, true);
+	if (ret)
+		dev_err(mmc_dev(host), "%s: enabling cd irq wake failed ret=%d\n",
+				      __func__, ret);
 }
 EXPORT_SYMBOL(mmc_gpiod_request_cd_irq);
 
