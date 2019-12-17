@@ -5649,15 +5649,9 @@ defer_enable_host_irq:
 static int sdhci_msm_suspend(struct device *dev)
 {
 	struct sdhci_host *host = dev_get_drvdata(dev);
-	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
-	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 	int ret = 0;
 	int sdio_cfg = 0;
 	ktime_t start = ktime_get();
-
-	if (gpio_is_valid(msm_host->pdata->status_gpio) &&
-			 (msm_host->mmc->slot.cd_irq >= 0))
-		disable_irq(msm_host->mmc->slot.cd_irq);
 
 	if (pm_runtime_suspended(dev)) {
 		pr_debug("%s: %s: already runtime suspended\n",
@@ -5680,15 +5674,9 @@ out:
 static int sdhci_msm_resume(struct device *dev)
 {
 	struct sdhci_host *host = dev_get_drvdata(dev);
-	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
-	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 	int ret = 0;
 	int sdio_cfg = 0;
 	ktime_t start = ktime_get();
-
-	if (gpio_is_valid(msm_host->pdata->status_gpio) &&
-			 (msm_host->mmc->slot.cd_irq >= 0))
-		enable_irq(msm_host->mmc->slot.cd_irq);
 
 	if (pm_runtime_suspended(dev)) {
 		pr_debug("%s: %s: runtime suspended, defer system resume\n",
