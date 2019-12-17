@@ -14,6 +14,7 @@
  * Includes
  * -------------------------------------------------------------------------
  */
+#include <dt-bindings/msm/msm-bus-ids.h>
 #include <linux/clk.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
@@ -1654,15 +1655,15 @@ regulator_err:
 
 static int npu_parse_dt_bw(struct npu_device *npu_dev)
 {
-	int ret, len;
-	uint32_t ports[2];
+	int ret, len, num_paths, i;
+	uint32_t ports[MAX_PATHS * 2];
 	struct platform_device *pdev = npu_dev->pdev;
 	struct npu_bwctrl *bwctrl = &npu_dev->bwctrl;
 
 	if (of_find_property(pdev->dev.of_node, "qcom,src-dst-ports", &len)) {
 		len /= sizeof(ports[0]);
-		if (len != 2) {
-			NPU_ERR("Unexpected number of ports\n");
+		if (len % 2 || len > ARRAY_SIZE(ports)) {
+			NPU_ERR("Unexpected number of ports %d\n", len);
 			return -EINVAL;
 		}
 
@@ -1672,6 +1673,7 @@ static int npu_parse_dt_bw(struct npu_device *npu_dev)
 			NPU_ERR("Failed to read bw property\n");
 			return ret;
 		}
+		num_paths = len / 2;
 	} else {
 		NPU_ERR("can't find bw property\n");
 		return -EINVAL;
@@ -1684,13 +1686,15 @@ static int npu_parse_dt_bw(struct npu_device *npu_dev)
 	bwctrl->bw_data.name = dev_name(&pdev->dev);
 	bwctrl->bw_data.active_only = false;
 
-	bwctrl->bw_levels[0].vectors[0].src = ports[0];
-	bwctrl->bw_levels[0].vectors[0].dst = ports[1];
-	bwctrl->bw_levels[1].vectors[0].src = ports[0];
-	bwctrl->bw_levels[1].vectors[0].dst = ports[1];
-	bwctrl->bw_levels[0].num_paths = 1;
-	bwctrl->bw_levels[1].num_paths = 1;
-	bwctrl->num_paths = 1;
+	for (i = 0; i < num_paths; i++) {
+		bwctrl->bw_levels[0].vectors[i].src = ports[2 * i];
+		bwctrl->bw_levels[0].vectors[i].dst = ports[2 * i + 1];
+		bwctrl->bw_levels[1].vectors[i].src = ports[2 * i];
+		bwctrl->bw_levels[1].vectors[i].dst = ports[2 * i + 1];
+	}
+	bwctrl->bw_levels[0].num_paths = num_paths;
+	bwctrl->bw_levels[1].num_paths = num_paths;
+	bwctrl->num_paths = num_paths;
 
 	bwctrl->bus_client = msm_bus_scale_register_client(&bwctrl->bw_data);
 	if (!bwctrl->bus_client) {
@@ -1705,7 +1709,7 @@ static int npu_parse_dt_bw(struct npu_device *npu_dev)
 
 int npu_set_bw(struct npu_device *npu_dev, int new_ib, int new_ab)
 {
-	int i, ret;
+	int i, j, ret;
 	struct npu_bwctrl *bwctrl = &npu_dev->bwctrl;
 
 	if (!bwctrl->bus_client) {
@@ -1718,10 +1722,17 @@ int npu_set_bw(struct npu_device *npu_dev, int new_ib, int new_ab)
 
 	i = (bwctrl->cur_idx + 1) % DBL_BUF;
 
-	bwctrl->bw_levels[i].vectors[0].ib = new_ib * MBYTE;
-	bwctrl->bw_levels[i].vectors[0].ab = new_ab / bwctrl->num_paths * MBYTE;
-	bwctrl->bw_levels[i].vectors[1].ib = new_ib * MBYTE;
-	bwctrl->bw_levels[i].vectors[1].ab = new_ab / bwctrl->num_paths * MBYTE;
+	for (j = 0; j < bwctrl->num_paths; j++) {
+		if ((bwctrl->bw_levels[i].vectors[j].dst ==
+			MSM_BUS_SLAVE_CLK_CTL) && (new_ib > 0)) {
+			bwctrl->bw_levels[i].vectors[j].ib = 1;
+			bwctrl->bw_levels[i].vectors[j].ab = 1;
+		} else {
+			bwctrl->bw_levels[i].vectors[j].ib = new_ib * MBYTE;
+			bwctrl->bw_levels[i].vectors[j].ab =
+				new_ab * MBYTE / bwctrl->num_paths;
+		}
+	}
 
 	ret = msm_bus_scale_client_update_request(bwctrl->bus_client, i);
 	if (ret) {
