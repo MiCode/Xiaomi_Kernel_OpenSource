@@ -2223,11 +2223,10 @@ void mark_task_starting(struct task_struct *p)
 }
 
 #define pct_to_min_scaled(tunable) \
-		div64_u64(((u64)sched_ravg_window * tunable *	\
-			  cluster_max_freq(sched_cluster[0]) *	\
-			  sched_cluster[0]->efficiency),	\
-			  ((u64)max_possible_freq *		\
-			  max_possible_efficiency * 100))
+		div64_u64(((u64)sched_ravg_window * tunable *		\
+			 topology_get_cpu_scale(NULL,			\
+			 cluster_first_cpu(sched_cluster[0]))),	\
+			 ((u64)SCHED_CAPACITY_SCALE * 100))
 
 static inline void walt_update_group_thresholds(void)
 {
