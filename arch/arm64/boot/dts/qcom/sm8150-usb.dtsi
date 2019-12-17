@@ -351,7 +351,6 @@
 		reg-names = "core_base";
 
 		iommus = <&apps_smmu 0x160 0x0>;
-		qcom,smmu-s1-bypass;
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
