@@ -43,7 +43,7 @@ extern unsigned int __weak sysctl_sched_min_task_util_for_boost;
 extern unsigned int __weak sysctl_sched_min_task_util_for_colocation;
 extern unsigned int __weak sysctl_sched_asym_cap_sibling_freq_match_pct;
 extern unsigned int __weak sysctl_sched_coloc_downmigrate_ns;
-extern unsigned int __weak sysctl_sched_task_unfilter_nr_windows;
+extern unsigned int __weak sysctl_sched_task_unfilter_period;
 extern unsigned int __weak sysctl_sched_busy_hyst_enable_cpus;
 extern unsigned int __weak sysctl_sched_busy_hyst;
 extern unsigned int __weak sysctl_sched_coloc_busy_hyst_enable_cpus;

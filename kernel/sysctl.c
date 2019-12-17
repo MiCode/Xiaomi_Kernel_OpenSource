@@ -148,6 +148,7 @@ static int two_hundred_fifty_five = 255;
 const int sched_user_hint_max = 1000;
 static unsigned int ns_per_sec = NSEC_PER_SEC;
 static unsigned int one_hundred_thousand = 100000;
+static unsigned int two_hundred_million = 200000000;
 #endif
 
 /* this is needed for the proc_doulongvec_minmax of vm_dirty_bytes */
@@ -471,13 +472,13 @@ static struct ctl_table kern_table[] = {
 		.proc_handler	= proc_douintvec_minmax,
 	},
 	{
-		.procname	= "sched_task_unfilter_nr_windows",
-		.data		= &sysctl_sched_task_unfilter_nr_windows,
+		.procname	= "sched_task_unfilter_period",
+		.data		= &sysctl_sched_task_unfilter_period,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec_minmax,
 		.extra1		= SYSCTL_ONE,
-		.extra2		= &two_hundred_fifty_five,
+		.extra2		= &two_hundred_million,
 	},
 	{
 		.procname	= "sched_busy_hysteresis_enable_cpus",
