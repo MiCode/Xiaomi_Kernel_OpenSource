@@ -3673,8 +3673,8 @@ int __init blk_dev_init(void)
 	if (bio_crypt_ctx_init() < 0)
 		panic("Failed to allocate mem for bio crypt ctxs\n");
 
-	if (blk_crypto_init() < 0)
-		panic("Failed to init blk-crypto\n");
+	if (blk_crypto_fallback_init() < 0)
+		panic("Failed to init blk-crypto-fallback\n");
 
 	return 0;
 }
