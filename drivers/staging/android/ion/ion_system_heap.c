@@ -650,7 +650,7 @@ static int ion_system_heap_create_pools(struct ion_system_heap *sys_heap,
 		pool = ion_page_pool_create(gfp_flags, orders[i], cached);
 		if (!pool)
 			goto err_create_pool;
-		pool->heap = sys_heap->heap;
+		pool->dev = sys_heap->heap.priv;
 		pools[i] = pool;
 	}
 	return 0;
@@ -723,6 +723,7 @@ struct ion_heap *ion_system_heap_create(struct ion_platform_heap *data)
 	heap->heap.ops = &system_heap_ops;
 	heap->heap.type = ION_HEAP_TYPE_SYSTEM;
 	heap->heap.flags = ION_HEAP_FLAG_DEFER_FREE;
+	heap->heap.priv = data->priv;
 
 	for (i = 0; i < VMID_LAST; i++)
 		if (is_secure_vmid_valid(i))
