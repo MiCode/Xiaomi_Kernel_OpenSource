@@ -1326,6 +1326,9 @@ static int build_insn(const struct bpf_insn *insn, struct jit_ctx *ctx)
 		const u8 tmp2 = bpf2sparc[TMP_REG_2];
 		u32 opcode = 0, rs2;
 
+		if (insn->dst_reg == BPF_REG_FP)
+			ctx->saw_frame_pointer = true;
+
 		ctx->tmp_2_used = true;
 		emit_loadimm(imm, tmp2, ctx);
 
@@ -1364,6 +1367,9 @@ static int build_insn(const struct bpf_insn *insn, struct jit_ctx *ctx)
 		const u8 tmp = bpf2sparc[TMP_REG_1];
 		u32 opcode = 0, rs2;
 
+		if (insn->dst_reg == BPF_REG_FP)
+			ctx->saw_frame_pointer = true;
+
 		switch (BPF_SIZE(code)) {
 		case BPF_W:
 			opcode = ST32;
@@ -1396,6 +1402,9 @@ static int build_insn(const struct bpf_insn *insn, struct jit_ctx *ctx)
 		const u8 tmp2 = bpf2sparc[TMP_REG_2];
 		const u8 tmp3 = bpf2sparc[TMP_REG_3];
 
+		if (insn->dst_reg == BPF_REG_FP)
+			ctx->saw_frame_pointer = true;
+
 		ctx->tmp_1_used = true;
 		ctx->tmp_2_used = true;
 		ctx->tmp_3_used = true;
@@ -1415,6 +1424,9 @@ static int build_insn(const struct bpf_insn *insn, struct jit_ctx *ctx)
 		const u8 tmp = bpf2sparc[TMP_REG_1];
 		const u8 tmp2 = bpf2sparc[TMP_REG_2];
 		const u8 tmp3 = bpf2sparc[TMP_REG_3];
+
+		if (insn->dst_reg == BPF_REG_FP)
+			ctx->saw_frame_pointer = true;
 
 		ctx->tmp_1_used = true;
 		ctx->tmp_2_used = true;
