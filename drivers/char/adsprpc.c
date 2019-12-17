@@ -250,6 +250,7 @@ struct smq_invoke_ctx {
 	unsigned int *attrs;
 	struct fastrpc_mmap **maps;
 	struct fastrpc_buf *buf;
+	struct fastrpc_buf *copybuf;	/*used to copy non-ion buffers */
 	size_t used;
 	struct fastrpc_file *fl;
 	uint32_t handle;
@@ -1339,6 +1340,7 @@ static int context_alloc(struct fastrpc_file *fl, uint32_t kernel,
 	ctx->rsp_flags = NORMAL_RESPONSE;
 	ctx->is_work_done = false;
 	ctx->pm_awake_voted = false;
+	ctx->copybuf = NULL;
 
 	spin_lock(&fl->hlock);
 	hlist_add_head(&ctx->hn, &clst->pending);
@@ -1405,6 +1407,8 @@ static void context_free(struct smq_invoke_ctx *ctx)
 	mutex_unlock(&ctx->fl->map_mutex);
 
 	fastrpc_buf_free(ctx->buf, 1);
+	if (!(ctx->copybuf == ctx->buf))
+		fastrpc_buf_free(ctx->copybuf, 1);
 	kfree(ctx->lrpra);
 	ctx->lrpra = NULL;
 	ctx->magic = 0;
@@ -1595,8 +1599,9 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 	int inbufs = REMOTE_SCALARS_INBUFS(sc);
 	int outbufs = REMOTE_SCALARS_OUTBUFS(sc);
 	int handles, bufs = inbufs + outbufs;
-	uintptr_t args;
+	uintptr_t args = 0;
 	size_t rlen = 0, copylen = 0, metalen = 0, lrpralen = 0;
+	size_t totallen = 0; //header and non ion copy buf len
 	int i, oix;
 	int err = 0;
 	int mflags = 0;
@@ -1648,8 +1653,19 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 	mutex_unlock(&ctx->fl->map_mutex);
 
 	/* metalen includes meta data, fds, crc and early wakeup hint */
-	metalen = copylen = (size_t)&ipage[0] + (sizeof(uint64_t) * M_FDLIST) +
+	metalen = totallen = (size_t)&ipage[0] + (sizeof(uint64_t) * M_FDLIST) +
 			(sizeof(uint32_t) * M_CRCLIST) + sizeof(early_hint);
+
+	if (metalen) {
+		err = fastrpc_buf_alloc(ctx->fl, metalen, 0, 0, 0, &ctx->buf);
+		if (err)
+			goto bail;
+		VERIFY(err, !IS_ERR_OR_NULL(ctx->buf->virt));
+		if (err)
+			goto bail;
+		memset(ctx->buf->virt, 0, metalen);
+	}
+	ctx->used = metalen;
 
 	/* allocate new local rpra buffer */
 	lrpralen = (size_t)&list[0];
@@ -1680,16 +1696,25 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 			goto bail;
 		copylen += mend - mstart;
 	}
-	ctx->used = copylen;
+	totallen = ALIGN(totallen, BALIGN) + copylen;
 
-	/* allocate new buffer */
-	if (copylen) {
-		err = fastrpc_buf_alloc(ctx->fl, copylen, 0, 0, 0, &ctx->buf);
+	/* allocate non -ion copy buffer */
+	/* Checking if copylen can be accomodated in metalen*/
+	/*if not allocating new buffer */
+	if (totallen <= (size_t)buf_page_size(metalen)) {
+		args = (uintptr_t)ctx->buf->virt + metalen;
+		ctx->copybuf = ctx->buf;
+		rlen = totallen - metalen;
+	} else if (copylen) {
+		err = fastrpc_buf_alloc(ctx->fl, copylen, 0, 0, 0,
+				&ctx->copybuf);
 		if (err)
 			goto bail;
+		memset(ctx->copybuf->virt, 0, copylen);
+		args = (uintptr_t)ctx->copybuf->virt;
+		rlen = copylen;
+		totallen = copylen;
 	}
-	if (ctx->buf->virt && metalen <= copylen)
-		memset(ctx->buf->virt, 0, metalen);
 
 	/* copy metadata */
 	rpra = ctx->buf->virt;
@@ -1697,7 +1722,6 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 	list = smq_invoke_buf_start(rpra, sc);
 	pages = smq_phy_page_start(sc, list);
 	ipage = pages;
-	args = (uintptr_t)ctx->buf->virt + metalen;
 	for (i = 0; i < bufs + handles; ++i) {
 		if (lpra[i].buf.len)
 			list[i].num = 1;
@@ -1761,7 +1785,6 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 
 	/* copy non ion buffers */
 	PERF(ctx->fl->profile, GET_COUNTER(perf_counter, PERF_COPY),
-	rlen = copylen - metalen;
 	for (oix = 0; rpra && oix < inbufs + outbufs; ++oix) {
 		int i = ctx->overps[oix]->raix;
 		struct fastrpc_mmap *map = ctx->maps[i];
@@ -1783,9 +1806,9 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 			goto bail;
 		rpra[i].buf.pv =
 			 (args - ctx->overps[oix]->offset);
-		pages[list[i].pgidx].addr = ctx->buf->phys -
+		pages[list[i].pgidx].addr = ctx->copybuf->phys -
 					    ctx->overps[oix]->offset +
-					    (copylen - rlen);
+					    (totallen - rlen);
 		pages[list[i].pgidx].addr =
 			buf_page_start(pages[list[i].pgidx].addr);
 		buf = rpra[i].buf.pv;
