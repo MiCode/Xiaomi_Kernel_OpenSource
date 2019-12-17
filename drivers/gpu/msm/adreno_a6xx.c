@@ -50,7 +50,6 @@ static u32 a6xx_pwrup_reglist[] = {
 
 /* IFPC only static powerup restore list */
 static u32 a6xx_ifpc_pwrup_reglist[] = {
-	A6XX_RBBM_VBIF_CLIENT_QOS_CNTL,
 	A6XX_CP_CHICKEN_DBG,
 	A6XX_CP_DBG_ECO_CNTL,
 	A6XX_CP_PROTECT_CNTL,
@@ -91,14 +90,29 @@ static u32 a6xx_ifpc_pwrup_reglist[] = {
 
 /* a620 and a650 need to program A6XX_CP_PROTECT_REG_47 for the infinite span */
 static u32 a650_pwrup_reglist[] = {
+	A6XX_RBBM_GBIF_CLIENT_QOS_CNTL,
 	A6XX_CP_PROTECT_REG + 47,
 };
 
+/* Applicable to a640 and a680 */
+static u32 a640_pwrup_reglist[] = {
+	A6XX_RBBM_GBIF_CLIENT_QOS_CNTL,
+};
+
+/* Applicable to a630 */
+static u32 a630_pwrup_reglist[] = {
+	A6XX_RBBM_VBIF_CLIENT_QOS_CNTL,
+};
+
+/* Applicable to a615 family */
 static u32 a615_pwrup_reglist[] = {
+	A6XX_RBBM_VBIF_CLIENT_QOS_CNTL,
 	A6XX_UCHE_GBIF_GX_CONFIG,
 };
 
+/* Applicable to a612 */
 static u32 a612_pwrup_reglist[] = {
+	A6XX_RBBM_GBIF_CLIENT_QOS_CNTL,
 	A6XX_RBBM_PERFCTR_CNTL,
 };
 
@@ -334,6 +348,10 @@ static void a6xx_patch_pwrup_reglist(struct adreno_device *adreno_dev)
 		reglist[items++] = REGLIST(a612_pwrup_reglist);
 	else if (adreno_is_a615_family(adreno_dev))
 		reglist[items++] = REGLIST(a615_pwrup_reglist);
+	else if (adreno_is_a630(adreno_dev))
+		reglist[items++] = REGLIST(a630_pwrup_reglist);
+	else if (adreno_is_a640(adreno_dev) || adreno_is_a680(adreno_dev))
+		reglist[items++] = REGLIST(a640_pwrup_reglist);
 	else if (adreno_is_a650(adreno_dev) || adreno_is_a620(adreno_dev))
 		reglist[items++] = REGLIST(a650_pwrup_reglist);
 
