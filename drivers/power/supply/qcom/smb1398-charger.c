@@ -89,6 +89,7 @@
 #define EN_SWITCHER			BIT(0)
 
 #define MISC_DIV2_3LVL_CTRL_REG		0x2632
+#define MISC_DIV2_3LVL_CTRL_MASK	GENMASK(7, 0)
 #define EN_DIV2_CP			BIT(2)
 #define EN_3LVL_BULK			BIT(1)
 #define EN_CHG_2X			BIT(0)
@@ -98,6 +99,7 @@
 #define SW_EN_SWITCHER_BIT		BIT(3)
 
 #define MISC_CFG1_REG			0x2635
+#define MISC_CFG1_MASK			GENMASK(7, 0)
 #define CFG_OP_MODE_MASK		GENMASK(2, 0)
 #define OP_MODE_DISABLED		0
 #define OP_MODE_3LVL_BULK		1
@@ -1787,6 +1789,20 @@ static int smb1398_div2_cp_hw_init(struct smb1398_chip *chip)
 		pr_err("Couldn't configure IREV threshold rc=%d\n", rc);
 		return rc;
 		}
+
+	/* Initial configuration needed before enabling DIV2_CP operations */
+	rc = smb1398_masked_write(chip, MISC_DIV2_3LVL_CTRL_REG,
+				MISC_DIV2_3LVL_CTRL_MASK, 0x04);
+	if (rc < 0) {
+		dev_err(chip->dev, "set EN_DIV2_CP failed, rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = smb1398_masked_write(chip, MISC_CFG1_REG, MISC_CFG1_MASK, 0x02);
+	if (rc < 0) {
+		dev_err(chip->dev, "set OP_MODE_COMBO failed, rc=%d\n", rc);
+		return rc;
+	}
 
 	/* switcher enable controlled by register */
 	rc = smb1398_masked_write(chip, MISC_CFG0_REG,
