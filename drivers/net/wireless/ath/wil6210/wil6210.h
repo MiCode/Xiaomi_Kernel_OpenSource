@@ -336,8 +336,7 @@ struct RGF_ICR {
 
 #define RGF_INT_COUNT_ON_SPECIAL_EVT	(0x8b62d8)
 
-#define RGF_INT_CTRL_INT_GEN_CFG_0	(0x8bc000)
-#define RGF_INT_CTRL_INT_GEN_CFG_1	(0x8bc004)
+#define RGF_INT_CTRL_INT_GEN_CFG	(0x8bc000)
 #define RGF_INT_GEN_TIME_UNIT_LIMIT	(0x8bc0c8)
 
 #define RGF_INT_GEN_CTRL		(0x8bc0ec)
@@ -654,6 +653,7 @@ enum { /* for wil6210_priv.status */
 	wil_status_suspending, /* suspend in progress */
 	wil_status_suspended, /* suspend completed, device is suspended */
 	wil_status_resuming, /* resume in progress */
+	wil_status_pci_linkdown, /* pci linkdown occurred */
 	wil_status_last /* keep last */
 };
 
@@ -999,6 +999,7 @@ struct wil6210_priv {
 	struct wil_status_ring srings[WIL6210_MAX_STATUS_RINGS];
 	u8 num_rx_status_rings;
 	int tx_sring_idx;
+	int rx_sring_idx;
 	u8 ring2cid_tid[WIL6210_MAX_TX_RINGS][2]; /* [0] - CID, [1] - TID */
 	struct wil_sta_info sta[WIL6210_MAX_CID];
 	u32 ring_idle_trsh; /* HW fetches up to 16 descriptors at once  */
@@ -1081,6 +1082,9 @@ struct wil6210_priv {
 
 	u32 max_agg_wsize;
 	u32 max_ampdu_size;
+
+	struct work_struct pci_linkdown_recovery_worker;
+	void *ipa_handle;
 };
 
 #define wil_to_wiphy(i) (i->wiphy)
@@ -1317,6 +1321,8 @@ void wil_configure_interrupt_moderation(struct wil6210_priv *wil);
 void wil_disable_irq(struct wil6210_priv *wil);
 void wil_enable_irq(struct wil6210_priv *wil);
 void wil6210_mask_halp(struct wil6210_priv *wil);
+irqreturn_t wil6210_irq_misc(int irq, void *cookie);
+irqreturn_t wil6210_irq_misc_thread(int irq, void *cookie);
 
 /* P2P */
 bool wil_p2p_is_social_scan(struct cfg80211_scan_request *request);
@@ -1385,6 +1391,9 @@ void wil_disconnect_worker(struct work_struct *work);
 void wil_enable_tx_key_worker(struct work_struct *work);
 
 void wil_init_txrx_ops(struct wil6210_priv *wil);
+
+void wil_fw_recovery(struct wil6210_priv *wil);
+void wil_pci_linkdown_recovery_worker(struct work_struct *work);
 
 /* TX API */
 int wil_ring_init_tx(struct wil6210_vif *vif, int cid);
@@ -1479,14 +1488,15 @@ int wil_spec2wmi_ch(u8 spec_ch, u8 *wmi_ch);
 int reverse_memcmp(const void *cs, const void *ct, size_t count);
 
 /* WMI for enhanced DMA */
-int wil_wmi_tx_sring_cfg(struct wil6210_priv *wil, int ring_id);
+int wil_wmi_tx_sring_cfg(struct wil6210_priv *wil, int ring_id, u8 irq_mode);
 int wil_wmi_cfg_def_rx_offload(struct wil6210_priv *wil,
-			       u16 max_rx_pl_per_desc);
+			       u16 max_rx_pl_per_desc, bool checksum);
 int wil_wmi_rx_sring_add(struct wil6210_priv *wil, u16 ring_id);
 int wil_wmi_rx_desc_ring_add(struct wil6210_priv *wil, int status_ring_id);
 int wil_wmi_tx_desc_ring_add(struct wil6210_vif *vif, int ring_id, int cid,
-			     int tid);
-int wil_wmi_bcast_desc_ring_add(struct wil6210_vif *vif, int ring_id);
+			     int tid, int sring_id, u8 irq_mode);
+int wil_wmi_bcast_desc_ring_add(struct wil6210_vif *vif, int ring_id,
+				int sring_id);
 int wmi_addba_rx_resp_edma(struct wil6210_priv *wil, u8 mid, u8 cid,
 			   u8 tid, u8 token, u16 status, bool amsdu,
 			   u16 agg_wsize, u16 timeout);

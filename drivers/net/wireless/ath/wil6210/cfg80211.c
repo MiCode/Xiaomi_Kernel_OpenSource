@@ -12,6 +12,7 @@
 #include "wmi.h"
 #include "ftm.h"
 #include "fw.h"
+#include "ipa.h"
 
 #define WIL_MAX_ROC_DURATION_MS 5000
 #define WIL_BRD_SUFFIX_CN "CN"
@@ -139,6 +140,8 @@ enum wil_nl_60g_evt_type {
 
 enum wil_nl_60g_debug_cmd {
 	NL_60G_DBG_FORCE_WMI_SEND,
+	NL_60G_GEN_RADAR_ALLOC_BUFFER,
+	NL_60G_GEN_FW_RESET,
 };
 
 struct wil_nl_60g_send_receive_wmi {
@@ -2159,7 +2162,22 @@ static int _wil_cfg80211_start_ap(struct wiphy *wiphy,
 	mutex_lock(&wil->mutex);
 
 	if (!wil_has_other_active_ifaces(wil, ndev, true, false)) {
+		if (wil->ipa_handle) {
+			wil_ipa_uninit(wil->ipa_handle);
+			wil->ipa_handle = NULL;
+		}
+
 		__wil_down(wil);
+
+		if (wil_ipa_offload()) {
+			wil->ipa_handle = wil_ipa_init(wil);
+			if (!wil->ipa_handle) {
+				wil_err(wil, "wil_ipa_init failed\n");
+				rc = -ENOMEM;
+				goto out;
+			}
+		}
+
 		rc = __wil_up(wil);
 		if (rc)
 			goto out;
@@ -2181,6 +2199,12 @@ static int _wil_cfg80211_start_ap(struct wiphy *wiphy,
 	vif->bi = bi;
 	memcpy(vif->ssid, ssid, ssid_len);
 	vif->ssid_len = ssid_len;
+
+	if (wil->ipa_handle) {
+		rc = wil_ipa_start_ap(wil->ipa_handle);
+		if (rc)
+			goto out;
+	}
 
 	netif_carrier_on(ndev);
 	if (!wil_has_other_active_ifaces(wil, ndev, false, true))
@@ -2204,6 +2228,11 @@ err_pcp_start:
 	if (!wil_has_other_active_ifaces(wil, ndev, false, true))
 		wil6210_bus_request(wil, WIL_DEFAULT_BUS_REQUEST_KBPS);
 out:
+	if (rc && wil->ipa_handle) {
+		wil_ipa_uninit(wil->ipa_handle);
+		wil->ipa_handle = NULL;
+	}
+
 	mutex_unlock(&wil->mutex);
 	return rc;
 }
@@ -2394,6 +2423,10 @@ static int wil_cfg80211_stop_ap(struct wiphy *wiphy,
 	memset(vif->gtk, 0, WMI_MAX_KEY_LEN);
 	vif->gtk_len = 0;
 
+	if (wil->ipa_handle) {
+		wil_ipa_uninit(wil->ipa_handle);
+		wil->ipa_handle = NULL;
+	}
 	if (last)
 		__wil_down(wil);
 	else
@@ -3706,6 +3739,23 @@ static int wil_nl_60g_handle_cmd(struct wiphy *wiphy, struct wireless_dev *wdev,
 
 			wil_dbg_wmi(wil, "force sending wmi commands %d\n",
 				    wil->force_wmi_send);
+			break;
+		case NL_60G_GEN_FW_RESET:
+			if (!test_bit(WMI_FW_CAPABILITY_WMI_ONLY,
+				      wil->fw_capabilities)) {
+				rc = -EOPNOTSUPP;
+				break;
+			}
+
+			wil_dbg_misc(wil,
+				     "NL_60G_GEN_FW_RESET, resetting...\n");
+
+			mutex_lock(&wil->mutex);
+			down_write(&wil->mem_lock);
+			rc = wil_reset(wil, true);
+			up_write(&wil->mem_lock);
+			mutex_unlock(&wil->mutex);
+
 			break;
 		default:
 			rc = -EINVAL;

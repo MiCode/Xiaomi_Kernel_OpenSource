@@ -14,6 +14,7 @@
 #include "txrx_edma.h"
 #include "wmi.h"
 #include "boot_loader.h"
+#include "ipa.h"
 
 #define WAIT_FOR_HALP_VOTE_MS 100
 #define WAIT_FOR_SCAN_ABORT_MS 1000
@@ -294,6 +295,10 @@ __acquires(&sta->tid_rx_lock) __releases(&sta->tid_rx_lock)
 		if (wil->ring2cid_tid[i][0] == cid)
 			wil_ring_fini_tx(wil, i);
 	}
+
+	if (wil->ipa_handle)
+		wil_ipa_disconn_client(wil->ipa_handle, cid);
+
 	/* statistics */
 	memset(&sta->stats, 0, sizeof(sta->stats));
 	sta->stats.tx_latency_min_us = U32_MAX;
@@ -524,22 +529,16 @@ bool wil_is_recovery_blocked(struct wil6210_priv *wil)
 	return no_fw_recovery && (wil->recovery_state == fw_recovery_pending);
 }
 
-static void wil_fw_error_worker(struct work_struct *work)
+void wil_fw_recovery(struct wil6210_priv *wil)
 {
-	struct wil6210_priv *wil = container_of(work, struct wil6210_priv,
-						fw_error_worker);
 	struct net_device *ndev = wil->main_ndev;
 	struct wireless_dev *wdev;
 
-	wil_dbg_misc(wil, "fw error worker\n");
+	wil_dbg_misc(wil, "fw recovery\n");
 
-	if (!ndev || !(ndev->flags & IFF_UP)) {
-		wil_info(wil, "No recovery - interface is down\n");
-		return;
-	}
 	wdev = ndev->ieee80211_ptr;
 
-	/* increment @recovery_count if less then WIL6210_FW_RECOVERY_TO
+	/* increment @recovery_count if less than WIL6210_FW_RECOVERY_TO
 	 * passed since last recovery attempt
 	 */
 	if (time_is_after_jiffies(wil->last_fw_recovery +
@@ -582,6 +581,10 @@ static void wil_fw_error_worker(struct work_struct *work)
 		if (no_fw_recovery) /* upper layers do recovery */
 			break;
 		/* silent recovery, upper layers will see disconnect */
+		if (wil->ipa_handle) {
+			wil_ipa_uninit(wil->ipa_handle);
+			wil->ipa_handle = NULL;
+		}
 		__wil_down(wil);
 		__wil_up(wil);
 		mutex_unlock(&wil->mutex);
@@ -599,6 +602,22 @@ static void wil_fw_error_worker(struct work_struct *work)
 	rtnl_unlock();
 }
 
+static void wil_fw_error_worker(struct work_struct *work)
+{
+	struct wil6210_priv *wil = container_of(work, struct wil6210_priv,
+						fw_error_worker);
+	struct net_device *ndev = wil->main_ndev;
+
+	wil_dbg_misc(wil, "fw error worker\n");
+
+	if (!ndev || !(ndev->flags & IFF_UP)) {
+		wil_info(wil, "No recovery - interface is down\n");
+		return;
+	}
+
+	wil_fw_recovery(wil);
+}
+
 static int wil_find_free_ring(struct wil6210_priv *wil)
 {
 	int i;
@@ -614,7 +633,7 @@ static int wil_find_free_ring(struct wil6210_priv *wil)
 int wil_ring_init_tx(struct wil6210_vif *vif, int cid)
 {
 	struct wil6210_priv *wil = vif_to_wil(vif);
-	int rc = -EINVAL, ringid;
+	int rc = -EINVAL, ringid, ring_size;
 
 	if (cid < 0) {
 		wil_err(wil, "No connection pending\n");
@@ -629,7 +648,9 @@ int wil_ring_init_tx(struct wil6210_vif *vif, int cid)
 	wil_dbg_wmi(wil, "Configure for connection CID %d MID %d ring %d\n",
 		    cid, vif->mid, ringid);
 
-	rc = wil->txrx_ops.ring_init_tx(vif, ringid, 1 << tx_ring_order,
+	ring_size = wil->ipa_handle ?
+		WIL_IPA_DESC_RING_SIZE : 1 << tx_ring_order;
+	rc = wil->txrx_ops.ring_init_tx(vif, ringid, ring_size,
 					cid, 0);
 	if (rc)
 		wil_err(wil, "init TX for CID %d MID %d vring %d failed\n",
@@ -711,6 +732,8 @@ int wil_priv_init(struct wil6210_priv *wil)
 
 	INIT_WORK(&wil->wmi_event_worker, wmi_event_worker);
 	INIT_WORK(&wil->fw_error_worker, wil_fw_error_worker);
+	INIT_WORK(&wil->pci_linkdown_recovery_worker,
+		  wil_pci_linkdown_recovery_worker);
 
 	INIT_LIST_HEAD(&wil->pending_wmi_ev);
 	spin_lock_init(&wil->wmi_ev_lock);
@@ -829,6 +852,7 @@ void wil_priv_deinit(struct wil6210_priv *wil)
 
 	wil_set_recovery_state(wil, fw_recovery_idle);
 	cancel_work_sync(&wil->fw_error_worker);
+	cancel_work_sync(&wil->pci_linkdown_recovery_worker);
 	wmi_event_flush(wil);
 	destroy_workqueue(wil->wq_service);
 	destroy_workqueue(wil->wmi_wq);

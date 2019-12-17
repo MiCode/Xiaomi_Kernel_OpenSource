@@ -1,17 +1,6 @@
+/* SPDX-License-Identifier: ISC */
 /*
  * Copyright (c) 2012-2016,2018-2019, The Linux Foundation. All rights reserved.
- *
- * Permission to use, copy, modify, and/or distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #ifndef WIL6210_TXRX_EDMA_H
@@ -27,7 +16,6 @@
 #define WIL_TX_SRING_SIZE_ORDER_DEFAULT	(14)
 #define WIL_RX_BUFF_ARR_SIZE_DEFAULT (2600)
 
-#define WIL_DEFAULT_RX_STATUS_RING_ID 0
 #define WIL_RX_DESC_RING_ID 0
 #define WIL_RX_STATUS_IRQ_IDX 0
 #define WIL_TX_STATUS_IRQ_IDX 1
@@ -608,6 +596,15 @@ int wil_tx_sring_handler(struct wil6210_priv *wil,
 			 struct wil_status_ring *sring);
 void wil_rx_handle_edma(struct wil6210_priv *wil, int *quota);
 void wil_init_txrx_ops_edma(struct wil6210_priv *wil);
+int wil_find_free_sring(struct wil6210_priv *wil);
+int wil_init_rx_desc_ring(struct wil6210_priv *wil, u16 desc_ring_size,
+			  int status_ring_id);
+int wil_init_rx_sring(struct wil6210_priv *wil, u16 status_ring_size,
+		      size_t elem_size, u16 ring_id);
+void wil_sring_free(struct wil6210_priv *wil, struct wil_status_ring *sring);
+void wil_ring_free_edma(struct wil6210_priv *wil, struct wil_ring *ring);
+int wil_tx_desc_map_edma(union wil_tx_desc *desc, dma_addr_t pa, u32 len,
+			 int ring_index);
 
 #endif /* WIL6210_TXRX_EDMA_H */
 
