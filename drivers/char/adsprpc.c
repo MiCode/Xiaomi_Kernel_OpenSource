@@ -101,6 +101,10 @@
 #define SDSP_DOMAIN_ID (2)
 #define CDSP_DOMAIN_ID (3)
 
+/* ctxid of every message is OR-ed with fl->pd (0/1/2) before */
+/* it is sent to DSP. So mask 2 LSBs to retrieve actual context */
+#define CONTEXT_PD_CHECK (3)
+
 #define RH_CID ADSP_DOMAIN_ID
 
 #define PERF_KEYS \
@@ -356,6 +360,8 @@ struct fastrpc_channel_ctx {
 	/* cpu capabilities shared to DSP */
 	uint64_t cpuinfo_todsp;
 	bool cpuinfo_status;
+	struct smq_invoke_ctx *ctxtable[FASTRPC_CTX_MAX];
+	spinlock_t ctxlock;
 };
 
 struct fastrpc_apps {
@@ -372,8 +378,6 @@ struct fastrpc_apps {
 	struct device *dev;
 	unsigned int latency;
 	int rpmsg_register;
-	spinlock_t ctxlock;
-	struct smq_invoke_ctx *ctxtable[FASTRPC_CTX_MAX];
 	bool legacy_remote_heap;
 	/* Unique job id for each message */
 	uint64_t jobid[NUM_CHANNELS];
@@ -927,7 +931,7 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 	int err = 0, vmid, sgl_index = 0;
 	struct scatterlist *sgl = NULL;
 
-	VERIFY(err, cid >= 0 && cid < NUM_CHANNELS);
+	VERIFY(err, cid >= ADSP_DOMAIN_ID && cid < NUM_CHANNELS);
 	if (err)
 		goto bail;
 	chan = &apps->channel[cid];
@@ -1306,11 +1310,12 @@ static int context_alloc(struct fastrpc_file *fl, uint32_t kernel,
 			 struct smq_invoke_ctx **po)
 {
 	struct fastrpc_apps *me = &gfa;
-	int err = 0, bufs, ii, size = 0;
+	int err = 0, bufs, ii, size = 0, cid = -1;
 	struct smq_invoke_ctx *ctx = NULL;
 	struct fastrpc_ctx_lst *clst = &fl->clst;
 	struct fastrpc_ioctl_invoke *invoke = &invokefd->inv;
-	int cid;
+	struct fastrpc_channel_ctx *chan = 0;
+	unsigned long irq_flags = 0;
 
 	bufs = REMOTE_SCALARS_LENGTH(invoke->sc);
 	size = bufs * sizeof(*ctx->lpra) + bufs * sizeof(*ctx->maps) +
@@ -1370,19 +1375,21 @@ static int context_alloc(struct fastrpc_file *fl, uint32_t kernel,
 
 	spin_lock(&fl->hlock);
 	hlist_add_head(&ctx->hn, &clst->pending);
+	cid = (fl->cid >= ADSP_DOMAIN_ID && fl->cid < NUM_CHANNELS)
+			? fl->cid : 0;
+	chan = &me->channel[cid];
 	spin_unlock(&fl->hlock);
 
-	spin_lock(&me->ctxlock);
-	cid = (fl->cid >= 0 && fl->cid < NUM_CHANNELS) ? fl->cid : 0;
+	spin_lock_irqsave(&chan->ctxlock, irq_flags);
 	me->jobid[cid]++;
 	for (ii = 0; ii < FASTRPC_CTX_MAX; ii++) {
-		if (!me->ctxtable[ii]) {
-			me->ctxtable[ii] = ctx;
+		if (!chan->ctxtable[ii]) {
+			chan->ctxtable[ii] = ctx;
 			ctx->ctxid = (me->jobid[cid] << 12) | (ii << 4);
 			break;
 		}
 	}
-	spin_unlock(&me->ctxlock);
+	spin_unlock_irqrestore(&chan->ctxlock, irq_flags);
 	VERIFY(err, ii < FASTRPC_CTX_MAX);
 	if (err) {
 		pr_err("adsprpc: out of context memory\n");
@@ -1413,15 +1420,18 @@ static void context_free(struct smq_invoke_ctx *ctx)
 	struct fastrpc_apps *me = &gfa;
 	int nbufs = REMOTE_SCALARS_INBUFS(ctx->sc) +
 		    REMOTE_SCALARS_OUTBUFS(ctx->sc);
+	int cid = ctx->fl->cid;
+	struct fastrpc_channel_ctx *chan = &me->channel[cid];
+	unsigned long irq_flags = 0;
 
-	spin_lock(&me->ctxlock);
+	spin_lock_irqsave(&chan->ctxlock, irq_flags);
 	for (i = 0; i < FASTRPC_CTX_MAX; i++) {
-		if (me->ctxtable[i] == ctx) {
-			me->ctxtable[i] = NULL;
+		if (chan->ctxtable[i] == ctx) {
+			chan->ctxtable[i] = NULL;
 			break;
 		}
 	}
-	spin_unlock(&me->ctxlock);
+	spin_unlock_irqrestore(&chan->ctxlock, irq_flags);
 
 	spin_lock(&ctx->fl->hlock);
 	hlist_del_init(&ctx->hn);
@@ -2077,7 +2087,6 @@ static void fastrpc_init(struct fastrpc_apps *me)
 	INIT_HLIST_HEAD(&me->drivers);
 	INIT_HLIST_HEAD(&me->maps);
 	spin_lock_init(&me->hlock);
-	spin_lock_init(&me->ctxlock);
 	me->channel = &gcinfo[0];
 	for (i = 0; i < NUM_CHANNELS; i++) {
 		init_completion(&me->channel[i].work);
@@ -2087,6 +2096,7 @@ static void fastrpc_init(struct fastrpc_apps *me)
 		me->channel[i].secure = SECURE_CHANNEL;
 		mutex_init(&me->channel[i].smd_mutex);
 		mutex_init(&me->channel[i].rpmsg_mutex);
+		spin_lock_init(&me->channel[i].ctxlock);
 	}
 	/* Set CDSP channel to non secure */
 	me->channel[CDSP_DOMAIN_ID].secure = NON_SECURE_CHANNEL;
@@ -2240,7 +2250,8 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 		}
 	}
 
-	VERIFY(err, cid >= 0 && cid < NUM_CHANNELS && fl->sctx != NULL);
+	VERIFY(err, cid >= ADSP_DOMAIN_ID && cid < NUM_CHANNELS &&
+		fl->sctx != NULL);
 	if (err) {
 		pr_err("adsprpc: ERROR: %s: kernel session not initialized yet for %s\n",
 			__func__, current->comm);
@@ -2652,7 +2663,7 @@ static int fastrpc_send_cpuinfo_to_dsp(struct fastrpc_file *fl)
 	struct fastrpc_ioctl_invoke_crc ioctl;
 	remote_arg_t ra[2];
 
-	VERIFY(err, fl && fl->cid >= 0 && fl->cid < NUM_CHANNELS);
+	VERIFY(err, fl && fl->cid >= ADSP_DOMAIN_ID && fl->cid < NUM_CHANNELS);
 	if (err)
 		goto bail;
 
@@ -2802,7 +2813,7 @@ static int fastrpc_release_current_dsp_process(struct fastrpc_file *fl)
 	remote_arg_t ra[1];
 	int tgid = 0;
 
-	VERIFY(err, fl->cid >= 0 && fl->cid < NUM_CHANNELS);
+	VERIFY(err, fl->cid >= ADSP_DOMAIN_ID && fl->cid < NUM_CHANNELS);
 	if (err)
 		goto bail;
 	VERIFY(err, fl->sctx != NULL);
@@ -3342,7 +3353,7 @@ static int fastrpc_rpmsg_probe(struct rpmsg_device *rpdev)
 		return -EINVAL;
 
 	cid = get_cid_from_rpdev(rpdev);
-	VERIFY(err, cid >= 0 && cid < NUM_CHANNELS);
+	VERIFY(err, cid >= ADSP_DOMAIN_ID && cid < NUM_CHANNELS);
 	if (err)
 		goto bail;
 	mutex_lock(&gcinfo[cid].rpmsg_mutex);
@@ -3381,7 +3392,7 @@ static void fastrpc_rpmsg_remove(struct rpmsg_device *rpdev)
 		return;
 
 	cid = get_cid_from_rpdev(rpdev);
-	VERIFY(err, cid >= 0 && cid < NUM_CHANNELS);
+	VERIFY(err, cid >= ADSP_DOMAIN_ID && cid < NUM_CHANNELS);
 	if (err)
 		goto bail;
 	mutex_lock(&gcinfo[cid].rpmsg_mutex);
@@ -3403,8 +3414,17 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 	struct smq_invoke_rspv2 *rspv2 = NULL;
 	struct fastrpc_apps *me = &gfa;
 	uint32_t index, rspFlags = 0, earlyWakeTime = 0;
-	int err = 0, cid = -1;
+	int err = 0, cid;
+	struct fastrpc_channel_ctx *chan = 0;
+	unsigned long irq_flags = 0;
+	bool is_ctxtable_locked = false;
 
+	cid = get_cid_from_rpdev(rpdev);
+	VERIFY(err, (cid >= ADSP_DOMAIN_ID && cid <= NUM_CHANNELS));
+	if (err)
+		goto bail;
+
+	chan = &me->channel[cid];
 	VERIFY(err, (rsp && len >= sizeof(*rsp)));
 	if (err)
 		goto bail;
@@ -3416,11 +3436,10 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 		earlyWakeTime = rspv2->earlyWakeTime;
 		rspFlags = rspv2->flags;
 	}
-	cid = get_cid_from_rpdev(rpdev);
 	trace_fastrpc_rpmsg_response(cid, rsp->ctx,
 		rsp->retval, rspFlags, earlyWakeTime);
 #if IS_ENABLED(CONFIG_ADSPRPC_DEBUG)
-	if (cid >= 0 && cid < NUM_CHANNELS) {
+	if (cid >= ADSP_DOMAIN_ID && cid < NUM_CHANNELS) {
 		LOG_FASTRPC_GLINK_MSG(gcinfo[cid].ipc_log_ctx,
 		"recvd pkt %pK (sz %d): ctx 0x%llx, retVal %d, flags %u, earlyWake %u",
 		data, len, rsp->ctx, rsp->retval, rspFlags, earlyWakeTime);
@@ -3432,12 +3451,18 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 	if (err)
 		goto bail;
 
-	VERIFY(err, !IS_ERR_OR_NULL(me->ctxtable[index]));
+	if (rspFlags == COMPLETE_SIGNAL) {
+		spin_lock_irqsave(&chan->ctxlock, irq_flags);
+		is_ctxtable_locked = true;
+	}
+	VERIFY(err, !IS_ERR_OR_NULL(chan->ctxtable[index]));
 	if (err)
 		goto bail;
 
-	VERIFY(err, ((me->ctxtable[index]->ctxid == (rsp->ctx & ~3)) &&
-		me->ctxtable[index]->magic == FASTRPC_CTX_MAGIC));
+	VERIFY(err, ((chan->ctxtable[index]->ctxid ==
+		(rsp->ctx & ~CONTEXT_PD_CHECK)) &&
+			chan->ctxtable[index]->magic ==
+				FASTRPC_CTX_MAGIC));
 	if (err)
 		goto bail;
 
@@ -3446,12 +3471,15 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 		if (err)
 			goto bail;
 	}
-	context_notify_user(me->ctxtable[index], rsp->retval,
+	context_notify_user(chan->ctxtable[index], rsp->retval,
 				 rspFlags, earlyWakeTime);
 bail:
+	if (rspFlags == COMPLETE_SIGNAL && is_ctxtable_locked)
+		spin_unlock_irqrestore(&chan->ctxlock, irq_flags);
 	if (err)
 		pr_err("adsprpc: ERROR: %s: invalid response (data %pK, len %d) from remote subsystem (err %d)\n",
 				__func__, data, len, err);
+
 	return err;
 }
 
