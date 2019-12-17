@@ -16,6 +16,7 @@
 #include <linux/of_device.h>
 #include <linux/dma-mapping.h>
 #include <linux/module.h>
+#include <linux/of_reserved_mem.h>
 
 #define MSM_DUMP_TABLE_VERSION		MSM_DUMP_MAKE_VERSION(2, 0)
 
@@ -225,6 +226,26 @@ err0:
 }
 early_initcall(init_memory_dump);
 
+static int mem_dump_reserve_mem(struct device *dev)
+{
+	struct device_node *mem_node;
+	int ret;
+
+	mem_node = of_parse_phandle(dev->of_node, "memory-region", 0);
+	if (mem_node) {
+		ret = of_reserved_mem_device_init_by_idx(dev,
+				dev->of_node, 0);
+		of_node_put(dev->of_node);
+		if (ret) {
+			dev_err(dev,
+				"Failed to initialize reserved mem, ret %d\n",
+				ret);
+			return ret;
+		}
+	}
+	return 0;
+}
+
 static int mem_dump_probe(struct platform_device *pdev)
 {
 	struct device_node *child_node;
@@ -235,6 +256,9 @@ static int mem_dump_probe(struct platform_device *pdev)
 	struct msm_dump_entry dump_entry;
 	int ret;
 	u32 size, id;
+
+	if (mem_dump_reserve_mem(&pdev->dev) != 0)
+		return -ENOMEM;
 
 	for_each_available_child_of_node(node, child_node) {
 		ret = of_property_read_u32(child_node, "qcom,dump-size", &size);
