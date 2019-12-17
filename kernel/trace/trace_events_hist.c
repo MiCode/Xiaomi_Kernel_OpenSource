@@ -915,8 +915,11 @@ static notrace void trace_event_raw_event_synth(void *__data,
 			n_u64++;
 		}
 	}
-
+#ifdef CONFIG_CORESIGHT_QGKI
+	trace_event_buffer_commit(&fbuffer, sizeof(*entry) + fields_size);
+#else
 	trace_event_buffer_commit(&fbuffer);
+#endif
 out:
 	ring_buffer_nest_end(buffer);
 }

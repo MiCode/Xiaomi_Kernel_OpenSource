@@ -99,6 +99,7 @@ config CORESIGHT_STM
 	depends on (ARM && !(CPU_32v3 || CPU_32v4 || CPU_32v4T)) || ARM64
 	select CORESIGHT_LINKS_AND_SINKS
 	select STM
+	select CORESIGHT_OST if CORESIGHT_QGKI
 	help
 	  This driver provides support for hardware assisted software
 	  instrumentation based tracing. This is primarily used for
@@ -263,4 +264,12 @@ config CORESIGHT_TGU
 	  provide a trigger point for centering data around a specific event
 	  within the trace data buffer.
 
+config CORESIGHT_OST
+	bool "CoreSight OST framework"
+	depends on CORESIGHT_STM && COREISGHT_QGKI
+	help
+	  This driver enables the support for Open System Trace packets in STM.
+	  This is primarily intended to be used as a layer on top of underlying
+	  physical byte transport mechanisms.The additional header can be used
+	  to provide more information.
 endif

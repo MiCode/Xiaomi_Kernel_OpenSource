@@ -350,9 +350,13 @@ static void ftrace_syscall_enter(void *data, struct pt_regs *regs, long id)
 	entry->nr = syscall_nr;
 	syscall_get_arguments(current, regs, args);
 	memcpy(entry->args, args, sizeof(unsigned long) * sys_data->nb_args);
-
+#ifdef CONFIG_CORESIGHT_QGKI
+	event_trigger_unlock_commit(trace_file, buffer, event, entry,
+				    irq_flags, pc, 0);
+#else
 	event_trigger_unlock_commit(trace_file, buffer, event, entry,
 				    irq_flags, pc);
+#endif
 }
 
 static void ftrace_syscall_exit(void *data, struct pt_regs *regs, long ret)
@@ -397,8 +401,13 @@ static void ftrace_syscall_exit(void *data, struct pt_regs *regs, long ret)
 	entry->nr = syscall_nr;
 	entry->ret = syscall_get_return_value(current, regs);
 
+#ifdef CONFIG_CORESIGHT_QGKI
+	event_trigger_unlock_commit(trace_file, buffer, event, entry,
+				    irq_flags, pc, 0);
+#else
 	event_trigger_unlock_commit(trace_file, buffer, event, entry,
 				    irq_flags, pc);
+#endif
 }
 
 static int reg_event_syscall_enter(struct trace_event_file *file,
