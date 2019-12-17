@@ -402,7 +402,7 @@ static int wil_debugfs_iomem_x32_get(void *data, u64 *val)
 	if (ret < 0)
 		return ret;
 
-	*val = readl((void __iomem *)d->offset);
+	*val = readl_relaxed((void __iomem *)d->offset);
 
 	wil_pm_runtime_put(wil);
 
