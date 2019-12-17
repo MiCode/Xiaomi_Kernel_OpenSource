@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -375,10 +375,10 @@ static ssize_t dbgui_store_trig_mask(struct device *dev,
 				     const char *buf,
 				     size_t size)
 {
-	uint32_t val;
+	unsigned long val;
 	struct dbgui_drvdata *drvdata = dev_get_drvdata(dev->parent);
 
-	if (kstrtoul(buf, 16, (unsigned long *)&val))
+	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
 
 	mutex_lock(&drvdata->mutex);
@@ -403,10 +403,10 @@ static ssize_t dbgui_store_timer_override_enable(struct device *dev,
 						 const char *buf,
 						 size_t size)
 {
-	uint32_t val;
+	unsigned long val;
 	struct dbgui_drvdata *drvdata = dev_get_drvdata(dev->parent);
 
-	if (kstrtoul(buf, 16, (unsigned long *)&val))
+	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
 
 	mutex_lock(&drvdata->mutex);
@@ -434,10 +434,10 @@ static ssize_t dbgui_store_ts_enable(struct device *dev,
 				     const char *buf,
 				     size_t size)
 {
-	uint32_t val;
+	unsigned long val;
 	struct dbgui_drvdata *drvdata = dev_get_drvdata(dev->parent);
 
-	if (kstrtoul(buf, 16, (unsigned long *)&val))
+	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
 
 	mutex_lock(&drvdata->mutex);
@@ -463,10 +463,10 @@ static ssize_t dbgui_store_hwe_mask(struct device *dev,
 				    const char *buf,
 				    size_t size)
 {
-	uint32_t val;
+	unsigned long val;
 	struct dbgui_drvdata *drvdata = dev_get_drvdata(dev->parent);
 
-	if (kstrtoul(buf, 16, (unsigned long *)&val))
+	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
 
 	mutex_lock(&drvdata->mutex);
@@ -492,10 +492,10 @@ static ssize_t dbgui_store_sw_trig(struct device *dev,
 				   const char *buf,
 				   size_t size)
 {
-	uint32_t val;
+	unsigned long val;
 	struct dbgui_drvdata *drvdata = dev_get_drvdata(dev->parent);
 
-	if (kstrtoul(buf, 16, (unsigned long *)&val))
+	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
 
 	if (!val)
@@ -528,10 +528,10 @@ static ssize_t dbgui_store_nr_ahb_regs(struct device *dev,
 				       const char *buf,
 				       size_t size)
 {
-	uint32_t val;
+	unsigned long val;
 	struct dbgui_drvdata *drvdata = dev_get_drvdata(dev->parent);
 
-	if (kstrtoul(buf, 16, (unsigned long *)&val))
+	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
 
 	if (val > drvdata->size)
@@ -569,10 +569,10 @@ static ssize_t dbgui_store_nr_apb_regs(struct device *dev,
 				       const char *buf,
 				       size_t size)
 {
-	uint32_t val;
+	unsigned long val;
 	struct dbgui_drvdata *drvdata = dev_get_drvdata(dev->parent);
 
-	if (kstrtoul(buf, 16, (unsigned long *)&val))
+	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
 
 	if (val > drvdata->size)
@@ -615,10 +615,10 @@ static ssize_t dbgui_store_timeout_val(struct device *dev,
 				       const char *buf,
 				       size_t size)
 {
-	uint32_t val;
+	unsigned long val;
 	struct dbgui_drvdata *drvdata = dev_get_drvdata(dev->parent);
 
-	if (kstrtoul(buf, 16, (unsigned long *)&val))
+	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
 
 	mutex_lock(&drvdata->mutex);
@@ -643,10 +643,10 @@ static ssize_t dbgui_store_addr_idx(struct device *dev,
 				    const char *buf,
 				    size_t size)
 {
-	uint32_t val;
+	unsigned long val;
 	struct dbgui_drvdata *drvdata = dev_get_drvdata(dev->parent);
 
-	if (kstrtoul(buf, 16, (unsigned long *)&val))
+	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
 
 	if (val >= drvdata->size)
@@ -674,10 +674,10 @@ static ssize_t dbgui_store_addr_val(struct device *dev,
 				    const char *buf,
 				    size_t size)
 {
-	uint32_t val;
+	unsigned long val;
 	struct dbgui_drvdata *drvdata = dev_get_drvdata(dev->parent);
 
-	if (kstrtoul(buf, 16, (unsigned long *)&val))
+	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
 
 	mutex_lock(&drvdata->mutex);
@@ -755,9 +755,10 @@ static ssize_t dbgui_store_capture_enable(struct device *dev,
 				    size_t size)
 {
 	struct dbgui_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	uint32_t val, ret;
+	uint32_t ret;
+	unsigned long val;
 
-	if (kstrtoul(buf, 16, (unsigned long *)&val))
+	if (kstrtoul(buf, 16, &val))
 		return -EINVAL;
 
 	if (val)
