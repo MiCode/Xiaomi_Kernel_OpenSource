@@ -14,7 +14,8 @@
 #include "fw.h"
 
 #define WIL_MAX_ROC_DURATION_MS 5000
-#define CTRY_CHINA "CN"
+#define WIL_BRD_SUFFIX_CN "CN"
+#define WIL_BRD_SUFFIX_FCC "FCC"
 
 #define WIL_EDMG_CHANNEL_9_SUBCHANNELS	(BIT(0) | BIT(1))
 #define WIL_EDMG_CHANNEL_10_SUBCHANNELS	(BIT(1) | BIT(2))
@@ -101,6 +102,25 @@ static int wil_tx_cb_mode_to_n_bonded(u8 cb_mode)
 		return 1;
 	}
 }
+
+struct wil_regd_2_brd_suffix {
+	const char regdomain[3]; /* alpha2 */
+	const char *brd_suffix;
+};
+
+static struct wil_regd_2_brd_suffix wil_regd_2_brd_suffix_map[] = {
+	{"BO", WIL_BRD_SUFFIX_FCC},
+	{"CN", WIL_BRD_SUFFIX_CN},
+	{"EC", WIL_BRD_SUFFIX_FCC},
+	{"GU", WIL_BRD_SUFFIX_FCC},
+	{"HN", WIL_BRD_SUFFIX_FCC},
+	{"JM", WIL_BRD_SUFFIX_FCC},
+	{"MX", WIL_BRD_SUFFIX_FCC},
+	{"NI", WIL_BRD_SUFFIX_FCC},
+	{"PY", WIL_BRD_SUFFIX_FCC},
+	{"TT", WIL_BRD_SUFFIX_FCC},
+	{"US", WIL_BRD_SUFFIX_FCC},
+};
 
 enum wil_nl_60g_cmd_type {
 	NL_60G_CMD_FW_WMI,
@@ -1510,6 +1530,16 @@ static int wil_cfg80211_connect(struct wiphy *wiphy,
 	if (rc < 0)
 		return rc;
 
+	if (test_bit(WMI_FW_CAPABILITY_CHANNEL_BONDING, wil->fw_capabilities))
+		if (wil->force_edmg_channel) {
+			rc = wil_spec2wmi_ch(wil->force_edmg_channel,
+					     &conn.edmg_channel);
+			if (rc)
+				wil_err(wil,
+					"wmi channel for channel %d not found",
+					wil->force_edmg_channel);
+		}
+
 	ether_addr_copy(conn.bssid, bss->bssid);
 	ether_addr_copy(conn.dst_mac, bss->bssid);
 
@@ -2706,24 +2736,43 @@ wil_cfg80211_sched_scan_stop(struct wiphy *wiphy, struct net_device *dev,
 	return 0;
 }
 
+static void wil_get_brd_reg_suffix(struct wil6210_priv *wil,
+				   const u8 *new_regdomain,
+				   char *brd_reg_suffix, size_t len)
+{
+	int i;
+	struct wil_regd_2_brd_suffix *entry;
+
+	for (i = 0; i < ARRAY_SIZE(wil_regd_2_brd_suffix_map); i++) {
+		entry = &wil_regd_2_brd_suffix_map[i];
+		if (!memcmp(entry->regdomain, new_regdomain, 2)) {
+			strlcpy(brd_reg_suffix, entry->brd_suffix, len);
+			return;
+		}
+	}
+
+	/* regdomain not found in our map, set suffix to none */
+	brd_reg_suffix[0] = '\0';
+}
+
 static int wil_switch_board_file(struct wil6210_priv *wil,
 				 const u8 *new_regdomain)
 {
 	int rc = 0;
+	char brd_reg_suffix[WIL_BRD_SUFFIX_LEN];
 
 	if (!country_specific_board_file)
 		return 0;
 
-	if (memcmp(wil->regdomain, CTRY_CHINA, 2) == 0) {
-		wil_info(wil, "moving out of China reg domain, use default board file\n");
-		wil->board_file_country[0] = '\0';
-	} else if (memcmp(new_regdomain, CTRY_CHINA, 2) == 0) {
-		wil_info(wil, "moving into China reg domain, use country specific board file\n");
-		strlcpy(wil->board_file_country, CTRY_CHINA,
-			sizeof(wil->board_file_country));
-	} else {
+	wil_get_brd_reg_suffix(wil, new_regdomain, brd_reg_suffix,
+			       sizeof(brd_reg_suffix));
+	if (!strcmp(wil->board_file_reg_suffix, brd_reg_suffix))
 		return 0;
-	}
+
+	wil_info(wil, "switch board file suffix '%s' => '%s'\n",
+		 wil->board_file_reg_suffix, brd_reg_suffix);
+	strlcpy(wil->board_file_reg_suffix, brd_reg_suffix,
+		sizeof(wil->board_file_reg_suffix));
 
 	/* need to switch board file - reset the device */
 
