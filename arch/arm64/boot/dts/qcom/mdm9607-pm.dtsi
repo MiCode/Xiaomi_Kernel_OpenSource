@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -127,13 +127,6 @@
 		qcom,use-sync-timer;
 		qcom,synced-clocks;
 		qcom,tz-flushes-cache;
-	};
-
-	qcom,cpu-sleep-status@b088008{
-		compatible = "qcom,cpu-sleep-status";
-		reg = <0xb088008 0x100>;
-		qcom,cpu-alias-addr = <0x10000>;
-		qcom,sleep-status-mask= <0x80000>;
 	};
 
 	qcom,rpm-stats@29dba0 {
