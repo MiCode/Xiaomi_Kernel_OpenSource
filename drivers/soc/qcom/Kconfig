@@ -667,6 +667,15 @@ config QCOM_WATCHDOG
           deadlocks. It does not run during the bootup process, so it will
           not catch any early lockups.
 
+config QCOM_FORCE_WDOG_BITE_ON_PANIC
+	bool "QCOM force watchdog bite"
+	depends on QCOM_WATCHDOG
+	help
+	  This forces a watchdog bite when the device restarts
+	  due to a kernel panic. On certain MSM SoCs,
+	  this provides additional debugging
+	  information.
+
 config MSM_SPCOM
          depends on QCOM_GLINK
          bool "Secure Processor Communication over RPMSG"
