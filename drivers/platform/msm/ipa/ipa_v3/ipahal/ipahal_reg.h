@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -384,6 +384,27 @@ struct ipahal_reg_comp_cfg {
 	bool gen_qmb_0_snoc_bypass_dis;
 	bool gsi_snoc_bypass_dis;
 	bool enable;
+};
+
+/*
+ * struct ipahal_reg_tx_wrapper- IPA TX Wrapper state information
+ */
+struct ipahal_reg_tx_wrapper {
+	bool tx0_idle;
+	bool tx1_idle;
+	bool ipa_prod_ackmngr_db_empty;
+	bool ipa_prod_ackmngr_state_idle;
+	bool ipa_prod_prod_bresp_empty;
+	bool ipa_prod_prod_bresp_toggle_idle;
+	bool ipa_mbim_pkt_fms_idle;
+	u8 mbim_direct_dma;
+	bool trnseq_force_valid;
+	bool pkt_drop_cnt_idle;
+	u8 nlo_direct_dma;
+	u8 coal_direct_dma;
+	bool coal_slave_idle;
+	bool coal_slave_ctx_idle;
+	u8 coal_slave_open_frame;
 };
 
 /*

@@ -1044,3 +1044,112 @@ int32_t cam_context_dump_pf_info_to_hw(struct cam_context *ctx,
 end:
 	return rc;
 }
+
+static int cam_context_dump_context(struct cam_context *ctx,
+	struct cam_hw_dump_args *dump_args)
+{
+	int rc = 0;
+	struct cam_context_dump_header *hdr;
+	char *dst;
+	uint64_t *addr, *start;
+	uintptr_t cpu_addr;
+	size_t    buf_len;
+	uint32_t min_len, remain_len;
+	struct cam_ctx_request *req;
+	int i;
+
+	if (list_empty(&ctx->active_req_list)) {
+		CAM_ERR(CAM_CTXT, "[%s][%d] no active request",
+			ctx->dev_name, ctx->ctx_id);
+		return -EIO;
+	}
+	rc  = cam_mem_get_cpu_buf(dump_args->buf_handle,
+		&cpu_addr, &buf_len);
+	if (!cpu_addr || !buf_len || rc) {
+		CAM_ERR(CAM_CTXT,
+			"lnvalid addr %u len %zu rc %d",
+			dump_args->buf_handle, buf_len, rc);
+		return rc;
+	}
+	remain_len = buf_len - dump_args->offset;
+	min_len =  2 * (sizeof(struct cam_context_dump_header) +
+		    CAM_CONTEXT_DUMP_TAG_MAX_LEN);
+	if (remain_len < min_len) {
+		CAM_ERR(CAM_CTXT, "dump buffer exhaust %d %d",
+			remain_len, min_len);
+		goto end;
+	}
+	dst = (char *)cpu_addr + dump_args->offset;
+	hdr = (struct cam_context_dump_header *)dst;
+	snprintf(hdr->tag, CAM_CONTEXT_DUMP_TAG_MAX_LEN,
+		"%s_CTXT_DUMP:", ctx->dev_name);
+	hdr->word_size = sizeof(uint64_t);
+	addr = (uint64_t *)(dst + sizeof(struct cam_context_dump_header));
+	start = addr;
+	req = list_first_entry(&ctx->active_req_list,
+		struct cam_ctx_request, list);
+	*addr++ = ctx->ctx_id;
+	*addr++ = refcount_read(&(ctx->refcount.refcount));
+	*addr++ = ctx->last_flush_req;
+	*addr++ = ctx->state;
+	*addr++ = req->num_out_map_entries;
+	for (i = 0; i < req->num_out_map_entries; i++)
+		if (req->out_map_entries[i].sync_id != -1)
+			*addr++ = req->out_map_entries[i].sync_id;
+	for (i = 0; i < req->num_in_map_entries; i++)
+		if (req->in_map_entries[i].sync_id != -1)
+			*addr++ = req->in_map_entries[i].sync_id;
+	*addr++ = req->num_in_map_entries;
+	hdr->size = hdr->word_size * (addr - start);
+	dump_args->offset += hdr->size +
+		sizeof(struct cam_context_dump_header);
+end:
+	rc  = cam_mem_put_cpu_buf(dump_args->buf_handle);
+	if (rc)
+		CAM_ERR(CAM_CTXT, "Cpu put failed handle %u",
+			dump_args->buf_handle);
+	return rc;
+}
+
+int32_t cam_context_dump_dev_to_hw(struct cam_context *ctx,
+	struct cam_dump_req_cmd *cmd)
+{
+	int rc = 0;
+	struct cam_hw_dump_args dump_args;
+
+	if (!ctx || !cmd) {
+		CAM_ERR(CAM_CTXT, "Invalid input params %pK %pK", ctx, cmd);
+		return -EINVAL;
+	}
+	if (!ctx->hw_mgr_intf) {
+		CAM_ERR(CAM_CTXT, "[%s][%d] HW interface is not ready",
+			ctx->dev_name, ctx->ctx_id);
+		return -EFAULT;
+	}
+	memset(&dump_args, 0, sizeof(dump_args));
+	if (ctx->hw_mgr_intf->hw_dump) {
+		dump_args.ctxt_to_hw_map = ctx->ctxt_to_hw_map;
+		dump_args.buf_handle = cmd->buf_handle;
+		dump_args.offset = cmd->offset;
+		dump_args.request_id = cmd->issue_req_id;
+		rc  = ctx->hw_mgr_intf->hw_dump(
+			ctx->hw_mgr_intf->hw_mgr_priv,
+			&dump_args);
+		if (rc) {
+			CAM_ERR(CAM_CTXT, "[%s][%d] handle[%u] failed",
+			    ctx->dev_name, ctx->ctx_id, dump_args.buf_handle);
+			return rc;
+		}
+		if (dump_args.offset != cmd->offset) {
+			cam_context_dump_context(ctx, &dump_args);
+			CAM_INFO(CAM_CTXT, "[%s] ctx: %d Filled Length %d",
+				ctx->dev_name, ctx->ctx_id,
+				dump_args.offset - cmd->offset);
+			/* Drivers update the offest */
+			cmd->offset  = dump_args.offset;
+		}
+	} else {
+		CAM_INFO(CAM_CTXT, "%s hw dump not registered", ctx->dev_name);
+	}
+	return rc;
+}

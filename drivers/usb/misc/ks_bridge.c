@@ -88,6 +88,9 @@ static rwlock_t dbg_lock = __RW_LOCK_UNLOCKED(lck);
 static unsigned int enable_dbg = 1;
 module_param(enable_dbg, uint, 0644);
 
+static bool prevent_edl_probe;
+module_param(prevent_edl_probe, bool, 0644);
+
 /*get_timestamp - returns time of day in us */
 static unsigned int get_timestamp(void)
 {
@@ -633,6 +636,11 @@ ksb_usb_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 
 	pr_debug("%s: id: %lu\n", __func__, id->driver_info);
 
+	if (prevent_edl_probe && (le16_to_cpu(id->idProduct) == 0x9008)) {
+		pr_err("%s: Preventing EDL device enumeration\n", __func__);
+		return -EINVAL;
+	}
+
 	udev = interface_to_usbdev(ifc);
 	if (udev->actconfig->desc.bNumInterfaces > 1) {
 		pr_err("%s: Invalid configuration: More than 1 interface\n",
@@ -932,10 +940,8 @@ static const struct usb_device_id ksb_usb_ids[] = {
 
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9008, 0),
 	.driver_info = DEV_ID(0), },
-	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x90EF, 0),
-	.driver_info =  DEV_ID(0), },
-	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x90F0, 0),
-	.driver_info =  DEV_ID(0), },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x900E, 0),
+	.driver_info = DEV_ID(0), },
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x90F3, 0),
 	.driver_info =	DEV_ID(0), },
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x90FD, 0),

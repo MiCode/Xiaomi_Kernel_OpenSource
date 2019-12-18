@@ -1790,6 +1790,12 @@ exit_node_debug:
 	return ret;
 }
 
+static int msm_bus_pm_restore(struct device *dev)
+{
+	return bus_for_each_dev(&msm_bus_type, NULL, NULL,
+			msm_bus_dev_init_qos);
+}
+
 static int msm_bus_free_dev(struct device *dev, void *data)
 {
 	struct msm_bus_node_device_type *bus_node = NULL;
@@ -1956,6 +1962,10 @@ static struct platform_driver msm_bus_rules_driver = {
 	},
 };
 
+static const struct dev_pm_ops msm_bus_pm_ops = {
+	.restore = msm_bus_pm_restore,
+};
+
 static const struct of_device_id fabric_match[] = {
 	{.compatible = "qcom,msm-bus-device"},
 	{}
@@ -1968,6 +1978,7 @@ static struct platform_driver msm_bus_device_driver = {
 		.name = "msm_bus_device",
 		.owner = THIS_MODULE,
 		.of_match_table = fabric_match,
+		.pm = &msm_bus_pm_ops,
 	},
 };
 

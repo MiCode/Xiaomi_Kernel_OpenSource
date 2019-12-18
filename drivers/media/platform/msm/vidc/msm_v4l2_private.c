@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,7 +17,7 @@ static int convert_from_user(struct msm_vidc_arg *kp, unsigned long arg)
 {
 	int rc = 0;
 	int i;
-	struct msm_vidc_arg __user *up = compat_ptr(arg);
+	struct msm_vidc_arg __user *up = (struct msm_vidc_arg __user *)arg;
 
 	if (!kp || !up) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
@@ -109,7 +109,7 @@ static int convert_to_user(struct msm_vidc_arg *kp, unsigned long arg)
 {
 	int rc = 0;
 	int i;
-	struct msm_vidc_arg __user *up = compat_ptr(arg);
+	struct msm_vidc_arg __user *up = (struct msm_vidc_arg __user *)arg;
 
 	if (!kp || !up) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);

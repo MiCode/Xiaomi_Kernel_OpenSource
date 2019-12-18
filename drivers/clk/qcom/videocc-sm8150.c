@@ -312,12 +312,32 @@ static const struct qcom_cc_desc video_cc_sm8150_desc = {
 	.num_resets = ARRAY_SIZE(video_cc_sm8150_resets),
 };
 
+static struct clk_regmap *video_cc_sm8150_critical_clocks[] = {
+	&video_cc_xo_clk.clkr,
+};
+
+static const struct qcom_cc_critical_desc video_cc_sm8150_critical_desc = {
+	.clks = video_cc_sm8150_critical_clocks,
+	.num_clks = ARRAY_SIZE(video_cc_sm8150_critical_clocks),
+};
+
 static const struct of_device_id video_cc_sm8150_match_table[] = {
 	{ .compatible = "qcom,videocc-sm8150" },
 	{ .compatible = "qcom,videocc-sm8150-v2" },
+	{ .compatible = "qcom,videocc-sa8155" },
+	{ .compatible = "qcom,videocc-sa8155-v2" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, video_cc_sm8150_match_table);
+
+static int video_cc_sa8150_resume(struct device *dev)
+{
+	return qcom_cc_enable_critical_clks(&video_cc_sm8150_critical_desc);
+}
+
+static const struct dev_pm_ops video_cc_sa8150_pm_ops = {
+	.restore_early = video_cc_sa8150_resume,
+};
 
 static void video_cc_sm8150_fixup_sm8150v2(struct regmap *regmap)
 {
@@ -340,8 +360,13 @@ static int video_cc_sm8150_fixup(struct platform_device *pdev,
 	if (!compat || (compatlen <= 0))
 		return -EINVAL;
 
-	if (!strcmp(compat, "qcom,videocc-sm8150-v2"))
+	if (!strcmp(compat, "qcom,videocc-sm8150-v2") ||
+			!strcmp(compat, "qcom,videocc-sa8155-v2"))
 		video_cc_sm8150_fixup_sm8150v2(regmap);
+
+	if (!strcmp(compat, "qcom,videocc-sm8150-v2") ||
+			!strcmp(compat, "qcom,videocc-sa8155-v2"))
+		pdev->dev.driver->pm = &video_cc_sa8150_pm_ops;
 
 	return 0;
 }

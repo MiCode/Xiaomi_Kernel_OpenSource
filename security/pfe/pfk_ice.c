@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -198,4 +198,19 @@ int qti_pfk_ice_invalidate_key(uint32_t index, char *storage_type)
 		pr_err("%s: could not disable clocks\n", __func__);
 
 	return ret;
+}
+
+int qti_pfk_ice_get_info(uint32_t *min_slot_index, uint32_t *total_num_slots,
+		bool async)
+{
+
+	if (!min_slot_index || !total_num_slots) {
+		pr_err("%s Null input\n", __func__);
+		return -EINVAL;
+	}
+
+	*min_slot_index = MIN_ICE_KEY_INDEX;
+	*total_num_slots = MAX_ICE_KEY_INDEX + 1;
+
+	return 0;
 }

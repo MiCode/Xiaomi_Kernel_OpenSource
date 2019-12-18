@@ -889,17 +889,21 @@
 
 	 tsens: tsens@4a8000 {
 		compatible = "qcom,mdm9607-tsens";
-		reg = <0x4a8000 0x2000>,
-			<0xa4000  0x1000>;
-		reg-names = "tsens_physical", "tsens_eeprom_physical";
+		reg = <0x004A8000 0x1000>,
+			<0x004A9000 0x1000>,
+			<0x000A4000  0x1000>;
+		reg-names ="tsens_srot_physical",
+			"tsens_tm_physical",
+			"tsens_eeprom_physical";
 		interrupts = <0 184 0>;
 		interrupt-names = "tsens-upper-lower";
 		qcom,sensors = <5>;
 		qcom,slope = <3000 3000 3000 3000 3000>;
 		qcom,sensor-id = <0 1 2 3 4>;
-		qcom,temp1-offset = <1 (-4) 4 (-3) (-4)>;
-		qcom,temp2-offset = <1 (-2) 8 (-5) (-4)>;
+		#thermal-sensor-cells = <1>;
 	};
+
+	thermal_zones: thermal-zones {};
 
 	wcd9xxx_intc: wcd9xxx-irq {
 		compatible = "qcom,wcd9xxx-irq";

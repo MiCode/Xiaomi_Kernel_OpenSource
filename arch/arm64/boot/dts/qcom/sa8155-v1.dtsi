@@ -23,3 +23,19 @@
 &clock_scc {
 	compatible = "qcom,scc-sa8155";
 };
+
+&clock_gcc {
+	compatible = "qcom,gcc-sa8155", "syscon";
+};
+
+&clock_videocc {
+	compatible = "qcom,videocc-sa8155", "syscon";
+};
+
+&clock_npucc {
+	compatible = "qcom,npucc-sa8155", "syscon";
+};
+
+&clock_camcc {
+	compatible = "qcom,camcc-sa8155", "syscon";
+};

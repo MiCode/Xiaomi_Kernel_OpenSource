@@ -193,6 +193,12 @@ Charger specific properties:
 		to be get from these properties defined in battery profile:
 		qcom,step-chg-ranges, qcom,jeita-fcc-ranges, qcom,jeita-fv-ranges.
 
+- qcom,disable-stat-sw-override
+  Usage:      optional
+  Value type: bool
+  Definition: Boolean flag which when present disables STAT pin default software
+		override configuration.
+
 =============================================
 Second Level Nodes - SMB2 Charger Peripherals
 =============================================

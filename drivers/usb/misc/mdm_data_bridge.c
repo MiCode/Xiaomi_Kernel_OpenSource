@@ -513,7 +513,7 @@ int data_bridge_write(unsigned int id, struct sk_buff *skb)
 	struct urb		*txurb;
 	struct timestamp_info	*info = (struct timestamp_info *)skb->cb;
 	struct data_bridge	*dev = __mdm_dev[id];
-	struct bridge		*brdg;
+	struct bridge		*brdg = dev->brdg;
 
 	if (!dev->brdg || dev->err) {
 		pr_err("%s: Bridge closed or device disconnected\n", __func__);
@@ -968,6 +968,8 @@ static void bridge_disconnect(struct usb_interface *intf)
 
 /*driver info stores data bridge name used to match bridge xport name*/
 static const struct usb_device_id bridge_ids[] = {
+	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6, 0x9008, 0),
+	.driver_info = (kernel_ulong_t)("edl"), },
 	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6, 0x9102, 6),
 	.driver_info = (kernel_ulong_t)("qdss"), },
 	{ USB_DEVICE_INTERFACE_NUMBER(0x05c6, 0x9102, 7),

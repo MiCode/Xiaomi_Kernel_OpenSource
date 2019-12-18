@@ -4187,6 +4187,26 @@ static struct clk_dfs gcc_dfs_clocks[] = {
 	{ &gcc_qupv3_wrap2_s5_clk_src, DFS_ENABLE_RCG },
 };
 
+static struct clk_regmap *gcc_sm8150_critical_clocks[] = {
+	&gcc_camera_ahb_clk.clkr,
+	&gcc_camera_xo_clk.clkr,
+	&gcc_cpuss_ahb_clk.clkr,
+	&gcc_cpuss_dvm_bus_clk.clkr,
+	&gcc_cpuss_gnoc_clk.clkr,
+	&gcc_disp_ahb_clk.clkr,
+	&gcc_disp_xo_clk.clkr,
+	&gcc_gpu_cfg_ahb_clk.clkr,
+	&gcc_npu_cfg_ahb_clk.clkr,
+	&gcc_sys_noc_cpuss_ahb_clk.clkr,
+	&gcc_video_ahb_clk.clkr,
+	&gcc_video_xo_clk.clkr
+};
+
+static const struct qcom_cc_critical_desc gcc_sm8150_critical_desc = {
+	.clks = gcc_sm8150_critical_clocks,
+	.num_clks = ARRAY_SIZE(gcc_sm8150_critical_clocks),
+};
+
 static const struct qcom_cc_dfs_desc gcc_sm8150_dfs_desc = {
 	.clks = gcc_dfs_clocks,
 	.num_clks = ARRAY_SIZE(gcc_dfs_clocks),
@@ -4211,9 +4231,20 @@ static const struct qcom_cc_desc gcc_sm8150_desc = {
 static const struct of_device_id gcc_sm8150_match_table[] = {
 	{ .compatible = "qcom,gcc-sm8150" },
 	{ .compatible = "qcom,gcc-sm8150-v2" },
+	{ .compatible = "qcom,gcc-sa8155" },
+	{ .compatible = "qcom,gcc-sa8155-v2" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, gcc_sm8150_match_table);
+
+static int gcc_sa8150_resume(struct device *dev)
+{
+	return qcom_cc_enable_critical_clks(&gcc_sm8150_critical_desc);
+}
+
+static const struct dev_pm_ops gcc_sa8150_pm_ops = {
+	.restore_early = gcc_sa8150_resume,
+};
 
 static void gcc_sm8150_fixup_sm8150v2(struct regmap *regmap)
 {
@@ -4234,8 +4265,13 @@ static int gcc_sm8150_fixup(struct platform_device *pdev, struct regmap *regmap)
 	if (!compat || (compatlen <= 0))
 		return -EINVAL;
 
-	if (!strcmp(compat, "qcom,gcc-sm8150-v2"))
+	if (!strcmp(compat, "qcom,gcc-sm8150-v2") ||
+			!strcmp(compat, "qcom,gcc-sa8155-v2"))
 		gcc_sm8150_fixup_sm8150v2(regmap);
+
+	if (!strcmp(compat, "qcom,gcc-sa8155") ||
+			!strcmp(compat, "qcom,gcc-sa8155-v2"))
+		pdev->dev.driver->pm = &gcc_sa8150_pm_ops;
 
 	return 0;
 }

@@ -2,6 +2,7 @@ Qualcomm Technologies, Inc. Video Clock & Reset Controller Bindings
 
 Required properties:
 - compatible: shall contain "qcom,videocc-sm8150" or "qcom,videocc-sm8150-v2" or
+				"qcom,videocc-sa8155" or "qcom,videocc-sa8155-v2" or
 				"qcom,videocc-sm6150", "qcom,videocc-sdmmagpie" or
 				"qcom,videocc-trinket" or "qcom,videocc-sa6155" or
 				"qcom,atoll-videocc".
