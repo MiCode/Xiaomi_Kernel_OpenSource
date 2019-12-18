@@ -81,13 +81,26 @@ static struct msm_memory_dump memdump;
 static int update_reg_dump_table(struct device *dev, u32 core_reg_num)
 {
 	int ret = 0;
-	u32 system_regs_input_index = SYSTEM_REGS_INPUT_INDEX +
-			core_reg_num * 2;
-	u32 regdump_output_byte_offset = (system_regs_input_index + 1)
-			* sizeof(uint32_t);
+	u32 system_regs_input_index;
+	u32 regdump_output_byte_offset;
 	struct reg_dump_data *p;
-	struct cpuss_dump_data *cpudata = dev_get_drvdata(dev);
+	struct cpuss_dump_data *cpudata;
 
+	if (core_reg_num * 2 < core_reg_num) {
+		ret = -EINVAL;
+		goto err1;
+	}
+	system_regs_input_index = SYSTEM_REGS_INPUT_INDEX +
+			core_reg_num * 2;
+	if (system_regs_input_index < SYSTEM_REGS_INPUT_INDEX ||
+			system_regs_input_index + 1 < system_regs_input_index) {
+		ret = -EINVAL;
+		goto err1;
+	}
+	regdump_output_byte_offset = (system_regs_input_index + 1)
+			* sizeof(uint32_t);
+
+	cpudata = dev_get_drvdata(dev);
 	mutex_lock(&cpudata->mutex);
 
 	if (regdump_output_byte_offset >= cpudata->size ||
@@ -115,6 +128,7 @@ static int update_reg_dump_table(struct device *dev, u32 core_reg_num)
 
 err:
 	mutex_unlock(&cpudata->mutex);
+err1:
 	return ret;
 }
 
