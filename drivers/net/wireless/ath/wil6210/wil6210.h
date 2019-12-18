@@ -52,6 +52,8 @@ union wil_tx_desc;
 
 #define WIL_DEFAULT_BUS_REQUEST_KBPS 128000 /* ~1Gbps */
 #define WIL_MAX_BUS_REQUEST_KBPS 800000 /* ~6.1Gbps */
+#define WIL_11AD_BUS_REQUEST_KBPS 600000 /* ~4.6Gbps */
+#define WIL_11AY_BUS_REQUEST_KBPS 1300000 /* ~10.1Gbps */
 
 #define WIL_NUM_LATENCY_BINS 200
 
@@ -181,6 +183,7 @@ struct RGF_ICR {
 #define RGF_USER_USAGE_1		(0x880004)
 #define RGF_USER_USAGE_2		(0x880008)
 #define RGF_USER_USAGE_6		(0x880018)
+	#define BIT_SPI_SENSING_SUPPORT		BIT(28)
 	#define BIT_USER_OOB_MODE		BIT(31)
 	#define BIT_USER_OOB_R2_MODE		BIT(30)
 #define RGF_USER_USAGE_8		(0x880020)
@@ -1051,6 +1054,9 @@ struct wil6210_priv {
 		short direct;
 	} snr_thresh;
 
+	/* VR profile, VR is disabled on profile 0 */
+	u8 vr_profile;
+
 	/* current reg domain configured in kernel */
 	char regdomain[3]; /* alpha2 */
 
@@ -1254,6 +1260,7 @@ void wil_mbox_ring_le2cpus(struct wil6210_mbox_ring *r);
 int wil_find_cid(struct wil6210_priv *wil, u8 mid, const u8 *mac);
 int wil_find_cid_by_idx(struct wil6210_priv *wil, u8 mid, int idx);
 void wil_set_ethtoolops(struct net_device *ndev);
+int wil_vr_update_profile(struct wil6210_priv *wil, u8 profile);
 
 struct fw_map *wil_find_fw_mapping(const char *section);
 void __iomem *wmi_buffer_block(struct wil6210_priv *wil, __le32 ptr, u32 size);
@@ -1449,6 +1456,10 @@ void wil_halp_unvote(struct wil6210_priv *wil);
 void wil6210_set_halp(struct wil6210_priv *wil);
 void wil6210_clear_halp(struct wil6210_priv *wil);
 
+int wmi_set_vr_profile(struct wil6210_priv *wil, u8 profile);
+const char *
+wil_get_vr_profile_name(enum wmi_vr_profile profile);
+
 void wil_ftm_init(struct wil6210_vif *vif);
 void wil_ftm_deinit(struct wil6210_vif *vif);
 void wil_ftm_stop_operations(struct wil6210_priv *wil);
@@ -1502,6 +1513,7 @@ int wmi_addba_rx_resp_edma(struct wil6210_priv *wil, u8 mid, u8 cid,
 			   u16 agg_wsize, u16 timeout);
 
 void update_supported_bands(struct wil6210_priv *wil);
+int wmi_reset_spi_slave(struct wil6210_priv *wil);
 
 void wil_clear_fw_log_addr(struct wil6210_priv *wil);
 #endif /* __WIL6210_H__ */
