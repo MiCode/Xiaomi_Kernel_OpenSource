@@ -2126,6 +2126,13 @@ static const struct of_device_id cnss_of_match_table[] = {
 };
 MODULE_DEVICE_TABLE(of, cnss_of_match_table);
 
+static inline bool
+cnss_use_nv_mac(struct cnss_plat_data *plat_priv)
+{
+	return of_property_read_bool(plat_priv->plat_dev->dev.of_node,
+				     "use-nv-mac");
+}
+
 static int cnss_probe(struct platform_device *plat_dev)
 {
 	int ret = 0;
@@ -2158,6 +2165,7 @@ static int cnss_probe(struct platform_device *plat_dev)
 	plat_priv->plat_dev = plat_dev;
 	plat_priv->device_id = device_id->driver_data;
 	plat_priv->bus_type = cnss_get_bus_type(plat_priv->device_id);
+	plat_priv->use_nv_mac = cnss_use_nv_mac(plat_priv);
 	cnss_set_plat_priv(plat_dev, plat_priv);
 	platform_set_drvdata(plat_dev, plat_priv);
 	INIT_LIST_HEAD(&plat_priv->vreg_list);
