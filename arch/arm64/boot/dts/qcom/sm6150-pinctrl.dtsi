@@ -1169,7 +1169,7 @@
 				config {
 					pins = "gpio115", "gpio116";
 					drive-strength = <8>;   /* 8 mA */
-					input-enable;
+					output-high;
 					bias-disable;
 				};
 			};
