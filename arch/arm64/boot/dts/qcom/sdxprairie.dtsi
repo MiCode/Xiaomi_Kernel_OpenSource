@@ -1059,6 +1059,7 @@
 		qcom,smmu-s1-enable;
 
 		mhi,max-channels = <30>;
+		mhi,buffer-len = <0x8000>;
 		mhi,timeout = <10000>;
 
 		mhi_channels {
