@@ -1,4 +1,4 @@
-/* Copyright (c) 2019 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019-2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -44,9 +44,10 @@
  *           5    - Removed ipa_eth_{gsi,uc}_iommu_*{} APIs that were used for
  *                  mapping memory to GSI and IPA uC IOMMU CBs.
  *           6    - Added ipa_eth_ep_deinit()
+ *           7    - ipa_eth_net_ops.receive_skb() now accepts in_napi parameter
  */
 
-#define IPA_ETH_API_VER 6
+#define IPA_ETH_API_VER 7
 
 /**
  * enum ipa_eth_dev_features - Features supported by an ethernet device or
@@ -698,6 +699,7 @@ struct ipa_eth_net_ops {
 	 *                  stack
 	 * @eth_dev: Device to which the skb need to belong
 	 * @skb: Skb to be provided to Linux network stack
+	 * @in_napi: IPA LAN Rx is executing in NAPI poll
 	 *
 	 * When a network packet received by the IPA connected device queue can
 	 * not be routed within IPA, it will be sent to Linux as an exception
@@ -713,7 +715,7 @@ struct ipa_eth_net_ops {
 	 * expected to have been freed.
 	 */
 	int (*receive_skb)(struct ipa_eth_device *eth_dev,
-		struct sk_buff *skb);
+		struct sk_buff *skb, bool in_napi);
 
 	/**
 	 * .transmit_skb() - Transmit an skb given IPA

@@ -1,4 +1,4 @@
-/* Copyright (c) 2019 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019-2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1168,7 +1168,8 @@ EXPORT_SYMBOL(ipa_eth_net_moderate_event);
 int ipa_eth_net_receive_skb(struct ipa_eth_device *eth_dev,
 	struct sk_buff *skb)
 {
-	return ipa_eth_nd_op(eth_dev, receive_skb, eth_dev, skb);
+	return ipa_eth_nd_op(eth_dev,
+		receive_skb, eth_dev, skb, ipa_get_lan_rx_napi());
 }
 EXPORT_SYMBOL(ipa_eth_net_receive_skb);
 
