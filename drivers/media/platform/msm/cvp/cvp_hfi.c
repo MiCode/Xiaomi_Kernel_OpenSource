@@ -34,6 +34,7 @@
 #define FIRMWARE_SIZE			0X00A00000
 #define REG_ADDR_OFFSET_BITMASK	0x000FFFFF
 #define QDSS_IOVA_START 0x80001000
+#define MIN_PAYLOAD_SIZE 3
 
 const struct msm_cvp_hfi_defs cvp_hfi_defs[] = {
 	{
@@ -343,32 +344,6 @@ int get_pkt_index(struct cvp_hal_session_cmd_pkt *hdr)
 		if (cvp_hfi_defs[i].type == hdr->packet_type)
 			return i;
 
-	return -EINVAL;
-}
-
-int set_feature_bitmask(int pkt_idx, unsigned long *bitmask)
-{
-	if (!bitmask) {
-		dprintk(CVP_ERR, "%s: invalid bitmask\n", __func__);
-		return -EINVAL;
-	}
-
-	if (cvp_hfi_defs[pkt_idx].type == HFI_CMD_SESSION_CVP_DME_FRAME) {
-		set_bit(DME_BIT_OFFSET, bitmask);
-		return 0;
-	}
-
-	if (cvp_hfi_defs[pkt_idx].type == HFI_CMD_SESSION_CVP_ICA_FRAME) {
-		set_bit(ICA_BIT_OFFSET, bitmask);
-		return 0;
-	}
-
-	if (cvp_hfi_defs[pkt_idx].type == HFI_CMD_SESSION_CVP_FD_FRAME) {
-		set_bit(FD_BIT_OFFSET, bitmask);
-		return 0;
-	}
-
-	dprintk(CVP_ERR, "%s: invalid pkt_idx %d\n", __func__, pkt_idx);
 	return -EINVAL;
 }
 
@@ -1201,18 +1176,11 @@ static int __tzbsp_set_cvp_state(enum tzbsp_subsys_state state)
 	int rc = 0;
 
 	rc = qcom_scm_set_remote_state(state, TZBSP_CVP_PAS_ID);
+	dprintk(CVP_DBG, "Set state %d, resp %d\n", state, rc);
 
-	if (rc < 0) {
+	if (rc) {
 		dprintk(CVP_ERR, "Failed qcom_scm_set_remote_state %d\n", rc);
 		return rc;
-	}
-
-	dprintk(CVP_DBG, "Set state %d, resp %d\n", state, rc);
-	if (rc) {
-		dprintk(CVP_ERR,
-			"Failed to set cvp core state to suspend: %d\n",
-			rc);
-		return -EINVAL;
 	}
 
 	return 0;
@@ -2896,15 +2864,35 @@ static void __flush_debug_queue(struct iris_hfi_device *device, u8 *packet)
 		log_level = CVP_ERR;
 	}
 
-	while (!__iface_dbgq_read(device, packet)) {
-		struct cvp_hfi_msg_sys_coverage_packet *pkt =
-			(struct cvp_hfi_msg_sys_coverage_packet *) packet;
+#define SKIP_INVALID_PKT(pkt_size, payload_size, pkt_hdr_size) ({ \
+		if (pkt_size < pkt_hdr_size || \
+			payload_size < MIN_PAYLOAD_SIZE || \
+			payload_size > \
+			(pkt_size - pkt_hdr_size + sizeof(u8))) { \
+			dprintk(CVP_ERR, \
+				"%s: invalid msg size - %d\n", \
+				__func__, pkt->msg_size); \
+			continue; \
+		} \
+	})
 
-		if (pkt->packet_type == HFI_MSG_SYS_COV) {
-			dprintk(CVP_ERR, "STM_LOG not supported\n");
-		} else {
+	while (!__iface_dbgq_read(device, packet)) {
+		struct cvp_hfi_packet_header *pkt =
+			(struct cvp_hfi_packet_header *) packet;
+
+		if (pkt->size < sizeof(struct cvp_hfi_packet_header)) {
+			dprintk(CVP_ERR, "Invalid pkt size - %s\n",
+				__func__);
+			continue;
+		}
+
+		if (pkt->packet_type == HFI_MSG_SYS_DEBUG) {
 			struct cvp_hfi_msg_sys_debug_packet *pkt =
 				(struct cvp_hfi_msg_sys_debug_packet *) packet;
+
+			SKIP_INVALID_PKT(pkt->size,
+				pkt->msg_size, sizeof(*pkt));
+
 			/*
 			 * All fw messages starts with new line character. This
 			 * causes dprintk to print this message in two lines
@@ -2912,9 +2900,11 @@ static void __flush_debug_queue(struct iris_hfi_device *device, u8 *packet)
 			 * from the message fixes this to print it in a single
 			 * line.
 			 */
+			pkt->rg_msg_data[pkt->msg_size-1] = '\0';
 			dprintk(log_level, "%s", &pkt->rg_msg_data[1]);
 		}
 	}
+#undef SKIP_INVALID_PKT
 
 	if (local_packet)
 		kfree(packet);

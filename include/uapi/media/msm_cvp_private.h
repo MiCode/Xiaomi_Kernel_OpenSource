@@ -8,12 +8,6 @@
 #define MAX_DFS_HFI_PARAMS 20
 #define HFI_MAX_PLANES 4
 
-#define BASE_PRIVATE_CVP	36
-
-/* VIDIOC private cvp command */
-#define VIDIOC_CVP_CMD \
-		_IOWR('V', BASE_PRIVATE_CVP, struct cvp_kmd_arg)
-
 /* Commands type */
 #define CVP_KMD_CMD_BASE		0x10000000
 #define CVP_KMD_CMD_START		(CVP_KMD_CMD_BASE + 0x1000)
@@ -51,30 +45,6 @@
  */
 #define CVP_KMD_UNREGISTER_BUFFER	(CVP_KMD_CMD_START + 4)
 
-#define CVP_KMD_HFI_SEND_CMD        (CVP_KMD_CMD_START + 5)
-
-#define CVP_KMD_HFI_DFS_CONFIG_CMD  (CVP_KMD_CMD_START + 6)
-
-#define CVP_KMD_HFI_DFS_FRAME_CMD  (CVP_KMD_CMD_START + 7)
-
-#define CVP_KMD_HFI_DFS_FRAME_CMD_RESPONSE  (CVP_KMD_CMD_START + 8)
-
-#define CVP_KMD_HFI_DME_CONFIG_CMD  (CVP_KMD_CMD_START + 9)
-
-#define CVP_KMD_HFI_DME_FRAME_CMD  (CVP_KMD_CMD_START + 10)
-
-#define CVP_KMD_HFI_DME_FRAME_CMD_RESPONSE  (CVP_KMD_CMD_START + 11)
-
-#define CVP_KMD_HFI_PERSIST_CMD  (CVP_KMD_CMD_START + 12)
-
-#define CVP_KMD_HFI_PERSIST_CMD_RESPONSE  (CVP_KMD_CMD_START + 13)
-
-#define CVP_KMD_HFI_DME_FRAME_FENCE_CMD  (CVP_KMD_CMD_START + 14)
-
-#define CVP_KMD_HFI_ICA_FRAME_CMD  (CVP_KMD_CMD_START + 15)
-
-#define CVP_KMD_HFI_FD_FRAME_CMD  (CVP_KMD_CMD_START + 16)
-
 #define CVP_KMD_UPDATE_POWER	(CVP_KMD_CMD_START + 17)
 
 #define CVP_KMD_SEND_CMD_PKT	(CVP_KMD_CMD_START + 64)
@@ -87,7 +57,11 @@
 
 #define CVP_KMD_SESSION_CONTROL		(CVP_KMD_CMD_START + 68)
 
-#define CVP_KMD_SEND_FENCE_CMD_PKT   (0x10001000 + 69)
+#define CVP_KMD_SEND_FENCE_CMD_PKT	(CVP_KMD_CMD_START + 69)
+
+#define CVP_KMD_FLUSH_ALL	(CVP_KMD_CMD_START + 70)
+
+#define CVP_KMD_FLUSH_FRAME	(CVP_KMD_CMD_START + 71)
 
 /* flags */
 #define CVP_KMD_FLAG_UNSECURE			0x00000000
@@ -275,8 +249,8 @@ struct cvp_kmd_hfi_fence_packet {
 
 
 /**
- * struct cvp_kmd_arg - argument passed with VIDIOC_CVP_CMD
- * To be deprecated
+ * struct cvp_kmd_arg
+ *
  * @type:          command type
  * @buf_offset:    offset to buffer list in the command
  * @buf_num:       number of buffers in the command

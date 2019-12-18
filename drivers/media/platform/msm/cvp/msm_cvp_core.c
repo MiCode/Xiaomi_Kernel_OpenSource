@@ -220,7 +220,7 @@ static bool msm_cvp_check_for_inst_overload(struct msm_cvp_core *core)
 	return overload;
 }
 
-static int _init_session_queue(struct msm_cvp_inst *inst)
+static int __init_session_queue(struct msm_cvp_inst *inst)
 {
 	spin_lock_init(&inst->session_queue.lock);
 	INIT_LIST_HEAD(&inst->session_queue.msgs);
@@ -228,6 +228,21 @@ static int _init_session_queue(struct msm_cvp_inst *inst)
 	init_waitqueue_head(&inst->session_queue.wq);
 	inst->session_queue.state = QUEUE_ACTIVE;
 	return 0;
+}
+
+static void __init_fence_queue(struct msm_cvp_inst *inst)
+{
+	spin_lock_init(&inst->fence_cmd_queue.lock);
+	INIT_LIST_HEAD(&inst->fence_cmd_queue.wait_list);
+	INIT_LIST_HEAD(&inst->fence_cmd_queue.sched_list);
+	init_waitqueue_head(&inst->fence_cmd_queue.wq);
+	inst->fence_cmd_queue.state = QUEUE_ACTIVE;
+
+	spin_lock_init(&inst->session_queue_fence.lock);
+	INIT_LIST_HEAD(&inst->session_queue_fence.msgs);
+	inst->session_queue_fence.msg_count = 0;
+	init_waitqueue_head(&inst->session_queue_fence.wq);
+	inst->session_queue_fence.state = QUEUE_ACTIVE;
 }
 
 static void _deinit_session_queue(struct msm_cvp_inst *inst)
@@ -295,7 +310,6 @@ void *msm_cvp_open(int core_id, int session_type)
 	pr_info(CVP_DBG_TAG "Opening cvp instance: %pK\n", "info", inst);
 	mutex_init(&inst->sync_lock);
 	mutex_init(&inst->lock);
-	mutex_init(&inst->fence_lock);
 	spin_lock_init(&inst->event_handler.lock);
 
 	INIT_MSM_CVP_LIST(&inst->persistbufs);
@@ -316,7 +330,6 @@ void *msm_cvp_open(int core_id, int session_type)
 	inst->clk_data.sys_cache_bw = 0;
 	inst->clk_data.bitrate = 0;
 	inst->clk_data.core_id = 0;
-	inst->deprecate_bitmask = 0;
 
 	for (i = SESSION_MSG_INDEX(SESSION_MSG_START);
 		i <= SESSION_MSG_INDEX(SESSION_MSG_END); i++) {
@@ -329,7 +342,9 @@ void *msm_cvp_open(int core_id, int session_type)
 	list_add_tail(&inst->list, &core->instances);
 	mutex_unlock(&core->lock);
 
-	rc = _init_session_queue(inst);
+	__init_fence_queue(inst);
+
+	rc = __init_session_queue(inst);
 	if (rc)
 		goto fail_init;
 
@@ -351,7 +366,6 @@ fail_init:
 	mutex_unlock(&core->lock);
 	mutex_destroy(&inst->sync_lock);
 	mutex_destroy(&inst->lock);
-	mutex_destroy(&inst->fence_lock);
 
 	DEINIT_MSM_CVP_LIST(&inst->persistbufs);
 	DEINIT_MSM_CVP_LIST(&inst->cvpcpubufs);
@@ -400,7 +414,6 @@ int msm_cvp_destroy(struct msm_cvp_inst *inst)
 
 	mutex_destroy(&inst->sync_lock);
 	mutex_destroy(&inst->lock);
-	mutex_destroy(&inst->fence_lock);
 
 	msm_cvp_debugfs_deinit_inst(inst);
 	_deinit_session_queue(inst);
