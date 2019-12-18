@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2688,8 +2688,10 @@ static struct ipa3_mem_partition ipa_4_1_mem_part = {
 	.uc_descriptor_ram_size		= 0x400,
 	.pdn_config_ofst		= 0xbd8,
 	.pdn_config_size		= 0x50,
-	.stats_quota_ofst		= 0xc30,
-	.stats_quota_size		= 0x60,
+	.stats_quota_q6_ofst		= 0xc30,
+	.stats_quota_q6_size		= 0x60,
+	.stats_quota_ap_ofst		= 0,
+	.stats_quota_ap_size		= 0,
 	.stats_tethering_ofst		= 0xc90,
 	.stats_tethering_size		= 0x140,
 	.stats_flt_v4_ofst		= 0xdd0,
@@ -2777,8 +2779,10 @@ static struct ipa3_mem_partition ipa_4_2_mem_part = {
 	.uc_descriptor_ram_size		= 0x0,
 	.pdn_config_ofst		= 0x9F8,
 	.pdn_config_size		= 0x50,
-	.stats_quota_ofst		= 0xa50,
-	.stats_quota_size		= 0x60,
+	.stats_quota_q6_ofst		= 0xa50,
+	.stats_quota_q6_size		= 0x60,
+	.stats_quota_ap_ofst		= 0,
+	.stats_quota_ap_size		= 0,
 	.stats_tethering_ofst		= 0xab0,
 	.stats_tethering_size		= 0x140,
 	.stats_flt_v4_ofst		= 0xbf0,
@@ -2843,8 +2847,10 @@ static struct ipa3_mem_partition ipa_4_5_mem_part = {
 	.apps_hdr_proc_ctx_size_ddr	= 0x0,
 	.nat_tbl_ofst            = 0x00001800,
 	.nat_tbl_size            = 0x00000D00,
-	.stats_quota_ofst		= 0x2510,
-	.stats_quota_size		= 0x78,
+	.stats_quota_q6_ofst		= 0x2510,
+	.stats_quota_q6_size		= 0x30,
+	.stats_quota_ap_ofst		= 0x2540,
+	.stats_quota_ap_size		= 0x48,
 	.stats_tethering_ofst		= 0x2588,
 	.stats_tethering_size		= 0x238,
 	.stats_flt_v4_ofst		= 0,
@@ -5481,13 +5487,23 @@ int ipa3_init_mem_partition(enum ipa_hw_type type)
 		return -ENODEV;
 	}
 
-	IPADBG("QUOTA STATS OFST 0x%x SIZE 0x%x\n",
-		IPA_MEM_PART(stats_quota_ofst),
-		IPA_MEM_PART(stats_quota_size));
+	IPADBG("Q6 QUOTA STATS OFST 0x%x SIZE 0x%x\n",
+		IPA_MEM_PART(stats_quota_q6_ofst),
+		IPA_MEM_PART(stats_quota_q6_size));
 
-	if (IPA_MEM_PART(stats_quota_ofst) & 7) {
-		IPAERR("QUOTA STATS OFST 0x%x is unaligned\n",
-			IPA_MEM_PART(stats_quota_ofst));
+	if (IPA_MEM_PART(stats_quota_q6_ofst) & 7) {
+		IPAERR("Q6 QUOTA STATS OFST 0x%x is unaligned\n",
+			IPA_MEM_PART(stats_quota_q6_ofst));
+		return -ENODEV;
+	}
+
+	IPADBG("AP QUOTA STATS OFST 0x%x SIZE 0x%x\n",
+		IPA_MEM_PART(stats_quota_ap_ofst),
+		IPA_MEM_PART(stats_quota_ap_size));
+
+	if (IPA_MEM_PART(stats_quota_ap_ofst) & 7) {
+		IPAERR("AP QUOTA STATS OFST 0x%x is unaligned\n",
+			IPA_MEM_PART(stats_quota_ap_ofst));
 		return -ENODEV;
 	}
 
