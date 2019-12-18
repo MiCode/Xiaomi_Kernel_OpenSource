@@ -10,8 +10,8 @@ Qualcomm Technologies, Inc. PMIC chips.
 
 - reg:
 	Usage: required
-	Value type: <prop-encoded-array>
-	Definition: Register base of the TRI_LED module and length.
+	Value type: <u32>
+	Definition: Register base of the TRI_LED module.
 
 - nvmem-names:
 	Usage: optional
@@ -52,7 +52,7 @@ Example:
 
 	pmi8998_rgb: tri-led@d000{
 		compatible = "qcom,tri-led";
-		reg = <0xd000 0x100>;
+		reg = <0xd000>;
 
 		red {
 			label = "red";
