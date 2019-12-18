@@ -56,6 +56,7 @@ struct mhi_dev {
 	void *arch_info;
 	bool powered_on;
 	bool allow_m1;
+	bool mdm_state;
 	dma_addr_t iova_start;
 	dma_addr_t iova_stop;
 	enum mhi_suspend_mode suspend_mode;
