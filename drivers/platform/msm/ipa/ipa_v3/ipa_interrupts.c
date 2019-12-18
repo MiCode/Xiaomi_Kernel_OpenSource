@@ -63,6 +63,9 @@ static int ipa3_irq_mapping[IPA_IRQ_MAX] = {
 	[IPA_GSI_IPA_IF_TLV_RCVD_IRQ]		= 24,
 	[IPA_GSI_UC_IRQ]			= 25,
 	[IPA_TLV_LEN_MIN_DSM_IRQ]		= 26,
+	[IPA_DRBIP_PKT_EXCEED_MAX_SIZE_IRQ]	= 27,
+	[IPA_DRBIP_DATA_SCTR_CFG_ERROR_IRQ]	= 28,
+	[IPA_DRBIP_IMM_CMD_NO_FLSH_HZRD_IRQ]	= 29,
 };
 
 static void ipa3_interrupt_defer(struct work_struct *work);
