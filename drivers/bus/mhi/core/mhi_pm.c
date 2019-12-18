@@ -578,6 +578,8 @@ static void mhi_pm_disable_transition(struct mhi_controller *mhi_cntrl,
 		mhi_cntrl->ee = MHI_EE_DISABLE_TRANSITION;
 		mhi_cntrl->dev_state = MHI_STATE_RESET;
 	}
+	/* notify controller of power down regardless of state transitions */
+	mhi_cntrl->power_down = true;
 	write_unlock_irq(&mhi_cntrl->pm_lock);
 
 	/* wake up any threads waiting for state transitions */

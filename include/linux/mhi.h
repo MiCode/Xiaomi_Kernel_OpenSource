@@ -350,6 +350,8 @@ struct mhi_controller {
 	enum MHI_DEBUG_LEVEL log_lvl;
 
 	/* controller specific data */
+	const char *name;
+	bool power_down;
 	void *priv_data;
 	void *log_buf;
 	struct dentry *dentry;
