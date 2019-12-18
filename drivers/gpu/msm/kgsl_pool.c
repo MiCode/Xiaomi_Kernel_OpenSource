@@ -7,6 +7,7 @@
 #include <linux/highmem.h>
 #include <linux/of.h>
 #include <linux/scatterlist.h>
+#include <linux/swap.h>
 
 #include "kgsl_device.h"
 #include "kgsl_pool.h"
@@ -576,9 +577,22 @@ static void kgsl_of_parse_mempools(struct device_node *node)
 
 static void kgsl_of_get_mempools(struct device_node *parent)
 {
-	struct device_node *node;
+	struct device_node *node = NULL;
 
-	node = of_find_compatible_node(parent, NULL, "qcom,gpu-mempools");
+	/*
+	 * If available memory is less than 2GB first
+	 * check for low memory pool configuration. If
+	 * low memory configuration is not specified
+	 * then fallback to default pool configuration.
+	 */
+	if (totalram_pages < (SZ_2G >> PAGE_SHIFT))
+		node = of_find_compatible_node(parent, NULL,
+				"qcom,gpu-mempools-lowmem");
+
+	if (node == NULL)
+		node = of_find_compatible_node(parent, NULL,
+				"qcom,gpu-mempools");
+
 	if (node != NULL) {
 		/* Get Max pages limit for mempool */
 		of_property_read_u32(node, "qcom,mempool-max-pages",
