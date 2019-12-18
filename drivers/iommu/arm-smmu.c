@@ -3602,6 +3602,12 @@ static int __arm_smmu_domain_set_attr(struct iommu_domain *domain,
 		break;
 	}
 	case DOMAIN_ATTR_SECURE_VMID:
+		/* can't be changed while attached */
+		if (smmu_domain->smmu != NULL) {
+			ret = -EBUSY;
+			break;
+		}
+
 		if (smmu_domain->secure_vmid != VMID_INVAL) {
 			ret = -ENODEV;
 			WARN(1, "secure vmid already set!");
@@ -3615,6 +3621,12 @@ static int __arm_smmu_domain_set_attr(struct iommu_domain *domain,
 		 * force DOMAIN_ATTR_ATOMIC to bet set.
 		 */
 	case DOMAIN_ATTR_FAST:
+		/* can't be changed while attached */
+		if (smmu_domain->smmu != NULL) {
+			ret = -EBUSY;
+			break;
+		}
+
 		if (*((int *)data)) {
 			if (IS_ENABLED(CONFIG_IOMMU_IO_PGTABLE_FAST)) {
 				set_bit(DOMAIN_ATTR_FAST,
