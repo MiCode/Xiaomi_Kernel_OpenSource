@@ -1463,6 +1463,19 @@
 					bias-pull-up;
 				};
 			};
+
+			pcie0_clkreq_sleep: pcie0_clkreq_sleep {
+				mux {
+					pins = "gpio56";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio56";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
 		};
 
 		pcie_ep {
