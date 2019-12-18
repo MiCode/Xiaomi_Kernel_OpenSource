@@ -694,6 +694,12 @@ out:
 	return err;
 }
 
+static void cqhci_crypto_update_queue(struct mmc_host *mmc,
+					struct request_queue *queue)
+{
+	//struct cqhci_host *cq_host = mmc->cqe_private;
+}
+
 static void cqhci_recovery_needed(struct mmc_host *mmc, struct mmc_request *mrq,
 				  bool notify)
 {
@@ -1156,6 +1162,7 @@ static const struct mmc_cqe_ops cqhci_cqe_ops = {
 	.cqe_timeout = cqhci_timeout,
 	.cqe_recovery_start = cqhci_recovery_start,
 	.cqe_recovery_finish = cqhci_recovery_finish,
+	.cqe_crypto_update_queue = cqhci_crypto_update_queue,
 };
 
 struct cqhci_host *cqhci_pltfm_init(struct platform_device *pdev)
