@@ -3562,8 +3562,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	 * in avoiding race conditions between xhci_plat_resume and
 	 * xhci_runtime_resume and also between hcd disconnect and xhci_resume.
 	 */
-	mdwc->sm_usb_wq = alloc_ordered_workqueue("k_sm_usb",
-						WQ_FREEZABLE | WQ_MEM_RECLAIM);
+	mdwc->sm_usb_wq = alloc_ordered_workqueue("k_sm_usb", WQ_FREEZABLE);
 	if (!mdwc->sm_usb_wq) {
 		destroy_workqueue(mdwc->dwc3_wq);
 		return -ENOMEM;
