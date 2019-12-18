@@ -85,6 +85,10 @@ extern void __weak mark_task_starting(struct task_struct *p);
 extern void __weak set_window_start(struct rq *rq);
 extern bool __weak do_pl_notif(struct rq *rq);
 
+/*
+ * This is only for tracepoints to print the avg irq load. For
+ * task placment considerations, use sched_cpu_high_irqload().
+ */
 #define SCHED_HIGH_IRQ_TIMEOUT 3
 static inline u64 sched_irqload(int cpu)
 {
@@ -107,7 +111,7 @@ static inline u64 sched_irqload(int cpu)
 
 static inline int sched_cpu_high_irqload(int cpu)
 {
-	return sched_irqload(cpu) >= sysctl_sched_cpu_high_irqload;
+	return cpu_rq(cpu)->high_irqload;
 }
 
 static inline int exiting_task(struct task_struct *p)

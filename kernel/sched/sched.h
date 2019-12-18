@@ -1076,6 +1076,7 @@ struct rq {
 	u64			cur_irqload;
 	u64			avg_irqload;
 	u64			irqload_ts;
+	bool			high_irqload;
 	struct task_struct	*ed_task;
 	struct cpu_cycle	cc;
 	u64			old_busy_time, old_busy_time_group;

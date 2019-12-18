@@ -8444,7 +8444,7 @@ void sched_account_irqtime(int cpu, struct task_struct *curr,
 				u64 delta, u64 wallclock)
 {
 	struct rq *rq = cpu_rq(cpu);
-	unsigned long flags, nr_windows;
+	unsigned long flags, nr_ticks;
 	u64 cur_jiffies_ts;
 
 	raw_spin_lock_irqsave(&rq->lock, flags);
@@ -8460,18 +8460,20 @@ void sched_account_irqtime(int cpu, struct task_struct *curr,
 		walt_update_task_ravg(curr, rq, IRQ_UPDATE, sched_ktime_clock(),
 								delta);
 
-	nr_windows = cur_jiffies_ts - rq->irqload_ts;
+	nr_ticks = cur_jiffies_ts - rq->irqload_ts;
 
-	if (nr_windows) {
-		if (nr_windows < 10) {
+	if (nr_ticks) {
+		if (nr_ticks < 10) {
 			/* Decay CPU's irqload by 3/4 for each window. */
-			rq->avg_irqload *= (3 * nr_windows);
+			rq->avg_irqload *= (3 * nr_ticks);
 			rq->avg_irqload = div64_u64(rq->avg_irqload,
-							4 * nr_windows);
+							4 * nr_ticks);
 		} else {
 			rq->avg_irqload = 0;
 		}
 		rq->avg_irqload += rq->cur_irqload;
+		rq->high_irqload = (rq->avg_irqload >=
+				    sysctl_sched_cpu_high_irqload);
 		rq->cur_irqload = 0;
 	}
 
