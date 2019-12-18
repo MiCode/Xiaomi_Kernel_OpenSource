@@ -1802,12 +1802,11 @@ static int npu_of_parse_pwrlevels(struct npu_device *npu_dev,
 		NPU_DBG("fmax %x\n", fmax);
 
 		switch (fmax) {
-		case 1:
-		case 2:
-			fmax_pwrlvl = NPU_PWRLEVEL_NOM;
-			break;
-		case 3:
+		case 0x34:
 			fmax_pwrlvl = NPU_PWRLEVEL_SVS_L1;
+			break;
+		case 0x48:
+			fmax_pwrlvl = NPU_PWRLEVEL_NOM;
 			break;
 		default:
 			fmax_pwrlvl = pwr->max_pwrlevel;

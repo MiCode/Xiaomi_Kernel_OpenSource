@@ -19,9 +19,9 @@
 #define IPC_MEM_OFFSET_FROM_SSTCM 0x00018000
 #define SYS_CACHE_SCID 23
 
-#define QFPROM_FMAX_REG_OFFSET 0x000001C8
-#define QFPROM_FMAX_BITS_MASK  0x0000000C
-#define QFPROM_FMAX_BITS_SHIFT 2
+#define QFPROM_FMAX_REG_OFFSET 0x00006010
+#define QFPROM_FMAX_BITS_MASK  0x0003FC00
+#define QFPROM_FMAX_BITS_SHIFT 10
 
 #define REGW(npu_dev, off, val) npu_core_reg_write(npu_dev, off, val)
 #define REGR(npu_dev, off) npu_core_reg_read(npu_dev, off)
