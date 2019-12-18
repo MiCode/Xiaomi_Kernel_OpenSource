@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"PMIC_GLINK: %s: " fmt, __func__
@@ -317,7 +317,7 @@ static int pmic_glink_rpmsg_probe(struct rpmsg_device *rpdev)
 	pgdev = get_pmic_glink_from_rpdev(rpdev);
 	if (!pgdev) {
 		pr_err("Failed to get pmic_glink_dev for %s\n", rpdev->id.name);
-		return -ENODEV;
+		return -EPROBE_DEFER;
 	}
 
 	dev_set_drvdata(&rpdev->dev, pgdev);
@@ -331,6 +331,7 @@ static int pmic_glink_rpmsg_probe(struct rpmsg_device *rpdev)
 
 static const struct rpmsg_device_id pmic_glink_rpmsg_match[] = {
 	{ "PMIC_RTR_ADSP_APPS" },
+	{ "PMIC_LOGS_ADSP_APPS" },
 	{}
 };
 
@@ -422,20 +423,8 @@ static int pmic_glink_probe(struct platform_device *pdev)
 
 	pmic_glink_dev_add(pgdev);
 
-	rc = register_rpmsg_driver(&pmic_glink_rpmsg_driver);
-	if (rc < 0) {
-		pr_err("Failed to register rpmsg_driver rc=%d\n", rc);
-		goto error_register;
-	}
-
 	pr_debug("%s probed successfully\n", pgdev->channel_name);
 	return 0;
-
-error_register:
-	pmic_glink_dev_remove(pgdev);
-	idr_destroy(&pgdev->client_idr);
-	destroy_workqueue(pgdev->rx_wq);
-	return rc;
 }
 
 static int pmic_glink_remove(struct platform_device *pdev)
@@ -447,7 +436,6 @@ static int pmic_glink_remove(struct platform_device *pdev)
 	idr_destroy(&pgdev->client_idr);
 	of_platform_depopulate(&pdev->dev);
 	pgdev->child_probed = false;
-	unregister_rpmsg_driver(&pmic_glink_rpmsg_driver);
 	pmic_glink_dev_remove(pgdev);
 
 	return 0;
@@ -468,7 +456,24 @@ static struct platform_driver pmic_glink_driver = {
 	},
 };
 
-module_platform_driver(pmic_glink_driver);
+static int __init pmic_glink_init(void)
+{
+	int rc;
+
+	rc = platform_driver_register(&pmic_glink_driver);
+	if (rc < 0)
+		return rc;
+
+	return register_rpmsg_driver(&pmic_glink_rpmsg_driver);
+}
+module_init(pmic_glink_init);
+
+static void __exit pmic_glink_exit(void)
+{
+	unregister_rpmsg_driver(&pmic_glink_rpmsg_driver);
+	platform_driver_unregister(&pmic_glink_driver);
+}
+module_exit(pmic_glink_exit);
 
 MODULE_DESCRIPTION("QTI PMIC Glink driver");
 MODULE_LICENSE("GPL v2");
