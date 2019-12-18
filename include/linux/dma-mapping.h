@@ -11,6 +11,7 @@
 #include <linux/scatterlist.h>
 #include <linux/bug.h>
 #include <linux/mem_encrypt.h>
+#include <linux/genalloc.h>
 
 /**
  * List of possible attributes associated with a DMA mapping. The semantics
@@ -675,9 +676,13 @@ void *dma_common_pages_remap(struct page **pages, size_t size,
 			pgprot_t prot, const void *caller);
 void dma_common_free_remap(void *cpu_addr, size_t size);
 
-int __init dma_atomic_pool_init(void);
+struct gen_pool *__init __dma_atomic_pool_init(void);
+bool __dma_in_atomic_pool(struct gen_pool *pool, void *start, size_t size);
 bool dma_in_atomic_pool(void *start, size_t size);
+void *__dma_alloc_from_pool(struct gen_pool *pool, size_t size,
+			    struct page **ret_page, gfp_t flags);
 void *dma_alloc_from_pool(size_t size, struct page **ret_page, gfp_t flags);
+bool __dma_free_from_pool(struct gen_pool *pool, void *start, size_t size);
 bool dma_free_from_pool(void *start, size_t size);
 
 int
