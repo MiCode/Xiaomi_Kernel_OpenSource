@@ -489,6 +489,9 @@ static struct memlat_node *register_common(struct device *dev,
 	if (hw->get_child_of_node)
 		of_node = hw->get_child_of_node(dev);
 
+	if (of_parse_phandle(of_node, "qcom,core-dev-table", 0))
+		of_node = of_parse_phandle(of_node, "qcom,core-dev-table", 0);
+
 	hw->freq_map = init_core_dev_map(dev, of_node, "qcom,core-dev-table");
 
 	if (!hw->freq_map) {
