@@ -24,7 +24,7 @@
 #include "mdla_debug.h"
 
 #ifdef CONFIG_MTK_MDLA_ION
-#include <m4u.h>
+//#include <m4u.h>
 
 static struct ion_client *ion_client;
 
@@ -74,7 +74,7 @@ int mdla_ion_kmap(unsigned long arg)
 	memset((void *)&mm_data, 0, sizeof(struct ion_mm_data));
 	mm_data.mm_cmd = ION_MM_GET_IOVA;
 	mm_data.get_phys_param.kernel_handle = hndl;
-	mm_data.get_phys_param.module_id = M4U_PORT_VPU;
+//	mm_data.get_phys_param.module_id = M4U_PORT_VPU;
 	mm_data.get_phys_param.len = ion_data.len;
 	ret = ion_kernel_ioctl(ion_client, ION_CMD_MULTIMEDIA,
 		(unsigned long) &mm_data);
