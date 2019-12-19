@@ -12,6 +12,7 @@ enum msm_pcie_config {
 	MSM_PCIE_CONFIG_NO_CFG_RESTORE = 0x1,
 	MSM_PCIE_CONFIG_LINKDOWN = 0x2,
 	MSM_PCIE_CONFIG_NO_RECOVERY = 0x4,
+	MSM_PCIE_CONFIG_NO_L1SS_TO = 0x8,
 };
 
 enum msm_pcie_pm_opt {
