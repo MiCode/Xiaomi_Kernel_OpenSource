@@ -766,6 +766,16 @@
 		compatible = "mediatek,atf_logger";
 	};
 
+	mobicore {
+		compatible = "trustonic,mobicore";
+		interrupts = <GIC_SPI 83 IRQ_TYPE_EDGE_RISING>;
+	};
+
+	tee_sanity {
+		compatible = "mediatek,tee_sanity";
+		interrupts = <GIC_SPI 84 IRQ_TYPE_EDGE_RISING>;
+	};
+
 	/* Microtrust SW IRQ number 85(117) ~ 90(122) */
 	utos {
 		compatible = "microtrust,utos";
@@ -870,6 +880,10 @@
 		interrupts = <GIC_SPI 187 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&infracfg_ao INFRACFG_AO_DEVICE_APC_CG>;
 		clock-names = "devapc-infra-clock";
+	};
+
+	hwrng: hwrng {
+		compatible = "mediatek,mt67xx-rng";
 	};
 
 	bus_dbg@10208000 {
