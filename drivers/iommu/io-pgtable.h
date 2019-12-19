@@ -154,8 +154,8 @@ struct io_pgtable_cfg {
  *
  * @map:		Map a physically contiguous memory region.
  * @map_sg:		Map a scatterlist.  Returns the number of bytes mapped,
- *			or 0 on failure.  The size parameter contains the size
- *			of the partial mapping in case of failure.
+ *			or -ve val on failure.  The size parameter contains the
+ *			size of the partial mapping in case of failure.
  * @unmap:		Unmap a physically contiguous memory region.
  * @iova_to_phys:	Translate iova to physical address.
  * @is_iova_coherent:	Checks coherency of given IOVA. Returns True if coherent

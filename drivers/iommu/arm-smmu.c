@@ -3256,8 +3256,13 @@ static size_t arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 				  prot, &size);
 		spin_unlock_irqrestore(&smmu_domain->cb_lock, flags);
 
-
 		if (ret == -ENOMEM) {
+			/* unmap any partially mapped iova */
+			if (size) {
+				arm_smmu_secure_domain_unlock(smmu_domain);
+				arm_smmu_unmap(domain, iova, size);
+				arm_smmu_secure_domain_lock(smmu_domain);
+			}
 			arm_smmu_prealloc_memory(smmu_domain,
 						 batch_size, &nonsecure_pool);
 			spin_lock_irqsave(&smmu_domain->cb_lock, flags);
@@ -3272,8 +3277,8 @@ static size_t arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 							 &nonsecure_pool);
 		}
 
-		/* Returns 0 on error */
-		if (!ret) {
+		/* Returns -ve val on error */
+		if (ret < 0) {
 			size_to_unmap = iova + size - __saved_iova_start;
 			goto out;
 		}
@@ -3281,6 +3286,7 @@ static size_t arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 		iova += batch_size;
 		idx_start = idx_end;
 		sg_start = sg_end;
+		size = 0;
 	}
 
 out:
