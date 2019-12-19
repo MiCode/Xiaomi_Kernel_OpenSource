@@ -5126,6 +5126,10 @@ static const struct qcom_reset_map gcc_sdmshrike_resets[] = {
 	[GCC_VIDEO_AXIC_CLK_BCR] = { 0xb02c, 2 },
 	[GCC_VIDEO_AXI0_CLK_BCR] = { 0xb024, 2 },
 	[GCC_VIDEO_AXI1_CLK_BCR] = { 0xb028, 2 },
+	[GCC_USB3_UNIPHY_MP0_BCR] = { 0x50024 },
+	[GCC_USB3_UNIPHY_MP1_BCR] = { 0x50028 },
+	[GCC_USB3UNIPHY_PHY_MP0_BCR] = { 0x5002c },
+	[GCC_USB3UNIPHY_PHY_MP1_BCR] = { 0x50030 },
 };
 
 
