@@ -280,7 +280,6 @@ static bool cmdq_sec_irq_handler(
 	else
 		done = CMDQ_MAX_COOKIE_VALUE - thread->wait_cookie + 1 +
 			cookie + 1;
-	done += err ? 1 : 0;
 
 	if (err)
 		cmdq_err(
@@ -294,10 +293,8 @@ static bool cmdq_sec_irq_handler(
 			thread->wait_cookie, cookie, done, err);
 
 	list_for_each_entry_safe(task, temp, &thread->task_list, list_entry) {
-		if (!done || (err && done == 1)) {
-			cur_task = task;
+		if (!done)
 			break;
-		}
 		cmdq_sec_task_done(task, 0);
 
 		if (!thread->task_cnt)
@@ -307,6 +304,9 @@ static bool cmdq_sec_irq_handler(
 			thread->task_cnt -= 1;
 		done--;
 	}
+
+	cur_task = list_first_entry_or_null(&thread->task_list,
+		struct cmdq_sec_task, list_entry);
 
 	if (err && cur_task) {
 		struct cmdq_cb_data cb_data;
@@ -341,6 +341,8 @@ static bool cmdq_sec_irq_handler(
 
 			cmdq_sec_task_done(cur_task, -ECONNABORTED);
 		}
+	} else if (err) {
+		cmdq_msg("error but all task done, check notify callback");
 	}
 
 	if (list_empty(&thread->task_list)) {
@@ -684,7 +686,7 @@ static s32 cmdq_sec_session_send(struct cmdq_sec_context *context,
 	err = cmdq_sec_execute_session(&context->tee, iwc_cmd, 3000,
 		mem_ex1, mem_ex2);
 	cost = div_u64(sched_clock() - cost, 1000000);
-	if (cost >= 10)
+	if (cost >= 1000)
 		cmdq_msg("%s execute done cmdq:%p task:%lx cost:%lluus",
 			__func__, cmdq, (unsigned long)task, cost);
 	else
