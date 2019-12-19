@@ -4245,10 +4245,16 @@
 		interrupts = <GIC_SPI 347 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
-	wpe_a@15011000 {
+	wpe_a@15811000 {
 		compatible = "mediatek,wpe_a";
-		reg = <0 0x15011000 0 0x1000>;
-		interrupts = <GIC_SPI 348 IRQ_TYPE_LEVEL_HIGH>;
+		reg = <0 0x15811000 0 0x1000>;
+		interrupts = <GIC_SPI 354 IRQ_TYPE_LEVEL_HIGH>;
+		clocks =
+				<&imgsys_config IMGSYS2_LARB11_CGPDN>,
+				<&imgsys_config IMGSYS2_WPE_CGPDN>;
+		clock-names =
+				"WPE_CLK_IMG_LARB11",
+				"WPE_CLK_IMG_WPE_B";
 	};
 
 	mfb@15012000 {
