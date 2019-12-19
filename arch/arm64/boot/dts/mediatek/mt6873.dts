@@ -863,12 +863,6 @@
 		interrupts = <GIC_SPI 210 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
-	sys_cirq@10204000 {
-		compatible = "mediatek,sys_cirq";
-		reg = <0 0x10204000 0 0x1000>;
-		interrupts = <GIC_SPI 503 IRQ_TYPE_LEVEL_HIGH>;
-	};
-
 	devapc@10207000 {
 		compatible = "mediatek,mt6873-devapc";
 		reg = <0 0x10207000 0 0x1000>,
