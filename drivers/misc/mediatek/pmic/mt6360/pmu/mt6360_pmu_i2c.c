@@ -30,6 +30,7 @@ module_param(dbg_log_en, bool, 0644);
 
 static const struct mt6360_pmu_platform_data def_platform_data = {
 	.irq_gpio = -1,
+	.disable_lpsd = false,
 };
 
 static int mt6360_pmu_read_device(void *client, u32 addr, int len, void *dst)
@@ -199,6 +200,7 @@ static int mt6360_pmu_apply_pdata(struct mt6360_pmu_info *mpi,
 
 static const struct mt6360_val_prop mt6360_val_props[] = {
 	MT6360_DT_VALPROP(int_ret, struct mt6360_pmu_platform_data),
+	MT6360_DT_VALPROP(disable_lpsd, struct mt6360_pmu_platform_data),
 };
 
 static int mt6360_pmu_parse_dt_data(struct device *dev,
@@ -264,6 +266,7 @@ static int mt6360_pmu_i2c_probe(struct i2c_client *client,
 	bool use_dt = client->dev.of_node;
 	u8 chip_rev;
 	int ret;
+	uint8_t reg_data = 0x80, reg_mask = 0x80;
 
 	dev_dbg(&client->dev, "%s\n", __func__);
 	ret = mt6360_pmu_chip_id_check(client);
@@ -323,6 +326,12 @@ static int mt6360_pmu_i2c_probe(struct i2c_client *client,
 	if (ret < 0) {
 		dev_err(&client->dev, "subdev register fail\n");
 		goto out_irq;
+	}
+	if (pdata->disable_lpsd) {
+		ret = mt6360_pmu_reg_update_bits(mpi, MT6360_PMU_CHG_PUMP,
+						reg_mask, reg_data);
+		if (ret < 0)
+			dev_err(&client->dev, "%s: LPSD set fail\n", __func__);
 	}
 	pm_runtime_enable(mpi->dev);
 	dev_info(&client->dev, "%s: successfully probed\n", __func__);
