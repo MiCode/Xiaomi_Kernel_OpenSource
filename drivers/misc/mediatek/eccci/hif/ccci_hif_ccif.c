@@ -1592,8 +1592,10 @@ void dump_ctrl_path_hif_status(void)
 
 	ts_nsec = sched_clock();
 	rem_nsec = do_div(ts_nsec, 1000000000);
-	CCCI_HISTORY_LOG(md_ctrl->md_id, TAG, "[%5lu.%06lu]%s\n",
+	if (md_ctrl != NULL) {
+		CCCI_HISTORY_LOG(md_ctrl->md_id, TAG, "[%5lu.%06lu]%s\n",
 			(unsigned long)ts_nsec, rem_nsec / 1000, __func__);
+	}
 	if (md_ctrl && md_ctrl->ccif_ap_base) {
 		CCCI_HISTORY_LOG(md_ctrl->md_id, TAG, "AP_RCHNUM:0x%08x\n",
 			ccif_read32(md_ctrl->ccif_ap_base, APCCIF_RCHNUM));
