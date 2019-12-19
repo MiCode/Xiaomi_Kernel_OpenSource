@@ -345,6 +345,7 @@ struct ISP_CLK_STRUCT {
 	struct clk *ISP_CAM_CAMSV2;
 	struct clk *ISP_CAM_CAMSV3;
 	struct clk *CAMSYS_SENINF_CGPDN;
+	struct clk *CAMSYS_CAM2MM_GALS_CGPDN;
 	struct clk *CAMSYS_TOP_MUX_CCU;
 	struct clk *CAMSYS_CCU0_CGPDN;
 	struct clk *CAMSYS_LARB13_CGPDN;
@@ -2125,6 +2126,10 @@ static inline void Prepare_Enable_ccf_clock(void)
 	if (ret)
 		LOG_NOTICE("cannot pre-en CAMSYS_SENINF_CGPDN clock\n");
 
+	ret = clk_prepare_enable(isp_clk.CAMSYS_CAM2MM_GALS_CGPDN);
+	if (ret)
+		LOG_NOTICE("cannot pre-en CAMSYS_CAM2MM_GALS_CGPDN clock\n");
+
 	ret = clk_prepare_enable(isp_clk.CAMSYS_TOP_MUX_CCU);
 	if (ret)
 		LOG_NOTICE("cannot pre-en CAMSYS_TOP_MUX_CCU clock\n");
@@ -2213,6 +2218,7 @@ static inline void Disable_Unprepare_ccf_clock(void)
 	clk_disable_unprepare(isp_clk.ISP_CAM_CAMSYS);
 	clk_disable_unprepare(isp_clk.CAMSYS_CCU0_CGPDN);
 	clk_disable_unprepare(isp_clk.CAMSYS_TOP_MUX_CCU);
+	clk_disable_unprepare(isp_clk.CAMSYS_CAM2MM_GALS_CGPDN);
 	clk_disable_unprepare(isp_clk.CAMSYS_SENINF_CGPDN);
 	clk_disable_unprepare(isp_clk.CAMSYS_LARB14_CGPDN);
 	clk_disable_unprepare(isp_clk.CAMSYS_LARB13_CGPDN);
@@ -6580,6 +6586,10 @@ static int ISP_probe(struct platform_device *pDev)
 		isp_clk.CAMSYS_SENINF_CGPDN =
 			devm_clk_get(&pDev->dev, "CAMSYS_SENINF_CGPDN");
 
+		isp_clk.CAMSYS_CAM2MM_GALS_CGPDN =
+			devm_clk_get(&pDev->dev,
+				"CAMSYS_MAIN_CAM2MM_GALS_CGPDN");
+
 		isp_clk.CAMSYS_TOP_MUX_CCU =
 			devm_clk_get(&pDev->dev, "TOPCKGEN_TOP_MUX_CCU");
 
@@ -6655,6 +6665,13 @@ static int ISP_probe(struct platform_device *pDev)
 			LOG_NOTICE("cannot get CAMSYS_SENINF_CGPDN clock\n");
 			return PTR_ERR(isp_clk.CAMSYS_SENINF_CGPDN);
 		}
+
+		if (IS_ERR(isp_clk.CAMSYS_CAM2MM_GALS_CGPDN)) {
+			LOG_NOTICE(
+				"cannot get CAMSYS_CAM2MM_GALS_CGPDN clock\n");
+			return PTR_ERR(isp_clk.CAMSYS_CAM2MM_GALS_CGPDN);
+		}
+
 		if (IS_ERR(isp_clk.CAMSYS_TOP_MUX_CCU)) {
 			LOG_NOTICE("cannot get CAMSYS_TOP_MUX_CCU clock\n");
 			return PTR_ERR(isp_clk.CAMSYS_TOP_MUX_CCU);
