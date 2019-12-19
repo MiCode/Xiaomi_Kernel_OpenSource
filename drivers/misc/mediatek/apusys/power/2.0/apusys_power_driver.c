@@ -45,6 +45,7 @@ static uint8_t power_info_force_print;
 
 bool apusys_power_check(void)
 {
+#ifdef CONFIG_MACH_MT6885
 	char *pwr_ptr;
 	bool pwr_status = true;
 
@@ -58,6 +59,9 @@ bool apusys_power_check(void)
 	LOG_INF("apusys power check, pwr_status=%d\n",
 			pwr_status);
 	return pwr_status;
+#else
+	return true;
+#endif
 }
 EXPORT_SYMBOL(apusys_power_check);
 
