@@ -310,7 +310,7 @@ static void cmdq_mdp_common_clock_enable(void)
 	CMDQ_MSG("[CLOCK]MDP SMI clock enable %d\n", smi_ref);
 	cmdq_mdp_get_func()->mdpEnableCommonClock(true);
 
-	CMDQ_PROF_MMP(cmdq_mmp_get_event()->MDP_clock_smi,
+	CMDQ_PROF_MMP(mdp_mmp_get_event()->MDP_clock_smi,
 		MMPROFILE_FLAG_PULSE, smi_ref, 1);
 }
 
@@ -321,7 +321,7 @@ static void cmdq_mdp_common_clock_disable(void)
 	CMDQ_MSG("[CLOCK]MDP SMI clock disable %d\n", smi_ref);
 	cmdq_mdp_get_func()->mdpEnableCommonClock(false);
 
-	CMDQ_PROF_MMP(cmdq_mmp_get_event()->MDP_clock_smi,
+	CMDQ_PROF_MMP(mdp_mmp_get_event()->MDP_clock_smi,
 		MMPROFILE_FLAG_PULSE, smi_ref, 0);
 }
 
@@ -340,7 +340,7 @@ static s32 cmdq_mdp_clock_enable(u64 engine_flag)
 
 	mutex_unlock(&mdp_clock_mutex);
 
-	CMDQ_PROF_MMP(cmdq_mmp_get_event()->MDP_clock_on,
+	CMDQ_PROF_MMP(mdp_mmp_get_event()->MDP_clock_on,
 		MMPROFILE_FLAG_PULSE, (u32)(engine_flag >> 32),
 		(u32)engine_flag);
 
@@ -357,7 +357,7 @@ static s32 cmdq_mdp_clock_disable(u64 engine_flag)
 
 	ret = cmdq_mdp_get_func()->mdpClockOff(engine_flag);
 
-	CMDQ_PROF_MMP(cmdq_mmp_get_event()->MDP_clock_off,
+	CMDQ_PROF_MMP(mdp_mmp_get_event()->MDP_clock_off,
 	      MMPROFILE_FLAG_PULSE, (u32)(engine_flag >> 32),
 	      (u32)engine_flag);
 
@@ -912,7 +912,7 @@ static s32 cmdq_mdp_consume_handle(void)
 
 	CMDQ_MSG("%s\n", __func__);
 
-	CMDQ_PROF_MMP(cmdq_mmp_get_event()->consume_done, MMPROFILE_FLAG_START,
+	CMDQ_PROF_MMP(mdp_mmp_get_event()->consume_done, MMPROFILE_FLAG_START,
 		current->pid, 0);
 
 	/* loop waiting list for pending handles */
@@ -988,7 +988,7 @@ static s32 cmdq_mdp_consume_handle(void)
 		acquired = true;
 	}
 
-	CMDQ_PROF_MMP(cmdq_mmp_get_event()->consume_done, MMPROFILE_FLAG_END,
+	CMDQ_PROF_MMP(mdp_mmp_get_event()->consume_done, MMPROFILE_FLAG_END,
 		current->pid, 0);
 
 	mutex_unlock(&mdp_task_mutex);
@@ -1016,7 +1016,7 @@ static void cmdq_mdp_consume_wait_item(struct work_struct *ignore)
 void cmdq_mdp_add_consume_item(void)
 {
 	if (!work_pending(&mdp_ctx.handle_consume_item)) {
-		CMDQ_PROF_MMP(cmdq_mmp_get_event()->consume_add,
+		CMDQ_PROF_MMP(mdp_mmp_get_event()->consume_add,
 			MMPROFILE_FLAG_PULSE, 0, 0);
 		queue_work(mdp_ctx.handle_consume_queue,
 			&mdp_ctx.handle_consume_item);
@@ -2867,7 +2867,7 @@ int cmdq_mdp_loop_reset(enum CMDQ_ENG_ENUM engine,
 
 	if (cmdq_mdp_get_func()->mdpClockIsOn(engine)) {
 		CMDQ_PROF_START(current->pid, __func__);
-		CMDQ_PROF_MMP(cmdq_mmp_get_event()->MDP_reset,
+		CMDQ_PROF_MMP(mdp_mmp_get_event()->MDP_reset,
 			      MMPROFILE_FLAG_START, resetReg, resetStateReg);
 
 
@@ -2888,7 +2888,7 @@ int cmdq_mdp_loop_reset(enum CMDQ_ENG_ENUM engine,
 			CMDQ_REG_SET32(resetReg, 0x0);
 		}
 
-		CMDQ_PROF_MMP(cmdq_mmp_get_event()->MDP_reset,
+		CMDQ_PROF_MMP(mdp_mmp_get_event()->MDP_reset,
 			      MMPROFILE_FLAG_END, resetReg, resetStateReg);
 		CMDQ_PROF_END(current->pid, __func__);
 

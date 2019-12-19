@@ -252,6 +252,10 @@ u32 cmdq_get_event(void *chan, u16 event_id);
 void cmdq_event_verify(void *chan, u16 event_id);
 unsigned long cmdq_get_tracing_mark(void);
 
+#if IS_ENABLED(CONFIG_MMPROFILE)
+void cmdq_mmp_wait(struct mbox_chan *chan, void *pkt);
+#endif
+
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
 	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 s32 cmdq_sec_insert_backup_cookie(struct cmdq_pkt *pkt);

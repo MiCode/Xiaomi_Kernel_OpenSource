@@ -79,7 +79,7 @@ s32 cmdq_util_error_save(const char *str, ...);
 void cmdq_util_dump_dbg_reg(void *chan);
 void cmdq_util_track(struct cmdq_pkt *pkt);
 void cmdq_util_dump_smi(void);
-void cmdq_util_track_ctrl(void *cmdq);
+u8 cmdq_util_track_ctrl(void *cmdq, phys_addr_t base);
 void cmdq_util_set_first_err_mod(void *chan, const char *mod);
 const char *cmdq_util_get_first_err_mod(void *chan);
 

@@ -361,12 +361,12 @@ s32 cmdq_task_create(enum CMDQ_SCENARIO_ENUM scenario,
 	struct cmdqRecStruct *handle = NULL;
 	s32 err;
 
-	CMDQ_PROF_MMP(cmdq_mmp_get_event()->alloc_task, MMPROFILE_FLAG_START,
+	CMDQ_PROF_MMP(mdp_mmp_get_event()->alloc_task, MMPROFILE_FLAG_START,
 		current->pid, scenario);
 
 	if (unlikely(!handle_out)) {
 		CMDQ_ERR("Invalid empty handle\n");
-		CMDQ_PROF_MMP(cmdq_mmp_get_event()->alloc_task,
+		CMDQ_PROF_MMP(mdp_mmp_get_event()->alloc_task,
 			MMPROFILE_FLAG_END, current->pid, scenario);
 		return -EINVAL;
 	}
@@ -375,14 +375,14 @@ s32 cmdq_task_create(enum CMDQ_SCENARIO_ENUM scenario,
 
 	if (scenario < 0 || scenario >= CMDQ_MAX_SCENARIO_COUNT) {
 		CMDQ_ERR("Unknown scenario type %d\n", scenario);
-		CMDQ_PROF_MMP(cmdq_mmp_get_event()->alloc_task,
+		CMDQ_PROF_MMP(mdp_mmp_get_event()->alloc_task,
 			MMPROFILE_FLAG_END, current->pid, scenario);
 		return -EINVAL;
 	}
 
 	handle = kzalloc(sizeof(struct cmdqRecStruct), GFP_KERNEL);
 	if (!handle) {
-		CMDQ_PROF_MMP(cmdq_mmp_get_event()->alloc_task,
+		CMDQ_PROF_MMP(mdp_mmp_get_event()->alloc_task,
 			MMPROFILE_FLAG_END, current->pid, scenario);
 		return -ENOMEM;
 	}
@@ -398,7 +398,7 @@ s32 cmdq_task_create(enum CMDQ_SCENARIO_ENUM scenario,
 	err = cmdq_task_reset(handle);
 	if (err < 0) {
 		cmdq_task_destroy(handle);
-		CMDQ_PROF_MMP(cmdq_mmp_get_event()->alloc_task,
+		CMDQ_PROF_MMP(mdp_mmp_get_event()->alloc_task,
 			MMPROFILE_FLAG_END, current->pid, scenario);
 		return err;
 	}
@@ -421,7 +421,7 @@ s32 cmdq_task_create(enum CMDQ_SCENARIO_ENUM scenario,
 	}
 
 	handle->submit = sched_clock();
-	CMDQ_PROF_MMP(cmdq_mmp_get_event()->alloc_task, MMPROFILE_FLAG_END,
+	CMDQ_PROF_MMP(mdp_mmp_get_event()->alloc_task, MMPROFILE_FLAG_END,
 		current->pid, scenario);
 	return 0;
 }

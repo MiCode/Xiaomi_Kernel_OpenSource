@@ -422,10 +422,12 @@ static struct devapc_vio_callbacks devapc_vio_handle = {
 };
 #endif
 
-void cmdq_util_track_ctrl(void *cmdq)
+u8 cmdq_util_track_ctrl(void *cmdq, phys_addr_t base)
 {
 	cmdq_msg("%s cmdq:%p", __func__, cmdq);
 	util.cmdq_mbox[util.mbox_cnt++] = cmdq;
+
+	return (u8)cmdq_util_hw_id((u32)base);
 }
 
 void cmdq_util_set_first_err_mod(void *chan, const char *mod)

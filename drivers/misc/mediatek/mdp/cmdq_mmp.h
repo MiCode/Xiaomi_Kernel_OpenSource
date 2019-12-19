@@ -19,7 +19,7 @@
 #include "mmprofile.h"
 #endif
 
-struct CMDQ_MMP_events_t {
+struct MDP_MMP_events_t {
 	mmp_event CMDQ;
 	mmp_event CMDQ_IRQ;
 	mmp_event thread_en;
@@ -46,7 +46,7 @@ struct CMDQ_MMP_events_t {
 	mmp_event read_reg;
 };
 
-void cmdq_mmp_init(void);
-struct CMDQ_MMP_events_t *cmdq_mmp_get_event(void);
+void mdp_mmp_init(void);
+struct MDP_MMP_events_t *mdp_mmp_get_event(void);
 
 #endif				/* __CMDQ_MMP_H__ */

@@ -1636,14 +1636,14 @@ void *cmdq_core_alloc_hw_buffer(struct device *dev, size_t size,
 		pVA = NULL;
 
 		CMDQ_PROF_START(current->pid, __func__);
-		CMDQ_PROF_MMP(cmdq_mmp_get_event()->alloc_buffer,
+		CMDQ_PROF_MMP(mdp_mmp_get_event()->alloc_buffer,
 			MMPROFILE_FLAG_START, current->pid, size);
 		alloc_cost = sched_clock();
 
 		pVA = dma_alloc_coherent(dev, size, &PA, flag);
 
 		alloc_cost = sched_clock() - alloc_cost;
-		CMDQ_PROF_MMP(cmdq_mmp_get_event()->alloc_buffer,
+		CMDQ_PROF_MMP(mdp_mmp_get_event()->alloc_buffer,
 			MMPROFILE_FLAG_END, current->pid, alloc_cost);
 		CMDQ_PROF_END(current->pid, __func__);
 
@@ -1840,7 +1840,7 @@ void cmdqCoreReadWriteAddressBatch(u32 *addrs, u32 count, u32 *val_out)
 	/* search for the entry */
 	spin_lock_irqsave(&cmdq_write_addr_lock, flags);
 
-	CMDQ_PROF_MMP(cmdq_mmp_get_event()->read_reg,
+	CMDQ_PROF_MMP(mdp_mmp_get_event()->read_reg,
 		MMPROFILE_FLAG_START, ((unsigned long)addrs),
 		(u32)atomic_read(&cmdq_ctx.write_addr_cnt));
 
@@ -1868,7 +1868,7 @@ void cmdqCoreReadWriteAddressBatch(u32 *addrs, u32 count, u32 *val_out)
 			val_out[i] = 0;
 	}
 
-	CMDQ_PROF_MMP(cmdq_mmp_get_event()->read_reg,
+	CMDQ_PROF_MMP(mdp_mmp_get_event()->read_reg,
 		MMPROFILE_FLAG_END, ((unsigned long)addrs), count);
 
 	spin_unlock_irqrestore(&cmdq_write_addr_lock, flags);
@@ -2975,7 +2975,7 @@ static void cmdq_core_attach_cmdq_error(
 	s32 index = 0;
 	struct EngineStruct *engines = cmdq_mdp_get_engines();
 
-	CMDQ_PROF_MMP(cmdq_mmp_get_event()->warning, MMPROFILE_FLAG_PULSE,
+	CMDQ_PROF_MMP(mdp_mmp_get_event()->warning, MMPROFILE_FLAG_PULSE,
 		((unsigned long)handle), thread);
 
 	/* Update engine fail count */
@@ -4343,7 +4343,7 @@ static void cmdq_pkt_err_dump_handler(struct cmdq_cb_data data)
 		return;
 	}
 
-	CMDQ_PROF_MMP(cmdq_mmp_get_event()->timeout, MMPROFILE_FLAG_START,
+	CMDQ_PROF_MMP(mdp_mmp_get_event()->timeout, MMPROFILE_FLAG_START,
 		(unsigned long)handle, handle->thread);
 
 	if (data.err == -ETIMEDOUT) {
@@ -4356,7 +4356,7 @@ static void cmdq_pkt_err_dump_handler(struct cmdq_cb_data data)
 		handle->error_irq_pc = cmdq_core_get_pc(handle->thread);
 	}
 
-	CMDQ_PROF_MMP(cmdq_mmp_get_event()->timeout, MMPROFILE_FLAG_END,
+	CMDQ_PROF_MMP(mdp_mmp_get_event()->timeout, MMPROFILE_FLAG_END,
 		(unsigned long)handle, handle->thread);
 }
 
@@ -4406,7 +4406,7 @@ static void cmdq_pkt_flush_handler(struct cmdq_cb_data data)
 			CMDQ_LOG("loop callback done\n");
 		}
 
-		CMDQ_PROF_MMP(cmdq_mmp_get_event()->loopBeat,
+		CMDQ_PROF_MMP(mdp_mmp_get_event()->loopBeat,
 			MMPROFILE_FLAG_PULSE, handle->thread, loop_ret);
 
 		if (data.err == -ECONNABORTED) {
@@ -4444,7 +4444,7 @@ static void cmdq_pkt_flush_handler(struct cmdq_cb_data data)
 		handle->state == TASK_STATE_ERR_IRQ)
 		cmdq_core_group_reset_hw(handle->engineFlag);
 
-	CMDQ_PROF_MMP(cmdq_mmp_get_event()->CMDQ_IRQ, MMPROFILE_FLAG_PULSE,
+	CMDQ_PROF_MMP(mdp_mmp_get_event()->CMDQ_IRQ, MMPROFILE_FLAG_PULSE,
 		(unsigned long)handle, handle->thread);
 }
 
@@ -4502,7 +4502,7 @@ s32 cmdq_pkt_wait_flush_ex_result(struct cmdqRecStruct *handle)
 	s32 status;
 	struct cmdq_client *client;
 
-	CMDQ_PROF_MMP(cmdq_mmp_get_event()->wait_task,
+	CMDQ_PROF_MMP(mdp_mmp_get_event()->wait_task,
 		MMPROFILE_FLAG_PULSE, ((unsigned long)handle), handle->thread);
 
 	if (!cmdq_clients[handle->thread]) {
@@ -4544,7 +4544,7 @@ s32 cmdq_pkt_wait_flush_ex_result(struct cmdqRecStruct *handle)
 				handle, handle->pkt, va[0], va[1]);
 	}
 
-	CMDQ_PROF_MMP(cmdq_mmp_get_event()->wait_task_done,
+	CMDQ_PROF_MMP(mdp_mmp_get_event()->wait_task_done,
 		MMPROFILE_FLAG_PULSE, ((unsigned long)handle),
 		handle->wakedUp - handle->beginWait);
 
@@ -4552,7 +4552,7 @@ s32 cmdq_pkt_wait_flush_ex_result(struct cmdqRecStruct *handle)
 	cmdq_pkt_release_handle(handle);
 
 	CMDQ_SYSTRACE_END();
-	CMDQ_PROF_MMP(cmdq_mmp_get_event()->wait_task_clean,
+	CMDQ_PROF_MMP(mdp_mmp_get_event()->wait_task_clean,
 		MMPROFILE_FLAG_PULSE, ((unsigned long)handle->pkt),
 		(unsigned long)handle->pkt);
 
@@ -4576,7 +4576,7 @@ static void cmdq_pkt_auto_release_work(struct work_struct *work)
 	cb = handle->async_callback;
 	user_data = handle->async_user_data;
 
-	CMDQ_PROF_MMP(cmdq_mmp_get_event()->autoRelease_done,
+	CMDQ_PROF_MMP(mdp_mmp_get_event()->autoRelease_done,
 		MMPROFILE_FLAG_PULSE, ((unsigned long)handle), current->pid);
 	cmdq_pkt_wait_flush_ex_result(handle);
 
@@ -4612,7 +4612,7 @@ s32 cmdq_pkt_auto_release_task(struct cmdqRecStruct *handle,
 		return -EINVAL;
 	}
 
-	CMDQ_PROF_MMP(cmdq_mmp_get_event()->autoRelease_add,
+	CMDQ_PROF_MMP(mdp_mmp_get_event()->autoRelease_add,
 		MMPROFILE_FLAG_PULSE, ((unsigned long)handle), handle->thread);
 
 	if (destroy) {
@@ -4973,7 +4973,7 @@ void cmdq_core_initialize(void)
 	/* note that we don't need to uninit it. */
 	CMDQ_PROF_INIT();
 #if IS_ENABLED(CONFIG_MMPROFILE)
-	cmdq_mmp_init();
+	mdp_mmp_init();
 #endif
 
 #if 0

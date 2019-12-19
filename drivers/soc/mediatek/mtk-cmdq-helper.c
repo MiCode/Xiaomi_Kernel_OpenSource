@@ -1742,6 +1742,10 @@ static int cmdq_pkt_wait_complete_loop(struct cmdq_pkt *pkt)
 	unsigned long ret;
 	int cnt = 0;
 
+#if IS_ENABLED(CONFIG_MMPROFILE)
+	cmdq_mmp_wait(client->chan, pkt);
+#endif
+
 	/* make sure gce won't turn off during dump */
 	cmdq_mbox_enable(client->chan);
 
