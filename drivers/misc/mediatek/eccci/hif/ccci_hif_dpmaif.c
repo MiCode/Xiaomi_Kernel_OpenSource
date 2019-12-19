@@ -1505,6 +1505,50 @@ static int dpmaifq_rx_notify_hw(struct dpmaif_rx_queue *rxq,
  */
 #define NOTIFY_RX_PUSH(rxq)  wake_up_all(&rxq->rx_wq)
 
+static int dpmaif_check_rel_cnt(struct dpmaif_rx_queue *rxq)
+{
+	int bid_cnt = 0, i, pkt_cnt = 0, ret = 0;
+	unsigned short bat_rel_rd_cur, bat_rel_rd_bak;
+	struct dpmaif_bat_request *bat_req = &rxq->bat_req;
+
+	bat_rel_rd_cur = bat_req->bat_rel_rd_idx;
+	while (1) {
+		if (bat_req->bid_btable[bat_rel_rd_cur] == 0)
+			bid_cnt++;
+		else
+			break;
+		if (bid_cnt > bat_req->bat_size_cnt) {
+			dpmaif_dump_rxq_remain(dpmaif_ctrl, DPMAIF_RXQ_NUM, 1);
+			CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
+					"bid cnt is invalid\n");
+			return DATA_CHECK_FAIL;
+		}
+
+		bat_rel_rd_cur = ringbuf_get_next_idx(bat_req->bat_size_cnt,
+					bat_rel_rd_cur, 1);
+	}
+	bat_req->bat_rd_idx = drv_dpmaif_dl_get_bat_ridx(rxq->index);
+
+	for (i = 0; i < bid_cnt; i++) {
+		bat_rel_rd_bak = bat_req->bat_rel_rd_idx;
+		bat_req->bat_rel_rd_idx =
+			ringbuf_get_next_idx(bat_req->bat_size_cnt,
+		bat_req->bat_rel_rd_idx, 1);
+		/*
+		 * bid_cnt = ringbuf_writeable(bat_req->bat_size_cnt,
+		 * bat_req->bat_rel_rd_idx, bat_req->bat_wr_idx);
+		 */
+		ret = dpmaif_alloc_rx_buf(&rxq->bat_req, rxq->index,
+						1, 0);
+		if (ret < 0) {
+			bat_req->bat_rel_rd_idx = bat_rel_rd_bak;
+			break;
+		}
+		pkt_cnt++;
+	}
+	return pkt_cnt;
+}
+
 static int dpmaif_rx_start(struct dpmaif_rx_queue *rxq, unsigned short pit_cnt,
 		int blocking, unsigned long time_limit)
 {
@@ -1635,6 +1679,10 @@ static int dpmaif_rx_start(struct dpmaif_rx_queue *rxq, unsigned short pit_cnt,
 					NOTIFY_RX_PUSH(rxq);
 					recv_skb_cnt = 0;
 				}
+				ret = dpmaif_check_rel_cnt(rxq);
+				if (ret < 0)
+					break;
+				notify_hw.bat_cnt += ret;
 			}
 		}
 		/* get next pointer to get pkt data */
@@ -1652,7 +1700,7 @@ static int dpmaif_rx_start(struct dpmaif_rx_queue *rxq, unsigned short pit_cnt,
 	if (recv_skb_cnt)
 		NOTIFY_RX_PUSH(rxq);
 	/* update to HW */
-	if (ret_hw == 0 && (notify_hw.pit_cnt |
+	if (ret_hw == 0 && (notify_hw.pit_cnt ||
 		notify_hw.bat_cnt || notify_hw.frag_cnt))
 		ret_hw = dpmaifq_rx_notify_hw(rxq, &notify_hw);
 	if (ret_hw < 0 && ret == 0)
