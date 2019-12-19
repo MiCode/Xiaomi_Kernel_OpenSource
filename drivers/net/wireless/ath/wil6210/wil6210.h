@@ -1047,6 +1047,7 @@ struct wil6210_priv {
 	void *platform_handle;
 	struct wil_platform_ops platform_ops;
 	bool keep_radio_on_during_sleep;
+	u8 ap_ps; /* AP mode power save enabled */
 
 	struct pmc_ctx pmc;
 
@@ -1198,7 +1199,7 @@ static inline void wil_c(struct wil6210_priv *wil, u32 reg, u32 val)
  */
 static inline bool wil_cid_valid(struct wil6210_priv *wil, int cid)
 {
-	return (cid >= 0 && cid < wil->max_assoc_sta);
+	return (cid >= 0 && cid < wil->max_assoc_sta && cid < WIL6210_MAX_CID);
 }
 
 void wil_get_board_file(struct wil6210_priv *wil, char *buf, size_t len);
