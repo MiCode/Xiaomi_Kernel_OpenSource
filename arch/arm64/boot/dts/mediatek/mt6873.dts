@@ -4358,6 +4358,18 @@
 		reg = <0 0x15811000 0 0x1000>;
 	};
 
+	mssdl@15812000 {
+		compatible = "mediatek,mssdl";
+		reg = <0 0x15812000 0 0x1000>;
+		interrupts = <GIC_SPI 502 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	msfdl@15010000 {
+		compatible = "mediatek,msfdl";
+		reg = <0 15810000 0 0x1000>;
+		interrupts = <GIC_SPI 501 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
 	mss_b@15812000 {
 		compatible = "mediatek,mss_b";
 		reg = <0 0x15812000 0 0x1000>;
