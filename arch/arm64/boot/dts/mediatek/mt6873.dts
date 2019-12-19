@@ -5597,6 +5597,9 @@
 		adapter_name = "pd_adapter";
 	};
 
+	rt-pd-manager {
+		compatible = "mediatek,rt-pd-manager";
+	};
 
 	pmic_clock_buffer_ctrl: pmic_clock_buffer_ctrl {
 		compatible = "mediatek,pmic_clock_buffer";
