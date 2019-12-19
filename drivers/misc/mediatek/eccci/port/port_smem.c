@@ -26,6 +26,79 @@
 
 #define TAG SMEM
 
+static struct buffer_header *s_ccb_ctl_head_tbl;
+static unsigned int *s_dl_last_w;
+static unsigned int s_dl_active_bitmap;
+
+static unsigned int dl_active_scan(void)
+{
+	unsigned int i;
+	struct buffer_header *ptr;
+	unsigned int bit_mask;
+
+	if (!s_ccb_ctl_head_tbl)
+		return 0;
+	if (!s_dl_last_w)
+		return 0;
+	ptr = s_ccb_ctl_head_tbl;
+	bit_mask = 0;
+
+	for (i = 0; i < ccb_configs_len; i++) {
+		if ((s_dl_last_w[i] != ptr[i].dl_write_index) ||
+			(ptr[i].dl_read_index != ptr[i].dl_write_index)) {
+			bit_mask |= 1 << i;
+			s_dl_last_w[i] = ptr[i].dl_write_index;
+		}
+	}
+	return bit_mask;
+}
+
+static inline int append_ccb_str(char buf[], int offset, int size,
+				unsigned int id, unsigned int w, unsigned int r)
+{
+	int ret;
+
+	if (!buf)
+		return 0;
+
+	ret = snprintf(&buf[offset], size - offset, "[%u]w:%u-r:%u,", id, w, r);
+	if (ret > 0)
+		return ret + offset;
+	return 0;
+}
+
+static void ccb_fifo_peek(struct buffer_header *ptr)
+{
+	unsigned int i, r, w, wakeup_map = 0;
+	int offset = 0;
+	char *out_buf;
+
+	out_buf = kmalloc(4096, GFP_ATOMIC);
+
+	for (i = 0; i < ccb_configs_len; i++) {
+		if (ptr[i].dl_read_index != ptr[i].dl_write_index) {
+			r = ptr[i].dl_read_index;
+			w = ptr[i].dl_write_index;
+			wakeup_map |= 1 << i;
+			offset = append_ccb_str(out_buf, offset, 4096, i, w, r);
+		}
+	}
+
+	if (out_buf) {
+		CCCI_NORMAL_LOG(0, "CCB", "Wakeup peek:0x%x %s\r\n", wakeup_map,
+				out_buf);
+		kfree(out_buf);
+	} else
+		CCCI_NORMAL_LOG(0, "CCB", "Wakeup peek bitmap: 0x%x\r\n",
+					wakeup_map);
+}
+
+void mtk_ccci_ccb_info_peek(void)
+{
+	if (s_ccb_ctl_head_tbl)
+		ccb_fifo_peek(s_ccb_ctl_head_tbl);
+}
+
 static enum hrtimer_restart smem_tx_timer_func(struct hrtimer *timer)
 {
 	struct ccci_smem_port *smem_port =
@@ -90,7 +163,7 @@ static void collect_ccb_info(int md_id, struct ccci_smem_port *smem_port)
 	/* refresh all CCB users' address, except the first one,
 	 * because user's size has been re-calculated above
 	 */
-	if (SMEM_USER_CCB_END - SMEM_USER_CCB_START >= 1)
+	if (SMEM_USER_CCB_END - SMEM_USER_CCB_START >= 1) {
 		for (i = SMEM_USER_CCB_START + 1;
 			 i <= SMEM_USER_CCB_END; i++) {
 			curr = ccci_md_get_smem_by_user_id(md_id, i);
@@ -110,6 +183,13 @@ static void collect_ccb_info(int md_id, struct ccci_smem_port *smem_port)
 				(unsigned int)curr->base_md_view_phy);
 			}
 		}
+		curr = ccci_md_get_smem_by_user_id(md_id,
+						SMEM_USER_RAW_CCB_CTRL);
+		if (curr)
+			s_ccb_ctl_head_tbl =
+				(struct buffer_header *)curr->base_ap_view_vir;
+
+	}
 }
 
 int port_smem_tx_nofity(struct port_t *port, unsigned int user_data)
@@ -243,6 +323,7 @@ int port_smem_rx_wakeup(struct port_t *port)
 
 	__pm_wakeup_event(&port->rx_wakelock, jiffies_to_msecs(HZ));
 	CCCI_DEBUG_LOG(md_id, TAG, "wakeup port.\n");
+	s_dl_active_bitmap |= dl_active_scan();
 #ifdef DEBUG_FOR_CCB
 	smem_port->last_rx_wk_time = local_clock();
 #endif
@@ -730,6 +811,7 @@ int port_smem_init(struct port_t *port)
 	smem_port->poll_save_idx = 0;
 }
 #endif
+	s_dl_last_w = kmalloc(sizeof(int) * ccb_configs_len, GFP_KERNEL);
 	return 0;
 }
 
@@ -815,6 +897,9 @@ static void port_smem_dump_info(struct port_t *port, unsigned int flag)
 			smem_port->last_out[idx + 2].w_id);
 		idx += 3;
 	}
+	CCCI_NORMAL_LOG(0, "CCB", "CCB active bitmap:0x%x\r\n",
+			s_dl_active_bitmap);
+	s_dl_active_bitmap = 0;
 }
 #endif
 

@@ -232,10 +232,18 @@ static inline int ccci_ccif_hif_set_wakeup_src(unsigned char hif_id, int value)
 {
 	struct md_ccif_ctrl *md_ctrl =
 		(struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
+	unsigned int ccif_rx_ch = 0;
 
-	if (md_ctrl)
+	if (md_ctrl) {
+		if (md_ctrl->ccif_ap_base)
+			ccif_rx_ch = ccif_read32(md_ctrl->ccif_ap_base,
+					APCCIF_RCHNUM);
+		CCCI_NORMAL_LOG(0, "WK", "CCIF RX bitmap:0x%x\r\n",
+				ccif_rx_ch);
+		if (ccif_rx_ch & AP_MD_CCB_WAKEUP)
+			mtk_ccci_ccb_info_peek();
 		return atomic_set(&md_ctrl->wakeup_src, value);
-	else
+	} else
 		return -1;
 }
 

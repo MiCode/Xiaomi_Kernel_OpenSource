@@ -99,6 +99,7 @@ struct ccb_ctrl_info {
 
 extern unsigned int ccb_configs_len;
 extern struct ccci_ccb_config ccb_configs[];
+extern void mtk_ccci_ccb_info_peek(void);
 
 
 /* ======================================================================= */
