@@ -1418,6 +1418,61 @@ static signed int DIP_Dump_IMGSYS_DIP_Reg(void)
 			DipDumpTL[DIPNo].region,
 			DIP_RD32(dipRegBasAddr + 0x1194));
 
+		cmdqdebugcmd = 0x5;
+		DIP_WR32(dipRegBasAddr + 0x1190, cmdqdebugcmd);
+		cmdq_util_err("TDR debug:0x%x : dip: 0x%x2194(0x%x)",
+			cmdqdebugcmd,
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1194));
+		cmdqdebugcmd = 0x1005;
+		DIP_WR32(dipRegBasAddr + 0x1190, cmdqdebugcmd);
+		cmdq_util_err("TDR debug:0x%x : dip: 0x%x2194(0x%x)",
+			cmdqdebugcmd,
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1194));
+		cmdqdebugcmd = 0x2005;
+		DIP_WR32(dipRegBasAddr + 0x1190, cmdqdebugcmd);
+		cmdq_util_err("TDR debug:0x%x : dip: 0x%x2194(0x%x)",
+			cmdqdebugcmd,
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x1194));
+
+		cmdq_util_err("dip:TDR rsv csr 0x%x21ac(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x11ac));
+		cmdq_util_err("dip:bpc+tile edge 0x%x31c4(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x21c4));
+		cmdq_util_err("dip:bpc x/y offset 0x%x31c8(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x21c8));
+		cmdq_util_err("dip:bpc x/y size 0x%x31cc(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x21cc));
+
+		/*C02_D1 dump*/
+		cmdq_util_err("dip: 0x%x5904(0x%x)-0x%x5908(0x%x)-0x%x590c(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x4904),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x4908),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x490c));
+		/*C02_D2 dump*/
+		cmdq_util_err("dip: 0x%x5104(0x%x)-0x%x5108(0x%x)-0x%x510c(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x4104),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x4108),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x410c));
+		/*C24_D2, C24_D3 dump*/
+		cmdq_util_err("dip: 0x%x8640(0x%x),0x%x6040(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x7640),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x5040));
+
 		/*SRZ3 register dump*/
 		cmdq_util_err("dip: 0x%x7540(0x%x)-0x%x7544(0x%x)-0x%x7548(0x%x)",
 			DipDumpTL[DIPNo].region,
