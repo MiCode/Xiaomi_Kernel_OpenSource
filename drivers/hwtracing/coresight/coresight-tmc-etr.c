@@ -1650,6 +1650,7 @@ static int tmc_disable_etr_sink(struct coresight_device *csdev)
 
 	if (atomic_dec_return(csdev->refcnt)) {
 		spin_unlock_irqrestore(&drvdata->spinlock, flags);
+		mutex_unlock(&drvdata->mem_lock);
 		return -EBUSY;
 	}
 
