@@ -244,6 +244,25 @@ static int mtk_pll_prepare(struct clk_hw *hw)
 	struct mtk_clk_pll *pll = to_mtk_clk_pll(hw);
 	u32 r;
 
+#ifndef CONFIG_FPGA_EARLY_PORTING
+#if (defined(CONFIG_MACH_MT6873))
+	if (!strcmp(__clk_get_name(hw->clk), "usbpll")) {
+		r = readl(pll->pwr_addr) | CON0_PWR_ON;
+		writel(r, pll->pwr_addr);
+		udelay(1);
+
+		r = readl(pll->pwr_addr) & ~CON0_ISO_EN;
+		writel(r, pll->pwr_addr);
+		udelay(1);
+
+		r = readl(pll->pwr_addr);
+		r |= pll->data->en_mask;
+		writel(r, pll->pwr_addr);
+		udelay(20);
+		return 0;
+	}
+#endif
+#endif
 	r = readl(pll->pwr_addr) | CON0_PWR_ON;
 	writel(r, pll->pwr_addr);
 	udelay(1);
@@ -280,6 +299,22 @@ static void mtk_pll_unprepare(struct clk_hw *hw)
 	struct mtk_clk_pll *pll = to_mtk_clk_pll(hw);
 	u32 r;
 
+#ifndef CONFIG_FPGA_EARLY_PORTING
+#if (defined(CONFIG_MACH_MT6873))
+	if (!strcmp(__clk_get_name(hw->clk), "usbpll")) {
+		r = readl(pll->pwr_addr);
+		r &= ~pll->data->en_mask;
+		writel(r, pll->pwr_addr);
+
+		r = readl(pll->pwr_addr) | CON0_ISO_EN;
+		writel(r, pll->pwr_addr);
+
+		r = readl(pll->pwr_addr) & ~CON0_PWR_ON;
+		writel(r, pll->pwr_addr);
+		return;
+	}
+#endif
+#endif
 	if (pll->data->flags & HAVE_RST_BAR) {
 		r = readl(pll->base_addr + REG_CON0);
 		r &= ~pll->data->rst_bar_mask;

@@ -23,7 +23,7 @@
 
 #include <dt-bindings/clock/mt6873-clk.h>
 
-#define MT_CCF_BRINGUP		1
+#define MT_CCF_BRINGUP		0
 #ifdef CONFIG_ARM64
 #define IOMEM(a)	((void __force __iomem *)((a)))
 #endif
@@ -1231,7 +1231,7 @@ static const char * const i2s9_m_ck_parents[] __initconst = {
 
 //CHECK
 static const struct mtk_mux top_muxes[] __initconst = {
-#if MT_CCF_BRINGUP
+#if 1//MT_CCF_BRINGUP
 	/* CLK_CFG_0 */
 	MUX_CLR_SET_UPD(TOP_MUX_AXI, "axi_sel", axi_parents,
 		CLK_CFG_0, CLK_CFG_0_SET, CLK_CFG_0_CLR,
@@ -2733,9 +2733,12 @@ static struct mtk_gate imp_iic_wrap_n_clks[] __initdata = {
 	//GATE(IMP_IIC_WRAP_N_AP_I2C5_CG_RO, "imp_iic_wrap_n_ap_i2c5_cg_ro",
 	//		"infracfg_ao_i2c0_cg", /* "i2c_sel", */
 	//		 imp_iic_wrap_n_ap_clock_cg_ro_nor_regs, 0, 0),
-	GATE(IMP_IIC_WRAP_N_AP_I2C6_CG_RO, "imp_iic_wrap_n_ap_i2c6_cg_ro",
+	GATE(IMP_IIC_WRAP_N_AP_I2C0_CG_RO, "imp_iic_wrap_n_ap_i2c0_cg_ro",
 			"infracfg_ao_i2c0_cg", /* "i2c_sel", */
 			 imp_iic_wrap_n_ap_clock_cg_ro_nor_regs, 0, 0),
+	GATE(IMP_IIC_WRAP_N_AP_I2C6_CG_RO, "imp_iic_wrap_n_ap_i2c6_cg_ro",
+			"infracfg_ao_i2c0_cg", /* "i2c_sel", */
+			 imp_iic_wrap_n_ap_clock_cg_ro_nor_regs, 1, 0),
 };
 
 static void __iomem *iic_wrap_n_base;
@@ -2769,18 +2772,18 @@ static struct mtk_gate imp_iic_wrap_s_clks[] __initdata = {
 	//GATE(IMP_IIC_WRAP_S_AP_I2C2_CG_RO, "imp_iic_wrap_s_ap_i2c2_cg_ro",
 	//		"infracfg_ao_i2c0_cg", /* "i2c_sel", */
 	//		 imp_iic_wrap_s_ap_clock_cg_ro_sou_regs, 1, 0),
-	GATE(IMP_IIC_WRAP_S_AP_I2C5_CG_RO, "imp_iic_wrap_s_ap_i2c5_cg_ro",
-			"infracfg_ao_i2c0_cg", /* "i2c_sel", */
-			 imp_iic_wrap_s_ap_clock_cg_ro_sou_regs, 0, 0),
+	//GATE(IMP_IIC_WRAP_S_AP_I2C5_CG_RO, "imp_iic_wrap_s_ap_i2c5_cg_ro",
+	//		"infracfg_ao_i2c0_cg", /* "i2c_sel", */
+	//		 imp_iic_wrap_s_ap_clock_cg_ro_sou_regs, 0, 0),
 	GATE(IMP_IIC_WRAP_S_AP_I2C7_CG_RO, "imp_iic_wrap_s_ap_i2c7_cg_ro",
 			"infracfg_ao_i2c0_cg", /* "i2c_sel", */
-			 imp_iic_wrap_s_ap_clock_cg_ro_sou_regs, 1, 0),
+			 imp_iic_wrap_s_ap_clock_cg_ro_sou_regs, 0, 0),
 	GATE(IMP_IIC_WRAP_S_AP_I2C8_CG_RO, "imp_iic_wrap_s_ap_i2c8_cg_ro",
 			"infracfg_ao_i2c0_cg", /* "i2c_sel", */
-			 imp_iic_wrap_s_ap_clock_cg_ro_sou_regs, 2, 0),
+			 imp_iic_wrap_s_ap_clock_cg_ro_sou_regs, 1, 0),
 	GATE(IMP_IIC_WRAP_S_AP_I2C9_CG_RO, "imp_iic_wrap_s_ap_i2c9_cg_ro",
 			"infracfg_ao_i2c0_cg", /* "i2c_sel", */
-			 imp_iic_wrap_s_ap_clock_cg_ro_sou_regs, 3, 0),
+			 imp_iic_wrap_s_ap_clock_cg_ro_sou_regs, 2, 0),
 };
 
 static void __iomem *iic_wrap_s_base;
@@ -2808,7 +2811,10 @@ static struct mtk_gate_regs imp_iic_wrap_w_ap_clock_cg_ro_sou_regs = {
 };
 static struct mtk_gate imp_iic_wrap_w_clks[] __initdata = {
 	/* AP_CLOCK_CG_RO_SOU */
-	GATE(IMP_IIC_WRAP_W_AP_I2C0_CG_RO, "imp_iic_wrap_w_ap_i2c0_cg_ro",
+	//GATE(IMP_IIC_WRAP_W_AP_I2C0_CG_RO, "imp_iic_wrap_w_ap_i2c0_cg_ro",
+	//		"infracfg_ao_i2c0_cg", /* "i2c_sel", */
+	//		 imp_iic_wrap_w_ap_clock_cg_ro_sou_regs, 0, 0),
+	GATE(IMP_IIC_WRAP_W_AP_I2C5_CG_RO, "imp_iic_wrap_w_ap_i2c5_cg_ro",
 			"infracfg_ao_i2c0_cg", /* "i2c_sel", */
 			 imp_iic_wrap_w_ap_clock_cg_ro_sou_regs, 0, 0),
 };
@@ -3040,7 +3046,7 @@ static const struct mtk_gate infra_clks[] __initconst = {
 	//check here
 	GATE(INFRACFG_AO_IRTX_CG, "infracfg_ao_irtx_cg", "f26m_sel",
 			 infracfg_ao_module_sw_cg_2_regs, 0, 0),
-	GATE(INFRACFG_AO_SSUSB_CG, "infracfg_ao_ssusb_cg", "axi_sel",
+	GATE(INFRACFG_AO_SSUSB_CG, "infracfg_ao_ssusb_cg", "usbpll",
 			 infracfg_ao_module_sw_cg_2_regs, 1, 0),
 	GATE(INFRACFG_AO_DISP_PWM_CG, "infracfg_ao_disp_pwm_cg", "axi_sel",
 			 infracfg_ao_module_sw_cg_2_regs, 2, 0),
@@ -3921,6 +3927,10 @@ static const struct mtk_gate apmixed_clks[] __initconst = {
 
 
 static const struct mtk_pll_data plls[] = {
+	PLL(APMIXED_USBPLL, "usbpll", 0x03c4 /*con0*/, 0x03cc /*con2*/,
+		BIT(2)/*enmsk*/, PLL_CFLAGS, 0/*rstb*/, 22/*pcwbits*/,
+		0x03c4, 24/*pd*/, 0, 0, 0/* tuner*/, 0x03c4, 0/* pcw */),
+
 	PLL(APMIXED_NPUPLL, "npupll", 0x03b4 /*con0*/, 0x03c0 /*con3*/,
 		BIT(0)/*enmsk*/, PLL_CFLAGS, 0/*rstb*/, 22/*pcwbits*/,
 		0x03b8, 24/*pd*/, 0, 0, 0/* tuner*/, 0x03b8, 0/* pcw */),
@@ -4310,23 +4320,35 @@ void pll_force_off(void)
 	clk_clrl(UNIVPLL_CON0, PLL_EN);
 	clk_setl(UNIVPLL_CON3, PLL_ISO_EN);
 	clk_clrl(UNIVPLL_CON3, PLL_PWR_ON);
-/*MSDCPLL*/
-	clk_clrl(MSDCPLL_CON0, PLL_EN);
-	clk_setl(MSDCPLL_CON3, PLL_ISO_EN);
-	clk_clrl(MSDCPLL_CON3, PLL_PWR_ON);
+/*USBPLL*/
+	clk_clrl(USBPLL_CON2, USBPLL_EN);
+	clk_setl(USBPLL_CON2, PLL_ISO_EN);
+	clk_clrl(USBPLL_CON2, PLL_PWR_ON);
 /*MMPLL*/
 	clk_clrl(MMPLL_CON0, PLL_DIV_RSTB);
 	clk_clrl(MMPLL_CON0, PLL_EN);
 	clk_setl(MMPLL_CON3, PLL_ISO_EN);
 	clk_clrl(MMPLL_CON3, PLL_PWR_ON);
-/*ADSPPLL*/
-	clk_clrl(ADSPPLL_CON0, PLL_EN);
-	clk_setl(ADSPPLL_CON3, PLL_ISO_EN);
-	clk_clrl(ADSPPLL_CON3, PLL_PWR_ON);
+/*MSDCPLL*/
+	clk_clrl(MSDCPLL_CON0, PLL_EN);
+	clk_setl(MSDCPLL_CON3, PLL_ISO_EN);
+	clk_clrl(MSDCPLL_CON3, PLL_PWR_ON);
 /*TVDPLL*/
 	clk_clrl(TVDPLL_CON0, PLL_EN);
 	clk_setl(TVDPLL_CON3, PLL_ISO_EN);
 	clk_clrl(TVDPLL_CON3, PLL_PWR_ON);
+/*ADSPPLL*/
+	clk_clrl(ADSPPLL_CON0, PLL_EN);
+	clk_setl(ADSPPLL_CON3, PLL_ISO_EN);
+	clk_clrl(ADSPPLL_CON3, PLL_PWR_ON);
+/*APUPLL*/
+	clk_clrl(APUPLL_CON0, PLL_EN);
+	clk_setl(APUPLL_CON3, PLL_ISO_EN);
+	clk_clrl(APUPLL_CON3, PLL_PWR_ON);
+/*NPUPLL*/
+	clk_clrl(NPUPLL_CON0, PLL_EN);
+	clk_setl(NPUPLL_CON3, PLL_ISO_EN);
+	clk_clrl(NPUPLL_CON3, PLL_PWR_ON);
 /*APLL1*/
 	clk_clrl(APLL1_CON0, PLL_EN);
 	clk_setl(APLL1_CON4, PLL_ISO_EN);
@@ -4335,14 +4357,6 @@ void pll_force_off(void)
 	clk_clrl(APLL2_CON0, PLL_EN);
 	clk_setl(APLL2_CON4, PLL_ISO_EN);
 	clk_clrl(APLL2_CON4, PLL_PWR_ON);
-/*NPUPLL*/
-	clk_clrl(NPUPLL_CON0, PLL_EN);
-	clk_setl(NPUPLL_CON3, PLL_ISO_EN);
-	clk_clrl(NPUPLL_CON3, PLL_PWR_ON);
-/*USBPLL*/
-	clk_clrl(USBPLL_CON2, USBPLL_EN);
-	clk_setl(USBPLL_CON2, PLL_ISO_EN);
-	clk_clrl(USBPLL_CON2, PLL_PWR_ON);
 }
 
 static int __init clk_mt6873_init(void)

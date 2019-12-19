@@ -215,7 +215,7 @@ static void __iomem *ckgen_base;	/*ckgen*/
 #define INFRA_TOPAXI_PROTECTEN_MM_2_STA0		INFRACFG_REG(0x0DD4)
 #define INFRA_TOPAXI_PROTECTEN_MM_2_STA1		INFRACFG_REG(0x0DD8)
 
-//#define INFRA_TOPAXI_PROTECTEN_INFRA_VDNR		INFRACFG_REG(0x0B80)
+#define INFRA_TOPAXI_PROTECTEN_INFRA_VDNR		INFRACFG_REG(0x0B80)
 #define INFRA_TOPAXI_PROTECTEN_INFRA_VDNR_SET		INFRACFG_REG(0x0B84)
 #define INFRA_TOPAXI_PROTECTEN_INFRA_VDNR_CLR		INFRACFG_REG(0x0B88)
 #define INFRA_TOPAXI_PROTECTEN_INFRA_VDNR_STA0		INFRACFG_REG(0x0B8C)
@@ -843,6 +843,7 @@ static int DBG_STEP;
  */
 static void ram_console_update(void)
 {
+#ifdef CONFIG_MTK_RAM_CONSOLE
 	struct pg_callbacks *pgcb;
 	u32 data[8] = {0x0};
 	u32 i = 0, j = 0;
@@ -935,9 +936,24 @@ static void ram_console_update(void)
 		pr_notice("%s: TOPAXI_PROTECTEN_MM_2_STA1 = 0x%08x\n",
 			__func__, clk_readl(INFRA_TOPAXI_PROTECTEN_MM_2_STA1));
 
+		pr_notice("%s: TOPAXI_PROTECTEN_INFRA_VDNR = 0x%08x\n",
+			__func__, clk_readl(INFRA_TOPAXI_PROTECTEN_INFRA_VDNR));
+		pr_notice("%s: TOPAXI_PROTECTEN_INFRA_VDNR_SET = 0x%08x\n",
+			__func__,
+			clk_readl(INFRA_TOPAXI_PROTECTEN_INFRA_VDNR_SET));
+		pr_notice("%s: TOPAXI_PROTECTEN_INFRA_VDNR_CLR = 0x%08x\n",
+			__func__,
+			clk_readl(INFRA_TOPAXI_PROTECTEN_INFRA_VDNR_CLR));
+		pr_notice("%s: TOPAXI_PROTECTEN_INFRA_VDNR_STA0 = 0x%08x\n",
+			__func__,
+			clk_readl(INFRA_TOPAXI_PROTECTEN_INFRA_VDNR_STA0));
+		pr_notice("%s: TOPAXI_PROTECTEN_INFRA_VDNR_STA1 = 0x%08x\n",
+			__func__,
+			clk_readl(INFRA_TOPAXI_PROTECTEN_INFRA_VDNR_STA1));
+
 		/* The code based on  clkdbg/clkdbg-mt6873. */
 		/* When power on/off fails, dump the related registers. */
-		init_regbase_mt6873();
+		//init_regbase_mt6873();
 		print_subsys_reg("topckgen");
 		print_subsys_reg("infracfg");
 		print_subsys_reg("scpsys");
@@ -983,13 +999,7 @@ static void ram_console_update(void)
 				print_subsys_reg("mmsys");
 				print_subsys_reg("vencsys");
 			}
-			#if 0
-			if (DBG_ID == DBG_ID_VEN_CORE1) {
-				print_subsys_reg("mmsys");
-				print_subsys_reg("mdpsys");
-				print_subsys_reg("venc_c1_sys");
-			}
-			#endif
+
 			/* vdec */
 			if (DBG_ID == DBG_ID_VDE) {
 				print_subsys_reg("mmsys");
@@ -1032,8 +1042,7 @@ static void ram_console_update(void)
 				pgcb->debug_dump(DBG_ID);
 		}
 	}
-#ifdef CONFIG_MTK_RAM_CONSOLE
-	for (j = 0; j <= i; j++)
+	for (j = 0; j < ARRAY_SIZE(data); j++)
 		aee_rr_rec_clk(j, data[j]);
 	/*todo: add each domain's debug register to ram console*/
 #endif
@@ -4275,7 +4284,7 @@ struct mtk_power_gate scp_clks[] __initdata = {
 	PGATE(SCP_SYS_MFG5, "PG_MFG5", "PG_MFG1", NULL, SYS_MFG5),
 	PGATE(SCP_SYS_MFG6, "PG_MFG6", "PG_MFG1", NULL, SYS_MFG6),
 	PGATE(SCP_SYS_ISP, "PG_ISP", "PG_DIS", "img1_sel", SYS_ISP),
-	PGATE(SCP_SYS_ISP2, "PG_ISP2", "PG_DIS", "img2_sel", SYS_ISP2), /* MDP*/
+	PGATE(SCP_SYS_ISP2, "PG_ISP2", "PG_DIS", "img1_sel", SYS_ISP2), /* MDP*/
 	PGATE(SCP_SYS_IPE, "PG_IPE", "PG_DIS", "ipe_sel", SYS_IPE), /* MDP */
 	PGATE(SCP_SYS_VDEC, "PG_VDEC", "PG_DIS", "vdec_sel", SYS_VDE),
 	PGATE(SCP_SYS_VDEC2, "PG_VDEC2", "PG_VDEC", "vdec_sel", SYS_VDE2),
@@ -4627,6 +4636,7 @@ static void __init mt_scpsys_init(struct device_node *node)
 	pr_notice("MTCMOS AO end\n");
 #endif /* CONFIG_FPGA_EARLY_PORTING */
 #endif /* !MT_CCF_BRINGUP */
+	init_regbase_mt6873();
 }
 CLK_OF_DECLARE_DRIVER(mtk_pg_regs, "mediatek,scpsys", mt_scpsys_init);
 
@@ -4898,8 +4908,8 @@ void subsys_if_on(void)
 #if 1 /*only use for suspend test*/
 void mtcmos_force_off(void)
 {
-	pr_notice("suspend test: dp_tx\n");
-	spm_mtcmos_ctrl_dp_tx(STA_POWER_DOWN);
+	//pr_notice("suspend test: dp_tx\n");
+	//spm_mtcmos_ctrl_dp_tx(STA_POWER_DOWN);
 
 	pr_notice("suspend test: cam\n");
 	spm_mtcmos_ctrl_cam_rawa(STA_POWER_DOWN);
@@ -4934,15 +4944,6 @@ void mtcmos_force_off(void)
 	pr_notice("suspend test: mdp\n");
 	spm_mtcmos_ctrl_mdp(STA_POWER_DOWN);
 
-	pr_notice("suspend test: dis\n");
-	spm_mtcmos_ctrl_dis(STA_POWER_DOWN);
-
-	pr_notice("suspend test: md1\n");
-	spm_mtcmos_ctrl_md1(STA_POWER_DOWN);
-
-	pr_notice("suspend test: conn\n");
-	spm_mtcmos_ctrl_conn(STA_POWER_DOWN);
-
 	pr_notice("suspend test: audio\n");
 	spm_mtcmos_ctrl_audio(STA_POWER_DOWN);
 
@@ -4952,5 +4953,14 @@ void mtcmos_force_off(void)
 	pr_notice("suspend test: adsp\n");
 	/* spm_mtcmos_ctrl_adsp_shut_down(STA_POWER_DOWN); */
 	spm_mtcmos_ctrl_adsp_dormant(STA_POWER_DOWN);
+
+	pr_notice("suspend test: dis\n");
+	spm_mtcmos_ctrl_dis(STA_POWER_DOWN);
+
+	pr_notice("suspend test: md1\n");
+	spm_mtcmos_ctrl_md1(STA_POWER_DOWN);
+
+	pr_notice("suspend test: conn\n");
+	spm_mtcmos_ctrl_conn(STA_POWER_DOWN);
 }
 #endif

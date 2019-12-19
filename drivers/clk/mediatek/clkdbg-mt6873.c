@@ -512,6 +512,19 @@ static unsigned int mt_get_ckgen_freq(unsigned int ID)
 		if (i > 20)
 			break;
 	}
+	/* illegal pass */
+	if (i == 0) {
+		clk_writel(CLK26CALI_0, 0x0000);
+		//re-trigger
+		clk_writel(CLK26CALI_0, 0x1000);
+		clk_writel(CLK26CALI_0, 0x1010);
+		while (clk_readl(CLK26CALI_0) & 0x10) {
+			udelay(10);
+			i++;
+			if (i > 20)
+				break;
+		}
+	}
 
 	temp = clk_readl(CLK26CALI_1) & 0xFFFF;
 
@@ -553,6 +566,19 @@ static unsigned int mt_get_abist_freq(unsigned int ID)
 		i++;
 		if (i > 20)
 			break;
+	}
+	/* illegal pass */
+	if (i == 0) {
+		clk_writel(CLK26CALI_0, 0x0000);
+		//re-trigger
+		clk_writel(CLK26CALI_0, 0x1000);
+		clk_writel(CLK26CALI_0, 0x1010);
+		while (clk_readl(CLK26CALI_0) & 0x10) {
+			udelay(10);
+			i++;
+			if (i > 20)
+				break;
+		}
 	}
 
 	temp = clk_readl(CLK26CALI_1) & 0xFFFF;
@@ -751,7 +777,7 @@ static struct regbase rb_mt6873[] = {
 	[apmixed]  = REGBASE_V(0x1000c000, apmixed),
 	[audio]    = REGBASE_V(0x11210000, audio),
 	[mfgsys]   = REGBASE_V(0x13fbf000, mfgsys),
-	[mmsys]    = REGBASE_V(0x14116000, mmsys),
+	[mmsys]    = REGBASE_V(0x14000000, mmsys),
 	[mdpsys]    = REGBASE_V(0x1F000000, mdpsys),
 	[img1sys]   = REGBASE_V(0x15020000, img1sys),
 	[img2sys]   = REGBASE_V(0x15820000, img2sys),

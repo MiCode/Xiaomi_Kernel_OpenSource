@@ -5106,7 +5106,7 @@
 		reg = <0 0x11f00000 0 0x1000>,
 			<0 0x10217080 0 0x80>;
 		interrupts = <GIC_SPI 112 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&imp_iic_wrap_w IMP_IIC_WRAP_W_AP_I2C0_CG_RO>,
+		clocks = <&imp_iic_wrap_n IMP_IIC_WRAP_N_AP_I2C0_CG_RO>,
 			<&infracfg_ao INFRACFG_AO_AP_DMA_CG>;
 		clock-names = "main", "dma";
 		clock-div = <5>;
@@ -5210,7 +5210,7 @@
 		reg = <0 0x11e00000 0 0x1000>,
 			<0 0x10217500 0 0x80>;
 		interrupts = <GIC_SPI 117 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&imp_iic_wrap_s IMP_IIC_WRAP_S_AP_I2C5_CG_RO>,
+		clocks = <&imp_iic_wrap_w IMP_IIC_WRAP_W_AP_I2C5_CG_RO>,
 			<&infracfg_ao INFRACFG_AO_AP_DMA_CG>;
 		clock-names = "main", "dma";
 		clock-div = <5>;
