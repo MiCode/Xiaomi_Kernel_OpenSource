@@ -210,6 +210,15 @@ mtk_drm_mode_fb_create(struct drm_device *dev, struct drm_file *file,
 
 	mtk_gem = to_mtk_gem_obj(gem);
 	if (gem->size < size && !mtk_gem->sec) {
+		DRM_ERROR("%s:%d, size:(%ld,%d), sec:%d\n",
+			__func__, __LINE__,
+			gem->size, size,
+			mtk_gem->sec);
+		DRM_ERROR("w:%d, h:%d, bpp:(%d,%d), pitch:%d, offset:%d\n",
+			width, height,
+			cmd->pixel_format, bpp,
+			cmd->pitches[0],
+			cmd->offsets[0]);
 		ret = -EINVAL;
 		goto unreference;
 	}
