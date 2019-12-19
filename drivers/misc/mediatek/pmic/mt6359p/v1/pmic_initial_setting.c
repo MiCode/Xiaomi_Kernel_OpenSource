@@ -206,7 +206,7 @@ void PMIC_LP_INIT_SETTING(void)
 {
 	g_pmic_chip_version = PMIC_CHIP_VER();
 #if LP_INIT_SETTING_VERIFIED
-#if 0	//TODO, enable it after bring up
+	/* For RF setting: If PL set Multi-user mode, need to sync it */
 	/*SODI3*/
 	pmic_buck_vcore_lp(SRCLKEN1, 0, 1, HW_OFF);
 	pmic_buck_vpu_lp(SRCLKEN1, 1, 1, HW_LP);
@@ -291,7 +291,6 @@ void PMIC_LP_INIT_SETTING(void)
 	pmic_ldo_vsim2_lp(SW, 1, 1, SW_OFF);
 	pmic_ldo_vufs_lp(SW, 1, 1, SW_ON);
 	pmic_ldo_vibr_lp(SW, 1, 1, SW_OFF);
-#endif
 	pr_info("[%s] Chip Ver = %d\n", __func__, g_pmic_chip_version);
 #endif /*LP_INIT_SETTING_VERIFIED*/
 }

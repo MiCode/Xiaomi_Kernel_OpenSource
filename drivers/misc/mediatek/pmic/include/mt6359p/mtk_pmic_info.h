@@ -22,12 +22,10 @@
 #define PMIC6359_E3_CID_CODE    0x5930
 
 
-#if !defined(CONFIG_MACH_MT6873)
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 #define IPIMB
 /* disable for Bring up */
 #endif
-#endif /* TODO: remove this line after mt6873 SB */
 
 extern unsigned int pmic_ipi_test_code(void);
 
