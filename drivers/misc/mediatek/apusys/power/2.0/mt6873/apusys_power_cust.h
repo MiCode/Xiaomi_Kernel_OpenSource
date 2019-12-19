@@ -35,7 +35,7 @@
 #define VCORE_DVFS_SUPPORT	(0)
 #define ASSERTION_PERCENTAGE	(1)	// 1%
 #define BINNING_VOLTAGE_SUPPORT (0) //[Fix me]
-#define SUPPORT_HW_CONTROL_PMIC	(0) //[Fix me]
+#define SUPPORT_HW_CONTROL_PMIC	(1)
 
 
 #define APUSYS_MAX_NUM_OPPS                (6)

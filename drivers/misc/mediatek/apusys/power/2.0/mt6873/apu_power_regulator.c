@@ -372,13 +372,14 @@ int config_normal_regulator(enum DVFS_BUCK buck, enum DVFS_VOLTAGE voltage_mV)
 	int ret = 0;
 	int voltage_MAX = voltage_mV + 50000;
 	int settle_time = 0;
+	bool binning_voltage = false;
+
 	struct regulator *reg_id = NULL;
 #if VOLTAGE_CHECKER
 	int check_volt = 0;
 #endif
 
 #if BINNING_VOLTAGE_SUPPORT
-	bool binning_voltage = false;
 	unsigned int vpu_efuse_val = 0;
 	unsigned int mdla_efuse_val = 0;
 
