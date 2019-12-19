@@ -1026,8 +1026,8 @@ static void mss_norm_sirq(struct cmdq_cb_data data)
 
 	/* dump log, use tasklet */
 	IRQ_LOG_KEEPER(MFB_IRQ_TYPE_INT_MSS_ST, m_CurrentPPB, _LOG_INF,
-		       "%s: bResulst:%d, MssIrqCnt:0x%x\n",
-		       __func__, bResulst,
+		       "%s: bResulst:%d, MssIrqCnt[%d]:0x%x\n",
+		       __func__, bResulst, p,
 			MFBInfo.IrqInfo.MssIrqCnt[p]);
 
 	#if (REQUEST_REGULATION == FRAME_BASE_REGULATION)
@@ -1182,8 +1182,8 @@ static void mss_vss_sirq(struct cmdq_cb_data data)
 
 	/* dump log, use tasklet */
 	IRQ_LOG_KEEPER(MFB_IRQ_TYPE_INT_MSS_ST, m_CurrentPPB, _LOG_INF,
-		       "%s: bResulst:%d, MssIrqCnt:0x%x\n",
-		       __func__, bResulst,
+		       "%s: bResulst:%d, MssIrqCnt[%d]:0x%x\n",
+		       __func__, bResulst, p,
 			MFBInfo.IrqInfo.MssIrqCnt[p]);
 	tasklet_schedule(MFB_tasklet[MFB_IRQ_TYPE_INT_MSS_ST].pMFB_tkt);
 
@@ -1329,8 +1329,8 @@ static void msf_norm_sirq(struct cmdq_cb_data data)
 
 	/* dump log, use tasklet */
 	IRQ_LOG_KEEPER(MFB_IRQ_TYPE_INT_MSF_ST, m_CurrentPPB, _LOG_INF,
-		       "%s, bResulst:%d, MsfIrqCnt:0x%x\n",
-		       __func__, bResulst, MFBInfo.IrqInfo.MsfIrqCnt[p]);
+		       "%s, bResulst:%d, MsfIrqCnt[%d]:0x%x\n",
+		       __func__, bResulst, p, MFBInfo.IrqInfo.MsfIrqCnt[p]);
 	tasklet_schedule(MFB_tasklet[MFB_IRQ_TYPE_INT_MSF_ST].pMFB_tkt);
 
 	#if (REQUEST_REGULATION == FRAME_BASE_REGULATION)
@@ -1482,8 +1482,8 @@ static void msf_vss_sirq(struct cmdq_cb_data data)
 
 	/* dump log, use tasklet */
 	IRQ_LOG_KEEPER(MFB_IRQ_TYPE_INT_MSF_ST, m_CurrentPPB, _LOG_INF,
-		       "%s: bResulst:%d, MsfIrqCnt:0x%x\n",
-		       __func__, bResulst, MFBInfo.IrqInfo.MsfIrqCnt[p]);
+		       "%s: bResulst:%d, MsfIrqCnt[%d]:0x%x\n",
+		       __func__, bResulst, p, MFBInfo.IrqInfo.MsfIrqCnt[p]);
 	tasklet_schedule(MFB_tasklet[MFB_IRQ_TYPE_INT_MSF_ST].pMFB_tkt);
 
 	#if (REQUEST_REGULATION == FRAME_BASE_REGULATION)
@@ -3770,7 +3770,7 @@ static signed int MFB_open(struct inode *pInode, struct file *pFile)
 		Ret = -ENOMEM;
 	} else {
 		pUserInfo = (struct MFB_USER_INFO_STRUCT *) pFile->private_data;
-		pUserInfo->Pid = current->pid;
+		pUserInfo->Pid = MFBInfo.UserCount;
 		pUserInfo->Tid = current->tgid;
 		pUserInfo->streamtag = MFB_PROCESS_ID_NONE;
 	}
