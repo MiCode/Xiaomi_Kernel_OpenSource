@@ -16,7 +16,7 @@
 | dior-kk-oss | Redmi Note Single SIM | Android KK | LNX.LA.3.5.2.2.2-00510-8x26.0 | [dior-kk-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/dior-kk-oss) |
 | dipper-o-oss | Mi 8/MI 8 Explorer Edition/POCOPHONE F1 | Android 8.1 | LA.UM.6.3.r4-03000-sdm845.0 | [dipper-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/dipper-o-oss) |
 | dipper-p-oss | MIX2S, MIX3, MI 8, POCOPHONE F1, MI 8UD, MI 8 Explorer Edition | Android P | LA.UM.7.3.r1-04500-sdm845.0 | [dipper-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/dipper-p-oss) |
-| dipper-q-oss | MI 8, MI2S, POCOPHONE F1, MI 8UD, MIX 3, MI 8 Explorer Edition | Android Q | LA.UM.8.3.r1-05800-sdm845.0 | [dipper-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/dipper-q-oss) |
+| dipper-q-oss | MI 8, MIX2S, POCOPHONE F1, MI 8UD, MIX 3, MI 8 Explorer Edition | Android Q | LA.UM.8.3.r1-05800-sdm845.0 | [dipper-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/dipper-q-oss) |
 | daisy-o-oss | Mi A2 lite, Redmi 6pro | Android O | LA.UM.6.6.r1-07400-89xx.0-1 | [daisy-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/daisy-o-oss) |
 | daisy-p-oss | Mi A2 lite | Android P | LA.UM.7.6.r1-02800-89xx.0 | [daisy-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/daisy-p-oss) |
 | davinci-p-oss | Redmi K20 | Android P | LA.UM.7.9.r1-03300-sm6150.0 | [davinci-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/davinci-p-oss) |
