@@ -3123,6 +3123,7 @@ static int __mt_gpufreq_init_clk(struct platform_device *pdev)
 		return -ENOENT;
 	}
 
+#if 0
 	g_infra_peri_debug1 = __mt_gpufreq_of_ioremap(
 		"mediatek,devapc_ao_infra_peri_debug1", 0);
 	if (!g_infra_peri_debug1) {
@@ -3175,6 +3176,7 @@ static int __mt_gpufreq_init_clk(struct platform_device *pdev)
 			__func__);
 		return -ENOENT;
 	}
+#endif
 
 	return 0;
 }

@@ -4584,6 +4584,7 @@ static void __init mt_scpsys_init(struct device_node *node)
 	spm_mtcmos_ctrl_dis(STA_POWER_ON);
 	//spm_mtcmos_ctrl_mdp(STA_POWER_ON);
 
+#if 0
 	pr_notice("MTCMOS GPU begin\n");
 	spm_mtcmos_ctrl_mfg0(STA_POWER_ON);
 	spm_mtcmos_ctrl_mfg1(STA_POWER_ON);
@@ -4592,6 +4593,7 @@ static void __init mt_scpsys_init(struct device_node *node)
 	spm_mtcmos_ctrl_mfg4(STA_POWER_ON);
 	spm_mtcmos_ctrl_mfg5(STA_POWER_ON);
 	spm_mtcmos_ctrl_mfg6(STA_POWER_ON);
+#endif
 
 	//pr_notice("MTCMOS ISP begin\n");
 	//spm_mtcmos_ctrl_isp(STA_POWER_ON);
