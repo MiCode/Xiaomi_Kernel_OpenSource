@@ -12,6 +12,7 @@
 #include <linux/debugfs.h>
 #include <linux/ratelimit.h>
 #include <linux/slab.h>
+#include <linux/btpower.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
@@ -19,7 +20,6 @@
 #include <sound/tlv.h>
 #include "btfm_slim.h"
 #include "btfm_slim_slave.h"
-#include <linux/bluetooth-power.h>
 
 int btfm_slim_write(struct btfmslim *btfmslim,
 		uint16_t reg, int bytes, void *src, uint8_t pgd)
@@ -308,7 +308,7 @@ static int btfm_slim_alloc_port(struct btfmslim *btfmslim)
 	if (!btfmslim)
 		return ret;
 
-	chipset_ver = get_chipset_version();
+	chipset_ver = btpower_get_chipset_version();
 	BTFMSLIM_INFO("chipset soc version:%x", chipset_ver);
 
 	rx_chs = btfmslim->rx_chs;
@@ -543,7 +543,8 @@ static int btfm_slim_probe(struct slim_device *slim)
 		BTFMSLIM_ERR("error, registering slimbus codec failed");
 		goto free;
 	}
-	ret = bt_register_slimdev(&slim->dev);
+
+	ret = btpower_register_slimdev(&slim->dev);
 	if (ret < 0) {
 		btfm_slim_unregister_codec(&slim->dev);
 		goto free;

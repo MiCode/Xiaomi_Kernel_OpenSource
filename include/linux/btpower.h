@@ -43,8 +43,8 @@ struct bluetooth_power_platform_data {
 	int (*bt_power_setup)(int id); /* Bluetooth power setup function */
 };
 
-int bt_register_slimdev(struct device *dev);
-int get_chipset_version(void);
+int btpower_register_slimdev(struct device *dev);
+int btpower_get_chipset_version(void);
 
 #define BT_CMD_SLIM_TEST		0xbfac
 #define BT_CMD_PWR_CTRL			0xbfad
