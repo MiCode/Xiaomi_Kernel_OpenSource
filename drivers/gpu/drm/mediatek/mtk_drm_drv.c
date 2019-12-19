@@ -968,6 +968,18 @@ static const struct mtk_addon_scenario_data mt6885_addon_main[ADDON_SCN_NR] = {
 				.hrt_type = HRT_TB_TYPE_GENERAL1,
 			},
 };
+
+static const struct mtk_addon_scenario_data mt6885_addon_ext[ADDON_SCN_NR] = {
+	[NONE] = {
+		.module_num = 0,
+		.hrt_type = HRT_TB_TYPE_GENERAL0,
+	},
+	[TRIPLE_DISP] = {
+		.module_num = 0,
+		.hrt_type = HRT_TB_TYPE_GENERAL0,
+	},
+};
+
 static const enum mtk_ddp_comp_id mt6873_mtk_ddp_main[] = {
 	DDP_COMPONENT_OVL0_2L,
 	DDP_COMPONENT_OVL0, DDP_COMPONENT_RDMA0,
@@ -1010,42 +1022,24 @@ static const enum mtk_ddp_comp_id mt6873_mtk_ddp_main_wb_path[] = {
 	DDP_COMPONENT_OVL0, DDP_COMPONENT_WDMA0,
 };
 
-static const struct mtk_addon_module_data mt6873_addon_rsz_data[] = {
-	{DISP_RSZ, ADDON_BETWEEN, DDP_COMPONENT_OVL0_2L},
-};
-
 static const struct mtk_addon_scenario_data mt6873_addon_main[ADDON_SCN_NR] = {
 		[NONE] = {
-
 				.module_num = 0,
 				.hrt_type = HRT_TB_TYPE_GENERAL1,
 			},
 		[ONE_SCALING] = {
-
-				.module_num = ARRAY_SIZE(mt6873_addon_rsz_data),
-				.module_data = mt6873_addon_rsz_data,
+				.module_num = ARRAY_SIZE(addon_rsz_data_v2),
+				.module_data = addon_rsz_data_v2,
 				.hrt_type = HRT_TB_TYPE_RPO_L0,
 			},
 		[TWO_SCALING] = {
-
-				.module_num = ARRAY_SIZE(mt6873_addon_rsz_data),
-				.module_data = mt6873_addon_rsz_data,
+				.module_num = ARRAY_SIZE(addon_rsz_data_v2),
+				.module_data = addon_rsz_data_v2,
 				.hrt_type = HRT_TB_TYPE_GENERAL1,
 			},
 };
 
 static const struct mtk_addon_scenario_data mt6873_addon_ext[ADDON_SCN_NR] = {
-	[NONE] = {
-		.module_num = 0,
-		.hrt_type = HRT_TB_TYPE_GENERAL0,
-	},
-	[TRIPLE_DISP] = {
-		.module_num = 0,
-		.hrt_type = HRT_TB_TYPE_GENERAL0,
-	},
-};
-
-static const struct mtk_addon_scenario_data mt6885_addon_ext[ADDON_SCN_NR] = {
 	[NONE] = {
 		.module_num = 0,
 		.hrt_type = HRT_TB_TYPE_GENERAL0,
