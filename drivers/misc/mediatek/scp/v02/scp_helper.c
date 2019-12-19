@@ -44,6 +44,7 @@
 #include "scp_excep.h"
 #include "scp_dvfs.h"
 #include "scp_scpctl.h"
+#include <linux/syscore_ops.h>
 
 #ifdef CONFIG_OF_RESERVED_MEM
 #include <linux/of_reserved_mem.h>
@@ -56,7 +57,6 @@
 
 /* scp mbox/ipi related */
 #include <mt-plat/mtk-mbox.h>
-#include "scp_ipi_table.h"
 #include "scp_ipi.h"
 
 /* scp semaphore timeout count definition */
@@ -137,6 +137,45 @@ char *core_ids[SCP_CORE_TOTAL] = {"SCP A"};
 DEFINE_SPINLOCK(scp_awake_spinlock);
 /* set flag after driver initial done */
 static bool driver_init_done;
+struct scp_ipi_irq {
+	const char *name;
+	int order;
+	unsigned int irq_no;
+};
+
+struct scp_ipi_irq scp_ipi_irqs[] = {
+	/* SCP IPC0 */
+	{ "mediatek,scp", 0, 0},
+	/* SCP IPC1 */
+	{ "mediatek,scp", 1, 0},
+	/* MBOX_0 */
+	{ "mediatek,scp", 2, 0},
+	/* MBOX_1 */
+	{ "mediatek,scp", 3, 0},
+	/* MBOX_2 */
+	{ "mediatek,scp", 4, 0},
+	/* MBOX_3 */
+	{ "mediatek,scp", 5, 0},
+	/* MBOX_4 */
+	{ "mediatek,scp", 6, 0},
+};
+#define IRQ_NUMBER  (sizeof(scp_ipi_irqs)/sizeof(struct scp_ipi_irq))
+
+static int scp_ipi_syscore_dbg_suspend(void) { return 0; }
+static void scp_ipi_syscore_dbg_resume(void)
+{
+	int i;
+
+	for (i = 0; i < IRQ_NUMBER; i++) {
+		if (mt_irq_get_pending(scp_ipi_irqs[i].irq_no)) {
+			if (i < 2)
+				pr_info("[SCP] ipc%d wakeup\n", i);
+			else
+				mt_print_scp_ipi_id(i - 2);
+			break;
+		}
+	}
+}
 
 /*
  * memory copy to scp sram
@@ -1559,63 +1598,13 @@ void scp_recovery_init(void)
 #endif
 }
 
-void mbox_setup_pin_table(int mbox)
-{
-	int i, last_ofs = 0, last_idx = 0, last_slot = 0, last_sz = 0;
-
-	for (i = 0; i < SCP_TOTAL_SEND_PIN; i++) {
-		if (mbox == scp_mbox_pin_send[i].mbox) {
-			scp_mbox_pin_send[i].offset = last_ofs + last_slot;
-			scp_mbox_pin_send[i].pin_index = last_idx + last_sz;
-			last_idx = scp_mbox_pin_send[i].pin_index;
-			if (scp_mbox_info[mbox].is64d == 1) {
-				last_sz = DIV_ROUND_UP(
-					   scp_mbox_pin_send[i].msg_size, 2);
-				last_ofs = last_sz * 2;
-				last_slot = last_idx * 2;
-			} else {
-				last_sz = scp_mbox_pin_send[i].msg_size;
-				last_ofs = last_sz;
-				last_slot = last_idx;
-			}
-		} else if (mbox < scp_mbox_pin_send[i].mbox)
-			break; /* no need to search the rest ipi */
-	}
-
-	for (i = 0; i < SCP_TOTAL_RECV_PIN; i++) {
-		if (mbox == scp_mbox_pin_recv[i].mbox) {
-			scp_mbox_pin_recv[i].offset = last_ofs + last_slot;
-			scp_mbox_pin_recv[i].pin_index = last_idx + last_sz;
-			last_idx = scp_mbox_pin_recv[i].pin_index;
-			if (scp_mbox_info[mbox].is64d == 1) {
-				last_sz = DIV_ROUND_UP(
-					   scp_mbox_pin_recv[i].msg_size, 2);
-				last_ofs = last_sz * 2;
-				last_slot = last_idx * 2;
-			} else {
-				last_sz = scp_mbox_pin_recv[i].msg_size;
-				last_ofs = last_sz;
-				last_slot = last_idx;
-			}
-		} else if (mbox < scp_mbox_pin_recv[i].mbox)
-			break; /* no need to search the rest ipi */
-	}
-
-
-	if (last_idx > 32 ||
-	   (last_ofs + last_slot) > (scp_mbox_info[mbox].is64d + 1) * 32) {
-		pr_err("mbox%d ofs(%d)/slot(%d) exceed the maximum\n",
-			mbox, last_idx, last_ofs + last_slot);
-		WARN_ON(1);
-	}
-}
-
 static int scp_device_probe(struct platform_device *pdev)
 {
 	int ret = 0, i = 0;
 	struct resource *res;
 	const char *core_status = NULL;
 	struct device *dev = &pdev->dev;
+	struct device_node *node;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	scpreg.sram = devm_ioremap_resource(dev, res);
@@ -1724,6 +1713,23 @@ static int scp_device_probe(struct platform_device *pdev)
 		mbox_setup_pin_table(i);
 	}
 
+	for (i = 0; i < IRQ_NUMBER; i++) {
+		if (scp_ipi_irqs[i].name == NULL)
+			continue;
+
+		node = of_find_compatible_node(NULL, NULL,
+					      scp_ipi_irqs[i].name);
+		if (!node) {
+			pr_info("[SCP] find '%s' node failed\n",
+				scp_ipi_irqs[i].name);
+			continue;
+		}
+		scp_ipi_irqs[i].irq_no =
+			irq_of_parse_and_map(node, scp_ipi_irqs[i].order);
+		if (!scp_ipi_irqs[i].irq_no)
+			pr_info("[SCP] get '%s' fail\n", scp_ipi_irqs[i].name);
+	}
+
 	ret = mtk_ipi_device_register(&scp_ipidev, pdev, &scp_mboxdev,
 				      SCP_IPI_COUNT);
 	if (ret)
@@ -1790,6 +1796,11 @@ static struct platform_driver mtk_scpsys_device = {
 		.of_match_table = scpsys_of_ids,
 #endif
 	},
+};
+
+static struct syscore_ops scp_ipi_dbg_syscore_ops = {
+	.suspend = scp_ipi_syscore_dbg_suspend,
+	.resume = scp_ipi_syscore_dbg_resume,
 };
 
 /*
@@ -1920,6 +1931,8 @@ static int __init scp_init(void)
 	/* remember to release pll */
 	scp_pll_ctrl_set(PLL_DISABLE, CLK_26M);
 #endif
+
+	register_syscore_ops(&scp_ipi_dbg_syscore_ops);
 
 	driver_init_done = true;
 	reset_scp(SCP_ALL_ENABLE);

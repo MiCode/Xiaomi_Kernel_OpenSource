@@ -33,6 +33,10 @@ struct scp_ipi_wrapper {
 	void *msg_1;
 };
 
+extern struct mtk_mbox_device scp_mboxdev;
+extern struct mtk_ipi_device scp_ipidev;
+extern struct mtk_mbox_info scp_mbox_info[SCP_MBOX_TOTAL];
+
 extern enum scp_ipi_status scp_ipi_registration(enum ipi_id id,
 	void (*ipi_handler)(int id, void *data, unsigned int len),
 	const char *name);

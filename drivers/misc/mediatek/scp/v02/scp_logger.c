@@ -328,9 +328,9 @@ static unsigned int scp_A_log_enable_set(unsigned int enable)
 		/*
 		 *disable/enable logger flag
 		 */
-		if ((ret == IPI_ACTION_DONE) && (enable == 1))
+		if ((ret == IPI_ACTION_DONE) && (enable == SCP_LOGGER_ON))
 			SCP_A_log_ctl->enable = 1;
-		else if ((ret == IPI_ACTION_DONE) && (enable == 0))
+		else if ((ret == IPI_ACTION_DONE) && (enable == SCP_LOGGER_OFF))
 			SCP_A_log_ctl->enable = 0;
 
 		if (ret != IPI_ACTION_DONE) {
