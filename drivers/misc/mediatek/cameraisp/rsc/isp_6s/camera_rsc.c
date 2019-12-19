@@ -3350,6 +3350,13 @@ static int rsc_dump_read(struct seq_file *m, void *v)
 	if (RSCInfo.UserCount <= 0)
 		return 0;
 
+	spin_lock(&(RSCInfo.SpinLockRSC));
+	if (g_u4EnableClockCount == 0) {
+		spin_unlock(&(RSCInfo.SpinLockRSC));
+		return 0;
+	}
+	spin_unlock(&(RSCInfo.SpinLockRSC));
+
 	seq_puts(m, "\n============ rsc dump register============\n");
 	seq_puts(m, "RSC Config Info\n");
 
@@ -3441,6 +3448,13 @@ static int rsc_reg_read(struct seq_file *m, void *v)
 
 	if (RSCInfo.UserCount <= 0)
 		return 0;
+
+	spin_lock(&(RSCInfo.SpinLockRSC));
+	if (g_u4EnableClockCount == 0) {
+		spin_unlock(&(RSCInfo.SpinLockRSC));
+		return 0;
+	}
+	spin_unlock(&(RSCInfo.SpinLockRSC));
 
 	seq_puts(m, "======== read rsc register ========\n");
 
@@ -3633,9 +3647,10 @@ static signed int __init RSC_Init(void)
 	void *tmp;
 	/* FIX-ME: linux-3.10 procfs API changed */
 	/* use proc_create */
+#if 0
 	struct proc_dir_entry *proc_entry;
 	struct proc_dir_entry *isp_rsc_dir;
-
+#endif
 
 	int i;
 	/*  */
@@ -3663,6 +3678,7 @@ static signed int __init RSC_Init(void)
 	LOG_DBG("ISP_RSC_BASE: %lx\n", ISP_RSC_BASE);
 #endif
 
+#if 0
 	isp_rsc_dir = proc_mkdir("rsc", NULL);
 	if (!isp_rsc_dir) {
 		LOG_ERR("[%s]: fail to mkdir /proc/rsc\n", __func__);
@@ -3676,6 +3692,7 @@ static signed int __init RSC_Init(void)
 	proc_entry = proc_create("rsc_reg", 0644, isp_rsc_dir,
 							&rsc_reg_proc_fops);
 
+#endif
 
 	/* isr log */
 	if (PAGE_SIZE <
