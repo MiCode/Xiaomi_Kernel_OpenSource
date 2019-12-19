@@ -478,7 +478,7 @@ static void mtk_nanohub_init_sensor_info(void)
 
 	p = &sensor_state[SENSOR_TYPE_GYROSCOPE];
 	p->sensorType = SENSOR_TYPE_GYROSCOPE;
-	p->gain = 7505747;
+	p->gain = 1000000;
 	strlcpy(p->name, "gyroscope", sizeof(p->name));
 	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
 
