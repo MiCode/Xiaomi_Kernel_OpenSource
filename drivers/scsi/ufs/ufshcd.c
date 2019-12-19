@@ -8873,6 +8873,14 @@ static int ufshcd_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 			/* make sure that auto bkops is disabled */
 			ufshcd_disable_auto_bkops(hba);
 		}
+
+#if defined(CONFIG_UFSFEATURE) && defined(CONFIG_UFSTW)
+		if (ufstw_need_flush(&hba->ufsf)) {
+			ret = -EAGAIN;
+			pm_runtime_mark_last_busy(hba->dev);
+			goto enable_gating;
+		}
+#endif
 	}
 
 	/* MTK PATCH */

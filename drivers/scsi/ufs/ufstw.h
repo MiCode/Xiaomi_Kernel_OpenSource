@@ -140,6 +140,7 @@ struct ufstw_lu {
 
 	/* Worker */
 	struct delayed_work tw_flush_work;
+	struct delayed_work tw_flush_h8_work;
 	unsigned long next_q;
 	unsigned int flush_th_max;
 	unsigned int flush_th_min;
@@ -170,5 +171,7 @@ void ufstw_reset_work_fn(struct work_struct *work);
 void ufstw_suspend(struct ufsf_feature *ufsf);
 void ufstw_resume(struct ufsf_feature *ufsf);
 void ufstw_release(struct kref *kref);
+bool ufstw_need_flush(struct ufsf_feature *ufsf);
+
 
 #endif /* End of Header */

@@ -488,6 +488,77 @@ void ufstw_ee_handler(struct ufsf_feature *ufsf)
 	}
 }
 
+static void ufstw_flush_h8_work_fn(struct work_struct *dwork)
+{
+	struct ufs_hba *hba;
+	struct ufstw_lu *tw;
+
+	tw = container_of(dwork, struct ufstw_lu, tw_flush_h8_work.work);
+	hba = tw->ufsf->hba;
+
+	/* Exit runtime suspend and do flush in hibern 1 sec */
+	pm_runtime_get_sync(hba->dev);
+	msleep(1000);
+
+	/* Check again, if still need flush reschedule itself */
+	if (ufstw_read_lu_attr(tw, QUERY_ATTR_IDN_TW_BUF_SIZE,
+			       &tw->tw_available_buffer_size)) {
+		ERR_MSG("ERROR: get available tw buffer size error");
+		goto out;
+	}
+	if (tw->tw_available_buffer_size < tw->flush_th_max)
+		schedule_delayed_work(&tw->tw_flush_h8_work, 0);
+
+out:
+	pm_runtime_put_sync(hba->dev);
+}
+
+bool ufstw_need_flush(struct ufsf_feature *ufsf)
+{
+	struct ufs_hba *hba = ufsf->hba;
+	struct ufstw_lu *tw;
+	bool need_flush = false;
+
+	if (!ufsf->tw_lup[2])
+		goto out;
+
+	if (!ufsf->sdev_ufs_lu[2]) {
+		WARNING_MSG("warn: lun 2 don't have scsi_device");
+		goto out;
+	}
+
+	tw = ufsf->tw_lup[2];
+
+	if (atomic_read(&tw->tw_mode) == TW_MODE_DISABLED)
+		goto out;
+
+	if (!tw->tw_enable)
+		goto out;
+
+	if (atomic_read(&tw->ufsf->tw_state) != TW_PRESENT)
+		goto out;
+
+	ufstw_lu_get(tw);
+
+	if (ufsf_query_attr_retry(hba, UPIU_QUERY_OPCODE_READ_ATTR,
+				  QUERY_ATTR_IDN_TW_BUF_SIZE,
+				  (u8)tw->lun,
+				  &tw->tw_available_buffer_size)) {
+		ERR_MSG("ERROR: get available tw buffer size error");
+		goto out_put;
+	}
+
+	if (tw->tw_available_buffer_size < tw->flush_th_max) {
+		schedule_delayed_work(&tw->tw_flush_h8_work, 0);
+		need_flush = true;
+	}
+
+out_put:
+	ufstw_lu_put(tw);
+out:
+	return need_flush;
+}
+
 static inline void ufstw_init_dev_jobs(struct ufsf_feature *ufsf)
 {
 	INIT_INFO("INIT_WORK(tw_reset_work)");
@@ -498,6 +569,7 @@ static inline void ufstw_init_lu_jobs(struct ufstw_lu *tw)
 {
 	INIT_INFO("INIT_DELAYED_WORK(tw_flush_work) ufstw_lu%d", tw->lun);
 	INIT_DELAYED_WORK(&tw->tw_flush_work, ufstw_flush_work_fn);
+	INIT_DELAYED_WORK(&tw->tw_flush_h8_work, ufstw_flush_h8_work_fn);
 	INIT_INFO("INIT_WORK(tw_lifetime_work)");
 	INIT_WORK(&tw->tw_lifetime_work, ufstw_lifetime_work_fn);
 }
