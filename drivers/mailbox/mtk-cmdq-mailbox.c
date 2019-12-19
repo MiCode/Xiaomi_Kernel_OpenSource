@@ -248,7 +248,8 @@ static s32 cmdq_clk_enable(struct cmdq *cmdq)
 
 	err = clk_enable(cmdq->clock);
 	if (usage <= 0 || err < 0)
-		cmdq_err("ref count error after inc:%d err:%d", usage, err);
+		cmdq_err("ref count error after inc:%d err:%d suspend:%s",
+			usage, err, cmdq->suspended ? "true" : "false");
 	else if (usage == 1) {
 		cmdq_log("cmdq begin mbox");
 		if (cmdq->prefetch)
@@ -266,7 +267,6 @@ static s32 cmdq_clk_enable(struct cmdq *cmdq)
 
 	spin_unlock_irqrestore(&cmdq->lock, flags);
 
-
 	cmdq_trace_ex_end();
 
 	return err;
@@ -277,13 +277,16 @@ static void cmdq_clk_disable(struct cmdq *cmdq)
 	s32 usage;
 	unsigned long flags;
 
+	cmdq_trace_ex_begin("%s", __func__);
+
 	spin_lock_irqsave(&cmdq->lock, flags);
 
 	usage = atomic_dec_return(&cmdq->usage);
 
 	if (usage < 0) {
 		/* print error but still try close */
-		cmdq_err("ref count error after dec:%d", usage);
+		cmdq_err("ref count error after dec:%d suspend:%s",
+			usage, cmdq->suspended ? "true" : "false");
 	} else if (usage == 0) {
 		cmdq_log("cmdq shutdown mbox");
 		/* clear tpr mask */
@@ -297,6 +300,8 @@ static void cmdq_clk_disable(struct cmdq *cmdq)
 	clk_disable(cmdq->clock);
 
 	spin_unlock_irqrestore(&cmdq->lock, flags);
+
+	cmdq_trace_ex_end();
 }
 
 dma_addr_t cmdq_thread_get_pc(struct cmdq_thread *thread)
@@ -836,7 +841,11 @@ static irqreturn_t cmdq_irq_handler(int irq, void *dev)
 	if (atomic_read(&cmdq->usage) <= 0) {
 		u32 irq_status_after;
 
-		irq_status = clk_enable(cmdq->clock);
+		cmdq_msg("%s cmdq:%#lx suspend:%s",
+			__func__, (unsigned long)cmdq->base_pa,
+			cmdq->suspended ? "true" : "false");
+
+		irq_status = clk_prepare_enable(cmdq->clock);
 		if (irq_status)
 			return IRQ_HANDLED;
 		irq_status = readl(cmdq->base + CMDQ_CURR_IRQ_STATUS) &
@@ -848,7 +857,7 @@ static irqreturn_t cmdq_irq_handler(int irq, void *dev)
 		cmdq_msg("cmdq not enable status:%#x to %#x",
 			irq_status, irq_status_after);
 
-		clk_disable(cmdq->clock);
+		clk_disable_unprepare(cmdq->clock);
 		return IRQ_HANDLED;
 	}
 
@@ -1707,6 +1716,7 @@ void cmdq_mbox_enable(void *chan)
 	struct cmdq *cmdq = container_of(((struct mbox_chan *)chan)->mbox,
 		typeof(*cmdq), mbox);
 
+	WARN_ON(clk_prepare(cmdq->clock) < 0);
 	cmdq_clk_enable(cmdq);
 }
 
@@ -1716,6 +1726,7 @@ void cmdq_mbox_disable(void *chan)
 		typeof(*cmdq), mbox);
 
 	cmdq_clk_disable(cmdq);
+	clk_unprepare(cmdq->clock);
 }
 
 s32 cmdq_mbox_get_usage(void *chan)
