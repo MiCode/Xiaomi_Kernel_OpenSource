@@ -2237,6 +2237,7 @@ static void m2mops_venc_job_abort(void *priv)
 {
 	struct mtk_vcodec_ctx *ctx = priv;
 
+	mtk_v4l2_debug(4, "[%d]", ctx->id);
 	ctx->state = MTK_STATE_ABORT;
 }
 
@@ -2656,7 +2657,7 @@ void mtk_venc_lock(struct mtk_vcodec_ctx *ctx, u32 hw_id)
 	mtk_v4l2_debug(4, "ctx %p [%d] hw_id %d sem_cnt %d",
 		ctx, ctx->id, hw_id, ctx->dev->enc_sem[hw_id].count);
 	while (hw_id < MTK_VENC_HW_NUM && ret != 0
-		&& ctx->state != MTK_STATE_ABORT)
+		&& !ctx->lock_abort)
 		ret = down_interruptible(&ctx->dev->enc_sem[hw_id]);
 }
 

@@ -711,6 +711,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 		clean_free_bs_buffer(ctx, &src_buf_info->bs_buffer);
 		if (ret == -EIO) {
 			/* ipi timeout / VPUD crashed ctx abort */
+			ctx->lock_abort = true;
 			ctx->state = MTK_STATE_ABORT;
 			mtk_vdec_queue_error_event(ctx);
 			v4l2_m2m_buf_done(&src_buf_info->vb,
@@ -906,15 +907,15 @@ int mtk_vdec_lock(struct mtk_vcodec_ctx *ctx, u32 hw_id)
 	mtk_v4l2_debug(4, "ctx %p [%d] hw_id %d sem_cnt %d",
 		ctx, ctx->id, hw_id, ctx->dev->dec_sem[hw_id].count);
 	while (hw_id < MTK_VDEC_HW_NUM && ret != 0
-		&& ctx->state != MTK_STATE_ABORT)
+		&& !ctx->lock_abort)
 		ret = down_interruptible(&ctx->dev->dec_sem[hw_id]);
 
 	if (ret != 0) {
 		ctx->hw_locked[hw_id] = -1;
 		mtk_v4l2_debug(0,
-			"fail ctx %p [%d] hw_id %d sem_cnt %d ret %d",
+			"fail ctx %p [%d] hw_id %d sem_cnt %d ret %d state %d",
 			ctx, ctx->id, hw_id,
-			ctx->dev->dec_sem[hw_id].count, ret);
+			ctx->dev->dec_sem[hw_id].count, ret, ctx->state);
 	} else
 		ctx->hw_locked[hw_id] = 1;
 
@@ -2452,6 +2453,7 @@ static void m2mops_vdec_job_abort(void *priv)
 {
 	struct mtk_vcodec_ctx *ctx = priv;
 
+	mtk_v4l2_debug(4, "[%d]", ctx->id);
 	ctx->state = MTK_STATE_ABORT;
 }
 
