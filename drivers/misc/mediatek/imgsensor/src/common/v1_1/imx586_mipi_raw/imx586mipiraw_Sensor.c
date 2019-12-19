@@ -655,7 +655,8 @@ static void set_shutter(kal_uint32 shutter)
  *
  *************************************************************************/
 static void set_shutter_frame_length(kal_uint16 shutter,
-				     kal_uint16 frame_length)
+				     kal_uint16 frame_length,
+				     kal_bool auto_extend_en)
 {
 	unsigned long flags;
 	kal_uint16 realtime_fps = 0;
@@ -721,7 +722,10 @@ static void set_shutter_frame_length(kal_uint16 shutter,
 
 	/* Update Shutter */
 	write_cmos_sensor_8(0x0104, 0x01);
-	write_cmos_sensor_8(0x0350, 0x00); /* Disable auto extend */
+	if (auto_extend_en)
+		write_cmos_sensor_8(0x0350, 0x01); /* Enable auto extend */
+	else
+		write_cmos_sensor_8(0x0350, 0x00); /* Disable auto extend */
 	write_cmos_sensor_8(0x0202, (shutter >> 8) & 0xFF);
 	write_cmos_sensor_8(0x0203, shutter  & 0xFF);
 	write_cmos_sensor_8(0x0104, 0x00);
@@ -4315,7 +4319,17 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 		break;
 	case SENSOR_FEATURE_SET_SHUTTER_FRAME_TIME:
 		set_shutter_frame_length((UINT16) (*feature_data),
-					(UINT16) (*(feature_data + 1)));
+					(UINT16) (*(feature_data + 1)),
+					(BOOL) (*(feature_data + 2)));
+		break;
+	case SENSOR_FEATURE_GET_FRAME_CTRL_INFO_BY_SCENARIO:
+		/*
+		 * 1, if driver support new sw frame sync
+		 * set_shutter_frame_length() support third para auto_extend_en
+		 */
+		*(feature_data + 1) = 1;
+		/* margin info by scenario */
+		*(feature_data + 2) = imgsensor_info.margin;
 		break;
 	case SENSOR_FEATURE_SET_HDR_SHUTTER:
 		pr_debug("SENSOR_FEATURE_SET_HDR_SHUTTER LE=%d, SE=%d\n",
