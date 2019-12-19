@@ -858,10 +858,6 @@ int mtk_crtc_user_cmd(struct drm_crtc *crtc, struct mtk_ddp_comp *comp,
 	CRTC_MMP_MARK(index, user_cmd, user_cmd_cnt, 0);
 	user_cmd_cnt++;
 
-	if (mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base))
-		cmdq_pkt_set_event(cmdq_handle,
-			mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
-
 	cb_data->crtc = crtc;
 	cb_data->cmdq_handle = cmdq_handle;
 	cmdq_pkt_flush_threaded(cmdq_handle, user_cmd_cmdq_cb, cb_data);
