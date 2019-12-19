@@ -63,5 +63,7 @@ enum met_src_index {
 	SRC_MD_EMI_LATENCY_IDX,
 	SRC_MAX
 };
+extern u32 dvfsrc_ct_mode(void);
+extern u32 dvfsrc_vcore_mode(void);
 #endif /* __HELIO_DVFSRC_MT6873_H */
 

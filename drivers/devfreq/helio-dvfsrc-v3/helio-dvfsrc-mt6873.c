@@ -11,6 +11,7 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
+#include <linux/fb.h>
 #include <linux/platform_device.h>
 #ifdef CONFIG_MEDIATEK_DRAMC
 #include <dramc.h>
@@ -32,7 +33,11 @@
 #include <linux/sched/clock.h>
 #include <dbgtop.h>
 
+/* #define DVFSRC_FB_MD_TABLE_SWITCH*/
 /* #define AUTOK_ENABLE */
+#define dvfsrc_rmw(offset, val, mask, shift) \
+	dvfsrc_write(offset, (dvfsrc_read(offset) & ~(mask << shift)) \
+			| (val << shift))
 
 
 static struct reg_config dvfsrc_init_configs[][128] = {
@@ -62,7 +67,7 @@ static struct reg_config dvfsrc_init_configs[][128] = {
 		{ DVFSRC_LEVEL_LABEL_18_19,  0x00110012 },
 		{ DVFSRC_LEVEL_LABEL_20_21,  0x00000010 },
 
-		{ DVFSRC_MD_LATENCY_IMPROVE, 0x00000020 },
+		{ DVFSRC_MD_LATENCY_IMPROVE, 0x00000040 },
 		{ DVFSRC_HRT_BW_BASE,        0x00000004 },
 		{ DVSFRC_HRT_REQ_MD_URG,     0x000D20D2 },
 		{ DVFSRC_HRT_REQ_MD_BW_0,    0x00200802 },
@@ -87,7 +92,28 @@ static struct reg_config dvfsrc_init_configs[][128] = {
 		{ DVFSRC_HRT1_REQ_MD_BW_8,   0x00000000 },
 		{ DVFSRC_HRT1_REQ_MD_BW_9,   0x00000000 },
 		{ DVFSRC_HRT1_REQ_MD_BW_10,  0x00034800 },
-
+#ifdef DVFSRC_FB_MD_TABLE_SWITCH
+		{ DVFSRC_95MD_SCEN_BW0_T,    0x20222220 },
+		{ DVFSRC_95MD_SCEN_BW1_T,    0x22222222 },
+		{ DVFSRC_95MD_SCEN_BW2_T,    0x00400444 },
+		{ DVFSRC_95MD_SCEN_BW3_T,    0x60000000 },
+		{ DVFSRC_95MD_SCEN_BW0,      0x00000000 },
+		{ DVFSRC_95MD_SCEN_BW1,      0x00000000 },
+		{ DVFSRC_95MD_SCEN_BW2,      0x00200222 },
+		{ DVFSRC_95MD_SCEN_BW3,      0x60000000 },
+		{ DVFSRC_95MD_SCEN_BW4,      0x00000006 },
+#else
+		{ DVFSRC_95MD_SCEN_BW0_T,    0x40444440 },
+		{ DVFSRC_95MD_SCEN_BW1_T,    0x44444444 },
+		{ DVFSRC_95MD_SCEN_BW2_T,    0x00400444 },
+		{ DVFSRC_95MD_SCEN_BW3_T,    0x60000000 },
+		{ DVFSRC_95MD_SCEN_BW0,      0x20222220 },
+		{ DVFSRC_95MD_SCEN_BW1,      0x22222222 },
+		{ DVFSRC_95MD_SCEN_BW2,      0x00200222 },
+		{ DVFSRC_95MD_SCEN_BW3,      0x60000000 },
+		{ DVFSRC_95MD_SCEN_BW4,      0x00000006 },
+		{ DVFSRC_RSRV_5,             0x00000001 },
+#endif
 		{ DVFSRC_DDR_REQUEST,        0x00004321 },
 		{ DVFSRC_DDR_REQUEST3,       0x00000065 },
 		{ DVFSRC_DDR_ADD_REQUEST,    0x66543210 },
@@ -96,7 +122,6 @@ static struct reg_config dvfsrc_init_configs[][128] = {
 		{ DVFSRC_DDR_REQUEST7,       0x66000000 },
 		{ DVFSRC_EMI_MON_DEBOUNCE_TIME,   0x4C2D0000 },
 		{ DVFSRC_DDR_REQUEST6,       0x66543210 },
-		{ DVFSRC_PCIE_VCORE_REQ,     0x0A298001 },
 		{ DVFSRC_VCORE_USER_REQ,     0x00010A29 },
 
 		{ DVFSRC_HRT_HIGH_3,         0x18A618A6 },
@@ -141,9 +166,8 @@ static ssize_t dvfsrc_level_mask_store(struct device *dev,
 
 	return count;
 }
-
 static DEVICE_ATTR(dvfsrc_level_mask, 0644,
-		dvfsrc_level_mask_show, dvfsrc_level_mask_store);
+	dvfsrc_level_mask_show, dvfsrc_level_mask_store);
 
 
 static ssize_t dvfsrc_vcore_settle_time_show(struct device *dev,
@@ -152,13 +176,113 @@ static ssize_t dvfsrc_vcore_settle_time_show(struct device *dev,
 	/* DE's comment: settle time was hard code in fw (15,30) */
 	return sprintf(buf, "rising 15 uS, falling 30 uS for mt6873\n");
 }
-
 static DEVICE_ATTR(dvfsrc_vcore_settle_time, 0444,
-		dvfsrc_vcore_settle_time_show, NULL);
+	dvfsrc_vcore_settle_time_show, NULL);
+
+static ssize_t dvfsrc_md_imp_gear_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%x\n", dvfsrc_read(DVFSRC_MD_LATENCY_IMPROVE));
+}
+static ssize_t dvfsrc_md_imp_gear_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	int gear = 0;
+
+	if (kstrtoint(buf, 10, &gear))
+		return -EINVAL;
+
+	if (gear >= DDR_OPP_NUM || gear < 0)
+		return -EINVAL;
+
+	dvfsrc_rmw(DVFSRC_MD_LATENCY_IMPROVE, gear, 0x7, 4);
+
+	return count;
+}
+static DEVICE_ATTR(dvfsrc_md_imp_gear, 0644,
+	dvfsrc_md_imp_gear_show, dvfsrc_md_imp_gear_store);
+
+static ssize_t dvfsrc_md_qos_performance_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int len = 0;
+
+	len += snprintf(buf + len, PAGE_SIZE - 1 - len,
+		"%-12s: 0x%08x\n",
+		"PERFORMANCE",
+		dvfsrc_read(DVFSRC_RSRV_5));
+
+	len += snprintf(buf + len, PAGE_SIZE - 1 - len,
+		"%-12s: 0x%08x\n",
+		"DVFSRC_MD_TURBO",
+		dvfsrc_read(DVFSRC_MD_TURBO));
+
+	len += snprintf(buf + len, PAGE_SIZE - 1 - len,
+		"%-12s: 0x%08x\n",
+		"SCEN_URGENT",
+		dvfsrc_read(DVFSRC_95MD_SCEN_BW4));
+
+	len += snprintf(buf + len, PAGE_SIZE - 1 - len,
+		"%-12s: 0x%08x, %08x, %08x, %08x\n",
+		"SCEN_BW_T",
+		dvfsrc_read(DVFSRC_95MD_SCEN_BW0_T),
+		dvfsrc_read(DVFSRC_95MD_SCEN_BW1_T),
+		dvfsrc_read(DVFSRC_95MD_SCEN_BW2_T),
+		dvfsrc_read(DVFSRC_95MD_SCEN_BW3_T));
+
+	len += snprintf(buf + len, PAGE_SIZE - 1 - len,
+		"%-12s: 0x%08x, %08x, %08x, %08x\n",
+		"SCEN_BW",
+		dvfsrc_read(DVFSRC_95MD_SCEN_BW0),
+		dvfsrc_read(DVFSRC_95MD_SCEN_BW1),
+		dvfsrc_read(DVFSRC_95MD_SCEN_BW2),
+		dvfsrc_read(DVFSRC_95MD_SCEN_BW3));
+
+	return len;
+}
+static ssize_t dvfsrc_md_qos_performance_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	int on = 0;
+
+	if (kstrtoint(buf, 10, &on))
+		return -EINVAL;
+
+	if (on) {
+		dvfsrc_write(DVFSRC_95MD_SCEN_BW0_T, 0x40444440);
+		dvfsrc_write(DVFSRC_95MD_SCEN_BW1_T, 0x44444444);
+		dvfsrc_write(DVFSRC_95MD_SCEN_BW2_T, 0x00400444);
+		dvfsrc_write(DVFSRC_95MD_SCEN_BW3_T, 0x60000000);
+		dvfsrc_write(DVFSRC_95MD_SCEN_BW0, 0x20222220);
+		dvfsrc_write(DVFSRC_95MD_SCEN_BW1, 0x22222222);
+		dvfsrc_write(DVFSRC_95MD_SCEN_BW2, 0x00200222);
+		dvfsrc_write(DVFSRC_95MD_SCEN_BW3, 0x60000000);
+		dvfsrc_write(DVFSRC_95MD_SCEN_BW4, 0x00000006);
+		dvfsrc_write(DVFSRC_RSRV_5, 0x00000001);
+	} else {
+		dvfsrc_write(DVFSRC_95MD_SCEN_BW0_T, 0x20222220);
+		dvfsrc_write(DVFSRC_95MD_SCEN_BW1_T, 0x22222222);
+		dvfsrc_write(DVFSRC_95MD_SCEN_BW2_T, 0x00400444);
+		dvfsrc_write(DVFSRC_95MD_SCEN_BW3_T, 0x60000000);
+		dvfsrc_write(DVFSRC_95MD_SCEN_BW0, 0x00000000);
+		dvfsrc_write(DVFSRC_95MD_SCEN_BW1, 0x00000000);
+		dvfsrc_write(DVFSRC_95MD_SCEN_BW2, 0x00200222);
+		dvfsrc_write(DVFSRC_95MD_SCEN_BW3, 0x60000000);
+		dvfsrc_write(DVFSRC_95MD_SCEN_BW4, 0x00000006);
+		dvfsrc_write(DVFSRC_RSRV_5, 0x00000000);
+	}
+
+	return count;
+}
+static DEVICE_ATTR(dvfsrc_md_qos_performance, 0644,
+	dvfsrc_md_qos_performance_show, dvfsrc_md_qos_performance_store);
+
 
 static struct attribute *mt6873_helio_dvfsrc_attrs[] = {
 	&dev_attr_dvfsrc_level_mask.attr,
 	&dev_attr_dvfsrc_vcore_settle_time.attr,
+	&dev_attr_dvfsrc_md_imp_gear.attr,
+	&dev_attr_dvfsrc_md_qos_performance.attr,
 	NULL,
 };
 
@@ -324,6 +448,45 @@ static void dvfsrc_autok_manager(void)
 }
 #endif
 
+static void dvfsrc_md_ddr_turbo(int is_turbo)
+{
+	if (dvfsrc_read(DVFSRC_RSRV_5))
+		return;
+
+	if (is_turbo)
+		dvfsrc_write(DVFSRC_MD_TURBO, 0x00000000);
+	else
+		dvfsrc_write(DVFSRC_MD_TURBO, 0x1FFF0000);
+}
+
+static int dvfsrc_fb_notifier_call(struct notifier_block *self,
+		unsigned long event, void *data)
+{
+	struct fb_event *evdata = data;
+	int blank;
+
+	if (event != FB_EVENT_BLANK)
+		return 0;
+
+	blank = *(int *)evdata->data;
+
+	switch (blank) {
+	case FB_BLANK_UNBLANK:
+		dvfsrc_md_ddr_turbo(true);
+		break;
+	case FB_BLANK_POWERDOWN:
+		dvfsrc_md_ddr_turbo(false);
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+static struct notifier_block dvfsrc_fb_notifier = {
+	.notifier_call = dvfsrc_fb_notifier_call,
+};
 
 void helio_dvfsrc_platform_pre_init(struct helio_dvfsrc *dvfsrc)
 {
@@ -345,7 +508,6 @@ void helio_dvfsrc_platform_init(struct helio_dvfsrc *dvfsrc)
 	struct reg_config *config;
 	int idx = 0;
 
-
 	sysfs_merge_group(&dvfsrc->dev->kobj, &mt6873_helio_dvfsrc_attr_group);
 
 	config = dvfsrc_init_configs[spmfw_idx];
@@ -357,6 +519,8 @@ void helio_dvfsrc_platform_init(struct helio_dvfsrc *dvfsrc)
 #ifdef AUTOK_ENABLE
 	dvfsrc_autok_manager();
 #endif
+
+	fb_register_client(&dvfsrc_fb_notifier);
 }
 
 int vcore_pmic_to_uv(int pmic_val)
@@ -416,6 +580,8 @@ void get_opp_info(char *p)
 	p += sprintf(p, "%-10s: %-8u uv  (PMIC: 0x%x)\n",
 			"Vcore", vcore_uv, vcore_uv_to_pmic(vcore_uv));
 	p += sprintf(p, "%-10s: %-8u khz\n", "DDR", ddr_khz);
+	p += sprintf(p, "%-10s: %d\n", "CT_MODE", dvfsrc_ct_mode());
+	p += sprintf(p, "%-10s: %d\n", "V_MODE", dvfsrc_vcore_mode());
 }
 
 
@@ -609,6 +775,7 @@ static void vcorefs_get_src_misc_info(void)
 		vcorefs_get_md_emi_latency_status();
 
 }
+
 
 int dvfsrc_latch_register(int enable)
 {

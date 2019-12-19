@@ -27,6 +27,8 @@
 static int opp_min_bin_opp0;
 static int opp_min_bin_opp3;
 static int opp_min_bin_opp3_1;
+static int is_vcore_ct;
+static int dvfs_v_mode;
 
 
 
@@ -38,6 +40,14 @@ static int mtk_dramc_get_steps_freq(unsigned int step)
 }
 #endif
 
+u32 dvfsrc_ct_mode(void)
+{
+	return is_vcore_ct;
+}
+u32 dvfsrc_vcore_mode(void)
+{
+	return dvfs_v_mode;
+}
 
 void dvfsrc_opp_level_mapping(void)
 {
@@ -91,6 +101,10 @@ void dvfsrc_opp_table_init(void)
 	int i;
 	int vcore_opp, ddr_opp;
 
+	for (i = 0; i < DDR_OPP_NUM; i++) {
+		set_opp_ddr_freq(i,
+			mtk_dramc_get_steps_freq(i) * 1000);
+	}
 	for (i = 0; i < VCORE_DVFS_OPP_NUM; i++) {
 		vcore_opp = get_vcore_opp(i);
 		ddr_opp = get_ddr_opp(i);
@@ -134,11 +148,8 @@ static int __init dvfsrc_opp_init(void)
 {
 	struct device_node *dvfsrc_node = NULL;
 	int vcore_opp_0_uv, vcore_opp_1_uv, vcore_opp_2_uv, vcore_opp_3_uv;
-	int i;
-	int is_vcore_ct = 0;
 	int ct_test = 0;
 	int is_vcore_aging = 0;
-	int dvfs_v_mode = 0;
 
 	set_pwrap_cmd(VCORE_OPP_0, 0);
 	set_pwrap_cmd(VCORE_OPP_1, 1);
@@ -179,7 +190,9 @@ static int __init dvfsrc_opp_init(void)
 			opp_min_bin_opp3_1 = 6;
 		}
 		vcore_opp_0_uv = vcore_opp_0_uv - get_vb_volt(VCORE_OPP_0);
+#if 0
 		vcore_opp_3_uv = vcore_opp_3_uv - get_vb_volt(VCORE_OPP_3);
+#endif
 	}
 
 	if (dvfs_v_mode == 3) {
@@ -228,7 +241,7 @@ static int __init dvfsrc_opp_init(void)
 		is_vcore_aging,
 		dvfs_v_mode);
 
-	pr_info("%s: FINAL vcore_opp_uv: %d, %d, %d %d\n",
+	pr_info("%s: FINAL vcore_opp_uv: %d, %d, %d, %d\n",
 		__func__,
 		vcore_opp_0_uv,
 		vcore_opp_1_uv,
@@ -240,13 +253,8 @@ static int __init dvfsrc_opp_init(void)
 	set_vcore_uv_table(VCORE_OPP_2, vcore_opp_2_uv);
 	set_vcore_uv_table(VCORE_OPP_3, vcore_opp_3_uv);
 
-	for (i = 0; i < DDR_OPP_NUM; i++) {
-		set_opp_ddr_freq(i,
-			mtk_dramc_get_steps_freq(i) * 1000);
-	}
-
 	return 0;
 }
 
-device_initcall_sync(dvfsrc_opp_init)
+fs_initcall_sync(dvfsrc_opp_init)
 
