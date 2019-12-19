@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,8 +15,6 @@
 #define _CPASTOP_V170_110_H_
 
 #define TEST_IRQ_ENABLE 0
-#define TCSR_CONN_RESET 0x0
-#define TCSR_CONN_SET  0x3
 
 static struct cam_camnoc_irq_sbm cam_cpas110_irq_sbm = {
 	.sbm_enable = {
@@ -267,7 +266,7 @@ static struct cam_camnoc_specific
 			.access_type = CAM_REG_TYPE_READ_WRITE,
 			.masked_value = 0,
 			.offset = 0x434, /* SPECIFIC_IFE02_PRIORITYLUT_HIGH */
-			.value = 0x66666666,
+			.value = 0x66665555,
 		},
 		.urgency = {
 			.enable = true,
@@ -315,7 +314,7 @@ static struct cam_camnoc_specific
 			.access_type = CAM_REG_TYPE_READ_WRITE,
 			.masked_value = 0,
 			.offset = 0x834, /* SPECIFIC_IFE13_PRIORITYLUT_HIGH */
-			.value = 0x66666666,
+			.value = 0x66665555,
 		},
 		.urgency = {
 			.enable = true,
@@ -528,14 +527,6 @@ static struct cam_cpas_hw_errata_wa_list cam170_cpas110_errata_wa_list = {
 			.offset = 0x2100, /* SidebandManager_SenseIn0_Low */
 			.mask = 0xE0000, /* Bits 17, 18, 19 */
 			.value = 0, /* expected to be 0 */
-		},
-	},
-	.tcsr_reg = {
-		.tcsr_conn_box_spare_0 = {
-			.enable = true,
-			.access_type = CAM_REG_TYPE_READ_WRITE,
-			.masked_value = 0,
-			.offset = 0xB3E4,
 		},
 	},
 };

@@ -1,4 +1,5 @@
 /* Copyright (c) 2008-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,6 +44,7 @@
 #include "kgsl_sync.h"
 #include "kgsl_compat.h"
 #include "kgsl_pool.h"
+#include "kgsl_mm_dump.h"
 
 #undef MODULE_PARAM_PREFIX
 #define MODULE_PARAM_PREFIX "kgsl."
@@ -947,6 +949,8 @@ static struct kgsl_process_private *kgsl_process_private_new(
 
 		kfree(private);
 		private = ERR_PTR(err);
+	} else {
+		private->last_oom_time = ktime_get();
 	}
 
 	return private;
@@ -4457,11 +4461,18 @@ kgsl_get_unmapped_area(struct file *file, unsigned long addr,
 				private->pid, addr, pgoff, len, (int) val);
 	} else {
 		val = _get_svm_area(private, entry, addr, len, flags);
-		if (IS_ERR_VALUE(val))
+		if (IS_ERR_VALUE(val)) {
 			KGSL_DRV_ERR_RATELIMIT(device,
-				"_get_svm_area: pid %d mmap_base %lx addr %lx pgoff %lx len %ld failed error %d\n",
-				private->pid, current->mm->mmap_base, addr,
+				"_get_svm_area: pid %d[%12s] mmap_base %lx addr %lx pgoff %lx len %ld failed error %d\n",
+				private->pid, private->comm, current->mm->mmap_base, addr,
 				pgoff, len, (int) val);
+
+			if (ktime_after(ktime_get(), private->last_oom_time)) {
+				kgsl_dump_mmap(private);
+				kgsl_dump_memory_entry(private);
+				private->last_oom_time = ktime_add_ms(ktime_get(), (10*60*1000));
+			}
+		}
 	}
 
 put:

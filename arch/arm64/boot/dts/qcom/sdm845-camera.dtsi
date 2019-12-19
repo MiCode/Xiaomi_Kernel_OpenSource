@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -176,7 +177,7 @@
 			hw-thd-dat = <22>;
 			hw-thd-sta = <162>;
 			hw-tbuf = <227>;
-			hw-scl-stretch-en = <0>;
+			hw-scl-stretch-en = <1>;
 			hw-trdhld = <6>;
 			hw-tsp = <3>;
 			cci-clk-src = <37500000>;
@@ -191,7 +192,7 @@
 			hw-thd-dat = <22>;
 			hw-thd-sta = <35>;
 			hw-tbuf = <62>;
-			hw-scl-stretch-en = <0>;
+			hw-scl-stretch-en = <1>;
 			hw-trdhld = <6>;
 			hw-tsp = <3>;
 			cci-clk-src = <37500000>;
@@ -221,7 +222,7 @@
 			hw-thd-dat = <16>;
 			hw-thd-sta = <15>;
 			hw-tbuf = <24>;
-			hw-scl-stretch-en = <0>;
+			hw-scl-stretch-en = <1>;
 			hw-trdhld = <3>;
 			hw-tsp = <3>;
 			cci-clk-src = <37500000>;

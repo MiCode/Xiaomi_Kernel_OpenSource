@@ -1,0 +1,6 @@
+config MISYSINFOFREADER
+	bool "enable miui sys info fast reader"
+	depends on MMU
+	default y
+	help
+	  This module is created by MIUI to read sys info from kernel fastly.

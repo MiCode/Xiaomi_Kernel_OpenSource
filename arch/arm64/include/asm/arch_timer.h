@@ -2,6 +2,7 @@
  * arch/arm64/include/asm/arch_timer.h
  *
  * Copyright (C) 2012 ARM Ltd.
+ * Copyright (C) 2019 XiaoMi, Inc.
  * Author: Marc Zyngier <marc.zyngier@arm.com>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -156,7 +157,7 @@ static inline u64 arch_counter_get_cntvct(void)
 		cval = arch_timer_reg_read_stable(cntvct_el0);
 	} while ((cval & L32_BITS) == L32_BITS);
 #else
-		cval = arch_timer_reg_read_stable(cntvct_el0);
+	cval = arch_timer_reg_read_stable(cntvct_el0);
 #endif
 	return cval;
 }

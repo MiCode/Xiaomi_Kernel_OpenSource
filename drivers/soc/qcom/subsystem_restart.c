@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,6 +40,9 @@
 
 #include <asm/current.h>
 #include <linux/timer.h>
+#include <linux/io.h>
+#define JTAG_ID 0x786130
+#define HW_VERSION_OFFSET 28
 
 #include "peripheral-loader.h"
 
@@ -929,9 +933,25 @@ void *__subsystem_get(const char *name, const char *fw_name)
 	int ret;
 	void *retval;
 	struct subsys_tracking *track;
+	void __iomem *jtag_id_vir = NULL;
+	u32 jtag_id = 0;
 
 	if (!name)
 		return NULL;
+	//////// added by Yao
+        printk("debugging: __subsystem_get: %s\n", name);
+	if (strcmp(name, "cdsp") == 0) {
+		jtag_id_vir = ioremap(JTAG_ID, 4);
+		jtag_id = readl_relaxed(jtag_id_vir);
+		iounmap(jtag_id_vir);
+                printk("debugging: Jtag ID is %x\n", jtag_id);
+		if (0x0 == (jtag_id >> HW_VERSION_OFFSET))
+		{
+			printk("we do not support cdsp for 845 v1.0!\n");
+			return NULL;
+		}
+	}
+	/////end of addition
 
 	subsys = retval = find_subsys(name);
 	if (!subsys)

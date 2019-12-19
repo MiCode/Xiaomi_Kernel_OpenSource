@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2014 PLUMgrid, http://plumgrid.com
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of version 2 of the GNU General Public
@@ -75,6 +76,7 @@ enum bpf_cmd {
 	BPF_OBJ_GET,
 	BPF_PROG_ATTACH,
 	BPF_PROG_DETACH,
+	BPF_GET_COMM_HASH,
 };
 
 enum bpf_map_type {
@@ -169,6 +171,11 @@ union bpf_attr {
 		__u32		attach_bpf_fd;	/* eBPF program to attach */
 		__u32		attach_type;
 		__u32		attach_flags;
+	};
+
+	struct { /* anonymous struct used by BPF_GET_COMM_HASH/DETACH commands */
+		__aligned_u64	hash;	/* the hash of process comm */
+		__u32		pid;	/* the pid of the process */;
 	};
 } __attribute__((aligned(8)));
 
@@ -515,6 +522,15 @@ enum bpf_func_id {
 	 *     inside sk_buff is NULL
 	 */
 	BPF_FUNC_get_socket_uid,
+
+	/**
+	 * u64 bpf_get_comm_hash_from_sk(skb)
+	 *     Get the comm hash of the socket process stored inside sk_buff.
+	 *     @skb: pointer to skb
+	 *     Return: comm hash of the socket owner on success or 0 if the socket
+	 *     pointer inside sk_buff is NULL
+	 */
+	BPF_FUNC_get_comm_hash_from_sk,
 
 	__BPF_FUNC_MAX_ID,
 };

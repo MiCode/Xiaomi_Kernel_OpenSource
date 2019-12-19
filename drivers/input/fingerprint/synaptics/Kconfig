@@ -1,0 +1,5 @@
+config FINGERPRINT_SYNAPTICS4302
+	tristate "SYNAPTICS OEM fingerprint SYNAPTICS4302 support"
+	help
+	  Say Y here to enable synaptics fingerprint driver support!
+

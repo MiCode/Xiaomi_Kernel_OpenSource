@@ -1,4 +1,5 @@
 /* Copyright (c) 2012, 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * Description: CoreSight Trace Memory Controller driver
  *
@@ -629,6 +630,72 @@ const struct attribute_group *coresight_tmc_etr_groups[] = {
 	NULL,
 };
 
+static int tmc_etf_set_buf_dump(struct tmc_drvdata *drvdata)
+{
+	int ret;
+	struct msm_dump_entry dump_entry;
+	static int count;
+
+	drvdata->buf_data.addr = virt_to_phys(drvdata->buf);
+	drvdata->buf_data.len = drvdata->size;
+	scnprintf(drvdata->buf_data.name, sizeof(drvdata->buf_data.name),
+		"KTMC_ETF%d", count);
+
+	dump_entry.id = MSM_DUMP_DATA_TMC_ETF + count;
+	dump_entry.addr = virt_to_phys(&drvdata->buf_data);
+
+	ret = msm_dump_data_register(MSM_DUMP_TABLE_APPS,
+				     &dump_entry);
+	if (ret)
+		return ret;
+
+	count++;
+
+	return 0;
+}
+
+static int tmc_set_reg_dump(struct tmc_drvdata *drvdata)
+{
+	int ret;
+	void *baddr;
+	struct amba_device *adev;
+	struct resource *res;
+	struct device *dev = drvdata->dev;
+	struct msm_dump_entry dump_entry;
+	uint32_t size;
+	static int count;
+
+	adev = to_amba_device(dev);
+	if (!adev)
+		return -EINVAL;
+
+	res = &adev->res;
+	size = resource_size(res);
+
+	baddr = devm_kzalloc(dev, size, GFP_KERNEL);
+	if (!baddr)
+		return -ENOMEM;
+
+	drvdata->reg_data.addr = virt_to_phys(baddr);
+	drvdata->reg_data.len = size;
+	scnprintf(drvdata->reg_data.name, sizeof(drvdata->reg_data.name),
+		"KTMC_REG%d", count);
+
+	dump_entry.id = MSM_DUMP_DATA_TMC_ETR_REG + count;
+	dump_entry.addr = virt_to_phys(&drvdata->reg_data);
+
+	ret = msm_dump_data_register(MSM_DUMP_TABLE_APPS,
+				     &dump_entry);
+	if (ret) {
+		devm_kfree(dev, baddr);
+		return ret;
+	}
+
+	count++;
+
+	return 0;
+}
+
 static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 {
 	int ret = 0;
@@ -688,7 +755,15 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 		drvdata->out_mode = TMC_ETR_OUT_MODE_MEM;
 	} else {
 		drvdata->size = readl_relaxed(drvdata->base + TMC_RSZ) * 4;
+		ret = tmc_etf_set_buf_dump(drvdata);
+		if (ret)
+			dev_err(dev, "TMC ETF-ETB dump setup failed. ret: %d\n",
+				ret);
 	}
+
+	ret = tmc_set_reg_dump(drvdata);
+	if (ret)
+		dev_err(dev, "TMC REG dump setup failed. ret: %d\n", ret);
 
 	ctidata = of_get_coresight_cti_data(dev, adev->dev.of_node);
 	if (IS_ERR(ctidata)) {

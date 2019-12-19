@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -52,6 +53,7 @@ enum ad_property {
 	AD_IPC_SUSPEND,
 	AD_IPC_RESUME,
 	AD_IPC_RESET,
+	AD_RESUME,
 	AD_VSYNC_UPDATE,
 	AD_PROPMAX,
 };

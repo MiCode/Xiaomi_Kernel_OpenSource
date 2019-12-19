@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,6 +28,8 @@
 #include <linux/cpu_cooling.h>
 #include <linux/atomic.h>
 #include <linux/regulator/consumer.h>
+#include <linux/cpufreq.h>
+#include <linux/cpu.h>
 
 #include <asm/smp_plat.h>
 #include <asm/cacheflush.h>
@@ -181,6 +184,9 @@ static unsigned long limits_mitigation_notify(struct limits_dcvs_hw *hw)
 
 notify_exit:
 	hw->hw_freq_limit = max_limit;
+	get_online_cpus();
+	cpufreq_update_policy(cpumask_first(&hw->core_map));
+	put_online_cpus();
 	return max_limit;
 }
 
@@ -505,6 +511,41 @@ lmh_freq_limit_show(struct device *dev, struct device_attribute *devattr,
 	return snprintf(buf, PAGE_SIZE, "%lu\n", hw->hw_freq_limit);
 }
 
+/*
+ * The CPUFREQ_ADJUST notifier is used to override the current policy max to
+ * make sure policy max <= hw_freq_limit. The cpufreq framework then does the job
+ * of enforcing the new policy.
+ */
+static int thermal_adjust_notify(struct notifier_block *nb, unsigned long val,
+				void *data)
+{
+	struct cpufreq_policy *policy = data;
+	unsigned int cpu = policy->cpu;
+	struct limits_dcvs_hw *hw = get_dcvsh_hw_from_cpu(cpu);
+
+	switch (val) {
+	case CPUFREQ_ADJUST:
+		if (!hw)
+			break;
+
+		pr_debug("CPU%u policy max before thermal adjust: %u kHz\n",
+			 cpu, policy->max);
+		pr_debug("CPU%u boost max: %lu kHz\n", cpu, hw->hw_freq_limit);
+
+		cpufreq_verify_within_limits(policy, 0, hw->hw_freq_limit);
+
+		pr_debug("CPU%u policy max after boost: %u kHz\n",
+			 cpu, policy->max);
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block thermal_adjust_nb = {
+	.notifier_call = thermal_adjust_notify,
+};
+
 static int limits_dcvs_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -676,7 +717,6 @@ probe_exit:
 	if (ret < 0)
 		goto unregister_sensor;
 	ret = 0;
-
 	return ret;
 
 unregister_sensor:
@@ -698,3 +738,11 @@ static struct platform_driver limits_dcvs_driver = {
 	},
 };
 builtin_platform_driver(limits_dcvs_driver);
+
+static int dcvs_cpufreq_notifier_init(void)
+{
+	cpufreq_register_notifier(&thermal_adjust_nb, CPUFREQ_POLICY_NOTIFIER);
+	return 0;
+}
+
+late_initcall(dcvs_cpufreq_notifier_init);

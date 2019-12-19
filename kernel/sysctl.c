@@ -66,6 +66,7 @@
 #include <linux/kexec.h>
 #include <linux/bpf.h>
 #include <linux/mount.h>
+#include <linux/mi_io.h>
 
 #include <asm/uaccess.h>
 #include <asm/processor.h>
@@ -1375,6 +1376,14 @@ static struct ctl_table kern_table[] = {
 		.data		= &cold_boot,
 		.maxlen		= sizeof(int),
 		.mode		= 0444,
+		.proc_handler	= proc_dointvec,
+	},
+
+	{
+		.procname	= "show_io",
+		.data		= &show_io_level,
+		.maxlen		= 8*sizeof(int),
+		.mode		= 0644,
 		.proc_handler	= proc_dointvec,
 	},
 #endif

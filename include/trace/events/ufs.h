@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2013-2015, 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -230,6 +231,51 @@ TRACE_EVENT(ufshcd_command,
 		(u32)__entry->opcode, __entry->lba, __entry->transfer_len,
 		__entry->doorbell, __entry->intr
 	)
+);
+
+TRACE_EVENT(ufshcd_transfer_request,
+	TP_PROTO(unsigned long completed_reqs),
+	TP_ARGS(completed_reqs),
+	TP_STRUCT__entry(
+		__field(unsigned long, completed_reqs)
+	),
+
+	TP_fast_assign(
+		__entry->completed_reqs = completed_reqs;
+	),
+
+	TP_printk("compeleted_reqs = %lu.", __entry->completed_reqs
+	)
+);
+
+TRACE_EVENT(ufshcd_poll_begin,
+	TP_PROTO(unsigned int tag),
+	TP_ARGS(tag),
+	TP_STRUCT__entry(
+		__field(unsigned int, tag)
+	),
+
+	TP_fast_assign(
+		__entry->tag = tag;
+	),
+
+	TP_printk("tag = %-2u", __entry->tag)
+);
+
+TRACE_EVENT(ufshcd_poll_end,
+	TP_PROTO(unsigned int tag, int bi_status),
+	TP_ARGS(tag, bi_status),
+	TP_STRUCT__entry(
+		__field(unsigned int, tag)
+		__field(int, bi_status);
+	),
+
+	TP_fast_assign(
+		__entry->tag = tag;
+		__entry->bi_status = bi_status;
+	),
+
+	TP_printk("tag = %-2u, bi_status = %d", __entry->tag, __entry->bi_status)
 );
 
 #endif /* if !defined(_TRACE_UFS_H) || defined(TRACE_HEADER_MULTI_READ) */

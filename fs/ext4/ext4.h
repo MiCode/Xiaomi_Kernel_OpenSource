@@ -1339,8 +1339,14 @@ struct ext4_super_block {
 #ifdef CONFIG_FS_ENCRYPTION
 #define DUMMY_ENCRYPTION_ENABLED(sbi) (unlikely((sbi)->s_mount_flags & \
 						EXT4_MF_TEST_DUMMY_ENCRYPTION))
+#ifdef CONFIG_EXT4_ANDROID_FS_ENCRYPTION
+#define ANDROID_ENCRYPTION_ENABLED(sbi) (1)
+#else
+#define ANDROID_ENCRYPTION_ENABLED(sbi) (0)
+#endif
 #else
 #define DUMMY_ENCRYPTION_ENABLED(sbi) (0)
+#define ANDROID_ENCRYPTION_ENABLED(sbi) (0)
 #endif
 
 /* Number of quota types we support */

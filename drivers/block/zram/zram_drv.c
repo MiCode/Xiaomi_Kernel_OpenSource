@@ -2,6 +2,7 @@
  * Compressed RAM block device
  *
  * Copyright (C) 2008, 2009, 2010  Nitin Gupta
+ * Copyright (C) 2019 XiaoMi, Inc.
  *               2012, 2013 Minchan Kim
  *
  * This code is released using a dual license strategy: BSD/GPL
@@ -1985,6 +1986,7 @@ static int zram_add(void)
 	strlcpy(zram->compressor, default_compressor, sizeof(zram->compressor));
 
 	zram_debugfs_register(zram);
+
 	pr_info("Added device: %s\n", zram->disk->disk_name);
 	return device_id;
 

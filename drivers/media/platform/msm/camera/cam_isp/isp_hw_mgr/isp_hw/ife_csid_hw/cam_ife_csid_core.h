@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -65,8 +66,6 @@
 #define CSID_PATH_ERROR_PIX_COUNT                 BIT(13)
 #define CSID_PATH_ERROR_LINE_COUNT                BIT(14)
 
-#define CSID_TOP_IRQ_DONE                         BIT(0)
-
 /*
  * Debug values enable the corresponding interrupts and debug logs provide
  * necessary information
@@ -78,8 +77,6 @@
 #define CSID_DEBUG_ENABLE_SHORT_PKT_CAPTURE       BIT(4)
 #define CSID_DEBUG_ENABLE_LONG_PKT_CAPTURE        BIT(5)
 #define CSID_DEBUG_ENABLE_CPHY_PKT_CAPTURE        BIT(6)
-#define CSID_DEBUG_ENABLE_HBI_VBI_INFO            BIT(7)
-#define CSID_DEBUG_DISABLE_EARLY_EOF              BIT(8)
 
 /* enum cam_csid_path_halt_mode select the path halt mode control */
 enum cam_csid_path_halt_mode {
@@ -139,7 +136,6 @@ struct cam_ife_csid_ipp_reg_offset {
 
 	/* configuration */
 	uint32_t  pix_store_en_shift_val;
-	uint32_t  early_eof_en_shift_val;
 };
 
 struct cam_ife_csid_rdi_reg_offset {
@@ -275,7 +271,6 @@ struct cam_ife_csid_common_reg_offset {
 	uint32_t version_incr;
 	uint32_t no_rdis;
 	uint32_t no_pix;
-	uint32_t csid_reg_rst_stb;
 	uint32_t csid_rst_stb;
 	uint32_t csid_rst_stb_sw_all;
 	uint32_t path_rst_stb_all;
@@ -291,8 +286,6 @@ struct cam_ife_csid_common_reg_offset {
 	uint32_t crop_shift;
 	uint32_t ipp_irq_mask_all;
 	uint32_t rdi_irq_mask_all;
-	uint32_t measure_en_hbi_vbi_cnt_mask;
-	uint32_t format_measure_en_val;
 };
 
 /**
@@ -368,6 +361,7 @@ struct cam_ife_csid_tpg_cfg  {
  * @dt:          Data type
  * @cnt:         Cid resource reference count.
  * @tpg_set:     Tpg used for this cid resource
+ * @pixel_count: Pixel resource connected
  *
  */
 struct cam_ife_csid_cid_data {
@@ -443,11 +437,6 @@ struct cam_ife_csid_path_cfg {
  * @csid_debug:               csid debug information to enable the SOT, EOT,
  *                            SOF, EOF, measure etc in the csid hw
  * @clk_rate                  Clock rate
- * @sof_irq_triggered:        Flag is set on receiving event to enable sof irq
- *                            incase of SOF freeze.
- * @irq_debug_cnt:            Counter to track sof irq's when above flag is set.
- * @error_irq_count           Error IRQ count, if continuous error irq comes
- *                            need to stop the CSID and mask interrupts.
  *
  */
 struct cam_ife_csid_hw {
@@ -469,9 +458,6 @@ struct cam_ife_csid_hw {
 	struct completion    csid_rdin_complete[CAM_IFE_CSID_RDI_MAX];
 	uint64_t                         csid_debug;
 	uint64_t                         clk_rate;
-	bool                             sof_irq_triggered;
-	uint32_t                         irq_debug_cnt;
-	uint32_t                         error_irq_count;
 };
 
 int cam_ife_csid_hw_probe_init(struct cam_hw_intf  *csid_hw_intf,

@@ -2,6 +2,7 @@
  * Gadget Function Driver for Android USB accessories
  *
  * Copyright (C) 2011 Google, Inc.
+ * Copyright (C) 2019 XiaoMi, Inc.
  * Author: Mike Lockwood <lockwood@android.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -709,7 +710,7 @@ static ssize_t acc_write(struct file *fp, const char __user *buf,
 	}
 
 	while (count > 0) {
-		if (!dev->online) {
+		if (!dev->online|| dev->disconnected) {
 			pr_debug("acc_write dev->error\n");
 			r = -EIO;
 			break;

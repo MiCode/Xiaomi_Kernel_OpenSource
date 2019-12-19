@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -63,7 +64,7 @@ static struct cam_fd_hw_static_info cam_fd_wrapper120_core410_info = {
 		CAM_FD_IRQ_TO_MASK(CAM_FD_IRQ_RESET_DONE),
 	.qos_priority       = 4,
 	.qos_priority_level = 4,
-	.supported_modes    = CAM_FD_MODE_FACEDETECTION,
+	.supported_modes    = CAM_FD_MODE_FACEDETECTION | CAM_FD_MODE_PYRAMID,
 	.ro_mode_supported  = true,
 };
 

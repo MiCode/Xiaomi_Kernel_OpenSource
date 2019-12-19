@@ -2365,7 +2365,7 @@ EXPORT_SYMBOL_GPL(clk_list_frequency);
 
 static struct dentry *rootdir;
 static int inited = 0;
-static u32 debug_suspend;
+static u32 debug_suspend = 1;
 static DEFINE_MUTEX(clk_debug_lock);
 static HLIST_HEAD(clk_debug_list);
 
@@ -2687,7 +2687,7 @@ static int clock_debug_print_clock(struct clk_core *c, struct seq_file *s)
 
 	clk = c->hw->clk;
 
-	clock_debug_output(s, 0, "\t");
+	//clock_debug_output(s, 0, "\t");
 
 	do {
 		if (clk->core->vdd_class)

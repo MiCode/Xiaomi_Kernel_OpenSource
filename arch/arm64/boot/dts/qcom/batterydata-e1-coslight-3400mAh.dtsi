@@ -1,0 +1,85 @@
+qcom,e1_coslight_3400mAh {
+	qcom, = <24>;
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <3400>;
+	qcom,batt-id-kohm = <100>;
+	qcom,battery-beta = <3435>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
+	qcom,battery-type = "e1_coslight_3400mAh";
+	qcom,fastchg-current-ma = <3300>;
+	qcom,jeita-fcc-ranges = <0   50   330000
+			51  100  990000
+			101 150  1650000
+			151 450  3300000
+			451 600  1650000>;
+	qcom,jeita-fv-ranges =  <0   50   4400000
+			51  100  4400000
+			101 150  4400000
+			151 450  4400000
+			451 600  4100000>;
+	qcom,dynamic-fv-ranges = <0    100  4400000
+			101  200  4380000
+			201  300  4360000
+			301  400  4340000
+			401  500  4340000>;
+	qcom,checksum = <0xF35D>;
+	qcom,gui-version = "PMI8998GUI - 2.0.0.58";
+	qcom,fg-profile-data = [
+			E4 1E CB FC
+			AC 03 EF 06
+			D7 1C 10 02
+			79 0D EF 0A
+			D8 17 8F 23
+			D9 44 D4 53
+			6B 00 00 00
+			11 00 00 00
+			00 00 13 AB
+			DD CD 01 00
+			22 00 08 00
+			7D DA 96 E5
+			9B 05 13 FB
+			DB 15 84 02
+			AC EC DD 2B
+			2B 06 09 20
+			27 00 14 00
+			CE 1F 8B 05
+			73 0A AF FC
+			BF 1C 07 03
+			F2 15 34 12
+			83 18 D2 23
+			E9 4D 2B 5B
+			6B 00 00 00
+			0E 00 00 00
+			00 00 83 D5
+			BE C2 C7 CB
+			19 00 00 00
+			97 E3 96 E5
+			68 06 96 F3
+			FF F5 BA 03
+			74 07 7F 1B
+			B6 33 CC FF
+			07 10 00 00
+			06 0D 66 46
+			19 00 40 00
+			B3 01 0A FA
+			FF 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			];
+};

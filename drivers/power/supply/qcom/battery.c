@@ -1,4 +1,5 @@
 /* Copyright (c) 2018 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -103,7 +104,6 @@ enum print_reason {
 
 enum {
 	AICL_RERUN_WA_BIT	= BIT(0),
-	FORCE_INOV_DISABLE_BIT	= BIT(1),
 };
 
 static int debug_mask;
@@ -1215,13 +1215,6 @@ static int pl_disable_vote_callback(struct votable *votable,
 						msecs_to_jiffies(5000));
 	}
 
-	/* notify parallel state change */
-	if (chip->pl_psy && (chip->pl_disable != pl_disable)
-				&& !chip->fcc_stepper_enable) {
-		power_supply_changed(chip->pl_psy);
-		chip->pl_disable = (bool)pl_disable;
-	}
-
 	pl_dbg(chip, PR_PARALLEL, "parallel charging %s\n",
 		   pl_disable ? "disabled" : "enabled");
 
@@ -1279,8 +1272,7 @@ static bool is_parallel_available(struct pl_data *chip)
 	chip->pl_mode = pval.intval;
 
 	/* Disable autonomous votage increments for USBIN-USBIN */
-	if (IS_USBIN(chip->pl_mode)
-			&& (chip->wa_flags & FORCE_INOV_DISABLE_BIT)) {
+	if (IS_USBIN(chip->pl_mode)) {
 		if (!chip->hvdcp_hw_inov_dis_votable)
 			chip->hvdcp_hw_inov_dis_votable =
 					find_votable("HVDCP_HW_INOV_DIS");
@@ -1574,9 +1566,7 @@ static void pl_config_init(struct pl_data *chip, int smb_version)
 	switch (smb_version) {
 	case PMI8998_SUBTYPE:
 	case PM660_SUBTYPE:
-		chip->wa_flags = AICL_RERUN_WA_BIT | FORCE_INOV_DISABLE_BIT;
-		break;
-	case PMI632_SUBTYPE:
+		chip->wa_flags = AICL_RERUN_WA_BIT;
 		break;
 	default:
 		break;
@@ -1678,7 +1668,6 @@ int qcom_batt_init(int smb_version)
 		goto unreg_notifier;
 	}
 
-	chip->pl_disable = true;
 	chip->qcom_batt_class.name = "qcom-battery",
 	chip->qcom_batt_class.owner = THIS_MODULE,
 	chip->qcom_batt_class.class_attrs = pl_attributes;

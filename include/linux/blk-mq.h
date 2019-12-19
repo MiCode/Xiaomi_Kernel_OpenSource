@@ -92,7 +92,7 @@ typedef int (reinit_request_fn)(void *, struct request *);
 typedef void (busy_iter_fn)(struct blk_mq_hw_ctx *, struct request *, void *,
 		bool);
 typedef void (busy_tag_iter_fn)(struct request *, void *, bool);
-typedef int (poll_fn)(struct blk_mq_hw_ctx *, unsigned int);
+typedef int (poll_fn)(struct blk_mq_hw_ctx *, unsigned int, struct bio *);
 typedef int (map_queues_fn)(struct blk_mq_tag_set *set);
 
 

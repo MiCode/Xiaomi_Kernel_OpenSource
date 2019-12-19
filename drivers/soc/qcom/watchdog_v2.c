@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -94,6 +95,7 @@ struct msm_watchdog_data {
 	bool timer_expired;
 	bool user_pet_complete;
 	unsigned int scandump_size;
+	int curr_ping_cpu_id;
 };
 
 /*
@@ -129,6 +131,23 @@ module_param(WDT_HZ, long, 0);
 
 static int ipi_en = IPI_CORES_IN_LPM;
 module_param(ipi_en, int, 0444);
+
+#ifdef CONFIG_FIRE_WATCHDOG
+static int wdog_fire;
+static int wdog_fire_set(const char *val, const struct kernel_param *kp);
+module_param_call(wdog_fire, wdog_fire_set, param_get_int,
+		&wdog_fire, 0644);
+
+static int wdog_fire_set(const char *val, const struct kernel_param *kp)
+{
+	printk(KERN_INFO "trigger wdog_fire_set\n");
+	local_irq_disable();
+	while (1)
+	;
+
+	return 0;
+}
+#endif
 
 static void dump_cpu_alive_mask(struct msm_watchdog_data *wdog_dd)
 {
@@ -199,6 +218,11 @@ static int panic_wdog_handler(struct notifier_block *this,
 				wdog_dd->base + WDT0_BITE_TIME);
 		__raw_writel(1, wdog_dd->base + WDT0_RST);
 	}
+#ifdef CONFIG_DUMP_ALL_STACKS
+	/* Suspend wdog until all stacks are printed */
+	printk(KERN_INFO "D Status stack trace dump:\n");
+	show_state_filter(TASK_UNINTERRUPTIBLE);
+#endif
 	return NOTIFY_DONE;
 }
 
@@ -395,8 +419,11 @@ static void ping_other_cpus(struct msm_watchdog_data *wdog_dd)
 	smp_mb();
 	for_each_cpu(cpu, cpu_online_mask) {
 		if (!cpu_idle_pc_state[cpu] && !cpu_isolated(cpu))
+		{
+			wdog_dd->curr_ping_cpu_id = cpu;
 			smp_call_function_single(cpu, keep_alive_response,
 						 wdog_dd, 1);
+		}
 	}
 }
 
@@ -525,6 +552,7 @@ static irqreturn_t wdog_bark_handler(int irq, void *dev_id)
 	nanosec_rem = do_div(wdog_dd->last_pet, 1000000000);
 	dev_info(wdog_dd->dev, "Watchdog last pet at %lu.%06lu\n",
 			(unsigned long) wdog_dd->last_pet, nanosec_rem / 1000);
+	pr_err("Watchdog current pinging cpu id = %d\n", wdog_dd->curr_ping_cpu_id);
 	if (wdog_dd->do_ipi_ping)
 		dump_cpu_alive_mask(wdog_dd);
 	msm_trigger_wdog_bite();
@@ -728,7 +756,7 @@ static void init_watchdog_data(struct msm_watchdog_data *wdog_dd)
 	configure_bark_dump(wdog_dd);
 	timeout = (wdog_dd->bark_time * WDT_HZ)/1000;
 	__raw_writel(timeout, wdog_dd->base + WDT0_BARK_TIME);
-	__raw_writel(timeout + 3*WDT_HZ, wdog_dd->base + WDT0_BITE_TIME);
+	__raw_writel(timeout + 10*WDT_HZ, wdog_dd->base + WDT0_BITE_TIME);
 
 	wdog_dd->panic_blk.notifier_call = panic_wdog_handler;
 	atomic_notifier_chain_register(&panic_notifier_list,

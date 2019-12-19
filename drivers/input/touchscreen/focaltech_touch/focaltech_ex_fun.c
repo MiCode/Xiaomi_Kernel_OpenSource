@@ -3,6 +3,7 @@
  * FocalTech TouchScreen driver.
  *
  * Copyright (c) 2010-2017, Focaltech Ltd. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -16,27 +17,27 @@
  */
 
 /*****************************************************************************
- *
- * File Name: Focaltech_ex_fun.c
- *
- * Author: Focaltech Driver Team
- *
- * Created: 2016-08-08
- *
- * Abstract:
- *
- * Reference:
- *
- *****************************************************************************/
+*
+* File Name: Focaltech_ex_fun.c
+*
+* Author: Focaltech Driver Team
+*
+* Created: 2016-08-08
+*
+* Abstract:
+*
+* Reference:
+*
+*****************************************************************************/
 
 /*****************************************************************************
- * 1.Included header files
- *****************************************************************************/
+* 1.Included header files
+*****************************************************************************/
 #include "focaltech_core.h"
 
 /*****************************************************************************
- * Private constant and macro definitions using #define
- *****************************************************************************/
+* Private constant and macro definitions using #define
+*****************************************************************************/
 /*create apk debug channel*/
 #define PROC_UPGRADE                            0
 #define PROC_READ_REGISTER                      1
@@ -49,227 +50,158 @@
 #define PROC_SET_SLAVE_ADDR                     10
 #define PROC_HW_RESET                           11
 #define PROC_NAME                               "ftxxxx-debug"
-#define WRITE_BUF_SIZE                          512
-#define READ_BUF_SIZE                           512
+#define PROC_WRITE_BUF_SIZE                     256
+#define PROC_READ_BUF_SIZE                      256
 
 /*****************************************************************************
- * Private enumerations, structures and unions using typedef
- *****************************************************************************/
+* Private enumerations, structures and unions using typedef
+*****************************************************************************/
 
 /*****************************************************************************
- * Static variables
- *****************************************************************************/
-static unsigned char proc_operate_mode = PROC_UPGRADE;
-static struct proc_dir_entry *fts_proc_entry;
-static struct
-{
-	int op;         /*  0: read, 1: write */
-	int reg;        /*  register */
-	int value;      /*  read: return value, write: op return */
-	int result;     /*  0: success, otherwise: fail */
-} g_rwreg_result;
+* Static variables
+*****************************************************************************/
+enum {
+	RWREG_OP_READ = 0,
+	RWREG_OP_WRITE = 1,
+};
+static struct rwreg_operation_t {
+	int type;		/*  0: read, 1: write */
+	int reg;		/*  register */
+	int len;		/*  read/write length */
+	int val;		/*  length = 1; read: return value, write: op return */
+	int res;		/*  0: success, otherwise: fail */
+	char *opbuf;		/*  length >= 1, read return value, write: op return */
+} rw_op;
 
 /*****************************************************************************
- * Global variable or extern global variabls/functions
- *****************************************************************************/
-
+* Global variable or extern global variabls/functions
+*****************************************************************************/
 /*****************************************************************************
- * Static function prototypes
- *****************************************************************************/
-#if FTS_ESDCHECK_EN
-static void esd_process(u8 *writebuf, int buflen, bool flag)
-{
-	if (flag) {
-		if ((writebuf[1] == 0xFC) && (writebuf[2] == 0x55)
-			&& (buflen == 0x03)) {
-			/* Upgrade command */
-			FTS_DEBUG("[ESD]: Upgrade command(%x %x %x)!!",
-					writebuf[0], writebuf[1], writebuf[2]);
-			fts_esdcheck_switch(DISABLE);
-		} else if ((writebuf[1] == 0x00) && (writebuf[2] == 0x40)
-				&& (buflen == 0x03)) {
-			/* factory mode bit 4 5 6 */
-			FTS_DEBUG("[ESD]: Entry factory mode(%x %x %x)!!",
-					writebuf[0], writebuf[1], writebuf[2]);
-			fts_esdcheck_switch(DISABLE);
-		} else if ((writebuf[1] == 0x00) && (writebuf[2] == 0x00)
-				&& (buflen == 0x03)) {
-			/* normal mode bit 4 5 6 */
-			FTS_DEBUG("[ESD]: Exit factory mode(%x %x %x)!!",
-					writebuf[0], writebuf[1], writebuf[2]);
-			fts_esdcheck_switch(ENABLE);
-		} else {
-			fts_esdcheck_proc_busy(1);
-		}
-	} else {
-		if ((writebuf[1] == 0x07) && (buflen == 0x02)) {
-			FTS_DEBUG("[ESD]: Upgrade finish-trigger (07)(%x %x)!!",
-					writebuf[0], writebuf[1]);
-			fts_esdcheck_switch(ENABLE);
-		} else {
-			fts_esdcheck_proc_busy(0);
-		}
-	}
-}
-#endif
-
-/*interface of write proc*/
+* Static function prototypes
+*****************************************************************************/
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
 /************************************************************************
- *   Name: fts_debug_write
- *  Brief:interface of write proc
- * Input: file point, data buf, data len, no use
- * Output: no
- * Return: data len
- ***********************************************************************/
-static ssize_t fts_debug_write(struct file *filp, const char __user *buff,
-			size_t count, loff_t *ppos)
+*   Name: fts_debug_write
+*  Brief:interface of write proc
+* Input: file point, data buf, data len, no use
+* Output: no
+* Return: data len
+***********************************************************************/
+static ssize_t fts_debug_write(struct file *filp, const char __user *buff, size_t count, loff_t *ppos)
 {
-	unsigned char writebuf[WRITE_BUF_SIZE];
-	char upgrade_file_path[FILE_NAME_LENGTH];
+	u8 writebuf[PROC_WRITE_BUF_SIZE] = { 0 };
 	int buflen = count;
 	int writelen = 0;
 	int ret = 0;
 	char tmp[25];
+	struct fts_ts_data *ts_data = fts_data;
+	struct i2c_client *client = ts_data->client;
 
-	if (copy_from_user(&writebuf, buff, buflen)) {
-		FTS_DEBUG("[APK]: copy from user error!!");
+	if ((count == 0) || (count > PROC_WRITE_BUF_SIZE)) {
+		FTS_ERROR("apk proc wirte count(%d) fail", (int)count);
+		return -EINVAL;
+	}
+
+	if (copy_from_user(&writebuf, buff, count)) {
+		FTS_ERROR("[APK]: copy from user error!!");
 		return -EFAULT;
 	}
-#if FTS_ESDCHECK_EN
-	esd_process(writebuf, buflen, 1);
-#endif
-	proc_operate_mode = writebuf[0];
-	switch (proc_operate_mode) {
-	case PROC_UPGRADE:
 
-		memset(upgrade_file_path, 0, sizeof(upgrade_file_path));
-		snprintf(upgrade_file_path, FILE_NAME_LENGTH,
-				"%s", writebuf + 1);
-		upgrade_file_path[buflen-1] = '\0';
-		FTS_DEBUG("%s\n", upgrade_file_path);
-		fts_irq_disable();
-#if FTS_ESDCHECK_EN
-		fts_esdcheck_switch(DISABLE);
-#endif
-		if (fts_updatefun_curr.upgrade_with_app_bin_file)
-			ret = fts_updatefun_curr.
-				upgrade_with_app_bin_file(fts_i2c_client,
-						upgrade_file_path);
-#if FTS_ESDCHECK_EN
-		fts_esdcheck_switch(ENABLE);
-#endif
-		fts_irq_enable();
-		if (ret < 0)
-			FTS_ERROR("[APK]: upgrade failed!!");
-		break;
+	ts_data->proc_opmode = writebuf[0];
 
+	switch (ts_data->proc_opmode) {
 	case PROC_SET_TEST_FLAG:
-		FTS_DEBUG("[APK]: PROC_SET_TEST_FLAG = %x!!", writebuf[1]);
+		FTS_INFO("[APK]: PROC_SET_TEST_FLAG = %x!!", writebuf[1]);
 #if FTS_ESDCHECK_EN
-		if (writebuf[1] == 0)
-			fts_esdcheck_switch(DISABLE);
-		else
+		if (writebuf[1] == 0) {
 			fts_esdcheck_switch(ENABLE);
+		} else {
+			fts_esdcheck_switch(DISABLE);
+		}
 #endif
 		break;
 	case PROC_READ_REGISTER:
 		writelen = 1;
-		ret = fts_i2c_write(fts_i2c_client, writebuf + 1, writelen);
-		if (ret < 0)
+		ret = fts_i2c_write(client, writebuf + 1, writelen);
+		if (ret < 0) {
 			FTS_ERROR("[APK]: write iic error!!");
+		}
 		break;
 	case PROC_WRITE_REGISTER:
 		writelen = 2;
-		ret = fts_i2c_write(fts_i2c_client, writebuf + 1, writelen);
-		if (ret < 0)
+		ret = fts_i2c_write(client, writebuf + 1, writelen);
+		if (ret < 0) {
 			FTS_ERROR("[APK]: write iic error!!");
+		}
 		break;
 	case PROC_SET_SLAVE_ADDR:
-		ret = fts_i2c_client->addr;
-		FTS_DEBUG("Original i2c addr 0x%x ", ret << 1);
-		if (writebuf[1] != fts_i2c_client->addr) {
-			fts_i2c_client->addr = writebuf[1];
-			FTS_DEBUG("Change i2c addr 0x%x to 0x%x", ret << 1,
-					writebuf[1] << 1);
-
+#if (FTS_CHIP_TYPE == _FT8201)
+		FTS_INFO("Original i2c addr 0x%x", client->addr << 1);
+		if (writebuf[1] != client->addr) {
+			client->addr = writebuf[1];
+			FTS_INFO("Change i2c addr 0x%x to 0x%x", client->addr << 1, writebuf[1] << 1);
 		}
+#endif
 		break;
 
 	case PROC_HW_RESET:
-
-		snprintf(tmp, 25, "%s", writebuf + 1);
+		snprintf(tmp, PAGE_SIZE, "%s", writebuf + 1);
 		tmp[buflen - 1] = '\0';
-		if (memcmp(tmp, "focal_driver", 12) == 0) {
-			FTS_DEBUG("Begin HW Reset");
+		if (strncmp(tmp, "focal_driver", 12) == 0) {
+			FTS_INFO("APK execute HW Reset");
 			fts_reset_proc(1);
 		}
-
 		break;
 
-	case PROC_AUTOCLB:
-		FTS_DEBUG("[APK]: autoclb!!");
-		fts_ctpm_auto_clb(fts_i2c_client);
-		break;
 	case PROC_READ_DATA:
 	case PROC_WRITE_DATA:
-		writelen = count - 1;
+		writelen = buflen - 1;
 		if (writelen > 0) {
-			ret = fts_i2c_write(fts_i2c_client, writebuf + 1,
-						writelen);
-			if (ret < 0)
+			ret = fts_i2c_write(client, writebuf + 1, writelen);
+			if (ret < 0) {
 				FTS_ERROR("[APK]: write iic error!!");
+			}
 		}
 		break;
 	default:
-			break;
+		break;
 	}
 
-#if FTS_ESDCHECK_EN
-	esd_process(writebuf, buflen, 0);
-#endif
-
-	if (ret < 0)
+	if (ret < 0) {
 		return ret;
-	else
+	} else {
 		return count;
+	}
 }
 
-/* interface of read proc */
 /************************************************************************
- *   Name: fts_debug_read
- *  Brief:interface of read proc
- * Input: point to the data, no use, no use, read len, no use, no use
- * Output: page point to data
- * Return: read char number
- ***********************************************************************/
-static ssize_t fts_debug_read(struct file *filp, char __user *buff,
-		size_t count, loff_t *ppos)
+*   Name: fts_debug_read
+*  Brief:interface of read proc
+* Input: point to the data, no use, no use, read len, no use, no use
+* Output: page point to data
+* Return: read char number
+***********************************************************************/
+static ssize_t fts_debug_read(struct file *filp, char __user *buff, size_t count, loff_t *ppos)
 {
 	int ret = 0;
 	int num_read_chars = 0;
 	int readlen = 0;
-	u8 regvalue = 0x00, regaddr = 0x00;
-	unsigned char buf[READ_BUF_SIZE];
+	u8 buf[PROC_READ_BUF_SIZE] = { 0 };
+	struct fts_ts_data *ts_data = fts_data;
+	struct i2c_client *client = ts_data->client;
 
-	memset(buf, 0, READ_BUF_SIZE);
+	if ((count == 0) || (count > PROC_READ_BUF_SIZE)) {
+		FTS_ERROR("apk proc read count(%d) fail", (int)count);
+		return -EINVAL;
+	}
 #if FTS_ESDCHECK_EN
 	fts_esdcheck_proc_busy(1);
 #endif
-	switch (proc_operate_mode) {
-	case PROC_UPGRADE:
-		/*  after calling fts_debug_write to upgrade */
-		regaddr = FTS_REG_FW_VER;
-		ret = fts_i2c_read_reg(fts_i2c_client, regaddr, &regvalue);
-		if (ret < 0)
-			num_read_chars = snprintf(buf, READ_BUF_SIZE, "%s",
-					"get fw version failed.\n");
-		else
-			num_read_chars = snprintf(buf, READ_BUF_SIZE,
-					"current fw ver:0x%02x\n", regvalue);
-		break;
+
+	switch (ts_data->proc_opmode) {
 	case PROC_READ_REGISTER:
 		readlen = 1;
-		ret = fts_i2c_read(fts_i2c_client, NULL, 0, buf, readlen);
+		ret = fts_i2c_read(client, NULL, 0, buf, readlen);
 		if (ret < 0) {
 #if FTS_ESDCHECK_EN
 			fts_esdcheck_proc_busy(0);
@@ -281,7 +213,7 @@ static ssize_t fts_debug_read(struct file *filp, char __user *buff,
 		break;
 	case PROC_READ_DATA:
 		readlen = count;
-		ret = fts_i2c_read(fts_i2c_client, NULL, 0, buf, readlen);
+		ret = fts_i2c_read(client, NULL, 0, buf, readlen);
 		if (ret < 0) {
 #if FTS_ESDCHECK_EN
 			fts_esdcheck_proc_busy(0);
@@ -311,60 +243,241 @@ static ssize_t fts_debug_read(struct file *filp, char __user *buff,
 }
 
 static const struct file_operations fts_proc_fops = {
-	.owner  = THIS_MODULE,
-	.read   = fts_debug_read,
-	.write  = fts_debug_write,
+	.owner = THIS_MODULE,
+	.read = fts_debug_read,
+	.write = fts_debug_write,
 };
-
+#else
+/* interface of write proc */
 /************************************************************************
- * Name: fts_create_apk_debug_channel
- * Brief:  create apk debug channel
- * Input: i2c info
- * Output: no
- * Return: success =0
- ***********************************************************************/
-int fts_create_apk_debug_channel(struct i2c_client *client)
+*   Name: fts_debug_write
+*  Brief:interface of write proc
+* Input: file point, data buf, data len, no use
+* Output: no
+* Return: data len
+***********************************************************************/
+static int fts_debug_write(struct file *filp, const char __user *buff, unsigned long len, void *data)
 {
-	fts_proc_entry = proc_create(PROC_NAME, 0644, NULL, &fts_proc_fops);
-	if (fts_proc_entry == NULL) {
-		FTS_ERROR("Couldn't create proc entry!");
-		return -ENOMEM;
+	int ret = 0;
+	u8 writebuf[PROC_WRITE_BUF_SIZE] = { 0 };
+	int buflen = len;
+	int writelen = 0;
+	char tmp[25];
+	struct fts_ts_data *ts_data = fts_data;
+	struct i2c_client *client = ts_data->client;
+
+	if ((count == 0) || (count > PROC_WRITE_BUF_SIZE)) {
+		FTS_ERROR("apk proc wirte count(%d) fail", (int)count);
+		return -EINVAL;
 	}
 
-	FTS_INFO("Create proc entry success!");
+	if (copy_from_user(&writebuf, buff, buflen)) {
+		FTS_ERROR("[APK]: copy from user error!!");
+		return -EFAULT;
+	}
+
+	ts_data->proc_opmode = writebuf[0];
+
+	switch (ts_data->proc_opmode) {
+	case PROC_SET_TEST_FLAG:
+		FTS_DEBUG("[APK]: PROC_SET_TEST_FLAG = %x!!", writebuf[1]);
+#if FTS_ESDCHECK_EN
+		if (writebuf[1] == 0) {
+			fts_esdcheck_switch(ENABLE);
+		} else {
+			fts_esdcheck_switch(DISABLE);
+		}
+#endif
+		break;
+	case PROC_READ_REGISTER:
+		writelen = 1;
+		ret = fts_i2c_write(client, writebuf + 1, writelen);
+		if (ret < 0) {
+			FTS_ERROR("[APK]: write iic error!!n");
+		}
+		break;
+	case PROC_WRITE_REGISTER:
+		writelen = 2;
+		ret = fts_i2c_write(client, writebuf + 1, writelen);
+		if (ret < 0) {
+			FTS_ERROR("[APK]: write iic error!!");
+		}
+		break;
+	case PROC_SET_SLAVE_ADDR:
+#if (FTS_CHIP_TYPE == _FT8201)
+		ret = client->addr;
+		FTS_DEBUG("Original i2c addr 0x%x ", ret << 1);
+		if (writebuf[1] != client->addr) {
+			client->addr = writebuf[1];
+			FTS_DEBUG("Change i2c addr 0x%x to 0x%x", ret << 1, writebuf[1] << 1);
+		}
+#endif
+		break;
+
+	case PROC_HW_RESET:
+		snprintf(tmp, PAGE_SIZE, "%s", writebuf + 1);
+		tmp[buflen - 1] = '\0';
+		if (strncmp(tmp, "focal_driver", 12) == 0) {
+			FTS_INFO("Begin HW Reset");
+			fts_reset_proc(1);
+		}
+		break;
+
+	case PROC_READ_DATA:
+	case PROC_WRITE_DATA:
+		writelen = len - 1;
+		if (writelen > 0) {
+			ret = fts_i2c_write(client, writebuf + 1, writelen);
+			if (ret < 0) {
+				FTS_ERROR("[APK]: write iic error!!");
+			}
+		}
+		break;
+	default:
+		break;
+	}
+
+	if (ret < 0) {
+		return ret;
+	} else {
+		return len;
+	}
+}
+
+/* interface of read proc */
+/************************************************************************
+*   Name: fts_debug_read
+*  Brief:interface of read proc
+* Input: point to the data, no use, no use, read len, no use, no use
+* Output: page point to data
+* Return: read char number
+***********************************************************************/
+static int fts_debug_read(char *page, char **start, off_t off, int count, int *eof, void *data)
+{
+	int ret = 0;
+	u8 buf[PROC_READ_BUF_SIZE] = { 0 };
+	int num_read_chars = 0;
+	int readlen = 0;
+	struct fts_ts_data *ts_data = fts_data;
+	struct i2c_client *client = ts_data->client;
+
+	if ((count == 0) || (count > PROC_READ_BUF_SIZE)) {
+		FTS_ERROR("apk proc read count(%d) fail", (int)count);
+		return -EINVAL;
+	}
+#if FTS_ESDCHECK_EN
+	fts_esdcheck_proc_busy(1);
+#endif
+	switch (ts_data->proc_opmode) {
+	case PROC_READ_REGISTER:
+		readlen = 1;
+		ret = fts_i2c_read(client, NULL, 0, buf, readlen);
+		if (ret < 0) {
+#if FTS_ESDCHECK_EN
+			fts_esdcheck_proc_busy(0);
+#endif
+			FTS_ERROR("[APK]: read iic error!!");
+			return ret;
+		}
+		num_read_chars = 1;
+		break;
+	case PROC_READ_DATA:
+		readlen = count;
+		ret = fts_i2c_read(client, NULL, 0, buf, readlen);
+		if (ret < 0) {
+#if FTS_ESDCHECK_EN
+			fts_esdcheck_proc_busy(0);
+#endif
+			FTS_ERROR("[APK]: read iic error!!");
+			return ret;
+		}
+
+		num_read_chars = readlen;
+		break;
+	case PROC_WRITE_DATA:
+		break;
+	default:
+		break;
+	}
+
+#if FTS_ESDCHECK_EN
+	fts_esdcheck_proc_busy(0);
+#endif
+
+	memcpy(page, buf, num_read_chars);
+	return num_read_chars;
+}
+#endif
+
+/************************************************************************
+* Name: fts_create_apk_debug_channel
+* Brief:  create apk debug channel
+* Input: i2c info
+* Output:
+* Return: return 0 if success
+***********************************************************************/
+int fts_create_apk_debug_channel(struct fts_ts_data *ts_data)
+{
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
+	ts_data->proc = proc_create(PROC_NAME, 0777, NULL, &fts_proc_fops);
+#else
+	ts_data->proc = create_proc_entry(PROC_NAME, 0777, NULL);
+#endif
+	if (NULL == ts_data->proc) {
+		FTS_ERROR("create proc entry fail");
+		return -ENOMEM;
+	} else {
+		FTS_INFO("Create proc entry success!");
+
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0))
+		ts_data->proc->write_proc = fts_debug_write;
+		ts_data->proc->read_proc = fts_debug_read;
+#endif
+	}
 
 	return 0;
 }
 
 /************************************************************************
- * Name: fts_release_apk_debug_channel
- * Brief:  release apk debug channel
- * Input: no
- * Output: no
- * Return: no
- ***********************************************************************/
-void fts_release_apk_debug_channel(void)
+* Name: fts_release_apk_debug_channel
+* Brief:  release apk debug channel
+* Input:
+* Output:
+* Return:
+***********************************************************************/
+void fts_release_apk_debug_channel(struct fts_ts_data *ts_data)
 {
-	if (fts_proc_entry)
-		proc_remove(fts_proc_entry);
+
+	if (ts_data->proc) {
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
+		proc_remove(ts_data->proc);
+#else
+		remove_proc_entry(PROC_NAME, NULL);
+#endif
+	}
 }
+
+/************************************************************************
+ * sysfs interface
+ ***********************************************************************/
 
 /*
  * fts_hw_reset interface
  */
-static ssize_t fts_hw_reset_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count)
+static ssize_t fts_hw_reset_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
 	return -EPERM;
 }
-static ssize_t fts_hw_reset_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
+
+static ssize_t fts_hw_reset_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
+	struct input_dev *input_dev = fts_data->input_dev;
 	ssize_t count = 0;
 
-	fts_reset_proc(200);
-
+	mutex_lock(&input_dev->mutex);
+	fts_reset_proc(1);
 	count = snprintf(buf, PAGE_SIZE, "hw reset executed\n");
+	mutex_unlock(&input_dev->mutex);
 
 	return count;
 }
@@ -372,9 +485,11 @@ static ssize_t fts_hw_reset_show(struct device *dev,
 /*
  * fts_irq interface
  */
-static ssize_t fts_irq_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count)
+static ssize_t fts_irq_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
+	struct input_dev *input_dev = fts_data->input_dev;
+
+	mutex_lock(&input_dev->mutex);
 	if (FTS_SYSFS_ECHO_ON(buf)) {
 		FTS_INFO("[EX-FUN]enable irq");
 		fts_irq_enable();
@@ -382,726 +497,504 @@ static ssize_t fts_irq_store(struct device *dev,
 		FTS_INFO("[EX-FUN]disable irq");
 		fts_irq_disable();
 	}
-
+	mutex_unlock(&input_dev->mutex);
 	return count;
 }
 
-static ssize_t fts_irq_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
+static ssize_t fts_irq_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	return -EPERM;
 }
 
-/************************************************************************
- * Name: fts_tpfwver_show
- * Brief:  show tp fw vwersion
- * Input: device, device attribute, char buf
- * Output: no
- * Return: char number
- ***********************************************************************/
-static ssize_t fts_tpfwver_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
+/*
+ * fts_tpfwver interface
+ */
+static ssize_t fts_tpfwver_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
+	struct fts_ts_data *ts_data = fts_data;
+	struct input_dev *input_dev = ts_data->input_dev;
+	struct i2c_client *client = ts_data->client;
 	ssize_t num_read_chars = 0;
 	u8 fwver = 0;
 
-	mutex_lock(&fts_input_dev->mutex);
+	mutex_lock(&input_dev->mutex);
 
 #if FTS_ESDCHECK_EN
 	fts_esdcheck_proc_busy(1);
 #endif
-	if (fts_i2c_read_reg(fts_i2c_client, FTS_REG_FW_VER, &fwver) < 0)
-		num_read_chars = snprintf(buf, PAGE_SIZE,
-					"I2c transfer error!\n");
+	if (fts_i2c_read_reg(client, FTS_REG_FW_VER, &fwver) < 0) {
+		num_read_chars = snprintf(buf, PAGE_SIZE, "I2c transfer error!\n");
+	}
 #if FTS_ESDCHECK_EN
 	fts_esdcheck_proc_busy(0);
 #endif
-	if (fwver == 255)
-		num_read_chars = snprintf(buf, PAGE_SIZE,
-					"get tp fw version fail!\n");
+	if ((fwver == 0xFF) || (fwver == 0x00))
+		num_read_chars = snprintf(buf, PAGE_SIZE, "get tp fw version fail!\n");
 	else
-		num_read_chars = snprintf(buf, PAGE_SIZE, "%02X\n", fwver);
+		num_read_chars = snprintf(buf, PAGE_SIZE, "%02x\n", fwver);
 
-	mutex_unlock(&fts_input_dev->mutex);
-
+	mutex_unlock(&input_dev->mutex);
 	return num_read_chars;
 }
-/************************************************************************
- * Name: fts_tpfwver_store
- * Brief:  no
- * Input: device, device attribute, char buf, char count
- * Output: no
- * Return: EPERM
- ***********************************************************************/
-static ssize_t fts_tpfwver_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count)
+
+static ssize_t fts_tpfwver_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
-	/* place holder for future use */
 	return -EPERM;
 }
 
-static int fts_is_hex_char(const char ch)
-{
-	int result = 0;
-
-	if (ch >= '0' && ch <= '9')
-		result = 1;/* (int)(ch - '0'); */
-	else if (ch >= 'a' && ch <= 'f')
-		result = 1;/* (int)(ch - 'a') + 10; */
-	else if (ch >= 'A' && ch <= 'F')
-		result = 1;/* (int)(ch - 'A') + 10; */
-	else
-		result = 0;
-
-	return result;
-}
-
-static int fts_hex_char_to_int(const char ch)
-{
-	int result = 0;
-
-	if (ch >= '0' && ch <= '9')
-		result = (int)(ch - '0');
-	else if (ch >= 'a' && ch <= 'f')
-		result = (int)(ch - 'a') + 10;
-	else if (ch >= 'A' && ch <= 'F')
-		result = (int)(ch - 'A') + 10;
-	else
-		result = -1;
-
-	return result;
-}
-
-static int fts_hex_to_str(char *hex, int iHexLen, char *ch, int *iChLen)
-{
-	int high = 0;
-	int low = 0;
-	int tmp = 0;
-	int i = 0;
-	int iCharLen = 0;
-
-	if (hex == NULL || ch == NULL)
-		return -EINVAL;
-
-	FTS_DEBUG("iHexLen: %d in function:%s!!\n\n", iHexLen, __func__);
-
-	if (iHexLen % 2 == 1)
-		return -EINVAL;
-
-	for (i = 0; i < iHexLen; i += 2) {
-		high = fts_hex_char_to_int(hex[i]);
-		if (high < 0) {
-			ch[iCharLen] = '\0';
-			return -EINVAL;
-		}
-
-		low = fts_hex_char_to_int(hex[i+1]);
-		if (low < 0) {
-			ch[iCharLen] = '\0';
-			return -EINVAL;
-		}
-
-		tmp = (high << 4) + low;
-		ch[iCharLen++] = (char)tmp;
-	}
-
-	ch[iCharLen] = '\0';
-	*iChLen = iCharLen;
-	FTS_DEBUG("iCharLen: %d, iChLen: %d in function:%s!!\n\n", iCharLen,
-				*iChLen, __func__);
-
-	return 0;
-}
-
-static void fts_str_to_bytes(char *bufStr, int iLen,
-		char *uBytes, int *iBytesLen)
-{
-	int i = 0;
-	int iNumChLen = 0;
-
-	*iBytesLen = 0;
-
-	for (i = 0; i < iLen; i++) {
-		if (fts_is_hex_char(bufStr[i])) /* filter illegal chars */
-			bufStr[iNumChLen++] = bufStr[i];
-	}
-
-	bufStr[iNumChLen] = '\0';
-
-	fts_hex_to_str(bufStr, iNumChLen, uBytes, iBytesLen);
-}
 /************************************************************************
- * Name: fts_tprwreg_show
- * Brief:  no
- * Input: device, device attribute, char buf
- * Output: no
- * Return: EPERM
- ***********************************************************************/
-static ssize_t fts_tprwreg_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
+* Name: fts_tprwreg_show
+* Brief:  no
+* Input: device, device attribute, char buf
+* Output: no
+* Return: EPERM
+***********************************************************************/
+static ssize_t fts_tprwreg_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	int count;
+	int i;
+	struct input_dev *input_dev = fts_data->input_dev;
 
-	mutex_lock(&fts_input_dev->mutex);
+	mutex_lock(&input_dev->mutex);
 
-	if (!g_rwreg_result.op) {
-		if (g_rwreg_result.result == 0)
-			count = snprintf(buf, PAGE_SIZE, "Read %02X: %02X\n",
-					g_rwreg_result.reg,
-					g_rwreg_result.value);
-		else
-			count = snprintf(buf, PAGE_SIZE,
-					"Read %02X failed, ret: %d\n",
-					g_rwreg_result.reg,
-					g_rwreg_result.result);
+	if (rw_op.len < 0) {
+		count = snprintf(buf, PAGE_SIZE, "Invalid cmd line\n");
+	} else if (rw_op.len == 1) {
+		if (RWREG_OP_READ == rw_op.type) {
+			if (rw_op.res == 0) {
+				count = snprintf(buf, PAGE_SIZE, "Read %02X: %02X\n", rw_op.reg, rw_op.val);
+			} else {
+				count = snprintf(buf, PAGE_SIZE, "Read %02X failed, ret: %d\n", rw_op.reg, rw_op.res);
+			}
+		} else {
+			if (rw_op.res == 0) {
+				count = snprintf(buf, PAGE_SIZE, "Write %02X, %02X success\n", rw_op.reg, rw_op.val);
+			} else {
+				count = snprintf(buf, PAGE_SIZE, "Write %02X failed, ret: %d\n", rw_op.reg, rw_op.res);
+			}
+		}
 	} else {
-		if (g_rwreg_result.result == 0)
-			count = snprintf(buf, PAGE_SIZE,
-					"Write %02X, %02X success\n",
-					g_rwreg_result.reg,
-					g_rwreg_result.value);
-		else
-			count = snprintf(buf, PAGE_SIZE,
-					"Write %02X failed, ret: %d\n",
-					g_rwreg_result.reg,
-					g_rwreg_result.result);
+		if (RWREG_OP_READ == rw_op.type) {
+			count = snprintf(buf, PAGE_SIZE, "Read Reg: [%02X]-[%02X]\n", rw_op.reg, rw_op.reg + rw_op.len);
+			count += snprintf(buf + count, PAGE_SIZE, "Result: ");
+			if (rw_op.res) {
+				count += snprintf(buf + count, PAGE_SIZE, "failed, ret: %d\n", rw_op.res);
+			} else {
+				if (rw_op.opbuf) {
+					for (i = 0; i < rw_op.len; i++) {
+						count += snprintf(buf + count, PAGE_SIZE, "%02X ", rw_op.opbuf[i]);
+					}
+					count += snprintf(buf + count, PAGE_SIZE, "\n");
+				}
+			}
+		} else {
+			;
+			count =
+			    snprintf(buf, PAGE_SIZE, "Write Reg: [%02X]-[%02X]\n", rw_op.reg,
+				     rw_op.reg + rw_op.len - 1);
+			count += snprintf(buf + count, PAGE_SIZE, "Write Data: ");
+			if (rw_op.opbuf) {
+				for (i = 1; i < rw_op.len; i++) {
+					count += snprintf(buf + count, PAGE_SIZE, "%02X ", rw_op.opbuf[i]);
+				}
+				count += snprintf(buf + count, PAGE_SIZE, "\n");
+			}
+			if (rw_op.res) {
+				count += snprintf(buf + count, PAGE_SIZE, "Result: failed, ret: %d\n", rw_op.res);
+			} else {
+				count += snprintf(buf + count, PAGE_SIZE, "Result: success\n");
+			}
+		}
+		/*if (rw_op.opbuf) {
+		   kfree(rw_op.opbuf);
+		   rw_op.opbuf = NULL;
+		   } */
 	}
-
-	mutex_unlock(&fts_input_dev->mutex);
+	mutex_unlock(&input_dev->mutex);
 
 	return count;
 }
-/************************************************************************
- * Name: fts_tprwreg_store
- * Brief:  read/write register
- * Input: device, device attribute, char buf, char count
- * Output: print register value
- * Return: char count
- ***********************************************************************/
-static ssize_t fts_tprwreg_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count)
+
+static int shex_to_int(const char *hex_buf, int size)
 {
-	struct i2c_client *client = container_of(dev, struct i2c_client, dev);
-	ssize_t num_read_chars = 0;
-	int retval;
-	unsigned long int wmreg = 0;
-	u8 regaddr = 0xff, regvalue = 0xff;
-	u8 valbuf[5] = {0};
+	int i;
+	int base = 1;
+	int value = 0;
+	char single;
 
-	memset(valbuf, 0, sizeof(valbuf));
-	mutex_lock(&fts_input_dev->mutex);
-	num_read_chars = count - 1;
-	if (num_read_chars != 2) {
-		if (num_read_chars != 4) {
-			FTS_ERROR("please input 2 or 4 character");
-			goto error_return;
+	for (i = size - 1; i >= 0; i--) {
+		single = hex_buf[i];
+
+		if ((single >= '0') && (single <= '9')) {
+			value += (single - '0') * base;
+		} else if ((single >= 'a') && (single <= 'z')) {
+			value += (single - 'a' + 10) * base;
+		} else if ((single >= 'A') && (single <= 'Z')) {
+			value += (single - 'A' + 10) * base;
+		} else {
+			return -EINVAL;
 		}
-	}
-	memcpy(valbuf, buf, num_read_chars);
-	retval = kstrtoul(valbuf, 16, &wmreg);
-	fts_str_to_bytes((char *)buf, num_read_chars, valbuf, &retval);
 
-	if (retval == 1) {
-		regaddr = valbuf[0];
-		retval = 0;
-	} else if (retval == 2) {
-		regaddr = valbuf[0];
-		regvalue = valbuf[1];
-		retval = 0;
-	} else
-		retval = -1;
-
-	if (retval != 0) {
-		FTS_ERROR("ERROR: Can't convert to number %s", buf);
-		goto error_return;
+		base *= 16;
 	}
+
+	return value;
+}
+
+static u8 shex_to_u8(const char *hex_buf, int size)
+{
+	return (u8) shex_to_int(hex_buf, size);
+}
+
+/*
+ * Format buf:
+ * [0]: '0' write, '1' read(reserved)
+ * [1-2]: addr, hex
+ * [3-4]: length, hex
+ * [5-6]...[n-(n+1)]: data, hex
+ */
+static int fts_parse_buf(const char *buf, size_t cmd_len)
+{
+	int length;
+	int i;
+	char *tmpbuf;
+
+	rw_op.reg = shex_to_u8(buf + 1, 2);
+	length = shex_to_int(buf + 3, 2);
+
+	if (buf[0] == '1') {
+		rw_op.len = length;
+		rw_op.type = RWREG_OP_READ;
+		FTS_DEBUG("read %02X, %d bytes", rw_op.reg, rw_op.len);
+	} else {
+		if (cmd_len < (length * 2 + 5)) {
+			pr_err("data invalided!\n");
+			return -EINVAL;
+		}
+		FTS_DEBUG("write %02X, %d bytes", rw_op.reg, length);
+
+		/* first byte is the register addr */
+		rw_op.type = RWREG_OP_WRITE;
+		rw_op.len = length + 1;
+	}
+
+	if (rw_op.len > 0) {
+		tmpbuf = (char *)kzalloc(rw_op.len, GFP_KERNEL);
+		if (!tmpbuf) {
+			FTS_ERROR("allocate memory failed!\n");
+			return -ENOMEM;
+		}
+
+		if (RWREG_OP_WRITE == rw_op.type) {
+			tmpbuf[0] = rw_op.reg & 0xFF;
+			FTS_DEBUG("write buffer: ");
+			for (i = 1; i < rw_op.len; i++) {
+				tmpbuf[i] = shex_to_u8(buf + 5 + i * 2 - 2, 2);
+				FTS_DEBUG("buf[%d]: %02X", i, tmpbuf[i] & 0xFF);
+			}
+		}
+		rw_op.opbuf = tmpbuf;
+	}
+
+	return rw_op.len;
+}
+
+/************************************************************************
+* Name: fts_tprwreg_store
+* Brief:  read/write register
+* Input: device, device attribute, char buf, char count
+* Output: print register value
+* Return: char count
+***********************************************************************/
+static ssize_t fts_tprwreg_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct input_dev *input_dev = fts_data->input_dev;
+	struct i2c_client *client = container_of(dev, struct i2c_client, dev);
+	ssize_t cmd_length = 0;
+
+	mutex_lock(&input_dev->mutex);
+	cmd_length = count - 1;
+
+	if (rw_op.opbuf) {
+		kfree(rw_op.opbuf);
+		rw_op.opbuf = NULL;
+	}
+
+	FTS_DEBUG("cmd len: %d, buf: %s", (int)cmd_length, buf);
+	/* compatible old ops */
+	if (2 == cmd_length) {
+		rw_op.type = RWREG_OP_READ;
+		rw_op.len = 1;
+
+		rw_op.reg = shex_to_int(buf, 2);
+	} else if (4 == cmd_length) {
+		rw_op.type = RWREG_OP_WRITE;
+		rw_op.len = 1;
+		rw_op.reg = shex_to_int(buf, 2);
+		rw_op.val = shex_to_int(buf + 2, 2);
+
+	} else if (cmd_length < 5) {
+		FTS_ERROR("Invalid cmd buffer");
+		mutex_unlock(&input_dev->mutex);
+		return -EINVAL;
+	} else {
+		rw_op.len = fts_parse_buf(buf, cmd_length);
+	}
+
 #if FTS_ESDCHECK_EN
 	fts_esdcheck_proc_busy(1);
 #endif
-	if (num_read_chars == 2) {
-		g_rwreg_result.op = 0;
-		g_rwreg_result.reg = regaddr;
-		/*read register*/
-		regaddr = wmreg;
-		g_rwreg_result.result = fts_i2c_read_reg(client, regaddr,
-						&regvalue);
-		if (g_rwreg_result.result < 0) {
-			FTS_ERROR("Could not read the register(0x%02x)",
-						regaddr);
-		} else {
-			FTS_INFO("the register(0x%02x) is 0x%02x", regaddr,
-						regvalue);
-			g_rwreg_result.value = regvalue;
-			g_rwreg_result.result = 0;
-		}
+	if (rw_op.len < 0) {
+		FTS_ERROR("cmd buffer error!");
+
 	} else {
-		regaddr = wmreg>>8;
-		regvalue = wmreg;
+		if (RWREG_OP_READ == rw_op.type) {
+			if (rw_op.len == 1) {
+				u8 reg, val;
+				reg = rw_op.reg & 0xFF;
+				rw_op.res = fts_i2c_read_reg(client, reg, &val);
+				rw_op.val = val;
+			} else {
+				char reg;
+				reg = rw_op.reg & 0xFF;
 
-		g_rwreg_result.op = 1;
-		g_rwreg_result.reg = regaddr;
-		g_rwreg_result.value = regvalue;
-		g_rwreg_result.result = fts_i2c_write_reg(client, regaddr,
-							regvalue);
-		if (g_rwreg_result.result < 0) {
-			FTS_ERROR("Could not write the register(0x%02x)",
-							regaddr);
+				rw_op.res = fts_i2c_read(client, &reg, 1, rw_op.opbuf, rw_op.len);
+			}
+
+			if (rw_op.res < 0) {
+				FTS_ERROR("Could not read 0x%02x", rw_op.reg);
+			} else {
+				FTS_INFO("read 0x%02x, %d bytes successful", rw_op.reg, rw_op.len);
+				rw_op.res = 0;
+			}
 
 		} else {
-			FTS_INFO("Write 0x%02x to (0x%02x) successful",
-					regvalue, regaddr);
-			g_rwreg_result.result = 0;
+			if (rw_op.len == 1) {
+				u8 reg, val;
+				reg = rw_op.reg & 0xFF;
+				val = rw_op.val & 0xFF;
+				rw_op.res = fts_i2c_write_reg(client, reg, val);
+			} else {
+				rw_op.res = fts_i2c_write(client, rw_op.opbuf, rw_op.len);
+			}
+			if (rw_op.res < 0) {
+				FTS_ERROR("Could not write 0x%02x", rw_op.reg);
+
+			} else {
+				FTS_INFO("Write 0x%02x, %d bytes successful", rw_op.val, rw_op.len);
+				rw_op.res = 0;
+			}
 		}
 	}
+
 #if FTS_ESDCHECK_EN
 	fts_esdcheck_proc_busy(0);
 #endif
-error_return:
-	mutex_unlock(&fts_input_dev->mutex);
+	mutex_unlock(&input_dev->mutex);
 
 	return count;
 }
-/************************************************************************
- * Name: fts_fwupdate_show
- * Brief:  no
- * Input: device, device attribute, char buf
- * Output: no
- * Return: EPERM
- ***********************************************************************/
-static ssize_t fts_fwupdate_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
+
+/*
+ * fts_upgrade_bin interface
+ */
+static ssize_t fts_fwupgradebin_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	/* place holder for future use */
 	return -EPERM;
 }
 
-/************************************************************************
- * Name: fts_fwupdate_store
- * Brief:  upgrade from *.i
- * Input: device, device attribute, char buf, char count
- * Output: no
- * Return: char count
- ***********************************************************************/
-static ssize_t fts_fwupdate_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count)
-{
-	struct i2c_client *client = container_of(dev, struct i2c_client, dev);
-
-	mutex_lock(&fts_input_dev->mutex);
-	fts_irq_disable();
-#if FTS_ESDCHECK_EN
-	fts_esdcheck_switch(DISABLE);
-#endif
-	if (fts_updatefun_curr.upgrade_with_app_i_file)
-		fts_updatefun_curr.upgrade_with_app_i_file(client);
-#if FTS_ESDCHECK_EN
-	fts_esdcheck_switch(ENABLE);
-#endif
-	fts_irq_enable();
-	mutex_unlock(&fts_input_dev->mutex);
-
-	return count;
-}
-/************************************************************************
- * Name: fts_fwupgradeapp_show
- * Brief:  no
- * Input: device, device attribute, char buf
- * Output: no
- * Return: EPERM
- ***********************************************************************/
-static ssize_t fts_fwupgradeapp_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	/* place holder for future use */
-	return -EPERM;
-}
-
-/************************************************************************
- * Name: fts_fwupgradeapp_store
- * Brief:  upgrade from app.bin
- * Input: device, device attribute, char buf, char count
- * Output: no
- * Return: char count
- ***********************************************************************/
-static ssize_t fts_fwupgradeapp_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count)
+static ssize_t fts_fwupgradebin_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
 	char fwname[FILE_NAME_LENGTH];
-	struct i2c_client *client = container_of(dev, struct i2c_client, dev);
+	struct fts_ts_data *ts_data = fts_data;
+	struct input_dev *input_dev = ts_data->input_dev;
+	struct i2c_client *client = ts_data->client;
 
+	if ((count <= 1) || (count >= FILE_NAME_LENGTH - 32)) {
+		FTS_ERROR("fw bin name's length(%d) fail", (int)count);
+		return -EINVAL;
+	}
 	memset(fwname, 0, sizeof(fwname));
-	snprintf(fwname, FILE_NAME_LENGTH,  "%s", buf);
-	fwname[count-1] = '\0';
+	snprintf(fwname, PAGE_SIZE, "%s", buf);
+	fwname[count - 1] = '\0';
 
-	mutex_lock(&fts_input_dev->mutex);
+	FTS_INFO("upgrade with bin file through sysfs node");
+	mutex_lock(&input_dev->mutex);
+	ts_data->fw_loading = 1;
 	fts_irq_disable();
 #if FTS_ESDCHECK_EN
 	fts_esdcheck_switch(DISABLE);
 #endif
-	if (fts_updatefun_curr.upgrade_with_app_bin_file)
-		fts_updatefun_curr.upgrade_with_app_bin_file(client, fwname);
+
+	fts_upgrade_bin(client, fwname, 0);
+
 #if FTS_ESDCHECK_EN
 	fts_esdcheck_switch(ENABLE);
 #endif
 	fts_irq_enable();
-	mutex_unlock(&fts_input_dev->mutex);
+	ts_data->fw_loading = 0;
+	mutex_unlock(&input_dev->mutex);
 
 	return count;
 }
-/************************************************************************
- * Name: fts_driverversion_show
- * Brief:  no
- * Input: device, device attribute, char buf
- * Output: no
- * Return: EPERM
- ***********************************************************************/
-static ssize_t fts_driverversion_show(struct device *dev,
-			struct device_attribute *attr, char *buf)
+
+/*
+ * fts_force_upgrade interface
+ */
+static ssize_t fts_fwforceupg_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	int count;
-
-	mutex_lock(&fts_input_dev->mutex);
-
-	count = snprintf(buf, PAGE_SIZE, FTS_DRIVER_VERSION "\n");
-
-	mutex_unlock(&fts_input_dev->mutex);
-
-	return count;
-}
-/************************************************************************
- * Name: fts_driverversion_store
- * Brief:  no
- * Input: device, device attribute, char buf, char count
- * Output: no
- * Return: EPERM
- ***********************************************************************/
-static ssize_t fts_driverversion_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count)
-{
-	/* place holder for future use */
 	return -EPERM;
 }
+
+static ssize_t fts_fwforceupg_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+	char fwname[FILE_NAME_LENGTH];
+	struct fts_ts_data *ts_data = fts_data;
+	struct input_dev *input_dev = ts_data->input_dev;
+	struct i2c_client *client = ts_data->client;
+
+	if ((count <= 1) || (count >= FILE_NAME_LENGTH - 32)) {
+		FTS_ERROR("fw bin name's length(%d) fail", (int)count);
+		return -EINVAL;
+	}
+	memset(fwname, 0, sizeof(fwname));
+	snprintf(fwname, PAGE_SIZE, "%s", buf);
+	fwname[count - 1] = '\0';
+
+	FTS_INFO("force upgrade through sysfs node");
+	mutex_lock(&input_dev->mutex);
+	ts_data->fw_loading = 1;
+	fts_irq_disable();
+#if FTS_ESDCHECK_EN
+	fts_esdcheck_switch(DISABLE);
+#endif
+
+	fts_upgrade_bin(client, fwname, 1);
 
 #if FTS_ESDCHECK_EN
-/************************************************************************
- * Name: fts_esdcheck_store
- * Brief:  no
- * Input: device, device attribute, char buf, char count
- * Output: no
- * Return: EPERM
- ***********************************************************************/
-static ssize_t fts_esdcheck_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count)
-{
-	mutex_lock(&fts_input_dev->mutex);
+	fts_esdcheck_switch(ENABLE);
+#endif
+	fts_irq_enable();
+	ts_data->fw_loading = 0;
+	mutex_unlock(&input_dev->mutex);
 
-	if (FTS_SYSFS_ECHO_ON(buf)) {
-		FTS_DEBUG("enable esdcheck");
-		fts_esdcheck_switch(ENABLE);
-	} else if (FTS_SYSFS_ECHO_OFF(buf)) {
-		FTS_DEBUG("disable esdcheck");
-		fts_esdcheck_switch(DISABLE);
-	}
-
-	mutex_unlock(&fts_input_dev->mutex);
-
-	return -EPERM;
+	return count;
 }
 
-/************************************************************************
- * Name: fts_esdcheck_show
- * Brief:  no
- * Input: device, device attribute, char buf
- * Output: no
- * Return: EPERM
- ***********************************************************************/
-static ssize_t fts_esdcheck_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
+/*
+ * fts_driver_version interface
+ */
+static ssize_t fts_driverversion_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	int count;
+	struct input_dev *input_dev = fts_data->input_dev;
 
-	mutex_lock(&fts_input_dev->mutex);
-
-	count = snprintf(buf, PAGE_SIZE, "Esd check: %s\n",
-			fts_esdcheck_get_status() ? "On" : "Off");
-
-	mutex_unlock(&fts_input_dev->mutex);
+	mutex_lock(&input_dev->mutex);
+	count = snprintf(buf, PAGE_SIZE, FTS_DRIVER_VERSION "\n");
+	mutex_unlock(&input_dev->mutex);
 
 	return count;
 }
-#endif
-/************************************************************************
- * Name: fts_module_config_show
- * Brief:  no
- * Input: device, device attribute, char buf
- * Output: no
- * Return: EPERM
- ***********************************************************************/
-static ssize_t fts_module_config_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
+
+static ssize_t fts_driverversion_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
-	int count = 0;
-
-	mutex_lock(&fts_input_dev->mutex);
-
-	count += snprintf(buf, PAGE_SIZE, "FTS_CHIP_TYPE: \t\t\t%04X\n",
-				FTS_CHIP_TYPE);
-	count += snprintf(buf+count, PAGE_SIZE - count,
-				"FTS_DEBUG_EN: \t\t\t%s\n",
-				FTS_DEBUG_EN ? "ON" : "OFF");
-#if defined(FTS_MT_PROTOCOL_B_EN)
-	count += snprintf(buf+count, PAGE_SIZE - count,
-				"FTS_MT_PROTOCOL_B_EN: \t\t%s\n",
-				FTS_MT_PROTOCOL_B_EN ? "ON" : "OFF");
-#endif
-	count += snprintf(buf+count, PAGE_SIZE - count,
-				"FTS_GESTURE_EN: \t\t%s\n",
-				FTS_GESTURE_EN ? "ON" : "OFF");
-	count += snprintf(buf+count, PAGE_SIZE - count,
-				"FTS_ESDCHECK_EN: \t\t%s\n",
-				FTS_ESDCHECK_EN ? "ON" : "OFF");
-#if defined(FTS_PSENSOR_EN)
-	count += snprintf(buf+count, PAGE_SIZE - count,
-				"FTS_PSENSOR_EN: \t\t%s\n",
-				FTS_PSENSOR_EN ? "ON" : "OFF");
-#endif
-	count += snprintf(buf+count, PAGE_SIZE - count,
-				"FTS_GLOVE_EN: \t\t\t%s\n",
-				FTS_GLOVE_EN ? "ON" : "OFF");
-	count += snprintf(buf+count, PAGE_SIZE - count,
-				"FTS_COVER_EN: \t\t%s\n",
-				FTS_COVER_EN ? "ON" : "OFF");
-	count += snprintf(buf+count, PAGE_SIZE - count,
-				"FTS_CHARGER_EN: \t\t\t%s\n",
-				FTS_CHARGER_EN ? "ON" : "OFF");
-
-	count += snprintf(buf+count, PAGE_SIZE - count,
-				"FTS_REPORT_PRESSURE_EN: \t\t%s\n",
-				FTS_REPORT_PRESSURE_EN ? "ON" : "OFF");
-	count += snprintf(buf+count, PAGE_SIZE - count,
-				"FTS_FORCE_TOUCH_EN: \t\t%s\n",
-				FTS_FORCE_TOUCH_EN ? "ON" : "OFF");
-
-	count += snprintf(buf+count, PAGE_SIZE - count,
-				"FTS_TEST_EN: \t\t\t%s\n",
-				FTS_TEST_EN ? "ON" : "OFF");
-	count += snprintf(buf+count, PAGE_SIZE - count,
-				"FTS_APK_NODE_EN: \t\t%s\n",
-				FTS_APK_NODE_EN ? "ON" : "OFF");
-	count += snprintf(buf+count, PAGE_SIZE - count,
-				"FTS_POWER_SOURCE_CUST_EN: \t%s\n",
-				FTS_POWER_SOURCE_CUST_EN ? "ON" : "OFF");
-	count += snprintf(buf+count, PAGE_SIZE - count,
-				"FTS_AUTO_UPGRADE_EN: \t\t%s\n",
-				FTS_AUTO_UPGRADE_EN ? "ON" : "OFF");
-
-	mutex_unlock(&fts_input_dev->mutex);
-
-	return count;
-}
-/************************************************************************
- * Name: fts_module_config_store
- * Brief:  no
- * Input: device, device attribute, char buf, char count
- * Output: no
- * Return: EPERM
- ***********************************************************************/
-static ssize_t fts_module_config_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count)
-{
-	/* place holder for future use */
 	return -EPERM;
 }
 
-/************************************************************************
- * Name: fts_show_log_show
- * Brief:  no
- * Input: device, device attribute, char buf
- * Output: no
- * Return: EPERM
- ***********************************************************************/
-static ssize_t fts_show_log_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
+/*
+ * fts_dump_reg interface
+ */
+static ssize_t fts_dumpreg_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
-	int count;
-
-	mutex_lock(&fts_input_dev->mutex);
-
-	count = snprintf(buf, PAGE_SIZE,
-			"Log: %s\n", g_show_log ? "On" : "Off");
-
-	mutex_unlock(&fts_input_dev->mutex);
-
-	return count;
-}
-/************************************************************************
- * Name: fts_show_log_store
- * Brief:  no
- * Input: device, device attribute, char buf, char count
- * Output: no
- * Return: EPERM
- ***********************************************************************/
-static ssize_t fts_show_log_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count)
-{
-	/* place holder for future use */
-
-	mutex_lock(&fts_input_dev->mutex);
-
-	if (FTS_SYSFS_ECHO_ON(buf)) {
-		FTS_DEBUG("enable show log info/error");
-		g_show_log = 1;
-	} else if (FTS_SYSFS_ECHO_OFF(buf)) {
-		FTS_DEBUG("disable show log info/error");
-		g_show_log = 0;
-	}
-
-	mutex_unlock(&fts_input_dev->mutex);
-	return count;
-}
-/************************************************************************
- * Name: fts_dumpreg_store
- * Brief:  no
- * Input: device, device attribute, char buf, char count
- * Output: no
- * Return: EPERM
- ***********************************************************************/
-static ssize_t fts_dumpreg_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count)
-{
-	/* place holder for future use */
 	return -EPERM;
 }
 
-/************************************************************************
- * Name: fts_dumpreg_show
- * Brief:  no
- * Input: device, device attribute, char buf
- * Output: no
- * Return: EPERM
- ***********************************************************************/
-static ssize_t fts_dumpreg_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
+static ssize_t fts_dumpreg_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	char tmp[256];
 	int count = 0;
-	u8 regvalue = 0;
-	struct i2c_client *client;
+	u8 val = 0;
+	struct i2c_client *client = container_of(dev, struct i2c_client, dev);
+	struct input_dev *input_dev = fts_data->input_dev;
 
-	mutex_lock(&fts_input_dev->mutex);
+	mutex_lock(&input_dev->mutex);
 #if FTS_ESDCHECK_EN
 	fts_esdcheck_proc_busy(1);
 #endif
-	client = container_of(dev, struct i2c_client, dev);
-	/* power mode 0:active 1:monitor 3:sleep */
-	fts_i2c_read_reg(client, FTS_REG_POWER_MODE, &regvalue);
-	count += snprintf(tmp + count, PAGE_SIZE - count,
-			"Power Mode:0x%02x\n", regvalue);
+	fts_i2c_read_reg(client, FTS_REG_POWER_MODE, &val);
+	count += snprintf(buf + count, PAGE_SIZE, "Power Mode:0x%02x\n", val);
 
-	/* FWver */
-	fts_i2c_read_reg(client, FTS_REG_FW_VER, &regvalue);
-	count += snprintf(tmp + count, PAGE_SIZE - count,
-				"FW Ver:0x%02x\n", regvalue);
+	fts_i2c_read_reg(client, FTS_REG_FW_VER, &val);
+	count += snprintf(buf + count, PAGE_SIZE, "FW Ver:0x%02x\n", val);
 
-	/* Vendor ID */
-	fts_i2c_read_reg(client, FTS_REG_VENDOR_ID, &regvalue);
-	count += snprintf(tmp + count, PAGE_SIZE - count,
-				"Vendor ID:0x%02x\n", regvalue);
+	fts_i2c_read_reg(client, FTS_REG_LIC_VER, &val);
+	count += snprintf(buf + count, PAGE_SIZE, "LCD Initcode Ver:0x%02x\n", val);
 
-	/* LCD Busy number */
-	fts_i2c_read_reg(client, FTS_REG_LCD_BUSY_NUM, &regvalue);
-	count += snprintf(tmp + count, PAGE_SIZE - count,
-				"LCD Busy Number:0x%02x\n", regvalue);
+	fts_i2c_read_reg(client, FTS_REG_IDE_PARA_VER_ID, &val);
+	count += snprintf(buf + count, PAGE_SIZE, "Param Ver:0x%02x\n", val);
 
-	/*  1 Gesture mode,0 Normal mode */
-	fts_i2c_read_reg(client, FTS_REG_GESTURE_EN, &regvalue);
-	count += snprintf(tmp + count, PAGE_SIZE - count,
-				"Gesture Mode:0x%02x\n", regvalue);
+	fts_i2c_read_reg(client, FTS_REG_IDE_PARA_STATUS, &val);
+	count += snprintf(buf + count, PAGE_SIZE, "Param status:0x%02x\n", val);
 
-	/*  3 charge in */
-	fts_i2c_read_reg(client, FTS_REG_CHARGER_MODE_EN, &regvalue);
-	count += snprintf(tmp + count, PAGE_SIZE - count,
-				"charge stat:0x%02x\n", regvalue);
+	fts_i2c_read_reg(client, FTS_REG_VENDOR_ID, &val);
+	count += snprintf(buf + count, PAGE_SIZE, "Vendor ID:0x%02x\n", val);
 
-	/* Interrupt counter */
-	fts_i2c_read_reg(client, FTS_REG_INT_CNT, &regvalue);
-	count += snprintf(tmp + count, PAGE_SIZE - count,
-				"INT count:0x%02x\n", regvalue);
+	fts_i2c_read_reg(client, FTS_REG_LCD_BUSY_NUM, &val);
+	count += snprintf(buf + count, PAGE_SIZE, "LCD Busy Number:0x%02x\n", val);
 
-	/* Flow work counter */
-	fts_i2c_read_reg(client, FTS_REG_FLOW_WORK_CNT, &regvalue);
-	count += snprintf(tmp + count, PAGE_SIZE - count,
-				"ESD count:0x%02x\n", regvalue);
+	fts_i2c_read_reg(client, FTS_REG_GESTURE_EN, &val);
+	count += snprintf(buf + count, PAGE_SIZE, "Gesture Mode:0x%02x\n", val);
+
+	fts_i2c_read_reg(client, FTS_REG_CHARGER_MODE_EN, &val);
+	count += snprintf(buf + count, PAGE_SIZE, "charge stat:0x%02x\n", val);
+
+	fts_i2c_read_reg(client, FTS_REG_INT_CNT, &val);
+	count += snprintf(buf + count, PAGE_SIZE, "INT count:0x%02x\n", val);
+
+	fts_i2c_read_reg(client, FTS_REG_FLOW_WORK_CNT, &val);
+	count += snprintf(buf + count, PAGE_SIZE, "ESD count:0x%02x\n", val);
 #if FTS_ESDCHECK_EN
 	fts_esdcheck_proc_busy(0);
 #endif
-	memcpy(buf, tmp, count);
-	mutex_unlock(&fts_input_dev->mutex);
+
+	mutex_unlock(&input_dev->mutex);
 	return count;
 }
 
-/****************************************/
-/* sysfs */
-/* get the fw version
- *   example:cat fw_version
- */
-static DEVICE_ATTR(fts_fw_version, 0644,
-		fts_tpfwver_show, fts_tpfwver_store);
+/* get the fw version  example:cat fw_version */
+static DEVICE_ATTR(fts_fw_version, S_IRUGO | S_IWUSR, fts_tpfwver_show, fts_tpfwver_store);
 
-/* upgrade from *.i
- *   example: echo 1 > fw_update
- */
-static DEVICE_ATTR(fts_fw_update, 0644,
-		fts_fwupdate_show, fts_fwupdate_store);
-
-/* read and write register
- *   read example: echo 88 > rw_reg ---read register 0x88
- *   write example:echo 8807 > rw_reg ---write 0x07 into register 0x88
- *
- *   note:the number of input must be 2 or 4.if it not enough,
- *	 please fill in the 0.
- */
-static DEVICE_ATTR(fts_rw_reg, 0644,
-		fts_tprwreg_show, fts_tprwreg_store);
-
-/*  upgrade from app.bin
- *	example:echo "*_app.bin" > upgrade_app
- */
-static DEVICE_ATTR(fts_upgrade_app, 0644,
-		fts_fwupgradeapp_show, fts_fwupgradeapp_store);
-static DEVICE_ATTR(fts_driver_version, 0644,
-		fts_driverversion_show, fts_driverversion_store);
-static DEVICE_ATTR(fts_dump_reg, 0644,
-		fts_dumpreg_show, fts_dumpreg_store);
-static DEVICE_ATTR(fts_show_log, 0644,
-		fts_show_log_show, fts_show_log_store);
-static DEVICE_ATTR(fts_module_config, 0644,
-		fts_module_config_show, fts_module_config_store);
-static DEVICE_ATTR(fts_hw_reset, 0644,
-		fts_hw_reset_show, fts_hw_reset_store);
-static DEVICE_ATTR(fts_irq, 0644,
-		fts_irq_show, fts_irq_store);
-
-#if FTS_ESDCHECK_EN
-static DEVICE_ATTR(fts_esd_check, 0644,
-		fts_esdcheck_show, fts_esdcheck_store);
-#endif
+/* read and write register(s)
+*   All data type is **HEX**
+*   Single Byte:
+*       read:   echo 88 > rw_reg ---read register 0x88
+*       write:  echo 8807 > rw_reg ---write 0x07 into register 0x88
+*   Multi-bytes:
+*       [0:rw-flag][1-2: reg addr, hex][3-4: length, hex][5-6...n-n+1: write data, hex]
+*       rw-flag: 0, write; 1, read
+*       read:  echo 10005           > rw_reg ---read reg 0x00-0x05
+*       write: echo 000050102030405 > rw_reg ---write reg 0x00-0x05 as 01,02,03,04,05
+*  Get result:
+*       cat rw_reg
+*/
+static DEVICE_ATTR(fts_rw_reg, S_IRUGO | S_IWUSR, fts_tprwreg_show, fts_tprwreg_store);
+/*  upgrade from fw bin file   example:echo "*.bin" > fts_upgrade_bin */
+static DEVICE_ATTR(fts_upgrade_bin, S_IRUGO | S_IWUSR, fts_fwupgradebin_show, fts_fwupgradebin_store);
+static DEVICE_ATTR(fts_force_upgrade, S_IRUGO | S_IWUSR, fts_fwforceupg_show, fts_fwforceupg_store);
+static DEVICE_ATTR(fts_driver_version, S_IRUGO | S_IWUSR, fts_driverversion_show, fts_driverversion_store);
+static DEVICE_ATTR(fts_dump_reg, S_IRUGO | S_IWUSR, fts_dumpreg_show, fts_dumpreg_store);
+static DEVICE_ATTR(fts_hw_reset, S_IRUGO | S_IWUSR, fts_hw_reset_show, fts_hw_reset_store);
+static DEVICE_ATTR(fts_irq, S_IRUGO | S_IWUSR, fts_irq_show, fts_irq_store);
 
 /* add your attr in here*/
 static struct attribute *fts_attributes[] = {
 	&dev_attr_fts_fw_version.attr,
-	&dev_attr_fts_fw_update.attr,
 	&dev_attr_fts_rw_reg.attr,
 	&dev_attr_fts_dump_reg.attr,
-	&dev_attr_fts_upgrade_app.attr,
+	&dev_attr_fts_upgrade_bin.attr,
+	&dev_attr_fts_force_upgrade.attr,
 	&dev_attr_fts_driver_version.attr,
-	&dev_attr_fts_show_log.attr,
-	&dev_attr_fts_module_config.attr,
 	&dev_attr_fts_hw_reset.attr,
 	&dev_attr_fts_irq.attr,
-#if FTS_ESDCHECK_EN
-	&dev_attr_fts_esd_check.attr,
-#endif
 	NULL
 };
 
@@ -1110,34 +1003,35 @@ static struct attribute_group fts_attribute_group = {
 };
 
 /************************************************************************
- * Name: fts_create_sysfs
- * Brief:  create sysfs for debug
- * Input: i2c info
- * Output: no
- * Return: success =0
- ***********************************************************************/
+* Name: fts_create_sysfs
+* Brief: create sysfs interface
+* Input:
+* Output:
+* Return: return 0 if success
+***********************************************************************/
 int fts_create_sysfs(struct i2c_client *client)
 {
-	int err;
+	int ret = 0;
 
-	err = sysfs_create_group(&client->dev.kobj, &fts_attribute_group);
-	if (err != 0) {
+	ret = sysfs_create_group(&client->dev.kobj, &fts_attribute_group);
+	if (ret) {
 		FTS_ERROR("[EX]: sysfs_create_group() failed!!");
 		sysfs_remove_group(&client->dev.kobj, &fts_attribute_group);
-		return -EIO;
+		return -ENOMEM;
+	} else {
+		FTS_INFO("[EX]: sysfs_create_group() succeeded!!");
 	}
 
-	FTS_INFO("[EX]: sysfs_create_group() succeeded!!");
-
-	return err;
+	return ret;
 }
+
 /************************************************************************
- * Name: fts_remove_sysfs
- * Brief:  remove sys
- * Input: i2c info
- * Output: no
- * Return: no
- ***********************************************************************/
+* Name: fts_remove_sysfs
+* Brief: remove sysfs interface
+* Input:
+* Output:
+* Return:
+***********************************************************************/
 int fts_remove_sysfs(struct i2c_client *client)
 {
 	sysfs_remove_group(&client->dev.kobj, &fts_attribute_group);

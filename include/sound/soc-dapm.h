@@ -4,6 +4,7 @@
  * Author:		Liam Girdwood
  * Created:		Aug 11th 2005
  * Copyright:	Wolfson Microelectronics. PLC.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -466,6 +467,8 @@ int snd_soc_dapm_dai_get_connected_widgets(struct snd_soc_dai *dai, int stream,
 
 struct snd_soc_dapm_context *snd_soc_dapm_kcontrol_dapm(
 	struct snd_kcontrol *kcontrol);
+struct snd_soc_dapm_widget_list *dapm_kcontrol_get_wlist(
+	const struct snd_kcontrol *kcontrol);
 
 struct snd_soc_dapm_widget *snd_soc_dapm_kcontrol_widget(
 		struct snd_kcontrol *kcontrol);

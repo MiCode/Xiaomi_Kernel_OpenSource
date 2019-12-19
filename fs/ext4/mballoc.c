@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2003-2006, Cluster File Systems, Inc, info@clusterfs.com
+ * Copyright (C) 2019 XiaoMi, Inc.
  * Written by Alex Tomas <alex@clusterfs.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -5243,6 +5244,18 @@ int ext4_trim_fs(struct super_block *sb, struct fstrim_range *range,
 	end = EXT4_CLUSTERS_PER_GROUP(sb) - 1;
 
 	for (group = first_group; group <= last_group; group++) {
+		/*
+		 * If the trim thread is running and we receive the SCREEN_ON
+		 * event, we will send SIGUSR1 singnal to teriminate the trim
+		 * thread. So if there is a SIGUSR1 signal in current thread,
+		 * set the value of ret to be a negative number to teriminate
+		 * trim thread.
+		 */
+		if (signal_pending(current) && sigismember(&current->pending.signal, SIGUSR1)) {
+			ret = -EINTR;
+			break;
+		}
+
 		grp = ext4_get_group_info(sb, group);
 		/* We only do this if the grp has never been initialized */
 		if (unlikely(EXT4_MB_GRP_NEED_INIT(grp))) {

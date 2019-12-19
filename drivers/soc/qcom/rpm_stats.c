@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,12 +23,18 @@
 #include <linux/of.h>
 #include <linux/uaccess.h>
 #include <asm/arch_timer.h>
+#include <linux/syscore_ops.h>
 
 #define RPM_STATS_NUM_REC	2
+#define SUBSYSTEM_STATS_NUM_REC	6
 #define MSM_ARCH_TIMER_FREQ	19200000
 
 #define GET_PDATA_OF_ATTR(attr) \
 	(container_of(attr, struct msm_rpmstats_kobj_attr, ka)->pd)
+
+static u32 debug_sleepstats = 1;
+static void __iomem *reg_base;
+static u32 subsystem_reg_offset = 0x44;
 
 struct msm_rpmstats_record {
 	char name[32];
@@ -44,9 +51,10 @@ struct msm_rpmstats_platform_data {
 struct msm_rpmstats_private_data {
 	void __iomem *reg_base;
 	u32 num_records;
+	u32 subsystem_num_records;
 	u32 read_idx;
 	u32 len;
-	char buf[480];
+	char buf[320*4];
 	struct msm_rpmstats_platform_data *platform_data;
 };
 
@@ -61,6 +69,12 @@ struct msm_rpm_stats_data {
 	u32 reserved[3];
 #endif
 
+};
+
+struct msm_rpm_subsystem_stats_data {
+	u32 subsystem_name;
+	u32 status;
+	u32 count;
 };
 
 struct msm_rpmstats_kobj_attr {
@@ -118,11 +132,30 @@ static inline int msm_rpmstats_append_data_to_buf(char *buf,
 #endif
 }
 
+static inline int msm_subsystem_stats_append_data_to_buf(char *buf,
+		struct msm_rpm_subsystem_stats_data *data, int buflength)
+{
+	char subsystem_name[5];
+
+	subsystem_name[4] = 0;
+	memcpy(subsystem_name, &data->subsystem_name, sizeof(u32));
+
+	return snprintf(buf, buflength, "\t%s status:%d count:%d\n",
+		subsystem_name, data->status, data->count);
+}
+
 static inline u32 msm_rpmstats_read_long_register(void __iomem *regbase,
 		int index, int offset)
 {
 	return readl_relaxed(regbase + offset +
 			index * sizeof(struct msm_rpm_stats_data));
+}
+
+static inline u32 msm_subsystem_stats_read_long_register(void __iomem *regbase,
+		int index, int offset)
+{
+	return readl_relaxed(regbase + offset +
+			index *sizeof(struct msm_rpm_subsystem_stats_data));
 }
 
 static inline u64 msm_rpmstats_read_quad_register(void __iomem *regbase,
@@ -140,11 +173,14 @@ static inline int msm_rpmstats_copy_stats(
 			struct msm_rpmstats_private_data *prvdata)
 {
 	void __iomem *reg;
+	void __iomem *reg_subsystem;
 	struct msm_rpm_stats_data data;
-	int i, length;
+	struct msm_rpm_subsystem_stats_data data_subsystem;  //0 - aosd, 1 - cxsd
+	char *type[2] = {"AOSD","CXSD"};
+	int length;
+	int i,m,n;
 
 	reg = prvdata->reg_base;
-
 	for (i = 0, length = 0; i < prvdata->num_records; i++) {
 		data.stat_type = msm_rpmstats_read_long_register(reg, i,
 				offsetof(struct msm_rpm_stats_data,
@@ -171,6 +207,21 @@ static inline int msm_rpmstats_copy_stats(
 		prvdata->read_idx++;
 	}
 
+	reg_subsystem = reg + subsystem_reg_offset;
+	for (m = 0; m < 2; m++) {
+		length += snprintf(prvdata->buf + length, sizeof(prvdata->buf) - length, "Subsystem %s:\n", type[m]);
+		for (n = 0; n < prvdata->subsystem_num_records; n++) {
+			data_subsystem.subsystem_name = msm_subsystem_stats_read_long_register(reg_subsystem, n + m*prvdata->subsystem_num_records,
+					offsetof(struct msm_rpm_subsystem_stats_data, subsystem_name));
+			data_subsystem.status= msm_subsystem_stats_read_long_register(reg_subsystem, n + m*prvdata->subsystem_num_records,
+					offsetof(struct msm_rpm_subsystem_stats_data, status));
+			data_subsystem.count = msm_subsystem_stats_read_long_register(reg_subsystem, n + m*prvdata->subsystem_num_records,
+					offsetof(struct msm_rpm_subsystem_stats_data, count));
+			length += msm_subsystem_stats_append_data_to_buf(prvdata->buf + length,
+					&data_subsystem, sizeof(prvdata->buf) - length);
+			prvdata->read_idx++;
+		}
+	}
 	return length;
 }
 
@@ -194,8 +245,9 @@ static ssize_t rpmstats_show(struct kobject *kobj,
 	prvdata.read_idx = prvdata.len = 0;
 	prvdata.platform_data = pdata;
 	prvdata.num_records = pdata->num_records;
+	prvdata.subsystem_num_records = SUBSYSTEM_STATS_NUM_REC;
 
-	if (prvdata.read_idx < prvdata.num_records)
+	if (prvdata.read_idx < (prvdata.num_records + prvdata.subsystem_num_records*2))
 		prvdata.len = msm_rpmstats_copy_stats(&prvdata);
 
 	length = scnprintf(buf, prvdata.len, "%s", prvdata.buf);
@@ -240,6 +292,51 @@ fail:
 	return ret;
 }
 
+void system_sleep_status_print_enabled(void)
+{
+	int i,m,n;
+	u32 sleep_type, sleep_count;
+	char type[5];
+	u32 subsystem_name, subsystem_status, subsystem_count;
+	void __iomem *reg_subsystem;
+	char *type_name[2] = {"AOSD","CXSD"};
+
+	if (likely(!debug_sleepstats))
+		return;
+
+	if (!reg_base) {
+		pr_err("%s: ERROR reg_base is NULL\n", __func__);
+		return;
+	}
+
+	pr_info("Sleep stats:\n");
+	for (i = 0; i < RPM_STATS_NUM_REC; i++) {
+		sleep_type = msm_rpmstats_read_long_register(reg_base, i,
+				offsetof(struct msm_rpm_stats_data, stat_type));
+		sleep_count = msm_rpmstats_read_long_register(reg_base, i,
+				offsetof(struct msm_rpm_stats_data, count));
+		type[4] = 0;
+		memcpy(type, &sleep_type, sizeof(u32));
+		pr_info("RPM Mode:%s Count:%d\n", type, sleep_count);
+	}
+
+	reg_subsystem = reg_base + subsystem_reg_offset;
+	for (m = 0; m < 2; m++) {
+		pr_info("Subsystem %s:\n", type_name[m]);
+		for (n = 0; n < SUBSYSTEM_STATS_NUM_REC; n++) {
+			subsystem_name = msm_subsystem_stats_read_long_register(reg_subsystem, n + m*SUBSYSTEM_STATS_NUM_REC,
+					offsetof(struct msm_rpm_subsystem_stats_data, subsystem_name));
+			subsystem_status = msm_subsystem_stats_read_long_register(reg_subsystem, n + m*SUBSYSTEM_STATS_NUM_REC,
+					offsetof(struct msm_rpm_subsystem_stats_data, status));
+			subsystem_count = msm_subsystem_stats_read_long_register(reg_subsystem, n + m*SUBSYSTEM_STATS_NUM_REC,
+					offsetof(struct msm_rpm_subsystem_stats_data, count));
+			type[4] = 0;
+			memcpy(type, &subsystem_name, sizeof(u32));
+			pr_info("%s status:%d count:%d\n", type, subsystem_status, subsystem_count);
+		}
+	}
+}
+
 static int msm_rpmstats_probe(struct platform_device *pdev)
 {
 	struct msm_rpmstats_platform_data *pdata;
@@ -278,6 +375,7 @@ static int msm_rpmstats_probe(struct platform_device *pdev)
 		pdata->num_records = RPM_STATS_NUM_REC;
 
 	msm_rpmstats_create_sysfs(pdev, pdata);
+	reg_base = ioremap_nocache(pdata->phys_addr_base, pdata->phys_size);
 
 	return 0;
 }

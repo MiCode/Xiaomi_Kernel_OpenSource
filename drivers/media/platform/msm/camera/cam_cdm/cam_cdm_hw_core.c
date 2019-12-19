@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -422,7 +423,7 @@ int cam_hw_cdm_submit_bl(struct cam_hw_info *cdm_hw,
 	}
 
 	for (i = 0; i < req->data->cmd_arrary_count ; i++) {
-		dma_addr_t hw_vaddr_ptr = 0;
+		uint64_t hw_vaddr_ptr = 0;
 		size_t len = 0;
 
 		if ((!cdm_cmd->cmd[i].len) &&
@@ -470,7 +471,7 @@ int cam_hw_cdm_submit_bl(struct cam_hw_info *cdm_hw,
 			}
 			rc = 0;
 			hw_vaddr_ptr =
-				(dma_addr_t) cdm_cmd->cmd[i].bl_addr.hw_iova;
+				(uint64_t)cdm_cmd->cmd[i].bl_addr.hw_iova;
 			len = cdm_cmd->cmd[i].len + cdm_cmd->cmd[i].offset;
 		} else {
 			CAM_ERR(CAM_CDM,
@@ -509,8 +510,8 @@ int cam_hw_cdm_submit_bl(struct cam_hw_info *cdm_hw,
 
 		if (!rc) {
 			CAM_DBG(CAM_CDM,
-				"write BL success for cnt=%d with tag=%d total_cnt=%d",
-				i, core->bl_tag, req->data->cmd_arrary_count);
+				"write BL success for cnt=%d with tag=%d",
+				i, core->bl_tag);
 
 			CAM_DBG(CAM_CDM, "Now commit the BL");
 			if (cam_hw_cdm_commit_bl_write(cdm_hw)) {
@@ -550,33 +551,35 @@ static void cam_hw_cdm_work(struct work_struct *work)
 		cdm_hw = payload->hw;
 		core = (struct cam_cdm *)cdm_hw->core_info;
 
-		CAM_DBG(CAM_CDM, "IRQ status=0x%x", payload->irq_status);
+		CAM_DBG(CAM_CDM, "IRQ status=%x", payload->irq_status);
 		if (payload->irq_status &
 			CAM_CDM_IRQ_STATUS_INFO_INLINE_IRQ_MASK) {
-			struct cam_cdm_bl_cb_request_entry *node, *tnode;
+			struct cam_cdm_bl_cb_request_entry *node;
 
-			CAM_DBG(CAM_CDM, "inline IRQ data=0x%x",
+			CAM_DBG(CAM_CDM, "inline IRQ data=%x",
 				payload->irq_data);
 			mutex_lock(&cdm_hw->hw_mutex);
-			list_for_each_entry_safe(node, tnode,
-					&core->bl_request_list, entry) {
+			node = cam_cdm_find_request_by_bl_tag(
+					payload->irq_data,
+					&core->bl_request_list);
+			if (node) {
 				if (node->request_type ==
 					CAM_HW_CDM_BL_CB_CLIENT) {
 					cam_cdm_notify_clients(cdm_hw,
 						CAM_CDM_CB_STATUS_BL_SUCCESS,
 						(void *)node);
 				} else if (node->request_type ==
-					CAM_HW_CDM_BL_CB_INTERNAL) {
+						CAM_HW_CDM_BL_CB_INTERNAL) {
 					CAM_ERR(CAM_CDM,
 						"Invalid node=%pK %d", node,
 						node->request_type);
 				}
 				list_del_init(&node->entry);
-				if (node->bl_tag == payload->irq_data) {
-					kfree(node);
-					break;
-				}
 				kfree(node);
+			} else {
+				CAM_ERR(CAM_CDM,
+					"Inval node, inline_irq st=%x data=%x",
+					payload->irq_status, payload->irq_data);
 			}
 			mutex_unlock(&cdm_hw->hw_mutex);
 		}
@@ -622,8 +625,7 @@ static void cam_hw_cdm_work(struct work_struct *work)
 }
 
 static void cam_hw_cdm_iommu_fault_handler(struct iommu_domain *domain,
-	struct device *dev, unsigned long iova, int flags, void *token,
-	uint32_t buf_info)
+	struct device *dev, unsigned long iova, int flags, void *token)
 {
 	struct cam_hw_info *cdm_hw = NULL;
 	struct cam_cdm *core = NULL;
@@ -682,7 +684,7 @@ irqreturn_t cam_hw_cdm_irq(int irq_num, void *data)
 			CAM_ERR(CAM_CDM, "Failed to Write CDM HW IRQ cmd");
 		work_status = queue_work(cdm_core->work_queue, &payload->work);
 		if (work_status == false) {
-			CAM_ERR(CAM_CDM, "Failed to queue work for irq=0x%x",
+			CAM_ERR(CAM_CDM, "Failed to queue work for irq=%x",
 				payload->irq_status);
 			kfree(payload);
 		}
@@ -909,7 +911,7 @@ int cam_hw_cdm_probe(struct platform_device *pdev)
 		CAM_ERR(CAM_CDM, "cpas-cdm get iommu handle failed");
 		goto unlock_release_mem;
 	}
-	cam_smmu_set_client_page_fault_handler(cdm_core->iommu_hdl.non_secure,
+	cam_smmu_reg_client_page_fault_handler(cdm_core->iommu_hdl.non_secure,
 		cam_hw_cdm_iommu_fault_handler, cdm_hw);
 
 	rc = cam_smmu_ops(cdm_core->iommu_hdl.non_secure, CAM_SMMU_ATTACH);
@@ -1033,7 +1035,7 @@ release_platform_resource:
 	flush_workqueue(cdm_core->work_queue);
 	destroy_workqueue(cdm_core->work_queue);
 destroy_non_secure_hdl:
-	cam_smmu_set_client_page_fault_handler(cdm_core->iommu_hdl.non_secure,
+	cam_smmu_reg_client_page_fault_handler(cdm_core->iommu_hdl.non_secure,
 		NULL, cdm_hw);
 	if (cam_smmu_destroy_handle(cdm_core->iommu_hdl.non_secure))
 		CAM_ERR(CAM_CDM, "Release iommu secure hdl failed");
@@ -1105,8 +1107,8 @@ int cam_hw_cdm_remove(struct platform_device *pdev)
 
 	if (cam_smmu_destroy_handle(cdm_core->iommu_hdl.non_secure))
 		CAM_ERR(CAM_CDM, "Release iommu secure hdl failed");
-	cam_smmu_unset_client_page_fault_handler(
-		cdm_core->iommu_hdl.non_secure, cdm_hw);
+	cam_smmu_reg_client_page_fault_handler(cdm_core->iommu_hdl.non_secure,
+		NULL, cdm_hw);
 
 	mutex_destroy(&cdm_hw->hw_mutex);
 	kfree(cdm_hw->soc_info.soc_private);
@@ -1124,7 +1126,6 @@ static struct platform_driver cam_hw_cdm_driver = {
 		.name = "msm_cam_cdm",
 		.owner = THIS_MODULE,
 		.of_match_table = msm_cam_hw_cdm_dt_match,
-		.suppress_bind_attrs = true,
 	},
 };
 

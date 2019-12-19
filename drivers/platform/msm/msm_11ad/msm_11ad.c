@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -990,6 +991,8 @@ static int msm_11ad_ssr_init(struct msm11ad_ctx *ctx)
 
 	ctx->dump_data.addr = virt_to_phys(ctx->ramdump_addr);
 	ctx->dump_data.len = ctx->ramdump_size;
+	strlcpy(ctx->dump_data.name, "KWIGIG",
+			 sizeof(ctx->dump_data.name));
 	dump_entry.id = MSM_DUMP_DATA_WIGIG;
 	dump_entry.addr = virt_to_phys(&ctx->dump_data);
 

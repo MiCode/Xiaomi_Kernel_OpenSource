@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -48,6 +49,11 @@
 #define DCC_CFG				(0x10)
 #define DCC_FDA_CURR			(0x14)
 #define DCC_LLA_CURR			(0x18)
+#define DCC_SW_CTL			(0x20)
+#define DCC_SRAM_ADDR			(0x2C)
+#define DCC_INT_ENABLE			(0x30)
+#define DCC_INT_STATUS			(0x34)
+#define DCC_QSB_CFG			(0x38)
 #define DCC_LL_LOCK(m)			(0x1C + 0x80 * (m + HLOS_LIST_START))
 #define DCC_LL_CFG(m)			(0x20 + 0x80 * (m + HLOS_LIST_START))
 #define DCC_LL_BASE(m)			(0x24 + 0x80 * (m + HLOS_LIST_START))
@@ -145,6 +151,11 @@ struct dcc_drvdata {
 	char			*sram_node;
 	struct cdev		sram_dev;
 	struct class		*sram_class;
+	void                    *reg_buf;
+	struct msm_dump_data	reg_data;
+	bool			save_reg;
+	void			*sram_buf;
+	struct msm_dump_data	sram_data;
 	struct list_head	cfg_head[DCC_MAX_LINK_LIST];
 	uint32_t		nr_config[DCC_MAX_LINK_LIST];
 	uint8_t			curr_list;
@@ -558,6 +569,30 @@ err:
 	return ret;
 }
 
+static void __dcc_reg_dump(struct dcc_drvdata *drvdata)
+{
+	uint32_t *reg_buf;
+
+	if (!drvdata->reg_buf)
+		return;
+
+	drvdata->reg_data.version = DCC_REG_DUMP_VER;
+
+	reg_buf = drvdata->reg_buf;
+
+	reg_buf[0] = dcc_readl(drvdata, DCC_HW_VERSION);
+	reg_buf[1] = dcc_readl(drvdata, DCC_HW_INFO);
+	reg_buf[5] = dcc_readl(drvdata, DCC_CFG);
+	reg_buf[6] = dcc_readl(drvdata, DCC_SW_CTL);
+	reg_buf[7] = dcc_readl(drvdata, DCC_STATUS);
+	reg_buf[9] = dcc_readl(drvdata, DCC_SRAM_ADDR);
+	reg_buf[10] = dcc_readl(drvdata, DCC_INT_ENABLE);
+	reg_buf[11] = dcc_readl(drvdata, DCC_INT_STATUS);
+	reg_buf[12] = dcc_readl(drvdata, DCC_QSB_CFG);
+
+	drvdata->reg_data.magic = DCC_REG_DUMP_MAGIC_V2;
+}
+
 static void __dcc_first_crc(struct dcc_drvdata *drvdata)
 {
 	int i;
@@ -660,6 +695,9 @@ static int dcc_enable(struct dcc_drvdata *drvdata)
 					   DCC_LL_INT_ENABLE(list));
 		}
 	}
+	/* Save DCC registers */
+	if (drvdata->save_reg)
+		__dcc_reg_dump(drvdata);
 
 err:
 	mutex_unlock(&drvdata->mutex);
@@ -684,6 +722,10 @@ static void dcc_disable(struct dcc_drvdata *drvdata)
 	}
 	drvdata->ram_cfg = 0;
 	drvdata->ram_start = 0;
+
+	/* Save DCC registers */
+	if (drvdata->save_reg)
+		__dcc_reg_dump(drvdata);
 
 	mutex_unlock(&drvdata->mutex);
 }
@@ -1564,6 +1606,51 @@ static void dcc_sram_dev_exit(struct dcc_drvdata *drvdata)
 	dcc_sram_dev_deregister(drvdata);
 }
 
+static void dcc_allocate_dump_mem(struct dcc_drvdata *drvdata)
+{
+	int ret;
+	struct device *dev = drvdata->dev;
+	struct msm_dump_entry reg_dump_entry, sram_dump_entry;
+
+	/* Allocate memory for dcc reg dump */
+	drvdata->reg_buf = devm_kzalloc(dev, drvdata->reg_size, GFP_KERNEL);
+	if (drvdata->reg_buf) {
+		strlcpy(drvdata->reg_data.name, "KDCC_REG",
+				 sizeof(drvdata->reg_data.name));
+		drvdata->reg_data.addr = virt_to_phys(drvdata->reg_buf);
+		drvdata->reg_data.len = drvdata->reg_size;
+		reg_dump_entry.id = MSM_DUMP_DATA_DCC_REG;
+		reg_dump_entry.addr = virt_to_phys(&drvdata->reg_data);
+		ret = msm_dump_data_register(MSM_DUMP_TABLE_APPS,
+					     &reg_dump_entry);
+		if (ret) {
+			dev_err(dev, "DCC REG dump setup failed\n");
+			devm_kfree(dev, drvdata->reg_buf);
+		}
+	} else {
+		dev_err(dev, "DCC REG dump allocation failed\n");
+	}
+
+	/* Allocate memory for dcc sram dump */
+	drvdata->sram_buf = devm_kzalloc(dev, drvdata->ram_size, GFP_KERNEL);
+	if (drvdata->sram_buf) {
+		strlcpy(drvdata->sram_data.name, "KDCC_SRAM",
+				 sizeof(drvdata->sram_data.name));
+		drvdata->sram_data.addr = virt_to_phys(drvdata->sram_buf);
+		drvdata->sram_data.len = drvdata->ram_size;
+		sram_dump_entry.id = MSM_DUMP_DATA_DCC_SRAM;
+		sram_dump_entry.addr = virt_to_phys(&drvdata->sram_data);
+		ret = msm_dump_data_register(MSM_DUMP_TABLE_APPS,
+					     &sram_dump_entry);
+		if (ret) {
+			dev_err(dev, "DCC SRAM dump setup failed\n");
+			devm_kfree(dev, drvdata->sram_buf);
+		}
+	} else {
+		dev_err(dev, "DCC SRAM dump allocation failed\n");
+	}
+}
+
 static void dcc_configure_list(struct dcc_drvdata *drvdata,
 			       struct device_node *np)
 {
@@ -1695,6 +1782,8 @@ static int dcc_probe(struct platform_device *pdev)
 	ret = dcc_create_files(dev, dcc_attrs);
 	if (ret)
 		goto err;
+
+	dcc_allocate_dump_mem(drvdata);
 
 	dcc_configure_list(drvdata, pdev->dev.of_node);
 

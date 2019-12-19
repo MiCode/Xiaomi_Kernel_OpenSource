@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,20 +14,6 @@
 #include "cam_lrme_hw_core.h"
 #include "cam_lrme_hw_soc.h"
 #include "cam_smmu_api.h"
-
-static void cam_lrme_dump_registers(void __iomem *base)
-{
-	/* dump the clc registers */
-	cam_io_dump(base, 0x60, (0xc0 - 0x60) / 0x4);
-	/* dump the fe and we registers */
-	cam_io_dump(base, 0x200, (0x29c - 0x200) / 0x4);
-	cam_io_dump(base, 0x2f0, (0x330 - 0x2f0) / 0x4);
-	cam_io_dump(base, 0x500, (0x5b4 - 0x500) / 0x4);
-	cam_io_dump(base, 0x700, (0x778 - 0x700) / 0x4);
-	cam_io_dump(base, 0x800, (0x878 - 0x800) / 0x4);
-	/* dump lrme sw registers, interrupts */
-	cam_io_dump(base, 0x900, (0x928 - 0x900) / 0x4);
-}
 
 static void cam_lrme_cdm_write_reg_val_pair(uint32_t *buffer,
 	uint32_t *index, uint32_t reg_offset, uint32_t reg_value)
@@ -78,8 +65,7 @@ static void cam_lrme_hw_util_fill_fe_reg(struct cam_lrme_hw_io_buffer *io_buf,
 		cam_lrme_cdm_write_reg_val_pair(reg_val_pair, num_cmd,
 			hw_info->bus_rd_reg.bus_client_reg[index].unpack_cfg_0,
 			0x0);
-	else if (io_buf->io_cfg->format == CAM_FORMAT_Y_ONLY ||
-			io_buf->io_cfg->format == CAM_FORMAT_PLAIN8)
+	else if (io_buf->io_cfg->format == CAM_FORMAT_Y_ONLY)
 		cam_lrme_cdm_write_reg_val_pair(reg_val_pair, num_cmd,
 			hw_info->bus_rd_reg.bus_client_reg[index].unpack_cfg_0,
 			0x1);
@@ -464,8 +450,8 @@ static int cam_lrme_hw_util_flush_ctx(struct cam_hw_info *lrme_hw,
 		cb_args.cb_type = CAM_LRME_CB_PUT_FRAME;
 		cb_args.frame_req = req_submit;
 		if (lrme_core->hw_mgr_cb.cam_lrme_hw_mgr_cb)
-			lrme_core->hw_mgr_cb.cam_lrme_hw_mgr_cb(
-				lrme_core->hw_mgr_cb.data, &cb_args);
+			lrme_core->hw_mgr_cb.cam_lrme_hw_mgr_cb(lrme_core->
+				hw_mgr_cb.data, &cb_args);
 	} else if (req_submit) {
 		submit_args.frame_req = req_submit;
 		submit_args.hw_update_entries = req_submit->hw_update_entries;
@@ -483,8 +469,8 @@ static int cam_lrme_hw_util_flush_ctx(struct cam_hw_info *lrme_hw,
 		cb_args.cb_type = CAM_LRME_CB_PUT_FRAME;
 		cb_args.frame_req = req_proc;
 		if (lrme_core->hw_mgr_cb.cam_lrme_hw_mgr_cb)
-			lrme_core->hw_mgr_cb.cam_lrme_hw_mgr_cb(
-				lrme_core->hw_mgr_cb.data, &cb_args);
+			lrme_core->hw_mgr_cb.cam_lrme_hw_mgr_cb(lrme_core->
+				hw_mgr_cb.data, &cb_args);
 	} else if (req_proc) {
 		submit_args.frame_req = req_proc;
 		submit_args.hw_update_entries = req_proc->hw_update_entries;
@@ -526,8 +512,8 @@ static int cam_lrme_hw_util_flush_req(struct cam_hw_info *lrme_hw,
 		cb_args.cb_type = CAM_LRME_CB_PUT_FRAME;
 		cb_args.frame_req = req_submit;
 		if (lrme_core->hw_mgr_cb.cam_lrme_hw_mgr_cb)
-			lrme_core->hw_mgr_cb.cam_lrme_hw_mgr_cb(
-				lrme_core->hw_mgr_cb.data, &cb_args);
+			lrme_core->hw_mgr_cb.cam_lrme_hw_mgr_cb(lrme_core->
+				hw_mgr_cb.data, &cb_args);
 	} else if (req_submit) {
 		submit_args.frame_req = req_submit;
 		submit_args.hw_update_entries = req_submit->hw_update_entries;
@@ -545,8 +531,8 @@ static int cam_lrme_hw_util_flush_req(struct cam_hw_info *lrme_hw,
 		cb_args.cb_type = CAM_LRME_CB_PUT_FRAME;
 		cb_args.frame_req = req_proc;
 		if (lrme_core->hw_mgr_cb.cam_lrme_hw_mgr_cb)
-			lrme_core->hw_mgr_cb.cam_lrme_hw_mgr_cb(
-				lrme_core->hw_mgr_cb.data, &cb_args);
+			lrme_core->hw_mgr_cb.cam_lrme_hw_mgr_cb(lrme_core->
+				hw_mgr_cb.data, &cb_args);
 	} else if (req_proc) {
 		submit_args.frame_req = req_proc;
 		submit_args.hw_update_entries = req_proc->hw_update_entries;
@@ -581,8 +567,6 @@ static int cam_lrme_hw_util_process_err(struct cam_hw_info *lrme_hw)
 		CAM_ERR(CAM_LRME, "Get error irq in wrong state %d",
 			lrme_core->state);
 	}
-
-	cam_lrme_dump_registers(lrme_hw->soc_info.reg_map[0].mem_base);
 
 	CAM_ERR_RATE_LIMIT(CAM_LRME, "Start recovery");
 	lrme_core->state = CAM_LRME_CORE_STATE_RECOVERY;
@@ -626,9 +610,6 @@ static int cam_lrme_hw_util_process_reg_update(
 
 	lrme_core->req_proc = lrme_core->req_submit;
 	lrme_core->req_submit = NULL;
-
-	if (lrme_core->dump_flag)
-		cam_lrme_dump_registers(lrme_hw->soc_info.reg_map[0].mem_base);
 
 	return 0;
 }
@@ -674,13 +655,13 @@ void cam_lrme_set_irq(struct cam_hw_info *lrme_hw,
 		cam_io_w_mb(0xFFFF,
 			soc_info->reg_map[0].mem_base +
 			hw_info->titan_reg.top_irq_mask);
-		cam_io_w_mb(0xFFFFF,
+		cam_io_w_mb(0xFFFF,
 			soc_info->reg_map[0].mem_base +
 			hw_info->bus_wr_reg.common_reg.irq_mask_0);
-		cam_io_w_mb(0xFFFFF,
+		cam_io_w_mb(0xFFFF,
 			soc_info->reg_map[0].mem_base +
 			hw_info->bus_wr_reg.common_reg.irq_mask_1);
-		cam_io_w_mb(0xFFFFF,
+		cam_io_w_mb(0xFFFF,
 			soc_info->reg_map[0].mem_base +
 			hw_info->bus_rd_reg.common_reg.irq_mask);
 		break;
@@ -734,11 +715,6 @@ int cam_lrme_hw_process_irq(void *priv, void *data)
 
 	mutex_lock(&lrme_hw->hw_mutex);
 
-	if (lrme_hw->hw_state == CAM_HW_STATE_POWER_DOWN) {
-		CAM_DBG(CAM_LRME, "LRME HW is in off state");
-		goto end;
-	}
-
 	if (top_irq_status & (1 << 3)) {
 		CAM_DBG(CAM_LRME, "Error");
 		rc = cam_lrme_hw_util_process_err(lrme_hw);
@@ -770,8 +746,8 @@ int cam_lrme_hw_process_irq(void *priv, void *data)
 	}
 
 	if (lrme_core->hw_mgr_cb.cam_lrme_hw_mgr_cb) {
-		lrme_core->hw_mgr_cb.cam_lrme_hw_mgr_cb(
-			lrme_core->hw_mgr_cb.data, &cb_args);
+		lrme_core->hw_mgr_cb.cam_lrme_hw_mgr_cb(lrme_core->
+			hw_mgr_cb.data, &cb_args);
 	} else {
 		CAM_ERR(CAM_LRME, "No hw mgr cb");
 		rc = -EINVAL;
@@ -899,7 +875,7 @@ int cam_lrme_hw_stop(void *hw_priv, void *hw_stop_args, uint32_t arg_size)
 		lrme_core->state = CAM_LRME_CORE_STATE_INIT;
 	} else {
 		CAM_ERR(CAM_LRME, "HW in wrong state %d", lrme_core->state);
-		rc = -EINVAL;
+		return -EINVAL;
 	}
 
 unlock:
@@ -925,7 +901,7 @@ int cam_lrme_hw_submit_req(void *hw_priv, void *hw_submit_args,
 
 	if (sizeof(struct cam_lrme_hw_submit_args) != arg_size) {
 		CAM_ERR(CAM_LRME,
-			"size of args %zu, arg_size %d",
+			"size of args %lu, arg_size %d",
 			sizeof(struct cam_lrme_hw_submit_args), arg_size);
 		return -EINVAL;
 	}
@@ -951,8 +927,7 @@ int cam_lrme_hw_submit_req(void *hw_priv, void *hw_submit_args,
 
 	if (lrme_core->req_submit != NULL) {
 		CAM_ERR(CAM_LRME, "req_submit is not NULL");
-		rc = -EBUSY;
-		goto error;
+		return -EBUSY;
 	}
 
 	rc = cam_lrme_hw_util_submit_req(lrme_core, frame_req);
@@ -978,7 +953,6 @@ int cam_lrme_hw_submit_req(void *hw_priv, void *hw_submit_args,
 	}
 
 	lrme_core->req_submit = frame_req;
-
 	mutex_unlock(&lrme_hw->hw_mutex);
 	CAM_DBG(CAM_LRME, "Release lock, submit done for req %llu",
 		frame_req->req_id);
@@ -1145,7 +1119,7 @@ irqreturn_t cam_lrme_hw_irq(int irq_num, void *data)
 
 	if (!data) {
 		CAM_ERR(CAM_LRME, "Invalid data in IRQ callback");
-		return IRQ_NONE;
+		return -EINVAL;
 	}
 
 	lrme_hw = (struct cam_hw_info *)data;
@@ -1206,7 +1180,7 @@ irqreturn_t cam_lrme_hw_irq(int irq_num, void *data)
 		task = cam_req_mgr_workq_get_task(lrme_core->work);
 		if (!task) {
 			CAM_ERR(CAM_LRME, "no empty task available");
-			return IRQ_NONE;
+			return -ENOMEM;
 		}
 		work_data = (struct cam_lrme_hw_work_data *)task->payload;
 		work_data->top_irq_status = top_irq_status;
@@ -1259,14 +1233,6 @@ int cam_lrme_hw_process_cmd(void *hw_priv, uint32_t cmd_type,
 		submit_args = (struct cam_lrme_hw_submit_args *)cmd_args;
 		rc = cam_lrme_hw_submit_req(hw_priv,
 			submit_args, arg_size);
-		break;
-	}
-
-	case CAM_LRME_HW_CMD_DUMP_REGISTER: {
-		struct cam_lrme_core *lrme_core =
-			(struct cam_lrme_core *)lrme_hw->core_info;
-		lrme_core->dump_flag = *(bool *)cmd_args;
-		CAM_DBG(CAM_LRME, "dump_flag %d", lrme_core->dump_flag);
 		break;
 	}
 

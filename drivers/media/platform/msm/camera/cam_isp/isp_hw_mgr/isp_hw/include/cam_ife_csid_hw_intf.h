@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -138,13 +139,12 @@ struct cam_csid_reset_cfg_args {
 /**
  * struct cam_csid_get_time_stamp_args-  time stamp capture arguments
  * @res_node :   resource to get the time stamp
- * @time_stamp_val : captured time stamp
- * @boot_timestamp : boot time stamp
+ * @ time_stamp_val : captured time stamp
+ *
  */
 struct cam_csid_get_time_stamp_args {
 	struct cam_isp_resource_node      *node_res;
 	uint64_t                           time_stamp_val;
-	uint64_t                           boot_timestamp;
 };
 
 /**
@@ -153,7 +153,6 @@ struct cam_csid_get_time_stamp_args {
 enum cam_ife_csid_cmd_type {
 	CAM_IFE_CSID_CMD_GET_TIME_STAMP,
 	CAM_IFE_CSID_SET_CSID_DEBUG,
-	CAM_IFE_CSID_SOF_IRQ_DEBUG,
 	CAM_IFE_CSID_CMD_MAX,
 };
 

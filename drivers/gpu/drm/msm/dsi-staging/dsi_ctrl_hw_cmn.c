@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1416,9 +1417,19 @@ int dsi_ctrl_hw_cmn_ctrl_reset(struct dsi_ctrl_hw *ctrl,
 void dsi_ctrl_hw_cmn_mask_error_intr(struct dsi_ctrl_hw *ctrl, u32 idx, bool en)
 {
 	u32 reg = 0;
+	u32 fifo_status = 0, timeout_status = 0;
+	u32 overflow_clear = BIT(10) | BIT(18) | BIT(22) | BIT(26) | BIT(30);
+	u32 underflow_clear = BIT(19) | BIT(23) | BIT(27) | BIT(31);
+	u32 lp_rx_clear = BIT(4);
 
 	reg = DSI_R32(ctrl, 0x10c);
 
+	/*
+	* Before unmasking we should clear the corresponding error status bits
+	* that might have been set while we masked these errors. Since these
+	* are sticky bits, these errors will trigger the moment we unmask
+	* the error bits.
+	*/
 	if (idx & BIT(DSI_FIFO_OVERFLOW)) {
 		if (en) {
 			reg |= (0x1f << 16);
@@ -1426,21 +1437,29 @@ void dsi_ctrl_hw_cmn_mask_error_intr(struct dsi_ctrl_hw *ctrl, u32 idx, bool en)
 		} else {
 			reg &= ~(0x1f << 16);
 			reg &= ~BIT(9);
+			fifo_status = DSI_R32(ctrl, 0x00c);
+			DSI_W32(ctrl, 0x00c, fifo_status | overflow_clear);
 		}
 	}
 
 	if (idx & BIT(DSI_FIFO_UNDERFLOW)) {
-		if (en)
+		if (en) {
 			reg |= (0x1b << 26);
-		else
+		} else {
 			reg &= ~(0x1b << 26);
+			fifo_status = DSI_R32(ctrl, 0x00c);
+			DSI_W32(ctrl, 0x00c, fifo_status | underflow_clear);
+		}
 	}
 
 	if (idx & BIT(DSI_LP_Rx_TIMEOUT)) {
-		if (en)
+		if (en) {
 			reg |= (0x7 << 23);
-		else
+		} else {
 			reg &= ~(0x7 << 23);
+			timeout_status = DSI_R32(ctrl, 0x0c0);
+			DSI_W32(ctrl, 0x0c0, timeout_status | lp_rx_clear);
+		}
 	}
 
 	if (idx & BIT(DSI_PLL_UNLOCK_ERR)) {

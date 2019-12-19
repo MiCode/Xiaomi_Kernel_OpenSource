@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -166,7 +167,8 @@ int cam_cdm_acquire(struct cam_cdm_acquire_data *data)
 	struct cam_hw_intf *hw;
 	uint32_t hw_index = 0;
 
-	if (!data || !data->base_array_cnt)
+	if ((!data) || (!data->identifier) || (!data->base_array) ||
+		(!data->base_array_cnt))
 		return -EINVAL;
 
 	if (get_cdm_mgr_refcount()) {
@@ -560,7 +562,6 @@ static struct platform_driver cam_cdm_intf_driver = {
 	.name = "msm_cam_cdm_intf",
 	.owner = THIS_MODULE,
 	.of_match_table = msm_cam_cdm_intf_dt_match,
-	.suppress_bind_attrs = true,
 	},
 };
 

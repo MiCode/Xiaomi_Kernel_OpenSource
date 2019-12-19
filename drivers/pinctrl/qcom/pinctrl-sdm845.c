@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1663,7 +1664,7 @@ static struct msm_dir_conn sdm845_dir_conn[] = {
 	{24, 517},
 	{26, 518},
 	{30, 519},
-	{31, 632},
+	{31, 639},
 	{32, 521},
 	{34, 522},
 	{36, 523},

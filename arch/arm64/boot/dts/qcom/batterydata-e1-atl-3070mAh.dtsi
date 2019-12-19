@@ -1,0 +1,78 @@
+
+qcom,e1_scud_3070mAh {
+	qcom,max-voltage-uv = <4400000>;
+	qcom,fastchg-current-ma = <3300>;
+	qcom,nom-batt-capacity-mah = <3400>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
+	qcom,batt-id-kohm = <68>;
+	qcom,battery-beta = <3380>;
+	qcom,battery-type = "e1_scud";
+	qcom,jeita-fcc-ranges = <0   50   330000
+			51  150  990000
+			151 450  3300000
+			451 600  1650000>;
+	qcom,jeita-fv-ranges =  <0   50   4400000
+			51  150  4400000
+			151 450  4400000
+			451 600  4100000>;
+	qcom,checksum = <0x6E77>;
+	qcom,gui-version = "PMI8998GUI - 2.0.0.58";
+	qcom,fg-profile-data = [
+			86 1F 90 05
+			94 0A 27 06
+			71 1D AD F5
+			1C 12 6A 14
+			8E 19 EC 1B
+			5D 3D 62 4A
+			52 00 00 00
+			16 00 00 00
+			00 00 4A BD
+			EA CD 2E C2
+			23 00 08 00
+			E5 E2 F2 EC
+			E7 06 3E F2
+			8D 01 C3 12
+			6A 00 17 32
+			1E 06 09 20
+			27 00 14 00
+			FE 1F 3D 05
+			C4 0A 04 06
+			39 1D 33 FA
+			C9 F3 DA 0D
+			34 19 CD 22
+			96 45 D1 52
+			59 00 00 00
+			0D 00 00 00
+			00 00 BD CC
+			00 9C 9D C3
+			1D 00 00 00
+			56 F2 F2 EC
+			58 07 BC E3
+			0F EC 33 02
+			F9 EA D3 1A
+			AD 33 CC FF
+			07 10 00 00
+			2F 0C 66 46
+			1D 00 40 00
+			5D 01 0A FA
+			FF 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+	];
+};

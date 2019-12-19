@@ -2,6 +2,7 @@
  * The "user cache".
  *
  * (C) Copyright 1991-2000 Linus Torvalds
+ * (C) Copyright (C) 2019 XiaoMi, Inc.
  *
  * We have a per-user structure to keep track of how many
  * processes, files etc the user has claimed, in order to be
@@ -169,6 +170,13 @@ void free_uid(struct user_struct *up)
 		local_irq_restore(flags);
 }
 
+#ifdef CONFIG_PACKAGE_RUNTIME_INFO
+void __weak init_package_runtime_info(struct user_struct *user)
+{
+	return;
+}
+#endif
+
 struct user_struct *alloc_uid(kuid_t uid)
 {
 	struct hlist_head *hashent = uidhashentry(uid);
@@ -185,7 +193,9 @@ struct user_struct *alloc_uid(kuid_t uid)
 
 		new->uid = uid;
 		atomic_set(&new->__count, 1);
-
+#ifdef CONFIG_PACKAGE_RUNTIME_INFO
+		init_package_runtime_info(new);
+#endif
 		/*
 		 * Before adding this, check whether we raced
 		 * on adding the same user already..

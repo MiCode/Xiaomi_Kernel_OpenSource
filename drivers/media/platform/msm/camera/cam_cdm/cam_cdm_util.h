@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,6 +13,13 @@
 
 #ifndef _CAM_CDM_UTIL_H_
 #define _CAM_CDM_UTIL_H_
+
+#define CAM_CDM_SW_CMD_COUNT    2
+#define CAM_CMD_LENGTH_MASK     0xFFFF
+#define CAM_CDM_COMMAND_OFFSET  24
+
+#define CAM_CDM_DMI_DATA_HI_OFFSET   8
+#define CAM_CDM_DMI_DATA_LO_OFFSET   12
 
 enum cam_cdm_command {
 	CAM_CDM_CMD_UNUSED = 0x0,
@@ -150,19 +158,5 @@ void (*cdm_write_genirq)(
 	uint32_t *pCmdBuffer,
 	uint32_t  userdata);
 };
-
-/**
- * cam_cdm_util_log_cmd_bufs()
- *
- * @brief:            Util function to log cdm command buffers
- *
- * @cmd_buffer_start: Pointer to start of cmd buffer
- * @cmd_buffer_end:   Pointer to end of cmd buffer
- *
- */
-void cam_cdm_util_dump_cmd_buf(
-	uint32_t *cmd_buffer_start, uint32_t *cmd_buffer_end);
-
-
 
 #endif /* _CAM_CDM_UTIL_H_ */

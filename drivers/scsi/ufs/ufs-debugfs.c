@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1696,7 +1697,7 @@ void ufsdbg_add_debugfs(struct ufs_hba *hba)
 	}
 
 	hba->debugfs_files.err_state =
-		debugfs_create_file("err_state", S_IRUSR | S_IWUSR,
+		debugfs_create_file("err_state", S_IRUSR | S_IWUSR | S_IRUGO,
 			hba->debugfs_files.debugfs_root, hba,
 			&ufsdbg_err_state);
 	if (!hba->debugfs_files.err_state) {

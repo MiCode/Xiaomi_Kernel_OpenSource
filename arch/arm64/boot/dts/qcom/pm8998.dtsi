@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, 2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,15 +36,19 @@
 				     <0x0 0x8 0x5 IRQ_TYPE_NONE>;
 			interrupt-names = "kpdpwr", "resin",
 					"resin-bark", "kpdpwr-resin-bark";
-			qcom,pon-dbc-delay = <15625>;
+			qcom,pon-dbc-delay = <62500>;
 			qcom,kpdpwr-sw-debounce;
 			qcom,system-reset;
 			qcom,store-hard-reset-reason;
 
 			qcom,pon_1 {
 				qcom,pon-type = <0>;
+				qcom,support-reset = <1>;
 				qcom,pull-up = <1>;
 				linux,code = <116>;
+				qcom,s1-timer = <6720>;
+				qcom,s2-timer = <2000>;
+				qcom,s2-type = <PON_POWER_OFF_HARD_RESET>;
 			};
 
 			qcom,pon_2 {
@@ -56,9 +61,9 @@
 				qcom,pon-type = <3>;
 				qcom,support-reset = <1>;
 				qcom,pull-up = <1>;
-				qcom,s1-timer = <6720>;
+				qcom,s1-timer = <1352>;
 				qcom,s2-timer = <2000>;
-				qcom,s2-type = <PON_POWER_OFF_DVDD_HARD_RESET>;
+				qcom,s2-type = <PON_POWER_OFF_WARM_RESET>;
 				qcom,use-bark;
 			};
 		};
@@ -120,7 +125,7 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 			qcom,qpnp-rtc-write = <0>;
-			qcom,qpnp-rtc-alarm-pwrup = <0>;
+			qcom,qpnp-rtc-alarm-pwrup = <1>;
 
 			qcom,pm8998_rtc_rw@6000 {
 				reg = <0x6000 0x100>;

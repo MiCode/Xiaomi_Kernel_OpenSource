@@ -401,6 +401,14 @@ config QCOM_EARLY_RANDOM
           may not be truly random. Select this option to make an early call
           to get some random data to put in the pool. If unsure, say N.
 
+config COMMON_LOG
+	bool "Common Log Support"
+	help
+	  Use this to export symbols of some log address and variables
+	  that need to parse crash dump files to a memory dump table. This
+	  table can be used by post analysis tools to extract information
+	  from memory when device crashes.
+
 config MSM_SMEM
 	depends on ARCH_QCOM
 	depends on REMOTE_SPINLOCK_MSM
@@ -670,6 +678,23 @@ config MSM_PIL_MSS_QDSP6V5
          calls then say Y here.
 
          If unsure, say N.
+
+config MINIDUMP
+	bool "Minidump Support"
+	depends on MSM_SMEM && QCOM_DLOAD_MODE
+	help
+	  This enables minidump feature. It allows various clients to
+	  register to dump their state at system bad state (panic/WDT,etc.,).
+	  This uses SMEM to store all registered client information.
+	  This will dump all registered entries, only when DLOAD mode is enabled.
+
+config MINIDUMP_MAX_ENTRIES
+	int "Minidump Maximum num of entries"
+	default 200
+	depends on MINIDUMP
+	help
+	  This defines maximum number of entries to be allocated for application
+	  subsytem in Minidump SMEM table.
 
 config ICNSS
         tristate "Platform driver for Q6 integrated connectivity"

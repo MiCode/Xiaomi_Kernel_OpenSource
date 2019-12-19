@@ -2,6 +2,7 @@
  * CPUFreq governor based on scheduler-provided CPU utilization data.
  *
  * Copyright (C) 2016, Intel Corporation
+ * Copyright (C) 2019 XiaoMi, Inc.
  * Author: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -184,6 +185,7 @@ static void sugov_update_commit(struct sugov_policy *sg_policy, u64 time,
 static unsigned int get_next_freq(struct sugov_policy *sg_policy,
 				  unsigned long util, unsigned long max)
 {
+	unsigned int next_freq = UINT_MAX;
 	struct cpufreq_policy *policy = sg_policy->policy;
 	unsigned int freq = arch_scale_freq_invariant() ?
 				policy->cpuinfo.max_freq : policy->cur;
@@ -191,10 +193,16 @@ static unsigned int get_next_freq(struct sugov_policy *sg_policy,
 	freq = (freq + (freq >> 2)) * util / max;
 	trace_sugov_next_freq(policy->cpu, util, max, freq);
 
-	if (freq == sg_policy->cached_raw_freq && sg_policy->next_freq != UINT_MAX)
-		return sg_policy->next_freq;
-	sg_policy->cached_raw_freq = freq;
-	return cpufreq_driver_resolve_freq(policy, freq);
+	if (freq == sg_policy->cached_raw_freq
+			&& sg_policy->next_freq != UINT_MAX)
+		next_freq = sg_policy->next_freq;
+	else {
+		sg_policy->cached_raw_freq = freq;
+		cpufreq_gov_stats_record_transition(sg_policy->policy, freq);
+		next_freq = cpufreq_driver_resolve_freq(policy, freq);
+	}
+
+	return next_freq;
 }
 
 static void sugov_get_util(unsigned long *util, unsigned long *max, int cpu)

@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,10 +24,10 @@
  * @reserved: reserved field
  */
 struct hfi_mem {
-	uint64_t  len;
-	uintptr_t kva;
-	uint32_t  iova;
-	uint32_t  reserved;
+	uint64_t len;
+	uint64_t kva;
+	uint32_t iova;
+	uint32_t reserved;
 };
 
 /**
@@ -35,10 +36,7 @@ struct hfi_mem {
  * @cmd_q: command queue hfi memory for host to firmware communication
  * @msg_q: message queue hfi memory for firmware to host communication
  * @dbg_q: debug queue hfi memory for firmware debug information
- * @sfr_buf: buffer for subsystem failure reason[SFR]
  * @sec_heap: secondary heap hfi memory for firmware
- * @qdss: qdss mapped memory for fw
- * @io_mem: io memory info
  * @icp_base: icp base address
  */
 struct hfi_mem_info {
@@ -46,11 +44,8 @@ struct hfi_mem_info {
 	struct hfi_mem cmd_q;
 	struct hfi_mem msg_q;
 	struct hfi_mem dbg_q;
-	struct hfi_mem sfr_buf;
 	struct hfi_mem sec_heap;
 	struct hfi_mem shmem;
-	struct hfi_mem qdss;
-	struct hfi_mem io_mem;
 	void __iomem *icp_base;
 };
 
@@ -119,16 +114,9 @@ void cam_hfi_disable_cpu(void __iomem *icp_base);
 void cam_hfi_deinit(void __iomem *icp_base);
 /**
  * hfi_set_debug_level() - set debug level
- * @a5_dbg_type: 1 for debug_q & 2 for qdss
  * @lvl: FW debug message level
  */
-int hfi_set_debug_level(u64 a5_dbg_type, uint32_t lvl);
-
-/**
- * hfi_set_fw_dump_level() - set firmware dump level
- * @lvl: level of firmware dump level
- */
-int hfi_set_fw_dump_level(uint32_t lvl);
+int hfi_set_debug_level(uint32_t lvl);
 
 /**
  * hfi_enable_ipe_bps_pc() - Enable interframe pc
@@ -156,11 +144,5 @@ int hfi_cmd_ubwc_config(uint32_t *ubwc_cfg);
  */
 int cam_hfi_resume(struct hfi_mem_info *hfi_mem,
 	void __iomem *icp_base, bool debug);
-
-/**
- * cam_hfi_queue_dump() - utility function to dump hfi queues
- */
-void cam_hfi_queue_dump(void);
-
 
 #endif /* _HFI_INTF_H_ */

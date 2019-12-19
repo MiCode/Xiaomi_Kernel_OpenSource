@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -87,17 +88,6 @@ int cam_sync_deinit_object(struct sync_table_row *table, uint32_t idx);
 void cam_sync_util_cb_dispatch(struct work_struct *cb_dispatch_work);
 
 /**
- * @brief: Function to dispatch callbacks for a signaled sync object
- *
- * @sync_obj : Sync object that is signaled
- * @status   : Status of the signaled object
- *
- * @return None
- */
-void cam_sync_util_dispatch_signaled_cb(int32_t sync_obj,
-	uint32_t status);
-
-/**
  * @brief: Function to send V4L event to user space
  * @param id       : V4L event id to send
  * @param sync_obj : Sync obj for which event needs to be sent
@@ -112,6 +102,19 @@ void cam_sync_util_send_v4l2_event(uint32_t id,
 	int status,
 	void *payload,
 	int len);
+
+/**
+ * @brief: Function which adds sync object information to the signalable list
+ *
+ * @param sync_obj : Sync object to add
+ * @param status   : Status of above sync object
+ * @param list     : Linked list where the information should be added to
+ *
+ * @return Status of operation. Negative in case of error. Zero otherwise.
+ */
+int cam_sync_util_add_to_signalable_list(int32_t sync_obj,
+	uint32_t status,
+	struct list_head *sync_list);
 
 /**
  * @brief: Function which gets the next state of the sync object based on the

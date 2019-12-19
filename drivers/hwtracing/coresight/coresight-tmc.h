@@ -1,5 +1,6 @@
 /*
  * Copyright(C) 2015 Linaro Limited. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  * Author: Mathieu Poirier <mathieu.poirier@linaro.org>
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -26,6 +27,7 @@
 #include <linux/usb_bam.h>
 #include <linux/usb/usb_qdss.h>
 #include <linux/coresight-cti.h>
+#include <soc/qcom/memory_dump.h>
 
 #include "coresight-byte-cntr.h"
 
@@ -158,6 +160,8 @@ struct tmc_etr_bam_data {
  * @config_type: TMC variant, must be of type @tmc_config_type.
  * @memwidth:	width of the memory interface databus, in bytes.
  * @trigger_cntr: amount of words to store after a trigger.
+ * @reg_data:	MSM memory dump data to store TMC registers.
+ * @buf_data:	MSM memory dump data to store ETF/ETB buffer.
  */
 struct tmc_drvdata {
 	void __iomem		*base;
@@ -186,6 +190,8 @@ struct tmc_drvdata {
 	struct usb_qdss_ch	*usbch;
 	struct tmc_etr_bam_data	*bamdata;
 	bool			enable_to_bam;
+	struct msm_dump_data	reg_data;
+	struct msm_dump_data	buf_data;
 	bool			sticky_enable;
 	struct coresight_cti	*cti_flush;
 	struct coresight_cti	*cti_reset;

@@ -1,0 +1,86 @@
+
+qcom,d5_atl_3400mah {
+	/* #2957455_Xiaomi_D5scud_3400mAh_averaged_MasterSlave_Jun6th2017*/
+	qcom,max-voltage-uv = <4400000>;
+	qcom,fastchg-current-ma = <3300>;
+	qcom,nom-batt-capacity-mah = <3400>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
+	qcom,batt-id-kohm = <68>;
+	qcom,battery-beta = <3380>;
+	qcom,battery-type = "d5_atl";
+	qcom,jeita-fcc-ranges = <0   50   330000
+			51  100  990000
+			101  150  990000
+			151 450  3300000
+			451 600  1650000>;
+	qcom,jeita-fv-ranges =  <0   50   4400000
+			51  100  4400000
+			101  150  4400000
+			151 450  4400000
+			451 600  4100000>;
+	qcom,dynamic-fv-ranges = <0    100  4400000
+			101  200  4380000
+			201  300  4360000
+			301  400  4340000
+			401  500  4340000>;
+	qcom,checksum = <0x8E3D>;
+	qcom,gui-version = "PMI8998GUI - 2.0.0.58";
+	qcom,fg-profile-data = [
+			0A 1F 3A 06
+			00 0A C7 06
+			D4 1C 0C 02
+			98 0D C7 0A
+			95 17 D6 23
+			7F 44 31 5A
+			6F 00 00 00
+			11 00 00 00
+			00 00 D8 BB
+			61 CD DF A2
+			26 00 08 00
+			AB EA 51 EC
+			D1 FC BB F3
+			58 0C F3 FA
+			62 06 BB 32
+			1F 06 09 20
+			27 00 14 00
+			18 20 25 05
+			D4 0A F4 05
+			C8 1C ED 02
+			1A 0C 19 12
+			91 18 AC 23
+			20 44 D6 5A
+			6E 00 00 00
+			0E 00 00 00
+			00 00 86 D5
+			3E CA 24 CA
+			1E 00 00 00
+			5B F2 51 EC
+			7B F4 22 EB
+			7A 07 87 FB
+			69 BA BC 1B
+			AB 33 CC FF
+			07 10 00 00
+			3E 0D 66 46
+			1E 00 40 00
+			66 01 0A FA
+			FF 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+	];
+};

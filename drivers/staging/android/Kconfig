@@ -33,6 +33,12 @@ config ANDROID_LOW_MEMORY_KILLER_AUTODETECT_OOM_ADJ_VALUES
 	  /sys/module/lowmemorykiller/parameters/adj and convert them
 	  to oom_score_adj values.
 
+config ANDROID_WHETSTONE
+    bool "Android Whetstone"
+    default N
+    ---help---
+        report to whetstone the memory state when reach target limit value.
+
 config ANDROID_VSOC
 	tristate "Android Virtual SoC support"
 	default n
@@ -41,6 +47,11 @@ config ANDROID_VSOC
 	  This option adds support for the Virtual SoC driver needed to boot
 	  a 'cuttlefish' Android image inside QEmu. The driver interacts with
 	  a QEmu ivshmem device. If built as a module, it will be called vsoc.
+
+config MIGT
+        bool "boost cpufreq when load high"
+        ---help---
+          Boost cpufreq when current frame drawing time too long
 
 source "drivers/staging/android/ion/Kconfig"
 

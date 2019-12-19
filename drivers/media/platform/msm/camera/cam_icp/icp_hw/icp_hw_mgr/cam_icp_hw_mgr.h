@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -78,10 +79,6 @@
  * @dbg_q: Memory info of debug queue
  * @sec_heap: Memory info of secondary heap
  * @fw_buf: Memory info of firmware
- * @qdss_buf: Memory info of qdss
- * @sfr_buf: Memory info for sfr buffer
- * @shmem: Memory info for shared region
- * @io_mem: Memory info for io region
  */
 struct icp_hfi_mem_info {
 	struct cam_mem_mgr_memory_desc qtbl;
@@ -90,10 +87,7 @@ struct icp_hfi_mem_info {
 	struct cam_mem_mgr_memory_desc dbg_q;
 	struct cam_mem_mgr_memory_desc sec_heap;
 	struct cam_mem_mgr_memory_desc fw_buf;
-	struct cam_mem_mgr_memory_desc qdss_buf;
-	struct cam_mem_mgr_memory_desc sfr_buf;
 	struct cam_smmu_region_info shmem;
-	struct cam_smmu_region_info io_mem;
 };
 
 /**
@@ -131,19 +125,6 @@ struct clk_work_data {
 };
 
 /**
-  * struct icp_frame_info
-  * @request_id: request id
-  * @io_config: the address of io config
-  * @hfi_cfg_io_cmd: command struct to be sent to hfi
-  */
-struct icp_frame_info {
-	uint64_t request_id;
-	dma_addr_t io_config;
-	struct hfi_cmd_ipebps_async hfi_cfg_io_cmd;
-};
-
-
-/**
  * struct hfi_frame_process_info
  * @hfi_frame_cmd: Frame process command info
  * @bitmap: Bitmap for hfi_frame_cmd
@@ -154,7 +135,6 @@ struct icp_frame_info {
  * @out_resource: Out sync info
  * @fw_process_flag: Frame process flag
  * @clk_info: Clock information for a request
- * @frame_info: information needed to process request
  */
 struct hfi_frame_process_info {
 	struct hfi_cmd_ipebps_async hfi_frame_cmd[CAM_FRAME_CMD_MAX];
@@ -168,7 +148,6 @@ struct hfi_frame_process_info {
 	uint32_t in_free_resource[CAM_FRAME_CMD_MAX];
 	uint32_t fw_process_flag[CAM_FRAME_CMD_MAX];
 	struct cam_icp_clk_bw_request clk_info[CAM_FRAME_CMD_MAX];
-	struct icp_frame_info frame_info[CAM_FRAME_CMD_MAX];
 };
 
 /**
@@ -209,7 +188,6 @@ struct cam_ctx_clk_info {
  * @clk_info: Current clock info of a context
  * @watch_dog: watchdog timer handle
  * @watch_dog_reset_counter: Counter for watch dog reset
- * @icp_dev_io_info: io config resource
  */
 struct cam_icp_hw_ctx_data {
 	void *context_priv;
@@ -229,19 +207,16 @@ struct cam_icp_hw_ctx_data {
 	struct cam_ctx_clk_info clk_info;
 	struct cam_req_mgr_timer *watch_dog;
 	uint32_t watch_dog_reset_counter;
-	struct cam_icp_acquire_dev_info icp_dev_io_info;
 };
 
 /**
  * struct icp_cmd_generic_blob
  * @ctx: Current context info
  * @frame_info_idx: Index used for frame process info
- * @io_buf_addr: pointer to io buffer address
  */
 struct icp_cmd_generic_blob {
 	struct cam_icp_hw_ctx_data *ctx;
 	uint32_t frame_info_idx;
-	dma_addr_t *io_buf_addr;
 };
 
 /**
@@ -301,9 +276,8 @@ struct cam_icp_clk_info {
  * @clk_info: Clock info of hardware
  * @secure_mode: Flag to enable/disable secure camera
  * @a5_jtag_debug: entry to enable A5 JTAG debugging
- * @a5_debug_type : entry to enable FW debug message/qdss
+ * @a5_debug_q : entry to enable FW debug message
  * @a5_dbg_lvl : debug level set to FW.
- * @a5_fw_dump_lvl : level set for dumping the FW data
  * @ipe0_enable: Flag for IPE0
  * @ipe1_enable: Flag for IPE1
  * @bps_enable: Flag for BPS
@@ -314,9 +288,6 @@ struct cam_icp_clk_info {
  * @bps_dev_intf: Device interface for BPS
  * @ipe_clk_state: IPE clock state flag
  * @bps_clk_state: BPS clock state flag
- * @recovery: Flag to validate if in previous session FW
- *            reported a fatal error or wdt. If set FW is
- *            re-downloaded for new camera session.
  */
 struct cam_icp_hw_mgr {
 	struct mutex hw_mgr_mutex;
@@ -351,9 +322,8 @@ struct cam_icp_hw_mgr {
 	struct cam_icp_clk_info clk_info[ICP_CLK_HW_MAX];
 	bool secure_mode;
 	bool a5_jtag_debug;
-	u64 a5_debug_type;
+	bool a5_debug_q;
 	u64 a5_dbg_lvl;
-	u64 a5_fw_dump_lvl;
 	bool ipe0_enable;
 	bool ipe1_enable;
 	bool bps_enable;
@@ -364,7 +334,6 @@ struct cam_icp_hw_mgr {
 	struct cam_hw_intf *bps_dev_intf;
 	bool ipe_clk_state;
 	bool bps_clk_state;
-	bool recovery;
 };
 
 static int cam_icp_mgr_hw_close(void *hw_priv, void *hw_close_args);

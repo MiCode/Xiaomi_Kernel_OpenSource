@@ -1,4 +1,5 @@
 /* Copyright (c) 2018 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2003,20 +2004,11 @@ static int smb5_init_hw(struct smb5 *chip)
 
 	/*
 	 * PMI632 based hw init:
-	 * - Enable STAT pin function on SMB_EN
 	 * - Rerun APSD to ensure proper charger detection if device
 	 *   boots with charger connected.
 	 * - Initialize flash module for PMI632
 	 */
 	if (chg->smb_version == PMI632_SUBTYPE) {
-		rc = smblib_masked_write(chg, MISC_SMB_EN_CMD_REG,
-					EN_STAT_CMD_BIT, EN_STAT_CMD_BIT);
-		if (rc < 0) {
-			dev_err(chg->dev, "Couldn't configure SMB_EN rc=%d\n",
-					rc);
-			return rc;
-		}
-
 		schgm_flash_init(chg);
 		smblib_rerun_apsd_if_required(chg);
 	}

@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -93,11 +94,6 @@ enum cam_isp_hw_cmd_type {
 	CAM_ISP_HW_CMD_CLOCK_UPDATE,
 	CAM_ISP_HW_CMD_BW_UPDATE,
 	CAM_ISP_HW_CMD_BW_CONTROL,
-	CAM_ISP_HW_CMD_STOP_BUS_ERR_IRQ,
-	CAM_ISP_HW_CMD_GET_REG_DUMP,
-	CAM_ISP_HW_CMD_SOF_IRQ_DEBUG,
-	CAM_ISP_HW_CMD_SET_CAMIF_DEBUG,
-	CAM_ISP_HW_CMD_GET_IRQ_REGISTER_DUMP,
 	CAM_ISP_HW_CMD_MAX,
 };
 
@@ -179,7 +175,7 @@ struct cam_isp_hw_cmd_buf_update {
  *
  */
 struct cam_isp_hw_get_wm_update {
-	dma_addr_t                     *image_buf;
+	uint64_t                       *image_buf;
 	uint32_t                        num_buf;
 	struct cam_buf_io_cfg          *io_cfg;
 };

@@ -1,4 +1,5 @@
 /* Copyright (c) 2002,2007-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -475,6 +476,7 @@ struct kgsl_process_private {
 	int fd_count;
 	atomic_t ctxt_count;
 	spinlock_t ctxt_count_lock;
+	ktime_t last_oom_time;
 };
 
 /**

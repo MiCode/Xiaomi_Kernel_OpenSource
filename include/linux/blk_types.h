@@ -33,6 +33,8 @@ struct bio {
 						 */
 	unsigned short		bi_flags;	/* status, command, etc */
 	unsigned short		bi_ioprio;
+	volatile unsigned int	bi_status;
+	volatile bool		bi_polling;
 
 	struct bvec_iter	bi_iter;
 

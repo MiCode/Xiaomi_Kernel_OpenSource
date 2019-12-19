@@ -1,5 +1,6 @@
 /*
  *  scsi_error.c Copyright (C) 1997 Eric Youngdale
+ *  scsi_error.c Copyright (C) 2019 XiaoMi, Inc.
  *
  *  SCSI error/timeout handling
  *      Initial versions: Eric Youngdale.  Based upon conversations with
@@ -275,6 +276,8 @@ enum blk_eh_timer_return scsi_times_out(struct request *req)
 
 	trace_scsi_dispatch_cmd_timeout(scmd);
 	scsi_log_completion(scmd, TIMEOUT_ERROR);
+	blk_request_set_polling(req, false);
+	blk_set_bio_status(req, BIO_TIMEOUT);
 
 	if (host->eh_deadline != -1 && !host->last_reset)
 		host->last_reset = jiffies;

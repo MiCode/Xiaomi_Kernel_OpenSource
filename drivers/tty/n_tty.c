@@ -1727,10 +1727,16 @@ static int
 n_tty_receive_buf_common(struct tty_struct *tty, const unsigned char *cp,
 			 char *fp, int count, int flow)
 {
-	struct n_tty_data *ldata = tty->disc_data;
+	struct n_tty_data *ldata;
 	int room, n, rcvd = 0, overflow;
 
 	down_read(&tty->termios_rwsem);
+
+	ldata = tty->disc_data;
+	if (!ldata) {
+		up_read(&tty->termios_rwsem);
+		return 0;
+	}
 
 	while (1) {
 		/*

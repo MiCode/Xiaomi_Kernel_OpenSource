@@ -1,117 +1,140 @@
-dtb-$(CONFIG_ARCH_QCOM)	+= apq8016-sbc.dtb msm8916-mtp.dtb
-dtb-$(CONFIG_ARCH_QCOM)	+= msm8996-mtp.dtb
-dtb-$(CONFIG_ARCH_QCOM)	+= apq8096-db820c.dtb
-
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 	dtbo-$(CONFIG_ARCH_SDM845) += \
-		sdm845-cdp-overlay.dtbo \
 		sdm845-mtp-overlay.dtbo \
-		sdm845-qrd-overlay.dtbo \
-		sdm845-4k-panel-mtp-overlay.dtbo \
-		sdm845-4k-panel-cdp-overlay.dtbo \
-		sdm845-4k-panel-qrd-overlay.dtbo \
-		sdm845-v2-qvr-evt-overlay.dtbo \
-		sdm845-v2-qvr-dvt-overlay.dtbo \
-		sdm845-v2-cdp-overlay.dtbo \
 		sdm845-v2-mtp-overlay.dtbo \
-		sdm845-v2-qrd-overlay.dtbo \
-		sdm845-v2-4k-panel-mtp-overlay.dtbo \
-		sdm845-v2-4k-panel-cdp-overlay.dtbo \
-		sdm845-v2-4k-panel-qrd-overlay.dtbo \
-		sdm845-v2.1-cdp-overlay.dtbo \
 		sdm845-v2.1-mtp-overlay.dtbo \
-		sdm845-v2.1-qrd-overlay.dtbo \
-		sdm845-v2.1-4k-panel-mtp-overlay.dtbo \
-		sdm845-v2.1-4k-panel-cdp-overlay.dtbo \
-		sdm845-v2.1-4k-panel-qrd-overlay.dtbo \
-		sda845-cdp-overlay.dtbo \
-		sda845-mtp-overlay.dtbo \
-		sda845-qrd-overlay.dtbo \
-		sda845-4k-panel-mtp-overlay.dtbo \
-		sda845-4k-panel-cdp-overlay.dtbo \
-		sda845-4k-panel-qrd-overlay.dtbo \
-		sda845-v2-cdp-overlay.dtbo \
-		sda845-v2-mtp-overlay.dtbo \
-		sda845-v2-qrd-overlay.dtbo \
-		sda845-v2-hdk-overlay.dtbo \
-		sda845-v2-svr-overlay.dtbo \
-		sda845-v2-4k-panel-mtp-overlay.dtbo \
-		sda845-v2-4k-panel-cdp-overlay.dtbo \
-		sda845-v2-4k-panel-qrd-overlay.dtbo \
-		sda845-v2.1-cdp-overlay.dtbo \
-		sda845-v2.1-mtp-overlay.dtbo \
-		sda845-v2.1-qrd-overlay.dtbo \
-		sda845-v2.1-svr-overlay.dtbo \
-		sda845-v2.1-4k-panel-cdp-overlay.dtbo \
-		sda845-v2.1-4k-panel-mtp-overlay.dtbo \
-		sda845-v2.1-4k-panel-qrd-overlay.dtbo \
-		sda845-v2.1-cdp-sdxpoorwills-overlay.dtbo \
-		sda845-v2.1-mtp-sdxpoorwills-overlay.dtbo \
-		sda845-v2-mtp-sdxpoorwills-overlay.dtbo
+		dipper-p0-v2-overlay.dtbo \
+		dipper-p0-v2.1-overlay.dtbo \
+		polaris-p0-overlay.dtbo  \
+		polaris-p0-v2-overlay.dtbo \
+		polaris-p1-overlay.dtbo  \
+		polaris-p1-v2-overlay.dtbo \
+		polaris-p1-v2.1-overlay.dtbo \
+		polaris-p2-overlay.dtbo  \
+		polaris-p2-v2-overlay.dtbo \
+		polaris-p2-v2.1-overlay.dtbo \
+		polaris-p3-overlay.dtbo  \
+		polaris-p3-v2-overlay.dtbo \
+		polaris-p3-v2.1-overlay.dtbo \
+		beryllium-p0-v2-overlay.dtbo \
+		beryllium-p0-v2.1-overlay.dtbo \
+		perseus-p0-v2.1-overlay.dtbo \
+		perseus-p1-v2.1-overlay.dtbo \
+		perseus-p1_2-v2.1-overlay.dtbo \
+		perseus-p2-v2.1-overlay.dtbo \
+		perseus-p3-v2.1-overlay.dtbo \
+		perseus-mp-v2.1-overlay.dtbo
 
-sdm845-cdp-overlay.dtbo-base := sdm845.dtb
 sdm845-mtp-overlay.dtbo-base := sdm845.dtb
-sdm845-qrd-overlay.dtbo-base := sdm845.dtb
-sdm845-4k-panel-mtp-overlay.dtbo-base := sdm845.dtb
-sdm845-4k-panel-cdp-overlay.dtbo-base := sdm845.dtb
-sdm845-4k-panel-qrd-overlay.dtbo-base := sdm845.dtb
-sdm845-v2-qvr-evt-overlay.dtbo-base := sdm845-v2.dtb
-sdm845-v2-qvr-dvt-overlay.dtbo-base := sdm845-v2.dtb
-sdm845-v2-cdp-overlay.dtbo-base := sdm845-v2.dtb
 sdm845-v2-mtp-overlay.dtbo-base := sdm845-v2.dtb
-sdm845-v2-qrd-overlay.dtbo-base := sdm845-v2.dtb
-sdm845-v2-4k-panel-mtp-overlay.dtbo-base := sdm845-v2.dtb
-sdm845-v2-4k-panel-cdp-overlay.dtbo-base := sdm845-v2.dtb
-sdm845-v2-4k-panel-qrd-overlay.dtbo-base := sdm845-v2.dtb
-sdm845-v2.1-cdp-overlay.dtbo-base := sdm845-v2.1.dtb
 sdm845-v2.1-mtp-overlay.dtbo-base := sdm845-v2.1.dtb
-sdm845-v2.1-qrd-overlay.dtbo-base := sdm845-v2.1.dtb
-sdm845-v2.1-4k-panel-mtp-overlay.dtbo-base := sdm845-v2.1.dtb
-sdm845-v2.1-4k-panel-cdp-overlay.dtbo-base := sdm845-v2.1.dtb
-sdm845-v2.1-4k-panel-qrd-overlay.dtbo-base := sdm845-v2.1.dtb
-sda845-cdp-overlay.dtbo-base := sda845.dtb
-sda845-mtp-overlay.dtbo-base := sda845.dtb
-sda845-qrd-overlay.dtbo-base := sda845.dtb
-sda845-4k-panel-mtp-overlay.dtbo-base := sda845.dtb
-sda845-4k-panel-cdp-overlay.dtbo-base := sda845.dtb
-sda845-4k-panel-qrd-overlay.dtbo-base := sda845.dtb
-sda845-v2-cdp-overlay.dtbo-base := sda845-v2.dtb
-sda845-v2-mtp-overlay.dtbo-base := sda845-v2.dtb
-sda845-v2-qrd-overlay.dtbo-base := sda845-v2.dtb
-sda845-v2-hdk-overlay.dtbo-base := sda845-v2.dtb
-sda845-v2-svr-overlay.dtbo-base := sda845-v2.dtb
-sda845-v2-4k-panel-mtp-overlay.dtbo-base := sda845-v2.dtb
-sda845-v2-4k-panel-cdp-overlay.dtbo-base := sda845-v2.dtb
-sda845-v2-4k-panel-qrd-overlay.dtbo-base := sda845-v2.dtb
-sda845-v2.1-cdp-overlay.dtbo-base := sda845-v2.1.dtb
-sda845-v2.1-mtp-overlay.dtbo-base := sda845-v2.1.dtb
-sda845-v2.1-qrd-overlay.dtbo-base := sda845-v2.1.dtb
-sda845-v2.1-svr-overlay.dtbo-base := sda845-v2.1.dtb
-sda845-v2.1-4k-panel-cdp-overlay.dtbo-base := sda845-v2.1.dtb
-sda845-v2.1-4k-panel-mtp-overlay.dtbo-base := sda845-v2.1.dtb
-sda845-v2.1-4k-panel-qrd-overlay.dtbo-base := sda845-v2.1.dtb
-sda845-v2.1-cdp-sdxpoorwills-overlay.dtbo-base := sda845-v2.1.dtb
-sda845-v2.1-mtp-sdxpoorwills-overlay.dtbo-base := sda845-v2.1.dtb
-sda845-v2-mtp-sdxpoorwills-overlay.dtbo-base := sda845-v2.dtb
+
+dipper-p0-v2-overlay.dtbo-base := sdm845-v2.dtb
+dipper-p0-v2.1-overlay.dtbo-base := sdm845-v2.1.dtb
+dipper-p1-v2-overlay.dtbo-base := sdm845-v2.dtb
+dipper-p1-v2.1-overlay.dtbo-base := sdm845-v2.1.dtb
+dipper-p2-v2-overlay.dtbo-base := sdm845-v2.dtb
+dipper-p2-v2.1-overlay.dtbo-base := sdm845-v2.1.dtb
+
+polaris-p0-overlay.dtbo-base := sdm845.dtb
+polaris-p0-v2-overlay.dtbo-base := sdm845-v2.dtb
+polaris-p1-overlay.dtbo-base := sdm845.dtb
+polaris-p1-v2-overlay.dtbo-base := sdm845-v2.dtb
+polaris-p1-v2.1-overlay.dtbo-base := sdm845-v2.1.dtb
+polaris-p2-overlay.dtbo-base := sdm845.dtb
+polaris-p2-v2-overlay.dtbo-base := sdm845-v2.dtb
+polaris-p2-v2.1-overlay.dtbo-base := sdm845-v2.1.dtb
+polaris-p3-overlay.dtbo-base := sdm845.dtb
+polaris-p3-v2-overlay.dtbo-base := sdm845-v2.dtb
+polaris-p3-v2.1-overlay.dtbo-base := sdm845-v2.1.dtb
+
+beryllium-p0-v2-overlay.dtbo-base := sdm845-v2.dtb
+beryllium-p0-v2.1-overlay.dtbo-base := sdm845-v2.1.dtb
+
+perseus-p0-v2.1-overlay.dtbo-base := sdm845-v2.1.dtb
+perseus-p1-v2.1-overlay.dtbo-base := sdm845-v2.1.dtb
+perseus-p1_2-v2.1-overlay.dtbo-base := sdm845-v2.1.dtb
+perseus-p2-v2.1-overlay.dtbo-base := sdm845-v2.1.dtb
+perseus-p3-v2.1-overlay.dtbo-base := sdm845-v2.1.dtb
+perseus-mp-v2.1-overlay.dtbo-base := sdm845-v2.1.dtb
+
 else
-dtb-$(CONFIG_ARCH_SDM845) += sdm845-sim.dtb \
-	sdm845-rumi.dtb \
-	sdm845-mtp.dtb \
-	sdm845-cdp.dtb \
-	sdm845-v2-rumi.dtb \
-	sdm845-v2-mtp.dtb \
-	sdm845-v2-robotics.dtb \
-	sdm845-v2-cdp.dtb \
-	sdm845-qrd.dtb \
-	sdm845-v2-qrd.dtb \
-	sdm845-v2-qvr-evt.dtb \
-	sdm845-v2-qvr-dvt.dtb \
-	sdm845-4k-panel-mtp.dtb \
-	sdm845-4k-panel-cdp.dtb \
-	sdm845-4k-panel-qrd.dtb \
-	sdm845-interposer-sdm670-mtp.dtb \
-	sdm845-interposer-sdm670-cdp.dtb \
-	sdm845-v2.1-rb3.dtb
+	ifeq ($(CONFIG_BERYLLIUM),y)
+		dtb-$(CONFIG_ARCH_SDM845) += sdm845-sim.dtb \
+			sdm845-rumi.dtb \
+			sdm845-mtp.dtb \
+			sdm845-cdp.dtb \
+			sdm845-v2-rumi.dtb \
+			sdm845-v2-mtp.dtb \
+			sdm845-v2-robotics.dtb \
+			sdm845-v2-cdp.dtb \
+			sdm845-qrd.dtb \
+			sdm845-v2-qrd.dtb \
+			sdm845-4k-panel-mtp.dtb \
+			sdm845-4k-panel-cdp.dtb \
+			sdm845-4k-panel-qrd.dtb \
+			sdm845-v2.1-rb3.dtb \
+			beryllium-p0-v2.dtb \
+			beryllium-p0-v2.1.dtb \
+			beryllium-p1-v2.1.dtb \
+			beryllium-p2-v2.1.dtb \
+			beryllium-mp-v2.1.dtb
+	else
+		dtb-$(CONFIG_ARCH_SDM845) += sdm845-sim.dtb \
+			sdm845-rumi.dtb \
+			sdm845-mtp.dtb \
+			sdm845-cdp.dtb \
+			sdm845-v2-rumi.dtb \
+			sdm845-v2-mtp.dtb \
+			sdm845-v2-robotics.dtb \
+			sdm845-v2-cdp.dtb \
+			sdm845-qrd.dtb \
+			sdm845-v2-qrd.dtb \
+			sdm845-4k-panel-mtp.dtb \
+			sdm845-4k-panel-cdp.dtb \
+			sdm845-4k-panel-qrd.dtb \
+			sdm845-v2.1-rb3.dtb \
+			dipper-p0-v2.dtb \
+			dipper-p0-v2.1.dtb \
+			dipper-p1-v2-cn.dtb \
+			dipper-p1-v2.1-cn.dtb \
+			dipper-p1-v2-gb.dtb \
+			dipper-p1-v2.1-gb.dtb \
+			dipper-p1.1-v2.dtb \
+			dipper-p1.1-v2.1.dtb\
+			dipper-p2-v2.dtb \
+			dipper-p2-v2.1.dtb\
+			dipper-mp-v2.dtb \
+			dipper-mp-v2.1.dtb\
+			polaris-p0.dtb \
+			polaris-p0-v2.dtb \
+			polaris-p1.dtb \
+			polaris-p1-v2.dtb \
+			polaris-p1-v2.1.dtb \
+			polaris-p2.dtb \
+			polaris-p2-v2.dtb \
+			polaris-p2-v2.1.dtb \
+			polaris-p3.dtb \
+			polaris-p3-v2.dtb \
+			polaris-p3-v2.1.dtb \
+			polaris-mp.dtb \
+			polaris-mp-v2.dtb \
+			polaris-mp-v2.1.dtb \
+			ursa-p0-v2.dtb \
+			ursa-p0-v2.1.dtb \
+			ursa-p1-v2.dtb \
+			ursa-p1-v2.1.dtb \
+			ursa-p2-v2.dtb \
+			ursa-p2-v2.1.dtb \
+			ursa-mp-v2.dtb \
+			ursa-mp-v2.1.dtb \
+			equuleus-p0-v2.dtb \
+			equuleus-p0-v2.1.dtb \
+			equuleus-p1-v2.dtb \
+			equuleus-p1-v2.1.dtb \
+			equuleus-mp-v2.dtb \
+			equuleus-mp-v2.1.dtb
+	endif
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)

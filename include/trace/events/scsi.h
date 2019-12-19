@@ -357,6 +357,21 @@ TRACE_EVENT(scsi_eh_wakeup,
 	TP_printk("host_no=%u", __entry->host_no)
 );
 
+TRACE_EVENT(scsi_softirq_done,
+	TP_PROTO(unsigned char tag),
+	TP_ARGS(tag),
+	TP_STRUCT__entry(
+		__field(unsigned char, tag)
+	),
+
+	TP_fast_assign(
+		__entry->tag = tag;
+	),
+
+	TP_printk("tag = %u", __entry->tag
+	)
+);
+
 #endif /*  _TRACE_SCSI_H */
 
 /* This part must be outside protection */

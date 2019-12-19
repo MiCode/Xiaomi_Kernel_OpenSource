@@ -328,6 +328,7 @@ struct scsi_host_template {
 	 */
 
 	int (*host_reset)(struct Scsi_Host *shost, int reset_type);
+	int (*poll)(struct blk_mq_hw_ctx *hctx, unsigned int tag, struct bio *bio);
 #define SCSI_ADAPTER_RESET	1
 #define SCSI_FIRMWARE_RESET	2
 

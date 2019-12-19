@@ -71,6 +71,9 @@ static int notifier_chain_unregister(struct notifier_block **nl,
  *	@returns:	notifier_call_chain returns the value returned by the
  *			last notifier function called.
  */
+
+extern struct blocking_notifier_head pm_chain_head;
+
 static int notifier_call_chain(struct notifier_block **nl,
 			       unsigned long val, void *v,
 			       int nr_to_call, int *nr_calls)
@@ -79,6 +82,9 @@ static int notifier_call_chain(struct notifier_block **nl,
 	struct notifier_block *nb, *next_nb;
 
 	nb = rcu_dereference_raw(*nl);
+
+	if (*nl == pm_chain_head.head)
+		pr_debug("pm call chain start\n");
 
 	while (nb && nr_to_call) {
 		next_nb = rcu_dereference_raw(nb->next);
@@ -90,6 +96,9 @@ static int notifier_call_chain(struct notifier_block **nl,
 			continue;
 		}
 #endif
+		if (*nl == pm_chain_head.head)
+			pr_debug("pm call chain %pf\n", nb->notifier_call);
+
 		ret = nb->notifier_call(nb, val, v);
 
 		if (nr_calls)
@@ -100,6 +109,10 @@ static int notifier_call_chain(struct notifier_block **nl,
 		nb = next_nb;
 		nr_to_call--;
 	}
+
+	if (*nl == pm_chain_head.head)
+		pr_debug("pm call chain end\n");
+
 	return ret;
 }
 NOKPROBE_SYMBOL(notifier_call_chain);

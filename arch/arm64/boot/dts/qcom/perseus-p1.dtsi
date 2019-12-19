@@ -1,0 +1,47 @@
+
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "perseus-p0.dtsi"
+
+&qusb_phy0{
+	pinctrl-names = "atest_usb13_suspend","atest_usb13_active";
+		pinctrl-0 = <&atest_usb13_suspend>;
+		pinctrl-1 = <&atest_usb13_active>;
+
+	qcom,qusb-phy-init-seq =
+		/* <value reg_offset> */
+		<0x23 0x210 /* PWR_CTRL1 */
+		 0x03 0x04  /* PLL_ANALOG_CONTROLS_TWO */
+		 0x7c 0x18c /* PLL_CLOCK_INVERTERS */
+		 0x80 0x2c  /* PLL_CMODE */
+		 0x0a 0x184 /* PLL_LOCK_DELAY */
+		 0x19 0xb4  /* PLL_DIGITAL_TIMERS_TWO */
+		 0x40 0x194 /* PLL_BIAS_CONTROL_1 */
+		 0x17 0x198 /* PLL_BIAS_CONTROL_2 */
+		 0x21 0x214 /* PWR_CTRL2 */
+		 0x08 0x220 /* IMP_CTRL1 */
+		 0x58 0x224 /* IMP_CTRL2 */
+		 0x07 0x240 /* TUNE1 */
+		 0x2a 0x244 /* TUNE2 */
+		 0xca 0x248 /* TUNE3 */
+		 0x04 0x24c /* TUNE4 */
+		 0x03 0x250 /* TUNE5 */
+		 0x00 0x23c /* CHG_CTRL2 */
+		 0x22 0x210>; /* PWR_CTRL1 */
+	mi,efuse-pll-bias;
+	mi,need-overide_tune1;
+	mi,override_tune1 = <0x01 0x17 0x02 0x17 0x03 0x37 0x04 0x37 0x05 0x47 0x06 0x47 0x07 0x77>;
+	mi,efuse-pll-bias-seq = <0x01 0x24 0x02 0x21 0x03 0x23 0x04 0x21 0x05 0x20 0x06 0x20 0x07 0x21>;
+};
+

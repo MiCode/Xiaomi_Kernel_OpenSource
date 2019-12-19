@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,16 +17,16 @@
 #include "cam_debug_util.h"
 #include "cam_lrme_context.h"
 
-static const char lrme_dev_name[] = "cam-lrme";
+static const char lrme_dev_name[] = "lrme";
 
 static int __cam_lrme_ctx_acquire_dev_in_available(struct cam_context *ctx,
 	struct cam_acquire_dev_cmd *cmd)
 {
 	int rc = 0;
-	uintptr_t ctxt_to_hw_map = (uintptr_t)ctx->ctxt_to_hw_map;
+	uint64_t ctxt_to_hw_map = (uint64_t)ctx->ctxt_to_hw_map;
 	struct cam_lrme_context *lrme_ctx = ctx->ctx_priv;
 
-	CAM_DBG(CAM_LRME, "Enter ctx %d", ctx->ctx_id);
+	CAM_DBG(CAM_LRME, "Enter");
 
 	rc = cam_context_acquire_dev_to_hw(ctx, cmd);
 	if (rc) {
@@ -46,7 +47,7 @@ static int __cam_lrme_ctx_release_dev_in_acquired(struct cam_context *ctx,
 {
 	int rc = 0;
 
-	CAM_DBG(CAM_LRME, "Enter ctx %d", ctx->ctx_id);
+	CAM_DBG(CAM_LRME, "Enter");
 
 	rc = cam_context_release_dev_to_hw(ctx, cmd);
 	if (rc) {
@@ -64,7 +65,7 @@ static int __cam_lrme_ctx_start_dev_in_acquired(struct cam_context *ctx,
 {
 	int rc = 0;
 
-	CAM_DBG(CAM_LRME, "Enter ctx %d", ctx->ctx_id);
+	CAM_DBG(CAM_LRME, "Enter");
 
 	rc = cam_context_start_dev_to_hw(ctx, cmd);
 	if (rc) {
@@ -82,7 +83,7 @@ static int __cam_lrme_ctx_config_dev_in_activated(struct cam_context *ctx,
 {
 	int rc;
 
-	CAM_DBG(CAM_LRME, "Enter ctx %d", ctx->ctx_id);
+	CAM_DBG(CAM_LRME, "Enter");
 
 	rc = cam_context_prepare_dev_to_hw(ctx, cmd);
 	if (rc) {
@@ -98,8 +99,6 @@ static int __cam_lrme_ctx_flush_dev_in_activated(struct cam_context *ctx,
 {
 	int rc;
 
-	CAM_DBG(CAM_LRME, "Enter ctx %d", ctx->ctx_id);
-
 	rc = cam_context_flush_dev_to_hw(ctx, cmd);
 	if (rc)
 		CAM_ERR(CAM_LRME, "Failed to flush device");
@@ -111,7 +110,7 @@ static int __cam_lrme_ctx_stop_dev_in_activated(struct cam_context *ctx,
 {
 	int rc = 0;
 
-	CAM_DBG(CAM_LRME, "Enter ctx %d", ctx->ctx_id);
+	CAM_DBG(CAM_LRME, "Enter");
 
 	rc = cam_context_stop_dev_to_hw(ctx);
 	if (rc) {
@@ -129,7 +128,7 @@ static int __cam_lrme_ctx_release_dev_in_activated(struct cam_context *ctx,
 {
 	int rc = 0;
 
-	CAM_DBG(CAM_LRME, "Enter ctx %d", ctx->ctx_id);
+	CAM_DBG(CAM_LRME, "Enter");
 
 	rc = __cam_lrme_ctx_stop_dev_in_activated(ctx, NULL);
 	if (rc) {
@@ -184,7 +183,6 @@ static struct cam_ctx_ops
 	/* Acquired */
 	{
 		.ioctl_ops = {
-			.config_dev = __cam_lrme_ctx_config_dev_in_activated,
 			.release_dev = __cam_lrme_ctx_release_dev_in_acquired,
 			.start_dev = __cam_lrme_ctx_start_dev_in_acquired,
 		},

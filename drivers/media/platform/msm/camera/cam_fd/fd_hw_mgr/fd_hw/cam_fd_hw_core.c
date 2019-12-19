@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,10 +30,10 @@ static uint32_t cam_fd_cdm_write_reg_val_pair(uint32_t *buffer,
 }
 
 static void cam_fd_hw_util_cdm_callback(uint32_t handle, void *userdata,
-	enum cam_cdm_cb_status status, uint64_t cookie)
+	enum cam_cdm_cb_status status, uint32_t cookie)
 {
 	trace_cam_cdm_cb("FD", status);
-	CAM_DBG(CAM_FD, "CDM hdl=%x, udata=%pK, status=%d, cookie=%llu",
+	CAM_DBG(CAM_FD, "CDM hdl=%x, udata=%pK, status=%d, cookie=%d",
 		handle, userdata, status, cookie);
 }
 
@@ -532,7 +533,7 @@ irqreturn_t cam_fd_hw_irq(int irq_num, void *data)
 
 	if (!fd_hw) {
 		CAM_ERR(CAM_FD, "Invalid data in IRQ callback");
-		return IRQ_NONE;
+		return -EINVAL;
 	}
 
 	fd_core = (struct cam_fd_core *) fd_hw->core_info;
@@ -570,7 +571,7 @@ irqreturn_t cam_fd_hw_irq(int irq_num, void *data)
 		CAM_ERR(CAM_FD,
 			"Invalid number of IRQs, value=0x%x, num_irqs=%d",
 			reg_value, num_irqs);
-		return IRQ_NONE;
+		return -EINVAL;
 	}
 
 	trace_cam_irq_activated("FD", irq_type);
@@ -651,7 +652,7 @@ int cam_fd_hw_init(void *hw_priv, void *init_hw_args, uint32_t arg_size)
 	}
 
 	if (arg_size != sizeof(struct cam_fd_hw_init_args)) {
-		CAM_ERR(CAM_FD, "Invalid arg size %u, %zu", arg_size,
+		CAM_ERR(CAM_FD, "Invalid arg size %u, %lu", arg_size,
 			sizeof(struct cam_fd_hw_init_args));
 		return -EINVAL;
 	}
@@ -735,7 +736,7 @@ int cam_fd_hw_deinit(void *hw_priv, void *deinit_hw_args, uint32_t arg_size)
 	}
 
 	if (arg_size != sizeof(struct cam_fd_hw_deinit_args)) {
-		CAM_ERR(CAM_FD, "Invalid arg size %u, %zu", arg_size,
+		CAM_ERR(CAM_FD, "Invalid arg size %u, %lu", arg_size,
 			sizeof(struct cam_fd_hw_deinit_args));
 		return -EINVAL;
 	}
@@ -859,7 +860,7 @@ int cam_fd_hw_start(void *hw_priv, void *hw_start_args, uint32_t arg_size)
 	}
 
 	if (arg_size != sizeof(struct cam_fd_hw_cmd_start_args)) {
-		CAM_ERR(CAM_FD, "Invalid arg size %u, %zu", arg_size,
+		CAM_ERR(CAM_FD, "Invalid arg size %u, %lu", arg_size,
 			sizeof(struct cam_fd_hw_cmd_start_args));
 		return -EINVAL;
 	}
@@ -1010,7 +1011,7 @@ int cam_fd_hw_reserve(void *hw_priv, void *hw_reserve_args, uint32_t arg_size)
 	}
 
 	if (arg_size != sizeof(struct cam_fd_hw_reserve_args)) {
-		CAM_ERR(CAM_FD, "Invalid arg size %u, %zu", arg_size,
+		CAM_ERR(CAM_FD, "Invalid arg size %u, %lu", arg_size,
 			sizeof(struct cam_fd_hw_reserve_args));
 		return -EINVAL;
 	}
@@ -1079,7 +1080,7 @@ int cam_fd_hw_release(void *hw_priv, void *hw_release_args, uint32_t arg_size)
 	}
 
 	if (arg_size != sizeof(struct cam_fd_hw_release_args)) {
-		CAM_ERR(CAM_FD, "Invalid arg size %u, %zu", arg_size,
+		CAM_ERR(CAM_FD, "Invalid arg size %u, %lu", arg_size,
 			sizeof(struct cam_fd_hw_release_args));
 		return -EINVAL;
 	}

@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,21 +34,14 @@
 #include "cam_sensor_cmn_header.h"
 #include "cam_soc_util.h"
 #include "cam_debug_util.h"
-#include "cam_sensor_io.h"
-#include "cam_flash_core.h"
-#include "cam_context.h"
 
 #define CAMX_FLASH_DEV_NAME "cam-flash-dev"
 
 #define CAM_FLASH_PIPELINE_DELAY 1
 
-#define FLASH_DRIVER_I2C "i2c_flash"
-
 #define CAM_FLASH_PACKET_OPCODE_INIT                 0
 #define CAM_FLASH_PACKET_OPCODE_SET_OPS              1
 #define CAM_FLASH_PACKET_OPCODE_NON_REALTIME_SET_OPS 2
-
-struct cam_flash_ctrl;
 
 enum cam_flash_switch_trigger_ops {
 	LED_SWITCH_OFF = 0,
@@ -59,12 +53,6 @@ enum cam_flash_state {
 	CAM_FLASH_STATE_ACQUIRE,
 	CAM_FLASH_STATE_CONFIG,
 	CAM_FLASH_STATE_START,
-};
-
-enum cam_flash_flush_type {
-	FLUSH_ALL = 0,
-	FLUSH_REQ,
-	FLUSH_MAX,
 };
 
 /**
@@ -91,10 +79,10 @@ struct cam_flash_intf_params {
  * @cmd_type           : Command buffer type
  */
 struct cam_flash_common_attr {
-	bool      is_settings_valid;
-	uint64_t  request_id;
-	uint16_t  count;
-	uint8_t   cmd_type;
+	bool     is_settings_valid;
+	int32_t  request_id;
+	uint16_t count;
+	uint8_t  cmd_type;
 };
 
 /**
@@ -149,17 +137,8 @@ struct cam_flash_private_soc {
 	uint32_t     torch_max_current[CAM_FLASH_MAX_LED_TRIGGERS];
 };
 
-struct cam_flash_func_tbl {
-	int (*parser)(struct cam_flash_ctrl *fctrl, void *arg);
-	int (*apply_setting)(struct cam_flash_ctrl *fctrl, uint64_t req_id);
-	int (*power_ops)(struct cam_flash_ctrl *fctrl, bool regulator_enable);
-	int (*flush_req)(struct cam_flash_ctrl *fctrl,
-		enum cam_flash_flush_type type, uint64_t req_id);
-};
-
 /**
  *  struct cam_flash_ctrl
- * @device_name         : Device name
  * @soc_info            : Soc related information
  * @pdev                : Platform device
  * @per_frame[]         : Per_frame setting array
@@ -172,58 +151,32 @@ struct cam_flash_func_tbl {
  * @flash_num_sources   : Number of flash sources
  * @torch_num_source    : Number of torch sources
  * @flash_mutex         : Mutex for flash operations
-  * @flash_state         : Current flash state (LOW/OFF/ON/INIT)
+ * @flash_wq_mutex      : Mutex for flash apply setting
+ * @flash_state         : Current flash state (LOW/OFF/ON/INIT)
  * @flash_type          : Flash types (PMIC/I2C/GPIO)
  * @is_regulator_enable : Regulator disable/enable notifier
- * @func_tbl            : Function table for different HW
- *	                      (e.g. i2c/pmic/gpio)
  * @flash_trigger       : Flash trigger ptr
  * @torch_trigger       : Torch trigger ptr
- * @cci_i2c_master      : I2C structure
- * @io_master_info      : Information about the communication master
- * @i2c_data            : I2C register settings
  */
 struct cam_flash_ctrl {
-	char device_name[CAM_CTX_DEV_NAME_MAX_LENGTH];
-	struct cam_hw_soc_info              soc_info;
-	struct platform_device             *pdev;
-	struct cam_sensor_power_ctrl_t      power_info;
-	struct cam_flash_frame_setting      per_frame[MAX_PER_FRAME_ARRAY];
-	struct cam_flash_frame_setting      nrt_info;
-	struct device_node                 *of_node;
-	struct cam_subdev                   v4l2_dev_str;
-	struct cam_flash_intf_params        bridge_intf;
-	struct cam_flash_init_packet        flash_init_setting;
-	struct led_trigger                 *switch_trigger;
-	uint32_t                            flash_num_sources;
-	uint32_t                            torch_num_sources;
-	struct mutex                        flash_mutex;
-	enum   cam_flash_state              flash_state;
-	uint8_t                             flash_type;
-	bool                                is_regulator_enabled;
-	struct cam_flash_func_tbl           func_tbl;
+	struct cam_hw_soc_info          soc_info;
+	struct platform_device         *pdev;
+	struct cam_flash_frame_setting  per_frame[MAX_PER_FRAME_ARRAY];
+	struct cam_flash_frame_setting  nrt_info;
+	struct device_node             *of_node;
+	struct cam_subdev               v4l2_dev_str;
+	struct cam_flash_intf_params    bridge_intf;
+	struct cam_flash_init_packet    flash_init_setting;
+	struct led_trigger             *switch_trigger;
+	uint32_t                        flash_num_sources;
+	uint32_t                        torch_num_sources;
+	struct mutex                    flash_mutex;
+	struct mutex                    flash_wq_mutex;
+	enum   cam_flash_state          flash_state;
+	uint8_t                         flash_type;
+	bool                            is_regulator_enabled;
 	struct led_trigger           *flash_trigger[CAM_FLASH_MAX_LED_TRIGGERS];
 	struct led_trigger           *torch_trigger[CAM_FLASH_MAX_LED_TRIGGERS];
-/* I2C related setting */
-	enum   cci_i2c_master_t             cci_i2c_master;
-	struct camera_io_master             io_master_info;
-	struct i2c_data_settings            i2c_data;
 };
-
-int cam_flash_pmic_pkt_parser(struct cam_flash_ctrl *fctrl, void *arg);
-int cam_flash_i2c_pkt_parser(struct cam_flash_ctrl *fctrl, void *arg);
-int cam_flash_pmic_apply_setting(struct cam_flash_ctrl *fctrl, uint64_t req_id);
-int cam_flash_i2c_apply_setting(struct cam_flash_ctrl *fctrl, uint64_t req_id);
-int cam_flash_off(struct cam_flash_ctrl *fctrl);
-int cam_flash_pmic_power_ops(struct cam_flash_ctrl *fctrl,
-	bool regulator_enable);
-int cam_flash_i2c_power_ops(struct cam_flash_ctrl *fctrl,
-	bool regulator_enable);
-int cam_flash_i2c_flush_request(struct cam_flash_ctrl *fctrl,
-	enum cam_flash_flush_type type, uint64_t req_id);
-int cam_flash_pmic_flush_request(struct cam_flash_ctrl *fctrl,
-	enum cam_flash_flush_type, uint64_t req_id);
-void cam_flash_shutdown(struct cam_flash_ctrl *fctrl);
-int cam_flash_release_dev(struct cam_flash_ctrl *fctrl);
 
 #endif /*_CAM_FLASH_DEV_H_*/

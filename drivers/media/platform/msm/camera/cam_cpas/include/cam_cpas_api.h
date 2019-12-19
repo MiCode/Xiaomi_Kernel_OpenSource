@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,7 +33,6 @@
 enum cam_cpas_reg_base {
 	CAM_CPAS_REG_CPASTOP,
 	CAM_CPAS_REG_CAMNOC,
-	CAM_CPAS_REG_CSR_TCSR,
 	CAM_CPAS_REG_CAMSS,
 	CAM_CPAS_REG_MAX
 };

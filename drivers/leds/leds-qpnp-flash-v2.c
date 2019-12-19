@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -135,6 +136,8 @@
 #define	VPH_DROOP_HYST_MV_TO_VAL(val_mv)	(val_mv / 25)
 #define	VPH_DROOP_THRESH_VAL_TO_UV(val)		((val + 25) * 100000)
 #define	MITIGATION_THRSH_MA_TO_VAL(val_ma)	(val_ma / 100)
+#define	CURRENT_MA_TO_REG_VAL(curr_ma, ires_ua)	((curr_ma * 1000 + ires_ua/2) / ires_ua)
+#define	SAFETY_TMR_TO_REG_VAL(duration_ms)	((duration_ms / 10) - 1)
 #define	THERMAL_HYST_TEMP_TO_VAL(val, divisor)	(val / divisor)
 
 #define	FLASH_LED_WARMUP_DELAY_DEFAULT			2
@@ -348,6 +351,10 @@ static int max_ires_curr_ma_table[MAX_IRES_LEVELS] = {
 	FLASH_LED_IRES12P5_MAX_CURR_MA, FLASH_LED_IRES10P0_MAX_CURR_MA,
 	FLASH_LED_IRES7P5_MAX_CURR_MA, FLASH_LED_IRES5P0_MAX_CURR_MA
 };
+
+struct flash_node_data *g_torch_0;
+struct flash_node_data *g_torch_1;
+struct flash_switch_data *g_switch_0;
 
 static inline int get_current_reg_code(int target_curr_ma, int ires_ua)
 {
@@ -1741,6 +1748,9 @@ static void qpnp_flash_led_brightness_set(struct led_classdev *led_cdev,
 						strlen("led:torch"))) {
 		fnode = container_of(led_cdev, struct flash_node_data, cdev);
 		led = dev_get_drvdata(&fnode->pdev->dev);
+	}else if (!strncmp(led_cdev->name, "flashlight", strlen("flashlight"))){
+		fnode = container_of(led_cdev, struct flash_node_data, cdev);
+		led = dev_get_drvdata(&fnode->pdev->dev);
 	}
 
 	if (!led) {
@@ -1754,7 +1764,18 @@ static void qpnp_flash_led_brightness_set(struct led_classdev *led_cdev,
 		if (rc < 0)
 			pr_err("Failed to set flash LED switch rc=%d\n", rc);
 	} else if (fnode) {
-		qpnp_flash_led_node_set(fnode, value);
+		if (!strncmp(led_cdev->name, "flashlight", strlen("flashlight")))
+		{
+			if (g_torch_0 && g_torch_1 && g_switch_0){
+				pr_err("flash light fnode %d", __LINE__);
+				qpnp_flash_led_node_set(g_torch_0, value);
+				qpnp_flash_led_node_set(g_torch_1, value);
+				qpnp_flash_led_switch_set(g_switch_0, value > 0);
+			}
+		}
+		else{
+			qpnp_flash_led_node_set(fnode, value);
+		}
 	}
 
 	spin_unlock(&led->lock);
@@ -2653,7 +2674,8 @@ static int qpnp_flash_led_probe(struct platform_device *pdev)
 	const char *temp_string;
 	unsigned int base;
 	int rc, i = 0, j = 0;
-
+	struct flash_node_data *fnode;
+	struct flash_switch_data *snode;
 	node = pdev->dev.of_node;
 	if (!node) {
 		pr_err("No flash LED nodes defined\n");
@@ -2746,12 +2768,25 @@ static int qpnp_flash_led_probe(struct platform_device *pdev)
 					i, rc);
 				goto error_led_register;
 			}
+			#if 1
+			fnode = &led->fnode[i];
+			if (!strcmp("led:torch_0", fnode->cdev.name)){
+				g_torch_0 =fnode;
+			}else if (!strcmp("led:torch_1",  fnode->cdev.name)){
+				g_torch_1 =fnode;
+			}
+			#endif
 			i++;
 		}
-
 		if (!strcmp("switch", temp_string)) {
 			rc = qpnp_flash_led_parse_and_register_switch(led,
 					&led->snode[j], temp);
+			#if 1
+			snode = &led->snode[j];
+			if (!strcmp("led:switch_0",  snode->cdev.name)){
+				g_switch_0 = snode;
+			}
+			#endif
 			if (rc < 0) {
 				pr_err("Unable to parse and register switch node, rc=%d\n",
 					rc);
@@ -2821,7 +2856,6 @@ static int qpnp_flash_led_probe(struct platform_device *pdev)
 	spin_lock_init(&led->lock);
 
 	dev_set_drvdata(&pdev->dev, led);
-
 	return 0;
 
 sysfs_fail:

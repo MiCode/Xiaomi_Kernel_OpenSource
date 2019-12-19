@@ -18,6 +18,7 @@
  * and processes may not get killed until the normal oom killer is triggered.
  *
  * Copyright (C) 2007-2008 Google, Inc.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -651,7 +652,7 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 		lowmem_print(5, "lowmem_scan %lu, %x, return 0\n",
 			     sc->nr_to_scan, sc->gfp_mask);
 		mutex_unlock(&scan_mutex);
-		return 0;
+		return SHRINK_STOP;
 	}
 
 	selected_oom_score_adj = min_score_adj;
@@ -737,6 +738,7 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 		}
 
 		task_lock(selected);
+		get_task_struct(selected);
 		send_sig(SIGKILL, selected, 0);
 		if (selected->mm) {
 			task_set_lmk_waiting(selected);
@@ -782,7 +784,6 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 		lowmem_deathpending_timeout = jiffies + HZ;
 		rem += selected_tasksize;
 		rcu_read_unlock();
-		get_task_struct(selected);
 		/* give the system time to free up the memory */
 		msleep_interruptible(20);
 		trace_almk_shrink(selected_tasksize, ret,
@@ -801,7 +802,10 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 		handle_lmk_event(selected, selected_tasksize, min_score_adj);
 		put_task_struct(selected);
 	}
-	return rem;
+	if (rem == 0)
+		return SHRINK_STOP;
+	else
+		return rem;
 }
 
 static struct shrinker lowmem_shrinker = {

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2013, NVIDIA Corporation.  All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -185,7 +186,9 @@ static inline int drm_panel_get_modes(struct drm_panel *panel)
 }
 
 void drm_panel_init(struct drm_panel *panel);
-
+void drm_panel_reset_skip_enable(bool enable);
+void drm_dsi_ulps_enable(bool enable);
+void drm_dsi_ulps_suspend_enable(bool enable);
 int drm_panel_add(struct drm_panel *panel);
 void drm_panel_remove(struct drm_panel *panel);
 

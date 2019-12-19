@@ -206,6 +206,21 @@ config ENABLE_MUST_CHECK
 	  suppress the "warning: ignoring return value of 'foo', declared with
 	  attribute warn_unused_result" messages.
 
+config FIRE_WATCHDOG
+        bool "Provide watchdog trigger"
+        default n
+        depends on PRINTK && QCOM_WATCHDOG_V2
+        help
+          Provide a way to trigger watchdog for debugging purpose.
+
+config DUMP_ALL_STACKS
+        bool "Show all task stack information in logbuf on panic"
+        default n
+        depends on PRINTK && QCOM_WATCHDOG_V2
+        help
+          Selecting this option for debugging purpose to dump all task stack
+          under watchdog disable condition.
+
 config FRAME_WARN
 	int "Warn for stack frames larger than (needs gcc 4.4)"
 	range 0 8192

@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,7 +29,7 @@
 #define CPAS_IPE1_BIT            0x2000
 
 int cam_icp_hw_mgr_init(struct device_node *of_node,
-	uint64_t *hw_mgr_hdl, int *iommu_hdl);
+	uint64_t *hw_mgr_hdl);
 
 /**
  * struct cam_icp_cpas_vote

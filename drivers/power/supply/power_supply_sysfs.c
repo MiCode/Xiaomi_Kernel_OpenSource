@@ -145,6 +145,18 @@ static ssize_t power_supply_show_property(struct device *dev,
 	if (off == POWER_SUPPLY_PROP_CHARGE_COUNTER_EXT)
 		return scnprintf(buf, PAGE_SIZE, "%lld\n",
 				value.int64val);
+	else if (off == POWER_SUPPLY_PROP_WIRELESS_VERSION)
+		return scnprintf(buf, PAGE_SIZE, "0x%x\n",
+				value.intval);
+	else if (off == POWER_SUPPLY_PROP_WIRELESS_WAKELOCK)
+		return scnprintf(buf, PAGE_SIZE, "%d\n",
+				value.intval);
+	else if (off == POWER_SUPPLY_PROP_SIGNAL_STRENGTH)
+		return scnprintf(buf, PAGE_SIZE, "%d\n",
+				value.intval);
+	else if (off == POWER_SUPPLY_PROP_TYPE_RECHECK)
+		return scnprintf(buf, PAGE_SIZE, "0x%x\n",
+				value.intval);
 	else
 		return scnprintf(buf, PAGE_SIZE, "%d\n",
 				value.intval);
@@ -265,6 +277,7 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(temp_hot),
 	POWER_SUPPLY_ATTR(system_temp_level),
 	POWER_SUPPLY_ATTR(resistance),
+	POWER_SUPPLY_ATTR(esr),
 	POWER_SUPPLY_ATTR(resistance_capacitive),
 	POWER_SUPPLY_ATTR(resistance_id),
 	POWER_SUPPLY_ATTR(resistance_now),
@@ -285,6 +298,7 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(current_qnovo),
 	POWER_SUPPLY_ATTR(voltage_qnovo),
 	POWER_SUPPLY_ATTR(rerun_aicl),
+	POWER_SUPPLY_ATTR(charger_type),
 	POWER_SUPPLY_ATTR(cycle_count_id),
 	POWER_SUPPLY_ATTR(safety_timer_expired),
 	POWER_SUPPLY_ATTR(restricted_charging),
@@ -312,14 +326,25 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(ctm_current_max),
 	POWER_SUPPLY_ATTR(hw_current_max),
 	POWER_SUPPLY_ATTR(real_type),
+	POWER_SUPPLY_ATTR(hvdcp3_type),
+	POWER_SUPPLY_ATTR(quick_charge_type),
+	POWER_SUPPLY_ATTR(dc_adapter),
 	POWER_SUPPLY_ATTR(pr_swap),
 	POWER_SUPPLY_ATTR(cc_step),
 	POWER_SUPPLY_ATTR(cc_step_sel),
 	POWER_SUPPLY_ATTR(sw_jeita_enabled),
+	POWER_SUPPLY_ATTR(dynamic_fv_enabled),
 	POWER_SUPPLY_ATTR(pd_voltage_max),
 	POWER_SUPPLY_ATTR(pd_voltage_min),
 	POWER_SUPPLY_ATTR(sdp_current_max),
+	POWER_SUPPLY_ATTR(dc_thermal_levels),
 	POWER_SUPPLY_ATTR(connector_type),
+	POWER_SUPPLY_ATTR(rerun_apsd),
+	POWER_SUPPLY_ATTR(type_recheck),
+	POWER_SUPPLY_ATTR(wireless_version),
+	POWER_SUPPLY_ATTR(signal_strength),
+	POWER_SUPPLY_ATTR(wireless_wakelock),
+	POWER_SUPPLY_ATTR(tx_adapter),
 	POWER_SUPPLY_ATTR(parallel_batfet_mode),
 	POWER_SUPPLY_ATTR(parallel_fcc_max),
 	POWER_SUPPLY_ATTR(min_icl),

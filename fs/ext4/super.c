@@ -1408,7 +1408,7 @@ static ext4_fsblk_t get_sb_block(void **data)
 	return sb_block;
 }
 
-#define DEFAULT_JOURNAL_IOPRIO (IOPRIO_PRIO_VALUE(IOPRIO_CLASS_BE, 3))
+#define DEFAULT_JOURNAL_IOPRIO (IOPRIO_PRIO_VALUE(IOPRIO_CLASS_RT, 4))
 static char deprecated_msg[] = "Mount option \"%s\" will be removed by %s\n"
 	"Contact linux-ext4@vger.kernel.org if you think we should keep it.\n";
 
@@ -4105,7 +4105,7 @@ no_journal:
 		goto failed_mount_wq;
 	}
 
-	if (DUMMY_ENCRYPTION_ENABLED(sbi) && !(sb->s_flags & MS_RDONLY) &&
+	if ((DUMMY_ENCRYPTION_ENABLED(sbi) || ANDROID_ENCRYPTION_ENABLED(sbi)) && !(sb->s_flags & MS_RDONLY) &&
 	    !ext4_has_feature_encrypt(sb)) {
 		ext4_set_feature_encrypt(sb);
 		ext4_commit_super(sb, 1);

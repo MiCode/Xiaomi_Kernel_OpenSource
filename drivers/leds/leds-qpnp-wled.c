@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -186,6 +187,7 @@
 #define QPNP_WLED_SINK_TEST5_DIG	0x1E
 #define QPNP_WLED_SINK_TEST5_HVG_PULL_STR_BIT	BIT(3)
 
+#define QPNP_WLED_SWITCH_FREQ_600_KHZ_CODE	0x0F
 #define QPNP_WLED_SWITCH_FREQ_800_KHZ_CODE	0x0B
 #define QPNP_WLED_SWITCH_FREQ_1600_KHZ_CODE	0x05
 
@@ -574,12 +576,13 @@ static int qpnp_wled_set_level(struct qpnp_wled *wled, int level)
 {
 	int i, rc;
 	u8 reg;
+#if 0 // remove backlight lower limit
 	u16 low_limit = WLED_MAX_LEVEL_4095 * 4 / 1000;
 
 	/* WLED's lower limit of operation is 0.4% */
 	if (level > 0 && level < low_limit)
 		level = low_limit;
-
+#endif
 	/* set brightness registers */
 	for (i = 0; i < wled->max_strings; i++) {
 		reg = level & QPNP_WLED_BRIGHT_LSB_MASK;
@@ -1382,7 +1385,7 @@ static int wled_auto_calibrate(struct qpnp_wled *wled)
 		}
 
 		if (int_sts & QPNP_WLED_OVP_FAULT_BIT)
-			pr_debug("WLED OVP fault detected with SINK %d\n",
+			pr_warn("WLED OVP fault detected with SINK %d\n",
 						i + 1);
 		else
 			sink_valid |= sink_test;
@@ -1398,7 +1401,7 @@ static int wled_auto_calibrate(struct qpnp_wled *wled)
 	}
 
 	if (sink_valid == sink_config) {
-		pr_debug("WLED auto-calibration complete, default sink-config=%x OK!\n",
+		pr_info("WLED auto-calibration complete, default sink-config=%x OK!\n",
 						sink_config);
 	} else {
 		pr_warn("Invalid WLED default sink config=%x changing it to=%x\n",
@@ -1570,7 +1573,7 @@ static irqreturn_t qpnp_wled_ovp_irq_handler(int irq, void *_wled)
 	}
 
 	if (fault_sts & (QPNP_WLED_OVP_FAULT_BIT | QPNP_WLED_ILIM_FAULT_BIT))
-		pr_err("WLED OVP fault detected, int_sts=%x fault_sts= %x\n",
+		pr_err_once("WLED OVP fault detected, int_sts=%x fault_sts= %x\n",
 			int_sts, fault_sts);
 
 	if (fault_sts & QPNP_WLED_OVP_FAULT_BIT) {
@@ -2009,6 +2012,8 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 	/* Configure the SWITCHING FREQ register */
 	if (wled->switch_freq_khz == 1600)
 		reg = QPNP_WLED_SWITCH_FREQ_1600_KHZ_CODE;
+	else if (wled->switch_freq_khz == 600)
+		reg = QPNP_WLED_SWITCH_FREQ_600_KHZ_CODE;
 	else
 		reg = QPNP_WLED_SWITCH_FREQ_800_KHZ_CODE;
 
@@ -2303,6 +2308,41 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 
 	return 0;
 }
+
+int qpnp_wled_cabc(struct led_classdev *led_cdev, bool enable)
+{
+	struct qpnp_wled *wled;
+	int rc = 0, i;
+	u8 reg = 0, mask;
+
+	wled = container_of(led_cdev, struct qpnp_wled, cdev);
+	if (wled == NULL) {
+		pr_err("wled is null\n");
+		return -EPERM;
+	}
+
+	mutex_lock(&wled->lock);
+	wled->en_cabc = enable;
+	for (i = 0; i < wled->num_strings; i++) {
+
+		/* CABC */
+		reg = wled->en_cabc ? (1  << QPNP_WLED_CABC_SHIFT) : 0;
+		mask = QPNP_WLED_CABC_MASK;
+		rc = qpnp_wled_masked_write_reg(wled,
+			QPNP_WLED_CABC_REG(wled->sink_base, i),
+			mask, reg);
+		if (rc < 0)
+			goto fail_cabc;
+
+		pr_debug("%d en_cabc %d\n", i, wled->en_cabc);
+	}
+fail_cabc:
+	mutex_unlock(&wled->lock);
+
+	return rc;
+}
+
+EXPORT_SYMBOL_GPL(qpnp_wled_cabc);
 
 /* parse wled dtsi parameters */
 static int qpnp_wled_parse_dt(struct qpnp_wled *wled)
@@ -2718,7 +2758,7 @@ static int qpnp_wled_probe(struct platform_device *pdev)
 		return -EPROBE_DEFER;
 	}
 
-	pr_debug("PMIC subtype %d Digital major %d\n",
+	pr_info("PMIC subtype %d Digital major %d\n",
 		wled->pmic_rev_id->pmic_subtype, wled->pmic_rev_id->rev4);
 
 	wled->wq = alloc_ordered_workqueue("qpnp_wled_wq", WQ_HIGHPRI);

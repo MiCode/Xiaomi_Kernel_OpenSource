@@ -320,6 +320,8 @@ zii	Zodiac Inflight Innovations
 zte	ZTE Corp.
 zyxel	ZyXEL Communications Corp.
 inven   InvenSense, Inc.
+ssp Bcm4775
+ssp,bcm4775 broadcom 4775 gps chip
 cy      Parade.
 awinic  Shanghai Awinic Technology Co., Ltd.
 altek	Altek Corporation

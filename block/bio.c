@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2001 Jens Axboe <axboe@kernel.dk>
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -273,6 +274,8 @@ static void bio_free(struct bio *bio)
 void bio_init(struct bio *bio)
 {
 	memset(bio, 0, sizeof(*bio));
+	bio->bi_status = BIO_INIT;
+	bio->bi_polling = false;
 	atomic_set(&bio->__bi_remaining, 1);
 	atomic_set(&bio->__bi_cnt, 1);
 }

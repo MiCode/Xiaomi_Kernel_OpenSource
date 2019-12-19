@@ -1,0 +1,86 @@
+qcom,e5_sun_3200mAh {
+	qcom, = <24>;
+	qcom,max-voltage-uv = <4400000>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
+	qcom,nom-batt-capacity-mah = <3200>;
+	qcom,batt-id-kohm = <68>;
+	qcom,battery-beta = <3380>;
+
+	qcom,battery-type = "e5_sun_3200mAh";
+	qcom,fastchg-current-ma = <3100>;
+	qcom,jeita-fcc-ranges = <0   50   310000
+			51  100  930000
+			101 150  2170000
+			151 450  3100000
+			451 600  1550000>;
+	qcom,jeita-fv-ranges =  <0   50   4400000
+			51  100  4400000
+			101 150  4400000
+			151 450  4400000
+			451 600  4100000>;
+	qcom,dynamic-fv-ranges = <0    100  4400000
+			101  200  4380000
+			201  300  4360000
+			301  400  4340000
+			401  500  4340000>;
+	qcom,checksum = <0x2DDD>;
+	qcom,gui-version = "PMI8998GUI - 2.0.0.58";
+	qcom,fg-profile-data = [
+			DB 1E 15 FD
+			73 03 3B F4
+			E7 1C A9 FB
+			10 04 4C 0A
+			5F 17 03 2A
+			4F 44 50 5A
+			72 00 00 00
+			11 00 00 00
+			00 00 E1 BC
+			64 C4 89 C2
+			21 00 08 00
+			F8 DA FE ED
+			DD FC CF F3
+			2B FA 5D 13
+			81 FD 6A 2A
+			24 06 09 20
+			27 00 14 00
+			51 1F 53 FC
+			06 0A 79 FD
+			CB 1C DF 02
+			2C 0C 1C 12
+			7F 18 82 23
+			8A 44 5E 5A
+			67 00 00 00
+			0F 00 00 00
+			00 00 F9 07
+			96 C2 47 8B
+			1B 00 00 00
+			69 00 FE ED
+			03 F4 12 F2
+			E1 06 09 FB
+			25 00 FD 1A
+			AE 33 CC FF
+			07 10 00 00
+			50 0C 66 46
+			1B 00 40 00
+			7D 01 0A FA
+			FF 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+			00 00 00 00
+	];
+};

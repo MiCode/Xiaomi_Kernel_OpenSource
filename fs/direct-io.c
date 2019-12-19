@@ -2,6 +2,7 @@
  * fs/direct-io.c
  *
  * Copyright (C) 2002, Linus Torvalds.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * O_DIRECT
  *
@@ -129,6 +130,7 @@ struct dio {
 	int io_error;			/* IO error in completion path */
 	unsigned long refcount;		/* direct_io_worker() and bios */
 	struct bio *bio_list;		/* singly linked via bi_private */
+	struct bio *bio;
 	struct task_struct *waiter;	/* waiting task (NULL if none) */
 
 	/* AIO related stuff */
@@ -446,8 +448,10 @@ static inline void dio_bio_submit(struct dio *dio, struct dio_submit *sdio)
 	if (sdio->submit_io) {
 		sdio->submit_io(bio, dio->inode, sdio->logical_offset_in_bio);
 		dio->bio_cookie = BLK_QC_T_NONE;
-	} else
+	} else {
+		dio->bio = bio;
 		dio->bio_cookie = submit_bio(bio);
+	}
 
 	sdio->bio = NULL;
 	sdio->boundary = 0;
@@ -487,6 +491,7 @@ static struct bio *dio_await_one(struct dio *dio)
 {
 	unsigned long flags;
 	struct bio *bio = NULL;
+	struct bio *polling_bio = NULL;
 
 	spin_lock_irqsave(&dio->bio_lock, flags);
 
@@ -499,10 +504,16 @@ static struct bio *dio_await_one(struct dio *dio)
 	while (dio->refcount > 1 && dio->bio_list == NULL) {
 		__set_current_state(TASK_UNINTERRUPTIBLE);
 		dio->waiter = current;
+		if (dio->bio) {
+			polling_bio = dio->bio;
+			bio_get(polling_bio);
+		}
 		spin_unlock_irqrestore(&dio->bio_lock, flags);
-		if (!(dio->iocb->ki_flags & IOCB_HIPRI) ||
-		    !blk_poll(bdev_get_queue(dio->bio_bdev), dio->bio_cookie))
+		if (!blk_poll(bdev_get_queue(dio->bio_bdev), dio->bio_cookie, polling_bio)) {
 			io_schedule();
+		}
+		if (polling_bio)
+			bio_put(polling_bio);
 		/* wake up sets us TASK_RUNNING */
 		spin_lock_irqsave(&dio->bio_lock, flags);
 		dio->waiter = NULL;
@@ -523,6 +534,7 @@ static int dio_bio_complete(struct dio *dio, struct bio *bio)
 	struct bio_vec *bvec;
 	unsigned i;
 	int err;
+	unsigned long flags;
 
 	if (bio->bi_error)
 		dio->io_error = -EIO;
@@ -540,7 +552,14 @@ static int dio_bio_complete(struct dio *dio, struct bio *bio)
 			put_page(page);
 		}
 		err = bio->bi_error;
-		bio_put(bio);
+		if (dio->bio == bio) {
+			spin_lock_irqsave(&dio->bio_lock, flags);
+			dio->bio = NULL;
+			bio_put(bio);
+			spin_unlock_irqrestore(&dio->bio_lock, flags);
+		} else {
+			bio_put(bio);
+		}
 	}
 	return err;
 }

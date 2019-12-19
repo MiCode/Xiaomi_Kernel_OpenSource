@@ -1,0 +1,12 @@
+
+#
+# nextinput driver configuration
+#
+menuconfig INPUT_PRESS_NEXTINPUT
+	bool "nextinput"
+	help
+	  Say Y here, and a list of supported fingerprints will be displayed.
+	  This option doesn't affect the kernel.
+
+	  If unsure, say Y.
+

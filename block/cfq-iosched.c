@@ -5,6 +5,7 @@
  *  scheduler (round robin per-process disk scheduling) and Andrea Arcangeli.
  *
  *  Copyright (C) 2003 Jens Axboe <axboe@kernel.dk>
+ *  Copyright (C) 2019 XiaoMi, Inc.
  */
 #include <linux/module.h>
 #include <linux/slab.h>
@@ -15,6 +16,7 @@
 #include <linux/ioprio.h>
 #include <linux/blktrace_api.h>
 #include <linux/blk-cgroup.h>
+#include <linux/mi_io.h>
 #include "blk.h"
 
 /*
@@ -4300,6 +4302,65 @@ static bool cfq_should_wait_busy(struct cfq_data *cfqd, struct cfq_queue *cfqq)
 	return false;
 }
 
+static inline void show_cfq_info(struct cfq_group *cfqg)
+{
+	struct rb_node *node;
+	struct cfq_queue *cfqq = NULL;
+	struct cfq_rb_root *st = NULL;
+	int	wl_class, wl_type;
+
+	for_each_cfqg_st(cfqg, wl_class, wl_type, st)
+		for (node = rb_first(&st->rb); node; node = rb_next(node)) {
+			cfqq = rb_entry(node, struct cfq_queue, rb_node);
+			pr_info("Slow IO CFQ|Queue: pid:%d q(async:%d sync:%d) sectors:%lu io_prio:(%d %d)\n",
+				cfqq->pid,
+				cfqq->queued[0], cfqq->queued[1],
+				cfqq->nr_sectors,
+				cfqq->ioprio_class, cfqq->ioprio);
+		}
+}
+
+
+
+static inline void mi_io_cfq_monitor(struct request *rq)
+{
+	struct cfq_queue *cfqq = RQ_CFQQ(rq);
+	struct cfq_group *cfqg = RQ_CFQG(rq);
+	struct cfq_data *cfqd = cfqq->cfqd;
+	unsigned int request_delta_time;
+
+	request_delta_time = jiffies_to_msecs(jiffies - rq->start_time);
+	if ((rq_is_sync(rq) || IO_SHOW_DETAIL) && request_delta_time > IO_ELV_LEVEL) {
+		#ifdef CONFIG_BLK_CGROUP
+		pr_info("Slow IO CFQ|%s: cfq[pid:%d rq(async:%d sync:%d) driver_rq:%d sectors:%lu io_prio:(%d %d) rw:%d] cfqg[q(BE:%d RT:%d IDLE:%d)] cfqd[rq:%d driver_rq:%d] rq_time:%d(s:%llu w:%llu)ms\n",
+			rq_is_sync(rq) ? "Sync Request" : "Async Request",
+			cfqq->pid, cfqq->queued[0], cfqq->queued[1],
+			cfqq->dispatched, cfqq->nr_sectors,
+			cfqq->ioprio_class, cfqq->ioprio, rq_data_dir(rq),
+			cfq_group_busy_queues_wl(BE_WORKLOAD, cfqd, cfqg),
+			cfq_group_busy_queues_wl(RT_WORKLOAD, cfqd, cfqg),
+			cfq_group_busy_queues_wl(IDLE_WORKLOAD, cfqd, cfqg),
+			cfqd->rq_queued,  cfqd->rq_in_driver,
+			request_delta_time, (sched_clock() - rq_io_start_time_ns(rq)) / NSEC_PER_MSEC,
+			(rq_io_start_time_ns(rq) - rq_start_time_ns(rq)) / NSEC_PER_MSEC);
+		#else
+		pr_info("Slow IO CFQ|%s: cfq[pid:%d rq(async:%d sync:%d) driver_rq:%d sectors:%lu io_prio:(%d %d) rw:%d] cfqg[q(BE:%d RT:%d IDLE:%d)] cfqd[rq:%d driver_rq:%d] rq_time:%dms\n",
+			rq_is_sync(rq) ? "Sync Request" : "Async Request",
+			cfqq->pid, cfqq->queued[0], cfqq->queued[1],
+			cfqq->dispatched, cfqq->nr_sectors,
+			cfqq->ioprio_class, cfqq->ioprio, rq_data_dir(rq),
+			cfq_group_busy_queues_wl(BE_WORKLOAD, cfqd, cfqg),
+			cfq_group_busy_queues_wl(RT_WORKLOAD, cfqd, cfqg),
+			cfq_group_busy_queues_wl(IDLE_WORKLOAD, cfqd, cfqg),
+			cfqd->rq_queued,  cfqd->rq_in_driver,
+			request_delta_time);
+		#endif
+
+		if (IO_SHOW_DETAIL)
+			show_cfq_info(cfqg);
+	}
+}
+
 static void cfq_completed_request(struct request_queue *q, struct request *rq)
 {
 	struct cfq_queue *cfqq = RQ_CFQQ(rq);
@@ -4322,6 +4383,8 @@ static void cfq_completed_request(struct request_queue *q, struct request *rq)
 				     rq->cmd_flags);
 
 	cfqd->rq_in_flight[cfq_cfqq_sync(cfqq)]--;
+	if (IO_SHOW_LOG)
+		mi_io_cfq_monitor(rq);
 
 	if (sync) {
 		struct cfq_rb_root *st;

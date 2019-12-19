@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -60,7 +61,7 @@
 #define CS_DEMUX_OUTPUT_SEL	(GENMASK(3, 0))
 
 /* SE_SPI_TX_TRANS_CFG register fields */
-#define CS_TOGGLE		(BIT(0))
+#define CS_TOGGLE		(BIT(1))
 
 /* SE_SPI_WORD_LEN register fields */
 #define WORD_LEN_MSK		(GENMASK(9, 0))
@@ -1104,6 +1105,7 @@ static int spi_geni_transfer_one(struct spi_master *spi,
 				geni_se_rx_dma_unprep(mas->wrapper_dev,
 					xfer->rx_dma, xfer->len);
 		}
+		mas->cur_xfer = NULL;
 	} else {
 		mas->num_tx_eot = 0;
 		mas->num_rx_eot = 0;

@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -87,7 +88,7 @@ int cam_virtual_cdm_submit_bl(struct cam_hw_info *cdm_hw,
 
 	mutex_lock(&client->lock);
 	for (i = 0; i < req->data->cmd_arrary_count ; i++) {
-		uintptr_t vaddr_ptr = 0;
+		uint64_t vaddr_ptr = 0;
 		size_t len = 0;
 
 		if ((!cdm_cmd->cmd[i].len) &&
@@ -106,7 +107,8 @@ int cam_virtual_cdm_submit_bl(struct cam_hw_info *cdm_hw,
 		} else if (req->data->type ==
 			CAM_CDM_BL_CMD_TYPE_KERNEL_IOVA) {
 			rc = 0;
-			vaddr_ptr = cdm_cmd->cmd[i].bl_addr.kernel_iova;
+			vaddr_ptr =
+				(uint64_t)cdm_cmd->cmd[i].bl_addr.kernel_iova;
 			len = cdm_cmd->cmd[i].offset + cdm_cmd->cmd[i].len;
 		} else {
 			CAM_ERR(CAM_CDM,
@@ -118,14 +120,6 @@ int cam_virtual_cdm_submit_bl(struct cam_hw_info *cdm_hw,
 
 		if ((!rc) && (vaddr_ptr) && (len) &&
 			(len >= cdm_cmd->cmd[i].offset)) {
-
-
-			if ((len - cdm_cmd->cmd[i].offset) <=
-				cdm_cmd->cmd[i].len) {
-				CAM_ERR(CAM_CDM, "Not enough buffer");
-				rc = -EINVAL;
-				break;
-			}
 			CAM_DBG(CAM_CDM,
 				"hdl=%x vaddr=%pK offset=%d cmdlen=%d:%zu",
 				cdm_cmd->cmd[i].bl_addr.mem_handle,

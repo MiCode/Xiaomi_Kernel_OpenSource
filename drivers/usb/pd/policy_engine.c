@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2018, Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -365,6 +366,12 @@ static void *usbpd_ipc_log;
 #define ID_HDR_VID		0x05c6 /* qcom */
 #define PROD_VDO_PID		0x0a00 /* TBD */
 
+#define PD_VBUS_MAX_VOLTAGE_LIMIT 9000000
+
+/* add for limit APDO voltage to maxium 5800mV for better efficiency */
+#define MAX_ALLOWED_APDO_UV	5800000
+
+
 static bool check_vsafe0v = true;
 module_param(check_vsafe0v, bool, 0600);
 
@@ -398,6 +405,7 @@ struct usbpd {
 	struct device		dev;
 	struct workqueue_struct	*wq;
 	struct work_struct	sm_work;
+	struct delayed_work	vbus_work;
 	struct hrtimer		timer;
 	bool			sm_queued;
 
@@ -456,6 +464,8 @@ struct usbpd {
 	bool			vbus_enabled;
 	bool			vconn_enabled;
 	bool			vconn_is_external;
+	u32			limit_pd_vbus;
+	u32			pd_vbus_max_limit;
 
 	u8			tx_msgid;
 	u8			rx_msgid;
@@ -776,6 +786,11 @@ static int pd_select_pdo(struct usbpd *pd, int pdo_pos, int uv, int ua)
 
 		pd->requested_voltage =
 			PD_SRC_PDO_FIXED_VOLTAGE(pdo) * 50 * 1000;
+
+		/*if limit_pd_vbus is enabled, pd request uv will less than pd vbus max*/
+		if (pd->limit_pd_vbus && pd->requested_voltage > pd->pd_vbus_max_limit)
+			return -ENOTSUPP;
+
 		pd->rdo = PD_RDO_FIXED(pdo_pos, 0, mismatch, 1, 1, curr / 10,
 				max_current / 10);
 	} else if (type == PD_SRC_PDO_TYPE_AUGMENTED) {
@@ -788,6 +803,18 @@ static int pd_select_pdo(struct usbpd *pd, int pdo_pos, int uv, int ua)
 		}
 
 		curr = ua / 1000;
+
+		/*if limit_pd_vbus is enabled, pd request uv will less than pd vbus max*/
+		if (pd->limit_pd_vbus && uv > pd->pd_vbus_max_limit)
+			uv = pd->pd_vbus_max_limit;
+
+		/*
+		 * set maxium allowed request voltage for apdo to 5.8V
+		 * for bettery charging efficiency
+		 */
+		if (uv >= MAX_ALLOWED_APDO_UV)
+			uv = MAX_ALLOWED_APDO_UV;
+
 		pd->requested_voltage = uv;
 		pd->rdo = PD_RDO_AUGMENTED(pdo_pos, mismatch, 1, 1,
 				uv / 20000, ua / 50000);
@@ -1395,7 +1422,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 	case PE_SNK_STARTUP:
 		if (pd->current_dr == DR_NONE || pd->current_dr == DR_UFP) {
 			pd->current_dr = DR_UFP;
-
+			usbpd_info(&pd->dev, "%s: psy type was %d\n", __func__, pd->psy_type);
 			if (pd->psy_type == POWER_SUPPLY_TYPE_USB ||
 				pd->psy_type == POWER_SUPPLY_TYPE_USB_CDP ||
 				pd->psy_type == POWER_SUPPLY_TYPE_USB_FLOAT ||
@@ -3078,7 +3105,7 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 
 	pd->typec_mode = typec_mode;
 
-	usbpd_dbg(&pd->dev, "typec mode:%d present:%d type:%d orientation:%d\n",
+	usbpd_info(&pd->dev, "typec mode:%d present:%d type:%d orientation:%d\n",
 			typec_mode, pd->vbus_present, pd->psy_type,
 			usbpd_get_plug_orientation(pd));
 
@@ -3911,6 +3938,90 @@ static ssize_t get_battery_status_show(struct device *dev,
 	return snprintf(buf, PAGE_SIZE, "0x%08x\n", pd->battery_sts_dobj);
 }
 static DEVICE_ATTR_RW(get_battery_status);
+struct usbpd *pd_lobal;
+unsigned int pd_vbus_ctrl;
+
+module_param(pd_vbus_ctrl, uint, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(pd_vbus_ctrl, "PD VBUS CONTROL");
+
+
+void pd_vbus_reset(struct usbpd *pd)
+{
+	if (!pd)
+	{
+		pr_err("pd_vbus_reset, pd is null\n");
+		return;
+	}
+	if (pd->vbus_enabled) {
+		pr_err("pd_vbus_reset execute\n");
+		regulator_disable(pd->vbus);
+		pd->vbus_enabled = false;
+		stop_usb_host(pd);
+		pd_vbus_ctrl = 500;
+		msleep(pd_vbus_ctrl);
+		start_usb_host(pd, true);
+		enable_vbus(pd);
+	}
+	else
+	{
+		pr_err("pd_vbus is not enabled yet\n");
+	}
+}
+
+/* Handles VBUS off on */
+void usbpd_vbus_sm(struct work_struct *w)
+{
+	struct usbpd *pd = pd_lobal;
+	/* container_of(w, struct usbpd, vbus_work) */
+
+	pr_err("usbpd_vbus_sm handle state %s, vbus %d\n",
+			usbpd_state_strings[pd->current_state],pd->vbus_enabled);
+
+	/* to be done, pd->sm_queued = false; */
+	pd_vbus_reset(pd);
+}
+
+void kick_usbpd_vbus_sm(void)
+{
+	pm_stay_awake(&pd_lobal->dev);
+
+	/* to be done pd_lobal->sm_queued = true;*/
+	pr_err("kick_usbpd_vbus_sm handle state %s, vbus %d\n",
+			usbpd_state_strings[pd_lobal->current_state],pd_lobal->vbus_enabled);
+
+	queue_delayed_work(pd_lobal->wq, &(pd_lobal->vbus_work), msecs_to_jiffies(200));
+}
+
+static ssize_t pd_vbus_show(struct device *dev, struct device_attribute *attr,
+		char *buf)
+{
+	struct usbpd *pd = dev_get_drvdata(dev);
+	pr_err("pd_vbus_show handle state %s, vbus %d\n",
+			usbpd_state_strings[pd_lobal->current_state],pd_lobal->vbus_enabled);
+
+	pd_vbus_reset(pd);
+
+	return 0;
+}
+
+
+static ssize_t pd_vbus_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	int val = 0;
+
+	if (sscanf(buf, "%d\n", &val) != 0)
+	{
+		pr_err("pd_vbus_store input err\n");
+	}
+	pr_err("pd_vbus_store handle state %s, vbus %d,val %d\n",
+			usbpd_state_strings[pd_lobal->current_state],pd_lobal->vbus_enabled,val);
+	kick_usbpd_vbus_sm();
+
+	return size;
+}
+
+static DEVICE_ATTR_RW(pd_vbus);
 
 static struct attribute *usbpd_attrs[] = {
 	&dev_attr_contract.attr,
@@ -3936,6 +4047,7 @@ static struct attribute *usbpd_attrs[] = {
 	&dev_attr_get_pps_status.attr,
 	&dev_attr_get_battery_cap.attr,
 	&dev_attr_get_battery_status.attr,
+	&dev_attr_pd_vbus.attr,
 	NULL,
 };
 ATTRIBUTE_GROUPS(usbpd);
@@ -3946,6 +4058,16 @@ static struct class usbpd_class = {
 	.dev_uevent = usbpd_uevent,
 	.dev_groups = usbpd_groups,
 };
+
+void notify_typec_mode_changed_for_pd(void)
+{
+        /* force update as usb present is changed to absent */
+        if (pd_lobal) {
+                pr_info("notify_typec_mode_changed_for_pd\n");
+                psy_changed(&pd_lobal->psy_nb, PSY_EVENT_PROP_CHANGED, pd_lobal->usb_psy);
+        }
+}
+EXPORT_SYMBOL_GPL(notify_typec_mode_changed_for_pd);
 
 static int match_usbpd_device(struct device *dev, const void *data)
 {
@@ -4058,6 +4180,7 @@ struct usbpd *usbpd_create(struct device *parent)
 		goto del_pd;
 	}
 	INIT_WORK(&pd->sm_work, usbpd_sm);
+	INIT_DELAYED_WORK(&pd->vbus_work,usbpd_vbus_sm);
 	hrtimer_init(&pd->timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	pd->timer.function = pd_timeout;
 	mutex_init(&pd->swap_lock);
@@ -4115,6 +4238,23 @@ struct usbpd *usbpd_create(struct device *parent)
 	if (IS_ERR(pd->vconn)) {
 		ret = PTR_ERR(pd->vconn);
 		goto put_psy;
+	}
+
+
+	ret = of_property_read_u32(parent->of_node, "mi,limit_pd_vbus",
+			&pd->limit_pd_vbus);
+	if (ret) {
+		usbpd_err(&pd->dev, "failed to read pd vbus limit\n");
+		pd->limit_pd_vbus = false;
+	}
+
+	if (pd->limit_pd_vbus) {
+		ret = of_property_read_u32(parent->of_node, "mi,pd_vbus_max_limit",
+				&pd->pd_vbus_max_limit);
+		if (ret) {
+			usbpd_err(&pd->dev, "failed to read pd vbus max limit\n");
+			pd->pd_vbus_max_limit = PD_VBUS_MAX_VOLTAGE_LIMIT;
+		}
 	}
 
 	pd->vconn_is_external = device_property_present(parent,
@@ -4199,6 +4339,8 @@ struct usbpd *usbpd_create(struct device *parent)
 
 	/* force read initial power_supply values */
 	psy_changed(&pd->psy_nb, PSY_EVENT_PROP_CHANGED, pd->usb_psy);
+
+	pd_lobal = pd;
 
 	return pd;
 

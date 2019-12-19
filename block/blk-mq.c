@@ -382,10 +382,16 @@ static void __blk_mq_complete_request(struct request *rq)
 {
 	struct request_queue *q = rq->q;
 
+	blk_set_bio_status(rq, BIO_HALF_SUCCESS);
+
 	if (!q->softirq_done_fn)
 		blk_mq_end_request(rq, rq->errors);
-	else
-		blk_mq_ipi_complete_request(rq);
+	else {
+		if (likely(!blk_request_is_polling(rq)))
+			blk_mq_ipi_complete_request(rq);
+		else
+			q->softirq_done_fn(rq);
+	}
 }
 
 /**

@@ -2,6 +2,7 @@
  * Gadget Function Driver for MTP
  *
  * Copyright (C) 2010 Google, Inc.
+ * Copyright (C) 2019 XiaoMi, Inc.
  * Author: Mike Lockwood <lockwood@android.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -1524,6 +1525,7 @@ mtp_function_unbind(struct usb_configuration *c, struct usb_function *f)
 	struct mtp_instance *fi_mtp;
 	struct usb_request *req;
 	int i;
+
 	fi_mtp = container_of(f->fi, struct mtp_instance, func_inst);
 	mtp_string_defs[INTERFACE_STRING_INDEX].id = 0;
 	mtp_log("dev: %pK\n", dev);

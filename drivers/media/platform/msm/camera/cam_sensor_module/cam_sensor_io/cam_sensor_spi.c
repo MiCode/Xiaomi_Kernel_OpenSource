@@ -1,4 +1,5 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -486,63 +487,6 @@ OUT:
 	return rc;
 }
 
-int32_t cam_spi_write_seq(struct camera_io_master *client,
-	uint32_t addr, uint8_t *data,
-	enum camera_sensor_i2c_type addr_type, uint32_t num_byte)
-{
-	struct cam_camera_spi_inst *pg =
-		&client->spi_client->cmd_tbl.page_program;
-	const uint32_t page_size = client->spi_client->page_size;
-	uint8_t header_len = sizeof(pg->opcode) + pg->addr_len + pg->dummy_len;
-	uint16_t len;
-	uint32_t cur_len, end;
-	char *tx, *pdata = data;
-	int rc = -EINVAL;
-
-	if ((addr_type >= CAMERA_SENSOR_I2C_TYPE_MAX) ||
-		(addr_type <= CAMERA_SENSOR_I2C_TYPE_INVALID))
-		return rc;
-    /* single page write */
-	if ((addr % page_size) + num_byte <= page_size) {
-		len = header_len + num_byte;
-		tx = kmalloc(len, GFP_KERNEL | GFP_DMA);
-		if (!tx)
-			goto NOMEM;
-		rc = cam_spi_page_program(client, addr, data, addr_type,
-			num_byte, tx);
-		if (rc < 0)
-			goto ERROR;
-		goto OUT;
-	}
-	/* multi page write */
-	len = header_len + page_size;
-	tx = kmalloc(len, GFP_KERNEL | GFP_DMA);
-	if (!tx)
-		goto NOMEM;
-	while (num_byte) {
-		end = min(page_size, (addr % page_size) + num_byte);
-		cur_len = end - (addr % page_size);
-		CAM_ERR(CAM_SENSOR, "Addr: 0x%x curr_len: 0x%x pgSize: %d",
-			addr, cur_len, page_size);
-		rc = cam_spi_page_program(client, addr, pdata, addr_type,
-			cur_len, tx);
-		if (rc < 0)
-			goto ERROR;
-		addr += cur_len;
-		pdata += cur_len;
-		num_byte -= cur_len;
-	}
-	goto OUT;
-NOMEM:
-	pr_err("%s: memory allocation failed\n", __func__);
-	return -ENOMEM;
-ERROR:
-	pr_err("%s: error write\n", __func__);
-OUT:
-	kfree(tx);
-	return rc;
-}
-
 int cam_spi_write_table(struct camera_io_master *client,
 	struct cam_sensor_i2c_reg_setting *write_setting)
 {
@@ -581,37 +525,5 @@ int cam_spi_write_table(struct camera_io_master *client,
 			(write_setting->delay
 			* 1000) + 1000);
 	addr_type = client_addr_type;
-	return rc;
-}
-
-int cam_spi_erase(struct camera_io_master *client,
-	uint32_t addr, enum camera_sensor_i2c_type addr_type,
-	uint32_t size) {
-	struct cam_camera_spi_inst *se = &client->spi_client->cmd_tbl.erase;
-	int rc = 0;
-	uint32_t cur;
-	uint32_t end = addr + size;
-	uint32_t erase_size = client->spi_client->erase_size;
-
-	end = addr + size;
-	for (cur = rounddown(addr, erase_size); cur < end; cur += erase_size) {
-		CAM_ERR(CAM_SENSOR, "%s: erasing 0x%x size: %d\n",
-			__func__, cur, erase_size);
-		rc = cam_spi_write_enable(client, addr_type);
-		if (rc < 0)
-			return rc;
-		rc = cam_spi_tx_helper(client, se, cur, NULL, addr_type, 0,
-			NULL, NULL);
-		if (rc < 0) {
-			CAM_ERR(CAM_SENSOR, "%s: erase failed\n", __func__);
-			return rc;
-		}
-		rc = cam_spi_wait(client, se, addr_type);
-		if (rc < 0) {
-			CAM_ERR(CAM_SENSOR, "%s: erase timedout\n", __func__);
-			return rc;
-		}
-	}
-
 	return rc;
 }

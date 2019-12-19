@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,6 +22,7 @@
 #include <linux/gpio.h>
 #include <linux/spinlock.h>
 #include <linux/of_gpio.h>
+#include <linux/wakelock.h>
 #include <linux/of_device.h>
 #include <linux/uaccess.h>
 #include "nq-nci.h"
@@ -29,13 +31,17 @@
 #include <linux/compat.h>
 #endif
 
+#undef CLK_SRC_PLL
+
 struct nqx_platform_data {
 	unsigned int irq_gpio;
 	unsigned int en_gpio;
 	unsigned int clkreq_gpio;
 	unsigned int firm_gpio;
 	unsigned int ese_gpio;
+#ifdef CLK_SRC_PLL
 	const char *clk_src_name;
+#endif
 	/* NFC_CLK pin voting state */
 	bool clk_pin_voting;
 };
@@ -51,6 +57,7 @@ MODULE_DEVICE_TABLE(of, msm_match_table);
 #define WAKEUP_SRC_TIMEOUT		(2000)
 #define MAX_RETRY_COUNT			3
 
+static struct wake_lock fieldon_wl;
 struct nqx_dev {
 	wait_queue_head_t	read_wq;
 	struct	mutex		read_mutex;
@@ -73,9 +80,11 @@ struct nqx_dev {
 	unsigned int		count_irq;
 	/* Initial CORE RESET notification */
 	unsigned int		core_reset_ntf;
+#ifdef CLK_SRC_PLL
 	/* CLK control */
 	bool			clk_run;
 	struct	clk		*s_clk;
+#endif
 	/* read buffer*/
 	size_t kbuflen;
 	u8 *kbuf;
@@ -84,10 +93,12 @@ struct nqx_dev {
 
 static int nfcc_reboot(struct notifier_block *notifier, unsigned long val,
 			void *v);
+#ifdef CLK_SRC_PLL
 /*clock enable function*/
 static int nqx_clock_select(struct nqx_dev *nqx_dev);
 /*clock disable function*/
 static int nqx_clock_deselect(struct nqx_dev *nqx_dev);
+#endif
 static struct notifier_block nfcc_notifier = {
 	.notifier_call	= nfcc_reboot,
 	.next			= NULL,
@@ -222,6 +233,10 @@ static ssize_t nfc_read(struct file *filp, char __user *buf,
 			__func__, ret);
 		ret = -EIO;
 		goto err;
+	}
+
+	if (((tmp[0] & 0xff) == 0x61) && ((tmp[1] & 0xff) == 0x07) && ((tmp[2] & 0xff) == 0x01)) {
+		wake_lock_timeout(&fieldon_wl, msecs_to_jiffies(3*1000));
 	}
 #ifdef NFC_KERNEL_BU
 		dev_dbg(&nqx_dev->client->dev, "%s : NfcNciRx %x %x %x\n",
@@ -490,10 +505,13 @@ int nfc_ioctl_power_states(struct file *filp, unsigned long arg)
 			usleep_range(10000, 10100);
 		}
 		if (nqx_dev->pdata->clk_pin_voting) {
+#ifdef CLK_SRC_PLL
 			r = nqx_clock_deselect(nqx_dev);
 			if (r < 0)
 				dev_err(&nqx_dev->client->dev, "unable to disable clock\n");
+#endif
 		}
+
 		nqx_dev->nfc_ven_enabled = false;
 	} else if (arg == 1) {
 		nqx_enable_irq(nqx_dev);
@@ -507,9 +525,11 @@ int nfc_ioctl_power_states(struct file *filp, unsigned long arg)
 		gpio_set_value(nqx_dev->en_gpio, 1);
 		usleep_range(10000, 10100);
 		if (nqx_dev->pdata->clk_pin_voting) {
+#ifdef CLK_SRC_PLL
 			r = nqx_clock_select(nqx_dev);
 			if (r < 0)
 				dev_err(&nqx_dev->client->dev, "unable to enable clock\n");
+#endif
 		}
 		nqx_dev->nfc_ven_enabled = true;
 	} else if (arg == 2) {
@@ -674,6 +694,12 @@ static const struct file_operations nfc_dev_fops = {
 #endif
 };
 
+/**
+ * Do not need check availability of NFCC.
+ * This function will block NFCC to enter FW download mode.
+ */
+
+#if 0
 /* Check for availability of NQ_ NFC controller hardware */
 static int nfcc_hw_check(struct i2c_client *client, struct nqx_dev *nqx_dev)
 {
@@ -846,7 +872,9 @@ err_nfcc_hw_check:
 done:
 	return ret;
 }
+#endif
 
+#ifdef CLK_SRC_PLL
 /*
  * Routine to enable clock.
  * this routine can be extended to select from multiple
@@ -892,6 +920,7 @@ static int nqx_clock_deselect(struct nqx_dev *nqx_dev)
 	}
 	return r;
 }
+#endif
 
 static int nfc_parse_dt(struct device *dev, struct nqx_platform_data *pdata)
 {
@@ -921,10 +950,12 @@ static int nfc_parse_dt(struct device *dev, struct nqx_platform_data *pdata)
 		pdata->ese_gpio = -EINVAL;
 	}
 
+#ifdef CLK_SRC_PLL
 	if (of_property_read_string(np, "qcom,clk-src", &pdata->clk_src_name))
 		pdata->clk_pin_voting = false;
 	else
 		pdata->clk_pin_voting = true;
+#endif
 
 	pdata->clkreq_gpio = of_get_named_gpio(np, "qcom,nq-clkreq", 0);
 
@@ -1132,6 +1163,7 @@ static int nqx_probe(struct i2c_client *client,
 	mutex_init(&nqx_dev->read_mutex);
 	spin_lock_init(&nqx_dev->irq_enabled_lock);
 
+	wake_lock_init(&fieldon_wl, WAKE_LOCK_SUSPEND, "nfc_locker");
 	nqx_dev->nqx_device.minor = MISC_DYNAMIC_MINOR;
 	nqx_dev->nqx_device.name = "nq-nci";
 	nqx_dev->nqx_device.fops = &nfc_dev_fops;
@@ -1152,6 +1184,8 @@ static int nqx_probe(struct i2c_client *client,
 	}
 	nqx_disable_irq(nqx_dev);
 
+	/* Do not perform nfcc_hw_check, make sure that nfcc is present */
+#if 0
 	/*
 	 * To be efficient we need to test whether nfcc hardware is physically
 	 * present before attempting further hardware initialisation.
@@ -1164,6 +1198,7 @@ static int nqx_probe(struct i2c_client *client,
 		/* We don't think there is hardware switch NFC OFF */
 		goto err_request_hw_check_failed;
 	}
+#endif
 
 	/* Register reboot notifier here */
 	r = register_reboot_notifier(&nfcc_notifier);
@@ -1179,12 +1214,14 @@ static int nqx_probe(struct i2c_client *client,
 	}
 
 #ifdef NFC_KERNEL_BU
+#ifdef CLK_SRC_PLL
 	r = nqx_clock_select(nqx_dev);
 	if (r < 0) {
 		dev_err(&client->dev,
 			"%s: nqx_clock_select failed\n", __func__);
 		goto err_clock_en_failed;
 	}
+#endif
 	gpio_set_value(platform_data->en_gpio, 1);
 #endif
 	device_init_wakeup(&client->dev, true);
@@ -1254,6 +1291,7 @@ static int nqx_remove(struct i2c_client *client)
 	/* optional gpio, not sure was configured in probe */
 	if (nqx_dev->ese_gpio > 0)
 		gpio_free(nqx_dev->ese_gpio);
+	wake_lock_destroy(&fieldon_wl);
 	gpio_free(nqx_dev->firm_gpio);
 	gpio_free(nqx_dev->irq_gpio);
 	gpio_free(nqx_dev->en_gpio);

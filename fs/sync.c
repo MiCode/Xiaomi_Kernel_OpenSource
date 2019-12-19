@@ -15,6 +15,7 @@
 #include <linux/pagemap.h>
 #include <linux/quotaops.h>
 #include <linux/backing-dev.h>
+#include <linux/mi_io.h>
 #include "internal.h"
 
 #define VALID_FLAGS (SYNC_FILE_RANGE_WAIT_BEFORE|SYNC_FILE_RANGE_WRITE| \
@@ -183,6 +184,10 @@ SYSCALL_DEFINE1(syncfs, int, fd)
 int vfs_fsync_range(struct file *file, loff_t start, loff_t end, int datasync)
 {
 	struct inode *inode = file->f_mapping->host;
+	char path_buf[512] = {'\0'};
+	unsigned long start_time;
+	unsigned int  delta;
+	int ret;
 
 	if (!file->f_op->fsync)
 		return -EINVAL;
@@ -192,7 +197,18 @@ int vfs_fsync_range(struct file *file, loff_t start, loff_t end, int datasync)
 		spin_unlock(&inode->i_lock);
 		mark_inode_dirty_sync(inode);
 	}
-	return file->f_op->fsync(file, start, end, datasync);
+	start_time = jiffies;
+	ret = file->f_op->fsync(file, start, end, datasync);
+	if (IO_SHOW_LOG) {
+		delta = jiffies_to_msecs(jiffies - start_time);
+		if (delta > IO_SYSCALL_LEVEL)
+			pr_info("Slow IO Sync: %d(%s) prio(%d|%d) file(%s) time(%dms)\n",
+				current->pid, current->comm,
+				current->policy, current->prio,
+				d_path(&file->f_path, path_buf, sizeof(path_buf)),
+				delta);
+	}
+	return ret;
 }
 EXPORT_SYMBOL(vfs_fsync_range);
 

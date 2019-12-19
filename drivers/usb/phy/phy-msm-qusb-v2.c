@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -123,6 +124,10 @@ struct qusb_phy {
 	int			qusb_phy_reg_offset_cnt;
 
 	u32			tune_val;
+	u32			tune_pll_bias;
+	u32			bias_ctrl_val;
+	u32			override_tune1_val;
+	int			tune_efuse_correction;
 	int			efuse_bit_pos;
 	int			efuse_num_of_bits;
 
@@ -131,6 +136,10 @@ struct qusb_phy {
 	bool			cable_connected;
 	bool			suspended;
 	bool			dpdm_enable;
+	bool			efuse_pll_bias;
+	bool			efuse_pll_bias_host;
+	bool			need_override_tune1;
+	bool			need_override_host_tune1;
 
 	struct regulator_desc	dpdm_rdesc;
 	struct regulator_dev	*dpdm_rdev;
@@ -152,12 +161,23 @@ struct qusb_phy {
 	int			phy_pll_reset_seq_len;
 	int			*emu_dcm_reset_seq;
 	int			emu_dcm_reset_seq_len;
+	int			*efuse_pll_bias_seq;
+	int			efuse_pll_bias_seq_len;
+	int			*override_tune1_seq;
+	int			override_tune1_seq_len;
+
+	int			*efuse_pll_bias_seq_host;
+	int			efuse_pll_bias_seq_host_len;
+	int			*override_tune1_seq_host;
+	int			override_tune1_seq_host_len;
 
 	/* override TUNEX registers value */
 	struct dentry		*root;
 	u8			tune[5];
 	u8                      bias_ctrl2;
 
+	u8                      imp_ctrl;
+	u8                      pll_bias;
 	struct hrtimer		timer;
 	int			soc_min_rev;
 	bool			host_chirp_erratum;
@@ -421,6 +441,7 @@ static void qusb_phy_get_tune1_param(struct qusb_phy *qphy)
 {
 	u8 reg;
 	u32 bit_mask = 1;
+	int i;
 
 	pr_debug("%s(): num_of_bits:%d bit_pos:%d\n", __func__,
 				qphy->efuse_num_of_bits,
@@ -439,6 +460,50 @@ static void qusb_phy_get_tune1_param(struct qusb_phy *qphy)
 
 	qphy->tune_val = TUNE_VAL_MASK(qphy->tune_val,
 				qphy->efuse_bit_pos, bit_mask);
+
+	if (qphy->tune_efuse_correction) {
+		int corrected_val = qphy->tune_val + qphy->tune_efuse_correction;
+		if (corrected_val < 0)
+			qphy->tune_val = 0;
+		else
+			qphy->tune_val = min_t(unsigned, corrected_val, 0x7);
+		pr_info("%s(): adjust tune1 value to:%d, correction value = %d\n",
+							__func__, qphy->tune_val, qphy->tune_efuse_correction);
+	}
+
+	qphy->tune_pll_bias = 0;
+	if (qphy->phy.flags & PHY_HOST_MODE) {
+		if (qphy->efuse_pll_bias_host) {
+			for (i = 0; i < qphy->efuse_pll_bias_seq_host_len; i += 2) {
+				if (qphy->efuse_pll_bias_seq_host[i] == qphy->tune_val)
+					qphy->tune_pll_bias = qphy->efuse_pll_bias_seq_host[i+1];
+			}
+		}
+
+		if (qphy->need_override_host_tune1) {
+			for (i = 0; i < qphy->override_tune1_seq_host_len; i += 2) {
+				if (qphy->override_tune1_seq_host[i] == qphy->tune_val)
+					qphy->override_tune1_val = qphy->override_tune1_seq_host[i+1];
+			}
+		}
+
+	} else {
+		if (qphy->efuse_pll_bias) {
+			for (i = 0; i < qphy->efuse_pll_bias_seq_len; i += 2) {
+				if (qphy->efuse_pll_bias_seq[i] == qphy->tune_val)
+					qphy->tune_pll_bias = qphy->efuse_pll_bias_seq[i+1];
+			}
+
+		}
+
+		if (qphy->need_override_tune1) {
+			for (i = 0; i < qphy->override_tune1_seq_len; i += 2) {
+				if (qphy->override_tune1_seq[i] == qphy->tune_val)
+					qphy->override_tune1_val = qphy->override_tune1_seq[i+1];
+			}
+		}
+	}
+
 	reg = readb_relaxed(qphy->base + qphy->phy_reg[PORT_TUNE1]);
 	if (qphy->tune_val) {
 		reg = reg & 0x0f;
@@ -618,10 +683,17 @@ static int qusb_phy_init(struct usb_phy *phy)
 		if (!qphy->tune_val)
 			qusb_phy_get_tune1_param(qphy);
 
-		pr_debug("%s(): Programming TUNE1 parameter as:%x\n", __func__,
+		pr_info("%s(): Programming TUNE1 parameter as:%x\n", __func__,
 				qphy->tune_val);
 		writel_relaxed(qphy->tune_val,
 				qphy->base + qphy->phy_reg[PORT_TUNE1]);
+		pr_info("%s(): Override TUNE1 parameter as:%x\n", __func__,
+				qphy->override_tune1_val);
+		pr_info("%s(): Programming pll_bias parameter as:%x\n", __func__,
+				qphy->tune_pll_bias);
+		if (qphy->override_tune1_val)
+			writel_relaxed(qphy->override_tune1_val,
+						qphy->base + qphy->phy_reg[PORT_TUNE1]);
 	}
 
 	/* if debugfs based tunex params are set, use that value. */
@@ -632,10 +704,14 @@ static int qusb_phy_init(struct usb_phy *phy)
 							(4 * p_index));
 	}
 
-	if (qphy->refgen_north_bg_reg && qphy->override_bias_ctrl2)
-		if (readl_relaxed(qphy->refgen_north_bg_reg) & BANDGAP_BYPASS)
-			writel_relaxed(BIAS_CTRL_2_OVERRIDE_VAL,
-				qphy->base + qphy->phy_reg[BIAS_CTRL_2]);
+	if (qphy->imp_ctrl)
+		writel_relaxed(qphy->imp_ctrl, qphy->base + 0x220);
+
+	if (qphy->tune_pll_bias)
+		writel_relaxed(qphy->tune_pll_bias, qphy->base + 0x198);
+	if (qphy->pll_bias)
+		writel_relaxed(qphy->pll_bias, qphy->base + 0x198);
+
 
 	if (qphy->bias_ctrl2)
 		writel_relaxed(qphy->bias_ctrl2,
@@ -661,6 +737,7 @@ static int qusb_phy_init(struct usb_phy *phy)
 		dev_err(phy->dev, "QUSB PHY PLL LOCK fails:%x\n", reg);
 		WARN_ON(1);
 	}
+	qphy->tune_val = 0;
 	return 0;
 }
 
@@ -707,7 +784,6 @@ static void qusb_phy_shutdown(struct usb_phy *phy)
 	dev_dbg(phy->dev, "%s\n", __func__);
 
 	qusb_phy_enable_power(qphy, false);
-
 }
 
 static u32 qusb_phy_get_linestate(struct qusb_phy *qphy)
@@ -1015,6 +1091,24 @@ static int qusb_phy_create_debugfs(struct qusb_phy *qphy)
 		}
 	}
 
+	file = debugfs_create_x8("imp_ctrl", 0644, qphy->root,
+						&qphy->imp_ctrl);
+		if (IS_ERR_OR_NULL(file)) {
+			dev_err(qphy->phy.dev,
+				"can't create debugfs entry for %s\n", name);
+			debugfs_remove_recursive(qphy->root);
+			ret = ENOMEM;
+			goto create_err;
+		}
+	file = debugfs_create_x8("pll_bias", 0644, qphy->root,
+						&qphy->pll_bias);
+		if (IS_ERR_OR_NULL(file)) {
+			dev_err(qphy->phy.dev,
+				"can't create debugfs entry for %s\n", name);
+			debugfs_remove_recursive(qphy->root);
+			ret = ENOMEM;
+			goto create_err;
+		}
 	file = debugfs_create_x8("bias_ctrl2", 0644, qphy->root,
 						&qphy->bias_ctrl2);
 	if (IS_ERR_OR_NULL(file)) {
@@ -1071,12 +1165,109 @@ static int qusb_phy_probe(struct platform_device *pdev)
 						"qcom,efuse-num-bits",
 						&qphy->efuse_num_of_bits);
 			}
+			of_property_read_u32(dev->of_node,
+						"qcom,tune-efuse-correction",
+						&qphy->tune_efuse_correction);
 
 			if (ret) {
 				dev_err(dev,
 				"DT Value for efuse is invalid.\n");
 				return -EINVAL;
 			}
+			qphy->efuse_pll_bias = of_property_read_bool(dev->of_node, "mi,efuse-pll-bias");
+			qphy->need_override_tune1 = of_property_read_bool(dev->of_node,
+						"mi,need-override_tune1");
+			size = 0;
+			of_get_property(dev->of_node, "mi,efuse-pll-bias-seq", &size);
+			if (size) {
+				qphy->efuse_pll_bias_seq = devm_kzalloc(dev,
+						size, GFP_KERNEL);
+				if (qphy->efuse_pll_bias_seq) {
+					qphy->efuse_pll_bias_seq_len =
+						(size / sizeof(*qphy->efuse_pll_bias_seq));
+					if (qphy->efuse_pll_bias_seq_len % 2) {
+						dev_err(dev, "invalid efuse_pll_bias_seq len\n");
+						return -EINVAL;
+					}
+
+					of_property_read_u32_array(dev->of_node,
+							"mi,efuse-pll-bias-seq",
+							qphy->efuse_pll_bias_seq,
+							qphy->efuse_pll_bias_seq_len);
+				} else {
+					dev_dbg(dev,
+							"error allocating memory for efuse_pll_bias_seq\n");
+				}
+			}
+			size = 0;
+			of_get_property(dev->of_node, "mi,override_tune1", &size);
+			if (size) {
+				qphy->override_tune1_seq = devm_kzalloc(dev,
+						size, GFP_KERNEL);
+				if (qphy->override_tune1_seq) {
+					qphy->override_tune1_seq_len =
+						(size / sizeof(*qphy->override_tune1_seq));
+					if (qphy->override_tune1_seq_len % 2) {
+						dev_err(dev, "invalid override_tune1_seq len\n");
+						return -EINVAL;
+					}
+
+					of_property_read_u32_array(dev->of_node,
+							"mi,override_tune1",
+							qphy->override_tune1_seq,
+							qphy->override_tune1_seq_len);
+				} else {
+					dev_dbg(dev,
+							"error allocating memory for override_tune1_seq\n");
+				}
+			}
+
+			qphy->efuse_pll_bias_host = of_property_read_bool(dev->of_node, "mi,efuse-pll-bias-host");
+			qphy->need_override_host_tune1 = of_property_read_bool(dev->of_node,
+						"mi,need-override_host_tune1");
+			size = 0;
+			of_get_property(dev->of_node, "mi,efuse-pll-bias-seq-host", &size);
+			if (size) {
+				qphy->efuse_pll_bias_seq_host = devm_kzalloc(dev,
+						size, GFP_KERNEL);
+				if (qphy->efuse_pll_bias_seq_host) {
+					qphy->efuse_pll_bias_seq_host_len =
+						(size / sizeof(*qphy->efuse_pll_bias_seq_host));
+					if (qphy->efuse_pll_bias_seq_host_len % 2) {
+						dev_err(dev, "invalid efuse_pll_bias_seq len\n");
+						return -EINVAL;
+					}
+					of_property_read_u32_array(dev->of_node,
+							"mi,efuse-pll-bias-seq-host",
+							qphy->efuse_pll_bias_seq_host,
+							qphy->efuse_pll_bias_seq_host_len);
+				} else {
+					dev_dbg(dev,
+							"error allocating memory for efuse_pll_bias_seq\n");
+				}
+			}
+			size = 0;
+			of_get_property(dev->of_node, "mi,override_tune1_host", &size);
+			if (size) {
+				qphy->override_tune1_seq_host = devm_kzalloc(dev,
+						size, GFP_KERNEL);
+				if (qphy->override_tune1_seq_host) {
+					qphy->override_tune1_seq_host_len =
+						(size / sizeof(*qphy->override_tune1_seq_host));
+					if (qphy->override_tune1_seq_host_len % 2) {
+						dev_err(dev, "invalid override_tune1_seq len\n");
+						return -EINVAL;
+					}
+					of_property_read_u32_array(dev->of_node,
+							"mi,override_tune1_host",
+							qphy->override_tune1_seq_host,
+							qphy->override_tune1_seq_host_len);
+				} else {
+					dev_dbg(dev,
+							"error allocating memory for override_tune1_seq\n");
+				}
+			}
+
 		}
 	}
 

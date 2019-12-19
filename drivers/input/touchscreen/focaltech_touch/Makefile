@@ -10,8 +10,9 @@ obj-$(CONFIG_TOUCHSCREEN_FTS)	+=  focaltech_ex_mode.o
 obj-$(CONFIG_TOUCHSCREEN_FTS)	+=  focaltech_flash.o
 obj-$(CONFIG_TOUCHSCREEN_FTS)	+=  focaltech_gesture.o
 obj-$(CONFIG_TOUCHSCREEN_FTS)	+=  focaltech_esdcheck.o
-obj-$(CONFIG_TOUCHSCREEN_FTS)	+=  focaltech_i2c.o
-obj-$(CONFIG_TOUCHSCREEN_FTS)	+=  focaltech_sensor.o
-obj-$(CONFIG_TOUCHSCREEN_FTS)	+=  focaltech_point_report_check.o
-obj-$(CONFIG_TOUCHSCREEN_FTS)	+=  focaltech_flash/
+obj-$(CONFIG_TOUCHSCREEN_FTS)   +=  focaltech_i2c.o
+obj-$(CONFIG_TOUCHSCREEN_FTS)   +=  focaltech_point_report_check.o
+obj-$(CONFIG_TOUCHSCREEN_FTS)   +=  focaltech_flash/
+obj-$(CONFIG_TOUCHSCREEN_FTS_FT8719)   +=  focaltech_test/
+obj-$(CONFIG_TOUCHSCREEN_FTS_FT3518)   +=  focaltech_test_ft3518/
 

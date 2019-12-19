@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -170,6 +171,15 @@ static void _sde_core_perf_calc_crtc(struct sde_kms *kms,
 		}
 		perf->core_clk_rate = kms->perf.fix_core_clk_rate;
 	}
+
+	trace_sde_perf_calc_crtc(crtc->base.id,
+			perf->bw_ctl[SDE_POWER_HANDLE_DBUS_ID_MNOC],
+			perf->bw_ctl[SDE_POWER_HANDLE_DBUS_ID_LLCC],
+			perf->bw_ctl[SDE_POWER_HANDLE_DBUS_ID_EBI],
+			perf->max_per_pipe_ib[SDE_POWER_HANDLE_DBUS_ID_MNOC],
+			perf->max_per_pipe_ib[SDE_POWER_HANDLE_DBUS_ID_LLCC],
+			perf->max_per_pipe_ib[SDE_POWER_HANDLE_DBUS_ID_EBI],
+			perf->core_clk_rate);
 
 	SDE_EVT32(crtc->base.id, perf->core_clk_rate);
 	trace_sde_perf_calc_crtc(crtc->base.id,
@@ -627,6 +637,12 @@ void sde_core_perf_crtc_update(struct drm_crtc *crtc,
 		new->core_clk_rate, stop_req,
 		update_bus, update_clk, params_changed);
 
+	trace_printk("crtc:%d ib_mnoc:%llu ib_llc:%llu ib_ebi:%llu\n",
+		crtc->base.id,
+		new->max_per_pipe_ib[SDE_POWER_HANDLE_DBUS_ID_MNOC],
+		new->max_per_pipe_ib[SDE_POWER_HANDLE_DBUS_ID_LLCC],
+		new->max_per_pipe_ib[SDE_POWER_HANDLE_DBUS_ID_EBI]);
+
 	for (i = 0; i < SDE_POWER_HANDLE_DBUS_ID_MAX; i++) {
 		if (update_bus & BIT(i))
 			_sde_core_perf_crtc_update_bus(kms, crtc, i);
@@ -641,6 +657,7 @@ void sde_core_perf_crtc_update(struct drm_crtc *crtc,
 
 		SDE_EVT32(kms->dev, stop_req, clk_rate, params_changed,
 			old->core_clk_rate, new->core_clk_rate);
+
 		ret = sde_power_clk_set_rate(&priv->phandle,
 				kms->perf.clk_name, clk_rate);
 		if (ret) {

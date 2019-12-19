@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -167,7 +168,7 @@ static int32_t cam_icp_program_fw(const uint8_t *elf,
 		if (prg_hdr->p_filesz != 0) {
 			src = (u8 *)((u8 *)elf + prg_hdr->p_offset);
 			dest = (u8 *)(((u8 *)core_info->fw_kva_addr) +
-				prg_hdr->p_vaddr);
+						prg_hdr->p_vaddr);
 
 			memcpy_toio(dest, src, prg_hdr->p_filesz);
 		}
@@ -354,11 +355,9 @@ irqreturn_t cam_a5_irq(int irq_num, void *data)
 		CAM_ERR_RATE_LIMIT(CAM_ICP, "watch dog interrupt from A5");
 	}
 
-	spin_lock(&a5_dev->hw_lock);
 	if (core_info->irq_cb.icp_hw_mgr_cb)
 		core_info->irq_cb.icp_hw_mgr_cb(irq_status,
 					core_info->irq_cb.data);
-	spin_unlock(&a5_dev->hw_lock);
 
 	return IRQ_HANDLED;
 }
@@ -371,7 +370,6 @@ int cam_a5_process_cmd(void *device_priv, uint32_t cmd_type,
 	struct cam_a5_device_core_info *core_info = NULL;
 	struct cam_a5_device_hw_info *hw_info = NULL;
 	struct a5_soc_info *a5_soc = NULL;
-	unsigned long flags;
 	int rc = 0;
 
 	if (!device_priv) {
@@ -417,10 +415,8 @@ int cam_a5_process_cmd(void *device_priv, uint32_t cmd_type,
 			return -EINVAL;
 		}
 
-		spin_lock_irqsave(&a5_dev->hw_lock, flags);
 		core_info->irq_cb.icp_hw_mgr_cb = irq_cb->icp_hw_mgr_cb;
 		core_info->irq_cb.data = irq_cb->data;
-		spin_unlock_irqrestore(&a5_dev->hw_lock, flags);
 		break;
 	}
 

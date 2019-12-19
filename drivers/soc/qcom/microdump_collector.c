@@ -1,4 +1,5 @@
 /* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,12 +17,86 @@
 #include <soc/qcom/subsystem_notif.h>
 #include <soc/qcom/ramdump.h>
 #include <soc/qcom/smem.h>
+#include <linux/workqueue.h>
 
 /*
  * This program collects the data from SMEM regions whenever the modem crashes
  * and stores it in /dev/ramdump_microdump_modem so as to expose it to
  * user space.
  */
+
+#define STR_NV_SIGNATURE_DESTROYED "CRITICAL_DATA_CHECK_FAILED"
+#define MAX_SSR_REASON_LEN 130U
+
+static struct kobject *checknv_kobj;
+static struct kset *checknv_kset;
+
+static const struct sysfs_ops checknv_sysfs_ops = {
+};
+
+static void kobj_release(struct kobject *kobj)
+{
+	kfree(kobj);
+}
+
+static struct kobj_type checknv_ktype = {
+	.sysfs_ops = &checknv_sysfs_ops,
+	.release = kobj_release,
+};
+
+static void checknv_kobj_clean(struct work_struct *work)
+{
+	kobject_uevent(checknv_kobj, KOBJ_REMOVE);
+	kobject_put(checknv_kobj);
+	kset_unregister(checknv_kset);
+}
+
+static void checknv_kobj_create(struct work_struct *work)
+{
+	int ret;
+
+	if (checknv_kset != NULL) {
+		pr_err("checknv_kset is not NULL, should clean up.");
+		kobject_uevent(checknv_kobj, KOBJ_REMOVE);
+		kobject_put(checknv_kobj);
+	}
+
+	checknv_kobj = kzalloc(sizeof(struct kobject), GFP_KERNEL);
+	if (!checknv_kobj) {
+		pr_err("kobject alloc failed.");
+		return;
+	}
+
+	if (checknv_kset == NULL) {
+		checknv_kset = kset_create_and_add("checknv_errimei", NULL, NULL);
+		if (!checknv_kset) {
+			pr_err("kset creation failed.");
+			goto free_kobj;
+		}
+	}
+
+	checknv_kobj->kset = checknv_kset;
+
+	ret = kobject_init_and_add(checknv_kobj, &checknv_ktype, NULL, "%s", "errimei");
+	if (ret) {
+		pr_err("%s: Error in creation kobject", __func__);
+		goto del_kobj;
+	}
+
+	kobject_uevent(checknv_kobj, KOBJ_ADD);
+	return;
+
+del_kobj:
+	kobject_put(checknv_kobj);
+	kset_unregister(checknv_kset);
+
+free_kobj:
+	kfree(checknv_kobj);
+}
+
+static DECLARE_DELAYED_WORK(create_kobj_work, checknv_kobj_create);
+static DECLARE_WORK(clean_kobj_work, checknv_kobj_clean);
+static char last_modem_sfr_reason[MAX_SSR_REASON_LEN] = "none";
 
 struct microdump_data {
 	struct ramdump_device *microdump_dev;
@@ -65,6 +140,15 @@ static int microdump_modem_notifier_nb(struct notifier_block *nb,
 
 		segment[1].v_address = crash_data;
 		segment[1].size = size_data;
+		strlcpy(last_modem_sfr_reason, crash_reason, MAX_SSR_REASON_LEN);
+		pr_err("modem subsystem failure reason: %s.\n", last_modem_sfr_reason);
+
+		// If the NV protected file (critical_info) is destroyed, restart to recovery to inform user
+		if (strnstr(last_modem_sfr_reason, STR_NV_SIGNATURE_DESTROYED, strlen(last_modem_sfr_reason))) {
+			pr_err("errimei_dev: the NV has been destroyed, should restart to recovery\n");
+			schedule_delayed_work(&create_kobj_work, msecs_to_jiffies(1*1000));
+			goto out;
+		}
 
 		ret = do_ramdump(drv->microdump_dev, segment, 2);
 		if (ret)
@@ -141,6 +225,7 @@ out:
 
 static void __exit microdump_exit(void)
 {
+	schedule_work(&clean_kobj_work);
 	if (!drv)
 		return;
 

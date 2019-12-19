@@ -77,6 +77,17 @@ enum rq_cmd_type_bits {
 	REQ_TYPE_DRV_PRIV,		/* driver defined types from here */
 };
 
+enum bio_status {
+	BIO_INIT,
+	BIO_ISSUED,
+	BIO_TIMEOUT,
+	BIO_NEEDS_RETRY,
+	BIO_ADD_TO_MLQUEUE,
+	BIO_SUCCESS,
+	BIO_HALF_SUCCESS,
+	BIO_UNKNOWN,
+};
+
 #define BLK_MAX_CDB	16
 
 /*
@@ -520,7 +531,7 @@ struct request_queue {
 #define QUEUE_FLAG_MQ_DEFAULT	((1 << QUEUE_FLAG_IO_STAT) |		\
 				 (1 << QUEUE_FLAG_STACKABLE)	|	\
 				 (1 << QUEUE_FLAG_SAME_COMP)	|	\
-				 (1 << QUEUE_FLAG_POLL))
+				 (0 << QUEUE_FLAG_POLL))
 
 static inline void queue_lockdep_assert_held(struct request_queue *q)
 {
@@ -847,7 +858,13 @@ extern int blk_execute_rq(struct request_queue *, struct gendisk *,
 extern void blk_execute_rq_nowait(struct request_queue *, struct gendisk *,
 				  struct request *, int, rq_end_io_fn *);
 
-bool blk_poll(struct request_queue *q, blk_qc_t cookie);
+bool blk_poll(struct request_queue *q, blk_qc_t cookie, struct bio *bio);
+
+void blk_set_bio_status(struct request *q, unsigned int status);
+
+bool blk_request_is_polling(struct request *rq);
+
+void blk_request_set_polling(struct request *rq, bool polling);
 
 static inline struct request_queue *bdev_get_queue(struct block_device *bdev)
 {
