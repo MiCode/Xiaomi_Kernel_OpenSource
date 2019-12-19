@@ -800,6 +800,7 @@ void mtk_venc_pmqos_gce_done(struct mtk_vcodec_ctx *ctx, int core_id,
 
 	mtk_venc_dvfs_end(job);
 	mtk_venc_emi_bw_end(job);
+	free_job(job);
 
 	if (job_cnt > 1) {
 		mtk_venc_dvfs_begin(&temp_venc_jobs[core_id]);
