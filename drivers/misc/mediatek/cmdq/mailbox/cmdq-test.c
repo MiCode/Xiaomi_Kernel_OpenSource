@@ -796,8 +796,34 @@ static void cmdq_test_devapc_vio(struct cmdq_test *test)
 	pkt = cmdq_pkt_create(test->clt);
 	cmdq_pkt_read(pkt, NULL, 0x14000000, CMDQ_THR_SPR_IDX3);
 	ret = cmdq_pkt_flush(pkt);
+	cmdq_pkt_destroy(pkt);
 
 	cmdq_msg("%s ret:%d end", __func__, ret);
+}
+
+static void cmdq_test_mbox_stop(struct cmdq_test *test)
+{
+	struct cmdq_pkt *pkt[3];
+	int i;
+
+	cmdq_msg("%s", __func__);
+
+	for (i = 0; i < ARRAY_SIZE(pkt); i++) {
+		pkt[i] = cmdq_pkt_create(test->clt);
+		cmdq_pkt_wfe(pkt[i], test->token_user0);
+		cmdq_pkt_flush_async(pkt[i], NULL, NULL);
+	}
+
+	cmdq_msg("%s stop channel", __func__);
+	cmdq_mbox_channel_stop(test->clt->chan);
+
+	cmdq_msg("%s still wait it", __func__);
+	for (i = 0; i < ARRAY_SIZE(pkt); i++) {
+		cmdq_pkt_wait_complete(pkt[i]);
+		cmdq_pkt_destroy(pkt[i]);
+	}
+
+	cmdq_msg("%s end", __func__);
 }
 
 static void
@@ -870,6 +896,9 @@ cmdq_test_trigger(struct cmdq_test *test, const s32 sec, const s32 id)
 		break;
 	case 14:
 		cmdq_test_mbox_polling(test, sec, true, true);
+		break;
+	case 15:
+		cmdq_test_mbox_stop(test);
 		break;
 	default:
 		break;

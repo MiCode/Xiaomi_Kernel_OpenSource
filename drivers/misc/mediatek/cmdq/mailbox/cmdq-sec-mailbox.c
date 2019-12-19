@@ -259,7 +259,7 @@ static void cmdq_sec_task_done(struct cmdq_sec_task *task, s32 err)
 		task->pkt->cb.cb(cb_data);
 	}
 
-	list_del(&task->list_entry);
+	list_del_init(&task->list_entry);
 	kfree(task);
 }
 
@@ -307,10 +307,11 @@ static bool cmdq_sec_irq_handler(
 			thread->task_cnt -= 1;
 		done--;
 	}
-	spin_unlock_irqrestore(&thread->chan->lock, flags);
 
 	if (err && cur_task) {
 		struct cmdq_cb_data cb_data;
+
+		spin_unlock_irqrestore(&thread->chan->lock, flags);
 
 		/* for error task, cancel, callback and done */
 		memset(&cmdq->cancel, 0, sizeof(cmdq->cancel));
@@ -321,25 +322,22 @@ static bool cmdq_sec_irq_handler(
 		cb_data.data = cur_task->pkt->err_cb.data;
 		cur_task->pkt->err_cb.cb(cb_data);
 
-		cmdq_sec_task_done(cur_task, err);
-	}
+		spin_lock_irqsave(&thread->chan->lock, flags);
 
-	spin_lock_irqsave(&thread->chan->lock, flags);
+		task = list_first_entry_or_null(&thread->task_list,
+			struct cmdq_sec_task, list_entry);
+		if (cur_task == task)
+			cmdq_sec_task_done(cur_task, err);
+		else
+			cmdq_err("task list changed");
 
-	/* error case stop all task for secure,
-	 * since secure tdrv always remove all when cancel
-	 */
-	if (err && cur_task) {
+		/* error case stop all task for secure,
+		 * since secure tdrv always remove all when cancel
+		 */
 		while (!list_empty(&thread->task_list)) {
-			struct cmdq_cb_data cb_data;
-
 			cur_task = list_first_entry(
 				&thread->task_list, struct cmdq_sec_task,
 				list_entry);
-
-			cb_data.err = err;
-			cb_data.data = cur_task->pkt->err_cb.data;
-			cur_task->pkt->err_cb.cb(cb_data);
 
 			cmdq_sec_task_done(cur_task, -ECONNABORTED);
 		}
@@ -1089,13 +1087,15 @@ static int cmdq_sec_mbox_startup(struct mbox_chan *chan)
 {
 	struct cmdq_sec_thread *thread =
 		(struct cmdq_sec_thread *)chan->con_priv;
+	char name[20];
 
 	thread->timeout.function = cmdq_sec_thread_timeout;
 	thread->timeout.data = (unsigned long)thread;
 	init_timer(&thread->timeout);
 
 	INIT_WORK(&thread->timeout_work, cmdq_sec_task_timeout_work);
-	thread->task_exec_wq = create_singlethread_workqueue("task_exec_wq");
+	snprintf(name, sizeof(name), "task_exec_wq_%u", thread->idx);
+	thread->task_exec_wq = create_singlethread_workqueue(name);
 	thread->occupied = true;
 	return 0;
 }
