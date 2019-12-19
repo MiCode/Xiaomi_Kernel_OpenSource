@@ -371,6 +371,8 @@ struct mtk_vcodec_ctx {
 	wait_queue_head_t fm_wq;
 	int input_driven;
 	int user_lock_hw;
+	/* for user lock HW case release check */
+	int hw_locked[MTK_VDEC_HW_NUM];
 	int async_mode;
 	int oal_vcodec;
 

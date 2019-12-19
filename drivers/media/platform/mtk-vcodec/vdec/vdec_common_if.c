@@ -369,6 +369,8 @@ static void vdec_get_fb(struct vdec_inst *inst,
 
 	vdec_fb_va = (unsigned long)list->fb_list[list->read_idx].vdec_fb_va;
 	fb = (struct vdec_fb *)vdec_fb_va;
+	if (fb == NULL)
+		return;
 	fb->timestamp = list->fb_list[list->read_idx].timestamp;
 
 	if (disp_list)
