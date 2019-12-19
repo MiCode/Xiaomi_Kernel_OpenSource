@@ -23,7 +23,7 @@
 #define CMDQ_MBOX_NUM			4
 #define CMDQ_HW_MAX			2
 #define CMDQ_RECORD_NUM			512
-#define CMDQ_FIRST_ERR_SIZE		262144	/* 256k */
+#define CMDQ_FIRST_ERR_SIZE		524288	/* 512k */
 
 #define CMDQ_CURR_IRQ_STATUS		0x10
 #define CMDQ_CURR_LOADED_THR		0x18
@@ -48,6 +48,7 @@ struct cmdq_util_error {
 	char		*buffer;
 	u32		length;
 	u64		nsec;
+	struct timeval	errtm;
 	char		caller[TASK_COMM_LEN]; // TODO
 };
 
@@ -108,7 +109,10 @@ bool cmdq_util_is_feature_en(u8 feature)
 
 void cmdq_util_error_enable(void)
 {
-	util.err.nsec = sched_clock();
+	if (!util.err.nsec) {
+		util.err.nsec = sched_clock();
+		do_gettimeofday(&util.err.errtm);
+	}
 	util.err.enable = true;
 }
 EXPORT_SYMBOL(cmdq_util_error_enable);
@@ -131,19 +135,17 @@ void cmdq_util_dump_unlock(void)
 }
 EXPORT_SYMBOL(cmdq_util_dump_unlock);
 
-s32 cmdq_util_error_save(const char *str, ...)
+s32 cmdq_util_error_save_lst(const char *format, va_list args)
 {
-	unsigned long	flags;
-	va_list		args;
-	s32		size;
+	unsigned long flags;
+	s32 size;
 
 	if (!util.err.enable || !util.err.buffer)
 		return -EFAULT;
 
-	va_start(args, str);
 	spin_lock_irqsave(&util.err.lock, flags);
 	size = vsnprintf(util.err.buffer + util.err.length,
-		CMDQ_FIRST_ERR_SIZE - util.err.length, str, args);
+		CMDQ_FIRST_ERR_SIZE - util.err.length, format, args);
 	util.err.length += size;
 	spin_unlock_irqrestore(&util.err.lock, flags);
 
@@ -152,6 +154,19 @@ s32 cmdq_util_error_save(const char *str, ...)
 		cmdq_err("util.err.length:%u is over CMDQ_FIRST_ERR_SIZE:%u",
 			util.err.length, CMDQ_FIRST_ERR_SIZE);
 	}
+	return 0;
+}
+EXPORT_SYMBOL(cmdq_util_error_save_lst);
+
+s32 cmdq_util_error_save(const char *format, ...)
+{
+	va_list args;
+
+	if (!util.err.enable || !util.err.buffer)
+		return -EFAULT;
+
+	va_start(args, format);
+	cmdq_util_error_save_lst(format, args);
 	va_end(args);
 	return 0;
 }
@@ -161,12 +176,19 @@ static int cmdq_util_status_print(struct seq_file *seq, void *data)
 {
 	u64		sec = util.err.nsec;
 	unsigned long	nsec = do_div(sec, 1000000000);
+	struct tm	nowtm;
 
 	if (!util.err.length)
 		return 0;
 
-	seq_printf(seq, "======== [cmdq] first error [%5llu.%06lu] ========\n",
-		sec, nsec);
+	time_to_tm(util.err.errtm.tv_sec, sys_tz.tz_minuteswest * 60, &nowtm);
+
+	seq_printf(seq,
+		"[cmdq] first error kernel time:[%5llu.%06lu] UTC time:[%04ld-%02d-%02d %02d:%02d:%02d.%06ld]\n",
+		sec, nsec,
+		nowtm.tm_year + 1900, nowtm.tm_mon + 1,
+		nowtm.tm_mday, nowtm.tm_hour, nowtm.tm_min,
+		nowtm.tm_sec, util.err.errtm.tv_usec);
 	seq_printf(seq, "%s", util.err.buffer);
 	return 0;
 }
@@ -452,7 +474,7 @@ static int __init cmdq_util_init(void)
 	cmdq_msg("%s begin", __func__);
 
 	spin_lock_init(&util.err.lock);
-	util.err.buffer = kzalloc(CMDQ_FIRST_ERR_SIZE, GFP_KERNEL);
+	util.err.buffer = vzalloc(CMDQ_FIRST_ERR_SIZE);
 	if (!util.err.buffer)
 		return -ENOMEM;
 

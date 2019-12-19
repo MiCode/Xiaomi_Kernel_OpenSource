@@ -59,49 +59,31 @@ enum TASK_STATE_ENUM {
 #define CMDQ_MAX_DBG_STR_LEN		(1024)
 #define CMDQ_MAX_USER_PROP_SIZE		(1024)
 
-#ifdef CMDQ_DUMP_FIRSTERROR
-#ifdef CMDQ_LARGE_MAX_FIRSTERROR_BUFFER
-#define CMDQ_MAX_FIRSTERROR	(128*1024)
-#else
-#define CMDQ_MAX_FIRSTERROR	(32*1024)
-#endif
-struct DumpFirstErrorStruct {
-	pid_t callerPid;
-	char callerName[TASK_COMM_LEN];
-	unsigned long long savetime;	/* epoch time of first error occur */
-	char *cmdqString;
-	u32 cmdqCount;
-	s32 cmdqMaxSize;
-	bool flag;
-	struct timeval savetv;
-};
-#endif
-
 #define CMDQ_LOG(string, args...) \
 do {			\
-	pr_notice("[CMDQ]"string, ##args); \
-	cmdq_core_save_first_dump("[CMDQ]"string, ##args); \
+	pr_notice("[MDP]"string, ##args); \
+	cmdq_core_save_first_dump("[MDP]"string, ##args); \
 } while (0)
 
 #define CMDQ_MSG(string, args...) \
 do {			\
 	if (cmdq_core_should_print_msg()) { \
-		pr_notice("[CMDQ]"string, ##args); \
+		pr_notice("[MDP]"string, ##args); \
 	} \
 } while (0)
 
 #define CMDQ_VERBOSE(string, args...) \
 do { \
 	if (cmdq_core_should_print_msg()) { \
-		pr_debug("[CMDQ]"string, ##args); \
+		pr_debug("[MDP]"string, ##args); \
 	} \
 } while (0)
 
 
 #define CMDQ_ERR(string, args...) \
 do {			\
-	pr_notice("[CMDQ][ERR]"string, ##args); \
-	cmdq_core_save_first_dump("[CMDQ][ERR]"string, ##args); \
+	pr_notice("[MDP][ERR]"string, ##args); \
+	cmdq_core_save_first_dump("[MDP]"string, ##args); \
 } while (0)
 
 #define CMDQ_CHECK_AND_BREAK_STATUS(status)\
@@ -116,9 +98,8 @@ if (status < 0)		\
 do {			\
 	char dispatchedTag[50]; \
 	snprintf(dispatchedTag, 50, "CRDISPATCH_KEY:%s", tag); \
-	pr_notice("[CMDQ][AEE]"string, ##args); \
-	cmdq_core_save_first_dump("[CMDQ][AEE]"string, ##args); \
-	cmdq_core_turnoff_first_dump(); \
+	pr_notice("[MDP][AEE]"string, ##args); \
+	cmdq_core_save_first_dump("[MDP][AEE]"string, ##args); \
 	aee_kernel_warning_api(__FILE__, __LINE__, \
 		DB_OPT_DEFAULT | DB_OPT_PROC_CMDQ_INFO | \
 		DB_OPT_MMPROFILE_BUFFER | DB_OPT_FTRACE | DB_OPTs, \
@@ -138,10 +119,9 @@ do { \
 do {			\
 	char dispatchedTag[50]; \
 	snprintf(dispatchedTag, 50, "CRDISPATCH_KEY:%s", tag); \
-	pr_debug("[CMDQ][AEE] AEE not READY!!!"); \
-	pr_debug("[CMDQ][AEE]"string, ##args); \
-	cmdq_core_save_first_dump("[CMDQ][AEE]"string, ##args); \
-	cmdq_core_turnoff_first_dump(); \
+	pr_debug("[MDP][AEE] AEE not READY!!!"); \
+	pr_debug("[MDP][AEE]"string, ##args); \
+	cmdq_core_save_first_dump("[MDP][AEE]"string, ##args); \
 } while (0);	\
 }
 #endif
@@ -854,14 +834,8 @@ int cmdq_core_print_status_seq(struct seq_file *m, void *v);
 
 void cmdq_core_dump_trigger_loop_thread(const char *tag);
 
-/* Save first error dump */
-void cmdq_core_turnon_first_dump(const struct cmdqRecStruct *task);
-
-void cmdq_core_turnoff_first_dump(void);
-void cmdq_core_reset_first_dump(void);
-
 /* cmdq_core_save_first_dump - save a CMDQ first error dump to file */
-s32 cmdq_core_save_first_dump(const char *string, ...);
+s32 cmdq_core_save_first_dump(const char *format, ...);
 const char *cmdq_core_query_first_err_mod(void);
 
 /* Allocate/Free HW use buffer, e.g. command buffer forCMDQ HW */

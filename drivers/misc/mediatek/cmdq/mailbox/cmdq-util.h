@@ -50,7 +50,6 @@ enum {
 		snprintf(tag, LINK_MAX, "CRDISPATCH_KEY:%s", key); \
 		cmdq_aee(fmt, ##args); \
 		cmdq_util_error_save("[cmdq][aee] "fmt"\n", ##args); \
-		cmdq_util_error_disable(); \
 		aee_kernel_warning_api(__FILE__, __LINE__, \
 			DB_OPT_CMDQ, tag, fmt, ##args); \
 	} while (0)
@@ -61,7 +60,6 @@ enum {
 		snprintf(tag, LINK_MAX, "CRDISPATCH_KEY:%s", key); \
 		cmdq_aee(fmt" (aee not ready)", ##args); \
 		cmdq_util_error_save("[cmdq][aee] "fmt"\n", ##args); \
-		cmdq_util_error_disable(); \
 	} while (0)
 
 #endif
@@ -75,7 +73,8 @@ void cmdq_util_error_enable(void); // TODO : need be called
 void cmdq_util_error_disable(void);
 void cmdq_util_dump_lock(void);
 void cmdq_util_dump_unlock(void);
-s32 cmdq_util_error_save(const char *str, ...);
+s32 cmdq_util_error_save_lst(const char *format, va_list args);
+s32 cmdq_util_error_save(const char *format, ...);
 void cmdq_util_dump_dbg_reg(void *chan);
 void cmdq_util_track(struct cmdq_pkt *pkt);
 void cmdq_util_dump_smi(void);
