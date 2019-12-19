@@ -346,7 +346,7 @@ static int mtk_adda_ul_event(struct snd_soc_dapm_widget *w,
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		/* should delayed 1/fs(smallest is 8k) = 125us before afe off */
-		usleep_range(125, 125);
+		udelay(125);
 		mt6873_afe_gpio_request(afe, false, MT6873_DAI_ADDA, 1);
 
 		/* reset dmic */
@@ -404,7 +404,7 @@ static int mtk_adda_ch34_ul_event(struct snd_soc_dapm_widget *w,
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		/* should delayed 1/fs(smallest is 8k) = 125us before afe off */
-		usleep_range(125, 125);
+		udelay(125);
 		mt6873_afe_gpio_request(afe, false, MT6873_DAI_ADDA_CH34, 1);
 
 		/* reset dmic */
@@ -559,7 +559,7 @@ static int mtk_adda_dl_event(struct snd_soc_dapm_widget *w,
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		/* should delayed 1/fs(smallest is 8k) = 125us before afe off */
-		usleep_range(125, 125);
+		udelay(125);
 		mt6873_afe_gpio_request(afe, false, MT6873_DAI_ADDA, 0);
 		break;
 	default:
@@ -585,7 +585,7 @@ static int mtk_adda_ch34_dl_event(struct snd_soc_dapm_widget *w,
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		/* should delayed 1/fs(smallest is 8k) = 125us before afe off */
-		usleep_range(125, 125);
+		udelay(125);
 		mt6873_afe_gpio_request(afe, false, MT6873_DAI_ADDA_CH34, 0);
 		break;
 	default:

@@ -158,7 +158,7 @@ int mt6873_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 		 */
 		if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
 			if ((runtime->period_size * 1000) / rate <= 10)
-				usleep_range(300, 300);
+				udelay(300);
 		}
 
 		if (ret) {
