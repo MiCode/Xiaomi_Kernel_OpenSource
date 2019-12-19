@@ -1789,6 +1789,7 @@ static int mtk_jpeg_open(struct file *file)
 error:
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
+	v4l2_ctrl_handler_free(&ctx->ctrl_hdl);
 	mutex_unlock(&jpeg->lock);
 free:
 	kfree(ctx);
@@ -1816,6 +1817,7 @@ static int mtk_jpeg_release(struct file *file)
 	v4l2_m2m_ctx_release(ctx->fh.m2m_ctx);
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
+	v4l2_ctrl_handler_free(&ctx->ctrl_hdl);
 	kfree(ctx);
 	mutex_unlock(&jpeg->lock);
 	up(&jpeg->sem);
