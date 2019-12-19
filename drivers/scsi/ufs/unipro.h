@@ -64,6 +64,7 @@
 #define CFGRXOVR4				0x00E9
 #define RXSQCTRL				0x00B5
 #define CFGRXOVR6				0x00BF
+#define RX_HS_ADAPT_INITIAL_CAPABILITY		0x009F
 
 #define is_mphy_tx_attr(attr)			(attr < RX_MODE)
 #define RX_MIN_ACTIVATETIME_UNIT_US		100
@@ -150,6 +151,17 @@
 #define PA_TACTIVATE_TIME_UNIT_US	10
 #define PA_HIBERN8_TIME_UNIT_US		100
 
+#ifdef CONFIG_SCSI_UFSHCD_QTI
+#define PA_PEERRXHSADAPTINITIAL	0x15D3
+#define PA_TXHSADAPTTYPE	0x15D4
+#define PA_PEERRXHSADAPTINITIAL_Default	0x91
+
+/* Adpat type for PA_TXHSADAPTTYPE attribute */
+#define PA_REFRESH_ADAPT	0x00
+#define PA_INITIAL_ADAPT	0x01
+#define PA_NO_ADAPT		0x03
+#endif
+
 /*Other attributes*/
 #define VS_MPHYCFGUPDT		0xD085
 #define VS_DEBUGOMC		0xD09E
@@ -161,6 +173,18 @@
 /* PHY Adapter Protocol Constants */
 #define PA_MAXDATALANES	4
 
+#ifdef CONFIG_SCSI_UFSHCD_QTI
+#define DL_FC0ProtectionTimeOutVal_Default	8191
+#define DL_TC0ReplayTimeOutVal_Default		65535
+#define DL_AFC0ReqTimeOutVal_Default		32767
+#define DL_FC1ProtectionTimeOutVal_Default	8191
+#define DL_TC1ReplayTimeOutVal_Default		65535
+#define DL_AFC1ReqTimeOutVal_Default		32767
+
+#define DME_LocalFC0ProtectionTimeOutVal	0xD041
+#define DME_LocalTC0ReplayTimeOutVal		0xD042
+#define DME_LocalAFC0ReqTimeOutVal		0xD043
+#endif
 /* PA power modes */
 enum {
 	FAST_MODE	= 1,
@@ -192,6 +216,9 @@ enum ufs_hs_gear_tag {
 	UFS_HS_G1,		/* HS Gear 1 (default for reset) */
 	UFS_HS_G2,		/* HS Gear 2 */
 	UFS_HS_G3,		/* HS Gear 3 */
+#ifdef CONFIG_SCSI_UFSHCD_QTI
+	UFS_HS_G4,		/* HS Gear 4 */
+#endif
 };
 
 enum ufs_unipro_ver {

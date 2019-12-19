@@ -6,10 +6,16 @@
 #define UFS_QCOM_H_
 
 #include <linux/reset-controller.h>
+#include <linux/phy/phy.h>
+#include "ufshcd.h"
+#ifdef CONFIG_SCSI_UFSHCD_QTI
+#include "unipro.h"
+#endif
 
-#define MAX_UFS_QCOM_HOSTS	1
+#define MAX_UFS_QCOM_HOSTS	2
 #define MAX_U32                 (~(u32)0)
 #define MPHY_TX_FSM_STATE       0x41
+#define MPHY_RX_FSM_STATE       0xC1
 #define TX_FSM_HIBERN8          0x1
 #define HBRN8_POLL_TOUT_MS      100
 #define DEFAULT_CLK_RATE_HZ     1000000
@@ -28,10 +34,17 @@
 
 #define UFS_QCOM_LIMIT_NUM_LANES_RX	2
 #define UFS_QCOM_LIMIT_NUM_LANES_TX	2
-#define UFS_QCOM_LIMIT_HSGEAR_RX	UFS_HS_G3
-#define UFS_QCOM_LIMIT_HSGEAR_TX	UFS_HS_G3
+#ifdef CONFIG_SCSI_UFSHCD_QTI
+#define UFS_QCOM_LIMIT_HSGEAR_RX	UFS_HS_G4
+#define UFS_QCOM_LIMIT_HSGEAR_TX	UFS_HS_G4
 #define UFS_QCOM_LIMIT_PWMGEAR_RX	UFS_PWM_G4
 #define UFS_QCOM_LIMIT_PWMGEAR_TX	UFS_PWM_G4
+#else
+#define UFS_QCOM_LIMIT_HSGEAR_RX	UFS_HS_G3
+#define UFS_QCOM_LIMIT_HSGEAR_TX	UFS_HS_G3
+#define UFS_QCOM_LIMIT_PWMGEAR_RX	UFS_PWM_G3
+#define UFS_QCOM_LIMIT_PWMGEAR_TX	UFS_PWM_G3
+#endif
 #define UFS_QCOM_LIMIT_RX_PWR_PWM	SLOW_MODE
 #define UFS_QCOM_LIMIT_TX_PWR_PWM	SLOW_MODE
 #define UFS_QCOM_LIMIT_RX_PWR_HS	FAST_MODE
@@ -109,6 +122,17 @@ enum {
 				 DFC_HW_CGC_EN | TRLUT_HW_CGC_EN |\
 				 TMRLUT_HW_CGC_EN | OCSC_HW_CGC_EN)
 
+/* bit definitions for UFS_AH8_CFG register */
+#define CC_UFS_HCLK_REQ_EN		BIT(1)
+#define CC_UFS_SYS_CLK_REQ_EN		BIT(2)
+#define CC_UFS_ICE_CORE_CLK_REQ_EN	BIT(3)
+#define CC_UFS_UNIPRO_CORE_CLK_REQ_EN	BIT(4)
+#define CC_UFS_AUXCLK_REQ_EN		BIT(5)
+
+#define UFS_HW_CLK_CTRL_EN	(CC_UFS_SYS_CLK_REQ_EN |\
+				 CC_UFS_ICE_CORE_CLK_REQ_EN |\
+				 CC_UFS_UNIPRO_CORE_CLK_REQ_EN |\
+				 CC_UFS_AUXCLK_REQ_EN)
 /* bit offset */
 enum {
 	OFFSET_UFS_PHY_SOFT_RESET           = 1,
@@ -122,6 +146,11 @@ enum {
 	MASK_CLK_NS_REG                     = 0xFFFC00,
 };
 
+enum ufs_qcom_phy_init_type {
+	UFS_PHY_INIT_FULL,
+	UFS_PHY_INIT_CFG_RESTORE,
+};
+
 /* QCOM UFS debug print bit mask */
 #define UFS_QCOM_DBG_PRINT_REGS_EN	BIT(0)
 #define UFS_QCOM_DBG_PRINT_ICE_REGS_EN	BIT(1)
@@ -133,10 +162,30 @@ enum {
 
 /* QUniPro Vendor specific attributes */
 #define PA_VS_CONFIG_REG1	0x9000
+#define SAVECONFIGTIME_MODE_MASK	0x6000
 #define DME_VS_CORE_CLK_CTRL	0xD002
 /* bit and mask definitions for DME_VS_CORE_CLK_CTRL attribute */
 #define DME_VS_CORE_CLK_CTRL_CORE_CLK_DIV_EN_BIT		BIT(8)
 #define DME_VS_CORE_CLK_CTRL_MAX_CORE_CLK_1US_CYCLES_MASK	0xFF
+
+#define PA_VS_CLK_CFG_REG	0x9004
+#define PA_VS_CLK_CFG_REG_MASK	0x1FF
+#define DME_VS_CORE_CLK_CTRL_MAX_CORE_CLK_1US_CYCLES_MASK_V4	0xFFF
+#define DME_VS_CORE_CLK_CTRL_MAX_CORE_CLK_1US_CYCLES_OFFSET_V4	0x10
+
+#define PA_VS_CORE_CLK_40NS_CYCLES	0x9007
+#define PA_VS_CORE_CLK_40NS_CYCLES_MASK	0xF
+
+#define DL_VS_CLK_CFG		0xA00B
+#define DL_VS_CLK_CFG_MASK	0x3FF
+
+#define DME_VS_CORE_CLK_CTRL	0xD002
+/* bit and mask definitions for DME_VS_CORE_CLK_CTRL attribute */
+#define DME_VS_CORE_CLK_CTRL_MAX_CORE_CLK_1US_CYCLES_MASK_V4	0xFFF
+#define DME_VS_CORE_CLK_CTRL_MAX_CORE_CLK_1US_CYCLES_OFFSET_V4	0x10
+#define DME_VS_CORE_CLK_CTRL_MAX_CORE_CLK_1US_CYCLES_MASK	0xFF
+#define DME_VS_CORE_CLK_CTRL_CORE_CLK_DIV_EN_BIT		BIT(8)
+#define DME_VS_CORE_CLK_CTRL_DME_HW_CGC_EN			BIT(9)
 
 static inline void
 ufs_qcom_get_controller_revision(struct ufs_hba *hba,
@@ -230,6 +279,18 @@ struct ufs_qcom_host {
 	 * configuration even after UFS controller core power collapse.
 	 */
 	#define UFS_QCOM_CAP_RETAIN_SEC_CFG_AFTER_PWR_COLLAPSE	0x2
+
+	/*
+	 * Set this capability if host controller supports Qunipro internal
+	 * clock gating.
+	 */
+	#define UFS_QCOM_CAP_QUNIPRO_CLK_GATING		0x4
+
+	/*
+	 * Set this capability if host controller supports SVS2 frequencies.
+	 */
+	#define UFS_QCOM_CAP_SVS2	0x8
+
 	u32 caps;
 
 	struct phy *generic_phy;
@@ -245,7 +306,6 @@ struct ufs_qcom_host {
 	void __iomem *dev_ref_clk_ctrl_mmio;
 	bool is_dev_ref_clk_enabled;
 	struct ufs_hw_version hw_ver;
-
 	u32 dev_ref_clk_en_mask;
 
 	/* Bitmask for enabling debug prints */
@@ -260,8 +320,14 @@ struct ufs_qcom_host {
 	int limit_rx_hs_gear;
 	int limit_tx_pwm_gear;
 	int limit_rx_pwm_gear;
+	int limit_rate;
+
 	bool disable_lpm;
 	struct qcom_bus_scale_data *qbsd;
+	struct ufs_vreg *vddp_ref_clk;
+	struct ufs_vreg *vccq_parent;
+	bool work_pending;
+	bool is_phy_pwr_on;
 };
 
 static inline u32
@@ -278,6 +344,9 @@ ufs_qcom_get_debug_reg_offset(struct ufs_qcom_host *host, u32 reg)
 #define ufs_qcom_is_link_hibern8(hba) ufshcd_is_link_hibern8(hba)
 
 int ufs_qcom_testbus_config(struct ufs_qcom_host *host);
+void ufs_qcom_print_hw_debug_reg_all(struct ufs_hba *hba, void *priv,
+		void (*print_fn)(struct ufs_hba *hba, int offset, int num_regs,
+				const char *str, void *priv));
 
 static inline bool ufs_qcom_cap_qunipro(struct ufs_qcom_host *host)
 {
@@ -285,6 +354,42 @@ static inline bool ufs_qcom_cap_qunipro(struct ufs_qcom_host *host)
 		return true;
 	else
 		return false;
+}
+
+static inline bool ufs_qcom_cap_qunipro_clk_gating(struct ufs_qcom_host *host)
+{
+	return !!(host->caps & UFS_QCOM_CAP_QUNIPRO_CLK_GATING);
+}
+
+static inline bool ufs_qcom_cap_svs2(struct ufs_qcom_host *host)
+{
+	return !!(host->caps & UFS_QCOM_CAP_SVS2);
+}
+
+/**
+ * ufshcd_dme_rmw - get modify set a dme attribute
+ * @hba - per adapter instance
+ * @mask - mask to apply on read value
+ * @val - actual value to write
+ * @attr - dme attribute
+ */
+static inline int ufshcd_dme_rmw(struct ufs_hba *hba, u32 mask,
+				 u32 val, u32 attr)
+{
+	u32 cfg = 0;
+	int err = 0;
+
+	err = ufshcd_dme_get(hba, UIC_ARG_MIB(attr), &cfg);
+	if (err)
+		goto out;
+
+	cfg &= ~mask;
+	cfg |= (val & mask);
+
+	err = ufshcd_dme_set(hba, UIC_ARG_MIB(attr), cfg);
+
+out:
+	return err;
 }
 
 #endif /* UFS_QCOM_H_ */

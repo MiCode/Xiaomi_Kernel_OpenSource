@@ -50,6 +50,24 @@ config SCSI_UFSHCD
 	  However, do not compile this as a module if your root file system
 	  (the one containing the directory /) is located on a UFS device.
 
+config SCSI_UFSHCD_QTI
+	tristate "Universal Flash Storage Controller Driver Core QTI"
+	depends on SCSI && SCSI_DMA && QGKI && !SCSI_UFSHCD
+	select PM_DEVFREQ
+	select DEVFREQ_GOV_SIMPLE_ONDEMAND
+	select NLS
+	help
+	This selects the support for QTI UFS devices in Linux, say Y and make
+	  sure that you know the name of your UFS host adapter (the card
+	  inside your computer that "speaks" the UFS protocol, also
+	  called UFS Host Controller), because you will be asked for it.
+	  The module will be called ufshcd-qti.
+
+	  To compile this driver as a module, choose M here and read
+	  <file:Documentation/scsi/ufs.txt>.
+	  However, do not compile this as a module if your root file system
+	  (the one containing the directory /) is located on a UFS device.
+
 config SCSI_UFSHCD_PCI
 	tristate "PCI bus based UFS Controller support"
 	depends on SCSI_UFSHCD && PCI
@@ -71,7 +89,7 @@ config SCSI_UFS_DWC_TC_PCI
 
 config SCSI_UFSHCD_PLATFORM
 	tristate "Platform bus based UFS Controller support"
-	depends on SCSI_UFSHCD
+	depends on (SCSI_UFSHCD || SCSI_UFSHCD_QTI)
 	---help---
 	This selects the UFS host controller support. Select this if
 	you have an UFS controller on Platform bus.
@@ -98,7 +116,7 @@ config SCSI_UFS_DWC_TC_PLATFORM
 
 config SCSI_UFS_QCOM
 	tristate "QCOM specific hooks to UFS controller platform driver"
-	depends on SCSI_UFSHCD_PLATFORM && ARCH_QCOM
+	depends on SCSI_UFSHCD_PLATFORM && ARCH_QCOM && PHY_QCOM_UFS
 	select RESET_CONTROLLER
 	help
 	  This selects the QCOM specific additions to UFSHCD platform driver.
@@ -134,7 +152,7 @@ config SCSI_UFS_HISI
 
 config SCSI_UFS_BSG
 	bool "Universal Flash Storage BSG device node"
-	depends on SCSI_UFSHCD
+	depends on (SCSI_UFSHCD || SCSI_UFSHCD_QTI)
 	select BLK_DEV_BSGLIB
 	help
 	  Universal Flash Storage (UFS) is SCSI transport specification for
