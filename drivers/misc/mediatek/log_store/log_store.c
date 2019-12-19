@@ -26,6 +26,7 @@
 #include <linux/uaccess.h>
 #include <linux/syscalls.h>
 #include <asm/memory.h>
+#include <linux/of_fdt.h>
 
 #include "log_store_kernel.h"
 
@@ -314,12 +315,46 @@ void disable_early_log(void)
 }
 #endif
 
+struct mem_desc_ls {
+	unsigned int addr;
+	unsigned int size;
+};
+
+static int __init dt_get_log_store(unsigned long node, const char *uname,
+		int depth, void *data)
+{
+	struct mem_desc_ls *sram_ls;
+
+	if (depth != 1 || (strcmp(uname, "chosen") != 0
+			&& strcmp(uname, "chosen@0") != 0))
+		return 0;
+	sram_ls = (struct mem_desc_ls *) of_get_flat_dt_prop(node,
+			"log_store", NULL);
+
+	if (sram_ls) {
+		pr_notice("log_store:[DT] log_store: 0x%x@0x%x\n",
+				sram_ls->addr, sram_ls->size);
+		*(struct mem_desc_ls *) data = *sram_ls;
+	}
+
+	return 1;
+}
+
 /* store log_store information to */
 static int __init log_store_early_init(void)
 {
 
 #ifdef CONFIG_MTK_DRAM_LOG_STORE
-	sram_header = ioremap_wc(CONFIG_MTK_DRAM_LOG_STORE_ADDR,
+	struct mem_desc_ls sram_ls = { 0 };
+
+	if (of_scan_flat_dt(dt_get_log_store, &sram_ls)) {
+		pr_info("log_store: get ok, sram addr:0x%x, size:0x%x\n",
+				sram_ls.addr, sram_ls.size);
+	} else {
+		pr_info("log_store: get fail\n");
+	}
+
+	sram_header = ioremap_wc(sram_ls.addr,
 		CONFIG_MTK_DRAM_LOG_STORE_SIZE);
 	dram_curlog_header = &(sram_header->dram_curlog_header);
 #else
