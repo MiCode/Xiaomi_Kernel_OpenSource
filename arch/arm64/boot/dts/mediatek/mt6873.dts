@@ -4465,10 +4465,15 @@
 				"DPE_TOP_MUX",
 				"DPE_CLK_IPE_DPE";
 	};
+
 	fdvt@1b001000 {
 		compatible = "mediatek,fdvt";
 		reg = <0 0x1b001000 0 0x1000>;
 		interrupts = <GIC_SPI 358 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&ipesys_config IPESYS_FD_CGPDN>;
+		clock-names = "FD_CLK_IPE_FD";
+		mboxes = <&gce_mbox 14 0 CMDQ_THR_PRIO_1>;
+		fdvt_frame_done = <CMDQ_EVENT_FDVT_DONE>;
 	};
 
 	fe@1b002000 {

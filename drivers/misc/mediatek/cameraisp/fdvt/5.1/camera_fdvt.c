@@ -123,6 +123,14 @@ static unsigned long __read_mostly tracing_mark_write_addr;
 #include <linux/wakelock.h>
 #endif /* CONFIG_PM_WAKELOCKS */
 
+#ifndef M4U_PORT_L20_IPE_FDVT_RDA_DISP
+#define M4U_PORT_L20_IPE_FDVT_RDA_DISP M4U_PORT_L20_IPE_FDVT_RDA
+#endif /* M4U_PORT_L20_IPE_FDVT_RDA_DISP */
+
+#ifndef M4U_PORT_L20_IPE_FDVT_WRB_DISP
+#define M4U_PORT_L20_IPE_FDVT_WRB_DISP M4U_PORT_L20_IPE_FDVT_WRB
+#endif /* M4U_PORT_L20_IPE_FDVT_WRB_DISP */
+
 /* FDVT Command Queue */
 /* #include "../../cmdq/mt6797/cmdq_record.h" */
 /* #include "../../cmdq/mt6797/cmdq_core.h" */
