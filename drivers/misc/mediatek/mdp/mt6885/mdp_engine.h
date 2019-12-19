@@ -82,7 +82,10 @@ enum CMDQ_ENG_ENUM {
 	CMDQ_ENG_ISP_UFBCI,	/* 57 */
 	CMDQ_ENG_ISP_UFBCO,	/* 58 */
 
-	CMDQ_ENG_INORDER,	/* 59 */
+	CMDQ_ENG_ISP_MSS,	/* 59 */
+	CMDQ_ENG_ISP_MSF,	/* 60 */
+
+	CMDQ_ENG_INORDER,	/* 61 */
 
 	/* Dummy Engine */
 	CMDQ_ENG_ISP_TIMGO = 63,

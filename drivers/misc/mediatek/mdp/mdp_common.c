@@ -2755,6 +2755,11 @@ u64 cmdq_mdp_get_secure_engine_virtual(u64 engine_flag)
 	return 0;
 }
 
+void cmdq_mdp_resolve_token_virtual(u64 engine_flag,
+	const struct cmdqRecStruct *task)
+{
+}
+
 void cmdq_mdp_virtual_function_setting(void)
 {
 	struct cmdqMDPFuncStruct *pFunc;
@@ -2814,6 +2819,7 @@ void cmdq_mdp_virtual_function_setting(void)
 	pFunc->endISPTask = cmdq_mdp_isp_end_task_virtual;
 	pFunc->CheckHwStatus = cmdq_mdp_check_hw_status_virtual;
 	pFunc->mdpGetSecEngine = cmdq_mdp_get_secure_engine_virtual;
+	pFunc->resolve_token = cmdq_mdp_resolve_token_virtual;
 }
 
 struct cmdqMDPFuncStruct *cmdq_mdp_get_func(void)

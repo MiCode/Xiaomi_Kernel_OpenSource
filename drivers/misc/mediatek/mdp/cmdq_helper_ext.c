@@ -3177,6 +3177,10 @@ static void cmdq_core_attach_error_handle_detail(
 			cmdq_mdp_dump_resource(event);
 	}
 
+	/* clear lock token */
+	if (!nghandle_out || *nghandle_out == handle)
+		cmdq_mdp_get_func()->resolve_token(handle->engineFlag, handle);
+
 	detail_log = error_num <= 2 || error_num % 16 == 0 ||
 		cmdq_core_should_full_error();
 	cmdq_core_attach_engine_error(handle, thread,

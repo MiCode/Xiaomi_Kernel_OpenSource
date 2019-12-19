@@ -101,6 +101,9 @@ typedef void (*CmdqCheckHwStatus) (struct cmdqRecStruct *handle);
 
 typedef u64(*CmdqMdpGetSecEngine) (u64 engine_flag);
 
+typedef void (*CmdqMdpResolveToken) (u64 engine_flag,
+	const struct cmdqRecStruct *task);
+
 struct cmdqMDPFuncStruct {
 #ifdef CONFIG_MTK_SMI_EXT
 	CmdqTranslatePort translatePort;
@@ -138,6 +141,7 @@ struct cmdqMDPFuncStruct {
 	CmdqEndTaskCB endISPTask;
 	CmdqCheckHwStatus CheckHwStatus;
 	CmdqMdpGetSecEngine mdpGetSecEngine;
+	CmdqMdpResolveToken resolve_token;
 };
 
 struct mdp_pmqos_record {

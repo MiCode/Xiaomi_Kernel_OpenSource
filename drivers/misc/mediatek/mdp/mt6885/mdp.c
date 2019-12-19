@@ -2874,6 +2874,20 @@ u64 cmdq_mdp_get_secure_engine(u64 engine_flags)
 }
 #endif
 
+void cmdq_mdp_resolve_token(u64 engine_flag,
+	const struct cmdqRecStruct *task)
+{
+	if (engine_flag & (1LL << CMDQ_ENG_ISP_MSS)) {
+		/* clear mss usage so that other thread/task can use it */
+		cmdq_clear_event(task->pkt->cl, CMDQ_SYNC_TOKEN_MSS);
+	}
+
+	if (engine_flag & (1LL << CMDQ_ENG_ISP_MSF)) {
+		/* clear mss usage so that other thread/task can use it */
+		cmdq_clear_event(task->pkt->cl, CMDQ_SYNC_TOKEN_MSF);
+	}
+}
+
 void cmdq_mdp_platform_function_setting(void)
 {
 	struct cmdqMDPFuncStruct *pFunc = cmdq_mdp_get_func();
@@ -2914,4 +2928,5 @@ void cmdq_mdp_platform_function_setting(void)
 #ifdef CMDQ_SECURE_PATH_SUPPORT
 	pFunc->mdpGetSecEngine = cmdq_mdp_get_secure_engine;
 #endif
+	pFunc->resolve_token = cmdq_mdp_resolve_token;
 }
