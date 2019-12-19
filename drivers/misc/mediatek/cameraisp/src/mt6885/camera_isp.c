@@ -1405,13 +1405,7 @@ static inline unsigned int ISP_GetIRQState(unsigned int type,
 
 	/*  */
 	spin_lock_irqsave(&(IspInfo.SpinLockIrq[type]), flags);
-	//combine AAO & AAHO to one signal
-if (stType == DMA_INT && stus == AAHO_DONE_ST) {
-	ret = (IspInfo.IrqInfo.Status[type][stType][userNumber] & stus) &&
-	(IspInfo.IrqInfo.Status[type][stType][userNumber] & AAO_DONE_ST);
-} else {
 	ret = (IspInfo.IrqInfo.Status[type][stType][userNumber] & stus);
-}
 	spin_unlock_irqrestore(&(IspInfo.SpinLockIrq[type]), flags);
 	/*  */
 	return ret;
@@ -3434,14 +3428,7 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 			.Status[WaitIrq->Type][WaitIrq->EventInfo.St_type]
 			       [WaitIrq->EventInfo.UserKey] &=
 			(~WaitIrq->EventInfo.Status);
-		//combine AAO & AAHO to one signal
-		if (WaitIrq->EventInfo.St_type == DMA_INT &&
-			WaitIrq->EventInfo.Status == AAHO_DONE_ST) {
-			IspInfo.IrqInfo
-			.Status[WaitIrq->Type][WaitIrq->EventInfo.St_type]
-			       [WaitIrq->EventInfo.UserKey] &=
-				(~AAO_DONE_ST);
-		}
+
 		spin_unlock_irqrestore(&(IspInfo.SpinLockIrq[WaitIrq->Type]),
 				       flags);
 
@@ -3508,15 +3495,6 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 						[WaitIrq->EventInfo.St_type]
 						[WaitIrq->EventInfo.UserKey] &=
 						(~WaitIrq->EventInfo.Status);
-				}
-				//combine AAO & AAHO to one signal
-				if (WaitIrq->EventInfo.St_type == DMA_INT &&
-				WaitIrq->EventInfo.Status == AAHO_DONE_ST) {
-					IspInfo.IrqInfo.Status
-						[WaitIrq->Type]
-						[WaitIrq->EventInfo.St_type]
-						[WaitIrq->EventInfo.UserKey] &=
-						(~AAO_DONE_ST);
 				}
 
 				spin_unlock_irqrestore(
@@ -3699,15 +3677,6 @@ NON_CLEAR_WAIT:
 	IspInfo.IrqInfo.Status[WaitIrq->Type][WaitIrq->EventInfo.St_type]
 			      [WaitIrq->EventInfo.UserKey] &=
 		(~WaitIrq->EventInfo.Status);
-	//combine AAO & AAHO to one signal
-	if (WaitIrq->EventInfo.St_type == DMA_INT &&
-		WaitIrq->EventInfo.Status == AAHO_DONE_ST) {
-		IspInfo.IrqInfo.Status
-			[WaitIrq->Type]
-			[WaitIrq->EventInfo.St_type]
-			[WaitIrq->EventInfo.UserKey] &=
-			(~AAO_DONE_ST);
-	}
 
 	spin_unlock_irqrestore(&(IspInfo.SpinLockIrq[WaitIrq->Type]), flags);
 
@@ -4206,14 +4175,6 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				IrqInfo.EventInfo.St_type,
 				IrqInfo.EventInfo.Status);
 #endif
-		//combine AAO & AAHO to one signal
-		if (IrqInfo.EventInfo.St_type == DMA_INT &&
-			IrqInfo.EventInfo.Status == AAO_DONE_ST) {
-			IrqInfo.EventInfo.Status = AAHO_DONE_ST;
-			LOG_NOTICE(
-				"invalid Status(%d), change to AAHO_DONE_ST\n",
-				IrqInfo.EventInfo.Status);
-			}
 			Ret = ISP_WaitIrq(&IrqInfo);
 		} else {
 			LOG_NOTICE("copy_from_user failed\n");
@@ -11608,23 +11569,12 @@ LB_CAM_SOF_IGNORE:
 			&IspInfo.WaitQHeadCam[ISP_GetWaitQCamIndex(module)]
 					     [ISP_WAITQ_HEAD_IRQ_HW_P1_DONE]);
 	}
-	// Bind AAO & AAHO as AAHO only
-	/*
 	if (DmaStatus & AAO_DONE_ST) {
 		wake_up_interruptible(
 			&IspInfo.WaitQHeadCam[ISP_GetWaitQCamIndex(module)]
 					     [ISP_WAITQ_HEAD_IRQ_AAO_DONE]);
 	}
 	if (DmaStatus & AAHO_DONE_ST) {
-		wake_up_interruptible(
-			&IspInfo.WaitQHeadCam[ISP_GetWaitQCamIndex(module)]
-					     [ISP_WAITQ_HEAD_IRQ_AAHO_DONE]);
-	}
-	*/
-	if (((DmaStatus & AAHO_DONE_ST) || (DmaStatus & AAO_DONE_ST))
-	//Check here to reduce "interrupted by system signal" false alarm
-	&& (IspInfo.IrqInfo.Status[module][DMA_INT][0] & AAHO_DONE_ST)
-	&& (IspInfo.IrqInfo.Status[module][DMA_INT][0] & AAO_DONE_ST)) {
 		wake_up_interruptible(
 			&IspInfo.WaitQHeadCam[ISP_GetWaitQCamIndex(module)]
 					     [ISP_WAITQ_HEAD_IRQ_AAHO_DONE]);
