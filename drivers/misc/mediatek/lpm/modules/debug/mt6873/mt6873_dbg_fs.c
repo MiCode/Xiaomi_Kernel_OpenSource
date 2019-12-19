@@ -19,6 +19,7 @@ static void __exit mt6873_dbg_fs_exit(void)
 
 static int __init mt6873_dbg_fs_init(void)
 {
+	mt6873_dbg_lpm_init();
 	mt6873_dbg_lpm_fs_init();
 	mt6873_dbg_spm_fs_init();
 	pr_info("%s %d: finish", __func__, __LINE__);

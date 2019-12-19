@@ -55,7 +55,6 @@ int mt6873_do_mcusys_prepare_on_ex(unsigned int clr_status)
 static int __init mt6873_init(void)
 {
 	mtk_lp_plat_apmcu_init();
-	mt6873_model_mcusys_init();
 	mt6873_model_suspend_init();
 	return 0;
 }

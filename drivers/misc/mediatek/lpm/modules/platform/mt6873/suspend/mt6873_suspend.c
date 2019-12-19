@@ -35,6 +35,12 @@ u64 after_md_sleep_time;
 #define WORLD_CLK_CNTCV_L        (0x10017008)
 #define WORLD_CLK_CNTCV_H        (0x1001700C)
 
+unsigned int __attribute__((weak)) _golden_read_reg(unsigned int addr)
+{
+	printk_deferred("[name:spm&]NO %s !!!\n", __func__);
+	return 0;
+}
+
 void __attribute__((weak)) subsys_if_on(void)
 {
 	printk_deferred("[name:spm&]NO %s !!!\n", __func__);
@@ -109,7 +115,12 @@ int mt6873_suspend_prompt(int cpu, const struct mtk_lpm_issuer *issuer)
 {
 	int ret = 0;
 	unsigned int spm_res = 0;
-
+#ifdef CONFIG_MTK_CCCI_DEVICES
+#if defined(CONFIG_ARM64)
+	int len;
+	int is_resume_enter = 0;
+#endif
+#endif
 	mt6873_suspend_status = 0;
 
 	printk_deferred("[name:spm&][%s:%d] - prepare suspend enter\n",
@@ -125,14 +136,27 @@ int mt6873_suspend_prompt(int cpu, const struct mtk_lpm_issuer *issuer)
 
 	printk_deferred("[name:spm&][%s:%d] - suspend enter\n",
 			__func__, __LINE__);
-	// fixme: _golden_read_reg not ready
-//printk_deferred("[name:spm&] wlk_cntcv_l = 0x%x, wlk_cntcv_h = 0x%x\n",
-	//	_golden_read_reg(WORLD_CLK_CNTCV_L),
-	//	_golden_read_reg(WORLD_CLK_CNTCV_H));
+
+	printk_deferred("[name:spm&] wlk_cntcv_l = 0x%x, wlk_cntcv_h = 0x%x\n",
+		_golden_read_reg(WORLD_CLK_CNTCV_L),
+		_golden_read_reg(WORLD_CLK_CNTCV_H));
 
 	/* Record md sleep time */
 	before_md_sleep_time = get_md_sleep_time();
 
+#ifdef CONFIG_MTK_CCCI_DEVICES
+#if defined(CONFIG_ARM64)
+	len = sizeof(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES);
+	if (strncmp(&CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES[len - 4],
+		"_lp", 3) == 0) {
+		printk_deferred("[name:spm&][%s:%d] - notify MD that AP suspend\n",
+			__func__, __LINE__);
+		is_resume_enter = 1 << 0;
+		exec_ccci_kern_func_by_md_id(MD_SYS1, ID_AP2MD_LOWPWR,
+			(char *)&is_resume_enter, 4);
+	}
+#endif
+#endif
 
 PLAT_LEAVE_SUSPEND:
 	return ret;
@@ -141,17 +165,36 @@ PLAT_LEAVE_SUSPEND:
 void mt6873_suspend_reflect(int cpu,
 					const struct mtk_lpm_issuer *issuer)
 {
+#ifdef CONFIG_MTK_CCCI_DEVICES
+#if defined(CONFIG_ARM64)
+	int len;
+	int is_resume_enter = 0;
+#endif
+#endif
 	printk_deferred("[name:spm&][%s:%d] - prepare suspend resume\n",
 			__func__, __LINE__);
 
+#ifdef CONFIG_MTK_CCCI_DEVICES
+#if defined(CONFIG_ARM64)
+	len = sizeof(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES);
+	if (strncmp(&CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES[len - 4],
+		"_lp", 3) == 0) {
+		printk_deferred("[name:spm&][%s:%d] - notify MD that AP resume\n",
+			__func__, __LINE__);
+		is_resume_enter = 1 << 1;
+		exec_ccci_kern_func_by_md_id(MD_SYS1, ID_AP2MD_LOWPWR,
+			(char *)&is_resume_enter, 4);
+	}
+#endif
+#endif
 	mt6873_suspend_common_resume(mt6873_suspend_status);
 	mt6873_do_mcusys_prepare_on();
 
-	printk_deferred("[name:spm&][%s:%d] - suspend resume\n",
+	printk_deferred("[name:spm&][%s:%d] - resume\n",
 			__func__, __LINE__);
 
 	if (issuer)
-		issuer->log(MT_LPM_ISSUER_CPUIDLE, "suspend", NULL);
+		issuer->log(MT_LPM_ISSUER_SUSPEND, "suspend", NULL);
 
 	/* show md sleep duration during AP suspend */
 	after_md_sleep_time = get_md_sleep_time();

@@ -14,6 +14,9 @@
 /* Determine for resource usage id */
 #define MT_LP_RQ_ID_ALL_USAGE	(-1)
 
+int mt6873_dbg_lpm_init(void);
+
+int mt6873_dbg_lpm_deinit(void);
 
 int mt6873_dbg_lpm_fs_init(void);
 

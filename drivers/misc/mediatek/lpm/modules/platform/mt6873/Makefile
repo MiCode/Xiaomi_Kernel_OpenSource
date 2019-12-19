@@ -17,5 +17,4 @@ obj-y += mtk_lp_plat_apmcu.o
 obj-y += mtk_lp_plat_apmcu_mbox.o
 obj-y += mt6873_ipi_sspm.o
 
-obj-y += idles/mt6873_mcusys.o
 obj-y += suspend/mt6873_suspend.o
