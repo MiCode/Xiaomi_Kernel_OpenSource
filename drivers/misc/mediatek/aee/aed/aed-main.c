@@ -1992,7 +1992,7 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 					pr_info("%s: get process:%d dumpable:%d\n",
 						__func__, pid, dumpable);
 				task_unlock(task);
-				read_unlock(&tasklist_lock);
+				rcu_read_unlock();
 			} else {
 				pr_info(
 				  "%s: check suid dumpable ioctl pid invalid\n",
