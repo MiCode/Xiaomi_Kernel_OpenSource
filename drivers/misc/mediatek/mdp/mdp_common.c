@@ -3101,8 +3101,8 @@ void cmdq_mdp_dump_rdma(const unsigned long base, const char *label)
 	CMDQ_ERR("RDMA_EN: 0x%08x\n", value[43]);
 
 	/* parse state */
-	CMDQ_ERR("RDMA ack:%d req:%d\n", (value[9] & (1 << 11)) >> 11,
-		(value[9] & (1 << 10)) >> 10);
+	CMDQ_ERR("RDMA ack:%d req:%d ufo:%d\n", (value[9] >> 11) & 0x1,
+		(value[9] >> 10) & 0x1, (value[9] >> 25) & 0x1);
 	state = (value[10] >> 8) & 0x7FF;
 	grep = (value[10] >> 20) & 0x1;
 	CMDQ_ERR("RDMA state: 0x%x (%s)\n",
