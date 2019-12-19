@@ -156,6 +156,9 @@ void vpu_alg_release(struct kref *ref)
 		      __func__, alg->vd->id, alg->a.name,
 		      alg->vd->algo_cnt, alg->builtin);
 
+	if (!alg->builtin && (alg->iova.bin == VPU_MEM_ALLOC))
+		vpu_iova_free(alg->vd->dev, &alg->iova);
+
 	/* free __vpu_algo memory */
 	vpu_alg_free(container_of(ref, struct __vpu_algo, ref));
 }
@@ -286,6 +289,19 @@ int vpu_alg_add(struct vpu_device *vd, struct apusys_firmware_hnd *fw)
 	if (fw->magic != VPU_FW_MAGIC)
 		return -EINVAL;
 
+	alg = vpu_alg_get(vd, fw->name, NULL);
+	if (alg) {
+		/* found only built-in => create dynamic one */
+		if (alg->builtin)
+			vpu_alg_put(alg);
+		/* simply increase reference count and return,
+		 * if the algorithm is already exist in dynamic
+		 * loaded list (builtin = false)
+		 */
+		else
+			goto out;
+	}
+
 	alg = vpu_alg_alloc(vd);
 	if (!alg)
 		return -ENOMEM;
@@ -308,28 +324,15 @@ int vpu_alg_add(struct vpu_device *vd, struct apusys_firmware_hnd *fw)
 	strncpy(alg->a.name, fw->name,
 		min(sizeof(alg->a.name), sizeof(fw->name)) - 1);
 
-	/*
-	 * Search algo for existences.
-	 * If get_algo at the function beginning,
-	 * during iova memory preparation, other process may
-	 * create the algo and let the same algo be added
-	 * multi-times.
-	 */
 	spin_lock(&vd->algo_lock);
 	list_for_each_entry_reverse(tmp, &vd->algo, list) {
 		if (!strcmp(tmp->a.name, fw->name) && !tmp->builtin) {
-			/* algo name matches and dynamic list also has it */
 			ret = -EEXIST;
+			vpu_alg_get(vd, NULL, tmp);
 			goto unlock;
 		}
 	}
 
-	/*
-	 * Any one of 2 case established
-	 * 1. Not found algo both in builtin and dynamic algos
-	 * 2. Builtin algo has the same name as this dynamic one
-	 * Going add this dynamic algo into the list.
-	 */
 	list_add_tail(&alg->list, &vd->algo);
 	vd->algo_cnt++;
 unlock:
@@ -346,7 +349,9 @@ unlock:
 		vpu_iova_free(vd->dev, &alg->iova);
 algo_free:
 		vpu_alg_free(alg);
+		ret = 0;
 	}
+out:
 	return ret;
 }
 
