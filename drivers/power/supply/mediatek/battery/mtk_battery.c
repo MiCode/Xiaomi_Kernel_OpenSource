@@ -1150,6 +1150,14 @@ static ssize_t store_Battery_Temperature(
 
 	if (kstrtoint(buf, 10, &temp) == 0) {
 
+		if (temp > 58 || temp < -10) {
+			bm_err(
+				"%s: setting tmp:%d!,reject set\n",
+				__func__,
+				temp);
+			return size;
+		}
+
 		gm.fixed_bat_tmp = temp;
 		if (gm.fixed_bat_tmp == 0xffff)
 			fg_bat_temp_int_internal();

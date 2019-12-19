@@ -3073,6 +3073,7 @@ void bmd_ctrl_cmd_from_user(void *nl_data, struct fgd_nl_msg_t *ret_msg)
 		{
 			unsigned int ptim_bat_vol = 0;
 			signed int ptim_R_curr = 0;
+			int curr_bat_vol = 0;
 
 			if (gm.init_flag == 1) {
 				_do_ptim();
@@ -3083,8 +3084,15 @@ void bmd_ctrl_cmd_from_user(void *nl_data, struct fgd_nl_msg_t *ret_msg)
 			} else {
 				ptim_bat_vol = gm.ptim_lk_v;
 				ptim_R_curr = gm.ptim_lk_i;
-				bm_warn("[fr] PTIM_LK V %d I %d\n",
-					ptim_bat_vol, ptim_R_curr);
+
+				curr_bat_vol =
+					battery_get_bat_voltage() * 10;
+				if (gm.ptim_lk_v == 0)
+					ptim_bat_vol = curr_bat_vol;
+
+				bm_err("[fr] PTIM_LK V %d I %d,curr_bat_vol=%d\n",
+					ptim_bat_vol, ptim_R_curr,
+					curr_bat_vol);
 			}
 			ptim_vbat = ptim_bat_vol;
 			ptim_i = ptim_R_curr;
