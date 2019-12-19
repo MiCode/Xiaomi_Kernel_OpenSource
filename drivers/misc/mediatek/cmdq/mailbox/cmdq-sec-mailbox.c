@@ -96,6 +96,7 @@ struct cmdq_sec {
 	struct mbox_controller	mbox;
 	void __iomem		*base;
 	phys_addr_t		base_pa;
+	u8			hwid;
 	// u32			irq;
 	struct cmdq_base	*clt_base;
 	struct cmdq_client	*clt;
@@ -265,7 +266,7 @@ static void cmdq_sec_task_done(struct cmdq_sec_task *task, s32 err)
 static bool cmdq_sec_irq_handler(
 	struct cmdq_sec_thread *thread, const u32 cookie, const s32 err)
 {
-	struct cmdq_sec_task *task, *temp;
+	struct cmdq_sec_task *task, *temp, *cur_task = NULL;
 	struct cmdq_sec *cmdq =
 		container_of(thread->chan->mbox, struct cmdq_sec, mbox);
 	unsigned long flags;
@@ -283,18 +284,20 @@ static bool cmdq_sec_irq_handler(
 
 	if (err)
 		cmdq_err(
-			"gce:%#lx thread:%u wait_cookie:%u cookie:%u done:%d err:%d",
-			(unsigned long)cmdq->base_pa, thread->idx,
+			"%s gce:%#lx thread:%u wait_cookie:%u cookie:%u done:%d err:%d",
+			__func__, (unsigned long)cmdq->base_pa, thread->idx,
 			thread->wait_cookie, cookie, done, err);
 	else
 		cmdq_log(
-			"gce:%#lx thread:%u wait_cookie:%u cookie:%u done:%d err:%d",
-			(unsigned long)cmdq->base_pa, thread->idx,
+			"%s gce:%#lx thread:%u wait_cookie:%u cookie:%u done:%d err:%d",
+			__func__, (unsigned long)cmdq->base_pa, thread->idx,
 			thread->wait_cookie, cookie, done, err);
 
 	list_for_each_entry_safe(task, temp, &thread->task_list, list_entry) {
-		if (!done || (err && done == 1))
+		if (!done || (err && done == 1)) {
+			cur_task = task;
 			break;
+		}
 		cmdq_sec_task_done(task, 0);
 
 		if (!thread->task_cnt)
@@ -306,23 +309,19 @@ static bool cmdq_sec_irq_handler(
 	}
 	spin_unlock_irqrestore(&thread->chan->lock, flags);
 
-	if (err && task) {
+	if (err && cur_task) {
 		struct cmdq_cb_data cb_data;
-
-		mutex_lock(&cmdq->exec_lock);
 
 		/* for error task, cancel, callback and done */
 		memset(&cmdq->cancel, 0, sizeof(cmdq->cancel));
-		cmdq_sec_task_submit(cmdq, task,
+		cmdq_sec_task_submit(cmdq, cur_task,
 			CMD_CMDQ_TL_CANCEL_TASK, thread->idx, &cmdq->cancel);
 
 		cb_data.err = err;
-		cb_data.data = task->pkt->err_cb.data;
-		task->pkt->err_cb.cb(cb_data);
+		cb_data.data = cur_task->pkt->err_cb.data;
+		cur_task->pkt->err_cb.cb(cb_data);
 
-		mutex_unlock(&cmdq->exec_lock);
-
-		cmdq_sec_task_done(task, err);
+		cmdq_sec_task_done(cur_task, err);
 	}
 
 	spin_lock_irqsave(&thread->chan->lock, flags);
@@ -618,6 +617,7 @@ static s32 cmdq_sec_session_send(struct cmdq_sec_context *context,
 		(struct iwcCmdqMessage_t *)context->iwc_msg;
 	s32 err = 0;
 	bool mem_ex1, mem_ex2;
+	u64 cost;
 
 	memset(iwc_msg, 0, sizeof(*iwc_msg));
 	iwc_msg->cmd = iwc_cmd;
@@ -656,12 +656,15 @@ static s32 cmdq_sec_session_send(struct cmdq_sec_context *context,
 	mem_ex1 = iwc_msg->iwcex_available & (1 << CMDQ_IWC_MSG1);
 	mem_ex2 = iwc_msg->iwcex_available & (1 << CMDQ_IWC_MSG2);
 
-	cmdq_msg("%s execute cmdq:%p task:%lx",
-		__func__, cmdq, (unsigned long)task);
+	cost = sched_clock();
+	cmdq_msg("%s execute cmdq:%p task:%lx command:%u thread:%u cookie:%d",
+		__func__, cmdq, (unsigned long)task, iwc_cmd, thrd_idx,
+		task ? task->waitCookie : -1);
 	err = cmdq_sec_execute_session(&context->tee, iwc_cmd, 3000,
 		mem_ex1, mem_ex2);
-	cmdq_msg("%s execute done cmdq:%p task:%lx",
-		__func__, cmdq, (unsigned long)task);
+	cost = div_u64(sched_clock() - cost, 1000000);
+	cmdq_msg("%s execute done cmdq:%p task:%lx cost:%lluus",
+		__func__, cmdq, (unsigned long)task, cost);
 	if (err)
 		return err;
 	context->state = IWC_SES_ON_TRANSACTED;
@@ -1013,11 +1016,13 @@ static void cmdq_sec_task_timeout_work(struct work_struct *work_item)
 	u64 duration;
 	u32 cookie;
 
+	mutex_lock(&cmdq->exec_lock);
+
 	spin_lock_irqsave(&thread->chan->lock, flags);
 	if (list_empty(&thread->task_list)) {
 		cmdq_log("thread:%u task_list is empty", thread->idx);
 		spin_unlock_irqrestore(&thread->chan->lock, flags);
-		return;
+		goto done;
 	}
 
 	task = list_first_entry(
@@ -1027,15 +1032,19 @@ static void cmdq_sec_task_timeout_work(struct work_struct *work_item)
 		mod_timer(&thread->timeout, jiffies +
 			msecs_to_jiffies(thread->timeout_ms - duration));
 		spin_unlock_irqrestore(&thread->chan->lock, flags);
-		return;
+		goto done;
 	}
+
 	cookie = *(u32 *)(cmdq->shared_mem->va +
 		CMDQ_SEC_SHARED_THR_CNT_OFFSET + thread->idx * sizeof(s32));
 	spin_unlock_irqrestore(&thread->chan->lock, flags);
 
+	cmdq_err("%s duration:%llu cookie:%u thread:%u",
+		__func__, duration, cookie, thread->idx);
 	cmdq_sec_irq_handler(thread, cookie, -ETIMEDOUT);
-	cmdq_err("duration:%llu cookie:%u thread:%u",
-		duration, cookie, thread->idx);
+
+done:
+	mutex_unlock(&cmdq->exec_lock);
 }
 
 static int cmdq_sec_mbox_startup(struct mbox_chan *chan)
@@ -1162,7 +1171,10 @@ static int cmdq_sec_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, cmdq);
 	WARN_ON(clk_prepare(cmdq->clock) < 0);
 
-	cmdq_msg("cmdq:%p va:%p pa:%pa", cmdq, cmdq->base, &cmdq->base_pa);
+	cmdq->hwid = cmdq_util_track_ctrl(cmdq, cmdq->base_pa);
+
+	cmdq_msg("cmdq:%p(%u) va:%p pa:%pa",
+		cmdq, cmdq->hwid, cmdq->base, &cmdq->base_pa);
 	return 0;
 }
 
