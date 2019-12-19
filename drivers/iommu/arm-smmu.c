@@ -5231,6 +5231,8 @@ static int __maybe_unused arm_smmu_pm_restore_early(struct device *dev)
 		arm_smmu_secure_domain_lock(smmu_domain);
 		arm_smmu_assign_table(smmu_domain);
 		arm_smmu_secure_domain_unlock(smmu_domain);
+		arm_smmu_init_context_bank(smmu_domain,
+					&smmu_domain->pgtbl_cfg);
 	}
 	smmu->smmu_restore = true;
 	ret = arm_smmu_pm_resume(dev);
