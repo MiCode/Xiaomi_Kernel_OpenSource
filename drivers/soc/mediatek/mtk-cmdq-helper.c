@@ -1709,16 +1709,6 @@ s32 cmdq_pkt_flush_async(struct cmdq_pkt *pkt,
 	mbox_client_txdone(client->chan, 0);
 	mutex_unlock(&client->chan_mutex);
 
-#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
-	if (!pkt->rec_trigger) {
-		cmdq_msg("sent but not trigger, tick again pkt:%p", pkt);
-		mbox_client_txdone(client->chan, 0);
-
-		if (!pkt->rec_trigger)
-			cmdq_dump_pkt(pkt, 0, false);
-	}
-#endif
-
 	return err;
 }
 EXPORT_SYMBOL(cmdq_pkt_flush_async);
