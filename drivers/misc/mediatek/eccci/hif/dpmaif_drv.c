@@ -373,7 +373,7 @@ int drv_dpmaif_dl_add_pit_remain_cnt(unsigned char q_num,
 			dpmaif_ctrl->ops->dump_status(
 				DPMAIF_HIF_ID, DUMP_FLAG_REG, -1);
 			count = 0;
-			return -1;
+			return HW_REG_TIME_OUT;
 		}
 	}
 	count = 0;
@@ -385,7 +385,7 @@ int drv_dpmaif_dl_add_pit_remain_cnt(unsigned char q_num,
 			dpmaif_ctrl->ops->dump_status(
 				DPMAIF_HIF_ID, DUMP_FLAG_REG, -1);
 			count = 0;
-			return -1;
+			return HW_REG_TIME_OUT;
 		}
 	}
 #if defined(_E1_SB_SW_WORKAROUND_)

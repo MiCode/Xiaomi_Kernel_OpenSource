@@ -733,12 +733,6 @@ static int dpmaifq_rel_rx_pit_entry(struct dpmaif_rx_queue *rxq,
 	/*update to HW: in full interrupt*/
 #else
 	ret = drv_dpmaif_dl_add_pit_remain_cnt(rxq->index, rel_entry_num);
-	if (ret < 0) {
-#if defined(CONFIG_MTK_AEE_FEATURE)
-		aee_kernel_warning("ccci",
-			"dpmaif add pit cnt fail\n");
-#endif
-	}
 #endif
 	return ret;
 }
@@ -1439,10 +1433,8 @@ static int dpmaifq_rx_notify_hw(struct dpmaif_rx_queue *rxq,
 			ret = drv_dpmaif_dl_add_frg_bat_cnt(rxq->index,
 				notify_cnt->frag_cnt);
 			if (ret < 0) {
-#if defined(CONFIG_MTK_AEE_FEATURE)
-				aee_kernel_warning("ccci",
-				"dpmaif notify frag add failed\n");
-#endif
+				CCCI_MEM_LOG_TAG(0, TAG,
+					"dpmaif: update frag bat fail(128)\n");
 				return ret;
 			}
 			notify_cnt->frag_cnt = 0;
@@ -1457,10 +1449,8 @@ static int dpmaifq_rx_notify_hw(struct dpmaif_rx_queue *rxq,
 			ret = drv_dpmaif_dl_add_bat_cnt(rxq->index,
 				notify_cnt->bat_cnt);
 			if (ret < 0) {
-#if defined(CONFIG_MTK_AEE_FEATURE)
-				aee_kernel_warning("ccci",
-				"dpmaif notify bat add failed\n");
-#endif
+				CCCI_MEM_LOG_TAG(0, TAG,
+					"dpmaif: update bat fail(128)\n");
 				return ret;
 			}
 			notify_cnt->bat_cnt = 0;
@@ -1480,10 +1470,8 @@ static int dpmaifq_rx_notify_hw(struct dpmaif_rx_queue *rxq,
 		ret = drv_dpmaif_dl_add_bat_cnt(rxq->index,
 			notify_cnt->bat_cnt);
 		if (ret < 0) {
-#if defined(CONFIG_MTK_AEE_FEATURE)
-			aee_kernel_warning("ccci",
-				"notify bat add failed after pit update\n");
-#endif
+			CCCI_MEM_LOG_TAG(0, TAG,
+				"dpmaif: update bat fail(128)\n");
 			return ret;
 		}
 		notify_cnt->bat_cnt = 0;
@@ -1495,10 +1483,8 @@ static int dpmaifq_rx_notify_hw(struct dpmaif_rx_queue *rxq,
 		ret = drv_dpmaif_dl_add_frg_bat_cnt(rxq->index,
 			notify_cnt->frag_cnt);
 		if (ret < 0) {
-#if defined(CONFIG_MTK_AEE_FEATURE)
-			aee_kernel_warning("ccci",
-				"notify frag add failed after pit update\n");
-#endif
+			CCCI_MEM_LOG_TAG(0, TAG,
+				"dpmaif: update frag bat fail(128)\n");
 			return ret;
 		}
 		notify_cnt->frag_cnt = 0;
@@ -1742,7 +1728,6 @@ void dpmaifq_set_dl_bat_hw_entry(unsigned char q_num)
 	struct dpmaif_bat_request *bat_req;
 	unsigned short old_sw_wr_idx = 0, hw_wr_idx = 0;
 	unsigned int cnt = 0, max_cnt = 0;
-	int ret = 0;
 
 	bat_req = &rxq->bat_req;
 
@@ -1759,13 +1744,7 @@ void dpmaifq_set_dl_bat_hw_entry(unsigned char q_num)
 		cnt = old_sw_wr_idx - hw_wr_idx;
 	else
 		return;
-	ret = drv_dpmaif_dl_add_bat_cnt(rxq->index, cnt);
-	if (ret < 0) {
-#if defined(CONFIG_MTK_AEE_FEATURE)
-		aee_kernel_warning("ccci",
-			"dpmaifq set bat hw entry fail\n");
-#endif
-	}
+	drv_dpmaif_dl_add_bat_cnt(rxq->index, cnt);
 }
 #endif
 
@@ -3185,24 +3164,10 @@ int dpmaif_start(unsigned char hif_id)
 		drv_dpmaif_dl_add_bat_cnt(rxq->index,
 			rxq->bat_req.bat_size_cnt - 1);
 #ifdef HW_FRG_FEATURE_ENABLE
-		ret = drv_dpmaif_dl_add_frg_bat_cnt(i,
+		drv_dpmaif_dl_add_frg_bat_cnt(i,
 			(rxq->bat_frag.bat_size_cnt - 1));
-		if (ret < 0) {
-#if defined(CONFIG_MTK_AEE_FEATURE)
-			aee_kernel_warning("ccci",
-				"dpmaif start failed to add frag\n");
 #endif
-			return ret;
-		}
-#endif
-		ret = drv_dpmaif_dl_all_queue_en(true);
-		if (ret < 0) {
-#if defined(CONFIG_MTK_AEE_FEATURE)
-			aee_kernel_warning("ccci",
-				"enable all dl queue failed after add frag\n");
-#endif
-			return ret;
-		}
+		drv_dpmaif_dl_all_queue_en(true);
 #else
 #ifdef BAT_CNT_BURST_UPDATE
 #ifdef HW_FRG_FEATURE_ENABLE
