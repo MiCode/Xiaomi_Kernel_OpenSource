@@ -10,6 +10,7 @@
 #endif
 #include <memory/mediatek/emi.h>
 #include "adsp_reserved_mem.h"
+#include "adsp_feature_define.h"
 #include "adsp_platform.h"
 #include "adsp_core.h"
 
@@ -87,6 +88,7 @@ size_t adsp_get_reserve_mem_size(enum adsp_reserve_mem_id_t id)
 
 void adsp_set_emimpu_shared_region(void)
 {
+#if ADSP_EMI_PROTECTION_ENABLE
 	struct emimpu_region_t adsp_region;
 	struct adsp_reserve_mblock *mem = &adsp_reserve_mem;
 	int ret = 0;
@@ -105,6 +107,7 @@ void adsp_set_emimpu_shared_region(void)
 	if (ret < 0)
 		pr_info("%s fail to set emimpu protection\n", __func__);
 	mtk_emimpu_free_region(&adsp_region);
+#endif
 }
 void adsp_init_reserve_memory(void)
 {
