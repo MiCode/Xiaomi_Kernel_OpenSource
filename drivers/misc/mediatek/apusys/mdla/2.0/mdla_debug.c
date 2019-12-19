@@ -92,7 +92,7 @@ static const struct file_operations mdla_debug_ ## name ## _fops = {   \
 	.open = mdla_debug_ ## name ## _open,                               \
 	.read = seq_read,                                                    \
 	.llseek = seq_lseek,                                                \
-	.release = seq_release,                                             \
+	.release = single_release,                                             \
 }
 
 
@@ -181,7 +181,7 @@ static const struct file_operations mdla_debug_power_fops = {
 	.open = mdla_debug_power_open,
 	.read = seq_read,
 	.llseek = seq_lseek,
-	.release = seq_release,
+	.release = single_release,
 	.write = mdla_debug_power_write,
 };
 
@@ -208,7 +208,7 @@ static const struct file_operations mdla_debug_prof_fops = {
 	.open = mdla_debug_prof_open,
 	.read = seq_read,
 	.llseek = seq_lseek,
-	.release = seq_release,
+	.release = single_release,
 	.write = mdla_debug_prof_write,
 };
 
