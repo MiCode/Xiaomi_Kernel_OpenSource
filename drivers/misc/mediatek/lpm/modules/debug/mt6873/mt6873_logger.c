@@ -56,8 +56,8 @@ const char *mt6873_wakesrc_str[32] = {
 	[27] = " R12_SEJ_EVENT_B",
 	[28] = " R12_SPM_CPU_WAKEUPEVENT_B",
 	[29] = " R12_APUSYS",
-	[30] = " R12_NOT_USED1",
-	[31] = " R12_NOT_USED2",
+	[30] = " R12_PCIE_BRIDGE_IRQ",
+	[31] = " R12_PCIE_IRQ",
 };
 
 #define WORLD_CLK_CNTCV_L        (0x10017008)

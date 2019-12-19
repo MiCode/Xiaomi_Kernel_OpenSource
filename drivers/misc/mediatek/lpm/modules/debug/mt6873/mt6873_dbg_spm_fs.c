@@ -237,6 +237,22 @@ static char *mt6873_pwr_ctrl_str[PW_MAX_COUNT] = {
 	[PW_REG_MCUSYS_MERGE_APSRC_REQ_MASK_B] =
 	"reg_mcusys_merge_apsrc_req_mask_b",
 	[PW_REG_MCUSYS_MERGE_DDR_EN_MASK_B] = "reg_mcusys_merge_ddr_en_mask_b",
+	[PW_REG_MSDC2_SRCCLKENA_MASK_B] = "reg_msdc2_srcclkena_mask_b",
+	[PW_REG_MSDC2_INFRA_REQ_MASK_B] = "reg_msdc2_infra_req_mask_b",
+	[PW_REG_MSDC2_APSRC_REQ_MASK_B] = "reg_msdc2_apsrc_req_mask_b",
+	[PW_REG_MSDC2_VRF18_REQ_MASK_B] = "reg_msdc2_vrf18_req_mask_b",
+	[PW_REG_MSDC2_DDR_EN_MASK_B] = "reg_msdc2_ddr_en_mask_b",
+	[PW_REG_PCIE_SRCCLKENA_MASK_B] = "reg_pcie_srcclkena_mask_b",
+	[PW_REG_PCIE_INFRA_REQ_MASK_B] = "reg_pcie_infra_req_mask_b",
+	[PW_REG_PCIE_APSRC_REQ_MASK_B] = "reg_pcie_apsrc_req_mask_b",
+	[PW_REG_PCIE_VRF18_REQ_MASK_B] = "reg_pcie_vrf18_req_mask_b",
+	[PW_REG_PCIE_DDR_EN_MASK_B] = "reg_pcie_ddr_en_mask_b",
+	/* SPM_SRC6_MASK */
+	[PW_REG_DPMAIF_SRCCLKENA_MASK_B] = "reg_dpmaif_srcclkena_mask_b",
+	[PW_REG_DPMAIF_INFRA_REQ_MASK_B] = "reg_dpmaif_infra_req_mask_b",
+	[PW_REG_DPMAIF_APSRC_REQ_MASK_B] = "reg_dpmaif_apsrc_req_mask_b",
+	[PW_REG_DPMAIF_VRF18_REQ_MASK_B] = "reg_dpmaif_vrf18_req_mask_b",
+	[PW_REG_DPMAIF_DDR_EN_MASK_B] = "reg_dpmaif_ddr_en_mask_b",
 	/* SPM_WAKEUP_EVENT_MASK */
 	[PW_REG_WAKEUP_EVENT_MASK] = "reg_wakeup_event_mask",
 	/* SPM_WAKEUP_EVENT_EXT_MASK */
@@ -876,6 +892,68 @@ static ssize_t mt6873_show_pwr_ctrl(int id, char *buf, size_t buf_sz)
 			"reg_mcusys_merge_ddr_en_mask_b = 0x%zx\n",
 			mtk_lpm_smc_spm_dbg(id, MT_LPM_SMC_ACT_GET,
 				PW_REG_MCUSYS_MERGE_DDR_EN_MASK_B, 0));
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"reg_msdc2_srcclkena_mask_b = 0x%zx\n",
+			mtk_lpm_smc_spm_dbg(id, MT_LPM_SMC_ACT_GET,
+				PW_REG_MSDC2_SRCCLKENA_MASK_B, 0));
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"reg_msdc2_infra_req_mask_b = 0x%zx\n",
+			mtk_lpm_smc_spm_dbg(id, MT_LPM_SMC_ACT_GET,
+				PW_REG_MSDC2_INFRA_REQ_MASK_B, 0));
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"reg_msdc2_apsrc_req_mask_b = 0x%zx\n",
+			mtk_lpm_smc_spm_dbg(id, MT_LPM_SMC_ACT_GET,
+				PW_REG_MSDC2_APSRC_REQ_MASK_B, 0));
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"reg_msdc2_vrf18_req_mask_b = 0x%zx\n",
+			mtk_lpm_smc_spm_dbg(id, MT_LPM_SMC_ACT_GET,
+				PW_REG_MSDC2_VRF18_REQ_MASK_B, 0));
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"reg_msdc2_ddr_en_mask_b = 0x%zx\n",
+			mtk_lpm_smc_spm_dbg(id, MT_LPM_SMC_ACT_GET,
+				PW_REG_MSDC2_DDR_EN_MASK_B, 0));
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"reg_pcie_srcclkena_mask_b = 0x%zx\n",
+			mtk_lpm_smc_spm_dbg(id, MT_LPM_SMC_ACT_GET,
+				PW_REG_PCIE_SRCCLKENA_MASK_B, 0));
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"reg_pcie_infra_req_mask_b = 0x%zx\n",
+			mtk_lpm_smc_spm_dbg(id, MT_LPM_SMC_ACT_GET,
+				PW_REG_PCIE_INFRA_REQ_MASK_B, 0));
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"reg_pcie_apsrc_req_mask_b = 0x%zx\n",
+			mtk_lpm_smc_spm_dbg(id, MT_LPM_SMC_ACT_GET,
+				PW_REG_PCIE_APSRC_REQ_MASK_B, 0));
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"reg_pcie_vrf18_req_mask_b = 0x%zx\n",
+			mtk_lpm_smc_spm_dbg(id, MT_LPM_SMC_ACT_GET,
+				PW_REG_PCIE_VRF18_REQ_MASK_B, 0));
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"reg_pcie_ddr_en_mask_b = 0x%zx\n",
+			mtk_lpm_smc_spm_dbg(id, MT_LPM_SMC_ACT_GET,
+				PW_REG_PCIE_DDR_EN_MASK_B, 0));
+	/* SPM_SRC6_MASK */
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"reg_dpmaif_srcclkena_mask_b = 0x%zx\n",
+			mtk_lpm_smc_spm_dbg(id, MT_LPM_SMC_ACT_GET,
+				PW_REG_DPMAIF_SRCCLKENA_MASK_B, 0));
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"reg_dpmaif_infra_req_mask_b = 0x%zx\n",
+			mtk_lpm_smc_spm_dbg(id, MT_LPM_SMC_ACT_GET,
+				PW_REG_DPMAIF_INFRA_REQ_MASK_B, 0));
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"reg_dpmaif_apsrc_req_mask_b = 0x%zx\n",
+			mtk_lpm_smc_spm_dbg(id, MT_LPM_SMC_ACT_GET,
+				PW_REG_DPMAIF_APSRC_REQ_MASK_B, 0));
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"reg_dpmaif_vrf18_req_mask_b = 0x%zx\n",
+			mtk_lpm_smc_spm_dbg(id, MT_LPM_SMC_ACT_GET,
+				PW_REG_DPMAIF_VRF18_REQ_MASK_B, 0));
+	mSize += scnprintf(p + mSize, buf_sz - mSize,
+			"reg_dpmaif_ddr_en_mask_b = 0x%zx\n",
+			mtk_lpm_smc_spm_dbg(id, MT_LPM_SMC_ACT_GET,
+				PW_REG_DPMAIF_DDR_EN_MASK_B, 0));
+
 	/* SPM_WAKEUP_EVENT_MASK */
 	mSize += scnprintf(p + mSize, buf_sz - mSize,
 			"reg_wakeup_event_mask = 0x%zx\n",
@@ -1528,6 +1606,67 @@ static ssize_t mt6873_store_pwr_ctrl(int id,	const char *buf, size_t count)
 		mt6873_pwr_ctrl_str[PW_REG_MCUSYS_MERGE_DDR_EN_MASK_B])) {
 		mtk_lpm_smc_spm_dbg(id, MT_LPM_SMC_ACT_SET,
 				PW_REG_MCUSYS_MERGE_DDR_EN_MASK_B, val);
+	} else if (!strcmp(cmd,
+		mt6873_pwr_ctrl_str[PW_REG_MSDC2_SRCCLKENA_MASK_B])) {
+		mtk_lpm_smc_spm_dbg(id, MT_LPM_SMC_ACT_SET,
+				PW_REG_MSDC2_SRCCLKENA_MASK_B, val);
+	} else if (!strcmp(cmd,
+		mt6873_pwr_ctrl_str[PW_REG_MSDC2_INFRA_REQ_MASK_B])) {
+		mtk_lpm_smc_spm_dbg(id, MT_LPM_SMC_ACT_SET,
+				PW_REG_MSDC2_INFRA_REQ_MASK_B, val);
+	} else if (!strcmp(cmd,
+		mt6873_pwr_ctrl_str[PW_REG_MSDC2_APSRC_REQ_MASK_B])) {
+		mtk_lpm_smc_spm_dbg(id, MT_LPM_SMC_ACT_SET,
+				PW_REG_MSDC2_APSRC_REQ_MASK_B, val);
+	} else if (!strcmp(cmd,
+		mt6873_pwr_ctrl_str[PW_REG_MSDC2_VRF18_REQ_MASK_B])) {
+		mtk_lpm_smc_spm_dbg(id, MT_LPM_SMC_ACT_SET,
+				PW_REG_MSDC2_VRF18_REQ_MASK_B, val);
+	} else if (!strcmp(cmd,
+		mt6873_pwr_ctrl_str[PW_REG_MSDC2_DDR_EN_MASK_B])) {
+		mtk_lpm_smc_spm_dbg(id, MT_LPM_SMC_ACT_SET,
+				PW_REG_MSDC2_DDR_EN_MASK_B, val);
+	} else if (!strcmp(cmd,
+		mt6873_pwr_ctrl_str[PW_REG_PCIE_SRCCLKENA_MASK_B])) {
+		mtk_lpm_smc_spm_dbg(id, MT_LPM_SMC_ACT_SET,
+				PW_REG_PCIE_SRCCLKENA_MASK_B, val);
+	} else if (!strcmp(cmd,
+		mt6873_pwr_ctrl_str[PW_REG_PCIE_INFRA_REQ_MASK_B])) {
+		mtk_lpm_smc_spm_dbg(id, MT_LPM_SMC_ACT_SET,
+				PW_REG_PCIE_INFRA_REQ_MASK_B, val);
+	} else if (!strcmp(cmd,
+		mt6873_pwr_ctrl_str[PW_REG_PCIE_APSRC_REQ_MASK_B])) {
+		mtk_lpm_smc_spm_dbg(id, MT_LPM_SMC_ACT_SET,
+				PW_REG_PCIE_APSRC_REQ_MASK_B, val);
+	} else if (!strcmp(cmd,
+		mt6873_pwr_ctrl_str[PW_REG_PCIE_VRF18_REQ_MASK_B])) {
+		mtk_lpm_smc_spm_dbg(id, MT_LPM_SMC_ACT_SET,
+				PW_REG_PCIE_VRF18_REQ_MASK_B, val);
+	} else if (!strcmp(cmd,
+		mt6873_pwr_ctrl_str[PW_REG_PCIE_DDR_EN_MASK_B])) {
+		mtk_lpm_smc_spm_dbg(id, MT_LPM_SMC_ACT_SET,
+				PW_REG_PCIE_DDR_EN_MASK_B, val);
+	/* SPM_SRC6_MASK */
+	} else if (!strcmp(cmd,
+		mt6873_pwr_ctrl_str[PW_REG_DPMAIF_SRCCLKENA_MASK_B])) {
+		mtk_lpm_smc_spm_dbg(id, MT_LPM_SMC_ACT_SET,
+				PW_REG_DPMAIF_SRCCLKENA_MASK_B, val);
+	} else if (!strcmp(cmd,
+		mt6873_pwr_ctrl_str[PW_REG_DPMAIF_INFRA_REQ_MASK_B])) {
+		mtk_lpm_smc_spm_dbg(id, MT_LPM_SMC_ACT_SET,
+				PW_REG_DPMAIF_INFRA_REQ_MASK_B, val);
+	} else if (!strcmp(cmd,
+		mt6873_pwr_ctrl_str[PW_REG_DPMAIF_APSRC_REQ_MASK_B])) {
+		mtk_lpm_smc_spm_dbg(id, MT_LPM_SMC_ACT_SET,
+				PW_REG_DPMAIF_APSRC_REQ_MASK_B, val);
+	} else if (!strcmp(cmd,
+		mt6873_pwr_ctrl_str[PW_REG_DPMAIF_VRF18_REQ_MASK_B])) {
+		mtk_lpm_smc_spm_dbg(id, MT_LPM_SMC_ACT_SET,
+				PW_REG_DPMAIF_VRF18_REQ_MASK_B, val);
+	} else if (!strcmp(cmd,
+		mt6873_pwr_ctrl_str[PW_REG_DPMAIF_DDR_EN_MASK_B])) {
+		mtk_lpm_smc_spm_dbg(id, MT_LPM_SMC_ACT_SET,
+				PW_REG_DPMAIF_DDR_EN_MASK_B, val);
 	/* SPM_WAKEUP_EVENT_MASK */
 	} else if (!strcmp(cmd,
 		mt6873_pwr_ctrl_str[PW_REG_WAKEUP_EVENT_MASK])) {

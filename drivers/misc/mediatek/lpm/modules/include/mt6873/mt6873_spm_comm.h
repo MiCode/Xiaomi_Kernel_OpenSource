@@ -106,7 +106,7 @@ struct mt6873_spm_wake_status {
 #define SPM_FLAG1_RESERVED_BIT28              (1 << 28u)
 #define SPM_FLAG1_RESERVED_BIT29              (1 << 29u)
 #define SPM_FLAG1_RESERVED_BIT30              (1 << 30u)
-#define SPM_FLAG1_RESERVED_BIT31              (1 << 31u)
+#define SPM_FLAG1_DISABLE_CPUEB_OFF              (1 << 31u)
 /* --- SPM DEBUG Define --- */
 #define SPM_DBG_DEBUG_IDX_26M_WAKE			(1 << 0u)
 #define SPM_DBG_DEBUG_IDX_26M_SLEEP			(1 << 1u)
@@ -137,8 +137,8 @@ struct mt6873_spm_wake_status {
 #define SPM_DBG_DEBUG_IDX_SCP_VCORE_0P725V		(1 << 26u)
 #define SPM_DBG_DEBUG_IDX_SPM_GO_WAKEUP_NOW		(1 << 27u)
 #define SPM_DBG_DEBUG_IDX_VTCXO_STATE			(1 << 28u)
-#define SPM_DBG_DEBUG_IDX_VRF18_STATE			(1 << 29u)
-#define SPM_DBG_DEBUG_IDX_INFRA_STATE			(1 << 30u)
+#define SPM_DBG_DEBUG_IDX_INFRA_STATE			(1 << 29u)
+#define SPM_DBG_DEBUG_IDX_VRF18_STATE			(1 << 30u)
 #define SPM_DBG_DEBUG_IDX_APSRC_STATE			(1 << 31u)
 
 /* --- SPM DEBUG1 Define --- */

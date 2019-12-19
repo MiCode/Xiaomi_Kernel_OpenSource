@@ -107,8 +107,8 @@
 #define R12_SEJ_EVENT_B                       (1U << 27)
 #define R12_REG_CPU_WAKEUP                    (1U << 28)
 #define R12_APUSYS_WAKE_HOST_B                (1U << 29)
-#define R12_NOT_USED1                         (1U << 30)
-#define R12_NOT_USED2                         (1U << 31)
+#define R12_PCIE_BRIDGE_IRQ                   (1U << 30)
+#define R12_PCIE_IRQ                          (1U << 31)
 /* --- R12ext Define --- */
 #define R12EXT_26M_WAKE                       (1U << 0)
 #define R12EXT_26M_SLEEP                      (1U << 1)
@@ -208,8 +208,8 @@ enum SPM_WAKE_SRC_LIST {
 	WAKE_SRC_STA1_SEJ_EVENT_B = (1U << 27),
 	WAKE_SRC_STA1_SPM_CPU_WAKEUPEVENT_B = (1U << 28),
 	WAKE_SRC_STA1_APUSYS = (1U << 29),
-	WAKE_SRC_R12_NOT_USED1 = (1U << 30),
-	WAKE_SRC_R12_NOT_USED2 = (1U << 31),
+	WAKE_SRC_STA1_PCIE_BRIDGE_IRQ = (1U << 30),
+	WAKE_SRC_STA1_PCIE_IRQ = (1U << 31)
 };
 
 extern const char *wakesrc_str[32];

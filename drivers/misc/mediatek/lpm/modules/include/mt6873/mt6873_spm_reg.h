@@ -33,6 +33,7 @@
 #define PCM_PWR_IO_EN                  (SPM_BASE + 0x02C)
 #define PCM_TIMER_VAL                  (SPM_BASE + 0x030)
 #define PCM_WDT_VAL                    (SPM_BASE + 0x034)
+#define SPM_SRC6_MASK                  (SPM_BASE + 0x038)
 #define SPM_SW_RST_CON                 (SPM_BASE + 0x040)
 #define SPM_SW_RST_CON_SET             (SPM_BASE + 0x044)
 #define SPM_SW_RST_CON_CLR             (SPM_BASE + 0x048)
@@ -223,6 +224,7 @@
 #define DRAMC_MCU_SRAM_CON             (SPM_BASE + 0x3BC)
 #define MCUPM_SRAM_CON                 (SPM_BASE + 0x3C0)
 #define DPY2_PWR_CON                   (SPM_BASE + 0x3C4)
+#define PERI_SRAM_CON                   (SPM_BASE + 0x3C8)
 #define SPM_MEM_CK_SEL                 (SPM_BASE + 0x400)
 #define SPM_BUS_PROTECT_MASK_B         (SPM_BASE + 0x404)
 #define SPM_BUS_PROTECT1_MASK_B        (SPM_BASE + 0x408)
@@ -360,6 +362,7 @@
 #define SCP_VCORE_LEVEL                (SPM_BASE + 0x67C)
 #define SC_MM_CK_SEL_CON               (SPM_BASE + 0x680)
 #define SPARE_ACK_MASK                 (SPM_BASE + 0x684)
+#define SPM_CROSS_WAKE_M04_REQ         (SPM_BASE + 0x688)
 #define SPM_DV_CON_0                   (SPM_BASE + 0x68C)
 #define SPM_DV_CON_1                   (SPM_BASE + 0x690)
 #define SPM_DV_STA                     (SPM_BASE + 0x694)
@@ -672,6 +675,12 @@
 #define REG_PCM_TIMER_VAL_LSB               (1U << 0)       /* 32b */
 /* PCM_WDT_VAL (0x10006000+0x034) */
 #define RG_PCM_WDT_VAL_LSB                  (1U << 0)       /* 32b */
+/* SPM_SRC6_MASK (0x10006000+0x038) */
+#define REG_DPMAIF_SRCCLKENA_MASK_B_LSB     (1U << 0)       /* 1b */
+#define REG_DPMAIF_INFRA_REQ_MASK_B_LSB     (1U << 1)       /* 1b */
+#define REG_DPMAIF_APSRC_REQ_MASK_B_LSB     (1U << 2)       /* 1b */
+#define REG_DPMAIF_VRF18_REQ_MASK_B_LSB     (1U << 3)       /* 1b */
+#define REG_DPMAIF_DDR_EN_MASK_B_LSB        (1U << 4)       /* 1b */
 /* SPM_SW_RST_CON (0x10006000+0x040) */
 #define SPM_SW_RST_CON_LSB                  (1U << 0)       /* 16b */
 #define SPM_SW_RST_CON_PROJECT_CODE_LSB     (1U << 16)      /* 16b */
@@ -850,6 +859,16 @@
 /* SPM_SRC5_MASK (0x10006000+0x0CC) */
 #define REG_MCUSYS_MERGE_APSRC_REQ_MASK_B_LSB (1U << 0)       /* 9b */
 #define REG_MCUSYS_MERGE_DDR_EN_MASK_B_LSB  (1U << 9)       /* 9b */
+#define REG_MSDC2_SRCCLKENA_MASK_B_LSB      (1U << 18)      /* 1b */
+#define REG_MSDC2_INFRA_REQ_MASK_B_LSB      (1U << 19)      /* 1b */
+#define REG_MSDC2_APSRC_REQ_MASK_B_LSB      (1U << 20)      /* 1b */
+#define REG_MSDC2_VRF18_REQ_MASK_B_LSB      (1U << 21)      /* 1b */
+#define REG_MSDC2_DDR_EN_MASK_B_LSB         (1U << 22)      /* 1b */
+#define REG_PCIE_SRCCLKENA_MASK_B_LSB       (1U << 23)      /* 1b */
+#define REG_PCIE_INFRA_REQ_MASK_B_LSB       (1U << 24)      /* 1b */
+#define REG_PCIE_APSRC_REQ_MASK_B_LSB       (1U << 25)      /* 1b */
+#define REG_PCIE_VRF18_REQ_MASK_B_LSB       (1U << 26)      /* 1b */
+#define REG_PCIE_DDR_EN_MASK_B_LSB          (1U << 27)      /* 1b */
 /* SPM_WAKEUP_EVENT_MASK (0x10006000+0x0D0) */
 #define REG_WAKEUP_EVENT_MASK_LSB           (1U << 0)       /* 32b */
 /* SPM_WAKEUP_EVENT_EXT_MASK (0x10006000+0x0D4) */
@@ -952,6 +971,21 @@
 #define REG_BAK_PSRI_APSRC_ACK_MASK_LSB     (1U << 10)      /* 1b */
 #define REG_BAK_PSRI_VRF18_ACK_MASK_LSB     (1U << 11)      /* 1b */
 #define REG_BAK_PSRI_DDR_EN_ACK_MASK_LSB    (1U << 12)      /* 1b */
+#define REG_MSDC2_SRCCLKENA_ACK_MASK_LSB    (1U << 13)      /* 1b */
+#define REG_MSDC2_INFRA_ACK_MASK_LSB        (1U << 14)      /* 1b */
+#define REG_MSDC2_APSRC_ACK_MASK_LSB        (1U << 15)      /* 1b */
+#define REG_MSDC2_VRF18_ACK_MASK_LSB        (1U << 16)      /* 1b */
+#define REG_MSDC2_DDR_EN_ACK_MASK_LSB       (1U << 17)      /* 1b */
+#define REG_PCIE_SRCCLKENA_ACK_MASK_LSB     (1U << 18)      /* 1b */
+#define REG_PCIE_INFRA_ACK_MASK_LSB         (1U << 19)      /* 1b */
+#define REG_PCIE_APSRC_ACK_MASK_LSB         (1U << 20)      /* 1b */
+#define REG_PCIE_VRF18_ACK_MASK_LSB         (1U << 21)      /* 1b */
+#define REG_PCIE_DDR_EN_ACK_MASK_LSB        (1U << 22)      /* 1b */
+#define REG_DPMAIF_SRCCLKENA_ACK_MASK_LSB   (1U << 23)      /* 1b */
+#define REG_DPMAIF_INFRA_ACK_MASK_LSB       (1U << 24)      /* 1b */
+#define REG_DPMAIF_APSRC_ACK_MASK_LSB       (1U << 25)      /* 1b */
+#define REG_DPMAIF_VRF18_ACK_MASK_LSB       (1U << 26)      /* 1b */
+#define REG_DPMAIF_DDR_EN_ACK_MASK_LSB      (1U << 27)      /* 1b */
 /* PCM_REG0_DATA (0x10006000+0x100) */
 #define PCM_REG0_RF_LSB                     (1U << 0)       /* 32b */
 /* PCM_REG2_DATA (0x10006000+0x104) */
@@ -1059,6 +1093,21 @@
 #define BAK_PSRI_APSRC_REQ_LSB              (1U << 7)       /* 1b */
 #define BAK_PSRI_VRF18_REQ_LSB              (1U << 8)       /* 1b */
 #define BAK_PSRI_DDR_EN_LSB                 (1U << 9)       /* 1b */
+#define MSDC2_SRCCLKENA_LSB                 (1U << 10)      /* 1b */
+#define MSDC2_INFRA_REQ_LSB                 (1U << 11)      /* 1b */
+#define MSDC2_APSRC_REQ_LSB                 (1U << 12)      /* 1b */
+#define MSDC2_VRF18_REQ_LSB                 (1U << 13)      /* 1b */
+#define MSDC2_DDR_EN_LSB                    (1U << 14)      /* 1b */
+#define PCIE_SRCCLKENA_LSB                  (1U << 15)      /* 1b */
+#define PCIE_INFRA_REQ_LSB                  (1U << 16)      /* 1b */
+#define PCIE_APSRC_REQ_LSB                  (1U << 17)      /* 1b */
+#define PCIE_VRF18_REQ_LSB                  (1U << 18)      /* 1b */
+#define PCIE_DDR_EN_LSB                     (1U << 19)      /* 1b */
+#define DPMAIF_SRCCLKENA_LSB                (1U << 20)      /* 1b */
+#define DPMAIF_INFRA_REQ_LSB                (1U << 21)      /* 1b */
+#define DPMAIF_APSRC_REQ_LSB                (1U << 22)      /* 1b */
+#define DPMAIF_VRF18_REQ_LSB                (1U << 23)      /* 1b */
+#define DPMAIF_DDR_EN_LSB                   (1U << 24)      /* 1b */
 /* MD32PCM_WAKEUP_STA (0x10006000+0x130) */
 #define MD32PCM_WAKEUP_STA_LSB              (1U << 0)       /* 32b */
 /* MD32PCM_EVENT_STA (0x10006000+0x134) */
@@ -1646,6 +1695,7 @@
 /* EXT_BUCK_ISO (0x10006000+0x39C) */
 #define VIMVO_EXT_BUCK_ISO_LSB              (1U << 0)       /* 1b */
 #define GPU_EXT_BUCK_ISO_LSB                (1U << 1)       /* 1b */
+#define ADSP_EXT_BUCK_ISO_LSB               (1U << 2)       /* 1b */
 #define IPU_EXT_BUCK_ISO_LSB                (1U << 5)       /* 3b */
 /* DXCC_SRAM_CON (0x10006000+0x3A0) */
 #define DXCC_SRAM_CKISO_LSB                 (1U << 0)       /* 1b */
@@ -1653,10 +1703,17 @@
 #define DXCC_SRAM_SLEEP_B_LSB               (1U << 4)       /* 1b */
 #define DXCC_SRAM_PDN_LSB                   (1U << 16)      /* 1b */
 /* MSDC_SRAM_CON (0x10006000+0x3A4) */
-#define MSDC_SRAM_CKISO_LSB                 (1U << 0)       /* 1b */
-#define MSDC_SRAM_ISOINT_B_LSB              (1U << 1)       /* 1b */
-#define MSDC_SRAM_SLEEP_B_LSB               (1U << 4)       /* 5b */
-#define MSDC_SRAM_PDN_LSB                   (1U << 16)      /* 5b */
+#define MSDC_PWR_RST_B_LSB                  (1U << 0)       /* 1b */
+#define MSDC_PWR_ISO_LSB                    (1U << 1)       /* 1b */
+#define MSDC_PWR_ON_LSB                     (1U << 2)       /* 1b */
+#define MSDC_PWR_ON_2ND_LSB                 (1U << 3)       /* 1b */
+#define MSDC_PWR_CLK_DIS_LSB                (1U << 4)       /* 1b */
+#define MSDC_SRAM_CKISO_LSB                 (1U << 5)       /* 1b */
+#define MSDC_SRAM_ISOINT_B_LSB              (1U << 6)       /* 1b */
+#define MSDC_SRAM_PDN_LSB                   (1U << 8)       /* 1b */
+#define MSDC_SRAM_SLEEP_B_LSB               (1U << 9)       /* 1b */
+#define SC_MSDC_SRAM_PDN_ACK_LSB            (1U << 12)      /* 1b */
+#define SC_MSDC_SRAM_SLEEP_B_ACK_LSB        (1U << 13)      /* 1b */
 /* DEBUGTOP_SRAM_CON (0x10006000+0x3A8) */
 #define DEBUGTOP_SRAM_PDN_LSB               (1U << 0)       /* 1b */
 /* DP_TX_PWR_CON (0x10006000+0x3AC) */
@@ -1688,10 +1745,17 @@
 #define DRAMC_MCU_SRAM_SLEEP_B_LSB          (1U << 4)       /* 1b */
 #define DRAMC_MCU_SRAM_PDN_LSB              (1U << 16)      /* 1b */
 /* MCUPM_SRAM_CON (0x10006000+0x3C0) */
-#define MCUPM_SRAM_CKISO_LSB                (1U << 0)       /* 1b */
-#define MCUPM_SRAM_ISOINT_B_LSB             (1U << 1)       /* 1b */
-#define MCUPM_SRAM_SLEEP_B_LSB              (1U << 4)       /* 8b */
-#define MCUPM_SRAM_PDN_LSB                  (1U << 16)      /* 8b */
+#define MCUPM_PWR_RST_B_LSB                 (1U << 0)       /* 1b */
+#define MCUPM_PWR_ISO_LSB                   (1U << 1)       /* 1b */
+#define MCUPM_PWR_ON_LSB                    (1U << 2)       /* 1b */
+#define MCUPM_PWR_ON_2ND_LSB                (1U << 3)       /* 1b */
+#define MCUPM_PWR_CLK_DIS_LSB               (1U << 4)       /* 1b */
+#define MCUPM_SRAM_CKISO_LSB                (1U << 5)       /* 1b */
+#define MCUPM_SRAM_ISOINT_B_LSB             (1U << 6)       /* 1b */
+#define MCUPM_SRAM_PDN_LSB                  (1U << 8)       /* 1b */
+#define MCUPM_SRAM_SLEEP_B_LSB              (1U << 9)       /* 1b */
+#define SC_MCUPM_SRAM_PDN_ACK_LSB           (1U << 12)      /* 1b */
+#define SC_MCUPM_SRAM_SLEEP_B_ACK_LSB       (1U << 13)      /* 1b */
 /* DPY2_PWR_CON (0x10006000+0x3C4) */
 #define DPY2_PWR_RST_B_LSB                  (1U << 0)       /* 1b */
 #define DPY2_PWR_ISO_LSB                    (1U << 1)       /* 1b */
@@ -1700,6 +1764,14 @@
 #define DPY2_PWR_CLK_DIS_LSB                (1U << 4)       /* 1b */
 #define DPY2_SRAM_PDN_LSB                   (1U << 8)       /* 1b */
 #define SC_DPY2_SRAM_PDN_ACK_LSB            (1U << 12)      /* 1b */
+/* PERI_SRAM_CON (0x10006000+0x3C8) */
+#define PERI_PWR_RST_B_LSB                  (1U << 0)       /* 1b */
+#define PERI_PWR_ISO_LSB                    (1U << 1)       /* 1b */
+#define PERI_PWR_ON_LSB                     (1U << 2)       /* 1b */
+#define PERI_PWR_ON_2ND_LSB                 (1U << 3)       /* 1b */
+#define PERI_PWR_CLK_DIS_LSB                (1U << 4)       /* 1b */
+#define PERI_SRAM_PDN_LSB                   (1U << 8)       /* 1b */
+#define SC_PERI_SRAM_PDN_ACK_LSB            (1U << 12)      /* 1b */
 /* SPM_MEM_CK_SEL (0x10006000+0x400) */
 #define SC_MEM_CK_SEL_LSB                   (1U << 0)       /* 1b */
 #define SPM2CKSYS_MEM_CK_MUX_UPDATE_LSB     (1U << 1)       /* 1b */
@@ -2149,17 +2221,17 @@
 /* SPM_SPARE_CON_CLR (0x10006000+0x668) */
 #define SPM_SPARE_CON_CLR_LSB               (1U << 0)       /* 32b */
 /* SPM_CROSS_WAKE_M00_REQ (0x10006000+0x66C) */
-#define SPM_CROSS_WAKE_M00_REQ_LSB          (1U << 0)       /* 4b */
-#define SPM_CROSS_WAKE_M00_CHK_LSB          (1U << 4)       /* 4b */
+#define SPM_CROSS_WAKE_M00_REQ_LSB          (1U << 0)       /* 5b */
+#define SPM_CROSS_WAKE_M00_CHK_LSB          (1U << 8)       /* 5b */
 /* SPM_CROSS_WAKE_M01_REQ (0x10006000+0x670) */
-#define SPM_CROSS_WAKE_M01_REQ_LSB          (1U << 0)       /* 4b */
-#define SPM_CROSS_WAKE_M01_CHK_LSB          (1U << 4)       /* 4b */
+#define SPM_CROSS_WAKE_M01_REQ_LSB          (1U << 0)       /* 5b */
+#define SPM_CROSS_WAKE_M01_CHK_LSB          (1U << 8)       /* 5b */
 /* SPM_CROSS_WAKE_M02_REQ (0x10006000+0x674) */
-#define SPM_CROSS_WAKE_M02_REQ_LSB          (1U << 0)       /* 4b */
-#define SPM_CROSS_WAKE_M02_CHK_LSB          (1U << 4)       /* 4b */
+#define SPM_CROSS_WAKE_M02_REQ_LSB          (1U << 0)       /* 5b */
+#define SPM_CROSS_WAKE_M02_CHK_LSB          (1U << 8)       /* 5b */
 /* SPM_CROSS_WAKE_M03_REQ (0x10006000+0x678) */
-#define SPM_CROSS_WAKE_M03_REQ_LSB          (1U << 0)       /* 4b */
-#define SPM_CROSS_WAKE_M03_CHK_LSB          (1U << 4)       /* 4b */
+#define SPM_CROSS_WAKE_M03_REQ_LSB          (1U << 0)       /* 5b */
+#define SPM_CROSS_WAKE_M03_CHK_LSB          (1U << 8)       /* 5b */
 /* SCP_VCORE_LEVEL (0x10006000+0x67C) */
 #define SCP_VCORE_LEVEL_LSB                 (1U << 0)       /* 16b */
 /* SC_MM_CK_SEL_CON (0x10006000+0x680) */
@@ -2167,6 +2239,9 @@
 #define SC_MM_CK_SEL_EN_LSB                 (1U << 4)       /* 1b */
 /* SPARE_ACK_MASK (0x10006000+0x684) */
 #define SPARE_ACK_MASK_B_LSB                (1U << 0)       /* 32b */
+/* SPM_CROSS_WAKE_M04_REQ (0x10006000+0x688) */
+#define SPM_CROSS_WAKE_M04_REQ_LSB          (1U << 0)       /* 5b */
+#define SPM_CROSS_WAKE_M04_CHK_LSB          (1U << 8)       /* 5b */
 /* SPM_DV_CON_0 (0x10006000+0x68C) */
 #define SPM_DV_CON_0_LSB                    (1U << 0)       /* 32b */
 /* SPM_DV_CON_1 (0x10006000+0x690) */
