@@ -34,10 +34,6 @@ ifeq ($(CONFIG_MACH_MT6758),y)
   obj-$(CONFIG_MTK_CAMERA_ISP_RSC_SUPPORT) += $(MTK_PLATFORM)/camera_rsc.o
 endif
 
-ifeq ($(CONFIG_MACH_MT6885),y)
-  obj-$(CONFIG_MTK_CAMERA_ISP_RSC_SUPPORT) += $(MTK_PLATFORM)/camera_rsc.o
-endif
-
 ifeq ($(CONFIG_MACH_MT6771),y)
   obj-$(CONFIG_MTK_CAMERA_ISP_RSC_SUPPORT) += isp_50/camera_rsc.o
 endif
@@ -46,8 +42,16 @@ ifeq ($(CONFIG_MACH_MT6775),y)
   obj-$(CONFIG_MTK_CAMERA_ISP_RSC_SUPPORT) += isp_50/camera_rsc.o
 
 endif
+
 ifeq ($(CONFIG_MACH_MT6779),y)
   obj-$(CONFIG_MTK_CAMERA_ISP_RSC_SUPPORT) += isp_50/camera_rsc.o
 endif
 
+ifeq ($(CONFIG_MACH_MT6885),y)
+  obj-$(CONFIG_MTK_CAMERA_ISP_RSC_SUPPORT) += isp_6s/camera_rsc.o
+endif
+
+ifeq ($(CONFIG_MACH_MT6873),y)
+  obj-$(CONFIG_MTK_CAMERA_ISP_RSC_SUPPORT) += isp_6s/camera_rsc.o
+endif
 endif

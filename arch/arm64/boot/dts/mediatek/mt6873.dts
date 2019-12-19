@@ -4491,11 +4491,32 @@
 		interrupts = <GIC_SPI 360 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
+#ifdef CONFIG_VIDEO_MEDIATEK_ISP_RSC_SUPPORT
 	rsc@1b003000 {
 		compatible = "mediatek,rsc";
+		mediatek,larb = <&smi_larb20>;
+		mediatek,hcp = <&hcp>;
 		reg = <0 0x1b003000 0 0x1000>;
 		interrupts = <GIC_SPI 359 IRQ_TYPE_LEVEL_HIGH>;
+		mboxes = <&gce_mbox 13 0 CMDQ_THR_PRIO_1>;
+		gce-event-names = "rsc_eof";
+		gce-events = <&gce_mbox CMDQ_EVENT_RSC_DONE>;
+		clocks = <&ipesys_config IPESYS_RSC_CGPDN>;
+		clock-names = "RSC_CLK_IPE_RSC";
 	};
+#else
+	rsc@1b003000 {
+		compatible = "mediatek,rsc";
+		mediatek,larb = <&smi_larb20>;
+		reg = <0 0x1b003000 0 0x1000>;
+		interrupts = <GIC_SPI 359 IRQ_TYPE_LEVEL_HIGH>;
+		mboxes = <&gce_mbox 13 0 CMDQ_THR_PRIO_1>;
+		gce-event-names = "rsc_eof";
+		gce-events = <&gce_mbox CMDQ_EVENT_RSC_DONE>;
+		clocks = <&ipesys_config IPESYS_RSC_CGPDN>;
+		clock-names = "RSC_CLK_IPE_RSC";
+	};
+#endif
 
 	ipe_smi_subcom@1b00e000 {
 		compatible = "mediatek,ipe_smi_subcom", "mediatek,smi_common";

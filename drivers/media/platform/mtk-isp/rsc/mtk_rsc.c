@@ -88,6 +88,14 @@
 #define RSC_INT_STATUS_REG(rsc_reg)             (rsc_reg + 0x14)
 #define RSC_STA_0_REG(rsc_reg)                  (rsc_reg + 0x100)
 
+#ifndef M4U_PORT_L20_IPE_RSC_RDMA0_DISP
+#define M4U_PORT_L20_IPE_RSC_RDMA0_DISP M4U_PORT_L20_IPE_RSC_RDMA0
+#endif /* M4U_PORT_L20_IPE_RSC_RDMA0_DISP */
+
+#ifndef M4U_PORT_L20_IPE_RSC_WDMA_DISP
+#define M4U_PORT_L20_IPE_RSC_WDMA_DISP M4U_PORT_L20_IPE_RSC_WDMA
+#endif /* M4U_PORT_L20_IPE_RSC_WDMA_DISP */
+
 static irqreturn_t isp_irq_rsc(int irq, void *data);
 
 #ifndef CONFIG_OF
