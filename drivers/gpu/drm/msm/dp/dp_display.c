@@ -1532,6 +1532,7 @@ static int dp_display_prepare(struct dp_display *dp_display, void *panel)
 {
 	struct dp_display_private *dp;
 	struct dp_panel *dp_panel;
+	bool core_initialized;
 	int rc = 0;
 
 	if (!dp_display || !panel) {
@@ -1558,12 +1559,23 @@ static int dp_display_prepare(struct dp_display *dp_display, void *panel)
 	if (!dp_display_is_ready(dp))
 		goto end;
 
+	core_initialized = dp->core_initialized;
+
 	dp_display_host_init(dp);
 
 	if (dp->debug->psm_enabled) {
 		dp->link->psm_config(dp->link, &dp->panel->link_info, false);
 		dp->debug->psm_enabled = false;
 	}
+
+	/*
+	 * when dp core is re-initialized, we need to fully parse
+	 * the sink caps to update the bw_code and lane_count
+	 */
+	if (!core_initialized)
+		dp->panel->read_sink_caps(dp->panel,
+				dp->dp_display.base_connector,
+				dp->hpd->multi_func);
 
 	/*
 	 * Execute the dp controller power on in shallow mode here.
