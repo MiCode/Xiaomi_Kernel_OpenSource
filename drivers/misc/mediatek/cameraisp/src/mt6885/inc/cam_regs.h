@@ -690,6 +690,11 @@ enum{
 
 #define CAM_REG_CRZO_FH_BASE_ADDR(module)       (isp_devs[module].regs + 0x4B5C)
 
+#define CAM_REG_FLKO_FH_BASE_ADDR(module)       (isp_devs[module].regs + 0x45AC)
+
+#define CAM_REG_AFO_FH_BASE_ADDR(module)       (isp_devs[module].regs + 0x453C)
+
+
 /* MRAW */
 /* MRAW WDMA */
 #define CAM_REG_IMGO_M1_DRS(module)             LOG_NOTICE("MRAW TBD\n")
