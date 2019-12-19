@@ -647,6 +647,7 @@ static ssize_t _mtkthermal_cooler_write
 
 			strncpy(mcdata->conditions[i], conditions[i],
 				THERMAL_NAME_LENGTH);
+			mcdata->conditions[i][THERMAL_NAME_LENGTH - 1] = '\0';
 			mcdata->threshold[i] = threshold[i];
 
 			if (strncmp(mcdata->conditions[i], "EXIT", 4) == 0) {
