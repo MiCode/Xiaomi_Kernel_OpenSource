@@ -74,6 +74,9 @@ static bool is_critical_spinlock(raw_spinlock_t *lock)
 		return true;
 	if (!strcmp(lock->dep_map.name, "depot_lock"))
 		return true;
+	/* The following locks are in the white list */
+	if (!strcmp(lock->dep_map.name, "show_lock"))
+		return true;
 #endif
 	return false;
 }
