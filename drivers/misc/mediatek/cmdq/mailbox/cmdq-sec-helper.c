@@ -273,7 +273,7 @@ int cmdq_sec_pkt_wait_complete(struct cmdq_pkt *pkt)
 	cmdq_sec_mbox_enable(client->chan);
 
 	do {
-		ret = wait_for_completion_timeout(pkt->cmplt,
+		ret = wait_for_completion_timeout(&pkt->cmplt,
 			msecs_to_jiffies(CMDQ_PREDUMP_TIMEOUT_MS));
 		if (ret)
 			break;
@@ -286,6 +286,7 @@ int cmdq_sec_pkt_wait_complete(struct cmdq_pkt *pkt)
 		cmdq_dump_core(client->chan);
 		cmdq_msg("thd:%d Hidden thread info since it's secure",
 			thread_id);
+		cmdq_sec_dump_operation(client->chan);
 		cmdq_dump_pkt(pkt, 0, false);
 		cmdq_sec_dump_notify_loop(client->chan);
 

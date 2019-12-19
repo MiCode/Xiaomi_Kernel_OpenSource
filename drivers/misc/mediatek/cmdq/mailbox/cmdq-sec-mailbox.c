@@ -325,6 +325,26 @@ static bool cmdq_sec_irq_handler(
 	}
 
 	spin_lock_irqsave(&thread->chan->lock, flags);
+
+	/* error case stop all task for secure,
+	 * since secure tdrv always remove all when cancel
+	 */
+	if (err && cur_task) {
+		while (!list_empty(&thread->task_list)) {
+			struct cmdq_cb_data cb_data;
+
+			cur_task = list_first_entry(
+				&thread->task_list, struct cmdq_sec_task,
+				list_entry);
+
+			cb_data.err = err;
+			cb_data.data = cur_task->pkt->err_cb.data;
+			cur_task->pkt->err_cb.cb(cb_data);
+
+			cmdq_sec_task_done(cur_task, -ECONNABORTED);
+		}
+	}
+
 	if (list_empty(&thread->task_list)) {
 		thread->wait_cookie = 0;
 		thread->next_cookie = 0;
@@ -337,6 +357,7 @@ static bool cmdq_sec_irq_handler(
 		cmdq_sec_clk_disable(cmdq);
 		return true;
 	}
+
 	thread->wait_cookie = cookie % CMDQ_MAX_COOKIE_VALUE + 1;
 	mod_timer(&thread->timeout, jiffies +
 		msecs_to_jiffies(thread->timeout_ms));
@@ -374,6 +395,8 @@ static void cmdq_sec_irq_notify_work(struct work_struct *work_item)
 	s32 i;
 	bool stop = false, empty = true;
 
+	mutex_lock(&cmdq->exec_lock);
+
 	for (i = 0; i < CMDQ_MAX_SECURE_THREAD_COUNT; i++) {
 		struct cmdq_sec_thread *thread =
 			&cmdq->thread[CMDQ_MIN_SECURE_THREAD_ID + i];
@@ -393,7 +416,6 @@ static void cmdq_sec_irq_notify_work(struct work_struct *work_item)
 
 	/* check if able to stop */
 	if (stop) {
-		mutex_lock(&cmdq->exec_lock);
 		for (i = 0; i < CMDQ_MAX_SECURE_THREAD_COUNT; i++)
 			if (cmdq->thread[
 				CMDQ_MIN_SECURE_THREAD_ID + i].task_cnt) {
@@ -411,8 +433,9 @@ static void cmdq_sec_irq_notify_work(struct work_struct *work_item)
 		cmdq_log("%s stop empty:%s gce:%#lx",
 			__func__, empty ? "true" : "false",
 			(unsigned long)cmdq->base_pa);
-		mutex_unlock(&cmdq->exec_lock);
 	}
+
+	mutex_unlock(&cmdq->exec_lock);
 }
 
 static void cmdq_sec_irq_notify_callback(struct cmdq_cb_data cb_data)
@@ -657,14 +680,18 @@ static s32 cmdq_sec_session_send(struct cmdq_sec_context *context,
 	mem_ex2 = iwc_msg->iwcex_available & (1 << CMDQ_IWC_MSG2);
 
 	cost = sched_clock();
-	cmdq_msg("%s execute cmdq:%p task:%lx command:%u thread:%u cookie:%d",
+	cmdq_log("%s execute cmdq:%p task:%lx command:%u thread:%u cookie:%d",
 		__func__, cmdq, (unsigned long)task, iwc_cmd, thrd_idx,
 		task ? task->waitCookie : -1);
 	err = cmdq_sec_execute_session(&context->tee, iwc_cmd, 3000,
 		mem_ex1, mem_ex2);
 	cost = div_u64(sched_clock() - cost, 1000000);
-	cmdq_msg("%s execute done cmdq:%p task:%lx cost:%lluus",
-		__func__, cmdq, (unsigned long)task, cost);
+	if (cost >= 10)
+		cmdq_msg("%s execute done cmdq:%p task:%lx cost:%lluus",
+			__func__, cmdq, (unsigned long)task, cost);
+	else
+		cmdq_log("%s execute done cmdq:%p task:%lx cost:%lluus",
+			__func__, cmdq, (unsigned long)task, cost);
 	if (err)
 		return err;
 	context->state = IWC_SES_ON_TRANSACTED;
@@ -692,6 +719,17 @@ static s32 cmdq_sec_session_reply(const u32 iwc_cmd,
 	}
 
 	return iwc_msg->rsp;
+}
+
+void cmdq_sec_dump_operation(void *chan)
+{
+	struct cmdq_sec *cmdq = container_of(((struct mbox_chan *)chan)->mbox,
+		typeof(*cmdq), mbox);
+
+	cmdq_util_msg("secure tdrv op:%x thread suspend:%u reset:%u",
+		*(u32 *)(cmdq->shared_mem->va + CMDQ_SEC_SHARED_OP_OFFSET),
+		*(u32 *)(cmdq->shared_mem->va + CMDQ_SEC_SHARED_SUSPEND_CNT),
+		*(u32 *)(cmdq->shared_mem->va + CMDQ_SEC_SHARED_RESET_CNT));
 }
 
 void cmdq_sec_dump_response(void *chan, struct cmdq_pkt *pkt,
