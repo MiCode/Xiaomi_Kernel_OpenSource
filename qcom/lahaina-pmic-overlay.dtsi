@@ -6,3 +6,15 @@
 #include "pm8350b.dtsi"
 #include "pmr735a.dtsi"
 #include "pmr735b.dtsi"
+
+&pm8350_gpios {
+	key_vol_up {
+		key_vol_up_default: key_vol_up_default {
+			pins = "gpio6";
+			function = "normal";
+			input-enable;
+			bias-pull-up;
+			power-source = <1>;
+		};
+	};
+};
