@@ -545,6 +545,8 @@ static int panel_ata_check(struct drm_panel *panel)
 	unsigned char id[3] = {0x00, 0x00, 0x00};
 	ssize_t ret;
 
+	pr_info("%s success\n", __func__);
+#if 0
 	ret = mipi_dsi_dcs_read(dsi, 0x4, data, 3);
 	if (ret < 0)
 		pr_err("%s error\n", __func__);
@@ -558,8 +560,8 @@ static int panel_ata_check(struct drm_panel *panel)
 
 	DDPINFO("ATA expect read data is %x %x %x\n",
 			id[0], id[1], id[2]);
-
-	return 0;
+#endif
+	return 1;
 }
 
 static int lcm_setbacklight_cmdq(void *dsi, dcs_write_gce cb,
