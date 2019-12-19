@@ -306,7 +306,7 @@ static unsigned int g_SuspendCnt;
 
 #ifdef MFB_PMQOS
 static struct pm_qos_request mfb_pmqos_request;
-static u64 max_img_freq;
+static u64 max_img_freq[4];
 struct plist_head module_request_list;  /* all module list */
 struct mm_qos_request mfb_mmqos_request;
 
@@ -792,8 +792,12 @@ void MFBQOS_Init(void)
 
 	if (result < 0 || step_size == 0)
 		LOG_INF("get MMDVFS freq steps failed, result: %d\n", result);
-	else
-		max_img_freq = img_freq_steps[0];
+	else {
+		max_img_freq[0] = img_freq_steps[0];
+		max_img_freq[1] = img_freq_steps[1];
+		max_img_freq[2] = img_freq_steps[2];
+		max_img_freq[3] = img_freq_steps[3];
+	}
 
 	/* Initialize owner list */
 	plist_head_init(&module_request_list);
@@ -818,18 +822,27 @@ void MFBQOS_Uninit(void)
 	mm_qos_remove_all_request(&module_request_list);
 }
 
-void MFBQOS_Update(bool start, unsigned int scen, unsigned int bw)
+void MFBQOS_Update(bool start, unsigned int scen, unsigned long bw)
 {
-	LOG_DBG("start: %d, MFB scen: %d, bw: %ld", start, scen, bw);
+	LOG_DBG("start: %d, MFB scen: %d, bw: %lu", start, scen, bw);
 	if (start) { /* start MFB, configure MMDVFS to highest CLK */
 		LOG_DBG("MFB total: %ld", qos_total);
 		spin_lock(&(SpinLockMfbPmqos));
 		if (bw != 0)
 			qos_scen[scen] = bw;
 		qos_total = qos_total + bw;
-		if (qos_total > 20000000) {
+		if (qos_total > 600000000) {
 			spin_unlock(&(SpinLockMfbPmqos));
-			pm_qos_update_request(&mfb_pmqos_request, max_img_freq);
+			pm_qos_update_request(&mfb_pmqos_request,
+						max_img_freq[0]);
+		} else if (qos_total > 300000000) {
+			spin_unlock(&(SpinLockMfbPmqos));
+			pm_qos_update_request(&mfb_pmqos_request,
+						max_img_freq[1]);
+		} else if (qos_total > 100000000) {
+			spin_unlock(&(SpinLockMfbPmqos));
+			pm_qos_update_request(&mfb_pmqos_request,
+						max_img_freq[2]);
 		} else {
 			spin_unlock(&(SpinLockMfbPmqos));
 			pm_qos_update_request(&mfb_pmqos_request, 0);
@@ -838,9 +851,18 @@ void MFBQOS_Update(bool start, unsigned int scen, unsigned int bw)
 		LOG_DBG("MFB total: %ld", qos_total);
 		spin_lock(&(SpinLockMfbPmqos));
 		qos_total = qos_total - qos_scen[scen];
-		if (qos_total > 20000000) {
+		if (qos_total > 600000000) {
 			spin_unlock(&(SpinLockMfbPmqos));
-			pm_qos_update_request(&mfb_pmqos_request, max_img_freq);
+			pm_qos_update_request(&mfb_pmqos_request,
+						max_img_freq[0]);
+		} else if (qos_total > 300000000) {
+			spin_unlock(&(SpinLockMfbPmqos));
+			pm_qos_update_request(&mfb_pmqos_request,
+						max_img_freq[1]);
+		} else if (qos_total > 100000000) {
+			spin_unlock(&(SpinLockMfbPmqos));
+			pm_qos_update_request(&mfb_pmqos_request,
+						max_img_freq[2]);
 		} else {
 			spin_unlock(&(SpinLockMfbPmqos));
 			pm_qos_update_request(&mfb_pmqos_request, 0);

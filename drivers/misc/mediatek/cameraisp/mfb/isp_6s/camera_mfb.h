@@ -313,7 +313,7 @@ struct MFB_MSSConfig {
 	struct mss_dma dmas[TPIPE_NUM_PER_FRAME];
 	unsigned int update_dma_en[TPIPE_NUM_PER_FRAME];
 	unsigned int tpipe_used;
-	unsigned int qos;
+	unsigned long qos;
 };
 
 struct MFB_MSFConfig {
@@ -325,7 +325,7 @@ struct MFB_MSFConfig {
 	unsigned int MFBDMT_TDRI_OFST[TPIPE_NUM_PER_FRAME];
 	unsigned int MFBDMT_TDRI_XSIZE[TPIPE_NUM_PER_FRAME];
 	unsigned int tpipe_used;
-	unsigned int qos;
+	unsigned long qos;
 };
 
 /******************************************************************************
