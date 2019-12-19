@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2010,2015,2019 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010,2015,2020 The Linux Foundation. All rights reserved.
  * Copyright (C) 2015 Linaro Ltd.
  */
 #include <linux/platform_device.h>
@@ -914,6 +914,12 @@ int qcom_scm_camera_protect_phy_lanes(bool protect, u64 regmask)
 						    regmask);
 }
 EXPORT_SYMBOL(qcom_scm_camera_protect_phy_lanes);
+
+int qcom_scm_tsens_reinit(int *tsens_ret)
+{
+	return __qcom_scm_tsens_reinit(__scm->dev, tsens_ret);
+}
+EXPORT_SYMBOL(qcom_scm_tsens_reinit);
 
 int qcom_scm_ice_restore_cfg(void)
 {

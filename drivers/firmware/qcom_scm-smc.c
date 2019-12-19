@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2015,2019 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015,2020 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/io.h>
@@ -1868,6 +1868,21 @@ int __qcom_scm_camera_protect_phy_lanes(struct device *dev, bool protect,
 	desc.arginfo = QCOM_SCM_ARGS(2);
 
 	return qcom_scm_call(dev, &desc);
+}
+
+int __qcom_scm_tsens_reinit(struct device *dev, int *tsens_ret)
+{
+	unsigned int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_TSENS,
+		.cmd = QCOM_SCM_TSENS_INIT_ID,
+	};
+
+	ret = qcom_scm_call(dev, &desc);
+	if (tsens_ret)
+		*tsens_ret = desc.res[0];
+
+	return ret;
 }
 
 int __qcom_scm_ice_restore_cfg(struct device *dev)
