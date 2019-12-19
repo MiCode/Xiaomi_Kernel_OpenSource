@@ -340,9 +340,10 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 
 		pr_info("%s: violation at emi%d\n", __func__, emi_id);
 		aee_kernel_exception("EMIMPU", aee_msg);
-
-		clear_violation(emimpu_dev_ptr, emi_id);
 	}
+
+	for (emi_id = 0; emi_id < emimpu_dev_ptr->emi_cen_cnt; emi_id++)
+		clear_violation(emimpu_dev_ptr, emi_id);
 
 	return IRQ_HANDLED;
 }
