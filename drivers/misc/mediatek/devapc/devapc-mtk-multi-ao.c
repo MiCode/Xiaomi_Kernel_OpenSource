@@ -845,7 +845,6 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 {
 	uint32_t slave_type_num = mtk_devapc_ctx->soc->slave_type_num;
 	const struct mtk_device_info **device_info;
-	const struct mtk_device_num *ndevices;
 	struct mtk_devapc_vio_info *vio_info;
 	int slave_type, vio_idx, index;
 	const char *vio_master;
@@ -859,7 +858,6 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 
 	device_info = mtk_devapc_ctx->soc->device_info;
 	vio_info = mtk_devapc_ctx->soc->vio_info;
-	ndevices = mtk_devapc_ctx->soc->ndevices;
 	normal = false;
 	vio_idx = index = -1;
 
@@ -1257,7 +1255,10 @@ int mtk_devapc_probe(struct platform_device *pdev,
 
 	proc_create("devapc_dbg", 0664, NULL, &devapc_dbg_fops);
 
-	clk_prepare_enable(mtk_devapc_ctx->devapc_infra_clk);
+	if (clk_prepare_enable(mtk_devapc_ctx->devapc_infra_clk)) {
+		pr_err(PFX " Cannot enable devapc clock\n");
+		return -EINVAL;
+	}
 
 	start_devapc();
 
