@@ -204,7 +204,9 @@ EXPORT_SYMBOL(connectivity_export_clk_buf_ctrl);
 
 void connectivity_export_clk_buf_show_status_info(void)
 {
-#if defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT6785)
+#if defined(CONFIG_MACH_MT6768) || \
+		defined(CONFIG_MACH_MT6785) || \
+		defined(CONFIG_MACH_MT6873)
 	clk_buf_show_status_info();
 #endif
 }
