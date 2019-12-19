@@ -220,6 +220,7 @@ struct map_hw_reg {
 
 struct vcu_pa_pages {
 	unsigned long pa;
+	unsigned long kva;
 	struct list_head list;
 };
 
@@ -736,6 +737,8 @@ static void vcu_gce_timeout_callback(struct cmdq_cb_data data)
 {
 	struct gce_callback_data *buff;
 	struct mtk_vcu *vcu;
+	struct list_head *p, *q;
+	struct vcu_pa_pages *tmp;
 
 	buff = (struct gce_callback_data *)data.data;
 	vcu = buff->vcu_ptr;
@@ -744,6 +747,14 @@ static void vcu_gce_timeout_callback(struct cmdq_cb_data data)
 
 	if (buff->cmdq_buff.codec_type == VCU_VENC)
 		mtk_vcodec_enc_timeout_dump(vcu->curr_ctx[VCU_VENC]);
+
+	list_for_each_safe(p, q, &vcu->pa_pages.list) {
+		tmp = list_entry(p, struct vcu_pa_pages, list);
+		pr_info("%s: vcu_pa_pages %lx kva %lx data %lx\n",
+			__func__, tmp->pa, tmp->kva,
+			*(unsigned long *)tmp->kva);
+	}
+
 }
 
 static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
@@ -1482,6 +1493,7 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 			if (!tmp)
 				return -ENOMEM;
 			tmp->pa = temp_pa;
+			tmp->kva = (unsigned long)mem_priv;
 			list_add_tail(&tmp->list, &vcu_dev->pa_pages.list);
 		}
 
