@@ -668,8 +668,12 @@ request_done:
 
 request_done1:
 #ifdef CONFIG_PM_WAKELOCKS
+#if 0
 	if (slbc_ref++ == 0)
 		__pm_stay_awake(slbc_ws);
+#else
+	slbc_ref++;
+#endif
 #endif
 
 	d->ref++;
@@ -847,8 +851,12 @@ release_done:
 
 release_done1:
 #ifdef CONFIG_PM_WAKELOCKS
+#if 0
 	if (--slbc_ref == 0)
 		__pm_relax(slbc_ws);
+#else
+	--slbc_ref;
+#endif
 #endif
 
 	d->ref--;
