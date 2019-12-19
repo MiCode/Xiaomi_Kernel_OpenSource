@@ -1979,10 +1979,6 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 	if (!test_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state))
 		goto register_driver;
 
-	cal_info = kzalloc(sizeof(*cal_info), GFP_KERNEL);
-	if (!cal_info)
-		return -ENOMEM;
-
 	cnss_pr_dbg("Start to wait for calibration to complete\n");
 
 	timeout = cnss_get_boot_timeout(&pci_priv->pci_dev->dev);
@@ -1990,6 +1986,11 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 					  msecs_to_jiffies(timeout) << 2);
 	if (!ret) {
 		cnss_pr_err("Timeout waiting for calibration to complete\n");
+
+		cal_info = kzalloc(sizeof(*cal_info), GFP_KERNEL);
+		if (!cal_info)
+			return -ENOMEM;
+
 		cal_info->cal_status = CNSS_CAL_TIMEOUT;
 		cnss_driver_event_post(plat_priv,
 				       CNSS_DRIVER_EVENT_COLD_BOOT_CAL_DONE,
