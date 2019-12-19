@@ -85,7 +85,7 @@ static const struct file_operations apusys_dbg_fops_log = {
 	.open = apusys_dbg_open_log,
 	.read = seq_read,
 	.llseek = seq_lseek,
-	.release = seq_release,
+	.release = single_release,
 	//.write = seq_write,
 };
 
@@ -106,7 +106,7 @@ static const struct file_operations apusys_dbg_fops_user = {
 	.open = apusys_dbg_open_user,
 	.read = seq_read,
 	.llseek = seq_lseek,
-	.release = seq_release,
+	.release = single_release,
 	//.write = seq_write,
 };
 
@@ -127,7 +127,7 @@ static const struct file_operations apusys_dbg_fops_devinfo = {
 	.open = apusys_dbg_open_devinfo,
 	.read = seq_read,
 	.llseek = seq_lseek,
-	.release = seq_release,
+	.release = single_release,
 	//.write = seq_write,
 };
 
@@ -149,7 +149,7 @@ static const struct file_operations apusys_dbg_fops_mem = {
 	.open = apusys_dbg_open_mem,
 	.read = seq_read,
 	.llseek = seq_lseek,
-	.release = seq_release,
+	.release = single_release,
 	//.write = seq_write,
 };
 
@@ -302,7 +302,7 @@ static const struct file_operations apusys_dbg_fops_test = {
 	.open = apusys_dbg_open_test,
 	.read = seq_read,
 	.llseek = seq_lseek,
-	.release = seq_release,
+	.release = single_release,
 	.write = apusys_dbg_write_test,
 };
 
