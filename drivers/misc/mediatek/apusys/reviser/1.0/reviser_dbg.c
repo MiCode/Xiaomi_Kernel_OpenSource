@@ -93,7 +93,7 @@ static const struct file_operations reviser_dbg_fops_rw = {
 	.open = reviser_dbg_rw_open,
 	.read = seq_read,
 	.llseek = seq_lseek,
-	.release = seq_release,
+	.release = single_release,
 	//.write = seq_write,
 };
 
@@ -122,7 +122,7 @@ static const struct file_operations reviser_dbg_fops_remap_table = {
 	.open = reviser_dbg_remap_table_open,
 	.read = seq_read,
 	.llseek = seq_lseek,
-	.release = seq_release,
+	.release = single_release,
 	//.write = seq_write,
 };
 
@@ -151,7 +151,7 @@ static const struct file_operations reviser_dbg_fops_context_ID = {
 	.open = reviser_dbg_context_ID_open,
 	.read = seq_read,
 	.llseek = seq_lseek,
-	.release = seq_release,
+	.release = single_release,
 	//.write = seq_write,
 };
 
@@ -181,7 +181,7 @@ static const struct file_operations reviser_dbg_fops_boundary = {
 	.open = reviser_dbg_boundary_open,
 	.read = seq_read,
 	.llseek = seq_lseek,
-	.release = seq_release,
+	.release = single_release,
 	//.write = seq_write,
 };
 //----------------------------------------------
@@ -208,7 +208,7 @@ static const struct file_operations reviser_dbg_fops_iova = {
 	.open = reviser_dbg_iova_open,
 	.read = seq_read,
 	.llseek = seq_lseek,
-	.release = seq_release,
+	.release = single_release,
 	//.write = seq_write,
 };
 
@@ -232,7 +232,7 @@ static const struct file_operations reviser_dbg_fops_table_vlm = {
 	.open = reviser_dbg_table_vlm_open,
 	.read = seq_read,
 	.llseek = seq_lseek,
-	.release = seq_release,
+	.release = single_release,
 	//.write = seq_write,
 };
 
@@ -258,7 +258,7 @@ static const struct file_operations reviser_dbg_fops_table_ctxid = {
 	.open = reviser_dbg_table_ctxid_open,
 	.read = seq_read,
 	.llseek = seq_lseek,
-	.release = seq_release,
+	.release = single_release,
 	//.write = seq_write,
 };
 //----------------------------------------------
@@ -282,7 +282,7 @@ static const struct file_operations reviser_dbg_fops_table_tcm = {
 	.open = reviser_dbg_table_tcm_open,
 	.read = seq_read,
 	.llseek = seq_lseek,
-	.release = seq_release,
+	.release = single_release,
 	//.write = seq_write,
 };
 //----------------------------------------------
@@ -446,7 +446,7 @@ static const struct file_operations reviser_dbg_fops_err_info = {
 	.open = reviser_dbg_err_info_open,
 	.read = seq_read,
 	.llseek = seq_lseek,
-	.release = seq_release,
+	.release = single_release,
 	//.write = seq_write,
 };
 
@@ -477,7 +477,7 @@ static const struct file_operations reviser_dbg_fops_mem_vlm = {
 	.open = reviser_dbg_mem_vlm_open,
 	.read = seq_read,
 	.llseek = seq_lseek,
-	.release = seq_release,
+	.release = single_release,
 	//.write = seq_write,
 };//----------------------------------------------
 // show exception reg
@@ -503,7 +503,7 @@ static const struct file_operations reviser_dbg_fops_err_reg = {
 	.open = reviser_dbg_err_reg_open,
 	.read = seq_read,
 	.llseek = seq_lseek,
-	.release = seq_release,
+	.release = single_release,
 	//.write = seq_write,
 };
 //----------------------------------------------
