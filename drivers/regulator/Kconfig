@@ -1042,6 +1042,16 @@ config REGULATOR_REFGEN
 	  it used by various PHY blocks found inside of the SoC.  It supports
 	  enable/disable control.
 
+config REGULATOR_MSM_GFX_LDO
+	tristate "MSM GFX LDO Regulator"
+	depends on OF
+	help
+	  This driver supports the MSM GFX (Graphics) LDO regulator. The
+	  GFU core is either powered by an internal MSM LDO or by BHS.
+	  Typically the lower voltage corners are powered by LDO and
+	  the higher ones by BHS. This driver allows for configuration of
+	  the rail between the LDO/BHS as well as the LDO voltage.
+
 config REGULATOR_RPMH
 	tristate "Qualcomm Technologies, Inc. RPMh regulator driver"
 	depends on OF
