@@ -558,10 +558,6 @@ static int ufshpb_set_pre_req(struct ufshpb_lu *hpb, struct scsi_cmnd *cmd,
 	pre_req->wb.lpn = ufshpb_get_lpn(cmd->request);
 	pre_req->wb.len = ufshpb_get_len(cmd->request);
 
-	/* MTK patch: make sure len is even for 16 bytes align */
-	if (pre_req->wb.len & 0x01)
-		pre_req->wb.len += 1;
-
 	ret = ufshpb_pre_req_add_bio_page(q, pre_req);
 	if (ret)
 		return ret;
@@ -718,6 +714,9 @@ int ufshpb_prepare_pre_req(struct ufsf_feature *ufsf, struct scsi_cmnd *cmd,
 	add_lrbp->lun = lun;
 	add_lrbp->intr_cmd = !ufshcd_is_intr_aggr_allowed(hba) ? true : false;
 	add_lrbp->req_abort_skip = false;
+
+	/* MTK patch: reset crypto_en */
+	add_lrbp->crypto_en = 0;
 
 	orig_lrbp->hpb_ctx_id = hpb_ctx_id;
 
