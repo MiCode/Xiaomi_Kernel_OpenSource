@@ -46,3 +46,11 @@ config MT6360_PMU_RGBLED
 	  Isink4 can also use as CHG_VIN power good Indicator.
 	  Say Y here to enable support for
 	  MT6360 RGB LED device.
+
+config MT6360_PMU_DEBUG
+	bool "MT6360 PMU Debug Part"
+	depends on MFD_MT6360_PMU
+	help
+	  Thsis is a debug feature.
+	  Say Y here to enable support for
+	  enhance MT6360 debug message to issue clarify
