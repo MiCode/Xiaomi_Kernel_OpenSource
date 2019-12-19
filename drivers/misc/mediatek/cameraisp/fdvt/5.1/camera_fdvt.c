@@ -290,6 +290,7 @@ struct wake_lock fdvt_wake_lock;
 
 static DEFINE_MUTEX(fdvt_mutex);
 static DEFINE_MUTEX(fdvt_deque_mutex);
+static DEFINE_MUTEX(fdvt_clk_mutex);
 
 #ifdef CONFIG_OF
 
@@ -1865,6 +1866,7 @@ static void fdvt_enable_clock(bool En)
 		/* log_dbg("Dpe clock enbled. clock_enable_count: %d.",
 		 * clock_enable_count);
 		 */
+		mutex_lock(&fdvt_clk_mutex);
 		switch (clock_enable_count) {
 		case 0:
 #if !defined(CONFIG_MTK_LEGACY) && defined(CONFIG_COMMON_CLK) /*CCF*/
@@ -1893,9 +1895,8 @@ static void fdvt_enable_clock(bool En)
 		default:
 			break;
 		}
-		spin_lock(&fdvt_info.spinlock_fdvt);
 		clock_enable_count++;
-		spin_unlock(&fdvt_info.spinlock_fdvt);
+		mutex_unlock(&fdvt_clk_mutex);
 #ifdef CONFIG_MTK_IOMMU_V2
 		if (clock_enable_count == 1) {
 			ret = m4u_control_iommu_port();
@@ -1908,9 +1909,8 @@ static void fdvt_enable_clock(bool En)
 		/* log_dbg("Dpe clock disabled. clock_enable_count: %d.",
 		 * clock_enable_count);
 		 */
-		spin_lock(&fdvt_info.spinlock_fdvt);
+		mutex_lock(&fdvt_clk_mutex);
 		clock_enable_count--;
-		spin_unlock(&fdvt_info.spinlock_fdvt);
 		switch (clock_enable_count) {
 		case 0:
 #if !defined(CONFIG_MTK_LEGACY) && defined(CONFIG_COMMON_CLK) /*CCF*/
@@ -1940,6 +1940,7 @@ static void fdvt_enable_clock(bool En)
 		default:
 			break;
 		}
+		mutex_unlock(&fdvt_clk_mutex);
 	}
 }
 

@@ -270,6 +270,7 @@ struct wakeup_source RSC_wake_lock;
 
 static DEFINE_MUTEX(gRscMutex);
 static DEFINE_MUTEX(gRscDequeMutex);
+static DEFINE_MUTEX(gRscClkMutex);
 
 #ifdef CONFIG_OF
 
@@ -1450,6 +1451,7 @@ static void RSC_EnableClock(bool En)
 
 	if (En) {		/* Enable clock. */
 /* LOG_DBG("clock enbled. g_u4EnableClockCount: %d.", g_u4EnableClockCount); */
+		mutex_lock(&gRscClkMutex);
 		switch (g_u4EnableClockCount) {
 		case 0:
 #if !defined(CONFIG_MTK_LEGACY) && defined(CONFIG_COMMON_CLK) /*CCF*/
@@ -1477,10 +1479,8 @@ static void RSC_EnableClock(bool En)
 		default:
 			break;
 		}
-		spin_lock(&(RSCInfo.SpinLockRSC));
 		g_u4EnableClockCount++;
-		spin_unlock(&(RSCInfo.SpinLockRSC));
-
+		mutex_unlock(&gRscClkMutex);
 #ifdef CONFIG_MTK_IOMMU_V2
 		if (g_u4EnableClockCount == 1) {
 			ret = m4u_control_iommu_port();
@@ -1493,9 +1493,8 @@ static void RSC_EnableClock(bool En)
 		/* LOG_DBG("Dpe clock disabled. g_u4EnableClockCount: %d.",
 		 * g_u4EnableClockCount);
 		 */
-		spin_lock(&(RSCInfo.SpinLockRSC));
+		mutex_lock(&gRscClkMutex);
 		g_u4EnableClockCount--;
-		spin_unlock(&(RSCInfo.SpinLockRSC));
 		switch (g_u4EnableClockCount) {
 		case 0:
 #if !defined(CONFIG_MTK_LEGACY) && defined(CONFIG_COMMON_CLK) /*CCF*/
@@ -1524,6 +1523,7 @@ static void RSC_EnableClock(bool En)
 		default:
 			break;
 		}
+		mutex_unlock(&gRscClkMutex);
 	}
 }
 
