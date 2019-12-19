@@ -154,6 +154,12 @@
 #endif
 
 #define DUMP_LVTS_REGISTER_FOR_ZERO_RAW_ISSUE  (1)
+/*
+ * if RCK get zero data,
+ * need to get the same controller's other sensor's average RCK value
+ * instead of zero data.
+ */
+#define LVTS_GET_ZERO_RCK_DATA_ISSUE  (1)
 
 #if CONFIG_LVTS_ERROR_AEE_WARNING
 #define LVTS_FORCE_ERROR_TRIGGER (0)

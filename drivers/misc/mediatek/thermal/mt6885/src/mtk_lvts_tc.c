@@ -700,15 +700,25 @@ void lvts_device_read_count_RC_N(void)
 	int i, j, offset, num_ts, s_index;
 	unsigned int data;
 	char buffer[512];
+#if LVTS_GET_ZERO_RCK_DATA_ISSUE
+	unsigned int all_data = 0, avg_data = 0;
+	int zero_data_idx[4] = {0};
+	int non_zero_num = 0;
+#endif
 
 	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
-
 		offset = lvts_tscpu_g_tc[i].tc_offset;
 		num_ts = lvts_tscpu_g_tc[i].ts_number;
 
 		/* Set LVTS Manual-RCK operation */
 		lvts_write_device(0x81030000, 0x0E, 0x00, i);
-
+#if LVTS_GET_ZERO_RCK_DATA_ISSUE
+		/*initial in each thermal controller*/
+		memset(zero_data_idx, 0, ARRAY_SIZE(zero_data_idx));
+		non_zero_num = 0;
+		all_data = 0;
+		avg_data = 0;
+#endif
 		for (j = 0; j < num_ts; j++) {
 			s_index = lvts_tscpu_g_tc[i].ts[j];
 
@@ -728,6 +738,7 @@ void lvts_device_read_count_RC_N(void)
 
 			/* Wait 8us for device settle + 2us buffer*/
 			udelay(10);
+
 			/* Kick-off RCK counting */
 			lvts_write_device(0x81030000, 0x03, 0x02, i);
 
@@ -740,6 +751,16 @@ void lvts_device_read_count_RC_N(void)
 			data = lvts_read_device(0x81020000, 0x00, i);
 			/* wait 2us + 3us buffer*/
 			udelay(5);
+#if LVTS_GET_ZERO_RCK_DATA_ISSUE
+			if ((data & _BITMASK_(23:0)) != 0) {
+				all_data = (data & _BITMASK_(23:0)) + all_data;
+				non_zero_num++;
+			} else {
+				zero_data_idx[j] = s_index;
+			}
+#endif
+			//lvts_printk("i=%d,j=%d, data=%d, s_index=%d\n",
+			//        i, j, (data & _BITMASK_(23:0)), s_index);
 
 			/* Disable TS_EN */
 			lvts_write_device(0x81030000, 0x08, 0xF1, i);
@@ -750,6 +771,18 @@ void lvts_device_read_count_RC_N(void)
 			g_count_rc_now[s_index] = (data & _BITMASK_(23:0));
 		}
 
+#if LVTS_GET_ZERO_RCK_DATA_ISSUE
+		if (non_zero_num != 0)
+			avg_data = all_data / non_zero_num;
+
+		for (j = 0; j < num_ts; j++) {
+			if (zero_data_idx[j] != 0) {
+				g_count_rc_now[zero_data_idx[j]] = avg_data;
+				lvts_printk("zero_data_idx[%d]=%d\n",
+					j, zero_data_idx[j]);
+			}
+		}
+#endif
 		/* Recover Setting for Normal Access on
 		 * temperature fetch
 		 */
