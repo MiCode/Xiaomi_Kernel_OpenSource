@@ -2479,7 +2479,7 @@
             </device26>
             <device27>
                 <varName>CAMERA_MAIN_TWO_AF</varName>
-                <channel>I2C_CHANNEL_8</channel>
+                <channel>I2C_CHANNEL_2</channel>
                 <address>0x0C</address>
             </device27>
             <device29>
