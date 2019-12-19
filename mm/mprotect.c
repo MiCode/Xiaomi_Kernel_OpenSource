@@ -31,7 +31,6 @@
 #include <asm/cacheflush.h>
 #include <asm/mmu_context.h>
 #include <asm/tlbflush.h>
-#include <mt-plat/aee.h>
 
 #include "internal.h"
 
@@ -368,21 +367,13 @@ mprotect_fixup(struct vm_area_struct *vma, struct vm_area_struct **pprev,
 	if (newflags & VM_WRITE) {
 		/* Check space limits when area turns into data. */
 		if (!may_expand_vm(mm, newflags, nrpages) &&
-				may_expand_vm(mm, oldflags, nrpages)) {
-			aee_kernel_warning_api(__FILE__, __LINE__,
-				DB_OPT_DEFAULT, "mprotect fail",
-				"NOMEM");
+				may_expand_vm(mm, oldflags, nrpages))
 			return -ENOMEM;
-		}
 		if (!(oldflags & (VM_ACCOUNT|VM_WRITE|VM_HUGETLB|
 						VM_SHARED|VM_NORESERVE))) {
 			charged = nrpages;
-			if (security_vm_enough_memory_mm(mm, charged)) {
-				aee_kernel_warning_api(__FILE__, __LINE__,
-				DB_OPT_DEFAULT, "mprotect fail",
-				"NOMEM");
+			if (security_vm_enough_memory_mm(mm, charged))
 				return -ENOMEM;
-			}
 			newflags |= VM_ACCOUNT;
 		}
 	}
@@ -490,28 +481,19 @@ static int do_mprotect_pkey(unsigned long start, size_t len,
 
 	vma = find_vma(current->mm, start);
 	error = -ENOMEM;
-	if (!vma) {
-		aee_kernel_warning_api(__FILE__, __LINE__,
-			DB_OPT_DEFAULT, "mprotect fail",
-			"NOMEM");
+	if (!vma)
 		goto out;
-	}
 	prev = vma->vm_prev;
 	if (unlikely(grows & PROT_GROWSDOWN)) {
-		if (vma->vm_start >= end) {
-			aee_kernel_warning_api(__FILE__, __LINE__,
-				DB_OPT_DEFAULT, "mprotect fail",
-				"NOMEM");
+		if (vma->vm_start >= end)
 			goto out;
-		}
 		start = vma->vm_start;
 		error = -EINVAL;
 		if (!(vma->vm_flags & VM_GROWSDOWN))
 			goto out;
 	} else {
-		if (vma->vm_start > start) {
+		if (vma->vm_start > start)
 			goto out;
-		}
 		if (unlikely(grows & PROT_GROWSUP)) {
 			end = vma->vm_end;
 			error = -EINVAL;
@@ -570,9 +552,6 @@ static int do_mprotect_pkey(unsigned long start, size_t len,
 
 		vma = prev->vm_next;
 		if (!vma || vma->vm_start != nstart) {
-			aee_kernel_warning_api(__FILE__, __LINE__,
-				DB_OPT_DEFAULT, "mprotect fail",
-				"NOMEM");
 			error = -ENOMEM;
 			goto out;
 		}

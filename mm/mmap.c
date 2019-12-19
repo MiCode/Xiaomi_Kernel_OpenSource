@@ -46,7 +46,6 @@
 #include <linux/pkeys.h>
 #include <linux/oom.h>
 #include <linux/sched/mm.h>
-#include <mt-plat/aee.h>
 
 #include <linux/uaccess.h>
 #include <asm/cacheflush.h>
@@ -2695,12 +2694,8 @@ int __split_vma(struct mm_struct *mm, struct vm_area_struct *vma,
 	}
 
 	new = kmem_cache_alloc(vm_area_cachep, GFP_KERNEL);
-	if (!new) {
-		aee_kernel_warning_api(__FILE__, __LINE__,
-			DB_OPT_DEFAULT, "mprotect fail",
-			"NOMEM");
+	if (!new)
 		return -ENOMEM;
-	}
 
 	/* most fields are the same, copy all, and then fixup */
 	*new = *vma;
@@ -2758,12 +2753,8 @@ int __split_vma(struct mm_struct *mm, struct vm_area_struct *vma,
 int split_vma(struct mm_struct *mm, struct vm_area_struct *vma,
 	      unsigned long addr, int new_below)
 {
-	if (mm->map_count >= sysctl_max_map_count) {
-		aee_kernel_warning_api(__FILE__, __LINE__,
-			DB_OPT_DEFAULT, "mprotect fail",
-			"NOMEM");
+	if (mm->map_count >= sysctl_max_map_count)
 		return -ENOMEM;
-	}
 
 	return __split_vma(mm, vma, addr, new_below);
 }
