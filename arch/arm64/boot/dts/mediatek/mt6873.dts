@@ -898,6 +898,11 @@
 		reg = <0 0x10208000 0 0x1000>;
 	};
 
+	dbgtop@1000d000 {
+		compatible = "mediatek,dbgtop";
+		reg = <0 0x1000d000 0 0x1000>;
+	};
+
 	ufshci:ufshci@11270000 {
 		compatible = "mediatek,ufshci";
 		reg = <0 0x11270000 0 0x2300>;
