@@ -21,7 +21,7 @@
 #endif
 
 #ifndef CONFIG_MTK_MDLA_ION
-//#define CONFIG_MTK_MDLA_ION //move to dts latter
+#define CONFIG_MTK_MDLA_ION //move to dts latter
 #endif
 
 #define __APUSYS_MDLA_UT__ //TODO remove after UT issue fixed
