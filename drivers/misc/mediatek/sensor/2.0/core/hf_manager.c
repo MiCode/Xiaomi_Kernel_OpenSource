@@ -704,6 +704,32 @@ err_out:
 	return ret;
 }
 
+static int hf_manager_custom_cmd(uint8_t sensor_type,
+		struct custom_cmd *cust_cmd)
+{
+	struct hf_manager *manager = NULL;
+	struct hf_device *device = NULL;
+	int ret = 0;
+
+	mutex_lock(&hf_manager_list_mtx);
+	manager = hf_manager_find_manager(sensor_type);
+	if (!manager) {
+		ret = -EINVAL;
+		goto err_out;
+	}
+	device = manager->hf_dev;
+	if (!device || !device->dev_name) {
+		ret = -EINVAL;
+		goto err_out;
+	}
+	if (device->custom_cmd)
+		ret = device->custom_cmd(device, sensor_type, cust_cmd);
+
+err_out:
+	mutex_unlock(&hf_manager_list_mtx);
+	return ret;
+}
+
 static int hf_manager_drive_device(struct hf_client *client,
 		struct hf_manager_cmd *cmd)
 {
@@ -900,6 +926,16 @@ int hf_client_poll_sensor(struct hf_client *client,
 	return read;
 }
 
+int hf_client_custom_cmd(struct hf_client *client,
+		uint8_t sensor_type, struct custom_cmd *cust_cmd)
+{
+	if (unlikely(sensor_type >= SENSOR_TYPE_SENSOR_MAX))
+		return -EINVAL;
+	if (!test_bit(sensor_type, sensor_list_bitmap))
+		return -EINVAL;
+	return hf_manager_custom_cmd(sensor_type, cust_cmd);
+}
+
 static int hf_manager_open(struct inode *inode, struct file *filp)
 {
 	struct hf_client *client = hf_client_create();
@@ -990,6 +1026,7 @@ static long hf_manager_ioctl(struct file *filp,
 	uint8_t sensor_type = 0;
 	struct ioctl_packet packet;
 	struct sensor_info info;
+	struct custom_cmd cust_cmd;
 
 	memset(&packet, 0, sizeof(packet));
 
@@ -1028,6 +1065,19 @@ static long hf_manager_ioctl(struct file *filp,
 		if (sizeof(packet.byte) < sizeof(info))
 			return -EINVAL;
 		memcpy(packet.byte, &info, sizeof(info));
+		if (copy_to_user(ubuf, &packet, sizeof(packet)))
+			return -EFAULT;
+		break;
+	case HF_MANAGER_REQUEST_CUST_DATA:
+		if (!test_bit(sensor_type, sensor_list_bitmap))
+			return -EINVAL;
+		memset(&cust_cmd, 0, sizeof(cust_cmd));
+		memcpy(cust_cmd.data, packet.byte, sizeof(cust_cmd.data));
+		if (hf_manager_custom_cmd(sensor_type, &cust_cmd))
+			return -EINVAL;
+		if (sizeof(packet.byte) < sizeof(cust_cmd))
+			return -EINVAL;
+		memcpy(packet.byte, &cust_cmd, sizeof(cust_cmd));
 		if (copy_to_user(ubuf, &packet, sizeof(packet)))
 			return -EFAULT;
 		break;

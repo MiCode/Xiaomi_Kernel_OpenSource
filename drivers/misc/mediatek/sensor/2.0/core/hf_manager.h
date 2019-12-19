@@ -59,6 +59,15 @@ struct sensor_info {
 	char vendor[16];
 };
 
+struct custom_cmd {
+	int data[16];
+};
+
+enum custom_action {
+	CUST_CMD_CALI = 0,
+	/*Add custom cmd action here!*/
+};
+
 struct hf_device {
 	int (*sample)(struct hf_device *hfdev);
 	int (*enable)(struct hf_device *hfdev, int sensor_type, int en);
@@ -70,6 +79,8 @@ struct hf_device {
 		int sensor_type, int32_t *data);
 	int (*selftest)(struct hf_device *hfdev, int sensor_type);
 	int (*rawdata)(struct hf_device *hfdev, int sensor_type, int en);
+	int (*custom_cmd)(struct hf_device *hfdev, int sensor_type,
+		struct custom_cmd *cust_cmd);
 
 	char *dev_name;
 	unsigned char device_poll;
@@ -150,5 +161,7 @@ int hf_client_control_sensor(struct hf_client *client,
 		struct hf_manager_cmd *cmd);
 int hf_client_poll_sensor(struct hf_client *client,
 		struct hf_manager_event *data, int count);
+int hf_client_custom_cmd(struct hf_client *client,
+		uint8_t sensor_type, struct custom_cmd *cust_cmd);
 
 #endif

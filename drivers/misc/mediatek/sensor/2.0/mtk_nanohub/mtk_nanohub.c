@@ -90,6 +90,7 @@ struct mtk_nanohub_device {
 	int32_t mag_config_data[9];
 	int32_t light_config_data[1];
 	int32_t proximity_config_data[2];
+	int32_t sar_config_data[4];
 };
 
 static uint8_t rtc_compensation_suspend;
@@ -1919,6 +1920,68 @@ static int mtk_nanohub_rawdata(struct hf_device *hfdev,
 	return mtk_nanohub_enable_rawdata_to_hub(type_to_id(sensor_type), en);
 }
 
+static int mtk_nanohub_custom_cmd(struct hf_device *hfdev,
+		int sensor_type, struct custom_cmd *cust_cmd)
+{
+	struct mtk_nanohub_device *device = mtk_nanohub_dev;
+	enum custom_action cust_action = cust_cmd->data[0];
+	int ret;
+
+	/* User can use the cust_action to distinguish their own operations
+	 * the default value(0) means the action to get sensors calibrated
+	 * values.
+	 */
+	if (cust_action == CUST_CMD_CALI) {
+		switch (sensor_type) {
+		case SENSOR_TYPE_ACCELEROMETER:
+			spin_lock(&config_data_lock);
+			memcpy(cust_cmd->data, device->acc_config_data,
+					sizeof(device->acc_config_data));
+			spin_unlock(&config_data_lock);
+			break;
+		case SENSOR_TYPE_GYROSCOPE:
+			spin_lock(&config_data_lock);
+			memcpy(cust_cmd->data, device->gyro_config_data,
+					sizeof(device->gyro_config_data));
+			spin_unlock(&config_data_lock);
+			break;
+		case SENSOR_TYPE_MAGNETIC_FIELD:
+			spin_lock(&config_data_lock);
+			memcpy(cust_cmd->data, device->mag_config_data,
+					sizeof(device->mag_config_data));
+			spin_unlock(&config_data_lock);
+			break;
+		case SENSOR_TYPE_LIGHT:
+			spin_lock(&config_data_lock);
+			memcpy(cust_cmd->data, device->light_config_data,
+					sizeof(device->light_config_data));
+			spin_unlock(&config_data_lock);
+			break;
+		case SENSOR_TYPE_PROXIMITY:
+			spin_lock(&config_data_lock);
+			memcpy(cust_cmd->data, device->proximity_config_data,
+					sizeof(device->proximity_config_data));
+			spin_unlock(&config_data_lock);
+			break;
+		case SENSOR_TYPE_SAR:
+			spin_lock(&config_data_lock);
+			memcpy(cust_cmd->data, device->sar_config_data,
+					sizeof(device->sar_config_data));
+			spin_unlock(&config_data_lock);
+			break;
+		default:
+			pr_notice("SensorType:%d not support CUST_CMD_CALI!\n",
+				sensor_type);
+			break;
+		}
+		ret = 0;
+	} else {
+		pr_notice("CUSTOM_CMD(%d) need implementation\n", cust_action);
+		ret = -1;
+	}
+	return ret;
+}
+
 static int mtk_nanohub_report_to_manager(struct data_unit_t *data)
 {
 	struct mtk_nanohub_device *device = mtk_nanohub_dev;
@@ -2272,6 +2335,7 @@ static int mtk_nanohub_create_manager(void)
 	hf_dev->config_cali = mtk_nanohub_config;
 	hf_dev->selftest = mtk_nanohub_selftest;
 	hf_dev->rawdata = mtk_nanohub_rawdata;
+	hf_dev->custom_cmd = mtk_nanohub_custom_cmd;
 
 	err = hf_manager_create(hf_dev);
 	if (err < 0) {
