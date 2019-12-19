@@ -12,19 +12,19 @@
  */
 #define MNOC_PMU_POLL_STR1 "c1=%u, c2=%u, c3=%u, c4=%u, c5=%u, c6=%u, "
 #define MNOC_PMU_POLL_STR2 "c7=%u, c8=%u, c9=%u, c10=%u, c11=%u, "
-#define MNOC_PMU_POLL_STR3 "c12=%u, c13=%u, c14=%u, c15=%u, c16=%u"
+#define MNOC_PMU_POLL_STR3 "c12=%u, c13=%u, c14=%u, c15=%u, c16=%u, "
 
 #define MNOC_PMU_POLL_STR4 "c17=%u, c18=%u, c19=%u, c20=%u, c21=%u, c22=%u, "
 #define MNOC_PMU_POLL_STR5 "c23=%u, c24=%u, c25=%u, c26=%u, c27=%u, "
-#define MNOC_PMU_POLL_STR6 "c28=%u, c29=%u, c30=%u, c31=%u, c32=%u"
+#define MNOC_PMU_POLL_STR6 "c28=%u, c29=%u, c30=%u, c31=%u, c32=%u, "
 
 #define MNOC_PMU_POLL_STR7 "c33=%u, c34=%u, c35=%u, c36=%u, c37=%u, c38=%u, "
 #define MNOC_PMU_POLL_STR8 "c39=%u, c40=%u, c41=%u, c42=%u, c43=%u, "
-#define MNOC_PMU_POLL_STR9 "c44=%u, c45=%u, c46=%u, c47=%u, c48=%u"
+#define MNOC_PMU_POLL_STR9 "c44=%u, c45=%u, c46=%u, c47=%u, c48=%u, "
 
 #define MNOC_PMU_POLL_STR10 "c49=%u, c50=%u, c51=%u, c52=%u, c53=%u, c54=%u, "
 #define MNOC_PMU_POLL_STR11 "c55=%u, c56=%u, c57=%u, c58=%u, c59=%u, "
-#define MNOC_PMU_POLL_STR12 "c60=%u, c61=%u, c62=%u, c63=%u, c64=%u"
+#define MNOC_PMU_POLL_STR12 "c60=%u, c61=%u, c62=%u, c63=%u, c64=%u, "
 
 #define MNOC_PMU_POLL_STR13 "c65=%u, c66=%u, c67=%u, c68=%u, c69=%u, c70=%u, "
 #define MNOC_PMU_POLL_STR14 "c71=%u, c72=%u, c73=%u, c74=%u, c75=%u, "

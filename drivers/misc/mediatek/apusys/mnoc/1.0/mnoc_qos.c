@@ -24,10 +24,12 @@
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/workqueue.h>
+#include <linux/platform_device.h>
 
 #include "mnoc_drv.h"
 #include "mnoc_hw.h"
 #include "mnoc_option.h"
+#include "mnoc_qos.h"
 
 #if MNOC_TIME_PROFILE
 unsigned long sum_start, sum_suspend, sum_end, sum_work_func;
@@ -37,6 +39,7 @@ unsigned int cnt_start, cnt_suspend, cnt_end, cnt_work_func;
 #if MNOC_QOS_ENABLE
 #include <mtk_qos_bound.h>
 #include <mtk_qos_sram.h>
+#include "apusys_power.h"
 
 
 #define DEFAUTL_QOS_POLLING_TIME (16)
@@ -91,8 +94,16 @@ static struct engine_pm_qos_counter engine_pm_qos_counter[NR_APU_QOS_ENGINE];
 /* indicate engine running or not based on cmd cntr for pm qos */
 /* increase 1 when cmd enque, decrease 1 when cmd dequeue */
 static int engine_cmd_cntr[NR_APU_QOS_ENGINE];
-bool qos_timer_exist;
+static bool qos_timer_exist;
 
+#if MNOC_QOS_BOOST_ENABLE
+bool apu_qos_boost_flag;
+static bool apusys_on_flag;
+static unsigned int apu_qos_boost_ddr_opp;
+static struct pm_qos_request apu_qos_ddr_req;
+static struct pm_qos_request apu_qos_cpu_dma_req;
+struct mutex apu_qos_boost_mtx;
+#endif
 
 /* register to apusys power on callback */
 void notify_sspm_apusys_on(void)
@@ -100,6 +111,12 @@ void notify_sspm_apusys_on(void)
 	LOG_DEBUG("+\n");
 
 	qos_sram_write(APU_CLK, 1);
+#if MNOC_QOS_BOOST_ENABLE
+	mutex_lock(&apu_qos_boost_mtx);
+	apusys_on_flag = true;
+	apu_qos_boost_start();
+	mutex_unlock(&apu_qos_boost_mtx);
+#endif
 
 	LOG_DEBUG("-\n");
 }
@@ -111,6 +128,12 @@ void notify_sspm_apusys_off(void)
 
 	LOG_DEBUG("+\n");
 
+#if MNOC_QOS_BOOST_ENABLE
+	mutex_lock(&apu_qos_boost_mtx);
+	apu_qos_boost_end();
+	apusys_on_flag = false;
+	mutex_unlock(&apu_qos_boost_mtx);
+#endif
 	qos_sram_write(APU_CLK, 0);
 	while (bw_nord == 0) {
 		bw_nord = qos_sram_read(APU_BW_NORD);
@@ -133,7 +156,7 @@ static int add_qos_request(struct pm_qos_request *req)
 	return 0;
 }
 
-static void update_qos_request(struct pm_qos_request *req, int32_t val)
+static void update_qos_request(struct pm_qos_request *req, uint32_t val)
 {
 	LOG_DEBUG("bw = %d\n", val);
 	pm_qos_update_request(req, val);
@@ -791,6 +814,39 @@ int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id,
 }
 EXPORT_SYMBOL(apu_cmd_qos_end);
 
+void apu_qos_boost_start(void)
+{
+	LOG_DEBUG("+\n");
+#if MNOC_QOS_BOOST_ENABLE
+	if (apu_qos_boost_flag == true && apusys_on_flag == true &&
+		apu_qos_boost_ddr_opp ==
+		PM_QOS_DDR_OPP_DEFAULT_VALUE) {
+		apu_qos_boost_ddr_opp = 0;
+		pm_qos_update_request(&apu_qos_ddr_req, 0);
+		pm_qos_update_request(&apu_qos_cpu_dma_req, 2);
+		apu_set_vcore_boost(true);
+	}
+#endif
+	LOG_DEBUG("-\n");
+}
+
+void apu_qos_boost_end(void)
+{
+	LOG_DEBUG("+\n");
+#if MNOC_QOS_BOOST_ENABLE
+	if (apu_qos_boost_ddr_opp == 0) {
+		apu_set_vcore_boost(false);
+		apu_qos_boost_ddr_opp =
+			PM_QOS_DDR_OPP_DEFAULT_VALUE;
+		pm_qos_update_request(&apu_qos_ddr_req,
+			PM_QOS_DDR_OPP_DEFAULT_VALUE);
+		pm_qos_update_request(&apu_qos_cpu_dma_req,
+			PM_QOS_CPU_DMA_LAT_DEFAULT_VALUE);
+	}
+#endif
+	LOG_DEBUG("-\n");
+}
+
 /*
  * create qos workqueue for count bandwidth
  * @call at module init
@@ -823,6 +879,16 @@ void apu_qos_counter_init(void)
 		counter->core = i;
 		add_qos_request(&counter->qos_req);
 	}
+#if MNOC_QOS_BOOST_ENABLE
+	apu_qos_boost_flag = false;
+	apusys_on_flag = false;
+	mutex_init(&apu_qos_boost_mtx);
+	pm_qos_add_request(&apu_qos_ddr_req, PM_QOS_DDR_OPP,
+		PM_QOS_DDR_OPP_DEFAULT_VALUE);
+	pm_qos_add_request(&apu_qos_cpu_dma_req, PM_QOS_CPU_DMA_LATENCY,
+		PM_QOS_CPU_DMA_LAT_DEFAULT_VALUE);
+	apu_qos_boost_ddr_opp = PM_QOS_DDR_OPP_DEFAULT_VALUE;
+#endif
 
 #if MNOC_TIME_PROFILE
 	sum_start = 0;
@@ -872,6 +938,14 @@ void apu_qos_counter_destroy(void)
 		}
 		destroy_qos_request(&counter->qos_req);
 	}
+#if MNOC_QOS_BOOST_ENABLE
+	pm_qos_update_request(&apu_qos_ddr_req,
+		PM_QOS_DDR_OPP_DEFAULT_VALUE);
+	pm_qos_remove_request(&apu_qos_ddr_req);
+	pm_qos_update_request(&apu_qos_cpu_dma_req,
+		PM_QOS_CPU_DMA_LAT_DEFAULT_VALUE);
+	pm_qos_remove_request(&apu_qos_cpu_dma_req);
+#endif
 
 	LOG_DEBUG("-\n");
 }

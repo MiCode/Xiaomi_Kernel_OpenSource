@@ -20,6 +20,10 @@ extern unsigned long sum_start, sum_suspend, sum_end, sum_work_func;
 extern unsigned int cnt_start, cnt_suspend, cnt_end, cnt_work_func;
 #endif
 
+#if MNOC_QOS_BOOST_ENABLE
+extern bool apu_qos_boost_flag;
+extern struct mutex apu_qos_boost_mtx;
+#endif
 
 void notify_sspm_apusys_on(void);
 void notify_sspm_apusys_off(void);
@@ -32,5 +36,8 @@ void print_cmd_qos_list(struct seq_file *m);
 
 void apu_qos_suspend(void);
 void apu_qos_resume(void);
+
+void apu_qos_boost_start(void);
+void apu_qos_boost_end(void);
 
 #endif
