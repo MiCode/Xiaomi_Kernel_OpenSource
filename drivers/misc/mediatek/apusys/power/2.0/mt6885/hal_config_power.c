@@ -30,10 +30,11 @@
 static int is_apu_power_initilized;
 static int force_pwr_on = 1;
 static int force_pwr_off;
-static int conn_mtcmos_on;
 static int buck_already_on;
 static int power_on_counter;
 static int hal_cmd_status[APUSYS_POWER_USER_NUM];
+int conn_mtcmos_on;
+
 
 struct apu_power_info_record power_fail_record;
 
@@ -676,8 +677,7 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 			LOG_DBG("%s enable wakeup signal\n", __func__);
 
 			ret |= enable_apu_conn_clksrc();
-			ret |= set_apu_clock_source(VCORE_ON_FREQ,
-								V_VCORE);
+			//ret |= set_apu_clock_source(VCORE_ON_FREQ, V_VCORE);
 
 			// CCF API assist to enable clock source of apu conn
 			ret |= enable_apu_mtcmos(1);
@@ -768,8 +768,7 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 			// conn disable, checking APU_RPC_INTF_PWR_RDY
 			ret |= rpc_power_status_check(0, 0);
 
-			ret |= set_apu_clock_source(VCORE_OFF_FREQ,
-								V_VCORE);
+			//ret |= set_apu_clock_source(VCORE_OFF_FREQ, V_VCORE);
 
 			ret |= set_domain_to_default_clk(0);
 			disable_apu_conn_clksrc();

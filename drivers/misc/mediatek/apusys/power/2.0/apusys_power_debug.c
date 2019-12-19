@@ -115,6 +115,13 @@ int apu_power_power_stress(int type, int device, int opp)
 		constraints_check_stress(opp);
 		break;
 
+	case 6:
+		if (opp > 0)
+			apu_set_vcore_boost(true);
+		else
+			apu_set_vcore_boost(false);
+		break;
+
 	case 7: // power on/off suspend stress
 		if (power_on_off_stress == 0)
 			power_on_off_stress = 1;
