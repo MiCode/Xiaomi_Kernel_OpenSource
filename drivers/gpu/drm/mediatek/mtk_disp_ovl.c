@@ -139,6 +139,8 @@
 #define DISP_REG_OVL_RDMA_BURST_CON1	(0x1F4UL)
 #define FLD_RDMA_BURST_CON1_BURST16_EN		REG_FLD_MSB_LSB(28, 28)
 
+#define DISP_REG_OVL_GDRDY_PRD (0x208UL)
+
 #define DISP_REG_OVL_RDMA0_DBG (0x24CUL)
 #define DISP_REG_OVL_RDMA1_DBG (0x250UL)
 #define DISP_REG_OVL_RDMA2_DBG (0x254UL)
@@ -572,6 +574,13 @@ static void mtk_ovl_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		       comp->regs_pa + DISP_REG_OVL_DATAPATH_CON,
 		       value, mask);
+
+#if defined(CONFIG_MACH_MT6873)
+	/* Enable feedback real BW consumed from OVL */
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		comp->regs_pa + DISP_REG_OVL_GDRDY_PRD,
+		0xFFFFFFFF, 0xFFFFFFFF);
+#endif
 
 	DDPDBG("%s-\n", __func__);
 }

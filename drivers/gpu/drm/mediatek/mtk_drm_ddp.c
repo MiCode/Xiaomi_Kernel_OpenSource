@@ -27,7 +27,9 @@
 #include "mtk_drm_ddp_comp.h"
 #include "mtk_dump.h"
 #include "mtk_drm_mmp.h"
-
+#ifdef CONFIG_MTK_SMI_EXT
+#include "smi_public.h"
+#endif
 
 #define DISP_REG_OVL0_MOUT_EN(data) (data->ovl0_mout_en)
 #define DISP_REG_DPI0_SEL_IN(data) (data->dpi0_sel_in)
@@ -4840,6 +4842,11 @@ void mmsys_config_dump_analysis_mt6873(void __iomem *config_regs)
 	}
 
 	DDPDUMP("%s\n", clock_on);
+
+#ifdef CONFIG_MTK_SMI_EXT
+	if (greq0 || greq1)
+		smi_debug_bus_hang_detect(false, "DISP");
+#endif
 }
 
 void mmsys_config_dump_analysis(void __iomem *config_regs)
