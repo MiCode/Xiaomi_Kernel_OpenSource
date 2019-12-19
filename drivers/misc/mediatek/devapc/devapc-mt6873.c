@@ -1661,6 +1661,7 @@ static struct mtk_devapc_vio_info mt6873_devapc_vio_info = {
 	.vio_mask_sta_num = mtk_vio_mask_sta_num,
 	.sramrom_vio_idx = SRAMROM_VIO_INDEX,
 	.mdp_vio_idx = MDP_VIO_INDEX,
+	.disp2_vio_idx = MDP_VIO_INDEX,
 	.mmsys_vio_idx = MMSYS_VIO_INDEX,
 };
 
