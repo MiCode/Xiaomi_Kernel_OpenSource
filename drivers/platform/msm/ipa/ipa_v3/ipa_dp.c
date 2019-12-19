@@ -2809,8 +2809,14 @@ begin:
 		case IPAHAL_PKT_STATUS_OPCODE_PACKET:
 		case IPAHAL_PKT_STATUS_OPCODE_SUSPENDED_PACKET:
 		case IPAHAL_PKT_STATUS_OPCODE_PACKET_2ND_PASS:
-		case IPAHAL_PKT_STATUS_OPCODE_NEW_FRAG_RULE:
 			break;
+		case IPAHAL_PKT_STATUS_OPCODE_NEW_FRAG_RULE:
+			IPAERR_RL("Frag packets received on lan consumer\n");
+			IPAERR_RL("STATUS opcode=%d src=%d dst=%d src ip=%x\n",
+				status.status_opcode, status.endp_src_idx,
+				status.endp_dest_idx, status.src_ip_addr);
+			skb_pull(skb, pkt_status_sz);
+			continue;
 		default:
 			IPAERR_RL("unsupported opcode(%d)\n",
 				status.status_opcode);
@@ -4980,8 +4986,8 @@ start_poll:
 	}
 	cnt += weight - remain_aggr_weight * IPA_WAN_AGGR_PKT_CNT;
 	/* call repl_hdlr before napi_reschedule / napi_complete */
-	if (cnt)
-		ep->sys->repl_hdlr(ep->sys);
+	ep->sys->repl_hdlr(ep->sys);
+
 	/* When not able to replenish enough descriptors pipe wait
 	 * until minimum number descripotrs to replish.
 	 */
@@ -4994,7 +5000,7 @@ start_poll:
 		ipa_pm_deferred_deactivate(ep->sys->pm_hdl);
 	} else {
 		cnt = weight;
-		IPADBG("Client = %d not replenished free descripotrs\n",
+		IPADBG_LOW("Client = %d not replenished free descripotrs\n",
 				ep->client);
 	}
 	return cnt;
