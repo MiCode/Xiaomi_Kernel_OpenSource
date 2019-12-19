@@ -276,8 +276,13 @@ int commit_data(int type, int data, int check_spmfw)
 		break;
 	case DVFSRC_QOS_VCORE_OPP:
 		spin_lock_irqsave(&force_req_lock, flags);
-		if (data >= VCORE_OPP_NUM || data < 0)
+		if (data >= VCORE_OPP_NUM)
 			data = VCORE_OPP_NUM - 1;
+
+		if (data < 0) {
+			pr_info("VCORE OPP = %d\n", data);
+			data = 0;
+		}
 
 		opp = data;
 		level = VCORE_OPP_NUM - data - 1;
