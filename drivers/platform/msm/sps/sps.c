@@ -36,7 +36,8 @@ u32 d_type;
 bool enhd_pipe;
 bool imem;
 enum sps_bam_type bam_type;
-enum sps_bam_type bam_types[] = {SPS_BAM_LEGACY, SPS_BAM_NDP, SPS_BAM_NDP_4K};
+static enum sps_bam_type bam_types[] = {
+	SPS_BAM_LEGACY, SPS_BAM_NDP, SPS_BAM_NDP_4K};
 
 static void sps_device_de_init(void);
 
@@ -45,15 +46,15 @@ u8 debugfs_record_enabled;
 u8 logging_option;
 u8 debug_level_option;
 u8 print_limit_option;
-u8 reg_dump_option;
-u32 testbus_sel;
-u32 bam_pipe_sel;
-u32 desc_option;
+static u8 reg_dump_option;
+static u32 testbus_sel;
+static u32 bam_pipe_sel;
+static u32 desc_option;
 /*
  * Specifies range of log level from level 0 to level 3 to have fine-granularity
  * for logging to serve all BAM use cases.
  */
-u32 log_level_sel;
+static u32 log_level_sel;
 
 static char *debugfs_buf;
 static u32 debugfs_buf_size;
@@ -61,17 +62,17 @@ static u32 debugfs_buf_used;
 static int wraparound;
 static struct mutex sps_debugfs_lock;
 
-struct dentry *dent;
-struct dentry *dfile_info;
-struct dentry *dfile_logging_option;
-struct dentry *dfile_debug_level_option;
-struct dentry *dfile_print_limit_option;
-struct dentry *dfile_reg_dump_option;
-struct dentry *dfile_testbus_sel;
-struct dentry *dfile_bam_pipe_sel;
-struct dentry *dfile_desc_option;
-struct dentry *dfile_bam_addr;
-struct dentry *dfile_log_level_sel;
+static struct dentry *dent;
+static struct dentry *dfile_info;
+static struct dentry *dfile_logging_option;
+static struct dentry *dfile_debug_level_option;
+static struct dentry *dfile_print_limit_option;
+static struct dentry *dfile_reg_dump_option;
+static struct dentry *dfile_testbus_sel;
+static struct dentry *dfile_bam_pipe_sel;
+static struct dentry *dfile_desc_option;
+static struct dentry *dfile_bam_addr;
+static struct dentry *dfile_log_level_sel;
 
 static struct sps_bam *phy2bam(phys_addr_t phys_addr);
 
@@ -193,7 +194,7 @@ static ssize_t sps_set_info(struct file *file, const char __user *buf,
 	return count;
 }
 
-const struct file_operations sps_info_ops = {
+static const struct file_operations sps_info_ops = {
 	.read = sps_read_info,
 	.write = sps_set_info,
 };
@@ -247,7 +248,7 @@ static ssize_t sps_set_logging_option(struct file *file, const char __user *buf,
 	return count;
 }
 
-const struct file_operations sps_logging_option_ops = {
+static const struct file_operations sps_logging_option_ops = {
 	.read = sps_read_logging_option,
 	.write = sps_set_logging_option,
 };
@@ -489,7 +490,7 @@ static ssize_t sps_set_bam_addr(struct file *file, const char __user *buf,
 	return count;
 }
 
-const struct file_operations sps_bam_addr_ops = {
+static const struct file_operations sps_bam_addr_ops = {
 	.write = sps_set_bam_addr,
 };
 
@@ -508,13 +509,13 @@ static void sps_debugfs_init(void)
 	wraparound = false;
 	log_level_sel = SPS_IPC_MAX_LOGLEVEL + 1;
 
-	dent = debugfs_create_dir("sps", 0);
+	dent = debugfs_create_dir("sps", NULL);
 	if (IS_ERR(dent)) {
 		pr_err("sps:fail to create the folder for debug_fs\n");
 		return;
 	}
 
-	dfile_info = debugfs_create_file("info", 0664, dent, 0,
+	dfile_info = debugfs_create_file("info", 0664, dent, NULL,
 			&sps_info_ops);
 	if (!dfile_info || IS_ERR(dfile_info)) {
 		pr_err("sps:fail to create the file for debug_fs info\n");
@@ -522,7 +523,7 @@ static void sps_debugfs_init(void)
 	}
 
 	dfile_logging_option = debugfs_create_file("logging_option", 0664,
-			dent, 0, &sps_logging_option_ops);
+			dent, NULL, &sps_logging_option_ops);
 	if (!dfile_logging_option || IS_ERR(dfile_logging_option)) {
 		pr_err("sps:fail to create debug_fs for logging_option\n");
 		goto cleanup;
@@ -571,7 +572,7 @@ static void sps_debugfs_init(void)
 	}
 
 	dfile_bam_addr = debugfs_create_file("bam_addr", 0664,
-			dent, 0, &sps_bam_addr_ops);
+			dent, NULL, &sps_bam_addr_ops);
 	if (!dfile_bam_addr || IS_ERR(dfile_bam_addr)) {
 		pr_err("sps:fail to create the file for debug_fs bam_addr\n");
 		goto cleanup;
