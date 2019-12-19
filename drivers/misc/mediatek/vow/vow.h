@@ -101,7 +101,7 @@
 #define VOW_BARGEIN_DUMP_SIZE    0x3C00
 #endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
 
-#define KERNEL_VOW_DRV_VER "2.0.5"
+#define KERNEL_VOW_DRV_VER "2.0.6"
 struct dump_package_t {
 	uint32_t dump_data_type;
 	uint32_t mic_offset;
@@ -144,6 +144,7 @@ enum { /* dump_data_t */
 	DUMP_RECOG = 0,
 #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
 	DUMP_BARGEIN,
+	DUMP_INPUT,
 #endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
 	NUM_DUMP_DATA,
 };
@@ -356,7 +357,8 @@ enum ipi_type_flag_t {
 	DEBUG_DUMP_IDX = 1,
 	RECOG_DUMP_IDX = 2,
 	BARGEIN_DUMP_INFO_IDX = 3,
-	BARGEIN_DUMP_IDX = 4
+	BARGEIN_DUMP_IDX = 4,
+	INPUT_DUMP_IDX = 5
 };
 
 #define RECOG_OK_IDX_MASK           (0x01 << RECOG_OK_IDX)
@@ -364,6 +366,7 @@ enum ipi_type_flag_t {
 #define RECOG_DUMP_IDX_MASK         (0x01 << RECOG_DUMP_IDX)
 #define BARGEIN_DUMP_INFO_IDX_MASK  (0x01 << BARGEIN_DUMP_INFO_IDX)
 #define BARGEIN_DUMP_IDX_MASK       (0x01 << BARGEIN_DUMP_IDX)
+#define INPUT_DUMP_IDX_MASK         (0x01 << INPUT_DUMP_IDX)
 
 struct vow_ipi_combined_info_t {
 	unsigned int ipi_type_flag;

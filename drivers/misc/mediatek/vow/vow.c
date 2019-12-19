@@ -115,6 +115,7 @@ static int vow_pcm_dump_kthread(void *data);
 #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
 static bool VowDrv_SetBargeIn(unsigned int set, unsigned int irq_id);
 static void bargein_dump_routine(struct work_struct *ws);
+static void input_dump_routine(struct work_struct *ws);
 #endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
 static void recog_dump_routine(struct work_struct *ws);
 static int vow_service_SearchSpeakerModelWithUuid(int uuid);
@@ -249,13 +250,12 @@ void vow_ipi_rx_internal(unsigned int msg_id,
 				     vowserv.voice_sample_delay);
 			bargein_dump_info_flag = true;
 		}
-		/* IPIMSG_VOW_BARGEIN_PCMDUMP_OK */
-		if ((ipi_ptr->ipi_type_flag & BARGEIN_DUMP_IDX_MASK) &&
+		if ((ipi_ptr->ipi_type_flag & INPUT_DUMP_IDX_MASK) &&
 		    (vowserv.dump_pcm_flag)) {
 			int ret = 0;
 			uint8_t idx = 0; /* dump_data_t */
 
-			idx = DUMP_BARGEIN;
+			idx = DUMP_INPUT;
 			dump_work[idx].mic_data_size = ipi_ptr->mic_dump_size;
 			dump_work[idx].mic_offset = ipi_ptr->mic_offset;
 #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT
@@ -263,6 +263,19 @@ void vow_ipi_rx_internal(unsigned int msg_id,
 					ipi_ptr->mic_dump_size;
 			dump_work[idx].mic_offset_R = ipi_ptr->mic_offset_R;
 #endif  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
+
+			ret = queue_work(dump_workqueue[idx],
+					 &dump_work[idx].work);
+			//if (ret == 0)
+				//bargein_dump_data_routine_cnt_pass++;
+		}
+		/* IPIMSG_VOW_BARGEIN_PCMDUMP_OK */
+		if ((ipi_ptr->ipi_type_flag & BARGEIN_DUMP_IDX_MASK) &&
+		    (vowserv.dump_pcm_flag)) {
+			int ret = 0;
+			uint8_t idx = 0; /* dump_data_t */
+
+			idx = DUMP_BARGEIN;
 			dump_work[idx].echo_data_size = ipi_ptr->echo_dump_size;
 			dump_work[idx].echo_offset = ipi_ptr->echo_offset;
 
@@ -1507,7 +1520,7 @@ static int vow_pcm_dump_kthread(void *data)
 		/* VOWDRV_DEBUG("[BargeIn] current_idx = %d\n", current_idx); */
 		switch (dump_package->dump_data_type) {
 #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
-		case DUMP_BARGEIN: {
+		case DUMP_INPUT: {
 #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT
 			short *out_buf;
 			/* DRAM to kernel buffer and sample interleaving */
@@ -1567,7 +1580,10 @@ static int vow_pcm_dump_kthread(void *data)
 				size -= writedata;
 				pcm_dump++;
 			}
+		}
 #endif  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
+			break;
+		case DUMP_BARGEIN: {
 			/* Bargein dump echo data */
 			size = dump_package->echo_data_size;
 			writedata = size;
@@ -1732,7 +1748,7 @@ static void recog_dump_routine(struct work_struct *ws)
 }
 
 #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
-static void bargein_dump_routine(struct work_struct *ws)
+static void input_dump_routine(struct work_struct *ws)
 {
 	struct dump_work_t *dump_work = NULL;
 	uint32_t mic_offset = 0;
@@ -1741,8 +1757,6 @@ static void bargein_dump_routine(struct work_struct *ws)
 	uint32_t mic_offset_R = 0;
 	uint32_t mic_data_size_R = 0;
 #endif  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
-	uint32_t echo_offset = 0;
-	uint32_t echo_data_size = 0;
 
 	dump_work = container_of(ws, struct dump_work_t, work);
 
@@ -1752,12 +1766,10 @@ static void bargein_dump_routine(struct work_struct *ws)
 	mic_offset_R = dump_work->mic_offset_R;
 	mic_data_size_R = dump_work->mic_data_size_R;
 #endif  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
-	echo_offset = dump_work->echo_offset;
-	echo_data_size = dump_work->echo_data_size;
 
 	spin_lock(&vowdrv_lock);
 	dump_queue->dump_package[dump_queue->idx_w].dump_data_type =
-	    DUMP_BARGEIN;
+	    DUMP_INPUT;
 	dump_queue->dump_package[dump_queue->idx_w].mic_offset =
 	    mic_offset;
 	dump_queue->dump_package[dump_queue->idx_w].mic_data_size =
@@ -1768,6 +1780,28 @@ static void bargein_dump_routine(struct work_struct *ws)
 	dump_queue->dump_package[dump_queue->idx_w].mic_data_size_R =
 	    mic_data_size_R;
 #endif  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
+
+
+	dump_queue->idx_w++;
+	spin_unlock(&vowdrv_lock);
+	//vowserv.bargein_dump_cnt1++;
+
+	wake_up_interruptible(&wq_dump_pcm);
+}
+static void bargein_dump_routine(struct work_struct *ws)
+{
+	struct dump_work_t *dump_work = NULL;
+	uint32_t echo_offset = 0;
+	uint32_t echo_data_size = 0;
+
+	dump_work = container_of(ws, struct dump_work_t, work);
+
+	echo_offset = dump_work->echo_offset;
+	echo_data_size = dump_work->echo_data_size;
+
+	spin_lock(&vowdrv_lock);
+	dump_queue->dump_package[dump_queue->idx_w].dump_data_type =
+	    DUMP_BARGEIN;
 	dump_queue->dump_package[dump_queue->idx_w].echo_offset =
 	    echo_offset;
 	dump_queue->dump_package[dump_queue->idx_w].echo_data_size =
@@ -1795,6 +1829,17 @@ static void vow_pcm_dump_init(void)
 	}
 	VOW_ASSERT(dump_workqueue[DUMP_RECOG] != NULL);
 #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
+	dump_workqueue[DUMP_INPUT] =
+	    create_workqueue("dump_input_data");
+	if (dump_workqueue[DUMP_INPUT] == NULL) {
+		VOWDRV_DEBUG("[BargeIn] dump_workqueue[DUMP_INPUT] = %p\n",
+			     dump_workqueue[DUMP_INPUT]);
+	}
+	VOW_ASSERT(dump_workqueue[DUMP_INPUT] != NULL);
+
+	INIT_WORK(&dump_work[DUMP_INPUT].work,
+		  input_dump_routine);
+
 	dump_workqueue[DUMP_BARGEIN] =
 	    create_workqueue("dump_bargein_recho_ref");
 	if (dump_workqueue[DUMP_BARGEIN] == NULL) {
