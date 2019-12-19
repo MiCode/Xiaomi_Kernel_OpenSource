@@ -3000,7 +3000,7 @@ const char *cmdq_mdp_get_rdma_state(u32 state)
 
 void cmdq_mdp_dump_rdma(const unsigned long base, const char *label)
 {
-	u32 value[40] = { 0 };
+	u32 value[44] = { 0 };
 	u32 state = 0;
 	u32 grep = 0;
 
@@ -3044,7 +3044,11 @@ void cmdq_mdp_dump_rdma(const unsigned long base, const char *label)
 	value[36] = CMDQ_REG_GET32(base + 0x4D8);
 	value[37] = CMDQ_REG_GET32(base + 0x4E0);
 	value[38] = CMDQ_REG_GET32(base + 0x038);
-	value[39] = CMDQ_REG_GET32(base + 0x0);
+	value[39] = CMDQ_REG_GET32(base + 0x068);
+	value[40] = CMDQ_REG_GET32(base + 0x098);
+	value[41] = CMDQ_REG_GET32(base + 0x148);
+	value[42] = CMDQ_REG_GET32(base + 0x150);
+	value[43] = CMDQ_REG_GET32(base + 0x0);
 
 	CMDQ_ERR(
 		"=============== [CMDQ] %s Status ====================================\n",
@@ -3088,7 +3092,13 @@ void cmdq_mdp_dump_rdma(const unsigned long base, const char *label)
 	CMDQ_ERR(
 		"RDMA_MON_STA_27: 0x%08x, RDMA_MON_STA_28: 0x%08x, RDMA_COMP_CON: 0x%08x\n",
 		value[36], value[37], value[38]);
-	CMDQ_ERR("RDMA_EN: 0x%08x\n", value[39]);
+	CMDQ_ERR(
+		"MDP_RDMA_MF_BKGD_SIZE_IN_PXL: 0x%08x, MDP_RDMA_MF_BKGD_H_SIZE_IN_PXL: 0x%08x\n",
+		value[39], value[40]);
+	CMDQ_ERR(
+		"MDP_RDMA_SRC_OFFSET_WP: 0x%08x, MDP_RDMA_SRC_OFFSET_HP: 0x%08x\n",
+		value[41], value[42]);
+	CMDQ_ERR("RDMA_EN: 0x%08x\n", value[43]);
 
 	/* parse state */
 	CMDQ_ERR("RDMA ack:%d req:%d\n", (value[9] & (1 << 11)) >> 11,
