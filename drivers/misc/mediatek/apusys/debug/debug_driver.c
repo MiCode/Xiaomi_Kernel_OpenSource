@@ -164,6 +164,7 @@ static ssize_t set_debuglv(struct file *flip,
 	ret = copy_from_user(tmp, buffer, count);
 	if (ret) {
 		DBG_LOG_ERR("copy_from_user failed, ret=%d\n", ret);
+		kfree(tmp);
 		return count;
 	}
 
@@ -185,6 +186,7 @@ static ssize_t set_debuglv(struct file *flip,
 			_cPos = 0;
 		}
 	}
+	kfree(tmp);
 
 	return count;
 }

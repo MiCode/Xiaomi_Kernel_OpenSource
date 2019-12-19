@@ -92,7 +92,7 @@ int edma_initialize(struct edma_device *edma_device)
 static int edma_open(struct inode *inode, struct file *flip)
 {
 	int ret = 0;
-	struct edma_user *user;
+	struct edma_user *user = NULL;
 	struct edma_device *edma_device;
 
 	edma_device =

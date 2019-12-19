@@ -63,8 +63,8 @@ static ssize_t set_edma_register(struct device *dev,
 				const char *buf, size_t count)
 {
 	struct edma_device *edma_device = dev_get_drvdata(dev);
-	unsigned int core;
-	int ret;
+	unsigned int core = 0;
+	int ret = 0;
 
 	ret = kstrtouint(buf, 10, &core);
 	if (ret || core >= EDMA_SUB_NUM) {
@@ -103,8 +103,8 @@ static ssize_t set_edma_power(struct device *dev,
 			   struct device_attribute *attr,
 			   const char *buf, size_t count)
 {
-	unsigned int input;
-	int ret;
+	unsigned int input = 0;
+	int ret = 0;
 	struct edma_device *edma_device = dev_get_drvdata(dev);
 
 	ret = kstrtouint(buf, 10, &input);
