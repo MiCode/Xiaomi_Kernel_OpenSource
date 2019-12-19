@@ -4416,7 +4416,6 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 
 	mtk_iommu_isr_pause_timer_init(data);
 
-	mtk_iommu_debug_init();
 	for (slave = 0;
 	     slave < MTK_MMU_NUM_OF_IOMMU(data->m4uid); slave++)
 		for (mau = 0; mau < MTK_MAU_NUM_OF_MMU(slave); mau++)
@@ -4615,6 +4614,8 @@ static int __init mtk_iommu_init(void)
 	ret = platform_driver_register(&mtk_iommu_driver);
 	if (ret != 0)
 		pr_notice("Failed to register MTK IOMMU driver\n");
+	else
+		mtk_iommu_debug_init();
 
 #ifdef IOMMU_DEBUG_ENABLED
 	g_tf_test = false;
