@@ -245,7 +245,7 @@ page_owner=on loop.max_part=7";
 			};
 			edge_mdwdt: edge_mdwdt {
 				target = <&mddriver>;
-				value = <1 0 0 0x02000000>;
+				value = <1 0 0x80000000 0x02000000>;
 			};
 		};
 		resource-ctrl-list {
