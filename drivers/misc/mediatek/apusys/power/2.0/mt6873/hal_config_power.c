@@ -276,6 +276,10 @@ static int init_power_resource(void *param)
 	struct hal_param_init_power *init_data = NULL;
 	struct device *dev = NULL;
 
+#ifdef APUSYS_POWER_BRINGUP
+	g_pwr_log_level = APUSYS_PWR_LOG_DEBUG;
+#endif
+
 	init_data = (struct hal_param_init_power *)param;
 
 	dev = init_data->dev;
