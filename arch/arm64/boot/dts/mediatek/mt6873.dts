@@ -5603,6 +5603,33 @@
 		reg = <0 0x10010000 0 0x1000>;
 		interrupts = <GIC_SPI 74 IRQ_TYPE_EDGE_RISING>;
 	};
+
+	brisket: brisket {
+		compatible = "mediatek,brisket";
+		brisket_doe_ptp = <256>;
+		brisket_doe_pllclken = <256>;
+		brisket_doe_bren = <256>;
+		brisket_doe_brisket05 = <0>;
+		brisket_doe_brisket06 = <0>;
+		brisket_doe_brisket07 = <0>;
+		brisket_doe_brisket08 = <0>;
+		brisket_doe_brisket09 = <0>;
+	};
+
+	credit_didt: credit_didt {
+		compatible = "mediatek,credit_didt";
+		credit_didt_doe_ptp = <256>;
+		credit_didt_doe_enable = <65536>;
+		credit_didt_doe_const_mode = <2>;
+		credit_didt_doe_ls_period = <8>;
+		credit_didt_doe_ls_credit = <32>;
+		credit_didt_doe_ls_low_freq_period = <8>;
+		credit_didt_doe_ls_low_freq_enable = <2>;
+		credit_didt_doe_vx_period = <8>;
+		credit_didt_doe_vx_credit = <32>;
+		credit_didt_doe_vx_low_freq_period = <8>;
+		credit_didt_doe_vx_low_freq_enable = <2>;
+	};
 };
 
 &spmi_bus {

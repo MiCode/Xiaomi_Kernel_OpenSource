@@ -12,7 +12,9 @@
 #
 
 obj-$(CONFIG_MACH_MT6885) += credit_didt_v1/
+obj-$(CONFIG_MACH_MT6873) += credit_didt_v1/
 obj-$(CONFIG_MACH_MT6885) += brisket_v1/
+obj-$(CONFIG_MACH_MT6873) += brisket_v1/
 obj-$(CONFIG_MACH_MT6885) += drcc_v1/
 obj-$(CONFIG_MACH_MT6768) += drcc_v1/
 obj-$(CONFIG_MACH_MT6785) += drcc_v1/
