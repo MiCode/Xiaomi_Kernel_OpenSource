@@ -1768,7 +1768,6 @@ static int cmdq_pkt_wait_complete_loop(struct cmdq_pkt *pkt)
 
 int cmdq_pkt_wait_complete(struct cmdq_pkt *pkt)
 {
-	s32 wait_result = 0;
 	struct cmdq_flush_item *item = pkt->flush_item;
 
 	if (!item) {
