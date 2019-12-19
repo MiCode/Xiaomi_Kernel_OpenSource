@@ -916,20 +916,12 @@ void lvts_Device_Enable_Init_all_Devices(void)
 		lvts_write_device(0x81030000, 0x0C, 0x7C, i);
 		/* Set TS_RSV */
 		lvts_write_device(0x81030000, 0x09, 0x8D, i);
-
-#if LVTS_DEVICE_AUTO_RCK == 0
-		/* Device low power mode can ignore these settings and
-		 * Device auto RCK mode will force device in low power
-		 * mode
-		 */
-
 		/* Enable TS_EN */
 		lvts_write_device(0x81030000, 0x08, 0xF4, i);
 		/* Toggle TSDIV_EN & TSVCO_TG */
 		lvts_write_device(0x81030000, 0x08, 0xFC, i);
 		/* Enable TS_EN */
 		lvts_write_device(0x81030000, 0x08, 0xF4, i);
-#endif
 	}
 }
 
