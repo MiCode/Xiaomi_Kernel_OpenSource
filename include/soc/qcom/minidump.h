@@ -30,12 +30,17 @@ struct md_region {
  */
 #if IS_ENABLED(CONFIG_QCOM_MINIDUMP)
 extern int msm_minidump_add_region(const struct md_region *entry);
+extern int msm_minidump_remove_region(const struct md_region *entry);
 extern bool msm_minidump_enabled(void);
 extern void dump_stack_minidump(u64 sp);
 #else
 static inline int msm_minidump_add_region(const struct md_region *entry)
 {
 	/* Return quietly, if minidump is not supported */
+	return 0;
+}
+static inline int msm_minidump_remove_region(const struct md_region *entry)
+{
 	return 0;
 }
 static inline bool msm_minidump_enabled(void) { return false; }

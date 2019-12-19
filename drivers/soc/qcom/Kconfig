@@ -377,6 +377,23 @@ config QCOM_DCC_V2
          driver provides interface to configure DCC block and read back
          captured data from DCC's internal SRAM.
 
+config QCOM_MINIDUMP
+	tristate "QCOM Minidump Support"
+	depends on QCOM_SMEM && POWER_RESET_QCOM
+	help
+	  This enables minidump feature. It allows various clients to
+	  register to dump their state at system bad state (panic/WDT,etc.,).
+	  Minidump would dump all registered entries, only when DLOAD mode
+	  is enabled.
+
+config MINIDUMP_MAX_ENTRIES
+	int "Minidump Maximum num of entries"
+	default 200
+	depends on QCOM_MINIDUMP
+	help
+	  This defines maximum number of entries to be allocated for application
+	  subsytem in Minidump table.
+
 config QCOM_APR
 	tristate "Qualcomm APR Bus (Asynchronous Packet Router)"
 	depends on ARCH_QCOM || COMPILE_TEST
