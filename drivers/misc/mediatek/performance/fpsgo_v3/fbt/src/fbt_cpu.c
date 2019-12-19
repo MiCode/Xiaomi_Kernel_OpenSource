@@ -542,7 +542,8 @@ static void fbt_set_idleprefer_locked(int enable)
 
 	xgf_trace("fpsgo %s idelprefer", enable?"enable":"disbale");
 #ifdef CONFIG_SCHED_TUNE
-	prefer_idle_for_perf_idx(CGROUP_TA, enable);
+	/* use eas_ctrl to control prefer idle */
+	update_prefer_idle_value(EAS_PREFER_IDLE_KIR_FPSGO, CGROUP_TA, enable);
 #endif
 	set_idleprefer = enable;
 }
