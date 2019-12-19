@@ -502,17 +502,17 @@ void tscpu_thermal_cal_prepare_2(__u32 ret)
 	thermal_data.u.data.arg[0] = g_degc_cali;
 	thermal_data.u.data.arg[1] = g_o_slope_sign;
 	thermal_data.u.data.arg[2] = g_o_slope;
-	while (thermal_to_sspm(THERMAL_IPI_INIT_GRP1, &thermal_data) != 0)
+	while (thermal_to_mcupm(THERMAL_IPI_INIT_GRP1, &thermal_data) != 0)
 		udelay(100);
 
 	thermal_data.u.data.arg[0] = g_oe;
 	thermal_data.u.data.arg[1] = g_gain;
 	thermal_data.u.data.arg[2] = g_x_roomt[L_TS_MCU8];
-	while (thermal_to_sspm(THERMAL_IPI_INIT_GRP2, &thermal_data) != 0)
+	while (thermal_to_mcupm(THERMAL_IPI_INIT_GRP2, &thermal_data) != 0)
 		udelay(100);
 
 	thermal_data.u.data.arg[0] = g_x_roomt[L_TS_MCU9];
-	while (thermal_to_sspm(THERMAL_IPI_INIT_GRP3, &thermal_data) != 0)
+	while (thermal_to_mcupm(THERMAL_IPI_INIT_GRP3, &thermal_data) != 0)
 		udelay(100);
 #endif
 }

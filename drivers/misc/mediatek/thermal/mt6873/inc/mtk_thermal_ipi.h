@@ -15,11 +15,9 @@
 #define __MTK_THERMAL_IPI_H__
 
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
-#undef CONFIG_MTK_TINYSYS_SSPM_SUPPORT /*TODO: remove me if enable MCUPM*/
 #define THERMAL_ENABLE_TINYSYS_SSPM (0)
-#define THERMAL_ENABLE_ONLY_TZ_SSPM (0) /*TODO: set to 1 if enable MCUPM */
-/* TODO: enable THERMAL_SSPM_THERMAL_THROTTLE_SWITCH if enable MCUPM */
-/* #define THERMAL_SSPM_THERMAL_THROTTLE_SWITCH */
+#define THERMAL_ENABLE_ONLY_TZ_SSPM (1)
+#define THERMAL_SSPM_THERMAL_THROTTLE_SWITCH
 
 /*Only Big SW need to enable this definition
  *Big SW suspend/resume flow:
@@ -27,11 +25,12 @@
  *    resume: SSPM resume => kernel resume
  */
 
-/* TODO: enable THERMAL_KERNEL_SUSPEND_RESUME_NOTIFY if enable MCUPM */
-/* #define THERMAL_KERNEL_SUSPEND_RESUME_NOTIFY */
+#define THERMAL_KERNEL_SUSPEND_RESUME_NOTIFY
+
+#define THERMAL_CPUEB_USE_PLATFORM_IPI
 #else
 #define THERMAL_ENABLE_TINYSYS_SSPM (0)
-#define THERMAL_ENABLE_ONLY_TZ_SSPM (0) /*TODO: set to 1 if enable MCUPM */
+#define THERMAL_ENABLE_ONLY_TZ_SSPM (1)
 #endif
 
 #if THERMAL_ENABLE_TINYSYS_SSPM || THERMAL_ENABLE_ONLY_TZ_SSPM
@@ -77,7 +76,7 @@ struct thermal_ipi_data {
 		} data;
 	} u;
 };
-extern unsigned int thermal_to_sspm(unsigned int cmd,
+extern unsigned int thermal_to_mcupm(unsigned int cmd,
 	struct thermal_ipi_data *thermal_data);
 extern int atm_to_sspm(unsigned int cmd, int data_len,
 	struct thermal_ipi_data *thermal_data, int *ackData);
