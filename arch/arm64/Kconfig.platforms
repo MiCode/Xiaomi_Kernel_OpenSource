@@ -463,6 +463,7 @@ config MACH_MT6873
 	select COMMON_CLK_MT6873
 	select CPU_IDLE
 	select PM_DEVFREQ
+	select ARM_DSU_PMU
 	select ARM64_CRYPTO
 	select CRYPTO_SHA2_ARM64_CE
 	select CRYPTO_AES_ARM64_CE_BLK
