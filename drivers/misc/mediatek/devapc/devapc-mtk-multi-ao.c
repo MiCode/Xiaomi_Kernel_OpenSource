@@ -286,6 +286,32 @@ static void print_vio_mask_sta(bool debug)
 	}
 }
 
+static void devapc_vio_info_print(void)
+{
+	struct mtk_devapc_vio_info *vio_info;
+
+	vio_info = mtk_devapc_ctx->soc->vio_info;
+
+	/* Print violation information */
+	if (vio_info->write)
+		pr_info(PFX "Write Violation\n");
+	else if (vio_info->read)
+		pr_info(PFX "Read Violation\n");
+	else
+		pr_err(PFX "R/W Violation are not raised\n");
+
+	pr_info(PFX "%s%x, %s%x, %s%x, %s%x\n",
+			"Vio Addr:0x", vio_info->vio_addr,
+			"High:0x", vio_info->vio_addr_high,
+			"Bus ID:0x", vio_info->master_id,
+			"Dom ID:0x", vio_info->domain_id);
+
+	pr_info(PFX "%s - %s%s, %s%x\n",
+			"Violation",
+			"Current Process:", current->comm,
+			"PID:", current->pid);
+}
+
 static bool check_type2_vio_status(int slave_type, int *vio_idx, int *index)
 {
 	uint32_t sramrom_vio_idx, mdp_vio_idx, disp2_vio_idx, mmsys_vio_idx;
@@ -348,6 +374,8 @@ static bool check_type2_vio_status(int slave_type, int *vio_idx, int *index)
 						*vio_idx)
 					*index = i;
 			}
+
+			devapc_vio_info_print();
 			return true;
 		}
 	}
@@ -454,10 +482,10 @@ static uint8_t get_permission(int slave_type, int module_index, int domain)
 {
 	uint32_t slave_type_num = mtk_devapc_ctx->soc->slave_type_num;
 	const struct mtk_device_info **device_info;
-	uint32_t sys_index, ctrl_index, apc_set_index;
 	const struct mtk_device_num *ndevices;
+	int sys_index, ctrl_index, vio_index;
+	uint32_t ret, apc_set_index;
 	struct arm_smccc_res res;
-	uint32_t ret;
 
 	ndevices = mtk_devapc_ctx->soc->ndevices;
 
@@ -474,19 +502,23 @@ static uint8_t get_permission(int slave_type, int module_index, int domain)
 
 	sys_index = device_info[slave_type][module_index].sys_index;
 	ctrl_index = device_info[slave_type][module_index].ctrl_index;
+	vio_index = device_info[slave_type][module_index].vio_index;
 
 	if (sys_index == -1 || ctrl_index == -1) {
 		pr_err(PFX "%s: cannot get sys_index & ctrl_index\n",
 				__func__);
 		return 0xFF;
+	} else if (sys_index == -2) {
+		pr_info(PFX "%s: check ATF logs for type2 permssion\n",
+				__func__);
 	}
 
 	arm_smccc_smc(MTK_SIP_KERNEL_DAPC_PERM_GET, slave_type, sys_index,
-			domain, ctrl_index, 0, 0, 0, &res);
+			domain, ctrl_index, vio_index, 0, 0, &res);
 	ret = res.a0;
 
 	if (ret == DEAD) {
-		pr_err(PFX "%s: SMC call failed, ret:0x%x\n",
+		pr_err(PFX "%s: permission get failed, ret:0x%x\n",
 				__func__, ret);
 		return 0xFF;
 	}
@@ -578,24 +610,7 @@ static void devapc_extract_vio_dbg(int slave_type)
 	vio_info->vio_addr_high = (dbg0 & vio_dbgs->vio_addr_high)
 		>> vio_dbgs->vio_addr_high_start_bit;
 
-	/* Print violation information */
-	if (vio_info->write)
-		pr_info(PFX "Write Violation\n");
-	else if (vio_info->read)
-		pr_info(PFX "Read Violation\n");
-	else
-		pr_err(PFX "R/W Violation are not raised\n");
-
-	pr_info(PFX "%s%x, %s%x, %s%x, %s%x\n",
-			"Vio Addr:0x", vio_info->vio_addr,
-			"High:0x", vio_info->vio_addr_high,
-			"Bus ID:0x", vio_info->master_id,
-			"Dom ID:0x", vio_info->domain_id);
-
-	pr_info(PFX "%s - %s%s, %s%x\n",
-			"Violation",
-			"Current Process:", current->comm,
-			"PID:", current->pid);
+	devapc_vio_info_print();
 }
 
 /*
@@ -811,18 +826,13 @@ static void devapc_extra_handler(int slave_type, const char *vio_master,
 
 		/* call mtk aee_kernel_exception */
 		aee_kernel_exception("[DEVAPC]",
-				"%s %s %s %s\n%s%s\n",
-				"Violation master:", vio_master,
-				"access slave",
-				device_info[slave_type][vio_index].device,
+				"%s%s\n",
 				"CRDISPATCH_KEY:Device APC Violation Issue/",
 				dispatch_key
 				);
 
 	} else if (dbg_stat->enable_WARN) {
-		WARN(1, "Violation master: %s access %s\n",
-				vio_master,
-				device_info[slave_type][vio_index].device);
+		WARN(1, "Device APC Violation Issue/%s", dispatch_key);
 	}
 }
 

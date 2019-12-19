@@ -790,9 +790,9 @@ static struct mtk_device_info mt6873_devices_peri[] = {
 	{-1, -1, 289, "Decode_error", true},
 	{-1, -1, 290, "Decode_error", true},
 	{-1, -1, 291, "Decode_error", true},
-	{-1, -1, 292, "MDP_MALI", true},
+	{-2, -2, 292, "MDP_MALI", true},
 	{-1, -1, 293, "reserve", false},
-	{-1, -1, 294, "MMSYS_MALI", true},
+	{-2, -2, 294, "MMSYS_MALI", true},
 
 	/* 280 */
 	{-1, -1, 295, "PMIC_WRAP", false},
@@ -1312,6 +1312,8 @@ static const char *peri_mi_trans(int bus_id)
 static const char *mt6873_bus_id_to_master(int bus_id, uint32_t vio_addr,
 		int slave_type, int shift_sta_bit)
 {
+	uint8_t h_1byte;
+
 	pr_debug(PFX "[DEVAPC] %s:0x%x, %s:0x%x, %s:0x%x, %s:%d\n",
 		"bus_id", bus_id, "vio_addr", vio_addr,
 		"slave_type", slave_type,
@@ -1319,6 +1321,8 @@ static const char *mt6873_bus_id_to_master(int bus_id, uint32_t vio_addr,
 
 	if (bus_id == 0x0 && vio_addr == 0x0)
 		return NULL;
+
+	h_1byte = (vio_addr >> 24) & 0xFF;
 
 	if ((vio_addr >= TINYSYS_START_ADDR && vio_addr <= TINYSYS_END_ADDR) ||
 			(vio_addr >= MD_START_ADDR && vio_addr <= MD_END_ADDR))
@@ -1348,6 +1352,16 @@ static const char *mt6873_bus_id_to_master(int bus_id, uint32_t vio_addr,
 		return infra_mi_trans(bus_id);
 
 	} else if (slave_type == SLAVE_TYPE_PERI) {
+		if ((h_1byte >= 0x14 && h_1byte < 0x18) ||
+				(h_1byte >= 0x1A && h_1byte < 0x1C) ||
+				(h_1byte >= 0x1F && h_1byte < 0x20)) {
+			pr_info(PFX "vio addr is from MM 2nd\n");
+			if ((bus_id & 0x1) == 1)
+				return "GCE_M";
+
+			return infra_mi_trans(bus_id >> 1);
+		}
+
 		if (shift_sta_bit == 3 || shift_sta_bit == 4 ||
 				shift_sta_bit == 8) {
 			if ((bus_id & 0x1) == 0)
