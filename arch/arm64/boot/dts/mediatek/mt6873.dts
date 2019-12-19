@@ -1242,6 +1242,15 @@
 		clock-names = "gce", "gce-timer";
 	};
 
+	gce_mbox_sec: gce_mbox_sec@10228000 {
+		compatible = "mediatek,mailbox-gce-sec";
+		reg = <0 0x10228000 0 0x4000>;
+		#mbox-cells = <3>;
+		mboxes = <&gce_mbox 15 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
+		clock-names = "gce";
+		clocks = <&infracfg_ao INFRACFG_AO_GCE_CG>;
+	};
+
 	cmdq-test {
 		compatible = "mediatek,cmdq-test";
 		mediatek,gce = <&gce_mbox>;
