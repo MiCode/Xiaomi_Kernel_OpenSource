@@ -7,8 +7,6 @@
 #include <mtk_lp_plat_apmcu.h>
 
 #include "mt6885.h"
-#include "mt6885_ipi_sspm.h"
-
 #include <suspend/mt6885_suspend.h>
 
 static unsigned int mt6885_lp_pwr_state;
@@ -20,7 +18,6 @@ static unsigned int mt6885_lp_pwr_state;
 int mt6885_do_mcusys_prepare_pdn(unsigned int status,
 					   unsigned int *resource_req)
 {
-	mt6885_sspm_notify_enter(status);
 	mt6885_lp_pwr_state |= (status | PLAT_GIC_MASKED
 				| PLAT_MCUSYSOFF_PREPARED);
 	return 0;
@@ -32,7 +29,6 @@ int mt6885_do_mcusys_prepare_pdn(unsigned int status,
  */
 static int __mt6885_do_mcusys_prepare_on(unsigned int clr_status)
 {
-	mt6885_sspm_notify_leave(clr_status);
 	mt6885_lp_pwr_state &= ~(clr_status | PLAT_GIC_MASKED
 				  | PLAT_MCUSYSOFF_PREPARED);
 
