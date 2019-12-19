@@ -75,10 +75,6 @@ unsigned long long mutex_nested_time_end;
 long long mutex_nested_time_period;
 const char *mutex_nested_locker;
 
-#if defined(CONFIG_MACH_MT6873)
-#define BYPASS_PQ
-#endif
-
 static inline struct mtk_atomic_state *to_mtk_state(struct drm_atomic_state *s)
 {
 	return container_of(s, struct mtk_atomic_state, base);
@@ -983,11 +979,9 @@ static const struct mtk_addon_scenario_data mt6885_addon_ext[ADDON_SCN_NR] = {
 static const enum mtk_ddp_comp_id mt6873_mtk_ddp_main[] = {
 	DDP_COMPONENT_OVL0_2L,
 	DDP_COMPONENT_OVL0, DDP_COMPONENT_RDMA0,
-#ifndef BYPASS_PQ
 	DDP_COMPONENT_COLOR0,   DDP_COMPONENT_CCORR0,
 	DDP_COMPONENT_AAL0,      DDP_COMPONENT_GAMMA0,
 	DDP_COMPONENT_POSTMASK0, DDP_COMPONENT_DITHER0,
-#endif
 	DDP_COMPONENT_DSI0,     DDP_COMPONENT_PWM0,
 };
 
@@ -1028,13 +1022,13 @@ static const struct mtk_addon_scenario_data mt6873_addon_main[ADDON_SCN_NR] = {
 				.hrt_type = HRT_TB_TYPE_GENERAL1,
 			},
 		[ONE_SCALING] = {
-				.module_num = ARRAY_SIZE(addon_rsz_data_v2),
-				.module_data = addon_rsz_data_v2,
+				.module_num = ARRAY_SIZE(addon_rsz_data),
+				.module_data = addon_rsz_data,
 				.hrt_type = HRT_TB_TYPE_RPO_L0,
 			},
 		[TWO_SCALING] = {
-				.module_num = ARRAY_SIZE(addon_rsz_data_v2),
-				.module_data = addon_rsz_data_v2,
+				.module_num = ARRAY_SIZE(addon_rsz_data),
+				.module_data = addon_rsz_data,
 				.hrt_type = HRT_TB_TYPE_GENERAL1,
 			},
 };
