@@ -97,9 +97,11 @@ defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
 static void sys_timer_mbox_write(unsigned int id, unsigned int val)
 {
 #ifdef CONFIG_MTK_TINYSYS_MCUPM_SUPPORT
+#ifndef CONFIG_MACH_MT6873
 	mcupm_mbox_write(SYS_TIMER_MCUPM_MBOX,
 			 SYS_TIMER_MCUPM_MBOX_OFFSET_BASE + id,
 			 (void *)&val, 1);
+#endif
 #endif
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 	mtk_mbox_write(&sspm_mboxdev, SYS_TIMER_MBOX,
