@@ -2517,6 +2517,7 @@
 #include "lahaina-ion.dtsi"
 #include "msm-arm-smmu-lahaina.dtsi"
 #include "lahaina-usb.dtsi"
+#include "lahaina-coresight.dtsi"
 #include "lahaina-pm.dtsi"
 #include "lahaina-qupv3.dtsi"
 #include "lahaina-vidc.dtsi"
