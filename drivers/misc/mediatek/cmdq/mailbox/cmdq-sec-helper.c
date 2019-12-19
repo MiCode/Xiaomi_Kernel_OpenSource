@@ -263,8 +263,7 @@ void cmdq_sec_dump_secure_data(struct cmdq_pkt *pkt)
 }
 EXPORT_SYMBOL(cmdq_sec_dump_secure_data);
 
-int cmdq_sec_pkt_wait_complete(struct cmdq_pkt *pkt,
-	struct completion *cmplt)
+int cmdq_sec_pkt_wait_complete(struct cmdq_pkt *pkt)
 {
 	struct cmdq_client *client = pkt->cl;
 	unsigned long ret;
@@ -274,7 +273,7 @@ int cmdq_sec_pkt_wait_complete(struct cmdq_pkt *pkt,
 	cmdq_sec_mbox_enable(client->chan);
 
 	do {
-		ret = wait_for_completion_timeout(cmplt,
+		ret = wait_for_completion_timeout(pkt->cmplt,
 			msecs_to_jiffies(CMDQ_PREDUMP_TIMEOUT_MS));
 		if (ret)
 			break;

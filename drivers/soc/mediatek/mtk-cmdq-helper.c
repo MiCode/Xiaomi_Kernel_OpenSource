@@ -93,7 +93,6 @@ struct cmdq_instruction {
 struct cmdq_flush_item {
 	struct work_struct work;
 	struct cmdq_pkt *pkt;
-	struct completion cmplt;
 	cmdq_async_flush_cb cb;
 	void *data;
 	cmdq_async_flush_cb err_cb;
@@ -514,6 +513,7 @@ struct cmdq_pkt *cmdq_pkt_create(struct cmdq_client *client)
 	if (!pkt)
 		return ERR_PTR(-ENOMEM);
 	INIT_LIST_HEAD(&pkt->buf);
+	init_completion(&pkt->cmplt);
 	pkt->cl = (void *)client;
 	if (client)
 		pkt->dev = client->chan->mbox->dev;
@@ -1438,7 +1438,6 @@ static struct cmdq_flush_item *cmdq_prepare_flush_tiem(struct cmdq_pkt *pkt)
 	if (!item)
 		return ERR_PTR(-ENOMEM);
 
-	init_completion(&item->cmplt);
 	pkt->flush_item = item;
 
 	return item;
@@ -1524,7 +1523,7 @@ static void cmdq_flush_async_cb(struct cmdq_cb_data data)
 
 	if (item->cb)
 		item->cb(user_data);
-	complete(&item->cmplt);
+	complete(&pkt->cmplt);
 	item->done = true;
 }
 #endif
@@ -1750,7 +1749,7 @@ static int cmdq_pkt_wait_complete_loop(struct cmdq_pkt *pkt)
 	cmdq_mbox_enable(client->chan);
 
 	do {
-		ret = wait_for_completion_timeout(&item->cmplt,
+		ret = wait_for_completion_timeout(&pkt->cmplt,
 			msecs_to_jiffies(CMDQ_PREDUMP_TIMEOUT_MS));
 		if (ret)
 			break;
@@ -1781,7 +1780,7 @@ int cmdq_pkt_wait_complete(struct cmdq_pkt *pkt)
 #if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
 	IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 	if (pkt->sec_data)
-		cmdq_sec_pkt_wait_complete(pkt, &item->cmplt);
+		cmdq_sec_pkt_wait_complete(pkt);
 	else
 		cmdq_pkt_wait_complete_loop(pkt);
 #else

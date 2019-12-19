@@ -136,6 +136,7 @@ struct cmdq_pkt {
 	struct device		*dev;	/* client assigned dev */
 	bool			loop;
 	void			*flush_item;
+	struct completion	cmplt;
 	struct cmdq_buf_pool	cur_pool;
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 	u64			rec_submit;

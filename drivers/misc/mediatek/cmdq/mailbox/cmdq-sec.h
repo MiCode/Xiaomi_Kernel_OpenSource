@@ -109,8 +109,7 @@ s32 cmdq_sec_pkt_write_reg(struct cmdq_pkt *pkt, u32 addr, u64 base,
 s32 cmdq_sec_pkt_assign_metadata(struct cmdq_pkt *pkt,
 	u32 count, void *meta_array);
 void cmdq_sec_dump_secure_data(struct cmdq_pkt *pkt);
-int cmdq_sec_pkt_wait_complete(struct cmdq_pkt *pkt,
-	struct completion *cmplt);
+int cmdq_sec_pkt_wait_complete(struct cmdq_pkt *pkt);
 void cmdq_sec_err_dump(struct cmdq_pkt *pkt, struct cmdq_client *client,
 	u64 **inst, const char **dispatch);
 
