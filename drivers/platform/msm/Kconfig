@@ -91,4 +91,15 @@ config QPNP_REVID
 	  numbers in the kernel log along with the PMIC option status. The PMIC
 	  type is mapped to a QTI chip part number and logged as well.
 
+config MSM_11AD
+	tristate "Platform driver for 11ad chip"
+	depends on PCI
+	depends on PCI_MSM
+	help
+	  This module adds required platform support for wireless adapter based on
+	  Qualcomm Technologies, Inc. 11ad chip, integrated into MSM platform
+
+	  If you choose to build it as a module, it will be called
+	  msm_11ad_proxy.
+
 endmenu
