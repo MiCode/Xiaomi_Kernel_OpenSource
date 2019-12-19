@@ -675,14 +675,7 @@ int config_apupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 #endif
 		ret |= set_apu_clock_source(ckmux_freq, domain);
 
-#if APUSYS_SETTLE_TIME_TEST
-		LOG_WRN("APUSYS_SETTLE_TIME_TEST config domain %d to freq %d\n",
-								domain, freq);
-#else
-		LOG_DBG("%s config domain %d to freq %d\n", __func__,
-								domain, freq);
-#endif
-		ret |= clk_set_rate(clk_apmixed_apupll_rate, scaled_freq);
+		ret |= clk_set_rate(clk_top_apupll_ck, scaled_freq);
 
 		/* PLL spec */
 		udelay(20);
@@ -690,6 +683,13 @@ int config_apupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 		ret |= clk_set_parent(clk_top_dsp5_apupll_sel,
 			clk_top_apupll_ck);
 
+#if APUSYS_SETTLE_TIME_TEST
+		LOG_WRN("APUSYS_SETTLE_TIME_TEST config domain %d to freq %d\n",
+								domain, freq);
+#else
+		LOG_DBG("%s config domain %d to freq %d\n", __func__,
+								domain, freq);
+#endif
 	} else {
 		LOG_ERR("%s config domain %d to freq %d failed\n", __func__,
 								domain, freq);
@@ -715,13 +715,6 @@ int config_npupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 #endif
 		ret |= set_apu_clock_source(ckmux_freq, domain);
 
-#if APUSYS_SETTLE_TIME_TEST
-		LOG_WRN("APUSYS_SETTLE_TIME_TEST config domain %d to freq %d\n",
-								domain, freq);
-#else
-		LOG_DBG("%s config domain %d to freq %d\n", __func__,
-								domain, freq);
-#endif
 		ret |= clk_set_rate(clk_apmixed_npupll_rate, scaled_freq);
 
 		/* PLL spec */
@@ -733,6 +726,14 @@ int config_npupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 		else if (domain == V_VPU1)
 			ret |= clk_set_parent(clk_top_dsp2_npupll_sel,
 				clk_top_npupll_ck);
+
+#if APUSYS_SETTLE_TIME_TEST
+		LOG_WRN("APUSYS_SETTLE_TIME_TEST config domain %d to freq %d\n",
+								domain, freq);
+#else
+		LOG_DBG("%s config domain %d to freq %d\n", __func__,
+								domain, freq);
+#endif
 
 	} else {
 		LOG_ERR("%s config domain %d to freq %d failed\n", __func__,
@@ -762,7 +763,7 @@ void dump_frequency(struct apu_power_info *info)
 		temp_freq = mt_get_ckgen_freq(temp_id);
 		dsp_freq = mt_get_ckgen_freq(13);
 	}
-
+#if 0
 	temp_freq = mt_get_ckgen_freq(temp_id);
 	dsp1_freq = mt_get_ckgen_freq(14);
 	if (dsp1_freq == 0) {
@@ -783,8 +784,13 @@ void dump_frequency(struct apu_power_info *info)
 		temp_freq = mt_get_ckgen_freq(temp_id);
 		dsp5_freq = mt_get_ckgen_freq(16);
 	}
+#else // unit: HZ
+	dsp1_freq = clk_get_rate(clk_top_dsp1_npupll_sel);
+	dsp2_freq = clk_get_rate(clk_top_dsp2_npupll_sel);
+	dsp5_freq = clk_get_rate(clk_top_dsp5_apupll_sel);
+#endif
 
-#if 0 //[Fix me]
+#if 1
 	temp_freq = mt_get_abist_freq(temp_id);
 	apupll_freq = mt_get_abist_freq(5);
 	if (apupll_freq == 0) {
@@ -812,13 +818,13 @@ void dump_frequency(struct apu_power_info *info)
 		dump_div = info->dump_div;
 
 	info->dsp_freq = dsp_freq / dump_div;
-	info->dsp1_freq = dsp1_freq / dump_div;
-	info->dsp2_freq = dsp2_freq / dump_div;
-	info->dsp5_freq = dsp5_freq / dump_div;
+	info->dsp1_freq = dsp1_freq / (dump_div * 1000);
+	info->dsp2_freq = dsp2_freq / (dump_div * 1000);
+	info->dsp5_freq = dsp5_freq / (dump_div * 1000);
 	info->apupll_freq = apupll_freq / dump_div;
 	info->npupll_freq = npupll_freq / dump_div;
 	info->ipuif_freq = ipuif_freq / dump_div;
-#if 0
+#if 1
 	LOG_DBG("dsp_freq = %d\n", dsp_freq);
 	LOG_DBG("dsp1_freq = %d\n", dsp1_freq);
 	LOG_DBG("dsp2_freq = %d\n", dsp2_freq);

@@ -18,7 +18,7 @@
 
 #include "apu_log.h"
 
-#if 0 //[Fix me]
+#if 1
 extern unsigned int mt_get_ckgen_freq(unsigned int ID);
 extern unsigned int mt_get_abist_freq(unsigned int ID);
 extern void check_vpu_clk_sts(void);

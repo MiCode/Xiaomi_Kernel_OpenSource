@@ -62,6 +62,7 @@ int apu_power_dump_curr_status(struct seq_file *s, int oneline_str)
 		return 0;
 	}
 
+#if 0 //[FIX ME]
 	seq_printf(s,
 		"|curr| vpu0| vpu1| mdla0|conn|vcore|\n| opp|");
 
@@ -76,7 +77,10 @@ int apu_power_dump_curr_status(struct seq_file *s, int oneline_str)
 	seq_printf(s, "  %d  |", apusys_freq_to_opp(V_VCORE,
 					info.ipuif_freq * info.dump_div));
 	seq_puts(s, "\n");
-
+#else
+	seq_printf(s,
+		"|curr| vpu0| vpu1| mdla0|conn|vcore|\n");
+#endif
 	seq_printf(s,
 		"|freq| %03u | %03u | %03u | %03u | %03u |\n",
 		info.dsp1_freq, info.dsp2_freq,

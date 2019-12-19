@@ -70,9 +70,6 @@ static int vpu_probe(struct platform_device *pdev)
 	} else if (strcmp(pdev->dev.of_node->name, "vpu_core1") == 0) {
 		register_user = VPU1;
 		ret = apu_power_device_register(register_user, NULL);
-	} else if (strcmp(pdev->dev.of_node->name, "vpu_core2") == 0) {
-		register_user = VPU2;
-		ret = apu_power_device_register(register_user, NULL);
 	} else {
 		return -1;
 	}

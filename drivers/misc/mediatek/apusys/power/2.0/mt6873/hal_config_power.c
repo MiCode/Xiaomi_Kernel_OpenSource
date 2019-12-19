@@ -332,11 +332,11 @@ static int segment_user_support_check(void *param)
 		(struct hal_param_seg_support *)param;
 
 	seg_info->support = true;
-	seg_info->seg = SEGMENT_1;
+	seg_info->seg = SEGMENT_0;
 
 	val = get_devinfo_with_index(30);
 	if (val == 0x1) {
-		seg_info->seg = SEGMENT_0;
+		seg_info->seg = SEGMENT_1;
 #if 0 //[Fix me]
 		if (seg_info->user == VPU2 || seg_info->user == MDLA1)
 			seg_info->support = false;
@@ -609,13 +609,13 @@ static int set_domain_to_default_clk(int domain_idx)
 	int ret = 0;
 
 	if (domain_idx == 2)
-		ret = config_npupll(BUCK_DOMAIN_DEFAULT_FREQ, V_VPU0);
+		ret = config_npupll(BUCK_VVPU_DOMAIN_DEFAULT_FREQ, V_VPU0);
 	else if (domain_idx == 3)
-		ret = config_npupll(BUCK_DOMAIN_DEFAULT_FREQ, V_VPU1);
+		ret = config_npupll(BUCK_VVPU_DOMAIN_DEFAULT_FREQ, V_VPU1);
 	else if (domain_idx == 6)
-		ret = config_apupll(BUCK_DOMAIN_DEFAULT_FREQ, V_MDLA0);
+		ret = config_apupll(BUCK_VMDLA_DOMAIN_DEFAULT_FREQ, V_MDLA0);
 	else {
-		ret = set_apu_clock_source(BUCK_DOMAIN_DEFAULT_FREQ,
+		ret = set_apu_clock_source(BUCK_VCONN_DOMAIN_DEFAULT_FREQ,
 								V_APU_CONN);
 	}
 
@@ -823,7 +823,7 @@ static void get_current_power_info(void *param, int force)
 		check_spm_register(info, 0);
 
 		snprintf(log_str, sizeof(log_str),
-			"v[%u,%u,%u,%u]f[%u,%u,%u,%u,%u]r[%x,%x,%x,%x,%x,%x,%x,%x,%x]%llu",
+			"v[%u,%u,%u,%u]f[%u,%u,%u,%u,%u]r[%x,%x,%x,%x,%x,%x,%x]%llu",
 			info->vvpu, info->vmdla, info->vcore, info->vsram,
 			info->dsp_freq, info->dsp1_freq, info->dsp2_freq,
 			info->dsp5_freq, info->ipuif_freq,

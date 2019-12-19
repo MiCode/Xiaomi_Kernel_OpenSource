@@ -63,10 +63,8 @@ static int mdla_probe(struct platform_device *pdev)
 	LOG_INF("probe 0, pdev id = %d name = %s, name = %s\n",
 						pdev->id, pdev->name,
 						pdev->dev.of_node->name);
-	if (strcmp(pdev->dev.of_node->name, "mdla0") == 0)
+	if (strcmp(pdev->dev.of_node->name, "apu_mdla0") == 0)
 		register_user = MDLA0;
-	else if (strcmp(pdev->dev.of_node->name, "mdla1") == 0)
-		register_user = MDLA1;
 	else
 		return -1;
 
@@ -102,10 +100,8 @@ static int mdla_remove(struct platform_device *pdev)
 						pdev->id, pdev->name,
 						pdev->dev.of_node->name);
 
-	if (strcmp(pdev->dev.of_node->name, "mdla0") == 0)
+	if (strcmp(pdev->dev.of_node->name, "apu_mdla0") == 0)
 		register_user = MDLA0;
-	else if (strcmp(pdev->dev.of_node->name, "mdla1") == 0)
-		register_user = MDLA1;
 	else
 		return -1;
 
@@ -136,8 +132,7 @@ static const struct dev_pm_ops mdla_pm_ops = {
 };
 
 static const struct of_device_id mdla_of_ids[] = {
-	{.compatible = "mediatek,mdla",},
-	{.compatible = "mtk,mdla",},
+	{.compatible = "mediatek,apu_mdla0",},
 	{}
 };
 
