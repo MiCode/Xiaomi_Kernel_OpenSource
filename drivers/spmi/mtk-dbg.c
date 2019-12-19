@@ -914,8 +914,7 @@ void spmi_dump_pmif_all_reg_d(struct seq_file *m)
 	for (i = start; i <= end; i++) {
 		offset = arb->dbgregs[PMIF_INIT_DONE] + (i * 4);
 		tmp_dat = readl(arb->base + offset);
-		if (m != NULL)
-			seq_printf(m, "(0x%x)=0x%x ", offset, tmp_dat);
+		seq_printf(m, "(0x%x)=0x%x ", offset, tmp_dat);
 	}
 	seq_puts(m, "\n");
 }
@@ -1058,8 +1057,7 @@ void spmi_dump_spmimst_all_reg_d(struct seq_file *m)
 	for (i = start; i <= end; i++) {
 		offset = arb->dbgregs[SPMI_OP_ST_CTRL] + (i * 4);
 		tmp_dat = readl(arb->spmimst_base + offset);
-		if (m != NULL)
-			seq_printf(m, "(0x%x)=0x%x ", offset, tmp_dat);
+		seq_printf(m, "(0x%x)=0x%x ", offset, tmp_dat);
 	}
 	seq_puts(m, "\n");
 }
