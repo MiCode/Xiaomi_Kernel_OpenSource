@@ -485,6 +485,7 @@ config MACH_MT6873
 	select HW_RANDOM
 	select HW_RANDOM_MT67XX
 	select MTK_GIC_TARGET_ALL
+	select MTK_GIC_V3_EXT
 	help
 	  This enables support for MediaTek MT6873
 	  Support for aarch64 Architecture
