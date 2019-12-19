@@ -5397,7 +5397,7 @@
 			<0 0x1d100000 0 0x40000>,
 			<0 0x1d140000 0 0x30000>,
 			<0 0x0d190000 0 0x4000>;
-		interrupts = <GIC_SPI 419 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 420 IRQ_TYPE_LEVEL_HIGH>;
 		id = <0>;
 		reset-vector = <0x7da00000 0x00100000 0x0>;
 		main-prog = <0x7db00000 0x00300000 0x100000>;
@@ -5417,7 +5417,7 @@
 			<0 0x1d200000 0 0x40000>,
 			<0 0x1d240000 0 0x30000>,
 			<0 0x0d194000 0 0x4000>;
-		interrupts = <GIC_SPI 420 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 421 IRQ_TYPE_LEVEL_HIGH>;
 		id = <1>;
 		reset-vector = <0x7e300000 0x00100000 0x400000>;
 		main-prog = <0x7e400000 0x00300000 0x500000>;
