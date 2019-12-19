@@ -123,12 +123,18 @@ static int vpu_met_cpy(struct vpu_device *vd, unsigned int addr,
 {
 	void *m = (void *)(((unsigned long)vd->dmem.m) + addr);
 
-	vpu_trace_begin("vpu-%d|%s|%08x/%u->%p", vd->id, __func__,
-		addr, size, ptr);
+	if (vpu_debug_on(VPU_DBG_MET))
+		vpu_trace_begin("vpu_%d|%s|%08x/%u->%p", vd->id, __func__,
+			addr, size, ptr);
+
 	memcpy_fromio(ptr, m, size);
 	/* notify VPU buffer copy is finished */
 	vpu_reg_write(vd, XTENSA_INFO18, 0x00000000);
-	vpu_trace_end("vpu-%d|%s", vd->id, __func__);
+
+	if (vpu_debug_on(VPU_DBG_MET))
+		vpu_trace_end("vpu_%d|%s|%08x/%u->%p", vd->id,
+			__func__, addr, size, ptr);
+
 	return 0;
 }
 
@@ -188,8 +194,9 @@ static void vpu_met_log_show(struct vpu_device *vd, void *ptr, int buf_leng)
 	/*data offset start after Marker,Length*/
 	idx += 4;
 
-	vpu_trace_begin("vpu-%d|%s|@%p/%d",
-		vd->id, __func__, ptr, buf_leng);
+	if (vpu_debug_on(VPU_DBG_MET))
+		vpu_trace_begin("vpu_%d|%s|@%p/%d",
+			vd->id, __func__, ptr, buf_leng);
 
 	while (1) {
 		unsigned long long sys_t;
@@ -244,7 +251,9 @@ static void vpu_met_log_show(struct vpu_device *vd, void *ptr, int buf_leng)
 		idx += packet_size;
 	}
 
-	vpu_trace_end("vpu-%d|%s", vd->id, __func__);
+	if (vpu_debug_on(VPU_DBG_MET))
+		vpu_trace_end("vpu_%d|%s|@%p/%d",
+			vd->id, __func__, ptr, buf_leng);
 }
 
 static void vpu_met_wq(struct work_struct *work)
@@ -255,7 +264,8 @@ static void vpu_met_wq(struct work_struct *work)
 	struct vpu_device *vd = container_of(w, struct vpu_device, met);
 	struct vpu_met_log *mlog, *tmp;
 
-	vpu_trace_begin("vpu-%d|%s", vd->id, __func__);
+	if (vpu_debug_on(VPU_DBG_MET))
+		vpu_trace_begin("vpu_%d|%s", vd->id, __func__);
 
 restart:
 	spin_lock_irqsave(&w->lock, flags);
@@ -280,8 +290,8 @@ restart:
 	kfree(mlog);
 	goto restart;
 out:
-	vpu_trace_end("vpu-%d|%s", vd->id, __func__);
-
+	if (vpu_debug_on(VPU_DBG_MET))
+		vpu_trace_end("vpu_%d|%s", vd->id, __func__);
 }
 
 static void vpu_met_log_dump(struct vpu_device *vd)
@@ -311,7 +321,8 @@ static void vpu_met_log_dump(struct vpu_device *vd)
 		return;
 	}
 
-	vpu_trace_begin("vpu-%d|%s", vd->id, __func__);
+	if (vpu_debug_on(VPU_DBG_MET))
+		vpu_trace_begin("vpu_%d|%s", vd->id, __func__);
 	/* fill vpu_log reader's information */
 	mlog = (struct vpu_met_log *)ptr;
 	mlog->buf_addr = log_buf_addr;
@@ -334,7 +345,8 @@ static void vpu_met_log_dump(struct vpu_device *vd)
 
 	/* dump log to ftrace on BottomHalf */
 	schedule_work(&vd->met.work);
-	vpu_trace_end("vpu-%d|%s", vd->id, __func__);
+	if (vpu_debug_on(VPU_DBG_MET))
+		vpu_trace_end("vpu_%d|%s", vd->id, __func__);
 }
 
 void vpu_met_isr(struct vpu_device *vd)

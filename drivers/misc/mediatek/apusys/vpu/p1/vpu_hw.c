@@ -318,8 +318,8 @@ int vpu_execute_d2d(struct vpu_device *vd, struct vpu_request *req)
 	vpu_reg_write(vd, XTENSA_INFO15, req->sett_length);
 
 	/* 2. trigger interrupt */
-	vpu_trace_begin("vpu-%d|hw_processing_request(%s)",
-				vd->id, vd->algo_curr->a.name);
+	vpu_trace_begin("vpu_%d|hw_processing_request(%s)",
+		vd->id, vd->algo_curr->a.name);
 
 	VPU_TS_START(d2d);
 
@@ -352,8 +352,8 @@ int vpu_execute_d2d(struct vpu_device *vd, struct vpu_request *req)
 	req->busy_time = VPU_TS_NS(d2d);
 
 err_cmd:
-	vpu_trace_end("vpu-%d|req_status: %d, ret: %d",
-		      vd->id, req->status, ret);
+	vpu_trace_end("vpu_%d|hw_processing_request(%s)",
+		vd->id, vd->algo_curr->a.name);
 out:
 	vpu_cmd_debug("%s: vpu%d: %s: time: %llu ns, ret: %d\n",
 		__func__, vd->id, vd->algo_curr->a.name,
@@ -367,8 +367,6 @@ int vpu_dev_boot(struct vpu_device *vd)
 {
 	int ret = 0;
 
-	vpu_trace_begin("vpu-%d|%s", vd->id, __func__);
-
 	if (vd->state <= VS_DOWN) {
 		pr_info("%s: unexpected state: %d\n", __func__, vd->state);
 		ret = -ENODEV;
@@ -379,6 +377,8 @@ int vpu_dev_boot(struct vpu_device *vd)
 		return ret;
 
 	vd->state = VS_BOOT;
+
+	vpu_trace_begin("vpu_%d|%s", vd->id, __func__);
 
 	/* VPU boot up sequence */
 	ret = vpu_dev_boot_sequence(vd);
@@ -407,7 +407,7 @@ int vpu_dev_boot(struct vpu_device *vd)
 	vd->state = VS_IDLE;
 
 err:
-	vpu_trace_end("vpu-%d|%s", vd->id, __func__);
+	vpu_trace_end("vpu_%d|%s", vd->id, __func__);
 	return ret;
 }
 
@@ -582,7 +582,7 @@ int vpu_dev_boot_sequence(struct vpu_device *vd)
 {
 	int ret;
 
-	vpu_trace_begin("vpu-%d|%s", vd->id, __func__);
+	vpu_trace_begin("vpu_%d|%s", vd->id, __func__);
 	/* 1. write register */
 	/* set specific address for reset vector in external boot */
 	vpu_reg_write(vd, XTENSA_ALTRESETVEC, vd->iova_reset.addr);
@@ -638,7 +638,7 @@ err_timeout:
 	}
 
 out:
-	vpu_trace_end("vpu-%d|%s", vd->id, __func__);
+	vpu_trace_end("vpu_%d|%s", vd->id, __func__);
 	return ret;
 }
 
@@ -670,7 +670,7 @@ int vpu_dev_set_debug(struct vpu_device *vd)
 		vpu_reg_read(vd, XTENSA_INFO23));
 
 	/* 2. trigger interrupt */
-	vpu_trace_begin("vpu-%d|%s", vd->id, __func__);
+	vpu_trace_begin("vpu_%d|%s", vd->id, __func__);
 	vpu_cmd(vd);
 
 	vpu_cmd_debug("%s: timestamp: %.2lu:%.2lu:%.2lu:%.6lu\n",
@@ -704,7 +704,7 @@ int vpu_dev_set_debug(struct vpu_device *vd)
 	}
 
 err:
-	vpu_trace_end("vpu-%d|%s", vd->id, __func__);
+	vpu_trace_end("vpu_%d|%s", vd->id, __func__);
 
 	if (ret) {
 		pr_info("%s: vpu%d: fail, status: %d, ret: %d\n",
@@ -761,7 +761,7 @@ int vpu_hw_alg_init(struct vpu_device *vd, struct __vpu_algo *algo)
 		0 /*opps.ipu_if.values[opps.ipu_if.index]*/);
 
 	/* 2. trigger interrupt */
-	vpu_trace_begin("vpu-%d|%s", vd->id, __func__);
+	vpu_trace_begin("vpu_%d|%s", vd->id, __func__);
 
 	/* RUN_STALL down */
 	vpu_cmd(vd);
@@ -771,7 +771,7 @@ int vpu_hw_alg_init(struct vpu_device *vd, struct __vpu_algo *algo)
 	vpu_stall(vd);
 
 	vpu_cmd_debug("%s: vpu%d: done\n", __func__, vd->id);
-	vpu_trace_end("vpu-%d|%s", vd->id, __func__);
+	vpu_trace_end("vpu_%d|%s", vd->id, __func__);
 
 	if (ret == -ERESTARTSYS)
 		goto out;
@@ -831,7 +831,7 @@ int vpu_hw_alg_info(struct vpu_device *vd, struct __vpu_algo *alg)
 	vpu_reg_write(vd, XTENSA_INFO12, iova + ofs_sett_descs);
 
 	/* 2. trigger interrupt */
-	vpu_trace_begin("vpu-%d|%s", vd->id, __func__);
+	vpu_trace_begin("vpu_%d|%s", vd->id, __func__);
 
 	/* RUN_STALL pull down */
 	vpu_cmd(vd);
@@ -890,7 +890,7 @@ int vpu_hw_alg_info(struct vpu_device *vd, struct __vpu_algo *alg)
 		alg->a.info.desc_cnt, alg->a.sett.desc_cnt);
 
 out:
-	vpu_trace_end("vpu-%d|ret:%d", vd->id, ret);
+	vpu_trace_end("vpu_%d|%s", vd->id, __func__);
 	return ret;
 
 }
