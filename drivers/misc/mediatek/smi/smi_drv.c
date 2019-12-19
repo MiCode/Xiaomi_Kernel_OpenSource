@@ -20,6 +20,7 @@
 #include <linux/uaccess.h>
 #include <linux/of_address.h>
 #include <linux/sched/clock.h>
+#include <linux/soc/mediatek/mtk-cmdq.h>
 
 #include <soc/mediatek/smi.h>
 #include <mtk_smi.h>
@@ -117,6 +118,19 @@ struct smi_dram_t {
 	struct dentry	*node;
 	s32		ackdata;
 };
+
+#if IS_ENABLED(CONFIG_MACH_MT6873)
+struct smi_cmdq_t {
+	struct device		*dev;
+	void __iomem		*base;
+	dma_addr_t		addr;
+	struct cmdq_client	*clt;
+	struct cmdq_pkt		*pkt;
+	u16			event;
+	u64			tick;
+};
+static struct smi_cmdq_t	smi_cmdq;
+#endif
 
 static struct smi_driver_t	smi_drv;
 static struct smi_record_t	smi_record[SMI_LARB_NUM][2];
@@ -687,10 +701,28 @@ s32 smi_debug_bus_hang_detect(const bool gce, const char *user)
 }
 EXPORT_SYMBOL_GPL(smi_debug_bus_hang_detect);
 
+#if IS_ENABLED(CONFIG_MACH_MT6873)
+static void smi_common_assert_cb(struct cmdq_cb_data data)
+{
+	unsigned long nsec;
+
+	smi_cmdq.tick = sched_clock();
+	nsec = do_div(smi_cmdq.tick, 1000000000);
+
+	smi_debug_bus_hang_detect(false, DEV_NAME);
+	SMIERR("[%5llu.%06lu] assert condition failed\n", smi_cmdq.tick, nsec);
+}
+#endif
+
 static inline void smi_larb_port_set(const struct mtk_smi_dev *smi)
 {
 	s32 i;
 
+#if IS_ENABLED(CONFIG_MACH_MT6873)
+	if (smi->id == SMI_LARB_NUM)
+		cmdq_pkt_flush_threaded(
+			smi_cmdq.pkt, smi_common_assert_cb, NULL);
+#endif
 	if (!smi || !smi->dev || smi->id >= SMI_LARB_NUM)
 		return;
 
@@ -953,6 +985,9 @@ static void smi_subsys_before_off(enum subsys_id sys)
 #if IS_ENABLED(CONFIG_MACH_MT6885)
 			if ((smi_mm_first & subsys) && sys == SYS_MDP)
 				continue;
+#elif IS_ENABLED(CONFIG_MACH_MT6873)
+			if (i == SMI_LARB_NUM)
+				cmdq_mbox_stop(smi_cmdq.clt);
 #endif
 			mtk_smi_clk_disable(smi_dev[i]);
 		}
@@ -1054,6 +1089,47 @@ s32 smi_register(void)
 		return -EINVAL;
 	SMIWRN(0, "MMSYS base: VA=%p, PA=%pa\n", smi_mmsys_base, &res.start);
 	of_node_put(of_node);
+
+#if IS_ENABLED(CONFIG_MACH_MT6873)
+	smi_cmdq.dev = smi_dev[SMI_LARB_NUM]->dev;
+	smi_cmdq.base = smi_dev[SMI_LARB_NUM]->base;
+	if (of_address_to_resource(smi_cmdq.dev->of_node, 0, &res))
+		return -EINVAL;
+	smi_cmdq.addr = res.start;
+	SMIWRN(0, "COMMON dev:%p base:%p addr:%pa\n",
+		smi_cmdq.dev, smi_cmdq.base, &smi_cmdq.addr);
+
+	smi_cmdq.clt = cmdq_mbox_create(smi_cmdq.dev, 0);
+	if (IS_ERR(smi_cmdq.clt)) {
+		SMIERR("cmdq_mbox_create failed:%ld\n", PTR_ERR(smi_cmdq.clt));
+		return PTR_ERR(smi_cmdq.clt);
+	}
+
+	smi_cmdq.pkt = cmdq_pkt_create(smi_cmdq.clt);
+	if (IS_ERR(smi_cmdq.pkt)) {
+		SMIERR("cmdq_pkt_create failed:%ld\n", PTR_ERR(smi_cmdq.pkt));
+		return PTR_ERR(smi_cmdq.pkt);
+	}
+
+	i = of_property_read_u16(smi_cmdq.dev->of_node,
+		"gce-event", &smi_cmdq.event);
+	if (i < 0) {
+		SMIERR("gce-event read failed:%d\n", i);
+		return i;
+	}
+	SMIWRN(0, "clt:%p pkt:%p event:%hu\n",
+		smi_cmdq.clt, smi_cmdq.pkt, smi_cmdq.event);
+
+	cmdq_pkt_write(smi_cmdq.pkt, NULL,
+		smi_cmdq.addr + SMI_AST_EN, 0, UINT_MAX);
+	cmdq_pkt_write(smi_cmdq.pkt, NULL,
+		smi_cmdq.addr + SMI_AST_COND, (26 << 1) | 1, UINT_MAX);
+	cmdq_pkt_write(smi_cmdq.pkt, NULL,
+		smi_cmdq.addr + SMI_AST_EN, 1, UINT_MAX);
+	cmdq_pkt_wfe(smi_cmdq.pkt, smi_cmdq.event);
+	cmdq_pkt_finalize_loop(smi_cmdq.pkt);
+	cmdq_dump_pkt(smi_cmdq.pkt, 0, true);
+#endif
 
 	/* init */
 	spin_lock(&(smi_drv.lock));

@@ -3355,6 +3355,8 @@
 		mediatek,smi-id = <21>;
 		mediatek,smi-cnt = <30>;
 		mmsys_config = <&dispsys_config>;
+		mboxes = <&gce_mbox 23 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
+		gce-event = /bits/ 16 <CMDQ_EVENT_DISP_SMIASSERT_ENG_EVENT>;
 	};
 
 	smi_larb0: smi_larb0@14003000 {

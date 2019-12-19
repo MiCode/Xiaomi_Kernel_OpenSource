@@ -1735,6 +1735,8 @@ static int cmdq_pkt_wait_complete_loop(struct cmdq_pkt *pkt)
 {
 	struct cmdq_client *client = pkt->cl;
 	struct cmdq_flush_item *item = pkt->flush_item;
+	struct cmdq_thread *thread =
+		(struct cmdq_thread *)client->chan->con_priv;
 	unsigned long ret;
 	int cnt = 0;
 
@@ -1746,6 +1748,11 @@ static int cmdq_pkt_wait_complete_loop(struct cmdq_pkt *pkt)
 	cmdq_mbox_enable(client->chan);
 
 	do {
+		if (thread->timeout_ms == CMDQ_NO_TIMEOUT) {
+			wait_for_completion(&pkt->cmplt);
+			break;
+		}
+
 		ret = wait_for_completion_timeout(&pkt->cmplt,
 			msecs_to_jiffies(CMDQ_PREDUMP_TIMEOUT_MS));
 		if (ret)

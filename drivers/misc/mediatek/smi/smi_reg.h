@@ -62,6 +62,15 @@
 #define SMI_DEBUG_EXT6		(0x448)
 #define SMI_DEBUG_EXT7		(0x44c)
 
+#define SMI_AST_EN	(0x700)
+#define SMI_AST_CLR	(0x704)
+#define SMI_SW_TRIG	(0x708)
+#define SMI_AST_COND	(0x70c)
+#define SMI_TIMEOUT	(0x710)
+#define SMI_TIMEOUT_CNT	(0x714)
+#define SMI_AST_STA	(0x718)
+#define SMI_AST_STA_CLR	(0x71c)
+
 /* LARB */
 #define SMI_LARB_STAT			(0x0)
 #define SMI_LARB_IRQ_EN			(0x4)
