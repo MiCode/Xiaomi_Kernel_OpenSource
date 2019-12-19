@@ -82,6 +82,12 @@ ssize_t adsp_log_read(struct log_ctrl_s *ctrl, char __user *userbuf, size_t len)
 	if (r_pos >= ctrl->buff_size)
 		r_pos -= ctrl->buff_size;
 
+#ifdef CONFIG_MTK_AEE_FEATURE
+	if (r_pos >= ctrl->buff_size) {
+		aee_kernel_exception("ADSP", "logger overflow r_pos:%u >= %u\n",
+				     r_pos, ctrl->buff_size);
+	}
+#endif
 	memcpy_toio(&buf_info->r_pos, &r_pos, sizeof(r_pos));
 error:
 	mutex_unlock(&ctrl->lock);
