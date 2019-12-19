@@ -10,7 +10,7 @@ device module in Qualcomm Technologies, Inc. PMIC chips.
 
 - reg:
 	Usage: required
-	Value type: <prop-encoded-array>
+	Value type: <u32>
 	Definition: Register base for LPG and LUT modules.
 
 - reg-names:
@@ -175,7 +175,7 @@ Example when LUT pattern is stored in a LUT module:
 
 	pm8150l_lpg: lpg@b100 {
 		compatible = "qcom,pwm-lpg";
-		reg = <0xb100 0x600>, <0xb000 0x100>;
+		reg = <0xb100>, <0xb000>;
 		reg-names = "lpg-base", "lut-base";
 		qcom,num-lpg-channels = <6>;
 		#pwm-cells = <2>;
@@ -217,8 +217,9 @@ Example when LUT pattern is stored in a SDAM module:
 
 	pmi632_lpg: lpg@b100 {
 		compatible = "qcom,pwm-lpg";
-		reg = <0xb100 0x600>;
+		reg = <0xb100>;
 		reg-names = "lpg-base";
+		qcom,num-lpg-channels = <3>;
 		#pwm-cells = <2>;
 		nvmem-names = "ppg_sdam";
 		nvmem = <&sdam7>;
