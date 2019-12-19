@@ -720,8 +720,12 @@ static int mt6315_regulator_probe(struct platform_device *pdev)
 		return ret;
 	mt6315_misc_init(regulator_init_data->id, regmap);
 	/* Create sysfs entry */
-	device_create_file(&pdev->dev, &dev_attr_extbuck_access);
-	device_create_file(&pdev->dev, &dev_attr_dump_rec_pmic);
+	ret = device_create_file(&pdev->dev, &dev_attr_extbuck_access);
+	if (ret)
+		dev_notice(&pdev->dev, "failed to create regs access file\n");
+	ret = device_create_file(&pdev->dev, &dev_attr_dump_rec_pmic);
+	if (ret)
+		dev_notice(&pdev->dev, "failed to create regs record file\n");
 
 	return 0;
 }
