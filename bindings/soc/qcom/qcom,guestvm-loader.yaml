@@ -1,0 +1,29 @@
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/arm/msm/guestvm-loaderpsci.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Guest VM Loader
+
+maintainers:
+  - Prakruthi Deepak Heragu <pheragu@quicinc.com>
+  - Murali Nalajala <mnalajal@quicinc.com>
+
+properties:
+  compatible:
+    const: qcom,guestvm-loader
+
+  image_to_be_loaded:
+    $ref: /schemas/types.yaml#/definitions/string
+
+required:
+  - compatible
+  - image_to_be_loaded
+
+examples:
+  - |+
+    qcom,guestvm_loader {
+      compatible = "qcom,guestvm-loader";
+      image_to_be_loaded = "trustedvm";
+    };
+...
