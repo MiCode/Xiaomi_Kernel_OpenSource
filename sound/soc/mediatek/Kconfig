@@ -269,6 +269,7 @@ config MTK_VOW_BARGE_IN_SUPPORT
 
 config SND_SOC_MTK_AUDIO_DSP
 	bool "ASoC support for Mediatek audiodsp chip"
+	depends on MTK_AUDIODSP_SUPPORT
 	default n
 	help
 	  This adds dsp driver for Mediatek boards

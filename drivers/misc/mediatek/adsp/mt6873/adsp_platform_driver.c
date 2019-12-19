@@ -26,10 +26,6 @@
 #include <mt-plat/mtk_secure_api.h> /* for SMC ID table */
 #include <mt6873-afe-common.h>
 
-#ifdef CONFIG_MTK_AEE_FEATURE
-#include <mt-plat/aee.h>
-#endif
-
 struct wait_queue_head adsp_waitq;
 struct workqueue_struct *adsp_wq;
 void __iomem *adsp_secure_base;
@@ -103,38 +99,6 @@ void adsp_update_c2c_memory_info(struct adsp_priv *pdata)
 		&c2c_info, sizeof(struct adsp_c2c_share_dram_info_t));
 }
 
-static void adsp_check_dram_watch_region(void)
-{
-	int cid = 0, ret = 0;
-	struct adsp_priv *pdata = NULL;
-	static bool err_flag;
-
-	for (cid = 0; cid < ADSP_CORE_TOTAL; cid++) {
-		pdata = adsp_cores[cid];
-
-		if (!pdata->sysram || !pdata->watch_dram_golden)
-			break;
-
-		ret = memcmp(pdata->sysram + pdata->watch_offset,
-			pdata->watch_dram_golden, pdata->watch_size);
-
-		if (ret)
-			pr_info("%s fail: cid(%d) ret(%d) offset(0x%x) size(0x%x)",
-				__func__, cid, ret,
-				pdata->watch_offset, pdata->watch_size);
-
-		if (ret && !err_flag) {
-#ifdef CONFIG_MTK_AEE_FEATURE
-			aee_kernel_exception_api(__FILE__, __LINE__,
-						DB_OPT_DEFAULT,
-						"[ADSP]",
-						"ADSP Memory Corruption");
-#endif
-			err_flag = true;
-		}
-	}
-}
-
 int adsp_core0_init(struct adsp_priv *pdata)
 {
 	int ret = 0;
@@ -178,13 +142,6 @@ int adsp_core0_init(struct adsp_priv *pdata)
 
 	adsp_awake_init(pdata, ADSP_A_SW_INT);
 
-	/* set watch region */
-	pdata->watch_offset = 0x60000;
-	pdata->watch_size = 0x10000;
-	pdata->watch_dram_golden = vmalloc(pdata->watch_size);
-	memcpy(pdata->watch_dram_golden,
-	       pdata->sysram + pdata->watch_offset, pdata->watch_size);
-
 	return ret;
 }
 
@@ -220,13 +177,6 @@ int adsp_core1_init(struct adsp_priv *pdata)
 	pdata->cfg_size = adsp_cores[ADSP_A_ID]->cfg_size;
 
 	adsp_awake_init(pdata, ADSP_B_SW_INT);
-
-	/* set watch region */
-	pdata->watch_offset = 0xe0000;
-	pdata->watch_size = 0x10000;
-	pdata->watch_dram_golden = vmalloc(pdata->watch_size);
-	memcpy(pdata->watch_dram_golden,
-	       pdata->sysram + pdata->watch_offset, pdata->watch_size);
 
 	return ret;
 }
@@ -278,6 +228,7 @@ int adsp_core0_suspend(void)
 			ret = -EPIPE;
 			goto ERROR;
 		}
+		set_adsp_state(pdata, ADSP_SUSPENDING);
 
 		/* wait core suspend ack timeout 2s */
 		ret = wait_for_completion_timeout(&pdata->done, 2 * HZ);
@@ -306,8 +257,6 @@ int adsp_core0_suspend(void)
 		adsp_mt_stop(pdata->id);
 		switch_adsp_power(false);
 		set_adsp_state(pdata, ADSP_SUSPEND);
-
-		adsp_check_dram_watch_region();
 	}
 	pr_info("%s(), done elapse %lld us", __func__,
 		ktime_us_delta(ktime_get(), start));
@@ -325,7 +274,6 @@ int adsp_core0_resume(void)
 	ktime_t start = ktime_get();
 
 	if (get_adsp_state(pdata) == ADSP_SUSPEND) {
-		adsp_check_dram_watch_region();
 		switch_adsp_power(true);
 		adsp_mt_sw_reset(pdata->id);
 
@@ -343,7 +291,6 @@ int adsp_core0_resume(void)
 			adsp_aed_dispatch(EXCEP_KERNEL, pdata);
 			return -ETIME;
 		}
-		adsp_check_dram_watch_region();
 	}
 	pr_info("%s(), done elapse %lld us", __func__,
 		ktime_us_delta(ktime_get(), start));
@@ -364,6 +311,7 @@ int adsp_core1_suspend(void)
 			ret = -EPIPE;
 			goto ERROR;
 		}
+		set_adsp_state(pdata, ADSP_SUSPENDING);
 
 		/* wait core suspend ack timeout 2s */
 		ret = wait_for_completion_timeout(&pdata->done, 2 * HZ);
@@ -382,8 +330,6 @@ int adsp_core1_suspend(void)
 
 		/* notify another core suspend done */
 		wake_up(&adsp_waitq);
-
-		adsp_check_dram_watch_region();
 	}
 	pr_info("%s(), done elapse %lld us", __func__,
 		ktime_us_delta(ktime_get(), start));
@@ -401,7 +347,6 @@ int adsp_core1_resume(void)
 	ktime_t start = ktime_get();
 
 	if (get_adsp_state(pdata) == ADSP_SUSPEND) {
-		adsp_check_dram_watch_region();
 		/* core A force awake, for resume core B faster */
 		adsp_awake_lock(ADSP_A_ID);
 
@@ -420,7 +365,6 @@ int adsp_core1_resume(void)
 
 		adsp_awake_unlock(ADSP_A_ID);
 
-		adsp_check_dram_watch_region();
 	}
 	pr_info("%s(), done elapse %lld us", __func__,
 		ktime_us_delta(ktime_get(), start));
