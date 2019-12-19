@@ -47,6 +47,7 @@
 static HLIST_HEAD(gbe_boost_units);
 static DEFINE_MUTEX(gbe_lock);
 static int gbe_enable;
+static int fg_pid;
 static int cluster_num;
 static struct pm_qos_request dram_req;
 static int TIMER1_MS = DEFAULT_TIMER1_MS;
@@ -226,7 +227,7 @@ static int check_dep_run_and_update(struct gbe_boost_unit *iter)
 
 
 	for (i = 0; i < iter->dep_num; i++) {
-		if (iter->dep[i].loading > LOADING_TH)
+		if (iter->dep[i].loading >= LOADING_TH)
 			ret = 1;
 
 		if (strlen(dep_str) == 0)
@@ -370,43 +371,35 @@ static inline void gbe_init_timer1(struct gbe_boost_unit *iter)
 	INIT_WORK(&iter->work1, gbe_do_timer1);
 }
 
-static int ignore_systemui(int pid)
+static int ignore_nonfg(int pid)
 {
-	struct task_struct *tsk, *gtsk;
+	struct task_struct *tsk;
 	int ret = 0;
+	int process_id = 0;
 
 	rcu_read_lock();
 	tsk = find_task_by_vpid(pid);
 	if (tsk) {
 		get_task_struct(tsk);
-		gtsk = find_task_by_vpid(tsk->tgid);
+		process_id = tsk->tgid;
 		put_task_struct(tsk);
-		if (gtsk)
-			get_task_struct(gtsk);
-		else {
-			rcu_read_unlock();
-			goto out;
-		}
 	} else {
 		rcu_read_unlock();
 		goto out;
 	}
 	rcu_read_unlock();
 
-	ret = !strncmp(SYSTEMUI_STR, gtsk->comm, 16) ||
-	!strncmp(MTK_LTR_STR, gtsk->comm, 16);
-	put_task_struct(gtsk);
+	ret = (fg_pid != process_id);
 
 out:
 	return ret;
-
 }
 
 void fpsgo_comp2gbe_frame_update(int pid)
 {
 	struct gbe_boost_unit *iter;
 
-	if (ignore_systemui(pid))
+	if (ignore_nonfg(pid))
 		return;
 
 	mutex_lock(&gbe_lock);
@@ -620,6 +613,37 @@ static ssize_t gbe_enable_write(struct file *flip,
 
 GBE_DEBUGFS_ENTRY(enable);
 
+static int gbe_fg_pid_show(struct seq_file *m, void *unused)
+{
+	mutex_lock(&gbe_lock);
+	seq_printf(m, "%d\n", fg_pid);
+	mutex_unlock(&gbe_lock);
+	return 0;
+}
+
+static ssize_t gbe_fg_pid_write(struct file *flip,
+		const char *ubuf, size_t cnt, loff_t *data)
+{
+
+	int ret;
+	int val;
+
+	ret = kstrtoint_from_user(ubuf, cnt, 0, &val);
+	if (ret)
+		return ret;
+
+	if (val < 0)
+		return -EINVAL;
+
+	mutex_lock(&gbe_lock);
+	fg_pid = val;
+	mutex_unlock(&gbe_lock);
+
+	return cnt;
+}
+
+GBE_DEBUGFS_ENTRY(fg_pid);
+
 static int gbe_boost_list_show(struct seq_file *m, void *unused)
 {
 	struct gbe_boost_unit *iter;
@@ -670,6 +694,11 @@ int gbe2_init(void)
 			NULL,
 			&gbe_enable_fops);
 
+	debugfs_create_file("gbe2_fg_pid",
+			0644,
+			gbe_debugfs_dir,
+			NULL,
+			&gbe_fg_pid_fops);
 
 	debugfs_create_file("gbe_boost_list2",
 			0644,
