@@ -236,7 +236,7 @@ static ssize_t mtk_gpio_store_pin(struct device *dev,
 		mtk_pctrl_set_direction(hw, gpio, val);
 	} else if (!strncmp(buf, "out", 3)
 		&& (sscanf(buf+3, "%d %d", &gpio, &val) == 2)) {
-		mtk_pctrl_set_direction(hw, gpio, val);
+		mtk_pctrl_set_direction(hw, gpio, 1);
 		/* mtk_gpio_set(chip, gpio, val); */
 		mtk_pctrl_set_out(hw, gpio, val);
 	} else if (!strncmp(buf, "pullen", 6)
