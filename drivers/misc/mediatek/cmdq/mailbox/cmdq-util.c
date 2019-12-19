@@ -384,8 +384,10 @@ void cmdq_util_track(struct cmdq_pkt *pkt)
 			CMDQ_INST_SIZE);
 
 		perf = cmdq_pkt_get_perf_ret(pkt);
-		record->exec_begin = perf[0];
-		record->exec_end = perf[1];
+		if (perf) {
+			record->exec_begin = perf[0];
+			record->exec_end = perf[1];
+		}
 	}
 
 	mutex_unlock(&cmdq_record_mutex);

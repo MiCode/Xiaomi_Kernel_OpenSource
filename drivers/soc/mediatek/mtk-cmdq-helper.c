@@ -1239,7 +1239,8 @@ void cmdq_pkt_perf_end(struct cmdq_pkt *pkt)
 	struct cmdq_pkt_buffer *buf;
 
 	if (!pkt->buf_size)
-		cmdq_pkt_add_cmd_buffer(pkt);
+		if (cmdq_pkt_add_cmd_buffer(pkt) < 0)
+			return;
 
 	pa = cmdq_pkt_get_pa_by_offset(pkt, 0) + CMDQ_DBG_PERFEND;
 	cmdq_pkt_write_indriect(pkt, NULL, pa, CMDQ_TPR_ID, ~0);
@@ -1251,7 +1252,12 @@ EXPORT_SYMBOL(cmdq_pkt_perf_end);
 
 u32 *cmdq_pkt_get_perf_ret(struct cmdq_pkt *pkt)
 {
-	struct cmdq_pkt_buffer *buf = list_first_entry(&pkt->buf, typeof(*buf),
+	struct cmdq_pkt_buffer *buf;
+
+	if (!pkt->cmd_buf_size)
+		return NULL;
+
+	buf = list_first_entry(&pkt->buf, typeof(*buf),
 		list_entry);
 
 	return (u32 *)(buf->va_base + CMDQ_DBG_PERFBEGIN);

@@ -4538,7 +4538,7 @@ s32 cmdq_pkt_wait_flush_ex_result(struct cmdqRecStruct *handle)
 	if (handle->profile_exec) {
 		u32 *va = cmdq_pkt_get_perf_ret(handle->pkt);
 
-		if (va[0] == 0xdeaddead || va[1] == 0xdeaddead)
+		if (va && (va[0] == 0xdeaddead || va[1] == 0xdeaddead))
 			CMDQ_ERR(
 				"task may not execute handle:%p pkt:%p exec:%#x %#x",
 				handle, handle->pkt, va[0], va[1]);
