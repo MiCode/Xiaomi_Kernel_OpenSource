@@ -1125,6 +1125,66 @@ static int mt6785_regs[] = {
 	[PWRAP_MPU_PWRAP_ACC_VIO_INFO_1] =	0xF60,
 };
 
+static int mt6873_regs[] = {
+	[PMIF_SPI_PMIF_INIT_DONE] =		0x0,
+	[PMIF_SPI_PMIF_STAUPD_CTRL] =		0x4C,
+	[PMIF_SPI_PMIF_CRC_CTRL] =		0x398,
+	[PMIF_SPI_PMIF_TIMER_CTRL] =		0x3E0,
+	[PMIF_SPI_PMIF_IRQ_EVENT_EN_3] =	0x448,
+	[PMIF_SPI_PMIF_IRQ_FLAG_3] =		0x450,
+	[PMIF_SPI_PMIF_IRQ_CLR_3] =		0x454,
+	[PMIF_SPI_PMIF_MONITOR_CTRL] =		0x47C,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_0] =	0x480,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_1] =	0x484,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_2] =	0x488,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_3] =	0x48C,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_4] =	0x490,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_5] =	0x494,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_6] =	0x498,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_7] =	0x49C,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_WRITE] =	0x4A0,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_0] =	0x4AC,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_1] =	0x4B0,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_2] =	0x4B4,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_3] =	0x4B8,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_4] =	0x4BC,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_5] =	0x4C0,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_6] =	0x4C4,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_7] =	0x4C8,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_0] = 0x4CC,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_1] = 0x4D0,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_2] = 0x4D4,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_3] = 0x4D8,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_4] = 0x4DC,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_5] = 0x4E0,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_6] = 0x4E4,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_7] = 0x4E8,
+	[PMIF_SPI_PMIF_MONITOR_STA] =		0x4EC,
+	[PMIF_SPI_PMIF_MONITOR_RECORD_0_0] =	0x4F0,
+	[PMIF_SPI_PMIF_MONITOR_RECORD_0_1] =	0x4F4,
+	[PMIF_SPI_PMIF_SWINF_2_ACC] =		0xC80,
+	[PMIF_SPI_PMIF_SWINF_2_WDATA_31_0] =	0xC84,
+	[PMIF_SPI_PMIF_SWINF_2_RDATA_31_0] =	0xC94,
+	[PMIF_SPI_PMIF_SWINF_2_VLD_CLR] =	0xCA4,
+	[PMIF_SPI_PMIF_SWINF_2_STA] =		0xCA8,
+	[PWRAP_WACS2_RDATA] =			0xCA8,
+	[PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_0] =	0xF50,
+	[PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_1] =	0xF54,
+	[PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_2] =	0xF58,
+	[PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_3] =	0xF5C,
+	[PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_4] =	0xF60,
+	[PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_5] =	0xF64,
+	[PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_0] = 0xF68,
+	[PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_1] = 0xF6C,
+	[PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_2] = 0xF70,
+	[PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_3] = 0xF74,
+	[PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_4] = 0xF78,
+	[PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_5] = 0xF7C,
+	[PMIF_SPI_PMIF_PMIF_ACC_VIO_INFO_0] =	0xF80,
+	[PMIF_SPI_PMIF_PMIF_ACC_VIO_INFO_1] =	0xF84,
+	[PMIF_SPI_PMIF_PMIF_ACC_VIO_INFO_2] =	0xF88,
+};
+
 static int mt6885_regs[] = {
 	[PMIF_SPI_PMIF_INIT_DONE] =		0x0,
 	[PMIF_SPI_PMIF_STAUPD_CTRL] =		0x4C,
@@ -1439,6 +1499,7 @@ enum pwrap_type {
 	PWRAP_MT6768,
 	PWRAP_MT6771,
 	PWRAP_MT6785,
+	PWRAP_MT6873,
 	PWRAP_MT6885,
 	PWRAP_MT8135,
 	PWRAP_MT8173,
@@ -2838,8 +2899,6 @@ void wake_up_pwrap(void)
 
 int pwrap_thread_kthread(void *x)
 {
-	unsigned int rdata = 0;
-
 	dev_notice(wrp->dev, "[PWRAP] enter kernel thread\n");
 
 	/* Run on a process content */
@@ -3305,6 +3364,21 @@ static struct pmic_wrapper_type pwrap_mt6785 = {
 	.init_soc_specific = NULL,
 };
 
+static struct pmic_wrapper_type pwrap_mt6873 = {
+	.regs = mt6873_regs,
+	.type = PWRAP_MT6873,
+	.arb_en_all = 0x777f,
+	.int_en_all = 0x30,
+	.int1_en_all = 0,
+	.spi_w = PWRAP_MAN_CMD_SPI_WRITE,
+	.wdt_src = PWRAP_WDT_SRC_MASK_ALL,
+	.has_bridge = 0,
+	.caps = PWRAP_CAP_ARB_V3 | PWRAP_CAP_ULPOSC_CLK,
+	.init_done = PWRAP_STATE_INIT_DONE0_V3,
+	.init_reg_clock = pwrap_common_init_reg_clock,
+	.init_soc_specific = NULL,
+};
+
 static struct pmic_wrapper_type pwrap_mt6885 = {
 	.regs = mt6885_regs,
 	.type = PWRAP_MT6885,
@@ -3382,6 +3456,9 @@ static const struct of_device_id of_pwrap_match_tbl[] = {
 		.compatible = "mediatek,mt6785-pwrap",
 		.data = &pwrap_mt6785,
 	}, {
+		.compatible = "mediatek,mt6873-pwrap",
+		.data = &pwrap_mt6873,
+	}, {
 		.compatible = "mediatek,mt6885-pwrap",
 		.data = &pwrap_mt6885,
 	}, {
@@ -3393,9 +3470,6 @@ static const struct of_device_id of_pwrap_match_tbl[] = {
 	}, {
 		.compatible = "mediatek,mt8173-pwrap",
 		.data = &pwrap_mt8173,
-	}, {
-		.compatible = "mediatek,mt6873-pwrap",
-		.data = &pwrap_mt6885,
 	}, {
 		/* sentinel */
 	}
