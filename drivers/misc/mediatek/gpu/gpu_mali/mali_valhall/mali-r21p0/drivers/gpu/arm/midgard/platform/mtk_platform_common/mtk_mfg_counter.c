@@ -611,21 +611,6 @@ FINISH:
 	return ret;
 }
 
-static void gpu_power_change_notify_mfg_counter(int power_on)
-{
-	mutex_lock(&counter_info_lock);
-
-	/* update before power off */
-	if (!power_on) {
-		_mtk_mfg_update_counter();
-		_mtk_mfg_reset_counter(PMU_OK);
-	}
-
-	mfg_is_power_on = power_on;
-
-	mutex_unlock(&counter_info_lock);
-}
-
 static int mali_get_gpu_pmu_init(GPU_PMU *pmus, int pmu_size, int *ret_size)
 {
 	int ret = PMU_OK;
@@ -766,7 +751,6 @@ void mtk_mfg_counter_init(void)
 	mtk_get_gpu_pmu_swapnreset_fp = mali_get_gpu_pmu_swapnreset;
 	mtk_get_gpu_pmu_swapnreset_stop_fp = mali_get_gpu_pmu_swapnreset_stop;
 
-	mtk_register_gpu_power_change("mfg_counter", gpu_power_change_notify_mfg_counter);
 	binited = 0;
 	mfg_is_power_on = 0;
 
@@ -774,8 +758,6 @@ void mtk_mfg_counter_init(void)
 
 void mtk_mfg_counter_destroy(void)
 {
-	mtk_unregister_gpu_power_change("mfg_counter");
-
 	mtk_get_gpu_pmu_init_fp = NULL;
 	mtk_get_gpu_pmu_swapnreset_fp = NULL;
 }

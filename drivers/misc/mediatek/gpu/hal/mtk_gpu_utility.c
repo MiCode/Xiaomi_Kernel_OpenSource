@@ -22,6 +22,7 @@
 #endif
 
 unsigned int (*mtk_get_gpu_memory_usage_fp)(void) = NULL;
+static int gpu_pmu_flag;
 EXPORT_SYMBOL(mtk_get_gpu_memory_usage_fp);
 
 bool mtk_get_gpu_memory_usage(unsigned int *pMemUsage)
@@ -664,8 +665,10 @@ EXPORT_SYMBOL(mtk_get_gpu_pmu_swapnreset_fp);
 
 bool mtk_get_gpu_pmu_swapnreset(GPU_PMU *pmus, int pmu_size)
 {
-	if (mtk_get_gpu_pmu_swapnreset_fp != NULL)
+	if (mtk_get_gpu_pmu_swapnreset_fp != NULL) {
+		gpu_pmu_flag = 1;
 		return mtk_get_gpu_pmu_swapnreset_fp(pmus, pmu_size) == 0;
+	}
 	return false;
 }
 EXPORT_SYMBOL(mtk_get_gpu_pmu_swapnreset);
@@ -739,16 +742,20 @@ void mtk_notify_gpu_power_change(int power_on)
 {
 	struct list_head *pos, *head;
 	gpu_power_change_entry_t *entry = NULL;
+	if (!gpu_pmu_flag) {
+		mutex_lock(&g_power_change.lock);
 
-	mutex_lock(&g_power_change.lock);
+		head = &g_power_change.listen;
+		list_for_each(pos, head) {
+			entry = list_entry(pos,
+				gpu_power_change_entry_t,
+				sList);
+			entry->callback(power_on);
+		}
 
-	head = &g_power_change.listen;
-	list_for_each(pos, head) {
-		entry = list_entry(pos, gpu_power_change_entry_t, sList);
-		entry->callback(power_on);
+		mutex_unlock(&g_power_change.lock);
 	}
 
-	mutex_unlock(&g_power_change.lock);
 }
 EXPORT_SYMBOL(mtk_notify_gpu_power_change);
 
@@ -768,8 +775,10 @@ EXPORT_SYMBOL(mtk_get_gpu_pmu_swapnreset_stop_fp);
 
 bool mtk_get_gpu_pmu_swapnreset_stop(void)
 {
-	if (mtk_get_gpu_pmu_swapnreset_stop_fp != NULL)
+	if (mtk_get_gpu_pmu_swapnreset_stop_fp != NULL) {
+		gpu_pmu_flag = 0;
 		return mtk_get_gpu_pmu_swapnreset_stop_fp() == 0;
+	}
 	return false;
 }
 EXPORT_SYMBOL(mtk_get_gpu_pmu_swapnreset_stop);
