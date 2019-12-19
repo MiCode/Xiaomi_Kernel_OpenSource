@@ -327,9 +327,18 @@ static int btcvsd_tx_clean_buffer(struct mtk_btcvsd_snd *bt)
 	unsigned int num_valid_addr;
 	unsigned long flags;
 	enum BT_SCO_BAND band = bt->band;
+	int is_readable = 0;
 
 	if (bt->bypass_bt_access)
 		return -EIO;
+
+	is_readable = mtk_wcn_conninfra_reg_readable();
+	if (!is_readable) {
+		dev_info(bt->dev, "%s(), is_readable = %d\n",
+			 __func__, is_readable);
+		g_is_btcvsd_bus_dump = true;
+		return -EIO;
+	}
 
 	/* prepare encoded mute data */
 	if (band == BT_SCO_NB)
@@ -342,8 +351,8 @@ static int btcvsd_tx_clean_buffer(struct mtk_btcvsd_snd *bt)
 	spin_lock_irqsave(&bt->tx_lock, flags);
 	num_valid_addr = bt->tx->buffer_info.num_valid_addr;
 
-	dev_info(bt->dev, "%s(), band %d, num_valid_addr %u\n",
-		 __func__, band, num_valid_addr);
+	dev_info(bt->dev, "%s(), band %d, num_valid_addr %u, readable %d\n",
+		 __func__, band, num_valid_addr, is_readable);
 
 	for (i = 0; i < num_valid_addr; i++) {
 		void *dst;
@@ -395,8 +404,8 @@ static int mtk_btcvsd_read_from_bt(struct mtk_btcvsd_snd *bt,
 
 	if (connsys_addr_rx == 0xdeadfeed) {
 		/* bt return 0xdeadfeed if read register during bt sleep */
-		dev_warn(bt->dev, "%s(), connsys_addr_rx == 0xdeadfeed",
-			 __func__);
+		dev_warn(bt->dev, "%s(), connsys_addr_rx == 0xdeadfeed, readable %d",
+			 __func__, is_readable);
 		return -EIO;
 	}
 
@@ -478,8 +487,8 @@ int mtk_btcvsd_write_to_bt(struct mtk_btcvsd_snd *bt,
 
 	if (connsys_addr_tx == 0xdeadfeed) {
 		/* bt return 0xdeadfeed if read register during bt sleep */
-		dev_warn(bt->dev, "%s(), connsys_addr_tx == 0xdeadfeed\n",
-			 __func__);
+		dev_warn(bt->dev, "%s(), connsys_addr_tx == 0xdeadfeed, readable %d\n",
+			 __func__, is_readable);
 		return -EIO;
 	}
 
