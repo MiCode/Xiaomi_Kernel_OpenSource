@@ -1524,6 +1524,13 @@ static signed int DIP_Dump_IMGSYS_DIP_Reg(void)
 			DipDumpTL[DIPNo].region,
 			DIP_RD32(dipRegBasAddr + 0x64EC));
 
+		/*AKS register dump*/
+		cmdq_util_err("dip: 0x%x7BC0(0x%x)-0x%x7BC8(0x%x)",
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x6BC0),
+			DipDumpTL[DIPNo].region,
+			DIP_RD32(dipRegBasAddr + 0x6BC8));
+
 		/*SLK4 register dump*/
 		cmdq_util_err("dip: 0x%x72C0(0x%x)-0x%x72C4(0x%x)-0x%x72C8(0x%x)",
 			DipDumpTL[DIPNo].region,
