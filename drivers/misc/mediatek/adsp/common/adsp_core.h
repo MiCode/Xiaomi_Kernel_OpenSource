@@ -9,10 +9,11 @@
 #include "adsp_helper.h"
 
 enum ADSP_CORE_STATE {
-	ADSP_RESET     = 0,
-	ADSP_SUSPEND   = 1,
-	ADSP_SLEEP     = 2,
-	ADSP_RUNNING   = 3,
+	ADSP_RESET       = 0,
+	ADSP_SUSPEND     = 1,
+	ADSP_SLEEP       = 2,
+	ADSP_RUNNING     = 3,
+	ADSP_SUSPENDING  = 4,
 };
 
 enum {

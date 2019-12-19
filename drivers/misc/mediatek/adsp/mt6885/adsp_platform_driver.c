@@ -270,6 +270,7 @@ int adsp_core0_suspend(void)
 			ret = -EPIPE;
 			goto ERROR;
 		}
+		set_adsp_state(pdata, ADSP_SUSPENDING);
 
 		/* wait core suspend ack timeout 2s */
 		ret = wait_for_completion_timeout(&pdata->done, 2 * HZ);
@@ -356,6 +357,7 @@ int adsp_core1_suspend(void)
 			ret = -EPIPE;
 			goto ERROR;
 		}
+		set_adsp_state(pdata, ADSP_SUSPENDING);
 
 		/* wait core suspend ack timeout 2s */
 		ret = wait_for_completion_timeout(&pdata->done, 2 * HZ);
