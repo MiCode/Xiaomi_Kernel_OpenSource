@@ -38,7 +38,7 @@
 #define MAIN_LOG_SIZE 256
 #define DEFAULT_TIMER1_MS 100
 #define DEFAULT_TIMER2_MS 1000
-#define DEFAULT_MAX_BOOST_CNT 15
+#define DEFAULT_MAX_BOOST_CNT 5
 #define DEFAULT_LOADING_TH 20
 
 #define SYSTEMUI_STR "ndroid.systemui"
@@ -399,12 +399,9 @@ void fpsgo_comp2gbe_frame_update(int pid)
 {
 	struct gbe_boost_unit *iter;
 
-	if (ignore_nonfg(pid))
-		return;
-
 	mutex_lock(&gbe_lock);
 
-	if (!gbe_enable) {
+	if (!gbe_enable || ignore_nonfg(pid)) {
 		mutex_unlock(&gbe_lock);
 		return;
 	}
@@ -550,6 +547,37 @@ static ssize_t gbe_timer2_write(struct file *flip,
 }
 
 GBE_DEBUGFS_ENTRY(timer2);
+
+static int gbe_max_boost_cnt_show(struct seq_file *m, void *unused)
+{
+	mutex_lock(&gbe_lock);
+	seq_printf(m, "%d\n", MAX_BOOST_CNT);
+	mutex_unlock(&gbe_lock);
+	return 0;
+}
+
+static ssize_t gbe_max_boost_cnt_write(struct file *flip,
+		const char *ubuf, size_t cnt, loff_t *data)
+{
+
+	int ret;
+	int val;
+
+	ret = kstrtoint_from_user(ubuf, cnt, 0, &val);
+	if (ret)
+		return ret;
+
+	if ((val <= 0) || (val > 15))
+		return -EINVAL;
+
+	mutex_lock(&gbe_lock);
+	MAX_BOOST_CNT = val;
+	mutex_unlock(&gbe_lock);
+
+	return cnt;
+}
+
+GBE_DEBUGFS_ENTRY(max_boost_cnt);
 
 static int gbe_loading_th_show(struct seq_file *m, void *unused)
 {
@@ -717,6 +745,12 @@ int gbe2_init(void)
 			gbe_debugfs_dir,
 			NULL,
 			&gbe_timer2_fops);
+
+	debugfs_create_file("gbe2_max_boost_cnt",
+			0644,
+			gbe_debugfs_dir,
+			NULL,
+			&gbe_max_boost_cnt_fops);
 
 	debugfs_create_file("gbe2_loading_th",
 			0644,
