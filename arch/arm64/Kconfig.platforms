@@ -138,6 +138,8 @@ config MACH_MT6785
 	select MTK_GIC_TARGET_ALL
 	select DEVAPC_MT6785
 	select CLOCKSOURCE_VALIDATE_LAST_CYCLE
+	select HW_RANDOM
+	select HW_RANDOM_MT67XX
 	help
 	  This enables support for MediaTek MT6785
 	  Support for aarch64 Architecture
@@ -188,6 +190,8 @@ config MACH_MT6771
 	select OVERLAY_FS
 	select MTK_SYSTRACKER_V2
 	select MTK_SECURITY_SW_SUPPORT
+	select HW_RANDOM
+	select HW_RANDOM_MT67XX
         help
 	  This enables support for MediaTek MT6771
 	  Support for aarch64 Architecture
@@ -246,6 +250,8 @@ config MACH_MT6768
 	select MTK_SECURITY_SW_SUPPORT
 	select DEVAPC_LEGACY
 	select OVERLAY_FS
+	select HW_RANDOM
+	select HW_RANDOM_MT67XX
 	help
 	  This enables support for MediaTek MT6768
 	  Support for aarch64 Architecture
@@ -298,6 +304,8 @@ config MACH_MT6739
 	select DEVAPC_LEGACY
 	select OVERLAY_FS
 	select MTK_SECURITY_SW_SUPPORT
+	select HW_RANDOM
+	select HW_RANDOM_MT67XX
 	help
 	  This enables support for MediaTek MT6739.
 	  It enables all necessary feature for MP including
@@ -423,6 +431,8 @@ config MACH_MT6885
 	select MTK_DFD_INTERNAL_DUMP
 	select MTK_PID_MAP
 	select MTK_CACHE_PARITY_CHECK
+	select HW_RANDOM
+	select HW_RANDOM_MT67XX
         help
 	  This enables support for MediaTek MT6885
 	  Support for aarch64 Architecture
@@ -472,6 +482,8 @@ config MACH_MT6873
 	select DM_BOW
 	select MTK_BASE_POWER
 	select DEVAPC_MT6873
+	select HW_RANDOM
+	select HW_RANDOM_MT67XX
 	help
 	  This enables support for MediaTek MT6873
 	  Support for aarch64 Architecture
