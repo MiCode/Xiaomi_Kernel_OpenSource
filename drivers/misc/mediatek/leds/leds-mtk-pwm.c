@@ -496,7 +496,7 @@ static int mtk_leds_parse_dt(struct device *dev,
 				s_led->level = 0;
 
 		} else
-			s_led->level = s_led->info.config.max_brightness;
+			s_led->level = 102;
 		pr_info("parse %d leds dt: %s, %s, %d, %d, %d\n",
 			num, s_led->info.config.name,
 			s_led->info.config.default_trigger,
@@ -512,7 +512,7 @@ static int mtk_leds_parse_dt(struct device *dev,
 		if (ret)
 			goto out_led_dt;
 		led_pwm_config_add(dev, s_led, child);
-		led_level_set(&s_led->cdev, s_led->level);
+		led_level_set_pwm(s_led, s_led->level);
 		num++;
 	}
 	m_leds->nums = num;
