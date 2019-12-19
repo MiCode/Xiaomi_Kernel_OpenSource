@@ -104,6 +104,46 @@ static int mtk_drm_fb_ioctl(struct fb_info *info, unsigned int cmd,
 	return 0;
 }
 
+static int mtk_drm_fb_pan_display(struct fb_var_screeninfo *var,
+			      struct fb_info *info)
+{
+	struct drm_fb_helper *fb_helper = info->par;
+	struct drm_device *drm_dev = fb_helper->dev;
+	struct drm_crtc *crtc;
+	struct mtk_drm_crtc *mtk_crtc;
+	struct cmdq_pkt *cmdq_handle;
+	int ret;
+
+	ret = drm_fb_helper_pan_display(var, info);
+
+	crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+			typeof(*crtc), head);
+
+	if (!crtc) {
+		DDPPR_ERR("find crtc fail\n");
+		return ret;
+	}
+	mtk_crtc = to_mtk_crtc(crtc);
+	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
+			mtk_crtc->gce_obj.client[CLIENT_CFG]);
+
+	if (mtk_crtc_with_sub_path(crtc, mtk_crtc->ddp_mode))
+		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
+			DDP_SECOND_PATH);
+	else
+		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
+			DDP_FIRST_PATH);
+
+	cmdq_pkt_flush(cmdq_handle);
+	cmdq_pkt_destroy(cmdq_handle);
+
+	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+	return ret;
+}
+
 #define MTK_LEGACY_FB_MAP
 #ifndef MTK_LEGACY_FB_MAP
 static int mtk_drm_fbdev_mmap(struct fb_info *info, struct vm_area_struct *vma)
@@ -124,7 +164,7 @@ static struct fb_ops mtk_fbdev_ops = {
 	.fb_check_var = drm_fb_helper_check_var,
 	.fb_set_par = drm_fb_helper_set_par,
 	.fb_blank = drm_fb_helper_blank,
-	.fb_pan_display = drm_fb_helper_pan_display,
+	.fb_pan_display = mtk_drm_fb_pan_display,
 	.fb_setcmap = drm_fb_helper_setcmap,
 #ifndef MTK_LEGACY_FB_MAP
 	.fb_mmap = mtk_drm_fbdev_mmap,
