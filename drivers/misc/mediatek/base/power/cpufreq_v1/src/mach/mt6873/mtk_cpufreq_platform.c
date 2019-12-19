@@ -631,20 +631,25 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 	unsigned int lv = CPU_LEVEL_0;
 
 	int val = (get_devinfo_with_index(7) & 0xFF);
+	int ver = (get_devinfo_with_index(141) & 0xFF);
 
-	if (val == 0x4)
-		lv = CPU_LEVEL_0;
-	else if (val == 0x40)
-		lv = CPU_LEVEL_1;
+	if (val == 0x01) {
+		if (ver < 2)
+			lv = CPU_LEVEL_3;
+		else
+			lv = CPU_LEVEL_0;
+	}
 	else if (val == 0x10)
 		lv = CPU_LEVEL_2;
-	else if (val == 0x1)
-		lv = CPU_LEVEL_3;
 
 	turbo_flag = 0;
 
-	tag_pr_info("%d, %d, Settle time(%d, %d) efuse_val = 0x%x\n",
-		lv, turbo_flag, UP_SRATE, DOWN_SRATE, val);
+#if 1
+	lv = CPU_LEVEL_3;
+#endif
+
+	tag_pr_info("%d, %d, Settle time(%d, %d) efuse_val = 0x%x ver = %d\n",
+		lv, turbo_flag, UP_SRATE, DOWN_SRATE, val, ver);
 	return lv;
 }
 #ifdef DFD_WORKAROUND
