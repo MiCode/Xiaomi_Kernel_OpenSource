@@ -10,6 +10,7 @@
 #define QCOM_SCM_BOOT_TERMINATE_PC		0x02
 #define QCOM_SCM_BOOT_SEC_WDOG_DIS		0x07
 #define QCOM_SCM_BOOT_SEC_WDOG_TRIGGER		0x08
+#define QCOM_SCM_BOOT_WDOG_DEBUG_PART		0x09
 #define QCOM_SCM_BOOT_SET_REMOTE_STATE		0x0a
 #define QCOM_SCM_BOOT_SPIN_CPU			0x0d
 #define QCOM_SCM_BOOT_SWITCH_MODE		0x0f
@@ -22,9 +23,11 @@ extern int __qcom_scm_set_warm_boot_addr(struct device *dev, void *entry,
 extern void __qcom_scm_cpu_power_down(struct device *dev, u32 flags);
 extern int __qcom_scm_sec_wdog_deactivate(struct device *dev);
 extern int __qcom_scm_sec_wdog_trigger(struct device *dev);
+extern void __qcom_scm_disable_sdi(struct device *dev);
 extern int __qcom_scm_set_remote_state(struct device *dev, u32 state, u32 id);
 extern int __qcom_scm_spin_cpu(struct device *dev);
-extern int __qcom_scm_set_dload_mode(struct device *dev, bool enable);
+extern int __qcom_scm_set_dload_mode(struct device *dev,
+				     enum qcom_download_mode mode);
 extern int __qcom_scm_config_cpu_errata(struct device *dev);
 #define QCOM_SCM_FLUSH_FLAG_MASK	0x3
 
@@ -72,7 +75,11 @@ extern int __qcom_scm_get_feat_version(struct device *dev, u64 feat_id,
 #define QCOM_SCM_MP_CP_FEAT_ID			0x0c
 
 #define QCOM_SCM_SVC_PWR			0x09
+#define QCOM_SCM_PWR_IO_DISABLE_PMIC_ARBITER	0x01
+#define QCOM_SCM_PWR_IO_DEASSERT_PS_HOLD	0x02
 #define QCOM_SCM_PWR_MMU_SYNC			0x08
+extern void __qcom_scm_halt_spmi_pmic_arbiter(struct device *dev);
+extern void __qcom_scm_deassert_ps_hold(struct device *dev);
 extern void __qcom_scm_mmu_sync(struct device *dev, bool sync);
 
 #define QCOM_SCM_SVC_MP				0x0c

@@ -14,6 +14,12 @@
 #define QCOM_SCM_CPU_PWR_DOWN_L2_OFF	0x1
 #define QCOM_SCM_HDCP_MAX_REQ_CNT	5
 
+enum qcom_download_mode {
+	QCOM_DOWNLOAD_NODUMP	= 0x00,
+	QCOM_DOWNLOAD_EDL	= 0x01,
+	QCOM_DOWNLOAD_FULLDUMP	= 0x10,
+};
+
 struct qcom_scm_hdcp_req {
 	u32 addr;
 	u32 val;
@@ -77,8 +83,11 @@ extern int qcom_scm_set_warm_boot_addr(void *entry, const cpumask_t *cpus);
 extern void qcom_scm_cpu_power_down(u32 flags);
 extern int qcom_scm_sec_wdog_deactivate(void);
 extern int qcom_scm_sec_wdog_trigger(void);
+extern void qcom_scm_disable_sdi(void);
 extern int qcom_scm_set_remote_state(u32 state, u32 id);
 extern int qcom_scm_spin_cpu(void);
+extern void qcom_scm_set_download_mode(enum qcom_download_mode mode,
+				       phys_addr_t tcsr_boot_misc);
 extern int qcom_scm_config_cpu_errata(void);
 extern bool qcom_scm_pas_supported(u32 peripheral);
 extern int qcom_scm_pas_init_image(u32 peripheral, const void *metadata,
@@ -95,6 +104,8 @@ extern int qcom_scm_io_reset(void);
 extern bool qcom_scm_is_secure_wdog_trigger_available(void);
 extern bool qcom_scm_is_mode_switch_available(void);
 extern int qcom_scm_get_jtag_etm_feat_id(u64 *version);
+extern void qcom_scm_halt_spmi_pmic_arbiter(void);
+extern void qcom_scm_deassert_ps_hold(void);
 extern void qcom_scm_mmu_sync(bool sync);
 extern int qcom_scm_restore_sec_cfg(u32 device_id, u32 spare);
 extern int qcom_scm_iommu_secure_ptbl_size(u32 spare, size_t *size);
@@ -191,9 +202,12 @@ int qcom_scm_set_warm_boot_addr(void *entry, const cpumask_t *cpus)
 static inline void qcom_scm_cpu_power_down(u32 flags) {}
 static inline int qcom_scm_sec_wdog_deactivate(void) { return -ENODEV; }
 static inline int qcom_scm_sec_wdog_trigger(void) { return -ENODEV; }
+static inline void qcom_scm_disable_sdi(void) {}
 static inline u32 qcom_scm_set_remote_state(u32 state, u32 id)
 		{ return -ENODEV; }
 static inline int qcom_scm_spin_cpu(void) { return -ENODEV; }
+static inline void qcom_scm_set_download_mode(enum qcom_download_mode mode,
+		phys_addr_t tcsr_boot_misc) {}
 static inline int qcom_scm_config_cpu_errata(void)
 		{ return -ENODEV; }
 static inline bool qcom_scm_pas_supported(u32 peripheral) { return false; }
@@ -220,6 +234,8 @@ static inline bool qcom_scm_is_mode_switch_available(void)
 		{ return -ENODEV; }
 static inline int qcom_scm_get_jtag_etm_feat_id(u64 *version)
 		{ return -ENODEV; }
+static inline void qcom_scm_halt_spmi_pmic_arbiter(void) {}
+static inline void qcom_scm_deassert_ps_hold(void) {}
 static inline void qcom_scm_mmu_sync(bool sync) {}
 static inline int qcom_scm_restore_sec_cfg(u32 device_id, u32 spare)
 		{ return -ENODEV; }

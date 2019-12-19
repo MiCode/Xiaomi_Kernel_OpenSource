@@ -244,17 +244,6 @@ config QCOM_SCM
 	  Qualcomm Technologies, Inc. "Secure Channel Manager"
 	  interface.
 
-config QCOM_SCM_DOWNLOAD_MODE_DEFAULT
-	bool "Qualcomm download mode enabled by default"
-	depends on QCOM_SCM
-	help
-	  A device with "download mode" enabled will upon an unexpected
-	  warm-restart enter a special debug mode that allows the user to
-	  "download" memory content over USB for offline postmortem analysis.
-	  The feature can be enabled/disabled on the kernel command line.
-
-	  Say Y here to enable "download mode" by default.
-
 config QTEE_SHM_BRIDGE
 	bool "QTI TEE shared memory bridge"
 	depends on QCOM_SCM

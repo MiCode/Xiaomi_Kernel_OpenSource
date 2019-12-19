@@ -21,9 +21,6 @@
 #include "qcom_scm.h"
 #include "qtee_shmbridge_internal.h"
 
-static bool download_mode = IS_ENABLED(CONFIG_QCOM_SCM_DOWNLOAD_MODE_DEFAULT);
-module_param(download_mode, bool, 0);
-
 #define SCM_HAS_CORE_CLK	BIT(0)
 #define SCM_HAS_IFACE_CLK	BIT(1)
 #define SCM_HAS_BUS_CLK		BIT(2)
@@ -131,6 +128,15 @@ int qcom_scm_sec_wdog_trigger(void)
 }
 EXPORT_SYMBOL(qcom_scm_sec_wdog_trigger);
 
+/**
+ * qcom_scm_disable_sdi() - Disable SDI
+ */
+void qcom_scm_disable_sdi(void)
+{
+	__qcom_scm_disable_sdi(__scm ? __scm->dev : NULL);
+}
+EXPORT_SYMBOL(qcom_scm_disable_sdi);
+
 int qcom_scm_set_remote_state(u32 state, u32 id)
 {
 	return __qcom_scm_set_remote_state(__scm->dev, state, id);
@@ -143,28 +149,31 @@ int qcom_scm_spin_cpu(void)
 }
 EXPORT_SYMBOL(qcom_scm_spin_cpu);
 
-static void qcom_scm_set_download_mode(bool enable)
+void qcom_scm_set_download_mode(enum qcom_download_mode mode,
+				phys_addr_t tcsr_boot_misc)
 {
 	bool avail;
 	int ret = 0;
+	struct device *dev = __scm ? __scm->dev : NULL;
 
-	avail = __qcom_scm_is_call_available(__scm->dev,
+	avail = __qcom_scm_is_call_available(dev,
 					     QCOM_SCM_SVC_BOOT,
 					     QCOM_SCM_BOOT_SET_DLOAD_MODE);
 	if (avail) {
-		ret = __qcom_scm_set_dload_mode(__scm->dev, enable);
-	} else if (__scm->dload_mode_addr) {
-		ret = __qcom_scm_io_writel(__scm->dev, __scm->dload_mode_addr,
-					   enable ? QCOM_SCM_BOOT_SET_DLOAD_MODE
-					     : 0);
+		ret = __qcom_scm_set_dload_mode(dev, mode);
+	} else if (tcsr_boot_misc || (__scm && __scm->dload_mode_addr)) {
+		ret = __qcom_scm_io_writel(dev,
+				tcsr_boot_misc ? : __scm->dload_mode_addr,
+				mode);
 	} else {
-		dev_err(__scm->dev,
+		dev_err(dev,
 			"No available mechanism for setting download mode\n");
 	}
 
 	if (ret)
-		dev_err(__scm->dev, "failed to set download mode: %d\n", ret);
+		dev_err(dev, "failed to set download mode: %d\n", ret);
 }
+EXPORT_SYMBOL(qcom_scm_set_download_mode);
 
 int qcom_scm_config_cpu_errata(void)
 {
@@ -382,6 +391,52 @@ int qcom_scm_get_jtag_etm_feat_id(u64 *version)
 					QCOM_SCM_TZ_DBG_ETM_FEAT_ID, version);
 }
 EXPORT_SYMBOL(qcom_scm_get_jtag_etm_feat_id);
+
+/**
+ * qcom_halt_spmi_pmic_arbiter() - Halt SPMI PMIC arbiter
+ *
+ * Force the SPMI PMIC arbiter to shutdown so that no more SPMI transactions
+ * are sent from the MSM to the PMIC. This is required in order to avoid an
+ * SPMI lockup on certain PMIC chips if PS_HOLD is lowered in the middle of
+ * an SPMI transaction.
+ */
+void qcom_scm_halt_spmi_pmic_arbiter(void)
+{
+	bool avail;
+	struct device *dev = __scm ? __scm->dev : NULL;
+
+	avail = __qcom_scm_is_call_available(dev,
+					QCOM_SCM_SVC_PWR,
+					QCOM_SCM_PWR_IO_DISABLE_PMIC_ARBITER);
+
+	if (!avail)
+		return;
+
+	pr_crit("Calling SCM to disable SPMI PMIC arbiter\n");
+	return __qcom_scm_halt_spmi_pmic_arbiter(dev);
+}
+EXPORT_SYMBOL(qcom_scm_halt_spmi_pmic_arbiter);
+
+/**
+ * qcom_deassert_ps_hold() - Deassert PS_HOLD
+ *
+ * Deassert PS_HOLD to signal the PMIC that we are ready to power down or reset.
+ *
+ * This function should never return if the SCM call is available.
+ */
+void qcom_scm_deassert_ps_hold(void)
+{
+	bool avail;
+	struct device *dev = __scm ? __scm->dev : NULL;
+
+	avail = __qcom_scm_is_call_available(dev,
+					     QCOM_SCM_SVC_PWR,
+					     QCOM_SCM_PWR_IO_DEASSERT_PS_HOLD);
+
+	if (avail)
+		__qcom_scm_deassert_ps_hold(dev);
+}
+EXPORT_SYMBOL(qcom_scm_deassert_ps_hold);
 
 void qcom_scm_mmu_sync(bool sync)
 {
@@ -1024,22 +1079,7 @@ static int qcom_scm_probe(struct platform_device *pdev)
 		return ret;
 #endif
 
-	/*
-	 * If requested enable "download mode", from this point on warmboot
-	 * will cause the the boot stages to enter download mode, unless
-	 * disabled below by a clean shutdown/reboot.
-	 */
-	if (download_mode)
-		qcom_scm_set_download_mode(true);
-
 	return 0;
-}
-
-static void qcom_scm_shutdown(struct platform_device *pdev)
-{
-	/* Clean shutdown, disable download mode to allow normal restart */
-	if (download_mode)
-		qcom_scm_set_download_mode(false);
 }
 
 static const struct of_device_id qcom_scm_dt_match[] = {
@@ -1072,7 +1112,6 @@ static struct platform_driver qcom_scm_driver = {
 		.of_match_table = qcom_scm_dt_match,
 	},
 	.probe = qcom_scm_probe,
-	.shutdown = qcom_scm_shutdown,
 };
 
 static int __init qcom_scm_init(void)

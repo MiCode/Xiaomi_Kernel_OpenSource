@@ -735,6 +735,24 @@ int __qcom_scm_sec_wdog_trigger(struct device *dev)
 	return ret ? : desc.res[0];
 }
 
+void __qcom_scm_disable_sdi(struct device *dev)
+{
+	int ret;
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_BOOT,
+		.cmd = QCOM_SCM_BOOT_WDOG_DEBUG_PART,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.args[0] = 1;
+	desc.args[1] = 0;
+	desc.arginfo = QCOM_SCM_ARGS(2);
+
+	ret = qcom_scm_call_atomic(dev, &desc);
+	if (ret)
+		pr_err("Failed to disable secure wdog debug: %d\n", ret);
+}
+
 int __qcom_scm_set_remote_state(struct device *dev, u32 state, u32 id)
 {
 	struct qcom_scm_desc desc = {
@@ -767,7 +785,7 @@ int __qcom_scm_spin_cpu(struct device *dev)
 	return qcom_scm_call(dev, &desc);
 }
 
-int __qcom_scm_set_dload_mode(struct device *dev, bool enable)
+int __qcom_scm_set_dload_mode(struct device *dev, enum qcom_download_mode mode)
 {
 	struct qcom_scm_desc desc = {
 		.svc = QCOM_SCM_SVC_BOOT,
@@ -775,8 +793,8 @@ int __qcom_scm_set_dload_mode(struct device *dev, bool enable)
 		.owner = ARM_SMCCC_OWNER_SIP,
 	};
 
-	desc.args[0] = QCOM_SCM_BOOT_SET_DLOAD_MODE;
-	desc.args[1] = enable ? QCOM_SCM_BOOT_SET_DLOAD_MODE : 0;
+	desc.args[0] = mode;
+	desc.args[1] = 0;
 	desc.arginfo = QCOM_SCM_ARGS(2);
 
 	return qcom_scm_call_atomic(dev, &desc);
@@ -1037,6 +1055,34 @@ int __qcom_scm_get_feat_version(struct device *dev, u64 feat_id, u64 *version)
 		*version = desc.res[0];
 
 	return ret;
+}
+
+void __qcom_scm_halt_spmi_pmic_arbiter(struct device *dev)
+{
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_PWR,
+		.cmd = QCOM_SCM_PWR_IO_DISABLE_PMIC_ARBITER,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.args[0] = 0;
+	desc.arginfo = QCOM_SCM_ARGS(1);
+
+	qcom_scm_call_atomic(dev, &desc);
+}
+
+void __qcom_scm_deassert_ps_hold(struct device *dev)
+{
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_PWR,
+		.cmd = QCOM_SCM_PWR_IO_DEASSERT_PS_HOLD,
+		.owner = ARM_SMCCC_OWNER_SIP
+	};
+
+	desc.args[0] = 0;
+	desc.arginfo = QCOM_SCM_ARGS(1);
+
+	qcom_scm_call_atomic(dev, &desc);
 }
 
 void __qcom_scm_mmu_sync(struct device *dev, bool sync)
