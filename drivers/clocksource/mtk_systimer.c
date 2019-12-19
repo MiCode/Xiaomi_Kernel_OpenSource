@@ -253,12 +253,6 @@ static void mtk_stmr_reset(struct mtk_stmr_device *dev)
 	/* Clear IRQ */
 	mt_reg_sync_writel(STMR_CON_IRQ_CLR | STMR_CON_EN,
 		dev->base_addr + STMR_CON);
-
-	/* Reset counter */
-	mt_reg_sync_writel(0, dev->base_addr + STMR_VAL);
-
-	/* Disable timer */
-	mt_reg_sync_writel(0, dev->base_addr + STMR_CON);
 }
 
 static void mtk_stmr_ack_irq(struct mtk_stmr_device *dev)
