@@ -363,9 +363,31 @@ static void disp_aal_notify_backlight_log(int bl_1024)
 	memcpy(&g_aal_log_prevtime, &aal_time, sizeof(struct timeval));
 }
 
-void disp_aal_notify_backlight_changed(int bl_1024)
+void disp_aal_refresh_by_kernel(void)
 {
 	unsigned long flags, clockflags;
+
+	if (atomic_read(&g_aal_is_init_regs_valid) == 1) {
+		spin_lock_irqsave(&g_aal_irq_en_lock, flags);
+		atomic_set(&g_aal_force_enable_irq, 1);
+
+		if (spin_trylock_irqsave(&g_aal_clock_lock, clockflags)) {
+			if (atomic_read(&g_aal_data->is_clock_on) != 1)
+				AALFLOW_LOG("clock is off\n");
+			else
+				disp_aal_set_interrupt(NULL, true);
+			spin_unlock_irqrestore(&g_aal_clock_lock, clockflags);
+		}
+
+		spin_unlock_irqrestore(&g_aal_irq_en_lock, flags);
+		/* Backlight or Kernel API latency should be smallest */
+		mtk_crtc_check_trigger(default_comp->mtk_crtc, false);
+	}
+}
+
+void disp_aal_notify_backlight_changed(int bl_1024)
+{
+	unsigned long flags;
 	int max_backlight = 0;
 	unsigned int service_flags;
 
@@ -400,22 +422,7 @@ void disp_aal_notify_backlight_changed(int bl_1024)
 	g_aal_hist.serviceFlags |= service_flags;
 	spin_unlock_irqrestore(&g_aal_hist_lock, flags);
 
-	if (atomic_read(&g_aal_is_init_regs_valid) == 1) {
-		spin_lock_irqsave(&g_aal_irq_en_lock, flags);
-		atomic_set(&g_aal_force_enable_irq, 1);
-
-		if (spin_trylock_irqsave(&g_aal_clock_lock, clockflags)) {
-			if (atomic_read(&g_aal_data->is_clock_on) != 1)
-				AALFLOW_LOG("clock is off\n");
-			else
-				disp_aal_set_interrupt(NULL, true);
-			spin_unlock_irqrestore(&g_aal_clock_lock, clockflags);
-		}
-
-		spin_unlock_irqrestore(&g_aal_irq_en_lock, flags);
-		/* Backlight latency should be as smaller as possible */
-		mtk_crtc_check_trigger(default_comp->mtk_crtc, false);
-	}
+	disp_aal_refresh_by_kernel();
 }
 
 #ifdef CONFIG_LEDS_BRIGHTNESS_CHANGED
@@ -2212,8 +2219,7 @@ void disp_aal_set_ess_level(int level)
 
 	spin_unlock_irqrestore(&g_aal_hist_lock, flags);
 
-	disp_aal_set_interrupt(NULL, true);
-	mtk_crtc_check_trigger(default_comp->mtk_crtc, false);
+	disp_aal_refresh_by_kernel();
 	AALAPI_LOG("level = %d (cmd = 0x%x)", level, level_command);
 }
 
@@ -2233,8 +2239,7 @@ void disp_aal_set_ess_en(int enable)
 
 	spin_unlock_irqrestore(&g_aal_hist_lock, flags);
 
-	disp_aal_set_interrupt(NULL, true);
-	mtk_crtc_check_trigger(default_comp->mtk_crtc, false);
+	disp_aal_refresh_by_kernel();
 	AALAPI_LOG("en = %d (cmd = 0x%x) level = 0x%08x (cmd = 0x%x)",
 		enable, enable_command, ESS_LEVEL_BY_CUSTOM_LIB, level_command);
 }
@@ -2254,8 +2259,7 @@ void disp_aal_set_dre_en(int enable)
 
 	spin_unlock_irqrestore(&g_aal_hist_lock, flags);
 
-	disp_aal_set_interrupt(NULL, true);
-	mtk_crtc_check_trigger(default_comp->mtk_crtc, false);
+	disp_aal_refresh_by_kernel();
 	AALAPI_LOG("en = %d (cmd = 0x%x)", enable, enable_command);
 }
 
