@@ -1325,7 +1325,14 @@ static const char *mt6873_bus_id_to_master(int bus_id, uint32_t vio_addr,
 		pr_info(PFX "[DEVAPC] violation master might be wrong\n");
 
 	if (slave_type == SLAVE_TYPE_INFRA) {
-		if (shift_sta_bit == 3) {
+		if (vio_addr <= 0x1FFFFF) {
+			pr_info(PFX "vio_addr is from on-chip SRAMROM\n");
+			if ((bus_id & 0x1) == 0)
+				return "EMI_L2C_M";
+
+			return infra_mi_trans(bus_id >> 1);
+
+		} else if (shift_sta_bit == 3) {
 			if ((bus_id & 0x1) == 0)
 				return "EMI_L2C_M";
 
