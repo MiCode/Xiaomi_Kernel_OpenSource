@@ -2762,6 +2762,16 @@ void fg_daemon_comm_INT_data(char *rcv, char *ret)
 				ori_value, prcv->input);
 		}
 		break;
+	case FG_SET_ZCV_INTR_EN:
+		{
+			int zcv_intr_en = prcv->input;
+
+			if (zcv_intr_en == 0 || zcv_intr_en == 1)
+				gauge_set_zcv_interrupt_en(zcv_intr_en);
+
+			bm_err("set zcv_interrupt_en %d\n", zcv_intr_en);
+		}
+		break;
 	default:
 		pret->status = -1;
 		bm_err("%s type:%d in:%d out:%d,Retun t:%d,in:%d,o:%d,s:%d\n",

@@ -1321,7 +1321,6 @@ int read_hw_ocv(struct gauge_device *gauge_dev, int *data)
 				_flag_unreliable = 1;
 			}
 		} else {
-			/* fixme: swocv is workaround */
 			/* plug charger poweron but 6359_pon not ready */
 			/* should use swocv to workaround */
 			if (_hw_ocv_chgin_rdy != 1) {
@@ -1390,7 +1389,7 @@ int read_hw_ocv(struct gauge_device *gauge_dev, int *data)
 	bm_err("[%s] _hw_ocv %d _hw_ocv_src %d _prev_hw_ocv %d _prev_hw_ocv_src %d _flag_unreliable %d\n",
 		__func__, _hw_ocv, _hw_ocv_src, _prev_hw_ocv,
 		_prev_hw_ocv_src, _flag_unreliable);
-	bm_debug("[%s] _hw_ocv_59_pon_rdy %d _hw_ocv_59_pon %d _hw_ocv_59_plugin %d _hw_ocv_chgin %d _sw_ocv %d now_temp %d now_thr %d\n",
+	bm_err("[%s] _hw_ocv_59_pon_rdy %d _hw_ocv_59_pon %d _hw_ocv_59_plugin %d _hw_ocv_chgin %d _sw_ocv %d now_temp %d now_thr %d\n",
 		__func__, _hw_ocv_59_pon_rdy, _hw_ocv_59_pon,
 		_hw_ocv_59_plugin, _hw_ocv_chgin, _sw_ocv,
 		now_temp, now_thr);
@@ -2079,7 +2078,6 @@ static int fgauge_enable_zcv_interrupt(struct gauge_device *gauge_dev, int en)
 		pmic_set_register_value(PMIC_FG_ZCV_DET_EN, en);
 	}
 
-	gauge_dev->fg_hw_info.zcv_en_status = en;
 	bm_debug("[FG_ZCV_INT][fg_set_zcv_intr_en] En %d\n", en);
 
 	return 0;
@@ -2094,7 +2092,6 @@ static int fgauge_set_zcv_interrupt_threshold(
 
 	fg_zcv_car_th = (fg_zcv_det_time + 1) * 4 * zcv_avg_current / 60;
 
-	gauge_dev->fg_hw_info.fg_zcv_car_th = fg_zcv_car_th;
 	bm_err("[%s] current:%d, fg_zcv_det_time:%d, fg_zcv_car_th:%d\n",
 		__func__, zcv_avg_current, fg_zcv_det_time, fg_zcv_car_th);
 
@@ -2122,14 +2119,6 @@ static int fgauge_reset_hw(struct gauge_device *gauge_dev)
 	fgauge_get_coulomb(gauge_dev, &check_car);
 
 	bm_trace("[fgauge_hw_reset]:End car=%d,ret=%d\n", check_car, ret);
-
-	/* disable zcv and recovery zcv status */
-	fgauge_enable_zcv_interrupt(gauge_dev, 0);
-	fgauge_set_zcv_intr_internal(gauge_dev,
-		gauge_dev->fg_cust_data->zcv_suspend_time,
-		gauge_dev->fg_hw_info.fg_zcv_car_th);
-	fgauge_enable_zcv_interrupt(gauge_dev,
-		gauge_dev->fg_hw_info.zcv_en_status);
 
 	return 0;
 }

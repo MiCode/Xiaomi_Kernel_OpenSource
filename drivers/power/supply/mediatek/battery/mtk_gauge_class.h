@@ -136,10 +136,6 @@ struct gauge_hw_info_data {
 	int pmic_zcv_rdy;
 	int charger_zcv;
 	int hw_zcv;
-
-	/* zcv hw en/disable status */
-	int zcv_en_status;
-	int fg_zcv_car_th;
 };
 
 
