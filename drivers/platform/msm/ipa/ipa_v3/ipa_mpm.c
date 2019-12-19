@@ -398,6 +398,7 @@ struct ipa_mpm_context {
 	atomic_t ipa_clk_total_cnt;
 	atomic_t flow_ctrl_mask;
 	atomic_t adpl_over_usb_available;
+	atomic_t adpl_over_odl_available;
 	struct device *parent_pdev;
 	struct ipa_smmu_cb_ctx carved_smmu_cb;
 	struct device *mhi_parent_dev;
@@ -2846,19 +2847,25 @@ int ipa_mpm_mhip_xdci_pipe_disable(enum ipa_usb_teth_prot xdci_teth_prot)
 	 * sure device side doesn't access host side IPA if
 	 * Host IPA gets unvoted.
 	 */
-	ret = ipa_mpm_start_stop_remote_mhip_chan(probe_id,
-						MPM_MHIP_STOP, false);
-	if (ret) {
-		/*
-		 * This can fail only when modem is in SSR state.
-		 * Eventually there would be a remove callback,
-		 * so return a failure.
-		 */
-		IPA_MPM_ERR("MHIP remote chan stop fail = %d\n", ret);
-		return ret;
+
+	/* stop remote mhip-dpl ch if ODL not enable */
+	if ((!atomic_read(&ipa_mpm_ctx->adpl_over_odl_available))
+			|| (probe_id != IPA_MPM_MHIP_CH_ID_2)) {
+		ret = ipa_mpm_start_stop_remote_mhip_chan(probe_id,
+							MPM_MHIP_STOP, false);
+		if (ret) {
+			/*
+			 * This can fail only when modem is in SSR state.
+			 * Eventually there would be a remove callback,
+			 * so return a failure.
+			 */
+			IPA_MPM_ERR("MHIP remote chan stop fail = %d\n", ret);
+			return ret;
+		}
+		IPA_MPM_DBG("MHIP remote channels are stopped(id=%d)\n",
+			probe_id);
 	}
 
-	IPA_MPM_DBG("MHIP remote channels are stopped\n");
 
 	switch (mhip_client) {
 	case IPA_MPM_MHIP_USB_RMNET:
@@ -3240,9 +3247,45 @@ int ipa3_mpm_enable_adpl_over_odl(bool enable)
 			return ret;
 		}
 
+		/* start remote mhip-dpl ch */
+		ret = ipa_mpm_start_stop_remote_mhip_chan(IPA_MPM_MHIP_CH_ID_2,
+					MPM_MHIP_START, false);
+		if (ret) {
+			/*
+			 * This can fail only when modem is in SSR state.
+			 * Eventually there would be a remove callback,
+			 * so return a failure. Dont have to unvote PCIE here.
+			 */
+			IPA_MPM_ERR("MHIP remote chan start fail = %d\n",
+					ret);
+			return ret;
+		}
+		IPA_MPM_DBG("MHIP remote channels are started(id=%d)\n",
+			IPA_MPM_MHIP_CH_ID_2);
+		atomic_set(&ipa_mpm_ctx->adpl_over_odl_available, 1);
+
 		ipa_mpm_change_teth_state(IPA_MPM_MHIP_CH_ID_2,
 			IPA_MPM_TETH_CONNECTED);
 	} else {
+		/* stop remote mhip-dpl ch if adpl not enable */
+		if (!atomic_read(&ipa_mpm_ctx->adpl_over_usb_available)) {
+			ret = ipa_mpm_start_stop_remote_mhip_chan(
+				IPA_MPM_MHIP_CH_ID_2, MPM_MHIP_STOP, false);
+			if (ret) {
+				/*
+				 * This can fail only when modem in SSR state.
+				 * Eventually there would be a remove callback,
+				 * so return a failure.
+				 */
+				IPA_MPM_ERR("MHIP remote chan stop fail = %d\n",
+					ret);
+				return ret;
+			}
+			IPA_MPM_DBG("MHIP remote channels are stopped(id=%d)\n",
+				IPA_MPM_MHIP_CH_ID_2);
+		}
+		atomic_set(&ipa_mpm_ctx->adpl_over_odl_available, 0);
+
 		/* dec clk count and set DMA to USB */
 		IPA_MPM_DBG("mpm disabling ADPL over ODL\n");
 		ret = ipa_mpm_vote_unvote_pcie_clk(CLK_OFF,
