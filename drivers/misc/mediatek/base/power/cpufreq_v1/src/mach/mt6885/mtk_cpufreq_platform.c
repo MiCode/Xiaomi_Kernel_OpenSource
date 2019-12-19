@@ -29,6 +29,7 @@
 #include "mtk_cpufreq_platform.h"
 #include "../../mtk_cpufreq_hybrid.h"
 #include "mtk_devinfo.h"
+#include <mt-plat/mtk_chip.h>
 
 
 static struct regulator *regulator_proc1;
@@ -696,9 +697,14 @@ void _dfd_workaround(void)
 	struct mt_cpu_dvfs *p_b = id_to_cpu_dvfs(MT_CPU_DVFS_L);
 	struct buck_ctrl_t *b_vproc_p = id_to_buck_ctrl(p_b->Vproc_buck_id);
 	struct buck_ctrl_t *b_vsram_p = id_to_buck_ctrl(p_b->Vsram_buck_id);
+	int val = mt_get_chip_sw_ver();
 
 	ktime_t ktime = ktime_set(0, 0);
 	ktime_t start = ktime_set(0, 0);
+
+
+	if (val >= CHIP_SW_VER_02)
+		return;
 
 	if (!pmic_ready_flag) {
 		tag_pr_info("REGULATOR NOT READY!!\n");
