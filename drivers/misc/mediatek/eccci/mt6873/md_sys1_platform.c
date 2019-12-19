@@ -197,6 +197,19 @@ int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 				return -1;
 			}
 		}
+
+		node = of_find_compatible_node(NULL, NULL,
+					"mediatek,topckgen");
+		if (node)
+			hw_info->ap_topclkgen_base = of_iomap(node, 0);
+
+		else {
+			CCCI_ERROR_LOG(-1, TAG,
+				"%s:ioremap topclkgen base address fail\n",
+				__func__);
+			return -1;
+		}
+
 		break;
 	default:
 		return -1;
@@ -668,6 +681,21 @@ static int mtk_ccci_cfg_srclken_o1_on(struct ccci_modem *md)
 	return 0;
 }
 
+
+static int md_cd_topclkgen_on(struct ccci_modem *md)
+{
+	unsigned int reg_value;
+
+	reg_value = ccci_read32(md->hw_info->ap_topclkgen_base, 0);
+	reg_value &= ~((1<<8) | (1<<9));
+	ccci_write32(md->hw_info->ap_topclkgen_base, 0, reg_value);
+
+	CCCI_BOOTUP_LOG(md->index, CORE, "%s: set md1_clk_mod = 0x%x\n",
+		__func__, ccci_read32(md->hw_info->ap_topclkgen_base, 0));
+
+	return 0;
+}
+
 int md_cd_power_on(struct ccci_modem *md)
 {
 	int ret = 0;
@@ -675,6 +703,9 @@ int md_cd_power_on(struct ccci_modem *md)
 
 	/* step 1: PMIC setting */
 	md1_pmic_setting_on();
+
+	/* modem topclkgen on setting */
+	md_cd_topclkgen_on(md);
 
 	/* step 2: MD srcclkena setting */
 	reg_value = ccci_read32(infra_ao_base, INFRA_AO_MD_SRCCLKENA);
@@ -734,6 +765,20 @@ int md_cd_let_md_go(struct ccci_modem *md)
 	return 0;
 }
 
+static int md_cd_topclkgen_off(struct ccci_modem *md)
+{
+	unsigned int reg_value;
+
+	reg_value = ccci_read32(md->hw_info->ap_topclkgen_base, 0);
+	reg_value |= ((1<<8) | (1<<9));
+	ccci_write32(md->hw_info->ap_topclkgen_base, 0, reg_value);
+
+	CCCI_BOOTUP_LOG(md->index, CORE, "%s: set md1_clk_mod = 0x%x\n",
+		__func__, ccci_read32(md->hw_info->ap_topclkgen_base, 0));
+
+	return 0;
+}
+
 int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 {
 	int ret = 0;
@@ -761,6 +806,9 @@ int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 #ifdef FEATURE_CLK_BUF
 		clk_buf_set_by_flightmode(true);
 #endif
+		/* modem topclkgen off setting */
+		md_cd_topclkgen_off(md);
+
 		/* 3. PMIC off */
 		md1_pmic_setting_off();
 
