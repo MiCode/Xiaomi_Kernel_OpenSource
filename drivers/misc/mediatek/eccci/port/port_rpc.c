@@ -1381,6 +1381,7 @@ int port_rpc_recv_match(struct port_t *port, struct sk_buff *skb)
 			break;
 
 		case IPC_RPC_QUERY_AP_SYS_PROPERTY:
+		case IPC_RPC_SAR_TABLE_IDX_QUERY_OP:
 			is_userspace_msg = 1;
 			break;
 		default:
