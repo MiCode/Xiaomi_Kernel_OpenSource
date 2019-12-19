@@ -1001,6 +1001,7 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 	struct mtk_dsi *dsi = dev_id;
 	struct mtk_drm_crtc *mtk_crtc;
 	u32 status;
+	static unsigned int dsi_underrun_trigger = 1;
 
 	status = readl(dsi->regs + DSI_INTSTA);
 
@@ -1022,6 +1023,30 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 	if (status) {
 		writel(~status, dsi->regs + DSI_INTSTA);
 		if (status & BUFFER_UNDERRUN_INT_FLAG) {
+			struct mtk_drm_private *priv = NULL;
+
+			mtk_crtc = dsi->ddp_comp.mtk_crtc;
+
+			if (mtk_crtc && mtk_crtc->base.dev)
+				priv = mtk_crtc->base.dev->dev_private;
+			if (priv && mtk_drm_helper_get_opt(priv->helper_opt,
+				MTK_DRM_OPT_DSI_UNDERRUN_AEE)) {
+				if (dsi_underrun_trigger == 1) {
+					DDPAEE(
+						"[IRQ] %s:buffer underrun,sys_time=%u\n",
+						mtk_dump_comp_str(
+							&dsi->ddp_comp),
+						(u32)arch_counter_get_cntvct());
+					if (dsi->encoder.crtc) {
+						mtk_drm_crtc_analysis(
+							dsi->encoder.crtc);
+						mtk_drm_crtc_dump(
+							dsi->encoder.crtc);
+					}
+					dsi_underrun_trigger = 0;
+				}
+			}
+
 			DDPPR_ERR("[IRQ] %s: buffer underrun\n",
 				  mtk_dump_comp_str(&dsi->ddp_comp));
 			if (dsi->encoder.crtc) {
