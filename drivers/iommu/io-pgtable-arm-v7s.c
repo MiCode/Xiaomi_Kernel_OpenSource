@@ -859,10 +859,10 @@ static int arm_v7s_unmap(struct io_pgtable_ops *ops, unsigned long iova,
 #ifdef CONFIG_MTK_IOMMU_V2
 
 static int arm_v7s_set_acp(struct arm_v7s_io_pgtable *data,
-			unsigned long iova, arm_v7s_iopte *pte, bool is_acp)
+			unsigned long iova, bool is_acp, unsigned long *size)
 {
 	struct io_pgtable_cfg *cfg = &data->iop.cfg;
-	arm_v7s_iopte *ptep = data->pgd;
+	arm_v7s_iopte *ptep = data->pgd, pte;
 	int lvl = 0;
 	unsigned int mask, enabled = 0;
 	arm_v7s_iopte *ptep_curr;
@@ -871,46 +871,50 @@ static int arm_v7s_set_acp(struct arm_v7s_io_pgtable *data,
 	/* get target pte of iova */
 	do {
 		ptep += ARM_V7S_LVL_IDX(iova, ++lvl);
-		if (lvl == 1)
-			ptep_curr = ptep;
-		*pte = READ_ONCE(*ptep);
-		ptep = iopte_deref(*pte, lvl);
-	} while (ARM_V7S_PTE_IS_TABLE(*pte, lvl));
+		ptep_curr = ptep;
+		pte = READ_ONCE(*ptep);
+		ptep = iopte_deref(pte, lvl);
+	} while (ARM_V7S_PTE_IS_TABLE(pte, lvl));
 
-	if (!ARM_V7S_PTE_IS_VALID(*pte)) {
+	if (!ARM_V7S_PTE_IS_VALID(pte)) {
 		dma_addr = __arm_v7s_dma_addr(ptep_curr);
 		pr_notice("%s, %d, err pte, iova=0x%lx, ptep=0x%lx/0x%lx, pte=0x%lx, level=0x%x\n",
-			  __func__, __LINE__, iova,
-			  dma_addr,
-			  (unsigned long)*ptep_curr, (unsigned long)*pte, lvl);
+			  __func__, __LINE__, iova, dma_addr,
+			  (unsigned long)*ptep_curr, (unsigned long)pte, lvl);
 		return -EINVAL;
 	}
 
+	*size = ARM_V7S_BLOCK_SIZE(lvl);
+	if (arm_v7s_pte_is_cont(pte, lvl))
+		*size *= ARM_V7S_CONT_PAGES;
+
+
 	/* update acp settings of pte */
 	mask = 0x1 << ARM_V7S_ATTR_ACP(lvl);
-	enabled = *pte & mask;
+	enabled = pte & mask;
 
 	if (is_acp && !enabled) {
-		*pte |= mask;
+		pte |= mask;
 	} else if (!is_acp && enabled) {
-		*pte &= ~mask;
+		pte &= ~mask;
 	} else {
 #if 1 //def MTK_PGTABLE_DEBUG_ENABLED
 		dma_addr = __arm_v7s_dma_addr(ptep_curr);
 		pr_notice("%s, %d, no need of acp switch, iova=0x%lx, ptep=0x%lx/0x%lx, pte=0x%lx, level=%d\n",
 			  __func__, __LINE__, iova,
 			  dma_addr,
-			  (unsigned long)*ptep_curr, (unsigned long)*pte, lvl);
+			  (unsigned long)*ptep_curr, (unsigned long)pte, lvl);
 #endif
 		goto out;
 	}
 
-	__arm_v7s_set_pte(ptep_curr, *pte, 1, cfg);
+	__arm_v7s_set_pte(ptep_curr, pte, 1, cfg);
 #if 1 //def MTK_PGTABLE_DEBUG_ENABLED
 	dma_addr = __arm_v7s_dma_addr(ptep_curr);
-	pr_notice("%s, %d, iova=0x%lx, mask=0x%x, ptep=0x%lx/0x%lx, pte=0x%lx, level=%d\n",
+	pr_notice("%s, %d, iova=0x%lx, mask=0x%x, ptep=0x%lx/0x%lx, pte=0x%lx, level=%d, size=%lu\n",
 		  __func__, __LINE__, iova, mask, dma_addr,
-		  (unsigned long)*ptep_curr, (unsigned long)*pte, lvl);
+		  (unsigned long)*ptep_curr,
+		  (unsigned long)pte, lvl, *size);
 #endif
 
 out:
@@ -922,23 +926,18 @@ static int arm_v7s_switch_acp(struct io_pgtable_ops *ops,
 {
 	struct arm_v7s_io_pgtable *data = io_pgtable_ops_to_data(ops);
 	struct io_pgtable *iop = &data->iop;
-	arm_v7s_iopte pte;
 	unsigned long iova_start = iova;
 	unsigned long iova_end = iova + size - 1;
+	unsigned long pte_sz = 0;
 	u32 sz;
 	int lvl;
 
 	while (iova < iova_end) {
-		lvl = arm_v7s_set_acp(data, iova, &pte, is_acp);
+		lvl = arm_v7s_set_acp(data, iova, is_acp, &pte_sz);
 		if (lvl < 0 || lvl > 2)
 			return -1;
 
-		sz = ARM_V7S_BLOCK_SIZE(lvl);
-#if 0
-		if (arm_v7s_pte_is_cont(pte, lvl))
-			sz *= ARM_V7S_CONT_PAGES;
-#endif
-		iova += sz;
+		iova += pte_sz;
 	}
 
 	/* TLB invalidation */

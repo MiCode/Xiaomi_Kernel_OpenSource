@@ -2157,7 +2157,8 @@ static phys_addr_t mtk_iommu_iova_to_phys(struct iommu_domain *domain,
 int mtk_iommu_switch_acp(struct device *dev,
 			  unsigned long iova, size_t size, bool is_acp)
 {
-	struct mtk_iommu_domain *dom = __mtk_iommu_get_mtk_domain(dev);
+	struct iommu_domain *domain = iommu_get_domain_for_dev(dev);
+	struct mtk_iommu_domain *dom = to_mtk_domain(domain);
 	struct mtk_iommu_pgtable *pgtable = dom->pgtable;
 	unsigned long flags;
 	int ret = 0;
