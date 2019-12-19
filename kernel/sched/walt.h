@@ -13,7 +13,7 @@
 
 #define EXITING_TASK_MARKER	0xdeaddead
 
-extern unsigned int walt_rotation_enabled;
+extern unsigned int __weak walt_rotation_enabled;
 
 extern void __weak
 walt_update_task_ravg(struct task_struct *p, struct rq *rq, int event,
