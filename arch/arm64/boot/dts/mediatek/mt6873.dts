@@ -921,7 +921,7 @@
 		#endif
 
 		/* Number of lanes available per direction - either 1 or 2 */
-		lanes-per-direction = <1>;
+		lanes-per-direction = <2>;
 
 		/* Auto-Hibern8 Timer. Unit: ms	(0 means disabled) */
 		mediatek,auto-hibern8-timer = <10>;
@@ -931,7 +931,7 @@
 
 		/* Runtime Suspend Configuration */
 		/* 1. Runtime PM on/off (on: 1, off: 0) */
-		mediatek,rpm-enable = <0>;
+		mediatek,rpm-enable = <1>;
 
 		/* 2. Auto Suspend Delay. Unit: ms */
 		mediatek,rpm-autosuspend-delay = <2000>;
