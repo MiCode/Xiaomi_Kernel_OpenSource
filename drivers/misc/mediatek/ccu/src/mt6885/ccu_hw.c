@@ -80,6 +80,8 @@ static unsigned int g_LogBufIdx = 1;
 static unsigned int AFg_LogBufIdx[IMGSENSOR_SENSOR_IDX_MAX_NUM] = {1};
 
 static int _ccu_powerdown(bool need_check_ccu_stat);
+static int ccu_irq_enable(void);
+static int ccu_irq_disable(void);
 
 static inline unsigned int CCU_MsToJiffies(unsigned int Ms)
 {
@@ -551,6 +553,7 @@ int ccu_power(struct ccu_power_s *power)
 
 		/*1. Enable CCU CAMSYS_CG_CON bit12 CCU_CGPDN=0*/
 		ccu_clock_enable();
+		ccu_irq_enable();
 		LOG_DBG("CCU CG released\n");
 
 		#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
@@ -624,6 +627,7 @@ int ccu_power(struct ccu_power_s *power)
 	} else if (power->bON == 4) {
 		/*CCU boot fail, just enable CG*/
 		if (ccuInfo.IsCcuPoweredOn == 1) {
+			ccu_irq_disable();
 			ccu_clock_disable();
 			ccuInfo.IsCcuPoweredOn = 0;
 		}
@@ -719,6 +723,7 @@ static int _ccu_powerdown(bool need_check_ccu_stat)
 CCU_PWDN_SKIP_STAT_CHK:
 	udelay(100);
 	/*CCF & i2c uninit*/
+	ccu_irq_disable();
 	ccu_clock_disable();
 	ccu_i2c_controller_uninit_all();
 	ccu_i2c_free_dma_buf_mva_all();
@@ -948,4 +953,25 @@ int ccu_read_info_reg(int regNo)
 int ccu_query_power_status(void)
 {
 	return ccuInfo.IsCcuPoweredOn;
+}
+
+int ccu_irq_enable(void)
+{
+	int ret = 0;
+
+	LOG_DBG_MUST("%s+.\n", __func__);
+	if (request_irq(ccu_dev->irq_num, ccu_isr_handler,
+		IRQF_TRIGGER_NONE, "ccu", NULL)) {
+		LOG_ERR("fail to request ccu irq!\n");
+		ret = -ENODEV;
+	}
+
+	return 0;
+}
+
+int ccu_irq_disable(void)
+{
+	LOG_DBG_MUST("%s+.\n", __func__);
+	free_irq(ccu_dev->irq_num, NULL);
+	return 0;
 }
