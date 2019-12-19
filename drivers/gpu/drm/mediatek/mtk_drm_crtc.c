@@ -5435,14 +5435,17 @@ int mtk_crtc_mipi_freq_switch(struct drm_crtc *crtc, int en,
 
 	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 
+	mtk_crtc->mipi_hopping_sta = en;
+
+	if (!mtk_crtc->enabled)
+		goto done;
+
 	comp = mtk_ddp_comp_request_output(mtk_crtc);
 	if (!comp) {
 		DDPPR_ERR("request output fail\n");
 		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 		return -EINVAL;
 	}
-
-	mtk_crtc->mipi_hopping_sta = en;
 
 	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
 			mtk_crtc->gce_obj.client[CLIENT_CFG]);
@@ -5453,6 +5456,7 @@ int mtk_crtc_mipi_freq_switch(struct drm_crtc *crtc, int en,
 	cmdq_pkt_flush(cmdq_handle);
 	cmdq_pkt_destroy(cmdq_handle);
 
+done:
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 	return 0;
@@ -5476,14 +5480,17 @@ int mtk_crtc_osc_freq_switch(struct drm_crtc *crtc, int en,
 
 	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 
+	mtk_crtc->panel_osc_hopping_sta = en;
+
+	if (!mtk_crtc->enabled)
+		goto done;
+
 	comp = mtk_ddp_comp_request_output(mtk_crtc);
 	if (!comp) {
 		DDPPR_ERR("request output fail\n");
 		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 		return -EINVAL;
 	}
-
-	mtk_crtc->panel_osc_hopping_sta = en;
 
 	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
 			mtk_crtc->gce_obj.client[CLIENT_CFG]);
@@ -5498,6 +5505,7 @@ int mtk_crtc_osc_freq_switch(struct drm_crtc *crtc, int en,
 	cmdq_pkt_flush(cmdq_handle);
 	cmdq_pkt_destroy(cmdq_handle);
 
+done:
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 	return 0;
