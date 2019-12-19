@@ -613,9 +613,11 @@ static int set_domain_to_default_clk(int domain_idx)
 	int ret = 0;
 
 	if (domain_idx == 2)
-		ret = config_npupll(BUCK_VVPU_DOMAIN_DEFAULT_FREQ, V_VPU0);
+		ret = set_apu_clock_source(BUCK_VVPU_DOMAIN_DEFAULT_FREQ,
+								V_VPU0);
 	else if (domain_idx == 3)
-		ret = config_npupll(BUCK_VVPU_DOMAIN_DEFAULT_FREQ, V_VPU1);
+		ret = set_apu_clock_source(BUCK_VVPU_DOMAIN_DEFAULT_FREQ,
+								V_VPU1);
 	else if (domain_idx == 6)
 		ret = config_apupll(BUCK_VMDLA_DOMAIN_DEFAULT_FREQ, V_MDLA0);
 	else {
