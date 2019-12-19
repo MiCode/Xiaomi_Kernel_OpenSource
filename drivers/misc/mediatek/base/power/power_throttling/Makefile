@@ -11,7 +11,9 @@
 # GNU General Public License for more details.
 #
 
+ifeq ($(CONFIG_MTK_ECCCI_DRIVER), y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/power_throttling/
 #ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/mach/
 
 obj-y += mtk_md_power_throttling.o
+endif
