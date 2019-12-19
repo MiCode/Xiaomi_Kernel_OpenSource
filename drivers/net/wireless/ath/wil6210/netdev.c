@@ -12,9 +12,16 @@
 #include "ipa.h"
 #include "config.h"
 
+#define WIL6210_TX_QUEUES (4)
+
 static bool alt_ifname; /* = false; */
 module_param(alt_ifname, bool, 0444);
 MODULE_PARM_DESC(alt_ifname, " use an alternate interface name wigigN instead of wlanN");
+
+/* enable access category for transmit packets, this parameter may be controlled
+ * via wigig.ini config file, default enabled
+ */
+bool ac_queues = true;
 
 bool wil_has_other_active_ifaces(struct wil6210_priv *wil,
 				 struct net_device *ndev, bool up, bool ok)
@@ -87,10 +94,44 @@ static int wil_stop(struct net_device *ndev)
 	return rc;
 }
 
+/**
+ * AC to queue mapping
+ *
+ * AC_VO -> queue 3
+ * AC_VI -> queue 2
+ * AC_BE -> queue 1
+ * AC_BK -> queue 0
+ */
+static u16 wil_select_queue(struct net_device *ndev,
+			    struct sk_buff *skb,
+			    struct net_device *sb_dev)
+{
+	static const u16 wil_1d_to_queue[8] = {1, 0, 0, 1, 2, 2, 3, 3};
+	struct wil6210_priv *wil = ndev_to_wil(ndev);
+	u16 qid;
+
+	if (!ac_queues)
+		return 0;
+
+	/* determine the priority */
+	if (wil_is_special_packet(skb))
+		skb->priority = 7;
+	else if (skb->priority == 0 || skb->priority > 7)
+		skb->priority = cfg80211_classify8021d(skb, NULL);
+
+	qid = wil_1d_to_queue[skb->priority];
+
+	wil_dbg_txrx(wil, "select queue for priority %d -> queue %d\n",
+		     skb->priority, qid);
+
+	return qid;
+}
+
 static const struct net_device_ops wil_netdev_ops = {
 	.ndo_open		= wil_open,
 	.ndo_stop		= wil_stop,
 	.ndo_start_xmit		= wil_start_xmit,
+	.ndo_select_queue	= wil_select_queue,
 	.ndo_set_mac_address	= eth_mac_addr,
 	.ndo_validate_addr	= eth_validate_addr,
 };
@@ -330,8 +371,12 @@ wil_vif_alloc(struct wil6210_priv *wil, const char *name,
 		return ERR_PTR(-EINVAL);
 	}
 
-	ndev = alloc_netdev(sizeof(*vif), name, name_assign_type,
-			    wil_dev_setup);
+	if (ac_queues)
+		ndev = alloc_netdev_mqs(sizeof(*vif), name, name_assign_type,
+					wil_dev_setup, WIL6210_TX_QUEUES, 1);
+	else
+		ndev = alloc_netdev(sizeof(*vif), name, name_assign_type,
+				    wil_dev_setup);
 	if (!ndev) {
 		dev_err(wil_to_dev(wil), "alloc_netdev failed\n");
 		return ERR_PTR(-ENOMEM);

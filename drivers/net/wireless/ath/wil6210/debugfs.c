@@ -99,6 +99,22 @@ static void wil_print_ring(struct seq_file *s, struct wil6210_priv *wil,
 
 		v = (ring_id % 2 ? (v >> 16) : (v & 0xffff));
 		seq_printf(s, "  hwhead = %u\n", v);
+		if (!ring->is_rx) {
+			struct wil_ring_tx_data *txdata =
+				&wil->ring_tx_data[ring_id];
+
+			seq_printf(s, "  available = %d\n",
+				   wil_ring_avail_tx(ring) -
+				   txdata->tx_reserved_count);
+			seq_printf(s, "  used = %d\n",
+				   wil_ring_used_tx(ring));
+			seq_printf(s, "\n  tx_res_count = %d\n",
+				   txdata->tx_reserved_count);
+			seq_printf(s, "  tx_res_count_used = %d\n",
+				   txdata->tx_reserved_count_used);
+			seq_printf(s, "  tx_res_count_unavail = %d\n",
+				   txdata->tx_reserved_count_not_avail);
+		}
 	}
 	seq_printf(s, "  hwtail = [0x%08x] -> ", ring->hwtail);
 	x = wmi_addr(wil, ring->hwtail);
@@ -2461,6 +2477,7 @@ static const struct dbg_off dbg_wil_off[] = {
 	WIL_FIELD(amsdu_en, 0644,	doff_u8),
 	WIL_FIELD(force_edmg_channel, 0644,	doff_u8),
 	WIL_FIELD(ap_ps, 0644, doff_u8),
+	WIL_FIELD(tx_reserved_entries, 0644, doff_u32),
 	{},
 };
 
