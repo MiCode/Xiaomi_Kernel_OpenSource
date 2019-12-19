@@ -579,6 +579,8 @@ static ssize_t cpufreq_cci_mode_proc_write(struct file *file,
 #endif
 	}
 
+	free_page((unsigned long)buf);
+
 	return count;
 }
 #endif
