@@ -63,6 +63,37 @@ enum MHI_DEBUG_LEVEL  mhi_ipc_log_lvl = MHI_MSG_LVL_ERROR;
 
 #endif
 
+void mhi_reg_write_work(struct work_struct *w)
+{
+	struct mhi_controller *mhi_cntrl = container_of(w,
+						struct mhi_controller,
+						reg_write_work);
+	struct mhi_dev *mhi_dev = mhi_controller_get_devdata(mhi_cntrl);
+	struct pci_dev *pci_dev = mhi_dev->pci_dev;
+	struct reg_write_info *info =
+				&mhi_cntrl->reg_write_q[mhi_cntrl->read_idx];
+
+	if (!info->valid)
+		return;
+
+	if (mhi_is_active(mhi_cntrl->mhi_dev) && msm_pcie_prevent_l1(pci_dev))
+		return;
+
+	while (info->valid) {
+		if (!mhi_is_active(mhi_cntrl->mhi_dev))
+			return;
+
+		writel_relaxed(info->val, info->reg_addr);
+		info->valid = false;
+		mhi_cntrl->read_idx =
+				(mhi_cntrl->read_idx + 1) &
+						(REG_WRITE_QUEUE_LEN - 1);
+		info = &mhi_cntrl->reg_write_q[mhi_cntrl->read_idx];
+	}
+
+	msm_pcie_allow_l1(pci_dev);
+}
+
 static int mhi_arch_pm_notifier(struct notifier_block *nb,
 				unsigned long event, void *unused)
 {
