@@ -213,6 +213,9 @@ source "drivers/input/misc/Kconfig"
 
 source "drivers/input/rmi4/Kconfig"
 
+source "drivers/input/fingerprint/Kconfig"
+
+source "drivers/input/fingerprint/gf3208/Kconfig"
 endif
 
 menu "Hardware I/O ports"

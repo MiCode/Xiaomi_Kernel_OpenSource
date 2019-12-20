@@ -1657,7 +1657,7 @@ const struct file_operations proc_pagemap_operations = {
 #endif /* CONFIG_PROC_PAGE_MONITOR */
 
 #ifdef CONFIG_PROCESS_RECLAIM
-static int reclaim_pte_range(pmd_t *pmd, unsigned long addr,
+int reclaim_pte_range(pmd_t *pmd, unsigned long addr,
 				unsigned long end, struct mm_walk *walk)
 {
 	struct reclaim_param *rp = walk->private;
@@ -1682,6 +1682,8 @@ cont:
 
 		page = vm_normal_page(vma, addr, ptent);
 		if (!page)
+			continue;
+		if (page_mapcount(page) != 1)
 			continue;
 
 		if (isolate_lru_page(page))
@@ -1718,7 +1720,7 @@ cont:
 		goto cont;
 
 	cond_resched();
-	return 0;
+	return (rp->nr_to_reclaim == 0) ? -EPIPE : 0;
 }
 
 enum reclaim_type {

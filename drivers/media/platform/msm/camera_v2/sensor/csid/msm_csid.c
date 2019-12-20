@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -75,7 +76,7 @@
 #define FALSE  0
 
 #define MAX_LANE_COUNT 4
-#define CSID_TIMEOUT msecs_to_jiffies(100)
+#define CSID_TIMEOUT msecs_to_jiffies(800)
 
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)

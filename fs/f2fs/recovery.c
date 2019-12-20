@@ -2,6 +2,7 @@
  * fs/f2fs/recovery.c
  *
  * Copyright (c) 2012 Samsung Electronics Co., Ltd.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *             http://www.samsung.com/
  *
  * This program is free software; you can redistribute it and/or modify
@@ -99,8 +100,12 @@ err_out:
 	return ERR_PTR(err);
 }
 
-static void del_fsync_inode(struct fsync_inode_entry *entry)
+static void del_fsync_inode(struct fsync_inode_entry *entry, int drop)
 {
+	if (drop) {
+		make_bad_inode(entry->inode);
+		f2fs_inode_synced(entry->inode);
+	}
 	iput(entry->inode);
 	list_del(&entry->list);
 	kmem_cache_free(fsync_entry_slab, entry);
@@ -323,12 +328,12 @@ next:
 	return err;
 }
 
-static void destroy_fsync_dnodes(struct list_head *head)
+static void destroy_fsync_dnodes(struct list_head *head, int drop)
 {
 	struct fsync_inode_entry *entry, *tmp;
 
 	list_for_each_entry_safe(entry, tmp, head, list)
-		del_fsync_inode(entry);
+		del_fsync_inode(entry, drop);
 }
 
 static int check_index_in_prev_nodes(struct f2fs_sb_info *sbi,
@@ -619,7 +624,7 @@ static int recover_data(struct f2fs_sb_info *sbi, struct list_head *inode_list,
 		}
 
 		if (entry->blkaddr == blkaddr)
-			del_fsync_inode(entry);
+			del_fsync_inode(entry, 0);
 next:
 		/* check next segment */
 		blkaddr = next_blkaddr_of_node(page);
@@ -684,7 +689,7 @@ int recover_fsync_data(struct f2fs_sb_info *sbi, bool check_only)
 	if (!err)
 		f2fs_bug_on(sbi, !list_empty(&inode_list));
 skip:
-	destroy_fsync_dnodes(&inode_list);
+	destroy_fsync_dnodes(&inode_list, err);
 
 	/* truncate meta pages to be used by the recovery */
 	truncate_inode_pages_range(META_MAPPING(sbi),
@@ -693,13 +698,14 @@ skip:
 	if (err) {
 		truncate_inode_pages_final(NODE_MAPPING(sbi));
 		truncate_inode_pages_final(META_MAPPING(sbi));
+	} else {
+		clear_sbi_flag(sbi, SBI_POR_DOING);
 	}
 
-	clear_sbi_flag(sbi, SBI_POR_DOING);
 	mutex_unlock(&sbi->cp_mutex);
 
 	/* let's drop all the directory inodes for clean checkpoint */
-	destroy_fsync_dnodes(&dir_list);
+	destroy_fsync_dnodes(&dir_list, err);
 
 	if (!err && need_writecp) {
 		struct cp_control cpc = {

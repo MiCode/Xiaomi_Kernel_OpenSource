@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2019 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -628,12 +629,9 @@ static void msm_isp_update_framedrop_reg(struct msm_vfe_axi_stream *stream_info,
 				MSM_VFE_STREAM_STOP_PERIOD;
 	}
 
-	if (stream_info->undelivered_request_cnt > 0 &&
-		drop_reconfig != 1)
+	if (stream_info->undelivered_request_cnt > 0)
 		stream_info->current_framedrop_period =
 			MSM_VFE_STREAM_STOP_PERIOD;
-	if (stream_info->controllable_output && drop_reconfig == 1)
-		stream_info->current_framedrop_period = 1;
 	/*
 	 * re-configure the period pattern, only if it's not already
 	 * set to what we want
@@ -2122,6 +2120,10 @@ static int msm_isp_cfg_ping_pong_address(
 		buf = msm_isp_get_stream_buffer(vfe_dev, stream_info);
 
 	if (!buf) {
+		trace_printk(
+			"%s: vfe %d stream_id %x buffer not available frame %d\n",
+			__func__, vfe_dev->pdev->id,
+			stream_info->stream_id,vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id);
 		msm_isp_cfg_stream_scratch(stream_info, pingpong_status);
 		if (stream_info->controllable_output)
 			return 1;
@@ -3742,9 +3744,10 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 		(stream_info->undelivered_request_cnt <=
 			MAX_BUFFERS_IN_HW)
 		) {
-		pr_debug("%s:%d invalid time to request frame %d\n",
+		trace_printk("%s:%d invalid time to request frame %d try drop_reconfig\n",
 			__func__, __LINE__, frame_id);
 		vfe_dev->isp_page->drop_reconfig = 1;
+		return 0;
 	} else if ((vfe_dev->axi_data.src_info[frame_src].active) &&
 			((frame_id ==
 			vfe_dev->axi_data.src_info[frame_src].frame_id) ||
@@ -3752,22 +3755,23 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 			(stream_info->undelivered_request_cnt <=
 				MAX_BUFFERS_IN_HW)) {
 		vfe_dev->isp_page->drop_reconfig = 1;
-		pr_debug("%s: vfe_%d request_frame %d cur frame id %d pix %d\n",
+		trace_printk("%s: vfe_%d request_frame %d cur frame id %d pix %d try drop_reconfig\n",
 			__func__, vfe_dev->pdev->id, frame_id,
 			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id,
 			vfe_dev->axi_data.src_info[VFE_PIX_0].active);
+		return 0;
 	} else if ((vfe_dev->axi_data.src_info[frame_src].active && (frame_id !=
 		vfe_dev->axi_data.src_info[frame_src].frame_id +
 		vfe_dev->axi_data.src_info[frame_src].sof_counter_step)) ||
 		((!vfe_dev->axi_data.src_info[frame_src].active))) {
-		pr_debug("%s:%d invalid frame id %d cur frame id %d pix %d\n",
+		trace_printk("%s:%d invalid frame id %d cur frame id %d pix %d\n",
 			__func__, __LINE__, frame_id,
 			vfe_dev->axi_data.src_info[frame_src].frame_id,
 			vfe_dev->axi_data.src_info[frame_src].active);
 		goto error;
 	}
 	if (stream_info->undelivered_request_cnt >= MAX_BUFFERS_IN_HW) {
-		pr_debug("%s:%d invalid undelivered_request_cnt %d frame id %d\n",
+		trace_printk("%s:%d invalid undelivered_request_cnt %d frame id %d\n",
 			__func__, __LINE__,
 			stream_info->undelivered_request_cnt,
 			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id);
@@ -3781,14 +3785,7 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 			stream_info->activated_framedrop_period,
 			stream_info->stream_id);
 
-		rc = msm_isp_return_empty_buffer(vfe_dev, stream_info,
-			user_stream_id, frame_id, buf_index, frame_src);
-		if (rc < 0)
-			pr_err("%s:%d failed: return_empty_buffer src %d\n",
-				__func__, __LINE__, frame_src);
-		stream_info->current_framedrop_period =
-			MSM_VFE_STREAM_STOP_PERIOD;
-		msm_isp_cfg_framedrop_reg(stream_info);
+		vfe_dev->isp_page->drop_reconfig = 1;
 		return 0;
 	}
 
@@ -4533,6 +4530,8 @@ void msm_isp_process_axi_irq_stream(struct vfe_device *vfe_dev,
 				stream_info->bufq_handle[
 				VFE_BUF_QUEUE_DEFAULT] & 0xFF]++;
 			vfe_dev->error_info.framedrop_flag = 1;
+			trace_printk("vfe %d stream %x frame %d drop frame\n",
+			vfe_dev->pdev->id, stream_info->stream_id, frame_id);
 			if (vfe_dev->is_split) {
 				other_vfe_id = OTHER_VFE(vfe_dev->pdev->id);
 				temp_dev =
