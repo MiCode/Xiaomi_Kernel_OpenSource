@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -220,6 +220,10 @@ static const char rmnet_gstrings_stats[][ETH_GSTRING_LEN] = {
 	"Coalescing packets over VEID1",
 	"Coalescing packets over VEID2",
 	"Coalescing packets over VEID3",
+	"Coalescing TCP frames",
+	"Coalescing TCP bytes",
+	"Coalescing UDP frames",
+	"Coalescing UDP bytes",
 	"Uplink priority packets",
 };
 
