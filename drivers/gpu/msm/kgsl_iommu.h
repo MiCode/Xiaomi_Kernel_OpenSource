@@ -157,13 +157,6 @@ struct kgsl_iommu_pt {
 	uint64_t compat_va_end;
 };
 
-/*
- * offset of context bank 0 from the start of the SMMU register space.
- */
-#define KGSL_IOMMU_CB0_OFFSET		0x8000
-/* size of each context bank's register space */
-#define KGSL_IOMMU_CB_SHIFT		12
-
 /* Macros to read/write IOMMU registers */
 extern const unsigned int kgsl_iommu_reg_list[KGSL_IOMMU_REG_MAX];
 

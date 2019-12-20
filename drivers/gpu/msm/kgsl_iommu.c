@@ -3,6 +3,7 @@
  * Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
  */
 
+#include <linux/bitfield.h>
 #include <linux/compat.h>
 #include <linux/iommu.h>
 #include <linux/of_platform.h>
@@ -34,6 +35,10 @@
 #ifndef IOMMU_USE_UPSTREAM_HINT
 #define IOMMU_USE_UPSTREAM_HINT 0
 #endif
+
+#define KGSL_IOMMU_IDR1_OFFSET 0x24
+#define IDR1_NUMPAGENDXB GENMASK(30, 28)
+#define IDR1_PAGESIZE BIT(31)
 
 static struct kgsl_mmu_pt_ops iommu_pt_ops;
 
@@ -931,7 +936,11 @@ static int _init_global_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
 	int ret = 0;
 	struct kgsl_iommu_pt *iommu_pt = NULL;
+	unsigned int mmu_idr1;
+	unsigned int mmu_pagesize;
+	unsigned int mmu_npages;
 	unsigned int cb_num;
+	unsigned int cb0_offset;
 	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
 	struct kgsl_iommu_context *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
 
@@ -977,8 +986,16 @@ static int _init_global_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 	}
 
 	ctx->cb_num = cb_num;
-	ctx->regbase = iommu->regbase + KGSL_IOMMU_CB0_OFFSET
-			+ (cb_num << KGSL_IOMMU_CB_SHIFT);
+	mmu_idr1 = readl_relaxed(iommu->regbase + KGSL_IOMMU_IDR1_OFFSET);
+	mmu_pagesize = FIELD_GET(IDR1_PAGESIZE, mmu_idr1) ? SZ_64K : SZ_4K;
+
+	/*
+	 * The number of pages in the global address space or translation
+	 * bank address space is 2^(NUMPAGENDXB + 1).
+	 */
+	mmu_npages = 1 << (FIELD_GET(IDR1_NUMPAGENDXB, mmu_idr1) + 1);
+	cb0_offset = mmu_pagesize * mmu_npages;
+	ctx->regbase = iommu->regbase + cb0_offset + (cb_num * mmu_pagesize);
 
 	ret = iommu_domain_get_attr(iommu_pt->domain,
 			DOMAIN_ATTR_TTBR0, &iommu_pt->ttbr0);
