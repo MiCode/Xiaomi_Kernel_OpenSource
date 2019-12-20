@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2015, Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, 2019, Linux Foundation. All rights reserved.
  */
 
 #include "phy-qcom-ufs-qmp-14nm.h"
@@ -10,7 +10,7 @@
 
 static
 int ufs_qcom_phy_qmp_14nm_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
-					bool is_rate_B)
+					bool is_rate_B, bool is_g4)
 {
 	int tbl_size_A = ARRAY_SIZE(phy_cal_table_rate_A);
 	int tbl_size_B = ARRAY_SIZE(phy_cal_table_rate_B);
@@ -43,6 +43,8 @@ int ufs_qcom_phy_qmp_14nm_set_mode(struct phy *generic_phy,
 
 	if (mode > 0)
 		phy_common->mode = mode;
+
+	phy_common->submode = submode;
 
 	return 0;
 }
