@@ -1,0 +1,25 @@
+QTI battery charger binding
+
+This binding describes the Qualcomm Technologies, Inc. battery charger device.
+QTI battery charger gets and sets power supply properties by communicating with
+charger firmware running on the remote subsystem (e.g. DSP) over PMIC Glink.
+
+Refer to Documentation/devicetree/bindings/soc/qcom/qcom,pmic-glink.txt for
+information on "qcom,pmic_glink" device which is used in the example below.
+
+- compatible:
+	Usage: required
+	Value type: <stringlist>
+	Definition: must be "qcom,battery-charger"
+
+= EXAMPLE
+
+&soc {
+	qcom,pmic_glink {
+		...
+		qcom,battery_charger {
+			compatible = "qcom,battery-charger";
+		};
+		...
+	};
+};
