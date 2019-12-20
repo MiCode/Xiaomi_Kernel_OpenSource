@@ -89,6 +89,24 @@
 		status = "disabled";
 	};
 
+	/* Travel adapter over 2-wire HSUART, no wakeup */
+	qupv3_se6_2uart: qcom,qup_uart@998000 {
+		compatible = "qcom,msm-geni-serial-hs";
+		reg = <0x998000 0x4000>;
+		reg-names = "se_phys";
+		clock-names = "se-clk", "m-ahb", "s-ahb";
+		clocks = <&clock_gcc GCC_QUPV3_WRAP0_S6_CLK>,
+			<&clock_gcc GCC_QUPV3_WRAP_0_M_AHB_CLK>,
+			<&clock_gcc GCC_QUPV3_WRAP_0_S_AHB_CLK>;
+		pinctrl-names = "default", "active", "sleep";
+		pinctrl-0 = <&qupv3_se6_default_txrx>;
+		pinctrl-1 = <&qupv3_se6_2uart_active>;
+		pinctrl-2 = <&qupv3_se6_2uart_sleep>;
+		interrupts = <GIC_SPI 607 IRQ_TYPE_LEVEL_HIGH>;
+		qcom,wrapper-core = <&qupv3_0>;
+		status = "disabled";
+	};
+
 	/* SPI */
 	qupv3_se0_spi: spi@980000 {
 		compatible = "qcom,spi-geni";
