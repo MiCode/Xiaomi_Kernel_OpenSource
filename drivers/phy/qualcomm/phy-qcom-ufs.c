@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2013-2015, Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2019, Linux Foundation. All rights reserved.
  */
 
 #include "phy-qcom-ufs-i.h"
@@ -12,6 +12,8 @@
 #define VDDA_PLL_MAX_UV            1800000
 #define VDDP_REF_CLK_MIN_UV        1200000
 #define VDDP_REF_CLK_MAX_UV        1200000
+
+#define UFS_PHY_DEFAULT_LANES_PER_DIRECTION	1
 
 int ufs_qcom_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 			   struct ufs_qcom_phy_calibration *tbl_A,
@@ -89,13 +91,6 @@ int ufs_qcom_phy_base_init(struct platform_device *pdev,
 		return err;
 	}
 
-	/* "dev_ref_clk_ctrl_mem" is optional resource */
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-					   "dev_ref_clk_ctrl_mem");
-	phy_common->dev_ref_clk_ctrl_mmio = devm_ioremap_resource(dev, res);
-	if (IS_ERR((void const *)phy_common->dev_ref_clk_ctrl_mmio))
-		phy_common->dev_ref_clk_ctrl_mmio = NULL;
-
 	return 0;
 }
 
@@ -129,6 +124,19 @@ struct phy *ufs_qcom_phy_generic_probe(struct platform_device *pdev,
 		generic_phy = NULL;
 		goto out;
 	}
+
+	if (of_property_read_u32(dev->of_node, "lanes-per-direction",
+				 &common_cfg->lanes_per_direction))
+		common_cfg->lanes_per_direction =
+			UFS_PHY_DEFAULT_LANES_PER_DIRECTION;
+
+	/*
+	 * UFS PHY power management is managed by its parent (UFS host
+	 * controller) hence set the no runtime PM callbacks flag
+	 * on UFS PHY device to avoid any accidental attempt to call the
+	 * PM callbacks for PHY device.
+	 */
+	pm_runtime_no_callbacks(&generic_phy->dev);
 
 	common_cfg->phy_spec_ops = phy_spec_ops;
 	common_cfg->dev = dev;
@@ -184,16 +192,19 @@ int ufs_qcom_phy_init_clks(struct ufs_qcom_phy *phy_common)
 	if (of_device_is_compatible(phy_common->dev->of_node,
 				"qcom,msm8996-ufs-phy-qmp-14nm"))
 		goto skip_txrx_clk;
+	/*
+	 * tx_iface_clk does not exist in newer version of ufs-phy HW,
+	 * so don't return error if it is not found
+	 */
+	__ufs_qcom_phy_clk_get(phy_common->dev, "tx_iface_clk",
+				   &phy_common->tx_iface_clk, false);
 
-	err = ufs_qcom_phy_clk_get(phy_common->dev, "tx_iface_clk",
-				   &phy_common->tx_iface_clk);
-	if (err)
-		goto out;
-
-	err = ufs_qcom_phy_clk_get(phy_common->dev, "rx_iface_clk",
-				   &phy_common->rx_iface_clk);
-	if (err)
-		goto out;
+	/*
+	 * rx_iface_clk does not exist in newer version of ufs-phy HW,
+	 * so don't return error if it is not found
+	 */
+	__ufs_qcom_phy_clk_get(phy_common->dev, "rx_iface_clk",
+				   &phy_common->rx_iface_clk, false);
 
 skip_txrx_clk:
 	err = ufs_qcom_phy_clk_get(phy_common->dev, "ref_clk_src",
@@ -208,9 +219,19 @@ skip_txrx_clk:
 	__ufs_qcom_phy_clk_get(phy_common->dev, "ref_clk_parent",
 				   &phy_common->ref_clk_parent, false);
 
-	err = ufs_qcom_phy_clk_get(phy_common->dev, "ref_clk",
-				   &phy_common->ref_clk);
+	/*
+	 * Some platforms may not have the ON/OFF control for reference clock,
+	 * hence this clock may be optional.
+	 */
+	__ufs_qcom_phy_clk_get(phy_common->dev, "ref_clk",
+				   &phy_common->ref_clk, false);
 
+	/*
+	 * "ref_aux_clk" is optional and only supported by certain
+	 * phy versions, don't abort init if it's not found.
+	 */
+	 __ufs_qcom_phy_clk_get(phy_common->dev, "ref_aux_clk",
+				   &phy_common->ref_aux_clk, false);
 out:
 	return err;
 }
@@ -223,6 +244,14 @@ static int ufs_qcom_phy_init_vreg(struct device *dev,
 	int err = 0;
 
 	char prop_name[MAX_PROP_NAME];
+
+	if (dev->of_node) {
+		snprintf(prop_name, MAX_PROP_NAME, "%s-supply", name);
+		if (!of_parse_phandle(dev->of_node, prop_name, 0)) {
+			dev_dbg(dev, "No vreg data found for %s\n", prop_name);
+			return -ENODATA;
+		}
+	}
 
 	vreg->name = name;
 	vreg->reg = devm_regulator_get(dev, name);
@@ -280,7 +309,7 @@ int ufs_qcom_phy_init_vregulators(struct ufs_qcom_phy *phy_common)
 	if (err)
 		goto out;
 
-	err = ufs_qcom_phy_init_vreg(phy_common->dev, &phy_common->vddp_ref_clk,
+	ufs_qcom_phy_init_vreg(phy_common->dev, &phy_common->vddp_ref_clk,
 				     "vddp-ref-clk");
 
 out:
@@ -381,16 +410,39 @@ static int ufs_qcom_phy_enable_ref_clk(struct ufs_qcom_phy *phy)
 		}
 	}
 
-	ret = clk_prepare_enable(phy->ref_clk);
-	if (ret) {
-		dev_err(phy->dev, "%s: ref_clk enable failed %d\n",
-				__func__, ret);
-		goto out_disable_parent;
+	/*
+	 * "ref_clk" is optional clock hence make sure that clk reference
+	 * is available before trying to enable the clock.
+	 */
+	if (phy->ref_clk) {
+		ret = clk_prepare_enable(phy->ref_clk);
+		if (ret) {
+			dev_err(phy->dev, "%s: ref_clk enable failed %d\n",
+					__func__, ret);
+			goto out_disable_parent;
+		}
+	}
+
+	/*
+	 * "ref_aux_clk" is optional clock and only supported by certain
+	 * phy versions, hence make sure that clk reference is available
+	 * before trying to enable the clock.
+	 */
+	if (phy->ref_aux_clk) {
+		ret = clk_prepare_enable(phy->ref_aux_clk);
+		if (ret) {
+			dev_err(phy->dev, "%s: ref_aux_clk enable failed %d\n",
+					__func__, ret);
+			goto out_disable_ref;
+		}
 	}
 
 	phy->is_ref_clk_enabled = true;
 	goto out;
 
+out_disable_ref:
+	if (phy->ref_clk)
+		clk_disable_unprepare(phy->ref_clk);
 out_disable_parent:
 	if (phy->ref_clk_parent)
 		clk_disable_unprepare(phy->ref_clk_parent);
@@ -425,7 +477,21 @@ out:
 static void ufs_qcom_phy_disable_ref_clk(struct ufs_qcom_phy *phy)
 {
 	if (phy->is_ref_clk_enabled) {
-		clk_disable_unprepare(phy->ref_clk);
+		/*
+		 * "ref_aux_clk" is optional clock and only supported by
+		 * certain phy versions, hence make sure that clk reference
+		 * is available before trying to disable the clock.
+		 */
+		if (phy->ref_aux_clk)
+			clk_disable_unprepare(phy->ref_aux_clk);
+
+		/*
+		 * "ref_clk" is optional clock hence make sure that clk
+		 * reference is available before trying to disable the clock.
+		 */
+		if (phy->ref_clk)
+			clk_disable_unprepare(phy->ref_clk);
+
 		/*
 		 * "ref_clk_parent" is optional clock hence make sure that clk
 		 * reference is available before trying to disable the clock.
@@ -443,6 +509,9 @@ static int ufs_qcom_phy_enable_iface_clk(struct ufs_qcom_phy *phy)
 	int ret = 0;
 
 	if (phy->is_iface_clk_enabled)
+		goto out;
+
+	if (!phy->tx_iface_clk)
 		goto out;
 
 	ret = clk_prepare_enable(phy->tx_iface_clk);
@@ -467,6 +536,9 @@ out:
 /* Turn OFF M-PHY RMMI interface clocks */
 static void ufs_qcom_phy_disable_iface_clk(struct ufs_qcom_phy *phy)
 {
+	if (!phy->tx_iface_clk)
+		return;
+
 	if (phy->is_iface_clk_enabled) {
 		clk_disable_unprepare(phy->tx_iface_clk);
 		clk_disable_unprepare(phy->rx_iface_clk);
