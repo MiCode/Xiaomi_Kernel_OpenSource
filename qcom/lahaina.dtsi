@@ -2621,6 +2621,16 @@
 		clock-names = "eud_ahb2phy_clk";
 		status = "ok";
 	};
+
+	qcom_rng: qrng@10d3000 {
+		compatible = "qcom,msm-rng";
+		reg = <0x10d3000 0x1000>;
+		qcom,no-qrng-config;
+		interconnect-names = "data_path";
+		interconnects = <&gem_noc MASTER_APPSS_PROC &config_noc SLAVE_HWKM>;
+		clock-names = "km_clk_src";
+		clocks = <&clock_rpmh RPMH_HWKM_CLK>;
+	};
 };
 
 #include "lahaina-regulators.dtsi"

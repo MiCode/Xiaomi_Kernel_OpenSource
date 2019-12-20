@@ -1,0 +1,18 @@
+* RNG (Random Number Generator)
+
+Required properties:
+- compatible : Should be "qcom,msm-rng"
+- reg        : Offset and length of the register set for the device
+
+Optional property:
+- qcom,msm-rng-iface-clk : If the device uses iface-clk.
+- qcom,no-qrng-config    : Flag to decide whether the driver do the hardware configuration or not.
+
+Example:
+
+	qcom,msm-rng@f9bff000 {
+		compatible = "qcom,msm-rng";
+		reg = <0xf9bff000 0x200>;
+		qcom,msm-rng-iface-clk;
+		qcom,no-qrng-config;
+	};
