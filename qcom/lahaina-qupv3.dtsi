@@ -34,7 +34,7 @@
 			<MASTER_QUP_0 SLAVE_EBI1>;
 		iommus = <&apps_smmu 0x5a3 0x0>;
 		qcom,iommu-dma-addr-pool = <0x40000000 0xc0000000>;
-		qcom,iommu-dma = "atomic";
+		qcom,iommu-dma = "fastmap";
 	};
 
 	/* GPI */
@@ -412,7 +412,7 @@
 			<MASTER_QUP_1 SLAVE_EBI1>;
 		iommus = <&apps_smmu 0x43 0x0>;
 		qcom,iommu-dma-addr-pool = <0x40000000 0xc0000000>;
-		qcom,iommu-dma = "atomic";
+		qcom,iommu-dma = "fastmap";
 	};
 
 	/* GPI */
@@ -739,7 +739,7 @@
 			<MASTER_QUP_2 SLAVE_EBI1>;
 		iommus = <&apps_smmu 0x5e3 0x0>;
 		qcom,iommu-dma-addr-pool = <0x40000000 0xc0000000>;
-		qcom,iommu-dma = "atomic";
+		qcom,iommu-dma = "fastmap";
 	};
 
 	/* GPI */
