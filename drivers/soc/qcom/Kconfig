@@ -747,6 +747,14 @@ config MSM_SUSPEND_STATS_FIRST_BUCKET
 endif # MSM_IDLE_STATS
 endif # MSM_PM
 
+config QTI_L2_REUSE
+	bool "Qualcomm Technologies Inc (QTI) L2 reuse"
+	depends on ARCH_QCOM
+	help
+	  This module allows to configure the L2 reuse feature dynamically
+	  to let the power collapsed cluster's L2 cache usage by the active
+	  cluster cpu. Use sysfs interface to control enabling this feature.
+
 config QTI_RPM_STATS_LOG
 	bool "Qualcomm Technologies RPM Stats Driver"
 	depends on QCOM_RPMH || MSM_RPM_SMD
