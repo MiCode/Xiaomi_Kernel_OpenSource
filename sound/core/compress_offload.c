@@ -265,8 +265,13 @@ static int snd_compr_write_data(struct snd_compr_stream *stream,
 		      (app_pointer * runtime->buffer_size);
 
 	dstn = runtime->buffer + app_pointer;
+#ifdef CONFIG_AUDIO_QGKI
+	pr_debug("copying %zu at %lld\n",
+			count, app_pointer);
+#else
 	pr_debug("copying %ld at %lld\n",
 			(unsigned long)count, app_pointer);
+#endif
 	if (count < runtime->buffer_size - app_pointer) {
 		if (copy_from_user(dstn, buf, count))
 			return -EFAULT;
@@ -308,7 +313,11 @@ static ssize_t snd_compr_write(struct file *f, const char __user *buf,
 	}
 
 	avail = snd_compr_get_avail(stream);
+#ifdef CONFIG_AUDIO_QGKI
+	pr_debug("avail returned %zu\n", avail);
+#else
 	pr_debug("avail returned %ld\n", (unsigned long)avail);
+#endif
 	/* calculate how much we can write to buffer */
 	if (avail > count)
 		avail = count;
@@ -365,7 +374,11 @@ static ssize_t snd_compr_read(struct file *f, char __user *buf,
 	}
 
 	avail = snd_compr_get_avail(stream);
+#ifdef CONFIG_AUDIO_QGKI
+	pr_debug("avail returned %zu\n", avail);
+#else
 	pr_debug("avail returned %ld\n", (unsigned long)avail);
+#endif
 	/* calculate how much we can read from buffer */
 	if (avail > count)
 		avail = count;
@@ -423,7 +436,11 @@ static __poll_t snd_compr_poll(struct file *f, poll_table *wait)
 	poll_wait(f, &stream->runtime->sleep, wait);
 
 	avail = snd_compr_get_avail(stream);
+#ifdef CONFIG_AUDIO_QGKI
+	pr_debug("avail is %zu\n", avail);
+#else
 	pr_debug("avail is %ld\n", (unsigned long)avail);
+#endif
 	/* check if we have at least one fragment to fill */
 	switch (stream->runtime->state) {
 	case SNDRV_PCM_STATE_DRAINING:
