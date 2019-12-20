@@ -18,6 +18,7 @@
 &ufshc_mem {
 	limit-tx-hs-gear = <1>;
 	limit-rx-hs-gear = <1>;
+	limit-rate = <1>;
 
 	vdd-hba-supply = <&gcc_ufs_phy_gdsc>;
 	vdd-hba-fixed-regulator;

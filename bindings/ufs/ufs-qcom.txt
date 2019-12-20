@@ -34,7 +34,8 @@ Optional properties:
 - vddp-ref-clk-supply   : phandle to UFS device ref_clk pad power supply
 - vddp-ref-clk-max-microamp : specifies max. load that can be drawn from this supply
 - resets : specifies the PHY reset in the UFS controller
-
+- limit-rate : specifies if the rate has to be limited to A or B.
+	       1 = rate B, 0 = rate A.
 Example:
 
 	ufsphy1: ufsphy@fc597000 {
