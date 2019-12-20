@@ -131,6 +131,10 @@ struct rmnet_coal_stats {
 	u64 coal_trans_invalid;
 	struct rmnet_coal_close_stats close;
 	u64 coal_veid[RMNET_MAX_VEID];
+	u64 coal_tcp;
+	u64 coal_tcp_bytes;
+	u64 coal_udp;
+	u64 coal_udp_bytes;
 };
 
 struct rmnet_priv_stats {
