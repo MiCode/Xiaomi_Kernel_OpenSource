@@ -182,6 +182,14 @@
 #define MSM_NAND_READ_LOCATION_1(info)      MSM_NAND_REG(info, 0x30F24)
 #define MSM_NAND_READ_LOCATION_LAST_CW_0(info) MSM_NAND_REG(info, 0x30F40)
 #define MSM_NAND_READ_LOCATION_LAST_CW_1(info) MSM_NAND_REG(info, 0x30F44)
+#define MSM_NAND_AUTO_STATUS_EN(info)       MSM_NAND_REG(info, 0x3002c)
+
+#define NAND_FLASH_STATUS_EN                     BIT(0)
+#define NANDC_BUFFER_STATUS_EN                   BIT(1)
+#define NAND_ERASED_CW_DETECT_STATUS_EN          BIT(3)
+#define NAND_FLASH_STATUS_LAST_CW_EN             BIT(16)
+#define NANDC_BUFFER_STATUS_LAST_CW_EN           BIT(17)
+#define NAND_ERASED_CW_DETECT_STATUS_LAST_CW_EN  BIT(19)
 
 /* device commands */
 #define MSM_NAND_CMD_PAGE_READ          0x32
@@ -193,6 +201,11 @@
 #define MSM_NAND_CMD_PRG_PAGE_ALL       0x39
 #define MSM_NAND_CMD_BLOCK_ERASE        0x3A
 #define MSM_NAND_CMD_FETCH_ID           0x0B
+
+/* device read commands for pagescope */
+
+#define MSM_NAND_CMD_PAGE_READ_ECC_PS   0x800033
+#define MSM_NAND_CMD_PAGE_READ_ALL_PS   0x800034
 
 /* Version Mask */
 #define MSM_NAND_VERSION_MAJOR_MASK	0xF0000000
@@ -232,6 +245,17 @@ struct msm_nand_rw_cmd_desc {
 };
 
 /*
+ * Structure that holds the flash, buffer,
+ * erased codeword status after every codeword
+ * read during Pagescope read operation.
+ */
+struct msm_nand_read_status_desc {
+	uint32_t flash_status;
+	uint32_t buffer_status;
+	uint32_t erased_cw_status;
+};
+
+/*
  * Structure that defines the NAND controller properties as per the
  * NAND flash device/chip that is attached.
  */
@@ -258,6 +282,9 @@ struct msm_nand_chip {
 	uint32_t ecc_bch_cfg;
 	uint32_t ecc_cfg_raw;
 	uint32_t qpic_version; /* To store the qpic controller version */
+	uint32_t caps; /* General host capabilities */
+#define MSM_NAND_CAP_PAGE_SCOPE_READ   BIT(0)
+#define MSM_NAND_CAP_MULTI_PAGE_READ   BIT(1)
 };
 
 /* Structure that defines an SPS end point for a NANDc BAM pipe. */
