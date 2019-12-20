@@ -37,7 +37,7 @@ enum {
 };
 
 static unsigned long cpu_hw_rate, xo_rate;
-static const u16 *offsets;
+static const size_t *offsets;
 static unsigned int lut_row_size = LUT_ROW_SIZE;
 static bool accumulative_counter;
 
@@ -113,9 +113,7 @@ static int
 qcom_cpufreq_hw_target_index(struct cpufreq_policy *policy,
 			     unsigned int index)
 {
-	void __iomem *base = policy->driver_data;
-
-	writel_relaxed(index, base + offsets[REG_PERF_STATE]);
+	writel_relaxed(index, policy->driver_data + offsets[REG_PERF_STATE]);
 	arch_set_freq_scale(policy->related_cpus,
 			    policy->freq_table[index].frequency,
 			    policy->cpuinfo.max_freq);
@@ -126,16 +124,13 @@ qcom_cpufreq_hw_target_index(struct cpufreq_policy *policy,
 static unsigned int qcom_cpufreq_hw_get(unsigned int cpu)
 {
 	struct cpufreq_policy *policy;
-	void __iomem *base;
 	unsigned int index;
 
 	policy = cpufreq_cpu_get_raw(cpu);
 	if (!policy)
 		return 0;
 
-	base = policy->driver_data;
-
-	index = readl_relaxed(base + offsets[REG_PERF_STATE]);
+	index = readl_relaxed(policy->driver_data + offsets[REG_PERF_STATE]);
 	index = min(index, LUT_MAX_ENTRIES - 1);
 
 	return policy->freq_table[index].frequency;
