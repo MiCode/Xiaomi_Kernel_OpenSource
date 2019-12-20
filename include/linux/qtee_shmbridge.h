@@ -76,6 +76,12 @@ int32_t qtee_shmbridge_deregister(uint64_t handle);
  *         size; returns ERR_PTR or NULL otherwise
  *
  * return success or error
+ *
+ * Note: This will allocate a cached buffer, so after a client allocates
+ *       a bridge buffer, it need to first flush cache with
+ *       "qtee_shmbridge_flush_shm_buf" before invoke scm_call to TZ,
+ *       and then invalidate cache with "qtee_shmbridge_inv_shm_buf"
+ *       after scm_call return.
  */
 int32_t qtee_shmbridge_allocate_shm(size_t size, struct qtee_shm *shm);
 
@@ -86,5 +92,21 @@ int32_t qtee_shmbridge_allocate_shm(size_t size, struct qtee_shm *shm);
  *
  */
 void qtee_shmbridge_free_shm(struct qtee_shm *shm);
+
+/*
+ * cache clean operation for buffer sub-allocated from default bridge
+ *
+ * @ [IN] shm: qtee_shm, its cache to be cleaned
+ *
+ */
+void qtee_shmbridge_flush_shm_buf(struct qtee_shm *shm);
+
+/*
+ * cache invalidation operation for buffer sub-allocated from default bridge
+ *
+ * @ [IN] shm: qtee_shm, its cache to be invalidated
+ *
+ */
+void qtee_shmbridge_inv_shm_buf(struct qtee_shm *shm);
 
 #endif /*__QTEE_SHMBRIDGE_H__*/
