@@ -959,9 +959,21 @@ int snd_soc_new_compress(struct snd_soc_pcm_runtime *rtd, int num)
 
 	rtd->compr = compr;
 	compr->private_data = rtd;
+
 #ifdef CONFIG_AUDIO_QGKI
+	for_each_rtdcom(rtd, rtdcom) {
+		component = rtdcom->component;
+
+		if (component->driver->pcm_new) {
+			ret = component->driver->pcm_new(rtd);
+			if (ret < 0) {
+				pr_err("asoc: compress pcm constructor failed\n");
+				return ret;
+			}
+		}
+	}
 	dev_dbg(rtd->card->dev, "Compress ASoC: %s <-> %s mapping ok\n",
-		 codec_dai->name, cpu_dai->name);
+		codec_dai->name, cpu_dai->name);
 #else
 	dev_info(rtd->card->dev, "Compress ASoC: %s <-> %s mapping ok\n",
 		 codec_dai->name, cpu_dai->name);
