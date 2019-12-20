@@ -58,21 +58,6 @@ static struct cnss_fw_files FW_FILES_DEFAULT = {
 	"utfbd.bin", "epping.bin", "evicted.bin"
 };
 
-static struct cnss_bus_bw_cfg cnss_bus_bw_table[] = {
-	/* no vote */
-	{0, 0},
-	/* idle: 0-18 Mbps, ddr freq: 100 MHz */
-	{2250, 400000},
-	/* low: 18-60 Mbps, ddr freq: 200 MHz*/
-	{7500, 800000},
-	/* medium: 60-240 Mbps, ddr freq: 451.2 MHz */
-	{30000, 1804800},
-	/* high: 240 - 800 Mbps, ddr freq: 451.2 MHz */
-	{100000, 1804800},
-	/* very high: 800 - 1400 Mbps, ddr freq: 1555.2 MHz */
-	{175000, 6220800},
-};
-
 struct cnss_driver_event {
 	struct list_head list;
 	enum cnss_driver_event_type type;
@@ -172,44 +157,6 @@ int cnss_get_fw_files_for_target(struct device *dev,
 	return 0;
 }
 EXPORT_SYMBOL(cnss_get_fw_files_for_target);
-
-int cnss_request_bus_bandwidth(struct device *dev, int bandwidth)
-{
-	int ret = 0;
-	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
-	struct cnss_bus_bw_info *bus_bw_info;
-
-	if (!plat_priv)
-		return -ENODEV;
-
-	bus_bw_info = &plat_priv->bus_bw_info;
-	if (!bus_bw_info->cnss_path)
-		return -EINVAL;
-
-	switch (bandwidth) {
-	case CNSS_BUS_WIDTH_NONE:
-	case CNSS_BUS_WIDTH_IDLE:
-	case CNSS_BUS_WIDTH_LOW:
-	case CNSS_BUS_WIDTH_MEDIUM:
-	case CNSS_BUS_WIDTH_HIGH:
-	case CNSS_BUS_WIDTH_VERY_HIGH:
-		ret = icc_set_bw(bus_bw_info->cnss_path,
-				 bus_bw_table[bandwidth].ab,
-				 bus_bw_table[bandwidth].ib);
-		if (!ret)
-			bus_bw_info->current_bw_vote = bandwidth;
-		else
-			cnss_pr_err("Could not set bus bandwidth: %d, err = %d\n",
-				    bandwidth, ret);
-		break;
-	default:
-		cnss_pr_err("Invalid bus bandwidth: %d", bandwidth);
-		ret = -EINVAL;
-	}
-
-	return ret;
-}
-EXPORT_SYMBOL(cnss_request_bus_bandwidth);
 
 int cnss_get_platform_cap(struct device *dev, struct cnss_platform_cap *cap)
 {
@@ -784,6 +731,7 @@ static void cnss_put_resources(struct cnss_plat_data *plat_priv)
 	cnss_put_vreg_type(plat_priv, CNSS_VREG_PRIM);
 }
 
+#ifdef CONFIG_ESOC
 static int cnss_modem_notifier_nb(struct notifier_block *nb,
 				  unsigned long code,
 				  void *ss_handle)
@@ -882,6 +830,14 @@ static void cnss_unregister_esoc(struct cnss_plat_data *plat_priv)
 	if (esoc_info->esoc_desc)
 		devm_unregister_esoc_client(dev, esoc_info->esoc_desc);
 }
+#else
+static inline int cnss_register_esoc(struct cnss_plat_data *plat_priv)
+{
+	return 0;
+}
+
+static inline void cnss_unregister_esoc(struct cnss_plat_data *plat_priv) {}
+#endif
 
 static int cnss_subsys_powerup(const struct subsys_desc *subsys_desc)
 {
