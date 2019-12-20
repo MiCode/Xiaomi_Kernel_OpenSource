@@ -266,7 +266,7 @@ config CORESIGHT_TGU
 
 config CORESIGHT_OST
 	bool "CoreSight OST framework"
-	depends on CORESIGHT_STM && COREISGHT_QGKI
+	depends on CORESIGHT_STM && CORESIGHT_QGKI
 	help
 	  This driver enables the support for Open System Trace packets in STM.
 	  This is primarily intended to be used as a layer on top of underlying
