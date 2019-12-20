@@ -1816,6 +1816,7 @@ struct ipa3_pc_mbox_data {
  * @wdi3_ctx: IPA wdi3 context
  * @gsi_info: channel/protocol info for GSI offloading uC stats
  * IPA context - holds all relevant info about IPA driver and its state
+ * @coal_cmd_pyld: holds the coslescing close frame command payload
  */
 struct ipa3_context {
 	struct ipa3_char_device_context cdev;
@@ -1987,6 +1988,7 @@ struct ipa3_context {
 		gsi_info[IPA_HW_PROTOCOL_MAX];
 	bool ipa_mhi_proxy;
 	bool ipa_wan_skb_page;
+	struct ipahal_imm_cmd_pyld *coal_cmd_pyld;
 };
 
 struct ipa3_plat_drv_res {
@@ -3053,6 +3055,8 @@ void ipa3_disable_prefetch(enum ipa_client_type client);
 int ipa3_alloc_common_event_ring(void);
 int ipa3_allocate_dma_task_for_gsi(void);
 void ipa3_free_dma_task_for_gsi(void);
+int ipa3_allocate_coal_close_frame(void);
+void ipa3_free_coal_close_frame(void);
 int ipa3_set_clock_plan_from_pm(int idx);
 void __ipa_gsi_irq_rx_scedule_poll(struct ipa3_sys_context *sys);
 int ipa3_tz_unlock_reg(struct ipa_tz_unlock_reg_info *reg_info, u16 num_regs);
