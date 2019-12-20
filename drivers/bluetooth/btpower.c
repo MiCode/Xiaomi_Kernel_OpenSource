@@ -511,6 +511,7 @@ static int bt_power_vreg_set(enum bt_power_modes mode)
 							vreg_info->name);
 				if (IS_ERR(vreg_info->reg)) {
 					ret = PTR_ERR(vreg_info->reg);
+					vreg_info->reg = NULL;
 					pr_err("%s: regulator_get(%s) failed. rc=%d\n",
 						__func__, vreg_info->name, ret);
 					goto out;
