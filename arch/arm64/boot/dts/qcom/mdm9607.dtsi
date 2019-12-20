@@ -1382,12 +1382,12 @@
 
 		qcom,ipc-1 = <&apcs 0 13>;
 
-		apps_smsm: apps@0 {
+		apps_smsm_out: apps@0 {
 			reg = <0>;
 			#qcom,smem-state-cells = <1>;
 		};
 
-		modem_smsm: modem@1 {
+		modem_smsm_in: modem@1 {
 			reg = <1>;
 			interrupts = <GIC_SPI 26 IRQ_TYPE_EDGE_RISING>;
 
@@ -1516,26 +1516,19 @@
 		qcom,disable-pil-loading;
 	};
 
-	apps_modem {
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		apps_modem: apps@1 {
-			reg = <1>;
-			#qcom,smem-state-cells = <1>;
-		};
-	};
-
 	qcom,bam_dmux@4044000 {
 		compatible = "qcom,bam_dmux";
 		reg = <0x4044000 0x19000>;
-		interrupts = <0 29 1>;
 		qcom,rx-ring-size = <32>;
 		qcom,max-rx-mtu = <4096>;
 		qcom,fast-shutdown;
-
-		qcom,smem-states = <&apps_modem 0>, <&apps_modem 32>;
+		qcom,smem-states = <&apps_smsm_out 1>, <&apps_smsm_out 11>;
 		qcom,smem-state-names = "pwrctrl", "pwrctrlack";
+		interrupts-extended =
+				<&wakegic GIC_SPI 29 IRQ_TYPE_EDGE_RISING>,
+				<&modem_smsm_in 1 IRQ_TYPE_EDGE_BOTH>,
+				<&modem_smsm_in 11 IRQ_TYPE_EDGE_BOTH>;
+		interrupt-names = "dmux", "ctrl", "ack";
 	};
 
 	spmi_bus: qcom,spmi@200f000 {
