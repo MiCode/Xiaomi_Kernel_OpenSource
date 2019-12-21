@@ -6048,6 +6048,7 @@ exit:
 void msm_comm_print_inst_info(struct msm_vidc_inst *inst)
 {
 	struct msm_vidc_buffer *mbuf;
+	struct msm_vidc_cvp_buffer *cbuf;
 	struct internal_buf *buf;
 	bool is_decode = false;
 	enum vidc_ports port;
@@ -6103,6 +6104,14 @@ void msm_comm_print_inst_info(struct msm_vidc_inst *inst)
 				buf->buffer_type, buf->smem.device_addr,
 				buf->smem.size);
 	mutex_unlock(&inst->outputbufs.lock);
+
+	mutex_lock(&inst->cvpbufs.lock);
+	dprintk(VIDC_ERR, "cvp buffer list:\n");
+	list_for_each_entry(cbuf, &inst->cvpbufs.list, list)
+		dprintk(VIDC_ERR, "index: %u fd: %u offset: %u addr: %x\n",
+				cbuf->buf.index, cbuf->buf.fd,
+				cbuf->buf.offset, cbuf->smem.device_addr);
+	mutex_unlock(&inst->cvpbufs.lock);
 }
 
 int msm_comm_session_continue(void *instance)
