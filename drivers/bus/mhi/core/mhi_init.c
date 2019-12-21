@@ -85,7 +85,7 @@ struct mhi_controller *find_mhi_controller_by_name(const char *name)
 
 	list_for_each_entry_safe(mhi_cntrl, tmp_cntrl, &mhi_bus.controller_list,
 				 node) {
-		if (!strcmp(name, mhi_cntrl->name))
+		if (mhi_cntrl->name && (!strcmp(name, mhi_cntrl->name)))
 			return mhi_cntrl;
 	}
 
