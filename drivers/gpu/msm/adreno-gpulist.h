@@ -303,6 +303,7 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.gmem_size = (SZ_256K + SZ_16K),
 		.num_protected_regs = 0x20,
 		.busy_mask = 0xFFFFFFFE,
+		.cx_ipeak_gpu_freq = 700000000,
 	},
 	{
 		.gpurev = ADRENO_REV_A508,

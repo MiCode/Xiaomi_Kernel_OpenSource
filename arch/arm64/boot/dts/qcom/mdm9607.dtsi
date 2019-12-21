@@ -1828,6 +1828,7 @@
 #include "pm8019-rpm-regulator.dtsi"
 #include "pm8019.dtsi"
 #include "mdm9607-regulator.dtsi"
+#include "mdm9607-thermal.dtsi"
 
 /* MPP pin 1 config for USB ID interrupt line */
 &pm8019_mpps {

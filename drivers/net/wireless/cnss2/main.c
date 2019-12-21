@@ -699,6 +699,11 @@ int cnss_idle_shutdown(struct device *dev)
 		return -ENODEV;
 	}
 
+	if (test_bit(CNSS_IN_SUSPEND_RESUME, &plat_priv->driver_state)) {
+		cnss_pr_dbg("System suspend or resume in progress, ignore idle shutdown\n");
+		return -EAGAIN;
+	}
+
 	cnss_pr_dbg("Doing idle shutdown\n");
 
 	if (!test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state) &&

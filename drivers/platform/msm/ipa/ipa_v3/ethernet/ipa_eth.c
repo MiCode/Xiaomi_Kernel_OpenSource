@@ -322,8 +322,7 @@ static void ipa_eth_device_refresh_work(struct work_struct *work)
 
 void ipa_eth_device_refresh_sched(struct ipa_eth_device *eth_dev)
 {
-	if (present(eth_dev))
-		queue_work(ipa_eth_wq, &eth_dev->refresh);
+	queue_work(ipa_eth_wq, &eth_dev->refresh);
 }
 
 void ipa_eth_device_refresh_sync(struct ipa_eth_device *eth_dev)

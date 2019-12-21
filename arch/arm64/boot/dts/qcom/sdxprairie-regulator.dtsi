@@ -54,9 +54,9 @@
 		S3E: pmxprairie_s3: regulator-pmxprairie-s3 {
 			regulator-name = "pmxprairie_s3";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
-			regulator-min-microvolt = <950000>;
+			regulator-min-microvolt = <800000>;
 			regulator-max-microvolt = <1000000>;
-			qcom,init-voltage = <950000>;
+			qcom,init-voltage = <800000>;
 		};
 	};
 

@@ -877,6 +877,9 @@ static int shd_conn_set_info_blob(struct drm_connector *connector,
 	sde_kms_info_add_keystr(info, "display type",
 				shd_display->display_type);
 
+	sde_kms_info_add_keystr(info, "display type",
+				shd_display->display_type);
+
 	return 0;
 }
 
