@@ -170,6 +170,8 @@ int ethqos_handle_prv_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
 int ethqos_init_pps(struct stmmac_priv *priv);
 
 extern bool phy_intr_en;
+void qcom_ethqos_request_phy_wol(struct plat_stmmacenet_data *plat_dat);
+
 int stmmac_mdio_unregister(struct net_device *ndev);
 int stmmac_mdio_register(struct net_device *ndev);
 int stmmac_mdio_reset(struct mii_bus *mii);

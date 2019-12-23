@@ -293,11 +293,8 @@ static inline u32 stmmac_rx_dirty(struct stmmac_priv *priv, u32 queue)
  */
 static inline void stmmac_hw_fix_mac_speed(struct stmmac_priv *priv)
 {
-	struct net_device *ndev = priv->dev;
-	struct phy_device *phydev = ndev->phydev;
-
 	if (likely(priv->plat->fix_mac_speed))
-		priv->plat->fix_mac_speed(priv->plat->bsp_priv, phydev->speed);
+		priv->plat->fix_mac_speed(priv->plat->bsp_priv, priv->speed);
 }
 
 /**
@@ -832,9 +829,10 @@ static void stmmac_adjust_link(struct net_device *dev)
 				phydev->speed = SPEED_UNKNOWN;
 				break;
 			}
+			priv->speed = phydev->speed;
 			if (phydev->speed != SPEED_UNKNOWN)
 				stmmac_hw_fix_mac_speed(priv);
-			priv->speed = phydev->speed;
+
 		}
 
 		writel(ctrl, priv->ioaddr + MAC_CTRL_REG);
@@ -981,6 +979,7 @@ static int stmmac_init_phy(struct net_device *dev)
 			pr_debug(" qcom-ethqos: %s config_phy_intr successful\n",
 				 __func__);
 		}
+		qcom_ethqos_request_phy_wol(priv->plat);
 	}
 	phy_attached_info(phydev);
 	return 0;
