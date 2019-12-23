@@ -25,6 +25,8 @@
 
 #define CAM_ICP_CTX_MAX          54
 
+#define CAM_ICP_CTX_REQ_MAX       40
+
 #define CPAS_IPE1_BIT            0x2000
 
 #define CAM_ICP_DUMP_TAG_MAX_LEN 32
