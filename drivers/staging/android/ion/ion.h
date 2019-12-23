@@ -444,7 +444,7 @@ struct ion_page_pool {
 	gfp_t gfp_mask;
 	unsigned int order;
 	struct plist_node list;
-	struct ion_heap heap;
+	struct device *dev;
 };
 
 struct ion_page_pool *ion_page_pool_create(gfp_t gfp_mask, unsigned int order,
