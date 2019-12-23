@@ -717,5 +717,15 @@
 	status="disabled";
 };
 
+&android_q_fstab {
+	metadata {
+		compatible = "android,metadata";
+		status = "ok";
+		type = "ext4";
+		mnt_flags = "noatime,nosuid,nodev,discard";
+		fsmgr_flags = "wait,formattable,first_stage_mount";
+	};
+};
+
 #include "sa8155-audio.dtsi"
 #include "sa8155-camera-sensor.dtsi"
