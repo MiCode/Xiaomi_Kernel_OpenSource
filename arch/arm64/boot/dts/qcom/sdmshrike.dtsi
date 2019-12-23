@@ -1981,6 +1981,11 @@
 			reg = <0x65c 4>;
 		};
 
+		dload_type@1c {
+			compatible = "qcom,msm-imem-dload-type";
+			reg = <0x1c 0x4>;
+		};
+
 		boot_stats@6b0 {
 			compatible = "qcom,msm-imem-boot_stats";
 			reg = <0x6b0 32>;
