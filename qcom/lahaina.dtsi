@@ -2063,6 +2063,34 @@
 		qcom,wakeup-enable;
 	};
 
+	tsens0:tsens@c222000 {
+		compatible = "qcom,tsens24xx";
+		reg = <0x0C222000 0x8>,
+		      <0x0C263000 0x1ff>;
+		reg-names = "tsens_srot_physical",
+			"tsens_tm_physical";
+		interrupts-extended = <&pdc 26 IRQ_TYPE_LEVEL_HIGH>,
+			<&pdc 28 IRQ_TYPE_LEVEL_HIGH>,
+			<&pdc 20 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "tsens-upper-lower", "tsens-critical",
+				"tsens-0C";
+		#thermal-sensor-cells = <1>;
+	};
+
+	tsens1:tsens@c223000 {
+		compatible = "qcom,tsens24xx";
+		reg = <0x0C223000 0x8>,
+			<0x0C265000 0x1ff>;
+		reg-names = "tsens_srot_physical",
+			"tsens_tm_physical";
+		interrupts-extended = <&pdc 27 IRQ_TYPE_LEVEL_HIGH>,
+			<&pdc 29 IRQ_TYPE_LEVEL_HIGH>,
+			<&pdc 21 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "tsens-upper-lower", "tsens-critical",
+				"tsens-0C";
+		#thermal-sensor-cells = <1>;
+	};
+
 	qcom,glink {
 		compatible = "qcom,glink";
 		#address-cells = <1>;
