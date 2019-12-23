@@ -1421,7 +1421,15 @@
 			<&tlmm 90 2>, <&pdc 0 290 1>, <&pdc 0 291 1>;
 		interrupt-names = "macirq", "eth_lpi",
 			"phy-intr",	"ptp_pps_irq_0", "ptp_pps_irq_1";
-
+		qcom,msm-bus,name = "emac";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+			<98 512 0 0>, <1 781 0 0>,  /* No vote */
+			<98 512 2500 0>, <1 781 0 40000>,  /* 10Mbps vote */
+			<98 512 25000 0>, <1 781 0 40000>,  /* 100Mbps vote */
+			<98 512 250000 0>, <1 781 0 40000>; /* 1000Mbps vote */
+		qcom,bus-vector-names = "0", "10", "100", "1000";
 		snps,tso;
 		rx-fifo-depth = <4096>;
 		tx-fifo-depth = <4096>;
