@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -745,6 +745,7 @@ void qmi_rmnet_enable_all_flows(struct net_device *dev)
 		bearer->grant_thresh = qmi_rmnet_grant_per(DEFAULT_GRANT);
 		bearer->seq = 0;
 		bearer->ack_req = 0;
+		bearer->bytes_in_flight = 0;
 		bearer->tcp_bidir = false;
 		bearer->rat_switch = false;
 
