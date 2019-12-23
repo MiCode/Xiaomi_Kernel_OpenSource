@@ -1002,7 +1002,7 @@
 				};
 			};
 
-			port@10 {
+			port@a {
 				reg = <10>;
 				tpda_10_in_tpdm_ddr_ch02: endpoint {
 					remote-endpoint =
@@ -1010,7 +1010,7 @@
 				};
 			};
 
-			port@11 {
+			port@b {
 				reg = <11>;
 				tpda_11_in_tpdm_ddr_ch13: endpoint {
 					remote-endpoint =
@@ -1018,7 +1018,7 @@
 				};
 			};
 
-			port@12 {
+			port@c {
 				reg = <12>;
 				tpda_12_in_tpdm_ddr: endpoint {
 					remote-endpoint =
@@ -1026,7 +1026,7 @@
 				};
 			};
 
-			port@13 {
+			port@d {
 				reg = <13>;
 				tpda_13_in_tpdm_shrm: endpoint {
 					remote-endpoint =
@@ -1034,7 +1034,7 @@
 				};
 			};
 
-			port@14 {
+			port@e {
 				reg = <14>;
 				tpda_14_in_tpdm_rdpm: endpoint {
 					remote-endpoint =
@@ -1042,7 +1042,7 @@
 				};
 			};
 
-			port@15 {
+			port@f {
 				reg = <15>;
 				tpda_15_in_tpdm_rdpm_mx: endpoint {
 					remote-endpoint =
@@ -1050,7 +1050,7 @@
 				};
 			};
 
-			port@19 {
+			port@13 {
 				reg = <19>;
 				tpda_19_in_tpdm_dlct: endpoint {
 					remote-endpoint =
@@ -1058,7 +1058,7 @@
 				};
 			};
 
-			port@20 {
+			port@14 {
 				reg = <20>;
 				tpda_20_in_tpdm_ipcc: endpoint {
 					remote-endpoint =
@@ -1066,7 +1066,7 @@
 				};
 			};
 
-			port@21 {
+			port@15 {
 				reg = <21>;
 				tpda_21_in_tpdm_turing: endpoint {
 					remote-endpoint =
@@ -1074,7 +1074,7 @@
 				};
 			};
 
-			port@22 {
+			port@16 {
 				reg = <22>;
 				tpda_22_in_tpdm_llm_turing: endpoint {
 					remote-endpoint =
@@ -1082,7 +1082,7 @@
 				};
 			};
 
-			port@23 {
+			port@17 {
 				reg = <23>;
 				tpda_in_tpdm_dcc: endpoint {
 					remote-endpoint =
@@ -1090,7 +1090,7 @@
 				};
 			};
 
-			port@24 {
+			port@18 {
 				reg = <24>;
 				tpda_in_tpdm_prng: endpoint {
 					remote-endpoint =
@@ -1098,7 +1098,7 @@
 				};
 			};
 
-			port@25 {
+			port@19 {
 				reg = <25>;
 				tpda_in_tpdm_qm: endpoint {
 					remote-endpoint =
@@ -1106,7 +1106,7 @@
 				};
 			};
 
-			port@26 {
+			port@1a {
 				reg = <26>;
 				tpda_in_tpdm_gcc: endpoint {
 					remote-endpoint =
@@ -1114,7 +1114,7 @@
 				};
 			};
 
-			port@27 {
+			port@1b {
 				reg = <27>;
 				tpda_in_tpdm_vsense: endpoint {
 					remote-endpoint =
@@ -1122,7 +1122,7 @@
 				};
 			};
 
-			port@28 {
+			port@1c {
 				reg = <28>;
 				tpda_in_tpdm_spdm: endpoint {
 					remote-endpoint =
@@ -1130,7 +1130,7 @@
 				};
 			};
 
-			port@31 {
+			port@1f {
 				reg = <31>;
 				tpda_in_tpdm_pimem: endpoint {
 					remote-endpoint =
@@ -1455,7 +1455,7 @@
 		in-ports {
 			#address-cells = <1>;
 			#size-cells = <0>;
-			port@1 {
+			port@0 {
 				reg = <0>;
 				funnel_dl_north_in_tpda_dl_north: endpoint {
 					remote-endpoint =
@@ -1570,7 +1570,7 @@
 				};
 			};
 
-			port@10 {
+			port@a {
 				reg = <10>;
 				tpdm_dlct_out_tpda19: endpoint {
 				remote-endpoint =
@@ -1579,7 +1579,7 @@
 				};
 			};
 
-			port@11 {
+			port@b {
 				reg = <11>;
 				tpdm_ipcc_out_tpda20: endpoint {
 					remote-endpoint =
@@ -1588,7 +1588,7 @@
 				};
 			};
 
-			port@12 {
+			port@c {
 				reg = <12>;
 				funnel_dl_center_out_qatb: endpoint {
 					remote-endpoint =
