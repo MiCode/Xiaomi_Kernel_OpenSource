@@ -30,7 +30,7 @@
 #define CAM_ICP_ROLE_PARENT     1
 #define CAM_ICP_ROLE_CHILD      2
 
-#define CAM_FRAME_CMD_MAX       20
+#define CAM_FRAME_CMD_MAX       CAM_ICP_CTX_REQ_MAX
 
 #define CAM_MAX_OUT_RES         6
 #define CAM_MAX_IN_RES          8
