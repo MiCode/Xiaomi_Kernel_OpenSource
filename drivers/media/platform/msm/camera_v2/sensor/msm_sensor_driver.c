@@ -1338,6 +1338,7 @@ int32_t msm_sensor_driver_probe(void *setting,
 		slave_info->sensor_id_info = slave_info32->sensor_id_info;
 		slave_info->vendor_id_info = slave_info32->vendor_id_info;
 		slave_info->vcm_id_info = slave_info32->vcm_id_info;
+		slave_info->lens_id_info = slave_info32->lens_id_info;
 
 		slave_info->slave_addr = slave_info32->slave_addr;
 		slave_info->power_setting_array.size =
@@ -1580,7 +1581,7 @@ CSID_TG:
 	s_ctrl->sensordata->flash_name = slave_info->flash_name;
 	s_ctrl->sensordata->vendor_id_info = &(slave_info->vendor_id_info);
 	s_ctrl->sensordata->vcm_id_info = &(slave_info->vcm_id_info);
-
+	s_ctrl->sensordata->lens_id_info = &(slave_info->lens_id_info);
 
 	/*
 	 * Update eeporm subdevice Id by input eeprom name
