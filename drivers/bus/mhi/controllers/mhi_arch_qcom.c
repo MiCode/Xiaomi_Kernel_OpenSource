@@ -753,6 +753,7 @@ int mhi_arch_link_resume(struct mhi_controller *mhi_cntrl)
 	}
 
 	msm_pcie_l1ss_timeout_enable(pci_dev);
+	mhi_cntrl->force_m3_done = true;
 
 	MHI_LOG("Exited\n");
 

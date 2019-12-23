@@ -423,7 +423,7 @@ fail_get_client:
 
 static int vs_block_client_get_blkdev_id(struct block_client *client)
 {
-	int id;
+	int id = 0;
 	int ret;
 
 retry:

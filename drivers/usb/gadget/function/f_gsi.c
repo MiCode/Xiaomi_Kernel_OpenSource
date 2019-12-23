@@ -487,10 +487,22 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 	log_event_dbg("IN: num_bufs:=%zu, buf_len=%zu\n",
 		d_port->in_request.num_bufs, d_port->in_request.buf_len);
 
-	usb_gsi_ep_op(d_port->in_ep, &d_port->in_request,
-		GSI_EP_OP_PREPARE_TRBS);
-	usb_gsi_ep_op(d_port->in_ep, &d_port->in_request,
+	ret = usb_gsi_ep_op(d_port->in_ep, &d_port->in_request,
+			GSI_EP_OP_PREPARE_TRBS);
+	if (ret) {
+		log_event_err("%s: GSI_EP_OP_PREPARE_TRBS failed: %d\n",
+				__func__, ret);
+		return ret;
+	}
+
+	ret = usb_gsi_ep_op(d_port->in_ep, &d_port->in_request,
 			GSI_EP_OP_STARTXFER);
+	if (ret) {
+		log_event_err("%s: GSI_EP_OP_STARTXFER failed: %d\n",
+				__func__, ret);
+		goto free_trb_ep_in;
+	}
+
 	d_port->in_xfer_rsc_index = usb_gsi_ep_op(d_port->in_ep, NULL,
 			GSI_EP_OP_GET_XFER_IDX);
 
@@ -533,10 +545,22 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 		log_event_dbg("OUT: num_bufs:=%zu, buf_len=%zu\n",
 			d_port->out_request.num_bufs,
 			d_port->out_request.buf_len);
-		usb_gsi_ep_op(d_port->out_ep, &d_port->out_request,
+		ret = usb_gsi_ep_op(d_port->out_ep, &d_port->out_request,
 			GSI_EP_OP_PREPARE_TRBS);
-		usb_gsi_ep_op(d_port->out_ep, &d_port->out_request,
+		if (ret) {
+			log_event_err("%s: GSI_EP_OP_PREPARE_TRBS failed: %d\n",
+					__func__, ret);
+			goto end_xfer_ep_in;
+		}
+
+		ret = usb_gsi_ep_op(d_port->out_ep, &d_port->out_request,
 				GSI_EP_OP_STARTXFER);
+		if (ret) {
+			log_event_err("%s: GSI_EP_OP_STARTXFER failed: %d\n",
+					__func__, ret);
+			goto free_trb_ep_out;
+		}
+
 		d_port->out_xfer_rsc_index =
 			usb_gsi_ep_op(d_port->out_ep,
 				NULL, GSI_EP_OP_GET_XFER_IDX);
@@ -612,7 +636,7 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 					conn_params);
 	if (ret) {
 		log_event_err("%s: IPA connect failed %d", __func__, ret);
-		return ret;
+		goto end_xfer_ep_out;
 	}
 	log_event_dbg("%s: xdci_connect done", __func__);
 
@@ -640,6 +664,23 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 		d_port->out_request.db_reg_phs_addr_msb =
 			ipa_out_channel_out_params.db_reg_phs_addr_msb;
 	}
+
+	return ret;
+
+end_xfer_ep_out:
+	if (d_port->out_ep)
+		usb_gsi_ep_op(d_port->out_ep, NULL,
+			GSI_EP_OP_ENDXFER);
+free_trb_ep_out:
+	if (d_port->out_ep)
+		usb_gsi_ep_op(d_port->out_ep, &d_port->out_request,
+			GSI_EP_OP_FREE_TRBS);
+end_xfer_ep_in:
+	usb_gsi_ep_op(d_port->in_ep, NULL,
+		GSI_EP_OP_ENDXFER);
+free_trb_ep_in:
+	usb_gsi_ep_op(d_port->in_ep, &d_port->in_request,
+		GSI_EP_OP_FREE_TRBS);
 	return ret;
 }
 
@@ -802,8 +843,10 @@ static int gsi_ep_enable(struct f_gsi *gsi)
 			return ret;
 
 		log_event_dbg("%s: Enable IN ep", __func__);
-		usb_gsi_ep_op(gsi->d_port.in_ep,
-			&gsi->d_port.in_request, GSI_EP_OP_CONFIG);
+		ret = usb_gsi_ep_op(gsi->d_port.in_ep,
+				&gsi->d_port.in_request, GSI_EP_OP_CONFIG);
+		if (ret)
+			return ret;
 	}
 
 	if (gsi->d_port.out_ep && !gsi->d_port.out_ep->desc) {
@@ -813,8 +856,13 @@ static int gsi_ep_enable(struct f_gsi *gsi)
 			return ret;
 
 		log_event_dbg("%s: Enable OUT ep", __func__);
-		usb_gsi_ep_op(gsi->d_port.out_ep,
+		ret = usb_gsi_ep_op(gsi->d_port.out_ep,
 				&gsi->d_port.out_request, GSI_EP_OP_CONFIG);
+		if (ret) {
+			usb_gsi_ep_op(gsi->d_port.in_ep,
+				&gsi->d_port.in_request, GSI_EP_OP_DISABLE);
+			return ret;
+		}
 	}
 
 	return 0;
@@ -887,7 +935,16 @@ static void ipa_work_handler(struct work_struct *w)
 				break;
 			}
 
-			ipa_connect_channels(d_port);
+			ret = ipa_connect_channels(d_port);
+			if (ret) {
+				log_event_err("%s: ipa_connect_channels failed\n",
+								__func__);
+				ipa_data_path_disable(d_port);
+				usb_gadget_autopm_put_async(d_port->gadget);
+				d_port->sm_state = STATE_INITIALIZED;
+				break;
+			}
+
 			d_port->sm_state = STATE_WAIT_FOR_IPA_RDY;
 			log_event_dbg("%s: ST_INIT_EVT_SET_ALT",
 					__func__);
@@ -1026,7 +1083,14 @@ static void ipa_work_handler(struct work_struct *w)
 			log_event_dbg("%s: get = %d", __func__,
 				atomic_read(&gad_dev->power.usage_count));
 
-			ipa_connect_channels(d_port);
+			ret = ipa_connect_channels(d_port);
+			if (ret) {
+				log_event_err("%s: ipa_connect_channels failed\n",
+								__func__);
+				usb_gadget_autopm_put_async(d_port->gadget);
+				break;
+			}
+
 			ipa_data_path_enable(d_port);
 			d_port->sm_state = STATE_CONNECTED;
 			log_event_dbg("%s: ST_HOST_NRDY_EVT_HRDY_", __func__);

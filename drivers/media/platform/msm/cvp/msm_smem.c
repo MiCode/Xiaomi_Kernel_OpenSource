@@ -205,7 +205,7 @@ int msm_cvp_smem_map_dma_buf(struct msm_cvp_inst *inst,
 		return rc;
 	}
 
-	if (smem->fd > 0) {
+	if (smem->fd >= 0) {
 		dbuf = msm_cvp_smem_get_dma_buf(smem->fd);
 		if (!dbuf) {
 			rc = -EINVAL;

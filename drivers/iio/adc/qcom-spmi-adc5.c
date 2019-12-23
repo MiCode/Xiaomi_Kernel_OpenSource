@@ -78,10 +78,10 @@
  * clock rate, fast average samples with no measurement in queue.
  * Set the timeout to a max of 100ms.
  */
-#define ADC_CONV_TIME_MIN_US			263
-#define ADC_CONV_TIME_MAX_US			264
-#define ADC_CONV_TIME_RETRY_POLL		570
-#define ADC_CONV_TIME_RETRY				190
+#define ADC_POLL_DELAY_MIN_US			10000
+#define ADC_POLL_DELAY_MAX_US			10001
+#define ADC_CONV_TIME_RETRY_POLL		40
+#define ADC_CONV_TIME_RETRY			30
 #define ADC_CONV_TIMEOUT			msecs_to_jiffies(100)
 
 /* CAL peripheral */
@@ -288,7 +288,7 @@ static int adc_poll_wait_eoc(struct adc_chip *adc, bool poll_only)
 		status1 &= ADC_USR_STATUS1_REQ_STS_EOC_MASK;
 		if (status1 == ADC_USR_STATUS1_EOC)
 			return 0;
-		usleep_range(ADC_CONV_TIME_MIN_US, ADC_CONV_TIME_MAX_US);
+		usleep_range(ADC_POLL_DELAY_MIN_US, ADC_POLL_DELAY_MAX_US);
 	}
 
 	return -ETIMEDOUT;
