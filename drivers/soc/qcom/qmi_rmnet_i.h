@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,6 +43,8 @@ struct rmnet_bearer_map {
 	u8  ack_req;
 	u32 last_grant;
 	u16 last_seq;
+	u32 bytes_in_flight;
+	u32 last_adjusted_grant;
 	bool tcp_bidir;
 	bool rat_switch;
 	bool tx_off;
