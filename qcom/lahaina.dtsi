@@ -2571,10 +2571,11 @@
 		qcom,ipa-wdi3-over-gsi;
 		qcom,arm-smmu;
 		qcom,smmu-fast-map;
-		qcom,bandwidth-vote-for-ipa;
 		qcom,use-64-bit-dma-mask;
 		qcom,ipa-endp-delay-wa;
 		qcom,lan-rx-napi;
+		clock-names = "core_clk";
+		clocks = <&clock_rpmh RPMH_IPA_CLK>;
 		qcom,interconnect,num-cases = <5>;
 		qcom,interconnect,num-paths = <4>;
 		interconnects = <&aggre2_noc MASTER_IPA &gem_noc SLAVE_LLCC>,
