@@ -160,8 +160,11 @@
 				0x1200 0x00 0x0
 				0x1244 0x03 0x0>;
 
-		pinctrl-names = "default";
+		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&pcie0_clkreq_default
+			&pcie0_perst_default
+			&pcie0_wake_default>;
+		pinctrl-1 = <&pcie0_clkreq_sleep
 			&pcie0_perst_default
 			&pcie0_wake_default>;
 
