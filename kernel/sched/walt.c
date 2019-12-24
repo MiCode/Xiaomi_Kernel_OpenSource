@@ -982,7 +982,7 @@ void fixup_busy_time(struct task_struct *p, int new_cpu)
 	if (!same_freq_domain(new_cpu, task_cpu(p))) {
 		src_rq->notif_pending = true;
 		dest_rq->notif_pending = true;
-		irq_work_queue(&walt_migration_irq_work);
+		sched_irq_work_queue(&walt_migration_irq_work);
 	}
 
 	if (is_ed_enabled()) {
@@ -1376,7 +1376,7 @@ static void rollover_task_window(struct task_struct *p, bool full_window)
 		p->ravg.curr_window_cpu[i] = 0;
 	}
 
-	if (p->ravg.active_time < NEW_TASK_ACTIVE_TIME)
+	if (is_new_task(p))
 		p->ravg.active_time += p->ravg.last_win_size;
 }
 
@@ -1515,8 +1515,6 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 	if (new_window)
 		full_window = (window_start - mark_start) >= window_size;
 
-	new_task = is_new_task(p);
-
 	/*
 	 * Handle per-task window rollover. We don't care about the idle
 	 * task or exiting tasks.
@@ -1525,6 +1523,8 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 		if (new_window)
 			rollover_task_window(p, full_window);
 	}
+
+	new_task = is_new_task(p);
 
 	if (p_is_curr_task && new_window) {
 		rollover_cpu_window(rq, full_window);
@@ -2072,7 +2072,7 @@ static inline void run_walt_irq_work(u64 old_window_start, struct rq *rq)
 	result = atomic64_cmpxchg(&walt_irq_work_lastq_ws, old_window_start,
 				   rq->window_start);
 	if (result == old_window_start)
-		irq_work_queue(&walt_cpufreq_irq_work);
+		sched_irq_work_queue(&walt_cpufreq_irq_work);
 }
 
 /* Reflect task activity on its demand and cpu's busy time statistics */

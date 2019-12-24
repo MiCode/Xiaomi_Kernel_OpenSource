@@ -3354,10 +3354,30 @@ static int syna_tcm_probe(struct platform_device *pdev)
 		goto err_get_regulator;
 	}
 
-	retval = synaptics_tcm_pinctrl_init(tcm_hcd);
+	retval = syna_tcm_enable_regulator(tcm_hcd, true);
 	if (retval < 0) {
-		LOGE(tcm_hcd->pdev->dev.parent, "Failed to init pinctrl\n");
-		goto err_pinctrl_init;
+		LOGE(tcm_hcd->pdev->dev.parent,
+				"Failed to enable regulators\n");
+		goto err_enable_regulator;
+	}
+
+	retval = syna_tcm_config_gpio(tcm_hcd);
+	if (retval < 0) {
+		LOGE(tcm_hcd->pdev->dev.parent,
+				"Failed to configure GPIO's\n");
+		goto err_config_gpio;
+	}
+
+	retval = synaptics_tcm_pinctrl_init(tcm_hcd);
+	if (!retval && tcm_hcd->ts_pinctrl) {
+		retval = pinctrl_select_state(
+				tcm_hcd->ts_pinctrl,
+				tcm_hcd->pinctrl_state_active);
+		if (retval < 0) {
+			LOGE(tcm_hcd->pdev->dev.parent,
+					"%s: Failed to select %s pinstate %d\n",
+					__func__, PINCTRL_STATE_ACTIVE, retval);
+		}
 	}
 
 	sysfs_dir = kobject_create_and_add(PLATFORM_DRIVER_NAME,
@@ -3481,7 +3501,21 @@ err_sysfs_create_file:
 	kobject_put(tcm_hcd->sysfs_dir);
 
 err_sysfs_create_dir:
-err_pinctrl_init:
+	if (bdata->irq_gpio >= 0)
+		syna_tcm_set_gpio(tcm_hcd, bdata->irq_gpio, false, 0, 0);
+
+	if (bdata->power_gpio >= 0)
+		syna_tcm_set_gpio(tcm_hcd, bdata->power_gpio, false, 0, 0);
+
+	if (bdata->reset_gpio >= 0)
+		syna_tcm_set_gpio(tcm_hcd, bdata->reset_gpio, false, 0, 0);
+
+err_config_gpio:
+	syna_tcm_enable_regulator(tcm_hcd, false);
+
+err_enable_regulator:
+	syna_tcm_get_regulator(tcm_hcd, false);
+
 err_get_regulator:
 	device_init_wakeup(&pdev->dev, 0);
 
@@ -3502,32 +3536,7 @@ err_drm_reg:
 static int syna_tcm_deferred_probe(struct device *dev)
 {
 	int retval;
-	const struct syna_tcm_board_data *bdata;
 	struct syna_tcm_hcd *tcm_hcd = dev_get_drvdata(dev);
-
-	retval = pinctrl_select_state(
-			tcm_hcd->ts_pinctrl,
-			tcm_hcd->pinctrl_state_active);
-
-	if (retval < 0) {
-		LOGE(tcm_hcd->pdev->dev.parent,
-				"Failed to pinctrl_select_state\n");
-		goto err_pinctrl_select_state;
-	}
-
-	retval = syna_tcm_enable_regulator(tcm_hcd, true);
-	if (retval < 0) {
-		LOGE(tcm_hcd->pdev->dev.parent,
-				"Failed to enable regulators\n");
-		goto err_enable_regulator;
-	}
-
-	retval = syna_tcm_config_gpio(tcm_hcd);
-	if (retval < 0) {
-		LOGE(tcm_hcd->pdev->dev.parent,
-				"Failed to configure GPIO's\n");
-		goto err_config_gpio;
-	}
 
 	retval = tcm_hcd->enable_irq(tcm_hcd, true, NULL);
 	if (retval < 0) {
@@ -3558,27 +3567,6 @@ static int syna_tcm_deferred_probe(struct device *dev)
 err_reset:
 #endif
 err_enable_irq:
-
-err_config_gpio:
-	syna_tcm_enable_regulator(tcm_hcd, false);
-
-err_enable_regulator:
-	syna_tcm_get_regulator(tcm_hcd, false);
-
-err_pinctrl_select_state:
-	if (!tcm_hcd->hw_if || !tcm_hcd->hw_if->bdata)
-		return -EINVAL;
-
-	bdata = tcm_hcd->hw_if->bdata;
-
-	if (bdata->irq_gpio >= 0)
-		syna_tcm_set_gpio(tcm_hcd, bdata->irq_gpio, false, 0, 0);
-
-	if (bdata->power_gpio >= 0)
-		syna_tcm_set_gpio(tcm_hcd, bdata->power_gpio, false, 0, 0);
-
-	if (bdata->reset_gpio >= 0)
-		syna_tcm_set_gpio(tcm_hcd, bdata->reset_gpio, false, 0, 0);
 
 	return retval;
 }

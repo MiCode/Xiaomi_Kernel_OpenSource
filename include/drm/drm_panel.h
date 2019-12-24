@@ -40,6 +40,8 @@ enum {
 	DRM_PANEL_BLANK_POWERDOWN,
 	/* panel: low power mode */
 	DRM_PANEL_BLANK_LP,
+	/* fps change */
+	DRM_PANEL_BLANK_FPS_CHANGE,
 };
 
 struct drm_panel_notifier {

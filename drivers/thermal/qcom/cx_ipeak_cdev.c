@@ -88,7 +88,7 @@ static int cxip_lm_set_cur_state(struct thermal_cooling_device *cdev,
 	int ret = 0;
 
 	if (state > CXIP_LM_CDEV_MAX_STATE)
-		state = CXIP_LM_CDEV_MAX_STATE;
+		return -EINVAL;
 
 	if (cxip_dev->state == state)
 		return 0;

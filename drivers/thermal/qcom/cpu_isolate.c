@@ -170,7 +170,7 @@ static int cpu_isolate_set_cur_state(struct thermal_cooling_device *cdev,
 
 	/* Request state should be less than max_level */
 	if (state > CPU_ISOLATE_LEVEL)
-		state = CPU_ISOLATE_LEVEL;
+		return -EINVAL;
 
 	state = !!state;
 	/* Check if the old cooling action is same as new cooling action */

@@ -1029,12 +1029,11 @@ static void tmc_etr_sync_sysfs_buf(struct tmc_drvdata *drvdata)
 	tmc_sync_etr_buf(drvdata);
 }
 
-void tmc_etr_disable_hw(struct tmc_drvdata *drvdata, bool flush)
+void tmc_etr_disable_hw(struct tmc_drvdata *drvdata)
 {
 	CS_UNLOCK(drvdata->base);
 
-	if (flush)
-		tmc_flush_and_stop(drvdata);
+	tmc_flush_and_stop(drvdata);
 	/*
 	 * When operating in sysFS mode the content of the buffer needs to be
 	 * read before the TMC is disabled.
@@ -1458,7 +1457,7 @@ static int tmc_enable_etr_sink(struct coresight_device *csdev, u32 mode)
 	return -EINVAL;
 }
 
-static void _tmc_disable_etr_sink(struct coresight_device *csdev, bool flush)
+static void _tmc_disable_etr_sink(struct coresight_device *csdev)
 {
 	unsigned long flags;
 	struct tmc_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
@@ -1482,10 +1481,10 @@ static void _tmc_disable_etr_sink(struct coresight_device *csdev, bool flush)
 				goto out;
 			} else {
 				usb_qdss_close(drvdata->usbch);
-				tmc_etr_disable_hw(drvdata, flush);
+				tmc_etr_disable_hw(drvdata);
 			}
 		} else {
-			tmc_etr_disable_hw(drvdata, flush);
+			tmc_etr_disable_hw(drvdata);
 		}
 		drvdata->mode = CS_MODE_DISABLED;
 	}
@@ -1524,7 +1523,7 @@ static void tmc_disable_etr_sink(struct coresight_device *csdev)
 	struct tmc_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
 
 	mutex_lock(&drvdata->mem_lock);
-	_tmc_disable_etr_sink(csdev, true);
+	_tmc_disable_etr_sink(csdev);
 	mutex_unlock(&drvdata->mem_lock);
 }
 
@@ -1553,12 +1552,14 @@ int tmc_etr_switch_mode(struct tmc_drvdata *drvdata, const char *out_mode)
 		return 0;
 	}
 
-	_tmc_disable_etr_sink(drvdata->csdev, false);
+	coresight_disable_all_source_link();
+	_tmc_disable_etr_sink(drvdata->csdev);
 	old_mode = drvdata->out_mode;
 	drvdata->out_mode = new_mode;
 	if (tmc_enable_etr_sink_sysfs(drvdata->csdev)) {
 		drvdata->out_mode = old_mode;
 		tmc_enable_etr_sink_sysfs(drvdata->csdev);
+		coresight_enable_all_source_link();
 		dev_err(drvdata->dev, "Switch to %s failed. Fall back to %s.\n",
 			str_tmc_etr_out_mode[new_mode],
 			str_tmc_etr_out_mode[old_mode]);
@@ -1566,6 +1567,7 @@ int tmc_etr_switch_mode(struct tmc_drvdata *drvdata, const char *out_mode)
 		return -EINVAL;
 	}
 
+	coresight_enable_all_source_link();
 	mutex_unlock(&drvdata->mem_lock);
 	return 0;
 }
@@ -1622,7 +1624,7 @@ int tmc_read_prepare_etr(struct tmc_drvdata *drvdata)
 		coresight_disable_all_source_link();
 		spin_lock_irqsave(&drvdata->spinlock, flags);
 
-		tmc_etr_disable_hw(drvdata, true);
+		tmc_etr_disable_hw(drvdata);
 	}
 	drvdata->reading = true;
 out:

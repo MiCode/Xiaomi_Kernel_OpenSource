@@ -131,7 +131,6 @@ struct spi_fifo {
 enum wigig_sensing_stm_e {
 	WIGIG_SENSING_STATE_MIN = 0,
 	WIGIG_SENSING_STATE_INITIALIZED,
-	WIGIG_SENSING_STATE_SPI_READY,
 	WIGIG_SENSING_STATE_READY_STOPPED,
 	WIGIG_SENSING_STATE_SEARCH,
 	WIGIG_SENSING_STATE_FACIAL,
@@ -144,10 +143,8 @@ enum wigig_sensing_stm_e {
 
 struct wigig_sensing_stm {
 	bool auto_recovery;
-	bool enabled;
 	bool fw_is_ready;
 	bool spi_malfunction;
-	bool sys_assert;
 	bool waiting_for_deep_sleep_exit;
 	bool waiting_for_deep_sleep_exit_first_pass;
 	bool burst_size_ready;
@@ -155,7 +152,10 @@ struct wigig_sensing_stm {
 	enum wigig_sensing_stm_e state;
 	enum wigig_sensing_mode mode;
 	u32 burst_size;
+	u32 channel;
 	u32 channel_request;
+	enum wigig_sensing_stm_e state_request;
+	enum wigig_sensing_mode mode_request;
 };
 
 struct wigig_sensing_ctx {

@@ -115,6 +115,8 @@ static int devfreq_vbif_ev_handler(struct devfreq *devfreq,
 
 static struct devfreq_governor devfreq_vbif = {
 	.name = "bw_vbif",
+	/* Restrict this governor to only gpu devfreq devices */
+	.immutable = 1,
 	.get_target_freq = devfreq_vbif_get_freq,
 	.event_handler = devfreq_vbif_ev_handler,
 };

@@ -35,7 +35,6 @@
 #define BT_PWR_INFO(fmt, arg...) pr_info("%s: " fmt "\n", __func__, ## arg)
 #define BT_PWR_ERR(fmt, arg...)  pr_err("%s: " fmt "\n", __func__, ## arg)
 
-
 static const struct of_device_id bt_power_match_table[] = {
 	{	.compatible = "qca,ar3002" },
 	{	.compatible = "qca,qca6174" },
@@ -599,7 +598,7 @@ err:
 static int bt_dt_parse_clk_info(struct device *dev,
 		struct bt_power_clk_data **clk_data)
 {
-	int ret = -EINVAL;
+	int ret = 0;
 	struct bt_power_clk_data *clk = NULL;
 	struct device_node *np = dev->of_node;
 
@@ -636,7 +635,7 @@ static int bt_dt_parse_clk_info(struct device *dev,
 
 		*clk_data = clk;
 	} else {
-		BT_PWR_ERR("clocks is not provided in device tree");
+		BT_PWR_INFO("clocks is not provided in device tree");
 	}
 
 err:
@@ -657,74 +656,54 @@ static int bt_power_populate_dt_pinfo(struct platform_device *pdev)
 			of_get_named_gpio(pdev->dev.of_node,
 						"qca,bt-reset-gpio", 0);
 		if (bt_power_pdata->bt_gpio_sys_rst < 0)
-			BT_PWR_ERR("bt-reset-gpio not provided in device tree");
+			BT_PWR_INFO("bt-reset-gpio not provided in devicetree");
 
 		rc = bt_dt_parse_vreg_info(&pdev->dev,
 					&bt_power_pdata->bt_vdd_core,
 					"qca,bt-vdd-core");
-		if (rc < 0)
-			BT_PWR_ERR("bt-vdd-core not provided in device tree");
 
 		rc = bt_dt_parse_vreg_info(&pdev->dev,
 					&bt_power_pdata->bt_vdd_io,
 					"qca,bt-vdd-io");
-		if (rc < 0)
-			BT_PWR_ERR("bt-vdd-io not provided in device tree");
 
 		rc = bt_dt_parse_vreg_info(&pdev->dev,
 					&bt_power_pdata->bt_vdd_xtal,
 					"qca,bt-vdd-xtal");
-		if (rc < 0)
-			BT_PWR_ERR("bt-vdd-xtal not provided in device tree");
 
 		rc = bt_dt_parse_vreg_info(&pdev->dev,
 					&bt_power_pdata->bt_vdd_pa,
 					"qca,bt-vdd-pa");
-		if (rc < 0)
-			BT_PWR_ERR("bt-vdd-pa not provided in device tree");
 
 		rc = bt_dt_parse_vreg_info(&pdev->dev,
 					&bt_power_pdata->bt_vdd_ldo,
 					"qca,bt-vdd-ldo");
-		if (rc < 0)
-			BT_PWR_ERR("bt-vdd-ldo not provided in device tree");
 
 		rc = bt_dt_parse_vreg_info(&pdev->dev,
 					&bt_power_pdata->bt_chip_pwd,
 					"qca,bt-chip-pwd");
-		if (rc < 0)
-			BT_PWR_ERR("bt-chip-pwd not provided in device tree");
 
 		rc = bt_dt_parse_vreg_info(&pdev->dev,
 					&bt_power_pdata->bt_vdd_aon,
 					"qca,bt-vdd-aon");
-		if (rc < 0)
-			BT_PWR_ERR("bt-vdd-aon not provided in device tree");
 
 		rc = bt_dt_parse_vreg_info(&pdev->dev,
 					&bt_power_pdata->bt_vdd_dig,
 					"qca,bt-vdd-dig");
-		if (rc < 0)
-			BT_PWR_ERR("bt-vdd-dig not provided in device tree");
+
 		rc = bt_dt_parse_vreg_info(&pdev->dev,
 					&bt_power_pdata->bt_vdd_rfa1,
 					"qca,bt-vdd-rfa1");
-		if (rc < 0)
-			BT_PWR_ERR("bt-vdd-rfa1 not provided in device tree");
+
 		rc = bt_dt_parse_vreg_info(&pdev->dev,
 					&bt_power_pdata->bt_vdd_rfa2,
 					"qca,bt-vdd-rfa2");
-		if (rc < 0)
-			BT_PWR_ERR("bt-vdd-rfa2 not provided in device tree");
+
 		rc = bt_dt_parse_vreg_info(&pdev->dev,
 					&bt_power_pdata->bt_vdd_asd,
 					"qca,bt-vdd-asd");
-		if (rc < 0)
-			BT_PWR_ERR("bt-vdd-asd not provided in device tree");
+
 		rc = bt_dt_parse_clk_info(&pdev->dev,
 					&bt_power_pdata->bt_chip_clk);
-		if (rc < 0)
-			BT_PWR_ERR("clock not provided in device tree");
 	}
 
 	bt_power_pdata->bt_power_setup = bluetooth_power;

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "%s:%s " fmt, KBUILD_MODNAME, __func__
@@ -80,6 +80,9 @@ static int bcl_read_soc(void *data, int *val)
 static void bcl_evaluate_soc(struct work_struct *work)
 {
 	int battery_percentage;
+
+	if (!bcl_perph->tz_dev)
+		return;
 
 	if (bcl_read_soc(NULL, &battery_percentage))
 		return;

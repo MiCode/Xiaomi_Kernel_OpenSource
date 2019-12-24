@@ -86,8 +86,8 @@ static int parse_dt(struct device *dev, struct syna_tcm_board_data *bdata)
 	retval = of_property_read_u32(np, "synaptics,power-on-state",
 			&bdata->power_on_state);
 	if (retval < 0) {
-		LOGE(dev, "Failed to read synaptics,power-on-state\n");
-		return retval;
+		LOGD(dev, "Failed to read synaptics,power-on-state\n");
+		bdata->power_on_state = 0;
 	}
 
 	retval = of_property_read_u32(np, "synaptics,power-delay-ms",
@@ -101,7 +101,7 @@ static int parse_dt(struct device *dev, struct syna_tcm_board_data *bdata)
 			"synaptics,reset-gpio", 0, NULL);
 	if (!gpio_is_valid(retval)) {
 		if (retval != -EPROBE_DEFER)
-			dev_err(dev, "Error getting irq_gpio\n");
+			dev_err(dev, "Error getting reset gpio\n");
 		return retval;
 	}
 	bdata->reset_gpio = retval;

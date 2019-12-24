@@ -36,7 +36,7 @@ static int lmh_cpu_vdd_set_cur_state(struct thermal_cooling_device *cdev,
 	struct lmh_cpu_vdd_cdev *vdd_cdev = cdev->devdata;
 
 	if (state > LMH_CPU_VDD_MAX_LVL)
-		state = LMH_CPU_VDD_MAX_LVL;
+		return -EINVAL;
 
 	state = !!state;
 	/* Check if the old cooling action is same as new cooling action */

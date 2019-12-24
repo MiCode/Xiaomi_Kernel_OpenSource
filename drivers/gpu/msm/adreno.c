@@ -10,6 +10,7 @@
 #include <linux/of_fdt.h>
 #include <linux/module.h>
 #include <linux/msm_kgsl.h>
+#include <linux/msm-bus.h>
 #include <linux/regulator/consumer.h>
 #include <linux/nvmem-consumer.h>
 #include <soc/qcom/scm.h>
@@ -1942,6 +1943,14 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	/* Clear any GPU faults that might have been left over */
 	adreno_clear_gpu_fault(adreno_dev);
 
+	/*
+	 * Keep high bus vote to reduce AHB latency
+	 * during FW loading and wakeup.
+	 */
+	if (device->pwrctrl.gpu_cfg)
+		msm_bus_scale_client_update_request(device->pwrctrl.gpu_cfg,
+			KGSL_GPU_CFG_PATH_HIGH);
+
 	/* Put the GPU in a responsive state */
 	status = kgsl_pwrctrl_change_state(device, KGSL_STATE_AWARE);
 	if (status)
@@ -2160,6 +2169,15 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
 		gmu_core_dev_oob_clear(device, oob_boot_slumber);
 
+	/*
+	 * Low vote is enough after wakeup completes, this will make
+	 * sure CPU to GPU AHB infrastructure clocks are running at-least
+	 * at minimum frequency.
+	 */
+	if (device->pwrctrl.gpu_cfg)
+		msm_bus_scale_client_update_request(device->pwrctrl.gpu_cfg,
+			KGSL_GPU_CFG_PATH_LOW);
+
 	return 0;
 
 error_oob_clear:
@@ -2180,6 +2198,9 @@ error_pwr_off:
 		pm_qos_update_request(&device->pwrctrl.pm_qos_req_dma,
 				pmqos_active_vote);
 
+	if (device->pwrctrl.gpu_cfg)
+		msm_bus_scale_client_update_request(device->pwrctrl.gpu_cfg,
+			KGSL_GPU_CFG_PATH_OFF);
 	return status;
 }
 
@@ -2287,6 +2308,10 @@ static int adreno_stop(struct kgsl_device *device)
 	 * destroy any pending contexts and their pagetables
 	 */
 	adreno_set_active_ctxs_null(adreno_dev);
+
+	if (device->pwrctrl.gpu_cfg)
+		msm_bus_scale_client_update_request(device->pwrctrl.gpu_cfg,
+			KGSL_GPU_CFG_PATH_OFF);
 
 	clear_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv);
 
