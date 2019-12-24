@@ -1437,11 +1437,10 @@ static void ttf_work(struct work_struct *work)
 	}
 	pr_debug("TTF: charge_status:%d charge_done:%d msoc:%d\n",
 			charge_status, charge_done, msoc);
-	/*
-	 * Do not schedule ttf work when SOC is 100%
-	 * or charge terminated
-	 */
-	if ((msoc == 100) || charge_done)
+	/* Do not schedule ttf work if SOC is 100% or charge teminated. */
+	if (charge_done ||
+		((msoc == 100) &&
+			(charge_status == POWER_SUPPLY_STATUS_CHARGING)))
 		goto end_work;
 
 	rc =  ttf->get_ttf_param(ttf->data, TTF_IBAT, &ibatt_now);

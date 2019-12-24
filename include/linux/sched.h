@@ -825,7 +825,7 @@ struct task_struct {
 	struct list_head grp_list;
 	u64 cpu_cycles;
 	bool misfit;
-	u8 unfilter;
+	u32 unfilter;
 #endif
 
 #ifdef CONFIG_CGROUP_SCHED

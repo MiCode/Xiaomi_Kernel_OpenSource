@@ -44,7 +44,6 @@
 #include <soc/qcom/service-notifier.h>
 #include <soc/qcom/socinfo.h>
 #include <soc/qcom/ramdump.h>
-#include <soc/qcom/scm.h>
 #include "icnss_private.h"
 #include "icnss_qmi.h"
 
@@ -95,7 +94,6 @@ static struct icnss_clk_info icnss_clk_info[] = {
 };
 
 #define ICNSS_CLK_INFO_SIZE		ARRAY_SIZE(icnss_clk_info)
-#define ICNSS_UTIL_GET_SEC_DUMP_STATE  0x10
 
 enum icnss_pdr_cause_index {
 	ICNSS_FW_CRASH,
@@ -1419,26 +1417,6 @@ static void icnss_update_state_send_modem_shutdown(struct icnss_priv *priv,
 	}
 }
 
-static bool icnss_is_mem_dump_allowed(void)
-{
-	struct scm_desc desc = {0};
-	int ret = 0;
-
-	desc.args[0] = 0;
-	desc.arginfo = 0;
-	ret = scm_call2(
-		SCM_SIP_FNID(SCM_SVC_UTIL, ICNSS_UTIL_GET_SEC_DUMP_STATE),
-		&desc);
-
-	if (ret) {
-		icnss_pr_err("SCM DUMP_STATE call failed\n");
-		return false;
-	}
-
-	icnss_pr_dbg("Dump State: %llu\n", desc.ret[0]);
-	return (desc.ret[0] == 1);
-}
-
 static int icnss_modem_notifier_nb(struct notifier_block *nb,
 				  unsigned long code,
 				  void *data)
@@ -1453,10 +1431,9 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 
 	if (code == SUBSYS_AFTER_SHUTDOWN &&
 	    notif->crashed == CRASH_STATUS_ERR_FATAL) {
-		if (icnss_is_mem_dump_allowed()) {
-			icnss_pr_info("Collecting msa0 segment dump\n");
-			icnss_msa0_ramdump(priv);
-		}
+		icnss_pr_info("Collecting msa0 segment dump\n");
+		icnss_msa0_ramdump(priv);
+
 		return NOTIFY_OK;
 	}
 

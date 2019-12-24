@@ -208,7 +208,6 @@ static void qdss_buf_tbl_remove(struct qdss_bridge_drvdata *drvdata,
 static void mhi_ch_close(struct qdss_bridge_drvdata *drvdata)
 {
 	if (drvdata->mode == MHI_TRANSFER_TYPE_USB) {
-		flush_workqueue(drvdata->mhi_wq);
 		qdss_destroy_buf_tbl(drvdata);
 		qdss_destroy_read_done_list(drvdata);
 	} else if (drvdata->mode == MHI_TRANSFER_TYPE_UCI) {
@@ -256,6 +255,7 @@ static ssize_t mode_store(struct device *dev,
 				spin_unlock_bh(&drvdata->lock);
 				usb_qdss_close(drvdata->usb_ch);
 				mhi_unprepare_from_transfer(drvdata->mhi_dev);
+				flush_workqueue(drvdata->mhi_wq);
 				mhi_ch_close(drvdata);
 				drvdata->mode = MHI_TRANSFER_TYPE_UCI;
 			} else if (drvdata->opened == DISABLE) {
@@ -275,6 +275,7 @@ static ssize_t mode_store(struct device *dev,
 				spin_unlock_bh(&drvdata->lock);
 				wake_up(&drvdata->uci_wq);
 				mhi_unprepare_from_transfer(drvdata->mhi_dev);
+				flush_workqueue(drvdata->mhi_wq);
 				mhi_ch_close(drvdata);
 				drvdata->mode = MHI_TRANSFER_TYPE_USB;
 				queue_work(drvdata->mhi_wq,
@@ -586,6 +587,7 @@ static int mhi_uci_release(struct inode *inode, struct file *file)
 			spin_unlock_bh(&drvdata->lock);
 			wake_up(&drvdata->uci_wq);
 			mhi_unprepare_from_transfer(drvdata->mhi_dev);
+			flush_workqueue(drvdata->mhi_wq);
 			mhi_ch_close(drvdata);
 		} else if (drvdata->opened == SSR) {
 			spin_unlock_bh(&drvdata->lock);
@@ -825,6 +827,7 @@ static void qdss_mhi_remove(struct mhi_device *mhi_dev)
 				msleep(20);
 			} while (qdss_check_entry(drvdata));
 		}
+		flush_workqueue(drvdata->mhi_wq);
 		mhi_ch_close(drvdata);
 	} else
 		spin_unlock_bh(&drvdata->lock);

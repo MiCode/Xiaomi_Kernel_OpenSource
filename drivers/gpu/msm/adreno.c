@@ -2409,10 +2409,8 @@ int adreno_reset(struct kgsl_device *device, int fault)
 static int copy_prop(struct kgsl_device_getproperty *param,
 		void *src, size_t size)
 {
-	if (param->sizebytes != size)
-		return -EINVAL;
-
-	if (copy_to_user(param->value, src, param->sizebytes))
+	if (copy_to_user(param->value, src,
+		min_t(u32, size, param->sizebytes)))
 		return -EFAULT;
 
 	return 0;

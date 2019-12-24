@@ -28,6 +28,8 @@
 #define TCSR_CXIP_LM_DANGER_OFFSET			0x24
 
 #define CXIP_CLIENT_OFFSET				0x1000
+#define CXIP_CLIENT10_OFFSET				0x3000
+
 #define CXIP_POLL_TIMEOUT_US (50 * 1000)
 
 struct cx_ipeak_client;
@@ -120,6 +122,9 @@ static struct cx_ipeak_client *cx_ipeak_register_v2(int client_id)
 
 	for (i = 0; i <= client_id; i++)
 		client_offset += CXIP_CLIENT_OFFSET;
+
+	if (client_id >= 10)
+		client_offset += CXIP_CLIENT10_OFFSET;
 
 	reg_enable = readl_relaxed(device_ipeak.tcsr_vptr +
 			TCSR_CXIP_LM_VOTE_FEATURE_ENABLE_OFFSET);
