@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -135,56 +135,14 @@ static int _sde_encoder_phys_shd_register_irq(
 		enum sde_intr_idx intr_idx,
 		bool enable)
 {
-	struct sde_encoder_irq *irq = &phys_enc->irq[intr_idx];
-	int ret = 0;
-
 	SDE_DEBUG("%d enable %d\n", DRMID(phys_enc->parent), enable);
 
-	if (enable) {
-		if (irq->irq_idx >= 0) {
-			SDE_DEBUG_PHYS(phys_enc,
-				"skipping already registered irq %s type %d\n",
-				irq->name, irq->intr_type);
-			return 0;
-		}
-
-		irq->irq_idx = sde_core_irq_idx_lookup(phys_enc->sde_kms,
-				irq->intr_type, irq->hw_idx);
-		if (irq->irq_idx < 0) {
-			SDE_ERROR_PHYS(phys_enc,
-				"failed to lookup IRQ index for %s type:%d\n",
-				irq->name, irq->intr_type);
-			return -EINVAL;
-		}
-
-		ret = sde_core_irq_register_callback(phys_enc->sde_kms,
-				irq->irq_idx, &irq->cb);
-		if (ret) {
-			SDE_ERROR_PHYS(phys_enc,
-				"failed to register IRQ callback for %s\n",
-				irq->name);
-			irq->irq_idx = -EINVAL;
-		}
-	} else {
-		if (irq->irq_idx < 0) {
-			SDE_DEBUG_PHYS(phys_enc,
-				"extra unregister irq, enc%d intr_idx:0x%x\n",
-				DRMID(phys_enc->parent), INTR_IDX_VSYNC);
-			return 0;
-		}
-
-		ret = sde_core_irq_unregister_callback(phys_enc->sde_kms,
-				irq->irq_idx, &irq->cb);
-		if (ret) {
-			SDE_ERROR_PHYS(phys_enc,
-				"failed to unregister IRQ callback for %s\n",
-				irq->name);
-		}
-
-		irq->irq_idx = -EINVAL;
-	}
-
-	return ret;
+	if (enable)
+		return sde_encoder_helper_register_irq(phys_enc,
+				INTR_IDX_VSYNC);
+	else
+		return sde_encoder_helper_unregister_irq(phys_enc,
+				INTR_IDX_VSYNC);
 }
 
 static inline
@@ -309,7 +267,6 @@ static void sde_encoder_phys_shd_mode_set(
 		struct drm_display_mode *adj_mode)
 {
 	struct drm_connector *connector;
-	struct sde_connector *sde_conn;
 	struct shd_display *display;
 	struct drm_encoder *encoder;
 	struct sde_rm_hw_iter iter;
@@ -325,8 +282,7 @@ static void sde_encoder_phys_shd_mode_set(
 		return;
 	}
 
-	sde_conn = to_sde_connector(connector);
-	display = sde_conn->display;
+	display = sde_connector_get_display(connector);
 	encoder = display->base->encoder;
 
 	if (_sde_encoder_phys_shd_rm_reserve(phys_enc, display))
@@ -570,7 +526,6 @@ static void sde_encoder_phys_shd_single_vblank_wait(
 
 static void sde_encoder_phys_shd_disable(struct sde_encoder_phys *phys_enc)
 {
-	struct sde_connector *sde_conn;
 	struct shd_display *display;
 	unsigned long lock_flags;
 
@@ -595,6 +550,14 @@ static void sde_encoder_phys_shd_disable(struct sde_encoder_phys *phys_enc)
 
 	sde_encoder_helper_reset_mixers(phys_enc, NULL);
 
+	display = sde_connector_get_display(phys_enc->connector);
+	if (!display)
+		goto next;
+
+	/* if base display is already disabled, skip vsync check */
+	if (!display->base->crtc->state->active)
+		goto next;
+
 	spin_lock_irqsave(phys_enc->enc_spinlock, lock_flags);
 	sde_encoder_phys_shd_trigger_flush(phys_enc);
 	sde_encoder_phys_inc_pending(phys_enc);
@@ -602,13 +565,8 @@ static void sde_encoder_phys_shd_disable(struct sde_encoder_phys *phys_enc)
 
 	sde_encoder_phys_shd_single_vblank_wait(phys_enc);
 
+next:
 	phys_enc->enable_state = SDE_ENC_DISABLED;
-
-	if (!phys_enc->connector)
-		return;
-
-	sde_conn = to_sde_connector(phys_enc->connector);
-	display = sde_conn->display;
 
 	_sde_encoder_phys_shd_rm_release(phys_enc, display);
 
