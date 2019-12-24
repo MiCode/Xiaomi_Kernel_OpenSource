@@ -2335,7 +2335,7 @@ static int dvb_dmxdev_ts_fullness_callback(struct dmx_ts_feed *filter,
 		if (dmxdevfilter->dev->dvr_in_exit)
 			return -ENODEV;
 
-		spin_lock(&dmxdevfilter->dev->lock);
+		spin_lock_irq(&dmxdevfilter->dev->lock);
 
 		if ((!src->data) ||
 			(dmxdevfilter->state != DMXDEV_STATE_GO))
@@ -2344,17 +2344,17 @@ static int dvb_dmxdev_ts_fullness_callback(struct dmx_ts_feed *filter,
 			ret = src->error;
 
 		if (ret) {
-			spin_unlock(&dmxdevfilter->dev->lock);
+			spin_unlock_irq(&dmxdevfilter->dev->lock);
 			return ret;
 		}
 
 		if ((required_space <= dvb_ringbuffer_free(src)) &&
 			(!dvb_dmxdev_events_is_full(events))) {
-			spin_unlock(&dmxdevfilter->dev->lock);
+			spin_unlock_irq(&dmxdevfilter->dev->lock);
 			return 0;
 		}
 
-		spin_unlock(&dmxdevfilter->dev->lock);
+		spin_unlock_irq(&dmxdevfilter->dev->lock);
 
 		if (!wait)
 			return -ENOSPC;
@@ -2395,7 +2395,7 @@ static int dvb_dmxdev_sec_fullness_callback(
 		if (dmxdevfilter->dev->dvr_in_exit)
 			return -ENODEV;
 
-		spin_lock(&dmxdevfilter->dev->lock);
+		spin_lock_irq(&dmxdevfilter->dev->lock);
 
 		if ((!src->data) ||
 			(dmxdevfilter->state != DMXDEV_STATE_GO))
@@ -2404,17 +2404,17 @@ static int dvb_dmxdev_sec_fullness_callback(
 			ret = src->error;
 
 		if (ret) {
-			spin_unlock(&dmxdevfilter->dev->lock);
+			spin_unlock_irq(&dmxdevfilter->dev->lock);
 			return ret;
 		}
 
 		if ((required_space <= dvb_ringbuffer_free(src)) &&
 			(!dvb_dmxdev_events_is_full(events))) {
-			spin_unlock(&dmxdevfilter->dev->lock);
+			spin_unlock_irq(&dmxdevfilter->dev->lock);
 			return 0;
 		}
 
-		spin_unlock(&dmxdevfilter->dev->lock);
+		spin_unlock_irq(&dmxdevfilter->dev->lock);
 
 		if (!wait)
 			return -ENOSPC;
@@ -4671,8 +4671,10 @@ static unsigned int dvb_demux_poll(struct file *file, poll_table *wait)
 	struct dmxdev_filter *dmxdevfilter = file->private_data;
 	unsigned int mask = 0;
 
-	if (!dmxdevfilter)
+	if (!dmxdevfilter) {
+		pr_err("%s: dmxdevfilter is NULL\n");
 		return -EINVAL;
+	}
 	if (dvb_vb2_is_streaming(&dmxdevfilter->vb2_ctx))
 		return dvb_vb2_poll(&dmxdevfilter->vb2_ctx, file, wait);
 
@@ -4902,9 +4904,12 @@ static unsigned int dvb_dvr_poll(struct file *file, poll_table *wait)
 		return -EPOLLERR;
 	if (dvb_vb2_is_streaming(&dmxdev->dvr_vb2_ctx))
 		return dvb_vb2_poll(&dmxdev->dvr_vb2_ctx, file, wait);
-
+#ifdef CONFIG_DVB_MMAP
 	if (((file->f_flags & O_ACCMODE) == O_RDONLY) ||
-	    dmxdev->may_do_mmap) {
+			dmxdev->may_do_mmap) {
+#else
+	if ((file->f_flags & O_ACCMODE) == O_RDONLY) {
+#endif
 		poll_wait(file, &dmxdev->dvr_buffer.queue, wait);
 
 		if (dmxdev->dvr_buffer.error) {
