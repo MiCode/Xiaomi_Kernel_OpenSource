@@ -92,7 +92,7 @@ module_param_named(lpm_prediction, lpm_prediction, bool, 0664);
 
 static uint32_t bias_hyst;
 module_param_named(bias_hyst, bias_hyst, uint, 0664);
-static bool lpm_ipi_prediction;
+static bool lpm_ipi_prediction = true;
 module_param_named(lpm_ipi_prediction, lpm_ipi_prediction, bool, 0664);
 
 struct lpm_history {
@@ -479,9 +479,6 @@ static uint64_t find_deviation(int *interval, uint32_t ref_stddev,
 	uint64_t max, avg, stddev;
 	int64_t thresh = LLONG_MAX;
 
-	if (lpm_ipi_prediction)
-		ref_stddev += DEFAULT_IPI_STDDEV;
-
 	do {
 		max = avg = divisor = stddev = 0;
 		for (i = 0; i < MAXSAMPLES; i++) {
@@ -611,7 +608,8 @@ static uint64_t lpm_cpuidle_predict(struct cpuidle_device *dev,
 	if (*idx_restrict_time || !cpu->ipi_prediction || !lpm_ipi_prediction)
 		return 0;
 
-	avg = find_deviation(ipi_history->interval, cpu->ref_stddev,
+	avg = find_deviation(ipi_history->interval, cpu->ref_stddev
+						+ DEFAULT_IPI_STDDEV,
 						&(history->stime));
 	if (avg) {
 		*ipi_predicted = 1;
