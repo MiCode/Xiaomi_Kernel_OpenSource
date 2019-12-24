@@ -1348,8 +1348,15 @@
 		modem {
 			qcom,smd-edge = <0>;
 			qcom,ipc = <&apcs 0 12>;
+			qcom,remote-pid = <1>;
 			interrupts = <GIC_SPI 25 IRQ_TYPE_EDGE_RISING>;
-			label = "modem";
+			label = "mpss";
+			qcom,smd-channels = "IPCRTR";
+
+			qcom,modem_qrtr {
+				qcom,net-id = <1>;
+				qcom,low-latency;
+			};
 		};
 
 		rpm {
