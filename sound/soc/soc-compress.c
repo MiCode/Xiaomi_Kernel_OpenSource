@@ -760,7 +760,7 @@ static int soc_compr_set_next_track_param(struct snd_compr_stream *cstream,
 				union snd_codec_options *codec_options)
 {
 	struct snd_soc_pcm_runtime *rtd = cstream->private_data;
-	struct snd_soc_platform *component;
+	struct snd_soc_component *component;
 	struct snd_soc_rtdcom_list *rtdcom;
 	int ret = 0;
 
