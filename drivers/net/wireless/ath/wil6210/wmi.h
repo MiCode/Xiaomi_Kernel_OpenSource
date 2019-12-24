@@ -195,6 +195,8 @@ enum wmi_command_id {
 	WMI_RCP_ADDBA_RESP_EDMA_CMDID			= 0x83B,
 	WMI_LINK_MAINTAIN_CFG_WRITE_CMDID		= 0x842,
 	WMI_LINK_MAINTAIN_CFG_READ_CMDID		= 0x843,
+	WMI_FST_CONFIG_CMDID				= 0x844,
+	WMI_SET_LINK_MONITOR_CMDID			= 0x845,
 	WMI_SET_SECTORS_CMDID				= 0x849,
 	WMI_MAINTAIN_PAUSE_CMDID			= 0x850,
 	WMI_MAINTAIN_RESUME_CMDID			= 0x851,
@@ -1989,6 +1991,7 @@ enum wmi_event_id {
 	WMI_REPORT_STATISTICS_EVENTID			= 0x100B,
 	WMI_FT_AUTH_STATUS_EVENTID			= 0x100C,
 	WMI_FT_REASSOC_STATUS_EVENTID			= 0x100D,
+	WMI_LINK_MONITOR_EVENTID			= 0x100E,
 	WMI_RADAR_GENERAL_CONFIG_EVENTID		= 0x1100,
 	WMI_RADAR_CONFIG_SELECT_EVENTID			= 0x1101,
 	WMI_RADAR_PARAMS_CONFIG_EVENTID			= 0x1102,
@@ -2041,6 +2044,8 @@ enum wmi_event_id {
 	WMI_TX_MGMT_PACKET_EVENTID			= 0x1841,
 	WMI_LINK_MAINTAIN_CFG_WRITE_DONE_EVENTID	= 0x1842,
 	WMI_LINK_MAINTAIN_CFG_READ_DONE_EVENTID		= 0x1843,
+	WMI_FST_CONFIG_EVENTID				= 0x1844,
+	WMI_SET_LINK_MONITOR_EVENTID			= 0x1845,
 	WMI_RF_XPM_READ_RESULT_EVENTID			= 0x1856,
 	WMI_RF_XPM_WRITE_RESULT_EVENTID			= 0x1857,
 	WMI_LED_CFG_DONE_EVENTID			= 0x1858,
@@ -3328,6 +3333,61 @@ struct wmi_link_maintain_cfg_write_cmd {
 struct wmi_link_maintain_cfg_read_cmd {
 	/* connection ID which configuration settings are requested */
 	__le32 cid;
+} __packed;
+
+/* switch sensitivity levels for WMI_FST_CONFIG_CMDID command */
+enum wmi_fst_switch_sensitivity_level {
+	WMI_FST_SWITCH_SENSITIVITY_LOW	= 0x00,
+	WMI_FST_SWITCH_SENSITIVITY_MED	= 0x01,
+	WMI_FST_SWITCH_SENSITIVITY_HIGH	= 0x02,
+};
+
+/* WMI_FST_CONFIG_CMDID */
+struct wmi_fst_config_cmd {
+	u8 fst_en;
+	u8 fst_ap_bssid[WMI_MAC_LEN];
+	u8 fst_entry_mcs;
+	u8 fst_exit_mcs;
+	/* wmi_fst_switch_sensitivity_level */
+	u8 sensitivity_level;
+	u8 reserved[2];
+} __packed;
+
+/* WMI_SET_LINK_MONITOR_CMDID */
+struct wmi_set_link_monitor_cmd {
+	u8 rssi_hyst;
+	u8 reserved[12];
+	u8 rssi_thresholds_list_size;
+	s8 rssi_thresholds_list[0];
+} __packed;
+
+/* WMI_FST_CONFIG_EVENTID */
+struct wmi_fst_config_event {
+	/* wmi_fw_status */
+	u8 status;
+	u8 reserved[3];
+} __packed;
+
+/* wmi_link_monitor_event_type */
+enum wmi_link_monitor_event_type {
+	WMI_LINK_MONITOR_NOTIF_RSSI_THRESHOLD_EVT	= 0x00,
+	WMI_LINK_MONITOR_NOTIF_TX_ERR_EVT		= 0x01,
+	WMI_LINK_MONITOR_NOTIF_THERMAL_EVT		= 0x02,
+};
+
+/* WMI_SET_LINK_MONITOR_EVENTID */
+struct wmi_set_link_monitor_event {
+	/* wmi_fw_status */
+	u8 status;
+	u8 reserved[3];
+} __packed;
+
+/* WMI_LINK_MONITOR_EVENTID */
+struct wmi_link_monitor_event {
+	/* link_monitor_event_type */
+	u8 type;
+	s8 rssi_level;
+	u8 reserved[2];
 } __packed;
 
 /* WMI_LINK_MAINTAIN_CFG_WRITE_DONE_EVENTID */
