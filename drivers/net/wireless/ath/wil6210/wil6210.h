@@ -1067,6 +1067,7 @@ struct wil6210_priv {
 	u8 wakeup_trigger;
 	struct wil_suspend_stats suspend_stats;
 	struct wil_debugfs_data dbg_data;
+	/* set to WIL_EDMG_DISABLE to force disable EDMG */
 	u8 force_edmg_channel;
 	bool tx_latency; /* collect TX latency measurements */
 	size_t tx_latency_res; /* bin resolution in usec */

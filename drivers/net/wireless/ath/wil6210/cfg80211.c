@@ -34,6 +34,8 @@
  */
 #define WIL_EDMG_CHANNELS (BIT(0) | BIT(1) | BIT(2) | BIT(3))
 
+#define WIL_DISABLE_EDMG 255
+
 bool disable_ap_sme;
 module_param(disable_ap_sme, bool, 0444);
 MODULE_PARM_DESC(disable_ap_sme, " let user space handle AP mode SME");
@@ -604,6 +606,9 @@ int wil_spec2wmi_ch(u8 spec_ch, u8 *wmi_ch)
 		break;
 	case 12:
 		*wmi_ch = WMI_CHANNEL_12;
+		break;
+	case WIL_DISABLE_EDMG:
+		*wmi_ch = 0;
 		break;
 	default:
 		return -EINVAL;
