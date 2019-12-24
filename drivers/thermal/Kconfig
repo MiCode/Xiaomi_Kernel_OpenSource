@@ -396,6 +396,16 @@ config GENERIC_ADC_THERMAL
 	  to this driver. This driver reports the temperature by reading ADC
 	  channel and converts it to temperature based on lookup table.
 
+config THERMAL_TSENS
+	tristate "Qualcomm Technologies Inc. TSENS Temperature driver"
+	depends on THERMAL
+	help
+	  This enables the thermal sysfs driver for the TSENS device. It shows
+	  up in Sysfs as a thermal zone with multiple trip points. Also able
+	  to set threshold temperature for both warm and cool and update
+	  thermal userspace client when a threshold is reached. Warm/Cool
+	  temperature thresholds can be set independently for each sensor.
+
 menu "Qualcomm thermal drivers"
 depends on (ARCH_QCOM && OF) || COMPILE_TEST
 source "drivers/thermal/qcom/Kconfig"
