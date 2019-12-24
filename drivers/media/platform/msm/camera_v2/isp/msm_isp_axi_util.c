@@ -2464,6 +2464,10 @@ static void msm_isp_input_disable(struct vfe_device *vfe_dev, int cmd_type)
 		/* deactivate the input line */
 		axi_data->src_info[i].active = 0;
 		src_info = &axi_data->src_info[i];
+		if (i == VFE_PIX_0)
+			vfe_dev->isp_page->kernel_sofid = 0;
+
+		vfe_dev->axi_data.src_info[i].frame_id = 0;
 
 		if (src_info->dual_hw_type == DUAL_HW_MASTER_SLAVE) {
 			struct master_slave_resource_info *ms_res =
