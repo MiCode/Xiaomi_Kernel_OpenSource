@@ -31,7 +31,6 @@
 #define SCM_SVC_QDSS			0x16
 #define SCM_SVC_RTIC			0x19
 #define SCM_SVC_TZSCHEDULER		0xFC
-#define TZ_SVC_QUP_FW_LOAD		0x1F
 
 #define SCM_FUSE_READ			0x7
 #define SCM_CMD_HDCP			0x01
