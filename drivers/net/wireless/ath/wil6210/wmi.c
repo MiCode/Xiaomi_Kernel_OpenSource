@@ -1069,6 +1069,24 @@ static void wmi_evt_connect(struct wil6210_vif *vif, int id, void *d, int len)
 			mutex_unlock(&wil->mutex);
 			return;
 		}
+
+		sinfo = kzalloc(sizeof(*sinfo), GFP_KERNEL);
+		if (!sinfo) {
+			wmi_disconnect_sta(vif, wil->sta[evt->cid].addr,
+					   WLAN_REASON_UNSPECIFIED, false);
+			rc = -ENOMEM;
+			goto out;
+		}
+
+		sinfo->generation = wil->sinfo_gen++;
+
+		if (assoc_req_ie) {
+			sinfo->assoc_req_ies = assoc_req_ie;
+			sinfo->assoc_req_ies_len = assoc_req_ielen;
+		}
+
+		cfg80211_new_sta(ndev, evt->bssid, sinfo, GFP_KERNEL);
+		kfree(sinfo);
 	}
 
 	ether_addr_copy(wil->sta[evt->cid].addr, evt->bssid);
@@ -1111,28 +1129,10 @@ static void wmi_evt_connect(struct wil6210_vif *vif, int id, void *d, int len)
 		   (wdev->iftype == NL80211_IFTYPE_P2P_GO)) {
 
 		if (rc) {
-			if (disable_ap_sme)
-				/* notify new_sta has failed */
-				cfg80211_del_sta(ndev, evt->bssid, GFP_KERNEL);
+			/* notify new_sta has failed */
+			cfg80211_del_sta(ndev, evt->bssid, GFP_KERNEL);
 			goto out;
 		}
-
-		sinfo = kzalloc(sizeof(*sinfo), GFP_KERNEL);
-		if (!sinfo) {
-			rc = -ENOMEM;
-			goto out;
-		}
-
-		sinfo->generation = wil->sinfo_gen++;
-
-		if (assoc_req_ie) {
-			sinfo->assoc_req_ies = assoc_req_ie;
-			sinfo->assoc_req_ies_len = assoc_req_ielen;
-		}
-
-		cfg80211_new_sta(ndev, evt->bssid, sinfo, GFP_KERNEL);
-
-		kfree(sinfo);
 	} else {
 		wil_err(wil, "unhandled iftype %d for CID %d\n", wdev->iftype,
 			evt->cid);
