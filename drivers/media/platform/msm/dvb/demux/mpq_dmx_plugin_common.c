@@ -17,6 +17,7 @@
 #include <linux/sched/signal.h>
 #include <linux/debugfs.h>
 #include <linux/err.h>
+#include <soc/qcom/qtee_shmbridge.h>
 
 #define SDMX_MAJOR_VERSION_MATCH	(8)
 
@@ -507,7 +508,7 @@ static ssize_t mpq_sdmx_log_level_write(struct file *fp,
 	if (level < SDMX_LOG_NO_PRINT || level > SDMX_LOG_VERBOSE)
 		return -EINVAL;
 
-	mutex_lock(&mpq_demux->mutex);
+	mutex_lock_interruptible(&mpq_demux->mutex);
 	mpq_demux->sdmx_log_level = level;
 	if (mpq_demux->sdmx_session_handle != SDMX_INVALID_SESSION_HANDLE) {
 		ret = sdmx_set_log_level(mpq_demux->sdmx_session_handle,
@@ -1080,7 +1081,7 @@ int mpq_dmx_reuse_decoder_buffer(struct dvb_demux_feed *feed, int cookie)
 		struct mpq_streambuffer *stream_buffer;
 		int ret;
 
-		mutex_lock(&mpq_demux->mutex);
+		mutex_lock_interruptible(&mpq_demux->mutex);
 		mpq_feed = feed->priv;
 		feed_data = &mpq_feed->video_info;
 
@@ -1105,6 +1106,117 @@ int mpq_dmx_reuse_decoder_buffer(struct dvb_demux_feed *feed, int cookie)
 			__func__, feed->pes_type);
 
 	return -EINVAL;
+}
+
+static int mpq_sdmx_destroy_shm_bridge_callback(struct dma_buf *dmabuf,
+		void *dtor_data)
+{
+	int ret = 0;
+	uint64_t handle = (uint64_t)dtor_data;
+
+	if (!dmabuf) {
+		MPQ_DVB_DBG_PRINT("dmabuf NULL\n");
+		return -EINVAL;
+	}
+	MPQ_DVB_DBG_PRINT("to destroy shm bridge %lld\n", handle);
+	ret = qtee_shmbridge_deregister(handle);
+	if (ret) {
+		MPQ_DVB_DBG_PRINT("failed to destroy shm bridge %lld\n",
+				handle);
+		return ret;
+	}
+	dma_buf_set_destructor(dmabuf, NULL, NULL);
+	return ret;
+}
+
+static int mpq_sdmx_create_shm_bridge(struct dma_buf *dmabuf,
+		struct sg_table *sgt)
+{
+	int ret = 0, i;
+	phys_addr_t phys;
+	size_t size = 0;
+	uint64_t handle = 0;
+	int tz_perm = PERM_READ|PERM_WRITE;
+	unsigned long dma_buf_flags = 0;
+	uint32_t *vmid_list;
+	uint32_t *perms_list;
+	uint32_t nelems;
+	struct scatterlist *sg;
+
+	ret = dma_buf_get_flags(dmabuf, &dma_buf_flags);
+	if (ret) {
+		MPQ_DVB_ERR_PRINT("%s:  failed to get dmabuf flag\n",
+				__func__);
+		return ret;
+	}
+
+	if (!(dma_buf_flags & ION_FLAG_SECURE) || (sgt->nents != 1)) {
+		MPQ_DVB_ERR_PRINT("Not a contiguous secure buffer\n");
+		return 0;
+	}
+
+	nelems = ion_get_flags_num_vm_elems(dma_buf_flags);
+
+	vmid_list = kcalloc(nelems, sizeof(*vmid_list), GFP_KERNEL);
+	if (!vmid_list) {
+		ret = -ENOMEM;
+		MPQ_DVB_ERR_PRINT("%s: failed at %u with ret = %d\n",
+				__func__, __LINE__, ret);
+		goto exit;
+	}
+
+	ret = ion_populate_vm_list(dma_buf_flags, vmid_list, nelems);
+	if (ret) {
+		MPQ_DVB_ERR_PRINT("%s: failed at %u with ret = %d\n",
+				__func__, __LINE__, ret);
+		goto exit_free_vmid_list;
+	}
+	perms_list = kcalloc(nelems, sizeof(*perms_list), GFP_KERNEL);
+	if (!perms_list) {
+		ret = -ENOMEM;
+		MPQ_DVB_ERR_PRINT("%s: failed at %u with ret = %d\n",
+				__func__, __LINE__, ret);
+		goto exit_free_vmid_list;
+	}
+
+	for (i = 0; i < nelems; i++)
+		perms_list[i] = msm_secure_get_vmid_perms(vmid_list[i]);
+
+
+	sg = sgt->sgl;
+	for (i = 0; i < sgt->nents; i++) {
+		phys = sg_phys(sg);
+		size = sg->length;
+
+		ret = qtee_shmbridge_query(phys);
+		if (ret) {
+			MPQ_DVB_ERR_PRINT("shm bridge exists\n");
+			goto exit_free_perms_list;
+		}
+
+		ret = qtee_shmbridge_register(phys, size, vmid_list,
+				perms_list, nelems,
+				tz_perm, &handle);
+		if (ret && ret != -EEXIST) {
+			MPQ_DVB_ERR_PRINT("shm register failed: ret: %d\n",
+					ret);
+			goto exit_free_perms_list;
+		}
+
+		MPQ_DVB_DBG_PRINT("%s: created shm bridge %lld\n",
+				__func__,  handle);
+		dma_buf_set_destructor(dmabuf,
+				mpq_sdmx_destroy_shm_bridge_callback,
+				(void *)handle);
+		sg = sg_next(sg);
+	}
+
+exit_free_perms_list:
+	kfree(perms_list);
+exit_free_vmid_list:
+	kfree(vmid_list);
+exit:
+	return ret;
 }
 
 /**
@@ -1183,6 +1295,13 @@ static int mpq_dmx_init_internal_buffers(
 	feed_data->buffer_desc.desc[0].size = size;
 	feed_data->buffer_desc.desc[0].read_ptr = 0;
 	feed_data->buffer_desc.desc[0].write_ptr = 0;
+
+	ret = mpq_sdmx_create_shm_bridge(dbuf->dmabuf, dbuf->sgt);
+	if (ret) {
+		MPQ_DVB_ERR_PRINT("%s mpq_sdmx_create_shm_bridge failed\n");
+		return ret;
+	}
+
 	return 0;
 
 err_detach:
@@ -1679,48 +1798,67 @@ struct dvb_demux_feed *mpq_dmx_peer_rec_feed(struct dvb_demux_feed *feed)
 
 static int mpq_sdmx_alloc_data_buf(struct mpq_feed *mpq_feed, size_t size)
 {
-	struct mpq_demux *mpq_demux = mpq_feed->mpq_demux;
 	int ret = 0;
 	struct sdmx_buff_descriptor *desc = &mpq_feed->data_desc;
+	struct qtee_shm *shminfo = NULL;
 
-	desc->virt_base = dma_alloc_coherent(&mpq_demux->pdev->dev,
-					    size, &desc->phys_base,
-					    GFP_KERNEL);
+	shminfo = vmalloc(sizeof(struct qtee_shm));
+	if (!shminfo) {
+		MPQ_DVB_ERR_PRINT("%s: shminfo alloc failed\n");
+		return -ENOMEM;
+	}
+
+	qtee_shmbridge_allocate_shm(size, shminfo);
+	desc->size = size;
+	desc->phys_base = shminfo->paddr;
+	desc->virt_base = shminfo->vaddr;
+	desc->user = (void *)shminfo;
+
 	if (IS_ERR_OR_NULL(desc->virt_base)) {
 		ret = PTR_ERR(desc->virt_base);
-		MPQ_DVB_ERR_PRINT("%s: dma_alloc_coherent failed ret = %d\n",
-							__func__, ret);
+		MPQ_DVB_ERR_PRINT("%s: qtee_shmbridge_allocate_shm failed\n",
+				__func__);
 		return ret;
 	}
-	desc->size = size;
+
 	dvb_ringbuffer_init(&mpq_feed->sdmx_buf, desc->virt_base, size);
+	mpq_feed->sdmx_dma_buff.va = desc->virt_base;
 
 	return 0;
 }
 
 static int mpq_sdmx_free_data_buf(struct mpq_feed *mpq_feed)
 {
-	struct mpq_demux *mpq_demux = mpq_feed->mpq_demux;
 	struct sdmx_buff_descriptor *desc = &mpq_feed->data_desc;
 
-	dma_free_coherent(&mpq_demux->pdev->dev,
-			  desc->size, desc->virt_base,
-			  desc->phys_base);
+	qtee_shmbridge_free_shm((struct qtee_shm *) desc->user);
+	vfree(desc->user);
+	MPQ_DVB_DBG_PRINT("%s: = qtee_shmbridge_free\n", __func__);
 
 	memset(desc, 0, sizeof(struct sdmx_buff_descriptor));
 	return 0;
 }
-static int mpq_sdmx_init_metadata_buffer(struct mpq_demux *mpq_demux,
-	struct mpq_feed *feed, struct sdmx_buff_descr *metadata_buff_desc)
-{
 
+static int mpq_sdmx_init_metadata_buffer(struct mpq_demux *mpq_demux,
+		struct mpq_feed *feed,
+		struct sdmx_buff_descr *metadata_buff_desc)
+{
 	int ret = 0;
 	struct sdmx_buff_descriptor *desc = &feed->metadata_desc;
+	struct qtee_shm *shminfo = NULL;
 
-	desc->virt_base = dma_alloc_coherent(&mpq_demux->pdev->dev,
-					    SDMX_METADATA_BUFFER_SIZE,
-					    &desc->phys_base,
-					    GFP_KERNEL);
+	shminfo = vmalloc(sizeof(struct qtee_shm));
+
+	if (!shminfo) {
+		MPQ_DVB_ERR_PRINT("%s: shminfo alloc failed\n");
+		return -ENOMEM;
+	}
+	qtee_shmbridge_allocate_shm(SDMX_METADATA_BUFFER_SIZE, shminfo);
+
+	desc->phys_base = shminfo->paddr;
+	desc->virt_base = shminfo->vaddr;
+	desc->user = (void *)shminfo;
+
 	if (IS_ERR_OR_NULL(desc->virt_base)) {
 		ret = PTR_ERR(desc->virt_base);
 		MPQ_DVB_ERR_PRINT(
@@ -1740,18 +1878,16 @@ static int mpq_sdmx_init_metadata_buffer(struct mpq_demux *mpq_demux,
 
 static int mpq_sdmx_terminate_metadata_buffer(struct mpq_feed *mpq_feed)
 {
-
-	struct mpq_demux *mpq_demux = mpq_feed->mpq_demux;
-
 	struct sdmx_buff_descriptor *desc = &mpq_feed->metadata_desc;
 
-	dma_free_coherent(&mpq_demux->pdev->dev,
-			  desc->size, desc->virt_base,
-			  desc->phys_base);
+	qtee_shmbridge_free_shm((struct qtee_shm *) desc->user);
+	vfree(desc->user);
+	MPQ_DVB_DBG_PRINT("%s: = qtee_shmbridge_free\n", __func__);
 
 	memset(desc, 0, sizeof(struct sdmx_buff_descriptor));
 	return 0;
 }
+
 int mpq_dmx_terminate_feed(struct dvb_demux_feed *feed)
 {
 	int ret = 0;
@@ -1931,7 +2067,7 @@ static int mpq_dmx_decoder_fullness_check(
 	}
 
 	if (lock_feed) {
-		mutex_lock(&mpq_demux->mutex);
+		mutex_trylock(&mpq_demux->mutex);
 	} else if (!mutex_is_locked(&mpq_demux->mutex)) {
 		MPQ_DVB_ERR_PRINT(
 				"%s: Mutex should have been locked\n",
@@ -1970,7 +2106,7 @@ static int mpq_dmx_decoder_fullness_check(
 			if (!signal_pending(current)) {
 				mutex_unlock(&mpq_demux->mutex);
 				schedule();
-				mutex_lock(&mpq_demux->mutex);
+				mutex_trylock(&mpq_demux->mutex);
 				continue;
 			}
 
@@ -3555,6 +3691,12 @@ static int mpq_sdmx_get_buffer_chunks(struct mpq_demux *mpq_demux,
 		buff_chunks[i].size = chunk_size;
 		sg = sg_next(sg);
 		actual_buff_size -= chunk_size;
+	}
+
+	ret = mpq_sdmx_create_shm_bridge(buff_info->dmabuf, buff_info->sgt);
+	if (ret) {
+		MPQ_DVB_ERR_PRINT("%s mpq_sdmx_create_shm_bridge failed\n");
+		return ret;
 	}
 
 	return 0;
