@@ -789,7 +789,12 @@ char *mhi_get_restart_reason(const char *name);
 
 #else
 
-#define MHI_VERB(fmt, ...)
+#define MHI_VERB(fmt, ...) do { \
+		if (mhi_cntrl->log_buf && \
+		    (mhi_cntrl->log_lvl <= MHI_MSG_LVL_VERBOSE)) \
+			ipc_log_string(mhi_cntrl->log_buf, "[D][%s] " fmt, \
+				       __func__, ##__VA_ARGS__); \
+} while (0)
 
 #endif
 

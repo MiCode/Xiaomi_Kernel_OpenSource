@@ -597,7 +597,7 @@ static unsigned long msm_vidc_calc_freq_ar50(struct msm_vidc_inst *inst,
 
 		vsp_cycles = mbs_per_second * inst->clk_data.entry->vsp_cycles;
 		/* 10 / 7 is overhead factor */
-		vsp_cycles += ((fps * filled_len * 8) * 10) / 7;
+		vsp_cycles += div_u64((fps * filled_len * 8 * 10), 7);
 
 	} else {
 		dprintk(VIDC_ERR, "Unknown session type = %s\n", __func__);
@@ -677,11 +677,12 @@ static unsigned long msm_vidc_calc_freq(struct msm_vidc_inst *inst,
 			vsp_factor_num *= operating_rate;
 			vsp_factor_den *= inst->prop.fps;
 		}
-		vsp_cycles += ((u64)inst->clk_data.bitrate * vsp_factor_num) /
-				vsp_factor_den;
+		vsp_cycles += div_u64(((u64)inst->clk_data.bitrate *
+				vsp_factor_num), vsp_factor_den);
 
 		/* sw overhead factor */
-		sw_overhead = ((u64)vsp_cycles * fw_vpp_cycles) / vpp_cycles;
+		sw_overhead = div_u64((u64)vsp_cycles * fw_vpp_cycles,
+				vpp_cycles);
 		vsp_cycles += max(vsp_cycles/20, sw_overhead);
 
 		/* 21 / 20 is minimum overhead factor */
@@ -697,10 +698,11 @@ static unsigned long msm_vidc_calc_freq(struct msm_vidc_inst *inst,
 		vsp_cycles = mbs_per_second * inst->clk_data.entry->vsp_cycles;
 
 		/* vsp perf is about 0.5 bits/cycle */
-		vsp_cycles += ((fps * filled_len * 8) * 10) / 5;
+		vsp_cycles += div_u64((fps * filled_len * 8 * 10), 5);
 
 		/* sw overhead factor */
-		sw_overhead = ((u64)vsp_cycles * fw_vpp_cycles) / vpp_cycles;
+		sw_overhead = div_u64(((u64)vsp_cycles * fw_vpp_cycles),
+				vpp_cycles);
 		vsp_cycles += max(vsp_cycles/20, sw_overhead);
 
 		/* 21 / 20 is minimum overhead factor */

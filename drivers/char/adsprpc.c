@@ -3635,8 +3635,10 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 			mutex_unlock(&fl->perf_mutex);
 
 			if (fperf) {
-				K_COPY_TO_USER(err, 0, (void *)p.perf.data,
-					fperf, sizeof(*fperf));
+				K_COPY_TO_USER(err, 0,
+					(void *)p.perf.data, fperf,
+					sizeof(*fperf) -
+					sizeof(struct hlist_node));
 			}
 		}
 		K_COPY_TO_USER(err, 0, param, &p.perf, sizeof(p.perf));

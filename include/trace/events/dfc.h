@@ -20,33 +20,25 @@
 
 TRACE_EVENT(dfc_qmi_tc,
 
-	TP_PROTO(const char *name, u8 bearer_id, u32 grant,
-		 int qlen, u32 tcm_handle, int enable),
+	TP_PROTO(const char *name, u32 txq, int enable),
 
-	TP_ARGS(name, bearer_id, grant, qlen, tcm_handle, enable),
+	TP_ARGS(name, txq, enable),
 
 	TP_STRUCT__entry(
 		__string(dev_name, name)
-		__field(u8, bid)
-		__field(u32, grant)
-		__field(int, qlen)
-		__field(u32, tcm_handle)
+		__field(u32, txq)
 		__field(int, enable)
 	),
 
 	TP_fast_assign(
 		__assign_str(dev_name, name);
-		__entry->bid = bearer_id;
-		__entry->grant = grant;
-		__entry->qlen = qlen;
-		__entry->tcm_handle = tcm_handle;
+		__entry->txq = txq;
 		__entry->enable = enable;
 	),
 
-	TP_printk("dev=%s bearer_id=%u grant=%u len=%d mq=%u %s",
+	TP_printk("dev=%s txq=%u %s",
 		__get_str(dev_name),
-		__entry->bid, __entry->grant, __entry->qlen,
-		__entry->tcm_handle,
+		__entry->txq,
 		__entry->enable ? "enable" : "disable")
 );
 
@@ -139,7 +131,7 @@ TRACE_EVENT(dfc_flow_info,
 		__entry->action = add;
 	),
 
-	TP_printk("%s: dev=%s bearer_id=%u flow_id=%u ip_type=%d mq=%d",
+	TP_printk("%s: dev=%s bearer_id=%u flow_id=%u ip_type=%d txq=%d",
 		__entry->action ? "add flow" : "delete flow",
 		__get_str(dev_name),
 		__entry->bid, __entry->fid, __entry->ip, __entry->handle)

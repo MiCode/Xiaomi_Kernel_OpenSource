@@ -594,7 +594,7 @@ static void _dp_panel_calc_tu(struct dp_tu_calc_input *in,
 
 	tu.ratio = drm_fixp2int(tu.ratio_fp);
 	temp1_fp = drm_fixp_from_fraction(tu.nlanes, 1);
-	temp2_fp = tu.lwidth_fp % temp1_fp;
+	div64_u64_rem(tu.lwidth_fp, temp1_fp, &temp2_fp);
 	if (temp2_fp != 0 &&
 			!tu.ratio && tu.dsc_en == 0) {
 		tu.ratio_fp = drm_fixp_mul(tu.ratio_fp, RATIO_SCALE_fp);

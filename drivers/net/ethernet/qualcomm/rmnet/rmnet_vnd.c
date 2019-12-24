@@ -128,8 +128,7 @@ static void rmnet_vnd_uninit(struct net_device *dev)
 
 	qos = priv->qos_info;
 	RCU_INIT_POINTER(priv->qos_info, NULL);
-	synchronize_rcu();
-	qmi_rmnet_qos_exit(dev, qos);
+	qmi_rmnet_qos_exit_pre(qos);
 }
 
 static void rmnet_get_stats64(struct net_device *dev,

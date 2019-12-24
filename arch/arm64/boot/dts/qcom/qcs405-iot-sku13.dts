@@ -35,6 +35,7 @@
 	};
 
 	gpio_keys {
+		/delete-property/ pinctrl-0;
 		/delete-node/ home;
 	};
 

@@ -96,6 +96,16 @@ struct ep_pcie_hw *ep_pcie_get_phandle(u32 id)
 }
 EXPORT_SYMBOL(ep_pcie_get_phandle);
 
+int ep_pcie_configure_inactivity_timer(struct ep_pcie_hw *phandle,
+					struct ep_pcie_inactivity *param)
+{
+	if (WARN_ON(!phandle))
+		return -EINVAL;
+
+	return phandle->configure_inactivity_timer(param);
+}
+EXPORT_SYMBOL(ep_pcie_configure_inactivity_timer);
+
 int ep_pcie_register_event(struct ep_pcie_hw *phandle,
 			struct ep_pcie_register_event *reg)
 {

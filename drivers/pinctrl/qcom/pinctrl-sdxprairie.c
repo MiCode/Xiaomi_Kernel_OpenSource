@@ -1253,7 +1253,7 @@ static struct msm_gpio_mux_input sdxprairie_mux_in[] = {
 	{32, 57},
 	{33, 60},
 	{34, 61},
-	{35, 64},
+	{35, 64, 1},
 	{37, 100},
 	{38, 71},
 	{39, 73},

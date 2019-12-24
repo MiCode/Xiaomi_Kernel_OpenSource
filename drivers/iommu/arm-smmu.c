@@ -4214,8 +4214,6 @@ static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
 		cb_base = ARM_SMMU_CB(smmu, i);
 
 		fsr = readl_relaxed(cb_base + ARM_SMMU_CB_FSR);
-
-
 		if (fsr & FSR_FAULT) {
 			writel_relaxed(fsr & FSR_FAULT, cb_base +
 				       ARM_SMMU_CB_FSR);
@@ -5886,6 +5884,9 @@ static ssize_t arm_smmu_debug_tcu_testbus_sel_write(struct file *file,
 	if (kstrtou64(buf, 0, &sel))
 		goto invalid_format;
 
+	if (sel != 1 && sel != 2)
+		goto invalid_format;
+
 	if (kstrtou64(comma + 1, 0, &val))
 		goto invalid_format;
 
@@ -5897,8 +5898,6 @@ static ssize_t arm_smmu_debug_tcu_testbus_sel_write(struct file *file,
 	else if (sel == 2)
 		arm_smmu_debug_tcu_testbus_select(base,
 				tcu_base, PTW_AND_CACHE_TESTBUS, WRITE, val);
-	else
-		goto invalid_format;
 
 	arm_smmu_power_off(smmu->pwr);
 
