@@ -37,6 +37,7 @@
 #include "hci_uart.h"
 #include "btqca.h"
 
+#include <linux/tty.h>
 /* HCI_IBS protocol messages */
 #define HCI_IBS_SLEEP_IND	0xFE
 #define HCI_IBS_WAKE_IND	0xFD
@@ -456,6 +457,10 @@ static int qca_open(struct hci_uart *hu)
 
 	BT_DBG("HCI_UART_QCA open, tx_idle_delay=%u, wake_retrans=%u",
 	       qca->tx_idle_delay, qca->wake_retrans);
+
+#ifdef CONFIG_SERIAL_MSM_GENI
+	hu->tty->ops->ioctl(hu->tty, TIOCPMGET, 0);
+#endif
 
 	return 0;
 }
@@ -979,7 +984,9 @@ static int qca_setup(struct hci_uart *hu)
 	/* Setup patch / NVM configurations */
 	ret = qca_uart_setup_rome(hdev, qca_baudrate, qca_enqueue_and_send);
 	if (!ret) {
+#ifdef SUPPORT_BT_QCA_SIBS
 		set_bit(STATE_IN_BAND_SLEEP_ENABLED, &qca->flags);
+#endif
 		qca_debugfs_init(hdev);
 	} else if (ret == -ENOENT) {
 		/* No patch/nvm-config found, run with original fw/config */

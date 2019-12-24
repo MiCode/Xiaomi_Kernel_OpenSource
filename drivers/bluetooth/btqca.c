@@ -23,6 +23,8 @@
 #include <net/bluetooth/bluetooth.h>
 #include <net/bluetooth/hci_core.h>
 
+#include <linux/ctype.h>
+
 #include "btqca.h"
 #include "hci_uart.h"
 
@@ -30,6 +32,12 @@
 
 #define MAX_PATCH_FILE_SIZE (200*1024)
 #define MAX_NVM_FILE_SIZE   (10*1024)
+
+#define QCA_BT_ADDR_FORMAT	"%04x:%02x:%06x"
+
+#define QCA_BT_ADDR_FIELD_COUNT	3
+
+bdaddr_t qca_bdaddr = { { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff } };
 
 qca_enque_send_callback qca_enq_send_cb;
 
@@ -179,11 +187,19 @@ static void qca_tlv_check_data(struct rome_config *config,
 
 			/* Update NVM tags as needed */
 			switch (tag_id) {
+			case EDL_TAG_ID_BD_ADDRESS:
+				if (bacmp(&qca_bdaddr, BDADDR_NONE) != 0)
+					memcpy(tlv_nvm->data, &qca_bdaddr, 6);
+				break;
+
 			case EDL_TAG_ID_HCI:
 				if (qca_bt_version == ROME_VER_3_2) {
-					/* enable software inband sleep */
+				/* enable/disable software inband sleep */
+#ifdef SUPPORT_BT_QCA_SIBS
 					tlv_nvm->data[0] |= 0x80;
-
+#else
+					tlv_nvm->data[0] &= ~0x80;
+#endif
 					/* UART Baud Rate */
 					tlv_nvm->data[2] =
 						config->user_baud_rate;
@@ -193,14 +209,21 @@ static void qca_tlv_check_data(struct rome_config *config,
 				break;
 
 			case EDL_TAG_ID_DEEP_SLEEP:
-				/* Sleep enable mask
-				 * enabling deep sleep feature on controller.
-				 */
+			/* Sleep enable mask
+			 * enabling/disabling deep sleep feature on controller.
+			 */
+#ifdef SUPPORT_BT_QCA_SIBS
 				tlv_nvm->data[0] |= 0x01;
-
+#else
+				tlv_nvm->data[0] &= ~0x01;
+#endif
 				/* enable software inband sleep */
 				if (qca_bt_version == HST_VER_2_0)
+#ifdef SUPPORT_BT_QCA_SIBS
 					tlv_nvm->data[1] |= 0x01;
+#else
+					tlv_nvm->data[1] &= ~0x01;
+#endif
 				break;
 			}
 
@@ -570,6 +593,43 @@ int qca_set_bdaddr_rome(struct hci_dev *hdev, const bdaddr_t *bdaddr)
 }
 EXPORT_SYMBOL_GPL(qca_set_bdaddr_rome);
 
+static char *qca_bda;
+
+module_param_named(QCA_BDA, qca_bda, charp, 0444);
+
+static void qca_get_bda(struct hci_dev *hdev, const char *str, bdaddr_t *bda)
+{
+	u32 nap = 0, uap = 0, lap = 0;
+
+	if (!bda)
+		return;
+
+	BT_INFO("%s: QCA_BDA=%s", hdev->name, str);
+
+	if ((str != NULL) && (sscanf(str, QCA_BT_ADDR_FORMAT, &nap, &uap, &lap)
+		== QCA_BT_ADDR_FIELD_COUNT)) {
+
+		bda->b[0] = (u8)(lap & 0xff);
+		bda->b[1] = (u8)((lap >> 8) & 0xff);
+		bda->b[2] = (u8)((lap >> 16) & 0xff);
+
+		bda->b[3] = (u8)(uap & 0xff);
+
+		bda->b[4] = (u8)(nap & 0xff);
+		bda->b[5] = (u8)((nap >> 8) & 0xff);
+	} else {
+		BT_INFO("No valid BDA, create random one");
+
+		bda->b[5] = 0x00;
+		bda->b[4] = 0x02;
+		bda->b[3] = 0x5b;
+		get_random_bytes(bda, 3);
+	}
+
+	BT_INFO("%s: 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x", hdev->name, bda->b[5],
+		bda->b[4], bda->b[3], bda->b[2], bda->b[1], bda->b[0]);
+}
+
 int qca_uart_setup_rome(struct hci_dev *hdev, uint8_t baudrate,
 				qca_enque_send_callback callback)
 {
@@ -588,6 +648,8 @@ int qca_uart_setup_rome(struct hci_dev *hdev, uint8_t baudrate,
 	qca_enq_send_cb = callback;
 
 	config.user_baud_rate = baudrate;
+
+	qca_get_bda(hdev, qca_bda, &qca_bdaddr);
 
 	err = qca_patch_ver_req(hdev, &qca_ver);
 	if (err < 0 || qca_ver == 0) {
