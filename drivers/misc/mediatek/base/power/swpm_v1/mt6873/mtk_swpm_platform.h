@@ -20,7 +20,8 @@
 #define SWPM_TEST (0)
 
 #define MAX_RECORD_CNT				(64)
-#define MAX_APHY_PWR				(11)
+#define MAX_APHY_CORE_PWR			(12)
+#define MAX_APHY_OTHERS_PWR			(16)
 #define DEFAULT_LOG_INTERVAL_MS			(1000)
 /* VPROC2 + VPROC1 + VDRAM + VGPU + VCORE */
 #define DEFAULT_LOG_MASK			(0x1F)
@@ -61,8 +62,8 @@ enum power_rail {
 	VGPU,
 	VCORE,
 	VDRAM,
-	VIO18_DDR,
-	VIO18_DRAM,
+	VDD12_DRAM,
+	VDD18_DRAM,
 
 	NR_POWER_RAIL
 };
@@ -74,25 +75,30 @@ enum ddr_freq {
 	DDR_933,
 	DDR_1200,
 	DDR_1600,
-	DDR_1866,
+	DDR_2133,
 
 	NR_DDR_FREQ
 };
 
-enum aphy_pwr_type {
+enum aphy_core_pwr_type {
 	APHY_VCORE,
+	NR_APHY_CORE_PWR_TYPE
+};
+
+enum aphy_other_pwr_type {
+	/* APHY_VCORE, independent */
 	APHY_VDDQ_0P6V,
 	APHY_VM_0P75V,
 	APHY_VIO_1P2V,
-	APHY_VIO_1P8V,
+	/* APHY_VIO_1P8V, power can be ignore */
 
-	NR_APHY_PWR_TYPE
+	NR_APHY_OTHERS_PWR_TYPE
 };
 
 enum dram_pwr_type {
 	DRAM_VDD1_1P8V,
 	DRAM_VDD2_1P1V,
-	DRAM_VDDQ_0P6V,
+	/* DRAM_VDDQ_0P6V, coverage by APHY_VDDQ_0P6V */
 
 	NR_DRAM_PWR_TYPE
 };
@@ -159,8 +165,8 @@ enum infra_power_state {
 	NR_INFRA_POWER_STATE
 };
 
-/* sync with mt6885 emi in sspm */
-#define MAX_EMI_NUM (2)
+/* sync with mt6873 emi in sspm */
+#define MAX_EMI_NUM (1)
 /* TODO: core power index structure */
 struct core_swpm_index {
 	unsigned int infra_state_ratio[NR_INFRA_POWER_STATE];
@@ -198,18 +204,32 @@ struct share_wrap {
 	unsigned int share_ctrl_addr;
 };
 
-struct aphy_bw_data {
-	unsigned short bw[MAX_APHY_PWR];
+struct aphy_core_bw_data {
+	unsigned short bw[MAX_APHY_CORE_PWR];
 };
 
-struct aphy_pwr {
-	unsigned short read_coef[MAX_APHY_PWR];
-	unsigned short write_coef[MAX_APHY_PWR];
+struct aphy_core_pwr {
+	unsigned short read_coef[MAX_APHY_CORE_PWR];
+	unsigned short write_coef[MAX_APHY_CORE_PWR];
+};
+
+struct aphy_others_bw_data {
+	unsigned short bw[MAX_APHY_OTHERS_PWR];
+};
+
+struct aphy_others_pwr {
+	unsigned short read_coef[MAX_APHY_OTHERS_PWR];
+	unsigned short write_coef[MAX_APHY_OTHERS_PWR];
 };
 
 /* unit: uW / V^2 */
-struct aphy_pwr_data {
-	struct aphy_pwr pwr[NR_DDR_FREQ];
+struct aphy_core_pwr_data {
+	struct aphy_core_pwr pwr[NR_DDR_FREQ];
+	unsigned short coef_idle[NR_DDR_FREQ];
+};
+
+struct aphy_others_pwr_data {
+	struct aphy_others_pwr pwr[NR_DDR_FREQ];
 	unsigned short coef_idle[NR_DDR_FREQ];
 };
 
@@ -232,7 +252,7 @@ struct swpm_rec_data {
 	/* 2(short) * 7(ddr_opp) = 14 bytes */
 	unsigned short ddr_opp_freq[NR_DDR_FREQ];
 
-	/* 4(int) * 64(rec_cnt) * 9 = 2304 bytes */
+	/* 4(int) * 64(rec_cnt) * 7 = 1792 bytes */
 	unsigned int pwr[NR_POWER_RAIL][MAX_RECORD_CNT];
 
 	/* 8(long) * 5(prof_pt) * 3 = 120 bytes */
@@ -240,13 +260,23 @@ struct swpm_rec_data {
 	unsigned long long max_latency[NR_PROFILE_POINT];
 	unsigned long long prof_cnt[NR_PROFILE_POINT];
 
-	/* 2(short) * 11(sample point) * 7(opp_num) = 154 bytes */
-	struct aphy_bw_data aphy_bw_tbl[NR_DDR_FREQ];
+	/* 2(short) * 12(sample point) * 7(opp_num) = 168 bytes */
+	struct aphy_core_bw_data aphy_core_bw_tbl[NR_DDR_FREQ];
 
-	/* 2(short) * 5(pwr_type) * 161(r/w_coef + idle) = 1610 bytes */
-	struct aphy_pwr_data aphy_pwr_tbl[NR_APHY_PWR_TYPE];
+	/* 2(short) * 1(pwr_type) */
+	/* * (12+12)(r/w_coef) * 7(opp) + 7(idle) = 343 bytes */
+	struct aphy_core_pwr_data
+		aphy_core_pwr_tbl[NR_APHY_CORE_PWR_TYPE];
 
-	/* 4(int) * 3(pwr_type) * 7 = 84 bytes */
+	/* 2(short) * 16(sample point) * 7(opp_num) = 226 bytes */
+	struct aphy_others_bw_data aphy_others_bw_tbl[NR_DDR_FREQ];
+
+	/* 2(short) * 3(pwr_type) */
+	/* * (16+16)(r/w_coef) * 7(opp) + 7(idle) = 1386 bytes */
+	struct aphy_others_pwr_data
+		aphy_others_pwr_tbl[NR_APHY_OTHERS_PWR_TYPE];
+
+	/* 4(int) * 2(pwr_type) * 7 = 56 bytes */
 	struct dram_pwr_conf dram_conf[NR_DRAM_PWR_TYPE];
 
 	/* 4(int) * 3(lkg_type) * 16 = 192 bytes */
@@ -258,7 +288,7 @@ struct swpm_rec_data {
 	/* 4(int) * 256 = 1024 bytes */
 	unsigned int isp_reserved[ISP_SWPM_RESERVED_SIZE];
 
-	/* remaining size = 588 bytes */
+	/* remaining size = 769 bytes */
 };
 
 extern struct swpm_rec_data *swpm_info_ref;
