@@ -236,6 +236,83 @@ static const struct snd_kcontrol_new i2s7_out_mux_control =
 static const struct snd_kcontrol_new i2s9_out_mux_control =
 	SOC_DAPM_ENUM("I2S9 Out Select", i2s_out_mux_map_enum);
 
+/* Tinyconn Mux */
+enum {
+	TINYCONN_CH1_MUX_DL1 = 0x0,
+	TINYCONN_CH2_MUX_DL1 = 0x1,
+	TINYCONN_CH1_MUX_DL12 = 0x2,
+	TINYCONN_CH2_MUX_DL12 = 0x3,
+	TINYCONN_CH1_MUX_DL2 = 0x4,
+	TINYCONN_CH2_MUX_DL2 = 0x5,
+	TINYCONN_CH1_MUX_DL3 = 0x6,
+	TINYCONN_CH2_MUX_DL3 = 0x7,
+	TINYCONN_MUX_NONE = 0x1f,
+};
+
+static const char * const tinyconn_mux_map[] = {
+	"NONE",
+	"DL1_CH1",
+	"DL1_CH2",
+	"DL12_CH1",
+	"DL12_CH2",
+	"DL2_CH1",
+	"DL2_CH2",
+	"DL3_CH1",
+	"DL3_CH2",
+};
+
+static int tinyconn_mux_map_value[] = {
+	TINYCONN_MUX_NONE,
+	TINYCONN_CH1_MUX_DL1,
+	TINYCONN_CH2_MUX_DL1,
+	TINYCONN_CH1_MUX_DL12,
+	TINYCONN_CH2_MUX_DL12,
+	TINYCONN_CH1_MUX_DL2,
+	TINYCONN_CH2_MUX_DL2,
+	TINYCONN_CH1_MUX_DL3,
+	TINYCONN_CH2_MUX_DL3,
+};
+
+static SOC_VALUE_ENUM_SINGLE_DECL(i2s1_tinyconn_ch1_mux_map_enum,
+				  AFE_TINY_CONN5,
+				  O_20_CFG_SFT,
+				  O_20_CFG_MASK,
+				  tinyconn_mux_map,
+				  tinyconn_mux_map_value);
+static const struct snd_kcontrol_new i2s1_tinyconn_ch1_mux_control =
+	SOC_DAPM_ENUM("i2s1 ch1 tinyconn Select",
+		      i2s1_tinyconn_ch1_mux_map_enum);
+
+static SOC_VALUE_ENUM_SINGLE_DECL(i2s1_tinyconn_ch2_mux_map_enum,
+				  AFE_TINY_CONN5,
+				  O_21_CFG_SFT,
+				  O_21_CFG_MASK,
+				  tinyconn_mux_map,
+				  tinyconn_mux_map_value);
+static const struct snd_kcontrol_new i2s1_tinyconn_ch2_mux_control =
+	SOC_DAPM_ENUM("i2s1 ch2 tinyconn Select",
+		      i2s1_tinyconn_ch2_mux_map_enum);
+
+static SOC_VALUE_ENUM_SINGLE_DECL(i2s3_tinyconn_ch1_mux_map_enum,
+				  AFE_TINY_CONN5,
+				  O_22_CFG_SFT,
+				  O_22_CFG_MASK,
+				  tinyconn_mux_map,
+				  tinyconn_mux_map_value);
+static const struct snd_kcontrol_new i2s3_tinyconn_ch1_mux_control =
+	SOC_DAPM_ENUM("i2s3 ch1 tinyconn Select",
+		      i2s3_tinyconn_ch1_mux_map_enum);
+
+static SOC_VALUE_ENUM_SINGLE_DECL(i2s3_tinyconn_ch2_mux_map_enum,
+				  AFE_TINY_CONN5,
+				  O_23_CFG_SFT,
+				  O_23_CFG_MASK,
+				  tinyconn_mux_map,
+				  tinyconn_mux_map_value);
+static const struct snd_kcontrol_new i2s3_tinyconn_ch2_mux_control =
+	SOC_DAPM_ENUM("i2s3 ch2 tinyconn Select",
+		      i2s3_tinyconn_ch2_mux_map_enum);
+
 /* i2s in lpbk */
 static const char * const i2s_lpbk_mux_map[] = {
 	"Normal", "Lpbk",
@@ -571,6 +648,62 @@ static int mtk_apll_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static int i2s_out_tinyconn_event(struct snd_soc_dapm_widget *w,
+				  struct snd_kcontrol *kcontrol,
+				  int event)
+{
+	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
+	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+	unsigned int reg;
+	unsigned int reg_shift;
+	unsigned int reg_mask_shift;
+
+	dev_info(afe->dev, "%s(), event 0x%x\n", __func__, event);
+
+	if (strstr(w->name, "I2S1")) {
+		reg = AFE_I2S_CON1;
+		reg_shift = I2S2_32BIT_EN_SFT;
+		reg_mask_shift = I2S2_32BIT_EN_MASK_SFT;
+	} else if (strstr(w->name, "I2S3")) {
+		reg = AFE_I2S_CON3;
+		reg_shift = I2S4_32BIT_EN_SFT;
+		reg_mask_shift = I2S4_32BIT_EN_MASK_SFT;
+	} else if (strstr(w->name, "I2S5")) {
+		reg = AFE_I2S_CON4;
+		reg_shift = I2S5_32BIT_EN_SFT;
+		reg_mask_shift = I2S5_32BIT_EN_MASK_SFT;
+	} else if (strstr(w->name, "I2S7")) {
+		reg = AFE_I2S_CON7;
+		reg_shift = I2S7_32BIT_EN_SFT;
+		reg_mask_shift = I2S7_32BIT_EN_MASK_SFT;
+	} else if (strstr(w->name, "I2S9")) {
+		reg = AFE_I2S_CON9;
+		reg_shift = I2S9_32BIT_EN_SFT;
+		reg_mask_shift = I2S9_32BIT_EN_MASK_SFT;
+	} else {
+		reg = AFE_I2S_CON1;
+		reg_shift = I2S2_32BIT_EN_SFT;
+		reg_mask_shift = I2S2_32BIT_EN_MASK_SFT;
+		pr_err("%s(), error widget name %s, default use i2s1\n",
+		       __func__, w->name);
+	}
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		regmap_update_bits(afe->regmap, reg, reg_mask_shift,
+				   0x1 << reg_shift);
+		break;
+	case SND_SOC_DAPM_PRE_PMD:
+		regmap_update_bits(afe->regmap, reg, reg_mask_shift,
+				   0x0 << reg_shift);
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
 static int mtk_mclk_en_event(struct snd_soc_dapm_widget *w,
 			     struct snd_kcontrol *kcontrol,
 			     int event)
@@ -641,6 +774,23 @@ static const struct snd_soc_dapm_widget mtk_dai_i2s_widgets[] = {
 	SND_SOC_DAPM_MIXER("I2S9_CH2", SND_SOC_NOPM, 0, 0,
 			   mtk_i2s9_ch2_mix,
 			   ARRAY_SIZE(mtk_i2s9_ch2_mix)),
+
+	SND_SOC_DAPM_MUX_E("I2S1_TINYCONN_CH1_MUX", SND_SOC_NOPM, 0, 0,
+			   &i2s1_tinyconn_ch1_mux_control,
+			   i2s_out_tinyconn_event,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
+	SND_SOC_DAPM_MUX_E("I2S1_TINYCONN_CH2_MUX", SND_SOC_NOPM, 0, 0,
+			   &i2s1_tinyconn_ch2_mux_control,
+			   i2s_out_tinyconn_event,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
+	SND_SOC_DAPM_MUX_E("I2S3_TINYCONN_CH1_MUX", SND_SOC_NOPM, 0, 0,
+			   &i2s3_tinyconn_ch1_mux_control,
+			   i2s_out_tinyconn_event,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
+	SND_SOC_DAPM_MUX_E("I2S3_TINYCONN_CH2_MUX", SND_SOC_NOPM, 0, 0,
+			   &i2s3_tinyconn_ch2_mux_control,
+			   i2s_out_tinyconn_event,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
 
 	/* i2s en*/
 	SND_SOC_DAPM_SUPPLY_S("I2S0_EN", SUPPLY_SEQ_I2S_EN,
@@ -953,15 +1103,23 @@ static const struct snd_soc_dapm_route mtk_dai_i2s_routes[] = {
 	/* i2s1 */
 	{"I2S1_CH1", "DL1_CH1", "DL1"},
 	{"I2S1_CH2", "DL1_CH2", "DL1"},
+	{"I2S1_TINYCONN_CH1_MUX", "DL1_CH1", "DL1"},
+	{"I2S1_TINYCONN_CH2_MUX", "DL1_CH2", "DL1"},
 
 	{"I2S1_CH1", "DL2_CH1", "DL2"},
 	{"I2S1_CH2", "DL2_CH2", "DL2"},
+	{"I2S1_TINYCONN_CH1_MUX", "DL2_CH1", "DL2"},
+	{"I2S1_TINYCONN_CH2_MUX", "DL2_CH2", "DL2"},
 
 	{"I2S1_CH1", "DL3_CH1", "DL3"},
 	{"I2S1_CH2", "DL3_CH2", "DL3"},
+	{"I2S1_TINYCONN_CH1_MUX", "DL3_CH1", "DL3"},
+	{"I2S1_TINYCONN_CH2_MUX", "DL3_CH2", "DL3"},
 
 	{"I2S1_CH1", "DL12_CH1", "DL12"},
 	{"I2S1_CH2", "DL12_CH2", "DL12"},
+	{"I2S1_TINYCONN_CH1_MUX", "DL12_CH1", "DL12"},
+	{"I2S1_TINYCONN_CH2_MUX", "DL12_CH2", "DL12"},
 
 	{"I2S1_CH1", "DL6_CH1", "DL6"},
 	{"I2S1_CH2", "DL6_CH2", "DL6"},
@@ -977,6 +1135,9 @@ static const struct snd_soc_dapm_route mtk_dai_i2s_routes[] = {
 
 	{"I2S1", NULL, "I2S1_CH1"},
 	{"I2S1", NULL, "I2S1_CH2"},
+	{"I2S1", NULL, "I2S3_TINYCONN_CH1_MUX"},
+	{"I2S1", NULL, "I2S3_TINYCONN_CH2_MUX"},
+
 
 	{"I2S1", NULL, "I2S0_EN", mtk_afe_i2s_share_connect},
 	{"I2S1", NULL, "I2S1_EN"},
@@ -1050,15 +1211,23 @@ static const struct snd_soc_dapm_route mtk_dai_i2s_routes[] = {
 	/* i2s3 */
 	{"I2S3_CH1", "DL1_CH1", "DL1"},
 	{"I2S3_CH2", "DL1_CH2", "DL1"},
+	{"I2S3_TINYCONN_CH1_MUX", "DL1_CH1", "DL1"},
+	{"I2S3_TINYCONN_CH2_MUX", "DL1_CH2", "DL1"},
 
 	{"I2S3_CH1", "DL2_CH1", "DL2"},
 	{"I2S3_CH2", "DL2_CH2", "DL2"},
+	{"I2S3_TINYCONN_CH1_MUX", "DL2_CH1", "DL2"},
+	{"I2S3_TINYCONN_CH2_MUX", "DL2_CH2", "DL2"},
 
 	{"I2S3_CH1", "DL3_CH1", "DL3"},
 	{"I2S3_CH2", "DL3_CH2", "DL3"},
+	{"I2S3_TINYCONN_CH1_MUX", "DL3_CH1", "DL3"},
+	{"I2S3_TINYCONN_CH2_MUX", "DL3_CH2", "DL3"},
 
 	{"I2S3_CH1", "DL12_CH1", "DL12"},
 	{"I2S3_CH2", "DL12_CH2", "DL12"},
+	{"I2S3_TINYCONN_CH1_MUX", "DL12_CH1", "DL12"},
+	{"I2S3_TINYCONN_CH2_MUX", "DL12_CH2", "DL12"},
 
 	{"I2S3_CH1", "DL6_CH1", "DL6"},
 	{"I2S3_CH2", "DL6_CH2", "DL6"},
@@ -1074,6 +1243,8 @@ static const struct snd_soc_dapm_route mtk_dai_i2s_routes[] = {
 
 	{"I2S3", NULL, "I2S3_CH1"},
 	{"I2S3", NULL, "I2S3_CH2"},
+	{"I2S3", NULL, "I2S3_TINYCONN_CH1_MUX"},
+	{"I2S3", NULL, "I2S3_TINYCONN_CH2_MUX"},
 
 	{"I2S3", NULL, "I2S0_EN", mtk_afe_i2s_share_connect},
 	{"I2S3", NULL, "I2S1_EN", mtk_afe_i2s_share_connect},
