@@ -5545,30 +5545,6 @@
 		mediatek,fifo_only;
 	};
 
-	i2c12: i2c12@1101a000 {
-		compatible = "mediatek,i2c";
-		id = <12>;
-		reg = <0 0x1101a000 0 0x1000>;
-		interrupts = <GIC_SPI 124 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&imp_iic_wrap_c IMP_IIC_WRAP_C_AP_I2C12_CG_RO>;
-		clock-names = "main";
-		clock-div = <5>;
-		aed = <0x1a>;
-		mediatek,fifo_only;
-	};
-
-	i2c13: i2c13@1101b000 {
-		compatible = "mediatek,i2c";
-		id = <13>;
-		reg = <0 0x1101b000 0 0x1000>;
-		interrupts = <GIC_SPI 125 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&imp_iic_wrap_c IMP_IIC_WRAP_C_AP_I2C13_CG_RO>;
-		clock-names = "main";
-		clock-div = <5>;
-		aed = <0x1a>;
-		mediatek,fifo_only;
-	};
-
 	goodix_fp: fingerprint {
 		compatible = "mediatek,goodix-fp";
 	};
