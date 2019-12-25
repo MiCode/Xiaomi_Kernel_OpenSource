@@ -718,12 +718,14 @@ static inline void smi_larb_port_set(const struct mtk_smi_dev *smi)
 {
 	s32 i;
 
+	if (!smi || !smi->dev)
+		return;
 #if IS_ENABLED(CONFIG_MACH_MT6873) && IS_ENABLED(SMI_ASSERT)
 	if (smi->id == SMI_LARB_NUM)
 		cmdq_pkt_flush_threaded(
 			smi_cmdq.pkt, smi_common_assert_cb, NULL);
 #endif
-	if (!smi || !smi->dev || smi->id >= SMI_LARB_NUM)
+	if (smi->id >= SMI_LARB_NUM)
 		return;
 
 	for (i = smi_larb_cmd_gp_en_port[smi->id][0];
