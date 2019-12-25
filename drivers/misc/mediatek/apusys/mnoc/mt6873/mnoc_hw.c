@@ -299,7 +299,7 @@ static void mnoc_reg_init(void)
 
 int mnoc_check_int_status(void)
 {
-	int mnoc_irq_triggered = false;
+	int mnoc_irq_triggered = 0;
 	unsigned int val, int_sta;
 	int grp_idx, int_idx, ni_idx;
 	struct mnoc_int_dump *d;
@@ -389,7 +389,7 @@ int mnoc_check_int_status(void)
 				/* timeout interrupt may be only perf
 				 * hint but not actually hang
 				 */
-				if (mnoc_irq_triggered == 0 && (
+				if (mnoc_irq_triggered != 1 && (
 					int_idx == MNOC_INT_REQRT_TO_ERR_FLAG ||
 					int_idx == MNOC_INT_RSPRT_TO_ERR_FLAG))
 					mnoc_irq_triggered = 2;

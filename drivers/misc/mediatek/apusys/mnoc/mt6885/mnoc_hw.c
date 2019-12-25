@@ -409,7 +409,7 @@ int mnoc_check_int_status(void)
 			/* timeout interrupt may be only perf
 			 * hint but not actually hang
 			 */
-			if (mnoc_irq_triggered == 0 && (
+			if (mnoc_irq_triggered != 1 && (
 				int_idx == MNOC_INT_REQRT_TO_ERR_FLAG ||
 				int_idx == MNOC_INT_RSPRT_TO_ERR_FLAG))
 				mnoc_irq_triggered = 2;
