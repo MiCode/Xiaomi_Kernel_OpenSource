@@ -189,6 +189,10 @@
 #define DSI_VM_CMD_CON 0x130
 #define VM_CMD_EN BIT(0)
 #define TS_VFP_EN BIT(5)
+#define DSI_VM_CMD_DATA0	0x134
+#define DSI_VM_CMD_DATA10	0x180
+#define DSI_VM_CMD_DATA20	0x1A0
+#define DSI_VM_CMD_DATA30	0x1B0
 
 #define DSI_VM_CMD_DATA0 0x134
 
@@ -2410,31 +2414,51 @@ static void mtk_dsi_cmdq(struct mtk_dsi *dsi, const struct mipi_dsi_msg *msg)
 	mtk_dsi_mask(dsi, DSI_CMDQ_SIZE, CMDQ_SIZE, cmdq_size);
 }
 
+static void build_vm_cmdq(struct mtk_dsi *dsi,
+	const struct mipi_dsi_msg *msg, struct cmdq_pkt *handle)
+{
+	unsigned int i = 0, j = 0, k;
+	const char *tx_buf = msg->tx_buf;
+
+	while (i < msg->tx_len) {
+		unsigned int vm_cmd_val  = 0;
+		unsigned int vm_cmd_addr  = 0;
+
+		k = (((j + 4) > msg->tx_len) ? (msg->tx_len) : (j + 4));
+		for (j = i; j < k; j++)
+			vm_cmd_val += (tx_buf[j] << ((j - i) * 8));
+
+		if (i / 16 == 0)
+			vm_cmd_addr = DSI_VM_CMD_DATA0  + (i%16);
+		if (i / 16 == 1)
+			vm_cmd_addr = DSI_VM_CMD_DATA10 + (i%16);
+		if (i / 16 == 2)
+			vm_cmd_addr = DSI_VM_CMD_DATA20 + (i%16);
+		if (i / 16 == 3)
+			vm_cmd_addr = DSI_VM_CMD_DATA30 + (i%16);
+
+		if (handle)
+			cmdq_pkt_write(handle, dsi->ddp_comp.cmdq_base,
+				dsi->ddp_comp.regs_pa + vm_cmd_addr,
+				vm_cmd_val, ~0);
+		else
+			writel(vm_cmd_val, dsi->regs + vm_cmd_addr);
+
+		i += 4;
+	}
+}
+
 static void mtk_dsi_vm_cmdq(struct mtk_dsi *dsi,
 	const struct mipi_dsi_msg *msg, struct cmdq_pkt *handle)
 {
 	const char *tx_buf = msg->tx_buf;
 	u8 config, type = msg->type;
-	u32 reg_val, i;
-	unsigned long addr;
+	u32 reg_val;
 
 	config = (msg->tx_len > 2) ? VM_LONG_PACKET : 0;
 
 	if (msg->tx_len > 2) {
-		for (i = 0; i < msg->tx_len; i++) {
-			addr = DSI_VM_CMD_DATA0 + i;
-			if (handle == NULL)
-				mtk_dsi_mask(dsi, addr & (~(0x3UL)),
-					 (0xFFu << ((addr & 0x3u) * 8)),
-					 tx_buf[i] << ((addr & 0x3u) * 8));
-			else
-				cmdq_pkt_write(handle,
-					dsi->ddp_comp.cmdq_base,
-					dsi->ddp_comp.regs_pa +
-					(addr & (~(0x3UL))),
-					tx_buf[i] << ((addr & 0x3u) * 8),
-					(0xFFu << ((addr & 0x3u) * 8)));
-		}
+		build_vm_cmdq(dsi, msg, handle);
 		reg_val = (msg->tx_len << 16) | (type << 8) | config;
 	} else if (msg->tx_len == 2) {
 		reg_val = (tx_buf[1] << 24) | (tx_buf[0] << 16) |

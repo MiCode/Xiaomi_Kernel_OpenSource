@@ -543,7 +543,13 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 	}
 
 	is_frame_mode = mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base);
-	cmdq_handle = cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
+
+	if (is_frame_mode)
+		cmdq_handle =
+		    cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
+	else
+		cmdq_handle =
+		    cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
 
 	if (is_frame_mode) {
 		cmdq_pkt_wfe(cmdq_handle,

@@ -378,6 +378,7 @@ enum MTK_CRTC_COLOR_FMT {
 	EXPR(CLIENT_CFG)                                                       \
 	EXPR(CLIENT_TRIG_LOOP)                                                 \
 	EXPR(CLIENT_SUB_CFG)                                                   \
+	EXPR(CLIENT_DSI_CFG)                                                   \
 	EXPR(CLIENT_SEC_CFG)                                                   \
 	EXPR(CLIENT_TYPE_MAX)
 

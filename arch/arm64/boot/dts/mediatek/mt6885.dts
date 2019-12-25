@@ -4042,9 +4042,11 @@ page_owner=on loop.max_part=7";
 			<&gce_mbox 3 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_2>,
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 			<&gce_mbox 4 0 CMDQ_THR_PRIO_4>,
+			<&gce_mbox 6 0 CMDQ_THR_PRIO_4>,
 			<&gce_mbox_sec 8 0 CMDQ_THR_PRIO_3>;
 #else
-			<&gce_mbox 4 0 CMDQ_THR_PRIO_4>;
+			<&gce_mbox 4 0 CMDQ_THR_PRIO_4>,
+			<&gce_mbox 6 0 CMDQ_THR_PRIO_4>;
 #endif
 
 		gce-client-names = "CLIENT_CFG0",
@@ -4053,9 +4055,11 @@ page_owner=on loop.max_part=7";
 			"CLIENT_TRIG_LOOP0",
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 			"CLIENT_SUB_CFG0",
+			"CLIENT_DSI_CFG0",
 			"CLIENT_SEC_CFG0";
 #else
-			"CLIENT_SUB_CFG0";
+			"CLIENT_SUB_CFG0",
+			"CLIENT_DSI_CFG0";
 #endif
 
 		/* define subsys, see mt6885-gce.h */
