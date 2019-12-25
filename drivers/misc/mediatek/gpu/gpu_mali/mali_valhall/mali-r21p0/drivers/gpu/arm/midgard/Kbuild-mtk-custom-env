@@ -33,4 +33,8 @@ endif
 ifneq (, $(findstring $(CONFIG_MTK_PLATFORM), "mt6885"))
 ccflags-y += -DGED_ENABLE_DVFS_LOADING_MODE
 endif
+ifneq (, $(findstring $(CONFIG_MTK_PLATFORM), "mt6873"))
+ccflags-y += -DGED_ENABLE_DVFS_LOADING_MODE
+endif
+
 
