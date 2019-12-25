@@ -206,6 +206,9 @@ typedef u32 base_mem_alloc_flags;
 #define BASE_MEM_RESERVED_BIT_19 ((base_mem_alloc_flags)1 << 19)
 #define BASE_MEM_MAYBE_RESERVED_BIT_19 BASE_MEM_RESERVED_BIT_19
 
+/** TODO: allocate an available bit */
+#define BASE_MEM_FLAG_MAP_FIXED BASE_MEM_RESERVED_BIT_19
+
 /**
  * Memory starting from the end of the initial commit is aligned to 'extent'
  * pages, where 'extent' must be a power of 2 and no more than
@@ -304,7 +307,7 @@ static inline base_mem_alloc_flags base_mem_group_id_set(int id)
  * and may not be passed from user space.
  */
 #define BASEP_MEM_FLAGS_KERNEL_ONLY \
-	(BASEP_MEM_PERMANENT_KERNEL_MAPPING | BASEP_MEM_NO_USER_FREE)
+	(BASEP_MEM_PERMANENT_KERNEL_MAPPING | BASEP_MEM_NO_USER_FREE | BASE_MEM_FLAG_MAP_FIXED)
 
 /* A mask of all the flags that can be returned via the base_mem_get_flags()
  * interface.

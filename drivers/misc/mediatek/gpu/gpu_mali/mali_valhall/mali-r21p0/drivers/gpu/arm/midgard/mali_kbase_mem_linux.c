@@ -283,7 +283,10 @@ struct kbase_va_region *kbase_mem_alloc(struct kbase_context *kctx,
 	dev_dbg(dev, "Allocating %lld va_pages, %lld commit_pages, %lld extent, 0x%llX flags\n",
 		va_pages, commit_pages, extent, *flags);
 
-	*gpu_va = 0; /* return 0 on failure */
+	if (!(*flags & BASE_MEM_FLAG_MAP_FIXED))
+		*gpu_va = 0; /* return 0 on failure */
+	else
+		dev_err(dev, "Keeping requested GPU VA of 0x%llx\n", (unsigned long long)*gpu_va);
 
 	if (!kbase_check_alloc_flags(*flags)) {
 		dev_warn(dev,
@@ -339,7 +342,8 @@ struct kbase_va_region *kbase_mem_alloc(struct kbase_context *kctx,
 		zone = KBASE_REG_ZONE_CUSTOM_VA;
 	}
 
-	reg = kbase_alloc_free_region(rbtree, 0, va_pages, zone);
+	reg = kbase_alloc_free_region(rbtree, PFN_DOWN(*gpu_va), va_pages, zone);
+
 	if (!reg) {
 		dev_err(dev, "Failed to allocate free region");
 		goto no_region;
@@ -409,7 +413,7 @@ struct kbase_va_region *kbase_mem_alloc(struct kbase_context *kctx,
 
 		*gpu_va = (u64) cookie;
 	} else /* we control the VA */ {
-		if (kbase_gpu_mmap(kctx, reg, 0, va_pages, 1) != 0) {
+		if (kbase_gpu_mmap(kctx, reg, *gpu_va, va_pages, 1) != 0) {
 			dev_warn(dev, "Failed to map memory on GPU");
 			kbase_gpu_vm_unlock(kctx);
 			goto no_mmap;
