@@ -110,9 +110,11 @@ static int slbc_check_mmsram(void)
 
 	return 0;
 }
+#endif /* CONFIG_MTK_SLBC_MMSRAM */
 
 static void slbc_set_mmsram_data(struct slbc_data *d)
 {
+#ifdef CONFIG_MTK_SLBC_MMSRAM
 	if (slbc_check_mmsram()) {
 		pr_info("#@# %s(%d) mmsram is wrong !!!\n",
 				__func__, __LINE__);
@@ -120,13 +122,16 @@ static void slbc_set_mmsram_data(struct slbc_data *d)
 
 	d->paddr = mmsram.paddr;
 	d->vaddr = mmsram.vaddr;
+#endif /* CONFIG_MTK_SLBC_MMSRAM */
 }
+
 static void slbc_clr_mmsram_data(struct slbc_data *d)
 {
+#ifdef CONFIG_MTK_SLBC_MMSRAM
 	d->paddr = 0;
 	d->vaddr = 0;
-}
 #endif /* CONFIG_MTK_SLBC_MMSRAM */
+}
 
 static void slbc_debug_log(const char *fmt, ...)
 {
@@ -170,7 +175,7 @@ int register_slbc_ops(struct slbc_ops *ops)
 
 		return -EINVAL;
 	}
-#endif /* CONFIG_MTK_SLBC_MMSRAM */
+#endif /* CONFIG_MTK_L3C_PART */
 
 	if (ops && ops->data) {
 		d = ops->data;
@@ -613,6 +618,7 @@ int slbc_request(struct slbc_data *d)
 	}
 
 	mutex_lock(&slbc_ops_lock);
+
 	if ((d->type) == TP_BUFFER) {
 		slbc_debug_log("%s: TP_BUFFER\n", __func__);
 #ifdef CONFIG_MTK_SLBC_MMSRAM
@@ -620,12 +626,14 @@ int slbc_request(struct slbc_data *d)
 			d->pwr_ref++;
 			enable_mmsram();
 		}
+#endif /* CONFIG_MTK_SLBC_MMSRAM */
 
 		slbc_set_mmsram_data(d);
-#endif /* CONFIG_MTK_SLBC_MMSRAM */
 
 		buffer_ref++;
 	}
+
+#ifdef CONFIG_MTK_L3C_PART
 	if ((d->type) == TP_CACHE) {
 		slbc_debug_log("%s: TP_CACHE\n", __func__);
 		if (cache_ref++ == 0) {
@@ -652,6 +660,8 @@ int slbc_request(struct slbc_data *d)
 					mtk_l3c_get_part(MTK_L3C_PART_ACP));
 		}
 	}
+#endif /* CONFIG_MTK_L3C_PART */
+
 	mutex_unlock(&slbc_ops_lock);
 
 	set_slbc_slot_by_data(d);
@@ -794,21 +804,24 @@ int slbc_release(struct slbc_data *d)
 	}
 
 	mutex_lock(&slbc_ops_lock);
+
 	if ((d->type) == TP_BUFFER) {
 		slbc_debug_log("%s: TP_BUFFER\n", __func__);
 
 		buffer_ref--;
 		WARN_ON(buffer_ref < 0);
 
-#ifdef CONFIG_MTK_SLBC_MMSRAM
 		slbc_clr_mmsram_data(d);
 
+#ifdef CONFIG_MTK_SLBC_MMSRAM
 		if (!buffer_ref) {
 			d->pwr_ref--;
 			disable_mmsram();
 		}
 #endif /* CONFIG_MTK_SLBC_MMSRAM */
 	}
+
+#ifdef CONFIG_MTK_L3C_PART
 	if ((d->type) == TP_CACHE) {
 		slbc_debug_log("%s: TP_CACHE\n", __func__);
 		if (--cache_ref == 0) {
@@ -829,6 +842,8 @@ int slbc_release(struct slbc_data *d)
 		}
 		WARN_ON(cache_ref < 0);
 	}
+#endif /* CONFIG_MTK_L3C_PART */
+
 	mutex_unlock(&slbc_ops_lock);
 
 	clr_slbc_slot_by_data(d);
