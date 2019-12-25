@@ -47,7 +47,11 @@
 #define VOW_IPI_SEND_CNT_TIMEOUT       500 /* 500ms */
 /* UBM_V1:0xA000, UBM_V2:0xDC00, UBM_V3: 2*0x11000 */
 #define VOW_MODEL_SIZE                 0x11000
+#ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT
 #define VOW_VOICEDATA_OFFSET           (VOW_MODEL_SIZE * 2)
+#else
+#define VOW_VOICEDATA_OFFSET           (VOW_MODEL_SIZE)
+#endif
 #define VOW_VOICEDATA_SIZE             0x12500 /* 74880, need over 2.3sec */
 /* IPI return value definition */
 #define WORD_H                         16
@@ -68,15 +72,15 @@
 #define VOW_VBUF_LENGTH      (0x12E80)  /* 0x12480 + 0x0A00 */
 #endif
 
+#define VOW_RECOGDATA_SIZE             0x2800
+#define VOW_PCM_DUMP_BYTE_SIZE         0xA00 /* 320 * 8 */
+#define VOW_EXTRA_DATA_SIZE            0x100 /* 256 */
 #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT
 #define VOW_RECOGDATA_OFFSET    (VOW_VOICEDATA_OFFSET + 2 * VOW_VOICEDATA_SIZE)
 #else
 #define VOW_RECOGDATA_OFFSET        (VOW_VOICEDATA_OFFSET + VOW_VOICEDATA_SIZE)
 #endif
-#define VOW_RECOGDATA_SIZE             0x2800
-
-#define VOW_PCM_DUMP_BYTE_SIZE         0xA00 /* 320 * 8 */
-
+#define VOW_EXTRA_DATA_OFFSET       (VOW_RECOGDATA_OFFSET + VOW_RECOGDATA_SIZE)
 
 /* below is control message */
 #define VOW_SET_CONTROL               _IOW(VOW_IOC_MAGIC, 0x03, unsigned int)
@@ -101,7 +105,7 @@
 #define VOW_BARGEIN_DUMP_SIZE    0x3C00
 #endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
 
-#define KERNEL_VOW_DRV_VER "2.0.6"
+#define KERNEL_VOW_DRV_VER "2.0.7"
 struct dump_package_t {
 	uint32_t dump_data_type;
 	uint32_t mic_offset;
@@ -289,6 +293,8 @@ struct vow_speaker_model_t {
 	int  enabled;
 	unsigned int model_size;
 	unsigned int confidence_lv;
+	unsigned long rx_inform_addr;
+	unsigned long rx_inform_size_addr;
 };
 
 struct vow_model_info_t {
@@ -303,14 +309,9 @@ struct vow_model_info_t {
 struct vow_model_start_t {
 	long handle;
 	long confidence_level;
+	long dsp_inform_addr;
+	long dsp_inform_size_addr;
 };
-
-struct vow_speaker_model_kernel_t {
-	compat_uptr_t *model_ptr;
-	compat_size_t  id;
-	compat_size_t  enabled;
-};
-
 struct vow_model_info_kernel_t {
 	compat_size_t  id;
 	compat_size_t  addr;
@@ -323,6 +324,8 @@ struct vow_model_info_kernel_t {
 struct vow_model_start_kernel_t {
 	compat_size_t handle;
 	compat_size_t confidence_level;
+	compat_size_t dsp_inform_addr;
+	compat_size_t dsp_inform_size_addr;
 };
 
 #else  /* #ifdef CONFIG_COMPAT */
@@ -335,6 +338,8 @@ struct vow_speaker_model_t {
 	int  enabled;
 	unsigned int model_size;
 	unsigned int confidence_lv;
+	unsigned long rx_inform_addr;
+	unsigned long rx_inform_size_addr;
 };
 
 struct vow_model_info_t {
@@ -349,6 +354,8 @@ struct vow_model_info_t {
 struct vow_model_start_t {
 	long handle;
 	long confidence_level;
+	long dsp_inform_addr;
+	long dsp_inform_size_addr;
 };
 #endif  /* #ifdef CONFIG_COMPAT */
 
@@ -369,12 +376,13 @@ enum ipi_type_flag_t {
 #define INPUT_DUMP_IDX_MASK         (0x01 << INPUT_DUMP_IDX)
 
 struct vow_ipi_combined_info_t {
-	unsigned int ipi_type_flag;
+	unsigned short ipi_type_flag;
 	/* IPIMSG_VOW_RECOGNIZE_OK */
-	unsigned int recog_ret_info;
-	unsigned int recog_ok_uuid;
+	unsigned short recog_ok_uuid;
+	/* unsigned int recog_ret_info; */
 	unsigned int confidence_lv;
 	unsigned long long recog_ok_os_timer;
+	unsigned int extra_data_len;
 	/* IPIMSG_VOW_DATAREADY */
 	unsigned int voice_buf_offset;
 	unsigned int voice_length;
