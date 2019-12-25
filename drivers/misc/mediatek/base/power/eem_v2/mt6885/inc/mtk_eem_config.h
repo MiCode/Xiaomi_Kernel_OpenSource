@@ -217,8 +217,8 @@ enum mt_cpu_dvfs_id {
 
 #elif defined(MT6889)
 #define DEVINFO_0 0x0 /* MC50 Safe EFUSE */
-#define DEVINFO_1 0x67E80059 /* L_LO */
-#define DEVINFO_2 0x7D10002F /* B_LO + L_L0 */
+#define DEVINFO_1 0x67130025 /* L_LO */
+#define DEVINFO_2 0x67E80059 /* B_LO + L_L0 */
 #define DEVINFO_3 0x2716009E /* B_L0 */
 #define DEVINFO_4 0x4B140057 /* CCI */
 #define DEVINFO_5 0x0 /* GPU_LO + CCI */

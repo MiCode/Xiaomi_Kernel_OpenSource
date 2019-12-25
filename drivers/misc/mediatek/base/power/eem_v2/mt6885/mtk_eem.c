@@ -222,6 +222,7 @@ static struct eem_det *id_to_eem_det(enum eem_det_id id)
 		return NULL;
 }
 
+#ifndef MC50_LOAD
 #if SUPPORT_PICACHU
 static void get_picachu_efuse(void)
 {
@@ -281,6 +282,7 @@ static void get_picachu_efuse(void)
 		}
 	}
 }
+#endif
 #endif
 
 static int get_devinfo(void)
@@ -3690,8 +3692,10 @@ static int eem_probe(struct platform_device *pdev)
 	}
 	eem_debug("Set EEM IRQ OK.\n");
 
+#ifndef MC50_LOAD
 #if SUPPORT_PICACHU
 	get_picachu_efuse();
+#endif
 #endif
 
 #ifdef CONFIG_EEM_AEE_RR_REC
