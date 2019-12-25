@@ -2923,7 +2923,7 @@ void mtk_crtc_config_round_corner(struct drm_crtc *crtc,
 	for_each_comp_in_cur_crtc_path(
 		comp, mtk_crtc, i, j)
 		if (comp->id == DDP_COMPONENT_POSTMASK0 ||
-			comp->id == DDP_COMPONENT_POSTAMSK1) {
+			comp->id == DDP_COMPONENT_POSTMASK1) {
 			if (mtk_crtc_with_sub_path(crtc, mtk_crtc->ddp_mode))
 				cur_path_idx = DDP_SECOND_PATH;
 			else

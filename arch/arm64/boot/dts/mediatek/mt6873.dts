@@ -3831,11 +3831,11 @@
 					"mediatek,mt6873-disp-ovl";
 		reg = <0 0x14014000 0 0x1000>;
 		interrupts = <GIC_SPI 268 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&dispsys_config MM_DISP_OVL0_2L>;
+		clocks = <&dispsys_config MM_DISP_OVL2_2L>;
 		mediatek,larb = <&smi_larb1>;
 		mediatek,smi-id = <1>;
-		iommus = <&iommu0 M4U_PORT_L1_OVL_2L_RDMA0>,
-			 <&iommu0 M4U_PORT_L1_OVL_2L_RDMA0_HDR>;
+		iommus = <&iommu0 M4U_PORT_L1_OVL_2L_RDMA2>,
+			 <&iommu0 M4U_PORT_L1_OVL_2L_RDMA2_HDR>;
 	};
 
 	disp_rdma4: disp_rdma4@14015000 {

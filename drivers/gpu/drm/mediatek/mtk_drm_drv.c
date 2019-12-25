@@ -990,7 +990,7 @@ static const enum mtk_ddp_comp_id mt6873_mtk_ddp_ext[] = {
 	DDP_COMPONENT_OVL2_2L, DDP_COMPONENT_RDMA4,
 	DDP_COMPONENT_DPI0,
 #else
-	DDP_COMPONENT_OVL2_2L, DDP_COMPONENT_WDMA0,
+	DDP_COMPONENT_OVL2_2L, DDP_COMPONENT_RDMA4,
 #endif
 };
 
@@ -1000,12 +1000,11 @@ static const enum mtk_ddp_comp_id mt6873_mtk_ddp_third[] = {
 
 static const enum mtk_ddp_comp_id mt6873_mtk_ddp_main_minor[] = {
 	DDP_COMPONENT_OVL0_2L,       DDP_COMPONENT_OVL0,
-	DDP_COMPONENT_WDMA_VIRTUAL0, DDP_COMPONENT_WDMA_VIRTUAL1,
 	DDP_COMPONENT_WDMA0,
 };
 
 static const enum mtk_ddp_comp_id mt6873_mtk_ddp_main_minor_sub[] = {
-	DDP_COMPONENT_RDMA0,    DDP_COMPONENT_RDMA0_VIRTUAL0,
+	DDP_COMPONENT_RDMA0,
 	DDP_COMPONENT_COLOR0,   DDP_COMPONENT_CCORR0,
 	DDP_COMPONENT_AAL0,      DDP_COMPONENT_GAMMA0,
 	DDP_COMPONENT_POSTMASK0, DDP_COMPONENT_DITHER0,

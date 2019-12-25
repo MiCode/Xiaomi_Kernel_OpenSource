@@ -313,8 +313,14 @@ static void mtk_wdma_calc_golden_setting(struct golden_setting_context *gsc,
 	unsigned int res = 0;
 	unsigned int frame_rate = 0;
 	unsigned long long consume_rate = 0;
+#if defined(CONFIG_MACH_MT6885)
 	unsigned int fifo_size = 325;
 	unsigned int fifo_size_uv = 31;
+#endif
+#if defined(CONFIG_MACH_MT6873)
+	unsigned int fifo_size = 578;
+	unsigned int fifo_size_uv = 29;
+#endif
 	unsigned int fifo;
 	unsigned int factor1 = 4;
 	unsigned int factor2 = 4;

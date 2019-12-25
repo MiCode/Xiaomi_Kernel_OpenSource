@@ -1953,18 +1953,14 @@ void mtk_ovl_cal_golden_setting(struct mtk_ddp_config *cfg, unsigned int *gs)
 
 	DDPDBG("%s,is_dc:%d\n", __func__, is_dc);
 
+#if defined(CONFIG_MACH_MT6885)
 	/* OVL_RDMA_MEM_GMC_SETTING_1 */
 	gs[GS_OVL_RDMA_ULTRA_TH] = 0x3ff;
 	gs[GS_OVL_RDMA_PRE_ULTRA_TH] = (!is_dc) ? 0x3ff : 0x15e;
 
 	/* OVL_RDMA_FIFO_CTRL */
 	gs[GS_OVL_RDMA_FIFO_THRD] = 0;
-#if defined(CONFIG_MACH_MT6885)
 	gs[GS_OVL_RDMA_FIFO_SIZE] = 384;
-#endif
-#if defined(CONFIG_MACH_MT6873)
-	gs[GS_OVL_RDMA_FIFO_SIZE] = 288;
-#endif
 
 	/* OVL_RDMA_MEM_GMC_SETTING_2 */
 	gs[GS_OVL_RDMA_ISSUE_REQ_TH] = (!is_dc) ? 255 : 15;
@@ -1995,6 +1991,46 @@ void mtk_ovl_cal_golden_setting(struct mtk_ddp_config *cfg, unsigned int *gs)
 	/* OVL_EN */
 	gs[GS_OVL_BLOCK_EXT_ULTRA] = (!is_dc) ? 0 : 1;
 	gs[GS_OVL_BLOCK_EXT_PRE_ULTRA] = (!is_dc) ? 0 : 1;
+#endif
+
+#if defined(CONFIG_MACH_MT6873)
+	/* OVL_RDMA_MEM_GMC_SETTING_1 */
+	gs[GS_OVL_RDMA_ULTRA_TH] = 0x3ff;
+	gs[GS_OVL_RDMA_PRE_ULTRA_TH] = (!is_dc) ? 0x3ff : 0xe0;
+
+	/* OVL_RDMA_FIFO_CTRL */
+	gs[GS_OVL_RDMA_FIFO_THRD] = 0;
+	gs[GS_OVL_RDMA_FIFO_SIZE] = 288;
+
+	/* OVL_RDMA_MEM_GMC_SETTING_2 */
+	gs[GS_OVL_RDMA_ISSUE_REQ_TH] = (!is_dc) ? 191 : 15;
+	gs[GS_OVL_RDMA_ISSUE_REQ_TH_URG] = (!is_dc) ? 95 : 15;
+	gs[GS_OVL_RDMA_REQ_TH_PRE_ULTRA] = 0;
+	gs[GS_OVL_RDMA_REQ_TH_ULTRA] = 1;
+	gs[GS_OVL_RDMA_FORCE_REQ_TH] = 0;
+
+	/* OVL_RDMA_GREQ_NUM */
+	gs[GS_OVL_RDMA_GREQ_NUM] = (!is_dc) ? 0xF1FF5555 : 0xF1FF0000;
+
+	/* OVL_RDMA_GREQURG_NUM */
+	gs[GS_OVL_RDMA_GREQ_URG_NUM] = (!is_dc) ? 0x5555 : 0x0;
+
+	/* OVL_RDMA_ULTRA_SRC */
+	gs[GS_OVL_RDMA_ULTRA_SRC] = (!is_dc) ? 0x8040 : 0xA040;
+
+	/* OVL_RDMA_BUF_LOW_TH */
+	gs[GS_OVL_RDMA_ULTRA_LOW_TH] = 0;
+	gs[GS_OVL_RDMA_PRE_ULTRA_LOW_TH] = (!is_dc) ? 0 : 24;
+
+	/* OVL_RDMA_BUF_HIGH_TH */
+	gs[GS_OVL_RDMA_PRE_ULTRA_HIGH_TH] = (!is_dc) ?
+				0 : (gs[GS_OVL_RDMA_FIFO_SIZE] * 6 / 8);
+	gs[GS_OVL_RDMA_PRE_ULTRA_HIGH_DIS] = 1;
+
+	/* OVL_EN */
+	gs[GS_OVL_BLOCK_EXT_ULTRA] = (!is_dc) ? 0 : 1;
+	gs[GS_OVL_BLOCK_EXT_PRE_ULTRA] = (!is_dc) ? 0 : 1;
+#endif
 }
 
 static int mtk_ovl_golden_setting(struct mtk_ddp_comp *comp,
