@@ -158,7 +158,7 @@ int res_mgt_destroy(void);
 struct apusys_res_table *res_get_table(int type);
 
 #ifdef CONFIG_MTK_GZ_SUPPORT_SDSP
-extern mtee_sdsp_enable(u32 on);
+extern int mtee_sdsp_enable(u32 on);
 #endif
 
 #endif
