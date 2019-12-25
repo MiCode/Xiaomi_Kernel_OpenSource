@@ -1385,7 +1385,7 @@ static int ufshpb_execute_req(struct ufshpb10_lu *hpb, unsigned char *cmd,
 	struct scsi_request *scsireq;
 	struct bio bio;
 	struct bio *pbio = &bio;
-	struct scsi_sense_hdr sshdr;
+	struct scsi_sense_hdr sshdr = {0};
 	unsigned long flags;
 	int ret = 0;
 
@@ -2658,7 +2658,7 @@ static void ufshpb_stat_init(struct ufshpb10_lu *hpb)
 static ssize_t ufshpb_sysfs_info_from_region_store(struct ufshpb10_lu *hpb,
 		const char *buf, size_t count)
 {
-	unsigned long long value;
+	unsigned long long value = 0;
 	int region, subregion;
 	struct ufshpb10_region *cb;
 	struct ufshpb10_subregion *cp;
@@ -2699,7 +2699,7 @@ static ssize_t ufshpb_sysfs_info_from_lba_store(struct ufshpb10_lu *hpb,
 		const char *buf, size_t count)
 {
 	hpb_t ppn;
-	unsigned long long value;
+	unsigned long long value = 0;
 	unsigned int lpn;
 	int region, subregion, subregion_offset;
 	struct ufshpb10_region *cb;
@@ -2763,7 +2763,7 @@ static ssize_t ufshpb_sysfs_map_req_show(struct ufshpb10_lu *hpb, char *buf)
 static ssize_t ufshpb_sysfs_count_reset_store(struct ufshpb10_lu *hpb,
 		const char *buf, size_t count)
 {
-	unsigned long debug;
+	unsigned long debug = 0;
 
 	if (kstrtoul(buf, 0, &debug))
 		return -EINVAL;
@@ -2858,7 +2858,7 @@ static ssize_t ufshpb_sysfs_active_count_show(
 static ssize_t ufshpb_sysfs_map_loading_store(struct ufshpb10_lu *hpb,
 		const char *buf, size_t count)
 {
-	unsigned long value;
+	unsigned long value = 0;
 
 	if (kstrtoul(buf, 0, &value))
 		return -EINVAL;
@@ -2893,7 +2893,7 @@ static ssize_t ufshpb_sysfs_hpb_disable_show(
 static ssize_t ufshpb_sysfs_hpb_disable_store(struct ufshpb10_lu *hpb,
 		const char *buf, size_t count)
 {
-	unsigned long value;
+	unsigned long value = 0;
 
 	if (kstrtoul(buf, 0, &value))
 		return -EINVAL;
@@ -2932,7 +2932,7 @@ static ssize_t debug_activate_store(
 static ssize_t debug_inactivate_store(
 	struct ufshpb10_lu *hpb, const char *buf, size_t count)
 {
-	unsigned int region;
+	unsigned int region = 0;
 	int rv;
 
 	rv = kstrtouint(buf, 10, &region);
@@ -2951,11 +2951,11 @@ static ssize_t debug_inactivate_store(
 static ssize_t ufshpb_sysfs_hpb_reset_store(struct ufshpb10_lu *hpb,
 		const char *buf, size_t count)
 {
-	unsigned long value;
+	unsigned long value = 0;
 	unsigned int doorbel;
 	struct ufshpb_rsp_info *rsp_info;
 	unsigned long flags;
-	int ret, retries, lun;
+	int ret = 0, retries, lun;
 	struct ufshpb10_lu *hpb_lu;
 
 	if (kstrtoul(buf, 0, &value))
@@ -3056,7 +3056,7 @@ static ssize_t ufshpb_sysfs_debug_log_show(
 static ssize_t ufshpb_sysfs_debug_log_store(struct ufshpb10_lu *hpb,
 		const char *buf, size_t count)
 {
-	unsigned long value;
+	unsigned long value = 0;
 
 	if (kstrtoul(buf, 0, &value))
 		return -EINVAL;
