@@ -165,9 +165,13 @@ static int scp_ipi_syscore_dbg_suspend(void) { return 0; }
 static void scp_ipi_syscore_dbg_resume(void)
 {
 	int i;
+	int ret = 0;
 
 	for (i = 0; i < IRQ_NUMBER; i++) {
-		if (mt_irq_get_pending(scp_ipi_irqs[i].irq_no)) {
+#ifdef CONFIG_MTK_GIC_V3_EXT
+		ret = mt_irq_get_pending(scp_ipi_irqs[i].irq_no);
+#endif
+		if (ret) {
 			if (i < 2)
 				pr_info("[SCP] ipc%d wakeup\n", i);
 			else

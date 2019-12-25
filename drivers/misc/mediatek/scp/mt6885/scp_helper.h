@@ -213,7 +213,9 @@ extern atomic_t scp_reset_status;
 
 extern void mbox_setup_pin_table(int mbox);
 extern void mt_print_scp_ipi_id(unsigned int irq_no);
+#ifdef CONFIG_MTK_GIC_V3_EXT
 extern u32 mt_irq_get_pending(unsigned int irq);
+#endif
 
 /*extern scp notify*/
 extern void scp_send_reset_wq(enum SCP_RESET_TYPE type);
