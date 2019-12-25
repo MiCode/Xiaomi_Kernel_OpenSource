@@ -476,7 +476,7 @@ int pseudo_get_reg_of_path(unsigned int port, bool is_va,
 	larb_port = m4u_port_2_larb_port(port);
 	larb_base = pseudo_larbbase[larb];
 	if (!larb_base) {
-		M4U_MSG("larb(%u) not existed, no need of config\n", larb);
+		M4U_DBG("larb(%u) not existed, no need of config\n", larb);
 		return -1;
 	}
 
@@ -546,7 +546,7 @@ static inline int pseudo_config_port(struct M4U_PORT_STRUCT *pM4uPort,
 
 	larb_base = pseudo_larbbase[larb];
 	if (!larb_base) {
-		M4U_MSG("larb %d not existed, no need of config\n", larb);
+		M4U_DBG("larb %d not existed, no need of config\n", larb);
 		return -3;
 	}
 
@@ -616,7 +616,7 @@ int pseudo_dump_port(int port, bool ignore_power)
 
 	larb_base = pseudo_larbbase[larb];
 	if (!larb_base) {
-		M4U_MSG("larb:%d not existed, no need of config\n", larb);
+		M4U_DBG("larb:%d not existed, no need of config\n", larb);
 		return 0;
 	}
 
@@ -654,7 +654,8 @@ int pseudo_dump_all_port_status(struct seq_file *s)
 	for (larb = 0; larb < SMI_LARB_NR; larb++) {
 		larb_base = pseudo_larbbase[larb];
 		if (!larb_base) {
-			M4U_MSG("larb(%u) not existed, no need of config\n", larb);
+			M4U_DBG("larb(%u) not existed, no need of config\n",
+				larb);
 			continue;
 		}
 

@@ -1241,7 +1241,7 @@ const struct file_operations m4u_debug_register_fops = {
 
 int m4u_debug_db_show(struct seq_file *s, void *unused)
 {
-	pr_notice("[iommu][debug]: %s\n", __func__);
+	pr_debug("[iommu][debug]: %s\n", __func__);
 	pseudo_m4u_db_debug(MTK_IOMMU_M4U_COUNT, s);
 	return 0;
 }
