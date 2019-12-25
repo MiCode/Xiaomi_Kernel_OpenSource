@@ -581,7 +581,7 @@ void get_opp_info(char *p)
 			"Vcore", vcore_uv, vcore_uv_to_pmic(vcore_uv));
 	p += sprintf(p, "%-10s: %-8u khz\n", "DDR", ddr_khz);
 	p += sprintf(p, "%-10s: %d\n", "CT_MODE", dvfsrc_ct_mode());
-	p += sprintf(p, "%-10s: %d\n", "V_MODE", dvfsrc_vcore_mode());
+	p += sprintf(p, "%-10s: %x\n", "V_MODE", dvfsrc_vcore_mode());
 }
 
 

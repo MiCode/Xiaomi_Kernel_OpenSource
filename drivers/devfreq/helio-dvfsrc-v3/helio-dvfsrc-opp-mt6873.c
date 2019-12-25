@@ -24,11 +24,18 @@
 #define SOC_CPE_DETECT
 
 #define AGING_VALUE 12500
+
+#define V_VMODE_SHIFT 0
+#define V_AGING_SHIFT 4
+#define V_CT_SHIFT 5
+#define V_CT_TEST_SHIFT 6
+#define V_CT_OPP3_SHIFT 7
+
 static int opp_min_bin_opp0;
 static int opp_min_bin_opp3;
 static int opp_min_bin_opp3_1;
 static int is_vcore_ct;
-static int dvfs_v_mode;
+static int dvfsrc_rsrv;
 
 
 
@@ -46,7 +53,7 @@ u32 dvfsrc_ct_mode(void)
 }
 u32 dvfsrc_vcore_mode(void)
 {
-	return dvfs_v_mode;
+	return dvfsrc_rsrv;
 }
 
 void dvfsrc_opp_level_mapping(void)
@@ -124,6 +131,8 @@ static int get_vb_volt(int vcore_opp)
 	int ret = 0;
 	int ptpod = get_devinfo_with_index(209);
 
+	pr_info("%s: PTPOD: 0x%x\n", __func__, ptpod);
+
 	switch (vcore_opp) {
 	case VCORE_OPP_0:
 		idx = (ptpod >> 4) & 0x7;
@@ -150,6 +159,9 @@ static int __init dvfsrc_opp_init(void)
 	int vcore_opp_0_uv, vcore_opp_1_uv, vcore_opp_2_uv, vcore_opp_3_uv;
 	int ct_test = 0;
 	int is_vcore_aging = 0;
+	int ct_opp3_en = 0;
+	int dvfs_v_mode = 0;
+	void __iomem *dvfsrc_base;
 
 	set_pwrap_cmd(VCORE_OPP_0, 0);
 	set_pwrap_cmd(VCORE_OPP_1, 1);
@@ -166,17 +178,18 @@ static int __init dvfsrc_opp_init(void)
 
 	/* For Doe */
 	if (dvfsrc_node) {
-		of_property_read_u32(dvfsrc_node, "vcore_ct",
-			(u32 *) &is_vcore_ct);
-
-		of_property_read_u32(dvfsrc_node, "vcore_ct_test",
-			(u32 *) &ct_test);
-
-		of_property_read_u32(dvfsrc_node, "vcore_aging",
-			(u32 *) &is_vcore_aging);
-
-		of_property_read_u32(dvfsrc_node, "dvfs_v_mode",
-			(u32 *) &dvfs_v_mode);
+		dvfsrc_base = of_iomap(dvfsrc_node, 0);
+		if (dvfsrc_base) {
+			dvfsrc_rsrv = readl(dvfsrc_base + 0x610);
+			iounmap(dvfsrc_base);
+		}
+		pr_info("%s: vcore_arg = %08x\n",
+			__func__, dvfsrc_rsrv);
+		dvfs_v_mode = (dvfsrc_rsrv >> V_VMODE_SHIFT) & 0x3;
+		is_vcore_ct = (dvfsrc_rsrv >> V_CT_SHIFT) & 0x1;
+		ct_test = (dvfsrc_rsrv >> V_CT_TEST_SHIFT) & 0x1;
+		is_vcore_aging = (dvfsrc_rsrv >> V_AGING_SHIFT) & 0x1;
+		ct_opp3_en = (dvfsrc_rsrv >> V_CT_OPP3_SHIFT) & 0x1;
 	}
 
 	if (is_vcore_ct) {
@@ -189,10 +202,9 @@ static int __init dvfsrc_opp_init(void)
 			opp_min_bin_opp3 = 3;
 			opp_min_bin_opp3_1 = 6;
 		}
-		vcore_opp_0_uv = vcore_opp_0_uv - get_vb_volt(VCORE_OPP_0);
-#if 0
-		vcore_opp_3_uv = vcore_opp_3_uv - get_vb_volt(VCORE_OPP_3);
-#endif
+		vcore_opp_0_uv -= get_vb_volt(VCORE_OPP_0);
+		if (ct_opp3_en)
+			vcore_opp_3_uv -= get_vb_volt(VCORE_OPP_3);
 	}
 
 	if (dvfs_v_mode == 3) {
@@ -234,12 +246,11 @@ static int __init dvfsrc_opp_init(void)
 		vcore_opp_3_uv -= AGING_VALUE;
 	}
 
-
-	pr_info("%s: CT=%d, AGING=%d, VMODE=%d\n",
-		__func__,
-		is_vcore_ct,
-		is_vcore_aging,
-		dvfs_v_mode);
+	pr_info("%s: CT=%d, VMODE=%d, RSV4=%x\n",
+			__func__,
+			is_vcore_ct,
+			dvfs_v_mode,
+			dvfsrc_rsrv);
 
 	pr_info("%s: FINAL vcore_opp_uv: %d, %d, %d, %d\n",
 		__func__,
