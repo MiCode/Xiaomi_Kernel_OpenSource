@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -591,6 +591,10 @@ static int pil_init_image_trusted(struct pil_desc *pil,
 		const u8 *metadata, size_t size)
 {
 	struct pil_tz_data *d = desc_to_data(pil);
+	struct pas_init_image_req {
+		u32	proc;
+		u32	image_addr;
+	} request;
 	u32 scm_ret = 0;
 	void *mdata_buf;
 	dma_addr_t mdata_phys;
@@ -619,13 +623,19 @@ static int pil_init_image_trusted(struct pil_desc *pil,
 	}
 
 	memcpy(mdata_buf, metadata, size);
-
-	desc.args[0] = d->pas_id;
-	desc.args[1] = mdata_phys;
-	desc.arginfo = SCM_ARGS(2, SCM_VAL, SCM_RW);
-	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_PIL, PAS_INIT_IMAGE_CMD),
-			&desc);
-	scm_ret = desc.ret[0];
+	if (!is_scm_armv8()) {
+		request.proc = d->pas_id;
+		request.image_addr = mdata_phys;
+		ret = scm_call(SCM_SVC_PIL, PAS_INIT_IMAGE_CMD, &request,
+			sizeof(request), &scm_ret, sizeof(scm_ret));
+	} else {
+		desc.args[0] = d->pas_id;
+		desc.args[1] = mdata_phys;
+		desc.arginfo = SCM_ARGS(2, SCM_VAL, SCM_RW);
+		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_PIL, PAS_INIT_IMAGE_CMD),
+				&desc);
+		scm_ret = desc.ret[0];
+	}
 
 	dma_free_attrs(&dev, size, mdata_buf, mdata_phys, attrs);
 	scm_pas_disable_bw();
@@ -638,6 +648,11 @@ static int pil_mem_setup_trusted(struct pil_desc *pil, phys_addr_t addr,
 			       size_t size)
 {
 	struct pil_tz_data *d = desc_to_data(pil);
+	struct pas_init_image_req {
+		u32	proc;
+		u32	start_addr;
+		u32	len;
+	} request;
 	u32 scm_ret = 0;
 	int ret;
 	struct scm_desc desc = {0};
@@ -645,12 +660,21 @@ static int pil_mem_setup_trusted(struct pil_desc *pil, phys_addr_t addr,
 	if (d->subsys_desc.no_auth)
 		return 0;
 
-	desc.args[0] = d->pas_id;
-	desc.args[1] = addr;
-	desc.args[2] = size;
-	desc.arginfo = SCM_ARGS(3);
-	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_PIL, PAS_MEM_SETUP_CMD),
-			&desc);
+	if (!is_scm_armv8()) {
+		request.proc = d->pas_id;
+		request.start_addr = addr;
+		request.len = size;
+		ret = scm_call(SCM_SVC_PIL, PAS_MEM_SETUP_CMD, &request,
+				sizeof(request), &scm_ret, sizeof(scm_ret));
+	} else {
+		desc.args[0] = d->pas_id;
+		desc.args[1] = addr;
+		desc.args[2] = size;
+		desc.arginfo = SCM_ARGS(3);
+		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_PIL, PAS_MEM_SETUP_CMD),
+				&desc);
+		scm_ret = desc.ret[0];
+	}
 	scm_ret = desc.ret[0];
 
 	if (ret)
@@ -683,9 +707,15 @@ static int pil_auth_and_reset(struct pil_desc *pil)
 	if (rc)
 		goto err_clks;
 
-	rc = scm_call2(SCM_SIP_FNID(SCM_SVC_PIL,
-		       PAS_AUTH_AND_RESET_CMD), &desc);
-	scm_ret = desc.ret[0];
+
+	if (!is_scm_armv8()) {
+		rc = scm_call(SCM_SVC_PIL, PAS_AUTH_AND_RESET_CMD, &proc,
+				sizeof(proc), &scm_ret, sizeof(scm_ret));
+	} else {
+		rc = scm_call2(SCM_SIP_FNID(SCM_SVC_PIL,
+				PAS_AUTH_AND_RESET_CMD), &desc);
+		scm_ret = desc.ret[0];
+	}
 
 	scm_pas_disable_bw();
 	if (rc)
@@ -734,9 +764,15 @@ static int pil_shutdown_trusted(struct pil_desc *pil)
 	if (rc)
 		goto err_clks;
 
-	rc = scm_call2(SCM_SIP_FNID(SCM_SVC_PIL, PAS_SHUTDOWN_CMD),
-		       &desc);
-	scm_ret = desc.ret[0];
+
+	if (!is_scm_armv8()) {
+		rc = scm_call(SCM_SVC_PIL, PAS_SHUTDOWN_CMD, &proc,
+				sizeof(proc), &scm_ret, sizeof(scm_ret));
+	} else {
+		rc = scm_call2(SCM_SIP_FNID(SCM_SVC_PIL, PAS_SHUTDOWN_CMD),
+			       &desc);
+		scm_ret = desc.ret[0];
+	}
 
 	disable_unprepare_clocks(d->proxy_clks, d->proxy_clk_count);
 	disable_regulators(d, d->proxy_regs, d->proxy_reg_count, false);
@@ -778,9 +814,14 @@ static int pil_deinit_image_trusted(struct pil_desc *pil)
 	desc.args[0] = proc = d->pas_id;
 	desc.arginfo = SCM_ARGS(1);
 
-	rc = scm_call2(SCM_SIP_FNID(SCM_SVC_PIL, PAS_SHUTDOWN_CMD),
-			       &desc);
-	scm_ret = desc.ret[0];
+	if (!is_scm_armv8()) {
+		rc = scm_call(SCM_SVC_PIL, PAS_SHUTDOWN_CMD, &proc,
+			      sizeof(proc), &scm_ret, sizeof(scm_ret));
+	} else {
+		rc = scm_call2(SCM_SIP_FNID(SCM_SVC_PIL, PAS_SHUTDOWN_CMD),
+				&desc);
+		scm_ret = desc.ret[0];
+	}
 
 	if (rc)
 		return rc;

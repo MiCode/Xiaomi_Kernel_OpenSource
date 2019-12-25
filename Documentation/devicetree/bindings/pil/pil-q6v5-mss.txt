@@ -7,7 +7,7 @@ shutting down the processor when it's not needed.
 
 Required properties:
 - compatible:	      Must be "qcom,pil-q6v5-mss" or "qcom,pil-q6v55-mss" or
-			"pil-q6v56-mss".
+			"qcom,pil-q6v56-mss".
 - reg:		      Pairs of physical base addresses and region sizes of
 		      memory mapped registers.
 - reg-names:	      Names of the bases for the above registers. "qdsp6_base",
@@ -85,6 +85,8 @@ Optional properties:
 		    wordline clamp, and compiler memory clamp during MSS restart.
 - qcom,qdsp6v56-1-10: Boolean- Present if the qdsp version is v56 1.10
 - qcom,override-acc-1: Override the default ACC settings with this value if present.
+- qcom,minidump-id: Unique id for each subsystem
+- qcom,reset-clk: Enable clock after MSS restart
 
 One child node to represent the MBA image may be specified, when the MBA image
 needs to be loaded in a specifically carved out memory region.
