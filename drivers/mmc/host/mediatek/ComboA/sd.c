@@ -5492,9 +5492,10 @@ static int msdc_runtime_suspend(struct device *dev)
 		clk_unprepare(host->ahb2axi_brg_clk_ctl);
 	if (host->pclk_ctl)
 		clk_unprepare(host->pclk_ctl);
-	if (host->msdc_clk_power_ctl)
+	/* disable msdc_clk_power_ctl unprepare for workaround */
+/*	if (host->msdc_clk_power_ctl)
 		clk_unprepare(host->msdc_clk_power_ctl);
-
+*/
 	pm_qos_update_request(&host->msdc_pm_qos_req,
 		PM_QOS_DEFAULT_VALUE);
 

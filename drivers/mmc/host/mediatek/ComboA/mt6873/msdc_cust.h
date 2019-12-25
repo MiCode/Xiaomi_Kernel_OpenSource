@@ -410,6 +410,11 @@
 
 /* MSDC1 DRV0 mask*/
 #define MSDC1_DRV0_DAT_MASK		(0xFFF << 18)
+#define MSDC1_DRV0_DAT0_MASK		(0x7 << 18)
+#define MSDC1_DRV0_DAT1_MASK		(0x7 << 21)
+#define MSDC1_DRV0_DAT2_MASK		(0x7 << 24)
+#define MSDC1_DRV0_DAT3_MASK		(0x7 << 27)
+
 #define MSDC1_DRV0_CMD_MASK		(0x7 << 15)
 #define MSDC1_DRV0_CLK_MASK		(0x7 << 12)
 #define MSDC1_DRV0_ALL_MASK		(0x3FFFF << 12)
