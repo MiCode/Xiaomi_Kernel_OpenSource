@@ -144,7 +144,7 @@ static int gt9896s_cfg_bin_proc(struct gt9896s_ts_core *core_data)
 	}
 	if (!ts_dev) {
 		ts_err("ts device can't be null");
-		return -EINVAL;
+		goto out;
 	}
 
 	/* when start init config bin with error state */
@@ -199,6 +199,9 @@ exit:
 
 	ts_info("cfg bin state %d, ret %d", ts_dev->cfg_bin_state, r);
 	return r;
+out:
+	kfree(cfg_bin);
+	return -EINVAL;
 }
 
 static int gt9896s_extract_cfg_pkg(struct gt9896s_ts_device *ts_dev,
