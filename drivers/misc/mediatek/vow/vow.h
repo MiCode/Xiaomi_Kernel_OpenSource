@@ -47,10 +47,7 @@
 #define VOW_IPI_SEND_CNT_TIMEOUT       500 /* 500ms */
 /* UBM_V1:0xA000, UBM_V2:0xDC00, UBM_V3: 2*0x11000 */
 #define VOW_MODEL_SIZE                 0x11000
-#ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT
-#define VOW_VOICEDATA_OFFSET           (VOW_MODEL_SIZE * 2)
-#else
-#define VOW_VOICEDATA_OFFSET           (VOW_MODEL_SIZE)
+#define VOW_VOICEDATA_OFFSET           (VOW_MODEL_SIZE * MAX_VOW_SPEAKER_MODEL)
 #endif
 #define VOW_VOICEDATA_SIZE             0x12500 /* 74880, need over 2.3sec */
 /* IPI return value definition */
