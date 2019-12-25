@@ -1791,6 +1791,14 @@ void cmdq_mbox_thread_disable(void *chan)
 }
 EXPORT_SYMBOL(cmdq_mbox_thread_disable);
 
+u32 cmdq_mbox_get_thread_timeout(void *chan)
+{
+	struct cmdq_thread *thread = ((struct mbox_chan *)chan)->con_priv;
+
+	return thread->timeout_ms;
+}
+EXPORT_SYMBOL(cmdq_mbox_get_thread_timeout);
+
 u32 cmdq_mbox_set_thread_timeout(void *chan, u32 timeout)
 {
 	struct cmdq_thread *thread = ((struct mbox_chan *)chan)->con_priv;

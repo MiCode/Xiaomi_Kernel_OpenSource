@@ -236,6 +236,7 @@ phys_addr_t cmdq_mbox_get_base_pa(void *chan);
 s32 cmdq_mbox_thread_reset(void *chan);
 s32 cmdq_mbox_thread_suspend(void *chan);
 void cmdq_mbox_thread_disable(void *chan);
+u32 cmdq_mbox_get_thread_timeout(void *chan);
 u32 cmdq_mbox_set_thread_timeout(void *chan, u32 timeout);
 s32 cmdq_mbox_chan_id(void *chan);
 s32 cmdq_task_get_thread_pc(struct mbox_chan *chan, dma_addr_t *pc_out);
