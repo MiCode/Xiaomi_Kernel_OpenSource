@@ -71,6 +71,12 @@ struct mtk_smi_pair smi_sub_comm_conf_pair[SMI_SUB_COMM_CONF_NUM] = {
 	{SMI_DCM, 0x4f1}, {SMI_DUMMY, 0x1},
 };
 
+#define SMI_IPE_SUB_COMM_CONF_NUM	(4)
+struct mtk_smi_pair smi_ipe_sub_comm_conf_pair[SMI_IPE_SUB_COMM_CONF_NUM] = {
+	{SMI_L1LEN, 0x2}, {SMI_PREULTRA_MASK1, 0x2105},
+	{SMI_DCM, 0x4f1}, {SMI_DUMMY, 0x1},
+};
+
 #define SMI_LARB0_CONF_NUM	(7)
 struct mtk_smi_pair smi_larb0_conf_pair[SMI_LARB0_CONF_NUM] = {
 	{SMI_LARB_VC_PRI_MODE, 0x1},
@@ -122,8 +128,8 @@ u32 smi_conf_pair_num[SMI_DEV_NUM] = {
 	SMI_LARB16_CONF_NUM, SMI_LARB4_CONF_NUM, SMI_LARB4_CONF_NUM,
 	SMI_COMM_CONF_NUM, SMI_COMM_CONF_NUM, SMI_SRAM_COMM_CONF_NUM,
 	SMI_SUB_COMM_CONF_NUM, SMI_SUB_COMM_CONF_NUM, SMI_SUB_COMM_CONF_NUM,
-	SMI_SUB_COMM_CONF_NUM, SMI_SUB_COMM_CONF_NUM, SMI_SUB_COMM_CONF_NUM,
-	SMI_SUB_COMM_CONF_NUM,
+	SMI_SUB_COMM_CONF_NUM, SMI_IPE_SUB_COMM_CONF_NUM, SMI_SUB_COMM_CONF_NUM,
+	SMI_SUB_COMM_CONF_NUM, SMI_SUB_COMM_CONF_NUM,
 };
 
 struct mtk_smi_pair *smi_conf_pair[SMI_DEV_NUM] = {
@@ -136,8 +142,8 @@ struct mtk_smi_pair *smi_conf_pair[SMI_DEV_NUM] = {
 	smi_larb16_conf_pair, smi_larb4_conf_pair, smi_larb4_conf_pair,
 	smi_comm_conf_pair, smi_comm_conf_pair, smi_sram_comm_conf_pair,
 	smi_sub_comm_conf_pair, smi_sub_comm_conf_pair, smi_sub_comm_conf_pair,
+	smi_sub_comm_conf_pair, smi_ipe_sub_comm_conf_pair,
 	smi_sub_comm_conf_pair, smi_sub_comm_conf_pair, smi_sub_comm_conf_pair,
-	smi_sub_comm_conf_pair,
 };
 
 /* scen: INIT */
