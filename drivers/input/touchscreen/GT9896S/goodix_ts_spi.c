@@ -201,7 +201,7 @@ static int gt9896s_parse_dt(struct device_node *node,
 	if (!r) {
 		ts_info("avdd name form dt: %s", name_tmp);
 		if (strlen(name_tmp) < sizeof(board_data->avdd_name))
-			strncpy(board_data->avdd_name,
+			strlcpy(board_data->avdd_name,
 				name_tmp, sizeof(board_data->avdd_name));
 		else
 			ts_info("invalied avdd name length: %ld > %ld",
