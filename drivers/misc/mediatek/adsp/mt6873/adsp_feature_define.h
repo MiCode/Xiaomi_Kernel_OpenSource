@@ -13,7 +13,7 @@
 #define ADSP_BOOT_TIME_OUT_MONITOR       (1)
 #define ADSP_LOGGER_ENABLE               (1)
 #define ADSP_BUS_MONITOR_INIT_ENABLE     (1)
-#define ADSP_EMI_PROTECTION_ENABLE       (0)
+#define ADSP_EMI_PROTECTION_ENABLE       (1)
 
 /* adsp feature PRI list */
 /* The higher number, higher priority */
