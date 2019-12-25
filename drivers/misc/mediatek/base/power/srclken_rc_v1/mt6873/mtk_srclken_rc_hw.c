@@ -792,7 +792,7 @@ static ssize_t popi_ctl_show(struct kobject *kobj,
 static ssize_t debug_ctl_store(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf, size_t count)
 {
-	u32 onoff;
+	u32 onoff = 0;
 
 	if (kstrtouint(buf, 10, &onoff))
 		return -EPERM;
@@ -957,7 +957,7 @@ int srclken_dts_map(void)
 		return -1;
 	}
 
-	node = of_find_compatible_node(NULL, NULL, "mediatek,pwrap");
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6873-pwrap");
 	if (node) {
 		pwrap_base = of_iomap(node, 0);
 		if (!pwrap_base) {
