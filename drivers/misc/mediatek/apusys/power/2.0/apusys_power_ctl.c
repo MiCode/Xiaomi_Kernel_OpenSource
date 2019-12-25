@@ -46,41 +46,6 @@ bool dvfs_power_domain_support(enum DVFS_VOLTAGE_DOMAIN domain)
 	return apusys_dvfs_buck_domain_support[domain];
 }
 
-void apusys_vcore_boost(void)
-{
-	enum DVFS_USER user = MDLA0;	// separate from VPU0 for vcore pm_qos
-	struct hal_param_volt volt_data;
-	struct hal_param_freq  freq_data;
-
-if (conn_mtcmos_on == 1) {
-	if (apu_vcore_boost_counter > 0) {
-		volt_data.target_buck = VCORE_BUCK;
-		volt_data.target_volt = VCORE_BOOST_VOLT;
-		hal_config_power(PWR_CMD_SET_VOLT, user, (void *)&volt_data);
-
-		freq_data.target_volt_domain = V_VCORE;
-		freq_data.target_freq = VCORE_BOOST_FREQ;
-		hal_config_power(PWR_CMD_SET_FREQ, user, (void *)&freq_data);
-	} else {
-		freq_data.target_volt_domain = V_VCORE;
-		freq_data.target_freq = VCORE_ON_FREQ;
-		hal_config_power(PWR_CMD_SET_FREQ, user, (void *)&freq_data);
-
-		volt_data.target_buck = VCORE_BUCK;
-		volt_data.target_volt = VCORE_DEFAULT_VOLT;
-		hal_config_power(PWR_CMD_SET_VOLT, user, (void *)&volt_data);
-	}
-} else {
-	freq_data.target_volt_domain = V_VCORE;
-	freq_data.target_freq = VCORE_OFF_FREQ;
-	hal_config_power(PWR_CMD_SET_FREQ, user, (void *)&freq_data);
-
-	volt_data.target_buck = VCORE_BUCK;
-	volt_data.target_volt = VCORE_DEFAULT_VOLT;
-	hal_config_power(PWR_CMD_SET_VOLT, user, (void *)&volt_data);
-}
-}
-
 
 int32_t apusys_thermal_en_throttle_cb(enum DVFS_USER user,
 					enum APU_OPP_INDEX opp)

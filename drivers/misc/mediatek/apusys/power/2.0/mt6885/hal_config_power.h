@@ -16,11 +16,7 @@
 
 #include "apusys_power_cust.h"
 
-extern int conn_mtcmos_on;
-
-
 extern bool apu_get_power_on_status(enum DVFS_USER user);
-
 /************************************
  * command base hal interface
  ************************************/

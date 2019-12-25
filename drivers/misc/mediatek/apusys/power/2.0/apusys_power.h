@@ -47,4 +47,5 @@ extern int apu_power_power_stress(int type, int device, int opp);
 extern bool apusys_power_check(void);
 extern void apu_set_vcore_boost(bool enable);
 
+
 #endif

@@ -42,8 +42,6 @@ static int apu_power_counter;
 static int apusys_power_broken;
 static uint64_t power_info_id;
 static uint8_t power_info_force_print;
-int apu_vcore_boost_counter;
-
 
 bool apusys_power_check(void)
 {
@@ -86,10 +84,7 @@ static LIST_HEAD(power_callback_device_list);
 static struct mutex power_device_list_mtx;
 static struct mutex power_ctl_mtx;
 static struct mutex power_opp_mtx;
-static struct mutex power_vcore_boost_mtx;
 static spinlock_t power_info_lock;
-static spinlock_t power_vcore_boost_lock;
-
 static int power_callback_counter;
 static struct task_struct *power_task_handle;
 static uint64_t timestamp;
@@ -98,11 +93,8 @@ static struct hal_param_init_power init_power_data;
 static struct workqueue_struct *wq;
 static void d_work_power_info_func(struct work_struct *work);
 static void d_work_power_init_func(struct work_struct *work);
-static void d_work_vcore_boost_func(struct work_struct *work);
 static DECLARE_WORK(d_work_power_info, d_work_power_info_func);
 static DECLARE_WORK(d_work_power_init, d_work_power_init_func);
-static DECLARE_WORK(d_work_vcore_boost, d_work_vcore_boost_func);
-
 
 #ifdef CONFIG_PM_WAKELOCKS
 struct wakeup_source pwr_wake_lock;
@@ -158,21 +150,6 @@ uint64_t apu_get_power_info(int force)
 }
 EXPORT_SYMBOL(apu_get_power_info);
 
-
-void apu_set_vcore_boost(bool enable)
-{
-	spin_lock(&power_vcore_boost_lock);
-	if (enable)
-		apu_vcore_boost_counter++;
-	else
-		apu_vcore_boost_counter--;
-	spin_unlock(&power_vcore_boost_lock);
-
-	queue_work(wq, &d_work_vcore_boost);
-}
-EXPORT_SYMBOL(apu_set_vcore_boost);
-
-
 void apu_power_reg_dump(void)
 {
 	mutex_lock(&power_ctl_mtx);
@@ -181,6 +158,14 @@ void apu_power_reg_dump(void)
 	mutex_unlock(&power_ctl_mtx);
 }
 EXPORT_SYMBOL(apu_power_reg_dump);
+
+
+void apu_set_vcore_boost(bool enable)
+{
+
+}
+EXPORT_SYMBOL(apu_set_vcore_boost);
+
 
 static struct power_device *find_out_device_by_user(enum DVFS_USER user)
 {
@@ -317,7 +302,6 @@ int apu_device_power_suspend(enum DVFS_USER user, int is_suspend)
 	// dump_stack();
 #if !BYPASS_POWER_CTL
 	ret = apusys_power_off(user);
-	queue_work(wq, &d_work_vcore_boost);
 #endif
 	if (!ret) {
 		pwr_dev->is_power_on = 0;
@@ -396,7 +380,6 @@ int apu_device_power_on(enum DVFS_USER user)
 	// dump_stack();
 #if !BYPASS_POWER_CTL
 	ret = apusys_power_on(user);
-	queue_work(wq, &d_work_vcore_boost);
 #endif
 	if (!ret) {
 		pwr_dev->is_power_on = 1;
@@ -548,16 +531,6 @@ static void d_work_power_info_func(struct work_struct *work)
 	hal_config_power(PWR_CMD_GET_POWER_INFO, VPU0, &info);
 }
 
-static void d_work_vcore_boost_func(struct work_struct *work)
-{
-	mutex_lock(&power_vcore_boost_mtx);
-
-	apusys_vcore_boost();
-
-	mutex_unlock(&power_vcore_boost_mtx);
-}
-
-
 #if DEFAULT_POWER_ON
 static void default_power_on_func(void)
 {
@@ -663,7 +636,6 @@ void event_trigger_dvfs_policy(void)
 	wake_up_process(power_task_handle);
 }
 
-
 static int apu_power_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -693,9 +665,7 @@ static int apu_power_probe(struct platform_device *pdev)
 	mutex_init(&power_device_list_mtx);
 	mutex_init(&power_ctl_mtx);
 	mutex_init(&power_opp_mtx);
-	mutex_init(&power_vcore_boost_mtx);
 	spin_lock_init(&power_info_lock);
-	spin_lock_init(&power_vcore_boost_lock);
 	apu_pwr_wake_init();
 
 	queue_work(wq, &d_work_power_init);
