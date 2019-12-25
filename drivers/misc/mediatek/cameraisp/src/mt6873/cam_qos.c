@@ -22,9 +22,9 @@
 #include <linux/types.h>
 #include "inc/cam_qos.h"
 
-//#define CONFIG_MTK_QOS_SUPPORT_ENABLE
-#define EP_STAGE
-#define EP_PMQOS
+#define CONFIG_MTK_QOS_SUPPORT_ENABLE
+//#define EP_STAGE
+//#define EP_PMQOS
 
 #ifdef CONFIG_MTK_QOS_SUPPORT_ENABLE
 #ifndef EP_STAGE
@@ -142,6 +142,7 @@ void mtk_pmqos_remove(enum ISP_IRQ_TYPE_ENUM module)
 
 void mtk_pmqos_add(enum ISP_IRQ_TYPE_ENUM module, u32 portID)
 {
+switch (module) {
 case ISP_IRQ_TYPE_INT_CAMSV_0_ST:
 	switch (portID) {
 	case _camsv_imgo_:
