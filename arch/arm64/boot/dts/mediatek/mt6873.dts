@@ -2003,6 +2003,36 @@
 		mediatek,cali-efuse-index = <113>;
 	};
 
+	eem_fsm: eem_fsm@11278000 {
+		compatible = "mediatek,eem_fsm";
+		reg = <0 0x11278000 0 0x1000>;
+		interrupts = <GIC_SPI 168 IRQ_TYPE_LEVEL_HIGH>;
+		eem-status = <1>;
+		sn-status = <1>;
+		eem-initmon-little = <0xff>;
+		eem-initmon-big = <0xff>;
+		eem-initmon-cci = <0xff>;
+		eem-initmon-gpu = <0xff>;
+		eem-clamp-little = <0>;
+		eem-clamp-big = <0>;
+		eem-clamp-cci = <0>;
+		eem-clamp-gpu = <0>;
+		eem-offset-little = <0xff>;
+		eem-offset-big = <0xff>;
+		eem-offset-cci = <0xff>;
+		eem-offset-gpu = <0xff>;
+	};
+
+	eemgpu_fsm: eemgpu_fsm@1100b000 {
+		compatible = "mediatek,eemgpu_fsm";
+		reg = <0 0x1100b000 0 0x1000>;
+		interrupts = <GIC_SPI 167 IRQ_TYPE_LEVEL_HIGH>;
+		eemg-status = <1>;
+		eemg-initmon-gpu = <0xf>;
+		eemg-clamp-gpu = <0>;
+		eemg-offset-gpu = <0xff>;
+	};
+
 	therm_ctrl@1100b000 {
 		compatible = "mediatek,therm_ctrl";
 		reg = <0 0x1100b000 0 0x26E200>;
