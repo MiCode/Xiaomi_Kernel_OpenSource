@@ -705,41 +705,41 @@ int config_npupll(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 	int scaled_freq = freq * 1000;
 	enum DVFS_FREQ ckmux_freq;
 
-	clk_target = find_clk_by_domain(domain);
-
-	if (clk_target != NULL) {
-#if 0		// switch to ckmux first
-		ckmux_freq = findNearestFreq(freq, domain);
+	// parking to ckmux first
+	for (domain = V_VPU0; domain < V_VPU0 + APUSYS_VPU_NUM; domain++) {
+		clk_target = find_clk_by_domain(domain);
+		if (clk_target != NULL) {
+#if 0
+			ckmux_freq = findNearestFreq(freq, domain);
 #else
-		ckmux_freq = DVFS_FREQ_00_273000_F;
+			ckmux_freq = DVFS_FREQ_00_273000_F;
 #endif
-		ret |= set_apu_clock_source(ckmux_freq, domain);
+			ret |= set_apu_clock_source(ckmux_freq, domain);
+		} else {
+			LOG_ERR("%s config domain %d to freq %d failed\n",
+				__func__, domain, freq);
+			return -1;
+		}
+	}
 
-		ret |= clk_set_rate(clk_apmixed_npupll_rate, scaled_freq);
+	ret |= clk_set_rate(clk_apmixed_npupll_rate, scaled_freq);
 
-		/* PLL spec */
-		udelay(20);
+	/* PLL spec */
+	udelay(20);
 
-		if (domain == V_VPU0)
-			ret |= clk_set_parent(clk_top_dsp1_npupll_sel,
-				clk_top_npupll_ck);
-		else if (domain == V_VPU1)
-			ret |= clk_set_parent(clk_top_dsp2_npupll_sel,
-				clk_top_npupll_ck);
+	ret |= clk_set_parent(clk_top_dsp1_npupll_sel,
+		clk_top_npupll_ck);
+	ret |= clk_set_parent(clk_top_dsp2_npupll_sel,
+		clk_top_npupll_ck);
 
 #if APUSYS_SETTLE_TIME_TEST
-		LOG_WRN("APUSYS_SETTLE_TIME_TEST config domain %d to freq %d\n",
-								domain, freq);
+	LOG_WRN("APUSYS_SETTLE_TIME_TEST config domain %d to freq %d\n",
+							domain, freq);
 #else
-		LOG_DBG("%s config domain %d to freq %d\n", __func__,
-								domain, freq);
+	LOG_DBG("%s config domain %d to freq %d\n", __func__,
+							domain, freq);
 #endif
 
-	} else {
-		LOG_ERR("%s config domain %d to freq %d failed\n", __func__,
-								domain, freq);
-		return -1;
-	}
 	return ret;
 }
 

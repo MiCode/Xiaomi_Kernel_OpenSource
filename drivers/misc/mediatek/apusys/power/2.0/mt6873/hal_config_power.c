@@ -16,6 +16,7 @@
 
 #include "hal_config_power.h"
 #include "apu_power_api.h"
+#include "apusys_power_ctl.h"
 #include "apusys_power_cust.h"
 #include "apusys_power_reg.h"
 #include "apu_log.h"
@@ -790,9 +791,13 @@ static int set_power_frequency(void *param)
 	if (domain < APUSYS_BUCK_DOMAIN_NUM) {
 		if (domain == V_MDLA0)
 			ret = config_apupll(freq, domain);
-		else if ((domain == V_VPU0) || (domain == V_VPU1))
-			ret = config_npupll(freq, domain);
-		else
+		else if ((domain == V_VPU0) || (domain == V_VPU1)) {
+			// VPU share the NPUPLL
+			if ((domain == V_VPU0) ||
+				((domain == V_VPU1) &&
+					(!apusys_get_power_on_status(VPU0))))
+				ret = config_npupll(freq, domain);
+		} else
 			ret = set_apu_clock_source(freq, domain);
 	} else {
 		LOG_ERR("%s not support power domain : %d\n", __func__, domain);
