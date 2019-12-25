@@ -2866,6 +2866,9 @@ static inline void WPE_Prepare_Enable_ccf_clock(void)
 	/*CG_SCP_SYS_ISP -> WPE clk */
 	/*smi_bus_enable(SMI_LARB_IMGSYS1, "camera_wpe");*/
 	smi_bus_prepare_enable(SMI_LARB9, WPE_DEV_NAME);
+#ifdef WPE_B_ONLY
+	smi_bus_prepare_enable(SMI_LARB11, WPE_DEV_NAME);
+#endif
 
 	ret = clk_prepare_enable(wpe_clk.CG_IMGSYS_LARB9);
 	if (ret)
@@ -2933,6 +2936,9 @@ static inline void WPE_Disable_Unprepare_ccf_clock(void)
 	clk_disable_unprepare(wpe_clk.CG_IMGSYS_LARB9);
 
 	smi_bus_disable_unprepare(SMI_LARB9, WPE_DEV_NAME);
+#ifdef WPE_B_ONLY
+	smi_bus_disable_unprepare(SMI_LARB11, WPE_DEV_NAME);
+#endif
 	/*smi_bus_disable(SMI_LARB_IMGSYS1, "camera_wpe");*/
 #if (MTK_WPE_COUNT == 2)
 	clk_disable_unprepare(wpe_clk.CG_IMGSYS_WPE_B);

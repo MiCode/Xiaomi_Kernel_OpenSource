@@ -34,6 +34,7 @@ endif
 ifeq ($(CONFIG_MACH_MT6873),y)
   obj-y += $(subst ",,isp_6s)/
   MTK_WPE_COUNT := 1
+  subdir-ccflags-y += -DWPE_B_ONLY
 endif
 
 subdir-ccflags-y += -DMTK_WPE_COUNT=$(MTK_WPE_COUNT)

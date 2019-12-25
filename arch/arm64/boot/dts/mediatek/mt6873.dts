@@ -4393,11 +4393,11 @@
 		reg = <0 0x15811000 0 0x1000>;
 		interrupts = <GIC_SPI 354 IRQ_TYPE_LEVEL_HIGH>;
 		clocks =
-				<&imgsys_config IMGSYS2_LARB11_CGPDN>,
-				<&imgsys_config IMGSYS2_WPE_CGPDN>;
+				<&imgsys2_config IMGSYS2_LARB11_CGPDN>,
+				<&imgsys2_config IMGSYS2_WPE_CGPDN>;
 		clock-names =
-				"WPE_CLK_IMG_LARB11",
-				"WPE_CLK_IMG_WPE_B";
+				"WPE_CLK_IMG_LARB9",
+				"WPE_CLK_IMG_WPE_A";
 	};
 
 	mfb@15012000 {
@@ -4834,6 +4834,8 @@
 			<CMDQ_EVENT_IMG1_MFB_DONE_LINK_MISC>;
 		dip_cq_thread23_frame_done =
 			<CMDQ_EVENT_IMG1_MSS_DONE_LINK_MISC>;
+		wpe_a_frame_done =
+			<CMDQ_EVENT_IMG1_WPE_A_DONE_LINK_MISC>;
 		dip2_cq_thread0_frame_done =
 			<CMDQ_EVENT_IMG2_DIP_FRAME_DONE_P2_0>;
 		dip2_cq_thread1_frame_done =
@@ -4868,7 +4870,7 @@
 			<CMDQ_EVENT_IMG2_MFB_DONE_LINK_MISC>;
 		dip2_cq_thread23_frame_done =
 			<CMDQ_EVENT_IMG2_MSS_DONE_LINK_MISC>;
-		wpe_a_frame_done =
+		wpe_b_frame_done =
 			<CMDQ_EVENT_IMG2_WPE_A_DONE_LINK_MISC>;
 		mdp_rdma0_sof = <256>;
 		mdp_rdma1_sof = <257>;
