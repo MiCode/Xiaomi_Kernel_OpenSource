@@ -1942,6 +1942,13 @@ static int __init scp_init(void)
 
 	driver_init_done = true;
 	reset_scp(SCP_ALL_ENABLE);
+
+#if SCP_DVFS_INIT_ENABLE
+	/* set default VCORE request if SCP DVFS feature is OFF */
+	if (scp_dvfs_flag != 1)
+		scp_vcore_request(CLK_OPP0);
+#endif
+
 	return ret;
 err:
 #if SCP_DVFS_INIT_ENABLE

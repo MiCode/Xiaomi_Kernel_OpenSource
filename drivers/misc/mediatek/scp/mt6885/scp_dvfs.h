@@ -77,10 +77,12 @@ extern void wait_scp_dvfs_init_done(void);
 extern int __init scp_dvfs_init(void);
 extern void __exit scp_dvfs_exit(void);
 extern int scp_resource_req(unsigned int req_type);
+extern void scp_vcore_request(unsigned int clk_opp);
 
 /* scp dvfs variable*/
 extern unsigned int scp_expected_freq;
 extern unsigned int scp_current_freq;
 extern spinlock_t scp_awake_spinlock;
+extern int scp_dvfs_flag;
 
 #endif  /* __SCP_DVFS_H__ */

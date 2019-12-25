@@ -74,7 +74,7 @@
 #define SCP_VCORE_REQ_TO_DVFSRC		1
 
 /* -1:SCP DVFS OFF, 1:SCP DVFS ON */
-static int scp_dvfs_flag = -1;
+int scp_dvfs_flag = -1;
 
 /*
  * -1: SCP Debug CMD: off,
@@ -283,7 +283,7 @@ void scp_vcore_request(unsigned int clk_opp)
 		pm_qos_update_request(&dvfsrc_scp_vcore_req, 0x3);
 #endif
 
-	/* SCP to SPM voltage level 0x100066C4 (scp reg 0xC0094)
+	/* SCP to SPM voltage level
 	 * 2'b0000_0000_1000: scp request 0.575v
 	 * 2'b0001_0000_0100: scp request 0.6v
 	 * 2'b0010_0000_0010: scp request 0.65v

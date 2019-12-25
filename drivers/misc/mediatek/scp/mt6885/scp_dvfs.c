@@ -74,7 +74,7 @@
 #define SCP_VCORE_REQ_TO_DVFSRC		1
 
 /* -1:SCP DVFS OFF, 1:SCP DVFS ON */
-static int scp_dvfs_flag = 1;
+int scp_dvfs_flag = 1;
 
 /*
  * 0: SCP Sleep: OFF,
