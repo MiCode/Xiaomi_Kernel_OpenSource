@@ -1470,10 +1470,18 @@ static int gt9896s_ts_input_dev_config(struct gt9896s_ts_core *core_data)
 
 #ifdef INPUT_TYPE_B_PROTOCOL
 #if LINUX_VERSION_CODE > KERNEL_VERSION(3, 7, 0)
-	input_mt_init_slots(input_dev, GOODIX_MAX_TOUCH,
+	r = input_mt_init_slots(input_dev, GOODIX_MAX_TOUCH,
 			    INPUT_MT_DIRECT);
+	if (r < 0) {
+		ts_err("input_mt_init_slots err0");
+		return r;
+	}
 #else
-	input_mt_init_slots(input_dev, GOODIX_MAX_TOUCH);
+	r = input_mt_init_slots(input_dev, GOODIX_MAX_TOUCH);
+	if (r < 0) {
+		ts_err("input_mt_init_slots err0");
+		return r;
+	}
 #endif
 #endif
 
