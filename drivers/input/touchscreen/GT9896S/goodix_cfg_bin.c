@@ -450,9 +450,10 @@ static int gt9896s_read_cfg_bin(struct device *dev, struct gt9896s_cfg_bin *cfg_
 	cfg_bin->bin_data_len = firmware->size;
 	/*allocate memory for cfg_bin->bin_data*/
 	cfg_bin->bin_data = kzalloc(cfg_bin->bin_data_len, GFP_KERNEL);
-	if (!cfg_bin->bin_data)
+	if (!cfg_bin->bin_data) {
 		r = -ENOMEM;
-
+		goto exit;
+	}
 	memcpy(cfg_bin->bin_data, firmware->data, cfg_bin->bin_data_len);
 
 	r = 0;
