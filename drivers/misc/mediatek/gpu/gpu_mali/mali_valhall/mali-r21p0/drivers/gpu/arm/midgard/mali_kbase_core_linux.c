@@ -4463,10 +4463,10 @@ int kbase_wa_execute(struct kbase_device *kbdev, u64 cores)
 
 		if (done != (1ul << slot)) {
 			dev_err(kbdev->dev,
-				"Failed to run WA job on slot %d affinity 0x%llx: done 0x%lx\n",
+				"[WARNING]: WA job on slot %d affinity 0x%llx: done 0x%lx\n",
 				slot, (unsigned long long)affinity,
 				(unsigned long)done);
-			dev_err(kbdev->dev, "JS_STATUS on failure: 0x%x\n",
+			dev_err(kbdev->dev, "[WARNING]: JS_STATUS: 0x%x\n",
 				kbase_reg_read(kbdev, JOB_SLOT_REG(slot, JS_STATUS)));
 			failed++;
 		}
@@ -4810,7 +4810,7 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 	load_workaround(kbdev);
 
 	dev_info(kbdev->dev,
-			"Probed as %s\n, dummy clear", dev_name(kbdev->mdev.this_device));
+			"Probed as %s, dummy clear\n", dev_name(kbdev->mdev.this_device));
 
 	kbase_dev_nr++;
 #endif /* MALI_KBASE_BUILD */
