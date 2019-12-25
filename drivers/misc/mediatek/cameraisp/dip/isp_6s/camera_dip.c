@@ -1424,13 +1424,13 @@ static signed int DIP_Dump_IMGSYS_DIP_Reg(void)
 			cmdqdebugcmd,
 			DipDumpTL[DIPNo].region,
 			DIP_RD32(dipRegBasAddr + 0x1194));
-		cmdqdebugcmd = 0x1005;
+		cmdqdebugcmd = 0x10005;
 		DIP_WR32(dipRegBasAddr + 0x1190, cmdqdebugcmd);
 		cmdq_util_err("TDR debug:0x%x : dip: 0x%x2194(0x%x)",
 			cmdqdebugcmd,
 			DipDumpTL[DIPNo].region,
 			DIP_RD32(dipRegBasAddr + 0x1194));
-		cmdqdebugcmd = 0x2005;
+		cmdqdebugcmd = 0x20005;
 		DIP_WR32(dipRegBasAddr + 0x1190, cmdqdebugcmd);
 		cmdq_util_err("TDR debug:0x%x : dip: 0x%x2194(0x%x)",
 			cmdqdebugcmd,
