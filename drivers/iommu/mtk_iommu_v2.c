@@ -382,6 +382,56 @@ int mtk_iommu_atf_call(unsigned int cmd, unsigned int m4u_id,
 				&tf_iova, &tf_int);
 }
 
+#ifndef SMI_LARB_SEC_CON_EN
+int mtk_iommu_set_sec_larb(int larb, int port,
+		int sec_en, int dom)
+{
+	unsigned int atf_cmd = 0;
+	int ret;
+
+	if (larb >= SMI_LARB_NR ||
+	    port >= ONE_SMI_PORT_NR) {
+		pr_notice("%s, %d, invalid larb:%d, port:%d\n",
+			  __func__, larb, port);
+		return -1;
+	}
+	atf_cmd = IOMMU_ATF_SET_COMMAND(0, 0, IOMMU_ATF_SET_SMI_SEC_LARB);
+
+	ret = mt_secure_call_ret4(MTK_M4U_DEBUG_DUMP,
+				atf_cmd, MTK_M4U_ID(larb, port),
+				sec_en, dom, 0, 0, 0);
+	if (ret)
+		pr_notice("%s, %d, fail!! larb:%d, port:%d, dom:%d\n",
+			  __func__, __LINE__, larb, port, dom);
+
+	return ret;
+}
+
+int mtk_iommu_dump_sec_larb(int larb, int port)
+{
+	unsigned int atf_cmd = 0;
+	int ret;
+
+	if (larb >= SMI_LARB_NR ||
+	    port >= ONE_SMI_PORT_NR) {
+		pr_notice("%s, %d, invalid larb:%d, port:%d\n",
+			  __func__, __LINE__, larb, port);
+		return -1;
+	}
+
+	atf_cmd = IOMMU_ATF_SET_COMMAND(0, 0, IOMMU_ATF_DUMP_SMI_SEC_LARB);
+	ret = mt_secure_call_ret4(MTK_M4U_DEBUG_DUMP,
+				atf_cmd, MTK_M4U_ID(larb, port), 0, 0,
+				0, 0, 0);
+
+	if (!ret)
+		pr_notice("%s, fail!! larb:%d, port:%d\n",
+			  __func__,  larb, port);
+
+	return ret;
+}
+#endif
+
 static void mtk_iommu_atf_test_recovery(unsigned int m4u_id, unsigned int cmd)
 {
 	int ret = 0;

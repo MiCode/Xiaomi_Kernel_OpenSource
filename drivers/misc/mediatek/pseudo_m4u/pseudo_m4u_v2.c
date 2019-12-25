@@ -675,6 +675,8 @@ int pseudo_dump_all_port_status(struct seq_file *s)
 #ifdef SMI_LARB_SEC_CON_EN
 			regval_sec = pseudo_readreg32(larb_base,
 					  SMI_LARB_SEC_CONx(larb_port));
+#else
+			regval_sec = mtk_iommu_dump_sec_larb(larb, larb_port);
 #endif
 			M4U_PRINT_SEQ(s,
 					"port%d:	%s	-- normal:0x%x,	secure:0x%x	mmu:0x%x,	bit32:0x%x\n",
@@ -2397,9 +2399,9 @@ int m4u_config_port(struct M4U_PORT_STRUCT *pM4uPort)
 
 void pseudo_m4u_bank_irq_debug(unsigned int domain)
 {
-#ifdef SMI_LARB_SEC_CON_EN
 	int i, j, ret = 0;
 	unsigned int count = 0;
+	u32 reg;
 
 	for (i = 0; i < SMI_LARB_NR; i++) {
 		ret = larb_clock_on(i, 1);
@@ -2409,20 +2411,26 @@ void pseudo_m4u_bank_irq_debug(unsigned int domain)
 		}
 		count = mtk_iommu_get_larb_port_count(i);
 		for (j = 0; j < count; j++) {
+#ifdef SMI_LARB_SEC_CON_EN
 			pseudo_set_reg_by_mask(pseudo_larbbase[i],
 							   SMI_LARB_SEC_CONx(j),
 							   F_SMI_DOMN(0x7),
 							   F_SMI_DOMN(0x2));
+			reg =  pseudo_readreg32(pseudo_larbbase[i],
+					SMI_LARB_SEC_CONx(j));
+#else
+			ret = mtk_iommu_set_sec_larb(i, j, 0, 0x2);
+			if (!ret)
+				reg = mtk_iommu_dump_sec_larb(i, j);
+			else
+				pr_notice("%s, atf set sec larb fail, larb:%d, port:%d\n",
+					__func__, i, j);
+#endif
 			pr_debug("%s, switch larb%d to dom:0x%x\n",
-				 __func__, i,
-				 pseudo_readreg32(pseudo_larbbase[i],
-					SMI_LARB_SEC_CONx(j)));
+				 __func__, i, reg);
 		}
 		larb_clock_off(i, 1);
 	}
-#else
-	pr_notice("%s, this fun is not support!!!\n", __func__);
-#endif
 }
 
 void pseudo_m4u_db_debug(unsigned int m4uid,

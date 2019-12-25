@@ -53,6 +53,8 @@
 #ifndef SMI_LARB_NR
 #define SMI_LARB_NR		(21)
 #endif
+#define ONE_SMI_PORT_NR		(32)
+
 
 #define M4U_PAGE_MASK		(0xfff)
 

@@ -231,6 +231,11 @@ void mtk_iommu_dump_iova_space(unsigned long target);
 unsigned int mtk_iommu_get_larb_port_count(unsigned int larb);
 int mtk_iommu_atf_call(unsigned int cmd, unsigned int m4u_id,
 		unsigned int bank);
+#ifndef SMI_LARB_SEC_CON_EN
+int mtk_iommu_set_sec_larb(int larb, int port,
+		int sec_en, int dom);
+int mtk_iommu_dump_sec_larb(int larb, int port);
+#endif
 void mtk_iommu_atf_test(unsigned int m4u_id, unsigned int cmd);
 bool mtk_dev_is_size_alignment(struct device *dev);
 char *mtk_iommu_get_port_name(unsigned int m4u_id,
