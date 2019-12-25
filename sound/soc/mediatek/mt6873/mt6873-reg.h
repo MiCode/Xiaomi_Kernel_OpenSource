@@ -495,8 +495,8 @@ enum {
 
 /* AFE_GAIN1_CON1 */
 #define GAIN1_TARGET_SFT                               0
-#define GAIN1_TARGET_MASK                              0xfffff
-#define GAIN1_TARGET_MASK_SFT                          (0xfffff << 0)
+#define GAIN1_TARGET_MASK                              0xfffffff
+#define GAIN1_TARGET_MASK_SFT                          (0xfffffff << 0)
 
 /* AFE_GAIN2_CON0 */
 #define GAIN2_SAMPLE_PER_STEP_SFT                      8
@@ -511,18 +511,18 @@ enum {
 
 /* AFE_GAIN2_CON1 */
 #define GAIN2_TARGET_SFT                               0
-#define GAIN2_TARGET_MASK                              0xfffff
-#define GAIN2_TARGET_MASK_SFT                          (0xfffff << 0)
+#define GAIN2_TARGET_MASK                              0xfffffff
+#define GAIN2_TARGET_MASK_SFT                          (0xfffffff << 0)
 
 /* AFE_GAIN1_CUR */
 #define AFE_GAIN1_CUR_SFT                              0
-#define AFE_GAIN1_CUR_MASK                             0xfffff
-#define AFE_GAIN1_CUR_MASK_SFT                         (0xfffff << 0)
+#define AFE_GAIN1_CUR_MASK                             0xfffffff
+#define AFE_GAIN1_CUR_MASK_SFT                         (0xfffffff << 0)
 
 /* AFE_GAIN2_CUR */
 #define AFE_GAIN2_CUR_SFT                              0
-#define AFE_GAIN2_CUR_MASK                             0xfffff
-#define AFE_GAIN2_CUR_MASK_SFT                         (0xfffff << 0)
+#define AFE_GAIN2_CUR_MASK                             0xfffffff
+#define AFE_GAIN2_CUR_MASK_SFT                         (0xfffffff << 0)
 
 /* PCM_INTF_CON1 */
 #define PCM_FIX_VALUE_SEL_SFT                          31
