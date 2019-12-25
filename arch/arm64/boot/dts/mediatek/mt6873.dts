@@ -5727,6 +5727,9 @@
 	};
 
 	mrdump_ext_rst: mrdump_ext_rst {
+		compatible = "mediatek, mrdump_ext_rst-eint";
+		mode = "IRQ";
+		status = "okay";
 	};
 
 	gyro: gyro {
