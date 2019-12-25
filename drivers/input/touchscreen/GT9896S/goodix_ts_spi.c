@@ -1152,7 +1152,7 @@ exit_clean_sta:
 static int gt9896s_event_handler(struct gt9896s_ts_device *dev,
 		struct gt9896s_ts_event *ts_event)
 {
-	int pre_read_len;
+	int pre_read_len = 0;
 	u8 pre_buf[32];
 	u8 event_sta;
 	int r;
