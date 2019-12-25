@@ -5709,7 +5709,7 @@
 		mt6315_6_regulator: mt6315_6_regulator {
 			compatible = "mediatek,mt6315_6-regulator";
 			interrupt-parent = <&pio>;
-			interrupts = <1 IRQ_TYPE_LEVEL_HIGH 1 0>;
+			interrupts = <167 IRQ_TYPE_LEVEL_HIGH 167 0>;
 		};
 	};
 	mt6315_7: mt6315@7 {
@@ -5720,7 +5720,7 @@
 		mt6315_7_regulator: mt6315_7_regulator {
 			compatible = "mediatek,mt6315_7-regulator";
 			interrupt-parent = <&pio>;
-			interrupts = <167 IRQ_TYPE_LEVEL_HIGH 167 0>;
+			interrupts = <163 IRQ_TYPE_LEVEL_HIGH 163 0>;
 		};
 	};
 	mt6315_3: mt6315@3 {
@@ -5731,7 +5731,7 @@
 		mt6315_3_regulator: mt6315_3_regulator {
 			compatible = "mediatek,mt6315_3-regulator";
 			interrupt-parent = <&pio>;
-			interrupts = <2 IRQ_TYPE_LEVEL_HIGH 2 0>;
+			interrupts = <164 IRQ_TYPE_LEVEL_HIGH 164 0>;
 		};
 	};
 #endif
