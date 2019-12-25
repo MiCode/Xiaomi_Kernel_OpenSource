@@ -2643,13 +2643,13 @@ static int eemg_probe(struct platform_device *pdev)
 	/* infra_ao */
 	node_infra = of_find_compatible_node(NULL, NULL, INFRA_AO_NODE);
 	if (!node_infra) {
-		eemg_debug("INFRA_AO_NODE Not Found\n")
+		eemg_debug("INFRA_AO_NODE Not Found\n");
 		return 0;
 	}
 
 	infra_base_gpu = of_iomap(node_infra, 0);
 	if (!infra_base_gpu) {
-		eemg_debug("infra_ao Map Failed\n")
+		eemg_debug("infra_ao Map Failed\n");
 		return 0;
 	}
 #endif

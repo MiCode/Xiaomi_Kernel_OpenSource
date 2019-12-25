@@ -14,14 +14,14 @@
 #define _MTK_EEMG_CONFIG_H_
 
 /* CONFIG (SW related) */
-#define EEMG_NOT_READY		(1)
+//#define EEMG_NOT_READY		(1)
 #define CONFIG_EEMG_SHOWLOG	(0)
 #define EN_ISR_LOG		(0)
 #define EEMG_BANK_SOC		(0) /* use voltage bin, so disable it */
 #define EARLY_PORTING		(0)
 #define DUMP_DATA_TO_DE		(1)
 #define EEMG_ENABLE		(1) /* enable; after pass HPT mini-SQC */
-#define EEMG_FAKE_EFUSE		(0)
+#define EEMG_FAKE_EFUSE		(1)
 
 /* FIX ME */
 #define EEMG_LOCKTIME_LIMIT	(3000)
@@ -137,8 +137,6 @@ enum mt_cpu_dvfs_id {
 /* GPU */
 #define DEVINFO_24 0x10bd3c1b
 
-
-
 #else
 
 #if defined(CMD_LOAD)
@@ -220,44 +218,26 @@ enum mt_cpu_dvfs_id {
 #define DEVINFO_17 0x1B031B03
 
 #else
+
 /* MC99 Safe EFUSE */
 #define DEVINFO_0 0x0
-/* L_LO */
-#define DEVINFO_1 0x67130025
-/* B_LO + L_LO */
-#define DEVINFO_2 0x9DEB0025
-/* B_LO */
-#define DEVINFO_3 0x43150046
-/* CCI */
-#define DEVINFO_4 0x61120027
-/* GPU_LO + CCI */
+#define DEVINFO_1 0x94132424
+#define DEVINFO_2 0xB1E92424
+#define DEVINFO_3 0x42122446
+#define DEVINFO_4 0x63122424
 #define DEVINFO_5 0x0
-/* GPU_LO */
 #define DEVINFO_6 0x0
-/* APU */
-#define DEVINFO_7 0x91EC0027
-/* L_HI + APU */
-#define DEVINFO_8 0x56100076
-/* L_HI */
-#define DEVINFO_9 0x7AE20076
-/* B_HI */
-#define DEVINFO_10 0x3A150032
-/* MODEM + B_HI */
-#define DEVINFO_11 0xCB6F0083
-/* MODEM */
-#define DEVINFO_12 0x186A00A5
-/* MODEM */
+#define DEVINFO_7 0x62122424
+#define DEVINFO_8 0x51152498
+#define DEVINFO_9 0x46EA0098
+#define DEVINFO_10 0x37170054
+#define DEVINFO_11 0xC3990089
+#define DEVINFO_12 0xDC910089
 #define DEVINFO_13 0x1B031B03
-/* MODEM */
 #define DEVINFO_14 0x1B031B03
-/* MODEM */
 #define DEVINFO_15 0x0
-/* L */
 #define DEVINFO_16 0x1B031B03
-/* B + L */
 #define DEVINFO_17 0x1B031B03
-
-
 
 #endif
 #endif
@@ -290,9 +270,9 @@ enum mt_cpu_dvfs_id {
 #define L_FREQ_BASE			2000000
 #define B_FREQ_BASE			2300000
 #define	CCI_FREQ_BASE		1540000
-#define GPU_FREQ_BASE		806000
+#define GPU_FREQ_BASE		902000
 #define B_M_FREQ_BASE		1750000
-#define GPU_M_FREQ_BASE		620000
+#define GPU_M_FREQ_BASE		688000
 
 #define BANK_L_TURN_PT		0
 #define BANK_GPU_TURN_PT	6
