@@ -191,9 +191,6 @@ bool dcm_armcore_is_on(void)
 	ret &= dcm_mp_cpusys_top_bus_pll_div_dcm_is_on();
 	ret &= dcm_mp_cpusys_top_cpu_pll_div_0_dcm_is_on();
 	ret &= dcm_mp_cpusys_top_cpu_pll_div_1_dcm_is_on();
-	ret &= dcm_mp_cpusys_top_cpu_pll_div_2_dcm_is_on();
-	ret &= dcm_mp_cpusys_top_cpu_pll_div_3_dcm_is_on();
-	ret &= dcm_mp_cpusys_top_cpu_pll_div_4_dcm_is_on();
 
 	return ret;
 }
@@ -203,9 +200,6 @@ int dcm_armcore(int mode)
 	dcm_mp_cpusys_top_bus_pll_div_dcm(mode);
 	dcm_mp_cpusys_top_cpu_pll_div_0_dcm(mode);
 	dcm_mp_cpusys_top_cpu_pll_div_1_dcm(mode);
-	dcm_mp_cpusys_top_cpu_pll_div_2_dcm(mode);
-	dcm_mp_cpusys_top_cpu_pll_div_3_dcm(mode);
-	dcm_mp_cpusys_top_cpu_pll_div_4_dcm(mode);
 
 	return 0;
 }
@@ -501,24 +495,8 @@ void dcm_dump_regs(void)
 {
 	dcm_pr_info("\n******** dcm dump register *********\n");
 
-	REG_DUMP(INFRACFG_AO_BASE);
-	REG_DUMP(INFRACFG_AO_MEM_BASE);
-	REG_DUMP(INFRA_AO_BCRM_BASE);
-	REG_DUMP(EMI_BASE);
-	REG_DUMP(DRAMC_CH0_TOP0_BASE);
-	REG_DUMP(CHN0_EMI_BASE);
-	REG_DUMP(DRAMC_CH0_TOP5_BASE);
-	REG_DUMP(DRAMC_CH1_TOP0_BASE);
-	REG_DUMP(DRAMC_CH1_TOP5_BASE);
-	REG_DUMP(SSPM_BASE);
-	REG_DUMP(AUDIO_BASE);
-	REG_DUMP(MP_CPUSYS_TOP_BASE);
-	REG_DUMP(CPCCFG_REG_BASE);
 	REG_DUMP(CPU_PLLDIV_CFG0);
 	REG_DUMP(CPU_PLLDIV_CFG1);
-	REG_DUMP(CPU_PLLDIV_CFG2);
-	REG_DUMP(CPU_PLLDIV_CFG3);
-	REG_DUMP(CPU_PLLDIV_CFG4);
 	REG_DUMP(BUS_PLLDIV_CFG);
 	REG_DUMP(MCSI_DCM0);
 	REG_DUMP(MP_ADB_DCM_CFG0);
