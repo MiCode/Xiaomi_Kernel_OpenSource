@@ -293,6 +293,11 @@
 		};
 	};
 
+	qos@0011bb00 {
+		compatible = "mediatek,qos-2.0";
+		reg = <0 0x0011bb00 0 0x100>;
+	};
+
 	gic: interrupt-controller {
 		compatible = "arm,gic-v3";
 		#interrupt-cells = <3>;
