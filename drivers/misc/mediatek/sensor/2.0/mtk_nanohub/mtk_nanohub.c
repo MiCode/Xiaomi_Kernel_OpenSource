@@ -259,7 +259,7 @@ static void mtk_nanohub_write_wp_queue(union SCP_SENSOR_HUB_DATA *rsp)
 	wp_queue->ringbuffer[wp_queue->head++] = rsp->notify_rsp.currWp;
 	wp_queue->head &= wp_queue->bufsize - 1;
 	if (unlikely(wp_queue->head == wp_queue->tail))
-		pr_err("dropped currWp due to ringbuffer is full\n");
+		pr_err_ratelimited("%s drop wp\n", __func__);
 	spin_unlock(&wp_queue->buffer_lock);
 }
 

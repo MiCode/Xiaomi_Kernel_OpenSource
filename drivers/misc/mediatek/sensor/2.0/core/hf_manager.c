@@ -1203,7 +1203,7 @@ static int __init hf_manager_init(void)
 	if (IS_ERR(dev))
 		return -1;
 
-	proc_create("hf_manager", 0644, NULL, &hf_manager_proc_fops);
+	proc_create("hf_manager", 0444, NULL, &hf_manager_proc_fops);
 
 	kthread_init_worker(&hf_manager_kthread_worker);
 	hf_manager_kthread_task = kthread_run(kthread_worker_fn,
