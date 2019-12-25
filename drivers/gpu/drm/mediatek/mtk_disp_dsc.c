@@ -32,6 +32,7 @@
 	#define DSC_DUAL_INOUT BIT(2)
 	#define DSC_IN_SRC_SEL BIT(3)
 	#define DSC_BYPASS BIT(4)
+	#define DSC_RELAY BIT(5)
 	#define DSC_UFOE_SEL BIT(16)
 	#define CON_FLD_DSC_EN		REG_FLD_MSB_LSB(0, 0)
 	#define CON_FLD_DISP_DSC_BYPASS		REG_FLD_MSB_LSB(4, 4)
@@ -331,9 +332,9 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 
 		dsc->enable = true;
 	} else {
-		/*enable BYPASS dsc*/
-		mtk_ddp_write_mask(comp, DSC_BYPASS, DISP_REG_DSC_CON,
-				DSC_BYPASS, handle);
+		/*enable dsc relay mode*/
+		mtk_ddp_write_mask(comp, DSC_RELAY, DISP_REG_DSC_CON,
+				DSC_RELAY, handle);
 		dsc->enable = false;
 	}
 }
