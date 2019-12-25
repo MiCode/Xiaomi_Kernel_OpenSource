@@ -530,7 +530,7 @@ static ssize_t gt9896s_ts_send_cfg_store(struct device *dev,
 	struct gt9896s_ts_core *core_data = dev_get_drvdata(dev);
 	struct gt9896s_ts_device *ts_dev = core_data->ts_dev;
 	int en, r;
-	const struct firmware *cfg_img;
+	const struct firmware *cfg_img = NULL;
 	struct gt9896s_ts_config *config = NULL;
 
 	if (sscanf(buf, "%d", &en) != 1)
