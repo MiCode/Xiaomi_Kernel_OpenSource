@@ -887,6 +887,14 @@ int has_xgf_dep(pid_t tid)
 	query_tid = tid;
 
 	hlist_for_each_entry_safe(render_iter, n, &xgf_renders, hlist) {
+
+		/* prevent minitop release ceil at sp sub condition */
+		if (xgf_spid_sub && xgf_sp_name_id && query_tid
+			&& query_tid == render_iter->spid) {
+			ret = 1;
+			break;
+		}
+
 		out_xd = xgf_get_dep(query_tid, render_iter, OUTER_DEPS, 0);
 		prev_xd = xgf_get_dep(query_tid, render_iter, PREVI_DEPS, 0);
 
