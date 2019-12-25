@@ -327,11 +327,11 @@ static DEFINE_SPINLOCK(meter_lock);
 #define MDP_CG1		0x13FF
 #define MDP_CG2		0x101
 
-#define INFRA_CG0	0x032F8200	/* pwm: 21~15, uart:24,25, gce2:9 */
-//#define INFRA_CG1	0x00000800	/* cpum: 11 */
-#define INFRA_CG1	0x00000844	/* cpum: 11, msdc: 2,6 */
+#define INFRA_CG0	0x032F8200	/* pwm:21~15,uart:24,25,gce2:9 */
+//#define INFRA_CG1	0x00000800	/* cpum:11 */
+#define INFRA_CG1	0x000C8844	/* cpum:11,msdc:2,6,pcie:15,18,19 */
 #define INFRA_CG2	0x0
-#define INFRA_CG3	0x4000		/* flashif:14 */
+#define INFRA_CG3	0x0800C800	/* flashif:14,pcie:11,15,27 */
 #define INFRA_CG4	0xC000007C	//pass
 
 static const struct mtk_fixed_clk fixed_clks[] __initconst = {
@@ -1279,17 +1279,17 @@ static const struct mtk_mux top_muxes[] __initconst = {
 	/* CLK_CFG_3 */
 	MUX_CLR_SET_UPD(TOP_MUX_DSP, "dsp_sel", dsp_parents,
 		CLK_CFG_3, CLK_CFG_3_SET, CLK_CFG_3_CLR,
-		0, 3, INV_MUX_GATE, CLK_CFG_UPDATE, TOP_MUX_DSP_UPD_SHIFT),
+		0, 3, 7, CLK_CFG_UPDATE, TOP_MUX_DSP_UPD_SHIFT),
 	MUX_CLR_SET_UPD(TOP_MUX_DSP1, "dsp1_sel", dsp1_parents,
 		CLK_CFG_3, CLK_CFG_3_SET, CLK_CFG_3_CLR,
-		8, 3, INV_MUX_GATE, CLK_CFG_UPDATE, TOP_MUX_DSP1_UPD_SHIFT),
+		8, 3, 15, CLK_CFG_UPDATE, TOP_MUX_DSP1_UPD_SHIFT),
 	MUX_CLR_SET_UPD(TOP_MUX_DSP1_NPUPLL, "dsp1_npupll_sel",
 		dsp1_npupll_parents,
 		CLK_CFG_3, CLK_CFG_3_SET, CLK_CFG_3_CLR,
 		11, 1, INV_MUX_GATE, INV_UPD_REG, INV_UPD_SHF),
 	MUX_CLR_SET_UPD(TOP_MUX_DSP2, "dsp2_sel", dsp2_parents,
 		CLK_CFG_3, CLK_CFG_3_SET, CLK_CFG_3_CLR,
-		16, 3, INV_MUX_GATE, CLK_CFG_UPDATE, TOP_MUX_DSP2_UPD_SHIFT),
+		16, 3, 23, CLK_CFG_UPDATE, TOP_MUX_DSP2_UPD_SHIFT),
 	MUX_CLR_SET_UPD(TOP_MUX_DSP2_NPUPLL, "dsp2_npupll_sel",
 		dsp2_npupll_parents,
 		CLK_CFG_3, CLK_CFG_3_SET, CLK_CFG_3_CLR,
@@ -1297,7 +1297,7 @@ static const struct mtk_mux top_muxes[] __initconst = {
 
 	MUX_CLR_SET_UPD(TOP_MUX_DSP5, "dsp5_sel", dsp5_parents,
 		CLK_CFG_3, CLK_CFG_3_SET, CLK_CFG_3_CLR,
-		24, 3, INV_MUX_GATE, CLK_CFG_UPDATE, TOP_MUX_DSP5_UPD_SHIFT),
+		24, 3, 31, CLK_CFG_UPDATE, TOP_MUX_DSP5_UPD_SHIFT),
 	MUX_CLR_SET_UPD(TOP_MUX_DSP5_APUPLL, "dsp5_apupll_sel",
 		dsp5_apupll_parents,
 		CLK_CFG_3, CLK_CFG_3_SET, CLK_CFG_3_CLR,
@@ -1306,10 +1306,10 @@ static const struct mtk_mux top_muxes[] __initconst = {
 	/* CLK_CFG_4 */
 	MUX_CLR_SET_UPD(TOP_MUX_DSP7, "dsp7_sel", dsp7_parents,
 		CLK_CFG_4, CLK_CFG_4_SET, CLK_CFG_4_CLR,
-		0, 3, INV_MUX_GATE, CLK_CFG_UPDATE, TOP_MUX_DSP7_UPD_SHIFT),
+		0, 3, 7, CLK_CFG_UPDATE, TOP_MUX_DSP7_UPD_SHIFT),
 	MUX_CLR_SET_UPD(TOP_MUX_IPU_IF, "ipu_if_sel", ipu_if_parents,
 		CLK_CFG_4, CLK_CFG_4_SET, CLK_CFG_4_CLR,
-		8, 3, INV_MUX_GATE, CLK_CFG_UPDATE, TOP_MUX_IPU_IF_UPD_SHIFT),
+		8, 3, 15, CLK_CFG_UPDATE, TOP_MUX_IPU_IF_UPD_SHIFT),
 
 	MUX_CLR_SET_UPD(TOP_MUX_MFG_PLL, "mfg_pll_sel", mfg_pll_parents,
 		CLK_CFG_4, CLK_CFG_4_SET, CLK_CFG_4_CLR,
@@ -3611,6 +3611,10 @@ static void __init mtk_topckgen_init(struct device_node *node)
 	clk_writel(CLK_SCP_CFG_1,
 			(clk_readl(CLK_SCP_CFG_1) & 0xFFFFEFF3) | 0x3);
 
+	clk_writel(cksys_base + CLK_CFG_3_CLR, 0x80808080);
+	clk_writel(cksys_base + CLK_CFG_3_SET, 0x80808080);
+	clk_writel(cksys_base + CLK_CFG_4_CLR, 0x00008080);
+	clk_writel(cksys_base + CLK_CFG_4_SET, 0x00008080);
 #if 0
 	clk_writel(cksys_base + CLK_CFG_0_CLR, 0x00000000);
 	clk_writel(cksys_base + CLK_CFG_0_SET, 0x00000000);
@@ -4160,15 +4164,125 @@ void mipi_26m_en(unsigned int module_idx, int en)
 }
 #endif
 
+static unsigned int mux_table[64][2] = {
+	/* ID offset pdn_bit */
+	{0, 0}, //dummy index
+	{0x10, 7},//axi=1
+	{0x10, 15},//spm
+	{0x10, 23},//scp
+	{0x10, 31},//aximem
+
+	{0x20, 7},//disp
+	{0x20, 15},//mdp
+	{0x20, 23},//img1
+	{0x20, 31},//img2
+
+	{0x30, 7},//ipe
+	{0x30, 15},//dpe
+	{0x30, 23},//cam
+	{0x30, 31},//ccu
+
+	{0x40, 7},//dsp
+	{0x40, 15},//dsp1
+	{0x40, 23},//dsp2
+	{0x40, 31},//dsp3
+
+	{0x50, 7},//dsp7
+	{0x50, 15},//ipu_if
+	{0x50, 23},//mfg
+	{0x50, 31},//camtg
+
+	{0x60, 7},//camtg2
+	{0x60, 15},//camtg3
+	{0x60, 23},//camtg4
+	{0x60, 31},//camtg5
+
+	{0x70, 7},//camtg6
+	{0x70, 15},//uart
+	{0x70, 23},//spi
+	{0x70, 31},//msdc50_0_hclk
+
+	{0x80, 7},//msdc50_0
+	{0x80, 15},//msdc30_1
+	{0x80, 23},//msdc30_2
+	{0x80, 31},//audio
+
+	{0x90, 7},//aud_intbus
+	{0x90, 15},//pwrap_ulposc
+	{0x90, 23},//atb
+	{0x90, 31},//sspm
+
+	{0xA0, 7},//dpi
+	{0xA0, 15},//scam
+	{0xA0, 23},//disp_pwm
+	{0xA0, 31},//usb top
+
+	{0xB0, 7},//ssusb xhci
+	{0xB0, 15},//i2c
+	{0xB0, 23},//seninf
+	{0xB0, 31},//seninf1
+
+	{0xC0, 7},//seninf2
+	{0xC0, 15},//seninf3
+	{0xC0, 23},//tl
+	{0xC0, 31},//dxcc
+
+	{0xD0, 7},//aud_engen1=49
+	{0xD0, 15},//aud_engen2
+	{0xD0, 23},//aes ufsfde
+	{0xD0, 31},//ufs
+
+	{0xE0, 7},//aud_1
+	{0xE0, 15},//aud_2
+	{0xE0, 23},//adsp
+	{0xE0, 31},//dpmaif
+
+	{0xF0, 7},//venc
+	{0xF0, 15},//vdec
+	{0xF0, 23},//camtm
+	{0xF0, 31},//pwm
+
+	{0x100, 7},//audioh
+	{0x100, 15},//spmi
+	{0x100, 23},//dvfsrc=63
+#if 0
+	{0x100, 31},//aesmsdc
+	{0x110, 7},//mcupm
+	{0x110, 15},//sflash
+#endif
+};
+
+unsigned int check_mux_pdn(unsigned int ID)
+{
+#if 0
+	pr_notice("%s: ID=%d, check:%08x, %08x(%08x)\r\n",
+			__func__, ID, mux_table[ID][0], BIT(mux_table[ID][1]),
+			clk_readl(cksys_base + mux_table[ID][0])
+				& BIT(mux_table[ID][1]));
+#endif
+	if ((ID > 0) && (ID < 64)) {
+		if ((clk_readl(cksys_base + mux_table[ID][0])
+		& BIT(mux_table[ID][1])))
+			return 1;
+		else
+			return 0;
+	} else
+		return 1;
+}
+
 unsigned int mt_get_ckgen_freq(unsigned int ID)
 {
 	int output = 0, i = 0;
 	unsigned int temp, clk_dbg_cfg, clk_misc_cfg_0, clk26cali_1 = 0;
 	unsigned long flags;
 
+	if (check_mux_pdn(ID)) {
+		//pr_notice("ID-%d: MUX PDN, return 0.\r\n", ID);
+		return 0;
+	}
 	fmeter_lock(flags);
-	while (clk_readl(CLK26CALI_0) & 0x1000)
-		;
+	//while (clk_readl(CLK26CALI_0) & 0x1000)
+	//	;
 
 	clk_dbg_cfg = clk_readl(CLK_DBG_CFG);
 	clk_writel(CLK_DBG_CFG, (clk_dbg_cfg & 0xFFFFC0FC)|(ID << 8)|(0x1));
@@ -4223,9 +4337,11 @@ unsigned int mt_get_abist_freq(unsigned int ID)
 {
 	int output = 0, i = 0;
 	unsigned int temp, clk_dbg_cfg, clk_misc_cfg_0, clk26cali_1 = 0;
+	unsigned long flags;
 
-	while (clk_readl(CLK26CALI_0) & 0x1000)
-		;
+	fmeter_lock(flags);
+	//while (clk_readl(CLK26CALI_0) & 0x1000)
+		//;
 	clk_dbg_cfg = clk_readl(CLK_DBG_CFG);
 	clk_writel(CLK_DBG_CFG, (clk_dbg_cfg & 0xFFC0FFFC)|(ID << 16));
 
@@ -4266,6 +4382,7 @@ unsigned int mt_get_abist_freq(unsigned int ID)
 	/*clk_writel(CLK26CALI_0, clk26cali_0);*/
 	/*clk_writel(CLK26CALI_1, clk26cali_1);*/
 	clk_writel(CLK26CALI_0, 0x0000);
+	fmeter_unlock(flags);
 	if (i > 20)
 		return 0;
 	else
