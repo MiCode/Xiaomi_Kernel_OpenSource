@@ -314,6 +314,8 @@ int vpu_mesg_seq(struct seq_file *s, struct vpu_device *vd)
 	if (!vd->iova_work.m.va)
 		return -ENOENT;
 
+	vpu_iova_sync_for_cpu(vd->dev, &vd->iova_work);
+
 	log_buf = vd->iova_work.m.va + VPU_OFFSET_LOG + VPU_SIZE_LOG_HEADER;
 	msg = (struct vpu_message_ctrl *)log_buf;
 	data = (char *)vpu_mesg_pa_to_va(&vd->iova_work.m, msg->data);
