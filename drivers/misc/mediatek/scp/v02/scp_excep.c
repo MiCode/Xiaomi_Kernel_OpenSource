@@ -221,23 +221,28 @@ static unsigned int scp_crash_dump(struct MemoryDump *pMemoryDump,
 
 	/*flag use to indicate scp awake success or not*/
 	scp_awake_fail_flag = 0;
+
 	/*check SRAM lock ,awake scp*/
-	if (scp_awake_lock(id) == -1) {
+	if (scp_awake_lock((void *)id) == -1) {
 		pr_err("[SCP] %s: awake scp fail, scp id=%u\n", __func__, id);
 		scp_awake_fail_flag = 1;
 	}
+
 	memcpy_from_scp((void *)&(pMemoryDump->l2tcm),
 		(void *)(SCP_TCM),
 		(SCP_A_TCM_SIZE));
 	scp_do_l1cdump((void *)&(pMemoryDump->l1c),
 		(void *)&(pMemoryDump->regdump));
+
 	/* dump sys registers */
 	scp_do_regdump((void *)&(pMemoryDump->regdump),
 		(void *)&(pMemoryDump->tbuf));
 	scp_do_tbufdump((void *)&(pMemoryDump->tbuf),
 		(void *)&(pMemoryDump->dram));
+
 	scp_dump_size = MDUMP_L2TCM_SIZE + MDUMP_L1C_SIZE
 		+ MDUMP_REGDUMP_SIZE + MDUMP_TBUF_SIZE;
+
 	/* dram support? */
 	if ((int)(scp_region_info->ap_dram_size) <= 0) {
 		pr_notice("[scp] ap_dram_size <=0\n");
@@ -249,13 +254,16 @@ static unsigned int scp_crash_dump(struct MemoryDump *pMemoryDump,
 			scp_ap_dram_virt, dram_size);
 		scp_dump_size += roundup(dram_size, 4);
 	}
+
 	dsb(SY); /* may take lot of time */
+
 	/*check SRAM unlock*/
 	if (scp_awake_fail_flag != 1) {
-		if (scp_awake_unlock(id) == -1)
+		if (scp_awake_unlock((void *)id) == -1)
 			pr_debug("[SCP]%s awake unlock fail, scp id=%u\n",
 				__func__, id);
 	}
+
 	return scp_dump_size;
 }
 

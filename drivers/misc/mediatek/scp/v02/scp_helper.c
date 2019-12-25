@@ -486,7 +486,7 @@ static void scp_wait_ready_timeout(unsigned long data)
  * @param data: ipi data
  * @param len:  length of ipi data
  */
-static void scp_A_ready_ipi_handler(int id, void *prdata, void *data,
+static int scp_A_ready_ipi_handler(unsigned int id, void *prdata, void *data,
 				    unsigned int len)
 {
 	unsigned int scp_image_size = *(unsigned int *)data;
@@ -504,6 +504,8 @@ static void scp_A_ready_ipi_handler(int id, void *prdata, void *data,
 
 	pr_debug("[SCP] ramdump init\n");
 	scp_ram_dump_init();
+
+	return 0;
 }
 
 /*
@@ -717,7 +719,7 @@ static inline ssize_t scp_A_awake_lock_show(struct device *kobj
 {
 
 	if (scp_ready[SCP_A_ID]) {
-		scp_awake_lock(SCP_A_ID);
+		scp_awake_lock((void *)SCP_A_ID);
 		return scnprintf(buf, PAGE_SIZE, "SCP A awake lock\n");
 	} else
 		return scnprintf(buf, PAGE_SIZE, "SCP A is not ready\n");
@@ -730,7 +732,7 @@ static inline ssize_t scp_A_awake_unlock_show(struct device *kobj
 {
 
 	if (scp_ready[SCP_A_ID]) {
-		scp_awake_unlock(SCP_A_ID);
+		scp_awake_unlock((void *)SCP_A_ID);
 		return scnprintf(buf, PAGE_SIZE, "SCP A awake unlock\n");
 	} else
 		return scnprintf(buf, PAGE_SIZE, "SCP A is not ready\n");

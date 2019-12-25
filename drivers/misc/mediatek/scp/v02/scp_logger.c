@@ -110,10 +110,12 @@ char msg_logger_wk[4];
  * @param data: IPI data
  * @param len:  IPI data length
  */
-static void scp_logger_wakeup_handler(int id, void *prdata, void *data,
+static int scp_logger_wakeup_handler(unsigned int id, void *prdata, void *data,
 				      unsigned int len)
 {
 	pr_debug("[SCP]wakeup by SCP logger\n");
+
+	return 0;
 }
 
 /*
@@ -137,10 +139,12 @@ static size_t scp_A_get_last_log(size_t b_len)
 		pr_err("[SCP] %s(): logger has not been init\n", __func__);
 		return 0;
 	}
+
 	mutex_lock(&scp_logger_mutex);
-	/*SCP keep awake */
+
+	/* SCP keep awake */
 	scp_awake_flag = 0;
-	if (scp_awake_lock(SCP_A_ID) == -1) {
+	if (scp_awake_lock((void *)SCP_A_ID) == -1) {
 		scp_awake_flag = -1;
 		pr_debug("[SCP] %s: awake scp fail\n", __func__);
 	}
@@ -187,7 +191,7 @@ static size_t scp_A_get_last_log(size_t b_len)
 
 	/*SCP release awake */
 	if (scp_awake_flag == 0) {
-		if (scp_awake_unlock(SCP_A_ID) == -1)
+		if (scp_awake_unlock((void *)SCP_A_ID) == -1)
 			pr_debug("[SCP] %s: awake unlock fail\n", __func__);
 	}
 
@@ -543,7 +547,7 @@ DEVICE_ATTR(scp_A_mobile_log_UT, 0644,
  * @param data:  IPI data
  * @param len: IPI data length
  */
-static void scp_logger_init_handler(int id, void *prdata, void *data,
+static int scp_logger_init_handler(unsigned int id, void *prdata, void *data,
 				    unsigned int len)
 {
 	unsigned long flags;
@@ -571,6 +575,8 @@ static void scp_logger_init_handler(int id, void *prdata, void *data,
 #if SCP_LOGGER_ENABLE
 	scp_schedule_logger_work(&scp_logger_notify_work[SCP_A_ID]);
 #endif
+
+	return 0;
 }
 
 /*
@@ -678,6 +684,7 @@ int scp_logger_init(phys_addr_t start, phys_addr_t limit)
 	mtk_ipi_register(&scp_ipidev, IPI_IN_LOGGER_INIT_1,
 			(void *)scp_logger_init_handler, NULL,
 			&msg_logger_init);
+
 	/* register log wakeup IPI */
 	mtk_ipi_register(&scp_ipidev, IPI_IN_LOGGER_WAKEUP_1,
 			(void *)scp_logger_wakeup_handler, NULL,
@@ -739,10 +746,11 @@ void scp_crash_log_move_to_buf(enum scp_core_id scp_id)
 		return;
 	}
 
-	/* SCP keep awake */
 	mutex_lock(&scp_logger_mutex);
+
+	/* SCP keep awake */
 	scp_awake_flag = 0;
-	if (scp_awake_lock(scp_id) == -1) {
+	if (scp_awake_lock((void *)scp_id) == -1) {
 		scp_awake_flag = -1;
 		pr_debug("[SCP] %s: awake scp fail\n", __func__);
 	}
@@ -836,7 +844,7 @@ void scp_crash_log_move_to_buf(enum scp_core_id scp_id)
 
 	/* SCP release awake */
 	if (scp_awake_flag == 0) {
-		if (scp_awake_unlock(scp_id) == -1)
+		if (scp_awake_unlock((void *)scp_id) == -1)
 			pr_debug("[SCP] %s: awake unlock fail\n", __func__);
 	}
 

@@ -45,7 +45,7 @@ struct scp_ipi_legacy_pkt {
 /*
  * This is a handler for handling legacy ipi callback function
  */
-static void scp_legacy_handler(int id, void *prdata, void *data,
+static int scp_legacy_handler(unsigned int id, void *prdata, void *data,
 			       unsigned int len)
 {
 	void (*handler)(int id, void *data, unsigned int len);
@@ -64,6 +64,8 @@ static void scp_legacy_handler(int id, void *prdata, void *data,
 		handler = prdata;
 	if (handler)
 		handler(pkt.id, pkt.data, pkt.len);
+
+	return 0;
 }
 
 /*

@@ -80,9 +80,9 @@ extern struct mtk_ipi_device scp_ipidev;
 extern char *core_ids[SCP_CORE_TOTAL];
 
 extern void scp_reset_awake_counts(void);
-extern int scp_awake_lock(enum scp_core_id scp_id);
-extern int scp_awake_unlock(enum scp_core_id scp_id);
-extern void scp_clr_spm_reg(void);
+extern int scp_awake_lock(void *_scp_id);
+extern int scp_awake_unlock(void *_scp_id);
+extern int scp_clr_spm_reg(void *unused);
 extern int scp_awake_counts[];
 
 extern unsigned int is_scp_ready(enum scp_core_id scp_id);
