@@ -1732,6 +1732,13 @@ static int mtk_dsi_stop_vdo_mode(struct mtk_dsi *dsi, void *handle)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(dsi->encoder.crtc);
 	int need_create_hnd = 0;
+	struct cmdq_pkt *cmdq_handle;
+
+	/* add blocking flush for vm cmd */
+	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
+			mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
+	cmdq_pkt_flush(cmdq_handle);
+	cmdq_pkt_destroy(cmdq_handle);
 
 	if (!handle)
 		need_create_hnd = 1;
