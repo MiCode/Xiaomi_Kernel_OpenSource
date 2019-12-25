@@ -17,6 +17,7 @@
 #define MNOC_INT_ENABLE (1)
 #define MNOC_QOS_ENABLE (0)
 #define MNOC_QOS_BOOST_ENABLE (0)
+#define MNOC_QOS_DEBOUNCE
 #define MNOC_DBG_ENABLE (1)
 #define MNOC_AEE_WARN_ENABLE (0)
 #define MNOC_APU_PWR_CHK (0)

@@ -92,7 +92,7 @@ static void mnoc_apusys_top_after_pwr_on(void *para)
 	mnoc_pmu_reg_init();
 	infra2apu_sram_en();
 	mnoc_hw_reinit();
-	notify_sspm_apusys_on();
+	apu_qos_on();
 
 	spin_lock_irqsave(&mnoc_spinlock, flags);
 #if MNOC_INT_ENABLE
@@ -123,8 +123,7 @@ static void mnoc_apusys_top_before_pwr_off(void *para)
 	spin_unlock_irqrestore(&mnoc_spinlock, flags);
 
 	infra2apu_sram_dis();
-	notify_sspm_apusys_off();
-	apu_pm_qos_off();
+	apu_qos_off();
 
 	mutex_lock(&mnoc_pwr_mtx);
 	mnoc_pwr_is_on = false;

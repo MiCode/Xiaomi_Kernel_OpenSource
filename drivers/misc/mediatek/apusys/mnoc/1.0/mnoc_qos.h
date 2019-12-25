@@ -25,9 +25,8 @@ extern bool apu_qos_boost_flag;
 extern struct mutex apu_qos_boost_mtx;
 #endif
 
-void notify_sspm_apusys_on(void);
-void notify_sspm_apusys_off(void);
-void apu_pm_qos_off(void);
+void apu_qos_on(void);
+void apu_qos_off(void);
 
 void apu_qos_counter_init(void);
 void apu_qos_counter_destroy(void);

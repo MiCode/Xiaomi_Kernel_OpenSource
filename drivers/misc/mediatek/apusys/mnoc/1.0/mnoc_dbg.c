@@ -45,6 +45,8 @@ static int mnoc_log_level_show(struct seq_file *m, void *v)
 		sum_start, cnt_start, sum_start/cnt_start);
 	seq_printf(m, "sum_end = %lu, cnt_end = %d, avg = %lu\n",
 		sum_end, cnt_end, sum_end/cnt_end);
+	seq_printf(m, "sum_work_func = %lu, cnt_work_func = %d, avg = %lu\n",
+		sum_work_func, cnt_work_func, sum_work_func/cnt_work_func);
 #endif
 
 	return 0;
@@ -272,7 +274,7 @@ out:
 	return count;
 }
 
-#if MNOC_QOS_BOOST_ENABLE
+#if MNOC_QOS_BOOST_ENABLE && MNOC_QOS_ENABLE
 static int mnoc_apu_qos_boost_show(struct seq_file *m, void *v)
 {
 	seq_printf(m, "apu_qos_boost_flag = %d\n", apu_qos_boost_flag);
@@ -532,7 +534,7 @@ DBG_FOPS_RW(mnoc_log_level);
 DBG_FOPS_RW(mnoc_reg_rw);
 DBG_FOPS_RW(mnoc_pmu_reg);
 DBG_FOPS_RW(mnoc_pmu_timer_en);
-#if MNOC_QOS_BOOST_ENABLE
+#if MNOC_QOS_BOOST_ENABLE && MNOC_QOS_ENABLE
 DBG_FOPS_RW(mnoc_apu_qos_boost);
 #endif
 #if MNOC_DBG_ENABLE
@@ -563,7 +565,7 @@ int create_debugfs(void)
 	CREATE_DBGFS(mnoc_reg_rw);
 	CREATE_DBGFS(mnoc_pmu_reg);
 	CREATE_DBGFS(mnoc_pmu_timer_en);
-#if MNOC_QOS_BOOST_ENABLE
+#if MNOC_QOS_BOOST_ENABLE && MNOC_QOS_ENABLE
 	CREATE_DBGFS(mnoc_apu_qos_boost);
 #endif
 #if MNOC_DBG_ENABLE

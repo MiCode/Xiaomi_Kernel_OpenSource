@@ -106,34 +106,22 @@ struct mutex apu_qos_boost_mtx;
 #endif
 
 /* register to apusys power on callback */
-void notify_sspm_apusys_on(void)
+static void notify_sspm_apusys_on(void)
 {
 	LOG_DEBUG("+\n");
 
 	qos_sram_write(APU_CLK, 1);
-#if MNOC_QOS_BOOST_ENABLE
-	mutex_lock(&apu_qos_boost_mtx);
-	apusys_on_flag = true;
-	apu_qos_boost_start();
-	mutex_unlock(&apu_qos_boost_mtx);
-#endif
 
 	LOG_DEBUG("-\n");
 }
 
 /* register to apusys power off callback(before power off) */
-void notify_sspm_apusys_off(void)
+static void notify_sspm_apusys_off(void)
 {
 	int bw_nord = 0;
 
 	LOG_DEBUG("+\n");
 
-#if MNOC_QOS_BOOST_ENABLE
-	mutex_lock(&apu_qos_boost_mtx);
-	apu_qos_boost_end();
-	apusys_on_flag = false;
-	mutex_unlock(&apu_qos_boost_mtx);
-#endif
 	qos_sram_write(APU_CLK, 0);
 	while (bw_nord == 0) {
 		bw_nord = qos_sram_read(APU_BW_NORD);
@@ -169,15 +157,127 @@ static int destroy_qos_request(struct pm_qos_request *req)
 	return 0;
 }
 
-/* to prevent pm qos request value stay at last cmd's peak bw */
-void apu_pm_qos_off(void)
+static void qos_timer_func(unsigned long arg)
 {
-	int i = 0;
+	struct qos_counter *counter = &qos_counter;
 
+	LOG_DETAIL("+\n");
+
+	/* queue work because mutex sleep must be happened */
+	enque_qos_wq(&qos_work);
+	mod_timer(&counter->qos_timer,
+		jiffies + msecs_to_jiffies(DEFAUTL_QOS_POLLING_TIME));
+
+	LOG_DETAIL("-\n");
+}
+
+/*
+ * create timer to count current bandwidth of apu engines each 16ms
+ * timer will schedule work to wq when time's up
+ * must call with list_mtx locked
+ */
+static void apu_qos_timer_start(void)
+{
+	struct qos_counter *counter = &qos_counter;
+	struct qos_bound *qos_info = NULL;
+	int i;
+
+	LOG_DEBUG("+\n");
+
+	/* get qos bound */
+	qos_info = get_qos_bound();
+	if (qos_info == NULL) {
+		LOG_ERR("get qos_info fail\n");
+		return;
+	}
+
+	for (i = 0; i < NR_APU_QOS_ENGINE; i++) {
+		engine_pm_qos_counter[i].last_peak_val = 0;
+		engine_pm_qos_counter[i].last_idx = qos_info->idx;
+	}
+
+	/* setup timer */
+	init_timer(&counter->qos_timer);
+	counter->qos_timer.function = &qos_timer_func;
+	counter->qos_timer.data = 0;
+	counter->qos_timer.expires =
+		jiffies + msecs_to_jiffies(DEFAUTL_QOS_POLLING_TIME);
+	/* record wait time in counter */
+	counter->wait_ms = DEFAUTL_QOS_POLLING_TIME;
+	add_timer(&counter->qos_timer);
+
+	qos_timer_exist = true;
+
+	LOG_DEBUG("-\n");
+}
+
+/*
+ * delete timer
+ * update pm qos request to default value
+ * must call with list_mtx locked
+ */
+static void apu_qos_timer_end(void)
+{
+	struct qos_counter *counter = &qos_counter;
+
+	LOG_DEBUG("+\n");
+
+	if (qos_timer_exist) {
+		qos_timer_exist = false;
+		del_timer_sync(&counter->qos_timer);
+	}
+
+	LOG_DEBUG("-\n");
+}
+
+void apu_qos_on(void)
+{
+	LOG_DEBUG("+\n");
+
+	notify_sspm_apusys_on();
+#ifdef MNOC_QOS_DEBOUNCE
+	mutex_lock(&(qos_counter.list_mtx));
+	apu_qos_timer_start();
+	mutex_unlock((&qos_counter.list_mtx));
+#endif
+#if MNOC_QOS_BOOST_ENABLE
+	mutex_lock(&apu_qos_boost_mtx);
+	apusys_on_flag = true;
+	apu_qos_boost_start();
+	mutex_unlock(&apu_qos_boost_mtx);
+#endif
+
+	LOG_DEBUG("-\n");
+}
+
+void apu_qos_off(void)
+{
+#ifdef MNOC_QOS_DEBOUNCE
+	int i = 0;
+#endif
+
+	LOG_DEBUG("+\n");
+
+#ifdef MNOC_QOS_DEBOUNCE
+	mutex_lock(&(qos_counter.list_mtx));
+	apu_qos_timer_end();
+	mutex_unlock(&(qos_counter.list_mtx));
+	/* make sure no work_func running after timer delete */
+	cancel_work_sync(&qos_work);
 	for (i = 0; i < NR_APU_QOS_ENGINE; i++) {
 		update_qos_request(&(engine_pm_qos_counter[i].qos_req),
 			PM_QOS_APU_MEMORY_BANDWIDTH_DEFAULT_VALUE);
 	}
+#endif
+#if MNOC_QOS_BOOST_ENABLE
+	mutex_lock(&apu_qos_boost_mtx);
+	apu_qos_boost_end();
+	apusys_on_flag = false;
+	mutex_unlock(&apu_qos_boost_mtx);
+#endif
+	notify_sspm_apusys_off();
+
+	LOG_DEBUG("-\n");
 }
 
 static void update_cmd_qos(struct qos_bound *qos_info, struct cmd_qos *cmd_qos)
@@ -372,73 +472,6 @@ static void qos_work_func(struct work_struct *work)
 	LOG_DETAIL("-\n");
 }
 
-static void qos_timer_func(unsigned long arg)
-{
-	struct qos_counter *counter = &qos_counter;
-
-	LOG_DETAIL("+\n");
-
-	/* queue work because mutex sleep must be happened */
-	enque_qos_wq(&qos_work);
-	mod_timer(&counter->qos_timer,
-		jiffies + msecs_to_jiffies(DEFAUTL_QOS_POLLING_TIME));
-
-	LOG_DETAIL("-\n");
-}
-
-/*
- * create timer to count current bandwidth of apu engines each 16ms
- * timer will schedule work to wq when time's up
- * @call at insertion to empty cmd_qos list
- * must call with list_mtx locked
- */
-static void apu_qos_timer_start(struct qos_bound *qos_info)
-{
-	struct qos_counter *counter = &qos_counter;
-	int i;
-
-	LOG_DEBUG("+\n");
-
-	for (i = 0; i < NR_APU_QOS_ENGINE; i++) {
-		engine_pm_qos_counter[i].last_peak_val = 0;
-		engine_pm_qos_counter[i].last_idx = qos_info->idx;
-	}
-
-	/* setup timer */
-	init_timer(&counter->qos_timer);
-	counter->qos_timer.function = &qos_timer_func;
-	counter->qos_timer.data = 0;
-	counter->qos_timer.expires =
-		jiffies + msecs_to_jiffies(DEFAUTL_QOS_POLLING_TIME);
-	/* record wait time in counter */
-	counter->wait_ms = DEFAUTL_QOS_POLLING_TIME;
-	add_timer(&counter->qos_timer);
-
-	qos_timer_exist = true;
-
-	LOG_DEBUG("-\n");
-}
-
-/*
- * delete timer
- * update pm qos request to default value
- * @call at deletion from cmd_qos list and result to list empty
- * must call with list_mtx locked
- */
-static void apu_qos_timer_end(void)
-{
-	struct qos_counter *counter = &qos_counter;
-
-	LOG_DEBUG("+\n");
-
-	if (qos_timer_exist) {
-		qos_timer_exist = false;
-		del_timer_sync(&counter->qos_timer);
-	}
-
-	LOG_DEBUG("-\n");
-}
-
 /*
  * called when apusys enter suspend
  */
@@ -513,7 +546,7 @@ void apu_qos_resume(void)
 		}
 	}
 
-	apu_qos_timer_start(qos_info);
+	apu_qos_timer_start();
 
 	mutex_unlock(&counter->list_mtx);
 
@@ -558,9 +591,11 @@ int apu_cmd_qos_start(uint64_t cmd_id, uint64_t sub_cmd_id,
 
 	mutex_lock(&counter->list_mtx);
 
+#ifndef MNOC_QOS_DEBOUNCE
 	/* start timer if cmd list empty */
 	if (list_empty(&counter->list))
-		apu_qos_timer_start(qos_info);
+		apu_qos_timer_start();
+#endif
 
 	list_for_each_entry(pos, &counter->list, list) {
 		/* search if cmd already exist */
@@ -693,6 +728,9 @@ int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id,
 	struct qos_bound *qos_info = NULL;
 	int core;
 	int bw = 0, total_bw = 0, total_count = 0;
+#ifndef MNOC_QOS_DEBOUNCE
+	int i;
+#endif
 #if MNOC_TIME_PROFILE
 	struct timeval begin, end;
 	unsigned long val;
@@ -739,9 +777,11 @@ int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id,
 	/* deque cmd to counter's list */
 	bw = deque_cmd_qos(cmd_qos);
 
+#ifndef MNOC_QOS_DEBOUNCE
 	/* delete timer if cmd list empty */
 	if (list_empty(&counter->list))
 		apu_qos_timer_end();
+#endif
 
 	/* due to preemption,
 	 * there may be multiple cmds running on the same core,
@@ -790,11 +830,16 @@ int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id,
 
 	mutex_unlock(&counter->list_mtx);
 
+#ifndef MNOC_QOS_DEBOUNCE
 	if (!qos_timer_exist) {
 		/* make sure no work_func running after timer delete */
 		cancel_work_sync(&qos_work);
-		apu_pm_qos_off();
+		for (i = 0; i < NR_APU_QOS_ENGINE; i++) {
+			update_qos_request(&(engine_pm_qos_counter[i].qos_req),
+				PM_QOS_APU_MEMORY_BANDWIDTH_DEFAULT_VALUE);
+		}
 	}
+#endif
 
 	LOG_DEBUG("-\n");
 
@@ -971,15 +1016,11 @@ void print_cmd_qos_list(struct seq_file *m)
 
 #else
 
-void notify_sspm_apusys_on(void)
+void apu_qos_on(void)
 {
 }
 
-void notify_sspm_apusys_off(void)
-{
-}
-
-void apu_pm_qos_off(void)
+void apu_qos_off(void)
 {
 }
 
