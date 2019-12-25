@@ -290,13 +290,11 @@ int enable_apu_device_clksrc(enum DVFS_USER user)
 
 	switch (user) {
 	case VPU0:
-		ENABLE_CLK(clk_top_dsp1_sel);
-		ENABLE_CLK(clk_top_npupll_ck);
-		ENABLE_CLK(clk_top_dsp1_npupll_sel);
-		break;
 	case VPU1:
+		ENABLE_CLK(clk_top_dsp1_sel);
 		ENABLE_CLK(clk_top_dsp2_sel);
 		ENABLE_CLK(clk_top_npupll_ck);
+		ENABLE_CLK(clk_top_dsp1_npupll_sel);
 		ENABLE_CLK(clk_top_dsp2_npupll_sel);
 		break;
 	case MDLA0:
@@ -478,13 +476,11 @@ void disable_apu_device_clksrc(enum DVFS_USER user)
 {
 	switch (user) {
 	case VPU0:
-		DISABLE_CLK(clk_top_dsp1_npupll_sel);
-		DISABLE_CLK(clk_top_npupll_ck);
-		DISABLE_CLK(clk_top_dsp1_sel);
-		break;
 	case VPU1:
+		DISABLE_CLK(clk_top_dsp1_npupll_sel);
 		DISABLE_CLK(clk_top_dsp2_npupll_sel);
 		DISABLE_CLK(clk_top_npupll_ck);
+		DISABLE_CLK(clk_top_dsp1_sel);
 		DISABLE_CLK(clk_top_dsp2_sel);
 		break;
 	case MDLA0:

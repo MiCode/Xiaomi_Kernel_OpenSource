@@ -45,6 +45,7 @@ void apu_power_assert_check(struct apu_power_info *info)
 	int vmdla = info->vmdla * info->dump_div;
 	int vsram = info->vsram * info->dump_div;
 
+#if 0
 	if (apusys_get_power_on_status(VPU0) == true && info->dsp1_freq != 0) {
 		dsp1_freq = apusys_get_dvfs_freq(V_VPU0)/info->dump_div;
 		if ((abs(dsp1_freq - info->dsp1_freq) * 100) >
@@ -62,6 +63,24 @@ void apu_power_assert_check(struct apu_power_info *info)
 						dsp2_freq, info->dsp2_freq);
 		}
 	}
+#else
+	if ((apusys_get_power_on_status(VPU0) == true &&
+		info->dsp1_freq != 0) ||
+		(apusys_get_power_on_status(VPU1) == true &&
+		info->dsp2_freq != 0)) {
+		dsp1_freq = apusys_get_dvfs_freq(V_VPU0)/info->dump_div;
+		dsp2_freq = apusys_get_dvfs_freq(V_VPU1)/info->dump_div;
+		if (((abs(dsp1_freq - info->dsp1_freq) * 100) >
+			dsp1_freq * ASSERTION_PERCENTAGE)  &&
+		    ((abs(dsp2_freq - info->dsp2_freq) * 100) >
+			dsp2_freq * ASSERTION_PERCENTAGE)) {
+			LOG_WRN("ASSERT dsp1_freq=%d, info->dsp1_freq=%d\n",
+						dsp1_freq, info->dsp1_freq);
+			LOG_WRN("ASSERT dsp2_freq=%d, info->dsp2_freq=%d\n",
+						dsp2_freq, info->dsp2_freq);
+		}
+	}
+#endif
 
 	if (apusys_get_power_on_status(MDLA0) == true && info->dsp5_freq != 0) {
 		dsp5_freq = apusys_get_dvfs_freq(V_MDLA0)/info->dump_div;
