@@ -317,14 +317,10 @@ static void kbase_pm_invoke(struct kbase_device *kbdev,
 			}
 	}
 
-	if (action == ACTION_PWRON && core_type == KBASE_PM_CORE_SHADER) {
-		kbase_wa_execute(kbdev, cores);
-	} else {
-		if (lo != 0)
-			kbase_reg_write(kbdev, GPU_CONTROL_REG(reg), lo);
-		if (hi != 0)
-			kbase_reg_write(kbdev, GPU_CONTROL_REG(reg + 4), hi);
-	}
+	if (lo != 0)
+		kbase_reg_write(kbdev, GPU_CONTROL_REG(reg), lo);
+	if (hi != 0)
+		kbase_reg_write(kbdev, GPU_CONTROL_REG(reg + 4), hi);
 }
 
 /**
@@ -1584,6 +1580,9 @@ void kbase_pm_clock_on(struct kbase_device *kbdev, bool is_resume)
 	kbase_ctx_sched_restore_all_as(kbdev);
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 	mutex_unlock(&kbdev->mmu_hw_mutex);
+
+	if (kbdev->wa.ctx)
+		kbase_wa_execute(kbdev, kbdev->gpu_props.props.raw_props.shader_present);
 
 	/* Enable the interrupts */
 	kbase_pm_enable_interrupts(kbdev);

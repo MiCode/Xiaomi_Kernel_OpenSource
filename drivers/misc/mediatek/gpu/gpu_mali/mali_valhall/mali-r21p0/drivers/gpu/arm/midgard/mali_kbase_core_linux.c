@@ -3985,13 +3985,17 @@ static int kbase_platform_device_remove(struct platform_device *pdev)
 {
 	struct kbase_device *kbdev = to_kbase_device(&pdev->dev);
 	const struct list_head *dev_list;
+	struct kbase_context *wa_ctx;
 
 	if (!kbdev)
 		return -ENODEV;
 
-	if (kbdev->wa.ctx) {
-		kbasep_js_release_privileged_ctx(kbdev, kbdev->wa.ctx);
-		kbase_destroy_context(kbdev->wa.ctx);
+	wa_ctx = READ_ONCE(kbdev->wa.ctx);
+	smp_store_mb(kbdev->wa.ctx, NULL);
+
+	if (wa_ctx) {
+		kbasep_js_release_privileged_ctx(kbdev, wa_ctx);
+		kbase_destroy_context(wa_ctx);
 	}
 
 	kfree(kbdev->gpu_props.prop_buffer);
@@ -4218,12 +4222,13 @@ static int load_workaround(struct kbase_device *kbdev)
 	const struct wa_v1_info *v1_info;
 	u32 blob_offset;
 	int err;
+	struct kbase_context *kctx;
 
-	kbdev->wa.ctx = kbase_create_context(kbdev, true,
+	kctx = kbase_create_context(kbdev, true,
 					     BASE_CONTEXT_CREATE_FLAG_NONE, 0,
 					     NULL);
 
-	if (!kbdev->wa.ctx) {
+	if (!kctx) {
 		dev_err(kbdev->dev, "Failed to create WA context\n");
 		goto no_ctx;
 	}
@@ -4299,7 +4304,7 @@ static int load_workaround(struct kbase_device *kbdev)
 		nr_pages = PFN_UP(blob->size);
 		flags = blob->map_flags | BASE_MEM_FLAG_MAP_FIXED;
 
-		va_region = kbase_mem_alloc(kbdev->wa.ctx, nr_pages, nr_pages,
+		va_region = kbase_mem_alloc(kctx, nr_pages, nr_pages,
 					    0, &flags, &gpu_va);
 
 		if (!va_region) {
@@ -4312,13 +4317,13 @@ static int load_workaround(struct kbase_device *kbdev)
 			/* copy the payload,  */
 			payload = fw + blob->payload_offset;
 
-			dst = kbase_vmap(kbdev->wa.ctx,
+			dst = kbase_vmap(kctx,
 					 va_region->start_pfn << PAGE_SHIFT,
 					 nr_pages << PAGE_SHIFT, &vmap);
 
 			if (dst) {
 				memcpy(dst, payload, blob->size);
-				kbase_vunmap(kbdev->wa.ctx, &vmap);
+				kbase_vunmap(kctx, &vmap);
 			} else {
 				dev_err(kbdev->dev,
 					"Failed to copy payload\n");
@@ -4330,15 +4335,16 @@ static int load_workaround(struct kbase_device *kbdev)
 
 	release_firmware(firmware);
 
-	kbasep_js_schedule_privileged_ctx(kbdev, kbdev->wa.ctx);
+	kbasep_js_schedule_privileged_ctx(kbdev, kctx);
+
+	kbdev->wa.ctx = kctx;
 
 	return 0;
 
 bad_fw:
 	release_firmware(firmware);
 no_fw:
-	kbase_destroy_context(kbdev->wa.ctx);
-	kbdev->wa.ctx = NULL;
+	kbase_destroy_context(kctx);
 no_ctx:
 	return -EFAULT;
 }
@@ -4402,6 +4408,10 @@ int kbase_wa_execute(struct kbase_device *kbdev, u64 cores)
 	int runs = 0;
 	u32 old_gpu_mask;
 	u32 old_job_mask;
+	u32 tiler_present_lo;
+	u32 tiler_present_hi;
+	u32 l2_present_lo;
+	u32 l2_present_hi;
 	static int print_out = 0;
 
 	if (!kbdev)
@@ -4410,12 +4420,14 @@ int kbase_wa_execute(struct kbase_device *kbdev, u64 cores)
 	if (!kbdev->wa.ctx)
 		return -EFAULT;
 
-	if (!kbdev->wa.jc)
-		return -EAGAIN;
-
 	as = kbdev->wa.ctx->as_nr;
 	slot = kbdev->wa.slot;
 	jc = kbdev->wa.jc;
+
+	tiler_present_lo = kbase_reg_read(kbdev, GPU_CONTROL_REG(TILER_PRESENT_LO));
+	tiler_present_hi = kbase_reg_read(kbdev, GPU_CONTROL_REG(TILER_PRESENT_HI));
+	l2_present_lo = kbase_reg_read(kbdev, GPU_CONTROL_REG(L2_PRESENT_LO));
+	l2_present_hi = kbase_reg_read(kbdev, GPU_CONTROL_REG(L2_PRESENT_HI));
 
 	/* mask off all but MMU IRQs */
 	old_gpu_mask = kbase_reg_read(kbdev, GPU_CONTROL_REG(GPU_IRQ_MASK));
@@ -4423,11 +4435,29 @@ int kbase_wa_execute(struct kbase_device *kbdev, u64 cores)
 	kbase_reg_write(kbdev, GPU_CONTROL_REG(GPU_IRQ_MASK), 0);
 	kbase_reg_write(kbdev, JOB_CONTROL_REG(JOB_IRQ_MASK), 0);
 
+	/* power up l2 */
+	kbase_reg_write(kbdev, L2_PWRON_LO, l2_present_lo);
+	if (l2_present_hi)
+		kbase_reg_write(kbdev, L2_PWRON_HI, l2_present_hi);
+
+	/* power up tiler */
+	kbase_reg_write(kbdev, TILER_PWRON_LO, tiler_present_lo);
+	if (tiler_present_hi)
+		kbase_reg_write(kbdev, TILER_PWRON_HI, tiler_present_hi);
+
 	/* power up requested cores */
 	kbase_reg_write(kbdev, SHADER_PWRON_LO, (cores & U32_MAX));
 	kbase_reg_write(kbdev, SHADER_PWRON_HI, (cores >> 32));
 
 	/* wait for power-ups */
+	wait(kbdev, L2_READY_LO, l2_present_lo);
+	if (l2_present_hi)
+		wait(kbdev, L2_READY_HI, l2_present_hi);
+
+	wait(kbdev, TILER_READY_LO, tiler_present_lo);
+	if (tiler_present_hi)
+		wait(kbdev, TILER_READY_HI, tiler_present_hi);
+
 	wait(kbdev, SHADER_READY_LO, (cores & U32_MAX));
 	if (cores >> 32)
 		wait(kbdev, SHADER_READY_HI, (cores >> 32));
@@ -4443,8 +4473,10 @@ int kbase_wa_execute(struct kbase_device *kbdev, u64 cores)
 			continue;
 
 		/* setup job */
-		kbase_reg_write(kbdev, JOB_SLOT_REG(slot, JS_HEAD_NEXT_LO), jc & U32_MAX);
-		kbase_reg_write(kbdev, JOB_SLOT_REG(slot, JS_HEAD_NEXT_HI), jc >> 32);
+		kbase_reg_write(kbdev, JOB_SLOT_REG(slot, JS_HEAD_NEXT_LO),
+				jc & U32_MAX);
+		kbase_reg_write(kbdev, JOB_SLOT_REG(slot, JS_HEAD_NEXT_HI),
+				jc >> 32);
 		kbase_reg_write(kbdev, JOB_SLOT_REG(slot, JS_AFFINITY_NEXT_LO),
 			  affinity & U32_MAX);
 		kbase_reg_write(kbdev, JOB_SLOT_REG(slot, JS_AFFINITY_NEXT_HI),
