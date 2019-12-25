@@ -63,7 +63,7 @@ enum {
 	MTK_AFE_ADDA_UL_RATE_48K_HD = 6,
 };
 
-#define SDM_AUTO_RESET_THRESHOLD 0x400
+#define SDM_AUTO_RESET_THRESHOLD 0x190000
 
 struct mtk_afe_adda_priv {
 	int dl_rate;
