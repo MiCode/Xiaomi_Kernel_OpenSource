@@ -327,10 +327,12 @@ static DEFINE_SPINLOCK(meter_lock);
 #define MDP_CG1		0x13FF
 #define MDP_CG2		0x101
 
-#define INFRA_CG0	0x032F8000	/* pwm: 21~15, uart:24,25 */
-#define INFRA_CG1	0x00000800	/* cpum: 11 */
+#define INFRA_CG0	0x032F8200	/* pwm: 21~15, uart:24,25, gce2:9 */
+//#define INFRA_CG1	0x00000800	/* cpum: 11 */
+#define INFRA_CG1	0x00000844	/* cpum: 11, msdc: 2,6 */
 #define INFRA_CG2	0x0
-#define INFRA_CG3	0x0
+#define INFRA_CG3	0x4000		/* flashif:14 */
+#define INFRA_CG4	0xC000007C	//pass
 
 static const struct mtk_fixed_clk fixed_clks[] __initconst = {
 	FIXED_CLK(TOP_CLK26M, "f26m_sel", "clk26m", 26000000),
@@ -2620,7 +2622,7 @@ static struct mtk_gate imgsys2_clks[] __initdata = {
 	GATE(IMGSYS2_MSS_CGPDN, "imgsys2_mss_cgpdn", "img1_sel",
 			 imgsys2_img_cg_regs, 8, 0),
 	GATE_DUMMY(IMGSYS2_GALS_CGPDN, "imgsys2_gals_cgpdn", "img1_sel",
-			 imgsys2_img_cg_regs, 8, 0),
+			 imgsys2_img_cg_regs, 12, 0),
 };
 
 static void __iomem *img2_base;
@@ -3249,6 +3251,7 @@ static void mtk_infracfg_ao_init(struct device_node *node)
 	clk_writel(INFRA_PDN_SET1, INFRA_CG1);
 	clk_writel(INFRA_PDN_SET2, INFRA_CG2);
 	clk_writel(INFRA_PDN_SET3, INFRA_CG3);
+	clk_writel(INFRA_PDN_SET4, INFRA_CG4);
 #endif
 }
 CLK_OF_DECLARE_DRIVER(mtk_infracfg_ao, "mediatek,infracfg_ao",
@@ -4020,16 +4023,8 @@ static void __init mtk_apmixedsys_init(struct device_node *node)
 #define PLL_DIV_RSTB  (0x1 << 23)
 #define USBPLL_EN  (0x1 << 2)
 
-#if 0
-/*MMPLL*/
-	clk_clrl(MMPLL_CON0, PLL_DIV_RSTB);
-	clk_clrl(MMPLL_CON0, PLL_EN);
-	clk_setl(MMPLL_CON3, PLL_ISO_EN);
-	clk_clrl(MMPLL_CON3, PLL_PWR_ON);
-/*MSDCPLL*/
-	clk_clrl(MSDCPLL_CON0, PLL_EN);
-	clk_setl(MSDCPLL_CON3, PLL_ISO_EN);
-	clk_clrl(MSDCPLL_CON3, PLL_PWR_ON);
+
+#if 1
 /*MFGPLL*/
 	clk_clrl(MFGPLL_CON0, PLL_EN);
 	clk_setl(MFGPLL_CON3, PLL_ISO_EN);
@@ -4039,20 +4034,23 @@ static void __init mtk_apmixedsys_init(struct device_node *node)
 	clk_clrl(UNIVPLL_CON0, PLL_EN);
 	clk_setl(UNIVPLL_CON3, PLL_ISO_EN);
 	clk_clrl(UNIVPLL_CON3, PLL_PWR_ON);
-
+/*USBPLL*/
+	clk_clrl(USBPLL_CON2, USBPLL_EN);
+	clk_setl(USBPLL_CON2, PLL_ISO_EN);
+	clk_clrl(USBPLL_CON2, PLL_PWR_ON);
+/*MMPLL*/
+	clk_clrl(MMPLL_CON0, PLL_DIV_RSTB);
+	clk_clrl(MMPLL_CON0, PLL_EN);
+	clk_setl(MMPLL_CON3, PLL_ISO_EN);
+	clk_clrl(MMPLL_CON3, PLL_PWR_ON);
+/*MSDCPLL*/
+	clk_clrl(MSDCPLL_CON0, PLL_EN);
+	clk_setl(MSDCPLL_CON3, PLL_ISO_EN);
+	clk_clrl(MSDCPLL_CON3, PLL_PWR_ON);
 /*TVDPLL*/
 	clk_clrl(TVDPLL_CON0, PLL_EN);
 	clk_setl(TVDPLL_CON3, PLL_ISO_EN);
 	clk_clrl(TVDPLL_CON3, PLL_PWR_ON);
-
-/*APLL1*/
-	clk_clrl(APLL1_CON0, PLL_EN);
-	clk_setl(APLL1_CON4, PLL_ISO_EN);
-	clk_clrl(APLL1_CON4, PLL_PWR_ON);
-/*APLL2*/
-	clk_clrl(APLL2_CON0, PLL_EN);
-	clk_setl(APLL2_CON4, PLL_ISO_EN);
-	clk_clrl(APLL2_CON4, PLL_PWR_ON);
 /*ADSPPLL*/
 	clk_clrl(ADSPPLL_CON0, PLL_EN);
 	clk_setl(ADSPPLL_CON3, PLL_ISO_EN);
@@ -4061,6 +4059,18 @@ static void __init mtk_apmixedsys_init(struct device_node *node)
 	clk_clrl(APUPLL_CON0, PLL_EN);
 	clk_setl(APUPLL_CON3, PLL_ISO_EN);
 	clk_clrl(APUPLL_CON3, PLL_PWR_ON);
+/*NPUPLL*/
+	clk_clrl(NPUPLL_CON0, PLL_EN);
+	clk_setl(NPUPLL_CON3, PLL_ISO_EN);
+	clk_clrl(NPUPLL_CON3, PLL_PWR_ON);
+/*APLL1*/
+	clk_clrl(APLL1_CON0, PLL_EN);
+	clk_setl(APLL1_CON4, PLL_ISO_EN);
+	clk_clrl(APLL1_CON4, PLL_PWR_ON);
+/*APLL2*/
+	clk_clrl(APLL2_CON0, PLL_EN);
+	clk_setl(APLL2_CON4, PLL_ISO_EN);
+	clk_clrl(APLL2_CON4, PLL_PWR_ON);
 #endif
 	pr_notice("%s init done\n", __func__);
 }
