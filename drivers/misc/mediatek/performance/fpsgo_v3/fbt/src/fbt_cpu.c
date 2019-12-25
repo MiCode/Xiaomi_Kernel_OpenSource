@@ -1156,6 +1156,13 @@ leave:
 	if (!(jerk->postpone))
 		jerk->jerking = 0;
 
+	if (thr->linger)
+		FPSGO_LOGE("%d is linger (%d, %d, %d)\n",
+			thr->pid,
+			thr->boost_info.proc.jerks[0].jerking,
+			thr->boost_info.proc.jerks[1].jerking,
+			jerk->postpone);
+
 	if (thr->boost_info.proc.jerks[0].jerking == 0 &&
 		thr->boost_info.proc.jerks[1].jerking == 0 &&
 		thr->linger > 0)
@@ -1794,6 +1801,11 @@ static int fbt_boost_policy(
 		fpsgo_systrace_c_fbt_gm(pid, t2wnt, "t2wnt");
 
 		if (t2wnt) {
+			if (t2wnt > FBTCPU_SEC_DIVIDER) {
+				t2wnt = FBTCPU_SEC_DIVIDER;
+				fpsgo_systrace_c_fbt_gm(pid, t2wnt, "t2wnt");
+			}
+
 			boost_info->proc.active_jerk_id ^= 1;
 			active_jerk_id = boost_info->proc.active_jerk_id;
 

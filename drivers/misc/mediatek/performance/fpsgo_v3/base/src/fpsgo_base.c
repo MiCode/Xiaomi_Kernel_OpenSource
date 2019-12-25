@@ -283,6 +283,10 @@ void fpsgo_delete_render_info(int pid)
 	else {
 		delete = 0;
 		data->linger = 1;
+		FPSGO_LOGE("set %d linger since (%d, %d) is rescuing.\n",
+			data->pid,
+			data->boost_info.proc.jerks[0].jerking,
+			data->boost_info.proc.jerks[1].jerking);
 	}
 	fpsgo_thread_unlock(&data->thr_mlock);
 
@@ -408,6 +412,11 @@ void fpsgo_check_thread_status(void)
 			else {
 				delete = 0;
 				iter->linger = 1;
+				FPSGO_LOGE(
+				"set %d linger since (%d, %d) is rescuing\n",
+				iter->pid,
+				iter->boost_info.proc.jerks[0].jerking,
+				iter->boost_info.proc.jerks[1].jerking);
 			}
 
 			fpsgo_thread_unlock(&iter->thr_mlock);
