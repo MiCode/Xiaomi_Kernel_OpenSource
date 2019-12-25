@@ -202,7 +202,7 @@ int mtk_vcodec_init_enc_pm(struct mtk_vcodec_dev *mtkdev)
 	dev = &pdev->dev;
 
 	pm->chip_node = of_find_compatible_node(NULL,
-		NULL, "mediatek,mt6885-vcodec-enc");
+		NULL, "mediatek,mt6873-vcodec-enc");
 	node = of_parse_phandle(dev->of_node, "mediatek,larb", 0);
 	if (!node) {
 		mtk_v4l2_err("no mediatek,larb found");
