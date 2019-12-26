@@ -1119,7 +1119,12 @@ static int parse_rsc_event(struct mhi_controller *mhi_cntrl,
 	xfer_len = MHI_TRE_GET_EV_LEN(event);
 
 	/* received out of bound cookie */
-	MHI_ASSERT(cookie >= buf_ring->len, "Invalid Cookie 0x%08x\n", cookie);
+	if (cookie >= buf_ring->len) {
+		MHI_ERR("cookie 0x%08x bufring_len %zu", cookie, buf_ring->len);
+		MHI_ERR("Processing Event:0x%llx 0x%08x 0x%08x\n",
+			event->ptr, event->dword[0], event->dword[1]);
+		panic("invalid cookie");
+	}
 
 	buf_info = buf_ring->base + cookie;
 
