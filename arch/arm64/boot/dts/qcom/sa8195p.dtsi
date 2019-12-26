@@ -533,6 +533,42 @@
 			};
 		};
 	};
+
+	q6-hvx-step {
+		trips {
+			q6-hvx-trip0 {
+				temperature = <105000>;
+			};
+
+			q6-hvx-trip1 {
+				temperature = <115000>;
+			};
+		};
+	};
+
+	npu-step {
+		polling-delay-passive = <10>;
+		polling-delay = <0>;
+		thermal-sensors = <&tsens1 8>;
+		thermal-governor = "step_wise";
+		wake-capable-sensor;
+		trips {
+			npu_trip0: npu-trip0 {
+				temperature = <105000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			npu_cdev {
+				trip = <&npu_trip0>;
+				cooling-device =
+					<&msm_npu THERMAL_NO_LIMIT
+						THERMAL_NO_LIMIT>;
+			};
+		};
+	};
 };
 
 &msm_npu {
