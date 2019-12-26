@@ -146,6 +146,7 @@ struct wigig_sensing_stm {
 	bool auto_recovery;
 	bool fw_is_ready;
 	bool spi_malfunction;
+	bool spi_ready;
 	bool waiting_for_deep_sleep_exit;
 	bool waiting_for_deep_sleep_exit_first_pass;
 	bool burst_size_ready;
