@@ -847,7 +847,12 @@ static void continue_process_echoes(struct work_struct *work)
 {
 	struct tty_struct *tty =
 		container_of(work, struct tty_struct, echo_delayed_work.work);
-	struct n_tty_data *ldata = tty->disc_data;
+	struct n_tty_data *ldata;
+
+	/* Possible for n_tty_close() is called here and free the disc_data */
+	ldata = tty->disc_data;
+	if (!ldata)
+		return;
 
 	mutex_lock(&ldata->output_lock);
 	tty->delayed_work = 0;
@@ -1917,6 +1922,11 @@ static void n_tty_close(struct tty_struct *tty)
 
 	if (tty->link)
 		n_tty_packet_mode_flush(tty);
+
+#if defined(CONFIG_TTY_FLUSH_LOCAL_ECHO)
+	if (tty->echo_delayed_work.work.func)
+		cancel_delayed_work_sync(&tty->echo_delayed_work);
+#endif
 
 	vfree(ldata);
 	tty->disc_data = NULL;
