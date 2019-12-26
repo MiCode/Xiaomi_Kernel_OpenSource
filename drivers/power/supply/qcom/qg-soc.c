@@ -268,6 +268,52 @@ skip_entry_count:
 	return sys_soc;
 }
 
+#define BASS_SYS_MSOC_DELTA			2
+static int qg_process_bass_soc(struct qpnp_qg *chip, int sys_soc)
+{
+	int bass_soc = sys_soc, msoc = chip->msoc;
+	int batt_soc = CAP(0, 100, DIV_ROUND_CLOSEST(chip->batt_soc, 100));
+
+	if (!chip->dt.bass_enable)
+		goto exit_soc_scale;
+
+	qg_dbg(chip, QG_DEBUG_SOC, "BASS Entry: fifo_i=%d sys_soc=%d msoc=%d batt_soc=%d fvss_active=%d\n",
+			chip->last_fifo_i_ua, sys_soc, msoc,
+			batt_soc, chip->fvss_active);
+
+	/* Skip BASS if FVSS is active */
+	if (chip->fvss_active)
+		goto exit_soc_scale;
+
+	if (((sys_soc - msoc) < BASS_SYS_MSOC_DELTA) ||
+				chip->last_fifo_i_ua <= 0)
+		goto exit_soc_scale;
+
+	if (!chip->bass_active) {
+		chip->bass_active = true;
+		chip->bsoc_bass_entry = batt_soc;
+	}
+
+	/* Drop the sys_soc by 1% if batt_soc has dropped */
+	if ((chip->bsoc_bass_entry - batt_soc) >= 1) {
+		bass_soc = (msoc > 0) ? msoc - 1 : 0;
+		chip->bass_active = false;
+	}
+
+	qg_dbg(chip, QG_DEBUG_SOC, "BASS Exit: fifo_i_ua=%d sys_soc=%d msoc=%d bsoc_bass_entry=%d batt_soc=%d bass_soc=%d\n",
+			chip->last_fifo_i_ua, sys_soc, msoc,
+			chip->bsoc_bass_entry, chip->batt_soc, bass_soc);
+
+	return bass_soc;
+
+exit_soc_scale:
+	chip->bass_active = false;
+	qg_dbg(chip, QG_DEBUG_SOC, "BASS Quit: enabled=%d fifo_i_ua=%d sys_soc=%d msoc=%d batt_soc=%d\n",
+			chip->dt.bass_enable, chip->last_fifo_i_ua,
+			sys_soc, msoc, chip->batt_soc);
+	return sys_soc;
+}
+
 int qg_adjust_sys_soc(struct qpnp_qg *chip)
 {
 	int soc, vbat_uv, rc;
@@ -275,6 +321,7 @@ int qg_adjust_sys_soc(struct qpnp_qg *chip)
 
 	chip->sys_soc = CAP(QG_MIN_SOC, QG_MAX_SOC, chip->sys_soc);
 
+	/* TCSS */
 	chip->sys_soc = qg_process_tcss_soc(chip, chip->sys_soc);
 
 	if (chip->sys_soc <= 50) { /* 0.5% */
@@ -299,7 +346,11 @@ int qg_adjust_sys_soc(struct qpnp_qg *chip)
 	qg_dbg(chip, QG_DEBUG_SOC, "sys_soc=%d adjusted sys_soc=%d\n",
 					chip->sys_soc, soc);
 
+	/* FVSS */
 	soc = qg_process_fvss_soc(chip, soc);
+
+	/* BASS */
+	soc = qg_process_bass_soc(chip, soc);
 
 	chip->last_adj_ssoc = soc;
 

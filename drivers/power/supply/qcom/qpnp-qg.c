@@ -4280,6 +4280,8 @@ static int qg_parse_dt(struct qpnp_qg *chip)
 			chip->dt.tcss_entry_soc = temp;
 	}
 
+	chip->dt.bass_enable = of_property_read_bool(node, "qcom,bass-enable");
+
 	chip->dt.multi_profile_load = of_property_read_bool(node,
 					"qcom,multi-profile-load");
 
