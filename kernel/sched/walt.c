@@ -123,13 +123,18 @@ static __read_mostly unsigned int sched_io_is_busy = 1;
 __read_mostly unsigned int sysctl_sched_window_stats_policy =
 	WINDOW_STATS_MAX_RECENT_AVG;
 
-__read_mostly unsigned int sysctl_sched_ravg_window_nr_ticks =
+unsigned int sysctl_sched_ravg_window_nr_ticks = (HZ / NR_WINDOWS_PER_SEC);
+
+static unsigned int display_sched_ravg_window_nr_ticks =
 	(HZ / NR_WINDOWS_PER_SEC);
+
+unsigned int sysctl_sched_dynamic_ravg_window_enable = (HZ == 250);
 
 /* Window size (in ns) */
 __read_mostly unsigned int sched_ravg_window = MIN_SCHED_RAVG_WINDOW;
 __read_mostly unsigned int new_sched_ravg_window = MIN_SCHED_RAVG_WINDOW;
 
+static DEFINE_SPINLOCK(sched_ravg_window_lock);
 u64 sched_ravg_window_change_time;
 /*
  * A after-boot constant divisor for cpu_util_freq_walt() to apply the load
@@ -3361,6 +3366,7 @@ void walt_irq_work(struct irq_work *irq_work)
 	bool is_migration = false, is_asym_migration = false;
 	u64 total_grp_load = 0, min_cluster_grp_load = 0;
 	int level = 0;
+	unsigned long flags;
 
 	/* Am I the window rollover work or the migration work? */
 	if (irq_work == &walt_migration_irq_work)
@@ -3458,6 +3464,8 @@ void walt_irq_work(struct irq_work *irq_work)
 	 * change sched_ravg_window since all rq locks are acquired.
 	 */
 	if (!is_migration) {
+		spin_lock_irqsave(&sched_ravg_window_lock, flags);
+
 		if (sched_ravg_window != new_sched_ravg_window) {
 			sched_ravg_window_change_time = sched_ktime_clock();
 			printk_deferred("ALERT: changing window size from %u to %u at %lu\n",
@@ -3467,6 +3475,7 @@ void walt_irq_work(struct irq_work *irq_work)
 			sched_ravg_window = new_sched_ravg_window;
 			walt_tunables_fixup();
 		}
+		spin_unlock_irqrestore(&sched_ravg_window_lock, flags);
 	}
 
 	for_each_cpu(cpu, cpu_possible_mask)
@@ -3676,29 +3685,39 @@ unlock:
 	return ret;
 }
 
-static inline void sched_window_nr_ticks_change(int new_nr_ticks)
+static inline void sched_window_nr_ticks_change(void)
 {
-	new_sched_ravg_window = new_nr_ticks * (NSEC_PER_SEC / HZ);
+	int new_ticks;
+	unsigned long flags;
+
+	spin_lock_irqsave(&sched_ravg_window_lock, flags);
+
+	new_ticks = min(display_sched_ravg_window_nr_ticks,
+			sysctl_sched_ravg_window_nr_ticks);
+
+	new_sched_ravg_window = new_ticks * (NSEC_PER_SEC / HZ);
+	spin_unlock_irqrestore(&sched_ravg_window_lock, flags);
 }
 
 int sched_ravg_window_handler(struct ctl_table *table,
 				int write, void __user *buffer, size_t *lenp,
 				loff_t *ppos)
 {
-	int ret;
+	int ret = -EPERM;
 	static DEFINE_MUTEX(mutex);
 	unsigned int prev_value;
 
 	mutex_lock(&mutex);
 
-	prev_value = sysctl_sched_ravg_window_nr_ticks;
-	ret = proc_douintvec_ravg_window(table, write, buffer, lenp, ppos);
-	if (ret || !write ||
-			(prev_value == sysctl_sched_ravg_window_nr_ticks) ||
-			(sysctl_sched_ravg_window_nr_ticks == 0))
+	if (write && (HZ != 250 || !sysctl_sched_dynamic_ravg_window_enable))
 		goto unlock;
 
-	sched_window_nr_ticks_change(sysctl_sched_ravg_window_nr_ticks);
+	prev_value = sysctl_sched_ravg_window_nr_ticks;
+	ret = proc_douintvec_ravg_window(table, write, buffer, lenp, ppos);
+	if (ret || !write || (prev_value == sysctl_sched_ravg_window_nr_ticks))
+		goto unlock;
+
+	sched_window_nr_ticks_change();
 
 unlock:
 	mutex_unlock(&mutex);
@@ -3707,16 +3726,15 @@ unlock:
 
 void sched_set_refresh_rate(enum fps fps)
 {
-	int new_nr_ticks;
-
-	if (HZ == 250) {
+	if (HZ == 250 && sysctl_sched_dynamic_ravg_window_enable) {
 		if (fps > FPS90)
-			new_nr_ticks = 2;
+			display_sched_ravg_window_nr_ticks = 2;
 		else if (fps == FPS90)
-			new_nr_ticks = 3;
+			display_sched_ravg_window_nr_ticks = 3;
 		else
-			new_nr_ticks = 5;
-		sched_window_nr_ticks_change(new_nr_ticks);
+			display_sched_ravg_window_nr_ticks = 5;
+
+		sched_window_nr_ticks_change();
 	}
 }
 EXPORT_SYMBOL(sched_set_refresh_rate);
