@@ -19,6 +19,7 @@
 #include <linux/regulator/machine.h>
 #include <linux/iio/consumer.h>
 #include <linux/pmic-voter.h>
+#include <linux/usb/typec.h>
 #include "smb5-reg.h"
 #include "smb5-lib.h"
 #include "schgm-flash.h"
@@ -3397,6 +3398,37 @@ static int smb5_show_charger_status(struct smb5 *chip)
 	return rc;
 }
 
+/*********************************
+ * TYPEC CLASS REGISTRATION *
+ **********************************/
+
+static int smb5_init_typec_class(struct smb5 *chip)
+{
+	struct smb_charger *chg = &chip->chg;
+	int rc = 0;
+
+	/* Register typec class for only non-PD TypeC and uUSB designs */
+	if (!chg->pd_not_supported)
+		return rc;
+
+	mutex_init(&chg->typec_lock);
+	chg->typec_caps.type = TYPEC_PORT_DRP;
+	chg->typec_caps.data = TYPEC_PORT_DRD;
+	chg->typec_partner_desc.usb_pd = false;
+	chg->typec_partner_desc.accessory = TYPEC_ACCESSORY_NONE;
+	chg->typec_caps.port_type_set = smblib_typec_port_type_set;
+	chg->typec_caps.revision = 0x0130;
+
+	chg->typec_port = typec_register_port(chg->dev, &chg->typec_caps);
+	if (IS_ERR(chg->typec_port)) {
+		rc = PTR_ERR(chg->typec_port);
+		pr_err("failed to register typec_port rc=%d\n", rc);
+		return rc;
+	}
+
+	return rc;
+}
+
 static int smb5_probe(struct platform_device *pdev)
 {
 	struct smb5 *chip;
@@ -3550,6 +3582,12 @@ static int smb5_probe(struct platform_device *pdev)
 	rc = smb5_init_batt_psy(chip);
 	if (rc < 0) {
 		pr_err("Couldn't initialize batt psy rc=%d\n", rc);
+		goto cleanup;
+	}
+
+	rc = smb5_init_typec_class(chip);
+	if (rc < 0) {
+		pr_err("Couldn't initialize typec class rc=%d\n", rc);
 		goto cleanup;
 	}
 

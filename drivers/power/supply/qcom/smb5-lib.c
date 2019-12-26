@@ -5873,6 +5873,219 @@ static void typec_ra_ra_insertion(struct smb_charger *chg)
 	smblib_hvdcp_detect_enable(chg, true);
 }
 
+static int typec_partner_register(struct smb_charger *chg)
+{
+	int typec_mode, rc = 0;
+
+	if (!chg->typec_port)
+		return 0;
+
+	if (chg->typec_partner && chg->pr_swap_in_progress)
+		return 0;
+
+	if (chg->sink_src_mode == AUDIO_ACCESS_MODE)
+		chg->typec_partner_desc.accessory = TYPEC_ACCESSORY_AUDIO;
+	else
+		chg->typec_partner_desc.accessory = TYPEC_ACCESSORY_NONE;
+
+	chg->typec_partner = typec_register_partner(chg->typec_port,
+			&chg->typec_partner_desc);
+	if (IS_ERR(chg->typec_partner)) {
+		rc = PTR_ERR(chg->typec_partner);
+		pr_err("failed to register typec_partner rc=%d\n", rc);
+		return rc;
+	}
+
+	typec_mode = smblib_get_prop_typec_mode(chg);
+
+	if (typec_mode >= POWER_SUPPLY_TYPEC_SOURCE_DEFAULT
+			|| typec_mode == POWER_SUPPLY_TYPEC_NONE) {
+		typec_set_data_role(chg->typec_port, TYPEC_DEVICE);
+		typec_set_pwr_role(chg->typec_port, TYPEC_SINK);
+	} else {
+		typec_set_data_role(chg->typec_port, TYPEC_HOST);
+		typec_set_pwr_role(chg->typec_port, TYPEC_SOURCE);
+	}
+
+	return rc;
+}
+
+static void typec_partner_unregister(struct smb_charger *chg)
+{
+	if (chg->typec_partner && !chg->pr_swap_in_progress) {
+		smblib_dbg(chg, PR_MISC, "Un-registering typeC partner\n");
+		typec_unregister_partner(chg->typec_partner);
+		chg->typec_partner = NULL;
+	}
+}
+
+static const char * const dr_mode_text[] = {
+	"ufp", "dfp", "none"
+};
+
+static int smblib_force_dr_mode(struct smb_charger *chg, int mode)
+{
+	int rc = 0;
+
+	switch (mode) {
+	case TYPEC_PORT_SNK:
+		rc = smblib_masked_write(chg, TYPE_C_MODE_CFG_REG,
+			TYPEC_POWER_ROLE_CMD_MASK, EN_SNK_ONLY_BIT);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't enable snk, rc=%d\n", rc);
+			return rc;
+		}
+		break;
+	case TYPEC_PORT_SRC:
+		rc = smblib_masked_write(chg, TYPE_C_MODE_CFG_REG,
+			TYPEC_POWER_ROLE_CMD_MASK, EN_SRC_ONLY_BIT);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't enable src, rc=%d\n", rc);
+			return rc;
+		}
+		break;
+	case TYPEC_PORT_DRP:
+		rc = smblib_masked_write(chg, TYPE_C_MODE_CFG_REG,
+			TYPEC_POWER_ROLE_CMD_MASK, 0);
+		if (rc < 0) {
+			smblib_err(chg, "Couldn't enable DRP, rc=%d\n", rc);
+			return rc;
+		}
+		break;
+	default:
+		smblib_err(chg, "Power role %d not supported\n", mode);
+		return -EINVAL;
+	}
+
+	chg->dr_mode = mode;
+
+	return rc;
+}
+
+int smblib_typec_port_type_set(const struct typec_capability *cap,
+					enum typec_port_type type)
+{
+	struct smb_charger *chg = container_of(cap,
+					struct smb_charger, typec_caps);
+	int rc = 0;
+
+	mutex_lock(&chg->typec_lock);
+
+	if ((chg->pr_swap_in_progress) || (type == TYPEC_PORT_DRP)) {
+		smblib_dbg(chg, PR_MISC, "Ignoring port type request type = %d swap_in_progress = %d\n",
+				type, chg->pr_swap_in_progress);
+		goto unlock;
+	}
+
+	chg->pr_swap_in_progress = true;
+
+	rc = smblib_force_dr_mode(chg, type);
+	if (rc < 0) {
+		chg->pr_swap_in_progress = false;
+		smblib_err(chg, "Failed to force mode, rc=%d\n", rc);
+		goto unlock;
+	}
+
+	smblib_dbg(chg, PR_MISC, "Requested role %s\n",
+				type ? "SINK" : "SOURCE");
+
+	/*
+	 * As per the hardware requirements,
+	 * schedule the work with required delay.
+	 */
+	if (!(delayed_work_pending(&chg->role_reversal_check))) {
+		cancel_delayed_work_sync(&chg->role_reversal_check);
+		schedule_delayed_work(&chg->role_reversal_check,
+			msecs_to_jiffies(ROLE_REVERSAL_DELAY_MS));
+		vote(chg->awake_votable, TYPEC_SWAP_VOTER, true, 0);
+	}
+
+unlock:
+	mutex_unlock(&chg->typec_lock);
+	return rc;
+}
+
+static int smblib_role_switch_failure(struct smb_charger *chg, int mode)
+{
+	int rc = 0;
+	union power_supply_propval pval = {0, };
+
+	if (!chg->use_extcon)
+		return 0;
+
+	rc = smblib_get_prop_usb_present(chg, &pval);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't get usb presence status rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	/*
+	 * When role switch fails notify the
+	 * current charger state to usb driver.
+	 */
+	if (pval.intval && mode == TYPEC_PORT_SRC) {
+		smblib_dbg(chg, PR_MISC, " Role reversal failed, notifying device mode to usb driver.\n");
+		smblib_notify_device_mode(chg, true);
+	}
+
+	return rc;
+}
+
+static void smblib_typec_role_check_work(struct work_struct *work)
+{
+	struct smb_charger *chg = container_of(work, struct smb_charger,
+					role_reversal_check.work);
+	int rc = 0;
+
+	mutex_lock(&chg->typec_lock);
+
+	switch (chg->dr_mode) {
+	case TYPEC_PORT_SNK:
+		if (chg->typec_mode < POWER_SUPPLY_TYPEC_SOURCE_DEFAULT) {
+			smblib_dbg(chg, PR_MISC, "Role reversal not latched to UFP in %d msecs. Resetting to DRP mode\n",
+						ROLE_REVERSAL_DELAY_MS);
+			rc = smblib_force_dr_mode(chg, TYPEC_PORT_DRP);
+			if (rc < 0)
+				smblib_err(chg, "Failed to set DRP mode, rc=%d\n",
+						rc);
+		} else {
+			chg->power_role = POWER_SUPPLY_TYPEC_PR_SINK;
+			typec_set_pwr_role(chg->typec_port, TYPEC_SINK);
+			typec_set_data_role(chg->typec_port, TYPEC_DEVICE);
+			smblib_dbg(chg, PR_MISC, "Role changed successfully to SINK");
+		}
+		break;
+	case TYPEC_PORT_SRC:
+		if (chg->typec_mode >= POWER_SUPPLY_TYPEC_SOURCE_DEFAULT
+			|| chg->typec_mode == POWER_SUPPLY_TYPEC_NONE) {
+			smblib_dbg(chg, PR_MISC, "Role reversal not latched to DFP in %d msecs. Resetting to DRP mode\n",
+						ROLE_REVERSAL_DELAY_MS);
+			rc = smblib_force_dr_mode(chg, TYPEC_PORT_DRP);
+			if (rc < 0)
+				smblib_err(chg, "Failed to set DRP mode, rc=%d\n",
+					rc);
+			rc = smblib_role_switch_failure(chg, TYPEC_PORT_SRC);
+			if (rc < 0)
+				smblib_err(chg, "Failed to role switch rc=%d\n",
+					rc);
+		} else {
+			chg->power_role = POWER_SUPPLY_TYPEC_PR_SOURCE;
+			typec_set_pwr_role(chg->typec_port, TYPEC_SOURCE);
+			typec_set_data_role(chg->typec_port, TYPEC_HOST);
+			smblib_dbg(chg, PR_MISC, "Role changed successfully to SOURCE");
+		}
+		break;
+	default:
+		pr_debug("Already in DRP mode\n");
+		break;
+	}
+
+	chg->pr_swap_in_progress = false;
+	vote(chg->awake_votable, TYPEC_SWAP_VOTER, false, 0);
+	mutex_unlock(&chg->typec_lock);
+}
+
 static void typec_sink_removal(struct smb_charger *chg)
 {
 	int rc;
@@ -5888,6 +6101,8 @@ static void typec_sink_removal(struct smb_charger *chg)
 			smblib_notify_usb_host(chg, false);
 		chg->otg_present = false;
 	}
+
+	typec_partner_unregister(chg);
 }
 
 static void typec_src_removal(struct smb_charger *chg)
@@ -6022,6 +6237,7 @@ static void typec_src_removal(struct smb_charger *chg)
 	if (chg->use_extcon)
 		smblib_notify_device_mode(chg, false);
 
+	typec_partner_unregister(chg);
 	chg->typec_legacy = false;
 
 	del_timer_sync(&chg->apsd_timer);
@@ -6207,6 +6423,10 @@ irqreturn_t typec_attach_detach_irq_handler(int irq, void *data)
 			typec_src_insertion(chg);
 		}
 
+		rc = typec_partner_register(chg);
+		if (rc < 0)
+			smblib_err(chg, "failed to register partner rc =%d\n",
+					rc);
 	} else {
 		switch (chg->sink_src_mode) {
 		case SRC_MODE:
@@ -6228,6 +6448,15 @@ irqreturn_t typec_attach_detach_irq_handler(int irq, void *data)
 			chg->early_usb_attach = false;
 			smblib_apsd_enable(chg, true);
 		}
+
+		/*
+		 * Restore DRP mode on type-C cable disconnect if role
+		 * swap is not in progress, to ensure forced sink or src
+		 * mode configuration is reset properly.
+		 */
+
+		if (chg->typec_port && !chg->pr_swap_in_progress)
+			smblib_force_dr_mode(chg, TYPEC_PORT_DRP);
 
 		if (chg->lpd_stage == LPD_STAGE_FLOAT_CANCEL)
 			schedule_delayed_work(&chg->lpd_detach_work,
@@ -7660,6 +7889,9 @@ int smblib_init(struct smb_charger *chg)
 					smblib_pr_lock_clear_work);
 	timer_setup(&chg->apsd_timer, apsd_timer_cb, 0);
 
+	INIT_DELAYED_WORK(&chg->role_reversal_check,
+					smblib_typec_role_check_work);
+
 	if (chg->wa_flags & CHG_TERMINATION_WA) {
 		INIT_WORK(&chg->chg_termination_work,
 					smblib_chg_termination_work);
@@ -7704,6 +7936,7 @@ int smblib_init(struct smb_charger *chg)
 	chg->thermal_status = TEMP_BELOW_RANGE;
 	chg->typec_irq_en = true;
 	chg->cp_topo = -EINVAL;
+	chg->dr_mode = TYPEC_PORT_DRP;
 
 	switch (chg->mode) {
 	case PARALLEL_MASTER:
@@ -7811,6 +8044,7 @@ int smblib_deinit(struct smb_charger *chg)
 		cancel_delayed_work_sync(&chg->lpd_detach_work);
 		cancel_delayed_work_sync(&chg->thermal_regulation_work);
 		cancel_delayed_work_sync(&chg->usbov_dbc_work);
+		cancel_delayed_work_sync(&chg->role_reversal_check);
 		cancel_delayed_work_sync(&chg->pr_swap_detach_work);
 		power_supply_unreg_notifier(&chg->nb);
 		smblib_destroy_votables(chg);
