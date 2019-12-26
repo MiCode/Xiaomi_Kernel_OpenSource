@@ -454,9 +454,11 @@ static int wigig_sensing_change_state(struct wigig_sensing_ctx *ctx,
 
 	/*
 	 * Moving from INITIALIZED state is allowed only to READY_STOPPED state
+	 * and only when spi_ready is set
 	 */
 	else if (curr_state == WIGIG_SENSING_STATE_INITIALIZED &&
-	    new_state != WIGIG_SENSING_STATE_READY_STOPPED) {
+		 (new_state != WIGIG_SENSING_STATE_READY_STOPPED ||
+		  !ctx->stm.spi_ready)) {
 		transition_allowed = false;
 		rc = -EFAULT;
 	}
@@ -1248,9 +1250,11 @@ static irqreturn_t wigig_sensing_dri_isr_thread(int irq, void *cookie)
 			}
 
 			ctx->stm.spi_malfunction = false;
-			if (ctx->stm.state == WIGIG_SENSING_STATE_INITIALIZED)
+			if (ctx->stm.state == WIGIG_SENSING_STATE_INITIALIZED) {
 				wigig_sensing_change_state(ctx, &ctx->stm,
 					WIGIG_SENSING_STATE_READY_STOPPED);
+				ctx->stm.spi_ready = true;
+			}
 		}
 
 		pr_debug("Reading SANITY register\n");
@@ -1306,6 +1310,7 @@ static irqreturn_t wigig_sensing_dri_isr_thread(int irq, void *cookie)
 						 WIGIG_SENSING_EVENT_RESET);
 
 		ctx->stm.spi_malfunction = true;
+		ctx->stm.spi_ready = false;
 		memset(&ctx->inb_cmd, 0, sizeof(ctx->inb_cmd));
 		spi_status.v &= ~INT_SYSASSERT;
 		goto deassert_and_bail_out;
