@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -66,6 +66,7 @@ struct diag_usb_info {
 	unsigned long write_cnt;
 	spinlock_t lock;
 	spinlock_t write_lock;
+	spinlock_t event_lock;
 	struct usb_diag_ch *hdl;
 	struct diag_mux_ops *ops;
 	unsigned char *read_buf;
