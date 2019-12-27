@@ -156,6 +156,10 @@
 		interrupts = <0x0 0xa1 0 IRQ_TYPE_NONE>;	/* PMIC MPP 2 */
 		pinctrl-names = "default";
 		pinctrl-0 = <&smb_stat_default>;
+		io-channels = <&pm8019_vadc VADC_VBAT_SNS>,
+		      <&pm8019_vadc VADC_LR_MUX2_BAT_ID>;
+		io-channel-names = "vbat_sns",
+				"batt_id_therm";
 		qcom,float-voltage-mv = <4200>;
 		qcom,irq-gpio = <&pm8019_mpps 2 0>;
 		qcom,chg-vadc = <&pm8019_vadc>;
