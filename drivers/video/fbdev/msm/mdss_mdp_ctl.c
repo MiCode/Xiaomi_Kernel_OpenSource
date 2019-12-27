@@ -5572,6 +5572,9 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 	bool is_bw_released, split_lm_valid;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	u32 ctl_flush_bits = 0, sctl_flush_bits = 0;
+	/* Must initialize pp_program_info */
+	struct mdss_mdp_pp_program_info pp_program_info = {
+						PP_PROGRAM_ALL, 0, 0};
 
 	if (!ctl) {
 		pr_err("display function not set\n");
@@ -5664,9 +5667,13 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 		mdss_mdp_ctl_split_display_enable(split_lm_valid, ctl, sctl);
 
 	ATRACE_BEGIN("postproc_programming");
-	if (ctl->is_video_mode && ctl->mfd && ctl->mfd->dcm_state != DTM_ENTER)
+	if (ctl->mfd && ctl->mfd->dcm_state != DTM_ENTER) {
 		/* postprocessing setup, including dspp */
-		mdss_mdp_pp_setup_locked(ctl);
+		if (!ctl->is_video_mode)
+			pp_program_info.pp_program_mask =
+							PP_NORMAL_PROGRAM_MASK;
+		mdss_mdp_pp_setup_locked(ctl, &pp_program_info);
+	}
 
 	if (sctl) {
 		if (ctl->split_flush_en) {
@@ -5711,11 +5718,17 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 		mdss_mdp_display_wait4pingpong(ctl, false);
 
 	/* Moved pp programming to post ping pong */
+	ATRACE_BEGIN("postproc_programming_deferred");
 	if (!ctl->is_video_mode && ctl->mfd &&
 			ctl->mfd->dcm_state != DTM_ENTER) {
 		/* postprocessing setup, including dspp */
 		mutex_lock(&ctl->flush_lock);
-		mdss_mdp_pp_setup_locked(ctl);
+		pp_program_info.pp_program_mask = PP_DEFER_PROGRAM_MASK;
+		/*
+		 * pp_program_info should not be modified beween normal and
+		 * deferred stage calls.
+		 */
+		mdss_mdp_pp_setup_locked(ctl, &pp_program_info);
 		if (sctl) {
 			if (ctl->split_flush_en) {
 				ctl->flush_bits |= sctl->flush_bits;
@@ -5728,6 +5741,7 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 		ctl_flush_bits |= ctl->flush_bits;
 		mutex_unlock(&ctl->flush_lock);
 	}
+	ATRACE_END("postproc_programming_deferred");
 	/*
 	 * if serialize_wait4pp is false then roi_bkup used in wait4pingpong
 	 * will be of previous frame as expected.
