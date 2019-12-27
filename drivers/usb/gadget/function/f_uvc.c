@@ -84,7 +84,7 @@ static struct usb_interface_descriptor uvc_control_intf = {
 	.bNumEndpoints		= 1,
 	.bInterfaceClass	= USB_CLASS_VIDEO,
 	.bInterfaceSubClass	= UVC_SC_VIDEOCONTROL,
-	.bInterfaceProtocol	= 0x00,
+	.bInterfaceProtocol	= 0x01,
 	.iInterface		= 0,
 };
 
@@ -796,16 +796,18 @@ static struct usb_function_instance *uvc_alloc_inst(void)
 	cd->bmControls[2]		= 0;
 
 	pd = &opts->uvc_processing;
-	pd->bLength			= UVC_DT_PROCESSING_UNIT_SIZE(2);
+	pd->bLength			= UVC_DT_PROCESSING_UNIT_SIZE(3);
 	pd->bDescriptorType		= USB_DT_CS_INTERFACE;
 	pd->bDescriptorSubType		= UVC_VC_PROCESSING_UNIT;
 	pd->bUnitID			= 2;
 	pd->bSourceID			= 1;
 	pd->wMaxMultiplier		= cpu_to_le16(16*1024);
-	pd->bControlSize		= 2;
-	pd->bmControls[0]		= 1;
-	pd->bmControls[1]		= 0;
+	pd->bControlSize		= 3;
+	pd->bmControls[0]		= 64;
+	pd->bmControls[1]		= 16;
+	pd->bmControls[2]		= 1;
 	pd->iProcessing			= 0;
+	pd->bmVideoStandards		= 0;
 
 	od = &opts->uvc_output_terminal;
 	od->bLength			= UVC_DT_OUTPUT_TERMINAL_SIZE;
