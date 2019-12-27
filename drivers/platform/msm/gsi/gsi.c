@@ -755,6 +755,8 @@ static void gsi_handle_irq(void)
 	unsigned long cnt = 0;
 
 	while (1) {
+		if (!gsi_ctx->per.clk_status_cb())
+			break;
 		type = gsi_readl(gsi_ctx->base +
 			GSI_EE_n_CNTXT_TYPE_IRQ_OFFS(ee));
 
@@ -2781,6 +2783,15 @@ int gsi_query_channel_db_addr(unsigned long chan_hdl,
 	return GSI_STATUS_SUCCESS;
 }
 EXPORT_SYMBOL(gsi_query_channel_db_addr);
+
+int gsi_pending_irq_type(void)
+{
+	int ee = gsi_ctx->per.ee;
+
+	return gsi_readl(gsi_ctx->base +
+		GSI_EE_n_CNTXT_TYPE_IRQ_OFFS(ee));
+}
+EXPORT_SYMBOL(gsi_pending_irq_type);
 
 int gsi_start_channel(unsigned long chan_hdl)
 {
