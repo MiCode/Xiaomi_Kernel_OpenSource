@@ -217,7 +217,7 @@ static int ipc_queue_read(struct npu_device *npu_dev,
 		 */
 		queue.qhdr_rx_req = 1;
 		*is_tx_req_set = 0;
-		status = -EPERM;
+		status = -EIO;
 		goto exit;
 	}
 
@@ -232,12 +232,8 @@ static int ipc_queue_read(struct npu_device *npu_dev,
 			target_que,
 			packet_size);
 
-	if (packet_size == 0) {
-		status = -EPERM;
-		goto exit;
-	}
-
-	if (packet_size > NPU_IPC_BUF_LENGTH) {
+	if ((packet_size == 0) ||
+		(packet_size > NPU_IPC_BUF_LENGTH)) {
 		NPU_ERR("Invalid packet size %d\n", packet_size);
 		status = -EINVAL;
 		goto exit;
@@ -313,7 +309,7 @@ static int ipc_queue_write(struct npu_device *npu_dev,
 	packet_size = (*(uint32_t *)packet);
 	if (packet_size == 0) {
 		/* assign failed status and return */
-		status = -EPERM;
+		status = -EINVAL;
 		goto exit;
 	}
 
