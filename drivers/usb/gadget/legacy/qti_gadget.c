@@ -40,6 +40,7 @@ struct qti_usb_gadget {
 	struct usb_composite_driver composite;
 
 	const char *composition_funcs;
+	bool enabled;
 	struct device *dev;
 };
 
@@ -413,6 +414,9 @@ static int qti_gadget_register(struct qti_usb_gadget *qg)
 {
 	int ret;
 
+	if (qg->enabled)
+		return -EINVAL;
+
 	ret = qti_usb_configs_make(qg, qg->composition_funcs);
 	if (ret)
 		return ret;
@@ -437,6 +441,8 @@ static int qti_gadget_register(struct qti_usb_gadget *qg)
 	if (ret)
 		goto free_name;
 
+	qg->enabled = true;
+
 	return 0;
 
 free_name:
@@ -449,9 +455,14 @@ free_configs:
 
 static void qti_gadget_unregister(struct qti_usb_gadget *qg)
 {
+	if (!qg->enabled)
+		return;
+
 	usb_gadget_unregister_driver(&qg->composite.gadget_driver);
 	kfree(qg->composite.gadget_driver.function);
 	qti_cleanup_configs_funcs(qg);
+
+	qg->enabled = false;
 }
 
 static int qti_gadget_get_properties(struct qti_usb_gadget *gadget)
@@ -501,6 +512,35 @@ static int qti_gadget_get_properties(struct qti_usb_gadget *gadget)
 	return 0;
 }
 
+static ssize_t enabled_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct qti_usb_gadget *qg = dev_get_drvdata(dev);
+
+	return snprintf(buf, PAGE_SIZE, "%c\n",
+			qg->enabled ? 'Y' : 'N');
+}
+
+static ssize_t enabled_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct qti_usb_gadget *qg = dev_get_drvdata(dev);
+	bool enable;
+	int ret;
+
+	ret = strtobool(buf, &enable);
+	if (ret)
+		return ret;
+
+	if (enable)
+		qti_gadget_register(qg);
+	else
+		qti_gadget_unregister(qg);
+
+	return count;
+}
+static DEVICE_ATTR_RW(enabled);
+
 static int qti_gadget_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -524,6 +564,8 @@ static int qti_gadget_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	device_create_file(&pdev->dev, &dev_attr_enabled);
+
 	return 0;
 }
 
@@ -531,6 +573,7 @@ static int qti_gadget_remove(struct platform_device *pdev)
 {
 	struct qti_usb_gadget *qg = platform_get_drvdata(pdev);
 
+	device_remove_file(&pdev->dev, &dev_attr_enabled);
 	qti_gadget_unregister(qg);
 
 	return 0;
