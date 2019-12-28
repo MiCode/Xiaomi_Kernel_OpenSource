@@ -2092,7 +2092,7 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 	int ret, i;
 	int fault;
 	int halt;
-	bool gx_on;
+	bool gx_on, smmu_stalled = false;
 
 	fault = atomic_xchg(&dispatcher->fault, 0);
 	if (fault == 0)
@@ -2133,18 +2133,20 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 	 * proceed if the fault handler has already run in the IRQ thread,
 	 * else return early to give the fault handler a chance to run.
 	 */
-	if (!(fault & ADRENO_IOMMU_PAGE_FAULT) &&
-		(adreno_is_a5xx(adreno_dev) || adreno_is_a6xx(adreno_dev)) &&
-		gx_on) {
+	if (gx_on) {
 		unsigned int val;
 
 		adreno_readreg(adreno_dev, ADRENO_REG_RBBM_STATUS3, &val);
-		if (val & BIT(24)) {
-			mutex_unlock(&device->mutex);
-			dev_err(device->dev,
-				"SMMU is stalled without a pagefault\n");
-			return -EBUSY;
-		}
+		if (val & BIT(24))
+			smmu_stalled = true;
+	}
+
+	if (!(fault & ADRENO_IOMMU_PAGE_FAULT) &&
+		(adreno_is_a5xx(adreno_dev) || adreno_is_a6xx(adreno_dev)) &&
+		smmu_stalled) {
+		mutex_unlock(&device->mutex);
+		dev_err(device->dev, "SMMU is stalled without a pagefault\n");
+		return -EBUSY;
 	}
 
 	/* Turn off all the timers */
@@ -2211,8 +2213,20 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 		gpudev->gpu_keepalive(adreno_dev, false);
 
 	/* Terminate the stalled transaction and resume the IOMMU */
-	if (fault & ADRENO_IOMMU_PAGE_FAULT)
-		kgsl_mmu_pagefault_resume(&device->mmu);
+	if (fault & ADRENO_IOMMU_PAGE_FAULT) {
+		/*
+		 * This needs to be triggered only if GBIF is supported, GMU is
+		 * not enabled and SMMU is stalled because sequence is only
+		 * valid for GPU which has GBIF and If GMU is enabled this is
+		 * taken care in GMU suspend and it is required only if SMMU is
+		 * stalled.
+		 */
+		if (adreno_has_gbif(adreno_dev) &&
+			!gmu_core_isenabled(device) && smmu_stalled)
+			adreno_smmu_resume(adreno_dev);
+		else
+			kgsl_mmu_pagefault_resume(&device->mmu);
+	}
 
 	/* Reset the dispatcher queue */
 	dispatcher->inflight = 0;
