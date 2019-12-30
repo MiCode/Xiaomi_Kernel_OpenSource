@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/thermal.h>
@@ -162,6 +162,16 @@ static const struct virtual_sensor_data qti_virtual_sensors[] = {
 				"cpuss-1-usr",
 				"cpuss-2-usr"},
 		.logic = VIRT_MAXIMUM,
+	},
+	{
+		.virt_zone_name = "gpu-skin-avg-step",
+		.num_sensors = 2,
+		.sensor_names = {"skin-msm-therm-usr",
+				"gpuss-0-usr"},
+		.logic = VIRT_WEIGHTED_AVG,
+		.coefficient_ct = 2,
+		.coefficients = {30, 70},
+		.avg_denominator = 100,
 	},
 };
 

@@ -86,7 +86,7 @@
 #define ARM_MMU500_ACR_SMTNMB_TLBEN	(1 << 8)
 
 #define TLB_LOOP_TIMEOUT		500000	/* 500ms */
-#define TLB_SPIN_COUNT			10
+#define TLB_LOOP_INC_MAX		1000      /*1ms*/
 
 #define ARM_SMMU_IMPL_DEF0(smmu) \
 	((smmu)->base + (2 * (1 << (smmu)->pgshift)))
@@ -1280,16 +1280,17 @@ static void __arm_smmu_tlb_sync_timeout(struct arm_smmu_device *smmu)
 static int __arm_smmu_tlb_sync(struct arm_smmu_device *smmu,
 			void __iomem *sync, void __iomem *status)
 {
-	unsigned int spin_cnt, delay;
+	unsigned int inc, delay;
 
 	writel_relaxed(QCOM_DUMMY_VAL, sync);
-	for (delay = 1; delay < TLB_LOOP_TIMEOUT; delay *= 2) {
-		for (spin_cnt = TLB_SPIN_COUNT; spin_cnt > 0; spin_cnt--) {
-			if (!(readl_relaxed(status) & sTLBGSTATUS_GSACTIVE))
-				return 0;
-			cpu_relax();
-		}
-		udelay(delay);
+	for (delay = 1, inc = 1; delay < TLB_LOOP_TIMEOUT; delay += inc) {
+		if (!(readl_relaxed(status) & sTLBGSTATUS_GSACTIVE))
+			return 0;
+
+		cpu_relax();
+		udelay(inc);
+		if (inc < TLB_LOOP_INC_MAX)
+			inc *= 2;
 	}
 	trace_tlbsync_timeout(smmu->dev, 0);
 	__arm_smmu_tlb_sync_timeout(smmu);
@@ -3255,8 +3256,13 @@ static size_t arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 				  prot, &size);
 		spin_unlock_irqrestore(&smmu_domain->cb_lock, flags);
 
-
 		if (ret == -ENOMEM) {
+			/* unmap any partially mapped iova */
+			if (size) {
+				arm_smmu_secure_domain_unlock(smmu_domain);
+				arm_smmu_unmap(domain, iova, size);
+				arm_smmu_secure_domain_lock(smmu_domain);
+			}
 			arm_smmu_prealloc_memory(smmu_domain,
 						 batch_size, &nonsecure_pool);
 			spin_lock_irqsave(&smmu_domain->cb_lock, flags);
@@ -3271,8 +3277,8 @@ static size_t arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 							 &nonsecure_pool);
 		}
 
-		/* Returns 0 on error */
-		if (!ret) {
+		/* Returns -ve val on error */
+		if (ret < 0) {
 			size_to_unmap = iova + size - __saved_iova_start;
 			goto out;
 		}
@@ -3280,16 +3286,17 @@ static size_t arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 		iova += batch_size;
 		idx_start = idx_end;
 		sg_start = sg_end;
+		size = 0;
 	}
 
 out:
 	arm_smmu_assign_table(smmu_domain);
+	arm_smmu_secure_domain_unlock(smmu_domain);
 
 	if (size_to_unmap) {
 		arm_smmu_unmap(domain, __saved_iova_start, size_to_unmap);
 		iova = __saved_iova_start;
 	}
-	arm_smmu_secure_domain_unlock(smmu_domain);
 	return iova - __saved_iova_start;
 }
 
@@ -3881,6 +3888,12 @@ static int __arm_smmu_domain_set_attr(struct iommu_domain *domain,
 		break;
 	}
 	case DOMAIN_ATTR_SECURE_VMID:
+		/* can't be changed while attached */
+		if (smmu_domain->smmu != NULL) {
+			ret = -EBUSY;
+			break;
+		}
+
 		if (smmu_domain->secure_vmid != VMID_INVAL) {
 			ret = -ENODEV;
 			WARN(1, "secure vmid already set!");
@@ -3894,6 +3907,12 @@ static int __arm_smmu_domain_set_attr(struct iommu_domain *domain,
 		 * force DOMAIN_ATTR_ATOMIC to bet set.
 		 */
 	case DOMAIN_ATTR_FAST:
+		/* can't be changed while attached */
+		if (smmu_domain->smmu != NULL) {
+			ret = -EBUSY;
+			break;
+		}
+
 		if (*((int *)data)) {
 			smmu_domain->attributes |= 1 << DOMAIN_ATTR_FAST;
 			smmu_domain->attributes |= 1 << DOMAIN_ATTR_ATOMIC;

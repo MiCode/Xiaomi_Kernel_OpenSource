@@ -2461,8 +2461,9 @@ void kgsl_idle_check(struct work_struct *work)
 
 	requested_state = device->requested_state;
 
-	if (device->state == KGSL_STATE_ACTIVE
-		   || device->state ==  KGSL_STATE_NAP) {
+	if ((requested_state != KGSL_STATE_NONE) &&
+		(device->state == KGSL_STATE_ACTIVE
+			|| device->state ==  KGSL_STATE_NAP)) {
 
 		if (!atomic_read(&device->active_cnt)) {
 			spin_lock(&device->submit_lock);

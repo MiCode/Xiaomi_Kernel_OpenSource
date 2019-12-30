@@ -634,7 +634,8 @@ static int arm_lpae_map_sg(struct io_pgtable_ops *ops, unsigned long iova,
 	arm_lpae_iopte prot;
 	struct scatterlist *s;
 	size_t mapped = 0;
-	int i, ret;
+	int i;
+	int ret = -EINVAL;
 	unsigned int min_pagesz;
 	struct io_pgtable_cfg *cfg = &data->iop.cfg;
 	struct map_state ms;
@@ -705,7 +706,7 @@ static int arm_lpae_map_sg(struct io_pgtable_ops *ops, unsigned long iova,
 out_err:
 	/* Return the size of the partial mapping so that they can be undone */
 	*size = mapped;
-	return 0;
+	return ret;
 }
 
 static void __arm_lpae_free_pgtable(struct arm_lpae_io_pgtable *data, int lvl,

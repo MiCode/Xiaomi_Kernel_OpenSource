@@ -115,7 +115,6 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"disp_cc_debug_mux",
 	"gcc_ahb2phy_csi_clk",
 	"gcc_ahb2phy_usb_clk",
-	"gcc_apc_vs_clk",
 	"gcc_bimc_gpu_axi_clk",
 	"gcc_boot_rom_ahb_clk",
 	"gcc_cam_throttle_nrt_clk",
@@ -151,10 +150,7 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"gcc_camss_tfe_2_csid_clk",
 	"gcc_camss_top_ahb_clk",
 	"gcc_cfg_noc_usb3_prim_axi_clk",
-	"gcc_cpuss_ahb_clk",
 	"gcc_cpuss_gnoc_clk",
-	"gcc_cpuss_throttle_core_clk",
-	"gcc_cpuss_throttle_xo_clk",
 	"gcc_disp_ahb_clk",
 	"gcc_disp_gpll0_div_clk_src",
 	"gcc_disp_hf_axi_clk",
@@ -170,14 +166,12 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"gcc_gpu_snoc_dvm_gfx_clk",
 	"gcc_gpu_throttle_core_clk",
 	"gcc_gpu_throttle_xo_clk",
-	"gcc_mss_vs_clk",
 	"gcc_pdm2_clk",
 	"gcc_pdm_ahb_clk",
 	"gcc_pdm_xo4_clk",
 	"gcc_prng_ahb_clk",
 	"gcc_qmip_camera_nrt_ahb_clk",
 	"gcc_qmip_camera_rt_ahb_clk",
-	"gcc_qmip_cpuss_cfg_ahb_clk",
 	"gcc_qmip_disp_ahb_clk",
 	"gcc_qmip_gpu_cfg_ahb_clk",
 	"gcc_qmip_video_vcodec_ahb_clk",
@@ -206,9 +200,6 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"gcc_usb3_prim_phy_com_aux_clk",
 	"gcc_usb3_prim_phy_pipe_clk",
 	"gcc_vcodec0_axi_clk",
-	"gcc_vdda_vs_clk",
-	"gcc_vddcx_vs_clk",
-	"gcc_vddmx_vs_clk",
 	"gcc_venus_ahb_clk",
 	"gcc_venus_ctl_axi_clk",
 	"gcc_video_ahb_clk",
@@ -217,9 +208,6 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"gcc_video_vcodec0_sys_clk",
 	"gcc_video_venus_ctl_clk",
 	"gcc_video_xo_clk",
-	"gcc_vs_ctrl_ahb_clk",
-	"gcc_vs_ctrl_clk",
-	"gcc_wcss_vs_clk",
 	"gpu_cc_debug_mux",
 	"mc_cc_debug_mux",
 	"measure_only_cnoc_clk",
@@ -231,7 +219,6 @@ static int gcc_debug_mux_sels[] = {
 	0x42,		/* disp_cc_debug_mux */
 	0x63,		/* gcc_ahb2phy_csi_clk */
 	0x64,		/* gcc_ahb2phy_usb_clk */
-	0xC3,		/* gcc_apc_vs_clk */
 	0x90,		/* gcc_bimc_gpu_axi_clk */
 	0x76,		/* gcc_boot_rom_ahb_clk */
 	0x4C,		/* gcc_cam_throttle_nrt_clk */
@@ -267,10 +254,7 @@ static int gcc_debug_mux_sels[] = {
 	0x12F,		/* gcc_camss_tfe_2_csid_clk */
 	0x135,		/* gcc_camss_top_ahb_clk */
 	0x1D,		/* gcc_cfg_noc_usb3_prim_axi_clk */
-	0xA9,		/* gcc_cpuss_ahb_clk */
 	0xAA,		/* gcc_cpuss_gnoc_clk */
-	0xB2,		/* gcc_cpuss_throttle_core_clk */
-	0xB1,		/* gcc_cpuss_throttle_xo_clk */
 	0x38,		/* gcc_disp_ahb_clk */
 	0x47,		/* gcc_disp_gpll0_div_clk_src */
 	0x3D,		/* gcc_disp_hf_axi_clk */
@@ -286,14 +270,12 @@ static int gcc_debug_mux_sels[] = {
 	0xEA,		/* gcc_gpu_snoc_dvm_gfx_clk */
 	0xEF,		/* gcc_gpu_throttle_core_clk */
 	0xEE,		/* gcc_gpu_throttle_xo_clk */
-	0xC2,		/* gcc_mss_vs_clk */
 	0x73,		/* gcc_pdm2_clk */
 	0x71,		/* gcc_pdm_ahb_clk */
 	0x72,		/* gcc_pdm_xo4_clk */
 	0x74,		/* gcc_prng_ahb_clk */
 	0x3A,		/* gcc_qmip_camera_nrt_ahb_clk */
 	0x48,		/* gcc_qmip_camera_rt_ahb_clk */
-	0xB0,		/* gcc_qmip_cpuss_cfg_ahb_clk */
 	0x3B,		/* gcc_qmip_disp_ahb_clk */
 	0xED,		/* gcc_qmip_gpu_cfg_ahb_clk */
 	0x39,		/* gcc_qmip_video_vcodec_ahb_clk */
@@ -322,9 +304,6 @@ static int gcc_debug_mux_sels[] = {
 	0x5F,		/* gcc_usb3_prim_phy_com_aux_clk */
 	0x60,		/* gcc_usb3_prim_phy_pipe_clk */
 	0x142,		/* gcc_vcodec0_axi_clk */
-	0xBF,		/* gcc_vdda_vs_clk */
-	0xBD,		/* gcc_vddcx_vs_clk */
-	0xBE,		/* gcc_vddmx_vs_clk */
 	0x143,		/* gcc_venus_ahb_clk */
 	0x141,		/* gcc_venus_ctl_axi_clk */
 	0x36,		/* gcc_video_ahb_clk */
@@ -333,9 +312,6 @@ static int gcc_debug_mux_sels[] = {
 	0x13F,		/* gcc_video_vcodec0_sys_clk */
 	0x13D,		/* gcc_video_venus_ctl_clk */
 	0x3E,		/* gcc_video_xo_clk */
-	0xC1,		/* gcc_vs_ctrl_ahb_clk */
-	0xC0,		/* gcc_vs_ctrl_clk */
-	0xC4,		/* gcc_wcss_vs_clk */
 	0xE7,		/* gpu_cc_debug_mux */
 	0x9E,           /* mc_cc_debug_mux */
 	0x1A,		/* measure_only_cnoc_clk */
@@ -366,7 +342,6 @@ static const char *const gpu_cc_debug_mux_parent_names[] = {
 	"gpu_cc_ahb_clk",
 	"gpu_cc_crc_ahb_clk",
 	"gpu_cc_cx_gfx3d_clk",
-	"gpu_cc_cx_gfx3d_slv_clk",
 	"gpu_cc_cx_gmu_clk",
 	"gpu_cc_cx_snoc_dvm_clk",
 	"gpu_cc_cxo_aon_clk",
@@ -380,7 +355,6 @@ static int gpu_cc_debug_mux_sels[] = {
 	0x10,		/* gpu_cc_ahb_clk */
 	0x11,		/* gpu_cc_crc_ahb_clk */
 	0x1A,		/* gpu_cc_cx_gfx3d_clk */
-	0x1B,		/* gpu_cc_cx_gfx3d_slv_clk */
 	0x18,		/* gpu_cc_cx_gmu_clk */
 	0x15,		/* gpu_cc_cx_snoc_dvm_clk */
 	0xA,		/* gpu_cc_cxo_aon_clk */
