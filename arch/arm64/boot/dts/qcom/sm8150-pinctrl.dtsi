@@ -5179,5 +5179,32 @@
 				output-high;
 			};
 		};
+
+		qcom_clk_led_gp2_pins: qcom_clk_led_gp2_pins {
+			qcom_clk_led_gp2_active: qcom_clk_led_gp2_active {
+				mux {
+					pins = "gpio21";
+					function = "gcc_gp2";
+				};
+
+				config {
+					pins = "gpio21";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+			qcom_clk_led_gp2_sleep: qqcom_clk_led_gp2_sleep {
+				mux {
+					pins = "gpio21";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio21";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+		};
 	};
 };
