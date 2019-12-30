@@ -504,7 +504,23 @@ static int adc_configure(struct adc_chip *adc,
 	if (!adc->poll_eoc)
 		reinit_completion(&adc->complete);
 
-	ret = adc_write(adc, ADC_USR_DIG_PARAM, buf, ADC5_MULTI_TRANSFER);
+	ret = adc_write(adc, ADC_USR_DIG_PARAM, buf, 1);
+	if (ret)
+		return ret;
+
+	ret = adc_write(adc, ADC_USR_FAST_AVG_CTL, &buf[1], 1);
+	if (ret)
+		return ret;
+
+	ret = adc_write(adc, ADC_USR_CH_SEL_CTL, &buf[2], 1);
+	if (ret)
+		return ret;
+
+	ret = adc_write(adc, ADC_USR_DELAY_CTL, &buf[3], 1);
+	if (ret)
+		return ret;
+
+	ret = adc_write(adc, ADC_USR_EN_CTL1, &buf[4], 1);
 	if (ret)
 		return ret;
 
