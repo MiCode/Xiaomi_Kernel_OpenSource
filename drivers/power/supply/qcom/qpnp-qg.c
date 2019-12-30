@@ -86,6 +86,9 @@ static struct attribute *qg_attrs[] = {
 	&dev_attr_soc_interval_ms.attr,
 	&dev_attr_soc_cold_interval_ms.attr,
 	&dev_attr_maint_soc_update_ms.attr,
+	&dev_attr_fvss_delta_soc_interval_ms.attr,
+	&dev_attr_fvss_vbat_scaling.attr,
+	&dev_attr_qg_ss_feature.attr,
 	NULL,
 };
 ATTRIBUTE_GROUPS(qg);
