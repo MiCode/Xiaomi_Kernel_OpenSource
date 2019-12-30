@@ -547,14 +547,19 @@ static int adc_do_conversion(struct adc_chip *adc,
 	if (ret < 0)
 		goto unlock;
 
-	if ((chan->type == IIO_VOLTAGE) || (chan->type == IIO_TEMP))
+	if ((chan->type == IIO_VOLTAGE) || (chan->type == IIO_TEMP)) {
 		ret = adc_read_voltage_data(adc, data_volt);
+		if (ret)
+			goto unlock;
+	}
 	else if (chan->type == IIO_POWER) {
 		ret = adc_read_voltage_data(adc, data_volt);
 		if (ret)
 			goto unlock;
 
 		ret = adc_read_current_data(adc, data_cur);
+		if (ret)
+			goto unlock;
 	}
 
 	ret = adc_post_configure_usb_in_read(adc, prop);
