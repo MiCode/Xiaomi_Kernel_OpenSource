@@ -98,6 +98,7 @@ enum cam_cci_cmd_type {
 	MSM_CCI_GPIO_WRITE,
 	MSM_CCI_I2C_WRITE_SYNC,
 	MSM_CCI_I2C_WRITE_SYNC_BLOCK,
+	MSM_CCI_I2C_WRITE_SYNC_ARRAY,
 };
 
 enum cci_i2c_queue_t {
@@ -217,6 +218,12 @@ struct cam_sensor_cci_client {
 	uint16_t cci_device;
 };
 
+
+struct cam_sensor_cci_sync_info {
+	enum i2c_freq_mode i2c_freq_mode;
+	uint16_t sid;
+};
+
 /**
  * struct cci_device
  * @pdev:                       Platform device
@@ -283,7 +290,6 @@ struct cci_device {
 	bool is_burst_read;
 	uint32_t irqs_disabled;
 	struct mutex init_mutex;
-	struct cam_sensor_cci_client cci_debug;
 };
 
 struct cam_cci_ctrl {
@@ -295,6 +301,7 @@ struct cam_cci_ctrl {
 		struct cam_cci_read_cfg cci_i2c_read_cfg;
 		struct cam_cci_wait_sync_cfg cci_wait_sync_cfg;
 		struct cam_cci_gpio_cfg gpio_cfg;
+		struct ais_sensor_wr_sync cci_wr_sync;
 	} cfg;
 };
 
