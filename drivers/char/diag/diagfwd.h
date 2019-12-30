@@ -43,6 +43,8 @@ int diag_cmd_log_on_demand(unsigned char *src_buf, int src_len,
 			   unsigned char *dest_buf, int dest_len);
 int diag_cmd_get_mobile_id(unsigned char *src_buf, int src_len,
 			   unsigned char *dest_buf, int dest_len);
+int diag_process_diag_transport_query_cmd(unsigned char *src_buf, int src_len,
+				      unsigned char *dest_buf, int dest_len);
 int diag_check_common_cmd(struct diag_pkt_header_t *header);
 void diag_update_userspace_clients(unsigned int type);
 void diag_update_sleeping_process(int process_id, int data_type);

@@ -19,6 +19,7 @@
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
 #include <linux/memblock.h>
+#include <linux/memory.h>
 
 #include <asm/sections.h>
 #include <linux/io.h>
@@ -1776,6 +1777,116 @@ static int __init early_memblock(char *p)
 	return 0;
 }
 early_param("memblock", early_memblock);
+
+#ifdef CONFIG_MEMORY_HOTPLUG
+static phys_addr_t no_hotplug_area[8];
+static phys_addr_t aligned_blocks[32];
+
+static int __init early_no_hotplug_area(char *p)
+{
+	phys_addr_t base, size;
+	int idx = 0;
+	char *endp = p;
+
+	while (1) {
+		base = memparse(endp, &endp);
+		if (base && (*endp == ',')) {
+			size = memparse(endp + 1, &endp);
+			if (size) {
+				no_hotplug_area[idx++] = base;
+				no_hotplug_area[idx++] = base+size;
+
+				if ((*endp == ';') && (idx <= 6))
+					endp++;
+				else
+					break;
+			} else
+				break;
+		} else
+			break;
+	}
+	return 0;
+}
+early_param("no_hotplug_area", early_no_hotplug_area);
+
+static bool __init memblock_in_no_hotplug_area(phys_addr_t addr)
+{
+	int idx = 0;
+
+	while (idx < 8) {
+		if (!no_hotplug_area[idx])
+			break;
+
+		if ((addr + MIN_MEMORY_BLOCK_SIZE <= no_hotplug_area[idx])
+			|| (addr >= no_hotplug_area[idx+1])) {
+			idx += 2;
+			continue;
+		}
+
+		return true;
+	}
+	return false;
+}
+
+static int __init early_dyn_memhotplug(char *p)
+{
+	int idx = 0;
+	phys_addr_t addr, rgn_end;
+	struct memblock_region *rgn;
+	int blk = 0;
+
+	while ((idx++) < memblock.memory.cnt) {
+		rgn = &memblock.memory.regions[idx];
+		addr = ALIGN(rgn->base, MIN_MEMORY_BLOCK_SIZE);
+		rgn_end = rgn->base + rgn->size;
+		while (addr + MIN_MEMORY_BLOCK_SIZE <= rgn_end) {
+			if (!memblock_in_no_hotplug_area(addr)) {
+				aligned_blocks[blk++] = addr;
+				memblock_remove(addr, MIN_MEMORY_BLOCK_SIZE);
+			}
+			addr += MIN_MEMORY_BLOCK_SIZE;
+		}
+	}
+	return 0;
+}
+early_param("dyn_memhotplug", early_dyn_memhotplug);
+
+int memblock_dump_aligned_blocks_addr(char *buf)
+{
+	int idx = 0;
+	int size = 0;
+
+	if (aligned_blocks[idx]) {
+		size += snprintf(buf+size, 32, "0x%llx", aligned_blocks[idx]);
+		idx++;
+	}
+
+	while (aligned_blocks[idx]) {
+		size += snprintf(buf+size, 32, ",0x%llx", aligned_blocks[idx]);
+		idx++;
+	}
+	return size;
+}
+
+int memblock_dump_aligned_blocks_num(char *buf)
+{
+	int idx = 0;
+	int size = 0;
+
+	if (aligned_blocks[idx]) {
+		size += snprintf(buf+size, 16, "%d",
+			(int)(aligned_blocks[idx] >> SECTION_SIZE_BITS));
+		idx++;
+	}
+
+	while (aligned_blocks[idx]) {
+		size += snprintf(buf+size, 16, ",%d",
+			(int)(aligned_blocks[idx] >> SECTION_SIZE_BITS));
+		idx++;
+	}
+	return size;
+}
+#endif
 
 #if defined(CONFIG_DEBUG_FS) && !defined(CONFIG_ARCH_DISCARD_MEMBLOCK)
 

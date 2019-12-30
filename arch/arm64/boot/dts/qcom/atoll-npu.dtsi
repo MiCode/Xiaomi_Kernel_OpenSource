@@ -67,7 +67,8 @@
 		#mbox-cells = <1>;
 		qcom,npubw-devs = <&npu_npu_ddr_bw>, <&npudsp_npu_ddr_bw>;
 		qcom,npubw-dev-names = "ddr_bw", "dsp_ddr_bw";
-		qcom,src-dst-ports = <MSM_BUS_MASTER_NPU MSM_BUS_SLAVE_EBI_CH0>;
+		qcom,src-dst-ports = <MSM_BUS_MASTER_NPU MSM_BUS_SLAVE_EBI_CH0>,
+			<MSM_BUS_MASTER_NPU MSM_BUS_SLAVE_CLK_CTL>;
 		qcom,npu-pwrlevels {
 			#address-cells = <1>;
 			#size-cells = <0>;

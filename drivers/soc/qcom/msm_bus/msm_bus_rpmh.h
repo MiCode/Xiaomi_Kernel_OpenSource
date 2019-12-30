@@ -214,6 +214,7 @@ struct msm_bus_node_device_type {
 	struct nodevector node_vec[NUM_CTX];
 	struct list_head link;
 	struct list_head query_link;
+	struct list_head dbg_link;
 	struct nodeclk clk[NUM_CTX];
 	struct nodeclk bus_qos_clk;
 	uint32_t num_node_qos_clks;

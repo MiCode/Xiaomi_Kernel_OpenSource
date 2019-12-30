@@ -1364,7 +1364,7 @@ int pil_boot(struct pil_desc *desc)
 	 * Fallback to serial loading of blobs if the
 	 * workqueue creatation failed during module init.
 	 */
-	if (pil_wq) {
+	if (pil_wq && !(desc->sequential_loading)) {
 		ret = pil_load_segs(desc);
 		if (ret)
 			goto err_deinit_image;

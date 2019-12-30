@@ -142,6 +142,7 @@
 #define DIAG_GET_TIME_API	0x21B
 #define DIAG_SET_TIME_API	0x21C
 #define DIAG_GET_DIAG_ID	0x222
+#define DIAG_QUERY_TRANSPORT	0x223
 #define DIAG_SWITCH_COMMAND	0x081B
 #define DIAG_BUFFERING_MODE	0x080C
 
@@ -315,8 +316,10 @@ do {						\
 #define DIAG_ID_UNKNOWN		0
 #define DIAG_ID_APPS		1
 
-#define DIAG_ROUTE_TO_USB 0
-#define DIAG_ROUTE_TO_PCIE 1
+#define DIAG_ROUTE_TO_UART	1
+#define DIAG_ROUTE_TO_USB	2
+#define DIAG_ROUTE_TO_PCIE	3
+
 /* List of remote processor supported */
 enum remote_procs {
 	MDM = 1,
@@ -399,6 +402,15 @@ struct diag_cmd_time_sync_switch_rsp_t {
 	uint8_t time_api;
 	uint8_t time_api_status;
 	uint8_t persist_time_status;
+};
+
+struct diag_query_transport_req_t {
+	struct diag_pkt_header_t header;
+};
+
+struct diag_query_transport_rsp_t {
+	struct diag_pkt_header_t header;
+	uint8_t transport;
 };
 
 struct diag_cmd_reg_entry_t {

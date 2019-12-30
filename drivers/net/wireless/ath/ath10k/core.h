@@ -496,6 +496,7 @@ struct ath10k_debug {
 	u32 reg_addr;
 	u32 nf_cal_period;
 	void *cal_data;
+	u8 fw_dbglog_mode;
 };
 
 enum ath10k_state {

@@ -88,6 +88,9 @@ SoCs:
 - QCS410
   compatible = "qcom,qcs410"
 
+- SDM660
+  compatible = "qcom,sdm660"
+
 Generic board variants:
 
 - CDP device:
@@ -251,3 +254,6 @@ compatible = "qcom,atoll-ab-qrd"
 compatible = "qcom,qcs610-iot"
 compatible = "qcom,qcs410-iot"
 compatible = "qcom,mdm9607-mtp"
+compatible = "qcom,sdm660-cdp"
+compatible = "qcom,sdm660-mtp"
+compatible = "qcom,sdm660-qrd"

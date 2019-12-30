@@ -38,7 +38,7 @@
 
 		modem_adsp_mem: modem_adsp_region@0 {
 			compatible = "removed-dma-pool";
-			no-map-fixup;
+			no-map;
 			reg = <0x82a00000 0x5000000>;
 		};
 
@@ -1348,8 +1348,15 @@
 		modem {
 			qcom,smd-edge = <0>;
 			qcom,ipc = <&apcs 0 12>;
+			qcom,remote-pid = <1>;
 			interrupts = <GIC_SPI 25 IRQ_TYPE_EDGE_RISING>;
-			label = "modem";
+			label = "mpss";
+			qcom,smd-channels = "IPCRTR";
+
+			qcom,modem_qrtr {
+				qcom,net-id = <1>;
+				qcom,low-latency;
+			};
 		};
 
 		rpm {
@@ -1587,13 +1594,13 @@
 		reg-names = "qdsp6_base", "halt_q6", "halt_modem", "halt_nc",
 				"rmb_base", "restart_reg";
 
-		interrupts = <0 24 1>;
 		vdd_cx-supply = <&mdm9607_s3_level>;
 		vdd_cx-voltage = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
 		vdd_mx-supply = <&mdm9607_l12_level>;
 		vdd_mx-uV = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
 		vdd_pll-supply = <&mdm9607_l3>;
 		qcom,vdd_pll = <1800000>;
+		qcom,reset-clk;
 
 		clocks = <&clock_gcc clk_xo_pil_mss_clk>,
 			 <&clock_gcc clk_gcc_mss_cfg_ahb_clk>,
@@ -1605,11 +1612,30 @@
 
 		qcom,firmware-name = "modem";
 		qcom,pil-self-auth;
+		qcom,sequential-fw-load;
 		qcom,override-acc-1 = <0x80800000>;
 		qcom,sysmon-id = <0>;
 		qcom,ssctl-instance-id = <0x12>;
 		qcom,qdsp6v56-1-8-inrush-current;
 
+		/* GPIO inputs from mss */
+			interrupts-extended = <&intc 0 24 1>,
+				<&modem_smp2p_in 0 0>,
+				<&modem_smp2p_in 2 0>,
+				<&modem_smp2p_in 1 0>,
+				<&modem_smp2p_in 3 0>,
+				<&modem_smp2p_in 7 0>;
+
+			interrupt-names = "qcom,wdog",
+				"qcom,err-fatal",
+				"qcom,proxy-unvote",
+				"qcom,err-ready",
+				"qcom,stop-ack",
+				"qcom,shutdown-ack";
+
+		/* GPIO output to mss */
+		qcom,smem-states = <&modem_smp2p_out 0>;
+		qcom,smem-state-names = "qcom,force-stop";
 		memory-region = <&modem_adsp_mem>;
 	};
 

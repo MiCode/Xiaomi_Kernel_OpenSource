@@ -127,6 +127,9 @@ struct class ubi_class = {
 
 static ssize_t dev_attribute_show(struct device *dev,
 				  struct device_attribute *attr, char *buf);
+static ssize_t dev_attribute_store(struct device *dev,
+				   struct device_attribute *attr,
+				   const char *buf, size_t count);
 
 /* UBI device attributes (correspond to files in '/<sysfs>/class/ubi/ubiX') */
 static struct device_attribute dev_eraseblock_size =
@@ -153,6 +156,13 @@ static struct device_attribute dev_mtd_num =
 	__ATTR(mtd_num, S_IRUGO, dev_attribute_show, NULL);
 static struct device_attribute dev_ro_mode =
 	__ATTR(ro_mode, S_IRUGO, dev_attribute_show, NULL);
+static struct device_attribute dev_mtd_trigger_scrub =
+	__ATTR(scrub_all, 0644,
+		dev_attribute_show, dev_attribute_store);
+static struct device_attribute dev_mtd_max_scrub_sqnum =
+	__ATTR(scrub_max_sqnum, 0444, dev_attribute_show, NULL);
+static struct device_attribute dev_mtd_min_scrub_sqnum =
+	__ATTR(scrub_min_sqnum, 0444, dev_attribute_show, NULL);
 
 /**
  * ubi_volume_notify - send a volume change notification.
@@ -345,6 +355,17 @@ int ubi_major2num(int major)
 	return ubi_num;
 }
 
+static unsigned long long get_max_sqnum(struct ubi_device *ubi)
+{
+	unsigned long long max_sqnum;
+
+	spin_lock(&ubi->ltree_lock);
+	max_sqnum = ubi->global_sqnum - 1;
+	spin_unlock(&ubi->ltree_lock);
+
+	return max_sqnum;
+}
+
 /* "Show" method for files in '/<sysfs>/class/ubi/ubiX/' */
 static ssize_t dev_attribute_show(struct device *dev,
 				  struct device_attribute *attr, char *buf)
@@ -391,6 +412,15 @@ static ssize_t dev_attribute_show(struct device *dev,
 		ret = sprintf(buf, "%d\n", ubi->mtd->index);
 	else if (attr == &dev_ro_mode)
 		ret = sprintf(buf, "%d\n", ubi->ro_mode);
+	else if (attr == &dev_mtd_trigger_scrub)
+		ret = snprintf(buf, PAGE_SIZE, "%d\n",
+					atomic_read(&ubi->scrub_work_count));
+	else if (attr == &dev_mtd_max_scrub_sqnum)
+		ret = snprintf(buf, PAGE_SIZE, "%llu\n",
+					get_max_sqnum(ubi));
+	else if (attr == &dev_mtd_min_scrub_sqnum)
+		ret = snprintf(buf, PAGE_SIZE, "%llu\n",
+					ubi_wl_scrub_get_min_sqnum(ubi));
 	else
 		ret = -EINVAL;
 
@@ -411,9 +441,44 @@ static struct attribute *ubi_dev_attrs[] = {
 	&dev_bgt_enabled.attr,
 	&dev_mtd_num.attr,
 	&dev_ro_mode.attr,
+	&dev_mtd_trigger_scrub.attr,
+	&dev_mtd_max_scrub_sqnum.attr,
+	&dev_mtd_min_scrub_sqnum.attr,
 	NULL
 };
 ATTRIBUTE_GROUPS(ubi_dev);
+
+static ssize_t dev_attribute_store(struct device *dev,
+			   struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	int ret = count;
+	struct ubi_device *ubi;
+	unsigned long long scrub_sqnum;
+
+	ubi = container_of(dev, struct ubi_device, dev);
+	ubi = ubi_get_device(ubi->ubi_num);
+	if (!ubi)
+		return -ENODEV;
+
+	if (attr == &dev_mtd_trigger_scrub) {
+		if (kstrtoull(buf, 10, &scrub_sqnum)) {
+			ret = -EINVAL;
+			goto out;
+		}
+		if (!ubi->lookuptbl) {
+			pr_err("lookuptbl is null");
+			goto out;
+		}
+		ret = ubi_wl_scrub_all(ubi, scrub_sqnum);
+		if (ret == 0)
+			ret = count;
+	}
+
+out:
+	ubi_put_device(ubi);
+	return ret;
+}
 
 static void dev_release(struct device *dev)
 {

@@ -27,6 +27,113 @@
 };
 
 &soc {
+	hsi2s: qcom,hsi2s {
+		compatible = "qcom,sa8195-hsi2s", "qcom,hsi2s";
+		number-of-interfaces = <3>;
+		reg = <0x172C0000 0x28000>,
+		      <0x17080000 0xE000>;
+		reg-names = "lpa_if", "lpass_tcsr";
+		interrupts = <GIC_SPI 267 0>;
+		number-of-rate-detectors = <2>;
+		rate-detector-interfaces = <0 1>;
+
+		sdr0: qcom,hs0_i2s {
+			compatible = "qcom,hsi2s-interface";
+			minor-number = <0>;
+			pinctrl-names = "default", "sleep";
+			pinctrl-0 = <&hs1_i2s_mclk_active &hs1_i2s_sck_active
+				     &hs1_i2s_ws_active &hs1_i2s_data0_active
+				     &hs1_i2s_data1_active>;
+			pinctrl-1 = <&hs1_i2s_mclk_sleep &hs1_i2s_sck_sleep
+				     &hs1_i2s_ws_sleep &hs1_i2s_data0_sleep
+				     &hs1_i2s_data1_sleep>;
+			iommus = <&apps_smmu 0x1B5C 0x0>;
+			qcom,smmu-s1-bypass;
+			qcom,iova-mapping = <0x0 0xFFFFFFFF>;
+			bit-clock-hz = <12288000>;
+			data-buffer-ms = <10>;
+			bit-depth = <32>;
+			spkr-channel-count = <2>;
+			mic-channel-count = <2>;
+			pcm-rate = <2>;
+			pcm-sync-src = <0>;
+			aux-mode = <0>;
+			rpcm-width = <1>;
+			tpcm-width = <1>;
+			enable-tdm = <1>;
+			tdm-rate = <32>;
+			tdm-rpcm-width = <16>;
+			tdm-tpcm-width = <16>;
+			tdm-sync-delay = <2>;
+			tdm-inv-sync = <0>;
+			pcm-lane-config = <1>;
+		};
+
+		sdr1: qcom,hs1_i2s {
+			compatible = "qcom,hsi2s-interface";
+			minor-number = <1>;
+			pinctrl-names = "default", "sleep";
+			pinctrl-0 = <&hs2_i2s_mclk_active &hs2_i2s_sck_active
+				     &hs2_i2s_ws_active &hs2_i2s_data0_active
+				     &hs2_i2s_data1_active>;
+			pinctrl-1 = <&hs2_i2s_mclk_sleep &hs2_i2s_sck_sleep
+				     &hs2_i2s_ws_sleep &hs2_i2s_data0_sleep
+				     &hs2_i2s_data1_sleep>;
+			iommus = <&apps_smmu 0x1B5D 0x0>;
+			qcom,smmu-s1-bypass;
+			qcom,iova-mapping = <0x0 0xFFFFFFFF>;
+			bit-clock-hz = <12288000>;
+			data-buffer-ms = <10>;
+			bit-depth = <32>;
+			spkr-channel-count = <2>;
+			mic-channel-count = <2>;
+			pcm-rate = <2>;
+			pcm-sync-src = <0>;
+			aux-mode = <0>;
+			rpcm-width = <1>;
+			tpcm-width = <1>;
+			enable-tdm = <1>;
+			tdm-rate = <32>;
+			tdm-rpcm-width = <16>;
+			tdm-tpcm-width = <16>;
+			tdm-sync-delay = <2>;
+			tdm-inv-sync = <0>;
+			pcm-lane-config = <1>;
+		};
+
+		sdr2: qcom,hs2_i2s {
+			compatible = "qcom,hsi2s-interface";
+			minor-number = <2>;
+			pinctrl-names = "default", "sleep";
+			pinctrl-0 = <&hs3_i2s_mclk_active &hs3_i2s_sck_active
+				     &hs3_i2s_ws_active &hs3_i2s_data0_active
+				     &hs3_i2s_data1_active>;
+			pinctrl-1 = <&hs3_i2s_mclk_sleep &hs3_i2s_sck_sleep
+				     &hs3_i2s_ws_sleep &hs3_i2s_data0_sleep
+				     &hs3_i2s_data1_sleep>;
+			iommus = <&apps_smmu 0x1B5E 0x0>;
+			qcom,smmu-s1-bypass;
+			qcom,iova-mapping = <0x0 0xFFFFFFFF>;
+			bit-clock-hz = <12288000>;
+			data-buffer-ms = <10>;
+			bit-depth = <32>;
+			spkr-channel-count = <2>;
+			mic-channel-count = <2>;
+			pcm-rate = <2>;
+			pcm-sync-src = <0>;
+			aux-mode = <0>;
+			rpcm-width = <1>;
+			tpcm-width = <1>;
+			enable-tdm = <1>;
+			tdm-rate = <32>;
+			tdm-rpcm-width = <16>;
+			tdm-tpcm-width = <16>;
+			tdm-sync-delay = <2>;
+			tdm-inv-sync = <0>;
+			pcm-lane-config = <1>;
+		};
+	};
+
 	emac_hw: qcom,emac@00020000 {
 		compatible = "qcom,emac-dwc-eqos";
 		qcom,arm-smmu;
@@ -530,6 +637,42 @@
 		trips {
 			cpu17-config {
 				temperature = <115000>;
+			};
+		};
+	};
+
+	q6-hvx-step {
+		trips {
+			q6-hvx-trip0 {
+				temperature = <105000>;
+			};
+
+			q6-hvx-trip1 {
+				temperature = <115000>;
+			};
+		};
+	};
+
+	npu-step {
+		polling-delay-passive = <10>;
+		polling-delay = <0>;
+		thermal-sensors = <&tsens1 8>;
+		thermal-governor = "step_wise";
+		wake-capable-sensor;
+		trips {
+			npu_trip0: npu-trip0 {
+				temperature = <105000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			npu_cdev {
+				trip = <&npu_trip0>;
+				cooling-device =
+					<&msm_npu THERMAL_NO_LIMIT
+						THERMAL_NO_LIMIT>;
 			};
 		};
 	};

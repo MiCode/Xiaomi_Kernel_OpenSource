@@ -6002,6 +6002,12 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 		goto fail_dma_task;
 	}
 
+	result = ipa3_allocate_coal_close_frame();
+	if (result) {
+		IPAERR("failed to allocate coal frame cmd\n");
+		goto fail_coal_frame;
+	}
+
 	if (ipa3_nat_ipv6ct_init_devices()) {
 		IPAERR("unable to init NAT and IPv6CT devices\n");
 		result = -ENODEV;
@@ -6204,6 +6210,8 @@ fail_init_interrupts:
 fail_allok_pkt_init:
 	ipa3_nat_ipv6ct_destroy_devices();
 fail_nat_ipv6ct_init_dev:
+	ipa3_free_coal_close_frame();
+fail_coal_frame:
 	ipa3_free_dma_task_for_gsi();
 fail_dma_task:
 fail_init_hw:

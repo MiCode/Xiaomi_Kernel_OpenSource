@@ -2030,7 +2030,6 @@ static void ipa3_replenish_rx_page_recycle(struct ipa3_sys_context *sys)
 			rx_pkt = sys->repl->cache[curr_wq];
 			curr_wq = (++curr_wq == sys->repl->capacity) ?
 								 0 : curr_wq;
-			atomic_set(&sys->repl->head_idx, curr_wq);
 		}
 
 		dma_sync_single_for_device(ipa3_ctx->pdev,
@@ -2068,6 +2067,7 @@ static void ipa3_replenish_rx_page_recycle(struct ipa3_sys_context *sys)
 	if (ret == GSI_STATUS_SUCCESS) {
 		/* ensure write is done before setting head index */
 		mb();
+		atomic_set(&sys->repl->head_idx, curr_wq);
 		atomic_set(&sys->page_recycle_repl->head_idx, curr);
 		sys->len = rx_len_cached;
 	} else {
@@ -4926,9 +4926,12 @@ start_poll:
 	}
 	cnt += weight - remain_aggr_weight * IPA_WAN_AGGR_PKT_CNT;
 	/* call repl_hdlr before napi_reschedule / napi_complete */
-	if (cnt)
-		ep->sys->repl_hdlr(ep->sys);
-	if (cnt < weight) {
+	ep->sys->repl_hdlr(ep->sys);
+
+	/* When not able to replenish enough descriptors pipe wait
+	 * until minimum number descripotrs to replish.
+	 */
+	if (cnt < weight && ep->sys->len > IPA_DEFAULT_SYS_YELLOW_WM) {
 		napi_complete(ep->sys->napi_obj);
 		ret = ipa3_rx_switch_to_intr_mode(ep->sys);
 		if (ret == -GSI_STATUS_PENDING_IRQ &&
@@ -4939,6 +4942,10 @@ start_poll:
 			ipa_pm_deferred_deactivate(ep->sys->pm_hdl);
 		else
 			ipa3_dec_client_disable_clks_no_block(&log);
+	} else {
+		cnt = weight;
+		IPADBG_LOW("Client = %d not replenished free descripotrs\n",
+				ep->client);
 	}
 
 	return cnt;
