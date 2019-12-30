@@ -71,6 +71,9 @@ struct snd_compr_stream {
 	bool metadata_set;
 	bool next_track;
 	void *private_data;
+#ifdef CONFIG_AUDIO_QGKI
+	struct snd_soc_pcm_runtime *be;
+#endif
 };
 
 /**
