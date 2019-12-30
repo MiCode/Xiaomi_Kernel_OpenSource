@@ -690,6 +690,12 @@ static int msm_geni_ir_change_protocol(struct rc_dev *dev, u64 *rc_type)
 }
 EXPORT_SYMBOL(msm_geni_ir_change_protocol);
 
+static irqreturn_t geni_ir_wakeup_handler(int irq, void *data)
+{
+	pr_debug("%s:Received wake up Interrupt\n", __func__);
+	return IRQ_HANDLED;
+}
+
 /* interrupt routine */
 static irqreturn_t geni_ir_interrupt(int irq, void *data)
 {
@@ -827,7 +833,7 @@ static const struct file_operations msm_geni_ir_tx_fops = {
 static int msm_geni_ir_get_res(struct platform_device *pdev,
 			       struct msm_geni_ir *ir)
 {
-	//struct device_node *node = pdev->dev.of_node;
+	struct device_node *node = pdev->dev.of_node;
 	struct resource *res;
 	int rc;
 
@@ -840,6 +846,14 @@ static int msm_geni_ir_get_res(struct platform_device *pdev,
 
 	ir->gpio_tx = rc;
 #endif
+
+	rc = of_get_named_gpio(node, "qcom,geni-ir-wakeup-gpio", 0);
+	if (rc < 0) {
+		pr_err("could not get wakeup gpio %d\n", rc);
+		return rc;
+	}
+
+	ir->wakeup_irq = gpio_to_irq(rc);
 	rc = platform_get_irq_byname(pdev, "geni-ir-core-irq");
 	if (rc < 0) {
 		pr_err("could not get core irq %d\n", rc);
@@ -912,6 +926,13 @@ int msm_geni_ir_probe(struct platform_device *pdev)
 	if (rc) {
 		pr_err("core irq request failed %d\n", rc);
 		goto core_irq_err;
+	}
+	rc = request_irq(ir->wakeup_irq, geni_ir_wakeup_handler,
+		IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING | IRQF_ONESHOT
+		| IRQF_NO_SUSPEND, "geni-ir-wakeup-irq", ir);
+	if (rc) {
+		pr_err("wakeup irq request failed %d\n", rc);
+		goto rc_alloc_err;
 	}
 
 	mutex_init(&ir->lock);
@@ -1005,6 +1026,7 @@ static int msm_geni_ir_suspend(struct device *dev)
 		msm_geni_ir_low_power_mode(ir);
 		clk_disable_unprepare(ir->ahb_clk);
 	}
+	enable_irq_wake(ir->wakeup_irq);
 
 	return 0;
 }
@@ -1015,6 +1037,7 @@ static int msm_geni_ir_resume(struct device *dev)
 	u32 status;
 	int rc;
 
+	disable_irq_wake(ir->wakeup_irq);
 	if (ir->image_loaded == NULL)
 		return 0;
 
