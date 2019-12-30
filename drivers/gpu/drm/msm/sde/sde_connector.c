@@ -357,7 +357,7 @@ int sde_connector_get_dither_cfg(struct drm_connector *conn,
 					CONNECTOR_PROP_PP_DITHER);
 	/* if user config data doesn't exist, use default dither blob */
 	if (*cfg == NULL && c_conn->blob_dither) {
-		*cfg = &c_conn->blob_dither->data;
+		*cfg = c_conn->blob_dither->data;
 		dither_sz = c_conn->blob_dither->length;
 	}
 	*len = dither_sz;
