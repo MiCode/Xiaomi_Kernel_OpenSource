@@ -94,22 +94,6 @@ static void release_rq_locks_irqrestore(const cpumask_t *cpus,
 	local_irq_restore(*flags);
 }
 
-#ifdef CONFIG_HZ_300
-/*
- * Tick interval becomes to 3333333 due to
- * rounding error when HZ=300.
- */
-#define MIN_SCHED_RAVG_WINDOW (3333333 * 6)
-#else
-/* Min window size (in ns) = 20ms */
-#define MIN_SCHED_RAVG_WINDOW 20000000
-#endif
-
-/* Max window size (in ns) = 1s */
-#define MAX_SCHED_RAVG_WINDOW 1000000000
-
-#define NR_WINDOWS_PER_SEC (NSEC_PER_SEC / MIN_SCHED_RAVG_WINDOW)
-
 __read_mostly unsigned int sysctl_sched_cpu_high_irqload = TICK_NSEC;
 
 unsigned int sysctl_sched_walt_rotate_big_tasks;
@@ -131,8 +115,8 @@ static unsigned int display_sched_ravg_window_nr_ticks =
 unsigned int sysctl_sched_dynamic_ravg_window_enable = (HZ == 250);
 
 /* Window size (in ns) */
-__read_mostly unsigned int sched_ravg_window = MIN_SCHED_RAVG_WINDOW;
-__read_mostly unsigned int new_sched_ravg_window = MIN_SCHED_RAVG_WINDOW;
+__read_mostly unsigned int sched_ravg_window = DEFAULT_SCHED_RAVG_WINDOW;
+__read_mostly unsigned int new_sched_ravg_window = DEFAULT_SCHED_RAVG_WINDOW;
 
 static DEFINE_SPINLOCK(sched_ravg_window_lock);
 u64 sched_ravg_window_change_time;
@@ -172,11 +156,11 @@ unsigned int __read_mostly sched_disable_window_stats;
  * The entire range of load from 0 to sched_ravg_window needs to be covered
  * in NUM_LOAD_INDICES number of buckets. Therefore the size of each bucket
  * is given by sched_ravg_window / NUM_LOAD_INDICES. Since the default value
- * of sched_ravg_window is MIN_SCHED_RAVG_WINDOW, use that to compute
+ * of sched_ravg_window is DEFAULT_SCHED_RAVG_WINDOW, use that to compute
  * sched_load_granule.
  */
 __read_mostly unsigned int sched_load_granule =
-			MIN_SCHED_RAVG_WINDOW / NUM_LOAD_INDICES;
+			DEFAULT_SCHED_RAVG_WINDOW / NUM_LOAD_INDICES;
 /* Size of bitmaps maintained to track top tasks */
 static const unsigned int top_tasks_bitmap_size =
 		BITS_TO_LONGS(NUM_LOAD_INDICES + 1) * sizeof(unsigned long);
@@ -193,7 +177,7 @@ static int __init set_sched_ravg_window(char *str)
 
 	get_option(&str, &window_size);
 
-	if (window_size < MIN_SCHED_RAVG_WINDOW ||
+	if (window_size < DEFAULT_SCHED_RAVG_WINDOW ||
 			window_size > MAX_SCHED_RAVG_WINDOW) {
 		WARN_ON(1);
 		return -EINVAL;
