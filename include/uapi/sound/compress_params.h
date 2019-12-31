@@ -398,6 +398,16 @@ struct snd_dec_aptx {
 	__u32 nap;
 };
 
+#ifdef CONFIG_AUDIO_QGKI
+struct snd_dec_vorbis {
+	__u32 bit_stream_fmt;
+};
+
+struct snd_dec_amrwb_plus {
+	__u32 bit_stream_fmt;
+};
+#endif
+
 union snd_codec_options {
 	struct snd_enc_wma wma;
 	struct snd_enc_vorbis vorbis;
@@ -406,10 +416,14 @@ union snd_codec_options {
 	struct snd_enc_generic generic;
 	struct snd_dec_aac aac_dec;
 	struct snd_dec_flac flac_dec;
-	struct snd_dec_alac alac_dec;
-	struct snd_dec_ape ape_dec;
+	struct snd_dec_alac alac;
+	struct snd_dec_ape ape;
 	struct snd_dec_wma wma_dec;
 	struct snd_dec_aptx aptx_dec;
+#ifdef CONFIG_AUDIO_QGKI
+	struct snd_dec_vorbis vorbis_dec;
+	struct snd_dec_amrwb_plus amrwbplus;
+#endif
 } __attribute__((packed, aligned(4)));
 
 /** struct snd_codec_desc - description of codec capabilities
