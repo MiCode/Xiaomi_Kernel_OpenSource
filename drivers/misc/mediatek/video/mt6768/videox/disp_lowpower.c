@@ -799,7 +799,7 @@ void _vdo_mode_enter_idle(void)
 			MMPROFILE_FLAG_END,
 			!primary_display_is_decouple_mode(), bandwidth);
 #endif
-
+	lcm_fps_ctx_reset(&lcm_fps_ctx);
 }
 
 void _vdo_mode_leave_idle(void)
@@ -861,7 +861,7 @@ void _vdo_mode_leave_idle(void)
 			MMPROFILE_FLAG_END,
 			!primary_display_is_decouple_mode(), bandwidth);
 #endif
-
+	lcm_fps_ctx_reset(&lcm_fps_ctx);
 }
 
 void _cmd_mode_enter_idle(void)
@@ -890,7 +890,7 @@ void _cmd_mode_enter_idle(void)
 			MMPROFILE_FLAG_END,
 			!primary_display_is_decouple_mode(), 0);
 #endif
-
+	lcm_fps_ctx_reset(&lcm_fps_ctx);
 }
 
 void _cmd_mode_leave_idle(void)
@@ -929,6 +929,7 @@ void _cmd_mode_leave_idle(void)
 	primary_display_request_dvfs_perf(0, dvfs_before_idle);
 #endif
 
+	lcm_fps_ctx_reset(&lcm_fps_ctx);
 }
 
 void primary_display_idlemgr_enter_idle_nolock(void)
