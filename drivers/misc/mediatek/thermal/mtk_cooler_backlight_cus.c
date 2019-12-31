@@ -58,7 +58,7 @@ static int mtk_cl_backlight_set_cur_state
 
 	setMaxbrightness(state, enable);
 	g_backlight_level = state;
-	mtk_cooler_backlight_dprintk("%s: %d\n", g_backlight_level);
+	mtk_cooler_backlight_dprintk("%s: %d\n", __func__, g_backlight_level);
 
 	return 0;
 }

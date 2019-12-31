@@ -58,7 +58,8 @@ static int mtk_cl_flashlight_set_cur_state
 	if (state < g_max_flashlight_level) {
 		flashlight_set_cooler_level(state);
 		g_flashlight_level = state;
-		mtk_cooler_flashlight_dprintk("%s: %d\n", g_flashlight_level);
+		mtk_cooler_flashlight_dprintk("%s: %d\n",
+					__func__, g_flashlight_level);
 	}
 
 	return 0;
