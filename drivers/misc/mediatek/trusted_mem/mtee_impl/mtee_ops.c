@@ -45,7 +45,11 @@
 /* clang-format on */
 #include "tee_impl/tee_invoke.h"
 
+#ifdef CONFIG_MTK_NEBULA_VM_SUPPORT
+static const char mem_srv_name[] = "nebula.com.mediatek.geniezone.srv.mem";
+#else
 static const char mem_srv_name[] = "com.mediatek.geniezone.srv.mem";
+#endif
 
 #define LOCK_BY_CALLEE (0)
 #if LOCK_BY_CALLEE
