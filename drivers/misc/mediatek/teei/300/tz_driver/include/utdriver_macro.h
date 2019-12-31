@@ -21,6 +21,7 @@
 #endif
 #endif
 
+/* #define TEEI_MUTIL_TA_DEBUG */
 
 #define START_STATUS			(0)
 #define END_STATUS			(1)

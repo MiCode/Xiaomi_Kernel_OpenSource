@@ -25,6 +25,8 @@
 #include <linux/uaccess.h>
 #include <linux/cdev.h>
 
+#define TEEI_SWITCH_BIG_CORE
+
 #ifdef TEEI_FIND_PREFER_CORE_AUTO
 #include <kernel/sched/sched.h>
 #endif
@@ -168,6 +170,8 @@ unsigned int soter_error_flag;
 unsigned long boot_vfs_addr;
 unsigned long boot_soter_flag;
 unsigned long device_file_cnt;
+
+struct list_head g_block_link;
 
 /* For keymaster */
 unsigned long teei_capi_ready;
@@ -1217,6 +1221,9 @@ static int teei_client_init(void)
 		IMSG_ERROR("cdev_add failed %x\n", ret_code);
 		goto class_device_destroy;
 	}
+
+
+	INIT_LIST_HEAD(&g_block_link);
 
 	for_each_online_cpu(i) {
 		current_cpu_id = i;

@@ -25,6 +25,7 @@
 #include <linux/cpu.h>
 #include <linux/notifier.h>
 #include <fdrv.h>
+#include <linux/vmalloc.h>
 #include "nt_smc_call.h"
 #include "utdriver_macro.h"
 #include "sched_status.h"
@@ -136,6 +137,9 @@ int add_work_entry(int work_type, unsigned long buff)
 	struct switch_call_struct *work_entry = NULL;
 	int retVal = 0;
 
+	/* with a wmb() */
+	/* wmb(); */
+
 	retVal = check_work_type(work_type);
 	if (retVal != 0) {
 		IMSG_ERROR("[%s][%d] with wrong work_type!\n",
@@ -159,6 +163,9 @@ int add_work_entry(int work_type, unsigned long buff)
 	}
 
 	retVal = ut_smc_call((void *)work_entry);
+
+	/* with a rmb() */
+	/* rmb(); */
 
 	return retVal;
 }
@@ -210,6 +217,7 @@ static void switch_fn(struct kthread_work *work)
 	switch_ent = (struct switch_call_struct *)switch_work->data;
 
 	call_type = get_call_type(switch_ent);
+
 	switch (call_type) {
 	case LOAD_FUNC:
 		secondary_load_func();

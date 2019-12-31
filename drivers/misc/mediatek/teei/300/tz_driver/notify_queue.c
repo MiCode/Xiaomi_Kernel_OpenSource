@@ -91,7 +91,7 @@ static unsigned long create_notify_queue(unsigned long size)
 					get_order(ROUND_UP(size, SZ_4K)));
 #endif
 	if ((unsigned char *)buff_addr == NULL) {
-		IMSG_ERROR("[%s][%d]: kmalloc queue buffer failed.\n",
+		IMSG_ERROR("[%s][%d]: Alloc queue buffer failed.\n",
 					__func__, __LINE__);
 		retVal =  -ENOMEM;
 		goto return_fn;
@@ -142,6 +142,7 @@ int add_nq_entry(unsigned long long cmd_ID, unsigned long long sub_cmd_ID,
 			unsigned long long block_p, unsigned long long p0,
 			unsigned long long p1, unsigned long long p2)
 {
+	static unsigned long long check_index;
 	struct NQ_head *temp_head = NULL;
 	struct NQ_entry *temp_entry = NULL;
 
@@ -157,7 +158,13 @@ int add_nq_entry(unsigned long long cmd_ID, unsigned long long sub_cmd_ID,
 	temp_entry->param[0] = p0;
 	temp_entry->param[1] = p1;
 	temp_entry->param[2] = p2;
+	temp_entry->param[3] = block_p;
+	temp_entry->param[4] = check_index;
 
+	check_index = (check_index + 1) % 10000;
+
+	/* Call the wmb() to make sure setting entry before setting head */
+	wmb();
 
 	temp_head->put_index = (temp_head->put_index + 1)
 					% temp_head->max_count;
@@ -173,6 +180,7 @@ int add_bdrv_nq_entry(unsigned long long cmd_ID, unsigned long long sub_cmd_ID,
 			unsigned long long block_p, unsigned long long p0,
 			unsigned long long p1, unsigned long long p2)
 {
+	static unsigned long long check_index;
 	struct NQ_head *temp_head = NULL;
 	struct NQ_entry *temp_entry = NULL;
 
@@ -188,7 +196,13 @@ int add_bdrv_nq_entry(unsigned long long cmd_ID, unsigned long long sub_cmd_ID,
 	temp_entry->param[0] = p0;
 	temp_entry->param[1] = p1;
 	temp_entry->param[2] = p2;
+	temp_entry->param[3] = block_p;
+	temp_entry->param[4] = check_index;
 
+	check_index = (check_index + 1) % 10000;
+
+	/* Call the wmb() to make sure setting entry before setting head */
+	wmb();
 
 	temp_head->put_index = (temp_head->put_index + 1)
 					% temp_head->max_count;
@@ -196,6 +210,77 @@ int add_bdrv_nq_entry(unsigned long long cmd_ID, unsigned long long sub_cmd_ID,
 	teei_secure_call(N_ADD_TRIGGER_IRQ_COUNT, 0, 0, 0);
 
 	mutex_unlock(&(g_nq_stat.nt_t_mutex));
+
+	return 0;
+}
+
+int show_t_nt_queue(void)
+{
+	int next_index = 0;
+	struct NQ_entry *entry = NULL;
+	struct NQ_head *temp_head = NULL;
+	int i = 0;
+	int max_cnt = 0;
+	int put = 0;
+
+	next_index = g_nq_stat.get;
+	IMSG_PRINTK("---------- g_nq_stat.get = %d --------\n", next_index);
+
+	temp_head = (struct NQ_head *)t_nt_buffer;
+	max_cnt = temp_head->max_count;
+	IMSG_PRINTK("---------- t_nt_buffer max_cnt = %d --------\n", max_cnt);
+	put = temp_head->put_index;
+	IMSG_PRINTK("---------- t_nt_buffer put = %d --------\n", put);
+
+	for (i = 0; i < max_cnt; i++) {
+		entry = (struct NQ_entry *)(t_nt_buffer +
+				NQ_BLOCK_SIZE + i * NQ_BLOCK_SIZE);
+		IMSG_PRINTK("t_nt_buff[%d].cmd_ID = %llu\n",
+						i, entry->cmd_ID);
+		IMSG_PRINTK("t_nt_buff[%d].sub_cmd_ID = %llu\n",
+						i, entry->sub_cmd_ID);
+		IMSG_PRINTK("t_nt_buff[%d].block_p = %llx\n",
+						i, entry->block_p);
+		IMSG_PRINTK("t_nt_buff[%d].param[0] = %llx\n",
+						i, entry->param[0]);
+		IMSG_PRINTK("t_nt_buff[%d].param[1] = %llx\n",
+						i, entry->param[1]);
+		IMSG_PRINTK("t_nt_buff[%d].param[2] = %llx\n",
+						i, entry->param[2]);
+		IMSG_PRINTK("t_nt_buff[%d].param[3] = %llx\n",
+						i, entry->param[3]);
+		IMSG_PRINTK("t_nt_buff[%d].param[4] = %llx\n",
+						i, entry->param[4]);
+	}
+
+	IMSG_PRINTK("--------------------------------------------------\n");
+
+	temp_head = (struct NQ_head *)nt_t_buffer;
+	max_cnt = temp_head->max_count;
+	IMSG_PRINTK("--------- nt_t_buffer max_cnt = %d --------\n", max_cnt);
+	put = temp_head->put_index;
+	IMSG_PRINTK("--------- nt_t_buffer put = %d ------------\n", put);
+
+	for (i = 0; i < max_cnt; i++) {
+		entry = (struct NQ_entry *)(nt_t_buffer +
+					NQ_BLOCK_SIZE + i * NQ_BLOCK_SIZE);
+		IMSG_PRINTK("nt_t_buff[%d].cmd_ID = %llu\n",
+						i, entry->cmd_ID);
+		IMSG_PRINTK("nt_t_buff[%d].sub_cmd_ID = %llu\n",
+						i, entry->sub_cmd_ID);
+		IMSG_PRINTK("nt_t_buff[%d].block_p = %llx\n",
+						i, entry->block_p);
+		IMSG_PRINTK("nt_t_buff[%d].param[0] = %llx\n",
+						i, entry->param[0]);
+		IMSG_PRINTK("nt_t_buff[%d].param[1] = %llx\n",
+						i, entry->param[1]);
+		IMSG_PRINTK("nt_t_buff[%d].param[2] = %llx\n",
+						i, entry->param[2]);
+		IMSG_PRINTK("nt_t_buff[%d].param[3] = %llx\n",
+						i, entry->param[3]);
+		IMSG_PRINTK("nt_t_buff[%d].param[4] = %llx\n",
+						i, entry->param[4]);
+	}
 
 	return 0;
 }

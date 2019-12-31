@@ -44,5 +44,5 @@ struct NQ_entry *get_nq_entry(void);
 int create_nq_buffer(void);
 int set_soter_version(void);
 void secondary_init_cmdbuf(void *info);
-
+int show_t_nt_queue(void);
 #endif /* end of NOTIFY_QUEUE_H */

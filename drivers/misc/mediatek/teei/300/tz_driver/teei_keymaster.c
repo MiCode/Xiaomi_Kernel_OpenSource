@@ -31,7 +31,7 @@ int create_keymaster_fdrv(int buff_size)
 
 	keymaster_buff_addr = (unsigned long) vmalloc(buff_size);
 	if (keymaster_buff_addr == 0) {
-		IMSG_ERROR("kmalloc buffer failed");
+		IMSG_ERROR("vmalloc buffer failed");
 		return -ENOMEM;
 	}
 

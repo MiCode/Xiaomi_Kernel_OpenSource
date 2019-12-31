@@ -14,6 +14,7 @@
 
 #include <linux/kernel.h>
 #include <linux/types.h>
+#include <linux/slab.h>
 #include <linux/sched.h>
 #include <linux/io.h>
 #include <linux/delay.h>
@@ -32,9 +33,18 @@
 #include "sched_status.h"
 #include <teei_secure_api.h>
 #include <linux/sched/clock.h>
+#include <linux/vmalloc.h>
 
 #define IMSG_TAG "[tz_driver]"
 #include <imsg_log.h>
+
+struct comp_link_struct {
+	struct list_head c_link;
+	unsigned long long lock_p;
+	int pid;
+};
+
+DEFINE_MUTEX(g_comp_link_lock);
 
 static int teei_smc(void)
 {
@@ -66,16 +76,50 @@ int handle_notify_queue_call(void)
 	return teei_smc();
 }
 
+int add_comp_to_link(struct completion *comp, int pid)
+{
+	struct comp_link_struct *entry  = NULL;
+
+	list_for_each_entry(entry, &(g_block_link), c_link) {
+		if (entry->pid == pid) {
+			entry->lock_p = (unsigned long long)comp;
+			return 0;
+		}
+	}
+
+	entry = vmalloc(sizeof(struct comp_link_struct));
+	if (entry == NULL) {
+		IMSG_ERROR("TEEI: NO memory for struct comp_link_struct!\n");
+		return -ENOMEM;
+	}
+
+	memset(entry, 0, sizeof(struct comp_link_struct));
+
+	entry->pid = pid;
+	entry->lock_p = (unsigned long long)comp;
+
+	INIT_LIST_HEAD(&(entry->c_link));
+
+	list_add(&(entry->c_link), &(g_block_link));
+
+	return 0;
+}
+
 int teei_forward_call(unsigned long long cmd, unsigned long long cmd_addr,
 			unsigned long long size)
 {
 	struct completion wait_completion;
 	int retVal = 0;
-	u64 cost;
 
 	KATRACE_BEGIN("teei_forward_call");
 
 	init_completion(&wait_completion);
+
+#ifdef TEEI_MUTIL_TA_DEBUG
+	mutex_lock(&g_comp_link_lock);
+	retVal = add_comp_to_link(&wait_completion, current->pid);
+	mutex_unlock(&g_comp_link_lock);
+#endif
 
 	retVal = add_nq_entry(NEW_CAPI_CALL, cmd,
 				(unsigned long long)(&wait_completion),

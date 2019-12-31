@@ -23,6 +23,7 @@
 #include <linux/cpu.h>
 #include <linux/notifier.h>
 #include <linux/slab.h>
+#include <linux/vmalloc.h>
 
 #include "teei_id.h"
 #include <teei_secure_api.h>
@@ -46,6 +47,12 @@ struct work_entry {
 struct load_soter_entry {
 	unsigned long vfs_addr;
 	struct work_struct work;
+};
+
+struct comp_link_struct {
+	struct list_head c_link;
+	unsigned long long lock_p;
+	int pid;
 };
 
 static struct load_soter_entry load_ent;
@@ -138,6 +145,7 @@ void bdrv_work_func(struct work_struct *entry)
 	else if (NQ_entry_p->sub_cmd_ID == vfs_handler.sysno)
 		vfs_handler.handle(NQ_entry_p);
 
+	kfree(NQ_entry_p);
 	kfree(md);
 }
 
@@ -145,6 +153,7 @@ void bdrv_work_func(struct work_struct *entry)
 void teei_handle_bdrv_call(struct NQ_entry *entry)
 {
 	struct work_entry *work_ent = NULL;
+	struct NQ_entry *bdrv_ent = NULL;
 
 	work_ent = kmalloc(sizeof(struct work_entry), GFP_KERNEL);
 	if (work_ent == NULL) {
@@ -152,7 +161,17 @@ void teei_handle_bdrv_call(struct NQ_entry *entry)
 		return;
 	}
 
-	work_ent->param_p = entry;
+	bdrv_ent = kmalloc(sizeof(struct NQ_entry), GFP_KERNEL);
+	if (bdrv_ent == NULL) {
+		IMSG_ERROR("NO enough memory for bdrv in %s!\n", __func__);
+		kfree(work_ent);
+		return;
+	}
+
+	memcpy(bdrv_ent, entry, sizeof(struct NQ_entry));
+
+	work_ent->param_p = bdrv_ent;
+
 	INIT_WORK(&(work_ent->work), bdrv_work_func);
 	queue_work(secure_wq, &(work_ent->work));
 
@@ -208,6 +227,32 @@ void teei_handle_capi_call(struct NQ_entry *entry)
 {
 	struct completion *bp = NULL;
 
+#ifdef TEEI_MUTIL_TA_DEBUG
+	struct comp_link_struct *link_ent  = NULL;
+	int block_got_flag = 0;
+
+	list_for_each_entry(link_ent, &(g_block_link), c_link) {
+		if (link_ent->lock_p == entry->block_p) {
+			block_got_flag = 1;
+			link_ent->lock_p = 0;
+			break;
+		}
+	}
+
+	if (block_got_flag == 0) {
+		IMSG_PRINTK("TEEI NOT FOUND the block_p %llu\n",
+							entry->block_p);
+		IMSG_PRINTK("TEEI Show the lock point link list\n");
+
+		list_for_each_entry(link_ent, &(g_block_link), c_link) {
+			IMSG_PRINTK("link entry pid = [%d] lock_p = [%llu]\n",
+				link_ent->pid, link_ent->lock_p);
+		}
+
+		show_t_nt_queue();
+	}
+#endif
+
 	bp = (struct completion *)(entry->block_p);
 	if (bp == NULL) {
 		IMSG_ERROR("The block_p of entry is NULL!\n");
@@ -244,7 +289,6 @@ static irqreturn_t nt_switch_irq_handler(void)
 		case TEEI_LOAD_TEE:
 			up(&boot_sema);
 			break;
-
 		case TEEI_FDRV_CALL:
 			teei_handle_fdrv_call(entry);
 			break;
