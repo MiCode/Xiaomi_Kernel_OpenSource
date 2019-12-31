@@ -182,10 +182,10 @@
  * macros to work correctly.
  */
 #ifndef SYSCALL_DEFINE0
-#define SYSCALL_DEFINE0(sname)					\
-	SYSCALL_METADATA(_##sname, 0);				\
+#define SYSCALL_DEFINE0(sname)						\
+	SYSCALL_METADATA(_##sname, 0);					\
 	asmlinkage long __x64_sys_##sname(const struct pt_regs *__unused);\
-	ALLOW_ERROR_INJECTION(__x64_sys_##sname, ERRNO);	\
+	ALLOW_ERROR_INJECTION(__x64_sys_##sname, ERRNO);		\
 	asmlinkage long __x64_sys_##sname(const struct pt_regs *__unused)
 #endif
 
