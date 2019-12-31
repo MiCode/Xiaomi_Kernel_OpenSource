@@ -61,6 +61,10 @@ struct charger_consumer {
 extern struct charger_consumer *charger_manager_get_by_name(
 	struct device *dev,
 	const char *supply_name);
+extern int charger_manager_get_input_current_limit(
+	struct charger_consumer *consumer,
+	int idx,
+	int *input_current_uA);
 extern int charger_manager_set_input_current_limit(
 	struct charger_consumer *consumer,
 	int idx,

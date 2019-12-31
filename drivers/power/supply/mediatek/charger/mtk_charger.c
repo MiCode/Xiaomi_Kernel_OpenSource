@@ -387,6 +387,28 @@ int charger_manager_enable_charging(struct charger_consumer *consumer,
 	return ret;
 }
 
+int charger_manager_get_input_current_limit(struct charger_consumer *consumer,
+	int idx, int *input_current)
+{
+	struct charger_manager *info = consumer->cm;
+
+	if (info != NULL) {
+		struct charger_data *pdata;
+
+		if (idx == MAIN_CHARGER)
+			pdata = &info->chg1_data;
+		else if (idx == SLAVE_CHARGER)
+			pdata = &info->chg2_data;
+		else
+			return -ENOTSUPP;
+
+		charger_dev_get_input_current(info->chg1_dev, input_current);
+		return 0;
+	}
+
+	return -EBUSY;
+}
+
 int charger_manager_set_input_current_limit(struct charger_consumer *consumer,
 	int idx, int input_current)
 {
