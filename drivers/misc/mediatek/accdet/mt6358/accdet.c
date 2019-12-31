@@ -187,6 +187,7 @@ static int accdet_auxadc_offset;
 
 static u32 accdet_eint_type = IRQ_TYPE_LEVEL_LOW;
 static u32 button_press_debounce = 0x400;
+static u32 button_press_debounce_01 = 0x800;
 static atomic_t accdet_first;
 #ifdef HW_MODE_SUPPORT
 #ifdef DIGITAL_FASTDISCHARGE_SUPPORT
@@ -1334,6 +1335,11 @@ static inline void check_cable_type(void)
 			 */
 			accdet_set_debounce(accdet_state000,
 				button_press_debounce);
+			/* adjust debounce1 to original 0x800(64ms),
+			 * to fix miss key issue when fast press double key.
+			 */
+			accdet_set_debounce(accdet_state010,
+					button_press_debounce_01);
 		} else if (cur_AB == ACCDET_STATE_AB_11) {
 			pr_info("accdet PLUG_OUT state not change!\n");
 #ifdef CONFIG_ACCDET_EINT_IRQ
@@ -1400,6 +1406,13 @@ static inline void check_cable_type(void)
 			} else
 				pr_info("accdet headset has been plug-out\n");
 			mutex_unlock(&accdet_eint_irq_sync_mutex);
+			/* adjust debounce1 to original 0x800(64ms),
+			 * to fix miss key issue when fast press double key.
+			 */
+			accdet_set_debounce(accdet_state000,
+				button_press_debounce);
+			accdet_set_debounce(accdet_state010,
+					button_press_debounce_01);
 		} else if (cur_AB == ACCDET_STATE_AB_11) {
 			pr_info("accdet Don't send plugout in HOOK_SWITCH\n");
 			mutex_lock(&accdet_eint_irq_sync_mutex);
