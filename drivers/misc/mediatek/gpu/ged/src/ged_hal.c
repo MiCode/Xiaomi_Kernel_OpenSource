@@ -390,6 +390,13 @@ static ssize_t ged_vsync_offset_enable_write_entry(const char __user *pszBuffer,
 	} else if (strcmp(pcCMD, "low_latency_mode") == 0) {
 		ged_dvfs_vsync_offset_event_switch
 		(GED_DVFS_VSYNC_OFFSET_LOW_LATENCY_MODE_EVENT, !!value);
+	} else if (strcmp(pcCMD, "video-merge-md") == 0) {
+		if (value == 1)
+			ged_dvfs_vsync_offset_event_switch
+			(GED_DVFS_VSYNC_OFFSET_FORCE_OFF, true);
+		else if (value == 0)
+			ged_dvfs_vsync_offset_event_switch
+			(GED_DVFS_VSYNC_OFFSET_DEBUG_CLEAR_EVENT, true);
 	} else
 		GED_LOGE("unknown command:%s %c", pcCMD, *pcValue);
 
