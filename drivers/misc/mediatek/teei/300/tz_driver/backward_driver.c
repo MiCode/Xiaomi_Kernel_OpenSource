@@ -29,6 +29,7 @@
 #include "teei_client_main.h"
 #include <linux/time.h>
 #include <teei_secure_api.h>
+#include <notify_queue.h>
 
 #define IMSG_TAG "[tz_driver]"
 #include <imsg_log.h>
@@ -46,64 +47,11 @@ static long register_shared_param_buf(struct service_handler *handler);
 unsigned char *daulOS_VFS_share_mem;
 unsigned char *vfs_flush_address;
 struct service_handler reetime;
-
-void set_ack_vdrv_cmd(unsigned int sys_num)
-{
-	if (boot_soter_flag == START_STATUS) {
-		struct message_head msg_head;
-		struct ack_vdrv_struct ack_body;
-
-		memset(&msg_head, 0, sizeof(struct message_head));
-
-		msg_head.invalid_flag = VALID_TYPE;
-		msg_head.message_type = STANDARD_CALL_TYPE;
-		msg_head.child_type = N_ACK_T_INVOKE_DRV_CMD;
-		msg_head.param_length = sizeof(struct ack_vdrv_struct);
-
-		ack_body.sysno = sys_num;
-
-		memcpy((void *)message_buff, (void *)(&msg_head),
-					sizeof(struct message_head));
-		memcpy((void *)(message_buff + sizeof(struct message_head)),
-			(void *)(&ack_body), sizeof(struct ack_vdrv_struct));
-
-		Flush_Dcache_By_Area((unsigned long)message_buff,
-				(unsigned long)message_buff + MESSAGE_SIZE);
-	} else {
-		*((int *)bdrv_message_buff) = sys_num;
-		Flush_Dcache_By_Area((unsigned long)bdrv_message_buff,
-			(unsigned long)bdrv_message_buff + MESSAGE_SIZE);
-	}
-}
-
-void secondary_invoke_fastcall(void *info)
-{
-	unsigned long smc_type = 2;
-
-	smc_type = teei_secure_call(N_INVOKE_T_FAST_CALL, 0, 0, 0);
-	while (smc_type == SMC_CALL_INTERRUPTED_IRQ)
-		smc_type = teei_secure_call(NT_SCHED_T, 0, 0, 0);
-}
-
-void invoke_fastcall(void)
-{
-	forward_call_flag = GLSCH_LOW;
-	add_work_entry(INVOKE_FASTCALL, 0);
-}
+struct service_handler vfs_handler;
 
 static long register_shared_param_buf(struct service_handler *handler)
 {
-
 	long retVal = 0;
-	struct message_head msg_head;
-	struct create_vdrv_struct msg_body;
-	struct ack_fast_call_struct msg_ack;
-
-	if ((unsigned char *)message_buff == NULL) {
-		IMSG_ERROR("[%s][%d]: There is NO command buffer!.\n",
-					__func__, __LINE__);
-		return -EINVAL;
-	}
 
 	if (handler->size > VDRV_MAX_SIZE) {
 		IMSG_ERROR("[%s][%d]: The vDrv buffer is too large.\n",
@@ -124,53 +72,28 @@ static long register_shared_param_buf(struct service_handler *handler)
 		return -ENOMEM;
 	}
 
-	memset((void *)(&msg_head), 0, sizeof(struct message_head));
-	memset((void *)(&msg_body), 0, sizeof(struct create_vdrv_struct));
-	memset((void *)(&msg_ack), 0, sizeof(struct ack_fast_call_struct));
+	retVal = add_nq_entry(TEEI_CREAT_BDRV, handler->sysno,
+				(unsigned long long)(&boot_sema),
+				virt_to_phys((void *)(handler->param_buf)),
+				handler->size, 0);
 
-	msg_head.invalid_flag = VALID_TYPE;
-	msg_head.message_type = FAST_CALL_TYPE;
-	msg_head.child_type = FAST_CREAT_VDRV;
-	msg_head.param_length = sizeof(struct create_vdrv_struct);
-	msg_body.vdrv_type = handler->sysno;
-	msg_body.vdrv_phy_addr = virt_to_phys(handler->param_buf);
-	msg_body.vdrv_size = handler->size;
+	if (retVal != 0) {
+		IMSG_ERROR("TEEI: Failed to add one nq to n_t_buffer\n");
+		goto free_memory;
+	}
 
-	/* Notify the T_OS that there is ctl_buffer to be created. */
-	memcpy((void *)message_buff, (void *)(&msg_head),
-				sizeof(struct message_head));
 
-	memcpy((void *)(message_buff + sizeof(struct message_head)),
-		(void *)(&msg_body), sizeof(struct create_vdrv_struct));
+	retVal = add_work_entry(INVOKE_NQ_CALL, 0);
+	if (retVal != 0) {
+		IMSG_ERROR("TEEI: Failed to add_work_entry[%s]\n", __func__);
+		goto free_memory;
+	}
 
-	Flush_Dcache_By_Area((unsigned long)message_buff,
-				(unsigned long)message_buff + MESSAGE_SIZE);
+	down(&boot_sema);
 
-	down(&(smc_lock));
+	return 0;
 
-	invoke_fastcall();
-
-	down(&(boot_sema));
-
-	Invalidate_Dcache_By_Area((unsigned long)message_buff,
-				(unsigned long)message_buff + MESSAGE_SIZE);
-
-	memcpy((void *)(&msg_head), (void *)message_buff,
-					sizeof(struct message_head));
-	memcpy((void *)(&msg_ack),
-			(void *)(message_buff + sizeof(struct message_head)),
-			sizeof(struct ack_fast_call_struct));
-
-	/* Check the response from T_OS. */
-	if ((msg_head.message_type == FAST_CALL_TYPE)
-			&& (msg_head.child_type == FAST_ACK_CREAT_VDRV)) {
-		retVal = msg_ack.retVal;
-
-		if (retVal == 0)
-			return retVal;
-	} else
-		retVal = -EAGAIN;
-
+free_memory:
 	/* Release the resource and return. */
 	free_pages((unsigned long)(handler->param_buf),
 				get_order(ROUND_UP(handler->size, SZ_4K)));
@@ -182,100 +105,76 @@ static long register_shared_param_buf(struct service_handler *handler)
 /******************************TIME**************************************/
 static long reetime_init(struct service_handler *handler)
 {
-	return register_shared_param_buf(handler);
+	return 0;
 }
 
 static void reetime_deinit(struct service_handler *handler)
 {
 }
 
-int __reetime_handle(struct service_handler *handler)
+static int reetime_handle(struct NQ_entry *entry)
 {
+	struct timespec tp;
 	struct timeval tv;
-	void *ptr = NULL;
 	int tv_sec;
 	int tv_usec;
-	unsigned long smc_type = 2;
-	struct timespec tp;
-	int time_type = 0;
+	unsigned long long block_p = 0;
+	unsigned long long time_type = 0;
+	int retVal = 0;
 
-	ptr = handler->param_buf;
-	Invalidate_Dcache_By_Area((unsigned long)ptr, ptr + 4);
-	time_type = *((int *)ptr);
+	time_type = entry->param[0];
+	block_p = entry->block_p;
+
 	if (time_type == GET_UPTIME) {
 		get_monotonic_boottime(&tp);
 		tv_sec = tp.tv_sec;
-		*((int *)ptr) = tv_sec;
 		tv_usec = tp.tv_nsec/1000;
-		*((int *)ptr + 1) = tv_usec;
-	} else if (time_type == GET_SYSTIME) {
+	} else {
 		do_gettimeofday(&tv);
 		tv_sec = tv.tv_sec;
-		*((int *)ptr) = tv_sec;
 		tv_usec = tv.tv_usec;
-		*((int *)ptr + 1) = tv_usec;
 	}
 
+	retVal = add_bdrv_nq_entry(TEEI_BDRV_CALL, reetime.sysno,
+				block_p, time_type,
+				tv_sec, tv_usec);
+	if (retVal != 0)
+		IMSG_ERROR("TEEI: Failed to add_nq_entry[%s]\n", __func__);
 
-	Flush_Dcache_By_Area((unsigned long)handler->param_buf,
-			(unsigned long)handler->param_buf + handler->size);
+	retVal = add_work_entry(INVOKE_NQ_CALL, 0);
+	if (retVal != 0)
+		IMSG_ERROR("TEEI: Failed to add_work_entry[%s]\n", __func__);
 
-	set_ack_vdrv_cmd(handler->sysno);
-
-	smc_type = teei_secure_call(N_ACK_T_INVOKE_DRV, 0, 0, 0);
-	while (smc_type == SMC_CALL_INTERRUPTED_IRQ)
-		smc_type = teei_secure_call(NT_SCHED_T, 0, 0, 0);
-
-	return 0;
-}
-
-static int reetime_handle(struct service_handler *handler)
-{
-	int retVal = 0;
-	struct bdrv_call_struct *reetime_bdrv_ent = NULL;
-
-	down(&smc_lock);
-
-	reetime_bdrv_ent = kmalloc(sizeof(struct bdrv_call_struct), GFP_KERNEL);
-	reetime_bdrv_ent->handler = handler;
-	reetime_bdrv_ent->bdrv_call_type = REETIME_SYS_NO;
-
-	/* with a wmb() */
-	wmb();
-
-	retVal = add_work_entry(BDRV_CALL, (unsigned long)reetime_bdrv_ent);
-	if (retVal != 0) {
-		up(&smc_lock);
-		return retVal;
-	}
-
-	/* with a rmb() */
-	rmb();
-
-	return 0;
+	return retVal;
 }
 
 /********************************************************************
  *                      VFS functions                               *
  ********************************************************************/
-struct service_handler vfs_handler;
-static unsigned long para_vaddr;
-static unsigned long buff_vaddr;
+
 
 
 int vfs_thread_function(unsigned long virt_addr,
 			unsigned long para_vaddr, unsigned long buff_vaddr)
 {
-	Invalidate_Dcache_By_Area((unsigned long)virt_addr,
-					virt_addr + VFS_SIZE);
+	int retVal = 0;
+
 	daulOS_VFS_share_mem = (unsigned char *)virt_addr;
-#ifdef VFS_RDWR_SEM
-	up(&VFS_rd_sem);
-	down_interruptible(&VFS_wr_sem);
-#else
-	complete(&VFS_rd_comp);
-	wait_for_completion_interruptible(&VFS_wr_comp);
-#endif
+
+	retVal = notify_vfs_handle();
+	if (retVal != 0) {
+		IMSG_ERROR("[%s][%d] Can NOT notify the tz_vfs node!\n",
+					__func__, __LINE__);
+		return retVal;
+	}
+
+	retVal = wait_for_vfs_done();
+	if (retVal != 0) {
+		IMSG_ERROR("[%s][%d] Failed to waiting for the tz_vfs node!\n",
+					__func__, __LINE__);
+		return retVal;
+	}
+
 	return 0;
 }
 
@@ -293,53 +192,28 @@ static void vfs_deinit(struct service_handler *handler) /*! stop service  */
 {
 }
 
-int __vfs_handle(struct service_handler *handler) /*! invoke handler */
+static int vfs_handle(struct NQ_entry *entry)
 {
-	unsigned long smc_type = 2;
-
-	Flush_Dcache_By_Area((unsigned long)handler->param_buf,
-			(unsigned long)handler->param_buf + handler->size);
-
-	set_ack_vdrv_cmd(handler->sysno);
-
-	smc_type = teei_secure_call(N_ACK_T_INVOKE_DRV, 0, 0, 0);
-	while (smc_type == SMC_CALL_INTERRUPTED_IRQ)
-		smc_type = teei_secure_call(NT_SCHED_T, 0, 0, 0);
-
-	return 0;
-}
-
-static int vfs_handle(struct service_handler *handler)
-{
+	unsigned long long block_p = 0;
 	int retVal = 0;
 
-	struct bdrv_call_struct *vfs_bdrv_ent = NULL;
+	block_p = entry->block_p;
 
-	vfs_thread_function((unsigned long)(handler->param_buf),
-						para_vaddr, buff_vaddr);
+	vfs_thread_function((unsigned long)(vfs_handler.param_buf), 0, 0);
 
-	down(&smc_lock);
-	vfs_bdrv_ent = kmalloc(sizeof(struct bdrv_call_struct), GFP_KERNEL);
-	vfs_bdrv_ent->handler = handler;
-	vfs_bdrv_ent->bdrv_call_type = VFS_SYS_NO;
+	retVal = add_bdrv_nq_entry(TEEI_BDRV_CALL, vfs_handler.sysno,
+						block_p, 0, 0, 0);
+	if (retVal != 0)
+		IMSG_ERROR("TEEI: Failed to add_nq_entry[%s]\n", __func__);
 
-	/* with a wmb() */
-	wmb();
+	retVal = add_work_entry(INVOKE_NQ_CALL, 0);
+	if (retVal != 0)
+		IMSG_ERROR("TEEI: Failed to add_work_entry[%s]\n", __func__);
 
-	Flush_Dcache_By_Area((unsigned long)vfs_bdrv_ent,
-		(unsigned long)vfs_bdrv_ent + sizeof(struct bdrv_call_struct));
-	retVal = add_work_entry(BDRV_CALL, (unsigned long)vfs_bdrv_ent);
-	if (retVal != 0) {
-		up(&smc_lock);
-		return retVal;
-	}
-	/* with a rmb() */
-	rmb();
-
-	return 0;
+	return retVal;
 }
 
-long init_all_service_handlers(void)
+int init_all_service_handlers(void)
 {
 	long retVal = 0;
 

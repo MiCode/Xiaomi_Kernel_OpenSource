@@ -29,7 +29,6 @@ enum {
 extern struct semaphore keymaster_api_lock;
 
 int teei_forward_call(u32 cmd, unsigned long cmd_addr, int size);
-int teei_forward_call_without_lock(u32 cmd, unsigned long cmd_addr, int size);
 
 static inline int soter_do_call_with_arg(struct tee_context *ctx,
 					phys_addr_t parg)
@@ -46,8 +45,7 @@ static inline int soter_do_call_with_arg(struct tee_context *ctx,
 
 static inline int soter_register_shm_pool(phys_addr_t shm_pa, int shm_size)
 {
-	return teei_forward_call_without_lock(NQ_CMD_REGISTER_SHM_POOL,
-				shm_pa, shm_size);
+	return teei_forward_call(NQ_CMD_REGISTER_SHM_POOL, shm_pa, shm_size);
 }
 
 #endif

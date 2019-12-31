@@ -24,12 +24,25 @@
 #include "teei_common.h"
 #include "teei_client_main.h"
 #include "backward_driver.h"
+#include <switch_queue.h>
+#include <teei_secure_api.h>
+#include <nt_smc_call.h>
 
 #define IMSG_TAG "[tz_driver]"
 #include <imsg_log.h>
 
+struct teei_queue_stat {
+	struct mutex nq_stat_mutex;
+	unsigned long long get;
+	struct mutex nt_t_mutex;
+	struct mutex nt_t_bdrv_mutex;
+};
+
+static struct teei_queue_stat g_nq_stat;
+
 static unsigned long nt_t_buffer;
-unsigned long t_nt_buffer;
+static unsigned long t_nt_buffer;
+static unsigned long nt_t_bdrv_buffer;
 
 /***********************************************************************
  *
@@ -45,218 +58,231 @@ unsigned long t_nt_buffer;
  *   EAGAIN  The command ID in the response is NOT accordant to the request.
  *
  ***********************************************************************/
+struct teei_queue_param {
+	unsigned long long phys_addr;
+	unsigned long long size;
+};
 
-static long create_notify_queue(unsigned long msg_buff, unsigned long size)
+void secondary_init_cmdbuf(void *info)
 {
-	long retVal = 0;
-	struct message_head msg_head;
-	struct create_NQ_struct msg_body;
-	struct ack_fast_call_struct msg_ack;
+	struct teei_queue_param *cd = (struct teei_queue_param *)info;
+	unsigned long smc_type = 2;
 
-	/* Check the argument */
-	if (size > MAX_BUFF_SIZE) {
-		IMSG_ERROR("[%s][%d]: The NQ buffer size is too large.\n",
-			__FILE__, __LINE__);
-		retVal = -EINVAL;
-		goto return_fn;
-	}
+	smc_type = teei_secure_call(N_INIT_T_FC_BUF,
+				cd->phys_addr, cd->size, 0);
+	while (smc_type == SMC_CALL_INTERRUPTED_IRQ)
+		smc_type = teei_secure_call(NT_SCHED_T, 0, 0, 0);
+
+}
+
+
+static unsigned long create_notify_queue(unsigned long size)
+{
+	struct teei_queue_param nq_param;
+	unsigned long buff_addr = 0;
+	long retVal = 0;
 
 	/* Create the double NQ buffer. */
 #ifdef UT_DMA_ZONE
-	nt_t_buffer = (unsigned long) __get_free_pages(GFP_KERNEL | GFP_DMA,
+	buff_addr = (unsigned long) __get_free_pages(GFP_KERNEL | GFP_DMA,
 					get_order(ROUND_UP(size, SZ_4K)));
 #else
-	nt_t_buffer = (unsigned long) __get_free_pages(GFP_KERNEL,
+	buff_addr = (unsigned long) __get_free_pages(GFP_KERNEL,
 					get_order(ROUND_UP(size, SZ_4K)));
 #endif
-	if ((unsigned char *)nt_t_buffer == NULL) {
-		IMSG_ERROR("[%s][%d]: kmalloc nt_t_buffer failed.\n",
+	if ((unsigned char *)buff_addr == NULL) {
+		IMSG_ERROR("[%s][%d]: kmalloc queue buffer failed.\n",
 					__func__, __LINE__);
 		retVal =  -ENOMEM;
 		goto return_fn;
 	}
 
-#ifdef UT_DMA_ZONE
-	t_nt_buffer = (unsigned long) __get_free_pages(GFP_KERNEL | GFP_DMA,
-					get_order(ROUND_UP(size, SZ_4K)));
-#else
-	t_nt_buffer = (unsigned long) __get_free_pages(GFP_KERNEL,
-					get_order(ROUND_UP(size, SZ_4K)));
-#endif
-
-	if ((unsigned char *)t_nt_buffer == NULL) {
-		IMSG_ERROR("[%s][%d]: kmalloc t_nt_buffer failed.\n",
-					__func__, __LINE__);
-		retVal =  -ENOMEM;
-		goto Destroy_nt_t_buffer;
-	}
-
-	memset((void *)(&msg_head), 0, sizeof(struct message_head));
-	memset((void *)(&msg_body), 0, sizeof(struct create_NQ_struct));
-	memset((void *)(&msg_ack), 0, sizeof(struct ack_fast_call_struct));
-
-	msg_head.invalid_flag = VALID_TYPE;
-	msg_head.message_type = FAST_CALL_TYPE;
-	msg_head.child_type = FAST_CREAT_NQ;
-	msg_head.param_length = sizeof(struct create_NQ_struct);
-
-	msg_body.n_t_nq_phy_addr = virt_to_phys((void *)nt_t_buffer);
-	msg_body.n_t_size = size;
-	msg_body.t_n_nq_phy_addr = virt_to_phys((void *)t_nt_buffer);
-	msg_body.t_n_size = size;
-
-	/* Notify the T_OS that there are two QN to be created. */
-	memcpy((void *)msg_buff, (void *)(&msg_head),
-					sizeof(struct message_head));
-
-	memcpy((void *)(msg_buff + sizeof(struct message_head)),
-			(void *)(&msg_body), sizeof(struct create_NQ_struct));
-
-	Flush_Dcache_By_Area((unsigned long)msg_buff,
-				(unsigned long)msg_buff + MESSAGE_SIZE);
-
-	down(&(smc_lock));
+	nq_param.phys_addr = virt_to_phys((void *)buff_addr);
+	nq_param.size = size;
 
 	/* Call the smc_fast_call */
-	invoke_fastcall();
+	retVal = add_work_entry(INIT_CMD_CALL, (unsigned long)&nq_param);
+	if (retVal != 0) {
+		IMSG_ERROR("[%s][%d] Failed to call the add_work_entry!\n",
+				__func__, __LINE__);
+		goto Destroy_buffer;
+
+	}
 
 	down(&(boot_sema));
 
-	Invalidate_Dcache_By_Area((unsigned long)msg_buff,
-				(unsigned long)msg_buff + MESSAGE_SIZE);
+	return buff_addr;
 
-	memcpy((void *)(&msg_head), (void *)msg_buff,
-					sizeof(struct message_head));
-
-	memcpy((void *)(&msg_ack),
-			(void *)(msg_buff + sizeof(struct message_head)),
-			sizeof(struct ack_fast_call_struct));
-
-	/* Check the response from T_OS. */
-	if ((msg_head.message_type == FAST_CALL_TYPE)
-			&& (msg_head.child_type == FAST_ACK_CREAT_NQ)) {
-		retVal = msg_ack.retVal;
-
-		if (retVal == 0)
-			goto return_fn;
-		else
-			goto Destroy_t_nt_buffer;
-	} else
-		retVal = -EAGAIN;
-
-/* Release the resource and return. */
-Destroy_t_nt_buffer:
-	free_pages(t_nt_buffer, get_order(ROUND_UP(size, SZ_4K)));
-Destroy_nt_t_buffer:
-	free_pages(nt_t_buffer, get_order(ROUND_UP(size, SZ_4K)));
+Destroy_buffer:
+	free_pages(buff_addr, get_order(ROUND_UP(size, SZ_4K)));
 return_fn:
-	return retVal;
+	return 0;
 }
 
-void NQ_init(unsigned long NQ_buff)
+static void NQ_init(unsigned long NQ_buff)
 {
 	memset((char *)NQ_buff, 0, NQ_BUFF_SIZE);
 }
 
-long init_nq_head(unsigned long buffer_addr)
+static int init_nq_head(unsigned long buffer_addr, unsigned int type)
 {
 	struct NQ_head *temp_head = NULL;
 
 	temp_head = (struct NQ_head *)buffer_addr;
+
 	memset(temp_head, 0, NQ_BLOCK_SIZE);
-	temp_head->start_index = 0;
-	temp_head->end_index = 0;
-	temp_head->Max_count = BLOCK_MAX_COUNT;
-	Flush_Dcache_By_Area((unsigned long)temp_head,
-			(unsigned long)temp_head + NQ_BLOCK_SIZE);
+	temp_head->nq_type = type;
+	temp_head->max_count = BLOCK_MAX_COUNT;
+	temp_head->put_index = 0;
+
 	return 0;
 }
 
-static __always_inline unsigned int get_end_index(struct NQ_head *nq_head)
-{
-	if (nq_head->end_index == BLOCK_MAX_COUNT)
-		return 1;
-	else
-		return nq_head->end_index + 1;
-
-}
-
-
-int add_nq_entry(u32 cmd, unsigned long command_buff,
-			int command_length, int valid_flag)
+int add_nq_entry(unsigned long long cmd_ID, unsigned long long sub_cmd_ID,
+			unsigned long long block_p, unsigned long long p0,
+			unsigned long long p1, unsigned long long p2)
 {
 	struct NQ_head *temp_head = NULL;
 	struct NQ_entry *temp_entry = NULL;
 
-	Invalidate_Dcache_By_Area((unsigned long)nt_t_buffer,
-				(unsigned long)(nt_t_buffer + NQ_BUFF_SIZE));
+	mutex_lock(&(g_nq_stat.nt_t_mutex));
 
 	temp_head = (struct NQ_head *)nt_t_buffer;
-	if (temp_head->start_index ==
-			((temp_head->end_index + 1) % temp_head->Max_count))
-		return -ENOMEM;
-
 	temp_entry = (struct NQ_entry *)(nt_t_buffer + NQ_BLOCK_SIZE
-				+ temp_head->end_index * NQ_BLOCK_SIZE);
+				+ temp_head->put_index * NQ_BLOCK_SIZE);
 
-	temp_entry->valid_flag = valid_flag;
-	temp_entry->length = command_length;
-	temp_entry->buffer_addr = command_buff;
-	temp_entry->cmd = cmd;
-	temp_head->end_index = (temp_head->end_index + 1)
-					% temp_head->Max_count;
+	temp_entry->cmd_ID = cmd_ID;
+	temp_entry->sub_cmd_ID = sub_cmd_ID;
+	temp_entry->block_p = block_p;
+	temp_entry->param[0] = p0;
+	temp_entry->param[1] = p1;
+	temp_entry->param[2] = p2;
 
-	Flush_Dcache_By_Area((unsigned long)nt_t_buffer,
-				(unsigned long)(nt_t_buffer + NQ_BUFF_SIZE));
+
+	temp_head->put_index = (temp_head->put_index + 1)
+					% temp_head->max_count;
+
+	teei_secure_call(N_ADD_TRIGGER_IRQ_COUNT, 0, 0, 0);
+
+	mutex_unlock(&(g_nq_stat.nt_t_mutex));
+
 	return 0;
 }
 
-
-unsigned char *get_nq_entry(unsigned char *buffer_addr)
+int add_bdrv_nq_entry(unsigned long long cmd_ID, unsigned long long sub_cmd_ID,
+			unsigned long long block_p, unsigned long long p0,
+			unsigned long long p1, unsigned long long p2)
 {
 	struct NQ_head *temp_head = NULL;
 	struct NQ_entry *temp_entry = NULL;
 
-	Invalidate_Dcache_By_Area((unsigned long)buffer_addr,
-				(unsigned long)buffer_addr + NQ_BUFF_SIZE);
+	mutex_lock(&(g_nq_stat.nt_t_mutex));
 
-	temp_head = (struct NQ_head *)buffer_addr;
+	temp_head = (struct NQ_head *)nt_t_bdrv_buffer;
+	temp_entry = (struct NQ_entry *)(nt_t_bdrv_buffer + NQ_BLOCK_SIZE
+				+ temp_head->put_index * NQ_BLOCK_SIZE);
 
-	if (temp_head->start_index == temp_head->end_index) {
-		IMSG_DEBUG("[cache] start_index = %d  end_index = %d\n ",
-			temp_head->start_index,  temp_head->end_index);
-		return NULL;
-	}
+	temp_entry->cmd_ID = cmd_ID;
+	temp_entry->sub_cmd_ID = sub_cmd_ID;
+	temp_entry->block_p = block_p;
+	temp_entry->param[0] = p0;
+	temp_entry->param[1] = p1;
+	temp_entry->param[2] = p2;
 
-	temp_entry = (struct NQ_entry *)(buffer_addr + NQ_BLOCK_SIZE
-				+ temp_head->start_index * NQ_BLOCK_SIZE);
 
-	temp_head->start_index = (temp_head->start_index + 1)
-				% temp_head->Max_count;
+	temp_head->put_index = (temp_head->put_index + 1)
+					% temp_head->max_count;
 
-	Flush_Dcache_By_Area((unsigned long)buffer_addr,
-				(unsigned long)temp_head + NQ_BUFF_SIZE);
+	teei_secure_call(N_ADD_TRIGGER_IRQ_COUNT, 0, 0, 0);
 
-	return (unsigned char *)temp_entry;
+	mutex_unlock(&(g_nq_stat.nt_t_mutex));
+
+	return 0;
 }
 
-long create_nq_buffer(void)
+struct NQ_entry *get_nq_entry(void)
 {
-	long retVal = 0;
+	struct NQ_head *temp_head = NULL;
+	struct NQ_entry *temp_entry = NULL;
+	unsigned long long put = 0;
+	unsigned long long get = 0;
 
-	retVal = create_notify_queue(message_buff, NQ_SIZE);
+	temp_head = (struct NQ_head *)t_nt_buffer;
 
-	if (retVal < 0) {
-		IMSG_ERROR("[%s][%d]:create_notify_queue failed (%ld).\n",
-						__func__, __LINE__, retVal);
-		return -EINVAL;
+	put = temp_head->put_index;
+
+	/* mutex_lock(&(g_nq_stat.nq_stat_mutex)); */
+
+	get = g_nq_stat.get;
+
+	if (put != get) {
+		temp_entry = (struct NQ_entry *)(t_nt_buffer + NQ_BLOCK_SIZE
+				+ get * NQ_BLOCK_SIZE);
+
+		get = (get + 1)	% temp_head->max_count;
+
+		g_nq_stat.get = get;
 	}
 
-	NQ_init(t_nt_buffer);
-	NQ_init(nt_t_buffer);
+	/* mutex_unlock(&(g_nq_stat.nq_stat_mutex)); */
 
-	init_nq_head(t_nt_buffer);
-	init_nq_head(nt_t_buffer);
+	return temp_entry;
+}
+
+int create_nq_buffer(void)
+{
+	unsigned long nq_addr = 0;
+
+	nq_addr = create_notify_queue(NQ_SIZE * 3);
+
+	if (nq_addr == 0) {
+		IMSG_ERROR("[%s][%d]:create_notify_queue failed.\n",
+						__func__, __LINE__);
+		return -ENOMEM;
+	}
+
+	nt_t_buffer = nq_addr;
+	t_nt_buffer = nq_addr + NQ_SIZE;
+	nt_t_bdrv_buffer = nq_addr + NQ_SIZE * 2;
+
+	/* Get the Soter version from notify queue shared memory */
+	set_soter_version();
+
+	NQ_init(nt_t_buffer);
+	NQ_init(t_nt_buffer);
+	NQ_init(nt_t_bdrv_buffer);
+
+	init_nq_head(nt_t_buffer, 0x00);
+	init_nq_head(t_nt_buffer, 0x01);
+	init_nq_head(nt_t_bdrv_buffer, 0x03);
+
+	memset(&g_nq_stat, 0, sizeof(g_nq_stat));
+	mutex_init(&(g_nq_stat.nq_stat_mutex));
+	mutex_init(&(g_nq_stat.nt_t_mutex));
+	mutex_init(&(g_nq_stat.nt_t_bdrv_mutex));
+
+	return 0;
+}
+
+int set_soter_version(void)
+{
+	unsigned int versionlen = 0;
+	char *version = NULL;
+
+	memcpy(&versionlen, (void *)nt_t_buffer, sizeof(unsigned int));
+	if (versionlen > 0 && versionlen < 100) {
+		version = kmalloc(versionlen + 1, GFP_KERNEL);
+		if (version == NULL)
+			return -ENOMEM;
+
+		memset(version, 0, versionlen + 1);
+		memcpy(version, (void *)(nt_t_buffer + sizeof(unsigned int)),
+				versionlen);
+	} else
+		return -EINVAL;
+
+	IMSG_PRINTK("%s\n", version);
+	kfree(version);
 
 	return 0;
 }

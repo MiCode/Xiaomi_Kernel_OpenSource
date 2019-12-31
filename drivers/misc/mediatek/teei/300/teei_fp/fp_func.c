@@ -31,7 +31,6 @@
 #include "fp_func.h"
 #include "../tz_driver/include/teei_fp.h"
 #include "../tz_driver/include/teei_id.h"
-#include "../tz_driver/include/tz_service.h"
 #include "../tz_driver/include/nt_smc_call.h"
 #include "../tz_driver/include/utdriver_macro.h"
 #include "../tz_driver/include/teei_client_main.h"

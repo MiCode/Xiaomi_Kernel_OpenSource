@@ -18,35 +18,31 @@
 #include <linux/types.h>
 
 struct NQ_head {
-	u32 start_index;
-	u32 end_index;
-	u32 Max_count;
-	unsigned char reserve[20];
+	unsigned long long nq_type;
+	unsigned long long max_count;
+	unsigned long long put_index;
+	unsigned long long reserve[5];
 };
 
 struct NQ_entry {
-	u32 valid_flag;
-	u32 length;
-	u64 buffer_addr;
-	u32 cmd;
-	unsigned char reserve[12];
+	unsigned long long cmd_ID;
+	unsigned long long sub_cmd_ID;
+	unsigned long long block_p;
+	unsigned long long param[5];
 };
 
-#pragma pack(1)
-struct create_NQ_struct {
-	u64 n_t_nq_phy_addr;
-	u32 n_t_size;
-	u64 t_n_nq_phy_addr;
-	u32 t_n_size;
-};
-#pragma pack()
+int add_nq_entry(unsigned long long cmd_ID, unsigned long long sub_cnd_ID,
+			unsigned long long block_p, unsigned long long p0,
+			unsigned long long p1, unsigned long long p2);
 
-extern unsigned long t_nt_buffer;
+int add_bdrv_nq_entry(unsigned long long cmd_ID, unsigned long long sub_cnd_ID,
+			unsigned long long block_p, unsigned long long p0,
+			unsigned long long p1, unsigned long long p2);
 
-int add_nq_entry(u32 cmd, unsigned long command_buff,
-				int command_length, int valid_flag);
+struct NQ_entry *get_nq_entry(void);
 
-unsigned char *get_nq_entry(unsigned char *buffer_addr);
-long create_nq_buffer(void);
+int create_nq_buffer(void);
+int set_soter_version(void);
+void secondary_init_cmdbuf(void *info);
 
 #endif /* end of NOTIFY_QUEUE_H */

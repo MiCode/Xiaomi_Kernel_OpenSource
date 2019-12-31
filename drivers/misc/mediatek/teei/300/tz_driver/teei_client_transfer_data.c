@@ -82,9 +82,9 @@ int ut_pf_gp_transfer_data(struct TEEC_Context *context, struct TEEC_UUID *uuid,
 	}
 
 release_3:
-		TEEC_ReleaseSharedMemory(&sharedmem);
+	TEEC_ReleaseSharedMemory(&sharedmem);
 release_2:
-		TEEC_CloseSession(&session);
+	TEEC_CloseSession(&session);
 release_1:
 	return result;
 }

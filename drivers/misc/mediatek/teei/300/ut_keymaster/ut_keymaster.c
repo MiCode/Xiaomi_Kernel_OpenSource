@@ -29,8 +29,8 @@
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include <teei_ioc.h>
+#include <utdriver_macro.h>
 #include "../tz_driver/include/teei_id.h"
-#include "../tz_driver/include/tz_service.h"
 #include "../tz_driver/include/nt_smc_call.h"
 #include "../tz_driver/include/teei_keymaster.h"
 #include "../tz_driver/include/teei_client_main.h"
@@ -78,6 +78,7 @@ static long keymaster_ioctl(struct file *filp,
 {
 
 	down(&keymaster_api_lock);
+
 	switch (cmd) {
 
 	case CMD_KM_MEM_CLEAR:
@@ -85,7 +86,7 @@ static long keymaster_ioctl(struct file *filp,
 		break;
 	case CMD_KM_MEM_SEND:
 		if (!keymaster_buff_addr) {
-			IMSG_ERROR("keymaster fp_buiff_addr is invalid!.\n");
+			IMSG_ERROR("keymaster_buiff_addr is invalid!.\n");
 			up(&keymaster_api_lock);
 			return -EFAULT;
 		}
@@ -193,6 +194,7 @@ int keymaster_init(void)
 		IMSG_ERROR("keymaster device_create failed %d.\n", result);
 		goto class_destroy;
 	}
+
 	keymaster_devp = NULL;
 	keymaster_devp = vmalloc(sizeof(struct keymaster_dev));
 	if (keymaster_devp == NULL) {
@@ -202,6 +204,12 @@ int keymaster_init(void)
 	memset(keymaster_devp, 0, sizeof(struct keymaster_dev));
 	keymaster_setup_cdev(keymaster_devp, 0);
 	TZ_SEMA_INIT_1(&keymaster_devp->sem);
+
+	result = create_keymaster_fdrv(KEYMASTER_BUFF_SIZE);
+	if (result != 0) {
+		IMSG_ERROR("create_keymaster_fdrv failed %d.\n", result);
+		goto class_device_destroy;
+	}
 
 	IMSG_DEBUG("[%s][%d]create ut_keymaster device node successfully!\n",
 			__func__, __LINE__);

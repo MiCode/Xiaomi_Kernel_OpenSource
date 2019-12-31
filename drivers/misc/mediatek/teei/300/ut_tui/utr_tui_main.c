@@ -88,19 +88,11 @@ static long tz_ut_tui_u32_ioctl(struct file *filp, unsigned int cmd,
 
 	switch (cmd) {
 	case UT_TUI_DISPLAY_COMMAND_U32:
-		lockNum = 2;
 		message_buff = tui_display_message_buff;
 		buffer_max_size = TUI_DISPLAY_BUFFER;
 		break;
 
 	case UT_TUI_NOTICE_COMMAND_U32:
-		lockNum = try_send_tui_command();
-		if ((lockNum != 1) && (lockNum != 2)) {
-			IMSG_ERROR("[%s][%d] No channel can be used!\n",
-							__func__, __LINE__);
-			retVal = -EINVAL;
-			return retVal;
-		}
 		message_buff = tui_notice_message_buff;
 		buffer_max_size = TUI_NOTICE_BUFFER;
 		break;
@@ -132,12 +124,9 @@ static long tz_ut_tui_u32_ioctl(struct file *filp, unsigned int cmd,
 	Flush_Dcache_By_Area((unsigned long)message_buff,
 				(unsigned long)message_buff + buffer_max_size);
 
-	if (lockNum == 2) {
-		if (cmd == UT_TUI_NOTICE_COMMAND_U32)
-			send_tui_display_command(TUI_NOTICE_SYS_NO);
-		else
-			send_tui_display_command(TUI_DISPLAY_SYS_NO);
-	} else
+	if (cmd == UT_TUI_NOTICE_COMMAND_U32)
+		send_tui_display_command(TUI_DISPLAY_SYS_NO);
+	else
 		send_tui_notice_command(TUI_NOTICE_SYS_NO);
 
 	if (copy_to_user(argp, (void *)message_buff, sizeof(data.datalen))) {
@@ -167,18 +156,10 @@ static long tz_ut_tui_u64_ioctl(struct file *filp, unsigned int cmd,
 
 	switch (cmd) {
 	case UT_TUI_DISPLAY_COMMAND_U64:
-		lockNum = 2;
 		message_buff = tui_display_message_buff;
 		buffer_max_size = TUI_DISPLAY_BUFFER;
 		break;
 	case UT_TUI_NOTICE_COMMAND_U64:
-		lockNum = try_send_tui_command();
-		if ((lockNum != 1) && (lockNum != 2)) {
-			IMSG_ERROR("[%s][%d] No channel can be used!\n",
-							__func__, __LINE__);
-			retVal = -EINVAL;
-			return retVal;
-		}
 		message_buff = tui_notice_message_buff;
 		buffer_max_size = TUI_NOTICE_BUFFER;
 		break;
@@ -206,14 +187,11 @@ static long tz_ut_tui_u64_ioctl(struct file *filp, unsigned int cmd,
 	Flush_Dcache_By_Area((unsigned long)message_buff,
 				(unsigned long)message_buff + buffer_max_size);
 
-	if (lockNum == 2) {
-		if (cmd == UT_TUI_NOTICE_COMMAND_U64)
-			send_tui_display_command(TUI_NOTICE_SYS_NO);
-		else
-			send_tui_display_command(TUI_DISPLAY_SYS_NO);
-	} else {
+	if (cmd == UT_TUI_NOTICE_COMMAND_U64)
+		send_tui_display_command(TUI_DISPLAY_SYS_NO);
+	else
 		send_tui_notice_command(TUI_NOTICE_SYS_NO);
-	}
+
 
 	if (copy_to_user(argp, (void *)message_buff, sizeof(data.datalen))) {
 		IMSG_ERROR("copy datalen to user failed.\n");

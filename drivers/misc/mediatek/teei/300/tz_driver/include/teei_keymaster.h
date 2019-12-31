@@ -16,9 +16,9 @@
 #define TEEI_KEYMASTER_H
 
 extern unsigned long keymaster_buff_addr;
+extern struct semaphore keymaster_api_lock;
 
-unsigned long create_keymaster_fdrv(int buff_size);
+int create_keymaster_fdrv(int buff_size);
 
 int send_keymaster_command(void *buffer, unsigned long size);
-
 #endif /* end of TEEI_KEYMASTER_H */

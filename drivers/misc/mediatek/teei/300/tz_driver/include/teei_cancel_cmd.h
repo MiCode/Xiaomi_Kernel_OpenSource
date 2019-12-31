@@ -20,6 +20,5 @@ extern struct semaphore fp_lock;
 
 unsigned long create_cancel_fdrv(int buff_size);
 int send_cancel_command(unsigned long share_memory_size);
-int __send_cancel_command(unsigned long share_memory_size);
 
 #endif /* end of TEEI_CANCEL_CMD_H */

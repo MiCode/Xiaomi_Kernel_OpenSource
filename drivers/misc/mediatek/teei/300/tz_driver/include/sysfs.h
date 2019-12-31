@@ -12,23 +12,9 @@
  * GNU General Public License for more details.
  */
 
-#ifndef BACKWARD_DRIVER_H
-#define BACKWARD_DRIVER_H
+#ifndef __TEEI_SYS_FS_H__
+#define __TEEI_SYS_FS_H__
+int init_sysfs(struct platform_device *pdev);
+void remove_sysfs(struct platform_device *pdev);
 
-#include <linux/types.h>
-
-#include "teei_common.h"
-
-extern struct service_handler reetime;
-extern struct service_handler vfs_handler;
-extern unsigned char *daulOS_VFS_share_mem;
-
-int notify_vfs_handle(void);
-int wait_for_vfs_done(void);
-
-int init_all_service_handlers(void);
-int vfs_thread_function(unsigned long virt_addr,
-			unsigned long para_vaddr, unsigned long buff_vaddr);
-
-
-#endif /* end of BACKWARD_DRIVER_H */
+#endif

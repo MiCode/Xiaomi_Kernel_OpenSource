@@ -30,6 +30,62 @@
 
 #include "log_perf.h"
 
+struct tz_log_state *g_tz_log_state;
+
+static int __tz_driver_read_logs(struct tz_log_state *s, char *buffer,
+				uint32_t get, int cnt)
+{
+	struct log_rb *log = s->log;
+	int i = 0;
+	size_t mask = log->sz - 1;
+
+	for (i = 0; i < cnt;)
+		buffer[i++] = log->data[get++ & mask];
+
+	return i;
+}
+
+int tz_driver_read_logs(char *buffer, unsigned long count)
+{
+	struct tz_log_state *local_s = NULL;
+	uint32_t get = 0;
+	uint32_t put = 0;
+	uint32_t alloc = 0;
+	int read_chars = 0;
+	struct log_rb *log = NULL;
+	int real_cnt = 0;
+
+	local_s = g_tz_log_state;
+	log = local_s->log;
+
+	get = local_s->read_get;
+	put = log->put;
+
+	if (put != get) {
+
+		alloc = log->alloc;
+
+		if ((alloc - get) > log->sz) {
+			IMSG_INFO("log overflow.\n");
+			get = alloc - log->sz;
+		}
+
+		if ((put - get) > count)
+			real_cnt = count;
+		else
+			real_cnt = put - get;
+
+		read_chars = __tz_driver_read_logs(local_s,
+					buffer, get, real_cnt);
+
+		get += read_chars;
+	}
+
+	local_s->read_get = get;
+	return read_chars;
+
+}
+
 static int log_read_line(struct tz_log_state *s, int put, int get)
 {
 	struct log_rb *log = s->log;
@@ -290,9 +346,12 @@ int tz_log_probe(struct platform_device *pdev)
 		goto error_alloc_state;
 	}
 
+	g_tz_log_state = s;
+
 	spin_lock_init(&s->lock);
 	s->dev = &pdev->dev;
 	s->get = 0;
+	s->read_get = 0;
 	s->log_pages = alloc_pages(GFP_KERNEL | __GFP_ZERO | GFP_DMA,
 				   get_order(TZ_LOG_SIZE));
 	if (!s->log_pages) {
@@ -341,6 +400,7 @@ error_alloc_boot_log:
 	__free_pages(s->log_pages, get_order(TZ_LOG_SIZE));
 error_alloc_log:
 	kfree(s);
+	g_tz_log_state = NULL;
 error_alloc_state:
 	return result;
 }
@@ -358,6 +418,7 @@ int tz_log_remove(struct platform_device *pdev)
 	__free_pages(s->log_pages, get_order(TZ_LOG_SIZE));
 	__free_pages(s->boot_log_pages, get_order(TZ_LOG_SIZE));
 	kfree(s);
+	g_tz_log_state = NULL;
 
 	return 0;
 }
