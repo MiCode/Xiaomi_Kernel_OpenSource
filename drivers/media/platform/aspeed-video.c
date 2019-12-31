@@ -606,6 +606,16 @@ static irqreturn_t aspeed_video_irq(int irq, void *arg)
 			aspeed_video_start_frame(video);
 	}
 
+	/*
+	 * CAPTURE_COMPLETE and FRAME_COMPLETE interrupts come even when these
+	 * are disabled in the VE_INTERRUPT_CTRL register so clear them to
+	 * prevent unnecessary interrupt calls.
+	 */
+	if (sts & VE_INTERRUPT_CAPTURE_COMPLETE)
+		sts &= ~VE_INTERRUPT_CAPTURE_COMPLETE;
+	if (sts & VE_INTERRUPT_FRAME_COMPLETE)
+		sts &= ~VE_INTERRUPT_FRAME_COMPLETE;
+
 	return sts ? IRQ_NONE : IRQ_HANDLED;
 }
 
@@ -741,6 +751,8 @@ static void aspeed_video_get_resolution(struct aspeed_video *video)
 		}
 
 		set_bit(VIDEO_RES_DETECT, &video->flags);
+		aspeed_video_update(video, VE_CTRL,
+				    VE_CTRL_VSYNC_POL | VE_CTRL_HSYNC_POL, 0);
 		aspeed_video_enable_mode_detect(video);
 
 		rc = wait_event_interruptible_timeout(video->wait,

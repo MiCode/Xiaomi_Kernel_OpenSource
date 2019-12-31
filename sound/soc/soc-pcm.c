@@ -904,6 +904,11 @@ static int soc_pcm_hw_params(struct snd_pcm_substream *substream,
 	int i, ret = 0;
 
 	mutex_lock_nested(&rtd->card->pcm_mutex, rtd->card->pcm_subclass);
+
+	ret = soc_pcm_params_symmetry(substream, params);
+	if (ret)
+		goto out;
+
 	/* perform any hw_params fixups */
 	if ((rtd->dai_link->no_host_mode == SND_SOC_DAI_LINK_NO_HOST) &&
 				rtd->dai_link->be_hw_params_fixup) {
@@ -994,10 +999,6 @@ static int soc_pcm_hw_params(struct snd_pcm_substream *substream,
 		}
 	}
 	component = NULL;
-
-	ret = soc_pcm_params_symmetry(substream, params);
-        if (ret)
-		goto component_err;
 
 	/* malloc a page for hostless IO */
 	if (rtd->dai_link->no_host_mode == SND_SOC_DAI_LINK_NO_HOST) {
@@ -1439,6 +1440,7 @@ static int dpcm_prune_paths(struct snd_soc_pcm_runtime *fe, int stream,
 	struct snd_soc_dapm_widget *widget;
 	struct snd_soc_dai *dai;
 	int prune = 0;
+	int do_prune;
 
 	/* Destroy any old FE <--> BE connections */
 	for_each_dpcm_be(fe, stream, dpcm) {
@@ -1452,13 +1454,16 @@ static int dpcm_prune_paths(struct snd_soc_pcm_runtime *fe, int stream,
 			continue;
 
 		/* is there a valid CODEC DAI widget for this BE */
+		do_prune = 1;
 		for_each_rtd_codec_dai(dpcm->be, i, dai) {
 			widget = dai_get_widget(dai, stream);
 
 			/* prune the BE if it's no longer in our active list */
 			if (widget && widget_in_list(list, widget))
-				continue;
+				do_prune = 0;
 		}
+		if (!do_prune)
+			continue;
 
 		dev_dbg(fe->dev, "ASoC: pruning %s BE %s for %s\n",
 			stream ? "capture" : "playback",

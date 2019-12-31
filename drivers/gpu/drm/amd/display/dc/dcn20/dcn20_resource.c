@@ -1765,7 +1765,7 @@ int dcn20_populate_dml_pipes_from_context(
 			pipe_cnt = i;
 			continue;
 		}
-		if (!resource_are_streams_timing_synchronizable(
+		if (dc->debug.disable_timing_sync || !resource_are_streams_timing_synchronizable(
 				res_ctx->pipe_ctx[pipe_cnt].stream,
 				res_ctx->pipe_ctx[i].stream)) {
 			synchronized_vblank = false;
@@ -2474,6 +2474,7 @@ bool dcn20_fast_validate_bw(
 							&context->res_ctx, dc->res_pool,
 							pipe, hsplit_pipe))
 						goto validate_fail;
+					dcn20_build_mapped_resource(dc, context, pipe->stream);
 				} else
 					dcn20_split_stream_for_mpc(
 						&context->res_ctx, dc->res_pool,
@@ -3040,13 +3041,15 @@ static void cap_soc_clocks(
 static void update_bounding_box(struct dc *dc, struct _vcs_dpi_soc_bounding_box_st *bb,
 		struct pp_smu_nv_clock_table *max_clocks, unsigned int *uclk_states, unsigned int num_states)
 {
-	struct _vcs_dpi_voltage_scaling_st calculated_states[MAX_CLOCK_LIMIT_STATES] = {0};
+	struct _vcs_dpi_voltage_scaling_st calculated_states[MAX_CLOCK_LIMIT_STATES];
 	int i;
 	int num_calculated_states = 0;
 	int min_dcfclk = 0;
 
 	if (num_states == 0)
 		return;
+
+	memset(calculated_states, 0, sizeof(calculated_states));
 
 	if (dc->bb_overrides.min_dcfclk_mhz > 0)
 		min_dcfclk = dc->bb_overrides.min_dcfclk_mhz;
