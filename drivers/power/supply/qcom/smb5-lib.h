@@ -15,6 +15,7 @@
 #include <linux/alarmtimer.h>
 #include <linux/ktime.h>
 #include <linux/types.h>
+#include <linux/timer.h>
 #include <linux/interrupt.h>
 #include <linux/irqreturn.h>
 #include <linux/regulator/driver.h>
@@ -474,6 +475,8 @@ struct smb_charger {
 	struct alarm		chg_termination_alarm;
 	struct alarm		dcin_aicl_alarm;
 
+	struct timer_list	apsd_timer;
+
 	struct charger_param	chg_param;
 	/* secondary charger config */
 	bool			sec_pl_present;
@@ -568,6 +571,7 @@ struct smb_charger {
 	bool			hvdcp3_standalone_config;
 	int			wls_icl_ua;
 	bool			dpdm_enabled;
+	bool			apsd_ext_timeout;
 
 	/* workaround flag */
 	u32			wa_flags;
@@ -774,6 +778,7 @@ int smblib_set_prop_rechg_soc_thresh(struct smb_charger *chg,
 				const union power_supply_propval *val);
 void smblib_suspend_on_debug_battery(struct smb_charger *chg);
 int smblib_rerun_apsd_if_required(struct smb_charger *chg);
+void smblib_rerun_apsd(struct smb_charger *chg);
 int smblib_get_prop_fcc_delta(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_thermal_threshold(struct smb_charger *chg, u16 addr, int *val);
