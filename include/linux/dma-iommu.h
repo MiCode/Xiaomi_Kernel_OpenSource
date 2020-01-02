@@ -27,6 +27,9 @@ size_t iommu_dma_prepare_map_sg(struct device *dev, struct iova_domain *iovad,
 int iommu_dma_finalise_sg(struct device *dev, struct scatterlist *sg,
 		int nents, dma_addr_t dma_addr);
 void iommu_dma_invalidate_sg(struct scatterlist *sg, int nents);
+int iommu_dma_mmap(struct device *dev, struct vm_area_struct *vma,
+		   void *cpu_addr, dma_addr_t dma_addr, size_t size,
+		   unsigned long attrs);
 
 /* Setup call for arch DMA mapping code */
 void iommu_setup_dma_ops(struct device *dev, u64 dma_base, u64 size);
