@@ -1,0 +1,139 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
+/*
+ * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ */
+
+#ifndef __HH_RM_DRV_PRIVATE_H
+#define __HH_RM_DRV_PRIVATE_H
+
+#include <linux/types.h>
+
+#include <linux/haven/hh_rm_drv.h>
+#include <linux/haven/hh_common.h>
+
+/* Resource Manager Header */
+struct hh_rm_rpc_hdr {
+	u8 version:4,
+		hdr_words:4;
+	u8 type:2,
+		fragments:6;
+	u16 seq;
+	u32 msg_id;
+} __packed;
+
+/* Standard reply header */
+struct hh_rm_rpc_reply_hdr {
+	struct hh_rm_rpc_hdr rpc_hdr;
+	u32 err_code;
+} __packed;
+
+/* RPC Header versions */
+#define HH_RM_RPC_HDR_VERSION_ONE	0x1
+
+/* RPC Header words */
+#define HH_RM_RPC_HDR_WORDS		0x2
+
+/* RPC Message types */
+#define HH_RM_RPC_TYPE_CONT		0x0
+#define HH_RM_RPC_TYPE_REQ		0x1
+#define HH_RM_RPC_TYPE_RPLY		0x2
+#define HH_RM_RPC_TYPE_NOTIF		0x3
+
+/* RPC Message IDs */
+/* Call type Message IDs that has a request/reply pattern */
+/* Message IDs: Informative */
+#define HH_RM_RPC_MSG_ID_CALL_GET_IDENT			0x00000001
+#define HH_RM_RPC_MSG_ID_CALL_GET_FEATURES		0x00000002
+
+/* Message IDs: Memory management */
+#define HH_RM_RPC_MSG_ID_CALL_MEM_ACCEPT		0x51000011
+#define HH_RM_RPC_MSG_ID_CALL_MEM_LEND			0x51000012
+#define HH_RM_RPC_MSG_ID_CALL_MEM_SHARE			0x51000013
+#define HH_RM_RPC_MSG_ID_CALL_MEM_RELEASE		0x51000014
+#define HH_RM_RPC_MSG_ID_CALL_MEM_RECLAIM		0x51000015
+#define HH_RM_RPC_MSG_ID_CALL_MEM_NOTIFY		0x51000017
+
+/* Message IDs: extensions for hyp-assign */
+#define HH_RM_RPC_MSG_ID_CALL_MEM_QCOM_LOOKUP_SGL	0x5100001A
+
+/* Message IDs: VM Management */
+#define HH_RM_RPC_MSG_ID_CALL_VM_ALLOCATE		0x56000001
+#define HH_RM_RPC_MSG_ID_CALL_VM_START			0x56000004
+
+/* Message IDs: VM Query */
+#define HH_RM_RPC_MSG_ID_CALL_VM_GET_STATE		0x56000017
+#define HH_RM_RPC_MSG_ID_CALL_VM_GET_HYP_RESOURCES	0x56000020
+#define HH_RM_RPC_MSG_ID_CALL_VM_LOOKUP_HYP_CAPIDS	0x56000021
+#define HH_RM_RPC_MSG_ID_CALL_VM_LOOKUP_HYP_IRQS	0X56000022
+
+/* Message IDs: VM Configuration */
+#define HH_RM_RPC_MSG_ID_CALL_VM_IRQ_ACCEPT		0x56000050
+#define HH_RM_RPC_MSG_ID_CALL_VM_IRQ_LEND		0x56000051
+#define HH_RM_RPC_MSG_ID_CALL_VM_IRQ_RELEASE		0x56000052
+#define HH_RM_RPC_MSG_ID_CALL_VM_IRQ_RECLAIM		0x56000053
+#define HH_RM_RPC_MSG_ID_CALL_VM_IRQ_NOTIFY		0x56000054
+#define HH_RM_RPC_MSG_ID_CALL_VM_IRQ_UNMAP		0x56000055
+
+/* Message IDs: VM Services */
+#define HH_RM_RPC_MSG_ID_CALL_VM_SET_STATUS		0x56000080
+#define HH_RM_RPC_MSG_ID_CALL_VM_CONSOLE_OPEN		0x56000081
+#define HH_RM_RPC_MSG_ID_CALL_VM_CONSOLE_CLOSE		0x56000082
+#define HH_RM_RPC_MSG_ID_CALL_VM_CONSOLE_WRITE		0x56000083
+#define HH_RM_RPC_MSG_ID_CALL_VM_CONSOLE_FLUSH		0x56000084
+
+/* Message IDs: VM-Host Query */
+#define HH_RM_RPC_MSG_ID_CALL_VM_HOST_GET_TYPE		0x560000A0
+
+/* End Call type Message IDs */
+/* End RPC Message IDs */
+
+/* Message ID headers */
+/* Call: VM_GET_HYP_RESOURCES */
+#define HH_RM_RES_TYPE_DB_TX	0
+#define HH_RM_RES_TYPE_DB_RX	1
+#define HH_RM_RES_TYPE_MQ_TX	2
+#define HH_RM_RES_TYPE_MQ_RX	3
+
+struct hh_vm_get_hyp_res_req_payload {
+	u16 vmid;
+	u16 reserved;
+} __packed;
+
+struct hh_vm_get_hyp_res_resp_entry {
+	u8 res_type;
+	u8 reserved;
+	u16 partner_vmid;
+	u32 resource_handle;
+	u32 resource_label;
+	u32 cap_id_low;
+	u32 cap_id_high;
+	u32 virq_handle;
+	u32 virq;
+} __packed;
+
+struct hh_vm_get_hyp_res_resp_payload {
+	u32 n_resource_entries;
+	struct hh_vm_get_hyp_res_resp_entry resp_entries[];
+} __packed;
+
+/* Call: VM_IRQ_ACCEPT */
+struct hh_vm_irq_accept_req_payload {
+	hh_virq_handle_t virq_handle;
+	s32 virq;
+} __packed;
+
+struct hh_vm_irq_accept_resp_payload {
+	s32 virq;
+} __packed;
+
+/* End Message ID headers */
+
+/* Common function declerations */
+void *hh_rm_call(hh_rm_msgid_t message_id,
+			void *req_buff, size_t req_buff_size,
+			size_t *resp_buff_size, int *reply_err_code);
+struct hh_vm_get_hyp_res_resp_entry *
+hh_rm_vm_get_hyp_res(hh_vmid_t vmid, u32 *out_n_entries);
+int hh_msgq_populate_cap_info(enum hh_msgq_label label, u64 cap_id,
+					int direction, int irq);
+#endif /* __HH_RM_DRV_PRIVATE_H */
