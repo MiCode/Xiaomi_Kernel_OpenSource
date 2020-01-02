@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020 The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"QG-K: %s: " fmt, __func__
@@ -2202,6 +2202,9 @@ static int qg_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_VOLTAGE_AVG:
 		rc = qg_get_vbat_avg(chip, &pval->intval);
 		break;
+	case POWER_SUPPLY_PROP_CURRENT_AVG:
+		rc = qg_get_ibat_avg(chip, &pval->intval);
+		break;
 	case POWER_SUPPLY_PROP_POWER_NOW:
 		rc = qg_get_power(chip, &pval->intval, false);
 		break;
@@ -2271,6 +2274,7 @@ static enum power_supply_property qg_psy_props[] = {
 	POWER_SUPPLY_PROP_CC_SOC,
 	POWER_SUPPLY_PROP_FG_RESET,
 	POWER_SUPPLY_PROP_VOLTAGE_AVG,
+	POWER_SUPPLY_PROP_CURRENT_AVG,
 	POWER_SUPPLY_PROP_POWER_AVG,
 	POWER_SUPPLY_PROP_POWER_NOW,
 	POWER_SUPPLY_PROP_SCALE_MODE_EN,
