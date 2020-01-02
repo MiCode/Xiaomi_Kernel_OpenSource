@@ -41,6 +41,8 @@
 #define SPIS_CONFIG_REG_OPT_VAL         (0x44200800)
 #define SPIS_EXTENDED_RESET_COMMAND_LEN (225)
 
+#define MAX_SPI_READ_CHUNKS (10)
+#define SPI_MIN_TRANSACTION_SIZE (512)
 #define SPI_MAX_TRANSACTION_SIZE (8*1024)
 #define SPI_CMD_TRANSACTION_SIZE (512)
 #define SPI_BUFFER_SIZE (SPI_MAX_TRANSACTION_SIZE + OPCODE_WIDTH + \
@@ -191,6 +193,7 @@ struct wigig_sensing_ctx {
 	struct wigig_sensing_stm stm;
 	u32 last_read_length;
 	union user_rgf_spi_mbox_inb inb_cmd;
+	u32 spi_transaction_size;
 
 	/* CIR buffer */
 	struct cir_data cir_data;
