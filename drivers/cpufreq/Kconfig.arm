@@ -338,3 +338,9 @@ config ARM_PXA2xx_CPUFREQ
 	  This add the CPUFreq driver support for Intel PXA2xx SOCs.
 
 	  If in doubt, say N.
+
+config CPU_FREQ_MSM
+	bool "MSM CPUFreq support"
+	depends on CPU_FREQ
+	help
+	  This enables the CPUFreq driver for Qualcomm Technologies, Inc. CPUs.
