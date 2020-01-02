@@ -892,35 +892,35 @@ static int wigig_sensing_deassert_dri(
 	return rc;
 }
 
-#define MAX_SPI_READ_CHUNKS (10)
 /*
- * Calculate SPI transaction size so that the size is smaller than the maximum
- * size and the size is equal per iteration. The equal sizes causes less SPI
- * transactions since the length register does not need reprogramming.
+ * Calculate SPI transaction size so that the size is between the minimum size
+ * and two times the minimum size. The size must also divide the burst size.
+ * The motivaion for using equal sized transactions is to prevent reprogramming
+ * of the length register for every transaction.
  */
-static u32 calc_spi_transaction_size(
-	u32 fill_level, u32 max_spi_transaction_size)
+static u32 calc_spi_transaction_size(u32 burst_size,
+				     u32 min_spi_transaction_size)
 {
-	int i;
-	u32 res;
+	u32 i, res;
 
-	if (fill_level <= max_spi_transaction_size)
-		return fill_level;
+	if (burst_size <= min_spi_transaction_size)
+		return burst_size;
 
 	for (i = 2; i < MAX_SPI_READ_CHUNKS; i++) {
-		res = fill_level / i;
-		if (res <= max_spi_transaction_size && fill_level % i == 0)
+		res = burst_size / i;
+		if (burst_size % res == 0 &&
+		    res >= min_spi_transaction_size &&
+		    res < 2 * min_spi_transaction_size)
 			return res;
 	}
 
-	return max_spi_transaction_size;
+	return min_spi_transaction_size;
 }
 
 static int wigig_sensing_handle_fifo_ready_dri(struct wigig_sensing_ctx *ctx)
 {
 	int rc = 0;
 	u32 burst_size = 0;
-	u32 spi_transaction_size;
 
 	mutex_lock(&ctx->spi_lock);
 
@@ -944,15 +944,17 @@ static int wigig_sensing_handle_fifo_ready_dri(struct wigig_sensing_ctx *ctx)
 	}
 
 	/* Program burst size into the transfer length register */
-	spi_transaction_size = calc_spi_transaction_size(burst_size,
-					SPI_MAX_TRANSACTION_SIZE);
+	ctx->spi_transaction_size =
+		calc_spi_transaction_size(burst_size, SPI_MIN_TRANSACTION_SIZE);
+	pr_info_ratelimited("spi_transaction_size = %u\n",
+			    ctx->spi_transaction_size);
 	rc = spis_write_reg(ctx->spi_dev, SPIS_TRNS_LEN_REG_ADDR,
-			    spi_transaction_size << 16);
+			    ctx->spi_transaction_size << 16);
 	if (rc) {
 		pr_err("Failed setting SPIS_TRNS_LEN_REG_ADDR\n");
 		goto End;
 	}
-	ctx->last_read_length = spi_transaction_size;
+	ctx->last_read_length = ctx->spi_transaction_size;
 
 	ctx->stm.burst_size_ready = true;
 
@@ -960,15 +962,14 @@ static int wigig_sensing_handle_fifo_ready_dri(struct wigig_sensing_ctx *ctx)
 	 * Allocate a temporary buffer to be used in case of cir_data buffer
 	 * wrap around
 	 */
+	vfree(ctx->temp_buffer);
+	ctx->temp_buffer = 0;
 	if (burst_size != 0) {
 		ctx->temp_buffer = vmalloc(burst_size);
 		if (!ctx->temp_buffer) {
 			rc = -ENOMEM;
 			goto End;
 		}
-	} else if (ctx->temp_buffer) {
-		vfree(ctx->temp_buffer);
-		ctx->temp_buffer = 0;
 	}
 
 	/* Change internal state */
@@ -1000,20 +1001,15 @@ static int wigig_sensing_chip_data_ready_internal(struct wigig_sensing_ctx *ctx,
 	struct cir_data *d = &ctx->cir_data;
 	struct circ_buf local;
 	u32 bytes_to_read;
-	u32 spi_transaction_size;
 	u32 available_space_to_end;
-	u32 orig_head;
 
 	/*
 	 * Make sure that fill_level is in 32 bit units
 	 */
 	fill_level = fill_level & ~0x3;
 
-	spi_transaction_size =
-		calc_spi_transaction_size(fill_level, SPI_MAX_TRANSACTION_SIZE);
 	local = d->b;
 	local.head = (local.head + *offset) & (d->size_bytes - 1);
-	orig_head = local.head;
 	mutex_lock(&ctx->spi_lock);
 	while (fill_level > 0) {
 		if (ctx->stm.change_mode_in_progress) {
@@ -1021,8 +1017,8 @@ static int wigig_sensing_chip_data_ready_internal(struct wigig_sensing_ctx *ctx,
 			break;
 		}
 
-		bytes_to_read = (fill_level < spi_transaction_size) ?
-			fill_level : spi_transaction_size;
+		bytes_to_read = (fill_level < SPI_MAX_TRANSACTION_SIZE) ?
+			fill_level : SPI_MAX_TRANSACTION_SIZE;
 		available_space_to_end =
 			circ_space_to_end(&local, d->size_bytes);
 		pr_debug("fill_level=%u, bytes_to_read=%u, offset=%u, available_space_to_end = %u\n",
@@ -1101,15 +1097,24 @@ static int wigig_sensing_chip_data_ready(struct wigig_sensing_ctx *ctx,
 	}
 
 	while (read_bytes < burst_size) {
-		rc = wigig_sensing_chip_data_ready_internal(ctx, fill_level,
-							    &read_bytes);
-		if (rc) {
-			if (ctx->stm.change_mode_in_progress)
-				pr_err("change_mode_in_progress, aborting SPI transactions\n");
-			else
-				pr_err("wigig_sensing_chip_data_ready_internal failed, err %d\n",
-				       rc);
-			return rc;
+		if (fill_level >= ctx->spi_transaction_size) {
+			u32 txn_size = (fill_level >= burst_size) ? burst_size :
+				ctx->spi_transaction_size;
+			rc = wigig_sensing_chip_data_ready_internal(
+			   ctx, txn_size, &read_bytes);
+			if (rc) {
+				if (ctx->stm.change_mode_in_progress)
+					pr_err("change_mode_in_progress, aborting SPI transactions\n");
+				else
+					pr_err("wigig_sensing_chip_data_ready_internal failed, err %d\n",
+					       rc);
+				return rc;
+			}
+		}
+
+		if (ctx->stm.change_mode_in_progress) {
+			read_bytes = 0;
+			break;
 		}
 
 		if (read_bytes == burst_size)
@@ -1332,10 +1337,11 @@ static irqreturn_t wigig_sensing_dri_isr_thread(int irq, void *cookie)
 	if (spi_status.b.int_data_ready) {
 		pr_debug("DATA READY INTERRUPT\n");
 		if (!ctx->stm.change_mode_in_progress)
-			wigig_sensing_chip_data_ready(ctx,
-				spi_status.b.fill_level, ctx->stm.burst_size);
+			wigig_sensing_chip_data_ready(
+			   ctx, spi_status.b.fill_level, ctx->stm.burst_size);
 		else
 			pr_debug("Change mode in progress, aborting data processing\n");
+
 		spi_status.v &= ~INT_DATA_READY;
 	}
 	if (spi_status.b.int_deep_sleep_exit ||
