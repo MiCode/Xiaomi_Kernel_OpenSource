@@ -41,7 +41,7 @@ config SND_SOC_ACPI
 	tristate
 
 config AUDIO_QGKI
-	bool
+	bool "Audio QGKI support"
 	depends on QGKI
 
 # All the supported SoCs
