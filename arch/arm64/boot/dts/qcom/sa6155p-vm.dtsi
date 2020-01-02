@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -385,6 +385,118 @@
 
 				mhi_chan@21 {
 					reg = <21>;
+					label = "IPCR";
+					mhi,num-elements = <32>;
+					mhi,event-ring = <1>;
+					mhi,chan-dir = <2>;
+					mhi,data-type = <0>;
+					mhi,doorbell-mode = <2>;
+					mhi,ee = <0x14>;
+					mhi,auto-queue;
+					mhi,auto-start;
+				};
+			};
+
+			mhi_events {
+				mhi_event@0 {
+					mhi,num-elements = <32>;
+					mhi,intmod = <1>;
+					mhi,msi = <1>;
+					mhi,priority = <1>;
+					mhi,brstmode = <2>;
+					mhi,data-type = <1>;
+				};
+
+				mhi_event@1 {
+					mhi,num-elements = <256>;
+					mhi,intmod = <1>;
+					mhi,msi = <2>;
+					mhi,priority = <1>;
+					mhi,brstmode = <2>;
+				};
+			};
+		};
+
+		chip_cfg@2 {
+			reg = <0xa0000000 0x10000000>,
+			    <0xb0000000 0x10000>;
+			reg-names = "smmu_iova_base", "smmu_iova_ipa";
+
+			supported-ids = <0x1102>;
+			wlan_vregs = "vdd-wlan-rfa1", "vdd-wlan-rfa2",
+				   "vdd-wlan-rfa3";
+			qcom,vdd-wlan-rfa1-info = <1350000 1350000 0 0>;
+			qcom,vdd-wlan-rfa2-info = <2040000 2040000 0 0>;
+			qcom,vdd-wlan-rfa3-info = <1904000 1904000 0 0>;
+
+			qcom,wlan-ramdump-dynamic = <0x300000>;
+			mhi,max-channels = <30>;
+			mhi,timeout = <10000>;
+			mhi,ee = <0x3>, <0x4>;
+			mhi,ee-names = "SBL", "RDDM";
+			mhi,bhie-offset = <0x0324>;
+
+			mhi_channels {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				mhi_chan@0 {
+					reg = <0>;
+					label = "LOOPBACK";
+					mhi,num-elements = <32>;
+					mhi,event-ring = <1>;
+					mhi,chan-dir = <1>;
+					mhi,data-type = <0>;
+					mhi,doorbell-mode = <2>;
+					mhi,ee = <0x14>;
+				};
+
+				mhi_chan@1 {
+					reg = <1>;
+					label = "LOOPBACK";
+					mhi,num-elements = <32>;
+					mhi,event-ring = <1>;
+					mhi,chan-dir = <2>;
+					mhi,data-type = <0>;
+					mhi,doorbell-mode = <2>;
+					mhi,ee = <0x14>;
+				};
+
+				mhi_chan@4 {
+					reg = <4>;
+					label = "DIAG";
+					mhi,num-elements = <32>;
+					mhi,event-ring = <1>;
+					mhi,chan-dir = <1>;
+					mhi,data-type = <0>;
+					mhi,doorbell-mode = <2>;
+					mhi,ee = <0x14>;
+				};
+
+				mhi_chan@5 {
+					reg = <5>;
+					label = "DIAG";
+					mhi,num-elements = <32>;
+					mhi,event-ring = <1>;
+					mhi,chan-dir = <2>;
+					mhi,data-type = <0>;
+					mhi,doorbell-mode = <2>;
+					mhi,ee = <0x14>;
+				};
+
+				mhi_chan@16 {
+					reg = <16>;
+					label = "IPCR";
+					mhi,num-elements = <32>;
+					mhi,event-ring = <1>;
+					mhi,chan-dir = <1>;
+					mhi,data-type = <1>;
+					mhi,doorbell-mode = <2>;
+					mhi,ee = <0x14>;
+					mhi,auto-start;
+				};
+
+				mhi_chan@17 {
+					reg = <17>;
 					label = "IPCR";
 					mhi,num-elements = <32>;
 					mhi,event-ring = <1>;
