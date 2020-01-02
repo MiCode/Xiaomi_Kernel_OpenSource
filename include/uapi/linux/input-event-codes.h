@@ -810,7 +810,12 @@
 #define SW_PEN_INSERTED		0x0f  /* set = pen inserted */
 #define SW_HPHL_OVERCURRENT	0x10  /* set = over current on left hph */
 #define SW_HPHR_OVERCURRENT	0x11  /* set = over current on right hph */
-#define SW_UNSUPPORT_INSERT	0x12  /* set = unsupported device inserted */
+#ifdef CONFIG_AUDIO_QGKI
+#define SW_MICROPHONE2_INSERT	0x12  /* set = inserted */
+#define SW_UNSUPPORT_INSERT	0x13  /* set = unsupported device inserted */
+#else
+#define SW_UNSUPPORT_INSERT	0x12 /* set = unsupported device inserted */
+#endif
 #define SW_MAX			0x20
 #define SW_CNT			(SW_MAX+1)
 

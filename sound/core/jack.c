@@ -29,6 +29,9 @@ static int jack_switch_types[] = {
 	SW_HPHL_OVERCURRENT,
 	SW_HPHR_OVERCURRENT,
 	SW_UNSUPPORT_INSERT,
+#ifdef CONFIG_AUDIO_QGKI
+	SW_MICROPHONE2_INSERT,
+#endif
 };
 #endif /* CONFIG_SND_JACK_INPUT_DEV */
 
