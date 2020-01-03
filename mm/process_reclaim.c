@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  */
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -31,6 +31,12 @@ module_param_named(per_swap_size, per_swap_size, int, 0644);
 
 int reclaim_avg_efficiency;
 module_param_named(reclaim_avg_efficiency, reclaim_avg_efficiency, int, 0444);
+
+static unsigned long reclaimed_anon;
+module_param_named(reclaimed_anon, reclaimed_anon, ulong, 0444);
+
+static unsigned long reclaimed_nomap;
+module_param_named(reclaimed_nomap, reclaimed_nomap, ulong, 0444);
 
 /* The vmpressure region where process reclaim operates */
 static unsigned long pressure_min = 50;
@@ -183,6 +189,13 @@ static void swap_fn(struct work_struct *work)
 				nr_to_reclaim);
 		total_scan += rp.nr_scanned;
 		total_reclaimed += rp.nr_reclaimed;
+		reclaimed_anon += rp.nr_reclaimed;
+
+		rp = reclaim_task_nomap(selected[si].p, nr_to_reclaim);
+		total_scan += rp.nr_scanned;
+		total_reclaimed += rp.nr_reclaimed;
+		reclaimed_nomap += rp.nr_reclaimed;
+
 		put_task_struct(selected[si].p);
 	}
 
