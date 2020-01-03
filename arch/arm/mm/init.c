@@ -539,6 +539,8 @@ static void print_vmalloc_lowmem_info(void)
 		"	   lowmem  : 0x%08lx - 0x%08lx   (%4ld MB)\n",
 		MLM((unsigned long)__va(start_phys),
 		(unsigned long)__va(end_phys)));
+
+		prev_reg = reg;
 	}
 }
 #endif
