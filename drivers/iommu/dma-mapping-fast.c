@@ -46,11 +46,6 @@ static int __init fast_smmu_dma_init(void)
 }
 arch_initcall(fast_smmu_dma_init);
 
-static bool fast_dma_in_atomic_pool(void *start, size_t size)
-{
-	return __dma_in_atomic_pool(fast_atomic_pool, start, size);
-}
-
 static void *fast_dma_alloc_from_pool(size_t size, struct page **ret_page,
 				      gfp_t flags)
 {
@@ -60,11 +55,6 @@ static void *fast_dma_alloc_from_pool(size_t size, struct page **ret_page,
 static bool fast_dma_free_from_pool(void *start, size_t size)
 {
 	return __dma_free_from_pool(fast_atomic_pool, start, size);
-}
-
-static phys_addr_t fast_dma_get_phys(void *addr)
-{
-	return gen_pool_virt_to_phys(fast_atomic_pool, (unsigned long)addr);
 }
 
 static bool is_dma_coherent(struct device *dev, unsigned long attrs)
@@ -773,7 +763,8 @@ static void fast_smmu_free(struct device *dev, size_t size,
 			   unsigned long attrs)
 {
 	struct dma_fast_smmu_mapping *mapping = dev_get_mapping(dev);
-	struct vm_struct *area;
+	struct page **pages = NULL;
+	struct page *page = NULL;
 	unsigned long flags;
 
 	size = ALIGN(size, FAST_PAGE_SIZE);
@@ -783,98 +774,37 @@ static void fast_smmu_free(struct device *dev, size_t size,
 	__fast_smmu_free_iova(mapping, dma_handle, size);
 	spin_unlock_irqrestore(&mapping->lock, flags);
 
-	area = find_vm_area(cpu_addr);
-	if (area && area->pages) {
-		struct page **pages = area->pages;
+	if (fast_dma_free_from_pool(cpu_addr, size))
+		return;
 
+	if (is_vmalloc_addr(cpu_addr)) {
+		pages = dma_common_find_pages(cpu_addr);
+		if (!pages)
+			page = vmalloc_to_page(cpu_addr);
 		dma_common_free_remap(cpu_addr, size);
+	} else {
+		page = virt_to_page(cpu_addr);
+	}
+
+	if (pages)
 		__fast_smmu_free_pages(pages, size >> FAST_PAGE_SHIFT);
-	} else if (attrs & DMA_ATTR_FORCE_CONTIGUOUS) {
-		struct page *page = vmalloc_to_page(cpu_addr);
 
-		dma_common_free_remap(cpu_addr, size);
-		dma_release_from_contiguous(dev, page, size >> PAGE_SHIFT);
-	} else if (!is_vmalloc_addr(cpu_addr)) {
-		__free_pages(virt_to_page(cpu_addr), get_order(size));
-	} else if (fast_dma_in_atomic_pool(cpu_addr, size)) {
-		// Keep remap
-		fast_dma_free_from_pool(cpu_addr, size);
-	}
-}
-
-/* __swiotlb_mmap_pfn is not currently exported. */
-static int fast_smmu_mmap_pfn(struct vm_area_struct *vma, unsigned long pfn,
-			     size_t size)
-{
-	int ret = -ENXIO;
-	unsigned long nr_vma_pages = vma_pages(vma);
-	unsigned long nr_pages = PAGE_ALIGN(size) >> PAGE_SHIFT;
-	unsigned long off = vma->vm_pgoff;
-
-	if (off < nr_pages && nr_vma_pages <= (nr_pages - off)) {
-		ret = remap_pfn_range(vma, vma->vm_start, pfn + off,
-				      vma->vm_end - vma->vm_start,
-				      vma->vm_page_prot);
-	}
-
-	return ret;
+	if (page)
+		dma_free_contiguous(dev, page, size);
 }
 
 static int fast_smmu_mmap_attrs(struct device *dev, struct vm_area_struct *vma,
 				void *cpu_addr, dma_addr_t dma_addr,
 				size_t size, unsigned long attrs)
 {
-	struct vm_struct *area;
-	bool coherent = is_dma_coherent(dev, attrs);
-	unsigned long pfn = 0;
-
-	vma->vm_page_prot = __get_dma_pgprot(attrs, vma->vm_page_prot,
-					     coherent);
-	area = find_vm_area(cpu_addr);
-	if (area && area->pages)
-		return iommu_dma_mmap(dev, vma, cpu_addr, dma_addr, size,
-				      attrs);
-	else if (attrs & DMA_ATTR_FORCE_CONTIGUOUS)
-		pfn = vmalloc_to_pfn(cpu_addr);
-	else if (!is_vmalloc_addr(cpu_addr))
-		pfn = page_to_pfn(virt_to_page(cpu_addr));
-	else if (fast_dma_in_atomic_pool(cpu_addr, size))
-		pfn = fast_dma_get_phys(cpu_addr) >> PAGE_SHIFT;
-
-
-	if (pfn)
-		return fast_smmu_mmap_pfn(vma, pfn, size);
-
-	return -EINVAL;
+	return iommu_dma_mmap(dev, vma, cpu_addr, dma_addr, size, attrs);
 }
 
 static int fast_smmu_get_sgtable(struct device *dev, struct sg_table *sgt,
 				void *cpu_addr, dma_addr_t dma_addr,
 				size_t size, unsigned long attrs)
 {
-	unsigned int n_pages = PAGE_ALIGN(size) >> PAGE_SHIFT;
-	struct vm_struct *area;
-	struct page *page = NULL;
-	int ret = -ENXIO;
-
-	area = find_vm_area(cpu_addr);
-	if (area && area->pages)
-		return sg_alloc_table_from_pages(sgt, area->pages, n_pages, 0,
-						 size, GFP_KERNEL);
-	else if (attrs & DMA_ATTR_FORCE_CONTIGUOUS)
-		page = vmalloc_to_page(cpu_addr);
-	else if (!is_vmalloc_addr(cpu_addr))
-		page = virt_to_page(cpu_addr);
-	else if (fast_dma_in_atomic_pool(cpu_addr, size))
-		page = phys_to_page(fast_dma_get_phys(cpu_addr));
-
-	if (page) {
-		ret = sg_alloc_table(sgt, 1, GFP_KERNEL);
-		if (!ret)
-			sg_set_page(sgt->sgl, page, PAGE_ALIGN(size), 0);
-	}
-
-	return ret;
+	return iommu_dma_get_sgtable(dev, sgt, cpu_addr, dma_addr, size, attrs);
 }
 
 static dma_addr_t fast_smmu_dma_map_resource(

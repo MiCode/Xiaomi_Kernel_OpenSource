@@ -30,6 +30,9 @@ void iommu_dma_invalidate_sg(struct scatterlist *sg, int nents);
 int iommu_dma_mmap(struct device *dev, struct vm_area_struct *vma,
 		   void *cpu_addr, dma_addr_t dma_addr, size_t size,
 		   unsigned long attrs);
+int iommu_dma_get_sgtable(struct device *dev, struct sg_table *sgt,
+			  void *cpu_addr, dma_addr_t dma_addr, size_t size,
+			  unsigned long attrs);
 
 /* Setup call for arch DMA mapping code */
 void iommu_setup_dma_ops(struct device *dev, u64 dma_base, u64 size);
