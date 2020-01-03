@@ -184,7 +184,6 @@
 		arm,primecell-periphid = <0x0003b968>;
 		reg = <0x6c47000 0x1000>;
 		reg-names = "tpdm-base";
-		status = "disabled";
 
 		coresight-name = "coresight-tpdm-npu";
 
@@ -204,11 +203,31 @@
 		reg = <0x6c40000 0x1000>;
 		reg-names = "tpdm-base";
 
-		status = "disabled";
 		coresight-name = "coresight-tpdm-npu-llm";
 
-		clocks = <&clock_aop QDSS_CLK>;
-		clock-names = "apb_pclk";
+		clocks = <&clock_aop QDSS_CLK>,
+				<&clock_gcc GCC_NPU_AXI_CLK>,
+				<&clock_gcc GCC_NPU_CFG_AHB_CLK>,
+				<&clock_npucc NPU_CC_XO_CLK>,
+				<&clock_npucc NPU_CC_CORE_CLK>,
+				<&clock_npucc NPU_CC_CORE_CLK_SRC>;
+
+		clock-names = "apb_pclk",
+				"npu_axi_clk",
+				"npu_cfg_ahb_clk",
+				"npu_cc_xo_clk",
+				"npu_core_clk",
+				"npu_core_clk_src";
+
+		qcom,proxy-clks = "npu_axi_clk",
+				"npu_cfg_ahb_clk",
+				"npu_cc_xo_clk",
+				"npu_core_clk",
+				"npu_core_clk_src";
+
+		vdd-supply = <&npu_core_gdsc>;
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		qcom,proxy-regs ="vdd", "vdd_cx";
 		port {
 			tpdm_npu_llm_out_funnel_npu: endpoint {
 				remote-endpoint =
@@ -225,7 +244,6 @@
 
 		coresight-name = "coresight-tpdm-npu-dpm";
 
-		status = "disabled";
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
 		port {
@@ -758,7 +776,6 @@
 
 		coresight-name = "coresight-funnel-npu";
 
-		status = "disabled";
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
 		ports {

@@ -246,6 +246,7 @@ static ssize_t npu_debug_off_read(struct file *file,
 
 	len = scnprintf(buf, sizeof(buf), "offset=0x%08x cnt=%d\n",
 		debugfs->reg_off, debugfs->reg_cnt);
+	len = min(len, count);
 
 	if (copy_to_user(user_buf, buf, len)) {
 		pr_err("failed to copy to user\n");
@@ -275,49 +276,21 @@ static ssize_t npu_debug_log_read(struct file *file,
 	mutex_lock(&debugfs->log_lock);
 
 	if (debugfs->log_num_bytes_buffered != 0) {
-		if ((debugfs->log_read_index +
-			debugfs->log_num_bytes_buffered) >
-			debugfs->log_buf_size) {
-			/* Wrap around case */
-			uint32_t remaining_to_end = debugfs->log_buf_size -
-				debugfs->log_read_index;
-			uint8_t *src_addr = debugfs->log_buf +
-				debugfs->log_read_index;
-			uint8_t *dst_addr = user_buf;
-
-			if (copy_to_user(dst_addr, src_addr,
-				remaining_to_end)) {
-				pr_err("%s failed to copy to user\n", __func__);
-				mutex_unlock(&debugfs->log_lock);
-				return -EFAULT;
-			}
-			src_addr = debugfs->log_buf;
-			dst_addr = user_buf + remaining_to_end;
-			if (copy_to_user(dst_addr, src_addr,
-				debugfs->log_num_bytes_buffered -
-				remaining_to_end)) {
-				pr_err("%s failed to copy to user\n", __func__);
-				mutex_unlock(&debugfs->log_lock);
-				return -EFAULT;
-			}
-			debugfs->log_read_index =
-				debugfs->log_num_bytes_buffered -
-				remaining_to_end;
-		} else {
-			if (copy_to_user(user_buf, (debugfs->log_buf +
-				debugfs->log_read_index),
-				debugfs->log_num_bytes_buffered)) {
-				pr_err("%s failed to copy to user\n", __func__);
-				mutex_unlock(&debugfs->log_lock);
-				return -EFAULT;
-			}
-			debugfs->log_read_index +=
-				debugfs->log_num_bytes_buffered;
-			if (debugfs->log_read_index == debugfs->log_buf_size)
-				debugfs->log_read_index = 0;
+		len = min(debugfs->log_num_bytes_buffered,
+			debugfs->log_buf_size - debugfs->log_read_index);
+		len = min(count, len);
+		if (copy_to_user(user_buf, (debugfs->log_buf +
+			debugfs->log_read_index), len)) {
+			pr_err("%s failed to copy to user\n", __func__);
+			mutex_unlock(&debugfs->log_lock);
+			return -EFAULT;
 		}
-		len = debugfs->log_num_bytes_buffered;
-		debugfs->log_num_bytes_buffered = 0;
+		debugfs->log_read_index += len;
+		if (debugfs->log_read_index == debugfs->log_buf_size)
+			debugfs->log_read_index = 0;
+
+		debugfs->log_num_bytes_buffered -= len;
+		*ppos += len;
 	}
 
 	/* mutex log unlock */

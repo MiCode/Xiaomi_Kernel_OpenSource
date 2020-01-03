@@ -46,6 +46,10 @@
 #define MHI_UCI_AT_CTRL_READ_TIMEOUT	msecs_to_jiffies(1000)
 #define MHI_UCI_WRITE_REQ_AVAIL_TIMEOUT msecs_to_jiffies(1000)
 
+#define MHI_UCI_RELEASE_TIMEOUT_MIN	5000
+#define MHI_UCI_RELEASE_TIMEOUT_MAX	5100
+#define MHI_UCI_RELEASE_TIMEOUT_COUNT	30
+
 enum uci_dbg_level {
 	UCI_DBG_VERBOSE = 0x0,
 	UCI_DBG_INFO = 0x1,
@@ -960,39 +964,55 @@ static int mhi_uci_client_release(struct inode *mhi_inode,
 		struct file *file_handle)
 {
 	struct uci_client *uci_handle = file_handle->private_data;
+	int count = 0;
 
 	if (!uci_handle)
 		return -EINVAL;
 
-	if (atomic_sub_return(1, &uci_handle->ref_count) == 0) {
-		uci_log(UCI_DBG_DBG,
-				"Last client left, closing channel 0x%x\n",
-				iminor(mhi_inode));
-		if (atomic_read(&uci_handle->mhi_chans_open)) {
-			atomic_set(&uci_handle->mhi_chans_open, 0);
-
-			if (!(uci_handle->f_flags & O_SYNC))
-				kfree(uci_handle->wreqs);
-			mutex_lock(&uci_handle->out_chan_lock);
-			mhi_dev_close_channel(uci_handle->out_handle);
-			wake_up(&uci_handle->write_wq);
-			mutex_unlock(&uci_handle->out_chan_lock);
-
-			mutex_lock(&uci_handle->in_chan_lock);
-			mhi_dev_close_channel(uci_handle->in_handle);
-			wake_up(&uci_handle->read_wq);
-			mutex_unlock(&uci_handle->in_chan_lock);
-
-		}
-		atomic_set(&uci_handle->read_data_ready, 0);
-		atomic_set(&uci_handle->write_data_ready, 0);
-		file_handle->private_data = NULL;
-	} else {
-		uci_log(UCI_DBG_DBG,
-			"Client close chan %d, ref count 0x%x\n",
+	if (atomic_sub_return(1, &uci_handle->ref_count)) {
+		uci_log(UCI_DBG_DBG, "Client close chan %d, ref count 0x%x\n",
 			iminor(mhi_inode),
 			atomic_read(&uci_handle->ref_count));
+		return 0;
 	}
+
+	uci_log(UCI_DBG_DBG,
+			"Last client left, closing channel 0x%x\n",
+			iminor(mhi_inode));
+
+	do {
+		if (mhi_dev_channel_has_pending_write(uci_handle->out_handle))
+			usleep_range(MHI_UCI_RELEASE_TIMEOUT_MIN,
+				MHI_UCI_RELEASE_TIMEOUT_MAX);
+		else
+			break;
+	} while (++count < MHI_UCI_RELEASE_TIMEOUT_COUNT);
+
+	if (count == MHI_UCI_RELEASE_TIMEOUT_COUNT) {
+		uci_log(UCI_DBG_DBG, "Channel %d has pending writes\n",
+			iminor(mhi_inode));
+	}
+
+	if (atomic_read(&uci_handle->mhi_chans_open)) {
+		atomic_set(&uci_handle->mhi_chans_open, 0);
+
+		if (!(uci_handle->f_flags & O_SYNC))
+			kfree(uci_handle->wreqs);
+		mutex_lock(&uci_handle->out_chan_lock);
+		mhi_dev_close_channel(uci_handle->out_handle);
+		wake_up(&uci_handle->write_wq);
+		mutex_unlock(&uci_handle->out_chan_lock);
+
+		mutex_lock(&uci_handle->in_chan_lock);
+		mhi_dev_close_channel(uci_handle->in_handle);
+		wake_up(&uci_handle->read_wq);
+		mutex_unlock(&uci_handle->in_chan_lock);
+	}
+
+	atomic_set(&uci_handle->read_data_ready, 0);
+	atomic_set(&uci_handle->write_data_ready, 0);
+	file_handle->private_data = NULL;
+
 	return 0;
 }
 

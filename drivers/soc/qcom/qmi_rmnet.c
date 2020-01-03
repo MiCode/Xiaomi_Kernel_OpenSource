@@ -58,6 +58,7 @@ MODULE_PARM_DESC(rmnet_wq_frequency, "Frequency of PS check in ms");
 
 #ifdef CONFIG_QCOM_QMI_DFC
 static unsigned int qmi_rmnet_scale_factor = 5;
+static LIST_HEAD(qos_cleanup_list);
 #endif
 
 static int
@@ -139,8 +140,7 @@ qmi_rmnet_has_pending(struct qmi_info *qmi)
 
 #ifdef CONFIG_QCOM_QMI_DFC
 static void
-qmi_rmnet_clean_flow_list(struct qmi_info *qmi, struct net_device *dev,
-			  struct qos_info *qos)
+qmi_rmnet_clean_flow_list(struct qos_info *qos)
 {
 	struct rmnet_bearer_map *bearer, *br_tmp;
 	struct rmnet_flow_map *itm, *fl_tmp;
@@ -510,10 +510,6 @@ struct rmnet_bearer_map *qmi_rmnet_get_bearer_noref(struct qos_info *qos_info,
 }
 
 #else
-static inline void qmi_rmnet_clean_flow_list(struct qos_info *qos)
-{
-}
-
 static inline void
 qmi_rmnet_update_flow_map(struct rmnet_flow_map *itm,
 			  struct rmnet_flow_map *new_map)
@@ -923,19 +919,27 @@ void *qmi_rmnet_qos_init(struct net_device *real_dev, u8 mux_id)
 }
 EXPORT_SYMBOL(qmi_rmnet_qos_init);
 
-void qmi_rmnet_qos_exit(struct net_device *dev, void *qos)
+void qmi_rmnet_qos_exit_pre(void *qos)
 {
-	void *port = rmnet_get_rmnet_port(dev);
-	struct qmi_info *qmi = rmnet_get_qmi_pt(port);
-	struct qos_info *qos_info = (struct qos_info *)qos;
-
-	if (!qmi || !qos)
+	if (!qos)
 		return;
 
-	qmi_rmnet_clean_flow_list(qmi, dev, qos_info);
-	kfree(qos);
+	list_add(&((struct qos_info *)qos)->list, &qos_cleanup_list);
 }
-EXPORT_SYMBOL(qmi_rmnet_qos_exit);
+EXPORT_SYMBOL(qmi_rmnet_qos_exit_pre);
+
+void qmi_rmnet_qos_exit_post(void)
+{
+	struct qos_info *qos, *tmp;
+
+	synchronize_rcu();
+	list_for_each_entry_safe(qos, tmp, &qos_cleanup_list, list) {
+		list_del(&qos->list);
+		qmi_rmnet_clean_flow_list(qos);
+		kfree(qos);
+	}
+}
+EXPORT_SYMBOL(qmi_rmnet_qos_exit_post);
 #endif
 
 #ifdef CONFIG_QCOM_QMI_POWER_COLLAPSE

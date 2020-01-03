@@ -148,6 +148,8 @@ void npu_mem_write(struct npu_device *npu_dev, void *dst, void *src,
 			dst_off += 1;
 		}
 	}
+
+	__iowmb();
 }
 
 int32_t npu_mem_read(struct npu_device *npu_dev, void *src, void *dst,

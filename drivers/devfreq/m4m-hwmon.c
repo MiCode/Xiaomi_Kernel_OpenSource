@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -221,7 +221,7 @@ static irqreturn_t m4m_hwmon_intr_handler(int irq, void *dev)
 	return IRQ_NONE;
 }
 
-static int count_to_mrps(unsigned long count, unsigned int us)
+static int count_to_mrps(uint64_t count, unsigned int us)
 {
 	do_div(count, us);
 	count++;

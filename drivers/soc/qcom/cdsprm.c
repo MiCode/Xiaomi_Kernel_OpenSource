@@ -543,8 +543,8 @@ static void process_delayed_rm_request(struct work_struct *work)
 			(curr_timestamp < timestamp)) {
 		if ((timestamp - curr_timestamp) <
 		(gcdsprm.qos_max_ms * SYS_CLK_TICKS_PER_MS))
-			time_ms = (timestamp - curr_timestamp) /
-						SYS_CLK_TICKS_PER_MS;
+			time_ms = div_u64((timestamp - curr_timestamp),
+						SYS_CLK_TICKS_PER_MS);
 		else
 			break;
 		gcdsprm.dt_state = CDSP_DELAY_THREAD_BEFORE_SLEEP;

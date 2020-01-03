@@ -15,6 +15,7 @@
 #include "dsi-panel-sim-video.dtsi"
 #include "dsi-panel-sim-cmd.dtsi"
 #include "dsi-panel-sim-dsc375-cmd.dtsi"
+#include "dsi-panel-nt36672c-fhd-plus-video.dtsi"
 #include <dt-bindings/clock/mdss-10nm-pll-clk.h>
 
 &soc {
@@ -143,6 +144,18 @@
 		qcom,dsi-panel = <&dsi_sim_dsc_375_cmd>;
 	};
 
+	dsi_nt36672c_video_display: qcom,dsi-display@5 {
+		label = "dsi_nt36672c_video_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <0>;
+		qcom,dsi-phy-num = <0>;
+
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0",
+					"cphy_byte_clk0", "cphy_pixel_clk0";
+		qcom,dsi-panel = <&dsi_nt36672c_video>;
+	};
+
 	sde_dsi: qcom,dsi-display {
 		compatible = "qcom,dsi-display";
 
@@ -180,7 +193,8 @@
 			&dsi_rm69299_visionox_amoled_cmd_display
 			&dsi_sim_vid_display
 			&dsi_sim_cmd_display
-			&dsi_sim_dsc_375_cmd_display>;
+			&dsi_sim_dsc_375_cmd_display
+			&dsi_nt36672c_video_display>;
 	};
 
 	sde_wb: qcom,wb-display@0 {
@@ -331,6 +345,29 @@
 			qcom,display-topology = <1 1 1>,
 						<2 2 1>, /* dsc merge */
 						<2 1 1>; /* 3d mux */
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+
+&dsi_nt36672c_video {
+	qcom,mdss-dsi-t-clk-post = <0x00>;
+	qcom,mdss-dsi-t-clk-pre = <0x00>;
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "reg_read";
+	qcom,mdss-dsi-panel-status-command = [06 01 00 01 00 00 01 0a];
+	qcom,mdss-dsi-panel-status-command-state = "dsi_hs_mode";
+	qcom,mdss-dsi-panel-status-value = <0x9c>;
+	qcom,mdss-dsi-panel-on-check-value = <0x9c>;
+	qcom,mdss-dsi-panel-status-read-length = <1>;
+	qcom,dsi-supported-dfps-list = <60 90 50>;
+	qcom,mdss-dsi-pan-enable-dynamic-fps;
+	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [00 23 09 09 26 24 09
+				09 09 06 02 04];
+			qcom,display-topology = <1 0 1>;
 			qcom,default-topology-index = <0>;
 		};
 	};

@@ -158,6 +158,7 @@ struct qpnp_qg {
 	int			ibat_tcss_entry;
 	int			soc_tcss;
 	int			tcss_entry_count;
+	int			max_fcc_limit_ma;
 	u32			fifo_done_count;
 	u32			wa_flags;
 	u32			seq_no;
