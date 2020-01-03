@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -20,6 +20,8 @@
 #include <linux/ipc_logging.h>
 #include <linux/pinctrl/qcom-pinctrl.h>
 #include <linux/delay.h>
+#include <linux/pm_wakeup.h>
+#include <linux/workqueue.h>
 
 #define SE_I3C_SCL_HIGH			0x268
 #define SE_I3C_TX_TRANS_LEN		0x26C
@@ -270,6 +272,9 @@ struct geni_i3c_dev {
 	const struct geni_i3c_clk_fld *clk_fld;
 	const struct geni_i3c_clk_fld *clk_od_fld;
 	struct geni_ibi ibi;
+	struct workqueue_struct *hj_wq;
+	struct work_struct hj_wd;
+	struct wakeup_source hj_wl;
 };
 
 struct geni_i3c_i2c_dev_data {
@@ -456,6 +461,22 @@ static void geni_i3c_err(struct geni_i3c_dev *gi3c, int err)
 	geni_se_dump_dbg_regs(&gi3c->se.i3c_rsc, gi3c->se.base, gi3c->ipcl);
 }
 
+static void geni_i3c_hotjoin(struct work_struct *work)
+{
+	int ret;
+	struct geni_i3c_dev *gi3c =
+			container_of(work, struct geni_i3c_dev, hj_wd);
+
+	pm_stay_awake(gi3c->se.dev);
+
+	ret = i3c_master_do_daa(&gi3c->ctrlr);
+	if (ret)
+		GENI_SE_ERR(gi3c->ipcl, true, gi3c->se.dev,
+			"hotjoin:daa failed %d\n", ret);
+
+	pm_relax(gi3c->se.dev);
+}
+
 static void geni_i3c_handle_received_ibi(struct geni_i3c_dev *gi3c)
 {
 	struct geni_i3c_i2c_dev_data *data;
@@ -527,6 +548,10 @@ static irqreturn_t geni_i3c_ibi_irq(int irq, void *dev)
 			(m_stat & SW_RESET_DONE_EN))
 			cmd_done = true;
 
+		if (m_stat & HOT_JOIN_IRQ_EN) {
+			/* Queue worker to service hot-join request*/
+			queue_work(gi3c->hj_wq, &gi3c->hj_wd);
+		}
 		/* clear interrupts */
 		if (m_stat)
 			writel_relaxed(m_stat, gi3c->se.ibi_base
@@ -842,8 +867,10 @@ static void geni_i3c_perform_daa(struct geni_i3c_dev *gi3c)
 		u8 rx_buf[8], tx_buf[8];
 		struct i3c_xfer_params xfer = { FIFO_MODE };
 		struct i3c_dev_boardinfo *i3cboardinfo;
+		struct i3c_dev_desc *i3cdev;
 		u64 pid;
 		u8 bcr, dcr, init_dyn_addr = 0, addr = 0;
+		bool enum_slv = false;
 
 		GENI_SE_DBG(gi3c->ipcl, false, gi3c->se.dev,
 			"i3c entdaa read\n");
@@ -885,18 +912,36 @@ static void geni_i3c_perform_daa(struct geni_i3c_dev *gi3c)
 			goto daa_err;
 		} else if (ret == init_dyn_addr) {
 			GENI_SE_DBG(gi3c->ipcl, false, gi3c->se.dev,
-			"assigning requested addr:0x%x for pid:0x:%x\n"
+				"assigning requested addr:0x%x for pid:0x:%x\n"
 				, ret, pid);
 		} else if (init_dyn_addr) {
-			GENI_SE_DBG(gi3c->ipcl, false, gi3c->se.dev,
-			"Can't assign req addr:0x%x for pid:0x%x assigning avl addr:0x%x\n"
-				, init_dyn_addr, pid, addr);
+			i3c_bus_for_each_i3cdev(&m->bus, i3cdev) {
+				if (i3cdev->info.pid == pid) {
+					enum_slv = true;
+					break;
+				}
+			}
+			if (enum_slv) {
+				addr = i3cdev->info.dyn_addr;
+				GENI_SE_DBG(gi3c->ipcl, false, gi3c->se.dev,
+					"assigning requested addr:0x%x for pid:0x:%x\n"
+					, addr, pid);
+			} else {
+				GENI_SE_DBG(gi3c->ipcl, false, gi3c->se.dev,
+				"new dev: assigning addr:0x%x for pid:x:%x\n"
+				, ret, pid);
+			}
 		} else {
 			GENI_SE_DBG(gi3c->ipcl, false, gi3c->se.dev,
-			"assigning addr:0x%x for pid:x:%x\n", ret, pid);
+				"assigning addr:0x%x for pid:x:%x\n", ret, pid);
 		}
 
-		set_new_addr_slot(gi3c->newaddrslots, addr);
+		if (!i3cboardinfo->init_dyn_addr)
+			i3cboardinfo->init_dyn_addr = addr;
+
+		if (!enum_slv)
+			set_new_addr_slot(gi3c->newaddrslots, addr);
+
 		tx_buf[0] = (addr & I3C_ADDR_MASK) << 1;
 		tx_buf[0] |= ~(hweight8(addr & I3C_ADDR_MASK) & 1);
 
@@ -1201,6 +1246,10 @@ static int geni_i3c_master_entdaa_locked(struct geni_i3c_dev *gi3c)
 		}
 	}
 
+	i3c_master_enec_locked(m, I3C_BROADCAST_ADDR,
+				      I3C_CCC_EVENT_MR |
+				      I3C_CCC_EVENT_HJ);
+
 	return 0;
 }
 
@@ -1346,7 +1395,7 @@ static int geni_i3c_master_enable_ibi(struct i3c_dev_desc *dev)
 		return -EPERM;
 
 	ret = i3c_master_enec_locked(m, dev->info.dyn_addr,
-				     I3C_CCC_EVENT_SIR);
+				      I3C_CCC_EVENT_SIR);
 	if (ret)
 		GENI_SE_ERR(gi3c->ipcl, true, gi3c->se.dev,
 			"%s: error while i3c_master_enec_locked\n", __func__);
@@ -1379,7 +1428,6 @@ static void qcom_geni_i3c_ibi_conf(struct geni_i3c_dev *gi3c)
 	reinit_completion(&gi3c->ibi.done);
 
 	/* set the configuration for 100Khz OD speed */
-	geni_write_reg(0, gi3c->se.ibi_base, IBI_SCL_OD_TYPE);
 	geni_write_reg(0x5FD74322, gi3c->se.ibi_base, IBI_SCL_PP_TIMING_CONFIG);
 
 	/* Enable I3C IBI controller */
@@ -1401,7 +1449,7 @@ static void qcom_geni_i3c_ibi_conf(struct geni_i3c_dev *gi3c)
 	}
 
 	/* enable manager interrupts */
-	geni_write_reg(~0u, gi3c->se.ibi_base, IBI_GEN_IRQ_EN);
+	geni_write_reg(0x1B, gi3c->se.ibi_base, IBI_GEN_IRQ_EN);
 
 	/* Enable GPII0 interrupts */
 	geni_write_reg(0x1, gi3c->se.ibi_base, IBI_GPII_IBI_EN);
@@ -1906,6 +1954,10 @@ static int geni_i3c_probe(struct platform_device *pdev)
 	geni_se_init(gi3c->se.base, gi3c->tx_wm, tx_depth);
 	se_config_packing(gi3c->se.base, BITS_PER_BYTE, PACKING_BYTES_PW, true);
 
+	wakeup_source_init(&gi3c->hj_wl, dev_name(gi3c->se.dev));
+	INIT_WORK(&gi3c->hj_wd, geni_i3c_hotjoin);
+	gi3c->hj_wq = alloc_workqueue("%s", 0, 0, dev_name(gi3c->se.dev));
+
 	ret = i3c_ibi_rsrcs_init(gi3c, pdev);
 	if (ret) {
 		se_geni_resources_off(&gi3c->se.i3c_rsc);
@@ -1921,13 +1973,16 @@ static int geni_i3c_probe(struct platform_device *pdev)
 	pm_runtime_use_autosuspend(gi3c->se.dev);
 	pm_runtime_enable(gi3c->se.dev);
 
+
 	ret = i3c_master_register(&gi3c->ctrlr, &pdev->dev,
 		&geni_i3c_master_ops, false);
-
 	if (ret)
 		return ret;
+	//enable hot-join IRQ also
+	geni_write_reg(~0u, gi3c->se.ibi_base, IBI_GEN_IRQ_EN);
 
 	GENI_SE_DBG(gi3c->ipcl, false, gi3c->se.dev, "I3C probed\n");
+
 	return ret;
 }
 
@@ -1936,6 +1991,8 @@ static int geni_i3c_remove(struct platform_device *pdev)
 	struct geni_i3c_dev *gi3c = platform_get_drvdata(pdev);
 	int ret = 0;
 
+	destroy_workqueue(gi3c->hj_wq);
+	wakeup_source_trash(&gi3c->hj_wl);
 	pm_runtime_disable(gi3c->se.dev);
 	ret = i3c_master_unregister(&gi3c->ctrlr);
 	if (gi3c->ipcl)
