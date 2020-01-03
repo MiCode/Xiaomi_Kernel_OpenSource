@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2010-2015,2019 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2015,2020 The Linux Foundation. All rights reserved.
  */
 #ifndef __QCOM_SCM_INT_H
 #define __QCOM_SCM_INT_H
@@ -227,6 +227,10 @@ extern int __qcom_scm_camera_protect_phy_lanes(struct device *dev,
 
 extern int __qcom_scm_qseecom_do(struct device *dev, u32 cmd_id,
 				 struct scm_desc *desc, bool retry);
+
+#define QCOM_SCM_SVC_TSENS		0x1E
+#define QCOM_SCM_TSENS_INIT_ID		0x5
+extern int __qcom_scm_tsens_reinit(struct device *dev, int *tsens_ret);
 
 // TOS Services and Function IDs
 #define QCOM_SCM_SVC_QSEELOG		0x01

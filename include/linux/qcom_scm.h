@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2010-2015, 2018-2019 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2015, 2018-2020 The Linux Foundation. All rights reserved.
  * Copyright (C) 2015 Linaro Ltd.
  */
 #ifndef __QCOM_SCM_H
@@ -179,6 +179,7 @@ extern int qcom_scm_smmu_notify_secure_lut(u64 dev_id, bool secure);
 extern int qcom_scm_qdss_invoke(phys_addr_t addr, size_t size, u64 *out);
 extern int qcom_scm_camera_protect_all(uint32_t protect, uint32_t param);
 extern int qcom_scm_camera_protect_phy_lanes(bool protect, u64 regmask);
+extern int qcom_scm_tsens_reinit(int *tsens_ret);
 extern int qcom_scm_ice_restore_cfg(void);
 extern int qcom_scm_get_tz_log_feat_id(u64 *version);
 extern int qcom_scm_register_qsee_log_buf(phys_addr_t buf, size_t len);
@@ -336,6 +337,8 @@ static inline int qcom_scm_camera_protect_all(uint32_t protect, uint32_t param)
 		{ return -ENODEV; }
 static inline int qcom_scm_camera_protect_phy_lanes(bool protect, u64 regmask)
 		{ return -EINVAL; }
+static inline int qcom_scm_tsens_reinit(int *tsens_ret)
+		{ return -ENODEV; }
 static inline int qcom_scm_ice_restore_cfg(void) { return -ENODEV; }
 static inline int qcom_scm_get_tz_log_feat_id(u64 *version)
 		{ return -ENODEV; }
