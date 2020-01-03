@@ -282,6 +282,14 @@ config QCOM_RPMHPD
 	  value to RPMh which then translates it into corresponding voltage
 	  for the voltage rail.
 
+config QCOM_RUN_QUEUE_STATS
+       bool "Enable collection and exporting of QTI Run Queue stats to userspace"
+       help
+        This option enables the driver to periodically collecting the statistics
+        of kernel run queue information and calculate the load of the system.
+        This information is exported to usespace via sysfs entries and userspace
+        algorithms uses info and decide when to turn on/off the cpu cores.
+
 config QCOM_RPMPD
 	bool "Qualcomm RPM Power domain driver"
 	depends on QCOM_SMD_RPM=y
