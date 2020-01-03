@@ -14,5 +14,8 @@ int qg_adjust_sys_soc(struct qpnp_qg *chip);
 extern struct device_attribute dev_attr_soc_interval_ms;
 extern struct device_attribute dev_attr_soc_cold_interval_ms;
 extern struct device_attribute dev_attr_maint_soc_update_ms;
+extern struct device_attribute dev_attr_fvss_delta_soc_interval_ms;
+extern struct device_attribute dev_attr_fvss_vbat_scaling;
+extern struct device_attribute dev_attr_qg_ss_feature;
 
 #endif /* __QG_SOC_H__ */

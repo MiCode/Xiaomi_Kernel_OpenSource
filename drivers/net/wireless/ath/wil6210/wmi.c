@@ -483,6 +483,10 @@ static const char *cmdid2name(u16 cmdid)
 		return "WMI_RBUFCAP_CFG_CMD";
 	case WMI_TEMP_SENSE_ALL_CMDID:
 		return "WMI_TEMP_SENSE_ALL_CMDID";
+	case WMI_FST_CONFIG_CMDID:
+		return "WMI_FST_CONFIG_CMD";
+	case WMI_SET_LINK_MONITOR_CMDID:
+		return "WMI_SET_LINK_MONITOR_CMD";
 	default:
 		return "Untracked CMD";
 	}
@@ -635,6 +639,12 @@ static const char *eventid2name(u16 eventid)
 		return "WMI_RBUFCAP_CFG_EVENT";
 	case WMI_TEMP_SENSE_ALL_DONE_EVENTID:
 		return "WMI_TEMP_SENSE_ALL_DONE_EVENTID";
+	case WMI_FST_CONFIG_EVENTID:
+		return "WMI_FST_CONFIG_EVENT";
+	case WMI_SET_LINK_MONITOR_EVENTID:
+		return "WMI_SET_LINK_MONITOR_EVENT";
+	case WMI_LINK_MONITOR_EVENTID:
+		return "WMI_LINK_MONITOR_EVENT";
 	default:
 		return "Untracked EVENT";
 	}
@@ -1069,6 +1079,24 @@ static void wmi_evt_connect(struct wil6210_vif *vif, int id, void *d, int len)
 			mutex_unlock(&wil->mutex);
 			return;
 		}
+
+		sinfo = kzalloc(sizeof(*sinfo), GFP_KERNEL);
+		if (!sinfo) {
+			wmi_disconnect_sta(vif, wil->sta[evt->cid].addr,
+					   WLAN_REASON_UNSPECIFIED, false);
+			rc = -ENOMEM;
+			goto out;
+		}
+
+		sinfo->generation = wil->sinfo_gen++;
+
+		if (assoc_req_ie) {
+			sinfo->assoc_req_ies = assoc_req_ie;
+			sinfo->assoc_req_ies_len = assoc_req_ielen;
+		}
+
+		cfg80211_new_sta(ndev, evt->bssid, sinfo, GFP_KERNEL);
+		kfree(sinfo);
 	}
 
 	ether_addr_copy(wil->sta[evt->cid].addr, evt->bssid);
@@ -1111,28 +1139,10 @@ static void wmi_evt_connect(struct wil6210_vif *vif, int id, void *d, int len)
 		   (wdev->iftype == NL80211_IFTYPE_P2P_GO)) {
 
 		if (rc) {
-			if (disable_ap_sme)
-				/* notify new_sta has failed */
-				cfg80211_del_sta(ndev, evt->bssid, GFP_KERNEL);
+			/* notify new_sta has failed */
+			cfg80211_del_sta(ndev, evt->bssid, GFP_KERNEL);
 			goto out;
 		}
-
-		sinfo = kzalloc(sizeof(*sinfo), GFP_KERNEL);
-		if (!sinfo) {
-			rc = -ENOMEM;
-			goto out;
-		}
-
-		sinfo->generation = wil->sinfo_gen++;
-
-		if (assoc_req_ie) {
-			sinfo->assoc_req_ies = assoc_req_ie;
-			sinfo->assoc_req_ies_len = assoc_req_ielen;
-		}
-
-		cfg80211_new_sta(ndev, evt->bssid, sinfo, GFP_KERNEL);
-
-		kfree(sinfo);
 	} else {
 		wil_err(wil, "unhandled iftype %d for CID %d\n", wdev->iftype,
 			evt->cid);
@@ -1908,6 +1918,32 @@ fail:
 	wil6210_disconnect(vif, NULL, WLAN_REASON_PREV_AUTH_NOT_VALID);
 }
 
+static void
+wmi_evt_link_monitor(struct wil6210_vif *vif, int id, void *d, int len)
+{
+	struct wil6210_priv *wil = vif_to_wil(vif);
+	struct net_device *ndev = vif_to_ndev(vif);
+	struct wmi_link_monitor_event *evt = d;
+	enum nl80211_cqm_rssi_threshold_event event_type;
+
+	if (len < sizeof(*evt)) {
+		wil_err(wil, "link monitor event too short %d\n", len);
+		return;
+	}
+
+	wil_dbg_wmi(wil, "link monitor event, type %d rssi %d (stored %d)\n",
+		    evt->type, evt->rssi_level, wil->cqm_rssi_thold);
+
+	if (evt->type != WMI_LINK_MONITOR_NOTIF_RSSI_THRESHOLD_EVT)
+		/* ignore */
+		return;
+
+	event_type = (evt->rssi_level > wil->cqm_rssi_thold ?
+		      NL80211_CQM_RSSI_THRESHOLD_EVENT_HIGH :
+		      NL80211_CQM_RSSI_THRESHOLD_EVENT_LOW);
+	cfg80211_cqm_rssi_notify(ndev, event_type, evt->rssi_level, GFP_KERNEL);
+}
+
 /**
  * Some events are ignored for purpose; and need not be interpreted as
  * "unhandled events"
@@ -1948,6 +1984,7 @@ static const struct {
 	{WMI_LINK_STATS_EVENTID,		wmi_evt_link_stats},
 	{WMI_FT_AUTH_STATUS_EVENTID,		wmi_evt_auth_status},
 	{WMI_FT_REASSOC_STATUS_EVENTID,		wmi_evt_reassoc_status},
+	{WMI_LINK_MONITOR_EVENTID,		wmi_evt_link_monitor},
 };
 
 /*
@@ -4345,6 +4382,87 @@ int wmi_reset_spi_slave(struct wil6210_priv *wil)
 
 	if (reply.evt.status != WMI_FW_STATUS_SUCCESS) {
 		wil_err(wil, "spi slave reset failed, status %d\n",
+			reply.evt.status);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+int wmi_set_cqm_rssi_config(struct wil6210_priv *wil,
+			    s32 rssi_thold, u32 rssi_hyst)
+{
+	struct net_device *ndev = wil->main_ndev;
+	struct wil6210_vif *vif = ndev_to_vif(ndev);
+	int rc;
+	struct {
+		struct wmi_set_link_monitor_cmd cmd;
+		s8 rssi_thold;
+	} __packed cmd = {
+		.cmd = {
+			.rssi_hyst = rssi_hyst,
+			.rssi_thresholds_list_size = 1,
+		},
+		.rssi_thold = rssi_thold,
+	};
+	struct {
+		struct wmi_cmd_hdr hdr;
+		struct wmi_set_link_monitor_event evt;
+	} __packed reply = {
+		.evt = {.status = WMI_FW_STATUS_FAILURE},
+	};
+
+	if (rssi_thold > S8_MAX || rssi_thold < S8_MIN || rssi_hyst > U8_MAX)
+		return -EINVAL;
+
+	rc = wmi_call(wil, WMI_SET_LINK_MONITOR_CMDID, vif->mid, &cmd,
+		      sizeof(cmd), WMI_SET_LINK_MONITOR_EVENTID,
+		      &reply, sizeof(reply), WIL_WMI_CALL_GENERAL_TO_MS);
+	if (rc) {
+		wil_err(wil, "WMI_SET_LINK_MONITOR_CMDID failed, rc %d\n", rc);
+		return rc;
+	}
+
+	if (reply.evt.status != WMI_FW_STATUS_SUCCESS) {
+		wil_err(wil, "WMI_SET_LINK_MONITOR_CMDID failed, status %d\n",
+			reply.evt.status);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+int wmi_set_fst_config(struct wil6210_priv *wil, const u8 *bssid, u8 enabled,
+		       u8 entry_mcs, u8 exit_mcs, u8 slevel)
+{
+	struct net_device *ndev = wil->main_ndev;
+	struct wil6210_vif *vif = ndev_to_vif(ndev);
+	int rc;
+	struct wmi_fst_config_cmd cmd = {
+		.fst_en = enabled,
+		.fst_entry_mcs = entry_mcs,
+		.fst_exit_mcs = exit_mcs,
+		.sensitivity_level = slevel,
+	};
+	struct {
+		struct wmi_cmd_hdr hdr;
+		struct wmi_fst_config_event evt;
+	} __packed reply = {
+		.evt = {.status = WMI_FW_STATUS_FAILURE},
+	};
+
+	ether_addr_copy(cmd.fst_ap_bssid, bssid);
+
+	rc = wmi_call(wil, WMI_FST_CONFIG_CMDID, vif->mid, &cmd,
+		      sizeof(cmd), WMI_FST_CONFIG_EVENTID,
+		      &reply, sizeof(reply), WIL_WMI_CALL_GENERAL_TO_MS);
+	if (rc) {
+		wil_err(wil, "WMI_FST_CONFIG_CMDID failed, rc %d\n", rc);
+		return rc;
+	}
+
+	if (reply.evt.status != WMI_FW_STATUS_SUCCESS) {
+		wil_err(wil, "WMI_FST_CONFIG_CMDID failed, status %d\n",
 			reply.evt.status);
 		return -EINVAL;
 	}

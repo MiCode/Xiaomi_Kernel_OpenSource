@@ -529,6 +529,15 @@ static struct ctl_table kern_table[] = {
 		.proc_handler	= sched_ravg_window_handler,
 	},
 	{
+		.procname	= "sched_dynamic_ravg_window_enable",
+		.data		= &sysctl_sched_dynamic_ravg_window_enable,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= &zero,
+		.extra2		= &one,
+	},
+	{
 		.procname	= "sched_upmigrate",
 		.data		= &sysctl_sched_capacity_margin_up,
 		.maxlen		= sizeof(unsigned int) * MAX_MARGIN_LEVELS,
@@ -3563,7 +3572,7 @@ static int do_proc_douintvec_rwin(bool *negp, unsigned long *lvalp,
 				  int *valp, int write, void *data)
 {
 	if (write) {
-		if (*lvalp == 0 || *lvalp == 2 || *lvalp == 5)
+		if ((*lvalp >= 2 && *lvalp <= 5) || *lvalp == 8)
 			*valp = *lvalp;
 		else
 			return -EINVAL;

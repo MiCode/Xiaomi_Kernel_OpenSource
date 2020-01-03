@@ -149,8 +149,6 @@ struct cpu_gpu_lock {
 };
 
 #define A6XX_CP_CTXRECORD_MAGIC_REF     0xAE399D6EUL
-/* Size of each CP preemption record */
-#define A6XX_CP_CTXRECORD_SIZE_IN_BYTES     (2112 * 1024)
 /* Size of the user context record block (in bytes) */
 #define A6XX_CP_CTXRECORD_USER_RESTORE_SIZE (192 * 1024)
 /* Size of the performance counter save/restore block (in bytes) */
