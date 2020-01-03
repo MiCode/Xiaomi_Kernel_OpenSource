@@ -273,6 +273,7 @@ config ZONE_DMA32
 	  This option enables/disables the DMA zone.
 
 config ARCH_ENABLE_MEMORY_HOTPLUG
+    depends on !NUMA
 	def_bool y
 
 config ARCH_ENABLE_MEMORY_HOTREMOVE
