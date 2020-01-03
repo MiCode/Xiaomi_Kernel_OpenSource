@@ -685,6 +685,7 @@ void __init paging_init(void)
 	memblock_allow_resize();
 }
 
+#ifdef CONFIG_MEMORY_HOTPLUG
 #define PAGE_INUSE 0xFD
 
 static void  free_pagetable(struct page *page, int order, bool direct)
@@ -1059,6 +1060,12 @@ static void remove_pagetable(unsigned long start, unsigned long end,
 	flush_tlb_all();
 }
 
+#else
+static void remove_pagetable(unsigned long start, unsigned long end,
+			     bool direct)
+{
+}
+#endif /* CONFIG_MEMORY_HOTPLUG */
 
 /*
  * Check whether a kernel address is valid (derived from arch/x86/).
