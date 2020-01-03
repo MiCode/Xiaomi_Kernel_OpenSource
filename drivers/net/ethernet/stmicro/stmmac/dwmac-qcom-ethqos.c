@@ -31,6 +31,8 @@ struct qcom_ethqos *pethqos;
 struct emac_emb_smmu_cb_ctx emac_emb_smmu_ctx = {0};
 
 void *ipc_emac_log_ctxt;
+static struct qmp_pkt pkt;
+static char qmp_buf[MAX_QMP_MSG_SIZE + 1] = {0};
 
 static int rgmii_readl(struct qcom_ethqos *ethqos, unsigned int offset)
 {
@@ -124,6 +126,74 @@ ethqos_update_rgmii_clk_and_bus_cfg(struct qcom_ethqos *ethqos,
 	}
 
 	clk_set_rate(ethqos->rgmii_clk, ethqos->rgmii_clk_rate);
+}
+
+static int qcom_ethqos_qmp_mailbox_init(struct qcom_ethqos *ethqos)
+{
+	ethqos->qmp_mbox_client = devm_kzalloc(
+	&ethqos->pdev->dev, sizeof(*ethqos->qmp_mbox_client), GFP_KERNEL);
+
+	if (IS_ERR(ethqos->qmp_mbox_client)) {
+		ETHQOSERR("qmp alloc client failed\n");
+		return -EINVAL;
+	}
+
+	ethqos->qmp_mbox_client->dev = &ethqos->pdev->dev;
+	ethqos->qmp_mbox_client->tx_block = true;
+	ethqos->qmp_mbox_client->tx_tout = 1000;
+	ethqos->qmp_mbox_client->knows_txdone = false;
+
+	ethqos->qmp_mbox_chan = mbox_request_channel(ethqos->qmp_mbox_client,
+						     0);
+
+	if (IS_ERR(ethqos->qmp_mbox_chan)) {
+		ETHQOSERR("qmp request channel failed\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int qcom_ethqos_qmp_mailbox_send_message(struct qcom_ethqos *ethqos)
+{
+	int ret = 0;
+
+	memset(&qmp_buf[0], 0, MAX_QMP_MSG_SIZE + 1);
+
+	snprintf(qmp_buf, MAX_QMP_MSG_SIZE, "{class:ctile, pc:0}");
+
+	pkt.size = ((size_t)strlen(qmp_buf) + 0x3) & ~0x3;
+	pkt.data = qmp_buf;
+
+	ret = mbox_send_message(ethqos->qmp_mbox_chan, (void *)&pkt);
+
+	ETHQOSDBG("qmp mbox_send_message ret = %d\n", ret);
+
+	if (ret < 0) {
+		ETHQOSERR("Disabling c-tile power collapse failed\n");
+		return ret;
+	}
+
+	ETHQOSDBG("Disabling c-tile power collapse succeded");
+
+	return 0;
+}
+
+/**
+ *  DWC_ETH_QOS_qmp_mailbox_work - Scheduled from probe
+ *  @work: work_struct
+ */
+static void qcom_ethqos_qmp_mailbox_work(struct work_struct *work)
+{
+	struct qcom_ethqos *ethqos =
+		container_of(work, struct qcom_ethqos, qmp_mailbox_work);
+
+	ETHQOSDBG("Enter\n");
+
+	/* Send QMP message to disable c-tile power collapse */
+	qcom_ethqos_qmp_mailbox_send_message(ethqos);
+
+	ETHQOSDBG("Exit\n");
 }
 
 static void ethqos_set_func_clk_en(struct qcom_ethqos *ethqos)
@@ -1133,6 +1203,8 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	ethqos->speed = SPEED_10;
 	ethqos_update_rgmii_clk_and_bus_cfg(ethqos, SPEED_10);
 	ethqos_set_func_clk_en(ethqos);
+	if (ethqos->emac_ver == EMAC_HW_v2_0_0)
+		ethqos->disable_ctile_pc = 1;
 
 	plat_dat->bsp_priv = ethqos;
 	plat_dat->fix_mac_speed = ethqos_fix_mac_speed;
@@ -1182,6 +1254,11 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 						 AVB_CLASS_B_POLL_DEV_NODE);
 	}
 
+	if (ethqos->disable_ctile_pc && !qcom_ethqos_qmp_mailbox_init(ethqos)) {
+		INIT_WORK(&ethqos->qmp_mailbox_work,
+			  qcom_ethqos_qmp_mailbox_work);
+		queue_work(system_wq, &ethqos->qmp_mailbox_work);
+	}
 	pethqos = ethqos;
 	ethqos_create_debugfs(ethqos);
 	return ret;

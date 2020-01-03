@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,10 +14,14 @@
 
 #include <linux/ipc_logging.h>
 #include <linux/msm-bus.h>
+#include <linux/mailbox_client.h>
+#include <linux/mailbox/qmp.h>
+#include <linux/mailbox_controller.h>
 
 extern void *ipc_emac_log_ctxt;
 
 #define IPCLOG_STATE_PAGES 50
+#define MAX_QMP_MSG_SIZE 96
 #define __FILENAME__ (strrchr(__FILE__, '/') ? \
 		strrchr(__FILE__, '/') + 1 : __FILE__)
 
@@ -343,6 +347,11 @@ struct qcom_ethqos {
 	struct completion clk_enable_done;
 
 	int always_on_phy;
+	/* QMP message for disabling ctile power collapse while XO shutdown */
+	struct mbox_chan *qmp_mbox_chan;
+	struct mbox_client *qmp_mbox_client;
+	struct work_struct qmp_mailbox_work;
+	int disable_ctile_pc;
 };
 
 struct pps_cfg {
