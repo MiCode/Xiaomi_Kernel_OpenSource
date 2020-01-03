@@ -43,6 +43,7 @@
 #include <linux/init.h>
 #include <linux/mmu_notifier.h>
 #include <linux/show_mem_notifier.h>
+#include <linux/memory_hotplug.h>
 
 #include <asm/tlb.h>
 #include "internal.h"
@@ -1065,6 +1066,12 @@ bool out_of_memory(struct oom_control *oc)
 
 	if (oom_killer_disabled)
 		return false;
+
+	if (try_online_one_block(numa_node_id())) {
+		/* Got some memory back */
+		WARN(1, "OOM killer had to online a memory block\n");
+		return true;
+	}
 
 	if (!is_memcg_oom(oc)) {
 		blocking_notifier_call_chain(&oom_notify_list, 0, &freed);
