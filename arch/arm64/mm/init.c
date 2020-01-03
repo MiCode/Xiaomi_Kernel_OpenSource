@@ -28,6 +28,8 @@
 #include <linux/mm.h>
 #include <linux/kexec.h>
 #include <linux/crash_dump.h>
+#include <linux/memory.h>
+#include <linux/libfdt.h>
 
 #include <asm/boot.h>
 #include <asm/fixmap.h>
@@ -259,6 +261,51 @@ EXPORT_SYMBOL(pfn_valid);
 static phys_addr_t memory_limit = PHYS_ADDR_MAX;
 phys_addr_t bootloader_memory_limit;
 
+#ifdef CONFIG_OVERRIDE_MEMORY_LIMIT
+static void __init update_memory_limit(void)
+{
+	unsigned long dt_root = of_get_flat_dt_root();
+	unsigned long node, mp;
+	const char *p;
+	unsigned long long ram_sz, sz;
+	int ret;
+
+	ram_sz = memblock_end_of_DRAM() - memblock_start_of_DRAM();
+	node = of_get_flat_dt_subnode_by_name(dt_root, "mem-offline");
+	if (node == -FDT_ERR_NOTFOUND) {
+		pr_err("mem-offine node not found in FDT\n");
+		return;
+	}
+	p = of_get_flat_dt_prop(node, "mem-percent", NULL);
+	if (!p) {
+		pr_err("mem-offine: mem-percent property not found in FDT\n");
+		return;
+	}
+
+	ret = kstrtoul(p, 10, &mp);
+	if (ret) {
+		pr_err("mem-offine: kstrtoul failed\n");
+		return;
+	}
+
+	if (mp > 100) {
+		pr_err("mem-offine: Invalid mem-percent DT property\n");
+		return;
+	}
+	sz = ram_sz - ((ram_sz * mp) / 100);
+	memory_limit = (phys_addr_t)sz;
+	memory_limit = ALIGN(memory_limit, MIN_MEMORY_BLOCK_SIZE);
+
+	pr_notice("Memory limit set/overridden to %lldMB\n",
+							memory_limit >> 20);
+}
+#else
+static void __init update_memory_limit(void)
+{
+
+}
+#endif
+
 /*
  * Limit the memory size that was specified via FDT.
  */
@@ -350,6 +397,7 @@ void __init arm64_memblock_init(void)
 		memblock_remove(0, memstart_addr);
 	}
 
+	update_memory_limit();
 	/*
 	 * Save bootloader imposed memory limit before we overwirte
 	 * memblock.

@@ -26,6 +26,37 @@ config QCOM_COMMAND_DB
 	  resource on a RPM-hardened platform must use this database to get
 	  SoC specific identifier and information for the shared resources.
 
+config QCOM_MEM_OFFLINE
+	bool "Dynamic Memory Region Offline driver"
+	depends on MEMORY_HOTPLUG
+	help
+	  Add support for DDR Self-Refresh power management through the dynamic
+	  memory offline framework. This driver interfaces between the memory
+	  hotplug subsystem and AOP which hot adds or removes memory blocks and
+	  controls the start/stop of self-refresh of these DDR regions. This
+	  helps reduce power consumption during idle mode of the system.
+	  If unsure, say N
+
+config BUG_ON_HW_MEM_ONLINE_FAIL
+	bool "Trigger a BUG when HW memory online fails"
+	depends on QCOM_MEM_OFFLINE
+	help
+	  Select this option if kernel should BUG when the hardware
+	  onlining of memory hotplug blocks fails. This helps to catch
+	  online failures much quicker and avoids the later side effects
+	  of such memory online failures.
+	  If unsure, say N
+
+config OVERRIDE_MEMORY_LIMIT
+	bool "Override memory limit set by the kernel boot parameter"
+	depends on QCOM_MEM_OFFLINE
+	help
+	  Override any memory limit set by the kernel boot parameter with
+	  limit set by mem-offline dt entry so that memory offline framework
+	  can initialize remaining memory with movable pages for memory
+	  hot-plugging.
+	  If unsure, say N
+
 config QCOM_GENI_SE
 	tristate "QCOM GENI Serial Engine Driver"
 	depends on ARCH_QCOM || COMPILE_TEST
@@ -34,6 +65,16 @@ config QCOM_GENI_SE
 	  Qualcomm Technologies, Inc. Universal Peripheral (QUP) Wrapper. This
 	  driver is also used to manage the common aspects of multiple Serial
 	  Engines present in the QUP.
+
+config OVERRIDE_MEMORY_LIMIT
+	bool "Override memory limit set by the kernel boot parameter"
+	depends on QCOM_MEM_OFFLINE
+	help
+	  Override any memory limit set by the kernel boot parameter with
+	  limit set by mem-offline dt entry so that memory offline framework
+	  can initialize remaining memory with movable pages for memory
+	  hot-plugging.
+	  If unsure, say N
 
 config QCOM_GLINK_SSR
 	tristate "Qualcomm Glink SSR driver"
