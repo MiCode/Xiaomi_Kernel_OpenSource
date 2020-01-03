@@ -6555,7 +6555,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	for (i = 0; i < IPA_HW_PROTOCOL_MAX; i++) {
 		ipa3_ctx->gsi_info[i].protocol = i;
 		/* initialize all to be not started */
-		for (j = 0; j < MAX_CH_STATS_SUPPORTED; j++)
+		for (j = 0; j < IPA_MAX_CH_STATS_SUPPORTED; j++)
 			ipa3_ctx->gsi_info[i].ch_id_info[j].ch_id =
 				0xFF;
 	}
