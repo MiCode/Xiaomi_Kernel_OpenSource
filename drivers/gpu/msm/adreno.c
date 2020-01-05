@@ -1655,6 +1655,60 @@ static void adreno_fault_detect_init(struct adreno_device *adreno_dev)
 	adreno_fault_detect_start(adreno_dev);
 }
 
+static void do_gbif_halt(struct adreno_device *adreno_dev,
+	u32 halt_reg, u32 ack_reg, u32 mask, const char *client)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	unsigned long t;
+	u32 val;
+
+	adreno_writereg(adreno_dev, halt_reg, mask);
+
+	t = jiffies + msecs_to_jiffies(VBIF_RESET_ACK_TIMEOUT);
+	do {
+		adreno_readreg(adreno_dev, ack_reg, &val);
+		if ((val & mask) == mask)
+			return;
+
+		/*
+		 * If we are attempting GBIF halt in case of stall-on-fault
+		 * then the halt sequence will not complete as long as SMMU
+		 * is stalled.
+		 */
+		kgsl_mmu_pagefault_resume(&device->mmu);
+		usleep_range(10, 100);
+	} while (!time_after(jiffies, t));
+
+	/* Check one last time */
+	kgsl_mmu_pagefault_resume(&device->mmu);
+
+	adreno_readreg(adreno_dev, ack_reg, &val);
+	if ((val & mask) == mask)
+		return;
+
+	dev_err(device->dev, "%s GBIF Halt ack timed out\n", client);
+}
+
+/**
+ * adreno_smmu_resume - Clears stalled/pending transactions in GBIF pipe
+ * and resumes stalled SMMU
+ * @adreno_dev: Pointer to the the adreno device
+ */
+void adreno_smmu_resume(struct adreno_device *adreno_dev)
+{
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+
+	/* Halt GBIF GX traffic */
+	if (gmu_core_dev_gx_is_on(KGSL_DEVICE(adreno_dev)))
+		do_gbif_halt(adreno_dev, ADRENO_REG_RBBM_GBIF_HALT,
+			ADRENO_REG_RBBM_GBIF_HALT_ACK,
+			gpudev->gbif_gx_halt_mask, "GX");
+
+	/* Halt all CX traffic */
+	do_gbif_halt(adreno_dev, ADRENO_REG_GBIF_HALT,
+		ADRENO_REG_GBIF_HALT_ACK, gpudev->gbif_arb_halt_mask, "CX");
+}
+
 /**
  * adreno_clear_pending_transactions() - Clear transactions in GBIF/VBIF pipe
  * @device: Pointer to the device whose GBIF/VBIF pipe is to be cleared
@@ -2409,10 +2463,8 @@ int adreno_reset(struct kgsl_device *device, int fault)
 static int copy_prop(struct kgsl_device_getproperty *param,
 		void *src, size_t size)
 {
-	if (param->sizebytes != size)
-		return -EINVAL;
-
-	if (copy_to_user(param->value, src, param->sizebytes))
+	if (copy_to_user(param->value, src,
+		min_t(u32, size, param->sizebytes)))
 		return -EFAULT;
 
 	return 0;

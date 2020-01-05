@@ -156,13 +156,14 @@ void mhi_rddm_prepare(struct mhi_controller *mhi_cntrl,
 
 	MHI_LOG("BHIe programming for RDDM\n");
 
-	mhi_write_reg(mhi_cntrl, base, BHIE_RXVECADDR_HIGH_OFFS,
+	mhi_cntrl->write_reg(mhi_cntrl, base, BHIE_RXVECADDR_HIGH_OFFS,
 		      upper_32_bits(mhi_buf->dma_addr));
 
-	mhi_write_reg(mhi_cntrl, base, BHIE_RXVECADDR_LOW_OFFS,
+	mhi_cntrl->write_reg(mhi_cntrl, base, BHIE_RXVECADDR_LOW_OFFS,
 		      lower_32_bits(mhi_buf->dma_addr));
 
-	mhi_write_reg(mhi_cntrl, base, BHIE_RXVECSIZE_OFFS, mhi_buf->len);
+	mhi_cntrl->write_reg(mhi_cntrl, base, BHIE_RXVECSIZE_OFFS,
+			mhi_buf->len);
 	sequence_id = prandom_u32() & BHIE_RXVECSTATUS_SEQNUM_BMSK;
 
 	if (unlikely(!sequence_id))
@@ -232,7 +233,7 @@ static int __mhi_download_rddm_in_panic(struct mhi_controller *mhi_cntrl)
 			/* Hardware reset; force device to enter rddm */
 			MHI_LOG(
 				"Did not enter RDDM, do a host req. reset\n");
-			mhi_write_reg(mhi_cntrl, mhi_cntrl->regs,
+			mhi_cntrl->write_reg(mhi_cntrl, mhi_cntrl->regs,
 				      MHI_SOC_RESET_REQ_OFFSET,
 				      MHI_SOC_RESET_REQ);
 			udelay(delayus);
@@ -308,13 +309,14 @@ static int mhi_fw_load_amss(struct mhi_controller *mhi_cntrl,
 
 	MHI_LOG("Starting BHIe Programming\n");
 
-	mhi_write_reg(mhi_cntrl, base, BHIE_TXVECADDR_HIGH_OFFS,
+	mhi_cntrl->write_reg(mhi_cntrl, base, BHIE_TXVECADDR_HIGH_OFFS,
 		      upper_32_bits(mhi_buf->dma_addr));
 
-	mhi_write_reg(mhi_cntrl, base, BHIE_TXVECADDR_LOW_OFFS,
+	mhi_cntrl->write_reg(mhi_cntrl, base, BHIE_TXVECADDR_LOW_OFFS,
 		      lower_32_bits(mhi_buf->dma_addr));
 
-	mhi_write_reg(mhi_cntrl, base, BHIE_TXVECSIZE_OFFS, mhi_buf->len);
+	mhi_cntrl->write_reg(mhi_cntrl, base, BHIE_TXVECSIZE_OFFS,
+			mhi_buf->len);
 
 	mhi_cntrl->sequence_id = prandom_u32() & BHIE_TXVECSTATUS_SEQNUM_BMSK;
 	mhi_write_reg_field(mhi_cntrl, base, BHIE_TXVECDB_OFFS,
@@ -372,14 +374,15 @@ static int mhi_fw_load_sbl(struct mhi_controller *mhi_cntrl,
 		goto invalid_pm_state;
 	}
 
-	mhi_write_reg(mhi_cntrl, base, BHI_STATUS, 0);
-	mhi_write_reg(mhi_cntrl, base, BHI_IMGADDR_HIGH,
+	mhi_cntrl->write_reg(mhi_cntrl, base, BHI_STATUS, 0);
+	mhi_cntrl->write_reg(mhi_cntrl, base, BHI_IMGADDR_HIGH,
 		      upper_32_bits(dma_addr));
-	mhi_write_reg(mhi_cntrl, base, BHI_IMGADDR_LOW,
+	mhi_cntrl->write_reg(mhi_cntrl, base, BHI_IMGADDR_LOW,
 		      lower_32_bits(dma_addr));
-	mhi_write_reg(mhi_cntrl, base, BHI_IMGSIZE, size);
+	mhi_cntrl->write_reg(mhi_cntrl, base, BHI_IMGSIZE, size);
 	mhi_cntrl->session_id = prandom_u32() & BHI_TXDB_SEQNUM_BMSK;
-	mhi_write_reg(mhi_cntrl, base, BHI_IMGTXDB, mhi_cntrl->session_id);
+	mhi_cntrl->write_reg(mhi_cntrl, base, BHI_IMGTXDB,
+			mhi_cntrl->session_id);
 	read_unlock_bh(pm_lock);
 
 	MHI_LOG("Waiting for image transfer completion\n");
@@ -523,10 +526,9 @@ static void mhi_firmware_copy(struct mhi_controller *mhi_cntrl,
 	}
 }
 
-void mhi_fw_load_worker(struct work_struct *work)
+void mhi_fw_load_handler(struct mhi_controller *mhi_cntrl)
 {
 	int ret;
-	struct mhi_controller *mhi_cntrl;
 	const char *fw_name;
 	const struct firmware *firmware;
 	struct image_info *image_info;
@@ -534,17 +536,7 @@ void mhi_fw_load_worker(struct work_struct *work)
 	dma_addr_t dma_addr;
 	size_t size;
 
-	mhi_cntrl = container_of(work, struct mhi_controller, fw_worker);
-
-	MHI_LOG("Waiting for device to enter PBL from EE:%s\n",
-		TO_MHI_EXEC_STR(mhi_cntrl->ee));
-
-	ret = wait_event_timeout(mhi_cntrl->state_event,
-				 MHI_IN_PBL(mhi_cntrl->ee) ||
-				 MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state),
-				 msecs_to_jiffies(mhi_cntrl->timeout_ms));
-
-	if (!ret || MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state)) {
+	if (MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state)) {
 		MHI_ERR("MHI is not in valid state\n");
 		return;
 	}

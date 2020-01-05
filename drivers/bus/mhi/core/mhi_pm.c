@@ -166,8 +166,8 @@ void mhi_set_mhi_state(struct mhi_controller *mhi_cntrl,
 		mhi_write_reg_field(mhi_cntrl, mhi_cntrl->regs, MHICTRL,
 				    MHICTRL_RESET_MASK, MHICTRL_RESET_SHIFT, 1);
 	} else {
-		mhi_write_reg_field(mhi_cntrl, mhi_cntrl->regs, MHICTRL,
-			MHICTRL_MHISTATE_MASK, MHICTRL_MHISTATE_SHIFT, state);
+		mhi_cntrl->write_reg(mhi_cntrl, mhi_cntrl->regs, MHICTRL,
+				(state << MHICTRL_MHISTATE_SHIFT));
 	}
 }
 
@@ -478,6 +478,12 @@ static int mhi_pm_mission_mode_transition(struct mhi_controller *mhi_cntrl)
 
 	wake_up_all(&mhi_cntrl->state_event);
 
+	/* offload register write if supported */
+	if (mhi_cntrl->offload_wq) {
+		mhi_reset_reg_write_q(mhi_cntrl);
+		mhi_cntrl->write_reg = mhi_write_reg_offload;
+	}
+
 	/* force MHI to be in M0 state before continuing */
 	ret = __mhi_device_get_sync(mhi_cntrl);
 	if (ret)
@@ -555,6 +561,12 @@ static void mhi_pm_disable_transition(struct mhi_controller *mhi_cntrl,
 		TO_MHI_STATE_STR(mhi_cntrl->dev_state),
 		to_mhi_pm_state_str(transition_state));
 
+	/* restore async write call back */
+	mhi_cntrl->write_reg = mhi_write_reg;
+
+	if (mhi_cntrl->offload_wq)
+		mhi_reset_reg_write_q(mhi_cntrl);
+
 	/* We must notify MHI control driver so it can clean up first */
 	if (transition_state == MHI_PM_SYS_ERR_PROCESS)
 		mhi_cntrl->status_cb(mhi_cntrl, mhi_cntrl->priv_data,
@@ -608,7 +620,7 @@ static void mhi_pm_disable_transition(struct mhi_controller *mhi_cntrl,
 		 * device cleares INTVEC as part of RESET processing,
 		 * re-program it
 		 */
-		mhi_write_reg(mhi_cntrl, mhi_cntrl->bhi, BHI_INTVEC, 0);
+		mhi_cntrl->write_reg(mhi_cntrl, mhi_cntrl->bhi, BHI_INTVEC, 0);
 	}
 
 	MHI_LOG("Waiting for all pending event ring processing to complete\n");
@@ -631,14 +643,18 @@ static void mhi_pm_disable_transition(struct mhi_controller *mhi_cntrl,
 
 	MHI_LOG("Waiting for all pending threads to complete\n");
 	wake_up_all(&mhi_cntrl->state_event);
-	flush_work(&mhi_cntrl->fw_worker);
 	flush_work(&mhi_cntrl->low_priority_worker);
+
+	mhi_cntrl->force_m3_done = false;
 
 	if (sfr_info && sfr_info->buf_addr) {
 		mhi_free_coherent(mhi_cntrl, sfr_info->len, sfr_info->buf_addr,
 				  sfr_info->dma_addr);
 		sfr_info->buf_addr = NULL;
 	}
+
+	/* remove support for time sync */
+	mhi_destroy_timesync(mhi_cntrl);
 
 	mutex_lock(&mhi_cntrl->pm_mutex);
 
@@ -673,9 +689,6 @@ static void mhi_pm_disable_transition(struct mhi_controller *mhi_cntrl,
 		er_ctxt->rp = er_ctxt->rbase;
 		er_ctxt->wp = er_ctxt->rbase;
 	}
-
-	/* remove support for time sync */
-	mhi_destroy_timesync(mhi_cntrl);
 
 	if (cur_state == MHI_PM_SYS_ERR_PROCESS) {
 		mhi_ready_state_transition(mhi_cntrl);
@@ -845,7 +858,7 @@ void mhi_pm_st_worker(struct work_struct *work)
 				mhi_cntrl->ee = mhi_get_exec_env(mhi_cntrl);
 			write_unlock_irq(&mhi_cntrl->pm_lock);
 			if (MHI_IN_PBL(mhi_cntrl->ee))
-				wake_up_all(&mhi_cntrl->state_event);
+				mhi_fw_load_handler(mhi_cntrl);
 			break;
 		case MHI_ST_TRANSITION_SBL:
 			write_lock_irq(&mhi_cntrl->pm_lock);
@@ -937,7 +950,7 @@ int mhi_async_power_up(struct mhi_controller *mhi_cntrl)
 		mhi_cntrl->bhie = mhi_cntrl->regs + val;
 	}
 
-	mhi_write_reg(mhi_cntrl, mhi_cntrl->bhi, BHI_INTVEC, 0);
+	mhi_cntrl->write_reg(mhi_cntrl, mhi_cntrl->bhi, BHI_INTVEC, 0);
 	mhi_cntrl->pm_state = MHI_PM_POR;
 	mhi_cntrl->ee = MHI_EE_MAX;
 	current_ee = mhi_get_exec_env(mhi_cntrl);
@@ -953,9 +966,6 @@ int mhi_async_power_up(struct mhi_controller *mhi_cntrl)
 	/* transition to next state */
 	next_state = MHI_IN_PBL(current_ee) ?
 		MHI_ST_TRANSITION_PBL : MHI_ST_TRANSITION_READY;
-
-	if (next_state == MHI_ST_TRANSITION_PBL)
-		schedule_work(&mhi_cntrl->fw_worker);
 
 	mhi_queue_state_transition(mhi_cntrl, next_state);
 
@@ -992,8 +1002,11 @@ void mhi_control_error(struct mhi_controller *mhi_cntrl)
 		TO_MHI_STATE_STR(mhi_cntrl->dev_state));
 
 	/* copy subsystem failure reason string if supported */
-	if (sfr_info && sfr_info->buf_addr)
-		pr_err("mhi: sfr: %s\n", sfr_info->buf_addr);
+	if (sfr_info && sfr_info->buf_addr) {
+		memcpy(sfr_info->str, sfr_info->buf_addr, sfr_info->len);
+		pr_err("mhi: %s sfr: %s\n", mhi_cntrl->name,
+		       sfr_info->buf_addr);
+	}
 
 	/* link is not down if device is in RDDM */
 	transition_state = (mhi_cntrl->ee == MHI_EE_RDDM) ?
@@ -1010,6 +1023,8 @@ void mhi_control_error(struct mhi_controller *mhi_cntrl)
 			to_mhi_pm_state_str(cur_state));
 		goto exit_control_error;
 	}
+
+	mhi_cntrl->dev_state = MHI_STATE_SYS_ERR;
 
 	/* notify waiters to bail out early since MHI has entered ERROR state */
 	wake_up_all(&mhi_cntrl->state_event);
@@ -1451,6 +1466,8 @@ int __mhi_device_get_sync(struct mhi_controller *mhi_cntrl)
 	if (MHI_PM_IN_SUSPEND_STATE(mhi_cntrl->pm_state))
 		mhi_trigger_resume(mhi_cntrl);
 	read_unlock_bh(&mhi_cntrl->pm_lock);
+
+	mhi_force_reg_write(mhi_cntrl);
 
 	ret = wait_event_timeout(mhi_cntrl->state_event,
 				 mhi_cntrl->pm_state == MHI_PM_M0 ||

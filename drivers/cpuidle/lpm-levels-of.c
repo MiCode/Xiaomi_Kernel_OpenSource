@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 
 /*
- * Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "%s: " fmt, KBUILD_MODNAME
@@ -564,6 +564,9 @@ static int parse_cpu_levels(struct device_node *dn, struct lpm_cluster *c)
 			      &cpu->psci_mode_mask, true);
 	if (ret)
 		return ret;
+
+	cpu->ipi_prediction = !(of_property_read_bool(dn,
+					"qcom,disable-ipi-prediction"));
 
 	cpu->lpm_prediction = !(of_property_read_bool(dn,
 					"qcom,disable-prediction"));

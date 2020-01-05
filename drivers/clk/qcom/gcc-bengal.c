@@ -754,7 +754,6 @@ static struct clk_alpha_pll_postdiv gpll8_out_main = {
 		.name = "gpll8_out_main",
 		.parent_names = (const char *[]){ "gpll8" },
 		.num_parents = 1,
-		.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_alpha_pll_postdiv_ro_ops,
 	},
 };
@@ -961,6 +960,7 @@ static struct clk_rcg2 gcc_camss_csi2phytimer_clk_src = {
 };
 
 static const struct freq_tbl ftbl_gcc_camss_mclk0_clk_src[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
 	F(24000000, P_GPLL9_OUT_MAIN, 1, 1, 24),
 	F(64000000, P_GPLL9_OUT_MAIN, 1, 1, 9),
 	{ }
@@ -1879,7 +1879,7 @@ static struct clk_rcg2 gcc_video_venus_clk_src = {
 		.vdd_class = &vdd_cx,
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_LOWER] = 133000000,
+			[VDD_LOWER] = 133333333,
 			[VDD_LOW] = 240000000,
 			[VDD_LOW_L1] = 300000000,
 			[VDD_NOMINAL] = 384000000},
@@ -2509,22 +2509,6 @@ static struct clk_branch gcc_cfg_noc_usb3_prim_axi_clk = {
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
-static struct clk_branch gcc_cpuss_ahb_clk = {
-	.halt_reg = 0x2b000,
-	.halt_check = BRANCH_HALT_VOTED,
-	.hwcg_reg = 0x2b000,
-	.hwcg_bit = 1,
-	.clkr = {
-		.enable_reg = 0x79004,
-		.enable_mask = BIT(21),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_cpuss_ahb_clk",
-			.flags = CLK_IS_CRITICAL,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -3666,7 +3650,6 @@ static struct clk_regmap *gcc_bengal_clocks[] = {
 	[GCC_CAMSS_TOP_AHB_CLK] = &gcc_camss_top_ahb_clk.clkr,
 	[GCC_CAMSS_TOP_AHB_CLK_SRC] = &gcc_camss_top_ahb_clk_src.clkr,
 	[GCC_CFG_NOC_USB3_PRIM_AXI_CLK] = &gcc_cfg_noc_usb3_prim_axi_clk.clkr,
-	[GCC_CPUSS_AHB_CLK] = &gcc_cpuss_ahb_clk.clkr,
 	[GCC_CPUSS_GNOC_CLK] = &gcc_cpuss_gnoc_clk.clkr,
 	[GCC_DISP_AHB_CLK] = &gcc_disp_ahb_clk.clkr,
 	[GCC_DISP_GPLL0_CLK_SRC] = &gcc_disp_gpll0_clk_src.clkr,

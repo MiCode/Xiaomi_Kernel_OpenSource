@@ -77,6 +77,15 @@ config QCOM_L2_PMU
 	  Adds the L2 cache PMU into the perf events subsystem for
 	  monitoring L2 cache events.
 
+config QCOM_L2_COUNTERS
+	bool "Qualcomm Technologies L2-cache counters (PMU)"
+	depends on ARCH_QCOM && ARM64
+	  help
+	  Provides support for the L2 cache counters
+	  in Qualcomm Technologies processors.
+	  Adds the L2 cache counters support into the perf events subsystem for
+	  monitoring L2 cache events.
+
 config QCOM_L3_PMU
 	bool "Qualcomm Technologies L3-cache PMU"
 	depends on ARCH_QCOM && ARM64 && ACPI

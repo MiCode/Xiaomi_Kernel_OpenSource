@@ -141,6 +141,7 @@ static int ten_thousand = 10000;
 static int six_hundred_forty_kb = 640 * 1024;
 #endif
 static int two_hundred_fifty_five = 255;
+static int __maybe_unused two_hundred_million = 200000000;
 
 #ifdef CONFIG_SCHED_WALT
 const int sched_user_hint_max = 1000;
@@ -467,13 +468,13 @@ static struct ctl_table kern_table[] = {
 		.proc_handler	= proc_douintvec_minmax,
 	},
 	{
-		.procname	= "sched_task_unfilter_nr_windows",
-		.data		= &sysctl_sched_task_unfilter_nr_windows,
+		.procname	= "sched_task_unfilter_period",
+		.data		= &sysctl_sched_task_unfilter_period,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
 		.proc_handler   = proc_dointvec_minmax,
 		.extra1         = &one,
-		.extra2		= &two_hundred_fifty_five,
+		.extra2		= &two_hundred_million,
 	},
 	{
 		.procname	= "sched_busy_hysteresis_enable_cpus",
@@ -526,6 +527,15 @@ static struct ctl_table kern_table[] = {
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
 		.proc_handler	= sched_ravg_window_handler,
+	},
+	{
+		.procname	= "sched_dynamic_ravg_window_enable",
+		.data		= &sysctl_sched_dynamic_ravg_window_enable,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= &zero,
+		.extra2		= &one,
 	},
 	{
 		.procname	= "sched_upmigrate",
@@ -3562,7 +3572,7 @@ static int do_proc_douintvec_rwin(bool *negp, unsigned long *lvalp,
 				  int *valp, int write, void *data)
 {
 	if (write) {
-		if (*lvalp == 0 || *lvalp == 2 || *lvalp == 5)
+		if ((*lvalp >= 2 && *lvalp <= 5) || *lvalp == 8)
 			*valp = *lvalp;
 		else
 			return -EINVAL;

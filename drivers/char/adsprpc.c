@@ -101,6 +101,10 @@
 #define SDSP_DOMAIN_ID (2)
 #define CDSP_DOMAIN_ID (3)
 
+/* ctxid of every message is OR-ed with fl->pd (0/1/2) before */
+/* it is sent to DSP. So mask 2 LSBs to retrieve actual context */
+#define CONTEXT_PD_CHECK (3)
+
 #define RH_CID ADSP_DOMAIN_ID
 
 #define PERF_KEYS \
@@ -110,6 +114,9 @@
 #define FASTRPC_STATIC_HANDLE_LISTENER (3)
 #define FASTRPC_STATIC_HANDLE_MAX (20)
 #define FASTRPC_LATENCY_CTRL_ENB  (1)
+
+/* Maximum PM timeout that can be voted through fastrpc*/
+#define MAX_PM_TIMEOUT_MS 50
 
 /* timeout in us for busy polling after early response from remote processor */
 #define FASTRPC_POLL_TIME (4000)
@@ -285,7 +292,6 @@ struct smq_invoke_ctx {
 	uint32_t earlyWakeTime;
 	/* work done status flag */
 	bool isWorkDone;
-	bool pm_awake_voted;
 };
 
 struct fastrpc_ctx_lst {
@@ -354,6 +360,8 @@ struct fastrpc_channel_ctx {
 	/* cpu capabilities shared to DSP */
 	uint64_t cpuinfo_todsp;
 	bool cpuinfo_status;
+	struct smq_invoke_ctx *ctxtable[FASTRPC_CTX_MAX];
+	spinlock_t ctxlock;
 };
 
 struct fastrpc_apps {
@@ -370,8 +378,6 @@ struct fastrpc_apps {
 	struct device *dev;
 	unsigned int latency;
 	int rpmsg_register;
-	spinlock_t ctxlock;
-	struct smq_invoke_ctx *ctxtable[FASTRPC_CTX_MAX];
 	bool legacy_remote_heap;
 	/* Unique job id for each message */
 	uint64_t jobid[NUM_CHANNELS];
@@ -460,6 +466,8 @@ struct fastrpc_file {
 	char *debug_buf;
 	/* Flag to enable PM wake/relax voting for every remote invoke */
 	int wake_enable;
+	struct wakeup_source *wake_source;
+	uint32_t ws_timeout;
 };
 
 static struct fastrpc_apps gfa;
@@ -532,8 +540,7 @@ static struct fastrpc_channel_ctx gcinfo[NUM_CHANNELS] = {
 static int hlosvm[1] = {VMID_HLOS};
 static int hlosvmperm[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
 
-static void fastrpc_pm_awake(int fl_wake_enable, bool *pm_awake_voted);
-static void fastrpc_pm_relax(bool *pm_awake_voted);
+static void fastrpc_pm_awake(struct fastrpc_file *fl);
 
 static inline int64_t getnstimediff(struct timespec *start)
 {
@@ -924,7 +931,7 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 	int err = 0, vmid, sgl_index = 0;
 	struct scatterlist *sgl = NULL;
 
-	VERIFY(err, cid >= 0 && cid < NUM_CHANNELS);
+	VERIFY(err, cid >= ADSP_DOMAIN_ID && cid < NUM_CHANNELS);
 	if (err)
 		goto bail;
 	chan = &apps->channel[cid];
@@ -1303,11 +1310,12 @@ static int context_alloc(struct fastrpc_file *fl, uint32_t kernel,
 			 struct smq_invoke_ctx **po)
 {
 	struct fastrpc_apps *me = &gfa;
-	int err = 0, bufs, ii, size = 0;
+	int err = 0, bufs, ii, size = 0, cid = -1;
 	struct smq_invoke_ctx *ctx = NULL;
 	struct fastrpc_ctx_lst *clst = &fl->clst;
 	struct fastrpc_ioctl_invoke *invoke = &invokefd->inv;
-	int cid;
+	struct fastrpc_channel_ctx *chan = 0;
+	unsigned long irq_flags = 0;
 
 	bufs = REMOTE_SCALARS_LENGTH(invoke->sc);
 	size = bufs * sizeof(*ctx->lpra) + bufs * sizeof(*ctx->maps) +
@@ -1364,23 +1372,24 @@ static int context_alloc(struct fastrpc_file *fl, uint32_t kernel,
 	ctx->magic = FASTRPC_CTX_MAGIC;
 	ctx->rspFlags = NORMAL_RESPONSE;
 	ctx->isWorkDone = false;
-	ctx->pm_awake_voted = false;
 
 	spin_lock(&fl->hlock);
 	hlist_add_head(&ctx->hn, &clst->pending);
+	cid = (fl->cid >= ADSP_DOMAIN_ID && fl->cid < NUM_CHANNELS)
+			? fl->cid : 0;
+	chan = &me->channel[cid];
 	spin_unlock(&fl->hlock);
 
-	spin_lock(&me->ctxlock);
-	cid = (fl->cid >= 0 && fl->cid < NUM_CHANNELS) ? fl->cid : 0;
+	spin_lock_irqsave(&chan->ctxlock, irq_flags);
 	me->jobid[cid]++;
 	for (ii = 0; ii < FASTRPC_CTX_MAX; ii++) {
-		if (!me->ctxtable[ii]) {
-			me->ctxtable[ii] = ctx;
+		if (!chan->ctxtable[ii]) {
+			chan->ctxtable[ii] = ctx;
 			ctx->ctxid = (me->jobid[cid] << 12) | (ii << 4);
 			break;
 		}
 	}
-	spin_unlock(&me->ctxlock);
+	spin_unlock_irqrestore(&chan->ctxlock, irq_flags);
 	VERIFY(err, ii < FASTRPC_CTX_MAX);
 	if (err) {
 		pr_err("adsprpc: out of context memory\n");
@@ -1411,15 +1420,18 @@ static void context_free(struct smq_invoke_ctx *ctx)
 	struct fastrpc_apps *me = &gfa;
 	int nbufs = REMOTE_SCALARS_INBUFS(ctx->sc) +
 		    REMOTE_SCALARS_OUTBUFS(ctx->sc);
+	int cid = ctx->fl->cid;
+	struct fastrpc_channel_ctx *chan = &me->channel[cid];
+	unsigned long irq_flags = 0;
 
-	spin_lock(&me->ctxlock);
+	spin_lock_irqsave(&chan->ctxlock, irq_flags);
 	for (i = 0; i < FASTRPC_CTX_MAX; i++) {
-		if (me->ctxtable[i] == ctx) {
-			me->ctxtable[i] = NULL;
+		if (chan->ctxtable[i] == ctx) {
+			chan->ctxtable[i] = NULL;
 			break;
 		}
 	}
-	spin_unlock(&me->ctxlock);
+	spin_unlock_irqrestore(&chan->ctxlock, irq_flags);
 
 	spin_lock(&ctx->fl->hlock);
 	hlist_del_init(&ctx->hn);
@@ -1444,7 +1456,7 @@ static void context_free(struct smq_invoke_ctx *ctx)
 static void context_notify_user(struct smq_invoke_ctx *ctx,
 		int retval, uint32_t rspFlags, uint32_t earlyWakeTime)
 {
-	fastrpc_pm_awake(ctx->fl->wake_enable, &ctx->pm_awake_voted);
+	fastrpc_pm_awake(ctx->fl);
 	ctx->retval = retval;
 	switch (rspFlags) {
 	case NORMAL_RESPONSE:
@@ -1647,10 +1659,12 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 
 		mutex_lock(&ctx->fl->map_mutex);
 		if (ctx->fds && (ctx->fds[i] != -1))
-			fastrpc_mmap_create(ctx->fl, ctx->fds[i],
+			err = fastrpc_mmap_create(ctx->fl, ctx->fds[i],
 					ctx->attrs[i], buf, len,
 					mflags, &ctx->maps[i]);
 		mutex_unlock(&ctx->fl->map_mutex);
+		if (err)
+			goto bail;
 		ipage += 1;
 	}
 	PERF_END);
@@ -1661,9 +1675,10 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 
 		if (ctx->attrs && (ctx->attrs[i] & FASTRPC_ATTR_NOMAP))
 			dmaflags = FASTRPC_DMAHANDLE_NOMAP;
-		VERIFY(err, !fastrpc_mmap_create(ctx->fl, ctx->fds[i],
-				FASTRPC_ATTR_NOVA, 0, 0, dmaflags,
-				&ctx->maps[i]));
+		if (ctx->fds && (ctx->fds[i] != -1))
+			err = fastrpc_mmap_create(ctx->fl, ctx->fds[i],
+					FASTRPC_ATTR_NOVA, 0, 0, dmaflags,
+					&ctx->maps[i]);
 		if (err) {
 			mutex_unlock(&ctx->fl->map_mutex);
 			goto bail;
@@ -2075,7 +2090,6 @@ static void fastrpc_init(struct fastrpc_apps *me)
 	INIT_HLIST_HEAD(&me->drivers);
 	INIT_HLIST_HEAD(&me->maps);
 	spin_lock_init(&me->hlock);
-	spin_lock_init(&me->ctxlock);
 	me->channel = &gcinfo[0];
 	for (i = 0; i < NUM_CHANNELS; i++) {
 		init_completion(&me->channel[i].work);
@@ -2085,29 +2099,21 @@ static void fastrpc_init(struct fastrpc_apps *me)
 		me->channel[i].secure = SECURE_CHANNEL;
 		mutex_init(&me->channel[i].smd_mutex);
 		mutex_init(&me->channel[i].rpmsg_mutex);
+		spin_lock_init(&me->channel[i].ctxlock);
 	}
 	/* Set CDSP channel to non secure */
 	me->channel[CDSP_DOMAIN_ID].secure = NON_SECURE_CHANNEL;
 }
 
-static inline void fastrpc_pm_awake(int fl_wake_enable, bool *pm_awake_voted)
+static inline void fastrpc_pm_awake(struct fastrpc_file *fl)
 {
-	struct fastrpc_apps *me = &gfa;
-
-	if (!fl_wake_enable || *pm_awake_voted)
+	if (!fl->wake_enable || !fl->wake_source)
 		return;
-	__pm_stay_awake(me->wake_source);
-	*pm_awake_voted = true;
-}
-
-static inline void fastrpc_pm_relax(bool *pm_awake_voted)
-{
-	struct fastrpc_apps *me = &gfa;
-
-	if (!(*pm_awake_voted))
-		return;
-	__pm_relax(me->wake_source);
-	*pm_awake_voted = false;
+	/*
+	 * Vote with PM to abort any suspend in progress and
+	 * keep system awake for specified timeout
+	 */
+	pm_wakeup_ws_event(fl->wake_source, fl->ws_timeout, true);
 }
 
 static inline int fastrpc_wait_for_response(struct smq_invoke_ctx *ctx,
@@ -2229,9 +2235,7 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 	int err = 0, interrupted = 0, cid = fl->cid;
 	struct timespec invoket = {0};
 	int64_t *perf_counter = NULL;
-	bool pm_awake_voted = false;
 
-	fastrpc_pm_awake(fl->wake_enable, &pm_awake_voted);
 	if (fl->profile) {
 		perf_counter = getperfcounter(fl, PERF_COUNT);
 		getnstimeofday(&invoket);
@@ -2249,7 +2253,8 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 		}
 	}
 
-	VERIFY(err, cid >= 0 && cid < NUM_CHANNELS && fl->sctx != NULL);
+	VERIFY(err, cid >= ADSP_DOMAIN_ID && cid < NUM_CHANNELS &&
+		fl->sctx != NULL);
 	if (err) {
 		pr_err("adsprpc: ERROR: %s: kernel session not initialized yet for %s\n",
 			__func__, current->comm);
@@ -2300,9 +2305,7 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 	if (err)
 		goto bail;
  wait:
-	fastrpc_pm_relax(&pm_awake_voted);
 	fastrpc_wait_for_completion(ctx, &interrupted, kernel);
-	pm_awake_voted = ctx->pm_awake_voted;
 	VERIFY(err, 0 == (err = interrupted));
 	if (err)
 		goto bail;
@@ -2341,7 +2344,6 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 	if (fl->profile && !interrupted)
 		fastrpc_update_invoke_count(invoke->handle, perf_counter,
 						&invoket);
-	fastrpc_pm_relax(&pm_awake_voted);
 	return err;
 }
 
@@ -2664,7 +2666,7 @@ static int fastrpc_send_cpuinfo_to_dsp(struct fastrpc_file *fl)
 	struct fastrpc_ioctl_invoke_crc ioctl;
 	remote_arg_t ra[2];
 
-	VERIFY(err, fl && fl->cid >= 0 && fl->cid < NUM_CHANNELS);
+	VERIFY(err, fl && fl->cid >= ADSP_DOMAIN_ID && fl->cid < NUM_CHANNELS);
 	if (err)
 		goto bail;
 
@@ -2814,7 +2816,7 @@ static int fastrpc_release_current_dsp_process(struct fastrpc_file *fl)
 	remote_arg_t ra[1];
 	int tgid = 0;
 
-	VERIFY(err, fl->cid >= 0 && fl->cid < NUM_CHANNELS);
+	VERIFY(err, fl->cid >= ADSP_DOMAIN_ID && fl->cid < NUM_CHANNELS);
 	if (err)
 		goto bail;
 	VERIFY(err, fl->sctx != NULL);
@@ -3354,7 +3356,7 @@ static int fastrpc_rpmsg_probe(struct rpmsg_device *rpdev)
 		return -EINVAL;
 
 	cid = get_cid_from_rpdev(rpdev);
-	VERIFY(err, cid >= 0 && cid < NUM_CHANNELS);
+	VERIFY(err, cid >= ADSP_DOMAIN_ID && cid < NUM_CHANNELS);
 	if (err)
 		goto bail;
 	mutex_lock(&gcinfo[cid].rpmsg_mutex);
@@ -3393,7 +3395,7 @@ static void fastrpc_rpmsg_remove(struct rpmsg_device *rpdev)
 		return;
 
 	cid = get_cid_from_rpdev(rpdev);
-	VERIFY(err, cid >= 0 && cid < NUM_CHANNELS);
+	VERIFY(err, cid >= ADSP_DOMAIN_ID && cid < NUM_CHANNELS);
 	if (err)
 		goto bail;
 	mutex_lock(&gcinfo[cid].rpmsg_mutex);
@@ -3415,8 +3417,17 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 	struct smq_invoke_rspv2 *rspv2 = NULL;
 	struct fastrpc_apps *me = &gfa;
 	uint32_t index, rspFlags = 0, earlyWakeTime = 0;
-	int err = 0, cid = -1;
+	int err = 0, cid;
+	struct fastrpc_channel_ctx *chan = 0;
+	unsigned long irq_flags = 0;
+	bool is_ctxtable_locked = false;
 
+	cid = get_cid_from_rpdev(rpdev);
+	VERIFY(err, (cid >= ADSP_DOMAIN_ID && cid <= NUM_CHANNELS));
+	if (err)
+		goto bail;
+
+	chan = &me->channel[cid];
 	VERIFY(err, (rsp && len >= sizeof(*rsp)));
 	if (err)
 		goto bail;
@@ -3428,11 +3439,10 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 		earlyWakeTime = rspv2->earlyWakeTime;
 		rspFlags = rspv2->flags;
 	}
-	cid = get_cid_from_rpdev(rpdev);
 	trace_fastrpc_rpmsg_response(cid, rsp->ctx,
 		rsp->retval, rspFlags, earlyWakeTime);
 #if IS_ENABLED(CONFIG_ADSPRPC_DEBUG)
-	if (cid >= 0 && cid < NUM_CHANNELS) {
+	if (cid >= ADSP_DOMAIN_ID && cid < NUM_CHANNELS) {
 		LOG_FASTRPC_GLINK_MSG(gcinfo[cid].ipc_log_ctx,
 		"recvd pkt %pK (sz %d): ctx 0x%llx, retVal %d, flags %u, earlyWake %u",
 		data, len, rsp->ctx, rsp->retval, rspFlags, earlyWakeTime);
@@ -3444,12 +3454,18 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 	if (err)
 		goto bail;
 
-	VERIFY(err, !IS_ERR_OR_NULL(me->ctxtable[index]));
+	if (rspFlags == COMPLETE_SIGNAL) {
+		spin_lock_irqsave(&chan->ctxlock, irq_flags);
+		is_ctxtable_locked = true;
+	}
+	VERIFY(err, !IS_ERR_OR_NULL(chan->ctxtable[index]));
 	if (err)
 		goto bail;
 
-	VERIFY(err, ((me->ctxtable[index]->ctxid == (rsp->ctx & ~3)) &&
-		me->ctxtable[index]->magic == FASTRPC_CTX_MAGIC));
+	VERIFY(err, ((chan->ctxtable[index]->ctxid ==
+		(rsp->ctx & ~CONTEXT_PD_CHECK)) &&
+			chan->ctxtable[index]->magic ==
+				FASTRPC_CTX_MAGIC));
 	if (err)
 		goto bail;
 
@@ -3458,12 +3474,15 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 		if (err)
 			goto bail;
 	}
-	context_notify_user(me->ctxtable[index], rsp->retval,
+	context_notify_user(chan->ctxtable[index], rsp->retval,
 				 rspFlags, earlyWakeTime);
 bail:
+	if (rspFlags == COMPLETE_SIGNAL && is_ctxtable_locked)
+		spin_unlock_irqrestore(&chan->ctxlock, irq_flags);
 	if (err)
 		pr_err("adsprpc: ERROR: %s: invalid response (data %pK, len %d) from remote subsystem (err %d)\n",
 				__func__, data, len, err);
+
 	return err;
 }
 
@@ -3503,6 +3522,8 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 	spin_lock(&fl->apps->hlock);
 	hlist_del_init(&fl->hn);
 	spin_unlock(&fl->apps->hlock);
+	if (fl->wake_source)
+		wakeup_source_unregister(fl->wake_source);
 	kfree(fl->debug_buf);
 
 	if (!fl->sctx) {
@@ -3890,6 +3911,11 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 	debugfs_file = debugfs_create_file(fl->debug_buf, 0644, debugfs_root,
 						fl, &debugfs_fops);
 
+	fl->wake_source = wakeup_source_register(fl->debug_buf);
+	if (IS_ERR_OR_NULL(fl->wake_source)) {
+		pr_err("adsprpc: Error: %s: %s: wakeup_source_register failed with err %ld\n",
+			current->comm, __func__, PTR_ERR(fl->wake_source));
+	}
 	context_list_ctor(&fl->clst);
 	spin_lock_init(&fl->hlock);
 	INIT_HLIST_HEAD(&fl->maps);
@@ -4006,7 +4032,25 @@ static int fastrpc_internal_control(struct fastrpc_file *fl,
 		cp->kalloc.kalloc_support = 1;
 		break;
 	case FASTRPC_CONTROL_WAKELOCK:
+		if (fl->dev_minor != MINOR_NUM_SECURE_DEV) {
+			pr_err("adsprpc: %s: %s: PM voting not allowed for non-secure device node %d\n",
+				current->comm, __func__, fl->dev_minor);
+			err = -EPERM;
+			goto bail;
+		}
 		fl->wake_enable = cp->wp.enable;
+		break;
+	case FASTRPC_CONTROL_PM:
+		if (!fl->wake_enable) {
+			/* Kernel PM voting not requested by this application */
+			err = -EACCES;
+			goto bail;
+		}
+		if (cp->pm.timeout > MAX_PM_TIMEOUT_MS)
+			fl->ws_timeout = MAX_PM_TIMEOUT_MS;
+		else
+			fl->ws_timeout = cp->pm.timeout;
+		fastrpc_pm_awake(fl);
 		break;
 	default:
 		err = -EBADRQC;

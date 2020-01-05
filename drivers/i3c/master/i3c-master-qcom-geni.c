@@ -836,18 +836,14 @@ static int i3c_geni_execute_write_command
 static void geni_i3c_perform_daa(struct geni_i3c_dev *gi3c)
 {
 	struct i3c_master_controller *m = &gi3c->ctrlr;
-	struct i3c_bus *bus = i3c_master_get_bus(m);
-	u8 last_dyn_addr = 0;
 	int ret;
 
 	while (1) {
 		u8 rx_buf[8], tx_buf[8];
 		struct i3c_xfer_params xfer = { FIFO_MODE };
-		struct i3c_device_info info = { 0 };
-		struct i3c_dev_desc *i3cdev;
-		bool new_device = true;
+		struct i3c_dev_boardinfo *i3cboardinfo;
 		u64 pid;
-		u8 bcr, dcr, addr;
+		u8 bcr, dcr, init_dyn_addr = 0, addr = 0;
 
 		GENI_SE_DBG(gi3c->ipcl, false, gi3c->se.dev,
 			"i3c entdaa read\n");
@@ -869,31 +865,38 @@ static void geni_i3c_perform_daa(struct geni_i3c_dev *gi3c)
 			((u64)rx_buf[4] <<  8) |
 			((u64)rx_buf[5]);
 
-		i3c_bus_for_each_i3cdev(bus, i3cdev) {
-
-			if (!i3cdev->dev)
-				continue;
-
-			i3c_device_get_info(i3cdev->dev, &info);
-			if (pid == info.pid &&
-				dcr == info.dcr &&
-				bcr == info.bcr) {
-				new_device = false;
-				addr = (info.dyn_addr) ? info.dyn_addr :
-					info.static_addr;
+		list_for_each_entry(i3cboardinfo, &m->boardinfo.i3c, node) {
+			if (pid == i3cboardinfo->pid) {
+				GENI_SE_DBG(gi3c->ipcl, false, gi3c->se.dev,
+				"PID 0x:%x matched with boardinfo\n", pid);
 				break;
 			}
 		}
 
-		if (new_device) {
-			ret = i3c_master_get_free_addr(m,
-						last_dyn_addr + 1);
-			if (ret < 0)
-				goto daa_err;
-			addr = last_dyn_addr = (u8)ret;
-			set_new_addr_slot(gi3c->newaddrslots, addr);
+		if (i3cboardinfo)
+			addr = init_dyn_addr = i3cboardinfo->init_dyn_addr;
+
+		addr = ret = i3c_master_get_free_addr(m, addr);
+
+		if (ret < 0) {
+			GENI_SE_DBG(gi3c->ipcl, false, gi3c->se.dev,
+			"error during get_free_addr ret:%d for pid:0x:%x\n"
+				, ret, pid);
+			goto daa_err;
+		} else if (ret == init_dyn_addr) {
+			GENI_SE_DBG(gi3c->ipcl, false, gi3c->se.dev,
+			"assigning requested addr:0x%x for pid:0x:%x\n"
+				, ret, pid);
+		} else if (init_dyn_addr) {
+			GENI_SE_DBG(gi3c->ipcl, false, gi3c->se.dev,
+			"Can't assign req addr:0x%x for pid:0x%x assigning avl addr:0x%x\n"
+				, init_dyn_addr, pid, addr);
+		} else {
+			GENI_SE_DBG(gi3c->ipcl, false, gi3c->se.dev,
+			"assigning addr:0x%x for pid:x:%x\n", ret, pid);
 		}
 
+		set_new_addr_slot(gi3c->newaddrslots, addr);
 		tx_buf[0] = (addr & I3C_ADDR_MASK) << 1;
 		tx_buf[0] |= ~(hweight8(addr & I3C_ADDR_MASK) & 1);
 
@@ -1138,6 +1141,7 @@ static int geni_i3c_master_attach_i3c_dev(struct i3c_dev_desc *dev)
 	struct i3c_master_controller *m = i3c_dev_get_master(dev);
 	struct geni_i3c_dev *gi3c = to_geni_i3c_master(m);
 	struct geni_i3c_i2c_dev_data *data;
+	struct i3c_dev_boardinfo *i3cboardinfo;
 
 	data = devm_kzalloc(gi3c->se.dev, sizeof(*data), GFP_KERNEL);
 	if (!data)
@@ -1145,6 +1149,12 @@ static int geni_i3c_master_attach_i3c_dev(struct i3c_dev_desc *dev)
 
 	data->ibi = -1;
 	i3c_dev_set_master_data(dev, data);
+	if (!dev->boardinfo) {
+		list_for_each_entry(i3cboardinfo, &m->boardinfo.i3c, node) {
+			if (dev->info.pid == i3cboardinfo->pid)
+				dev->boardinfo = i3cboardinfo;
+		}
+	}
 
 	return 0;
 }
@@ -1155,6 +1165,16 @@ static int geni_i3c_master_reattach_i3c_dev
 	u8 old_dyn_addr
 )
 {
+	struct i3c_master_controller *m = i3c_dev_get_master(dev);
+	struct i3c_dev_boardinfo *i3cboardinfo;
+
+	if (!dev->boardinfo) {
+		list_for_each_entry(i3cboardinfo, &m->boardinfo.i3c, node) {
+			if (dev->info.pid == i3cboardinfo->pid)
+				dev->boardinfo = i3cboardinfo;
+		}
+	}
+
 	return 0;
 }
 

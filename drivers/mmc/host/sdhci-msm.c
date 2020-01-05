@@ -2229,33 +2229,6 @@ out:
 	return rc;
 }
 
-/*
- * Internal work. Work to set 0 bandwidth for msm bus.
- */
-static void sdhci_msm_bus_work(struct work_struct *work)
-{
-	struct sdhci_msm_host *msm_host;
-	struct sdhci_host *host;
-	unsigned long flags;
-
-	msm_host = container_of(work, struct sdhci_msm_host,
-				msm_bus_vote.vote_work.work);
-	host =  platform_get_drvdata(msm_host->pdev);
-
-	if (!msm_host->msm_bus_vote.client_handle)
-		return;
-
-	spin_lock_irqsave(&host->lock, flags);
-	/* don't vote for 0 bandwidth if any request is in progress */
-	if (!host->mrq) {
-		sdhci_msm_bus_set_vote(msm_host,
-			msm_host->msm_bus_vote.min_bw_vote, &flags);
-	} else
-		pr_warn("%s: %s: Transfer in progress. skipping bus voting to 0 bandwidth\n",
-			   mmc_hostname(host->mmc), __func__);
-	spin_unlock_irqrestore(&host->lock, flags);
-}
-
 /*****************************************************************************\
  *                                                                           *
  * MSM Command Queue Engine (CQE)                                            *
@@ -2441,7 +2414,7 @@ static void sdhci_msm_cqe_add_host(struct sdhci_host *host,
  * This function cancels any scheduled delayed work and sets the bus
  * vote based on bw (bandwidth) argument.
  */
-static void sdhci_msm_bus_cancel_work_and_set_vote(struct sdhci_host *host,
+static void sdhci_msm_bus_get_and_set_vote(struct sdhci_host *host,
 						unsigned int bw)
 {
 	int vote;
@@ -2449,28 +2422,9 @@ static void sdhci_msm_bus_cancel_work_and_set_vote(struct sdhci_host *host,
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 
-	cancel_delayed_work_sync(&msm_host->msm_bus_vote.vote_work);
 	spin_lock_irqsave(&host->lock, flags);
 	vote = sdhci_msm_bus_get_vote_for_bw(msm_host, bw);
 	sdhci_msm_bus_set_vote(msm_host, vote, &flags);
-	spin_unlock_irqrestore(&host->lock, flags);
-}
-
-#define MSM_MMC_BUS_VOTING_DELAY	200 /* msecs */
-
-/* This function queues a work which will set the bandwidth requiement to 0 */
-static void sdhci_msm_bus_queue_work(struct sdhci_host *host)
-{
-	unsigned long flags;
-	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
-	struct sdhci_msm_host *msm_host = pltfm_host->priv;
-
-	spin_lock_irqsave(&host->lock, flags);
-	if (msm_host->msm_bus_vote.min_bw_vote !=
-		msm_host->msm_bus_vote.curr_vote)
-		queue_delayed_work(system_wq,
-				   &msm_host->msm_bus_vote.vote_work,
-				   msecs_to_jiffies(MSM_MMC_BUS_VOTING_DELAY));
 	spin_unlock_irqrestore(&host->lock, flags);
 }
 
@@ -2544,22 +2498,11 @@ static void sdhci_msm_bus_voting(struct sdhci_host *host, u32 enable)
 	if (!msm_host->msm_bus_vote.client_handle)
 		return;
 
-	bw = sdhci_get_bw_required(host, ios);
 	if (enable) {
-		sdhci_msm_bus_cancel_work_and_set_vote(host, bw);
+		bw = sdhci_get_bw_required(host, ios);
+		sdhci_msm_bus_get_and_set_vote(host, bw);
 	} else {
-		/*
-		 * If clock gating is enabled, then remove the vote
-		 * immediately because clocks will be disabled only
-		 * after SDHCI_MSM_MMC_CLK_GATE_DELAY and thus no
-		 * additional delay is required to remove the bus vote.
-		 */
-#ifdef CONFIG_MMC_CLKGATE
-		if (host->mmc->clkgate_delay)
-			sdhci_msm_bus_cancel_work_and_set_vote(host, 0);
-		else
-#endif
-			sdhci_msm_bus_queue_work(host);
+		sdhci_msm_bus_get_and_set_vote(host, 0);
 	}
 }
 
@@ -3489,8 +3432,7 @@ disable_pclk:
 	if (!IS_ERR(msm_host->pclk))
 		clk_disable_unprepare(msm_host->pclk);
 remove_vote:
-	if (msm_host->msm_bus_vote.client_handle)
-		sdhci_msm_bus_cancel_work_and_set_vote(host, 0);
+	sdhci_msm_bus_voting(host, 0);
 out:
 	return rc;
 }
@@ -3619,10 +3561,46 @@ disable_controller_clk:
 		clk_disable_unprepare(msm_host->pclk);
 	atomic_set(&msm_host->controller_clock, 0);
 remove_vote:
-	if (msm_host->msm_bus_vote.client_handle)
-		sdhci_msm_bus_cancel_work_and_set_vote(host, 0);
+		sdhci_msm_bus_voting(host, 0);
 out:
 	return rc;
+}
+
+/*
+ * After MCLK ugating, toggle the FIFO write clock to get
+ * the FIFO pointers and flags to valid state.
+ */
+static void sdhci_msm_toggle_fifo_write_clk(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	const struct sdhci_msm_offset *msm_host_offset =
+					msm_host->offset;
+	struct mmc_card *card = host->mmc->card;
+
+	if (msm_host->tuning_done ||
+			(card && mmc_card_strobe(card) &&
+			msm_host->enhanced_strobe)) {
+		/*
+		 * set HC_REG_DLL_CONFIG_3[1] to select MCLK as
+		 * DLL input clock
+		 */
+		writel_relaxed(((readl_relaxed(host->ioaddr +
+			msm_host_offset->CORE_DLL_CONFIG_3))
+			| RCLK_TOGGLE), host->ioaddr +
+			msm_host_offset->CORE_DLL_CONFIG_3);
+		/* ensure above write as toggling same bit quickly */
+		wmb();
+		udelay(2);
+		/*
+		 * clear HC_REG_DLL_CONFIG_3[1] to select RCLK as
+		 * DLL input clock
+		 */
+		writel_relaxed(((readl_relaxed(host->ioaddr +
+			msm_host_offset->CORE_DLL_CONFIG_3))
+			& ~RCLK_TOGGLE), host->ioaddr +
+			msm_host_offset->CORE_DLL_CONFIG_3);
+	}
 }
 
 static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
@@ -3731,33 +3709,9 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 					| CORE_HC_SELECT_IN_EN), host->ioaddr +
 					msm_host_offset->CORE_VENDOR_SPEC);
 		}
-		/*
-		 * After MCLK ugating, toggle the FIFO write clock to get
-		 * the FIFO pointers and flags to valid state.
-		 */
-		if (msm_host->tuning_done ||
-				(card && mmc_card_strobe(card) &&
-				msm_host->enhanced_strobe)) {
-			/*
-			 * set HC_REG_DLL_CONFIG_3[1] to select MCLK as
-			 * DLL input clock
-			 */
-			writel_relaxed(((readl_relaxed(host->ioaddr +
-				msm_host_offset->CORE_DLL_CONFIG_3))
-				| RCLK_TOGGLE), host->ioaddr +
-				msm_host_offset->CORE_DLL_CONFIG_3);
-			/* ensure above write as toggling same bit quickly */
-			wmb();
-			udelay(2);
-			/*
-			 * clear HC_REG_DLL_CONFIG_3[1] to select RCLK as
-			 * DLL input clock
-			 */
-			writel_relaxed(((readl_relaxed(host->ioaddr +
-				msm_host_offset->CORE_DLL_CONFIG_3))
-				& ~RCLK_TOGGLE), host->ioaddr +
-				msm_host_offset->CORE_DLL_CONFIG_3);
-		}
+
+		sdhci_msm_toggle_fifo_write_clk(host);
+
 		if (!host->mmc->ios.old_rate && !msm_host->use_cdclp533) {
 			/*
 			 * Poll on DLL_LOCK and DDR_DLL_LOCK bits in
@@ -5170,9 +5124,6 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	if (ret)
 		goto sleep_clk_disable;
 
-	if (msm_host->msm_bus_vote.client_handle)
-		INIT_DELAYED_WORK(&msm_host->msm_bus_vote.vote_work,
-				  sdhci_msm_bus_work);
 	sdhci_msm_bus_voting(host, 1);
 
 	/* Setup regulators */
@@ -5502,8 +5453,7 @@ remove_host:
 vreg_deinit:
 	sdhci_msm_vreg_init(&pdev->dev, msm_host->pdata, false);
 bus_unregister:
-	if (msm_host->msm_bus_vote.client_handle)
-		sdhci_msm_bus_cancel_work_and_set_vote(host, 0);
+	sdhci_msm_bus_voting(host, 0);
 	sdhci_msm_bus_unregister(msm_host);
 sleep_clk_disable:
 	if (!IS_ERR(msm_host->sleep_clk))
@@ -5588,10 +5538,9 @@ static int sdhci_msm_remove(struct platform_device *pdev)
 	sdhci_msm_setup_pins(pdata, true);
 	sdhci_msm_setup_pins(pdata, false);
 
-	if (msm_host->msm_bus_vote.client_handle) {
-		sdhci_msm_bus_cancel_work_and_set_vote(host, 0);
+	sdhci_msm_bus_voting(host, 0);
+	if (msm_host->msm_bus_vote.client_handle)
 		sdhci_msm_bus_unregister(msm_host);
-	}
 
 	sdhci_pltfm_free(pdev);
 
@@ -5663,16 +5612,6 @@ static int sdhci_msm_runtime_suspend(struct device *dev)
 defer_disable_host_irq:
 	disable_irq(msm_host->pwr_irq);
 
-	/*
-	 * Remove the vote immediately only if clocks are off in which
-	 * case we might have queued work to remove vote but it may not
-	 * be completed before runtime suspend or system suspend.
-	 */
-	if (!atomic_read(&msm_host->clks_on)) {
-		if (msm_host->msm_bus_vote.client_handle)
-			sdhci_msm_bus_cancel_work_and_set_vote(host, 0);
-	}
-
 	if (host->is_crypto_en) {
 		ret = sdhci_msm_ice_suspend(host);
 		if (ret < 0)
@@ -5699,6 +5638,11 @@ static int sdhci_msm_runtime_resume(struct device *dev)
 				mmc_hostname(host->mmc));
 		goto skip_ice_resume;
 	}
+
+	if (host->mmc &&
+			(host->mmc->ios.timing == MMC_TIMING_MMC_HS400))
+		sdhci_msm_toggle_fifo_write_clk(host);
+
 	if (host->is_crypto_en) {
 		ret = sdhci_msm_ice_resume(host);
 		if (ret)
@@ -5723,15 +5667,9 @@ defer_enable_host_irq:
 static int sdhci_msm_suspend(struct device *dev)
 {
 	struct sdhci_host *host = dev_get_drvdata(dev);
-	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
-	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 	int ret = 0;
 	int sdio_cfg = 0;
 	ktime_t start = ktime_get();
-
-	if (gpio_is_valid(msm_host->pdata->status_gpio) &&
-			 (msm_host->mmc->slot.cd_irq >= 0))
-		disable_irq(msm_host->mmc->slot.cd_irq);
 
 	if (pm_runtime_suspended(dev)) {
 		pr_debug("%s: %s: already runtime suspended\n",
@@ -5754,15 +5692,9 @@ out:
 static int sdhci_msm_resume(struct device *dev)
 {
 	struct sdhci_host *host = dev_get_drvdata(dev);
-	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
-	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 	int ret = 0;
 	int sdio_cfg = 0;
 	ktime_t start = ktime_get();
-
-	if (gpio_is_valid(msm_host->pdata->status_gpio) &&
-			 (msm_host->mmc->slot.cd_irq >= 0))
-		enable_irq(msm_host->mmc->slot.cd_irq);
 
 	if (pm_runtime_suspended(dev)) {
 		pr_debug("%s: %s: runtime suspended, defer system resume\n",

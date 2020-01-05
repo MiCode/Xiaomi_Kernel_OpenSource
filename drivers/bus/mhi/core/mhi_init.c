@@ -73,6 +73,19 @@ static const char * const mhi_pm_state_str[] = {
 
 struct mhi_bus mhi_bus;
 
+struct mhi_controller *find_mhi_controller_by_name(const char *name)
+{
+	struct mhi_controller *mhi_cntrl, *tmp_cntrl;
+
+	list_for_each_entry_safe(mhi_cntrl, tmp_cntrl, &mhi_bus.controller_list,
+				 node) {
+		if (mhi_cntrl->name && (!strcmp(name, mhi_cntrl->name)))
+			return mhi_cntrl;
+	}
+
+	return NULL;
+}
+
 const char *to_mhi_pm_state_str(enum MHI_PM_STATE state)
 {
 	int index = find_last_bit((unsigned long *)&state, 32);
@@ -590,7 +603,6 @@ int mhi_init_timesync(struct mhi_controller *mhi_cntrl)
 		return -ENOMEM;
 
 	spin_lock_init(&mhi_tsync->lock);
-	mutex_init(&mhi_tsync->lpm_mutex);
 	INIT_LIST_HEAD(&mhi_tsync->head);
 	init_completion(&mhi_tsync->completion);
 
@@ -666,6 +678,9 @@ int mhi_init_sfr(struct mhi_controller *mhi_cntrl)
 	if (!sfr_info)
 		return ret;
 
+	/* do a clean-up if we reach here post SSR */
+	memset(sfr_info->str, 0, sfr_info->len);
+
 	sfr_info->buf_addr = mhi_alloc_coherent(mhi_cntrl, sfr_info->len,
 					&sfr_info->dma_addr, GFP_KERNEL);
 	if (!sfr_info->buf_addr) {
@@ -715,7 +730,7 @@ static int mhi_init_bw_scale(struct mhi_controller *mhi_cntrl)
 	MHI_LOG("BW_CFG OFFSET:0x%x\n", bw_cfg_offset);
 
 	/* advertise host support */
-	mhi_write_reg(mhi_cntrl, mhi_cntrl->regs, bw_cfg_offset,
+	mhi_cntrl->write_reg(mhi_cntrl, mhi_cntrl->regs, bw_cfg_offset,
 		      MHI_BW_SCALE_SETUP(er_index));
 
 	return 0;
@@ -813,8 +828,8 @@ int mhi_init_mmio(struct mhi_controller *mhi_cntrl)
 
 	/* setup wake db */
 	mhi_cntrl->wake_db = base + val + (8 * MHI_DEV_WAKE_DB);
-	mhi_write_reg(mhi_cntrl, mhi_cntrl->wake_db, 4, 0);
-	mhi_write_reg(mhi_cntrl, mhi_cntrl->wake_db, 0, 0);
+	mhi_cntrl->write_reg(mhi_cntrl, mhi_cntrl->wake_db, 4, 0);
+	mhi_cntrl->write_reg(mhi_cntrl, mhi_cntrl->wake_db, 0, 0);
 	mhi_cntrl->wake_set = false;
 
 	/* setup bw scale db */
@@ -1330,6 +1345,8 @@ static int of_parse_dt(struct mhi_controller *mhi_cntrl,
 	if (!ret)
 		mhi_cntrl->bhie = mhi_cntrl->regs + bhie_offset;
 
+	of_property_read_string(of_node, "mhi,name", &mhi_cntrl->name);
+
 	return 0;
 
 error_ev_cfg:
@@ -1371,11 +1388,11 @@ int of_register_mhi_controller(struct mhi_controller *mhi_cntrl)
 
 	INIT_LIST_HEAD(&mhi_cntrl->transition_list);
 	mutex_init(&mhi_cntrl->pm_mutex);
+	mutex_init(&mhi_cntrl->tsync_mutex);
 	rwlock_init(&mhi_cntrl->pm_lock);
 	spin_lock_init(&mhi_cntrl->transition_lock);
 	spin_lock_init(&mhi_cntrl->wlock);
 	INIT_WORK(&mhi_cntrl->st_worker, mhi_pm_st_worker);
-	INIT_WORK(&mhi_cntrl->fw_worker, mhi_fw_load_worker);
 	INIT_WORK(&mhi_cntrl->low_priority_worker, mhi_low_priority_worker);
 	init_waitqueue_head(&mhi_cntrl->state_event);
 
@@ -1419,6 +1436,8 @@ int of_register_mhi_controller(struct mhi_controller *mhi_cntrl)
 		mhi_cntrl->map_single = mhi_map_single_no_bb;
 		mhi_cntrl->unmap_single = mhi_unmap_single_no_bb;
 	}
+
+	mhi_cntrl->write_reg = mhi_write_reg;
 
 	/* read the device info if possible */
 	if (mhi_cntrl->regs) {
@@ -1469,6 +1488,12 @@ int of_register_mhi_controller(struct mhi_controller *mhi_cntrl)
 			goto error_add_dev;
 		}
 
+		sfr_info->str = kzalloc(mhi_cntrl->sfr_len, GFP_KERNEL);
+		if (!sfr_info->str) {
+			ret = -ENOMEM;
+			goto error_alloc_sfr;
+		}
+
 		sfr_info->len = mhi_cntrl->sfr_len;
 		mhi_cntrl->mhi_sfr = sfr_info;
 	}
@@ -1482,6 +1507,9 @@ int of_register_mhi_controller(struct mhi_controller *mhi_cntrl)
 	mutex_unlock(&mhi_bus.lock);
 
 	return 0;
+
+error_alloc_sfr:
+	kfree(sfr_info);
 
 error_add_dev:
 	mhi_dealloc_device(mhi_cntrl, mhi_dev);
@@ -1500,12 +1528,17 @@ EXPORT_SYMBOL(of_register_mhi_controller);
 void mhi_unregister_mhi_controller(struct mhi_controller *mhi_cntrl)
 {
 	struct mhi_device *mhi_dev = mhi_cntrl->mhi_dev;
+	struct mhi_sfr_info *sfr_info = mhi_cntrl->mhi_sfr;
 
 	kfree(mhi_cntrl->mhi_cmd);
 	kfree(mhi_cntrl->mhi_event);
 	vfree(mhi_cntrl->mhi_chan);
 	kfree(mhi_cntrl->mhi_tsync);
-	kfree(mhi_cntrl->mhi_sfr);
+
+	if (sfr_info) {
+		kfree(sfr_info->str);
+		kfree(sfr_info);
+	}
 
 	device_del(&mhi_dev->dev);
 	put_device(&mhi_dev->dev);

@@ -3213,7 +3213,7 @@ static int fg_gen4_esr_fast_calib_config(struct fg_gen4_chip *chip, bool en)
 	 * discharging when ESR fast calibration is disabled. Otherwise, keep
 	 * it enabled so that ESR pulses can happen during discharging.
 	 */
-	val = en ? BIT(6) | BIT(7) : 0;
+	val = (en || chip->dt.esr_calib_dischg) ? BIT(6) | BIT(7) : 0;
 	mask = BIT(6) | BIT(7);
 	rc = fg_sram_masked_write(fg, SYS_CONFIG_WORD,
 			SYS_CONFIG_OFFSET, mask, val, FG_IMA_DEFAULT);
@@ -5657,15 +5657,6 @@ static int fg_parse_esr_cal_params(struct fg_dev *fg)
 	struct device_node *node = fg->dev->of_node;
 	int rc, i, temp;
 
-	if (chip->dt.esr_timer_dischg_slow[TIMER_RETRY] >= 0 &&
-			chip->dt.esr_timer_dischg_slow[TIMER_MAX] >= 0) {
-		/* ESR calibration only during discharging */
-		chip->dt.esr_calib_dischg = of_property_read_bool(node,
-						"qcom,fg-esr-calib-dischg");
-		if (chip->dt.esr_calib_dischg)
-			return 0;
-	}
-
 	if (!of_find_property(node, "qcom,fg-esr-cal-soc-thresh", NULL) ||
 		!of_find_property(node, "qcom,fg-esr-cal-temp-thresh", NULL))
 		return 0;
@@ -5698,6 +5689,15 @@ static int fg_parse_esr_cal_params(struct fg_dev *fg)
 				ESR_CAL_TEMP_MIN, ESR_CAL_TEMP_MAX);
 			return -EINVAL;
 		}
+	}
+
+	if (chip->dt.esr_timer_dischg_slow[TIMER_RETRY] >= 0 &&
+			chip->dt.esr_timer_dischg_slow[TIMER_MAX] >= 0) {
+		/* ESR calibration only during discharging */
+		chip->dt.esr_calib_dischg = of_property_read_bool(node,
+						"qcom,fg-esr-calib-dischg");
+		if (chip->dt.esr_calib_dischg)
+			return 0;
 	}
 
 	chip->dt.delta_esr_disable_count = DEFAULT_ESR_DISABLE_COUNT;

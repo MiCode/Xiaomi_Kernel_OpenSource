@@ -1758,6 +1758,7 @@ struct ipa3_pc_mbox_data {
  * @lan_rx_napi_enable: flag if NAPI is enabled on the LAN dp
  * @lan_ndev: dummy netdev for LAN rx NAPI
  * @napi_lan_rx: NAPI object for LAN rx
+ * @coal_cmd_pyld: holds the coslescing close frame command payload
  */
 struct ipa3_context {
 	struct ipa3_char_device_context cdev;
@@ -1929,6 +1930,7 @@ struct ipa3_context {
 	bool lan_rx_napi_enable;
 	struct net_device lan_ndev;
 	struct napi_struct napi_lan_rx;
+	struct ipahal_imm_cmd_pyld *coal_cmd_pyld;
 };
 
 struct ipa3_plat_drv_res {
@@ -3013,6 +3015,8 @@ void ipa3_disable_prefetch(enum ipa_client_type client);
 int ipa3_alloc_common_event_ring(void);
 int ipa3_allocate_dma_task_for_gsi(void);
 void ipa3_free_dma_task_for_gsi(void);
+int ipa3_allocate_coal_close_frame(void);
+void ipa3_free_coal_close_frame(void);
 int ipa3_set_clock_plan_from_pm(int idx);
 void __ipa_gsi_irq_rx_scedule_poll(struct ipa3_sys_context *sys);
 int ipa3_tz_unlock_reg(struct ipa_tz_unlock_reg_info *reg_info, u16 num_regs);
@@ -3111,4 +3115,10 @@ static inline void *alloc_and_init(u32 size, u32 init_val)
 bool ipa3_is_apq(void);
 /* check if odl is connected */
 bool ipa3_is_odl_connected(void);
+
+int ipa3_uc_send_enable_flow_control(uint16_t gsi_chid,
+	uint16_t redMarkerThreshold);
+int ipa3_uc_send_disable_flow_control(void);
+int ipa3_uc_send_update_flow_control(uint32_t bitmask,
+	uint8_t  add_delete);
 #endif /* _IPA3_I_H_ */
