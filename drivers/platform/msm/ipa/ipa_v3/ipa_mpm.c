@@ -1458,7 +1458,8 @@ static int ipa_mpm_vote_unvote_pcie_clk(enum ipa_mpm_clk_vote_type vote,
 
 	if (vote == CLK_ON) {
 		result = mhi_device_get_sync(
-			ipa_mpm_ctx->md[probe_id].mhi_dev, MHI_VOTE_BUS);
+			ipa_mpm_ctx->md[probe_id].mhi_dev,
+				MHI_VOTE_BUS | MHI_VOTE_DEVICE);
 		if (result) {
 			IPA_MPM_ERR("mhi_sync_get failed for probe_id %d\n",
 				result, probe_id);
@@ -1479,7 +1480,8 @@ static int ipa_mpm_vote_unvote_pcie_clk(enum ipa_mpm_clk_vote_type vote,
 			*is_acted = true;
 			return 0;
 		}
-		mhi_device_put(ipa_mpm_ctx->md[probe_id].mhi_dev, MHI_VOTE_BUS);
+		mhi_device_put(ipa_mpm_ctx->md[probe_id].mhi_dev,
+				MHI_VOTE_BUS | MHI_VOTE_DEVICE);
 		IPA_MPM_DBG("probe_id %d PCIE clock off\n", probe_id);
 		atomic_dec(&ipa_mpm_ctx->md[probe_id].clk_cnt.pcie_clk_cnt);
 		atomic_dec(&ipa_mpm_ctx->pcie_clk_total_cnt);
@@ -2442,12 +2444,19 @@ static int ipa_mpm_mhi_probe_cb(struct mhi_device *mhi_dev,
 	}
 
 	atomic_inc(&ipa_mpm_ctx->probe_cnt);
-	/* Check if ODL pipe is connected to MHIP DPL pipe before probe */
-	if (probe_id == IPA_MPM_MHIP_CH_ID_2 &&
-		ipa3_is_odl_connected()) {
-		IPA_MPM_DBG("setting DPL DMA to ODL\n");
-		ret = ipa_mpm_set_dma_mode(IPA_CLIENT_MHI_PRIME_DPL_PROD,
-			IPA_CLIENT_USB_DPL_CONS, false);
+	/* Check if ODL/USB DPL pipe is connected before probe */
+	if (probe_id == IPA_MPM_MHIP_CH_ID_2) {
+		if (ipa3_is_odl_connected())
+			ret = ipa_mpm_set_dma_mode(
+				IPA_CLIENT_MHI_PRIME_DPL_PROD,
+				IPA_CLIENT_ODL_DPL_CONS, false);
+		else if (atomic_read(&ipa_mpm_ctx->adpl_over_usb_available))
+			ret = ipa_mpm_set_dma_mode(
+				IPA_CLIENT_MHI_PRIME_DPL_PROD,
+				IPA_CLIENT_USB_DPL_CONS, false);
+		if (ret)
+			IPA_MPM_ERR("DPL DMA to ODL/USB failed, ret = %d\n",
+				ret);
 	}
 	mutex_lock(&ipa_mpm_ctx->md[probe_id].mhi_mutex);
 	ipa_mpm_ctx->md[probe_id].init_complete = true;

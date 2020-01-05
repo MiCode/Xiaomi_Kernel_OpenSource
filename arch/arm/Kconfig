@@ -97,6 +97,7 @@ config ARM
 	select HAVE_SYSCALL_TRACEPOINTS
 	select HAVE_UID16
 	select HAVE_VIRT_CPU_ACCOUNTING_GEN
+	select IOMMU_DMA if IOMMU_SUPPORT
 	select IRQ_FORCED_THREADING
 	select MODULES_USE_ELF_REL
 	select NEED_DMA_MAP_STATE
@@ -1716,6 +1717,35 @@ config ARM_MODULE_PLTS
 
 	  Disabling this is usually safe for small single-platform
 	  configurations. If unsure, say y.
+
+choice
+	prompt "Virtual Memory Reclaim"
+	default ENABLE_VMALLOC_SAVING
+	help
+	  Select the method of reclaiming virtual memory. Two values
+	  are allowed to choose, one is NO_VM_RECLAIM, the other is
+	  ENABLE_VMALLOC_SAVING.
+
+	  If you are not absolutely sure what you are doing, leave this
+	  option alone.
+
+config ENABLE_VMALLOC_SAVING
+	bool "Reclaim memory for each subsystem"
+	help
+	  Enable this config to reclaim the virtual space belonging
+	  to any subsystem which is expected to have a lifetime of
+	  the entire system. This feature allows lowmem to be non-
+	  contiguous.
+
+config NO_VM_RECLAIM
+	bool "Do not reclaim memory"
+	help
+	  Do not reclaim any memory. This might result in less lowmem
+	  and wasting some virtual memory space which could otherwise
+	  be reclaimed by using any of the other two config options as
+	  above.
+
+endchoice
 
 config FORCE_MAX_ZONEORDER
 	int "Maximum zone order"

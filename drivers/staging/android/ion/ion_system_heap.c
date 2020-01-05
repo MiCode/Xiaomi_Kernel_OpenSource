@@ -79,7 +79,7 @@ static struct page *alloc_buffer_page(struct ion_system_heap *heap,
 	page = ion_page_pool_alloc(pool, from_pool);
 
 	if (pool_auto_refill_en &&
-	    pool_count_below_lowmark(pool)) {
+	    pool_count_below_lowmark(pool) && vmid <= 0) {
 		wake_up_process(heap->kworker[cached]);
 	}
 
