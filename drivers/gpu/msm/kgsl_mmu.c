@@ -646,8 +646,8 @@ int kgsl_mmu_probe(struct kgsl_device *device)
 	 * go for the NOMMU option instead
 	 */
 	ret = kgsl_iommu_probe(device);
-	if (!ret)
-		return 0;
+	if (!ret || ret == -EPROBE_DEFER)
+		return ret;
 
 	/* set up for NOMMU */
 	set_bit(KGSL_MMU_GLOBAL_PAGETABLE, &mmu->features);

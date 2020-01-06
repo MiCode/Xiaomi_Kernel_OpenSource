@@ -2412,6 +2412,7 @@ static int kgsl_iommu_probe_child(struct kgsl_device *device,
 	struct device_node *node = of_find_node_by_name(parent, name);
 	struct platform_device *pdev;
 	struct device_node *phandle;
+	int ret;
 
 	if (!node)
 		return -ENOENT;
@@ -2430,10 +2431,10 @@ static int kgsl_iommu_probe_child(struct kgsl_device *device,
 
 	of_node_put(phandle);
 
-	of_dma_configure(&pdev->dev, node, true);
+	ret = of_dma_configure(&pdev->dev, node, true);
 
 	of_node_put(node);
-	return 0;
+	return ret;
 }
 
 static void iommu_probe_lpac_context(struct kgsl_device *device,

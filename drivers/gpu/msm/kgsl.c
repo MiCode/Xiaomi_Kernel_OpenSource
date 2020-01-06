@@ -4841,6 +4841,11 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	if (status)
 		goto error;
 
+	/* This can return -EPROBE_DEFER */
+	status = kgsl_mmu_probe(device);
+	if (status != 0)
+		goto error_pwrctrl_close;
+
 	if (!devm_request_mem_region(&pdev->dev, device->reg_phys,
 				device->reg_len, device->name)) {
 		dev_err(device->dev, "request_mem_region failed\n");
@@ -4867,10 +4872,6 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 
 	rwlock_init(&device->context_lock);
 	spin_lock_init(&device->submit_lock);
-
-	status = kgsl_mmu_probe(device);
-	if (status != 0)
-		goto error_pwrctrl_close;
 
 	/* Check to see if our device can perform DMA correctly */
 	status = dma_set_coherent_mask(&pdev->dev, KGSL_DMA_BIT_MASK);
