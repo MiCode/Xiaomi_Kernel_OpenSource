@@ -4833,6 +4833,7 @@ static int arm_smmu_device_remove(struct platform_device *pdev)
 		dev_err(&pdev->dev, "removing device with active domains!\n");
 
 	arm_smmu_bus_init(NULL);
+	iommu_device_unregister(&smmu->iommu);
 	idr_destroy(&smmu->asid_idr);
 
 	/* Turn the thing off */
