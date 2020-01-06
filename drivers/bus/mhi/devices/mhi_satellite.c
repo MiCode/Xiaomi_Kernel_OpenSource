@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved.*/
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.*/
 
 #include <linux/async.h>
 #include <linux/device.h>
@@ -1201,6 +1201,7 @@ module_init(mhi_sat_init);
 static void __exit mhi_sat_exit(void)
 {
 	struct mhi_sat_subsys *subsys;
+	int i;
 
 	unregister_rpmsg_driver(&mhi_sat_rpmsg_driver);
 
