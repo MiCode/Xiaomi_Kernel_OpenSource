@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -2692,8 +2692,15 @@ static int sde_kms_get_mixer_count(const struct msm_kms *kms,
 	mode_clock_hz = drm_fixp_mul(temp, mdp_fudge_factor);
 
 	if (mode_clock_hz > max_mdp_clock_hz ||
-			mode->hdisplay > max_mixer_width)
+			mode->hdisplay > max_mixer_width) {
 		*num_lm = 2;
+		if ((mode_clock_hz >> 1) > max_mdp_clock_hz) {
+			SDE_DEBUG("[%s] clock %d exceeds max_mdp_clk %d\n",
+					mode->name, mode_clock_hz,
+					max_mdp_clock_hz);
+			return -EINVAL;
+		}
+	}
 
 	SDE_DEBUG("[%s] h=%d, v=%d, fps%d, max_mdp_pclk_hz=%llu, num_lm=%d\n",
 			mode->name, mode->htotal, mode->vtotal, mode->vrefresh,

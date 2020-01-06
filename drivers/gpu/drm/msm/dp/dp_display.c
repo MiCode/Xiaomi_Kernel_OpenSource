@@ -1960,6 +1960,10 @@ static enum drm_mode_status dp_display_validate_mode(
 	struct dp_display_mode dp_mode;
 	bool dsc_en;
 	u32 pclk_khz;
+	struct msm_drm_private *priv;
+	struct sde_kms *sde_kms;
+	u32 num_lm = 0;
+	int rc = 0;
 
 	if (!dp_display || !mode || !panel) {
 		pr_err("invalid params\n");
@@ -2005,6 +2009,15 @@ static enum drm_mode_status dp_display_validate_mode(
 	if (pclk_khz > dp_display->max_pclk_khz) {
 		DP_MST_DEBUG("clk:%d, max:%d\n", pclk_khz,
 				dp_display->max_pclk_khz);
+		goto end;
+	}
+
+	priv = dp_display->drm_dev->dev_private;
+	sde_kms = to_sde_kms(priv->kms);
+	rc = msm_get_mixer_count(dp->priv, mode,
+			sde_kms->catalog->max_mixer_width, &num_lm);
+	if (rc) {
+		DP_MST_DEBUG("error getting mixer count. rc:%d\n", rc);
 		goto end;
 	}
 
