@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/syscore_ops.h>
@@ -2059,12 +2059,12 @@ update_task_rq_cpu_cycles(struct task_struct *p, struct rq *rq, int event,
 		rq->task_exec_scale = DIV64_U64_ROUNDUP(cycles_delta *
 				topology_get_cpu_scale(NULL, cpu),
 				time_delta * rq->cluster->max_possible_freq);
+		trace_sched_get_task_cpu_cycles(cpu, event,
+				cycles_delta, time_delta, p);
 	}
 
 	p->cpu_cycles = cur_cycles;
 
-	trace_sched_get_task_cpu_cycles(cpu, event,
-					cycles_delta, time_delta, p);
 }
 
 static inline void run_walt_irq_work(u64 old_window_start, struct rq *rq)
