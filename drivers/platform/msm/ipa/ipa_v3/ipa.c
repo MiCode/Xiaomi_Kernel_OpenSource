@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -2755,6 +2755,11 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		retval = proc_sram_info_rqst(arg);
 		break;
 
+	case IPA_IOC_APP_CLOCK_VOTE:
+		retval = ipa3_app_clk_vote(
+			(enum ipa_app_clock_vote_type) arg);
+		break;
+
 	default:
 		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 		return -ENOTTY;
@@ -4671,6 +4676,9 @@ long compat_ipa3_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		break;
 	case IPA_IOC_GET_NAT_IN_SRAM_INFO32:
 		cmd = IPA_IOC_GET_NAT_IN_SRAM_INFO;
+		break;
+	case IPA_IOC_APP_CLOCK_VOTE32:
+		cmd = IPA_IOC_APP_CLOCK_VOTE;
 		break;
 	case IPA_IOC_COMMIT_HDR:
 	case IPA_IOC_RESET_HDR:
@@ -7032,6 +7040,8 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_enable_napi_netdev();
 
 	ipa3_wwan_init();
+
+	mutex_init(&ipa3_ctx->app_clock_vote.mutex);
 
 	return 0;
 
