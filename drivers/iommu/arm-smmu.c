@@ -444,7 +444,7 @@ static void arm_smmu_arch_init_context_bank(
 static int arm_smmu_arch_device_group(struct device *dev,
 					struct iommu_group *group)
 {
-	struct iommu_fwspec *fwspec = dev->iommu_fwspec;
+	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
 	struct arm_smmu_device *smmu = fwspec_smmu(fwspec);
 
 	if (!smmu->arch_ops)
@@ -2325,7 +2325,7 @@ static bool arm_smmu_free_sme(struct arm_smmu_device *smmu, int idx)
 
 static int arm_smmu_master_alloc_smes(struct device *dev)
 {
-	struct iommu_fwspec *fwspec = dev->iommu_fwspec;
+	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
 	struct arm_smmu_master_cfg *cfg = fwspec->iommu_priv;
 	struct arm_smmu_device *smmu = cfg->smmu;
 	struct arm_smmu_smr *smrs = smmu->smrs;
@@ -2467,7 +2467,7 @@ static void arm_smmu_detach_dev(struct iommu_domain *domain,
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
-	struct iommu_fwspec *fwspec = dev->iommu_fwspec;
+	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
 	bool dynamic = is_dynamic_domain(domain);
 	bool atomic_domain = test_bit(DOMAIN_ATTR_ATOMIC,
 				      smmu_domain->attributes);
@@ -2773,7 +2773,7 @@ static struct iommu_group *of_get_device_group(struct device *dev)
 static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 {
 	int ret;
-	struct iommu_fwspec *fwspec = dev->iommu_fwspec;
+	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
 	struct arm_smmu_device *smmu;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	int s1_bypass = 0;
@@ -3186,7 +3186,7 @@ static int arm_smmu_add_device(struct device *dev)
 {
 	struct arm_smmu_device *smmu;
 	struct arm_smmu_master_cfg *cfg;
-	struct iommu_fwspec *fwspec = dev->iommu_fwspec;
+	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
 	struct device_link *link;
 	int i, ret;
 
@@ -3198,7 +3198,7 @@ static int arm_smmu_add_device(struct device *dev)
 		 * will allocate/initialise a new one. Thus we need to update fwspec for
 		 * later use.
 		 */
-		fwspec = dev->iommu_fwspec;
+		fwspec = dev_iommu_fwspec_get(dev);
 		if (ret)
 			goto out_free;
 	} else if (fwspec && fwspec->ops == &arm_smmu_ops.iommu_ops) {
@@ -3268,7 +3268,7 @@ out_free:
 
 static void arm_smmu_remove_device(struct device *dev)
 {
-	struct iommu_fwspec *fwspec = dev->iommu_fwspec;
+	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
 	struct arm_smmu_device *smmu;
 	struct device_link *link;
 	int ret;
@@ -3304,7 +3304,7 @@ static void arm_smmu_remove_device(struct device *dev)
 
 static struct iommu_group *arm_smmu_device_group(struct device *dev)
 {
-	struct iommu_fwspec *fwspec = dev->iommu_fwspec;
+	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
 	struct arm_smmu_device *smmu = fwspec_smmu(fwspec);
 	struct iommu_group *group = NULL;
 	int i, idx;
@@ -4011,7 +4011,7 @@ static int arm_smmu_alloc_cb(struct iommu_domain *domain,
 				struct arm_smmu_device *smmu,
 				struct device *dev)
 {
-	struct iommu_fwspec *fwspec = dev->iommu_fwspec;
+	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	u32 i, idx;
 	int cb = -EINVAL;
@@ -4629,7 +4629,6 @@ err_reset_platform_ops: __maybe_unused;
 	return err;
 }
 
-static int qsmmuv500_tbu_register(struct device *dev, void *data);
 static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 {
 	const struct arm_smmu_match_data *data;
@@ -5354,7 +5353,7 @@ static phys_addr_t qsmmuv500_iova_to_phys_hard(
 	 * pick the SID from fwspec.
 	 */
 	if (is_debug_domain) {
-		fwspec = smmu_domain->dev->iommu_fwspec;
+		fwspec = dev_iommu_fwspec_get(smmu_domain->dev);
 		sid    = (u16)fwspec->ids[0];
 	} else {
 
@@ -5378,7 +5377,7 @@ static void qsmmuv500_release_group_iommudata(void *data)
 static int qsmmuv500_device_group(struct device *dev,
 				struct iommu_group *group)
 {
-	struct iommu_fwspec *fwspec = dev->iommu_fwspec;
+	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
 	struct arm_smmu_device *smmu = fwspec_smmu(fwspec);
 	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
 	struct qsmmuv500_group_iommudata *iommudata;
