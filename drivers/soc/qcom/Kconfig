@@ -57,6 +57,16 @@ config OVERRIDE_MEMORY_LIMIT
 	  hot-plugging.
 	  If unsure, say N
 
+config QCOM_MEM_BUF
+	bool "Qualcomm Technologies, Inc. Memory Buffer Sharing Driver"
+	depends on HH_MSGQ && HH_RM_DRV && ION_MSM_HEAPS && QCOM_SECURE_BUFFER
+	help
+	  Add support for lending memory from one virtual machine to another.
+	  This driver communicates with the hypervisor, as well as other
+	  virtual machines, to request and lend memory from and to VMs
+	  respectively.
+	  If unsure, say N
+
 config QCOM_GENI_SE
 	tristate "QCOM GENI Serial Engine Driver"
 	depends on ARCH_QCOM || COMPILE_TEST
