@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __WCD_DSP_MGR_H__
@@ -137,6 +137,17 @@ struct wdsp_mgr_ops {
 	int (*resume)(struct device *wdsp_dev);
 };
 
+#ifdef CONFIG_WCD9XXX_CODEC_CORE
 int wcd_dsp_mgr_init(void);
 void wcd_dsp_mgr_exit(void);
+#else
+static inline int wcd_dsp_mgr_init(void)
+{
+	return 0;
+}
+
+static inline void wcd_dsp_mgr_exit(void)
+{
+}
+#endif
 #endif /* end of __WCD_DSP_MGR_H__ */
