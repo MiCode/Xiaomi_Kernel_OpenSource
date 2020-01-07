@@ -3,6 +3,16 @@
 menu "Qualcomm technologies inc. MSM specific device drivers"
 	depends on ARCH_QCOM
 
+config MSM_EXT_DISPLAY
+	bool "MSM External Display Driver"
+	depends on DRM && QGKI
+	help
+	  Enabling this option adds MSM External Display Driver.
+	  External Display driver was added to support the communication
+	  between external display driver and its counterparts.
+	  This should be enabled to support audio & video over HDMI or
+	  DP for hot pluggable sink devices.
+
 config SPS
 	tristate "SPS support"
 	select GENERIC_ALLOCATOR
