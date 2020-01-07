@@ -72,6 +72,10 @@
 	status = "disabled";
 };
 
+&usb_qmp_phy {
+	status = "disabled";
+};
+
 &usb0 {
 	/delete-property/ extcon;
 	dwc3@a600000 {
