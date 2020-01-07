@@ -87,6 +87,7 @@ struct qmi_info {
 	void *wda_pending;
 	void *dfc_clients[MAX_CLIENT_NUM];
 	void *dfc_pending[MAX_CLIENT_NUM];
+	bool dfc_client_exiting[MAX_CLIENT_NUM];
 	unsigned long ps_work_active;
 	bool ps_enabled;
 	bool dl_msg_active;
