@@ -4930,7 +4930,8 @@ static int __init arm_smmu_init(void)
 
 static void __exit arm_smmu_exit(void)
 {
-	return platform_driver_unregister(&arm_smmu_driver);
+	platform_driver_unregister(&arm_smmu_driver);
+	platform_driver_unregister(&qsmmuv500_tbu_driver);
 }
 
 subsys_initcall(arm_smmu_init);
