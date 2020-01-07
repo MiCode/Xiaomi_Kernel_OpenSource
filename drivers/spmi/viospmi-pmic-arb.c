@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +18,7 @@
 #include <linux/irqchip/chained_irq.h>
 #include <linux/irqdomain.h>
 #include <linux/irq.h>
+#include <linux/of_irq.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -33,8 +34,6 @@
 /* Mapping Table */
 #define PMIC_ARB_MAX_PPID		BIT(12) /* PPID is 12bit */
 #define PMIC_ARB_APID_VALID		BIT(15)
-#define PMIC_ARB_CHAN_IS_IRQ_OWNER(reg)	((reg) & BIT(24))
-#define INVALID_EE				0xFF
 
 /* Command Opcodes */
 enum pmic_arb_cmd_op_code {
@@ -79,18 +78,20 @@ struct pmic_arb_ver_ops;
 
 struct apid_data {
 	u16		ppid;
-	u8		write_ee;
-	u8		irq_ee;
+	struct irq_desc *desc;
 };
 
 struct virtio_spmi {
 	struct virtio_device	*vdev;
-	struct virtqueue		*vq;
-	spinlock_t              lock;
+	struct virtqueue		*txq;
+	struct virtqueue		*rxq;
+	spinlock_t              txlock;
+	spinlock_t              rxlock;
+	struct spmi_pmic_arb    *pa;
 	struct virtio_spmi_config config;
-	struct spmi_pmic_arb *pa;
+	struct virtio_spmi_msg txmsg;
+	struct virtio_spmi_msg rxmsgs[4];
 };
-static struct virtio_spmi *g_vspmi;
 
 /**
  * spmi_pmic_arb - SPMI PMIC Arbiter object
@@ -111,6 +112,7 @@ struct spmi_pmic_arb {
 	u16			max_apid;
 	struct irq_domain	*domain;
 	struct spmi_controller	*spmic;
+	struct virtio_spmi	*vs;
 	const struct pmic_arb_ver_ops *ver_ops;
 	u16			*ppid_to_apid;
 	struct apid_data	apid_data[PMIC_ARB_MAX_PERIPHS];
@@ -130,76 +132,90 @@ struct pmic_arb_ver_ops {
 };
 
 static int
-vspmi_pmic_arb_xfer(struct spmi_pmic_arb *pa, struct virtio_spmi_msg *req)
+vspmi_pmic_arb_xfer(struct spmi_pmic_arb *pa)
 {
-	struct scatterlist sg[1];
+	struct virtio_spmi *vs = pa->vs;
+	struct virtio_spmi_msg *msg = &vs->txmsg;
 	struct virtio_spmi_msg *rsp;
-	unsigned int vqlen;
-	int rc = 0;
+
+	struct scatterlist sg[1];
+	unsigned int len;
 	unsigned long flags;
+	int rc = 0;
 
-	sg_init_one(sg, req, virtio32_to_cpu(g_vspmi->vdev, req->len));
+	sg_init_one(sg, msg, sizeof(*msg));
 
-	spin_lock_irqsave(&g_vspmi->lock, flags);
-	rc = virtqueue_add_outbuf(g_vspmi->vq, sg, 1, req, GFP_ATOMIC);
+	spin_lock_irqsave(&vs->txlock, flags);
+	rc = virtqueue_add_outbuf(vs->txq, sg, 1, msg, GFP_ATOMIC);
 	if (rc) {
-		dev_err(&g_vspmi->vdev->dev, "fail to add output buffer\n");
+		dev_err(&vs->vdev->dev, "fail to add output buffer\n");
 		goto out;
 	}
-
-	virtqueue_kick(g_vspmi->vq);
+	virtqueue_kick(vs->txq);
 
 	do {
-		rsp = virtqueue_get_buf(g_vspmi->vq, &vqlen);
+		rsp = virtqueue_get_buf(vs->txq, &len);
 	} while (!rsp);
-	rc = virtio32_to_cpu(g_vspmi->vdev, rsp->res);
+	rc = virtio32_to_cpu(vs->vdev, rsp->res);
 
 out:
-	spin_unlock_irqrestore(&g_vspmi->lock, flags);
+	spin_unlock_irqrestore(&vs->txlock, flags);
 	return rc;
 }
 
-static struct virtio_spmi_msg *vspmi_init_msg(u32 len, u32 type, u32 u)
+static struct virtio_spmi_msg *vspmi_fill_txmsg(struct spmi_pmic_arb *pa,
+		u32 type, u32 cmd, u16 ppid, u32 regval)
 {
-	struct virtio_spmi_msg *req = NULL;
+	struct virtio_spmi *vs = pa->vs;
+	struct virtio_spmi_msg *msg = &vs->txmsg;
 
-	req = kzalloc(len, GFP_ATOMIC);
-	if (req) {
-		req->len = cpu_to_virtio32(g_vspmi->vdev, len);
-		req->type = cpu_to_virtio32(g_vspmi->vdev, type);
-		req->u.cnt = req->u.cmd = cpu_to_virtio32(g_vspmi->vdev, u);
+	memset(msg, 0x0, sizeof(*msg));
+
+	if (type > VIO_SPMI_BUS_CMDMAX) {
+		msg->payload.irqd.ppid =
+			cpu_to_virtio16(vs->vdev, ppid);
+		msg->payload.irqd.regval =
+			cpu_to_virtio32(vs->vdev, regval);
 	} else {
-		dev_err(&g_vspmi->vdev->dev, "no atomic mem\n");
+		msg->payload.cmdd.cmd =
+			cpu_to_virtio32(vs->vdev, cmd);
 	}
+	msg->type = cpu_to_virtio32(vs->vdev, type);
 
-	dev_dbg(&g_vspmi->vdev->dev, "len:%u type:%u u:%x\n", len, type, u);
-	return req;
+	return msg;
 }
 
-static void
-vspmi_fill_one(struct virtio_spmi_msg *req, u32 ppid, u32 val)
+static void vspmi_queue_rxmsg(struct virtio_spmi *vspmi,
+		struct virtio_spmi_msg *msg)
 {
-	u32 idx = virtio32_to_cpu(g_vspmi->vdev, req->u.cnt);
-	u32 type = virtio32_to_cpu(g_vspmi->vdev, req->type);
+	struct scatterlist sg[1];
 
-	req->payload[idx].irqd.ppid =
-		cpu_to_virtio32(g_vspmi->vdev, ppid);
-	if ((type == VIO_IRQ_CLEAR) || (type == VIO_ACC_ENABLE_WR))
-		req->payload[idx].irqd.val =
-			cpu_to_virtio32(g_vspmi->vdev, val);
+	memset(msg, 0x0, sizeof(*msg));
+	sg_init_one(sg, msg, sizeof(*msg));
+	virtqueue_add_inbuf(vspmi->rxq, sg, 1, msg, GFP_ATOMIC);
+}
 
-	dev_dbg(&g_vspmi->vdev->dev, "spmi: cnt:%u ppid:%u val:%u\n", idx,
-		virtio32_to_cpu(g_vspmi->vdev, req->payload[idx].irqd.ppid),
-		virtio32_to_cpu(g_vspmi->vdev, req->payload[idx].irqd.val));
+static void vspmi_fill_rxmsgs(struct virtio_spmi *vs)
+{
+	unsigned long flags;
+	int i, size;
 
-	req->u.cnt = cpu_to_virtio32(g_vspmi->vdev, (idx + 1));
+	spin_lock_irqsave(&vs->rxlock, flags);
+	size = virtqueue_get_vring_size(vs->rxq);
+	if (size > ARRAY_SIZE(vs->rxmsgs))
+		size = ARRAY_SIZE(vs->rxmsgs);
+	for (i = 0; i < size; i++)
+		vspmi_queue_rxmsg(vs, &vs->rxmsgs[i]);
+	virtqueue_kick(vs->rxq);
+	spin_unlock_irqrestore(&vs->rxlock, flags);
 }
 
 static int pmic_arb_read_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
 			     u16 addr, u8 *buf, size_t len)
 {
 	struct spmi_pmic_arb *pa = spmi_controller_get_drvdata(ctrl);
-	struct virtio_spmi_msg *req;
+	struct virtio_spmi *vs = pa->vs;
+	struct virtio_spmi_msg *msg;
 	u8 bc = len - 1;
 	u32 data, cmd;
 	int rc;
@@ -223,26 +239,22 @@ static int pmic_arb_read_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
 
 	cmd = pa->ver_ops->fmt_cmd(opc, sid, addr, bc);
 
-	req = vspmi_init_msg(MSG_SZ(1), VIO_SPMI_BUS_READ, cmd);
-	if (!req)
-		return -ENOMEM;
-
-	rc = vspmi_pmic_arb_xfer(pa, req);
+	msg = vspmi_fill_txmsg(pa, VIO_SPMI_BUS_READ, cmd, 0, 0);
+	rc = vspmi_pmic_arb_xfer(pa);
 	if (rc)
 		goto out;
 
-	data = virtio32_to_cpu(g_vspmi->vdev,
-			req->payload[0].cmdd.data[0]);
+	data = virtio32_to_cpu(vs->vdev,
+			msg->payload.cmdd.data[0]);
 	memcpy(buf, &data, (bc & 3) + 1);
 
 	if (bc > 3) {
-		data = virtio32_to_cpu(g_vspmi->vdev,
-				req->payload[0].cmdd.data[1]);
+		data = virtio32_to_cpu(vs->vdev,
+				msg->payload.cmdd.data[1]);
 		memcpy((buf + 4), &data, ((bc - 4) & 3) + 1);
 	}
 
 out:
-	kfree(req);
 	return rc;
 }
 
@@ -250,7 +262,8 @@ static int pmic_arb_write_cmd(struct spmi_controller *ctrl, u8 opc,
 			    u8 sid, u16 addr, const u8 *buf, size_t len)
 {
 	struct spmi_pmic_arb *pa = spmi_controller_get_drvdata(ctrl);
-	struct virtio_spmi_msg *req;
+	struct virtio_spmi *vs = pa->vs;
+	struct virtio_spmi_msg *msg;
 	u8 bc = len - 1;
 	u32 data, cmd;
 	int rc;
@@ -275,22 +288,18 @@ static int pmic_arb_write_cmd(struct spmi_controller *ctrl, u8 opc,
 		return -EINVAL;
 
 	cmd = pa->ver_ops->fmt_cmd(opc, sid, addr, bc);
-
-	req = vspmi_init_msg(MSG_SZ(1), VIO_SPMI_BUS_WRITE, cmd);
-	if (!req)
-		return -ENOMEM;
+	msg = vspmi_fill_txmsg(pa, VIO_SPMI_BUS_WRITE, cmd, 0, 0);
 
 	memcpy(&data, buf, (bc & 3) + 1);
-	req->payload[0].cmdd.data[0] = cpu_to_virtio32(g_vspmi->vdev, data);
+	msg->payload.cmdd.data[0] = cpu_to_virtio32(vs->vdev, data);
 	if (bc > 3) {
 		memcpy(&data, (buf + 4), ((bc - 4) & 3) + 1);
-		req->payload[0].cmdd.data[1] =
-			cpu_to_virtio32(g_vspmi->vdev, data);
+		msg->payload.cmdd.data[1] =
+			cpu_to_virtio32(vs->vdev, data);
 	}
 
-	rc = vspmi_pmic_arb_xfer(pa, req);
+	rc = vspmi_pmic_arb_xfer(pa);
 
-	kfree(req);
 	return rc;
 }
 
@@ -337,130 +346,37 @@ static void qpnpint_spmi_read(struct irq_data *d, u8 reg, void *buf, size_t len)
 				"failed irqchip transaction on %x\n", d->irq);
 }
 
-static void cleanup_irq(struct spmi_pmic_arb *pa, u16 apid, int id)
-{
-	u16 ppid = pa->apid_data[apid].ppid;
-	u8 sid = ppid >> 8;
-	u8 per = ppid & 0xFF;
-	u8 irq_mask = BIT(id);
-
-	struct virtio_spmi_msg *req;
-
-	req = vspmi_init_msg(MSG_SZ(1), VIO_IRQ_CLEAR, 0);
-	if (req) {
-		dev_err_ratelimited(&pa->spmic->dev,
-			"%s apid=%d sid=0x%x per=0x%x irq=%d\n",
-			__func__, apid, sid, per, id);
-
-		vspmi_fill_one(req, ppid, irq_mask);
-		vspmi_pmic_arb_xfer(pa, req);
-		kfree(req);
-	}
-}
-
 static void periph_interrupt(struct spmi_pmic_arb *pa, u16 apid)
 {
 	unsigned int irq;
-	u32 status, id;
+	u32 id = 0;
 	u8 sid = (pa->apid_data[apid].ppid >> 8) & 0xF;
 	u8 per = pa->apid_data[apid].ppid & 0xFF;
 
-	struct virtio_spmi_msg *req;
-
-	req = vspmi_init_msg(MSG_SZ(1), VIO_IRQ_STATUS, 0);
-	if (!req)
-		return;
-
-	vspmi_fill_one(req, pa->apid_data[apid].ppid, 0);
-	if (vspmi_pmic_arb_xfer(pa, req)) {
-		kfree(req);
-		return;
-	}
-
-	status = virtio32_to_cpu(g_vspmi->vdev,
-			req->payload[0].irqd.val);
-	kfree(req);
-
-	while (status) {
-		id = ffs(status) - 1;
-		status &= ~BIT(id);
-		irq = irq_find_mapping(pa->domain,
+	irq = irq_find_mapping(pa->domain,
 					spec_to_hwirq(sid, per, id, apid));
-		if (irq == 0) {
-			cleanup_irq(pa, apid, id);
-			continue;
-		}
-		generic_handle_irq(irq);
-	}
+	generic_handle_irq(irq);
 }
 
-static void pmic_arb_chained_irq(struct irq_desc *desc)
+static void pmic_arb_chained_irq(struct virtio_spmi *vs,
+		struct virtio_spmi_msg *msg)
 {
-	struct spmi_pmic_arb *pa = irq_desc_get_handler_data(desc);
+	struct spmi_pmic_arb *pa = vs->pa;
+	struct apid_data *apidd = pa->apid_data;
+
+	u16 ppid = virtio16_to_cpu(vs->vdev, msg->payload.irqd.ppid);
+	u16 apid = pa->ver_ops->ppid_to_apid(pa, ppid);
+
+	struct irq_desc *desc = apidd[apid].desc;
 	struct irq_chip *chip = irq_desc_get_chip(desc);
 
-	u32 enable;
-	int i;
-	u16 ppid;
-
-	struct virtio_spmi_msg *req;
-	u32 *irq_status;
-
-	irq_status = kzalloc((pa->max_apid + 1) * sizeof(u32), GFP_ATOMIC);
-	if (!irq_status)
-		return;
-
 	chained_irq_enter(chip, desc);
+	dev_dbg(&pa->spmic->dev,
+			"Dispatching IRQ for apid=%x ppid=%x\n",
+			apid, ppid);
+	periph_interrupt(pa, apid);
 
-	/* get all irq_status */
-	req = vspmi_init_msg(MSG_SZ(pa->max_apid + 1), VIO_IRQ_STATUS, 0);
-	if (req) {
-		for (i = pa->min_apid; i <= pa->max_apid; i++) {
-			ppid = pa->apid_data[i].ppid;
-			vspmi_fill_one(req, ppid, 0);
-		}
-	} else
-		goto out;
-
-	if (vspmi_pmic_arb_xfer(pa, req)) {
-		kfree(req);
-		goto out;
-	}
-
-	for (i = pa->min_apid; i <= pa->max_apid; i++)
-		irq_status[i] = virtio32_to_cpu(g_vspmi->vdev,
-				req->payload[i].irqd.val);
-	kfree(req);
-
-	/* ACC_STATUS is empty but IRQ fired check IRQ_STATUS */
-	for (i = pa->min_apid; i <= pa->max_apid; i++) {
-		ppid = pa->apid_data[i].ppid;
-
-		if (irq_status[i]) {
-			req = vspmi_init_msg(MSG_SZ(1), VIO_ACC_ENABLE_RD, 0);
-			if (!req)
-				goto out;
-
-			vspmi_fill_one(req, ppid, 0);
-			if (vspmi_pmic_arb_xfer(pa, req))
-				goto out;
-
-			enable = virtio32_to_cpu(g_vspmi->vdev,
-					req->payload[0].irqd.val);
-			kfree(req);
-
-			if (enable & SPMI_PIC_ACC_ENABLE_BIT) {
-				dev_dbg(&pa->spmic->dev,
-					"Dispatching IRQ for apid=%d status=%x\n",
-					i, irq_status[i]);
-				periph_interrupt(pa, i);
-			}
-		}
-	}
-
-out:
 	chained_irq_exit(chip, desc);
-	kfree(irq_status);
 }
 
 static void qpnpint_irq_ack(struct irq_data *d)
@@ -471,15 +387,8 @@ static void qpnpint_irq_ack(struct irq_data *d)
 	u16 ppid = pa->apid_data[apid].ppid;
 	u8 data;
 
-	struct virtio_spmi_msg *req;
-
-	req = vspmi_init_msg(MSG_SZ(1), VIO_IRQ_CLEAR, 0);
-	if (req) {
-		vspmi_fill_one(req, ppid, BIT(irq));
-		vspmi_pmic_arb_xfer(pa, req);
-		kfree(req);
-	} else
-		return;
+	vspmi_fill_txmsg(pa, VIO_IRQ_CLEAR, 0, ppid, BIT(irq));
+	vspmi_pmic_arb_xfer(pa);
 
 	data = BIT(irq);
 	qpnpint_spmi_write(d, QPNPINT_REG_LATCHED_CLR, &data, 1);
@@ -499,17 +408,14 @@ static void qpnpint_irq_unmask(struct irq_data *d)
 	u8 irq = hwirq_to_irq(d->hwirq);
 	u16 apid = hwirq_to_apid(d->hwirq);
 	u16 ppid = pa->apid_data[apid].ppid;
+	struct apid_data *apidd = pa->apid_data;
 	u8 buf[2];
 
-	struct virtio_spmi_msg *req;
+	apidd[apid].desc = irq_data_to_desc(d);
 
-	req = vspmi_init_msg(MSG_SZ(1), VIO_ACC_ENABLE_WR, 0);
-	if (req) {
-		vspmi_fill_one(req, ppid, SPMI_PIC_ACC_ENABLE_BIT);
-		vspmi_pmic_arb_xfer(pa, req);
-		kfree(req);
-	} else
-		return;
+	vspmi_fill_txmsg(pa, VIO_ACC_ENABLE_WR, 0,
+			ppid, SPMI_PIC_ACC_ENABLE_BIT);
+	vspmi_pmic_arb_xfer(pa);
 
 	qpnpint_spmi_read(d, QPNPINT_REG_EN_SET, &buf[0], 1);
 	if (!(buf[0] & BIT(irq))) {
@@ -592,19 +498,6 @@ static int qpnpint_get_irqchip_state(struct irq_data *d,
 
 static int qpnpint_irq_request_resources(struct irq_data *d)
 {
-	struct spmi_pmic_arb *pa = irq_data_get_irq_chip_data(d);
-	u16 periph = hwirq_to_per(d->hwirq);
-	u16 apid = hwirq_to_apid(d->hwirq);
-	u16 sid = hwirq_to_sid(d->hwirq);
-	u16 irq = hwirq_to_irq(d->hwirq);
-
-	if (pa->apid_data[apid].irq_ee != pa->ee) {
-		dev_err(&pa->spmic->dev, "failed to xlate sid = %#x, periph = %#x, irq = %u: ee=%u but owner=%u\n",
-			sid, periph, irq, pa->ee,
-			pa->apid_data[apid].irq_ee);
-		return -ENODEV;
-	}
-
 	return 0;
 }
 
@@ -642,8 +535,9 @@ static int qpnpint_irq_domain_dt_translate(struct irq_domain *d,
 	u16 apid, ppid;
 	int rc;
 
-	dev_dbg(&pa->spmic->dev, "intspec[0] 0x%1x intspec[1] 0x%02x intspec[2] 0x%02x\n",
-		intspec[0], intspec[1], intspec[2]);
+	dev_dbg(&pa->spmic->dev,
+			"intspec[0] 0x%1x intspec[1] 0x%02x intspec[2] 0x%02x\n",
+			intspec[0], intspec[1], intspec[2]);
 
 	if (irq_domain_get_of_node(d) != controller)
 		return -EINVAL;
@@ -655,8 +549,9 @@ static int qpnpint_irq_domain_dt_translate(struct irq_domain *d,
 	ppid = intspec[0] << 8 | intspec[1];
 	rc = pa->ver_ops->ppid_to_apid(pa, ppid);
 	if (rc < 0) {
-		dev_err(&pa->spmic->dev, "failed to xlate sid = %#x, periph = %#x, irq = %u rc = %d\n",
-		intspec[0], intspec[1], intspec[2], rc);
+		dev_err(&pa->spmic->dev,
+				"failed to xlate sid = %#x, periph = %#x, irq = %u rc = %d\n",
+				intspec[0], intspec[1], intspec[2], rc);
 		return rc;
 	}
 
@@ -691,31 +586,30 @@ static int qpnpint_irq_domain_map(struct irq_domain *d,
 
 static int pmic_arb_read_apid_map_v5(struct spmi_pmic_arb *pa)
 {
+	struct virtio_spmi *vs = pa->vs;
 	struct apid_data *apidd = pa->apid_data;
 	u16 apid, ppid;
 	u16 i;
 
 	for (i = 0; i < VM_MAX_PERIPHS; i++) {
-		ppid = g_vspmi->config.ppid_allowed[i];
+		ppid = vs->config.ppid_allowed[i];
 		if (!ppid)
 			break;
 
 		apid = i;
 		pa->ppid_to_apid[ppid] = apid | PMIC_ARB_APID_VALID;
 		pa->apid_data[apid].ppid = ppid;
-		pa->apid_data[apid].irq_ee = 0;
-		pa->apid_data[apid].write_ee = 0;
+		pa->apid_data[apid].desc = NULL;
 	}
 
 	/* Dump the mapping table for debug purposes. */
-	dev_dbg(&pa->spmic->dev, "PPID APID Write-EE IRQ-EE\n");
+	dev_dbg(&pa->spmic->dev, "PPID APID IRQ-DESC\n");
 	for (ppid = 0; ppid < PMIC_ARB_MAX_PPID; ppid++) {
 		apid = pa->ppid_to_apid[ppid];
 		if (apid & PMIC_ARB_APID_VALID) {
 			apid &= ~PMIC_ARB_APID_VALID;
-			apidd = &pa->apid_data[apid];
-			dev_dbg(&pa->spmic->dev, "%#03X %3u %2u %2u\n",
-			      ppid, apid, apidd->write_ee, apidd->irq_ee);
+			dev_dbg(&pa->spmic->dev, "%#03X %3u %llx\n",
+			      ppid, apid, apidd[apid].desc);
 		}
 	}
 
@@ -747,39 +641,84 @@ static const struct irq_domain_ops pmic_arb_irq_domain_ops = {
 	.activate	= qpnpint_irq_domain_activate,
 };
 
-static int spmi_pmic_arb_probe(struct platform_device *pdev)
+static void viospmi_rx_isr(struct virtqueue *vq)
 {
+	struct virtio_spmi *vs = vq->vdev->priv;
+	struct virtio_spmi_msg *msg;
+	unsigned long flags;
+	unsigned int len;
+
+	spin_lock_irqsave(&vs->rxlock, flags);
+	while ((msg = virtqueue_get_buf(vs->rxq, &len)) != NULL) {
+		spin_unlock_irqrestore(&vs->rxlock, flags);
+		pmic_arb_chained_irq(vs, msg);
+		spin_lock_irqsave(&vs->rxlock, flags);
+		vspmi_queue_rxmsg(vs, msg);
+	}
+
+	virtqueue_kick(vs->rxq);
+	spin_unlock_irqrestore(&vs->rxlock, flags);
+}
+
+static int virtio_spmi_init_vqs(struct virtio_spmi *vspmi)
+{
+	struct virtqueue *vqs[2];
+	vq_callback_t *cbs[] = { NULL, viospmi_rx_isr };
+	static const char * const names[] = { "vs.tx", "vs.rx" };
+	int rc;
+
+	rc = virtio_find_vqs(vspmi->vdev, 2, vqs, cbs, names, NULL);
+	if (rc)
+		return rc;
+
+	vspmi->txq = vqs[0];
+	vspmi->rxq = vqs[1];
+
+	return 0;
+}
+
+static void virtio_spmi_del_vqs(struct virtio_spmi *vspmi)
+{
+	vspmi->vdev->config->del_vqs(vspmi->vdev);
+}
+
+static int virtio_spmi_probe(struct virtio_device *vdev)
+{
+	struct virtio_spmi *vs;
+	int i;
+	int ret = 0;
+	u32 val;
+
 	struct spmi_pmic_arb *pa;
 	struct spmi_controller *ctrl;
 	int err;
-	u32 ee;
 
-	if (!g_vspmi)
-		return -EINVAL;
+	if (!virtio_has_feature(vdev, VIRTIO_F_VERSION_1))
+		return -ENODEV;
 
-	ctrl = spmi_controller_alloc(&pdev->dev, sizeof(*pa));
+	vs = devm_kzalloc(&vdev->dev, sizeof(*vs), GFP_KERNEL);
+	if (!vs)
+		return -ENOMEM;
+
+	vdev->priv = vs;
+	vs->vdev = vdev;
+	spin_lock_init(&vs->txlock);
+	spin_lock_init(&vs->rxlock);
+
+	ret = virtio_spmi_init_vqs(vs);
+	if (ret)
+		goto err_init_vq;
+
+	ctrl = spmi_controller_alloc(&vdev->dev, sizeof(*pa));
 	if (!ctrl)
 		return -ENOMEM;
 
-	pa = spmi_controller_get_drvdata(ctrl);
+	pa = vs->pa = spmi_controller_get_drvdata(ctrl);
 	pa->spmic = ctrl;
-	g_vspmi->pa = pa;
+	pa->vs = vs;
 
 	pa->ver_ops = &pmic_arb_v5;
 	dev_info(&ctrl->dev, "Virtio PMIC arbiter\n");
-
-	pa->irq = platform_get_irq_byname(pdev, "periph_irq");
-	if (pa->irq < 0) {
-		err = pa->irq;
-		goto err_put_ctrl;
-	}
-
-	err = of_property_read_u32(pdev->dev.of_node, "qcom,ee", &ee);
-	if (err) {
-		dev_err(&pdev->dev, "EE unspecified.\n");
-		goto err_put_ctrl;
-	}
-	pa->ee = ee;
 
 	pa->ppid_to_apid = devm_kcalloc(&ctrl->dev, PMIC_ARB_MAX_PPID,
 					      sizeof(*pa->ppid_to_apid),
@@ -795,28 +734,48 @@ static int spmi_pmic_arb_probe(struct platform_device *pdev)
 	pa->max_apid = 0;
 	pa->min_apid = PMIC_ARB_MAX_PERIPHS - 1;
 
-	platform_set_drvdata(pdev, ctrl);
-
 	ctrl->read_cmd = pmic_arb_read_cmd;
 	ctrl->write_cmd = pmic_arb_write_cmd;
+	ctrl->dev.of_node = (vdev->dev.parent)->of_node;
+
+	pa->irq = of_irq_get_byname(ctrl->dev.of_node, "periph_irq");
+	if (pa->irq < 0) {
+		err = pa->irq;
+		goto err_put_ctrl;
+	}
+
+	virtio_device_ready(vdev);
+	vspmi_fill_rxmsgs(vs);
+
+	memset(&vs->config, 0x0, sizeof(vs->config));
+
+	for (i = 0; i < VM_MAX_PERIPHS; i += 2) {
+		val = virtio_cread32(vdev,
+			offsetof(struct virtio_spmi_config, ppid_allowed[i]));
+		vs->config.ppid_allowed[i] = val & PMIC_ARB_PPID_MASK;
+		vs->config.ppid_allowed[i + 1] =
+					(val >> 16) & PMIC_ARB_PPID_MASK;
+		if ((!vs->config.ppid_allowed[i]) ||
+				!(vs->config.ppid_allowed[i + 1]))
+			break;
+	}
 
 	err = pmic_arb_read_apid_map_v5(pa);
 	if (err) {
-		dev_err(&pdev->dev, "could not read APID->PPID mapping table, rc= %d\n",
+		dev_err(&vdev->dev, "could not read APID->PPID mapping table, rc= %d\n",
 			err);
 		goto err_put_ctrl;
 	}
 
-	dev_dbg(&pdev->dev, "adding irq domain\n");
-	pa->domain = irq_domain_add_tree(pdev->dev.of_node,
+	dev_dbg(&vdev->dev, "adding irq domain\n");
+	pa->domain = irq_domain_add_tree(ctrl->dev.of_node,
 					 &pmic_arb_irq_domain_ops, pa);
 	if (!pa->domain) {
-		dev_err(&pdev->dev, "unable to create irq_domain\n");
+		dev_err(&vdev->dev, "unable to create irq_domain\n");
 		err = -ENOMEM;
 		goto err_put_ctrl;
 	}
 
-	irq_set_chained_handler_and_data(pa->irq, pmic_arb_chained_irq, pa);
 	err = spmi_controller_add(ctrl);
 	if (err)
 		goto err_domain_remove;
@@ -824,119 +783,24 @@ static int spmi_pmic_arb_probe(struct platform_device *pdev)
 	return 0;
 
 err_domain_remove:
-	irq_set_chained_handler_and_data(pa->irq, NULL, NULL);
 	irq_domain_remove(pa->domain);
 err_put_ctrl:
 	spmi_controller_put(ctrl);
 	return err;
-}
-
-static int spmi_pmic_arb_remove(struct platform_device *pdev)
-{
-	struct spmi_controller *ctrl = platform_get_drvdata(pdev);
-	struct spmi_pmic_arb *pa = spmi_controller_get_drvdata(ctrl);
-
-	spmi_controller_remove(ctrl);
-	irq_set_chained_handler_and_data(pa->irq, NULL, NULL);
-	irq_domain_remove(pa->domain);
-	spmi_controller_put(ctrl);
-	return 0;
-}
-
-static const struct of_device_id spmi_pmic_arb_match_table[] = {
-	{ .compatible = "qcom,viospmi-pmic-arb", },
-	{},
-};
-MODULE_DEVICE_TABLE(of, spmi_pmic_arb_match_table);
-
-static struct platform_driver spmi_pmic_arb_driver = {
-	.probe		= spmi_pmic_arb_probe,
-	.remove		= spmi_pmic_arb_remove,
-	.driver		= {
-		.name	= "viospmi_pmic_arb",
-		.of_match_table = spmi_pmic_arb_match_table,
-		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
-	},
-};
-
-static void virtio_spmi_isr(struct virtqueue *vq) { }
-
-static int virtio_spmi_init_vqs(struct virtio_spmi *vspmi)
-{
-	struct virtqueue *vqs[1];
-	vq_callback_t *cbs[] = { virtio_spmi_isr };
-	static const char * const names[] = { "virtio_spmi_isr" };
-	int rc;
-
-	rc = virtio_find_vqs(vspmi->vdev, 1, vqs, cbs, names, NULL);
-	if (rc)
-		return rc;
-
-	vspmi->vq = vqs[0];
-
-	return 0;
-}
-
-static void virtio_spmi_del_vqs(struct virtio_spmi *vspmi)
-{
-	vspmi->vdev->config->del_vqs(vspmi->vdev);
-}
-
-static int virtio_spmi_probe(struct virtio_device *vdev)
-{
-	struct virtio_spmi *vspmi;
-	int i;
-	int ret = 0;
-	u32 val;
-
-	if (!virtio_has_feature(vdev, VIRTIO_F_VERSION_1))
-		return -ENODEV;
-
-	vspmi = devm_kzalloc(&vdev->dev, sizeof(*vspmi), GFP_KERNEL);
-	if (!vspmi)
-		return -ENOMEM;
-
-	vdev->priv = vspmi;
-	vspmi->vdev = vdev;
-	spin_lock_init(&vspmi->lock);
-
-	ret = virtio_spmi_init_vqs(vspmi);
-	if (ret)
-		goto err_init_vq;
-
-	virtio_device_ready(vdev);
-
-	memset(&vspmi->config, 0x0, sizeof(vspmi->config));
-
-	for (i = 0; i < VM_MAX_PERIPHS; i += 2) {
-		val = virtio_cread32(vdev,
-			offsetof(struct virtio_spmi_config, ppid_allowed[i]));
-		vspmi->config.ppid_allowed[i] = val & PMIC_ARB_PPID_MASK;
-		vspmi->config.ppid_allowed[i + 1] =
-					(val >> 16) & PMIC_ARB_PPID_MASK;
-		if ((!vspmi->config.ppid_allowed[i]) ||
-				!(vspmi->config.ppid_allowed[i + 1]))
-			break;
-	}
-
-	g_vspmi = vspmi;
-
-	return platform_driver_register(&spmi_pmic_arb_driver);
 
 err_init_vq:
-	virtio_spmi_del_vqs(vspmi);
-	devm_kfree(&vdev->dev, vspmi);
+	virtio_spmi_del_vqs(vs);
+	devm_kfree(&vdev->dev, vs);
 	return ret;
 }
 
 static void virtio_spmi_remove(struct virtio_device *vdev)
 {
-	struct virtio_spmi *vspmi = vdev->priv;
+	struct virtio_spmi *vs = vdev->priv;
 
 	vdev->config->reset(vdev);
 	vdev->config->del_vqs(vdev);
-	devm_kfree(&vdev->dev, vspmi);
-	g_vspmi = NULL;
+	devm_kfree(&vdev->dev, vs);
 }
 
 static unsigned int features[] = {
@@ -968,7 +832,7 @@ static void __exit virtio_spmi_exit(void)
 	unregister_virtio_driver(&virtio_spmi_driver);
 }
 
-subsys_initcall(virtio_spmi_init);
+arch_initcall(virtio_spmi_init);
 module_exit(virtio_spmi_exit);
 
 MODULE_DEVICE_TABLE(virtio, id_table);
