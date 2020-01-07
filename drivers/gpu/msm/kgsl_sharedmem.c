@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <asm/cacheflush.h>
@@ -1325,6 +1325,8 @@ struct kgsl_memdesc *kgsl_allocate_global_fixed(struct kgsl_device *device,
 	 */
 	list_add_tail(&md->node, &device->globals);
 
+	kgsl_mmu_map_global(device, &md->memdesc);
+
 	return &md->memdesc;
 }
 
@@ -1373,6 +1375,8 @@ struct kgsl_memdesc *kgsl_allocate_global(struct kgsl_device *device,
 	 * while the caller is holding the mute
 	 */
 	list_add_tail(&md->node, &device->globals);
+
+	kgsl_mmu_map_global(device, &md->memdesc);
 
 	return &md->memdesc;
 }

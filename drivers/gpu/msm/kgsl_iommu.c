@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/bitfield.h>
@@ -91,6 +91,29 @@ static void kgsl_iommu_map_globals(struct kgsl_mmu *mmu,
 
 	list_for_each_entry(md, &device->globals, node)
 		kgsl_mmu_map(pagetable, &md->memdesc);
+}
+
+static void kgsl_iommu_map_global(struct kgsl_mmu *mmu,
+		struct kgsl_memdesc *memdesc)
+{
+	struct kgsl_iommu *iommu = _IOMMU_PRIV(mmu);
+
+	/*
+	 * If the global pagetable hasn't been created yet, do nothing. We'll
+	 * get them all in one big swoop at create time
+	 */
+	if (!mmu->defaultpagetable)
+		return;
+
+	/*
+	 * Warn if a global is added after first per-process pagetables have
+	 * been created since we do not go back and retroactively add the
+	 * globals to existing pages
+	 */
+	WARN_ON(iommu->ppt_active);
+
+	/* Map the buffer in the default pagetable */
+	kgsl_mmu_map(mmu->defaultpagetable, memdesc);
 }
 
 static u64 kgsl_iommu_get_global_base(struct kgsl_mmu *mmu)
@@ -1124,6 +1147,8 @@ static int _init_per_process_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 			"get DOMAIN_ATTR_CONTEXTIDR failed: %d\n", ret);
 		goto done;
 	}
+
+	iommu->ppt_active = true;
 
 	kgsl_iommu_map_globals(mmu, pt);
 
@@ -2400,6 +2425,7 @@ struct kgsl_mmu_ops kgsl_iommu_ops = {
 	.mmu_init_pt = kgsl_iommu_init_pt,
 	.mmu_getpagetable = kgsl_iommu_getpagetable,
 	.mmu_get_global_base = kgsl_iommu_get_global_base,
+	.mmu_map_global = kgsl_iommu_map_global,
 	.probe = kgsl_iommu_probe,
 };
 
