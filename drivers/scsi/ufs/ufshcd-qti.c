@@ -8323,9 +8323,9 @@ reinit:
 	 * during system suspend events. This will cause the UFS
 	 * device to re-initialize upon system resume events.
 	 */
-	if ((hba->dev_info.w_spec_version >= 0x300 &&
+	if ((hba->dev_info.w_spec_version >= 0x300 && hba->vreg_info.vccq &&
 		hba->vreg_info.vccq->sys_suspend_pwr_off) ||
-		(hba->dev_info.w_spec_version < 0x300 &&
+		(hba->dev_info.w_spec_version < 0x300 && hba->vreg_info.vccq2 &&
 		hba->vreg_info.vccq2->sys_suspend_pwr_off))
 		hba->spm_lvl = ufs_get_desired_pm_lvl_for_dev_link_state(
 				UFS_POWERDOWN_PWR_MODE,
