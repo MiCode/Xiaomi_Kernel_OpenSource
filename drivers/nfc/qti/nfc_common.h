@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _NFC_COMMON_H_
@@ -22,6 +22,7 @@
 #include <linux/delay.h>
 #include <linux/uaccess.h>
 #include <linux/slab.h>
+#include <linux/nfcinfo.h>
 
 #include "nfc_i2c_drv.h"
 #include "nfc_i3c_drv.h"
@@ -38,6 +39,19 @@
 // HDR length of NCI packet
 #define NCI_HDR_LEN				3
 #define NCI_PAYLOAD_IDX			3
+#define NCI_PAYLOAD_LEN_IDX		2
+
+#define NCI_RESET_CMD_LEN			(4)
+#define NCI_RESET_RSP_LEN			(4)
+#define NCI_RESET_NTF_LEN			(13)
+#define NCI_GET_VERSION_CMD_LEN		(8)
+#define NCI_GET_VERSION_RSP_LEN		(12)
+
+// Below offsets should be subtracted from core reset ntf len
+
+#define NFC_CHIP_TYPE_OFF		(3)
+#define NFC_ROM_VERSION_OFF		(2)
+#define NFC_FW_MAJOR_OFF		(1)
 
 #define COLD_RESET_CMD_LEN		3
 #define COLD_RESET_RSP_LEN		4
@@ -134,6 +148,12 @@ enum gpio_values {
 	GPIO_IRQ = 0x4,
 };
 
+enum nfcc_chip_variant {
+	NFCC_SN100_A = 0xa3,	    /**< NFCC SN100_A */
+	NFCC_SN100_B = 0xa4,	    /**< NFCC SN100_B */
+	NFCC_NOT_SUPPORTED = 0xFF		/**< NFCC is not supported */
+};
+
 // NFC GPIO variables
 struct platform_gpio {
 	unsigned int irq;
@@ -175,6 +195,8 @@ struct nfc_dev {
 	/* read buffer*/
 	size_t kbuflen;
 	u8 *kbuf;
+
+	union nqx_uinfo nqx_info;
 };
 
 int nfc_dev_open(struct inode *inode, struct file *filp);
@@ -189,5 +211,6 @@ void nfc_misc_remove(struct nfc_dev *nfc_dev, int count);
 int configure_gpio(unsigned int gpio, int flag);
 void read_cold_reset_rsp(struct nfc_dev *nfc_dev, char *header);
 void gpio_set_ven(struct nfc_dev *nfc_dev, int value);
+int nfcc_hw_check(struct nfc_dev *nfc_dev);
 
 #endif //_NFC_COMMON_H_

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  */
 
 #include "nfc_common.h"
@@ -133,23 +133,25 @@ ssize_t nfc_i2c_dev_read(struct file *filp, char __user *buf,
 				i2c_dev->irq_enabled = true;
 				enable_irq(i2c_dev->client->irq);
 			}
-			ret = wait_event_interruptible(nfc_dev->read_wq,
+			if (!gpio_get_value(nfc_dev->gpio.irq)) {
+				ret = wait_event_interruptible(nfc_dev->read_wq,
 						       !i2c_dev->irq_enabled);
-			if (ret) {
-				pr_err("error wakeup of read wq\n");
-				goto err;
-			}
 
+				if (ret) {
+					pr_err("error wakeup of read wq\n");
+					goto err;
+				}
+			}
 			i2c_disable_irq(i2c_dev);
-
-			if (!gpio_get_value(nfc_dev->gpio.ven)) {
-				pr_info("%s: releasing read\n", __func__);
-				ret = -EIO;
-				goto err;
-			}
 
 			if (gpio_get_value(nfc_dev->gpio.irq))
 				break;
+
+			if (!gpio_get_value(nfc_dev->gpio.ven)) {
+				pr_info("%s: ven low in read !\n", __func__);
+				ret = -ENODEV;
+				goto err;
+			}
 
 			pr_warn("%s: spurious interrupt detected\n", __func__);
 		}
@@ -332,20 +334,22 @@ int nfc_i2c_dev_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		goto err_nfc_misc_remove;
 	}
 	i2c_disable_irq(i2c_dev);
-	device_init_wakeup(&client->dev, true);
-	device_set_wakeup_capable(&client->dev, true);
 	i2c_set_clientdata(client, nfc_dev);
+
+	ret = nfcc_hw_check(nfc_dev);
+	if (ret) {
+		pr_err("nfc hw check failed ret %d\n", ret);
+		goto err_nfcc_hw_check;
+	}
+
+	device_init_wakeup(&client->dev, true);
 	i2c_dev->irq_wake_up = false;
 
-	//SET VEN GPIO LOW and HIGH
-	gpio_set_value(nfc_dev->gpio.ven, 0);
-	usleep_range(10000, 10100);
-	gpio_set_value(nfc_dev->gpio.ven, 1);
-	usleep_range(10000, 10100);
-	nfc_dev->nfc_ven_enabled = true;
 	pr_info("%s success\n", __func__);
 	return 0;
 
+err_nfcc_hw_check:
+	free_irq(client->irq, nfc_dev);
 err_nfc_misc_remove:
 	nfc_misc_remove(nfc_dev, DEV_COUNT);
 err_mutex_destroy:
@@ -377,6 +381,7 @@ int nfc_i2c_dev_remove(struct i2c_client *client)
 		ret = -ENODEV;
 		return ret;
 	}
+	device_init_wakeup(&client->dev, false);
 	free_irq(client->irq, nfc_dev);
 	nfc_misc_remove(nfc_dev, DEV_COUNT);
 	mutex_destroy(&nfc_dev->dev_ref_mutex);
@@ -456,8 +461,9 @@ static int __init nfc_i2c_dev_init(void)
 {
 	int ret = 0;
 
-	pr_info("Loading NFC I2C driver\n");
 	ret = i2c_add_driver(&nfc_i2c_dev_driver);
+	if (ret != 0)
+		pr_err("NFC I2C add driver error ret %d\n", ret);
 	return ret;
 }
 
@@ -465,7 +471,7 @@ module_init(nfc_i2c_dev_init);
 
 static void __exit nfc_i2c_dev_exit(void)
 {
-	pr_info("Unloading NFC I2C driver\n");
+	pr_debug("Unloading NFC I2C driver\n");
 	i2c_del_driver(&nfc_i2c_dev_driver);
 }
 
