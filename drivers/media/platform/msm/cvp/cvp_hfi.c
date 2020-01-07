@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <asm/memory.h>
@@ -2207,34 +2207,6 @@ static int iris_hfi_core_release(void *dev)
 	return rc;
 }
 
-static int __get_q_size(struct iris_hfi_device *dev, unsigned int q_index)
-{
-	struct cvp_hfi_queue_header *queue;
-	struct cvp_iface_q_info *q_info;
-	u32 write_ptr, read_ptr;
-
-	if (q_index >= CVP_IFACEQ_NUMQ) {
-		dprintk(CVP_ERR, "Invalid q index: %d\n", q_index);
-		return -ENOENT;
-	}
-
-	q_info = &dev->iface_queues[q_index];
-	if (!q_info) {
-		dprintk(CVP_ERR, "cannot read shared Q's\n");
-		return -ENOENT;
-	}
-
-	queue = (struct cvp_hfi_queue_header *)q_info->q_hdr;
-	if (!queue) {
-		dprintk(CVP_ERR, "queue not present\n");
-		return -ENOENT;
-	}
-
-	write_ptr = (u32)queue->qhdr_write_idx;
-	read_ptr = (u32)queue->qhdr_read_idx;
-	return read_ptr - write_ptr;
-}
-
 static void __core_clear_interrupt(struct iris_hfi_device *device)
 {
 	u32 intr_status = 0, mask = 0;
@@ -3158,8 +3130,7 @@ static int __response_handler(struct iris_hfi_device *device)
 			*session_id = session->session_id;
 		}
 
-		if (packet_count >= cvp_max_packets &&
-				__get_q_size(device, CVP_IFACEQ_MSGQ_IDX)) {
+		if (packet_count >= cvp_max_packets) {
 			dprintk(CVP_WARN,
 				"Too many packets in message queue!\n");
 			break;
