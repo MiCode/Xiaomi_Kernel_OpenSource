@@ -2889,13 +2889,55 @@ static ssize_t mdss_mdp_store_max_limit_bw(struct device *dev,
 	return len;
 }
 
+static ssize_t mdss_mdp_store_twm(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t len)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	u32 data = -1;
+	ssize_t rc = 0;
+
+	if (!mdata) {
+		pr_err("Invalid mdata structure\n");
+		return -EINVAL;
+	}
+
+	rc = kstrtoint(buf, 10, &data);
+	if (rc) {
+		pr_err("kstrtoint failed. rc=%zd\n", rc);
+		return rc;
+	}
+	mdata->twm_en = data ? true : false;
+	pr_err("TWM :  %s\n", (mdata->twm_en) ?
+		"ENABLED" : "DISABLED");
+	return len;
+}
+
+static ssize_t mdss_mdp_show_twm(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	ssize_t ret = 0;
+
+	if (!mdata) {
+		pr_err("Invalid mdata structure\n");
+		return -EINVAL;
+	}
+
+	pr_err("TWM :  %s\n", (mdata->twm_en) ?
+		"ENABLED" : "DISABLED");
+	ret = snprintf(buf, PAGE_SIZE, "%d\n", mdata->twm_en);
+	return ret;
+}
+
 static DEVICE_ATTR(caps, 0444, mdss_mdp_show_capabilities, NULL);
 static DEVICE_ATTR(bw_mode_bitmap, 0664,
 		mdss_mdp_read_max_limit_bw, mdss_mdp_store_max_limit_bw);
+static DEVICE_ATTR(twm_enable, 0664, mdss_mdp_show_twm, mdss_mdp_store_twm);
 
 static struct attribute *mdp_fs_attrs[] = {
 	&dev_attr_caps.attr,
 	&dev_attr_bw_mode_bitmap.attr,
+	&dev_attr_twm_enable.attr,
 	NULL
 };
 
