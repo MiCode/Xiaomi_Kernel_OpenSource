@@ -1240,12 +1240,24 @@ static int mhi_hwc_chcmd(struct mhi_dev *mhi, uint chid,
 	case MHI_DEV_RING_EL_START:
 		connect_params.channel_id = chid;
 		connect_params.sys.skip_ep_cfg = true;
-		if (chid == MHI_CLIENT_ADPL_IN)
+
+		switch (chid) {
+		case MHI_CLIENT_ADPL_IN:
 			connect_params.sys.client = IPA_CLIENT_MHI_DPL_CONS;
-		else if ((chid % 2) == 0x0)
+			break;
+		case MHI_CLIENT_IP_HW_QDSS:
+			connect_params.sys.client = IPA_CLIENT_MHI_QDSS_CONS;
+			break;
+		case MHI_CLIENT_IP_HW_0_OUT:
 			connect_params.sys.client = IPA_CLIENT_MHI_PROD;
-		else
+			break;
+		case MHI_CLIENT_IP_HW_0_IN:
 			connect_params.sys.client = IPA_CLIENT_MHI_CONS;
+			break;
+		default:
+			pr_err("Invalid channel = 0x%x\n", chid);
+			return -EINVAL;
+		}
 
 		rc = ipa_mhi_connect_pipe(&connect_params,
 			&mhi->ipa_clnt_hndl[chid-HW_CHANNEL_BASE]);
