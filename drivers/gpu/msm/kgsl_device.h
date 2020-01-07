@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
  */
 #ifndef __KGSL_DEVICE_H
 #define __KGSL_DEVICE_H
@@ -306,8 +306,6 @@ struct kgsl_device {
 	struct list_head globals;
 	/** @globlal_map: bitmap for global memory allocations */
 	unsigned long *global_map;
-	/** @global_pages: Number of pages available in the global_map */
-	unsigned int global_pages;
 	/* @qdss_desc: Memory descriptor for the QDSS region if applicable */
 	struct kgsl_memdesc *qdss_desc;
 	/* @qtimer_desc: Memory descriptor for the QDSS region if applicable */

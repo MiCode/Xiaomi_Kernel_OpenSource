@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/sched/clock.h>
@@ -326,16 +326,12 @@ static void adreno_preemption_init(struct adreno_device *adreno_dev)
 
 static void adreno_preemption_close(struct adreno_device *adreno_dev)
 {
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct adreno_preemption *preempt = &adreno_dev->preempt;
 
 	if (!ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION))
 		return;
 
 	del_timer(&preempt->timer);
-
-	if (gpudev->preemption_close)
-		gpudev->preemption_close(adreno_dev);
 }
 
 int adreno_ringbuffer_probe(struct adreno_device *adreno_dev)

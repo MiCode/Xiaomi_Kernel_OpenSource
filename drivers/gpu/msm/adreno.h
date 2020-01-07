@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2008-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2020, The Linux Foundation. All rights reserved.
  */
 #ifndef __ADRENO_H
 #define __ADRENO_H
@@ -531,6 +531,11 @@ struct adreno_device {
 	 * @critpkts: Memory descriptor for 5xx critical packets if applicable
 	 */
 	struct kgsl_memdesc *critpkts;
+	/**
+	 * @critpkts: Memory descriptor for 5xx secure critical packets
+	 */
+	struct kgsl_memdesc *critpkts_secure;
+
 };
 
 /**
@@ -800,7 +805,6 @@ struct adreno_gpudev {
 				struct adreno_device *adreno_dev,
 				unsigned int *cmds);
 	int (*preemption_init)(struct adreno_device *adreno_dev);
-	void (*preemption_close)(struct adreno_device *adreno_dev);
 	void (*preemption_schedule)(struct adreno_device *adreno_dev);
 	int (*preemption_context_init)(struct kgsl_context *context);
 	void (*preemption_context_destroy)(struct kgsl_context *context);

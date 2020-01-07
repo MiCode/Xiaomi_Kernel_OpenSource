@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/delay.h>
@@ -18,7 +18,6 @@
 
 static int critical_packet_constructed;
 static unsigned int crit_pkts_dwords;
-static struct kgsl_memdesc crit_pkts_refbuf0;
 
 static void a5xx_irq_storm_worker(struct work_struct *work);
 static int _read_fw2_block_header(struct kgsl_device *device,
@@ -121,14 +120,6 @@ static void a5xx_platform_setup(struct adreno_device *adreno_dev)
 	a5xx_check_features(adreno_dev);
 }
 
-static void a5xx_critical_packet_destroy(struct adreno_device *adreno_dev)
-{
-	kgsl_iommu_unmap_global_secure_pt_entry(KGSL_DEVICE(adreno_dev),
-			&crit_pkts_refbuf0);
-	kgsl_sharedmem_free(&crit_pkts_refbuf0);
-
-}
-
 static void _do_fixup(const struct adreno_critical_fixup *fixups, int count,
 		uint64_t *gpuaddrs, unsigned int *buffer)
 {
@@ -146,29 +137,23 @@ static void _do_fixup(const struct adreno_critical_fixup *fixups, int count,
 
 static int a5xx_critical_packet_construct(struct adreno_device *adreno_dev)
 {
-
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int *cmds;
 	uint64_t gpuaddrs[4];
-	int ret;
 
-	adreno_dev->critpkts = kgsl_allocate_global(KGSL_DEVICE(adreno_dev),
+	adreno_dev->critpkts = kgsl_allocate_global(device,
 		PAGE_SIZE * 4, 0, 0, "crit_pkts");
 	if (IS_ERR(adreno_dev->critpkts))
 		return PTR_ERR(adreno_dev->critpkts);
 
-	ret = kgsl_allocate_user(&adreno_dev->dev, &crit_pkts_refbuf0,
-		PAGE_SIZE, KGSL_MEMFLAGS_SECURE, 0);
-	if (ret)
-		return ret;
-
-	ret = kgsl_iommu_map_global_secure_pt_entry(&adreno_dev->dev,
-					&crit_pkts_refbuf0);
-	if (ret)
-		return ret;
+	adreno_dev->critpkts_secure = kgsl_allocate_global(device,
+		PAGE_SIZE, KGSL_MEMFLAGS_SECURE, 0, "crit_pkts_secure");
+	if (IS_ERR(adreno_dev->critpkts_secure))
+		return PTR_ERR(adreno_dev->critpkts_secure);
 
 	cmds = adreno_dev->critpkts->hostptr;
 
-	gpuaddrs[0] = crit_pkts_refbuf0.gpuaddr;
+	gpuaddrs[0] = adreno_dev->critpkts_secure->gpuaddr;
 	gpuaddrs[1] = adreno_dev->critpkts->gpuaddr + PAGE_SIZE;
 	gpuaddrs[2] = adreno_dev->critpkts->gpuaddr + (PAGE_SIZE * 2);
 	gpuaddrs[3] = adreno_dev->critpkts->gpuaddr + (PAGE_SIZE * 3);
@@ -211,21 +196,11 @@ static void a5xx_init(struct adreno_device *adreno_dev)
 
 	INIT_WORK(&adreno_dev->irq_storm_work, a5xx_irq_storm_worker);
 
-	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CRITICAL_PACKETS)) {
-		int ret;
+	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CRITICAL_PACKETS))
+		a5xx_critical_packet_construct(adreno_dev);
 
-		ret = a5xx_critical_packet_construct(adreno_dev);
-		if (ret)
-			a5xx_critical_packet_destroy(adreno_dev);
-	}
 
 	a5xx_crashdump_init(adreno_dev);
-}
-
-static void a5xx_remove(struct adreno_device *adreno_dev)
-{
-	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CRITICAL_PACKETS))
-		a5xx_critical_packet_destroy(adreno_dev);
 }
 
 const static struct {
@@ -3003,7 +2978,6 @@ struct adreno_gpudev adreno_a5xx_gpudev = {
 	.irq_trace = trace_kgsl_a5xx_irq_status,
 	.platform_setup = a5xx_platform_setup,
 	.init = a5xx_init,
-	.remove = a5xx_remove,
 	.rb_start = a5xx_rb_start,
 	.microcode_read = a5xx_microcode_read,
 	.perfcounters = &a5xx_perfcounters,

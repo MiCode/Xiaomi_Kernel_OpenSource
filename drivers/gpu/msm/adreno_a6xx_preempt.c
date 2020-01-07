@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  */
 
 #include "adreno.h"
@@ -320,13 +320,13 @@ void a6xx_preemption_trigger(struct adreno_device *adreno_dev)
 
 	if (adreno_gmu_fenced_write(adreno_dev,
 		ADRENO_REG_CP_CONTEXT_SWITCH_PRIV_SECURE_RESTORE_ADDR_LO,
-		lower_32_bits(next->secure_preemption_desc.gpuaddr),
+		lower_32_bits(next->secure_preemption_desc->gpuaddr),
 		FENCE_STATUS_WRITEDROPPED1_MASK))
 		goto err;
 
 	if (adreno_gmu_fenced_write(adreno_dev,
 		ADRENO_REG_CP_CONTEXT_SWITCH_PRIV_SECURE_RESTORE_ADDR_HI,
-		upper_32_bits(next->secure_preemption_desc.gpuaddr),
+		upper_32_bits(next->secure_preemption_desc->gpuaddr),
 		FENCE_STATUS_WRITEDROPPED1_MASK))
 		goto err;
 
@@ -483,7 +483,7 @@ unsigned int a6xx_preemption_pre_ibsubmit(
 
 	*cmds++ = SET_PSEUDO_REGISTER_SAVE_REGISTER_PRIV_SECURE_SAVE_ADDR;
 	cmds += cp_gpuaddr(adreno_dev, cmds,
-			rb->secure_preemption_desc.gpuaddr);
+			rb->secure_preemption_desc->gpuaddr);
 
 	if (context) {
 
@@ -594,7 +594,6 @@ static int a6xx_preemption_ringbuffer_init(struct adreno_device *adreno_dev,
 	struct adreno_ringbuffer *rb)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	int ret;
 
 	if (IS_ERR_OR_NULL(rb->preemption_desc))
 		rb->preemption_desc = kgsl_allocate_global(device,
@@ -603,16 +602,14 @@ static int a6xx_preemption_ringbuffer_init(struct adreno_device *adreno_dev,
 	if (IS_ERR(rb->preemption_desc))
 		return PTR_ERR(rb->preemption_desc);
 
-	ret = kgsl_allocate_user(device, &rb->secure_preemption_desc,
-		A6XX_CP_CTXRECORD_SIZE_IN_BYTES,
-		KGSL_MEMFLAGS_SECURE, KGSL_MEMDESC_PRIVILEGED);
-	if (ret)
-		return ret;
+	if (IS_ERR_OR_NULL(rb->secure_preemption_desc))
+		rb->secure_preemption_desc = kgsl_allocate_global(device,
+			A6XX_CP_CTXRECORD_SIZE_IN_BYTES,
+			KGSL_MEMFLAGS_SECURE, KGSL_MEMDESC_PRIVILEGED,
+			"secure_preemption_desc");
 
-	ret = kgsl_iommu_map_global_secure_pt_entry(device,
-				&rb->secure_preemption_desc);
-	if (ret)
-		return ret;
+	if (IS_ERR(rb->secure_preemption_desc))
+		return PTR_ERR(rb->secure_preemption_desc);
 
 	if (IS_ERR_OR_NULL(rb->perfcounter_save_restore_desc))
 		rb->perfcounter_save_restore_desc = kgsl_allocate_global(device,
@@ -646,27 +643,6 @@ static int a6xx_preemption_ringbuffer_init(struct adreno_device *adreno_dev,
 	return 0;
 }
 
-static void _preemption_close(struct adreno_device *adreno_dev)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct adreno_ringbuffer *rb;
-	unsigned int i;
-
-	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
-		kgsl_iommu_unmap_global_secure_pt_entry(device,
-				&rb->secure_preemption_desc);
-		kgsl_sharedmem_free(&rb->secure_preemption_desc);
-	}
-}
-
-void a6xx_preemption_close(struct adreno_device *adreno_dev)
-{
-	if (!test_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv))
-		return;
-
-	_preemption_close(adreno_dev);
-}
-
 int a6xx_preemption_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -685,10 +661,8 @@ int a6xx_preemption_init(struct adreno_device *adreno_dev)
 	/* Allocate mem for storing preemption switch record */
 	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
 		ret = a6xx_preemption_ringbuffer_init(adreno_dev, rb);
-		if (ret) {
-			_preemption_close(adreno_dev);
+		if (ret)
 			return ret;
-		}
 	}
 
 	/* Allocate mem for storing preemption smmu record */
@@ -698,10 +672,8 @@ int a6xx_preemption_init(struct adreno_device *adreno_dev)
 			"smmu_info");
 
 	ret = PTR_ERR_OR_ZERO(iommu->smmu_info);
-	if (ret) {
-		_preemption_close(adreno_dev);
+	if (ret)
 		return ret;
-	}
 
 	set_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv);
 	return 0;
