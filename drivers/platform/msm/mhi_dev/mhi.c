@@ -1303,6 +1303,9 @@ static int mhi_hwc_chcmd(struct mhi_dev *mhi, uint chid,
 		case MHI_CLIENT_ADPL_IN:
 			connect_params.sys.client = IPA_CLIENT_MHI_DPL_CONS;
 			break;
+		case MHI_CLIENT_IP_HW_QDSS:
+			connect_params.sys.client = IPA_CLIENT_MHI_QDSS_CONS;
+			break;
 		case MHI_CLIENT_IP_HW_0_OUT:
 			connect_params.sys.client = IPA_CLIENT_MHI_PROD;
 			break;
