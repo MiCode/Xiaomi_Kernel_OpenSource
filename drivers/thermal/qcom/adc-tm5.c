@@ -11,7 +11,6 @@
 #include <linux/platform_device.h>
 #include <linux/of_irq.h>
 #include <linux/interrupt.h>
-#include <linux/spinlock.h>
 #include <linux/iio/consumer.h>
 #include "adc-tm.h"
 #include "../thermal_core.h"
@@ -75,45 +74,10 @@ static struct adc_tm_reverse_scale_fn adc_tm_rscale_fn[] = {
 	[SCALE_R_ABSOLUTE] = {adc_tm_absolute_rthr},
 };
 
-static int adc_tm5_get_temp(struct adc_tm_sensor *sensor, int *temp)
-{
-	int ret, milli_celsius;
-
-	if (!sensor || !sensor->adc)
-		return -EINVAL;
-
-	ret = iio_read_channel_processed(sensor->adc, &milli_celsius);
-	if (ret < 0)
-		return ret;
-
-	*temp = milli_celsius;
-
-	return 0;
-}
-
-static int32_t adc_tm5_read_reg(struct adc_tm_chip *chip,
-					int16_t reg, u8 *data, int len)
-{
-	int ret;
-
-	ret = regmap_bulk_read(chip->regmap, (chip->base + reg), data, len);
-	if (ret < 0)
-		pr_err("adc-tm read reg %d failed with %d\n", reg, ret);
-
-	return ret;
-}
-
-static int32_t adc_tm5_write_reg(struct adc_tm_chip *chip,
-					int16_t reg, u8 *data, int len)
-{
-	int ret;
-
-	ret = regmap_bulk_write(chip->regmap, (chip->base + reg), data, len);
-	if (ret < 0)
-		pr_err("adc-tm write reg %d failed with %d\n", reg, ret);
-
-	return ret;
-}
+enum thermal_threshold_type {
+	THERMAL_TRIP_CONFIGURABLE_HI = 0,
+	THERMAL_TRIP_CONFIGURABLE_LOW,
+};
 
 static int32_t adc_tm5_reg_update(struct adc_tm_chip *chip,
 				uint16_t addr, u8 mask, bool state)
@@ -121,7 +85,7 @@ static int32_t adc_tm5_reg_update(struct adc_tm_chip *chip,
 	u8 reg_value = 0;
 	int ret;
 
-	ret = adc_tm5_read_reg(chip, addr, &reg_value, 1);
+	ret = adc_tm_read_reg(chip, addr, &reg_value, 1);
 	if (ret < 0) {
 		pr_err("read failed for addr:0x%x\n", addr);
 		return ret;
@@ -133,7 +97,7 @@ static int32_t adc_tm5_reg_update(struct adc_tm_chip *chip,
 
 	pr_debug("state:%d, reg:0x%x with bits:0x%x and mask:0x%x\n",
 					state, addr, reg_value, ~mask);
-	ret = adc_tm5_write_reg(chip, addr, &reg_value, 1);
+	ret = adc_tm_write_reg(chip, addr, &reg_value, 1);
 	if (ret < 0) {
 		pr_err("write failed for addr:%x\n", addr);
 		return ret;
@@ -163,14 +127,14 @@ static int32_t adc_tm5_enable(struct adc_tm_chip *chip)
 	u8 data = 0;
 
 	data = ADC_TM_EN;
-	rc = adc_tm5_write_reg(chip, ADC_TM_EN_CTL1, &data, 1);
+	rc = adc_tm_write_reg(chip, ADC_TM_EN_CTL1, &data, 1);
 	if (rc < 0) {
 		pr_err("adc-tm enable failed\n");
 		return rc;
 	}
 
 	data = ADC_TM_CONV_REQ_EN;
-	rc = adc_tm5_write_reg(chip, ADC_TM_CONV_REQ, &data, 1);
+	rc = adc_tm_write_reg(chip, ADC_TM_CONV_REQ, &data, 1);
 	if (rc < 0) {
 		pr_err("adc-tm request conversion failed\n");
 		return rc;
@@ -186,7 +150,7 @@ static int adc_tm5_configure(struct adc_tm_sensor *sensor,
 	u8 buf[8], cal_sel;
 	int ret = 0;
 
-	ret = adc_tm5_read_reg(chip,
+	ret = adc_tm_read_reg(chip,
 			ADC_TM_Mn_ADC_CH_SEL_CTL(btm_chan_idx), buf, 8);
 	if (ret < 0) {
 		pr_err("adc-tm block read failed with %d\n", ret);
@@ -208,28 +172,28 @@ static int adc_tm5_configure(struct adc_tm_sensor *sensor,
 
 	buf[7] |= ADC_TM_Mn_MEAS_EN;
 
-	ret = adc_tm5_write_reg(chip,
+	ret = adc_tm_write_reg(chip,
 			ADC_TM_Mn_ADC_CH_SEL_CTL(btm_chan_idx), buf, 1);
 	if (ret < 0) {
 		pr_err("adc-tm channel select failed\n");
 		return ret;
 	}
 
-	ret = adc_tm5_write_reg(chip,
+	ret = adc_tm_write_reg(chip,
 			ADC_TM_Mn_MEAS_INTERVAL_CTL(btm_chan_idx), &buf[5], 1);
 	if (ret < 0) {
 		pr_err("adc-tm timer select failed\n");
 		return ret;
 	}
 
-	ret = adc_tm5_write_reg(chip,
+	ret = adc_tm_write_reg(chip,
 			ADC_TM_Mn_CTL(btm_chan_idx), &buf[6], 1);
 	if (ret < 0) {
 		pr_err("adc-tm parameter select failed\n");
 		return ret;
 	}
 
-	ret = adc_tm5_write_reg(chip,
+	ret = adc_tm_write_reg(chip,
 			ADC_TM_Mn_EN(btm_chan_idx), &buf[7], 1);
 	if (ret < 0) {
 		pr_err("adc-tm monitoring enable failed\n");
@@ -323,7 +287,7 @@ static int32_t adc_tm5_thr_update(struct adc_tm_sensor *sensor,
 	reg_high_thr_lsb = ADC_TM_Mn_HIGH_THR0(btm_chan_idx);
 
 	if (low_thr != INT_MIN) {
-		ret = adc_tm5_write_reg(chip, reg_low_thr_lsb,
+		ret = adc_tm_write_reg(chip, reg_low_thr_lsb,
 						trip_low_thr, 2);
 		if (ret) {
 			pr_err("Low set threshold err\n");
@@ -332,7 +296,7 @@ static int32_t adc_tm5_thr_update(struct adc_tm_sensor *sensor,
 	}
 
 	if (high_thr != INT_MAX) {
-		ret = adc_tm5_write_reg(chip, reg_high_thr_lsb,
+		ret = adc_tm_write_reg(chip, reg_high_thr_lsb,
 						trip_high_thr, 2);
 		if (ret) {
 			pr_err("High set threshold err\n");
@@ -418,16 +382,14 @@ static int32_t adc_tm5_manage_thresholds(struct adc_tm_sensor *sensor)
 	return 0;
 }
 
-void notify_adc_tm_fn(struct work_struct *work)
+/* Used to notify non-thermal clients of threshold crossing */
+void notify_adc_tm5_fn(struct adc_tm_sensor *adc_tm)
 {
 	struct adc_tm_client_info *client_info = NULL;
 	struct adc_tm_chip *chip;
 	struct list_head *thr_list;
 	uint32_t btm_chan_num = 0, btm_chan_idx = 0;
 	int ret = 0;
-
-	struct adc_tm_sensor *adc_tm = container_of(work,
-		struct adc_tm_sensor, work);
 
 	chip = adc_tm->chip;
 
@@ -439,7 +401,6 @@ void notify_adc_tm_fn(struct work_struct *work)
 	}
 
 	mutex_lock(&chip->adc_mutex_lock);
-
 	if (adc_tm->low_thr_triggered) {
 		/* adjust thr, calling manage_thr */
 		list_for_each(thr_list, &adc_tm->thr_list) {
@@ -510,7 +471,8 @@ void notify_adc_tm_fn(struct work_struct *work)
 	}
 }
 
-int32_t adc_tm5_channel_measure(struct adc_tm_chip *chip,
+/* Used by non-thermal clients to configure an ADC_TM channel */
+static int32_t adc_tm5_channel_measure(struct adc_tm_chip *chip,
 					struct adc_tm_param *param)
 
 {
@@ -612,14 +574,13 @@ fail_unlock:
 	mutex_unlock(&chip->adc_mutex_lock);
 	return ret;
 }
-EXPORT_SYMBOL(adc_tm5_channel_measure);
 
-int32_t adc_tm5_disable_chan_meas(struct adc_tm_chip *chip,
+/* Used by non-thermal clients to release an ADC_TM channel */
+static int32_t adc_tm5_disable_chan_meas(struct adc_tm_chip *chip,
 					struct adc_tm_param *param)
 {
 	int ret = 0, i = 0;
 	uint32_t channel, dt_index = 0, btm_chan_idx = 0;
-	unsigned long flags;
 
 	ret = adc_tm_is_valid(chip);
 	if (ret || (param == NULL))
@@ -647,7 +608,7 @@ int32_t adc_tm5_disable_chan_meas(struct adc_tm_chip *chip,
 		return ret;
 	}
 
-	spin_lock_irqsave(&chip->adc_tm_lock, flags);
+	mutex_lock(&chip->adc_mutex_lock);
 
 	ret = adc_tm5_reg_update(chip, ADC_TM_Mn_EN(btm_chan_idx),
 				ADC_TM_Mn_HIGH_THR_INT_EN, false);
@@ -669,10 +630,9 @@ int32_t adc_tm5_disable_chan_meas(struct adc_tm_chip *chip,
 		pr_err("multi measurement disable failed\n");
 
 fail:
-	spin_unlock_irqrestore(&chip->adc_tm_lock, flags);
+	mutex_unlock(&chip->adc_mutex_lock);
 	return ret;
 }
-EXPORT_SYMBOL(adc_tm5_disable_chan_meas);
 
 static int adc_tm5_set_mode(struct adc_tm_sensor *sensor,
 			      enum thermal_device_mode mode)
@@ -710,7 +670,7 @@ static int adc_tm5_set_mode(struct adc_tm_sensor *sensor,
 }
 
 static int adc_tm5_activate_trip_type(struct adc_tm_sensor *adc_tm,
-			int trip, enum thermal_device_mode mode)
+		enum thermal_threshold_type trip, enum thermal_device_mode mode)
 {
 	struct adc_tm_chip *chip = adc_tm->chip;
 	int ret = 0;
@@ -760,7 +720,6 @@ static int adc_tm5_set_trip_temp(struct adc_tm_sensor *sensor,
 	uint16_t reg_low_thr_lsb, reg_high_thr_lsb;
 	int ret;
 	uint32_t btm_chan = 0, btm_chan_idx = 0, mask = 0;
-	unsigned long flags;
 
 	if (!sensor)
 		return -EINVAL;
@@ -804,13 +763,13 @@ static int adc_tm5_set_trip_temp(struct adc_tm_sensor *sensor,
 		return ret;
 	}
 
-	spin_lock_irqsave(&chip->adc_tm_lock, flags);
+	mutex_lock(&chip->adc_mutex_lock);
 
 	reg_low_thr_lsb = ADC_TM_Mn_LOW_THR0(btm_chan_idx);
 	reg_high_thr_lsb = ADC_TM_Mn_HIGH_THR0(btm_chan_idx);
 
 	if (high_temp != INT_MAX) {
-		ret = adc_tm5_write_reg(chip, reg_low_thr_lsb,
+		ret = adc_tm_write_reg(chip, reg_low_thr_lsb,
 						trip_low_thr, 2);
 		if (ret) {
 			pr_err("Warm set threshold err\n");
@@ -835,7 +794,7 @@ static int adc_tm5_set_trip_temp(struct adc_tm_sensor *sensor,
 	}
 
 	if (low_temp != INT_MIN) {
-		ret = adc_tm5_write_reg(chip, reg_high_thr_lsb,
+		ret = adc_tm_write_reg(chip, reg_high_thr_lsb,
 						trip_high_thr, 2);
 		if (ret) {
 			pr_err("adc-tm cool temp set threshold err\n");
@@ -870,7 +829,7 @@ static int adc_tm5_set_trip_temp(struct adc_tm_sensor *sensor,
 	}
 
 fail:
-	spin_unlock_irqrestore(&chip->adc_tm_lock, flags);
+	mutex_unlock(&chip->adc_mutex_lock);
 
 	return ret;
 }
@@ -880,15 +839,14 @@ static irqreturn_t adc_tm5_handler(int irq, void *data)
 	struct adc_tm_chip *chip = data;
 	u8 status_low, status_high, ctl;
 	int ret = 0, i = 0;
-	unsigned long flags;
 
-	ret = adc_tm5_read_reg(chip, ADC_TM_STATUS_LOW, &status_low, 1);
+	ret = adc_tm_read_reg(chip, ADC_TM_STATUS_LOW, &status_low, 1);
 	if (ret < 0) {
 		pr_err("adc-tm-tm read status low failed with %d\n", ret);
 		return IRQ_HANDLED;
 	}
 
-	ret = adc_tm5_read_reg(chip, ADC_TM_STATUS_HIGH, &status_high, 1);
+	ret = adc_tm_read_reg(chip, ADC_TM_STATUS_HIGH, &status_high, 1);
 	if (ret < 0) {
 		pr_err("adc-tm-tm read status high failed with %d\n", ret);
 		return IRQ_HANDLED;
@@ -908,17 +866,17 @@ static irqreturn_t adc_tm5_handler(int irq, void *data)
 		}
 
 		if (!chip->sensor[i].non_thermal) {
-			ret = adc_tm5_get_temp(&chip->sensor[i], &temp);
+			ret = adc_tm_get_temp_vadc(&chip->sensor[i], &temp);
 			if (ret < 0) {
 				i++;
 				continue;
 			}
-			ret = adc_tm5_read_reg(chip, ADC_TM_Mn_DATA0(i),
+			ret = adc_tm_read_reg(chip, ADC_TM_Mn_DATA0(i),
 						&data_low, 1);
 			if (ret)
 				pr_err("adc_tm data_low read failed with %d\n",
 							ret);
-			ret = adc_tm5_read_reg(chip, ADC_TM_Mn_DATA1(i),
+			ret = adc_tm_read_reg(chip, ADC_TM_Mn_DATA1(i),
 						&data_high, 1);
 			if (ret)
 				pr_err("adc_tm data_high read failed with %d\n",
@@ -926,9 +884,9 @@ static irqreturn_t adc_tm5_handler(int irq, void *data)
 			code = ((data_high << ADC_TM_DATA_SHIFT) | data_low);
 		}
 
-		spin_lock_irqsave(&chip->adc_tm_lock, flags);
+		mutex_lock(&chip->adc_mutex_lock);
 
-		ret = adc_tm5_read_reg(chip, ADC_TM_Mn_EN(i), &ctl, 1);
+		ret = adc_tm_read_reg(chip, ADC_TM_Mn_EN(i), &ctl, 1);
 		if (ret) {
 			pr_err("ctl read failed with %d\n", ret);
 			goto fail;
@@ -944,7 +902,7 @@ static irqreturn_t adc_tm5_handler(int irq, void *data)
 fail:
 		status_low >>= 1;
 		status_high >>= 1;
-		spin_unlock_irqrestore(&chip->adc_tm_lock, flags);
+		mutex_unlock(&chip->adc_mutex_lock);
 		if (!(upper_set || lower_set)) {
 			i++;
 			continue;
@@ -960,8 +918,8 @@ fail:
 			pr_debug("notifying of_thermal\n");
 			temp = therm_fwd_scale((int64_t)code,
 						ADC_HC_VDD_REF, chip->data);
-			of_thermal_handle_trip_temp(chip->sensor[i].tzd,
-						temp);
+			of_thermal_handle_trip_temp(chip->dev,
+				chip->sensor[i].tzd, temp);
 		} else {
 			if (lower_set) {
 				ret = adc_tm5_reg_update(chip,
@@ -1011,20 +969,20 @@ static int adc_tm5_register_interrupts(struct adc_tm_chip *chip)
 
 	pdev = to_platform_device(chip->dev);
 
-	irq = platform_get_irq_byname(pdev, "thr-int-en");
+	irq = platform_get_irq_byname(pdev, "threshold");
 	if (irq < 0) {
 		dev_err(&pdev->dev, "failed to get irq %s\n",
-			"thr-int-en");
+			"threshold");
 		return irq;
 	}
 
 	ret = devm_request_threaded_irq(&pdev->dev, irq, NULL,
 			adc_tm5_handler,
 			IRQF_TRIGGER_RISING | IRQF_ONESHOT,
-			"thr-int-en", chip);
+			"threshold", chip);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to get irq %s\n",
-				"thr-int-en");
+				"threshold");
 		return ret;
 	}
 
@@ -1039,7 +997,7 @@ static int adc_tm5_init(struct adc_tm_chip *chip, uint32_t dt_chans)
 	int ret;
 	unsigned int offset_btm_idx = 0, i;
 
-	ret = adc_tm5_read_reg(chip, ADC_TM_NUM_BTM, &channels_available, 1);
+	ret = adc_tm_read_reg(chip, ADC_TM_NUM_BTM, &channels_available, 1);
 	if (ret < 0) {
 		pr_err("read failed for BTM channels\n");
 		return ret;
@@ -1051,7 +1009,7 @@ static int adc_tm5_init(struct adc_tm_chip *chip, uint32_t dt_chans)
 		return -EINVAL;
 	}
 
-	ret = adc_tm5_read_reg(chip,
+	ret = adc_tm_read_reg(chip,
 			ADC_TM_ADC_DIG_PARAM, buf, 4);
 	if (ret < 0) {
 		pr_err("adc-tm block read failed with %d\n", ret);
@@ -1073,12 +1031,11 @@ static int adc_tm5_init(struct adc_tm_chip *chip, uint32_t dt_chans)
 	meas_int_timer_2_3 |= chip->prop.timer3;
 	buf[3] = meas_int_timer_2_3;
 
-	ret = adc_tm5_write_reg(chip,
+	ret = adc_tm_write_reg(chip,
 			ADC_TM_ADC_DIG_PARAM, buf, 4);
 	if (ret < 0)
 		pr_err("adc-tm block write failed with %d\n", ret);
 
-	spin_lock_init(&chip->adc_tm_lock);
 	mutex_init(&chip->adc_mutex_lock);
 
 	if (chip->pmic_rev_id) {
@@ -1109,7 +1066,10 @@ static const struct adc_tm_ops ops_adc_tm5 = {
 	.init		= adc_tm5_init,
 	.set_trips	= adc_tm5_set_trip_temp,
 	.interrupts_reg = adc_tm5_register_interrupts,
-	.get_temp	= adc_tm5_get_temp,
+	.get_temp	= adc_tm_get_temp_vadc,
+	.channel_measure = adc_tm5_channel_measure,
+	.disable_chan = adc_tm5_disable_chan_meas,
+	.notify = notify_adc_tm5_fn,
 };
 
 const struct adc_tm_data data_adc_tm5 = {
@@ -1119,3 +1079,7 @@ const struct adc_tm_data data_adc_tm5 = {
 	.hw_settle = (unsigned int []) {15, 100, 200, 300, 400, 500, 600, 700,
 					1, 2, 4, 8, 16, 32, 64, 128},
 };
+EXPORT_SYMBOL(data_adc_tm5);
+
+MODULE_DESCRIPTION("Qualcomm Technologies Inc. ADC_TM5 driver");
+MODULE_LICENSE("GPL v2");
