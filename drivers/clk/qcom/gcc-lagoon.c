@@ -307,6 +307,19 @@ static struct clk_regmap_div gcc_gpu_gpll0_main_div_clk_src = {
 	},
 };
 
+static struct clk_regmap_div gcc_npu_pll0_main_div_clk_src = {
+	.reg = 0x4ce00,
+	.shift = 0,
+	.width = 2,
+	.clkr.hw.init = &(struct clk_init_data) {
+		.name = "gcc_npu_pll0_main_div_clk_src",
+		.parent_names =
+			(const char *[]){ "gpll0" },
+		.num_parents = 1,
+		.ops = &clk_regmap_div_ro_ops,
+	},
+};
+
 static const struct freq_tbl ftbl_gcc_cpuss_ahb_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
 	{ }
@@ -1629,7 +1642,7 @@ static struct clk_branch gcc_npu_gpll0_div_clk = {
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_npu_gpll0_div_clk",
 			.parent_names = (const char *[]){
-				"gpll0",
+				"gcc_npu_pll0_main_div_clk_src",
 			},
 			.num_parents = 1,
 			.ops = &clk_branch2_ops,
@@ -2643,6 +2656,7 @@ static struct clk_regmap *gcc_lagoon_clocks[] = {
 	[GCC_UFS_PHY_ICE_CORE_HW_CTL_CLK] =
 				&gcc_ufs_phy_ice_core_hw_ctl_clk.clkr,
 	[GCC_GPU_GPLL0_MAIN_DIV_CLK_SRC] = &gcc_gpu_gpll0_main_div_clk_src.clkr,
+	[GCC_NPU_PLL0_MAIN_DIV_CLK_SRC] = &gcc_npu_pll0_main_div_clk_src.clkr,
 };
 
 static const struct qcom_reset_map gcc_lagoon_resets[] = {
