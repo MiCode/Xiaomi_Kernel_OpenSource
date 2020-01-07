@@ -448,6 +448,23 @@
 		method = "smc";
 	};
 
+	slim_aud: slim@3ac0000 {
+		cell-index = <1>;
+		compatible = "qcom,slim-ngd";
+		reg = <0x3ac0000 0x2c000>,
+			<0x3a84000 0x22000>;
+		reg-names = "slimbus_physical", "slimbus_bam_physical";
+		interrupts = <GIC_SPI 163 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 164 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
+		qcom,apps-ch-pipes = <0x0>;
+		qcom,ea-pc = <0x350>;
+		iommus = <&apps_smmu 0x1826 0x0>;
+		qcom,iommu-dma-addr-pool = <0x40000000 0xc0000000>;
+		qcom,iommu-dma = "fastmap";
+		status = "ok";
+	};
+
 	intc: interrupt-controller@17a00000 {
 		compatible = "arm,gic-v3";
 		#interrupt-cells = <3>;
